@@ -1,20 +1,28 @@
-// === fitness/js/engine.js (2025-11-19 — mobile-accurate hit + full state) ===
+// === fitness/js/engine.js (2025-11-19 — mobile hit + FEVER + popup) ===
 'use strict';
 
 const DEFAULTS = {
-  durationMs: 60000,       // เวลาเล่นต่อรอบ
-  spawnInterval: 750,      // ช่วงเวลาการเกิดเป้า
-  targetLifeMs: 900,       // เป้าอยู่ได้นานแค่ไหนก่อนนับ miss
+  durationMs: 60000,
+  spawnInterval: 750,
+  targetLifeMs: 900,
+
   scoreHit: 10,
   scoreMissPenalty: 0,
-  hitRadius: 80,           // รัศมีแตะรอบ ๆ เป้า
+
+  // ปรับให้กว้างขึ้น ตีง่ายขึ้นบนมือถือ
+  hitRadius: 90,
+
   hpMax: 100,
-  hpMissPenalty: 4,        // พลาด 1 ครั้ง HP ลดเท่าไร
+  hpMissPenalty: 4,
+
   bossCount: 4,
   bossHPPerBoss: 100,
-  bossDamagePerHit: 3,     // ชกโดน 1 ครั้ง หัก HP บอสเท่าไร
-  decoyChance: 0.18,       // โอกาสเจอเป้าหลอก
-  feverGainPerHit: 10,
+  bossDamagePerHit: 3,
+
+  decoyChance: 0.18,
+
+  // FEVER: เพิ่ม gain ต่อ hit ให้เห็นผลง่ายขึ้น
+  feverGainPerHit: 16,
   feverDecayPerSec: 10,
   feverThreshold: 100,
   feverDurationMs: 5000
@@ -34,10 +42,8 @@ export class GameEngine {
 
     this.targets = [];
     this.running = false;
-
     this.hitRadius = this.cfg.hitRadius;
 
-    // ตัวเก็บสถิติสำหรับ analytics / CSV
     this._stats = {
       spawns: 0,
       hitsNormal: 0,
@@ -49,12 +55,12 @@ export class GameEngine {
       cntRTDecoy: 0
     };
 
-    this.state = null;
-    this.startAt = 0;
+    this.state       = null;
+    this.startAt     = 0;
     this.nextSpawnAt = 0;
   }
 
-  /* ---------- Lifecycle ---------- */
+  /* ---------- reset / start / stop ---------- */
 
   _resetState() {
     this.state = {
@@ -62,17 +68,16 @@ export class GameEngine {
       combo: 0,
       maxCombo: 0,
       missCount: 0,
-      perfectHits: 0,        // เผื่อไว้ ถ้าอยากใช้ภายหลัง
+      perfectHits: 0,
+
       playerHP: this.cfg.hpMax,
 
       remainingMs: this.cfg.durationMs,
 
-      // FEVER
       feverCharge: 0,
       feverActive: false,
       feverUntil: 0,
 
-      // Boss
       bossIndex: 0,
       bossCount: this.cfg.bossCount,
       bossHP: this.cfg.bossHPPerBoss,
@@ -80,14 +85,14 @@ export class GameEngine {
       bossName: '',
       bossEmoji: '',
 
-      // ผลจบเกม
       endedBy: null,
       elapsedMs: 0,
 
       analytics: null
     };
 
-    // รีเซ็ต stat สำหรับ analytics
+    this.targets = [];
+
     this._stats.spawns      = 0;
     this._stats.hitsNormal  = 0;
     this._stats.hitsDecoy   = 0;
@@ -96,15 +101,13 @@ export class GameEngine {
     this._stats.cntRTNormal = 0;
     this._stats.sumRTDecoy  = 0;
     this._stats.cntRTDecoy  = 0;
-
-    this.targets = [];
   }
 
   start() {
     this._resetState();
-    this.running    = true;
-    this.startAt    = performance.now();
-    this.nextSpawnAt = this.startAt + 400; // ดีเลย์เล็กน้อยก่อนเป้าแรก
+    this.running     = true;
+    this.startAt     = performance.now();
+    this.nextSpawnAt = this.startAt + 400;
 
     if (this.renderer && typeof this.renderer.clear === 'function') {
       this.renderer.clear();
@@ -123,23 +126,22 @@ export class GameEngine {
 
     this._finalizeAnalytics();
 
-    try { this.hooks.onEnd && this.hooks.onEnd(this.state); } catch (e) {
-      console.warn('onEnd hook error', e);
+    try { this.hooks.onEnd?.(this.state); } catch (e) {
+      console.warn('onEnd error', e);
     }
-    try { this.logger.finish && this.logger.finish(this.state); } catch (e) {
+    try { this.logger.finish?.(this.state); } catch (e) {
       console.warn('logger.finish error', e);
     }
   }
 
-  /* ---------- Touch / Hit detection ---------- */
+  /* ---------- Touch / hit ---------- */
 
   registerTouch(x, y) {
-    if (!this.running) return;
-    if (!this.targets.length) return;
+    if (!this.running || !this.targets.length) return;
 
-    // เลือกเป้าที่ใกล้ที่สุดภายในรัศมี
     let best = null;
     let bestDist = Infinity;
+
     for (const t of this.targets) {
       if (t.hit || t.expired || !t.dom) continue;
       const rect = t.dom.getBoundingClientRect();
@@ -151,8 +153,8 @@ export class GameEngine {
         bestDist = dist;
       }
     }
-    if (!best) return; // แตะไม่โดนเป้าใดเลย
 
+    if (!best) return;
     this._hitTarget(best);
   }
 
@@ -172,7 +174,7 @@ export class GameEngine {
         this._stats.sumRTDecoy += rt;
         this._stats.cntRTDecoy++;
       }
-      // โดน decoy: combo รีเซ็ต + HP ลดนิดหน่อย
+
       this.state.combo = 0;
       this.state.missCount++;
       this.state.playerHP = Math.max(0, this.state.playerHP - this.cfg.hpMissPenalty);
@@ -183,26 +185,29 @@ export class GameEngine {
         this._stats.cntRTNormal++;
       }
 
+      const base      = this.cfg.scoreHit;
       const feverMult = this.state.feverActive ? 2 : 1;
-      this.state.score += this.cfg.scoreHit * feverMult;
+      const gain      = base * feverMult;
+
+      this.state.score += gain;
       this.state.combo++;
       if (this.state.combo > this.state.maxCombo) {
         this.state.maxCombo = this.state.combo;
       }
 
-      // เติม FEVER
       this.state.feverCharge = Math.min(
         100,
         this.state.feverCharge + this.cfg.feverGainPerHit
       );
 
-      // หัก HP บอส
       this.state.bossHP = Math.max(0, this.state.bossHP - this.cfg.bossDamagePerHit);
 
       if (this.state.bossHP <= 0) {
-        // บอสตัวนี้ตายแล้ว
         if (this.state.bossIndex + 1 >= this.state.bossCount) {
+          this._emitHitEffect(t, gain);
+          this._updateHUDImmediate();
           this.stop('boss-cleared');
+          return;
         } else {
           this.state.bossIndex++;
           this.state.bossHP    = this.cfg.bossHPPerBoss;
@@ -210,22 +215,24 @@ export class GameEngine {
         }
       }
 
-      // FEVER trigger
       if (!this.state.feverActive && this.state.feverCharge >= this.cfg.feverThreshold) {
         this.state.feverActive = true;
         this.state.feverUntil  = now + this.cfg.feverDurationMs;
       }
+
+      this._emitHitEffect(t, gain);
     }
 
     if (t.dom) {
-      t.dom.classList.add('hit');
+      // ❗ ให้ตรงกับ CSS: .target-hit
+      t.dom.classList.add('target-hit');
       setTimeout(() => {
-        this.renderer && this.renderer.removeTarget && this.renderer.removeTarget(t);
+        this.renderer?.removeTarget?.(t);
       }, 120);
     }
 
     try {
-      this.logger.logHit && this.logger.logHit({
+      this.logger.logHit?.({
         id: t.id,
         event: 'hit',
         type: isDecoy ? 'decoy' : 'normal',
@@ -239,20 +246,37 @@ export class GameEngine {
     } catch (e) {
       console.warn('logger.logHit error', e);
     }
+
+    this._updateHUDImmediate();
   }
 
-  /* ---------- Spawn & loop ---------- */
+  _emitHitEffect(t, gain) {
+    if (!this.renderer || typeof this.renderer.spawnHitEffect !== 'function') return;
+    this.renderer.spawnHitEffect(t, {
+      score: gain,
+      fever: this.state.feverActive
+    });
+  }
+
+  _updateHUDImmediate() {
+    try {
+      this.hooks.onUpdate?.(this.state);
+    } catch (e) {
+      console.warn('onUpdate error', e);
+    }
+  }
+
+  /* ---------- loop / spawn ---------- */
 
   _loop() {
     if (!this.running) return;
 
     const now = performance.now();
-    const elapsed = now - this.startAt;
+    const elapsed   = now - this.startAt;
     const remaining = Math.max(0, this.cfg.durationMs - elapsed);
     this.state.remainingMs = remaining;
 
-    // FEVER decay
-    const dtSec = 16 / 1000; // approx 60 FPS
+    const dtSec = 16 / 1000;
     if (this.state.feverActive) {
       if (now >= this.state.feverUntil) {
         this.state.feverActive = false;
@@ -264,19 +288,16 @@ export class GameEngine {
       );
     }
 
-    // หมดเวลา
     if (remaining <= 0) {
       this.stop('timeout');
       return;
     }
 
-    // spawn เป้าใหม่
     if (now >= this.nextSpawnAt) {
       this._spawnTarget(now);
       this.nextSpawnAt = now + this.cfg.spawnInterval;
     }
 
-    // เช็คเป้าหมดอายุ → miss
     const life = this.cfg.targetLifeMs;
     for (const t of this.targets) {
       if (t.hit || t.expired) continue;
@@ -286,10 +307,10 @@ export class GameEngine {
         this.state.combo = 0;
         this._stats.misses++;
 
-        // HP ลดเมื่อพลาดเป้าหลัก (ไม่นับ decoy)
         if (!t.decoy) {
           this.state.playerHP = Math.max(0, this.state.playerHP - this.cfg.hpMissPenalty);
           if (this.state.playerHP <= 0) {
+            this._updateHUDImmediate();
             this.stop('player-dead');
             return;
           }
@@ -298,12 +319,12 @@ export class GameEngine {
         if (t.dom) {
           t.dom.classList.add('miss');
           setTimeout(() => {
-            this.renderer && this.renderer.removeTarget && this.renderer.removeTarget(t);
+            this.renderer?.removeTarget?.(t);
           }, 80);
         }
 
         try {
-          this.logger.logExpire && this.logger.logExpire({
+          this.logger.logExpire?.({
             id: t.id,
             type: t.decoy ? 'decoy' : 'normal',
             result: 'timeout',
@@ -316,13 +337,7 @@ export class GameEngine {
       }
     }
 
-    // อัปเดต HUD
-    try {
-      this.hooks.onUpdate && this.hooks.onUpdate(this.state);
-    } catch (e) {
-      console.warn('onUpdate hook error', e);
-    }
-
+    this._updateHUDImmediate();
     requestAnimationFrame(() => this._loop());
   }
 
@@ -344,8 +359,8 @@ export class GameEngine {
     this._stats.spawns++;
 
     try {
-      this.renderer && this.renderer.spawnTarget && this.renderer.spawnTarget(t);
-      this.logger.logSpawn && this.logger.logSpawn({
+      this.renderer?.spawnTarget?.(t);
+      this.logger.logSpawn?.({
         id: t.id,
         type: isDecoy ? 'decoy' : 'normal'
       });
@@ -354,7 +369,7 @@ export class GameEngine {
     }
   }
 
-  /* ---------- Analytics ---------- */
+  /* ---------- analytics ---------- */
 
   _finalizeAnalytics() {
     const totalSpawns = this._stats.spawns;
