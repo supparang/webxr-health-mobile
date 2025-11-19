@@ -419,3 +419,66 @@ body.theme-boss-4 .play-area { background:#1a0f1f; }
   80%  { transform: translate(2px, 3px); }
   100% { transform: translate(0,0); }
 }
+/* ====== HIT FX & SCORE FLOAT ====== */
+.hit-fx {
+  position: fixed;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 2px solid rgba(248,250,252,0.9);
+  box-shadow: 0 0 10px rgba(248,250,252,0.7);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 1;
+  z-index: 999;
+  animation: hitBurst .3s ease-out forwards;
+}
+
+@keyframes hitBurst {
+  from {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0;
+  }
+}
+
+.score-fx {
+  position: fixed;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  font-weight: 700;
+  font-size: 16px;
+  text-shadow: 0 0 6px rgba(15,23,42,0.9);
+  z-index: 999;
+  animation: scoreFloat .6s ease-out forwards;
+}
+
+@keyframes scoreFloat {
+  from {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -90%);
+    opacity: 0;
+  }
+}
+
+.score-fx-good {
+  color: #bbf7d0; /* เขียวอ่อน */
+}
+
+.score-fx-perfect {
+  color: #facc15; /* ทอง */
+}
+
+.score-fx-bad {
+  color: #fb7185; /* แดงชมพู */
+}
+
+.score-fx-miss {
+  color: #f87171; /* แดง */
+}
