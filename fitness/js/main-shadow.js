@@ -1,12 +1,12 @@
-// === Shadow Breaker — main-shadow.js (Production C) ===
+// === Shadow Breaker — main-shadow.js (Production C + FX) ===
 'use strict';
 
 // ---------- Helper ----------
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
-const FEVER_DURATION_MS = 4000;   // ระยะเวลา FEVER (~4 วิ)
-const MAX_LIVE_TARGETS  = 6;      // จำนวนเป้าพร้อมกันบนจอ
+const FEVER_DURATION_MS = 4000;   // ระยะเวลา FEVER ~4 วินาที
+const MAX_LIVE_TARGETS  = 6;      // เป้าพร้อมกันบนจอ
 
 function showView(name){
   const views = {
@@ -300,6 +300,45 @@ function screenShake(){
   pa.classList.add('screen-shake');
 }
 
+// --------- HIT FX / SCORE FX ----------
+function spawnHitEffectAtScreen(x, y, type, scoreText){
+  // วงกลมแตกกระจาย
+  var burst = document.createElement('div');
+  burst.className = 'hit-fx';
+  burst.style.left = x + 'px';
+  burst.style.top  = y + 'px';
+  document.body.appendChild(burst);
+  setTimeout(function(){
+    if(burst && burst.parentNode) burst.parentNode.removeChild(burst);
+  }, 320);
+
+  // ข้อความคะแนน / สถานะ
+  if(scoreText){
+    var lab = document.createElement('div');
+    lab.className = 'score-fx';
+    if(type === 'perfect') lab.classList.add('score-fx-perfect');
+    else if(type === 'good') lab.classList.add('score-fx-good');
+    else if(type === 'bad') lab.classList.add('score-fx-bad');
+    else if(type === 'miss') lab.classList.add('score-fx-miss');
+
+    lab.textContent = scoreText;
+    lab.style.left = x + 'px';
+    lab.style.top  = y + 'px';
+    document.body.appendChild(lab);
+    setTimeout(function(){
+      if(lab && lab.parentNode) lab.parentNode.removeChild(lab);
+    }, 700);
+  }
+}
+
+function spawnHitEffectAtElement(el, type, scoreText){
+  if(!el) return;
+  var rect = el.getBoundingClientRect();
+  var cx = rect.left + rect.width / 2;
+  var cy = rect.top  + rect.height / 2;
+  spawnHitEffectAtScreen(cx, cy, type, scoreText);
+}
+
 // ---------- Boss intro overlay ----------
 function showBossIntro(next, opts){
   opts = opts || {};
@@ -419,7 +458,7 @@ function startGame(){
         setCoach('ชกเป้าหลัก เลี่ยงเป้าหลอก! ✨', '🥊');
         scheduleNextSpawn();
       } else {
-        setCoach(`${countdown}...`, '⏱');
+        setCoach(countdown + '...', '⏱');
       }
     }, 500);
 
@@ -588,24 +627,29 @@ function spawnTarget(){
   const now = performance.now();
   const lifeTimer = setTimeout(() => {
     if(game.liveTargets.has(id)){
-      const obj = game.liveTargets.get(id);
+      var obj = game.liveTargets.get(id);
       game.liveTargets.delete(id);
-      if(obj.el && obj.el.parentNode) obj.el.parentNode.removeChild(obj.el);
 
       if(obj.kind === 'normal' || obj.kind === 'gold'){
+        // เอฟเฟกต์ MISS ที่ตำแหน่งเป้า
+        spawnHitEffectAtElement(obj.el, 'miss', 'MISS');
+
         game.misses++;
         game.combo = 0;
-        const cfg2 = DIFF[game.diffKey] || DIFF.normal;
+        var cfg2 = DIFF[game.diffKey] || DIFF.normal;
         game.playerHP = clamp(game.playerHP - cfg2.hpLossOnMiss, 0, 100);
         setCoach('พลาดเป้าไป 1 ครั้ง ระวัง miss บ่อยนะ 😅', '⚠️');
         if(game.playerHP <= 0){
           updateHUD();
           updateBossHUD();
+          if(obj.el && obj.el.parentNode) obj.el.parentNode.removeChild(obj.el);
           endGame('hpzero');
           return;
         }
         updateHUD();
       }
+
+      if(obj.el && obj.el.parentNode) obj.el.parentNode.removeChild(obj.el);
     }
   }, cfg.targetLifeMs);
 
@@ -655,6 +699,10 @@ function handleHit(id){
     scoreDelta = cfg.scoreDecoy;
     game.feverGauge = clamp(game.feverGauge - cfg.feverLossOnDecoy, 0, 100);
     game.decoyRTs.push(dt);
+
+    // FX: ตีโดนเป้าหลอก
+    spawnHitEffectAtElement(obj.el, 'bad', String(scoreDelta));
+
     setCoach('อันนั้นเป้าหลอก! เล็ง emoji หลักเท่านั้นนะ 💣', '💣');
   } else {
     game.hits++;
@@ -662,13 +710,24 @@ function handleHit(id){
     if(game.combo > game.maxCombo) game.maxCombo = game.combo;
     if(isPerfect) game.perfectHits++;
 
-    const feverMult = game.feverActive ? 2 : 1;
+    var feverMult = game.feverActive ? 2 : 1;
     scoreDelta = cfg.scoreHit * feverMult;
     game.feverGauge = clamp(game.feverGauge + cfg.feverGainOnHit, 0, 120);
     game.normalRTs.push(dt);
 
-    const dmg = cfg.dmgPerHit * feverMult;
+    var dmg = cfg.dmgPerHit * feverMult;
     game.bossHP = clamp(game.bossHP - dmg, 0, game.bossHPMax);
+
+    // FX: PERFECT / GOOD ขึ้นที่เป้า
+    var typeLabel, labelText;
+    if(isPerfect){
+      typeLabel = 'perfect';
+      labelText = 'PERFECT +' + scoreDelta;
+    }else{
+      typeLabel = 'good';
+      labelText = '+' + scoreDelta;
+    }
+    spawnHitEffectAtElement(obj.el, typeLabel, labelText);
 
     // เอฟเฟกต์ตีบอส
     playSfx('sfx-hit');
@@ -771,21 +830,21 @@ function buildCSV(reasonText, accuracy, avgNormal, avgDecoy){
   const now = new Date();
 
   lines.push('Shadow Breaker VR Fitness — Research Log');
-  lines.push(`Date,${now.toISOString()}`);
-  lines.push(`Mode,${game.mode}`);
-  lines.push(`Difficulty,${cfg.label}`);
-  lines.push(`ParticipantID,${game.participantId || ''}`);
-  lines.push(`Group,${game.participantGroup || ''}`);
-  lines.push(`Note,${game.participantNote || ''}`);
-  lines.push(`EndReason,${reasonText}`);
-  lines.push(`Score,${game.score}`);
-  lines.push(`MaxCombo,${game.maxCombo}`);
-  lines.push(`Hits,${game.hits}`);
-  lines.push(`Miss,${game.misses}`);
-  lines.push(`DecoyHits,${game.decoyHits}`);
-  lines.push(`Accuracy,${accuracy.toFixed(2)}`);
-  lines.push(`AvgRTNormal(ms),${avgNormal != null ? avgNormal.toFixed(2) : ''}`);
-  lines.push(`AvgRTDecoy(ms),${avgDecoy != null ? avgDecoy.toFixed(2) : ''}`);
+  lines.push('Date,' + now.toISOString());
+  lines.push('Mode,' + game.mode);
+  lines.push('Difficulty,' + cfg.label);
+  lines.push('ParticipantID,' + (game.participantId || ''));
+  lines.push('Group,' + (game.participantGroup || ''));
+  lines.push('Note,' + (game.participantNote || ''));
+  lines.push('EndReason,' + reasonText);
+  lines.push('Score,' + game.score);
+  lines.push('MaxCombo,' + game.maxCombo);
+  lines.push('Hits,' + game.hits);
+  lines.push('Miss,' + game.misses);
+  lines.push('DecoyHits,' + game.decoyHits);
+  lines.push('Accuracy,' + accuracy.toFixed(2));
+  lines.push('AvgRTNormal(ms),' + (avgNormal != null ? avgNormal.toFixed(2) : ''));
+  lines.push('AvgRTDecoy(ms),' + (avgDecoy != null ? avgDecoy.toFixed(2) : ''));
   lines.push('');
   lines.push('t(sec),kind,isDecoy,isFever,rtMs,perfect,combo,scoreAfter,bossIndex');
 
@@ -862,7 +921,10 @@ function handleActionClick(e){
         const a = document.createElement('a');
         a.href = game.csvUrl;
         const id = game.participantId || 'no-id';
-        a.download = `shadow-breaker_${id}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
+        a.download = 'shadow-breaker_' +
+          id + '_' +
+          new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') +
+          '.csv';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
