@@ -1,628 +1,480 @@
-// === fitness/js/jump-duck.js — Jump-Duck main (2025-11-19) ===
-'use strict';
+// fitness/js/jump-duck.js
+// VR-Fitness: Jump & Duck — self-contained version (no imports)
+// Mode: play / research, CSV เฉพาะโหมดวิจัย
 
-import { createCSVLogger } from './logger-csv.js';
-import { recordSession }   from './stats-store.js';
+'use strict';
 
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>document.querySelectorAll(s);
 
-/* ---------- Views ---------- */
+/* ---------- Views & HUD refs ---------- */
 
-const viewMenu    = $('#view-menu');
-const viewResearch= $('#view-research');
-const viewPlay    = $('#view-play');
-const viewResult  = $('#view-result');
+const viewMenu     = $('#view-menu');
+const viewResearch = $('#view-research');
+const viewPlay     = $('#view-play');
+const viewResult   = $('#view-result');
 
-function showView(name){
-  [viewMenu,viewResearch,viewPlay,viewResult].forEach(v=>v && v.classList.add('hidden'));
-  if (name==='menu'    && viewMenu)    viewMenu.classList.remove('hidden');
-  if (name==='research'&& viewResearch)viewResearch.classList.remove('hidden');
-  if (name==='play'    && viewPlay)    viewPlay.classList.remove('hidden');
-  if (name==='result'  && viewResult)  viewResult.classList.remove('hidden');
-}
+const elDiffSel  = $('#difficulty');
 
-/* ---------- HUD refs ---------- */
+const hudMode   = $('#hud-mode');
+const hudDiff   = $('#hud-diff');
+const hudTime   = $('#hud-time');
+const hudStab   = $('#hud-stability');
+const hudObs    = $('#hud-obstacles');
 
-const hudMode      = $('#hud-mode');
-const hudDiff      = $('#hud-diff');
-const hudDuration  = $('#hud-duration');
-const hudScore     = $('#hud-score');
-const hudCombo     = $('#hud-combo');
-const hudMiss      = $('#hud-miss');
-const hudStability = $('#hud-stability');
-const hudTime      = $('#hud-time');
+const playArea  = $('#playArea');   // กล่องกลางจอ (16:9 หรือ 9:16)
+const laneTrack = $('#lane-track'); // ถ้ามีเลนวิ่ง
+const avatarEl  = $('#avatar');     // ตัวผู้เล่น (emoji)
 
-const judgeLabel   = $('#jd-judge');
-const playArea     = $('#playArea');
-const canvas       = /** @type {HTMLCanvasElement|null} */ ($('#jd-canvas'));
+const btnJump   = $('#btn-jump');
+const btnDuck   = $('#btn-duck');
 
-/* Result refs */
-const resMode      = $('#res-mode');
-const resDiff      = $('#res-diff');
-const resScore     = $('#res-score');
-const resMaxCombo  = $('#res-maxcombo');
-const resMiss      = $('#res-miss');
-const resStability = $('#res-stability');
-const resTotal     = $('#res-total');
-const resAcc       = $('#res-acc');
+const coachEl   = $('#coachBubble');
+const coachText = coachEl;
+const comboCall = $('#comboCall'); // ถ้าอยากมี effect
 
-/* Research form refs */
-const inpResearchId    = $('#researchId');
-const inpResearchGroup = $('#researchGroup');
-const inpResearchPhase = $('#researchPhase');
+// Result fields
+const resMode   = $('#res-mode');
+const resDiff   = $('#res-diff');
+const resEnd    = $('#res-end');
+const resScore  = $('#res-score');
+const resStab   = $('#res-stability');
+const resHit    = $('#res-hits');
+const resMiss   = $('#res-miss');
+const resAvoid  = $('#res-avoidRate');
+const resReact  = $('#res-rtmean');
+
+// note CSV (มุมล่างเกี่ยวกับ research)
+const csvNote   = $('#view-result .note');
 
 /* ---------- Config ---------- */
 
+const GAME_DURATION_MS = 60000;
+
 const DIFF_CONFIG = {
-  easy: {
-    key: 'easy',
-    durationMs: 60000,
-    spawnIntervalMs: 1100,
-    obstacleSpeed: 220,      // px/s
-    damage: 10,
-    reward: 8
-  },
-  normal: {
-    key: 'normal',
-    durationMs: 60000,
-    spawnIntervalMs: 820,
-    obstacleSpeed: 260,
-    damage: 14,
-    reward: 10
-  },
-  hard: {
-    key: 'hard',
-    durationMs: 60000,
-    spawnIntervalMs: 650,
-    obstacleSpeed: 310,
-    damage: 18,
-    reward: 12
-  }
+  easy:   { name:'easy',   spawnMin:900,  spawnMax:1300, penalty:10, reward:3 },
+  normal: { name:'normal', spawnMin:700,  spawnMax:1100, penalty:15, reward:4 },
+  hard:   { name:'hard',   spawnMin:520,  spawnMax:950,  penalty:20, reward:5 }
 };
-function pickConfig(k){
-  return DIFF_CONFIG[k] || DIFF_CONFIG.normal;
+
+// obstacle type: 'high' → ต้อง Duck, 'low' → ต้อง Jump
+const OB_TYPES = ['high','low'];
+
+/* ---------- State ---------- */
+
+let gameMode   = 'play';   // 'play' | 'research'
+let diffKey    = 'normal';
+
+let state      = null;
+let rafId      = null;
+let logger     = null;
+let lastInput  = null;     // 'jump' | 'duck' | null
+let lastCoachAt= 0;
+
+/* ---------- Helpers ---------- */
+
+function showView(name){
+  [viewMenu,viewResearch,viewPlay,viewResult].forEach(v=>v?.classList.add('hidden'));
+  if (name==='menu')    viewMenu?.classList.remove('hidden');
+  if (name==='research')viewResearch?.classList.remove('hidden');
+  if (name==='play')    viewPlay?.classList.remove('hidden');
+  if (name==='result')  viewResult?.classList.remove('hidden');
 }
 
-/* ---------- Game State ---------- */
+function randRange(min,max){
+  return min + Math.random()*(max-min);
+}
+const fmtPercent = v => (v==null||Number.isNaN(v)) ? '-' : (v*100).toFixed(1)+' %';
+const fmtMs      = v => (!v||v<=0) ? '-' : v.toFixed(0)+' ms';
 
-let gameMode = 'play'; // 'play' | 'research'
-let diffKey  = 'normal';
+function setCoach(text){
+  if (!coachEl) return;
+  coachEl.textContent = text;
+  coachEl.classList.remove('hidden');
+  lastCoachAt = performance.now();
+  setTimeout(()=> coachEl && coachEl.classList.add('hidden'), 3200);
+}
 
-let logger   = null;
-let sessionMeta = null;
+function maybeCoachOnMiss(){
+  const now = performance.now();
+  if (now - lastCoachAt < 4000) return;
+  if (!state) return;
+  if (state.missCount>=5 && state.missCount<10){
+    setCoach('ลองสังเกตไอคอนให้ชัด ๆ ก่อนกดนะ 👀');
+  }else if (state.missCount>=10){
+    setCoach('ถ้าชนบ่อย ลองชะลอแล้วโฟกัสจังหวะให้มั่นใจก่อนกด ⏱️');
+  }
+}
 
-let ctx = null;
-let running = false;
-let lastTs  = 0;
+function hitFX(ok){
+  if (!playArea) return;
+  playArea.classList.add(ok?'hit-ok':'hit-bad');
+  setTimeout(()=>playArea && playArea.classList.remove('hit-ok','hit-bad'),220);
+}
 
-const player = {
-  x: 80,
-  y: 0,          // set after canvas sizing
-  radius: 20,
-  jumpY: -70,
-  duckY: 30
-};
+/* ---------- CSV logger (research only) ---------- */
 
-let state = null;
+function createCSVLogger(meta){
+  const rows = [];
+  const header = [
+    'timestamp_ms','game_id','player_id','mode','difficulty',
+    'event','ob_id','ob_type','player_action','result','reaction_ms',
+    'stability','score','hitCount','missCount'
+  ];
+  rows.push(header);
 
-/**
- * state structure:
- * {
- *   elapsedMs, durationMs,
- *   score, combo, maxCombo, miss,
- *   stability,
- *   totalObstacles, totalHits,
- *   obstacles:[],
- *   nextSpawnAt,
- *   action: 'none'|'jump'|'duck',
- *   actionUntil,
- *   stabilityAccum, stabilitySamples
- * }
- */
+  function push(ev, extra){
+    const t = Date.now();
+    const e = extra||{};
+    rows.push([
+      t,
+      meta.gameId || 'jump-duck',
+      meta.playerId || '',
+      meta.mode || '',
+      meta.difficulty || '',
+      ev,
+      e.id ?? '',
+      e.obType ?? '',
+      e.action ?? '',
+      e.result ?? '',
+      e.reactionMs ?? '',
+      e.stability ?? '',
+      e.score ?? '',
+      e.hitCount ?? '',
+      e.missCount ?? ''
+    ]);
+  }
 
-function resetState(cfg){
-  const dur = cfg.durationMs;
-  state = {
-    elapsedMs: 0,
-    durationMs: dur,
-    score: 0,
-    combo: 0,
-    maxCombo: 0,
-    miss: 0,
-    stability: 100,
-    totalObstacles: 0,
-    totalHits: 0,
-    obstacles: [],
-    nextSpawnAt: 500, // เริ่ม spawn หลัง 0.5s
-    action: 'none',
-    actionUntil: 0,
-    stabilityAccum: 0,
-    stabilitySamples: 0
+  return {
+    logSpawn(ob){
+      push('spawn',{ id:ob.id, obType:ob.type });
+    },
+    logResolve(ob,res,action,rt){
+      push('resolve',{
+        id:ob.id,
+        obType:ob.type,
+        action,
+        result:res,
+        reactionMs:rt,
+        stability: state?.stability ?? '',
+        score: state?.score ?? '',
+        hitCount: state?.hitCount ?? '',
+        missCount: state?.missCount ?? ''
+      });
+    },
+    finish(finalState){
+      if (meta.mode!=='research') return; // ⬅ เฉพาะโหมดวิจัยเท่านั้น
+      const csv = rows.map(r=>r.map(v=>{
+        const s = String(v ?? '');
+        if (s.includes('"') || s.includes(',')) {
+          return '"' + s.replace(/"/g,'""') + '"';
+        }
+        return s;
+      }).join(',')).join('\r\n');
+
+      const blob = new Blob([csv],{type:'text/csv'});
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      const name = `vrfitness_jumpduck_${meta.playerId||'anon'}_${Date.now()}.csv`;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },100);
+    }
   };
-  lastTs = 0;
+}
+
+/* ---------- Game start ---------- */
+
+function buildSessionMeta(){
+  const pid = (gameMode==='research'
+    ? ($('#researchId')?.value.trim()||'anon')
+    : 'play-'+Date.now());
+  return {
+    gameId:'jump-duck',
+    playerId:pid,
+    mode:gameMode,
+    difficulty:diffKey
+  };
+}
+
+function startGame(kind){
+  gameMode = (kind==='research') ? 'research' : 'play';
+  diffKey  = elDiffSel?.value || 'normal';
+
+  const cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
+
+  state = {
+    startedAt: performance.now(),
+    elapsed:0,
+    remaining:GAME_DURATION_MS,
+    nextSpawnAt: performance.now()+800,
+    obstacles:[],
+    nextId:1,
+
+    stability:100,
+    score:0,
+    hitCount:0,
+    missCount:0,
+    totalSpawn:0,
+
+    rtList:[]
+  };
+
+  lastInput = null;
+  lastCoachAt = 0;
+  logger = createCSVLogger(buildSessionMeta());
+
+  if (hudMode) hudMode.textContent = (gameMode==='research'?'Research':'Play');
+  if (hudDiff) hudDiff.textContent = diffKey;
+  if (hudTime) hudTime.textContent = (GAME_DURATION_MS/1000).toFixed(1);
+  if (hudStab) hudStab.textContent = '100.0 %';
+  if (hudObs)  hudObs.textContent  = '0';
+  if (coachEl) coachEl.classList.add('hidden');
+
+  if (avatarEl){
+    avatarEl.classList.remove('pose-jump','pose-duck');
+    avatarEl.classList.add('pose-stand');
+  }
+
+  showView('play');
+  if (rafId!=null) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
+}
+
+/* ---------- Loop ---------- */
+
+function loop(now){
+  if (!state) return;
+  state.elapsed = now - state.startedAt;
+  state.remaining = Math.max(0, GAME_DURATION_MS - state.elapsed);
+
+  if (hudTime) hudTime.textContent = (state.remaining/1000).toFixed(1);
+
+  if (state.remaining<=0){
+    endGame('timeout');
+    return;
+  }
+
+  // spawn obstacle
+  if (now>=state.nextSpawnAt){
+    spawnObstacle(now);
+    const cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
+    const delay = randRange(cfg.spawnMin,cfg.spawnMax);
+    state.nextSpawnAt = now + delay;
+  }
+
+  // move obstacles
+  updateObstacles(now);
+
+  rafId = requestAnimationFrame(loop);
 }
 
 /* ---------- Obstacles ---------- */
 
-function makeObstacle(kind,cfg){
-  // kind: 'low' | 'high'
-  const w = 34;
-  const h = (kind==='low') ? 32 : 56;
-  const canvasWidth  = canvas?.width  || 400;
-  const canvasHeight = canvas?.height || 560;
+function spawnObstacle(now){
+  const type = OB_TYPES[Math.floor(Math.random()*OB_TYPES.length)];
+  const id   = state.nextId++;
 
-  const groundY      = canvasHeight*0.62;
-  const headLevel    = canvasHeight*0.38;
-
-  let y;
-  if (kind==='low') y = groundY;
-  else              y = headLevel;
-
-  const speed = cfg.obstacleSpeed; // px/s
-
-  return {
-    kind,
-    x: canvasWidth + w,
-    y,
-    w,
-    h,
-    speed,
-    judged:false,
-    hit:false,
-    result:null
+  const ob = {
+    id,
+    type,                // 'high' | 'low'
+    createdAt:now,
+    // เวลา "check" ที่จะชน (ชนกลางจอ) กำหนด ~800ms หลังสร้าง
+    triggerAt: now+800,
+    resolved:false,
+    element:null
   };
-}
-
-function spawnObstacle(cfg){
-  if (!state) return;
-  const r = Math.random();
-  const kind = (r<0.5) ? 'low' : 'high';
-  const ob = makeObstacle(kind,cfg);
   state.obstacles.push(ob);
+  state.totalSpawn++;
 
-  if (logger){
-    logger.logSpawn({
-      id: Date.now(),
-      type: kind,
-      bossIndex: '',
-      playerHP: state.stability,
-      extra: { kind }
-    });
-  }
-}
+  if (laneTrack){
+    const el = document.createElement('div');
+    el.className = 'obstacle obstacle-'+type;
+    el.dataset.id = String(id);
+    laneTrack.appendChild(el);
+    ob.element = el;
 
-/* ---------- Input: actions ---------- */
-
-let currentView = 'menu';
-
-function triggerAction(kind){
-  if (!state || currentView!=='play') return;
-  const now = performance.now();
-  state.action = kind; // 'jump' or 'duck'
-  state.actionUntil = now + 420; // 0.42s ท่ามีผล
-}
-
-/* keyboard */
-
-function handleKey(e){
-  if (currentView!=='play') return;
-  if (e.repeat) return;
-
-  if (e.code==='ArrowUp' || e.code==='Space'){
-    e.preventDefault();
-    triggerAction('jump');
-  }else if (e.code==='ArrowDown'){
-    e.preventDefault();
-    triggerAction('duck');
-  }
-}
-
-/* pointer swipe (mobile / mouse) */
-
-let swipeStartY = null;
-
-function handlePointerDown(ev){
-  if (currentView!=='play') return;
-  swipeStartY = ev.clientY;
-}
-function handlePointerUp(ev){
-  if (currentView!=='play') return;
-  if (swipeStartY==null) return;
-  const dy = ev.clientY - swipeStartY;
-  const threshold = 20;
-  if (dy < -threshold){
-    triggerAction('jump');
-  }else if (dy > threshold){
-    triggerAction('duck');
-  }
-  swipeStartY = null;
-}
-
-/* ---------- Judge label ---------- */
-
-let judgeTimer = null;
-function showJudge(text,kind){
-  if (!judgeLabel) return;
-  judgeLabel.textContent = text;
-  judgeLabel.className = 'jd-judge show';
-  if (kind) judgeLabel.classList.add('jd-judge-'+kind);
-  if (judgeTimer) clearTimeout(judgeTimer);
-  judgeTimer = setTimeout(()=> judgeLabel && judgeLabel.classList.remove('show'), 380);
-}
-
-/* ---------- HUD update ---------- */
-
-function updateHUD(){
-  if (!state) return;
-  if (hudMode)      hudMode.textContent = (gameMode==='research')?'Research':'Play';
-  if (hudDiff)      hudDiff.textContent = diffKey;
-  if (hudDuration)  hudDuration.textContent = (state.durationMs/1000|0)+'s';
-  if (hudScore)     hudScore.textContent = state.score;
-  if (hudCombo)     hudCombo.textContent = state.combo;
-  if (hudMiss)      hudMiss.textContent  = state.miss;
-  if (hudStability) hudStability.textContent = state.stability.toFixed(0)+'%';
-
-  const remain = Math.max(0,state.durationMs - state.elapsedMs);
-  if (hudTime) hudTime.textContent = (remain/1000).toFixed(1);
-}
-
-/* ---------- Render ---------- */
-
-function resizeCanvas(){
-  if (!canvas) return;
-  const rect = playArea?.getBoundingClientRect();
-  const w = (rect?.width || 360);
-  const h = (rect?.height|| 560);
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width  = w*dpr;
-  canvas.height = h*dpr;
-  canvas.style.width  = w+'px';
-  canvas.style.height = h+'px';
-  ctx = canvas.getContext('2d');
-  if (ctx) ctx.setTransform(dpr,0,0,dpr,0,0);
-
-  // update player base position
-  player.y = h*0.6;
-  player.radius = 18;
-}
-
-function render(){
-  if (!ctx || !canvas || !state) return;
-  const w = canvas.width /(window.devicePixelRatio||1);
-  const h = canvas.height/(window.devicePixelRatio||1);
-
-  ctx.clearRect(0,0,w,h);
-
-  // ground line
-  ctx.strokeStyle = 'rgba(148,163,184,0.6)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(0,h*0.68);
-  ctx.lineTo(w,h*0.68);
-  ctx.stroke();
-
-  // player
-  const now = performance.now();
-  let py = player.y;
-  if (state.action==='jump' && now<=state.actionUntil){
-    py = player.y + player.jumpY;
-  }else if (state.action==='duck' && now<=state.actionUntil){
-    py = player.y + player.duckY;
+    // animate ด้วย CSS class
+    requestAnimationFrame(()=> el.classList.add('run'));
   }
 
-  ctx.fillStyle = '#4ade80';
-  ctx.beginPath();
-  ctx.arc(player.x,py,player.radius,0,Math.PI*2);
-  ctx.fill();
+  logger?.logSpawn(ob);
+  if (hudObs) hudObs.textContent = `${state.hitCount} / ${state.totalSpawn}`;
+}
 
-  // player outline
-  ctx.strokeStyle = '#022c22';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // obstacles
+function updateObstacles(now){
+  const remain = [];
   for (const ob of state.obstacles){
-    if (ob.kind==='low'){
-      ctx.fillStyle = '#f97316';
-    }else{
-      ctx.fillStyle = '#38bdf8';
+    if (!ob.resolved && now>=ob.triggerAt){
+      resolveObstacle(ob, now);
     }
-    const ox = ob.x;
-    const oy = ob.y;
-    const oh = ob.h;
-    ctx.beginPath();
-    ctx.roundRect(ox- ob.w/2, oy-oh, ob.w, oh, 6);
-    ctx.fill();
-  }
-
-  // hint line (impact zone)
-  const impactX = player.x + 12;
-  ctx.setLineDash([4,4]);
-  ctx.strokeStyle = 'rgba(148,163,184,0.45)';
-  ctx.beginPath();
-  ctx.moveTo(impactX, h*0.18);
-  ctx.lineTo(impactX, h*0.78);
-  ctx.stroke();
-  ctx.setLineDash([]);
-}
-
-/* ---------- Game loop ---------- */
-
-function update(dtMs,cfg){
-  if (!state) return;
-
-  state.elapsedMs += dtMs;
-  // decay action
-  const now = performance.now();
-  if (state.action!=='none' && now>state.actionUntil){
-    state.action = 'none';
-  }
-
-  // spawn
-  if (state.elapsedMs >= state.nextSpawnAt){
-    spawnObstacle(cfg);
-    // เพิ่ม spacing แบบสุ่มเล็กน้อย
-    const jitter = (Math.random()*0.3+0.9);
-    state.nextSpawnAt += cfg.spawnIntervalMs * jitter;
-  }
-
-  const dtSec = dtMs / 1000;
-  const impactX = player.x + 12;
-
-  // update obstacles
-  for (const ob of state.obstacles){
-    ob.x -= ob.speed * dtSec;
-
-    if (!ob.judged && ob.x <= impactX){
-      ob.judged = true;
-      state.totalObstacles++;
-
-      const required = (ob.kind==='low') ? 'jump' : 'duck';
-      const now2 = performance.now();
-      const inWindow = (state.action===required && now2 <= state.actionUntil);
-
-      if (inWindow){
-        // HIT
-        state.totalHits++;
-        state.combo++;
-        if (state.combo>state.maxCombo) state.maxCombo = state.combo;
-        state.score += cfg.reward;
-        showJudge(required==='jump'?'JUMP!':'DUCK!','good');
-        if (playArea){
-          playArea.classList.add('hit');
-          setTimeout(()=> playArea && playArea.classList.remove('hit'),140);
-        }
-        ob.hit = true;
-        ob.result = 'hit';
-
-        if (logger){
-          logger.logHit({
-            id: Date.now(),
-            type: ob.kind,
-            result: 'hit',
-            reactionMs: '',
-            score: state.score,
-            combo: state.combo,
-            missCount: state.miss,
-            playerHP: state.stability,
-            bossIndex: '',
-            bossHP: '',
-            extra: { required, action: state.action }
-          });
-        }
-      }else{
-        // MISS
-        state.combo = 0;
-        state.miss++;
-        state.stability = Math.max(0, state.stability - cfg.damage);
-        ob.hit = false;
-        ob.result = 'miss';
-        showJudge('MISS','miss');
-        if (logger){
-          logger.logExpire({
-            id: Date.now(),
-            type: ob.kind,
-            result: 'miss',
-            playerHP: state.stability
-          });
-        }
+    // ถ้าหมด animation แล้ว ลบ DOM
+    if (ob.element){
+      const rect = ob.element.getBoundingClientRect();
+      const area = playArea?.getBoundingClientRect();
+      if (area && rect.right < area.left-40){
+        ob.element.remove();
       }
     }
+    if (!ob.resolved){
+      remain.push(ob);
+    }
   }
-
-  // remove off-screen
-  state.obstacles = state.obstacles.filter(ob => ob.x + ob.w > -40);
-
-  // stability average
-  state.stabilityAccum += state.stability;
-  state.stabilitySamples++;
-
-  updateHUD();
-  render();
+  state.obstacles = remain;
 }
 
-function stopGame(endedBy){
-  running = false;
+/* ---------- Resolve obstacle ---------- */
 
-  const duration = state?.durationMs || 60000;
-  const elapsed  = state?.elapsedMs || 0;
-  const total    = state?.totalObstacles || 0;
-  const hits     = state?.totalHits || 0;
-  const acc      = total ? hits/total : 0;
-  const stabAvg  = (state && state.stabilitySamples>0)
-    ? state.stabilityAccum/state.stabilitySamples
-    : 0;
+function resolveObstacle(ob, now){
+  ob.resolved = true;
+  const expected = (ob.type === 'high') ? 'duck' : 'jump';
+  const action   = lastInput; // ปุ่มที่กดล่าสุด
+  const rt       = action ? (now - ob.triggerAt) : null;
 
-  // finish logger (เฉพาะโหมดวิจัย)
-  if (logger && state){
-    logger.finish({
-      endedBy,
-      score: state.score,
-      combo: state.combo,
-      missCount: state.miss,
-      playerHP: state.stability,
-      bossIndex: '',
-      elapsedMs: state.elapsedMs,
-      analytics: {
-        totalSpawns: total,
-        totalHits: hits,
-        accuracy: acc
-      }
-    });
+  let ok = false;
+  if (action === expected && rt!=null && rt>=0 && rt<=600){
+    ok = true;
   }
 
-  // dashboard summary
-  if (state){
-    recordSession('jump-duck',{
-      mode: gameMode,
-      difficulty: diffKey,
-      score: state.score,
-      maxCombo: state.maxCombo,
-      missCount: state.miss,
-      totalObstacles: total,
-      totalHits: hits,
-      accuracy: acc,
-      avgStability: stabAvg,
-      elapsedMs: elapsed,
-      durationMs: duration,
-      endedBy
-    });
+  const cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
+
+  if (ok){
+    state.hitCount++;
+    state.score += 10;
+    state.stability = Math.min(100, state.stability + cfg.reward);
+    if (rt!=null) state.rtList.push(rt);
+    hitFX(true);
+  }else{
+    state.missCount++;
+    state.score = Math.max(0, state.score-5);
+    state.stability = Math.max(0, state.stability - cfg.penalty);
+    hitFX(false);
+    maybeCoachOnMiss();
   }
 
-  fillResult(endedBy,acc,stabAvg);
-  showView('result');
-  currentView = 'result';
+  if (hudStab) hudStab.textContent = state.stability.toFixed(1)+' %';
+  if (hudObs)  hudObs.textContent  = `${state.hitCount} / ${state.totalSpawn}`;
+
+  logger?.logResolve(ob, ok?'hit':'miss', action||'', rt||'');
+
+  // ถ้าความมั่นคงเหลือ 0 → จบ
+  if (state.stability<=0){
+    endGame('stability-zero');
+  }
 }
 
-function fillResult(endedBy,accuracy,stabAvg){
+/* ---------- Input (Jump / Duck) ---------- */
+
+function applyPose(action){
+  if (!avatarEl) return;
+  avatarEl.classList.remove('pose-stand','pose-jump','pose-duck');
+  if (action==='jump') avatarEl.classList.add('pose-jump');
+  else if (action==='duck') avatarEl.classList.add('pose-duck');
+  setTimeout(()=>{
+    avatarEl.classList.remove('pose-jump','pose-duck');
+    avatarEl.classList.add('pose-stand');
+  }, 260);
+}
+
+function onJump(){
+  lastInput = 'jump';
+  applyPose('jump');
+}
+function onDuck(){
+  lastInput = 'duck';
+  applyPose('duck');
+}
+
+/* ---------- End & Result ---------- */
+
+function avg(arr){
+  if (!arr || !arr.length) return 0;
+  return arr.reduce((a,b)=>a+b,0)/arr.length;
+}
+
+function endGame(reason){
   if (!state) return;
+  if (rafId!=null){ cancelAnimationFrame(rafId); rafId=null; }
 
-  const modeLabel = (gameMode==='research') ? 'Research' : 'Play';
+  const total   = state.totalSpawn || 1;
+  const avoid   = state.hitCount / total;
+  const rtMean  = avg(state.rtList);
 
-  if (resMode)      resMode.textContent      = modeLabel;
-  if (resDiff)      resDiff.textContent      = diffKey;
-  if (resScore)     resScore.textContent     = state.score;
-  if (resMaxCombo)  resMaxCombo.textContent  = state.maxCombo;
-  if (resMiss)      resMiss.textContent      = state.miss;
-  if (resStability) resStability.textContent = stabAvg ? stabAvg.toFixed(1)+' %' : '-';
-  if (resTotal)     resTotal.textContent     = state.totalObstacles;
-  if (resAcc)       resAcc.textContent       = (accuracy*100).toFixed(1)+' %';
-}
+  // fill result
+  if (resMode)  resMode.textContent = (gameMode==='research'?'Research':'Play');
+  if (resDiff)  resDiff.textContent = diffKey;
+  if (resEnd)   resEnd.textContent  =
+      reason==='timeout' ? 'ครบเวลา 60 วินาที' :
+      reason==='stability-zero' ? 'เสียสมดุลจนหมด' :
+      reason||'-';
+  if (resScore) resScore.textContent= String(state.score);
+  if (resStab)  resStab.textContent = state.stability.toFixed(1)+' %';
+  if (resHit)   resHit.textContent  = String(state.hitCount);
+  if (resMiss)  resMiss.textContent = String(state.missCount);
+  if (resAvoid) resAvoid.textContent= fmtPercent(avoid);
+  if (resReact) resReact.textContent= fmtMs(rtMean);
 
-/* ---------- Start game ---------- */
+  // note CSV เฉพาะโหมดวิจัย
+  if (csvNote){
+    if (gameMode==='research') csvNote.classList.remove('hidden');
+    else                       csvNote.classList.add('hidden');
+  }
 
-function startGame(kind){
-  gameMode = (kind==='research') ? 'research' : 'play';
-  diffKey  = $('#difficulty')?.value || 'normal';
-  const cfg = pickConfig(diffKey);
-
-  // session meta สำหรับ logger (ใช้เฉพาะโหมดวิจัย)
-  const playerId = (gameMode==='research'
-    ? (inpResearchId?.value.trim() || 'anon')
-    : `NORMAL-${Date.now()}`);
-
-  const group    = (gameMode==='research'
-    ? (inpResearchGroup?.value.trim() || '')
-    : '');
-
-  const phase    = (gameMode==='research'
-    ? (inpResearchPhase?.value.trim() || '')
-    : '');
-
-  sessionMeta = {
-    gameId: 'jump-duck',
-    playerId,
-    mode: gameMode,
-    difficulty: diffKey,
-    phase,
-    filePrefix: 'vrfitness_jumpduck'
-  };
-
-  logger = (gameMode==='research')
-    ? createCSVLogger(sessionMeta)
-    : null;
-
-  resetState(cfg);
-  resizeCanvas();
-  updateHUD();
-  render();
-
-  showView('play');
-  currentView = 'play';
-
-  if (judgeLabel) judgeLabel.classList.remove('show');
-
-  running = true;
-  lastTs  = 0;
-  requestAnimationFrame(function loop(ts){
-    if (!running) return;
-    if (!lastTs) lastTs = ts;
-    const dt = ts - lastTs;
-    lastTs = ts;
-
-    const cfgNow = pickConfig(diffKey);
-    update(dt,cfgNow);
-
-    if (!state) { running = false; return; }
-
-    if (state.elapsedMs >= state.durationMs){
-      stopGame('timeout');
-      return;
-    }
-    if (state.stability <= 0){
-      stopGame('player-dead');
-      return;
-    }
-
-    requestAnimationFrame(loop);
+  logger?.finish({
+    endedBy:reason,
+    score:state.score,
+    hitCount:state.hitCount,
+    missCount:state.missCount,
+    stability:state.stability,
+    elapsedMs:state.elapsed
   });
+
+  state = null;
+  showView('result');
 }
 
-/* ---------- Init & wiring ---------- */
+/* ---------- Init ---------- */
 
 function init(){
-  // views
-  showView('menu');
-  currentView = 'menu';
-
-  // buttons
-  $('[data-action="start-normal"]')?.addEventListener('click',()=>{
+  // ปุ่มเมนู
+  $('[data-action="start-play"]')?.addEventListener('click',()=>{
     startGame('play');
   });
   $('[data-action="goto-research"]')?.addEventListener('click',()=>{
     showView('research');
-    currentView = 'research';
   });
   $('[data-action="start-research"]')?.addEventListener('click',()=>{
     startGame('research');
   });
   $$('[data-action="back-menu"]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      running = false;
-      showView('menu');
-      currentView = 'menu';
+    btn.addEventListener('click',()=> showView('menu'));
+  });
+
+  // ปุ่มในเกม
+  if (btnJump) btnJump.addEventListener('click', onJump);
+  if (btnDuck) btnDuck.addEventListener('click', onDuck);
+
+  // shortcut: แตะซ้าย = duck, ขวา = jump (เผื่อ mobile)
+  if (playArea){
+    playArea.addEventListener('pointerdown',ev=>{
+      const rect = playArea.getBoundingClientRect();
+      const mid  = rect.left + rect.width/2;
+      if (ev.clientY > rect.bottom - rect.height*0.35){
+        // ล่างจอ → duck
+        onDuck();
+      }else{
+        // บนจอ → jump
+        onJump();
+      }
     });
-  });
-  $('[data-action="stop"]')?.addEventListener('click',()=>{
-    if (running) stopGame('manual');
-  });
-  $('[data-action="play-again"]')?.addEventListener('click',()=>{
-    // เริ่มใหม่ใช้ diff เดิม / mode เดิม
-    startGame(gameMode==='research'?'research':'play');
-  });
+  }
 
-  // resize
-  window.addEventListener('resize',()=>{
-    resizeCanvas();
-    render();
-  });
-  resizeCanvas();
-
-  // input
-  window.addEventListener('keydown',handleKey);
-  playArea?.addEventListener('pointerdown',handlePointerDown);
-  playArea?.addEventListener('pointerup',handlePointerUp);
+  showView('menu');
 }
 
 window.addEventListener('DOMContentLoaded', init);
