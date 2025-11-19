@@ -573,3 +573,97 @@ input,select{
   }
   .btn-row button{min-width:100%;}
 }
+/* ===== Shadow Breaker — extra FX ===== */
+
+/* พื้นหลังธีมตามบอส */
+body.theme-boss-1 {
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.24), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.2), transparent 55%),
+    #020617;
+}
+
+body.theme-boss-2 {
+  background:
+    radial-gradient(circle at top left, rgba(236,72,153,0.25), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(129,140,248,0.25), transparent 55%),
+    #020617;
+}
+
+body.theme-boss-3 {
+  background:
+    radial-gradient(circle at top left, rgba(251,191,36,0.25), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(59,130,246,0.25), transparent 55%),
+    #020617;
+}
+
+body.theme-boss-4 {
+  background:
+    radial-gradient(circle at top left, rgba(244,63,94,0.25), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(37,99,235,0.35), transparent 55%),
+    #020617;
+}
+
+/* บอสใกล้ตาย: จอสั่น/โทนแดงนิด ๆ */
+body.boss-lowhp .boss-portrait-inner {
+  animation: bossShake 0.25s infinite;
+  box-shadow: 0 0 0 2px rgba(248,113,113,0.8);
+}
+
+@keyframes bossShake {
+  0%   { transform: translateX(0); }
+  25%  { transform: translateX(-2px); }
+  50%  { transform: translateX(2px); }
+  75%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+/* บอสสุดท้าย: portrait มี pulse */
+body.boss-final .boss-portrait-inner {
+  animation: bossPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes bossPulse {
+  0%,100% { transform: scale(1); }
+  50%     { transform: scale(1.06); }
+}
+
+/* FEVER bar */
+.fever-wrap {
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.fever-wrap.fever-active {
+  box-shadow: 0 0 15px rgba(251,191,36,0.9);
+  transform: translateY(-2px);
+}
+
+.fever-fill {
+  transition: width 0.15s linear;
+}
+
+/* เป้า emoji */
+.target {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: min(56px, 10vw);
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 0 8px rgba(0,0,0,0.5);
+  transition: transform 0.1s ease-out;
+}
+
+.target:active {
+  transform: translate(-50%, -50%) scale(0.9);
+}
+
+.target-decoy {
+  filter: grayscale(0.1) drop-shadow(0 0 6px rgba(248,113,113,0.8));
+}
+
+.target-gold {
+  text-shadow: 0 0 12px rgba(250,204,21,0.9);
+}
