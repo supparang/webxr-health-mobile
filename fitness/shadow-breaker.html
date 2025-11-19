@@ -1,4 +1,14 @@
-<style>
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Shadow Breaker — VR Fitness Game</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <!-- ถ้ามีไฟล์ /fitness/favicon.ico อยู่ในโฟลเดอร์เดียวกับไฟล์นี้ -->
+  <link rel="icon" type="image/x-icon" href="./favicon.ico">
+
+  <style>
     :root {
       color-scheme: light dark;
       --bg: #020617;
@@ -21,7 +31,7 @@
       justify-content:center;
       align-items:stretch;
     }
-    /* >>> ปรับ main ให้ center การ์ดทั้งใบกลางจอ <<< */
+    /* center card vertically + horizontally */
     main {
       width:100%;
       max-width:960px;
@@ -38,7 +48,7 @@
       box-shadow:0 18px 45px rgba(0,0,0,0.5);
       border:1px solid rgba(148,163,184,0.3);
       width:100%;
-      max-width:520px; /* ฟีลเดียวกับ jump-duck */
+      max-width:520px;
     }
     h1 {
       margin:0 0 8px;
@@ -169,13 +179,13 @@
       letter-spacing:0.04em;
     }
 
-    /* >>> ปรับ play-area ให้กลางการ์ด + สัดส่วนเหมือน jump-duck <<< */
+    /* gameplay area — center card + mobile-friendly ratio */
     .play-area{
       position:relative;
       width:100%;
       max-width:380px;
       margin:12px auto 8px;
-      aspect-ratio:9/14; /* สูงแบบมือถือ */
+      aspect-ratio:9/14;
       border-radius:18px;
       border:1px solid rgba(148,163,184,0.65);
       background:
@@ -303,12 +313,12 @@
       box-shadow:0 0 14px rgba(239,68,68,0.8);
       transition:width .18s ease-out;
     }
-
     .boss-bar.hit-flash .boss-fill{
       box-shadow:0 0 18px rgba(252,211,77,0.95);
       filter:brightness(1.35);
     }
 
+    /* Boss portrait / character */
     .boss-portrait{
       margin-top:8px;
       opacity:0;
@@ -347,6 +357,7 @@
       color:#facc15;
     }
 
+    /* Screen shake */
     .play-area.shake{
       animation: sb-shake 0.18s ease-out;
     }
@@ -358,6 +369,7 @@
       100%{ transform:translate(0,0); }
     }
 
+    /* Coach bubble */
     .coach-bubble{
       margin-top:8px;
       display:flex;
@@ -395,6 +407,7 @@
       color:#e5e7eb;
     }
 
+    /* Result view */
     #view-result .summary{ margin-top:10px; font-size:0.9rem; }
     #view-result table{
       width:100%;
@@ -413,6 +426,7 @@
     }
 
     @media(max-width:640px){
+      main{padding:10px;}
       .card{padding:14px;}
       h1{font-size:1.35rem;}
       .play-area{border-radius:14px;}
@@ -426,3 +440,221 @@
       }
     }
   </style>
+</head>
+<body>
+  <main>
+    <!-- MENU / CONFIG VIEW -->
+    <section class="card" id="view-menu">
+      <div class="top-row">
+        <div>
+          <h1><span class="icon">🥊</span>Shadow Breaker</h1>
+          <div class="subtitle">
+            เกมชกเป้าแบบ emoji ต่อสู้กับบอสทีละตัว มี FEVER gauge, HP ผู้เล่น
+            โหมดวิจัย/โหมดเล่น และบันทึกข้อมูล CSV สำหรับงานวิจัย / commercial use
+          </div>
+          <div class="pill">
+            <span class="dot"></span>
+            <span>DOM Engine • Boss x4 • FEVER • Player HP • Analytics CSV</span>
+          </div>
+        </div>
+        <div>
+          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
+        </div>
+      </div>
+
+      <h2 style="margin-top:16px;font-size:1rem;">เลือกรูปแบบการเล่น</h2>
+      <div class="btn-row">
+        <button class="primary" data-action="start-research">
+          <span>โหมดวิจัย</span> <span>📊</span>
+        </button>
+        <button data-action="start-normal">
+          <span>โหมดเล่นปกติ</span> <span>🎮</span>
+        </button>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label for="difficulty">ระดับความยาก</label>
+          <select id="difficulty">
+            <option value="easy">ง่าย — เป้าใหญ่ขึ้น ตกช้าลง</option>
+            <option value="normal" selected>ปกติ — ท้าทายกำลังดี</option>
+            <option value="hard">ยาก — เป้าเล็ก+เร็ว เน้น reaction</option>
+          </select>
+          <div class="help">
+            ขนาดเป้า / ความถี่ / เป้าลวง / HP บอสจะเปลี่ยนตามระดับ
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESEARCH FORM -->
+    <section class="card hidden" id="view-research-form">
+      <div class="top-row">
+        <div>
+          <h1><span class="icon">📋</span>ข้อมูลโหมดวิจัย</h1>
+          <div class="subtitle">
+            กรอกข้อมูลผู้เข้าร่วมเพื่อผูกกับไฟล์ CSV สำหรับการวิเคราะห์ภายหลัง
+          </div>
+        </div>
+        <div>
+          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label for="research-id">รหัสผู้เข้าร่วม (Participant ID)</label>
+          <input id="research-id" placeholder="เช่น P001-01" />
+        </div>
+        <div class="col">
+          <label for="research-group">กลุ่มทดลอง / เงื่อนไข</label>
+          <input id="research-group" placeholder="เช่น Experimental / Control" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label for="research-note">หมายเหตุ (เช่น Pre-test / Post-test)</label>
+          <input id="research-note" placeholder="เช่น Pre-test" />
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="primary" data-action="research-begin-play">
+          เริ่มเล่น Shadow Breaker ▶
+        </button>
+        <button data-action="back-to-menu">
+          ⬅ กลับเมนูเกม
+        </button>
+      </div>
+    </section>
+
+    <!-- PLAY VIEW -->
+    <section class="card hidden" id="view-play">
+      <div class="play-top">
+        <div class="stats">
+          <div class="tag">Mode: <span id="stat-mode">-</span></div>
+          <div class="tag">Diff: <span id="stat-diff">-</span></div>
+          <div class="tag">Score: <span id="stat-score">0</span></div>
+          <div class="tag">HP: <span id="stat-hp">100</span></div>
+          <div class="tag">Combo: <span id="stat-combo">0</span></div>
+          <div class="tag">Perfect: <span id="stat-perfect">0</span></div>
+          <div class="tag">Miss: <span id="stat-miss">0</span></div>
+        </div>
+        <div class="timer">⏱ <span id="stat-time">60.0</span>s</div>
+      </div>
+
+      <div class="play-area">
+        <div id="target-layer"></div>
+      </div>
+
+      <!-- FEVER BAR -->
+      <div class="fever-wrap">
+        <div class="fever-label">FEVER</div>
+        <div class="fever-bar">
+          <div class="fever-fill" id="fever-fill"></div>
+        </div>
+        <div class="fever-status" id="fever-status">FEVER</div>
+      </div>
+
+      <!-- BOSS HP -->
+      <div class="boss-hud">
+        <div class="boss-text">
+          <span id="boss-name">Boss 1/4</span>
+        </div>
+        <div class="boss-bar">
+          <div class="boss-fill" id="boss-fill"></div>
+        </div>
+      </div>
+
+      <!-- BOSS PORTRAIT (Character) -->
+      <div class="boss-portrait" id="boss-portrait">
+        <div class="boss-portrait-inner">
+          <div class="boss-portrait-emoji" id="boss-portrait-emoji">🐣</div>
+          <div class="boss-portrait-text">
+            <div class="boss-portrait-name" id="boss-portrait-name">Bubble Glove</div>
+            <div class="boss-portrait-hint" id="boss-portrait-hint">HP ใกล้หมดแล้ว! ตีให้สุด!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COACH BUBBLE -->
+      <div class="coach-bubble" id="coach-bubble">
+        <div class="coach-avatar" id="coach-avatar">🥊</div>
+        <div class="coach-text-wrap">
+          <div class="coach-role" id="coach-role">โค้ชพลังหมัด</div>
+          <div class="coach-text" id="coach-text">
+            พร้อมลุย Shadow Breaker แล้ว! ชกเป้าให้ทันนะ 🥊
+          </div>
+        </div>
+      </div>
+
+      <div class="banner">
+        <strong>วิธีเล่น:</strong>
+        แตะ/ชก emoji สีหลักให้ทันเวลาเพื่อโจมตีบอส หลีกเลี่ยง emoji หลอก (ลดคะแนน/หลอด FEVER/HP)
+        สะสม FEVER เพื่อเข้าสู่ช่วงทำดาเมจแรงเป็นพิเศษ และรักษา HP ของตัวเองไว้ให้ได้มากที่สุด
+      </div>
+
+      <div class="btn-row" style="margin-top:12px;">
+        <button data-action="stop-early">⏹ หยุดก่อนเวลา</button>
+        <button type="button" onclick="location.href='./index.html'">⬅ กลับ Hub</button>
+      </div>
+    </section>
+
+    <!-- RESULT VIEW -->
+    <section class="card hidden" id="view-result">
+      <div class="top-row">
+        <div>
+          <h1><span class="icon">✅</span>สรุปผลรอบเล่น</h1>
+          <div class="subtitle">
+            ข้อมูลรอบนี้ถูกบันทึกไว้ในไฟล์ CSV แล้ว สามารถนำไปวิเคราะห์หรืออัปโหลดขึ้น cloud / research platform ได้
+          </div>
+        </div>
+        <div>
+          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
+        </div>
+      </div>
+
+      <div class="summary">
+        <table>
+          <tbody>
+            <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
+            <tr><td class="label">ระดับความยาก</td><td id="res-diff">-</td></tr>
+            <tr><td class="label">เหตุจบเกม</td><td id="res-endreason">-</td></tr>
+
+            <tr><td class="label">คะแนนรวม</td><td id="res-score">0</td></tr>
+            <tr><td class="label">คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
+            <tr><td class="label">จำนวนเป้าพลาด</td><td id="res-miss">0</td></tr>
+
+            <tr><td class="label">ความแม่นยำ (Accuracy)</td><td id="res-accuracy">-</td></tr>
+            <tr><td class="label">จำนวนครั้งที่ตีโดน (Hits)</td><td id="res-totalhits">0</td></tr>
+            <tr><td class="label">Reaction time เฉลี่ย (เป้าจริง)</td><td id="res-rt-normal">-</td></tr>
+            <tr><td class="label">Reaction time เฉลี่ย (เป้าหลอก)</td><td id="res-rt-decoy">-</td></tr>
+
+            <tr><td class="label">รหัสผู้เข้าร่วม</td><td id="res-participant">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="primary" data-action="download-csv">
+          ⬇ ดาวน์โหลด CSV รอบนี้
+        </button>
+        <button data-action="play-again">
+          ▶ เล่นอีกครั้ง (ใช้การตั้งค่าเดิม)
+        </button>
+        <button data-action="back-to-menu">
+          ⬅ กลับเมนูเกม
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ถ้ามี backend สำหรับ upload CSV: set URL ไว้แบบนี้
+  <script>
+    window.SHADOWBREAKER_UPLOAD_URL = 'https://your-api.example.com/upload';
+  </script>
+  -->
+
+  <script type="module" src="./js/main-shadow.js"></script>
+</body>
+</html>
