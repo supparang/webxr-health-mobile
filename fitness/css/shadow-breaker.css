@@ -4,12 +4,14 @@
   --card: rgba(15,23,42,0.96);
   --text: #e5e7eb;
   --accent: #22c55e;
-  --accent-soft: rgba(34,197,94,0.18);
+  --accent-soft: rgba(34,197,94,0.16);
 }
 
 /* ===== RESET / LAYOUT ===== */
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -25,12 +27,16 @@ body {
   align-items: stretch;
 }
 
+/* main ให้กว้างพอให้จอเกมใหญ่ */
+
 main {
   width: 100%;
   max-width: 1120px;
   margin: 0 auto;
   padding: 10px 12px 18px;
 }
+
+/* ===== CARD / VIEW ===== */
 
 .card {
   background: var(--card);
@@ -40,16 +46,16 @@ main {
   border: 1px solid rgba(148,163,184,0.4);
 }
 
-.hidden { display: none !important; }
-
-/* ===== HEADER / MENU ===== */
-
-.top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
+#view-play.card,
+#view-play {
+  padding: 10px 12px 14px;
 }
+
+.hidden {
+  display: none !important;
+}
+
+/* ===== HEADER / TITLE ===== */
 
 h1 {
   margin: 0 0 6px;
@@ -58,31 +64,30 @@ h1 {
   align-items: center;
   gap: 8px;
 }
-h1 .icon { font-size: 1.9rem; }
-
+h1 span.icon {
+  font-size: 1.9rem;
+}
 .subtitle {
   margin-bottom: 10px;
   color: #9ca3af;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
-.pill {
-  border-radius: 999px;
-  padding: 3px 9px;
-  font-size: 0.78rem;
-  background: rgba(15,23,42,0.96);
-  border: 1px solid rgba(148,163,184,0.6);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
+.section-title {
+  margin: 12px 0 6px;
+  font-size: 1.1rem;
 }
-.pill .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--accent);
+
+/* ===== TOP ROW (title + back button) ===== */
+
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
 }
+
+/* ===== SMALL BUTTON / PILL ===== */
 
 .btn-small {
   border-radius: 999px;
@@ -102,50 +107,33 @@ h1 .icon { font-size: 1.9rem; }
   transform: translateY(-1px);
 }
 
-.section-title {
-  margin: 10px 0 4px;
-  font-size: 1.1rem;
-}
-
-/* ===== FORM / BUTTONS ===== */
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 10px;
-}
-.col {
-  flex: 1 1 220px;
-}
-
-label {
-  display: block;
-  font-size: 0.82rem;
-  margin-bottom: 3px;
-  color: #9ca3af;
-}
-input,select {
-  width: 100%;
-  padding: 7px 9px;
-  border-radius: 10px;
-  border: 1px solid rgba(148,163,184,0.7);
-  background: rgba(15,23,42,0.98);
-  color: var(--text);
-  font: inherit;
-}
-.help {
+.pill {
+  border-radius: 999px;
+  padding: 3px 9px;
   font-size: 0.78rem;
-  color: #9ca3af;
+  background: rgba(15,23,42,0.96);
+  border: 1px solid rgba(148,163,184,0.6);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-top: 4px;
 }
+.pill span.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ===== BUTTON ROW / BUTTON ===== */
 
 .btn-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
+  margin: 4px 0 12px;
 }
+
 button {
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,0.7);
@@ -161,8 +149,8 @@ button {
 }
 button.primary {
   border-color: var(--accent);
-  background: linear-gradient(135deg,#22c55e,#a3e635);
-  color:#022c22;
+  background: linear-gradient(135deg, #22c55e, #a3e635);
+  color: #022c22;
   box-shadow: 0 12px 30px rgba(34,197,94,0.65);
 }
 button:hover {
@@ -174,11 +162,43 @@ button:active {
   box-shadow: none;
 }
 
-/* ===== PLAY HUD ===== */
+/* ===== FORM ===== */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+.col {
+  flex: 1 1 220px;
+}
+label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  color: #9ca3af;
+}
+input,
+select {
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,0.7);
+  background: rgba(15,23,42,0.98);
+  color: var(--text);
+  font: inherit;
+}
+.help {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* ===== PLAY VIEW HUD ===== */
 
 #view-play {
   margin-top: 6px;
-  padding: 10px 12px 14px;
 }
 
 .play-top {
@@ -186,7 +206,7 @@ button:active {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  font-size: 0.84rem;
+  font-size: 0.86rem;
   margin-bottom: 6px;
 }
 .play-top .stats {
@@ -199,14 +219,14 @@ button:active {
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,0.55);
   background: rgba(15,23,42,0.98);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
 }
 .timer {
   font-weight: 600;
-  letter-spacing: .06em;
+  letter-spacing: 0.05em;
 }
 
-/* ===== PLAY AREA & TARGETS ===== */
+/* ===== PLAY AREA ===== */
 
 .play-area {
   position: relative;
@@ -215,8 +235,8 @@ button:active {
   border-radius: 20px;
   border: 1px solid rgba(148,163,184,0.7);
   background:
-    radial-gradient(circle at top,rgba(15,118,110,0.25),transparent 55%),
-    radial-gradient(circle at bottom,rgba(37,99,235,0.32),transparent 60%),
+    radial-gradient(circle at top, rgba(15,118,110,0.28), transparent 55%),
+    radial-gradient(circle at bottom, rgba(37,99,235,0.38), transparent 60%),
     #020617;
   overflow: hidden;
   touch-action: manipulation;
@@ -226,12 +246,21 @@ button:active {
   margin-top: 4px;
 }
 
+/* Desktop ให้สูงขึ้นหน่อย */
+
+@media (min-width: 1024px) {
+  .play-area {
+    max-height: 72vh;
+    margin-top: 8px;
+  }
+}
+
 #target-layer {
   position: absolute;
   inset: 0;
 }
 
-/* เป้า emoji */
+/* ===== TARGET (emoji) ===== */
 
 .target {
   position: absolute;
@@ -246,8 +275,9 @@ button:active {
   transform: translate(-50%, -50%) scale(1);
   transition: transform 0.12s ease-out, opacity 0.12s ease-out, box-shadow 0.12s;
   color: #e5e7eb;
-  font-size: 2.2rem;
+  font-size: 2rem; /* renderer จะ fix ขนาดด้วย width/height อยู่แล้ว */
 }
+
 .target.decoy {
   box-shadow: 0 10px 28px rgba(239,68,68,0.75);
   border-color: rgba(248,113,113,0.9);
@@ -257,13 +287,26 @@ button:active {
   border-color: rgba(74,222,128,0.9);
 }
 
+/* ตอนเกิด */
+
+.target.spawn {
+  transform: translate(-50%, -50%) scale(0.3);
+  animation: sb-pop-in 0.14s forwards;
+}
+
+/* ตอนโดนตี (engine.js: .target-hit) */
+
 .target-hit {
   animation: sb-hit-burst 0.2s forwards;
 }
+
 .target.miss {
   opacity: 0.35;
 }
 
+@keyframes sb-pop-in {
+  to { transform: translate(-50%, -50%) scale(1); }
+}
 @keyframes sb-hit-burst {
   to {
     transform: translate(-50%, -50%) scale(1.4);
@@ -271,7 +314,7 @@ button:active {
   }
 }
 
-/* shake จอเกม */
+/* เอฟเฟกต์สั่นจอ (ถ้าอยากใช้ตอนโดน decoy) */
 
 .play-area.shake {
   animation: sb-shake 0.16s ease-out;
@@ -284,17 +327,19 @@ button:active {
   100% { transform: translate(0, 0); }
 }
 
-/* particle คะแนน */
+/* ===== HIT PARTICLE (คะแนนเด้ง) ===== */
 
 .particle {
   position: absolute;
-  font-size: 1.3rem;
+  font-size: 1.6rem;
   pointer-events: none;
-  animation: sb-particle 0.45s ease-out forwards;
+  color: #facc15;
+  text-shadow: 0 0 10px rgba(15,23,42,0.95);
+  animation: particleFade 0.4s ease-out forwards;
 }
-@keyframes sb-particle {
+@keyframes particleFade {
   0%   { opacity: 1; transform: translate(-50%, -10px) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -40px) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -32px) scale(1.2); }
 }
 
 /* ===== FEVER BAR ===== */
@@ -449,7 +494,7 @@ button:active {
   color: #e5e7eb;
 }
 
-/* ===== HOW TO ===== */
+/* ===== HOW-TO BANNER ===== */
 
 .banner {
   margin-top: 8px;
@@ -463,7 +508,7 @@ button:active {
   color: #fde68a;
 }
 
-/* ===== RESULT ===== */
+/* ===== RESULT VIEW ===== */
 
 #view-result .summary {
   margin-top: 10px;
