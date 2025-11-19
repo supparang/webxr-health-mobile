@@ -1,240 +1,248 @@
-// fitness/js/dom-renderer.js
+// === fitness/js/dom-renderer.js — Shadow Breaker DOM Renderer (2025-11-19) ===
 'use strict';
 
-const NORMAL_EMOJI = ['⭐️','💎','✨','🌀','🎯','🔆'];
-const DECOY_EMOJI  = ['💣','☠️','⚠️','🧨'];
+/**
+ * ใช้ร่วมกับ GameEngine (engine.js)
+ *
+ *   const host = document.getElementById('target-layer');
+ *   const renderer = new DomRenderer(null, host, { sizePx: 110 });
+ *   renderer.engine = engine;
+ *
+ * engine จะเรียก:
+ *   renderer.clear()
+ *   renderer.spawnTarget(target)
+ *   renderer.markHit(target, quality)
+ *   renderer.markMiss(target)
+ *
+ * target:
+ *   {
+ *     id,
+ *     type: 'main' | 'decoy' | 'heal',
+ *     nx, ny (0–1),
+ *     spawnAt
+ *   }
+ */
 
-function pickEmoji(type){
-  if(type === 'decoy'){
-    return DECOY_EMOJI[Math.floor(Math.random() * DECOY_EMOJI.length)];
-  }
-  return NORMAL_EMOJI[Math.floor(Math.random() * NORMAL_EMOJI.length)];
-}
+const EMOJI_MAIN = ['🟢','🔵','🟣','⭐','⚡','💥'];
+const EMOJI_DECOY = ['❌','💣','🧊','☢️','🕳️'];
+const EMOJI_HEAL  = ['💚','❤️','➕','💊'];
 
 export class DomRenderer {
-  constructor(engine, host, options = {}) {
-    this.engine = engine;
-    this.host   = host;
-    this._nodes = new Map();
-    this.sizePx = options.sizePx || 70;
+  /**
+   * @param {HTMLElement|null} rootEl  กล่องใหญ่ (เช่น .play-area) ถ้าไม่ส่งจะหาเอง
+   * @param {HTMLElement|null} hostEl  ชั้นวาดเป้า (#target-layer) ถ้าไม่ส่งจะสร้าง
+   * @param {Object} opts
+   *   - sizePx: ขนาดเป้าคร่าว ๆ (px) ใช้เป็น base สำหรับ scale
+   */
+  constructor(rootEl, hostEl, opts = {}) {
+    this.root = rootEl || document.querySelector('.play-area') || document.body;
+    this.host = hostEl || document.getElementById('target-layer');
+    this.sizePx = opts.sizePx || 110;
+    this.engine = null; // main-shadow.js จะ set ให้
 
-    this.playArea = this.host ? this.host.closest('.play-area') : null;
+    /** @type {Map<number,{el:HTMLElement,target:Object}>} */
+    this.targets = new Map();
 
-    // เตรียม SFX (optional)
-    try {
-      this.sfxHit   = new Audio('./sfx/hit.mp3');
-      this.sfxDecoy = new Audio('./sfx/decoy.mp3');
-      this.sfxMiss  = new Audio('./sfx/miss.mp3');
-    } catch(e) {
-      this.sfxHit = this.sfxDecoy = this.sfxMiss = null;
+    if (!this.host) {
+      this.host = document.createElement('div');
+      this.host.id = 'target-layer';
+      this.host.style.position = 'absolute';
+      this.host.style.inset = '0';
+      this.root.appendChild(this.host);
+    }
+
+    this._bindPointerEvents();
+  }
+
+  // ล้างเป้าทั้งหมด
+  clear() {
+    this.targets.clear();
+    if (this.host) {
+      this.host.innerHTML = '';
     }
   }
 
-  reset() {
-    if (this.host) this.host.innerHTML = '';
-    this._nodes.clear();
-  }
+  // สร้าง DOM สำหรับเป้าใหม่
+  spawnTarget(target) {
+    if (!this.host) return;
 
-  spawn(target) {
-    const el = document.createElement('div');
+    const el = document.createElement('button');
+    el.type = 'button';
     el.className = 'target spawn';
+    el.setAttribute('data-target-id', String(target.id));
+    el.setAttribute('data-type', target.type || 'main');
+    el.style.position = 'absolute';
+
+    // ใช้เปอร์เซ็นต์ + safe clamp กันหลุดขอบ
+    const nx = this._clamp(target.nx != null ? target.nx : Math.random(), 0.12, 0.88);
+    const ny = this._clamp(target.ny != null ? target.ny : Math.random(), 0.18, 0.82);
+
+    el.style.left = (nx * 100).toFixed(2) + '%';
+    el.style.top  = (ny * 100).toFixed(2) + '%';
+
+    // emoji ตามประเภท
+    el.textContent = this._pickEmoji(target.type);
+
+    // ปรับฐานขนาดคร่าว ๆ (แต่ยังให้ CSS หลักควบคุม)
+    const base = this.sizePx;
+    el.style.width  = base + 'px';
+    el.style.height = base + 'px';
+    el.style.fontSize = Math.round(base * 0.5) + 'px';
+
     if (target.type === 'decoy') {
       el.classList.add('decoy');
+    } else if (target.type === 'heal') {
+      el.classList.add('heal');
     }
-
-    const size = this.sizePx;
-    el.style.width  = size + 'px';
-    el.style.height = size + 'px';
-
-    el.style.left = target.x + '%';
-    el.style.top  = target.y + '%';
-    el.dataset.id = String(target.id);
-
-    const inner = document.createElement('div');
-    inner.textContent = pickEmoji(target.type);
-    inner.style.fontSize = Math.round(size * 0.6) + 'px';
-    inner.style.display = 'flex';
-    inner.style.alignItems = 'center';
-    inner.style.justifyContent = 'center';
-    inner.style.width = '100%';
-    inner.style.height = '100%';
-    el.appendChild(inner);
-
-    const onHit = (ev) => {
-      ev.preventDefault();
-      if (this.engine && this.engine.hitTarget) {
-        this.engine.hitTarget(target.id, { source: 'dom' });
-      }
-    };
-    el.addEventListener('pointerdown', onHit, { passive: false });
 
     this.host.appendChild(el);
-    this._nodes.set(target.id, { el, onHit });
+    this.targets.set(target.id, { el, target });
   }
 
-  _spawnScoreFloat(xPct, yPct, text, color){
-    if (!this.host) return;
-    const node = document.createElement('div');
-    node.textContent = text;
-    node.style.position = 'absolute';
-    node.style.left = xPct + '%';
-    node.style.top  = yPct + '%';
-    node.style.transform = 'translate(-50%, -50%)';
-    node.style.fontSize = '0.9rem';
-    node.style.fontWeight = '700';
-    node.style.pointerEvents = 'none';
-    node.style.transition = 'transform .35s ease-out, opacity .35s ease-out';
-    node.style.opacity = '1';
-    node.style.textShadow = '0 2px 8px rgba(0,0,0,0.7)';
-    node.style.color = color || '#bbf7d0';
+  // แสดง hit effect
+  markHit(target, quality) {
+    const info = this.targets.get(target.id);
+    if (!info) return;
+    const el = info.el;
+    if (!el) return;
 
-    this.host.appendChild(node);
-    requestAnimationFrame(() => {
-      node.style.transform = 'translate(-50%, -85%)';
-      node.style.opacity = '0';
-      setTimeout(() => {
-        if (node.parentElement) node.parentElement.removeChild(node);
-      }, 380);
-    });
-  }
-
-  _spawnBurst(xPct, yPct, isDecoy){
-    if (!this.host) return;
-    const N = 8;
-    for(let i=0;i<N;i++){
-      const shard = document.createElement('div');
-      shard.style.position = 'absolute';
-      shard.style.left = xPct + '%';
-      shard.style.top  = yPct + '%';
-      shard.style.width = '6px';
-      shard.style.height = '6px';
-      shard.style.borderRadius = '999px';
-      shard.style.pointerEvents = 'none';
-      shard.style.opacity = '1';
-      shard.style.transition = 'transform .35s ease-out, opacity .35s ease-out';
-
-      shard.style.background = isDecoy ? '#fecaca' : '#bbf7d0';
-
-      const angle = (Math.PI * 2 * i) / N;
-      const dist  = 24 + Math.random() * 10;
-
-      this.host.appendChild(shard);
-      requestAnimationFrame(() => {
-        shard.style.transform =
-          `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
-        shard.style.opacity = '0';
-        setTimeout(() => {
-          if(shard.parentElement) shard.parentElement.removeChild(shard);
-        }, 380);
-      });
-    }
-  }
-
-  _playSfx(kind){
-    let src = null;
-    if (kind === 'decoy' && this.sfxDecoy) src = this.sfxDecoy;
-    else if (kind === 'miss' && this.sfxMiss) src = this.sfxMiss;
-    else if (this.sfxHit) src = this.sfxHit;
-
-    if (!src) return;
-    try{
-      const a = src.cloneNode();
-      a.volume = 0.9;
-      a.play();
-    }catch(e){}
-  }
-
-  _shakePlayArea(){
-    if(!this.playArea) return;
-    const el = this.playArea;
-    el.classList.remove('shake');
-    void el.offsetWidth;
-    el.classList.add('shake');
-    setTimeout(()=>el.classList.remove('shake'), 220);
-  }
-
-  _flashBossBar(){
-    const bar = document.querySelector('.boss-bar');
-    if(!bar) return;
-    bar.classList.add('hit-flash');
-    setTimeout(()=>bar.classList.remove('hit-flash'), 180);
-  }
-
-  _vibrate(kind){
-    if (!('vibrate' in navigator)) return;
-    try{
-      if (kind === 'decoy'){
-        navigator.vibrate([40,40,40]);
-      } else if (kind === 'miss'){
-        navigator.vibrate([30,60,30]);
-      } else {
-        navigator.vibrate(30);
-      }
-    }catch(e){}
-  }
-
-  _feedbackOnHit(meta, isDecoy){
-    this._shakePlayArea();
-    this._flashBossBar();
-    this._vibrate(isDecoy ? 'decoy' : 'hit');
-    this._playSfx(isDecoy ? 'decoy' : 'hit');
-  }
-
-  hit(id, meta) {
-    const record = this._nodes.get(id);
-    if (!record) return;
-    const { el, onHit } = record;
-    el.removeEventListener('pointerdown', onHit);
-
-    const rectHost = this.host.getBoundingClientRect();
-    const rect     = el.getBoundingClientRect();
-    const xPct = ((rect.left + rect.width / 2) - rectHost.left) / rectHost.width * 100;
-    const yPct = ((rect.top  + rect.height/ 2) - rectHost.top)  / rectHost.height * 100;
-
-    const isDecoy = meta && meta.type === 'decoy';
-
-    this._spawnBurst(xPct, yPct, isDecoy);
-
-    const delta = (meta && typeof meta.deltaScore === 'number')
-      ? meta.deltaScore
-      : (isDecoy ? -5 : 10);
-
-    if (delta !== 0){
-      if (delta > 0){
-        let label = '+' + delta;
-        if (meta && meta.quality === 'perfect'){
-          label = 'Perfect +' + delta;
-        }
-        this._spawnScoreFloat(xPct, yPct, label, '#bbf7d0');
-      } else {
-        this._spawnScoreFloat(xPct, yPct, String(delta), '#fecaca');
-      }
-    }
-
-    this._feedbackOnHit(meta, isDecoy);
-
-    el.classList.add('hit');
     el.classList.remove('spawn');
+    el.classList.add('hit');
+    if (quality) {
+      el.classList.add('hit-' + quality);
+    }
+
+    // score popup เล็ก ๆ ใกล้เป้า
+    this._spawnScorePopup(el, quality, target.type);
+
+    // ลบเป้าออกหลัง animation
     setTimeout(() => {
-      if (el.parentElement) el.parentElement.removeChild(el);
-      this._nodes.delete(id);
-    }, 180);
+      if (el.parentNode) el.parentNode.removeChild(el);
+      this.targets.delete(target.id);
+    }, 220);
   }
 
-  expire(id) {
-    const record = this._nodes.get(id);
-    if (!record) return;
-    const { el, onHit } = record;
-    el.removeEventListener('pointerdown', onHit);
-    el.classList.add('miss');
-    el.style.opacity = '0.3';
+  // แสดง miss effect (จางแล้วหาย)
+  markMiss(target) {
+    const info = this.targets.get(target.id);
+    if (!info) return;
+    const el = info.el;
+    if (!el) return;
 
-    this._vibrate('miss');
-    this._playSfx('miss');
+    el.classList.remove('spawn');
+    el.classList.add('miss');
+    el.style.opacity = '0.35';
 
     setTimeout(() => {
-      if (el.parentElement) el.parentElement.removeChild(el);
-      this._nodes.delete(id);
-    }, 180);
+      if (el.parentNode) el.parentNode.removeChild(el);
+      this.targets.delete(target.id);
+    }, 200);
+  }
+
+  // ---------- internal: pointer / hit detection ----------
+
+  _bindPointerEvents() {
+    if (!this.host) return;
+
+    this.host.addEventListener(
+      'pointerdown',
+      (ev) => {
+        if (!this.engine) return;
+        // ป้องกัน scroll / select บนมือถือ
+        ev.preventDefault();
+
+        const hit = this._pickTargetElement(ev.clientX, ev.clientY);
+        if (!hit) return;
+
+        const idStr = hit.getAttribute('data-target-id');
+        if (!idStr) return;
+        const id = Number(idStr);
+        const info = this.targets.get(id);
+        if (!info || !info.target) return;
+
+        // ส่งให้ engine ตัดสิน PERFECT / GOOD / LATE
+        this.engine.handleHit({
+          id,
+          screenX: ev.clientX,
+          screenY: ev.clientY
+        });
+      },
+      { passive: false }
+    );
+  }
+
+  /**
+   * หา element เป้าจากตำแหน่ง pointer (ใช้ elementFromPoint)
+   */
+  _pickTargetElement(x, y) {
+    // ใช้ elementFromPoint เพื่อหาเป้าที่อยู่บนสุด
+    let el = document.elementFromPoint(x, y);
+    while (el && el !== this.host && el !== document.body && el !== document.documentElement) {
+      if (el.hasAttribute && el.hasAttribute('data-target-id')) {
+        return el;
+      }
+      el = el.parentNode;
+    }
+    return null;
+  }
+
+  // ---------- helpers ----------
+
+  _pickEmoji(type) {
+    if (type === 'decoy') {
+      return EMOJI_DECOY[Math.floor(Math.random() * EMOJI_DECOY.length)];
+    }
+    if (type === 'heal') {
+      return EMOJI_HEAL[Math.floor(Math.random() * EMOJI_HEAL.length)];
+    }
+    return EMOJI_MAIN[Math.floor(Math.random() * EMOJI_MAIN.length)];
+  }
+
+  _clamp(v, min, max) {
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
+  }
+
+  _spawnScorePopup(targetEl, quality, type) {
+    if (!this.host) return;
+    const rectHost = this.host.getBoundingClientRect();
+    const rect = targetEl.getBoundingClientRect();
+
+    const pop = document.createElement('div');
+    pop.textContent = this._scoreText(quality, type);
+    pop.style.position = 'absolute';
+    pop.style.left = (rect.left - rectHost.left + rect.width / 2) + 'px';
+    pop.style.top  = (rect.top - rectHost.top - rect.height * 0.1) + 'px';
+    pop.style.transform = 'translate(-50%,-50%)';
+    pop.style.pointerEvents = 'none';
+    pop.style.fontSize = '0.85rem';
+    pop.style.fontWeight = '600';
+    pop.style.padding = '2px 6px';
+    pop.style.borderRadius = '999px';
+    pop.style.background = 'rgba(15,23,42,0.95)';
+    pop.style.border = '1px solid rgba(250,250,250,0.8)';
+    pop.style.color = '#fefce8';
+    pop.style.boxShadow = '0 6px 18px rgba(0,0,0,0.8)';
+    pop.style.opacity = '1';
+    pop.style.transition = 'opacity .22s ease-out, transform .22s ease-out';
+
+    this.host.appendChild(pop);
+
+    requestAnimationFrame(() => {
+      pop.style.transform = 'translate(-50%,-120%)';
+      pop.style.opacity = '0';
+    });
+
+    setTimeout(() => {
+      if (pop.parentNode) pop.parentNode.removeChild(pop);
+    }, 260);
+  }
+
+  _scoreText(quality, type) {
+    if (quality === 'perfect') return type === 'decoy' ? '😅' : '+PERFECT';
+    if (quality === 'good')    return type === 'decoy' ? '!? ❌' : '+GOOD';
+    if (quality === 'late')    return '+LATE';
+    return 'MISS';
   }
 }
