@@ -1,69 +1,177 @@
-<!-- ===== VIEW: PLAY – Jump-Duck ===== -->
-<section id="view-play" class="view hidden">
-  <!-- HUD ด้านบน -->
-  <div class="hud-row jd-hud-top">
-    <div class="hud-chip">Mode: <b id="hud-mode">Play</b></div>
-    <div class="hud-chip">Diff: <b id="hud-diff">normal</b></div>
-    <div class="hud-chip">Duration: <b id="hud-duration">60s</b></div>
-  </div>
-  <div class="hud-row jd-hud-mid">
-    <div class="hud-chip">Score: <b id="hud-score">0</b></div>
-    <div class="hud-chip">Combo: <b id="hud-combo">0</b></div>
-    <div class="hud-chip">Miss: <b id="hud-miss">0</b></div>
-    <div class="hud-chip">Stability: <b id="hud-stability">100%</b></div>
-    <div class="hud-chip">Time: <b id="hud-time">60.0</b>s</div>
-  </div>
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <title>Jump Duck — VR Fitness Suite</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="dark light"/>
 
-  <!-- PLAY AREA กลางจอ -->
-  <div id="playArea" class="jd-play-area">
-    <!-- แท่ง / ตัวละคร / obstacle จะถูกวาดโดย jump-duck.js -->
-    <canvas id="jd-canvas"></canvas>
+  <!-- CSS -->
+  <link rel="stylesheet" href="./css/jump-duck.css"/>
+</head>
+<body class="jd-bg">
+<div id="app">
 
-    <!-- ถ้ามีข้อความ judge / status -->
-    <div id="jd-judge" class="jd-judge">READY</div>
-  </div>
+  <!-- ===== VIEW: MENU ===== -->
+  <section id="view-menu" class="view">
+    <h1 class="title">🦘 Jump-Duck <span class="sub">Reaction Trainer</span></h1>
+    <p class="subtitle">
+      เกมฝึกการตอบสนอง Jump / Duck ต่อสิ่งกีดขวาง — เพิ่มความว่องไวและการควบคุมลำตัว
+    </p>
 
-  <!-- HOW TO PLAY: Jump-Duck (TH/EN) -->
-  <div class="jd-howto-wrap">
-    <div class="jd-howto-main">
-      <div class="jd-howto-title">
-        🕹 How to Play — Jump-Duck
+    <div class="field">
+      <label for="difficulty">ระดับความยาก / Difficulty</label>
+      <select id="difficulty">
+        <option value="easy">ง่าย (Easy)</option>
+        <option value="normal" selected>ปกติ (Normal)</option>
+        <option value="hard">ยาก (Hard)</option>
+      </select>
+    </div>
+
+    <div class="btn-row">
+      <button data-action="start-normal" class="btn primary">
+        🎮 เล่นปกติ / Play
+      </button>
+      <button data-action="goto-research" class="btn">
+        📊 โหมดวิจัย / Research mode
+      </button>
+    </div>
+
+    <div class="btn-row secondary">
+      <button class="btn ghost" onclick="location.href='./index.html'">
+        ⬅ กลับ Fitness Hub / Back to Hub
+      </button>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: RESEARCH ===== -->
+  <section id="view-research" class="view hidden">
+    <h2>📊 โหมดวิจัย / Research Mode</h2>
+    <p class="subtitle">กรอกข้อมูลผู้เข้าร่วมสำหรับเก็บ CSV</p>
+
+    <div class="field">
+      <label>รหัสผู้เข้าร่วม / Participant ID</label>
+      <input id="researchId" placeholder="เช่น P001"/>
+    </div>
+
+    <div class="field">
+      <label>กลุ่ม / Group</label>
+      <input id="researchGroup" placeholder="Control / Training"/>
+    </div>
+
+    <div class="field">
+      <label>Phase</label>
+      <input id="researchPhase" placeholder="Pre-test / Post-test"/>
+    </div>
+
+    <div class="btn-row">
+      <button data-action="start-research" class="btn primary">
+        ▶ เริ่มเล่น (วิจัย)
+      </button>
+      <button data-action="back-menu" class="btn ghost">⬅ กลับ / Back</button>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: PLAY ===== -->
+  <section id="view-play" class="view hidden">
+
+    <!-- HUD TOP -->
+    <div class="hud-row jd-hud-top">
+      <div class="hud-chip">Mode: <b id="hud-mode">Play</b></div>
+      <div class="hud-chip">Diff: <b id="hud-diff">normal</b></div>
+      <div class="hud-chip">Duration: <b id="hud-duration">60s</b></div>
+    </div>
+
+    <div class="hud-row jd-hud-mid">
+      <div class="hud-chip">Score: <b id="hud-score">0</b></div>
+      <div class="hud-chip">Combo: <b id="hud-combo">0</b></div>
+      <div class="hud-chip">Miss: <b id="hud-miss">0</b></div>
+      <div class="hud-chip">Stability: <b id="hud-stability">100%</b></div>
+      <div class="hud-chip">Time: <b id="hud-time">60.0</b>s</div>
+    </div>
+
+    <!-- GAMEPLAY CANVAS -->
+    <div id="playArea" class="jd-play-area">
+      <canvas id="jd-canvas"></canvas>
+      <div id="jd-judge" class="jd-judge">READY</div>
+    </div>
+
+    <!-- HOW TO PLAY (TH + EN) -->
+    <div class="jd-howto-wrap">
+      <div class="jd-howto-main">
+
+        <div class="jd-howto-title">🕹 How to Play — Jump-Duck</div>
+
+        <div class="jd-howto-row">
+          <div class="jd-howto-label">TH</div>
+          <div class="jd-howto-text">
+            • สิ่งกีดขวางเตี้ย → <b>Jump</b><br/>
+            • สิ่งกีดขวางบนหัว → <b>Duck</b><br/>
+            • แตะ / ปัด / กด เมื่อสิ่งกีดขวางเข้ากรอบกลางจอ<br/>
+            • ทำถูก = คอมโบ + ได้คะแนน<br/>
+            • ทำพลาด = Miss + Stability ลดลง
+          </div>
+        </div>
+
+        <div class="jd-howto-row">
+          <div class="jd-howto-label">EN</div>
+          <div class="jd-howto-text">
+            • Low obstacle → <b>Jump</b><br/>
+            • High obstacle → <b>Duck</b><br/>
+            • Tap / swipe / press when obstacle reaches the center zone<br/>
+            • Correct = Score + Combo<br/>
+            • Wrong = Miss + Stability Loss
+          </div>
+        </div>
+
       </div>
 
-      <div class="jd-howto-row">
-        <div class="jd-howto-label">TH</div>
-        <div class="jd-howto-text">
-          • สิ่งกีดขวางเตี้ย → <b>กระโดด (Jump)</b><br/>
-          • สิ่งกีดขวางบนหัว → <b>ก้ม/ย่อตัว (Duck)</b><br/>
-          • แตะ / ปัด / กด ให้ตรงจังหวะเมื่อสิ่งกีดขวางเข้ามาในกรอบกลางจอ<br/>
-          • ทำถูก = ได้คะแนน + คอมโบ / ทำพลาด = Miss + เสีย HP หรือ Stability
-        </div>
-      </div>
-
-      <div class="jd-howto-row">
-        <div class="jd-howto-label">EN</div>
-        <div class="jd-howto-text">
-          • Low obstacle → <b>Jump</b><br/>
-          • High / overhead obstacle → <b>Duck</b><br/>
-          • Tap / swipe / press when the obstacle reaches the center zone<br/>
-          • Correct = Score + Combo / Wrong = Miss + HP or Stability loss
-        </div>
+      <div class="jd-tip-bubble">
+        💡 Tip: เริ่มจาก <b>Easy</b> เพื่อเรียนรู้ timing แล้วค่อยขึ้น Normal / Hard!
       </div>
     </div>
 
-    <div class="jd-tip-bubble">
-      💡 Tip: เริ่มจากระดับ <b>Easy</b> เพื่อจับจังหวะการ Jump / Duck ให้มั่นใจ
-      แล้วค่อยขยับไป <b>Normal</b> หรือ <b>Hard</b> เมื่อลำตัวเริ่มชินกับท่าและจังหวะ
+    <!-- BUTTONS -->
+    <div class="btn-row jd-btn-row">
+      <button data-action="stop" class="btn ghost">⏹ หยุดก่อนเวลา / Stop early</button>
+      <button onclick="location.href='./index.html'" class="btn ghost">
+        ⬅ Hub
+      </button>
     </div>
-  </div>
 
-  <!-- ปุ่มควบคุมด้านล่าง -->
-  <div class="btn-row jd-btn-row">
-    <button type="button" class="btn ghost" data-action="stop">
-      ⏹ หยุดก่อนเวลา / Stop early
-    </button>
-    <button type="button" class="btn ghost" onclick="location.href='./index.html'">
-      ⬅ กลับ Fitness Hub / Back to Hub
-    </button>
-  </div>
-</section>
+  </section>
+
+  <!-- ===== VIEW: RESULT ===== -->
+  <section id="view-result" class="view hidden">
+    <h2>📈 สรุปผล / Session Summary</h2>
+
+    <div class="result-grid">
+      <div class="result-row"><span>Mode</span><b id="res-mode"></b></div>
+      <div class="result-row"><span>Difficulty</span><b id="res-diff"></b></div>
+      <div class="result-row"><span>Score</span><b id="res-score"></b></div>
+      <div class="result-row"><span>Max Combo</span><b id="res-maxcombo"></b></div>
+      <div class="result-row"><span>Miss</span><b id="res-miss"></b></div>
+
+      <div class="result-row"><span>Stability Avg</span><b id="res-stability"></b></div>
+      <div class="result-row"><span>Total Obstacles</span><b id="res-total"></b></div>
+      <div class="result-row"><span>Accuracy</span><b id="res-acc"></b></div>
+    </div>
+
+    <p class="note">
+      CSV จะดาวน์โหลดอัตโนมัติในโหมดวิจัย<br/>
+      CSV auto-downloads in Research Mode.
+    </p>
+
+    <div class="btn-row">
+      <button data-action="play-again" class="btn primary">🔁 เล่นอีกครั้ง</button>
+      <button data-action="back-menu" class="btn ghost">🏠 กลับเมนู</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- JS -->
+<script type="module" src="./js/jump-duck.js"></script>
+
+</body>
+</html>
