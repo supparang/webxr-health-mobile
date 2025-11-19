@@ -1,60 +1,61 @@
-// === fitness/js/config.js (Shadow Breaker difficulty + bosses) ===
+// === fitness/js/config.js — Shadow Breaker difficulty & boss config (2025-11-19) ===
 'use strict';
 
-// รายชื่อบอส 4 ตัว (ชื่อ + emoji)
 const BOSSES = [
-  { name: 'Bubble Glove', emoji: '🐣' },
-  { name: 'Neon Fist',    emoji: '🧤' },
-  { name: 'Tempo Titan',  emoji: '🎵' },
-  { name: 'Shadow King',  emoji: '👑' }
+  { name: 'Bubble Glove', emoji: '🫧', final: false },
+  { name: 'Metal Mitt',   emoji: '🤖', final: false },
+  { name: 'Shadow Paw',   emoji: '🐾', final: false },
+  { name: 'Star Fury',    emoji: '🌟', final: true  }
 ];
 
-function baseConfig() {
-  return {
-    emojiMain:  '🥊',
-    emojiDecoy: '💣',
-    bosses: BOSSES
+export function pickConfig(diffKey) {
+  const base = {
+    durationMs: 60000,
+    targetLifeMs: 900,
+    bossHPPerBoss: 120,
+    bossList: BOSSES,
+    bossCount: BOSSES.length,
+    decoyChance: 0.18,
+    // phase → spawn speed
+    phase2SpawnFactor: 0.9,
+    phase3SpawnFactor: 0.75,
+    finalBossSpawnFactor: 0.85
   };
-}
 
-const DIFF = {
-  easy: {
-    name: 'easy',
-    // เล่นสบาย เป้าใหญ่ ตกช้า decoy น้อย
-    durationMs:    60000,
-    spawnInterval: 900,
-    targetLifeMs:  1200,
-    targetSizePx:  120,
-    hitRadius:     120,
-    decoyChance:   0.06,
-    bossHPPerBoss: 80
-  },
-  normal: {
-    name: 'normal',
-    durationMs:    60000,
-    spawnInterval: 750,
-    targetLifeMs:  900,
-    targetSizePx:  96,
-    hitRadius:     96,
-    decoyChance:   0.14,
-    bossHPPerBoss: 100
-  },
-  hard: {
-    name: 'hard',
-    durationMs:    60000,
-    spawnInterval: 600,
-    targetLifeMs:  750,
-    targetSizePx:  78,
-    hitRadius:     78,
-    decoyChance:   0.22,
-    bossHPPerBoss: 120
+  switch (diffKey) {
+    case 'easy':
+      return {
+        ...base,
+        name: 'easy',
+        spawnInterval: 900,
+        scoreHit: 10,
+        hpMissPenalty: 3,
+        hitRadius: 110,     // เป้าใหญ่ + วงตีง่าย
+        emojiMain: '🥊',
+        emojiDecoy: '💣'
+      };
+    case 'hard':
+      return {
+        ...base,
+        name: 'hard',
+        spawnInterval: 650,
+        scoreHit: 14,
+        hpMissPenalty: 6,
+        hitRadius: 80,      // ต้องเล็งแม่นขึ้น
+        emojiMain: '💥',
+        emojiDecoy: '💣'
+      };
+    case 'normal':
+    default:
+      return {
+        ...base,
+        name: 'normal',
+        spawnInterval: 780,
+        scoreHit: 12,
+        hpMissPenalty: 4,
+        hitRadius: 95,
+        emojiMain: '🥊',
+        emojiDecoy: '💣'
+      };
   }
-};
-
-export function pickConfig(key = 'normal') {
-  const k = DIFF[key] ? key : 'normal';
-  return {
-    ...baseConfig(),
-    ...DIFF[k]
-  };
 }
