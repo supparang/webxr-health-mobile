@@ -1,74 +1,55 @@
-// js/config-shadow.js
+// === config-shadow.js — Bosses + Difficulty Factors (2025-11-19) ===
 'use strict';
 
-// กำหนดชุดบอสพื้นฐาน (ชื่อ + emoji) แล้วปรับ HP ตามระดับความยาก
-const BASE_BOSSES = [
-  { name: 'Bubble Glove',   emoji: '🐣' },
-  { name: 'Thunder Paw',    emoji: '🐯' },
-  { name: 'Shadow King',    emoji: '🐉' },
-  { name: 'Star Titan',     emoji: '🤖' }
+export const BOSSES = [
+  { name: 'Bubble Glove', emoji: '🐣' },
+  { name: 'Neon Fist',    emoji: '🧤' },
+  { name: 'Tempo Titan',  emoji: '🎵' },
+  { name: 'Shadow King',  emoji: '👑' }
 ];
 
-// helper สร้าง list บอสตาม HP ที่ต้องการ
-function makeBosses(hpList){
-  return BASE_BOSSES.map((b, i)=>({
-    name: b.name,
-    emoji: b.emoji,
-    hp: hpList[i] || hpList[hpList.length-1]
-  }));
-}
+// ค่าเริ่มต้น Shadow Breaker
+export function pickShadowConfig(diff = 'normal') {
+  const base = {
+    durationMs: 60000,
+    targetLifeMs: 900,
+    spawnInterval: 750,
 
-/**
- * idea จำนวน hit โดยประมาณ (non-fever):
- * - easy:    ~10 / 14 / 18 / 22
- * - normal:  ~15 / 22 / 30 / 38
- * - hard:    ~20 / 30 / 42 / 56
- */
-export const DifficultyConfigs = {
-  easy: {
-    name: 'easy',
-    durationMs: 60000,
-    spawnIntervalMs: 900,
-    targetLifetimeMs: 1300,
-    maxConcurrent: 3,
-    decoyChance: 0.15,
-    scorePerHit: 10,
-    penaltyDecoy: 5,
-    targetSizePx: 80,
-    minDistancePct: 20,
-    speedupFactor: 0.35,
-    bosses: makeBosses([10, 14, 18, 22])
-  },
-  normal: {
-    name: 'normal',
-    durationMs: 60000,
-    spawnIntervalMs: 700,
-    targetLifetimeMs: 1000,
-    maxConcurrent: 4,
-    decoyChance: 0.25,
-    scorePerHit: 10,
-    penaltyDecoy: 7,
-    targetSizePx: 70,
-    minDistancePct: 18,
-    speedupFactor: 0.5,
-    bosses: makeBosses([15, 22, 30, 38])
-  },
-  hard: {
-    name: 'hard',
-    durationMs: 60000,
-    spawnIntervalMs: 520,
-    targetLifetimeMs: 850,
-    maxConcurrent: 5,
-    decoyChance: 0.35,
-    scorePerHit: 12,
-    penaltyDecoy: 10,
-    targetSizePx: 60,
-    minDistancePct: 16,
-    speedupFactor: 0.65,
-    bosses: makeBosses([20, 30, 42, 56])
+    scoreHit: 10,
+    hitRadius: 90,
+
+    decoyChance: 0.18,
+
+    hpMax: 100,
+    hpMissPenalty: 4,
+
+    bossCount: BOSSES.length,
+    bossHPPerBoss: 100,
+    bossDamagePerHit: 3,
+
+    feverGainPerHit: 16,
+    feverDecayPerSec: 10,
+    feverThreshold: 100,
+    feverDurationMs: 5000,
+
+    bosses: BOSSES,
+    emojiMain: '🥊',
+    emojiDecoy: '💣'
+  };
+
+  if (diff === 'easy') {
+    base.spawnInterval = 900;
+    base.targetLifeMs = 1100;
+    base.hitRadius = 115;
+    base.decoyChance = 0.1;
   }
-};
 
-export function pickConfigShadow(key) {
-  return DifficultyConfigs[key] || DifficultyConfigs.normal;
+  if (diff === 'hard') {
+    base.spawnInterval = 600;
+    base.targetLifeMs = 750;
+    base.hitRadius = 70;
+    base.decoyChance = 0.25;
+  }
+
+  return base;
 }
