@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
 
-  <!-- favicon (ถ้ามีไฟล์อยู่ใน /fitness/favicon.ico) -->
+  <!-- favicon (ใช้ favicon.ico ในโฟลเดอร์ /fitness) -->
   <link rel="icon" type="image/x-icon" href="./favicon.ico">
 
   <!-- สไตล์หลักของ Shadow Breaker -->
@@ -29,6 +29,7 @@
           </div>
         </div>
         <div>
+          <!-- กลับไป Hub หลักของ VR Fitness -->
           <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
         </div>
       </div>
@@ -116,6 +117,24 @@
 
       <div class="play-area">
         <div id="target-layer"></div>
+
+        <!-- BOSS INTRO OVERLAY (ครอบบน play-area) -->
+        <div class="boss-intro hidden" id="boss-intro">
+          <div class="boss-intro-card">
+            <div class="boss-intro-emoji" id="boss-intro-emoji">🐣</div>
+            <div class="boss-intro-texts">
+              <div class="boss-intro-label">BOSS APPEARS</div>
+              <div class="boss-intro-name" id="boss-intro-name">Bubble Glove</div>
+              <div class="boss-intro-title" id="boss-intro-title">บอสมือใหม่สายฟอง</div>
+              <div class="boss-intro-desc" id="boss-intro-desc">
+                บอสอุ่นเครื่อง เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰
+              </div>
+              <div class="boss-intro-hint">
+                แตะหน้าจอหรือรอ 2 วิ เพื่อเริ่มต่อสู้
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- FEVER BAR -->
@@ -143,7 +162,9 @@
           <div class="boss-portrait-emoji" id="boss-portrait-emoji">🐣</div>
           <div class="boss-portrait-text">
             <div class="boss-portrait-name" id="boss-portrait-name">Bubble Glove</div>
-            <div class="boss-portrait-hint" id="boss-portrait-hint">HP ใกล้หมดแล้ว! ตีให้สุด!</div>
+            <div class="boss-portrait-hint" id="boss-portrait-hint">
+              HP ใกล้หมดแล้ว! ตีให้สุด!
+            </div>
           </div>
         </div>
       </div>
