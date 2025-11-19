@@ -1,4 +1,4 @@
-// === fitness/js/engine.js (2025-11-19 — mobile hit + FEVER + popup) ===
+// === engine.js (2025-11-19 — Boss Phase Update + Low HP Mode) ===
 'use strict';
 
 const DEFAULTS = {
@@ -8,8 +8,6 @@ const DEFAULTS = {
 
   scoreHit: 10,
   scoreMissPenalty: 0,
-
-  // ปรับให้กว้างขึ้น ตีง่ายขึ้นบนมือถือ
   hitRadius: 90,
 
   hpMax: 100,
@@ -21,7 +19,6 @@ const DEFAULTS = {
 
   decoyChance: 0.18,
 
-  // FEVER: เพิ่ม gain ต่อ hit ให้เห็นผลง่ายขึ้น
   feverGainPerHit: 16,
   feverDecayPerSec: 10,
   feverThreshold: 100,
@@ -30,21 +27,25 @@ const DEFAULTS = {
 
 export class GameEngine {
   constructor({ config = {}, hooks = {}, renderer, logger, mode = 'normal' }) {
-    this.cfg      = { ...DEFAULTS, ...config };
-    this.hooks    = hooks;
+    this.cfg = { ...DEFAULTS, ...config };
+    this.hooks = hooks;
     this.renderer = renderer;
-    this.logger   = logger || {};
-    this.mode     = mode;
+    this.logger = logger || {};
+    this.mode = mode;
 
-    if (this.renderer && typeof this.renderer.setEngine === 'function') {
-      this.renderer.setEngine(this);
-    }
+    if (this.renderer?.setEngine) this.renderer.setEngine(this);
 
     this.targets = [];
     this.running = false;
+
     this.hitRadius = this.cfg.hitRadius;
 
-    this._stats = {
+    this._stats = this._makeStats();
+    this.state = null;
+  }
+
+  _makeStats() {
+    return {
       spawns: 0,
       hitsNormal: 0,
       hitsDecoy: 0,
@@ -54,15 +55,15 @@ export class GameEngine {
       sumRTDecoy: 0,
       cntRTDecoy: 0
     };
-
-    this.state       = null;
-    this.startAt     = 0;
-    this.nextSpawnAt = 0;
   }
 
-  /* ---------- reset / start / stop ---------- */
-
+  /* ----------------------------------------------
+   * Reset
+   * ----------------------------------------------
+   */
   _resetState() {
+    const bossList = this.cfg.bosses || [];
+
     this.state = {
       score: 0,
       combo: 0,
@@ -82,37 +83,29 @@ export class GameEngine {
       bossCount: this.cfg.bossCount,
       bossHP: this.cfg.bossHPPerBoss,
       bossMaxHP: this.cfg.bossHPPerBoss,
-      bossName: '',
-      bossEmoji: '',
+      bossName: bossList[0]?.name || '',
+      bossEmoji: bossList[0]?.emoji || '',
 
       endedBy: null,
       elapsedMs: 0,
-
       analytics: null
     };
 
     this.targets = [];
-
-    this._stats.spawns      = 0;
-    this._stats.hitsNormal  = 0;
-    this._stats.hitsDecoy   = 0;
-    this._stats.misses      = 0;
-    this._stats.sumRTNormal = 0;
-    this._stats.cntRTNormal = 0;
-    this._stats.sumRTDecoy  = 0;
-    this._stats.cntRTDecoy  = 0;
+    this._stats = this._makeStats();
   }
 
+  /* ----------------------------------------------
+   * Start / Stop
+   * ----------------------------------------------
+   */
   start() {
     this._resetState();
-    this.running     = true;
-    this.startAt     = performance.now();
-    this.nextSpawnAt = this.startAt + 400;
+    this.running = true;
+    this.startAt = performance.now();
+    this.nextSpawnAt = this.startAt + 300;
 
-    if (this.renderer && typeof this.renderer.clear === 'function') {
-      this.renderer.clear();
-    }
-
+    this.renderer?.clear?.();
     this._loop();
   }
 
@@ -120,197 +113,168 @@ export class GameEngine {
     if (!this.running) return;
     this.running = false;
 
-    const now = performance.now();
-    this.state.elapsedMs = now - this.startAt;
-    this.state.endedBy   = reason;
+    this.state.endedBy = reason;
+    this.state.elapsedMs = performance.now() - this.startAt;
 
     this._finalizeAnalytics();
-
-    try { this.hooks.onEnd?.(this.state); } catch (e) {
-      console.warn('onEnd error', e);
-    }
-    try { this.logger.finish?.(this.state); } catch (e) {
-      console.warn('logger.finish error', e);
-    }
+    this.hooks.onEnd?.(this.state);
+    this.logger.finish?.(this.state);
   }
 
-  /* ---------- Touch / hit ---------- */
-
+  /* ----------------------------------------------
+   * HIT SYSTEM
+   * ----------------------------------------------
+   */
   registerTouch(x, y) {
-    if (!this.running || !this.targets.length) return;
+    if (!this.running) return;
 
-    let best = null;
-    let bestDist = Infinity;
+    let nearest = null;
+    let nearestDist = Infinity;
 
     for (const t of this.targets) {
       if (t.hit || t.expired || !t.dom) continue;
-      const rect = t.dom.getBoundingClientRect();
-      const cx = rect.left + rect.width  / 2;
-      const cy = rect.top  + rect.height / 2;
-      const dist = Math.hypot(x - cx, y - cy);
-      if (dist <= this.hitRadius && dist < bestDist) {
-        best = t;
-        bestDist = dist;
+
+      const r = t.dom.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+
+      const d = Math.hypot(x - cx, y - cy);
+      if (d <= this.hitRadius && d < nearestDist) {
+        nearest = t;
+        nearestDist = d;
       }
     }
 
-    if (!best) return;
-    this._hitTarget(best);
+    if (nearest) this._hitTarget(nearest);
   }
 
   _hitTarget(t) {
     if (t.hit || t.expired) return;
-
     const now = performance.now();
-    t.hit   = true;
-    t.hitAt = now;
 
+    t.hit = true;
+    const rt = t.spawnAt ? now - t.spawnAt : 0;
     const isDecoy = !!t.decoy;
-    const rt = t.spawnAt ? (now - t.spawnAt) : 0;
 
+    /* --- Decoy case --- */
     if (isDecoy) {
       this._stats.hitsDecoy++;
-      if (rt > 0) {
-        this._stats.sumRTDecoy += rt;
-        this._stats.cntRTDecoy++;
-      }
-
       this.state.combo = 0;
       this.state.missCount++;
       this.state.playerHP = Math.max(0, this.state.playerHP - this.cfg.hpMissPenalty);
     } else {
+      /* --- Normal target hit --- */
       this._stats.hitsNormal++;
-      if (rt > 0) {
-        this._stats.sumRTNormal += rt;
-        this._stats.cntRTNormal++;
-      }
 
-      const base      = this.cfg.scoreHit;
+      const base = this.cfg.scoreHit;
       const feverMult = this.state.feverActive ? 2 : 1;
-      const gain      = base * feverMult;
+      const gain = base * feverMult;
 
       this.state.score += gain;
       this.state.combo++;
-      if (this.state.combo > this.state.maxCombo) {
-        this.state.maxCombo = this.state.combo;
+      this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+
+      // FEVER
+      this.state.feverCharge = Math.min(100, this.state.feverCharge + this.cfg.feverGainPerHit);
+      if (!this.state.feverActive && this.state.feverCharge >= 100) {
+        this.state.feverActive = true;
+        this.state.feverUntil = now + this.cfg.feverDurationMs;
       }
 
-      this.state.feverCharge = Math.min(
-        100,
-        this.state.feverCharge + this.cfg.feverGainPerHit
-      );
-
+      // Boss damage
       this.state.bossHP = Math.max(0, this.state.bossHP - this.cfg.bossDamagePerHit);
 
+      // Boss killed?
       if (this.state.bossHP <= 0) {
         if (this.state.bossIndex + 1 >= this.state.bossCount) {
+          // บอสตัวสุดท้ายตาย → จบเกม
           this._emitHitEffect(t, gain);
           this._updateHUDImmediate();
           this.stop('boss-cleared');
           return;
         } else {
+          // ไปบอสตัวใหม่
           this.state.bossIndex++;
-          this.state.bossHP    = this.cfg.bossHPPerBoss;
+          this.state.bossHP = this.cfg.bossHPPerBoss;
           this.state.bossMaxHP = this.cfg.bossHPPerBoss;
+
+          const bl = this.cfg.bosses || [];
+          const meta = bl[this.state.bossIndex];
+          if (meta) {
+            this.state.bossName = meta.name;
+            this.state.bossEmoji = meta.emoji;
+          }
         }
       }
 
-      if (!this.state.feverActive && this.state.feverCharge >= this.cfg.feverThreshold) {
-        this.state.feverActive = true;
-        this.state.feverUntil  = now + this.cfg.feverDurationMs;
-      }
-
+      // FX popup + score
       this._emitHitEffect(t, gain);
     }
 
-    if (t.dom) {
-      // ❗ ให้ตรงกับ CSS: .target-hit
-      t.dom.classList.add('target-hit');
-      setTimeout(() => {
-        this.renderer?.removeTarget?.(t);
-      }, 120);
-    }
+    // DOM effect
+    if (t.dom) t.dom.classList.add('target-hit');
+    setTimeout(() => this.renderer?.removeTarget?.(t), 110);
 
-    try {
-      this.logger.logHit?.({
-        id: t.id,
-        event: 'hit',
-        type: isDecoy ? 'decoy' : 'normal',
-        result: isDecoy ? 'decoy' : 'hit',
-        score: this.state.score,
-        combo: this.state.combo,
-        missCount: this.state.missCount,
-        playerHP: this.state.playerHP,
-        reactionMs: rt
-      });
-    } catch (e) {
-      console.warn('logger.logHit error', e);
-    }
+    this.hooks.onUpdate?.(this.state);
 
-    this._updateHUDImmediate();
-  }
-
-  _emitHitEffect(t, gain) {
-    if (!this.renderer || typeof this.renderer.spawnHitEffect !== 'function') return;
-    this.renderer.spawnHitEffect(t, {
-      score: gain,
-      fever: this.state.feverActive
+    this.logger.logHit?.({
+      id: t.id,
+      type: isDecoy ? 'decoy' : 'normal',
+      score: this.state.score,
+      combo: this.state.combo,
+      missCount: this.state.missCount,
+      playerHP: this.state.playerHP,
+      reactionMs: rt
     });
   }
 
-  _updateHUDImmediate() {
-    try {
-      this.hooks.onUpdate?.(this.state);
-    } catch (e) {
-      console.warn('onUpdate error', e);
-    }
-  }
-
-  /* ---------- loop / spawn ---------- */
-
+  /* ----------------------------------------------
+   * MAIN LOOP
+   * ----------------------------------------------
+   */
   _loop() {
     if (!this.running) return;
 
     const now = performance.now();
-    const elapsed   = now - this.startAt;
-    const remaining = Math.max(0, this.cfg.durationMs - elapsed);
-    this.state.remainingMs = remaining;
+    const el = now - this.startAt;
+    const rem = Math.max(0, this.cfg.durationMs - el);
+    this.state.remainingMs = rem;
 
-    const dtSec = 16 / 1000;
+    // FEVER decay
     if (this.state.feverActive) {
-      if (now >= this.state.feverUntil) {
-        this.state.feverActive = false;
-      }
+      if (now >= this.state.feverUntil) this.state.feverActive = false;
     } else if (this.state.feverCharge > 0) {
       this.state.feverCharge = Math.max(
         0,
-        this.state.feverCharge - this.cfg.feverDecayPerSec * dtSec
+        this.state.feverCharge - this.cfg.feverDecayPerSec * (16 / 1000)
       );
     }
 
-    if (remaining <= 0) {
+    if (rem <= 0) {
       this.stop('timeout');
       return;
     }
 
+    // Spawn
     if (now >= this.nextSpawnAt) {
       this._spawnTarget(now);
       this.nextSpawnAt = now + this.cfg.spawnInterval;
     }
 
-    const life = this.cfg.targetLifeMs;
+    // Expire
     for (const t of this.targets) {
       if (t.hit || t.expired) continue;
-      if (now - t.spawnAt >= life) {
+
+      if (now - t.spawnAt >= this.cfg.targetLifeMs) {
         t.expired = true;
-        this.state.missCount++;
         this.state.combo = 0;
+        this.state.missCount++;
         this._stats.misses++;
 
         if (!t.decoy) {
           this.state.playerHP = Math.max(0, this.state.playerHP - this.cfg.hpMissPenalty);
           if (this.state.playerHP <= 0) {
-            this._updateHUDImmediate();
+            this.hooks.onUpdate?.(this.state);
             this.stop('player-dead');
             return;
           }
@@ -318,36 +282,40 @@ export class GameEngine {
 
         if (t.dom) {
           t.dom.classList.add('miss');
-          setTimeout(() => {
-            this.renderer?.removeTarget?.(t);
-          }, 80);
-        }
-
-        try {
-          this.logger.logExpire?.({
-            id: t.id,
-            type: t.decoy ? 'decoy' : 'normal',
-            result: 'timeout',
-            playerHP: this.state.playerHP,
-            missCount: this.state.missCount
-          });
-        } catch (e) {
-          console.warn('logger.logExpire error', e);
+          setTimeout(() => this.renderer?.removeTarget?.(t), 90);
         }
       }
     }
 
-    this._updateHUDImmediate();
+    this.hooks.onUpdate?.(this.state);
     requestAnimationFrame(() => this._loop());
   }
 
+  /* ----------------------------------------------
+   * SPAWN TARGET
+   * ----------------------------------------------
+   */
   _spawnTarget(now) {
-    const isDecoy = Math.random() < this.cfg.decoyChance;
+    const bosses = this.cfg.bosses || [];
+    const bMeta = bosses[this.state.bossIndex];
+
+    const isLow = this.state.bossHP <= this.state.bossMaxHP * 0.3;
+    const isDecoy = isLow ? false : Math.random() < this.cfg.decoyChance;
+
+    let emoji;
+    if (isLow) {
+      emoji = bMeta?.emoji || '🥊';
+    } else {
+      emoji = isDecoy
+        ? this.cfg.emojiDecoy
+        : this.cfg.emojiMain;
+    }
+
     const t = {
       id: 't' + Math.random().toString(36).slice(2),
       x: Math.random(),
       y: Math.random(),
-      emoji: isDecoy ? this.cfg.emojiDecoy || '💣' : this.cfg.emojiMain || '⭐',
+      emoji,
       decoy: isDecoy,
       spawnAt: now,
       hit: false,
@@ -358,40 +326,47 @@ export class GameEngine {
     this.targets.push(t);
     this._stats.spawns++;
 
-    try {
-      this.renderer?.spawnTarget?.(t);
-      this.logger.logSpawn?.({
-        id: t.id,
-        type: isDecoy ? 'decoy' : 'normal'
-      });
-    } catch (e) {
-      console.warn('spawn error', e);
-    }
+    this.renderer?.spawnTarget?.(t);
+    this.logger.logSpawn?.({
+      id: t.id,
+      type: isDecoy ? 'decoy' : 'normal'
+    });
   }
 
-  /* ---------- analytics ---------- */
-
+  /* ----------------------------------------------
+   * Analytics
+   * ----------------------------------------------
+   */
   _finalizeAnalytics() {
-    const totalSpawns = this._stats.spawns;
-    const totalHits   = this._stats.hitsNormal + this._stats.hitsDecoy;
-    const accuracy    = totalSpawns > 0 ? totalHits / totalSpawns : 0;
+    const st = this._stats;
+    const totalSpawns = st.spawns;
+    const totalHits = st.hitsNormal + st.hitsDecoy;
 
-    const avgNormal = this._stats.cntRTNormal
-      ? this._stats.sumRTNormal / this._stats.cntRTNormal
-      : 0;
-    const avgDecoy = this._stats.cntRTDecoy
-      ? this._stats.sumRTDecoy / this._stats.cntRTDecoy
-      : 0;
+    const accuracy = totalSpawns > 0 ? totalHits / totalSpawns : 0;
+
+    const avgN = st.cntRTNormal ? st.sumRTNormal / st.cntRTNormal : 0;
+    const avgD = st.cntRTDecoy ? st.sumRTDecoy / st.cntRTDecoy : 0;
 
     this.state.analytics = {
       totalSpawns,
       totalHits,
-      normalHits: this._stats.hitsNormal,
-      decoyHits:  this._stats.hitsDecoy,
-      expiredMisses: this._stats.misses,
+      normalHits: st.hitsNormal,
+      decoyHits: st.hitsDecoy,
+      expiredMisses: st.misses,
       accuracy,
-      avgReactionNormal: avgNormal,
-      avgReactionDecoy:  avgDecoy
+      avgReactionNormal: avgN,
+      avgReactionDecoy: avgD
     };
+  }
+
+  _emitHitEffect(t, gain) {
+    this.renderer?.spawnHitEffect?.(t, {
+      score: gain,
+      fever: this.state.feverActive
+    });
+  }
+
+  _updateHUDImmediate() {
+    this.hooks.onUpdate?.(this.state);
   }
 }
