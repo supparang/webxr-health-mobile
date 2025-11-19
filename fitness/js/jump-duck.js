@@ -1,478 +1,401 @@
 // fitness/js/jump-duck.js
-// VR-Fitness: Jump & Duck — self-contained version (no imports)
-// Mode: play / research, CSV เฉพาะโหมดวิจัย
-
+// Jump & Duck — DOM engine + Research-ready summary logger (no CSV yet)
 'use strict';
 
+/* ---------- DOM helpers ---------- */
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>document.querySelectorAll(s);
 
-/* ---------- Views & HUD refs ---------- */
+/* ---------- Views ---------- */
+const viewMenu    = $('#view-menu');
+const viewResearch= $('#view-research');
+const viewPlay    = $('#view-play');
+const viewResult  = $('#view-result');
 
-const viewMenu     = $('#view-menu');
-const viewResearch = $('#view-research');
-const viewPlay     = $('#view-play');
-const viewResult   = $('#view-result');
+function showView(name){
+  [viewMenu,viewResearch,viewPlay,viewResult].forEach(v=>v && v.classList.add('hidden'));
+  if(name==='menu'    && viewMenu)     viewMenu.classList.remove('hidden');
+  if(name==='research'&& viewResearch) viewResearch.classList.remove('hidden');
+  if(name==='play'    && viewPlay)     viewPlay.classList.remove('hidden');
+  if(name==='result'  && viewResult)   viewResult.classList.remove('hidden');
+}
 
-const elDiffSel  = $('#difficulty');
+/* ---------- HUD / play DOM ---------- */
+const elHudMode      = $('#hud-mode');
+const elHudDiff      = $('#hud-diff');
+const elHudTime      = $('#hud-time');
+const elHudStability = $('#hud-stability');
+const elHudObstacles = $('#hud-obstacles');
 
-const hudMode   = $('#hud-mode');
-const hudDiff   = $('#hud-diff');
-const hudTime   = $('#hud-time');
-const hudStab   = $('#hud-stability');
-const hudObs    = $('#hud-obstacles');
+const playArea = $('#playArea');
+const laneTrack= $('#lane-track');
+const avatar   = $('#avatar');
 
-const playArea  = $('#playArea');   // กล่องกลางจอ (16:9 หรือ 9:16)
-const laneTrack = $('#lane-track'); // ถ้ามีเลนวิ่ง
-const avatarEl  = $('#avatar');     // ตัวผู้เล่น (emoji)
+const btnJump  = $('#btn-jump');
+const btnDuck  = $('#btn-duck');
 
-const btnJump   = $('#btn-jump');
-const btnDuck   = $('#btn-duck');
+/* ---------- Result DOM ---------- */
+const elResMode      = $('#res-mode');
+const elResDiff      = $('#res-diff');
+const elResEnd       = $('#res-end');
+const elResScore     = $('#res-score');
+const elResStability = $('#res-stability');
+const elResHits      = $('#res-hits');
+const elResMiss      = $('#res-miss');
+const elResAvoidRate = $('#res-avoidRate');
+const elResRTMean    = $('#res-rtmean');
 
-const coachEl   = $('#coachBubble');
-const coachText = coachEl;
-const comboCall = $('#comboCall'); // ถ้าอยากมี effect
+/* ---------- Coach bubble ---------- */
+const coachBubble = $('#coachBubble');
+const comboCall   = $('#comboCall');
 
-// Result fields
-const resMode   = $('#res-mode');
-const resDiff   = $('#res-diff');
-const resEnd    = $('#res-end');
-const resScore  = $('#res-score');
-const resStab   = $('#res-stability');
-const resHit    = $('#res-hits');
-const resMiss   = $('#res-miss');
-const resAvoid  = $('#res-avoidRate');
-const resReact  = $('#res-rtmean');
-
-// note CSV (มุมล่างเกี่ยวกับ research)
-const csvNote   = $('#view-result .note');
-
-/* ---------- Config ---------- */
-
+/* ---------- Difficulty config ---------- */
 const GAME_DURATION_MS = 60000;
 
 const DIFF_CONFIG = {
-  easy:   { name:'easy',   spawnMin:900,  spawnMax:1300, penalty:10, reward:3 },
-  normal: { name:'normal', spawnMin:700,  spawnMax:1100, penalty:15, reward:4 },
-  hard:   { name:'hard',   spawnMin:520,  spawnMax:950,  penalty:20, reward:5 }
+  easy: {
+    key:'easy',
+    spawnIntervalMs: 2200,
+    stabilityDecayPerSec: 2.0,
+    stabilityGainOnHit:  3.0,
+    stabilityPenaltyMiss:6.0,
+    rtWindowMs: 550
+  },
+  normal: {
+    key:'normal',
+    spawnIntervalMs: 1600,
+    stabilityDecayPerSec: 3.0,
+    stabilityGainOnHit:  3.5,
+    stabilityPenaltyMiss:7.0,
+    rtWindowMs: 450
+  },
+  hard: {
+    key:'hard',
+    spawnIntervalMs: 1200,
+    stabilityDecayPerSec: 4.0,
+    stabilityGainOnHit:  4.0,
+    stabilityPenaltyMiss:8.0,
+    rtWindowMs: 380
+  }
 };
 
-// obstacle type: 'high' → ต้อง Duck, 'low' → ต้อง Jump
-const OB_TYPES = ['high','low'];
+/* ---------- Global stats gateway (ใช้ตัวเดียวกับ Rhythm Boxer) ---------- */
+const globalStats =
+  (window.VRFitnessStats && window.VRFitnessStats.recordSession)
+  ? window.VRFitnessStats
+  : (window.__VRFIT_STATS || null);
 
-/* ---------- State ---------- */
-
-let gameMode   = 'play';   // 'play' | 'research'
-let diffKey    = 'normal';
-
-let state      = null;
-let rafId      = null;
-let logger     = null;
-let lastInput  = null;     // 'jump' | 'duck' | null
-let lastCoachAt= 0;
-
-/* ---------- Helpers ---------- */
-
-function showView(name){
-  [viewMenu,viewResearch,viewPlay,viewResult].forEach(v=>v?.classList.add('hidden'));
-  if (name==='menu')    viewMenu?.classList.remove('hidden');
-  if (name==='research')viewResearch?.classList.remove('hidden');
-  if (name==='play')    viewPlay?.classList.remove('hidden');
-  if (name==='result')  viewResult?.classList.remove('hidden');
+function recordSessionToDashboard(gameId, summary){
+  if(globalStats && typeof globalStats.recordSession === 'function'){
+    try{ globalStats.recordSession(gameId, summary); }catch(e){}
+  }else{
+    // local fallback
+    try{
+      const key = 'vrfit_sessions_'+gameId;
+      const arr = JSON.parse(localStorage.getItem(key) || '[]');
+      arr.push({...summary, ts:Date.now()});
+      localStorage.setItem(key, JSON.stringify(arr));
+    }catch(e){}
+  }
 }
 
-function randRange(min,max){
-  return min + Math.random()*(max-min);
-}
-const fmtPercent = v => (v==null||Number.isNaN(v)) ? '-' : (v*100).toFixed(1)+' %';
-const fmtMs      = v => (!v||v<=0) ? '-' : v.toFixed(0)+' ms';
+/* ---------- Game state ---------- */
 
-function setCoach(text){
-  if (!coachEl) return;
-  coachEl.textContent = text;
-  coachEl.classList.remove('hidden');
-  lastCoachAt = performance.now();
-  setTimeout(()=> coachEl && coachEl.classList.add('hidden'), 3200);
-}
+let mode = 'play';           // 'play' | 'research'
+let diffKey = 'normal';
+let cfg = DIFF_CONFIG.normal;
 
-function maybeCoachOnMiss(){
+let state = null;
+let rafId = null;
+
+/**
+ * state schema:
+ * {
+ *   startTime, elapsed,
+ *   stability, obstaclesTotal, hits, misses,
+ *   lastObstacleTime,
+ *   activeObstacle: { id, type:'jump'|'duck', spawnTime, resolved:boolean, rtMs:null },
+ *   rtList:[number]
+ * }
+ */
+
+function resetState(){
   const now = performance.now();
-  if (now - lastCoachAt < 4000) return;
-  if (!state) return;
-  if (state.missCount>=5 && state.missCount<10){
-    setCoach('ลองสังเกตไอคอนให้ชัด ๆ ก่อนกดนะ 👀');
-  }else if (state.missCount>=10){
-    setCoach('ถ้าชนบ่อย ลองชะลอแล้วโฟกัสจังหวะให้มั่นใจก่อนกด ⏱️');
-  }
-}
-
-function hitFX(ok){
-  if (!playArea) return;
-  playArea.classList.add(ok?'hit-ok':'hit-bad');
-  setTimeout(()=>playArea && playArea.classList.remove('hit-ok','hit-bad'),220);
-}
-
-/* ---------- CSV logger (research only) ---------- */
-
-function createCSVLogger(meta){
-  const rows = [];
-  const header = [
-    'timestamp_ms','game_id','player_id','mode','difficulty',
-    'event','ob_id','ob_type','player_action','result','reaction_ms',
-    'stability','score','hitCount','missCount'
-  ];
-  rows.push(header);
-
-  function push(ev, extra){
-    const t = Date.now();
-    const e = extra||{};
-    rows.push([
-      t,
-      meta.gameId || 'jump-duck',
-      meta.playerId || '',
-      meta.mode || '',
-      meta.difficulty || '',
-      ev,
-      e.id ?? '',
-      e.obType ?? '',
-      e.action ?? '',
-      e.result ?? '',
-      e.reactionMs ?? '',
-      e.stability ?? '',
-      e.score ?? '',
-      e.hitCount ?? '',
-      e.missCount ?? ''
-    ]);
-  }
-
-  return {
-    logSpawn(ob){
-      push('spawn',{ id:ob.id, obType:ob.type });
-    },
-    logResolve(ob,res,action,rt){
-      push('resolve',{
-        id:ob.id,
-        obType:ob.type,
-        action,
-        result:res,
-        reactionMs:rt,
-        stability: state?.stability ?? '',
-        score: state?.score ?? '',
-        hitCount: state?.hitCount ?? '',
-        missCount: state?.missCount ?? ''
-      });
-    },
-    finish(finalState){
-      if (meta.mode!=='research') return; // ⬅ เฉพาะโหมดวิจัยเท่านั้น
-      const csv = rows.map(r=>r.map(v=>{
-        const s = String(v ?? '');
-        if (s.includes('"') || s.includes(',')) {
-          return '"' + s.replace(/"/g,'""') + '"';
-        }
-        return s;
-      }).join(',')).join('\r\n');
-
-      const blob = new Blob([csv],{type:'text/csv'});
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url;
-      const name = `vrfitness_jumpduck_${meta.playerId||'anon'}_${Date.now()}.csv`;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      },100);
-    }
-  };
-}
-
-/* ---------- Game start ---------- */
-
-function buildSessionMeta(){
-  const pid = (gameMode==='research'
-    ? ($('#researchId')?.value.trim()||'anon')
-    : 'play-'+Date.now());
-  return {
-    gameId:'jump-duck',
-    playerId:pid,
-    mode:gameMode,
-    difficulty:diffKey
-  };
-}
-
-function startGame(kind){
-  gameMode = (kind==='research') ? 'research' : 'play';
-  diffKey  = elDiffSel?.value || 'normal';
-
-  const cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
-
   state = {
-    startedAt: performance.now(),
-    elapsed:0,
-    remaining:GAME_DURATION_MS,
-    nextSpawnAt: performance.now()+800,
-    obstacles:[],
-    nextId:1,
-
-    stability:100,
-    score:0,
-    hitCount:0,
-    missCount:0,
-    totalSpawn:0,
-
-    rtList:[]
+    startTime: now,
+    elapsed: 0,
+    stability: 100,
+    obstaclesTotal: 0,
+    hits: 0,
+    misses: 0,
+    lastObstacleTime: now,
+    nextSpawnAt: now + 800,
+    activeObstacle: null,
+    rtList: []
   };
-
-  lastInput = null;
-  lastCoachAt = 0;
-  logger = createCSVLogger(buildSessionMeta());
-
-  if (hudMode) hudMode.textContent = (gameMode==='research'?'Research':'Play');
-  if (hudDiff) hudDiff.textContent = diffKey;
-  if (hudTime) hudTime.textContent = (GAME_DURATION_MS/1000).toFixed(1);
-  if (hudStab) hudStab.textContent = '100.0 %';
-  if (hudObs)  hudObs.textContent  = '0';
-  if (coachEl) coachEl.classList.add('hidden');
-
-  if (avatarEl){
-    avatarEl.classList.remove('pose-jump','pose-duck');
-    avatarEl.classList.add('pose-stand');
-  }
-
-  showView('play');
-  if (rafId!=null) cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(loop);
 }
 
-/* ---------- Loop ---------- */
+/* ---------- Coach helpers ---------- */
+
+let lastCoachAt = 0;
+function showCoach(message){
+  if(!coachBubble) return;
+  const now = performance.now();
+  if(now - lastCoachAt < 4000) return;
+  lastCoachAt = now;
+  coachBubble.textContent = message;
+  coachBubble.classList.remove('hidden');
+  setTimeout(()=> coachBubble && coachBubble.classList.add('hidden'), 3200);
+}
+
+function showCombo(text){
+  if(!comboCall) return;
+  comboCall.textContent = text;
+  comboCall.classList.add('show');
+  setTimeout(()=> comboCall && comboCall.classList.remove('show'), 600);
+}
+
+/* ---------- Obstacle visual ---------- */
+
+function clearObstacles(){
+  if(!laneTrack) return;
+  laneTrack.innerHTML = '';
+}
+
+function spawnObstacle(){
+  if(!laneTrack || !state) return;
+  const type = Math.random() < 0.5 ? 'jump' : 'duck';
+  const now = performance.now();
+
+  const ob = {
+    id: state.obstaclesTotal + 1,
+    type,
+    spawnTime: now,
+    resolved: false,
+    rtMs: null
+  };
+  state.activeObstacle = ob;
+  state.obstaclesTotal++;
+
+  // DOM
+  const el = document.createElement('div');
+  el.className = 'obstacle obstacle-' + type;
+  el.dataset.id = String(ob.id);
+  el.textContent = type === 'jump' ? '⬆' : '⬇';
+  laneTrack.appendChild(el);
+
+  // coach hint
+  if(ob.id === 1){
+    showCoach('ดูไอคอน ⬆ / ⬇ แล้วลองกระโดดหรือก้มให้ตรงจังหวะนะครับ');
+  }
+}
+
+/* เมื่อกดแล้วให้เล่นท่าทาง avatar + เช็คว่าโดนหรือไม่ */
+function handleAction(kind){
+  if(!state) return;
+
+  // ท่าทาง avatar
+  if(avatar){
+    avatar.classList.remove('pose-jump','pose-duck');
+    if(kind==='jump') avatar.classList.add('pose-jump');
+    else if(kind==='duck') avatar.classList.add('pose-duck');
+    setTimeout(()=>{
+      avatar && avatar.classList.remove('pose-jump','pose-duck');
+    }, 260);
+  }
+
+  const now = performance.now();
+  const ob = state.activeObstacle;
+  if(!ob || ob.resolved) return;
+
+  const dt = now - ob.spawnTime; // นับจากตอนที่ไอคอนขึ้น
+  const abs = Math.abs(dt);
+  const within = abs <= cfg.rtWindowMs;
+
+  if(within && kind===ob.type){
+    // hit
+    ob.resolved = true;
+    ob.rtMs = abs;
+    state.hits++;
+    state.stability = Math.min(100, state.stability + cfg.stabilityGainOnHit);
+    state.rtList.push(abs);
+    showCombo('✅ HIT');
+    showCoach('ดีมาก! รักษาจังหวะไว้ สมดุลจะค่อย ๆ ดีขึ้น');
+    // ลบ obstacle ออกจาก DOM
+    removeActiveObstacleDOM(ob.id, true);
+  }else if(within && kind!==ob.type){
+    // wrong direction
+    ob.resolved = true;
+    state.misses++;
+    state.stability = Math.max(0, state.stability - cfg.stabilityPenaltyMiss);
+    showCombo('❌ ผิดท่า');
+    showCoach('ลองสังเกตให้ดีว่าเป็นสัญลักษณ์กระโดดหรือก้มนะครับ');
+    removeActiveObstacleDOM(ob.id, false);
+  }else{
+    // กดเร็ว/ช้าเกินไป ยังไม่ถือว่าตัดสิน ให้กดใหม่ได้
+  }
+}
+
+function removeActiveObstacleDOM(id, success){
+  if(!laneTrack) return;
+  const el = laneTrack.querySelector('[data-id="'+id+'"]');
+  if(el){
+    el.classList.add(success ? 'hit' : 'miss');
+    setTimeout(()=> el.remove(), 260);
+  }
+}
+
+/* ---------- Game loop ---------- */
 
 function loop(now){
-  if (!state) return;
-  state.elapsed = now - state.startedAt;
-  state.remaining = Math.max(0, GAME_DURATION_MS - state.elapsed);
+  if(!state) return;
+  state.elapsed = now - state.startTime;
 
-  if (hudTime) hudTime.textContent = (state.remaining/1000).toFixed(1);
+  const remain = Math.max(0, GAME_DURATION_MS - state.elapsed);
+  if(elHudTime) elHudTime.textContent = (remain/1000).toFixed(1);
 
-  if (state.remaining<=0){
+  // stability decay (พื้นฐาน)
+  const dtSec = 16 / 1000;
+  state.stability = Math.max(0, state.stability - cfg.stabilityDecayPerSec * dtSec);
+  if(elHudStability){
+    elHudStability.textContent = state.stability.toFixed(1)+' %';
+  }
+
+  if(elHudObstacles){
+    elHudObstacles.textContent = String(state.obstaclesTotal);
+  }
+
+  // spawn obstacles
+  if(now >= state.nextSpawnAt){
+    spawnObstacle();
+    state.nextSpawnAt = now + cfg.spawnIntervalMs;
+  }
+
+  // หากเวลาหมด
+  if(state.elapsed >= GAME_DURATION_MS){
     endGame('timeout');
     return;
   }
 
-  // spawn obstacle
-  if (now>=state.nextSpawnAt){
-    spawnObstacle(now);
-    const cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
-    const delay = randRange(cfg.spawnMin,cfg.spawnMax);
-    state.nextSpawnAt = now + delay;
-  }
-
-  // move obstacles
-  updateObstacles(now);
-
   rafId = requestAnimationFrame(loop);
 }
 
-/* ---------- Obstacles ---------- */
+/* ---------- Start / end ---------- */
 
-function spawnObstacle(now){
-  const type = OB_TYPES[Math.floor(Math.random()*OB_TYPES.length)];
-  const id   = state.nextId++;
-
-  const ob = {
-    id,
-    type,                // 'high' | 'low'
-    createdAt:now,
-    // เวลา "check" ที่จะชน (ชนกลางจอ) กำหนด ~800ms หลังสร้าง
-    triggerAt: now+800,
-    resolved:false,
-    element:null
-  };
-  state.obstacles.push(ob);
-  state.totalSpawn++;
-
-  if (laneTrack){
-    const el = document.createElement('div');
-    el.className = 'obstacle obstacle-'+type;
-    el.dataset.id = String(id);
-    laneTrack.appendChild(el);
-    ob.element = el;
-
-    // animate ด้วย CSS class
-    requestAnimationFrame(()=> el.classList.add('run'));
-  }
-
-  logger?.logSpawn(ob);
-  if (hudObs) hudObs.textContent = `${state.hitCount} / ${state.totalSpawn}`;
+function updateHUDStatic(){
+  if(elHudMode) elHudMode.textContent = (mode==='research' ? 'research' : 'play');
+  if(elHudDiff) elHudDiff.textContent = diffKey;
+  if(elHudTime) elHudTime.textContent = (GAME_DURATION_MS/1000).toFixed(1);
+  if(elHudStability) elHudStability.textContent = '100.0 %';
+  if(elHudObstacles) elHudObstacles.textContent = '0';
 }
 
-function updateObstacles(now){
-  const remain = [];
-  for (const ob of state.obstacles){
-    if (!ob.resolved && now>=ob.triggerAt){
-      resolveObstacle(ob, now);
-    }
-    // ถ้าหมด animation แล้ว ลบ DOM
-    if (ob.element){
-      const rect = ob.element.getBoundingClientRect();
-      const area = playArea?.getBoundingClientRect();
-      if (area && rect.right < area.left-40){
-        ob.element.remove();
-      }
-    }
-    if (!ob.resolved){
-      remain.push(ob);
-    }
-  }
-  state.obstacles = remain;
+function startGame(chosenMode){
+  mode = chosenMode || 'play';
+  diffKey = ($('#difficulty')?.value) || 'normal';
+  cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
+
+  resetState();
+  clearObstacles();
+  updateHUDStatic();
+  showView('play');
+
+  if(rafId!=null) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
 }
 
-/* ---------- Resolve obstacle ---------- */
-
-function resolveObstacle(ob, now){
-  ob.resolved = true;
-  const expected = (ob.type === 'high') ? 'duck' : 'jump';
-  const action   = lastInput; // ปุ่มที่กดล่าสุด
-  const rt       = action ? (now - ob.triggerAt) : null;
-
-  let ok = false;
-  if (action === expected && rt!=null && rt>=0 && rt<=600){
-    ok = true;
-  }
-
-  const cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
-
-  if (ok){
-    state.hitCount++;
-    state.score += 10;
-    state.stability = Math.min(100, state.stability + cfg.reward);
-    if (rt!=null) state.rtList.push(rt);
-    hitFX(true);
-  }else{
-    state.missCount++;
-    state.score = Math.max(0, state.score-5);
-    state.stability = Math.max(0, state.stability - cfg.penalty);
-    hitFX(false);
-    maybeCoachOnMiss();
-  }
-
-  if (hudStab) hudStab.textContent = state.stability.toFixed(1)+' %';
-  if (hudObs)  hudObs.textContent  = `${state.hitCount} / ${state.totalSpawn}`;
-
-  logger?.logResolve(ob, ok?'hit':'miss', action||'', rt||'');
-
-  // ถ้าความมั่นคงเหลือ 0 → จบ
-  if (state.stability<=0){
-    endGame('stability-zero');
-  }
-}
-
-/* ---------- Input (Jump / Duck) ---------- */
-
-function applyPose(action){
-  if (!avatarEl) return;
-  avatarEl.classList.remove('pose-stand','pose-jump','pose-duck');
-  if (action==='jump') avatarEl.classList.add('pose-jump');
-  else if (action==='duck') avatarEl.classList.add('pose-duck');
-  setTimeout(()=>{
-    avatarEl.classList.remove('pose-jump','pose-duck');
-    avatarEl.classList.add('pose-stand');
-  }, 260);
-}
-
-function onJump(){
-  lastInput = 'jump';
-  applyPose('jump');
-}
-function onDuck(){
-  lastInput = 'duck';
-  applyPose('duck');
-}
-
-/* ---------- End & Result ---------- */
-
-function avg(arr){
-  if (!arr || !arr.length) return 0;
-  return arr.reduce((a,b)=>a+b,0)/arr.length;
+function computeRTMean(){
+  if(!state || !state.rtList.length) return 0;
+  const sum = state.rtList.reduce((a,b)=>a+b,0);
+  return sum / state.rtList.length;
 }
 
 function endGame(reason){
-  if (!state) return;
-  if (rafId!=null){ cancelAnimationFrame(rafId); rafId=null; }
+  if(!state) return;
+  if(rafId!=null) cancelAnimationFrame(rafId);
 
-  const total   = state.totalSpawn || 1;
-  const avoid   = state.hitCount / total;
-  const rtMean  = avg(state.rtList);
+  const hits = state.hits;
+  const misses = state.misses;
+  const total = hits + misses;
+  const stabilityFinal = state.stability;
+  const rtMean = computeRTMean();
 
-  // fill result
-  if (resMode)  resMode.textContent = (gameMode==='research'?'Research':'Play');
-  if (resDiff)  resDiff.textContent = diffKey;
-  if (resEnd)   resEnd.textContent  =
-      reason==='timeout' ? 'ครบเวลา 60 วินาที' :
-      reason==='stability-zero' ? 'เสียสมดุลจนหมด' :
-      reason||'-';
-  if (resScore) resScore.textContent= String(state.score);
-  if (resStab)  resStab.textContent = state.stability.toFixed(1)+' %';
-  if (resHit)   resHit.textContent  = String(state.hitCount);
-  if (resMiss)  resMiss.textContent = String(state.missCount);
-  if (resAvoid) resAvoid.textContent= fmtPercent(avoid);
-  if (resReact) resReact.textContent= fmtMs(rtMean);
+  const avoidRate = total ? hits/total : 0;
+  const score = Math.max(0, stabilityFinal) + hits*2; // สูตรคะแนนง่าย ๆ
 
-  // note CSV เฉพาะโหมดวิจัย
-  if (csvNote){
-    if (gameMode==='research') csvNote.classList.remove('hidden');
-    else                       csvNote.classList.add('hidden');
-  }
+  // เติมผลใน Result view
+  if(elResMode)      elResMode.textContent      = (mode==='research'?'research':'play');
+  if(elResDiff)      elResDiff.textContent      = diffKey;
+  if(elResEnd)       elResEnd.textContent       = (reason==='timeout'?'เล่นครบเวลา / Timeout':reason||'-');
+  if(elResScore)     elResScore.textContent     = score.toFixed(1);
+  if(elResStability) elResStability.textContent = stabilityFinal.toFixed(1)+' %';
+  if(elResHits)      elResHits.textContent      = String(hits);
+  if(elResMiss)      elResMiss.textContent      = String(misses);
+  if(elResAvoidRate) elResAvoidRate.textContent = (avoidRate*100).toFixed(1)+' %';
+  if(elResRTMean)    elResRTMean.textContent    = rtMean ? rtMean.toFixed(0)+' ms' : '-';
 
-  logger?.finish({
-    endedBy:reason,
-    score:state.score,
-    hitCount:state.hitCount,
-    missCount:state.missCount,
-    stability:state.stability,
-    elapsedMs:state.elapsed
+  // ส่งเข้า Dashboard summary (อันที่ขึ้นการ์ด Jump-Duck)
+  recordSessionToDashboard('jump-duck',{
+    gameId:'jump-duck',
+    mode,
+    difficulty: diffKey,
+    score,
+    maxCombo: 0,          // เกมนี้ไม่มี combo จริง ๆ ใช้ 0 ไว้ก่อน
+    missCount: misses,
+    totalHits: hits,
+    accuracy: avoidRate,
+    stabilityFinal
   });
 
   state = null;
+  clearObstacles();
   showView('result');
 }
 
-/* ---------- Init ---------- */
+/* ---------- Init & wiring ---------- */
 
 function init(){
-  // ปุ่มเมนู
+  // menu buttons
   $('[data-action="start-play"]')?.addEventListener('click',()=>{
+    mode = 'play';
     startGame('play');
   });
   $('[data-action="goto-research"]')?.addEventListener('click',()=>{
     showView('research');
   });
-  $('[data-action="start-research"]')?.addEventListener('click',()=>{
-    startGame('research');
-  });
   $$('[data-action="back-menu"]').forEach(btn=>{
     btn.addEventListener('click',()=> showView('menu'));
   });
 
-  // ปุ่มในเกม
-  if (btnJump) btnJump.addEventListener('click', onJump);
-  if (btnDuck) btnDuck.addEventListener('click', onDuck);
+  // research start
+  $('[data-action="start-research"]')?.addEventListener('click',()=>{
+    // ตอนนี้ยังไม่ใช้ ID โดยตรง แต่อาจเก็บภายหลัง (v2)
+    mode = 'research';
+    startGame('research');
+  });
 
-  // shortcut: แตะซ้าย = duck, ขวา = jump (เผื่อ mobile)
-  if (playArea){
-    playArea.addEventListener('pointerdown',ev=>{
-      const rect = playArea.getBoundingClientRect();
-      const mid  = rect.left + rect.width/2;
-      if (ev.clientY > rect.bottom - rect.height*0.35){
-        // ล่างจอ → duck
-        onDuck();
-      }else{
-        // บนจอ → jump
-        onJump();
-      }
+  // actions
+  if(btnJump){
+    btnJump.addEventListener('click',ev=>{
+      ev.preventDefault();
+      handleAction('jump');
     });
   }
+  if(btnDuck){
+    btnDuck.addEventListener('click',ev=>{
+      ev.preventDefault();
+      handleAction('duck');
+    });
+  }
+
+  // keyboard ช่วยเทส (PC)
+  window.addEventListener('keydown',ev=>{
+    if(ev.code==='ArrowUp' || ev.code==='Space'){
+      handleAction('jump');
+    }else if(ev.code==='ArrowDown'){
+      handleAction('duck');
+    }
+  });
 
   showView('menu');
 }
