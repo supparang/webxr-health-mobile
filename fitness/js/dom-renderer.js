@@ -1,30 +1,31 @@
-// === dom-renderer.js (2025-11-19 tap wiring + safe bounds) ===
+// === dom-renderer.js (2025-11-19 — mobile tap → engine.registerTouch) ===
 'use strict';
 
 export class DomRenderer {
   constructor(engine, host, opts = {}) {
-    this.engine = engine;
-    this.host   = host;
-    this.sizePx = opts.sizePx || 96;
+    this.engine  = engine;
+    this.host    = host;
+    this.sizePx  = opts.sizePx || 96;
     this.targets = new Map();
+    this.bounds  = { w: 0, h: 0, left: 0, top: 0 };
 
-    this.updateBounds();
-    window.addEventListener('resize', () => this.updateBounds());
+    if (this.host) {
+      this.updateBounds();
+      window.addEventListener('resize', () => this.updateBounds());
+    }
   }
 
-  setEngine(engine){
+  setEngine(engine) {
     this.engine = engine;
   }
 
   updateBounds() {
     if (!this.host) return;
     const rect = this.host.getBoundingClientRect();
-    this.bounds = {
-      w: rect.width,
-      h: rect.height,
-      left: rect.left,
-      top: rect.top
-    };
+    this.bounds.w    = rect.width;
+    this.bounds.h    = rect.height;
+    this.bounds.left = rect.left;
+    this.bounds.top  = rect.top;
   }
 
   clear() {
@@ -44,24 +45,27 @@ export class DomRenderer {
     el.style.height = this.sizePx + 'px';
     el.textContent  = t.emoji || '⭐';
 
-    // คำนวณ safe area กันหลุดกรอบ (ทั้งดวงอยู่ในเฟรม)
+    // safe area กันหลุดกรอบ (ทั้งดวงอยู่ในเฟรม)
     const safeW = Math.max(0, this.bounds.w - this.sizePx);
     const safeH = Math.max(0, this.bounds.h - this.sizePx);
 
-    const x = (t.x || 0) * safeW;
-    const y = (t.y || 0) * safeH;
+    const x = (t.x || Math.random()) * safeW;
+    const y = (t.y || Math.random()) * safeH;
 
-    // วางโดยใช้ translate จากมุมซ้ายบนของ host
+    // ใช้ translate จากมุมซ้ายบนของ host
+    el.style.position  = 'absolute';
+    el.style.left      = '0';
+    el.style.top       = '0';
     el.style.transform = `translate(${x}px, ${y}px)`;
 
     el.dataset.id = String(t.id);
 
-    // === สำคัญ: ผูก event แตะเป้า → ส่งกลับเข้า engine ===
+    // ★ สำคัญ: แตะเป้าแล้วส่งพิกัดจอเข้า engine.registerTouch
     el.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      if (this.engine && typeof this.engine.handleTargetTap === 'function') {
-        this.engine.handleTargetTap(t.id, ev);
+      if (this.engine && typeof this.engine.registerTouch === 'function') {
+        this.engine.registerTouch(ev.clientX, ev.clientY);
       }
     }, { passive: false });
 
@@ -73,9 +77,7 @@ export class DomRenderer {
   removeTarget(t) {
     const id = t && t.id;
     const el = (t && t.dom) || this.targets.get(id);
-    if (el && el.parentNode) {
-      el.parentNode.removeChild(el);
-    }
+    if (el && el.parentNode) el.parentNode.removeChild(el);
     if (id != null) this.targets.delete(id);
     if (t) t.dom = null;
   }
