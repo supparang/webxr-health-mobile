@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <title>VR Fitness — Cardboard Mode</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="dark light"/>
+  <style>
+    :root{
+      color-scheme: dark;
+      background:#000;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{
+      margin:0;
+      background:#000;
+      color:#e5e7eb;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      height:100vh;
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    #vrRow{
+      position:relative;
+      width:100vw;
+      height:100vh;
+      display:flex;
+      flex-direction:row;
+    }
+    .eye{
+      flex:1 1 50%;
+      height:100%;
+      overflow:hidden;
+      border-left:1px solid #000;
+      border-right:1px solid #000;
+      background:#000;
+    }
+    iframe{
+      width:100%;
+      height:100%;
+      border:none;
+      background:#000;
+    }
+    /* แถบ loading เล็ก ๆ ตอนเริ่ม */
+    #hint{
+      position:fixed;
+      top:8px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:.8rem;
+      background:rgba(15,23,42,.85);
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.7);
+      z-index:10;
+    }
+    @media (orientation:portrait){
+      body::before{
+        content:"กรุณาหมุนหน้าจอเป็นแนวนอนเพื่องาน VR / Please rotate to landscape";
+        position:fixed;
+        inset:0;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        text-align:center;
+        padding:20px;
+        background:#000;
+        z-index:20;
+      }
+      #vrRow{display:none;}
+      #hint{display:none;}
+    }
+  </style>
+</head>
+<body>
+  <div id="hint">กำลังโหลดโหมด VR… ถ้าไม่เต็มจอ ให้แตะอีกครั้งเพื่อซ่อน UI</div>
+  <div id="vrRow">
+    <div class="eye eye-left">
+      <iframe id="eyeLeft" allow="fullscreen"></iframe>
+    </div>
+    <div class="eye eye-right">
+      <iframe id="eyeRight" allow="fullscreen"></iframe>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const params = new URLSearchParams(location.search);
+      // รับ path เกม เช่น shadow-breaker.html หรือ rhythm-boxer.html
+      let gamePath = params.get('game') || 'shadow-breaker.html';
+
+      // กันเผื่อใส่ / นำหน้า
+      if (gamePath.startsWith('/')) {
+        gamePath = gamePath.replace(/^\/+/, '');
+      }
+
+      const extra = params.get('mode') ? ('&mode='+encodeURIComponent(params.get('mode'))) : '';
+
+      const left  = document.getElementById('eyeLeft');
+      const right = document.getElementById('eyeRight');
+
+      // จอซ้ายให้ดูอย่างเดียว
+      left.style.pointerEvents = 'none';
+
+      // สร้าง URL (เพิ่ม eye=left/right เฉย ๆ เผื่ออนาคตอยากปรับค่า per-eye)
+      const baseUrl = gamePath + (gamePath.includes('?') ? '&' : '?');
+
+      left.src  = baseUrl + 'eye=left'  + extra;
+      right.src = baseUrl + 'eye=right' + extra;
+
+      // ขอ fullscreen อัตโนมัติหลังแตะครั้งแรก
+      function goFull(){
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) elem.requestFullscreen().catch(()=>{});
+        window.removeEventListener('click',goFull);
+        window.removeEventListener('touchstart',goFull);
+      }
+      window.addEventListener('click',goFull,{once:true});
+      window.addEventListener('touchstart',goFull,{once:true});
+    })();
+  </script>
+</body>
+</html>
