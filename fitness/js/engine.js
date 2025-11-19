@@ -1,38 +1,36 @@
-// === fitness/js/engine.js (2025-11-19 — boss phase + near-death spawn + FEVER) ===
+// === fitness/js/engine.js (2025-11-19 — boss phases + FEVER + near-death spawn) ===
 'use strict';
 
 const DEFAULTS = {
   durationMs: 60000,
-  spawnInterval: 750,
+  spawnInterval: 780,
   targetLifeMs: 900,
 
-  scoreHit: 10,
+  scoreHit: 12,
   scoreMissPenalty: 0,
 
-  hitRadius: 90,
+  hitRadius: 95,
 
   hpMax: 100,
   hpMissPenalty: 4,
 
   bossCount: 4,
-  bossHPPerBoss: 100,
+  bossHPPerBoss: 120,
   bossDamagePerHit: 3,
 
   decoyChance: 0.18,
 
+  // FEVER
   feverGainPerHit: 16,
   feverDecayPerSec: 10,
   feverThreshold: 100,
-  feverDurationMs: 5000
-};
+  feverDurationMs: 5000,
 
-// ชุดข้อมูลบอส 4 ตัว (ชื่อ + emoji + background class)
-const BOSS_META = [
-  { name: 'Bubble Glove', emoji: '🥊', bgClass: 'boss-1' },
-  { name: 'Neon Phantom', emoji: '👻', bgClass: 'boss-2' },
-  { name: 'Thunder Paw',  emoji: '🐯', bgClass: 'boss-3' },
-  { name: 'Cosmo Dragon', emoji: '🐉', bgClass: 'boss-4', isFinal: true }
-];
+  // spawn speed by phase
+  phase2SpawnFactor: 0.9,
+  phase3SpawnFactor: 0.75,
+  finalBossSpawnFactor: 0.85
+};
 
 export class GameEngine {
   constructor({ config = {}, hooks = {}, renderer, logger, mode = 'normal' }) {
@@ -46,11 +44,10 @@ export class GameEngine {
       this.renderer.setEngine(this);
     }
 
-    this.targets   = [];
-    this.running   = false;
-    this.hitRadius = this.cfg.hitRadius;
-
-    this.baseSpawnInterval = this.cfg.spawnInterval;
+    this.targets    = [];
+    this.running    = false;
+    this.hitRadius  = this.cfg.hitRadius;
+    this.bossList   = Array.isArray(this.cfg.bossList) ? this.cfg.bossList : null;
 
     this._stats = {
       spawns: 0,
@@ -68,62 +65,12 @@ export class GameEngine {
     this.nextSpawnAt = 0;
   }
 
-  /* ---------- helper: กำหนดข้อมูลบอสตาม index ---------- */
-
-  _applyBossMeta(index) {
-    const meta = BOSS_META[index] || BOSS_META[BOSS_META.length - 1];
-    if (!this.state) return;
-
-    this.state.bossName    = meta.name;
-    this.state.bossEmoji   = meta.emoji;
-    this.state.bossBgClass = meta.bgClass || '';
-    this.state.bossPhase   = 1;        // เริ่ม Phase 1 เสมอเมื่อเปลี่ยนบอส
-    this.state.bossIsFinal = !!meta.isFinal;
-  }
-
-  _updateBossPhase() {
-    if (!this.state) return;
-    const max = this.state.bossMaxHP || 1;
-    const hp  = this.state.bossHP ?? max;
-    const ratio = hp / max;
-
-    let newPhase = 1;
-    if (ratio <= 2 / 3 && ratio > 1 / 3) {
-      newPhase = 2;
-    } else if (ratio <= 1 / 3) {
-      newPhase = 3;
-    }
-
-    if (newPhase !== this.state.bossPhase) {
-      this.state.bossPhase = newPhase;
-      // (ถ้าต้องการแจ้ง main เพิ่ม event ก็ทำผ่าน hooks.onBossPhaseChange ได้)
-    }
-  }
-
-  _getSpawnMultiplier() {
-    if (!this.state) return 1;
-
-    const phase = this.state.bossPhase || 1;
-    let m = 1;
-
-    // Phase ยิ่งสูง ยิ่ง spawn เร็วขึ้น
-    if (phase === 2) m = 0.85;
-    else if (phase === 3) m = 0.7;
-
-    // ช่วง "ใกล้ตาย" (HP <= 20%) เร่งอีกนิด
-    const max = this.state.bossMaxHP || 1;
-    const hp  = this.state.bossHP ?? max;
-    const ratio = hp / max;
-    if (ratio <= 0.2) {
-      m *= 0.75;
-    }
-
-    return m;
-  }
-
-  /* ---------- reset / start / stop ---------- */
+  /* ---------- internal helpers ---------- */
 
   _resetState() {
+    const bossCount = this.bossList ? this.bossList.length : (this.cfg.bossCount || 4);
+    const bossHP    = this.cfg.bossHPPerBoss;
+
     this.state = {
       score: 0,
       combo: 0,
@@ -140,14 +87,13 @@ export class GameEngine {
       feverUntil: 0,
 
       bossIndex: 0,
-      bossCount: this.cfg.bossCount,
-      bossHP: this.cfg.bossHPPerBoss,
-      bossMaxHP: this.cfg.bossHPPerBoss,
+      bossCount,
+      bossHP,
+      bossMaxHP: bossHP,
       bossName: '',
       bossEmoji: '',
-      bossBgClass: '',
-      bossPhase: 1,
       bossIsFinal: false,
+      bossPhase: 1, // 1,2,3
 
       endedBy: null,
       elapsedMs: 0,
@@ -155,7 +101,7 @@ export class GameEngine {
       analytics: null
     };
 
-    this.targets = [];
+    this.targets.length = 0;
 
     this._stats.spawns      = 0;
     this._stats.hitsNormal  = 0;
@@ -166,8 +112,54 @@ export class GameEngine {
     this._stats.sumRTDecoy  = 0;
     this._stats.cntRTDecoy  = 0;
 
-    this._applyBossMeta(0);
+    this._applyBossMeta();
   }
+
+  _applyBossMeta() {
+    const idx = this.state.bossIndex;
+    const count = this.state.bossCount;
+
+    if (this.bossList && this.bossList.length) {
+      const boss = this.bossList[Math.min(idx, this.bossList.length - 1)];
+      this.state.bossName   = boss.name  || `Boss ${idx + 1}`;
+      this.state.bossEmoji  = boss.emoji || '😈';
+      this.state.bossIsFinal = !!boss.final;
+    } else {
+      this.state.bossName   = `Boss ${idx + 1}`;
+      this.state.bossEmoji  = '😈';
+      this.state.bossIsFinal = (idx === count - 1);
+    }
+    this._updateBossPhase();
+  }
+
+  _updateBossPhase() {
+    const hp    = this.state.bossHP;
+    const maxHP = this.state.bossMaxHP || 1;
+    const ratio = maxHP > 0 ? hp / maxHP : 0;
+
+    let phase = 1;
+    if (ratio <= 2/3 && ratio > 1/3) phase = 2;
+    else if (ratio <= 1/3)          phase = 3;
+
+    this.state.bossPhase = phase;
+  }
+
+  _currentSpawnInterval() {
+    const base = this.cfg.spawnInterval;
+    if (!this.state) return base;
+
+    let mult = 1;
+
+    if (this.state.bossPhase === 2) mult *= (this.cfg.phase2SpawnFactor ?? 0.9);
+    if (this.state.bossPhase === 3) mult *= (this.cfg.phase3SpawnFactor ?? 0.75);
+
+    if (this.state.bossIsFinal && this.state.bossPhase === 3) {
+      mult *= (this.cfg.finalBossSpawnFactor ?? 0.85);
+    }
+    return base * mult;
+  }
+
+  /* ---------- lifecycle ---------- */
 
   start() {
     this._resetState();
@@ -200,7 +192,7 @@ export class GameEngine {
     }
   }
 
-  /* ---------- Touch / hit ---------- */
+  /* ---------- touch / hit ---------- */
 
   registerTouch(x, y) {
     if (!this.running || !this.targets.length) return;
@@ -219,7 +211,6 @@ export class GameEngine {
         bestDist = dist;
       }
     }
-
     if (!best) return;
     this._hitTarget(best);
   }
@@ -235,6 +226,7 @@ export class GameEngine {
     const rt = t.spawnAt ? (now - t.spawnAt) : 0;
 
     if (isDecoy) {
+      // ตีโดนเป้าลวง → reset combo + ตัด HP
       this._stats.hitsDecoy++;
       if (rt > 0) {
         this._stats.sumRTDecoy += rt;
@@ -245,6 +237,7 @@ export class GameEngine {
       this.state.missCount++;
       this.state.playerHP = Math.max(0, this.state.playerHP - this.cfg.hpMissPenalty);
     } else {
+      // ตีโดนเป้าจริง
       this._stats.hitsNormal++;
       if (rt > 0) {
         this._stats.sumRTNormal += rt;
@@ -257,6 +250,7 @@ export class GameEngine {
 
       this.state.score += gain;
       this.state.combo++;
+      this.state.perfectHits++; // treat as “good hit count”
       if (this.state.combo > this.state.maxCombo) {
         this.state.maxCombo = this.state.combo;
       }
@@ -266,13 +260,12 @@ export class GameEngine {
         this.state.feverCharge + this.cfg.feverGainPerHit
       );
 
-      // โจมตีบอส
       this.state.bossHP = Math.max(0, this.state.bossHP - this.cfg.bossDamagePerHit);
-
-      // ปรับ phase ตาม HP
       this._updateBossPhase();
 
-      // ถ้าบอสตาย
+      // ช่วงใกล้ตาย + บอสสุดท้าย → spawn เร็วขึ้นโดย design จาก _currentSpawnInterval()
+
+      // clear boss แล้ว
       if (this.state.bossHP <= 0) {
         if (this.state.bossIndex + 1 >= this.state.bossCount) {
           this._emitHitEffect(t, gain);
@@ -285,13 +278,12 @@ export class GameEngine {
           this.state.bossMaxHP = this.cfg.bossHPPerBoss;
           this.state.feverCharge = 0;
           this.state.feverActive = false;
-          this._applyBossMeta(this.state.bossIndex);
+          this._applyBossMeta();
         }
       }
 
-      // Trigger FEVER ถ้าเกจเต็ม
-      if (!this.state.feverActive &&
-          this.state.feverCharge >= this.cfg.feverThreshold) {
+      // FEVER on
+      if (!this.state.feverActive && this.state.feverCharge >= this.cfg.feverThreshold) {
         this.state.feverActive = true;
         this.state.feverUntil  = now + this.cfg.feverDurationMs;
       }
@@ -341,13 +333,13 @@ export class GameEngine {
     }
   }
 
-  /* ---------- loop / spawn ---------- */
+  /* ---------- main loop ---------- */
 
   _loop() {
     if (!this.running) return;
 
-    const now = performance.now();
-    const elapsed   = now - this.startAt;
+    const now      = performance.now();
+    const elapsed  = now - this.startAt;
     const remaining = Math.max(0, this.cfg.durationMs - elapsed);
     this.state.remainingMs = remaining;
 
@@ -364,23 +356,18 @@ export class GameEngine {
       );
     }
 
-    // อัปเดต phase เผื่อ HP เปลี่ยนจากที่อื่น
-    this._updateBossPhase();
-
     if (remaining <= 0) {
       this.stop('timeout');
       return;
     }
 
-    // spawn โดยใช้ multiplier ตาม phase + near-death
+    // spawn target
     if (now >= this.nextSpawnAt) {
-      const mul      = this._getSpawnMultiplier();
-      const interval = this.baseSpawnInterval * mul;
       this._spawnTarget(now);
-      this.nextSpawnAt = now + interval;
+      this.nextSpawnAt = now + this._currentSpawnInterval();
     }
 
-    // หมดอายุเป้า
+    // expire
     const life = this.cfg.targetLifeMs;
     for (const t of this.targets) {
       if (t.hit || t.expired) continue;
@@ -430,7 +417,7 @@ export class GameEngine {
       id: 't' + Math.random().toString(36).slice(2),
       x: Math.random(),
       y: Math.random(),
-      emoji: isDecoy ? this.cfg.emojiDecoy || '💣' : this.cfg.emojiMain || '⭐',
+      emoji: isDecoy ? (this.cfg.emojiDecoy || '💣') : (this.cfg.emojiMain || '⭐'),
       decoy: isDecoy,
       spawnAt: now,
       hit: false,
