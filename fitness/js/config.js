@@ -16,7 +16,6 @@ export function pickConfig(diffKey) {
     bossList: BOSSES,
     bossCount: BOSSES.length,
     decoyChance: 0.18,
-    // phase → spawn speed
     phase2SpawnFactor: 0.9,
     phase3SpawnFactor: 0.75,
     finalBossSpawnFactor: 0.85
@@ -30,7 +29,8 @@ export function pickConfig(diffKey) {
         spawnInterval: 900,
         scoreHit: 10,
         hpMissPenalty: 3,
-        hitRadius: 110,     // เป้าใหญ่ + วงตีง่าย
+        hitRadius: 120,         // วงตีใหญ่มาก
+        targetSizePx: 110,      // ★ เป้าใหญ่สุด
         emojiMain: '🥊',
         emojiDecoy: '💣'
       };
@@ -41,7 +41,8 @@ export function pickConfig(diffKey) {
         spawnInterval: 650,
         scoreHit: 14,
         hpMissPenalty: 6,
-        hitRadius: 80,      // ต้องเล็งแม่นขึ้น
+        hitRadius: 80,          // วงตีเล็ก
+        targetSizePx: 70,       // ★ เป้าเล็กสุด
         emojiMain: '💥',
         emojiDecoy: '💣'
       };
@@ -53,7 +54,8 @@ export function pickConfig(diffKey) {
         spawnInterval: 780,
         scoreHit: 12,
         hpMissPenalty: 4,
-        hitRadius: 95,
+        hitRadius: 95,          // กลาง ๆ
+        targetSizePx: 90,       // ★ ขนาดกลาง
         emojiMain: '🥊',
         emojiDecoy: '💣'
       };
