@@ -153,6 +153,12 @@ export function createCSVLogger(sessionMeta) {
         });
       }
 
+      // 🔴 สำคัญ: โหมดเล่นธรรมดา (normal) ไม่ต้อง export CSV + ไม่ต้อง upload
+      if (sessionMeta.mode !== 'research') {
+        return;
+      }
+
+      // สร้าง CSV เฉพาะโหมดวิจัย
       const csv = rows.map(r => r.join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
 
