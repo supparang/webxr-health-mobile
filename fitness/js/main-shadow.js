@@ -1,10 +1,10 @@
-// === fitness/js/main-shadow.js — Shadow Breaker main controller (2025-11-19) ===
+// === fitness/js/main-shadow.js (2025-11-19 — boss phase, FEVER, coach, result) ===
 'use strict';
 
 import { GameEngine } from './engine.js';
 import { DomRenderer } from './dom-renderer.js';
 import { createCSVLogger } from './logger-csv.js';
-import { pickShadowConfig } from './config-shadow.js';
+import { pickConfig } from './config.js';
 import { recordSession } from './stats-store.js';
 
 const $  = (sel) => document.querySelector(sel);
@@ -20,11 +20,9 @@ function showView(sel) {
   if (el) el.classList.remove('hidden');
 }
 
-/* -------------------------------------------------
- * Global state
- * ------------------------------------------------- */
+// ---------- Global state ----------
 
-let currentMode    = 'normal';   // 'normal' | 'research'
+let currentMode    = 'normal';  // 'normal' | 'research'
 let currentDiffKey = 'normal';
 
 let engine   = null;
@@ -37,11 +35,7 @@ let lastSessionMeta = null;
 let coachTimer  = null;
 let lastCoachAt = 0;
 
-/* -------------------------------------------------
- * HUD elements
- * ------------------------------------------------- */
-
-// top stats
+// HUD refs
 const elScore   = $('#stat-score');
 const elCombo   = $('#stat-combo');
 const elMiss    = $('#stat-miss');
@@ -51,11 +45,11 @@ const elDiff    = $('#stat-diff');
 const elPerfect = $('#stat-perfect');
 const elHP      = $('#stat-hp');
 
-// FEVER
+// FEVER HUD
 const elFeverFill   = $('#fever-fill');
 const elFeverStatus = $('#fever-status');
 
-// Boss
+// Boss HUD
 const elBossName = $('#boss-name');
 const elBossFill = $('#boss-fill');
 
@@ -65,13 +59,16 @@ const elBossPortraitEmoji = $('#boss-portrait-emoji');
 const elBossPortraitName  = $('#boss-portrait-name');
 const elBossPortraitHint  = $('#boss-portrait-hint');
 
-// Coach bubble
+// Play area (ใช้เปลี่ยน background + FEVER effect)
+const elPlayArea = document.querySelector('.play-area');
+
+// Coach HUD
 const elCoachBubble = $('#coach-bubble');
 const elCoachAvatar = $('#coach-avatar');
 const elCoachRole   = $('#coach-role');
 const elCoachText   = $('#coach-text');
 
-// Result view
+// Result
 const elResMode        = $('#res-mode');
 const elResDiff        = $('#res-diff');
 const elResScore       = $('#res-score');
@@ -84,26 +81,24 @@ const elResTotalHits   = $('#res-totalhits');
 const elResRTNormal    = $('#res-rt-normal');
 const elResRTDecoy     = $('#res-rt-decoy');
 
-/* -------------------------------------------------
- * Coach system
- * ------------------------------------------------- */
+// ---------- Coach system ----------
 
 const COACH_LINES = {
   kids: {
     welcome:    'พร้อมลุย Shadow Breaker แล้ว! ชกเป้าให้ทันนะ 🥊',
-    feverReady: 'เกจ FEVER ใกล้เต็มแล้ว เตรียมชกให้รัวเลย ✨',
-    feverOn:    'เข้าโหมด FEVER แล้ว! ตีให้แม่น คอมโบอย่าให้ตก 💥',
-    hpLow:      'HP เหลือน้อยแล้ว หายใจลึก ๆ ตั้งตัวก่อนช็อตถัดไปนะ 💚',
-    bossNext:   'บอสตัวต่อไปมาแล้ว! เก็บแรงแล้วลุยต่อ 😈',
-    missSoft:   'พลาดไปนิดเดียว รอบหน้าเล็งกลาง ๆ เป้าให้เป๊ะกว่านี้หน่อย 👍'
+    feverReady: 'เกจใกล้เต็มแล้ว เตรียมเข้าโหมด FEVER! ✨',
+    feverOn:    'FEVER แล้ว! ชกให้รัว แต่ยังต้องเล็งดี ๆ นะ 💥',
+    hpLow:      'HP เหลือน้อยแล้ว หายใจลึก ๆ ตั้งสติแล้วค่อยชก ✨',
+    bossNext:   'บอสตัวต่อไปมาแล้ว! ยากขึ้นอีกนิด แต่สู้ไหวแน่ 😈',
+    missSoft:   'พลาดไปนิด ไม่เป็นไร รอบหน้าเอาใหม่! 👍'
   },
   research: {
-    welcome:    'โหมดวิจัย: โฟกัส timing ของหมัดกับการหายใจให้สม่ำเสมอครับ 🧪',
-    feverReady: 'ค่า FEVER ใกล้เต็มแล้ว ลองรักษาจังหวะหมัดให้ต่อเนื่องครับ ✨',
-    feverOn:    'เข้าสู่ช่วง FEVER: สังเกตว่าความรู้สึกเร็วขึ้นแค่ไหนแต่ยังควบคุมได้หรือไม่ 💡',
-    hpLow:      'HP ลดลงมาก แนะนำลดแรงแต่เน้นความแม่นยำแทนครับ 💚',
-    bossNext:   'เริ่มบอสตัวใหม่แล้ว ลองเปรียบเทียบความล้ากับตัวก่อนหน้านี้ครับ 📊',
-    missSoft:   'มี miss เพิ่มขึ้นเล็กน้อย ลองโฟกัสสายตาที่เป้าและการซิงค์มือ-ตาดูครับ 👀'
+    welcome:    'โหมดวิจัย: โฟกัสจังหวะหมัดกับการหายใจให้สม่ำเสมอครับ 🧪',
+    feverReady: 'ค่า FEVER ใกล้เต็มแล้ว ลองรักษาจังหวะให้ต่อเนื่องครับ ✨',
+    feverOn:    'เข้าสู่ช่วง FEVER: สังเกตว่ารู้สึกเร็วขึ้นแต่ยังควบคุมได้หรือไม่ 💡',
+    hpLow:      'HP ลดลงมาก แนะนำผ่อนแรงเล็กน้อยแต่รักษาความแม่นยำครับ 💚',
+    bossNext:   'เริ่มบอสตัวใหม่แล้ว ลองเปรียบเทียบความล้ากับตัวก่อนดูครับ 📊',
+    missSoft:   'มี miss เพิ่มขึ้นเล็กน้อย ลองโฟกัสการมองเป้าและการซิงค์มือสายตาครับ 👀'
   }
 };
 
@@ -122,7 +117,7 @@ function setCoachMessage(key) {
 
   const persona = getCoachPersona();
   const lines   = COACH_LINES[persona];
-  const text    = lines?.[key];
+  const text    = lines[key];
   if (!text) return;
 
   elCoachText.textContent = text;
@@ -154,55 +149,31 @@ function updateCoach(state) {
     setCoachMessage('feverReady');
     return;
   }
-
   // FEVER active toggle
   if (!prev.feverActive && state.feverActive) {
     setCoachMessage('feverOn');
     return;
   }
-
   // HP low
   if ((state.playerHP <= 30) && (prev.playerHP > 30)) {
     setCoachMessage('hpLow');
     return;
   }
-
   // next boss
   if (state.bossIndex > prev.bossIndex) {
     setCoachMessage('bossNext');
     return;
   }
-
   // miss increased
   if (state.missCount > prev.missCount) {
     setCoachMessage('missSoft');
   }
 }
 
-/* -------------------------------------------------
- * Logger helper (ปิด CSV ในโหมดเล่นปกติ)
- * ------------------------------------------------- */
-
-function buildLogger(meta) {
-  if (meta.mode === 'research') {
-    // ใช้ CSV logger เต็ม
-    return createCSVLogger(meta);
-  }
-  // โหมด normal → ใช้ no-op logger (ไม่ดาวน์โหลด CSV)
-  return {
-    logSpawn() {},
-    logHit() {},
-    logExpire() {},
-    finish() {}
-  };
-}
-
-/* -------------------------------------------------
- * Start game
- * ------------------------------------------------- */
+// ---------- Game start / stop ----------
 
 function startGameSession() {
-  const cfg = pickShadowConfig(currentDiffKey);
+  const diffConfig = pickConfig(currentDiffKey);
 
   const participantId = currentMode === 'research'
     ? ($('#research-id')?.value || '').trim()
@@ -220,14 +191,13 @@ function startGameSession() {
     gameId:     'shadow-breaker',
     playerId:   participantId || 'anon',
     mode:       currentMode,
-    difficulty: cfg.name || currentDiffKey,
+    difficulty: diffConfig.name,
     group:      groupName,
     phase:      phaseNote,
-    filePrefix: 'vrfitness_shadowbreaker',
-    uploadUrl:  window.VRFITNESS_UPLOAD_URL || window.SHADOWBREAKER_UPLOAD_URL || ''
+    filePrefix: 'vrfitness_shadowbreaker'
   };
 
-  logger = buildLogger(lastSessionMeta);
+  logger = createCSVLogger(lastSessionMeta);
 
   const hooks = {
     onUpdate(state) {
@@ -239,24 +209,23 @@ function startGameSession() {
   };
 
   const host = $('#target-layer');
-  renderer = new DomRenderer(null, host, {
-    sizePx: cfg.targetSizePx || 96
-  });
-
+  renderer = new DomRenderer(null, host, { sizePx: diffConfig.targetSizePx });
+  renderer.setEngine?.(null); // เคลียร์ของเดิมเผื่อมี
   engine = new GameEngine({
-    config:   cfg,
+    config:   diffConfig,
     hooks,
     renderer,
     logger,
     mode: currentMode
   });
+  renderer.setEngine?.(engine);
 
   lastState   = null;
   lastCoachAt = 0;
   if (elCoachBubble) elCoachBubble.classList.remove('visible');
 
-  updateStaticHUD();
   showView('#view-play');
+  updateStaticHUD();
   engine.start();
 }
 
@@ -265,25 +234,25 @@ function updateStaticHUD() {
   if (elDiff) elDiff.textContent = currentDiffKey;
 }
 
-/* -------------------------------------------------
- * HUD update
- * ------------------------------------------------- */
+// ---------- HUD updates ----------
 
 function updateFeverHUD(state) {
   if (!elFeverFill || !elFeverStatus) return;
-
   const charge = Math.max(0, Math.min(100, state.feverCharge || 0));
   elFeverFill.style.width = charge + '%';
 
   if (state.feverActive) {
     elFeverStatus.textContent = 'FEVER!!';
     elFeverStatus.classList.add('active');
+    if (elPlayArea) elPlayArea.classList.add('fever-hot');
   } else if (charge >= 90) {
     elFeverStatus.textContent = 'READY';
     elFeverStatus.classList.remove('active');
+    if (elPlayArea) elPlayArea.classList.remove('fever-hot');
   } else {
     elFeverStatus.textContent = 'FEVER';
     elFeverStatus.classList.remove('active');
+    if (elPlayArea) elPlayArea.classList.remove('fever-hot');
   }
 }
 
@@ -295,25 +264,63 @@ function updateBossHUD(state) {
   const hp    = state.bossHP ?? 0;
   const maxHP = state.bossMaxHP || 1;
 
-  elBossName.textContent = `Boss ${idx}/${total}`;
+  // ชื่อบอส + ลำดับ
+  const bossLabel = state.bossName
+    ? `${state.bossName} (${idx}/${total})`
+    : `Boss ${idx}/${total}`;
+  elBossName.textContent = bossLabel;
 
+  // แถบ HP
   const pct = Math.max(0, Math.min(100, (hp / maxHP) * 100));
   elBossFill.style.width = pct + '%';
 
-  // portrait info
-  if (elBossPortraitEmoji) elBossPortraitEmoji.textContent = state.bossEmoji || '🥊';
-  if (elBossPortraitName)  elBossPortraitName.textContent  = state.bossName || `Boss ${idx}`;
+  // เปลี่ยนพื้นหลังตามบอส
+  if (elPlayArea) {
+    const allBossClasses = ['boss-1','boss-2','boss-3','boss-4','final-boss'];
+    elPlayArea.classList.remove(...allBossClasses);
+
+    const bossClass = state.bossBgClass || `boss-${idx}`;
+    elPlayArea.classList.add(bossClass);
+
+    if (idx === total) {
+      // บอสตัวสุดท้าย → ใส่ animation
+      elPlayArea.classList.add('final-boss');
+    } else {
+      elPlayArea.classList.remove('final-boss');
+    }
+  }
+
+  // portrait
+  if (elBossPortraitEmoji && state.bossEmoji) {
+    elBossPortraitEmoji.textContent = state.bossEmoji;
+  }
+  if (elBossPortraitName && state.bossName) {
+    elBossPortraitName.textContent = state.bossName;
+  }
 
   if (!elBossPortrait) return;
 
   const ratio = hp / maxHP;
-  if (ratio > 0 && ratio <= 0.3) {
+  const isLow = ratio > 0 && ratio <= 0.3;
+
+  if (isLow) {
     elBossPortrait.classList.add('visible');
     if (elBossPortraitHint) {
-      elBossPortraitHint.textContent = 'HP ใกล้หมดแล้ว! ตีให้สุด! 💥';
+      elBossPortraitHint.textContent =
+        ratio <= 0.15
+          ? 'เกือบแตกแล้ว! รัวหมัดชุดสุดท้ายเลย 💥'
+          : 'HP ใกล้หมดแล้ว! ตีให้สุด! 💥';
+    }
+
+    // HP ต่ำมาก → portrait สั่น
+    if (ratio <= 0.15) {
+      elBossPortrait.classList.add('shake');
+    } else {
+      elBossPortrait.classList.remove('shake');
     }
   } else {
     elBossPortrait.classList.remove('visible');
+    elBossPortrait.classList.remove('shake');
   }
 }
 
@@ -324,7 +331,7 @@ function updateHUD(state) {
   if (elPerfect) elPerfect.textContent = state.perfectHits ?? 0;
   if (elHP)      elHP.textContent      = state.playerHP ?? 0;
 
-  const remainingSec = Math.max(0, (state.remainingMs || 0) / 1000);
+  const remainingSec = Math.max(0, state.remainingMs / 1000);
   if (elTime) elTime.textContent = remainingSec.toFixed(1);
 
   updateFeverHUD(state);
@@ -334,9 +341,7 @@ function updateHUD(state) {
   lastState = state;
 }
 
-/* -------------------------------------------------
- * Result
- * ------------------------------------------------- */
+// ---------- Result view ----------
 
 function mapEndReason(code) {
   switch (code) {
@@ -356,7 +361,6 @@ function formatMs(ms) {
 
 function onGameEnd(state) {
   const analytics = state.analytics || {};
-  const acc = analytics.accuracy != null ? analytics.accuracy : 0;
 
   if (elResMode)        elResMode.textContent        = (currentMode === 'research') ? 'โหมดวิจัย' : 'โหมดเล่นปกติ';
   if (elResDiff)        elResDiff.textContent        = currentDiffKey;
@@ -366,6 +370,7 @@ function onGameEnd(state) {
   if (elResParticipant) elResParticipant.textContent = lastSessionMeta?.playerId || '-';
   if (elResEndReason)   elResEndReason.textContent   = mapEndReason(state.endedBy);
 
+  const acc = analytics.accuracy != null ? analytics.accuracy : 0;
   if (elResAccuracy)  elResAccuracy.textContent  = (acc * 100).toFixed(1) + ' %';
   if (elResTotalHits) elResTotalHits.textContent = analytics.totalHits ?? 0;
   if (elResRTNormal)  elResRTNormal.textContent  = formatMs(analytics.avgReactionNormal || 0);
@@ -373,30 +378,25 @@ function onGameEnd(state) {
 
   if (elCoachBubble) elCoachBubble.classList.remove('visible');
 
-  // สรุปไป dashboard รวม
+  // ---- Save summary to dashboard ----
   recordSession('shadow-breaker', {
-    mode:       currentMode,
+    mode: currentMode,
     difficulty: currentDiffKey,
-    score:      state.score,
-    maxCombo:   state.maxCombo,
-    missCount:  state.missCount,
-    totalHits:  analytics.totalHits ?? 0,
-    accuracy:   acc,
+    score: state.score,
+    maxCombo: state.maxCombo,
+    missCount: state.missCount,
+    totalHits: analytics.totalHits ?? 0,
+    accuracy: acc,
     avgReactionMs: analytics.avgReactionNormal || 0
   });
 
   showView('#view-result');
 }
 
-/* -------------------------------------------------
- * Init & events
- * ------------------------------------------------- */
+// ---------- Init & event wiring ----------
 
 function init() {
-  // เริ่มจากเมนู
-  showView('#view-menu');
-
-  // ---- Start buttons ----
+  // Start buttons
   $('[data-action="start-research"]')?.addEventListener('click', () => {
     currentMode    = 'research';
     currentDiffKey = $('#difficulty')?.value || 'normal';
@@ -409,14 +409,7 @@ function init() {
     startGameSession();
   });
 
-  // เริ่มเล่นจากหน้า form วิจัย
-  $('[data-action="research-begin-play"]')?.addEventListener('click', () => {
-    currentMode    = 'research';
-    currentDiffKey = $('#difficulty')?.value || 'normal';
-    startGameSession();
-  });
-
-  // ---- Back to menu ----
+  // ปุ่ม "กลับเมนูเกม" ทุกปุ่ม (ทั้งในหน้าโหมดวิจัยและหน้า Result)
   $$('[data-action="back-to-menu"]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (engine) engine.stop('back-to-menu');
@@ -424,17 +417,23 @@ function init() {
     });
   });
 
-  // ---- Stop early ----
+  // ปุ่มเริ่มจากหน้าโหมดวิจัย
+  $('[data-action="research-begin-play"]')?.addEventListener('click', () => {
+    currentDiffKey = $('#difficulty')?.value || 'normal';
+    startGameSession();
+  });
+
+  // ปุ่มหยุดก่อนเวลา
   $('[data-action="stop-early"]')?.addEventListener('click', () => {
     if (engine) engine.stop('manual');
   });
 
-  // ---- Download CSV button (อธิบายเฉย ๆ) ----
+  // ปุ่ม Download CSV (ปัจจุบันไฟล์จะโหลดอัตโนมัติตอนจบเกม)
   $('[data-action="download-csv"]')?.addEventListener('click', () => {
-    alert('ไฟล์ CSV จะถูกดาวน์โหลดอัตโนมัติเมื่อจบเกมในโหมดวิจัยค่ะ');
+    alert('ไฟล์ CSV จะถูกดาวน์โหลดอัตโนมัติเมื่อจบเกม (โหมดวิจัย) หากต้องการอัปโหลดขึ้น cloud ให้กำหนด VRFITNESS_UPLOAD_URL ที่หน้า HTML');
   });
 
-  // ---- Play again ----
+  // ปุ่มเล่นอีกครั้ง (ใช้การตั้งค่าเดิม)
   $('[data-action="play-again"]')?.addEventListener('click', () => {
     if (!lastSessionMeta) {
       showView('#view-menu');
@@ -449,6 +448,8 @@ function init() {
       startGameSession();
     }
   });
+
+  showView('#view-menu');
 }
 
 window.addEventListener('DOMContentLoaded', init);
