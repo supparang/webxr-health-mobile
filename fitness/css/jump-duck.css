@@ -1,3 +1,4 @@
+/* fitness/css/jump-duck.css */
 :root{
   color-scheme:dark;
   --bg:#020617;
@@ -195,4 +196,156 @@ select,input{
   transform-origin:center bottom;
   display:flex;
   align-items:flex-end;
-  justify-content:center
+  justify-content:center;
+}
+#runner-emoji{
+  font-size:2.1rem;
+  text-shadow:0 0 10px rgba(15,23,42,0.9);
+}
+#runner.jump{
+  animation:jd-jump .4s ease-out;
+}
+#runner.duck{
+  animation:jd-duck .35s ease-out;
+}
+
+@keyframes jd-jump{
+  0%{transform:translateY(0);}
+  50%{transform:translateY(-40%);}
+  100%{transform:translateY(0);}
+}
+@keyframes jd-duck{
+  0%{transform:translateY(0) scaleY(1);}
+  40%{transform:translateY(16%) scaleY(0.78);}
+  100%{transform:translateY(0) scaleY(1);}
+}
+
+/* obstacles */
+
+#obstacle-layer{
+  position:absolute;
+  inset:0;
+}
+.obstacle{
+  position:absolute;
+  bottom:24%;
+  right:-12%;
+  width:48px;
+  height:48px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:2rem;
+  text-shadow:0 0 10px rgba(0,0,0,0.9);
+  animation:jd-obstacle-move var(--dur,1.4s) linear forwards;
+}
+.obstacle.low{ bottom:24%; }   /* ต้อง jump */
+.obstacle.high{ bottom:40%; }  /* ต้อง duck */
+.obstacle.bonus{
+  bottom:32%;
+}
+
+@keyframes jd-obstacle-move{
+  0%{transform:translateX(0);}
+  100%{transform:translateX(-620px);}
+}
+
+/* ground */
+
+#ground{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:18%;
+  height:3px;
+  background:linear-gradient(90deg,#22c55e,#38bdf8,#22c55e);
+  opacity:.85;
+}
+
+/* judge */
+
+.judge{
+  position:absolute;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(248,250,252,0.9);
+  background:rgba(15,23,42,0.95);
+  font-size:.8rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .12s,transform .12s;
+}
+.judge.show{
+  opacity:1;
+  transform:translate(-50%,2px);
+}
+.judge-ok{
+  border-color:rgba(34,197,94,0.9);
+  box-shadow:0 0 14px rgba(34,197,94,0.9);
+  color:#bbf7d0;
+}
+.judge-miss{
+  border-color:rgba(248,113,113,0.9);
+  box-shadow:0 0 14px rgba(248,113,113,0.9);
+  color:#fecaca;
+}
+
+/* howto */
+
+.howto{
+  font-size:.78rem;
+  color:#9ca3af;
+  text-align:center;
+  margin-top:12px;
+  margin-bottom:14px;
+}
+
+/* result */
+
+.result-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:6px 10px;
+  font-size:.8rem;
+  margin-top:8px;
+}
+.result-row{
+  display:flex;
+  justify-content:space-between;
+  gap:6px;
+  border-bottom:1px dashed rgba(148,163,184,0.5);
+  padding:3px 0;
+}
+.result-row span{color:#9ca3af;}
+.result-row b{font-weight:600;}
+.note{
+  margin-top:8px;
+  font-size:.76rem;
+  color:#9ca3af;
+  text-align:center;
+}
+
+/* responsive */
+
+@media(max-width:480px){
+  .view{padding:16px 14px 20px;}
+  .btn{min-width:100%;}
+}
+@media(max-height:720px){
+  #view-play{
+    padding-top:10px;
+    padding-bottom:10px;
+  }
+  #playArea{
+    margin-top:10px;
+    margin-bottom:10px;
+  }
+}
