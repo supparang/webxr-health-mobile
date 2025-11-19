@@ -36,7 +36,7 @@ body{
   min-height:100vh;
 }
 
-/* card view */
+/* views / cards */
 
 .view{
   background:var(--card);
@@ -118,7 +118,7 @@ select,input{
 .btn.primary{
   border-color:transparent;
   background:linear-gradient(135deg,#f97316,#fb7185);
-  color:#1f2933;
+  color:#1f2937;
   box-shadow:0 12px 26px rgba(249,115,22,0.85);
 }
 .btn.ghost{
@@ -182,7 +182,7 @@ select,input{
   width:100%;
   max-width:380px;
   margin:16px auto;
-  aspect-ratio:9/14;
+  aspect-ratio:9/14; /* สูงแบบมือถือ */
   border-radius:20px;
   border:1px solid var(--border);
   overflow:hidden;
@@ -208,7 +208,7 @@ select,input{
   100%{transform:translate(0,0);}
 }
 
-/* target grid / emoji */
+/* target grid / emoji slots */
 
 .target-slot{
   position:absolute;
