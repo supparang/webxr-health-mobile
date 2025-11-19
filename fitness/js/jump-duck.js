@@ -1,4 +1,4 @@
-// fitness/js/jump-duck.js
+// fitness/js/jump-duck.js — Jump-Duck v2 (phase + star + research CSV)
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -52,11 +52,31 @@ const DIFF_CONFIG = {
   hard:   { durationMs:60000, spawnIntervalMs:700,  travelMs:1300, judgeWindowMs:190, scorePer:12 }
 };
 
+/**
+ * Phase design:
+ *  - 0–33%: warmup   (ช้า, ดาวน้อย, คะแนนน้อย)
+ *  - 33–66%: focus   (ปกติ, ดาวกลาง, คะแนนเพิ่ม)
+ *  - 66–100%: rush   (เร็ว, ดาวเยอะ, คะแนนเพิ่มอีก)
+ */
+function getPhaseInfo(state){
+  const t = state.elapsed || 0;
+  const dur = state.durationMs || GAME_DURATION_MS;
+  const ratio = dur > 0 ? (t / dur) : 0;
+
+  if (ratio < 0.33){
+    return { name:'warmup', spawnMul:1.15, travelMul:1.1, starChance:0.10, scoreBonus:0 };
+  } else if (ratio < 0.66){
+    return { name:'focus', spawnMul:1.0, travelMul:1.0, starChance:0.18, scoreBonus:2 };
+  } else {
+    return { name:'rush', spawnMul:0.78, travelMul:0.88, starChance:0.25, scoreBonus:4 };
+  }
+}
+
 /* coach */
 const COACH_LINES = {
-  welcome: 'โฟกัสที่สิ่งกีดขวางให้ดี แล้วเลือกโดด/หมอบให้ถูก / Focus obstacles & choose jump/duck correctly 💡',
-  combo:   'คอมโบยาวมาก สุดยอด! / Huge streak, awesome reflex! 🔥',
-  miss:    'ชนไปนิดหน่อย รอบหน้าอ่านรูปสิ่งกีดขวางให้ชัดขึ้นนะ / Small miss, read obstacle shape more carefully 👍'
+  welcome: 'โฟกัสที่สิ่งกีดขวางให้ดี แล้วเลือกโดด/หมอบให้ถูก 💡 / Focus obstacles & choose jump/duck correctly!',
+  combo:   'คอมโบยาวมาก สุดยอด! 🔥 / Huge streak, awesome reflex!',
+  miss:    'ชนไปนิดหน่อย รอบหน้าอ่านรูปสิ่งกีดขวางให้ชัดขึ้น 👍 / Small miss, read shapes more carefully.'
 };
 let lastCoachAt = 0;
 let lastCoachSnapshot = null;
@@ -71,7 +91,7 @@ let rafId = null;
 let logger = null;
 let pendingResearch = null;
 
-/* CSV logger (self contained) */
+/* CSV logger (self-contained) */
 
 function createCSVLogger(meta){
   const rows = [];
@@ -148,7 +168,7 @@ function createCSVLogger(meta){
   };
 }
 
-/* dashboard stub */
+/* dashboard stub (localStorage summary) */
 
 function recordSessionToDashboard(summary){
   try{
@@ -247,7 +267,7 @@ function updateCoach(){
   }
   const prev = lastCoachSnapshot;
   if (snap.combo>=10 && prev.combo<10) showCoach('combo');
-  else if (snap.miss>prev.miss) showCoach('miss');
+  else if (snap.miss>prev.miss)        showCoach('miss');
   lastCoachSnapshot = snap;
 }
 
@@ -282,10 +302,14 @@ function startGame(kind){
   state = {
     diffKey,
     durationMs: diffCfg.durationMs,
+
+    baseSpawnIntervalMs: diffCfg.spawnIntervalMs,
+    baseTravelMs:        diffCfg.travelMs,
+
     spawnIntervalMs: diffCfg.spawnIntervalMs,
-    travelMs: diffCfg.travelMs,
-    judgeWindowMs: diffCfg.judgeWindowMs,
-    scorePer: diffCfg.scorePer,
+    travelMs:        diffCfg.travelMs,
+    judgeWindowMs:   diffCfg.judgeWindowMs,
+    scorePer:        diffCfg.scorePer,
 
     startTime: now,
     elapsed:0,
@@ -339,6 +363,11 @@ function loop(now){
     return;
   }
 
+  // phase-based pacing
+  const phase = getPhaseInfo(state);
+  state.spawnIntervalMs = state.baseSpawnIntervalMs * phase.spawnMul;
+  state.travelMs        = state.baseTravelMs       * phase.travelMul;
+
   // fever decay
   const dtSec = 16/1000;
   if (!state.feverActive){
@@ -362,6 +391,7 @@ function loop(now){
       obs.resolved = true;
       state.missCount++;
       state.combo = 0;
+      state.fever = Math.max(0, state.fever - 10);
       if (elHudMiss) elHudMiss.textContent = String(state.missCount);
       showJudge('MISS','miss');
       logger?.logExpire({id:obs.id,type:obs.type,result:'miss'});
@@ -376,13 +406,24 @@ function loop(now){
   rafId = requestAnimationFrame(loop);
 }
 
-/* spawn obstacle */
+/* spawn obstacle (jump / duck / star) */
 
 function spawnObstacle(spawnTime){
-  const type = Math.random()<0.5 ? 'jump' : 'duck';
-  const id   = state.nextId++;
-  const travel = state.travelMs;
+  const id    = state.nextId++;
+  const phase = getPhaseInfo(state);
 
+  // อัตราดาว⭐ ตาม phase
+  let type;
+  const r = Math.random();
+  if (r < phase.starChance){
+    type = 'star'; // bonus item
+  } else if (Math.random() < 0.5){
+    type = 'jump';
+  } else {
+    type = 'duck';
+  }
+
+  const travel  = state.travelMs;
   const hitTime = spawnTime + travel*0.55;
 
   const obs = { id, type, spawnTime, hitTime, resolved:false, success:false, rt:null };
@@ -391,7 +432,11 @@ function spawnObstacle(spawnTime){
   const el = document.createElement('div');
   el.className = 'obs ' + (type==='jump'?'obs-low':'obs-high');
   el.dataset.id = String(id);
-  el.textContent = (type==='jump'?'⬛':'⚡');
+
+  if (type === 'jump')      el.textContent = '🧱';
+  else if (type === 'duck') el.textContent = '⚡';
+  else                      el.textContent = '⭐';
+
   el.style.animationDuration = travel+'ms';
   lane.appendChild(el);
 
@@ -400,7 +445,7 @@ function spawnObstacle(spawnTime){
   logger?.logSpawn({id,type});
 }
 
-/* handle action */
+/* handle action: 'jump' or 'duck' */
 
 function handleAction(action,ev){
   if (!state) return;
@@ -432,9 +477,11 @@ function handleAction(action,ev){
     }
   }
 
+  // ถ้าไม่มี obstacle ใน window = miss
   if (!best){
     state.missCount++;
     state.combo = 0;
+    state.fever = Math.max(0, state.fever - 8);
     if (elHudMiss) elHudMiss.textContent = String(state.missCount);
     showJudge('MISS','miss');
     playSFX('miss');
@@ -449,10 +496,12 @@ function handleAction(action,ev){
   const rt = now - best.hitTime;
   best.rt = rt;
 
-  const correctType = (action===best.type);
+  // star = อะไรก็ถูก, อย่างอื่นต้องตรงประเภท
+  const correctType = (best.type === 'star') ? true : (action === best.type);
   if (!correctType){
     state.missCount++;
-    state.combo=0;
+    state.combo = 0;
+    state.fever = Math.max(0, state.fever - 12);
     if (elHudMiss) elHudMiss.textContent = String(state.missCount);
     showJudge('MISS','miss');
     playSFX('miss');
@@ -473,7 +522,7 @@ function handleAction(action,ev){
     return;
   }
 
-  // timing
+  // timing quality (สำหรับดาว star ก็ตัดสิน timing ได้เหมือนกัน)
   let quality='good';
   if (Math.abs(rt)<=windowMs*0.4) quality='perfect';
 
@@ -481,16 +530,27 @@ function handleAction(action,ev){
   state.combo++;
   if (state.combo>state.maxCombo) state.maxCombo = state.combo;
 
-  let gain = state.scorePer;
+  const phase = getPhaseInfo(state);
+
+  let gain = state.scorePer + (phase.scoreBonus || 0);
   if (quality==='perfect') gain += 4;
+  if (best.type === 'star') gain += 6; // ดาวได้เพิ่มพิเศษ
 
   const mult = state.feverActive ? 2 : 1;
   state.score += gain*mult;
 
-  state.fever += (quality==='perfect'?10:6);
-  if (!state.feverActive && state.fever>=100){
-    state.feverActive=true;
-    state.feverUntil=now+5000;
+  // FEVER fill: ดาว + perfect เติมเยอะกว่า
+  if (best.type === 'star'){
+    state.fever += 14;
+  } else if (quality === 'perfect'){
+    state.fever += 10;
+  } else {
+    state.fever += 6;
+  }
+
+  if (state.fever >= 100 && !state.feverActive){
+    state.feverActive = true;
+    state.feverUntil  = now + 5000;
     playSFX('fever');
     comboCall('FEVER!! 🔥');
   }
