@@ -54,6 +54,10 @@ const resSpatial   = $('#res-spatial');
 const resSpatialOK = $('#res-spatial-ok');
 const resSpatialBad= $('#res-spatial-bad');
 
+// NOTE: ข้อความ CSV มุมล่างซ้ายในหน้า Result
+// เราจะซ่อน/แสดงตรงนี้แทน (ไม่ต้องแก้ HTML)
+const csvNote      = $('#view-result .note');
+
 /* ---------- Config ---------- */
 
 const GAME_DURATION_MS  = 60000;  // 60s
@@ -103,12 +107,12 @@ const COACH_COOLDOWN_MS = 4500;
 /* ---------- Helper UI ---------- */
 
 function showView(name){
-  [viewMenu,viewResearch,viewCalib,viewPlay,viewResult].forEach(v=>v.classList.add('hidden'));
-  if (name==='menu')    viewMenu.classList.remove('hidden');
-  if (name==='research')viewResearch.classList.remove('hidden');
-  if (name==='calib')   viewCalib.classList.remove('hidden');
-  if (name==='play')    viewPlay.classList.remove('hidden');
-  if (name==='result')  viewResult.classList.remove('hidden');
+  [viewMenu,viewResearch,viewCalib,viewPlay,viewResult].forEach(v=>v?.classList.add('hidden'));
+  if (name==='menu')    viewMenu?.classList.remove('hidden');
+  if (name==='research')viewResearch?.classList.remove('hidden');
+  if (name==='calib')   viewCalib?.classList.remove('hidden');
+  if (name==='play')    viewPlay?.classList.remove('hidden');
+  if (name==='result')  viewResult?.classList.remove('hidden');
 }
 
 function mapEndReason(code){
@@ -239,7 +243,6 @@ function createCSVLogger(meta){
 
   return {
     logSpawn(info){
-      // เก็บแค่ reference minimal
       pushRow('spawn',{ id:info.id, padTarget:info.x });
     },
     logHit(info){
@@ -259,7 +262,6 @@ function createCSVLogger(meta){
       pushRow('expire',{ id:info.id, result:info.result });
     },
     finish(payload){
-      // บันทึก summary row
       pushRow('summary',{
         result: mapEndReason(payload.endedBy),
         score: payload.score,
@@ -268,7 +270,6 @@ function createCSVLogger(meta){
         reactionMs: payload.analytics?.rtMean ?? ''
       });
 
-      // ดาวน์โหลด CSV เฉพาะโหมดวิจัย
       if (meta.mode === 'research'){
         const csv = rows.map(r=>r.map(v=>{
           const s = String(v ?? '');
@@ -304,7 +305,6 @@ function recordSessionToDashboard(gameId, summary){
   if (globalStats && typeof globalStats.recordSession === 'function'){
     try{ globalStats.recordSession(gameId, summary); }catch(e){}
   }else{
-    // เก็บ localStorage เผื่อใช้ทีหลัง
     try{
       const key = 'vrfit_sessions_'+gameId;
       const arr = JSON.parse(localStorage.getItem(key) || '[]');
@@ -330,7 +330,7 @@ function buildSessionMeta(diffKey,tempoMode,isCalib){
   return {
     gameId:'rhythm-boxer',
     playerId,group,phase,
-    mode: isCalib?'calibration':gameMode,
+    mode: isCalib?'research-calibration':gameMode,
     difficulty:diffKey,
     tempoMode,
     baseBpm: diffCfg.bpm,
@@ -407,7 +407,7 @@ function startGame(kind){
   const limit = gameMode==='calibration'?CALIB_DURATION_MS:GAME_DURATION_MS;
   if (elHudTime)  elHudTime.textContent  = (limit/1000).toFixed(1);
 
-  $$('#padWrap .pad').forEach(p=>p.classList.remove('pad-active','pad-hit'));
+  $$('#padWrap .pad').forEach(p=>p.classList.remove('active','hit'));
   lastCoachAt = 0;
   lastCoachSnapshot = null;
   if (coachBubble) coachBubble.classList.add('hidden');
@@ -513,8 +513,8 @@ function spawnBeat(beatTime){
 
   const pad = padWrap?.querySelector(`.pad[data-pad="${padIndex}"]`);
   if (pad){
-    pad.classList.add('pad-active');
-    setTimeout(()=> pad.classList.remove('pad-active'), 220);
+    pad.classList.add('active');                 // <— ให้ตรงกับ CSS
+    setTimeout(()=> pad.classList.remove('active'), 220);
   }
 
   logger?.logSpawn({id:beat.id,x:padIndex});
@@ -539,8 +539,8 @@ function handlePadTap(padIndex,ev){
 
   const padEl = padWrap?.querySelector(`.pad[data-pad="${padIndex}"]`);
   if (padEl){
-    padEl.classList.add('pad-hit');
-    setTimeout(()=> padEl.classList.remove('pad-hit'), 120);
+    padEl.classList.add('hit');                 // <— ให้ตรงกับ CSS
+    setTimeout(()=> padEl.classList.remove('hit'), 120);
   }
 
   // find best beat
@@ -788,7 +788,7 @@ function stopGame(endedBy){
     analytics:a
   });
 
-  if (sessionMeta?.mode==='calibration'){
+  if (sessionMeta?.mode==='research-calibration'){
     saveCalibrationFromAnalytics(a);
   }
 
@@ -803,7 +803,7 @@ function fillResultView(endedBy,a){
   if (!sessionMeta) return;
   const modeLabel =
     sessionMeta.mode==='research' ? 'Research' :
-    sessionMeta.mode==='calibration' ? 'Calibration' : 'Play';
+    sessionMeta.mode==='research-calibration' ? 'Calibration' : 'Play';
 
   resMode.textContent      = modeLabel;
   resDiff.textContent      = sessionMeta.difficulty || '-';
@@ -830,6 +830,15 @@ function fillResultView(endedBy,a){
   resSpatial.textContent   = fmtPercent(a.spatialAccuracy || 0);
   resSpatialOK.textContent = String(a.spatialCorrect || 0);
   resSpatialBad.textContent= String(a.spatialWrong   || 0);
+
+  // 🔹 ซ่อน / แสดงข้อความ CSV เฉพาะโหมดวิจัย
+  if (csvNote){
+    if (sessionMeta.mode === 'research'){
+      csvNote.classList.remove('hidden');
+    }else{
+      csvNote.classList.add('hidden');
+    }
+  }
 }
 
 /* ---------- Init & events ---------- */
