@@ -169,6 +169,10 @@ select,input{
 
 /* play area – center, pads inside */
 
+#view-play{
+  margin-top:4px;
+}
+
 #playArea{
   position:relative;
   width:100%;
@@ -189,40 +193,53 @@ select,input{
     0 0 36px rgba(34,197,94,0.7);
 }
 
-/* pads */
+/* pads – 2x2 grid */
 
-.pad-row{
+#padWrap{
   position:absolute;
   inset:0;
   display:grid;
   grid-template-columns:repeat(2,1fr);
   grid-template-rows:repeat(2,1fr);
 }
+
 .pad{
   border:1px solid rgba(148,163,184,0.4);
   display:flex;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
-  font-size:2.2rem;
   transition:background .08s,transform .08s,box-shadow .08s;
 }
-.pad span{
+
+.pad-label{
+  font-size:.72rem;
+  color:#9ca3af;
+  margin-bottom:2px;
+  letter-spacing:.04em;
+}
+.pad-emoji{
+  font-size:2.1rem;
   text-shadow:0 0 14px rgba(15,23,42,0.9);
 }
-.pad.active{
+
+/* states ต้องตรงกับ JS: pad-active / pad-hit */
+
+.pad.pad-active{
   transform:scale(0.96);
   box-shadow:0 0 18px rgba(56,189,248,0.8) inset;
-  background:radial-gradient(circle at 50% 20%,rgba(56,189,248,0.4),transparent 65%);
+  background:radial-gradient(circle at 50% 20%,rgba(56,189,248,0.35),transparent 65%);
 }
-.pad.hit{
+.pad.pad-hit{
   animation:rb-hit .18s ease-out;
 }
+
 @keyframes rb-hit{
   0%{transform:scale(.98);opacity:1;}
   100%{transform:scale(1.05);opacity:1;}
 }
 
-/* falling notes lane (ถ้ามี) */
+/* (option) falling notes — future use */
 
 .note{
   position:absolute;
