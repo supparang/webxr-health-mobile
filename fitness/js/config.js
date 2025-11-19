@@ -1,35 +1,60 @@
-// === config.js (2025-11-19 easier hit) ===
+// === fitness/js/config.js (Shadow Breaker difficulty + bosses) ===
 'use strict';
 
-export function pickConfig(key) {
-  const base = {
-    durationMs: 60000,
-    scoreHit: 10,
-    emojiMain: '⭐',
-    hitRadius: 88,   // เดิม 48-60 → เพิ่มให้แตะง่าย
-    targetLifetime: 1500
-  };
+// รายชื่อบอส 4 ตัว (ชื่อ + emoji)
+const BOSSES = [
+  { name: 'Bubble Glove', emoji: '🐣' },
+  { name: 'Neon Fist',    emoji: '🧤' },
+  { name: 'Tempo Titan',  emoji: '🎵' },
+  { name: 'Shadow King',  emoji: '👑' }
+];
 
-  const diff = {
-    easy: {
-      ...base,
-      name: 'easy',
-      spawnInterval: 900,
-      targetSizePx: 90
-    },
-    normal: {
-      ...base,
-      name: 'normal',
-      spawnInterval: 750,
-      targetSizePx: 80
-    },
-    hard: {
-      ...base,
-      name: 'hard',
-      spawnInterval: 620,
-      targetSizePx: 72
-    }
+function baseConfig() {
+  return {
+    emojiMain:  '🥊',
+    emojiDecoy: '💣',
+    bosses: BOSSES
   };
+}
 
-  return diff[key] || diff.normal;
+const DIFF = {
+  easy: {
+    name: 'easy',
+    // เล่นสบาย เป้าใหญ่ ตกช้า decoy น้อย
+    durationMs:    60000,
+    spawnInterval: 900,
+    targetLifeMs:  1200,
+    targetSizePx:  120,
+    hitRadius:     120,
+    decoyChance:   0.06,
+    bossHPPerBoss: 80
+  },
+  normal: {
+    name: 'normal',
+    durationMs:    60000,
+    spawnInterval: 750,
+    targetLifeMs:  900,
+    targetSizePx:  96,
+    hitRadius:     96,
+    decoyChance:   0.14,
+    bossHPPerBoss: 100
+  },
+  hard: {
+    name: 'hard',
+    durationMs:    60000,
+    spawnInterval: 600,
+    targetLifeMs:  750,
+    targetSizePx:  78,
+    hitRadius:     78,
+    decoyChance:   0.22,
+    bossHPPerBoss: 120
+  }
+};
+
+export function pickConfig(key = 'normal') {
+  const k = DIFF[key] ? key : 'normal';
+  return {
+    ...baseConfig(),
+    ...DIFF[k]
+  };
 }
