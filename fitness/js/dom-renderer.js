@@ -1,14 +1,24 @@
-// === dom-renderer.js (2025-11-19 fix: correct spawn bounds + center snap) ===
+// === dom-renderer.js (2025-11-19 tap wiring + safe bounds) ===
 'use strict';
 
 export class DomRenderer {
   constructor(engine, host, opts = {}) {
     this.engine = engine;
-    this.host = host;
+    this.host   = host;
     this.sizePx = opts.sizePx || 96;
+    this.targets = new Map();
 
-    // bounding box จริงที่ใช้ spawn
-    const rect = host.getBoundingClientRect();
+    this.updateBounds();
+    window.addEventListener('resize', () => this.updateBounds());
+  }
+
+  setEngine(engine){
+    this.engine = engine;
+  }
+
+  updateBounds() {
+    if (!this.host) return;
+    const rect = this.host.getBoundingClientRect();
     this.bounds = {
       w: rect.width,
       h: rect.height,
@@ -17,38 +27,56 @@ export class DomRenderer {
     };
   }
 
-  updateBounds() {
-    const rect = this.host.getBoundingClientRect();
-    this.bounds.w = rect.width;
-    this.bounds.h = rect.height;
-    this.bounds.left = rect.left;
-    this.bounds.top = rect.top;
+  clear() {
+    this.targets.forEach(el => {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
+    this.targets.clear();
   }
 
   spawnTarget(t) {
+    if (!this.host) return;
     this.updateBounds();
 
     const el = document.createElement('div');
-    el.className = 'sb-target';
-    el.style.width = this.sizePx + 'px';
+    el.className = 'sb-target' + (t.decoy ? ' sb-target-decoy' : '');
+    el.style.width  = this.sizePx + 'px';
     el.style.height = this.sizePx + 'px';
-    el.textContent = t.emoji || '⭐';
+    el.textContent  = t.emoji || '⭐';
 
-    // ป้องกัน spawn หลุดกรอบ
-    const safeW = this.bounds.w - this.sizePx;
-    const safeH = this.bounds.h - this.sizePx;
+    // คำนวณ safe area กันหลุดกรอบ (ทั้งดวงอยู่ในเฟรม)
+    const safeW = Math.max(0, this.bounds.w - this.sizePx);
+    const safeH = Math.max(0, this.bounds.h - this.sizePx);
 
-    const x = t.x * safeW;
-    const y = t.y * safeH;
+    const x = (t.x || 0) * safeW;
+    const y = (t.y || 0) * safeH;
 
+    // วางโดยใช้ translate จากมุมซ้ายบนของ host
     el.style.transform = `translate(${x}px, ${y}px)`;
 
-    el.dataset.id = t.id;
+    el.dataset.id = String(t.id);
+
+    // === สำคัญ: ผูก event แตะเป้า → ส่งกลับเข้า engine ===
+    el.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (this.engine && typeof this.engine.handleTargetTap === 'function') {
+        this.engine.handleTargetTap(t.id, ev);
+      }
+    }, { passive: false });
+
     this.host.appendChild(el);
+    this.targets.set(t.id, el);
     t.dom = el;
   }
 
   removeTarget(t) {
-    if (t.dom && t.dom.parentNode) t.dom.parentNode.removeChild(t.dom);
+    const id = t && t.id;
+    const el = (t && t.dom) || this.targets.get(id);
+    if (el && el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
+    if (id != null) this.targets.delete(id);
+    if (t) t.dom = null;
   }
 }
