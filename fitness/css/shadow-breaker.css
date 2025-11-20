@@ -44,13 +44,13 @@ main {
   gap: 6px;
 }
 
-/* ลำดับองค์ประกอบในหน้าเล่น */
-#view-play .play-top      { order: 10; }
-#view-play .coach-bubble  { order: 20; }
-#view-play .play-area     { order: 30; flex: 1 1 auto; }
-#view-play .fever-wrap    { order: 40; }
-#view-play .boss-hud      { order: 50; }
-#view-play .boss-portrait { order: 60; }
+/* ลำดับองค์ประกอบในหน้าเล่น — HUD ก่อน, gameplay ทีหลัง */
+#view-play .play-top      { order: 10; }   /* stats + timer */
+#view-play .fever-wrap    { order: 20; }   /* FEVER bar */
+#view-play .boss-hud      { order: 30; }   /* boss HP bar */
+#view-play .boss-portrait { order: 40; }   /* portrait */
+#view-play .coach-bubble  { order: 50; }   /* coach */
+#view-play .play-area     { order: 60; flex: 1 1 auto; } /* gameplay */
 #view-play .banner        { order: 70; }
 #view-play .btn-row:last-of-type { order: 80; }
 
@@ -215,15 +215,15 @@ select {
   margin-top: 6px;
   border-radius: 18px;
   border: 2px solid rgba(148,163,184,0.5);
-  background: radial-gradient(circle at top, #020617, #020617 40%, #020617 100%);
+  background: #020617;
   padding: 6px;
 }
 
 #target-layer {
   width: 100%;
-  height: min(420px, 72vh);
+  height: min(430px, 70vh);
   border-radius: 12px;
-  background: radial-gradient(circle at top, #020617, #020617 40%, #020617 100%);
+  background: #020617;
   position: relative;
   overflow: hidden;
 }
@@ -293,7 +293,7 @@ select {
 /* ---------- FEVER bar ---------- */
 
 .fever-wrap {
-  margin-top: 10px;
+  margin-top: 2px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -337,7 +337,7 @@ select {
 /* ---------- Boss HUD ---------- */
 
 .boss-hud {
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .boss-text {
@@ -365,7 +365,7 @@ select {
 /* ---------- Boss portrait ---------- */
 
 .boss-portrait {
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .boss-portrait-inner {
@@ -395,7 +395,7 @@ select {
 /* ---------- Coach bubble ---------- */
 
 .coach-bubble {
-  margin-top: 10px;
+  margin-top: 4px;
   display: flex;
   gap: 8px;
   align-items: flex-start;
@@ -406,7 +406,6 @@ select {
   font-size: 13px;
 }
 
-/* ในหน้าเล่นใช้ gap แทน margin-top */
 #view-play .coach-bubble {
   margin-top: 0;
 }
@@ -439,7 +438,7 @@ select {
 /* ---------- Banner ---------- */
 
 .banner {
-  margin-top: 10px;
+  margin-top: 6px;
   font-size: 12px;
   line-height: 1.5;
   color: #9ca3af;
@@ -461,7 +460,7 @@ select {
 }
 
 .summary .label {
-  width: 40%;
+  width: 38%;
   color: #9ca3af;
 }
 
@@ -642,16 +641,18 @@ body.play-full #view-play.card {
   padding: 10px 10px 16px;
 }
 
+/* play-area เป็นตัวที่ยืดตามพื้นที่ที่เหลือ */
 body.play-full .play-area {
-  margin-top: 6px;
+  margin-top: 0;
   border-radius: 0;
   border-width: 0;
   padding: 0;
+  flex: 1 1 auto;
 }
 
-/* ใช้ความสูงตามจอ หัก HUD บน-ล่างออกนิดหน่อย */
+/* ให้ target-layer สูงเท่า play-area */
 body.play-full #target-layer {
-  height: calc(100vh - 170px);
+  height: 100%;
   max-height: none;
   border-radius: 0;
 }
