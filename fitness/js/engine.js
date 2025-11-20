@@ -1,4 +1,4 @@
-// === fitness/js/engine.js — Shadow Breaker core (boss phases + mini intro) ===
+// === fitness/js/engine.js — Shadow Breaker core (boss phases + mini intro + fullscreen) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -6,7 +6,7 @@ import { DomRenderer } from './dom-renderer.js';
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
-function clamp(v, min, max){
+function clamp(v, min, max) {
   return v < min ? min : (v > max ? max : v);
 }
 
@@ -156,7 +156,7 @@ const game = {
 
 // ---------- DOM / HUD ----------
 
-function cacheDom(){
+function cacheDom() {
   game.els = {
     difficulty: $('#difficulty'),
     statMode: $('#stat-mode'),
@@ -202,7 +202,7 @@ function cacheDom(){
   };
 }
 
-function showView(name){
+function showView(name) {
   const views = {
     menu: $('#view-menu'),
     research: $('#view-research-form'),
@@ -214,9 +214,12 @@ function showView(name){
     if (!v) return;
     v.classList.toggle('hidden', k !== name);
   });
+
+  // fullscreen เฉพาะตอนเล่น
+  document.body.classList.toggle('play-full', name === 'play');
 }
 
-function updateHUD(){
+function updateHUD() {
   const e = game.els;
   if (!e.statScore) return;
   e.statScore.textContent   = String(game.score);
@@ -226,7 +229,7 @@ function updateHUD(){
   e.statHP.textContent      = String(game.playerHP);
 }
 
-function updateBossHUD(){
+function updateBossHUD() {
   if (game.bossIndex < 0 || game.bossIndex >= BOSSES.length) {
     game.bossIndex = 0;
   }
@@ -253,7 +256,7 @@ function updateBossHUD(){
   if (ratio <= 0.25) document.body.classList.add('boss-lowhp');
 }
 
-function updateFeverHUD(){
+function updateFeverHUD() {
   const ratio = clamp(game.feverGauge / 100, 0, 1);
   if (game.els.feverFill) {
     game.els.feverFill.style.width = (ratio * 100).toFixed(1) + '%';
@@ -268,21 +271,21 @@ function updateFeverHUD(){
   }
 }
 
-function setCoach(text, emoji){
+function setCoach(text, emoji) {
   if (game.els.coachText)   game.els.coachText.textContent = text;
   if (game.els.coachAvatar) game.els.coachAvatar.textContent = emoji || '🥊';
 }
 
-function playSfx(id){
+function playSfx(id) {
   const el = document.getElementById(id);
   if (!el || !el.play) return;
-  try{
+  try {
     el.currentTime = 0;
     el.play();
-  }catch(e){}
+  } catch(e) {}
 }
 
-function screenShake(){
+function screenShake() {
   const pa = game.els.playArea;
   if (!pa) return;
   pa.classList.remove('screen-shake');
@@ -292,7 +295,7 @@ function screenShake(){
 
 // ---------- Boss intro overlay (full / mini) ----------
 
-function showBossIntro(next, opts){
+function showBossIntro(next, opts) {
   opts = opts || {};
   const mode    = opts.mode || 'first';   // 'first' | 'next' | 'final'
   const variant = opts.variant || 'full'; // 'full' | 'mini'
@@ -322,7 +325,6 @@ function showBossIntro(next, opts){
 
   game.introShownFor = idx;
 
-  // เลือกโหมด full / mini
   intro.classList.toggle('boss-intro-mini', variant === 'mini');
 
   intro.classList.remove('hidden');
@@ -332,7 +334,7 @@ function showBossIntro(next, opts){
 
   const autoMs = opts.autoMs || 2000;
   let closed = false;
-  function closeIntro(){
+  function closeIntro() {
     if (closed) return;
     closed = true;
     intro.classList.remove('boss-intro-show');
@@ -347,7 +349,7 @@ function showBossIntro(next, opts){
 
 // ---------- Timer ----------
 
-function scheduleTimerTick(){
+function scheduleTimerTick() {
   const tick = () => {
     if (!game.running) return;
     const now  = performance.now();
@@ -367,7 +369,7 @@ function scheduleTimerTick(){
 
 // ---------- Targets / Hit logic ----------
 
-function onTargetTimeout(id){
+function onTargetTimeout(id) {
   if (!game.running) return;
   const t = game.targets.get(id);
   if (!t) return;
@@ -401,7 +403,7 @@ function onTargetTimeout(id){
   if (game.renderer) game.renderer.removeTarget(t);
 }
 
-function spawnTarget(){
+function spawnTarget() {
   if (!game.running || !game.renderer) return;
   if (game.targets.size >= MAX_LIVE_TARGETS) return;
 
@@ -455,7 +457,7 @@ function spawnTarget(){
   game.targets.set(id, target);
 }
 
-function scheduleNextSpawn(){
+function scheduleNextSpawn() {
   if (!game.running) return;
   const cfg = DIFF[game.diffKey] || DIFF.normal;
 
@@ -473,7 +475,7 @@ function scheduleNextSpawn(){
   }, interval);
 }
 
-function handleHit(id){
+function handleHit(id) {
   if (!game.running) return;
   const t = game.targets.get(id);
   if (!t) return;
@@ -490,7 +492,6 @@ function handleHit(id){
   let grade = 'hit';
 
   if (t.kind === 'decoy') {
-    // โดนเป้าหลอก
     game.decoyHits++;
     game.combo = 0;
     game.playerHP = clamp(game.playerHP - cfg.hpLossOnDecoy, 0, 100);
@@ -511,7 +512,6 @@ function handleHit(id){
     setCoach('อันนั้นเป้าหลอก! เล็ง emoji หลักเท่านั้นนะ 💣', '💣');
 
   } else {
-    // โดนเป้าจริง
     game.hits++;
     game.combo++;
     if (game.combo > game.maxCombo) game.maxCombo = game.combo;
@@ -573,7 +573,7 @@ function handleHit(id){
   if (game.playerHP <= 0) endGame('hpzero');
 }
 
-function registerTouch(_x, _y, targetId){
+function registerTouch(_x, _y, targetId) {
   if (!game.running) return;
   if (targetId == null) return;
   handleHit(targetId);
@@ -581,12 +581,11 @@ function registerTouch(_x, _y, targetId){
 
 // ---------- Boss phase / mini intro ----------
 
-function handleBossDefeated(){
+function handleBossDefeated() {
   const cfg = DIFF[game.diffKey] || DIFF.normal;
 
   clearTimeout(game.spawnTimer);
 
-  // เคลียร์เป้าทั้งหมด
   game.targets.forEach(t => clearTimeout(t.lifeTimer));
   if (game.renderer) game.renderer.clear();
   game.targets.clear();
@@ -595,7 +594,6 @@ function handleBossDefeated(){
     (window.innerHeight < 650) || (window.innerWidth < 400);
 
   if (game.bossIndex < BOSSES.length - 1) {
-    // ไปบอสถัดไป
     game.bossIndex++;
 
     if (cfg.bossHP && cfg.bossHP.length > game.bossIndex) {
@@ -625,7 +623,6 @@ function handleBossDefeated(){
     setTimeout(() => {
       if (!game.running) return;
 
-      // จอเล็ก + boss 2–4 → mini intro ด้านล่าง
       const variant =
         (isSmallScreen && game.bossIndex > 0) ? 'mini' : 'full';
 
@@ -638,7 +635,6 @@ function handleBossDefeated(){
     }, 50);
 
   } else {
-    // ปราบครบทุกบอส
     playSfx('sfx-boss');
     endGame('bossdefeated');
   }
@@ -646,7 +642,7 @@ function handleBossDefeated(){
 
 // ---------- FEVER ----------
 
-function activateFever(){
+function activateFever() {
   game.feverActive = true;
   game.feverGauge  = 100;
   updateFeverHUD();
@@ -667,7 +663,7 @@ function activateFever(){
 
 // ---------- CSV / Summary ----------
 
-function buildCSV(reasonText, accuracy, avgNormal, avgDecoy){
+function buildCSV(reasonText, accuracy, avgNormal, avgDecoy) {
   const cfg = DIFF[game.diffKey] || DIFF.normal;
   const lines = [];
   const now = new Date();
@@ -710,8 +706,8 @@ function buildCSV(reasonText, accuracy, avgNormal, avgDecoy){
   game.csvUrl = URL.createObjectURL(blob);
 }
 
-function saveSummaryRecord(accuracy){
-  try{
+function saveSummaryRecord(accuracy) {
+  try {
     const record = {
       mode: game.mode,
       diff: game.diffKey,
@@ -724,12 +720,12 @@ function saveSummaryRecord(accuracy){
       updatedAt: new Date().toLocaleString('th-TH')
     };
     localStorage.setItem('vrfit_shadow_breaker', JSON.stringify(record));
-  }catch(e){}
+  } catch(e) {}
 }
 
 // ---------- Reset / Start / End ----------
 
-function resetGameState(){
+function resetGameState() {
   const cfg = DIFF[game.diffKey] || DIFF.normal;
 
   game.durationMs = cfg.durationMs;
@@ -782,7 +778,8 @@ function resetGameState(){
 
   document.body.classList.remove(
     'fever-mode','boss-lowhp','boss-final',
-    'theme-boss-1','theme-boss-2','theme-boss-3','theme-boss-4'
+    'theme-boss-1','theme-boss-2','theme-boss-3','theme-boss-4',
+    'play-full'
   );
 
   updateBossHUD();
@@ -791,7 +788,7 @@ function resetGameState(){
   setCoach('พร้อมลุย Shadow Breaker แล้ว! ชกเป้าให้ทันนะ 🥊', '🥊');
 }
 
-function startGame(){
+function startGame() {
   resetGameState();
   showView('play');
 
@@ -799,7 +796,7 @@ function startGame(){
   game.startTime = performance.now();
   game.rounds++;
 
-  function beginCountdown(){
+  function beginCountdown() {
     setCoach('3... 2... 1... ชก! 💥', '⏱');
     let cd = 3;
     const timer = setInterval(() => {
@@ -825,7 +822,7 @@ function startGame(){
   });
 }
 
-function endGame(reason){
+function endGame(reason) {
   if (!game.running) return;
   game.running = false;
 
@@ -838,7 +835,7 @@ function endGame(reason){
   game.targets.clear();
 
   let reasonText = '';
-  switch(reason){
+  switch(reason) {
     case 'timeup':        reasonText = 'หมดเวลา'; break;
     case 'hpzero':        reasonText = 'พลังผู้เล่นหมด'; break;
     case 'bossdefeated':  reasonText = 'ปราบบอสครบทุกตัว'; break;
@@ -887,17 +884,18 @@ function endGame(reason){
   saveSummaryRecord(accuracy);
 
   document.body.classList.remove('fever-mode');
+  document.body.classList.remove('play-full');
   setCoach('ดีมาก! ดูสรุปผล แล้วเลือกเล่นอีกครั้งหรือกลับ Hub ได้เลย ✨', '✅');
   showView('result');
 }
 
 // ---------- UI actions ----------
 
-function handleActionClick(e){
+function handleActionClick(e) {
   const action = e.currentTarget.getAttribute('data-action');
   if (!action) return;
 
-  switch(action){
+  switch(action) {
     case 'start-research':
       game.mode = 'research';
       showView('research');
@@ -958,7 +956,7 @@ function handleActionClick(e){
 
 // ---------- Init ----------
 
-export function initShadowBreaker(){
+export function initShadowBreaker() {
   cacheDom();
   showView('menu');
 
