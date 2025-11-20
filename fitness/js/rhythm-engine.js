@@ -132,29 +132,37 @@ class RhythmEngine {
     }
 
     // move notes
-    const areaRect = this.playArea ? this.playArea.getBoundingClientRect() : null;
-    const height   = areaRect ? areaRect.height : 400;
+const areaRect = this.playArea ? this.playArea.getBoundingClientRect() : null;
+const height   = areaRect ? areaRect.height : 400;
 
-    const judgeY   = height - 80; // เส้นเป้าอยู่ใกล้ด้านล่าง
+// จุดที่ต้อง “เข้าเป้า” (เส้นสีขาวล่าง ๆ)
+const judgeY   = height - 80;
 
-    this.notes.forEach(note => {
-      if (note.hit || note.missed) return;
+this.notes.forEach(note => {
+  if (note.hit || note.missed) return;
 
-      const dt = t - note.time;
-      const yNorm = 1 - (note.time - t + this.fallTime) / this.fallTime; // 0..1
-      const y = clamp(yNorm, 0, 1) * judgeY;
+  // note.time = เวลาเข้าเป้าพอดี
+  // เราอยากให้:
+  //   t = note.time - fallTime → y = 0 (เกิดบนจอ)
+  //   t = note.time           → y = judgeY (ถึงเส้นเป้า)
+  const fallStart = note.time - this.fallTime;
+  const progress  = (t - fallStart) / this.fallTime;   // 0..1
+  const yNorm     = clamp(progress, 0, 1);
+  const y         = yNorm * judgeY;
 
-      note.y = y;
-      if (note.el) {
-        note.el.style.transform =
-          `translate(${laneToX(note.lane, areaRect ? areaRect.width : 600)}px, ${y}px)`;
-      }
+  note.y = y;
+  if (note.el) {
+    note.el.style.transform =
+      `translate(${laneToX(note.lane, areaRect ? areaRect.width : 600)}px, ${y}px)`;
+  }
 
-      // ถ้าตกผ่านเส้นเป้าไปมากแล้ว → miss
-      if (dt > 0.25 && !note.hit && !note.missed) {
-        this.registerMiss(note);
-      }
-    });
+  // ถ้าเลยเวลาเข้าเป้าไป 0.25s แล้วยังไม่ได้กด → นับ miss
+  const dt = t - note.time;
+  if (dt > 0.25 && !note.hit && !note.missed) {
+    this.registerMiss(note);
+  }
+});
+
 
     // ลบ note ที่พ้นจอไปแล้ว
     this.notes = this.notes.filter(n => !n.remove);
