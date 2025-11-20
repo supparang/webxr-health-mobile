@@ -1,484 +1,610 @@
-/* ====== RESET ====== */
-* {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
+/* === Shadow Breaker — shadow-breaker.css (VR Fitness Production) === */
+
+:root{
+  color-scheme: dark;
+  --bg: #020617;
+  --card: #020617;
+  --border-soft: #1e293b;
+  --text-main: #e5e7eb;
+  --text-soft: #9ca3af;
+  --accent: #f97316;
+  --accent-soft: rgba(249,115,22,.15);
+  --danger: #fecaca;
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  font-family: system-ui, "Segoe UI", Kanit, sans-serif;
-  background: #0f172a;
-  color: #e5e7eb;
+/* Base */
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+  min-height:100vh;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 55%),
+    var(--bg);
+  color:var(--text-main);
+  padding:16px;
 }
 
-.hidden { display: none !important; }
-
-/* ====== LAYOUT ====== */
-main {
-  width: 100%;
-  margin: 0 auto;
-  padding: 12px;
+main{
+  max-width:960px;
+  margin:0 auto 32px;
 }
 
-.card {
-  background: #1e293b;
-  border-radius: 18px;
-  padding: 20px;
-  margin-top: 12px;
-  box-shadow: 0 3px 10px rgba(0,0,0,.3);
+/* Cards / Layout */
+
+.card{
+  background:rgba(15,23,42,0.95);
+  border-radius:22px;
+  border:1px solid rgba(15,23,42,0.95);
+  box-shadow:0 18px 40px rgba(15,23,42,0.9);
+  padding:18px 18px 20px;
+  margin-bottom:16px;
 }
 
-/* ====== HEADINGS ====== */
-h1 {
-  margin: 0;
-  font-size: 26px;
+.top-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+h1{
+  font-size:22px;
   display:flex;
   align-items:center;
   gap:8px;
 }
+h1 .icon{font-size:22px;}
 
-h2.section-title {
-  margin-top: 24px;
-  margin-bottom: 8px;
-  font-size: 20px;
+.subtitle{
+  font-size:13px;
+  color:var(--text-soft);
+  margin-top:4px;
 }
 
-/* ====== BUTTONS ====== */
-button, .btn-small {
-  background: #334155;
-  color: #fff;
-  border: none;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: .15s;
-}
-
-button.primary {
-  background: #10b981;
-}
-
-button:hover {
-  background: #475569;
-}
-
-.btn-small {
-  padding: 6px 10px;
-  font-size: 14px;
-}
-
-/* ====== FORM ====== */
-input, select {
-  background: #0f172a;
-  border: 1px solid #334155;
-  color: #fff;
-  padding: 8px 10px;
-  border-radius: 10px;
-  width: 100%;
-  font-size: 16px;
-}
-
-/* ====== MENU TOP ====== */
-.top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pill {
-  display:flex;
+.pill{
+  margin-top:8px;
+  display:inline-flex;
   align-items:center;
   gap:6px;
-  background:#334155;
   padding:4px 8px;
-  border-radius:18px;
+  border-radius:999px;
+  background:rgba(15,23,42,1);
+  border:1px solid rgba(75,85,99,.8);
+  font-size:11px;
+  color:#e5e7eb;
+}
+.pill .dot{
+  width:8px;height:8px;border-radius:999px;
+  background:radial-gradient(circle at 30% 20%,#a5f3fc,#22d3ee);
+}
+
+.section-title{
+  font-size:15px;
+  margin:8px 0 8px;
+}
+
+/* Buttons / Inputs */
+
+.btn-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:6px 0 10px;
+}
+button,
+.btn-small{
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.7);
+  background:rgba(15,23,42,1);
+  color:var(--text-main);
+  font-size:13px;
+  padding:6px 14px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  text-decoration:none;
+  transition:transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+}
+button.primary{
+  background:linear-gradient(135deg,#f97316,#fb7185);
+  border-color:transparent;
+  color:#0f172a;
+  font-weight:600;
+}
+button:hover,
+.btn-small:hover{
+  transform:translateY(-1px);
+  box-shadow:0 14px 30px rgba(15,23,42,0.9);
+  border-color:rgba(248,250,252,.7);
+}
+.btn-small{
+  font-size:12px;
+  padding:4px 10px;
+}
+
+/* Form */
+
+.row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
   margin-top:6px;
 }
-
-.pill .dot {
-  width:10px;
-  height:10px;
-  background:#10b981;
-  border-radius:50%;
+.col{
+  flex:1 1 200px;
 }
 
-/* ====== PLAY AREA ====== */
-.play-area {
-  position: relative;
-  width: 100%;
-  height: 65vh;
-  background: #0f172a;
-  border-radius: 14px;
-  overflow: hidden;
-  margin-top: 8px;
-  transition: box-shadow 0.2s, transform 0.2s;
+label{
+  display:block;
+  font-size:12px;
+  margin-bottom:3px;
+  color:#cbd5f5;
 }
-
-/* layer สำหรับเป้า */
-#target-layer {
-  position:absolute;
-  left:0; top:0; right:0; bottom:0;
-}
-
-/* ====== TARGET (เป้า) ====== */
-.target {
-  position:absolute;
-  transform: translate(-50%, -50%);
-  font-size: 42px;
-  user-select:none;
-  cursor:pointer;
-  transition: transform .1s ease-out;
-}
-
-.target:hover {
-  transform: translate(-50%, -50%) scale(1.15);
-}
-
-/* เป้าหน้าบอสตอนใกล้ตาย */
-.target-boss-face {
-  box-shadow: 0 0 12px rgba(248,113,113,0.9);
-  animation: bossTargetPulse 0.6s ease-in-out infinite alternate;
-}
-
-@keyframes bossTargetPulse {
-  from { transform: translate(-50%, -50%) scale(1); }
-  to   { transform: translate(-50%, -50%) scale(1.18); }
-}
-
-/* ====== FEVER BAR ====== */
-.fever-wrap {
-  margin-top: 12px;
-}
-
-.fever-label {
-  font-size:14px;
-  opacity:.7;
-}
-
-.fever-bar {
+input,select{
   width:100%;
-  height:16px;
-  background:#334155;
+  padding:7px 9px;
   border-radius:10px;
-  overflow:hidden;
+  border:1px solid rgba(55,65,81,.9);
+  background:#020617;
+  color:var(--text-main);
+  font-size:13px;
+}
+input::placeholder{
+  color:#6b7280;
+}
+.help{
   margin-top:4px;
+  font-size:11px;
+  color:var(--text-soft);
 }
 
-#fever-fill {
-  height:100%;
-  width:0%;
-  background: linear-gradient(90deg, #fb923c, #f87171, #fb7185);
-  transition: width .15s ease-out;
-}
+/* Play HUD */
 
-#fever-status {
-  margin-top:4px;
-  font-size:15px;
-  font-weight:600;
-  color:#fb7185;
-}
-
-/* FEVER active: หลอดเด้ง + เงา */
-.fever-wrap.fever-active {
-  box-shadow:0 0 16px rgba(251,191,36,0.9);
-  transform:translateY(-2px);
-}
-
-/* FEVER mode: จอกระพริบเบา ๆ */
-body.fever-mode .play-area {
-  box-shadow:0 0 20px rgba(251,191,36,0.7);
-  animation: feverGlow 0.5s ease-in-out infinite alternate;
-}
-
-@keyframes feverGlow {
-  from { transform:scale(1); }
-  to   { transform:scale(1.01); }
-}
-
-/* ====== BOSS HUD ====== */
-.boss-hud {
-  margin-top: 12px;
-}
-
-.boss-text {
-  margin-bottom: 4px;
-}
-
-.boss-bar {
-  width:100%;
-  height:14px;
-  background:#475569;
-  border-radius:10px;
-  overflow:hidden;
-}
-
-#boss-fill {
-  height:100%;
-  background: linear-gradient(90deg, #38bdf8, #0284c7);
-  width:100%;
-  transition: width .15s linear;
-}
-
-/* บอสใกล้ตาย */
-body.boss-lowhp #boss-fill {
-  background: linear-gradient(90deg, #ef4444, #dc2626);
-  animation: bossLowHPBlink .35s infinite alternate;
-}
-
-@keyframes bossLowHPBlink {
-  from { opacity: 1; }
-  to   { opacity: .6; }
-}
-
-/* ====== BOSS PORTRAIT ====== */
-.boss-portrait {
-  margin-top: 12px;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 12px;
-  padding: 10px;
-}
-
-.boss-portrait-inner {
+.play-top{
   display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
   gap:10px;
-  align-items:center;
-}
-
-.boss-portrait-emoji {
-  font-size:40px;
-}
-
-.boss-portrait-name {
-  font-size:18px;
-  font-weight:600;
-}
-
-.boss-portrait-hint {
-  font-size:14px;
-  opacity:.8;
-}
-
-/* ====== COACH BUBBLE ====== */
-.coach-bubble {
-  background:#334155;
-  padding:12px;
-  border-radius:12px;
-  margin-top:14px;
-  display:flex;
-  gap:12px;
-  align-items:center;
-}
-
-#coach-avatar {
-  font-size:36px;
-}
-
-#coach-role {
-  font-size:14px;
-  opacity:.8;
-}
-
-#coach-text {
-  font-size:16px;
-}
-
-/* ====== BANNER ====== */
-.banner {
-  margin-top:14px;
-  background:#1e293b;
-  padding:10px 14px;
-  border-radius:10px;
-  font-size:14px;
-}
-
-/* ====== BOSS INTRO OVERLAY ====== */
-.boss-intro {
-  position:absolute;
-  left:0; top:0; right:0; bottom:0;
-  background:rgba(0,0,0,.65);
-  backdrop-filter: blur(4px);
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  opacity:0;
-  pointer-events:none;
-  transition:.25s;
-  z-index:99;
-}
-
-.boss-intro-show {
-  opacity:1;
-  pointer-events:auto;
-}
-
-.boss-intro-card {
-  background:#1e293b;
-  padding:20px;
-  border-radius:16px;
-  width:min(340px, 90%);
-  box-shadow:0 6px 20px rgba(0,0,0,.4);
-  text-align:center;
-}
-
-.boss-intro-emoji {
-  font-size:60px;
   margin-bottom:10px;
 }
 
-.boss-intro-label {
-  font-size:14px;
-  opacity:.75;
-}
-
-.boss-intro-name {
-  font-size:22px;
-  font-weight:700;
-  margin-top:4px;
-}
-
-.boss-intro-title {
-  font-size:16px;
-  margin-top:4px;
-  opacity:.85;
-}
-
-.boss-intro-desc {
-  font-size:14px;
-  margin-top:6px;
-  opacity:.75;
-}
-
-.boss-intro-hint {
-  margin-top:12px;
-  font-size:13px;
-  opacity:.6;
-}
-
-/* ===== THEMES ตามบอส ===== */
-body.theme-boss-1 .play-area { background:#0f172a; }
-body.theme-boss-2 .play-area { background:#0d1b2a; }
-body.theme-boss-3 .play-area { background:#1e1b24; }
-body.theme-boss-4 .play-area { background:#1a0f1f; }
-
-/* ====== TIMER & STATS ====== */
-.play-top {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:8px;
-}
-
-.stats {
+.stats{
   display:flex;
   flex-wrap:wrap;
   gap:6px;
 }
 
-.tag {
-  background:#334155;
+.tag{
   padding:4px 8px;
-  border-radius:8px;
-  font-size:13px;
+  border-radius:999px;
+  background:#020617;
+  border:1px solid rgba(51,65,85,.9);
+  font-size:11px;
 }
 
-.timer {
+.timer{
   font-size:20px;
   font-weight:600;
+  display:flex;
+  align-items:center;
+  gap:4px;
 }
 
-/* ====== SUMMARY TABLE ====== */
-.summary table {
+/* Play area */
+
+.play-area{
+  position:relative;
+  margin-top:4px;
+  border-radius:22px;
+  border:2px solid rgba(55,65,81,1);
+  background:#020617;
+  overflow:hidden;
+  box-shadow:0 0 0 2px rgba(250,249,246,0.02),
+             0 0 40px rgba(234,179,8,0.12);
+  transition:box-shadow .12s ease, transform .12s ease;
+}
+
+.play-area.screen-shake{
+  animation:screenShake .18s linear 1;
+}
+
+#target-layer{
+  position:relative;
   width:100%;
-  border-collapse: collapse;
+  padding-bottom:140%;   /* ทำให้เป็นกรอบแนวตั้งสูง ๆ เหมือนจอเกม */
 }
 
-.summary td {
-  border-bottom:1px solid #334155;
-  padding:6px 0;
+/* Targets */
+
+.target{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(1);
+  width:64px;height:64px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:20px;
+  background:radial-gradient(circle at 30% 20%,#fefce8,#fde68a);
+  box-shadow:0 8px 18px rgba(15,23,42,0.7);
+  font-size:40px;
+  cursor:pointer;
+  user-select:none;
+  touch-action:manipulation;
+}
+.target-decoy{
+  background:radial-gradient(circle at 30% 20%,#fee2e2,#fecaca);
+}
+.target-gold{
+  background:radial-gradient(circle at 30% 20%,#fef9c3,#facc15);
+}
+.target-boss-face{
+  box-shadow:0 0 0 2px rgba(251,191,36,.9), 0 0 22px rgba(250,204,21,.65);
 }
 
-.summary .label {
-  width:140px;
-  opacity:.75;
+/* FEVER */
+
+.fever-wrap{
+  margin-top:10px;
+  padding:6px 10px 8px;
+  border-radius:14px;
+  border:1px solid rgba(55,65,81,.9);
+  background:#020617;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+}
+.fever-label{
+  color:#cbd5f5;
+  min-width:52px;
+}
+.fever-bar{
+  flex:1;
+  height:16px;
+  border-radius:999px;
+  background:#020617;
+  border:1px solid rgba(55,65,81,1);
+  overflow:hidden;
+}
+.fever-fill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#fb7185,#f97316);
+  transition:width .12s linear;
+}
+.fever-status{
+  font-size:11px;
+  min-width:64px;
+  text-align:right;
+  color:#fb7185;
 }
 
-/* ====== SCREEN SHAKE (ตอนตีโดนบอส) ====== */
-.play-area.screen-shake {
-  animation: screenShake 0.16s linear 1;
+/* FEVER active */
+
+.fever-wrap.fever-active{
+  box-shadow:0 0 18px rgba(248,113,113,0.6);
 }
 
-@keyframes screenShake {
-  0%   { transform: translate(0,0); }
-  20%  { transform: translate(-4px, 2px); }
-  40%  { transform: translate(3px, -2px); }
-  60%  { transform: translate(-2px, -3px); }
-  80%  { transform: translate(2px, 3px); }
-  100% { transform: translate(0,0); }
+/* Boss HUD + Portrait */
+
+.boss-hud{
+  margin-top:10px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
 }
-/* ====== HIT FX & SCORE FLOAT ====== */
-.hit-fx {
-  position: fixed;
-  width: 42px;
-  height: 42px;
-  border-radius: 999px;
-  border: 2px solid rgba(248,250,252,0.9);
-  box-shadow: 0 0 10px rgba(248,250,252,0.7);
-  pointer-events: none;
-  transform: translate(-50%, -50%) scale(0.6);
-  opacity: 1;
-  z-index: 999;
-  animation: hitBurst .3s ease-out forwards;
+.boss-text{
+  font-size:13px;
+}
+.boss-bar{
+  position:relative;
+  height:16px;
+  border-radius:999px;
+  background:#020617;
+  border:1px solid rgba(75,85,99,1);
+  overflow:hidden;
+}
+.boss-fill{
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:100%;
+  background:linear-gradient(90deg,#22c55e,#84cc16);
+  transition:width .12s linear;
 }
 
-@keyframes hitBurst {
-  from {
-    transform: translate(-50%, -50%) scale(0.6);
-    opacity: 1;
+/* Portrait */
+
+.boss-portrait{
+  position:absolute;
+  right:18px;
+  bottom:120px;
+  max-width:260px;
+  z-index:40;
+}
+.boss-portrait-inner{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 9px;
+  border-radius:16px;
+  background:rgba(15,23,42,.92);
+  border:1px solid rgba(55,65,81,.9);
+  box-shadow:0 10px 28px rgba(15,23,42,.9);
+}
+.boss-portrait-emoji{
+  font-size:28px;
+}
+.boss-portrait-text{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.boss-portrait-name{
+  font-size:13px;
+  font-weight:600;
+}
+.boss-portrait-hint{
+  font-size:11px;
+  color:var(--text-soft);
+}
+
+/* Coach bubble */
+
+.coach-bubble{
+  position:absolute;
+  left:18px;
+  bottom:120px;
+  max-width:260px;
+  z-index:40;
+}
+.coach-bubble .coach-text-wrap{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.coach-bubble{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  padding:6px 9px;
+  border-radius:16px;
+  background:rgba(15,23,42,.92);
+  border:1px solid rgba(55,65,81,.9);
+  box-shadow:0 10px 28px rgba(15,23,42,.9);
+}
+.coach-avatar{
+  width:26px;height:26px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  background:radial-gradient(circle at 30% 20%,#facc15,#f97316);
+}
+.coach-role{
+  font-size:11px;
+  color:#a5b4fc;
+}
+.coach-text{
+  font-size:11px;
+}
+
+/* Banner */
+
+.banner{
+  margin-top:12px;
+  font-size:12px;
+  padding:8px 10px;
+  border-radius:14px;
+  border:1px solid rgba(55,65,81,.9);
+  background:#020617;
+  color:#e5e7eb;
+}
+
+/* Result table */
+
+.summary table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+.summary td{
+  padding:4px 4px;
+}
+.summary td.label{
+  width:40%;
+  color:var(--text-soft);
+}
+
+/* Hidden utility */
+
+.hidden{display:none !important;}
+
+/* Hit / Score FX */
+
+.hit-fx{
+  position:fixed;
+  width:26px;height:26px;
+  margin-left:-13px;
+  margin-top:-13px;
+  border-radius:999px;
+  border:2px solid rgba(248,250,252,.9);
+  box-shadow:0 0 0 4px rgba(248,250,252,0.15);
+  pointer-events:none;
+  opacity:0;
+  animation:hitPulse .3s ease-out forwards;
+  z-index:2000;
+}
+
+.score-fx{
+  position:fixed;
+  transform:translate(-50%,-50%);
+  font-size:15px;
+  font-weight:700;
+  pointer-events:none;
+  text-shadow:0 2px 10px rgba(0,0,0,.8);
+  opacity:0;
+  animation:scoreFloat .7s ease-out forwards;
+  z-index:2001;
+}
+.score-fx-good{color:#a7f3d0;}
+.score-fx-perfect{color:#fbbf24;}
+.score-fx-bad{color:#fecaca;}
+.score-fx-miss{color:#f97373;}
+
+/* Boss intro overlay */
+
+.boss-intro{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:radial-gradient(circle at top,rgba(15,23,42,.95),rgba(15,23,42,.96));
+  z-index:2500;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease;
+}
+.boss-intro-show{
+  opacity:1;
+  pointer-events:auto;
+}
+.boss-intro-inner{
+  width:min(420px,92vw);
+  border-radius:22px;
+  background:#020617;
+  border:1px solid rgba(148,163,184,0.9);
+  box-shadow:0 22px 55px rgba(15,23,42,0.95);
+  padding:14px 14px 12px;
+}
+.boss-intro-label{
+  font-size:11px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:#a5b4fc;
+  margin-bottom:6px;
+}
+.boss-intro-main{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.boss-intro-emoji{
+  font-size:40px;
+}
+.boss-intro-text{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.boss-intro-name{
+  font-size:16px;
+  font-weight:700;
+}
+.boss-intro-title{
+  font-size:12px;
+  color:#e5e7eb;
+}
+.boss-intro-desc{
+  font-size:11px;
+  color:var(--text-soft);
+  margin-top:4px;
+}
+.boss-intro-hint{
+  margin-top:8px;
+  font-size:11px;
+  color:#9ca3af;
+  text-align:right;
+}
+
+/* Themes by boss */
+
+body.theme-boss-1{
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.22), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(16,185,129,0.18), transparent 55%),
+    var(--bg);
+}
+body.theme-boss-2{
+  background:
+    radial-gradient(circle at top left, rgba(129,140,248,0.3), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(244,63,94,0.24), transparent 55%),
+    var(--bg);
+}
+body.theme-boss-3{
+  background:
+    radial-gradient(circle at top left, rgba(251,146,60,0.3), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(5,150,105,0.3), transparent 55%),
+    var(--bg);
+}
+body.theme-boss-4{
+  background:
+    radial-gradient(circle at top left, rgba(148,163,184,0.4), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(15,23,42,0.9), transparent 55%),
+    #020617;
+}
+
+/* Low HP / final boss */
+
+body.boss-lowhp .boss-fill{
+  background:linear-gradient(90deg,#f97316,#ef4444);
+  box-shadow:0 0 18px rgba(248,113,113,.75);
+}
+body.boss-final .boss-bar{
+  border-color:#facc15;
+}
+
+/* FEVER global */
+
+body.fever-mode .play-area{
+  box-shadow:0 0 0 2px rgba(248,250,252,0.08),
+             0 0 35px rgba(255,130,130,0.7);
+}
+
+/* Screen shake */
+
+@keyframes screenShake{
+  0%{transform:translate3d(0,0,0);}
+  20%{transform:translate3d(-3px,2px,0);}
+  40%{transform:translate3d(2px,-2px,0);}
+  60%{transform:translate3d(-2px,-1px,0);}
+  80%{transform:translate3d(1px,3px,0);}
+  100%{transform:translate3d(0,0,0);}
+}
+
+/* FX animations */
+
+@keyframes hitPulse{
+  0%  {transform:scale(.4);opacity:0;}
+  40% {transform:scale(1);opacity:1;}
+  100%{transform:scale(1.2);opacity:0;}
+}
+
+@keyframes scoreFloat{
+  0%  {transform:translate(-50%,-40%);opacity:0;}
+  20% {transform:translate(-50%,-60%);opacity:1;}
+  100%{transform:translate(-50%,-120%);opacity:0;}
+}
+
+/* Responsive */
+
+@media (max-width:720px){
+  body{padding:10px;}
+  .top-row{flex-direction:column;}
+  .boss-portrait,
+  .coach-bubble{
+    position:static;
+    margin-top:8px;
   }
-  to {
-    transform: translate(-50%, -50%) scale(1.4);
-    opacity: 0;
+  .play-area{
+    border-radius:20px;
   }
-}
-
-.score-fx {
-  position: fixed;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  font-weight: 700;
-  font-size: 16px;
-  text-shadow: 0 0 6px rgba(15,23,42,0.9);
-  z-index: 999;
-  animation: scoreFloat .6s ease-out forwards;
-}
-
-@keyframes scoreFloat {
-  from {
-    transform: translate(-50%, -50%);
-    opacity: 1;
-  }
-  to {
-    transform: translate(-50%, -90%);
-    opacity: 0;
-  }
-}
-
-.score-fx-good {
-  color: #bbf7d0; /* เขียวอ่อน */
-}
-
-.score-fx-perfect {
-  color: #facc15; /* ทอง */
-}
-
-.score-fx-bad {
-  color: #fb7185; /* แดงชมพู */
-}
-
-.score-fx-miss {
-  color: #f87171; /* แดง */
 }
