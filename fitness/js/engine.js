@@ -1,21 +1,22 @@
-// === fitness/js/engine.js (2025-11-19 — boss phases + FEVER + near-death spawn) ===
+// === fitness/js/engine.js (2025-11-19 — mobile hit + FEVER + popup + grade) ===
 'use strict';
 
 const DEFAULTS = {
   durationMs: 60000,
-  spawnInterval: 780,
+  spawnInterval: 750,
   targetLifeMs: 900,
 
-  scoreHit: 12,
+  scoreHit: 10,
   scoreMissPenalty: 0,
 
-  hitRadius: 95,
+  // ปรับให้กว้างขึ้น ตีง่ายขึ้นบนมือถือ
+  hitRadius: 90,
 
   hpMax: 100,
   hpMissPenalty: 4,
 
   bossCount: 4,
-  bossHPPerBoss: 120,
+  bossHPPerBoss: 100,
   bossDamagePerHit: 3,
 
   decoyChance: 0.18,
@@ -24,12 +25,7 @@ const DEFAULTS = {
   feverGainPerHit: 16,
   feverDecayPerSec: 10,
   feverThreshold: 100,
-  feverDurationMs: 5000,
-
-  // spawn speed by phase
-  phase2SpawnFactor: 0.9,
-  phase3SpawnFactor: 0.75,
-  finalBossSpawnFactor: 0.85
+  feverDurationMs: 5000
 };
 
 export class GameEngine {
@@ -44,10 +40,9 @@ export class GameEngine {
       this.renderer.setEngine(this);
     }
 
-    this.targets    = [];
-    this.running    = false;
-    this.hitRadius  = this.cfg.hitRadius;
-    this.bossList   = Array.isArray(this.cfg.bossList) ? this.cfg.bossList : null;
+    this.targets   = [];
+    this.running   = false;
+    this.hitRadius = this.cfg.hitRadius;
 
     this._stats = {
       spawns: 0,
@@ -65,12 +60,9 @@ export class GameEngine {
     this.nextSpawnAt = 0;
   }
 
-  /* ---------- internal helpers ---------- */
+  /* ---------- reset / start / stop ---------- */
 
   _resetState() {
-    const bossCount = this.bossList ? this.bossList.length : (this.cfg.bossCount || 4);
-    const bossHP    = this.cfg.bossHPPerBoss;
-
     this.state = {
       score: 0,
       combo: 0,
@@ -87,13 +79,11 @@ export class GameEngine {
       feverUntil: 0,
 
       bossIndex: 0,
-      bossCount,
-      bossHP,
-      bossMaxHP: bossHP,
+      bossCount: this.cfg.bossCount,
+      bossHP: this.cfg.bossHPPerBoss,
+      bossMaxHP: this.cfg.bossHPPerBoss,
       bossName: '',
       bossEmoji: '',
-      bossIsFinal: false,
-      bossPhase: 1, // 1,2,3
 
       endedBy: null,
       elapsedMs: 0,
@@ -101,7 +91,7 @@ export class GameEngine {
       analytics: null
     };
 
-    this.targets.length = 0;
+    this.targets = [];
 
     this._stats.spawns      = 0;
     this._stats.hitsNormal  = 0;
@@ -111,55 +101,7 @@ export class GameEngine {
     this._stats.cntRTNormal = 0;
     this._stats.sumRTDecoy  = 0;
     this._stats.cntRTDecoy  = 0;
-
-    this._applyBossMeta();
   }
-
-  _applyBossMeta() {
-    const idx = this.state.bossIndex;
-    const count = this.state.bossCount;
-
-    if (this.bossList && this.bossList.length) {
-      const boss = this.bossList[Math.min(idx, this.bossList.length - 1)];
-      this.state.bossName   = boss.name  || `Boss ${idx + 1}`;
-      this.state.bossEmoji  = boss.emoji || '😈';
-      this.state.bossIsFinal = !!boss.final;
-    } else {
-      this.state.bossName   = `Boss ${idx + 1}`;
-      this.state.bossEmoji  = '😈';
-      this.state.bossIsFinal = (idx === count - 1);
-    }
-    this._updateBossPhase();
-  }
-
-  _updateBossPhase() {
-    const hp    = this.state.bossHP;
-    const maxHP = this.state.bossMaxHP || 1;
-    const ratio = maxHP > 0 ? hp / maxHP : 0;
-
-    let phase = 1;
-    if (ratio <= 2/3 && ratio > 1/3) phase = 2;
-    else if (ratio <= 1/3)          phase = 3;
-
-    this.state.bossPhase = phase;
-  }
-
-  _currentSpawnInterval() {
-    const base = this.cfg.spawnInterval;
-    if (!this.state) return base;
-
-    let mult = 1;
-
-    if (this.state.bossPhase === 2) mult *= (this.cfg.phase2SpawnFactor ?? 0.9);
-    if (this.state.bossPhase === 3) mult *= (this.cfg.phase3SpawnFactor ?? 0.75);
-
-    if (this.state.bossIsFinal && this.state.bossPhase === 3) {
-      mult *= (this.cfg.finalBossSpawnFactor ?? 0.85);
-    }
-    return base * mult;
-  }
-
-  /* ---------- lifecycle ---------- */
 
   start() {
     this._resetState();
@@ -192,7 +134,7 @@ export class GameEngine {
     }
   }
 
-  /* ---------- touch / hit ---------- */
+  /* ---------- Touch / hit ---------- */
 
   registerTouch(x, y) {
     if (!this.running || !this.targets.length) return;
@@ -203,19 +145,30 @@ export class GameEngine {
     for (const t of this.targets) {
       if (t.hit || t.expired || !t.dom) continue;
       const rect = t.dom.getBoundingClientRect();
-      const cx = rect.left + rect.width  / 2;
-      const cy = rect.top  + rect.height / 2;
+      const cx   = rect.left + rect.width  / 2;
+      const cy   = rect.top  + rect.height / 2;
       const dist = Math.hypot(x - cx, y - cy);
       if (dist <= this.hitRadius && dist < bestDist) {
-        best = t;
+        best     = t;
         bestDist = dist;
       }
     }
+
     if (!best) return;
-    this._hitTarget(best);
+    this._hitTarget(best, bestDist);
   }
 
-  _hitTarget(t) {
+  _gradeHit(dist) {
+    // ถ้าไม่ส่ง dist มา ให้ถือว่า Good
+    if (!dist && dist !== 0) return 'Good';
+    const r = this.hitRadius || 1;
+    const ratio = dist / r;
+    if (ratio <= 0.3) return 'Perfect';
+    if (ratio <= 0.7) return 'Good';
+    return 'Late';
+  }
+
+  _hitTarget(t, hitDist) {
     if (t.hit || t.expired) return;
 
     const now = performance.now();
@@ -223,19 +176,23 @@ export class GameEngine {
     t.hitAt = now;
 
     const isDecoy = !!t.decoy;
-    const rt = t.spawnAt ? (now - t.spawnAt) : 0;
+    const rt      = t.spawnAt ? (now - t.spawnAt) : 0;
 
     if (isDecoy) {
-      // ตีโดนเป้าลวง → reset combo + ตัด HP
+      // ตีโดนเป้าหลอก = ผิด
       this._stats.hitsDecoy++;
       if (rt > 0) {
         this._stats.sumRTDecoy += rt;
         this._stats.cntRTDecoy++;
       }
 
-      this.state.combo = 0;
+      this.state.combo++;
       this.state.missCount++;
       this.state.playerHP = Math.max(0, this.state.playerHP - this.cfg.hpMissPenalty);
+
+      const grade = 'Miss';
+      this._emitHitEffect(t, 0, { grade, isDecoy: true, miss: true });
+
     } else {
       // ตีโดนเป้าจริง
       this._stats.hitsNormal++;
@@ -244,13 +201,18 @@ export class GameEngine {
         this._stats.cntRTNormal++;
       }
 
-      const base      = this.cfg.scoreHit;
-      const feverMult = this.state.feverActive ? 2 : 1;
-      const gain      = base * feverMult;
+      const grade = this._gradeHit(hitDist);
+      if (grade === 'Perfect') {
+        this.state.perfectHits = (this.state.perfectHits || 0) + 1;
+      }
+
+      const base       = this.cfg.scoreHit;
+      const feverMult  = this.state.feverActive ? 2 : 1;
+      const gradeMult  = grade === 'Perfect' ? 1.4 : (grade === 'Good' ? 1.0 : 0.7);
+      const gain       = Math.round(base * feverMult * gradeMult);
 
       this.state.score += gain;
       this.state.combo++;
-      this.state.perfectHits++; // treat as “good hit count”
       if (this.state.combo > this.state.maxCombo) {
         this.state.maxCombo = this.state.combo;
       }
@@ -261,14 +223,11 @@ export class GameEngine {
       );
 
       this.state.bossHP = Math.max(0, this.state.bossHP - this.cfg.bossDamagePerHit);
-      this._updateBossPhase();
 
-      // ช่วงใกล้ตาย + บอสสุดท้าย → spawn เร็วขึ้นโดย design จาก _currentSpawnInterval()
-
-      // clear boss แล้ว
       if (this.state.bossHP <= 0) {
+        // บอสตาย
         if (this.state.bossIndex + 1 >= this.state.bossCount) {
-          this._emitHitEffect(t, gain);
+          this._emitHitEffect(t, gain, { grade, finalBlow: true });
           this._updateHUDImmediate();
           this.stop('boss-cleared');
           return;
@@ -276,19 +235,15 @@ export class GameEngine {
           this.state.bossIndex++;
           this.state.bossHP    = this.cfg.bossHPPerBoss;
           this.state.bossMaxHP = this.cfg.bossHPPerBoss;
-          this.state.feverCharge = 0;
-          this.state.feverActive = false;
-          this._applyBossMeta();
         }
       }
 
-      // FEVER on
       if (!this.state.feverActive && this.state.feverCharge >= this.cfg.feverThreshold) {
         this.state.feverActive = true;
         this.state.feverUntil  = now + this.cfg.feverDurationMs;
       }
 
-      this._emitHitEffect(t, gain);
+      this._emitHitEffect(t, gain, { grade });
     }
 
     if (t.dom) {
@@ -308,7 +263,8 @@ export class GameEngine {
         combo: this.state.combo,
         missCount: this.state.missCount,
         playerHP: this.state.playerHP,
-        reactionMs: rt
+        reactionMs: rt,
+        grade: isDecoy ? 'Miss' : this._gradeHit(hitDist || 0)
       });
     } catch (e) {
       console.warn('logger.logHit error', e);
@@ -317,11 +273,15 @@ export class GameEngine {
     this._updateHUDImmediate();
   }
 
-  _emitHitEffect(t, gain) {
+  _emitHitEffect(t, gain, meta = {}) {
     if (!this.renderer || typeof this.renderer.spawnHitEffect !== 'function') return;
     this.renderer.spawnHitEffect(t, {
       score: gain,
-      fever: this.state.feverActive
+      fever: this.state.feverActive,
+      grade: meta.grade || 'Hit',
+      miss:  !!meta.miss,
+      decoy: !!meta.isDecoy,
+      finalBlow: !!meta.finalBlow
     });
   }
 
@@ -333,7 +293,7 @@ export class GameEngine {
     }
   }
 
-  /* ---------- main loop ---------- */
+  /* ---------- loop / spawn ---------- */
 
   _loop() {
     if (!this.running) return;
@@ -343,7 +303,6 @@ export class GameEngine {
     const remaining = Math.max(0, this.cfg.durationMs - elapsed);
     this.state.remainingMs = remaining;
 
-    // FEVER decay
     const dtSec = 16 / 1000;
     if (this.state.feverActive) {
       if (now >= this.state.feverUntil) {
@@ -361,13 +320,11 @@ export class GameEngine {
       return;
     }
 
-    // spawn target
     if (now >= this.nextSpawnAt) {
       this._spawnTarget(now);
-      this.nextSpawnAt = now + this._currentSpawnInterval();
+      this.nextSpawnAt = now + this.cfg.spawnInterval;
     }
 
-    // expire
     const life = this.cfg.targetLifeMs;
     for (const t of this.targets) {
       if (t.hit || t.expired) continue;
@@ -379,6 +336,10 @@ export class GameEngine {
 
         if (!t.decoy) {
           this.state.playerHP = Math.max(0, this.state.playerHP - this.cfg.hpMissPenalty);
+
+          // เอา MISS popup ตรงเป้า
+          this._emitHitEffect(t, 0, { grade: 'Miss', miss: true });
+
           if (this.state.playerHP <= 0) {
             this._updateHUDImmediate();
             this.stop('player-dead');
@@ -417,7 +378,7 @@ export class GameEngine {
       id: 't' + Math.random().toString(36).slice(2),
       x: Math.random(),
       y: Math.random(),
-      emoji: isDecoy ? (this.cfg.emojiDecoy || '💣') : (this.cfg.emojiMain || '⭐'),
+      emoji: isDecoy ? this.cfg.emojiDecoy || '💣' : this.cfg.emojiMain || '⭐',
       decoy: isDecoy,
       spawnAt: now,
       hit: false,
