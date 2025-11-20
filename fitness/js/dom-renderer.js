@@ -1,10 +1,10 @@
-// === fitness/js/dom-renderer.js (2025-11-19 big target + center) ===
+// === fitness/js/dom-renderer.js (2025-11-19 — targets + mobile tap + hit popup) ===
 'use strict';
 
 export class DomRenderer {
   constructor(engine, host, opts = {}) {
     this.engine  = engine;
-    this.host    = host;
+    this.host    = host;          // ปกติเป็น #target-layer
     this.sizePx  = opts.sizePx || 96;
     this.targets = new Map();
     this.bounds  = { w: 0, h: 0, left: 0, top: 0 };
@@ -12,6 +12,9 @@ export class DomRenderer {
     if (this.host) {
       this.updateBounds();
       window.addEventListener('resize', () => this.updateBounds());
+      window.addEventListener('orientationchange', () => {
+        setTimeout(() => this.updateBounds(), 300);
+      });
     }
   }
 
@@ -35,6 +38,8 @@ export class DomRenderer {
     this.targets.clear();
   }
 
+  /* ---------- spawn / remove target ---------- */
+
   spawnTarget(t) {
     if (!this.host) return;
     this.updateBounds();
@@ -43,26 +48,22 @@ export class DomRenderer {
     el.className = 'sb-target' + (t.decoy ? ' sb-target-decoy' : '');
     el.style.width  = this.sizePx + 'px';
     el.style.height = this.sizePx + 'px';
-    // ส่งค่าขนาดเข้า CSS
-    el.style.setProperty('--sb-target-size', this.sizePx + 'px');
     el.textContent  = t.emoji || '⭐';
 
-    // safe area สำหรับ "จุดกึ่งกลาง" ของเป้า
-    const margin   = 6;
-    const safeW    = Math.max(0, this.bounds.w - this.sizePx - margin * 2);
-    const safeH    = Math.max(0, this.bounds.h - this.sizePx - margin * 2);
-    const centerX  = (t.x || Math.random()) * safeW + this.sizePx / 2 + margin;
-    const centerY  = (t.y || Math.random()) * safeH + this.sizePx / 2 + margin;
+    const safeW = Math.max(0, this.bounds.w - this.sizePx);
+    const safeH = Math.max(0, this.bounds.h - this.sizePx);
 
-    el.style.position = 'absolute';
-    el.style.left  = centerX + 'px';
-    el.style.top   = centerY + 'px';
-    // ให้ CSS ใช้ translate(-50%, -50%) เพื่อให้จุดที่เราคำนวณเป็น "กลางดวง"
-    el.style.transform = 'translate(-50%, -50%)';
+    const x = (t.x || Math.random()) * safeW;
+    const y = (t.y || Math.random()) * safeH;
+
+    el.style.position  = 'absolute';
+    el.style.left      = '0';
+    el.style.top       = '0';
+    el.style.transform = `translate(${x}px, ${y}px)`;
 
     el.dataset.id = String(t.id);
 
-    // แตะเป้า → ส่งตำแหน่งให้ engine
+    // แตะเป้า → ส่งพิกัดจอเข้า engine.registerTouch
     el.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -84,28 +85,48 @@ export class DomRenderer {
     if (t) t.dom = null;
   }
 
-  // optional hook สำหรับเอฟเฟกต์แตกกระจาย
-  spawnHitEffect(t, info) {
-    const el = (t && t.dom) || this.targets.get(t.id);
-    if (!el || !this.host) return;
+  /* ---------- hit effect + score popup ---------- */
 
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width  / 2;
-    const cy = rect.top  + rect.height / 2;
+  spawnHitEffect(t, info = {}) {
+    if (!this.host) return;
+    this.updateBounds();
 
-    const hostRect = this.host.getBoundingClientRect();
-    const localX = cx - hostRect.left;
-    const localY = cy - hostRect.top;
+    const baseEl = t && t.dom ? t.dom : this.host;
+    const rect   = baseEl.getBoundingClientRect();
+
+    // center in host coordinates
+    const cx = rect.left + rect.width  / 2 - this.bounds.left;
+    const cy = rect.top  + rect.height / 2 - this.bounds.top;
+
+    const emojiChar = info.miss
+      ? '💨'
+      : (info.decoy ? '💣' : (info.fever ? '💥' : '✨'));
 
     const particle = document.createElement('div');
-    particle.className = 'sb-particle';
-    particle.textContent = info && info.fever ? '+FEVER' : '+' + (info?.score ?? '');
-    particle.style.left = localX + 'px';
-    particle.style.top  = localY + 'px';
+    particle.className = 'sb-hit-particle';
+    particle.textContent = emojiChar;
+    particle.style.left = cx + 'px';
+    particle.style.top  = cy + 'px';
+
+    const label = document.createElement('div');
+    label.className = 'sb-hit-score';
+    label.style.left = cx + 'px';
+    label.style.top  = (cy - 6) + 'px';
+
+    if (info.miss) {
+      label.textContent = 'MISS';
+    } else {
+      const grade = info.grade || 'Hit';
+      const s     = info.score || 0;
+      label.textContent = `${grade.toUpperCase()}  +${s}`;
+    }
 
     this.host.appendChild(particle);
+    this.host.appendChild(label);
+
     setTimeout(() => {
       if (particle.parentNode) particle.parentNode.removeChild(particle);
-    }, 420);
+      if (label.parentNode)    label.parentNode.removeChild(label);
+    }, 450);
   }
 }
