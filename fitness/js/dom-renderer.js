@@ -1,17 +1,17 @@
 // === fitness/js/dom-renderer.js
-// (2025-11-20 — fixed host position, targets + mobile tap + hit popup)
+// (2025-11-20 — targets + mobile tap + hit popup, fixed host position)
 'use strict';
 
 export class DomRenderer {
   constructor(engine, host, opts = {}) {
-    this.engine  = engine;   // game engine (มี registerTouch, onTargetSpawn ฯลฯ)
+    this.engine  = engine;   // game engine (มี registerTouch ฯลฯ)
     this.host    = host;     // ปกติเป็น #target-layer
     this.sizePx  = opts.sizePx || 96;
     this.targets = new Map();
     this.bounds  = { w: 0, h: 0, left: 0, top: 0 };
 
     if (this.host) {
-      // ไม่ไปยุ่ง position ของ host ปล่อยให้ CSS กำหนด (#target-layer { position:absolute; ... })
+      // ไม่ไปยุ่ง position ของ host ปล่อยให้ CSS จัด
       this.updateBounds();
       window.addEventListener('resize', () => this.updateBounds());
       window.addEventListener('orientationchange', () => {
@@ -42,15 +42,6 @@ export class DomRenderer {
 
   /* ---------- spawn / remove target ---------- */
 
-  /**
-   * t: {
-   *   id: number,
-   *   emoji: '🥊' | '⭐' | '💣' | ...,
-   *   decoy?: boolean,
-   *   x?: 0..1, y?: 0..1 (ตำแหน่ง normalized),
-   *   scale?: number        (ถ้าอยากให้ easy ใหญ่ / hard เล็ก)
-   * }
-   */
   spawnTarget(t) {
     if (!this.host || !t) return;
     this.updateBounds();
@@ -79,7 +70,6 @@ export class DomRenderer {
 
     el.dataset.id = String(t.id);
 
-    // แตะเป้า → ยิงพิกัดจอเข้า engine.registerTouch
     el.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -103,15 +93,6 @@ export class DomRenderer {
 
   /* ---------- hit effect + score popup ---------- */
 
-  /**
-   * info: {
-   *   miss?:   boolean,
-   *   decoy?:  boolean,
-   *   fever?:  boolean,
-   *   grade?:  'perfect' | 'good' | 'bad' | 'miss' | string,
-   *   score?:  number
-   * }
-   */
   spawnHitEffect(t, info = {}) {
     if (!this.host) return;
     this.updateBounds();
@@ -119,7 +100,6 @@ export class DomRenderer {
     const baseEl = (t && t.dom) || this.host;
     const rect   = baseEl.getBoundingClientRect();
 
-    // center in host coordinates (ให้เด้งตรงกลางของ emoji)
     const cx = rect.left + rect.width  / 2 - this.bounds.left;
     const cy = rect.top  + rect.height / 2 - this.bounds.top;
 
