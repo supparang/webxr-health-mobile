@@ -1,0 +1,91 @@
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,Inter,sans-serif;}
+body{
+  background:#0f0f17;
+  color:#e5e7eb;
+  min-height:100vh;
+  padding:12px;
+}
+
+.card{
+  max-width:900px;
+  margin:0 auto;
+  background:#1e1e2a;
+  padding:20px;
+  border-radius:14px;
+}
+.hidden{display:none;}
+.btn-row{margin-top:16px;display:flex;gap:12px;}
+button{padding:10px 18px;border-radius:10px;border:none;cursor:pointer;}
+button.primary{background:#10b981;color:white;font-weight:600;}
+button:hover{opacity:.8;}
+
+.subtitle{margin-bottom:12px;color:#a5b4fc;}
+
+.top-hud{
+  display:flex;
+  gap:12px;
+  margin-bottom:12px;
+}
+.tag{
+  background:#111827;
+  border:1px solid #334155;
+  padding:6px 10px;
+  border-radius:8px;
+  font-size:14px;
+}
+
+#dance-stage{
+  position:relative;
+  width:100%;
+  height:420px;
+  margin:auto;
+  margin-bottom:20px;
+  display:flex;
+  gap:8px;
+}
+
+.lane{
+  flex:1;
+  background:#111826;
+  border:2px solid #4b5563;
+  border-radius:10px;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 0 12px #4b5563 inset;
+}
+
+.rb-note{
+  width:80px;
+  height:80px;
+  border-radius:50%;
+  background:#60a5fa;
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  top:-100px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:36px;
+  color:white;
+  font-weight:700;
+  box-shadow:0 0 12px #3b82f6,0 0 30px #1d4ed8;
+}
+
+.rb-note.warmup{background:#34d399;box-shadow:0 0 14px #10b981;}
+.rb-note.dance {background:#f472b6;box-shadow:0 0 14px #db2777;}
+.rb-note.cool  {background:#60a5fa;box-shadow:0 0 14px #3b82f6;}
+
+#coach{
+  margin:16px auto;
+  padding:10px 14px;
+  background:#1f2937;
+  border:1px solid #374151;
+  border-radius:12px;
+  width:fit-content;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  font-size:16px;
+}
+#coach-avatar{font-size:26px;}
