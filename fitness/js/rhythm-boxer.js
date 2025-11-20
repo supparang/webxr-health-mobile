@@ -13,30 +13,38 @@ let state = {
 
 let game = null;
 
-// ---------- simple track pattern (หน่วย: วินาทีของ "จังหวะโดนเส้น") ----------
-const TRACKS = {
-  track1: {
-    name: 'Track 1 — Warm-up Mix',
-    duration: 60,
-    beats: buildBeats(1.5, 0.8, 40)   // startDelay, interval, count
-  },
-  track2: {
-    name: 'Track 2 — Dance Combo',
-    duration: 70,
-    beats: buildBeats(1.5, 0.55, 70)
-  },
-  track3: {
-    name: 'Track 3 — Power Finish',
-    duration: 80,
-    beats: buildBeats(1.5, 0.45, 90)
-  }
-};
+// ---------- TRACK CONFIG (โน้ตต่อเนื่องจนเกือบหมดเพลง) ----------
 
-function buildBeats(start, interval, count){
-  const arr = [];
-  for(let i=0;i<count;i++) arr.push(start + i*interval);
-  return arr;
+// helper: สร้าง beat ไล่ตลอดทั้ง duration
+function makeTrack(name, durationSec, startSec, intervalSec) {
+  const beats = [];
+  const end = durationSec - 1.5;      // เผื่อช่วงท้ายเงียบ ๆ นิดนึง
+  for (let t = startSec; t <= end; t += intervalSec) {
+    beats.push(t);
+  }
+  return { name, duration: durationSec, beats };
 }
+
+const TRACKS = {
+  track1: makeTrack(
+    'Track 1 — Warm-up Mix',
+    40,      // ความยาว 40s
+    1.5,     // เริ่มมีโน้ตหลังเริ่มเพลง 1.5s
+    0.8      // ระยะห่างระหว่างโน้ต (ช้า ๆ วอร์มอัพ)
+  ),
+  track2: makeTrack(
+    'Track 2 — Dance Combo',
+    60,      // ยาวขึ้น
+    1.5,
+    0.55     // เร็วขึ้น
+  ),
+  track3: makeTrack(
+    'Track 3 — Power Finish',
+    75,      // ยาวสุด
+    1.5,
+    0.45     // เร็วสุด
+  )
+};
 
 // ---------- GAME LOOP ----------
 class RhythmGame {
@@ -112,7 +120,7 @@ class RhythmGame {
     this.init();
 
     const laneRect = this.layer.getBoundingClientRect();
-    this.laneHeight = laneRect.height;
+    this.laneHeight = laneRect.height || 260;
     this.hitY = this.laneHeight - 52; // ตำแหน่งเส้น
 
     this.startTime = performance.now();
