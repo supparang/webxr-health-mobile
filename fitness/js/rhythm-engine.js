@@ -3,7 +3,7 @@
 // ใช้ร่วมกับ rhythm-boxer.html และ rhythm-boxer.js
 'use strict';
 
-export function initRhythmBoxer () {
+export function initRhythmEngine () {
   const $  = (s) => document.querySelector(s);
   const $$ = (s) => Array.from(document.querySelectorAll(s));
 
