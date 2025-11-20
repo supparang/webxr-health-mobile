@@ -1,145 +1,135 @@
-// === fitness/js/dom-renderer.js
-// (2025-11-20 — targets + mobile tap + hit popup, fixed host position)
+// === Shadow Breaker — DOM Renderer v2025-11-20 ===
+// รองรับ: emoji target, multi-size, HP tint, FEVER tint, burst effect
+// ใช้ renderer แบบ DOM ปลอดภัยทุก browser/mobile/iframe
+
 'use strict';
 
-export class DomRenderer {
-  constructor(engine, host, opts = {}) {
-    this.engine  = engine;   // game engine (มี registerTouch ฯลฯ)
-    this.host    = host;     // ปกติเป็น #target-layer
-    this.sizePx  = opts.sizePx || 96;
-    this.targets = new Map();
-    this.bounds  = { w: 0, h: 0, left: 0, top: 0 };
+export const DomRenderer = {
+  host   : null,
+  fever  : false,
+  bossPhase: 1,
 
-    if (this.host) {
-      // ไม่ไปยุ่ง position ของ host ปล่อยให้ CSS จัด
-      this.updateBounds();
-      window.addEventListener('resize', () => this.updateBounds());
-      window.addEventListener('orientationchange', () => {
-        setTimeout(() => this.updateBounds(), 300);
-      });
+  init(host){
+    this.host = (typeof host === 'string') ? document.querySelector(host) : host;
+    if(!this.host){
+      console.warn('[DomRenderer] host missing, auto-inject');
+      this.host = document.createElement('div');
+      this.host.id = 'sb-spawn-host';
+      this.host.style.position = 'absolute';
+      this.host.style.left = '0';
+      this.host.style.top = '0';
+      this.host.style.width = '100%';
+      this.host.style.height = '100%';
+      this.host.style.overflow = 'hidden';
+      document.body.appendChild(this.host);
     }
-  }
+  },
 
-  setEngine(engine) {
-    this.engine = engine;
-  }
+  setFever(flag){
+    this.fever = !!flag;
+  },
 
-  updateBounds() {
-    if (!this.host) return;
+  setBossPhase(p){
+    this.bossPhase = p;
+  },
+
+  /** สร้าง emoji เป้า
+   * opts = { emoji, size, speed, onHit, hpTint, bossTint }
+   */
+  spawn(opts){
+    if(!this.host) return;
+    const emo  = opts.emoji || '🥊';
+    const size = opts.size || 120;
+    const speed = opts.speed || 1200;
+
+    const node = document.createElement('div');
+    node.className = 'sb-target';
+    node.textContent = emo;
+
+    node.style.width  = size + 'px';
+    node.style.height = size + 'px';
+    node.style.fontSize = (size * 0.68) + 'px';
+    node.style.lineHeight = size + 'px';
+    node.style.position = 'absolute';
+    node.style.display = 'flex';
+    node.style.alignItems = 'center';
+    node.style.justifyContent = 'center';
+    node.style.userSelect = 'none';
+    node.style.cursor = 'pointer';
+    node.style.borderRadius = '50%';
+    node.style.boxShadow = '0 0 20px rgba(0,0,0,0.35)';
+    node.style.transition = 'transform .15s, opacity .2s';
+
+    // FEVER tone
+    if(this.fever){
+      node.style.filter = 'drop-shadow(0 0 10px #facc15)';
+    }
+
+    // Boss tint (phase)
+    if(opts.bossTint){
+      node.style.boxShadow = `0 0 25px ${opts.bossTint}`;
+      node.style.border = `3px solid ${opts.bossTint}`;
+    }
+
+    // Random position
     const rect = this.host.getBoundingClientRect();
-    this.bounds.w    = rect.width;
-    this.bounds.h    = rect.height;
-    this.bounds.left = rect.left;
-    this.bounds.top  = rect.top;
-  }
+    const px = Math.random() * (rect.width - size);
+    const py = Math.random() * (rect.height - size);
+    node.style.left = px + 'px';
+    node.style.top = py + 'px';
 
-  clear() {
-    this.targets.forEach(el => {
-      if (el && el.parentNode) el.parentNode.removeChild(el);
-    });
-    this.targets.clear();
-  }
+    this.host.appendChild(node);
 
-  /* ---------- spawn / remove target ---------- */
-
-  spawnTarget(t) {
-    if (!this.host || !t) return;
-    this.updateBounds();
-
-    const el = document.createElement('div');
-    el.className = 'sb-target' + (t.decoy ? ' sb-target-decoy' : '');
-    el.style.width  = this.sizePx + 'px';
-    el.style.height = this.sizePx + 'px';
-    el.textContent  = t.emoji || '⭐';
-
-    const safeW = Math.max(0, this.bounds.w - this.sizePx);
-    const safeH = Math.max(0, this.bounds.h - this.sizePx);
-
-    const nx = (typeof t.x === 'number') ? t.x : Math.random();
-    const ny = (typeof t.y === 'number') ? t.y : Math.random();
-
-    const x = nx * safeW;
-    const y = ny * safeH;
-
-    el.style.position = 'absolute';
-    el.style.left  = '0';
-    el.style.top   = '0';
-
-    const scale = t.scale || 1;
-    el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-
-    el.dataset.id = String(t.id);
-
-    el.addEventListener('pointerdown', (ev) => {
-      ev.preventDefault();
+    // Pointer hit
+    node.addEventListener('pointerdown', (ev)=>{
       ev.stopPropagation();
-      if (this.engine && typeof this.engine.registerTouch === 'function') {
-        this.engine.registerTouch(ev.clientX, ev.clientY, t.id);
+      ev.preventDefault();
+      if(node.dataset.dead) return;
+
+      node.dataset.dead = '1';
+      this.hitEffect(node);
+      if(opts.onHit) opts.onHit();
+      setTimeout(()=> node.remove(), 80);
+    }, {passive:false});
+
+    // Auto fade-out
+    setTimeout(()=>{
+      if(!node.dataset.dead){
+        node.style.opacity = '0';
+        setTimeout(()=>{ if(node.parentNode) node.remove(); }, 200);
       }
-    }, { passive: false });
+    }, speed);
+  },
 
-    this.host.appendChild(el);
-    this.targets.set(t.id, el);
-    t.dom = el;
-  }
+  /** เอฟเฟกต์แตกกระจาย */
+  hitEffect(node){
+    const host = this.host;
+    const rect = node.getBoundingClientRect();
 
-  removeTarget(t) {
-    const id = t && t.id;
-    const el = (t && t.dom) || this.targets.get(id);
-    if (el && el.parentNode) el.parentNode.removeChild(el);
-    if (id != null) this.targets.delete(id);
-    if (t) t.dom = null;
-  }
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
 
-  /* ---------- hit effect + score popup ---------- */
+    for(let i=0;i<10;i++){
+      const shard = document.createElement('div');
+      shard.className = 'sb-burst';
+      shard.style.left = cx + 'px';
+      shard.style.top  = cy + 'px';
 
-  spawnHitEffect(t, info = {}) {
-    if (!this.host) return;
-    this.updateBounds();
+      const ang = Math.random()*Math.PI*2;
+      const dist = 40 + Math.random()*40;
 
-    const baseEl = (t && t.dom) || this.host;
-    const rect   = baseEl.getBoundingClientRect();
+      const tx = Math.cos(ang)*dist;
+      const ty = Math.sin(ang)*dist;
 
-    const cx = rect.left + rect.width  / 2 - this.bounds.left;
-    const cy = rect.top  + rect.height / 2 - this.bounds.top;
+      shard.style.transform = `translate(${tx}px,${ty}px) scale(${0.5+Math.random()*1.3})`;
+      shard.style.opacity = '0';
 
-    const emojiChar = info.miss
-      ? '💨'
-      : (info.decoy ? '💣' : (info.fever ? '💥' : '✨'));
-
-    const particle = document.createElement('div');
-    particle.className   = 'sb-hit-particle';
-    particle.textContent = emojiChar;
-    particle.style.left  = cx + 'px';
-    particle.style.top   = cy + 'px';
-
-    const label = document.createElement('div');
-    label.className = 'sb-hit-score';
-    label.style.left = cx + 'px';
-    label.style.top  = (cy - 8) + 'px';
-
-    const s = typeof info.score === 'number' ? info.score : 0;
-    if (info.miss) {
-      label.textContent = 'MISS';
-      label.classList.add('sb-score-miss');
-    } else if (info.decoy && s <= 0) {
-      label.textContent = `BAD  ${s}`;
-      label.classList.add('sb-score-bad');
-    } else {
-      const grade = (info.grade || 'Hit').toUpperCase();
-      const sign  = s >= 0 ? '+' : '';
-      label.textContent = `${grade}  ${sign}${s}`;
-      if (grade === 'PERFECT')      label.classList.add('sb-score-perfect');
-      else if (grade === 'GOOD')    label.classList.add('sb-score-good');
-      else if (grade === 'BAD')     label.classList.add('sb-score-bad');
+      host.appendChild(shard);
+      setTimeout(()=> shard.remove(), 240);
     }
 
-    this.host.appendChild(particle);
-    this.host.appendChild(label);
-
-    setTimeout(() => {
-      if (particle.parentNode) particle.parentNode.removeChild(particle);
-      if (label.parentNode)    label.parentNode.removeChild(label);
-    }, 450);
+    // scale pop ของเป้า
+    node.style.transform = 'scale(.3)';
+    node.style.opacity = '0';
   }
-}
+};
