@@ -402,3 +402,37 @@ select {
     height: min(360px, 64vh);
   }
 }
+/* รูปแบบเป้าในแต่ละเลน */
+.rb-target.lane-0 { filter: drop-shadow(0 0 10px rgba(56,189,248,0.8)); }
+.rb-target.lane-1 { filter: drop-shadow(0 0 10px rgba(34,197,94,0.8)); }
+.rb-target.lane-2 { filter: drop-shadow(0 0 10px rgba(244,114,182,0.8)); }
+
+/* Big note */
+.rb-target-strong {
+  transform: translate(-50%,-50%) scale(1.25);
+}
+
+/* label PERFECT / GOOD / BAD / MISS */
+.rb-hit-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.9);
+  border: 1px solid rgba(148,163,184,0.8);
+  color: #e5e7eb;
+  pointer-events: none;
+  animation: rb-label-pop 0.4s ease-out forwards;
+}
+
+.rb-hit-perfect { border-color:#22c55e; color:#bbf7d0; }
+.rb-hit-good    { border-color:#3b82f6; color:#bfdbfe; }
+.rb-hit-bad     { border-color:#f97316; color:#fed7aa; }
+.rb-hit-miss    { border-color:#ef4444; color:#fecaca; }
+
+@keyframes rb-label-pop {
+  from { opacity:0; transform:translate(-50%,-40%) scale(0.8); }
+  to   { opacity:1; transform:translate(-50%,-65%) scale(1); }
+}
