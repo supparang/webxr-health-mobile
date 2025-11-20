@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Rhythm Dance — VR Fitness</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="stylesheet" href="./css/rhythm.css"/>
+</head>
+<body>
+
+<main>
+
+  <!-- MENU -->
+  <section class="card" id="view-menu">
+    <h1>🎵 Rhythm Dance</h1>
+    <div class="subtitle">
+      เกมเต้น 3 ช่วง: Warm-up → Dance → Cool-down  
+      มี Beat Timeline, 4 Lane Dance, และ Coach เต้น
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-start" class="primary">เริ่มเต้น ▶</button>
+      <button onclick="location.href='../index.html'">⬅ กลับ Hub</button>
+    </div>
+  </section>
+
+  <!-- PLAY -->
+  <section class="card hidden" id="view-play">
+
+    <div class="top-hud">
+      <div class="tag">Phase: <span id="hud-phase">Warm-up</span></div>
+      <div class="tag">Score: <span id="hud-score">0</span></div>
+      <div class="tag">Combo: <span id="hud-combo">0</span></div>
+      <div class="tag">Time: <span id="hud-time">60.0</span>s</div>
+    </div>
+
+    <!-- DANCE STAGE -->
+    <div id="dance-stage">
+      <div class="lane" data-lane="0"></div>
+      <div class="lane" data-lane="1"></div>
+      <div class="lane" data-lane="2"></div>
+      <div class="lane" data-lane="3"></div>
+    </div>
+
+    <!-- COACH -->
+    <div id="coach">
+      <div id="coach-avatar">🕺</div>
+      <div id="coach-text">เริ่มวอร์มอัพ จังหวะช้า ๆ ก่อนนะ 🎵</div>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-stop">⏹ หยุดก่อน</button>
+      <button onclick="location.href='../index.html'">กลับ Hub</button>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="card hidden" id="view-result">
+    <h1>สรุปผล</h1>
+    <table>
+      <tr><td>คะแนนรวม</td><td id="res-score">0</td></tr>
+      <tr><td>คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
+      <tr><td>Accuracy</td><td id="res-accuracy">0%</td></tr>
+    </table>
+
+    <div class="btn-row">
+      <button onclick="location.reload()">เล่นใหม่ ▶</button>
+      <button onclick="location.href='../index.html'">กลับ Hub</button>
+    </div>
+  </section>
+
+</main>
+
+<script type="module" src="./js/rhythm-engine.js"></script>
+</body>
+</html>
