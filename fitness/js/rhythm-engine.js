@@ -1,5 +1,5 @@
 // === Rhythm Boxer Engine — rhythm-engine.js
-// (2025-11-20 multi-lane notes + hit popup) ===
+// (2025-11-20 production-ish: CSV + pause + multi-lane) ===
 
 export function initRhythmBoxer() {
   const $  = (s)=>document.querySelector(s);
@@ -45,6 +45,14 @@ export function initRhythmBoxer() {
   const sfxHit  = $('#sfx-hit');
   const sfxBeat = $('#sfx-beat');
 
+  const pauseOverlay   = $('#pause-overlay');
+  const pauseResumeBtn = $('#pause-overlay [data-action="resume-play"]');
+  const pauseStopBtn   = $('#pause-overlay [data-action="stop-early"]');
+
+  // ใช้เก็บรอบล่าสุดสำหรับ CSV / Hub
+  let lastResult = null;
+  let lastMeta   = null;
+
   let currentGame = null;
   let lastConfig  = null;
 
@@ -53,8 +61,74 @@ export function initRhythmBoxer() {
     views[name].classList.remove('hidden');
   }
 
+  // ---------- save summary ไป localStorage + event ให้ Hub ----------
+  function saveSummaryToStorage(result, meta) {
+    const summary = {
+      game: 'rhythm-boxer',
+      timestamp: result.timestamp,
+      mode: result.mode,
+      difficulty: result.difficulty,
+      bpm: result.bpm,
+      score: result.score,
+      maxCombo: result.maxCombo,
+      miss: result.miss,
+      totalHits: result.totalHits,
+      accuracy: result.rhythmAccuracy,
+      avgOffset: result.avgOffset,
+      participantId: meta?.pid || '',
+      group: meta?.group || '',
+      note: meta?.note || '',
+    };
+    try {
+      localStorage.setItem('vf-rhythm-latest', JSON.stringify(summary));
+      window.dispatchEvent(new CustomEvent('vf-rhythm-updated', { detail: summary }));
+    } catch (e) {
+      // เงียบ ๆ ถ้า localStorage ใช้ไม่ได้
+    }
+  }
+
+  // ---------- CSV export ----------
+  function downloadCSV(result, meta) {
+    if (!result) {
+      alert('ยังไม่มีข้อมูลรอบล่าสุด');
+      return;
+    }
+    const rows = [];
+    rows.push(['Game','Rhythm Boxer']);
+    rows.push(['Timestamp', result.timestamp]);
+    rows.push(['Mode', result.mode]);
+    rows.push(['Difficulty', result.difficulty]);
+    rows.push(['BPM', result.bpm]);
+    rows.push(['DurationSec', (result.durationMs/1000).toFixed(1)]);
+    rows.push(['ParticipantID', meta?.pid || '']);
+    rows.push(['Group', meta?.group || '']);
+    rows.push(['Note', meta?.note || '']);
+    rows.push([]);
+    rows.push(['Metric','Value']);
+    rows.push(['Score', result.score]);
+    rows.push(['MaxCombo', result.maxCombo]);
+    rows.push(['Miss', result.miss]);
+    rows.push(['TotalHits', result.totalHits]);
+    rows.push(['Accuracy', (result.rhythmAccuracy*100).toFixed(2) + '%']);
+    rows.push(['AvgOffsetMs', result.avgOffset.toFixed(1)]);
+
+    const csv = rows
+      .map(r => r.map(x => '"' + String(x).replace(/"/g,'""') + '"').join(','))
+      .join('\r\n');
+
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'rhythm-boxer-' + Date.now() + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   // ---------- เมื่อเกมจบ: เติม result view ----------
-  function onGameFinish(result) {
+  function onGameFinish(result, meta) {
     res.mode.textContent      = result.mode === 'research' ? 'Research' : 'Normal';
     res.diff.textContent      = result.difficulty;
     res.reason.textContent    = result.reason;
@@ -67,8 +141,8 @@ export function initRhythmBoxer() {
     res.rtNormal.textContent  = result.avgOffset.toFixed(1) + ' ms';
     res.rtOffset.textContent  = result.avgOffset.toFixed(1) + ' ms';
 
-    const pid = $('#research-id')?.value || '-';
-    res.pid.textContent = pid;
+    const pid = meta?.pid || $('#research-id')?.value || '-';
+    res.pid.textContent = pid || '-';
 
     show('result');
   }
@@ -77,6 +151,7 @@ export function initRhythmBoxer() {
   function createGame(config) {
     const difficulty = config.difficulty || 'normal';
     const mode       = config.mode || 'normal';
+    const meta       = config.meta || {};
 
     // ตั้งค่า BPM ตามระดับ
     const bpm = (difficulty === 'easy'
@@ -88,8 +163,18 @@ export function initRhythmBoxer() {
     const beatInterval = 60000 / bpm;   // ms ต่อ 1 beat
     const durationMs   = 60000;         // เล่น 60 วิ
 
+    // timing window ที่ละเอียดขึ้น ตาม diff
+    const perfectWin = (difficulty === 'easy'  ? 80 :
+                        difficulty === 'hard' ? 40 : 60);   // +/- ms
+    const goodWin    = (difficulty === 'easy'  ? 150 :
+                        difficulty === 'hard' ? 90 : 120);  // +/- ms
+    const missWindow = (difficulty === 'easy'  ? 300 :
+                        difficulty === 'hard' ? 160 : 220); // auto miss
+
     const state = {
       running: false,
+      paused: false,
+      pauseAt: 0,
       startTime: 0,
       score: 0,
       combo: 0,
@@ -97,7 +182,7 @@ export function initRhythmBoxer() {
       perfect: 0,
       miss: 0,
       totalHits: 0,
-      offsets: [],        // เก็บ offset ms ของการตี
+      offsets: [],
       beatIndex: 0,
       timeLeft: 60,
       rafId: null,
@@ -118,8 +203,9 @@ export function initRhythmBoxer() {
       const w = Math.min(100, state.combo * 2);
       grooveFill.style.width = w + '%';
 
-      if (state.combo >= 12)      grooveStatus.textContent = 'GREAT!';
-      else if (state.combo >= 6)  grooveStatus.textContent = 'ON BEAT';
+      if (state.combo >= 16)      grooveStatus.textContent = 'GROOVE MAX!';
+      else if (state.combo >= 10) grooveStatus.textContent = 'GREAT!';
+      else if (state.combo >= 5)  grooveStatus.textContent = 'ON BEAT';
       else                        grooveStatus.textContent = 'WARM UP';
     }
 
@@ -153,7 +239,7 @@ export function initRhythmBoxer() {
       const laneXRatio = [0.25, 0.5, 0.75][laneIndex];
       const x = laneXRatio * hostRect.width;
       const baseY = hostRect.height * 0.65;
-      const y = baseY + (Math.random() * 16 - 8); // random นิดหน่อย
+      const y = baseY + (Math.random() * 16 - 8);
 
       const laneEmojis = ['🥊','🎵','✨'];
       let emoji = laneEmojis[laneIndex];
@@ -168,7 +254,6 @@ export function initRhythmBoxer() {
       el.style.left = x + 'px';
       el.style.top  = y + 'px';
 
-      // เวลา beat ที่ควรจะตี (ms) นับจากเริ่มเกม
       const beatTimeMs = beatIndex * beatInterval;
 
       const target = {
@@ -181,35 +266,31 @@ export function initRhythmBoxer() {
 
       el.addEventListener('pointerdown', (ev) => {
         ev.preventDefault();
-        if (!state.running || target.hit) return;
+        if (!state.running || state.paused || target.hit) return;
         target.hit = true;
         handleHit(target);
       }, { passive: false });
 
       targetLayer.appendChild(el);
 
-      // auto miss ถ้าเลยหน้าต่างเวลาไปแล้ว
-      const missWindow = (difficulty === 'easy' ? 240
-                        : difficulty === 'hard' ? 140
-                        : 180);
       setTimeout(() => {
-        if (!state.running || target.hit) return;
+        if (!state.running || state.paused || target.hit) return;
         target.hit = true;
         handleMiss(target);
       }, missWindow);
     }
 
     function handleHit(target) {
-      const nowDelta = performance.now() - state.startTime; // ms จากเริ่มเกม
+      const nowDelta = performance.now() - state.startTime;
       const offsetMs = nowDelta - target.beatTimeMs;
       const abs      = Math.abs(offsetMs);
 
       let grade, delta;
-      if (abs <= 60) {
+      if (abs <= perfectWin) {
         grade = 'PERFECT';
         delta = target.strong ? 500 : 300;
         state.perfect++;
-      } else if (abs <= 120) {
+      } else if (abs <= goodWin) {
         grade = 'GOOD';
         delta = target.strong ? 260 : 150;
       } else {
@@ -223,13 +304,11 @@ export function initRhythmBoxer() {
       state.maxCombo = Math.max(state.maxCombo, state.combo);
       state.offsets.push(offsetMs);
 
-      // เอาพิกัดกลางของเป้าไว้ spawn label
       const rect = target.el.getBoundingClientRect();
       const hostRect = targetLayer.getBoundingClientRect();
       const cx = rect.left + rect.width/2 - hostRect.left;
       const cy = rect.top  + rect.height/2 - hostRect.top;
 
-      // visual: หด + fade
       target.el.style.transform += ' scale(0.8)';
       target.el.style.opacity = '0';
       setTimeout(() => {
@@ -238,7 +317,6 @@ export function initRhythmBoxer() {
         }
       }, 120);
 
-      // popup PERFECT / GOOD / BAD
       const labelClass =
         grade === 'PERFECT' ? 'rb-hit-perfect' :
         grade === 'GOOD'    ? 'rb-hit-good'    :
@@ -272,7 +350,7 @@ export function initRhythmBoxer() {
     }
 
     function loopTime() {
-      if (!state.running) return;
+      if (!state.running || state.paused) return;
       const now = performance.now();
       const elapsed = now - state.startTime;
       const leftMs  = Math.max(0, durationMs - elapsed);
@@ -288,11 +366,11 @@ export function initRhythmBoxer() {
       state.rafId = requestAnimationFrame(loopTime);
     }
 
-    function startBeatLoop() {
+    function startBeatLoop(resetIndex = true) {
       if (state.beatTimer) clearInterval(state.beatTimer);
-      state.beatIndex = 0;
+      if (resetIndex) state.beatIndex = 0;
       state.beatTimer = setInterval(() => {
-        if (!state.running) return;
+        if (!state.running || state.paused) return;
 
         const now = performance.now();
         const elapsed = now - state.startTime;
@@ -309,8 +387,39 @@ export function initRhythmBoxer() {
       }, beatInterval);
     }
 
+    function pauseGame(reason) {
+      if (!state.running || state.paused) return;
+      state.paused = true;
+      state.pauseAt = performance.now();
+      if (state.rafId) {
+        cancelAnimationFrame(state.rafId);
+        state.rafId = null;
+      }
+      if (state.beatTimer) {
+        clearInterval(state.beatTimer);
+        state.beatTimer = null;
+      }
+      if (pauseOverlay) pauseOverlay.classList.remove('hidden');
+    }
+
+    function resumeGame() {
+      if (!state.running || !state.paused) return;
+      const now = performance.now();
+      const pausedDuration = now - state.pauseAt;
+      state.startTime += pausedDuration;
+      state.paused = false;
+      if (pauseOverlay) pauseOverlay.classList.add('hidden');
+      state.rafId = requestAnimationFrame(loopTime);
+      startBeatLoop(false);
+    }
+
+    function visibilityHandler() {
+      if (document.hidden && state.running && !state.paused) {
+        pauseGame('hidden');
+      }
+    }
+
     function start() {
-      // reset state
       targetLayer.innerHTML = '';
       grooveFill.style.width = '0%';
       grooveStatus.textContent = 'WARM UP';
@@ -325,6 +434,7 @@ export function initRhythmBoxer() {
       state.totalHits = 0;
       state.offsets.length = 0;
       state.timeLeft = 60;
+      state.paused = false;
 
       updateHUD();
 
@@ -332,12 +442,16 @@ export function initRhythmBoxer() {
       state.startTime = performance.now();
 
       state.rafId = requestAnimationFrame(loopTime);
-      startBeatLoop();
+      startBeatLoop(true);
+
+      document.addEventListener('visibilitychange', visibilityHandler);
+      window.addEventListener('blur', visibilityHandler);
     }
 
     function finish(reason) {
       if (!state.running) return;
       state.running = false;
+      state.paused  = false;
 
       if (state.rafId) {
         cancelAnimationFrame(state.rafId);
@@ -347,6 +461,10 @@ export function initRhythmBoxer() {
         clearInterval(state.beatTimer);
         state.beatTimer = null;
       }
+      if (pauseOverlay) pauseOverlay.classList.add('hidden');
+
+      document.removeEventListener('visibilitychange', visibilityHandler);
+      window.removeEventListener('blur', visibilityHandler);
 
       let avgOffset = 0;
       if (state.offsets.length > 0) {
@@ -356,9 +474,13 @@ export function initRhythmBoxer() {
       const totalEvents = Math.max(1, state.beatIndex);
       const acc = state.totalHits / totalEvents;
 
+      const timestamp = new Date().toISOString();
+
       const result = {
         mode,
         difficulty,
+        bpm,
+        durationMs,
         reason,
         score: state.score,
         maxCombo: state.maxCombo,
@@ -366,16 +488,21 @@ export function initRhythmBoxer() {
         totalHits: state.totalHits,
         rhythmAccuracy: acc,
         avgOffset,
+        timestamp,
       };
 
-      onGameFinish(result);
+      lastResult = result;
+      lastMeta   = meta;
+
+      saveSummaryToStorage(result, meta);
+      onGameFinish(result, meta);
     }
 
     function stopEarly() {
       finish('user-stop');
     }
 
-    return { start, stopEarly };
+    return { start, stopEarly, pauseGame, resumeGame };
   }
 
   // ---------- startGame + binding ----------
@@ -408,11 +535,24 @@ export function initRhythmBoxer() {
   const btnResearchBegin = $('#view-research-form [data-action="research-begin-play"]');
   btnResearchBegin?.addEventListener('click', ()=>{
     const diff = $('#difficulty').value || 'normal';
-    startGame({ mode:'research', difficulty: diff });
+    const meta = {
+      pid:  $('#research-id')?.value || '',
+      group:$('#research-group')?.value || '',
+      note: $('#research-note')?.value || '',
+    };
+    startGame({ mode:'research', difficulty: diff, meta });
   });
 
   // ปุ่มในหน้าเล่น
   $('#view-play [data-action="stop-early"]')?.addEventListener('click', ()=>{
+    if (currentGame) currentGame.stopEarly();
+  });
+
+  // ปุ่ม overlay pause
+  pauseResumeBtn?.addEventListener('click', ()=>{
+    if (currentGame && currentGame.resumeGame) currentGame.resumeGame();
+  });
+  pauseStopBtn?.addEventListener('click', ()=>{
     if (currentGame) currentGame.stopEarly();
   });
 
@@ -427,7 +567,7 @@ export function initRhythmBoxer() {
   });
 
   $('#view-result [data-action="download-csv"]')?.addEventListener('click', ()=>{
-    alert('TODO: CSV Export (จะใช้โครงเดียวกับ Shadow Breaker)');
+    downloadCSV(lastResult, lastMeta);
   });
 
   // เริ่มที่เมนู
