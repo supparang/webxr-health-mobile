@@ -1,5 +1,5 @@
 // === fitness/js/dom-renderer.js
-// (2025-11-19 — targets + mobile tap + hit popup, tuned for Shadow Breaker)
+// (2025-11-20 — fixed host position, targets + mobile tap + hit popup)
 'use strict';
 
 export class DomRenderer {
@@ -11,7 +11,7 @@ export class DomRenderer {
     this.bounds  = { w: 0, h: 0, left: 0, top: 0 };
 
     if (this.host) {
-      this.host.style.position = this.host.style.position || 'relative';
+      // ไม่เซ็ต position ที่นี่ ปล่อยให้ CSS คุม (#target-layer { position:absolute; ... })
       this.updateBounds();
       window.addEventListener('resize', () => this.updateBounds());
       window.addEventListener('orientationchange', () => {
@@ -138,7 +138,6 @@ export class DomRenderer {
     label.style.left = cx + 'px';
     label.style.top  = (cy - 8) + 'px';
 
-    // ข้อความ / คะแนน
     const s = typeof info.score === 'number' ? info.score : 0;
     if (info.miss) {
       label.textContent = 'MISS';
