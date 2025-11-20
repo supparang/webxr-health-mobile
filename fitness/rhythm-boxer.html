@@ -2,230 +2,236 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <title>Rhythm Boxer — VR Fitness Groove</title>
+  <title>Rhythm Boxer — VR Fitness Rhythm Game</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
+  <meta name="color-scheme" content="dark light" />
 
   <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+  <!-- สไตล์หลักของ Rhythm Boxer -->
   <link rel="stylesheet" href="./css/rhythm-boxer.css" />
 </head>
 <body>
-  <main>
+<main class="rb-wrap">
 
-    <!-- ============ MENU VIEW ============ -->
-    <section class="card" id="view-menu">
-      <div class="top-row">
-        <div>
-          <h1><span class="icon">🎵</span>Rhythm Boxer</h1>
-          <div class="subtitle">
-            เกมเต้นตามจังหวะเพลง 3 เลน เน้น reaction, ความแม่นยำ และ Bloom / Fever mode
-          </div>
-          <div class="pill">
-            <span class="dot"></span>
-            <span>3 Lanes • Bloom Bar • Fever Mode • Neon Glow • Analytics CSV</span>
-          </div>
-        </div>
-        <div>
-          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
-        </div>
-      </div>
-
-      <h2 class="section-title">เลือกรูปแบบการเล่น</h2>
-
-      <div class="btn-row mode-row">
-        <button class="primary" data-action="mode-research">
-          <span>โหมดวิจัย</span> <span>📊</span>
-        </button>
-        <button data-action="mode-normal">
-          <span>โหมดเล่นปกติ</span> <span>🎮</span>
-        </button>
-      </div>
-
-      <div class="row">
-        <div class="col">
-          <label for="difficulty">ระดับความยาก</label>
-          <select id="difficulty">
-            <option value="easy">ง่าย — โน้ตน้อย / ช่องกดกว้าง</option>
-            <option value="normal" selected>ปกติ — มาตรฐาน</option>
-            <option value="hard">ยาก — โน้ตเยอะ / จังหวะถี่</option>
-          </select>
-          <div class="help">
-            ความถี่ของโน้ต / หน้าต่าง PERFECT / ความเร็วจะเปลี่ยนตามระดับ
-          </div>
-        </div>
-        <div class="col">
-          <label for="track-select">เพลง / ช่วงการออกกำลังกาย</label>
-          <select id="track-select">
-            <option value="warmup">Track 1 — Warm-up Mix</option>
-            <option value="dance">Track 2 — Dance Groove</option>
-            <option value="cooldown">Track 3 — Cool Down</option>
-          </select>
-          <div class="help">
-            warm-up = ช้า / dance = กลาง-เร็ว / cool down = ปิดท้ายเบา ๆ
-          </div>
+  <!-- ========= VIEW: MENU ========= -->
+  <section id="view-menu" class="rb-card">
+    <header class="rb-header">
+      <div>
+        <h1 class="rb-title">🎵 Rhythm Boxer</h1>
+        <p class="rb-subtitle">
+          เกมเต้นตามจังหวะเพลง แบบ 3 เลน เน้น reaction ความแม่นยำ และ Bloom / Fever Mode
+        </p>
+        <div class="rb-pill">
+          <span>3 Lanes</span>
+          <span>Bloom Bar</span>
+          <span>Fever Mode</span>
+          <span>Neon Glow</span>
+          <span>Analytics CSV (ภายหลัง)</span>
         </div>
       </div>
+      <div>
+        <a href="./index.html" class="rb-btn-small">⬅ กลับ Hub</a>
+      </div>
+    </header>
 
-      <!-- ฟอร์มโหมดวิจัย -->
-      <div class="row research-form">
-        <div class="col">
-          <label for="research-id">รหัสผู้เข้าร่วม (Participant ID)</label>
-          <input id="research-id" placeholder="เช่น RB-001-01" />
-        </div>
-        <div class="col">
-          <label for="research-group">กลุ่มทดลอง / เงื่อนไข</label>
-          <input id="research-group" placeholder="เช่น HIIT / Moderate" />
-        </div>
+    <!-- เลือกรูปแบบการเล่น -->
+    <h2 class="rb-section-title">เลือกรูปแบบการเล่น</h2>
+    <div class="rb-mode-row">
+      <button type="button" class="rb-tab active" data-action="mode-research">
+        โหมดวิจัย 📊
+      </button>
+      <button type="button" class="rb-tab" data-action="mode-normal">
+        โหมดเล่นปกติ 🎮
+      </button>
+    </div>
+
+    <!-- การตั้งค่า -->
+    <div class="rb-grid">
+      <div class="rb-col">
+        <label for="difficulty" class="rb-label">ระดับความยาก</label>
+        <select id="difficulty" class="rb-select">
+          <option value="easy" selected>ง่าย — โน้ตน้อย / ช่องกว้าง</option>
+          <option value="normal">ปกติ — มาตรฐาน</option>
+          <option value="hard">ยาก — โน้ตเยอะ / เร็วขึ้น</option>
+        </select>
+        <p class="rb-help">
+          ความถี่ของโน้ต / หน้าต่าง PERFECT / ความเร็วเลื่อนจะปรับตามระดับ
+        </p>
       </div>
 
-      <div class="btn-row" style="margin-top:18px;">
-        <button class="primary" data-action="begin-play">
-          ▶ เริ่มเล่น Rhythm Boxer
-        </button>
+      <div class="rb-col">
+        <label for="track" class="rb-label">เพลง / ช่วงการออกกำลังกาย</label>
+        <select id="track" class="rb-select">
+          <option value="t1" selected>Track 1 — Warm-up Mix (วอร์มอัพเบา ๆ)</option>
+          <option value="t2">Track 2 — Dance Burst (เต้นเต็มที่)</option>
+          <option value="t3">Track 3 — Cool-down Flow (ผ่อนคลาย / ยืดเหยียด)</option>
+        </select>
+        <p class="rb-help">
+          warm-up = ซ้อม / dance = กลาง-เร็ว / cool-down = ปิดท้ายเบา ๆ
+        </p>
       </div>
+    </div>
 
-      <div class="hint-keys">
-        บน PC: ใช้ปุ่ม <strong>W</strong> (เลนบน), <strong>S</strong> (เลนกลาง),
-        <strong>X</strong> (เลนล่าง) หรือใช้ <strong>↑ / ↓ / Space</strong> ก็ได้  
-        มือถือ/แท็บเล็ต: แตะที่แต่ละเลนตามจังหวะโน้ต
-      </div>
-    </section>
-
-    <!-- ============ PLAY VIEW ============ -->
-    <section class="card hidden" id="view-play">
-      <div class="play-top">
-        <div class="stat-grid">
-          <div class="stat-box">
-            <div class="label">Mode</div>
-            <div class="value" id="stat-mode">-</div>
-          </div>
-          <div class="stat-box">
-            <div class="label">Diff</div>
-            <div class="value" id="stat-diff">-</div>
-          </div>
-          <div class="stat-box">
-            <div class="label">Track</div>
-            <div class="value" id="stat-track">-</div>
-          </div>
-          <div class="stat-box">
-            <div class="label">Score</div>
-            <div class="value" id="stat-score">0</div>
-          </div>
-          <div class="stat-box">
-            <div class="label">Combo</div>
-            <div class="value" id="stat-combo">0</div>
-          </div>
-          <div class="stat-box">
-            <div class="label">Perfect</div>
-            <div class="value" id="stat-perfect">0</div>
-          </div>
-          <div class="stat-box">
-            <div class="label">Miss</div>
-            <div class="value" id="stat-miss">0</div>
-          </div>
-          <div class="stat-box">
-            <div class="label">Time</div>
-            <div class="value" id="stat-time">0.0s</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- BLOOM / FEVER BAR -->
-      <div class="bloom-wrap">
-        <div class="bloom-label">BLOOM</div>
-        <div class="bloom-bar">
-          <div class="bloom-fill" id="bloom-fill"></div>
-          <div class="bloom-glow" id="bloom-glow"></div>
-        </div>
-        <div class="bloom-status" id="bloom-status">WARM UP</div>
-      </div>
-
-      <!-- PLAYFIELD 3 เลน -->
-      <div class="playfield" id="playfield">
-        <div class="lane lane-top" data-lane="0">
-          <div class="lane-label">TOP</div>
-          <div class="hit-line"></div>
-        </div>
-        <div class="lane lane-mid" data-lane="1">
-          <div class="lane-label">MID</div>
-          <div class="hit-line"></div>
-        </div>
-        <div class="lane lane-bot" data-lane="2">
-          <div class="lane-label">LOW</div>
-          <div class="hit-line"></div>
-        </div>
-        <!-- container สำหรับ DOM ของโน้ต -->
-        <div id="note-layer"></div>
-      </div>
-
-      <!-- COACH BUBBLE -->
-      <div class="coach-bubble" id="coach">
-        <div class="coach-avatar">🕺</div>
-        <div class="coach-text-wrap">
-          <div class="coach-role" id="coach-role">โค้ชจังหวะ</div>
-          <div class="coach-text" id="coach-text">
-            เริ่ม warm-up ก่อน ฟังจังหวะให้ชัด ๆ 🎧
-          </div>
-        </div>
-      </div>
-
-      <div class="btn-row bottom-row">
-        <label class="chk">
-          <input type="checkbox" id="chk-pause" />
-          <span>หยุดก่อนเวลา</span>
+    <!-- ข้อมูลโหมดวิจัย -->
+    <div class="rb-grid rb-grid-2">
+      <div class="rb-col">
+        <label for="participant-id" class="rb-label">
+          รหัสผู้เข้าร่วม (Participant ID)
         </label>
-        <button type="button" data-action="back-to-menu">⬅ กลับ Hub</button>
+        <input id="participant-id" class="rb-input" placeholder="เช่น RB-001-01" />
       </div>
-    </section>
+      <div class="rb-col">
+        <label for="participant-group" class="rb-label">
+          กลุ่มทดลอง / เงื่อนไข
+        </label>
+        <input id="participant-group" class="rb-input" placeholder="เช่น HIIT / Moderate / Control" />
+      </div>
+    </div>
 
-    <!-- ============ RESULT VIEW ============ -->
-    <section class="card hidden" id="view-result">
-      <div class="top-row">
-        <div>
-          <h1><span class="icon">✅</span>สรุปผลรอบเล่น</h1>
-          <div class="subtitle">
-            ใช้สำหรับวิเคราะห์ performance / export CSV เพิ่มในภายหลัง
-          </div>
+    <!-- ปุ่มเริ่มเล่น -->
+    <div class="rb-btn-row rb-btn-row-main">
+      <button type="button" class="rb-btn-primary" data-action="start-play">
+        ▶ เริ่มเล่น Rhythm Boxer
+      </button>
+    </div>
+
+    <p class="rb-kb-hint">
+      บน <strong>PC</strong> ใช้ปุ่ม <strong>W / S / X</strong> หรือ <strong>↑ / ↓ / Space</strong>
+      ในการตีโน้ตตามเลน (แตะหน้าจอแต่ละเลนได้บนมือถือ/แท็บเล็ต)
+    </p>
+  </section>
+
+  <!-- ========= VIEW: PLAY ========= -->
+  <section id="view-play" class="rb-card hidden">
+    <header class="rb-play-header">
+      <div class="rb-stat-row">
+        <div class="rb-stat-tag">Mode: <span id="stat-mode">-</span></div>
+        <div class="rb-stat-tag">Diff: <span id="stat-diff">-</span></div>
+        <div class="rb-stat-tag">Track: <span id="stat-track">-</span></div>
+      </div>
+      <div class="rb-stat-cards">
+        <div class="rb-stat-box">
+          <div class="rb-stat-label">Score</div>
+          <div class="rb-stat-value" id="stat-score">0</div>
         </div>
-        <div>
-          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
+        <div class="rb-stat-box">
+          <div class="rb-stat-label">Combo</div>
+          <div class="rb-stat-value" id="stat-combo">0</div>
+        </div>
+        <div class="rb-stat-box">
+          <div class="rb-stat-label">Perfect</div>
+          <div class="rb-stat-value" id="stat-perfect">0</div>
+        </div>
+        <div class="rb-stat-box">
+          <div class="rb-stat-label">Miss</div>
+          <div class="rb-stat-value" id="stat-miss">0</div>
+        </div>
+        <div class="rb-stat-box rb-stat-time">
+          <div class="rb-stat-label">Time</div>
+          <div class="rb-stat-value" id="stat-time">0.0s</div>
         </div>
       </div>
+    </header>
 
-      <div class="summary">
-        <table>
-          <tbody>
-          <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
-          <tr><td class="label">ระดับความยาก</td><td id="res-diff">-</td></tr>
-          <tr><td class="label">เพลง / ช่วง</td><td id="res-track">-</td></tr>
-          <tr><td class="label">คะแนนรวม</td><td id="res-score">0</td></tr>
-          <tr><td class="label">คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
-          <tr><td class="label">Perfect</td><td id="res-perfect">0</td></tr>
-          <tr><td class="label">Miss</td><td id="res-miss">0</td></tr>
-          <tr><td class="label">% เวลาอยู่ใน FEVER</td><td id="res-fever">0%</td></tr>
-          </tbody>
-        </table>
+    <!-- Bloom bar -->
+    <div class="rb-bloom-wrap">
+      <div class="rb-bloom-label">BLOOM</div>
+      <div class="rb-bloom-bar">
+        <div id="bloom-fill" class="rb-bloom-fill"></div>
       </div>
+      <div class="rb-bloom-status" id="bloom-status">WARM UP</div>
+    </div>
 
-      <div class="btn-row" style="margin-top:16px;">
-        <button data-action="play-again">▶ เล่นอีกครั้ง</button>
-        <button data-action="back-to-menu">⬅ กลับเมนูเกม</button>
+    <!-- Play area: 3 lanes -->
+    <div class="rb-play-area" id="lane-host">
+      <!-- judge line -->
+      <div id="judge-line" class="rb-judge-line"></div>
+      <!-- โน้ตจะถูกสร้างด้วย JS (rb-note, rb-note-low/mid/high) -->
+    </div>
+
+    <!-- Coach text -->
+    <div class="rb-coach">
+      <div class="rb-coach-avatar">🕺</div>
+      <div class="rb-coach-text">
+        <div class="rb-coach-role">โค้ชจังหวะ</div>
+        <div class="rb-coach-line" id="coach-text">
+          ฟังจังหวะ warm-up ให้ชัดก่อน แล้วค่อยเริ่มเก็บคอมโบ 🎧
+        </div>
       </div>
-    </section>
+    </div>
 
-  </main>
+    <p class="rb-howto">
+      <strong>วิธีเล่น:</strong>
+      โน้ตจะไหลลงมาตามเลน ให้แตะ/ชกให้ตรงกับเส้นขีดด้านล่าง
+      เวลาเข้าจังหวะ “ตรงเป๊ะ (Perfect)” จะได้คะแนนสูงและเพิ่ม Bloom bar อย่างรวดเร็ว
+      พลาดบ่อย Bloom bar จะลดลงและจังหวะจะหลุดง่ายขึ้น
+    </p>
 
-  <!-- ====== SFX / BGM ====== -->
+    <div class="rb-btn-row">
+      <button type="button" class="rb-btn" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
+      <button type="button" class="rb-btn" data-action="back-to-menu">⬅ กลับเมนู</button>
+    </div>
+  </section>
+
+  <!-- ========= VIEW: RESULT ========= -->
+  <section id="view-result" class="rb-card hidden">
+    <header class="rb-header">
+      <div>
+        <h1 class="rb-title">✅ สรุปผลรอบเล่น Rhythm Boxer</h1>
+        <p class="rb-subtitle">
+          ใช้ข้อมูลนี้สำหรับบันทึกลงแบบฟอร์มวิจัย หรือเก็บเป็นสถิติพัฒนาการออกกำลังกายภายหลัง
+        </p>
+      </div>
+      <div>
+        <a href="./index.html" class="rb-btn-small">⬅ กลับ Hub</a>
+      </div>
+    </header>
+
+    <div class="rb-result-grid">
+      <table class="rb-table">
+        <tbody>
+          <tr><td class="rb-th">โหมด</td><td id="res-mode">-</td></tr>
+          <tr><td class="rb-th">ระดับความยาก</td><td id="res-diff">-</td></tr>
+          <tr><td class="rb-th">เพลง / ช่วงออกกำลังกาย</td><td id="res-track">-</td></tr>
+          <tr><td class="rb-th">เวลาเล่น</td><td id="res-time">0.0 s</td></tr>
+        </tbody>
+      </table>
+
+      <table class="rb-table">
+        <tbody>
+          <tr><td class="rb-th">คะแนนรวม (Score)</td><td id="res-score">0</td></tr>
+          <tr><td class="rb-th">คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
+          <tr><td class="rb-th">จำนวน Perfect</td><td id="res-perfect">0</td></tr>
+          <tr><td class="rb-th">จำนวน Miss</td><td id="res-miss">0</td></tr>
+          <tr><td class="rb-th">ความแม่นยำ (Accuracy)</td><td id="res-accuracy">0 %</td></tr>
+        </tbody>
+      </table>
+
+      <table class="rb-table">
+        <tbody>
+          <tr><td class="rb-th">รหัสผู้เข้าร่วม</td><td id="res-participant">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="rb-btn-row">
+      <button type="button" class="rb-btn-primary" data-action="play-again">
+        ▶ เล่นอีกครั้ง (ใช้การตั้งค่าเดิม)
+      </button>
+      <button type="button" class="rb-btn" data-action="back-to-menu">
+        ⬅ กลับเมนู
+      </button>
+    </div>
+  </section>
+
+  <!-- ========= AUDIO ========= -->
+  <!-- ใช้ชื่อไฟล์ตามที่คุณมีใน /fitness/sfx/ -->
   <audio id="bgm-warmup" src="./sfx/warm-up.mp3" preload="auto"></audio>
-  <audio id="bgm-dance"  src="./sfx/boss.mp3" preload="auto"></audio>
-  <audio id="bgm-cool"   src="./sfx/clear.mp3" preload="auto"></audio>
+  <audio id="bgm-dance"  src="./sfx/boss.mp3"     preload="auto"></audio>
+  <audio id="bgm-cool"   src="./sfx/clear.mp3"    preload="auto"></audio>
+</main>
 
-  <audio id="sfx-hit"     src="./sfx/hit.mp3" preload="auto"></audio>
-  <audio id="sfx-perfect" src="./sfx/perfect.mp3" preload="auto"></audio>
-  <audio id="sfx-miss"    src="./sfx/miss.mp3" preload="auto"></audio>
-  <audio id="sfx-fever"   src="./sfx/fever.mp3" preload="auto"></audio>
-  <audio id="sfx-combo"   src="./sfx/combo.mp3" preload="auto"></audio>
-
-  <script type="module" src="./js/rhythm-boxer.js"></script>
+<!-- main script -->
+<script type="module" src="./js/rhythm-boxer.js"></script>
 </body>
 </html>
