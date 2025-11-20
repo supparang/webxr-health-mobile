@@ -1,9 +1,8 @@
-// === Shadow Breaker — engine.js (2025-11-20 Production, 4 Boss, FEVER, Boss Intro ทุกตัว) ===
+// === Shadow Breaker — engine.js (2025-11-20 Production) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
 
-// ---------- Shortcuts ----------
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
@@ -55,52 +54,52 @@ const BOSSES = [
   }
 ];
 
+// ความยากตาม diff (ปรับแล้วให้รู้สึกต่างกันชัด)
 const DIFF = {
   easy: {
     label: 'ง่าย',
     durationMs: 60000,
-    spawnBaseMs: 900,
+    spawnBaseMs: 750,
     targetLifeMs: 1100,
-    // ปรับให้เห็นบอสครบง่าย
-    bossHP: [25, 32, 40, 50],
+    bossHP: [90, 130, 180, 260],      // HP บอส 1–4
     dmgPerHit: 6,
     scoreHit: 10,
     scoreDecoy: -18,
     hpLossOnMiss: 4,
     hpLossOnDecoy: 7,
-    targetScale: 1.20,
-    decoyRate: 0.20,
+    targetScale: 1.25,
+    decoyRate: 0.15,
     feverGainOnHit: 11,
     feverLossOnDecoy: 30
   },
   normal: {
     label: 'ปกติ',
     durationMs: 70000,
-    spawnBaseMs: 780,
+    spawnBaseMs: 620,
     targetLifeMs: 950,
-    bossHP: [35, 45, 55, 70],
+    bossHP: [120, 180, 250, 330],
     dmgPerHit: 7,
     scoreHit: 12,
     scoreDecoy: -22,
     hpLossOnMiss: 5,
     hpLossOnDecoy: 9,
     targetScale: 1.0,
-    decoyRate: 0.26,
+    decoyRate: 0.22,
     feverGainOnHit: 12,
     feverLossOnDecoy: 30
   },
   hard: {
     label: 'ยาก',
     durationMs: 80000,
-    spawnBaseMs: 650,
-    targetLifeMs: 820,
-    bossHP: [45, 60, 75, 90],
+    spawnBaseMs: 520,
+    targetLifeMs: 850,
+    bossHP: [160, 240, 340, 450],
     dmgPerHit: 8,
     scoreHit: 14,
     scoreDecoy: -25,
     hpLossOnMiss: 6,
     hpLossOnDecoy: 11,
-    targetScale: 0.85,
+    targetScale: 0.8,
     decoyRate: 0.30,
     feverGainOnHit: 13,
     feverLossOnDecoy: 30
@@ -145,7 +144,7 @@ const game = {
   decoyRTs: [],
 
   nextTargetId: 1,
-  targets: new Map(),   // id -> target
+  targets: new Map(),
 
   csvRows: [],
   csvUrl: '',
@@ -153,10 +152,12 @@ const game = {
   rounds: 0,
 
   els: {},
-  renderer: null
+  renderer: null,
+
+  introShownFor: -1
 };
 
-// ---------- DOM Cache & Views ----------
+// ---------- DOM helpers ----------
 
 function cacheDom(){
   game.els = {
@@ -220,7 +221,7 @@ function showView(name){
   });
 }
 
-// ---------- HUD, Boss, Fever, Coach ----------
+// ---------- HUD / Boss / Fever / Coach ----------
 
 function updateHUD(){
   const e = game.els;
@@ -308,8 +309,8 @@ function showBossIntro(next, opts){
     return;
   }
 
-  const bossIndexSafe = Math.min(Math.max(game.bossIndex, 0), BOSSES.length - 1);
-  const boss  = BOSSES[bossIndexSafe];
+  const idx   = clamp(game.bossIndex, 0, BOSSES.length - 1);
+  const boss  = BOSSES[idx];
   const emoji = document.getElementById('boss-intro-emoji');
   const name  = document.getElementById('boss-intro-name');
   const title = document.getElementById('boss-intro-title');
@@ -326,9 +327,11 @@ function showBossIntro(next, opts){
   if (desc)  desc.textContent  = boss.desc  || '';
   if (label) label.textContent = labelText;
 
+  game.introShownFor = idx;
+
   intro.classList.remove('hidden');
-  intro.classList.remove('boss-intro-show');   // reset เผื่อค้างจากครั้งก่อน
-  void intro.offsetWidth;                      // force reflow
+  intro.classList.remove('boss-intro-show');
+  void intro.offsetWidth;          // force reflow
   intro.classList.add('boss-intro-show');
 
   const autoMs = opts.autoMs || 2000;
@@ -391,7 +394,6 @@ function onTargetTimeout(id){
 
     setCoach('พลาดเป้าไป 1 ครั้ง ระวัง miss บ่อยนะ 😅', '⚠️');
     updateHUD();
-    updateBossHUD();
 
     if (game.playerHP <= 0) {
       if (game.renderer) game.renderer.removeTarget(t);
@@ -412,7 +414,6 @@ function spawnTarget(){
   const id  = game.nextTargetId++;
   const now = performance.now();
 
-  // kind: normal / decoy / gold
   const r = Math.random();
   let kind  = 'normal';
   let decoy = false;
@@ -582,7 +583,7 @@ function handleHit(id){
   if (game.playerHP <= 0) endGame('hpzero');
 }
 
-// ใช้จาก DomRenderer
+// ให้ DomRenderer เรียกใช้
 function registerTouch(_x, _y, targetId){
   if (!game.running) return;
   if (targetId == null) return;
@@ -601,11 +602,10 @@ function handleBossDefeated(){
   if (game.renderer) game.renderer.clear();
   game.targets.clear();
 
-  // ยังมีบอสถัดไป
   if (game.bossIndex < BOSSES.length - 1) {
+    // ไปบอสถัดไป
     game.bossIndex++;
 
-    // ตั้ง HP ของบอสใหม่
     if (cfg.bossHP && cfg.bossHP.length > game.bossIndex) {
       game.bossHPMax = cfg.bossHP[game.bossIndex];
     } else {
@@ -618,23 +618,29 @@ function handleBossDefeated(){
 
     const isFinal = (game.bossIndex === BOSSES.length - 1);
 
-    showBossIntro(() => {
-      setCoach(
-        isFinal
-          ? 'บอสสุดท้ายแล้ว ใส่ให้สุดเลย! 🔥'
-          : 'ลุยบอสตัวที่ ' + (game.bossIndex + 1) + ' กันต่อ! 💥',
-        '⭐'
-      );
-      if (game.running) {
-        scheduleNextSpawn();
-      }
-    }, {
-      mode: isFinal ? 'final' : 'next',
-      autoMs: 1500
-    });
+    // รอเล็กน้อยให้ HUD อัปเดตก่อน แล้วค่อยโชว์ intro
+    setTimeout(() => {
+      if (!game.running) return;
+
+      showBossIntro(() => {
+        setCoach(
+          isFinal
+            ? 'บอสสุดท้ายแล้ว ใส่ให้สุดเลย! 🔥'
+            : 'ลุยบอสตัวที่ ' + (game.bossIndex + 1) + ' กันต่อ! 💥',
+          '⭐'
+        );
+        if (game.running) {
+          scheduleNextSpawn();
+        }
+      }, {
+        mode: isFinal ? 'final' : 'next',
+        autoMs: 1500
+      });
+
+    }, 50);
 
   } else {
-    // ไม่มีบอสถัดไปแล้ว = ชนะเกม
+    // ชนะทุกบอสแล้ว
     playSfx('sfx-boss');
     endGame('bossdefeated');
   }
@@ -735,12 +741,10 @@ function resetGameState(){
   clearTimeout(game.spawnTimer);
   clearTimeout(game.feverTimeout);
 
-  // clear targets
   game.targets.forEach(t => clearTimeout(t.lifeTimer));
   game.targets.clear();
   if (game.renderer) game.renderer.clear();
 
-  // reset stats
   game.bossIndex = 0;
   game.bossHPMax = cfg.bossHP[0];
   game.bossHP    = game.bossHPMax;
@@ -765,6 +769,8 @@ function resetGameState(){
     URL.revokeObjectURL(game.csvUrl);
     game.csvUrl = '';
   }
+
+  game.introShownFor = -1;
 
   if (game.els.statMode)
     game.els.statMode.textContent = (game.mode === 'research') ? 'วิจัย' : 'ปกติ';
