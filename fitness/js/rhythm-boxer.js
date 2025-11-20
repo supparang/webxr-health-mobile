@@ -73,7 +73,6 @@ function startGame(config){
 function setupBeatLoop(){
   if(STATE.beatTimer) clearInterval(STATE.beatTimer);
 
-  // ใช้ interval สั้น ๆ แล้วคำนวณว่าเมื่อไรควร spawn โน้ตจาก bpm
   let lastBeatTime = performance.now();
   let beatAccum    = 0;
 
@@ -103,11 +102,10 @@ function setupBeatLoop(){
 function spawnNoteForPhase(phase){
   const lanes = [0,1,2,3];
 
-  // Warmup = ใช้ 2 เลน, Dance = 4, Cool = 2 เลนซ้ำ ๆ
   let useLanes;
-  if(phase.id === 'warmup') useLanes = [1,2];        // กลางบน/ล่าง
-  else if(phase.id === 'dance') useLanes = lanes;    // ทั้ง 4
-  else useLanes = [0,3];                             // ซ้าย/ขวา
+  if(phase.id === 'warmup') useLanes = [1,2];
+  else if(phase.id === 'dance') useLanes = lanes;
+  else useLanes = [0,3];
 
   const laneIndex = useLanes[Math.floor(Math.random()*useLanes.length)];
   const laneEl = $(`.lane[data-lane="${laneIndex}"]`);
@@ -129,10 +127,9 @@ function animateNote(note){
   const ring = $('.hit-ring');
   const ringRect = ring.getBoundingClientRect();
 
-  const startY = stageRect.top + 40;             // ด้านบนของ lane
+  const startY = stageRect.top + 40;
   const endY   = ringRect.top + ringRect.height/2;
-
-  const duration = 900; // ms ตกถึงวง
+  const duration = 900;
 
   const start = performance.now();
   function step(){
@@ -143,7 +140,6 @@ function animateNote(note){
     const t  = performance.now() - start;
     const k  = t / duration;
     if(k >= 1){
-      // ถ้ายังไม่โดนกด ถือว่า Miss
       if(note.parentNode){
         registerHit(note, 'Miss', true);
         note.remove();
@@ -156,7 +152,6 @@ function animateNote(note){
   }
   requestAnimationFrame(step);
 
-  // แตะบน lane ให้กดโน้ตนี้
   note.addEventListener('pointerdown', (ev)=>{
     ev.stopPropagation();
     ev.preventDefault();
@@ -170,7 +165,6 @@ function judgeTiming(note){
   const now   = performance.now();
   const elapsedFromSpawn = now - spawn;
 
-  // ตรงกลางวงประมาณ 900ms → ให้ window
   const ideal = 900;
   const diff  = Math.abs(elapsedFromSpawn - ideal);
 
@@ -198,8 +192,6 @@ function registerHit(note, grade, isMiss){
     if(STATE.combo > STATE.maxCombo) STATE.maxCombo = STATE.combo;
 
     let base = grade === 'Perfect' ? 100 : 70;
-
-    // dance phase ให้ multiplier สูงกว่านิดหน่อย
     if(phase.id === 'dance') base *= 1.3;
     if(STATE.diff === 'hard') base *= 1.2;
     if(STATE.diff === 'easy') base *= 0.85;
@@ -217,7 +209,7 @@ function registerHit(note, grade, isMiss){
   updateHUD();
 }
 
-let groove = 0; // 0..100
+let groove = 0;
 
 function updateGroove(delta){
   groove = Math.max(0, Math.min(100, groove + delta));
@@ -284,7 +276,6 @@ function endGame(reason){
   STATE.running = false;
   if(STATE.beatTimer) clearInterval(STATE.beatTimer);
 
-  // summary
   const acc = STATE.totalHits>0
     ? ((STATE.perfect)/(STATE.totalHits)*100).toFixed(1)
     : '0.0';
@@ -298,6 +289,18 @@ function endGame(reason){
   $('#res-perfect').textContent  = STATE.perfect;
   $('#res-miss').textContent     = STATE.miss;
   $('#res-accuracy').textContent = acc + '%';
+
+  // เก็บสรุปไว้ใน localStorage ให้ Hub เอาไปแสดง
+  try{
+    localStorage.setItem('vf-rhythm-latest', JSON.stringify({
+      score:STATE.score,
+      maxCombo:STATE.maxCombo,
+      miss:STATE.miss,
+      perfect:STATE.perfect,
+      time:new Date().toLocaleString('th-TH')
+    }));
+    window.dispatchEvent(new CustomEvent('vf-rhythm-updated'));
+  }catch(e){}
 
   showView('#view-result');
 }
