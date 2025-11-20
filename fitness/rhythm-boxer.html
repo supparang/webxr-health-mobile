@@ -6,214 +6,131 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
 
-  <!-- ใช้ CSS แยกของ Rhythm -->
   <link rel="stylesheet" href="./css/rhythm-boxer.css" />
 </head>
 <body>
-  <main>
-    <!-- MENU / CONFIG VIEW -->
-    <section class="card" id="view-menu">
-      <div class="top-row">
-        <div>
-          <h1><span class="icon">🥁</span>Rhythm Boxer</h1>
-          <div class="subtitle">
-            เกมชกเป้าตามจังหวะเพลง เน้นการจับจังหวะ (Timing), ความแม่นยำ (Accuracy)
-            และความต่อเนื่องของคอมโบ เหมาะทั้งใช้เล่นและใช้ในงานวิจัย
-          </div>
-          <div class="pill">
-            <span class="dot"></span>
-            <span>Rhythm • Combo • Reaction Time • Research CSV Ready</span>
-          </div>
-        </div>
-        <div>
-          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
-        </div>
-      </div>
+<main>
 
-      <h2 class="section-title">เลือกรูปแบบการเล่น</h2>
-      <div class="btn-row">
-        <button class="primary" data-action="start-research">
-          <span>โหมดวิจัย</span> <span>📊</span>
-        </button>
-        <button data-action="start-normal">
-          <span>โหมดเล่นปกติ</span> <span>🎮</span>
-        </button>
-      </div>
+<!-- ============ MENU ============ -->
+<section class="card" id="view-menu">
+  <h1>🎵 Rhythm Boxer</h1>
 
-      <div class="row">
-        <div class="col">
-          <label for="difficulty">ระดับความยาก</label>
-          <select id="difficulty">
-            <option value="easy">ง่าย — จังหวะช้า เป้าชัด</option>
-            <option value="normal" selected>ปกติ — จังหวะมาตรฐาน</option>
-            <option value="hard">ยาก — จังหวะเร็ว + pattern ซับซ้อน</option>
-          </select>
-          <div class="help">
-            ระดับความยากจะปรับความถี่ของจังหวะ, ความแคบของ Perfect window
-            และจำนวน pattern ที่ต้องใช้การสลับมือ
-          </div>
-        </div>
-      </div>
-    </section>
+  <div class="subtitle">เกมตีตามจังหวะเพลง เน้นความแม่นยำและ reaction</div>
 
-    <!-- RESEARCH FORM -->
-    <section class="card hidden" id="view-research-form">
-      <div class="top-row">
-        <div>
-          <h1><span class="icon">📋</span>ข้อมูลโหมดวิจัย (Rhythm Boxer)</h1>
-          <div class="subtitle">
-            กรอกข้อมูลผู้เข้าร่วมเพื่อผูกกับไฟล์ CSV
-            ใช้ในการวิเคราะห์ Pre/Post, ระหว่างกลุ่ม หรือโมเดลเชิงสถิติอื่น ๆ
-          </div>
-        </div>
-        <div>
-          <button class="btn-small" data-action="back-to-menu">⬅ กลับเมนูเกม</button>
-        </div>
-      </div>
+  <div class="btn-row">
+    <button class="primary" data-action="start-research">โหมดวิจัย 📊</button>
+    <button data-action="start-normal">โหมดปกติ 🎮</button>
+  </div>
 
-      <div class="row">
-        <div class="col">
-          <label for="research-id">รหัสผู้เข้าร่วม (Participant ID)</label>
-          <input id="research-id" placeholder="เช่น P001-01" />
-        </div>
-        <div class="col">
-          <label for="research-group">กลุ่มทดลอง / เงื่อนไข</label>
-          <input id="research-group" placeholder="เช่น Experimental / Control" />
-        </div>
-      </div>
-      <div class="row" style="margin-top:12px;">
-        <div class="col">
-          <label for="research-note">หมายเหตุ (เช่น Pre-test / Post-test)</label>
-          <input id="research-note" placeholder="เช่น Pre-test" />
-        </div>
-      </div>
+  <div class="row">
+    <label for="difficulty">ระดับความยาก</label>
+    <select id="difficulty">
+      <option value="easy">ง่าย — จังหวะช้า</option>
+      <option value="normal" selected>ปกติ — มาตรฐาน</option>
+      <option value="hard">ยาก — จังหวะเร็ว</option>
+    </select>
+  </div>
+</section>
 
-      <div class="btn-row" style="margin-top:16px;">
-        <button class="primary" data-action="research-begin-play">
-          เริ่มเล่น Rhythm Boxer ▶
-        </button>
-        <button data-action="back-to-menu">
-          ⬅ กลับเมนูเกม
-        </button>
-      </div>
-    </section>
+<!-- ============ RESEARCH FORM ============ -->
+<section class="card hidden" id="view-research-form">
+  <h1>📋 ข้อมูลผู้เข้าร่วม</h1>
 
-    <!-- PLAY VIEW -->
-    <section class="card hidden" id="view-play">
-      <div class="play-top">
-        <div class="stats">
-          <div class="tag">Mode: <span id="stat-mode">-</span></div>
-          <div class="tag">Diff: <span id="stat-diff">-</span></div>
-          <div class="tag">Score: <span id="stat-score">0</span></div>
-          <div class="tag">Combo: <span id="stat-combo">0</span></div>
-          <div class="tag">Perfect: <span id="stat-perfect">0</span></div>
-          <div class="tag">Miss: <span id="stat-miss">0</span></div>
-        </div>
-        <div class="timer">⏱ <span id="stat-time">60.0</span>s</div>
-      </div>
+  <div class="row">
+    <div class="col">
+      <label>Participant ID</label>
+      <input id="research-id" placeholder="เช่น P001-01" />
+    </div>
+    <div class="col">
+      <label>Group</label>
+      <input id="research-group" placeholder="เช่น Control / Experiment" />
+    </div>
+  </div>
 
-      <!-- GROOVE BAR (เทียบกับ FEVER ของ Shadow Breaker) -->
-      <div class="groove-wrap">
-        <div class="groove-label">GROOVE</div>
-        <div class="groove-bar">
-          <div class="groove-fill" id="groove-fill"></div>
-        </div>
-        <div class="groove-status" id="groove-status">ON BEAT</div>
-      </div>
+  <div class="row">
+    <label>หมายเหตุ</label>
+    <input id="research-note" placeholder="Pre-test / Post-test" />
+  </div>
 
-      <!-- TRACK PROGRESS (เทียบ Boss HP bar โครงเท่ากัน) -->
-      <div class="track-hud">
-        <div class="track-text">
-          <span id="track-name">Track 1 — Basic Beat</span>
-        </div>
-        <div class="track-bar">
-          <div class="track-fill" id="track-fill"></div>
-        </div>
-      </div>
+  <div class="btn-row">
+    <button class="primary" data-action="research-begin-play">เริ่มเล่น ▶</button>
+    <button data-action="back-to-menu">⬅ กลับเมนู</button>
+  </div>
+</section>
 
-      <!-- PLAY AREA -->
-      <div class="play-area">
-        <div id="target-layer"></div>
-      </div>
+<!-- ============ PLAY VIEW ============ -->
+<section class="card hidden" id="view-play">
+  <div class="play-top">
+    <div class="stats">
+      <div class="tag">Mode: <span id="stat-mode">-</span></div>
+      <div class="tag">Diff: <span id="stat-diff">-</span></div>
+      <div class="tag">Score: <span id="stat-score">0</span></div>
+      <div class="tag">Combo: <span id="stat-combo">0</span></div>
+      <div class="tag">Perfect: <span id="stat-perfect">0</span></div>
+      <div class="tag">Miss: <span id="stat-miss">0</span></div>
+    </div>
+    <div class="timer">⏱ <span id="stat-time">60</span>s</div>
+  </div>
 
-      <!-- COACH BUBBLE -->
-      <div class="coach-bubble" id="coach-bubble">
-        <div class="coach-avatar" id="coach-avatar">🥁</div>
-        <div class="coach-text-wrap">
-          <div class="coach-role" id="coach-role">โค้ชจังหวะ</div>
-          <div class="coach-text" id="coach-text">
-            แตะให้ตรงจังหวะนะ! ถ้าช้าหรือเร็วเกินไปจะกลายเป็น Miss นะ 🎶
-          </div>
-        </div>
-      </div>
+  <!-- ======== GAMEPLAY AREA (สำคัญที่สุด!) ======== -->
+  <div class="play-area">
+    <div id="target-layer"></div>
+  </div>
 
-      <div class="banner">
-        <strong>วิธีเล่น:</strong>
-        เป้าจะโผล่มาตามจังหวะเพลง ให้แตะ/ชกเป้าให้ “ตรงจังหวะ” มากที่สุด
-        ยิ่งตรงเป๊ะ (Perfect) ยิ่งได้คะแนนเยอะและเพิ่ม Groove bar
-      </div>
+  <!-- ======== GROOVE BAR ======== -->
+  <div class="groove-wrap">
+    <div class="groove-label">GROOVE</div>
+    <div class="groove-bar">
+      <div class="groove-fill" id="groove-fill"></div>
+    </div>
+    <div class="groove-status" id="groove-status">WARM UP</div>
+  </div>
 
-      <div class="btn-row" style="margin-top:12px;">
-        <button data-action="stop-early">⏹ หยุดก่อนเวลา</button>
-        <button type="button" onclick="location.href='./index.html'">⬅ กลับ Hub</button>
-      </div>
-    </section>
+  <!-- ======== TRACK PROGRESS ======== -->
+  <div class="track-info">
+    <div id="track-name">Track 1 — Basic Beat</div>
+    <div class="track-bar"><div id="track-fill"></div></div>
+  </div>
 
-    <!-- RESULT VIEW -->
-    <section class="card hidden" id="view-result">
-      <div class="top-row">
-        <div>
-          <h1><span class="icon">✅</span>สรุปผลรอบเล่น (Rhythm Boxer)</h1>
-          <div class="subtitle">
-            ข้อมูลรอบนี้จะถูกใช้คำนวณค่า Rhythm Accuracy, Reaction Time และตัวชี้วัดอื่น ๆ
-            สำหรับงานวิจัยหรือใช้เปรียบเทียบก่อน–หลังฝึก
-          </div>
-        </div>
-        <div>
-          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
-        </div>
-      </div>
+  <!-- COACH -->
+  <div class="coach-bubble" id="coach-bubble">
+    <div class="coach-avatar">🥁</div>
+    <div class="coach-text">ตีตามจังหวะนะ! ถ้าช้าไปจะเป็น Miss 🎶</div>
+  </div>
 
-      <div class="summary">
-        <table>
-          <tbody>
-            <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
-            <tr><td class="label">ระดับความยาก</td><td id="res-diff">-</td></tr>
-            <tr><td class="label">เหตุจบเกม</td><td id="res-endreason">-</td></tr>
+  <div class="btn-row" style="margin-top:12px;">
+    <button data-action="stop-early">⏹ หยุดก่อนเวลา</button>
+    <button onclick="location.href='./index.html'">⬅ กลับ Hub</button>
+  </div>
+</section>
 
-            <tr><td class="label">คะแนนรวม</td><td id="res-score">0</td></tr>
-            <tr><td class="label">คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
-            <tr><td class="label">จำนวนเป้า Miss</td><td id="res-miss">0</td></tr>
+<!-- ============ RESULT VIEW ============ -->
+<section class="card hidden" id="view-result">
+  <h1>สรุปผล</h1>
 
-            <tr><td class="label">ความแม่นยำจังหวะ (Rhythm Accuracy)</td><td id="res-accuracy">-</td></tr>
-            <tr><td class="label">จำนวนครั้งที่ตีโดนทั้งหมด (Hits)</td><td id="res-totalhits">0</td></tr>
-            <tr><td class="label">Reaction time เฉลี่ย (ms)</td><td id="res-rt-normal">-</td></tr>
-            <tr><td class="label">ความคลาดเคลื่อนจังหวะเฉลี่ย (Offset ms)</td><td id="res-rt-decoy">-</td></tr>
+  <table class="summary">
+    <tr><td>โหมด</td><td id="res-mode"></td></tr>
+    <tr><td>ความยาก</td><td id="res-diff"></td></tr>
+    <tr><td>คะแนนรวม</td><td id="res-score"></td></tr>
+    <tr><td>คอมโบสูงสุด</td><td id="res-maxcombo"></td></tr>
+    <tr><td>จำนวน miss</td><td id="res-miss"></td></tr>
+    <tr><td>Accuracy</td><td id="res-accuracy"></td></tr>
+    <tr><td>Average Offset</td><td id="res-rt-normal"></td></tr>
+    <tr><td>ID</td><td id="res-participant"></td></tr>
+  </table>
 
-            <tr><td class="label">รหัสผู้เข้าร่วม</td><td id="res-participant">-</td></tr>
-          </tbody>
-        </table>
-      </div>
+  <div class="btn-row">
+    <button data-action="play-again" class="primary">▶ เล่นอีกครั้ง</button>
+    <button data-action="back-to-menu">⬅ กลับเมนู</button>
+  </div>
+</section>
 
-      <div class="btn-row" style="margin-top:14px;">
-        <button class="primary" data-action="download-csv">
-          ⬇ ดาวน์โหลด CSV รอบนี้ (เฉพาะโหมดวิจัย)
-        </button>
-        <button data-action="play-again">
-          ▶ เล่นอีกครั้ง (ใช้การตั้งค่าเดิม)
-        </button>
-        <button data-action="back-to-menu">
-          ⬅ กลับเมนูเกม
-        </button>
-      </div>
-    </section>
-  </main>
+</main>
 
-  <!-- SFX (อาจารย์ค่อยใส่ไฟล์เองทีหลัง) -->
-  <audio id="sfx-hit" src="./sfx/rb-hit.mp3" preload="auto"></audio>
-  <audio id="sfx-beat" src="./sfx/rb-beat.mp3" preload="auto"></audio>
+<!-- SFX -->
+<audio id="sfx-hit"  src="./sfx/hit.mp3" preload="auto"></audio>
+<audio id="sfx-beat" src="./sfx/beat.wav" preload="auto"></audio>
 
-  <!-- main scripts -->
-  <script type="module" src="./js/rhythm-boxer.js"></script>
+<script type="module" src="./js/rhythm-boxer.js"></script>
 </body>
 </html>
