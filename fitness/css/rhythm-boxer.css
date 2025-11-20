@@ -436,3 +436,171 @@ select {
   from { opacity:0; transform:translate(-50%,-40%) scale(0.8); }
   to   { opacity:1; transform:translate(-50%,-65%) scale(1); }
 }
+.play-area {
+  margin-top: 12px;
+  border-radius: 18px;
+  border: 1px solid #1f2937;
+  background: radial-gradient(circle at top, #020617, #020617 60%, #000 100%);
+  padding: 6px;
+  min-height: min(420px, 55vh);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#target-layer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  background: #020617;
+  overflow: hidden;
+}
+
+/* เป้า */
+.rb-target {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: min(52px, 7vh);
+  cursor: pointer;
+  transition: transform .1s ease-out, opacity .1s ease-out;
+}
+
+/* เลนต่าง ๆ */
+.rb-target.lane-0 { filter: drop-shadow(0 0 10px rgba(56,189,248,0.8)); }
+.rb-target.lane-1 { filter: drop-shadow(0 0 10px rgba(34,197,94,0.8)); }
+.rb-target.lane-2 { filter: drop-shadow(0 0 10px rgba(244,114,182,0.8)); }
+
+/* Big note */
+.rb-target-strong {
+  transform: translate(-50%, -50%) scale(1.25);
+}
+
+/* label PERFECT / GOOD / BAD / MISS */
+.rb-hit-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(148,163,184,0.9);
+  color: #e5e7eb;
+  pointer-events: none;
+  animation: rb-label-pop 0.4s ease-out forwards;
+}
+
+.rb-hit-perfect { border-color:#22c55e; color:#bbf7d0; }
+.rb-hit-good    { border-color:#3b82f6; color:#bfdbfe; }
+.rb-hit-bad     { border-color:#f97316; color:#fed7aa; }
+.rb-hit-miss    { border-color:#ef4444; color:#fecaca; }
+
+@keyframes rb-label-pop {
+  from { opacity:0; transform:translate(-50%, -40%) scale(0.8); }
+  to   { opacity:1; transform:translate(-50%, -65%) scale(1); }
+}
+
+/* GROOVE / TRACK (เผื่อยังไม่มี) */
+.groove-wrap {
+  margin-top: 10px;
+}
+.groove-label {
+  font-size: 12px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color:#9ca3af;
+}
+.groove-bar {
+  margin-top:4px;
+  width:100%;
+  height:10px;
+  border-radius:999px;
+  background:#020617;
+  overflow:hidden;
+  border:1px solid #1f2937;
+}
+.groove-fill {
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg,#22c55e,#eab308,#f97316);
+  transition: width .12s linear;
+}
+.groove-status {
+  margin-top:2px;
+  font-size:12px;
+  text-align:right;
+  color:#e5e7eb;
+}
+
+.track-info {
+  margin-top:10px;
+}
+.track-info #track-name {
+  font-size:13px;
+  color:#e5e7eb;
+}
+.track-bar {
+  margin-top:4px;
+  width:100%;
+  height:6px;
+  border-radius:999px;
+  background:#020617;
+  border:1px solid #1f2937;
+  overflow:hidden;
+}
+#track-fill {
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg,#3b82f6,#a855f7);
+  transition: width .12s linear;
+}
+
+/* Coach bubble (เผื่อไม่เห็น) */
+.coach-bubble {
+  margin-top:10px;
+  padding:8px 10px;
+  border-radius:14px;
+  background:#020617;
+  border:1px solid #1f2937;
+  display:flex;
+  gap:8px;
+  font-size:13px;
+}
+.coach-avatar {
+  font-size:22px;
+}
+.coach-text {
+  line-height:1.4;
+}
+
+/* Pause overlay */
+.pause-overlay {
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,0.8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:40;
+}
+.pause-overlay.hidden {
+  display:none;
+}
+.pause-box {
+  width:min(360px,90vw);
+  padding:16px 18px 14px;
+  border-radius:18px;
+  background:#020617;
+  border:1px solid #1f2937;
+  box-shadow:0 18px 45px rgba(0,0,0,0.55);
+}
+.pause-title {
+  font-weight:700;
+  margin-bottom:4px;
+}
+.pause-text {
+  font-size:13px;
+  color:#e5e7eb;
+  margin-bottom:12px;
+}
