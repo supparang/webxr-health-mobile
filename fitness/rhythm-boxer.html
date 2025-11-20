@@ -101,77 +101,82 @@
     </p>
   </section>
 
-  <!-- ========= VIEW: PLAY ========= -->
-  <section id="view-play" class="rb-card hidden">
-    <header class="rb-play-header">
-      <div class="rb-stat-row">
-        <div class="rb-stat-tag">Mode: <span id="stat-mode">-</span></div>
-        <div class="rb-stat-tag">Diff: <span id="stat-diff">-</span></div>
-        <div class="rb-stat-tag">Track: <span id="stat-track">-</span></div>
-      </div>
-      <div class="rb-stat-cards">
-        <div class="rb-stat-box">
-          <div class="rb-stat-label">Score</div>
-          <div class="rb-stat-value" id="stat-score">0</div>
-        </div>
-        <div class="rb-stat-box">
-          <div class="rb-stat-label">Combo</div>
-          <div class="rb-stat-value" id="stat-combo">0</div>
-        </div>
-        <div class="rb-stat-box">
-          <div class="rb-stat-label">Perfect</div>
-          <div class="rb-stat-value" id="stat-perfect">0</div>
-        </div>
-        <div class="rb-stat-box">
-          <div class="rb-stat-label">Miss</div>
-          <div class="rb-stat-value" id="stat-miss">0</div>
-        </div>
-        <div class="rb-stat-box rb-stat-time">
-          <div class="rb-stat-label">Time</div>
-          <div class="rb-stat-value" id="stat-time">0.0s</div>
-        </div>
-      </div>
-    </header>
+<!-- PLAY VIEW -->
+<section class="rb-card hidden" id="view-play">
+  <div class="rb-play-header">
+    <div class="rb-stat-row">
+      <div class="rb-stat-tag">Mode: <span id="stat-mode">-</span></div>
+      <div class="rb-stat-tag">Diff: <span id="stat-diff">-</span></div>
+      <div class="rb-stat-tag">Track: <span id="stat-track">-</span></div>
+      <div class="rb-stat-tag">Time: <span id="stat-time">0.0</span>s</div>
+    </div>
 
-    <!-- Bloom bar -->
+    <div class="rb-stat-cards">
+      <div class="rb-stat-box">
+        <div class="rb-stat-label">Score</div>
+        <div class="rb-stat-value" id="stat-score">0</div>
+      </div>
+      <div class="rb-stat-box">
+        <div class="rb-stat-label">Combo</div>
+        <div class="rb-stat-value" id="stat-combo">0</div>
+      </div>
+      <div class="rb-stat-box">
+        <div class="rb-stat-label">Perfect</div>
+        <div class="rb-stat-value" id="stat-perfect">0</div>
+      </div>
+      <div class="rb-stat-box">
+        <div class="rb-stat-label">Miss</div>
+        <div class="rb-stat-value" id="stat-miss">0</div>
+      </div>
+      <div class="rb-stat-box">
+        <div class="rb-stat-label">Time</div>
+        <div class="rb-stat-value" id="stat-time-small">0.0s</div>
+      </div>
+    </div>
+
+    <!-- BLOOM BAR -->
     <div class="rb-bloom-wrap">
       <div class="rb-bloom-label">BLOOM</div>
       <div class="rb-bloom-bar">
-        <div id="bloom-fill" class="rb-bloom-fill"></div>
+        <div class="rb-bloom-fill" id="bloom-fill"></div>
       </div>
       <div class="rb-bloom-status" id="bloom-status">WARM UP</div>
     </div>
+  </div>
 
-    <!-- Play area: 3 lanes -->
-    <div class="rb-play-area" id="lane-host">
-      <!-- judge line -->
-      <div id="judge-line" class="rb-judge-line"></div>
-      <!-- โน้ตจะถูกสร้างด้วย JS (rb-note, rb-note-low/mid/high) -->
-    </div>
+  <!-- PLAY AREA + JUDGE LINE -->
+  <div class="rb-play-area" id="play-area">
+    <!-- โน้ตจะถูก spawn ลงมาในเลเยอร์นี้ -->
+    <div id="note-layer"></div>
 
-    <!-- Coach text -->
-    <div class="rb-coach">
-      <div class="rb-coach-avatar">🕺</div>
-      <div class="rb-coach-text">
-        <div class="rb-coach-role">โค้ชจังหวะ</div>
-        <div class="rb-coach-line" id="coach-text">
-          ฟังจังหวะ warm-up ให้ชัดก่อน แล้วค่อยเริ่มเก็บคอมโบ 🎧
-        </div>
+    <!-- เส้นเป้า (ตีให้จังหวะกลางเส้นนี้) -->
+    <div class="rb-judge-line" id="judge-line"></div>
+  </div>
+
+  <!-- COACH -->
+  <div class="rb-coach">
+    <div class="rb-coach-avatar" id="coach-avatar">🕺</div>
+    <div class="rb-coach-text">
+      <div class="rb-coach-role" id="coach-role">โค้ชจังหวะ</div>
+      <div class="rb-coach-line" id="coach-text">
+        โค้ชจังหวะ: วอร์มอัพเบา ๆ ตามจังหวะก่อนนะ 🎧
       </div>
     </div>
+  </div>
 
-    <p class="rb-howto">
-      <strong>วิธีเล่น:</strong>
-      โน้ตจะไหลลงมาตามเลน ให้แตะ/ชกให้ตรงกับเส้นขีดด้านล่าง
-      เวลาเข้าจังหวะ “ตรงเป๊ะ (Perfect)” จะได้คะแนนสูงและเพิ่ม Bloom bar อย่างรวดเร็ว
-      พลาดบ่อย Bloom bar จะลดลงและจังหวะจะหลุดง่ายขึ้น
-    </p>
+  <div class="rb-howto">
+    <strong>วิธีเล่น:</strong>
+    โน้ตจะไหลลงมาตามเลน ให้แตะ/ชกให้ตรงกับเส้นขีดด้านล่าง เวลาเข้าจังหวะ
+    “ตรงเป๊ะ (Perfect)” จะได้คะแนนสูงและเพิ่ม Bloom bar อย่างรวดเร็ว
+    พลาดบ่อย Bloom bar จะลดลงและจังหวะจะหลุดง่ายขึ้น
+  </div>
 
-    <div class="rb-btn-row">
-      <button type="button" class="rb-btn" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
-      <button type="button" class="rb-btn" data-action="back-to-menu">⬅ กลับเมนู</button>
-    </div>
-  </section>
+  <div class="rb-btn-row rb-btn-row-main">
+    <button class="rb-btn" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
+    <button class="rb-btn" data-action="back-to-menu">⬅ กลับเมนู</button>
+  </div>
+</section>
+
 
   <!-- ========= VIEW: RESULT ========= -->
   <section id="view-result" class="rb-card hidden">
