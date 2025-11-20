@@ -1,4 +1,5 @@
-// === Rhythm Boxer Engine — rhythm-engine.js (2025-11-20 — stable beat spawn) ===
+// === Rhythm Boxer Engine — rhythm-engine.js
+// (2025-11-20 multi-lane notes + hit popup) ===
 
 export function initRhythmBoxer() {
   const $  = (s)=>document.querySelector(s);
@@ -129,16 +130,41 @@ export function initRhythmBoxer() {
       else           trackName.textContent = 'Track 1 — Basic Beat';
     }
 
+    // สร้าง label เล็ก ๆ เด้งตอนโดนเป้า
+    function spawnHitLabel(x, y, text, cssClass) {
+      const label = document.createElement('div');
+      label.className = 'rb-hit-label';
+      if (cssClass) label.classList.add(cssClass);
+      label.textContent = text;
+      label.style.left = x + 'px';
+      label.style.top  = y + 'px';
+      targetLayer.appendChild(label);
+      setTimeout(() => {
+        if (label.parentNode) label.parentNode.removeChild(label);
+      }, 420);
+    }
+
     function spawnTarget(beatIndex) {
       const hostRect = targetLayer.getBoundingClientRect();
       if (!hostRect.width || !hostRect.height) return;
 
-      const x = (0.3 + Math.random() * 0.4) * hostRect.width;
-      const y = (0.3 + Math.random() * 0.4) * hostRect.height;
+      // 3 เลน: ซ้าย-กลาง-ขวา
+      const laneIndex  = beatIndex % 3;
+      const laneXRatio = [0.25, 0.5, 0.75][laneIndex];
+      const x = laneXRatio * hostRect.width;
+      const baseY = hostRect.height * 0.65;
+      const y = baseY + (Math.random() * 16 - 8); // random นิดหน่อย
+
+      const laneEmojis = ['🥊','🎵','✨'];
+      let emoji = laneEmojis[laneIndex];
+
+      // Big note ทุก ๆ 4 beat
+      const isStrong = (beatIndex % 4 === 0);
+      if (isStrong) emoji = '💥';
 
       const el = document.createElement('div');
-      el.className = 'rb-target';
-      el.textContent = '🥊';
+      el.className = 'rb-target lane-' + laneIndex + (isStrong ? ' rb-target-strong' : '');
+      el.textContent = emoji;
       el.style.left = x + 'px';
       el.style.top  = y + 'px';
 
@@ -149,6 +175,8 @@ export function initRhythmBoxer() {
         el,
         beatTimeMs,
         hit: false,
+        laneIndex,
+        strong: isStrong,
       };
 
       el.addEventListener('pointerdown', (ev) => {
@@ -179,11 +207,11 @@ export function initRhythmBoxer() {
       let grade, delta;
       if (abs <= 60) {
         grade = 'PERFECT';
-        delta = 300;
+        delta = target.strong ? 500 : 300;
         state.perfect++;
       } else if (abs <= 120) {
         grade = 'GOOD';
-        delta = 150;
+        delta = target.strong ? 260 : 150;
       } else {
         grade = 'BAD';
         delta = 50;
@@ -195,12 +223,27 @@ export function initRhythmBoxer() {
       state.maxCombo = Math.max(state.maxCombo, state.combo);
       state.offsets.push(offsetMs);
 
-      // visual เล็กน้อย: ยุบ/หาย
+      // เอาพิกัดกลางของเป้าไว้ spawn label
+      const rect = target.el.getBoundingClientRect();
+      const hostRect = targetLayer.getBoundingClientRect();
+      const cx = rect.left + rect.width/2 - hostRect.left;
+      const cy = rect.top  + rect.height/2 - hostRect.top;
+
+      // visual: หด + fade
       target.el.style.transform += ' scale(0.8)';
       target.el.style.opacity = '0';
       setTimeout(() => {
-        if (target.el && target.el.parentNode) target.el.parentNode.removeChild(target.el);
+        if (target.el && target.el.parentNode) {
+          target.el.parentNode.removeChild(target.el);
+        }
       }, 120);
+
+      // popup PERFECT / GOOD / BAD
+      const labelClass =
+        grade === 'PERFECT' ? 'rb-hit-perfect' :
+        grade === 'GOOD'    ? 'rb-hit-good'    :
+                              'rb-hit-bad';
+      spawnHitLabel(cx, cy - 24, grade, labelClass);
 
       if (sfxHit) {
         try { sfxHit.currentTime = 0; sfxHit.play(); } catch {}
@@ -213,6 +256,12 @@ export function initRhythmBoxer() {
     function handleMiss(target) {
       state.miss++;
       state.combo = 0;
+
+      const rect = target.el.getBoundingClientRect();
+      const hostRect = targetLayer.getBoundingClientRect();
+      const cx = rect.left + rect.width/2 - hostRect.left;
+      const cy = rect.top  + rect.height/2 - hostRect.top;
+      spawnHitLabel(cx, cy - 20, 'MISS', 'rb-hit-miss');
 
       if (target.el && target.el.parentNode) {
         target.el.parentNode.removeChild(target.el);
@@ -240,9 +289,7 @@ export function initRhythmBoxer() {
     }
 
     function startBeatLoop() {
-      // เคลียร์เผื่อเหลือจากรอบก่อน
       if (state.beatTimer) clearInterval(state.beatTimer);
-
       state.beatIndex = 0;
       state.beatTimer = setInterval(() => {
         if (!state.running) return;
@@ -306,7 +353,7 @@ export function initRhythmBoxer() {
         avgOffset = state.offsets.reduce((a,b)=>a+b,0) / state.offsets.length;
       }
 
-      const totalEvents = Math.max(1, state.beatIndex); // กันหารศูนย์
+      const totalEvents = Math.max(1, state.beatIndex);
       const acc = state.totalHits / totalEvents;
 
       const result = {
