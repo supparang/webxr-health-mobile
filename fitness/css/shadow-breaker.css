@@ -37,6 +37,23 @@ main {
   padding: 18px 18px 20px;
 }
 
+/* layout ของ view-play ให้เป็น column เห็นโค้ชชัด */
+#view-play.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ลำดับองค์ประกอบในหน้าเล่น */
+#view-play .play-top      { order: 10; }
+#view-play .coach-bubble  { order: 20; }
+#view-play .play-area     { order: 30; flex: 1 1 auto; }
+#view-play .fever-wrap    { order: 40; }
+#view-play .boss-hud      { order: 50; }
+#view-play .boss-portrait { order: 60; }
+#view-play .banner        { order: 70; }
+#view-play .btn-row:last-of-type { order: 80; }
+
 .hidden {
   display: none !important;
 }
@@ -347,7 +364,9 @@ select {
 
 /* ---------- Boss portrait ---------- */
 
-.boss-portrait { margin-top: 8px; }
+.boss-portrait {
+  margin-top: 8px;
+}
 
 .boss-portrait-inner {
   display: flex;
@@ -359,7 +378,9 @@ select {
   border: 1px solid rgba(55,65,81,0.9);
 }
 
-.boss-portrait-emoji { font-size: 26px; }
+.boss-portrait-emoji {
+  font-size: 26px;
+}
 
 .boss-portrait-name {
   font-size: 14px;
@@ -385,6 +406,11 @@ select {
   font-size: 13px;
 }
 
+/* ในหน้าเล่นใช้ gap แทน margin-top */
+#view-play .coach-bubble {
+  margin-top: 0;
+}
+
 .coach-avatar {
   width: 26px;
   height: 26px;
@@ -395,7 +421,9 @@ select {
   background: radial-gradient(circle at 30% 20%, #fde68a, #f97316);
 }
 
-.coach-text-wrap { flex: 1; }
+.coach-text-wrap {
+  flex: 1;
+}
 
 .coach-role {
   font-size: 11px;
@@ -404,7 +432,9 @@ select {
   color: #9ca3af;
 }
 
-.coach-text { font-size: 13px; }
+.coach-text {
+  font-size: 13px;
+}
 
 /* ---------- Banner ---------- */
 
@@ -426,7 +456,9 @@ select {
   font-size: 13px;
 }
 
-.summary td { padding: 4px 0; }
+.summary td {
+  padding: 4px 0;
+}
 
 .summary .label {
   width: 40%;
@@ -491,7 +523,9 @@ select {
   align-items: center;
 }
 
-.boss-intro-emoji { font-size: 38px; }
+.boss-intro-emoji {
+  font-size: 38px;
+}
 
 .boss-intro-name {
   font-size: 18px;
@@ -515,7 +549,7 @@ select {
   text-align: right;
 }
 
-/* ---------- Mini boss intro (จอเล็ก / boss 2–4) ---------- */
+/* ---------- Mini boss intro (boss 2–4 / จอเล็ก) ---------- */
 
 .boss-intro.boss-intro-mini {
   background: transparent;
@@ -615,6 +649,7 @@ body.play-full .play-area {
   padding: 0;
 }
 
+/* ใช้ความสูงตามจอ หัก HUD บน-ล่างออกนิดหน่อย */
 body.play-full #target-layer {
   height: calc(100vh - 170px);
   max-height: none;
@@ -628,20 +663,25 @@ body.play-full #target-layer {
     margin-top: 10px;
     padding: 0 8px 18px;
   }
+
   .card {
     padding: 14px 12px 16px;
     border-radius: 16px;
   }
+
   h1 {
     font-size: 20px;
   }
+
   .stats {
     gap: 4px;
   }
+
   .tag {
     font-size: 11px;
     padding: 4px 8px;
   }
+
   #target-layer {
     height: min(360px, 64vh);
   }
