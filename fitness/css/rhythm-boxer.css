@@ -1,517 +1,236 @@
-/* === Rhythm Boxer — layout & theme (match Shadow Breaker structure) === */
+/* === Rhythm Boxer — Main layout === */
 
-:root {
-  color-scheme: dark;
+:root{
+  color-scheme: light dark;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+*{ box-sizing:border-box; }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, sans-serif;
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(56,189,248,0.22), transparent 55%),
+    radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.2), transparent 55%),
     #020617;
-  color: #e5e7eb;
+  color:#e5e7eb;
 }
 
-main {
-  max-width: 960px;
-  margin: 16px auto 32px;
-  padding: 0 12px 24px;
+main{
+  max-width:900px;
+  margin:16px auto 32px;
+  padding:0 12px 24px;
 }
 
-/* ---------- cards / layout ---------- */
-
-.card {
-  background: rgba(15,23,42,0.96);
-  border-radius: 18px;
-  box-shadow: 0 18px 48px rgba(15,23,42,0.75);
-  padding: 18px 18px 20px;
+.card{
+  background:#020617cc;
+  border-radius:18px;
+  border:1px solid #1f2937;
+  box-shadow:0 18px 45px rgba(15,23,42,0.75);
+  padding:16px 16px 18px;
+  margin-bottom:16px;
 }
 
-.hidden {
-  display: none !important;
+/* headings */
+
+h1{
+  margin:0 0 6px 0;
+  font-size:22px;
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
 
-.top-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+.subtitle{
+  font-size:14px;
+  color:#9ca3af;
+  margin-bottom:8px;
 }
 
-h1 {
-  margin: 0 0 6px;
-  font-size: 22px;
+.section-title{
+  font-size:16px;
+  margin:10px 0 6px;
 }
 
-.icon {
-  margin-right: 4px;
+/* layout helpers */
+
+.row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:8px;
 }
 
-.subtitle {
-  font-size: 14px;
-  color: #9ca3af;
-  max-width: 520px;
+.col{
+  flex:1 1 180px;
 }
 
-.pill {
-  margin-top: 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,0.5);
-  font-size: 11px;
-  color: #e5e7eb;
+/* form */
+
+label{
+  font-size:13px;
+  color:#9ca3af;
+  display:block;
+  margin-bottom:3px;
 }
 
-.pill .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #3b82f6;
-  box-shadow: 0 0 0 5px rgba(59,130,246,0.22);
+input, select{
+  width:100%;
+  padding:8px 9px;
+  border-radius:10px;
+  border:1px solid #334155;
+  background:#020617;
+  color:#e5e7eb;
+  font:14px system-ui,Segoe UI,Inter,Roboto,sans-serif;
 }
 
-.section-title {
-  margin: 12px 0 4px;
-  font-size: 16px;
+/* buttons */
+
+.btn-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:8px;
 }
 
-/* ---------- buttons ---------- */
-
-.btn-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+button{
+  border:none;
+  border-radius:999px;
+  padding:8px 16px;
+  font-size:14px;
+  cursor:pointer;
+  background:#111827;
+  color:#e5e7eb;
 }
 
-button,
-.btn-small {
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,0.55);
-  background: rgba(15,23,42,0.95);
-  color: #e5e7eb;
-  font: 14px/1.4 inherit;
-  padding: 8px 16px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+button.primary{
+  background:linear-gradient(135deg,#3b82f6,#a855f7);
+  color:#f9fafb;
 }
 
-button.primary {
-  background: linear-gradient(135deg, #3b82f6, #22c55e);
-  border-color: transparent;
-  color: #0b1120;
-  font-weight: 600;
+button:active{
+  transform:translateY(1px);
 }
 
-.btn-small {
-  font-size: 13px;
-  padding: 6px 12px;
-  text-decoration: none;
+.hidden{ display:none !important; }
+
+/* === PLAY HUD === */
+
+.play-top{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
 }
 
-/* ---------- form ---------- */
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
+.stats{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
 }
 
-.col {
-  flex: 1 1 220px;
-  min-width: 0;
+.tag{
+  padding:4px 8px;
+  border-radius:999px;
+  background:#020617;
+  border:1px solid #1f2937;
+  font-size:12px;
 }
 
-label {
-  font-size: 13px;
-  color: #9ca3af;
-  display: block;
-  margin-bottom: 4px;
+.timer{
+  min-width:86px;
+  text-align:right;
+  border-radius:999px;
+  border:1px solid #facc15;
+  padding:4px 10px;
+  font-size:14px;
 }
 
-input,
-select {
-  width: 100%;
-  border-radius: 10px;
-  border: 1px solid rgba(148,163,184,0.7);
-  background: rgba(15,23,42,0.9);
-  color: #e5e7eb;
-  padding: 7px 9px;
-  font-size: 14px;
+/* === PLAY AREA === */
+
+.play-area{
+  margin-top:12px;
+  border-radius:18px;
+  border:1px solid #1f2937;
+  background:radial-gradient(circle at top, #020617, #020617 60%, #000 100%);
+  padding:8px;
+  display:block; /* สำคัญ: ไม่บังคับสูงเท่าแม่ */
 }
 
-.help {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #6b7280;
+#target-layer{
+  position:relative;
+  width:100%;
+  min-height:min(380px,60vh); /* สำคัญ: ให้มีความสูงจริง */
+  border-radius:16px;
+  background:#020617;
+  overflow:hidden;
 }
 
-/* ---------- play HUD ---------- */
+/* เป้าจังหวะ */
 
-.play-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 8px;
+.rb-target{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  font-size:min(52px,7vh);
+  cursor:pointer;
+  transition:transform .1s ease-out, opacity .1s ease-out;
 }
 
-.stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.rb-target.lane-0{
+  filter:drop-shadow(0 0 10px rgba(56,189,248,0.9));
+}
+.rb-target.lane-1{
+  filter:drop-shadow(0 0 10px rgba(34,197,94,0.9));
+}
+.rb-target.lane-2{
+  filter:drop-shadow(0 0 10px rgba(244,114,182,0.9));
 }
 
-.tag {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.95);
-  border: 1px solid rgba(51,65,85,0.9);
-  font-size: 12px;
-}
-
-.timer {
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.98);
-  border: 1px solid rgba(59,130,246,0.9);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-/* ---------- GROOVE bar (เหมือน FEVER bar) ---------- */
-
-.groove-wrap {
-  margin-top: 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.groove-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #9ca3af;
-}
-
-.groove-bar {
-  flex: 1;
-  height: 14px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.95);
-  border: 1px solid rgba(51,65,85,0.9);
-  overflow: hidden;
-}
-
-.groove-fill {
-  width: 0%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg,#22c55e,#3b82f6,#a855f7);
-  transition: width 120ms linear;
-}
-
-.groove-status {
-  width: 76px;
-  text-align: right;
-  font-size: 12px;
-  color: #38bdf8;
-}
-
-/* ---------- Track HUD (เหมือน Boss bar) ---------- */
-
-.track-hud {
-  margin-top: 4px;
-}
-
-.track-text {
-  font-size: 13px;
-  margin-bottom: 3px;
-}
-
-.track-bar {
-  width: 100%;
-  height: 16px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.95);
-  border: 1px solid rgba(148,163,184,0.7);
-  overflow: hidden;
-}
-
-.track-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: inherit;
-  background: linear-gradient(90deg,#22c55e,#3b82f6);
-  transition: width 160ms linear;
-}
-
-/* ---------- play area ---------- */
-
-.play-area {
-  margin-top: 8px;
-  border-radius: 18px;
-  border: 2px solid rgba(148,163,184,0.5);
-  background: radial-gradient(circle at top, #020617, #020617 40%, #020617 100%);
-  padding: 6px;
-}
-
-#target-layer {
-  width: 100%;
-  height: min(420px, 72vh);
-  border-radius: 12px;
-  background:
-    radial-gradient(circle at top, rgba(37,99,235,0.25), transparent 55%),
-    #020617;
-  position: relative;
-  overflow: hidden;
-}
-
-/* เป้าแบบ emoji (โครงคล้าย sb-target) */
-.rb-target {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 42px;
-  user-select: none;
-  touch-action: none;
-  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.45));
-  transform: translate(-50%, -50%);
-  transition: transform 90ms ease-out;
-}
-
-.rb-target:active {
-  transform: translate(-50%,-50%) scale(0.85);
-}
-
-/* ---------- Coach bubble ---------- */
-
-.coach-bubble {
-  margin-top: 8px;
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 8px 10px;
-  border-radius: 12px;
-  background: rgba(15,23,42,0.9);
-  border: 1px solid rgba(55,65,81,0.9);
-  font-size: 13px;
-}
-
-.coach-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at 30% 20%, #fee2e2, #3b82f6);
-}
-
-.coach-text-wrap {
-  flex: 1;
-}
-
-.coach-role {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #9ca3af;
-}
-
-.coach-text {
-  font-size: 13px;
-}
-
-/* ---------- Banner ---------- */
-
-.banner {
-  margin-top: 10px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #9ca3af;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px dashed rgba(75,85,99,0.8);
-}
-
-/* ---------- Result table ---------- */
-
-.summary table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.summary td {
-  padding: 4px 0;
-}
-
-.summary .label {
-  width: 40%;
-  color: #9ca3af;
-}
-
-/* ---------- Responsive ---------- */
-
-@media (max-width: 640px) {
-  main {
-    margin-top: 10px;
-    padding: 0 8px 18px;
-  }
-
-  .card {
-    padding: 14px 12px 16px;
-    border-radius: 16px;
-  }
-
-  h1 {
-    font-size: 20px;
-  }
-
-  .stats {
-    gap: 4px;
-  }
-
-  .tag {
-    font-size: 11px;
-    padding: 4px 8px;
-  }
-
-  #target-layer {
-    height: min(360px, 64vh);
-  }
-}
-/* รูปแบบเป้าในแต่ละเลน */
-.rb-target.lane-0 { filter: drop-shadow(0 0 10px rgba(56,189,248,0.8)); }
-.rb-target.lane-1 { filter: drop-shadow(0 0 10px rgba(34,197,94,0.8)); }
-.rb-target.lane-2 { filter: drop-shadow(0 0 10px rgba(244,114,182,0.8)); }
-
-/* Big note */
-.rb-target-strong {
-  transform: translate(-50%,-50%) scale(1.25);
+.rb-target-strong{
+  transform:translate(-50%,-50%) scale(1.25);
 }
 
 /* label PERFECT / GOOD / BAD / MISS */
-.rb-hit-label {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  border: 1px solid rgba(148,163,184,0.8);
-  color: #e5e7eb;
-  pointer-events: none;
-  animation: rb-label-pop 0.4s ease-out forwards;
+
+.rb-hit-label{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  font-size:12px;
+  font-weight:700;
+  padding:2px 6px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.96);
+  border:1px solid rgba(148,163,184,0.95);
+  color:#e5e7eb;
+  pointer-events:none;
+  animation:rb-label-pop .4s ease-out forwards;
 }
 
-.rb-hit-perfect { border-color:#22c55e; color:#bbf7d0; }
-.rb-hit-good    { border-color:#3b82f6; color:#bfdbfe; }
-.rb-hit-bad     { border-color:#f97316; color:#fed7aa; }
-.rb-hit-miss    { border-color:#ef4444; color:#fecaca; }
+.rb-hit-perfect{ border-color:#22c55e; color:#bbf7d0; }
+.rb-hit-good   { border-color:#3b82f6; color:#bfdbfe; }
+.rb-hit-bad    { border-color:#f97316; color:#fed7aa; }
+.rb-hit-miss   { border-color:#ef4444; color:#fecaca; }
 
-@keyframes rb-label-pop {
-  from { opacity:0; transform:translate(-50%,-40%) scale(0.8); }
-  to   { opacity:1; transform:translate(-50%,-65%) scale(1); }
-}
-.play-area {
-  margin-top: 12px;
-  border-radius: 18px;
-  border: 1px solid #1f2937;
-  background: radial-gradient(circle at top, #020617, #020617 60%, #000 100%);
-  padding: 6px;
-  min-height: min(420px, 55vh);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+@keyframes rb-label-pop{
+  from{ opacity:0; transform:translate(-50%,-40%) scale(.8); }
+  to  { opacity:1; transform:translate(-50%,-65%) scale(1); }
 }
 
-#target-layer {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: 16px;
-  background: #020617;
-  overflow: hidden;
+/* === GROOVE & TRACK === */
+
+.groove-wrap{
+  margin-top:10px;
 }
 
-/* เป้า */
-.rb-target {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: min(52px, 7vh);
-  cursor: pointer;
-  transition: transform .1s ease-out, opacity .1s ease-out;
-}
-
-/* เลนต่าง ๆ */
-.rb-target.lane-0 { filter: drop-shadow(0 0 10px rgba(56,189,248,0.8)); }
-.rb-target.lane-1 { filter: drop-shadow(0 0 10px rgba(34,197,94,0.8)); }
-.rb-target.lane-2 { filter: drop-shadow(0 0 10px rgba(244,114,182,0.8)); }
-
-/* Big note */
-.rb-target-strong {
-  transform: translate(-50%, -50%) scale(1.25);
-}
-
-/* label PERFECT / GOOD / BAD / MISS */
-.rb-hit-label {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.95);
-  border: 1px solid rgba(148,163,184,0.9);
-  color: #e5e7eb;
-  pointer-events: none;
-  animation: rb-label-pop 0.4s ease-out forwards;
-}
-
-.rb-hit-perfect { border-color:#22c55e; color:#bbf7d0; }
-.rb-hit-good    { border-color:#3b82f6; color:#bfdbfe; }
-.rb-hit-bad     { border-color:#f97316; color:#fed7aa; }
-.rb-hit-miss    { border-color:#ef4444; color:#fecaca; }
-
-@keyframes rb-label-pop {
-  from { opacity:0; transform:translate(-50%, -40%) scale(0.8); }
-  to   { opacity:1; transform:translate(-50%, -65%) scale(1); }
-}
-
-/* GROOVE / TRACK (เผื่อยังไม่มี) */
-.groove-wrap {
-  margin-top: 10px;
-}
-.groove-label {
-  font-size: 12px;
-  letter-spacing: .18em;
-  text-transform: uppercase;
+.groove-label{
+  font-size:12px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
   color:#9ca3af;
 }
-.groove-bar {
+
+.groove-bar{
   margin-top:4px;
   width:100%;
   height:10px;
@@ -520,27 +239,31 @@ select {
   overflow:hidden;
   border:1px solid #1f2937;
 }
-.groove-fill {
+
+.groove-fill{
   height:100%;
   width:0%;
-  background: linear-gradient(90deg,#22c55e,#eab308,#f97316);
-  transition: width .12s linear;
+  background:linear-gradient(90deg,#22c55e,#eab308,#f97316);
+  transition:width .12s linear;
 }
-.groove-status {
+
+.groove-status{
   margin-top:2px;
   font-size:12px;
   text-align:right;
   color:#e5e7eb;
 }
 
-.track-info {
+.track-info{
   margin-top:10px;
 }
-.track-info #track-name {
+
+.track-info #track-name{
   font-size:13px;
   color:#e5e7eb;
 }
-.track-bar {
+
+.track-bar{
   margin-top:4px;
   width:100%;
   height:6px;
@@ -549,15 +272,17 @@ select {
   border:1px solid #1f2937;
   overflow:hidden;
 }
-#track-fill {
+
+#track-fill{
   height:100%;
   width:0%;
-  background: linear-gradient(90deg,#3b82f6,#a855f7);
-  transition: width .12s linear;
+  background:linear-gradient(90deg,#3b82f6,#a855f7);
+  transition:width .12s linear;
 }
 
-/* Coach bubble (เผื่อไม่เห็น) */
-.coach-bubble {
+/* === COACH === */
+
+.coach-bubble{
   margin-top:10px;
   padding:8px 10px;
   border-radius:14px;
@@ -567,40 +292,74 @@ select {
   gap:8px;
   font-size:13px;
 }
-.coach-avatar {
+
+.coach-avatar{
   font-size:22px;
 }
-.coach-text {
+
+.coach-text{
   line-height:1.4;
 }
 
-/* Pause overlay */
-.pause-overlay {
+/* === RESULT TABLE === */
+
+.summary{
+  width:100%;
+  border-collapse:collapse;
+  margin:6px 0 4px;
+  font-size:13px;
+}
+
+.summary td{
+  padding:3px 4px;
+  border-bottom:1px dashed #1f2937;
+}
+
+.summary td:first-child{
+  width:40%;
+  color:#9ca3af;
+}
+
+/* === PAUSE OVERLAY === */
+
+.pause-overlay{
   position:fixed;
   inset:0;
-  background:rgba(15,23,42,0.8);
+  background:rgba(15,23,42,0.82);
   display:flex;
   align-items:center;
   justify-content:center;
   z-index:40;
 }
-.pause-overlay.hidden {
+
+.pause-overlay.hidden{
   display:none;
 }
-.pause-box {
+
+.pause-box{
   width:min(360px,90vw);
   padding:16px 18px 14px;
   border-radius:18px;
   background:#020617;
   border:1px solid #1f2937;
-  box-shadow:0 18px 45px rgba(0,0,0,0.55);
+  box-shadow:0 18px 45px rgba(0,0,0,.55);
 }
-.pause-title {
+
+.pause-title{
   font-weight:700;
   margin-bottom:4px;
 }
-.pause-text {
+
+.pause-text{
   font-size:13px;
   color:#e5e7eb;
   margin-bottom:12px;
+}
+
+/* small screens */
+
+@media (max-width:480px){
+  .card{ padding:14px 12px 16px; }
+  .play-area{ padding:6px; }
+  #target-layer{ min-height:55vh; }
 }
