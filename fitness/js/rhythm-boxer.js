@@ -1,82 +1,157 @@
-// === Rhythm Boxer entry — rhythm-boxer.js ===
+// === /fitness/js/rhythm-boxer.js ===
+// หน้า Rhythm Boxer: จัดการ UI เมนู/เล่น/จบเกม แล้วเรียก engine
+
 import { initRhythmEngine } from './rhythm-engine.js';
 
 window.addEventListener('DOMContentLoaded', () => {
+  // ---------- DOM refs ----------
   const viewMenu   = document.getElementById('view-menu');
   const viewPlay   = document.getElementById('view-play');
   const viewResult = document.getElementById('view-result');
 
-  const difficulty   = document.getElementById('difficulty');
-  const trackSelect  = document.getElementById('track-select');
-  const researchId   = document.getElementById('research-id');
-  const researchGrp  = document.getElementById('research-group');
+  const btnModeResearch = document.querySelector('[data-action="mode-research"]');
+  const btnModeNormal   = document.querySelector('[data-action="mode-normal"]');
 
+  const selDiff   = document.getElementById('difficulty');
+  const selTrack  = document.getElementById('track');
+  const inpPid    = document.getElementById('participant-id');
+  const inpGroup  = document.getElementById('participant-group');
+
+  const btnStart  = document.querySelector('[data-action="start-play"]');
+  const btnStop   = document.querySelector('[data-action="stop-early"]');
+  const btnBack   = document.querySelector('[data-action="back-to-menu"]');
+  const btnPlayAgain = document.querySelector('[data-action="play-again"]');
+
+  // stats (play view)
+  const statMode   = document.getElementById('stat-mode');
+  const statDiff   = document.getElementById('stat-diff');
+  const statTrack  = document.getElementById('stat-track');
+  const statScore  = document.getElementById('stat-score');
+  const statCombo  = document.getElementById('stat-combo');
+  const statPerfect= document.getElementById('stat-perfect');
+  const statMiss   = document.getElementById('stat-miss');
+  const statTime   = document.getElementById('stat-time');
+
+  // result
+  const resMode    = document.getElementById('res-mode');
+  const resDiff    = document.getElementById('res-diff');
+  const resTrack   = document.getElementById('res-track');
+  const resScore   = document.getElementById('res-score');
+  const resCombo   = document.getElementById('res-maxcombo');
+  const resPerfect = document.getElementById('res-perfect');
+  const resMiss    = document.getElementById('res-miss');
+  const resAcc     = document.getElementById('res-accuracy');
+  const resTime    = document.getElementById('res-time');
+  const resPid     = document.getElementById('res-participant');
+
+  // ---------- state ----------
   let mode = 'normal'; // 'research' | 'normal'
-  let engine = null;
+  let lastConfig = null;
 
-  // mode buttons
-  document.querySelector('[data-action="mode-research"]').addEventListener('click', () => {
-    mode = 'research';
+  function setMode(newMode) {
+    mode = newMode;
+    if (btnModeResearch) {
+      btnModeResearch.classList.toggle('active', mode === 'research');
+    }
+    if (btnModeNormal) {
+      btnModeNormal.classList.toggle('active', mode === 'normal');
+    }
+  }
+
+  function showView(which) {
+    if (viewMenu)   viewMenu.classList.toggle('hidden', which !== 'menu');
+    if (viewPlay)   viewPlay.classList.toggle('hidden', which !== 'play');
+    if (viewResult) viewResult.classList.toggle('hidden', which !== 'result');
+  }
+
+  setMode('normal');
+  showView('menu');
+
+  // ---------- init engine ----------
+  const engine = initRhythmEngine({
+    onTick(stats) {
+      // เรียกทุก ~16ms ระหว่างเล่น
+      if (!stats) return;
+      statScore.textContent   = stats.score | 0;
+      statCombo.textContent   = stats.combo | 0;
+      statPerfect.textContent = stats.perfect | 0;
+      statMiss.textContent    = stats.miss | 0;
+      statTime.textContent    = stats.remaining.toFixed(1) + 's';
+    },
+    onEnd(stats) {
+      // เกมจบ → แสดง result
+      if (!stats) return;
+      showView('result');
+
+      resMode.textContent    = stats.modeLabel;
+      resDiff.textContent    = stats.diffLabel;
+      resTrack.textContent   = stats.trackLabel;
+      resScore.textContent   = stats.score | 0;
+      resCombo.textContent   = stats.maxCombo | 0;
+      resPerfect.textContent = stats.perfect | 0;
+      resMiss.textContent    = stats.miss | 0;
+      resAcc.textContent     = stats.accuracy.toFixed(1) + ' %';
+      resTime.textContent    = stats.playTime.toFixed(1) + ' s';
+      resPid.textContent     = stats.participantId || '-';
+    }
   });
-  document.querySelector('[data-action="mode-normal"]').addEventListener('click', () => {
-    mode = 'normal';
-  });
 
-  // Begin play
-  document.querySelector('[data-action="begin-play"]').addEventListener('click', () => {
-    const diff  = difficulty.value;
-    const track = trackSelect.value;
+  // ---------- events: mode ----------
+  btnModeResearch?.addEventListener('click', () => setMode('research'));
+  btnModeNormal?.addEventListener('click', () => setMode('normal'));
 
-    const cfg = {
+  // ---------- events: main buttons ----------
+  btnStart?.addEventListener('click', () => {
+    const diff  = selDiff?.value || 'easy';
+    const track = selTrack?.value || 't1';
+
+    lastConfig = {
       mode,
       diff,
       track,
-      participantId: (mode === 'research') ? researchId.value.trim() : '',
-      group: (mode === 'research') ? researchGrp.value.trim() : ''
+      participantId:  inpPid?.value.trim()   || '',
+      participantGrp: inpGroup?.value.trim() || ''
     };
 
-    viewMenu.classList.add('hidden');
-    viewResult.classList.add('hidden');
-    viewPlay.classList.remove('hidden');
+    // set labels
+    statMode.textContent  = mode === 'research' ? 'วิจัย' : 'ปกติ';
+    statDiff.textContent  = selDiff?.selectedOptions[0]?.textContent || diff;
+    statTrack.textContent = selTrack?.selectedOptions[0]?.textContent || 'Track';
 
-    // init engine
-    if (engine && typeof engine.dispose === 'function') {
-      engine.dispose();
+    showView('play');
+
+    engine.start({
+      mode,
+      diff,
+      track,
+      participantId: lastConfig.participantId,
+      participantGrp: lastConfig.participantGrp,
+      modeLabel: statMode.textContent,
+      diffLabel: statDiff.textContent,
+      trackLabel: statTrack.textContent
+    });
+  });
+
+  btnStop?.addEventListener('click', () => {
+    engine.stop('STOP_EARLY');
+  });
+
+  btnBack?.addEventListener('click', () => {
+    engine.stop('BACK_MENU');
+    showView('menu');
+  });
+
+  btnPlayAgain?.addEventListener('click', () => {
+    if (!lastConfig) {
+      showView('menu');
+      return;
     }
-    engine = initRhythmEngine(cfg, {
-      onFinished: (summary) => {
-        // fill result view
-        document.getElementById('res-mode').textContent   = summary.modeLabel;
-        document.getElementById('res-diff').textContent   = summary.diffLabel;
-        document.getElementById('res-track').textContent  = summary.trackLabel;
-        document.getElementById('res-score').textContent  = summary.score;
-        document.getElementById('res-maxcombo').textContent = summary.maxCombo;
-        document.getElementById('res-perfect').textContent  = summary.perfect;
-        document.getElementById('res-miss').textContent     = summary.miss;
-        document.getElementById('res-fever').textContent    = summary.feverPercent.toFixed(1) + '%';
-
-        viewPlay.classList.add('hidden');
-        viewResult.classList.remove('hidden');
-      }
+    showView('play');
+    engine.start({
+      ...lastConfig,
+      modeLabel: lastConfig.mode === 'research' ? 'วิจัย' : 'ปกติ',
+      diffLabel: selDiff?.selectedOptions[0]?.textContent || lastConfig.diff,
+      trackLabel: selTrack?.selectedOptions[0]?.textContent || 'Track'
     });
   });
-
-  // Back buttons
-  document.querySelectorAll('[data-action="back-to-menu"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (engine && typeof engine.dispose === 'function') engine.dispose();
-      viewPlay.classList.add('hidden');
-      viewResult.classList.add('hidden');
-      viewMenu.classList.remove('hidden');
-    });
-  });
-
-  // Play again
-  const btnAgain = document.querySelector('[data-action="play-again"]');
-  if (btnAgain) {
-    btnAgain.addEventListener('click', () => {
-      viewResult.classList.add('hidden');
-      viewMenu.classList.remove('hidden');
-    });
-  }
 });
