@@ -1,126 +1,172 @@
-/* === Rhythm Boxer — Layout หลัก === */
-*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  color-scheme: light dark;
+  --rb-bg: #020617;
+  --rb-card: #020617cc;
+  --rb-border: #1f2937;
+  --rb-accent: #22c55e;
+  --rb-accent-soft: rgba(34,197,94,0.1);
+  --rb-text: #e5e7eb;
+  --rb-muted: #9ca3af;
+  --rb-danger: #f97373;
+}
+
+*{box-sizing:border-box;}
 body{
   margin:0;
   min-height:100vh;
-  font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(147,51,234,.26), transparent 55%),
+    radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.2), transparent 55%),
     #020617;
-  color:#e5e7eb;
+  color:var(--rb-text);
 }
 main{
   max-width:1000px;
   margin:24px auto 32px;
   padding:0 16px 32px;
 }
+
 .card{
-  background:#020617cc;
-  border-radius:18px;
-  padding:18px 16px 20px;
-  border:1px solid rgba(148,163,184,.3);
-  backdrop-filter:blur(18px);
-  box-shadow:0 18px 45px rgba(15,23,42,.9);
+  background:var(--rb-card);
+  border-radius:20px;
+  border:1px solid var(--rb-border);
+  padding:18px 18px 20px;
+  box-shadow:0 18px 55px rgba(15,23,42,0.8);
 }
 .hidden{display:none;}
+
 .top-row{
   display:flex;
   justify-content:space-between;
   gap:12px;
   align-items:flex-start;
-  margin-bottom:12px;
 }
 h1{
-  font-size:24px;
-  font-weight:700;
-  letter-spacing:.02em;
+  margin:0 0 6px;
+  font-size:1.4rem;
   display:flex;
   align-items:center;
-  gap:6px;
+  gap:8px;
 }
-.icon{font-size:26px;}
+.icon{font-size:1.5rem;}
+
 .subtitle{
-  font-size:14px;
-  color:#9ca3af;
-  margin-top:4px;
+  font-size:0.9rem;
+  color:var(--rb-muted);
+  max-width:480px;
 }
+
 .pill{
-  margin-top:10px;
+  margin-top:6px;
   display:inline-flex;
   align-items:center;
-  gap:8px;
+  gap:6px;
   padding:4px 10px;
   border-radius:999px;
-  font-size:12px;
-  background:rgba(15,23,42,.9);
-  border:1px solid rgba(148,163,184,.4);
+  background:rgba(15,23,42,0.9);
+  border:1px solid #1f2937;
+  font-size:0.78rem;
+  color:var(--rb-muted);
 }
 .pill .dot{
-  width:8px;height:8px;border-radius:999px;
-  background:radial-gradient(circle,#22c55e,#16a34a);
-}
-.btn-small{
-  font-size:13px;
-  padding:6px 10px;
+  width:8px;
+  height:8px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.5);
-  background:rgba(15,23,42,.9);
-  color:#e5e7eb;
-  cursor:pointer;
+  background:var(--rb-accent);
 }
-.btn-row{
+
+.section-title{
+  margin:14px 0 8px;
+  font-size:1.1rem;
+}
+
+/* form */
+.row{
   display:flex;
   flex-wrap:wrap;
   gap:10px;
 }
-.mode-row{margin-top:10px;margin-bottom:8px;}
-button.primary{
-  background:linear-gradient(135deg,#6366f1,#ec4899);
-  border:none;
-  color:#f9fafb;
-  font-weight:600;
+.col{
+  flex:1 1 220px;
 }
-button{
-  background:rgba(15,23,42,.9);
-  color:#e5e7eb;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.4);
-  padding:8px 14px;
-  font-size:14px;
-  cursor:pointer;
+label{
+  font-size:0.85rem;
+  color:var(--rb-muted);
+  display:block;
+  margin-bottom:4px;
 }
-button:hover{opacity:.9;}
-
-.section-title{
-  font-size:16px;
-  margin:10px 0 6px;
-}
-.row{display:flex;flex-wrap:wrap;gap:12px;margin-top:4px;}
-.col{flex:1;min-width:220px;}
-label{font-size:13px;color:#cbd5f5;display:block;margin-bottom:4px;}
-select,input{
+input, select{
   width:100%;
-  padding:8px 10px;
+  padding:7px 9px;
   border-radius:10px;
-  border:1px solid #4b5563;
+  border:1px solid #374151;
   background:#020617;
-  color:#e5e7eb;
-  font-size:14px;
+  color:var(--rb-text);
+  font-size:0.88rem;
 }
 .help{
   margin-top:4px;
-  font-size:12px;
-  color:#9ca3af;
+  font-size:0.8rem;
+  color:var(--rb-muted);
 }
 
-/* ===== PLAY VIEW ===== */
+.btn-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+button{
+  border-radius:999px;
+  border:1px solid #4b5563;
+  background:#020617;
+  color:var(--rb-text);
+  padding:7px 16px;
+  font-size:0.9rem;
+  cursor:pointer;
+}
+button.primary{
+  background:linear-gradient(120deg,#22c55e,#a855f7);
+  border-color:transparent;
+  color:#0b1120;
+  font-weight:600;
+}
+button:hover{
+  filter:brightness(1.1);
+}
+.btn-small{
+  font-size:0.8rem;
+  padding:5px 10px;
+  border-radius:999px;
+  border:1px solid #4b5563;
+  text-decoration:none;
+  color:var(--rb-text);
+}
+
+/* howto */
+.howto{
+  margin-top:14px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px dashed #374151;
+  background:rgba(15,23,42,0.85);
+  font-size:0.85rem;
+}
+.howto h3{
+  margin:0 0 4px;
+  font-size:0.9rem;
+}
+.howto ul{
+  margin:0;
+  padding-left:18px;
+}
+
+/* PLAY VIEW */
 .play-top{
   display:flex;
   justify-content:space-between;
-  align-items:flex-start;
+  align-items:center;
   gap:8px;
-  margin-bottom:8px;
 }
 .stats{
   display:flex;
@@ -128,155 +174,224 @@ select,input{
   gap:6px;
 }
 .tag{
-  padding:4px 8px;
   border-radius:999px;
-  background:#020617;
-  border:1px solid rgba(55,65,81,.9);
-  font-size:12px;
+  padding:3px 8px;
+  border:1px solid #374151;
+  font-size:0.75rem;
+  color:var(--rb-muted);
 }
 .timer{
-  min-width:84px;
-  text-align:right;
-  font-size:18px;
-  font-weight:600;
+  font-size:0.95rem;
 }
 
-/* เวทีเต้น */
-.play-area.dance{
-  margin-top:6px;
-  border-radius:18px;
-  border:1px solid #1f2937;
-  padding:10px;
-  background:
-    radial-gradient(circle at top,#111827,#020617 60%),
-    radial-gradient(circle at bottom,#4c1d95,#020617 75%);
+.play-middle{
+  margin:10px 0 6px;
 }
-#dance-stage{
-  position:relative;
-  width:100%;
-  min-height:320px;
-  border-radius:16px;
-  background:radial-gradient(circle,#020617 0,#020617 40%,#000 90%);
-  overflow:hidden;
+.rb-hud-row{
   display:flex;
-  gap:6px;
+  flex-wrap:wrap;
+  gap:8px;
 }
-.lane{
-  flex:1;
+.rb-hud-item{
+  flex:1 1 120px;
+  min-width:0;
   border-radius:14px;
-  position:relative;
-  background:rgba(15,23,42,.96);
-  box-shadow:0 0 16px rgba(15,23,42,1) inset;
+  border:1px solid #1f2937;
+  padding:6px 10px;
+  background:rgba(15,23,42,0.9);
+  font-size:0.75rem;
+  color:var(--rb-muted);
 }
-.lane-label{
-  position:absolute;
-  top:8px;left:50%;
-  transform:translateX(-50%);
-  width:28px;height:28px;
-  border-radius:999px;
-  border:2px solid rgba(148,163,184,.9);
-  display:flex;align-items:center;justify-content:center;
-  font-size:16px;
-  background:rgba(15,23,42,.98);
-}
-.hit-ring{
-  position:absolute;
-  left:50%;top:78%;
-  width:140px;height:60px;
-  transform:translate(-50%,-50%);
-  border-radius:999px;
-  border:3px solid rgba(248,250,252,.7);
-  box-shadow:0 0 18px rgba(96,165,250,.9);
+.rb-hud-value{
+  margin-top:2px;
+  font-size:1.1rem;
+  color:var(--rb-text);
 }
 
-/* โน้ตเต้น */
+/* Stage 3 lane */
+.rb-stage{
+  position:relative;
+  margin-top:10px;
+  border-radius:18px;
+  border:1px solid #111827;
+  background:radial-gradient(circle at top, #0f172a, #020617 60%);
+  padding:10px 8px 16px;
+  overflow:hidden;
+  min-height:280px;
+}
+.rb-lanes{
+  display:flex;
+  gap:4px;
+  height:100%;
+}
+.rb-lane{
+  flex:1 1 0;
+  position:relative;
+  border-radius:12px;
+  background:rgba(15,23,42,0.85);
+  overflow:hidden;
+  border:1px solid rgba(31,41,55,0.9);
+}
+.rb-lane-label{
+  position:absolute;
+  top:4px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:0.8rem;
+  color:var(--rb-muted);
+  z-index:5;
+}
+.rb-lane-notes{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+}
+
+/* hit line */
+.rb-hit-line{
+  position:absolute;
+  left:8px;
+  right:8px;
+  bottom:48px;
+  height:2px;
+  background:linear-gradient(90deg,rgba(148,163,184,0.2),rgba(248,250,252,0.8),rgba(148,163,184,0.2));
+  box-shadow:0 0 8px rgba(248,250,252,0.8);
+  pointer-events:none;
+}
+
+/* note */
 .rb-note{
   position:absolute;
   left:50%;
-  transform:translate(-50%,-50%);
-  width:56px;height:56px;
+  transform:translate(-50%,-120%);
+  width:42px;
+  height:42px;
   border-radius:999px;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:26px;
-  color:#f9fafb;
-  box-shadow:0 0 12px rgba(129,140,248,.9);
+  font-size:1.4rem;
+  background:radial-gradient(circle at 30% 30%, #f9fafb, #22c55e);
+  color:#111827;
+  text-shadow:0 0 6px rgba(15,23,42,0.8);
+  box-shadow:0 10px 25px rgba(0,0,0,0.6);
+  pointer-events:none;
+  opacity:0;
+  animation-name: rb-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
 }
-.rb-note.warmup{background:linear-gradient(135deg,#22c55e,#22c55e);}
-.rb-note.dance {background:linear-gradient(135deg,#f97316,#ec4899);}
-.rb-note.cool  {background:linear-gradient(135deg,#38bdf8,#6366f1);}
-
-/* GROOVE */
-.groove-wrap{
-  margin-top:10px;
-  display:flex;
-  align-items:center;
-  gap:10px;
+.rb-note.lane-0{
+  background:radial-gradient(circle at 30% 30%, #f9fafb, #38bdf8);
 }
-.groove-label{font-size:13px;color:#e5e7eb;}
-.groove-bar{
-  flex:1;
-  height:8px;
-  border-radius:999px;
-  background:#020617;
-  border:1px solid #111827;
-  overflow:hidden;
+.rb-note.lane-1{
+  background:radial-gradient(circle at 30% 30%, #f9fafb, #22c55e);
 }
-.groove-fill{
-  width:0%;
-  height:100%;
-  border-radius:999px;
-  background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ec4899);
-  transition:width .25s ease-out;
-}
-.groove-status{
-  font-size:13px;
-  min-width:80px;
-  text-align:right;
+.rb-note.lane-2{
+  background:radial-gradient(circle at 30% 30%, #f9fafb, #f97316);
 }
 
-/* COACH */
-.coach-bubble{
+/* animation: travelSec ประสานกับ engine */
+@keyframes rb-fall{
+  0%{
+    transform:translate(-50%,-130%);
+    opacity:0;
+  }
+  20%{
+    opacity:1;
+  }
+  80%{
+    opacity:1;
+  }
+  100%{
+    transform:translate(-50%, 80%);
+    opacity:0;
+  }
+}
+
+/* judge popup */
+.rb-judge-popup{
+  position:absolute;
+  left:50%;
+  bottom:12px;
+  transform:translateX(-50%) translateY(100%);
+  padding:4px 12px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.95);
+  border:1px solid rgba(148,163,184,0.6);
+  font-size:0.9rem;
+  pointer-events:none;
+  opacity:0;
+}
+.rb-judge-popup.show{
+  animation: rb-judge-pop 0.4s ease-out forwards;
+}
+.rb-judge-perfect{ color:#facc15; border-color:#facc15; }
+.rb-judge-good{ color:#22c55e; border-color:#22c55e; }
+.rb-judge-miss{ color:var(--rb-danger); border-color:var(--rb-danger); }
+
+@keyframes rb-judge-pop{
+  0%{ transform:translateX(-50%) translateY(40%); opacity:0;}
+  40%{ transform:translateX(-50%) translateY(0%); opacity:1;}
+  100%{ transform:translateX(-50%) translateY(40%); opacity:0;}
+}
+
+/* coach */
+.rb-coach{
   margin-top:10px;
-  padding:8px 10px;
+  padding:6px 10px;
   border-radius:14px;
-  background:#0b1120;
-  border:1px solid rgba(55,65,81,.9);
-  display:flex;
-  gap:10px;
-  align-items:flex-start;
+  border:1px solid #1f2937;
+  background:rgba(15,23,42,0.9);
+  font-size:0.8rem;
 }
-.coach-avatar{font-size:24px;}
-.coach-role{
-  font-size:12px;
-  color:#a5b4fc;
+.rb-coach-role{
+  font-size:0.75rem;
+  color:var(--rb-muted);
 }
-.coach-text{
-  font-size:14px;
-  color:#e5e7eb;
+.rb-coach-text{
+  margin-top:2px;
 }
 
-.banner{
-  margin-top:10px;
-  font-size:13px;
-  color:#cbd5f5;
-  padding:8px 10px;
-  border-radius:10px;
-  background:#020617;
-  border:1px dashed #4b5563;
+/* touch zones (mobile) */
+.rb-touch-zones{
+  position:relative;
+  margin-top:8px;
+  height:72px;
+  border-radius:16px;
+  overflow:hidden;
+  display:flex;
+  border:1px solid #111827;
+}
+.rb-touch-zone{
+  flex:1 1 0;
+  background:linear-gradient(to top, rgba(15,23,42,0.9), transparent);
+}
+.rb-touch-zone:active{
+  background:linear-gradient(to top, rgba(34,197,94,0.6), transparent);
 }
 
 /* RESULT */
 .summary table{
   width:100%;
   border-collapse:collapse;
-  font-size:14px;
+  font-size:0.85rem;
 }
 .summary td{
-  padding:4px 0;
+  padding:4px 4px;
+  border-bottom:1px solid #111827;
 }
 .summary td.label{
-  color:#9ca3af;
-  width:42%;
+  width:40%;
+  color:var(--rb-muted);
+}
+
+/* responsive */
+@media (max-width:700px){
+  .rb-hud-row{
+    flex-direction:column;
+  }
+  .rb-stage{
+    min-height:260px;
+  }
 }
