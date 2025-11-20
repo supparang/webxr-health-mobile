@@ -256,21 +256,10 @@ select {
   color: #e5e7eb;
 }
 
-.sb-score-perfect {
-  color: #facc15;
-}
-
-.sb-score-good {
-  color: #22c55e;
-}
-
-.sb-score-bad {
-  color: #f97316;
-}
-
-.sb-score-miss {
-  color: #f97373;
-}
+.sb-score-perfect { color: #facc15; }
+.sb-score-good    { color: #22c55e; }
+.sb-score-bad     { color: #f97316; }
+.sb-score-miss    { color: #f97373; }
 
 @keyframes sb-pop {
   0%   { transform: translate(-50%,-50%) scale(0.6); opacity: 0; }
@@ -324,7 +313,6 @@ select {
   color: #f97316;
 }
 
-/* FEVER active state */
 .fever-wrap.fever-active .fever-bar {
   box-shadow: 0 0 18px rgba(248,250,252,0.35);
 }
@@ -359,9 +347,7 @@ select {
 
 /* ---------- Boss portrait ---------- */
 
-.boss-portrait {
-  margin-top: 8px;
-}
+.boss-portrait { margin-top: 8px; }
 
 .boss-portrait-inner {
   display: flex;
@@ -373,9 +359,7 @@ select {
   border: 1px solid rgba(55,65,81,0.9);
 }
 
-.boss-portrait-emoji {
-  font-size: 26px;
-}
+.boss-portrait-emoji { font-size: 26px; }
 
 .boss-portrait-name {
   font-size: 14px;
@@ -411,9 +395,7 @@ select {
   background: radial-gradient(circle at 30% 20%, #fde68a, #f97316);
 }
 
-.coach-text-wrap {
-  flex: 1;
-}
+.coach-text-wrap { flex: 1; }
 
 .coach-role {
   font-size: 11px;
@@ -422,9 +404,7 @@ select {
   color: #9ca3af;
 }
 
-.coach-text {
-  font-size: 13px;
-}
+.coach-text { font-size: 13px; }
 
 /* ---------- Banner ---------- */
 
@@ -446,9 +426,7 @@ select {
   font-size: 13px;
 }
 
-.summary td {
-  padding: 4px 0;
-}
+.summary td { padding: 4px 0; }
 
 .summary .label {
   width: 40%;
@@ -513,9 +491,7 @@ select {
   align-items: center;
 }
 
-.boss-intro-emoji {
-  font-size: 38px;
-}
+.boss-intro-emoji { font-size: 38px; }
 
 .boss-intro-name {
   font-size: 18px;
@@ -542,10 +518,10 @@ select {
 /* ---------- Mini boss intro (จอเล็ก / boss 2–4) ---------- */
 
 .boss-intro.boss-intro-mini {
-  background: transparent;          /* ไม่บังจอเต็ม */
-  align-items: flex-end;            /* ดัน card ลงล่าง */
+  background: transparent;
+  align-items: flex-end;
   justify-content: center;
-  pointer-events: none;             /* แตะผ่านได้ ยกเว้นตัวการ์ด */
+  pointer-events: none;
 }
 
 .boss-intro.boss-intro-mini .boss-intro-inner {
@@ -560,7 +536,6 @@ select {
   opacity: 0.9;
 }
 
-/* ย่อฟอนต์สำหรับแนวตั้งเตี้ย ๆ */
 @media (max-height: 650px) {
   .boss-intro.boss-intro-mini .boss-intro-inner {
     padding: 10px 12px;
@@ -574,9 +549,6 @@ select {
 }
 
 /* ---------- Theme per boss ---------- */
-
-.theme-boss-1 body,
-body.theme-boss-1 {}
 
 body.theme-boss-1 {
   background:
@@ -617,6 +589,38 @@ body.fever-mode #target-layer {
   box-shadow: 0 0 30px rgba(251,191,36,0.7);
 }
 
+/* ---------- Fullscreen gameplay (เฉพาะขณะอยู่หน้าเล่น) ---------- */
+
+body.play-full {
+  margin: 0;
+}
+
+body.play-full main {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body.play-full #view-play.card {
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 100vh;
+  padding: 10px 10px 16px;
+}
+
+body.play-full .play-area {
+  margin-top: 6px;
+  border-radius: 0;
+  border-width: 0;
+  padding: 0;
+}
+
+body.play-full #target-layer {
+  height: calc(100vh - 170px);
+  max-height: none;
+  border-radius: 0;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 640px) {
@@ -640,5 +644,9 @@ body.fever-mode #target-layer {
   }
   #target-layer {
     height: min(360px, 64vh);
+  }
+
+  body.play-full #view-play.card {
+    padding: 8px 6px 10px;
   }
 }
