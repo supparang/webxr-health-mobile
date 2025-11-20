@@ -6,13 +6,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
 
+  <link rel="icon" type="image/x-icon" href="./favicon.ico">
+
   <!-- สไตล์หลักของ Shadow Breaker -->
   <link rel="stylesheet" href="./css/shadow-breaker.css" />
-  <!-- ถ้าอยากใช้เวอร์ชัน minified เปลี่ยนเป็นบรรทัดนี้แทน -->
-  <!-- <link rel="stylesheet" href="./css/shadow-breaker.min.css" /> -->
-
-  <!-- favicon (ถ้ามี) -->
-  <link rel="icon" type="image/x-icon" href="./favicon.ico" />
 </head>
 <body>
   <main>
@@ -118,22 +115,6 @@
 
       <div class="play-area">
         <div id="target-layer"></div>
-
-        <!-- BOSS INTRO OVERLAY -->
-        <div class="boss-intro hidden" id="boss-intro">
-          <div class="boss-intro-card">
-            <div class="boss-intro-emoji" id="boss-intro-emoji">🐣</div>
-            <div class="boss-intro-label">BOSS APPEARS</div>
-            <div class="boss-intro-name" id="boss-intro-name">Bubble Glove</div>
-            <div class="boss-intro-title" id="boss-intro-title">บอสมือใหม่สายฟอง</div>
-            <div class="boss-intro-desc" id="boss-intro-desc">
-              บอสอุ่นเครื่อง เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰
-            </div>
-            <div class="boss-intro-hint">
-              แตะหน้าจอหรือรอ 2 วิ เพื่อเริ่มต่อสู้
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- FEVER BAR -->
@@ -237,14 +218,32 @@
         </button>
       </div>
     </section>
+
+    <!-- BOSS INTRO OVERLAY -->
+    <section id="boss-intro" class="boss-intro hidden">
+      <div class="boss-intro-inner">
+        <div class="boss-intro-label">BOSS APPEARS</div>
+        <div class="boss-intro-main">
+          <div id="boss-intro-emoji" class="boss-intro-emoji">🐣</div>
+          <div class="boss-intro-text">
+            <div id="boss-intro-name" class="boss-intro-name">Bubble Glove</div>
+            <div id="boss-intro-title" class="boss-intro-title">บอสมือใหม่สายฟอง</div>
+            <div id="boss-intro-desc" class="boss-intro-desc">
+              บอสอุ่นเครื่อง เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰
+            </div>
+          </div>
+        </div>
+        <div class="boss-intro-hint">แตะหน้าจอเพื่อข้าม ↠</div>
+      </div>
+    </section>
   </main>
 
   <!-- SFX -->
-  <audio id="sfx-boss"  src="./sfx/boss-change.mp3" preload="auto"></audio>
-  <audio id="sfx-fever" src="./sfx/fever-max.mp3"   preload="auto"></audio>
-  <audio id="sfx-hit"   src="./sfx/hit-boss.mp3"    preload="auto"></audio>
+  <audio id="sfx-hit"  src="./sfx/hit.mp3" preload="auto"></audio>
+  <audio id="sfx-boss" src="./sfx/boss.wav" preload="auto"></audio>
+  <audio id="sfx-fever" src="./sfx/fever.wav" preload="auto"></audio>
 
-  <!-- main controller -->
-  <script type="module" src="./js/main-shadow.js"></script>
+  <!-- main scripts -->
+  <script type="module" src="./js/shadow-breaker.js"></script>
 </body>
 </html>
