@@ -11,7 +11,7 @@ export class DomRenderer {
     this.bounds  = { w: 0, h: 0, left: 0, top: 0 };
 
     if (this.host) {
-      // ไม่เซ็ต position ที่นี่ ปล่อยให้ CSS คุม (#target-layer { position:absolute; ... })
+      // ไม่ไปยุ่ง position ของ host ปล่อยให้ CSS กำหนด (#target-layer { position:absolute; ... })
       this.updateBounds();
       window.addEventListener('resize', () => this.updateBounds());
       window.addEventListener('orientationchange', () => {
