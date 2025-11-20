@@ -1,454 +1,150 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>VR Fitness Hub</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="color-scheme" content="dark light" />
-
+  <meta name="color-scheme" content="light dark"/>
   <style>
-    :root{
-      color-scheme: dark;
-      --bg: #020617;
-      --bg-soft: #020819;
-      --card: #020617;
-      --card-soft: #020617;
-      --border-soft: #1e293b;
-      --accent: #f97316;
-      --accent-soft: rgba(249,115,22,.18);
-      --text-main: #e5e7eb;
-      --text-soft: #9ca3af;
-      --pill-bg: #064e3b;
-      --pill-text: #bbf7d0;
-      --danger-bg: #7f1d1d;
-      --danger-text: #fecaca;
-    }
-    *{box-sizing:border-box;margin:0;padding:0;}
     body{
-      min-height:100vh;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 55%),
-        var(--bg);
-      color:var(--text-main);
-    }
-    .wrap{
-      max-width:1100px;
-      margin:24px auto 40px;
-      padding:0 16px 32px;
+      margin:0;
+      padding:0;
+      background:#0f172a;
+      color:#e2e8f0;
+      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
     }
     header{
-      margin-bottom:24px;
-    }
-    header h1{
-      font-size:28px;
-      margin-bottom:4px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    header h1 span.icon{
-      font-size:26px;
-    }
-    header p{
-      font-size:14px;
-      color:var(--text-soft);
-    }
-
-    .section{
-      background:rgba(15,23,42,0.92);
-      border-radius:20px;
-      padding:18px 18px 20px;
-      border:1px solid rgba(15,23,42,0.9);
-      box-shadow:0 18px 40px rgba(15,23,42,0.85);
-      margin-bottom:18px;
-    }
-    .section-title{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      margin-bottom:14px;
-    }
-    .section-title h2{
-      font-size:18px;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .section-title h2 span.icon{
-      font-size:20px;
-    }
-    .section-title small{
-      font-size:12px;
-      color:var(--text-soft);
-    }
-
-    /* game select row */
-    .game-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-    }
-    .game-button{
-      flex:1 1 220px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px 16px;
-      border-radius:16px;
-      border:1px solid var(--border-soft);
-      background:linear-gradient(135deg, rgba(15,23,42,1), rgba(15,23,42,0.88));
-      color:inherit;
-      text-decoration:none;
-      cursor:pointer;
-      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
-    }
-    .game-left{
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .game-emoji{
-      font-size:22px;
-      width:32px;
+      padding:24px;
       text-align:center;
     }
-    .game-text{
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-    }
-    .game-text strong{
-      font-size:15px;
-    }
-    .game-text span{
-      font-size:12px;
-      color:var(--text-soft);
-    }
-    .game-right{
-      font-size:18px;
-      opacity:.9;
-    }
-    .game-button:hover{
-      transform:translateY(-2px);
-      border-color:rgba(249,115,22,.7);
-      background:linear-gradient(135deg, rgba(30,64,175,.65), rgba(16,185,129,.5));
-      box-shadow:0 16px 30px rgba(15,23,42,0.9);
+    h1{ margin:0; font-size:32px; font-weight:700; }
+
+    .wrap{
+      max-width:900px;
+      margin:0 auto;
+      padding:16px;
     }
 
-    /* summary cards */
-    .summary-grid{
+    .grid{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:12px;
+      grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+      gap:16px;
     }
-    @media (max-width:950px){
-      .summary-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
+
+    .card{
+      background:#1e293b;
+      padding:16px;
+      border-radius:14px;
+      border:1px solid #334155;
+      box-shadow:0 2px 10px rgba(0,0,0,.2);
     }
-    @media (max-width:640px){
-      .summary-grid{
-        grid-template-columns:repeat(1,minmax(0,1fr));
-      }
+
+    .card h2{
+      margin:0 0 8px 0;
+      font-size:20px;
     }
-    .summary-card{
-      border-radius:16px;
-      border:1px solid var(--border-soft);
-      background:radial-gradient(circle at top left, rgba(30,64,175,.45), transparent 60%), #020617;
-      padding:12px 12px 14px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-    .summary-card:nth-child(2){
-      background:radial-gradient(circle at top left, rgba(236,72,153,.45), transparent 60%), #020617;
-    }
-    .summary-card:nth-child(3){
-      background:radial-gradient(circle at top left, rgba(249,115,22,.55), transparent 60%), #020617;
-    }
-    .summary-card:nth-child(4){
-      background:radial-gradient(circle at top left, rgba(234,179,8,.55), transparent 60%), #020617;
-    }
-    .summary-header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-    }
-    .summary-title{
-      display:flex;
-      align-items:center;
-      gap:6px;
-      font-size:14px;
-      font-weight:600;
-    }
-    .summary-title .emoji{
-      font-size:16px;
-    }
-    .badge{
-      font-size:11px;
-      border-radius:999px;
-      padding:2px 9px;
-      border:1px solid rgba(34,197,94,.9);
-      color:#bbf7d0;
-      background:rgba(6,95,70,.7);
-      white-space:nowrap;
-    }
-    .badge-empty{
-      border-color:rgba(148,163,184,.9);
-      background:rgba(15,23,42,.9);
-      color:#cbd5f5;
-    }
-    .summary-meta{
-      font-size:11px;
-      color:var(--text-soft);
-      line-height:1.5;
-    }
-    .summary-body{
-      font-size:13px;
-      line-height:1.45;
-      color:#e5e7eb;
-    }
-    .summary-body span.label{
-      color:var(--text-soft);
-    }
-    .summary-body .line{
-      display:block;
+
+    .summary-row{ font-size:14px; margin:4px 0; }
+    .summary-row span{ color:#a5b4fc; }
+
+    .btn{
+      display:inline-block;
+      margin-top:10px;
+      padding:10px 14px;
+      background:#3b82f6;
+      color:white;
+      border-radius:10px;
+      text-decoration:none;
+      font-size:15px;
+      text-align:center;
     }
   </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <header>
-      <h1><span class="icon">💪</span>VR Fitness Hub</h1>
-      <p>ชุดมินิเกมออกกำลังกาย 4 แบบ: Shadow Breaker, Rhythm Boxer, Jump-Duck และ Balance Hold</p>
-    </header>
+<header>
+  <h1>🏋️‍♂️ VR Fitness Hub</h1>
+  <div>เลือกเกมเพื่อเริ่มฝึกออกกำลังกายแบบโต้ตอบ</div>
+</header>
 
-    <!-- เลือกเกม -->
-    <section class="section">
-      <div class="section-title">
-        <h2><span class="icon">🎮</span>เลือกเกม</h2>
-        <small>แตะเกมที่ต้องการเพื่อเริ่มเล่น</small>
-      </div>
-      <div class="game-row">
-        <a class="game-button" href="./shadow-breaker.html">
-          <div class="game-left">
-            <div class="game-emoji">🥊</div>
-            <div class="game-text">
-              <strong>Shadow Breaker</strong>
-              <span>ชกเป้า emoji ต่อสู้กับบอส 4 ตัว + FEVER</span>
-            </div>
-          </div>
-          <div class="game-right">▶</div>
-        </a>
+<div class="wrap">
+  <div class="grid">
 
-        <a class="game-button" href="./rhythm-boxer.html">
-          <div class="game-left">
-            <div class="game-emoji">🐷</div>
-            <div class="game-text">
-              <strong>Rhythm Boxer</strong>
-              <span>ชกตามจังหวะเพลง เน้น rhythm + timing</span>
-            </div>
-          </div>
-          <div class="game-right">▶</div>
-        </a>
+    <!-- SHADOW BREAKER -->
+    <div class="card" data-game="shadow">
+      <h2>🥊 Shadow Breaker</h2>
+      <div class="summary-row">คะแนนล่าสุด: <span class="score">-</span></div>
+      <div class="summary-row">Accuracy: <span class="acc">-</span></div>
+      <div class="summary-row">เล่นล่าสุด: <span class="time">-</span></div>
+      <a href="./shadow-breaker/shadow-breaker.html" class="btn">เล่นเกม</a>
+    </div>
 
-        <a class="game-button" href="./jump-duck.html">
-          <div class="game-left">
-            <div class="game-emoji">🐪</div>
-            <div class="game-text">
-              <strong>Jump-Duck</strong>
-              <span>กระโดด / ก้มหลบสิ่งกีดขวาง ฝึก agility</span>
-            </div>
-          </div>
-          <div class="game-right">▶</div>
-        </a>
+    <!-- RHYTHM BOXER -->
+    <div class="card" data-game="rhythm">
+      <h2>🎵 Rhythm Boxer</h2>
+      <div class="summary-row">คะแนนล่าสุด: <span class="score">-</span></div>
+      <div class="summary-row">Accuracy: <span class="acc">-</span></div>
+      <div class="summary-row">เล่นล่าสุด: <span class="time">-</span></div>
+      <a href="./rhythm/rhythm-boxer.html" class="btn">เล่นเกม</a>
+    </div>
 
-        <a class="game-button" href="./balance-hold.html">
-          <div class="game-left">
-            <div class="game-emoji">⚖️</div>
-            <div class="game-text">
-              <strong>Balance Hold</strong>
-              <span>ทรงตัวค้างท่า ฝึกสมดุลและกล้ามเนื้อแกนกลาง</span>
-            </div>
-          </div>
-          <div class="game-right">▶</div>
-        </a>
-      </div>
-    </section>
+    <!-- JUMP DUCK -->
+    <div class="card" data-game="jump">
+      <h2>🦘 Jump Duck</h2>
+      <div class="summary-row">คะแนนล่าสุด: <span class="score">-</span></div>
+      <div class="summary-row">Accuracy: <span class="acc">-</span></div>
+      <div class="summary-row">เล่นล่าสุด: <span class="time">-</span></div>
+      <a href="./jumpduck/jump-duck.html" class="btn">เล่นเกม</a>
+    </div>
 
-    <!-- สรุปผลล่าสุด -->
-    <section class="section">
-      <div class="section-title">
-        <h2><span class="icon">📚</span>สรุปผลล่าสุดจากแต่ละเกม</h2>
-        <small>ดึงจากข้อมูลที่บันทึกไว้ในเครื่อง (localStorage)</small>
-      </div>
+    <!-- BALANCE HOLD -->
+    <div class="card" data-game="balance">
+      <h2>⚖️ Balance Hold</h2>
+      <div class="summary-row">คะแนนล่าสุด: <span class="score">-</span></div>
+      <div class="summary-row">Accuracy: <span class="acc">-</span></div>
+      <div class="summary-row">เล่นล่าสุด: <span class="time">-</span></div>
+      <a href="./balance/balance-hold.html" class="btn">เล่นเกม</a>
+    </div>
 
-      <div class="summary-grid">
-        <!-- Shadow Breaker -->
-        <article class="summary-card" id="card-sb">
-          <div class="summary-header">
-            <div class="summary-title">
-              <span class="emoji">🥊</span>
-              <span>Shadow Breaker</span>
-            </div>
-            <span class="badge badge-empty" data-role="badge">ยังไม่มีข้อมูล</span>
-          </div>
-          <div class="summary-meta" data-role="meta">
-            เล่นอย่างน้อย 1 รอบเพื่อดูสรุป
-          </div>
-          <div class="summary-body" data-role="body"></div>
-        </article>
-
-        <!-- Rhythm Boxer -->
-        <article class="summary-card" id="card-rb">
-          <div class="summary-header">
-            <div class="summary-title">
-              <span class="emoji">🐷</span>
-              <span>Rhythm Boxer</span>
-            </div>
-            <span class="badge badge-empty" data-role="badge">ยังไม่มีข้อมูล</span>
-          </div>
-          <div class="summary-meta" data-role="meta">
-            เล่นอย่างน้อย 1 รอบเพื่อดูสรุป
-          </div>
-          <div class="summary-body" data-role="body"></div>
-        </article>
-
-        <!-- Jump-Duck -->
-        <article class="summary-card" id="card-jd">
-          <div class="summary-header">
-            <div class="summary-title">
-              <span class="emoji">🐪</span>
-              <span>Jump-Duck</span>
-            </div>
-            <span class="badge badge-empty" data-role="badge">ยังไม่มีข้อมูล</span>
-          </div>
-          <div class="summary-meta" data-role="meta">
-            เล่นอย่างน้อย 1 รอบเพื่อดูสรุป
-          </div>
-          <div class="summary-body" data-role="body"></div>
-        </article>
-
-        <!-- Balance Hold -->
-        <article class="summary-card" id="card-bh">
-          <div class="summary-header">
-            <div class="summary-title">
-              <span class="emoji">⚖️</span>
-              <span>Balance Hold</span>
-            </div>
-            <span class="badge badge-empty" data-role="badge">ยังไม่มีข้อมูล</span>
-          </div>
-          <div class="summary-meta" data-role="meta">
-            เล่นอย่างน้อย 1 รอบเพื่อดูสรุป
-          </div>
-          <div class="summary-body" data-role="body"></div>
-        </article>
-      </div>
-    </section>
   </div>
+</div>
 
-  <script>
-  (function(){
-    // รูปแบบข้อมูลที่คาดหวังจากแต่ละเกมใน localStorage:
-    // {
-    //   mode: 'normal' | 'research',
-    //   diff: 'easy' | 'normal' | 'hard',
-    //   score: number,
-    //   maxCombo: number,
-    //   miss: number,
-    //   hits: number,
-    //   acc: number,          // accuracy (%)
-    //   rounds: number,       // จำนวนรอบที่เล่นสะสม หรือรอบล่าสุด (แล้วแต่เกมจะบันทึก)
-    //   updatedAt: ISO string หรือข้อความเวลาอ่านง่าย
-    // }
-    //
-    // key ที่ใช้แนะนำให้ไปเซฟในแต่ละเกม:
-    // Shadow Breaker : "vrfit_shadow_breaker"
-    // Rhythm Boxer   : "vrfit_rhythm_boxer"
-    // Jump-Duck      : "vrfit_jump_duck"
-    // Balance Hold   : "vrfit_balance_hold"
+<!-- ----- HUB SUMMARY SCRIPT (Production Ready) ----- -->
+<script>
+(function(){
 
-    const GAMES = [
-      { id:'card-sb', key:'vrfit_shadow_breaker' , label:'Shadow Breaker' },
-      { id:'card-rb', key:'vrfit_rhythm_boxer'   , label:'Rhythm Boxer'  },
-      { id:'card-jd', key:'vrfit_jump_duck'      , label:'Jump-Duck'     },
-      { id:'card-bh', key:'vrfit_balance_hold'   , label:'Balance Hold'  }
-    ];
+  function applySummary(gameKey, summary){
+    const root = document.querySelector(`[data-game="${gameKey}"]`);
+    if(!root || !summary) return;
 
-    function loadLatest(key){
-      try{
-        const raw = localStorage.getItem(key);
-        if(!raw) return null;
-        const obj = JSON.parse(raw);
-        if(!obj || typeof obj !== 'object') return null;
-        return obj;
-      }catch(e){
-        return null;
-      }
-    }
+    root.querySelector('.score').textContent = summary.score ?? '-';
+    root.querySelector('.acc').textContent =
+      summary.accuracy != null ? (summary.accuracy*100).toFixed(1)+'%' : '-';
+    root.querySelector('.time').textContent =
+      summary.timestamp ? summary.timestamp.replace('T',' ').substring(0,16) : '-';
+  }
 
-    function renderCard(cardId, data){
-      const card = document.getElementById(cardId);
-      if(!card) return;
+  function loadFromLocal(key, storageKey){
+    try{
+      const raw = localStorage.getItem(storageKey);
+      if(raw) applySummary(key, JSON.parse(raw));
+    }catch(e){}
+  }
 
-      const badge = card.querySelector('[data-role="badge"]');
-      const meta  = card.querySelector('[data-role="meta"]');
-      const body  = card.querySelector('[data-role="body"]');
+  // โหลดข้อมูลล่าสุด (Shadow / Rhythm / Jump / Balance)
+  loadFromLocal('shadow',  'vf-shadow-latest');
+  loadFromLocal('rhythm',  'vf-rhythm-latest');
+  loadFromLocal('jump',    'vf-jump-latest');
+  loadFromLocal('balance', 'vf-balance-latest');
 
-      if(!data){
-        badge.textContent = 'ยังไม่มีข้อมูล';
-        badge.classList.add('badge-empty');
-        meta.textContent  = 'เล่นอย่างน้อย 1 รอบเพื่อดูสรุป';
-        if(body) body.textContent = '';
-        return;
-      }
+  // การอัปเดตแบบส่ง event จากแต่ละเกม
+  window.addEventListener('vf-shadow-updated',  (e)=> applySummary('shadow',  e.detail));
+  window.addEventListener('vf-rhythm-updated',  (e)=> applySummary('rhythm',  e.detail));
+  window.addEventListener('vf-jump-updated',    (e)=> applySummary('jump',    e.detail));
+  window.addEventListener('vf-balance-updated', (e)=> applySummary('balance', e.detail));
 
-      // rounds
-      const rounds = data.rounds != null ? data.rounds : 1;
-      badge.textContent = rounds + ' รอบ';
-      badge.classList.remove('badge-empty');
+})();
+</script>
 
-      // mode + diff + time
-      const modeLabel = data.mode === 'research' ? 'วิจัย' : 'normal';
-      const diffLabel = data.diff || '-';
-
-      let timeLabel = '';
-      if(data.updatedAt){
-        timeLabel = data.updatedAt;
-      }else if(data.time){
-        timeLabel = data.time;
-      }
-
-      meta.textContent =
-        'โหมด: ' + modeLabel +
-        ' • diff: ' + diffLabel +
-        (timeLabel ? ' • เมื่อ: ' + timeLabel : '');
-
-      const score = data.score != null ? data.score : '-';
-      const maxCombo = data.maxCombo != null ? data.maxCombo : '-';
-      const miss = data.miss != null ? data.miss : '-';
-      const hits = data.hits != null ? data.hits : '-';
-      const acc  = data.acc != null ? (Number(data.acc).toFixed(1) + '%') : '-';
-
-      body.innerHTML =
-        '<span class="line"><span class="label">คะแนนล่าสุด: </span>' + score + '</span>' +
-        '<span class="line"><span class="label">คอมโบสูงสุด: </span>' + maxCombo + '</span>' +
-        '<span class="line"><span class="label">จำนวน miss: </span>' + miss + '</span>' +
-        '<span class="line"><span class="label">จำนวน hit: </span>' + hits + '</span>' +
-        '<span class="line"><span class="label">Accuracy: </span>' + acc + '</span>';
-    }
-
-    GAMES.forEach(g => {
-      const data = loadLatest(g.key);
-      renderCard(g.id, data);
-    });
-
-  })();
-  </script>
 </body>
 </html>
