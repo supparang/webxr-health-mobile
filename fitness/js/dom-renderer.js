@@ -1,4 +1,4 @@
-// === fitness/js/dom-renderer.js (2025-11-21 SAFE AREA + SHARDS) ===
+// === fitness/js/dom-renderer.js (2025-11-20 SCORE@TARGET) ===
 'use strict';
 
 export class DomRenderer {
@@ -18,46 +18,46 @@ export class DomRenderer {
   updateBounds() {
     if (!this.host) return;
     const rect = this.host.getBoundingClientRect();
-    this.bounds = { w: rect.width || 1, h: rect.height || 1 };
+    this.bounds = {
+      w: rect.width || 1,
+      h: rect.height || 1
+    };
   }
 
+  // สร้างเป้าใหม่แบบ emoji ตรงกลางจอ
   spawnTarget(t) {
     if (!this.host) return;
     this.updateBounds();
 
-    const el = document.createElement('div');
-    el.className = 'sb-target';
-    el.dataset.id = String(t.id);
-    el.dataset.type = t.decoy ? 'bad' : 'good';
+    const box = document.createElement('div');
+    box.className = 'sb-target';
+    box.dataset.id = String(t.id);
+    box.dataset.type = t.decoy ? 'bad' : 'good';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
-    inner.textContent = t.emoji || '🎯';
-    el.appendChild(inner);
+    inner.textContent = t.emoji || (t.decoy ? '💣' : '🥊');
+    box.appendChild(inner);
 
     const size = this.sizePx;
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
-    el.style.marginLeft = -(size / 2) + 'px';
-    el.style.marginTop = -(size / 2) + 'px';
+    box.style.width = size + 'px';
+    box.style.height = size + 'px';
 
-    // SAFE AREA: กันไม่ให้ทับ HUD ด้านบน / FEVER ด้านล่าง
-    const padTop = 140;   // เว้นจากขอบบนลงมา ~ HUD + margin
-    const padBottom = 120; // เว้นจากขอบล่างขึ้นไป ~ FEVER + controls
-    const padSide = 24;
+    // สุ่มตำแหน่งในกรอบ แต่กันขอบ 32px
+    const margin = 32;
+    const w = Math.max(10, this.bounds.w - margin * 2);
+    const h = Math.max(10, this.bounds.h - margin * 2);
+    const x = margin + Math.random() * w;
+    const y = margin + Math.random() * h;
 
-    const x = padSide + Math.random() * (this.bounds.w - padSide * 2);
-    const usableH = Math.max(40, this.bounds.h - padTop - padBottom);
-    const y = padTop + Math.random() * usableH;
+    box.style.left = x + 'px';
+    box.style.top  = y + 'px';
 
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
+    box.addEventListener('pointerdown', this.handleClick);
+    this.host.appendChild(box);
 
-    el.addEventListener('pointerdown', this.handleClick);
-    this.host.appendChild(el);
-
-    t.dom = el;
-    this.targets.set(t.id, el);
+    t.dom = box;
+    this.targets.set(t.id, box);
   }
 
   handleClick(ev) {
@@ -78,88 +78,66 @@ export class DomRenderer {
     const el = t && t.dom;
     if (el) {
       el.removeEventListener('pointerdown', this.handleClick);
-      if (el.parentNode === this.host) this.host.removeChild(el);
+      if (el.parentNode === this.host) el.parentNode.removeChild(el);
     }
     this.targets.delete(t.id);
   }
 
+  // เอฟเฟกต์ตอนตีโดน: เป้าแตก + คะแนนเด้งตรงตำแหน่งเป้า
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    // ให้ตัวเป้าเล่น animation hit/miss
-    if (t.dom) {
-      if (opts.miss) t.dom.classList.add('sb-miss');
-      else           t.dom.classList.add('sb-hit');
+    const el = t && t.dom;
+    if (el) {
+      el.classList.add('sb-target-hit');
       setTimeout(() => {
-        if (!t.dom) return;
-        t.dom.classList.remove('sb-hit');
-        t.dom.classList.remove('sb-miss');
-      }, 200);
+        el.classList.remove('sb-target-hit');
+      }, 260);
     }
 
-    // คำนวณจุดกึ่งกลางของเป้าใน host
     const hostRect = this.host.getBoundingClientRect();
-    let cx = hostRect.width / 2;
-    let cy = hostRect.height / 2;
+    let x = hostRect.width / 2;
+    let y = hostRect.height / 2;
 
-    if (t.dom) {
-      const r = t.dom.getBoundingClientRect();
-      cx = r.left - hostRect.left + r.width / 2;
-      cy = r.top - hostRect.top + r.height / 2;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      x = r.left - hostRect.left + r.width / 2;
+      y = r.top  - hostRect.top  + r.height / 2;
     }
 
-    // คะแนนลอยขึ้น "ตรงเป้า"
+    const score = typeof opts.score === 'number' ? opts.score : 0;
+
     const fx = document.createElement('div');
     fx.className = 'sb-fx-score';
 
-    const score = opts.score || 0;
-    let text = score === 0 ? '' : (score > 0 ? '+' + score : String(score));
-    if (opts.miss) text = 'MISS';
-    if (opts.decoy && score < 0) text = String(score);
-
+    // ตั้งสี/ข้อความตามเกรด
     if (opts.miss) {
       fx.classList.add('sb-miss');
-    } else if (score > 0 && opts.fever) {
-      fx.classList.add('sb-perfect');
-    } else if (score > 0) {
-      fx.classList.add('sb-good');
+      fx.textContent = 'MISS';
+    } else if (opts.decoy && score < 0) {
+      fx.classList.add('sb-miss');
+      fx.textContent = String(score);
+    } else {
+      if (opts.grade === 'perfect') fx.classList.add('sb-perfect');
+      else if (opts.grade === 'good') fx.classList.add('sb-good');
+      else fx.classList.add('sb-miss');
+
+      fx.textContent = score > 0 ? '+' + score : (score || '');
     }
 
-    fx.textContent = text;
-    fx.style.left = cx + 'px';
-    fx.style.top  = cy + 'px';
+    fx.style.left = x + 'px';
+    fx.style.top  = y + 'px';
 
     this.host.appendChild(fx);
     setTimeout(() => {
       if (fx.parentNode === this.host) this.host.removeChild(fx);
-    }, 700);
-
-    // แตกกระจายเป็นชิ้น ๆ รอบเป้า
-    const shardCount = 6;
-    for (let i = 0; i < shardCount; i++) {
-      const shard = document.createElement('div');
-      shard.className = 'sb-shard';
-      shard.textContent = t.decoy ? '✖' : '▾';
-
-      const angle = (Math.PI * 2 * i) / shardCount + Math.random() * 0.4;
-      const dist  = 20 + Math.random() * 16;
-
-      shard.style.left = cx + 'px';
-      shard.style.top  = cy + 'px';
-      shard.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
-      shard.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
-
-      this.host.appendChild(shard);
-      setTimeout(() => {
-        if (shard.parentNode === this.host) this.host.removeChild(shard);
-      }, 420);
-    }
+    }, 650);
   }
 
   clear() {
     for (const el of this.targets.values()) {
       el.removeEventListener('pointerdown', this.handleClick);
-      if (el.parentNode === this.host) this.host.removeChild(el);
+      if (el.parentNode === this.host) el.parentNode.removeChild(el);
     }
     this.targets.clear();
   }
