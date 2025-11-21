@@ -1,44 +1,41 @@
-// === js/engine.js — Shadow Breaker core (2025-11-22 DOM version) ===
+// === fitness/js/engine.js — Shadow Breaker core (2025-11-21 DOM + FEVER + CSV) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
 
-/* ------------------------------------------------------------------ */
-/*  CONFIG                                                            */
-/* ------------------------------------------------------------------ */
-
 const GAME_DURATION = 60; // วินาทีต่อรอบ
 
+// ปรับ decoy ให้ไม่โหดเกินไป
 const DIFF_CONFIG = {
   easy: {
     spawnInterval: 950,
-    targetLifetime: 1400,
-    decoyRate: 0.14,
+    targetLifetime: 1500,
+    decoyRate: 0.10,
     baseBossHp: 80,
     playerDamageOnMiss: 4,
     feverGain: { perfect: 8, good: 5, bad: 3 },
-    feverLossMiss: 10,
+    feverLossMiss: 8,
     sizePx: 120
   },
   normal: {
     spawnInterval: 800,
-    targetLifetime: 1200,
-    decoyRate: 0.22,
+    targetLifetime: 1300,
+    decoyRate: 0.18,
     baseBossHp: 110,
     playerDamageOnMiss: 6,
     feverGain: { perfect: 7, good: 4, bad: 2 },
-    feverLossMiss: 12,
-    sizePx: 100
+    feverLossMiss: 10,
+    sizePx: 104
   },
   hard: {
     spawnInterval: 650,
-    targetLifetime: 1050,
-    decoyRate: 0.28,
+    targetLifetime: 1100,
+    decoyRate: 0.26,
     baseBossHp: 140,
     playerDamageOnMiss: 8,
     feverGain: { perfect: 6, good: 3, bad: 2 },
-    feverLossMiss: 14,
-    sizePx: 86
+    feverLossMiss: 12,
+    sizePx: 92
   }
 };
 
@@ -48,28 +45,32 @@ const BOSSES = [
     name: 'Bubble Glove',
     emoji: '🐣',
     title: 'บอสมือใหม่สายฟอง',
-    desc: 'เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰'
+    desc: 'เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰',
+    theme: '#38bdf8'
   },
   {
     id: 2,
     name: 'Neon Knuckle',
     emoji: '🌀',
     title: 'หมัดนีออนสายสปีด',
-    desc: 'เป้าเร็วขึ้น มีเป้าลวงคอยกวนสมาธิ 💫'
+    desc: 'เป้าเร็วขึ้น มีเป้าลวงคอยกวนสมาธิ 💫',
+    theme: '#a855f7'
   },
   {
     id: 3,
     name: 'Shadow Guard',
     emoji: '🛡️',
     title: 'ผู้พิทักษ์เงา',
-    desc: 'ต้องตีต่อเนื่อง ไม่งั้น HP ไม่ลดเท่าที่ควร 🛡️'
+    desc: 'ต้องตีต่อเนื่อง ไม่งั้น HP ไม่ลดเท่าที่ควร 🛡️',
+    theme: '#f97316'
   },
   {
     id: 4,
     name: 'Final Burst',
     emoji: '💀',
     title: 'บอสสุดท้ายสายระเบิด',
-    desc: 'ช่วงท้ายจะ spawn เป้าเร็วมาก เน้นโหมด FEVER ⚡'
+    desc: 'ช่วงท้ายจะ spawn เป้าเร็วมาก เน้นโหมด FEVER ⚡',
+    theme: '#ef4444'
   }
 ];
 
@@ -98,32 +99,32 @@ class ShadowBreakerGame {
     this.viewForm   = $('#view-research-form');
     this.viewPlay   = $('#view-play');
     this.viewResult = $('#view-result');
-    this.wrap       = $('#sb-wrap');
 
-    // HUD (meta)
+    // HUD text
     this.statMode    = $('#stat-mode');
     this.statDiff    = $('#stat-diff');
     this.statScore   = $('#stat-score');
-    this.statHpText  = $('#stat-hp');
+    this.statHp      = $('#stat-hp');
     this.statCombo   = $('#stat-combo');
     this.statPerfect = $('#stat-perfect');
     this.statMiss    = $('#stat-miss');
     this.statTime    = $('#stat-time');
 
-    // HP bars
-    this.hpPlayerFill = $('#hp-player-fill');
-    this.bossFill     = $('#boss-fill');
-    this.bossName     = $('#boss-name');
+    // FEVER
+    this.feverFill   = $('#fever-fill');
+    this.feverStatus = $('#fever-status');
 
-    // boss portrait
+    // Player / boss HP bar
+    this.hpPlayerFill = $('#hp-player-fill');
+    this.hpBossVal    = $('#hp-boss-val');
+    this.bossFill     = $('#boss-fill');
+
+    // Boss portrait
+    this.bossName          = $('#boss-name');
     this.bossPortraitEmoji = $('#boss-portrait-emoji');
     this.bossPortraitName  = $('#boss-portrait-name');
     this.bossPortraitHint  = $('#boss-portrait-hint');
     this.bossPortraitBox   = $('#boss-portrait');
-
-    // FEVER
-    this.feverFill   = $('#fever-fill');
-    this.feverStatus = $('#fever-status');
 
     // Result
     this.resMode       = $('#res-mode');
@@ -145,22 +146,24 @@ class ShadowBreakerGame {
     this.bossIntroTitle  = $('#boss-intro-title');
     this.bossIntroDesc   = $('#boss-intro-desc');
 
-    // Target layer + renderer (lazy attach ok)
+    // Target layer + renderer
     this.targetLayer = $('#target-layer');
-    this.renderer = this.targetLayer ? new DomRenderer(this, this.targetLayer, { sizePx: 100 }) : null;
+    this.renderer = this.targetLayer
+      ? new DomRenderer(this, this.targetLayer, { sizePx: 104 })
+      : null;
 
     this.resetState();
     this.wireUI();
   }
 
   resetState() {
-    this.mode = 'normal';
-    this.diff = 'normal';
+    this.mode   = 'normal';
+    this.diff   = 'normal';
     this.config = DIFF_CONFIG.normal;
 
-    this.running = false;
-    this.ended   = false;
-    this.timeLeft = GAME_DURATION;
+    this.running   = false;
+    this.ended     = false;
+    this.timeLeft  = GAME_DURATION;
     this._loopHandle = null;
     this._spawnTimer = null;
     this._startTime  = 0;
@@ -174,11 +177,12 @@ class ShadowBreakerGame {
 
     this.totalTargets = 0;
     this.hitCount     = 0;
+    this.decoyHits    = 0; // แยกนับตีโดนระเบิด
 
     this.targets = new Map();
     this._nextTargetId = 1;
 
-    this.fever  = 0;
+    this.fever   = 0;
     this.feverOn = false;
     this._feverTimeout = null;
 
@@ -193,7 +197,6 @@ class ShadowBreakerGame {
 
   hpForBoss(idx){
     const base=this.config.baseBossHp;
-    // boss ถัดไป HP เพิ่มขึ้นเล็กน้อย
     return Math.round(base*(1+idx*0.18));
   }
 
@@ -222,7 +225,11 @@ class ShadowBreakerGame {
       const group = $('#research-group').value.trim();
       const note  = $('#research-note').value.trim();
       this.mode = 'research';
-      this.researchMeta = { participant:id||'-', group:group||'-', note:note||'-' };
+      this.researchMeta = {
+        participant: id || '-',
+        group:       group || '-',
+        note:        note || '-'
+      };
       this.startFromMenu();
     });
 
@@ -251,9 +258,12 @@ class ShadowBreakerGame {
       this.hideBossIntro();
     });
 
+    // กัน spacebar scroll เพี้ยน ระหว่างเล่น
     window.addEventListener('keydown', (ev) => {
       if (!this.running) return;
-      if (ev.key === ' ') ev.preventDefault();
+      if (ev.key === ' ') {
+        ev.preventDefault();
+      }
     });
   }
 
@@ -276,7 +286,6 @@ class ShadowBreakerGame {
       this.diff=(sel && sel.value) || 'normal';
     }
 
-    this.config = DIFF_CONFIG[this.diff] || DIFF_CONFIG.normal;
     this.resetState();
     this.config = DIFF_CONFIG[this.diff] || DIFF_CONFIG.normal;
 
@@ -284,7 +293,9 @@ class ShadowBreakerGame {
     this.bossHpMax   = this.hpForBoss(this.bossIndex);
     this.bossHp      = this.bossHpMax;
 
-    if (this.renderer) this.renderer.sizePx = this.config.sizePx;
+    if (this.renderer) {
+      this.renderer.sizePx = this.config.sizePx;
+    }
 
     this.statMode.textContent = this.mode === 'research' ? 'Research' : 'Normal';
     this.statDiff.textContent = this.diff;
@@ -295,8 +306,9 @@ class ShadowBreakerGame {
 
     this.showView('play');
 
+    // แสดง intro บอสก่อนเริ่ม
     this.showBossIntro(this.currentBoss, {
-      first:true,
+      first: true,
       onDone: () => this.beginGameLoop()
     });
   }
@@ -311,16 +323,7 @@ class ShadowBreakerGame {
     if (this.renderer) this.renderer.clear();
     this.targets.clear();
 
-    if (!this.renderer || !this.renderer.host) {
-      this.targetLayer = document.querySelector('#target-layer');
-      if (this.targetLayer) {
-        this.renderer = new DomRenderer(this, this.targetLayer, {
-          sizePx: this.config.sizePx || 100
-        });
-      }
-    }
-
-    if (this._spawnTimer) clearInterval(this._spawnTimer);
+    this._spawnTimer && clearInterval(this._spawnTimer);
     this._spawnTimer = setInterval(()=>this.spawnTarget(), this.config.spawnInterval);
 
     const loop = (t)=>{
@@ -342,13 +345,11 @@ class ShadowBreakerGame {
     this.running=false;
     this.ended=true;
 
-    if (this.wrap) this.wrap.classList.add('sb-finished');
-
-    if (this._spawnTimer) clearInterval(this._spawnTimer);
+    this._spawnTimer && clearInterval(this._spawnTimer);
     this._spawnTimer=null;
-    if (this._loopHandle) cancelAnimationFrame(this._loopHandle);
+    this._loopHandle && cancelAnimationFrame(this._loopHandle);
     this._loopHandle=null;
-    if (this._feverTimeout) clearTimeout(this._feverTimeout);
+    this._feverTimeout && clearTimeout(this._feverTimeout);
     this._feverTimeout=null;
 
     if (this.renderer) this.renderer.clear();
@@ -377,28 +378,29 @@ class ShadowBreakerGame {
   updateBossHUD(){
     const boss=this.currentBoss;
     if(!boss) return;
+
+    $('#sb-wrap')?.setAttribute('data-boss', String(this.bossIndex));
+
+    this.bossName.textContent = `Boss ${boss.id}/4 — ${boss.name}`;
+    this.bossPortraitEmoji.textContent = boss.emoji;
+    this.bossPortraitName.textContent  = boss.name;
+    this.bossPortraitHint.textContent  =
+      `HP เหลือประมาณ ${Math.round((this.bossHp/this.bossHpMax)*100)}%`;
+
     const ratio=clamp(this.bossHp/this.bossHpMax,0,1);
+    this.bossFill.style.transform = `scaleX(${ratio})`;
+    this.hpBossVal.textContent = Math.round(ratio*100)+'%';
 
-    if (this.bossName) this.bossName.textContent = `Boss ${boss.id}/4 — ${boss.name}`;
-    if (this.bossFill) this.bossFill.style.transform = `scaleX(${ratio})`;
-    if (this.hpPlayerFill) this.hpPlayerFill.style.transform =
-      `scaleX(${clamp(this.playerHp/100,0,1)})`;
-
-    if (this.bossPortraitEmoji) this.bossPortraitEmoji.textContent = boss.emoji;
-    if (this.bossPortraitName)  this.bossPortraitName.textContent  = boss.name;
-    if (this.bossPortraitHint)  this.bossPortraitHint.textContent  =
-      `HP เหลือประมาณ ${Math.round(ratio*100)}%`;
-
-    if (this.wrap) this.wrap.dataset.boss = String(this.bossIndex);
-
-    if (this.bossPortraitBox) {
-      if (ratio <= 0.25) this.bossPortraitBox.classList.add('sb-shake');
-      else this.bossPortraitBox.classList.remove('sb-shake');
+    // เขย่าหน้าบอสถ้า HP ต่ำ
+    if (ratio <= 0.25) {
+      this.bossPortraitBox.classList.add('sb-shake');
+    } else {
+      this.bossPortraitBox.classList.remove('sb-shake');
     }
   }
 
   showBossIntro(boss,opts={}){
-    if(!boss || !this.bossIntro) return;
+    if(!boss) return;
     this.bossIntroEmoji.textContent = boss.emoji;
     this.bossIntroName.textContent  = boss.name;
     this.bossIntroTitle.textContent = boss.title;
@@ -437,18 +439,13 @@ class ShadowBreakerGame {
 
   updateFeverHUD(){
     const ratio=clamp(this.fever/100,0,1);
-    if (this.feverFill) {
-      this.feverFill.style.transform=`scaleX(${ratio})`;
-      this.feverFill.style.filter = this.feverOn ? 'brightness(1.2)' : 'none';
-    }
-    if (this.feverStatus){
-      if(this.feverOn){
-        this.feverStatus.textContent='FEVER!!';
-        this.feverStatus.classList.add('on');
-      }else{
-        this.feverStatus.classList.remove('on');
-        this.feverStatus.textContent = (ratio>=1)?'READY':'FEVER';
-      }
+    this.feverFill.style.transform=`scaleX(${ratio})`;
+    if(this.feverOn){
+      this.feverStatus.textContent='FEVER!!';
+      this.feverStatus.classList.add('on');
+    }else{
+      this.feverStatus.classList.remove('on');
+      this.feverStatus.textContent = (ratio>=1)?'READY':'FEVER';
     }
   }
 
@@ -471,7 +468,7 @@ class ShadowBreakerGame {
     this.feverOn=true;
     safePlay('sfx-fever');
     this.updateFeverHUD();
-    if (this._feverTimeout) clearTimeout(this._feverTimeout);
+    this._feverTimeout && clearTimeout(this._feverTimeout);
     this._feverTimeout = setTimeout(()=>{
       this.feverOn=false;
       this.fever=40;
@@ -484,11 +481,12 @@ class ShadowBreakerGame {
   spawnTarget(){
     if(!this.running) return;
 
+    // lazy attach renderer ถ้าหลุด host
     if(!this.renderer || !this.renderer.host){
       this.targetLayer = document.querySelector('#target-layer');
       if(this.targetLayer){
         this.renderer = new DomRenderer(this, this.targetLayer, {
-          sizePx: this.config.sizePx || 100
+          sizePx: this.config.sizePx || 104
         });
       }else{
         return;
@@ -499,13 +497,9 @@ class ShadowBreakerGame {
     const decoy = Math.random()<this.config.decoyRate;
     const now = performance.now();
 
-    const bossEmoji = this.currentBoss ? this.currentBoss.emoji : '🥊';
-    const normalEmoji = '🥊';
-    const emoji = decoy ? '💣' : (Math.random() < 0.25 ? bossEmoji : normalEmoji);
-
     const t = {
       id,
-      emoji,
+      emoji: decoy ? '💣' : '🥊',
       decoy,
       createdAt: now,
       lifetime: this.config.targetLifetime,
@@ -518,12 +512,12 @@ class ShadowBreakerGame {
 
     this.renderer.spawnTarget(t);
 
-    // timeout → miss
+    // auto-miss ถ้าไม่ตีทัน
     setTimeout(()=>{
       const cur=this.targets.get(id);
       if(!cur || cur.hit) return;
       this.handleMiss(cur);
-    }, this.config.targetLifetime+80);
+    }, this.config.targetLifetime+60);
   }
 
   registerTouch(x,y,targetId){
@@ -546,6 +540,8 @@ class ShadowBreakerGame {
 
   handleHit(t,grade,ageMs){
     t.hit=true;
+    this.targets.delete(t.id);
+    if(this.renderer) this.renderer.removeTarget(t);
 
     let baseScore=0;
     if(grade==='perfect') baseScore=120;
@@ -567,7 +563,7 @@ class ShadowBreakerGame {
     this.addFever(grade==='perfect'?'perfect':'good');
 
     this.bossHp = clamp(this.bossHp-dmg,0,this.bossHpMax);
-    this.targets.delete(t.id);
+    this.updateBossHUD();
 
     if(this.renderer){
       this.renderer.spawnHitEffect(t,{
@@ -587,21 +583,21 @@ class ShadowBreakerGame {
     });
 
     if(this.bossHp<=0){
-      // เร่ง spawn ช่วงใกล้ตายของ boss ถัดไปเล็กน้อยใน advanceBoss()
       this.advanceBoss();
     }
     this.updateHUD();
-    this.updateBossHUD();
   }
 
+  // ✅ decoy ไม่ให้นับ Miss แต่มี stat decoyHits แยกต่างหาก
   handleDecoyHit(t){
     t.hit=true;
+    this.targets.delete(t.id);
+    if(this.renderer) this.renderer.removeTarget(t);
 
     this.score=Math.max(0,this.score-60);
     this.combo=0;
     this.playerHp=clamp(this.playerHp-10,0,100);
-    this.miss++;
-    this.targets.delete(t.id);
+    this.decoyHits++;
     this.loseFeverOnMiss();
 
     if(this.renderer){
@@ -617,7 +613,7 @@ class ShadowBreakerGame {
       ts:(performance.now()-this._startTime)/1000,
       id:t.id,
       decoy:true,
-      grade:'bad'
+      grade:'decoy'
     });
 
     if(this.playerHp<=0){
@@ -626,20 +622,24 @@ class ShadowBreakerGame {
       return;
     }
     this.updateHUD();
-    this.updateBossHUD();
   }
 
   handleMiss(t){
     if(!this.targets.has(t.id) || t.hit) return;
     this.targets.delete(t.id);
+    if(this.renderer) this.renderer.removeTarget(t);
 
-    this.miss++;
+    // นับ miss เฉพาะเป้าดีเท่านั้น
+    if (!t.decoy) {
+      this.miss++;
+    }
+
     this.combo=0;
     this.playerHp=clamp(this.playerHp-this.config.playerDamageOnMiss,0,100);
     this.loseFeverOnMiss();
 
     if(this.renderer){
-      this.renderer.spawnHitEffect(t,{ miss:true, score:0 });
+      this.renderer.spawnHitEffect(t,{ miss:true, score:0, decoy:t.decoy });
     }
     safePlay('sfx-hit');
 
@@ -656,19 +656,19 @@ class ShadowBreakerGame {
       return;
     }
     this.updateHUD();
-    this.updateBossHUD();
   }
 
   /* ------------------ HUD ------------------ */
 
   updateHUD(){
-    if (this.statScore)   this.statScore.textContent   = String(this.score);
-    if (this.statHpText)  this.statHpText.textContent  = String(this.playerHp);
-    if (this.statCombo)   this.statCombo.textContent   = String(this.combo);
-    if (this.statPerfect) this.statPerfect.textContent = String(this.perfect);
-    if (this.statMiss)    this.statMiss.textContent    = String(this.miss);
-    if (this.hpPlayerFill) this.hpPlayerFill.style.transform =
-      `scaleX(${clamp(this.playerHp/100,0,1)})`;
+    this.statScore.textContent   = String(this.score);
+    this.statHp.textContent      = String(this.playerHp);
+    this.statCombo.textContent   = String(this.combo);
+    this.statPerfect.textContent = String(this.perfect);
+    this.statMiss.textContent    = String(this.miss);
+
+    const hpRatio = clamp(this.playerHp/100,0,1);
+    this.hpPlayerFill.style.transform = `scaleX(${hpRatio})`;
   }
 
   /* ------------------ CSV (วิจัย) ------------------ */
