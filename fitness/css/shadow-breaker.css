@@ -1,5 +1,290 @@
+/* === shadow-breaker.css — LATEST (2025-11-21) ====================== */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #020617;
+  color: #e5e7eb;
+}
+
+.sb-wrap {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: radial-gradient(circle at top, #1d283a, #020617 60%);
+}
+
+/* เปลี่ยนพื้นหลังตามบอส (ใช้ data-boss บน #sb-wrap) */
+.sb-wrap[data-boss="0"] {
+  background-image:
+    radial-gradient(circle at top left, rgba(59,130,246,0.4), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(15,23,42,1), #020617 70%);
+}
+.sb-wrap[data-boss="1"] {
+  background-image:
+    radial-gradient(circle at top right, rgba(16,185,129,0.4), transparent 60%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,1), #020617 70%);
+}
+.sb-wrap[data-boss="2"] {
+  background-image:
+    radial-gradient(circle at top, rgba(249,115,22,0.5), transparent 65%),
+    radial-gradient(circle at bottom, #0f172a, #020617 80%);
+}
+.sb-wrap[data-boss="3"] {
+  background-image:
+    radial-gradient(circle at center, rgba(192,38,211,0.5), transparent 70%),
+    radial-gradient(circle at bottom, #020617, #020617 80%);
+}
+
+/* ================= HUD: HP / TIME / SCORE ========================= */
+
+.sb-hud {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, 94vw);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  z-index: 20;
+  font-size: 14px;
+}
+
+.sb-hp {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sb-hp-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sb-hp-name {
+  font-weight: 600;
+}
+
+.sb-hp-val {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.sb-hp-bar {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.85);
+  overflow: hidden;
+  outline: 1px solid rgba(148,163,184,0.4);
+}
+
+.sb-hp-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(1);
+  transition: transform 0.18s ease-out, background-color 0.18s ease-out;
+}
+
+.sb-hp-player .sb-hp-fill {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.sb-hp-boss .sb-hp-fill {
+  background: linear-gradient(90deg, #f97316, #ef4444);
+}
+
+/* ================= Boss portrait + text ============================ */
+
+.sb-boss-portrait {
+  position: absolute;
+  top: 58px;
+  right: 12px;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: rgba(15,23,42,0.9);
+  border: 1px solid rgba(248,250,252,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  z-index: 19;
+}
+
+.sb-boss-portrait.sb-shake {
+  animation: sbShake 0.45s linear infinite;
+}
+
+.boss-portrait-text {
+  position: absolute;
+  top: 60px;
+  right: 88px;
+  max-width: 180px;
+  font-size: 11px;
+  z-index: 18;
+  text-align: right;
+  text-shadow: 0 1px 2px rgba(15,23,42,0.8);
+}
+
+#boss-portrait-name {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+#boss-portrait-hint {
+  opacity: 0.85;
+}
+
+@keyframes sbShake {
+  0%, 100% { transform: translate(0,0); }
+  20% { transform: translate(-2px,0); }
+  40% { transform: translate(2px,0); }
+  60% { transform: translate(0,-2px); }
+  80% { transform: translate(0,2px); }
+}
+
+/* ================= FEVER BAR ====================================== */
+
+.fever-wrap {
+  position: absolute;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  width: min(520px, 92vw);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 18;
+  font-size: 12px;
+}
+
+.fever-label {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
+}
+
+.fever-bar {
+  flex: 1;
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.9);
+  overflow: hidden;
+  border: 1px solid rgba(148,163,184,0.6);
+}
+
+.fever-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, #a855f7, #22c55e);
+  transition: transform 0.2s ease-out;
+}
+
+.fever-status {
+  min-width: 60px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.7);
+  background: rgba(15,23,42,0.9);
+}
+
+.fever-status.on {
+  border-color: #facc15;
+  background: rgba(250,204,21,0.08);
+  color: #facc15;
+}
+
+/* ================= Playfield ====================================== */
+
+.sb-field {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 5;
+}
+
+/* ================= Target (emoji circle) ========================== */
+
+.sb-target {
+  position: absolute;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  box-shadow: 0 8px 22px rgba(15,23,42,0.8);
+  transform: translate(-50%, -50%) scale(0.6);
+  animation: sbTargetIn 0.16s ease-out forwards;
+}
+
+.sb-target-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+}
+
+.sb-target[data-type="good"] .sb-target-inner {
+  background: radial-gradient(circle at 30% 20%, #fefce8, #bef264);
+  border: 3px solid rgba(22,163,74,0.9);
+}
+
+.sb-target[data-type="bad"] .sb-target-inner {
+  background: radial-gradient(circle at 30% 20%, #fee2e2, #fecaca);
+  border: 3px solid rgba(220,38,38,0.9);
+}
+
+.sb-target.sb-hit {
+  animation: sbTargetHit 0.22s ease-out forwards;
+}
+
+.sb-target.sb-miss {
+  animation: sbTargetMiss 0.18s ease-in forwards;
+}
+
+@keyframes sbTargetIn {
+  from { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+  to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+}
+
+@keyframes sbTargetHit {
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+  60%  { transform: translate(-50%, -50%) scale(1.25);opacity: 1; filter: brightness(1.1); }
+  100% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+}
+
+@keyframes sbTargetMiss {
+  from { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+  to   { transform: translate(-50%, -50%) scale(0.7); opacity: 0; filter: grayscale(0.7); }
+}
+
+/* ================= Score popup (ตรงเป้า) ========================= */
+
 .sb-fx-score {
-  position: absolute;          /* เด้งอยู่ในสนาม ไม่ใช่ทั้งหน้าจอ */
+  position: absolute;
   pointer-events: none;
   font-weight: 700;
   font-size: 18px;
@@ -17,4 +302,161 @@
 }
 .sb-fx-score.sb-miss {
   color: #fecaca;
+}
+
+@keyframes sbScoreFloat {
+  from { transform: translate(-50%, -50%);  opacity: 1; }
+  to   { transform: translate(-50%, -90%);  opacity: 0; }
+}
+
+/* ================= Timer / score box (บนซ้าย) ==================== */
+
+.sb-meta {
+  position: absolute;
+  left: 12px;
+  top: 70px; /* เลื่อนลง ไม่ชน HP bar */
+  z-index: 18;
+  font-size: 13px;
+  background: rgba(15,23,42,0.9);
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,0.5);
+}
+
+.sb-meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* กล่องล่างซ้ายสำหรับ Combo / Perfect / Miss */
+
+.sb-meta-bottom {
+  bottom: 18px;
+  top: auto;
+}
+
+/* ================= ปุ่มควบคุมล่างขวา ============================ */
+
+.sb-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 18px;
+  display: flex;
+  gap: 8px;
+  z-index: 18;
+}
+
+.sb-controls button {
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.7);
+  background: rgba(15,23,42,0.9);
+  color: #e5e7eb;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* ================= Game finished state ============================ */
+
+.sb-wrap.sb-finished .sb-field {
+  filter: grayscale(0.4) brightness(0.7);
+  pointer-events: none;
+}
+
+/* ================= Boss Intro Overlay ============================ */
+
+.boss-intro {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(15,23,42,0.9), rgba(2,6,23,0.96));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.boss-intro.hidden {
+  display: none;
+}
+
+.boss-intro-card {
+  width: min(420px, 92vw);
+  padding: 22px 20px 18px;
+  border-radius: 18px;
+  background: rgba(15,23,42,0.98);
+  border: 1px solid rgba(148,163,184,0.7);
+  box-shadow: 0 22px 55px rgba(0,0,0,0.75);
+  text-align: center;
+}
+
+.boss-intro-emoji {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.boss-intro-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.boss-intro-title {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-top: 4px;
+}
+
+.boss-intro-desc {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-top: 8px;
+}
+
+.boss-intro-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  opacity: 0.85;
+  color: #a5b4fc;
+}
+
+/* ================= Emoji Particle (จาก particle.js) ============== */
+
+.hitParticle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  pointer-events: none;
+  z-index: 999;
+  animation: hitParticlePop 0.48s ease-out forwards;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+
+@keyframes hitParticlePop {
+  0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  30%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%, -70%) scale(0.3); opacity: 0; }
+}
+
+/* ================= Shards แตกกระจายรอบเป้า ====================== */
+
+.sb-shard {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  color: rgba(248,250,252,0.85);
+  pointer-events: none;
+  z-index: 40;
+  animation: sbShardBurst 0.42s ease-out forwards;
+}
+
+@keyframes sbShardBurst {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
+      scale(0.3);
+  }
 }
