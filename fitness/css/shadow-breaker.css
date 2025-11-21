@@ -1,4 +1,4 @@
-/* === shadow-breaker.css — Shadow Breaker UI + Targets (2025-11-21c) === */
+/* === shadow-breaker.css — Shadow Breaker UI + Targets (2025-11-22) === */
 
 /* ให้พื้นหลังรวมของหน้า Shadow Breaker เข้ม แบบเดียวกับ Rhythm */
 html, body {
@@ -10,7 +10,7 @@ html, body {
   color: #e5e7eb;
 }
 
-/* ปรับ wrap ของ Shadow Breaker ให้กินเกือบเต็มจอ */
+/* layout รวม ใช้ร่วมกับ rhythm-boxer.css */
 .wrap {
   max-width: 1000px;
   margin: 16px auto 24px;
@@ -349,10 +349,7 @@ html, body {
   color: #facc15;
 }
 
-.sb-fx-score.sb-miss {
-  color: #fecaca;
-}
-
+.sb-fx-score.sb-miss,
 .sb-fx-score.sb-decoy {
   color: #fecaca;
 }
