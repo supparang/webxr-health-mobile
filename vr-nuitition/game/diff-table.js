@@ -1,10 +1,11 @@
-// === Hero Health — HHA_DIFF_TABLE (Research Tuning v1) ===
+// === Hero Health — HHA_DIFF_TABLE (Research Tuning v1 — ES Module) ===
 
-const HHA_DIFF_TABLE = {
+// ตาราง config ตามโหมด + ระดับความยาก
+export const HHA_DIFF_TABLE = {
   goodjunk: {
     easy: {
       engine: {
-        SPAWN_INTERVAL: 1000,   // ช้าพอให้เล็ง
+        SPAWN_INTERVAL: 1000,
         ITEM_LIFETIME: 2300,
         MAX_ACTIVE: 3,
         MISSION_GOOD_TARGET: 15,
@@ -23,9 +24,9 @@ const HHA_DIFF_TABLE = {
         }
       },
       benchmark: {
-        targetAccuracyPct: 85,      // เด็กส่วนใหญ่ควรถูก ≥85%
+        targetAccuracyPct: 85,
         targetMissionSuccessPct: 90,
-        expectedAvgRTms: 900,       // reaction time เฉลี่ยราว 0.9s
+        expectedAvgRTms: 900,
         note: 'โหมดฝึกพื้นฐาน แยกของดี/ขยะให้ชัด เหมาะใช้สอนครั้งแรก ๆ'
       }
     },
@@ -96,8 +97,8 @@ const HHA_DIFF_TABLE = {
         FEVER_DURATION: 5,
         DIAMOND_TIME_BONUS: 3,
         TYPE_WEIGHTS: {
-          good:   68,   // อาหารหมู่เป้าหมายเยอะ
-          junk:   14,   // หมู่อื่น+ขยะน้อย
+          good:   68,
+          junk:   14,
           star:    6,
           gold:    5,
           diamond: 2,
@@ -180,8 +181,8 @@ const HHA_DIFF_TABLE = {
         FEVER_DURATION: 5,
         DIAMOND_TIME_BONUS: 3,
         TYPE_WEIGHTS: {
-          good:   68,   // น้ำดีเยอะ
-          junk:   14,   // น้ำหวานน้อย
+          good:   68,
+          junk:   14,
           star:    6,
           gold:    4,
           diamond: 3,
@@ -337,3 +338,33 @@ const HHA_DIFF_TABLE = {
     }
   }
 };
+
+// helper สำหรับโหมดต่าง ๆ
+export function getEngineConfig(mode, diff) {
+  const m = String(mode || '').toLowerCase();
+  const d = String(diff || '').toLowerCase();
+
+  const byMode = HHA_DIFF_TABLE[m];
+  if (!byMode) return null;
+  const byDiff = byMode[d] || byMode.normal || Object.values(byMode)[0];
+  return byDiff ? byDiff.engine : null;
+}
+
+export function getBenchmark(mode, diff) {
+  const m = String(mode || '').toLowerCase();
+  const d = String(diff || '').toLowerCase();
+
+  const byMode = HHA_DIFF_TABLE[m];
+  if (!byMode) return null;
+  const byDiff = byMode[d] || byMode.normal || Object.values(byMode)[0];
+  return byDiff ? byDiff.benchmark : null;
+}
+
+// ผูกเป็น global สำหรับโค้ดเดิมที่ยังอ้าง window.HHA_DIFF_TABLE
+if (typeof window !== 'undefined') {
+  window.HHA_DIFF_TABLE = HHA_DIFF_TABLE;
+  window.HHA_getEngineConfig = getEngineConfig;
+  window.HHA_getBenchmark = getBenchmark;
+}
+
+export default HHA_DIFF_TABLE;
