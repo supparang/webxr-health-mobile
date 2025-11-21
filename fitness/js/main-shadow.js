@@ -1,9 +1,7 @@
-// === js/main-shadow.js — Shadow Breaker entry (2025-11-22) ===
-'use strict';
-
+// === js/main-shadow.js ===
 import { initShadowBreaker } from './engine.js';
 
-// รอ DOM พร้อมแล้วค่อยสร้างเกม
 window.addEventListener('DOMContentLoaded', () => {
+  console.log('[ShadowBreaker] boot'); // debug ดูใน console
   initShadowBreaker();
 });
