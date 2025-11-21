@@ -1,4 +1,4 @@
-// === fitness/js/dom-renderer.js (2025-11-20 — SIMPLE DOM RENDERER) ===
+// === fitness/js/dom-renderer.js (ปรับให้เข้ากับ shadow-breaker.css) ===
 'use strict';
 
 export class DomRenderer {
@@ -28,7 +28,15 @@ export class DomRenderer {
     const el = document.createElement('div');
     el.className = 'sb-target';
     el.dataset.id = String(t.id);
-    el.textContent = t.emoji || '🎯';
+
+    // ใช้ข้อมูลจาก engine: decoy = เป้าลวง (bad), ปกติ = good
+    el.dataset.type = t.decoy ? 'bad' : 'good';
+
+    // inner ตรงกับ .sb-target-inner ใน CSS
+    const inner = document.createElement('div');
+    inner.className = 'sb-target-inner';
+    inner.textContent = t.emoji || '🎯';
+    el.appendChild(inner);
 
     const size = this.sizePx;
     el.style.width = size + 'px';
@@ -76,22 +84,37 @@ export class DomRenderer {
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    // ทำให้เป้าเด้ง/จางเล็กน้อย
+    // ทำให้เป้าเด้ง/จางเล็กน้อย (ใช้คลาสจาก CSS เดิม)
     if (t.dom) {
-      t.dom.classList.add('sb-target-hit');
+      if (opts.miss) {
+        t.dom.classList.add('sb-miss');
+      } else {
+        t.dom.classList.add('sb-hit');
+      }
       setTimeout(() => {
-        if (t.dom) t.dom.classList.remove('sb-target-hit');
-      }, 180);
+        if (!t.dom) return;
+        t.dom.classList.remove('sb-hit');
+        t.dom.classList.remove('sb-miss');
+      }, 200);
     }
 
-    // คะแนนลอยขึ้น
+    // คะแนนลอยขึ้น — ใช้ .sb-fx-score + modifier
     const fx = document.createElement('div');
-    fx.className = 'sb-hit';
+    fx.className = 'sb-fx-score';
 
     const score = opts.score || 0;
     let text = score === 0 ? '' : (score > 0 ? '+' + score : String(score));
     if (opts.miss) text = 'MISS';
     if (opts.decoy && score < 0) text = String(score);
+
+    // เลือกสีตามประเภท
+    if (opts.miss) {
+      fx.classList.add('sb-miss');
+    } else if (score > 0 && opts.fever) {
+      fx.classList.add('sb-perfect');
+    } else if (score > 0) {
+      fx.classList.add('sb-good');
+    }
 
     fx.textContent = text;
 
