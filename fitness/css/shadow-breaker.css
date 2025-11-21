@@ -1,6 +1,6 @@
 /* === shadow-breaker.css — Shadow Breaker UI + Targets (2025-11-22) === */
 
-/* ให้พื้นหลังรวมของหน้า Shadow Breaker เข้ม แบบเดียวกับ Rhythm */
+/* ให้หน้า Shadow Breaker ใช้เต็มจอมากขึ้น (ไม่บีบเหมือน Rhythm) */
 html, body {
   margin: 0;
   padding: 0;
@@ -10,14 +10,14 @@ html, body {
   color: #e5e7eb;
 }
 
-/* layout รวม ใช้ร่วมกับ rhythm-boxer.css */
-.wrap {
-  max-width: 1000px;
-  margin: 16px auto 24px;
-  padding: 0 12px 24px;
+/* override wrap ของ Rhythm เฉพาะหน้านี้ */
+main.wrap {
+  max-width: 1100px;
+  margin: 12px auto 20px;
+  padding: 0 10px 24px;
 }
 
-/* เฉพาะ view-play: ตัด padding การ์ดเดิมออก แล้วใช้ sb-wrap เป็นการ์ดหลัก */
+/* view-play ไม่ต้องเป็น card กล่องเล็ก ๆ */
 #view-play.card {
   padding: 0;
   background: transparent;
@@ -25,14 +25,15 @@ html, body {
   box-shadow: none;
 }
 
-/* กรอบเกมหลัก */
+/* -------- กรอบเกมหลัก -------- */
+
 .sb-wrap {
   position: relative;
   width: 100%;
-  min-height: calc(100vh - 140px);
+  min-height: calc(100vh - 150px);
   border-radius: 26px;
-  padding: 16px 16px 60px;
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.85);
+  padding: 16px 16px 70px;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.88);
   background:
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 55%),
     radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.22), transparent 55%),
@@ -62,7 +63,7 @@ html, body {
     radial-gradient(circle at bottom, #020617, #020617 80%);
 }
 
-/* ------------- HUD HP Bar ------------- */
+/* -------- HUD HP ด้านบน -------- */
 
 .sb-hud {
   position: absolute;
@@ -125,7 +126,7 @@ html, body {
   background: linear-gradient(90deg, #f97316, #ef4444);
 }
 
-/* ------------- Boss portrait ------------- */
+/* -------- Boss portrait + ชื่อ -------- */
 
 .sb-boss-portrait {
   position: absolute;
@@ -151,7 +152,7 @@ html, body {
   position: absolute;
   top: 70px;
   right: 100px;
-  max-width: 180px;
+  max-width: 200px;
   text-align: right;
   font-size: 13px;
   z-index: 18;
@@ -166,22 +167,22 @@ html, body {
   opacity: 0.9;
 }
 
-/* ------------- FEVER Bar ------------- */
+/* -------- FEVER bar -------- */
 
 .fever-wrap {
   position: absolute;
   left: 16px;
   right: 16px;
-  top: 86px;
+  top: 90px;
   display: flex;
   align-items: center;
   gap: 12px;
   z-index: 18;
+  font-size: 13px;
 }
 
 .fever-label {
   font-weight: 600;
-  font-size: 14px;
 }
 
 .fever-bar {
@@ -219,12 +220,12 @@ html, body {
   color: #facc15;
 }
 
-/* ------------- Meta box (ซ้ายบน) ------------- */
+/* -------- กล่องสเตตซ้ายบน -------- */
 
 .sb-meta {
   position: absolute;
   left: 16px;
-  top: 128px;
+  top: 132px;
   z-index: 18;
   font-size: 13px;
   background: rgba(15,23,42,0.92);
@@ -240,7 +241,7 @@ html, body {
   gap: 10px;
 }
 
-/* ------------- พื้นที่เล่น (เป้า) ------------- */
+/* -------- พื้นที่เล่น (เป้า) -------- */
 
 .sb-field {
   position: absolute;
@@ -252,7 +253,7 @@ html, body {
   overflow: hidden;
 }
 
-/* ------------- ปุ่มล่าง ------------- */
+/* -------- ปุ่มล่าง -------- */
 
 .sb-controls {
   position: absolute;
@@ -281,7 +282,7 @@ html, body {
   color: #0b1120;
 }
 
-/* ------------- Targets ------------- */
+/* -------- Targets (เป้าตี) -------- */
 
 .sb-target {
   position: absolute;
@@ -308,6 +309,7 @@ html, body {
   font-size: 2.4rem;
 }
 
+/* good / bad ใช้ data-type */
 .sb-target[data-type="good"] .sb-target-inner {
   background: radial-gradient(circle at 30% 20%, #fefce8, #bef264);
   border: 4px solid rgba(22,163,74,0.95);
@@ -328,7 +330,7 @@ html, body {
   animation: sbTargetMiss 0.18s ease-in forwards;
 }
 
-/* ------------- Score popup ------------- */
+/* -------- Score popup -------- */
 
 .sb-fx-score {
   position: absolute;
@@ -349,12 +351,16 @@ html, body {
   color: #facc15;
 }
 
-.sb-fx-score.sb-miss,
+.sb-fx-score.sb-miss {
+  color: #fecaca;
+}
+
+/* ใช้สีเดียวกับ miss เวลาเป็น decoy (-score) */
 .sb-fx-score.sb-decoy {
   color: #fecaca;
 }
 
-/* ------------- Particle emoji ------------- */
+/* -------- Particle emoji 💥 -------- */
 
 .hitParticle {
   position: absolute;
@@ -365,7 +371,7 @@ html, body {
   animation: hitParticle 0.45s ease-out forwards;
 }
 
-/* ------------- Boss intro overlay ------------- */
+/* -------- Boss intro overlay -------- */
 
 .boss-intro {
   position: fixed;
@@ -420,7 +426,7 @@ html, body {
   opacity: 0.8;
 }
 
-/* ------------- Animations ------------- */
+/* -------- Animations -------- */
 
 @keyframes sbTargetIn {
   from { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
@@ -456,20 +462,21 @@ html, body {
   80% { transform: translate(0,2px); }
 }
 
-/* ------------- Responsive fine-tune ------------- */
+/* -------- Responsive -------- */
 
 @media (min-width: 768px) {
+  main.wrap {
+    max-width: 1120px;
+  }
   .sb-wrap {
-    padding: 18px 20px 70px;
-    min-height: calc(100vh - 120px);
+    padding: 18px 20px 80px;
+    min-height: calc(100vh - 130px);
   }
-
   .sb-meta {
-    top: 138px;
+    top: 140px;
   }
-
   .sb-field {
     top: 200px;
-    bottom: 78px;
+    bottom: 80px;
   }
 }
