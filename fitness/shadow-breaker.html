@@ -7,13 +7,13 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" type="image/x-icon" href="./favicon.ico" />
 
-  <!-- ใช้ css หลักเดียวกับ VR Fitness / เพิ่มของ Shadow Breaker แยกได้ -->
+  <!-- ใช้สไตล์ card / grid แบบเดียวกับ Rhythm Boxer -->
   <link rel="stylesheet" href="./css/shadow-breaker.css" />
 </head>
 <body>
 <main class="wrap">
 
-  <!-- ========== MENU VIEW ========== -->
+  <!-- ========== VIEW: MENU ========== -->
   <section id="view-menu" class="card">
     <div class="top-row">
       <div>
@@ -22,11 +22,11 @@
           Shadow Breaker
         </h1>
         <p class="subtitle">
-          เกมต่อยเป้า + บอส 4 ตัว เน้น reaction, ความแม่นยำ และการควบคุมแรง/จังหวะ
+          ต่อสู้กับบอส 4 ตัว ตีเป้าให้แตก เก็บ Perfect และจัดการเป้าลวงให้ได้!
         </p>
         <div class="pill">
           <span class="dot"></span>
-          <span>Boss 4 ตัว • 3 ระดับความยาก • HP ผู้เล่น/บอส • Effect เป้าแตก + Score popup</span>
+          <span>4 Boss • Decoy เป้าลวง • FEVER mode • CSV สำหรับวิจัย</span>
         </div>
       </div>
       <div>
@@ -36,10 +36,10 @@
 
     <h2 class="section-title">เลือกรูปแบบการเล่น</h2>
     <div class="btn-row">
-      <button class="primary" id="btn-mode-research">
+      <button class="primary" data-action="start-research">
         โหมดวิจัย <span>📊</span>
       </button>
-      <button id="btn-mode-normal">
+      <button data-action="start-normal">
         โหมดเล่นปกติ <span>🎮</span>
       </button>
     </div>
@@ -53,40 +53,43 @@
           <option value="hard">ยาก — เป้าเล็ก / spawn เร็ว</option>
         </select>
       </div>
+    </div>
+
+    <p class="hint">
+      บน PC: ใช้เมาส์คลิกเป้าที่โผล่ขึ้นมาบนจอ  
+      บนมือถือ: แตะเป้าให้ทันก่อนหาย (แทนการชกใน VR)
+    </p>
+  </section>
+
+  <!-- ========== VIEW: RESEARCH FORM ========== -->
+  <section id="view-research-form" class="card hidden">
+    <h2 class="section-title">ข้อมูลผู้เข้าร่วม (โหมดวิจัย)</h2>
+
+    <div class="row">
       <div class="col">
-        <label for="duration">ระยะเวลาเล่น (วินาที)</label>
-        <select id="duration">
-          <option value="45">45 วินาที</option>
-          <option value="60" selected>60 วินาที</option>
-          <option value="90">90 วินาที</option>
-        </select>
+        <label for="research-id">Participant ID</label>
+        <input id="research-id" placeholder="เช่น SB-001-01" />
+      </div>
+      <div class="col">
+        <label for="research-group">กลุ่มทดลอง / เงื่อนไข</label>
+        <input id="research-group" placeholder="เช่น HIIT / Control" />
       </div>
     </div>
 
     <div class="row">
       <div class="col">
-        <label for="participant-id">รหัสผู้เข้าร่วม (Participant ID)</label>
-        <input id="participant-id" placeholder="เช่น SB-001-01" />
-      </div>
-      <div class="col">
-        <label for="participant-group">กลุ่มทดลอง / เงื่อนไข</label>
-        <input id="participant-group" placeholder="เช่น HIIT / Control" />
+        <label for="research-note">หมายเหตุเพิ่มเติม</label>
+        <textarea id="research-note" rows="3" placeholder="เช่น อายุ / เพศ / หมายเหตุอื่น ๆ"></textarea>
       </div>
     </div>
 
-    <p class="hint">
-      บน PC: ใช้เมาส์คลิกเป้าบนจอ (จำลองการชก)  
-      บนมือถือ/แท็บเล็ต: แตะเป้าที่โผล่มาตามจุดต่าง ๆ บนหน้าจอให้ทันก่อนหาย
-    </p>
-
-    <div class="btn-row" style="margin-top:16px;">
-      <button class="primary big" id="btn-start">
-        ▶ เริ่มเล่น Shadow Breaker
-      </button>
+    <div class="btn-row">
+      <button data-action="back-to-menu">⬅ กลับเมนู</button>
+      <button class="primary" data-action="research-begin-play">▶ เริ่มเล่น Shadow Breaker</button>
     </div>
   </section>
 
-  <!-- ========== PLAY VIEW ========== -->
+  <!-- ========== VIEW: PLAY ========== -->
   <section id="view-play" class="card hidden">
     <div class="play-top">
       <div class="stat-grid">
@@ -99,84 +102,76 @@
           <div class="value" id="stat-diff">-</div>
         </div>
         <div class="stat-box">
-          <div class="label">Time</div>
-          <div class="value" id="stat-time">00:00</div>
-        </div>
-        <div class="stat-box">
           <div class="label">Score</div>
           <div class="value" id="stat-score">0</div>
         </div>
         <div class="stat-box">
-          <div class="label">Hit</div>
-          <div class="value" id="stat-hit">0</div>
+          <div class="label">HP</div>
+          <div class="value" id="stat-hp">100</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Combo</div>
+          <div class="value" id="stat-combo">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Perfect</div>
+          <div class="value" id="stat-perfect">0</div>
         </div>
         <div class="stat-box">
           <div class="label">Miss</div>
           <div class="value" id="stat-miss">0</div>
         </div>
         <div class="stat-box">
-          <div class="label">Boss</div>
-          <div class="value" id="stat-boss">1 / 4</div>
-        </div>
-        <div class="stat-box">
-          <div class="label">Phase</div>
-          <div class="value" id="stat-phase">1</div>
+          <div class="label">Time</div>
+          <div class="value" id="stat-time">60.0</div>
         </div>
       </div>
     </div>
 
-    <!-- HP bar ผู้เล่น / บอส -->
-    <div class="sb-hud">
-      <div class="sb-hp sb-hp-player">
-        <div class="sb-hp-label">
-          <span class="sb-hp-name">Player</span>
-          <span class="sb-hp-val" id="hp-player-val">0/0</span>
-        </div>
-        <div class="sb-hp-bar">
-          <div class="sb-hp-fill" id="hp-player-fill"></div>
+    <!-- FEVER bar -->
+    <div class="fever-wrap">
+      <div class="fever-label">FEVER</div>
+      <div class="fever-bar">
+        <div class="fever-fill" id="fever-fill"></div>
+      </div>
+      <div class="fever-status" id="fever-status">READY</div>
+    </div>
+
+    <!-- Boss HP + portrait -->
+    <div class="boss-hud">
+      <div class="boss-info">
+        <div class="boss-name" id="boss-name">Boss 1/4 — Bubble Glove</div>
+        <div class="boss-hp-bar">
+          <div class="boss-hp-fill" id="boss-fill"></div>
         </div>
       </div>
-      <div class="sb-hp sb-hp-boss">
-        <div class="sb-hp-label">
-          <span class="sb-hp-name" id="boss-name">Boss</span>
-          <span class="sb-hp-val" id="hp-boss-val">0/0</span>
-        </div>
-        <div class="sb-hp-bar">
-          <div class="sb-hp-fill" id="hp-boss-fill"></div>
+      <div class="boss-portrait" id="boss-portrait">
+        <div class="boss-portrait-emoji" id="boss-portrait-emoji">🐣</div>
+        <div class="boss-portrait-text">
+          <div class="boss-portrait-name" id="boss-portrait-name">Bubble Glove</div>
+          <div class="boss-portrait-hint" id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
         </div>
       </div>
     </div>
-    <div class="sb-boss-portrait" id="boss-portrait">🥊</div>
 
-    <!-- พื้นที่ spawn เป้า -->
-    <div class="sb-play-area" id="sb-play-area">
-      <!-- engine จะสร้างเป้า (.sb-target) ในนี่ -->
-    </div>
-
-    <!-- Coach bubble -->
-    <div class="coach-bubble" id="coach-bubble">
-      <div class="coach-avatar">🥊</div>
-      <div class="coach-text-wrap">
-        <div class="coach-role" id="coach-role">โค้ช Shadow</div>
-        <div class="coach-text" id="coach-text">
-          ตียืดเส้นยืดสายก่อน เบา ๆ ก่อนเข้าบอสจริงนะ 💪
-        </div>
-      </div>
+    <!-- พื้นที่ spawn เป้า (DomRenderer ใช้ที่นี่) -->
+    <div class="target-layer" id="target-layer">
+      <!-- DomRenderer จะสร้าง .sb-target / effect ต่าง ๆ -->
     </div>
 
     <div class="banner">
       <strong>วิธีเล่น:</strong>
-      เป้า (🥊 / 🎯 ฯลฯ) จะโผล่มาตามตำแหน่งต่าง ๆ บนจอ ให้แตะ/ชกให้ทันก่อนหาย
-      ตีถูกบ่อย ๆ จะลด HP บอสและเพิ่มคะแนน แต่พลาดบ่อย HP ผู้เล่นจะลดลง
+      เป้าจริง 🥊 ให้ตีให้โดน, เป้าลวง 💣 จะทำให้เสีย HP/คะแนน  
+      Perfect จะเพิ่ม FEVER และลด HP บอสได้มากขึ้น
     </div>
 
     <div class="btn-row" style="margin-top:10px;">
-      <button id="btn-stop-early">⏹ หยุดก่อนเวลา</button>
+      <button data-action="stop-early">⏹ หยุดก่อนเวลา</button>
       <button type="button" onclick="location.href='./index.html'">⬅ กลับ Hub</button>
     </div>
   </section>
 
-  <!-- ========== RESULT VIEW ========== -->
+  <!-- ========== VIEW: RESULT ========== -->
   <section id="view-result" class="card hidden">
     <div class="top-row">
       <div>
@@ -184,7 +179,7 @@
           <span class="icon">✅</span>
           สรุปผลรอบเล่น Shadow Breaker
         </h1>
-        <p class="subtitle">ใช้เป็นข้อมูลงานวิจัย / วิเคราะห์สมรรถภาพได้</p>
+        <p class="subtitle">ใช้ต่อยอดเป็นข้อมูลวิจัย หรือประเมินสมรรถภาพได้</p>
       </div>
       <div>
         <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
@@ -196,33 +191,53 @@
         <tbody>
           <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
           <tr><td class="label">ระดับความยาก</td><td id="res-diff">-</td></tr>
-          <tr><td class="label">เวลาที่ตั้งไว้</td><td id="res-time">0 วินาที</td></tr>
+          <tr><td class="label">เหตุผลที่จบเกม</td><td id="res-endreason">-</td></tr>
           <tr><td class="label">คะแนนรวม</td><td id="res-score">0</td></tr>
-          <tr><td class="label">จำนวน Hit</td><td id="res-hit">0</td></tr>
+          <tr><td class="label">Combo สูงสุด</td><td id="res-maxcombo">0</td></tr>
           <tr><td class="label">จำนวน Miss</td><td id="res-miss">0</td></tr>
-          <tr><td class="label">Boss ที่ผ่าน</td><td id="res-boss">0 / 4</td></tr>
-          <tr><td class="label">Participant ID</td><td id="res-participant">-</td></tr>
-          <tr><td class="label">Group</td><td id="res-group">-</td></tr>
+          <tr><td class="label">Accuracy</td><td id="res-accuracy">0.0 %</td></tr>
+          <tr><td class="label">จำนวน Hit ทั้งหมด</td><td id="res-totalhits">0</td></tr>
+          <tr><td class="label">RT ปกติ</td><td id="res-rt-normal">-</td></tr>
+          <tr><td class="label">RT เป้าลวง</td><td id="res-rt-decoy">-</td></tr>
+          <tr><td class="label">Participant</td><td id="res-participant">-</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="btn-row" style="margin-top:14px;">
-      <button class="primary" id="btn-play-again">▶ เล่นอีกครั้ง</button>
-      <button id="btn-back-menu">⬅ กลับเมนู</button>
+      <button class="primary" data-action="play-again">▶ เล่นอีกครั้ง</button>
+      <button data-action="back-to-menu">⬅ กลับเมนู</button>
+      <button data-action="download-csv">⬇ ดาวน์โหลด CSV</button>
     </div>
   </section>
 
 </main>
 
-<!-- ====== BGM / SFX ====== -->
-<audio id="bgm-shadow"   src="./sfx/shadow-theme.mp3" preload="auto"></audio>
-<audio id="sfx-hit"      src="./sfx/hit.mp3" preload="auto"></audio>
-<audio id="sfx-perfect"  src="./sfx/perfect.mp3" preload="auto"></audio>
-<audio id="sfx-miss"     src="./sfx/miss.mp3" preload="auto"></audio>
-<audio id="sfx-bossdown" src="./sfx/boss-down.mp3" preload="auto"></audio>
+<!-- ========== BOSS INTRO OVERLAY ========== -->
+<div id="boss-intro" class="boss-intro hidden">
+  <div class="boss-intro-card">
+    <div class="boss-intro-emoji" id="boss-intro-emoji">🐣</div>
+    <div class="boss-intro-name" id="boss-intro-name">Bubble Glove</div>
+    <div class="boss-intro-title" id="boss-intro-title">บอสมือใหม่สายฟอง</div>
+    <div class="boss-intro-desc" id="boss-intro-desc">
+      เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰
+    </div>
+    <div class="boss-intro-hint">แตะจอเพื่อเริ่มต่อสู้กับบอสตัวนี้</div>
+  </div>
+</div>
 
-<!-- main script -->
-<script type="module" src="./js/shadow-breaker.js"></script>
+<!-- ========== AUDIO (ให้ id ตรงกับ engine.js) ========== -->
+<audio id="sfx-hit"   src="./sfx/hit.mp3"   preload="auto"></audio>
+<audio id="sfx-boss"  src="./sfx/boss.mp3"  preload="auto"></audio>
+<audio id="sfx-fever" src="./sfx/fever.mp3" preload="auto"></audio>
+
+<!-- ========== MAIN SCRIPT: เรียก initShadowBreaker() ========== -->
+<script type="module">
+  import { initShadowBreaker } from './js/engine.js';  <!-- ปรับ path ถ้าอยู่คนละโฟลเดอร์ -->
+
+  window.addEventListener('DOMContentLoaded', () => {
+    initShadowBreaker();
+  });
+</script>
 </body>
 </html>
