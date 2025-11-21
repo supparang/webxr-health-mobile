@@ -1,9 +1,9 @@
-// === shadow-breaker.js — Production Ready (Boss Phases + DOM Targets) ===
+// === shadow-breaker.js — DOM Targets + Boss Phases ===
 'use strict';
 
 (function () {
 
-  // ---------- Utils ----------
+  // ----- Utils -----
   function $(sel) { return document.querySelector(sel); }
 
   function getQuery() {
@@ -25,33 +25,12 @@
     return Math.random() * (max - min) + min;
   }
 
-  // ---------- Config ----------
+  // ----- Config -----
 
   var DIFF = {
-    easy: {
-      targetSize: 160,
-      spawnInterval: 1100,
-      lifetime: 1400,
-      bossHP: 30,
-      playerHP: 6,
-      badChance: 0.18
-    },
-    normal: {
-      targetSize: 130,
-      spawnInterval: 900,
-      lifetime: 1200,
-      bossHP: 40,
-      playerHP: 5,
-      badChance: 0.25
-    },
-    hard: {
-      targetSize: 110,
-      spawnInterval: 750,
-      lifetime: 1000,
-      bossHP: 50,
-      playerHP: 4,
-      badChance: 0.3
-    }
+    easy:   { targetSize: 160, spawnInterval: 1100, lifetime: 1400, bossHP: 30, playerHP: 6, badChance: 0.18 },
+    normal: { targetSize: 130, spawnInterval:  900, lifetime: 1200, bossHP: 40, playerHP: 5, badChance: 0.25 },
+    hard:   { targetSize: 110, spawnInterval:  750, lifetime: 1000, bossHP: 50, playerHP: 4, badChance: 0.30 }
   };
 
   var BOSSES = [
@@ -63,15 +42,14 @@
 
   var SCORE_PER_HIT = 10;
   var SCORE_PER_PERFECT = 15;
-  var SCORE_MISS_PENALTY = 0; // ไม่หักคะแนน แค่ HP
+  var SCORE_MISS_PENALTY = 0;
 
-  // ---------- State ----------
+  // ----- State -----
 
   var wrap, field, portrait;
   var hpPlayerFill, hpBossFill, hpPlayerVal, hpBossVal;
   var metaTime, metaScore;
-  var centerPanel;
-  var startButton;
+  var centerPanel, startButton;
 
   var currentDiffKey = 'easy';
   var cfg = DIFF.easy;
@@ -91,7 +69,7 @@
   var misses = 0;
   var startTimeMs = 0;
 
-  // ---------- Init DOM ----------
+  // ----- DOM -----
 
   function ensureDOM() {
     wrap = $('#sbWrap') || (function () {
@@ -136,9 +114,9 @@
     }
 
     hpPlayerFill = $('#sbHpPlayerFill');
-    hpBossFill = $('#sbHpBossFill');
-    hpPlayerVal = $('#sbHpPlayerVal');
-    hpBossVal = $('#sbHpBossVal');
+    hpBossFill   = $('#sbHpBossFill');
+    hpPlayerVal  = $('#sbHpPlayerVal');
+    hpBossVal    = $('#sbHpBossVal');
 
     // Boss portrait
     portrait = $('#sbBossPortrait');
@@ -149,7 +127,7 @@
       wrap.appendChild(portrait);
     }
 
-    // Meta (time + score)
+    // Meta
     var meta = $('#sbMeta');
     if (!meta) {
       meta = document.createElement('div');
@@ -164,7 +142,7 @@
     metaTime = $('#sbMetaTime');
     metaScore = $('#sbMetaScore');
 
-    // Center panel (start / finish)
+    // Center panel
     centerPanel = $('#sbCenter');
     if (!centerPanel) {
       centerPanel = document.createElement('div');
@@ -173,52 +151,46 @@
       centerPanel.innerHTML = [
         '<h1>Shadow Breaker</h1>',
         '<p>ชกเป้า 🥊 ให้ทันก่อนที่มันจะหายไป</p>',
-        '<p>อย่าพลาดบ่อย เดี๋ยว HP ผู้เล่นหมด!</p>',
         '<button id="sbStartBtn" class="sb-btn">เริ่มเกม</button>'
       ].join('');
       wrap.appendChild(centerPanel);
     }
     startButton = $('#sbStartBtn');
-
     if (startButton) {
       startButton.onclick = function () {
-        if (!running) {
-          startGame();
-        }
+        if (!running) startGame();
       };
     }
   }
 
-  // ---------- HP & HUD ----------
+  // ----- HP / Boss -----
 
   function updateHPBars() {
     if (!hpPlayerFill || !hpBossFill) return;
 
     var pRatio = playerHPMax > 0 ? playerHP / playerHPMax : 0;
-    var bRatio = bossHPMax > 0 ? bossHP / bossHPMax : 0;
+    var bRatio = bossHPMax   > 0 ? bossHP   / bossHPMax   : 0;
 
     hpPlayerFill.style.transform = 'scaleX(' + clamp(pRatio, 0, 1) + ')';
-    hpBossFill.style.transform = 'scaleX(' + clamp(bRatio, 0, 1) + ')';
+    hpBossFill.style.transform   = 'scaleX(' + clamp(bRatio, 0, 1) + ')';
 
-    if (pRatio <= 0.3) {
-      hpPlayerFill.style.backgroundColor = '#ef4444';
-    } else {
-      hpPlayerFill.style.backgroundColor = '';
-    }
+    if (pRatio <= 0.3) hpPlayerFill.style.backgroundColor = '#ef4444';
+    else hpPlayerFill.style.backgroundColor = '';
+
     if (bRatio <= 0.3) {
       hpBossFill.style.backgroundColor = '#fb923c';
-      portrait.classList.add('sb-shake');
+      if (portrait) portrait.classList.add('sb-shake');
     } else {
       hpBossFill.style.backgroundColor = '';
-      portrait.classList.remove('sb-shake');
+      if (portrait) portrait.classList.remove('sb-shake');
     }
 
     if (hpPlayerVal) hpPlayerVal.textContent = playerHP + '/' + playerHPMax;
-    if (hpBossVal) hpBossVal.textContent = bossHP + '/' + bossHPMax;
+    if (hpBossVal)   hpBossVal.textContent   = bossHP   + '/' + bossHPMax;
   }
 
-  function setBoss(bIndex) {
-    bossIdx = clamp(bIndex, 0, BOSSES.length - 1);
+  function setBoss(idx) {
+    bossIdx = clamp(idx, 0, BOSSES.length - 1);
     var b = BOSSES[bossIdx];
     if (portrait) portrait.textContent = b.emoji;
     var nameEl = $('#sbBossName');
@@ -226,7 +198,7 @@
     if (wrap) wrap.setAttribute('data-boss', String(bossIdx));
   }
 
-  // ---------- Score FX ----------
+  // ----- Score FX -----
 
   function showScoreFx(x, y, type) {
     var el = document.createElement('div');
@@ -241,7 +213,7 @@
 
     el.textContent = text;
     el.style.left = x + 'px';
-    el.style.top = y + 'px';
+    el.style.top  = y + 'px';
     document.body.appendChild(el);
 
     setTimeout(function () {
@@ -254,7 +226,7 @@
     if (metaScore) metaScore.textContent = String(score);
   }
 
-  // ---------- Targets ----------
+  // ----- Targets -----
 
   var targetIdCounter = 0;
 
@@ -268,30 +240,28 @@
     // phase speedup
     var ratio = bossHPMax > 0 ? bossHP / bossHPMax : 1;
     var phase = 1;
-    if (ratio <= 0.33) phase = 3;
+    if      (ratio <= 0.33) phase = 3;
     else if (ratio <= 0.66) phase = 2;
 
     var lifetime = cfg.lifetime;
     if (phase === 2) lifetime *= 0.9;
     if (phase === 3) lifetime *= 0.8;
 
-    // random position (เว้นขอบจอนิดหน่อย)
     var vw = window.innerWidth;
     var vh = window.innerHeight;
     var margin = sz * 0.6;
 
     var x = rand(margin, vw - margin);
-    var y = rand(margin + 50, vh - margin - 40); // เลี่ยง HUD ด้านบน
+    var y = rand(margin + 50, vh - margin - 40);
 
     var target = document.createElement('div');
     target.className = 'sb-target';
     target.dataset.id = String(id);
     target.dataset.type = isBad ? 'bad' : 'good';
-
-    target.style.width = sz + 'px';
+    target.style.width  = sz + 'px';
     target.style.height = sz + 'px';
-    target.style.left = x + 'px';
-    target.style.top = y + 'px';
+    target.style.left   = x + 'px';
+    target.style.top    = y + 'px';
 
     var inner = document.createElement('div');
     inner.className = 'sb-target-inner';
@@ -309,7 +279,6 @@
       var cy = (ev && ev.clientY) || y;
 
       if (isBad) {
-        // ตีเป้า "ล่อ" ผิด → หัก HP player
         target.classList.add('sb-miss');
         playerHP = clamp(playerHP - 1, 0, playerHPMax);
         misses++;
@@ -318,7 +287,6 @@
         showScoreFx(cx, cy, 'miss');
         checkGameOver();
       } else {
-        // good hit
         var age = performance.now() - bornAt;
         var tRatio = age / lifetime;
         var type = tRatio < 0.3 ? 'perfect' : 'good';
@@ -330,9 +298,7 @@
         updateScore(gain);
         showScoreFx(cx, cy, type);
         target.classList.add('sb-hit');
-        if (bossHP <= 0) {
-          nextBossOrFinish();
-        }
+        if (bossHP <= 0) nextBossOrFinish();
       }
 
       target.removeEventListener('click', onHit);
@@ -342,10 +308,8 @@
     }
 
     target.addEventListener('click', onHit);
-
     field.appendChild(target);
 
-    // timeout = miss (เฉพาะ good target)
     setTimeout(function () {
       if (!running || clicked) return;
       clicked = true;
@@ -366,7 +330,7 @@
     }, lifetime);
   }
 
-  // ---------- Game flow ----------
+  // ----- Game flow -----
 
   function clearField() {
     if (!field) return;
@@ -405,7 +369,7 @@
       remainMs = clamp(total - elapsed, 0, total);
       if (metaTime) metaTime.textContent = formatTime(remainMs);
       if (remainMs <= 0) {
-        finishGame('หมดเวลาแล้ว ⏱', 'เก่งมาก! ไปด่านต่อไปกันนะ');
+        finishGame('หมดเวลาแล้ว ⏱', 'ชกได้ดีเลย! พร้อมไปต่อด่านอื่นแล้ว');
       }
     }, 200);
   }
@@ -417,7 +381,6 @@
   }
 
   function nextBossOrFinish() {
-    // clear field เล็กน้อยก่อน
     clearField();
     if (bossIdx < BOSSES.length - 1) {
       bossIdx++;
@@ -429,7 +392,7 @@
 
   function setupBoss() {
     setBoss(bossIdx);
-    bossHPMax = cfg.bossHP + bossIdx * 5; // ด่านหลัง HP เพิ่มนิดหน่อย
+    bossHPMax = cfg.bossHP + bossIdx * 5;
     bossHP = bossHPMax;
     updateHPBars();
   }
@@ -464,7 +427,6 @@
     score = 0;
     hits = 0;
     misses = 0;
-    remainMs = remainMs || 60000;
     if (metaScore) metaScore.textContent = '0';
 
     playerHPMax = cfg.playerHP;
@@ -482,9 +444,8 @@
     running = false;
     wrap.classList.add('sb-finished');
     stopSpawning();
-    clearInterval(gameTimer);
+    if (gameTimer) clearInterval(gameTimer);
     gameTimer = null;
-
     clearField();
 
     var summary = 'คะแนน ' + score +
@@ -495,13 +456,11 @@
       title,
       subtitle + '\n' + summary,
       'เล่นอีกครั้ง',
-      function () {
-        startGame();
-      }
+      function () { startGame(); }
     );
   }
 
-  // ---------- Boot ----------
+  // ----- Boot -----
 
   function boot() {
     ensureDOM();
@@ -516,8 +475,7 @@
     if (isNaN(t) || t <= 0) t = 60;
     remainMs = t * 1000;
 
-    if (centerPanel && !$('#sbStartBtn')) {
-      // ถ้าเป็นหน้าเดิมที่ไม่มีปุ่ม (เช่น override) ให้สร้างใหม่
+    if (centerPanel) {
       centerPanel.innerHTML = [
         '<h1>Shadow Breaker</h1>',
         '<p>ระดับ: ' + diff.toUpperCase() + ' • เวลา: ' + t + ' วินาที</p>',
@@ -529,12 +487,6 @@
           if (!running) startGame();
         };
       }
-    } else if (centerPanel) {
-      // อัปเดตข้อความให้มี diff/time
-      var h = centerPanel.querySelector('h1');
-      var p = centerPanel.querySelector('p');
-      if (h) h.textContent = 'Shadow Breaker';
-      if (p) p.textContent = 'ระดับ: ' + diff.toUpperCase() + ' • เวลา: ' + t + ' วินาที';
     }
 
     setBoss(0);
@@ -546,11 +498,9 @@
       if (!running) return;
       running = false;
       stopSpawning();
-      if (centerPanel) {
-        showCenter('หยุดชั่วคราว ⏸', 'กลับมาหน้าจอแล้วค่อยเริ่มต่ออีกครั้งนะ', 'เล่นต่อ', function () {
-          startGame();
-        });
-      }
+      showCenter('หยุดชั่วคราว ⏸', 'กลับมาหน้าจอแล้วค่อยเริ่มต่ออีกครั้งนะ', 'เล่นต่อ', function () {
+        startGame();
+      });
     });
   }
 
