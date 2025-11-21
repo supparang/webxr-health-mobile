@@ -1,4 +1,4 @@
-// === fitness/js/dom-renderer.js (ปรับให้เข้ากับ shadow-breaker.css) ===
+// === fitness/js/dom-renderer.js (2025-11-20 — DOM + CSS sync) ===
 'use strict';
 
 export class DomRenderer {
@@ -28,11 +28,8 @@ export class DomRenderer {
     const el = document.createElement('div');
     el.className = 'sb-target';
     el.dataset.id = String(t.id);
-
-    // ใช้ข้อมูลจาก engine: decoy = เป้าลวง (bad), ปกติ = good
     el.dataset.type = t.decoy ? 'bad' : 'good';
 
-    // inner ตรงกับ .sb-target-inner ใน CSS
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
     inner.textContent = t.emoji || '🎯';
@@ -44,7 +41,6 @@ export class DomRenderer {
     el.style.marginLeft = -(size / 2) + 'px';
     el.style.marginTop = -(size / 2) + 'px';
 
-    // สุ่มตำแหน่งในกรอบเล่น (กันขอบ 32px)
     const margin = 32;
     const x = margin + Math.random() * (this.bounds.w - margin * 2);
     const y = margin + Math.random() * (this.bounds.h - margin * 2);
@@ -84,13 +80,11 @@ export class DomRenderer {
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    // ทำให้เป้าเด้ง/จางเล็กน้อย (ใช้คลาสจาก CSS เดิม)
+    // เป้าเด้ง / จางเล็กน้อย
     if (t.dom) {
-      if (opts.miss) {
-        t.dom.classList.add('sb-miss');
-      } else {
-        t.dom.classList.add('sb-hit');
-      }
+      if (opts.miss) t.dom.classList.add('sb-miss');
+      else           t.dom.classList.add('sb-hit');
+
       setTimeout(() => {
         if (!t.dom) return;
         t.dom.classList.remove('sb-hit');
@@ -98,7 +92,7 @@ export class DomRenderer {
       }, 200);
     }
 
-    // คะแนนลอยขึ้น — ใช้ .sb-fx-score + modifier
+    // คะแนนลอยขึ้น
     const fx = document.createElement('div');
     fx.className = 'sb-fx-score';
 
@@ -107,7 +101,6 @@ export class DomRenderer {
     if (opts.miss) text = 'MISS';
     if (opts.decoy && score < 0) text = String(score);
 
-    // เลือกสีตามประเภท
     if (opts.miss) {
       fx.classList.add('sb-miss');
     } else if (score > 0 && opts.fever) {
