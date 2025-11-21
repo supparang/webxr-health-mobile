@@ -1,4 +1,4 @@
-// === js/dom-renderer.js (2025-11-22b — strong FX) ===
+// === fitness/js/dom-renderer.js (2025-11-21 — DOM target + score popup + particle) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
@@ -7,7 +7,7 @@ export class DomRenderer {
   constructor(game, host, opts = {}) {
     this.game = game;
     this.host = host;
-    this.sizePx = opts.sizePx || 96;
+    this.sizePx = opts.sizePx || 104;
     this.targets = new Map();
 
     this.handleClick = this.handleClick.bind(this);
@@ -38,14 +38,15 @@ export class DomRenderer {
     el.appendChild(inner);
 
     const size = this.sizePx;
-    el.style.width  = size + 'px';
+    el.style.width = size + 'px';
     el.style.height = size + 'px';
 
+    // สุ่มตำแหน่งในกรอบเล่น (กันขอบ 32px)
     const margin = 40;
-    const x = margin + Math.random() * Math.max(1, this.bounds.w - margin * 2);
-    const y = margin + Math.random() * Math.max(1, this.bounds.h - margin * 2);
+    const x = margin + Math.random() * (this.bounds.w - margin * 2);
+    const y = margin + Math.random() * (this.bounds.h - margin * 2);
     el.style.left = x + 'px';
-    el.style.top  = y + 'px';
+    el.style.top = y + 'px';
 
     el.addEventListener('pointerdown', this.handleClick);
     this.host.appendChild(el);
@@ -77,61 +78,58 @@ export class DomRenderer {
     this.targets.delete(t.id);
   }
 
-  /* เรียกทุกครั้งที่ HIT / MISS / DECOY */
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    const el = t.dom || this.targets.get(t.id);
-    const isMiss  = !!opts.miss;
-    const isDecoy = !!opts.decoy;
-    const grade   = opts.grade || (isMiss ? 'miss' : 'good');
-    const score   = opts.score != null ? opts.score : 0;
-
     const hostRect = this.host.getBoundingClientRect();
-    let cx = hostRect.width / 2;
-    let cy = hostRect.height / 2;
+    let x = hostRect.width / 2;
+    let y = hostRect.height / 2;
 
-    if (el) {
-      const r = el.getBoundingClientRect();
-      cx = r.left - hostRect.left + r.width / 2;
-      cy = r.top  - hostRect.top  + r.height / 2;
-      el.classList.add(isMiss ? 'sb-miss' : 'sb-hit');
+    if (t.dom) {
+      const r = t.dom.getBoundingClientRect();
+      x = r.left - hostRect.left + r.width / 2;
+      y = r.top - hostRect.top + r.height / 2;
+
+      // ทำ motion แตกกระจายเล็กน้อย
+      t.dom.classList.add('sb-hit');
+      setTimeout(() => {
+        if (t.dom) t.dom.classList.remove('sb-hit');
+      }, 220);
     }
 
-    // score popup
+    // คะแนนลอยออกจากเป้า
     const fx = document.createElement('div');
     fx.className = 'sb-fx-score';
 
+    const score = opts.score || 0;
     let text = '';
-    if (isMiss) {
+
+    if (opts.miss) {
       text = 'MISS';
       fx.classList.add('sb-miss');
-    } else if (isDecoy && score < 0) {
+    } else if (opts.decoy && score < 0) {
       text = String(score);
-      fx.classList.add('sb-bad');
-    } else {
-      text = score > 0 ? '+' + score : '';
-      if (grade === 'perfect') fx.classList.add('sb-perfect');
+      fx.classList.add('sb-decoy');
+    } else if (score > 0) {
+      text = '+' + score;
+      if (opts.grade === 'perfect') fx.classList.add('sb-perfect');
       else fx.classList.add('sb-good');
     }
 
     fx.textContent = text;
-    fx.style.left = cx + 'px';
-    fx.style.top  = cy + 'px';
+    fx.style.left = x + 'px';
+    fx.style.top  = y + 'px';
 
     this.host.appendChild(fx);
-
-    // particle 💥 / 💣
-    spawnHitParticle(this.host, cx, cy, isDecoy ? '💣' : '💥');
-
     setTimeout(() => {
       if (fx.parentNode === this.host) this.host.removeChild(fx);
-      if (el) {
-        el.removeEventListener('pointerdown', this.handleClick);
-        if (el.parentNode === this.host) this.host.removeChild(el);
-      }
-      this.targets.delete(t.id);
-    }, 260);
+    }, 650);
+
+    // ใช้ particle กลิตเตอร์เพิ่มให้ "แตกกระจาย"
+    const emo = opts.decoy
+      ? '💥'
+      : (opts.miss ? '💨' : (opts.grade === 'perfect' ? '✨' : '⭐'));
+    spawnHitParticle(this.host, x, y, emo);
   }
 
   clear() {
