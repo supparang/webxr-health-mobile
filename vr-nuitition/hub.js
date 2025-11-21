@@ -1,135 +1,217 @@
-// === Hero Health — hub.js (Profile + Mode/Diff → play.html) ===
+// === Hero Health — Hub (VR Nutrition) ===
+// จัดการเลือกโหมด + โปรไฟล์ + ส่งไป play.html
+
 (function () {
   'use strict';
 
-  const $id = (id) => document.getElementById(id);
-  const $$  = (sel) => Array.prototype.slice.call(document.querySelectorAll(sel));
+  var STORAGE_KEY = 'HEROHEALTH_PROFILE';
 
-  // ----- โปรไฟล์จาก hub.html -----
-  const nameInput  = $id('profileName');
-  const gradeInput = $id('profileGrade');
-  const idInput    = $id('profileId');
+  function $(s) { return document.querySelector(s); }
+  function $all(s) { return document.querySelectorAll(s); }
 
-  const saveBtn  = $id('btnSaveProfile');
-  const startBtn = $id('btnStart');
+  var modeRow        = $('#modeRow');
+  var btnStart       = $('#btnStart');
+  var btnSaveProfile = $('#btnSaveProfile');
+  var selDiff        = $('#selDiff');
+  var inpTime        = $('#inpTime');
 
-  let currentMode = 'goodjunk';
-  let currentDiff = 'normal';
+  var inpName  = $('#profileName');
+  var inpGrade = $('#profileGrade');
+  var inpId    = $('#profileId');
 
-  // ----- โหลดโปรไฟล์จาก sessionStorage ถ้ามี -----
-  function loadProfileFromStorage() {
+  var currentModeCard = null;
+  var currentMode     = null;
+
+  // ---------- Profile load/save ----------
+
+  function loadProfile() {
     try {
-      const raw = sessionStorage.getItem('hha_profile');
+      var raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const p = JSON.parse(raw) || {};
-      if (nameInput  && p.name)  nameInput.value  = p.name;
-      if (gradeInput && p.grade) gradeInput.value = p.grade;
-      // room ไม่มีช่องให้กรอกใน hub.html ตอนนี้ ปล่อยว่างไปก่อน
-      if (idInput    && p.sid)   idInput.value    = p.sid;
-      console.log('[HHA HUB] loaded profile', p);
+      var data = JSON.parse(raw);
+      if (data && typeof data === 'object') {
+        if (data.name  != null)  inpName.value  = data.name;
+        if (data.grade != null)  inpGrade.value = data.grade;
+        if (data.id    != null)  inpId.value    = data.id;
+      }
     } catch (e) {
-      console.warn('[HHA HUB] loadProfile error', e);
+      // ถ้า sessionStorage ใช้ไม่ได้ ก็ข้ามเฉย ๆ
+      console.warn('Cannot load profile:', e);
     }
   }
 
-  // ----- เซฟโปรไฟล์ลง sessionStorage -----
-  function saveProfileToStorage() {
-    const profile = {
-      name:  nameInput  ? nameInput.value.trim()  : '',
-      grade: gradeInput ? gradeInput.value.trim() : '',
-      room:  '', // ยังไม่มี field แยกห้องใน hub.html
-      sid:   idInput    ? idInput.value.trim()    : ''
+  function getProfileFromInputs() {
+    return {
+      name:  inpName.value.trim(),
+      grade: inpGrade.value.trim(),
+      id:    inpId.value.trim()
     };
+  }
+
+  function saveProfile(showToast) {
+    var profile = getProfileFromInputs();
     try {
-      sessionStorage.setItem('hha_profile', JSON.stringify(profile));
-      console.log('[HHA HUB] saved profile', profile);
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+      if (showToast) {
+        // feedback เบา ๆ ให้ครู/เด็กเห็นว่าบันทึกแล้ว
+        btnSaveProfile.textContent = '✅ บันทึกแล้ว';
+        setTimeout(function () {
+          btnSaveProfile.textContent = '💾 บันทึกโปรไฟล์';
+        }, 1500);
+      }
     } catch (e) {
-      console.warn('[HHA HUB] saveProfile error', e);
+      console.warn('Cannot save profile:', e);
+      if (showToast) {
+        alert('ไม่สามารถบันทึกโปรไฟล์ได้ (sessionStorage ถูกปิดใช้งาน)');
+      }
     }
-    return profile;
   }
 
-  // ให้เซฟอัตโนมัติเมื่อผู้ใช้แก้ไข
-  [nameInput, gradeInput, idInput].forEach((el) => {
-    if (!el) return;
-    el.addEventListener('change', saveProfileToStorage);
-    el.addEventListener('blur', saveProfileToStorage);
-  });
+  // ---------- Mode select ----------
 
-  if (saveBtn) {
-    saveBtn.addEventListener('click', function () {
-      const p = saveProfileToStorage();
-      if (!p.name) {
-        alert('ใส่ชื่อนักเรียนก่อนนะ 😊');
-        if (nameInput) nameInput.focus();
-      } else {
-        alert('บันทึกโปรไฟล์เรียบร้อยแล้ว ✅');
-      }
-    });
+  function setActiveModeCard(card) {
+    if (currentModeCard === card) return;
+
+    // ล้าง active เดิม
+    var cards = $all('.mode-card');
+    for (var i = 0; i < cards.length; i++) {
+      cards[i].classList.remove('active');
+    }
+
+    // ตั้ง active ใหม่
+    if (card) {
+      card.classList.add('active');
+      currentModeCard = card;
+      currentMode = card.getAttribute('data-mode') || null;
+    } else {
+      currentModeCard = null;
+      currentMode = null;
+    }
+
+    updateStartButtonLabel();
   }
 
-  // ----- เลือกโหมดเกม (การ์ด data-mode) -----
-  function setActiveModeCard(mode) {
-    $$('.mode-card').forEach((card) => {
-      if (card.getAttribute('data-mode') === mode) {
-        card.classList.add('active');
-      } else {
-        card.classList.remove('active');
-      }
-    });
+  function updateStartButtonLabel() {
+    var smallSpan = btnStart.querySelector('.small');
+    if (!smallSpan) return;
+
+    var diffOption = selDiff.options[selDiff.selectedIndex];
+    var diffLabel = diffOption ? diffOption.textContent : '';
+    var timeVal = inpTime.value || '60';
+
+    if (!currentMode) {
+      smallSpan.textContent = '(เลือกโหมด + โปรไฟล์ก่อน)';
+      return;
+    }
+
+    // แปลงชื่อ mode สั้น ๆ ไว้แสดง (ไม่บังคับตรงกับ data-mode)
+    var modeTitle = 'โหมด ' + currentMode;
+    if (currentModeCard) {
+      var t = currentModeCard.querySelector('.mode-title');
+      if (t) modeTitle = t.textContent;
+    }
+
+    smallSpan.textContent =
+      '(' + modeTitle + ' • ' + diffLabel + ' • ' + timeVal + 's)';
   }
 
-  // default = goodjunk
-  setActiveModeCard(currentMode);
+  // ---------- Start game ----------
 
-  $$('.mode-card[data-mode]').forEach((card) => {
-    card.addEventListener('click', function () {
-      const m = card.getAttribute('data-mode') || 'goodjunk';
-      currentMode = m.toLowerCase();
-      setActiveModeCard(currentMode);
-    });
-  });
+  function startGame() {
+    if (!currentMode) {
+      alert('กรุณาเลือกโหมดเกมก่อนนะครับ/ค่ะ');
+      return;
+    }
 
-  // ----- diff + time -----
-  const diffSelect = $id('selDiff');
-  const timeInput  = $id('inpTime');
+    var diff = selDiff.value || 'normal';
+    var time = parseInt(inpTime.value, 10);
 
-  if (diffSelect) {
-    diffSelect.addEventListener('change', function () {
-      currentDiff = (diffSelect.value || 'normal').toLowerCase();
-    });
-    currentDiff = (diffSelect.value || 'normal').toLowerCase();
+    if (isNaN(time)) time = 60;
+    if (time < 20) time = 20;
+    if (time > 180) time = 180;
+    inpTime.value = time; // sync กลับเข้า input
+
+    // บันทึกโปรไฟล์ก่อนเริ่ม
+    saveProfile(false);
+
+    // สร้าง URL ไปยังหน้า play
+    var params = [
+      'mode=' + encodeURIComponent(currentMode),
+      'diff=' + encodeURIComponent(diff),
+      'time=' + encodeURIComponent(time)
+    ].join('&');
+
+    var url = './play.html?' + params;
+    console.log('Go to:', url);
+    location.href = url;
   }
 
-  // ----- ปุ่มเริ่มเล่น -----
-  if (startBtn) {
-    startBtn.addEventListener('click', function () {
-      const profile = saveProfileToStorage();
+  // ---------- Events ----------
 
-      if (!profile.name) {
-        alert('กรอก “ชื่อนักเรียน” ก่อนเริ่มเล่นนะครับ 😊');
-        if (nameInput) nameInput.focus();
-        return;
-      }
-
-      let t = 60;
-      if (timeInput) {
-        const n = parseInt(timeInput.value, 10);
-        if (!isNaN(n)) t = n;
-      }
-      if (t < 20) t = 20;
-      if (t > 180) t = 180;
-
-      const params = new URLSearchParams({
-        mode: currentMode,
-        diff: currentDiff,
-        time: String(t)
+  function bindEvents() {
+    // เลือกโหมดแบบ event delegation
+    if (modeRow) {
+      modeRow.addEventListener('click', function (ev) {
+        var target = ev.target;
+        // หา .mode-card ใกล้ ๆ
+        while (target && target !== modeRow) {
+          if (target.classList && target.classList.contains('mode-card')) {
+            setActiveModeCard(target);
+            break;
+          }
+          target = target.parentNode;
+        }
       });
+    }
 
-      window.location.href = './play.html?' + params.toString();
-    });
+    if (btnSaveProfile) {
+      btnSaveProfile.addEventListener('click', function () {
+        saveProfile(true);
+      });
+    }
+
+    if (btnStart) {
+      btnStart.addEventListener('click', function () {
+        startGame();
+      });
+    }
+
+    // เวลาเปลี่ยน diff หรือ time ให้ปรับ label ปุ่ม start
+    if (selDiff) {
+      selDiff.addEventListener('change', updateStartButtonLabel);
+    }
+    if (inpTime) {
+      inpTime.addEventListener('input', updateStartButtonLabel);
+      inpTime.addEventListener('blur', function () {
+        // แก้ค่าผิด ๆ ให้เข้าช่วง 20–180
+        var t = parseInt(inpTime.value, 10);
+        if (isNaN(t)) t = 60;
+        if (t < 20) t = 20;
+        if (t > 180) t = 180;
+        inpTime.value = t;
+        updateStartButtonLabel();
+      });
+    }
   }
 
-  // ----- init ตอนโหลดหน้า -----
-  loadProfileFromStorage();
+  // ---------- Init on load ----------
+
+  function init() {
+    loadProfile();
+
+    // auto เลือกการ์ดแรกเป็นดีฟอลต์ (Good vs Junk)
+    var firstCard = $('.mode-card');
+    if (firstCard) {
+      setActiveModeCard(firstCard);
+    }
+
+    updateStartButtonLabel();
+    bindEvents();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
