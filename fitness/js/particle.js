@@ -1,4 +1,4 @@
-// fitness/js/particle.js
+// === fitness/js/particle.js ===
 'use strict';
 
 export function spawnHitParticle(parent, x, y, emoji='💥'){
