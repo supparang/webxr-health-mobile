@@ -1,10 +1,10 @@
-// === fitness/js/dom-renderer.js (2025-11-20 SCORE@TARGET) ===
+// === fitness/js/dom-renderer.js (2025-11-21 — TARGET + SCORE FX) ===
 'use strict';
 
 export class DomRenderer {
   constructor(game, host, opts = {}) {
-    this.game = game;
-    this.host = host;
+    this.game   = game;
+    this.host   = host;
     this.sizePx = opts.sizePx || 96;
     this.targets = new Map();
 
@@ -18,46 +18,43 @@ export class DomRenderer {
   updateBounds() {
     if (!this.host) return;
     const rect = this.host.getBoundingClientRect();
-    this.bounds = {
-      w: rect.width || 1,
-      h: rect.height || 1
-    };
+    this.bounds = { w: rect.width || 1, h: rect.height || 1 };
   }
 
-  // สร้างเป้าใหม่แบบ emoji ตรงกลางจอ
   spawnTarget(t) {
     if (!this.host) return;
     this.updateBounds();
 
-    const box = document.createElement('div');
-    box.className = 'sb-target';
-    box.dataset.id = String(t.id);
-    box.dataset.type = t.decoy ? 'bad' : 'good';
+    const outer = document.createElement('div');
+    outer.className = 'sb-target';
+    outer.dataset.id = String(t.id);
+    outer.dataset.type = t.decoy ? 'bad' : 'good';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
-    inner.textContent = t.emoji || (t.decoy ? '💣' : '🥊');
-    box.appendChild(inner);
+    inner.textContent = t.emoji || '🎯';
+    outer.appendChild(inner);
 
     const size = this.sizePx;
-    box.style.width = size + 'px';
-    box.style.height = size + 'px';
+    outer.style.width  = size + 'px';
+    outer.style.height = size + 'px';
 
-    // สุ่มตำแหน่งในกรอบ แต่กันขอบ 32px
+    // ให้จุดกึ่งกลางตรงกับพิกัดที่สุ่ม
+    outer.style.marginLeft = -(size / 2) + 'px';
+    outer.style.marginTop  = -(size / 2) + 'px';
+
+    // สุ่มตำแหน่งในพื้นที่เล่น (กันจากขอบ 32px)
     const margin = 32;
-    const w = Math.max(10, this.bounds.w - margin * 2);
-    const h = Math.max(10, this.bounds.h - margin * 2);
-    const x = margin + Math.random() * w;
-    const y = margin + Math.random() * h;
+    const x = margin + Math.random() * (this.bounds.w - margin * 2);
+    const y = margin + Math.random() * (this.bounds.h - margin * 2);
+    outer.style.left = x + 'px';
+    outer.style.top  = y + 'px';
 
-    box.style.left = x + 'px';
-    box.style.top  = y + 'px';
+    outer.addEventListener('pointerdown', this.handleClick);
+    this.host.appendChild(outer);
 
-    box.addEventListener('pointerdown', this.handleClick);
-    this.host.appendChild(box);
-
-    t.dom = box;
-    this.targets.set(t.id, box);
+    t.dom = outer;
+    this.targets.set(t.id, outer);
   }
 
   handleClick(ev) {
@@ -67,9 +64,9 @@ export class DomRenderer {
     const id = parseInt(el.dataset.id || '0', 10);
     if (!id) return;
 
-    const rect = this.host.getBoundingClientRect();
-    const x = ev.clientX - rect.left;
-    const y = ev.clientY - rect.top;
+    const hostRect = this.host.getBoundingClientRect();
+    const x = ev.clientX - hostRect.left;
+    const y = ev.clientY - hostRect.top;
 
     this.game.registerTouch(x, y, id);
   }
@@ -78,51 +75,55 @@ export class DomRenderer {
     const el = t && t.dom;
     if (el) {
       el.removeEventListener('pointerdown', this.handleClick);
-      if (el.parentNode === this.host) el.parentNode.removeChild(el);
+      if (el.parentNode === this.host) this.host.removeChild(el);
     }
     this.targets.delete(t.id);
   }
 
-  // เอฟเฟกต์ตอนตีโดน: เป้าแตก + คะแนนเด้งตรงตำแหน่งเป้า
+  // แอนิเมชันตอนตี + คะแนนเด้งออกจากเป้า
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    const el = t && t.dom;
-    if (el) {
-      el.classList.add('sb-target-hit');
+    // ให้เป้า "แตก" หรือหายแบบ miss
+    if (t.dom) {
+      const cls = opts.miss ? 'sb-miss' : 'sb-hit';
+      t.dom.classList.add(cls);
       setTimeout(() => {
-        el.classList.remove('sb-target-hit');
-      }, 260);
+        if (t.dom) t.dom.classList.remove(cls);
+      }, 220);
     }
 
+    // ถ้าไม่มีคะแนนอะไรจะโชว์ (เช่น miss เฉย ๆ) ก็ยังขึ้นคำว่า MISS
     const hostRect = this.host.getBoundingClientRect();
     let x = hostRect.width / 2;
     let y = hostRect.height / 2;
 
-    if (el) {
-      const r = el.getBoundingClientRect();
+    if (t.dom) {
+      const r = t.dom.getBoundingClientRect();
       x = r.left - hostRect.left + r.width / 2;
       y = r.top  - hostRect.top  + r.height / 2;
     }
 
-    const score = typeof opts.score === 'number' ? opts.score : 0;
-
     const fx = document.createElement('div');
     fx.className = 'sb-fx-score';
 
-    // ตั้งสี/ข้อความตามเกรด
+    let txt = '';
     if (opts.miss) {
-      fx.classList.add('sb-miss');
-      fx.textContent = 'MISS';
-    } else if (opts.decoy && score < 0) {
-      fx.classList.add('sb-miss');
-      fx.textContent = String(score);
-    } else {
-      if (opts.grade === 'perfect') fx.classList.add('sb-perfect');
-      else if (opts.grade === 'good') fx.classList.add('sb-good');
-      else fx.classList.add('sb-miss');
+      txt = 'MISS';
+    } else if (typeof opts.score === 'number') {
+      txt = opts.score > 0 ? '+' + opts.score : String(opts.score);
+    }
 
-      fx.textContent = score > 0 ? '+' + score : (score || '');
+    fx.textContent = txt;
+
+    if (opts.decoy || opts.miss) {
+      fx.classList.add('sb-miss');
+    } else if (opts.grade === 'perfect') {
+      fx.classList.add('sb-perfect');
+    } else if (opts.grade === 'good') {
+      fx.classList.add('sb-good');
+    } else {
+      fx.classList.add('sb-good');
     }
 
     fx.style.left = x + 'px';
@@ -131,13 +132,13 @@ export class DomRenderer {
     this.host.appendChild(fx);
     setTimeout(() => {
       if (fx.parentNode === this.host) this.host.removeChild(fx);
-    }, 650);
+    }, 600);
   }
 
   clear() {
     for (const el of this.targets.values()) {
       el.removeEventListener('pointerdown', this.handleClick);
-      if (el.parentNode === this.host) el.parentNode.removeChild(el);
+      if (el.parentNode === this.host) this.host.removeChild(el);
     }
     this.targets.clear();
   }
