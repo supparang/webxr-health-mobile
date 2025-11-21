@@ -1,10 +1,5 @@
 // === Hero Health — game/main.js (Multiverse + Boss + MiniQuest + Research CSV) ===
-// ใช้งานแบบ ES module: โหลดโหมดและโค้ชด้วย side-effect import
-import './modes/mode.goodjunk.js';
-import './modes/mode.groups.js';
-import './modes/mode.hydration.js';
-import './modes/mode.plate.js';
-import './coach.js';
+'use strict';
 
 // ---------- อ่านค่าจาก URL ----------
 const url = new URL(window.location.href);
@@ -21,14 +16,16 @@ const GAME_DURATION = timeParam;
 function $(sel) { return document.querySelector(sel); }
 function $all(sel) { return document.querySelectorAll(sel); }
 
+// ซ่อนข้อความโหลดกลางจอ (จาก play.html)
+function hideLoadingScene() {
+  const scene = document.querySelector('.scene-wrap');
+  if (scene) scene.style.display = 'none';
+}
+
 // ---------- Profile จาก Hub ----------
 let playerProfile = {};
 try {
-  // รองรับทั้ง key ใหม่จาก hub.js และ key เดิม (ถ้ามี)
-  const raw =
-    sessionStorage.getItem('HEROHEALTH_PROFILE') ||  // เวอร์ชัน hub ใหม่
-    sessionStorage.getItem('hha_profile');           // เวอร์ชันเดิม
-
+  const raw = sessionStorage.getItem('hha_profile');
   if (raw) playerProfile = JSON.parse(raw) || {};
 } catch (e) {
   playerProfile = {};
@@ -141,7 +138,7 @@ function downloadTeacherCsv(summaries) {
       JSON.stringify(p.name || '').replace(/"/g, '""'),
       JSON.stringify(p.grade || '').replace(/"/g, '""'),
       JSON.stringify(p.room || '').replace(/"/g, '""'),
-      JSON.stringify(p.sid || p.id || '').replace(/"/g, '""'),
+      JSON.stringify(p.sid || '').replace(/"/g, '""'),
       s.mode || '',
       s.diff || '',
       s.ts || '',
@@ -211,7 +208,7 @@ function downloadResearchCsv(events) {
       JSON.stringify(p.name || '').replace(/"/g, '""'),
       JSON.stringify(p.grade || '').replace(/"/g, '""'),
       JSON.stringify(p.room || '').replace(/"/g, '""'),
-      JSON.stringify(p.sid || p.id || '').replace(/"/g, '""'),
+      JSON.stringify(p.sid || '').replace(/"/g, '""'),
       e.mode || '',
       e.diff || '',
       e.kind || '',
@@ -1261,6 +1258,9 @@ function startGame() {
   if (running) return;
   running = true;
 
+  // ซ่อนข้อความโหลด (กันเห็นตัวอักษรกลางจอระหว่างเล่น)
+  hideLoadingScene();
+
   score = 0;
   combo = 0;
   maxCombo = 0;
@@ -1325,6 +1325,9 @@ function bootstrap() {
   ensureGameCSS();
   updateHUD();
   initExportDropdown();
+
+  // ซ่อน loading scene ทันทีที่ engine พร้อม
+  hideLoadingScene();
 
   const restartBtn = $('#hha-restart');
   if (restartBtn) {
