@@ -1,14 +1,16 @@
-// === fitness/js/dom-renderer.js (2025-11-21 — TARGET + SCORE FX) ===
+// === js/dom-renderer.js (2025-11-22 — DOM targets + score fx) ===
 'use strict';
+
+import { spawnHitParticle } from './particle.js';
 
 export class DomRenderer {
   constructor(game, host, opts = {}) {
-    this.game   = game;
-    this.host   = host;
+    this.game = game;
+    this.host = host;
     this.sizePx = opts.sizePx || 96;
     this.targets = new Map();
 
-    this.handleClick  = this.handleClick.bind(this);
+    this.handleClick = this.handleClick.bind(this);
     this.updateBounds = this.updateBounds.bind(this);
 
     this.updateBounds();
@@ -25,34 +27,32 @@ export class DomRenderer {
     if (!this.host) return;
     this.updateBounds();
 
-    const outer = document.createElement('div');
-    outer.className = 'sb-target';
-    outer.dataset.id   = String(t.id);
-    outer.dataset.type = t.decoy ? 'bad' : 'good';
+    const el = document.createElement('div');
+    el.className = 'sb-target';
+    el.dataset.id = String(t.id);
+    el.dataset.type = t.decoy ? 'bad' : 'good';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
     inner.textContent = t.emoji || '🎯';
-    outer.appendChild(inner);
+    el.appendChild(inner);
 
     const size = this.sizePx;
-    outer.style.width  = size + 'px';
-    outer.style.height = size + 'px';
-    outer.style.marginLeft = -(size / 2) + 'px';
-    outer.style.marginTop  = -(size / 2) + 'px';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
 
-    // random position inside field (margin 32px)
-    const margin = 32;
-    const x = margin + Math.random() * (this.bounds.w - margin * 2);
-    const y = margin + Math.random() * (this.bounds.h - margin * 2);
-    outer.style.left = x + 'px';
-    outer.style.top  = y + 'px';
+    // random pos (กันขอบ 32px)
+    const margin = 40;
+    const x = margin + Math.random() * Math.max(1, this.bounds.w - margin * 2);
+    const y = margin + Math.random() * Math.max(1, this.bounds.h - margin * 2);
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
 
-    outer.addEventListener('pointerdown', this.handleClick);
-    this.host.appendChild(outer);
+    el.addEventListener('pointerdown', this.handleClick);
+    this.host.appendChild(el);
 
-    t.dom = outer;
-    this.targets.set(t.id, outer);
+    t.dom = el;
+    this.targets.set(t.id, el);
   }
 
   handleClick(ev) {
@@ -62,9 +62,9 @@ export class DomRenderer {
     const id = parseInt(el.dataset.id || '0', 10);
     if (!id) return;
 
-    const hostRect = this.host.getBoundingClientRect();
-    const x = ev.clientX - hostRect.left;
-    const y = ev.clientY - hostRect.top;
+    const rect = this.host.getBoundingClientRect();
+    const x = ev.clientX - rect.left;
+    const y = ev.clientY - rect.top;
 
     this.game.registerTouch(x, y, id);
   }
@@ -78,55 +78,60 @@ export class DomRenderer {
     this.targets.delete(t.id);
   }
 
-  // effect: target “แตก” + score popup
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    if (t.dom) {
-      const cls = opts.miss ? 'sb-miss' : 'sb-hit';
-      t.dom.classList.add(cls);
-      setTimeout(() => {
-        if (t.dom) t.dom.classList.remove(cls);
-      }, 220);
-    }
+    const el = t.dom;
+    const isMiss = !!opts.miss;
+    const isDecoy = !!opts.decoy;
+    const grade = opts.grade || (isMiss ? 'miss' : 'good');
 
     const hostRect = this.host.getBoundingClientRect();
-    let x = hostRect.width / 2;
-    let y = hostRect.height / 2;
+    let cx = hostRect.width / 2;
+    let cy = hostRect.height / 2;
 
-    if (t.dom) {
-      const r = t.dom.getBoundingClientRect();
-      x = r.left - hostRect.left + r.width / 2;
-      y = r.top  - hostRect.top  + r.height / 2;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      cx = r.left - hostRect.left + r.width / 2;
+      cy = r.top  - hostRect.top  + r.height / 2;
+      el.classList.add(isMiss ? 'sb-miss' : 'sb-hit');
     }
 
+    // score text
     const fx = document.createElement('div');
     fx.className = 'sb-fx-score';
 
-    let txt = '';
-    if (opts.miss) {
-      txt = 'MISS';
-    } else if (typeof opts.score === 'number') {
-      txt = opts.score > 0 ? '+' + opts.score : String(opts.score);
-    }
-
-    fx.textContent = txt;
-
-    if (opts.decoy || opts.miss) {
+    const score = opts.score || 0;
+    let text = '';
+    if (isMiss) {
+      text = 'MISS';
       fx.classList.add('sb-miss');
-    } else if (opts.grade === 'perfect') {
-      fx.classList.add('sb-perfect');
+    } else if (isDecoy && score < 0) {
+      text = String(score);
+      fx.classList.add('sb-bad');
     } else {
-      fx.classList.add('sb-good');
+      if (score > 0) text = '+' + score;
+      if (grade === 'perfect') fx.classList.add('sb-perfect');
+      else fx.classList.add('sb-good');
     }
 
-    fx.style.left = x + 'px';
-    fx.style.top  = y + 'px';
+    fx.textContent = text;
+    fx.style.left = cx + 'px';
+    fx.style.top  = cy + 'px';
 
     this.host.appendChild(fx);
+
+    // particle 💥 / 💣
+    spawnHitParticle(this.host, cx, cy, isDecoy ? '💣' : '💥');
+
     setTimeout(() => {
       if (fx.parentNode === this.host) this.host.removeChild(fx);
-    }, 600);
+      if (el) {
+        el.removeEventListener('pointerdown', this.handleClick);
+        if (el.parentNode === this.host) this.host.removeChild(el);
+      }
+      this.targets.delete(t.id);
+    }, 260);
   }
 
   clear() {
