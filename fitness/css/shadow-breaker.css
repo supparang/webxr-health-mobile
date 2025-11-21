@@ -1,85 +1,80 @@
-/* === shadow-breaker.css — HUD + DOM targets + responsive (2025-11-21) === */
+/* === shadow-breaker.css — Shadow Breaker UI + Targets (2025-11-21c) === */
 
+/* ให้พื้นหลังรวมของหน้า Shadow Breaker เข้ม แบบเดียวกับ Rhythm */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-}
-
-body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #020617;
   color: #e5e7eb;
 }
 
-/* ให้การ์ดเล่นเต็มจอบนมือถือ */
-@media (max-width: 768px) {
-  .wrap {
-    max-width: none;
-    margin: 0;
-    padding: 0;
-  }
-  #view-play.card {
-    margin: 0;
-    padding: 0;
-    border-radius: 0;
-    box-shadow: none;
-    border: none;
-    background: transparent;
-  }
+/* ปรับ wrap ของ Shadow Breaker ให้กินเกือบเต็มจอ */
+.wrap {
+  max-width: 1000px;
+  margin: 16px auto 24px;
+  padding: 0 12px 24px;
 }
 
-/* WRAP ของ Shadow Breaker */
+/* เฉพาะ view-play: ตัด padding การ์ดเดิมออก แล้วใช้ sb-wrap เป็นการ์ดหลัก */
+#view-play.card {
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* กรอบเกมหลัก */
 .sb-wrap {
   position: relative;
   width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  height: min(680px, calc(100vh - 120px));
-  min-height: 520px;
-  border-radius: 28px;
+  min-height: calc(100vh - 140px);
+  border-radius: 26px;
+  padding: 16px 16px 60px;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.85);
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.22), transparent 55%),
+    #020617;
   overflow: hidden;
-  background: radial-gradient(circle at top, #1d283a, #020617 60%);
-  box-shadow: 0 20px 60px rgba(15,23,42,0.95);
 }
 
-/* เปลี่ยนพื้นหลังตามบอส */
+/* เปลี่ยนพื้นหลังตามบอส (ใช้ data-boss บน .sb-wrap) */
 .sb-wrap[data-boss="0"] {
   background-image:
-    radial-gradient(circle at top left, rgba(59,130,246,0.4), transparent 60%),
+    radial-gradient(circle at top left, rgba(59,130,246,0.40), transparent 60%),
     radial-gradient(circle at bottom right, rgba(15,23,42,1), #020617 70%);
 }
 .sb-wrap[data-boss="1"] {
   background-image:
-    radial-gradient(circle at top right, rgba(16,185,129,0.4), transparent 60%),
+    radial-gradient(circle at top right, rgba(16,185,129,0.40), transparent 60%),
     radial-gradient(circle at bottom left, rgba(15,23,42,1), #020617 70%);
 }
 .sb-wrap[data-boss="2"] {
   background-image:
-    radial-gradient(circle at top, rgba(249,115,22,0.5), transparent 65%),
+    radial-gradient(circle at top, rgba(249,115,22,0.50), transparent 65%),
     radial-gradient(circle at bottom, #0f172a, #020617 80%);
 }
 .sb-wrap[data-boss="3"] {
   background-image:
-    radial-gradient(circle at center, rgba(192,38,211,0.5), transparent 70%),
+    radial-gradient(circle at center, rgba(192,38,211,0.55), transparent 70%),
     radial-gradient(circle at bottom, #020617, #020617 80%);
 }
 
-/* HUD ด้านบน ----------------------------------------------------------- */
+/* ------------- HUD HP Bar ------------- */
 
 .sb-hud {
   position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(820px, 96%);
+  left: 16px;
+  right: 16px;
+  top: 10px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
-  z-index: 30;
+  gap: 16px;
+  z-index: 20;
   font-size: 14px;
-  pointer-events: none; /* ไม่บังการแตะเป้า */
 }
 
 .sb-hp {
@@ -107,11 +102,11 @@ body {
 .sb-hp-bar {
   position: relative;
   width: 100%;
-  height: 10px;
+  height: 12px;
   border-radius: 999px;
-  background: rgba(15,23,42,0.85);
+  background: rgba(15,23,42,0.9);
   overflow: hidden;
-  outline: 1px solid rgba(148,163,184,0.4);
+  outline: 1px solid rgba(148,163,184,0.55);
 }
 
 .sb-hp-fill {
@@ -125,27 +120,27 @@ body {
 .sb-hp-player .sb-hp-fill {
   background: linear-gradient(90deg, #22c55e, #16a34a);
 }
+
 .sb-hp-boss .sb-hp-fill {
   background: linear-gradient(90deg, #f97316, #ef4444);
 }
 
-/* Boss portrait ------------------------------------------------------- */
+/* ------------- Boss portrait ------------- */
 
 .sb-boss-portrait {
   position: absolute;
   top: 68px;
   right: 18px;
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
-  background: rgba(15,23,42,0.9);
-  border: 1px solid rgba(248,250,252,0.15);
+  width: 66px;
+  height: 66px;
+  border-radius: 18px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(248,250,252,0.20);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 40px;
-  z-index: 26;
-  pointer-events: none;
+  z-index: 19;
 }
 
 .sb-boss-portrait.sb-shake {
@@ -155,53 +150,47 @@ body {
 .boss-portrait-text {
   position: absolute;
   top: 70px;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  font-size: 14px;
-  z-index: 25;
-  pointer-events: none;
+  right: 100px;
+  max-width: 180px;
+  text-align: right;
+  font-size: 13px;
+  z-index: 18;
 }
 
-.boss-portrait-text #boss-portrait-name {
+.boss-portrait-text div:first-child {
   font-weight: 600;
+  margin-bottom: 2px;
 }
-.boss-portrait-text #boss-portrait-hint {
+
+.boss-portrait-text div:last-child {
   opacity: 0.9;
 }
 
-@keyframes sbShake {
-  0%, 100% { transform: translate(0,0); }
-  20% { transform: translate(-2px,0); }
-  40% { transform: translate(2px,0); }
-  60% { transform: translate(0,-2px); }
-  80% { transform: translate(0,2px); }
-}
-
-/* FEVER bar ---------------------------------------------------------- */
+/* ------------- FEVER Bar ------------- */
 
 .fever-wrap {
   position: absolute;
-  left: 18px;
-  top: 110px;
-  width: 260px;
-  z-index: 22;
-  pointer-events: none;
+  left: 16px;
+  right: 16px;
+  top: 86px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 18;
 }
 
 .fever-label {
   font-weight: 600;
   font-size: 14px;
-  margin-bottom: 4px;
 }
 
 .fever-bar {
+  flex: 1;
   position: relative;
-  width: 100%;
-  height: 10px;
+  height: 12px;
   border-radius: 999px;
-  overflow: hidden;
   background: rgba(15,23,42,0.9);
+  overflow: hidden;
   border: 1px solid rgba(148,163,184,0.5);
 }
 
@@ -210,54 +199,89 @@ body {
   inset: 0;
   transform-origin: left center;
   transform: scaleX(0);
-  background: linear-gradient(90deg, #22c55e, #eab308, #f97316);
+  background: linear-gradient(90deg, #22c55e, #facc15, #f97316);
+  box-shadow: 0 0 12px rgba(250,204,21,0.6);
   transition: transform 0.18s ease-out;
 }
 
 .fever-status {
-  margin-top: 2px;
-  font-size: 13px;
-  opacity: 0.85;
+  min-width: 64px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.8);
+  font-size: 12px;
+  text-align: center;
 }
 
 .fever-status.on {
+  background: rgba(250,204,21,0.15);
+  border-color: #facc15;
   color: #facc15;
-  font-weight: 600;
 }
 
-/* Meta stats กล่องซ้าย ------------------------------------------------ */
+/* ------------- Meta box (ซ้ายบน) ------------- */
 
 .sb-meta {
   position: absolute;
-  left: 18px;
-  bottom: 82px;
-  z-index: 24;
+  left: 16px;
+  top: 128px;
+  z-index: 18;
   font-size: 13px;
-  background: rgba(15,23,42,0.94);
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(148,163,184,0.5);
-  backdrop-filter: blur(6px);
-  pointer-events: none;
+  background: rgba(15,23,42,0.92);
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,0.6);
+  box-shadow: 0 16px 40px rgba(15,23,42,0.75);
 }
 
 .sb-meta-row {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
 }
 
-/* พื้นที่เล่น / เป้า --------------------------------------------------- */
+/* ------------- พื้นที่เล่น (เป้า) ------------- */
 
 .sb-field {
   position: absolute;
-  inset: 0 0 70px 0;
-  z-index: 10;
+  left: 0;
+  right: 0;
+  top: 190px;
+  bottom: 70px;
+  z-index: 5;
   overflow: hidden;
-  pointer-events: auto; /* รับการแตะเป้า */
 }
 
-/* Target */
+/* ------------- ปุ่มล่าง ------------- */
+
+.sb-controls {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  z-index: 22;
+}
+
+.sb-controls button {
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.8);
+  background: rgba(15,23,42,0.95);
+  color: #e5e7eb;
+  padding: 8px 18px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.sb-controls button:first-child {
+  background: linear-gradient(90deg, #f97316, #ea580c);
+  border-color: transparent;
+  color: #0b1120;
+}
+
+/* ------------- Targets ------------- */
 
 .sb-target {
   position: absolute;
@@ -269,9 +293,9 @@ body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
-  box-shadow: 0 16px 40px rgba(15,23,42,0.9);
-  transform: translate(-50%, -50%) scale(0.65);
-  animation: sbTargetIn 0.18s ease-out forwards;
+  box-shadow: 0 12px 30px rgba(15,23,42,0.9);
+  transform: translate(-50%, -50%) scale(0.6);
+  animation: sbTargetIn 0.16s ease-out forwards;
 }
 
 .sb-target-inner {
@@ -284,21 +308,122 @@ body {
   font-size: 2.4rem;
 }
 
-/* good vs bad */
-
 .sb-target[data-type="good"] .sb-target-inner {
-  background: radial-gradient(circle at 30% 20%, #fefce8, #bbf7d0);
-  border: 3px solid rgba(22,163,74,0.9);
+  background: radial-gradient(circle at 30% 20%, #fefce8, #bef264);
+  border: 4px solid rgba(22,163,74,0.95);
 }
 
 .sb-target[data-type="bad"] .sb-target-inner {
   background: radial-gradient(circle at 30% 20%, #fee2e2, #fecaca);
-  border: 3px solid rgba(220,38,38,0.9);
+  border: 4px solid rgba(220,38,38,0.95);
 }
 
+/* ตอนโดนตี */
 .sb-target.sb-hit {
   animation: sbTargetHit 0.22s ease-out forwards;
 }
+
+/* ตอน miss / หมดเวลา */
+.sb-target.sb-miss {
+  animation: sbTargetMiss 0.18s ease-in forwards;
+}
+
+/* ------------- Score popup ------------- */
+
+.sb-fx-score {
+  position: absolute;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 22px;
+  text-shadow: 0 2px 8px rgba(15,23,42,0.95);
+  z-index: 40;
+  transform: translate(-50%, -50%);
+  animation: sbScoreFloat 0.6s ease-out forwards;
+}
+
+.sb-fx-score.sb-good {
+  color: #bbf7d0;
+}
+
+.sb-fx-score.sb-perfect {
+  color: #facc15;
+}
+
+.sb-fx-score.sb-miss {
+  color: #fecaca;
+}
+
+.sb-fx-score.sb-decoy {
+  color: #fecaca;
+}
+
+/* ------------- Particle emoji ------------- */
+
+.hitParticle {
+  position: absolute;
+  pointer-events: none;
+  font-size: 26px;
+  transform: translate(-50%, -50%);
+  z-index: 39;
+  animation: hitParticle 0.45s ease-out forwards;
+}
+
+/* ------------- Boss intro overlay ------------- */
+
+.boss-intro {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(15,23,42,0.6), rgba(15,23,42,0.95));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.boss-intro.hidden {
+  display: none;
+}
+
+.boss-intro-card {
+  min-width: 260px;
+  max-width: 320px;
+  padding: 20px 18px 18px;
+  border-radius: 18px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(248,250,252,0.15);
+  box-shadow: 0 24px 75px rgba(0,0,0,0.8);
+  text-align: center;
+}
+
+.boss-intro-emoji {
+  font-size: 46px;
+  margin-bottom: 6px;
+}
+
+.boss-intro-name {
+  font-weight: 700;
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+.boss-intro-title {
+  font-size: 14px;
+  opacity: 0.95;
+  margin-bottom: 8px;
+}
+
+.boss-intro-desc {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-bottom: 10px;
+}
+
+.boss-intro-hint {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* ------------- Animations ------------- */
 
 @keyframes sbTargetIn {
   from { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
@@ -308,138 +433,46 @@ body {
 @keyframes sbTargetHit {
   0%   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
   60%  { transform: translate(-50%, -50%) scale(1.25); opacity: 1; filter: brightness(1.1); }
-  100% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(0.2);  opacity: 0; }
 }
 
-/* Score popup -------------------------------------------------------- */
-
-.sb-fx-score {
-  position: absolute;
-  pointer-events: none;
-  font-weight: 700;
-  font-size: 18px;
-  text-shadow: 0 1px 2px rgba(15,23,42,0.85);
-  z-index: 40;
-  transform: translate(-50%, -50%);
-  animation: sbScoreFloat 0.6s ease-out forwards;
-}
-
-.sb-fx-score.sb-good {
-  color: #bbf7d0;
-}
-.sb-fx-score.sb-perfect {
-  color: #facc15;
-}
-.sb-fx-score.sb-miss {
-  color: #fecaca;
-}
-.sb-fx-score.sb-decoy {
-  color: #fecaca;
+@keyframes sbTargetMiss {
+  from { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+  to   { transform: translate(-50%, -50%) scale(0.7); opacity: 0; filter: grayscale(0.7); }
 }
 
 @keyframes sbScoreFloat {
-  from { transform: translate(-50%, -40%); opacity: 1; }
-  to   { transform: translate(-50%, -90%); opacity: 0; }
+  from { transform: translate(-50%, -50%);  opacity: 1; }
+  to   { transform: translate(-50%, -95%); opacity: 0; }
 }
 
-/* particle ที่เรียกจาก particle.js ----------------------------------- */
-
-.hitParticle {
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  pointer-events: none;
-  transform: translate(-50%, -50%) scale(0.4);
-  animation: hitParticlePop 0.48s ease-out forwards;
-  text-shadow: 0 3px 10px rgba(15,23,42,0.9);
+@keyframes hitParticle {
+  from { transform: translate(-50%, -50%) scale(0.7); opacity: 1; }
+  to   { transform: translate(-50%, -90%) scale(1.15); opacity: 0; }
 }
 
-@keyframes hitParticlePop {
-  0%   { opacity: 0; transform: translate(-50%, -40%) scale(0.2); }
-  40%  { opacity: 1; transform: translate(-50%, -70%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -100%) scale(0.4); }
+@keyframes sbShake {
+  0%,100% { transform: translate(0,0); }
+  20% { transform: translate(-2px,0); }
+  40% { transform: translate(2px,0); }
+  60% { transform: translate(0,-2px); }
+  80% { transform: translate(0,2px); }
 }
 
-/* ปุ่มล่าง ----------------------------------------------------------- */
+/* ------------- Responsive fine-tune ------------- */
 
-.sb-controls {
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 14px;
-  z-index: 28;
-}
+@media (min-width: 768px) {
+  .sb-wrap {
+    padding: 18px 20px 70px;
+    min-height: calc(100vh - 120px);
+  }
 
-.sb-controls button {
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,0.7);
-  padding: 8px 20px;
-  background: rgba(15,23,42,0.9);
-  color: #e5e7eb;
-  font-weight: 500;
-  font-size: 14px;
-}
+  .sb-meta {
+    top: 138px;
+  }
 
-/* Boss intro overlay ------------------------------------------------- */
-
-.boss-intro {
-  position: fixed;
-  inset: 0;
-  background: rgba(15,23,42,0.88);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-}
-
-.boss-intro.hidden {
-  display: none;
-}
-
-.boss-intro-card {
-  background: radial-gradient(circle at top, #1f2937, #020617 80%);
-  border-radius: 24px;
-  padding: 22px 26px;
-  max-width: 360px;
-  text-align: center;
-  border: 1px solid rgba(148,163,184,0.7);
-  box-shadow: 0 22px 60px rgba(15,23,42,0.95);
-}
-
-.boss-intro-emoji {
-  font-size: 40px;
-  margin-bottom: 8px;
-}
-.boss-intro-name {
-  font-weight: 700;
-  font-size: 18px;
-}
-.boss-intro-title {
-  font-size: 14px;
-  margin-top: 4px;
-  opacity: 0.9;
-}
-.boss-intro-desc {
-  font-size: 14px;
-  margin-top: 10px;
-  opacity: 0.9;
-}
-.boss-intro-hint {
-  margin-top: 14px;
-  font-size: 13px;
-  opacity: 0.85;
-}
-
-/* จบเกม */
-
-.sb-wrap.sb-finished .sb-field {
-  filter: grayscale(0.4) brightness(0.75);
-  pointer-events: none;
+  .sb-field {
+    top: 200px;
+    bottom: 78px;
+  }
 }
