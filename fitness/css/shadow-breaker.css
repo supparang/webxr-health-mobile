@@ -1,62 +1,70 @@
-/* === fitness/css/shadow-breaker.css (2025-11-20) === */
+/* === fitness/css/shadow-breaker.css — Shadow Breaker (DOM version) === */
 
-/* ใช้ร่วมกับ layout ของ rhythm-boxer.css ได้เลย */
 html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #020617;
   color: #e5e7eb;
 }
 
-/* กล่องเล่น Shadow Breaker ด้านใน card */
+/* MAIN WRAP ---------------------------------------------------------- */
+
 .sb-wrap {
   position: relative;
-  width: 100%;
-  min-height: 420px;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 55%),
-    #020617;
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
+  background:
+    radial-gradient(circle at top left, #1e293b, #020617 60%),
+    radial-gradient(circle at bottom right, #020617, #020617 80%);
 }
 
-/* เปลี่ยนพื้นหลังตามบอส (0–3) */
+/* เปลี่ยนพื้นหลังตามบอส */
 .sb-wrap[data-boss="0"] {
-  background:
-    radial-gradient(circle at top left, rgba(59,130,246,0.35), transparent 60%),
+  background-image:
+    radial-gradient(circle at top left, rgba(59,130,246,0.4), transparent 60%),
     radial-gradient(circle at bottom right, rgba(15,23,42,1), #020617 70%);
 }
+
 .sb-wrap[data-boss="1"] {
-  background:
-    radial-gradient(circle at top right, rgba(16,185,129,0.35), transparent 60%),
+  background-image:
+    radial-gradient(circle at top right, rgba(16,185,129,0.4), transparent 60%),
     radial-gradient(circle at bottom left, rgba(15,23,42,1), #020617 70%);
 }
+
 .sb-wrap[data-boss="2"] {
-  background:
+  background-image:
     radial-gradient(circle at top, rgba(249,115,22,0.45), transparent 65%),
     radial-gradient(circle at bottom, #0f172a, #020617 80%);
 }
+
 .sb-wrap[data-boss="3"] {
-  background:
-    radial-gradient(circle at center, rgba(244,63,94,0.5), transparent 70%),
+  background-image:
+    radial-gradient(circle at center, rgba(192,38,211,0.5), transparent 70%),
     radial-gradient(circle at bottom, #020617, #020617 80%);
 }
 
-/* ---------------- HUD: HP player / boss ---------------- */
+/* HUD ด้านบน (Player HP / Boss HP) ---------------------------------- */
 
 .sb-hud {
   position: absolute;
-  top: 10px;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(760px, 94%);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  width: min(960px, 96vw);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
   z-index: 20;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .sb-hp {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -64,8 +72,8 @@ html, body {
 
 .sb-hp-label {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .sb-hp-name {
@@ -80,11 +88,11 @@ html, body {
 .sb-hp-bar {
   position: relative;
   width: 100%;
-  height: 10px;
+  height: 11px;
   border-radius: 999px;
   background: rgba(15,23,42,0.85);
   overflow: hidden;
-  outline: 1px solid rgba(148,163,184,0.4);
+  outline: 1px solid rgba(148,163,184,0.5);
 }
 
 .sb-hp-fill {
@@ -103,23 +111,19 @@ html, body {
   background: linear-gradient(90deg, #f97316, #ef4444);
 }
 
-/* ---------------- Boss portrait ---------------- */
+/* Boss portrait ------------------------------------------------------ */
 
 .sb-boss-portrait {
-  position: absolute;
-  top: 70px;
-  right: 14px;
-  width: 64px;
-  height: 64px;
+  width: 70px;
+  height: 70px;
   border-radius: 18px;
-  background: rgba(15,23,42,0.92);
-  border: 1px solid rgba(148,163,184,0.55);
+  background: rgba(15,23,42,0.9);
+  border: 1px solid rgba(248,250,252,0.18);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
-  z-index: 18;
-  box-shadow: 0 10px 28px rgba(15,23,42,0.9);
+  font-size: 42px;
+  box-shadow: 0 10px 30px rgba(15,23,42,0.9);
 }
 
 .sb-boss-portrait.sb-shake {
@@ -127,114 +131,99 @@ html, body {
 }
 
 @keyframes sbShake {
-  0%,100% { transform: translate(0,0); }
+  0%, 100% { transform: translate(0,0); }
   20% { transform: translate(-2px,0); }
   40% { transform: translate(2px,0); }
   60% { transform: translate(0,-2px); }
   80% { transform: translate(0,2px); }
 }
 
-.boss-portrait-text {
-  position: absolute;
-  top: 72px;
-  right: 90px;
-  text-align: right;
-  font-size: 12px;
-  z-index: 17;
-}
-
-.boss-portrait-text #boss-portrait-name {
-  font-weight: 600;
-}
-
-.boss-portrait-text #boss-portrait-hint {
-  opacity: 0.86;
-}
-
-/* ---------------- FEVER bar ---------------- */
-
-.fever-wrap {
-  position: absolute;
-  top: 70px;
-  left: 14px;
-  z-index: 18;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-}
-
-.fever-label {
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  font-size: 11px;
-  text-transform: uppercase;
-  opacity: 0.9;
-}
-
-.fever-bar {
-  width: 160px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  overflow: hidden;
-  outline: 1px solid rgba(148,163,184,0.5);
-}
-
-.fever-fill {
-  width: 100%;
-  height: 100%;
-  transform-origin: left center;
-  transform: scaleX(0);
-  background: linear-gradient(90deg,#38bdf8,#22c55e,#facc15);
-  transition: transform 0.18s ease-out;
-}
-
-.fever-status {
-  font-variant-numeric: tabular-nums;
-  font-size: 11px;
-  opacity: 0.86;
-}
-
-.fever-status.on {
-  color: #fee2e2;
-  text-shadow: 0 0 10px rgba(248,250,252,0.8);
-}
-
-/* ---------------- Meta box (ซ้ายบน) ---------------- */
+/* กล่องสถิติซ้ายบน (Mode / Score / Combo) -------------------------- */
 
 .sb-meta {
   position: absolute;
-  left: 14px;
-  top: 112px;
+  left: 18px;
+  top: 90px;
   z-index: 18;
-  font-size: 12px;
-  background: rgba(15,23,42,0.94);
-  padding: 6px 10px;
-  border-radius: 10px;
+  font-size: 13px;
+  background: rgba(15,23,42,0.9);
+  padding: 8px 12px;
+  border-radius: 14px;
   border: 1px solid rgba(148,163,184,0.5);
-  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+  min-width: 170px;
 }
 
 .sb-meta-row {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
 }
 
-/* ---------------- พื้นที่เป้า ---------------- */
+/* FEVER bar ---------------------------------------------------------- */
+
+.sb-fever-wrap {
+  position: absolute;
+  left: 18px;
+  top: 56px;
+  z-index: 18;
+  font-size: 13px;
+  color: #e5e7eb;
+}
+
+.sb-fever-label {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.sb-fever-bar {
+  position: relative;
+  width: min(340px, 70vw);
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(90deg, #0f172a, #020617);
+  border: 1px solid rgba(148,163,184,0.7);
+}
+
+.sb-fever-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, #22c55e, #eab308, #f97316);
+  transition: transform 0.16s ease-out;
+}
+
+.sb-fever-status {
+  margin-top: 2px;
+  font-size: 11px;
+  opacity: 0.82;
+}
+
+.sb-fever-status.on {
+  color: #facc15;
+}
+
+/* พื้นที่เล่น -------------------------------------------------------- */
 
 .sb-field {
   position: absolute;
   left: 0;
   right: 0;
-  top: 140px;
-  bottom: 60px;
-  z-index: 10;
+  top: 120px;
+  bottom: 72px;
   overflow: hidden;
+  z-index: 5;
 }
 
-/* ---------------- เป้า (Target) ---------------- */
+/* ชั้นที่ไว้ spawn เป้า */
+#target-layer {
+  position: absolute;
+  inset: 0;
+}
+
+/* TARGET ------------------------------------------------------------- */
 
 .sb-target {
   position: absolute;
@@ -246,9 +235,9 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
+  box-shadow: 0 10px 28px rgba(15,23,42,0.75);
   transform: translate(-50%, -50%) scale(0.6);
-  box-shadow: 0 10px 30px rgba(15,23,42,0.9);
-  animation: sbTargetIn 0.18s ease-out forwards;
+  animation: sbTargetIn 0.16s ease-out forwards;
 }
 
 .sb-target-inner {
@@ -261,20 +250,23 @@ html, body {
   font-size: 2.2rem;
 }
 
-/* เป้าดี vs เป้าลวง */
+/* good / bad target */
 .sb-target[data-type="good"] .sb-target-inner {
-  background: radial-gradient(circle at 30% 20%, #fefce8, #bbf7d0);
-  border: 3px solid rgba(34,197,94,0.95);
+  background: radial-gradient(circle at 30% 20%, #fefce8, #bef264);
+  border: 3px solid rgba(22,163,74,0.9);
 }
 
 .sb-target[data-type="bad"] .sb-target-inner {
   background: radial-gradient(circle at 30% 20%, #fee2e2, #fecaca);
-  border: 3px solid rgba(239,68,68,0.95);
+  border: 3px solid rgba(220,38,38,0.9);
 }
 
-/* ตอนโดนตี */
-.sb-target-hit {
-  animation: sbTargetExplode 0.32s ease-out forwards;
+.sb-target.sb-hit {
+  animation: sbTargetHit 0.22s ease-out forwards;
+}
+
+.sb-target.sb-miss {
+  animation: sbTargetMiss 0.18s ease-in forwards;
 }
 
 @keyframes sbTargetIn {
@@ -282,32 +274,35 @@ html, body {
   to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
 
-@keyframes sbTargetExplode {
+@keyframes sbTargetHit {
   0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  40%  { transform: translate(-50%, -50%) scale(1.4); opacity: 1; filter: brightness(1.3); }
-  100% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  60%  { transform: translate(-50%, -50%) scale(1.25); opacity: 1; filter: brightness(1.1); }
+  100% { transform: translate(-50%, -50%) scale(0.25); opacity: 0; }
 }
 
-/* ---------------- คะแนนเด้ง ---------------- */
+@keyframes sbTargetMiss {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  to   { transform: translate(-50%, -50%) scale(0.7); opacity: 0; filter: grayscale(0.7); }
+}
+
+/* SCORE POPUP -------------------------------------------------------- */
 
 .sb-fx-score {
-  position: absolute;
+  position: absolute;   /* ต้องเป็น absolute เพื่อเด้งออกจากจุดเป้า */
   pointer-events: none;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
   font-weight: 700;
   font-size: 18px;
-  text-shadow: 0 1px 3px rgba(15,23,42,0.9);
-  animation: sbScoreFloat 0.6s ease-out forwards;
-}
-
-.sb-fx-score.sb-perfect {
-  color: #facc15;
+  text-shadow: 0 1px 2px rgba(15,23,42,0.85);
+  z-index: 50;
+  animation: sbScoreFloat 0.55s ease-out forwards;
 }
 
 .sb-fx-score.sb-good {
   color: #bbf7d0;
+}
+
+.sb-fx-score.sb-perfect {
+  color: #facc15;
 }
 
 .sb-fx-score.sb-miss {
@@ -319,91 +314,147 @@ html, body {
   to   { transform: translate(-50%, -90%); opacity: 0; }
 }
 
-/* ---------------- ปุ่มล่าง ---------------- */
+/* CENTER PANEL (ก่อนเริ่ม / Intro / Result) ------------------------ */
 
-.sb-controls {
+.sb-center-panel {
   position: absolute;
-  right: 12px;
-  bottom: 10px;
-  z-index: 18;
-  display: flex;
-  gap: 8px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 260px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(15,23,42,0.94);
+  box-shadow: 0 18px 45px rgba(15,23,42,0.95);
+  text-align: center;
+  z-index: 40;
 }
 
-.sb-controls button {
+.sb-center-panel h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.sb-center-panel p {
+  margin: 4px 0;
+  font-size: 14px;
+  opacity: 0.86;
+}
+
+/* ปุ่มทั่วไป -------------------------------------------------------- */
+
+.sb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  color: #052e16;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.sb-btn:active {
+  transform: translateY(1px);
+}
+
+/* ปุ่มล่าง ---------------------------------------------------------- */
+
+.sb-bottom-buttons {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  z-index: 30;
+}
+
+.sb-bottom-buttons button {
+  padding: 8px 16px;
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,0.7);
   background: rgba(15,23,42,0.9);
   color: #e5e7eb;
-  font-size: 12px;
-  padding: 6px 12px;
+  font-size: 14px;
 }
 
-/* ---------------- Boss Intro Overlay ---------------- */
+/* Intro boss overlay ------------------------------------------------- */
 
-.boss-intro {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at center, rgba(15,23,42,0.96), rgba(15,23,42,0.94));
-}
-
-.boss-intro.hidden {
+#boss-intro.hidden,
+.hidden {
   display: none;
 }
 
-.boss-intro-card {
-  padding: 18px 20px;
-  border-radius: 18px;
-  background: rgba(15,23,42,0.98);
-  border: 1px solid rgba(148,163,184,0.6);
-  max-width: 320px;
-  text-align: center;
-  box-shadow: 0 22px 60px rgba(0,0,0,0.85);
+/* เมื่อเกมจบ ให้ field จางลง --------------------------------------- */
+
+.sb-wrap.sb-finished .sb-field {
+  filter: grayscale(0.4) brightness(0.7);
+  pointer-events: none;
 }
 
-.boss-intro-emoji {
-  font-size: 40px;
-  margin-bottom: 4px;
-}
+/* MOBILE RESPONSIVE -------------------------------------------------- */
 
-.boss-intro-name {
-  font-weight: 700;
-  margin-bottom: 4px;
-}
+@media (max-width: 768px) {
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
 
-.boss-intro-title {
-  font-size: 13px;
-  opacity: 0.92;
-  margin-bottom: 8px;
-}
+  .sb-wrap {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    border-radius: 0;
+    padding: 0;
+  }
 
-.boss-intro-desc {
-  font-size: 13px;
-  opacity: 0.9;
-}
-
-.boss-intro-hint {
-  margin-top: 10px;
-  font-size: 12px;
-  opacity: 0.85;
-}
-
-/* ---------------- Responsive ---------------- */
-
-@media (max-width: 640px) {
   .sb-hud {
-    width: 96%;
+    top: 8px;
+    width: calc(100vw - 16px);
+    font-size: 12px;
+    gap: 10px;
+  }
+
+  .sb-fever-wrap {
+    left: 8px;
+    top: 56px;
     font-size: 12px;
   }
+
   .sb-meta {
-    font-size: 11px;
+    left: 8px;
+    top: 90px;
+    font-size: 12px;
+    padding: 6px 8px;
   }
+
   .sb-field {
-    top: 150px;
-    bottom: 64px;
+    top: 124px;
+    bottom: 72px;
+  }
+
+  .sb-bottom-buttons {
+    bottom: 8px;
+    padding: 0 10px;
+  }
+
+  .sb-target {
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+
+  .sb-target-inner {
+    font-size: 2.4rem;
+  }
+
+  .sb-center-panel {
+    width: 88vw;
+    max-width: 420px;
+    padding: 14px 16px;
   }
 }
