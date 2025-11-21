@@ -1,4 +1,4 @@
-/* === shadow-breaker.css — Production Ready (DOM Targets + Boss HUD) === */
+/* === shadow-breaker.css — DOM Targets + Boss HUD === */
 
 html, body {
   margin: 0;
@@ -279,7 +279,7 @@ html, body {
   transform: translateY(1px);
 }
 
-/* Timer / score (มุมบนซ้าย) */
+/* Timer / score */
 
 .sb-meta {
   position: absolute;
@@ -299,7 +299,7 @@ html, body {
   gap: 6px;
 }
 
-/* “หมดเวลา / เกมจบ” */
+/* เกมจบ */
 
 .sb-wrap.sb-finished .sb-field {
   filter: grayscale(0.4) brightness(0.7);
