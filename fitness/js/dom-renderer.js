@@ -1,4 +1,4 @@
-// === fitness/js/dom-renderer.js (Shadow Breaker DOM renderer) ===
+// === fitness/js/dom-renderer.js (Shadow Breaker DOM renderer LATEST) ===
 'use strict';
 
 export class DomRenderer {
