@@ -1,4 +1,4 @@
-// === fitness/js/dom-renderer.js (2025-11-20 — DOM + CSS sync) ===
+// === fitness/js/dom-renderer.js (Shadow Breaker DOM renderer) ===
 'use strict';
 
 export class DomRenderer {
@@ -80,11 +80,10 @@ export class DomRenderer {
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    // เป้าเด้ง / จางเล็กน้อย
+    // ให้เป้าเล่น animation hit/miss ตาม CSS
     if (t.dom) {
       if (opts.miss) t.dom.classList.add('sb-miss');
       else           t.dom.classList.add('sb-hit');
-
       setTimeout(() => {
         if (!t.dom) return;
         t.dom.classList.remove('sb-hit');
