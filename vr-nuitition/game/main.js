@@ -1,5 +1,10 @@
 // === Hero Health — game/main.js (Multiverse + Boss + MiniQuest + Research CSV) ===
-'use strict';
+// ใช้งานแบบ ES module: โหลดโหมดและโค้ชด้วย side-effect import
+import './modes/mode.goodjunk.js';
+import './modes/mode.groups.js';
+import './modes/mode.hydration.js';
+import './modes/mode.plate.js';
+import './coach.js';
 
 // ---------- อ่านค่าจาก URL ----------
 const url = new URL(window.location.href);
@@ -19,7 +24,11 @@ function $all(sel) { return document.querySelectorAll(sel); }
 // ---------- Profile จาก Hub ----------
 let playerProfile = {};
 try {
-  const raw = sessionStorage.getItem('hha_profile');
+  // รองรับทั้ง key ใหม่จาก hub.js และ key เดิม (ถ้ามี)
+  const raw =
+    sessionStorage.getItem('HEROHEALTH_PROFILE') ||  // เวอร์ชัน hub ใหม่
+    sessionStorage.getItem('hha_profile');           // เวอร์ชันเดิม
+
   if (raw) playerProfile = JSON.parse(raw) || {};
 } catch (e) {
   playerProfile = {};
@@ -132,7 +141,7 @@ function downloadTeacherCsv(summaries) {
       JSON.stringify(p.name || '').replace(/"/g, '""'),
       JSON.stringify(p.grade || '').replace(/"/g, '""'),
       JSON.stringify(p.room || '').replace(/"/g, '""'),
-      JSON.stringify(p.sid || '').replace(/"/g, '""'),
+      JSON.stringify(p.sid || p.id || '').replace(/"/g, '""'),
       s.mode || '',
       s.diff || '',
       s.ts || '',
@@ -202,7 +211,7 @@ function downloadResearchCsv(events) {
       JSON.stringify(p.name || '').replace(/"/g, '""'),
       JSON.stringify(p.grade || '').replace(/"/g, '""'),
       JSON.stringify(p.room || '').replace(/"/g, '""'),
-      JSON.stringify(p.sid || '').replace(/"/g, '""'),
+      JSON.stringify(p.sid || p.id || '').replace(/"/g, '""'),
       e.mode || '',
       e.diff || '',
       e.kind || '',
