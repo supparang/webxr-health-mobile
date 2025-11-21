@@ -92,7 +92,8 @@ function safePlay(id){
 
 class ShadowBreakerGame {
   constructor() {
-    // views (ในหน้านี้ใช้ view-play / view-result เป็นหลัก)
+    // === VIEWs ===
+    this.viewMenu   = document.getElementById('view-menu');
     this.viewPlay   = document.getElementById('view-play');
     this.viewResult = document.getElementById('view-result');
 
@@ -106,8 +107,7 @@ class ShadowBreakerGame {
     this.statMiss    = $('#stat-miss');
     this.statTime    = $('#stat-time');
 
-    // Fever
-    this.feverWrap   = document.querySelector('.sb-fever-wrap');
+    // Fever HUD
     this.feverFill   = $('#fever-fill');
     this.feverStatus = $('#fever-status');
 
@@ -125,15 +125,15 @@ class ShadowBreakerGame {
     this.bossIntroDesc  = $('#boss-intro-desc');
 
     // result view
-    this.resMode       = $('#res-mode');
-    this.resDiff       = $('#res-diff');
-    this.resEndReason  = $('#res-endreason');
-    this.resScore      = $('#res-score');
-    this.resMaxCombo   = $('#res-maxcombo');
-    this.resMiss       = $('#res-miss');
-    this.resAccuracy   = $('#res-accuracy');
-    this.resTotalHits  = $('#res-totalhits');
-    this.resParticipant= $('#res-participant');
+    this.resMode        = $('#res-mode');
+    this.resDiff        = $('#res-diff');
+    this.resEndReason   = $('#res-endreason');
+    this.resScore       = $('#res-score');
+    this.resMaxCombo    = $('#res-maxcombo');
+    this.resMiss        = $('#res-miss');
+    this.resAccuracy    = $('#res-accuracy');
+    this.resTotalHits   = $('#res-totalhits');
+    this.resParticipant = $('#res-participant');
 
     // DOM-target layer
     this.targetLayer = document.getElementById('target-layer');
@@ -144,6 +144,12 @@ class ShadowBreakerGame {
 
     this.resetState();
     this.wireUI();
+
+    // เริ่มต้น: แสดงเมนูอย่างเดียว
+    if (this.viewMenu)   this.viewMenu.classList.remove('hidden');
+    if (this.viewPlay)   this.viewPlay.classList.add('hidden');
+    if (this.viewResult) this.viewResult.classList.add('hidden');
+    document.querySelector('.sb-wrap')?.classList.remove('sb-finished');
   }
 
   resetState() {
@@ -182,6 +188,8 @@ class ShadowBreakerGame {
 
     this.researchMeta = { participant:'-', group:'-', note:'-' };
     this.hitLogs = [];
+
+    if (this.renderer) this.renderer.clear();
   }
 
   hpForBoss(idx){
@@ -220,16 +228,18 @@ class ShadowBreakerGame {
       });
     }
 
-    // ปุ่ม result
+    // ปุ่มใน result
     const btnResultBack = document.querySelector('[data-action="back-to-menu"]');
     const btnPlayAgain  = document.querySelector('[data-action="play-again"]');
     const btnDownload   = document.querySelector('[data-action="download-csv"]');
 
     if (btnResultBack) {
       btnResultBack.addEventListener('click', () => {
-        // กลับหน้าเมนู (หน้าเดียวกัน) แค่ซ่อน result
-        this.viewResult.classList.add('hidden');
-        this.viewPlay.classList.remove('hidden');
+        // กลับเมนู
+        this.viewResult && this.viewResult.classList.add('hidden');
+        this.viewPlay   && this.viewPlay.classList.add('hidden');
+        this.viewMenu   && this.viewMenu.classList.remove('hidden');
+        document.querySelector('.sb-wrap')?.classList.remove('sb-finished');
         this.resetState();
         this.updateHUD();
         this.updateBossHUD();
@@ -239,8 +249,8 @@ class ShadowBreakerGame {
 
     if (btnPlayAgain) {
       btnPlayAgain.addEventListener('click', () => {
-        this.resetState();
-        this.startFromMenu(true);
+        this.viewResult && this.viewResult.classList.add('hidden');
+        this.startFromMenu(true); // ใช้ diff เดิม
       });
     }
 
@@ -248,6 +258,7 @@ class ShadowBreakerGame {
       btnDownload.addEventListener('click', () => this.downloadCsv());
     }
 
+    // แตะหน้าจอเพื่อเริ่มหลัง Boss intro
     if (this.bossIntro) {
       this.bossIntro.addEventListener('pointerdown', () => {
         this.hideBossIntro();
@@ -275,16 +286,21 @@ class ShadowBreakerGame {
       this.renderer.sizePx = this.config.sizePx;
     }
 
-    this.statMode.textContent = this.mode === 'research' ? 'Research' : 'Normal';
-    this.statDiff.textContent = this.diff;
+    if (this.statMode) this.statMode.textContent =
+      this.mode === 'research' ? 'Research' : 'Normal';
+    if (this.statDiff) this.statDiff.textContent = this.diff;
 
     this.updateHUD();
     this.updateBossHUD();
     this.updateFeverHUD();
 
-    this.viewPlay.classList.remove('hidden');
-    this.viewResult.classList.add('hidden');
+    // ซ่อนเมนู โชว์หน้าเล่น
+    this.viewMenu   && this.viewMenu.classList.add('hidden');
+    this.viewPlay   && this.viewPlay.classList.remove('hidden');
+    this.viewResult && this.viewResult.classList.add('hidden');
+    document.querySelector('.sb-wrap')?.classList.remove('sb-finished');
 
+    // แสดง intro บอสก่อนเริ่ม loop
     this.showBossIntro(this.currentBoss, {
       first:true,
       onDone: () => this.beginGameLoop()
@@ -309,7 +325,7 @@ class ShadowBreakerGame {
       if (!this.running) return;
       const elapsed = (t - this._startTime)/1000;
       this.timeLeft = clamp(GAME_DURATION - elapsed, 0, GAME_DURATION);
-      this.statTime.textContent = this.timeLeft.toFixed(1);
+      if (this.statTime) this.statTime.textContent = this.timeLeft.toFixed(1);
       if (this.timeLeft<=0){
         this.stopGame('หมดเวลา');
         return;
@@ -347,9 +363,9 @@ class ShadowBreakerGame {
     this.resTotalHits.textContent = String(this.hitCount);
     this.resParticipant.textContent = this.researchMeta.participant || '-';
 
-    this.viewPlay.classList.add('hidden');
-    this.viewResult.classList.remove('hidden');
-
+    // ซ่อนหน้าเล่น โชว์ result
+    this.viewPlay   && this.viewPlay.classList.add('hidden');
+    this.viewResult && this.viewResult.classList.remove('hidden');
     document.querySelector('.sb-wrap')?.classList.add('sb-finished');
   }
 
@@ -470,7 +486,6 @@ class ShadowBreakerGame {
   spawnTarget(){
     if (!this.running) return;
 
-    // lazy attach renderer
     if (!this.renderer || !this.renderer.host) {
       if (this.targetLayer) {
         this.renderer = new DomRenderer(this, this.targetLayer, {
@@ -485,7 +500,7 @@ class ShadowBreakerGame {
     const decoy = Math.random() < this.config.decoyRate;
 
     const bossEmoji = (this.currentBoss && this.currentBoss.emoji) || '🥊';
-    const useBossFace = !decoy && Math.random() < 0.18; // 18% ของ good target
+    const useBossFace = !decoy && Math.random() < 0.18;
     const emoji = decoy ? '💣' : (useBossFace ? bossEmoji : '🥊');
 
     const now   = performance.now();
