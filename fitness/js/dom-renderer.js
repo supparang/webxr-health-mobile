@@ -1,4 +1,4 @@
-// === fitness/js/dom-renderer.js (Shadow Breaker DOM renderer LATEST) ===
+// === fitness/js/dom-renderer.js (2025-11-21 SAFE AREA + SHARDS) ===
 'use strict';
 
 export class DomRenderer {
@@ -41,9 +41,15 @@ export class DomRenderer {
     el.style.marginLeft = -(size / 2) + 'px';
     el.style.marginTop = -(size / 2) + 'px';
 
-    const margin = 32;
-    const x = margin + Math.random() * (this.bounds.w - margin * 2);
-    const y = margin + Math.random() * (this.bounds.h - margin * 2);
+    // SAFE AREA: กันไม่ให้ทับ HUD ด้านบน / FEVER ด้านล่าง
+    const padTop = 140;   // เว้นจากขอบบนลงมา ~ HUD + margin
+    const padBottom = 120; // เว้นจากขอบล่างขึ้นไป ~ FEVER + controls
+    const padSide = 24;
+
+    const x = padSide + Math.random() * (this.bounds.w - padSide * 2);
+    const usableH = Math.max(40, this.bounds.h - padTop - padBottom);
+    const y = padTop + Math.random() * usableH;
+
     el.style.left = x + 'px';
     el.style.top = y + 'px';
 
@@ -80,7 +86,7 @@ export class DomRenderer {
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    // ให้เป้าเล่น animation hit/miss ตาม CSS
+    // ให้ตัวเป้าเล่น animation hit/miss
     if (t.dom) {
       if (opts.miss) t.dom.classList.add('sb-miss');
       else           t.dom.classList.add('sb-hit');
@@ -91,7 +97,18 @@ export class DomRenderer {
       }, 200);
     }
 
-    // คะแนนลอยขึ้น
+    // คำนวณจุดกึ่งกลางของเป้าใน host
+    const hostRect = this.host.getBoundingClientRect();
+    let cx = hostRect.width / 2;
+    let cy = hostRect.height / 2;
+
+    if (t.dom) {
+      const r = t.dom.getBoundingClientRect();
+      cx = r.left - hostRect.left + r.width / 2;
+      cy = r.top - hostRect.top + r.height / 2;
+    }
+
+    // คะแนนลอยขึ้น "ตรงเป้า"
     const fx = document.createElement('div');
     fx.className = 'sb-fx-score';
 
@@ -109,24 +126,34 @@ export class DomRenderer {
     }
 
     fx.textContent = text;
-
-    const hostRect = this.host.getBoundingClientRect();
-    let x = hostRect.width / 2;
-    let y = hostRect.height / 2;
-
-    if (t.dom) {
-      const r = t.dom.getBoundingClientRect();
-      x = r.left - hostRect.left + r.width / 2;
-      y = r.top - hostRect.top + r.height / 2;
-    }
-
-    fx.style.left = x + 'px';
-    fx.style.top = y + 'px';
+    fx.style.left = cx + 'px';
+    fx.style.top  = cy + 'px';
 
     this.host.appendChild(fx);
     setTimeout(() => {
       if (fx.parentNode === this.host) this.host.removeChild(fx);
     }, 700);
+
+    // แตกกระจายเป็นชิ้น ๆ รอบเป้า
+    const shardCount = 6;
+    for (let i = 0; i < shardCount; i++) {
+      const shard = document.createElement('div');
+      shard.className = 'sb-shard';
+      shard.textContent = t.decoy ? '✖' : '▾';
+
+      const angle = (Math.PI * 2 * i) / shardCount + Math.random() * 0.4;
+      const dist  = 20 + Math.random() * 16;
+
+      shard.style.left = cx + 'px';
+      shard.style.top  = cy + 'px';
+      shard.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+      shard.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+
+      this.host.appendChild(shard);
+      setTimeout(() => {
+        if (shard.parentNode === this.host) this.host.removeChild(shard);
+      }, 420);
+    }
   }
 
   clear() {
