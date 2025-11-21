@@ -115,16 +115,21 @@
     </div>
   </noscript>
 
-  <!-- โหลดโหมดต่าง ๆ ก่อน แล้วค่อยโหลด engine กลาง -->
-  <script src="./game/modes/mode.goodjunk.js"></script>
-  <script src="./game/modes/mode.groups.js"></script>
-  <script src="./game/modes/mode.hydration.js"></script>
-  <script src="./game/modes/mode.plate.js"></script>
+  <!-- logic ปุ่มกลับ Hub -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var back = document.getElementById('hha-back-hub');
+      if (back) {
+        back.addEventListener('click', function () {
+          // hub.html อยู่โฟลเดอร์เดียวกับ play.html
+          location.href = './hub.html';
+        });
+      }
+    });
+  </script>
 
-  <!-- โค้ช (Coach) ป.5 -->
-  <script src="./game/coach.js"></script>
-
-  <!-- Multiverse Engine (Boss + Mini Quest + Research CSV) -->
-  <script src="./game/main.js"></script>
+  <!-- โหลด Multiverse Engine (engine กลางจะ import โหมดและโค้ชเองแบบ ES module) -->
+  <script type="module" src="./game/main.js"></script>
 </body>
 </html>
+```0
