@@ -1,4 +1,4 @@
-// === js/dom-renderer.js (2025-11-22 — DOM targets + score fx) ===
+// === js/dom-renderer.js (2025-11-22b — strong FX) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
@@ -38,10 +38,9 @@ export class DomRenderer {
     el.appendChild(inner);
 
     const size = this.sizePx;
-    el.style.width = size + 'px';
+    el.style.width  = size + 'px';
     el.style.height = size + 'px';
 
-    // random pos (กันขอบ 32px)
     const margin = 40;
     const x = margin + Math.random() * Math.max(1, this.bounds.w - margin * 2);
     const y = margin + Math.random() * Math.max(1, this.bounds.h - margin * 2);
@@ -78,13 +77,15 @@ export class DomRenderer {
     this.targets.delete(t.id);
   }
 
+  /* เรียกทุกครั้งที่ HIT / MISS / DECOY */
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    const el = t.dom;
-    const isMiss = !!opts.miss;
+    const el = t.dom || this.targets.get(t.id);
+    const isMiss  = !!opts.miss;
     const isDecoy = !!opts.decoy;
-    const grade = opts.grade || (isMiss ? 'miss' : 'good');
+    const grade   = opts.grade || (isMiss ? 'miss' : 'good');
+    const score   = opts.score != null ? opts.score : 0;
 
     const hostRect = this.host.getBoundingClientRect();
     let cx = hostRect.width / 2;
@@ -97,11 +98,10 @@ export class DomRenderer {
       el.classList.add(isMiss ? 'sb-miss' : 'sb-hit');
     }
 
-    // score text
+    // score popup
     const fx = document.createElement('div');
     fx.className = 'sb-fx-score';
 
-    const score = opts.score || 0;
     let text = '';
     if (isMiss) {
       text = 'MISS';
@@ -110,7 +110,7 @@ export class DomRenderer {
       text = String(score);
       fx.classList.add('sb-bad');
     } else {
-      if (score > 0) text = '+' + score;
+      text = score > 0 ? '+' + score : '';
       if (grade === 'perfect') fx.classList.add('sb-perfect');
       else fx.classList.add('sb-good');
     }
