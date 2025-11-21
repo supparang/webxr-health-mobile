@@ -4,14 +4,12 @@
   <meta charset="utf-8" />
   <title>VR Fitness — Shadow Breaker</title>
 
-  <!-- ให้เต็มจอทั้งมือถือ/VR WebView -->
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="dark light" />
 
-  <!-- CSS ของเกม (ปรับ path ตามโฟลเดอร์จริงของคุณ) -->
+  <!-- ปรับ path ให้ตรงที่เก็บไฟล์ ถ้าอยู่โฟลเดอร์เดียวกันแบบเดิม ใช้แบบนี้ได้เลย -->
   <link rel="stylesheet" href="shadow-breaker.css" />
   <style>
-    /* กันกรณีโหลด CSS ไม่ทัน */
     body {
       margin: 0;
       background: #020617;
@@ -22,13 +20,11 @@
 </head>
 <body>
 
-  <!-- WRAP หลักของเกม -->
+  <!-- พื้นที่หลักของเกม -->
   <div id="sbWrap" class="sb-wrap">
-    <!-- พื้นที่ให้เป้าโผล่มา -->
     <div id="sbField" class="sb-field"></div>
 
-    <!-- HUD / Timer / HP / Panel กลาง จะถูกสร้างด้วย JS ถ้าไม่มีก็ไม่เป็นไร -->
-    <!-- ด้านล่างนี้เป็น default เผื่อ JS สร้างไม่ทัน / error เล็ก ๆ -->
+    <!-- แผงกลางเริ่มเกม (JS จะอัปเดตข้อความให้) -->
     <div id="sbCenter" class="sb-center-panel">
       <h1>Shadow Breaker</h1>
       <p>แตะปุ่มเริ่มเพื่อเริ่มเกม</p>
@@ -36,10 +32,8 @@
     </div>
   </div>
 
-  <!-- JS หลักของเกม (ปรับ path ตามโฟลเดอร์จริงของคุณ) -->
   <script src="shadow-breaker.js"></script>
 
-  <!-- เผื่อเคสปิด JS -->
   <noscript>
     <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
                 background:#020617;color:#f9fafb;font-family:system-ui;text-align:center;padding:16px;">
