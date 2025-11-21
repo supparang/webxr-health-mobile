@@ -558,3 +558,228 @@ class ShadowBreakerGame {
     const now = performance.now();
 
     // ให้หน้าบอสมาเป็น emoji เป้าบางครั้ง (เฉพาะ good)
+    let emoji;
+    if (!decoy && Math.random() < 0.18){
+      emoji = this.currentBoss?.emoji || '🥊';
+    }else{
+      emoji = decoy ? '💣' : '🥊';
+    }
+
+    const t = {
+      id,
+      emoji,
+      decoy,
+      createdAt: now,
+      lifetime: this.config.targetLifetime,
+      hit:false,
+      dom:null
+    };
+
+    this.targets.set(id,t);
+    this.totalTargets++;
+
+    this.renderer.spawnTarget(t);
+
+    setTimeout(()=>{
+      const cur=this.targets.get(id);
+      if(!cur || cur.hit) return;
+      this.handleMiss(cur);
+    }, this.config.targetLifetime+80);
+  }
+
+  registerTouch(x,y,targetId){
+    if(!this.running) return;
+    if(targetId==null) return;
+    const t=this.targets.get(targetId);
+    if(!t || t.hit) return;
+
+    const now=performance.now();
+    const age=now-t.createdAt;
+    const life=this.config.targetLifetime;
+
+    let grade='bad';
+    if(age<=life*0.33) grade='perfect';
+    else if(age<=life*0.66) grade='good';
+
+    if(t.decoy) this.handleDecoyHit(t);
+    else this.handleHit(t,grade,age);
+  }
+
+  handleHit(t,grade,ageMs){
+    t.hit=true;
+    this.targets.delete(t.id);
+    if(this.renderer) this.renderer.removeTarget(t);
+
+    let baseScore=0;
+    if(grade==='perfect') baseScore=120;
+    else if(grade==='good') baseScore=80;
+    else baseScore=40;
+
+    let dmg = grade==='perfect'?8:(grade==='good'?5:3);
+    if(this.feverOn){
+      baseScore=Math.round(baseScore*1.5);
+      dmg=Math.round(dmg*1.8);
+    }
+
+    this.score+=baseScore;
+    this.combo++;
+    this.maxCombo=Math.max(this.maxCombo,this.combo);
+    if(grade==='perfect') this.perfect++;
+    this.hitCount++;
+
+    this.addFever(grade==='perfect'?'perfect':'good');
+
+    this.bossHp = clamp(this.bossHp-dmg,0,this.bossHpMax);
+    this.updateBossHUD();
+
+    if(this.renderer){
+      this.renderer.spawnHitEffect(t,{
+        grade,
+        score:baseScore,
+        fever:this.feverOn
+      });
+    }
+    safePlay('sfx-hit');
+
+    this.hitLogs.push({
+      ts:(performance.now()-this._startTime)/1000,
+      id:t.id,
+      decoy:false,
+      grade,
+      ageMs
+    });
+
+    if(this.bossHp<=0){
+      this.advanceBoss();
+    }
+    this.updateHUD();
+  }
+
+  handleDecoyHit(t){
+    t.hit=true;
+    this.targets.delete(t.id);
+    if(this.renderer) this.renderer.removeTarget(t);
+
+    this.score=Math.max(0,this.score-60);
+    this.combo=0;
+    this.playerHp=clamp(this.playerHp-10,0,100);
+    this.miss++;               // นับ miss สำหรับเป้าระเบิดด้วย
+    this.loseFeverOnMiss();
+
+    if(this.renderer){
+      this.renderer.spawnHitEffect(t,{
+        decoy:true,
+        grade:'bad',
+        score:-60
+      });
+    }
+    safePlay('sfx-hit');
+
+    this.hitLogs.push({
+      ts:(performance.now()-this._startTime)/1000,
+      id:t.id,
+      decoy:true,
+      grade:'bad'
+    });
+
+    if(this.playerHp<=0){
+      this.updateHUD();
+      this.stopGame('HP ผู้เล่นหมด');
+      return;
+    }
+    this.updateHUD();
+  }
+
+  handleMiss(t){
+    if(!this.targets.has(t.id) || t.hit) return;
+    this.targets.delete(t.id);
+    if(this.renderer) this.renderer.removeTarget(t);
+
+    this.miss++;
+    this.combo=0;
+    this.playerHp=clamp(this.playerHp-this.config.playerDamageOnMiss,0,100);
+    this.loseFeverOnMiss();
+
+    if(this.renderer){
+      this.renderer.spawnHitEffect(t,{ miss:true, score:0 });
+    }
+    safePlay('sfx-hit');
+
+    this.hitLogs.push({
+      ts:(performance.now()-this._startTime)/1000,
+      id:t.id,
+      decoy:t.decoy,
+      grade:'miss'
+    });
+
+    if(this.playerHp<=0){
+      this.updateHUD();
+      this.stopGame('HP ผู้เล่นหมด');
+      return;
+    }
+    this.updateHUD();
+  }
+
+  /* ------------------ HUD ------------------ */
+
+  updateHUD(){
+    setText(this.statScore,   String(this.score));
+    setText(this.statHp,      String(this.playerHp));
+    setText(this.statCombo,   String(this.combo));
+    setText(this.statPerfect, String(this.perfect));
+    setText(this.statMiss,    String(this.miss));
+  }
+
+  /* ------------------ CSV (วิจัย) ------------------ */
+
+  downloadCsv(){
+    if(this.mode!=='research'){
+      alert('การดาวน์โหลด CSV ใช้ในโหมดวิจัยเท่านั้น');
+      return;
+    }
+    if(!this.hitLogs.length){
+      alert('ยังไม่มีข้อมูลรอบเล่นสำหรับบันทึก');
+      return;
+    }
+    const header=[
+      'participant','group','note',
+      'timestamp_s','target_id','is_decoy','grade','age_ms'
+    ];
+    const rows=[header.join(',')];
+    for(const log of this.hitLogs){
+      rows.push([
+        JSON.stringify(this.researchMeta.participant || ''),
+        JSON.stringify(this.researchMeta.group || ''),
+        JSON.stringify(this.researchMeta.note || ''),
+        log.ts.toFixed(3),
+        log.id,
+        log.decoy?1:0,
+        log.grade,
+        log.ageMs!=null?log.ageMs.toFixed(1):''
+      ].join(','));
+    }
+    const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const pid=(this.researchMeta.participant || 'Pxxx').replace(/[^a-z0-9_-]/gi,'');
+    a.href=url;
+    a.download=`shadow-breaker-${pid}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  PUBLIC INIT                                                       */
+/* ------------------------------------------------------------------ */
+
+export function initShadowBreaker(){
+  try{
+    const game=new ShadowBreakerGame();
+    window.__shadowBreaker = game;
+  }catch(e){
+    console.error('ShadowBreaker init error', e);
+  }
+}
