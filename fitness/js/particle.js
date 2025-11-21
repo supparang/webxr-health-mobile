@@ -1,4 +1,4 @@
-// === js/particle.js — simple emoji particle (2025-11-22) ===
+// === fitness/js/particle.js — simple emoji particle (2025-11-22) ===
 'use strict';
 
 export function spawnHitParticle(parent, x, y, emoji = '💥') {
