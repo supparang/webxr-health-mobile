@@ -1,6 +1,4 @@
-// === fitness/js/main-shadow.js — entry ของ Shadow Breaker ===
-'use strict';
-
+// === fitness/js/shadow-breaker.js — entry point ===
 import { initShadowBreaker } from './engine.js';
 
 window.addEventListener('DOMContentLoaded', () => {
