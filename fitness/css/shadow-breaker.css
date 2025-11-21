@@ -1,70 +1,71 @@
-/* === fitness/css/shadow-breaker.css — Shadow Breaker (DOM version) === */
+/* === css/shadow-breaker.css — Shadow Breaker DOM style (2025-11-22) === */
 
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #020617;
-  color: #e5e7eb;
 }
 
-/* MAIN WRAP ---------------------------------------------------------- */
-
+/* กล่องเล่นหลักใน card */
 .sb-wrap {
   position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  width: 100%;
+  min-height: 420px;
+  height: min(720px, calc(100vh - 180px));
+  border-radius: 24px;
   background:
-    radial-gradient(circle at top left, #1e293b, #020617 60%),
-    radial-gradient(circle at bottom right, #020617, #020617 80%);
+    radial-gradient(circle at top left, rgba(56,189,248,0.22), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 65%),
+    #020617;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(15,23,42,0.9);
+  padding: 16px 16px 18px;
+  box-sizing: border-box;
 }
 
-/* เปลี่ยนพื้นหลังตามบอส */
+@media (min-width: 768px) {
+  .sb-wrap {
+    height: min(780px, calc(100vh - 220px));
+    padding: 18px 22px 20px;
+  }
+}
+
+/* เปลี่ยนธีมพื้นหลังตามบอส */
 .sb-wrap[data-boss="0"] {
   background-image:
-    radial-gradient(circle at top left, rgba(59,130,246,0.4), transparent 60%),
-    radial-gradient(circle at bottom right, rgba(15,23,42,1), #020617 70%);
+    radial-gradient(circle at top left, rgba(59,130,246,0.45), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(15,23,42,1), #020617 75%);
 }
-
 .sb-wrap[data-boss="1"] {
   background-image:
-    radial-gradient(circle at top right, rgba(16,185,129,0.4), transparent 60%),
-    radial-gradient(circle at bottom left, rgba(15,23,42,1), #020617 70%);
+    radial-gradient(circle at top right, rgba(16,185,129,0.45), transparent 60%),
+    radial-gradient(circle at bottom left, rgba(15,23,42,1), #020617 75%);
 }
-
 .sb-wrap[data-boss="2"] {
   background-image:
-    radial-gradient(circle at top, rgba(249,115,22,0.45), transparent 65%),
+    radial-gradient(circle at top, rgba(249,115,22,0.52), transparent 65%),
     radial-gradient(circle at bottom, #0f172a, #020617 80%);
 }
-
 .sb-wrap[data-boss="3"] {
   background-image:
-    radial-gradient(circle at center, rgba(192,38,211,0.5), transparent 70%),
+    radial-gradient(circle at center, rgba(192,38,211,0.52), transparent 70%),
     radial-gradient(circle at bottom, #020617, #020617 80%);
 }
 
-/* HUD ด้านบน (Player HP / Boss HP) ---------------------------------- */
+/* ================= HUD ด้านบน ================= */
 
 .sb-hud {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(960px, 96vw);
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.1fr 1.1fr;
+  gap: 16px;
+  align-items: center;
   z-index: 20;
+  color: #e5e7eb;
   font-size: 14px;
 }
 
 .sb-hp {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -90,7 +91,7 @@ html, body {
   width: 100%;
   height: 11px;
   border-radius: 999px;
-  background: rgba(15,23,42,0.85);
+  background: rgba(15,23,42,0.9);
   overflow: hidden;
   outline: 1px solid rgba(148,163,184,0.5);
 }
@@ -100,7 +101,7 @@ html, body {
   inset: 0;
   transform-origin: left center;
   transform: scaleX(1);
-  transition: transform 0.18s ease-out, background-color 0.18s ease-out;
+  transition: transform 0.16s ease-out, background-color 0.18s ease-out;
 }
 
 .sb-hp-player .sb-hp-fill {
@@ -108,26 +109,49 @@ html, body {
 }
 
 .sb-hp-boss .sb-hp-fill {
-  background: linear-gradient(90deg, #f97316, #ef4444);
+  background: linear-gradient(90deg, #fb923c, #ef4444);
 }
 
-/* Boss portrait ------------------------------------------------------ */
+/* boss portrait + text */
 
 .sb-boss-portrait {
-  width: 70px;
-  height: 70px;
-  border-radius: 18px;
-  background: rgba(15,23,42,0.9);
+  position: absolute;
+  right: 14px;
+  top: 60px;
+  width: 66px;
+  height: 66px;
+  border-radius: 20px;
+  background: rgba(15,23,42,0.96);
   border: 1px solid rgba(248,250,252,0.18);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 42px;
-  box-shadow: 0 10px 30px rgba(15,23,42,0.9);
+  font-size: 38px;
+  z-index: 19;
 }
 
 .sb-boss-portrait.sb-shake {
   animation: sbShake 0.45s linear infinite;
+}
+
+.boss-portrait-text {
+  position: absolute;
+  right: 94px;
+  top: 64px;
+  text-align: right;
+  z-index: 18;
+  color: #e5e7eb;
+  text-shadow: 0 1px 2px rgba(15,23,42,0.9);
+}
+
+#boss-portrait-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#boss-portrait-hint {
+  font-size: 12px;
+  opacity: 0.9;
 }
 
 @keyframes sbShake {
@@ -138,20 +162,73 @@ html, body {
   80% { transform: translate(0,2px); }
 }
 
-/* กล่องสถิติซ้ายบน (Mode / Score / Combo) -------------------------- */
+/* FEVER */
+
+.fever-wrap {
+  position: absolute;
+  left: 16px;
+  top: 90px;
+  right: 120px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 18;
+}
+
+.fever-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .06em;
+}
+
+.fever-bar {
+  flex: 1;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.92);
+  overflow: hidden;
+  outline: 1px solid rgba(148,163,184,0.5);
+}
+
+.fever-fill {
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background-image: linear-gradient(90deg,#22c55e,#eab308,#f97316);
+  transition: transform 0.16s ease-out, filter 0.16s;
+}
+
+.fever-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.7);
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.fever-status.on {
+  border-color: #fbbf24;
+  color: #facc15;
+}
+
+/* ================= stat card มุมซ้าย ================= */
 
 .sb-meta {
   position: absolute;
-  left: 18px;
-  top: 90px;
+  left: 16px;
+  top: 122px; /* เลื่อนลง ไม่ให้ชน HP */
   z-index: 18;
   font-size: 13px;
-  background: rgba(15,23,42,0.9);
+  background: rgba(15,23,42,0.94);
   padding: 8px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(148,163,184,0.5);
-  box-shadow: 0 18px 40px rgba(15,23,42,0.85);
-  min-width: 170px;
+  border: 1px solid rgba(148,163,184,0.55);
+  backdrop-filter: blur(12px);
+  min-width: 150px;
+  color: #e5e7eb;
 }
 
 .sb-meta-row {
@@ -160,70 +237,23 @@ html, body {
   gap: 6px;
 }
 
-/* FEVER bar ---------------------------------------------------------- */
-
-.sb-fever-wrap {
-  position: absolute;
-  left: 18px;
-  top: 56px;
-  z-index: 18;
-  font-size: 13px;
-  color: #e5e7eb;
+.sb-meta-row span:last-child {
+  font-variant-numeric: tabular-nums;
 }
 
-.sb-fever-label {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.sb-fever-bar {
-  position: relative;
-  width: min(340px, 70vw);
-  height: 10px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: linear-gradient(90deg, #0f172a, #020617);
-  border: 1px solid rgba(148,163,184,0.7);
-}
-
-.sb-fever-fill {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
-  transform: scaleX(0);
-  background: linear-gradient(90deg, #22c55e, #eab308, #f97316);
-  transition: transform 0.16s ease-out;
-}
-
-.sb-fever-status {
-  margin-top: 2px;
-  font-size: 11px;
-  opacity: 0.82;
-}
-
-.sb-fever-status.on {
-  color: #facc15;
-}
-
-/* พื้นที่เล่น -------------------------------------------------------- */
+/* ================= พื้นที่เล่น / เป้า ================= */
 
 .sb-field {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 120px;
-  bottom: 72px;
+  left: 16px;
+  right: 16px;
+  top: 150px;
+  bottom: 70px;
   overflow: hidden;
   z-index: 5;
 }
 
-/* ชั้นที่ไว้ spawn เป้า */
-#target-layer {
-  position: absolute;
-  inset: 0;
-}
-
-/* TARGET ------------------------------------------------------------- */
+/* เป้า */
 
 .sb-target {
   position: absolute;
@@ -235,7 +265,7 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
-  box-shadow: 0 10px 28px rgba(15,23,42,0.75);
+  box-shadow: 0 10px 26px rgba(15,23,42,0.9);
   transform: translate(-50%, -50%) scale(0.6);
   animation: sbTargetIn 0.16s ease-out forwards;
 }
@@ -247,12 +277,13 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.2rem;
+  font-size: 2.3rem;
 }
 
-/* good / bad target */
+/* เป้าดี / เป้าลวง */
+
 .sb-target[data-type="good"] .sb-target-inner {
-  background: radial-gradient(circle at 30% 20%, #fefce8, #bef264);
+  background: radial-gradient(circle at 30% 20%, #fefce8, #bbf7d0);
   border: 3px solid rgba(22,163,74,0.9);
 }
 
@@ -260,6 +291,8 @@ html, body {
   background: radial-gradient(circle at 30% 20%, #fee2e2, #fecaca);
   border: 3px solid rgba(220,38,38,0.9);
 }
+
+/* animation ตอนโดน / miss */
 
 .sb-target.sb-hit {
   animation: sbTargetHit 0.22s ease-out forwards;
@@ -277,7 +310,7 @@ html, body {
 @keyframes sbTargetHit {
   0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   60%  { transform: translate(-50%, -50%) scale(1.25); opacity: 1; filter: brightness(1.1); }
-  100% { transform: translate(-50%, -50%) scale(0.25); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
 }
 
 @keyframes sbTargetMiss {
@@ -285,176 +318,129 @@ html, body {
   to   { transform: translate(-50%, -50%) scale(0.7); opacity: 0; filter: grayscale(0.7); }
 }
 
-/* SCORE POPUP -------------------------------------------------------- */
+/* score popup */
 
 .sb-fx-score {
-  position: absolute;   /* ต้องเป็น absolute เพื่อเด้งออกจากจุดเป้า */
+  position: absolute;
   pointer-events: none;
   font-weight: 700;
   font-size: 18px;
-  text-shadow: 0 1px 2px rgba(15,23,42,0.85);
-  z-index: 50;
+  text-shadow: 0 1px 2px rgba(15,23,42,0.9);
+  z-index: 40;
   animation: sbScoreFloat 0.55s ease-out forwards;
 }
 
-.sb-fx-score.sb-good {
-  color: #bbf7d0;
-}
-
-.sb-fx-score.sb-perfect {
-  color: #facc15;
-}
-
-.sb-fx-score.sb-miss {
-  color: #fecaca;
-}
+.sb-fx-score.sb-good    { color: #bbf7d0; }
+.sb-fx-score.sb-perfect { color: #facc15; }
+.sb-fx-score.sb-miss    { color: #fecaca; }
+.sb-fx-score.sb-bad     { color: #fecaca; }
 
 @keyframes sbScoreFloat {
   from { transform: translate(-50%, -50%); opacity: 1; }
   to   { transform: translate(-50%, -90%); opacity: 0; }
 }
 
-/* CENTER PANEL (ก่อนเริ่ม / Intro / Result) ------------------------ */
+/* particle 💥 */
 
-.sb-center-panel {
+.hitParticle {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 260px;
-  padding: 18px 20px;
-  border-radius: 18px;
-  background: rgba(15,23,42,0.94);
-  box-shadow: 0 18px 45px rgba(15,23,42,0.95);
-  text-align: center;
-  z-index: 40;
-}
-
-.sb-center-panel h1 {
-  margin: 0 0 8px;
+  pointer-events: none;
   font-size: 20px;
+  filter: drop-shadow(0 2px 4px rgba(15,23,42,0.9));
+  animation: sbParticle 0.48s ease-out forwards;
+  z-index: 35;
 }
 
-.sb-center-panel p {
-  margin: 4px 0;
-  font-size: 14px;
-  opacity: 0.86;
+@keyframes sbParticle {
+  from { transform: translate(-50%, -50%) scale(0.8); opacity: 1; }
+  to   { transform: translate(-50%, -120%) scale(1.1); opacity: 0; }
 }
 
-/* ปุ่มทั่วไป -------------------------------------------------------- */
+/* ================= ปุ่มด้านล่าง ================= */
 
-.sb-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 10px;
-  padding: 8px 18px;
+.sb-controls {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  z-index: 18;
+}
+
+.sb-controls button {
   border-radius: 999px;
-  border: none;
-  background: linear-gradient(90deg, #22c55e, #16a34a);
-  color: #052e16;
-  font-weight: 600;
-  font-size: 14px;
+  border: 1px solid rgba(148,163,184,0.7);
+  background: rgba(15,23,42,0.92);
+  color: #e5e7eb;
+  padding: 6px 14px;
+  font-size: 13px;
   cursor: pointer;
 }
 
-.sb-btn:active {
+.sb-controls button:active {
   transform: translateY(1px);
 }
 
-/* ปุ่มล่าง ---------------------------------------------------------- */
+/* ================= boss intro overlay ================= */
 
-.sb-bottom-buttons {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 10px;
+.boss-intro {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(15,23,42,0.88), rgba(15,23,42,0.98));
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 10px;
-  z-index: 30;
+  z-index: 60;
 }
 
-.sb-bottom-buttons button {
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,0.7);
-  background: rgba(15,23,42,0.9);
-  color: #e5e7eb;
-  font-size: 14px;
-}
-
-/* Intro boss overlay ------------------------------------------------- */
-
-#boss-intro.hidden,
-.hidden {
+.boss-intro.hidden {
   display: none;
 }
 
-/* เมื่อเกมจบ ให้ field จางลง --------------------------------------- */
-
-.sb-wrap.sb-finished .sb-field {
-  filter: grayscale(0.4) brightness(0.7);
-  pointer-events: none;
+.boss-intro-card {
+  background: rgba(15,23,42,0.98);
+  border-radius: 20px;
+  padding: 20px 22px;
+  max-width: 320px;
+  text-align: center;
+  color: #e5e7eb;
+  box-shadow: 0 18px 45px rgba(15,23,42,0.95);
+  border: 1px solid rgba(148,163,184,0.7);
 }
 
-/* MOBILE RESPONSIVE -------------------------------------------------- */
+.boss-intro-emoji {
+  font-size: 54px;
+  margin-bottom: 4px;
+}
 
-@media (max-width: 768px) {
-  html, body {
-    height: 100%;
-    overflow: hidden;
-  }
+.boss-intro-name {
+  font-size: 18px;
+  font-weight: 700;
+}
 
-  .sb-wrap {
-    width: 100vw;
-    height: 100vh;
-    margin: 0;
-    border-radius: 0;
-    padding: 0;
-  }
+.boss-intro-title {
+  font-size: 14px;
+  margin-top: 4px;
+  color: #eab308;
+}
 
-  .sb-hud {
-    top: 8px;
-    width: calc(100vw - 16px);
-    font-size: 12px;
-    gap: 10px;
-  }
+.boss-intro-desc {
+  font-size: 13px;
+  margin-top: 8px;
+  opacity: 0.92;
+}
 
-  .sb-fever-wrap {
-    left: 8px;
-    top: 56px;
-    font-size: 12px;
-  }
+.boss-intro-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.9;
+  color: #93c5fd;
+}
 
-  .sb-meta {
-    left: 8px;
-    top: 90px;
-    font-size: 12px;
-    padding: 6px 8px;
-  }
-
-  .sb-field {
-    top: 124px;
-    bottom: 72px;
-  }
-
-  .sb-bottom-buttons {
-    bottom: 8px;
-    padding: 0 10px;
-  }
-
-  .sb-target {
-    transform: translate(-50%, -50%) scale(0.9);
-  }
-
-  .sb-target-inner {
-    font-size: 2.4rem;
-  }
-
-  .sb-center-panel {
-    width: 88vw;
-    max-width: 420px;
-    padding: 14px 16px;
-  }
+/* เมื่อเกมจบ ให้พื้นที่เล่นจางลงเล็กน้อย (เผื่อใช้ในอนาคต) */
+.sb-wrap.sb-finished .sb-field {
+  filter: grayscale(0.4) brightness(0.75);
+  pointer-events: none;
 }
