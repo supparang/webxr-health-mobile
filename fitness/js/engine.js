@@ -1,7 +1,8 @@
-// === fitness/js/engine.js — Shadow Breaker core (2025-11-20 LAZY RENDERER) ===
+// === fitness/js/engine.js — Shadow Breaker core (LATEST 2025-11-21) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
+import { spawnHitParticle } from './particle.js';
 
 /* ------------------------------------------------------------------ */
 /*  CONFIG                                                            */
@@ -103,6 +104,9 @@ class ShadowBreakerGame {
     this.viewPlay   = $('#view-play');
     this.viewResult = $('#view-result');
 
+    // Main wrap (ใช้เปลี่ยนพื้นหลังตามบอส)
+    this.wrap = $('#sb-wrap');
+
     // HUD
     this.statMode    = $('#stat-mode');
     this.statDiff    = $('#stat-diff');
@@ -120,6 +124,7 @@ class ShadowBreakerGame {
     // Boss HUD / portrait
     this.bossName   = $('#boss-name');
     this.bossFill   = $('#boss-fill');
+    this.bossHpLabel= $('#hp-boss-val');
     this.bossPortraitEmoji = $('#boss-portrait-emoji');
     this.bossPortraitName  = $('#boss-portrait-name');
     this.bossPortraitHint  = $('#boss-portrait-hint');
@@ -383,6 +388,12 @@ class ShadowBreakerGame {
 
     const ratio=clamp(this.bossHp/this.bossHpMax,0,1);
     this.bossFill.style.transform = `scaleX(${ratio})`;
+    if (this.bossHpLabel) {
+      this.bossHpLabel.textContent = Math.round(ratio*100) + '%';
+    }
+    if (this.wrap) {
+      this.wrap.setAttribute('data-boss', String(this.bossIndex));
+    }
   }
 
   showBossIntro(boss,opts={}){
@@ -525,6 +536,16 @@ class ShadowBreakerGame {
     else this.handleHit(t,grade,age);
   }
 
+  /* helper สำหรับ particle */
+  _emitParticle(t, emoji){
+    if (!this.targetLayer || !t || !t.dom) return;
+    const hostRect = this.targetLayer.getBoundingClientRect();
+    const r = t.dom.getBoundingClientRect();
+    const x = r.left - hostRect.left + r.width/2;
+    const y = r.top - hostRect.top + r.height/2;
+    spawnHitParticle(this.targetLayer, x, y, emoji);
+  }
+
   handleHit(t,grade,ageMs){
     t.hit=true;
     this.targets.delete(t.id);
@@ -561,6 +582,12 @@ class ShadowBreakerGame {
     }
     safePlay('sfx-hit');
 
+    // particle สวย ๆ
+    let emo = '💢';
+    if (grade === 'perfect') emo = this.feverOn ? '🔥' : '✨';
+    else if (grade === 'good') emo = '💥';
+    this._emitParticle(t, emo);
+
     this.hitLogs.push({
       ts:(performance.now()-this._startTime)/1000,
       id:t.id,
@@ -595,6 +622,8 @@ class ShadowBreakerGame {
     }
     safePlay('sfx-hit');
 
+    this._emitParticle(t,'💣');
+
     this.hitLogs.push({
       ts:(performance.now()-this._startTime)/1000,
       id:t.id,
@@ -624,6 +653,8 @@ class ShadowBreakerGame {
       this.renderer.spawnHitEffect(t,{ miss:true, score:0 });
     }
     safePlay('sfx-hit');
+
+    this._emitParticle(t,'💦');
 
     this.hitLogs.push({
       ts:(performance.now()-this._startTime)/1000,
