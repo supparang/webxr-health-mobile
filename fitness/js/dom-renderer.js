@@ -8,7 +8,7 @@ export class DomRenderer {
     this.sizePx = opts.sizePx || 96;
     this.targets = new Map();
 
-    this.handleClick = this.handleClick.bind(this);
+    this.handleClick  = this.handleClick.bind(this);
     this.updateBounds = this.updateBounds.bind(this);
 
     this.updateBounds();
@@ -27,7 +27,7 @@ export class DomRenderer {
 
     const outer = document.createElement('div');
     outer.className = 'sb-target';
-    outer.dataset.id = String(t.id);
+    outer.dataset.id   = String(t.id);
     outer.dataset.type = t.decoy ? 'bad' : 'good';
 
     const inner = document.createElement('div');
@@ -38,12 +38,10 @@ export class DomRenderer {
     const size = this.sizePx;
     outer.style.width  = size + 'px';
     outer.style.height = size + 'px';
-
-    // ให้จุดกึ่งกลางตรงกับพิกัดที่สุ่ม
     outer.style.marginLeft = -(size / 2) + 'px';
     outer.style.marginTop  = -(size / 2) + 'px';
 
-    // สุ่มตำแหน่งในพื้นที่เล่น (กันจากขอบ 32px)
+    // random position inside field (margin 32px)
     const margin = 32;
     const x = margin + Math.random() * (this.bounds.w - margin * 2);
     const y = margin + Math.random() * (this.bounds.h - margin * 2);
@@ -80,11 +78,10 @@ export class DomRenderer {
     this.targets.delete(t.id);
   }
 
-  // แอนิเมชันตอนตี + คะแนนเด้งออกจากเป้า
+  // effect: target “แตก” + score popup
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    // ให้เป้า "แตก" หรือหายแบบ miss
     if (t.dom) {
       const cls = opts.miss ? 'sb-miss' : 'sb-hit';
       t.dom.classList.add(cls);
@@ -93,7 +90,6 @@ export class DomRenderer {
       }, 220);
     }
 
-    // ถ้าไม่มีคะแนนอะไรจะโชว์ (เช่น miss เฉย ๆ) ก็ยังขึ้นคำว่า MISS
     const hostRect = this.host.getBoundingClientRect();
     let x = hostRect.width / 2;
     let y = hostRect.height / 2;
@@ -120,8 +116,6 @@ export class DomRenderer {
       fx.classList.add('sb-miss');
     } else if (opts.grade === 'perfect') {
       fx.classList.add('sb-perfect');
-    } else if (opts.grade === 'good') {
-      fx.classList.add('sb-good');
     } else {
       fx.classList.add('sb-good');
     }
