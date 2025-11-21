@@ -7,18 +7,14 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" type="image/x-icon" href="./favicon.ico" />
 
-  <!-- สไตล์เฉพาะเกม Shadow Breaker -->
+  <!-- ใช้ base UI เดียวกับ Rhythm Boxer ให้เมนู/การ์ดสวยเหมือนกัน -->
+  <link rel="stylesheet" href="./css/rhythm-boxer.css" />
+  <!-- เติมสไตล์เฉพาะ Shadow Breaker -->
   <link rel="stylesheet" href="./css/shadow-breaker.css" />
 </head>
 <body>
+<main class="wrap">
 
-<!--
-  หมายเหตุ:
-  - โครงนี้ใช้ view 4 ส่วน: menu / research-form / play / result
-  - engine.js ผูก DOM ด้วย id + data-action ตามนี้
--->
-
-<main>
   <!-- ========== VIEW: MENU ========== -->
   <section id="view-menu" class="card">
     <div class="top-row">
@@ -62,7 +58,7 @@
     </div>
 
     <p class="hint">
-      บน PC: ใช้เมาส์คลิกเป้าที่โผล่มาบนจอ (แทนการชก) <br>
+      บน PC: ใช้เมาส์คลิกเป้าที่โผล่มาบนจอ (แทนการชก) <br />
       บนมือถือ/แท็บเล็ต: แตะเป้าให้ทันก่อนหาย
     </p>
   </section>
@@ -97,22 +93,25 @@
 
   <!-- ========== VIEW: PLAY ========== -->
   <section id="view-play" class="card hidden">
-    <!-- sb-wrap ใช้ background ตามบอส (data-boss) -->
     <div id="sb-wrap" class="sb-wrap">
 
-      <!-- Timer / Score มุมบนซ้าย -->
+      <!-- HUD ซ้ายบน: เวลา / คะแนน -->
       <div class="sb-meta">
         <div class="sb-meta-row">
-          <span>⏱ เวลา</span>
-          <span id="stat-time">60.0</span>
+          <span>Mode</span><span id="stat-mode">-</span>
         </div>
         <div class="sb-meta-row">
-          <span>⭐ Score</span>
-          <span id="stat-score">0</span>
+          <span>Diff</span><span id="stat-diff">-</span>
+        </div>
+        <div class="sb-meta-row">
+          <span>⏱ เวลา</span><span id="stat-time">60.0</span>
+        </div>
+        <div class="sb-meta-row">
+          <span>⭐ Score</span><span id="stat-score">0</span>
         </div>
       </div>
 
-      <!-- HP HUD มุมบนกลาง -->
+      <!-- HP ผู้เล่น / บอส -->
       <div class="sb-hud">
         <div class="sb-hp sb-hp-player">
           <div class="sb-hp-label">
@@ -134,7 +133,7 @@
         </div>
       </div>
 
-      <!-- Boss portrait มุมบนขวา -->
+      <!-- Boss portrait + hint -->
       <div class="sb-boss-portrait" id="boss-portrait">
         <span id="boss-portrait-emoji">🐣</span>
       </div>
@@ -143,7 +142,7 @@
         <div id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
       </div>
 
-      <!-- FEVER bar ด้านล่างกลาง -->
+      <!-- FEVER bar -->
       <div class="fever-wrap">
         <div class="fever-label">FEVER</div>
         <div class="fever-bar">
@@ -152,26 +151,23 @@
         <div class="fever-status" id="fever-status">READY</div>
       </div>
 
-      <!-- พื้นที่เล่นจริง: DomRenderer จะ spawn .sb-target -->
+      <!-- พื้นที่ spawn เป้า -->
       <div id="target-layer" class="sb-field"></div>
 
-      <!-- Combo / Perfect / Miss แสดงในแถบด้านล่างซ้าย -->
+      <!-- Combo / Perfect / Miss ล่างซ้าย -->
       <div class="sb-meta sb-meta-bottom">
         <div class="sb-meta-row">
-          <span>Combo</span>
-          <span id="stat-combo">0</span>
+          <span>Combo</span><span id="stat-combo">0</span>
         </div>
         <div class="sb-meta-row">
-          <span>Perfect</span>
-          <span id="stat-perfect">0</span>
+          <span>Perfect</span><span id="stat-perfect">0</span>
         </div>
         <div class="sb-meta-row">
-          <span>Miss</span>
-          <span id="stat-miss">0</span>
+          <span>Miss</span><span id="stat-miss">0</span>
         </div>
       </div>
 
-      <!-- ปุ่มหยุด / กลับ Hub ล่างขวา -->
+      <!-- ปุ่มควบคุมล่างขวา -->
       <div class="sb-controls">
         <button data-action="stop-early">⏹ หยุดก่อนเวลา</button>
         <button type="button" onclick="location.href='./index.html'">⬅ กลับ Hub</button>
@@ -233,12 +229,12 @@
   </div>
 </div>
 
-<!-- ========== AUDIO (id ต้องตรงกับ engine.js) ========== -->
+<!-- ========== AUDIO (ต้องมี id เหมือนใน engine.js) ========== -->
 <audio id="sfx-hit"   src="./sfx/hit.mp3"   preload="auto"></audio>
 <audio id="sfx-boss"  src="./sfx/boss.mp3"  preload="auto"></audio>
 <audio id="sfx-fever" src="./sfx/fever.mp3" preload="auto"></audio>
 
 <!-- ========== ENTRY SCRIPT ========== -->
-<script type="module" src="./shadow-breaker.js"></script>
+<script type="module" src="./js/shadow-breaker.js"></script>
 </body>
 </html>
