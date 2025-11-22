@@ -7,8 +7,9 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" type="image/x-icon" href="./favicon.ico" />
 
-  <!-- layout หลักจาก Rhythm Boxer + สไตล์เฉพาะของ Shadow Breaker -->
+  <!-- base layout (จาก Rhythm Boxer) ถ้ามี -->
   <link rel="stylesheet" href="./css/rhythm-boxer.css" />
+  <!-- สไตล์เฉพาะ Shadow Breaker -->
   <link rel="stylesheet" href="./css/shadow-breaker.css" />
 </head>
 <body>
@@ -23,11 +24,11 @@
           Shadow Breaker
         </h1>
         <p class="subtitle">
-          ต่อสู้กับบอส 4 ตัว ตีเป้าให้แตก เก็บ Perfect และระวังเป้าลวง 💣
+          ต่อสู้กับบอส 4 ตัว ตีเป้าให้แตก เก็บ Perfect ระวังเป้าลวง 💣 และสะสม FEVER
         </p>
         <div class="pill">
           <span class="dot"></span>
-          <span>4 Boss • เป้าลวง (Decoy) • FEVER mode • CSV สำหรับงานวิจัย</span>
+          <span>4 Boss • เป้าลวง (Bomb) • FEVER mode • ขนาด/ความเร็วเป้าตามระดับ • CSV สำหรับวิจัย</span>
         </div>
       </div>
       <div>
@@ -49,16 +50,16 @@
       <div class="col">
         <label for="difficulty">ระดับความยาก</label>
         <select id="difficulty">
-          <option value="easy">ง่าย — เป้าใหญ่ / เด้งช้า</option>
-          <option value="normal" selected>ปกติ — สมดุล</option>
-          <option value="hard">ยาก — เป้าเล็ก / หายเร็ว</option>
+          <option value="easy">ง่าย — เป้าใหญ่ / เด้งช้า / เวลา 45 วินาที</option>
+          <option value="normal" selected>ปกติ — สมดุล / เวลา 60 วินาที</option>
+          <option value="hard">ยาก — เป้าเล็ก / หายเร็ว / spawn ถี่ / เวลา 75 วินาที</option>
         </select>
       </div>
     </div>
 
     <p class="hint">
-      วิธีเล่น: แตะ/คลิกเป้าที่โผล่มาบนจอให้ทันก่อนหาย  
-      ถ้าเป็นเป้าลวง (💣) จะโดนหักคะแนนและ HP
+      วิธีเล่น: แตะ/คลิกเป้าที่โผล่มาบนจอให้ทันก่อนหาย ถ้าเป็นเป้าลวง (💣) จะโดนหักคะแนนและ HP  
+      ไม่แนะนำให้แตะ Bomb บ่อย ๆ ในโหมดวิจัย
     </p>
   </section>
 
@@ -107,21 +108,8 @@
   <!-- ========== PLAY VIEW ========== -->
   <section id="view-play" class="card hidden">
     <div id="sb-wrap" class="sb-wrap" data-boss="0" data-diff="normal">
-
       <!-- HUD แถวบน -->
       <div class="sb-hud-row">
-        <!-- meta ซ้ายบน -->
-        <div class="sb-meta" id="meta-top">
-          <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">Normal</span></div>
-          <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">normal</span></div>
-          <div class="sb-meta-row"><span>⏱ เวลา</span><span id="stat-time">60.0</span></div>
-          <div class="sb-meta-row"><span>⭐ Score</span><span id="stat-score">0</span></div>
-          <div class="sb-meta-row"><span>Combo</span><span id="stat-combo">0</span></div>
-          <div class="sb-meta-row"><span>Perfect</span><span id="stat-perfect">0</span></div>
-          <div class="sb-meta-row"><span>Miss</span><span id="stat-miss">0</span></div>
-        </div>
-
-        <!-- HP กลางบน -->
         <div class="sb-hp-stack">
           <div class="sb-hp sb-hp-player">
             <div class="sb-hp-label">
@@ -132,7 +120,6 @@
               <div class="sb-hp-fill" id="hp-player-fill"></div>
             </div>
           </div>
-
           <div class="sb-hp sb-hp-boss">
             <div class="sb-hp-label">
               <span class="sb-hp-name" id="boss-name">Boss 1/4 — Bubble Glove</span>
@@ -144,19 +131,26 @@
           </div>
         </div>
 
-        <!-- รูปบอสขวาบน -->
+        <div class="sb-meta">
+          <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">Normal</span></div>
+          <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">normal</span></div>
+          <div class="sb-meta-row"><span>⏱ เวลา</span><span id="stat-time">0.0</span></div>
+          <div class="sb-meta-row"><span>⭐ Score</span><span id="stat-score">0</span></div>
+          <div class="sb-meta-row"><span>Combo</span><span id="stat-combo">0</span></div>
+          <div class="sb-meta-row"><span>Perfect</span><span id="stat-perfect">0</span></div>
+          <div class="sb-meta-row"><span>Miss</span><span id="stat-miss">0</span></div>
+        </div>
+
         <div class="sb-boss-portrait" id="boss-portrait">
           <span id="boss-portrait-emoji">🐣</span>
         </div>
+        <div class="boss-portrait-text">
+          <div id="boss-portrait-name">Bubble Glove</div>
+          <div id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
+        </div>
       </div>
 
-      <!-- ข้อความใต้รูปบอส -->
-      <div class="boss-portrait-text">
-        <div id="boss-portrait-name">Bubble Glove</div>
-        <div id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
-      </div>
-
-      <!-- แถว FEVER -->
+      <!-- FEVER + Feedback -->
       <div class="sb-fever-row">
         <div class="fever-label">FEVER</div>
         <div class="fever-bar">
@@ -164,16 +158,14 @@
         </div>
         <div class="fever-status" id="fever-status">FEVER</div>
       </div>
-
-      <!-- Bubble feedback กลางล่าง -->
-      <div id="sb-feedback" class="sb-feedback">
-        พร้อมเริ่มต่อสู้กับบอส! 💪
+      <div class="sb-feedback" id="sb-feedback">
+        เริ่มวอร์มอัพ ตีเป้าทดสอบก่อนนะ 🎯
       </div>
 
-      <!-- พื้นที่เป้า (อยู่กลางจอ) -->
+      <!-- พื้นที่เป้า -->
       <div id="target-layer" class="sb-field"></div>
 
-      <!-- ปุ่มล่าง -->
+      <!-- ปุ่มควบคุมล่าง -->
       <div class="sb-controls">
         <button data-action="stop-early">⏹ หยุดก่อนเวลา</button>
         <button type="button" onclick="location.href='./index.html'">⬅ กลับ Hub</button>
@@ -243,6 +235,6 @@
 <audio id="sfx-boss"   src="./sfx/boss-intro.mp3" preload="auto"></audio>
 
 <!-- main script (entry) -->
-<script type="module" src="./js/engine.js"></script>
+<script type="module" src="./js/shadow-breaker.js"></script>
 </body>
 </html>
