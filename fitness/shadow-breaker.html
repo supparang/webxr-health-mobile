@@ -27,7 +27,7 @@
         </p>
         <div class="pill">
           <span class="dot"></span>
-          <span>4 Boss • เป้าลวง (Decoy) • FEVER mode • CSV สำหรับงานวิจัย</span>
+          <span>4 Boss • เป้าลวง (Bomb) • FEVER mode • CSV สำหรับงานวิจัย</span>
         </div>
       </div>
       <div>
@@ -35,7 +35,7 @@
       </div>
     </div>
 
-    <h2 class="section-title">เลือกรูปแบบการเล่น</h2>
+    <h2 class="section-title">เลือกระดับและรูปแบบการเล่น</h2>
     <div class="btn-row">
       <button class="primary" data-action="start-research">
         โหมดวิจัย <span>📊</span>
@@ -49,16 +49,16 @@
       <div class="col">
         <label for="difficulty">ระดับความยาก</label>
         <select id="difficulty">
-          <option value="easy">ง่าย — เป้าใหญ่ / เด้งช้า</option>
-          <option value="normal" selected>ปกติ — สมดุล</option>
-          <option value="hard">ยาก — ถี่มาก / เป้าเล็ก</option>
+          <option value="easy">ง่าย — 75 วินาที / เป้าใหญ่ / เด้งช้า</option>
+          <option value="normal" selected>ปกติ — 60 วินาที / สมดุล</option>
+          <option value="hard">ยาก — 45 วินาที / ถี่มาก / เป้าเล็ก</option>
         </select>
       </div>
     </div>
 
     <p class="hint">
       วิธีเล่น: แตะ/คลิกเป้าที่โผล่มาบนจอให้ทันก่อนหาย  
-      ถ้าเป็นเป้าลวง (💣) จะโดนหักคะแนนและ HP
+      ถ้าเป็นเป้าลวง (💣) จะโดนหักคะแนนและ HP แต่ <strong>ไม่</strong> นับเป็น Miss
     </p>
   </section>
 
@@ -105,8 +105,7 @@
   </section>
 
   <!-- ========== PLAY VIEW ========== -->
-  <section id="view-play" class="card hidden">
-    <!-- ตรงนี้ใช้ layout card ของ Rhythm + HUD ของ Shadow Breaker -->
+  <section id="view-play" class="card hidden view-play-full">
     <div id="sb-wrap" class="sb-wrap" data-boss="0">
 
       <!-- HUD ด้านบน -->
@@ -168,6 +167,9 @@
         <button data-action="stop-early">⏹ หยุดก่อนเวลา</button>
         <button type="button" onclick="location.href='./index.html'">⬅ กลับ Hub</button>
       </div>
+
+      <!-- Feedback bubble ใต้จอ -->
+      <div id="sb-feedback" class="sb-feedback"></div>
     </div>
   </section>
 
@@ -198,7 +200,7 @@
           <tr><td class="label">Accuracy</td><td id="res-accuracy">0%</td></tr>
           <tr><td class="label">จำนวน Hit</td><td id="res-totalhits">0</td></tr>
           <tr><td class="label">RT (normal)</td><td id="res-rt-normal">-</td></tr>
-          <tr><td class="label">RT (decoy)</td><td id="res-rt-decoy">-</td></tr>
+          <tr><td class="label">RT (bomb)</td><td id="res-rt-decoy">-</td></tr>
           <tr><td class="label">Participant ID</td><td id="res-participant">-</td></tr>
         </tbody>
       </table>
@@ -228,9 +230,9 @@
 </main>
 
 <!-- SFX -->
-<audio id="sfx-hit"    src="./sfx/hit.mp3" preload="auto"></audio>
-<audio id="sfx-fever"  src="./sfx/fever.mp3" preload="auto"></audio>
-<audio id="sfx-boss"   src="./sfx/boss-intro.mp3" preload="auto"></audio>
+<audio id="sfx-hit"   src="./sfx/hit.mp3" preload="auto"></audio>
+<audio id="sfx-fever" src="./sfx/fever.mp3" preload="auto"></audio>
+<audio id="sfx-boss"  src="./sfx/boss-intro.mp3" preload="auto"></audio>
 
 <!-- main script (entry) -->
 <script type="module" src="./js/main-shadow.js"></script>
