@@ -7,28 +7,20 @@
 
   <link rel="icon" href="./favicon.ico" />
 
-  <!-- CSS ตรงตามโครงโฟลเดอร์ -->
-  <link rel="stylesheet" href="./css/rhythm-boxer.css" />
+  <!-- CSS -->
   <link rel="stylesheet" href="./css/shadow-breaker.css" />
 </head>
 <body>
 
+<!-- ปุ่มกลับ Hub -->
+<a href="../index.html" class="hub-btn">🏠 กลับ Hub</a>
+
 <div id="sb-wrap" class="sb-wrap" data-diff="normal" data-boss="0" data-phase="1">
 
-  <!-- ------------------------------------------------------ -->
-  <!--  VIEW: MENU                                            -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ================= MENU ================= -->
   <section id="view-menu" class="card">
-    <div class="top-row">
-      <div>
-        <h1 class="title">Shadow Breaker 🥊</h1>
-        <p class="subtitle">เลือกโหมดก่อนเริ่มเกม</p>
-      </div>
-      <div>
-        <!-- ✅ ปุ่มกลับหน้า Hub -->
-        <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
-      </div>
-    </div>
+    <h1 class="title">Shadow Breaker 🥊</h1>
+    <p class="subtitle">เลือกโหมดก่อนเริ่มเกม</p>
 
     <div class="menu-block">
       <label class="menu-label">ระดับความยาก</label>
@@ -45,34 +37,18 @@
     </div>
   </section>
 
-  <!-- ------------------------------------------------------ -->
-  <!--  VIEW: RESEARCH FORM                                   -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ================= RESEARCH ================= -->
   <section id="view-research-form" class="card hidden">
-    <div class="top-row">
-      <div>
-        <h1 class="title">โหมดวิจัย</h1>
-      </div>
-      <div>
-        <!-- ปุ่มกลับ Hub ซ้ำเผื่อกดผิดจอ -->
-        <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
-      </div>
-    </div>
+    <h1 class="title">โหมดวิจัย</h1>
 
-    <div class="form-row">
-      <label>รหัสผู้เข้าร่วม</label>
-      <input type="text" id="research-id" placeholder="เช่น P001"/>
-    </div>
+    <div class="form-row"><label>รหัสผู้เข้าร่วม</label>
+      <input type="text" id="research-id" placeholder="เช่น P001"></div>
 
-    <div class="form-row">
-      <label>กลุ่มทดลอง</label>
-      <input type="text" id="research-group" placeholder="เช่น G-A"/>
-    </div>
+    <div class="form-row"><label>กลุ่มทดลอง</label>
+      <input type="text" id="research-group" placeholder="เช่น G-A"></div>
 
-    <div class="form-row">
-      <label>บันทึกเพิ่มเติม</label>
-      <textarea id="research-note" rows="3"></textarea>
-    </div>
+    <div class="form-row"><label>บันทึกเพิ่มเติม</label>
+      <textarea id="research-note" rows="3"></textarea></div>
 
     <div class="btn-row">
       <button data-action="back-to-menu">⬅ กลับ</button>
@@ -80,38 +56,27 @@
     </div>
   </section>
 
-  <!-- ------------------------------------------------------ -->
-  <!--  VIEW: PLAY                                            -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ================= GAMEPLAY ================= -->
   <section id="view-play" class="hidden">
-
-    <!-- HUD -->
     <div class="sb-hud-row">
-      <!-- player HP -->
       <div class="sb-hp-stack">
         <div class="sb-hp sb-hp-player">
           <div class="sb-hp-label">
             <span class="sb-hp-name">Player HP</span>
             <span class="sb-hp-val" id="stat-hp">100</span>
           </div>
-          <div class="sb-hp-bar">
-            <div class="sb-hp-fill" id="player-fill"></div>
-          </div>
+          <div class="sb-hp-bar"><div class="sb-hp-fill" id="player-fill"></div></div>
         </div>
 
-        <!-- boss HP -->
         <div class="sb-hp sb-hp-boss">
           <div class="sb-hp-label">
-            <span class="sb-hp-name" id="boss-name">Boss 1</span>
+            <span class="sb-hp-name" id="boss-name">Boss</span>
             <span class="sb-hp-val" id="hp-boss-val">100%</span>
           </div>
-          <div class="sb-hp-bar">
-            <div class="sb-hp-fill" id="boss-fill"></div>
-          </div>
+          <div class="sb-hp-bar"><div class="sb-hp-fill" id="boss-fill"></div></div>
         </div>
       </div>
 
-      <!-- Meta panel -->
       <div class="sb-meta">
         <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">-</span></div>
         <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">-</span></div>
@@ -122,11 +87,8 @@
         <div class="sb-meta-row"><span>Miss</span><span id="stat-miss">0</span></div>
       </div>
 
-      <!-- Boss portrait -->
       <div class="boss-portrait-box" id="boss-portrait">
-        <div class="sb-boss-portrait">
-          <div id="boss-portrait-emoji">🐣</div>
-        </div>
+        <div class="sb-boss-portrait"><div id="boss-portrait-emoji">🐣</div></div>
         <div class="boss-portrait-text">
           <div id="boss-portrait-name">Boss</div>
           <div id="boss-portrait-hint">HP ~100%</div>
@@ -134,7 +96,6 @@
       </div>
     </div>
 
-    <!-- FEVER -->
     <div class="sb-fever-row">
       <span class="fever-label">FEVER</span>
       <div class="fever-bar">
@@ -143,34 +104,19 @@
       <span id="fever-status" class="fever-status">READY</span>
     </div>
 
-    <!-- Feedback -->
-    <div id="sb-feedback" class="sb-feedback">
-      โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯
-    </div>
+    <div id="sb-feedback" class="sb-feedback">โฟกัสที่เป้าแล้วตีให้ทัน 🎯</div>
 
-    <!-- Play Field -->
     <div id="target-layer" class="sb-field"></div>
 
     <div class="sb-controls">
       <button data-action="stop-early">⏹ จบก่อนเวลา</button>
-      <!-- ✅ ปุ่มกลับ Hub ตอนเล่นอยู่ -->
-      <button type="button" onclick="location.href='./index.html'">🏠 กลับ Hub</button>
+      <a href="../index.html" class="hub-btn small">🏠 Hub</a>
     </div>
   </section>
 
-  <!-- ------------------------------------------------------ -->
-  <!--  VIEW: RESULT                                          -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ================= RESULT ================= -->
   <section id="view-result" class="card hidden">
-    <div class="top-row">
-      <div>
-        <h1 class="title">สรุปผลรอบเล่น</h1>
-      </div>
-      <div>
-        <!-- ✅ ปุ่มกลับ Hub บนหน้า Result -->
-        <a href="./index.html" class="btn-small">🏠 กลับ Hub</a>
-      </div>
-    </div>
+    <div class="top-row"><h1 class="title">สรุปผลรอบเล่น</h1></div>
 
     <div class="summary">
       <table>
@@ -186,21 +132,20 @@
           <tr><td class="label">Grade</td><td id="res-grade">-</td></tr>
           <tr><td class="label">RT Normal</td><td id="res-rt-normal">-</td></tr>
           <tr><td class="label">RT Decoy</td><td id="res-rt-decoy">-</td></tr>
-          <tr><td class="label">Participant ID</td><td id="res-participant">-</td></tr>
+          <tr><td class="label">ID ผู้เล่น</td><td id="res-participant">-</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="btn-row">
-      <button data-action="back-to-menu">⬅ กลับเมนู</button>
+      <button data-action="back-to-menu">⬅ เมนู</button>
       <button class="primary" data-action="play-again">▶ เล่นอีกครั้ง</button>
       <button data-action="download-csv">⬇ ดาวน์โหลด CSV</button>
+      <a href="../index.html" class="hub-btn small">🏠 Hub</a>
     </div>
   </section>
 
-  <!-- ------------------------------------------------------ -->
-  <!--  BOSS INTRO                                            -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ================= BOSS INTRO ================= -->
   <div id="boss-intro" class="boss-intro hidden">
     <div class="boss-intro-card">
       <div id="boss-intro-emoji" class="boss-intro-emoji">🐣</div>
@@ -211,9 +156,8 @@
     </div>
   </div>
 
-</div><!-- /sb-wrap -->
+</div>
 
-<!-- JS path ให้ตรงโฟลเดอร์ js -->
 <script src="./js/sfx.js"></script>
 <script type="module" src="./js/shadow-breaker.js"></script>
 
