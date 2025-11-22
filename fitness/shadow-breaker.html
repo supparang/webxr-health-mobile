@@ -5,18 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Shadow Breaker — HeroHealth</title>
 
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="./favicon.ico"/>
 
-  <!-- ✅ ชี้ไปที่โฟลเดอร์ css ให้ตรงกับโครงจริง -->
-  <link rel="stylesheet" href="./css/shadow-breaker.css" />
+  <!-- Load CSS -->
+  <link rel="stylesheet" href="./css/shadow-breaker.css"/>
 </head>
 <body>
 
-<div id="sb-wrap" class="sb-wrap" data-diff="normal" data-boss="0" data-phase="1">
+<div id="sb-wrap" class="sb-wrap" data-diff="normal">
 
-  <!-- ------------------------------------------------------ -->
-  <!--  VIEW: MENU                                            -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ======================== MENU ======================== -->
   <section id="view-menu" class="card">
     <h1 class="title">Shadow Breaker 🥊</h1>
     <p class="subtitle">เลือกโหมดก่อนเริ่มเกม</p>
@@ -36,9 +34,7 @@
     </div>
   </section>
 
-  <!-- ------------------------------------------------------ -->
-  <!--  VIEW: RESEARCH FORM                                   -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ======================== RESEARCH FORM ======================== -->
   <section id="view-research-form" class="card hidden">
     <h1 class="title">โหมดวิจัย</h1>
 
@@ -63,30 +59,29 @@
     </div>
   </section>
 
-  <!-- ------------------------------------------------------ -->
-  <!--  VIEW: PLAY                                            -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ======================== GAMEPLAY ======================== -->
   <section id="view-play" class="hidden">
 
     <!-- HUD -->
     <div class="sb-hud-row">
-      <!-- player HP -->
+
+      <!-- Player + Boss HP -->
       <div class="sb-hp-stack">
+
         <div class="sb-hp sb-hp-player">
           <div class="sb-hp-label">
             <span class="sb-hp-name">Player HP</span>
-            <span class="sb-hp-val" id="stat-hp">100</span>
+            <span id="stat-hp">100</span>
           </div>
           <div class="sb-hp-bar">
             <div class="sb-hp-fill" id="player-fill"></div>
           </div>
         </div>
 
-        <!-- boss HP -->
         <div class="sb-hp sb-hp-boss">
           <div class="sb-hp-label">
-            <span class="sb-hp-name" id="boss-name">Boss 1</span>
-            <span class="sb-hp-val" id="hp-boss-val">100%</span>
+            <span id="boss-name">Boss 1</span>
+            <span id="hp-boss-val">100%</span>
           </div>
           <div class="sb-hp-bar">
             <div class="sb-hp-fill" id="boss-fill"></div>
@@ -94,7 +89,7 @@
         </div>
       </div>
 
-      <!-- Meta panel -->
+      <!-- Meta Panel -->
       <div class="sb-meta">
         <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">-</span></div>
         <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">-</span></div>
@@ -107,31 +102,28 @@
 
       <!-- Boss portrait -->
       <div class="boss-portrait-box" id="boss-portrait">
-        <div class="sb-boss-portrait">
-          <div id="boss-portrait-emoji">🐣</div>
-        </div>
+        <div class="sb-boss-portrait"><div id="boss-portrait-emoji">🐣</div></div>
         <div class="boss-portrait-text">
-          <div id="boss-portrait-name">Boss</div>
+          <div id="boss-portrait-name">Bubble Glove</div>
           <div id="boss-portrait-hint">HP ~100%</div>
         </div>
       </div>
-    </div>
 
-    <!-- FEVER -->
+    </div><!-- HUD END -->
+
+    <!-- FEVER BAR -->
     <div class="sb-fever-row">
       <span class="fever-label">FEVER</span>
-      <div class="fever-bar">
-        <div id="fever-fill" class="fever-fill"></div>
-      </div>
+      <div class="fever-bar"><div id="fever-fill" class="fever-fill"></div></div>
       <span id="fever-status" class="fever-status">READY</span>
     </div>
 
-    <!-- Feedback -->
+    <!-- Feedback bubble -->
     <div id="sb-feedback" class="sb-feedback">
-      โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯
+      โฟกัสที่เป้าตรงกลาง แล้วตีให้ทันนะ 🎯
     </div>
 
-    <!-- Play Field -->
+    <!-- Target layer -->
     <div id="target-layer" class="sb-field"></div>
 
     <div class="sb-controls">
@@ -139,29 +131,26 @@
     </div>
   </section>
 
-  <!-- ------------------------------------------------------ -->
-  <!--  VIEW: RESULT                                          -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ======================== RESULT ======================== -->
   <section id="view-result" class="card hidden">
-    <div class="top-row">
-      <h1 class="title">สรุปผลรอบเล่น</h1>
-    </div>
+
+    <h1 class="title">สรุปผลรอบเล่น</h1>
 
     <div class="summary">
       <table>
         <tbody>
           <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
-          <tr><td class="label">ระดับความยาก</td><td id="res-diff">-</td></tr>
+          <tr><td class="label">ความยาก</td><td id="res-diff">-</td></tr>
           <tr><td class="label">สาเหตุจบเกม</td><td id="res-endreason">-</td></tr>
           <tr><td class="label">คะแนนรวม</td><td id="res-score">0</td></tr>
           <tr><td class="label">Combo สูงสุด</td><td id="res-maxcombo">0</td></tr>
-          <tr><td class="label">จำนวน Miss</td><td id="res-miss">0</td></tr>
+          <tr><td class="label">Miss</td><td id="res-miss">0</td></tr>
           <tr><td class="label">Accuracy</td><td id="res-accuracy">0%</td></tr>
-          <tr><td class="label">จำนวน Hit</td><td id="res-totalhits">0</td></tr>
+          <tr><td class="label">Hit ทั้งหมด</td><td id="res-totalhits">0</td></tr>
           <tr><td class="label">Grade</td><td id="res-grade">-</td></tr>
           <tr><td class="label">RT Normal</td><td id="res-rt-normal">-</td></tr>
-          <tr><td class="label">RT Decoy</td><td id="res-rt-decoy">-</td></tr>
-          <tr><td class="label">Participant ID</td><td id="res-participant">-</td></tr>
+          <tr><td class="label">RT Bomb</td><td id="res-rt-decoy">-</td></tr>
+          <tr><td class="label">Participant</td><td id="res-participant">-</td></tr>
         </tbody>
       </table>
     </div>
@@ -171,24 +160,23 @@
       <button class="primary" data-action="play-again">▶ เล่นอีกครั้ง</button>
       <button data-action="download-csv">⬇ ดาวน์โหลด CSV</button>
     </div>
+
   </section>
 
-  <!-- ------------------------------------------------------ -->
-  <!--  BOSS INTRO                                            -->
-  <!-- ------------------------------------------------------ -->
+  <!-- ======================== BOSS INTRO ======================== -->
   <div id="boss-intro" class="boss-intro hidden">
     <div class="boss-intro-card">
       <div id="boss-intro-emoji" class="boss-intro-emoji">🐣</div>
       <div id="boss-intro-name" class="boss-intro-name">Boss</div>
-      <div id="boss-intro-title" class="boss-intro-title">Title</div>
-      <div id="boss-intro-desc" class="boss-intro-desc">Description</div>
+      <div id="boss-intro-title" class="boss-intro-title">Phase 1</div>
+      <div id="boss-intro-desc" class="boss-intro-desc">พร้อมลุยหรือยัง?</div>
       <div id="boss-intro-hint" class="boss-intro-hint">แตะเพื่อเริ่ม</div>
     </div>
   </div>
 
-</div><!-- /sb-wrap -->
+</div><!-- END sb-wrap -->
 
-<!-- ✅ ชี้ path JS ให้ตรงโฟลเดอร์ js -->
+<!-- JS Files -->
 <script src="./js/sfx.js"></script>
 <script type="module" src="./js/shadow-breaker.js"></script>
 
