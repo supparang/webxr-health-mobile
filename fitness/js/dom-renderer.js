@@ -1,4 +1,4 @@
-// === js/dom-renderer.js — DOM target renderer + FX (2025-11-23) ===
+// === js/dom-renderer.js — DOM target renderer + FX (2025-11-24) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
@@ -27,28 +27,32 @@ export class DomRenderer {
     const size = this.sizePx;
     const el = document.createElement('div');
     el.className = 'sb-target';
-    el.style.width = size + 'px';
+    el.style.width  = size + 'px';
     el.style.height = size + 'px';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
     inner.textContent = t.emoji || '🥊';
 
-    el.dataset.id = String(t.id);
+    el.dataset.id   = String(t.id);
     el.dataset.type = t.decoy ? 'bad' : 'good';
     if (t.bossFace) el.dataset.bossFace = '1';
     el.appendChild(inner);
 
     const pad = 24 + size / 2;
-    const w = this.host.clientWidth;
-    const h = this.host.clientHeight;
+    const w = this.host.clientWidth  || 1;
+    const h = this.host.clientHeight || 1;
     const x = pad + Math.random() * Math.max(10, w - pad * 2);
     const y = pad + Math.random() * Math.max(10, h - pad * 2);
 
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
 
+    // บันทึกตำแหน่ง / ขนาด normalize สำหรับ analytics
     t.lastPos = { x, y };
+    t.size_px = size;
+    t.x_norm  = x / w;
+    t.y_norm  = y / h;
 
     const onPointerDown = (ev) => {
       ev.preventDefault();
@@ -60,7 +64,7 @@ export class DomRenderer {
 
     el.addEventListener('pointerdown', onPointerDown);
 
-    t._el = el;
+    t._el    = el;
     t._onPtr = onPointerDown;
 
     this.host.appendChild(el);
@@ -71,9 +75,7 @@ export class DomRenderer {
     const el = t && t._el;
     if (!el) return;
     try {
-      if (t._onPtr) {
-        el.removeEventListener('pointerdown', t._onPtr);
-      }
+      if (t._onPtr) el.removeEventListener('pointerdown', t._onPtr);
     } catch (e) {}
     if (el.parentNode) el.parentNode.removeChild(el);
     t._el = null;
@@ -85,13 +87,13 @@ export class DomRenderer {
     if (!this.host) return;
 
     const host = this.host;
-    const el = t && t._el;
+    const el   = t && t._el;
     let x, y;
 
     if (el && el.parentNode) {
       const r  = el.getBoundingClientRect();
       const hr = host.getBoundingClientRect();
-      x = r.left + r.width / 2 - hr.left;
+      x = r.left + r.width  / 2 - hr.left;
       y = r.top  + r.height / 2 - hr.top;
 
       el.classList.add('sb-hit');
@@ -102,7 +104,7 @@ export class DomRenderer {
       x = t.lastPos.x;
       y = t.lastPos.y;
     } else {
-      x = host.clientWidth / 2;
+      x = host.clientWidth  / 2;
       y = host.clientHeight / 2;
     }
 
@@ -113,8 +115,7 @@ export class DomRenderer {
     popup.className = 'sb-fx-score';
 
     const score = opts.score || 0;
-    let cls;
-    let text;
+    let cls, text;
 
     if (opts.miss) {
       cls = 'sb-miss';
@@ -142,7 +143,6 @@ export class DomRenderer {
     }, 600);
   }
 
-  /* ----------------- เคลียร์ทั้งหมด ----------------- */
   clear() {
     if (!this.host) return;
     this.host.innerHTML = '';
