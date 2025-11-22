@@ -224,8 +224,7 @@ button.primary{
   100%{transform:translateX(0);}
 }
 
-/* ========================= FEVER ========================= */
-
+/* FEVER */
 .sb-fever-row{
   display:flex;
   align-items:center;
@@ -239,6 +238,7 @@ button.primary{
 
 .fever-bar{
   flex:1;
+  position:relative;       /* ✅ เพิ่มบรรทัดนี้ */
   height:10px;
   background:#0f172a;
   border-radius:999px;
@@ -247,7 +247,10 @@ button.primary{
 
 .fever-fill{
   position:absolute;
-  inset:0;
+  left:0;
+  top:0;
+  bottom:0;
+  width:100%;
   transform:scaleX(0);
   transform-origin:left center;
   background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ec4899);
