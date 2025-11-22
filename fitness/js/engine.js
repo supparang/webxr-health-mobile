@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-11-24 Research-Ready v2 + SFX) ===
+// === js/engine.js — Shadow Breaker core (2025-11-27 Research-Ready v3 + Adaptive UI) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -47,45 +47,31 @@ const DIFF_CONFIG = {
 };
 
 const BOSSES = [
-  {
-    id: 1,
-    name: 'Bubble Glove',
-    emoji: '🐣',
+  { id: 1, name: 'Bubble Glove', emoji: '🐣',
     title: 'บอสมือใหม่สายฟอง',
-    desc: 'เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰'
-  },
-  {
-    id: 2,
-    name: 'Neon Knuckle',
-    emoji: '🌀',
+    desc: 'เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰' },
+  { id: 2, name: 'Neon Knuckle', emoji: '🌀',
     title: 'หมัดนีออนสายสปีด',
-    desc: 'เป้าเร็วขึ้น มีเป้าลวงคอยกวนสมาธิ 💫'
-  },
-  {
-    id: 3,
-    name: 'Shadow Guard',
-    emoji: '🛡️',
+    desc: 'เป้าเร็วขึ้น มีเป้าลวงคอยกวนสมาธิ 💫' },
+  { id: 3, name: 'Shadow Guard', emoji: '🛡️',
     title: 'ผู้พิทักษ์เงา',
-    desc: 'ต้องตีต่อเนื่อง ไม่งั้น HP ไม่ลดเท่าที่ควร 🛡️'
-  },
-  {
-    id: 4,
-    name: 'Final Burst',
-    emoji: '💀',
+    desc: 'ต้องตีต่อเนื่อง ไม่งั้น HP ไม่ลดเท่าที่ควร 🛡️' },
+  { id: 4, name: 'Final Burst', emoji: '💀',
     title: 'บอสสุดท้ายสายระเบิด',
-    desc: 'ช่วงท้ายจะ spawn เป้าเร็วมาก เน้นโหมด FEVER ⚡'
-  }
+    desc: 'ช่วงท้ายจะ spawn เป้าเร็วมาก เน้นโหมด FEVER ⚡' }
 ];
 
-const $  = (s) => document.querySelector(s);
+const $ = (s) => document.querySelector(s);
 const clamp = (v,a,b)=> v<a?a:(v>b?b:v);
 
-/* --- SFX helper ---------------------------------------------------- */
-
-function playSfx(name, opts){
-  if (window.SFX && typeof window.SFX.play === 'function'){
-    window.SFX.play(name, opts || {});
-  }
+function safePlay(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  try{
+    el.currentTime=0;
+    const p=el.play();
+    if(p && typeof p.catch==='function') p.catch(()=>{});
+  }catch(e){}
 }
 
 /* ------------------------------------------------------------------ */
@@ -149,12 +135,11 @@ class ShadowBreakerGame {
     this.resParticipant= $('#res-participant');
     this.resGrade      = $('#res-grade');
 
-    // Target layer + renderer (LAZY)
+    // Target layer + renderer
     this.targetLayer = $('#target-layer');
-    this.renderer = null;
-    if (this.targetLayer) {
-      this.renderer = new DomRenderer(this, this.targetLayer, { sizePx: 100 });
-    }
+    this.renderer = this.targetLayer
+      ? new DomRenderer(this, this.targetLayer, { sizePx: 100 })
+      : null;
 
     this.resetState();
     this.wireUI();
@@ -199,6 +184,11 @@ class ShadowBreakerGame {
 
     this.researchMeta = { participant:'', group:'', note:'' };
     this.hitLogs = [];
+
+    // Adaptive UI
+    this.recentEvents = [];   // {type:'hit/miss/bomb', ts}
+    this.dynamicSpawn = this.config.spawnInterval;
+    this.dynamicSize  = this.config.sizePx;
 
     if(this.wrap){
       this.wrap.dataset.diff  = this.diff;
@@ -278,8 +268,6 @@ class ShadowBreakerGame {
     });
   }
 
-  /* ------------------ View switch ------------------ */
-
   showView(name){
     this.viewMenu.classList.add('hidden');
     this.viewForm.classList.add('hidden');
@@ -293,56 +281,38 @@ class ShadowBreakerGame {
     else if (name==='result') this.viewResult.classList.remove('hidden');
   }
 
-  /* ------------------ Feedback bubble ------------------ */
-
+  /* -------------------------------------------------------- */
+  /* Feedback                                                 */
+  /* -------------------------------------------------------- */
   setFeedback(kind){
     if(!this.feedbackEl) return;
     let text = '';
     let cls  = '';
 
     switch(kind){
-      case 'perfect':
-        text = 'ตรงเป๊ะ! ⭐';
-        cls  = 'perfect';
-        break;
-      case 'good':
-        text = 'ใกล้แล้ว! 😀';
-        cls  = 'good';
-        break;
-      case 'miss':
-        text = 'พลาดเป้า! ลองใหม่ 😅';
-        cls  = 'miss';
-        break;
-      case 'bomb':
-        text = 'โดนระเบิด! -60 คะแนน -10 HP 💥';
-        cls  = 'bomb';
-        break;
-      case 'heal':
-        text = 'ชนะบอส! ฟื้น HP +20 💙';
-        cls  = 'heal';
-        break;
-      default:
-        text = 'โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯';
-        cls  = '';
+      case 'perfect': text='ตรงเป๊ะ! ⭐'; cls='perfect'; break;
+      case 'good':    text='ใกล้แล้ว! 😀'; cls='good'; break;
+      case 'miss':    text='พลาดเป้า! ลองใหม่ 😅'; cls='miss'; break;
+      case 'bomb':    text='โดนระเบิด! -60 คะแนน -10 HP 💥'; cls='bomb'; break;
+      case 'heal':    text='ชนะบอส! ฟื้น HP +20 💙'; cls='heal'; break;
+      default:        text='โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯'; cls=''; break;
     }
 
     this.feedbackEl.textContent = text;
-    this.feedbackEl.classList.remove('good','perfect','miss','bomb','heal');
-    if (cls) this.feedbackEl.classList.add(cls);
+    this.feedbackEl.className = 'sb-feedback' + (cls ? ' '+cls : '');
 
     if(this._feedbackTimer){
       clearTimeout(this._feedbackTimer);
-      this._feedbackTimer = null;
+      this._feedbackTimer=null;
     }
     if(kind && kind!=='heal'){
-      this._feedbackTimer = setTimeout(()=>{
-        this.setFeedback('');
-      }, 1400);
+      this._feedbackTimer = setTimeout(()=>this.setFeedback(''),1400);
     }
   }
 
-  /* ------------------ Start / loop ------------------ */
-
+  /* -------------------------------------------------------- */
+  /* Start / Loop                                             */
+  /* -------------------------------------------------------- */
   startFromMenu(useSameDiff=false){
     if (!useSameDiff){
       const sel=$('#difficulty');
@@ -352,7 +322,6 @@ class ShadowBreakerGame {
     this.config = DIFF_CONFIG[this.diff] || DIFF_CONFIG.normal;
     this.gameDuration = this.config.duration;
 
-    // reset core state (ไม่ยุ่ง researchMeta)
     this.running = false;
     this.ended   = false;
     this.timeLeft = this.gameDuration;
@@ -378,7 +347,7 @@ class ShadowBreakerGame {
     this.feverOn  = false;
     this.feverUse = 0;
     this._feverTimeout && clearTimeout(this._feverTimeout);
-    this._feverTimeout = null;
+    this._feverTimeout=null;
 
     this.bossIndex = 0;
     this.currentBoss = BOSSES[0];
@@ -386,6 +355,9 @@ class ShadowBreakerGame {
     this.bossHp      = this.bossHpMax;
 
     this.hitLogs = [];
+    this.recentEvents = [];
+    this.dynamicSpawn = this.config.spawnInterval;
+    this.dynamicSize  = this.config.sizePx;
 
     if(this.wrap){
       this.wrap.dataset.diff  = this.diff;
@@ -393,8 +365,8 @@ class ShadowBreakerGame {
       this.wrap.dataset.phase = '1';
     }
 
-    if (this.renderer) {
-      this.renderer.sizePx = this.config.sizePx;
+    if(this.renderer){
+      this.renderer.sizePx = this.dynamicSize;
     }
 
     this.statMode.textContent = this.mode === 'research' ? 'Research' : 'Normal';
@@ -424,7 +396,7 @@ class ShadowBreakerGame {
     this.targets.clear();
 
     this._spawnTimer && clearInterval(this._spawnTimer);
-    this._spawnTimer = setInterval(()=>this.spawnTarget(), this.config.spawnInterval);
+    this._spawnTimer = setInterval(()=>this.spawnTarget(), this.dynamicSpawn);
 
     const loop = (t)=>{
       if (!this.running) return;
@@ -458,29 +430,21 @@ class ShadowBreakerGame {
     const totalShots = this.hitCount + this.miss;
     const accuracy   = totalShots>0 ? (this.hitCount/totalShots)*100 : 0;
 
-    // analytics RT
+    // Analytics RT
     let sumRtNormal=0, cntRtNormal=0;
     let sumRtDecoy=0,  cntRtDecoy=0;
 
     for(const log of this.hitLogs){
       if(log.event_type!=='hit') continue;
       if(log.decoy){
-        if(log.age_ms!=null){
-          sumRtDecoy += log.age_ms;
-          cntRtDecoy++;
-        }
+        if(log.age_ms!=null){ sumRtDecoy += log.age_ms; cntRtDecoy++; }
       }else{
-        if(log.age_ms!=null){
-          sumRtNormal += log.age_ms;
-          cntRtNormal++;
-        }
+        if(log.age_ms!=null){ sumRtNormal += log.age_ms; cntRtNormal++; }
       }
     }
-
     const avgRtNormal = cntRtNormal ? (sumRtNormal/cntRtNormal) : 0;
-    const avgRtDecoy  = cntRtDecoy  ? (sumRtDecoy/cntRtDecoy)  : 0;
+    const avgRtDecoy  = cntRtDecoy ? (sumRtDecoy/cntRtDecoy)   : 0;
 
-    // Grade
     const grade = this.computeGrade({
       accuracy,
       score: this.score,
@@ -500,45 +464,35 @@ class ShadowBreakerGame {
     this.resRtNormal.textContent  = cntRtNormal ? (avgRtNormal.toFixed(0)+' ms') : '-';
     this.resRtDecoy.textContent   = cntRtDecoy  ? (avgRtDecoy.toFixed(0)+' ms')  : '-';
     this.resParticipant.textContent = this.researchMeta.participant || '-';
-    if(this.resGrade){
-      this.resGrade.textContent = grade;
-    }
+    if(this.resGrade) this.resGrade.textContent = grade;
 
     this.showView('result');
   }
 
   /* ------------------ Grade logic ------------------ */
-
   computeGrade({accuracy, score, miss, bombs, diff}){
     const acc = accuracy || 0;
     const penalty = miss + bombs*1.5;
     const baseScore = score - penalty*10;
+    let grade='C';
 
-    let grade = 'C';
-
-    if(acc >= 95 && baseScore >= 5000){
-      grade = 'SSS';
-    }else if(acc >= 92 && baseScore >= 4200){
-      grade = 'SS';
-    }else if(acc >= 88 && baseScore >= 3500){
-      grade = 'S';
-    }else if(acc >= 80 && baseScore >= 2600){
-      grade = 'A';
-    }else if(acc >= 70){
-      grade = 'B';
-    }
+    if(acc>=95 && baseScore>=5000) grade='SSS';
+    else if(acc>=92 && baseScore>=4200) grade='SS';
+    else if(acc>=88 && baseScore>=3500) grade='S';
+    else if(acc>=80 && baseScore>=2600) grade='A';
+    else if(acc>=70) grade='B';
 
     if(diff==='hard' && grade!=='SSS'){
-      const order = ['C','B','A','S','SS','SSS'];
-      const idx = order.indexOf(grade);
-      if(idx>0) grade = order[idx+1] || grade;
+      const order=['C','B','A','S','SS','SSS'];
+      const idx=order.indexOf(grade);
+      if(idx>0) grade=order[idx+1] || grade;
     }
-
     return grade;
   }
 
-  /* ------------------ BOSS ------------------ */
-
+  /* -------------------------------------------------------- */
+  /* BOSS                                                     */
+  /* -------------------------------------------------------- */
   updateBossHUD(){
     const boss=this.currentBoss;
     if(!boss) return;
@@ -548,12 +502,10 @@ class ShadowBreakerGame {
     }
 
     const ratio=clamp(this.bossHp/this.bossHpMax,0,1);
-    let phase = 1;
-    if(ratio <= 0.33) phase = 3;
-    else if(ratio <= 0.66) phase = 2;
-    if(this.wrap){
-      this.wrap.dataset.phase = String(phase);
-    }
+    let phase=1;
+    if(ratio<=0.33) phase=3;
+    else if(ratio<=0.66) phase=2;
+    if(this.wrap) this.wrap.dataset.phase=String(phase);
 
     this.bossName.textContent = `Boss ${boss.id}/4 — ${boss.name}`;
     this.bossPortraitEmoji.textContent = boss.emoji;
@@ -562,13 +514,10 @@ class ShadowBreakerGame {
       `HP เหลือประมาณ ${Math.round(ratio*100)}%`;
 
     this.bossFill.style.transform = `scaleX(${ratio})`;
-    this.hpBossVal.textContent    = Math.round(ratio*100) + '%';
+    this.hpBossVal.textContent    = Math.round(ratio*100)+'%';
 
-    if (ratio <= 0.25) {
-      this.bossPortraitBox.classList.add('sb-shake');
-    } else {
-      this.bossPortraitBox.classList.remove('sb-shake');
-    }
+    if(ratio<=0.25) this.bossPortraitBox.classList.add('sb-shake');
+    else this.bossPortraitBox.classList.remove('sb-shake');
   }
 
   showBossIntro(boss,opts={}){
@@ -580,7 +529,7 @@ class ShadowBreakerGame {
     this.bossIntro.classList.remove('hidden');
     this._introActive=true;
     this._introOnDone=opts.onDone || null;
-    playSfx('boss', { group:'boss', baseVolume:0.9, intensity:1.0, baseRate:1.0 });
+    safePlay('sfx-boss');
   }
 
   hideBossIntro(){
@@ -596,7 +545,7 @@ class ShadowBreakerGame {
 
   onBossDefeated(){
     const heal = 20;
-    this.playerHp = clamp(this.playerHp + heal, 0, 100);
+    this.playerHp = clamp(this.playerHp+heal,0,100);
     this.setFeedback('heal');
     this.updateHUD();
 
@@ -618,8 +567,9 @@ class ShadowBreakerGame {
     this.showBossIntro(this.currentBoss,{ onDone:()=>{} });
   }
 
-  /* ------------------ FEVER ------------------ */
-
+  /* -------------------------------------------------------- */
+  /* FEVER                                                    */
+  /* -------------------------------------------------------- */
   updateFeverHUD(){
     const ratio=clamp(this.fever/100,0,1);
     this.feverFill.style.transform=`scaleX(${ratio})`;
@@ -631,7 +581,6 @@ class ShadowBreakerGame {
       this.feverStatus.textContent = (ratio>=1)?'READY':'FEVER';
     }
   }
-
   addFever(kind){
     if(this.feverOn) return;
     const gain=this.config.feverGain[kind] || 3;
@@ -639,29 +588,28 @@ class ShadowBreakerGame {
     this.updateFeverHUD();
     if(this.fever>=100) this.triggerFever();
   }
-
   loseFeverOnMiss(){
     if(this.feverOn) return;
     this.fever = clamp(this.fever-this.config.feverLossMiss,0,100);
     this.updateFeverHUD();
   }
-
   triggerFever(){
     if(this.feverOn) return;
     this.feverOn=true;
     this.feverUse++;
-    playSfx('fever', { group:'fever', baseVolume:0.85, intensity:1.0, baseRate:1.05 });
+    safePlay('sfx-fever');
     this.updateFeverHUD();
     this._feverTimeout && clearTimeout(this._feverTimeout);
-    this._feverTimeout = setTimeout(()=>{
+    this._feverTimeout=setTimeout(()=>{
       this.feverOn=false;
       this.fever=40;
       this.updateFeverHUD();
     },7000);
   }
 
-  /* ------------------ TARGETS ------------------ */
-
+  /* -------------------------------------------------------- */
+  /* TARGETS                                                  */
+  /* -------------------------------------------------------- */
   spawnTarget(){
     if(!this.running) return;
 
@@ -669,7 +617,7 @@ class ShadowBreakerGame {
       this.targetLayer = document.querySelector('#target-layer');
       if(this.targetLayer){
         this.renderer = new DomRenderer(this, this.targetLayer, {
-          sizePx: this.config.sizePx || 100
+          sizePx: this.dynamicSize || this.config.sizePx
         });
       }else{
         console.warn('ShadowBreaker: no #target-layer, skip spawn.');
@@ -679,15 +627,12 @@ class ShadowBreakerGame {
 
     const id = this._nextTargetId++;
 
-    const hpRatio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 1;
-    let bossFace = false;
-    let decoy    = false;
+    const hpRatio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
+    let bossFace=false;
+    let decoy=false;
 
-    if (hpRatio <= 0.25 && Math.random() < 0.35) {
-      bossFace = true;
-    } else {
-      decoy = Math.random() < this.config.decoyRate;
-    }
+    if(hpRatio<=0.25 && Math.random()<0.35) bossFace=true;
+    else decoy = Math.random() < this.config.decoyRate;
 
     const emoji = bossFace
       ? (this.currentBoss?.emoji || '😈')
@@ -709,6 +654,7 @@ class ShadowBreakerGame {
     this.targets.set(id,t);
     this.totalTargets++;
 
+    this.renderer.sizePx = this.dynamicSize;
     this.renderer.spawnTarget(t);
 
     setTimeout(()=>{
@@ -741,18 +687,13 @@ class ShadowBreakerGame {
     this.targets.delete(t.id);
     if(this.renderer) this.renderer.removeTarget(t);
 
-    let baseScore=0;
-    if(grade==='perfect') baseScore=120;
-    else if(grade==='good') baseScore=80;
-    else baseScore=40;
+    let baseScore=grade==='perfect'?120:(grade==='good'?80:40);
+    let dmg      =grade==='perfect'?8:(grade==='good'?5:3);
 
-    let dmg = grade==='perfect'?8:(grade==='good'?5:3);
-
-    if (t.bossFace) {
-      baseScore = Math.round(baseScore * 1.6);
-      dmg       = Math.round(dmg * 1.8);
+    if(t.bossFace){
+      baseScore=Math.round(baseScore*1.6);
+      dmg=Math.round(dmg*1.8);
     }
-
     if(this.feverOn){
       baseScore=Math.round(baseScore*1.5);
       dmg=Math.round(dmg*1.5);
@@ -774,42 +715,37 @@ class ShadowBreakerGame {
         grade,
         score:baseScore,
         fever:this.feverOn,
-        bossFace: t.bossFace
+        bossFace:t.bossFace
       });
     }
 
-    this.setFeedback(grade==='perfect' ? 'perfect' : 'good');
-
-    const intensity = grade==='perfect' ? 1.0 : (grade==='good' ? 0.75 : 0.55);
-    playSfx('hit', {
-      group:'hit',
-      intensity,
-      baseVolume:0.8,
-      baseRate:1.0,
-      pitchSpread:0.06
-    });
+    this.setFeedback(grade==='perfect'?'perfect':'good');
+    safePlay('sfx-hit');
 
     const ratio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
     let phase = 1;
-    if(ratio <= 0.33) phase = 3;
-    else if(ratio <= 0.66) phase = 2;
+    if(ratio<=0.33) phase=3;
+    else if(ratio<=0.66) phase=2;
 
     this.hitLogs.push({
-      event_type: 'hit',
-      ts: (performance.now()-this._startTime)/1000,
-      target_id: t.id,
-      decoy: false,
-      bossFace: !!t.bossFace,
+      event_type:'hit',
+      ts:(performance.now()-this._startTime)/1000,
+      target_id:t.id,
+      decoy:false,
+      bossFace:!!t.bossFace,
       grade,
-      age_ms: ageMs,
-      diff: this.diff,
-      boss_id: this.currentBoss?.id || 0,
-      boss_phase: phase,
-      fever_on: this.feverOn ? 1 : 0,
-      score_delta: baseScore,
-      combo_after: this.combo,
-      player_hp_after: this.playerHp
+      age_ms:ageMs,
+      diff:this.diff,
+      boss_id:this.currentBoss?.id || 0,
+      boss_phase:phase,
+      fever_on:this.feverOn?1:0,
+      score_delta:baseScore,
+      combo_after:this.combo,
+      player_hp_after:this.playerHp
     });
+
+    this.pushRecentEvent('hit');
+    this.updateAdaptiveUI();
 
     if(this.bossHp<=0){
       this.onBossDefeated();
@@ -829,44 +765,36 @@ class ShadowBreakerGame {
     this.loseFeverOnMiss();
 
     if(this.renderer){
-      this.renderer.spawnHitEffect(t,{
-        decoy:true,
-        grade:'bad',
-        score:-60
-      });
+      this.renderer.spawnHitEffect(t,{decoy:true,grade:'bad',score:-60});
     }
 
     this.setFeedback('bomb');
-
-    playSfx('hit', {
-      group:'bomb',
-      intensity:1.0,
-      baseVolume:0.85,
-      baseRate:0.95,
-      pitchSpread:0.1
-    });
+    safePlay('sfx-hit');
 
     const ratio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
     let phase = 1;
-    if(ratio <= 0.33) phase = 3;
-    else if(ratio <= 0.66) phase = 2;
+    if(ratio<=0.33) phase=3;
+    else if(ratio<=0.66) phase=2;
 
     this.hitLogs.push({
-      event_type: 'bomb',
-      ts: (performance.now()-this._startTime)/1000,
-      target_id: t.id,
-      decoy: true,
-      bossFace: !!t.bossFace,
-      grade: 'bomb',
-      age_ms: ageMs,
-      diff: this.diff,
-      boss_id: this.currentBoss?.id || 0,
-      boss_phase: phase,
-      fever_on: this.feverOn ? 1 : 0,
-      score_delta: -60,
-      combo_after: this.combo,
-      player_hp_after: this.playerHp
+      event_type:'bomb',
+      ts:(performance.now()-this._startTime)/1000,
+      target_id:t.id,
+      decoy:true,
+      bossFace:!!t.bossFace,
+      grade:'bomb',
+      age_ms:ageMs,
+      diff:this.diff,
+      boss_id:this.currentBoss?.id || 0,
+      boss_phase:phase,
+      fever_on:this.feverOn?1:0,
+      score_delta:-60,
+      combo_after:this.combo,
+      player_hp_after:this.playerHp
     });
+
+    this.pushRecentEvent('bomb');
+    this.updateAdaptiveUI();
 
     if(this.playerHp<=0){
       this.updateHUD();
@@ -894,28 +822,21 @@ class ShadowBreakerGame {
     this.loseFeverOnMiss();
 
     if(this.renderer){
-      this.renderer.spawnHitEffect(t,{ miss:true, score:0 });
+      this.renderer.spawnHitEffect(t,{miss:true,score:0});
     }
 
     this.setFeedback('miss');
-
-    playSfx('hit', {
-      group:'miss',
-      intensity:0.6,
-      baseVolume:0.7,
-      baseRate:0.9,
-      pitchSpread:0.05
-    });
+    safePlay('sfx-hit');
 
     const ratio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
     let phase = 1;
-    if(ratio <= 0.33) phase = 3;
-    else if(ratio <= 0.66) phase = 2;
+    if(ratio<=0.33) phase=3;
+    else if(ratio<=0.66) phase=2;
 
     this.hitLogs.push({
-      event_type: 'miss',
-      ts: (performance.now()-this._startTime)/1000,
-      target_id: t.id,
+      event_type:'miss',
+      ts:(performance.now()-this._startTime)/1000,
+      target_id:t.id,
       decoy:false,
       bossFace:false,
       grade:'miss',
@@ -929,6 +850,9 @@ class ShadowBreakerGame {
       player_hp_after:this.playerHp
     });
 
+    this.pushRecentEvent('miss');
+    this.updateAdaptiveUI();
+
     if(this.playerHp<=0){
       this.updateHUD();
       this.stopGame('HP ผู้เล่นหมด');
@@ -937,8 +861,9 @@ class ShadowBreakerGame {
     this.updateHUD();
   }
 
-  /* ------------------ HUD ------------------ */
-
+  /* -------------------------------------------------------- */
+  /* HUD                                                      */
+  /* -------------------------------------------------------- */
   updateHUD(){
     this.statScore.textContent   = String(this.score);
     this.statHp.textContent      = String(this.playerHp);
@@ -947,8 +872,72 @@ class ShadowBreakerGame {
     this.statMiss.textContent    = String(this.miss);
   }
 
-  /* ------------------ CSV ------------------ */
+  /* -------------------------------------------------------- */
+  /* Adaptive UI (P.5 kids)                                   */
+  /* -------------------------------------------------------- */
+  pushRecentEvent(type){
+    this.recentEvents.push({ type, ts: performance.now() });
+    if(this.recentEvents.length>15){
+      this.recentEvents.shift();
+    }
+  }
 
+  updateAdaptiveUI(){
+    if(this.recentEvents.length<8) return; // ให้เล่นไปสักพักก่อน
+
+    let hits=0, mistakes=0;
+    for(const e of this.recentEvents){
+      if(e.type==='hit') hits++;
+      else mistakes++;
+    }
+    const total = hits+mistakes;
+    if(total===0) return;
+
+    const acc = hits/total; // 0–1
+
+    const baseSpawn = this.config.spawnInterval;
+    const baseSize  = this.config.sizePx;
+
+    // แปลง dynamic เป็น factor จาก base (0.7–1.3)
+    let spawnFactor = this.dynamicSpawn / baseSpawn;
+    let sizeFactor  = this.dynamicSize  / baseSize;
+
+    if(acc>=0.9 && mistakes<=2){
+      // เก่งมาก → เร่งเกม
+      spawnFactor *= 0.9;
+      sizeFactor  *= 0.97;
+    }else if(acc<=0.7 || mistakes>=5){
+      // เริ่มพลาดเยอะ → ผ่อนให้เด็ก
+      spawnFactor *= 1.1;
+      sizeFactor  *= 1.03;
+    }else{
+      return; // อยู่โซนกำลังดี ไม่ต้องปรับ
+    }
+
+    spawnFactor = clamp(spawnFactor,0.7,1.3);
+    sizeFactor  = clamp(sizeFactor,0.7,1.3);
+
+    const newSpawn = Math.round(baseSpawn*spawnFactor);
+    const newSize  = Math.round(baseSize*sizeFactor);
+
+    if(newSpawn===this.dynamicSpawn && newSize===this.dynamicSize) return;
+
+    this.dynamicSpawn = newSpawn;
+    this.dynamicSize  = newSize;
+
+    if(this.renderer){
+      this.renderer.sizePx = this.dynamicSize;
+    }
+
+    if(this._spawnTimer){
+      clearInterval(this._spawnTimer);
+      this._spawnTimer = setInterval(()=>this.spawnTarget(), this.dynamicSpawn);
+    }
+  }
+
+  /* -------------------------------------------------------- */
+  /* CSV (สำหรับวิจัย)                                       */
+  /* -------------------------------------------------------- */
   downloadCsv(){
     if(this.mode!=='research'){
       alert('การดาวน์โหลด CSV ใช้ในโหมดวิจัยเท่านั้น');
@@ -977,7 +966,7 @@ class ShadowBreakerGame {
       'player_hp_after'
     ];
 
-    const rows = [header.join(',')];
+    const rows=[header.join(',')];
 
     for(const log of this.hitLogs){
       rows.push([
@@ -1017,7 +1006,6 @@ class ShadowBreakerGame {
 /* ------------------------------------------------------------------ */
 /*  PUBLIC INIT                                                       */
 /* ------------------------------------------------------------------ */
-
 export function initShadowBreaker(){
   const game=new ShadowBreakerGame();
   window.__shadowBreaker = game;
