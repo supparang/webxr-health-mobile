@@ -1,205 +1,472 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Shadow Breaker — HeroHealth</title>
+/* === Shadow Breaker — UI / HUD / Target Styles (2025-11-25 Final) === */
 
-  <!-- Mobile Game UI CSS -->
-  <link rel="stylesheet" href=".css/shadow-breaker.css" />
+:root{
+  --bg-dark: #020617;
+  --panel: rgba(15,23,42,0.92);
+  --border: rgba(148,163,184,0.6);
+  --shadow-deep: rgba(15,23,42,0.95);
+}
 
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+body{
+  margin:0;
+  background:#01050f;
+  color:#e5e7eb;
+  font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
 
-  <style>
-    body{
-      margin:0;
-      font-family:"Kanit", sans-serif;
-      background:#0f172a;
-      color:#e2e8f0;
-    }
-  </style>
-</head>
+/* ========================= UTIL ========================= */
 
-<body>
+.hidden{ display:none !important; }
 
-<div id="sb-wrap" class="sb-wrap" data-diff="normal" data-boss="0" data-phase="1">
+.card{
+  max-width:480px;
+  margin:14px auto;
+  padding:20px 18px 26px;
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.10), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(37,99,235,0.10), transparent 55%),
+    #0b1220;
+  border-radius:22px;
+  box-shadow:0 14px 36px rgba(0,0,0,0.72);
+}
 
-  <!-- ========== MENU ========== -->
-  <section id="view-menu" class="card view active">
-    <h1 class="title">Shadow Breaker 🥊</h1>
-    <p class="subtitle">เลือกโหมดก่อนเริ่มเล่น</p>
+.title{
+  font-size:26px;
+  font-weight:700;
+  margin-bottom:4px;
+}
 
-    <div class="menu-row">
-      <label>ระดับความยาก</label>
-      <select id="difficulty" class="select">
-        <option value="easy">ง่าย</option>
-        <option value="normal" selected>ปกติ</option>
-        <option value="hard">ยาก</option>
-      </select>
-    </div>
+.subtitle{
+  margin-top:0;
+  opacity:.8;
+}
 
-    <div class="btn-col">
-      <button class="primary" data-action="start-normal">▶ เริ่มเล่น</button>
-      <button class="secondary" data-action="start-research">📊 โหมดวิจัย</button>
-    </div>
-  </section>
+.menu-block{
+  margin-top:16px;
+}
 
+.menu-label{
+  display:block;
+  margin-bottom:4px;
+  font-weight:600;
+}
 
+button,
+select,
+input,
+textarea{
+  font-family:inherit;
+  font-size:15px;
+}
 
-  <!-- ========== RESEARCH FORM ========== -->
-  <section id="view-research-form" class="card view hidden">
+select, input, textarea{
+  width:100%;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(148,163,184,0.32);
+  background:#0f172a;
+  color:#e5e7eb;
+}
 
-    <h1 class="title">โหมดวิจัย</h1>
+textarea{ resize:none; }
 
-    <div class="form-row">
-      <label>รหัสผู้เข้าร่วมทดลอง</label>
-      <input id="research-id" class="input" placeholder="เช่น P001"/>
-    </div>
+button{
+  padding:10px 14px;
+  border-radius:10px;
+  border:1px solid rgba(148,163,184,0.32);
+  background:#0f172a;
+  color:#e5e7eb;
+  cursor:pointer;
+}
 
-    <div class="form-row">
-      <label>กลุ่มทดลอง</label>
-      <input id="research-group" class="input" placeholder="เช่น G-A"/>
-    </div>
+button.primary{
+  background:#1d4ed8;
+  border-color:#1d4ed8;
+  color:#fff;
+}
 
-    <div class="form-row">
-      <label>บันทึกเพิ่มเติม</label>
-      <textarea id="research-note" rows="3" class="input"></textarea>
-    </div>
+.btn-col{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:20px;
+}
 
-    <div class="btn-row">
-      <button class="secondary" data-action="back-to-menu">⬅ กลับ</button>
-      <button class="primary" data-action="research-begin-play">▶ เริ่มเล่น</button>
-    </div>
+.btn-row{
+  display:flex;
+  gap:12px;
+  margin-top:20px;
+  justify-content:center;
+}
 
-  </section>
+/* ========================= WRAP ========================= */
 
+.sb-wrap{
+  max-width:900px;
+  margin:0 auto 40px;
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
 
+/* ========================= HUD ========================= */
 
-  <!-- ========== PLAY VIEW ========== -->
-  <section id="view-play" class="view hidden">
+.sb-hud-row{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  align-items:flex-start;
+}
 
-    <!-- HUD Row -->
-    <div class="sb-hud-row">
+.sb-hp-stack{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-width:240px;
+}
 
-      <!-- HP Panels -->
-      <div class="sb-hp-stack">
+.sb-hp{
+  background:rgba(15,23,42,0.70);
+  border-radius:18px;
+  padding:10px 12px;
+  box-shadow:0 0 0 1px rgba(15,23,42,0.7);
+}
 
-        <!-- Player HP -->
-        <div class="sb-hp sb-hp-player">
-          <div class="sb-hp-label">
-            <span>Player HP</span>
-            <span id="stat-hp">100</span>
-          </div>
-          <div class="sb-hp-bar"><div id="player-fill" class="sb-hp-fill"></div></div>
-        </div>
+.sb-hp-label{
+  display:flex;
+  justify-content:space-between;
+  font-size:14px;
+  margin-bottom:6px;
+}
 
-        <!-- Boss HP -->
-        <div class="sb-hp sb-hp-boss">
-          <div class="sb-hp-label">
-            <span id="boss-name">Boss 1</span>
-            <span id="hp-boss-val">100%</span>
-          </div>
-          <div class="sb-hp-bar"><div id="boss-fill" class="sb-hp-fill"></div></div>
-        </div>
+.sb-hp-val{
+  font-weight:600;
+}
 
-      </div>
+.sb-hp-bar{
+  position:relative;
+  height:10px;
+  background:#0f172a;
+  border-radius:999px;
+  overflow:hidden;
+}
 
-      <!-- Stats -->
-      <div class="sb-meta">
-        <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">-</span></div>
-        <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">-</span></div>
-        <div class="sb-meta-row"><span>Score</span><span id="stat-score">0</span></div>
-        <div class="sb-meta-row"><span>Time</span><span id="stat-time">0.0</span></div>
-        <div class="sb-meta-row"><span>Combo</span><span id="stat-combo">0</span></div>
-        <div class="sb-meta-row"><span>Perfect</span><span id="stat-perfect">0</span></div>
-        <div class="sb-meta-row"><span>Miss</span><span id="stat-miss">0</span></div>
-      </div>
+.sb-hp-fill{
+  position:absolute;
+  inset:0;
+  transform-origin:left center;
+  transform:scaleX(1);
+}
 
-      <!-- Boss Portrait -->
-      <div id="boss-portrait" class="boss-portrait-box">
-        <div class="sb-boss-portrait">
-          <div id="boss-portrait-emoji">🐣</div>
-        </div>
-        <div class="boss-portrait-text">
-          <div id="boss-portrait-name">Boss</div>
-          <div id="boss-portrait-hint">HP ~100%</div>
-        </div>
-      </div>
+.sb-hp-player .sb-hp-fill{
+  background:linear-gradient(90deg,#22c55e,#4ade80);
+}
 
-    </div>
+.sb-hp-boss .sb-hp-fill{
+  background:linear-gradient(90deg,#f97316,#ef4444);
+}
 
-    <!-- FEVER -->
-    <div class="sb-fever-row">
-      <span class="fever-label">FEVER</span>
-      <div class="fever-bar"><div id="fever-fill" class="fever-fill"></div></div>
-      <span id="fever-status" class="fever-status">READY</span>
-    </div>
+/* Meta panel */
 
-    <!-- Feedback -->
-    <div id="sb-feedback" class="sb-feedback"></div>
+.sb-meta{
+  min-width:150px;
+  background:var(--panel);
+  padding:12px 14px;
+  border-radius:18px;
+  box-shadow:0 12px 30px rgba(0,0,0,0.8);
+}
 
-    <!-- Play Field -->
-    <div id="target-layer" class="sb-field"></div>
+.sb-meta-row{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:4px;
+}
+.sb-meta-row span:first-child{ opacity:.7; }
 
-    <div class="sb-controls">
-      <button class="secondary" data-action="stop-early">⏹ จบก่อนเวลา</button>
-    </div>
+/* Boss portrait */
 
-  </section>
+.boss-portrait-box{
+  min-width:110px;
+}
 
+.sb-boss-portrait{
+  width:80px;
+  height:80px;
+  border-radius:24px;
+  background:radial-gradient(circle at 30% 20%,#fef9c3,#f97316);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:40px;
+  box-shadow:0 14px 40px rgba(0,0,0,0.9);
+}
 
+.boss-portrait-text{
+  margin-top:6px;
+  font-size:13px;
+  text-align:right;
+}
 
-  <!-- ========== RESULT VIEW ========== -->
-  <section id="view-result" class="card view hidden">
+#boss-portrait-name{ font-weight:600; }
 
-    <h1 class="title">สรุปผลรอบเล่น</h1>
+/* Shake when low HP */
+.sb-shake{
+  animation:sb-shake 0.33s infinite;
+}
+@keyframes sb-shake{
+  0%{transform:translateX(0);}
+  25%{transform:translateX(-2px);}
+  50%{transform:translateX(2px);}
+  75%{transform:translateX(-1px);}
+  100%{transform:translateX(0);}
+}
 
-    <table class="result-table">
-      <tbody>
-        <tr><td>โหมด</td><td id="res-mode">-</td></tr>
-        <tr><td>ระดับความยาก</td><td id="res-diff">-</td></tr>
-        <tr><td>สาเหตุจบเกม</td><td id="res-endreason">-</td></tr>
-        <tr><td>คะแนนรวม</td><td id="res-score">0</td></tr>
-        <tr><td>Combo สูงสุด</td><td id="res-maxcombo">0</td></tr>
-        <tr><td>จำนวน Miss</td><td id="res-miss">0</td></tr>
-        <tr><td>Accuracy</td><td id="res-accuracy">0%</td></tr>
-        <tr><td>จำนวน Hit</td><td id="res-totalhits">0</td></tr>
-        <tr><td>Grade</td><td id="res-grade">-</td></tr>
-        <tr><td>RT Normal</td><td id="res-rt-normal">-</td></tr>
-        <tr><td>RT Decoy</td><td id="res-rt-decoy">-</td></tr>
-        <tr><td>Participant ID</td><td id="res-participant">-</td></tr>
-      </tbody>
-    </table>
+/* ========================= FEVER ========================= */
 
-    <div class="btn-row">
-      <button class="secondary" data-action="back-to-menu">⬅ เมนู</button>
-      <button class="primary" data-action="play-again">▶ เล่นอีกครั้ง</button>
-      <button class="secondary" data-action="download-csv">⬇ CSV</button>
-    </div>
+.sb-fever-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
 
-  </section>
+.fever-label{
+  font-size:13px;
+  opacity:.9;
+}
 
+.fever-bar{
+  flex:1;
+  height:10px;
+  background:#0f172a;
+  border-radius:999px;
+  overflow:hidden;
+}
 
-  <!-- ========== BOSS INTRO ========== -->
-  <div id="boss-intro" class="boss-intro hidden">
-    <div class="boss-intro-card">
-      <div id="boss-intro-emoji" class="boss-intro-emoji"></div>
-      <div id="boss-intro-name" class="boss-intro-name"></div>
-      <div id="boss-intro-title" class="boss-intro-title"></div>
-      <div id="boss-intro-desc" class="boss-intro-desc"></div>
-      <div class="tap-hint">แตะเพื่อเริ่ม</div>
-    </div>
-  </div>
+.fever-fill{
+  position:absolute;
+  inset:0;
+  transform:scaleX(0);
+  transform-origin:left center;
+  background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ec4899);
+}
 
+.fever-status{
+  font-size:11px;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.7);
+}
+.fever-status.on{
+  border-color:#f97316;
+  background:rgba(236,72,153,0.18);
+}
 
-</div><!-- wrap -->
+/* ========================= Feedback ========================= */
 
-<!-- SFX -->
-<script src=".js//sfx.js"></script>
+.sb-feedback{
+  align-self:center;
+  padding:8px 22px;
+  background:#0f172a;
+  border-radius:999px;
+  border:1px solid var(--border);
+  margin-bottom:6px;
+  text-align:center;
+  font-size:14px;
+  box-shadow:0 12px 32px rgba(0,0,0,0.6);
+}
 
-<!-- GAME -->
-<script type="module" src="./js/shadow-breaker.js"></script>
+.sb-feedback.good{border-color:#22c55e;}
+.sb-feedback.perfect{border-color:#eab308;}
+.sb-feedback.miss{border-color:#f97316;}
+.sb-feedback.bomb{border-color:#ef4444;}
+.sb-feedback.heal{border-color:#38bdf8;}
 
-</body>
-</html>
+/* ========================= Play Field ========================= */
+
+.sb-field{
+  position:relative;
+  flex:1;
+  min-height:340px;
+  max-height:520px;
+  background:
+    radial-gradient(circle at top left,rgba(56,189,248,0.15),transparent 60%),
+    radial-gradient(circle at bottom right,rgba(37,99,235,0.15),transparent 60%),
+    var(--bg-dark);
+  margin-top:6px;
+  border-radius:22px;
+  box-shadow:inset 0 0 0 1px rgba(15,23,42,0.9);
+  overflow:hidden;
+}
+
+/* ========================= Targets ========================= */
+
+.sb-target{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:transform .18s ease-out, opacity .18s ease-out;
+  cursor:pointer;
+}
+
+.sb-target-inner{
+  width:100%;
+  height:100%;
+  border-radius:inherit;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:40px;
+  border:4px solid #38bdf8;
+  background:radial-gradient(circle at 30% 20%,#fefce8,#bbf7d0);
+  box-shadow:0 10px 30px var(--shadow-deep);
+}
+
+/* Difficulty border color */
+.sb-wrap[data-diff="easy"]   .sb-target-inner{ border-color:#22c55e; }
+.sb-wrap[data-diff="normal"] .sb-target-inner{ border-color:#38bdf8; }
+.sb-wrap[data-diff="hard"]   .sb-target-inner{ border-color:#f97316; }
+
+/* Bomb */
+.sb-target[data-type="bad"] .sb-target-inner{
+  background:radial-gradient(circle at 30% 20%,#fee2e2,#fecaca);
+}
+
+/* Boss face target */
+.sb-target[data-boss-face="1"] .sb-target-inner{
+  border-width:5px;
+  box-shadow:
+    0 0 0 2px rgba(250,250,250,0.85),
+    0 16px 40px rgba(148,27,128,0.9);
+  transform:scale(1.05);
+}
+
+/* Hit animation */
+.sb-target.sb-hit{
+  animation:sb-pop .22s ease-out forwards;
+}
+@keyframes sb-pop{
+  0%{transform:translate(-50%,-50%) scale(1);}
+  100%{transform:translate(-50%,-50%) scale(0.55); opacity:0;}
+}
+
+/* ========================= Score Popup ========================= */
+
+.sb-fx-score{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  padding:4px 12px;
+  font-size:14px;
+  background:#0f172a;
+  border-radius:999px;
+  box-shadow:0 12px 32px rgba(0,0,0,0.7);
+  animation:sb-pop-score .6s ease-out forwards;
+  white-space:nowrap;
+}
+
+.sb-fx-score.sb-perfect{ color:#fde68a; }
+.sb-fx-score.sb-good{ color:#bbf7d0; }
+.sb-fx-score.sb-miss{ color:#fecaca; }
+.sb-fx-score.sb-decoy{ color:#fecaca; }
+
+@keyframes sb-pop-score{
+  0%{opacity:0; transform:translate(-50%,-46%);}
+  20%{opacity:1; transform:translate(-50%,-68%);}
+  100%{opacity:0; transform:translate(-50%,-100%);}
+}
+
+/* ========================= Hit Emoji Particle ========================= */
+
+.hitParticle{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  font-size:32px;
+  pointer-events:none;
+  animation:sb-particle .48s ease-out forwards;
+}
+@keyframes sb-particle{
+  0%{opacity:1; transform:translate(-50%,-50%) scale(0.9);}
+  100%{opacity:0; transform:translate(-50%,-85%) scale(1.25);}
+}
+
+/* ========================= Controls ========================= */
+
+.sb-controls{
+  margin-top:12px;
+  display:flex;
+  justify-content:center;
+}
+
+/* ========================= Boss Intro ========================= */
+
+.boss-intro{
+  position:fixed;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:rgba(15,23,42,0.88);
+  z-index:40;
+}
+.boss-intro.hidden{
+  display:none !important;
+}
+
+.boss-intro-card{
+  width:300px;
+  padding:22px 18px;
+  background:radial-gradient(circle at top,#1f2937,#020617);
+  border-radius:24px;
+  text-align:center;
+  box-shadow:0 22px 60px rgba(0,0,0,0.92);
+}
+
+.boss-intro-emoji{
+  font-size:56px;
+  margin-bottom:8px;
+}
+
+.boss-intro-name{
+  font-weight:700;
+  font-size:20px;
+}
+
+.boss-intro-title{
+  font-size:14px;
+  color:#fde68a;
+  margin-bottom:4px;
+}
+
+.boss-intro-desc{
+  font-size:13px;
+  opacity:.92;
+  margin-bottom:12px;
+}
+
+.boss-intro-hint{
+  font-size:12px;
+  opacity:.75;
+}
+
+/* ========================= Responsive ========================= */
+
+@media (max-width:768px){
+  .sb-hud-row{
+    flex-direction:column;
+  }
+  .sb-meta{
+    order:3;
+    width:100%;
+  }
+  .sb-boss-portrait{
+    margin-left:auto;
+  }
+  .sb-field{
+    min-height:300px;
+  }
+}
