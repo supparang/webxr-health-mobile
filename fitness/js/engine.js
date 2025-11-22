@@ -1,7 +1,8 @@
-// === js/engine.js — Shadow Breaker core (2025-11-23 Research-Ready v2) ===
+// === js/engine.js — Shadow Breaker core (2025-11-24 Research-Ready v2 + SFX) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
+import { playHit, playBomb, playMiss, playFever, playBoss } from './sfx.js';
 
 /* ------------------------------------------------------------------ */
 /*  CONFIG                                                            */
@@ -79,16 +80,6 @@ const BOSSES = [
 
 const $  = (s) => document.querySelector(s);
 const clamp = (v,a,b)=> v<a?a:(v>b?b:v);
-
-function safePlay(id){
-  const el=document.getElementById(id);
-  if(!el) return;
-  try{
-    el.currentTime=0;
-    const p=el.play();
-    if(p && typeof p.catch==='function') p.catch(()=>{});
-  }catch(e){}
-}
 
 /* ------------------------------------------------------------------ */
 /*  CORE GAME CLASS                                                   */
@@ -586,7 +577,7 @@ class ShadowBreakerGame {
     this.bossIntro.classList.remove('hidden');
     this._introActive=true;
     this._introOnDone=opts.onDone || null;
-    safePlay('sfx-boss');
+    playBoss();
   }
 
   hideBossIntro(){
@@ -657,7 +648,7 @@ class ShadowBreakerGame {
     if(this.feverOn) return;
     this.feverOn=true;
     this.feverUse++;
-    safePlay('sfx-fever');
+    playFever();
     this.updateFeverHUD();
     this._feverTimeout && clearTimeout(this._feverTimeout);
     this._feverTimeout = setTimeout(()=>{
@@ -790,7 +781,7 @@ class ShadowBreakerGame {
     }
 
     this.setFeedback(grade==='perfect' ? 'perfect' : 'good');
-    safePlay('sfx-hit');
+    playHit(grade); // 🔊 ใช้ pitch/volume ตามเกรด
 
     const ratio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
     let phase = 1;
@@ -841,7 +832,7 @@ class ShadowBreakerGame {
     }
 
     this.setFeedback('bomb');
-    safePlay('sfx-hit');
+    playBomb();
 
     const ratio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
     let phase = 1;
@@ -896,7 +887,7 @@ class ShadowBreakerGame {
     }
 
     this.setFeedback('miss');
-    safePlay('sfx-hit');
+    playMiss();
 
     const ratio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
     let phase = 1;
@@ -972,7 +963,7 @@ class ShadowBreakerGame {
 
     for(const log of this.hitLogs){
       rows.push([
-        JSON.stringify(this.researchMeta.participant || ''),
+        JSON.stringify(this.researchMeta.participant || ''), // กันคอมมา
         JSON.stringify(this.researchMeta.group || ''),
         JSON.stringify(this.researchMeta.note || ''),
         this.diff,
