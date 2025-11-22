@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Shadow Breaker — HeroHealth</title>
 
+  <!-- favicon -->
+  <link rel="icon" href="./favicon.ico" type="image/x-icon"/>
+
   <link rel="stylesheet" href="./shadow-breaker.css" />
 </head>
 <body>
@@ -12,7 +15,7 @@
 <div id="sb-wrap" class="sb-wrap" data-diff="normal" data-boss="0" data-phase="1">
 
   <!-- ------------------------------------------------------ -->
-  <!--  VIEW: MENU                                             -->
+  <!--  VIEW: MENU                                            -->
   <!-- ------------------------------------------------------ -->
   <section id="view-menu" class="card">
     <h1 class="title">Shadow Breaker 🥊</h1>
@@ -35,7 +38,7 @@
 
 
   <!-- ------------------------------------------------------ -->
-  <!--  VIEW: RESEARCH FORM                                    -->
+  <!--  VIEW: RESEARCH FORM                                   -->
   <!-- ------------------------------------------------------ -->
   <section id="view-research-form" class="card hidden">
     <h1 class="title">โหมดวิจัย</h1>
@@ -63,7 +66,7 @@
 
 
   <!-- ------------------------------------------------------ -->
-  <!--  VIEW: PLAY                                             -->
+  <!--  VIEW: PLAY                                            -->
   <!-- ------------------------------------------------------ -->
   <section id="view-play" class="hidden">
 
@@ -93,7 +96,7 @@
         </div>
       </div>
 
-      <!-- Fever panel -->
+      <!-- meta / stats -->
       <div class="sb-meta">
         <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">-</span></div>
         <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">-</span></div>
@@ -138,7 +141,7 @@
 
 
   <!-- ------------------------------------------------------ -->
-  <!--  VIEW: RESULT                                           -->
+  <!--  VIEW: RESULT                                          -->
   <!-- ------------------------------------------------------ -->
   <section id="view-result" class="card hidden">
     <div class="top-row">
@@ -157,7 +160,6 @@
           <tr><td class="label">Accuracy</td><td id="res-accuracy">0%</td></tr>
           <tr><td class="label">จำนวน Hit</td><td id="res-totalhits">0</td></tr>
 
-          <!-- Grade -->
           <tr><td class="label">Grade</td><td id="res-grade">-</td></tr>
 
           <tr><td class="label">RT Normal</td><td id="res-rt-normal">-</td></tr>
@@ -189,9 +191,7 @@
 
 </div><!-- wrap -->
 
-<!-- ------------------------------------------------------ -->
-<!-- JS                                                     -->
-<!-- ------------------------------------------------------ -->
+<!-- JS -->
 <script src="./sfx.js"></script>
 <script type="module" src="./shadow-breaker.js"></script>
 
