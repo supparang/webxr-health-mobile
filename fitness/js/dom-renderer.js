@@ -39,7 +39,6 @@ export class DomRenderer {
     if (t.bossFace) el.dataset.bossFace = '1';
     el.appendChild(inner);
 
-    // วางสุ่มใน field (ไม่ติดขอบ)
     const pad = 24 + size / 2;
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
@@ -47,14 +46,12 @@ export class DomRenderer {
     const y = pad + Math.random() * Math.max(10, h - pad * 2);
 
     el.style.left = x + 'px';
-    el.style.top = y + 'px';
+    el.style.top  = y + 'px';
 
-    // เก็บตำแหน่งล่าสุดเผื่อใช้ตอนไม่มี DOM
     t.lastPos = { x, y };
 
     const onPointerDown = (ev) => {
       ev.preventDefault();
-      // คำนวณตำแหน่งสัมพัทธ์ใน host
       const rect = this.host.getBoundingClientRect();
       const cx = ev.clientX - rect.left;
       const cy = ev.clientY - rect.top;
@@ -69,7 +66,7 @@ export class DomRenderer {
     this.host.appendChild(el);
   }
 
-  /* ----------------- ลบเป้า (แบบเงียบ) ----------------- */
+  /* ----------------- ลบเป้า ----------------- */
   removeTarget(t) {
     const el = t && t._el;
     if (!el) return;
@@ -92,15 +89,12 @@ export class DomRenderer {
     let x, y;
 
     if (el && el.parentNode) {
-      const r = el.getBoundingClientRect();
+      const r  = el.getBoundingClientRect();
       const hr = host.getBoundingClientRect();
       x = r.left + r.width / 2 - hr.left;
-      y = r.top + r.height / 2 - hr.top;
+      y = r.top  + r.height / 2 - hr.top;
 
-      // เป้าแตกกระจาย
       el.classList.add('sb-hit');
-
-      // ลบหลังแอนิเมชัน
       setTimeout(() => {
         if (el.parentNode) el.parentNode.removeChild(el);
       }, 220);
@@ -112,11 +106,9 @@ export class DomRenderer {
       y = host.clientHeight / 2;
     }
 
-    // 💥 particle
     const emo = opts.decoy ? '💥' : (opts.miss ? '💢' : '✨');
     spawnHitParticle(host, x, y, emo);
 
-    // คะแนนเด้ง
     const popup = document.createElement('div');
     popup.className = 'sb-fx-score';
 
