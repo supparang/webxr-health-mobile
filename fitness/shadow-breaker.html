@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Shadow Breaker — HeroHealth</title>
 
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="./favicon.ico"/>
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./css/rhythm-boxer.css" />
-  <link rel="stylesheet" href="./css/shadow-breaker.css" />
+  <!-- Base layout ของโปรเจ็กต์เดิม -->
+  <link rel="stylesheet" href="./css/rhythm-boxer.css"/>
+  <!-- สไตล์เฉพาะ Shadow Breaker -->
+  <link rel="stylesheet" href="./css/shadow-breaker.css"/>
 </head>
 <body>
 
@@ -18,56 +19,86 @@
   <!-- ------------------------------------------------------ -->
   <!--  VIEW: MENU                                            -->
   <!-- ------------------------------------------------------ -->
-  <section id="view-menu" class="card">
-    <h1 class="title">Shadow Breaker 🥊</h1>
-    <p class="subtitle">เลือกโหมดก่อนเริ่มเกม</p>
+  <section id="view-menu" class="card sb-card">
+    <header class="sb-header">
+      <h1 class="title">
+        <span class="title-main">Shadow Breaker</span>
+        <span class="title-icon icon-3d-glove">🥊</span>
+      </h1>
+      <p class="subtitle">เลือกโหมดก่อนเริ่มเกม</p>
+    </header>
 
     <div class="menu-block">
       <label class="menu-label">ระดับความยาก</label>
-      <select id="difficulty">
-        <option value="easy">ง่าย</option>
-        <option value="normal" selected>ปกติ</option>
-        <option value="hard">ยาก</option>
-      </select>
+      <div class="select-wrap">
+        <select id="difficulty">
+          <option value="easy">ง่าย — เป้าใหญ่ / เด้งช้า</option>
+          <option value="normal" selected>ปกติ — สมดุล</option>
+          <option value="hard">ยาก — เป้าเล็ก / หายเร็ว / spawn ถี่</option>
+        </select>
+      </div>
     </div>
 
     <div class="btn-col">
-      <button class="primary" data-action="start-normal">▶ เริ่มเล่น</button>
-      <button data-action="start-research">📊 โหมดวิจัย</button>
+      <button class="btn-main primary" data-action="start-normal">
+        <span class="btn-icon">▶</span>
+        <span>เริ่มเล่น</span>
+      </button>
+      <button class="btn-main ghost" data-action="start-research">
+        <span class="btn-icon">📊</span>
+        <span>โหมดวิจัย</span>
+      </button>
+
+      <!-- ปุ่มกลับ Hub + ไอคอน 3D ควงหมัด -->
+      <a href="https://supparang.github.io/webxr-health-mobile/fitness/"
+         class="back-hub-btn">
+        <span class="icon-3d-glove small">🥊</span>
+        <span>กลับ Hub</span>
+      </a>
     </div>
   </section>
 
   <!-- ------------------------------------------------------ -->
   <!--  VIEW: RESEARCH FORM                                   -->
   <!-- ------------------------------------------------------ -->
-  <section id="view-research-form" class="card hidden">
-    <h1 class="title">โหมดวิจัย</h1>
+  <section id="view-research-form" class="card sb-card hidden">
+    <header class="sb-header">
+      <h1 class="title">
+        <span class="title-main">โหมดวิจัย</span>
+        <span class="title-icon">📊</span>
+      </h1>
+      <p class="subtitle">กรอกข้อมูลผู้เข้าร่วมเพื่อบันทึกเป็นไฟล์ CSV</p>
+    </header>
 
     <div class="form-row">
       <label>รหัสผู้เข้าร่วม</label>
-      <input type="text" id="research-id" placeholder="เช่น P001"/>
+      <input type="text" id="research-id" placeholder="เช่น SB-001"/>
     </div>
 
     <div class="form-row">
-      <label>กลุ่มทดลอง</label>
-      <input type="text" id="research-group" placeholder="เช่น G-A"/>
+      <label>กลุ่มทดลอง / เงื่อนไข</label>
+      <input type="text" id="research-group" placeholder="เช่น HIIT / Control"/>
     </div>
 
     <div class="form-row">
       <label>บันทึกเพิ่มเติม</label>
-      <textarea id="research-note" rows="3"></textarea>
+      <textarea id="research-note" rows="3" placeholder="เช่น เล่นหลัง warm-up 5 นาที"></textarea>
     </div>
 
     <div class="btn-row">
-      <button data-action="back-to-menu">⬅ กลับ</button>
-      <button class="primary" data-action="research-begin-play">▶ เริ่มเล่น</button>
+      <button class="btn-main ghost" data-action="back-to-menu">
+        ⬅ กลับ
+      </button>
+      <button class="btn-main primary" data-action="research-begin-play">
+        ▶ เริ่มเล่นโหมดวิจัย
+      </button>
     </div>
   </section>
 
   <!-- ------------------------------------------------------ -->
   <!--  VIEW: PLAY                                            -->
   <!-- ------------------------------------------------------ -->
-  <section id="view-play" class="hidden">
+  <section id="view-play" class="hidden sb-play">
 
     <!-- HUD -->
     <div class="sb-hud-row">
@@ -96,7 +127,7 @@
       </div>
 
       <!-- Meta panel -->
-      <div class="sb-meta">
+      <aside class="sb-meta">
         <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">-</span></div>
         <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">-</span></div>
         <div class="sb-meta-row"><span>Score</span><span id="stat-score">0</span></div>
@@ -104,7 +135,7 @@
         <div class="sb-meta-row"><span>Combo</span><span id="stat-combo">0</span></div>
         <div class="sb-meta-row"><span>Perfect</span><span id="stat-perfect">0</span></div>
         <div class="sb-meta-row"><span>Miss</span><span id="stat-miss">0</span></div>
-      </div>
+      </aside>
 
       <!-- Boss portrait -->
       <div class="boss-portrait-box" id="boss-portrait">
@@ -133,23 +164,31 @@
     </div>
 
     <!-- Play Field -->
-<div class="sb-controls">
-  <button data-action="stop-early">⏹ จบก่อนเวลา</button>
-  <button
-    type="button"
-    class="btn-back-hub"
-    onclick="location.href='https://supparang.github.io/webxr-health-mobile/fitness/'">
-    ⬅ กลับ Hub
-  </button>
-</div>
+    <div id="target-layer" class="sb-field"></div>
 
+    <div class="sb-controls">
+      <button class="btn-main ghost small" data-action="stop-early">
+        ⏹ จบก่อนเวลา
+      </button>
+
+      <!-- ปุ่มกลับ Hub ขณะเล่น -->
+      <a href="https://supparang.github.io/webxr-health-mobile/fitness/"
+         class="back-hub-btn small">
+        <span class="icon-3d-glove tiny">🥊</span>
+        <span>Hub</span>
+      </a>
+    </div>
+  </section>
 
   <!-- ------------------------------------------------------ -->
   <!--  VIEW: RESULT                                          -->
   <!-- ------------------------------------------------------ -->
-  <section id="view-result" class="card hidden">
+  <section id="view-result" class="card sb-card hidden">
     <div class="top-row">
-      <h1 class="title">สรุปผลรอบเล่น</h1>
+      <h1 class="title">
+        <span class="title-main">สรุปผลรอบเล่น</span>
+        <span class="title-icon">✅</span>
+      </h1>
     </div>
 
     <div class="summary">
@@ -172,11 +211,21 @@
     </div>
 
     <div class="btn-row">
-      <button data-action="back-to-menu">⬅ กลับเมนู</button>
-      <button class="primary" data-action="play-again">▶ เล่นอีกครั้ง</button>
-      <!-- แยกปุ่ม CSV 2 แบบ -->
-      <button data-action="download-csv-events">⬇ CSV (Event)</button>
-      <button data-action="download-csv-session">⬇ CSV (Session)</button>
+      <button class="btn-main ghost" data-action="back-to-menu">
+        ⬅ กลับเมนู
+      </button>
+      <button class="btn-main primary" data-action="play-again">
+        ▶ เล่นอีกครั้ง
+      </button>
+      <button class="btn-main secondary" data-action="download-csv">
+        ⬇ ดาวน์โหลด CSV
+      </button>
+
+      <a href="https://supparang.github.io/webxr-health-mobile/fitness/"
+         class="back-hub-btn">
+        <span class="icon-3d-glove small">🥊</span>
+        <span>กลับ Hub</span>
+      </a>
     </div>
   </section>
 
@@ -195,8 +244,9 @@
 
 </div><!-- /sb-wrap -->
 
-<!-- JS -->
+<!-- เสียง -->
 <script src="./js/sfx.js"></script>
+<!-- Logic Shadow Breaker -->
 <script type="module" src="./js/shadow-breaker.js"></script>
 
 </body>
