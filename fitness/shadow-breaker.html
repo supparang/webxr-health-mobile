@@ -7,15 +7,16 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" type="image/x-icon" href="./favicon.ico" />
 
-  <!-- base layout (จาก Rhythm Boxer) ถ้ามี -->
+  <!-- base layout ถ้ามี rhythm-boxer.css -->
   <link rel="stylesheet" href="./css/rhythm-boxer.css" />
   <!-- สไตล์เฉพาะ Shadow Breaker -->
   <link rel="stylesheet" href="./css/shadow-breaker.css" />
 </head>
+
 <body>
 <main class="wrap">
 
-  <!-- ========== MENU VIEW ========== -->
+  <!-- ================= MENU VIEW ================= -->
   <section id="view-menu" class="card">
     <div class="top-row">
       <div>
@@ -26,11 +27,13 @@
         <p class="subtitle">
           ต่อสู้กับบอส 4 ตัว ตีเป้าให้แตก เก็บ Perfect ระวังเป้าลวง 💣 และสะสม FEVER
         </p>
+
         <div class="pill">
           <span class="dot"></span>
-          <span>4 Boss • เป้าลวง (Bomb) • FEVER mode • ขนาด/ความเร็วเป้าตามระดับ • CSV สำหรับวิจัย</span>
+          <span>4 Boss • เป้าลวง • FEVER mode • ปรับขนาด/ความเร็วตามระดับ • CSV เพื่อวิจัย</span>
         </div>
       </div>
+
       <div>
         <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
       </div>
@@ -42,7 +45,7 @@
         โหมดวิจัย <span>📊</span>
       </button>
       <button data-action="start-normal">
-        โหมดเล่นปกติ <span>🎮</span>
+        โหมดปกติ <span>🎮</span>
       </button>
     </div>
 
@@ -50,20 +53,21 @@
       <div class="col">
         <label for="difficulty">ระดับความยาก</label>
         <select id="difficulty">
-          <option value="easy">ง่าย — เป้าใหญ่ / เด้งช้า / เวลา 45 วินาที</option>
-          <option value="normal" selected>ปกติ — สมดุล / เวลา 60 วินาที</option>
-          <option value="hard">ยาก — เป้าเล็ก / หายเร็ว / spawn ถี่ / เวลา 75 วินาที</option>
+          <option value="easy">ง่าย — เป้าใหญ่ / ช้าสุด / 45 วินาที</option>
+          <option value="normal" selected>ปกติ — สมดุล / 60 วินาที</option>
+          <option value="hard">ยาก — เร็วสุด / spawn ถี่ / 75 วินาที</option>
         </select>
       </div>
     </div>
 
     <p class="hint">
-      วิธีเล่น: แตะ/คลิกเป้าที่โผล่มาบนจอให้ทันก่อนหาย ถ้าเป็นเป้าลวง (💣) จะโดนหักคะแนนและ HP  
-      ไม่แนะนำให้แตะ Bomb บ่อย ๆ ในโหมดวิจัย
+      วิธีเล่น: แตะเป้าที่โผล่มาให้ทันก่อนหาย เป้าลวง (💣) จะหักคะแนนและลด HP  
+      *แนะนำไม่ให้แตะ Bomb บ่อย ๆ หากเล่นโหมดวิจัย*
     </p>
   </section>
 
-  <!-- ========== RESEARCH FORM VIEW ========== -->
+
+  <!-- ================= RESEARCH FORM ================= -->
   <section id="view-research-form" class="card hidden">
     <div class="top-row">
       <div>
@@ -71,10 +75,9 @@
           <span class="icon">📊</span>
           โหมดวิจัย Shadow Breaker
         </h1>
-        <p class="subtitle">
-          กรอกข้อมูลผู้เข้าร่วม เพื่อสร้างไฟล์ CSV สำหรับวิเคราะห์เชิงงานวิจัย
-        </p>
+        <p class="subtitle">ข้อมูลผู้เข้าร่วมเพื่อสร้างไฟล์ CSV สำหรับการวิจัย</p>
       </div>
+
       <div>
         <button class="btn-small" data-action="back-to-menu">⬅ กลับเมนู</button>
       </div>
@@ -83,11 +86,11 @@
     <div class="row">
       <div class="col">
         <label for="research-id">รหัสผู้เข้าร่วม</label>
-        <input id="research-id" placeholder="เช่น SB-001-01" />
+        <input id="research-id" placeholder="เช่น SB-01-05" />
       </div>
       <div class="col">
         <label for="research-group">กลุ่มทดลอง / เงื่อนไข</label>
-        <input id="research-group" placeholder="HIIT / Control" />
+        <input id="research-group" placeholder="เช่น HIIT / Control" />
       </div>
     </div>
 
@@ -99,18 +102,19 @@
     </div>
 
     <div class="btn-row" style="margin-top:16px;">
-      <button class="primary" data-action="research-begin-play">
-        ▶ เริ่มเล่นในโหมดวิจัย
-      </button>
+      <button class="primary" data-action="research-begin-play">▶ เริ่มเล่น</button>
     </div>
   </section>
 
-  <!-- ========== PLAY VIEW ========== -->
+
+  <!-- ================= PLAY VIEW ================= -->
   <section id="view-play" class="card hidden">
     <div id="sb-wrap" class="sb-wrap" data-boss="0" data-diff="normal">
+
       <!-- HUD แถวบน -->
       <div class="sb-hud-row">
         <div class="sb-hp-stack">
+          <!-- Player HP -->
           <div class="sb-hp sb-hp-player">
             <div class="sb-hp-label">
               <span class="sb-hp-name">Player HP</span>
@@ -120,6 +124,8 @@
               <div class="sb-hp-fill" id="hp-player-fill"></div>
             </div>
           </div>
+
+          <!-- Boss HP -->
           <div class="sb-hp sb-hp-boss">
             <div class="sb-hp-label">
               <span class="sb-hp-name" id="boss-name">Boss 1/4 — Bubble Glove</span>
@@ -131,6 +137,7 @@
           </div>
         </div>
 
+        <!-- stat panel -->
         <div class="sb-meta">
           <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">Normal</span></div>
           <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">normal</span></div>
@@ -141,6 +148,7 @@
           <div class="sb-meta-row"><span>Miss</span><span id="stat-miss">0</span></div>
         </div>
 
+        <!-- portrait -->
         <div class="sb-boss-portrait" id="boss-portrait">
           <span id="boss-portrait-emoji">🐣</span>
         </div>
@@ -150,19 +158,18 @@
         </div>
       </div>
 
-      <!-- FEVER + Feedback -->
+      <!-- FEVER + feedback -->
       <div class="sb-fever-row">
         <div class="fever-label">FEVER</div>
-        <div class="fever-bar">
-          <div class="fever-fill" id="fever-fill"></div>
-        </div>
+        <div class="fever-bar"><div class="fever-fill" id="fever-fill"></div></div>
         <div class="fever-status" id="fever-status">FEVER</div>
       </div>
+
       <div class="sb-feedback" id="sb-feedback">
         เริ่มวอร์มอัพ ตีเป้าทดสอบก่อนนะ 🎯
       </div>
 
-      <!-- พื้นที่เป้า -->
+      <!-- เป้า -->
       <div id="target-layer" class="sb-field"></div>
 
       <!-- ปุ่มควบคุมล่าง -->
@@ -173,16 +180,15 @@
     </div>
   </section>
 
-  <!-- ========== RESULT VIEW ========== -->
+
+  <!-- ================= RESULT VIEW ================= -->
   <section id="view-result" class="card hidden">
     <div class="top-row">
       <div>
-        <h1 class="title">
-          <span class="icon">✅</span>
-          สรุปผลรอบเล่น Shadow Breaker
-        </h1>
-        <p class="subtitle">ค่าเหล่านี้ใช้ต่อยอดเป็นสถิติ/งานวิจัยได้</p>
+        <h1 class="title">✅ สรุปผลการเล่น</h1>
+        <p class="subtitle">ใช้ประกอบงานวิจัยได้ทันที</p>
       </div>
+
       <div>
         <button class="btn-small" data-action="back-to-menu">⬅ กลับเมนู</button>
       </div>
@@ -192,16 +198,16 @@
       <table>
         <tbody>
           <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
-          <tr><td class="label">ระดับความยาก</td><td id="res-diff">-</td></tr>
+          <tr><td class="label">ความยาก</td><td id="res-diff">-</td></tr>
           <tr><td class="label">เหตุผลจบเกม</td><td id="res-endreason">-</td></tr>
           <tr><td class="label">คะแนนรวม</td><td id="res-score">0</td></tr>
           <tr><td class="label">Combo สูงสุด</td><td id="res-maxcombo">0</td></tr>
           <tr><td class="label">จำนวน Miss</td><td id="res-miss">0</td></tr>
           <tr><td class="label">Accuracy</td><td id="res-accuracy">0%</td></tr>
-          <tr><td class="label">จำนวน Hit</td><td id="res-totalhits">0</td></tr>
+          <tr><td class="label">จำนวน Hit ทั้งหมด</td><td id="res-totalhits">0</td></tr>
           <tr><td class="label">RT (normal)</td><td id="res-rt-normal">-</td></tr>
           <tr><td class="label">RT (decoy)</td><td id="res-rt-decoy">-</td></tr>
-          <tr><td class="label">Participant ID</td><td id="res-participant">-</td></tr>
+          <tr><td class="label">Participant</td><td id="res-participant">-</td></tr>
         </tbody>
       </table>
     </div>
@@ -212,18 +218,15 @@
     </div>
   </section>
 
-  <!-- ========== BOSS INTRO OVERLAY ========== -->
+
+  <!-- ================= BOSS INTRO OVERLAY ================= -->
   <section id="boss-intro" class="boss-intro hidden">
     <div class="boss-intro-card">
       <div class="boss-intro-emoji" id="boss-intro-emoji">🐣</div>
       <div class="boss-intro-name" id="boss-intro-name">Bubble Glove</div>
       <div class="boss-intro-title" id="boss-intro-title">บอสมือใหม่สายฟอง</div>
-      <div class="boss-intro-desc" id="boss-intro-desc">
-        เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰
-      </div>
-      <div class="boss-intro-hint">
-        แตะหน้าจอเพื่อเริ่มต่อสู้กับบอสตัวนี้
-      </div>
+      <div class="boss-intro-desc" id="boss-intro-desc">เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰</div>
+      <div class="boss-intro-hint">แตะหน้าจอเพื่อเริ่มต่อสู้</div>
     </div>
   </section>
 
@@ -234,7 +237,8 @@
 <audio id="sfx-fever"  src="./sfx/fever.mp3" preload="auto"></audio>
 <audio id="sfx-boss"   src="./sfx/boss-intro.mp3" preload="auto"></audio>
 
-<!-- main script (entry) -->
+<!-- main entry -->
 <script type="module" src="./js/shadow-breaker.js"></script>
+
 </body>
 </html>
