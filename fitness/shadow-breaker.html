@@ -35,7 +35,19 @@
       </div>
     </div>
 
-    <h2 class="section-title">เลือกระดับและรูปแบบการเล่น</h2>
+    <h2 class="section-title">เลือกระดับความยาก</h2>
+    <div class="row">
+      <div class="col">
+        <label for="difficulty">ระดับความยาก</label>
+        <select id="difficulty">
+          <option value="easy">ง่าย — เป้าใหญ่ / เกมสั้น (45s)</option>
+          <option value="normal" selected>ปกติ — สมดุล (60s)</option>
+          <option value="hard">ยาก — เป้าเล็ก / เกมยาว (75s)</option>
+        </select>
+      </div>
+    </div>
+
+    <h2 class="section-title">เลือกรูปแบบการเล่น</h2>
     <div class="btn-row">
       <button class="primary" data-action="start-research">
         โหมดวิจัย <span>📊</span>
@@ -45,20 +57,9 @@
       </button>
     </div>
 
-    <div class="row">
-      <div class="col">
-        <label for="difficulty">ระดับความยาก</label>
-        <select id="difficulty">
-          <option value="easy">ง่าย — 75 วินาที / เป้าใหญ่ / เด้งช้า</option>
-          <option value="normal" selected>ปกติ — 60 วินาที / สมดุล</option>
-          <option value="hard">ยาก — 45 วินาที / ถี่มาก / เป้าเล็ก</option>
-        </select>
-      </div>
-    </div>
-
     <p class="hint">
       วิธีเล่น: แตะ/คลิกเป้าที่โผล่มาบนจอให้ทันก่อนหาย  
-      ถ้าเป็นเป้าลวง (💣) จะโดนหักคะแนนและ HP แต่ <strong>ไม่</strong> นับเป็น Miss
+      ถ้าเป็นเป้าลวง (💣) จะถูกหักคะแนนและ HP แต่จะไม่ถูกนับเป็น Miss
     </p>
   </section>
 
@@ -105,7 +106,7 @@
   </section>
 
   <!-- ========== PLAY VIEW ========== -->
-  <section id="view-play" class="card hidden view-play-full">
+  <section id="view-play" class="card hidden">
     <div id="sb-wrap" class="sb-wrap" data-boss="0">
 
       <!-- HUD ด้านบน -->
@@ -135,8 +136,8 @@
         <span id="boss-portrait-emoji">🐣</span>
       </div>
       <div class="boss-portrait-text">
-        <div id="boss-portrait-name">Bubble Glove</div>
-        <div id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
+        <div class="boss-portrait-name" id="boss-portrait-name">Bubble Glove</div>
+        <div class="boss-portrait-hint" id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
       </div>
 
       <!-- FEVER bar -->
@@ -152,7 +153,7 @@
       <div class="sb-meta" id="meta-top">
         <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">Normal</span></div>
         <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">normal</span></div>
-        <div class="sb-meta-row"><span>⏱ เวลา</span><span id="stat-time">60.0</span></div>
+        <div class="sb-meta-row"><span>⏱ เวลา</span><span id="stat-time">0.0</span></div>
         <div class="sb-meta-row"><span>⭐ Score</span><span id="stat-score">0</span></div>
         <div class="sb-meta-row"><span>Combo</span><span id="stat-combo">0</span></div>
         <div class="sb-meta-row"><span>Perfect</span><span id="stat-perfect">0</span></div>
@@ -198,7 +199,7 @@
           <tr><td class="label">Combo สูงสุด</td><td id="res-maxcombo">0</td></tr>
           <tr><td class="label">จำนวน Miss</td><td id="res-miss">0</td></tr>
           <tr><td class="label">Accuracy</td><td id="res-accuracy">0%</td></tr>
-          <tr><td class="label">จำนวน Hit</td><td id="res-totalhits">0</td></tr>
+          <tr><td class="label">จำนวน Hit (เป้าดี)</td><td id="res-totalhits">0</td></tr>
           <tr><td class="label">RT (normal)</td><td id="res-rt-normal">-</td></tr>
           <tr><td class="label">RT (bomb)</td><td id="res-rt-decoy">-</td></tr>
           <tr><td class="label">Participant ID</td><td id="res-participant">-</td></tr>
@@ -230,9 +231,9 @@
 </main>
 
 <!-- SFX -->
-<audio id="sfx-hit"   src="./sfx/hit.mp3" preload="auto"></audio>
-<audio id="sfx-fever" src="./sfx/fever.mp3" preload="auto"></audio>
-<audio id="sfx-boss"  src="./sfx/boss-intro.mp3" preload="auto"></audio>
+<audio id="sfx-hit"    src="./sfx/hit.mp3" preload="auto"></audio>
+<audio id="sfx-fever"  src="./sfx/fever.mp3" preload="auto"></audio>
+<audio id="sfx-boss"   src="./sfx/boss-intro.mp3" preload="auto"></audio>
 
 <!-- main script (entry) -->
 <script type="module" src="./js/main-shadow.js"></script>
