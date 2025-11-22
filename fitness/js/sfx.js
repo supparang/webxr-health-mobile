@@ -1,26 +1,18 @@
-// fitness/js/sfx.js
+// === sfx.js — Production Ready (2025-11-24) ===
 'use strict';
 
-const BASE = '../sfx/';  // วางไฟล์ใน fitness/sfx/*.mp3
-
-const NAMES = ['tap','perfect','good','late','miss','fever'];
-const cache = {};
-
-for (const name of NAMES){
-  try{
-    const a = new Audio(BASE + name + '.mp3');
-    a.preload = 'auto';
-    cache[name] = a;
-  }catch(e){}
+function _play(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  try {
+    el.currentTime = 0;
+    const p = el.play();
+    if (p && typeof p.catch === 'function') p.catch(()=>{});
+  } catch(e){}
 }
 
-export const SFX = {
-  play(name){
-    const a = cache[name];
-    if (!a) return;
-    try{
-      a.currentTime = 0;
-      a.play().catch(()=>{});
-    }catch(e){}
-  }
-};
+export function playHit()   { _play('sfx-hit'); }
+export function playBomb()  { _play('sfx-bomb'); }
+export function playMiss()  { _play('sfx-miss'); }
+export function playFever() { _play('sfx-fever'); }
+export function playBoss()  { _play('sfx-boss'); }
