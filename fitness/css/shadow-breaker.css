@@ -1,4 +1,42 @@
-/* === Shadow Breaker — layout / HUD / target styles (2025-11-23) === */
+/* === Base layout เล็กน้อยเผื่อไม่มี rhythm-boxer.css === */
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:#020617;
+  color:#e5e7eb;
+}
+.wrap{
+  max-width:1024px;
+  margin:16px auto 24px;
+  padding:0 12px;
+}
+.card{
+  background:rgba(15,23,42,0.96);
+  border-radius:24px;
+  padding:18px 18px 20px;
+  box-shadow:0 20px 50px rgba(15,23,42,0.9);
+}
+.hidden{display:none;}
+.btn-small{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.8);
+  font-size:12px;
+  background:rgba(15,23,42,0.9);
+  color:#e5e7eb;
+  cursor:pointer;
+}
+.btn-small:hover{
+  background:rgba(30,64,175,0.9);
+}
+button{
+  font-family:inherit;
+}
+
+/* === Shadow Breaker — layout / HUD / target styles (2025-11-23, tuned) === */
 
 .sb-wrap{
   display:flex;
@@ -70,7 +108,7 @@
 
 /* meta panel */
 .sb-meta{
-  min-width:140px;
+  min-width:150px;
   background:rgba(15,23,42,0.92);
   border-radius:18px;
   padding:10px 12px;
