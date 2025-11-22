@@ -1,4 +1,4 @@
-// === fitness/js/engine.js — Shadow Breaker core (2025-11-22) ===
+// === fitness/js/engine.js — Shadow Breaker core (2025-11-22 + Boss Face Target) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -504,13 +504,29 @@ class ShadowBreakerGame {
     }
 
     const id = this._nextTargetId++;
-    const decoy = Math.random()<this.config.decoyRate;
-    const now = performance.now();
 
+    // --- ตัดสินใจว่าตัวนี้เป็น bomb / boss-face / เป้าปกติ ---
+    const hpRatio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 1;
+    let bossFace = false;
+    let decoy    = false;
+
+    // ถ้า HP บอสเหลือน้อยกว่า 25% มีโอกาสสุ่มให้เป็น "หน้าบอส" มาตี
+    if (hpRatio <= 0.25 && Math.random() < 0.35) {
+      bossFace = true;
+    } else {
+      decoy = Math.random() < this.config.decoyRate;
+    }
+
+    const emoji = bossFace
+      ? (this.currentBoss?.emoji || '😈')
+      : (decoy ? '💣' : '🥊');
+
+    const now = performance.now();
     const t = {
       id,
-      emoji: decoy ? '💣' : '🥊',
+      emoji,
       decoy,
+      bossFace,   // ✅ flag หน้าบอส
       createdAt: now,
       lifetime: this.config.targetLifetime,
       hit:false,
@@ -558,9 +574,16 @@ class ShadowBreakerGame {
     else baseScore=40;
 
     let dmg = grade==='perfect'?8:(grade==='good'?5:3);
+
+    // ถ้าเป็น "หน้าบอส" ให้ดาเมจ + คะแนนเพิ่มขึ้นอีกหน่อย
+    if (t.bossFace) {
+      baseScore = Math.round(baseScore * 1.6);
+      dmg       = Math.round(dmg * 1.8);
+    }
+
     if(this.feverOn){
       baseScore=Math.round(baseScore*1.5);
-      dmg=Math.round(dmg*1.8);
+      dmg=Math.round(dmg*1.5);
     }
 
     this.score+=baseScore;
@@ -578,7 +601,8 @@ class ShadowBreakerGame {
       this.renderer.spawnHitEffect(t,{
         grade,
         score:baseScore,
-        fever:this.feverOn
+        fever:this.feverOn,
+        bossFace: t.bossFace
       });
     }
 
@@ -588,7 +612,9 @@ class ShadowBreakerGame {
       const r = t.dom.getBoundingClientRect();
       const px = r.left - hostRect.left + r.width/2;
       const py = r.top  - hostRect.top  + r.height/2;
-      spawnHitParticle(this.wrap, px, py, grade==='perfect'?'⭐':'💥');
+      const emo = t.bossFace ? this.currentBoss?.emoji || '💥'
+                             : (grade==='perfect'?'⭐':'💥');
+      spawnHitParticle(this.wrap, px, py, emo);
     }
 
     safePlay('sfx-hit');
@@ -597,6 +623,7 @@ class ShadowBreakerGame {
       ts:(performance.now()-this._startTime)/1000,
       id:t.id,
       decoy:false,
+      bossFace: !!t.bossFace,
       grade,
       ageMs
     });
@@ -627,123 +654,4 @@ class ShadowBreakerGame {
     }
 
     if(this.wrap && t.dom){
-      const hostRect = this.wrap.getBoundingClientRect();
-      const r = t.dom.getBoundingClientRect();
-      const px = r.left - hostRect.left + r.width/2;
-      const py = r.top  - hostRect.top  + r.height/2;
-      spawnHitParticle(this.wrap, px, py, '💣');
-    }
-
-    safePlay('sfx-hit');
-
-    this.hitLogs.push({
-      ts:(performance.now()-this._startTime)/1000,
-      id:t.id,
-      decoy:true,
-      grade:'bad'
-    });
-
-    if(this.playerHp<=0){
-      this.updateHUD();
-      this.stopGame('HP ผู้เล่นหมด');
-      return;
-    }
-    this.updateHUD();
-  }
-
-  handleMiss(t){
-    if(!this.targets.has(t.id) || t.hit) return;
-    this.targets.delete(t.id);
-    if(this.renderer) this.renderer.removeTarget(t);
-
-    // ❌ ไม่ให้นับ bomb เป็น Miss
-    if (t.decoy) {
-      // ปล่อยให้ bomb หายไปเฉย ๆ → ไม่เพิ่ม miss / ไม่ลด HP
-      return;
-    }
-
-    // ✅ นับ Miss เฉพาะเป้าจริง
-    this.miss++;
-    this.combo=0;
-    this.playerHp=clamp(this.playerHp-this.config.playerDamageOnMiss,0,100);
-    this.loseFeverOnMiss();
-
-    if(this.renderer){
-      this.renderer.spawnHitEffect(t,{ miss:true, score:0 });
-    }
-    safePlay('sfx-hit');
-
-    this.hitLogs.push({
-      ts:(performance.now()-this._startTime)/1000,
-      id:t.id,
-      decoy:false,
-      grade:'miss'
-    });
-
-    if(this.playerHp<=0){
-      this.updateHUD();
-      this.stopGame('HP ผู้เล่นหมด');
-      return;
-    }
-    this.updateHUD();
-  }
-
-  /* ------------------ HUD ------------------ */
-
-  updateHUD(){
-    this.statScore.textContent   = String(this.score);
-    this.statHp.textContent      = String(this.playerHp);
-    this.statCombo.textContent   = String(this.combo);
-    this.statPerfect.textContent = String(this.perfect);
-    this.statMiss.textContent    = String(this.miss);
-  }
-
-  /* ------------------ CSV (วิจัย) ------------------ */
-
-  downloadCsv(){
-    if(this.mode!=='research'){
-      alert('การดาวน์โหลด CSV ใช้ในโหมดวิจัยเท่านั้น');
-      return;
-    }
-    if(!this.hitLogs.length){
-      alert('ยังไม่มีข้อมูลรอบเล่นสำหรับบันทึก');
-      return;
-    }
-    const header=[
-      'participant','group','note',
-      'timestamp_s','target_id','is_decoy','grade','age_ms'
-    ];
-    const rows=[header.join(',')];
-    for(const log of this.hitLogs){
-      rows.push([
-        JSON.stringify(this.researchMeta.participant || ''),
-        JSON.stringify(this.researchMeta.group || ''),
-        JSON.stringify(this.researchMeta.note || ''),
-        log.ts.toFixed(3),
-        log.id,
-        log.decoy?1:0,
-        log.grade,
-        log.ageMs!=null?log.ageMs.toFixed(1):''
-      ].join(','));
-    }
-    const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    const pid=(this.researchMeta.participant || 'Pxxx').replace(/[^a-z0-9_-]/gi,'');
-    a.href=url;
-    a.download=`shadow-breaker-${pid}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/*  PUBLIC INIT                                                       */
-/* ------------------------------------------------------------------ */
-
-export function initShadowBreaker(){
-  const game=new ShadowBreakerGame();
-  window.__shadowBreaker = game;
-}
+      const host
