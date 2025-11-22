@@ -1,386 +1,627 @@
-/* === Base layout เล็กน้อยเผื่อไม่มี rhythm-boxer.css === */
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  background:#020617;
-  color:#e5e7eb;
-}
-.wrap{
-  max-width:1024px;
-  margin:16px auto 24px;
-  padding:0 12px;
-}
-.card{
-  background:rgba(15,23,42,0.96);
-  border-radius:24px;
-  padding:18px 18px 20px;
-  box-shadow:0 20px 50px rgba(15,23,42,0.9);
-}
-.hidden{display:none;}
-.btn-small{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:4px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,0.8);
-  font-size:12px;
-  background:rgba(15,23,42,0.9);
-  color:#e5e7eb;
-  cursor:pointer;
-}
-.btn-small:hover{
-  background:rgba(30,64,175,0.9);
-}
-button{
-  font-family:inherit;
+/* =========================================================
+   Shadow Breaker — Cartoon Hero Theme (2025-11-24)
+   สไตล์การ์ตูนแบบ Brawl Stars / Hero Game สำหรับเด็ก ป.5
+   - โทนพื้น: น้ำเงินกรม + ม่วง
+   - ปุ่ม capsule นุ่ม ๆ
+   - HUD เป็นกล่องการ์ตูน
+   - ยังรองรับ class/ID เดิมทั้งหมด (ไม่พัง JS)
+========================================================= */
+
+/* ---------- Global ---------- */
+
+* {
+  box-sizing: border-box;
 }
 
-/* === Shadow Breaker — layout / HUD / target styles (2025-11-23, tuned) === */
-
-.sb-wrap{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  min-height:min(720px,calc(100vh - 140px));
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
 }
 
-/* HUD แถวบน */
-.sb-hud-row{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top, #1d267d 0, #0f172a 45%, #020617 100%);
+  color: #e5e7eb;
 }
 
-.sb-hp-stack{
-  flex:1;
-  max-width:640px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
+/* wrapper หลักของเกม */
+#sb-wrap.sb-wrap {
+  max-width: 1024px;
+  margin: 16px auto 24px;
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.sb-hp{
-  background:rgba(15,23,42,0.8);
-  border-radius:999px;
-  padding:6px 12px 8px;
-  box-shadow:0 0 0 1px rgba(15,23,42,0.8);
+/* card พื้นหลัง */
+.card {
+  background:
+    radial-gradient(circle at top left, rgba(248, 250, 252, 0.08), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(94, 234, 212, 0.14), transparent 55%),
+    #020617;
+  border-radius: 24px;
+  padding: 18px 18px 20px;
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.95),
+    0 0 0 2px rgba(15, 23, 42, 0.8);
+  position: relative;
+  overflow: hidden;
 }
 
-.sb-hp-label{
-  display:flex;
-  justify-content:space-between;
-  font-size:13px;
-  margin-bottom:3px;
+.hidden {
+  display: none;
 }
 
-.sb-hp-name{
-  font-weight:600;
+/* title / subtitle */
+.title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.sb-hp-val{
-  font-weight:600;
+.subtitle {
+  font-size: 14px;
+  opacity: 0.85;
+  margin: 0 0 10px;
 }
 
-.sb-hp-bar{
-  position:relative;
-  height:8px;
-  border-radius:999px;
-  overflow:hidden;
-  background:rgba(15,23,42,1);
+/* ป้าย label ในตารางสรุป */
+.label {
+  width: 40%;
+  white-space: nowrap;
 }
 
-.sb-hp-fill{
-  position:absolute;
-  inset:0;
-  transform-origin:left center;
-  transform:scaleX(1);
+/* ---------- Menu / Form Layout ---------- */
+
+.menu-block {
+  margin: 12px 0 10px;
 }
 
-/* player/boss สีต่างกัน */
-.sb-hp-player .sb-hp-fill{
-  background:linear-gradient(90deg,#22c55e,#4ade80);
-}
-.sb-hp-boss .sb-hp-fill{
-  background:linear-gradient(90deg,#f97316,#ef4444);
+.menu-label {
+  font-size: 14px;
+  margin-bottom: 4px;
+  display: block;
 }
 
-/* meta panel */
-.sb-meta{
-  min-width:150px;
-  background:rgba(15,23,42,0.92);
-  border-radius:18px;
-  padding:10px 12px;
-  font-size:13px;
-  box-shadow:0 12px 30px rgba(15,23,42,0.9);
-}
-.sb-meta-row{
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:2px;
-}
-.sb-meta-row span:first-child{
-  opacity:.7;
+select,
+input,
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 2px solid rgba(148, 163, 184, 0.5);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-/* boss portrait */
-.sb-boss-portrait{
-  width:80px;
-  height:80px;
-  border-radius:24px;
-  background:radial-gradient(circle at 30% 20%,#fef9c3,#f97316);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:40px;
-  box-shadow:0 14px 40px rgba(15,23,42,0.9);
+select:focus,
+input:focus,
+textarea:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+  background: rgba(15, 23, 42, 1);
 }
-.boss-portrait-text{
-  align-self:flex-end;
-  text-align:right;
-  font-size:13px;
-  margin-top:-10px;
-  margin-bottom:2px;
+
+.form-row {
+  margin: 8px 0;
 }
-#boss-portrait-name{
-  font-weight:600;
+
+.form-row label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
 }
-#boss-portrait-hint{
-  opacity:.8;
+
+/* ปุ่ม */
+
+button {
+  font-family: inherit;
+  font-size: 14px;
+  border-radius: 999px;
+  border: 0;
+  padding: 8px 18px;
+  cursor: pointer;
+  background: #1f2937;
+  color: #e5e7eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow:
+    0 5px 0 #020617,
+    0 10px 20px rgba(15, 23, 42, 0.85);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 0 #020617,
+    0 14px 26px rgba(15, 23, 42, 0.9);
+}
+
+button:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 3px 0 #020617,
+    0 6px 16px rgba(15, 23, 42, 0.8);
+}
+
+button.primary {
+  background: linear-gradient(90deg, #fb923c, #fbbf24);
+  color: #111827;
+  font-weight: 700;
+}
+
+button.primary:hover {
+  background: linear-gradient(90deg, #f97316, #facc15);
+}
+
+/* ปุ่มในเมนู (แนวคอลัมน์) */
+.btn-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- HUD ด้านบน ---------- */
+
+.sb-hud-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sb-hp-stack {
+  flex: 1;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* กล่อง HP แบบ capsule การ์ตูน */
+.sb-hp {
+  background: rgba(15, 23, 42, 0.96);
+  border-radius: 999px;
+  padding: 6px 12px 8px;
+  box-shadow:
+    0 0 0 2px rgba(15, 23, 42, 1),
+    0 10px 24px rgba(15, 23, 42, 0.9);
+}
+
+.sb-hp-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+
+.sb-hp-name {
+  font-weight: 700;
+}
+
+.sb-hp-val {
+  font-weight: 700;
+}
+
+/* bar HP */
+.sb-hp-bar {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #020617;
+}
+
+.sb-hp-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(1);
+}
+
+/* สี player / boss */
+.sb-hp-player .sb-hp-fill {
+  background: linear-gradient(90deg, #22c55e, #a3e635);
+}
+
+.sb-hp-boss .sb-hp-fill {
+  background: linear-gradient(90deg, #fb7185, #f97316);
+}
+
+/* meta panel ทางขวา */
+.sb-meta {
+  min-width: 160px;
+  background: rgba(15, 23, 42, 0.98);
+  border-radius: 18px;
+  padding: 10px 12px;
+  font-size: 13px;
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.95),
+    0 0 0 2px rgba(31, 41, 55, 0.9);
+}
+
+.sb-meta-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.sb-meta-row span:first-child {
+  opacity: 0.7;
+}
+
+/* ---------- Boss Portrait (การ์ตูน) ---------- */
+
+.boss-portrait-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.sb-boss-portrait {
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 30% 20%, #fef9c3, #fb923c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  box-shadow:
+    0 0 0 3px #facc15,
+    0 14px 40px rgba(15, 23, 42, 0.9);
+}
+
+#boss-portrait-emoji {
+  filter: drop-shadow(0 3px 2px rgba(15, 23, 42, 0.8));
+}
+
+.boss-portrait-text {
+  text-align: right;
+  font-size: 13px;
+}
+
+#boss-portrait-name {
+  font-weight: 700;
+}
+
+#boss-portrait-hint {
+  opacity: 0.85;
+  font-size: 12px;
 }
 
 /* shake เมื่อ HP ต่ำ */
-.sb-shake{
-  animation:sb-shake 0.35s infinite;
-}
-@keyframes sb-shake{
-  0%{transform:translateX(0);}
-  25%{transform:translateX(-2px);}
-  50%{transform:translateX(2px);}
-  75%{transform:translateX(-1px);}
-  100%{transform:translateX(0);}
+.sb-shake {
+  animation: sb-shake 0.4s infinite;
 }
 
-/* FEVER row */
-.sb-fever-row{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin:2px 0 4px;
-}
-.fever-label{
-  font-size:13px;
-  letter-spacing:.08em;
-}
-.fever-bar{
-  flex:1;
-  position:relative;
-  height:8px;
-  border-radius:999px;
-  background:rgba(15,23,42,0.85);
-  overflow:hidden;
-}
-.fever-fill{
-  position:absolute;
-  inset:0;
-  transform-origin:left center;
-  transform:scaleX(0);
-  background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ec4899);
-}
-.fever-status{
-  padding:3px 8px 4px;
-  border-radius:999px;
-  font-size:11px;
-  border:1px solid rgba(148,163,184,0.7);
-}
-.fever-status.on{
-  background:rgba(236,72,153,0.2);
-  border-color:#f97316;
+@keyframes sb-shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-3px); }
+  40%  { transform: translateX(3px); }
+  60%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
 }
 
-/* feedback bubble */
-.sb-feedback{
-  align-self:center;
-  margin-top:2px;
-  padding:6px 14px;
-  border-radius:999px;
-  font-size:13px;
-  background:rgba(15,23,42,0.9);
-  border:1px solid rgba(148,163,184,0.6);
-  box-shadow:0 10px 25px rgba(15,23,42,0.8);
-}
-.sb-feedback.good{border-color:#22c55e;}
-.sb-feedback.perfect{border-color:#eab308;}
-.sb-feedback.miss{border-color:#f97316;}
-.sb-feedback.bomb{border-color:#ef4444;}
-.sb-feedback.heal{border-color:#38bdf8;}
+/* ---------- FEVER + Feedback ---------- */
 
-/* play field อยู่กลางจอ */
-.sb-field{
-  position:relative;
-  flex:1;
-  min-height:260px;
-  max-height:480px;
-  margin:6px 0 12px;
-  border-radius:22px;
+.sb-fever-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 4px;
+}
+
+.fever-label {
+  font-size: 13px;
+  letter-spacing: 0.11em;
+  opacity: 0.9;
+}
+
+.fever-bar {
+  flex: 1;
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+}
+
+.fever-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, #22c55e, #facc15, #f97316, #ec4899);
+}
+
+.fever-status {
+  padding: 3px 8px 4px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid rgba(148, 163, 184, 0.8);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.fever-status.on {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: #facc15;
+  color: #fefce8;
+}
+
+/* Feedback bubble การ์ตูน */
+
+.sb-feedback {
+  align-self: center;
+  margin-top: 2px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 2px solid rgba(148, 163, 184, 0.6);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.85);
+}
+
+.sb-feedback.good  { border-color: #22c55e; }
+.sb-feedback.perfect { border-color: #facc15; }
+.sb-feedback.miss  { border-color: #fb7185; }
+.sb-feedback.bomb  { border-color: #ef4444; }
+.sb-feedback.heal  { border-color: #38bdf8; }
+
+/* ---------- Play Field (สนามเกม) ---------- */
+
+.sb-field {
+  position: relative;
+  flex: 1;
+  min-height: 260px;
+  max-height: 480px;
+  margin: 8px 0 12px;
+  border-radius: 26px;
   background:
-    radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(37,99,235,0.18),transparent 55%),
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.2), transparent 55%),
+    radial-gradient(circle at bottom, rgba(244, 114, 182, 0.22), transparent 55%),
     #020617;
-  box-shadow:inset 0 0 0 1px rgba(15,23,42,0.9);
-  overflow:hidden;
+  box-shadow:
+    0 18px 42px rgba(15, 23, 42, 0.95),
+    inset 0 0 0 2px rgba(15, 23, 42, 0.9);
+  overflow: hidden;
 }
 
-/* target */
-.sb-target{
-  position:absolute;
-  transform:translate(-50%,-50%);
-  border-radius:999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  transition:transform .18s ease-out, box-shadow .18s ease-out, opacity .18s ease-out;
+/* เป้าแบบ capsule การ์ตูน */
+
+.sb-target {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    transform 0.14s ease-out,
+    box-shadow 0.14s ease-out,
+    opacity 0.16s ease-out;
 }
-.sb-target-inner{
-  width:100%;
-  height:100%;
-  border-radius:inherit;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:40px;
-  border:4px solid #22c55e;
+
+.sb-target-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  border: 4px solid #22c55e;
   background:
-    radial-gradient(circle at 30% 20%,#fefce8,#bbf7d0);
-  box-shadow:0 10px 30px rgba(15,23,42,0.95);
+    radial-gradient(circle at 30% 20%, #fef9c3, #bbf7d0);
+  box-shadow:
+    0 8px 18px rgba(15, 23, 42, 0.85),
+    0 0 0 2px rgba(15, 23, 42, 0.8);
 }
 
-/* สีขอบเป้าตาม diff */
-.sb-wrap[data-diff="easy"]  .sb-target-inner{ border-color:#22c55e;}
-.sb-wrap[data-diff="normal"] .sb-target-inner{ border-color:#38bdf8;}
-.sb-wrap[data-diff="hard"] .sb-target-inner{ border-color:#f97316;}
-
-/* bomb */
-.sb-target[data-type="bad"] .sb-target-inner{
-  background:radial-gradient(circle at 30% 20%,#fee2e2,#fecaca);
+/* สีขอบเป้าตาม diff (อ่านจาก data-diff บน sb-wrap) */
+.sb-wrap[data-diff="easy"] .sb-target-inner {
+  border-color: #22c55e;          /* เขียว */
+}
+.sb-wrap[data-diff="normal"] .sb-target-inner {
+  border-color: #38bdf8;          /* ฟ้า */
+}
+.sb-wrap[data-diff="hard"] .sb-target-inner {
+  border-color: #f97316;          /* ส้ม/แดง */
 }
 
-/* boss face ให้เด่น */
-.sb-target[data-boss-face="1"] .sb-target-inner{
-  border-width:5px;
-  box-shadow:0 0 0 2px rgba(250,250,250,0.8),0 16px 40px rgba(148,27,128,0.9);
-  transform:scale(1.05);
+/* Bomb (เป้าลวง) */
+.sb-target[data-type="bad"] .sb-target-inner {
+  background: radial-gradient(circle at 30% 20%, #fee2e2, #fecaca);
 }
 
-/* hit effect (หด + fade) */
-.sb-target.sb-hit{
-  animation:sb-pop .22s ease-out forwards;
-}
-@keyframes sb-pop{
-  0%{transform:translate(-50%,-50%) scale(1);}
-  100%{transform:translate(-50%,-50%) scale(0.6); opacity:0;}
-}
-
-/* score popup */
-.sb-fx-score{
-  position:absolute;
-  transform:translate(-50%,-50%);
-  padding:4px 10px;
-  font-size:13px;
-  border-radius:999px;
-  background:rgba(15,23,42,0.95);
-  box-shadow:0 10px 28px rgba(15,23,42,0.9);
-  animation:sb-pop-score .6s ease-out forwards;
-  white-space:nowrap;
-}
-.sb-fx-score.sb-perfect{color:#fde68a;}
-.sb-fx-score.sb-good{color:#bbf7d0;}
-.sb-fx-score.sb-miss{color:#fecaca;}
-.sb-fx-score.sb-decoy{color:#fecaca;}
-
-@keyframes sb-pop-score{
-  0%{opacity:0; transform:translate(-50%,-40%);}
-  20%{opacity:1; transform:translate(-50%,-60%);}
-  100%{opacity:0; transform:translate(-50%,-90%);}
+/* Boss face ให้เด่นพิเศษ */
+.sb-target[data-boss-face="1"] .sb-target-inner {
+  border-width: 5px;
+  box-shadow:
+    0 0 0 2px rgba(250, 250, 250, 0.9),
+    0 14px 36px rgba(148, 27, 128, 0.95);
+  transform: scale(1.06);
 }
 
-/* hit particle (emoji) */
-.hitParticle{
-  position:absolute;
-  transform:translate(-50%,-50%);
-  font-size:32px;
-  pointer-events:none;
-  animation:sb-particle .48s ease-out forwards;
-}
-@keyframes sb-particle{
-  0%{opacity:1; transform:translate(-50%,-50%) scale(0.9);}
-  100%{opacity:0; transform:translate(-50%,-90%) scale(1.2);}
+/* ตอนโดนตี ให้หดและจาง */
+.sb-target.sb-hit {
+  animation: sb-pop 0.22s ease-out forwards;
 }
 
-/* controls ล่าง */
-.sb-controls{
-  display:flex;
-  justify-content:center;
-  gap:16px;
+@keyframes sb-pop {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
 }
 
-/* boss intro */
-.boss-intro{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:rgba(15,23,42,0.88);
-  z-index:40;
-}
-.boss-intro.hidden{display:none;}
-.boss-intro-card{
-  max-width:320px;
-  padding:20px 18px;
-  background:radial-gradient(circle at top,#1f2937,#020617);
-  border-radius:24px;
-  text-align:center;
-  box-shadow:0 24px 60px rgba(0,0,0,0.9);
-}
-.boss-intro-emoji{
-  font-size:48px;
-  margin-bottom:6px;
-}
-.boss-intro-name{
-  font-weight:700;
-  margin-bottom:4px;
-}
-.boss-intro-title{
-  font-size:14px;
-  color:#fde68a;
-  margin-bottom:6px;
-}
-.boss-intro-desc{
-  font-size:13px;
-  margin-bottom:10px;
-}
-.boss-intro-hint{
-  font-size:12px;
-  opacity:.8;
+/* ---------- Score Popup & Particle ---------- */
+
+.sb-fx-score {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 4px 10px;
+  font-size: 13px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.98);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.9);
+  animation: sb-pop-score 0.6s ease-out forwards;
+  white-space: nowrap;
 }
 
-/* responsive tweaks */
-@media (max-width:768px){
-  .sb-hud-row{
-    flex-direction:column;
-    align-items:stretch;
+.sb-fx-score.sb-perfect {
+  color: #facc15;
+}
+.sb-fx-score.sb-good {
+  color: #bbf7d0;
+}
+.sb-fx-score.sb-miss,
+.sb-fx-score.sb-decoy {
+  color: #fecaca;
+}
+
+@keyframes sb-pop-score {
+  0%   { opacity: 0; transform: translate(-50%, -40%); }
+  20%  { opacity: 1; transform: translate(-50%, -60%); }
+  100% { opacity: 0; transform: translate(-50%, -90%); }
+}
+
+/* particle Emoji */
+.hitParticle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  pointer-events: none;
+  animation: sb-particle 0.48s ease-out forwards;
+}
+
+@keyframes sb-particle {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.9); }
+  100% { opacity: 0; transform: translate(-50%, -90%) scale(1.2); }
+}
+
+/* ---------- Controls ล่าง ---------- */
+
+.sb-controls {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* ---------- Result Table ---------- */
+
+.summary table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.summary td {
+  padding: 4px 6px;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.4);
+}
+
+.summary td.label {
+  opacity: 0.8;
+}
+
+/* ---------- Boss Intro Overlay ---------- */
+
+.boss-intro {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.98));
+  z-index: 40;
+}
+
+.boss-intro.hidden {
+  display: none;
+}
+
+.boss-intro-card {
+  max-width: 320px;
+  padding: 20px 18px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top, #1d4ed8, #020617);
+  text-align: center;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.95),
+    0 0 0 2px rgba(59, 130, 246, 0.7);
+}
+
+.boss-intro-emoji {
+  font-size: 48px;
+  margin-bottom: 6px;
+}
+
+.boss-intro-name {
+  font-weight: 800;
+  margin-bottom: 4px;
+  font-size: 18px;
+}
+
+.boss-intro-title {
+  font-size: 14px;
+  color: #facc15;
+  margin-bottom: 6px;
+}
+
+.boss-intro-desc {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.boss-intro-hint {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 768px) {
+  .sb-hud-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
   }
-  .sb-meta{
-    order:2;
-    margin-top:4px;
+
+  .sb-meta {
+    align-self: flex-start;
   }
-  .sb-boss-portrait{
-    align-self:flex-end;
+
+  .boss-portrait-box {
+    align-self: flex-end;
   }
-  .sb-field{
-    min-height:260px;
+
+  .sb-field {
+    min-height: 260px;
   }
 }
