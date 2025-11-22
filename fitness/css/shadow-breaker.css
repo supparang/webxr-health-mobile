@@ -1,6 +1,4 @@
-/* === Shadow Breaker CSS (2025-11-24 PRODUCTION-READY) === */
-
-/* base layout */
+/* === Base layout เล็กน้อยเผื่อไม่มี rhythm-boxer.css === */
 body{
   margin:0;
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -20,18 +18,25 @@ body{
 }
 .hidden{display:none;}
 .btn-small{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   padding:4px 10px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,0.8);
+  font-size:12px;
   background:rgba(15,23,42,0.9);
   color:#e5e7eb;
   cursor:pointer;
-  font-size:12px;
+}
+.btn-small:hover{
+  background:rgba(30,64,175,0.9);
+}
+button{
+  font-family:inherit;
 }
 
-/* ===========================================================
-   HUD + LAYOUT
-   =========================================================== */
+/* === Shadow Breaker — layout / HUD / target styles (2025-11-23, FEVER FIX) === */
 
 .sb-wrap{
   display:flex;
@@ -40,6 +45,7 @@ body{
   min-height:min(720px,calc(100vh - 140px));
 }
 
+/* HUD แถวบน */
 .sb-hud-row{
   display:flex;
   align-items:flex-start;
@@ -47,7 +53,6 @@ body{
   gap:12px;
 }
 
-/* HP Stack */
 .sb-hp-stack{
   flex:1;
   max-width:640px;
@@ -62,26 +67,38 @@ body{
   padding:6px 12px 8px;
   box-shadow:0 0 0 1px rgba(15,23,42,0.8);
 }
+
 .sb-hp-label{
   display:flex;
   justify-content:space-between;
   font-size:13px;
   margin-bottom:3px;
 }
+
+.sb-hp-name{
+  font-weight:600;
+}
+
+.sb-hp-val{
+  font-weight:600;
+}
+
 .sb-hp-bar{
   position:relative;
   height:8px;
   border-radius:999px;
   overflow:hidden;
-  background:#0f172a;
+  background:rgba(15,23,42,1);
 }
+
 .sb-hp-fill{
   position:absolute;
   inset:0;
   transform-origin:left center;
+  transform:scaleX(1);
 }
 
-/* Player / Boss bar colors */
+/* player/boss สีต่างกัน */
 .sb-hp-player .sb-hp-fill{
   background:linear-gradient(90deg,#22c55e,#4ade80);
 }
@@ -89,7 +106,7 @@ body{
   background:linear-gradient(90deg,#f97316,#ef4444);
 }
 
-/* Meta panel */
+/* meta panel */
 .sb-meta{
   min-width:150px;
   background:rgba(15,23,42,0.92);
@@ -107,7 +124,7 @@ body{
   opacity:.7;
 }
 
-/* Boss portrait */
+/* boss portrait */
 .sb-boss-portrait{
   width:80px;
   height:80px;
@@ -120,17 +137,22 @@ body{
   box-shadow:0 14px 40px rgba(15,23,42,0.9);
 }
 .boss-portrait-text{
-  padding-left:6px;
   align-self:flex-end;
-  text-align:left;
+  text-align:right;
   font-size:13px;
   margin-top:-10px;
+  margin-bottom:2px;
 }
-#boss-portrait-name{ font-weight:600; }
-#boss-portrait-hint{ opacity:.8; }
+#boss-portrait-name{
+  font-weight:600;
+}
+#boss-portrait-hint{
+  opacity:.8;
+}
 
+/* shake เมื่อ HP ต่ำ */
 .sb-shake{
-  animation:sb-shake .35s infinite;
+  animation:sb-shake 0.35s infinite;
 }
 @keyframes sb-shake{
   0%{transform:translateX(0);}
@@ -140,27 +162,39 @@ body{
   100%{transform:translateX(0);}
 }
 
-/* ===========================================================
-   FEVER BAR + FEEDBACK BUBBLE
-   =========================================================== */
-
+/* FEVER row */
 .sb-fever-row{
   display:flex;
   align-items:center;
   gap:8px;
-  margin:2px 0 4px;
+  margin:2px auto 4px;
+  max-width:650px;
+  width:100%;
+}
+.fever-label{
+  font-size:13px;
+  letter-spacing:.08em;
 }
 .fever-bar{
   flex:1;
+  position:relative;
   height:8px;
   border-radius:999px;
+  background:rgba(15,23,42,0.85);
   overflow:hidden;
-  background:#0f172a;
+  max-width:480px;
+  margin-left:auto;
+  margin-right:auto;
 }
 .fever-fill{
   position:absolute;
   inset:0;
   transform-origin:left center;
+  transform:scaleX(0);
+  display:block;
+  width:100%;
+  height:8px;
+  max-width:100%;
   background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ec4899);
 }
 .fever-status{
@@ -174,30 +208,30 @@ body{
   border-color:#f97316;
 }
 
+/* feedback bubble */
 .sb-feedback{
   align-self:center;
+  margin-top:2px;
   padding:6px 14px;
   border-radius:999px;
   font-size:13px;
-  background:rgba(15,23,42,0.85);
+  background:rgba(15,23,42,0.9);
   border:1px solid rgba(148,163,184,0.6);
-  box-shadow:0 8px 24px rgba(15,23,42,0.7);
-  margin-top:4px;
+  box-shadow:0 10px 25px rgba(15,23,42,0.8);
 }
 .sb-feedback.good{border-color:#22c55e;}
-.sb-feedback.perfect{border-color:#facc15;}
-.sb-feedback.miss{border-color:#fb923c;}
+.sb-feedback.perfect{border-color:#eab308;}
+.sb-feedback.miss{border-color:#f97316;}
 .sb-feedback.bomb{border-color:#ef4444;}
 .sb-feedback.heal{border-color:#38bdf8;}
 
-/* ===========================================================
-   TARGET FIELD (CENTER PERFECT)
-   =========================================================== */
-
+/* play field อยู่กลางจอ */
 .sb-field{
   position:relative;
   flex:1;
   min-height:260px;
+  max-height:480px;
+  margin:6px 0 12px;
   border-radius:22px;
   background:
     radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
@@ -205,13 +239,9 @@ body{
     #020617;
   box-shadow:inset 0 0 0 1px rgba(15,23,42,0.9);
   overflow:hidden;
-  display:block;
 }
 
-/* ===========================================================
-   TARGET + EFFECTS
-   =========================================================== */
-
+/* target */
 .sb-target{
   position:absolute;
   transform:translate(-50%,-50%);
@@ -220,7 +250,7 @@ body{
   align-items:center;
   justify-content:center;
   cursor:pointer;
-  transition:transform .18s ease-out, opacity .18s;
+  transition:transform .18s ease-out, box-shadow .18s ease-out, opacity .18s ease-out;
 }
 .sb-target-inner{
   width:100%;
@@ -230,31 +260,30 @@ body{
   align-items:center;
   justify-content:center;
   font-size:40px;
-  border:4px solid #38bdf8;
-  background:radial-gradient(circle at 30% 20%,#fefce8,#bbf7d0);
+  border:4px solid #22c55e;
+  background:
+    radial-gradient(circle at 30% 20%,#fefce8,#bbf7d0);
+  box-shadow:0 10px 30px rgba(15,23,42,0.95);
 }
 
-/* สีขอบเป้าตามระดับ */
-.sb-wrap[data-diff="easy"]   .sb-target-inner{ border-color:#22c55e; }
-.sb-wrap[data-diff="normal"] .sb-target-inner{ border-color:#38bdf8; }
-.sb-wrap[data-diff="hard"]   .sb-target-inner{ border-color:#f97316; }
+/* สีขอบเป้าตาม diff */
+.sb-wrap[data-diff="easy"]  .sb-target-inner{ border-color:#22c55e;} /* เขียว */
+.sb-wrap[data-diff="normal"] .sb-target-inner{ border-color:#38bdf8;} /* ฟ้า */
+.sb-wrap[data-diff="hard"] .sb-target-inner{ border-color:#f97316;}   /* ส้ม/แดง */
 
-/* Bomb */
+/* bomb */
 .sb-target[data-type="bad"] .sb-target-inner{
   background:radial-gradient(circle at 30% 20%,#fee2e2,#fecaca);
-  border-color:#ef4444 !important;
 }
 
-/* Boss Face */
+/* boss face ให้เด่น */
 .sb-target[data-boss-face="1"] .sb-target-inner{
-  border-width:6px;
-  box-shadow:
-    0 0 0 2px rgba(255,255,255,0.8),
-    0 16px 40px rgba(148,27,128,0.85);
-  transform:scale(1.06);
+  border-width:5px;
+  box-shadow:0 0 0 2px rgba(250,250,250,0.8),0 16px 40px rgba(148,27,128,0.9);
+  transform:scale(1.05);
 }
 
-/* แตกกระจาย */
+/* hit effect (หด + fade) */
 .sb-target.sb-hit{
   animation:sb-pop .22s ease-out forwards;
 }
@@ -263,30 +292,30 @@ body{
   100%{transform:translate(-50%,-50%) scale(0.6); opacity:0;}
 }
 
-/* คะแนนเด้ง */
+/* score popup */
 .sb-fx-score{
   position:absolute;
   transform:translate(-50%,-50%);
-  background:rgba(15,23,42,0.9);
   padding:4px 10px;
-  border-radius:999px;
   font-size:13px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.95);
+  box-shadow:0 10px 28px rgba(15,23,42,0.9);
   animation:sb-pop-score .6s ease-out forwards;
   white-space:nowrap;
-  box-shadow:0 10px 28px rgba(15,23,42,0.9);
 }
-.sb-fx-score.sb-perfect{color:#fde047;}
+.sb-fx-score.sb-perfect{color:#fde68a;}
 .sb-fx-score.sb-good{color:#bbf7d0;}
 .sb-fx-score.sb-miss{color:#fecaca;}
 .sb-fx-score.sb-decoy{color:#fecaca;}
 
 @keyframes sb-pop-score{
   0%{opacity:0; transform:translate(-50%,-40%);}
-  20%{opacity:1; transform:translate(-50%,-62%);}
+  20%{opacity:1; transform:translate(-50%,-60%);}
   100%{opacity:0; transform:translate(-50%,-90%);}
 }
 
-/* Particle emoji */
+/* hit particle (emoji) */
 .hitParticle{
   position:absolute;
   transform:translate(-50%,-50%);
@@ -295,41 +324,59 @@ body{
   animation:sb-particle .48s ease-out forwards;
 }
 @keyframes sb-particle{
-  0%{opacity:1; transform:translate(-50%,-50%) scale(.9);}
+  0%{opacity:1; transform:translate(-50%,-50%) scale(0.9);}
   100%{opacity:0; transform:translate(-50%,-90%) scale(1.2);}
 }
 
-/* ===========================================================
-   BOSS INTRO
-   =========================================================== */
+/* controls ล่าง */
+.sb-controls{
+  display:flex;
+  justify-content:center;
+  gap:16px;
+}
 
+/* boss intro */
 .boss-intro{
   position:fixed;
   inset:0;
-  background:rgba(15,23,42,0.88);
   display:flex;
   align-items:center;
   justify-content:center;
+  background:rgba(15,23,42,0.88);
   z-index:40;
 }
 .boss-intro.hidden{display:none;}
 .boss-intro-card{
   max-width:320px;
-  padding:20px;
+  padding:20px 18px;
   background:radial-gradient(circle at top,#1f2937,#020617);
   border-radius:24px;
   text-align:center;
   box-shadow:0 24px 60px rgba(0,0,0,0.9);
 }
-.boss-intro-emoji{ font-size:48px; margin-bottom:6px; }
-.boss-intro-name{ font-weight:700; margin-bottom:4px; }
-.boss-intro-title{ font-size:14px; color:#fde047; margin-bottom:6px; }
-.boss-intro-desc{ font-size:13px; margin-bottom:10px; }
+.boss-intro-emoji{
+  font-size:48px;
+  margin-bottom:6px;
+}
+.boss-intro-name{
+  font-weight:700;
+  margin-bottom:4px;
+}
+.boss-intro-title{
+  font-size:14px;
+  color:#fde68a;
+  margin-bottom:6px;
+}
+.boss-intro-desc{
+  font-size:13px;
+  margin-bottom:10px;
+}
+.boss-intro-hint{
+  font-size:12px;
+  opacity:.8;
+}
 
-/* ===========================================================
-   RESPONSIVE
-   =========================================================== */
-
+/* responsive tweaks */
 @media (max-width:768px){
   .sb-hud-row{
     flex-direction:column;
@@ -338,6 +385,9 @@ body{
   .sb-meta{
     order:2;
     margin-top:4px;
+  }
+  .sb-boss-portrait{
+    align-self:flex-end;
   }
   .sb-field{
     min-height:260px;
