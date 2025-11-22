@@ -14,13 +14,11 @@ export function spawnHitParticle(parent, x, y, emoji = '💥') {
   el.className = 'hitParticle';
   el.textContent = emoji;
 
-  // ตำแหน่งกลาง particle ให้ตรงเป้า
   el.style.left = x + 'px';
   el.style.top  = y + 'px';
 
   parent.appendChild(el);
 
-  // เอาออกหลังแอนิเมชันจบ
   setTimeout(() => {
     if (el.parentNode === parent) {
       parent.removeChild(el);
