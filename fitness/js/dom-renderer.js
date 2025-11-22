@@ -1,4 +1,4 @@
-// === js/dom-renderer.js — DOM target renderer + FX (2025-11-22 CENTER ZONE) ===
+// === js/dom-renderer.js — DOM Target Renderer + FX (2025-11-24 Research Edition) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
@@ -7,9 +7,10 @@ export class DomRenderer {
   constructor(game, host, opts = {}) {
     this.game = game;
     this.host = host;
-    this.sizePx = opts.sizePx || 100;
 
-    this._rect = null;
+    this.sizePx = opts.sizePx || 100;
+    this._rect  = null;
+
     this.updateRect();
     window.addEventListener('resize', () => this.updateRect(), { passive: true });
   }
@@ -19,147 +20,154 @@ export class DomRenderer {
     this._rect = this.host.getBoundingClientRect();
   }
 
-  /* ----------------- สร้างเป้า ----------------- */
+  /* --------------------------------------------------------------- */
+  /*  SPAWN TARGET                                                   */
+  /* --------------------------------------------------------------- */
+
   spawnTarget(t) {
     if (!this.host) return;
     if (!this._rect) this.updateRect();
 
-    const size = this.sizePx;
     const el = document.createElement('div');
     el.className = 'sb-target';
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
+    el.style.width  = this.sizePx + 'px';
+    el.style.height = this.sizePx + 'px';
+    el.style.lineHeight = this.sizePx + 'px';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
     inner.textContent = t.emoji || '🥊';
 
-    el.dataset.id = String(t.id);
-    el.dataset.type = t.decoy ? 'bad' : 'good';
     el.appendChild(inner);
+    el.dataset.id = t.id;
+    if (t.decoy) el.dataset.type = 'bad';
+    if (t.bossFace) el.dataset.bossFace = '1';
 
-    // ---------- วางเป้า "โซนกลางจอ" ----------
+    /* Random position but NOT touching edge */
+    const PAD = 20 + this.sizePx * 0.5;
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
 
-    // พื้นที่ปลอดภัย = กลางจอประมาณ 60% ของ width/height
-    const pad = 18 + size / 2;
-    const centerX = w / 2;
-    const centerY = h / 2;
-
-    const spanX = Math.max(80, w * 0.6);   // กระจายซ้าย-ขวา แต่เน้นกลาง
-    const spanY = Math.max(80, h * 0.6);   // กระจายบน-ล่าง แต่เน้นกลาง
-
-    let x = centerX - spanX / 2 + Math.random() * spanX;
-    let y = centerY - spanY / 2 + Math.random() * spanY;
-
-    // กันไม่ให้ชิดขอบเกินไป
-    x = Math.min(Math.max(x, pad), w - pad);
-    y = Math.min(Math.max(y, pad), h - pad);
+    const x = PAD + Math.random() * (w - PAD * 2);
+    const y = PAD + Math.random() * (h - PAD * 2);
 
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
 
-    // เก็บตำแหน่งล่าสุด
+    // Save for fallback
     t.lastPos = { x, y };
 
-    const onPointerDown = (ev) => {
+    const onPointer = (ev) => {
       ev.preventDefault();
-      const rect = this.host.getBoundingClientRect();
-      const cx = ev.clientX - rect.left;
-      const cy = ev.clientY - rect.top;
+      const r = this.host.getBoundingClientRect();
+      const cx = ev.clientX - r.left;
+      const cy = ev.clientY - r.top;
       this.game.registerTouch(cx, cy, t.id);
     };
 
-    el.addEventListener('pointerdown', onPointerDown);
-
     t._el = el;
-    t._onPtr = onPointerDown;
+    t._onPtr = onPointer;
+
+    el.addEventListener('pointerdown', onPointer, { passive: false });
 
     this.host.appendChild(el);
   }
 
-  /* ----------------- ลบเป้า (แบบเงียบ) ----------------- */
+  /* --------------------------------------------------------------- */
+  /*  REMOVE TARGET                                                  */
+  /* --------------------------------------------------------------- */
+
   removeTarget(t) {
-    const el = t && t._el;
+    const el = t._el;
     if (!el) return;
+
     try {
-      if (t._onPtr) {
-        el.removeEventListener('pointerdown', t._onPtr);
-      }
+      if (t._onPtr) el.removeEventListener('pointerdown', t._onPtr);
     } catch (e) {}
+
     if (el.parentNode) el.parentNode.removeChild(el);
+
     t._el = null;
     t._onPtr = null;
   }
 
-  /* ----------------- เอฟเฟกต์โดนตี / miss ----------------- */
+  /* --------------------------------------------------------------- */
+  /*  HIT / MISS FX                                                  */
+  /* --------------------------------------------------------------- */
+
   spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
 
-    const host = this.host;
-    const el = t && t._el;
     let x, y;
+    const hostRect = this.host.getBoundingClientRect();
 
-    if (el && el.parentNode) {
-      const r = el.getBoundingClientRect();
-      const hr = host.getBoundingClientRect();
-      x = r.left + r.width / 2 - hr.left;
-      y = r.top + r.height / 2 - hr.top;
+    if (t._el && t._el.parentNode) {
+      const r = t._el.getBoundingClientRect();
+      x = r.left + r.width / 2 - hostRect.left;
+      y = r.top  + r.height / 2 - hostRect.top;
 
-      // เป้าแตกกระจาย
-      el.classList.add('sb-hit');
+      /* hit animation shrink */
+      t._el.classList.add('sb-hit');
 
       setTimeout(() => {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      }, 220);
-    } else if (t && t.lastPos) {
+        if (t._el && t._el.parentNode) t._el.parentNode.removeChild(t._el);
+      }, 200);
+    } else if (t.lastPos) {
       x = t.lastPos.x;
       y = t.lastPos.y;
     } else {
-      x = host.clientWidth / 2;
-      y = host.clientHeight / 2;
+      x = hostRect.width / 2;
+      y = hostRect.height / 2;
     }
 
-    // 💥 particle
-    const emo = opts.decoy ? '💥' : (opts.miss ? '💢' : '✨');
-    spawnHitParticle(host, x, y, emo);
+    /* ---- particle (emoji) ---- */
+    const emo =
+      opts.miss ? '💢'
+    : opts.decoy ? '💥'
+    : opts.grade === 'perfect' ? '⭐'
+    : '✨';
 
-    // คะแนนเด้ง
+    spawnHitParticle(this.host, x, y, emo);
+
+    /* ---- score popup ---- */
     const popup = document.createElement('div');
     popup.className = 'sb-fx-score';
 
-    const score = opts.score || 0;
-    let cls;
-    let text;
+    let text = '';
+    let cls  = '';
 
     if (opts.miss) {
-      cls = 'sb-miss';
       text = 'MISS';
-    } else if (opts.decoy || score < 0) {
-      cls = 'sb-decoy';
-      text = `-${Math.abs(score)} Bomb`;
+      cls  = 'sb-miss';
+    } else if (opts.decoy) {
+      text = `-${Math.abs(opts.score)} Bomb`;
+      cls  = 'sb-decoy';
     } else if (opts.grade === 'perfect') {
-      cls = 'sb-perfect';
-      text = `+${score} PERFECT`;
+      text = `+${opts.score} PERFECT`;
+      cls  = 'sb-perfect';
     } else {
-      cls = 'sb-good';
-      text = `+${score}`;
+      text = `+${opts.score}`;
+      cls  = 'sb-good';
     }
 
+    popup.textContent = text;
     popup.classList.add(cls);
+
     popup.style.left = x + 'px';
     popup.style.top  = y + 'px';
-    popup.textContent = text;
 
-    host.appendChild(popup);
+    this.host.appendChild(popup);
 
+    // Remove fx
     setTimeout(() => {
       if (popup.parentNode) popup.parentNode.removeChild(popup);
-    }, 600);
+    }, 650);
   }
 
-  /* ----------------- เคลียร์ทั้งหมด ----------------- */
+  /* --------------------------------------------------------------- */
+  /*  CLEAR ALL                                                      */
+  /* --------------------------------------------------------------- */
+
   clear() {
     if (!this.host) return;
     this.host.innerHTML = '';
