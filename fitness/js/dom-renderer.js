@@ -1,12 +1,12 @@
-// === js/dom-renderer.js — DOM target renderer + FX (2025-11-22 FULL) ===
+// === js/dom-renderer.js — DOM target renderer + FX (2025-11-22 CENTER ZONE) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
 
 export class DomRenderer {
   constructor(game, host, opts = {}) {
-    this.game   = game;
-    this.host   = host;
+    this.game = game;
+    this.host = host;
     this.sizePx = opts.sizePx || 100;
 
     this._rect = null;
@@ -25,36 +25,42 @@ export class DomRenderer {
     if (!this._rect) this.updateRect();
 
     const size = this.sizePx;
-    const el   = document.createElement('div');
+    const el = document.createElement('div');
     el.className = 'sb-target';
-    el.style.width  = size + 'px';
+    el.style.width = size + 'px';
     el.style.height = size + 'px';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
     inner.textContent = t.emoji || '🥊';
 
-    el.dataset.id   = String(t.id);
+    el.dataset.id = String(t.id);
     el.dataset.type = t.decoy ? 'bad' : 'good';
-
-    // ถ้าเป็น Boss Face ให้เพิ่มคลาสเฉพาะ
-    if (t.bossFace) {
-      el.classList.add('sb-boss-face');
-    }
-
     el.appendChild(inner);
 
-    // วางสุ่มใน field (ไม่ติดขอบ)
+    // ---------- วางเป้า "โซนกลางจอ" ----------
+    const w = this.host.clientWidth;
+    const h = this.host.clientHeight;
+
+    // พื้นที่ปลอดภัย = กลางจอประมาณ 60% ของ width/height
     const pad = 18 + size / 2;
-    const w = this.host.clientWidth  || 1;
-    const h = this.host.clientHeight || 1;
-    const x = pad + Math.random() * Math.max(10, w - pad * 2);
-    const y = pad + Math.random() * Math.max(10, h - pad * 2);
+    const centerX = w / 2;
+    const centerY = h / 2;
+
+    const spanX = Math.max(80, w * 0.6);   // กระจายซ้าย-ขวา แต่เน้นกลาง
+    const spanY = Math.max(80, h * 0.6);   // กระจายบน-ล่าง แต่เน้นกลาง
+
+    let x = centerX - spanX / 2 + Math.random() * spanX;
+    let y = centerY - spanY / 2 + Math.random() * spanY;
+
+    // กันไม่ให้ชิดขอบเกินไป
+    x = Math.min(Math.max(x, pad), w - pad);
+    y = Math.min(Math.max(y, pad), h - pad);
 
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
 
-    // เก็บตำแหน่งล่าสุด (เผื่อไม่มี DOM ตอนหลัง)
+    // เก็บตำแหน่งล่าสุด
     t.lastPos = { x, y };
 
     const onPointerDown = (ev) => {
@@ -67,24 +73,24 @@ export class DomRenderer {
 
     el.addEventListener('pointerdown', onPointerDown);
 
-    t._el   = el;
-    t._onPt = onPointerDown;
+    t._el = el;
+    t._onPtr = onPointerDown;
 
     this.host.appendChild(el);
   }
 
-  /* ----------------- ลบเป้า ----------------- */
+  /* ----------------- ลบเป้า (แบบเงียบ) ----------------- */
   removeTarget(t) {
     const el = t && t._el;
     if (!el) return;
     try {
-      if (t._onPt) {
-        el.removeEventListener('pointerdown', t._onPt);
+      if (t._onPtr) {
+        el.removeEventListener('pointerdown', t._onPtr);
       }
     } catch (e) {}
     if (el.parentNode) el.parentNode.removeChild(el);
-    t._el   = null;
-    t._onPt = null;
+    t._el = null;
+    t._onPtr = null;
   }
 
   /* ----------------- เอฟเฟกต์โดนตี / miss ----------------- */
@@ -92,17 +98,18 @@ export class DomRenderer {
     if (!this.host) return;
 
     const host = this.host;
-    const el   = t && t._el;
+    const el = t && t._el;
     let x, y;
 
     if (el && el.parentNode) {
-      const r  = el.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
       const hr = host.getBoundingClientRect();
-      x = r.left + r.width  / 2 - hr.left;
-      y = r.top  + r.height / 2 - hr.top;
+      x = r.left + r.width / 2 - hr.left;
+      y = r.top + r.height / 2 - hr.top;
 
       // เป้าแตกกระจาย
       el.classList.add('sb-hit');
+
       setTimeout(() => {
         if (el.parentNode) el.parentNode.removeChild(el);
       }, 220);
@@ -110,15 +117,12 @@ export class DomRenderer {
       x = t.lastPos.x;
       y = t.lastPos.y;
     } else {
-      x = (host.clientWidth  || 0) / 2;
-      y = (host.clientHeight || 0) / 2;
+      x = host.clientWidth / 2;
+      y = host.clientHeight / 2;
     }
 
-    // 💥 particle ตรงเป้า
-    const emo =
-      opts.decoy ? '💥' :
-      (opts.miss ? '💢' :
-       (opts.grade === 'perfect' ? '⭐' : '✨'));
+    // 💥 particle
+    const emo = opts.decoy ? '💥' : (opts.miss ? '💢' : '✨');
     spawnHitParticle(host, x, y, emo);
 
     // คะแนนเด้ง
@@ -130,16 +134,16 @@ export class DomRenderer {
     let text;
 
     if (opts.miss) {
-      cls  = 'sb-miss';
+      cls = 'sb-miss';
       text = 'MISS';
     } else if (opts.decoy || score < 0) {
-      cls  = 'sb-decoy';
+      cls = 'sb-decoy';
       text = `-${Math.abs(score)} Bomb`;
     } else if (opts.grade === 'perfect') {
-      cls  = 'sb-perfect';
+      cls = 'sb-perfect';
       text = `+${score} PERFECT`;
     } else {
-      cls  = 'sb-good';
+      cls = 'sb-good';
       text = `+${score}`;
     }
 
@@ -149,6 +153,7 @@ export class DomRenderer {
     popup.textContent = text;
 
     host.appendChild(popup);
+
     setTimeout(() => {
       if (popup.parentNode) popup.parentNode.removeChild(popup);
     }, 600);
