@@ -36,7 +36,7 @@ button{
   font-family:inherit;
 }
 
-/* === Shadow Breaker — layout / HUD / target styles (2025-11-23, FEVER FIX) === */
+/* === Shadow Breaker — layout / HUD / target styles (2025-11-23 RESEARCH READY) === */
 
 .sb-wrap{
   display:flex;
@@ -167,9 +167,7 @@ button{
   display:flex;
   align-items:center;
   gap:8px;
-  margin:2px auto 4px;
-  max-width:650px;
-  width:100%;
+  margin:2px 0 4px;
 }
 .fever-label{
   font-size:13px;
@@ -182,19 +180,12 @@ button{
   border-radius:999px;
   background:rgba(15,23,42,0.85);
   overflow:hidden;
-  max-width:480px;
-  margin-left:auto;
-  margin-right:auto;
 }
 .fever-fill{
   position:absolute;
   inset:0;
   transform-origin:left center;
   transform:scaleX(0);
-  display:block;
-  width:100%;
-  height:8px;
-  max-width:100%;
   background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ec4899);
 }
 .fever-status{
@@ -239,6 +230,26 @@ button{
     #020617;
   box-shadow:inset 0 0 0 1px rgba(15,23,42,0.9);
   overflow:hidden;
+}
+
+/* เปลี่ยนพื้นหลัง field ตาม phase ของบอส (visual cue) */
+.sb-wrap[data-phase="1"] .sb-field{
+  background:
+    radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
+    radial-gradient(circle at bottom right,rgba(37,99,235,0.18),transparent 55%),
+    #020617;
+}
+.sb-wrap[data-phase="2"] .sb-field{
+  background:
+    radial-gradient(circle at top left,rgba(251,191,36,0.24),transparent 55%),
+    radial-gradient(circle at bottom right,rgba(248,113,113,0.22),transparent 55%),
+    #020617;
+}
+.sb-wrap[data-phase="3"] .sb-field{
+  background:
+    radial-gradient(circle at top left,rgba(248,113,113,0.3),transparent 55%),
+    radial-gradient(circle at bottom right,rgba(168,85,247,0.32),transparent 55%),
+    #020617;
 }
 
 /* target */
