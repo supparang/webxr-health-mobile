@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-11-23 RESEARCH READY) ===
+// === js/engine.js — Shadow Breaker core (2025-11-23 PRODUCTION READY + GRADE) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -149,6 +149,8 @@ class ShadowBreakerGame {
     this.resRtNormal   = $('#res-rt-normal');
     this.resRtDecoy    = $('#res-rt-decoy');
     this.resParticipant= $('#res-participant');
+    // ✅ Grade DOM
+    this.resGrade      = $('#res-grade');
 
     // Target layer + renderer (LAZY)
     this.targetLayer = $('#target-layer');
@@ -197,7 +199,6 @@ class ShadowBreakerGame {
     this.currentBoss = BOSSES[0];
     this.bossHpMax = this.hpForBoss(0);
     this.bossHp    = this.bossHpMax;
-    this.currentPhase = 1;
 
     this.researchMeta = { participant:'', group:'', note:'' };
     this.hitLogs = [];
@@ -206,12 +207,6 @@ class ShadowBreakerGame {
   hpForBoss(idx){
     const base=this.config.baseBossHp;
     return Math.round(base*(1+idx*0.15));
-  }
-
-  bossPhaseFromRatio(r){
-    if(r>0.66) return 1;
-    if(r>0.33) return 2;
-    return 3;
   }
 
   wireUI() {
@@ -336,7 +331,7 @@ class ShadowBreakerGame {
       clearTimeout(this._feedbackTimer);
       this._feedbackTimer = null;
     }
-    if(kind!=='heal' && kind!==''){
+    if(kind!=='heal'){ // heal อยู่ให้นานหน่อย
       this._feedbackTimer = setTimeout(()=>{
         this.setFeedback('');
       }, 1400);
@@ -381,17 +376,16 @@ class ShadowBreakerGame {
     this._feverTimeout = null;
 
     this.bossIndex = 0;
-    this.currentBoss = BOSSES[this.bossIndex];
+    this.currentBoss = BOSSES[0];
     this.bossHpMax   = this.hpForBoss(this.bossIndex);
     this.bossHp      = this.bossHpMax;
-    this.currentPhase = 1;
 
     this.hitLogs = [];
 
     if(this.wrap){
       this.wrap.dataset.diff  = this.diff;
       this.wrap.dataset.boss  = String(this.bossIndex);
-      this.wrap.dataset.phase = String(this.currentPhase);
+      this.wrap.dataset.phase = '1';
     }
 
     // resize target ตาม diff (ถ้ามี renderer แล้ว)
@@ -460,22 +454,8 @@ class ShadowBreakerGame {
     const totalShots = this.hitCount + this.miss;
     const accuracy   = totalShots>0 ? (this.hitCount/totalShots)*100 : 0;
 
-    // --- RT analytics (ms) ---
-    const normalAges = [];
-    const decoyAges  = [];
-    for(const log of this.hitLogs){
-      if(log.ageMs == null) continue;
-      if(log.decoy){
-        if(log.grade === 'bomb') decoyAges.push(log.ageMs);
-      }else{
-        if(log.grade === 'perfect' || log.grade === 'good'){
-          normalAges.push(log.ageMs);
-        }
-      }
-    }
-    const mean = (arr)=> arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
-    const rtNormalMs = mean(normalAges);
-    const rtDecoyMs  = mean(decoyAges);
+    // ✅ คำนวณเกรด
+    const grade = this.computeGrade(accuracy, this.score, this.maxCombo, this.hitCount);
 
     this.resMode.textContent      = this.mode==='research'?'วิจัย':'ปกติ';
     this.resDiff.textContent      = this.diff;
@@ -485,11 +465,51 @@ class ShadowBreakerGame {
     this.resMiss.textContent      = String(this.miss);
     this.resAccuracy.textContent  = accuracy.toFixed(1)+' %';
     this.resTotalHits.textContent = String(this.hitCount);
-    this.resRtNormal.textContent  = normalAges.length ? rtNormalMs.toFixed(0)+' ms' : '-';
-    this.resRtDecoy.textContent   = decoyAges.length  ? rtDecoyMs.toFixed(0)+' ms'  : '-';
+    this.resRtNormal.textContent  = '-';
+    this.resRtDecoy.textContent   = '-';
     this.resParticipant.textContent = this.researchMeta.participant || '-';
+    if (this.resGrade) this.resGrade.textContent = grade;
 
     this.showView('result');
+  }
+
+  /* ------------------ Grade logic ------------------ */
+
+  /**
+   * ออกเกรด: SSS, SS, S, A, B, C
+   * - พื้นฐานใช้ Accuracy (%)
+   * - ปรับด้วยจำนวน Hit และ Max Combo เล็กน้อย เพื่อกันเคสตีแค่ไม่กี่เป้าแล้วได้เกรดสูงเกินไป
+   */
+  computeGrade(accuracy, score, maxCombo, hits){
+    // ถ้าเล่นน้อยมาก ข้อมูลยังไม่น่าเชื่อถือ → ไม่ให้เกรดสูง
+    if (hits < 10) {
+      return 'C';
+    }
+
+    const acc = accuracy; // 0–100
+
+    // SSS: แม่นมาก + เล่นเยอะ
+    if (acc >= 95 && hits >= 60 && maxCombo >= 30) {
+      return 'SSS';
+    }
+    // SS: แม่นสูง
+    if (acc >= 90 && hits >= 40) {
+      return 'SS';
+    }
+    // S: ดีมาก
+    if (acc >= 80 && hits >= 30) {
+      return 'S';
+    }
+    // A: ดี
+    if (acc >= 70 && hits >= 20) {
+      return 'A';
+    }
+    // B: พอใช้
+    if (acc >= 50) {
+      return 'B';
+    }
+    // ต่ำกว่านี้เป็น C
+    return 'C';
   }
 
   /* ------------------ BOSS ------------------ */
@@ -498,20 +518,23 @@ class ShadowBreakerGame {
     const boss=this.currentBoss;
     if(!boss) return;
 
-    const ratio= this.bossHpMax>0 ? clamp(this.bossHp/this.bossHpMax,0,1) : 0;
-    this.currentPhase = this.bossPhaseFromRatio(ratio);
-
     if (this.wrap) {
-      this.wrap.dataset.boss  = String(this.bossIndex);
-      this.wrap.dataset.phase = String(this.currentPhase);
+      this.wrap.dataset.boss = String(this.bossIndex);
+      // phase แบ่งคร่าว ๆ ตาม HP ratio
+      const ratio = this.bossHpMax>0 ? (this.bossHp/this.bossHpMax) : 1;
+      let phase = 1;
+      if (ratio <= 0.66 && ratio > 0.33) phase = 2;
+      else if (ratio <= 0.33) phase = 3;
+      this.wrap.dataset.phase = String(phase);
     }
 
     this.bossName.textContent = `Boss ${boss.id}/4 — ${boss.name}`;
     this.bossPortraitEmoji.textContent = boss.emoji;
     this.bossPortraitName.textContent  = boss.name;
     this.bossPortraitHint.textContent  =
-      `HP เหลือประมาณ ${Math.round(ratio*100)}%`;
+      `HP เหลือประมาณ ${Math.round((this.bossHp/this.bossHpMax)*100)}%`;
 
+    const ratio=clamp(this.bossHp/this.bossHpMax,0,1);
     this.bossFill.style.transform = `scaleX(${ratio})`;
     this.hpBossVal.textContent    = Math.round(ratio*100) + '%';
 
@@ -561,7 +584,6 @@ class ShadowBreakerGame {
     this.currentBoss = BOSSES[this.bossIndex];
     this.bossHpMax   = this.hpForBoss(this.bossIndex);
     this.bossHp      = this.bossHpMax;
-    this.currentPhase = 1;
     this.updateBossHUD();
     this.showBossIntro(this.currentBoss,{ onDone:()=>{} });
   }
@@ -683,7 +705,7 @@ class ShadowBreakerGame {
     if(age<=life*0.33) grade='perfect';
     else if(age<=life*0.66) grade='good';
 
-    if(t.decoy) this.handleDecoyHit(t, age);
+    if(t.decoy) this.handleDecoyHit(t);
     else this.handleHit(t,grade,age);
   }
 
@@ -733,25 +755,13 @@ class ShadowBreakerGame {
     this.setFeedback(grade==='perfect' ? 'perfect' : 'good');
     safePlay('sfx-hit');
 
-    const phase = this.currentPhase || 1;
-
     this.hitLogs.push({
       ts:(performance.now()-this._startTime)/1000,
       id:t.id,
       decoy:false,
       bossFace: !!t.bossFace,
       grade,
-      ageMs,
-      mode:this.mode,
-      diff:this.diff,
-      bossId:this.currentBoss?.id ?? 0,
-      bossName:this.currentBoss?.name ?? '',
-      phase,
-      feverOn:this.feverOn,
-      scoreAfter:this.score,
-      comboAfter:this.combo,
-      hpPlayer:this.playerHp,
-      hpBoss:this.bossHp
+      ageMs
     });
 
     if(this.bossHp<=0){
@@ -760,7 +770,7 @@ class ShadowBreakerGame {
     this.updateHUD();
   }
 
-  handleDecoyHit(t, ageMs){
+  handleDecoyHit(t){
     t.hit=true;
     this.targets.delete(t.id);
     if(this.renderer) this.renderer.removeTarget(t);
@@ -782,25 +792,11 @@ class ShadowBreakerGame {
     this.setFeedback('bomb');
     safePlay('sfx-hit');
 
-    const phase = this.currentPhase || 1;
-
     this.hitLogs.push({
       ts:(performance.now()-this._startTime)/1000,
       id:t.id,
       decoy:true,
-      bossFace: !!t.bossFace,
-      grade:'bomb',
-      ageMs,
-      mode:this.mode,
-      diff:this.diff,
-      bossId:this.currentBoss?.id ?? 0,
-      bossName:this.currentBoss?.name ?? '',
-      phase,
-      feverOn:this.feverOn,
-      scoreAfter:this.score,
-      comboAfter:this.combo,
-      hpPlayer:this.playerHp,
-      hpBoss:this.bossHp
+      grade:'bomb'
     });
 
     if(this.playerHp<=0){
@@ -836,25 +832,11 @@ class ShadowBreakerGame {
     this.setFeedback('miss');
     safePlay('sfx-hit');
 
-    const phase = this.currentPhase || 1;
-
     this.hitLogs.push({
       ts:(performance.now()-this._startTime)/1000,
       id:t.id,
       decoy:false,
-      bossFace: !!t.bossFace,
-      grade:'miss',
-      ageMs:null,
-      mode:this.mode,
-      diff:this.diff,
-      bossId:this.currentBoss?.id ?? 0,
-      bossName:this.currentBoss?.name ?? '',
-      phase,
-      feverOn:this.feverOn,
-      scoreAfter:this.score,
-      comboAfter:this.combo,
-      hpPlayer:this.playerHp,
-      hpBoss:this.bossHp
+      grade:'miss'
     });
 
     if(this.playerHp<=0){
@@ -888,13 +870,7 @@ class ShadowBreakerGame {
     }
     const header=[
       'participant','group','note',
-      'mode','difficulty',
-      'boss_id','boss_name','phase',
-      'timestamp_s','target_id',
-      'is_decoy','is_bossface',
-      'grade','age_ms',
-      'fever_on','score_after','combo_after',
-      'player_hp','boss_hp'
+      'timestamp_s','target_id','is_decoy','is_bossface','grade','age_ms'
     ];
     const rows=[header.join(',')];
     for(const log of this.hitLogs){
@@ -902,62 +878,14 @@ class ShadowBreakerGame {
         JSON.stringify(this.researchMeta.participant || ''),
         JSON.stringify(this.researchMeta.group || ''),
         JSON.stringify(this.researchMeta.note || ''),
-        log.mode,
-        log.diff,
-        log.bossId,
-        JSON.stringify(log.bossName || ''),
-        log.phase,
         log.ts.toFixed(3),
         log.id,
         log.decoy?1:0,
         log.bossFace?1:0,
         log.grade,
-        log.ageMs!=null?log.ageMs.toFixed(1):'',
-        log.feverOn?1:0,
-        log.scoreAfter,
-        log.comboAfter,
-        log.hpPlayer,
-        log.hpBoss
+        log.ageMs!=null?log.ageMs.toFixed(1):''
       ].join(','));
     }
-
-    // --- summary row (optional analytics) ---
-    const normalAges = [];
-    const decoyAges  = [];
-    for(const log of this.hitLogs){
-      if(log.ageMs == null) continue;
-      if(log.decoy){
-        if(log.grade === 'bomb') decoyAges.push(log.ageMs);
-      }else if(log.grade === 'perfect' || log.grade === 'good'){
-        normalAges.push(log.ageMs);
-      }
-    }
-    const mean = (arr)=> arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
-    const rtNormalMs = mean(normalAges);
-    const rtDecoyMs  = mean(decoyAges);
-
-    rows.push([
-      JSON.stringify(this.researchMeta.participant || ''),
-      JSON.stringify(this.researchMeta.group || ''),
-      JSON.stringify(this.researchMeta.note || ''),
-      'summary',
-      this.diff,
-      '',
-      JSON.stringify(''),
-      '',
-      '',
-      '',
-      '',
-      '',
-      'summary',
-      rtNormalMs?rtNormalMs.toFixed(1):'',
-      '',
-      this.score,
-      this.maxCombo,
-      this.miss,
-      this.hitCount
-    ].join(','));
-
     const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
