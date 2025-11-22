@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-11-22, diff-based duration) ===
+// === fitness/js/engine.js — Shadow Breaker core (2025-11-22, UX tuned) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -8,10 +8,11 @@ import { spawnHitParticle } from './particle.js';
 /*  CONFIG                                                            */
 /* ------------------------------------------------------------------ */
 
-// เวลาเล่นต่อรอบแยกตามระดับ
+const GAME_DURATION_DEFAULT = 60; // backup
+
 const DIFF_CONFIG = {
   easy: {
-    duration: 75,           // วินาที
+    duration: 45,               // ต่อเกม ~45 วิ
     spawnInterval: 950,
     targetLifetime: 1400,
     decoyRate: 0.14,
@@ -33,7 +34,7 @@ const DIFF_CONFIG = {
     sizePx: 100
   },
   hard: {
-    duration: 45,
+    duration: 75,
     spawnInterval: 650,
     targetLifetime: 1050,
     decoyRate: 0.28,
@@ -77,6 +78,7 @@ const BOSSES = [
 ];
 
 const $  = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
 const clamp = (v,a,b)=> v<a?a:(v>b?b:v);
 
 function safePlay(id){
@@ -133,6 +135,10 @@ class ShadowBreakerGame {
     this.bossIntroTitle  = $('#boss-intro-title');
     this.bossIntroDesc   = $('#boss-intro-desc');
 
+    // Feedback bubble
+    this.feedbackBubble  = $('#feedback-bubble');
+    this._feedbackTimer  = null;
+
     // Result
     this.resMode       = $('#res-mode');
     this.resDiff       = $('#res-diff');
@@ -145,10 +151,6 @@ class ShadowBreakerGame {
     this.resRtNormal   = $('#res-rt-normal');
     this.resRtDecoy    = $('#res-rt-decoy');
     this.resParticipant= $('#res-participant');
-
-    // Feedback bubble
-    this.feedbackEl     = $('#sb-feedback');
-    this._feedbackTimer = null;
 
     // Target layer + renderer (LAZY)
     this.targetLayer = $('#target-layer');
@@ -167,11 +169,12 @@ class ShadowBreakerGame {
     this.mode = 'normal';
     this.diff = 'normal';
     this.config = DIFF_CONFIG.normal;
-    this.gameDuration = this.config.duration || 60;
+
+    this.gameDuration = GAME_DURATION_DEFAULT;
+    this.timeLeft = this.gameDuration;
 
     this.running = false;
     this.ended   = false;
-    this.timeLeft = this.gameDuration;
     this._loopHandle = null;
     this._spawnTimer = null;
     this._startTime  = 0;
@@ -203,12 +206,11 @@ class ShadowBreakerGame {
   }
 
   hpForBoss(idx){
-    const base=this.config.baseBossHp;
+    const base=this.config.baseBossHp || DIFF_CONFIG.normal.baseBossHp;
     return Math.round(base*(1+idx*0.15));
   }
 
   wireUI() {
-    // menu
     const btnStartResearch = this.viewMenu.querySelector('[data-action="start-research"]');
     const btnStartNormal   = this.viewMenu.querySelector('[data-action="start-normal"]');
 
@@ -261,7 +263,7 @@ class ShadowBreakerGame {
       this.downloadCsv();
     });
 
-    // boss intro
+    // boss intro overlay
     this.bossIntro.addEventListener('pointerdown', () => {
       this.hideBossIntro();
     });
@@ -293,24 +295,23 @@ class ShadowBreakerGame {
     }
 
     this.config = DIFF_CONFIG[this.diff] || DIFF_CONFIG.normal;
-    this.gameDuration = this.config.duration || 60;
+    this.gameDuration = this.config.duration || GAME_DURATION_DEFAULT;
 
     this.resetState();
     this.config = DIFF_CONFIG[this.diff] || DIFF_CONFIG.normal;
-    this.gameDuration = this.config.duration || 60;
+    this.gameDuration = this.config.duration || GAME_DURATION_DEFAULT;
+    this.timeLeft = this.gameDuration;
 
     this.currentBoss = BOSSES[this.bossIndex];
     this.bossHpMax   = this.hpForBoss(this.bossIndex);
     this.bossHp      = this.bossHpMax;
 
-    // resize target ตาม diff (ถ้ามี renderer แล้ว)
     if (this.renderer) {
       this.renderer.sizePx = this.config.sizePx;
     }
 
     this.statMode.textContent = this.mode === 'research' ? 'Research' : 'Normal';
     this.statDiff.textContent = this.diff;
-    this.statTime.textContent = this.gameDuration.toFixed(1);
 
     this.updateHUD();
     this.updateBossHUD();
@@ -331,21 +332,16 @@ class ShadowBreakerGame {
     this.timeLeft= this.gameDuration;
     this._startTime = performance.now();
 
-    if (this.wrap) {
-      this.wrap.classList.remove('sb-finished');
-    }
-
     if (this.renderer) this.renderer.clear();
     this.targets.clear();
 
-    this._spawnTimer && clearInterval(this._spawnTimer);
+    if (this._spawnTimer) clearInterval(this._spawnTimer);
     this._spawnTimer = setInterval(()=>this.spawnTarget(), this.config.spawnInterval);
 
     const loop = (t)=>{
       if (!this.running) return;
       const elapsed = (t - this._startTime)/1000;
-      const total = this.gameDuration;
-      this.timeLeft = clamp(total - elapsed, 0, total);
+      this.timeLeft = clamp(this.gameDuration - elapsed, 0, this.gameDuration);
       this.statTime.textContent = this.timeLeft.toFixed(1);
       if (this.timeLeft<=0){
         this.stopGame('หมดเวลา');
@@ -368,9 +364,6 @@ class ShadowBreakerGame {
     this._feverTimeout && clearTimeout(this._feverTimeout);
     this._feverTimeout=null;
 
-    if (this.wrap) {
-      this.wrap.classList.add('sb-finished');
-    }
     if (this.renderer) this.renderer.clear();
     this.targets.clear();
 
@@ -412,7 +405,6 @@ class ShadowBreakerGame {
     this.bossFill.style.transform = `scaleX(${ratio})`;
     this.hpBossVal.textContent    = Math.round(ratio*100) + '%';
 
-    // เขย่าหน้าบอสถ้า HP ต่ำกว่า 25%
     if (ratio <= 0.25) {
       this.bossPortraitBox.classList.add('sb-shake');
     } else {
@@ -444,12 +436,10 @@ class ShadowBreakerGame {
   }
 
   onBossDefeated(){
-    // heal ผู้เล่นเล็กน้อยทุกครั้งที่ชนะบอส
     const heal = 20;
     this.playerHp = clamp(this.playerHp + heal, 0, 100);
     this.updateHUD();
-
-    this.showFeedback('heal', `ชนะบอส! HP ฟื้น +${heal} 💚`);
+    this.showHealFeedback(heal);
 
     this.bossIndex++;
     if(this.bossIndex>=BOSSES.length){
@@ -525,12 +515,10 @@ class ShadowBreakerGame {
 
     const id = this._nextTargetId++;
 
-    // --- ตัดสินใจว่าตัวนี้เป็น bomb / boss-face / เป้าปกติ ---
     const hpRatio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 1;
     let bossFace = false;
     let decoy    = false;
 
-    // ถ้า HP บอสเหลือน้อยกว่า 25% มีโอกาสสุ่มให้เป็น "หน้าบอส" มาตี
     if (hpRatio <= 0.25 && Math.random() < 0.35) {
       bossFace = true;
     } else {
@@ -550,7 +538,9 @@ class ShadowBreakerGame {
       createdAt: now,
       lifetime: this.config.targetLifetime,
       hit:false,
-      dom:null
+      _el:null,
+      _onPtr:null,
+      lastPos:null
     };
 
     this.targets.set(id,t);
@@ -561,15 +551,6 @@ class ShadowBreakerGame {
     setTimeout(()=>{
       const cur=this.targets.get(id);
       if(!cur || cur.hit) return;
-
-      // ถ้าเป็น bomb ปล่อยผ่าน ไม่ถือว่า miss
-      if (cur.decoy) {
-        this.targets.delete(cur.id);
-        if(this.renderer) this.renderer.removeTarget(cur);
-        // จะ log หรือไม่ log ก็ได้ อาจมองเป็น ignore
-        return;
-      }
-
       this.handleMiss(cur);
     }, this.config.targetLifetime+80);
   }
@@ -604,7 +585,6 @@ class ShadowBreakerGame {
 
     let dmg = grade==='perfect'?8:(grade==='good'?5:3);
 
-    // ถ้าเป็น "หน้าบอส" ให้ดาเมจ + คะแนนเพิ่มขึ้นอีกหน่อย
     if (t.bossFace) {
       baseScore = Math.round(baseScore * 1.6);
       dmg       = Math.round(dmg * 1.8);
@@ -626,15 +606,6 @@ class ShadowBreakerGame {
     this.bossHp = clamp(this.bossHp-dmg,0,this.bossHpMax);
     this.updateBossHUD();
 
-    // feedback bubble
-    if (t.bossFace && grade === 'perfect') {
-      this.showFeedback('perfect', 'ตีหน้า Boss ตรงเป๊ะ! ⭐');
-    } else if (grade === 'perfect') {
-      this.showFeedback('perfect');
-    } else {
-      this.showFeedback('good');
-    }
-
     if(this.renderer){
       this.renderer.spawnHitEffect(t,{
         grade,
@@ -644,13 +615,12 @@ class ShadowBreakerGame {
       });
     }
 
-    // particle ตรงเป้า
     if(this.wrap && t._el){
       const hostRect = this.wrap.getBoundingClientRect();
       const r = t._el.getBoundingClientRect();
       const px = r.left - hostRect.left + r.width/2;
       const py = r.top  - hostRect.top  + r.height/2;
-      const emo = t.bossFace ? this.currentBoss?.emoji || '💥'
+      const emo = t.bossFace ? (this.currentBoss?.emoji || '💥')
                              : (grade==='perfect'?'⭐':'💥');
       spawnHitParticle(this.wrap, px, py, emo);
     }
@@ -666,6 +636,8 @@ class ShadowBreakerGame {
       ageMs
     });
 
+    this.showFeedback(grade);
+
     if(this.bossHp<=0){
       this.onBossDefeated();
     }
@@ -677,18 +649,15 @@ class ShadowBreakerGame {
     this.targets.delete(t.id);
     if(this.renderer) this.renderer.removeTarget(t);
 
-    // กด bomb → หักคะแนน + ลด HP + reset combo แต่มองว่าเป็นโทษ ไม่ใช่ miss
     this.score=Math.max(0,this.score-60);
     this.combo=0;
     this.playerHp=clamp(this.playerHp-10,0,100);
     this.loseFeverOnMiss();
 
-    this.showFeedback('bomb');
-
     if(this.renderer){
       this.renderer.spawnHitEffect(t,{
         decoy:true,
-        grade:'bomb',
+        grade:'bad',
         score:-60
       });
     }
@@ -701,157 +670,132 @@ class ShadowBreakerGame {
       spawnHitParticle(this.wrap, px, py, '💥');
     }
 
-    safePlay('sfx-hit');
-
     this.hitLogs.push({
       ts:(performance.now()-this._startTime)/1000,
       id:t.id,
       decoy:true,
       bossFace:false,
-      grade:'bomb'
+      grade:'bomb',
+      ageMs:0
     });
 
-    if(this.playerHp<=0){
-      this.updateHUD();
-      this.stopGame('HP ผู้เล่นหมด');
-      return;
-    }
+    this.showFeedback('bomb');
     this.updateHUD();
   }
 
   handleMiss(t){
-    if(!this.targets.has(t.id) || t.hit) return;
+    t.hit=true;
     this.targets.delete(t.id);
     if(this.renderer) this.renderer.removeTarget(t);
 
     this.miss++;
     this.combo=0;
-    this.playerHp=clamp(this.playerHp-this.config.playerDamageOnMiss,0,100);
+    this.playerHp=clamp(this.playerHp - (this.config.playerDamageOnMiss||5),0,100);
     this.loseFeverOnMiss();
 
-    this.showFeedback('miss');
-
     if(this.renderer){
-      this.renderer.spawnHitEffect(t,{ miss:true, score:0 });
+      this.renderer.spawnHitEffect(t,{
+        miss:true,
+        grade:'miss',
+        score:0
+      });
     }
-    safePlay('sfx-hit');
 
     this.hitLogs.push({
       ts:(performance.now()-this._startTime)/1000,
       id:t.id,
-      decoy:!!t.decoy,
-      bossFace:!!t.bossFace,
-      grade:'miss'
+      decoy:false,
+      bossFace:false,
+      grade:'miss',
+      ageMs:t.lifetime
     });
 
-    if(this.playerHp<=0){
-      this.updateHUD();
-      this.stopGame('HP ผู้เล่นหมด');
-      return;
-    }
+    this.showFeedback('miss');
     this.updateHUD();
+
+    if(this.playerHp<=0){
+      this.stopGame('HP หมด');
+    }
   }
 
-  /* ------------------ HUD ------------------ */
+  /* ------------------ HUD / Feedback ------------------ */
 
   updateHUD(){
-    this.statScore.textContent   = String(this.score);
-    this.statHp.textContent      = String(this.playerHp);
-    this.statCombo.textContent   = String(this.combo);
-    this.statPerfect.textContent = String(this.perfect);
-    this.statMiss.textContent    = String(this.miss);
+    this.statHp.textContent      = Math.round(this.playerHp);
+    this.statScore.textContent   = this.score;
+    this.statCombo.textContent   = this.combo;
+    this.statPerfect.textContent = this.perfect;
+    this.statMiss.textContent    = this.miss;
+
+    const hpRatio = clamp(this.playerHp/100,0,1);
+    $('#hp-player-fill').style.transform = `scaleX(${hpRatio})`;
   }
 
-  /* ------------------ FEEDBACK BUBBLE ------------------ */
+  showFeedback(kind){
+    if(!this.feedbackBubble) return;
+    let text='';
+    let cls=kind;
 
-  showFeedback(kind, extraText) {
-    if (!this.feedbackEl) return;
+    if(kind==='perfect') text='ตรงเป๊ะ! ⭐';
+    else if(kind==='good' || kind==='bad') text='ใกล้แล้ว! 😀';
+    else if(kind==='miss') text='พลาดเป้า! ลองใหม่ 😅';
+    else if(kind==='bomb') text='โดนระเบิด! -60 คะแนน -10 HP';
 
-    let text = '';
-    let cls  = '';
+    this.feedbackBubble.textContent = text;
+    this.feedbackBubble.className = 'feedback-bubble ' + cls;
+    this.feedbackBubble.classList.remove('hidden');
 
-    switch (kind) {
-      case 'perfect':
-        text = 'ตรงเป๊ะ! ⭐';
-        cls  = 'perfect';
-        break;
-      case 'good':
-        text = 'ใกล้แล้ว! 😀';
-        cls  = 'good';
-        break;
-      case 'miss':
-        text = 'พลาดเป้า! ลองใหม่ 😅';
-        cls  = 'miss';
-        break;
-      case 'bomb':
-        text = 'โดนระเบิด! -60 คะแนน -10 HP';
-        cls  = 'bomb';
-        break;
-      case 'heal':
-        text = extraText || 'ชนะบอส! HP ฟื้นคืนแรง 💚';
-        cls  = 'heal';
-        break;
-      default:
-        text = extraText || '';
-        cls  = '';
-    }
-
-    if (!text) return;
-
-    this.feedbackEl.className = 'sb-feedback';
-    if (cls) this.feedbackEl.classList.add(cls);
-
-    this.feedbackEl.textContent = text;
-
-    this.feedbackEl.classList.remove('sb-show');
-    // force reflow
-    void this.feedbackEl.offsetWidth;
-    this.feedbackEl.classList.add('sb-show');
-
-    if (this._feedbackTimer) {
-      clearTimeout(this._feedbackTimer);
-    }
-    this._feedbackTimer = setTimeout(() => {
-      if (!this.feedbackEl) return;
-      this.feedbackEl.classList.remove('sb-show');
-    }, 1600);
+    clearTimeout(this._feedbackTimer);
+    this._feedbackTimer = setTimeout(()=>{
+      this.feedbackBubble.classList.add('hidden');
+    }, 900);
   }
 
-  /* ------------------ CSV (วิจัย) ------------------ */
+  showHealFeedback(amount){
+    if(!this.feedbackBubble) return;
+    this.feedbackBubble.textContent = `ฟื้นแรง +${amount} HP 💚`;
+    this.feedbackBubble.className = 'feedback-bubble heal';
+    this.feedbackBubble.classList.remove('hidden');
+
+    clearTimeout(this._feedbackTimer);
+    this._feedbackTimer = setTimeout(()=>{
+      this.feedbackBubble.classList.add('hidden');
+    }, 1200);
+  }
+
+  /* ------------------ CSV ------------------ */
 
   downloadCsv(){
-    if(this.mode!=='research'){
-      alert('การดาวน์โหลด CSV ใช้ในโหมดวิจัยเท่านั้น');
-      return;
-    }
     if(!this.hitLogs.length){
-      alert('ยังไม่มีข้อมูลรอบเล่นสำหรับบันทึก');
+      alert('ยังไม่มีข้อมูลรอบเล่นสำหรับบันทึก CSV');
       return;
     }
-    const header=[
-      'participant','group','note',
-      'timestamp_s','target_id','is_bomb','is_bossface','grade','age_ms'
+    const header = [
+      'time_sec','target_id','is_decoy','is_boss_face',
+      'grade','age_ms','mode','diff',
+      'participant','group','note'
     ];
-    const rows=[header.join(',')];
-    for(const log of this.hitLogs){
-      rows.push([
-        JSON.stringify(this.researchMeta.participant || ''),
-        JSON.stringify(this.researchMeta.group || ''),
-        JSON.stringify(this.researchMeta.note || ''),
-        log.ts.toFixed(3),
-        log.id,
-        log.decoy?1:0,
-        log.bossFace?1:0,
-        log.grade,
-        log.ageMs!=null?log.ageMs.toFixed(1):''
-      ].join(','));
-    }
-    const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    const pid=(this.researchMeta.participant || 'Pxxx').replace(/[^a-z0-9_-]/gi,'');
-    a.href=url;
-    a.download=`shadow-breaker-${pid}.csv`;
+    const rows = this.hitLogs.map(log => [
+      log.ts.toFixed(3),
+      log.id,
+      log.decoy?1:0,
+      log.bossFace?1:0,
+      log.grade,
+      Math.round(log.ageMs),
+      this.mode,
+      this.diff,
+      this.researchMeta.participant || '',
+      this.researchMeta.group || '',
+      this.researchMeta.note || ''
+    ]);
+
+    const csv = [header.join(','), ...rows.map(r=>r.join(','))].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const ts   = new Date().toISOString().replace(/[:.]/g,'-');
+    a.href = url;
+    a.download = `shadow-breaker-${this.mode}-${this.diff}-${ts}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -864,6 +808,5 @@ class ShadowBreakerGame {
 /* ------------------------------------------------------------------ */
 
 export function initShadowBreaker(){
-  const game=new ShadowBreakerGame();
-  window.__shadowBreaker = game;
+  new ShadowBreakerGame();
 }
