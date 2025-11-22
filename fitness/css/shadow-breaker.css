@@ -36,7 +36,7 @@ button{
   font-family:inherit;
 }
 
-/* === Shadow Breaker — layout / HUD / target styles (2025-11-23 RESEARCH READY) === */
+/* === Shadow Breaker — layout / HUD / target styles (2025-11-23, tuned) === */
 
 .sb-wrap{
   display:flex;
@@ -232,26 +232,6 @@ button{
   overflow:hidden;
 }
 
-/* เปลี่ยนพื้นหลัง field ตาม phase ของบอส (visual cue) */
-.sb-wrap[data-phase="1"] .sb-field{
-  background:
-    radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(37,99,235,0.18),transparent 55%),
-    #020617;
-}
-.sb-wrap[data-phase="2"] .sb-field{
-  background:
-    radial-gradient(circle at top left,rgba(251,191,36,0.24),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(248,113,113,0.22),transparent 55%),
-    #020617;
-}
-.sb-wrap[data-phase="3"] .sb-field{
-  background:
-    radial-gradient(circle at top left,rgba(248,113,113,0.3),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(168,85,247,0.32),transparent 55%),
-    #020617;
-}
-
 /* target */
 .sb-target{
   position:absolute;
@@ -278,9 +258,9 @@ button{
 }
 
 /* สีขอบเป้าตาม diff */
-.sb-wrap[data-diff="easy"]  .sb-target-inner{ border-color:#22c55e;} /* เขียว */
-.sb-wrap[data-diff="normal"] .sb-target-inner{ border-color:#38bdf8;} /* ฟ้า */
-.sb-wrap[data-diff="hard"] .sb-target-inner{ border-color:#f97316;}   /* ส้ม/แดง */
+.sb-wrap[data-diff="easy"]  .sb-target-inner{ border-color:#22c55e;}
+.sb-wrap[data-diff="normal"] .sb-target-inner{ border-color:#38bdf8;}
+.sb-wrap[data-diff="hard"] .sb-target-inner{ border-color:#f97316;}
 
 /* bomb */
 .sb-target[data-type="bad"] .sb-target-inner{
