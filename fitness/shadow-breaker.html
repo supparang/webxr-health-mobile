@@ -7,9 +7,8 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" type="image/x-icon" href="./favicon.ico" />
 
-  <!-- base layout จาก Rhythm Boxer -->
+  <!-- layout หลักจาก Rhythm Boxer + สไตล์เฉพาะของ Shadow Breaker -->
   <link rel="stylesheet" href="./css/rhythm-boxer.css" />
-  <!-- สไตล์เฉพาะของ Shadow Breaker -->
   <link rel="stylesheet" href="./css/shadow-breaker.css" />
 </head>
 <body>
@@ -50,9 +49,9 @@
       <div class="col">
         <label for="difficulty">ระดับความยาก</label>
         <select id="difficulty">
-          <option value="easy">ง่าย — เป้าใหญ่ / เด้งช้า / เวลานาน</option>
+          <option value="easy">ง่าย — เป้าใหญ่ / เด้งช้า</option>
           <option value="normal" selected>ปกติ — สมดุล</option>
-          <option value="hard">ยาก — เป้าเล็ก / ถี่ / หายเร็ว</option>
+          <option value="hard">ยาก — เป้าเล็ก / หายเร็ว</option>
         </select>
       </div>
     </div>
@@ -109,30 +108,56 @@
   <section id="view-play" class="card hidden">
     <div id="sb-wrap" class="sb-wrap" data-boss="0" data-diff="normal">
 
-      <!-- HUD ด้านบน -->
-      <div class="sb-hud">
-        <div class="sb-hp sb-hp-player">
-          <div class="sb-hp-label">
-            <span class="sb-hp-name">Player HP</span>
-            <span class="sb-hp-val" id="stat-hp">100</span>
+      <!-- HUD แถวบน -->
+      <div class="sb-hud-row">
+        <!-- meta ซ้ายบน -->
+        <div class="sb-meta" id="meta-top">
+          <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">Normal</span></div>
+          <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">normal</span></div>
+          <div class="sb-meta-row"><span>⏱ เวลา</span><span id="stat-time">60.0</span></div>
+          <div class="sb-meta-row"><span>⭐ Score</span><span id="stat-score">0</span></div>
+          <div class="sb-meta-row"><span>Combo</span><span id="stat-combo">0</span></div>
+          <div class="sb-meta-row"><span>Perfect</span><span id="stat-perfect">0</span></div>
+          <div class="sb-meta-row"><span>Miss</span><span id="stat-miss">0</span></div>
+        </div>
+
+        <!-- HP กลางบน -->
+        <div class="sb-hp-stack">
+          <div class="sb-hp sb-hp-player">
+            <div class="sb-hp-label">
+              <span class="sb-hp-name">Player HP</span>
+              <span class="sb-hp-val" id="stat-hp">100</span>
+            </div>
+            <div class="sb-hp-bar">
+              <div class="sb-hp-fill" id="hp-player-fill"></div>
+            </div>
           </div>
-          <div class="sb-hp-bar">
-            <div class="sb-hp-fill" id="hp-player-fill"></div>
+
+          <div class="sb-hp sb-hp-boss">
+            <div class="sb-hp-label">
+              <span class="sb-hp-name" id="boss-name">Boss 1/4 — Bubble Glove</span>
+              <span class="sb-hp-val" id="hp-boss-val">100%</span>
+            </div>
+            <div class="sb-hp-bar">
+              <div class="sb-hp-fill" id="boss-fill"></div>
+            </div>
           </div>
         </div>
-        <div class="sb-hp sb-hp-boss">
-          <div class="sb-hp-label">
-            <span class="sb-hp-name" id="boss-name">Boss 1/4 — Bubble Glove</span>
-            <span class="sb-hp-val" id="hp-boss-val">100%</span>
-          </div>
-          <div class="sb-hp-bar">
-            <div class="sb-hp-fill" id="boss-fill"></div>
-          </div>
+
+        <!-- รูปบอสขวาบน -->
+        <div class="sb-boss-portrait" id="boss-portrait">
+          <span id="boss-portrait-emoji">🐣</span>
         </div>
       </div>
 
-      <!-- FEVER bar อยู่ใต้ HP ไม่ชนอะไร -->
-      <div class="fever-wrap">
+      <!-- ข้อความใต้รูปบอส -->
+      <div class="boss-portrait-text">
+        <div id="boss-portrait-name">Bubble Glove</div>
+        <div id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
+      </div>
+
+      <!-- แถว FEVER -->
+      <div class="sb-fever-row">
         <div class="fever-label">FEVER</div>
         <div class="fever-bar">
           <div class="fever-fill" id="fever-fill"></div>
@@ -140,33 +165,13 @@
         <div class="fever-status" id="fever-status">FEVER</div>
       </div>
 
-      <!-- กล่องสเตตซ้ายบน -->
-      <div class="sb-meta" id="meta-top">
-        <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">Normal</span></div>
-        <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">normal</span></div>
-        <div class="sb-meta-row"><span>⏱ เวลา</span><span id="stat-time">60.0</span></div>
-        <div class="sb-meta-row"><span>⭐ Score</span><span id="stat-score">0</span></div>
-        <div class="sb-meta-row"><span>Combo</span><span id="stat-combo">0</span></div>
-        <div class="sb-meta-row"><span>Perfect</span><span id="stat-perfect">0</span></div>
-        <div class="sb-meta-row"><span>Miss</span><span id="stat-miss">0</span></div>
+      <!-- Bubble feedback กลางล่าง -->
+      <div id="sb-feedback" class="sb-feedback">
+        พร้อมเริ่มต่อสู้กับบอส! 💪
       </div>
 
-      <!-- Boss portrait -->
-      <div class="sb-boss-portrait" id="boss-portrait">
-        <span id="boss-portrait-emoji">🐣</span>
-      </div>
-      <div class="boss-portrait-text">
-        <div id="boss-portrait-name">Bubble Glove</div>
-        <div id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
-      </div>
-
-      <!-- พื้นที่เป้า -->
+      <!-- พื้นที่เป้า (อยู่กลางจอ) -->
       <div id="target-layer" class="sb-field"></div>
-
-      <!-- Feedback bubble ใต้จอ -->
-      <div id="feedback-bubble" class="feedback-bubble hidden">
-        <span id="feedback-text">พร้อมลุย! 💪</span>
-      </div>
 
       <!-- ปุ่มล่าง -->
       <div class="sb-controls">
@@ -201,7 +206,7 @@
           <tr><td class="label">Combo สูงสุด</td><td id="res-maxcombo">0</td></tr>
           <tr><td class="label">จำนวน Miss</td><td id="res-miss">0</td></tr>
           <tr><td class="label">Accuracy</td><td id="res-accuracy">0%</td></tr>
-          <tr><td class="label">จำนวน Hit (ไม่รวม bomb)</td><td id="res-totalhits">0</td></tr>
+          <tr><td class="label">จำนวน Hit</td><td id="res-totalhits">0</td></tr>
           <tr><td class="label">RT (normal)</td><td id="res-rt-normal">-</td></tr>
           <tr><td class="label">RT (decoy)</td><td id="res-rt-decoy">-</td></tr>
           <tr><td class="label">Participant ID</td><td id="res-participant">-</td></tr>
@@ -219,9 +224,9 @@
   <section id="boss-intro" class="boss-intro hidden">
     <div class="boss-intro-card">
       <div class="boss-intro-emoji" id="boss-intro-emoji">🐣</div>
-      <div class="boss-intro-name"  id="boss-intro-name">Bubble Glove</div>
+      <div class="boss-intro-name" id="boss-intro-name">Bubble Glove</div>
       <div class="boss-intro-title" id="boss-intro-title">บอสมือใหม่สายฟอง</div>
-      <div class="boss-intro-desc"  id="boss-intro-desc">
+      <div class="boss-intro-desc" id="boss-intro-desc">
         เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰
       </div>
       <div class="boss-intro-hint">
@@ -236,9 +241,8 @@
 <audio id="sfx-hit"    src="./sfx/hit.mp3" preload="auto"></audio>
 <audio id="sfx-fever"  src="./sfx/fever.mp3" preload="auto"></audio>
 <audio id="sfx-boss"   src="./sfx/boss-intro.mp3" preload="auto"></audio>
-<audio id="sfx-heal"   src="./sfx/heal.mp3" preload="auto"></audio>
 
 <!-- main script (entry) -->
-<script type="module" src="./js/main-shadow.js"></script>
+<script type="module" src="./js/engine.js"></script>
 </body>
 </html>
