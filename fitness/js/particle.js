@@ -1,27 +1,26 @@
-// === js/particle.js — Simple Emoji Particle (2025-11-24 Research Edition) ===
+// === js/particle.js — Simple emoji hit particle (2025-11-24) ===
 'use strict';
 
 /**
- * spawnHitParticle(parent, x, y, emoji = '💥')
- * - parent: element ภายในซีน (เช่น #target-layer หรือ #sb-wrap)
- * - x,y   : ตำแหน่งภายใน parent (พิกัด local)
- * - emoji : อีโมจิสำหรับเอฟเฟกต์ เช่น ⭐ 💥 ✨
+ * spawnHitParticle(host, x, y, emoji)
+ *  - host  : element ของ playfield (เช่น .sb-field)
+ *  - x, y  : ตำแหน่งภายใน host (พิกัด px)
+ *  - emoji : ตัวอีโมจิที่จะแสดง เช่น '✨', '💥', '💢'
  */
-export function spawnHitParticle(parent, x, y, emoji = '💥') {
-  if (!parent) return;
+export function spawnHitParticle(host, x, y, emoji) {
+  if (!host) return;
 
   const el = document.createElement('div');
   el.className = 'hitParticle';
-  el.textContent = emoji;
+  el.textContent = emoji || '✨';
 
   el.style.left = x + 'px';
   el.style.top  = y + 'px';
 
-  parent.appendChild(el);
+  host.appendChild(el);
 
+  // ให้แอนิเมชันใน CSS เล่นจบแล้วลบออก
   setTimeout(() => {
-    if (el.parentNode === parent) {
-      parent.removeChild(el);
-    }
+    if (el.parentNode) el.parentNode.removeChild(el);
   }, 480);
 }
