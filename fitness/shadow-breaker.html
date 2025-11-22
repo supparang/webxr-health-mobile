@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Shadow Breaker — HeroHealth</title>
 
-  <!-- favicon -->
-  <link rel="icon" href="./favicon.ico" type="image/x-icon"/>
+  <link rel="icon" href="./favicon.ico" />
 
+  <!-- ✅ ชี้ไปที่โฟลเดอร์ css ให้ตรงกับโครงจริง -->
+  <link rel="stylesheet" href="./css/rhythm-boxer.css" />
   <link rel="stylesheet" href="./css/shadow-breaker.css" />
 </head>
 <body>
@@ -36,7 +37,6 @@
     </div>
   </section>
 
-
   <!-- ------------------------------------------------------ -->
   <!--  VIEW: RESEARCH FORM                                   -->
   <!-- ------------------------------------------------------ -->
@@ -63,7 +63,6 @@
       <button class="primary" data-action="research-begin-play">▶ เริ่มเล่น</button>
     </div>
   </section>
-
 
   <!-- ------------------------------------------------------ -->
   <!--  VIEW: PLAY                                            -->
@@ -96,7 +95,7 @@
         </div>
       </div>
 
-      <!-- meta / stats -->
+      <!-- Meta panel -->
       <div class="sb-meta">
         <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">-</span></div>
         <div class="sb-meta-row"><span>Diff</span><span id="stat-diff">-</span></div>
@@ -129,7 +128,9 @@
     </div>
 
     <!-- Feedback -->
-    <div id="sb-feedback" class="sb-feedback"></div>
+    <div id="sb-feedback" class="sb-feedback">
+      โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯
+    </div>
 
     <!-- Play Field -->
     <div id="target-layer" class="sb-field"></div>
@@ -138,7 +139,6 @@
       <button data-action="stop-early">⏹ จบก่อนเวลา</button>
     </div>
   </section>
-
 
   <!-- ------------------------------------------------------ -->
   <!--  VIEW: RESULT                                          -->
@@ -159,9 +159,7 @@
           <tr><td class="label">จำนวน Miss</td><td id="res-miss">0</td></tr>
           <tr><td class="label">Accuracy</td><td id="res-accuracy">0%</td></tr>
           <tr><td class="label">จำนวน Hit</td><td id="res-totalhits">0</td></tr>
-
           <tr><td class="label">Grade</td><td id="res-grade">-</td></tr>
-
           <tr><td class="label">RT Normal</td><td id="res-rt-normal">-</td></tr>
           <tr><td class="label">RT Decoy</td><td id="res-rt-decoy">-</td></tr>
           <tr><td class="label">Participant ID</td><td id="res-participant">-</td></tr>
@@ -189,10 +187,10 @@
     </div>
   </div>
 
-</div><!-- wrap -->
+</div><!-- /sb-wrap -->
 
-<!-- JS -->
-<script src="./sfx.js"></script>
+<!-- ✅ ชี้ path JS ให้ตรงโฟลเดอร์ js -->
+<script src="./js/sfx.js"></script>
 <script type="module" src="./js/shadow-breaker.js"></script>
 
 </body>
