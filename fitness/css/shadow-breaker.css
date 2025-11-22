@@ -473,3 +473,23 @@ button.primary{
     min-height:300px;
   }
 }
+.hub-btn {
+  display:block;
+  text-align:center;
+  margin-top:12px;
+  padding:10px 14px;
+  border-radius:12px;
+  background:#1e293b;
+  color:#e2e8f0;
+  border:1px solid #334155;
+  transition:0.2s;
+}
+
+.hub-btn:hover {
+  background:#334155;
+}
+
+.hub-btn.small {
+  max-width:160px;
+  margin:10px auto 0;
+}
