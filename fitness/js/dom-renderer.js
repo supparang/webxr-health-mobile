@@ -1,12 +1,12 @@
-// === js/dom-renderer.js — DOM target renderer + FX (2025-11-22) ===
+// === js/dom-renderer.js — DOM target renderer + FX (2025-11-22 FULL) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
 
 export class DomRenderer {
   constructor(game, host, opts = {}) {
-    this.game = game;
-    this.host = host;
+    this.game   = game;
+    this.host   = host;
     this.sizePx = opts.sizePx || 100;
 
     this._rect = null;
@@ -25,35 +25,40 @@ export class DomRenderer {
     if (!this._rect) this.updateRect();
 
     const size = this.sizePx;
-    const el = document.createElement('div');
+    const el   = document.createElement('div');
     el.className = 'sb-target';
-    el.style.width = size + 'px';
+    el.style.width  = size + 'px';
     el.style.height = size + 'px';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
     inner.textContent = t.emoji || '🥊';
 
-    el.dataset.id = String(t.id);
+    el.dataset.id   = String(t.id);
     el.dataset.type = t.decoy ? 'bad' : 'good';
+
+    // ถ้าเป็น Boss Face ให้เพิ่มคลาสเฉพาะ
+    if (t.bossFace) {
+      el.classList.add('sb-boss-face');
+    }
+
     el.appendChild(inner);
 
     // วางสุ่มใน field (ไม่ติดขอบ)
     const pad = 18 + size / 2;
-    const w = this.host.clientWidth;
-    const h = this.host.clientHeight;
+    const w = this.host.clientWidth  || 1;
+    const h = this.host.clientHeight || 1;
     const x = pad + Math.random() * Math.max(10, w - pad * 2);
     const y = pad + Math.random() * Math.max(10, h - pad * 2);
 
     el.style.left = x + 'px';
-    el.style.top = y + 'px';
+    el.style.top  = y + 'px';
 
-    // เก็บตำแหน่งล่าสุดเผื่อใช้ตอนไม่มี DOM
+    // เก็บตำแหน่งล่าสุด (เผื่อไม่มี DOM ตอนหลัง)
     t.lastPos = { x, y };
 
     const onPointerDown = (ev) => {
       ev.preventDefault();
-      // คำนวณตำแหน่งสัมพัทธ์ใน host
       const rect = this.host.getBoundingClientRect();
       const cx = ev.clientX - rect.left;
       const cy = ev.clientY - rect.top;
@@ -62,24 +67,24 @@ export class DomRenderer {
 
     el.addEventListener('pointerdown', onPointerDown);
 
-    t._el = el;
-    t._onPtr = onPointerDown;
+    t._el   = el;
+    t._onPt = onPointerDown;
 
     this.host.appendChild(el);
   }
 
-  /* ----------------- ลบเป้า (แบบเงียบ) ----------------- */
+  /* ----------------- ลบเป้า ----------------- */
   removeTarget(t) {
     const el = t && t._el;
     if (!el) return;
     try {
-      if (t._onPtr) {
-        el.removeEventListener('pointerdown', t._onPtr);
+      if (t._onPt) {
+        el.removeEventListener('pointerdown', t._onPt);
       }
     } catch (e) {}
     if (el.parentNode) el.parentNode.removeChild(el);
-    t._el = null;
-    t._onPtr = null;
+    t._el   = null;
+    t._onPt = null;
   }
 
   /* ----------------- เอฟเฟกต์โดนตี / miss ----------------- */
@@ -87,19 +92,17 @@ export class DomRenderer {
     if (!this.host) return;
 
     const host = this.host;
-    const el = t && t._el;
+    const el   = t && t._el;
     let x, y;
 
     if (el && el.parentNode) {
-      const r = el.getBoundingClientRect();
+      const r  = el.getBoundingClientRect();
       const hr = host.getBoundingClientRect();
-      x = r.left + r.width / 2 - hr.left;
-      y = r.top + r.height / 2 - hr.top;
+      x = r.left + r.width  / 2 - hr.left;
+      y = r.top  + r.height / 2 - hr.top;
 
       // เป้าแตกกระจาย
       el.classList.add('sb-hit');
-
-      // ลบหลังแอนิเมชัน
       setTimeout(() => {
         if (el.parentNode) el.parentNode.removeChild(el);
       }, 220);
@@ -107,12 +110,15 @@ export class DomRenderer {
       x = t.lastPos.x;
       y = t.lastPos.y;
     } else {
-      x = host.clientWidth / 2;
-      y = host.clientHeight / 2;
+      x = (host.clientWidth  || 0) / 2;
+      y = (host.clientHeight || 0) / 2;
     }
 
-    // 💥 particle
-    const emo = opts.decoy ? '💥' : (opts.miss ? '💢' : '✨');
+    // 💥 particle ตรงเป้า
+    const emo =
+      opts.decoy ? '💥' :
+      (opts.miss ? '💢' :
+       (opts.grade === 'perfect' ? '⭐' : '✨'));
     spawnHitParticle(host, x, y, emo);
 
     // คะแนนเด้ง
@@ -124,16 +130,16 @@ export class DomRenderer {
     let text;
 
     if (opts.miss) {
-      cls = 'sb-miss';
+      cls  = 'sb-miss';
       text = 'MISS';
     } else if (opts.decoy || score < 0) {
-      cls = 'sb-decoy';
+      cls  = 'sb-decoy';
       text = `-${Math.abs(score)} Bomb`;
     } else if (opts.grade === 'perfect') {
-      cls = 'sb-perfect';
+      cls  = 'sb-perfect';
       text = `+${score} PERFECT`;
     } else {
-      cls = 'sb-good';
+      cls  = 'sb-good';
       text = `+${score}`;
     }
 
@@ -143,7 +149,6 @@ export class DomRenderer {
     popup.textContent = text;
 
     host.appendChild(popup);
-
     setTimeout(() => {
       if (popup.parentNode) popup.parentNode.removeChild(popup);
     }, 600);
