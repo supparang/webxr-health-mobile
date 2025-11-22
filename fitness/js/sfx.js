@@ -1,74 +1,89 @@
-// === js/sfx.js — Audio helper (2025-11-24, cooldown + pitch + volume) ===
+// === js/sfx.js — Simple SFX Manager (cooldown + random pitch + volume curve) ===
 'use strict';
 
-const LAST_PLAY = {};
-const COOLDOWN_MS = 80; // กัน spam เสียงซ้อนถี่เกินไป
+/**
+ * ใช้แบบ:
+ *   window.SFX.play('hit',   { group: 'hit',   intensity: 0.8 });
+ *   window.SFX.play('boss',  { group: 'boss',  intensity: 1.0 });
+ *   window.SFX.play('fever', { group: 'fever', intensity: 1.0 });
+ */
 
-function _play(id, { volume = 1, randomPitch = false, pitchSpread = 0.06 } = {}) {
-  const el = document.getElementById(id);
-  if (!el) return;
+(function(){
+  const SOURCES = {
+    hit:   './sfx/hit.mp3',
+    boss:  './sfx/boss-intro.mp3',
+    fever: './sfx/fever.mp3'
+  };
 
-  const now = (window.performance && performance.now) ? performance.now() : Date.now();
-  const last = LAST_PLAY[id] || 0;
-  if (now - last < COOLDOWN_MS) return; // cooldown
-  LAST_PLAY[id] = now;
+  const cache = {
+    sounds: Object.create(null),
+    lastPlay: Object.create(null)
+  };
 
-  try {
-    // reset
-    el.pause();
-    el.currentTime = 0;
+  function clamp(v, min, max){
+    return v < min ? min : (v > max ? max : v);
+  }
 
-    // pitch (ใช้ playbackRate)
-    if (randomPitch) {
-      const base = 1;
-      const spread = pitchSpread; // ±
-      const v = base + (Math.random() * 2 - 1) * spread;
-      el.playbackRate = Math.max(0.85, Math.min(1.15, v));
-    } else {
-      el.playbackRate = 1;
+  function getAudio(id){
+    let snd = cache.sounds[id];
+    if (!snd){
+      const src = SOURCES[id];
+      if (!src) return null;
+      snd = new Audio(src);
+      snd.preload = 'auto';
+      cache.sounds[id] = snd;
     }
-
-    // volume curve
-    el.volume = Math.max(0, Math.min(1, volume));
-
-    const p = el.play();
-    if (p && typeof p.catch === 'function') p.catch(()=>{});
-  } catch (e) {
-    // เงียบ ๆ ถ้าเล่นไม่ได้
-  }
-}
-
-// grade: 'perfect' | 'good' | 'bad'
-export function playHit(grade = 'good') {
-  let vol = 0.95;
-  let pitchSpread = 0.04;
-
-  if (grade === 'perfect') {
-    vol = 1.0;
-    pitchSpread = 0.07;   // perfect สนุกกว่า นิดนึง
-  } else if (grade === 'bad') {
-    vol = 0.85;
-    pitchSpread = 0.03;
+    // clone เพื่อให้เล่นซ้อนกันได้
+    return snd.cloneNode();
   }
 
-  _play('sfx-hit', { volume: vol, randomPitch: true, pitchSpread });
-}
+  /**
+   * opts:
+   *   - group:    กลุ่ม cooldown (เช่น 'hit', 'boss')
+   *   - minGap:   ช่วงห่างขั้นต่ำระหว่างเสียงใน group (ms)
+   *   - baseVolume: 0..1
+   *   - intensity: 0..1 เอาไปปรับ volume curve
+   *   - baseRate:    ค่า playbackRate หลัก
+   *   - pitchSpread: ระยะสุ่ม pitch รอบ baseRate (เช่น 0.07)
+   */
+  function play(id, opts){
+    opts = opts || {};
+    const group = opts.group || id;
+    const minGap = opts.minGap != null ? opts.minGap : 70;
 
-export function playBomb() {
-  // ระเบิด: เสียงดังหน่อย แต่ pitch ไม่ต้องแกว่งเยอะ
-  _play('sfx-bomb', { volume: 1.0, randomPitch: true, pitchSpread: 0.03 });
-}
+    const now = (typeof performance !== 'undefined' && performance.now)
+      ? performance.now()
+      : Date.now();
 
-export function playMiss() {
-  // miss: เบากว่า hit หน่อย
-  _play('sfx-miss', { volume: 0.85, randomPitch: false });
-}
+    const last = cache.lastPlay[group] || 0;
+    if (now - last < minGap){
+      return; // cooldown
+    }
+    cache.lastPlay[group] = now;
 
-export function playFever() {
-  // fever: ไม่ให้เล่นถี่เกินไปด้วย cooldown
-  _play('sfx-fever', { volume: 1.0, randomPitch: true, pitchSpread: 0.05 });
-}
+    const audio = getAudio(id);
+    if (!audio) return;
 
-export function playBoss() {
-  _play('sfx-boss', { volume: 1.0, randomPitch: false });
-}
+    const baseVol = opts.baseVolume != null ? opts.baseVolume : 0.7;
+    const intensity = clamp(opts.intensity != null ? opts.intensity : 0.6, 0, 1);
+
+    // volume curve: ให้ไม่เบาเกินไปตอน intensity ต่ำ
+    const vol = baseVol * (0.4 + intensity * 0.6);
+    audio.volume = clamp(vol, 0, 1);
+
+    const baseRate = opts.baseRate != null ? opts.baseRate : 1.0;
+    const spread   = opts.pitchSpread != null ? opts.pitchSpread : 0.07;
+    const jitter   = (Math.random() * 2 - 1) * spread;
+
+    audio.playbackRate = baseRate + jitter;
+    if (audio.playbackRate < 0.5) audio.playbackRate = 0.5;
+
+    audio.currentTime = 0;
+    const p = audio.play();
+    if (p && typeof p.catch === 'function'){
+      p.catch(()=>{ /* ignore autoplay error */ });
+    }
+  }
+
+  window.SFX = { play };
+})();
