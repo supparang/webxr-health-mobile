@@ -2,7 +2,6 @@
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
-import { playHit, playBomb, playMiss, playFever, playBoss } from './sfx.js';
 
 /* ------------------------------------------------------------------ */
 /*  CONFIG                                                            */
@@ -11,8 +10,8 @@ import { playHit, playBomb, playMiss, playFever, playBoss } from './sfx.js';
 const DIFF_CONFIG = {
   easy: {
     label: 'easy',
-    duration: 45,         // วินาทีต่อเกม
-    spawnInterval: 1100,  // ช้าสุด
+    duration: 45,
+    spawnInterval: 1100,
     targetLifetime: 1600,
     decoyRate: 0.12,
     baseBossHp: 80,
@@ -36,8 +35,8 @@ const DIFF_CONFIG = {
   hard: {
     label: 'hard',
     duration: 75,
-    spawnInterval: 600,   // ถี่กว่า easy ~2x
-    targetLifetime: 950,  // หายเร็ว
+    spawnInterval: 600,
+    targetLifetime: 950,
     decoyRate: 0.28,
     baseBossHp: 140,
     playerDamageOnMiss: 8,
@@ -80,6 +79,14 @@ const BOSSES = [
 
 const $  = (s) => document.querySelector(s);
 const clamp = (v,a,b)=> v<a?a:(v>b?b:v);
+
+/* --- SFX helper ---------------------------------------------------- */
+
+function playSfx(name, opts){
+  if (window.SFX && typeof window.SFX.play === 'function'){
+    window.SFX.play(name, opts || {});
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /*  CORE GAME CLASS                                                   */
@@ -182,7 +189,7 @@ class ShadowBreakerGame {
 
     this.fever    = 0;
     this.feverOn  = false;
-    this.feverUse = 0;   // ใช้ FEVER ไปกี่ครั้ง
+    this.feverUse = 0;
     this._feverTimeout = null;
 
     this.bossIndex = 0;
@@ -191,7 +198,7 @@ class ShadowBreakerGame {
     this.bossHp    = this.bossHpMax;
 
     this.researchMeta = { participant:'', group:'', note:'' };
-    this.hitLogs = []; // event-level logs สำหรับ CSV
+    this.hitLogs = [];
 
     if(this.wrap){
       this.wrap.dataset.diff  = this.diff;
@@ -345,7 +352,7 @@ class ShadowBreakerGame {
     this.config = DIFF_CONFIG[this.diff] || DIFF_CONFIG.normal;
     this.gameDuration = this.config.duration;
 
-    // รีเซต state หลัก (ไม่เรียก resetState() ตรง ๆ เพื่อรักษา meta)
+    // reset core state (ไม่ยุ่ง researchMeta)
     this.running = false;
     this.ended   = false;
     this.timeLeft = this.gameDuration;
@@ -386,7 +393,6 @@ class ShadowBreakerGame {
       this.wrap.dataset.phase = '1';
     }
 
-    // resize target ตาม diff (ถ้ามี renderer แล้ว)
     if (this.renderer) {
       this.renderer.sizePx = this.config.sizePx;
     }
@@ -449,10 +455,10 @@ class ShadowBreakerGame {
     if (this.renderer) this.renderer.clear();
     this.targets.clear();
 
-    const totalShots = this.hitCount + this.miss;  // bomb ไม่ถูกนับเป็น miss
+    const totalShots = this.hitCount + this.miss;
     const accuracy   = totalShots>0 ? (this.hitCount/totalShots)*100 : 0;
 
-    // Analytics RT
+    // analytics RT
     let sumRtNormal=0, cntRtNormal=0;
     let sumRtDecoy=0,  cntRtDecoy=0;
 
@@ -472,7 +478,7 @@ class ShadowBreakerGame {
     }
 
     const avgRtNormal = cntRtNormal ? (sumRtNormal/cntRtNormal) : 0;
-    const avgRtDecoy  = cntRtDecoy ? (sumRtDecoy/cntRtDecoy) : 0;
+    const avgRtDecoy  = cntRtDecoy  ? (sumRtDecoy/cntRtDecoy)  : 0;
 
     // Grade
     const grade = this.computeGrade({
@@ -504,7 +510,6 @@ class ShadowBreakerGame {
   /* ------------------ Grade logic ------------------ */
 
   computeGrade({accuracy, score, miss, bombs, diff}){
-    // เกณฑ์แบบง่าย: เน้น Accuracy + Score ปรับตาม diff
     const acc = accuracy || 0;
     const penalty = miss + bombs*1.5;
     const baseScore = score - penalty*10;
@@ -523,7 +528,6 @@ class ShadowBreakerGame {
       grade = 'B';
     }
 
-    // ถ้า diff = hard ให้อัปเกรดขึ้น 1 ขั้นถ้าไม่ใช่ SSS
     if(diff==='hard' && grade!=='SSS'){
       const order = ['C','B','A','S','SS','SSS'];
       const idx = order.indexOf(grade);
@@ -560,7 +564,6 @@ class ShadowBreakerGame {
     this.bossFill.style.transform = `scaleX(${ratio})`;
     this.hpBossVal.textContent    = Math.round(ratio*100) + '%';
 
-    // เขย่าหน้าบอสถ้า HP ต่ำกว่า 25%
     if (ratio <= 0.25) {
       this.bossPortraitBox.classList.add('sb-shake');
     } else {
@@ -577,7 +580,7 @@ class ShadowBreakerGame {
     this.bossIntro.classList.remove('hidden');
     this._introActive=true;
     this._introOnDone=opts.onDone || null;
-    playBoss();
+    playSfx('boss', { group:'boss', baseVolume:0.9, intensity:1.0, baseRate:1.0 });
   }
 
   hideBossIntro(){
@@ -592,7 +595,6 @@ class ShadowBreakerGame {
   }
 
   onBossDefeated(){
-    // heal ผู้เล่นเล็กน้อยทุกครั้งที่ชนะบอส
     const heal = 20;
     this.playerHp = clamp(this.playerHp + heal, 0, 100);
     this.setFeedback('heal');
@@ -648,7 +650,7 @@ class ShadowBreakerGame {
     if(this.feverOn) return;
     this.feverOn=true;
     this.feverUse++;
-    playFever();
+    playSfx('fever', { group:'fever', baseVolume:0.85, intensity:1.0, baseRate:1.05 });
     this.updateFeverHUD();
     this._feverTimeout && clearTimeout(this._feverTimeout);
     this._feverTimeout = setTimeout(()=>{
@@ -663,7 +665,6 @@ class ShadowBreakerGame {
   spawnTarget(){
     if(!this.running) return;
 
-    // LAZY attach renderer + host
     if(!this.renderer || !this.renderer.host){
       this.targetLayer = document.querySelector('#target-layer');
       if(this.targetLayer){
@@ -678,12 +679,10 @@ class ShadowBreakerGame {
 
     const id = this._nextTargetId++;
 
-    // --- ตัดสินใจว่าตัวนี้เป็น bomb / boss-face / เป้าปกติ ---
     const hpRatio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 1;
     let bossFace = false;
     let decoy    = false;
 
-    // ถ้า HP บอสเหลือน้อยกว่า 25% มีโอกาสสุ่มให้เป็น "หน้าบอส" มาตี
     if (hpRatio <= 0.25 && Math.random() < 0.35) {
       bossFace = true;
     } else {
@@ -699,7 +698,7 @@ class ShadowBreakerGame {
       id,
       emoji,
       decoy,
-      bossFace,   // flag หน้าบอส
+      bossFace,
       createdAt: now,
       lifetime: this.config.targetLifetime,
       hit:false,
@@ -749,7 +748,6 @@ class ShadowBreakerGame {
 
     let dmg = grade==='perfect'?8:(grade==='good'?5:3);
 
-    // ถ้าเป็น "หน้าบอส" ให้ดาเมจ + คะแนนเพิ่มขึ้นอีกหน่อย
     if (t.bossFace) {
       baseScore = Math.round(baseScore * 1.6);
       dmg       = Math.round(dmg * 1.8);
@@ -781,7 +779,15 @@ class ShadowBreakerGame {
     }
 
     this.setFeedback(grade==='perfect' ? 'perfect' : 'good');
-    playHit(grade); // 🔊 ใช้ pitch/volume ตามเกรด
+
+    const intensity = grade==='perfect' ? 1.0 : (grade==='good' ? 0.75 : 0.55);
+    playSfx('hit', {
+      group:'hit',
+      intensity,
+      baseVolume:0.8,
+      baseRate:1.0,
+      pitchSpread:0.06
+    });
 
     const ratio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
     let phase = 1;
@@ -816,7 +822,6 @@ class ShadowBreakerGame {
     this.targets.delete(t.id);
     if(this.renderer) this.renderer.removeTarget(t);
 
-    // กด bomb → หักคะแนน + ลด HP + reset combo แต่ "ไม่" นับ Miss
     this.score=Math.max(0,this.score-60);
     this.combo=0;
     this.playerHp=clamp(this.playerHp-10,0,100);
@@ -832,7 +837,14 @@ class ShadowBreakerGame {
     }
 
     this.setFeedback('bomb');
-    playBomb();
+
+    playSfx('hit', {
+      group:'bomb',
+      intensity:1.0,
+      baseVolume:0.85,
+      baseRate:0.95,
+      pitchSpread:0.1
+    });
 
     const ratio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
     let phase = 1;
@@ -867,7 +879,6 @@ class ShadowBreakerGame {
   handleMiss(t){
     if(!this.targets.has(t.id) || t.hit) return;
 
-    // ถ้าเป็น bomb แล้วปล่อยให้หายไป → ไม่ถือเป็น miss แค่หายจากจอเฉย ๆ
     if(t.decoy){
       this.targets.delete(t.id);
       if(this.renderer) this.renderer.removeTarget(t);
@@ -887,7 +898,14 @@ class ShadowBreakerGame {
     }
 
     this.setFeedback('miss');
-    playMiss();
+
+    playSfx('hit', {
+      group:'miss',
+      intensity:0.6,
+      baseVolume:0.7,
+      baseRate:0.9,
+      pitchSpread:0.05
+    });
 
     const ratio = this.bossHpMax>0 ? this.bossHp/this.bossHpMax : 1;
     let phase = 1;
@@ -929,7 +947,7 @@ class ShadowBreakerGame {
     this.statMiss.textContent    = String(this.miss);
   }
 
-  /* ------------------ CSV (วิจัย) ------------------ */
+  /* ------------------ CSV ------------------ */
 
   downloadCsv(){
     if(this.mode!=='research'){
@@ -944,7 +962,7 @@ class ShadowBreakerGame {
     const header = [
       'participant','group','note',
       'difficulty',
-      'event_type',          // hit / miss / bomb
+      'event_type',
       'timestamp_s',
       'target_id',
       'boss_id',
@@ -963,7 +981,7 @@ class ShadowBreakerGame {
 
     for(const log of this.hitLogs){
       rows.push([
-        JSON.stringify(this.researchMeta.participant || ''), // กันคอมมา
+        JSON.stringify(this.researchMeta.participant || ''),
         JSON.stringify(this.researchMeta.group || ''),
         JSON.stringify(this.researchMeta.note || ''),
         this.diff,
