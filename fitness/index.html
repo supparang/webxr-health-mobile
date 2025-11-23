@@ -3,122 +3,292 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>VR Fitness Academy</title>
-  <link rel="icon" href="favicon.ico"/>
-  <link rel="stylesheet" href="hub.css"/>
+  <title>VR Fitness Academy — Splash</title>
+
+  <!-- Favicon ภายใต้ /fitness/ -->
+  <link rel="icon" href="favicon.ico" type="image/x-icon"/>
+
   <style>
+    :root{
+      color-scheme: dark;
+    }
+    *{
+      box-sizing:border-box;
+    }
     body{
       margin:0;
       min-height:100vh;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,0.2),transparent 55%),
-        radial-gradient(circle at bottom right,rgba(236,72,153,0.24),transparent 55%),
-        #020617;
       color:#e5e7eb;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.32), transparent 55%),
+        #020617;
       display:flex;
       align-items:center;
       justify-content:center;
+      padding:16px;
     }
-    .vf-splash{
+    .vf-wrap{
+      width:100%;
+      max-width:880px;
+      border-radius:28px;
+      padding:28px 22px 26px;
+      background:
+        radial-gradient(circle at top left, rgba(59,130,246,0.35), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(236,72,153,0.24), transparent 55%),
+        rgba(15,23,42,0.96);
+      box-shadow:
+        0 0 0 1px rgba(15,23,42,0.9),
+        0 32px 80px rgba(15,23,42,0.95);
+    }
+    header{
       text-align:center;
-      padding:24px 16px 32px;
-      max-width:480px;
+      margin-bottom:18px;
     }
-    .vf-logo{
-      font-size:14px;
-      letter-spacing:.18em;
+    .vf-kicker{
+      font-size:13px;
+      letter-spacing:.3em;
       text-transform:uppercase;
-      opacity:.8;
-      margin-bottom:4px;
+      color:#a5b4fc;
+      margin-bottom:6px;
     }
-    .vf-title{
-      font-size:30px;
-      margin:4px 0 6px;
+    h1{
+      margin:0 0 10px;
+      font-size:28px;
+      line-height:1.35;
     }
-    .vf-sub{
+    h1 span.highlight{
+      color:#4ade80;
+      text-shadow:0 0 18px rgba(74,222,128,0.5);
+    }
+    .vf-subtitle{
+      margin:0;
       font-size:14px;
-      opacity:.86;
-      margin:0 0 18px;
+      opacity:.9;
     }
-    .vf-pill{
+    .vf-desc{
+      margin-top:8px;
+      font-size:13px;
+      opacity:.86;
+    }
+
+    .vf-badges{
+      margin-top:16px;
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+    }
+    .vf-badge{
+      font-size:11px;
+      padding:5px 10px 6px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.6);
+      background:rgba(15,23,42,0.92);
       display:inline-flex;
       align-items:center;
       gap:6px;
-      font-size:12px;
-      padding:4px 10px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.9);
-      border:1px solid rgba(148,163,184,0.7);
-      margin-bottom:16px;
+      opacity:.95;
     }
-    .vf-buttons{
+
+    .vf-main{
+      margin-top:24px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:18px;
+      align-items:stretch;
+    }
+    .vf-left{
+      flex:1 1 260px;
       display:flex;
       flex-direction:column;
       gap:10px;
-      margin-top:6px;
     }
-    .vf-btn{
-      text-decoration:none;
-      border-radius:999px;
-      padding:10px 18px;
-      font-size:15px;
+    .vf-right{
+      flex:1 1 220px;
       display:flex;
-      justify-content:center;
-      align-items:center;
-      gap:8px;
-      border:none;
-      cursor:pointer;
-      transition:transform .13s ease, box-shadow .13s ease, filter .13s ease;
+      flex-direction:column;
+      gap:10px;
+      font-size:13px;
+      opacity:.92;
     }
-    .vf-btn-primary{
+
+    .vf-tip{
+      padding:9px 12px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.9);
+      border:1px solid rgba(148,163,184,0.5);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:13px;
+    }
+
+    .vf-btn-main,
+    .vf-btn-secondary,
+    .vf-btn-ghost{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      border-radius:999px;
+      padding:11px 18px;
+      font-size:15px;
+      text-decoration:none;
+      cursor:pointer;
+      border:none;
+      outline:none;
+      transition:
+        transform .13s ease-out,
+        box-shadow .13s ease-out,
+        filter .13s ease-out;
+      white-space:nowrap;
+    }
+    .vf-btn-main{
       background:linear-gradient(120deg,#22c55e,#4ade80);
       color:#052e16;
-      box-shadow:0 18px 48px rgba(22,163,74,0.85);
+      box-shadow:0 18px 45px rgba(34,197,94,0.9);
+      font-weight:600;
     }
     .vf-btn-secondary{
       background:rgba(15,23,42,0.96);
       color:#e5e7eb;
-      border:1px solid rgba(148,163,184,0.7);
-      box-shadow:0 16px 42px rgba(15,23,42,0.95);
+      border:1px solid rgba(96,165,250,0.9);
+      box-shadow:0 16px 38px rgba(15,23,42,0.95);
+      font-weight:500;
     }
-    .vf-btn:hover{
+    .vf-btn-ghost{
+      background:transparent;
+      color:#e5e7eb;
+      border:1px dashed rgba(148,163,184,0.6);
+      font-size:12px;
+      padding:7px 14px;
+      align-self:flex-start;
+    }
+    .vf-btn-main:hover,
+    .vf-btn-secondary:hover,
+    .vf-btn-ghost:hover{
       transform:translateY(-1px) scale(1.02);
       filter:brightness(1.05);
     }
-    .vf-btn:active{
+    .vf-btn-main:active,
+    .vf-btn-secondary:active,
+    .vf-btn-ghost:active{
       transform:translateY(1px) scale(.97);
-      box-shadow:0 10px 26px rgba(15,23,42,0.9);
+      box-shadow:0 8px 20px rgba(15,23,42,0.92);
     }
-    .vf-foot{
+
+    .vf-device-list{
+      list-style:none;
+      padding:0;
+      margin:0;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+    .vf-device-list li{
+      padding:5px 9px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.45);
+      background:rgba(15,23,42,0.9);
       font-size:11px;
-      opacity:.7;
+    }
+
+    .vf-footer{
       margin-top:16px;
+      font-size:11px;
+      text-align:center;
+      opacity:.7;
+    }
+
+    @media (max-width:720px){
+      .vf-wrap{
+        padding:22px 16px 20px;
+      }
+      h1{
+        font-size:22px;
+      }
+      .vf-main{
+        flex-direction:column;
+      }
+      .vf-left, .vf-right{
+        width:100%;
+      }
+      .vf-btn-main,
+      .vf-btn-secondary{
+        width:100%;
+      }
     }
   </style>
 </head>
 <body>
-  <main class="vf-splash">
-    <div class="vf-logo">VR FITNESS ACADEMY</div>
-    <h1 class="vf-title">พร้อมออกกำลังกายใน Metaverse แล้วหรือยัง?</h1>
-    <p class="vf-sub">
-      ชุดเกม VR Fitness 4 ด่าน: Shadow Breaker, Rhythm Boxer, Jump-Duck, Balance-Hold<br/>
-      เล่นได้ทั้งมือถือ + แว่น VR / PC / Tablet
-    </p>
-    <div class="vf-pill">แนะนำเริ่มจาก Shadow Breaker แล้วต่อ Rhythm Boxer 💪🎵</div>
+  <div class="vf-wrap">
+    <header>
+      <div class="vf-kicker">VR FITNESS ACADEMY</div>
+      <h1>
+        พร้อมออกกำลังกายใน<br/>
+        <span class="highlight">Metaverse</span> แล้วหรือยัง?
+      </h1>
+      <p class="vf-subtitle">
+        ชุดเกม VR Fitness 4 ด้าน: Shadow Breaker, Rhythm Boxer, Jump-Duck, Balance-Hold
+      </p>
+      <p class="vf-desc">
+        เล่นได้ทั้งมือถือ + ใส่แว่น VR / PC / Tablet — ใช้ได้ทั้งเพื่อการสอนและทดลองวิจัยด้าน VR Fitness
+      </p>
 
-    <div class="vf-buttons">
-      <a class="vf-btn vf-btn-primary" href="hub.html">
-        🚀 เข้าสู่ Hub เลือกเกม
-      </a>
-      <a class="vf-btn vf-btn-secondary" href="vr-shadow-breaker.html">
-        🥽 ทดลองโหมด VR — Shadow Breaker
-      </a>
+      <div class="vf-badges">
+        <div class="vf-badge">🥊 Cardio Boxing</div>
+        <div class="vf-badge">🎵 Rhythm Training</div>
+        <div class="vf-badge">🦘 Jump &amp; Duck</div>
+        <div class="vf-badge">🧘‍♀️ Balance &amp; Posture</div>
+      </div>
+    </header>
+
+    <div class="vf-main">
+      <div class="vf-left">
+        <div class="vf-tip">
+          💡 <span>แนะนำเริ่มจาก <strong>Shadow Breaker</strong> แล้วต่อด้วย <strong>Rhythm Boxer</strong> 💪🎶</span>
+        </div>
+
+        <!-- ปุ่มเข้า HUB เลือกเกม -->
+        <a href="hub.html" class="vf-btn-main">
+          🚀 เข้าสู่ Hub เลือกเกม
+        </a>
+
+        <!-- ปุ่มทดลองโหมด VR Shadow Breaker -->
+        <a href="vr-shadow-breaker.html" class="vf-btn-secondary">
+          🎧 ทดลองโหมด VR — Shadow Breaker
+        </a>
+      </div>
+
+      <div class="vf-right">
+        <div>
+          <strong>โหมดการใช้งาน</strong>
+          <ul class="vf-device-list" style="margin-top:6px;">
+            <li>Normal Mode — ใช้สอน / เล่นสนุก</li>
+            <li>Research Mode — เก็บ CSV (event + session)</li>
+          </ul>
+        </div>
+
+        <div style="margin-top:10px;">
+          <strong>อุปกรณ์ที่รองรับ</strong>
+          <ul class="vf-device-list" style="margin-top:6px;">
+            <li>📱 Smartphone + VR Box / Cardboard</li>
+            <li>💻 PC / Notebook (Chrome)</li>
+            <li>🖱 ใช้เมาส์ / จอย / Controller ได้</li>
+          </ul>
+        </div>
+
+        <button class="vf-btn-ghost" type="button">
+          ℹ ใช้งานสำหรับการสอน / วิจัยด้าน VR Fitness — Prototype Build
+        </button>
+      </div>
     </div>
 
-    <div class="vf-foot">
-      ใช้งานเพื่อการสอน / วิจัยด้าน VR Fitness — Prototype Build
+    <div class="vf-footer">
+      ใช้เพื่อการศึกษาและวิจัยเท่านั้น — VR Fitness Academy Prototype Build
     </div>
-  </main>
+  </div>
 </body>
 </html>
