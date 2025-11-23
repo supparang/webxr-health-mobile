@@ -1,4 +1,4 @@
-// === js/dom-renderer.js — DOM field + FX (2025-11-24 v4) ===
+// === js/dom-renderer.js — DOM field + FX (2025-11-24 v5) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
@@ -11,7 +11,6 @@ export class DomRenderer {
     this.targets = new Map(); // id → { el, inner, onPtr }
 
     if (this.host) {
-      // ให้เป็น relative เสมอ และปิด gesture scroll บนมือถือ
       if (!this.host.style.position || this.host.style.position === 'static') {
         this.host.style.position = 'relative';
       }
@@ -81,7 +80,7 @@ export class DomRenderer {
 
     this.host.appendChild(outer);
 
-    // เก็บตำแหน่งแบบ normalized ไว้ใช้ตอนทำ effect
+    // เก็บข้อมูลไว้ใน t ด้วย เผื่อ engine ลบออกจาก Map ก่อน
     t.x_norm  = rect.width  > 0 ? x / rect.width  : 0.5;
     t.y_norm  = rect.height > 0 ? y / rect.height : 0.5;
     t.size_px = this.sizePx;
@@ -91,19 +90,22 @@ export class DomRenderer {
     this.targets.set(t.id, { el: outer, inner, onPtr });
   }
 
-  // engine.handleHit / handleMiss / handleDecoyHit เรียกอันนี้ก่อน spawnHitEffect
   removeTarget(t) {
-    const rec = this.targets.get(t.id);
-    if (!rec) return;
-    const { el, onPtr } = rec;
+    if (!this.host) return;
+
+    const rec   = this.targets.get(t.id);
+    const el    = rec?.el   || t._el;
+    const onPtr = rec?.onPtr || t._onPtr;
+
+    if (!el) return;
 
     el.classList.add('sb-hit');
     if (onPtr) el.removeEventListener('pointerdown', onPtr);
 
-    // ยังไม่ลบจาก Map ทันที เพื่อให้ spawnHitEffect ใช้ตำแหน่งได้
+    // ลบ element ทิ้งหลังอนิเมชัน
     setTimeout(() => {
       if (el.parentNode === this.host) this.host.removeChild(el);
-      this.targets.delete(t.id);
+      if (this.targets.has(t.id)) this.targets.delete(t.id);
     }, 220);
   }
 
@@ -115,12 +117,13 @@ export class DomRenderer {
     const hostRect = this.host.getBoundingClientRect();
     let cx, cy;
 
-    const rec = this.targets.get(t.id);
-    if (rec && rec.el.isConnected) {
-      const r = rec.el.getBoundingClientRect();
+    // ใช้ตำแหน่ง DOM จริงก่อน ถ้าไม่มีค่อย fallback ไปใช้ normalized
+    const elFromT = t._el;
+    if (elFromT && elFromT.isConnected) {
+      const r = elFromT.getBoundingClientRect();
       cx = r.left + r.width  / 2 - hostRect.left;
       cy = r.top  + r.height / 2 - hostRect.top;
-    } else if (t.x_norm != null && t.y_norm != null && this.bounds) {
+    } else if (this.bounds && t.x_norm != null && t.y_norm != null) {
       cx = t.x_norm * this.bounds.width;
       cy = t.y_norm * this.bounds.height;
     } else {
@@ -128,7 +131,7 @@ export class DomRenderer {
       cy = hostRect.height / 2;
     }
 
-    // 1) score popup (Perfect / Good / Miss / Bomb)
+    // 1) popup คะแนน
     if (typeof opts.score === 'number') {
       const badge = document.createElement('div');
       let cls  = 'sb-fx-score';
@@ -150,7 +153,7 @@ export class DomRenderer {
       }, 650);
     }
 
-    // 2) emoji particle 💥 / ✨ / 💣 / 💢
+    // 2) อนุภาค emoji
     let emo = '💥';
     if (opts.decoy)         emo = '💣';
     else if (opts.miss)     emo = '💢';
