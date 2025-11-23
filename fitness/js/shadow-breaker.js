@@ -1,5 +1,10 @@
-// === js/shadow-breaker.js — Shadow Breaker bootstrap (2025-11-24) === 
+// === js/shadow-breaker.js — Shadow Breaker bootstrap (2025-11-24 FULL) ===
 'use strict';
+
+// engine.js ต้องมี:
+//   export function initShadowBreaker()
+//   export function startGame()
+// (ฉบับที่แก้ให้ตรงชื่อ startGame แล้ว)
 
 import { startGame } from './engine.js';
 
@@ -7,9 +12,12 @@ function applyUrlPreset() {
   try {
     const params = new URLSearchParams(window.location.search);
     const diff = params.get('diff');
+    if (!diff) return;
 
     const diffSel = document.getElementById('difficulty');
-    if (diffSel && diff && ['easy','normal','hard'].includes(diff)) {
+    if (!diffSel) return;
+
+    if (['easy','normal','hard'].includes(diff)) {
       diffSel.value = diff;
     }
   } catch (e) {
@@ -17,10 +25,8 @@ function applyUrlPreset() {
   }
 }
 
+// เมื่อโหลด DOM เสร็จ → apply preset → startGame()
 window.addEventListener('DOMContentLoaded', () => {
-  // ตั้งค่า diff จาก URL (ถ้ามี) ก่อนสร้างเกม
   applyUrlPreset();
-
-  // สร้างเกม + wire ปุ่มทั้งหมด
-  startGame();
+  startGame();   // ← เรียก engine.js (หลังแก้ exports แล้วจะไม่ error)
 });
