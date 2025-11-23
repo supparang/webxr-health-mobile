@@ -141,6 +141,8 @@ class ShadowBreakerGame {
     this.sessionSummaries = [];
     this.sessionEnv       = null;
     this._telemetryWired  = false;
+    this.sessionPhase     = 'single'; // pre / post / single
+    this.runIndex         = 0;
 
     this.resetState();
     this.wireUI();
@@ -284,6 +286,13 @@ class ShadowBreakerGame {
       const id    = $('#research-id').value.trim();
       const group = $('#research-group').value.trim();
       const note  = $('#research-note').value.trim();
+
+      // ถ้ามี select #phase-time ให้ใช้เป็น training_phase (pre/post)
+      const phaseSel = document.getElementById('phase-time');
+      if (phaseSel && phaseSel.value) {
+        this.sessionPhase = phaseSel.value;
+      }
+
       this.mode = 'research';
       this.researchMeta = { participant:id||'-', group:group||'-', note:note||'-' };
       this.startFromMenu();
@@ -393,6 +402,9 @@ class ShadowBreakerGame {
       viewport_h: window.innerHeight || 0,
       input_mode: (('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) ? 'touch' : 'mouse'
     };
+
+    // รอบที่เท่าไหร่ใน session นี้ (ใช้กับ event log)
+    this.runIndex = (this.runIndex || 0) + 1;
 
     // reset run state (ไม่ล้าง sessionSummaries / errorLogs)
     this.running = false;
@@ -591,6 +603,8 @@ class ShadowBreakerGame {
       build_version: 'shadowBreaker_v4',
       mode: this.mode,
       difficulty: this.diff,
+      training_phase: this.sessionPhase || '',
+      run_index: this.runIndex,
       start_ts: this._startWallClock || '',
       end_ts: new Date().toISOString(),
       duration_s: durSec.toFixed(3),
@@ -825,7 +839,11 @@ class ShadowBreakerGame {
       size_px: this.config.sizePx,
       x_norm: null,
       y_norm: null,
-      dom: null
+      zone_lr: null,
+      zone_ud: null,
+      lastPos: null,
+      _el: null,
+      _onPtr: null
     };
 
     this.targets.set(id, t);
@@ -861,8 +879,7 @@ class ShadowBreakerGame {
   handleHit(t, grade, ageMs) {
     t.hit = true;
     this.targets.delete(t.id);
-    // ★ ปล่อยให้ dom-renderer.js จัดการแอนิเมชัน/ลบ DOM เอง
-    // (ไม่เรียก removeTarget ที่นี่ เพื่อให้เห็น "เป้าแตกกระจาย")
+    if (this.renderer) this.renderer.removeTarget(t);
 
     let baseScore = 0;
     if (grade === 'perfect') baseScore = 120;
@@ -915,6 +932,9 @@ class ShadowBreakerGame {
     const phase = this.getBossPhaseFromHp();
 
     this.hitLogs.push({
+      session_id: this.sessionId,
+      run_index: this.runIndex,
+      training_phase: this.sessionPhase || '',
       event_type: 'hit',
       ts: (performance.now() - this._startTime) / 1000,
       target_id: t.id,
@@ -938,7 +958,9 @@ class ShadowBreakerGame {
       phase_at_spawn: t.phase_at_spawn,
       phase_spawn_index: t.phase_spawn_index,
       x_norm: t.x_norm,
-      y_norm: t.y_norm
+      y_norm: t.y_norm,
+      zone_lr: t.zone_lr,
+      zone_ud: t.zone_ud
     });
 
     if (this.bossHp <= 0) {
@@ -950,7 +972,7 @@ class ShadowBreakerGame {
   handleDecoyHit(t, ageMs) {
     t.hit = true;
     this.targets.delete(t.id);
-    // ★ ไม่เรียก removeTarget เพื่อให้เห็น effect ระเบิด
+    if (this.renderer) this.renderer.removeTarget(t);
 
     const comboBefore = this.combo;
     const hpBefore    = this.playerHp;
@@ -965,7 +987,7 @@ class ShadowBreakerGame {
     if (this.renderer) {
       this.renderer.spawnHitEffect(t, {
         decoy: true,
-        grade: 'bomb',
+        grade: 'bad',
         score: -60
       });
     }
@@ -976,6 +998,9 @@ class ShadowBreakerGame {
     const phase = this.getBossPhaseFromHp();
 
     this.hitLogs.push({
+      session_id: this.sessionId,
+      run_index: this.runIndex,
+      training_phase: this.sessionPhase || '',
       event_type: 'bomb',
       ts: (performance.now() - this._startTime) / 1000,
       target_id: t.id,
@@ -999,7 +1024,9 @@ class ShadowBreakerGame {
       phase_at_spawn: t.phase_at_spawn,
       phase_spawn_index: t.phase_spawn_index,
       x_norm: t.x_norm,
-      y_norm: t.y_norm
+      y_norm: t.y_norm,
+      zone_lr: t.zone_lr,
+      zone_ud: t.zone_ud
     });
 
     if (this.playerHp <= 0) {
@@ -1014,16 +1041,14 @@ class ShadowBreakerGame {
     if (!this.targets.has(t.id) || t.hit) return;
 
     if (t.decoy) {
-      // bomb ที่หมดเวลา → เฉย ๆ ไม่ถือว่า miss, แค่หายไป
       this.targets.delete(t.id);
-      if (this.renderer) {
-        this.renderer.removeTarget(t);
-      }
+      if (this.renderer) this.renderer.removeTarget(t);
       return;
     }
 
     this.targets.delete(t.id);
-    // ★ ไม่ลบ DOM ทันที แต่ส่งให้ renderer เล่นแอนิเมชัน miss
+    if (this.renderer) this.renderer.removeTarget(t);
+
     const comboBefore = this.combo;
     const hpBefore    = this.playerHp;
     const feverBefore = this.fever;
@@ -1043,6 +1068,9 @@ class ShadowBreakerGame {
     const phase = this.getBossPhaseFromHp();
 
     this.hitLogs.push({
+      session_id: this.sessionId,
+      run_index: this.runIndex,
+      training_phase: this.sessionPhase || '',
       event_type: 'miss',
       ts: (performance.now() - this._startTime) / 1000,
       target_id: t.id,
@@ -1066,7 +1094,9 @@ class ShadowBreakerGame {
       phase_at_spawn: t.phase_at_spawn,
       phase_spawn_index: t.phase_spawn_index,
       x_norm: t.x_norm,
-      y_norm: t.y_norm
+      y_norm: t.y_norm,
+      zone_lr: t.zone_lr,
+      zone_ud: t.zone_ud
     });
 
     if (this.playerHp <= 0) {
@@ -1113,6 +1143,9 @@ class ShadowBreakerGame {
     const header = [
       'participant','group','note',
       'difficulty',
+      'training_phase',
+      'session_id',
+      'run_index',
       'event_type',
       'timestamp_s',
       'target_id',
@@ -1135,7 +1168,9 @@ class ShadowBreakerGame {
       'phase_at_spawn',
       'phase_spawn_index',
       'x_norm',
-      'y_norm'
+      'y_norm',
+      'zone_lr',
+      'zone_ud'
     ];
 
     const rows = [header.join(',')];
@@ -1146,6 +1181,9 @@ class ShadowBreakerGame {
         JSON.stringify(this.researchMeta.group || ''),
         JSON.stringify(this.researchMeta.note || ''),
         this.diff,
+        log.training_phase || '',
+        log.session_id || '',
+        log.run_index ?? '',
         log.event_type || '',
         (log.ts != null ? log.ts.toFixed(3) : ''),
         log.target_id ?? '',
@@ -1168,7 +1206,9 @@ class ShadowBreakerGame {
         log.phase_at_spawn ?? '',
         log.phase_spawn_index ?? '',
         log.x_norm != null ? log.x_norm.toFixed(3) : '',
-        log.y_norm != null ? log.y_norm.toFixed(3) : ''
+        log.y_norm != null ? log.y_norm.toFixed(3) : '',
+        log.zone_lr || '',
+        log.zone_ud || ''
       ].join(','));
     }
 
@@ -1191,7 +1231,7 @@ class ShadowBreakerGame {
     }
     const header = [
       'session_id','build_version',
-      'mode','difficulty',
+      'mode','difficulty','training_phase','run_index',
       'start_ts','end_ts','duration_s',
       'end_reason','final_score','grade',
       'total_targets','total_hits','total_miss','total_bombs_hit',
@@ -1214,6 +1254,8 @@ class ShadowBreakerGame {
         s.build_version,
         s.mode,
         s.difficulty,
+        s.training_phase || '',
+        s.run_index ?? '',
         s.start_ts,
         s.end_ts,
         s.duration_s,
