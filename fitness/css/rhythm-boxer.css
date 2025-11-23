@@ -1,20 +1,19 @@
-/* === rhythm-boxer.css — Big Notes + Colored HUD + Diff-based note size === */
+/* === rhythm-boxer.css — Rhythm Boxer UI (2025-11-24) === */
 
 :root {
   color-scheme: dark;
   --rb-bg: #020617;
-  --rb-panel: rgba(15, 23, 42, 0.9);
-  --rb-border: #1f2937;
-  --rb-accent: #38bdf8;
-  --rb-accent-soft: rgba(56, 189, 248, 0.12);
-  --rb-success: #22c55e;
-  --rb-warn: #facc15;
-  --rb-danger: #f97373;
+  --rb-surface: #020617;
+  --rb-surface-soft: #0b1220;
+  --rb-border: #1e293b;
+  --rb-accent: #22c55e;
+  --rb-accent-soft: #22c55e1a;
+  --rb-accent-2: #38bdf8;
   --rb-text-main: #e5e7eb;
   --rb-text-muted: #9ca3af;
-
-  /* base note size, จะถูก override ด้วย data-diff */
-  --rb-note-size: 64px;
+  --rb-danger: #f97373;
+  --rb-warn: #fbbf24;
+  --rb-good: #4ade80;
 }
 
 *,
@@ -23,637 +22,526 @@
   box-sizing: border-box;
 }
 
-body {
+html, body {
   margin: 0;
-  min-height: 100vh;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, sans-serif;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.18), transparent 55%),
+    radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 55%),
     var(--rb-bg);
   color: var(--rb-text-main);
 }
 
-/* ---------- Wrapper & views ---------- */
+/* ---------- Layout shell ---------- */
 
 #rb-wrap {
-  max-width: 1000px;
-  margin: 24px auto 32px;
-  padding: 0 16px 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 20px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-/* ปรับขนาดโน้ตตามระดับ (ใช้ data-diff ที่ wrapper) */
-#rb-wrap[data-diff="easy"] {
-  --rb-note-size: 82px;
+.rb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
 }
 
-#rb-wrap[data-diff="normal"],
-#rb-wrap:not([data-diff]) {
-  --rb-note-size: 64px;
+.rb-title {
+  font-size: 20px;
+  font-weight: 650;
 }
 
-#rb-wrap[data-diff="hard"] {
-  --rb-note-size: 52px;
+.rb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.4);
+  font-size: 12px;
+  color: var(--rb-text-muted);
 }
+
+/* views */
 
 .rb-view {
-  display: none;
-}
-
-.rb-view:not(.hidden) {
-  display: block;
+  background: linear-gradient(to bottom, #020617f2, #020617e6);
+  border-radius: 18px;
+  border: 1px solid rgba(15,23,42,0.9);
+  box-shadow:
+    0 16px 40px rgba(0,0,0,0.6),
+    inset 0 0 0 1px rgba(148,163,184,0.04);
+  padding: 16px 18px 18px;
 }
 
 .hidden {
   display: none !important;
 }
 
-/* ---------- Generic cards / panels ---------- */
+/* ---------- Buttons / controls ---------- */
 
-.rb-card {
-  background: var(--rb-panel);
-  border: 1px solid var(--rb-border);
-  border-radius: 16px;
-  padding: 16px 16px 14px;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.7);
-}
-
-/* ---------- Menu view ---------- */
-
-#rb-view-menu h1 {
-  margin: 0 0 8px;
-  font-size: 1.5rem;
-}
-
-#rb-view-menu p {
-  margin: 0 0 16px;
-  color: var(--rb-text-muted);
-  font-size: 0.95rem;
-}
-
-.rb-menu-row {
+.rb-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-  margin-bottom: 16px;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.rb-menu-col {
-  flex: 1 1 180px;
-  min-width: 0;
-}
-
-.rb-label {
-  display: block;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.rb-row-label {
+  font-size: 13px;
   color: var(--rb-text-muted);
-  margin-bottom: 4px;
 }
 
-select#rb-track,
-input[type="text"],
-textarea {
-  width: 100%;
-  padding: 6px 8px;
-  border-radius: 10px;
-  border: 1px solid #4b5563;
-  background: rgba(15, 23, 42, 0.85);
+.rb-select,
+.rb-input {
+  background: #020617;
+  border-radius: 999px;
+  border: 1px solid var(--rb-border);
   color: var(--rb-text-main);
-  font-size: 0.9rem;
+  padding: 6px 12px;
+  font-size: 14px;
+  outline: none;
 }
 
-textarea {
-  resize: vertical;
-  min-height: 60px;
+.rb-select:focus,
+.rb-input:focus {
+  border-color: var(--rb-accent-2);
+  box-shadow: 0 0 0 1px rgba(56,189,248,0.5);
 }
-
-/* ---------- Buttons ---------- */
 
 .rb-btn {
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 14px;
+  border: 1px solid transparent;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  background: linear-gradient(135deg, #38bdf8, #22c55e);
-  color: #0b1120;
-  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.35);
-  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s ease;
+  white-space: nowrap;
 }
 
-.rb-btn:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.05);
-  box-shadow: 0 14px 35px rgba(59, 130, 246, 0.45);
+.rb-btn-primary {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  color: #022c22;
+  font-weight: 600;
+  box-shadow: 0 10px 22px rgba(34,197,94,0.35);
 }
 
-.rb-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5);
+.rb-btn-primary:hover {
+  filter: brightness(1.04);
 }
 
 .rb-btn-ghost {
   background: transparent;
-  border-color: #4b5563;
-  color: var(--rb-text-main);
-  box-shadow: none;
+  border-color: var(--rb-border);
+  color: var(--rb-text-muted);
 }
 
 .rb-btn-ghost:hover {
-  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(148,163,184,0.7);
+  color: #e5e7eb;
 }
 
-/* ---------- HUD (Play view) ---------- */
+/* ---------- HUD ---------- */
 
-#rb-view-play {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* Top HUD row */
-.rb-hud-top {
-  display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.4fr) minmax(0, 2.4fr);
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-@media (max-width: 768px) {
-  .rb-hud-top {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.rb-hud-card {
-  background: radial-gradient(circle at top left, var(--rb-accent-soft), transparent 70%);
-  border-radius: 14px;
-  border: 1px solid var(--rb-border);
-  padding: 8px 10px;
-  font-size: 0.85rem;
-}
-
-.rb-hud-title {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--rb-text-muted);
-  margin-bottom: 4px;
-}
-
-.rb-hud-main {
+#rb-view-play .rb-top-hud {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
 }
 
-.rb-hud-main span.label {
-  color: var(--rb-text-muted);
-  font-size: 0.8rem;
-}
-
-.rb-hud-main span.value {
-  font-weight: 600;
-  font-size: 1rem;
-  color: #f9fafb;
-}
-
-#rb-hud-mode {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #facc15;
-}
-
-#rb-hud-track {
-  font-weight: 500;
-  color: #e5e7eb;
-  font-size: 0.9rem;
-}
-
-#rb-hud-time {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--rb-accent);
-}
-
-/* Score / combo / acc highlight */
-#rb-hud-score {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--rb-success);
-}
-
-#rb-hud-combo {
-  font-weight: 700;
-  color: #f97316;
-}
-
-#rb-hud-acc {
-  font-weight: 600;
-  color: #38bdf8;
-}
-
-/* Hit summary row */
-.rb-hud-hits {
+.rb-hud-block {
   display: flex;
+  gap: 10px;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-  font-size: 0.75rem;
 }
 
-.rb-hud-tag {
-  padding: 2px 7px;
+.rb-chip {
+  padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148,163,184,0.4);
+  font-size: 12px;
+  color: var(--rb-text-muted);
 }
 
-.rb-hud-tag.perfect {
-  border-color: rgba(34, 197, 94, 0.8);
-  color: #bbf7d0;
+.rb-chip-strong {
+  border-color: rgba(56,189,248,0.7);
+  color: #e0f2fe;
+  background: radial-gradient(circle, rgba(56,189,248,0.2), transparent);
 }
 
-.rb-hud-tag.great {
-  border-color: rgba(56, 189, 248, 0.85);
-  color: #bae6fd;
-}
-
-.rb-hud-tag.good {
-  border-color: rgba(250, 204, 21, 0.85);
-  color: #fef9c3;
-}
-
-.rb-hud-tag.miss {
-  border-color: rgba(248, 113, 113, 0.85);
-  color: #fee2e2;
-}
-
-/* ---------- Fever bar ---------- */
-
-.rb-fever-row {
+.rb-stat-group {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.rb-fever-label {
-  font-size: 0.8rem;
+.rb-stat {
+  min-width: 70px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: rgba(15,23,42,0.9);
+  border: 1px solid rgba(30,64,175,0.6);
+  box-shadow: 0 0 0 1px rgba(15,23,42,0.8);
+}
+
+.rb-stat-label {
+  font-size: 11px;
   color: var(--rb-text-muted);
 }
 
-.rb-fever-bar {
-  position: relative;
-  flex: 1;
-  height: 14px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: radial-gradient(circle at 0% 50%, rgba(56, 189, 248, 0.25), transparent 60%),
-    rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.6);
-}
-
-#rb-fever-fill {
-  position: absolute;
-  inset: 0;
-  width: 0%;
-  background: linear-gradient(90deg, #22c55e, #38bdf8, #a855f7);
-  transform-origin: left center;
-  transition: width 0.12s ease-out, transform 0.12s ease-out;
-}
-
-#rb-fever-status {
-  font-size: 0.8rem;
-  min-width: 46px;
-  text-align: right;
-  color: var(--rb-text-muted);
-}
-
-#rb-fever-status.on {
-  color: #f97316;
+.rb-stat-value {
+  font-size: 15px;
   font-weight: 600;
+  color: #e5e7eb;
 }
 
-/* ---------- Progress bar ---------- */
+/* Time + Fever */
 
-.rb-progress-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
+.rb-timer {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  color: #e0f2fe;
 }
 
-.rb-progress-label {
-  font-size: 0.8rem;
-  color: var(--rb-text-muted);
+/* Progress bar */
+
+.rb-progress {
+  margin-top: 6px;
+  width: 100%;
 }
 
-.rb-progress-bar {
+.rb-progress-track {
   position: relative;
-  flex: 1;
+  width: 100%;
   height: 10px;
   border-radius: 999px;
+  background: #020617;
+  border: 1px solid rgba(30,64,175,0.7);
   overflow: hidden;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(75, 85, 99, 0.8);
 }
 
 #rb-progress-fill {
   position: absolute;
   inset: 0;
   width: 0%;
-  background: linear-gradient(90deg, #22c55e, #a3e635);
-  transform-origin: left center;
-  transition: width 0.12s ease-out;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22c55e, #38bdf8);
+  box-shadow: 0 0 18px rgba(34,197,94,0.55);
+  transition: width 0.12s linear;
 }
 
 #rb-progress-text {
-  min-width: 40px;
+  margin-top: 2px;
+  font-size: 11px;
   text-align: right;
-  font-size: 0.8rem;
   color: var(--rb-text-muted);
 }
 
-/* ---------- Play field & lanes ---------- */
+/* Fever gauge */
 
-.rb-field-card {
-  margin-top: 4px;
-  padding: 10px 10px 12px;
-  border-radius: 16px;
-  border: 1px solid var(--rb-border);
-  background:
-    radial-gradient(circle at top center, rgba(148, 163, 184, 0.18), transparent 60%),
-    rgba(15, 23, 42, 0.96);
-}
-
-.rb-field-top {
+.rb-fever-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
-.rb-field-title {
-  font-size: 0.85rem;
+.rb-fever-label {
+  font-size: 12px;
   color: var(--rb-text-muted);
 }
 
-.rb-field-controls {
-  display: flex;
-  gap: 6px;
+.rb-fever-track {
+  flex: 1;
+  position: relative;
+  height: 9px;
+  border-radius: 999px;
+  background: #020617;
+  border: 1px solid rgba(190,24,93,0.7);
+  overflow: hidden;
 }
 
-/* lanes area */
+#rb-fever-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f97316, #facc15, #fb7185);
+  box-shadow: 0 0 20px rgba(248,113,113,0.65);
+  transition: transform 0.1s linear;
+}
 
+#rb-fever-status {
+  min-width: 54px;
+  text-align: center;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(248,113,113,0.8);
+  color: #fed7d7;
+}
+
+#rb-fever-status.on {
+  background: radial-gradient(circle at top, rgba(248,113,113,0.4), transparent);
+  color: #fff;
+  border-color: #fb7185;
+}
+
+/* ---------- Note field ---------- */
+
+.rb-field-wrap {
+  margin-top: 10px;
+  padding: 10px 8px 14px;
+  border-radius: 16px;
+  background: radial-gradient(circle at top, rgba(15,23,42,0.9), #020617);
+  border: 1px solid rgba(30,64,175,0.65);
+  box-shadow: inset 0 0 0 1px rgba(15,23,42,0.7);
+}
+
+/* lanes container */
 #rb-lanes {
   position: relative;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
   gap: 6px;
-  margin-top: 6px;
-  padding: 6px 4px 0;
-  height: min(360px, 55vh);
-  overflow: hidden;
+  min-height: 260px;          /* สำคัญ: กัน clientHeight = 0 */
+  margin: 16px auto 10px;
+}
+
+/* ปรับความสูงเพิ่มบนมือถือสูง ๆ */
+@media (min-height: 720px) {
+  #rb-lanes {
+    min-height: 320px;
+  }
 }
 
 .rb-lane {
-  position: relative;
   flex: 1;
-  border-radius: 12px 12px 0 0;
-  border: 1px solid rgba(55, 65, 81, 0.9);
-  background:
-    linear-gradient(to top, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.6)),
-    radial-gradient(circle at 50% 0%, rgba(15, 23, 42, 0.2), transparent 70%);
+  position: relative;
+  border-radius: 14px;
+  background: radial-gradient(circle at top, rgba(15,23,42,0.8), #020617);
   overflow: hidden;
 }
 
-/* เส้นตีล่าง (hit line) */
-.rb-lane::after {
-  content: "";
+/* เส้นตีด้านล่าง */
+.rb-hitline {
   position: absolute;
-  left: 10%;
-  right: 10%;
-  bottom: 40px;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(148, 163, 184, 0.2), rgba(148, 163, 184, 0.9), rgba(148, 163, 184, 0.2));
-  box-shadow: 0 0 14px rgba(148, 163, 184, 0.9);
+  left: 0;
+  right: 0;
+  bottom: 46px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(15,23,42,0.2), rgba(148,163,184,0.9), rgba(15,23,42,0.2));
 }
 
-/* ป้าย lane label ด้านล่าง */
-.rb-lane-label {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 10px;
-  font-size: 0.75rem;
-  color: var(--rb-text-muted);
-}
-
-/* ---------- Notes (โน้ต) ---------- */
+/* โน้ต */
 
 .rb-note {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  width: var(--rb-note-size);
-  height: var(--rb-note-size);
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(var(--rb-note-size) * 0.82);
-  line-height: 1;
-  user-select: none;
-  pointer-events: auto;
-  cursor: pointer;
-  filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.9));
   bottom: 100%;
-  transition: bottom 0.016s linear, transform 0.08s ease-out;
+  font-size: 44px;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 4px rgba(0,0,0,0.35));
+  transition: transform 0.08s ease-out;
 }
 
-/* glow ตามระดับ */
-#rb-wrap[data-diff="easy"] .rb-note {
-  background: radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.4), transparent 60%);
-}
+/* scale ตาม diff (song difficulty) */
+#rb-wrap[data-diff="easy"]   .rb-note { font-size: 60px; }
+#rb-wrap[data-diff="normal"] .rb-note { font-size: 48px; }
+#rb-wrap[data-diff="hard"]   .rb-note { font-size: 40px; }
+#rb-wrap[data-diff="moderate"] .rb-note { font-size: 52px; }
 
-#rb-wrap[data-diff="normal"] .rb-note {
-  background: radial-gradient(circle at 30% 30%, rgba(250, 204, 21, 0.35), transparent 60%);
-}
+/* feedback effect ตอนโดน / miss */
 
-#rb-wrap[data-diff="hard"] .rb-note {
-  background: radial-gradient(circle at 30% 30%, rgba(248, 113, 113, 0.45), transparent 60%);
-}
-
-/* state hit / miss สีขอบ */
 .rb-note-hit {
-  outline: 3px solid rgba(34, 197, 94, 0.85);
+  animation: rbNoteHit 0.18s ease-out forwards;
 }
 
 .rb-note-miss {
-  opacity: 0.25;
-  filter: grayscale(0.7);
+  opacity: 0.45;
+  filter: grayscale(0.3) blur(0.5px);
 }
 
-/* ---------- Score popup ---------- */
+/* popup คะแนน */
 
 .rb-score-popup {
   position: absolute;
   left: 50%;
-  bottom: 56px;
+  bottom: 58px;
   transform: translateX(-50%);
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 14px;
   font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.9);
+  border: 1px solid rgba(148,163,184,0.7);
+  color: #e5e7eb;
   white-space: nowrap;
-  pointer-events: none;
-  animation: rbPopup 0.45s ease-out forwards;
+  animation: rbScorePopup 0.5s ease-out forwards;
 }
 
 .rb-score-perfect {
-  background: rgba(34, 197, 94, 0.1);
-  color: #bbf7d0;
-  border: 1px solid rgba(34, 197, 94, 0.9);
+  border-color: rgba(250,204,21,0.9);
+  color: #facc15;
 }
 
 .rb-score-great {
-  background: rgba(56, 189, 248, 0.16);
-  color: #bae6fd;
-  border: 1px solid rgba(56, 189, 248, 0.9);
+  border-color: rgba(56,189,248,0.85);
+  color: #7dd3fc;
 }
 
 .rb-score-good {
-  background: rgba(250, 204, 21, 0.14);
-  color: #fef3c7;
-  border: 1px solid rgba(250, 204, 21, 0.9);
+  border-color: rgba(34,197,94,0.8);
+  color: #bbf7d0;
 }
 
 .rb-score-miss {
-  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(248,113,113,0.8);
   color: #fecaca;
-  border: 1px solid rgba(248, 113, 113, 0.9);
 }
 
-@keyframes rbPopup {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, 10px);
-  }
-  20% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -18px);
-  }
-}
-
-/* ---------- Feedback text ---------- */
+/* feedback text */
 
 #rb-feedback,
 .rb-feedback {
-  margin-top: 6px;
-  font-size: 0.9rem;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(55, 65, 81, 0.9);
-  color: var(--rb-text-muted);
+  margin-top: 8px;
   text-align: center;
+  font-size: 14px;
+  color: var(--rb-text-muted);
 }
 
 .rb-feedback.good {
-  border-color: rgba(34, 197, 94, 0.9);
   color: #bbf7d0;
 }
 
 .rb-feedback.miss {
-  border-color: rgba(248, 113, 113, 0.9);
   color: #fecaca;
 }
 
 .rb-feedback.warn {
-  border-color: rgba(250, 204, 21, 0.9);
-  color: #fef3c7;
+  color: #fde68a;
+}
+
+/* ---------- Play bottom bar ---------- */
+
+.rb-bottom-bar {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.rb-bottom-tip {
+  font-size: 12px;
+  color: var(--rb-text-muted);
 }
 
 /* ---------- Result view ---------- */
 
-#rb-view-result h2 {
-  margin-top: 0;
-  margin-bottom: 6px;
-  font-size: 1.2rem;
-}
-
-.rb-res-grid {
+#rb-view-result .rb-result-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.6fr);
-  gap: 10px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 16px;
 }
 
-@media (max-width: 768px) {
-  .rb-res-grid {
+@media (max-width: 800px) {
+  #rb-view-result .rb-result-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.rb-res-block {
-  background: var(--rb-panel);
-  border-radius: 14px;
-  border: 1px solid var(--rb-border);
-  padding: 10px 12px;
-  font-size: 0.88rem;
+.rb-card {
+  border-radius: 16px;
+  background: radial-gradient(circle at top, rgba(15,23,42,0.85), #020617);
+  border: 1px solid rgba(30,64,175,0.7);
+  padding: 12px 14px;
+}
+
+.rb-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
 }
 
 .rb-res-row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 4px;
+  font-size: 13px;
+  padding: 2px 0;
+  gap: 10px;
 }
 
-.rb-res-label {
+.rb-res-row span:first-child {
   color: var(--rb-text-muted);
-  font-size: 0.8rem;
 }
 
-.rb-res-value {
-  font-weight: 600;
-}
+/* Rank badge */
 
 #rb-res-rank {
-  font-size: 1.4rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-align: right;
-  color: #fbbf24;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 18px;
+  background: radial-gradient(circle at top, rgba(234,179,8,0.5), rgba(30,64,175,0.8));
+  color: #fef9c3;
+  box-shadow: 0 0 30px rgba(234,179,8,0.6);
 }
+
+/* Quality note */
 
 #rb-res-quality-note {
-  margin-top: 4px;
-  font-size: 0.8rem;
-  color: #fecaca;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #fed7aa;
+  background: rgba(30,64,175,0.6);
+  border-radius: 12px;
+  padding: 6px 8px;
+  border: 1px dashed rgba(248,171,88,0.8);
 }
 
-/* ---------- Research overlay ---------- */
+/* Result footer buttons */
+
+.rb-result-footer {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- Overlay (research) ---------- */
 
 #rb-overlay-research {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.92);
+  background: rgba(15,23,42,0.8);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -661,26 +549,94 @@ textarea {
 }
 
 #rb-overlay-research.hidden {
-  display: none;
+  display: none !important;
 }
 
-#rb-overlay-research .rb-card {
+.rb-overlay-box {
   max-width: 420px;
+  background: #020617;
+  border-radius: 18px;
+  border: 1px solid rgba(59,130,246,0.7);
+  padding: 16px 18px 14px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.75);
 }
 
-/* ---------- Misc ---------- */
+#rb-overlay-message {
+  font-size: 14px;
+  color: #e5e7eb;
+  margin-bottom: 12px;
+}
 
-.rb-actions {
-  margin-top: 10px;
+/* ---------- Animations ---------- */
+
+@keyframes rbScorePopup {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -22px) scale(0.95);
+  }
+}
+
+@keyframes rbNoteHit {
+  0% {
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    transform: translateX(-50%) scale(1.18);
+  }
+}
+
+/* ---------- Menu / research form view ---------- */
+
+#rb-view-menu .rb-view-inner,
+#rb-view-play .rb-view-inner,
+#rb-view-result .rb-view-inner {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 10px;
 }
 
-small.rb-hint {
-  display: block;
-  margin-top: 4px;
-  font-size: 0.75rem;
+.rb-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.rb-section-sub {
+  font-size: 13px;
+  color: var(--rb-text-muted);
+}
+
+#rb-research-fields {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(15,23,42,0.9);
+  border: 1px dashed rgba(56,189,248,0.7);
+}
+
+#rb-research-fields.hidden {
+  display: none !important;
+}
+
+#rb-research-fields .rb-row {
+  margin-bottom: 6px;
+}
+
+/* ---------- Small helpers ---------- */
+
+.rb-pill {
+  display: inline-flex;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.5);
   color: var(--rb-text-muted);
 }
