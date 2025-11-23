@@ -1,28 +1,62 @@
-// === fitness/hub.js — VR Fitness Hub Router (4 games, Normal / Research) ===
+// /fitness/hub.js
 'use strict';
 
-// กำหนด path ของแต่ละเกม (ตามไฟล์จริงในโฟลเดอร์ fitness)
-const GAME_PATHS = {
-  'shadow-breaker': 'shadow-breaker.html',
-  'rhythm-boxer'  : 'rhythm-boxer.html',
-  'jump-duck'     : 'jump-duck.html',
-  'balance-hold'  : 'balance-hold.html'
-};
+window.addEventListener('DOMContentLoaded', () => {
+  const btnNormal   = document.getElementById('mode-normal');
+  const btnResearch = document.getElementById('mode-research');
+  const modeDesc    = document.getElementById('mode-desc');
+  const gameButtons = document.querySelectorAll('.game-actions .btn');
 
-/**
- * startGame(gameKey, mode)
- *  gameKey: 'shadow-breaker' | 'rhythm-boxer' | 'jump-duck' | 'balance-hold'
- *  mode   : 'normal' | 'research'
- */
-function startGame(gameKey, mode) {
-  const base = GAME_PATHS[gameKey];
-  if (!base) {
-    console.warn('Unknown game key:', gameKey);
-    return;
+  let currentMode = 'normal';
+
+  const desc = {
+    normal: 'Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)',
+    research: 'Research: สำหรับเก็บข้อมูลงานวิจัย (บันทึก CSV, offset ฯลฯ — แนะนำให้กรอก Participant ID)'
+  };
+
+  const routes = {
+    shadow: {
+      normal:   'shadow-breaker.html?mode=normal',
+      research: 'shadow-breaker.html?mode=research'
+    },
+    'shadow-vr': {
+      normal:   'vr-shadow-breaker.html?mode=normal',
+      research: 'vr-shadow-breaker.html?mode=research'
+    },
+    rhythm: {
+      normal:   'rhythm-boxer.html?mode=normal',
+      research: 'rhythm-boxer.html?mode=research'
+    },
+    jump: {
+      normal:   'jump-duck.html?mode=normal',
+      research: 'jump-duck.html?mode=research'
+    },
+    balance: {
+      normal:   'balance-hold.html?mode=normal',
+      research: 'balance-hold.html?mode=research'
+    }
+  };
+
+  function setMode(mode){
+    currentMode = mode === 'research' ? 'research' : 'normal';
+    btnNormal.classList.toggle('active', currentMode === 'normal');
+    btnResearch.classList.toggle('active', currentMode === 'research');
+    if (modeDesc) modeDesc.textContent = desc[currentMode];
+    document.body.dataset.mode = currentMode;
   }
-  const m = (mode === 'research') ? 'research' : 'normal';
-  const url = `${base}?mode=${encodeURIComponent(m)}`;
-  window.location.href = url;
-}
 
-window.startGame = startGame;
+  btnNormal?.addEventListener('click', () => setMode('normal'));
+  btnResearch?.addEventListener('click', () => setMode('research'));
+  setMode('normal');
+
+  gameButtons.forEach(btn => {
+    const game = btn.dataset.game;
+    if(!game) return;
+    btn.addEventListener('click', () => {
+      const map = routes[game];
+      if(!map) return;
+      const url = map[currentMode] || map.normal;
+      window.location.href = url;
+    });
+  });
+});
