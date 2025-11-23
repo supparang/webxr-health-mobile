@@ -1,56 +1,48 @@
-// === rhythm-engine.js — Rhythm Boxer 5-lane (Production + Research v2) ===
+// === rhythm-engine.js — Rhythm Boxer 5-lane (2025-11-24 Research+FEVER) ===
 'use strict';
 
 /* ---------- CSV loggers ---------- */
 class RBEventLogger {
-  constructor(){
-    this.logs = [];
-  }
-  add(log){
-    this.logs.push(log);
-  }
+  constructor(){ this.logs = []; }
+  add(row){ this.logs.push(row); }
   toCsv(){
     if(!this.logs.length) return '';
-    const keys = Object.keys(this.logs[0]);
+    const cols = Object.keys(this.logs[0]);
     const esc = v => {
-      if(v==null) return '';
+      if(v == null) return '';
       const s = String(v);
-      if(s.includes(',') || s.includes('\n') || s.includes('"')){
+      if(s.includes(',') || s.includes('"') || s.includes('\n')){
         return '"' + s.replace(/"/g,'""') + '"';
       }
       return s;
     };
-    const rows = [keys.join(',')];
+    const lines = [cols.join(',')];
     for(const row of this.logs){
-      rows.push(keys.map(k => esc(row[k])).join(','));
+      lines.push(cols.map(c => esc(row[c])).join(','));
     }
-    return rows.join('\n');
+    return lines.join('\n');
   }
 }
 
 class RBSessionLogger {
-  constructor(){
-    this.sessions = [];
-  }
-  add(s){
-    this.sessions.push(s);
-  }
+  constructor(){ this.sessions = []; }
+  add(row){ this.sessions.push(row); }
   toCsv(){
     if(!this.sessions.length) return '';
-    const keys = Object.keys(this.sessions[0]);
+    const cols = Object.keys(this.sessions[0]);
     const esc = v => {
-      if(v==null) return '';
+      if(v == null) return '';
       const s = String(v);
-      if(s.includes(',') || s.includes('\n') || s.includes('"')){
+      if(s.includes(',') || s.includes('"') || s.includes('\n')){
         return '"' + s.replace(/"/g,'""') + '"';
       }
       return s;
     };
-    const rows = [keys.join(',')];
+    const lines = [cols.join(',')];
     for(const row of this.sessions){
-      rows.push(keys.map(k => esc(row[k])).join(','));
+      lines.push(cols.map(c => esc(row[c])).join(','));
     }
-    return rows.join('\n');
+    return lines.join('\n');
   }
 }
 
@@ -61,7 +53,7 @@ const SONGS = [
   { id:'t1',        name:'Warm-up Groove',        bpm:98,  difficulty:'easy',     isResearch:false },
   { id:'t2',        name:'Punch Rush',            bpm:128, difficulty:'normal',   isResearch:false },
   { id:'t3',        name:'Ultra Beat Combo',      bpm:145, difficulty:'hard',     isResearch:false },
-  { id:'research',  name:'Research Track 120',    bpm:120, difficulty:'normal',   isResearch:true  }
+  { id:'research',  name:'Research Track 120',    bpm:120, difficulty:'moderate', isResearch:true  }
 ];
 
 const LANES      = [0,1,2,3,4];   // L2, L1, C, R1, R2
@@ -72,9 +64,8 @@ const HIT_WINDOWS = {             // hit window (moderate)
   good:    190
 };
 
-const NOTE_EMOJI_BY_LANE = ['🎵','🎶','🎵','🎶','🎼'];
-
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+
 function findSong(id){
   return SONGS.find(s => s.id === id) || SONGS[0];
 }
@@ -83,12 +74,13 @@ function findSong(id){
 
 class RhythmBoxerGame{
   constructor(){
+    // Root wrap
+    this.wrap = document.getElementById('rb-wrap');
+
     // Views
     this.viewMenu   = document.getElementById('rb-view-menu');
     this.viewPlay   = document.getElementById('rb-view-play');
     this.viewResult = document.getElementById('rb-view-result');
-
-    this.wrap       = document.getElementById('rb-wrap');
 
     // Research fields
     this.researchFields   = document.getElementById('rb-research-fields');
@@ -99,6 +91,7 @@ class RhythmBoxerGame{
     // Menu controls
     this.trackSelect  = document.getElementById('rb-track');
     this.btnStart     = document.getElementById('rb-btn-start');
+    this.btnBackHub   = document.getElementById('rb-btn-back-hub');
 
     // Play HUD
     this.hudMode    = document.getElementById('rb-hud-mode');
@@ -112,18 +105,20 @@ class RhythmBoxerGame{
     this.hudGood    = document.getElementById('rb-hud-good');
     this.hudMiss    = document.getElementById('rb-hud-miss');
 
-    this.feverFill   = document.getElementById('rb-fever-fill');
+    // FEVER HUD
+    this.feverFill   = document.querySelector('.rb-fever-fill');
     this.feverStatus = document.getElementById('rb-fever-status');
 
-    this.btnStop   = document.getElementById('rb-btn-stop');
+    // Progress
+    this.progressFill = document.getElementById('rb-progress-fill');
+    this.progressText = document.getElementById('rb-progress-text');
 
     // Field & lanes
     this.lanesHost = document.getElementById('rb-lanes');
     this.feedbackEl= document.getElementById('rb-feedback');
 
-    // Progress meter
-    this.progressFill  = document.getElementById('rb-progress-fill');
-    this.progressText  = document.getElementById('rb-progress-text');
+    // Buttons play view
+    this.btnStop = document.getElementById('rb-btn-stop');
 
     // Result labels
     this.resMode        = document.getElementById('rb-res-mode');
@@ -146,41 +141,49 @@ class RhythmBoxerGame{
     this.btnDlEvents   = document.getElementById('rb-btn-dl-events');
     this.btnDlSessions = document.getElementById('rb-btn-dl-sessions');
 
-    // Research overlay
-    this.overlay       = document.getElementById('rb-overlay-research');
-    this.overlayMsg    = document.getElementById('rb-overlay-message');
-    this.overlayBtn    = document.getElementById('rb-overlay-continue');
+    // Research overlay (ใช้ซ้ำจากเวอร์ชันก่อนถ้ามี)
+    this.overlay    = document.getElementById('rb-overlay-research');
+    this.overlayMsg = document.getElementById('rb-overlay-message');
+    this.overlayBtn = document.getElementById('rb-overlay-continue');
 
-    // Audio & autoplay hint
-    this.audio        = document.getElementById('rb-audio');
-    this.audioHintBox = document.getElementById('rb-audio-hint');
-    this.audioHintBtn = document.getElementById('rb-audio-btn-enable');
-    this.audioBlocked = false;
+    // Audio
+    this.audio      = document.getElementById('rb-audio');
+    this.audioGuard = document.getElementById('rb-audio-guard');
+    this.audioGuardBtn = document.getElementById('rb-audio-guard-btn');
 
     // Loggers
     this.eventLogger   = new RBEventLogger();
     this.sessionLogger = new RBSessionLogger();
 
     // State
-    this.mode   = 'normal';
-    this.song   = findSong('t1');
-    this.notes  = [];
-    this.running = false;
-    this.ended   = false;
-    this.startPerf = 0;
+    this.mode     = 'normal';       // normal | research
+    this.song     = findSong('t1');
+    this.notes    = [];
+    this.running  = false;
+    this.ended    = false;
+    this.startPerf= 0;
     this._rafHandle = 0;
     this._feedbackTimer = null;
     this.sessionId = this.makeSessionId();
     this.runIndex  = 0;
 
     this.stats = {
-      score:0, combo:0, maxCombo:0,
-      perfect:0, great:0, good:0, miss:0,
-      hitCount:0, totalNotes:0,
-      fever:0, feverOn:false, feverUsed:0
+      score:0,
+      combo:0,
+      maxCombo:0,
+      perfect:0,
+      great:0,
+      good:0,
+      miss:0,
+      hitCount:0,
+      totalNotes:0,
+      fever:0,
+      feverOn:false,
+      feverUsed:0
     };
 
     this.offsetStats = { sum:0, sumSq:0, count:0 };
+
     this.researchMeta = { participant:'', group:'', note:'' };
     this.sessionSummaries = [];
 
@@ -221,6 +224,13 @@ class RhythmBoxerGame{
     if(this.btnStart){
       this.btnStart.addEventListener('click', () => {
         this.startFromMenu();
+      });
+    }
+
+    // back hub (link ไป hub.html)
+    if(this.btnBackHub){
+      this.btnBackHub.addEventListener('click', () => {
+        window.location.href = './hub.html';
       });
     }
 
@@ -274,56 +284,21 @@ class RhythmBoxerGame{
       this.overlayBtn.addEventListener('click', () => this.hideResearchOverlay());
     }
 
-    // audio hint button
-    if(this.audioHintBtn){
-      this.audioHintBtn.addEventListener('click', () => this.onAudioEnableTap());
+    // audio guard button
+    if(this.audioGuardBtn){
+      this.audioGuardBtn.addEventListener('click', () => {
+        this.hideAudioGuard();
+        if(this.audio){
+          try{
+            const p = this.audio.play();
+            if(p && typeof p.catch === 'function'){
+              p.catch(()=>{});
+            }
+          }catch(e){}
+        }
+      });
     }
   }
-
-  /* ---------- Audio autoplay guard ---------- */
-
-  showAudioHint(){
-    if(this.audioHintBox){
-      this.audioHintBox.classList.remove('hidden');
-    }
-  }
-  hideAudioHint(){
-    if(this.audioHintBox){
-      this.audioHintBox.classList.add('hidden');
-    }
-  }
-
-  tryStartAudio(offsetSec){
-    if(!this.audio || !this.audio.src) return;
-    try{
-      this.audio.currentTime = Math.max(0, offsetSec || 0);
-      const p = this.audio.play();
-      if(p && typeof p.catch === 'function'){
-        p.catch(err => {
-          // เบราว์เซอร์บล็อก autoplay ไว้
-          this.audioBlocked = true;
-          this.showAudioHint();
-          console.warn('RhythmBoxer: audio blocked', err);
-        });
-      }
-    }catch(err){
-      this.audioBlocked = true;
-      this.showAudioHint();
-      console.warn('RhythmBoxer: audio error', err);
-    }
-  }
-
-  onAudioEnableTap(){
-    if(!this.audio || !this.startPerf) return;
-    // sync เพลงให้ตรงเวลาโน้ต (ใช้เวลา elapsed จาก startPerf)
-    const now = performance.now();
-    const elapsedSec = (now - this.startPerf) / 1000;
-    this.hideAudioHint();
-    this.audioBlocked = false;
-    this.tryStartAudio(elapsedSec);
-  }
-
-  /* ---------- View helpers ---------- */
 
   showResearchOverlay(msg){
     if(!this.overlay){
@@ -337,6 +312,17 @@ class RhythmBoxerGame{
   hideResearchOverlay(){
     if(this.overlay){
       this.overlay.classList.add('hidden');
+    }
+  }
+
+  showAudioGuard(){
+    if(this.audioGuard){
+      this.audioGuard.classList.remove('hidden');
+    }
+  }
+  hideAudioGuard(){
+    if(this.audioGuard){
+      this.audioGuard.classList.add('hidden');
     }
   }
 
@@ -375,25 +361,33 @@ class RhythmBoxerGame{
       clearTimeout(this._feedbackTimer);
       this._feedbackTimer = null;
     }
-    this.feedbackEl.className = 'rb-feedback';
+    this.feedbackEl.className = '';
+    this.feedbackEl.id = 'rb-feedback';
+
     if(kind === 'good') this.feedbackEl.classList.add('good');
     else if(kind === 'miss') this.feedbackEl.classList.add('miss');
     else if(kind === 'warn') this.feedbackEl.classList.add('warn');
-    this.feedbackEl.textContent = text || 'แตะที่ lane ให้ตรงเส้นล่างตามจังหวะเพลง 🎵';
+
+    this.feedbackEl.textContent = text || 'ยังไม่มีโน้ตตรงจังหวะเส้น ลองรอให้ใกล้เส้นก่อนค่อยตี 🎯';
+
     if(kind){
       this._feedbackTimer = setTimeout(() => {
-        this.setFeedback('', 'แตะที่ lane ให้ตรงเส้นล่างตามจังหวะเพลง 🎵');
+        this.setFeedback('', 'โฟกัสที่เส้นล่าง แล้วตีตามจังหวะเพลง 🎵');
       }, 1500);
     }
   }
-
-  /* ---------- Run control ---------- */
 
   startFromMenu(reuseTrack=false){
     this.updateModeFromUI();
     if(!reuseTrack){
       const id = this.trackSelect ? this.trackSelect.value : 't1';
       this.song = findSong(id);
+    }
+
+    // difficulty → ใช้กำหนดขนาดโน้ตผ่าน data-level
+    const level = this.song.difficulty || 'normal';
+    if(this.wrap){
+      this.wrap.dataset.level = level;
     }
 
     // research meta
@@ -408,17 +402,6 @@ class RhythmBoxerGame{
     }
 
     this.runIndex = this.sessionSummaries.length + 1;
-
-    // reset autoplay state
-    this.audioBlocked = false;
-    this.hideAudioHint();
-
-    // bind difficulty → note-size (CSS)
-    if(document.body){
-      const diff = this.song.difficulty || 'normal';
-      document.body.setAttribute('data-diff', diff);
-    }
-
     this.prepareRun();
     this.showPlay();
     this.beginLoop();
@@ -465,9 +448,9 @@ class RhythmBoxerGame{
     this.updateFeverHud();
     this.updateProgress();
 
-    this.setFeedback('', 'แตะที่ lane ให้ตรงเส้นล่างตามจังหวะเพลง 🎵');
+    this.setFeedback('', 'โฟกัสที่เส้นล่าง แล้วตีตามจังหวะเพลง 🎵');
 
-    // audio source (อาจารย์เตรียมไฟล์ audio/ ไว้แล้ว)
+    // audio source
     if(this.audio){
       let src = '';
       if(this.song.id === 't1') src = 'audio/rb_t1.mp3';
@@ -477,6 +460,8 @@ class RhythmBoxerGame{
       if(src) this.audio.src = src;
       else this.audio.removeAttribute('src');
     }
+
+    this.hideAudioGuard();
   }
 
   buildChartForSong(song){
@@ -552,8 +537,20 @@ class RhythmBoxerGame{
     this.ended   = false;
     this.startPerf = performance.now();
 
-    // start audio with autoplay guard
-    this.tryStartAudio(0);
+    // play audio (ถ้า autoplay ถูกบล็อก → แสดง guard)
+    if(this.audio && this.audio.src){
+      try{
+        this.audio.currentTime = 0;
+        const p = this.audio.play();
+        if(p && typeof p.catch === 'function'){
+          p.catch(() => {
+            this.showAudioGuard();
+          });
+        }
+      }catch(e){
+        this.showAudioGuard();
+      }
+    }
 
     const loop = (t) => {
       if(!this.running) return;
@@ -581,7 +578,7 @@ class RhythmBoxerGame{
   updateNotes(songTimeMs){
     if(!this.lanesHost) return;
     const fieldHeight = this.lanesHost.clientHeight || 1;
-    const hitLineOffsetPx = fieldHeight - 48; // ตำแหน่งเส้นตีโดยประมาณ
+    const hitLineOffsetPx = fieldHeight * 0.18; // ระยะจากล่างถึงเส้นตี
 
     for(const n of this.notes){
       if(n.resolved) continue;
@@ -592,6 +589,8 @@ class RhythmBoxerGame{
         if(!laneEl) continue;
         const el = document.createElement('div');
         el.className = 'rb-note rb-note-type-hit';
+        // ชุด emoji แบบมี character แต่ละเลน
+        const NOTE_EMOJI_BY_LANE = ['🎵','🎶','🎵','🎶','🎼'];
         el.textContent = NOTE_EMOJI_BY_LANE[n.lane] || '🎵';
         laneEl.appendChild(el);
         n.el = el;
@@ -604,7 +603,7 @@ class RhythmBoxerGame{
 
       const dtFromSpawn = songTimeMs - n.spawnTime;
       const progress = clamp(dtFromSpawn / TRAVEL_MS, 0, 1.2);
-      const y = hitLineOffsetPx * (1-progress);
+      const y = hitLineOffsetPx + (fieldHeight - hitLineOffsetPx*1.8) * (1-progress);
       n.el.style.bottom = y+'px';
 
       // miss check
@@ -700,8 +699,10 @@ class RhythmBoxerGame{
       mode       : this.mode,
       track_id   : this.song.id,
       track_name : this.song.name,
+
       participant: this.researchMeta.participant || '',
       group      : this.researchMeta.group || '',
+
       note_id    : note.id,
       lane       : note.lane,
       event_type : 'hit',
@@ -728,6 +729,7 @@ class RhythmBoxerGame{
 
     this.stats.combo = 0;
     this.stats.miss += 1;
+    this.loseFeverOnMiss();
 
     this.setFeedback('miss','พลาดจังหวะ! ลองโฟกัสที่เส้นล่างแล้วตีให้ตรงนะ 😅');
 
@@ -738,8 +740,10 @@ class RhythmBoxerGame{
       mode       : this.mode,
       track_id   : this.song.id,
       track_name : this.song.name,
+
       participant: this.researchMeta.participant || '',
       group      : this.researchMeta.group || '',
+
       note_id    : note.id,
       lane       : note.lane,
       event_type : 'miss',
@@ -796,6 +800,12 @@ class RhythmBoxerGame{
     }
   }
 
+  loseFeverOnMiss(){
+    if(this.stats.feverOn) return;
+    this.stats.fever = clamp(this.stats.fever - 12, 0, 100);
+    this.updateFeverHud();
+  }
+
   triggerFever(){
     if(this.stats.feverOn) return;
     this.stats.feverOn = true;
@@ -803,6 +813,7 @@ class RhythmBoxerGame{
     this.stats.fever = 100;
     this.updateFeverHud();
     this.setFeedback('good','FEVER TIME!! 🔥');
+    // ไม่ใช้ overlay เต็มจออีกแล้ว
 
     setTimeout(()=>{
       this.stats.feverOn = false;
@@ -812,16 +823,17 @@ class RhythmBoxerGame{
   }
 
   updateFeverHud(){
+    const ratio = clamp(this.stats.fever / 100, 0, 1);
     if(this.feverFill){
-      this.feverFill.style.transform = 'scaleX(' + (this.stats.fever/100) + ')';
+      this.feverFill.style.transform = `scaleX(${ratio})`;
     }
     if(this.feverStatus){
       if(this.stats.feverOn){
         this.feverStatus.textContent = 'ON';
         this.feverStatus.classList.add('on');
       }else{
-        this.feverStatus.textContent = (this.stats.fever >= 100) ? 'READY' : 'FEVER';
         this.feverStatus.classList.remove('on');
+        this.feverStatus.textContent = (ratio >= 1) ? 'READY' : 'FEVER';
       }
     }
   }
@@ -944,7 +956,7 @@ class RhythmBoxerGame{
     // session summary สำหรับ CSV
     const summary = {
       session_id: this.sessionId + '-' + String(this.sessionSummaries.length+1).padStart(2,'0'),
-      build_version: 'RhythmBoxer_5lane_rank_v2',
+      build_version: 'RhythmBoxer_5lane_rank_fever_v1',
       mode: this.mode,
       track_id: this.song.id,
       track_name: this.song.name,
@@ -967,8 +979,7 @@ class RhythmBoxerGame{
       duration_s: durationSec.toFixed(3),
       end_reason: endReason,
       grade_rank: grade,
-      quality_ok: qualityOk,
-      audio_blocked: this.audioBlocked ? 1 : 0
+      quality_ok: qualityOk
     };
     this.sessionSummaries.push(summary);
     this.sessionLogger.add(summary);
