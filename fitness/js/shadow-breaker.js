@@ -1,7 +1,7 @@
 // === js/shadow-breaker.js — Shadow Breaker bootstrap (2025-11-24) === 
 'use strict';
 
-import { initShadowBreaker } from './engine.js';
+import { startGame } from './engine.js';
 
 function applyUrlPreset() {
   try {
@@ -22,5 +22,5 @@ window.addEventListener('DOMContentLoaded', () => {
   applyUrlPreset();
 
   // สร้างเกม + wire ปุ่มทั้งหมด
-  initShadowBreaker();
+  startGame();
 });
