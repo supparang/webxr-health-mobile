@@ -1,238 +1,257 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta charset="utf-8"/>
   <title>Shadow Breaker — VR Fitness</title>
-  <meta name="color-scheme" content="dark">
-
-  <!-- CSS เฉพาะเกม Shadow Breaker -->
-  <link rel="stylesheet" href="css/shadow-breaker.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <link rel="icon" href="favicon.ico"/>
+  <link rel="stylesheet" href="css/shadow-breaker.css"/>
 </head>
 <body>
-  <div id="sb-wrap" class="sb-wrap card sb-card" data-diff="normal" data-boss="0" data-phase="1">
-    <!-- ===== Header / Title ===== -->
-    <header class="sb-header">
-      <div class="title">
-        <span class="title-main">Shadow Breaker</span>
-        <span class="title-icon">🥊</span>
-      </div>
-      <p class="subtitle">เกมตีเป้าแบบ Boss Fight สำหรับฝึกกำลังแขนและความไวในการตอบสนอง</p>
-    </header>
+  <div id="sb-wrap" class="sb-wrap" data-diff="normal" data-boss="0" data-phase="1">
+    <div class="card sb-card">
 
-    <!-- ===== VIEW: MENU ===== -->
-    <section id="view-menu">
-      <div class="menu-block">
-        <span class="menu-label">โหมดการเล่น</span>
-        <div>
-          <label style="margin-right:12px;font-size:14px;">
-            <input type="radio" name="mode" value="normal" checked> Normal
+      <!-- ========= VIEW: MENU ========= -->
+      <section id="view-menu">
+        <header class="sb-header">
+          <h1 class="title">
+            <span class="title-main">Shadow Breaker</span>
+            <span class="title-icon icon-3d-glove">🥊</span>
+          </h1>
+          <p class="subtitle">
+            เกมตีเป้าแบบ Boss Fight สำหรับฝึกกำลังแขนและความไวในการตอบสนอง
+          </p>
+        </header>
+
+        <div class="menu-block">
+          <span class="menu-label">โหมดการเล่น</span>
+          <label style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:15px;">
+            <input type="radio" name="mode" value="normal" checked style="margin:0 4px 0 0;"/>
+            Normal
           </label>
-          <label style="font-size:14px;">
-            <input type="radio" name="mode" value="research"> Research
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:15px;">
+            <input type="radio" name="mode" value="research" style="margin:0 4px 0 0;"/>
+            Research
           </label>
         </div>
-      </div>
 
-      <div class="menu-block">
-        <span class="menu-label">ระดับความยาก</span>
-        <div class="select-wrap">
-          <select id="difficulty">
-            <option value="easy">Easy — เป้าใหญ่ ช้า</option>
-            <option value="normal" selected>Normal — มาตรฐานทดลอง</option>
-            <option value="hard">Hard — เป้าเล็ก เร็ว</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn-main primary" data-action="start-normal">
-          <span class="btn-icon icon-3d-glove">🥊</span>
-          <span>เริ่มเล่นเลย</span>
-        </button>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn-main ghost" data-action="start-research">
-          <span class="btn-icon">📋</span>
-          <span>โหมดวิจัย (กรอกข้อมูลผู้เข้าร่วม)</span>
-        </button>
-      </div>
-
-      <a href="hub.html" class="back-hub-btn small">
-        <span>← กลับ Hub VR Fitness</span>
-      </a>
-    </section>
-
-    <!-- ===== VIEW: RESEARCH FORM ===== -->
-    <section id="view-research-form" class="hidden">
-      <h2 style="font-size:18px;margin:0 0 10px;">โหมดวิจัย</h2>
-
-      <div class="form-row">
-        <label for="research-id">รหัสผู้เข้าร่วม (Participant ID)</label>
-        <input id="research-id" type="text" placeholder="เช่น SB001">
-      </div>
-
-      <div class="form-row">
-        <label for="research-group">กลุ่มทดลอง / ห้องเรียน</label>
-        <input id="research-group" type="text" placeholder="เช่น G1 / ป.5/1">
-      </div>
-
-      <div class="form-row">
-        <label for="research-note">บันทึกเพิ่มเติม (เช่น มือข้างที่ถนัด, หมายเหตุสุขภาพ)</label>
-        <textarea id="research-note" rows="3"></textarea>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn-main primary" data-action="research-begin-play">
-          <span class="btn-icon icon-3d-glove small">🥊</span>
-          <span>เริ่มเล่นในโหมดวิจัย</span>
-        </button>
-        <button class="btn-main ghost small" data-action="back-to-menu">
-          กลับเมนู
-        </button>
-      </div>
-    </section>
-
-    <!-- ===== VIEW: PLAY ===== -->
-    <section id="view-play" class="hidden">
-      <!-- HUD แถวบน -->
-      <div class="sb-hud-row">
-        <div class="sb-hp-stack">
-          <!-- Player HP -->
-          <div class="sb-hp sb-hp-player">
-            <div class="sb-hp-label">
-              <span class="sb-hp-name">Player HP</span>
-              <span class="sb-hp-val"><span id="stat-hp">100</span>%</span>
-            </div>
-            <div class="sb-hp-bar">
-              <div id="player-fill" class="sb-hp-fill"></div>
-            </div>
-          </div>
-
-          <!-- Boss HP -->
-          <div class="sb-hp sb-hp-boss">
-            <div class="sb-hp-label">
-              <span class="sb-hp-name" id="boss-name">Boss 1/4 — Bubble Glove</span>
-              <span class="sb-hp-val" id="hp-boss-val">100%</span>
-            </div>
-            <div class="sb-hp-bar">
-              <div id="boss-fill" class="sb-hp-fill"></div>
-            </div>
-          </div>
-
-          <!-- Fever bar -->
-          <div class="sb-fever-row">
-            <span class="fever-label">FEVER</span>
-            <div class="fever-bar">
-              <div id="fever-fill" class="fever-fill"></div>
-            </div>
-            <span id="fever-status" class="fever-status">FEVER</span>
-          </div>
-
-          <!-- Feedback -->
-          <div id="sb-feedback" class="sb-feedback">
-            โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯
+        <div class="menu-block">
+          <label class="menu-label" for="difficulty">ระดับความยาก</label>
+          <div class="select-wrap">
+            <select id="difficulty">
+              <option value="easy">Easy — เป้าใหญ่ ช้า</option>
+              <option value="normal" selected>Normal — สมดุล</option>
+              <option value="hard">Hard — เป้าเล็ก เร็ว</option>
+            </select>
           </div>
         </div>
 
-        <!-- Meta + Boss portrait -->
-        <div class="sb-meta">
-          <div class="sb-meta-row"><span>Mode</span><span id="stat-mode">Normal</span></div>
-          <div class="sb-meta-row"><span>Difficulty</span><span id="stat-diff">normal</span></div>
-          <div class="sb-meta-row"><span>Score</span><span id="stat-score">0</span></div>
-          <div class="sb-meta-row"><span>Combo</span><span id="stat-combo">0</span></div>
-          <div class="sb-meta-row"><span>P / Ms</span>
-            <span><span id="stat-perfect">0</span> / <span id="stat-miss">0</span></span>
-          </div>
-          <div class="sb-meta-row"><span>Time</span><span id="stat-time">0.0</span></div>
+        <div class="btn-col">
+          <button class="btn-main primary" data-action="start-normal">
+            <span class="btn-icon">⚠️</span>
+            <span>เริ่มเล่นเลย</span>
+          </button>
+
+          <button class="btn-main ghost" data-action="start-research">
+            <span class="btn-icon">📋</span>
+            <span>โหมดวิจัย (กรอกข้อมูลผู้เข้าร่วม)</span>
+          </button>
+
+          <a href="hub.html" class="back-hub-btn">
+            ← กลับ Hub VR Fitness
+          </a>
+        </div>
+      </section>
+
+      <!-- ========= VIEW: RESEARCH FORM ========= -->
+      <section id="view-research-form" class="hidden">
+        <header class="sb-header">
+          <h2 class="title">
+            <span class="title-main">โหมดวิจัย</span>
+          </h2>
+          <p class="subtitle">กรอกข้อมูลผู้เข้าร่วมก่อนเริ่มเล่น</p>
+        </header>
+
+        <div class="form-row">
+          <label for="research-id">รหัสผู้เข้าร่วม / Participant ID</label>
+          <input id="research-id" type="text" placeholder="เช่น SB001"/>
+        </div>
+        <div class="form-row">
+          <label for="research-group">กลุ่มทดลอง / Group</label>
+          <input id="research-group" type="text" placeholder="เช่น G1, Control"/>
+        </div>
+        <div class="form-row">
+          <label for="research-note">หมายเหตุเพิ่มเติม</label>
+          <textarea id="research-note" rows="3"></textarea>
         </div>
 
-        <div class="boss-portrait-box" id="boss-portrait">
-          <div class="sb-boss-portrait">
-            <span id="boss-portrait-emoji">🐣</span>
+        <div class="btn-row">
+          <button class="btn-main ghost small" data-action="back-to-menu">
+            ← กลับเมนูหลัก
+          </button>
+          <button class="btn-main primary small" data-action="research-begin-play">
+            เริ่มเล่น (บันทึกข้อมูลวิจัย)
+          </button>
+        </div>
+      </section>
+
+      <!-- ========= VIEW: PLAY ========= -->
+      <section id="view-play" class="hidden">
+        <div class="sb-hud-row">
+          <div class="sb-hp-stack">
+            <!-- Player HP -->
+            <div class="sb-hp sb-hp-player">
+              <div class="sb-hp-label">
+                <span class="sb-hp-name">Player HP</span>
+                <span class="sb-hp-val" id="stat-hp">100</span>
+              </div>
+              <div class="sb-hp-bar">
+                <div class="sb-hp-fill" id="player-fill"></div>
+              </div>
+            </div>
+
+            <!-- Boss HP -->
+            <div class="sb-hp sb-hp-boss">
+              <div class="sb-hp-label">
+                <span class="sb-hp-name" id="boss-name">Boss 1/4 — Bubble Glove</span>
+                <span class="sb-hp-val" id="hp-boss-val">100%</span>
+              </div>
+              <div class="sb-hp-bar">
+                <div class="sb-hp-fill" id="boss-fill"></div>
+              </div>
+            </div>
+
+            <!-- FEVER -->
+            <div class="sb-fever-row">
+              <span class="fever-label">FEVER</span>
+              <div class="fever-bar">
+                <div class="fever-fill" id="fever-fill"></div>
+              </div>
+              <span class="fever-status" id="fever-status">FEVER</span>
+            </div>
           </div>
-          <div class="boss-portrait-text">
-            <div id="boss-portrait-name">Bubble Glove</div>
-            <div id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
+
+          <div class="sb-meta">
+            <div class="sb-meta-row">
+              <span>Mode</span><span id="stat-mode">Normal</span>
+            </div>
+            <div class="sb-meta-row">
+              <span>Diff</span><span id="stat-diff">normal</span>
+            </div>
+            <div class="sb-meta-row">
+              <span>Score</span><span id="stat-score">0</span>
+            </div>
+            <div class="sb-meta-row">
+              <span>Combo</span><span id="stat-combo">0</span>
+            </div>
+            <div class="sb-meta-row">
+              <span>P / Miss</span>
+              <span><span id="stat-perfect">0</span> / <span id="stat-miss">0</span></span>
+            </div>
+            <div class="sb-meta-row">
+              <span>Time</span><span id="stat-time">0.0</span>
+            </div>
+          </div>
+
+          <div class="boss-portrait-box" id="boss-portrait">
+            <div class="sb-boss-portrait">
+              <span id="boss-portrait-emoji">🐣</span>
+            </div>
+            <div class="boss-portrait-text">
+              <div id="boss-portrait-name">Bubble Glove</div>
+              <div id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- สนามเล่น เป้า DOM ตรงนี้ -->
-      <div class="sb-field" id="target-layer"></div>
+        <div class="sb-feedback" id="sb-feedback">
+          โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯
+        </div>
 
-      <!-- ปุ่มควบคุมล่าง -->
-      <div class="sb-controls">
-        <button class="btn-main ghost small" data-action="stop-early">
-          หยุดก่อนเวลา
-        </button>
-      </div>
-    </section>
+        <div class="sb-field">
+          <div id="target-layer"></div>
+        </div>
 
-    <!-- ===== VIEW: RESULT ===== -->
-    <section id="view-result" class="hidden">
-      <h2 style="font-size:18px;margin:0 0 10px;">สรุปผลการเล่น</h2>
+        <div class="sb-controls">
+          <button class="btn-main ghost small" data-action="stop-early">
+            หยุดก่อนเวลา
+          </button>
+        </div>
+      </section>
 
-      <div class="summary">
-        <table>
-          <tbody>
+      <!-- ========= VIEW: RESULT ========= -->
+      <section id="view-result" class="hidden">
+        <header class="sb-header">
+          <h2 class="title">
+            <span class="title-main">สรุปผลการเล่น</span>
+          </h2>
+        </header>
+
+        <div class="summary">
+          <table>
             <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
-            <tr><td class="label">ระดับความยาก</td><td id="res-diff">-</td></tr>
-            <tr><td class="label">เหตุผลที่จบเกม</td><td id="res-endreason">-</td></tr>
-            <tr><td class="label">คะแนนรวม</td><td id="res-score">0</td></tr>
+            <tr><td class="label">ระดับ</td><td id="res-diff">-</td></tr>
+            <tr><td class="label">เหตุผลจบเกม</td><td id="res-endreason">-</td></tr>
+            <tr><td class="label">คะแนนสุดท้าย</td><td id="res-score">0</td></tr>
             <tr><td class="label">เกรด</td><td id="res-grade">-</td></tr>
-            <tr><td class="label">คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
-            <tr><td class="label">จำนวนพลาด</td><td id="res-miss">0</td></tr>
-            <tr><td class="label">ความแม่นยำ</td><td id="res-accuracy">0%</td></tr>
-            <tr><td class="label">จำนวนตีโดนเป้า</td><td id="res-totalhits">0</td></tr>
-            <tr><td class="label">RT เป้าปกติ (เฉลี่ย)</td><td id="res-rt-normal">-</td></tr>
-            <tr><td class="label">RT เป้าลวง (เฉลี่ย)</td><td id="res-rt-decoy">-</td></tr>
-            <tr><td class="label">รหัสผู้เข้าร่วม</td><td id="res-participant">-</td></tr>
-          </tbody>
-        </table>
-      </div>
+            <tr><td class="label">Max Combo</td><td id="res-maxcombo">0</td></tr>
+            <tr><td class="label">จำนวน Miss</td><td id="res-miss">0</td></tr>
+            <tr><td class="label">Accuracy</td><td id="res-accuracy">0%</td></tr>
+            <tr><td class="label">จำนวนเป้าที่ตีโดน</td><td id="res-totalhits">0</td></tr>
+            <tr><td class="label">RT ปกติ (ms)</td><td id="res-rt-normal">-</td></tr>
+            <tr><td class="label">RT เป้าลวง (ms)</td><td id="res-rt-decoy">-</td></tr>
+            <tr><td class="label">Participant</td><td id="res-participant">-</td></tr>
+          </table>
+        </div>
 
-      <div class="btn-row" style="margin-top:14px;">
-        <button class="btn-main primary" data-action="play-again">
-          <span class="btn-icon icon-3d-glove small">🥊</span>
-          เล่นอีกรอบ
-        </button>
-        <button class="btn-main ghost small" data-action="back-to-menu">
-          กลับเมนู
-        </button>
-      </div>
+        <div class="btn-row" style="margin-top:14px;">
+          <button class="btn-main ghost small" data-action="back-to-menu">
+            ← กลับเมนูหลัก
+          </button>
+          <button class="btn-main primary small" data-action="play-again">
+            เล่นอีกครั้ง
+          </button>
+        </div>
 
-      <div class="btn-row" style="margin-top:10px;">
-        <button class="btn-main secondary small" data-action="download-csv-events">
-          ดาวน์โหลด Event CSV
-        </button>
-        <button class="btn-main secondary small" data-action="download-csv-session">
-          ดาวน์โหลด Session CSV
-        </button>
-      </div>
-    </section>
-  </div>
-
-  <!-- ===== Boss intro overlay ===== -->
-  <div id="boss-intro" class="boss-intro hidden">
-    <div class="boss-intro-card">
-      <div id="boss-intro-emoji" class="boss-intro-emoji">🐣</div>
-      <div id="boss-intro-name" class="boss-intro-name">Bubble Glove</div>
-      <div id="boss-intro-title" class="boss-intro-title">บอสมือใหม่สายฟอง</div>
-      <div id="boss-intro-desc" class="boss-intro-desc">
-        เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพก่อนเริ่มจริง
-      </div>
-      <div class="boss-intro-hint">แตะหน้าจอเพื่อลุยต่อ!</div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn-main secondary small" data-action="download-csv-events">
+            ดาวน์โหลด Event CSV
+          </button>
+          <button class="btn-main secondary small" data-action="download-csv-session">
+            ดาวน์โหลด Session CSV
+          </button>
+        </div>
+      </section>
     </div>
   </div>
 
-  <!-- ===== SFX (ใช้งานร่วมกับ safePlay ใน engine.js) ===== -->
-  <audio id="sfx-hit"   src="sfx/hit.mp3"   preload="auto"></audio>
-  <audio id="sfx-boss"  src="sfx/boss.mp3"  preload="auto"></audio>
-  <audio id="sfx-fever" src="sfx/fever.mp3" preload="auto"></audio>
+  <!-- Boss intro overlay -->
+  <div id="boss-intro" class="boss-intro hidden">
+    <div class="boss-intro-card">
+      <div class="boss-intro-emoji" id="boss-intro-emoji">🐣</div>
+      <div class="boss-intro-name" id="boss-intro-name">Bubble Glove</div>
+      <div class="boss-intro-title" id="boss-intro-title">บอสมือใหม่สายฟอง</div>
+      <div class="boss-intro-desc" id="boss-intro-desc">
+        เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ
+      </div>
+      <div class="boss-intro-hint">
+        แตะหน้าจอเพื่อต่อสู้กับบอสตัวนี้!
+      </div>
+    </div>
+  </div>
 
-  <!-- Bootstrap Shadow Breaker (ตามโครงสร้าง /fitness/js) -->
+  <!-- SFX (optional) -->
+  <audio id="sfx-hit" preload="auto">
+    <source src="sfx/hit.mp3" type="audio/mpeg"/>
+  </audio>
+  <audio id="sfx-boss" preload="auto">
+    <source src="sfx/boss-intro.mp3" type="audio/mpeg"/>
+  </audio>
+  <audio id="sfx-fever" preload="auto">
+    <source src="sfx/fever.mp3" type="audio/mpeg"/>
+  </audio>
+
+  <!-- Bootstrap -->
   <script type="module" src="js/shadow-breaker.js"></script>
 </body>
 </html>
