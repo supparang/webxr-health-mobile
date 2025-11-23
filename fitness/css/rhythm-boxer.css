@@ -1,6 +1,465 @@
+/* === Rhythm Boxer — Layout & HUD (2025-11-24) === */
+
+:root{
+  --rb-bg: #020617;
+  --rb-card: rgba(15,23,42,0.96);
+  --rb-card-soft: rgba(15,23,42,0.88);
+  --rb-border-soft: #1f2937;
+  --rb-border-strong: #334155;
+  --rb-text-main: #e5e7eb;
+  --rb-text-soft: #9ca3af;
+  --rb-accent: #38bdf8;
+  --rb-accent-2: #22c55e;
+  --rb-danger: #fb7185;
+  --rb-warn: #f97316;
+
+  --rb-note-easy:   4.0rem;
+  --rb-note-normal: 3.4rem;
+  --rb-note-hard:   3.0rem;
+}
+
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
+}
+
+html,body{
+  margin:0;
+  padding:0;
+  height:100%;
+}
+
+body{
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.16), transparent 60%),
+    var(--rb-bg);
+  color:var(--rb-text-main);
+}
+
+/* --- Utility --- */
+
+.hidden{ display:none !important; }
+
+.rb-btn{
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.7);
+  padding:8px 20px;
+  font-size:16px;
+  background:transparent;
+  color:var(--rb-text-main);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  transition:background 0.18s, transform 0.1s, box-shadow 0.18s;
+}
+.rb-btn.primary{
+  border-color:transparent;
+  background:linear-gradient(90deg,#22c55e,#0ea5e9);
+  color:#0f172a;
+  box-shadow:0 10px 25px rgba(34,197,94,0.4);
+}
+.rb-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(15,23,42,0.4);
+}
+.rb-btn:active{
+  transform:translateY(0);
+  box-shadow:none;
+}
+
+/* --- Wrap / container --- */
+
+#rb-wrap{
+  max-width:960px;
+  margin:12px auto 32px;
+  padding:16px 10px 32px;
+  border-radius:24px;
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.15), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.15), transparent 55%),
+    rgba(15,23,42,0.96);
+  box-shadow:
+    0 24px 60px rgba(15,23,42,0.9),
+    0 0 0 1px rgba(148,163,184,0.25);
+  overflow:hidden;
+}
+
+@media (min-width:768px){
+  #rb-wrap{
+    margin-top:32px;
+    padding:24px 28px 32px;
+  }
+}
+
+/* --- Views --- */
+
+.rb-view{
+  display:block;
+}
+.rb-view.hidden{
+  display:none !important;
+}
+
+/* --- Menu view --- */
+
+#rb-view-menu h1{
+  margin:0 0 8px;
+  font-size:32px;
+  letter-spacing:0.03em;
+}
+#rb-view-menu h1 span{
+  font-size:28px;
+}
+
+.rb-menu-row{
+  margin-top:12px;
+  margin-bottom:12px;
+  font-size:18px;
+}
+.rb-menu-row label{
+  margin-right:12px;
+}
+
+.rb-menu-row select{
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.8);
+  background:rgba(15,23,42,0.9);
+  color:var(--rb-text-main);
+}
+
+.rb-menu-actions{
+  margin-top:20px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+}
+
+/* --- HUD (play view) --- */
+
+#rb-view-play{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.rb-hud-header{
+  font-size:15px;
+  line-height:1.5;
+  color:var(--rb-text-soft);
+}
+
+.rb-hud-header strong{
+  color:var(--rb-text-main);
+}
+
+.rb-hud-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:16px;
+  margin-top:6px;
+  font-size:14px;
+}
+.rb-hud-grid > div{
+  min-width:120px;
+}
+
+/* Progress bar */
+
+.rb-progress{
+  margin-top:8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.rb-progress-bar{
+  flex:1;
+  height:14px;
+  border-radius:999px;
+  background:rgba(15,23,42,1);
+  border:1px solid rgba(31,41,55,0.9);
+  overflow:hidden;
+}
+#rb-progress-fill{
+  width:0%;
+  height:100%;
+  background:linear-gradient(90deg,#22c55e,#0ea5e9);
+  border-radius:999px;
+}
+#rb-progress-text{
+  min-width:42px;
+  text-align:right;
+  font-size:13px;
+  color:var(--rb-text-soft);
+}
+
+/* --- Lanes + notes --- */
+
+#rb-play-field{
+  margin-top:12px;
+  display:flex;
+  justify-content:center;
+}
+
+#rb-lanes{
+  width:100%;
+  max-width:540px;
+  aspect-ratio:5 / 7;
+  display:flex;
+  gap:10px;
+  padding:10px;
+  border-radius:24px;
+  background:radial-gradient(circle at top,rgba(15,23,42,0.95),rgba(2,6,23,0.96));
+  border:1px solid rgba(31,41,55,0.9);
+  box-shadow:inset 0 0 0 1px rgba(15,23,42,0.9);
+}
+
+.rb-lane{
+  flex:1;
+  border-radius:20px;
+  background:radial-gradient(circle at top,rgba(15,23,42,0.95),rgba(15,23,42,0.98));
+  box-shadow:
+    inset 0 0 0 1px rgba(30,64,175,0.45),
+    0 14px 30px rgba(15,23,42,0.9);
+  position:relative;
+  overflow:hidden;
+}
+
+/* hit line */
+.rb-hitline{
+  position:absolute;
+  left:10%;
+  right:10%;
+  bottom:12%;
+  height:2px;
+  background:linear-gradient(90deg,rgba(148,163,184,0.1),rgba(148,163,184,0.7),rgba(148,163,184,0.1));
+}
+
+/* note base style */
+.rb-note{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:100%;
+  font-size:var(--rb-note-normal);
+  filter:drop-shadow(0 12px 14px rgba(15,23,42,0.9));
+  opacity:0;
+  transition:transform 0.22s, opacity 0.22s;
+  user-select:none;
+  pointer-events:none;
+}
+
+/* difficulty-based size */
+#rb-wrap[data-level="easy"] .rb-note{
+  font-size:var(--rb-note-easy);
+}
+#rb-wrap[data-level="hard"] .rb-note{
+  font-size:var(--rb-note-hard);
+}
+
+/* spawn state (JS แค่เพิ่ม class นี้; y จะถูกคุมด้วย inline style) */
+.rb-note-spawned{
+  opacity:1;
+}
+
+/* Score popup */
+
+.rb-score-popup{
+  position:absolute;
+  left:50%;
+  bottom:18%;
+  transform:translateX(-50%);
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:500;
+  background:rgba(15,23,42,0.95);
+  border:1px solid rgba(148,163,184,0.6);
+  color:var(--rb-text-soft);
+  pointer-events:none;
+  opacity:0;
+  animation:rbScorePop 0.55s ease-out forwards;
+}
+.rb-score-perfect{
+  border-color:#38bdf8;
+  color:#e0f2fe;
+}
+.rb-score-great{
+  border-color:#4ade80;
+  color:#dcfce7;
+}
+.rb-score-good{
+  border-color:#a855f7;
+  color:#ede9fe;
+}
+.rb-score-miss{
+  border-color:#f97316;
+  color:#fed7aa;
+  background:rgba(15,23,42,0.98);
+}
+
+@keyframes rbScorePop{
+  0%{ opacity:0; transform:translate(-50%,4px) scale(0.9); }
+  40%{ opacity:1; transform:translate(-50%,0) scale(1); }
+  100%{ opacity:0; transform:translate(-50%,-10px) scale(0.96); }
+}
+
+/* --- Feedback bubble --- */
+
+#rb-feedback{
+  margin-top:8px;
+  padding:8px 14px;
+  border-radius:999px;
+  font-size:13px;
+  color:var(--rb-text-soft);
+  background:rgba(15,23,42,0.95);
+  border:1px solid rgba(55,65,81,0.9);
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+#rb-feedback.good{
+  border-color:#22c55e;
+  color:#bbf7d0;
+}
+#rb-feedback.miss{
+  border-color:#fb7185;
+  color:#fecaca;
+}
+#rb-feedback.warn{
+  border-color:#f97316;
+  color:#fed7aa;
+}
+
+/* --- FEVER bar (ใหม่) --- */
+
+.rb-fever-wrap{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+}
+.rb-fever-label{
+  min-width:58px;
+  text-align:center;
+  padding:4px 6px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.8);
+  background:rgba(15,23,42,0.95);
+  color:var(--rb-text-soft);
+}
+.rb-fever-label span.on{
+  color:#fed7aa;
+}
+.rb-fever-bar{
+  flex:1;
+  height:10px;
+  border-radius:999px;
+  background:rgba(15,23,42,1);
+  border:1px solid rgba(55,65,81,1);
+  overflow:hidden;
+}
+.rb-fever-fill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#f97316,#fb7185);
+  transform-origin:left center;
+  transform:scaleX(0);
+  transition:transform 0.12s ease-out;
+}
+
+/* --- Controls row --- */
+
+.rb-controls{
+  margin-top:12px;
+}
+
+/* --- Audio guard (autoplay blocked) --- */
+
+#rb-audio-guard{
+  margin-top:14px;
+  padding:10px 14px;
+  border-radius:20px;
+  border:1px solid rgba(59,130,246,0.8);
+  background:rgba(15,23,42,0.96);
+  font-size:13px;
+  color:#dbeafe;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+#rb-audio-guard small{
+  color:#9ca3af;
+}
+
+/* --- Result view --- */
+
+#rb-view-result{
+  font-size:15px;
+}
+
+.rb-res-main{
+  padding:10px 14px;
+  border-radius:18px;
+  background:var(--rb-card-soft);
+  border:1px solid var(--rb-border-soft);
+  margin-bottom:12px;
+}
+.rb-res-main h2{
+  margin:0 0 6px;
+  font-size:20px;
+}
+.rb-res-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px 24px;
+  font-size:14px;
+}
+.rb-res-grid dt{
+  font-weight:500;
+  color:var(--rb-text-soft);
+}
+.rb-res-grid dd{
+  margin:0;
+  color:var(--rb-text-main);
+}
+
+.rb-res-actions{
+  margin-top:14px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+/* --- Mobile tweaks --- */
+
+@media (max-width:480px){
+  #rb-wrap{
+    margin:0;
+    margin-top:8px;
+    border-radius:0;
+  }
+  #rb-lanes{
+    gap:8px;
+    padding:8px;
+    border-radius:18px;
+  }
+  .rb-lane{
+    border-radius:16px;
+  }
+  #rb-feedback{
+    max-width:100%;
+  }
+}
+
 /* ==== FORCE DISABLE OLD FULLSCREEN FEVER OVERLAY ==== */
 
-/* ถ้ามี class rb-fever-on ใส่ที่ body หรือ #rb-wrap ให้ใช้พื้นหลังปกติ */
 body.rb-fever-on,
 #rb-wrap.rb-fever-on{
   background:
@@ -9,7 +468,6 @@ body.rb-fever-on,
     var(--rb-bg);
 }
 
-/* ปิด pseudo-element ทุกแบบที่เคยใช้ทำ FEVER เต็มจอ */
 body.rb-fever-on::before,
 body.rb-fever-on::after,
 #rb-wrap.rb-fever-on::before,
@@ -19,7 +477,6 @@ body.rb-fever-on::after,
   background:none !important;
 }
 
-/* ถ้ามี overlay แบบ div แยก ให้ปิดทิ้งหมด */
 .fever-overlay,
 .rb-fever-overlay,
 .rb-fever-screen{
