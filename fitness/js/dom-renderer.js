@@ -1,189 +1,161 @@
-// === js/dom-renderer.js — DOM renderer for Shadow Breaker (2025-11-24) ===
+// === js/dom-renderer.js — DOM field + FX (2025-11-24 v4) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
 
 export class DomRenderer {
-  constructor(game, host, opts) {
-    this.game = game;
-    this.host = host;
-    this.sizePx = (opts && opts.sizePx) || 100;
+  constructor(game, host, opts = {}) {
+    this.game   = game;
+    this.host   = host;
+    this.sizePx = opts.sizePx || 100;
+    this.targets = new Map(); // id → { el, inner, onPtr }
 
-    this.targets = new Map(); // id -> { el, x, y }
-
-    this._rect = null;
-    this._resizeHandler = this.updateRect.bind(this);
-    window.addEventListener('resize', this._resizeHandler);
-    this.updateRect();
+    if (this.host) {
+      // ให้เป็น relative เสมอ และปิด gesture scroll บนมือถือ
+      if (!this.host.style.position || this.host.style.position === 'static') {
+        this.host.style.position = 'relative';
+      }
+      this.host.style.touchAction = 'none';
+      this.updateBounds();
+      window.addEventListener('resize', () => this.updateBounds());
+    }
   }
 
-  updateRect() {
+  /* ---------- utils ---------- */
+
+  updateBounds() {
     if (!this.host) return;
-    var r = this.host.getBoundingClientRect();
-    this._rect = {
-      left: r.left,
-      top: r.top,
-      width: r.width || (this.host.clientWidth || 1),
-      height: r.height || (this.host.clientHeight || 1)
-    };
+    this.bounds = this.host.getBoundingClientRect();
   }
 
   clear() {
     if (!this.host) return;
-    this.targets.clear();
-    while (this.host.firstChild) {
-      this.host.removeChild(this.host.firstChild);
+    for (const { el, onPtr } of this.targets.values()) {
+      if (onPtr) el.removeEventListener('pointerdown', onPtr);
+      if (el.parentNode === this.host) this.host.removeChild(el);
     }
+    this.targets.clear();
   }
 
-  // สุ่มตำแหน่งเป้า (เว้นขอบนิดหน่อย)
-  _randomPos(sizePx) {
-    this.updateRect();
-    var w = (this._rect && this._rect.width) || 1;
-    var h = (this._rect && this._rect.height) || 1;
-
-    var marginX = sizePx * 0.6;
-    var marginY = sizePx * 0.6;
-
-    var x = marginX + Math.random() * (w - marginX * 2);
-    var y = marginY + Math.random() * (h - marginY * 2);
-
-    return { x: x, y: y, x_norm: x / w, y_norm: y / h };
-  }
+  /* ---------- spawn / remove target ---------- */
 
   spawnTarget(t) {
     if (!this.host) return;
 
-    var size = t.size_px || this.sizePx;
+    if (!this.bounds) this.updateBounds();
+    const rect   = this.bounds;
+    const margin = (this.sizePx / 2) + 8;
+    const w      = Math.max(rect.width  - margin * 2, this.sizePx);
+    const h      = Math.max(rect.height - margin * 2, this.sizePx);
 
-    var pos = this._randomPos(size);
-    t.x_norm = pos.x_norm;
-    t.y_norm = pos.y_norm;
+    const x = margin + Math.random() * w;
+    const y = margin + Math.random() * h;
 
-    // สร้าง DOM
-    var outer = document.createElement('div');
-    outer.className = 'sb-target';
-    outer.style.width = size + 'px';
-    outer.style.height = size + 'px';
-    outer.style.left = pos.x + 'px';
-    outer.style.top = pos.y + 'px';
-    outer.dataset.id = String(t.id);
-    if (t.decoy) outer.dataset.type = 'bad';
-    if (t.bossFace) outer.setAttribute('data-boss-face', '1');
+    const outer = document.createElement('div');
+    outer.className   = 'sb-target';
+    outer.dataset.id  = String(t.id);
+    outer.dataset.type = t.decoy ? 'bad' : 'good';
+    if (t.bossFace) outer.dataset.bossFace = '1';
 
-    var inner = document.createElement('div');
-    inner.className = 'sb-target-inner';
+    outer.style.width  = this.sizePx + 'px';
+    outer.style.height = this.sizePx + 'px';
+    outer.style.left   = x + 'px';
+    outer.style.top    = y + 'px';
+
+    const inner = document.createElement('div');
+    inner.className   = 'sb-target-inner';
     inner.textContent = t.emoji || '🥊';
     outer.appendChild(inner);
 
-    // handler เมื่อแตะ/คลิกเป้า
-    var self = this;
-    var onPtr = function (ev) {
+    const onPtr = (ev) => {
+      if (!this.game || !this.game.running) return;
       ev.preventDefault();
       ev.stopPropagation();
-      // แปลงเป็นพิกัดภายใน field (px)
-      self.updateRect();
-      var rect = self._rect;
-      var clientX = ev.clientX;
-      var clientY = ev.clientY;
-      if (ev.touches && ev.touches.length) {
-        clientX = ev.touches[0].clientX;
-        clientY = ev.touches[0].clientY;
-      }
-      var x = clientX - rect.left;
-      var y = clientY - rect.top;
-      self.game.registerTouch(x, y, t.id);
-    };
 
+      const r  = this.host.getBoundingClientRect();
+      const px = ev.clientX - r.left;
+      const py = ev.clientY - r.top;
+      this.game.registerTouch(px, py, t.id);
+    };
     outer.addEventListener('pointerdown', onPtr);
-    outer.addEventListener('touchstart', onPtr);
 
     this.host.appendChild(outer);
-    this.targets.set(t.id, {
-      el: outer,
-      x: pos.x,
-      y: pos.y
-    });
+
+    // เก็บตำแหน่งแบบ normalized ไว้ใช้ตอนทำ effect
+    t.x_norm  = rect.width  > 0 ? x / rect.width  : 0.5;
+    t.y_norm  = rect.height > 0 ? y / rect.height : 0.5;
+    t.size_px = this.sizePx;
+    t._el     = outer;
+    t._onPtr  = onPtr;
+
+    this.targets.set(t.id, { el: outer, inner, onPtr });
   }
 
+  // engine.handleHit / handleMiss / handleDecoyHit เรียกอันนี้ก่อน spawnHitEffect
   removeTarget(t) {
-    var entry = this.targets.get(t.id);
-    if (!entry || !entry.el) return;
+    const rec = this.targets.get(t.id);
+    if (!rec) return;
+    const { el, onPtr } = rec;
 
-    var el = entry.el;
-    this.targets.delete(t.id);
-
-    // ทำอนิเมชันหดแล้วค่อยลบ
     el.classList.add('sb-hit');
-    setTimeout(function () {
-      if (el.parentNode) {
-        el.parentNode.removeChild(el);
-      }
-    }, 230);
+    if (onPtr) el.removeEventListener('pointerdown', onPtr);
+
+    // ยังไม่ลบจาก Map ทันที เพื่อให้ spawnHitEffect ใช้ตำแหน่งได้
+    setTimeout(() => {
+      if (el.parentNode === this.host) this.host.removeChild(el);
+      this.targets.delete(t.id);
+    }, 220);
   }
 
-  // เอฟเฟกต์ตอนโดน / miss / bomb
-  spawnHitEffect(t, info) {
+  /* ---------- score / particle effect ---------- */
+
+  spawnHitEffect(t, opts = {}) {
     if (!this.host) return;
-    info = info || {};
 
-    this.updateRect();
-    var rect = this._rect || { width: this.host.clientWidth, height: this.host.clientHeight };
+    const hostRect = this.host.getBoundingClientRect();
+    let cx, cy;
 
-    var entry = this.targets.get(t.id);
-    var x = entry ? entry.x : null;
-    var y = entry ? entry.y : null;
-
-    // ถ้า target ถูกลบไปแล้ว ให้ใช้ค่า normalized ที่เก็บไว้
-    if (x == null || y == null) {
-      if (typeof t.x_norm === 'number' && typeof t.y_norm === 'number') {
-        x = t.x_norm * rect.width;
-        y = t.y_norm * rect.height;
-      } else {
-        x = rect.width / 2;
-        y = rect.height / 2;
-      }
-    }
-
-    // popup คะแนน / ข้อความ
-    var scoreEl = document.createElement('div');
-    scoreEl.className = 'sb-fx-score';
-
-    var grade = info.grade || '';
-    var txt = '';
-
-    if (info.decoy) {
-      txt = (info.score != null ? info.score : -60) + ' (Bomb!)';
-      scoreEl.classList.add('sb-decoy');
-    } else if (info.miss) {
-      txt = 'MISS';
-      scoreEl.classList.add('sb-miss');
-    } else if (grade === 'perfect') {
-      txt = '+' + (info.score != null ? info.score : 0) + ' PERFECT';
-      scoreEl.classList.add('sb-perfect');
-    } else if (grade === 'good') {
-      txt = '+' + (info.score != null ? info.score : 0) + ' GOOD';
-      scoreEl.classList.add('sb-good');
+    const rec = this.targets.get(t.id);
+    if (rec && rec.el.isConnected) {
+      const r = rec.el.getBoundingClientRect();
+      cx = r.left + r.width  / 2 - hostRect.left;
+      cy = r.top  + r.height / 2 - hostRect.top;
+    } else if (t.x_norm != null && t.y_norm != null && this.bounds) {
+      cx = t.x_norm * this.bounds.width;
+      cy = t.y_norm * this.bounds.height;
     } else {
-      txt = (info.score != null && info.score !== 0)
-        ? (info.score > 0 ? '+' + info.score : String(info.score))
-        : 'HIT';
+      cx = hostRect.width / 2;
+      cy = hostRect.height / 2;
     }
 
-    scoreEl.textContent = txt;
-    scoreEl.style.left = x + 'px';
-    scoreEl.style.top = y + 'px';
-    this.host.appendChild(scoreEl);
+    // 1) score popup (Perfect / Good / Miss / Bomb)
+    if (typeof opts.score === 'number') {
+      const badge = document.createElement('div');
+      let cls  = 'sb-fx-score';
+      let text = (opts.score > 0 ? '+' : '') + String(opts.score);
 
-    setTimeout(function () {
-      if (scoreEl.parentNode) scoreEl.parentNode.removeChild(scoreEl);
-    }, 650);
+      if (opts.decoy)       cls += ' sb-decoy';
+      else if (opts.miss)   cls += ' sb-miss';
+      else if (opts.grade === 'perfect') cls += ' sb-perfect';
+      else                  cls += ' sb-good';
 
-    // particle emoji
-    var particleEmoji = '💥';
-    if (info.decoy) particleEmoji = '💣';
-    else if (info.miss) particleEmoji = '💢';
+      badge.className   = cls;
+      badge.textContent = text;
+      badge.style.left  = cx + 'px';
+      badge.style.top   = cy + 'px';
 
-    spawnHitParticle(this.host, x, y, particleEmoji);
+      this.host.appendChild(badge);
+      setTimeout(() => {
+        if (badge.parentNode === this.host) this.host.removeChild(badge);
+      }, 650);
+    }
+
+    // 2) emoji particle 💥 / ✨ / 💣 / 💢
+    let emo = '💥';
+    if (opts.decoy)         emo = '💣';
+    else if (opts.miss)     emo = '💢';
+    else if (opts.grade === 'perfect') emo = '✨';
+
+    spawnHitParticle(this.host, cx, cy, emo);
   }
 }
