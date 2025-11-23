@@ -1,137 +1,151 @@
-/* === fitness/hub.css — VR Fitness Hub (Gym Light Style) === */
-
 :root{
-  color-scheme: dark;
+  color-scheme:dark;
 }
-*{
-  box-sizing:border-box;
-}
+*{box-sizing:border-box;}
 body{
   margin:0;
   min-height:100vh;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-  background:#020617;
+  background:
+    radial-gradient(circle at top left,rgba(59,130,246,.32),transparent 55%),
+    radial-gradient(circle at bottom right,rgba(236,72,153,.32),transparent 55%),
+    #020617;
   color:#e5e7eb;
 }
-
-/* BG gym จาง ๆ ด้านหลัง */
-.hub-bg{
-  position:fixed;
-  inset:0;
-  background:url('./bg-gym.jpg') center/cover no-repeat;
-  filter:blur(3px) brightness(0.8);
-  opacity:0.65;
-  z-index:-1;
+.hub-wrap{
+  max-width:1040px;
+  margin:20px auto 32px;
+  padding:0 16px 24px;
 }
-
-/* กล่องหลัก */
-.hub-shell{
-  max-width:1100px;
-  margin:24px auto 40px;
-  padding:20px 16px 28px;
-  background:linear-gradient(145deg,
-    rgba(15,23,42,0.96),
-    rgba(15,23,42,0.92));
-  border-radius:24px;
-  box-shadow:
-    0 0 0 1px rgba(15,23,42,0.95),
-    0 28px 70px rgba(15,23,42,0.96);
-}
-
-/* Header */
 .hub-header{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
   gap:16px;
-  margin-bottom:18px;
+  margin-bottom:12px;
+}
+.hub-logo-block{
+  max-width:640px;
+}
+.hub-logo-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:11px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  background:rgba(15,23,42,.9);
+  border:1px solid rgba(148,163,184,.6);
+  margin-bottom:6px;
 }
 .hub-title{
-  display:flex;
-  align-items:center;
-  gap:12px;
-}
-.hub-logo{
-  width:52px;
-  height:52px;
-  border-radius:999px;
-  background:radial-gradient(circle at 30% 20%,#facc15,#f97316);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:28px;
-  box-shadow:0 14px 36px rgba(15,23,42,0.95);
-}
-.hub-title h1{
   margin:0 0 4px;
-  font-size:24px;
-  letter-spacing:.04em;
-  text-transform:uppercase;
+  font-size:26px;
 }
-.hub-title p{
+.hub-subtitle{
   margin:0;
-  font-size:13px;
-  opacity:.8;
+  font-size:14px;
+  opacity:.82;
 }
-
-/* legend โหมด */
-.hub-mode-tip{
-  font-size:12px;
-  opacity:.85;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.dot{
-  display:inline-block;
-  width:12px;
-  height:12px;
+.hub-back{
+  text-decoration:none;
+  padding:7px 12px;
   border-radius:999px;
-  margin-right:4px;
-}
-.dot.normal{
-  background:linear-gradient(120deg,#22c55e,#4ade80);
-}
-.dot.research{
-  background:linear-gradient(120deg,#6366f1,#ec4899);
+  font-size:13px;
+  border:1px solid rgba(148,163,184,.7);
+  background:rgba(15,23,42,.96);
+  color:#e5e7eb;
+  box-shadow:0 14px 36px rgba(15,23,42,.96);
 }
 
-/* การ์ดเกม */
+/* Mode toggle */
+.mode-section{
+  margin:14px 0 12px;
+}
+.mode-toggle{
+  display:inline-flex;
+  padding:3px;
+  border-radius:999px;
+  background:rgba(15,23,42,.96);
+  border:1px solid rgba(51,65,85,.9);
+  box-shadow:0 16px 40px rgba(15,23,42,.96);
+}
+.mode-btn{
+  border:none;
+  background:transparent;
+  color:#e5e7eb;
+  font-size:13px;
+  padding:6px 14px 7px;
+  border-radius:999px;
+  cursor:pointer;
+  min-width:96px;
+  transition:background .15s ease-out,color .15s ease-out,transform .1s ease-out;
+}
+.mode-btn.active{
+  background:linear-gradient(120deg,#22c55e,#4ade80);
+  color:#052e16;
+  transform:translateY(-1px);
+}
+.mode-desc{
+  margin:6px 2px 0;
+  font-size:13px;
+  opacity:.84;
+}
+
+/* Cards */
 .game-grid{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:16px;
-  margin-top:8px;
+  margin-top:10px;
 }
 .game-card{
-  padding:14px 14px 16px;
-  border-radius:18px;
-  background:radial-gradient(circle at top left,
-      rgba(56,189,248,0.24),
-      transparent 55%),
-    rgba(15,23,42,0.96);
-  box-shadow:0 14px 32px rgba(15,23,42,0.9);
-  border:1px solid rgba(148,163,184,0.45);
+  background:radial-gradient(circle at top left,rgba(56,189,248,.24),transparent 55%),
+             radial-gradient(circle at bottom right,rgba(236,72,153,.28),transparent 55%),
+             rgba(15,23,42,.96);
+  border-radius:22px;
+  padding:16px 14px 16px;
+  box-shadow:
+    0 0 0 1px rgba(15,23,42,1),
+    0 22px 60px rgba(15,23,42,1);
 }
-.game-card h2{
-  margin:0 0 4px;
+.game-head{
+  margin-bottom:6px;
+}
+.game-title{
+  margin:0 0 2px;
   font-size:18px;
 }
-.game-sub{
-  margin:0 0 12px;
+.game-tagline{
+  margin:0;
   font-size:13px;
-  opacity:.8;
+  opacity:.84;
+}
+.game-tags{
+  list-style:none;
+  padding:0;
+  margin:8px 0 6px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.game-tags li{
+  font-size:11px;
+  padding:3px 8px 4px;
+  border-radius:999px;
+  background:rgba(15,23,42,.96);
+  border:1px solid rgba(148,163,184,.7);
+}
+.game-desc{
+  margin:0 0 10px;
+  font-size:13px;
+  opacity:.9;
 }
 .game-actions{
   display:flex;
   flex-wrap:wrap;
   gap:8px;
-}
-
-/* ปุ่ม */
-button{
-  font-family:inherit;
 }
 .btn{
   border:none;
@@ -139,45 +153,52 @@ button{
   border-radius:999px;
   padding:7px 14px 8px;
   font-size:13px;
-  font-weight:600;
   display:inline-flex;
   align-items:center;
   gap:6px;
-  transition:transform .12s ease-out,
-             box-shadow .12s ease-out,
-             filter .12s ease-out;
+  text-decoration:none;
+  transition:.13s ease-out;
+  transition-property:transform,box-shadow,filter;
 }
-.btn.normal{
+.btn.primary{
   background:linear-gradient(120deg,#22c55e,#4ade80);
   color:#052e16;
-  box-shadow:0 10px 26px rgba(22,163,74,0.7);
+  box-shadow:0 16px 40px rgba(22,163,74,.9);
 }
-.btn.research{
-  background:linear-gradient(120deg,#6366f1,#ec4899);
-  color:#f9fafb;
-  box-shadow:0 10px 26px rgba(129,140,248,0.7);
+.btn.ghost{
+  background:rgba(15,23,42,.96);
+  color:#e5e7eb;
+  border:1px solid rgba(148,163,184,.7);
+  box-shadow:0 12px 30px rgba(15,23,42,.96);
 }
 .btn:hover{
   transform:translateY(-1px) scale(1.02);
-  filter:brightness(1.05);
+  filter:brightness(1.04);
 }
 .btn:active{
   transform:translateY(1px) scale(.97);
-  box-shadow:0 6px 18px rgba(15,23,42,0.9);
+  box-shadow:0 8px 20px rgba(15,23,42,.96);
 }
 
-/* มือถือ */
-@media (max-width:768px){
-  .hub-shell{
-    margin:12px auto 18px;
-    padding:16px 12px 20px;
-    border-radius:20px;
+/* Footer */
+.hub-footer{
+  margin-top:18px;
+  font-size:12px;
+  opacity:.72;
+}
+
+/* Responsive */
+@media (max-width:840px){
+  .game-grid{
+    grid-template-columns:1fr;
+  }
+}
+@media (max-width:640px){
+  .hub-wrap{
+    margin-top:14px;
   }
   .hub-header{
     flex-direction:column;
     align-items:flex-start;
-  }
-  .game-grid{
-    grid-template-columns:1fr;
   }
 }
