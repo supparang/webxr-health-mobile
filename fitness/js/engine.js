@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-11-24 Research-Ready v3) ===
+// === js/engine.js — Shadow Breaker core (2025-11-24 Research-Ready v4) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -526,8 +526,7 @@ class ShadowBreakerGame {
     if (this.renderer) this.renderer.clear();
     this.targets.clear();
 
-    // bomb ไม่ถูกนับเป็น miss แล้ว → accuracy ใช้เฉพาะ hit + miss
-    const totalShots = this.hitCount + this.miss;
+    const totalShots = this.hitCount + this.miss; // bomb ไม่นับ miss
     const accuracy   = totalShots > 0 ? (this.hitCount / totalShots) * 100 : 0;
 
     // RT analytics
@@ -589,7 +588,7 @@ class ShadowBreakerGame {
 
     const summary = {
       session_id:  this.sessionId + '-' + String(this.sessionSummaries.length + 1).padStart(2,'0'),
-      build_version: 'shadowBreaker_v3',
+      build_version: 'shadowBreaker_v4',
       mode: this.mode,
       difficulty: this.diff,
       start_ts: this._startWallClock || '',
@@ -826,8 +825,7 @@ class ShadowBreakerGame {
       size_px: this.config.sizePx,
       x_norm: null,
       y_norm: null,
-      _el: null,
-      _onPtr: null
+      dom: null
     };
 
     this.targets.set(id, t);
@@ -863,7 +861,8 @@ class ShadowBreakerGame {
   handleHit(t, grade, ageMs) {
     t.hit = true;
     this.targets.delete(t.id);
-    if (this.renderer) this.renderer.removeTarget(t);
+    // ★ ปล่อยให้ dom-renderer.js จัดการแอนิเมชัน/ลบ DOM เอง
+    // (ไม่เรียก removeTarget ที่นี่ เพื่อให้เห็น "เป้าแตกกระจาย")
 
     let baseScore = 0;
     if (grade === 'perfect') baseScore = 120;
@@ -951,7 +950,7 @@ class ShadowBreakerGame {
   handleDecoyHit(t, ageMs) {
     t.hit = true;
     this.targets.delete(t.id);
-    if (this.renderer) this.renderer.removeTarget(t);
+    // ★ ไม่เรียก removeTarget เพื่อให้เห็น effect ระเบิด
 
     const comboBefore = this.combo;
     const hpBefore    = this.playerHp;
@@ -966,7 +965,7 @@ class ShadowBreakerGame {
     if (this.renderer) {
       this.renderer.spawnHitEffect(t, {
         decoy: true,
-        grade: 'bad',
+        grade: 'bomb',
         score: -60
       });
     }
@@ -1014,16 +1013,17 @@ class ShadowBreakerGame {
   handleMiss(t) {
     if (!this.targets.has(t.id) || t.hit) return;
 
-    // decoy หายเอง = ไม่ถือว่า miss
     if (t.decoy) {
+      // bomb ที่หมดเวลา → เฉย ๆ ไม่ถือว่า miss, แค่หายไป
       this.targets.delete(t.id);
-      if (this.renderer) this.renderer.removeTarget(t);
+      if (this.renderer) {
+        this.renderer.removeTarget(t);
+      }
       return;
     }
 
     this.targets.delete(t.id);
-    if (this.renderer) this.renderer.removeTarget(t);
-
+    // ★ ไม่ลบ DOM ทันที แต่ส่งให้ renderer เล่นแอนิเมชัน miss
     const comboBefore = this.combo;
     const hpBefore    = this.playerHp;
     const feverBefore = this.fever;
