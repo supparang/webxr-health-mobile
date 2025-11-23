@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Rhythm Boxer — VR Fitness</title>
   <!-- ชี้ไปที่โฟลเดอร์ css -->
-  <link rel="stylesheet" href="css/rhythm-boxer.css"/>
+<link rel="stylesheet" href="css/rhythm-boxer.css"/>
 </head>
 <body>
   <div class="rb-wrap" id="rb-wrap">
@@ -151,10 +151,11 @@
     </section>
   </div>
 
-  <!-- เสียงเพลง (อาจารย์ใส่ src เองตามไฟล์จริงใน rhythm-engine.js หรือโค้ดอื่น) -->
+  <!-- เสียงเพลง -->
   <audio id="rb-audio"></audio>
 
-  <!-- ใช้ rhythm-boxer.js เป็น entry และมันจะ import rhythm-engine + logger ให้เอง -->
-  <script type="module" src="js/rhythm-boxer.js"></script>
+  <!-- ใช้ rhythm-engine.js เป็นตัวหลัก (มีทั้งเกม + logger แล้ว) -->
+  <script src="js/rhythm-engine.js"></script>
 </body>
 </html>
+
