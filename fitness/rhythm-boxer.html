@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Rhythm Boxer — VR Fitness</title>
-  <!-- CSS -->
+  <!-- ชี้ไปที่โฟลเดอร์ css -->
   <link rel="stylesheet" href="css/rhythm-boxer.css"/>
 </head>
 <body>
@@ -21,7 +21,6 @@
     <section id="rb-view-menu" class="rb-view">
       <div class="rb-card">
         <h2>เลือกโหมดการเล่น</h2>
-
         <div class="rb-form-row">
           <label>โหมด (Mode)</label>
           <div class="rb-radio-row">
@@ -95,6 +94,15 @@
               </div>
               <span id="rb-fever-status" class="rb-fever-status">OFF</span>
             </div>
+
+            <!-- Progress สำหรับวิจัย -->
+            <div class="rb-progress-row">
+              <span class="rb-progress-label">Progress</span>
+              <div class="rb-progress-bar">
+                <div id="rb-progress-fill" class="rb-progress-fill"></div>
+              </div>
+              <span id="rb-progress-text" class="rb-progress-text">0%</span>
+            </div>
           </div>
           <button id="rb-btn-stop" class="rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
         </div>
@@ -125,19 +133,9 @@
             <tr><td>คะแนนรวม</td><td id="rb-res-score">0</td></tr>
             <tr><td>คอมโบสูงสุด</td><td id="rb-res-maxcombo">0</td></tr>
             <tr><td>จำนวนโน้ตทั้งหมด</td><td id="rb-res-totalnotes">0</td></tr>
-            <tr>
-              <td>Perfect / Great / Good / Miss</td>
-              <td id="rb-res-detail-hit">0 / 0 / 0 / 0</td>
-            </tr>
-
-            <!-- แสดงเกรดรวม -->
-            <tr>
-              <td>เกรดรวม (Rank)</td>
-              <td id="rb-res-rank">
-                <span class="rb-rank-pill">-</span>
-              </td>
-            </tr>
-
+            <tr><td>Perfect / Great / Good / Miss</td>
+                <td id="rb-res-detail-hit">0 / 0 / 0 / 0</td></tr>
+            <tr><td>เกรดรวม (Rank)</td><td id="rb-res-rank">-</td></tr>
             <tr><td>ความแม่นยำ (Accuracy)</td><td id="rb-res-acc">0%</td></tr>
             <tr><td>ค่าเฉลี่ย offset (ms)</td><td id="rb-res-offset-avg">-</td></tr>
             <tr><td>ส่วนเบี่ยงเบนมาตรฐาน offset (ms)</td><td id="rb-res-offset-std">-</td></tr>
@@ -145,6 +143,8 @@
             <tr><td>รหัสผู้เข้าร่วม</td><td id="rb-res-participant">-</td></tr>
           </tbody>
         </table>
+
+        <p id="rb-res-quality-note" class="rb-quality-note hidden"></p>
 
         <div class="rb-result-actions">
           <button id="rb-btn-again" class="rb-btn-primary">▶ เล่นอีกครั้ง</button>
@@ -163,10 +163,23 @@
     </section>
   </div>
 
-  <!-- เสียงเพลง (ชี้ไปโฟลเดอร์ audio/) -->
+  <!-- Overlay บังคับเล่นต่อในโหมดวิจัย -->
+  <div id="rb-overlay-research" class="rb-overlay hidden">
+    <div class="rb-overlay-card">
+      <h3>โหมดวิจัยต้องเล่นให้จบเพลง</h3>
+      <p id="rb-overlay-message">
+        เพื่อเก็บข้อมูลให้ครบทุกจังหวะ กรุณาเล่นต่อจนเพลงจบก่อนนะคะ 💚
+      </p>
+      <button id="rb-overlay-continue" class="rb-btn-primary">
+        เข้าใจแล้ว เล่นต่อ
+      </button>
+    </div>
+  </div>
+
+  <!-- เสียงเพลง -->
   <audio id="rb-audio"></audio>
 
-  <!-- Engine หลัก (มีทั้งเกม+logger) -->
+  <!-- ตัวเกมหลัก -->
   <script src="js/rhythm-engine.js"></script>
 </body>
 </html>
