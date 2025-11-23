@@ -2,99 +2,81 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <title>Shadow Breaker — VR Cardboard</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <meta name="color-scheme" content="dark"/>
+  <title>VR — Shadow Breaker</title>
+  <link rel="icon" href="favicon.ico"/>
   <style>
-    :root{ background:#000; color-scheme:dark; }
-    *{margin:0;padding:0;box-sizing:border-box;}
-
     body{
-      background:#000;
-      height:100vh;
-      overflow:hidden;
+      margin:0;
+      min-height:100vh;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:#020617;
+      color:#e5e7eb;
       display:flex;
       align-items:center;
       justify-content:center;
-      font-family:system-ui, sans-serif;
     }
-
-    #vrRow{
-      width:100vw;
-      height:100vh;
-      display:flex;
-      flex-direction:row;
+    .vr-wrap{
+      max-width:520px;
+      padding:22px 18px 26px;
+      border-radius:22px;
+      background:
+        radial-gradient(circle at top left,rgba(56,189,248,0.22),transparent 55%),
+        radial-gradient(circle at bottom right,rgba(236,72,153,0.24),transparent 55%),
+        rgba(15,23,42,0.96);
+      box-shadow:0 24px 60px rgba(15,23,42,0.96);
+      text-align:center;
+      font-size:14px;
     }
-    .eye{
-      flex:1;
-      height:100%;
-      overflow:hidden;
-      border-left:1px solid #000;
-      border-right:1px solid #000;
-      background:#000;
-    }
-    iframe{
-      width:100%;
-      height:100%;
-      border:none;
-      background:#000;
-    }
-
-    #hint{
-      position:fixed;
-      top:10px;
-      left:50%;
-      transform:translateX(-50%);
-      color:#fff;
-      background:rgba(0,0,0,.55);
-      padding:6px 14px;
+    .vr-title{margin:0 0 6px;font-size:22px;}
+    .vr-step{margin:4px 0;font-size:13px;opacity:.86;}
+    .vr-btn{
+      margin-top:14px;
+      display:inline-flex;
+      padding:9px 16px;
       border-radius:999px;
-      font-size:.85rem;
-      z-index:20;
-      border:1px solid rgba(255,255,255,.25);
+      border:none;
+      cursor:pointer;
+      background:linear-gradient(120deg,#22c55e,#4ade80);
+      color:#052e16;
+      font-size:14px;
+      text-decoration:none;
+      box-shadow:0 18px 44px rgba(22,163,74,0.85);
     }
-
-    @media (orientation:portrait){
-      #vrRow{display:none;}
-      #hint{display:none;}
-      body::before{
-        content:"กรุณาหมุนหน้าจอเป็นแนวนอนเพื่อเข้าโหมด VR";
-        position:fixed; inset:0;
-        display:flex; align-items:center; justify-content:center;
-        color:#fff; background:#000;
-        text-align:center; padding:30px;
-        font-size:1.2rem;
-      }
+    .vr-back{
+      display:inline-block;
+      margin-top:10px;
+      font-size:12px;
+      color:#cbd5f5;
+      text-decoration:none;
+      opacity:.8;
     }
   </style>
 </head>
 <body>
-  <div id="hint">แตะ 1 ครั้งเพื่อเข้าสู่ Fullscreen / Tap to enter fullscreen</div>
+  <main class="vr-wrap">
+    <h1 class="vr-title">VR — Shadow Breaker</h1>
+    <p class="vr-step">1) เปิดหน้านี้บนมือถือที่ใส่ในแว่น VR (Cardboard / VR Box)</p>
+    <p class="vr-step">2) แตะปุ่มด้านล่างเพื่อเข้าสู่ฉาก WebXR ของ Shadow Breaker</p>
+    <p class="vr-step">3) เลือกโหมด / ระดับในฉาก 3D แล้วเริ่มเล่นได้เลย</p>
 
-  <div id="vrRow">
-    <div class="eye"><iframe id="left"></iframe></div>
-    <div class="eye"><iframe id="right"></iframe></div>
-  </div>
+    <a id="vr-go" class="vr-btn"
+       href="../shadow-breaker/shadow-breaker/play.html">
+      🥽 เข้าโหมด VR Shadow Breaker
+    </a>
+
+    <a href="hub.html" class="vr-back">⬅ กลับ HUB</a>
+  </main>
 
   <script>
-    const left  = document.getElementById('left');
-    const right = document.getElementById('right');
-
-    // โหลด shadow-breaker สองฝั่ง
-    left.src  = "./shadow-breaker.html?eye=left";
-    right.src = "./shadow-breaker.html?eye=right";
-
-    // ปิด input จอซ้าย
-    left.style.pointerEvents = "none";
-
-    // Fullscreen เมื่อแตะครั้งแรก
-    function goFull(){
-      document.documentElement.requestFullscreen?.();
-      window.removeEventListener("click", goFull);
-      window.removeEventListener("touchstart", goFull);
-    }
-    window.addEventListener("click", goFull);
-    window.addEventListener("touchstart", goFull);
+    // ถ้าเปิดจาก https://supparang.github.io/... ให้ redirect อัตโนมัติไปฉาก VR
+    (function(){
+      const link = document.getElementById('vr-go');
+      if(!link) return;
+      const target = link.href;
+      // auto-redirect หลัง 1.5 วินาที (ยังให้กดเองได้)
+      setTimeout(()=>{ location.href = target; }, 1500);
+    })();
   </script>
 </body>
 </html>
