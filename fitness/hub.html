@@ -4,94 +4,177 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>VR Fitness Hub</title>
+  <link rel="icon" href="favicon.ico"/>
   <link rel="stylesheet" href="hub.css"/>
 </head>
 <body>
-  <div class="hub-bg"></div>
-
-  <div class="hub-shell">
+  <div class="hub-wrap">
     <header class="hub-header">
-      <div class="hub-title">
-        <span class="hub-logo">🏋️‍♀️</span>
-        <div>
-          <h1>VR Fitness Hub</h1>
-          <p>เลือกเกมออกกำลังกาย และโหมดทดลองที่ต้องการ</p>
-        </div>
+      <div class="hub-title-block">
+        <div class="hub-logo">VR FITNESS ACADEMY</div>
+        <h1 class="hub-title">เลือกเกมออกกำลังกาย</h1>
+        <p class="hub-sub">
+          4 มินิเกมสำหรับฝึกความฟิต ความไว และความสมดุล &mdash; รองรับทั้งโหมดปกติและโหมดวิจัย
+        </p>
       </div>
-
-      <div class="hub-mode-tip">
-        <span class="dot normal"></span> Normal = เล่นทั่วไป
-        <span class="dot research"></span> Research = เก็บข้อมูลวิจัย (บันทึก CSV)
-      </div>
+      <a href="index.html" class="hub-back-root">⬅ Splash</a>
     </header>
 
-    <main class="game-grid">
-      <!-- Shadow Breaker -->
-      <section class="game-card">
-        <h2>Shadow Breaker</h2>
-        <p class="game-sub">ชกเป้าบอส 4 ตัว เน้น Reaction Time และ FEVER mode</p>
-        <div class="game-actions">
-          <button class="btn normal"
-                  onclick="startGame('shadow-breaker','normal')">
-            ▶ เล่นโหมดปกติ
-          </button>
-          <button class="btn research"
-                  onclick="startGame('shadow-breaker','research')">
-            📊 โหมดวิจัย
-          </button>
-        </div>
-      </section>
+    <!-- Mode tabs: Normal / Research -->
+    <section class="hub-mode-section">
+      <div class="hub-mode-toggle" id="hub-mode-toggle" data-mode="normal">
+        <button class="hub-mode-pill active" data-mode="normal">Normal</button>
+        <button class="hub-mode-pill" data-mode="research">Research</button>
+      </div>
+      <p class="hub-mode-note" id="hub-mode-note">
+        Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
+      </p>
+    </section>
 
-      <!-- Rhythm Boxer -->
-      <section class="game-card">
-        <h2>Rhythm Boxer</h2>
-        <p class="game-sub">ชกตามจังหวะเพลง 5 lanes วัด timing offset แบบละเอียด</p>
-        <div class="game-actions">
-          <button class="btn normal"
-                  onclick="startGame('rhythm-boxer','normal')">
-            ▶ เล่นโหมดปกติ
-          </button>
-          <button class="btn research"
-                  onclick="startGame('rhythm-boxer','research')">
-            📊 โหมดวิจัย
-          </button>
+    <!-- Cards grid -->
+    <section class="hub-card-grid">
+      <!-- 1. Shadow Breaker -->
+      <article class="hub-card">
+        <header class="hub-card-head">
+          <div class="hub-card-icon">🥊</div>
+          <div>
+            <h2 class="hub-card-title">Shadow Breaker</h2>
+            <p class="hub-card-sub">เกมตีเป้าแบบ boss 4 เฟส + FEVER</p>
+          </div>
+        </header>
+        <p class="hub-card-desc">
+          ฝึกความไวของมือและการโฟกัสเป้า เคลียร์บอสทีละตัว
+          มีเก็บคะแนน, combo, FEVER และ CSV สำหรับงานวิจัย reaction time
+        </p>
+        <div class="hub-card-tags">
+          <span>Reaction Time</span><span>Boss Phase</span><span>CSV Ready</span>
         </div>
-      </section>
+        <div class="hub-card-actions">
+          <a class="hub-btn hub-btn-main hub-link-normal"
+             href="shadow-breaker.html">▶ เล่นโหมดปกติ</a>
+          <a class="hub-btn hub-btn-ghost hub-link-research"
+             href="shadow-breaker.html?mode=research">📊 เข้าโหมดวิจัย</a>
+          <a class="hub-btn hub-btn-ghost"
+             href="vr-shadow-breaker.html">🥽 เล่นแบบ VR</a>
+        </div>
+      </article>
 
-      <!-- Jump & Duck -->
-      <section class="game-card">
-        <h2>Jump & Duck</h2>
-        <p class="game-sub">กระโดด / ก้ม หลบสิ่งกีดขวาง ฝึกการเคลื่อนไหวทั้งตัว</p>
-        <div class="game-actions">
-          <button class="btn normal"
-                  onclick="startGame('jump-duck','normal')">
-            ▶ เล่นโหมดปกติ
-          </button>
-          <button class="btn research"
-                  onclick="startGame('jump-duck','research')">
-            📊 โหมดวิจัย
-          </button>
+      <!-- 2. Rhythm Boxer -->
+      <article class="hub-card">
+        <header class="hub-card-head">
+          <div class="hub-card-icon">🎵</div>
+          <div>
+            <h2 class="hub-card-title">Rhythm Boxer</h2>
+            <p class="hub-card-sub">ชกตามจังหวะ 5 lanes + offset analysis</p>
+          </div>
+        </header>
+        <p class="hub-card-desc">
+          เลือกได้ 4 เพลง (รวม Research track) บันทึก offset (ms) ทุกโน้ต
+          ใช้ดู timing lead/lag ของผู้เล่นและความแม่นยำรวม
+        </p>
+        <div class="hub-card-tags">
+          <span>5 Lanes</span><span>4 Tracks</span><span>Timing Offset</span>
         </div>
-      </section>
+        <div class="hub-card-actions">
+          <a class="hub-btn hub-btn-main hub-link-normal"
+             href="rhythm-boxer.html">▶ เล่นโหมดปกติ</a>
+          <a class="hub-btn hub-btn-ghost hub-link-research"
+             href="rhythm-boxer.html?mode=research">📊 เข้าโหมดวิจัย</a>
+        </div>
+      </article>
 
-      <!-- Balance Hold -->
-      <section class="game-card">
-        <h2>Balance Hold</h2>
-        <p class="game-sub">ทรงตัวค้างท่า ฝึกกล้ามเนื้อแกนกลางและสมดุลร่างกาย</p>
-        <div class="game-actions">
-          <button class="btn normal"
-                  onclick="startGame('balance-hold','normal')">
-            ▶ เล่นโหมดปกติ
-          </button>
-          <button class="btn research"
-                  onclick="startGame('balance-hold','research')">
-            📊 โหมดวิจัย
-          </button>
+      <!-- 3. Jump-Duck -->
+      <article class="hub-card">
+        <header class="hub-card-head">
+          <div class="hub-card-icon">🕹️</div>
+          <div>
+            <h2 class="hub-card-title">Jump-Duck</h2>
+            <p class="hub-card-sub">ฝึกกระโดด-ก้มหลบสิ่งกีดขวาง</p>
+          </div>
+        </header>
+        <p class="hub-card-desc">
+          เกมเน้น movement ใช้ท่ากระโดด/ก้มตาม cue บนจอ
+          เหมาะสำหรับ warm-up หรือฝึก agility ในห้องเรียน PE / VR Lab
+        </p>
+        <div class="hub-card-tags">
+          <span>Agility</span><span>Body Movement</span><span>Prototype</span>
         </div>
-      </section>
-    </main>
+        <div class="hub-card-actions">
+          <a class="hub-btn hub-btn-main hub-link-normal"
+             href="jump-duck.html">▶ เล่นโหมดปกติ</a>
+          <a class="hub-btn hub-btn-ghost hub-link-research"
+             href="jump-duck.html?mode=research">📊 เข้าโหมดวิจัย</a>
+        </div>
+      </article>
+
+      <!-- 4. Balance-Hold -->
+      <article class="hub-card">
+        <header class="hub-card-head">
+          <div class="hub-card-icon">🧘‍♂️</div>
+          <div>
+            <h2 class="hub-card-title">Balance-Hold</h2>
+            <p class="hub-card-sub">ฝึกการทรงตัวและถือท่านาน ๆ</p>
+          </div>
+        </header>
+        <p class="hub-card-desc">
+          ท้าทายให้ผู้เล่นถือท่าต่าง ๆ ตามที่กำหนด (เช่น Tree pose, Warrior)
+          นับเวลาถือท่าและจำนวนครั้งที่เสียบาลานซ์ ใช้คู่กับเซ็นเซอร์ได้ในอนาคต
+        </p>
+        <div class="hub-card-tags">
+          <span>Balance</span><span>Posture</span><span>Prototype</span>
+        </div>
+        <div class="hub-card-actions">
+          <a class="hub-btn hub-btn-main hub-link-normal"
+             href="balance-hold.html">▶ เล่นโหมดปกติ</a>
+          <a class="hub-btn hub-btn-ghost hub-link-research"
+             href="balance-hold.html?mode=research">📊 เข้าโหมดวิจัย</a>
+        </div>
+      </article>
+    </section>
   </div>
 
-  <script src="hub.js"></script>
+  <script>
+    // Toggle Normal / Research เพื่อเปลี่ยนข้อความ + เพิ่มพารามิเตอร์ ?mode=research
+    (function(){
+      const modeToggle = document.getElementById('hub-mode-toggle');
+      const noteEl     = document.getElementById('hub-mode-note');
+      if(!modeToggle || !noteEl) return;
+
+      function applyMode(mode){
+        modeToggle.dataset.mode = mode;
+        modeToggle.querySelectorAll('.hub-mode-pill').forEach(btn=>{
+          btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+
+        if(mode === 'normal'){
+          noteEl.textContent =
+            'Normal: สำหรับเล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+        }else{
+          noteEl.textContent =
+            'Research: ใช้เก็บข้อมูลอย่างเป็นระบบ (แนะนำใช้ Research track / ตั้งค่าเวลาให้เล่นครบเพลง)';
+        }
+
+        // ปรับลิงก์เกมให้ติดพารามิเตอร์ mode
+        document.querySelectorAll('.hub-link-normal,.hub-link-research').forEach(a=>{
+          const url = new URL(a.getAttribute('href'), window.location.href);
+          if(mode === 'research'){
+            url.searchParams.set('mode','research');
+          }else{
+            url.searchParams.delete('mode');
+          }
+          a.setAttribute('href', url.pathname.replace(window.location.origin,'') + url.search);
+        });
+      }
+
+      modeToggle.addEventListener('click', (ev)=>{
+        const btn = ev.target.closest('.hub-mode-pill');
+        if(!btn) return;
+        applyMode(btn.dataset.mode === 'research' ? 'research' : 'normal');
+      });
+
+      // default = Normal
+      applyMode('normal');
+    })();
+  </script>
 </body>
 </html>
