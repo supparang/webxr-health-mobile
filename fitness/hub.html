@@ -1,25 +1,88 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
-<meta charset="utf-8"/>
-<title>VR Fitness Hub</title>
-<link rel="stylesheet" href="hub.css"/>
+  <meta charset="utf-8"/>
+  <title>VR Fitness Hub</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <link rel="stylesheet" href="hub.css"/>
 </head>
 <body>
-<div class="hub-bg"></div>
-<div class="menu">
-  <h1>VR Fitness Hub</h1>
-  <div class="game">
-    <h2>Shadow Breaker</h2>
-    <button onclick="start('shadow-breaker','normal')">Play Normal</button>
-    <button onclick="start('shadow-breaker','research')">Play Research</button>
+  <div class="hub-bg"></div>
+
+  <div class="hub-shell">
+    <header class="hub-header">
+      <div class="hub-title">
+        <span class="hub-logo">🏋️‍♀️</span>
+        <div>
+          <h1>VR Fitness Hub</h1>
+          <p>เลือกเกมออกกำลังกาย และโหมดทดลองที่ต้องการ</p>
+        </div>
+      </div>
+      <div class="hub-mode-tip">
+        <span class="dot normal"></span> Normal = เล่นทั่วไป
+        <span class="dot research"></span> Research = เก็บข้อมูลวิจัย
+      </div>
+    </header>
+
+    <main class="game-grid">
+      <!-- Shadow Breaker -->
+      <section class="game-card">
+        <h2>Shadow Breaker</h2>
+        <p class="game-sub">ชกเป้าบอส 4 ตัว เน้น Reaction Time</p>
+        <div class="game-actions">
+          <button class="btn normal" onclick="startGame('shadow-breaker','normal')">
+            ▶ เล่นโหมดปกติ
+          </button>
+          <button class="btn research" onclick="startGame('shadow-breaker','research')">
+            📊 โหมดวิจัย
+          </button>
+        </div>
+      </section>
+
+      <!-- Rhythm Boxer -->
+      <section class="game-card">
+        <h2>Rhythm Boxer</h2>
+        <p class="game-sub">ชกตามจังหวะเพลง วัดความแม่นยำจังหวะ</p>
+        <div class="game-actions">
+          <button class="btn normal" onclick="startGame('rhythm-boxer','normal')">
+            ▶ เล่นโหมดปกติ
+          </button>
+          <button class="btn research" onclick="startGame('rhythm-boxer','research')">
+            📊 โหมดวิจัย
+          </button>
+        </div>
+      </section>
+
+      <!-- Jump & Duck -->
+      <section class="game-card">
+        <h2>Jump & Duck</h2>
+        <p class="game-sub">กระโดด / ก้ม หลบสิ่งกีดขวาง ฝึกการเคลื่อนไหวทั้งตัว</p>
+        <div class="game-actions">
+          <button class="btn normal" onclick="startGame('jump-duck','normal')">
+            ▶ เล่นโหมดปกติ
+          </button>
+          <button class="btn research" onclick="startGame('jump-duck','research')">
+            📊 โหมดวิจัย
+          </button>
+        </div>
+      </section>
+
+      <!-- Balance Hold -->
+      <section class="game-card">
+        <h2>Balance Hold</h2>
+        <p class="game-sub">ทรงตัวค้างท่า ฝึกกล้ามเนื้อแกนกลางและสมดุล</p>
+        <div class="game-actions">
+          <button class="btn normal" onclick="startGame('balance-hold','normal')">
+            ▶ เล่นโหมดปกติ
+          </button>
+          <button class="btn research" onclick="startGame('balance-hold','research')">
+            📊 โหมดวิจัย
+          </button>
+        </div>
+      </section>
+    </main>
   </div>
-  <div class="game">
-    <h2>Rhythm Boxer</h2>
-    <button onclick="start('rhythm-boxer','normal')">Play Normal</button>
-    <button onclick="start('rhythm-boxer','research')">Play Research</button>
-  </div>
-</div>
-<script src="hub.js"></script>
+
+  <script src="hub.js"></script>
 </body>
 </html>
