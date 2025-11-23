@@ -967,6 +967,19 @@ class RhythmBoxerGame{
     URL.revokeObjectURL(url);
   }
 }
+export function initShadowBreaker() {
+  // ฟังก์ชันเดิมถูกย้ายไป startGame() หรือ initGame()
+  // ดังนั้นเรา wrap ให้ match กับ shadow-breaker.js
+  if (typeof startShadowBreaker === "function") {
+    startShadowBreaker();
+  } else if (typeof initGame === "function") {
+    initGame();
+  } else if (typeof startGame === "function") {
+    startGame();
+  } else {
+    console.warn("initShadowBreaker(): ไม่มีฟังก์ชันเริ่มเกมที่ตรงกัน");
+  }
+}
 
 /* ---------- init ---------- */
 window.addEventListener('DOMContentLoaded', () => {
