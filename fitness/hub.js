@@ -1,7 +1,7 @@
 // === fitness/hub.js — VR Fitness Hub Router (4 games, Normal / Research) ===
 'use strict';
 
-// กำหนด path ของแต่ละเกม (ตามไฟล์ที่อาจารย์มีอยู่จริง)
+// กำหนด path ของแต่ละเกม (ตามไฟล์จริงในโฟลเดอร์ fitness)
 const GAME_PATHS = {
   'shadow-breaker': 'shadow-breaker.html',
   'rhythm-boxer'  : 'rhythm-boxer.html',
@@ -20,15 +20,9 @@ function startGame(gameKey, mode) {
     console.warn('Unknown game key:', gameKey);
     return;
   }
-
-  // ถ้าเกมรองรับโหมดวิจัย ให้ส่ง ?mode=research ไปให้
   const m = (mode === 'research') ? 'research' : 'normal';
-
-  // ถ้าอยากแนบระดับความยากเพิ่ม สามารถแก้ต่อได้ เช่น diff=normal
   const url = `${base}?mode=${encodeURIComponent(m)}`;
-
   window.location.href = url;
 }
 
-// ให้เรียกใช้ได้จาก inline onclick ใน hub.html
 window.startGame = startGame;

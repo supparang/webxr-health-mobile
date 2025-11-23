@@ -3,223 +3,96 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>VR Fitness – Loading</title>
-
-  <!-- กัน cache เก่า -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
-  <meta http-equiv="Pragma" content="no-cache"/>
-  <meta http-equiv="Expires" content="0"/>
-
+  <title>VR Fitness — Splash</title>
   <style>
-    :root{
-      color-scheme: dark;
-    }
-    *{ box-sizing:border-box; }
-
+    :root{color-scheme:dark;}
+    *{box-sizing:border-box;margin:0;padding:0;}
     body{
-      margin:0;
       min-height:100vh;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      display:flex;
-      align-items:center;
-      justify-content:center;
       background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.30), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.30), transparent 55%),
+        radial-gradient(circle at top left,rgba(56,189,248,0.22),transparent 55%),
+        radial-gradient(circle at bottom right,rgba(236,72,153,0.22),transparent 55%),
         #020617;
       color:#e5e7eb;
-      overflow:hidden;
-    }
-
-    /* BG gym แบบเบลอจาง ๆ (ถ้ามี bg-gym.jpg) */
-    .splash-bg{
-      position:fixed;
-      inset:0;
-      background:url('./bg-gym.jpg') center/cover no-repeat;
-      opacity:0.22;
-      filter:blur(4px);
-      pointer-events:none;
-      z-index:-1;
-    }
-
-    .splash-wrap{
-      text-align:center;
-      padding:32px 24px 28px;
-      border-radius:24px;
-      background:linear-gradient(145deg, rgba(15,23,42,0.96), rgba(15,23,42,0.90));
-      box-shadow:
-        0 0 0 1px rgba(148,163,184,0.35),
-        0 28px 80px rgba(15,23,42,0.95);
-      max-width:420px;
-      width:min(90vw,420px);
-      animation:fade-in 0.8s ease-out forwards;
-    }
-
-    .logo-ring{
-      width:86px;
-      height:86px;
-      margin:0 auto 14px;
-      border-radius:999px;
-      background:radial-gradient(circle at 30% 20%, #facc15, #f97316);
       display:flex;
       align-items:center;
       justify-content:center;
-      box-shadow:0 16px 40px rgba(15,23,42,0.95);
-      position:relative;
-      overflow:hidden;
+      padding:24px 16px;
     }
-
-    .logo-ring::before{
-      content:"";
-      position:absolute;
-      inset:-40%;
-      background:
-        conic-gradient(from 0deg,
-          rgba(56,189,248,0.0),
-          rgba(56,189,248,0.8),
-          rgba(236,72,153,0.9),
-          rgba(56,189,248,0.0)
-        );
-      animation:ring-spin 2.6s linear infinite;
-      mix-blend-mode:screen;
-      opacity:0.8;
+    .splash{
+      max-width:480px;
+      width:100%;
+      text-align:center;
+      padding:24px 20px 28px;
+      border-radius:24px;
+      background:rgba(15,23,42,0.96);
+      box-shadow:
+        0 0 0 1px rgba(15,23,42,0.95),
+        0 26px 60px rgba(15,23,42,0.96);
     }
-
-    .logo-icon{
-      position:relative;
-      font-size:36px;
-      filter:drop-shadow(0 0 12px rgba(250,250,250,0.85));
-      animation:logo-bounce 1.6s ease-in-out infinite;
-    }
-
-    h1{
-      margin:6px 0 4px;
-      font-size:24px;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-    }
-    .subtitle{
-      margin:0 0 18px;
-      font-size:13px;
-      opacity:.78;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:5px 10px 6px;
+    .logo{
+      width:70px;
+      height:70px;
       border-radius:999px;
-      background:rgba(15,23,42,0.9);
-      border:1px solid rgba(148,163,184,0.6);
-      font-size:11px;
+      margin:0 auto 12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:34px;
+      background:radial-gradient(circle at 30% 20%,#facc15,#f97316);
+      box-shadow:0 14px 40px rgba(15,23,42,0.95);
+    }
+    h1{
+      font-size:24px;
+      letter-spacing:.08em;
       text-transform:uppercase;
-      letter-spacing:.12em;
+      margin-bottom:8px;
+    }
+    p{
+      font-size:14px;
+      opacity:.85;
       margin-bottom:16px;
     }
-
-    .loading-bar-wrap{
+    .btn-main{
       margin-top:4px;
-      width:100%;
+      padding:11px 20px;
       border-radius:999px;
-      background:rgba(15,23,42,0.9);
-      border:1px solid rgba(30,64,175,0.9);
-      padding:3px;
-      overflow:hidden;
-    }
-
-    .loading-bar{
-      height:8px;
-      border-radius:999px;
-      background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ec4899,#38bdf8);
-      background-size:200% 100%;
-      animation:load-move 2.4s ease-in-out infinite;
-    }
-
-    .hint{
-      margin-top:10px;
-      font-size:12px;
-      opacity:.75;
-    }
-
-    .enter-btn{
-      margin-top:16px;
+      font-size:15px;
+      border:none;
+      cursor:pointer;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 16px 9px;
-      border-radius:999px;
-      border:none;
-      cursor:pointer;
-      font-size:14px;
-      font-weight:600;
-      background:linear-gradient(120deg,#2563eb,#38bdf8);
-      color:#f9fafb;
-      box-shadow:0 15px 40px rgba(37,99,235,0.6);
-      text-decoration:none;
+      background:linear-gradient(120deg,#22c55e,#4ade80);
+      color:#052e16;
+      box-shadow:0 18px 40px rgba(34,197,94,0.7);
+      transition:transform .14s ease-out,box-shadow .14s ease-out,filter .14s ease-out;
     }
-    .enter-btn span{
-      font-size:16px;
+    .btn-main:hover{
+      transform:translateY(-1px) scale(1.02);
+      filter:brightness(1.05);
     }
-    .enter-btn:active{
-      transform:translateY(1px) scale(.98);
-      box-shadow:0 10px 28px rgba(15,23,42,0.9);
+    .btn-main:active{
+      transform:translateY(1px) scale(.97);
+      box-shadow:0 10px 26px rgba(15,23,42,0.9);
     }
-
-    @keyframes fade-in{
-      from{opacity:0; transform:translateY(12px) scale(.97);}
-      to{opacity:1; transform:translateY(0) scale(1);}
-    }
-    @keyframes ring-spin{
-      to{ transform:rotate(360deg); }
-    }
-    @keyframes logo-bounce{
-      0%,100%{ transform:translateY(0); }
-      50%{ transform:translateY(-4px); }
-    }
-    @keyframes load-move{
-      0%{ transform:translateX(-40%); background-position:0% 50%; }
-      50%{ transform:translateX(0); background-position:100% 50%; }
-      100%{ transform:translateX(40%); background-position:0% 50%; }
+    .tip{
+      margin-top:10px;
+      font-size:12px;
+      opacity:.7;
     }
   </style>
 </head>
 <body>
-  <div class="splash-bg"></div>
-
-  <div class="splash-wrap">
-    <div class="logo-ring">
-      <div class="logo-icon">🥊</div>
-    </div>
-    <div class="chip">
-      <span>VR FITNESS</span>
-      <span>RESEARCH EDITION</span>
-    </div>
-    <h1>Fitness Academy</h1>
-    <p class="subtitle">เตรียมเข้าสู่ห้องออกกำลังกายเสมือนจริง…</p>
-
-    <div class="loading-bar-wrap">
-      <div class="loading-bar"></div>
-    </div>
-    <p class="hint">
-      ระบบกำลังโหลด Hub และตรวจสอบอุปกรณ์ VR / Mobile<br>
-      หากรอนานเกิน 5 วินาที สามารถกดปุ่มเข้า Hub ได้เลย
-    </p>
-
-    <a href="hub.html" class="enter-btn">
-      <span>เข้าสู่ VR Fitness Hub</span>
-      <span>▶</span>
-    </a>
-  </div>
-
-  <script>
-    // redirect อัตโนมัติไป Hub หลังจาก splash แสดงเล็กน้อย
-    // ตั้งไว้ประมาณ 2.5 วินาที (ปรับได้)
-    setTimeout(function(){
-      if (document.visibilityState === 'visible') {
-        window.location.href = 'hub.html';
-      }
-    }, 2500);
-  </script>
+  <main class="splash">
+    <div class="logo">🏋️‍♀️</div>
+    <h1>VR FITNESS</h1>
+    <p>ชุดเกมออกกำลังกาย 4 แบบ พร้อมโหมดวิจัย Reaction Time และรูปแบบการเคลื่อนไหวเชิงลึก</p>
+    <button class="btn-main" onclick="location.href='hub.html'">
+      ▶ เข้าสู่ HUB
+    </button>
+    <div class="tip">แนะนำให้เล่นในเบราว์เซอร์ Chromium / มือถือ Android + แว่น VR Box</div>
+  </main>
 </body>
 </html>
