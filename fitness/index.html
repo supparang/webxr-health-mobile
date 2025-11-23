@@ -1,307 +1,177 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <title>VR Fitness Lab — Shadow Breaker / Rhythm Boxer / Jump-Duck / Balance Hold</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
-
-  <link rel="icon" type="image/x-icon" href="./favicon.ico">
-
-  <style>
-    :root{
-      color-scheme: light dark;
-      --bg:#020617;
-      --bg-card:#0b1220;
-      --bg-card-soft:#020617;
-      --border:#1f2937;
-      --accent:#38bdf8;
-      --accent-soft:rgba(56,189,248,0.16);
-      --accent-2:#a855f7;
-      --text:#e5e7eb;
-      --muted:#9ca3af;
-      --danger:#f97373;
-      --radius:18px;
-    }
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{
-      min-height:100vh;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;
-      background:
-        radial-gradient(circle at top left, var(--accent-soft), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(168,85,247,0.18), transparent 55%),
-        var(--bg);
-      color:var(--text);
-    }
-    .wrap{
-      max-width:980px;
-      margin:20px auto 32px;
-      padding:0 16px 32px;
-    }
-    header{
-      margin-bottom:18px;
-    }
-    header h1{
-      font-size:1.9rem;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      letter-spacing:.03em;
-    }
-    header h1 span.icon{
-      font-size:1.8rem;
-    }
-    header .subtitle{
-      margin-top:6px;
-      color:var(--muted);
-      font-size:.95rem;
-      max-width:640px;
-    }
-    header .chips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:10px;
-      font-size:.8rem;
-    }
-    .chip{
-      padding:4px 8px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.5);
-      background:rgba(15,23,42,0.7);
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
-      gap:16px;
-      margin-top:16px;
-    }
-    .card{
-      background:linear-gradient(145deg,#020617,#020617 40%,#020617 60%,#020617);
-      border-radius:var(--radius);
-      border:1px solid var(--border);
-      padding:14px 14px 16px;
-      box-shadow:0 18px 40px rgba(15,23,42,0.85);
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      position:relative;
-      overflow:hidden;
-    }
-    .card::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background:radial-gradient(circle at top right, rgba(56,189,248,0.16), transparent 55%);
-      opacity:.8;
-      pointer-events:none;
-      mix-blend-mode:screen;
-    }
-    .card-inner{
-      position:relative;
-      z-index:1;
-    }
-    .card-header{
-      display:flex;
-      align-items:flex-start;
-      gap:10px;
-    }
-    .card-emoji{
-      font-size:1.8rem;
-      flex-shrink:0;
-    }
-    .card-title{
-      font-weight:600;
-      font-size:1.05rem;
-    }
-    .card-tagline{
-      font-size:.85rem;
-      color:var(--muted);
-      margin-top:2px;
-    }
-    .card-meta{
-      margin-top:8px;
-      font-size:.8rem;
-      color:var(--muted);
-    }
-    .card-meta strong{color:var(--accent);}
-    .card-footer{
-      margin-top:12px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:8px;
-      font-size:.8rem;
-    }
-    .btn{
-      border-radius:999px;
-      border:none;
-      padding:7px 14px;
-      font-size:.9rem;
-      font-weight:600;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      cursor:pointer;
-      background:linear-gradient(135deg,#38bdf8,#4ade80);
-      color:#0f172a;
-      text-decoration:none;
-      white-space:nowrap;
-    }
-    .btn-secondary{
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.7);
-      background:rgba(15,23,42,0.85);
-      padding:6px 12px;
-      font-size:.8rem;
-      color:var(--muted);
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      cursor:pointer;
-    }
-    .section-label{
-      margin-top:24px;
-      margin-bottom:6px;
-      font-size:.9rem;
-      color:var(--muted);
-      text-transform:uppercase;
-      letter-spacing:.12em;
-    }
-    footer{
-      margin-top:26px;
-      font-size:.8rem;
-      color:var(--muted);
-    }
-    @media (max-width:600px){
-      header h1{font-size:1.5rem;}
-      .card{padding:12px 12px 14px;}
-    }
-  </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Shadow Breaker — Research Edition</title>
+  <link rel="stylesheet" href="css/shadow-breaker.css"/>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1><span class="icon">🏋️‍♀️</span>VR Fitness Lab</h1>
-      <div class="subtitle">
-        ชุดเกมออกกำลังกาย 4 แบบ — ชกเป้า, เต้นตามจังหวะ, กระโดด-ก้มหลบ, และทรงตัว
-        ออกแบบสำหรับงานวิจัย, การสอน, และการใช้งานจริงในชุมชน
-      </div>
-      <div class="chips">
-        <span class="chip">DOM Engine</span>
-        <span class="chip">Mobile / VR Friendly</span>
-        <span class="chip">Research Mode + CSV</span>
-      </div>
+  <div id="sb-wrap" class="sb-wrap card sb-card">
+    <header class="sb-header">
+      <h1 class="title">
+        <span class="title-icon icon-3d-glove">👊</span>
+        <span class="title-main">Shadow Breaker</span>
+      </h1>
+      <p class="subtitle">เกมฝึกตีเป้าแบบ Boss Fight สำหรับเก็บข้อมูลวิจัย VR Fitness</p>
     </header>
 
-    <div class="section-label">เลือกเกม</div>
-    <div class="grid">
-      <!-- Shadow Breaker -->
-      <article class="card">
-        <div class="card-inner">
-          <div class="card-header">
-            <div class="card-emoji">🥊</div>
-            <div>
-              <div class="card-title">Shadow Breaker</div>
-              <div class="card-tagline">เกมชกเป้า emoji สู้บอส 4 ตัว พร้อม FEVER + HP ผู้เล่น</div>
+    <!-- MENU VIEW -->
+    <section id="view-menu">
+      <div class="menu-block">
+        <label class="menu-label" for="difficulty">เลือกระดับความยาก</label>
+        <div class="select-wrap">
+          <select id="difficulty">
+            <option value="easy">ง่าย (วอร์มอัพ)</option>
+            <option value="normal" selected>ปกติ</option>
+            <option value="hard">ยาก (ท้าทาย)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="btn-col">
+        <button class="btn-main primary" data-action="start-research">
+          <span class="btn-icon">📊</span>
+          <span>เริ่มเล่นโหมดวิจัย (บันทึก CSV)</span>
+        </button>
+        <button class="btn-main ghost" data-action="start-normal">
+          <span class="btn-icon">🎮</span>
+          <span>เล่นโหมดปกติ (ฝึกเฉย ๆ)</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- RESEARCH FORM VIEW -->
+    <section id="view-research-form" class="hidden">
+      <h2 style="margin-top:0;font-size:18px;">ข้อมูลก่อนเริ่มเล่น (โหมดวิจัย)</h2>
+      <div class="form-row">
+        <label for="research-id">รหัสผู้เข้าร่วม (Participant ID)</label>
+        <input id="research-id" placeholder="เช่น SB-001"/>
+      </div>
+      <div class="form-row">
+        <label for="research-group">กลุ่มทดลอง / ห้องเรียน</label>
+        <input id="research-group" placeholder="เช่น G1, Control, Exp1"/>
+      </div>
+      <div class="form-row">
+        <label for="research-note">หมายเหตุเพิ่มเติม</label>
+        <textarea id="research-note" rows="3" placeholder="อายุ เพศ ข้อมูลอื่น ๆ ที่ต้องการบันทึก (ไม่ระบุตัวตน)"></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-main ghost small" data-action="back-to-menu">
+          ⬅ กลับเมนู
+        </button>
+        <button class="btn-main primary small" data-action="research-begin-play">
+          เริ่มเล่นโหมดวิจัย ▶
+        </button>
+      </div>
+    </section>
+
+    <!-- PLAY VIEW -->
+    <section id="view-play" class="hidden">
+      <div class="sb-hud-row">
+        <div class="sb-hp-stack">
+          <div class="sb-hp sb-hp-player">
+            <div class="sb-hp-label">
+              <span class="sb-hp-name">ผู้เล่น</span>
+              <span class="sb-hp-val"><span id="stat-hp">100</span> HP</span>
+            </div>
+            <div class="sb-hp-bar">
+              <div id="player-fill" class="sb-hp-fill"></div>
             </div>
           </div>
-          <div class="card-meta">
-            <strong>เหมาะกับ:</strong> Cardio, ความเร็วการตอบสนอง, สายเกมต่อสู้เบา ๆ
-          </div>
-        </div>
-        <div class="card-footer">
-          <a href="./shadow-breaker.html" class="btn">
-            เล่น Shadow Breaker ▶
-          </a>
-          <a href="./shadow-breaker.html" class="btn-secondary">
-            โหมดวิจัย / วิเคราะห์ <span>📊</span>
-          </a>
-        </div>
-      </article>
 
-      <!-- Rhythm Boxer -->
-      <article class="card">
-        <div class="card-inner">
-          <div class="card-header">
-            <div class="card-emoji">🥁</div>
-            <div>
-              <div class="card-title">Rhythm Boxer</div>
-              <div class="card-tagline">เกมเต้น-ชกตามจังหวะเพลง แบ่ง Warm-up / Dance / Cool-down</div>
+          <div class="sb-hp sb-hp-boss">
+            <div class="sb-hp-label">
+              <span class="sb-hp-name" id="boss-name">Boss 1/4</span>
+              <span class="sb-hp-val"><span id="hp-boss-val">100%</span></span>
+            </div>
+            <div class="sb-hp-bar">
+              <div id="boss-fill" class="sb-hp-fill"></div>
             </div>
           </div>
-          <div class="card-meta">
-            <strong>เหมาะกับ:</strong> Coordination, timing, การใช้เพลงกระตุ้นการออกกำลังกาย
+
+          <div class="sb-fever-row">
+            <span class="fever-label">FEVER</span>
+            <div class="fever-bar">
+              <div id="fever-fill" class="fever-fill"></div>
+            </div>
+            <span id="fever-status" class="fever-status">FEVER</span>
+          </div>
+
+          <div id="sb-feedback" class="sb-feedback">
+            โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯
           </div>
         </div>
-        <div class="card-footer">
-          <a href="./rhythm-boxer.html" class="btn">
-            เล่น Rhythm Boxer ▶
-          </a>
-          <a href="./rhythm-boxer.html" class="btn-secondary">
-            เลือกเพลง &amp; ช่วงฝึก <span>🎵</span>
-          </a>
-        </div>
-      </article>
 
-      <!-- Jump-Duck -->
-      <article class="card">
-        <div class="card-inner">
-          <div class="card-header">
-            <div class="card-emoji">🚧</div>
-            <div>
-              <div class="card-title">Jump-Duck</div>
-              <div class="card-tagline">เกมกระโดด-ก้มหลบสิ่งกีดขวาง เน้นการเคลื่อนไหวทั้งตัว</div>
+        <div class="sb-meta">
+          <div class="sb-meta-row"><span>โหมด</span><span id="stat-mode">Normal</span></div>
+          <div class="sb-meta-row"><span>ระดับ</span><span id="stat-diff">normal</span></div>
+          <div class="sb-meta-row"><span>คะแนน</span><span id="stat-score">0</span></div>
+          <div class="sb-meta-row"><span>Combo</span><span id="stat-combo">0</span></div>
+          <div class="sb-meta-row"><span>Perfect</span><span id="stat-perfect">0</span></div>
+          <div class="sb-meta-row"><span>Miss</span><span id="stat-miss">0</span></div>
+          <div class="sb-meta-row"><span>เวลา</span><span id="stat-time">0.0</span></div>
+          <div class="boss-portrait-box" id="boss-portrait">
+            <div class="sb-boss-portrait">
+              <span id="boss-portrait-emoji">🐣</span>
+            </div>
+            <div class="boss-portrait-text">
+              <div id="boss-portrait-name">Bubble Glove</div>
+              <div id="boss-portrait-hint">HP เหลือประมาณ 100%</div>
             </div>
           </div>
-          <div class="card-meta">
-            <strong>เหมาะกับ:</strong> Agility, balance แบบ dynamic, เล่นเป็นกลุ่มในห้องเรียน
-          </div>
         </div>
-        <div class="card-footer">
-          <a href="./jump-duck.html" class="btn">
-            เล่น Jump-Duck ▶
-          </a>
-          <a href="./jump-duck.html" class="btn-secondary">
-            ดูวิธีใช้กับ VR <span>🕶</span>
-          </a>
-        </div>
-      </article>
+      </div>
 
-      <!-- Balance Hold -->
-      <article class="card">
-        <div class="card-inner">
-          <div class="card-header">
-            <div class="card-emoji">⚖️</div>
-            <div>
-              <div class="card-title">Balance Hold</div>
-              <div class="card-tagline">เกมทรงตัว จับเวลายืนท่า/ยกขา ฝึกสมาธิและกล้ามเนื้อแกนกลาง</div>
-            </div>
-          </div>
-          <div class="card-meta">
-            <strong>เหมาะกับ:</strong> ผู้สูงอายุ, กายภาพเบื้องต้น, การป้องกันหกล้ม
-          </div>
-        </div>
-        <div class="card-footer">
-          <a href="./balance-hold.html" class="btn">
-            เล่น Balance Hold ▶
-          </a>
-          <a href="./balance-hold.html" class="btn-secondary">
-            โหมดวัดสถิติ <span>⏱</span>
-          </a>
-        </div>
-      </article>
-    </div>
+      <div class="sb-field">
+        <div id="target-layer"></div>
+      </div>
 
-    <footer>
-      Tips: แนะนำให้เปิดจากจอแนวนอน (Landscape) หรือใช้ Cardboard/แว่น VR
-      สำหรับทดสอบแบบ immersive และทดสอบบน PC + Mobile ก่อนขึ้นใช้จริงในงานวิจัย
-    </footer>
+      <div class="sb-controls">
+        <button class="btn-main ghost small" data-action="stop-early">
+          ⏹ หยุดก่อนเวลา
+        </button>
+      </div>
+    </section>
+
+    <!-- RESULT VIEW -->
+    <section id="view-result" class="hidden">
+      <h2 style="margin-top:0;font-size:18px;">สรุปผลรอบเล่นนี้</h2>
+      <div class="summary">
+        <table>
+          <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
+          <tr><td class="label">ระดับ</td><td id="res-diff">-</td></tr>
+          <tr><td class="label">เหตุผลจบเกม</td><td id="res-endreason">-</td></tr>
+          <tr><td class="label">คะแนนสุดท้าย</td><td id="res-score">0</td></tr>
+          <tr><td class="label">Grade</td><td id="res-grade">-</td></tr>
+          <tr><td class="label">Max Combo</td><td id="res-maxcombo">0</td></tr>
+          <tr><td class="label">Miss</td><td id="res-miss">0</td></tr>
+          <tr><td class="label">Accuracy</td><td id="res-accuracy">0 %</td></tr>
+          <tr><td class="label">จำนวนเป้าที่ตีโดน</td><td id="res-totalhits">0</td></tr>
+          <tr><td class="label">RT เป้าปกติ (เฉลี่ย)</td><td id="res-rt-normal">-</td></tr>
+          <tr><td class="label">RT เป้าลวง (เฉลี่ย)</td><td id="res-rt-decoy">-</td></tr>
+          <tr><td class="label">Participant ID</td><td id="res-participant">-</td></tr>
+        </table>
+      </div>
+
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn-main ghost small" data-action="back-to-menu">⬅ กลับเมนู</button>
+        <button class="btn-main primary small" data-action="play-again">เล่นอีกครั้ง ▶</button>
+      </div>
+
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn-main secondary small" data-action="download-csv-events">ดาวน์โหลด CSV (Event-level)</button>
+        <button class="btn-main secondary small" data-action="download-csv-session">ดาวน์โหลด CSV (Session-level)</button>
+      </div>
+    </section>
   </div>
+
+  <!-- SFX placeholders -->
+  <audio id="sfx-hit"></audio>
+  <audio id="sfx-boss"></audio>
+  <audio id="sfx-fever"></audio>
+
+  <script type="module" src="js/shadow-breaker.js"></script>
 </body>
 </html>

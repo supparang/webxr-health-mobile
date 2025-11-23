@@ -1,4 +1,4 @@
-// === js/shadow-breaker.js — Shadow Breaker bootstrap (2025-11-24) ===
+// === js/shadow-breaker.js — Shadow Breaker bootstrap (2025-11-24) === 
 'use strict';
 
 import { initShadowBreaker } from './engine.js';
