@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Rhythm Boxer — VR Fitness</title>
-  <!-- ชี้ไปที่โฟลเดอร์ css -->
+  <!-- ชี้ไปที่โฟลเดอร์ css (ภายใต้ /fitness/css/) -->
   <link rel="stylesheet" href="css/rhythm-boxer.css"/>
 </head>
 <body>
@@ -17,10 +17,12 @@
       <a href="hub.html" class="rb-back-hub">⬅ กลับ HUB</a>
     </header>
 
-    <!-- MENU VIEW -->
+    <!-- ========== MENU VIEW ========== -->
     <section id="rb-view-menu" class="rb-view">
       <div class="rb-card">
         <h2>เลือกโหมดการเล่น</h2>
+
+        <!-- Mode -->
         <div class="rb-form-row">
           <label>โหมด (Mode)</label>
           <div class="rb-radio-row">
@@ -29,6 +31,7 @@
           </div>
         </div>
 
+        <!-- Research fields -->
         <div class="rb-form-row rb-research-only hidden" id="rb-research-fields">
           <label>ข้อมูลสำหรับงานวิจัย</label>
           <div class="rb-form-grid">
@@ -47,6 +50,7 @@
           </div>
         </div>
 
+        <!-- Track select -->
         <div class="rb-form-row">
           <label>เพลง (Track)</label>
           <select id="rb-track">
@@ -66,7 +70,7 @@
       </div>
     </section>
 
-    <!-- PLAY VIEW -->
+    <!-- ========== PLAY VIEW ========== -->
     <section id="rb-view-play" class="rb-view hidden">
       <div class="rb-card rb-card-play">
         <div class="rb-hud-top">
@@ -87,6 +91,8 @@
               <div>Good: <span id="rb-hud-good">0</span></div>
               <div>Miss: <span id="rb-hud-miss">0</span></div>
             </div>
+
+            <!-- FEVER -->
             <div class="rb-fever-row">
               <span class="rb-fever-label">FEVER</span>
               <div class="rb-fever-bar">
@@ -94,16 +100,8 @@
               </div>
               <span id="rb-fever-status" class="rb-fever-status">OFF</span>
             </div>
-
-            <!-- Progress สำหรับวิจัย -->
-            <div class="rb-progress-row">
-              <span class="rb-progress-label">Progress</span>
-              <div class="rb-progress-bar">
-                <div id="rb-progress-fill" class="rb-progress-fill"></div>
-              </div>
-              <span id="rb-progress-text" class="rb-progress-text">0%</span>
-            </div>
           </div>
+
           <button id="rb-btn-stop" class="rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
         </div>
 
@@ -116,12 +114,14 @@
             <div class="rb-lane" data-lane="4"><span class="rb-lane-label">R2</span></div>
           </div>
           <div class="rb-hit-line"></div>
-          <div id="rb-feedback" class="rb-feedback">แตะที่ lane ให้ตรงเส้นล่างตามจังหวะเพลง 🎵</div>
+          <div id="rb-feedback" class="rb-feedback">
+            แตะที่ lane ให้ตรงเส้นล่างตามจังหวะเพลง 🎵
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- RESULT VIEW -->
+    <!-- ========== RESULT VIEW ========== -->
     <section id="rb-view-result" class="rb-view hidden">
       <div class="rb-card">
         <h2>สรุปผลการเล่น Rhythm Boxer</h2>
@@ -133,9 +133,10 @@
             <tr><td>คะแนนรวม</td><td id="rb-res-score">0</td></tr>
             <tr><td>คอมโบสูงสุด</td><td id="rb-res-maxcombo">0</td></tr>
             <tr><td>จำนวนโน้ตทั้งหมด</td><td id="rb-res-totalnotes">0</td></tr>
-            <tr><td>Perfect / Great / Good / Miss</td>
-                <td id="rb-res-detail-hit">0 / 0 / 0 / 0</td></tr>
-            <tr><td>เกรดรวม (Rank)</td><td id="rb-res-rank">-</td></tr>
+            <tr>
+              <td>Perfect / Great / Good / Miss</td>
+              <td id="rb-res-detail-hit">0 / 0 / 0 / 0</td>
+            </tr>
             <tr><td>ความแม่นยำ (Accuracy)</td><td id="rb-res-acc">0%</td></tr>
             <tr><td>ค่าเฉลี่ย offset (ms)</td><td id="rb-res-offset-avg">-</td></tr>
             <tr><td>ส่วนเบี่ยงเบนมาตรฐาน offset (ms)</td><td id="rb-res-offset-std">-</td></tr>
@@ -143,8 +144,6 @@
             <tr><td>รหัสผู้เข้าร่วม</td><td id="rb-res-participant">-</td></tr>
           </tbody>
         </table>
-
-        <p id="rb-res-quality-note" class="rb-quality-note hidden"></p>
 
         <div class="rb-result-actions">
           <button id="rb-btn-again" class="rb-btn-primary">▶ เล่นอีกครั้ง</button>
@@ -161,19 +160,6 @@
         </div>
       </div>
     </section>
-  </div>
-
-  <!-- Overlay บังคับเล่นต่อในโหมดวิจัย -->
-  <div id="rb-overlay-research" class="rb-overlay hidden">
-    <div class="rb-overlay-card">
-      <h3>โหมดวิจัยต้องเล่นให้จบเพลง</h3>
-      <p id="rb-overlay-message">
-        เพื่อเก็บข้อมูลให้ครบทุกจังหวะ กรุณาเล่นต่อจนเพลงจบก่อนนะคะ 💚
-      </p>
-      <button id="rb-overlay-continue" class="rb-btn-primary">
-        เข้าใจแล้ว เล่นต่อ
-      </button>
-    </div>
   </div>
 
   <!-- เสียงเพลง -->
