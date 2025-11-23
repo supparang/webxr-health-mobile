@@ -4,7 +4,8 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Rhythm Boxer — VR Fitness</title>
-  <link rel="stylesheet" href="rhythm-boxer.css"/>
+  <!-- ชี้ไปที่โฟลเดอร์ css -->
+  <link rel="stylesheet" href="css/rhythm-boxer.css"/>
 </head>
 <body>
   <div class="rb-wrap" id="rb-wrap">
@@ -123,7 +124,8 @@
             <tr><td>คะแนนรวม</td><td id="rb-res-score">0</td></tr>
             <tr><td>คอมโบสูงสุด</td><td id="rb-res-maxcombo">0</td></tr>
             <tr><td>จำนวนโน้ตทั้งหมด</td><td id="rb-res-totalnotes">0</td></tr>
-            <tr><td>Perfect / Great / Good / Miss</td><td id="rb-res-detail-hit">0 / 0 / 0 / 0</td></tr>
+            <tr><td>Perfect / Great / Good / Miss</td>
+                <td id="rb-res-detail-hit">0 / 0 / 0 / 0</td></tr>
             <tr><td>ความแม่นยำ (Accuracy)</td><td id="rb-res-acc">0%</td></tr>
             <tr><td>ค่าเฉลี่ย offset (ms)</td><td id="rb-res-offset-avg">-</td></tr>
             <tr><td>ส่วนเบี่ยงเบนมาตรฐาน offset (ms)</td><td id="rb-res-offset-std">-</td></tr>
@@ -138,16 +140,21 @@
         </div>
 
         <div class="rb-result-actions">
-          <button id="rb-btn-dl-events" class="rb-btn-secondary">⬇ ดาวน์โหลด CSV — Event ระดับโน้ต</button>
-          <button id="rb-btn-dl-sessions" class="rb-btn-secondary">⬇ ดาวน์โหลด CSV — สรุประดับรอบ</button>
+          <button id="rb-btn-dl-events" class="rb-btn-secondary">
+            ⬇ ดาวน์โหลด CSV — Event ระดับโน้ต
+          </button>
+          <button id="rb-btn-dl-sessions" class="rb-btn-secondary">
+            ⬇ ดาวน์โหลด CSV — สรุประดับรอบ
+          </button>
         </div>
       </div>
     </section>
   </div>
 
-  <!-- เสียงเพลง (อาจารย์ใส่ src เองตามไฟล์จริง) -->
+  <!-- เสียงเพลง (อาจารย์ใส่ src เองตามไฟล์จริงใน rhythm-engine.js หรือโค้ดอื่น) -->
   <audio id="rb-audio"></audio>
 
-  <script src="rhythm-engine.js" type="module"></script>
+  <!-- ใช้ rhythm-boxer.js เป็น entry และมันจะ import rhythm-engine + logger ให้เอง -->
+  <script type="module" src="js/rhythm-boxer.js"></script>
 </body>
 </html>
