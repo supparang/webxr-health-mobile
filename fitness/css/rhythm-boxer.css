@@ -1032,6 +1032,81 @@ class RhythmBoxerGame{
     URL.revokeObjectURL(url);
   }
 }
+/* Research progress */
+.rb-progress-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:4px;
+  font-size:12px;
+}
+.rb-progress-label{
+  opacity:.85;
+}
+.rb-progress-bar{
+  flex:1;
+  height:6px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.9);
+  overflow:hidden;
+}
+.rb-progress-fill{
+  width:0%;
+  height:100%;
+  background:linear-gradient(90deg,#22c55e,#0ea5e9);
+  transition:width .12s linear;
+}
+.rb-progress-text{
+  font-size:11px;
+  min-width:40px;
+  text-align:right;
+}
+
+/* Research overlay (force continue) */
+.rb-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,0.8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:50;
+}
+.rb-overlay.hidden{
+  display:none;
+}
+.rb-overlay-card{
+  max-width:360px;
+  width:90%;
+  padding:18px 16px 16px;
+  border-radius:18px;
+  background:
+    radial-gradient(circle at top,#0f172a,#020617);
+  box-shadow:0 24px 60px rgba(0,0,0,0.85);
+  text-align:center;
+}
+.rb-overlay-card h3{
+  margin:0 0 6px;
+  font-size:18px;
+}
+.rb-overlay-card p{
+  margin:0 0 10px;
+  font-size:13px;
+  opacity:.9;
+}
+
+/* Session quality note */
+.rb-quality-note{
+  margin-top:10px;
+  padding:6px 10px;
+  border-radius:12px;
+  font-size:13px;
+  background:rgba(127,29,29,0.35);
+  border:1px solid rgba(248,113,113,0.9);
+}
+.rb-quality-note.hidden{
+  display:none;
+}
 
 // init
 window.addEventListener('DOMContentLoaded', () => {
