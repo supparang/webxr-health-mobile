@@ -2,151 +2,79 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <title>Jump-Duck — VR Fitness Game</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="stylesheet" href="./css/jump-duck.css"/>
+  <title>Jump-Duck — VR Fitness</title>
+  <link rel="icon" href="favicon.ico"/>
+  <link rel="stylesheet" href="hub.css"/>
+  <style>
+    .jd-wrap{
+      max-width:900px;
+      margin:20px auto 32px;
+      padding:0 16px 24px;
+      color:#e5e7eb;
+    }
+    .jd-header{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      margin-bottom:12px;
+    }
+    .jd-title-block h1{margin:0 0 4px;font-size:24px;}
+    .jd-sub{margin:0;font-size:13px;opacity:.82;}
+    .jd-back{color:#e5e7eb;text-decoration:none;
+      border-radius:999px;padding:6px 12px;
+      border:1px solid rgba(148,163,184,0.7);
+      background:rgba(15,23,42,0.96);}
+    .jd-card{
+      border-radius:22px;
+      padding:18px 16px 20px;
+      background:
+        radial-gradient(circle at top left,rgba(56,189,248,0.22),transparent 55%),
+        radial-gradient(circle at bottom right,rgba(236,72,153,0.20),transparent 55%),
+        rgba(15,23,42,0.96);
+      box-shadow:0 22px 54px rgba(15,23,42,0.96);
+      font-size:14px;
+    }
+    .jd-placeholder{
+      margin-top:10px;
+      padding:16px 12px;
+      border-radius:18px;
+      background:rgba(15,23,42,0.96);
+      border:1px dashed rgba(148,163,184,0.7);
+      text-align:center;
+      font-size:13px;
+      opacity:.92;
+    }
+  </style>
 </head>
 <body>
-  <main id="jd-app">
+  <main class="jd-wrap">
+    <header class="jd-header">
+      <div class="jd-title-block">
+        <h1>Jump-Duck</h1>
+        <p class="jd-sub">ต้นแบบเกมกระโดด-ก้มหลบสิ่งกีดขวาง (ยังไม่เชื่อม engine เต็ม)</p>
+      </div>
+      <a href="hub.html" class="jd-back">⬅ กลับ HUB</a>
+    </header>
 
-    <!-- ===== VIEW: MENU ===== -->
-    <section id="view-menu" class="jd-view">
-      <h1 class="jd-title">🦘 Jump-Duck <span class="jd-sub">Balance Run</span></h1>
-      <p class="jd-subtitle">
-        เกมฝึกการทรงตัว &amp; การตอบสนองอย่างรวดเร็ว — กระโดดข้ามสิ่งกีดขวาง หรือก้มหลบแถบเลเซอร์  
-        ใช้ได้ทั้ง PC / Mobile / VR Headset
+    <section class="jd-card">
+      <p>
+        หน้านี้เป็น <strong>placeholder</strong> สำหรับเกม Jump-Duck ในชุด VR Fitness Academy<br/>
+        อาจารย์สามารถนำโค้ด engine ของ Jump-Duck ที่เคยพัฒนาไว้
+        มาเชื่อมต่อกับหน้านี้ภายหลังได้เลย (เช่น <code>js/jump-duck-engine.js</code>).
       </p>
+      <ol>
+        <li>กำหนด logic การ spawn สิ่งกีดขวาง (jump / duck)</li>
+        <li>เชื่อมกับปุ่ม/gesture จาก VR controller หรือการแตะจอ</li>
+        <li>เก็บสถิติเวลา reaction, จำนวน miss, combo</li>
+      </ol>
 
-      <div class="jd-field">
-        <label for="jd-diff">ระดับความยาก / Difficulty</label>
-        <select id="jd-diff">
-          <option value="easy">ง่าย (Easy) — ความเร็วต่ำ ช่วงหายใจเยอะ</option>
-          <option value="normal" selected>ปกติ (Normal) — เล่นจริงจัง</option>
-          <option value="hard">ยาก (Hard) — สิ่งกีดขวางรัว เน้นสมาธิสูง</option>
-        </select>
-      </div>
-
-      <div class="jd-field">
-        <label for="jd-duration">ระยะเวลาเล่น / Session duration</label>
-        <select id="jd-duration">
-          <option value="45">45 วินาที</option>
-          <option value="60" selected>60 วินาที</option>
-          <option value="90">90 วินาที</option>
-        </select>
-      </div>
-
-      <div class="jd-howto-block">
-        <h2 class="jd-howto-title">วิธีเล่น (How to play)</h2>
-        <ul class="jd-howto-list">
-          <li>สิ่งกีดขวางเตี้ย (🧱) → <b>Jump</b> กระโดดข้าม</li>
-          <li>แถบเลเซอร์สูง (🟥) → <b>Duck</b> ก้มหลบ</li>
-          <li>PC/Notebook: กดปุ่ม <b>↑ (ลูกศรขึ้น)</b> เพื่อ Jump, <b>↓ (ลูกศรลง)</b> เพื่อ Duck</li>
-          <li>มือถือ / จอสัมผัส: แตะ <b>ด้านบนของจอ</b> เพื่อ Jump, แตะ <b>ด้านล่างของจอ</b> เพื่อ Duck</li>
-          <li>VR: ยกมือขึ้น / ก้มตัว (ใช้ hand-tracking/คอนโทรลเลอร์แมปกับปุ่ม Jump/Duck เพิ่มเติมได้ทีหลัง)</li>
-        </ul>
-      </div>
-
-      <div class="jd-btn-row">
-        <button class="jd-btn jd-btn-primary" data-action="start">
-          ▶ เริ่มเล่น Jump-Duck
-        </button>
-      </div>
-
-      <div class="jd-btn-row jd-btn-row-secondary">
-        <button class="jd-btn" onclick="location.href='./index.html'">
-          ⬅ กลับ Fitness Hub
-        </button>
+      <div class="jd-placeholder">
+        Prototype only — ยังไม่ใช่ build สุดท้ายของเกม Jump-Duck<br/>
+        (ใช้สำหรับทดสอบ flow ของ Hub ก่อน)
       </div>
     </section>
-
-    <!-- ===== VIEW: PLAY ===== -->
-    <section id="view-play" class="jd-view jd-hidden">
-      <h2 class="jd-section-title">🦘 Jump-Duck — Gameplay</h2>
-
-      <div class="jd-hud-row">
-        <div class="jd-hud-chip">Mode: <b id="hud-mode">Play</b></div>
-        <div class="jd-hud-chip">Diff: <b id="hud-diff">normal</b></div>
-        <div class="jd-hud-chip">Duration: <b id="hud-duration">60s</b></div>
-      </div>
-      <div class="jd-hud-row">
-        <div class="jd-hud-chip">
-          Stability: <b id="hud-stability">100%</b>
-        </div>
-        <div class="jd-hud-chip">
-          Obstacles 🚫: <b id="hud-obstacles">0 / 0</b>
-        </div>
-        <div class="jd-hud-chip">
-          Score: <b id="hud-score">0</b>
-        </div>
-        <div class="jd-hud-chip">
-          Combo: <b id="hud-combo">0</b>
-        </div>
-        <div class="jd-hud-chip">
-          Time: <b id="hud-time">60.0s</b>
-        </div>
-      </div>
-
-      <div id="jd-play-area" class="jd-play-area">
-        <div class="jd-track">
-          <div class="jd-ground"></div>
-          <div id="jd-avatar" class="jd-avatar">
-            <div class="jd-avatar-emoji">🧍‍♂️</div>
-          </div>
-          <div id="jd-obstacles" class="jd-obstacles"></div>
-        </div>
-        <div id="jd-judge" class="jd-judge">READY</div>
-      </div>
-
-      <p class="jd-howto-inline">
-        Jump = กระโดดข้ามบล็อกเตี้ย 🧱 — Duck = ก้มหลบเลเซอร์สูง 🟥  
-        พยายามไม่ให้ชนเพื่อลดการแกว่งของลำตัว (Stability สูง)
-      </p>
-
-      <div class="jd-btn-row">
-        <button class="jd-btn" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
-        <button class="jd-btn" onclick="location.href='./index.html'">⬅ Hub</button>
-      </div>
-    </section>
-
-    <!-- ===== VIEW: RESULT ===== -->
-    <section id="view-result" class="jd-view jd-hidden">
-      <h2 class="jd-section-title">📈 สรุปผลรอบเล่น / Session Summary</h2>
-
-      <div class="jd-result-grid">
-        <div class="jd-result-row"><span>Mode</span><b id="res-mode">Play</b></div>
-        <div class="jd-result-row"><span>Difficulty</span><b id="res-diff">normal</b></div>
-        <div class="jd-result-row"><span>Duration</span><b id="res-duration">60s</b></div>
-
-        <div class="jd-result-row"><span>Total obstacles</span><b id="res-total-obs">0</b></div>
-        <div class="jd-result-row"><span>Successful dodge</span><b id="res-hits">0</b></div>
-        <div class="jd-result-row"><span>Collisions (ชน)</span><b id="res-miss">0</b></div>
-
-        <div class="jd-result-row"><span>Accuracy</span><b id="res-acc">0%</b></div>
-        <div class="jd-result-row"><span>Mean reaction time</span><b id="res-rt-mean">-</b></div>
-        <div class="jd-result-row"><span>Minimum stability</span><b id="res-stability-min">100%</b></div>
-
-        <div class="jd-result-row"><span>Score</span><b id="res-score">0</b></div>
-        <div class="jd-result-row"><span>Performance rank</span><b id="res-rank">-</b></div>
-      </div>
-
-      <p class="jd-note">
-        Rank S = หลีกได้แม่นมาก + Stability สูง •  
-        Rank A/B = เหมาะใช้เป็นรอบฝึก • C/D = มีชนเยอะ หรือลำตัวแกว่งมาก
-      </p>
-
-      <div class="jd-btn-row">
-        <button class="jd-btn jd-btn-primary" data-action="play-again">
-          🔁 เล่นอีกครั้ง / Play again
-        </button>
-        <button class="jd-btn" data-action="back-menu">
-          🏠 กลับเมนู / Back to menu
-        </button>
-      </div>
-    </section>
-
   </main>
-
-  <script src="./js/jump-duck.js"></script>
 </body>
 </html>
