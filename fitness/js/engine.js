@@ -1,1232 +1,966 @@
-// === js/engine.js — Shadow Breaker core (2025-11-24 Research-Ready v5) ===
+// === rhythm-engine.js — Rhythm Boxer 5-lane (Pro + Research + Rank/Progress) ===
 'use strict';
 
-import { DomRenderer } from './dom-renderer.js';
-import { EventLogger } from './event-logger.js';
-import { SessionLogger } from './session-logger.js';
-
-const DIFF_CONFIG = {
-  easy: {
-    label: 'easy',
-    duration: 45,
-    spawnInterval: 1100,
-    targetLifetime: 1600,
-    decoyRate: 0.12,
-    baseBossHp: 80,
-    playerDamageOnMiss: 4,
-    feverGain: { perfect: 9, good: 6, bad: 3 },
-    feverLossMiss: 8,
-    sizePx: 130
-  },
-  normal: {
-    label: 'normal',
-    duration: 60,
-    spawnInterval: 850,
-    targetLifetime: 1250,
-    decoyRate: 0.20,
-    baseBossHp: 110,
-    playerDamageOnMiss: 6,
-    feverGain: { perfect: 7, good: 4, bad: 2 },
-    feverLossMiss: 11,
-    sizePx: 100
-  },
-  hard: {
-    label: 'hard',
-    duration: 75,
-    spawnInterval: 600,
-    targetLifetime: 950,
-    decoyRate: 0.28,
-    baseBossHp: 140,
-    playerDamageOnMiss: 8,
-    feverGain: { perfect: 6, good: 3, bad: 2 },
-    feverLossMiss: 14,
-    sizePx: 86
+/* ---------- CSV loggers ---------- */
+class RBEventLogger {
+  constructor(){
+    this.logs = [];
   }
-};
-
-const BOSSES = [
-  {
-    id: 1,
-    name: 'Bubble Glove',
-    emoji: '🐣',
-    title: 'บอสมือใหม่สายฟอง',
-    desc: 'เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰'
-  },
-  {
-    id: 2,
-    name: 'Neon Knuckle',
-    emoji: '🌀',
-    title: 'หมัดนีออนสายสปีด',
-    desc: 'เป้าเร็วขึ้น มีเป้าลวงคอยกวนสมาธิ 💫'
-  },
-  {
-    id: 3,
-    name: 'Shadow Guard',
-    emoji: '🛡️',
-    title: 'ผู้พิทักษ์เงา',
-    desc: 'ต้องตีต่อเนื่อง ไม่งั้น HP ไม่ลดเท่าที่ควร 🛡️'
-  },
-  {
-    id: 4,
-    name: 'Final Burst',
-    emoji: '💀',
-    title: 'บอสสุดท้ายสายระเบิด',
-    desc: 'ช่วงท้ายจะ spawn เป้าเร็วมาก เน้นโหมด FEVER ⚡'
+  add(log){
+    this.logs.push(log);
   }
-];
-
-const $ = (s) => document.querySelector(s);
-const clamp = (v, a, b) => (v < a ? a : (v > b ? b : v));
-
-function safePlay(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  try {
-    el.currentTime = 0;
-    const p = el.play();
-    if (p && typeof p.catch === 'function') p.catch(() => {});
-  } catch (e) {}
+  toCsv(){
+    if(!this.logs.length) return '';
+    const keys = Object.keys(this.logs[0]);
+    const esc = v => {
+      if(v==null) return '';
+      const s = String(v);
+      if(s.includes(',') || s.includes('\n') || s.includes('"')){
+        return '"' + s.replace(/"/g,'""') + '"';
+      }
+      return s;
+    };
+    const rows = [keys.join(',')];
+    for(const row of this.logs){
+      rows.push(keys.map(k => esc(row[k])).join(','));
+    }
+    return rows.join('\n');
+  }
 }
 
-class ShadowBreakerGame {
-  constructor() {
-    // Views / wrap
-    this.wrap       = $('#sb-wrap');
-    this.viewMenu   = $('#view-menu');
-    this.viewForm   = $('#view-research-form');
-    this.viewPlay   = $('#view-play');
-    this.viewResult = $('#view-result');
+class RBSessionLogger {
+  constructor(){
+    this.sessions = [];
+  }
+  add(s){
+    this.sessions.push(s);
+  }
+  toCsv(){
+    if(!this.sessions.length) return '';
+    const keys = Object.keys(this.sessions[0]);
+    const esc = v => {
+      if(v==null) return '';
+      const s = String(v);
+      if(s.includes(',') || s.includes('\n') || s.includes('"')){
+        return '"' + s.replace(/"/g,'""') + '"';
+      }
+      return s;
+    };
+    const rows = [keys.join(',')];
+    for(const row of this.sessions){
+      rows.push(keys.map(k => esc(row[k])).join(','));
+    }
+    return rows.join('\n');
+  }
+}
 
-    // HUD
-    this.statMode    = $('#stat-mode');
-    this.statDiff    = $('#stat-diff');
-    this.statScore   = $('#stat-score');
-    this.statHp      = $('#stat-hp');
-    this.statCombo   = $('#stat-combo');
-    this.statPerfect = $('#stat-perfect');
-    this.statMiss    = $('#stat-miss');
-    this.statTime    = $('#stat-time');
+/* ---------- Config ---------- */
 
-    // HP fills
-    this.playerFill = $('#player-fill');
-    this.bossFill   = $('#boss-fill');
-    this.hpBossVal  = $('#hp-boss-val');
+// Songs config (4 tracks)
+const SONGS = [
+  { id:'t1',        name:'Warm-up Groove',        bpm:98,  difficulty:'easy',     isResearch:false },
+  { id:'t2',        name:'Punch Rush',            bpm:128, difficulty:'normal',   isResearch:false },
+  { id:'t3',        name:'Ultra Beat Combo',      bpm:145, difficulty:'hard',     isResearch:false },
+  { id:'research',  name:'Research Track 120',    bpm:120, difficulty:'moderate', isResearch:true  }
+];
 
-    // FEVER
-    this.feverFill   = $('#fever-fill');
-    this.feverStatus = $('#fever-status');
+const LANES      = [0,1,2,3,4];   // L2, L1, C, R1, R2
+const TRAVEL_MS  = 2000;          // เวลาเดินทางจากด้านบนถึงเส้นตี
+const HIT_WINDOWS = {             // hit window (moderate)
+  perfect: 80,
+  great:   145,
+  good:    190
+};
 
-    // Boss HUD / portrait
-    this.bossName          = $('#boss-name');
-    this.bossPortraitEmoji = $('#boss-portrait-emoji');
-    this.bossPortraitName  = $('#boss-portrait-name');
-    this.bossPortraitHint  = $('#boss-portrait-hint');
-    this.bossPortraitBox   = $('#boss-portrait');
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
 
-    // Boss intro overlay
-    this.bossIntro      = $('#boss-intro');
-    this.bossIntroEmoji = $('#boss-intro-emoji');
-    this.bossIntroName  = $('#boss-intro-name');
-    this.bossIntroTitle = $('#boss-intro-title');
-    this.bossIntroDesc  = $('#boss-intro-desc');
+function findSong(id){
+  return SONGS.find(s => s.id === id) || SONGS[0];
+}
 
-    // Feedback bubble
-    this.feedbackEl     = $('#sb-feedback');
-    this._feedbackTimer = null;
+/* ---------- Main Game Class ---------- */
+
+class RhythmBoxerGame{
+  constructor(){
+    // Views
+    this.viewMenu   = document.getElementById('rb-view-menu');
+    this.viewPlay   = document.getElementById('rb-view-play');
+    this.viewResult = document.getElementById('rb-view-result');
+
+    this.wrap       = document.getElementById('rb-wrap');
+
+    // Research fields
+    this.researchFields   = document.getElementById('rb-research-fields');
+    this.inputParticipant = document.getElementById('rb-participant');
+    this.inputGroup       = document.getElementById('rb-group');
+    this.inputNote        = document.getElementById('rb-note');
+
+    // Menu controls
+    this.trackSelect  = document.getElementById('rb-track');
+    this.btnStart     = document.getElementById('rb-btn-start');
+
+    // Play HUD
+    this.hudMode    = document.getElementById('rb-hud-mode');
+    this.hudTrack   = document.getElementById('rb-hud-track');
+    this.hudTime    = document.getElementById('rb-hud-time');
+    this.hudScore   = document.getElementById('rb-hud-score');
+    this.hudCombo   = document.getElementById('rb-hud-combo');
+    this.hudAcc     = document.getElementById('rb-hud-acc');
+    this.hudPerfect = document.getElementById('rb-hud-perfect');
+    this.hudGreat   = document.getElementById('rb-hud-great');
+    this.hudGood    = document.getElementById('rb-hud-good');
+    this.hudMiss    = document.getElementById('rb-hud-miss');
+
+    this.feverFill   = document.getElementById('rb-fever-fill');
+    this.feverStatus = document.getElementById('rb-fever-status');
+
+    this.btnStop   = document.getElementById('rb-btn-stop');
+
+    // Field & lanes
+    this.lanesHost = document.getElementById('rb-lanes');
+    this.feedbackEl= document.getElementById('rb-feedback');
 
     // Result labels
-    this.resMode        = $('#res-mode');
-    this.resDiff        = $('#res-diff');
-    this.resEndReason   = $('#res-endreason');
-    this.resScore       = $('#res-score');
-    this.resMaxCombo    = $('#res-maxcombo');
-    this.resMiss        = $('#res-miss');
-    this.resAccuracy    = $('#res-accuracy');
-    this.resTotalHits   = $('#res-totalhits');
-    this.resRtNormal    = $('#res-rt-normal');
-    this.resRtDecoy     = $('#res-rt-decoy');
-    this.resParticipant = $('#res-participant');
-    this.resGrade       = $('#res-grade');
+    this.resMode        = document.getElementById('rb-res-mode');
+    this.resTrack       = document.getElementById('rb-res-track');
+    this.resReason      = document.getElementById('rb-res-reason');
+    this.resScore       = document.getElementById('rb-res-score');
+    this.resMaxCombo    = document.getElementById('rb-res-maxcombo');
+    this.resTotalNotes  = document.getElementById('rb-res-totalnotes');
+    this.resDetailHit   = document.getElementById('rb-res-detail-hit');
+    this.resAcc         = document.getElementById('rb-res-acc');
+    this.resOffsetAvg   = document.getElementById('rb-res-offset-avg');
+    this.resOffsetStd   = document.getElementById('rb-res-offset-std');
+    this.resDuration    = document.getElementById('rb-res-duration');
+    this.resParticipant = document.getElementById('rb-res-participant');
 
-    // Target layer + renderer
-    this.targetLayer = $('#target-layer');
-    this.renderer = this.targetLayer
-      ? new DomRenderer(this, this.targetLayer, { sizePx: 100 })
-      : null;
+    // ใหม่: Rank + Quality note
+    this.resRank        = document.getElementById('rb-res-rank');
+    this.resQualityNote = document.getElementById('rb-res-quality-note');
 
-    // Research loggers
-    this.eventLogger   = new EventLogger();
-    this.sessionLogger = new SessionLogger();
+    this.btnAgain      = document.getElementById('rb-btn-again');
+    this.btnBackMenu   = document.getElementById('rb-btn-back-menu');
+    this.btnDlEvents   = document.getElementById('rb-btn-dl-events');
+    this.btnDlSessions = document.getElementById('rb-btn-dl-sessions');
 
-    // Session-level
-    this.sessionId        = this.makeSessionId();
-    this.sessionSummaries = [];
-    this.sessionEnv       = null;
-    this._telemetryWired  = false;
+    // Progress meter
+    this.progressFill  = document.getElementById('rb-progress-fill');
+    this.progressText  = document.getElementById('rb-progress-text');
 
-    this.resetState();
-    this.wireUI();
-    this.setupTelemetry();
-  }
+    // Research overlay
+    this.overlay       = document.getElementById('rb-overlay-research');
+    this.overlayMsg    = document.getElementById('rb-overlay-message');
+    this.overlayBtn    = document.getElementById('rb-overlay-continue');
 
-  makeSessionId() {
-    const t = new Date();
-    const y = t.getFullYear();
-    const m = String(t.getMonth() + 1).padStart(2, '0');
-    const d = String(t.getDate(), 10).padStart(2, '0');
-    const hh = String(t.getHours(), 10).padStart(2, '0');
-    const mm = String(t.getMinutes(), 10).padStart(2, '0');
-    const ss = String(t.getSeconds(), 10).padStart(2, '0');
-    return `SB-${y}${m}${d}-${hh}${mm}${ss}`;
-  }
+    // Audio
+    this.audio = document.getElementById('rb-audio');
 
-  resetState() {
-    this.mode = 'normal';
-    this.diff = 'normal';
-    this.config = DIFF_CONFIG.normal;
-    this.gameDuration = this.config.duration;
+    // Loggers
+    this.eventLogger   = new RBEventLogger();
+    this.sessionLogger = new RBSessionLogger();
 
-    this.trainingPhase = 'main';
-    this.runIndex      = 1;
-
+    // State
+    this.mode   = 'normal';
+    this.song   = findSong('t1');
+    this.notes  = [];
     this.running = false;
     this.ended   = false;
-    this.timeLeft = this.gameDuration;
-    this._loopHandle    = null;
-    this._spawnTimer    = null;
-    this._startTime     = 0;
-    this._startWallClock= '';
+    this.startPerf = 0;
+    this._rafHandle= 0;
+    this._feedbackTimer = null;
+    this.sessionId = this.makeSessionId();
+    this.runIndex  = 0;
 
-    this.playerHp = 100;
-    this.score    = 0;
-    this.combo    = 0;
-    this.maxCombo = 0;
-    this.perfect  = 0;
-    this.good     = 0;
-    this.bad      = 0;
-    this.miss     = 0;
-    this.bombHits = 0;
+    this.stats = {
+      score:0,
+      combo:0,
+      maxCombo:0,
+      perfect:0,
+      great:0,
+      good:0,
+      miss:0,
+      hitCount:0,
+      totalNotes:0,
+      fever:0,
+      feverOn:false,
+      feverUsed:0
+    };
 
-    this.totalTargets = 0;
-    this.hitCount     = 0;
-
-    this.targets       = new Map();
-    this._nextTargetId = 1;
-    this.phaseSpawnCounter = {1:0,2:0,3:0};
-
-    this.fever       = 0;
-    this.feverOn     = false;
-    this.feverUse    = 0;
-    this._feverTimeout = null;
-    this._feverStartAt = null;
-    this.feverTotalMs  = 0;
-
-    this.bossIndex   = 0;
-    this.currentBoss = BOSSES[0];
-    this.bossHpMax   = this.hpForBoss(0);
-    this.bossHp      = this.bossHpMax;
+    this.offsetStats = {
+      sum:0,
+      sumSq:0,
+      count:0
+    };
 
     this.researchMeta = { participant:'', group:'', note:'' };
-    this.hitLogs      = [];
+    this.sessionSummaries = [];
 
-    this.lowHpTotalMs   = 0;
-    this._hpLow         = false;
-    this._hpStateChangeAt = null;
+    this.wireUI();
+    this.applyUrlPreset();
+    this.showMenu();
+  }
 
-    this.menuClickPerf = null;
-    this.menuToPlayMs  = null;
+  makeSessionId(){
+    const d = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    return `RB-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  }
 
-    this.errorLogs = [];
-    this.focusLogs = [];
-
-    if (this.wrap) {
-      this.wrap.dataset.diff  = this.diff;
-      this.wrap.dataset.boss  = String(this.bossIndex);
-      this.wrap.dataset.phase = '1';
+  applyUrlPreset(){
+    try{
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get('mode');
+      if(mode === 'research'){
+        const radios = document.querySelectorAll('input[name="mode"]');
+        radios.forEach(r => { r.checked = (r.value === 'research'); });
+        this.updateModeFromUI();
+      }
+    }catch(e){
+      console.warn('RhythmBoxer: URL preset failed', e);
     }
   }
 
-  setupTelemetry() {
-    if (this._telemetryWired) return;
-    this._telemetryWired = true;
+  wireUI(){
+    // mode radios
+    const radios = document.querySelectorAll('input[name="mode"]');
+    radios.forEach(r => {
+      r.addEventListener('change', () => this.updateModeFromUI());
+    });
+    this.updateModeFromUI();
 
-    window.addEventListener('error', (ev) => {
-      this.errorLogs.push({
-        ts: new Date().toISOString(),
-        msg: String(ev.message || ''),
-        src: String(ev.filename || ''),
-        line: ev.lineno || 0,
-        col : ev.colno || 0
+    // start button
+    if(this.btnStart){
+      this.btnStart.addEventListener('click', () => {
+        this.startFromMenu();
       });
-    });
-
-    window.addEventListener('unhandledrejection', (ev) => {
-      this.errorLogs.push({
-        ts: new Date().toISOString(),
-        msg: 'unhandledrejection',
-        reason: String(ev.reason || '')
-      });
-    });
-
-    window.addEventListener('focus', () => {
-      this.focusLogs.push({ ts: new Date().toISOString(), type: 'focus' });
-    });
-    window.addEventListener('blur', () => {
-      this.focusLogs.push({ ts: new Date().toISOString(), type: 'blur' });
-    });
-  }
-
-  hpForBoss(idx) {
-    const base = this.config.baseBossHp;
-    return Math.round(base * (1 + idx * 0.15));
-  }
-
-  wireUI() {
-    const btnStartResearch = this.viewMenu.querySelector('[data-action="start-research"]');
-    const btnStartNormal   = this.viewMenu.querySelector('[data-action="start-normal"]');
-
-    btnStartResearch.addEventListener('click', () => {
-      this.showView('research-form');
-    });
-
-    btnStartNormal.addEventListener('click', () => {
-      this.mode = 'normal';
-      this.startFromMenu();
-    });
-
-    const btnResearchBegin = this.viewForm.querySelector('[data-action="research-begin-play"]');
-    const btnFormBack      = this.viewForm.querySelector('[data-action="back-to-menu"]');
-
-    btnFormBack.addEventListener('click', () => {
-      this.showView('menu');
-    });
-
-    btnResearchBegin.addEventListener('click', () => {
-      const id    = $('#research-id').value.trim();
-      const group = $('#research-group').value.trim();
-      const note  = $('#research-note').value.trim();
-      this.mode = 'research';
-      this.researchMeta = {
-        participant: id   || '-',
-        group      : group|| '-',
-        note       : note || '-'
-      };
-      this.startFromMenu();
-    });
-
-    const btnStopEarly = this.viewPlay.querySelector('[data-action="stop-early"]');
-    btnStopEarly.addEventListener('click', () => {
-      this.stopGame('หยุดก่อนเวลา');
-    });
-
-    const btnResultBack  = this.viewResult.querySelector('[data-action="back-to-menu"]');
-    const btnPlayAgain   = this.viewResult.querySelector('[data-action="play-again"]');
-    const btnCsvEvents   = this.viewResult.querySelector('[data-action="download-csv-events"]');
-    const btnCsvSession  = this.viewResult.querySelector('[data-action="download-csv-session"]');
-
-    btnResultBack.addEventListener('click', () => this.showView('menu'));
-    btnPlayAgain.addEventListener('click', () => this.startFromMenu(true));
-    btnCsvEvents.addEventListener('click', () => this.downloadEventCsv());
-    btnCsvSession.addEventListener('click', () => this.downloadSessionCsv());
-
-    this.bossIntro.addEventListener('pointerdown', () => this.hideBossIntro());
-
-    window.addEventListener('keydown', (ev) => {
-      if (!this.running) return;
-      if (ev.key === ' ') ev.preventDefault();
-    });
-  }
-
-  showView(name) {
-    this.viewMenu.classList.add('hidden');
-    this.viewForm.classList.add('hidden');
-    this.viewPlay.classList.add('hidden');
-    this.viewResult.classList.add('hidden');
-    this.bossIntro.classList.add('hidden');
-
-    if (name === 'menu') this.viewMenu.classList.remove('hidden');
-    else if (name === 'research-form') this.viewForm.classList.remove('hidden');
-    else if (name === 'play') this.viewPlay.classList.remove('hidden');
-    else if (name === 'result') this.viewResult.classList.remove('hidden');
-  }
-
-  setFeedback(kind) {
-    if (!this.feedbackEl) return;
-
-    let text = '';
-    let cls  = '';
-
-    switch (kind) {
-      case 'perfect':
-        text = 'ตรงเป๊ะ! ⭐';
-        cls  = 'perfect';
-        break;
-      case 'good':
-        text = 'ใกล้แล้ว! 😀';
-        cls  = 'good';
-        break;
-      case 'miss':
-        text = 'พลาดเป้า! ลองใหม่ 😅';
-        cls  = 'miss';
-        break;
-      case 'bomb':
-        text = 'โดนระเบิด! -60 คะแนน -10 HP 💥';
-        cls  = 'bomb';
-        break;
-      case 'heal':
-        text = 'ชนะบอส! ฟื้น HP +20 💙';
-        cls  = 'heal';
-        break;
-      default:
-        text = 'โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯';
-        cls  = '';
     }
 
-    this.feedbackEl.textContent = text;
-    this.feedbackEl.className = 'sb-feedback';
-    if (cls) this.feedbackEl.classList.add(cls);
+    // lane taps
+    if(this.lanesHost){
+      this.lanesHost.addEventListener('pointerdown', (ev) => {
+        const laneEl = ev.target.closest('.rb-lane');
+        if(!laneEl) return;
+        const idx = Number(laneEl.dataset.lane || '0');
+        this.onLaneHit(idx);
+      });
+    }
 
-    if (this._feedbackTimer) {
+    // stop early
+    if(this.btnStop){
+      this.btnStop.addEventListener('click', () => {
+        if(this.mode === 'research' && this.running){
+          this.showResearchOverlay('โหมดวิจัยต้องเล่นจนเพลงจบเพื่อเก็บข้อมูลให้ครบค่ะ');
+          return;
+        }
+        this.stopGame('หยุดก่อนเวลา');
+      });
+    }
+
+    // result buttons
+    if(this.btnAgain){
+      this.btnAgain.addEventListener('click', () => {
+        this.startFromMenu(true);
+      });
+    }
+    if(this.btnBackMenu){
+      this.btnBackMenu.addEventListener('click', () => {
+        if(this.mode === 'research' && this.running){
+          this.showResearchOverlay('กำลังเก็บข้อมูลวิจัยอยู่ กรุณาเล่นจนจบเพลงก่อนค่ะ');
+          return;
+        }
+        this.showMenu();
+      });
+    }
+
+    // CSV buttons
+    if(this.btnDlEvents){
+      this.btnDlEvents.addEventListener('click', () => this.downloadEventsCsv());
+    }
+    if(this.btnDlSessions){
+      this.btnDlSessions.addEventListener('click', () => this.downloadSessionsCsv());
+    }
+
+    // overlay button
+    if(this.overlayBtn){
+      this.overlayBtn.addEventListener('click', () => this.hideResearchOverlay());
+    }
+  }
+
+  showResearchOverlay(msg){
+    if(!this.overlay){
+      alert(msg);
+      return;
+    }
+    if(this.overlayMsg) this.overlayMsg.textContent = msg;
+    this.overlay.classList.remove('hidden');
+  }
+
+  hideResearchOverlay(){
+    if(this.overlay){
+      this.overlay.classList.add('hidden');
+    }
+  }
+
+  updateModeFromUI(){
+    const radios = document.querySelectorAll('input[name="mode"]');
+    let mode = 'normal';
+    radios.forEach(r => { if(r.checked) mode = r.value; });
+    this.mode = mode;
+    if(this.researchFields){
+      if(mode === 'research') this.researchFields.classList.remove('hidden');
+      else this.researchFields.classList.add('hidden');
+    }
+  }
+
+  showMenu(){
+    if(this.viewMenu)   this.viewMenu.classList.remove('hidden');
+    if(this.viewPlay)   this.viewPlay.classList.add('hidden');
+    if(this.viewResult) this.viewResult.classList.add('hidden');
+  }
+
+  showPlay(){
+    if(this.viewMenu)   this.viewMenu.classList.add('hidden');
+    if(this.viewPlay)   this.viewPlay.classList.remove('hidden');
+    if(this.viewResult) this.viewResult.classList.add('hidden');
+  }
+
+  showResult(){
+    if(this.viewMenu)   this.viewMenu.classList.add('hidden');
+    if(this.viewPlay)   this.viewPlay.classList.add('hidden');
+    if(this.viewResult) this.viewResult.classList.remove('hidden');
+  }
+
+  setFeedback(kind, text){
+    if(!this.feedbackEl) return;
+    if(this._feedbackTimer){
       clearTimeout(this._feedbackTimer);
       this._feedbackTimer = null;
     }
-
-    if (kind && kind !== 'heal') {
+    this.feedbackEl.className = 'rb-feedback';
+    if(kind === 'good') this.feedbackEl.classList.add('good');
+    else if(kind === 'miss') this.feedbackEl.classList.add('miss');
+    else if(kind === 'warn') this.feedbackEl.classList.add('warn');
+    this.feedbackEl.textContent = text || 'แตะที่ lane ให้ตรงเส้นล่างตามจังหวะเพลง 🎵';
+    if(kind){
       this._feedbackTimer = setTimeout(() => {
-        this.setFeedback('');
-      }, 1400);
+        this.setFeedback('', 'แตะที่ lane ให้ตรงเส้นล่างตามจังหวะเพลง 🎵');
+      }, 1500);
     }
   }
 
-  startFromMenu(useSameDiff = false) {
-    if (!useSameDiff) {
-      const sel = $('#difficulty');
-      this.diff = (sel && sel.value) || 'normal';
+  startFromMenu(reuseTrack=false){
+    this.updateModeFromUI();
+    if(!reuseTrack){
+      const id = this.trackSelect ? this.trackSelect.value : 't1';
+      this.song = findSong(id);
+    }
+    // research meta
+    if(this.mode === 'research'){
+      this.researchMeta = {
+        participant: (this.inputParticipant && this.inputParticipant.value || '-').trim(),
+        group      : (this.inputGroup && this.inputGroup.value || '-').trim(),
+        note       : (this.inputNote && this.inputNote.value || '-').trim()
+      };
+    }else{
+      this.researchMeta = { participant:'', group:'', note:'' };
     }
 
-    this.config = DIFF_CONFIG[this.diff] || DIFF_CONFIG.normal;
-    this.gameDuration = this.config.duration;
+    this.runIndex = this.sessionSummaries.length + 1;
+    this.prepareRun();
+    this.showPlay();
+    this.beginLoop();
+  }
 
-    this.trainingPhase = 'main';
-    this.runIndex      = this.sessionSummaries.length + 1;
-
-    this.sessionEnv = {
-      ua: (navigator && navigator.userAgent) ? navigator.userAgent : '',
-      viewport_w: window.innerWidth || 0,
-      viewport_h: window.innerHeight || 0,
-      input_mode: (('ontouchstart' in window) || (navigator.maxTouchPoints > 0))
-        ? 'touch' : 'mouse'
+  prepareRun(){
+    // reset stats
+    this.stats = {
+      score:0,
+      combo:0,
+      maxCombo:0,
+      perfect:0,
+      great:0,
+      good:0,
+      miss:0,
+      hitCount:0,
+      totalNotes:0,
+      fever:0,
+      feverOn:false,
+      feverUsed:0
     };
+    this.offsetStats = { sum:0, sumSq:0, count:0 };
+    this.eventLogger = new RBEventLogger();
+
+    // build notes chart
+    this.notes = this.buildChartForSong(this.song);
+    this.stats.totalNotes = this.notes.length;
 
     this.running = false;
     this.ended   = false;
-    this.timeLeft = this.gameDuration;
-    this._loopHandle    = null;
-    this._spawnTimer    = null;
-    this._startTime     = 0;
-    this._startWallClock= '';
+    this.startPerf = 0;
+    this._rafHandle= 0;
 
-    this.playerHp = 100;
-    this.score    = 0;
-    this.combo    = 0;
-    this.maxCombo = 0;
-    this.perfect  = 0;
-    this.good     = 0;
-    this.bad      = 0;
-    this.miss     = 0;
-    this.bombHits = 0;
-
-    this.totalTargets = 0;
-    this.hitCount     = 0;
-
-    this.targets       = new Map();
-    this._nextTargetId = 1;
-    this.phaseSpawnCounter = {1:0,2:0,3:0};
-
-    this.fever       = 0;
-    this.feverOn     = false;
-    this.feverUse    = 0;
-    this._feverTimeout = null;
-    this._feverStartAt = null;
-    this.feverTotalMs  = 0;
-
-    this.bossIndex   = 0;
-    this.currentBoss = BOSSES[0];
-    this.bossHpMax   = this.hpForBoss(this.bossIndex);
-    this.bossHp      = this.bossHpMax;
-
-    this.lowHpTotalMs   = 0;
-    this._hpLow         = false;
-    this._hpStateChangeAt = null;
-
-    this.hitLogs = [];
-    this.menuClickPerf = performance.now();
-    this.menuToPlayMs  = null;
-
-    if (this.wrap) {
-      this.wrap.dataset.diff  = this.diff;
-      this.wrap.dataset.boss  = String(this.bossIndex);
-      this.wrap.dataset.phase = '1';
-    }
-    if (this.renderer) {
-      this.renderer.sizePx = this.config.sizePx;
+    // clear lanes
+    if(this.lanesHost){
+      this.lanesHost.querySelectorAll('.rb-note').forEach(el => el.remove());
     }
 
-    this.statMode.textContent = this.mode === 'research' ? 'Research' : 'Normal';
-    this.statDiff.textContent = this.diff;
+    // HUD
+    if(this.hudMode)  this.hudMode.textContent  = (this.mode === 'research') ? 'Research' : 'Normal';
+    if(this.hudTrack) this.hudTrack.textContent = this.song.name;
+    if(this.hudTime)  this.hudTime.textContent  = '0.0';
+    this.updateHudStats();
+    this.updateFeverHud();
+    this.updateProgress();
 
-    this.updateHUD();
-    this.updateBossHUD();
-    this.updateFeverHUD();
-    this.setFeedback('');
+    this.setFeedback('', 'แตะที่ lane ให้ตรงเส้นล่างตามจังหวะเพลง 🎵');
 
-    this.showView('play');
-
-    this.showBossIntro(this.currentBoss, {
-      first: true,
-      onDone: () => this.beginGameLoop()
-    });
+    // audio source (อาจารย์เตรียมไฟล์ audio/ ไว้แล้ว)
+    if(this.audio){
+      let src = '';
+      if(this.song.id === 't1') src = 'audio/rb_t1.mp3';
+      else if(this.song.id === 't2') src = 'audio/rb_t2.mp3';
+      else if(this.song.id === 't3') src = 'audio/rb_t3.mp3';
+      else if(this.song.id === 'research') src = 'audio/rb_research.mp3';
+      if(src) this.audio.src = src;
+      else this.audio.removeAttribute('src');
+    }
   }
 
-  beginGameLoop() {
-    if (this.running) return;
+  buildChartForSong(song){
+    const notes = [];
+    const bpm = song.bpm || 120;
+    const beatMs = 60000 / bpm;
+    const patternLenBeats = 64; // 16 bars of 4/4
+    const lanes = LANES;
+
+    let timeMs = 1500; // offset ก่อนเริ่มโน้ตแรก
+
+    if(song.id === 't1'){
+      // ง่าย: เดิน 0.75 beat, loop lanes
+      for(let i=0;i<patternLenBeats;i++){
+        const lane = lanes[i % lanes.length];
+        notes.push({ id:i+1, lane, hitTime: timeMs, type:'hit' });
+        timeMs += beatMs * 0.75;
+      }
+    }else if(song.id === 't2'){
+      // ปานกลาง: สลับกลาง+ซ้ายขวา, มีคู่บ้าง
+      for(let i=0;i<patternLenBeats;i++){
+        const lane = (i % 4 === 0) ? 2 : (i % 2 === 0 ? 1 : 3);
+        notes.push({ id:i+1, lane, hitTime: timeMs, type:'hit' });
+        if(i % 8 === 4){
+          notes.push({ id:1000+i, lane: (lane===1?3:1), hitTime: timeMs, type:'hit' });
+        }
+        timeMs += beatMs * 0.6;
+      }
+    }else if(song.id === 't3'){
+      // ยาก: 0.45 beat + chord ถี่ขึ้น
+      for(let i=0;i<patternLenBeats*1.2;i++){
+        const lane = lanes[i % lanes.length];
+        notes.push({ id:i+1, lane, hitTime: timeMs, type:'hit' });
+        if(i % 6 === 2){
+          notes.push({ id:2000+i, lane: (lane+2)%lanes.length, hitTime: timeMs+beatMs*0.15, type:'hit' });
+        }
+        timeMs += beatMs * 0.45;
+      }
+    }else if(song.id === 'research'){
+      // Research track: pattern 4-beat ซ้ำแบบเดิมทุกครั้ง
+      const phrase = [
+        { lane:2, offsetBeats:0   },
+        { lane:1, offsetBeats:0.5 },
+        { lane:3, offsetBeats:1.0 },
+        { lane:0, offsetBeats:1.5 },
+        { lane:4, offsetBeats:2.0 },
+        { lane:2, offsetBeats:2.5 },
+        { lane:1, offsetBeats:3.0 },
+        { lane:3, offsetBeats:3.5 }
+      ];
+      const phraseRepeat = 10;
+      let idCounter = 1;
+      for(let p=0;p<phraseRepeat;p++){
+        for(const n of phrase){
+          const ht = timeMs + n.offsetBeats * beatMs;
+          notes.push({ id:idCounter++, lane:n.lane, hitTime: ht, type:'hit' });
+        }
+        timeMs += beatMs * 4;
+      }
+    }
+
+    for(const n of notes){
+      n.spawnTime = n.hitTime - TRAVEL_MS;
+      n.spawned   = false;
+      n.resolved  = false;
+      n.el        = null;
+    }
+    return notes;
+  }
+
+  beginLoop(){
     this.running = true;
     this.ended   = false;
-    this.timeLeft = this.gameDuration;
-    this._startTime      = performance.now();
-    this._startWallClock = new Date().toISOString();
+    this.startPerf = performance.now();
 
-    if (this.menuClickPerf != null) {
-      this.menuToPlayMs = this._startTime - this.menuClickPerf;
+    // play audio
+    if(this.audio && this.audio.src){
+      try{
+        this.audio.currentTime = 0;
+        const p = this.audio.play();
+        if(p && typeof p.catch === 'function'){
+          p.catch(()=>{});
+        }
+      }catch(e){}
     }
-
-    if (this.renderer) this.renderer.clear();
-    this.targets.clear();
-
-    if (this._spawnTimer) clearInterval(this._spawnTimer);
-    this._spawnTimer = setInterval(() => this.spawnTarget(), this.config.spawnInterval);
 
     const loop = (t) => {
-      if (!this.running) return;
-      const elapsed = (t - this._startTime) / 1000;
-      this.timeLeft = clamp(this.gameDuration - elapsed, 0, this.gameDuration);
-      this.statTime.textContent = this.timeLeft.toFixed(1);
-      if (this.timeLeft <= 0) {
-        this.stopGame('หมดเวลา');
+      if(!this.running) return;
+      const songTime = t - this.startPerf;
+      this.updateTimeHud(songTime);
+      this.updateNotes(songTime);
+
+      // end condition: หลังโน้ตสุดท้าย + margin (ทั้ง Normal/Research)
+      const last = this.notes.length ? this.notes[this.notes.length-1].hitTime : 0;
+      if(songTime > last + TRAVEL_MS + 800){
+        this.stopGame('จบเพลง');
         return;
       }
-      this._loopHandle = requestAnimationFrame(loop);
+      this._rafHandle = requestAnimationFrame(loop);
     };
-    this._loopHandle = requestAnimationFrame(loop);
+    this._rafHandle = requestAnimationFrame(loop);
   }
 
-  stopGame(reason) {
-    if (!this.running && this.ended) return;
-    this.running = false;
-    this.ended   = true;
-
-    if (this._spawnTimer) clearInterval(this._spawnTimer);
-    this._spawnTimer = null;
-    if (this._loopHandle) cancelAnimationFrame(this._loopHandle);
-    this._loopHandle = null;
-
-    if (this._feverStartAt != null) {
-      this.feverTotalMs += performance.now() - this._feverStartAt;
-      this._feverStartAt = null;
+  updateTimeHud(songTimeMs){
+    if(this.hudTime){
+      this.hudTime.textContent = (songTimeMs/1000).toFixed(1);
     }
-    if (this._feverTimeout) clearTimeout(this._feverTimeout);
-    this._feverTimeout = null;
-    this.feverOn = false;
+  }
 
-    if (this._hpLow && this._hpStateChangeAt != null) {
-      this.lowHpTotalMs += performance.now() - this._hpStateChangeAt;
-      this._hpStateChangeAt = null;
+  updateNotes(songTimeMs){
+    if(!this.lanesHost) return;
+    const fieldHeight = this.lanesHost.clientHeight || 1;
+    const hitLineOffsetPx = fieldHeight - 48; // ตำแหน่งเส้นตีโดยประมาณ
+
+    for(const n of this.notes){
+      if(n.resolved) continue;
+
+      // spawn
+      if(!n.spawned && songTimeMs >= n.spawnTime){
+        const laneEl = this.lanesHost.querySelector(`.rb-lane[data-lane="${n.lane}"]`);
+        if(!laneEl) continue;
+        const el = document.createElement('div');
+        el.className = 'rb-note rb-note-type-hit';
+        el.textContent = '🥊';
+        laneEl.appendChild(el);
+        n.el = el;
+        n.spawned = true;
+        el.style.bottom = fieldHeight + 'px';
+        requestAnimationFrame(()=>{ el.classList.add('rb-note-spawned'); });
+      }
+
+      if(!n.spawned || !n.el) continue;
+
+      const dtFromSpawn = songTimeMs - n.spawnTime;
+      const progress = clamp(dtFromSpawn / TRAVEL_MS, 0, 1.2);
+      const y = hitLineOffsetPx * (1-progress);
+      n.el.style.bottom = y+'px';
+
+      // miss check
+      const dtHit = songTimeMs - n.hitTime;
+      if(dtHit > HIT_WINDOWS.good + 120 && !n.resolved){
+        this.registerMiss(n, songTimeMs);
+      }
     }
+  }
 
-    if (this.renderer) this.renderer.clear();
-    this.targets.clear();
+  onLaneHit(lane){
+    if(!this.running) return;
+    const now = performance.now();
+    const songTime = now - this.startPerf;
 
-    const totalShots = this.hitCount + this.miss;
-    const accuracy   = totalShots > 0 ? (this.hitCount / totalShots) * 100 : 0;
-
-    let sumRtNormal = 0, sumSqNormal = 0, cntRtNormal = 0;
-    let sumRtDecoy  = 0, sumSqDecoy  = 0, cntRtDecoy  = 0;
-
-    for (const log of this.hitLogs) {
-      if (log.event_type !== 'hit' && log.event_type !== 'bomb') continue;
-      if (log.age_ms == null) continue;
-
-      if (log.decoy) {
-        sumRtDecoy += log.age_ms;
-        sumSqDecoy += log.age_ms * log.age_ms;
-        cntRtDecoy++;
-      } else {
-        sumRtNormal += log.age_ms;
-        sumSqNormal += log.age_ms * log.age_ms;
-        cntRtNormal++;
+    let best = null;
+    let bestAbs = Infinity;
+    for(const n of this.notes){
+      if(n.lane !== lane) continue;
+      if(n.resolved) continue;
+      const dt = songTime - n.hitTime;
+      const adt = Math.abs(dt);
+      if(adt < bestAbs){
+        bestAbs = adt;
+        best = n;
       }
     }
 
-    const avgRtNormal = cntRtNormal ? (sumRtNormal / cntRtNormal) : 0;
-    const avgRtDecoy  = cntRtDecoy  ? (sumRtDecoy  / cntRtDecoy)  : 0;
-    const stdRtNormal = cntRtNormal > 1
-      ? Math.sqrt((sumSqNormal / cntRtNormal) - (avgRtNormal * avgRtNormal))
-      : 0;
-    const stdRtDecoy = cntRtDecoy > 1
-      ? Math.sqrt((sumSqDecoy / cntRtDecoy) - (avgRtDecoy * avgRtDecoy))
-      : 0;
-
-    const grade = this.computeGrade({
-      accuracy,
-      score: this.score,
-      miss : this.miss,
-      bombs: this.bombHits,
-      diff : this.diff
-    });
-
-    this.resMode.textContent        = this.mode === 'research' ? 'วิจัย' : 'ปกติ';
-    this.resDiff.textContent        = this.diff;
-    this.resEndReason.textContent   = reason || '-';
-    this.resScore.textContent       = String(this.score);
-    this.resMaxCombo.textContent    = String(this.maxCombo);
-    this.resMiss.textContent        = String(this.miss);
-    this.resAccuracy.textContent    = accuracy.toFixed(1) + ' %';
-    this.resTotalHits.textContent   = String(this.hitCount);
-    this.resRtNormal.textContent    = cntRtNormal ? (avgRtNormal.toFixed(0) + ' ms') : '-';
-    this.resRtDecoy.textContent     = cntRtDecoy  ? (avgRtDecoy.toFixed(0)  + ' ms') : '-';
-    this.resParticipant.textContent = this.researchMeta.participant || '-';
-    if (this.resGrade) this.resGrade.textContent = grade;
-
-    const nowPerf  = performance.now();
-    const durSec   = this._startTime ? (nowPerf - this._startTime) / 1000 : 0;
-    const bossesCleared = Math.min(this.bossIndex, BOSSES.length);
-    const lowHpSec = this.lowHpTotalMs / 1000;
-    const feverSec = this.feverTotalMs / 1000;
-
-    const summary = {
-      session_id:  this.sessionId + '-' + String(this.sessionSummaries.length + 1).padStart(2, '0'),
-      build_version: 'shadowBreaker_v5',
-
-      mode: this.mode,
-      difficulty: this.diff,
-      training_phase: this.trainingPhase,
-      run_index: this.runIndex,
-
-      start_ts: this._startWallClock || '',
-      end_ts: new Date().toISOString(),
-      duration_s: durSec.toFixed(3),
-      end_reason: reason || '',
-
-      final_score: this.score,
-      grade,
-
-      total_targets: this.totalTargets,
-      total_hits: this.hitCount,
-      total_miss: this.miss,
-      total_bombs_hit: this.bombHits,
-
-      accuracy_pct: accuracy.toFixed(1),
-      max_combo: this.maxCombo,
-
-      perfect_count: this.perfect,
-      good_count: this.good,
-      bad_count: this.bad,
-
-      avg_rt_normal_ms: cntRtNormal ? avgRtNormal.toFixed(1) : '',
-      std_rt_normal_ms: cntRtNormal ? stdRtNormal.toFixed(1) : '',
-      avg_rt_decoy_ms:  cntRtDecoy  ? avgRtDecoy.toFixed(1)  : '',
-      std_rt_decoy_ms:  cntRtDecoy  ? stdRtDecoy.toFixed(1)  : '',
-
-      fever_count: this.feverUse,
-      fever_total_time_s: feverSec.toFixed(2),
-      low_hp_time_s: lowHpSec.toFixed(2),
-      bosses_cleared: bossesCleared,
-      menu_to_play_ms: this.menuToPlayMs != null ? this.menuToPlayMs.toFixed(1) : '',
-
-      participant: this.researchMeta.participant || '',
-      group: this.researchMeta.group || '',
-      note: this.researchMeta.note || '',
-
-      env_ua: this.sessionEnv ? this.sessionEnv.ua : '',
-      env_viewport_w: this.sessionEnv ? this.sessionEnv.viewport_w : '',
-      env_viewport_h: this.sessionEnv ? this.sessionEnv.viewport_h : '',
-      env_input_mode: this.sessionEnv ? this.sessionEnv.input_mode : '',
-
-      error_count: this.errorLogs ? this.errorLogs.length : 0,
-      focus_events: this.focusLogs ? this.focusLogs.length : 0
-    };
-
-    this.sessionSummaries.push(summary);
-    this.sessionLogger.add(summary);
-
-    this.showView('result');
-  }
-
-  computeGrade({ accuracy, score, miss, bombs, diff }) {
-    const acc = accuracy || 0;
-    const penalty = (miss || 0) + (bombs || 0) * 1.5;
-    const baseScore = (score || 0) - penalty * 10;
-
-    let grade = 'C';
-    if (acc >= 95 && baseScore >= 5000) grade = 'SSS';
-    else if (acc >= 92 && baseScore >= 4200) grade = 'SS';
-    else if (acc >= 88 && baseScore >= 3500) grade = 'S';
-    else if (acc >= 80 && baseScore >= 2600) grade = 'A';
-    else if (acc >= 70) grade = 'B';
-
-    if (diff === 'hard' && grade !== 'SSS') {
-      const order = ['C', 'B', 'A', 'S', 'SS', 'SSS'];
-      const idx = order.indexOf(grade);
-      if (idx >= 0 && idx < order.length - 1) {
-        grade = order[idx + 1];
-      }
-    }
-    return grade;
-  }
-
-  getBossPhaseFromHp() {
-    const ratio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 1;
-    if (ratio <= 0.33) return 3;
-    if (ratio <= 0.66) return 2;
-    return 1;
-  }
-
-  updateBossHUD() {
-    const boss = this.currentBoss;
-    if (!boss) return;
-
-    if (this.wrap) {
-      this.wrap.dataset.boss = String(this.bossIndex);
-    }
-
-    const ratio = clamp(this.bossHp / this.bossHpMax, 0, 1);
-    const phase = this.getBossPhaseFromHp();
-    if (this.wrap) this.wrap.dataset.phase = String(phase);
-
-    this.bossName.textContent = `Boss ${boss.id}/4 — ${boss.name}`;
-    this.bossPortraitEmoji.textContent = boss.emoji;
-    this.bossPortraitName.textContent  = boss.name;
-    this.bossPortraitHint.textContent  =
-      `HP เหลือประมาณ ${Math.round(ratio * 100)}%`;
-
-    this.bossFill.style.transform = `scaleX(${ratio})`;
-    this.hpBossVal.textContent    = Math.round(ratio * 100) + '%';
-
-    if (ratio <= 0.25) this.bossPortraitBox.classList.add('sb-shake');
-    else this.bossPortraitBox.classList.remove('sb-shake');
-  }
-
-  showBossIntro(boss, opts = {}) {
-    if (!boss) return;
-    this.bossIntroEmoji.textContent = boss.emoji;
-    this.bossIntroName.textContent  = boss.name;
-    this.bossIntroTitle.textContent = boss.title;
-    this.bossIntroDesc.textContent  = boss.desc;
-    this.bossIntro.classList.remove('hidden');
-    this._introActive  = true;
-    this._introOnDone  = opts.onDone || null;
-    safePlay('sfx-boss');
-  }
-
-  hideBossIntro() {
-    if (!this._introActive) return;
-    this._introActive = false;
-    this.bossIntro.classList.add('hidden');
-    if (this._introOnDone) {
-      const fn = this._introOnDone;
-      this._introOnDone = null;
-      fn();
-    }
-  }
-
-  onBossDefeated() {
-    const heal = 20;
-    this.playerHp = clamp(this.playerHp + heal, 0, 100);
-    this.setFeedback('heal');
-    this.updateHUD();
-
-    this.bossIndex++;
-    if (this.bossIndex >= BOSSES.length) {
-      this.stopGame('เคลียร์บอสครบทั้ง 4 ตัว!');
+    if(!best){
+      this.setFeedback('warn','ยังไม่มีโน้ตตรงจังหวะเส้น ลองรอให้ใกล้เส้นก่อนค่อยตี 🎯');
       return;
     }
-    this.currentBoss = BOSSES[this.bossIndex];
-    this.bossHpMax   = this.hpForBoss(this.bossIndex);
-    this.bossHp      = this.bossHpMax;
 
-    if (this.wrap) {
-      this.wrap.dataset.boss  = String(this.bossIndex);
-      this.wrap.dataset.phase = '1';
-    }
+    const dt = songTime - best.hitTime;
+    const absDt = Math.abs(dt);
+    let grade = 'miss';
+    if(absDt <= HIT_WINDOWS.perfect) grade = 'perfect';
+    else if(absDt <= HIT_WINDOWS.great) grade = 'great';
+    else if(absDt <= HIT_WINDOWS.good) grade = 'good';
 
-    this.updateBossHUD();
-    this.showBossIntro(this.currentBoss, { onDone: () => {} });
-  }
-
-  updateFeverHUD() {
-    const ratio = clamp(this.fever / 100, 0, 1);
-    this.feverFill.style.transform = `scaleX(${ratio})`;
-    if (this.feverOn) {
-      this.feverStatus.textContent = 'FEVER!!';
-      this.feverStatus.classList.add('on');
-    } else {
-      this.feverStatus.classList.remove('on');
-      this.feverStatus.textContent = (ratio >= 1) ? 'READY' : 'FEVER';
+    if(grade === 'miss'){
+      this.registerMiss(best, songTime);
+    }else{
+      this.registerHit(best, songTime, dt, grade);
     }
   }
 
-  addFever(kind) {
-    if (this.feverOn) return;
-    const gain = this.config.feverGain[kind] || 3;
-    this.fever = clamp(this.fever + gain, 0, 100);
-    this.updateFeverHUD();
-    if (this.fever >= 100) this.triggerFever();
+  registerHit(note, songTimeMs, offsetMs, grade){
+    if(note.resolved) return;
+    note.resolved = true;
+    if(note.el){
+      note.el.classList.remove('rb-note-miss');
+      note.el.classList.add('rb-note-hit');
+      setTimeout(()=>{ if(note.el && note.el.parentNode) note.el.parentNode.removeChild(note.el); }, 220);
+    }
+
+    let delta = 0;
+    if(grade === 'perfect') delta = 300;
+    else if(grade === 'great') delta = 200;
+    else delta = 100;
+
+    if(this.stats.feverOn){
+      delta = Math.round(delta * 1.5);
+    }
+
+    this.stats.score += delta;
+    this.stats.combo += 1;
+    this.stats.maxCombo = Math.max(this.stats.maxCombo, this.stats.combo);
+    this.stats.hitCount += 1;
+    if(grade === 'perfect') this.stats.perfect++;
+    else if(grade === 'great') this.stats.great++;
+    else this.stats.good++;
+
+    this.addFever(grade);
+
+    // offset stats
+    this.offsetStats.sum   += offsetMs;
+    this.offsetStats.sumSq += offsetMs*offsetMs;
+    this.offsetStats.count += 1;
+
+    this.spawnScorePopup(note.lane, grade, delta);
+
+    this.setFeedback(
+      'good',
+      grade === 'perfect' ? 'PERFECT! ⭐' :
+      grade === 'great'   ? 'จังหวะดีมาก! 😀' :
+                            'ดีเลย! รักษาจังหวะต่อไป ✨'
+    );
+
+    const acc = this.computeAccuracy();
+    const log = {
+      session_id : this.sessionId,
+      run_index  : this.runIndex,
+      mode       : this.mode,
+      track_id   : this.song.id,
+      track_name : this.song.name,
+      participant: this.researchMeta.participant || '',
+      group      : this.researchMeta.group || '',
+      note_id    : note.id,
+      lane       : note.lane,
+      event_type : 'hit',
+      grade      : grade,
+      offset_ms  : offsetMs.toFixed(1),
+      song_time_s: (songTimeMs/1000).toFixed(3),
+      accuracy_pct: acc.toFixed(1),
+      score_delta: delta,
+      score_total: this.stats.score,
+      combo      : this.stats.combo
+    };
+    this.eventLogger.add(log);
+
+    this.updateHudStats();
   }
 
-  loseFeverOnMiss() {
-    if (this.feverOn) return;
-    this.fever = clamp(this.fever - this.config.feverLossMiss, 0, 100);
-    this.updateFeverHUD();
+  registerMiss(note, songTimeMs){
+    if(note.resolved) return;
+    note.resolved = true;
+    if(note.el){
+      note.el.classList.remove('rb-note-hit');
+      note.el.classList.add('rb-note-miss');
+      setTimeout(()=>{ if(note.el && note.el.parentNode) note.el.parentNode.removeChild(note.el); }, 250);
+    }
+
+    this.stats.combo = 0;
+    this.stats.miss += 1;
+
+    this.setFeedback('miss','พลาดจังหวะ! ลองโฟกัสที่เส้นล่างแล้วตีให้ตรงนะ 😅');
+
+    const acc = this.computeAccuracy();
+    const log = {
+      session_id : this.sessionId,
+      run_index  : this.runIndex,
+      mode       : this.mode,
+      track_id   : this.song.id,
+      track_name : this.song.name,
+      participant: this.researchMeta.participant || '',
+      group      : this.researchMeta.group || '',
+      note_id    : note.id,
+      lane       : note.lane,
+      event_type : 'miss',
+      grade      : 'miss',
+      offset_ms  : '',
+      song_time_s: (songTimeMs/1000).toFixed(3),
+      accuracy_pct: acc.toFixed(1),
+      score_delta: 0,
+      score_total: this.stats.score,
+      combo      : this.stats.combo
+    };
+    this.eventLogger.add(log);
+
+    this.spawnScorePopup(note.lane,'miss',0);
+    this.updateHudStats();
   }
 
-  triggerFever() {
-    if (this.feverOn) return;
-    this.feverOn = true;
-    this.feverUse++;
-    this._feverStartAt = performance.now();
-    safePlay('sfx-fever');
-    this.updateFeverHUD();
+  spawnScorePopup(lane, grade, delta){
+    if(!this.lanesHost) return;
+    const laneEl = this.lanesHost.querySelector(`.rb-lane[data-lane="${lane}"]`);
+    if(!laneEl) return;
+    const popup = document.createElement('div');
+    popup.className = 'rb-score-popup';
+    let cls = '';
+    let text = '';
+    if(grade === 'perfect'){
+      cls = 'rb-score-perfect'; text = `+${delta} PERFECT`;
+    }else if(grade === 'great'){
+      cls = 'rb-score-great'; text = `+${delta} GREAT`;
+    }else if(grade === 'good'){
+      cls = 'rb-score-good'; text = `+${delta}`;
+    }else{
+      cls = 'rb-score-miss'; text = 'MISS';
+    }
+    popup.classList.add(cls);
+    popup.textContent = text;
+    laneEl.appendChild(popup);
+    setTimeout(()=>{ if(popup.parentNode) popup.parentNode.removeChild(popup); }, 600);
+  }
 
-    if (this._feverTimeout) clearTimeout(this._feverTimeout);
-    this._feverTimeout = setTimeout(() => {
-      this.feverOn = false;
-      if (this._feverStartAt != null) {
-        this.feverTotalMs += performance.now() - this._feverStartAt;
-        this._feverStartAt = null;
+  addFever(grade){
+    let gain = 0;
+    if(grade === 'perfect') gain = 10;
+    else if(grade === 'great') gain = 7;
+    else if(grade === 'good') gain = 4;
+
+    if(!this.stats.feverOn){
+      this.stats.fever = clamp(this.stats.fever + gain, 0, 100);
+      if(this.stats.fever >= 100){
+        this.triggerFever();
+      }else{
+        this.updateFeverHud();
       }
-      this.fever = 40;
-      this.updateFeverHUD();
+    }
+  }
+
+  triggerFever(){
+    if(this.stats.feverOn) return;
+    this.stats.feverOn = true;
+    this.stats.feverUsed += 1;
+    this.stats.fever = 100;
+    this.updateFeverHud();
+    this.setFeedback('good','FEVER TIME!! 🔥');
+
+    setTimeout(()=>{
+      this.stats.feverOn = false;
+      this.stats.fever = 40;
+      this.updateFeverHud();
     }, 7000);
   }
 
-  spawnTarget() {
-    if (!this.running) return;
-
-    if (!this.renderer || !this.renderer.host) {
-      this.targetLayer = document.querySelector('#target-layer');
-      if (this.targetLayer) {
-        this.renderer = new DomRenderer(this, this.targetLayer, {
-          sizePx: this.config.sizePx || 100
-        });
-      } else {
-        console.warn('ShadowBreaker: no #target-layer, skip spawn.');
-        return;
+  updateFeverHud(){
+    if(this.feverFill){
+      this.feverFill.style.width = this.stats.fever + '%';
+    }
+    if(this.feverStatus){
+      if(this.stats.feverOn){
+        this.feverStatus.textContent = 'ON';
+        this.feverStatus.classList.add('on');
+      }else{
+        this.feverStatus.textContent = (this.stats.fever >= 100) ? 'READY' : 'OFF';
+        this.feverStatus.classList.remove('on');
       }
     }
-
-    const id = this._nextTargetId++;
-
-    const hpRatio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 1;
-    let bossFace = false;
-    let decoy    = false;
-
-    if (hpRatio <= 0.25 && Math.random() < 0.35) {
-      bossFace = true;
-    } else {
-      decoy = Math.random() < this.config.decoyRate;
-    }
-
-    const emoji = bossFace
-      ? (this.currentBoss?.emoji || '😈')
-      : (decoy ? '💣' : '🥊');
-
-    const now   = performance.now();
-    const phase = this.getBossPhaseFromHp();
-    this.phaseSpawnCounter[phase] = (this.phaseSpawnCounter[phase] || 0) + 1;
-
-    const t = {
-      id,
-      emoji,
-      decoy,
-      bossFace,
-      createdAt: now,
-      lifetime: this.config.targetLifetime,
-      hit: false,
-      phase_at_spawn: phase,
-      phase_spawn_index: this.phaseSpawnCounter[phase],
-      spawn_interval_ms: this.config.spawnInterval,
-      size_px: this.config.sizePx,
-      x_norm: null,
-      y_norm: null,
-      lastPos: null,
-      _el: null,
-      _onPtr: null
-    };
-
-    this.targets.set(id, t);
-    this.totalTargets++;
-
-    this.renderer.spawnTarget(t);
-
-    setTimeout(() => {
-      const cur = this.targets.get(id);
-      if (!cur || cur.hit) return;
-      this.handleMiss(cur);
-    }, this.config.targetLifetime + 80);
   }
 
-  registerTouch(x, y, targetId) {
-    if (!this.running) return;
-    if (targetId == null) return;
-    const t = this.targets.get(targetId);
-    if (!t || t.hit) return;
-
-    const now  = performance.now();
-    const age  = now - t.createdAt;
-    const life = this.config.targetLifetime;
-
-    let grade = 'bad';
-    if (age <= life * 0.33) grade = 'perfect';
-    else if (age <= life * 0.66) grade = 'good';
-
-    if (t.decoy) this.handleDecoyHit(t, age);
-    else this.handleHit(t, grade, age);
+  computeAccuracy(){
+    const totalHit = this.stats.hitCount;
+    const totalAll = this.stats.totalNotes;
+    if(!totalAll) return 0;
+    return (totalHit / totalAll) * 100;
   }
 
-  _computeNormPos(t) {
-    if (!t.lastPos || !this.renderer || !this.renderer.host) return;
-    const w = this.renderer.host.clientWidth  || 1;
-    const h = this.renderer.host.clientHeight || 1;
-    t.x_norm = clamp(t.lastPos.x / w, 0, 1);
-    t.y_norm = clamp(t.lastPos.y / h, 0, 1);
+  computeGrade(acc){
+    const a = acc || 0;
+    const miss = this.stats.miss || 0;
+    const total = this.stats.totalNotes || 0;
+    const perfectRate = total ? this.stats.perfect / total : 0;
+
+    let grade = 'C';
+    if(a >= 96 && miss <= 3 && perfectRate >= 0.45) grade = 'SSS';
+    else if(a >= 92 && miss <= 6) grade = 'SS';
+    else if(a >= 88) grade = 'S';
+    else if(a >= 80) grade = 'A';
+    else if(a >= 65) grade = 'B';
+    return grade;
   }
 
-  // Small helper to ensure visual cleanup in all cases
-  forceRemoveTargetVisual(t) {
-    if (!t) return;
-    let el = t._el;
-    if ((!el || !el.parentNode) && this.renderer && this.renderer.host) {
-      el = this.renderer.host.querySelector('[data-id="' + t.id + '"]');
-    }
-    if (el && el.parentNode) el.parentNode.removeChild(el);
-  }
-
-  handleHit(t, grade, ageMs) {
-    if (!this.targets.has(t.id) || t.hit) return;
-    t.hit = true;
-    this.targets.delete(t.id);
-
-    this._computeNormPos(t);
-
-    let baseScore = 0;
-    if (grade === 'perfect') baseScore = 120;
-    else if (grade === 'good') baseScore = 80;
-    else {
-      baseScore = 40;
-      this.bad++;
-    }
-
-    let dmg = (grade === 'perfect') ? 8 : (grade === 'good' ? 5 : 3);
-
-    if (t.bossFace) {
-      baseScore = Math.round(baseScore * 1.6);
-      dmg       = Math.round(dmg * 1.8);
-    }
-
-    if (this.feverOn) {
-      baseScore = Math.round(baseScore * 1.5);
-      dmg       = Math.round(dmg * 1.5);
-    }
-
-    const comboBefore = this.combo;
-    const hpBefore    = this.playerHp;
-    const feverBefore = this.fever;
-
-    this.score += baseScore;
-    this.combo++;
-    this.maxCombo = Math.max(this.maxCombo, this.combo);
-    if (grade === 'perfect') this.perfect++;
-    if (grade === 'good')    this.good++;
-    this.hitCount++;
-
-    this.addFever(grade === 'perfect' ? 'perfect' : 'good');
-
-    this.bossHp = clamp(this.bossHp - dmg, 0, this.bossHpMax);
-    this.updateBossHUD();
-
-    if (this.renderer) {
-      this.renderer.spawnHitEffect(t, {
-        grade,
-        score: baseScore,
-        fever: this.feverOn,
-        bossFace: t.bossFace
-      });
-      setTimeout(() => this.forceRemoveTargetVisual(t), 220);
-    } else {
-      this.forceRemoveTargetVisual(t);
-    }
-
-    this.setFeedback(grade === 'perfect' ? 'perfect' : 'good');
-    safePlay('sfx-hit');
-
-    const phase = this.getBossPhaseFromHp();
-
-    const log = {
-      participant: this.researchMeta.participant,
-      group      : this.researchMeta.group,
-      note       : this.researchMeta.note,
-
-      diff       : this.diff,
-      session_id : this.sessionId,
-      run_index  : this.runIndex,
-
-      event_type : 'hit',
-      ts         : (performance.now() - this._startTime) / 1000,
-      target_id  : t.id,
-      boss_id    : this.currentBoss?.id || 0,
-      boss_phase : phase,
-      decoy      : false,
-      bossFace   : !!t.bossFace,
-      grade,
-      age_ms     : ageMs,
-      diff_label : this.diff,
-      fever_on   : this.feverOn ? 1 : 0,
-      score_delta: baseScore,
-      combo_before: comboBefore,
-      combo_after : this.combo,
-      player_hp_before: hpBefore,
-      player_hp_after : this.playerHp,
-      fever_before    : feverBefore,
-      fever_after     : this.fever,
-      target_size_px  : t.size_px,
-      spawn_interval_ms: t.spawn_interval_ms,
-      phase_at_spawn   : t.phase_at_spawn,
-      phase_spawn_index: t.phase_spawn_index,
-      x_norm: t.x_norm,
-      y_norm: t.y_norm
-    };
-
-    this.hitLogs.push(log);
-    this.eventLogger.add(log);
-
-    if (this.bossHp <= 0) {
-      this.onBossDefeated();
-    }
-    this.updateHUD();
-  }
-
-  handleDecoyHit(t, ageMs) {
-    if (!this.targets.has(t.id) || t.hit) return;
-    t.hit = true;
-    this.targets.delete(t.id);
-
-    this._computeNormPos(t);
-
-    const comboBefore = this.combo;
-    const hpBefore    = this.playerHp;
-    const feverBefore = this.fever;
-
-    this.score = Math.max(0, this.score - 60);
-    this.combo = 0;
-    this.playerHp = clamp(this.playerHp - 10, 0, 100);
-    this.bombHits++;
-    this.loseFeverOnMiss();
-
-    if (this.renderer) {
-      this.renderer.spawnHitEffect(t, {
-        decoy: true,
-        grade: 'bad',
-        score: -60
-      });
-      setTimeout(() => this.forceRemoveTargetVisual(t), 220);
-    } else {
-      this.forceRemoveTargetVisual(t);
-    }
-
-    this.setFeedback('bomb');
-    safePlay('sfx-hit');
-
-    const phase = this.getBossPhaseFromHp();
-
-    const log = {
-      participant: this.researchMeta.participant,
-      group      : this.researchMeta.group,
-      note       : this.researchMeta.note,
-
-      diff       : this.diff,
-      session_id : this.sessionId,
-      run_index  : this.runIndex,
-
-      event_type : 'bomb',
-      ts         : (performance.now() - this._startTime) / 1000,
-      target_id  : t.id,
-      boss_id    : this.currentBoss?.id || 0,
-      boss_phase : phase,
-      decoy      : true,
-      bossFace   : !!t.bossFace,
-      grade      : 'bomb',
-      age_ms     : ageMs,
-      diff_label : this.diff,
-      fever_on   : this.feverOn ? 1 : 0,
-      score_delta: -60,
-      combo_before: comboBefore,
-      combo_after : this.combo,
-      player_hp_before: hpBefore,
-      player_hp_after : this.playerHp,
-      fever_before    : feverBefore,
-      fever_after     : this.fever,
-      target_size_px  : t.size_px,
-      spawn_interval_ms: t.spawn_interval_ms,
-      phase_at_spawn   : t.phase_at_spawn,
-      phase_spawn_index: t.phase_spawn_index,
-      x_norm: t.x_norm,
-      y_norm: t.y_norm
-    };
-
-    this.hitLogs.push(log);
-    this.eventLogger.add(log);
-
-    if (this.playerHp <= 0) {
-      this.updateHUD();
-      this.stopGame('HP ผู้เล่นหมด');
+  updateProgress(){
+    if(!this.progressFill || !this.progressText) return;
+    const total = this.stats.totalNotes || 0;
+    if(!total){
+      this.progressFill.style.width = '0%';
+      this.progressText.textContent = '0%';
       return;
     }
-    this.updateHUD();
+    const done = this.stats.hitCount + this.stats.miss;
+    const pct  = clamp((done/total)*100,0,100);
+    this.progressFill.style.width = pct.toFixed(1) + '%';
+    this.progressText.textContent = pct.toFixed(0) + '%';
   }
 
-  handleMiss(t) {
-    if (!this.targets.has(t.id) || t.hit) return;
+  updateHudStats(){
+    if(this.hudScore)   this.hudScore.textContent   = this.stats.score;
+    if(this.hudCombo)   this.hudCombo.textContent   = this.stats.combo;
+    if(this.hudPerfect) this.hudPerfect.textContent = this.stats.perfect;
+    if(this.hudGreat)   this.hudGreat.textContent   = this.stats.great;
+    if(this.hudGood)    this.hudGood.textContent    = this.stats.good;
+    if(this.hudMiss)    this.hudMiss.textContent    = this.stats.miss;
+    const acc = this.computeAccuracy();
+    if(this.hudAcc) this.hudAcc.textContent = acc.toFixed(1) + '%';
 
-    if (t.decoy) {
-      this.targets.delete(t.id);
-      this.forceRemoveTargetVisual(t);
-      return;
-    }
-
-    t.hit = true;
-    this.targets.delete(t.id);
-
-    this._computeNormPos(t);
-
-    const comboBefore = this.combo;
-    const hpBefore    = this.playerHp;
-    const feverBefore = this.fever;
-
-    this.miss++;
-    this.combo = 0;
-    this.playerHp = clamp(this.playerHp - this.config.playerDamageOnMiss, 0, 100);
-    this.loseFeverOnMiss();
-
-    if (this.renderer) {
-      this.renderer.spawnHitEffect(t, { miss: true, score: 0 });
-      setTimeout(() => this.forceRemoveTargetVisual(t), 220);
-    } else {
-      this.forceRemoveTargetVisual(t);
-    }
-
-    this.setFeedback('miss');
-    safePlay('sfx-hit');
-
-    const phase = this.getBossPhaseFromHp();
-
-    const log = {
-      participant: this.researchMeta.participant,
-      group      : this.researchMeta.group,
-      note       : this.researchMeta.note,
-
-      diff       : this.diff,
-      session_id : this.sessionId,
-      run_index  : this.runIndex,
-
-      event_type : 'miss',
-      ts         : (performance.now() - this._startTime) / 1000,
-      target_id  : t.id,
-      boss_id    : this.currentBoss?.id || 0,
-      boss_phase : phase,
-      decoy      : false,
-      bossFace   : !!t.bossFace,
-      grade      : 'miss',
-      age_ms     : null,
-      diff_label : this.diff,
-      fever_on   : this.feverOn ? 1 : 0,
-      score_delta: 0,
-      combo_before: comboBefore,
-      combo_after : this.combo,
-      player_hp_before: hpBefore,
-      player_hp_after : this.playerHp,
-      fever_before    : feverBefore,
-      fever_after     : this.fever,
-      target_size_px  : t.size_px,
-      spawn_interval_ms: t.spawn_interval_ms,
-      phase_at_spawn   : t.phase_at_spawn,
-      phase_spawn_index: t.phase_spawn_index,
-      x_norm: t.x_norm,
-      y_norm: t.y_norm
-    };
-
-    this.hitLogs.push(log);
-    this.eventLogger.add(log);
-
-    if (this.playerHp <= 0) {
-      this.updateHUD();
-      this.stopGame('HP ผู้เล่นหมด');
-      return;
-    }
-    this.updateHUD();
+    this.updateProgress();
   }
 
-  updateHUD() {
-    this.statScore.textContent   = String(this.score);
-    this.statHp.textContent      = String(this.playerHp);
-    this.statCombo.textContent   = String(this.combo);
-    this.statPerfect.textContent = String(this.perfect);
-    this.statMiss.textContent    = String(this.miss);
-
-    const hpRatio = clamp(this.playerHp / 100, 0, 1);
-    if (this.playerFill) {
-      this.playerFill.style.transform = `scaleX(${hpRatio})`;
+  stopGame(reason){
+    if(!this.running && this.ended) return;
+    this.running = false;
+    this.ended   = true;
+    if(this._rafHandle) cancelAnimationFrame(this._rafHandle);
+    this._rafHandle = 0;
+    if(this.audio){
+      try{ this.audio.pause(); }catch(e){}
     }
 
     const now = performance.now();
-    const low = this.playerHp <= 30;
-    if (low !== this._hpLow) {
-      if (this._hpLow && this._hpStateChangeAt != null) {
-        this.lowHpTotalMs += now - this._hpStateChangeAt;
-      }
-      this._hpLow = low;
-      this._hpStateChangeAt = now;
+    const durationSec = (this.startPerf ? (now - this.startPerf)/1000 : 0);
+    const acc = this.computeAccuracy();
+
+    let offsetAvg = 0, offsetStd = 0;
+    if(this.offsetStats.count > 0){
+      offsetAvg = this.offsetStats.sum / this.offsetStats.count;
+      const meanSq = this.offsetStats.sumSq / this.offsetStats.count;
+      offsetStd = Math.sqrt(Math.max(0, meanSq - offsetAvg*offsetAvg));
     }
+
+    const grade = this.computeGrade(acc);
+
+    // quality check (เฉพาะ research)
+    let qualityNote = '';
+    let qualityOk = 1;
+    if(this.mode === 'research' && this.offsetStats.count > 0){
+      const absAvg = Math.abs(offsetAvg);
+      if(absAvg > 120){
+        qualityOk = 0;
+        qualityNote =
+          `⚠ ค่าเฉลี่ย offset = ${absAvg.toFixed(1)} ms > 120 ms ` +
+          `ควรให้ผู้เข้าร่วมเล่นซ้ำเพื่อคุณภาพข้อมูลที่ดีขึ้น`;
+      }
+    }
+
+    const endReason = reason || 'จบเพลง';
+
+    // เติม result view
+    if(this.resMode)   this.resMode.textContent   = (this.mode === 'research') ? 'วิจัย' : 'ปกติ';
+    if(this.resTrack)  this.resTrack.textContent  = this.song.name;
+    if(this.resReason) this.resReason.textContent = qualityOk ? endReason : (endReason + ' (ต้องเล่นซ้ำ)');
+    if(this.resScore)  this.resScore.textContent  = String(this.stats.score);
+    if(this.resMaxCombo)   this.resMaxCombo.textContent   = String(this.stats.maxCombo);
+    if(this.resTotalNotes) this.resTotalNotes.textContent = String(this.stats.totalNotes);
+    if(this.resDetailHit){
+      this.resDetailHit.textContent =
+        `${this.stats.perfect} / ${this.stats.great} / ${this.stats.good} / ${this.stats.miss}`;
+    }
+    if(this.resAcc)        this.resAcc.textContent        = acc.toFixed(1) + ' %';
+    if(this.resOffsetAvg)  this.resOffsetAvg.textContent  = this.offsetStats.count ? offsetAvg.toFixed(1)+' ms' : '-';
+    if(this.resOffsetStd)  this.resOffsetStd.textContent  = this.offsetStats.count ? offsetStd.toFixed(1)+' ms' : '-';
+    if(this.resDuration)   this.resDuration.textContent   = durationSec.toFixed(1) + ' s';
+    if(this.resParticipant)this.resParticipant.textContent= this.researchMeta.participant || '-';
+    if(this.resRank)       this.resRank.textContent       = grade;
+
+    if(this.resQualityNote){
+      if(qualityNote){
+        this.resQualityNote.textContent = qualityNote;
+        this.resQualityNote.classList.remove('hidden');
+      }else{
+        this.resQualityNote.textContent = '';
+        this.resQualityNote.classList.add('hidden');
+      }
+    }
+
+    // session summary สำหรับ CSV
+    const summary = {
+      session_id: this.sessionId + '-' + String(this.sessionSummaries.length+1).padStart(2,'0'),
+      build_version: 'RhythmBoxer_5lane_rank_v1',
+      mode: this.mode,
+      track_id: this.song.id,
+      track_name: this.song.name,
+      run_index: this.runIndex,
+      participant: this.researchMeta.participant || '',
+      group: this.researchMeta.group || '',
+      note_total: this.stats.totalNotes,
+      hit_total: this.stats.hitCount,
+      miss_total: this.stats.miss,
+      perfect_count: this.stats.perfect,
+      great_count: this.stats.great,
+      good_count: this.stats.good,
+      score_final: this.stats.score,
+      max_combo: this.stats.maxCombo,
+      accuracy_pct: acc.toFixed(1),
+      offset_avg_ms: this.offsetStats.count ? offsetAvg.toFixed(2) : '',
+      offset_std_ms: this.offsetStats.count ? offsetStd.toFixed(2) : '',
+      offset_avg_abs_ms: this.offsetStats.count ? Math.abs(offsetAvg).toFixed(2) : '',
+      fever_used: this.stats.feverUsed,
+      duration_s: durationSec.toFixed(3),
+      end_reason: endReason,
+      grade_rank: grade,
+      quality_ok: qualityOk
+    };
+    this.sessionSummaries.push(summary);
+    this.sessionLogger.add(summary);
+
+    this.showResult();
   }
 
-  downloadEventCsv() {
-    if (!this.eventLogger || !this.eventLogger.logs.length) {
+  downloadEventsCsv(){
+    if(!this.eventLogger.logs.length){
       alert('ยังไม่มีข้อมูล Event สำหรับบันทึก');
       return;
     }
     const csv = this.eventLogger.toCsv();
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const pid  = (this.researchMeta.participant || 'Pxxx').replace(/[^a-z0-9_-]/gi,'');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const pid = (this.researchMeta.participant || 'Pxxx').replace(/[^a-z0-9_-]/gi,'');
     a.href = url;
-    a.download = `shadow-breaker-events-${pid || 'Pxxx'}.csv`;
+    a.download = `rhythm-boxer-events-${pid}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
-  downloadSessionCsv() {
-    if (!this.sessionLogger || !this.sessionLogger.sessions.length) {
+  downloadSessionsCsv(){
+    if(!this.sessionLogger.sessions.length){
       alert('ยังไม่มี session summary สำหรับบันทึก');
       return;
     }
     const csv = this.sessionLogger.toCsv();
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     a.href = url;
-    a.download = `shadow-breaker-sessions-${this.sessionId}.csv`;
+    a.download = `rhythm-boxer-sessions-${this.sessionId}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1234,7 +968,8 @@ class ShadowBreakerGame {
   }
 }
 
-export function initShadowBreaker() {
-  const game = new ShadowBreakerGame();
-  window.__shadowBreaker = game;
-}
+/* ---------- init ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  const game = new RhythmBoxerGame();
+  window.__rhythmBoxer = game;
+});
