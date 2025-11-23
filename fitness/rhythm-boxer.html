@@ -4,11 +4,15 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Rhythm Boxer — VR Fitness</title>
-  <!-- ชี้ไปที่โฟลเดอร์ css -->
-<link rel="stylesheet" href="css/rhythm-boxer.css"/>
+
+  <!-- ชี้ไปที่โฟลเดอร์ CSS -->
+  <link rel="stylesheet" href="css/rhythm-boxer.css"/>
 </head>
+
 <body>
   <div class="rb-wrap" id="rb-wrap">
+
+    <!-- HEADER -->
     <header class="rb-header">
       <div class="rb-title-block">
         <h1 class="rb-title">Rhythm Boxer</h1>
@@ -17,10 +21,12 @@
       <a href="hub.html" class="rb-back-hub">⬅ กลับ HUB</a>
     </header>
 
-    <!-- MENU VIEW -->
+    <!-- ======================= MENU VIEW ======================= -->
     <section id="rb-view-menu" class="rb-view">
       <div class="rb-card">
         <h2>เลือกโหมดการเล่น</h2>
+
+        <!-- MODE -->
         <div class="rb-form-row">
           <label>โหมด (Mode)</label>
           <div class="rb-radio-row">
@@ -29,6 +35,7 @@
           </div>
         </div>
 
+        <!-- RESEARCH FIELDS -->
         <div class="rb-form-row rb-research-only hidden" id="rb-research-fields">
           <label>ข้อมูลสำหรับงานวิจัย</label>
           <div class="rb-form-grid">
@@ -41,12 +48,14 @@
               <input id="rb-group" type="text" placeholder="เช่น G1 / Control"/>
             </div>
           </div>
+
           <div style="margin-top:6px;">
             <span class="rb-label-small">หมายเหตุ</span>
             <textarea id="rb-note" rows="2" placeholder="เงื่อนไขพิเศษ / หมายเหตุอื่น ๆ"></textarea>
           </div>
         </div>
 
+        <!-- TRACK SELECT -->
         <div class="rb-form-row">
           <label>เพลง (Track)</label>
           <select id="rb-track">
@@ -55,9 +64,7 @@
             <option value="t3">T3 — Ultra Beat Combo (Hard, 145 BPM)</option>
             <option value="research">T4 — Research Track (120 BPM, fixed pattern)</option>
           </select>
-          <p class="rb-help">
-            * โหมดวิจัยแนะนำใช้ T4 — Research Track เพื่อให้ pattern ซ้ำกันทุกครั้ง
-          </p>
+          <p class="rb-help">* โหมดวิจัยแนะนำใช้ T4 เพื่อ pattern ซ้ำกันทุกครั้ง</p>
         </div>
 
         <div class="rb-form-row">
@@ -66,27 +73,33 @@
       </div>
     </section>
 
-    <!-- PLAY VIEW -->
+    <!-- ======================= PLAY VIEW ======================= -->
     <section id="rb-view-play" class="rb-view hidden">
       <div class="rb-card rb-card-play">
+
+        <!-- HUD TOP -->
         <div class="rb-hud-top">
           <div class="rb-hud-main">
+
             <div class="rb-hud-row">
               <div>โหมด: <span id="rb-hud-mode">-</span></div>
               <div>เพลง: <span id="rb-hud-track">-</span></div>
               <div>เวลา: <span id="rb-hud-time">0.0</span>s</div>
             </div>
+
             <div class="rb-hud-row">
               <div>คะแนน: <span id="rb-hud-score">0</span></div>
               <div>คอมโบ: <span id="rb-hud-combo">0</span></div>
               <div>ความแม่นยำ: <span id="rb-hud-acc">0%</span></div>
             </div>
+
             <div class="rb-hud-row">
               <div>Perfect: <span id="rb-hud-perfect">0</span></div>
               <div>Great: <span id="rb-hud-great">0</span></div>
               <div>Good: <span id="rb-hud-good">0</span></div>
               <div>Miss: <span id="rb-hud-miss">0</span></div>
             </div>
+
             <div class="rb-fever-row">
               <span class="rb-fever-label">FEVER</span>
               <div class="rb-fever-bar">
@@ -95,9 +108,11 @@
               <span id="rb-fever-status" class="rb-fever-status">OFF</span>
             </div>
           </div>
+
           <button id="rb-btn-stop" class="rb-btn-ghost">⏹ หยุดก่อนเวลา</button>
         </div>
 
+        <!-- FIELD -->
         <div class="rb-field-wrap">
           <div class="rb-lanes" id="rb-lanes">
             <div class="rb-lane" data-lane="0"><span class="rb-lane-label">L2</span></div>
@@ -106,16 +121,18 @@
             <div class="rb-lane" data-lane="3"><span class="rb-lane-label">R1</span></div>
             <div class="rb-lane" data-lane="4"><span class="rb-lane-label">R2</span></div>
           </div>
+
           <div class="rb-hit-line"></div>
           <div id="rb-feedback" class="rb-feedback">แตะที่ lane ให้ตรงเส้นล่างตามจังหวะเพลง 🎵</div>
         </div>
       </div>
     </section>
 
-    <!-- RESULT VIEW -->
+    <!-- ======================= RESULT VIEW ======================= -->
     <section id="rb-view-result" class="rb-view hidden">
       <div class="rb-card">
         <h2>สรุปผลการเล่น Rhythm Boxer</h2>
+
         <table class="rb-summary">
           <tbody>
             <tr><td>โหมด</td><td id="rb-res-mode">-</td></tr>
@@ -126,9 +143,9 @@
             <tr><td>จำนวนโน้ตทั้งหมด</td><td id="rb-res-totalnotes">0</td></tr>
             <tr><td>Perfect / Great / Good / Miss</td>
                 <td id="rb-res-detail-hit">0 / 0 / 0 / 0</td></tr>
-            <tr><td>ความแม่นยำ (Accuracy)</td><td id="rb-res-acc">0%</td></tr>
+            <tr><td>ความแม่นยำ</td><td id="rb-res-acc">0%</td></tr>
             <tr><td>ค่าเฉลี่ย offset (ms)</td><td id="rb-res-offset-avg">-</td></tr>
-            <tr><td>ส่วนเบี่ยงเบนมาตรฐาน offset (ms)</td><td id="rb-res-offset-std">-</td></tr>
+            <tr><td>SD offset (ms)</td><td id="rb-res-offset-std">-</td></tr>
             <tr><td>เวลาทั้งหมด</td><td id="rb-res-duration">0.0 s</td></tr>
             <tr><td>รหัสผู้เข้าร่วม</td><td id="rb-res-participant">-</td></tr>
           </tbody>
@@ -140,22 +157,19 @@
         </div>
 
         <div class="rb-result-actions">
-          <button id="rb-btn-dl-events" class="rb-btn-secondary">
-            ⬇ ดาวน์โหลด CSV — Event ระดับโน้ต
-          </button>
-          <button id="rb-btn-dl-sessions" class="rb-btn-secondary">
-            ⬇ ดาวน์โหลด CSV — สรุประดับรอบ
-          </button>
+          <button id="rb-btn-dl-events" class="rb-btn-secondary">⬇ ดาวน์โหลด CSV — Event</button>
+          <button id="rb-btn-dl-sessions" class="rb-btn-secondary">⬇ ดาวน์โหลด CSV — Sessions</button>
         </div>
       </div>
     </section>
+
   </div>
 
-  <!-- เสียงเพลง -->
+  <!-- AUDIO -->
   <audio id="rb-audio"></audio>
 
-  <!-- ใช้ rhythm-engine.js เป็นตัวหลัก (มีทั้งเกม + logger แล้ว) -->
+  <!-- GAME ENGINE -->
   <script src="js/rhythm-engine.js"></script>
+
 </body>
 </html>
-
