@@ -1,36 +1,66 @@
-// === js/particle.js — DOM particle FX (2025-11-24, Production Ready v2) ===
+// === js/particle.js — DOM particle FX (2025-11-24, FEVER+BossFace v3) ===
 'use strict';
 
-export function spawnHitParticle(host, x, y, emoji) {
+/**
+ * spawnHitParticle(host, x, y, emoji, opts)
+ *  - host: DOM element ของ field (#target-layer)
+ *  - x, y: ตำแหน่งกลางเป้า ภายใน host
+ *  - emoji: สัญลักษณ์พื้นฐาน (เช่น '✨', '💥')
+ *  - opts: { fever, bossFace, decoy, miss }
+ */
+export function spawnHitParticle(host, x, y, emoji, opts = {}) {
   if (!host) return;
 
   const el = document.createElement('div');
   el.className = 'hitParticle';
 
-  // อีโมจิแตกกระจาย
-  el.textContent = emoji || '✨';
+  // 1) เลือก emoji ตามสถานการณ์
+  let sym = emoji || '✨';
 
-  // ตำแหน่งกลางเป้า
+  // priority: FEVER > bossFace > decoy > miss > default
+  if (opts.fever) {
+    // โหมด FEVER: เน้นไฟ / พลัง
+    sym = '🔥';
+  } else if (opts.bossFace) {
+    // ตีโดนหน้าบอส: ใช้มงกุฎหรือเอฟเฟกต์พิเศษ
+    sym = '👑';
+  } else if (opts.decoy) {
+    sym = '💥';
+  } else if (opts.miss) {
+    sym = '💢';
+  }
+
+  el.textContent = sym;
+
+  // 2) ตั้งตำแหน่งเริ่มต้นกลางเป้า
   el.style.left = x + 'px';
   el.style.top  = y + 'px';
 
-  // สุ่มมุมการบินเล็ก ๆ ให้ธรรมชาติขึ้น
+  // 3) สุ่มทิศทาง / ระยะกระจาย ตามสถานะ
+  //    - FEVER: กระเด็นไกลขึ้น
+  //    - BossFace: กระเด็นกว้างขึ้นอีกหน่อย
+  const baseDist   = 12;
+  const feverBoost = opts.fever ? 16 : 0;
+  const bossBoost  = opts.bossFace ? 10 : 0;
+  const dist       = baseDist + feverBoost + bossBoost + Math.random() * 12;
+
   const angle = Math.random() * Math.PI * 2;
-  const dist  = 12 + Math.random() * 22; // px
   const dx = Math.cos(angle) * dist;
   const dy = Math.sin(angle) * dist;
 
-  // CSS variable ใช้ใน animation
   el.style.setProperty('--dx', dx + 'px');
   el.style.setProperty('--dy', dy + 'px');
 
-  // สุ่ม scale ให้ particle ไม่แข็ง
-  const scale = 0.7 + Math.random() * 0.6;
-  el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  // 4) random scale (FEVER ใหญ่ขึ้นนิดหน่อย)
+  const baseScale   = 0.8 + Math.random() * 0.4;
+  const scaleBoost  = opts.fever ? 0.25 : 0;
+  const finalScale  = baseScale + scaleBoost;
+  el.style.transform = `translate(-50%, -50%) scale(${finalScale})`;
 
   host.appendChild(el);
 
+  // 5) เคลียร์ออกตามเวลา animation (.48s ใน CSS)
   setTimeout(() => {
     if (el.parentNode) el.parentNode.removeChild(el);
-  }, 480);
+  }, 500);
 }
