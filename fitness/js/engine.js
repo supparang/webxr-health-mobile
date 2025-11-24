@@ -1,43 +1,84 @@
-// === fitness/js/engine.js (Shadow Breaker Engine — 2025-11-24 MULTI-BOSS + REWARDS) ===
+// === fitness/js/engine.js (Shadow Breaker Engine — 2025-11-24) ===
 'use strict';
 
 import { computeShadowSpawnParams, ShadowBossState } from './shadow-config.js';
 
-/** ตารางบอส 4 ตัวในหนึ่งเกม (index 0–3) */
+/**
+ * ตารางข้อมูลบอส 4 ตัว + รางวัลเมื่อเคลียร์
+ */
 const BOSS_TABLE = [
   {
+    id: 0,
     emoji: '🫧',
     name: 'Bubble Glove',
-    hint: 'เล็งเป้าหลักให้ทัน อย่าตีฟองหลอก'
+    title: 'หมัดฟองสบู่วอร์มอัป',
+    hint: 'โฟกัสตีเป้าฟองสีอ่อน ๆ ให้ชินจังหวะก่อน',
+    reward: {
+      heal: 1,
+      score: 50,
+      fever: 0.25,
+      text: 'เคลียร์ Bubble Glove! +1 HP และโบนัส 50 คะแนน 🎉'
+    }
   },
   {
+    id: 1,
     emoji: '🌀',
     name: 'Vortex Fist',
-    hint: 'ระวังลูกล่อที่หมุน ๆ สีคล้ายกัน'
+    title: 'หมัดหมุนพายุ',
+    hint: 'ระวังเป้าหมุนเร็วและลูกล่อสีใกล้เคียง',
+    reward: {
+      heal: 0,
+      score: 80,
+      fever: 0.3,
+      text: 'เคลียร์ Vortex Fist! ได้โบนัส 80 คะแนน และเกจ FEVER เพิ่มขึ้น ✨'
+    }
   },
   {
+    id: 2,
     emoji: '🛡️',
     name: 'Shadow Guard',
-    hint: 'รักษาคอมโบให้ยาวที่สุด ห้ามพลาดบ่อย'
+    title: 'โล่เงาป้องกัน',
+    hint: 'บางเป้าต้องตีซ้ำ อย่าปล่อยให้หลุดหลายลูกติดกัน',
+    reward: {
+      heal: 1,
+      score: 100,
+      fever: 0.35,
+      text: 'เคลียร์ Shadow Guard! ฟื้น HP +1 และโบนัส 100 คะแนน 💪'
+    }
   },
   {
+    id: 3,
     emoji: '☠️',
-    name: 'Doom Skull',
-    hint: 'ช่วงท้ายจะรัวมาก เตรียมแขนให้พร้อมสุด ๆ'
+    name: 'Final Burst',
+    title: 'บอสใหญ่ไฟนอล',
+    hint: 'จังหวะถี่ขึ้น เป้าเล็กลง ต้องโฟกัสให้สุด!',
+    reward: {
+      heal: 0,
+      score: 150,
+      fever: 0.5,
+      text: 'พิชิต Final Burst! จบเซสชันอย่างสวยงาม 🎆'
+    }
   }
 ];
 
 /**
  * initShadowBreaker()
  * - bootstrap หลัก เรียกจาก shadow-breaker.js
- * - อ่าน query string: diff=easy|normal|hard, time=60, next=program.html
+ * - อ่าน query string: mode=normal|research, diff=easy|normal|hard, time=60
+ * - ไม่ auto start เกม แต่ผูกกับปุ่ม "เริ่มเล่นเลย"
  */
 export function initShadowBreaker(options = {}) {
   const url = new URL(window.location.href);
 
-  const diffKey = (options.difficulty ||
+  const modeKey =
+    options.mode ||
+    url.searchParams.get('mode') ||
+    'normal';
+
+  const diffKey =
+    options.difficulty ||
     url.searchParams.get('diff') ||
-    'easy').toLowerCase();
+    'normal';
 
   const durSec = parseInt(
     options.durationSec || url.searchParams.get('time') || '60',
@@ -46,22 +87,21 @@ export function initShadowBreaker(options = {}) {
 
   const nextUrl = options.nextUrl || url.searchParams.get('next') || '';
 
-  // ใช้ host จาก options.host ก่อน (เชื่อมกับ shadow-breaker.html → #shadowWrap)
   const host =
-    options.host ||
-    document.querySelector('#shadow-root') ||
-    document.querySelector('#sb-root') ||
-    document.querySelector('#sb-game') ||
+    document.getElementById('shadowWrap') ||
+    document.querySelector('.sb-wrap') ||
     document.body;
 
   const game = new ShadowBreakerGame({
     host,
+    mode: modeKey,
     difficulty: diffKey,
     durationSec: durSec,
     nextUrl
   });
 
-  game.start();
+  // debug เผื่อจำเป็น
+  window.__shadowGame = game;
   return game;
 }
 
@@ -73,8 +113,7 @@ function randBetween(min, max) {
 }
 
 function pickWeighted(weights) {
-  // weights: {main:number, fake:number, bonus:number}
-  const entries = Object.entries(weights);
+  const entries = Object.entries(weights || {});
   const sum = entries.reduce((s, [, w]) => s + (w || 0), 0) || 1;
   let r = Math.random() * sum;
   for (const [k, w] of entries) {
@@ -90,13 +129,18 @@ function pickWeighted(weights) {
 class ShadowBreakerGame {
   constructor(opts) {
     this.host = opts.host || document.body;
-    this.difficulty = opts.difficulty || 'easy';
+    this.elRoot = this.host;
+
+    this.mode = (opts.mode === 'research') ? 'research' : 'normal';
+    this.difficulty = opts.difficulty || 'normal';
     this.durationSec = opts.durationSec || 60;
+    this.timeLeft = this.durationSec;
     this.nextUrl = opts.nextUrl || '';
 
-    // ภาพรวมสถานะเกม
+    // สถานะเกมหลัก
     this.running = false;
-    this.timeLeft = this.durationSec;
+    this.startedOnce = false;
+
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -104,70 +148,165 @@ class ShadowBreakerGame {
     this.playerMaxHP = 5;
     this.playerHP = this.playerMaxHP;
 
-    // MULTI-BOSS: ลำดับบอสในหนึ่งเกม (0–3)
-    this.bossOrder = [0, 1, 2, 3];
-    this.currentBossIdx = 0;           // index ใน bossOrder
-    this.bossIndex = this.bossOrder[0];
-
+    this.bossIndex = 0;          // 0..3
     this.boss = new ShadowBossState(this.difficulty);
     this.bossPhase = 1;
     this.nearDeath = false;
-    this.spawnedBossFace = false;      // ให้ spawn bossface แค่ 1 ครั้งต่อบอส
 
-    // FEVER Boost สำหรับช่วงต้นบอสถัดไป (นับเป็นวินาที)
-    this.feverBoostRemain = 0;
+    // FEVER gauge 0..1
+    this.fever = 0;
+    this.feverOn = false;
 
     this.activeTargets = [];
     this.spawnTimer = null;
     this.timerTick = null;
 
-    // hook เผื่อใช้ต่อยอดงานใหญ่ 2/3
+    // hook เผื่อใช้ต่อยอดงานวิจัย
     this.onBeforeSpawnTarget = null;
     this.onBossHit = null;
 
-    // DOM elements
-    this.elRoot = null;
-    this.elStage = null;
+    // research meta
+    this.participantId = '';
+    this.researchNote = '';
+
     this.elHUD = {};
-    this._bindDOMFromLayout();         // ใช้ layout จาก shadow-breaker.html
-  }
+    this.elStage = null;
+    this.elIntro = null;
 
-  // -----------------------------------------------------------------------
-  // DOM & HUD — ใช้ layout จาก shadow-breaker.html (sb-wrap)
-  // -----------------------------------------------------------------------
-  _bindDOMFromLayout() {
-    // root = .sb-wrap (#shadowWrap) ถ้ามี
-    const root =
-      this.host.closest?.('.sb-wrap') ||
-      this.host.querySelector?.('.sb-wrap') ||
-      this.host;
-
-    this.elRoot = root;
-
-    // เวทีเกม: data-sb-field / .sb-field / ถ้าไม่มี ใช้ root
-    this.elStage =
-      root.querySelector('[data-sb-field]') ||
-      root.querySelector('.sb-field') ||
-      root;
-
-    const q = (sel) => root.querySelector(sel);
-
-    // ผูก HUD ตาม data-attribute ใน shadow-breaker.html
-    this.elHUD.barPlayer      = q('[data-sb-player-hp]');
-    this.elHUD.playerHPText   = q('[data-sb-player-hp-text]');
-    this.elHUD.barBoss        = q('[data-sb-boss-hp]');
-    this.elHUD.bossHPText     = q('[data-sb-boss-hp-text]');
-    this.elHUD.timerVal       = q('[data-sb-timer]');
-    this.elHUD.scoreVal       = q('[data-sb-score]');
-    this.elHUD.comboVal       = q('[data-sb-combo]');
-    this.elHUD.phaseVal       = q('[data-sb-phase]');
-    this.elHUD.feverFill      = q('[data-sb-fever]');
-    this.elHUD.feverStatus    = q('[data-sb-fever-status]');
-    this.elHUD.feedback       = document.getElementById('sbFeedback');
-
+    this._bindDOMFromLayout();
+    this._resetBossForCurrent(false); // เตรียมบอสตัวแรก (ยังไม่เริ่ม spawn)
     this._updateHUDAll();
   }
 
+  // -----------------------------------------------------------------------
+  // DOM & HUD binding
+  // -----------------------------------------------------------------------
+  _bindDOMFromLayout() {
+    const root = this.elRoot;
+    const q = (sel) => root.querySelector(sel);
+
+    // data-* ไว้ใช้กับ CSS
+    root.dataset.diff = this.difficulty;
+    root.dataset.phase = '1';
+    root.dataset.boss = String(this.bossIndex);
+
+    // HUD
+    this.elHUD.barPlayer    = q('[data-sb-player-hp]');
+    this.elHUD.playerHPText = q('[data-sb-player-hp-text]');
+    this.elHUD.barBoss      = q('[data-sb-boss-hp]');
+    this.elHUD.bossHPText   = q('[data-sb-boss-hp-text]');
+    this.elHUD.timerVal     = q('[data-sb-timer]');
+    this.elHUD.scoreVal     = q('[data-sb-score]');
+    this.elHUD.comboVal     = q('[data-sb-combo]');
+    this.elHUD.phaseVal     = q('[data-sb-phase]');
+    this.elHUD.feverFill    = q('[data-sb-fever]');
+    this.elHUD.feverStatus  = q('[data-sb-fever-status]');
+    this.elHUD.feedback     = document.getElementById('sbFeedback');
+
+    // boss portrait
+    this.elHUD.bossPortrait = q('#boss-portrait');
+    this.elHUD.bossName     = q('#boss-portrait-name');
+    this.elHUD.bossHint     = q('#boss-portrait-hint');
+
+    // field
+    this.elStage = q('[data-sb-field]') || q('.sb-field') || root;
+
+    // intro overlay
+    this.elIntro = document.getElementById('bossIntro');
+
+    // Menu / controls
+    this.elModeNormal   = document.getElementById('modeNormalBtn');
+    this.elModeResearch = document.getElementById('modeResearchBtn');
+    this.elStartBtn     = document.getElementById('startBtn');
+    this.elCsvBtn       = document.getElementById('csvBtn');
+    this.elResearchPanel= document.getElementById('researchPanel');
+    this.elDiffSelect   = document.getElementById('diffSelect');
+    this.elTimeSelect   = document.getElementById('timeSelect');
+    this.elPartId       = document.getElementById('participantId');
+    this.elNote         = document.getElementById('researchNote');
+
+    this._bindModeUI();
+    this._attachUIEvents();
+  }
+
+  _bindModeUI() {
+    // ตั้ง state เริ่มต้นของโหมดเล่น
+    const isResearch = (this.mode === 'research');
+
+    if (this.elModeNormal) {
+      this.elModeNormal.classList.toggle('primary', !isResearch);
+      this.elModeNormal.classList.toggle('ghost', isResearch);
+    }
+    if (this.elModeResearch) {
+      this.elModeResearch.classList.toggle('primary', isResearch);
+      this.elModeResearch.classList.toggle('ghost', !isResearch);
+    }
+    if (this.elResearchPanel) {
+      this.elResearchPanel.classList.toggle('hidden', !isResearch);
+    }
+    if (this.elCsvBtn) {
+      this.elCsvBtn.classList.toggle('hidden', !isResearch);
+    }
+  }
+
+  _setMode(mode) {
+    this.mode = (mode === 'research') ? 'research' : 'normal';
+    this._bindModeUI();
+  }
+
+  _attachUIEvents() {
+    // ปุ่มโหมด
+    this.elModeNormal?.addEventListener('click', () => {
+      this._setMode('normal');
+    });
+    this.elModeResearch?.addEventListener('click', () => {
+      this._setMode('research');
+    });
+
+    // selector difficulty / time
+    this.elDiffSelect?.addEventListener('change', () => {
+      this.difficulty = this.elDiffSelect.value || 'normal';
+      if (this.elRoot) this.elRoot.dataset.diff = this.difficulty;
+    });
+    this.elTimeSelect?.addEventListener('change', () => {
+      const v = parseInt(this.elTimeSelect.value || '60', 10) || 60;
+      this.durationSec = v;
+      this.timeLeft = v;
+      this._updateTimerHUD();
+    });
+
+    // ปุ่ม start
+    this.elStartBtn?.addEventListener('click', () => {
+      // อ่านค่าอัปเดตจากหน้า UI ก่อน
+      if (this.elDiffSelect) {
+        this.difficulty = this.elDiffSelect.value || 'normal';
+      }
+      if (this.elTimeSelect) {
+        const v = parseInt(this.elTimeSelect.value || '60', 10) || 60;
+        this.durationSec = v;
+      }
+      if (this.elPartId) {
+        this.participantId = this.elPartId.value.trim();
+      }
+      if (this.elNote) {
+        this.researchNote = this.elNote.value.trim();
+      }
+      if (this.elRoot) {
+        this.elRoot.dataset.diff = this.difficulty;
+      }
+
+      this.start();
+    });
+
+    // CSV button (ยังไม่ทำจริง แค่ alert ไว้ก่อน)
+    this.elCsvBtn?.addEventListener('click', () => {
+      window.alert('ฟีเจอร์ดาวน์โหลด CSV จะถูกเปิดใช้ในงานใหญ่ 3 (Research Session Logger) ค่ะ');
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // HUD helpers
+  // -----------------------------------------------------------------------
   _pad(n) {
     return n < 10 ? '0' + n : '' + n;
   }
@@ -204,15 +343,15 @@ class ShadowBreakerGame {
     if (this.elHUD.phaseVal) {
       this.elHUD.phaseVal.textContent = String(this.bossPhase);
     }
+    if (this.elRoot) {
+      this.elRoot.dataset.phase = String(this.bossPhase);
+    }
   }
 
   _updatePlayerHPHUD() {
     const ratio = this.playerMaxHP > 0 ? (this.playerHP / this.playerMaxHP) : 0;
-    const clamped = Math.max(0, Math.min(1, ratio));
-
     if (this.elHUD.barPlayer) {
-      // layout ใหม่ใช้ transform: scaleX
-      this.elHUD.barPlayer.style.transform = `scaleX(${clamped})`;
+      this.elHUD.barPlayer.style.transform = `scaleX(${Math.max(0, Math.min(1, ratio))})`;
       this.elHUD.barPlayer.classList.toggle('low', ratio <= 0.4);
     }
     if (this.elHUD.playerHPText) {
@@ -223,159 +362,80 @@ class ShadowBreakerGame {
 
   _updateBossHPHUD() {
     const ratio = this.boss.maxHP > 0 ? (this.boss.hp / this.boss.maxHP) : 0;
-    const clamped = Math.max(0, Math.min(1, ratio));
-
     if (this.elHUD.barBoss) {
-      this.elHUD.barBoss.style.transform = `scaleX(${clamped})`;
+      this.elHUD.barBoss.style.transform = `scaleX(${Math.max(0, Math.min(1, ratio))})`;
       this.elHUD.barBoss.classList.toggle('low', ratio <= 0.4);
     }
     if (this.elHUD.bossHPText) {
-      this.elHUD.bossHPText.textContent = `${this.boss.hp}/${this.boss.maxHP}`;
+      this.elHUD.bossHPText.textContent =
+        `${this.boss.hp}/${this.boss.maxHP}`;
     }
   }
 
   _updateFeverHUD() {
-    const active = this.feverBoostRemain > 0;
     if (this.elHUD.feverFill) {
-      this.elHUD.feverFill.style.transform = active ? 'scaleX(1)' : 'scaleX(0)';
+      const v = Math.max(0, Math.min(1, this.fever));
+      this.elHUD.feverFill.style.transform = `scaleX(${v})`;
     }
     if (this.elHUD.feverStatus) {
-      this.elHUD.feverStatus.textContent = active ? 'Boost x2!' : 'Ready';
-      this.elHUD.feverStatus.classList.toggle('on', active);
-    }
-  }
-
-  _setFeedback(text, mood = 'normal') {
-    const el = this.elHUD.feedback;
-    if (!el) return;
-    el.textContent = text;
-    let cls = 'sb-feedback';
-    if (mood === 'good') cls += ' good';
-    else if (mood === 'perfect') cls += ' perfect';
-    else if (mood === 'miss') cls += ' miss';
-    else if (mood === 'bomb') cls += ' bomb';
-    else if (mood === 'heal') cls += ' heal';
-    el.className = cls;
-  }
-
-  // -----------------------------------------------------------------------
-  // Multi-boss helpers + Rewards
-  // -----------------------------------------------------------------------
-  _resetBossForCurrent() {
-    this.boss = new ShadowBossState(this.difficulty);
-    this.bossPhase = 1;
-    this.nearDeath = false;
-    this.spawnedBossFace = false;
-    this._updateBossHPHUD();
-    this._updatePhaseHUD();
-  }
-
-  _getStageRewards(stageIndex) {
-    switch (stageIndex) {
-      case 0: // ผ่าน Bubble Glove → ไป Vortex Fist
-        return {
-          heal: 1,
-          scoreBonus: 100,
-          nextFeverSec: 5,
-          coachText: 'ผ่าน Bubble Glove แล้ว! แขนเริ่มอุ่นขึ้น ไปเจอบอสพายุหมุนกันต่อ! 🌀'
-        };
-      case 1: // ผ่าน Vortex Fist → ไป Shadow Guard
-        return {
-          heal: 2,
-          scoreBonus: 150,
-          nextFeverSec: 6,
-          coachText: 'สุดยอด! ฝ่าพายุหมุนมาได้แล้ว ต่อไปเป็นยามเงามืด Shadow Guard 🛡️'
-        };
-      case 2: // ผ่าน Shadow Guard → ไป Doom Skull
-        return {
-          heal: 'full',
-          scoreBonus: 200,
-          nextFeverSec: 7,
-          coachText: 'ใกล้ถึงบอสสุดท้ายแล้ว สูดหายใจลึก ๆ แล้วลุย Doom Skull ☠️'
-        };
-      case 3: // ผ่าน Doom Skull = จบเกม
-        return {
-          heal: 'full',
-          scoreBonus: 300,
-          nextFeverSec: 0,
-          coachText: 'เคลียร์ Doom Skull แล้ว! รับโบนัสพิเศษจบเกม 🎉'
-        };
-      default:
-        return null;
-    }
-  }
-
-  _applyBossClearRewards(stageIndex) {
-    const rewards = this._getStageRewards(stageIndex);
-    if (!rewards) return null;
-
-    // Heal
-    if (rewards.heal === 'full') {
-      this.playerHP = this.playerMaxHP;
-    } else if (typeof rewards.heal === 'number') {
-      this.playerHP = Math.min(this.playerMaxHP, this.playerHP + rewards.heal);
-    }
-    this._updatePlayerHPHUD();
-
-    // Score bonus
-    if (rewards.scoreBonus) {
-      this.score += rewards.scoreBonus;
-      this._updateScoreHUD();
-    }
-
-    // Feedback text
-    if (rewards.coachText) {
-      this._setFeedback(rewards.coachText, 'good');
-    }
-
-    // เอฟเฟกต์เล็ก ๆ บน root ถ้ามี CSS sb-stage-clear
-    if (this.elRoot) {
-      this.elRoot.classList.add('sb-stage-clear');
-      setTimeout(() => {
-        if (this.elRoot) {
-          this.elRoot.classList.remove('sb-stage-clear');
-        }
-      }, 600);
-    }
-
-    // ยิง event สำหรับ logger ภายนอก
-    try {
-      window.dispatchEvent(new CustomEvent('sb-boss-clear', {
-        detail: {
-          stageIndex,
-          bossIndex: this.bossOrder[stageIndex],
-          difficulty: this.difficulty,
-          totalScore: this.score,
-          timeLeft: this.timeLeft,
-          maxCombo: this.maxCombo
-        }
-      }));
-    } catch (e) {
-      // เงียบไว้ ถ้าไม่มี window
-    }
-
-    return rewards;
-  }
-
-  _onBossDown() {
-    const clearedIdx = this.currentBossIdx;
-    const rewards = this._applyBossClearRewards(clearedIdx);
-
-    // ยังมีบอสตัวถัดไปในลำดับ
-    if (this.currentBossIdx < this.bossOrder.length - 1) {
-      this.currentBossIdx += 1;
-      this.bossIndex = this.bossOrder[this.currentBossIdx] || 0;
-      this._resetBossForCurrent();
-
-      // ตั้ง FEVER Boost สำหรับบอสถัดไป
-      if (rewards && rewards.nextFeverSec && this.currentBossIdx < this.bossOrder.length) {
-        this.feverBoostRemain = rewards.nextFeverSec;
-        this._updateFeverHUD();
+      if (this.fever >= 1) {
+        this.feverOn = true;
+        this.elHUD.feverStatus.textContent = 'FEVER!!';
+        this.elHUD.feverStatus.classList.add('on');
+      } else if (this.fever > 0) {
+        this.feverOn = false;
+        this.elHUD.feverStatus.textContent = 'Charge';
+        this.elHUD.feverStatus.classList.remove('on');
+      } else {
+        this.feverOn = false;
+        this.elHUD.feverStatus.textContent = 'Ready';
+        this.elHUD.feverStatus.classList.remove('on');
       }
-    } else {
-      // เคลียร์ครบ 4 ตัว
-      this.endGame('bossDownAll');
     }
+  }
+
+  _updateNearDeathVisual() {
+    const portrait = this.elHUD.bossPortrait;
+    if (portrait) {
+      portrait.classList.toggle('sb-shake', !!this.nearDeath);
+    }
+  }
+
+  _updateBossPortrait() {
+    const bossDef = BOSS_TABLE[this.bossIndex] || BOSS_TABLE[0];
+    if (this.elHUD.bossPortrait) {
+      this.elHUD.bossPortrait.textContent = bossDef.emoji || '🥊';
+    }
+    if (this.elHUD.bossName) {
+      this.elHUD.bossName.textContent = bossDef.name || 'Boss';
+    }
+    if (this.elHUD.bossHint) {
+      this.elHUD.bossHint.textContent = bossDef.hint || '';
+    }
+    if (this.elRoot) {
+      this.elRoot.dataset.boss = String(this.bossIndex);
+    }
+  }
+
+  _showBossIntro() {
+    if (!this.elIntro) return;
+    const def = BOSS_TABLE[this.bossIndex] || BOSS_TABLE[0];
+    const eEmoji = this.elIntro.querySelector('.boss-intro-emoji');
+    const eName  = this.elIntro.querySelector('.boss-intro-name');
+    const eTitle = this.elIntro.querySelector('.boss-intro-title');
+    const eDesc  = this.elIntro.querySelector('.boss-intro-desc');
+    const eHint  = this.elIntro.querySelector('.boss-intro-hint');
+
+    if (eEmoji) eEmoji.textContent = def.emoji || '🥊';
+    if (eName)  eName.textContent  = def.name || 'Boss';
+    if (eTitle) eTitle.textContent = def.title || '';
+    if (eDesc)  eDesc.textContent  = 'บอสจะส่งเป้าออกมารัว ๆ ให้คุณตีให้ทันทุกลูก!';
+    if (eHint)  eHint.textContent  = def.hint || '';
+
+    this.elIntro.classList.remove('hidden');
+    setTimeout(() => {
+      this.elIntro?.classList.add('hidden');
+    }, 1300);
   }
 
   // -----------------------------------------------------------------------
@@ -383,6 +443,8 @@ class ShadowBreakerGame {
   // -----------------------------------------------------------------------
   start() {
     if (this.running) return;
+
+    this.startedOnce = true;
     this.running = true;
 
     this.timeLeft = this.durationSec;
@@ -390,18 +452,22 @@ class ShadowBreakerGame {
     this.combo = 0;
     this.maxCombo = 0;
     this.playerHP = this.playerMaxHP;
+    this.fever = 0;
+    this.feverOn = false;
 
-    // เริ่มจากบอส 1 เสมอ
-    this.currentBossIdx = 0;
-    this.bossIndex = this.bossOrder[0] || 0;
-    this._resetBossForCurrent();
+    // reset boss ตัวแรก
+    this.bossIndex = 0;
+    this._resetBossForCurrent(true);
 
-    // เริ่มต้นบอสแรกยังไม่ให้ FEVER Boost (เน้นเป็นรางวัลของการผ่านบอส)
-    this.feverBoostRemain = 0;
     this._updateHUDAll();
-
+    this._showBossIntro();
     this._startTimer();
     this._spawnLoop();
+
+    if (this.elHUD.feedback) {
+      this.elHUD.feedback.textContent =
+        'ตีเป้าให้ทันก่อนหายไป แล้วดูว่าคอมโบจะยาวแค่ไหน!';
+    }
   }
 
   _startTimer() {
@@ -409,13 +475,6 @@ class ShadowBreakerGame {
     this.timerTick = setInterval(() => {
       if (!this.running) return;
       this.timeLeft -= 1;
-
-      // ลด FEVER Boost ทีละวินาที
-      if (this.feverBoostRemain > 0) {
-        this.feverBoostRemain = Math.max(0, this.feverBoostRemain - 1);
-        this._updateFeverHUD();
-      }
-
       this._updateTimerHUD();
       if (this.timeLeft <= 0) {
         this.endGame('timeup');
@@ -426,61 +485,82 @@ class ShadowBreakerGame {
   _spawnLoop() {
     if (!this.running) return;
 
-    // hook ภายนอก (เช่น เพื่อให้ logger ทำงาน / HUD effect)
     if (typeof this.onBeforeSpawnTarget === 'function') {
       this.onBeforeSpawnTarget();
     }
 
     const bossRatio = this.boss.maxHP > 0 ? (this.boss.hp / this.boss.maxHP) : 0;
-    let params = computeShadowSpawnParams(this.difficulty, bossRatio);
-
-    // เพิ่มความยากตามลำดับบอส (stage 0–3)
-    const stage = this.currentBossIdx;
-    const stageSpeedFactor = [1.0, 0.9, 0.8, 0.7][stage] || 1.0;
-    const stageMaxBonus    = [0,   1,   2,   2][stage] || 0;
-
-    params = {
-      ...params,
-      spawnInterval: Math.round(params.spawnInterval * stageSpeedFactor),
-      maxActive: params.maxActive + stageMaxBonus
-    };
+    const params = computeShadowSpawnParams(this.difficulty, bossRatio);
 
     this.bossPhase = params.phase;
     this.nearDeath = params.nearDeath;
     this._updatePhaseHUD();
+    this._updateNearDeathVisual();
 
-    // จำกัดจำนวนเป้า active
-    if (this.activeTargets.length < params.maxActive) {
+    if (this.activeTargets.length < (params.maxActive || 3)) {
       this._spawnOneTarget(params);
     }
 
-    // ตั้ง spawn รอบต่อไป
-    this.spawnTimer = setTimeout(() => this._spawnLoop(), params.spawnInterval);
+    this.spawnTimer = setTimeout(
+      () => this._spawnLoop(),
+      params.spawnInterval || 900
+    );
   }
 
   _spawnOneTarget(params) {
-    const stageEl = this.elStage || this.host;
-    if (!stageEl) return;
+    const stage = this.elStage || this.host;
+    if (!stage) return;
 
-    const targetType = pickWeighted(params.weights); // main / fake / bonus
-    const [minSize, maxSize] = params.sizePx;
+    const targetType = pickWeighted(params.weights || { main: 1 });
+
+    // ----- คำนวณขนาดเป้าตาม diff + phase -----
+    let [baseMin, baseMax] = params.sizePx || [72, 110];
+
+    const diff  = this.difficulty || 'normal';
+    const phase = this.bossPhase  || 1;
+
+    const diffFactorMap = {
+      easy:   1.35,
+      normal: 1.10,
+      hard:   0.90
+    };
+    const phaseFactorMap = {
+      1: 1.10,
+      2: 1.00,
+      3: 0.85
+    };
+
+    const diffFactor  = diffFactorMap[diff]   ?? 1.0;
+    const phaseFactor = phaseFactorMap[phase] ?? 1.0;
+    const factor      = diffFactor * phaseFactor;
+
+    let minSize = baseMin * factor;
+    let maxSize = baseMax * factor;
+
+    const MIN_SIZE = 72;
+    if (minSize < MIN_SIZE)      minSize = MIN_SIZE;
+    if (maxSize < MIN_SIZE + 20) maxSize = MIN_SIZE + 20;
+
     const size = randBetween(minSize, maxSize);
 
+    // ---------- สร้าง DOM เป้า ----------
     const el = document.createElement('div');
     el.className = `sb-target sb-target-${targetType}`;
 
-    // emoji / สัญลักษณ์เบื้องต้น (ไว้ให้ CSS ตกแต่งต่อ)
+    const inner = document.createElement('div');
+    inner.className = 'sb-target-inner';
     if (targetType === 'main') {
-      el.textContent = '🎯';
+      inner.textContent = '🥊';
     } else if (targetType === 'fake') {
-      el.textContent = '💣';
+      inner.textContent = '💣';
     } else {
-      el.textContent = '⭐';
+      inner.textContent = '⭐';
     }
+    el.appendChild(inner);
 
     // ตำแหน่งแบบสุ่มใน stage (เว้นขอบ)
-    const pad = 12; // px
-    const rect = stageEl.getBoundingClientRect();
+    const pad = 12;
+    const rect = stage.getBoundingClientRect();
     const w = rect.width || 320;
     const h = rect.height || 320;
 
@@ -492,11 +572,10 @@ class ShadowBreakerGame {
 
     el.style.position = 'absolute';
     el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.style.width = size + 'px';
+    el.style.top  = y + 'px';
+    el.style.width  = size + 'px';
     el.style.height = size + 'px';
 
-    // meta object
     const target = {
       el,
       type: targetType,
@@ -504,7 +583,6 @@ class ShadowBreakerGame {
       hit: false
     };
 
-    // event: pointerdown (รองรับ mouse + touch)
     const onHit = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -515,76 +593,14 @@ class ShadowBreakerGame {
 
     target.cleanup = () => {
       el.removeEventListener('pointerdown', onHit);
-      if (el.parentNode === stageEl) stageEl.removeChild(el);
+      if (el.parentNode === stage) stage.removeChild(el);
     };
 
-    // ตั้งเวลาให้เป้าหายเองถ้าไม่โดนตี
-    target.lifeTimer = setTimeout(() => {
-      if (!target.hit) {
-        this._handleTargetMiss(target);
-      }
-    }, params.lifetime);
-
-    stageEl.appendChild(el);
-    this.activeTargets.push(target);
-  }
-
-  /** เป้าหน้าบอสตอนใกล้ตาย */
-  _spawnBossFaceTarget(params) {
-    const stageEl = this.elStage || this.host;
-    if (!stageEl) return;
-
-    const rect = stageEl.getBoundingClientRect();
-    const baseSize = params.sizePx ? params.sizePx[1] : 96;
-    const size = baseSize * 1.1;
-
-    const pad = 24;
-    const maxX = Math.max(0, rect.width  - size - pad);
-    const maxY = Math.max(0, rect.height - size - pad);
-
-    const x = randBetween(pad, maxX);
-    const y = randBetween(pad, maxY);
-
-    const el = document.createElement('div');
-    el.className = 'sb-target sb-target-bossface';
-    el.dataset.type = 'bossface';
-
-    const boss = BOSS_TABLE[this.bossIndex] || BOSS_TABLE[0];
-    el.textContent = boss.emoji || '☠️';
-
-    el.style.position = 'absolute';
-    el.style.left = x + 'px';
-    el.style.top  = y + 'px';
-    el.style.width  = size + 'px';
-    el.style.height = size + 'px';
-
-    const target = {
-      el,
-      type: 'bossface',
-      lifeTimer: null,
-      hit: false
-    };
-
-    const onHit = (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      this._handleTargetHit(target);
-    };
-
-    el.addEventListener('pointerdown', onHit, { passive: false });
-
-    target.cleanup = () => {
-      el.removeEventListener('pointerdown', onHit);
-      if (el.parentNode === stageEl) stageEl.removeChild(el);
-    };
-
-    // อยู่ไม่นานมาก
-    const life = (params.lifetime || 2000) * 0.7;
     target.lifeTimer = setTimeout(() => {
       if (!target.hit) this._handleTargetMiss(target);
-    }, life);
+    }, params.lifetime || 1600);
 
-    stageEl.appendChild(el);
+    stage.appendChild(el);
     this.activeTargets.push(target);
   }
 
@@ -593,76 +609,58 @@ class ShadowBreakerGame {
     if (target.hit) return;
     target.hit = true;
 
-    const feverActive = this.feverBoostRemain > 0;
-
-    // ลบออกจาก active list
     this._removeTarget(target);
-
     if (target.lifeTimer) {
       clearTimeout(target.lifeTimer);
       target.lifeTimer = null;
     }
 
-    // ตีโดน
     if (target.type === 'fake') {
-      // ตีโดนเป้าหลอก → ตัด HP ผู้เล่น
+      // ตีโดนเป้าหลอก → ตัด HP + reset combo
       this.playerHP = Math.max(0, this.playerHP - 1);
       this.combo = 0;
       this._updatePlayerHPHUD();
       this._updateComboHUD();
-      this._setFeedback('โดนลูกล่อ! HP ลด 1 ❤️', 'bomb');
+      if (this.elHUD.feedback) {
+        this.elHUD.feedback.textContent = 'โอ๊ะ! ตีโดนเป้าหลอก ระวังลูกต่อไปให้ดี 🔺';
+      }
       if (this.playerHP <= 0) {
         this.endGame('playerDead');
         return;
       }
-    } else if (target.type === 'bossface') {
-      // ตีหน้า Boss — ดาเมจแรง + คะแนนเยอะ
-      let gain = 30;
-      if (feverActive) gain *= 2;
-
-      this.combo += 1;
-      if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-
-      this.score += gain;
-      this._updateScoreHUD();
-      this._updateComboHUD();
-
-      this._setFeedback('ตีโดนหน้า Boss! ดาเมจแรงสุด ๆ 💥', 'perfect');
-
-      const dmg = 3;
-      this._applyBossDamage(dmg);
     } else {
       // main / bonus
-      let base = 10;
-      if (target.type === 'bonus') base = 20;
+      let scoreGain = 10;
+      if (target.type === 'bonus') scoreGain = 20;
 
       this.combo += 1;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
       const bonus = Math.floor(this.combo / 5) * 2;
-      let gain = base + bonus;
-      if (feverActive) gain *= 2;
+      this.score += scoreGain + bonus;
 
-      this.score += gain;
       this._updateScoreHUD();
       this._updateComboHUD();
 
-      if (this.combo >= 10) {
-        this._setFeedback('สุดยอด! คอมโบยาวมาก 🎉', 'perfect');
-      } else {
-        this._setFeedback('ดีมาก! ตีทันเวลา', 'good');
-      }
+      // เพิ่มเกจ FEVER ตามชนิดเป้า
+      this._addFever(target.type === 'bonus' ? 0.08 : 0.04);
 
-      // ดาเมจบอสเมื่อโดน main/bonus
       const dmg = target.type === 'bonus' ? 2 : 1;
       this._applyBossDamage(dmg);
+
+      if (this.elHUD.feedback) {
+        if (this.combo >= 10) {
+          this.elHUD.feedback.textContent = `สุดยอด! คอมโบต่อเนื่อง ${this.combo} ครั้ง 🎉`;
+        } else {
+          this.elHUD.feedback.textContent = 'ดีมาก! รักษาจังหวะไว้ให้ได้ 👊';
+        }
+      }
     }
 
-    // effect visual (ให้ CSS ไปจัดการต่อจาก class sb-hit ถ้ามี)
     target.el.classList.add('sb-hit');
     setTimeout(() => {
       if (target.cleanup) target.cleanup();
-    }, 120);
+    }, 140);
   }
 
   _handleTargetMiss(target) {
@@ -675,11 +673,12 @@ class ShadowBreakerGame {
       target.lifeTimer = null;
     }
 
-    // เป้าหลักหายไปโดยไม่ตี → combo หลุด
-    if (target.type === 'main' || target.type === 'bossface') {
+    if (target.type === 'main') {
       this.combo = 0;
       this._updateComboHUD();
-      this._setFeedback('พลาดไปนิด ลองเล็งให้เร็วขึ้น!', 'miss');
+      if (this.elHUD.feedback) {
+        this.elHUD.feedback.textContent = 'เป้าหลุดไป 1 ลูก ลองโฟกัสใหม่อีกครั้งนะ 🔁';
+      }
     }
 
     if (target.cleanup) target.cleanup();
@@ -690,30 +689,87 @@ class ShadowBreakerGame {
     if (idx >= 0) this.activeTargets.splice(idx, 1);
   }
 
+  _addFever(delta) {
+    this.fever = Math.max(0, Math.min(1, this.fever + delta));
+    this._updateFeverHUD();
+  }
+
   _applyBossDamage(dmg) {
     if (typeof this.onBossHit === 'function') {
-      // ถ้าภายนอกอยากจัดการเอง
       this.onBossHit(dmg);
       return;
     }
 
-    const info = this.boss.hit(dmg);
+    const info = this.boss.hit(dmg); // { hp, maxHP, phase, nearDeath }
     this.bossPhase = info.phase;
     this.nearDeath = info.nearDeath;
+
     this._updateBossHPHUD();
     this._updatePhaseHUD();
-
-    // ใกล้ตาย → spawn เป้าหน้าบอส 1 ครั้งต่อบอส
-    const ratio = this.boss.maxHP > 0 ? (this.boss.hp / this.boss.maxHP) : 0;
-    if (!this.spawnedBossFace && ratio <= 0.25) {
-      const params = computeShadowSpawnParams(this.difficulty, ratio);
-      this._spawnBossFaceTarget(params);
-      this.spawnedBossFace = true;
-    }
+    this._updateNearDeathVisual();
 
     if (info.hp <= 0) {
-      this._onBossDown();
+      this._handleBossDown();
     }
+  }
+
+  _handleBossDown() {
+    // รางวัลจากบอสตัวปัจจุบัน
+    this._applyBossReward();
+
+    if (this.elRoot) {
+      this.elRoot.classList.add('sb-stage-clear');
+      setTimeout(() => {
+        this.elRoot?.classList.remove('sb-stage-clear');
+      }, 600);
+    }
+
+    if (this.bossIndex < BOSS_TABLE.length - 1) {
+      this.bossIndex += 1;
+      this._resetBossForCurrent(true);
+      this._showBossIntro();
+      if (this.elHUD.feedback) {
+        this.elHUD.feedback.textContent =
+          'เยี่ยม! บอสต่อไปจะเร็วขึ้นอีกนิด ลองดูว่าจะไปได้ไกลแค่ไหน 💥';
+      }
+    } else {
+      this.endGame('allBossCleared');
+    }
+  }
+
+  _applyBossReward() {
+    const def = BOSS_TABLE[this.bossIndex];
+    if (!def || !def.reward) return;
+    const r = def.reward;
+
+    if (r.heal) {
+      this.playerHP = Math.min(this.playerMaxHP, this.playerHP + r.heal);
+      this._updatePlayerHPHUD();
+    }
+    if (r.score) {
+      this.score += r.score;
+      this._updateScoreHUD();
+    }
+    if (r.fever) {
+      this._addFever(r.fever);
+    }
+    if (this.elHUD.feedback && r.text) {
+      this.elHUD.feedback.textContent = r.text;
+    }
+  }
+
+  _resetBossForCurrent(resetHPBar) {
+    this.boss = new ShadowBossState(this.difficulty);
+    this.bossPhase = 1;
+    this.nearDeath = false;
+    this.spawnedBossFace = false;
+
+    if (resetHPBar !== false) {
+      this._updateBossHPHUD();
+    }
+    this._updatePhaseHUD();
+    this._updateNearDeathVisual();
+    this._updateBossPortrait();
   }
 
   // -----------------------------------------------------------------------
@@ -740,10 +796,10 @@ class ShadowBreakerGame {
     this.activeTargets.length = 0;
 
     const titleMap = {
-      timeup:      'หมดเวลา',
-      bossDown:    'ชนะบอส!',
-      bossDownAll: 'ชนะบอสครบ 4 ตัว! 🎉',
-      playerDead:  'พลังชีวิตหมด'
+      timeup: 'หมดเวลา',
+      bossDown: 'ชนะบอส!',
+      allBossCleared: 'พิชิตทุกบอสแล้ว!',
+      playerDead: 'พลังชีวิตหมด'
     };
     const title = titleMap[reason] || 'จบเกม';
 
@@ -751,14 +807,16 @@ class ShadowBreakerGame {
       `${title}`,
       `SCORE: ${this.score}`,
       `MAX COMBO: ${this.maxCombo}`,
-      `BOSS ที่เล่นถึง: ${this.currentBossIdx + 1}/${this.bossOrder.length}`,
+      `บอสที่ถึง: ${this.bossIndex + 1} / ${BOSS_TABLE.length}`,
       `BOSS HP สุดท้าย: ${this.boss.hp}/${this.boss.maxHP}`
     ].join('\n');
 
-    // ถ้ามี overlay ใน HTML ของคุณเอง ให้ใช้ต่อแทน alert ตรงนี้ได้
+    if (this.elHUD.feedback) {
+      this.elHUD.feedback.textContent = title;
+    }
+
     window.alert(msg);
 
-    // ถ้ามี nextUrl ให้ redirect ต่อ
     if (this.nextUrl) {
       window.location.href = this.nextUrl;
     }
