@@ -1,6 +1,92 @@
-:root {color-scheme: dark;}
-body {background: radial-gradient(circle at top left,#38bdf826,transparent 55%),radial-gradient(circle at bottom right,#22c55e33,transparent 55%),#020617;color:#e5e7eb;font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;margin:0;}
-.card{background:rgba(30,41,59,.7);border-radius:20px;backdrop-filter:blur(8px);padding:24px;margin:16px auto;max-width:600px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
-.btn{border:none;border-radius:10px;padding:12px 24px;margin:8px;background:linear-gradient(90deg,#38bdf8,#818cf8);color:#fff;font-size:1rem;cursor:pointer;transition:.3s;}
-.btn:hover{transform:scale(1.05);}
-.logo{height:64px;margin:16px;filter:drop-shadow(0 0 6px #38bdf8aa);}
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Shadow Breaker ⚡ Hub Theme v2.0</title>
+  <link rel="stylesheet" href="./css/shadow-breaker.css"/>
+</head>
+<body>
+  <main id="sb-wrap" data-shadow-ready="1" data-diff="normal" data-boss="1" data-phase="1">
+    <!-- MENU VIEW -->
+    <section id="view-menu" class="view active fade-in">
+      <h1>⚡ Shadow Breaker 🥊</h1>
+      <p class="subtitle">เกมตีเป้าบอส Fight สำหรับฝึกกำลังแขนและความไวในการตอบสนอง</p>
+      <div class="mode-select">
+        <button data-action="start-normal" class="btn-primary pulse">เล่นปกติ 🎮</button>
+        <button data-action="start-research" class="btn-secondary">โหมดวิจัย 🧪</button>
+      </div>
+      <div class="select-row">
+        <label>ระดับความยาก</label>
+        <select id="difficulty">
+          <option value="easy">Easy — เริ่มต้น</option>
+          <option value="normal" selected>Normal — สมดุล</option>
+          <option value="hard">Hard — ท้าทาย</option>
+        </select>
+      </div>
+      <div class="select-row">
+        <label>ระยะเวลาเล่นต่อรอบ</label>
+        <select id="duration">
+          <option value="45">45 วินาที</option>
+          <option value="60" selected>60 วินาที</option>
+          <option value="75">75 วินาที</option>
+        </select>
+      </div>
+      <button data-action="start-normal" class="btn-start pulse-glow">⚡ เริ่มเล่นเลย</button>
+      <p class="note">สามารถบันทึกข้อมูลการเล่นเป็นไฟล์ CSV ได้</p>
+    </section>
+
+    <!-- PLAY VIEW -->
+    <section id="view-play" class="view hidden fade-in">
+      <div id="target-layer"></div>
+      <div class="hud">
+        <div class="hp-bar">
+          <div id="player-fill" class="fill player"></div>
+        </div>
+        <div class="hp-bar boss">
+          <div id="boss-fill" class="fill boss"></div>
+        </div>
+        <div id="sb-feedback" class="sb-feedback">พร้อม!</div>
+      </div>
+      <button data-action="stop-early" class="btn-stop">⏹ หยุดก่อนเวลา</button>
+    </section>
+
+    <!-- RESULT VIEW -->
+    <section id="view-result" class="view hidden slide-up">
+      <h2>📊 สรุปผลการเล่น</h2>
+      <div class="result-card">
+        <p>คะแนนรวม: <span id="res-score">0</span></p>
+        <p>ความแม่นยำ: <span id="res-accuracy">0%</span></p>
+        <p>Reaction Time: <span id="res-rt-normal">-</span></p>
+        <p>จำนวนบอสที่ผ่าน: <span id="res-bosses">0</span></p>
+      </div>
+      <div class="actions">
+        <button data-action="play-again" class="btn-primary">เล่นอีกครั้ง 🔁</button>
+        <button data-action="back-to-menu" class="btn-secondary">กลับเมนู 🏠</button>
+      </div>
+    </section>
+
+    <!-- BOSS INTRO -->
+    <section id="boss-intro" class="hidden fade-in">
+      <h3 id="boss-intro-name">Bubble Glove</h3>
+      <p id="boss-intro-desc">บอสมือใหม่สายฟอง เป้าใหญ่ เหมาะสำหรับวอร์มอัพ</p>
+      <p>แตะหรือคลิกเพื่อเริ่มต่อสู้!</p>
+    </section>
+  </main>
+
+  <!-- Scripts -->
+  <script type="module" src="./js/shadow-breaker.js"></script>
+  <script type="module" src="./js/engine.js"></script>
+  <script type="module" src="./js/dom-renderer.js"></script>
+  <script type="module" src="./js/event-logger.js"></script>
+  <script type="module" src="./js/session-logger.js"></script>
+  <script type="module" src="./js/particle.js"></script>
+
+  <!-- SFX -->
+  <audio id="sfx-hit" src="./sfx/hit.mp3" preload="auto"></audio>
+  <audio id="sfx-boss" src="./sfx/boss-intro.mp3" preload="auto"></audio>
+  <audio id="sfx-fever" src="./sfx/fever.mp3" preload="auto"></audio>
+  <audio id="bgm-menu" src="./sfx/bgm-menu.mp3" preload="auto" loop></audio>
+  <audio id="bgm-battle" src="./sfx/bgm-battle.mp3" preload="auto" loop></audio>
+</body>
+</html>
