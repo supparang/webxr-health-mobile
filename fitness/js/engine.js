@@ -1,11 +1,11 @@
-// === js/engine.js — Shadow Breaker core (2025-11-24 Research-Ready v5.1) ===
+// === js/engine.js — Shadow Breaker core (2025-11-24 Research-Ready v5.2) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 
-const BUILD_VERSION = 'shadowBreaker_v5.1';
+const BUILD_VERSION = 'shadowBreaker_v5.2';
 
 const DIFF_CONFIG = {
   easy: {
@@ -454,10 +454,10 @@ class ShadowBreakerGame {
     this.runIndex      = this.sessionSummaries.length + 1;
 
     this.sessionEnv = {
-      ua: (navigator && navigator.userAgent) ? navigator.userAgent : '',
+      ua: (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '',
       viewport_w: window.innerWidth || 0,
       viewport_h: window.innerHeight || 0,
-      input_mode: (('ontouchstart' in window) || (navigator.maxTouchPoints > 0))
+      input_mode: (('ontouchstart' in window) || (navigator && navigator.maxTouchPoints > 0))
         ? 'touch' : 'mouse'
     };
 
@@ -746,14 +746,14 @@ class ShadowBreakerGame {
     const phase = this.getBossPhaseFromHp();
     if (this.wrap) this.wrap.dataset.phase = String(phase);
 
-    if (this.bossName) this.bossName.textContent = `Boss ${boss.id}/4 — ${boss.name}`;
+    if (this.bossName) this.bossName.textContent = 'Boss ' + boss.id + '/4 — ' + boss.name;
     if (this.bossPortraitEmoji) this.bossPortraitEmoji.textContent = boss.emoji;
     if (this.bossPortraitName)  this.bossPortraitName.textContent  = boss.name;
     if (this.bossPortraitHint)  this.bossPortraitHint.textContent  =
-      `HP เหลือประมาณ ${Math.round(ratio * 100)}%`;
+      'HP เหลือประมาณ ' + Math.round(ratio * 100) + '%';
 
     if (this.bossFill) {
-      this.bossFill.style.transform = `scaleX(${ratio})`;
+      this.bossFill.style.transform = 'scaleX(' + ratio + ')';
     }
     if (this.hpBossVal) this.hpBossVal.textContent = Math.round(ratio * 100) + '%';
 
@@ -813,7 +813,7 @@ class ShadowBreakerGame {
   updateFeverHUD() {
     const ratio = clamp(this.fever / 100, 0, 1);
     if (this.feverFill) {
-      this.feverFill.style.transform = `scaleX(${ratio})`;
+      this.feverFill.style.transform = 'scaleX(' + ratio + ')';
     }
     if (this.feverStatus) {
       if (this.feverOn) {
@@ -828,7 +828,7 @@ class ShadowBreakerGame {
 
   addFever(kind) {
     if (this.feverOn) return;
-    const gain = this.config.feverGain[kind] || 3;
+    const gain = (this.config && this.config.feverGain && this.config.feverGain[kind]) || 3;
     this.fever = clamp(this.fever + gain, 0, 100);
     this.updateFeverHUD();
     if (this.fever >= 100) this.triggerFever();
@@ -836,7 +836,10 @@ class ShadowBreakerGame {
 
   loseFeverOnMiss() {
     if (this.feverOn) return;
-    this.fever = clamp(this.fever - this.config.feverLossMiss, 0, 100);
+    const loss = (this.config && typeof this.config.feverLossMiss === 'number')
+      ? this.config.feverLossMiss
+      : 10;
+    this.fever = clamp(this.fever - loss, 0, 100);
     this.updateFeverHUD();
   }
 
@@ -887,8 +890,9 @@ class ShadowBreakerGame {
       decoy = Math.random() < this.config.decoyRate;
     }
 
+    const bossEmoji = (this.currentBoss && this.currentBoss.emoji) ? this.currentBoss.emoji : '😈';
     const emoji = bossFace
-      ? (this.currentBoss?.emoji || '😈')
+      ? bossEmoji
       : (decoy ? '💣' : '🥊');
 
     const now   = performance.now();
@@ -977,11 +981,19 @@ class ShadowBreakerGame {
   }
 
   _baseEventFields(t, extra) {
+    const cfg = this.config || {};
+    const diffLabel = (cfg && cfg.label) ? cfg.label : this.diff;
+
     return {
       session_id: this.sessionId,
       build_version: BUILD_VERSION,
       mode: this.mode,
+
+      // ให้ตรงกับ PREFERRED_EVENT_COLS (diff + diff_label)
       difficulty: this.diff,
+      diff: this.diff,
+      diff_label: diffLabel,
+
       training_phase: this.trainingPhase,
       run_index: this.runIndex,
 
@@ -990,7 +1002,7 @@ class ShadowBreakerGame {
       note       : this.researchMeta.note,
 
       target_id  : t ? t.id : '',
-      boss_id    : this.currentBoss?.id || 0,
+      boss_id    : this.currentBoss ? this.currentBoss.id : 0,
       boss_phase : this.getBossPhaseFromHp(),
 
       is_decoy   : t ? (t.decoy ? 1 : 0) : 0,
@@ -1219,7 +1231,7 @@ class ShadowBreakerGame {
 
     const hpRatio = clamp(this.playerHp / 100, 0, 1);
     if (this.playerFill) {
-      this.playerFill.style.transform = `scaleX(${hpRatio})`;
+      this.playerFill.style.transform = 'scaleX(' + hpRatio + ')';
     }
 
     const now = performance.now();
@@ -1244,7 +1256,7 @@ class ShadowBreakerGame {
     const a    = document.createElement('a');
     const pid  = (this.researchMeta.participant || 'Pxxx').replace(/[^a-z0-9_-]/gi,'');
     a.href = url;
-    a.download = `shadow-breaker-events-${pid || 'Pxxx'}.csv`;
+    a.download = 'shadow-breaker-events-' + (pid || 'Pxxx') + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1261,7 +1273,7 @@ class ShadowBreakerGame {
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href = url;
-    a.download = `shadow-breaker-sessions-${this.sessionId}.csv`;
+    a.download = 'shadow-breaker-sessions-' + this.sessionId + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
