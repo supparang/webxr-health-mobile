@@ -1,7 +1,5 @@
-// === fitness/js/engine.js (Shadow Breaker Engine — 2025-11-24) ===
+// === fitness/js/engine.js (Shadow Breaker Engine — Single file 2025-11-24) ===
 'use strict';
-
-import { computeShadowSpawnParams, ShadowBossState } from './shadow-config.js';
 
 /**
  * ตารางข้อมูลบอส 4 ตัว + รางวัลเมื่อเคลียร์
@@ -61,11 +59,118 @@ const BOSS_TABLE = [
   }
 ];
 
+// ---------------------------------------------------------------------------
+// Config & helper ที่เคยอยู่ใน shadow-config.js ย้ายมารวมตรงนี้
+// ---------------------------------------------------------------------------
+
+class ShadowBossState {
+  constructor(diff) {
+    const baseHP = { easy: 40, normal: 60, hard: 80 }[diff] || 60;
+    this.maxHP = baseHP;
+    this.hp = baseHP;
+  }
+
+  hit(dmg) {
+    this.hp = Math.max(0, this.hp - (dmg || 1));
+    const ratio = this.maxHP ? this.hp / this.maxHP : 0;
+
+    let phase = 1;
+    if (ratio <= 2 / 3 && ratio > 1 / 3) phase = 2;
+    else if (ratio <= 1 / 3) phase = 3;
+
+    const nearDeath = ratio <= 0.2;
+    return { hp: this.hp, maxHP: this.maxHP, ratio, phase, nearDeath };
+  }
+}
+
+/**
+ * คำนวณพารามิเตอร์การ spawn เป้า ตาม diff + HP บอส (phase)
+ */
+function computeShadowSpawnParams(difficulty, bossRatio) {
+  const diffCfg = {
+    easy:   { baseSpawn: 900, baseLife: 1700, maxActive: 2, size: [110, 150] },
+    normal: { baseSpawn: 750, baseLife: 1500, maxActive: 3, size: [95, 135] },
+    hard:   { baseSpawn: 620, baseLife: 1350, maxActive: 4, size: [80, 115] }
+  };
+  const cfg = diffCfg[difficulty] || diffCfg.normal;
+
+  // phase จาก HP บอส
+  let phase = 1;
+  if (bossRatio <= 2 / 3 && bossRatio > 1 / 3) phase = 2;
+  else if (bossRatio <= 1 / 3) phase = 3;
+
+  let spawnInterval = cfg.baseSpawn;
+  let lifetime = cfg.baseLife;
+  let [minSize, maxSize] = cfg.size;
+
+  // ปรับความเร็ว + ขนาดตาม phase
+  if (phase === 2) {
+    spawnInterval *= 0.9;
+    lifetime *= 0.9;
+    minSize -= 10;
+    maxSize -= 10;
+  } else if (phase === 3) {
+    spawnInterval *= 0.8;
+    lifetime *= 0.85;
+    minSize -= 18;
+    maxSize -= 18;
+  }
+
+  // ใกล้ตาย spawn เร็วขึ้น
+  const nearDeath = bossRatio <= 0.2;
+  if (nearDeath) {
+    spawnInterval *= 0.8;
+  }
+
+  // กันเล็กเกินไป
+  minSize = Math.max(72, minSize);
+  maxSize = Math.max(minSize + 20, maxSize);
+
+  // น้ำหนักเป้า
+  let weights = { main: 70, fake: 15, bonus: 15 };
+  if (difficulty === 'hard') {
+    weights = { main: 60, fake: 25, bonus: 15 };
+  }
+  if (phase >= 2) {
+    weights.fake += 5;
+    weights.bonus += 5;
+    weights.main -= 10;
+  }
+
+  return {
+    phase,
+    nearDeath,
+    spawnInterval: Math.max(260, spawnInterval),
+    lifetime: Math.max(600, lifetime),
+    maxActive: cfg.maxActive,
+    sizePx: [minSize, maxSize],
+    weights
+  };
+}
+
+function randBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function pickWeighted(weights) {
+  const entries = Object.entries(weights || {});
+  const sum = entries.reduce((s, [, w]) => s + (w || 0), 0) || 1;
+  let r = Math.random() * sum;
+  for (const [k, w] of entries) {
+    r -= (w || 0);
+    if (r <= 0) return k;
+  }
+  return entries[0]?.[0] || 'main';
+}
+
+// ---------------------------------------------------------------------------
+// initShadowBreaker — bootstrap จาก shadow-breaker.js
+// ---------------------------------------------------------------------------
+
 /**
  * initShadowBreaker()
- * - bootstrap หลัก เรียกจาก shadow-breaker.js
  * - อ่าน query string: mode=normal|research, diff=easy|normal|hard, time=60
- * - ไม่ auto start เกม แต่ผูกกับปุ่ม "เริ่มเล่นเลย"
+ * - ยังไม่ start เกมทันที ให้ผูกกับปุ่ม "เริ่มเล่นเลย" ในหน้า HTML
  */
 export function initShadowBreaker(options = {}) {
   const url = new URL(window.location.href);
@@ -100,27 +205,8 @@ export function initShadowBreaker(options = {}) {
     nextUrl
   });
 
-  // debug เผื่อจำเป็น
-  window.__shadowGame = game;
+  window.__shadowGame = game; // debug
   return game;
-}
-
-// ---------------------------------------------------------------------------
-// Utility ฟังก์ชันเล็ก ๆ
-// ---------------------------------------------------------------------------
-function randBetween(min, max) {
-  return min + Math.random() * (max - min);
-}
-
-function pickWeighted(weights) {
-  const entries = Object.entries(weights || {});
-  const sum = entries.reduce((s, [, w]) => s + (w || 0), 0) || 1;
-  let r = Math.random() * sum;
-  for (const [k, w] of entries) {
-    r -= (w || 0);
-    if (r <= 0) return k;
-  }
-  return entries[0]?.[0] || 'main';
 }
 
 // ---------------------------------------------------------------------------
@@ -137,7 +223,6 @@ class ShadowBreakerGame {
     this.timeLeft = this.durationSec;
     this.nextUrl = opts.nextUrl || '';
 
-    // สถานะเกมหลัก
     this.running = false;
     this.startedOnce = false;
 
@@ -153,7 +238,6 @@ class ShadowBreakerGame {
     this.bossPhase = 1;
     this.nearDeath = false;
 
-    // FEVER gauge 0..1
     this.fever = 0;
     this.feverOn = false;
 
@@ -161,11 +245,9 @@ class ShadowBreakerGame {
     this.spawnTimer = null;
     this.timerTick = null;
 
-    // hook เผื่อใช้ต่อยอดงานวิจัย
     this.onBeforeSpawnTarget = null;
     this.onBossHit = null;
 
-    // research meta
     this.participantId = '';
     this.researchNote = '';
 
@@ -174,7 +256,7 @@ class ShadowBreakerGame {
     this.elIntro = null;
 
     this._bindDOMFromLayout();
-    this._resetBossForCurrent(false); // เตรียมบอสตัวแรก (ยังไม่เริ่ม spawn)
+    this._resetBossForCurrent(false);
     this._updateHUDAll();
   }
 
@@ -185,7 +267,6 @@ class ShadowBreakerGame {
     const root = this.elRoot;
     const q = (sel) => root.querySelector(sel);
 
-    // data-* ไว้ใช้กับ CSS
     root.dataset.diff = this.difficulty;
     root.dataset.phase = '1';
     root.dataset.boss = String(this.bossIndex);
@@ -230,7 +311,6 @@ class ShadowBreakerGame {
   }
 
   _bindModeUI() {
-    // ตั้ง state เริ่มต้นของโหมดเล่น
     const isResearch = (this.mode === 'research');
 
     if (this.elModeNormal) {
@@ -255,7 +335,6 @@ class ShadowBreakerGame {
   }
 
   _attachUIEvents() {
-    // ปุ่มโหมด
     this.elModeNormal?.addEventListener('click', () => {
       this._setMode('normal');
     });
@@ -263,7 +342,6 @@ class ShadowBreakerGame {
       this._setMode('research');
     });
 
-    // selector difficulty / time
     this.elDiffSelect?.addEventListener('change', () => {
       this.difficulty = this.elDiffSelect.value || 'normal';
       if (this.elRoot) this.elRoot.dataset.diff = this.difficulty;
@@ -275,9 +353,7 @@ class ShadowBreakerGame {
       this._updateTimerHUD();
     });
 
-    // ปุ่ม start
     this.elStartBtn?.addEventListener('click', () => {
-      // อ่านค่าอัปเดตจากหน้า UI ก่อน
       if (this.elDiffSelect) {
         this.difficulty = this.elDiffSelect.value || 'normal';
       }
@@ -298,7 +374,6 @@ class ShadowBreakerGame {
       this.start();
     });
 
-    // CSV button (ยังไม่ทำจริง แค่ alert ไว้ก่อน)
     this.elCsvBtn?.addEventListener('click', () => {
       window.alert('ฟีเจอร์ดาวน์โหลด CSV จะถูกเปิดใช้ในงานใหญ่ 3 (Research Session Logger) ค่ะ');
     });
@@ -455,7 +530,6 @@ class ShadowBreakerGame {
     this.fever = 0;
     this.feverOn = false;
 
-    // reset boss ตัวแรก
     this.bossIndex = 0;
     this._resetBossForCurrent(true);
 
@@ -513,9 +587,7 @@ class ShadowBreakerGame {
 
     const targetType = pickWeighted(params.weights || { main: 1 });
 
-    // ----- คำนวณขนาดเป้าตาม diff + phase -----
-    let [baseMin, baseMax] = params.sizePx || [72, 110];
-
+    let [baseMin, baseMax] = params.sizePx || [80, 120];
     const diff  = this.difficulty || 'normal';
     const phase = this.bossPhase  || 1;
 
@@ -530,20 +602,18 @@ class ShadowBreakerGame {
       3: 0.85
     };
 
-    const diffFactor  = diffFactorMap[diff]   ?? 1.0;
-    const phaseFactor = phaseFactorMap[phase] ?? 1.0;
-    const factor      = diffFactor * phaseFactor;
+    const factor =
+      (diffFactorMap[diff] ?? 1.0) *
+      (phaseFactorMap[phase] ?? 1.0);
 
     let minSize = baseMin * factor;
     let maxSize = baseMax * factor;
-
     const MIN_SIZE = 72;
     if (minSize < MIN_SIZE)      minSize = MIN_SIZE;
     if (maxSize < MIN_SIZE + 20) maxSize = MIN_SIZE + 20;
 
     const size = randBetween(minSize, maxSize);
 
-    // ---------- สร้าง DOM เป้า ----------
     const el = document.createElement('div');
     el.className = `sb-target sb-target-${targetType}`;
 
@@ -558,7 +628,6 @@ class ShadowBreakerGame {
     }
     el.appendChild(inner);
 
-    // ตำแหน่งแบบสุ่มใน stage (เว้นขอบ)
     const pad = 12;
     const rect = stage.getBoundingClientRect();
     const w = rect.width || 320;
@@ -616,7 +685,6 @@ class ShadowBreakerGame {
     }
 
     if (target.type === 'fake') {
-      // ตีโดนเป้าหลอก → ตัด HP + reset combo
       this.playerHP = Math.max(0, this.playerHP - 1);
       this.combo = 0;
       this._updatePlayerHPHUD();
@@ -629,7 +697,6 @@ class ShadowBreakerGame {
         return;
       }
     } else {
-      // main / bonus
       let scoreGain = 10;
       if (target.type === 'bonus') scoreGain = 20;
 
@@ -642,7 +709,6 @@ class ShadowBreakerGame {
       this._updateScoreHUD();
       this._updateComboHUD();
 
-      // เพิ่มเกจ FEVER ตามชนิดเป้า
       this._addFever(target.type === 'bonus' ? 0.08 : 0.04);
 
       const dmg = target.type === 'bonus' ? 2 : 1;
@@ -700,7 +766,7 @@ class ShadowBreakerGame {
       return;
     }
 
-    const info = this.boss.hit(dmg); // { hp, maxHP, phase, nearDeath }
+    const info = this.boss.hit(dmg);
     this.bossPhase = info.phase;
     this.nearDeath = info.nearDeath;
 
@@ -714,7 +780,6 @@ class ShadowBreakerGame {
   }
 
   _handleBossDown() {
-    // รางวัลจากบอสตัวปัจจุบัน
     this._applyBossReward();
 
     if (this.elRoot) {
@@ -788,7 +853,6 @@ class ShadowBreakerGame {
       this.timerTick = null;
     }
 
-    // ล้างเป้าทั้งหมด
     this.activeTargets.forEach(t => {
       if (t.lifeTimer) clearTimeout(t.lifeTimer);
       if (t.cleanup) t.cleanup();
