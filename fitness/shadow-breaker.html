@@ -4,11 +4,19 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>VR Fitness — Shadow Breaker</title>
-      <link rel="icon" href="./favicon.ico"/>
+  <link rel="icon" href="./favicon.ico"/>
   <link rel="stylesheet" href="./css/shadow-breaker.css"/>
 </head>
 <body>
-  <div class="sb-wrap" id="shadowWrap" data-diff="normal" data-boss="1" data-phase="1">
+  <!-- sb-root: host หลักของ engine.js -->
+  <div
+    class="sb-wrap"
+    id="sb-root"
+    data-shadow-ready="1"
+    data-diff="normal"
+    data-boss="1"
+    data-phase="1"
+  >
     <div class="card sb-card">
       <!-- Header -->
       <div class="sb-header">
@@ -23,7 +31,8 @@
 
       <!-- Menu / mode -->
       <div class="menu-block">
-        <label class="menu-label">โหมดการเล่น</label>
+        <!-- ไม่ผูกกับ input ตัวไหน เปลี่ยนเป็น <p> แทน label -->
+        <p class="menu-label">โหมดการเล่น</p>
         <div class="btn-row">
           <button type="button" class="btn-main small primary" id="modeNormalBtn">
             <span class="btn-icon">🎮</span> เล่นปกติ
@@ -35,7 +44,7 @@
       </div>
 
       <div class="menu-block">
-        <label class="menu-label">ระดับความยาก</label>
+        <label class="menu-label" for="diffSelect">ระดับความยาก</label>
         <div class="select-wrap">
           <select id="diffSelect">
             <option value="easy">Easy — เริ่มต้น</option>
@@ -46,7 +55,7 @@
       </div>
 
       <div class="menu-block">
-        <label class="menu-label">ระยะเวลาเล่นต่อรอบ</label>
+        <label class="menu-label" for="timeSelect">ระยะเวลาเล่นต่อรอบ</label>
         <div class="select-wrap">
           <select id="timeSelect">
             <option value="45">45 วินาที</option>
@@ -86,39 +95,53 @@
       <!-- HUD + Boss + field -->
       <div class="sb-hud-row">
         <div class="sb-hp-stack">
+          <!-- PLAYER HP -->
           <div class="sb-hp sb-hp-player">
             <div class="sb-hp-label">
               <span class="sb-hp-name">PLAYER</span>
               <span class="sb-hp-val" data-sb-player-hp-text>5/5</span>
             </div>
             <div class="sb-hp-bar">
-              <div class="sb-hp-fill" data-sb-player-hp></div>
+              <div
+                class="sb-hp-fill sb-player-fill"
+                data-sb-player-hp
+                style="transform:scaleX(1);"
+              ></div>
             </div>
           </div>
 
+          <!-- BOSS HP -->
           <div class="sb-hp sb-hp-boss">
             <div class="sb-hp-label">
               <span class="sb-hp-name">BOSS</span>
               <span class="sb-hp-val" data-sb-boss-hp-text>60/60</span>
             </div>
             <div class="sb-hp-bar">
-              <div class="sb-hp-fill" data-sb-boss-hp></div>
+              <div
+                class="sb-hp-fill sb-boss-fill"
+                data-sb-boss-hp
+                style="transform:scaleX(1);"
+              ></div>
             </div>
           </div>
         </div>
 
         <div class="sb-meta">
           <div class="sb-meta-row">
-            <span>TIME</span> <span data-sb-timer>00:60</span>
+            <span>TIME</span>
+            <span class="sb-timer-val" data-sb-timer>00:60</span>
           </div>
           <div class="sb-meta-row">
-            <span>SCORE</span> <span data-sb-score>0</span>
+            <span>SCORE</span>
+            <span class="sb-score-val" data-sb-score>0</span>
           </div>
           <div class="sb-meta-row">
-            <span>COMBO</span> <span data-sb-combo>0</span>
+            <span>COMBO</span>
+            <span class="sb-combo-val" data-sb-combo>0</span>
           </div>
           <div class="sb-meta-row">
-            <span>PHASE</span> <span data-sb-phase>1</span>
+            <span>PHASE</span>
+            <span class="sb-phase-val" data-sb-phase>1</span>
           </div>
         </div>
 
@@ -142,14 +165,15 @@
         </div>
       </div>
 
-      <div class="sb-field" data-sb-field>
+      <!-- สนามจริงของเกม: engine.js จะใช้เป็น stage -->
+      <div class="sb-field sb-stage" data-sb-field>
         <div class="sb-field-guide"></div>
         <!-- เป้าจะ spawn ที่นี่ -->
       </div>
 
       <!-- Controls / back -->
       <div class="sb-controls">
-        <a href="index.html" class="back-hub-btn">
+        <a href="hub.html" class="back-hub-btn">
           ← กลับ Hub VR Fitness
         </a>
       </div>
