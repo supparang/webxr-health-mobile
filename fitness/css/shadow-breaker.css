@@ -1,740 +1,85 @@
-/* ==========================================================
-   Shadow Breaker — Mobile-ready Research Edition (CSS)
-   - Neon / Dark theme
-   - Boss-based button colors
-   - 3D glove icon spin
-   - Adaptive UI for mobile
-   ========================================================== */
-
-/* ---------- Base layout ---------- */
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  background:
-    radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(147,51,234,0.18),transparent 55%),
-    #020617;
-  color:#e5e7eb;
+:root {
+  color-scheme: dark;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  --bg1: #0b1120;
+  --bg2: #111827;
+  --accent: #ec4899;
+  --accent2: #60a5fa;
+  --text: #e5e7eb;
 }
 
-.hidden{display:none;}
-
-.sb-wrap{
-  max-width:960px;
-  margin:16px auto 32px;
-  padding:16px 12px 24px;
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(236,72,153,0.18), transparent 55%), var(--bg1);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
 }
 
-/* Card shell */
-.card.sb-card{
-  background:rgba(15,23,42,0.96);
-  border-radius:24px;
-  padding:20px 20px 22px;
-  box-shadow:
-    0 0 0 1px rgba(15,23,42,0.9),
-    0 24px 60px rgba(15,23,42,0.95);
+h1,h2,h3 { text-align: center; margin: .5em 0; }
+.subtitle { text-align: center; opacity: .85; margin-bottom: 1em; }
+
+.view {
+  max-width: 720px;
+  width: 90%;
+  padding: 1.5em;
+  background: rgba(17,24,39,0.7);
+  border-radius: 16px;
+  box-shadow: 0 0 24px rgba(0,0,0,0.3);
+  transition: all .4s ease;
+}
+.hidden { display: none !important; }
+
+.btn-primary, .btn-secondary, .btn-start {
+  border: none;
+  border-radius: 10px;
+  padding: .8em 1.4em;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all .25s ease;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-secondary { background: var(--accent2); color: white; }
+.btn-primary:hover, .btn-secondary:hover { opacity: .85; transform: scale(1.03); }
+.btn-start {
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  color: #fff;
+  width: 100%;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1em;
+}
+.pulse-glow { animation: glow 1.8s infinite alternate; }
+@keyframes glow {
+  from { box-shadow: 0 0 8px rgba(236,72,153,0.6); }
+  to { box-shadow: 0 0 18px rgba(56,189,248,0.6); }
 }
 
-/* Header */
-.sb-header .title{
-  margin:0 0 4px;
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-size:26px;
-  letter-spacing:.02em;
-}
-.title-main{
-  font-weight:700;
-}
-.title-icon{
-  font-size:26px;
-}
-.subtitle{
-  margin:0 0 14px;
-  font-size:14px;
-  opacity:.82;
-}
+.fade-in { animation: fadein .6s ease both; }
+@keyframes fadein { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:none;} }
+.slide-up { animation: slideup .5s ease both; }
+@keyframes slideup { from{opacity:0;transform:translateY(40px);} to{opacity:1;transform:none;} }
 
-/* ---------- Form / menu ---------- */
+.hud { text-align:center; margin:1em auto; }
+.hp-bar { width:100%; height:10px; background:#1f2937; border-radius:8px; margin:.5em 0; overflow:hidden; }
+.fill { height:100%; transform-origin:left; transition:transform .3s ease; }
+.fill.player { background:#22c55e; }
+.fill.boss { background:#ef4444; }
 
-.menu-block{
-  margin-top:10px;
-  margin-bottom:14px;
-}
-.menu-label{
-  display:block;
-  font-size:14px;
-  margin-bottom:6px;
-}
-.select-wrap{
-  position:relative;
-}
-.select-wrap select{
-  width:100%;
-  padding:10px 12px;
-  border-radius:14px;
-  border:1px solid rgba(148,163,184,0.55);
-  background:rgba(15,23,42,0.9);
-  color:#e5e7eb;
-  font-size:15px;
-  outline:none;
-}
-.select-wrap select:focus{
-  border-color:#38bdf8;
-  box-shadow:0 0 0 1px rgba(56,189,248,0.5);
-}
-
-/* Form rows for research mode */
-.form-row{
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-  margin-bottom:10px;
-}
-.form-row label{
-  font-size:13px;
-  opacity:.85;
-}
-.form-row input,
-.form-row textarea{
-  border-radius:12px;
-  border:1px solid rgba(148,163,184,0.55);
-  background:rgba(15,23,42,0.9);
-  color:#e5e7eb;
-  padding:8px 10px;
-  font-size:14px;
-  resize:vertical;
-}
-.form-row input:focus,
-.form-row textarea:focus{
-  border-color:#38bdf8;
-  outline:none;
-  box-shadow:0 0 0 1px rgba(56,189,248,0.5);
-}
-
-/* ---------- Buttons ---------- */
-
-.btn-col{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  margin-top:8px;
-}
-
-.btn-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  margin-top:14px;
-}
-
-button{
-  font-family:inherit;
-  border:none;
-  background:none;
-  padding:0;
-}
-
-.btn-main{
-  position:relative;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  width:100%;
-  padding:11px 16px;
-  font-size:15px;
-  border-radius:16px;
-  cursor:pointer;
-  border:1px solid transparent;
-  transition:
-    transform .16s ease-out,
-    box-shadow .16s ease-out,
-    background .16s ease-out,
-    border-color .16s ease-out,
-    filter .16s ease-out;
-  will-change:transform;
-  transform:translateZ(0);
-}
-
-.btn-main .btn-icon{
-  font-size:16px;
-}
-
-/* Base primary — จะถูก override ด้วย boss theme ด้านล่าง */
-.btn-main.primary{
-  background:linear-gradient(90deg,#2563eb,#4f46e5);
-  box-shadow:0 18px 40px rgba(37,99,235,0.55);
-  color:#f9fafb;
-}
-
-/* Secondary: CSV */
-.btn-main.secondary{
-  background:rgba(15,23,42,0.95);
-  border-color:rgba(148,163,184,0.6);
-  color:#e5e7eb;
-}
-
-/* Ghost button */
-.btn-main.ghost{
-  background:rgba(15,23,42,0.8);
-  border-color:rgba(148,163,184,0.55);
-  color:#e5e7eb;
-}
-
-/* Small version */
-.btn-main.small{
-  width:auto;
-  padding:8px 14px;
-  font-size:13px;
-}
-
-/* Hover/active animation (vibration + glow) */
-.btn-main:hover{
-  transform:translateY(-2px) scale(1.01);
-  box-shadow:0 20px 40px rgba(15,23,42,0.9);
-  filter:brightness(1.05);
-}
-.btn-main:active{
-  transform:translateY(1px) scale(.97);
-  box-shadow:0 10px 24px rgba(15,23,42,0.9);
-}
-
-/* ---------- Back-to-Hub button ---------- */
-
-.back-hub-btn{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
-  margin-top:4px;
-  padding:9px 14px;
-  border-radius:16px;
-  font-size:14px;
-  text-decoration:none;
-  color:#e5e7eb;
-  background:rgba(15,23,42,0.85);
-  border:1px solid rgba(148,163,184,0.45);
-  box-shadow:0 10px 28px rgba(15,23,42,0.9);
-  transition:all .18s ease-out;
-}
-.back-hub-btn.small{
-  padding:7px 12px;
-  font-size:13px;
-}
-.back-hub-btn:hover{
-  background:rgba(56,189,248,0.14);
-  border-color:#38bdf8;
-  box-shadow:0 0 16px rgba(56,189,248,0.7);
-  transform:translateY(-1px);
-}
-.back-hub-btn:active{
-  transform:translateY(1px) scale(.97);
-}
-
-/* 3D spinning glove icon */
-.icon-3d-glove{
-  display:inline-block;
-  font-size:19px;
-  filter:drop-shadow(0 0 6px rgba(248,250,252,0.75));
-  animation:glove-spin 2.2s linear infinite;
-  transform-origin:center center;
-}
-.icon-3d-glove.small{ font-size:17px; }
-.icon-3d-glove.tiny{ font-size:15px; }
-
-@keyframes glove-spin{
-  0%{ transform:perspective(400px) rotateY(0deg) translateY(0); }
-  40%{ transform:perspective(400px) rotateY(190deg) translateY(-1px); }
-  80%{ transform:perspective(400px) rotateY(360deg) translateY(0); }
-  100%{ transform:perspective(400px) rotateY(360deg) translateY(0); }
-}
-
-/* ---------- HUD / field ---------- */
-
-.sb-hud-row{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:8px;
-}
-
-.sb-hp-stack{
-  flex:1;
-  max-width:640px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
-
-.sb-hp{
-  background:rgba(15,23,42,0.9);
-  border-radius:999px;
-  padding:6px 12px 8px;
-  box-shadow:0 0 0 1px rgba(15,23,42,0.95);
-}
-
-.sb-hp-label{
-  display:flex;
-  justify-content:space-between;
-  font-size:13px;
-  margin-bottom:4px;
-}
-.sb-hp-name{
-  font-weight:600;
-}
-.sb-hp-val{
-  font-weight:600;
-}
-
-.sb-hp-bar{
-  position:relative;
-  height:8px;
-  border-radius:999px;
-  overflow:hidden;
-  background:rgba(15,23,42,1);
-}
-.sb-hp-fill{
-  position:absolute;
-  inset:0;
-  transform-origin:left center;
-  transform:scaleX(1);
-}
-
-/* player/boss สีต่างกัน */
-.sb-hp-player .sb-hp-fill{
-  background:linear-gradient(90deg,#22c55e,#4ade80);
-}
-.sb-hp-boss .sb-hp-fill{
-  background:linear-gradient(90deg,#f97316,#ef4444);
-}
-
-/* meta panel */
-.sb-meta{
-  min-width:160px;
-  background:rgba(15,23,42,0.98);
-  border-radius:18px;
-  padding:10px 12px;
-  font-size:13px;
-  box-shadow:0 12px 30px rgba(15,23,42,0.9);
-}
-.sb-meta-row{
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:2px;
-}
-.sb-meta-row span:first-child{
-  opacity:.7;
-}
-
-/* boss portrait */
-.boss-portrait-box{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-end;
-  gap:4px;
-}
-.sb-boss-portrait{
-  width:78px;
-  height:78px;
-  border-radius:24px;
-  background:radial-gradient(circle at 30% 20%,#fef9c3,#f97316);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:36px;
-  box-shadow:0 14px 40px rgba(15,23,42,0.9);
-}
-.boss-portrait-text{
-  text-align:right;
-  font-size:13px;
-}
-#boss-portrait-name{
-  font-weight:600;
-}
-#boss-portrait-hint{
-  opacity:.8;
-}
-
-/* shake เมื่อ HP ต่ำ */
-.sb-shake{
-  animation:sb-shake 0.35s infinite;
-}
-@keyframes sb-shake{
-  0%{transform:translateX(0);}
-  25%{transform:translateX(-2px);}
-  50%{transform:translateX(2px);}
-  75%{transform:translateX(-1px);}
-  100%{transform:translateX(0);}
-}
-
-/* FEVER row */
-.sb-fever-row{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin:4px 0 6px;
-}
-.fever-label{
-  font-size:13px;
-  letter-spacing:.08em;
-}
-.fever-bar{
-  flex:1;
-  position:relative;
-  height:8px;
-  border-radius:999px;
-  background:rgba(15,23,42,0.85);
-  overflow:hidden;
-}
-.fever-fill{
-  position:absolute;
-  inset:0;
-  transform-origin:left center;
-  transform:scaleX(0);
-  background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ec4899);
-}
-.fever-status{
-  padding:3px 8px 4px;
-  border-radius:999px;
-  font-size:11px;
-  border:1px solid rgba(148,163,184,0.7);
-}
-.fever-status.on{
-  background:rgba(236,72,153,0.2);
-  border-color:#f97316;
-}
-
-/* feedback bubble */
-.sb-feedback{
-  align-self:center;
-  margin-top:2px;
-  padding:6px 14px;
-  border-radius:999px;
-  font-size:13px;
-  background:rgba(15,23,42,0.98);
-  border:1px solid rgba(148,163,184,0.6);
-  box-shadow:0 10px 25px rgba(15,23,42,0.8);
-  max-width:420px;
-}
-.sb-feedback.good{border-color:#22c55e;}
-.sb-feedback.perfect{border-color:#eab308;}
-.sb-feedback.miss{border-color:#f97316;}
-.sb-feedback.bomb{border-color:#ef4444;}
-.sb-feedback.heal{border-color:#38bdf8;}
-
-/* play field */
-.sb-field{
-  position:relative;
-  flex:1;
-  min-height:min(420px,58vh);
-  max-height:60vh;
-  margin:8px 0 12px;
-  border-radius:22px;
-  background:
-    radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(37,99,235,0.18),transparent 55%),
-    #020617;
-  box-shadow:inset 0 0 0 1px rgba(15,23,42,0.9);
-  overflow:hidden;
-}
-
-/* zone guide (สำหรับงานวิจัย) */
-.sb-field-guide{
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  z-index:1;
-}
-.sb-field-guide::before,
-.sb-field-guide::after{
-  content:'';
-  position:absolute;
-  inset:0;
-  border-radius:inherit;
-}
-.sb-field-guide::before{
-  border-left:1px dashed rgba(148,163,184,0.35);
-  border-right:1px dashed rgba(148,163,184,0.35);
-}
-.sb-field-guide::after{
-  border-top:1px dashed rgba(148,163,184,0.25);
-  border-bottom:1px dashed rgba(148,163,184,0.25);
-}
-
-/* ---------- TARGETS ---------- */
-/* engine.js กำหนด width/height แล้ว
-   CSS นี้แค่ทำให้ดูใหญ่/ชัดและคลิกง่ายทั้ง desktop/mobile */
-
-.sb-target{
-  position:absolute;
-  transform:translate(-50%,-50%);
-  border-radius:999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  padding:4px;
-  z-index:3;
-  transition:
-    transform .18s ease-out,
-    box-shadow .18s ease-out,
-    opacity .18s ease-out;
-}
-
-.sb-target-inner{
-  width:100%;
-  height:100%;
-  border-radius:inherit;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  /* emoji ขนาดยืดหยุ่น ตามจอ แต่ไม่เล็ก/ใหญ่เกินไป */
-  font-size:clamp(32px, 7vw, 64px);
-
-  border:4px solid #22c55e;
-  background:
-    radial-gradient(circle at 30% 20%,#fefce8,#bbf7d0);
-  box-shadow:0 10px 30px rgba(15,23,42,0.95);
-}
-
-/* สีขอบเป้าตาม diff */
-.sb-wrap[data-diff="easy"]  .sb-target-inner{ border-color:#22c55e;} /* เขียว */
-.sb-wrap[data-diff="normal"] .sb-target-inner{ border-color:#38bdf8;} /* ฟ้า */
-.sb-wrap[data-diff="hard"] .sb-target-inner{ border-color:#f97316;}   /* ส้ม/แดง */
-
-/* bomb */
-.sb-target.sb-target-fake .sb-target-inner{
-  background:radial-gradient(circle at 30% 20%,#fee2e2,#fecaca);
-}
-
-/* boss face ให้เด่น */
-.sb-target[data-boss-face="1"] .sb-target-inner{
-  border-width:5px;
-  box-shadow:0 0 0 2px rgba(250,250,250,0.8),0 16px 40px rgba(148,27,128,0.9);
-  transform:scale(1.05);
-}
-
-/* hit effect (หด + fade) */
-.sb-target.sb-hit{
-  animation:sb-pop .22s ease-out forwards;
-}
-@keyframes sb-pop{
-  0%{transform:translate(-50%,-50%) scale(1);opacity:1;}
-  100%{transform:translate(-50%,-50%) scale(0.6);opacity:0;}
-}
-
-/* score popup */
-.sb-fx-score{
-  position:absolute;
-  transform:translate(-50%,-50%);
-  padding:4px 10px;
-  font-size:13px;
-  border-radius:999px;
-  background:rgba(15,23,42,0.95);
-  box-shadow:0 10px 28px rgba(15,23,42,0.9);
-  animation:sb-pop-score .6s ease-out forwards;
-  white-space:nowrap;
-  z-index:4;
-}
-.sb-fx-score.sb-perfect{color:#fde68a;}
-.sb-fx-score.sb-good{color:#bbf7d0;}
-.sb-fx-score.sb-miss{color:#fecaca;}
-.sb-fx-score.sb-decoy{color:#fecaca;}
-
-@keyframes sb-pop-score{
-  0%{opacity:0; transform:translate(-50%,-40%);}
-  20%{opacity:1; transform:translate(-50%,-60%);}
-  100%{opacity:0; transform:translate(-50%,-90%);}
-}
-
-/* hit particle (emoji) */
-.hitParticle{
-  position:absolute;
-  transform:translate(-50%,-50%);
-  font-size:32px;
-  pointer-events:none;
-  animation:sb-particle .48s ease-out forwards;
-  z-index:5;
-}
-@keyframes sb-particle{
-  0%{opacity:1; transform:translate(-50%,-50%) scale(0.9);}
-  100%{opacity:0; transform:translate(-50%,-90%) scale(1.2);}
-}
-
-/* controls */
-.sb-controls{
-  display:flex;
-  justify-content:flex-end;
-  gap:10px;
-}
-
-/* boss intro overlay */
-.boss-intro{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:rgba(15,23,42,0.88);
-  z-index:40;
-}
-.boss-intro.hidden{display:none;}
-.boss-intro-card{
-  max-width:320px;
-  padding:20px 18px;
-  background:radial-gradient(circle at top,#1f2937,#020617);
-  border-radius:24px;
+.sb-feedback {
   text-align:center;
-  box-shadow:0 24px 60px rgba(0,0,0,0.9);
+  font-weight:600;
+  padding:.5em 1em;
+  border:2px solid var(--accent);
+  border-radius:12px;
+  margin-top:1em;
 }
-.boss-intro-emoji{
-  font-size:48px;
-  margin-bottom:6px;
-}
-.boss-intro-name{
-  font-weight:700;
-  margin-bottom:4px;
-}
-.boss-intro-title{
-  font-size:14px;
-  color:#fde68a;
-  margin-bottom:6px;
-}
-.boss-intro-desc{
-  font-size:13px;
-  margin-bottom:10px;
-}
-.boss-intro-hint{
-  font-size:12px;
-  opacity:.8;
-}
-
-/* ---------- Result table ---------- */
-.summary table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:14px;
-}
-.summary td{
-  padding:3px 4px;
-}
-.summary td.label{
-  width:42%;
-  opacity:.8;
-}
-
-/* ---------- Boss-based button theme ---------- */
-/* ใช้ data-boss จาก engine.js :
-      0 = Bubble Glove (ฟ้า),
-      1 = Neon Knuckle (ม่วง),
-      2 = Shadow Guard (เขียวมรกต),
-      3 = Final Burst (แดง/ส้ม)   */
-
-.sb-wrap[data-boss="0"] .btn-main.primary{
-  background:linear-gradient(90deg,#2563eb,#38bdf8);
-  box-shadow:0 18px 40px rgba(37,99,235,0.6);
-}
-.sb-wrap[data-boss="1"] .btn-main.primary{
-  background:linear-gradient(90deg,#8b5cf6,#ec4899);
-  box-shadow:0 18px 40px rgba(168,85,247,0.6);
-}
-.sb-wrap[data-boss="2"] .btn-main.primary{
-  background:linear-gradient(90deg,#10b981,#14b8a6);
-  box-shadow:0 18px 40px rgba(16,185,129,0.6);
-}
-.sb-wrap[data-boss="3"] .btn-main.primary{
-  background:linear-gradient(90deg,#f97316,#ef4444);
-  box-shadow:0 18px 40px rgba(248,113,113,0.7);
-}
-
-/* ---------- Phase-based background accent --------- */
-.sb-wrap[data-phase="2"] .sb-field{
-  background:
-    radial-gradient(circle at top left,rgba(251,191,36,0.3),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(56,189,248,0.25),transparent 55%),
-    #020617;
-}
-.sb-wrap[data-phase="3"] .sb-field{
-  background:
-    radial-gradient(circle at top left,rgba(248,113,113,0.35),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(129,140,248,0.32),transparent 55%),
-    #020617;
-}
-
-/* ---------- Stage clear flash ---------- */
-.sb-wrap.sb-stage-clear .sb-field{
-  animation:sb-stage-flash .4s ease-out 2;
-}
-@keyframes sb-stage-flash{
-  0%  { box-shadow:0 0 0 1px rgba(34,197,94,0.6),0 0 40px rgba(34,197,94,0.7) inset; }
-  100%{ box-shadow:inset 0 0 0 1px rgba(15,23,42,0.9); }
-}
-
-/* ---------- Adaptive UI (มือถือ) ---------- */
-
-@media (max-width:768px){
-  .sb-wrap{
-    padding:12px 10px 20px;
-  }
-  .card.sb-card{
-    padding:16px 14px 18px;
-    border-radius:20px;
-  }
-  .sb-header .title{
-    font-size:22px;
-  }
-  .subtitle{
-    font-size:13px;
-  }
-
-  .btn-main{
-    padding:12px 18px;
-    font-size:16px;
-    border-radius:18px;
-  }
-  .btn-main.small{
-    padding:9px 14px;
-    font-size:14px;
-  }
-  .back-hub-btn{
-    padding:10px 15px;
-    font-size:15px;
-  }
-
-  .sb-hud-row{
-    flex-direction:column;
-    align-items:stretch;
-  }
-  .sb-meta{
-    order:2;
-    margin-top:6px;
-  }
-  .boss-portrait-box{
-    align-items:flex-start;
-  }
-  .sb-field{
-    min-height:260px;
-    max-height:none;
-  }
-}
-
-/* Neon hit VFX (ใช้ร่วมกับ DomRenderer/อนาคต) */
-.sb-neon-hit{
-  position:absolute;
-  width:26px;
-  height:26px;
-  border:3px solid #00f2ff;
-  border-radius:50%;
-  opacity:1;
-  animation:neonBurst .25s ease-out forwards;
-  pointer-events:none;
-  z-index:8;
-}
-@keyframes neonBurst{
-  0% { transform:scale(0.2); opacity:1; }
-  100% { transform:scale(1.8); opacity:0; }
+.result-card {
+  background:rgba(0,0,0,0.3);
+  border-radius:10px;
+  padding:1em;
+  margin:1em 0;
 }
