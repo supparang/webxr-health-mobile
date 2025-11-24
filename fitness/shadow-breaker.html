@@ -4,201 +4,76 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>⚡ Shadow Breaker — VR Fitness Academy ⚡</title>
-  <meta name="color-scheme" content="light dark"/>
   <link rel="icon" href="./favicon.ico"/>
   <link rel="stylesheet" href="./css/shadow-breaker.css"/>
 
   <style>
-    /* ===== GLOBAL THEME ===== */
-    :root {
-      --c-bg1: #020617;
-      --c-bg2: rgba(17, 24, 39, 0.85);
-      --c-accent1: #a855f7;
-      --c-accent2: #6366f1;
-      --c-text: #e5e7eb;
-      --c-muted: #94a3b8;
-      --radius: 18px;
+    /* === Transition Animations === */
+    .fade-in { animation: fadeIn 0.8s ease forwards; }
+    .fade-out { animation: fadeOut 0.5s ease forwards; }
+    .slide-up { animation: slideUp 0.7s ease-out forwards; }
+
+    @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+    @keyframes fadeOut { from {opacity:1;} to {opacity:0;} }
+    @keyframes slideUp { from {opacity:0; transform:translateY(30px);} to {opacity:1; transform:translateY(0);} }
+
+    /* === Target Glow === */
+    .target {
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      box-shadow: 0 0 12px rgba(168,85,247,0.65);
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff 20%, #c084fc 80%);
+      opacity: 0;
+      transform: scale(0.85);
+    }
+    .target.spawn { opacity: 1; transform: scale(1.15); }
+    .target.hit { animation: popHit 0.3s ease; }
+    @keyframes popHit {
+      0% {transform:scale(1); opacity:1;}
+      50% {transform:scale(1.4); opacity:0.8;}
+      100% {transform:scale(0); opacity:0;}
     }
 
-    body {
-      margin: 0;
-      font-family: "Segoe UI", system-ui, sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(147,197,253,0.15), transparent 60%),
-        radial-gradient(circle at bottom right, rgba(192,132,252,0.22), transparent 60%),
-        var(--c-bg1);
-      color: var(--c-text);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .sb-wrap {
-      width: min(460px, 90%);
-      background: var(--c-bg2);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: var(--radius);
-      padding: 36px 24px 48px;
-      box-shadow: 0 0 36px rgba(0,0,0,0.5);
-      backdrop-filter: blur(10px);
-      text-align: center;
-    }
-
-    /* ===== MENU VIEW ===== */
-    h1.title {
-      font-size: 2rem;
-      margin: 0 0 28px;
-      color: #fafafa;
-      text-shadow: 0 0 10px rgba(168,85,247,0.55);
-    }
-
-    label {
-      display: block;
-      margin-top: 12px;
-      margin-bottom: 4px;
-      font-size: 0.95rem;
-      color: var(--c-muted);
-      text-align: left;
-    }
-
-    select, input {
-      width: 100%;
-      padding: 10px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.15);
-      background: rgba(255,255,255,0.08);
-      color: var(--c-text);
-      font-size: 1rem;
-    }
-
-    .btn-main {
-      width: 100%;
-      background: linear-gradient(90deg, var(--c-accent1), var(--c-accent2));
-      border: none;
-      border-radius: 12px;
-      padding: 14px 16px;
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: #fff;
-      margin-top: 26px;
-      cursor: pointer;
-      box-shadow: 0 6px 14px rgba(0,0,0,0.35);
-      transition: transform 0.15s ease, box-shadow 0.2s ease;
-    }
-    .btn-main:hover { transform: translateY(-2px); }
-
-    .btn-sub {
-      width: 100%;
-      margin-top: 18px;
-      border: 1px solid rgba(255,255,255,0.25);
-      border-radius: 10px;
-      background: transparent;
-      color: var(--c-muted);
-      padding: 10px;
-      font-size: 0.95rem;
-      cursor: pointer;
-    }
-
-    hr {
-      margin: 28px 0;
-      border: none;
-      border-top: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .hint {
-      font-size: 0.85rem;
-      color: var(--c-muted);
-      margin-top: 10px;
-    }
-
-    /* ===== PLAY VIEW ===== */
-    #view-play .hud {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      font-size: 0.9rem;
-    }
-    .bar {
-      width: 180px;
-      height: 8px;
-      border-radius: 6px;
-      background: rgba(255,255,255,0.08);
+    /* === Fever bar === */
+    .bar.fever {
+      position: relative;
       overflow: hidden;
-      margin-top: 4px;
+      background: linear-gradient(90deg,#fde047,#fbbf24);
+      animation: pulseFever 1.8s infinite ease-in-out;
     }
-    .bar.green { background: linear-gradient(90deg,#22c55e,#16a34a); }
-    .bar.red { background: linear-gradient(90deg,#f87171,#ef4444); }
-    .bar.fever { background: linear-gradient(90deg,#facc15,#fbbf24); }
-
-    #view-play .boss-portrait {
-      margin: 18px 0;
+    @keyframes pulseFever {
+      0%,100% {box-shadow:0 0 10px rgba(255,200,0,0.4);}
+      50% {box-shadow:0 0 24px rgba(255,255,120,0.7);}
     }
 
-    .sb-feedback {
-      margin-top: 12px;
-      font-size: 0.9rem;
-      color: #cbd5e1;
+    /* === Boss portrait === */
+    .boss-portrait {
+      transition: transform 0.5s;
+    }
+    .boss-portrait.bounce {
+      animation: bouncePortrait 0.8s ease;
+    }
+    @keyframes bouncePortrait {
+      0%,100% {transform:translateY(0);}
+      50% {transform:translateY(-8px);}
     }
 
-    /* ===== RESULT VIEW ===== */
-    #view-result {
-      text-align: left;
-    }
-    #view-result h2 {
-      text-align: center;
-      margin-bottom: 12px;
-    }
-    .result-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.95rem;
-    }
-    .result-table td {
-      padding: 6px 4px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-    .result-btns, .csv-btns {
-      display: flex;
-      gap: 8px;
-      margin-top: 14px;
-      justify-content: center;
-    }
-    .result-btns button, .csv-btns button {
-      border-radius: 10px;
+    /* === HUD Glow === */
+    .hud {
+      background: rgba(17,24,39,0.55);
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(147,197,253,0.15);
       padding: 10px 12px;
-      font-size: 0.9rem;
-      cursor: pointer;
+      margin-bottom: 10px;
     }
-
-    /* ===== BOSS INTRO ===== */
-    .boss-intro {
-      position: fixed;
-      inset: 0;
-      background: rgba(2,6,23,0.9);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      color: #fff;
-      z-index: 999;
-      transition: opacity 0.4s;
-    }
-    .boss-intro.hidden { display: none; }
-    .boss-intro .emoji { font-size: 4rem; margin-bottom: 10px; }
-    .boss-intro .name { font-size: 1.5rem; margin-bottom: 6px; }
-    .boss-intro .title { color: #c084fc; margin-bottom: 6px; }
-    .boss-intro .desc { font-size: 1rem; color: #e2e8f0; margin-bottom: 14px; }
-    .tap-hint { font-size: 0.9rem; color: #93c5fd; }
   </style>
 </head>
 
 <body>
-  <div class="sb-wrap" id="sb-wrap">
+  <div class="sb-wrap fade-in" id="sb-wrap">
     <!-- MENU -->
-    <section id="view-menu">
+    <section id="view-menu" class="fade-in">
       <h1 class="title">⚡ Shadow Breaker ⚡</h1>
-
       <label>ระดับความยาก</label>
       <select id="difficulty">
         <option value="easy">Easy — เริ่มต้น</option>
@@ -220,7 +95,7 @@
     </section>
 
     <!-- PLAY -->
-    <section id="view-play" class="hidden">
+    <section id="view-play" class="hidden fade-in">
       <div class="hud">
         <div>PLAYER<div id="player-fill" class="bar green"></div></div>
         <div>BOSS<div id="boss-fill" class="bar red"></div></div>
@@ -230,9 +105,9 @@
       </div>
 
       <div class="boss-portrait" id="boss-portrait">
-        <div id="boss-portrait-emoji" class="emoji">🐣</div>
-        <div id="boss-portrait-name" class="name">Bubble Glove</div>
-        <div id="boss-portrait-hint" class="hint">โฟกัสที่เป้าฟองแล้วตีให้ทัน!</div>
+        <div id="boss-portrait-emoji" class="emoji">🥊</div>
+        <div id="boss-portrait-name" class="name">Neon Knuckle</div>
+        <div id="boss-portrait-hint" class="hint">ระวังลูกหลอกสีคล้าย!</div>
       </div>
 
       <div id="target-layer" class="target-layer"></div>
@@ -243,17 +118,16 @@
         <div id="fever-status" class="status">Ready</div>
       </div>
 
-      <div class="sb-feedback" id="sb-feedback">ตีเป้าให้ทันก่อนหายไป แล้วดูว่าคอมโบจะยาวแค่ไหน!</div>
+      <div id="sb-feedback" class="sb-feedback">ตีเป้าให้ทันก่อนหายไป แล้วดูว่าคอมโบจะยาวแค่ไหน!</div>
       <div class="play-controls"><button data-action="stop-early">⏹ หยุดก่อนเวลา</button></div>
     </section>
 
     <!-- RESULT -->
-    <section id="view-result" class="hidden">
+    <section id="view-result" class="hidden fade-in">
       <h2>📊 สรุปผลการเล่น</h2>
       <table class="result-table">
         <tr><td>คะแนนรวม</td><td id="res-score">0</td></tr>
         <tr><td>คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
-        <tr><td>จำนวนพลาด</td><td id="res-miss">0</td></tr>
         <tr><td>ความแม่นยำ</td><td id="res-accuracy">0%</td></tr>
         <tr><td>⏱ FEVER TIME</td><td id="res-fever-time">0.0 s</td></tr>
         <tr><td>💥 บอสที่ผ่าน</td><td id="res-bosses">0</td></tr>
@@ -263,15 +137,6 @@
         <button data-action="back-to-menu">🏠 กลับเมนู</button>
       </div>
     </section>
-
-    <!-- BOSS INTRO -->
-    <div id="boss-intro" class="boss-intro hidden">
-      <div class="emoji" id="boss-intro-emoji">🐣</div>
-      <div class="name" id="boss-intro-name">Bubble Glove</div>
-      <div class="title" id="boss-intro-title">บอสมือใหม่สายฟอง</div>
-      <div class="desc" id="boss-intro-desc">ตีเป้าให้แตกก่อนหายไป!</div>
-      <p class="tap-hint">แตะหรือคลิกเพื่อเริ่มต่อสู้!</p>
-    </div>
   </div>
 
   <!-- Scripts -->
@@ -281,10 +146,5 @@
   <script type="module" src="./js/event-logger.js"></script>
   <script type="module" src="./js/session-logger.js"></script>
   <script type="module" src="./js/particle.js"></script>
-
-  <!-- SFX -->
-  <audio id="sfx-hit" src="./sfx/hit.mp3" preload="auto"></audio>
-  <audio id="sfx-boss" src="./sfx/boss-intro.mp3" preload="auto"></audio>
-  <audio id="sfx-fever" src="./sfx/fever.mp3" preload="auto"></audio>
 </body>
 </html>
