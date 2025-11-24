@@ -3,7 +3,7 @@
    - Neon / Dark theme
    - Boss-based button colors
    - 3D glove icon spin
-   - Adaptive UI for desktop + mobile
+   - Adaptive UI for mobile
    ========================================================== */
 
 /* ---------- Base layout ---------- */
@@ -19,10 +19,8 @@ body{
 
 .hidden{display:none;}
 
-/* การ์ดหลัก: กว้างขึ้นสำหรับ desktop + full width บนมือถือ */
 .sb-wrap{
-  max-width:1120px;             /* เดิม 960 → ขยายให้กว้างขึ้น */
-  width:100%;
+  max-width:960px;
   margin:16px auto 32px;
   padding:16px 12px 24px;
 }
@@ -158,7 +156,6 @@ button{
     filter .16s ease-out;
   will-change:transform;
   transform:translateZ(0);
-  touch-action:manipulation; /* ให้แตะง่ายขึ้นบนมือถือ */
 }
 
 .btn-main .btn-icon{
@@ -304,7 +301,6 @@ button{
   inset:0;
   transform-origin:left center;
   transform:scaleX(1);
-  transition:transform .15s ease-out;
 }
 
 /* player/boss สีต่างกัน */
@@ -399,7 +395,6 @@ button{
   transform-origin:left center;
   transform:scaleX(0);
   background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ec4899);
-  transition:transform .15s ease-out;
 }
 .fever-status{
   padding:3px 8px 4px;
@@ -430,14 +425,13 @@ button{
 .sb-feedback.bomb{border-color:#ef4444;}
 .sb-feedback.heal{border-color:#38bdf8;}
 
-/* ---------- Play field (ใหญ่ขึ้นทั้ง desktop + mobile) ---------- */
-
+/* play field */
 .sb-field{
   position:relative;
   flex:1;
-  /* ใช้ clamp ให้ปรับตามจอ: desktop จะได้สูง ~60vh, ไม่ต่ำกว่า 380px */
-  height:clamp(380px, 62vh, 720px);
-  margin:12px 0 18px;
+  min-height:min(420px,58vh);
+  max-height:60vh;
+  margin:8px 0 12px;
   border-radius:22px;
   background:
     radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
@@ -452,11 +446,14 @@ button{
   position:absolute;
   inset:0;
   pointer-events:none;
-  z-index:2;
+  z-index:1;
 }
 .sb-field-guide::before,
 .sb-field-guide::after{
-  content:'';position:absolute;inset:0;border-radius:inherit;
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
 }
 .sb-field-guide::before{
   border-left:1px dashed rgba(148,163,184,0.35);
@@ -467,7 +464,10 @@ button{
   border-bottom:1px dashed rgba(148,163,184,0.25);
 }
 
-/* target */
+/* ---------- TARGETS ---------- */
+/* engine.js กำหนด width/height แล้ว
+   CSS นี้แค่ทำให้ดูใหญ่/ชัดและคลิกง่ายทั้ง desktop/mobile */
+
 .sb-target{
   position:absolute;
   transform:translate(-50%,-50%);
@@ -476,10 +476,14 @@ button{
   align-items:center;
   justify-content:center;
   cursor:pointer;
-  transition:transform .18s ease-out, box-shadow .18s ease-out, opacity .18s ease-out;
-  padding:6px; /* ขยาย hit area ให้จิ้มง่ายโดยเฉพาะบนมือถือ */
-  touch-action:manipulation;
+  padding:4px;
+  z-index:3;
+  transition:
+    transform .18s ease-out,
+    box-shadow .18s ease-out,
+    opacity .18s ease-out;
 }
+
 .sb-target-inner{
   width:100%;
   height:100%;
@@ -487,7 +491,10 @@ button{
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:40px;
+
+  /* emoji ขนาดยืดหยุ่น ตามจอ แต่ไม่เล็ก/ใหญ่เกินไป */
+  font-size:clamp(32px, 7vw, 64px);
+
   border:4px solid #22c55e;
   background:
     radial-gradient(circle at 30% 20%,#fefce8,#bbf7d0);
@@ -500,7 +507,7 @@ button{
 .sb-wrap[data-diff="hard"] .sb-target-inner{ border-color:#f97316;}   /* ส้ม/แดง */
 
 /* bomb */
-.sb-target[data-type="bad"] .sb-target-inner{
+.sb-target.sb-target-fake .sb-target-inner{
   background:radial-gradient(circle at 30% 20%,#fee2e2,#fecaca);
 }
 
@@ -531,6 +538,7 @@ button{
   box-shadow:0 10px 28px rgba(15,23,42,0.9);
   animation:sb-pop-score .6s ease-out forwards;
   white-space:nowrap;
+  z-index:4;
 }
 .sb-fx-score.sb-perfect{color:#fde68a;}
 .sb-fx-score.sb-good{color:#bbf7d0;}
@@ -550,6 +558,7 @@ button{
   font-size:32px;
   pointer-events:none;
   animation:sb-particle .48s ease-out forwards;
+  z-index:5;
 }
 @keyframes sb-particle{
   0%{opacity:1; transform:translate(-50%,-50%) scale(0.9);}
@@ -656,19 +665,25 @@ button{
     #020617;
 }
 
-/* ---------- Adaptive UI (มือถือ / tablet) ---------- */
+/* ---------- Stage clear flash ---------- */
+.sb-wrap.sb-stage-clear .sb-field{
+  animation:sb-stage-flash .4s ease-out 2;
+}
+@keyframes sb-stage-flash{
+  0%  { box-shadow:0 0 0 1px rgba(34,197,94,0.6),0 0 40px rgba(34,197,94,0.7) inset; }
+  100%{ box-shadow:inset 0 0 0 1px rgba(15,23,42,0.9); }
+}
+
+/* ---------- Adaptive UI (มือถือ) ---------- */
 
 @media (max-width:768px){
   .sb-wrap{
-    max-width:100%;
-    margin:10px auto 20px;
-    padding:12px 8px 18px;
+    padding:12px 10px 20px;
   }
   .card.sb-card{
-    padding:14px 12px 18px;
+    padding:16px 14px 18px;
     border-radius:20px;
   }
-
   .sb-header .title{
     font-size:22px;
   }
@@ -701,16 +716,13 @@ button{
   .boss-portrait-box{
     align-items:flex-start;
   }
-
-  /* ให้สนามสูงเกือบเต็มจอ แต่เหลือที่ให้ HUD ด้านบน */
   .sb-field{
-    height:calc(100vh - 260px);  /* HUD + margin ประมาณ 240–260px */
-    min-height:360px;
+    min-height:260px;
     max-height:none;
   }
 }
 
-/* Neon hit VFX (ใช้ร่วมกับ DomRenderer) */
+/* Neon hit VFX (ใช้ร่วมกับ DomRenderer/อนาคต) */
 .sb-neon-hit{
   position:absolute;
   width:26px;
@@ -726,13 +738,3 @@ button{
   0% { transform:scale(0.2); opacity:1; }
   100% { transform:scale(1.8); opacity:0; }
 }
-
-/* เอฟเฟกต์เวลาผ่านบอส (ใช้กับ engine.js ที่เพิ่ม class sb-stage-clear) */
-.sb-stage-clear .sb-field{
-  box-shadow:
-    inset 0 0 0 1px rgba(250,250,250,0.85),
-    0 0 40px rgba(250,250,250,0.25);
-  transition:box-shadow .3s ease-out;
-}
-
-/* End of shadow-breaker.css */
