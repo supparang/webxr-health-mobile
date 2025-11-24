@@ -1,9 +1,8 @@
-// === js/engine.js — Shadow Breaker core (2025-11-24 SB-CardLayout v2) ===
+// === js/engine.js — Shadow Breaker core (2025-11-24 SB-CardLayout v3 + FX) ===
 'use strict';
 
 /**
  * ตารางบอส 4 ตัว + คำใบ้ + รางวัลพื้นฐาน
- * (ตรงกับดีไซน์: บอส 1 '🫧', บอส 2 '🌀', บอส 3 '🛡️', บอส 4 '☠️')
  */
 const BOSS_TABLE = [
   {
@@ -60,10 +59,10 @@ const BOSS_TABLE = [
   }
 ];
 
-const BUILD_VERSION = 'shadowBreaker_card_v2';
+const BUILD_VERSION = 'shadowBreaker_card_v3';
 
 // ---------------------------------------------------------------------------
-// ฟังก์ชัน bootstrap ที่ shadow-breaker.js จะเรียก
+// bootstrap จาก shadow-breaker.js
 // ---------------------------------------------------------------------------
 export function initShadowBreaker(options = {}) {
   const url = new URL(window.location.href);
@@ -125,7 +124,7 @@ function pickWeighted(weights) {
 }
 
 // ---------------------------------------------------------------------------
-// ShadowBreakerGame — core engine ที่ผูกกับ layout ใน shadow-breaker.html
+// ShadowBreakerGame — core engine
 // ---------------------------------------------------------------------------
 class ShadowBreakerGame {
   constructor(opts) {
@@ -205,6 +204,10 @@ class ShadowBreakerGame {
 
     // field
     this.elStage = q('[data-sb-field]') || q('.sb-field') || root;
+    // ให้ stage เป็น relative เพื่อวาง FX แบบ absolute
+    if (this.elStage && getComputedStyle(this.elStage).position === 'static') {
+      this.elStage.style.position = 'relative';
+    }
 
     // intro overlay
     this.elIntro = document.getElementById('bossIntro');
@@ -478,7 +481,6 @@ class ShadowBreakerGame {
     const diff = this.difficulty || 'normal';
     const hpRatio = this.bossMaxHP > 0 ? (this.bossHP / this.bossMaxHP) : 1;
 
-    // phase ตาม HP
     let phase = 1;
     if (hpRatio <= 0.33) phase = 3;
     else if (hpRatio <= 0.66) phase = 2;
@@ -624,6 +626,49 @@ class ShadowBreakerGame {
     this.activeTargets.push(target);
   }
 
+  // -----------------------------------------------------------------------
+  // FX: เป้าแตก + คะแนนเด้งตรงเป้า
+  // -----------------------------------------------------------------------
+  _playHitEffects(target, { scoreDelta = 0, kind = 'main' } = {}) {
+    const stage = this.elStage || this.host;
+    if (!stage || !target || !target.el) return;
+
+    const stageRect = stage.getBoundingClientRect();
+    const rect = target.el.getBoundingClientRect();
+
+    const cx = rect.left - stageRect.left + rect.width / 2;
+    const cy = rect.top  - stageRect.top  + rect.height / 2;
+
+    // วงแตกกระจาย
+    const burst = document.createElement('div');
+    burst.className = `sb-burst sb-burst-${kind}`;
+    burst.style.left = `${cx}px`;
+    burst.style.top  = `${cy}px`;
+    stage.appendChild(burst);
+
+    // คะแนนเด้ง
+    if (scoreDelta !== 0) {
+      const pop = document.createElement('div');
+      const sign = scoreDelta > 0 ? '+' : '';
+      pop.className = `sb-score-pop sb-score-${kind}`;
+      pop.textContent = `${sign}${Math.round(scoreDelta)}`;
+      pop.style.left = `${cx}px`;
+      pop.style.top  = `${cy}px`;
+      stage.appendChild(pop);
+
+      setTimeout(() => {
+        if (pop.parentNode === stage) stage.removeChild(pop);
+      }, 550);
+    }
+
+    setTimeout(() => {
+      if (burst.parentNode === stage) stage.removeChild(burst);
+    }, 320);
+  }
+
+  // -----------------------------------------------------------------------
+  // Handle hit / miss
+  // -----------------------------------------------------------------------
   _handleTargetHit(target) {
     if (!this.running) return;
     if (target.hit) return;
@@ -641,6 +686,9 @@ class ShadowBreakerGame {
       this.combo = 0;
       this._updatePlayerHPHUD();
       this._updateComboHUD();
+
+      this._playHitEffects(target, { scoreDelta: 0, kind: 'fake' });
+
       if (this.elHUD.feedback) {
         this.elHUD.feedback.textContent = 'โอ๊ะ! ตีโดนเป้าหลอก ระวังลูกต่อไปให้ดี 🔺';
       }
@@ -652,19 +700,22 @@ class ShadowBreakerGame {
       // main / bonus / boss
       let baseScore = 10;
       let dmg = 1;
+      let kind = 'main';
 
       if (target.type === 'boss') {
         baseScore = 30;
         dmg = 3;
+        kind = 'boss';
       }
 
       this.combo += 1;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
       const comboBonus = Math.floor(this.combo / 5) * 2;
-      this.score += baseScore + comboBonus;
+      const gain = baseScore + comboBonus;
+      this.score += gain;
 
-      // เพิ่มเกจ FEVER
+      // FEVER
       const feverGain =
         target.type === 'boss' ? 0.10 :
         0.05;
@@ -680,6 +731,8 @@ class ShadowBreakerGame {
       }
       this.bossHP = Math.max(0, this.bossHP - dmg);
       this._updateBossHPHUD();
+
+      this._playHitEffects(target, { scoreDelta: gain, kind });
 
       if (this.elHUD.feedback) {
         if (this.combo >= 10) {
