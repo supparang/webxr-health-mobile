@@ -1,8 +1,9 @@
-// === js/event-logger.js — Event-level CSV logger (Research schema v2) ===
+// === js/event-logger.js — Event-level CSV logger (Shadow Breaker Research schema v2.1) ===
 'use strict';
 
 export class EventLogger {
   constructor() {
+    /** @type {Array<Object>} */
     this.logs = [];
   }
 
@@ -19,7 +20,7 @@ export class EventLogger {
   toCsv() {
     if (!this.logs.length) return '';
 
-    // ลำดับคอลัมน์หลักตามแผนงานวิจัย (event-level)
+    // ลำดับคอลัมน์หลักตามแผนงานวิจัย (event-level) สำหรับ Shadow Breaker
     const PREFERRED_EVENT_COLS = [
       // meta / research info
       'participant',
@@ -28,26 +29,31 @@ export class EventLogger {
 
       // session + run info
       'session_id',
+      'build_version',
+      'mode',
+      'difficulty',
+      'training_phase',
       'run_index',
-      'diff',
-      'diff_label',
+
+      // event info
       'event_type',
       'ts',
 
-      // target / boss info (ตามที่อาจารย์ระบุ)
+      // target / boss info
       'target_id',
       'boss_id',
       'boss_phase',
       'is_decoy',
       'is_bossface',
-      'decoy',       // เก็บไว้เผื่อใช้งานโค้ดเก่า
-      'bossFace',    // เช่นกัน
+      'decoy',      // เผื่ออ่านไฟล์จากโค้ดรุ่นเก่า
+      'bossFace',   // เช่นกัน
 
       // timing + performance
       'grade',
       'age_ms',
       'fever_on',
       'score_delta',
+      'score_total',
       'combo_before',
       'combo_after',
       'player_hp_before',
@@ -98,8 +104,10 @@ export class EventLogger {
     };
 
     const lines = [];
-    lines.push(cols.join(',')); // header
+    // header
+    lines.push(cols.join(','));
 
+    // rows
     for (const row of this.logs) {
       const line = cols.map(c => esc(row[c])).join(',');
       lines.push(line);
