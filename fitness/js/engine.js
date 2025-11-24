@@ -1,9 +1,9 @@
 // === js/engine.js — Shadow Breaker core (2025-11-24 Research-Ready v5.2) ===
 'use strict';
 
-import { DomRenderer } from './js/dom-renderer.js';
-import { EventLogger } from './js/event-logger.js';
-import { SessionLogger } from './js/session-logger.js';
+import { DomRenderer } from './dom-renderer.js';
+import { EventLogger } from './event-logger.js';
+import { SessionLogger } from './session-logger.js';
 
 const BUILD_VERSION = 'shadowBreaker_v5.2';
 
