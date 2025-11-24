@@ -3,42 +3,228 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Shadow Breaker — VR Fitness Academy</title>
-  <link rel="icon" href="favicon.ico"/>
+  <title>VR Fitness — Shadow Breaker</title>
+  <meta name="color-scheme" content="light dark"/>
+  <link rel="icon" href="./favicon.ico"/>
   <link rel="stylesheet" href="./css/shadow-breaker.css"/>
-</head>
-<body>
-  <header class="sb-header">
-    <img src="./assets/logo-vr-fitness.png" class="logo" alt="VR Fitness Academy"/>
-    <h1>Shadow Breaker</h1>
-  </header>
-  <main id="sb-wrap">
-    <section id="view-menu" class="card">
-      <h2>เริ่มเกม Shadow Breaker</h2>
-      <button class="btn primary" data-action="start-normal">เริ่มเล่นเลย</button>
-    </section>
-    <section id="view-play" class="hidden">
-      <div id="hud">
-        <div id="hp-player"></div>
-        <div id="hp-boss"></div>
-      </div>
-      <div id="target-layer"></div>
-    </section>
-    <section id="view-result" class="hidden card">
-      <h2>สรุปผลการเล่น</h2>
-      <button class="btn" data-action="back-to-menu">กลับเมนู</button>
-    </section>
-  </main>
-  <footer><p>© 2025 VR Fitness Academy</p></footer>
 
+  <style>
+    /* ===== Transition & Animation ===== */
+    section {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity .6s ease, transform .6s ease;
+    }
+    section.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    section.hidden { display: none; }
+    .fade-in {
+      animation: fadeIn .6s ease forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(24px); }
+      to { opacity:1; transform:translateY(0); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="sb-wrap" id="sb-wrap">
+    
+    <!-- ========== MENU VIEW ========== -->
+    <section id="view-menu" class="active">
+      <h1 class="title">🥊 Shadow Breaker 🎯</h1>
+      <p class="subtitle">เกมตีเป้าแบบ Boss Fight สำหรับฝึกกำลังแขนและความไวในการตอบสนอง</p>
+
+      <div class="menu-block">
+        <label>ระดับความยาก</label>
+        <select id="difficulty">
+          <option value="easy">Easy — เริ่มต้น</option>
+          <option value="normal" selected>Normal — สมดุล</option>
+          <option value="hard">Hard — ท้าทาย</option>
+        </select>
+      </div>
+
+      <div class="menu-block">
+        <label>ระยะเวลาเล่นต่อรอบ</label>
+        <select id="duration">
+          <option value="45">45 วินาที</option>
+          <option value="60" selected>60 วินาที</option>
+          <option value="75">75 วินาที</option>
+        </select>
+      </div>
+
+      <button data-action="start-normal" class="btn-main">⚡ เริ่มเล่นเลย</button>
+      <hr/>
+      <button data-action="start-research" class="btn-sub">📋 โหมดวิจัย (Research Mode)</button>
+      <p class="hint">สามารถบันทึกข้อมูลการเล่นเป็นไฟล์ CSV ได้</p>
+    </section>
+
+    <!-- ========== RESEARCH FORM ========== -->
+    <section id="view-research-form" class="hidden">
+      <h2>โหมดวิจัย (Research Mode)</h2>
+      <label>รหัสผู้เข้าร่วม</label>
+      <input id="research-id" placeholder="P001"/>
+
+      <label>กลุ่มทดลอง</label>
+      <input id="research-group" placeholder="A / B / C"/>
+
+      <label>หมายเหตุ</label>
+      <input id="research-note" placeholder="ข้อมูลเพิ่มเติม"/>
+
+      <div class="form-btns">
+        <button data-action="back-to-menu">ย้อนกลับ</button>
+        <button data-action="research-begin-play" class="btn-main">▶ เริ่มเล่น</button>
+      </div>
+    </section>
+
+    <!-- ========== PLAY VIEW ========== -->
+    <section id="view-play" class="hidden">
+      <div class="hud">
+        <div class="stat-left">
+          <div>PLAYER <div id="player-fill" class="bar green"></div></div>
+          <div>BOSS <div id="boss-fill" class="bar red"></div></div>
+        </div>
+        <div class="stat-right">
+          <div>TIME <span id="stat-time">00:00</span></div>
+          <div>SCORE <span id="stat-score">0</span></div>
+          <div>COMBO <span id="stat-combo">0</span></div>
+          <div>PHASE <span id="stat-phase">1</span></div>
+        </div>
+      </div>
+
+      <!-- Boss portrait -->
+      <div class="boss-portrait" id="boss-portrait">
+        <div id="boss-portrait-emoji" class="emoji">🐣</div>
+        <div id="boss-portrait-name" class="name">Bubble Glove</div>
+        <div id="boss-portrait-hint" class="hint">โฟกัสที่เป้าฟองแล้วตีให้ทัน</div>
+      </div>
+
+      <!-- Target layer -->
+      <div id="target-layer" class="target-layer"></div>
+
+      <!-- FEVER HUD -->
+      <div class="fever-hud">
+        <div class="label">FEVER</div>
+        <div id="fever-fill" class="bar fever"></div>
+        <div id="fever-status" class="status">Ready</div>
+      </div>
+
+      <!-- Feedback -->
+      <div id="sb-feedback" class="sb-feedback">ตีเป้าให้ทันก่อนหายไป แล้วดูว่าคอมโบจะยาวแค่ไหน!</div>
+
+      <div class="play-controls">
+        <button data-action="stop-early">⏹ หยุดก่อนเวลา</button>
+      </div>
+    </section>
+
+    <!-- ========== RESULT VIEW ========== -->
+    <section id="view-result" class="hidden">
+      <h2>📊 สรุปผลการเล่น</h2>
+      <table class="result-table">
+        <tr><td>โหมด</td><td id="res-mode">-</td></tr>
+        <tr><td>ระดับความยาก</td><td id="res-diff">-</td></tr>
+        <tr><td>เหตุผลจบเกม</td><td id="res-endreason">-</td></tr>
+        <tr><td>คะแนนรวม</td><td id="res-score">0</td></tr>
+        <tr><td>คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
+        <tr><td>จำนวนพลาด</td><td id="res-miss">0</td></tr>
+        <tr><td>ความแม่นยำ</td><td id="res-accuracy">0%</td></tr>
+        <tr><td>จำนวนเป้าถูกตี</td><td id="res-totalhits">0</td></tr>
+        <tr><td>Reaction Time (ปกติ)</td><td id="res-rt-normal">-</td></tr>
+        <tr><td>Reaction Time (หลอก)</td><td id="res-rt-decoy">-</td></tr>
+        <tr><td>เกรด</td><td id="res-grade">-</td></tr>
+
+        <!-- ช่องใหม่ -->
+        <tr><td>⏱ เวลาใน FEVER รวม</td><td id="res-fever-time">0.0 s</td></tr>
+        <tr><td>💥 จำนวนบอสที่ผ่าน</td><td id="res-bosses">0</td></tr>
+        <tr><td>❤️‍🔥 เวลา HP ต่ำรวม</td><td id="res-lowhp-time">0.0 s</td></tr>
+        <tr><td>⚙️ เวลาเมนู → เล่นจริง</td><td id="res-menu-latency">-</td></tr>
+      </table>
+
+      <h3>ข้อมูลผู้เข้าร่วม</h3>
+      <p>รหัส: <span id="res-participant">-</span></p>
+
+      <div class="result-btns">
+        <button data-action="play-again">🔁 เล่นอีกครั้ง</button>
+        <button data-action="back-to-menu">🏠 กลับเมนู</button>
+      </div>
+
+      <div class="csv-btns">
+        <button data-action="download-csv-events">📄 ดาวน์โหลด Event CSV</button>
+        <button data-action="download-csv-session">📊 ดาวน์โหลด Session CSV</button>
+      </div>
+    </section>
+
+    <!-- Boss Intro -->
+    <div id="boss-intro" class="boss-intro hidden">
+      <div id="boss-intro-emoji" class="emoji">🐣</div>
+      <div id="boss-intro-name" class="name">Bubble Glove</div>
+      <div id="boss-intro-title" class="title">บอสมือใหม่สายฟอง</div>
+      <div id="boss-intro-desc" class="desc">ตีเป้าให้แตกก่อนหายไป!</div>
+      <p class="tap-hint">แตะหรือคลิกเพื่อเริ่มต่อสู้!</p>
+    </div>
+  </div>
+
+  <!-- ========== Scripts ========== -->
+  <script type="module" src="./js/shadow-breaker.js"></script>
   <script type="module" src="./js/engine.js"></script>
   <script type="module" src="./js/dom-renderer.js"></script>
   <script type="module" src="./js/event-logger.js"></script>
   <script type="module" src="./js/session-logger.js"></script>
   <script type="module" src="./js/particle.js"></script>
 
+  <!-- SFX -->
   <audio id="sfx-hit" src="./sfx/hit.mp3" preload="auto"></audio>
   <audio id="sfx-boss" src="./sfx/boss-intro.mp3" preload="auto"></audio>
   <audio id="sfx-fever" src="./sfx/fever.mp3" preload="auto"></audio>
+
+  <script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  const sections = {
+    menu: document.getElementById('view-menu'),
+    play: document.getElementById('view-play'),
+    result: document.getElementById('view-result'),
+    research: document.getElementById('view-research-form')
+  };
+
+  function show(view){
+    Object.values(sections).forEach(sec=>sec.classList.add('hidden'));
+    sections[view].classList.remove('hidden');
+    sections[view].classList.add('fade-in');
+  }
+
+  // ปุ่มเริ่มเล่น
+  document.querySelector('[data-action="start-normal"]')
+    ?.addEventListener('click', ()=>{
+      show('play');
+    });
+
+  // ปุ่มโหมดวิจัย
+  document.querySelector('[data-action="start-research"]')
+    ?.addEventListener('click', ()=>{
+      show('research');
+    });
+
+  // ย้อนกลับ
+  document.querySelectorAll('[data-action="back-to-menu"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>show('menu'));
+  });
+
+  // ปุ่มเล่นซ้ำ
+  document.querySelector('[data-action="play-again"]')
+    ?.addEventListener('click', ()=>{
+      show('play');
+    });
+
+  // ปุ่มหยุดก่อนเวลา → ไปหน้าสรุปผล
+  document.querySelector('[data-action="stop-early"]')
+    ?.addEventListener('click', ()=>{
+      show('result');
+    });
+});
+</script>
+
 </body>
 </html>
