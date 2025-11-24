@@ -1,4 +1,4 @@
-// === js/dom-renderer.js — DOM target renderer + FX (2025-11-24, zone+norm) ===
+// === js/dom-renderer.js — DOM target renderer + FX (2025-11-24, zone+norm+neon) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
@@ -24,7 +24,9 @@ export class DomRenderer {
     if (!this.host) return;
     if (!this._rect) this.updateRect();
 
-    const size = this.sizePx;
+    // ใช้ขนาดจาก config ถ้ามี ไม่งั้นใช้ sizePx เริ่มต้น
+    const size = t.size_px || this.sizePx || 100;
+
     const el = document.createElement('div');
     el.className = 'sb-target';
     el.style.width = size + 'px';
@@ -39,7 +41,7 @@ export class DomRenderer {
     if (t.bossFace) el.dataset.bossFace = '1';
     el.appendChild(inner);
 
-    // วางสุ่มใน field (ไม่ติดขอบ)
+    // วางสุ่มใน field (เว้นขอบ)
     const pad = 24 + size / 2;
     const w = this.host.clientWidth || 1;
     const h = this.host.clientHeight || 1;
@@ -52,15 +54,27 @@ export class DomRenderer {
     // เก็บตำแหน่งล่าสุด + normalized + zone สำหรับงานวิจัย
     const xNorm = x / w;
     const yNorm = y / h;
+
     t.lastPos = { x, y };
     t.x_norm  = xNorm;
     t.y_norm  = yNorm;
-    t.zone_lr = (xNorm < 0.5) ? 'L' : 'R'; // Left / Right
-    t.zone_ud = (yNorm < 0.5) ? 'T' : 'B'; // Top / Bottom
+
+    // zone_lr: L / C / R   , zone_ud: U / M / D (ให้ match engine._computeNormPos)
+    let lr = 'C';
+    if (xNorm < 0.33) lr = 'L';
+    else if (xNorm > 0.66) lr = 'R';
+
+    let ud = 'M';
+    if (yNorm < 0.33) ud = 'U';
+    else if (yNorm > 0.66) ud = 'D';
+
+    t.zone_lr = lr;
+    t.zone_ud = ud;
 
     const onPointerDown = (ev) => {
       ev.preventDefault();
-      // คำนวณตำแหน่งสัมพัทธ์ใน host
+      if (!this.game || typeof this.game.registerTouch !== 'function') return;
+
       const rect = this.host.getBoundingClientRect();
       const cx = ev.clientX - rect.left;
       const cy = ev.clientY - rect.top;
@@ -77,13 +91,16 @@ export class DomRenderer {
 
   /* ----------------- ลบเป้า (แบบเงียบ) ----------------- */
   removeTarget(t) {
-    const el = t && t._el;
+    if (!t) return;
+    const el = t._el;
     if (!el) return;
     try {
       if (t._onPtr) {
         el.removeEventListener('pointerdown', t._onPtr);
       }
-    } catch (e) {}
+    } catch (e) {
+      // ignore
+    }
     if (el.parentNode) el.parentNode.removeChild(el);
     t._el = null;
     t._onPtr = null;
@@ -103,7 +120,7 @@ export class DomRenderer {
       x = r.left + r.width  / 2 - hr.left;
       y = r.top  + r.height / 2 - hr.top;
 
-      // เป้าแตกกระจาย
+      // เป้าแตกกระจาย (CSS: .sb-hit)
       el.classList.add('sb-hit');
 
       // ลบหลังแอนิเมชัน
@@ -118,7 +135,17 @@ export class DomRenderer {
       y = host.clientHeight / 2;
     }
 
-    // 💥 particle
+    // 💥 Neon ring VFX (CSS: .sb-neon-hit)
+    const neon = document.createElement('div');
+    neon.className = 'sb-neon-hit';
+    neon.style.left = x + 'px';
+    neon.style.top  = y + 'px';
+    host.appendChild(neon);
+    setTimeout(() => {
+      if (neon.parentNode) neon.parentNode.removeChild(neon);
+    }, 280);
+
+    // 💥 particle emoji
     const emo = opts.decoy ? '💥' : (opts.miss ? '💢' : '✨');
     spawnHitParticle(host, x, y, emo);
 
