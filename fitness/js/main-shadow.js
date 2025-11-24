@@ -3,7 +3,7 @@
 
 import { computeShadowSpawnParams, ShadowBossState } from './shadow-config.js';
 // สมมติ engine หลักของคุณ export class ShadowEngine ไว้
-import { ShadowEngine } from './engine.js';
+import { ShadowEngine } from './js/engine.js';
 
 function getParam(name, def) {
   const url = new URL(window.location.href);
