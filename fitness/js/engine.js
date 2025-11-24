@@ -1,4 +1,4 @@
-// === fitness/js/engine.js (Shadow Breaker Engine — 2025-11-24 MULTI-BOSS) ===
+// === fitness/js/engine.js (Shadow Breaker Engine — 2025-11-24 MULTI-BOSS + REWARDS) ===
 'use strict';
 
 import { computeShadowSpawnParams, ShadowBossState } from './shadow-config.js';
@@ -114,6 +114,9 @@ class ShadowBreakerGame {
     this.nearDeath = false;
     this.spawnedBossFace = false;      // ให้ spawn bossface แค่ 1 ครั้งต่อบอส
 
+    // FEVER Boost สำหรับช่วงต้นบอสถัดไป (นับเป็นวินาที)
+    this.feverBoostRemain = 0;
+
     this.activeTargets = [];
     this.spawnTimer = null;
     this.timerTick = null;
@@ -135,7 +138,7 @@ class ShadowBreakerGame {
   _bindDOMFromLayout() {
     // root = .sb-wrap (#shadowWrap) ถ้ามี
     const root =
-      this.host.closest('.sb-wrap') ||
+      this.host.closest?.('.sb-wrap') ||
       this.host.querySelector?.('.sb-wrap') ||
       this.host;
 
@@ -158,7 +161,9 @@ class ShadowBreakerGame {
     this.elHUD.scoreVal       = q('[data-sb-score]');
     this.elHUD.comboVal       = q('[data-sb-combo]');
     this.elHUD.phaseVal       = q('[data-sb-phase]');
-    // ถ้ามี FEVER/HUD อื่นในอนาคต ค่อยผูกเพิ่ม
+    this.elHUD.feverFill      = q('[data-sb-fever]');
+    this.elHUD.feverStatus    = q('[data-sb-fever-status]');
+    this.elHUD.feedback       = document.getElementById('sbFeedback');
 
     this._updateHUDAll();
   }
@@ -174,6 +179,7 @@ class ShadowBreakerGame {
     this._updatePlayerHPHUD();
     this._updateBossHPHUD();
     this._updatePhaseHUD();
+    this._updateFeverHUD();
   }
 
   _updateTimerHUD() {
@@ -228,8 +234,32 @@ class ShadowBreakerGame {
     }
   }
 
+  _updateFeverHUD() {
+    const active = this.feverBoostRemain > 0;
+    if (this.elHUD.feverFill) {
+      this.elHUD.feverFill.style.transform = active ? 'scaleX(1)' : 'scaleX(0)';
+    }
+    if (this.elHUD.feverStatus) {
+      this.elHUD.feverStatus.textContent = active ? 'Boost x2!' : 'Ready';
+      this.elHUD.feverStatus.classList.toggle('on', active);
+    }
+  }
+
+  _setFeedback(text, mood = 'normal') {
+    const el = this.elHUD.feedback;
+    if (!el) return;
+    el.textContent = text;
+    let cls = 'sb-feedback';
+    if (mood === 'good') cls += ' good';
+    else if (mood === 'perfect') cls += ' perfect';
+    else if (mood === 'miss') cls += ' miss';
+    else if (mood === 'bomb') cls += ' bomb';
+    else if (mood === 'heal') cls += ' heal';
+    el.className = cls;
+  }
+
   // -----------------------------------------------------------------------
-  // Multi-boss helpers
+  // Multi-boss helpers + Rewards
   // -----------------------------------------------------------------------
   _resetBossForCurrent() {
     this.boss = new ShadowBossState(this.difficulty);
@@ -240,13 +270,108 @@ class ShadowBreakerGame {
     this._updatePhaseHUD();
   }
 
+  _getStageRewards(stageIndex) {
+    switch (stageIndex) {
+      case 0: // ผ่าน Bubble Glove → ไป Vortex Fist
+        return {
+          heal: 1,
+          scoreBonus: 100,
+          nextFeverSec: 5,
+          coachText: 'ผ่าน Bubble Glove แล้ว! แขนเริ่มอุ่นขึ้น ไปเจอบอสพายุหมุนกันต่อ! 🌀'
+        };
+      case 1: // ผ่าน Vortex Fist → ไป Shadow Guard
+        return {
+          heal: 2,
+          scoreBonus: 150,
+          nextFeverSec: 6,
+          coachText: 'สุดยอด! ฝ่าพายุหมุนมาได้แล้ว ต่อไปเป็นยามเงามืด Shadow Guard 🛡️'
+        };
+      case 2: // ผ่าน Shadow Guard → ไป Doom Skull
+        return {
+          heal: 'full',
+          scoreBonus: 200,
+          nextFeverSec: 7,
+          coachText: 'ใกล้ถึงบอสสุดท้ายแล้ว สูดหายใจลึก ๆ แล้วลุย Doom Skull ☠️'
+        };
+      case 3: // ผ่าน Doom Skull = จบเกม
+        return {
+          heal: 'full',
+          scoreBonus: 300,
+          nextFeverSec: 0,
+          coachText: 'เคลียร์ Doom Skull แล้ว! รับโบนัสพิเศษจบเกม 🎉'
+        };
+      default:
+        return null;
+    }
+  }
+
+  _applyBossClearRewards(stageIndex) {
+    const rewards = this._getStageRewards(stageIndex);
+    if (!rewards) return null;
+
+    // Heal
+    if (rewards.heal === 'full') {
+      this.playerHP = this.playerMaxHP;
+    } else if (typeof rewards.heal === 'number') {
+      this.playerHP = Math.min(this.playerMaxHP, this.playerHP + rewards.heal);
+    }
+    this._updatePlayerHPHUD();
+
+    // Score bonus
+    if (rewards.scoreBonus) {
+      this.score += rewards.scoreBonus;
+      this._updateScoreHUD();
+    }
+
+    // Feedback text
+    if (rewards.coachText) {
+      this._setFeedback(rewards.coachText, 'good');
+    }
+
+    // เอฟเฟกต์เล็ก ๆ บน root ถ้ามี CSS sb-stage-clear
+    if (this.elRoot) {
+      this.elRoot.classList.add('sb-stage-clear');
+      setTimeout(() => {
+        if (this.elRoot) {
+          this.elRoot.classList.remove('sb-stage-clear');
+        }
+      }, 600);
+    }
+
+    // ยิง event สำหรับ logger ภายนอก
+    try {
+      window.dispatchEvent(new CustomEvent('sb-boss-clear', {
+        detail: {
+          stageIndex,
+          bossIndex: this.bossOrder[stageIndex],
+          difficulty: this.difficulty,
+          totalScore: this.score,
+          timeLeft: this.timeLeft,
+          maxCombo: this.maxCombo
+        }
+      }));
+    } catch (e) {
+      // เงียบไว้ ถ้าไม่มี window
+    }
+
+    return rewards;
+  }
+
   _onBossDown() {
+    const clearedIdx = this.currentBossIdx;
+    const rewards = this._applyBossClearRewards(clearedIdx);
+
     // ยังมีบอสตัวถัดไปในลำดับ
     if (this.currentBossIdx < this.bossOrder.length - 1) {
       this.currentBossIdx += 1;
       this.bossIndex = this.bossOrder[this.currentBossIdx] || 0;
       this._resetBossForCurrent();
-      // (ถ้าอยากผูก portrait / hint เพิ่มในอนาคต จะใช้ BOSS_TABLE[this.bossIndex])
+
+      // ตั้ง FEVER Boost สำหรับบอสถัดไป
+      if (rewards && rewards.nextFeverSec && this.currentBossIdx < this.bossOrder.length) {
+        this.feverBoostRemain = rewards.nextFeverSec;
+        this._updateFeverHUD();
+      }
     } else {
       // เคลียร์ครบ 4 ตัว
       this.endGame('bossDownAll');
@@ -271,7 +396,10 @@ class ShadowBreakerGame {
     this.bossIndex = this.bossOrder[0] || 0;
     this._resetBossForCurrent();
 
+    // เริ่มต้นบอสแรกยังไม่ให้ FEVER Boost (เน้นเป็นรางวัลของการผ่านบอส)
+    this.feverBoostRemain = 0;
     this._updateHUDAll();
+
     this._startTimer();
     this._spawnLoop();
   }
@@ -281,6 +409,13 @@ class ShadowBreakerGame {
     this.timerTick = setInterval(() => {
       if (!this.running) return;
       this.timeLeft -= 1;
+
+      // ลด FEVER Boost ทีละวินาที
+      if (this.feverBoostRemain > 0) {
+        this.feverBoostRemain = Math.max(0, this.feverBoostRemain - 1);
+        this._updateFeverHUD();
+      }
+
       this._updateTimerHUD();
       if (this.timeLeft <= 0) {
         this.endGame('timeup');
@@ -458,6 +593,8 @@ class ShadowBreakerGame {
     if (target.hit) return;
     target.hit = true;
 
+    const feverActive = this.feverBoostRemain > 0;
+
     // ลบออกจาก active list
     this._removeTarget(target);
 
@@ -473,36 +610,48 @@ class ShadowBreakerGame {
       this.combo = 0;
       this._updatePlayerHPHUD();
       this._updateComboHUD();
+      this._setFeedback('โดนลูกล่อ! HP ลด 1 ❤️', 'bomb');
       if (this.playerHP <= 0) {
         this.endGame('playerDead');
         return;
       }
     } else if (target.type === 'bossface') {
       // ตีหน้า Boss — ดาเมจแรง + คะแนนเยอะ
-      const scoreGain = 30;
+      let gain = 30;
+      if (feverActive) gain *= 2;
+
       this.combo += 1;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-      this.score += scoreGain;
+      this.score += gain;
       this._updateScoreHUD();
       this._updateComboHUD();
+
+      this._setFeedback('ตีโดนหน้า Boss! ดาเมจแรงสุด ๆ 💥', 'perfect');
 
       const dmg = 3;
       this._applyBossDamage(dmg);
     } else {
       // main / bonus
-      let scoreGain = 10;
-      if (target.type === 'bonus') scoreGain = 20;
+      let base = 10;
+      if (target.type === 'bonus') base = 20;
 
       this.combo += 1;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-      // เพิ่มคะแนนตาม combo เล็กน้อย
       const bonus = Math.floor(this.combo / 5) * 2;
-      this.score += scoreGain + bonus;
+      let gain = base + bonus;
+      if (feverActive) gain *= 2;
 
+      this.score += gain;
       this._updateScoreHUD();
       this._updateComboHUD();
+
+      if (this.combo >= 10) {
+        this._setFeedback('สุดยอด! คอมโบยาวมาก 🎉', 'perfect');
+      } else {
+        this._setFeedback('ดีมาก! ตีทันเวลา', 'good');
+      }
 
       // ดาเมจบอสเมื่อโดน main/bonus
       const dmg = target.type === 'bonus' ? 2 : 1;
@@ -530,6 +679,7 @@ class ShadowBreakerGame {
     if (target.type === 'main' || target.type === 'bossface') {
       this.combo = 0;
       this._updateComboHUD();
+      this._setFeedback('พลาดไปนิด ลองเล็งให้เร็วขึ้น!', 'miss');
     }
 
     if (target.cleanup) target.cleanup();
