@@ -76,7 +76,7 @@ const BOSS_TABLE = [
     hint: 'เล็งเป้าหลักให้ทัน อย่าตีฟองหลอก'
   },
   {
-    emoji: '🥊',
+    emoji: '🌀',
     name: 'Neon Knuckle',
     title: 'หมัดนีออนสายฟ้า',
     hint: 'ระวังเป้าหลอกสีใกล้เคียง'
