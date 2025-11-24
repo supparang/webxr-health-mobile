@@ -1,4 +1,4 @@
-// === fitness/js/engine.js — Shadow Breaker Engine (งานใหญ่ 1) ===
+// === fitness/js/engine.js — Shadow Breaker Engine (Multi-Boss, Research-Ready) ===
 'use strict';
 
 /* ---------------------------------------------------------
@@ -9,22 +9,22 @@ const SHADOW_DIFF_TABLE = {
   easy: {
     label: 'โหมดง่าย',
     target: {
-      spawnIntervalMs: [950, 850, 750],
+      spawnIntervalMs: [950, 850, 750],   // phase 1–3
       lifetimeMs:      [2400, 2200, 2000],
       maxActive:       [3, 4, 5],
-      sizePx:          [80, 110]
+      sizePx:          [80, 110]          // min, max
     },
     boss: {
       maxHP: 40,
-      phaseThresholds: [0.7, 0.35],
+      phaseThresholds: [0.7, 0.35],       // เปลี่ยนเฟสที่ 70% และ 35%
       nearDeathPct: 0.25,
       nearDeathBoost: {
-        spawnIntervalFactor: 0.8,
+        spawnIntervalFactor: 0.8,         // เร็วขึ้นเมื่อใกล้ตาย
         maxActiveBonus: 1
       }
     },
     weights: { main: 78, fake: 10, bonus: 12 },
-    bossIndex: 0
+    defaultBossOrder: [0, 1, 2, 3]
   },
   normal: {
     label: 'โหมดปกติ',
@@ -44,7 +44,7 @@ const SHADOW_DIFF_TABLE = {
       }
     },
     weights: { main: 70, fake: 18, bonus: 12 },
-    bossIndex: 1
+    defaultBossOrder: [0, 1, 2, 3]
   },
   hard: {
     label: 'โหมดยาก',
@@ -57,45 +57,55 @@ const SHADOW_DIFF_TABLE = {
     boss: {
       maxHP: 80,
       phaseThresholds: [0.8, 0.45],
-      nearDeathPct: 0.3,
+      nearDeathPct: 0.30,
       nearDeathBoost: {
         spawnIntervalFactor: 0.65,
         maxActiveBonus: 2
       }
     },
     weights: { main: 64, fake: 24, bonus: 12 },
-    bossIndex: 2
+    defaultBossOrder: [0, 1, 2, 3]
   }
 };
 
+/**
+ * Boss ทั้ง 4 ตัวในหนึ่งเกม
+ * index: 0–3 ใช้ร่วมกับ data-boss ใน .sb-wrap และ CSS ปุ่ม/พื้นหลัง
+ */
 const BOSS_TABLE = [
   {
     emoji: '🫧',
     name: 'Bubble Glove',
     title: 'หมัดฟองอากาศ',
-    hint: 'เล็งเป้าหลักให้ทัน อย่าตีฟองหลอก'
+    hint: 'เล็งเป้าหลักให้ทัน อย่าตีฟองหลอก',
   },
   {
     emoji: '🌀',
-    name: 'Neon Knuckle',
-    title: 'หมัดนีออนสายฟ้า',
-    hint: 'ระวังเป้าหลอกสีใกล้เคียง'
+    name: 'Vortex Fist',
+    title: 'หมัดวังวนหมุนติ้ว',
+    hint: 'ระวังลูกล่อที่หมุน ๆ สีคล้ายกัน',
   },
   {
     emoji: '🛡️',
     name: 'Shadow Guard',
     title: 'ยามเงามืด',
-    hint: 'อย่าให้คอมโบหลุดบ่อยเกินไป'
+    hint: 'รักษาคอมโบให้ยาวที่สุด ห้ามพลาดบ่อย',
   },
   {
     emoji: '☠️',
-    name: 'Final Burst',
-    title: 'ระเบิดเงาสุดท้าย',
-    hint: 'ช่วงใกล้ตายจะรัวมาก เตรียมแขนให้พร้อม!'
+    name: 'Doom Skull',
+    title: 'กะโหลกมหาภัย',
+    hint: 'ช่วงท้ายจะรัวมาก เตรียมแขนให้พร้อมสุด ๆ',
   }
 ];
 
-function computeSpawnParams(diffKey, bossHpRatio) {
+/**
+ * คำนวณพารามิเตอร์ spawn ตาม:
+ * - diffKey: easy / normal / hard
+ * - bossHpRatio: HP เหลือ (%) ของบอสตัวปัจจุบัน
+ * - bossStageIndex: ลำดับบอสในเกม (0 = ตัวแรก, …, 3 = ตัวสุดท้าย)
+ */
+function computeSpawnParams(diffKey, bossHpRatio, bossStageIndex = 0) {
   const cfg = SHADOW_DIFF_TABLE[diffKey] || SHADOW_DIFF_TABLE.normal;
   const t = cfg.target;
   const b = cfg.boss;
@@ -105,9 +115,18 @@ function computeSpawnParams(diffKey, bossHpRatio) {
   else if (bossHpRatio <= b.phaseThresholds[0]) phase = 2;
 
   const idx = phase - 1;
+
+  // ยิ่งบอสหลัง ๆ ยิ่งเร็ว/แน่นขึ้น
+  const stage = Math.max(0, Math.min(3, bossStageIndex | 0));
+  const stageSpeedFactor = [1.0, 0.9, 0.8, 0.7][stage];
+  const stageMaxBonus    = [0,   1,   2,   2][stage];
+
   let spawnInterval = t.spawnIntervalMs[idx];
-  let lifetime = t.lifetimeMs[idx];
-  let maxActive = t.maxActive[idx];
+  let lifetime      = t.lifetimeMs[idx];
+  let maxActive     = t.maxActive[idx];
+
+  spawnInterval = Math.round(spawnInterval * stageSpeedFactor);
+  maxActive += stageMaxBonus;
 
   const nearDeath = bossHpRatio <= b.nearDeathPct;
   if (nearDeath) {
@@ -127,6 +146,10 @@ function computeSpawnParams(diffKey, bossHpRatio) {
   };
 }
 
+/* ---------------------------------------------------------
+   Boss HP state
+--------------------------------------------------------- */
+
 class ShadowBossState {
   constructor(diffKey) {
     const cfg = SHADOW_DIFF_TABLE[diffKey] || SHADOW_DIFF_TABLE.normal;
@@ -140,6 +163,7 @@ class ShadowBossState {
   hit(dmg) {
     const prevPhase = this.phase;
     const prevNear = this.nearDeath;
+
     this.hp = Math.max(0, this.hp - Math.max(1, dmg | 0));
     const ratio = this.maxHP > 0 ? this.hp / this.maxHP : 0;
 
@@ -183,7 +207,7 @@ function pickWeighted(weights) {
 }
 
 /* ---------------------------------------------------------
-   ENGINE
+   MAIN ENGINE
 --------------------------------------------------------- */
 
 class ShadowBreakerGame {
@@ -193,12 +217,18 @@ class ShadowBreakerGame {
     this.durationSec = opts.durationSec || 60;
 
     const diffCfg = SHADOW_DIFF_TABLE[this.diffKey] || SHADOW_DIFF_TABLE.normal;
-    this.bossIndex = (typeof opts.bossIndex === 'number')
-      ? opts.bossIndex
-      : diffCfg.bossIndex;
 
+    // ลำดับบอสในเกมนี้ (0–3)
+    this.bossOrder = opts.bossOrder || diffCfg.defaultBossOrder.slice();
+    this.currentBossIdx = 0;                      // index สดของลำดับบอส
+    this.bossIndex = this.bossOrder[0] || 0;      // index ใน BOSS_TABLE
+
+    this.lastSpawnParams = null;
+
+    // เกมเพลย์พื้นฐาน
     this.running = false;
     this.timeLeft = this.durationSec;
+
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -207,6 +237,8 @@ class ShadowBreakerGame {
     this.playerHP = this.playerMaxHP;
 
     this.boss = new ShadowBossState(this.diffKey);
+
+    // timers
     this.spawnTimer = null;
     this.timerTick = null;
     this.activeTargets = [];
@@ -215,7 +247,6 @@ class ShadowBreakerGame {
     this.elRoot = null;
     this.elField = null;
     this.elGuide = null;
-
     this.elHUD = {};
     this.elBossPortrait = null;
     this.elBossName = null;
@@ -225,17 +256,25 @@ class ShadowBreakerGame {
     this.elBossIntroName = null;
     this.elBossIntroTitle = null;
     this.elBossIntroDesc = null;
+    this.elBossIntroHint = null;
 
     this._bindDOM();
+    this._setupBossUIForIndex(this.bossIndex);
+    this._updateHUDAll();
   }
 
-  /* ---------- DOM binding ---------- */
+  /* ---------- DOM binding & setup ---------- */
+
   _bindDOM() {
     const root = this.host.closest('.sb-wrap') || this.host;
     this.elRoot = root;
 
-    // dataset
-    root.dataset.diff = this.diffKey;
+    // dataset เริ่มต้น
+    if (root) {
+      root.dataset.diff = this.diffKey;
+      root.dataset.phase = '1';
+      root.dataset.boss = String(this.bossIndex);
+    }
 
     // field
     this.elField =
@@ -245,59 +284,61 @@ class ShadowBreakerGame {
 
     this.elGuide = this.elField.querySelector('.sb-field-guide');
 
-    // HUD
     const q = (sel) => root.querySelector(sel);
 
-    this.elHUD.playerBar = q('[data-sb-player-hp]');
-    this.elHUD.playerHPText = q('[data-sb-player-hp-text]');
-    this.elHUD.bossBar = q('[data-sb-boss-hp]');
-    this.elHUD.bossHPText = q('[data-sb-boss-hp-text]');
-    this.elHUD.timer = q('[data-sb-timer]');
-    this.elHUD.score = q('[data-sb-score]');
-    this.elHUD.combo = q('[data-sb-combo]');
-    this.elHUD.phase = q('[data-sb-phase]');
-    this.elHUD.feverFill = q('[data-sb-fever]');
-    this.elHUD.feverStatus = q('[data-sb-fever-status]');
-    this.elHUD.feedback = q('#sbFeedback');
+    // HUD
+    this.elHUD.playerBar     = q('[data-sb-player-hp]');
+    this.elHUD.playerHPText  = q('[data-sb-player-hp-text]');
+    this.elHUD.bossBar       = q('[data-sb-boss-hp]');
+    this.elHUD.bossHPText    = q('[data-sb-boss-hp-text]');
+    this.elHUD.timer         = q('[data-sb-timer]');
+    this.elHUD.score         = q('[data-sb-score]');
+    this.elHUD.combo         = q('[data-sb-combo]');
+    this.elHUD.phase         = q('[data-sb-phase]');
+    this.elHUD.feverFill     = q('[data-sb-fever]');
+    this.elHUD.feverStatus   = q('[data-sb-fever-status]');
+    this.elHUD.feedback      = document.getElementById('sbFeedback');
 
     // boss portrait
-    this.elBossPortrait = q('#boss-portrait');
-    this.elBossName = q('#boss-portrait-name');
-    this.elBossHint = q('#boss-portrait-hint');
+    this.elBossPortrait = document.getElementById('boss-portrait');
+    this.elBossName     = document.getElementById('boss-portrait-name');
+    this.elBossHint     = document.getElementById('boss-portrait-hint');
 
     // boss intro overlay
     this.elBossIntro = document.getElementById('bossIntro');
     if (this.elBossIntro) {
       this.elBossIntroEmoji = this.elBossIntro.querySelector('.boss-intro-emoji');
-      this.elBossIntroName = this.elBossIntro.querySelector('.boss-intro-name');
+      this.elBossIntroName  = this.elBossIntro.querySelector('.boss-intro-name');
       this.elBossIntroTitle = this.elBossIntro.querySelector('.boss-intro-title');
-      this.elBossIntroDesc = this.elBossIntro.querySelector('.boss-intro-desc');
-      this.elBossIntroHint = this.elBossIntro.querySelector('.boss-intro-hint');
+      this.elBossIntroDesc  = this.elBossIntro.querySelector('.boss-intro-desc');
+      this.elBossIntroHint  = this.elBossIntro.querySelector('.boss-intro-hint');
+    }
+  }
+
+  _setupBossUIForIndex(bossIndex) {
+    const root = this.elRoot || this.host;
+    const boss = BOSS_TABLE[bossIndex] || BOSS_TABLE[0];
+
+    this.bossIndex = bossIndex;
+
+    if (root) {
+      root.dataset.boss = String(bossIndex);
     }
 
-    // ใส่ข้อมูลบอสตาม index
-    const boss = BOSS_TABLE[this.bossIndex] || BOSS_TABLE[1];
-    root.dataset.boss = String(this.bossIndex);
+    // portrait มุมขวา
+    if (this.elBossPortrait) this.elBossPortrait.textContent = boss.emoji;
+    if (this.elBossName)     this.elBossName.textContent     = boss.name;
+    if (this.elBossHint)     this.elBossHint.textContent     = boss.hint;
 
-    if (this.elBossPortrait) {
-      this.elBossPortrait.textContent = boss.emoji;
-    }
-    if (this.elBossName) {
-      this.elBossName.textContent = boss.name;
-    }
-    if (this.elBossHint) {
-      this.elBossHint.textContent = boss.hint;
-    }
-
-    // boss intro card
+    // boss intro overlay
     if (this.elBossIntroEmoji) this.elBossIntroEmoji.textContent = boss.emoji;
-    if (this.elBossIntroName) this.elBossIntroName.textContent = boss.name;
+    if (this.elBossIntroName)  this.elBossIntroName.textContent  = boss.name;
     if (this.elBossIntroTitle) this.elBossIntroTitle.textContent = boss.title;
-    if (this.elBossIntroDesc) this.elBossIntroDesc.textContent =
-      'เตรียมแขนให้พร้อม ตีเป้าให้ทันก่อนมันหายไป!';
-    if (this.elBossIntroHint) this.elBossIntroHint.textContent = boss.hint;
-
-    this._updateHUDAll();
+    if (this.elBossIntroDesc) {
+      this.elBossIntroDesc.textContent =
+        'เตรียมแขนให้พร้อม ตีเป้าให้ทันก่อนมันหายไป!';
+    }
+    if (this.elBossIntroHint)  this.elBossIntroHint.textContent  = boss.hint;
   }
 
   _pad(n) {
@@ -334,13 +375,14 @@ class ShadowBreakerGame {
 
   _updatePlayerHPHUD() {
     const ratio = this.playerMaxHP > 0 ? this.playerHP / this.playerMaxHP : 0;
+    const clamped = Math.max(0, Math.min(1, ratio));
+
     if (this.elHUD.playerBar) {
-      this.elHUD.playerBar.style.transform = `scaleX(${Math.max(0, Math.min(1, ratio))})`;
+      this.elHUD.playerBar.style.transform = `scaleX(${clamped})`;
       this.elHUD.playerBar.classList.toggle('low', ratio <= 0.4);
     }
     if (this.elHUD.playerHPText) {
-      this.elHUD.playerHPText.textContent =
-        `${this.playerHP}/${this.playerMaxHP}`;
+      this.elHUD.playerHPText.textContent = `${this.playerHP}/${this.playerMaxHP}`;
     }
   }
 
@@ -349,18 +391,58 @@ class ShadowBreakerGame {
       ? ratio
       : (this.boss.maxHP > 0 ? this.boss.hp / this.boss.maxHP : 0);
 
+    const clamped = Math.max(0, Math.min(1, r));
+
     if (this.elHUD.bossBar) {
-      this.elHUD.bossBar.style.transform = `scaleX(${Math.max(0, Math.min(1, r))})`;
+      this.elHUD.bossBar.style.transform = `scaleX(${clamped})`;
       this.elHUD.bossBar.classList.toggle('low', r <= 0.4);
     }
     if (this.elHUD.bossHPText) {
-      this.elHUD.bossHPText.textContent =
-        `${this.boss.hp}/${this.boss.maxHP}`;
+      this.elHUD.bossHPText.textContent = `${this.boss.hp}/${this.boss.maxHP}`;
     }
 
     // near-death shake
     if (this.elBossPortrait) {
       this.elBossPortrait.classList.toggle('sb-shake', r <= 0.25);
+    }
+  }
+
+  /* ---------- Boss state per stage ---------- */
+
+  _createBossStateForCurrent() {
+    const diffKey = this.diffKey || 'normal';
+    const bossIndex = this.bossOrder[this.currentBossIdx] || 0;
+
+    this.bossIndex = bossIndex;
+    this.boss = new ShadowBossState(diffKey); // ใช้ HP ตาม diff เดิม
+
+    this._setupBossUIForIndex(bossIndex);
+    this._updateBossHPHUD(1);
+    this._updatePhaseHUD(1);
+  }
+
+  _onBossDown() {
+    // ยังมีบอสตัวถัดไป → ไปต่อ
+    if (this.currentBossIdx < this.bossOrder.length - 1) {
+      this.currentBossIdx += 1;
+      this._createBossStateForCurrent();
+
+      if (this.elHUD.feedback) {
+        this.elHUD.feedback.textContent =
+          `เยี่ยมมาก! ผ่านบอสตัวที่ ${this.currentBossIdx} แล้ว 🎉`;
+        this.elHUD.feedback.className = 'sb-feedback good';
+      }
+
+      // intro บอสตัวใหม่
+      if (this.elBossIntro) {
+        this.elBossIntro.classList.remove('hidden');
+        setTimeout(() => {
+          this.elBossIntro.classList.add('hidden');
+        }, 1500);
+      }
+    } else {
+      // เคลียร์ครบ 4 ตัว
+      this.endGame('bossDownAll');
     }
   }
 
@@ -375,11 +457,14 @@ class ShadowBreakerGame {
     this.combo = 0;
     this.maxCombo = 0;
     this.playerHP = this.playerMaxHP;
-    this.boss = new ShadowBossState(this.diffKey);
+
+    // เริ่มบอสตัวแรกในลำดับ
+    this.currentBossIdx = 0;
+    this._createBossStateForCurrent();
 
     this._updateHUDAll();
 
-    // แสดง boss intro สั้น ๆ ถ้ามี
+    // intro แรก
     if (this.elBossIntro) {
       this.elBossIntro.classList.remove('hidden');
       setTimeout(() => {
@@ -407,7 +492,9 @@ class ShadowBreakerGame {
     if (!this.running) return;
 
     const ratio = this.boss.maxHP > 0 ? this.boss.hp / this.boss.maxHP : 0;
-    const params = computeSpawnParams(this.diffKey, ratio);
+    const params = computeSpawnParams(this.diffKey, ratio, this.currentBossIdx);
+
+    this.lastSpawnParams = params;
 
     this._updatePhaseHUD(params.phase);
     this._updateBossHPHUD(ratio);
@@ -428,6 +515,7 @@ class ShadowBreakerGame {
     const typeKey = pickWeighted(params.weights); // main / fake / bonus
     const el = document.createElement('div');
     el.className = 'sb-target';
+
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
     el.appendChild(inner);
@@ -439,29 +527,31 @@ class ShadowBreakerGame {
     inner.textContent = emoji;
 
     if (typeKey === 'fake') {
-      el.dataset.type = 'bad';
+      el.dataset.type = 'fake';
     } else if (typeKey === 'bonus') {
       el.dataset.type = 'bonus';
     } else {
-      el.dataset.type = 'good';
+      el.dataset.type = 'main';
     }
 
+    // ตำแหน่งแบบสุ่มใน field
     const pad = 18;
     const maxX = rect.width - size - pad;
     const maxY = rect.height - size - pad;
     const x = randBetween(pad, maxX);
     const y = randBetween(pad, maxY);
 
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    el.style.width = `${size}px`;
+    el.style.left   = `${x}px`;
+    el.style.top    = `${y}px`;
+    el.style.width  = `${size}px`;
     el.style.height = `${size}px`;
 
     const targetObj = {
       el,
       type: typeKey,
       hit: false,
-      lifeTimer: null
+      lifeTimer: null,
+      cleanup: null
     };
 
     const onHit = (ev) => {
@@ -487,6 +577,7 @@ class ShadowBreakerGame {
   _removeTarget(target) {
     const idx = this.activeTargets.indexOf(target);
     if (idx >= 0) this.activeTargets.splice(idx, 1);
+    if (target.cleanup) target.cleanup();
   }
 
   _spawnScoreFx(kind, x, y, text) {
@@ -495,7 +586,7 @@ class ShadowBreakerGame {
     fx.className = `sb-fx-score sb-${kind}`;
     fx.textContent = text;
     fx.style.left = `${x}px`;
-    fx.style.top = `${y}px`;
+    fx.style.top  = `${y}px`;
     field.appendChild(fx);
     setTimeout(() => {
       if (fx.parentNode === field) field.removeChild(fx);
@@ -508,11 +599,70 @@ class ShadowBreakerGame {
     hp.className = 'hitParticle';
     hp.textContent = emoji;
     hp.style.left = `${x}px`;
-    hp.style.top = `${y}px`;
+    hp.style.top  = `${y}px`;
     field.appendChild(hp);
     setTimeout(() => {
       if (hp.parentNode === field) field.removeChild(hp);
     }, 480);
+  }
+
+  _spawnBossFaceTarget(params) {
+    const field = this.elField || this.elRoot;
+    if (!field) return;
+
+    const rect = field.getBoundingClientRect();
+    const size = params.sizePx ? params.sizePx[1] : 96; // ใช้ขนาดใหญ่สุด
+
+    const pad = 24;
+    const maxX = rect.width - size - pad;
+    const maxY = rect.height - size - pad;
+    const x = randBetween(pad, maxX);
+    const y = randBetween(pad, maxY);
+
+    const el = document.createElement('div');
+    el.className = 'sb-target';
+    el.dataset.type = 'bossface';
+    el.dataset.bossFace = '1';   // ให้ CSS sb-target[data-boss-face="1"] จับไปแต่ง
+
+    const inner = document.createElement('div');
+    inner.className = 'sb-target-inner';
+    const boss = BOSS_TABLE[this.bossIndex] || BOSS_TABLE[0];
+    inner.textContent = boss.emoji;        // ใช้หน้า/สัญลักษณ์บอสจริง
+    el.appendChild(inner);
+
+    el.style.left   = `${x}px`;
+    el.style.top    = `${y}px`;
+    el.style.width  = `${size}px`;
+    el.style.height = `${size}px`;
+
+    const targetObj = {
+      el,
+      type: 'bossface',
+      hit: false,
+      lifeTimer: null,
+      cleanup: null
+    };
+
+    const onHit = (ev) => {
+      ev.preventDefault();
+      this._handleTargetHit(targetObj, x, y);
+    };
+
+    el.addEventListener('pointerdown', onHit, { passive: false });
+
+    targetObj.cleanup = () => {
+      el.removeEventListener('pointerdown', onHit);
+      if (el.parentNode === field) field.removeChild(el);
+    };
+
+    // อยู่บนจอสั้นกว่าปกติ
+    const life = (params.lifetime || 2000) * 0.7;
+    targetObj.lifeTimer = setTimeout(() => {
+      if (!targetObj.hit) this._handleTargetMiss(targetObj, x, y);
+    }, life);
+
+    field.appendChild(el);
+    this.activeTargets.push(targetObj);
   }
 
   _handleTargetHit(target, x, y) {
@@ -541,11 +691,32 @@ class ShadowBreakerGame {
       if (this.playerHP <= 0) {
         this.endGame('playerDead');
       }
+    } else if (target.type === 'bossface') {
+      // เป้าหน้าบอส: ดาเมจแรง + คะแนนเยอะ
+      const dmg = 3;
+      const gain = 30;
+
+      this.score += gain;
+      this._updateScoreHUD();
+
+      this.combo += 1;
+      if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+      this._updateComboHUD();
+
+      this._spawnScoreFx('perfect', x, y, `+${gain} BOSS HIT!`);
+      this._spawnHitParticle(x, y, '💥');
+
+      if (this.elHUD.feedback) {
+        this.elHUD.feedback.textContent = 'ตีโดนหน้า Boss! ดาเมจแรงสุด ๆ 💥';
+        this.elHUD.feedback.className = 'sb-feedback perfect';
+      }
+
+      this._applyBossDamage(dmg);
     } else {
-      // main / bonus
+      // main / bonus ปกติ
       let base = 10;
       let emoji = '🎯';
-      let kind = 'good';
+
       if (target.type === 'bonus') {
         base = 20;
         emoji = '⭐';
@@ -562,7 +733,8 @@ class ShadowBreakerGame {
       this._updateComboHUD();
 
       const label = this.combo >= 10 ? 'PERFECT!' : 'GOOD';
-      kind = this.combo >= 10 ? 'perfect' : 'good';
+      const kind  = this.combo >= 10 ? 'perfect' : 'good';
+
       this._spawnScoreFx(kind, x, y, `+${gain} ${label}`);
       this._spawnHitParticle(x, y, emoji);
 
@@ -584,9 +756,8 @@ class ShadowBreakerGame {
 
     if (target.lifeTimer) clearTimeout(target.lifeTimer);
     this._removeTarget(target);
-    if (target.cleanup) target.cleanup();
 
-    if (target.type === 'main') {
+    if (target.type === 'main' || target.type === 'bossface') {
       this.combo = 0;
       this._updateComboHUD();
       this._spawnScoreFx('miss', x, y, 'MISS');
@@ -599,8 +770,16 @@ class ShadowBreakerGame {
 
   _applyBossDamage(dmg) {
     const info = this.boss.hit(dmg);
+
     this._updateBossHPHUD(info.ratio);
     this._updatePhaseHUD(info.phase);
+
+    // near-death → spawn boss face หนึ่งครั้งต่อบอส
+    if (info.nearDeath && info.nearDeathChanged) {
+      const params = this.lastSpawnParams ||
+        computeSpawnParams(this.diffKey, info.ratio, this.currentBossIdx);
+      this._spawnBossFaceTarget(params);
+    }
 
     if (info.nearDeath && this.elHUD.feedback) {
       this.elHUD.feedback.textContent =
@@ -609,14 +788,18 @@ class ShadowBreakerGame {
     }
 
     if (info.hp <= 0) {
-      this.endGame('bossDown');
+      this._onBossDown();
     }
   }
 
   /* ---------- END GAME ---------- */
 
   endGame(reason = 'timeup') {
-    if (!this.running) return;
+    if (!this.running && reason === 'restart') {
+      // เรียกจากด้านนอกเพื่อ reset เฉย ๆ
+    }
+    if (!this.running && reason !== 'restart') return;
+
     this.running = false;
 
     if (this.spawnTimer) clearTimeout(this.spawnTimer);
@@ -624,17 +807,20 @@ class ShadowBreakerGame {
     this.spawnTimer = null;
     this.timerTick = null;
 
-    // clear targets
+    // clear targets ทั้งหมด
     this.activeTargets.forEach(t => {
       if (t.lifeTimer) clearTimeout(t.lifeTimer);
       if (t.cleanup) t.cleanup();
     });
     this.activeTargets.length = 0;
 
+    if (reason === 'restart') return;
+
     const titleMap = {
-      timeup: 'หมดเวลา',
-      bossDown: 'ชนะบอส! 🎉',
-      playerDead: 'พลังชีวิตหมด'
+      timeup:      'หมดเวลา',
+      bossDownAll: 'ชนะบอสครบ 4 ตัว! 🎉',
+      playerDead:  'พลังชีวิตหมด',
+      bossDown:    'ชนะบอส!'
     };
     const title = titleMap[reason] || 'จบเกม';
 
@@ -642,7 +828,7 @@ class ShadowBreakerGame {
       `${title}\n\n` +
       `คะแนนรวม: ${this.score}\n` +
       `คอมโบสูงสุด: ${this.maxCombo}\n` +
-      `HP บอสคงเหลือ: ${this.boss.hp}/${this.boss.maxHP}`;
+      `บอสที่เล่นถึง: ${this.currentBossIdx + 1}/${this.bossOrder.length}`;
 
     window.alert(msg);
   }
@@ -677,19 +863,19 @@ export function initShadowBreaker(opts = {}) {
     Number(qsTime) ||
     60;
 
-  const bossIndex =
-    typeof opts.bossIndex === 'number'
-      ? opts.bossIndex
-      : (root.dataset.boss ? Number(root.dataset.boss) : undefined);
+  // ถ้าอยาก override ลำดับบอสเอง ก็ส่ง opts.bossOrder = [0,1,2,3]
+  const bossOrder = Array.isArray(opts.bossOrder)
+    ? opts.bossOrder.slice()
+    : (SHADOW_DIFF_TABLE[diffKey]?.defaultBossOrder.slice() || [0,1,2,3]);
 
   const game = new ShadowBreakerGame({
     host: root,
     difficulty: diffKey,
     durationSec: timeSec,
-    bossIndex
+    bossOrder
   });
 
-  window.__shadowBreaker = game; // เผื่อ debug
+  window.__shadowBreaker = game; // เผื่อ debug จาก console
   game.start();
   return game;
 }
