@@ -1,17 +1,14 @@
-// === shadow-breaker.js (FIX BOOT) ===
+// === js/shadow-breaker.js — bootstrap Shadow Breaker (FIXED PATH) ===
 'use strict';
-
-console.log('[SB] loading shadow-breaker.js');
 
 import { initShadowBreaker } from './engine.js';
 
 window.addEventListener('DOMContentLoaded', () => {
-  console.log('[SB] DOM ready, booting...');
   try {
     initShadowBreaker();
-    console.log('[SB] initShadowBreaker OK');
-  } catch (err) {
-    console.error('[SB] Boot FAILED:', err);
-    alert('Shadow Breaker โหลดไม่สำเร็จ ตรวจ console');
+    console.log('[ShadowBreaker] init OK');
+  } catch (e) {
+    console.error('[ShadowBreaker] init failed', e);
+    alert('ไม่สามารถเริ่มเกมได้ กรุณารีเฟรชหน้า');
   }
 });
