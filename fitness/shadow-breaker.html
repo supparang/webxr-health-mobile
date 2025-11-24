@@ -167,21 +167,17 @@
     </div>
   </div>
 
-  <!-- ========== Scripts ========== -->
-  <script type="module" src="./js/shadow-breaker.js"></script>
-  <script type="module" src="./js/engine.js"></script>
-  <script type="module" src="./js/dom-renderer.js"></script>
-  <script type="module" src="./js/event-logger.js"></script>
-  <script type="module" src="./js/session-logger.js"></script>
-  <script type="module" src="./js/particle.js"></script>
+<!-- ========== Scripts ========== -->
+<script type="module" src="./js/shadow-breaker.js"></script>
+<script type="module" src="./js/engine.js"></script>
+<script type="module" src="./js/dom-renderer.js"></script>
+<script type="module" src="./js/event-logger.js"></script>
+<script type="module" src="./js/session-logger.js"></script>
+<script type="module" src="./js/particle.js"></script>
 
-  <!-- SFX -->
-  <audio id="sfx-hit" src="./sfx/hit.mp3" preload="auto"></audio>
-  <audio id="sfx-boss" src="./sfx/boss-intro.mp3" preload="auto"></audio>
-  <audio id="sfx-fever" src="./sfx/fever.mp3" preload="auto"></audio>
-
-  <script>
-document.addEventListener('DOMContentLoaded', ()=>{
+<!-- Inline Script ต้องไม่ใช้ type="module" -->
+<script>
+window.addEventListener('DOMContentLoaded', () => {
   const sections = {
     menu: document.getElementById('view-menu'),
     play: document.getElementById('view-play'),
@@ -189,42 +185,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
     research: document.getElementById('view-research-form')
   };
 
-  function show(view){
-    Object.values(sections).forEach(sec=>sec.classList.add('hidden'));
-    sections[view].classList.remove('hidden');
-    sections[view].classList.add('fade-in');
+  function show(view) {
+    Object.values(sections).forEach(sec => sec.classList.add('hidden'));
+    const el = sections[view];
+    el.classList.remove('hidden');
+    el.classList.add('fade-in');
   }
 
-  // ปุ่มเริ่มเล่น
   document.querySelector('[data-action="start-normal"]')
-    ?.addEventListener('click', ()=>{
-      show('play');
-    });
+    ?.addEventListener('click', () => show('play'));
 
-  // ปุ่มโหมดวิจัย
   document.querySelector('[data-action="start-research"]')
-    ?.addEventListener('click', ()=>{
-      show('research');
-    });
+    ?.addEventListener('click', () => show('research'));
 
-  // ย้อนกลับ
-  document.querySelectorAll('[data-action="back-to-menu"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>show('menu'));
-  });
+  document.querySelectorAll('[data-action="back-to-menu"]')
+    .forEach(btn => btn.addEventListener('click', () => show('menu')));
 
-  // ปุ่มเล่นซ้ำ
   document.querySelector('[data-action="play-again"]')
-    ?.addEventListener('click', ()=>{
-      show('play');
-    });
+    ?.addEventListener('click', () => show('play'));
 
-  // ปุ่มหยุดก่อนเวลา → ไปหน้าสรุปผล
   document.querySelector('[data-action="stop-early"]')
-    ?.addEventListener('click', ()=>{
-      show('result');
-    });
+    ?.addEventListener('click', () => show('result'));
 });
 </script>
+
+    <!-- SFX -->
+  <audio id="sfx-hit" src="./sfx/hit.mp3" preload="auto"></audio>
+  <audio id="sfx-boss" src="./sfx/boss-intro.mp3" preload="auto"></audio>
+  <audio id="sfx-fever" src="./sfx/fever.mp3" preload="auto"></audio>
 
 </body>
 </html>
