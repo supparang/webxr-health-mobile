@@ -1,223 +1,153 @@
-// === js/dom-renderer.js — DOM target renderer + FX (Shadow Breaker 2025-11-25c) ===
+// === js/dom-renderer.js — DOM target renderer + FX (2025-11-28) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
 
 export class DomRenderer {
-  /**
-   * @param {HTMLElement} host  ชั้นที่ใช้วางเป้า (#target-layer)
-   * @param {Object} opts
-   *   - onTargetHit(id, info)
-   */
   constructor(host, opts = {}) {
     this.host = host;
-    this.container = host?.closest('.sb-field') || host || document.body;
-    this.onTargetHit = opts.onTargetHit || (() => {});
+    this.opts = opts;
     this.targets = new Map();
-
-    if (!this.host) {
-      console.warn('[DomRenderer] host is null, renderer will be no-op');
-    }
-
-    window.addEventListener(
-      'resize',
-      () => { /* ไว้เผื่ออนาคตถ้าจะปรับตำแหน่งตอน resize */ },
-      { passive: true }
-    );
   }
 
-  /* -------------------- utility: position -------------------- */
-
-  /**
-   * วางเป้าจาก x_norm / y_norm หรือ zone_lr / zone_ud
-   * - ถ้ามี x_norm,y_norm 0–1 จะใช้ตรง ๆ
-   * - ถ้าไม่มี ใช้ zone วางบน grid 3x3 แล้วสุ่มใน cell นิดหน่อย
-   */
-  _place(el, t) {
-    let xn =
-      (typeof t.x_norm === 'number' ? t.x_norm : null) ??
-      (typeof t.xNorm === 'number' ? t.xNorm : null);
-    let yn =
-      (typeof t.y_norm === 'number' ? t.y_norm : null) ??
-      (typeof t.yNorm === 'number' ? t.yNorm : null);
-
-    const hasNorm =
-      typeof xn === 'number' && xn >= 0 && xn <= 1 &&
-      typeof yn === 'number' && yn >= 0 && yn <= 1;
-
-    if (!hasNorm) {
-      // ----- ใช้ zone เป็น grid 3×3 -----
-      const lr = (t.zone_lr || t.zoneLR || '').toUpperCase();
-      const ud = (t.zone_ud || t.zoneUD || '').toUpperCase();
-
-      let col;
-      if (lr === 'L') col = 0;
-      else if (lr === 'R') col = 2;
-      else col = 1; // C หรือ undefined = กลาง
-
-      let row;
-      if (ud === 'U') row = 0;
-      else if (ud === 'D') row = 2;
-      else row = 1; // M หรือ undefined = กลาง
-
-      const cellW = 1 / 3;
-      const cellH = 1 / 3;
-
-      // jitter เล็กน้อยใน cell เพื่อไม่ให้ทับกันเป๊ะ ๆ
-      const jitterX = (Math.random() - 0.5) * 0.4 * cellW; // ±20% ของ cell
-      const jitterY = (Math.random() - 0.5) * 0.4 * cellH;
-
-      xn = (col + 0.5) * cellW + jitterX;
-      yn = (row + 0.5) * cellH + jitterY;
-    }
-
-    // clamp กันหลุดชิดขอบเกินไป
-    xn = Math.min(0.90, Math.max(0.10, xn));
-    yn = Math.min(0.88, Math.max(0.12, yn));
-
-    el.style.left = (xn * 100) + '%';
-    el.style.top  = (yn * 100) + '%';
+  setEngine(engine) {
+    this.engine = engine;
   }
 
-  /* -------------------- spawn / remove -------------------- */
+  clear() {
+    for (const { el } of this.targets.values()) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    }
+    this.targets.clear();
+  }
 
-  /**
-   * t: { id, sizePx, isDecoy,isBomb,isHeal,isShield,isBossFace,
-   *      x_norm,y_norm,zone_lr,zone_ud,emoji }
-   */
   spawnTarget(t) {
-    if (!this.host || !t || t.id == null) return;
-
-    if (this.targets.has(t.id)) {
-      this.removeTarget(t.id, 'dup');
-    }
-
+    if (!this.host) return;
     const el = document.createElement('div');
     el.className = 'sb-target';
-    el.dataset.id = t.id;
+    el.dataset.id   = String(t.id);
+    el.dataset.diff = t.diffKey || 'normal';
+    el.dataset.phase= String(t.bossPhase || t.phase || 1);
+    el.dataset.boss = String(t.bossIndex ?? 0);
+    el.dataset.type = t.type || (t.isBomb ? 'bomb' : t.isDecoy ? 'decoy' : 'normal');
 
-    if (t.isDecoy)    el.dataset.type = 'decoy';
-    if (t.isBomb)     el.dataset.type = 'bad';
-    if (t.isBossFace) el.dataset.bossFace = '1';
+    if (t.isBossFace) el.classList.add('sb-boss-face');
+    if (t.isBomb)     el.classList.add('sb-target-bomb');
+    if (t.isDecoy)    el.classList.add('sb-target-decoy');
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
-
-    let symbol = '🥊';
-    if (t.isBomb)        symbol = '💣';
-    else if (t.isHeal)   symbol = '💚';
-    else if (t.isShield) symbol = '🛡️';
-    else if (t.isDecoy)  symbol = '🎯';
-    if (t.emoji)         symbol = t.emoji;
-    inner.textContent = symbol;
-
+    inner.textContent = t.emoji || (t.isBomb ? '💣' : t.isHeal ? '💚' : t.isShield ? '🛡️' : '🎯');
     el.appendChild(inner);
 
-    const sizePx = t.sizePx || t.size || 140;
-    el.style.width  = sizePx + 'px';
-    el.style.height = sizePx + 'px';
+    const size = t.sizePx || 140;
+    el.style.width  = size + 'px';
+    el.style.height = size + 'px';
 
-    this._place(el, t);
+    this._placeTarget(el, t);
 
-    const handleHit = (ev) => {
+    const onHit = (ev) => {
       ev.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const sx = rect.left + rect.width / 2;
-      const sy = rect.top + rect.height / 2;
-
-      this.onTargetHit(t.id, {
-        screenX: sx,
-        screenY: sy,
-        clientX: ev.clientX ?? sx,
-        clientY: ev.clientY ?? sy,
-      });
+      ev.stopPropagation();
+      const id = t.id;
+      const pos = { x: ev.clientX, y: ev.clientY };
+      if (this.opts.onTargetHit) {
+        this.opts.onTargetHit(id, pos);
+      }
     };
 
-    el.addEventListener('pointerdown', handleHit);
-    el.addEventListener('touchstart', handleHit, { passive: false });
+    el.addEventListener('pointerdown', onHit, { passive: false });
+    el.addEventListener('click', onHit, { passive: false });
 
     this.host.appendChild(el);
     this.targets.set(t.id, { el, data: t });
   }
 
-  removeTarget(id, reason = '') {
+  _placeTarget(el, t) {
+    const hostRect = this.host.getBoundingClientRect();
+    const w = hostRect.width || window.innerWidth || 800;
+    const h = hostRect.height || window.innerHeight || 600;
+
+    let xn = typeof t.x_norm === 'number' ? t.x_norm : Math.random();
+    let yn = typeof t.y_norm === 'number' ? t.y_norm : Math.random();
+
+    const marginX = 0.08;
+    const marginY = 0.12;
+    xn = marginX + xn * (1 - 2 * marginX);
+    yn = marginY + yn * (1 - 2 * marginY);
+
+    const left = xn * w;
+    const top  = yn * h;
+
+    el.style.left = left + 'px';
+    el.style.top  = top  + 'px';
+    el.style.transform = 'translate(-50%, -50%)';
+  }
+
+  removeTarget(id, reason = 'hit') {
     const rec = this.targets.get(id);
     if (!rec) return;
-    const el = rec.el;
+    const { el } = rec;
+    if (!el) return;
 
-    if (reason === 'hit') {
-      el.classList.add('sb-hit');
-      setTimeout(() => el.remove(), 220);
-    } else {
-      el.remove();
-    }
+    el.classList.add(reason === 'timeout' ? 'sb-target-timeout' : 'sb-target-hit');
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 220);
 
     this.targets.delete(id);
   }
 
-  /* -------------------- FX / feedback -------------------- */
+  playHitFx(id, info = {}) {
+    const rec = this.targets.get(id);
+    const el = rec?.el;
+    if (!el || !this.host) return;
 
-  playHitFx(targetId, ev = {}) {
-    const rec = this.targets.get(targetId);
-    const field = this.container || this.host || document.body;
-    const fieldRect = field.getBoundingClientRect();
+    const hostRect = this.host.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2 - hostRect.left;
+    const cy = rect.top + rect.height / 2 - hostRect.top;
 
-    let cx, cy;
-    if (rec?.el) {
-      const rect = rec.el.getBoundingClientRect();
-      cx = rect.left + rect.width / 2;
-      cy = rect.top + rect.height / 2;
-    } else {
-      cx = fieldRect.left + fieldRect.width / 2;
-      cy = fieldRect.top  + fieldRect.height / 2;
-    }
-    const rx = cx - fieldRect.left;
-    const ry = cy - fieldRect.top;
+    const grade = info.grade || 'good';
+    const scoreDelta = info.scoreDelta || 0;
+    const fxEmoji = info.fxEmoji || '✨';
 
-    // popup score
-    const popup = document.createElement('div');
-    popup.className = 'sb-fx-score';
-
-    let label = '';
-    if (ev.grade === 'perfect') {
-      label = `+${ev.scoreDelta ?? ''} PERFECT`;
-      popup.classList.add('sb-perfect');
-    } else if (ev.grade === 'good') {
-      label = `+${ev.scoreDelta ?? ''} GOOD`;
-      popup.classList.add('sb-good');
-    } else if (ev.grade === 'heal') {
-      label = '+HP';
-      popup.classList.add('sb-good');
-    } else if (ev.grade === 'shield') {
-      label = '+SHIELD';
-      popup.classList.add('sb-good');
-    } else if (ev.grade === 'bomb') {
-      label = 'BOMB!';
-      popup.classList.add('sb-miss');
-    } else {
-      label = 'MISS';
-      popup.classList.add('sb-miss');
+    // Score popup
+    if (scoreDelta !== 0 || grade === 'miss') {
+      const fx = document.createElement('div');
+      fx.className = 'sb-scorefx ' + grade;
+      fx.textContent = grade === 'miss' ? 'MISS' : (scoreDelta > 0 ? '+' + scoreDelta : scoreDelta);
+      fx.style.left = cx + 'px';
+      fx.style.top  = cy + 'px';
+      this.host.appendChild(fx);
+      setTimeout(() => fx.remove(), 480);
     }
 
-    popup.textContent = label;
-    popup.style.left = rx + 'px';
-    popup.style.top  = ry + 'px';
-    field.appendChild(popup);
-    setTimeout(() => popup.remove(), 600);
+    // Emoji spark
+    const spark = document.createElement('div');
+    spark.className = 'sb-hit-spark ' + grade;
+    spark.textContent = fxEmoji;
+    spark.style.left = cx + 'px';
+    spark.style.top  = cy + 'px';
+    this.host.appendChild(spark);
+    setTimeout(() => spark.remove(), 420);
 
-    // neon ring
-    const neon = document.createElement('div');
-    neon.className = 'sb-neon-hit';
-    neon.style.left = rx + 'px';
-    neon.style.top  = ry + 'px';
-    field.appendChild(neon);
-    setTimeout(() => neon.remove(), 260);
+    // Particle burst (safe fallback)
+    try {
+      if (typeof spawnHitParticle === 'function') {
+        spawnHitParticle(this.host, {
+          screen: {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2
+          }
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
 
-    // particle
-    spawnHitParticle(field, { x: rx, y: ry, emoji: ev.fxEmoji || '✨' });
-
-    // camera shake
-    field.classList.add('sb-shake-field');
-    setTimeout(() => field.classList.remove('sb-shake-field'), 160);
+    // small shake of host
+    this.host.classList.add('sb-hit-bump');
+    setTimeout(() => this.host.classList.remove('sb-hit-bump'), 140);
   }
 }
