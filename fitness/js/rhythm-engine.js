@@ -1,139 +1,242 @@
-// === fitness/js/rhythm-engine.js — Rhythm Boxer (Research-Ready, autoplay-safe) ===
+// === fitness/js/rhythm-engine.js — Rhythm Boxer (Research-ready, 2025-11-28) ===
 'use strict';
-
-// ----- Config -----
-
-const LANES = [0, 1, 2, 3, 4]; // L2, L1, C, R1, R2
-
-// emoji สำหรับแต่ละเลน
-const NOTE_EMOJI_BY_LANE = ['🎵', '🎶', '🎵', '🎶', '🎼'];
-
-// ขนาด note ตามระดับความยาก (px) — ผูกกับ CSS (ใช้เป็น base)
-const NOTE_SIZE_BY_DIFF = {
-  easy:  64,
-  normal:56,
-  hard:  48
-};
-
-// hit window (วินาที)
-const HIT_WINDOWS = {
-  perfect: 0.06,
-  great:   0.12,
-  good:    0.20
-};
-
-// spawn ล่วงหน้าก่อนถึงเส้นตี (วินาที)
-const PRE_SPAWN_SEC = 2.0;
-
-// chart ตัวอย่าง (track demo เดียวก่อน)
-// time = เวลาที่ note จะถึงเส้นตี (วินาที)
-const TRACKS = [
-  {
-    id: 'warmup-easy',
-    name: 'Warm-up Groove (Easy)',
-    audio: 'audio/warmup-groove.mp3',
-    duration: 32,      // ประมาณเวลาเพลงจริง (ใช้ตัดจบ timeline)
-    bpm: 100,
-    diff: 'easy',
-    chart: makeWarmupChart()
-  }
-];
-
-// ----- Utilities -----
-
-function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
-
-function $(id){ return document.getElementById(id); }
-
-// logger แบบง่ายสำหรับ Event CSV
-class EventLogger {
-  constructor(){ this.rows = []; }
-
-  add(row){ this.rows.push(row); }
-
-  toCsv(){
-    if (!this.rows.length) return '';
-    const cols = Object.keys(this.rows[0]);
-    const esc = (v) => {
-      if (v == null) return '';
-      const s = String(v);
-      if (s.includes('"') || s.includes(',') || s.includes('\n')){
-        return '"' + s.replace(/"/g,'""') + '"';
-      }
-      return s;
-    };
-    const lines = [];
-    lines.push(cols.join(','));
-    for (const r of this.rows){
-      lines.push(cols.map(c => esc(r[c])).join(','));
-    }
-    return lines.join('\n');
-  }
-}
-
-// สร้าง chart แบบ 4 ลักษณะง่าย ๆ (8 beat / 4 bar) demo
-function makeWarmupChart(){
-  const out = [];
-  let t = 2.0;          // เริ่มหลัง 2 วินาที
-  const beat = 60 / 100; // bpm = 100 → 0.6s/beat
-
-  // 4 bar แรก: single note สลับเลน
-  const seq1 = [2, 1, 3, 2, 1, 3, 2, 3];
-  for (let bar = 0; bar < 4; bar++){
-    for (let i = 0; i < seq1.length; i++){
-      out.push({ time: t, lane: seq1[i], type: 'note' });
-      t += beat;
-    }
-  }
-
-  // แทรก shield / bomb / hp เบา ๆ
-  out.push({ time:  t + beat * 0.5, lane: 0, type: 'hp'     });
-  out.push({ time:  t + beat * 1.5, lane: 4, type: 'shield' });
-  out.push({ time:  t + beat * 3.0, lane: 2, type: 'bomb'   });
-
-  return out;
-}
-
-// ----- Main game module -----
 
 (function(){
 
-  // DOM refs (จะ set ใน init)
-  let elMode, elTrackSelect, elTrackName;
-  let elScore, elCombo, elAcc, elHp, elShield, elTime;
-  let elFeverFill, elFeverStatus;
-  let elProgFill, elProgLabel;
-  let elCntPerfect, elCntGreat, elCntGood, elCntMiss;
-  let elField, elLaneWrap, elTapHint, elHitLine;
-  let elBtnStop, elBtnCsv;
+  // ===== CONFIG =====
 
-  // Research form
-  let elModeNormal, elModeResearch;
-  let elInputId, elInputGroup, elInputNote;
+  const LANES = [0, 1, 2, 3, 4]; // L2, L1, C, R1, R2
+  const NOTE_EMOJI_BY_LANE = ['🎵', '🎶', '🎵', '🎶', '🎼'];
 
-  // Audio
-  let audioEl = null;
+  const HIT_WINDOWS = {
+    perfect: 0.06,
+    great:   0.12,
+    good:    0.20
+  };
 
-  // Timeline
+  const PRE_SPAWN_SEC = 2.0;
+
+  const TRACKS = [
+    {
+      id: 't1',
+      name: 'Warm-up Groove (ง่าย)',
+      audio: 'audio/warmup-groove.mp3',
+      duration: 32,
+      bpm: 100,
+      diff: 'easy',
+      chart: makeWarmupChart(100, 32)
+    },
+    {
+      id: 't2',
+      name: 'Punch Rush (ปกติ)',
+      audio: 'audio/punch-rush.mp3',
+      duration: 36,
+      bpm: 120,
+      diff: 'normal',
+      chart: makePunchRushChart(120, 36)
+    },
+    {
+      id: 't3',
+      name: 'Ultra Beat Combo (ยาก)',
+      audio: 'audio/ultra-beat.mp3',
+      duration: 40,
+      bpm: 135,
+      diff: 'hard',
+      chart: makeUltraBeatChart(135, 40)
+    },
+    {
+      id: 'research',
+      name: 'Research Track 120 (วิจัย)',
+      audio: 'audio/research-120.mp3',
+      duration: 40,
+      bpm: 120,
+      diff: 'normal',
+      chart: makeResearchChart(120, 40)
+    }
+  ];
+
+  // ===== UTILITIES =====
+
+  function clamp(v, a, b) {
+    return v < a ? a : (v > b ? b : v);
+  }
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function makeSessionId() {
+    const t = new Date();
+    const y = t.getFullYear();
+    const m = String(t.getMonth() + 1).padStart(2, '0');
+    const d = String(t.getDate()).padStart(2, '0');
+    const hh = String(t.getHours()).padStart(2, '0');
+    const mm = String(t.getMinutes()).padStart(2, '0');
+    const ss = String(t.getSeconds()).padStart(2, '0');
+    return `RB-${y}${m}${d}-${hh}${mm}${ss}`;
+  }
+
+  class EventLogger {
+    constructor() {
+      this.rows = [];
+    }
+    clear() {
+      this.rows = [];
+    }
+    add(row) {
+      this.rows.push(row);
+    }
+    toCsv() {
+      if (!this.rows.length) return '';
+      const cols = Object.keys(this.rows[0]);
+      const esc = (v) => {
+        if (v == null) return '';
+        const s = String(v);
+        if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+          return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+      };
+      const lines = [];
+      lines.push(cols.join(','));
+      for (const r of this.rows) {
+        lines.push(cols.map(c => esc(r[c])).join(','));
+      }
+      return lines.join('\n');
+    }
+  }
+
+  // ===== Chart generators (ตัวอย่าง pattern ง่าย ๆ) =====
+
+  function makeWarmupChart(bpm, duration) {
+    const out = [];
+    const beat = 60 / bpm;
+    let t = 2.0; // start after 2s
+    const seq = [2, 1, 3, 2, 1, 3, 2, 3]; // C L1 R1 pattern
+
+    const totalBeats = Math.floor((duration - 3) / beat);
+    let i = 0;
+    while (t < duration - 2 && i < totalBeats) {
+      out.push({ time: t, lane: seq[i % seq.length], type: 'note' });
+      t += beat;
+      i++;
+    }
+
+    // a few items
+    out.push({ time:  t + beat * 0.5, lane: 0, type: 'hp' });
+    out.push({ time:  t + beat * 1.5, lane: 4, type: 'shield' });
+    return out;
+  }
+
+  function makePunchRushChart(bpm, duration) {
+    const out = [];
+    const beat = 60 / bpm;
+    let t = 1.8;
+    const seq = [1,2,3,2,3,4,3,2,1,0,2,4];
+
+    const totalBeats = Math.floor((duration - 3) / beat);
+    let i = 0;
+    while (t < duration - 2 && i < totalBeats) {
+      out.push({ time: t, lane: seq[i % seq.length], type: 'note' });
+      if (i % 8 === 4) {
+        out.push({ time: t + beat * 0.3, lane: 2, type: 'bomb' });
+      }
+      t += beat * 0.75; // slightly denser
+      i++;
+    }
+    out.push({ time: t + beat, lane: 0, type: 'hp' });
+    out.push({ time: t + beat * 2, lane: 4, type: 'shield' });
+    return out;
+  }
+
+  function makeUltraBeatChart(bpm, duration) {
+    const out = [];
+    const beat = 60 / bpm;
+    let t = 1.5;
+    const lanes = [0,1,2,3,4,3,2,1];
+
+    const totalBeats = Math.floor((duration - 3) / beat);
+    let i = 0;
+    while (t < duration - 2 && i < totalBeats) {
+      out.push({ time: t, lane: lanes[i % lanes.length], type: 'note' });
+      if (i % 6 === 0) {
+        out.push({ time: t + beat * 0.25, lane: 2, type: 'bomb' });
+      }
+      if (i % 10 === 3) {
+        out.push({ time: t + beat * 0.2, lane: 1, type: 'hp' });
+      }
+      t += beat * 0.6;
+      i++;
+    }
+    return out;
+  }
+
+  function makeResearchChart(bpm, duration) {
+    // เน้น pattern คงที่ ใช้เทียบ pre/post
+    const out = [];
+    const beat = 60 / bpm;
+    let t = 2.0;
+
+    // block 1: single notes
+    for (let i = 0; i < 16; i++) {
+      const lane = [1,2,3,2][i % 4];
+      out.push({ time: t, lane, type: 'note' });
+      t += beat;
+    }
+
+    // block 2: double notes (L1+C, C+R1)
+    for (let i = 0; i < 8; i++) {
+      const pair = (i % 2 === 0) ? [1,2] : [2,3];
+      out.push({ time: t, lane: pair[0], type: 'note' });
+      out.push({ time: t, lane: pair[1], type: 'note' });
+      t += beat * 0.75;
+    }
+
+    // block 3: items
+    out.push({ time: t + beat * 0.5, lane: 0, type: 'hp' });
+    out.push({ time: t + beat * 1.5, lane: 4, type: 'shield' });
+    out.push({ time: t + beat * 2.5, lane: 2, type: 'bomb' });
+
+    return out;
+  }
+
+  // ===== DOM REFS & STATE =====
+
+  // views
+  let viewMenu, viewPlay, viewResult;
+  // menu controls
+  let trackSelect, researchFields, btnStart, modeRadios;
+  let inputParticipant, inputGroup, inputNote;
+  // HUD
+  let hudMode, hudTrack, hudScore, hudCombo, hudAcc, hudHp, hudShield, hudTime;
+  let hudPerfect, hudGreat, hudGood, hudMiss;
+  let feverFill, feverStatus, progFill, progText;
+  // field
+  let fieldEl, lanesEl, hitLineEl, feedbackEl, flashEl;
+  // result
+  let resMode, resTrack, resEndReason, resScore, resMaxCombo, resHitDetail;
+  let resAcc, resOffsetAvg, resOffsetStd, resDuration, resParticipant, resRank, resQualityNote;
+  // buttons result
+  let btnBackMenu, btnAgain, btnDlEvents, btnDlSessions;
+
+  let audioEl;
+  let wrapEl;
+
+  // gameplay state
   let running = false;
   let started = false;
   let startPerf = 0;
   let lastPerf  = 0;
   let currentSongTime = 0;
 
-  // Game state
   let sessionId = makeSessionId();
   let runIndex  = 0;
   let currentTrack = TRACKS[0];
-  let currentDiff  = 'easy';
-
   let chart = [];
   let chartIndex = 0;
-  let activeNotes = [];   // [{id, lane, time, type, el, judged, hit, removed}]
-
+  let activeNotes = [];
   let nextNoteId = 1;
 
-  // Stats
   let score = 0;
   let combo = 0;
   let maxCombo = 0;
@@ -147,169 +250,225 @@ function makeWarmupChart(){
   let cntGood    = 0;
   let cntMiss    = 0;
 
-  // Logging
-  const eventLogger = new EventLogger();
-
-  // Research meta
-  let mode = 'normal'; // 'normal' | 'research'
+  let mode = 'normal';   // 'normal' | 'research'
   let participant = '';
   let group = '';
+  let noteMeta = '';
 
-  // 8-beat timing guide
+  let eventLogger = new EventLogger();
+  const sessionRows = [];
+
   let guideBeatPhase = 0;
 
-  // ----- Init -----
+  // ===== INIT =====
 
-  function init(){
-    // DOM query
-    elTrackSelect = $('rb-track');
-    elTrackName   = $('rb-track-name');
-    elScore       = $('rb-score');
-    elCombo       = $('rb-combo');
-    elAcc         = $('rb-acc');
-    elHp          = $('rb-hp');
-    elShield      = $('rb-shield');
-    elTime        = $('rb-time');
-    elFeverFill   = $('rb-fever-fill');
-    elFeverStatus = $('rb-fever-status');
-    elProgFill    = $('rb-progress-fill');
-    elProgLabel   = $('rb-progress-label');
-    elCntPerfect  = $('rb-count-perfect');
-    elCntGreat    = $('rb-count-great');
-    elCntGood     = $('rb-count-good');
-    elCntMiss     = $('rb-count-miss');
-    elField       = $('rb-field');
-    elLaneWrap    = $('rb-lane-wrap');
-    elTapHint     = $('rb-tap-hint');
-    elHitLine     = $('rb-hit-line');
-    elBtnStop     = $('rb-btn-stop');
-    elBtnCsv      = $('rb-btn-download-csv');
+  function init() {
+    wrapEl       = $('rb-wrap');
+    viewMenu     = $('rb-view-menu');
+    viewPlay     = $('rb-view-play');
+    viewResult   = $('rb-view-result');
 
-    elModeNormal   = $('rb-mode-normal');
-    elModeResearch = $('rb-mode-research');
-    elInputId      = $('rb-input-id');
-    elInputGroup   = $('rb-input-group');
-    elInputNote    = $('rb-input-note');
+    trackSelect     = $('rb-track');
+    researchFields  = $('rb-research-fields');
+    btnStart        = $('rb-btn-start');
+    modeRadios      = document.querySelectorAll('input[name="mode"]');
+
+    inputParticipant = $('rb-participant');
+    inputGroup       = $('rb-group');
+    inputNote        = $('rb-note');
+
+    hudMode   = $('rb-hud-mode');
+    hudTrack  = $('rb-hud-track');
+    hudScore  = $('rb-hud-score');
+    hudCombo  = $('rb-hud-combo');
+    hudAcc    = $('rb-hud-acc');
+    hudHp     = $('rb-hud-hp');
+    hudShield = $('rb-hud-shield');
+    hudTime   = $('rb-hud-time');
+
+    feverFill   = $('rb-fever-fill');
+    feverStatus = $('rb-fever-status');
+    progFill    = $('rb-progress-fill');
+    progText    = $('rb-progress-text');
+
+    hudPerfect  = $('rb-hud-perfect');
+    hudGreat    = $('rb-hud-great');
+    hudGood     = $('rb-hud-good');
+    hudMiss     = $('rb-hud-miss');
+
+    fieldEl    = $('rb-field');
+    lanesEl    = $('rb-lanes');
+    hitLineEl  = document.querySelector('.rb-hit-line');
+    feedbackEl = $('rb-feedback');
+    flashEl    = $('rb-flash');
+
+    resMode        = $('rb-res-mode');
+    resTrack       = $('rb-res-track');
+    resEndReason   = $('rb-res-endreason');
+    resScore       = $('rb-res-score');
+    resMaxCombo    = $('rb-res-maxcombo');
+    resHitDetail   = $('rb-res-detail-hit');
+    resAcc         = $('rb-res-acc');
+    resOffsetAvg   = $('rb-res-offset-avg');
+    resOffsetStd   = $('rb-res-offset-std');
+    resDuration    = $('rb-res-duration');
+    resParticipant = $('rb-res-participant');
+    resRank        = $('rb-res-rank');
+    resQualityNote = $('rb-res-quality-note');
+
+    btnBackMenu   = $('rb-btn-back-menu');
+    btnAgain      = $('rb-btn-again');
+    btnDlEvents   = $('rb-btn-dl-events');
+    btnDlSessions = $('rb-btn-dl-sessions');
 
     audioEl = $('rb-audio');
 
-    // เติม track select (ตอนนี้มีแค่ track เดียว แต่เตรียมรองรับเพิ่ม)
-    if (elTrackSelect){
-      elTrackSelect.innerHTML = '';
-      for (const t of TRACKS){
-        const opt = document.createElement('option');
-        opt.value = t.id;
-        opt.textContent = t.name;
-        elTrackSelect.appendChild(opt);
-      }
-      elTrackSelect.value = TRACKS[0].id;
-      elTrackSelect.addEventListener('change', onChangeTrack);
+    // bind menu events
+    if (trackSelect) {
+      trackSelect.addEventListener('change', onChangeTrack);
     }
 
-    if (elModeNormal){
-      elModeNormal.checked = true;
-      elModeNormal.addEventListener('change', onModeChange);
-    }
-    if (elModeResearch){
-      elModeResearch.addEventListener('change', onModeChange);
+    if (modeRadios) {
+      modeRadios.forEach(r => r.addEventListener('change', onModeChange));
     }
 
-    if (elBtnStop) elBtnStop.addEventListener('click', stopEarly);
-    if (elBtnCsv)  elBtnCsv.addEventListener('click', downloadCsv);
+    if (btnStart) {
+      btnStart.addEventListener('click', startFromMenu);
+    }
 
-    // แตะ field หรือ hint เพื่อเริ่มเพลง/เวลา
-    if (elField) elField.addEventListener('pointerdown', handleFirstTap);
-    if (elTapHint){
-      elTapHint.addEventListener('pointerdown', (ev)=>{
-        ev.stopPropagation();
-        handleFirstTap();
+    if (btnBackMenu) {
+      btnBackMenu.addEventListener('click', () => {
+        showView('menu');
       });
     }
 
-    // tap lane เพื่อ hit
-    if (elLaneWrap){
-      elLaneWrap.addEventListener('pointerdown', onLaneTap);
+    if (btnAgain) {
+      btnAgain.addEventListener('click', () => {
+        // เล่นเพลงเดิม โหมดเดิม ผู้เข้าร่วมเดิม
+        resetState();
+        updateHUD();
+        showView('play');
+        showTapHint();
+      });
     }
 
-    // ปุ่มเริ่มในเมนู (อยู่ใน html shadow-breaker style เดียวกัน: ใช้ data-action)
-    const btnPlay = document.querySelector('[data-action="rb-start"]');
-    if (btnPlay){
-      btnPlay.addEventListener('click', startNewRunFromMenu);
+    if (btnDlEvents) {
+      btnDlEvents.addEventListener('click', downloadEventsCsv);
     }
 
-    // โหลด track และ reset
-    applyTrack(TRACKS[0]);
+    if (btnDlSessions) {
+      btnDlSessions.addEventListener('click', downloadSessionsCsv);
+    }
+
+    if (lanesEl) {
+      lanesEl.addEventListener('pointerdown', onLaneTap);
+    }
+    if (fieldEl) {
+      fieldEl.addEventListener('pointerdown', handleFirstTap);
+    }
+
+    const btnStop = $('rb-btn-stop');
+    if (btnStop) {
+      btnStop.addEventListener('click', () => {
+        if (running || started) {
+          finishRun('manual-stop');
+        }
+      });
+    }
+
+    // default track
+    if (trackSelect) {
+      // ให้ value ตรงกับ TRACKS
+      if (!TRACKS.find(t => t.id === trackSelect.value)) {
+        trackSelect.value = TRACKS[0].id;
+      }
+      onChangeTrack();
+    } else {
+      applyTrack(TRACKS[0]);
+    }
+
     resetState();
     updateHUD();
+    showView('menu');
   }
 
-  // ----- Session / track -----
+  // ===== VIEW CONTROL =====
 
-  function makeSessionId(){
-    const t = new Date();
-    const y = t.getFullYear();
-    const m = String(t.getMonth()+1).padStart(2,'0');
-    const d = String(t.getDate()).padStart(2,'0');
-    const hh = String(t.getHours()).padStart(2,'0');
-    const mm = String(t.getMinutes()).padStart(2,'0');
-    const ss = String(t.getSeconds()).padStart(2,'0');
-    return `RB-${y}${m}${d}-${hh}${mm}${ss}`;
+  function showView(which) {
+    if (viewMenu)   viewMenu.classList.add('hidden');
+    if (viewPlay)   viewPlay.classList.add('hidden');
+    if (viewResult) viewResult.classList.add('hidden');
+
+    if (which === 'menu' && viewMenu)   viewMenu.classList.remove('hidden');
+    if (which === 'play' && viewPlay)   viewPlay.classList.remove('hidden');
+    if (which === 'result' && viewResult) viewResult.classList.remove('hidden');
   }
 
-  function onModeChange(){
-    mode = elModeResearch && elModeResearch.checked ? 'research' : 'normal';
+  function onModeChange() {
+    const checked = document.querySelector('input[name="mode"]:checked');
+    mode = (checked && checked.value === 'research') ? 'research' : 'normal';
+
+    if (researchFields) {
+      if (mode === 'research') researchFields.classList.remove('hidden');
+      else researchFields.classList.add('hidden');
+    }
   }
 
-  function onChangeTrack(){
-    const id = elTrackSelect ? elTrackSelect.value : TRACKS[0].id;
+  function onChangeTrack() {
+    const id = trackSelect ? trackSelect.value : TRACKS[0].id;
     const t = TRACKS.find(x => x.id === id) || TRACKS[0];
     applyTrack(t);
     resetState();
     updateHUD();
   }
 
-  function applyTrack(track){
+  function applyTrack(track) {
     currentTrack = track;
-    currentDiff  = track.diff || 'easy';
-    chart        = track.chart || [];
-    chartIndex   = 0;
+    chart = track.chart || [];
+    chartIndex = 0;
 
-    if (elTrackName) elTrackName.textContent = track.name || '-';
+    if (hudTrack) hudTrack.textContent = track.name || '-';
 
-    // ตั้ง audio src
-    if (audioEl){
+    if (audioEl) {
       audioEl.src = track.audio;
       audioEl.load();
     }
+
+    if (wrapEl) {
+      wrapEl.dataset.diff = track.diff || 'easy';
+    }
   }
 
-  // ----- Game flow -----
+  // ===== GAME FLOW =====
 
-  function startNewRunFromMenu(){
-    // ดึงข้อมูลแบบฟอร์มวิจัย (ถ้าเลือก research)
-    mode = elModeResearch && elModeResearch.checked ? 'research' : 'normal';
-    if (mode === 'research'){
-      participant = (elInputId && elInputId.value.trim()) || '-';
-      group       = (elInputGroup && elInputGroup.value.trim()) || '-';
-    }else{
+  function startFromMenu() {
+    onModeChange(); // อัปเดต mode ให้ตรงปุ่ม radio ล่าสุด
+
+    if (mode === 'research') {
+      participant = (inputParticipant && inputParticipant.value.trim()) || '-';
+      group       = (inputGroup && inputGroup.value.trim()) || '-';
+      noteMeta    = (inputNote && inputNote.value.trim()) || '';
+    } else {
       participant = '';
-      group       = '';
+      group = '';
+      noteMeta = '';
     }
 
     resetState();
     updateHUD();
 
-    // แสดง hint ให้แตะเพื่อเริ่มเพลง
-    if (elTapHint) elTapHint.classList.remove('hidden');
-    if (elField)   elField.classList.add('rb-wait-start');
-
-    // scroll ลงไปให้เห็น field
-    if (elField && elField.scrollIntoView){
-      elField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (hudMode) {
+      hudMode.textContent = (mode === 'research') ? 'Research' : 'Normal';
     }
+    if (hudTrack) {
+      hudTrack.textContent = currentTrack.name || '-';
+    }
+
+    showView('play');
+    showTapHint();
   }
 
-  function resetState(){
+  function resetState() {
     running = false;
     started = false;
     startPerf = 0;
@@ -334,18 +493,34 @@ function makeWarmupChart(){
 
     guideBeatPhase = 0;
 
-    runIndex++;
-    // ไม่ reset sessionId เพื่อให้หลาย run อยู่ใน session เดียวกัน
+    runIndex += 1;
 
-    // ล้าง note DOM
-    if (elLaneWrap){
-      const notes = elLaneWrap.querySelectorAll('.rb-note');
+    eventLogger.clear();
+
+    if (lanesEl) {
+      const notes = lanesEl.querySelectorAll('.rb-note');
       notes.forEach(n => n.remove());
+    }
+
+    if (audioEl) {
+      try {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+      } catch (e) {}
+    }
+
+    if (flashEl) {
+      flashEl.classList.remove('on');
     }
   }
 
-  // เริ่ม timeline เมื่อแตะครั้งแรก
-  function handleFirstTap(){
+  function showTapHint() {
+    if (feedbackEl) {
+      feedbackEl.textContent = 'แตะ lane ใดก็ได้เพื่อเริ่มเพลง 🎵';
+    }
+  }
+
+  function handleFirstTap() {
     if (started) return;
     started = true;
     running = true;
@@ -353,15 +528,15 @@ function makeWarmupChart(){
     lastPerf  = startPerf;
     currentSongTime = 0;
 
-    if (elTapHint) elTapHint.classList.add('hidden');
-    if (elField)   elField.classList.remove('rb-wait-start');
+    if (feedbackEl) {
+      feedbackEl.textContent = 'เริ่มแล้ว! ชกตามจังหวะเพลง 🎶';
+    }
 
-    // พยายามเล่นเพลง (ถ้าโดน block ก็ปล่อยให้ timeline รันแบบเงียบ)
-    if (audioEl){
+    if (audioEl) {
       const p = audioEl.play();
-      if (p && typeof p.catch === 'function'){
-        p.catch(()=>{
-          console.log('[Rhythm] Audio autoplay blocked — running silent timeline.');
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {
+          console.log('[Rhythm] Audio autoplay blocked, run silent.');
         });
       }
     }
@@ -369,85 +544,59 @@ function makeWarmupChart(){
     requestAnimationFrame(loop);
   }
 
-  function stopEarly(){
-    if (!running && !started) return;
-    running = false;
-    started = false;
-
-    if (audioEl){
-      try{
-        audioEl.pause();
-        audioEl.currentTime = 0;
-      }catch(e){}
-    }
-
-    // แสดง hint ใหม่ถ้าจะเล่นอีกรอบ
-    if (elTapHint) elTapHint.classList.remove('hidden');
-    if (elField)   elField.classList.add('rb-wait-start');
-  }
-
-  // ----- Main loop -----
-
-  function loop(now){
+  function loop(now) {
     if (!running) return;
 
-    const dt   = (now - lastPerf) / 1000;
-    const time = (now - startPerf) / 1000;
-    lastPerf   = now;
-    currentSongTime = time;
+    const dt = (now - lastPerf) / 1000;
+    const t  = (now - startPerf) / 1000;
+    lastPerf = now;
+    currentSongTime = t;
 
     const dur = currentTrack.duration || 30;
-    const clampedTime = clamp(time, 0, dur);
+    const clampedTime = clamp(t, 0, dur);
 
     updateTimeline(clampedTime, dt);
     updateHUD();
 
-    // check end
-    if (clampedTime >= dur){
+    if (clampedTime >= dur) {
       running = false;
-      console.log('[Rhythm] track end');
+      finishRun('track-end');
       return;
     }
 
     requestAnimationFrame(loop);
   }
 
-  function updateTimeline(songTime, dt){
-    // 1) spawn note ใหม่
+  function updateTimeline(songTime, dt) {
     spawnNotes(songTime);
-
-    // 2) เคลื่อน note
     updateNotePositions(songTime);
-
-    // 3) auto-miss note ที่ผ่าน hit window ไปแล้ว
     autoJudgeMiss(songTime);
 
-    // 4) 8-beat timing guide (แค่ไว้ใช้ CSS pulse)
     guideBeatPhase += dt * (currentTrack.bpm || 100) / 60;
     const phase = guideBeatPhase % 1;
-    if (elHitLine){
-      elHitLine.style.opacity = phase < 0.15 ? 1.0 : 0.6;
+    if (hitLineEl) {
+      hitLineEl.style.opacity = (phase < 0.15) ? 1.0 : 0.6;
     }
   }
 
-  function spawnNotes(songTime){
+  function spawnNotes(songTime) {
     if (!chart || !chart.length) return;
 
     const pre = PRE_SPAWN_SEC;
     const len = chart.length;
 
-    while (chartIndex < len && chart[chartIndex].time <= songTime + pre){
-      const n = chart[chartIndex];
-      createNote(n);
+    while (chartIndex < len && chart[chartIndex].time <= songTime + pre) {
+      const info = chart[chartIndex];
+      createNote(info);
       chartIndex++;
     }
   }
 
-  function createNote(info){
-    if (!elLaneWrap) return;
-    const laneIndex = clamp(info.lane|0, 0, LANES.length-1);
+  function createNote(info) {
+    if (!lanesEl) return;
+    const laneIndex = clamp(info.lane | 0, 0, LANES.length - 1);
 
-    const laneEl = elLaneWrap.querySelector(`.rb-lane[data-lane="${laneIndex}"]`);
+    const laneEl = lanesEl.querySelector(`.rb-lane[data-lane="${laneIndex}"]`);
     if (!laneEl) return;
 
     const noteEl = document.createElement('div');
@@ -479,19 +628,17 @@ function makeWarmupChart(){
     activeNotes.push(noteObj);
   }
 
-  function updateNotePositions(songTime){
-    if (!elLaneWrap) return;
-    const laneRect = elLaneWrap.getBoundingClientRect();
-    const h = laneRect.height || 1;
-
+  function updateNotePositions(songTime) {
+    if (!lanesEl) return;
+    const rect = lanesEl.getBoundingClientRect();
+    const h = rect.height || 1;
     const pre = PRE_SPAWN_SEC;
-    const travel = h * 0.85; // ระยะจากด้านบนลงมาเกือบถึงล่าง
+    const travel = h * 0.8;
 
-    for (const n of activeNotes){
+    for (const n of activeNotes) {
       if (!n.el || n.removed) continue;
-
       const dt = n.time - songTime;
-      const progress = 1 - (dt / pre);  // 0 → ยังอยู่นอกจอ, 1 → ถึงเส้นตี
+      const progress = 1 - (dt / pre);
       const pClamp = clamp(progress, 0, 1.2);
       const y = pClamp * travel;
 
@@ -500,45 +647,47 @@ function makeWarmupChart(){
     }
   }
 
-  function autoJudgeMiss(songTime){
+  function autoJudgeMiss(songTime) {
     const missWindow = HIT_WINDOWS.good + 0.05;
 
-    for (const n of activeNotes){
+    for (const n of activeNotes) {
       if (n.judged) continue;
-      if (songTime > n.time + missWindow){
-        // ถ้าเป็น bomb / shield / hp แล้วไม่โดน ไม่ถือว่า miss
+      if (songTime > n.time + missWindow) {
         if (n.type !== 'note') {
           n.judged = true;
+          n.removed = true;
+          if (n.el) n.el.remove();
           continue;
         }
         applyJudgement(n, 'miss', songTime);
       }
     }
 
-    // ล้าง note ที่ถูกถอดแล้ว
     activeNotes = activeNotes.filter(n => !n.removed);
   }
 
-  // ----- Hit handling -----
+  // ===== HIT HANDLING =====
 
-  function onLaneTap(ev){
-    if (!running || !started) return;
+  function onLaneTap(ev) {
+    if (!running || !started) {
+      // แตะเพื่อเริ่มเพลงกรณีแตะ lane ครั้งแรก
+      handleFirstTap();
+      return;
+    }
 
     const laneEl = ev.target.closest('.rb-lane');
     if (!laneEl) return;
 
     const laneIndex = parseInt(laneEl.dataset.lane || '0', 10);
 
-    // ห note ใน lane นี้ที่ใกล้เวลา songTime ที่สุด
     let best = null;
     let bestDiff = Infinity;
 
-    for (const n of activeNotes){
+    for (const n of activeNotes) {
       if (n.judged) continue;
       if (n.lane !== laneIndex) continue;
-
       const diff = Math.abs(n.time - currentSongTime);
-      if (diff < bestDiff){
+      if (diff < bestDiff) {
         bestDiff = diff;
         best = n;
       }
@@ -546,19 +695,16 @@ function makeWarmupChart(){
 
     if (!best) return;
 
-    // ถ้าเป็น item พิเศษ hp/shield/bomb → ใช้ hit window กว้างหน่อย
     const isItem = (best.type === 'hp' || best.type === 'shield' || best.type === 'bomb');
     const windowGood = isItem ? HIT_WINDOWS.good * 1.5 : HIT_WINDOWS.good;
 
-    if (bestDiff > windowGood){
-      // กดเร็ว/ช้าเกินไป → ถือว่า miss
-      if (!isItem){
+    if (bestDiff > windowGood) {
+      if (!isItem) {
         applyJudgement(best, 'miss', currentSongTime);
       }
       return;
     }
 
-    // ตัดสินเกรด
     let grade = 'good';
     if (bestDiff <= HIT_WINDOWS.perfect) grade = 'perfect';
     else if (bestDiff <= HIT_WINDOWS.great) grade = 'great';
@@ -566,7 +712,13 @@ function makeWarmupChart(){
     applyJudgement(best, grade, currentSongTime);
   }
 
-  function applyJudgement(note, grade, songTime){
+  function flashDamage() {
+    if (!flashEl) return;
+    flashEl.classList.add('on');
+    setTimeout(() => flashEl.classList.remove('on'), 120);
+  }
+
+  function applyJudgement(note, grade, songTime) {
     if (note.judged) return;
     note.judged = true;
 
@@ -577,80 +729,87 @@ function makeWarmupChart(){
     let eventType = 'hit';
     let deltaScore = 0;
 
-    // เก็บค่าเดิม
     const scoreBefore  = score;
     const comboBefore  = combo;
     const hpBefore     = hp;
     const shieldBefore = shield;
     const feverBefore  = fever;
 
-    if (isBomb){
+    if (isBomb) {
       eventType = 'hit-bomb';
       combo = 0;
       score = Math.max(0, score - 100);
       hp = clamp(hp - 20, 0, 100);
       cntMiss++;
-    }else if (isHp){
+      flashDamage();
+      showFeedback('โดนระเบิด! ระวังจังหวะให้มากขึ้น 💣', 'miss');
+    } else if (isHp) {
       eventType = 'hit-hp';
       combo++;
-      score += 80;
+      deltaScore = 80;
+      score += deltaScore;
       hp = clamp(hp + 15, 0, 100);
       cntGood++;
-    }else if (isShield){
+      showFeedback('เติมพลัง HP ❤️', 'good');
+    } else if (isShield) {
       eventType = 'hit-shield';
       combo++;
-      score += 80;
+      deltaScore = 80;
+      score += deltaScore;
       shield = clamp(shield + 10, 0, 100);
       cntGood++;
-    }else if (grade === 'miss'){
+      showFeedback('ได้เกราะป้องกันเพิ่ม 🛡️', 'good');
+    } else if (grade === 'miss') {
       eventType = 'miss';
       combo = 0;
       hp = clamp(hp - 8, 0, 100);
       cntMiss++;
-    }else{
-      // note ปกติ
+      flashDamage();
+      showFeedback('พลาดจังหวะ! ลองฟังจังหวะให้ชัดขึ้น 🎧', 'miss');
+    } else {
       combo++;
-      if (grade === 'perfect'){
+      if (grade === 'perfect') {
         deltaScore = 150;
         cntPerfect++;
         fever = clamp(fever + 7, 0, 100);
-      }else if (grade === 'great'){
+        showFeedback('PERFECT! 🎯', 'perfect');
+      } else if (grade === 'great') {
         deltaScore = 110;
         cntGreat++;
         fever = clamp(fever + 5, 0, 100);
-      }else{ // good
+        showFeedback('Great! จังหวะดีมาก 💪', 'good');
+      } else {
         deltaScore = 70;
         cntGood++;
         fever = clamp(fever + 3, 0, 100);
+        showFeedback('Good! รักษาคอมโบไว้เลย ✨', 'good');
       }
       score += deltaScore;
     }
 
     maxCombo = Math.max(maxCombo, combo);
 
-    // FEVER ready/on (logic ง่าย ๆ)
-    if (!feverActive && fever >= 100){
+    if (!feverActive && fever >= 100) {
       feverActive = true;
       fever = 100;
-      if (elFeverStatus){
-        elFeverStatus.classList.add('on');
-        elFeverStatus.textContent = 'FEVER!!';
+      if (feverStatus) {
+        feverStatus.textContent = 'FEVER!!';
+        feverStatus.classList.add('on');
       }
     }
 
-    // visual feedback เล็ก ๆ
-    if (note.el){
+    if (note.el) {
       note.el.classList.add('rb-note-hit');
-      setTimeout(()=>{ if (note.el) note.el.remove(); }, 220);
+      setTimeout(() => {
+        if (note.el) note.el.remove();
+      }, 220);
     }
     note.removed = true;
 
-    // accuracy
     const totalJudged = cntPerfect + cntGreat + cntGood + cntMiss;
     const hitCount = cntPerfect + cntGreat + cntGood;
     const accPct = totalJudged ? (hitCount / totalJudged) * 100 : 0;
 
-    // logging
     const offsetMs = (songTime - note.time) * 1000;
 
     eventLogger.add({
@@ -661,15 +820,16 @@ function makeWarmupChart(){
       track_name : currentTrack.name || '',
       participant: participant,
       group      : group,
+      note_meta  : noteMeta,
 
       note_id    : note.id,
       lane       : note.lane,
       event_type : eventType,
       grade      : grade,
 
-      offset_ms   : offsetMs.toFixed(1),
-      song_time_s : songTime.toFixed(3),
-      accuracy_pct: accPct.toFixed(1),
+      offset_ms   : +offsetMs.toFixed(1),
+      song_time_s : +songTime.toFixed(3),
+      accuracy_pct: +accPct.toFixed(1),
 
       score_delta : score - scoreBefore,
       score_total : score,
@@ -686,78 +846,225 @@ function makeWarmupChart(){
     updateHUD();
   }
 
-  // ----- HUD / CSV -----
+  function showFeedback(msg, type) {
+    if (!feedbackEl) return;
+    feedbackEl.textContent = msg;
+    feedbackEl.className = 'rb-feedback';
+    if (type === 'perfect') feedbackEl.classList.add('rb-fb-perfect');
+    else if (type === 'good') feedbackEl.classList.add('rb-fb-good');
+    else if (type === 'miss') feedbackEl.classList.add('rb-fb-miss');
+  }
 
-  function updateHUD(){
-    if (elScore) elScore.textContent = String(score);
-    if (elCombo) elCombo.textContent = String(combo);
+  // ===== HUD / SUMMARY =====
+
+  function updateHUD() {
+    if (hudScore)  hudScore.textContent = String(score);
+    if (hudCombo)  hudCombo.textContent = String(combo);
 
     const totalJudged = cntPerfect + cntGreat + cntGood + cntMiss;
     const hitCount = cntPerfect + cntGreat + cntGood;
     const accPct = totalJudged ? (hitCount / totalJudged) * 100 : 0;
 
-    if (elAcc) elAcc.textContent = accPct.toFixed(1) + '%';
+    if (hudAcc)   hudAcc.textContent = accPct.toFixed(1) + '%';
+    if (hudHp)    hudHp.textContent = String(hp);
+    if (hudShield)hudShield.textContent = String(shield);
 
-    if (elHp) elHp.textContent = String(hp);
-    if (elShield) elShield.textContent = String(shield);
+    if (hudPerfect) hudPerfect.textContent = String(cntPerfect);
+    if (hudGreat)   hudGreat.textContent   = String(cntGreat);
+    if (hudGood)    hudGood.textContent    = String(cntGood);
+    if (hudMiss)    hudMiss.textContent    = String(cntMiss);
 
-    if (elCntPerfect) elCntPerfect.textContent = String(cntPerfect);
-    if (elCntGreat)   elCntGreat.textContent   = String(cntGreat);
-    if (elCntGood)    elCntGood.textContent    = String(cntGood);
-    if (elCntMiss)    elCntMiss.textContent    = String(cntMiss);
-
-    if (elTime) elTime.textContent = currentSongTime.toFixed(1);
+    if (hudTime) hudTime.textContent = currentSongTime.toFixed(1);
 
     const dur = currentTrack.duration || 30;
     const prog = clamp(currentSongTime / dur, 0, 1);
-    if (elProgFill)   elProgFill.style.transform = `scaleX(${prog})`;
-    if (elProgLabel)  elProgLabel.textContent = Math.round(prog * 100) + '%';
+    if (progFill)  progFill.style.transform = `scaleX(${prog})`;
+    if (progText)  progText.textContent = Math.round(prog * 100) + '%';
 
     const feverRatio = clamp(fever / 100, 0, 1);
-    if (elFeverFill) elFeverFill.style.transform = `scaleX(${feverRatio})`;
-    if (elFeverStatus){
-      if (feverActive){
-        elFeverStatus.textContent = 'FEVER!!';
-        elFeverStatus.classList.add('on');
-      }else{
-        elFeverStatus.classList.remove('on');
-        elFeverStatus.textContent = feverRatio >= 1 ? 'READY' : 'FEVER';
+    if (feverFill)  feverFill.style.transform = `scaleX(${feverRatio})`;
+    if (feverStatus) {
+      if (feverActive) {
+        feverStatus.textContent = 'FEVER!!';
+        feverStatus.classList.add('on');
+      } else {
+        feverStatus.classList.remove('on');
+        feverStatus.textContent = feverRatio >= 1 ? 'READY' : 'FEVER';
       }
     }
   }
 
-  function downloadCsv(){
-    if (!eventLogger.rows.length){
-      alert('ยังไม่มีข้อมูล Event สำหรับบันทึก');
+  function finishRun(reason) {
+    if (!started && !running) return;
+
+    running = false;
+    started = false;
+
+    if (audioEl) {
+      try {
+        audioEl.pause();
+      } catch (e) {}
+    }
+
+    const duration = currentSongTime;
+    const totalJudged = cntPerfect + cntGreat + cntGood + cntMiss;
+    const hitCount = cntPerfect + cntGreat + cntGood;
+    const accPct = totalJudged ? (hitCount / totalJudged) * 100 : 0;
+
+    // offset stats
+    const { meanOffset, sdOffset } = computeOffsetStats();
+
+    if (resMode)        resMode.textContent = (mode === 'research') ? 'โหมดวิจัย' : 'โหมดปกติ';
+    if (resTrack)       resTrack.textContent = currentTrack.name || '-';
+    if (resEndReason)   resEndReason.textContent = reason || '-';
+    if (resScore)       resScore.textContent = String(score);
+    if (resMaxCombo)    resMaxCombo.textContent = String(maxCombo);
+    if (resHitDetail)   resHitDetail.textContent =
+      `${cntPerfect} / ${cntGreat} / ${cntGood} / ${cntMiss}`;
+    if (resAcc)         resAcc.textContent = accPct.toFixed(1) + ' %';
+    if (resOffsetAvg)   resOffsetAvg.textContent =
+      Number.isFinite(meanOffset) ? meanOffset.toFixed(1) + ' ms' : '-';
+    if (resOffsetStd)   resOffsetStd.textContent =
+      Number.isFinite(sdOffset) ? sdOffset.toFixed(1) + ' ms' : '-';
+    if (resDuration)    resDuration.textContent = duration.toFixed(1) + ' s';
+    if (resParticipant) resParticipant.textContent = participant || '-';
+
+    if (resRank) {
+      let rank = '-';
+      if (accPct >= 95 && maxCombo >= 50) rank = 'S';
+      else if (accPct >= 90) rank = 'A';
+      else if (accPct >= 80) rank = 'B';
+      else if (accPct >= 70) rank = 'C';
+      else rank = 'D';
+      resRank.textContent = rank;
+    }
+
+    if (resQualityNote) {
+      resQualityNote.classList.remove('hidden');
+      if (accPct >= 90 && Math.abs(meanOffset) < 40) {
+        resQualityNote.textContent =
+          'คุณภาพข้อมูลดีมาก เหมาะสำหรับใช้วิเคราะห์เชิงลึก (RT + SEM) ✅';
+      } else {
+        resQualityNote.textContent =
+          'คุณภาพข้อมูลปานกลาง แนะนำให้เก็บซ้ำอย่างน้อย 2 รอบเพื่อความเสถียรของ RT 📊';
+      }
+    }
+
+    // push session row
+    sessionRows.push({
+      session_id : sessionId,
+      run_index  : runIndex,
+      mode       : mode,
+      track_id   : currentTrack.id,
+      track_name : currentTrack.name,
+      participant: participant,
+      group      : group,
+      note_meta  : noteMeta,
+      score      : score,
+      max_combo  : maxCombo,
+      acc_pct    : +accPct.toFixed(1),
+      cnt_perfect: cntPerfect,
+      cnt_great  : cntGreat,
+      cnt_good   : cntGood,
+      cnt_miss   : cntMiss,
+      duration_s : +duration.toFixed(3),
+      end_reason : reason,
+      offset_mean_ms: Number.isFinite(meanOffset) ? +meanOffset.toFixed(1) : '',
+      offset_sd_ms  : Number.isFinite(sdOffset) ? +sdOffset.toFixed(1) : '',
+      ts_end: new Date().toISOString()
+    });
+
+    showView('result');
+  }
+
+  function computeOffsetStats() {
+    const hits = eventLogger.rows.filter(
+      r => r.event_type === 'hit' && r.grade !== 'miss'
+    );
+    if (!hits.length) {
+      return { meanOffset: NaN, sdOffset: NaN };
+    }
+    const offsets = hits.map(r => Number(r.offset_ms) || 0);
+    const n = offsets.length;
+    const mean = offsets.reduce((a, b) => a + b, 0) / n;
+    const varSum = offsets.reduce((s, v) => s + Math.pow(v - mean, 2), 0);
+    const sd = Math.sqrt(varSum / n);
+    return { meanOffset: mean, sdOffset: sd };
+  }
+
+  // ===== CSV EXPORT =====
+
+  function downloadTextAsCsv(filename, text) {
+    if (!text) {
+      alert('ยังไม่มีข้อมูล CSV ให้บันทึก');
       return;
     }
-    const csv = eventLogger.toCsv();
-    const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    const pid  = (participant || 'Pxxx').replace(/[^a-z0-9_-]/gi,'');
     a.href = url;
-    a.download = `rhythm-boxer-events-${pid || 'Pxxx'}.csv`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
-  // ----- Auto init -----
+  function downloadEventsCsv() {
+    const csv = eventLogger.toCsv();
+    const pid = (participant || 'Pxxx').replace(/[^a-z0-9_-]/gi, '');
+    downloadTextAsCsv(`rhythm-boxer-events-${pid || 'Pxxx'}.csv`, csv);
+  }
 
-  if (document.readyState === 'loading'){
+  function downloadSessionsCsv() {
+    if (!sessionRows.length) {
+      alert('ยังไม่มีข้อมูล Session สำหรับบันทึก');
+      return;
+    }
+    const cols = Object.keys(sessionRows[0]);
+    const esc = (v) => {
+      if (v == null) return '';
+      const s = String(v);
+      if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+    const lines = [];
+    lines.push(cols.join(','));
+    for (const r of sessionRows) {
+      lines.push(cols.map(c => esc(r[c])).join(','));
+    }
+    const csv = lines.join('\n');
+    downloadTextAsCsv('rhythm-boxer-sessions.csv', csv);
+  }
+
+  // ===== AUTO INIT =====
+
+  if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
-  }else{
+  } else {
     init();
   }
 
-  // เผื่อ debug จาก console
+  // debug hook
   window.__RB_DEBUG = {
     getState: () => ({
-      running, started, currentSongTime,
-      score, combo, hp, shield, fever,
-      activeNotes: activeNotes.map(n=>({id:n.id, lane:n.lane, time:n.time, type:n.type, judged:n.judged}))
+      running,
+      started,
+      currentSongTime,
+      score,
+      combo,
+      hp,
+      shield,
+      fever,
+      activeNotes: activeNotes.map(n => ({
+        id: n.id,
+        lane: n.lane,
+        time: n.time,
+        type: n.type,
+        judged: n.judged
+      }))
     })
   };
 
