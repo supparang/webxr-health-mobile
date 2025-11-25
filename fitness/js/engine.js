@@ -1,1428 +1,520 @@
-// === js/engine.js — Shadow Breaker core (2025-11-24 Research-Ready v7) ===
+// === js/engine.js — Shadow Breaker core logic (no DOM) ===
 'use strict';
 
-import { DomRenderer } from './dom-renderer.js';
-import { EventLogger } from './event-logger.js';
-import { SessionLogger } from './session-logger.js';
+/**
+ * GameEngine
+ * - ไม่ยุ่งกับ DOM เลย
+ * - สุ่มเป้า, คำนวณคะแนน / HP / FEVER / phase
+ * - ส่งข้อมูลออกผ่าน hooks:
+ *    onSpawn(target)
+ *    onDespawn(target, reason)    // 'timeout' | 'hit' | 'clear'
+ *    onHit(ev)                    // ราย event ที่ตีเป้า
+ *    onUpdate(state)              // ทุกเฟรม
+ *    onEnd(summary)               // จบเกม
+ */
 
-// ---------------- Difficulty config ----------------
-const DIFF_CONFIG = {
-  easy: {
-    label: 'easy',
-    duration: 45,
-    spawnInterval: 1100,
-    targetLifetime: 1600,
-    decoyRate: 0.12,
-    baseBossHp: 80,
-    playerDamageOnMiss: 4,
-    feverGain: { perfect: 9, good: 6, bad: 3 },
-    feverLossMiss: 8,
-    sizePx: 130
-  },
-  normal: {
-    label: 'normal',
-    duration: 60,
-    spawnInterval: 850,
-    targetLifetime: 1250,
-    decoyRate: 0.20,
-    baseBossHp: 110,
-    playerDamageOnMiss: 6,
-    feverGain: { perfect: 7, good: 4, bad: 2 },
-    feverLossMiss: 11,
-    sizePx: 100
-  },
-  hard: {
-    label: 'hard',
-    duration: 75,
-    spawnInterval: 600,
-    targetLifetime: 950,
-    decoyRate: 0.28,
-    baseBossHp: 140,
-    playerDamageOnMiss: 8,
-    feverGain: { perfect: 6, good: 3, bad: 2 },
-    feverLossMiss: 14,
-    sizePx: 86
-  }
-};
+export class GameEngine {
+  constructor(opts = {}) {
+    const {
+      difficulty = 'normal',
+      hooks = {}
+    } = opts;
 
-// ---------------- Boss config ----------------
-const BOSSES = [
-  {
-    id: 1,
-    name: 'Bubble Glove',
-    emoji: '🐣',
-    title: 'บอสมือใหม่สายฟอง',
-    desc: 'เป้าใหญ่ เด้งช้า เหมาะสำหรับวอร์มอัพ 🔰'
-  },
-  {
-    id: 2,
-    name: 'Neon Knuckle',
-    emoji: '🌀',
-    title: 'หมัดนีออนสายสปีด',
-    desc: 'เป้าเร็วขึ้น มีเป้าลวงคอยกวนสมาธิ 💫'
-  },
-  {
-    id: 3,
-    name: 'Shadow Guard',
-    emoji: '🛡️',
-    title: 'ผู้พิทักษ์เงา',
-    desc: 'ต้องตีต่อเนื่อง ไม่งั้น HP ไม่ลดเท่าที่ควร 🛡️'
-  },
-  {
-    id: 4,
-    name: 'Final Burst',
-    emoji: '💀',
-    title: 'บอสสุดท้ายสายระเบิด',
-    desc: 'ช่วงท้ายจะ spawn เป้าเร็วมาก เน้นโหมด FEVER ⚡'
-  }
-];
+    this.diffKey = difficulty;
+    this.hooks = hooks;
 
-const $ = (s) => document.querySelector(s);
-const clamp = (v, a, b) => (v < a ? a : (v > b ? b : v));
+    // ===== Config ตามระดับความยาก =====
+    const DIFF = {
+      easy: {
+        name: 'easy',
+        durationMs: 60000,
+        spawnIntervalMs: 1200,
+        targetLifetimeMs: 2200,
+        targetSizePx: 130,
+        damageBossPerPerfect: 6,
+        damageBossPerGood: 3,
+        damagePlayerOnMiss: 4,
+        bombDamagePlayer: 8
+      },
+      normal: {
+        name: 'normal',
+        durationMs: 60000,
+        spawnIntervalMs: 900,
+        targetLifetimeMs: 1900,
+        targetSizePx: 110,
+        damageBossPerPerfect: 7,
+        damageBossPerGood: 4,
+        damagePlayerOnMiss: 5,
+        bombDamagePlayer: 10
+      },
+      hard: {
+        name: 'hard',
+        durationMs: 60000,
+        spawnIntervalMs: 750,
+        targetLifetimeMs: 1600,
+        targetSizePx: 96,
+        damageBossPerPerfect: 8,
+        damageBossPerGood: 5,
+        damagePlayerOnMiss: 6,
+        bombDamagePlayer: 12
+      }
+    };
 
-function safePlay(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  try {
-    el.currentTime = 0;
-    const p = el.play();
-    if (p && typeof p.catch === 'function') p.catch(() => {});
-  } catch (e) {}
-}
+    this.cfg = DIFF[difficulty] || DIFF.normal;
 
-// ===================================================
-// ShadowBreakerGame
-// ===================================================
-class ShadowBreakerGame {
-  constructor() {
-    this.buildVersion = 'shadowBreaker_v7';
+    // ===== state พื้นฐาน =====
+    this.running = false;
+    this.startTime = 0;
+    this.elapsedMs = 0;
+    this.lastTick = 0;
+    this.rafId = null;
 
-    // Views / wrap
-    this.wrap       = $('#sb-wrap');
-    this.viewMenu   = $('#view-menu');
-    this.viewForm   = $('#view-research-form');
-    this.viewPlay   = $('#view-play');
-    this.viewResult = $('#view-result');
+    this.playerHpMax = 100;
+    this.bossHpMax = 100;
+    this.playerHp = this.playerHpMax;
+    this.bossHp = this.bossHpMax;
 
-    // HUD
-    this.statMode    = $('#stat-mode');
-    this.statDiff    = $('#stat-diff');
-    this.statScore   = $('#stat-score');
-    this.statHp      = $('#stat-hp');
-    this.statCombo   = $('#stat-combo');
-    this.statPerfect = $('#stat-perfect');
-    this.statMiss    = $('#stat-miss');
-    this.statTime    = $('#stat-time');
-
-    // HP fills
-    this.playerFill = $('#player-fill');
-    this.bossFill   = $('#boss-fill');
-    this.hpBossVal  = $('#hp-boss-val');
+    this.score = 0;
+    this.combo = 0;
+    this.maxCombo = 0;
+    this.perfectCount = 0;
+    this.goodCount = 0;
+    this.badCount = 0;
+    this.missCount = 0;
+    this.bombHitCount = 0;
+    this.totalTargets = 0;
+    this.totalHits = 0;
 
     // FEVER
-    this.feverFill   = $('#fever-fill');
-    this.feverStatus = $('#fever-status');
+    this.feverGauge = 0;   // 0–1
+    this.feverOn = false;
+    this.feverOnSince = 0;
+    this.feverCount = 0;
+    this.feverTotalTimeMs = 0;
 
-    // Boss HUD / portrait
-    this.bossName          = $('#boss-name');
-    this.bossPortraitEmoji = $('#boss-portrait-emoji');
-    this.bossPortraitName  = $('#boss-portrait-name');
-    this.bossPortraitHint  = $('#boss-portrait-hint');
-    this.bossPortraitBox   = $('#boss-portrait');
+    // Low HP tracking
+    this.lowHpThreshold = 0.3;   // <30%
+    this.lowHpAccumMs = 0;
 
-    // Boss intro overlay
-    this.bossIntro      = $('#boss-intro');
-    this.bossIntroEmoji = $('#boss-intro-emoji');
-    this.bossIntroName  = $('#boss-intro-name');
-    this.bossIntroTitle = $('#boss-intro-title');
-    this.bossIntroDesc  = $('#boss-intro-desc');
+    // phase / boss
+    this.phase = 1;          // 1–4
+    this.bossIndex = 0;      // 0–3
+    this.bossesCleared = 0;
 
-    // Feedback bubble
-    this.feedbackEl     = $('#sb-feedback');
-    this._feedbackTimer = null;
+    // target management
+    this.nextTargetId = 1;
+    this.activeTargets = new Map();
+    this.nextSpawnAt = 0;
 
-    // Result labels
-    this.resMode        = $('#res-mode');
-    this.resDiff        = $('#res-diff');
-    this.resEndReason   = $('#res-endreason');
-    this.resScore       = $('#res-score');
-    this.resMaxCombo    = $('#res-maxcombo');
-    this.resMiss        = $('#res-miss');
-    this.resAccuracy    = $('#res-accuracy');
-    this.resTotalHits   = $('#res-totalhits');
-    this.resRtNormal    = $('#res-rt-normal');
-    this.resRtDecoy     = $('#res-rt-decoy');
-    this.resParticipant = $('#res-participant');
-    this.resGrade       = $('#res-grade');
+    this.normalRTs = [];
+    this.decoyRTs = [];
 
-    // Target layer + renderer
-    this.targetLayer = $('#target-layer');
-    this.renderer = this.targetLayer
-      ? new DomRenderer(this, this.targetLayer, { sizePx: 100 })
-      : null;
-
-    // Research loggers
-    this.eventLogger   = new EventLogger();
-    this.sessionLogger = new SessionLogger();
-
-    // Session-level
-    this.sessionId        = this.makeSessionId();   // base session
-    this.currentRunSessionId = null;                // session_id ระดับ run
-    this.sessionSummaries = [];
-    this.sessionEnv       = null;
-    this._telemetryWired  = false;
-
-    this.resetState();
-    this.wireUI();
-    this.setupTelemetry();
+    this.endReason = null;
   }
 
-  makeSessionId() {
-    const t = new Date();
-    const y = t.getFullYear();
-    const m = String(t.getMonth() + 1).padStart(2, '0');
-    const d = String(t.getDate(), 10).padStart(2, '0');
-    const hh = String(t.getHours(), 10).padStart(2, '0');
-    const mm = String(t.getMinutes(), 10).padStart(2, '0');
-    const ss = String(t.getSeconds(), 10).padStart(2, '0');
-    return `SB-${y}${m}${d}-${hh}${mm}${ss}`;
-  }
+  // ===== Public API =====
 
-  resetState() {
-    this.mode = 'normal';
-    this.diff = 'normal';
-    this.config = DIFF_CONFIG.normal;
-    this.gameDuration = this.config.duration;
-
-    this.trainingPhase = 'main';
-    this.runIndex      = 1;
-
-    this.running = false;
-    this.ended   = false;
-    this.timeLeft = this.gameDuration;
-    this._loopHandle    = null;
-    this._spawnTimer    = null;
-    this._startTime     = 0;
-    this._startWallClock= '';
-
-    this._currentSpawnInterval = this.config.spawnInterval;
-
-    this.playerHp = 100;
-    this.score    = 0;
-    this.combo    = 0;
-    this.maxCombo = 0;
-    this.perfect  = 0;
-    this.good     = 0;
-    this.bad      = 0;
-    this.miss     = 0;
-    this.bombHits = 0;
-
-    this.totalTargets = 0;
-    this.hitCount     = 0;
-
-    this.targets       = new Map();
-    this._nextTargetId = 1;
-    this.phaseSpawnCounter = {1:0,2:0,3:0};
-
-    this.fever       = 0;
-    this.feverOn     = false;
-    this.feverUse    = 0;
-    this._feverTimeout = null;
-    this._feverStartAt = null;
-    this.feverTotalMs  = 0;
-
-    this.bossIndex   = 0;
-    this.currentBoss = BOSSES[0];
-    this.bossHpMax   = this.hpForBoss(0);
-    this.bossHp      = this.bossHpMax;
-
-    this.researchMeta = { participant:'', group:'', note:'' };
-    this.hitLogs      = [];
-
-    this.lowHpTotalMs   = 0;
-    this._hpLow         = false;
-    this._hpStateChangeAt = null;
-
-    this.menuClickPerf = null;
-    this.menuToPlayMs  = null;
-
-    this.errorLogs = [];
-    this.focusLogs = [];
-
-    if (this.wrap) {
-      this.wrap.dataset.diff  = this.diff;
-      this.wrap.dataset.boss  = String(this.bossIndex);
-      this.wrap.dataset.phase = '1';
-    }
-  }
-
-  setupTelemetry() {
-    if (this._telemetryWired) return;
-    this._telemetryWired = true;
-
-    window.addEventListener('error', (ev) => {
-      this.errorLogs.push({
-        ts: new Date().toISOString(),
-        msg: String(ev.message || ''),
-        src: String(ev.filename || ''),
-        line: ev.lineno || 0,
-        col : ev.colno || 0
-      });
-    });
-
-    window.addEventListener('unhandledrejection', (ev) => {
-      this.errorLogs.push({
-        ts: new Date().toISOString(),
-        msg: 'unhandledrejection',
-        reason: String(ev.reason || '')
-      });
-    });
-
-    window.addEventListener('focus', () => {
-      this.focusLogs.push({ ts: new Date().toISOString(), type: 'focus' });
-    });
-    window.addEventListener('blur', () => {
-      this.focusLogs.push({ ts: new Date().toISOString(), type: 'blur' });
-    });
-  }
-
-  hpForBoss(idx) {
-    const base = this.config.baseBossHp;
-    return Math.round(base * (1 + idx * 0.15));
-  }
-
-  // ---------- Boss behaviour by HP ratio ----------
-  getBossBehavior(hpRatio) {
-    const idx = this.bossIndex;
-    let decoyRate = this.config.decoyRate;
-    let bossFaceChance = (hpRatio <= 0.25 ? 0.35 : 0);
-    let lifetime = this.config.targetLifetime;
-    let extraSpawnChance = 0;
-
-    switch (idx) {
-      case 0: // Bubble Glove — เป้าใหญ่ ช้า
-        decoyRate *= 0.6;
-        lifetime  *= 1.05;
-        break;
-      case 1: // Neon Knuckle — เร็ว + เป้าลวงเยอะ
-        decoyRate *= 1.5;
-        lifetime  *= 0.95;
-        break;
-      case 2: // Shadow Guard — เน้น combo
-        decoyRate *= 0.8;
-        lifetime  *= 0.95;
-        break;
-      case 3: // Final Burst — extra spawn ช่วงท้าย
-        decoyRate *= 1.6;
-        lifetime  *= 0.9;
-        if (hpRatio <= 0.5) extraSpawnChance = 0.25;
-        if (hpRatio <= 0.33) {
-          extraSpawnChance = 0.4;
-          bossFaceChance   = 0.25;
-        }
-        break;
-    }
-
-    return {
-      decoyRate,
-      bossFaceChance,
-      lifetime,
-      extraSpawnChance
-    };
-  }
-
-  wireUI() {
-    const btnStartResearch = this.viewMenu.querySelector('[data-action="start-research"]');
-    const btnStartNormal   = this.viewMenu.querySelector('[data-action="start-normal"]');
-
-    btnStartResearch.addEventListener('click', () => {
-      this.showView('research-form');
-    });
-
-    btnStartNormal.addEventListener('click', () => {
-      this.mode = 'normal';
-      this.startFromMenu();
-    });
-
-    const btnResearchBegin = this.viewForm.querySelector('[data-action="research-begin-play"]');
-    const btnFormBack      = this.viewForm.querySelector('[data-action="back-to-menu"]');
-
-    btnFormBack.addEventListener('click', () => {
-      this.showView('menu');
-    });
-
-    btnResearchBegin.addEventListener('click', () => {
-      const id    = $('#research-id').value.trim();
-      const group = $('#research-group').value.trim();
-      const note  = $('#research-note').value.trim();
-      this.mode = 'research';
-      this.researchMeta = {
-        participant: id   || '-',
-        group      : group|| '-',
-        note       : note || '-'
-      };
-      this.startFromMenu();
-    });
-
-    const btnStopEarly = this.viewPlay.querySelector('[data-action="stop-early"]');
-    btnStopEarly.addEventListener('click', () => {
-      this.stopGame('หยุดก่อนเวลา');
-    });
-
-    const btnResultBack  = this.viewResult.querySelector('[data-action="back-to-menu"]');
-    const btnPlayAgain   = this.viewResult.querySelector('[data-action="play-again"]');
-    const btnCsvEvents   = this.viewResult.querySelector('[data-action="download-csv-events"]');
-    const btnCsvSession  = this.viewResult.querySelector('[data-action="download-csv-session"]');
-
-    btnResultBack.addEventListener('click', () => this.showView('menu'));
-    btnPlayAgain.addEventListener('click', () => this.startFromMenu(true));
-    btnCsvEvents.addEventListener('click', () => this.downloadEventCsv());
-    btnCsvSession.addEventListener('click', () => this.downloadSessionCsv());
-
-    this.bossIntro.addEventListener('pointerdown', () => this.hideBossIntro());
-
-    window.addEventListener('keydown', (ev) => {
-      if (!this.running) return;
-      if (ev.key === ' ') ev.preventDefault();
-    });
-  }
-
-  showView(name) {
-    this.viewMenu.classList.add('hidden');
-    this.viewForm.classList.add('hidden');
-    this.viewPlay.classList.add('hidden');
-    this.viewResult.classList.add('hidden');
-    this.bossIntro.classList.add('hidden');
-
-    if (name === 'menu') this.viewMenu.classList.remove('hidden');
-    else if (name === 'research-form') this.viewForm.classList.remove('hidden');
-    else if (name === 'play') this.viewPlay.classList.remove('hidden');
-    else if (name === 'result') this.viewResult.classList.remove('hidden');
-  }
-
-  setFeedback(kind) {
-    if (!this.feedbackEl) return;
-
-    let text = '';
-    let cls  = '';
-
-    switch (kind) {
-      case 'perfect':
-        text = 'ตรงเป๊ะ! ⭐';
-        cls  = 'perfect';
-        break;
-      case 'good':
-        text = 'ใกล้แล้ว! 😀';
-        cls  = 'good';
-        break;
-      case 'miss':
-        text = 'พลาดเป้า! ลองใหม่ 😅';
-        cls  = 'miss';
-        break;
-      case 'bomb':
-        text = 'โดนระเบิด! -60 คะแนน -10~18 HP 💥';
-        cls  = 'bomb';
-        break;
-      case 'heal':
-        text = 'ชนะบอส! ฟื้น HP +20 💙';
-        cls  = 'heal';
-        break;
-      default:
-        text = 'โฟกัสที่เป้าตรงกลางจอ แล้วตีให้ทันนะ 🎯';
-        cls  = '';
-    }
-
-    this.feedbackEl.textContent = text;
-    this.feedbackEl.className = 'sb-feedback';
-    if (cls) this.feedbackEl.classList.add(cls);
-
-    if (this._feedbackTimer) {
-      clearTimeout(this._feedbackTimer);
-      this._feedbackTimer = null;
-    }
-
-    if (kind && kind !== 'heal') {
-      this._feedbackTimer = setTimeout(() => {
-        this.setFeedback('');
-      }, 1400);
-    }
-  }
-
-  startFromMenu(useSameDiff = false) {
-    if (!useSameDiff) {
-      const sel = $('#difficulty');
-      this.diff = (sel && sel.value) || 'normal';
-    }
-
-    this.config = DIFF_CONFIG[this.diff] || DIFF_CONFIG.normal;
-    this.gameDuration = this.config.duration;
-
-    this.trainingPhase = 'main';
-    this.runIndex      = this.sessionSummaries.length + 1;
-
-    // session_id ต่อ run (ใช้ทั้ง event และ session summary)
-    this.currentRunSessionId =
-      this.sessionId + '-' + String(this.runIndex).padStart(2, '0');
-
-    this.sessionEnv = {
-      ua: (navigator && navigator.userAgent) ? navigator.userAgent : '',
-      viewport_w: window.innerWidth || 0,
-      viewport_h: window.innerHeight || 0,
-      input_mode: (('ontouchstart' in window) || (navigator.maxTouchPoints > 0))
-        ? 'touch' : 'mouse'
-    };
-
-    this.running = false;
-    this.ended   = false;
-    this.timeLeft = this.gameDuration;
-    this._loopHandle    = null;
-    this._spawnTimer    = null;
-    this._startTime     = 0;
-    this._startWallClock= '';
-
-    this._currentSpawnInterval = this.config.spawnInterval;
-
-    this.playerHp = 100;
-    this.score    = 0;
-    this.combo    = 0;
-    this.maxCombo = 0;
-    this.perfect  = 0;
-    this.good     = 0;
-    this.bad      = 0;
-    this.miss     = 0;
-    this.bombHits = 0;
-
-    this.totalTargets = 0;
-    this.hitCount     = 0;
-
-    this.targets       = new Map();
-    this._nextTargetId = 1;
-    this.phaseSpawnCounter = {1:0,2:0,3:0};
-
-    this.fever       = 0;
-    this.feverOn     = false;
-    this.feverUse    = 0;
-    this._feverTimeout = null;
-    this._feverStartAt = null;
-    this.feverTotalMs  = 0;
-
-    this.bossIndex   = 0;
-    this.currentBoss = BOSSES[0];
-    this.bossHpMax   = this.hpForBoss(this.bossIndex);
-    this.bossHp      = this.bossHpMax;
-
-    this.lowHpTotalMs   = 0;
-    this._hpLow         = false;
-    this._hpStateChangeAt = null;
-
-    this.hitLogs = [];
-    this.menuClickPerf = performance.now();
-    this.menuToPlayMs  = null;
-
-    if (this.wrap) {
-      this.wrap.dataset.diff  = this.diff;
-      this.wrap.dataset.boss  = String(this.bossIndex);
-      this.wrap.dataset.phase = '1';
-    }
-    if (this.renderer) {
-      this.renderer.sizePx = this.config.sizePx;
-    }
-
-    this.statMode.textContent = this.mode === 'research' ? 'Research' : 'Normal';
-    this.statDiff.textContent = this.diff;
-
-    this.updateHUD();
-    this.updateBossHUD();
-    this.updateFeverHUD();
-    this.setFeedback('');
-
-    this.showView('play');
-
-    this.showBossIntro(this.currentBoss, {
-      first: true,
-      onDone: () => this.beginGameLoop()
-    });
-  }
-
-  beginGameLoop() {
+  start() {
     if (this.running) return;
     this.running = true;
-    this.ended   = false;
-    this.timeLeft = this.gameDuration;
-    this._startTime      = performance.now();
-    this._startWallClock = new Date().toISOString();
-
-    if (this.menuClickPerf != null) {
-      this.menuToPlayMs = this._startTime - this.menuClickPerf;
-    }
-
-    if (this.renderer) this.renderer.clear();
-    this.targets.clear();
-
-    if (this._spawnTimer) clearInterval(this._spawnTimer);
-    this._spawnTimer = setInterval(() => this.spawnTarget(), this._currentSpawnInterval);
-
-    const loop = (t) => {
-      if (!this.running) return;
-      const elapsed = (t - this._startTime) / 1000;
-      this.timeLeft = clamp(this.gameDuration - elapsed, 0, this.gameDuration);
-      this.statTime.textContent = this.timeLeft.toFixed(1);
-      if (this.timeLeft <= 0) {
-        this.stopGame('หมดเวลา');
-        return;
-      }
-      this._loopHandle = requestAnimationFrame(loop);
-    };
-    this._loopHandle = requestAnimationFrame(loop);
-  }
-
-  stopGame(reason) {
-    if (!this.running && this.ended) return;
-    this.running = false;
-    this.ended   = true;
-
-    if (this._spawnTimer) clearInterval(this._spawnTimer);
-    this._spawnTimer = null;
-    if (this._loopHandle) cancelAnimationFrame(this._loopHandle);
-    this._loopHandle = null;
-
-    if (this._feverStartAt != null) {
-      this.feverTotalMs += performance.now() - this._feverStartAt;
-      this._feverStartAt = null;
-    }
-    if (this._feverTimeout) clearTimeout(this._feverTimeout);
-    this._feverTimeout = null;
-    this.feverOn = false;
-
-    if (this._hpLow && this._hpStateChangeAt != null) {
-      this.lowHpTotalMs += performance.now() - this._hpStateChangeAt;
-      this._hpStateChangeAt = null;
-    }
-
-    if (this.renderer) this.renderer.clear();
-    this.targets.clear();
-
-    const totalShots = this.hitCount + this.miss;
-    const accuracy   = totalShots > 0 ? (this.hitCount / totalShots) * 100 : 0;
-
-    let sumRtNormal = 0, sumSqNormal = 0, cntRtNormal = 0;
-    let sumRtDecoy  = 0, sumSqDecoy  = 0, cntRtDecoy  = 0;
-
-    for (const log of this.hitLogs) {
-      if (log.event_type !== 'hit' && log.event_type !== 'bomb') continue;
-      if (log.age_ms == null) continue;
-
-      if (log.is_decoy) {
-        sumRtDecoy += log.age_ms;
-        sumSqDecoy += log.age_ms * log.age_ms;
-        cntRtDecoy++;
-      } else {
-        sumRtNormal += log.age_ms;
-        sumSqNormal += log.age_ms * log.age_ms;
-        cntRtNormal++;
-      }
-    }
-
-    const avgRtNormal = cntRtNormal ? (sumRtNormal / cntRtNormal) : 0;
-    const avgRtDecoy  = cntRtDecoy  ? (sumRtDecoy  / cntRtDecoy)  : 0;
-    const stdRtNormal = cntRtNormal > 1
-      ? Math.sqrt((sumSqNormal / cntRtNormal) - (avgRtNormal * avgRtNormal))
-      : 0;
-    const stdRtDecoy = cntRtDecoy > 1
-      ? Math.sqrt((sumSqDecoy / cntRtDecoy) - (avgRtDecoy * avgRtDecoy))
-      : 0;
-
-    const grade = this.computeGrade({
-      accuracy,
-      score: this.score,
-      miss : this.miss,
-      bombs: this.bombHits,
-      diff : this.diff
-    });
-
-    this.resMode.textContent        = this.mode === 'research' ? 'วิจัย' : 'ปกติ';
-    this.resDiff.textContent        = this.diff;
-    this.resEndReason.textContent   = reason || '-';
-    this.resScore.textContent       = String(this.score);
-    this.resMaxCombo.textContent    = String(this.maxCombo);
-    this.resMiss.textContent        = String(this.miss);
-    this.resAccuracy.textContent    = accuracy.toFixed(1) + ' %';
-    this.resTotalHits.textContent   = String(this.hitCount);
-    this.resRtNormal.textContent    = cntRtNormal ? (avgRtNormal.toFixed(0) + ' ms') : '-';
-    this.resRtDecoy.textContent     = cntRtDecoy  ? (avgRtDecoy.toFixed(0)  + ' ms') : '-';
-    this.resParticipant.textContent = this.researchMeta.participant || '-';
-    if (this.resGrade) this.resGrade.textContent = grade;
-
-    const nowPerf  = performance.now();
-    const durSec   = this._startTime ? (nowPerf - this._startTime) / 1000 : 0;
-    const bossesCleared = Math.min(this.bossIndex, BOSSES.length);
-    const lowHpSec = this.lowHpTotalMs / 1000;
-    const feverSec = this.feverTotalMs / 1000;
-
-    const sessionIdRun =
-      this.currentRunSessionId ||
-      (this.sessionId + '-' + String(this.sessionSummaries.length + 1).padStart(2, '0'));
-
-    const summary = {
-      // ---- Session-level fields (ตาม checklist) ----
-      session_id:  sessionIdRun,
-      build_version: this.buildVersion,
-
-      mode: this.mode,
-      difficulty: this.diff,
-      training_phase: this.trainingPhase,
-      run_index: this.runIndex,
-
-      start_ts: this._startWallClock || '',
-      end_ts: new Date().toISOString(),
-      duration_s: durSec.toFixed(3),
-      end_reason: reason || '',
-
-      final_score: this.score,
-      grade,
-
-      total_targets: this.totalTargets,
-      total_hits: this.hitCount,
-      total_miss: this.miss,
-      total_bombs_hit: this.bombHits,
-
-      accuracy_pct: accuracy.toFixed(1),
-      max_combo: this.maxCombo,
-
-      perfect_count: this.perfect,
-      good_count: this.good,
-      bad_count: this.bad,
-
-      avg_rt_normal_ms: cntRtNormal ? avgRtNormal.toFixed(1) : '',
-      std_rt_normal_ms: cntRtNormal ? stdRtNormal.toFixed(1) : '',
-      avg_rt_decoy_ms:  cntRtDecoy  ? avgRtDecoy.toFixed(1)  : '',
-      std_rt_decoy_ms:  cntRtDecoy  ? stdRtDecoy.toFixed(1)  : '',
-
-      fever_count: this.feverUse,
-      fever_total_time_s: feverSec.toFixed(2),
-      low_hp_time_s: lowHpSec.toFixed(2),
-      bosses_cleared: bossesCleared,
-      menu_to_play_ms: this.menuToPlayMs != null ? this.menuToPlayMs.toFixed(1) : '',
-
-      participant: this.researchMeta.participant || '',
-      group: this.researchMeta.group || '',
-      note: this.researchMeta.note || '',
-
-      env_ua: this.sessionEnv ? this.sessionEnv.ua : '',
-      env_viewport_w: this.sessionEnv ? this.sessionEnv.viewport_w : '',
-      env_viewport_h: this.sessionEnv ? this.sessionEnv.viewport_h : '',
-      env_input_mode: this.sessionEnv ? this.sessionEnv.input_mode : '',
-
-      error_count: this.errorLogs ? this.errorLogs.length : 0,
-      focus_events: this.focusLogs ? this.focusLogs.length : 0
-    };
-
-    this.sessionSummaries.push(summary);
-    this.sessionLogger.add(summary);
-
-    this.showView('result');
-  }
-
-  computeGrade({ accuracy, score, miss, bombs, diff }) {
-    const acc = accuracy || 0;
-    const penalty = (miss || 0) + (bombs || 0) * 1.5;
-    const baseScore = (score || 0) - penalty * 10;
-
-    let grade = 'C';
-    if (acc >= 95 && baseScore >= 5000) grade = 'SSS';
-    else if (acc >= 92 && baseScore >= 4200) grade = 'SS';
-    else if (acc >= 88 && baseScore >= 3500) grade = 'S';
-    else if (acc >= 80 && baseScore >= 2600) grade = 'A';
-    else if (acc >= 70) grade = 'B';
-
-    if (diff === 'hard' && grade !== 'SSS') {
-      const order = ['C', 'B', 'A', 'S', 'SS', 'SSS'];
-      const idx = order.indexOf(grade);
-      if (idx >= 0 && idx < order.length - 1) {
-        grade = order[idx + 1];
-      }
-    }
-    return grade;
-  }
-
-  getBossPhaseFromHp() {
-    const ratio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 1;
-    if (ratio <= 0.33) return 3;
-    if (ratio <= 0.66) return 2;
-    return 1;
-  }
-
-  updateBossHUD() {
-    const boss = this.currentBoss;
-    if (!boss) return;
-
-    if (this.wrap) {
-      this.wrap.dataset.boss = String(this.bossIndex);
-    }
-
-    const ratio = clamp(this.bossHp / this.bossHpMax, 0, 1);
-    const phase = this.getBossPhaseFromHp();
-    if (this.wrap) this.wrap.dataset.phase = String(phase);
-
-    this.bossName.textContent = `Boss ${boss.id}/4 — ${boss.name}`;
-    this.bossPortraitEmoji.textContent = boss.emoji;
-    this.bossPortraitName.textContent  = boss.name;
-    this.bossPortraitHint.textContent  =
-      `HP เหลือประมาณ ${Math.round(ratio * 100)}%`;
-
-    this.bossFill.style.transform = `scaleX(${ratio})`;
-    this.hpBossVal.textContent    = Math.round(ratio * 100) + '%';
-
-    if (ratio <= 0.25) this.bossPortraitBox.classList.add('sb-shake');
-    else this.bossPortraitBox.classList.remove('sb-shake');
-  }
-
-  showBossIntro(boss, opts = {}) {
-    if (!boss) return;
-    this.bossIntroEmoji.textContent = boss.emoji;
-    this.bossIntroName.textContent  = boss.name;
-    this.bossIntroTitle.textContent = boss.title;
-    this.bossIntroDesc.textContent  = boss.desc;
-    this.bossIntro.classList.remove('hidden');
-    this._introActive  = true;
-    this._introOnDone  = opts.onDone || null;
-    safePlay('sfx-boss');
-  }
-
-  hideBossIntro() {
-    if (!this._introActive) return;
-    this._introActive = false;
-    this.bossIntro.classList.add('hidden');
-    if (this._introOnDone) {
-      const fn = this._introOnDone;
-      this._introOnDone = null;
-      fn();
-    }
-  }
-
-  onBossDefeated() {
-    const heal = 20;
-    this.playerHp = clamp(this.playerHp + heal, 0, 100);
-    this.setFeedback('heal');
-    this.updateHUD();
-
-    this.bossIndex++;
-    if (this.bossIndex >= BOSSES.length) {
-      this.stopGame('เคลียร์บอสครบทั้ง 4 ตัว!');
-      return;
-    }
-    this.currentBoss = BOSSES[this.bossIndex];
-    this.bossHpMax   = this.hpForBoss(this.bossIndex);
-    this.bossHp      = this.bossHpMax;
-
-    if (this._spawnTimer) clearInterval(this._spawnTimer);
-    const base = this.config.spawnInterval;
-    let factor = 1;
-    if (this.bossIndex === 0) factor = 1.05;
-    else if (this.bossIndex === 1) factor = 0.95;
-    else if (this.bossIndex === 2) factor = 0.9;
-    else if (this.bossIndex === 3) factor = 0.8;
-    this._currentSpawnInterval = Math.round(base * factor);
-    this._spawnTimer = setInterval(() => this.spawnTarget(), this._currentSpawnInterval);
-
-    if (this.wrap) {
-      this.wrap.dataset.boss  = String(this.bossIndex);
-      this.wrap.dataset.phase = '1';
-    }
-
-    this.updateBossHUD();
-    this.showBossIntro(this.currentBoss, { onDone: () => {} });
-  }
-
-  updateFeverHUD() {
-    const ratio = clamp(this.fever / 100, 0, 1);
-    this.feverFill.style.transform = `scaleX(${ratio})`;
-    if (this.feverOn) {
-      this.feverStatus.textContent = 'FEVER!!';
-      this.feverStatus.classList.add('on');
-    } else {
-      this.feverStatus.classList.remove('on');
-      this.feverStatus.textContent = (ratio >= 1) ? 'READY' : 'FEVER';
-    }
-  }
-
-  addFever(kind) {
-    if (this.feverOn) return;
-    const gain = this.config.feverGain[kind] || 3;
-    this.fever = clamp(this.fever + gain, 0, 100);
-    this.updateFeverHUD();
-    if (this.fever >= 100) this.triggerFever();
-  }
-
-  loseFeverOnMiss() {
-    if (this.feverOn) return;
-    this.fever = clamp(this.fever - this.config.feverLossMiss, 0, 100);
-    this.updateFeverHUD();
-  }
-
-  triggerFever() {
-    if (this.feverOn) return;
-    this.feverOn = true;
-    this.feverUse++;
-    this._feverStartAt = performance.now();
-    safePlay('sfx-fever');
-    this.updateFeverHUD();
-
-    if (this._feverTimeout) clearTimeout(this._feverTimeout);
-    this._feverTimeout = setTimeout(() => {
-      this.feverOn = false;
-      if (this._feverStartAt != null) {
-        this.feverTotalMs += performance.now() - this._feverStartAt;
-        this._feverStartAt = null;
-      }
-      this.fever = 40;
-      this.updateFeverHUD();
-    }, 7000);
-  }
-
-  spawnTarget() {
-    if (!this.running) return;
-
-    if (!this.renderer || !this.renderer.host) {
-      this.targetLayer = document.querySelector('#target-layer');
-      if (this.targetLayer) {
-        this.renderer = new DomRenderer(this, this.targetLayer, {
-          sizePx: this.config.sizePx || 100
-        });
-      } else {
-        console.warn('ShadowBreaker: no #target-layer, skip spawn.');
-        return;
-      }
-    }
-
-    const hpRatio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 1;
-    const behavior = this.getBossBehavior(hpRatio);
-
-    const spawnOne = (forceBossFace = false, forceDecoy = null) => {
-      const id = this._nextTargetId++;
-
-      let bossFace = false;
-      let decoy    = false;
-
-      if (forceBossFace) {
-        bossFace = true;
-      } else if (forceDecoy !== null) {
-        decoy = !!forceDecoy;
-      } else {
-        if (behavior.bossFaceChance > 0 && Math.random() < behavior.bossFaceChance) {
-          bossFace = true;
-        } else {
-          decoy = Math.random() < behavior.decoyRate;
-        }
-      }
-
-      const emoji = bossFace
-        ? (this.currentBoss?.emoji || '😈')
-        : (decoy ? '💣' : '🥊');
-
-      const now   = performance.now();
-      const phase = this.getBossPhaseFromHp();
-      this.phaseSpawnCounter[phase] = (this.phaseSpawnCounter[phase] || 0) + 1;
-
-      const t = {
-        id,
-        emoji,
-        decoy,
-        bossFace,
-        createdAt: now,
-        lifetime: behavior.lifetime,
-        hit: false,
-        phase_at_spawn: phase,
-        phase_spawn_index: this.phaseSpawnCounter[phase],
-        spawn_interval_ms: this._currentSpawnInterval || this.config.spawnInterval,
-        size_px: this.config.sizePx,
-        x_norm: null,
-        y_norm: null,
-        zone_lr: null,
-        zone_ud: null,
-        lastPos: null,
-        _el: null,
-        _onPtr: null
-      };
-
-      this.targets.set(id, t);
-      this.totalTargets++;
-
-      this.renderer.spawnTarget(t);
-
-      setTimeout(() => {
-        const cur = this.targets.get(id);
-        if (!cur || cur.hit) return;
-        this.handleMiss(cur);
-      }, behavior.lifetime + 80);
-    };
-
-    // spawn หลัก
-    spawnOne(false, null);
-
-    // extra spawn สำหรับ Boss 4 ช่วงท้าย
-    if (behavior.extraSpawnChance > 0 && Math.random() < behavior.extraSpawnChance) {
-      spawnOne(false, true);
-    }
-  }
-
-  registerTouch(x, y, targetId) {
-    if (!this.running) return;
-    if (targetId == null) return;
-    const t = this.targets.get(targetId);
-    if (!t || t.hit) return;
-
-    const now  = performance.now();
-    const age  = now - t.createdAt;
-    const life = t.lifetime || this.config.targetLifetime;
-
-    let grade = 'bad';
-    if (age <= life * 0.33) grade = 'perfect';
-    else if (age <= life * 0.66) grade = 'good';
-
-    if (t.decoy) this.handleDecoyHit(t, age);
-    else this.handleHit(t, grade, age);
-  }
-
-  _computeNormPos(t) {
-    if (!t.lastPos || !this.renderer || !this.renderer.host) return;
-    const w = this.renderer.host.clientWidth  || 1;
-    const h = this.renderer.host.clientHeight || 1;
-    t.x_norm = clamp(t.lastPos.x / w, 0, 1);
-    t.y_norm = clamp(t.lastPos.y / h, 0, 1);
-
-    if (t.x_norm != null && t.y_norm != null) {
-      let zlr = 'C';
-      if (t.x_norm < 0.33) zlr = 'L';
-      else if (t.x_norm > 0.66) zlr = 'R';
-
-      let zud = 'M';
-      if (t.y_norm < 0.33) zud = 'U';
-      else if (t.y_norm > 0.66) zud = 'D';
-
-      t.zone_lr = zlr;
-      t.zone_ud = zud;
-    }
-  }
-
-  forceRemoveTargetVisual(t) {
-    if (!t) return;
-    let el = t._el;
-    if ((!el || !el.parentNode) && this.renderer && this.renderer.host) {
-      el = this.renderer.host.querySelector('[data-id="' + t.id + '"]');
-    }
-    if (el && el.parentNode) el.parentNode.removeChild(el);
-  }
-
-  handleHit(t, grade, ageMs) {
-    if (!this.targets.has(t.id) || t.hit) return;
-    t.hit = true;
-    this.targets.delete(t.id);
-
-    this._computeNormPos(t);
-
-    let baseScore = 0;
-    if (grade === 'perfect') baseScore = 120;
-    else if (grade === 'good') baseScore = 80;
-    else {
-      baseScore = 40;
-      this.bad++;
-    }
-
-    let dmg = (grade === 'perfect') ? 8 : (grade === 'good' ? 5 : 3);
-
-    if (t.bossFace) {
-      baseScore = Math.round(baseScore * 1.6);
-      dmg       = Math.round(dmg * 1.8);
-    }
-
-    if (this.feverOn) {
-      baseScore = Math.round(baseScore * 1.5);
-      dmg       = Math.round(dmg * 1.5);
-    }
-
-    const comboBefore = this.combo;
-    const hpBefore    = this.playerHp;
-    const feverBefore = this.fever;
-
-    // ปรับ damage ตามบอส
-    if (this.bossIndex === 2) {
-      if (comboBefore < 3)      dmg = Math.round(dmg * 0.4);
-      else if (comboBefore < 6) dmg = Math.round(dmg * 0.8);
-      else                      dmg = Math.round(dmg * 1.2);
-    } else if (this.bossIndex === 3) {
-      if (this.feverOn) dmg = Math.round(dmg * 1.6);
-      else              dmg = Math.round(dmg * 0.9);
-    }
-
-    this.score += baseScore;
-    this.combo++;
-    this.maxCombo = Math.max(this.maxCombo, this.combo);
-    if (grade === 'perfect') this.perfect++;
-    if (grade === 'good')    this.good++;
-    this.hitCount++;
-
-    this.addFever(grade === 'perfect' ? 'perfect' : 'good');
-
-    this.bossHp = clamp(this.bossHp - dmg, 0, this.bossHpMax);
-
-    // Boss 4 ใกล้ตาย → เร่ง spawn
-    if (this.bossIndex === 3 && this.bossHpMax > 0) {
-      const ratio = this.bossHp / this.bossHpMax;
-      let targetInterval = null;
-      if (ratio <= 0.33)      targetInterval = Math.round(this.config.spawnInterval * 0.5);
-      else if (ratio <= 0.66) targetInterval = Math.round(this.config.spawnInterval * 0.65);
-      if (targetInterval && (!this._currentSpawnInterval || targetInterval < this._currentSpawnInterval)) {
-        if (this._spawnTimer) clearInterval(this._spawnTimer);
-        this._currentSpawnInterval = targetInterval;
-        this._spawnTimer = setInterval(() => this.spawnTarget(), this._currentSpawnInterval);
-      }
-    }
-
-    this.updateBossHUD();
-
-    if (this.renderer) {
-      this.renderer.spawnHitEffect(t, {
-        grade,
-        score: baseScore,
-        fever: this.feverOn,
-        bossFace: t.bossFace
-      });
-      setTimeout(() => this.forceRemoveTargetVisual(t), 220);
-    } else {
-      this.forceRemoveTargetVisual(t);
-    }
-
-    this.setFeedback(grade === 'perfect' ? 'perfect' : 'good');
-    safePlay('sfx-hit');
-
-    const phase = this.getBossPhaseFromHp();
-    const tsRel = (performance.now() - this._startTime) / 1000;
-
-    // -------- Event-level log (hit) --------
-    const log = {
-      session_id: this.currentRunSessionId || this.sessionId,
-      build_version: this.buildVersion,
-
-      mode: this.mode,
-      difficulty: this.diff,
-      training_phase: this.trainingPhase,
-      run_index: this.runIndex,
-
-      participant: this.researchMeta.participant,
-      group      : this.researchMeta.group,
-      note       : this.researchMeta.note,
-
-      event_type : 'hit',
-      ts         : tsRel,
-
-      target_id  : t.id,
-      boss_id    : this.currentBoss?.id || 0,
-      boss_phase : phase,
-
-      is_decoy   : 0,
-      is_bossface: t.bossFace ? 1 : 0,
-
-      grade,
-      age_ms     : ageMs,
-
-      fever_on   : this.feverOn ? 1 : 0,
-      score_delta: baseScore,
-
-      combo_before: comboBefore,
-      combo_after : this.combo,
-
-      player_hp_before: hpBefore,
-      player_hp_after : this.playerHp,
-
-      fever_before    : feverBefore,
-      fever_after     : this.fever,
-
-      target_size_px   : t.size_px,
-      spawn_interval_ms: t.spawn_interval_ms,
-      phase_at_spawn   : t.phase_at_spawn,
-      phase_spawn_index: t.phase_spawn_index,
-
-      x_norm: t.x_norm,
-      y_norm: t.y_norm,
-      zone_lr: t.zone_lr,
-      zone_ud: t.zone_ud
-    };
-
-    this.hitLogs.push(log);
-    this.eventLogger.add(log);
-
-    if (this.bossHp <= 0) {
-      this.onBossDefeated();
-    }
-    this.updateHUD();
-  }
-
-  handleDecoyHit(t, ageMs) {
-    if (!this.targets.has(t.id) || t.hit) return;
-    t.hit = true;
-    this.targets.delete(t.id);
-
-    this._computeNormPos(t);
-
-    const comboBefore = this.combo;
-    const hpBefore    = this.playerHp;
-    const feverBefore = this.fever;
-
-    this.score = Math.max(0, this.score - 60);
-    this.combo = 0;
-
-    let bombHpLoss = 10;
-    if (this.bossIndex === 1) bombHpLoss = 12;
-    else if (this.bossIndex === 2) bombHpLoss = 15;
-    else if (this.bossIndex === 3) bombHpLoss = 18;
-
-    this.playerHp = clamp(this.playerHp - bombHpLoss, 0, 100);
-    this.bombHits++;
-    this.loseFeverOnMiss();
-
-    if (this.renderer) {
-      this.renderer.spawnHitEffect(t, {
-        decoy: true,
-        grade: 'bad',
-        score: -60
-      });
-      setTimeout(() => this.forceRemoveTargetVisual(t), 220);
-    } else {
-      this.forceRemoveTargetVisual(t);
-    }
-
-    this.setFeedback('bomb');
-    safePlay('sfx-hit');
-
-    const phase = this.getBossPhaseFromHp();
-    const tsRel = (performance.now() - this._startTime) / 1000;
-
-    // -------- Event-level log (bomb) --------
-    const log = {
-      session_id: this.currentRunSessionId || this.sessionId,
-      build_version: this.buildVersion,
-
-      mode: this.mode,
-      difficulty: this.diff,
-      training_phase: this.trainingPhase,
-      run_index: this.runIndex,
-
-      participant: this.researchMeta.participant,
-      group      : this.researchMeta.group,
-      note       : this.researchMeta.note,
-
-      event_type : 'bomb',
-      ts         : tsRel,
-
-      target_id  : t.id,
-      boss_id    : this.currentBoss?.id || 0,
-      boss_phase : phase,
-
-      is_decoy   : 1,
-      is_bossface: t.bossFace ? 1 : 0,
-
-      grade      : 'bomb',
-      age_ms     : ageMs,
-
-      fever_on   : this.feverOn ? 1 : 0,
-      score_delta: -60,
-
-      combo_before: comboBefore,
-      combo_after : this.combo,
-
-      player_hp_before: hpBefore,
-      player_hp_after : this.playerHp,
-
-      fever_before    : feverBefore,
-      fever_after     : this.fever,
-
-      target_size_px   : t.size_px,
-      spawn_interval_ms: t.spawn_interval_ms,
-      phase_at_spawn   : t.phase_at_spawn,
-      phase_spawn_index: t.phase_spawn_index,
-
-      x_norm: t.x_norm,
-      y_norm: t.y_norm,
-      zone_lr: t.zone_lr,
-      zone_ud: t.zone_ud
-    };
-
-    this.hitLogs.push(log);
-    this.eventLogger.add(log);
-
-    if (this.playerHp <= 0) {
-      this.updateHUD();
-      this.stopGame('HP ผู้เล่นหมด');
-      return;
-    }
-    this.updateHUD();
-  }
-
-  handleMiss(t) {
-    if (!this.targets.has(t.id) || t.hit) return;
-
-    if (t.decoy) {
-      this.targets.delete(t.id);
-      this.forceRemoveTargetVisual(t);
-      return;
-    }
-
-    t.hit = true;
-    this.targets.delete(t.id);
-
-    this._computeNormPos(t);
-
-    const comboBefore = this.combo;
-    const hpBefore    = this.playerHp;
-    const feverBefore = this.fever;
-
-    this.miss++;
-    this.combo = 0;
-
-    let hpLoss = this.config.playerDamageOnMiss;
-    if (this.bossIndex === 1) hpLoss += 1;
-    else if (this.bossIndex === 2) hpLoss += 2;
-    else if (this.bossIndex === 3) hpLoss += 3;
-
-    this.playerHp = clamp(this.playerHp - hpLoss, 0, 100);
-    this.loseFeverOnMiss();
-
-    if (this.renderer) {
-      this.renderer.spawnHitEffect(t, { miss: true, score: 0 });
-      setTimeout(() => this.forceRemoveTargetVisual(t), 220);
-    } else {
-      this.forceRemoveTargetVisual(t);
-    }
-
-    this.setFeedback('miss');
-    safePlay('sfx-hit');
-
-    const phase = this.getBossPhaseFromHp();
-    const tsRel = (performance.now() - this._startTime) / 1000;
-
-    // -------- Event-level log (miss) --------
-    const log = {
-      session_id: this.currentRunSessionId || this.sessionId,
-      build_version: this.buildVersion,
-
-      mode: this.mode,
-      difficulty: this.diff,
-      training_phase: this.trainingPhase,
-      run_index: this.runIndex,
-
-      participant: this.researchMeta.participant,
-      group      : this.researchMeta.group,
-      note       : this.researchMeta.note,
-
-      event_type : 'miss',
-      ts         : tsRel,
-
-      target_id  : t.id,
-      boss_id    : this.currentBoss?.id || 0,
-      boss_phase : phase,
-
-      is_decoy   : 0,
-      is_bossface: t.bossFace ? 1 : 0,
-
-      grade      : 'miss',
-      age_ms     : null,
-
-      fever_on   : this.feverOn ? 1 : 0,
-      score_delta: 0,
-
-      combo_before: comboBefore,
-      combo_after : this.combo,
-
-      player_hp_before: hpBefore,
-      player_hp_after : this.playerHp,
-
-      fever_before    : feverBefore,
-      fever_after     : this.fever,
-
-      target_size_px   : t.size_px,
-      spawn_interval_ms: t.spawn_interval_ms,
-      phase_at_spawn   : t.phase_at_spawn,
-      phase_spawn_index: t.phase_spawn_index,
-
-      x_norm: t.x_norm,
-      y_norm: t.y_norm,
-      zone_lr: t.zone_lr,
-      zone_ud: t.zone_ud
-    };
-
-    this.hitLogs.push(log);
-    this.eventLogger.add(log);
-
-    if (this.playerHp <= 0) {
-      this.updateHUD();
-      this.stopGame('HP ผู้เล่นหมด');
-      return;
-    }
-    this.updateHUD();
-  }
-
-  updateHUD() {
-    this.statScore.textContent   = String(this.score);
-    this.statHp.textContent      = String(this.playerHp);
-    this.statCombo.textContent   = String(this.combo);
-    this.statPerfect.textContent = String(this.perfect);
-    this.statMiss.textContent    = String(this.miss);
-
-    const hpRatio = clamp(this.playerHp / 100, 0, 1);
-    if (this.playerFill) {
-      this.playerFill.style.transform = `scaleX(${hpRatio})`;
-    }
 
     const now = performance.now();
-    const low = this.playerHp <= 30;
-    if (low !== this._hpLow) {
-      if (this._hpLow && this._hpStateChangeAt != null) {
-        this.lowHpTotalMs += now - this._hpStateChangeAt;
+    this.startTime = now;
+    this.lastTick = now;
+    this.elapsedMs = 0;
+    this.nextSpawnAt = now + 600; // หน่วงเล็กน้อยก่อนเป้าแรก
+
+    this._loop = this._loop.bind(this);
+    this.rafId = requestAnimationFrame(this._loop);
+  }
+
+  stop(reason = 'manual') {
+    if (!this.running) return;
+    this.running = false;
+    this.endReason = reason;
+
+    if (this.rafId != null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+
+    // ปิด FEVER ถ้ายังติดอยู่
+    const now = performance.now();
+    if (this.feverOn) {
+      this.feverTotalTimeMs += now - this.feverOnSince;
+      this.feverOn = false;
+    }
+
+    // clear เป้าทั้งหมด
+    for (const t of this.activeTargets.values()) {
+      this._emitDespawn(t, 'clear');
+    }
+    this.activeTargets.clear();
+
+    const summary = this._buildSummary();
+    this.hooks.onEnd && this.hooks.onEnd(summary);
+  }
+
+  /**
+   * ให้ DomRenderer เรียกเมื่อผู้เล่นตีโดนเป้า
+   * @param {number} targetId
+   * @param {{x:number,y:number}|null} screenPos
+   */
+  handleHit(targetId, screenPos = null) {
+    if (!this.running) return;
+    const target = this.activeTargets.get(targetId);
+    if (!target) return;
+
+    const now = performance.now();
+    const ageMs = now - target.spawnAt;
+
+    // คำนวณเกรดจาก reaction time
+    const PERFECT = 350;
+    const GOOD = 750;
+    let grade = 'bad';
+    if (ageMs <= PERFECT) grade = 'perfect';
+    else if (ageMs <= GOOD) grade = 'good';
+
+    let scoreDelta = 0;
+    let comboBefore = this.combo;
+    let comboAfter;
+    let playerHpBefore = this.playerHp;
+    let bossHpBefore = this.bossHp;
+
+    // combo & score
+    if (grade === 'perfect' || grade === 'good') {
+      this.combo += 1;
+      this.maxCombo = Math.max(this.maxCombo, this.combo);
+      const base = grade === 'perfect' ? 100 : 60;
+      const feverMul = this.feverOn ? 1.5 : 1;
+      scoreDelta = Math.round(base * feverMul * (1 + this.combo * 0.02));
+      this.score += scoreDelta;
+      this.totalHits += 1;
+
+      if (target.isDecoy) {
+        // เป้าลวง: ไม่นับเป็น normal RT
+        this.decoyRTs.push(ageMs);
+      } else {
+        this.normalRTs.push(ageMs);
       }
-      this._hpLow = low;
-      this._hpStateChangeAt = now;
+
+      if (grade === 'perfect') this.perfectCount++;
+      else this.goodCount++;
+    } else {
+      // bad → นับเป็น miss แบบ timing ไม่ดี
+      this.combo = 0;
+      this.badCount++;
+      this.missCount++;
+      this.playerHp = Math.max(0, this.playerHp - this.cfg.damagePlayerOnMiss);
     }
+
+    // boss damage
+    if (!target.isDecoy) {
+      if (grade === 'perfect') {
+        this.bossHp = Math.max(0, this.bossHp - this.cfg.damageBossPerPerfect);
+      } else if (grade === 'good') {
+        this.bossHp = Math.max(0, this.bossHp - this.cfg.damageBossPerGood);
+      }
+    }
+
+    // bomb
+    if (target.isBomb) {
+      this.bombHitCount++;
+      this.playerHp = Math.max(0, this.playerHp - this.cfg.bombDamagePlayer);
+    }
+
+    // FEVER gauge
+    const feverBefore = this.feverGauge;
+    if (grade === 'perfect') this.feverGauge = Math.min(1, this.feverGauge + 0.12);
+    else if (grade === 'good') this.feverGauge = Math.min(1, this.feverGauge + 0.07);
+    else this.feverGauge = Math.max(0, this.feverGauge - 0.18);
+
+    if (!this.feverOn && this.feverGauge >= 1) {
+      this.feverOn = true;
+      this.feverGauge = 1;
+      this.feverOnSince = now;
+      this.feverCount++;
+    }
+
+    comboAfter = this.combo;
+    const playerHpAfter = this.playerHp;
+    const bossHpAfter = this.bossHp;
+    const feverAfter = this.feverGauge;
+
+    // remove target
+    this.activeTargets.delete(targetId);
+    this._emitDespawn(target, 'hit');
+
+    const ev = {
+      kind: 'hit',
+      target,
+      grade,
+      ageMs,
+      scoreDelta,
+      scoreTotal: this.score,
+      comboBefore,
+      comboAfter,
+      playerHpBefore,
+      playerHpAfter,
+      bossHpBefore,
+      bossHpAfter,
+      feverBefore,
+      feverAfter,
+      feverOn: this.feverOn,
+      screenPos
+    };
+    this.hooks.onHit && this.hooks.onHit(ev);
   }
 
-  downloadEventCsv() {
-    if (!this.eventLogger || !this.eventLogger.logs.length) {
-      alert('ยังไม่มีข้อมูล Event สำหรับบันทึก');
+  // ===== Internal loop =====
+
+  _loop(now) {
+    if (!this.running) return;
+
+    const dt = now - this.lastTick;
+    this.lastTick = now;
+    this.elapsedMs += dt;
+
+    const remainingMs = Math.max(0, this.cfg.durationMs - this.elapsedMs);
+
+    // FEVER time tracking
+    if (this.feverOn) {
+      // fever จะไม่หมดเวลาเองในเวอร์ชันนี้ แค่เกจค่อย ๆ ลด
+      this.feverGauge = Math.max(0, this.feverGauge - dt / 8000); // ค่อย ๆ ลด 8 วิ หมดหนึ่งหลอด
+      if (this.feverGauge <= 0.01) {
+        this.feverOn = false;
+        this.feverGauge = 0;
+        this.feverTotalTimeMs += now - this.feverOnSince;
+      }
+    }
+
+    // low HP time
+    const hpFrac = this.playerHp / this.playerHpMax;
+    if (hpFrac <= this.lowHpThreshold) {
+      this.lowHpAccumMs += dt;
+    }
+
+    // phase progression (ตาม HP ของบอส)
+    const bossFrac = this.bossHp / this.bossHpMax;
+    let newPhase = this.phase;
+    if (bossFrac <= 0.25) newPhase = 4;
+    else if (bossFrac <= 0.5) newPhase = 3;
+    else if (bossFrac <= 0.75) newPhase = 2;
+    else newPhase = 1;
+
+    if (newPhase !== this.phase) {
+      this.phase = newPhase;
+      this.hooks.onPhaseChange && this.hooks.onPhaseChange(this.phase);
+    }
+
+    // spawn เป้า
+    if (now >= this.nextSpawnAt) {
+      this._spawnTarget(now);
+    }
+
+    // timeout / age
+    for (const t of Array.from(this.activeTargets.values())) {
+      const age = now - t.spawnAt;
+      if (age >= this.cfg.targetLifetimeMs) {
+        this._handleTimeout(t, now);
+      }
+    }
+
+    // emit HUD state
+    const state = this._buildState(remainingMs);
+    this.hooks.onUpdate && this.hooks.onUpdate(state);
+
+    // check end
+    if (remainingMs <= 0) {
+      this.stop('timeup');
       return;
     }
-    const csv = this.eventLogger.toCsv();
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const pid  = (this.researchMeta.participant || 'Pxxx').replace(/[^a-z0-9_-]/gi,'');
-    a.href = url;
-    a.download = `shadow-breaker-events-${pid || 'Pxxx'}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  downloadSessionCsv() {
-    if (!this.sessionLogger || !this.sessionLogger.sessions.length) {
-      alert('ยังไม่มี session summary สำหรับบันทึก');
+    if (this.playerHp <= 0) {
+      this.stop('player_dead');
       return;
     }
-    const csv = this.sessionLogger.toCsv();
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `shadow-breaker-sessions-${this.sessionId}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-}
+    if (this.bossHp <= 0) {
+      this.bossesCleared = 1; // เวอร์ชันนี้มีบอสเดียวก่อน
+      this.stop('boss_defeated');
+      return;
+    }
 
-// Entry
-export function initShadowBreaker() {
-  const game = new ShadowBreakerGame();
-  window.__shadowBreaker = game;
+    this.rafId = requestAnimationFrame(this._loop);
+  }
+
+  _spawnTarget(now) {
+    const id = this.nextTargetId++;
+    const size = this._sizeForPhase();
+    const xNorm = 0.16 + Math.random() * 0.68; // ไม่ชิดขอบเกินไป
+    const yNorm = 0.22 + Math.random() * 0.56;
+
+    const zoneLR = xNorm < 0.5 ? 'L' : 'R';
+    const zoneUD = yNorm < 0.5 ? 'U' : 'D';
+
+    // type: เป้าปกติ / bomb / decoy
+    let r = Math.random();
+    let isBomb = false;
+    let isDecoy = false;
+    if (r < 0.1) {
+      isBomb = true;
+    } else if (r < 0.2) {
+      isDecoy = true;
+    }
+
+    const target = {
+      id,
+      bossId: this.bossIndex,
+      bossPhase: this.phase,
+      isBomb,
+      isDecoy,
+      isBossFace: false,
+      spawnAt: now,
+      sizePx: size,
+      xNorm,
+      yNorm,
+      zoneLR,
+      zoneUD,
+      spawnIntervalMs: this.cfg.spawnIntervalMs,
+      phaseSpawnIndex: 0 // สามารถใช้เพิ่มทีหลัง (นับลำดับเป้าใน phase)
+    };
+
+    this.activeTargets.set(id, target);
+    this.totalTargets++;
+
+    // นัด spawn ถัดไป (เพิ่มความเร็วเมื่อ phase สูงขึ้น / HP ต่ำ)
+    const phaseFactor = 1 - (this.phase - 1) * 0.12;  // phase สูง → เร็วขึ้น
+    const hpFactor = 0.7 + (this.bossHp / this.bossHpMax) * 0.3; // HP น้อย → เร็วขึ้น
+    const nextInt = this.cfg.spawnIntervalMs * phaseFactor * hpFactor;
+    this.nextSpawnAt = now + nextInt;
+
+    this.hooks.onSpawn && this.hooks.onSpawn(target);
+  }
+
+  _handleTimeout(target, now) {
+    if (!this.activeTargets.has(target.id)) return;
+    this.activeTargets.delete(target.id);
+
+    // timeout → Miss
+    this.combo = 0;
+    this.missCount++;
+    this.playerHp = Math.max(0, this.playerHp - this.cfg.damagePlayerOnMiss);
+
+    this._emitDespawn(target, 'timeout');
+
+    const ev = {
+      kind: 'timeout',
+      target,
+      grade: 'miss',
+      ageMs: now - target.spawnAt,
+      scoreDelta: 0,
+      scoreTotal: this.score,
+      comboBefore: 0,
+      comboAfter: this.combo,
+      playerHpBefore: this.playerHp,
+      playerHpAfter: this.playerHp,
+      bossHpBefore: this.bossHp,
+      bossHpAfter: this.bossHp,
+      feverBefore: this.feverGauge,
+      feverAfter: this.feverGauge,
+      feverOn: this.feverOn,
+      screenPos: null
+    };
+    this.hooks.onHit && this.hooks.onHit(ev);
+  }
+
+  _emitDespawn(target, reason) {
+    this.hooks.onDespawn && this.hooks.onDespawn(target, reason);
+  }
+
+  _sizeForPhase() {
+    const base = this.cfg.targetSizePx;
+    if (this.phase === 1) return base + 10;
+    if (this.phase === 2) return base;
+    if (this.phase === 3) return base - 10;
+    return base - 18;
+  }
+
+  _buildState(remainingMs) {
+    return {
+      diffKey: this.diffKey,
+      durationMs: this.cfg.durationMs,
+      elapsedMs: this.elapsedMs,
+      remainingMs,
+      score: this.score,
+      combo: this.combo,
+      maxCombo: this.maxCombo,
+      perfectCount: this.perfectCount,
+      goodCount: this.goodCount,
+      badCount: this.badCount,
+      missCount: this.missCount,
+      bombHitCount: this.bombHitCount,
+      totalTargets: this.totalTargets,
+      totalHits: this.totalHits,
+      playerHp: this.playerHp,
+      playerHpMax: this.playerHpMax,
+      bossHp: this.bossHp,
+      bossHpMax: this.bossHpMax,
+      feverGauge: this.feverGauge,
+      feverOn: this.feverOn,
+      feverCount: this.feverCount,
+      feverTotalTimeMs: this.feverTotalTimeMs,
+      lowHpTimeMs: this.lowHpAccumMs,
+      phase: this.phase,
+      bossIndex: this.bossIndex,
+      bossesCleared: this.bossesCleared
+    };
+  }
+
+  _buildSummary() {
+    const durationMs = this.elapsedMs;
+    const accuracy = this.totalTargets > 0
+      ? (this.totalHits / this.totalTargets) * 100
+      : 0;
+
+    const meanStd = (arr) => {
+      if (!arr.length) return { mean: 0, sd: 0 };
+      const m = arr.reduce((a, b) => a + b, 0) / arr.length;
+      const v = arr.reduce((a, b) => a + (b - m) * (b - m), 0) / arr.length;
+      return { mean: m, sd: Math.sqrt(v) };
+    };
+
+    const rtNorm = meanStd(this.normalRTs);
+    const rtDecoy = meanStd(this.decoyRTs);
+
+    // grade session แบบง่าย ๆ
+    let grade = 'C';
+    if (accuracy >= 85 && this.bossHp <= 0) grade = 'A';
+    else if (accuracy >= 70) grade = 'B';
+
+    return {
+      diffKey: this.diffKey,
+      endReason: this.endReason || 'manual',
+      durationMs,
+      score: this.score,
+      combo: this.combo,
+      maxCombo: this.maxCombo,
+      perfectCount: this.perfectCount,
+      goodCount: this.goodCount,
+      badCount: this.badCount,
+      missCount: this.missCount,
+      bombHitCount: this.bombHitCount,
+      totalTargets: this.totalTargets,
+      totalHits: this.totalHits,
+      accuracyPct: accuracy,
+      playerHp: this.playerHp,
+      playerHpMax: this.playerHpMax,
+      bossHp: this.bossHp,
+      bossHpMax: this.bossHpMax,
+      feverCount: this.feverCount,
+      feverTotalTimeMs: this.feverTotalTimeMs,
+      lowHpTimeMs: this.lowHpAccumMs,
+      phase: this.phase,
+      bossesCleared: this.bossesCleared,
+      avgRtNormalMs: rtNorm.mean,
+      stdRtNormalMs: rtNorm.sd,
+      avgRtDecoyMs: rtDecoy.mean,
+      stdRtDecoyMs: rtDecoy.sd,
+      grade
+    };
+  }
 }
