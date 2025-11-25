@@ -1,10 +1,10 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-28b with CSV events) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-28b fixed) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
-import { recordSession } from './stats-store.js';  // ปรับ path ให้ตรงโฟลเดอร์จริง
+import { recordSession } from './stats-store.js'; // ปรับ path ให้ตรงกับโฟลเดอร์จริง
 
 const BUILD_VERSION = 'sb-2025-11-28b';
 
@@ -159,7 +159,7 @@ class ShadowBreakerEngine {
     this.menuOpenedAt = performance.now();
   }
 
-  // helper สำหรับ log event → CSV
+  // helper log event → CSV
   _logEvent(extra = {}) {
     if (!this.eventLogger) return;
     this.eventLogger.add({
@@ -179,7 +179,8 @@ class ShadowBreakerEngine {
     });
   }
 
-  // เริ่มเกมใหม่
+  // ---------------- START ----------------
+
   start(mode, diffKey, timeSec, participantMeta = {}) {
     this.mode    = mode || 'normal';
     this.diffKey = DIFF_CONFIG[diffKey] ? diffKey : 'normal';
@@ -324,6 +325,7 @@ class ShadowBreakerEngine {
     this.elapsedMs   += dt;
     this.remainingMs = Math.max(0, this.timeLimitMs - this.elapsedMs);
 
+    // FEVER เวลา
     if (this.feverOn) {
       this.feverTimeMs += dt;
       this.feverGauge = clamp(this.feverGauge - dt * 0.03, 0, 100);
@@ -338,6 +340,7 @@ class ShadowBreakerEngine {
       this.lowHpTimeMs += dt;
     }
 
+    // spawn เป้าใหม่
     if (!this.nextSpawnAt) {
       this.nextSpawnAt = ts + 400;
     }
@@ -345,13 +348,16 @@ class ShadowBreakerEngine {
       this._spawnTarget(ts);
     }
 
+    // หมดเวลา?
     if (this.remainingMs <= 0) {
       this._finish('time-up');
       return;
     }
 
+    // ตรวจ miss จาก timeout
     this._checkTimeouts(ts);
 
+    // ตาย?
     if (this.playerHp <= 0) {
       this._finish('player-down');
       return;
@@ -370,12 +376,14 @@ class ShadowBreakerEngine {
     const phaseIdx = this.bossPhase - 1;
     const diff = this.diff;
 
+    // จำกัดจำนวนเป้าบนจอ
     const maxActive = diff.maxActive[phaseIdx] || diff.maxActive[1];
     if (this.targets.size >= maxActive) {
       this.nextSpawnAt = now + 120;
       return;
     }
 
+    // เลือก type
     let type = 'normal';
     const r = Math.random();
     if (!this.bossFaceAlive && (this.bossHp / this.bossHpMax) <= 0.28 && r > 0.65) {
@@ -401,6 +409,7 @@ class ShadowBreakerEngine {
     const lifeMs = diff.lifeMs[phaseIdx] || diff.lifeMs[1];
     const spawnMs = diff.spawnMs[phaseIdx] || diff.spawnMs[1];
 
+    // โซน L/C/R, U/M/D
     const zoneLR = ['L','C','R'][Math.floor(Math.random()*3)];
     const zoneUD = ['U','M','D'][Math.floor(Math.random()*3)];
 
@@ -453,6 +462,7 @@ class ShadowBreakerEngine {
       boss_hp: this.bossHp
     });
 
+    // spawn ถัดไป
     let interval = spawnMs;
     if (this.feverOn) interval *= 0.7;
     if (this.diffKey === 'hard') interval *= 0.9;
@@ -474,6 +484,7 @@ class ShadowBreakerEngine {
   }
 
   _registerMiss(t) {
+    // เป้าปกติ: ลด HP, นับ miss
     if (!t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield) {
       this.missCount += 1;
       this.combo = 0;
@@ -485,6 +496,7 @@ class ShadowBreakerEngine {
       }
     }
 
+    // bossface หมดอายุ
     if (t.isBossFace) {
       this.bossFaceAlive = false;
     }
@@ -574,7 +586,7 @@ class ShadowBreakerEngine {
         this._damageBoss(2);
         fxEmoji = '⭐';
         this._gainFever(6);
-      } else {
+      } else { // bad
         scoreDelta = 45;
         this._damageBoss(1);
         fxEmoji = '💫';
@@ -593,6 +605,7 @@ class ShadowBreakerEngine {
 
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
+    // HUD feedback
     if (this.hud.feedback) {
       let msg = '';
       let cls = 'sb-feedback';
@@ -622,6 +635,7 @@ class ShadowBreakerEngine {
       this.hud.feedback.className = cls;
     }
 
+    // FX ที่จุดตีจริง
     this.renderer.playHitFx(t.id, {
       grade,
       scoreDelta,
@@ -630,9 +644,11 @@ class ShadowBreakerEngine {
       clientY: hitInfo?.clientY
     });
 
+    // ลบเป้าออก
     this.targets.delete(id);
     this.renderer.removeTarget(id, 'hit');
 
+    // log hit event
     this._logEvent({
       event_type: 'hit',
       target_id: t.id,
@@ -655,6 +671,7 @@ class ShadowBreakerEngine {
       screen_y: hitInfo?.clientY ?? null
     });
 
+    // ตายเพราะบอมบ์?
     if (this.playerHp <= 0) {
       this._finish('bomb-ko');
       return;
@@ -699,6 +716,7 @@ class ShadowBreakerEngine {
       setTimeout(() => this.wrap.classList.remove('sb-wrap-shake'), 260);
     }
 
+    // portrait สั่นตอนใกล้ตาย
     if (ratio <= 0.33) {
       $('#boss-portrait')?.classList.add('sb-shake');
     } else {
@@ -713,6 +731,7 @@ class ShadowBreakerEngine {
   _onBossCleared() {
     this.bossesCleared += 1;
 
+    // reward ต่อบอส
     const rewardScore = 500;
     this.score += rewardScore;
     if (this.hud.feedback) {
@@ -721,6 +740,7 @@ class ShadowBreakerEngine {
       this.hud.feedback.className = 'sb-feedback perfect';
     }
 
+    // ถ้ามีบอสถัดไป
     if (this.bossIndex < BOSSES.length - 1) {
       this.bossIndex += 1;
       this.currentBoss = BOSSES[this.bossIndex];
@@ -729,6 +749,7 @@ class ShadowBreakerEngine {
       this.bossPhase = 1;
       this.bossFaceAlive = false;
 
+      // เคลียร์เป้าที่เหลือ
       for (const [id] of this.targets) {
         this.renderer.removeTarget(id, 'boss-change');
       }
@@ -739,6 +760,7 @@ class ShadowBreakerEngine {
 
       this._showBossIntro(this.currentBoss, false);
     } else {
+      // เคลียร์บอสครบ
       this._finish('all-boss-cleared');
     }
   }
@@ -795,6 +817,7 @@ class ShadowBreakerEngine {
     this.ended = true;
     this.paused = true;
 
+    // ลบเป้าทั้งหมด
     for (const [id] of this.targets) {
       this.renderer.removeTarget(id, 'end');
     }
@@ -879,7 +902,7 @@ export function initShadowBreaker() {
     field,
     hooks: {
       onEnd: (summary) => {
-        // 1) บันทึกลง localStorage สำหรับหน้า Hub รวมสถิติ
+        // 1) บันทึกสถิติลง localStorage สำหรับหน้า Hub
         try {
           recordSession('shadow-breaker', {
             score: summary.final_score,
@@ -891,7 +914,7 @@ export function initShadowBreaker() {
             difficulty: summary.difficulty
           });
         } catch (e) {
-          console.warn('ShadowBreaker: cannot record stats', e);
+          console.warn('recordSession failed', e);
         }
 
         // 2) อัปเดตหน้า RESULT
@@ -932,6 +955,7 @@ export function initShadowBreaker() {
 
         setText('#res-participant', summary.participant || '-');
 
+        // เก็บ CSV ไว้ใน dataset
         viewResult.dataset.eventsCsv  = summary.eventsCsv || '';
         viewResult.dataset.sessionCsv = summary.sessionCsv || '';
 
@@ -1025,6 +1049,7 @@ export function initShadowBreaker() {
     });
   });
 
+  // ดาวน์โหลด CSV
   function downloadCsv(name, text) {
     if (!text) {
       alert('ยังไม่มีข้อมูล CSV ลองเล่นเกมให้จบก่อนค่ะ');
@@ -1051,6 +1076,7 @@ export function initShadowBreaker() {
     downloadCsv('shadow-breaker-sessions.csv', csv);
   });
 
+  // view เริ่มต้น
   showView('menu');
   engine.markMenuOpened();
   console.log('[ShadowBreaker] engine initialized');
