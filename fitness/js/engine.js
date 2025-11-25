@@ -1,11 +1,11 @@
-// === fitness/js/engine.js — Shadow Breaker Engine (2025-11-25) ===
+// === fitness/js/engine.js — Shadow Breaker Engine (2025-11-25 FIX) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 
-const BUILD_VERSION = 'sb-2025-11-25';
+const BUILD_VERSION = 'sb-2025-11-25-fix1';
 
 // ---------- Utilities ----------
 const $  = (s) => document.querySelector(s);
@@ -558,7 +558,7 @@ class ShadowBreakerEngine {
     this.missCount++;
     this.combo = 0;
 
-    // player HP downเล็กน้อยเมื่อ miss เป้า normal
+    // player HP down เล็กน้อยเมื่อ miss เป้า normal
     if (!t.isBomb && !t.isDecoy) {
       this.playerHP = clamp(this.playerHP - 4, 0, 100);
     }
@@ -729,7 +729,9 @@ export function initShadowBreaker() {
   const viewResult = $('#view-result');
 
   const targetLayer = $('#target-layer');
-  const renderer = new DomRenderer(targetLayer || wrap, {});
+
+  // >>> FIX: ใช้ signature ของ DomRenderer(game, host, opts)
+  const renderer = new DomRenderer(null, targetLayer || wrap, {});
 
   let currentEngine = null;
   let lastEvents = null;
@@ -786,6 +788,9 @@ export function initShadowBreaker() {
       }
     });
 
+    // ผูก game object ให้ DomRenderer เผื่อใช้ภายใน
+    renderer.game = currentEngine;
+
     lastEvents = eventLogger;
     lastSessions = sessionLogger;
 
@@ -807,7 +812,9 @@ export function initShadowBreaker() {
       set('#res-grade', state.grade);
       set('#res-maxcombo', state.max_combo);
       set('#res-miss', state.total_miss);
-      set('#res-accuracy', `${state.accuracy_pct.toFixed ? state.accuracy_pct.toFixed(1) : state.accuracy_pct}%`);
+      set('#res-accuracy',
+        `${state.accuracy_pct.toFixed ? state.accuracy_pct.toFixed(1) : state.accuracy_pct}%`
+      );
       set('#res-totalhits', state.total_hits);
       set('#res-rt-normal', state.avg_rt_normal_ms || '-');
       set('#res-rt-decoy', state.avg_rt_decoy_ms || '-');
@@ -851,7 +858,7 @@ export function initShadowBreaker() {
     });
   }
 
-  if (btnBackToMenu.length) {
+  if (btnBackToMenu && btnBackToMenu.length) {
     btnBackToMenu.forEach(b =>
       b.addEventListener('click', () => {
         currentEngine = null;
@@ -880,7 +887,23 @@ export function initShadowBreaker() {
     });
   }
 
-  // เปิดมาครั้งแรก
+  // ---------- initial view + auto-start ----------
+
   window.__SB_MENU_OPEN_TS = performance.now();
-  if (viewMenu) showView(viewMenu);
+
+  const params = new URLSearchParams(location.search);
+  const autoFlag = params.get('auto') || params.get('autostart') || params.get('quick');
+  const autoMode = params.get('mode') === 'research' ? 'research' : 'normal';
+
+  if (!viewMenu && viewPlay) {
+    // ไม่มีเมนู แปลว่าเพจนี้ไว้เล่นอย่างเดียว → auto start
+    showView(viewPlay);
+    startGame(autoMode);
+  } else {
+    if (viewMenu) showView(viewMenu);
+    // กรณีเรียกจาก hub ด้วย ?auto=1 จะเริ่มเกมให้อัตโนมัติ
+    if (autoFlag === '1' || autoFlag === 'true') {
+      setTimeout(() => startGame(autoMode), 300);
+    }
+  }
 }
