@@ -88,7 +88,7 @@ const BOSSES = [
     introTitle: 'บอสสุดท้ายสายระเบิด',
     introDesc: 'โหมดโหดสุด เน้นคอมโบต่อเนื่องและความอึด 💪',
     hint: 'เน้นไม่พลาด ถ้าคอมโบไม่หลุด คะแนนจะพุ่งแรงมาก'
-  },
+  }
 };
 
 function hpRatioToPhase(ratio) {
@@ -622,7 +622,6 @@ class ShadowBreakerEngine {
       this.hud.feedback.className = cls;
     }
 
-    // FX ที่จุดตีจริง ๆ (ใช้ clientX/Y ถ้ามี)
     this.renderer.playHitFx(t.id, {
       grade,
       scoreDelta,
@@ -631,11 +630,9 @@ class ShadowBreakerEngine {
       clientY: hitInfo?.clientY
     });
 
-    // ตอนนี้ค่อยลบเป้าออกจาก renderer + engine
     this.targets.delete(id);
     this.renderer.removeTarget(id, 'hit');
 
-    // log hit event → CSV
     this._logEvent({
       event_type: 'hit',
       target_id: t.id,
@@ -752,18 +749,7 @@ class ShadowBreakerEngine {
     this.wrap.dataset.boss  = String(this.bossIndex);
     this.wrap.dataset.phase = String(this.bossPhase);
   }
-hooks: {
-  onEnd: (summary) => {
-    // 1) บันทึกลง localStorage สำหรับหน้า Hub รวมสถิติ
-    recordSession('shadow-breaker', {
-      score: summary.final_score,
-      grade: summary.grade,
-      accuracy: summary.accuracy_pct,
-      duration_s: summary.duration_s,
-      bosses_cleared: summary.bosses_cleared,
-      mode: summary.mode,
-      difficulty: summary.difficulty
-    });
+
   // ---------- HUD & RESULT ----------
 
   _updateHUD() {
@@ -893,6 +879,22 @@ export function initShadowBreaker() {
     field,
     hooks: {
       onEnd: (summary) => {
+        // 1) บันทึกลง localStorage สำหรับหน้า Hub รวมสถิติ
+        try {
+          recordSession('shadow-breaker', {
+            score: summary.final_score,
+            grade: summary.grade,
+            accuracy: summary.accuracy_pct,
+            duration_s: summary.duration_s,
+            bosses_cleared: summary.bosses_cleared,
+            mode: summary.mode,
+            difficulty: summary.difficulty
+          });
+        } catch (e) {
+          console.warn('ShadowBreaker: cannot record stats', e);
+        }
+
+        // 2) อัปเดตหน้า RESULT
         const setText = (id, val) => {
           const el = $(id);
           if (el) el.textContent = val;
