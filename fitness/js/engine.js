@@ -1,11 +1,11 @@
-// === js/engine.js — Shadow Breaker Engine + UI (2025-11-28) ===
+// === js/engine.js — Shadow Breaker Engine + UI (2025-11-28 size-tuned) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 
-const BUILD_VERSION = 'sb-2025-11-28';
+const BUILD_VERSION = 'sb-2025-11-28-size2';
 
 // ----------------- Small helpers -----------------
 const $  = (s) => document.querySelector(s);
@@ -19,21 +19,22 @@ const DIFF_CONFIG = {
     timeSec: 60,
     baseSpawnMs: 1050,
     baseLifeMs: 2200,
-    baseSizePx: 180,
+    // ↓ ลดขนาดฐานลง
+    baseSizePx: 120,
   },
   normal: {
     label: 'Normal',
     timeSec: 60,
     baseSpawnMs: 900,
     baseLifeMs: 2000,
-    baseSizePx: 150,
+    baseSizePx: 100,
   },
   hard: {
     label: 'Hard',
     timeSec: 60,
     baseSpawnMs: 760,
     baseLifeMs: 1800,
-    baseSizePx: 130,
+    baseSizePx: 85,
   }
 };
 
@@ -333,7 +334,7 @@ class ShadowBreakerEngine {
     // ensure bossPhase & nearDeath up-to-date
     const phaseInfo = this._computePhaseFromHp();
 
-    // base spawn / lifetime from difficulty
+    // base spawn / lifetimeจาก diff
     let spawnInterval = diff.baseSpawnMs;
     let lifeMs        = diff.baseLifeMs;
 
@@ -354,13 +355,18 @@ class ShadowBreakerEngine {
       spawnInterval *= 0.72;
     }
 
-    // target size
-    let sizePx = diff.baseSizePx;
+    // ===== Target size (ปรับให้เล็กลง + clamp) =====
+    let sizePx = diff.baseSizePx;  // จาก DIFF_CONFIG
+
     const phaseSizeFactor = [1.1, 0.96, 0.84][phaseIdx] || 1.0;
-    sizePx *= phaseSizeFactor;
-    sizePx *= (1 - this.currentBossIndex * 0.04);
+    sizePx *= phaseSizeFactor;                // phase 1 ใหญ่สุด / phase 3 เล็กสุด
+    sizePx *= (1 - this.currentBossIndex * 0.04); // boss ถัดไปเล็กลงนิดหน่อย
+
     const jitter = 1 + (Math.random() * 0.22 - 0.11);
-    sizePx = Math.round(sizePx * jitter);
+    sizePx = sizePx * jitter;
+
+    // clamp ขนาดเป้า (เล็กสุด 60px, ใหญ่สุด 140px)
+    sizePx = clamp(Math.round(sizePx), 60, 140);
 
     // decide type
     let type = 'normal';
@@ -945,12 +951,12 @@ export function initShadowBreaker() {
       menuToPlayMs,
       hooks: {
         onEnd: handleEnd,
+        onBossClear: (bossIndex, bossMeta) => {
+          showBossRewardToast(bossMeta);
+        },
         onBossChange: (bossIndex, bossMeta) => {
           // intro boss ถัดไป (ไม่หยุดเวลา)
           showBossIntroOverlay(bossIndex, bossMeta, null);
-        },
-        onBossClear: (bossIndex, bossMeta) => {
-          showBossRewardToast(bossMeta);
         },
         onPhaseChange: (bossIndex, phase, info) => {
           if (info.phaseChanged) {
@@ -1039,5 +1045,5 @@ export function initShadowBreaker() {
 
   window.__SB_MENU_OPEN = performance.now();
   showView('menu');
-  console.log('[ShadowBreaker] init complete');
+  console.log('[ShadowBreaker] init complete (size-tuned)');
 }
