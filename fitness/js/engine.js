@@ -4,6 +4,7 @@
 import { DomRenderer } from './dom-renderer.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
+import { recordSession } from './stats-store.js';  // ปรับ path ให้ตรงโฟลเดอร์จริง
 
 const BUILD_VERSION = 'sb-2025-11-28b';
 
@@ -751,7 +752,18 @@ class ShadowBreakerEngine {
     this.wrap.dataset.boss  = String(this.bossIndex);
     this.wrap.dataset.phase = String(this.bossPhase);
   }
-
+hooks: {
+  onEnd: (summary) => {
+    // 1) บันทึกลง localStorage สำหรับหน้า Hub รวมสถิติ
+    recordSession('shadow-breaker', {
+      score: summary.final_score,
+      grade: summary.grade,
+      accuracy: summary.accuracy_pct,
+      duration_s: summary.duration_s,
+      bosses_cleared: summary.bosses_cleared,
+      mode: summary.mode,
+      difficulty: summary.difficulty
+    });
   // ---------- HUD & RESULT ----------
 
   _updateHUD() {
