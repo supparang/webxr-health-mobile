@@ -1,4 +1,4 @@
-// === js/dom-renderer.js — DOM target renderer + FX (Shadow Breaker 2025-11-25b) ===
+// === js/dom-renderer.js — DOM target renderer + FX (Shadow Breaker 2025-11-25c) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
@@ -19,46 +19,64 @@ export class DomRenderer {
       console.warn('[DomRenderer] host is null, renderer will be no-op');
     }
 
-    window.addEventListener('resize', () => {
-      // ถ้าจะปรับตำแหน่งตาม resize เพิ่มได้ทีหลัง
-    }, { passive: true });
+    window.addEventListener(
+      'resize',
+      () => { /* ไว้เผื่ออนาคตถ้าจะปรับตำแหน่งตอน resize */ },
+      { passive: true }
+    );
   }
 
   /* -------------------- utility: position -------------------- */
 
   /**
    * วางเป้าจาก x_norm / y_norm หรือ zone_lr / zone_ud
+   * - ถ้ามี x_norm,y_norm 0–1 จะใช้ตรง ๆ
+   * - ถ้าไม่มี ใช้ zone วางบน grid 3x3 แล้วสุ่มใน cell นิดหน่อย
    */
   _place(el, t) {
-    let xn = null;
-    let yn = null;
+    let xn =
+      (typeof t.x_norm === 'number' ? t.x_norm : null) ??
+      (typeof t.xNorm === 'number' ? t.xNorm : null);
+    let yn =
+      (typeof t.y_norm === 'number' ? t.y_norm : null) ??
+      (typeof t.yNorm === 'number' ? t.yNorm : null);
 
-    if (typeof t.x_norm === 'number' && t.x_norm > 0 && t.x_norm < 1) xn = t.x_norm;
-    else if (typeof t.xNorm === 'number' && t.xNorm > 0 && t.xNorm < 1) xn = t.xNorm;
+    const hasNorm =
+      typeof xn === 'number' && xn >= 0 && xn <= 1 &&
+      typeof yn === 'number' && yn >= 0 && yn <= 1;
 
-    if (typeof t.y_norm === 'number' && t.y_norm > 0 && t.y_norm < 1) yn = t.y_norm;
-    else if (typeof t.yNorm === 'number' && t.yNorm > 0 && t.yNorm < 1) yn = t.yNorm;
+    if (!hasNorm) {
+      // ----- ใช้ zone เป็น grid 3×3 -----
+      const lr = (t.zone_lr || t.zoneLR || '').toUpperCase();
+      const ud = (t.zone_ud || t.zoneUD || '').toUpperCase();
 
-    // ถ้าไม่มี norm → ใช้ zone
-    if (xn == null) {
-      const zr = (t.zone_lr || t.zoneLR || 'C').toUpperCase();
-      if (zr === 'L')      xn = 0.20 + Math.random() * 0.12;
-      else if (zr === 'R') xn = 0.68 + Math.random() * 0.12;
-      else                 xn = 0.40 + Math.random() * 0.20;
+      let col;
+      if (lr === 'L') col = 0;
+      else if (lr === 'R') col = 2;
+      else col = 1; // C หรือ undefined = กลาง
+
+      let row;
+      if (ud === 'U') row = 0;
+      else if (ud === 'D') row = 2;
+      else row = 1; // M หรือ undefined = กลาง
+
+      const cellW = 1 / 3;
+      const cellH = 1 / 3;
+
+      // jitter เล็กน้อยใน cell เพื่อไม่ให้ทับกันเป๊ะ ๆ
+      const jitterX = (Math.random() - 0.5) * 0.4 * cellW; // ±20% ของ cell
+      const jitterY = (Math.random() - 0.5) * 0.4 * cellH;
+
+      xn = (col + 0.5) * cellW + jitterX;
+      yn = (row + 0.5) * cellH + jitterY;
     }
 
-    if (yn == null) {
-      const zu = (t.zone_ud || t.zoneUD || 'M').toUpperCase();
-      if (zu === 'U')      yn = 0.22 + Math.random() * 0.14;
-      else if (zu === 'D') yn = 0.64 + Math.random() * 0.12;
-      else                 yn = 0.40 + Math.random() * 0.18;
-    }
+    // clamp กันหลุดชิดขอบเกินไป
+    xn = Math.min(0.90, Math.max(0.10, xn));
+    yn = Math.min(0.88, Math.max(0.12, yn));
 
-    const xPct = 8 + xn * 84;   // กันขอบซ้ายขวา
-    const yPct = 12 + yn * 76;  // กันขอบบนล่าง
-
-    el.style.left = xPct + '%';
-    el.style.top  = yPct + '%';
+    el.style.left = (xn * 100) + '%';
+    el.style.top  = (yn * 100) + '%';
   }
 
   /* -------------------- spawn / remove -------------------- */
@@ -129,9 +147,7 @@ export class DomRenderer {
 
     if (reason === 'hit') {
       el.classList.add('sb-hit');
-      setTimeout(() => {
-        el.remove();
-      }, 220);
+      setTimeout(() => el.remove(), 220);
     } else {
       el.remove();
     }
@@ -141,32 +157,24 @@ export class DomRenderer {
 
   /* -------------------- FX / feedback -------------------- */
 
-  /**
-   * แสดง popup คะแนน + neon burst + particle
-   * ev: { grade, scoreDelta, fxEmoji }
-   */
   playHitFx(targetId, ev = {}) {
     const rec = this.targets.get(targetId);
     const field = this.container || this.host || document.body;
     const fieldRect = field.getBoundingClientRect();
 
     let cx, cy;
-
     if (rec?.el) {
       const rect = rec.el.getBoundingClientRect();
       cx = rect.left + rect.width / 2;
       cy = rect.top + rect.height / 2;
     } else {
-      // ถ้าเป้าถูกลบไปแล้ว ให้ใช้กลางฟิลด์แทน (กันเด้งไปมุมจอ)
       cx = fieldRect.left + fieldRect.width / 2;
       cy = fieldRect.top  + fieldRect.height / 2;
     }
-
-    // แปลงเป็นพิกัด relative ในฟิลด์
     const rx = cx - fieldRect.left;
     const ry = cy - fieldRect.top;
 
-    // ---- popup score ----
+    // popup score
     const popup = document.createElement('div');
     popup.className = 'sb-fx-score';
 
@@ -197,7 +205,7 @@ export class DomRenderer {
     field.appendChild(popup);
     setTimeout(() => popup.remove(), 600);
 
-    // ---- neon ring ----
+    // neon ring
     const neon = document.createElement('div');
     neon.className = 'sb-neon-hit';
     neon.style.left = rx + 'px';
@@ -205,10 +213,10 @@ export class DomRenderer {
     field.appendChild(neon);
     setTimeout(() => neon.remove(), 260);
 
-    // ---- particle emoji ----
+    // particle
     spawnHitParticle(field, { x: rx, y: ry, emoji: ev.fxEmoji || '✨' });
 
-    // ---- camera shake ----
+    // camera shake
     field.classList.add('sb-shake-field');
     setTimeout(() => field.classList.remove('sb-shake-field'), 160);
   }
