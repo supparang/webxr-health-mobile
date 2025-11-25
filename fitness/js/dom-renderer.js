@@ -1,153 +1,247 @@
-// === js/dom-renderer.js — DOM target renderer + FX (2025-11-28) ===
+// === js/dom-renderer.js — DOM target renderer + hit FX (2025-11-28) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
 
 export class DomRenderer {
+  /**
+   * @param {HTMLElement} host  ชั้นสำหรับวางเป้า (#target-layer)
+   * @param {Object} opts
+   *   - onTargetHit(id, info)
+   */
   constructor(host, opts = {}) {
     this.host = host;
-    this.opts = opts;
+    this.container = host?.closest('[data-sb-field]') || host || document.body;
+    this.onTargetHit = opts.onTargetHit || (() => {});
     this.targets = new Map();
-  }
 
-  setEngine(engine) {
-    this.engine = engine;
-  }
-
-  clear() {
-    for (const { el } of this.targets.values()) {
-      if (el && el.parentNode) el.parentNode.removeChild(el);
+    if (!this.host) {
+      console.warn('[DomRenderer] host is null, renderer will be no-op');
     }
-    this.targets.clear();
   }
 
+  // ---------- position helper ----------
+
+  _place(el, t) {
+    let xn =
+      (typeof t.xNorm === 'number' ? t.xNorm : null) ??
+      (typeof t.x_norm === 'number' ? t.x_norm : null);
+    let yn =
+      (typeof t.yNorm === 'number' ? t.yNorm : null) ??
+      (typeof t.y_norm === 'number' ? t.y_norm : null);
+
+    const validNorm =
+      typeof xn === 'number' && xn >= 0 && xn <= 1 &&
+      typeof yn === 'number' && yn >= 0 && yn <= 1;
+
+    if (!validNorm) {
+      const lr = (t.zoneLR || t.zone_lr || 'C').toUpperCase();
+      const ud = (t.zoneUD || t.zone_ud || 'M').toUpperCase();
+
+      let col = 1;
+      if (lr === 'L') col = 0;
+      else if (lr === 'R') col = 2;
+
+      let row = 1;
+      if (ud === 'U') row = 0;
+      else if (ud === 'D') row = 2;
+
+      const cellW = 1 / 3;
+      const cellH = 1 / 3;
+
+      const jitterX = (Math.random() - 0.5) * 0.3 * cellW;
+      const jitterY = (Math.random() - 0.5) * 0.3 * cellH;
+
+      xn = (col + 0.5) * cellW + jitterX;
+      yn = (row + 0.5) * cellH + jitterY;
+    }
+
+    xn = Math.min(0.9, Math.max(0.1, xn));
+    yn = Math.min(0.9, Math.max(0.1, yn));
+
+    el.style.left = (xn * 100) + '%';
+    el.style.top  = (yn * 100) + '%';
+  }
+
+  // ---------- spawn / remove ----------
+
+  /**
+   * t: {
+   *   id, sizePx, diffKey, bossPhase,
+   *   isDecoy,isBomb,isHeal,isShield,isBossFace,
+   *   xNorm,yNorm,zoneLR,zoneUD,emoji
+   * }
+   */
   spawnTarget(t) {
-    if (!this.host) return;
+    if (!this.host || !t || t.id == null) return;
+
+    if (this.targets.has(t.id)) {
+      this.removeTarget(t.id, 'dup');
+    }
+
     const el = document.createElement('div');
     el.className = 'sb-target';
-    el.dataset.id   = String(t.id);
-    el.dataset.diff = t.diffKey || 'normal';
-    el.dataset.phase= String(t.bossPhase || t.phase || 1);
-    el.dataset.boss = String(t.bossIndex ?? 0);
-    el.dataset.type = t.type || (t.isBomb ? 'bomb' : t.isDecoy ? 'decoy' : 'normal');
+    el.dataset.id = String(t.id);
 
-    if (t.isBossFace) el.classList.add('sb-boss-face');
-    if (t.isBomb)     el.classList.add('sb-target-bomb');
-    if (t.isDecoy)    el.classList.add('sb-target-decoy');
+    // คลาสตามระดับความยาก + phase
+    if (t.diffKey) {
+      el.classList.add(String(t.diffKey));
+    }
+    if (t.bossPhase != null) {
+      el.dataset.phase = String(t.bossPhase);
+    }
+
+    if (t.isDecoy) el.dataset.type = 'decoy';
+    if (t.isBomb)  el.dataset.type = 'bomb';
+    if (t.isBossFace) el.dataset.bossFace = '1';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
-    inner.textContent = t.emoji || (t.isBomb ? '💣' : t.isHeal ? '💚' : t.isShield ? '🛡️' : '🎯');
+
+    let symbol = '🥊';
+    if (t.isBomb)        symbol = '💣';
+    else if (t.isHeal)   symbol = '💚';
+    else if (t.isShield) symbol = '🛡️';
+    else if (t.isDecoy)  symbol = '🎯';
+    if (t.emoji)         symbol = t.emoji;
+
+    inner.textContent = symbol;
     el.appendChild(inner);
 
-    const size = t.sizePx || 140;
-    el.style.width  = size + 'px';
-    el.style.height = size + 'px';
+    const sizePx = t.sizePx || 120;
+    el.style.width  = sizePx + 'px';
+    el.style.height = sizePx + 'px';
 
-    this._placeTarget(el, t);
+    this._place(el, t);
 
-    const onHit = (ev) => {
+    const handleHit = (ev) => {
       ev.preventDefault();
-      ev.stopPropagation();
-      const id = t.id;
-      const pos = { x: ev.clientX, y: ev.clientY };
-      if (this.opts.onTargetHit) {
-        this.opts.onTargetHit(id, pos);
-      }
+      const rect = el.getBoundingClientRect();
+      const sx = rect.left + rect.width / 2;
+      const sy = rect.top + rect.height / 2;
+
+      this.onTargetHit(t.id, {
+        screenX: sx,
+        screenY: sy,
+        clientX: ev.clientX ?? sx,
+        clientY: ev.clientY ?? sy
+      });
     };
 
-    el.addEventListener('pointerdown', onHit, { passive: false });
-    el.addEventListener('click', onHit, { passive: false });
+    el.addEventListener('pointerdown', handleHit);
+    el.addEventListener('touchstart', handleHit, { passive: false });
 
     this.host.appendChild(el);
     this.targets.set(t.id, { el, data: t });
   }
 
-  _placeTarget(el, t) {
-    const hostRect = this.host.getBoundingClientRect();
-    const w = hostRect.width || window.innerWidth || 800;
-    const h = hostRect.height || window.innerHeight || 600;
-
-    let xn = typeof t.x_norm === 'number' ? t.x_norm : Math.random();
-    let yn = typeof t.y_norm === 'number' ? t.y_norm : Math.random();
-
-    const marginX = 0.08;
-    const marginY = 0.12;
-    xn = marginX + xn * (1 - 2 * marginX);
-    yn = marginY + yn * (1 - 2 * marginY);
-
-    const left = xn * w;
-    const top  = yn * h;
-
-    el.style.left = left + 'px';
-    el.style.top  = top  + 'px';
-    el.style.transform = 'translate(-50%, -50%)';
-  }
-
-  removeTarget(id, reason = 'hit') {
+  removeTarget(id, reason = '') {
     const rec = this.targets.get(id);
     if (!rec) return;
-    const { el } = rec;
-    if (!el) return;
 
-    el.classList.add(reason === 'timeout' ? 'sb-target-timeout' : 'sb-target-hit');
-    setTimeout(() => {
+    const el = rec.el;
+
+    if (reason === 'hit') {
+      el.classList.add('sb-hit');
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 200);
+    } else {
       if (el.parentNode) el.parentNode.removeChild(el);
-    }, 220);
+    }
 
     this.targets.delete(id);
   }
 
-  playHitFx(id, info = {}) {
-    const rec = this.targets.get(id);
-    const el = rec?.el;
-    if (!el || !this.host) return;
+  // ---------- FX ----------
 
-    const hostRect = this.host.getBoundingClientRect();
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2 - hostRect.left;
-    const cy = rect.top + rect.height / 2 - hostRect.top;
+  /**
+   * แสดง FX ตรงเป้า:
+   * - popup คะแนน + grade
+   * - วงแหวน neon
+   * - particle แตกกระจาย
+   * - shake สนามเล็กน้อย
+   */
+  playHitFx(targetId, ev = {}) {
+    const field = this.container || this.host || document.body;
+    const fieldRect = field.getBoundingClientRect();
 
-    const grade = info.grade || 'good';
-    const scoreDelta = info.scoreDelta || 0;
-    const fxEmoji = info.fxEmoji || '✨';
+    const rec = this.targets.get(targetId);
 
-    // Score popup
-    if (scoreDelta !== 0 || grade === 'miss') {
-      const fx = document.createElement('div');
-      fx.className = 'sb-scorefx ' + grade;
-      fx.textContent = grade === 'miss' ? 'MISS' : (scoreDelta > 0 ? '+' + scoreDelta : scoreDelta);
-      fx.style.left = cx + 'px';
-      fx.style.top  = cy + 'px';
-      this.host.appendChild(fx);
-      setTimeout(() => fx.remove(), 480);
+    let cx;
+    let cy;
+    if (rec && rec.el) {
+      const r = rec.el.getBoundingClientRect();
+      cx = r.left + r.width / 2;
+      cy = r.top + r.height / 2;
+    } else if (ev.screenX != null && ev.screenY != null) {
+      cx = ev.screenX;
+      cy = ev.screenY;
+    } else {
+      cx = fieldRect.left + fieldRect.width / 2;
+      cy = fieldRect.top + fieldRect.height / 2;
     }
 
-    // Emoji spark
-    const spark = document.createElement('div');
-    spark.className = 'sb-hit-spark ' + grade;
-    spark.textContent = fxEmoji;
-    spark.style.left = cx + 'px';
-    spark.style.top  = cy + 'px';
-    this.host.appendChild(spark);
-    setTimeout(() => spark.remove(), 420);
+    const rx = cx - fieldRect.left;
+    const ry = cy - fieldRect.top;
 
-    // Particle burst (safe fallback)
-    try {
-      if (typeof spawnHitParticle === 'function') {
-        spawnHitParticle(this.host, {
-          screen: {
-            x: rect.left + rect.width / 2,
-            y: rect.top + rect.height / 2
-          }
-        });
-      }
-    } catch (e) {
-      // ignore
+    // popup คะแนน
+    const popup = document.createElement('div');
+    popup.className = 'sb-scorefx';
+
+    let label = '';
+    const delta = ev.scoreDelta != null ? ev.scoreDelta : '';
+    if (ev.grade === 'perfect') {
+      label = delta ? `+${delta} PERFECT` : 'PERFECT';
+      popup.classList.add('perfect');
+    } else if (ev.grade === 'good') {
+      label = delta ? `+${delta} GOOD` : 'GOOD';
+      popup.classList.add('good');
+    } else if (ev.grade === 'heal') {
+      label = '+HP';
+      popup.classList.add('good');
+    } else if (ev.grade === 'shield') {
+      label = 'SHIELD';
+      popup.classList.add('good');
+    } else if (ev.grade === 'bomb') {
+      label = 'BOMB!';
+      popup.classList.add('miss');
+    } else {
+      label = 'MISS';
+      popup.classList.add('miss');
     }
 
-    // small shake of host
-    this.host.classList.add('sb-hit-bump');
-    setTimeout(() => this.host.classList.remove('sb-hit-bump'), 140);
+    popup.textContent = label;
+    popup.style.left = rx + 'px';
+    popup.style.top  = ry + 'px';
+    field.appendChild(popup);
+    setTimeout(() => {
+      if (popup.parentNode) popup.parentNode.removeChild(popup);
+    }, 650);
+
+    // วงแหวน neon
+    const neon = document.createElement('div');
+    neon.className = 'sb-neon-hit';
+    neon.style.left = rx + 'px';
+    neon.style.top  = ry + 'px';
+    field.appendChild(neon);
+    setTimeout(() => {
+      if (neon.parentNode) neon.parentNode.removeChild(neon);
+    }, 260);
+
+    // particles แตกกระจาย
+    spawnHitParticle(field, {
+      x: rx,
+      y: ry,
+      emoji: ev.fxEmoji || (ev.grade === 'perfect' ? '💥' : '✨'),
+      count: ev.grade === 'perfect' ? 8 : 5,
+      spread: 48,
+      lifeMs: 480,
+      className: 'sb-hit-particle'
+    });
+
+    // shake สนาม
+    field.classList.add('sb-shake-field');
+    setTimeout(() => field.classList.remove('sb-shake-field'), 140);
   }
 }
