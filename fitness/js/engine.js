@@ -1,11 +1,11 @@
-// === fitness/js/engine.js — Shadow Breaker Engine (2025-11-25d) ===
+// === fitness/js/engine.js — Shadow Breaker Engine (2025-11-25 final) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 
-const BUILD_VERSION = 'sb-2025-11-25d';
+const BUILD_VERSION = 'sb-2025-11-25-final';
 
 // ---------- Utilities ----------
 const $  = (s) => document.querySelector(s);
@@ -438,8 +438,6 @@ class ShadowBreakerEngine {
     if (!t || this.ended) return;
 
     const now = performance.now();
-    this.targets.delete(id);
-    this.renderer?.removeTarget(id, 'hit');
 
     const age = now - t.spawnTime;
     const life = t.lifeMs;
@@ -509,12 +507,18 @@ class ShadowBreakerEngine {
       this._accRT(this.rtDecoy, age);
     }
 
-    // FEVER / FX
+    // FEVER / FX — ใช้ตำแหน่งเป้าก่อนลบ DOM
     this.renderer?.playHitFx(t.id, {
       grade: grade === 'decoy' ? 'miss' : grade,
       scoreDelta,
       fxEmoji
     });
+
+    // ลบจาก DOM + map ฝั่ง renderer
+    this.renderer?.removeTarget(id, 'hit');
+
+    // ลบจาก map ฝั่ง engine
+    this.targets.delete(id);
 
     // event log row
     const row = {
@@ -669,24 +673,25 @@ class ShadowBreakerEngine {
     const tSec = this.remainingMs / 1000;
     const timeTxt = tSec.toFixed(1);
 
-    const hudTime = $('#hud-time') || $('#stat-time');
+    const hudTime = $('#stat-time') || $('#hud-time');
     if (hudTime) {
       hudTime.textContent = timeTxt;
     }
 
-    const hudScore = $('#hud-score') || $('#stat-score');
+    const hudScore = $('#stat-score') || $('#hud-score');
     if (hudScore) hudScore.textContent = this.score;
 
-    const hudCombo = $('#hud-combo') || $('#stat-combo');
+    const hudCombo = $('#stat-combo') || $('#hud-combo');
     if (hudCombo) hudCombo.textContent = this.combo;
 
-    const hudPhase = $('#hud-phase') || $('#stat-phase');
+    const hudPhase = $('#stat-phase') || $('#hud-phase');
     if (hudPhase) hudPhase.textContent = this.phaseIndex + 1;
 
-    const feverBar = $('#fever-bar') || $('#fever-fill');
-    if (feverBar) {
-      const v = clamp(this.feverGauge, 0, 100);
-      feverBar.style.width = `${v}%`;
+    // FEVER bar (ใช้ scaleX ตาม CSS)
+    const feverFill = $('#fever-fill') || $('#fever-bar');
+    if (feverFill) {
+      const v = clamp(this.feverGauge, 0, 100) / 100;
+      feverFill.style.transform = `scaleX(${v})`;
     }
 
     const feverStatus = $('#fever-status');
@@ -695,16 +700,17 @@ class ShadowBreakerEngine {
       feverStatus.classList.toggle('on', this.feverOn);
     }
 
-    // HP bars
-    const hpBarPlayer = $('#player-fill') || document.querySelector('[data-sb-player-hp]');
-    if (hpBarPlayer) {
-      hpBarPlayer.style.width = `${clamp(this.playerHP, 0, 100)}%`;
+    // HP bars (ใช้ transform scaleX)
+    const hpPlayerFill = $('#player-fill') || $('[data-sb-player-hp]');
+    if (hpPlayerFill) {
+      const v = clamp(this.playerHP, 0, 100) / 100;
+      hpPlayerFill.style.transform = `scaleX(${v})`;
     }
 
-    const hpBarBoss = $('#boss-fill') || document.querySelector('[data-sb-boss-hp]');
-    if (hpBarBoss) {
-      const pct = this.boss.hp ? (this.bossHP / this.boss.hp) * 100 : 0;
-      hpBarBoss.style.width = `${clamp(pct, 0, 100)}%`;
+    const hpBossFill = $('#boss-fill') || $('[data-sb-boss-hp]');
+    if (hpBossFill) {
+      const pct = this.boss.hp ? this.bossHP / this.boss.hp : 0;
+      hpBossFill.style.transform = `scaleX(${clamp(pct, 0, 1)})`;
     }
   }
 
@@ -723,9 +729,9 @@ class ShadowBreakerEngine {
 
 export function initShadowBreaker() {
   const wrap = $('#sb-wrap') || document.body;
-  const viewMenu   = $('#view-menu');
-  const viewPlay   = $('#view-play');
-  const viewResult = $('#view-result');
+  const viewMenu     = $('#view-menu');
+  const viewPlay     = $('#view-play');
+  const viewResult   = '#view-result';          // ใช้ string + helper
   const viewResearch = $('#view-research-form');
 
   const targetLayer = $('#target-layer');
@@ -735,8 +741,13 @@ export function initShadowBreaker() {
   let lastEvents = null;
   let lastSessions = null;
 
+  function getViewResultEl() {
+    return typeof viewResult === 'string' ? $(viewResult) : viewResult;
+  }
+
   function showView(el) {
-    [viewMenu, viewPlay, viewResult, viewResearch].forEach(sec => {
+    const all = [viewMenu, viewPlay, getViewResultEl(), viewResearch];
+    all.forEach(sec => {
       if (!sec) return;
       sec.classList.add('hidden');
       sec.classList.remove('fade-in');
@@ -791,6 +802,7 @@ export function initShadowBreaker() {
       }
     });
 
+    // เก็บอ้างอิงกลับใน renderer เผื่อใช้ทีหลัง
     renderer.game = currentEngine;
 
     lastEvents = eventLogger;
@@ -801,8 +813,8 @@ export function initShadowBreaker() {
   }
 
   function handleEnd(state) {
-    // fill result view
-    if (viewResult) {
+    const resView = getViewResultEl();
+    if (resView) {
       const set = (sel, val) => {
         const el = typeof sel === 'string' ? $(sel) : sel;
         if (el) el.textContent = val;
@@ -827,7 +839,7 @@ export function initShadowBreaker() {
       set('#res-lowhp-time', `${state.low_hp_time_s ?? 0}s`);
       set('#res-menu-latency', `${state.menu_to_play_ms ?? 0} ms`);
     }
-    showView(viewResult);
+    showView(resView);
   }
 
   // ----- buttons wiring -----
