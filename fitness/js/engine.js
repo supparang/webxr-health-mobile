@@ -1,16 +1,15 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-28b fixed) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-28c) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
-import { recordSession } from './stats-store.js'; // ปรับ path ให้ตรงกับโฟลเดอร์จริง
+import { recordSession } from './stats-store.js';
 
-const BUILD_VERSION = 'sb-2025-11-28b';
+const BUILD_VERSION = 'sb-2025-11-28c';
 
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
-
 const clamp = (v, min, max) => (v < min ? min : (v > max ? max : v));
 
 // ---------- CONFIG ----------
@@ -89,6 +88,7 @@ const BOSSES = [
     introDesc: 'โหมดโหดสุด เน้นคอมโบต่อเนื่องและความอึด 💪',
     hint: 'เน้นไม่พลาด ถ้าคอมโบไม่หลุด คะแนนจะพุ่งแรงมาก'
   }
+];
 
 function hpRatioToPhase(ratio) {
   if (ratio <= 0.33) return 3;
@@ -113,7 +113,6 @@ class ShadowBreakerEngine {
 
     this.eventLogger   = new EventLogger();
     this.sessionLogger = new SessionLogger();
-
     this.hooks = opts.hooks || {};
 
     this.introEl       = $('#bossIntro');
@@ -158,7 +157,7 @@ class ShadowBreakerEngine {
     this.menuOpenedAt = performance.now();
   }
 
-  // helper log event → CSV
+  // log event → CSV
   _logEvent(extra = {}) {
     if (!this.eventLogger) return;
     this.eventLogger.add({
@@ -178,7 +177,7 @@ class ShadowBreakerEngine {
     });
   }
 
-  // ---------------- START ----------------
+  // ---------- START ----------
 
   start(mode, diffKey, timeSec, participantMeta = {}) {
     this.mode    = mode || 'normal';
@@ -324,7 +323,6 @@ class ShadowBreakerEngine {
     this.elapsedMs   += dt;
     this.remainingMs = Math.max(0, this.timeLimitMs - this.elapsedMs);
 
-    // FEVER เวลา
     if (this.feverOn) {
       this.feverTimeMs += dt;
       this.feverGauge = clamp(this.feverGauge - dt * 0.03, 0, 100);
@@ -339,7 +337,6 @@ class ShadowBreakerEngine {
       this.lowHpTimeMs += dt;
     }
 
-    // spawn เป้าใหม่
     if (!this.nextSpawnAt) {
       this.nextSpawnAt = ts + 400;
     }
@@ -347,23 +344,19 @@ class ShadowBreakerEngine {
       this._spawnTarget(ts);
     }
 
-    // หมดเวลา?
     if (this.remainingMs <= 0) {
       this._finish('time-up');
       return;
     }
 
-    // ตรวจ miss จาก timeout
     this._checkTimeouts(ts);
 
-    // ตาย?
     if (this.playerHp <= 0) {
       this._finish('player-down');
       return;
     }
 
     this._updateHUD();
-
     this.rafId = requestAnimationFrame(this._loopBound);
   }
 
@@ -375,14 +368,12 @@ class ShadowBreakerEngine {
     const phaseIdx = this.bossPhase - 1;
     const diff = this.diff;
 
-    // จำกัดจำนวนเป้าบนจอ
     const maxActive = diff.maxActive[phaseIdx] || diff.maxActive[1];
     if (this.targets.size >= maxActive) {
       this.nextSpawnAt = now + 120;
       return;
     }
 
-    // เลือก type
     let type = 'normal';
     const r = Math.random();
     if (!this.bossFaceAlive && (this.bossHp / this.bossHpMax) <= 0.28 && r > 0.65) {
@@ -408,7 +399,6 @@ class ShadowBreakerEngine {
     const lifeMs = diff.lifeMs[phaseIdx] || diff.lifeMs[1];
     const spawnMs = diff.spawnMs[phaseIdx] || diff.spawnMs[1];
 
-    // โซน L/C/R, U/M/D
     const zoneLR = ['L','C','R'][Math.floor(Math.random()*3)];
     const zoneUD = ['U','M','D'][Math.floor(Math.random()*3)];
 
@@ -418,19 +408,16 @@ class ShadowBreakerEngine {
       bossIndex: this.bossIndex,
       bossPhase: this.bossPhase,
       diffKey: this.diffKey,
-
       type,
       isDecoy:    type === 'decoy',
       isBomb:     type === 'bomb',
       isHeal:     type === 'heal',
       isShield:   type === 'shield',
       isBossFace: type === 'bossface',
-
       sizePx: Math.round(sizePx),
       lifeMs,
       spawnTime: now,
       expireTime: now + lifeMs,
-
       x_norm: null,
       y_norm: null,
       zone_lr: zoneLR,
@@ -444,7 +431,6 @@ class ShadowBreakerEngine {
 
     this.renderer.spawnTarget(target);
 
-    // log spawn event
     this._logEvent({
       event_type: 'spawn',
       target_id: id,
@@ -461,7 +447,6 @@ class ShadowBreakerEngine {
       boss_hp: this.bossHp
     });
 
-    // spawn ถัดไป
     let interval = spawnMs;
     if (this.feverOn) interval *= 0.7;
     if (this.diffKey === 'hard') interval *= 0.9;
@@ -483,7 +468,6 @@ class ShadowBreakerEngine {
   }
 
   _registerMiss(t) {
-    // เป้าปกติ: ลด HP, นับ miss
     if (!t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield) {
       this.missCount += 1;
       this.combo = 0;
@@ -495,7 +479,6 @@ class ShadowBreakerEngine {
       }
     }
 
-    // bossface หมดอายุ
     if (t.isBossFace) {
       this.bossFaceAlive = false;
     }
@@ -585,7 +568,7 @@ class ShadowBreakerEngine {
         this._damageBoss(2);
         fxEmoji = '⭐';
         this._gainFever(6);
-      } else { // bad
+      } else {
         scoreDelta = 45;
         this._damageBoss(1);
         fxEmoji = '💫';
@@ -604,7 +587,6 @@ class ShadowBreakerEngine {
 
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-    // HUD feedback
     if (this.hud.feedback) {
       let msg = '';
       let cls = 'sb-feedback';
@@ -634,7 +616,6 @@ class ShadowBreakerEngine {
       this.hud.feedback.className = cls;
     }
 
-    // FX ที่จุดตีจริง
     this.renderer.playHitFx(t.id, {
       grade,
       scoreDelta,
@@ -643,11 +624,9 @@ class ShadowBreakerEngine {
       clientY: hitInfo?.clientY
     });
 
-    // ลบเป้าออก
     this.targets.delete(id);
     this.renderer.removeTarget(id, 'hit');
 
-    // log hit event
     this._logEvent({
       event_type: 'hit',
       target_id: t.id,
@@ -670,7 +649,6 @@ class ShadowBreakerEngine {
       screen_y: hitInfo?.clientY ?? null
     });
 
-    // ตายเพราะบอมบ์?
     if (this.playerHp <= 0) {
       this._finish('bomb-ko');
       return;
@@ -715,7 +693,6 @@ class ShadowBreakerEngine {
       setTimeout(() => this.wrap.classList.remove('sb-wrap-shake'), 260);
     }
 
-    // portrait สั่นตอนใกล้ตาย
     if (ratio <= 0.33) {
       $('#boss-portrait')?.classList.add('sb-shake');
     } else {
@@ -730,7 +707,6 @@ class ShadowBreakerEngine {
   _onBossCleared() {
     this.bossesCleared += 1;
 
-    // reward ต่อบอส
     const rewardScore = 500;
     this.score += rewardScore;
     if (this.hud.feedback) {
@@ -739,7 +715,6 @@ class ShadowBreakerEngine {
       this.hud.feedback.className = 'sb-feedback perfect';
     }
 
-    // ถ้ามีบอสถัดไป
     if (this.bossIndex < BOSSES.length - 1) {
       this.bossIndex += 1;
       this.currentBoss = BOSSES[this.bossIndex];
@@ -748,7 +723,6 @@ class ShadowBreakerEngine {
       this.bossPhase = 1;
       this.bossFaceAlive = false;
 
-      // เคลียร์เป้าที่เหลือ
       for (const [id] of this.targets) {
         this.renderer.removeTarget(id, 'boss-change');
       }
@@ -756,10 +730,8 @@ class ShadowBreakerEngine {
 
       this._updateBossHUD();
       this._updateWrapTheme();
-
       this._showBossIntro(this.currentBoss, false);
     } else {
-      // เคลียร์บอสครบ
       this._finish('all-boss-cleared');
     }
   }
@@ -816,7 +788,6 @@ class ShadowBreakerEngine {
     this.ended = true;
     this.paused = true;
 
-    // ลบเป้าทั้งหมด
     for (const [id] of this.targets) {
       this.renderer.removeTarget(id, 'end');
     }
@@ -883,6 +854,21 @@ class ShadowBreakerEngine {
     if (this.hooks.onEnd) {
       this.hooks.onEnd(result);
     }
+
+    // บันทึก summary เบื้องต้นลง stats-store (สำหรับ Hub)
+    try {
+      recordSession('shadow-breaker', {
+        score: result.final_score,
+        grade: result.grade,
+        accuracy: result.accuracy_pct,
+        duration_s: result.duration_s,
+        bosses_cleared: result.bosses_cleared,
+        mode: result.mode,
+        difficulty: result.difficulty
+      });
+    } catch (e) {
+      console.warn('recordSession failed', e);
+    }
   }
 }
 
@@ -891,34 +877,31 @@ class ShadowBreakerEngine {
 export function initShadowBreaker() {
   const wrap   = $('#sb-wrap') || document.body;
   const field  = $('#target-layer') || wrap;
-  const viewMenu   = $('#view-menu');
-  const viewPlay   = $('#view-play');
-  const viewResult = $('#view-result');
+  const viewMenu    = $('#view-menu');
+  const viewPlay    = $('#view-play');
+  const viewResult  = $('#view-result');
   const viewResearch = $('#view-research-form');
+
+  let lastMode = 'normal';
+
+  function showView(which) {
+    [viewMenu, viewPlay, viewResult, viewResearch].forEach(el => {
+      if (!el) return;
+      el.classList.add('hidden');
+    });
+    if (which === 'menu'    && viewMenu)    viewMenu.classList.remove('hidden');
+    if (which === 'play'    && viewPlay)    viewPlay.classList.remove('hidden');
+    if (which === 'result'  && viewResult)  viewResult.classList.remove('hidden');
+    if (which === 'research'&& viewResearch)viewResearch.classList.remove('hidden');
+  }
 
   const engine = new ShadowBreakerEngine({
     wrap,
     field,
     hooks: {
       onEnd: (summary) => {
-        // 1) บันทึกสถิติลง localStorage สำหรับหน้า Hub
-        try {
-          recordSession('shadow-breaker', {
-            score: summary.final_score,
-            grade: summary.grade,
-            accuracy: summary.accuracy_pct,
-            duration_s: summary.duration_s,
-            bosses_cleared: summary.bosses_cleared,
-            mode: summary.mode,
-            difficulty: summary.difficulty
-          });
-        } catch (e) {
-          console.warn('recordSession failed', e);
-        }
-
-        // 2) อัปเดตหน้า RESULT
-        const setText = (id, val) => {
-          const el = $(id);
+        const setText = (sel, val) => {
+          const el = typeof sel === 'string' ? $(sel) : sel;
           if (el) el.textContent = val;
         };
 
@@ -931,8 +914,6 @@ export function initShadowBreaker() {
         setText('#res-miss', summary.total_miss ?? 0);
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
         setText('#res-totalhits', summary.total_hits ?? 0);
-        setText('#res-rt-normal', '-');
-        setText('#res-rt-decoy', '-');
 
         setText('#res-fever-time',
           typeof summary.fever_total_time_s === 'number'
@@ -954,27 +935,15 @@ export function initShadowBreaker() {
 
         setText('#res-participant', summary.participant || '-');
 
-        // เก็บ CSV ไว้ใน dataset
-        viewResult.dataset.eventsCsv  = summary.eventsCsv || '';
-        viewResult.dataset.sessionCsv = summary.sessionCsv || '';
+        if (viewResult) {
+          viewResult.dataset.eventsCsv  = summary.eventsCsv || '';
+          viewResult.dataset.sessionCsv = summary.sessionCsv || '';
+        }
 
         showView('result');
       }
     }
   });
-
-  let lastMode = 'normal';
-
-  function showView(which) {
-    [viewMenu, viewPlay, viewResult, viewResearch].forEach(el => {
-      if (!el) return;
-      el.classList.add('hidden');
-    });
-    if (which === 'menu' && viewMenu) viewMenu.classList.remove('hidden');
-    if (which === 'play' && viewPlay) viewPlay.classList.remove('hidden');
-    if (which === 'result' && viewResult) viewResult.classList.remove('hidden');
-    if (which === 'research' && viewResearch) viewResearch.classList.remove('hidden');
-  }
 
   const btnStartNormal   = $('[data-action="start-normal"]');
   const btnStartResearch = $('[data-action="start-research"]');
@@ -1048,7 +1017,6 @@ export function initShadowBreaker() {
     });
   });
 
-  // ดาวน์โหลด CSV
   function downloadCsv(name, text) {
     if (!text) {
       alert('ยังไม่มีข้อมูล CSV ลองเล่นเกมให้จบก่อนค่ะ');
@@ -1066,16 +1034,17 @@ export function initShadowBreaker() {
   }
 
   btnCsvEvents && btnCsvEvents.addEventListener('click', () => {
+    if (!viewResult) return;
     const csv = viewResult.dataset.eventsCsv || '';
     downloadCsv('shadow-breaker-events.csv', csv);
   });
 
   btnCsvSession && btnCsvSession.addEventListener('click', () => {
+    if (!viewResult) return;
     const csv = viewResult.dataset.sessionCsv || '';
     downloadCsv('shadow-breaker-sessions.csv', csv);
   });
 
-  // view เริ่มต้น
   showView('menu');
   engine.markMenuOpened();
   console.log('[ShadowBreaker] engine initialized');
