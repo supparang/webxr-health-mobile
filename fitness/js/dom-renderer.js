@@ -7,6 +7,7 @@ export class DomRenderer {
    * @param {HTMLElement} host - #target-layer
    * @param {Object} opts
    */
+import { spawnHitParticle } from './particle.js';
   constructor(game, host, opts = {}) {
     this.game = game;
     this.host = host || null;
