@@ -1,11 +1,19 @@
 // === js/shadow-breaker.js — Bootstrap + HUD + logging (safe) ===
 'use strict';
 
-import { GameEngine } from './engine.js';
+import { initShadowBreaker } from './engine.js';
 import { DomRenderer } from './dom-renderer.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 
+window.addEventListener('DOMContentLoaded', () => {
+  try {
+    initShadowBreaker();   // ผูกปุ่ม "เริ่มเล่นเลย" + spawn เป้า
+  } catch (e) {
+    console.error('ShadowBreaker init failed', e);
+    alert('ไม่สามารถเริ่มเกม Shadow Breaker ได้ กรุณารีเฟรชหน้า');
+  }
+});
 // ---------- Helper ----------
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
