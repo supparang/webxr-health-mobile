@@ -1,11 +1,11 @@
-// === fitness/js/engine.js — Shadow Breaker Engine (2025-11-25 FIX) ===
+// === fitness/js/engine.js — Shadow Breaker Engine (2025-11-25d) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 
-const BUILD_VERSION = 'sb-2025-11-25-fix1';
+const BUILD_VERSION = 'sb-2025-11-25d';
 
 // ---------- Utilities ----------
 const $  = (s) => document.querySelector(s);
@@ -66,7 +66,7 @@ const BOSSES = [
     id: 0,
     name: 'Bubble Glove',
     emoji: '🐣',
-    title: 'เป้าใหญ่ เด้งช้า วอร์มอัพก่อน',
+    title: 'โฟกัสที่เป้าฟองแล้วตีให้ทัน',
     hp: 100,
     spawnMultiplier: 1.0
   },
@@ -651,7 +651,6 @@ class ShadowBreakerEngine {
       this.phaseIndex++;
       this.boss = BOSSES[this.phaseIndex];
       this.bossHP = this.boss.hp;
-      // เพิ่มความเร็ว spawn เล็กน้อย
       this._updateBossHUD();
     } else {
       this._finish('all-boss-cleared');
@@ -672,11 +671,7 @@ class ShadowBreakerEngine {
 
     const hudTime = $('#hud-time') || $('#stat-time');
     if (hudTime) {
-      if (/TIME/i.test(hudTime.textContent || '')) {
-        hudTime.textContent = `TIME ${timeTxt}`;
-      } else {
-        hudTime.textContent = timeTxt;
-      }
+      hudTime.textContent = timeTxt;
     }
 
     const hudScore = $('#hud-score') || $('#stat-score');
@@ -691,7 +686,7 @@ class ShadowBreakerEngine {
     const feverBar = $('#fever-bar') || $('#fever-fill');
     if (feverBar) {
       const v = clamp(this.feverGauge, 0, 100);
-      feverBar.style.transform = `scaleX(${v / 100})`;
+      feverBar.style.width = `${v}%`;
     }
 
     const feverStatus = $('#fever-status');
@@ -700,22 +695,26 @@ class ShadowBreakerEngine {
       feverStatus.classList.toggle('on', this.feverOn);
     }
 
-    const hpPlayer = $('#hp-player') || $('#stat-hp-player');
-    if (hpPlayer) hpPlayer.textContent = `${this.playerHP}`;
+    // HP bars
+    const hpBarPlayer = $('#player-fill') || document.querySelector('[data-sb-player-hp]');
+    if (hpBarPlayer) {
+      hpBarPlayer.style.width = `${clamp(this.playerHP, 0, 100)}%`;
+    }
 
-    const hpBoss = $('#hp-boss') || $('#stat-hp-boss');
-    if (hpBoss) hpBoss.textContent = `${this.bossHP}/${this.boss.hp}`;
+    const hpBarBoss = $('#boss-fill') || document.querySelector('[data-sb-boss-hp]');
+    if (hpBarBoss) {
+      const pct = this.boss.hp ? (this.bossHP / this.boss.hp) * 100 : 0;
+      hpBarBoss.style.width = `${clamp(pct, 0, 100)}%`;
+    }
   }
 
   _updateBossHUD() {
-    const bossNameEl = $('#boss-name');
-    const bossDescEl = $('#boss-desc');
-    const bossPhaseEl = $('#boss-phase');
-    const bossEmojiEl = $('#boss-emoji');
+    const bossNameEl = $('#boss-portrait-name') || $('#boss-name');
+    const bossDescEl = $('#boss-portrait-hint') || $('#boss-desc');
+    const bossEmojiEl = $('#boss-portrait-emoji') || $('#boss-emoji');
 
     if (bossNameEl) bossNameEl.textContent = this.boss.name;
     if (bossDescEl) bossDescEl.textContent = this.boss.title;
-    if (bossPhaseEl) bossPhaseEl.textContent = `PHASE ${this.phaseIndex + 1}`;
     if (bossEmojiEl) bossEmojiEl.textContent = this.boss.emoji;
   }
 }
@@ -727,21 +726,25 @@ export function initShadowBreaker() {
   const viewMenu   = $('#view-menu');
   const viewPlay   = $('#view-play');
   const viewResult = $('#view-result');
+  const viewResearch = $('#view-research-form');
 
   const targetLayer = $('#target-layer');
-
-  // >>> FIX: ใช้ signature ของ DomRenderer(game, host, opts)
-  const renderer = new DomRenderer(null, targetLayer || wrap, {});
+  const renderer = new DomRenderer(targetLayer || wrap, {});
 
   let currentEngine = null;
   let lastEvents = null;
   let lastSessions = null;
 
   function showView(el) {
-    if (viewMenu)   viewMenu.classList.add('hidden');
-    if (viewPlay)   viewPlay.classList.add('hidden');
-    if (viewResult) viewResult.classList.add('hidden');
-    if (el) el.classList.remove('hidden');
+    [viewMenu, viewPlay, viewResult, viewResearch].forEach(sec => {
+      if (!sec) return;
+      sec.classList.add('hidden');
+      sec.classList.remove('fade-in');
+    });
+    if (el) {
+      el.classList.remove('hidden');
+      el.classList.add('fade-in');
+    }
   }
 
   function startGame(mode) {
@@ -788,7 +791,6 @@ export function initShadowBreaker() {
       }
     });
 
-    // ผูก game object ให้ DomRenderer เผื่อใช้ภายใน
     renderer.game = currentEngine;
 
     lastEvents = eventLogger;
@@ -801,8 +803,8 @@ export function initShadowBreaker() {
   function handleEnd(state) {
     // fill result view
     if (viewResult) {
-      const set = (id, val) => {
-        const el = $(id);
+      const set = (sel, val) => {
+        const el = typeof sel === 'string' ? $(sel) : sel;
         if (el) el.textContent = val;
       };
       set('#res-mode', state.mode === 'research' ? 'Research' : 'Normal');
@@ -819,20 +821,25 @@ export function initShadowBreaker() {
       set('#res-rt-normal', state.avg_rt_normal_ms || '-');
       set('#res-rt-decoy', state.avg_rt_decoy_ms || '-');
       set('#res-participant', state.participant || '-');
+
+      set('#res-fever-time', `${state.fever_total_time_s ?? 0}s`);
+      set('#res-bosses', state.bosses_cleared ?? 0);
+      set('#res-lowhp-time', `${state.low_hp_time_s ?? 0}s`);
+      set('#res-menu-latency', `${state.menu_to_play_ms ?? 0} ms`);
     }
     showView(viewResult);
   }
 
   // ----- buttons wiring -----
 
-  const btnStartNormal = $('[data-action="start-normal"]');
+  const btnStartNormal   = $('[data-action="start-normal"]');
   const btnStartResearch = $('[data-action="start-research"]');
   const btnResearchBegin = $('[data-action="research-begin-play"]');
-  const btnStopEarly = $('[data-action="stop-early"]');
-  const btnBackToMenu = $$('[data-action="back-to-menu"]');
-  const btnPlayAgain = $('[data-action="play-again"]');
-  const btnDLSession = $('[data-action="download-csv-session"]');
-  const btnDLEvents  = $('[data-action="download-csv-events"]');
+  const btnStopEarly     = $('[data-action="stop-early"]');
+  const btnBackToMenu    = $$('[data-action="back-to-menu"]');
+  const btnPlayAgain     = $('[data-action="play-again"]');
+  const btnDLSession     = $('[data-action="download-csv-session"]');
+  const btnDLEvents      = $('[data-action="download-csv-events"]');
 
   if (btnStartNormal) {
     btnStartNormal.addEventListener('click', () => {
@@ -840,9 +847,9 @@ export function initShadowBreaker() {
     });
   }
 
-  if (btnStartResearch && $('#view-research-form')) {
+  if (btnStartResearch && viewResearch) {
     btnStartResearch.addEventListener('click', () => {
-      showView($('#view-research-form'));
+      showView(viewResearch);
     });
   }
 
@@ -880,6 +887,7 @@ export function initShadowBreaker() {
       downloadCSV('shadow-breaker-session.csv', csv);
     });
   }
+
   if (btnDLEvents) {
     btnDLEvents.addEventListener('click', () => {
       const csv = lastEvents?.toCsv();
@@ -887,23 +895,8 @@ export function initShadowBreaker() {
     });
   }
 
-  // ---------- initial view + auto-start ----------
+  // ---------- initial view ----------
 
   window.__SB_MENU_OPEN_TS = performance.now();
-
-  const params = new URLSearchParams(location.search);
-  const autoFlag = params.get('auto') || params.get('autostart') || params.get('quick');
-  const autoMode = params.get('mode') === 'research' ? 'research' : 'normal';
-
-  if (!viewMenu && viewPlay) {
-    // ไม่มีเมนู แปลว่าเพจนี้ไว้เล่นอย่างเดียว → auto start
-    showView(viewPlay);
-    startGame(autoMode);
-  } else {
-    if (viewMenu) showView(viewMenu);
-    // กรณีเรียกจาก hub ด้วย ?auto=1 จะเริ่มเกมให้อัตโนมัติ
-    if (autoFlag === '1' || autoFlag === 'true') {
-      setTimeout(() => startGame(autoMode), 300);
-    }
-  }
+  if (viewMenu) showView(viewMenu);
 }
