@@ -1,252 +1,122 @@
-// === js/dom-renderer.js — DOM target renderer + FX (Shadow Breaker 2025-11-28) ===
+// === js/dom-renderer.js — DOM target renderer + clamp inside playfield (2025-11-28d) ===
 'use strict';
 
 import { spawnHitParticle } from './particle.js';
 
+const clamp = (v, min, max) => (v < min ? min : (v > max ? max : v));
+
+function randRange(min, max) {
+  return min + Math.random() * (max - min);
+}
+
 export class DomRenderer {
   /**
-   * @param {HTMLElement} host  ชั้นที่ใช้วางเป้า (#target-layer)
-   * @param {Object} opts
-   *   - onTargetHit(id, info)
+   * host = element ที่ใช้เป็นกรอบ gameplay (เช่น #target-layer)
+   * opts.onTargetHit(id, hitInfo) จะถูกเรียกเมื่อผู้เล่นคลิกเป้า
    */
   constructor(host, opts = {}) {
-    this.host    = host;
-    this.container = host?.closest('[data-sb-field]') || host || document.body;
-    this.onTargetHit = opts.onTargetHit || (() => {});
-    this.targets = new Map();
+    this.host = host || document.body;
+    this.onTargetHit = typeof opts.onTargetHit === 'function'
+      ? opts.onTargetHit
+      : () => {};
 
-    if (!this.host) {
-      console.warn('[DomRenderer] host is null, renderer will be no-op');
+    this.targets = new Map(); // id → { target, el }
+
+    // ให้แน่ใจว่า host เป็น relative + ตัดของที่ล้น
+    const cs = getComputedStyle(this.host);
+    if (cs.position === 'static') {
+      this.host.style.position = 'relative';
     }
-
-    window.addEventListener('resize', () => {}, { passive: true });
+    if (cs.overflow === 'visible') {
+      this.host.style.overflow = 'hidden';
+    }
   }
 
-  // ตำแหน่งเป้า (ใช้ x_norm / y_norm หรือ zone_lr / zone_ud)
-  _place(el, t) {
-    let xn =
-      (typeof t.x_norm === 'number' ? t.x_norm : null) ??
-      (typeof t.xNorm === 'number' ? t.xNorm : null);
-    let yn =
-      (typeof t.y_norm === 'number' ? t.y_norm : null) ??
-      (typeof t.yNorm === 'number' ? t.yNorm : null);
-
-    const hasNorm =
-      typeof xn === 'number' && xn >= 0 && xn <= 1 &&
-      typeof yn === 'number' && yn >= 0 && yn <= 1;
-
-    if (!hasNorm) {
-      const lr = (t.zone_lr || t.zoneLR || 'C').toUpperCase();
-      const ud = (t.zone_ud || t.zoneUD || 'M').toUpperCase();
-
-      let col = 1;
-      if (lr === 'L') col = 0;
-      else if (lr === 'R') col = 2;
-
-      let row = 1;
-      if (ud === 'U') row = 0;
-      else if (ud === 'D') row = 2;
-
-      const cellW = 1 / 3;
-      const cellH = 1 / 3;
-
-      const jitterX = (Math.random() - 0.5) * 0.40 * cellW; // ±20%
-      const jitterY = (Math.random() - 0.5) * 0.40 * cellH;
-
-      xn = (col + 0.5) * cellW + jitterX;
-      yn = (row + 0.5) * cellH + jitterY;
-    }
-
-    // กันติดขอบ
-    xn = Math.min(0.92, Math.max(0.08, xn));
-    yn = Math.min(0.90, Math.max(0.10, yn));
-
-    el.style.left = (xn * 100) + '%';
-    el.style.top  = (yn * 100) + '%';
-  }
-
-  /**
-   * t: {
-   *   id, sizePx,
-   *   diffKey, bossPhase,
-   *   isDecoy,isBomb,isHeal,isShield,isBossFace,
-   *   x_norm,y_norm,zone_lr,zone_ud,emoji
-   * }
-   */
-  spawnTarget(t) {
-    if (!this.host || !t || t.id == null) return;
-
-    if (this.targets.has(t.id)) {
-      this.removeTarget(t.id, 'dup');
-    }
-
-    const el = document.createElement('div');
-    el.className = 'sb-target';
-    el.dataset.id = t.id;
-
-    // diff / phase class — ใช้ทำ ring สี
-    if (t.diffKey) {
-      el.classList.add(t.diffKey);        // easy / normal / hard
-      el.classList.add('diff-' + t.diffKey);
-    }
-    if (t.bossPhase != null) {
-      el.classList.add('phase-' + t.bossPhase);
-    }
-
-    if (t.isDecoy)    el.dataset.type = 'decoy';
-    if (t.isBomb)     el.dataset.type = 'bomb';
-    if (t.isHeal)     el.dataset.type = 'heal';
-    if (t.isShield)   el.dataset.type = 'shield';
-    if (t.isBossFace) el.dataset.bossFace = '1';
-
-    const inner = document.createElement('div');
-    inner.className = 'sb-target-inner';
-
-    let symbol = '🥊';
-    if (t.isBomb)        symbol = '💣';
-    else if (t.isHeal)   symbol = '💚';
-    else if (t.isShield) symbol = '🛡️';
-    else if (t.isDecoy)  symbol = '🎯';
-    else if (t.isBossFace) symbol = '👑';
-    if (t.emoji)         symbol = t.emoji;
-
-    inner.textContent = symbol;
-    el.appendChild(inner);
-
-    const sizePx = t.sizePx || t.size || 110;
-    el.style.width  = sizePx + 'px';
-    el.style.height = sizePx + 'px';
-
-    this._place(el, t);
-
-    const handleHit = (ev) => {
-      ev.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-
-      this.onTargetHit(t.id, {
-        targetId: t.id,
-        clientX: ev.clientX ?? cx,
-        clientY: ev.clientY ?? cy
-      });
+  _measureHost() {
+    const rect = this.host.getBoundingClientRect();
+    return {
+      width: rect.width || this.host.clientWidth || 1,
+      height: rect.height || this.host.clientHeight || 1
     };
-
-    el.addEventListener('pointerdown', handleHit);
-    el.addEventListener('touchstart', handleHit, { passive: false });
-
-    this.host.appendChild(el);
-    this.targets.set(t.id, { el, data: t });
-  }
-
-  removeTarget(id, reason = '') {
-    const rec = this.targets.get(id);
-    if (!rec) return;
-    const el = rec.el;
-
-    if (reason === 'hit') {
-      el.classList.add('sb-hit');
-      setTimeout(() => el.remove(), 220);
-    } else {
-      el.remove();
-    }
-
-    this.targets.delete(id);
   }
 
   /**
-   * FX ตอนตีเป้า:
-   * - popup คะแนน / grade
-   * - วงแหวน neon
-   * - particle แตกกระจาย
-   * - shake สนาม
+   * engine จะส่งอ็อบเจ็กต์ target เข้ามา (ดูใน engine.js)
+   * เราต้องวางเป้าใน host โดย:
+   *  - คำนึงถึง target.sizePx
+   *  - ใช้ zone_lr / zone_ud เพื่อสุ่มโซน
+   *  - หนีบไม่ให้หลุดขอบกรอบ gameplay
    */
-  playHitFx(targetId, ev = {}) {
-    const field = this.container || this.host || document.body;
-    const rectField = field.getBoundingClientRect();
-    const rec = this.targets.get(targetId);
+  spawnTarget(target) {
+    if (!this.host || !target) return;
 
-    let cx;
-    let cy;
+    const { width, height } = this._measureHost();
 
-    // 1) ใช้ตำแหน่ง pointer เป็นหลัก
-    if (ev && ev.clientX != null && ev.clientY != null) {
-      cx = ev.clientX;
-      cy = ev.clientY;
-    }
-    // 2) ถ้าไม่มี ใช้ center ของ target
-    else if (rec && rec.el) {
-      const r = rec.el.getBoundingClientRect();
-      cx = r.left + r.width / 2;
-      cy = r.top + r.height / 2;
-    }
-    // 3) fallback = กลาง field
-    else {
-      cx = rectField.left + rectField.width / 2;
-      cy = rectField.top  + rectField.height / 2;
-    }
+    const size = target.sizePx || 100;
+    const radiusX = size / 2;
+    const radiusY = size / 2;
+    const marginX = radiusX + 8; // กัน glow / stroke
+    const marginY = radiusY + 8;
 
-    const rx = cx - rectField.left;
-    const ry = cy - rectField.top;
+    // แบ่งจอเป็น 3x3 โซน ตาม zone_lr / zone_ud
+    const cols = 3;
+    const rows = 3;
 
-    // popup คะแนน
-    const popup = document.createElement('div');
-    popup.className = 'sb-scorefx';
+    const usableW = Math.max(width  - marginX * 2, 10);
+    const usableH = Math.max(height - marginY * 2, 10);
 
-    const delta = ev.scoreDelta != null ? ev.scoreDelta : '';
-    const grade = ev.grade || 'good';
-    let label = '';
+    const cellW = usableW / cols;
+    const cellH = usableH / rows;
 
-    if (grade === 'perfect') {
-      label = delta ? `+${delta} PERFECT` : 'PERFECT';
-      popup.classList.add('perfect');
-    } else if (grade === 'good') {
-      label = delta ? `+${delta} GOOD` : 'GOOD';
-      popup.classList.add('good');
-    } else if (grade === 'heal') {
-      label = '+HP';
-      popup.classList.add('good');
-    } else if (grade === 'shield') {
-      label = 'SHIELD';
-      popup.classList.add('good');
-    } else if (grade === 'bomb') {
-      label = 'BOMB!';
-      popup.classList.add('miss');
-    } else if (grade === 'miss') {
-      label = 'MISS';
-      popup.classList.add('miss');
-    } else {
-      label = delta ? `+${delta}` : '+0';
-      popup.classList.add('good');
-    }
+    let colIndex = 1; // center
+    let rowIndex = 1; // middle
 
-    popup.textContent = label;
-    popup.style.left = rx + 'px';
-    popup.style.top  = ry + 'px';
-    field.appendChild(popup);
-    setTimeout(() => popup.remove(), 650);
+    if (target.zone_lr === 'L') colIndex = 0;
+    else if (target.zone_lr === 'R') colIndex = 2;
 
-    // วงแหวน neon
-    const neon = document.createElement('div');
-    neon.className = 'sb-neon-hit';
-    neon.style.left = rx + 'px';
-    neon.style.top  = ry + 'px';
-    field.appendChild(neon);
-    setTimeout(() => neon.remove(), 260);
+    if (target.zone_ud === 'U') rowIndex = 0;
+    else if (target.zone_ud === 'D') rowIndex = 2;
 
-    // particle แตกกระจาย
-    spawnHitParticle(field, {
-      x: rx,
-      y: ry,
-      emoji: ev.fxEmoji || (grade === 'perfect' ? '💥' : '✨'),
-      count: grade === 'perfect' ? 8 : 5,
-      spread: 48,
-      lifeMs: 480,
-      className: 'sb-hit-particle'
-    });
+    const xMin = marginX + colIndex * cellW;
+    const xMax = xMin + cellW;
+    const yMin = marginY + rowIndex * cellH;
+    const yMax = yMin + cellH;
 
-    // shake สนาม
-    field.classList.add('sb-shake-field');
-    setTimeout(() => field.classList.remove('sb-shake-field'), 140);
-  }
-}
+    let x = randRange(xMin, xMax);
+    let y = randRange(yMin, yMax);
+
+    // หนีบอีกชั้นกันหลุดเผื่อ rounding
+    x = clamp(x, marginX, width  - marginX);
+    y = clamp(y, marginY, height - marginY);
+
+    // เก็บ normalized pos ไว้ใช้ใน CSV
+    target.x_norm = clamp(x / width,  0, 1);
+    target.y_norm = clamp(y / height, 0, 1);
+
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'sb-target sb-target--' + (target.type || 'normal');
+    el.dataset.id = String(target.id);
+    el.dataset.type = target.type || 'normal';
+
+    el.style.width  = size + 'px';
+    el.style.height = size + 'px';
+    el.style.left   = x + 'px';
+    el.style.top    = y + 'px';
+
+    // ข้อความ/emoji ในเป้า (แล้วแต่ type)
+    let label = '●';
+    if (target.isBomb)      label = '💣';
+    else if (target.isHeal) label = '💚';
+    else if (target.isShield) label = '🛡️';
+    else if (target.isBossFace) label = '👑';
+    el.textContent = label;
+
+    const handleClick = (ev) => {
+      ev.preventDefault();
+      const info = {
+        clientX: ev.clientX,
+        clientY: ev.clientY
+      };
+      this.onTargetHit(target.id, info);
+    };
