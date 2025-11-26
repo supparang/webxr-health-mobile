@@ -790,11 +790,13 @@ class ShadowBreakerEngine {
     const durationS = this.elapsedMs / 1000;
     const acc = this.totalTargets ? (this.totalHits / this.totalTargets) * 100 : 0;
 
-    const grade =
-      acc >= 90 && this.score >= 3500 ? 'S' :
-      acc >= 80 ? 'A' :
-      acc >= 70 ? 'B' :
-      acc >= 60 ? 'C' : 'D';
+const grade =
+  acc >= 95 && this.score >= 12000 ? 'SSS' :
+  acc >= 90 && this.score >= 10000 ? 'SS'  :
+  acc >= 85 && this.score >= 8000  ? 'S'   :
+  acc >= 75                        ? 'A'   :
+  acc >= 60                        ? 'B'   : 'C';
+
 
     const sessionRow = {
       session_id: this.sessionId,
