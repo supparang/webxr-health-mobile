@@ -3,36 +3,23 @@
 
 const clamp = (v, min, max) => (v < min ? min : (v > max ? max : v));
 
-/**
- * ใช้กับ ShadowBreakerEngine:
- *   this.renderer = new DomRenderer(this.field, {
- *     onTargetHit: (id, info) => this.handleHit(id, info)
- *   });
- *
- * engine จะเรียก:
- *   - renderer.spawnTarget(target)
- *   - renderer.removeTarget(id, reason)
- *   - renderer.playHitFx(id, opts)
- */
 export class DomRenderer {
   constructor(host, opts = {}) {
     this.host = host || document.body;
     this.opts = opts;
     this.targets = new Map(); // id → { el, cx, cy, size }
 
-    // ให้เป็น relative ถ้ายังเป็น static เพื่อรองรับ absolute child
-    if (getComputedStyle(this.host).position === 'static') {
+    const style = getComputedStyle(this.host);
+    if (style.position === 'static') {
       this.host.style.position = 'relative';
+    }
+    if (style.overflow === 'visible') {
+      this.host.style.overflow = 'hidden';
     }
   }
 
   // ---------- SPAWN TARGET ----------
 
-  /**
-   * target มาจาก engine._spawnTarget:
-   *   { id, type, sizePx, zone_lr, zone_ud, ... }
-   * จะเติม x_norm / y_norm (0..1) ลงไปให้ด้วย
-   */
   spawnTarget(target) {
     if (!this.host || !target) return;
 
@@ -40,20 +27,18 @@ export class DomRenderer {
     const w = fieldRect.width  || this.host.clientWidth  || 320;
     const h = fieldRect.height || this.host.clientHeight || 320;
 
-    const size  = target.sizePx || 96;
+    const size   = target.sizePx || 96;
     const radius = size / 2;
-    const margin = radius + 10; // กัน glow หลุดขอบ
+    const margin = radius + 10;
 
     if (w < margin * 2 || h < margin * 2) {
       console.warn('[DomRenderer] playfield too small for targets');
       return;
     }
 
-    // --- ใช้โซน L/C/R, U/M/D จาก engine เพื่อกระจายทั้งสนาม ---
     const zoneLR = target.zone_lr || 'C';
     const zoneUD = target.zone_ud || 'M';
 
-    // fraction 0..1 ของความกว้าง/สูง
     let xMinF = 0.33, xMaxF = 0.67;
     let yMinF = 0.33, yMaxF = 0.67;
 
@@ -65,19 +50,16 @@ export class DomRenderer {
     else if (zoneUD === 'M'){ yMinF = 0.30; yMaxF = 0.72; }
     else if (zoneUD === 'D'){ yMinF = 0.60; yMaxF = 0.95; }
 
-    // แปลง fraction → พิกัด pixel แบบ center
     const zoneXMin = w * xMinF;
     const zoneXMax = w * xMaxF;
     const zoneYMin = h * yMinF;
     const zoneYMax = h * yMaxF;
 
-    // กันไม่ให้ติดขอบ (ใช้ margin)
-    const safeXMin = clamp(zoneXMin,  margin, w - margin);
-    const safeXMax = clamp(zoneXMax,  margin, w - margin);
-    const safeYMin = clamp(zoneYMin,  margin, h - margin);
-    const safeYMax = clamp(zoneYMax,  margin, h - margin);
+    const safeXMin = clamp(zoneXMin, margin, w - margin);
+    const safeXMax = clamp(zoneXMax, margin, w - margin);
+    const safeYMin = clamp(zoneYMin, margin, h - margin);
+    const safeYMax = clamp(zoneYMax, margin, h - margin);
 
-    // --- พยายามไม่ให้ชนกับเป้าอื่นใกล้เกินไป ---
     let cx = 0;
     let cy = 0;
 
@@ -86,7 +68,7 @@ export class DomRenderer {
         const dx = x - ox;
         const dy = y - oy;
         const dist2 = dx * dx + dy * dy;
-        const minDist = (size + os) * 0.55; // ทับกันได้บ้างเล็กน้อย
+        const minDist = (size + os) * 0.55;
         if (dist2 < minDist * minDist) return true;
       }
       return false;
@@ -103,25 +85,24 @@ export class DomRenderer {
       }
     }
 
-    // เก็บค่าปกติ 0..1 สำหรับ CSV
     const xNorm = w > 0 ? cx / w : 0.5;
     const yNorm = h > 0 ? cy / h : 0.5;
     target.x_norm = +xNorm.toFixed(4);
     target.y_norm = +yNorm.toFixed(4);
 
-    // ---------- สร้าง DOM เป้า ----------
-    const type = target.type || 'normal';
+    const type    = target.type || 'normal';
+    const diffKey = target.diffKey || 'normal';
 
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'sb-target sb-target--' + type;
+    el.classList.add('sb-target--diff-' + diffKey);
     el.dataset.id = String(target.id);
     el.dataset.type = type;
 
     el.style.position = 'absolute';
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
-    // center ด้วย translate(-50%,-50%) จาก CSS
     el.style.left   = cx + 'px';
     el.style.top    = cy + 'px';
 
@@ -148,15 +129,11 @@ export class DomRenderer {
     if (type === 'heal')     return '💚';
     if (type === 'shield')   return '🛡️';
     if (type === 'bossface') return '😈';
-    // เป้าปกติ
     return '🎯';
   }
 
   // ---------- REMOVE TARGET ----------
 
-  /**
-   * reason: 'hit' | 'timeout' | 'boss-change' | 'end' ...
-   */
   removeTarget(id, reason = '') {
     const rec = this.targets.get(id);
     if (!rec) return;
@@ -180,13 +157,6 @@ export class DomRenderer {
 
   // ---------- HIT FX ----------
 
-  /**
-   * opts:
-   *   - grade: 'perfect' | 'good' | 'bad' | 'bomb' | ...
-   *   - scoreDelta: number
-   *   - fxEmoji: emoji override
-   *   - clientX / clientY: พิกัดคลิกบนจอ
-   */
   playHitFx(id, opts = {}) {
     const rec = this.targets.get(id);
     const host = this.host || document.body;
@@ -212,9 +182,17 @@ export class DomRenderer {
     const xLocal = x - hostRect.left;
     const yLocal = y - hostRect.top;
 
-    // --- popup คะแนน / emoji ---
     const pop = document.createElement('div');
     pop.className = 'sb-pop';
+
+    let label = '';
+    if (grade === 'perfect') label = 'PERFECT';
+    else if (grade === 'good') label = 'GOOD';
+    else if (grade === 'bad') label = 'LATE';
+    else if (grade === 'bomb') label = 'BOMB!';
+    else if (grade === 'heal') label = 'HEAL';
+    else if (grade === 'shield') label = 'SHIELD';
+    else label = 'MISS';
 
     const emoDefault =
       fxEmoji ||
@@ -227,7 +205,11 @@ export class DomRenderer {
     if (typeof scoreDelta === 'number' && scoreDelta > 0) {
       pop.textContent = `+${scoreDelta}`;
     } else {
-      pop.textContent = emoDefault;
+      pop.textContent = label || emoDefault;
+    }
+
+    if (grade) {
+      pop.classList.add('sb-pop--' + grade);
     }
 
     pop.style.left = xLocal + 'px';
@@ -236,7 +218,6 @@ export class DomRenderer {
     host.appendChild(pop);
     setTimeout(() => pop.remove(), 650);
 
-    // --- เศษเป้าแตกกระจาย (shards) ---
     const shardCount = 7;
     for (let i = 0; i < shardCount; i++) {
       const shard = document.createElement('div');
