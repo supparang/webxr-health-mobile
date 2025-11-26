@@ -1,4 +1,4 @@
-// === js/dom-renderer.js — Shadow Breaker DOM target renderer (2025-11-29b) ===
+// === js/dom-renderer.js — Shadow Breaker DOM target renderer (2025-11-30a) ===
 'use strict';
 
 export class DomRenderer {
@@ -64,6 +64,11 @@ export class DomRenderer {
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
     inner.textContent = this._emojiFor(t);
+
+    // ทำให้ emoji ใหญ่ตามขนาดเป้า (แก้ “ตัวเล็กมาก”)
+    const fontSize = Math.max(26, size * 0.42);
+    inner.style.fontSize = fontSize + 'px';
+
     el.appendChild(inner);
 
     const handleHit = (ev) => {
@@ -111,7 +116,7 @@ export class DomRenderer {
     this.targets.delete(id);
   }
 
-  // เอฟเฟ็กต์คะแนน + ชิ้นเป้าแตก ที่ "จุดกลางของเป้า"
+  // เอฟเฟ็กต์คะแนน + ชิ้นเป้าแตกที่ "จุดกลางของเป้า"
   playHitFx(id, info = {}) {
     if (!this.field) return;
     const hostRect = this._ensureFieldRect();
@@ -136,6 +141,7 @@ export class DomRenderer {
     const score     = info.scoreDelta ?? 0;
     const fxEmoji   = info.fxEmoji || '⭐';
 
+    // ===== POPUP คะแนนตรงเป้า =====
     const pop = document.createElement('div');
     pop.className = 'sb-pop';
 
@@ -164,7 +170,7 @@ export class DomRenderer {
     this.field.appendChild(pop);
     setTimeout(() => pop.remove(), 650);
 
-    // ชิ้นเป้าแตกกระจาย
+    // ===== ชิ้นเป้าแตกกระจายรอบจุดกลาง =====
     for (let i = 0; i < 10; i++) {
       const shard = document.createElement('div');
       shard.className = 'sb-hit-shard';
@@ -178,6 +184,17 @@ export class DomRenderer {
       setTimeout(() => shard.remove(), 500);
     }
 
+    // ===== particle emoji เพิ่มเติม (ใช้ฟังก์ชันด้านล่าง) =====
+    spawnHitParticle(this.field, {
+      x,
+      y,
+      emoji: fxEmoji,
+      count: 6,
+      spread: 46,
+      lifeMs: 520,
+      className: 'sb-hit-particle'
+    });
+
     // เสียงตีเป้า (ใช้ SFX เดิม)
     if (window.SFX?.play) {
       const vol = grade === 'perfect' ? 1.0 : grade === 'good' ? 0.8 : 0.6;
@@ -189,3 +206,58 @@ export class DomRenderer {
     }
   }
 }
+
+/* === js/particle.js — DOM hit particle FX (ฝังรวมในไฟล์นี้) === */
+
+export function spawnHitParticle(host, options = {}) {
+  if (!host) return;
+
+  const {
+    x,
+    y,
+    pos,
+    emoji = '✨',
+    count = 5,
+    spread = 36,
+    lifeMs = 480,
+    className = ''
+  } = options;
+
+  const rect = host.getBoundingClientRect();
+  const baseX = (x != null ? x : (pos && pos.x != null ? pos.x : rect.width / 2));
+  const baseY = (y != null ? y : (pos && pos.y != null ? pos.y : rect.height / 2));
+
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'hitParticle';
+    if (className) el.classList.add(className);
+
+    // random offset รอบจุดกลาง
+    const dx = (Math.random() - 0.5) * spread;
+    const dy = (Math.random() - 0.5) * spread;
+
+    el.style.left = (baseX + dx) + 'px';
+    el.style.top  = (baseY + dy) + 'px';
+    el.textContent = emoji;
+
+    host.appendChild(el);
+
+    // cleanup ตามอายุอนิเมชัน
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, lifeMs);
+  }
+}
+
+export const Particles = {
+  burstHit(host, pos, opts = {}) {
+    spawnHitParticle(host, {
+      pos,
+      emoji: opts.emoji || '✨',
+      count: opts.count || 5,
+      spread: opts.spread || 40,
+      lifeMs: opts.lifeMs || 480,
+      className: opts.className || ''
+    });
+  }
+};
