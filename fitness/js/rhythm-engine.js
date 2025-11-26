@@ -1,4 +1,4 @@
-// === js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV, 2025-12-01) ===
+// === js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV, 2025-12-01, fixed) ===
 'use strict';
 
 (function(){
@@ -33,7 +33,7 @@
       i++;
     }
 
-    // ตัวอย่าง event พิเศษ (เพิ่ม HP / Shield)
+    // ตัวอย่าง event พิเศษ (เพิ่ม HP / Shield) — ตอนนี้ยังเป็นโน้ตปกติ
     out.push({ time: t + beat * 0.5, lane: 0, type: 'note' });
     out.push({ time: t + beat * 1.5, lane: 4, type: 'note' });
 
@@ -63,7 +63,7 @@
     }
   ];
 
-  // ให้ rhythm-boxer.js ใช้ meta นี้แสดงชื่อเพลง
+  // meta ให้ rhythm-boxer.js ใช้เติมชื่อเพลง / HUD
   window.RB_TRACKS_META = TRACKS.map(t => ({
     id: t.id,
     name: t.name,
@@ -98,8 +98,9 @@
   }
   function makeSessionId(){
     const t = new Date();
-    return `RB-${t.getFullYear()}${String(t.getMonth()+1).padStart(2,'0')}${String(t.getDate()).padStart(2,'0')}` +
-           `-${String(t.getHours()).padStart(2,'0')}${String(t.getMinutes()).padStart(2,'0')}${String(t.getSeconds()).padStart(2,'0')}`;
+    const pad = (n)=>String(n).padStart(2,'0');
+    return `RB-${t.getFullYear()}${pad(t.getMonth()+1)}${pad(t.getDate())}` +
+           `-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`;
   }
   function detectDeviceType(){
     const ua = (navigator && navigator.userAgent || '').toLowerCase();
@@ -123,7 +124,6 @@
     toCsv(){
       const rows = this.rows;
       if (!rows.length) return '';
-      // รวม key ทั้งหมดที่เคยใช้
       const keysSet = new Set();
       for (const r of rows){
         Object.keys(r).forEach(k => keysSet.add(k));
@@ -169,14 +169,15 @@
       this.eventTable   = new CsvTable();
       this.sessionTable = new CsvTable();
 
-      this._rafId = null;
+      this._rafId       = null;
+      this._chartIndex  = 0;   // ข้อ 1: init ค่าเริ่มต้นกันลืม
 
       this._bindLanePointer();
     }
 
     _bindLanePointer(){
       if (!this.lanesEl) return;
-      // backup สำหรับกรณี rhythm-boxer.js ไม่ bind ให้
+      // สำรอง: เผื่อ rhythm-boxer.js ไม่ได้ bind เอง
       this.lanesEl.addEventListener('pointerdown', (ev) => {
         const laneEl = ev.target.closest('.rb-lane');
         if (!laneEl) return;
@@ -197,10 +198,10 @@
       this.meta  = meta || {};
       this.track = TRACKS.find(t => t.id === trackId) || TRACKS[0];
 
-      this.sessionId = makeSessionId();
+      this.sessionId  = makeSessionId();
       this.deviceType = detectDeviceType();
 
-      // state gameplay
+      // gameplay state
       this.songTime   = 0;
       this.startPerf  = performance.now();
       this.running    = true;
@@ -220,7 +221,7 @@
       this.hitGood    = 0;
       this.hitMiss    = 0;
 
-      this.offsets    = [];   // signed
+      this.offsets    = [];   // signed offsets
       this.offsetsAbs = [];
       this.earlyHits  = 0;
       this.lateHits   = 0;
@@ -229,20 +230,21 @@
       this.rightHits  = 0;
 
       // FEVER
-      this.feverGauge         = 0;   // 0..100
-      this.feverActive        = false;
-      this.feverEntryCount    = 0;
-      this.feverTotalTimeSec  = 0;
+      this.feverGauge          = 0;
+      this.feverActive         = false;
+      this.feverEntryCount     = 0;
+      this.feverTotalTimeSec   = 0;
       this.timeToFirstFeverSec = null;
+      this.feverEndTime        = 0;
 
       this.lastUpdatePerf = performance.now();
 
       // notes
-      this.notes = [];  // {id,lane,time,type,state,el}
-      this.nextNoteId = 1;
+      this.notes       = [];  // {id,lane,time,type,state,el}
+      this.nextNoteId  = 1;
+      this._chartIndex = 0;   // ข้อ 1 (ต่อ): reset ทุกครั้งที่เริ่มเพลงใหม่
 
-      // reset CSV เฉพาะ event; session สะสมทุก run
-      // ถ้าอยากให้ session สะสมทุกคน → ไม่ต้อง clear
+      // reset Event CSV (Session CSV ให้สะสมข้าม run ได้)
       this.eventTable.clear();
 
       this._setupAudio();
@@ -258,17 +260,17 @@
     handleLaneTap(lane){
       if (!this.running) return;
 
-      const nowPerf = performance.now();
+      const nowPerf  = performance.now();
       const songTime = (nowPerf - this.startPerf) / 1000;
-      this.songTime = songTime;
+      this.songTime  = songTime;
 
-      // หโน้ตที่ยังไม่ถูกตัดสินใน lane เดียวกัน และใกล้ที่สุด
+      // หาโน้ตใน lane นี้ ที่ยัง pending และใกล้ที่สุด
       let best = null;
       let bestAbs = Infinity;
       for (const n of this.notes){
         if (n.state !== 'pending') continue;
         if (n.lane !== lane) continue;
-        const dt = songTime - n.time;
+        const dt  = songTime - n.time;
         const adt = Math.abs(dt);
         if (adt < bestAbs){
           bestAbs = adt;
@@ -277,7 +279,6 @@
       }
 
       if (!best){
-        // ไม่มีโน้ตใกล้ ๆ → miss เปล่า ๆ (อาจไม่ต้อง log)
         this._applyEmptyTapMiss(songTime, lane);
         return;
       }
@@ -308,13 +309,13 @@
       this.audio.currentTime = 0;
       this.audio.src = this.track.audio || '';
       this.audio.onended = () => {
-        // ให้ loop ดักจบเองตาม durationSec อยู่แล้ว
+        // ให้ loop จัดการจบเองตาม durationSec
       };
 
       const p = this.audio.play();
       if (p && typeof p.catch === 'function'){
         p.catch(() => {
-          // autoplay fail → ไม่เป็นไร ใช้ visual เป็นหลัก
+          // autoplay fail → เล่นแบบ mute ก็ได้
         });
       }
     }
@@ -348,12 +349,15 @@
       this._updateNotePositions(songTime);
       this._autoJudgeMiss(songTime);
 
-      // FEVER time
+      // ข้อ 2: FEVER + HP ใต้ 50%
       if (this.feverActive){
         this.feverTotalTimeSec += dt;
+        if (songTime >= this.feverEndTime){
+          this.feverActive = false;
+          this.feverGauge  = 0;
+        }
       }
 
-      // HP < 50 เวลาเท่าไหร่
       if (this.hp < 50){
         this.hpUnder50Time += dt;
       }
@@ -362,6 +366,9 @@
     _spawnNotes(songTime){
       const chart = this.track.chart || [];
       const pre   = PRE_SPAWN_SEC;
+
+      // กัน edge case ถ้าหายไป
+      if (this._chartIndex == null) this._chartIndex = 0;
 
       while (this._chartIndex < chart.length &&
              chart[this._chartIndex].time <= songTime + pre){
@@ -411,7 +418,7 @@
         if (!n.el || n.state === 'hit' || n.state === 'miss') continue;
 
         const dt = n.time - songTime;
-        const progress = 1 - (dt / pre);  // 0 → ยังอยู่ด้านบน, 1 → ถึงเส้นตี
+        const progress = 1 - (dt / pre);  // 0 → บน, 1 → ถึงเส้น
         const pClamp = clamp(progress, 0, 1.2);
 
         const y = (pClamp - 1) * travel;
@@ -429,7 +436,8 @@
           this._applyMiss(n, songTime, null, /*byTap=*/false);
         }
       }
-      // ล้าง DOM note ที่จบแล้ว
+
+      // เก็บแต่โน้ตที่ยัง pending (ตัวที่ hit/miss จะถูกลบ)
       this.notes = this.notes.filter(n => n.state === 'pending');
     }
 
@@ -455,7 +463,7 @@
       else if (judgment === 'great') this.hitGreat++;
       else if (judgment === 'good') this.hitGood++;
 
-      // คะแนน
+      // ข้อ 2: คะแนน + combo + FEVER นุ่มนวลขึ้น
       let baseScore = (judgment === 'perfect')
         ? 300 : (judgment === 'great')
         ? 200 : 100;
@@ -468,20 +476,18 @@
       this.combo++;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-      // HP / Shield (ตัวอย่าง: hit ดี ๆ เติม HP เล็กน้อย)
       if (judgment === 'perfect'){
         this.hp = clamp(this.hp + 1, 0, 100);
       }
       this.hpMin = Math.min(this.hpMin, this.hp);
 
-      // FEVER gauge
       const feverGain =
         judgment === 'perfect' ? 7 :
         judgment === 'great'   ? 5 :
         3;
       this._addFeverGauge(feverGain, songTime);
 
-      // FX
+      // FX — ให้ dom-renderer ทำ effect แตกกระจาย + คะแนนเด้งตรงเป้า
       if (this.renderer && typeof this.renderer.showHitFx === 'function'){
         this.renderer.showHitFx({
           lane: note.lane,
@@ -492,7 +498,7 @@
         });
       }
 
-      // Event CSV
+      // Event CSV (ข้อ 3: เก็บ meta วิจัยครบ)
       this._logEventRow({
         event_type: 'hit',
         song_time_s: songTime.toFixed(3),
@@ -522,15 +528,12 @@
       this.hitMiss++;
       this.combo = 0;
 
-      // HP ลง
       const dmg = 5;
       this.hp = clamp(this.hp - dmg, 0, 100);
       this.hpMin = Math.min(this.hpMin, this.hp);
 
-      // FEVER ลดเล็กน้อย
       this._addFeverGauge(-8, songTime);
 
-      // FX
       if (this.renderer && typeof this.renderer.showMissFx === 'function'){
         this.renderer.showMissFx({
           lane: note.lane,
@@ -538,7 +541,6 @@
         });
       }
 
-      // Event CSV
       const dt = dtOrNull;
       this._logEventRow({
         event_type: 'miss',
@@ -561,7 +563,6 @@
     }
 
     _applyEmptyTapMiss(songTime, lane){
-      // แตะผิดจังหวะ ไม่มีโน้ต → นับ miss เบา ๆ ก็ได้
       this.combo = 0;
       const dmg = 2;
       this.hp = clamp(this.hp - dmg, 0, 100);
@@ -600,11 +601,6 @@
         }
 
         this.feverEndTime = songTime + 5.0; // 5 วินาที
-      }
-
-      if (this.feverActive && songTime >= this.feverEndTime){
-        this.feverActive = false;
-        this.feverGauge  = 0;
       }
     }
 
@@ -696,14 +692,14 @@
       const mAbs    = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
 
       const earlyPct = totalHits ? (this.earlyHits / totalHits * 100) : 0;
-      const latePct  = totalHits ? (this.lateHits / totalHits * 100)  : 0;
+      const latePct  = totalHits ? (this.lateHits  / totalHits * 100) : 0;
 
       const leftHitPct  = totalHits ? (this.leftHits  / totalHits * 100) : 0;
       const rightHitPct = totalHits ? (this.rightHits / totalHits * 100) : 0;
 
       const feverTimePct = dur > 0 ? (this.feverTotalTimeSec / dur * 100) : 0;
 
-      // Rank แบบง่าย ๆ
+      // Rank
       const rank =
         acc >= 95 ? 'SSS' :
         acc >= 90 ? 'SS'  :
@@ -756,7 +752,7 @@
 
       this.sessionTable.add(sessionRow);
 
-      // prepare summary ส่งให้ rhythm-boxer.js ไปแสดงในหน้าสรุป
+      // summary ส่งไปให้ rhythm-boxer.js
       const summary = {
         modeLabel: this.mode === 'research' ? 'Research' : 'Normal',
         trackName: this.track.name,
@@ -783,7 +779,6 @@
 
   } // end class
 
-  // ให้ rhythm-boxer.js เรียก new window.RhythmBoxerEngine(...)
   window.RhythmBoxerEngine = RhythmBoxerEngine;
 
 })();
