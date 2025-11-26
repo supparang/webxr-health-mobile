@@ -16,16 +16,22 @@
 
   <!-- ===== VIEW: MENU ===== -->
   <section id="rb-view-menu" class="rb-view">
-    <header class="rb-header">
-      <div>
-        <h1 class="rb-title">Rhythm Boxer</h1>
-        <p class="rb-subtitle">เกมชกตามจังหวะ 5 เลน + เก็บข้อมูลวิจัย</p>
+    <!-- header แบบเดียวกับ Hub / Shadow Breaker -->
+    <header class="rb-header rb-header-main">
+      <div class="rb-brand">
+        <div class="rb-logo-pill">RB</div>
+        <div class="rb-brand-text">
+          <div class="rb-brand-title">VR Fitness — Rhythm Boxer</div>
+          <div class="rb-brand-subtitle">
+            เกมชกตามจังหวะ 5 เลน สำหรับฝึกกำลังแขน การประสานมือ–ตา และความแม่นยำ
+          </div>
+        </div>
       </div>
-      <a href="hub.html" class="rb-back-link">← กลับ VR Fitness Hub</a>
+      <a href="hub.html" class="rb-back-link rb-back-main">← กลับสู่ VR Fitness Hub</a>
     </header>
 
-    <div class="rb-card">
-      <h2>โหมดการเล่น</h2>
+    <div class="rb-card rb-card-menu">
+      <h2 class="rb-section-title">เลือกโหมดการเล่น</h2>
 
       <div class="rb-mode-row">
         <label class="rb-radio">
@@ -50,7 +56,7 @@
 
       <!-- ฟอร์มโหมดวิจัย -->
       <div id="rb-research-fields" class="rb-research hidden">
-        <h3>ข้อมูลผู้เข้าร่วม (วิจัย)</h3>
+        <h3 class="rb-subsection-title">ข้อมูลผู้เข้าร่วม (โหมดวิจัย)</h3>
         <div class="rb-field-row">
           <label for="rb-participant">รหัสผู้เข้าร่วม</label>
           <input id="rb-participant" type="text" placeholder="เช่น P001">
@@ -66,7 +72,9 @@
       </div>
 
       <div class="rb-menu-actions">
-        <button id="rb-btn-start" class="rb-btn rb-btn-primary">เริ่มเกม</button>
+        <button id="rb-btn-start" class="rb-btn rb-btn-primary">
+          🎧 เริ่มเล่น Rhythm Boxer
+        </button>
       </div>
 
       <p class="rb-hint">
@@ -77,7 +85,6 @@
 
   <!-- ===== VIEW: PLAY ===== -->
   <section id="rb-view-play" class="rb-view hidden">
-    <!-- HUD ด้านบน -->
     <header class="rb-header rb-header-play">
       <div class="rb-hud-left">
         <div class="rb-hud-line">
@@ -136,7 +143,6 @@
       </div>
     </div>
 
-    <!-- สถิติ hit -->
     <div class="rb-hitstats-row">
       <span>Perfect: <strong id="rb-hud-perfect">0</strong></span>
       <span>Great: <strong id="rb-hud-great">0</strong></span>
@@ -146,7 +152,6 @@
 
     <!-- GAME FIELD -->
     <main id="rb-field">
-      <!-- 8-beat timing guide -->
       <div class="rb-timing-guide">
         <div class="rb-timing-row">
           <span class="rb-beat">1</span>
@@ -161,26 +166,14 @@
         <div class="rb-hit-line"></div>
       </div>
 
-      <!-- lanes -->
       <div id="rb-lanes" class="rb-lanes">
-        <div class="rb-lane" data-lane="0">
-          <div class="rb-lane-label">L2</div>
-        </div>
-        <div class="rb-lane" data-lane="1">
-          <div class="rb-lane-label">L1</div>
-        </div>
-        <div class="rb-lane" data-lane="2">
-          <div class="rb-lane-label">C</div>
-        </div>
-        <div class="rb-lane" data-lane="3">
-          <div class="rb-lane-label">R1</div>
-        </div>
-        <div class="rb-lane" data-lane="4">
-          <div class="rb-lane-label">R2</div>
-        </div>
+        <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
+        <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
+        <div class="rb-lane" data-lane="2"><div class="rb-lane-label">C</div></div>
+        <div class="rb-lane" data-lane="3"><div class="rb-lane-label">R1</div></div>
+        <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
       </div>
 
-      <!-- feedback bubble -->
       <div id="rb-feedback" class="rb-feedback">
         แตะ lane ให้ตรงเส้นแนวนอนด้านล่างตามจังหวะเพลง 🎵
       </div>
