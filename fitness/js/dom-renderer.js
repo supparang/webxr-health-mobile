@@ -1,246 +1,191 @@
-// === js/dom-renderer.js — Shadow Breaker DOM Target Renderer + FX (2025-11-29b) ===
+// === js/dom-renderer.js — Shadow Breaker DOM target renderer (2025-11-29b) ===
 'use strict';
 
-const clamp = (v, min, max) => (v < min ? min : (v > max ? max : v));
-
 export class DomRenderer {
-  constructor(host, opts = {}) {
-    this.host = host || document.body;
+  constructor(field, opts = {}) {
+    this.field = field || document.body;
     this.opts = opts;
-    this.targets = new Map(); // id → { el, cx, cy, size }
-
-    if (getComputedStyle(this.host).position === 'static') {
-      this.host.style.position = 'relative';
-    }
+    this.targets = new Map();
+    this.diffKey = 'normal';
   }
 
-  // ---------- SPAWN ----------
+  setDifficulty(diffKey) {
+    this.diffKey = diffKey || 'normal';
+  }
 
-  spawnTarget(target) {
-    if (!this.host || !target) return;
-
-    const fieldRect = this.host.getBoundingClientRect();
-    const w = fieldRect.width  || this.host.clientWidth  || 320;
-    const h = fieldRect.height || this.host.clientHeight || 320;
-
-    const size   = target.sizePx || 96;
-    const radius = size / 2;
-    const margin = radius + 10;
-
-    if (w < margin * 2 || h < margin * 2) {
-      console.warn('[DomRenderer] playfield too small for targets');
-      return;
+  _ensureFieldRect() {
+    const rect = this.field.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return {
+        width: this.field.clientWidth || 1,
+        height: this.field.clientHeight || 1,
+        left: 0,
+        top: 0
+      };
     }
+    return rect;
+  }
 
-    // zone L/C/R × U/M/D → fraction
-    const zoneLR = target.zone_lr || 'C';
-    const zoneUD = target.zone_ud || 'M';
+  // สุ่มตำแหน่งเป้าในสนาม + ไม่หลุดขอบ
+  spawnTarget(t) {
+    if (!this.field || !t) return;
 
-    let xMinF = 0.33, xMaxF = 0.67;
-    let yMinF = 0.33, yMaxF = 0.67;
+    const rect = this._ensureFieldRect();
+    const size = t.sizePx || 120;
+    const margin = size * 0.5 + 8;
 
-    if (zoneLR === 'L')      { xMinF = 0.05; xMaxF = 0.35; }
-    else if (zoneLR === 'C'){ xMinF = 0.33; xMaxF = 0.67; }
-    else if (zoneLR === 'R'){ xMinF = 0.65; xMaxF = 0.95; }
+    const w = rect.width;
+    const h = rect.height;
 
-    if (zoneUD === 'U')      { yMinF = 0.05; yMaxF = 0.38; }
-    else if (zoneUD === 'M'){ yMinF = 0.30; yMaxF = 0.72; }
-    else if (zoneUD === 'D'){ yMinF = 0.60; yMaxF = 0.95; }
+    const minX = margin;
+    const maxX = Math.max(margin, w - margin);
+    const minY = margin;
+    const maxY = Math.max(margin, h - margin);
 
-    const zoneXMin = w * xMinF;
-    const zoneXMax = w * xMaxF;
-    const zoneYMin = h * yMinF;
-    const zoneYMax = h * xMaxF ? h * yMaxF : h * yMaxF; // safe
+    const x = minX + Math.random() * (maxX - minX);
+    const y = minY + Math.random() * (maxY - minY);
 
-    const safeXMin = clamp(zoneXMin, margin, w - margin);
-    const safeXMax = clamp(zoneXMax, margin, w - margin);
-    const safeYMin = clamp(zoneYMin, margin, h - margin);
-    const safeYMax = clamp(zoneYMax, margin, h - margin);
-
-    let cx = 0;
-    let cy = 0;
-
-    const isTooClose = (x, y) => {
-      for (const { cx: ox, cy: oy, size: os } of this.targets.values()) {
-        const dx = x - ox;
-        const dy = y - oy;
-        const dist2 = dx * dx + dy * dy;
-        const minDist = (size + os) * 0.55;
-        if (dist2 < minDist * minDist) return true;
-      }
-      return false;
-    };
-
-    const maxTry = 8;
-    for (let i = 0; i < maxTry; i++) {
-      const x = safeXMin + Math.random() * Math.max(40, (safeXMax - safeXMin));
-      const y = safeYMin + Math.random() * Math.max(40, (safeYMax - safeYMin));
-      if (!isTooClose(x, y) || i === maxTry - 1) {
-        cx = clamp(x, margin, w - margin);
-        cy = clamp(y, margin, h - margin);
-        break;
-      }
-    }
-
-    const xNorm = w > 0 ? cx / w : 0.5;
-    const yNorm = h > 0 ? cy / h : 0.5;
-    target.x_norm = +xNorm.toFixed(4);
-    target.y_norm = +yNorm.toFixed(4);
-
-    const type    = target.type || 'normal';
-    const diffKey = target.diffKey || 'normal';
+    // เก็บค่าปกติ 0..1 ไว้ให้ engine log ลง CSV
+    t.x_norm = +(x / w).toFixed(4);
+    t.y_norm = +(y / h).toFixed(4);
 
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'sb-target sb-target--' + type;
-    el.classList.add('sb-target--diff-' + diffKey);
-    el.dataset.id = String(target.id);
-    el.dataset.type = type;
-
+    el.className =
+      'sb-target ' +
+      `sb-target--${t.type || 'normal'} ` +
+      `sb-target--diff-${this.diffKey || 'normal'}`;
     el.style.position = 'absolute';
-    el.style.width  = size + 'px';
+    el.style.width = size + 'px';
     el.style.height = size + 'px';
-    el.style.left   = cx + 'px';
-    el.style.top    = cy + 'px';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
 
     const inner = document.createElement('div');
-    inner.className = 'sb-target-inner sb-target-inner--' + type;
-    inner.textContent = this._iconForType(type, target);
-
+    inner.className = 'sb-target-inner';
+    inner.textContent = this._emojiFor(t);
     el.appendChild(inner);
 
-    const handler = (ev) => {
-      ev.preventDefault();
-      this._emitHit(target.id, ev);
+    const handleHit = (ev) => {
+      ev.stopPropagation();
+      if (this.opts.onTargetHit) {
+        this.opts.onTargetHit(t.id, {
+          clientX: ev.clientX,
+          clientY: ev.clientY
+        });
+      }
     };
-    el.addEventListener('pointerdown', handler);
-    el.addEventListener('click', handler);
 
-    this.host.appendChild(el);
-    this.targets.set(target.id, { el, cx, cy, size });
+    // รองรับทั้ง click / touch / mouse / VR pointer
+    el.addEventListener('pointerdown', handleHit);
+    el.addEventListener('click', handleHit);
+
+    this.field.appendChild(el);
+    this.targets.set(t.id, el);
   }
 
-  _iconForType(type, target) {
-    if (type === 'bomb')     return '💣';
-    if (type === 'decoy')    return '👻';
-    if (type === 'heal')     return '💚';
-    if (type === 'shield')   return '🛡️';
-    if (type === 'bossface') return '😈';
+  _emojiFor(t) {
+    if (t.isBomb)     return '💣';
+    if (t.isHeal)     return '💚';
+    if (t.isShield)   return '🛡️';
+    if (t.isBossFace) return '👑';
+    if (t.isDecoy)    return '🎯';
     return '🎯';
   }
 
-  // ---------- REMOVE ----------
+  removeTarget(id, reason = 'end') {
+    const el = this.targets.get(id);
+    if (!el) return;
 
-  removeTarget(id, reason = '') {
-    const rec = this.targets.get(id);
-    if (!rec) return;
-    const el = rec.el;
-
-    if (reason === 'timeout') {
-      el.classList.add('sb-target--fade-timeout');
-      setTimeout(() => el.remove(), 180);
-    } else if (reason === 'boss-change' || reason === 'end') {
-      el.classList.add('sb-target--fade-soft');
-      setTimeout(() => el.remove(), 140);
-    } else if (reason === 'hit') {
+    if (reason === 'hit') {
       el.classList.add('sb-target--hit');
-      setTimeout(() => el.remove(), 140);
+      setTimeout(() => el.remove(), 160);
+    } else if (reason === 'timeout') {
+      el.classList.add('sb-target--fade-timeout');
+      setTimeout(() => el.remove(), 200);
     } else {
-      el.remove();
+      el.classList.add('sb-target--fade-soft');
+      setTimeout(() => el.remove(), 160);
     }
 
     this.targets.delete(id);
   }
 
-  // ---------- FX ----------
+  // เอฟเฟ็กต์คะแนน + ชิ้นเป้าแตก ที่ "จุดกลางของเป้า"
+  playHitFx(id, info = {}) {
+    if (!this.field) return;
+    const hostRect = this._ensureFieldRect();
 
-  playHitFx(id, opts = {}) {
-    const rec  = this.targets.get(id);
-    const host = this.host || document.body;
-    if (!host) return;
+    let screenX = info.clientX ?? null;
+    let screenY = info.clientY ?? null;
 
-    const { grade, scoreDelta, fxEmoji, clientX, clientY } = opts;
-
-    const hostRect = host.getBoundingClientRect();
-    let x = clientX;
-    let y = clientY;
-
-    if (rec && rec.el) {
-      const r = rec.el.getBoundingClientRect();
-      x = r.left + r.width / 2;
-      y = r.top  + r.height / 2;
-    } else {
-      if (x == null || y == null) {
-        x = hostRect.left + hostRect.width  / 2;
-        y = hostRect.top  + hostRect.height / 2;
-      }
+    // fallback: เอาจุดกลางของ DOM เป้า
+    const targetEl = this.targets.get(id);
+    if ((screenX == null || screenY == null) && targetEl) {
+      const r = targetEl.getBoundingClientRect();
+      screenX = r.left + r.width / 2;
+      screenY = r.top + r.height / 2;
     }
 
-    const xLocal = x - hostRect.left;
-    const yLocal = y - hostRect.top;
+    if (screenX == null || screenY == null) return;
 
-    // Popup PERFECT / GOOD / MISS
+    const x = screenX - hostRect.left;
+    const y = screenY - hostRect.top;
+
+    const grade     = info.grade || 'good';
+    const score     = info.scoreDelta ?? 0;
+    const fxEmoji   = info.fxEmoji || '⭐';
+
     const pop = document.createElement('div');
     pop.className = 'sb-pop';
 
-    const emoDefault =
-      fxEmoji ||
-      (grade === 'perfect' ? '💥' :
-       grade === 'good'    ? '⭐' :
-       grade === 'heal'    ? '💚' :
-       grade === 'shield'  ? '🛡️' :
-       grade === 'bomb'    ? '💣' : '💫');
+    if (grade === 'perfect')      pop.classList.add('sb-pop--perfect');
+    else if (grade === 'good')    pop.classList.add('sb-pop--good');
+    else if (grade === 'bad')     pop.classList.add('sb-pop--bad');
+    else if (grade === 'miss')    pop.classList.add('sb-pop--miss');
+    else if (grade === 'bomb')    pop.classList.add('sb-pop--bomb');
+    else if (grade === 'heal')    pop.classList.add('sb-pop--heal');
+    else if (grade === 'shield')  pop.classList.add('sb-pop--shield');
 
     let label = '';
-    if (grade === 'perfect') label = 'PERFECT';
-    else if (grade === 'good') label = 'GOOD';
-    else if (grade === 'bad') label = 'LATE';
-    else if (grade === 'bomb') label = 'BOMB!';
-    else if (grade === 'heal') label = 'HEAL';
-    else if (grade === 'shield') label = 'SHIELD';
-    else label = 'MISS';
+    if (grade === 'perfect')      label = `PERFECT +${score}`;
+    else if (grade === 'good')    label = `GOOD +${score}`;
+    else if (grade === 'bad')     label = `LATE +${score}`;
+    else if (grade === 'bomb')    label = 'BOMB!';
+    else if (grade === 'heal')    label = `HEAL +${score}`;
+    else if (grade === 'shield')  label = `SHIELD +${score}`;
+    else if (grade === 'miss')    label = 'MISS';
+    else                          label = `+${score}`;
 
-    if (typeof scoreDelta === 'number' && scoreDelta > 0) {
-      pop.textContent = `+${scoreDelta}`;
-    } else {
-      pop.textContent = label || emoDefault;
-    }
+    pop.textContent = `${fxEmoji} ${label}`;
+    pop.style.left = x + 'px';
+    pop.style.top  = y + 'px';
 
-    if (grade) pop.classList.add('sb-pop--' + grade);
-
-    pop.style.left = xLocal + 'px';
-    pop.style.top  = yLocal + 'px';
-
-    host.appendChild(pop);
+    this.field.appendChild(pop);
     setTimeout(() => pop.remove(), 650);
 
-    // shards แตกกระจาย
-    const shardCount = 7;
-    for (let i = 0; i < shardCount; i++) {
+    // ชิ้นเป้าแตกกระจาย
+    for (let i = 0; i < 10; i++) {
       const shard = document.createElement('div');
       shard.className = 'sb-hit-shard';
-      const ang = Math.random() * Math.PI * 2;
-      const dist = 40 + Math.random() * 40;
-      const dx = Math.cos(ang) * dist;
-      const dy = Math.sin(ang) * dist;
-
-      shard.style.left = xLocal + 'px';
-      shard.style.top  = yLocal + 'px';
-      shard.style.setProperty('--dx', dx.toFixed(1) + 'px');
-      shard.style.setProperty('--dy', dy.toFixed(1) + 'px');
-
-      host.appendChild(shard);
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 32 + Math.random() * 28;
+      shard.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+      shard.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+      shard.style.left = x + 'px';
+      shard.style.top  = y + 'px';
+      this.field.appendChild(shard);
       setTimeout(() => shard.remove(), 500);
     }
-  }
 
-  // ---------- INTERNAL ----------
-
-  _emitHit(id, ev) {
-    if (!this.opts || typeof this.opts.onTargetHit !== 'function') return;
-    this.opts.onTargetHit(id, {
-      clientX: ev.clientX,
-      clientY: ev.clientY
-    });
+    // เสียงตีเป้า (ใช้ SFX เดิม)
+    if (window.SFX?.play) {
+      const vol = grade === 'perfect' ? 1.0 : grade === 'good' ? 0.8 : 0.6;
+      window.SFX.play('hit', {
+        group: 'hit',
+        intensity: vol,
+        baseVolume: 0.9
+      });
+    }
   }
 }
