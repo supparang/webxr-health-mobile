@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-29) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-29b) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -6,7 +6,7 @@ import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 import { recordSession } from './stats-store.js';
 
-const BUILD_VERSION = 'sb-2025-11-29';
+const BUILD_VERSION = 'sb-2025-11-29b';
 
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -21,7 +21,7 @@ const DIFF_CONFIG = {
     spawnMs:    [950, 850, 750],
     lifeMs:     [2300, 2100, 1900],
     maxActive:  [3, 4, 5],
-    baseSizePx: 120,
+    baseSizePx: 120
   },
   normal: {
     label: 'Normal',
@@ -29,7 +29,7 @@ const DIFF_CONFIG = {
     spawnMs:    [880, 780, 680],
     lifeMs:     [2100, 1900, 1700],
     maxActive:  [4, 5, 6],
-    baseSizePx: 105,
+    baseSizePx: 105
   },
   hard: {
     label: 'Hard',
@@ -37,21 +37,17 @@ const DIFF_CONFIG = {
     spawnMs:    [820, 720, 620],
     lifeMs:     [1950, 1750, 1550],
     maxActive:  [5, 6, 7],
-    baseSizePx: 92,
+    baseSizePx: 92
   }
 };
 
-// เปลี่ยนขนาดเป้าตาม Phase ให้เห็นชัด
+// เปลี่ยนขนาดเป้าตาม Phase ให้เห็นชัดขึ้น
 // Phase 1: เป้าใหญ่สุด, Phase 2: กลาง, Phase 3: เล็กสุด
 const PHASE_SIZE_FACTOR = {
   1: 1.25,
   2: 1.0,
   3: 0.78
 };
-
-// ความเร็วในการลดเกจ FEVER (ค่าน้อย = ลดช้า)
-const FEVER_DRAIN_NORMAL = 0.003;
-const FEVER_DRAIN_FEVER  = 0.01;
 
 const BOSSES = [
   {
@@ -102,6 +98,10 @@ function hpRatioToPhase(ratio) {
   return 1;
 }
 
+// FEVER drain ช้าลง ให้เปิด FEVER ได้จริง
+const FEVER_DRAIN_NORMAL = 0.003; // ปกติ
+const FEVER_DRAIN_FEVER  = 0.01;  // ตอนอยู่ใน FEVER
+
 // ---------- ENGINE CLASS ----------
 
 class ShadowBreakerEngine {
@@ -119,7 +119,7 @@ class ShadowBreakerEngine {
 
     this.eventLogger   = new EventLogger();
     this.sessionLogger = new SessionLogger();
-    this.hooks = opts.hooks || {};
+    this.hooks         = opts.hooks || {};
 
     this.introEl       = $('#bossIntro');
     this.introEmojiEl  = $('#boss-intro-emoji');
@@ -145,9 +145,7 @@ class ShadowBreakerEngine {
     this._loopBound = (ts) => this._loop(ts);
     this._introTapHandler = (ev) => {
       ev.preventDefault();
-      if (this.waitingIntro) {
-        this._hideIntroAndResume();
-      }
+      if (this.waitingIntro) this._hideIntroAndResume();
     };
 
     if (this.introEl) {
@@ -163,7 +161,6 @@ class ShadowBreakerEngine {
     this.menuOpenedAt = performance.now();
   }
 
-  // log event → CSV
   _logEvent(extra = {}) {
     if (!this.eventLogger) return;
     this.eventLogger.add({
@@ -224,20 +221,20 @@ class ShadowBreakerEngine {
     this.feverTimeMs    = 0;
     this.lowHpTimeMs    = 0;
 
-    this.targets   = new Map();
-    this.spawnSeq  = 0;
+    this.targets = new Map();
+    this.spawnSeq = 0;
 
     this.elapsedMs   = 0;
     this.remainingMs = this.timeLimitMs;
 
-    this.startedAt   = null;
-    this.lastTs      = null;
+    this.startedAt = null;
+    this.lastTs    = null;
     this.nextSpawnAt = null;
-    this.paused      = true;
-    this.ended       = false;
+    this.paused    = true;
+    this.ended     = false;
     this.loopRunning = false;
 
-    this.waitingIntro  = true;
+    this.waitingIntro = true;
     this.bossFaceAlive = false;
 
     this.eventLogger.clear();
@@ -298,7 +295,7 @@ class ShadowBreakerEngine {
 
     this.introEl.classList.remove('hidden');
 
-    if (window.SFX && typeof window.SFX.play === 'function') {
+    if (window.SFX?.play) {
       window.SFX.play('boss', { group: 'boss', baseVolume: 0.9, intensity: 1.0, minGap: 500 });
     }
   }
@@ -319,9 +316,7 @@ class ShadowBreakerEngine {
       return;
     }
 
-    if (!this.lastTs) {
-      this.lastTs = ts;
-    }
+    if (!this.lastTs) this.lastTs = ts;
 
     const dt = ts - this.lastTs;
     this.lastTs = ts;
@@ -329,13 +324,11 @@ class ShadowBreakerEngine {
     this.elapsedMs   += dt;
     this.remainingMs = Math.max(0, this.timeLimitMs - this.elapsedMs);
 
-    // FEVER gauge – ลดช้าลงให้เติมเต็มง่ายขึ้น
+    // FEVER gauge – ลดช้าลงให้เติมทัน
     if (this.feverOn) {
       this.feverTimeMs += dt;
       this.feverGauge = clamp(this.feverGauge - dt * FEVER_DRAIN_FEVER, 0, 100);
-      if (this.feverGauge <= 0) {
-        this.feverOn = false;
-      }
+      if (this.feverGauge <= 0) this.feverOn = false;
     } else {
       this.feverGauge = clamp(this.feverGauge - dt * FEVER_DRAIN_NORMAL, 0, 100);
     }
@@ -344,9 +337,7 @@ class ShadowBreakerEngine {
       this.lowHpTimeMs += dt;
     }
 
-    if (!this.nextSpawnAt) {
-      this.nextSpawnAt = ts + 400;
-    }
+    if (!this.nextSpawnAt) this.nextSpawnAt = ts + 400;
     if (ts >= this.nextSpawnAt) {
       this._spawnTarget(ts);
     }
@@ -406,8 +397,8 @@ class ShadowBreakerEngine {
     const lifeMs  = diff.lifeMs[phaseIdx]  || diff.lifeMs[1];
     const spawnMs = diff.spawnMs[phaseIdx] || diff.spawnMs[1];
 
-    const zoneLR = ['L','C','R'][Math.floor(Math.random()*3)];
-    const zoneUD = ['U','M','D'][Math.floor(Math.random()*3)];
+    const zoneLR = ['L','C','R'][Math.floor(Math.random() * 3)];
+    const zoneUD = ['U','M','D'][Math.floor(Math.random() * 3)];
 
     const target = {
       id,
@@ -449,6 +440,8 @@ class ShadowBreakerEngine {
       phase_spawn_index: target.phaseSpawnIndex,
       zone_lr: zoneLR,
       zone_ud: zoneUD,
+      x_norm: target.x_norm,
+      y_norm: target.y_norm,
       fever_on: this.feverOn ? 1 : 0,
       player_hp: this.playerHp,
       boss_hp: this.bossHp
@@ -486,9 +479,7 @@ class ShadowBreakerEngine {
       }
     }
 
-    if (t.isBossFace) {
-      this.bossFaceAlive = false;
-    }
+    if (t.isBossFace) this.bossFaceAlive = false;
 
     this._logEvent({
       event_type: 'timeout',
@@ -500,7 +491,9 @@ class ShadowBreakerEngine {
       grade: 'miss',
       age_ms: t.lifeMs,
       player_hp_after: this.playerHp,
-      boss_hp_after: this.bossHp
+      boss_hp_after: this.bossHp,
+      x_norm: t.x_norm,
+      y_norm: t.y_norm
     });
 
     this._updateHUD();
@@ -518,12 +511,11 @@ class ShadowBreakerEngine {
 
     let grade = 'good';
     let scoreDelta = 0;
+    let fxEmoji = '✨';
 
     const comboBefore = this.combo;
     const hpBefore    = this.playerHp;
     const feverBefore = this.feverGauge;
-
-    let fxEmoji = '✨';
 
     if (t.isBomb) {
       grade = 'bomb';
@@ -760,6 +752,7 @@ class ShadowBreakerEngine {
     }
     this.hud.score && (this.hud.score.textContent = this.score);
     this.hud.combo && (this.hud.combo.textContent = this.combo);
+    // phase แสดงลำดับบอส (1–4)
     this.hud.phase && (this.hud.phase.textContent = this.bossIndex + 1);
 
     const pRatio = clamp(this.playerHp / this.playerHpMax, 0, 1);
@@ -824,7 +817,6 @@ class ShadowBreakerEngine {
       duration_s: +durationS.toFixed(3),
       end_reason: reason,
       final_score: this.score,
-      grade,
       total_targets: this.totalTargets,
       total_hits: this.totalHits,
       total_miss: this.missCount,
@@ -859,9 +851,7 @@ class ShadowBreakerEngine {
       sessionCsv: this.sessionLogger.toCsv()
     };
 
-    if (this.hooks.onEnd) {
-      this.hooks.onEnd(result);
-    }
+    if (this.hooks.onEnd) this.hooks.onEnd(result);
 
     try {
       recordSession('shadow-breaker', {
