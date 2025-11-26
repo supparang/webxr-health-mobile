@@ -424,19 +424,23 @@ body {
   border: 1px solid rgba(30, 64, 175, 0.9);
 }
 
+/* แก้ใหม่ */
 .hp-bar .bar {
   height: 100%;
-  width: 0%;
+  width: 100%;                  /* เดิมเป็น 0% เลยไม่เห็นอะไร */
   transform-origin: left center;
-  transition: width 0.16s ease-out;
+  transform: scaleX(1);         /* เริ่มเต็มหลอด */
+  transition: transform 0.16s ease-out;
 }
 
 .hp-bar .green {
   background: linear-gradient(90deg, #22c55e, #a3e635);
 }
+
 .hp-bar .red {
   background: linear-gradient(90deg, #f97316, #ef4444);
 }
+
 
 .stat-right {
   display: flex;
