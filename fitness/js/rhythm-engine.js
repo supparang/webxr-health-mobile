@@ -1,10 +1,10 @@
-// === fitness/js/rhythm-engine.js — Rhythm Boxer (Hit FX at note position, 2025-11-30) ===
+// === fitness/js/rhythm-engine.js — Rhythm Boxer (popup + shard FX, 2025-11-30) ===
 'use strict';
 
 (function(){
 
   // ===== CONFIG =====
-  const LANES = [0, 1, 2, 3, 4]; // L2, L1, C, R1, R2
+  const LANES = [0, 1, 2, 3, 4];                // L2, L1, C, R1, R2
   const NOTE_EMOJI_BY_LANE = ['🎵', '🎶', '🎵', '🎶', '🎼'];
   const HIT_WINDOWS = { perfect: 0.06, great: 0.12, good: 0.20 };
   const PRE_SPAWN_SEC = 2.0;
@@ -18,320 +18,383 @@
       bpm: 100,
       diff: 'easy',
       chart: makeWarmupChart(100, 32)
-    },
+    }
   ];
 
   // ===== UTIL =====
-  function clamp(v,a,b){return v<a?a:(v>b?b:v);}
-  function $(id){return document.getElementById(id);}
+  function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
+  function $(id){ return document.getElementById(id); }
 
-  function makeWarmupChart(bpm,dur){
-    const out=[],beat=60/bpm;let t=2.0;
-    const seq=[2,1,3,2,1,3,2,3];
-    const total=Math.floor((dur-3)/beat);
-    let i=0;
-    while(t<dur-2 && i<total){
-      out.push({time:t,lane:seq[i%seq.length],type:'note'});
-      t+=beat;i++;
+  // ===== CHART GEN =====
+  function makeWarmupChart(bpm, dur){
+    const out = [];
+    const beat = 60 / bpm;
+    let t = 2.0;
+
+    const seq = [2,1,3,2,1,3,2,3];  // เน้น lane กลางซ้าย/ขวา
+    const total = Math.floor((dur - 3) / beat);
+
+    let i = 0;
+    while (t < dur - 2 && i < total){
+      out.push({ time: t, lane: seq[i % seq.length], type: 'note' });
+      t += beat;
+      i++;
     }
-    // ตัวอย่าง event เสริม (hp/shield) ถ้าจะใช้ต่อ
-    // out.push({time:t+beat*0.5,lane:0,type:'hp'});
-    // out.push({time:t+beat*1.5,lane:4,type:'shield'});
+
+    // ตัวอย่างโน้ต HP / Shield ตอนท้าย (ยังไม่ใช้เต็มที่ตอนนี้)
+    out.push({ time: t + beat * 0.5, lane: 0, type: 'hp' });
+    out.push({ time: t + beat * 1.5, lane: 4, type: 'shield' });
+
     return out;
   }
 
   // ===== STATE =====
-  let lanesEl,elField,hitLineEl,hudScore,hudCombo,hudAcc,hudHp,hudShield,hudTime,feedbackEl,flashEl;
-  let score=0,combo=0,hp=100,shield=0;
-  let started=false,running=false,startPerf=0,lastPerf=0,currentSongTime=0;
-  let activeNotes=[],chartIndex=0,currentTrack=TRACKS[0];
+  let lanesEl, elField, hitLineEl, feedbackEl, flashEl;
+  let hudScore, hudCombo, hudAcc, hudHp, hudShield, hudTime;
+
+  let score = 0;
+  let combo = 0;
+  let hp = 100;
+  let shield = 0;
+  let fever = 0;
+  let feverActive = false;
+
+  let started = false;
+  let running = false;
+  let startPerf = 0;
+  let lastPerf = 0;
+  let currentSongTime = 0;
+
+  let activeNotes = [];
+  let chartIndex = 0;
+  let currentTrack = TRACKS[0];
 
   // ===== INIT =====
   function init(){
-    lanesEl   = $('rb-lanes');
-    elField   = $('rb-field');
-    hitLineEl = document.querySelector('.rb-hit-line');
-
-    hudScore  = $('rb-hud-score');
-    hudCombo  = $('rb-hud-combo');
-    hudAcc    = $('rb-hud-acc');
-    hudHp     = $('rb-hud-hp');
-    hudShield = $('rb-hud-shield');
-    hudTime   = $('rb-hud-time');
-
+    lanesEl    = $('rb-lanes');
+    elField    = $('rb-field');
+    hitLineEl  = document.querySelector('.rb-hit-line');
     feedbackEl = $('rb-feedback');
     flashEl    = $('rb-flash');
 
-    const btn = $('rb-btn-start');
-    if(btn) btn.addEventListener('click',startGame);
+    hudScore   = $('rb-hud-score');
+    hudCombo   = $('rb-hud-combo');
+    hudAcc     = $('rb-hud-acc');   // ยังไม่คำนวณละเอียด
+    hudHp      = $('rb-hud-hp');
+    hudShield  = $('rb-hud-shield');
+    hudTime    = $('rb-hud-time');
 
-    if(lanesEl) lanesEl.addEventListener('pointerdown',onLaneTap);
+    const btnStart = $('rb-btn-start');
+    if (btnStart) btnStart.addEventListener('click', startGame);
+
+    if (lanesEl){
+      lanesEl.addEventListener('pointerdown', onLaneTap);
+    }
   }
 
   // ===== GAME FLOW =====
   function startGame(){
-    started=false;
-    running=false;
+    started = false;
+    running = false;
 
-    score=0;
-    combo=0;
-    hp=100;
-    shield=0;
-    activeNotes=[];
-    chartIndex=0;
-    currentTrack = TRACKS[0]; // ตอนนี้ใช้เพลง t1 อย่างเดียว
+    score = 0;
+    combo = 0;
+    hp    = 100;
+    shield = 0;
+    fever  = 0;
+    feverActive = false;
+
+    activeNotes = [];
+    chartIndex  = 0;
+
+    // reset HUD
+    updateHUD();
+    setAcc(0);
+
+    // show play view
+    const viewMenu  = $('rb-view-menu');
+    const viewPlay  = $('rb-view-play');
+    const viewRes   = $('rb-view-result');
+
+    if (viewMenu) viewMenu.classList.add('hidden');
+    if (viewRes)  viewRes.classList.add('hidden');
+    if (viewPlay) viewPlay.classList.remove('hidden');
 
     showFeedback('แตะ lane เพื่อเริ่มเพลง 🎵');
-    $('rb-view-menu')?.classList.add('hidden');
-    $('rb-view-play')?.classList.remove('hidden');
 
-    updateHUD();
+    // เตรียม track (ตอนนี้เลือก t1 ตายตัว)
+    currentTrack = TRACKS[0];
   }
 
   function handleFirstTap(){
-    if(started) return;
-    started=true;
-    running=true;
-    startPerf=performance.now();
-    lastPerf=startPerf;
-    currentSongTime=0;
+    if (started) return;
+    started = true;
+    running = true;
+    startPerf = performance.now();
+    lastPerf  = startPerf;
+    currentSongTime = 0;
+
     requestAnimationFrame(loop);
   }
 
   function loop(now){
-    if(!running) return;
-    const dt=(now-lastPerf)/1000;
-    lastPerf=now;
-    currentSongTime += dt;
+    if (!running) return;
 
-    const dur=currentTrack.duration||30;
-    updateTimeline(currentSongTime,dt);
+    const dt = (now - lastPerf) / 1000;
+    const t  = (now - startPerf) / 1000;
+    lastPerf = now;
+    currentSongTime = t;
+
+    const dur = currentTrack.duration || 30;
+
+    updateTimeline(t, dt);
     updateHUD();
 
-    if(currentSongTime>=dur){
-      running=false;
-      showFeedback('เพลงจบแล้ว! ✅');
+    if (t >= dur){
+      running = false;
+      showFeedback('เพลงจบแล้ว! ✅', null);
+      // TODO: ไปหน้า RESULT + สรุป
       return;
     }
+
     requestAnimationFrame(loop);
   }
 
-  function updateTimeline(songTime,dt){
+  // ===== TIMELINE =====
+  function updateTimeline(songTime, dt){
     spawnNotes(songTime);
     updateNotePositions(songTime);
     autoJudgeMiss(songTime);
 
-    // ทำให้เส้นจังหวะมี life นิดหน่อย
-    if(hitLineEl){
-      const phase=(songTime*(currentTrack.bpm||100)/60)%1;
-      hitLineEl.style.opacity = phase<0.15 ? 1 : 0.6;
+    // effect เส้นตี
+    if (hitLineEl){
+      const phase = (songTime * (currentTrack.bpm || 100) / 60) % 1;
+      hitLineEl.style.opacity = phase < 0.15 ? 1 : 0.6;
     }
   }
 
-  // ===== NOTES SPAWN & MOTION =====
   function spawnNotes(songTime){
-    const chart=currentTrack.chart;
-    const pre=PRE_SPAWN_SEC;
-    while(chartIndex<chart.length && chart[chartIndex].time<=songTime+pre){
+    const chart = currentTrack.chart;
+    const pre   = PRE_SPAWN_SEC;
+
+    while (chartIndex < chart.length && chart[chartIndex].time <= songTime + pre){
       createNote(chart[chartIndex]);
       chartIndex++;
     }
   }
 
   function createNote(info){
-    const laneIndex=clamp(info.lane|0,0,4);
-    const laneEl = lanesEl?.querySelector(`.rb-lane[data-lane="${laneIndex}"]`);
-    if(!laneEl) return;
+    const laneIndex = clamp(info.lane | 0, 0, 4);
+    if (!lanesEl) return;
 
-    const noteEl=document.createElement('div');
-    noteEl.className='rb-note';
-    const inner=document.createElement('div');
-    inner.className='rb-note-inner';
-    inner.textContent=NOTE_EMOJI_BY_LANE[laneIndex]||'🎵';
+    const laneEl = lanesEl.querySelector(`.rb-lane[data-lane="${laneIndex}"]`);
+    if (!laneEl) return;
+
+    const noteEl = document.createElement('div');
+    noteEl.className = 'rb-note';
+
+    const inner = document.createElement('div');
+    inner.className = 'rb-note-inner';
+    inner.textContent = NOTE_EMOJI_BY_LANE[laneIndex] || '🎵';
     noteEl.appendChild(inner);
+
     laneEl.appendChild(noteEl);
 
-    // ค่อย ๆ fade-in ตอนเกิด
-    setTimeout(()=>noteEl.classList.add('rb-note-spawned'),20);
+    // ปรับ opacity ให้ค่อย ๆ เข้ามา
+    requestAnimationFrame(() => {
+      noteEl.classList.add('rb-note-spawned');
+    });
 
     activeNotes.push({
       lane: laneIndex,
       time: info.time,
+      type: info.type || 'note',
       el: noteEl,
-      judged:false,
-      removed:false
+      judged: false,
+      removed: false
     });
   }
 
-  // ให้โน้ตตกจากด้านบนลงมาเส้นตี
+  // ให้โน้ตตกจากด้านบน → เส้นตี
   function updateNotePositions(songTime){
-    if(!lanesEl) return;
-    const rect=lanesEl.getBoundingClientRect();
-    const h=rect.height||1;
-    const pre=PRE_SPAWN_SEC;
-    const travel=h*0.85;
+    if (!lanesEl) return;
+    const rect = lanesEl.getBoundingClientRect();
+    const h = rect.height || 1;
+    const pre = PRE_SPAWN_SEC;
+    const travel = h * 0.85;
 
-    for(const n of activeNotes){
-      if(!n.el || n.removed) continue;
-      const dt=n.time - songTime;
-      const progress = 1 - (dt/pre);           // 0 → 1 ก่อนเวลาถึงเส้น
-      const pClamp   = clamp(progress,0,1.2);  // เกิน 1 นิดหน่อยแล้วค่อยจางหาย
-      const y=(pClamp-1)*travel;              // 0 ที่เส้นตี, ลบขึ้นบน
+    for (const n of activeNotes){
+      if (!n.el || n.removed) continue;
+      const dt = n.time - songTime;
+      const progress = 1 - (dt / pre);      // 0 → ยังไม่โผล่, 1 → ถึงเส้นตี
+      const pClamp   = clamp(progress, 0, 1.2);
+      const y = (pClamp - 1) * travel;      // เริ่มที่ด้านบน ค่อย ๆ ลงมา
 
       n.el.style.transform = `translateX(-50%) translateY(${y}px)`;
-      n.el.style.opacity   = (pClamp<=1.0) ? 1 : clamp(1.2-pClamp,0,1);
+      n.el.style.opacity   = (pClamp <= 1.0) ? 1 : clamp(1.2 - pClamp, 0, 1);
     }
   }
 
   function autoJudgeMiss(songTime){
     const missWindow = HIT_WINDOWS.good + 0.05;
-    for(const n of activeNotes){
-      if(n.judged) continue;
-      if(songTime > n.time + missWindow){
+    for (const n of activeNotes){
+      if (n.judged) continue;
+      if (songTime > n.time + missWindow){
         applyMiss(n);
       }
     }
-    activeNotes = activeNotes.filter(n=>!n.removed);
+    activeNotes = activeNotes.filter(n => !n.removed);
   }
 
   // ===== INPUT =====
   function onLaneTap(ev){
-    if(!running){
+    if (!running){
       handleFirstTap();
       return;
     }
     const laneEl = ev.target.closest('.rb-lane');
-    if(!laneEl) return;
-    const lane = parseInt(laneEl.dataset.lane||'0',10);
+    if (!laneEl) return;
 
-    // หาโน้ตที่ใกล้ที่สุดใน lane นี้
-    let best=null;
-    let bestAbs=Infinity;
-    const nowT=currentSongTime;
-    for(const n of activeNotes){
-      if(n.judged || n.removed) continue;
-      if(n.lane!==lane) continue;
-      const off = nowT - n.time;
-      const abs = Math.abs(off);
-      if(abs < bestAbs && abs <= HIT_WINDOWS.good+0.05){
-        best = n;
-        bestAbs = abs;
-      }
-    }
-
-    if(best){
-      applyHit(best, nowT - best.time);
-    }else{
-      showFeedback('ลองแตะให้ใกล้เส้นด้านล่างมากขึ้นนะ 🎧');
+    const lane = parseInt(laneEl.dataset.lane || '0', 10);
+    const near = activeNotes.find(n => !n.judged && n.lane === lane);
+    if (near){
+      applyHit(near);
+    } else {
+      // tap ว่าง ๆ อาจถือเป็น miss เบา ๆ ได้ภายหลัง
     }
   }
 
-  // ===== POPUP FX (คะแนนเด้งตรงเป้า) =====
-  function spawnScorePopup(note, grade, scoreDelta){
-    if(!elField) return;
+  // ===== JUDGE & FX =====
+  function applyHit(n){
+    n.judged = true;
+    n.removed = true;
+    if (n.el) n.el.remove();
 
-    const fieldRect = elField.getBoundingClientRect();
-    let cx = fieldRect.left + fieldRect.width/2;
-    let cy = fieldRect.top  + fieldRect.height*0.6;
+    const baseScore = 100;
+    const grade = 'perfect'; // ตอนนี้ยังไม่แยก perfect/great/good ตาม timing
+    score += baseScore;
+    combo++;
 
-    // ถ้า note ยังมี DOM ใช้จุดกลางของโน้ตเป็นตำแหน่งเอฟเฟกต์
-    if(note && note.el){
-      const nr = note.el.getBoundingClientRect();
-      cx = nr.left + nr.width/2;
-      cy = nr.top  + nr.height/2;
-    }else if(lanesEl && note){
-      const laneEl = lanesEl.querySelector(`.rb-lane[data-lane="${note.lane}"]`);
-      if(laneEl){
-        const lr = laneEl.getBoundingClientRect();
-        cx = lr.left + lr.width/2;
-        // แถว ๆ เส้นตี (ใกล้ด้านล่างเลน)
-        cy = lr.bottom - 40;
-      }
+    updateHUD();
+    showFeedback('Perfect! 🎯', 'perfect');
+    spawnScorePopup(n, grade, baseScore);
+  }
+
+  function applyMiss(n){
+    n.judged = true;
+    n.removed = true;
+    if (n.el) n.el.remove();
+
+    combo = 0;
+    hp = clamp(hp - 5, 0, 100);
+    updateHUD();
+
+    showFeedback('พลาดจังหวะ! 🎧', 'miss');
+    spawnScorePopup(n, 'miss', 0);
+
+    // shake field + flash เบา ๆ
+    if (elField){
+      elField.classList.add('rb-shake');
+      setTimeout(() => elField.classList.remove('rb-shake'), 300);
     }
+    if (flashEl){
+      flashEl.classList.add('active');
+      setTimeout(() => flashEl.classList.remove('active'), 120);
+    }
+  }
 
-    const x = cx - fieldRect.left;
-    const y = cy - fieldRect.top - 10; // ยกขึ้นนิดนึง
+  function spawnHitParticlesAt(x, y, grade){
+    if (!elField) return;
+    const count  = grade === 'perfect' ? 12 : grade === 'great' ? 9 : 7;
+    const emoji  = grade === 'miss' ? '💥' : '✨';
+    const spread = grade === 'perfect' ? 32 : 26;
+
+    for (let i = 0; i < count; i++){
+      const shard = document.createElement('div');
+      shard.className = 'rb-hit-particle';
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = spread + Math.random() * 18;
+
+      shard.style.left = x + 'px';
+      shard.style.top  = y + 'px';
+      shard.style.setProperty('--dx', (Math.cos(angle) * dist) + 'px');
+      shard.style.setProperty('--dy', (Math.sin(angle) * dist) + 'px');
+      shard.textContent = emoji;
+
+      elField.appendChild(shard);
+      setTimeout(() => shard.remove(), 550);
+    }
+  }
+
+  function spawnScorePopup(note, grade, scoreDelta){
+    if (!elField || !note || !note.el) return;
+
+    const noteRect  = note.el.getBoundingClientRect();
+    const fieldRect = elField.getBoundingClientRect();
+
+    const x = noteRect.left + noteRect.width  / 2 - fieldRect.left;
+    const y = noteRect.top  + noteRect.height / 2 - fieldRect.top - 4;
 
     const pop = document.createElement('div');
     pop.className = 'rb-score-popup';
 
-    if(grade === 'perfect') pop.classList.add('rb-score-perfect');
-    else if(grade === 'great') pop.classList.add('rb-score-great');
-    else if(grade === 'good')  pop.classList.add('rb-score-good');
-    else if(grade === 'miss')  pop.classList.add('rb-score-miss');
-
     let label = '';
-    if(grade === 'perfect') label = `PERFECT +${scoreDelta}`;
-    else if(grade === 'great') label = `GREAT +${scoreDelta}`;
-    else if(grade === 'good')  label = `GOOD +${scoreDelta}`;
-    else if(grade === 'miss')  label = `MISS`;
-    else label = `+${scoreDelta}`;
+    if (grade === 'perfect'){
+      pop.classList.add('rb-score-perfect');
+      label = `PERFECT +${scoreDelta}`;
+    } else if (grade === 'great'){
+      pop.classList.add('rb-score-great');
+      label = `GREAT +${scoreDelta}`;
+    } else if (grade === 'good'){
+      pop.classList.add('rb-score-good');
+      label = `GOOD +${scoreDelta}`;
+    } else if (grade === 'miss'){
+      pop.classList.add('rb-score-miss');
+      label = 'MISS';
+    } else {
+      label = `+${scoreDelta}`;
+    }
 
     pop.textContent = label;
-
-    pop.style.position = 'absolute';
-    pop.style.left = x + 'px';
-    pop.style.top  = y + 'px';
-    pop.style.bottom = 'auto'; // override ค่า default ถ้ามี
+    pop.style.left  = x + 'px';
+    pop.style.top   = y + 'px';
 
     elField.appendChild(pop);
-    setTimeout(()=>{ pop.remove(); }, 700);
+    setTimeout(() => pop.remove(), 600);
+
+    // เศษเป้าแตกกระจายรอบ ๆ จุดเดียวกัน
+    spawnHitParticlesAt(x, y, grade);
   }
 
-  // ===== HIT / MISS =====
-  function applyHit(n, offset){
-    // ให้ popup ใช้ตำแหน่ง note ก่อนลบ
-    const scoreDelta = 100;
-    spawnScorePopup(n, 'perfect', scoreDelta);
-
-    n.judged=true;
-    n.removed=true;
-    if(n.el) n.el.remove();
-
-    score += scoreDelta;
-    combo++;
-
-    showFeedback('Perfect! 🎯');
-    updateHUD();
-  }
-
-  function applyMiss(n){
-    // popup MISS ก่อนลบ
-    spawnScorePopup(n, 'miss', 0);
-
-    n.judged=true;
-    n.removed=true;
-    if(n.el) n.el.remove();
-
-    combo = 0;
-    hp = clamp(hp-5,0,100);
-    showFeedback('พลาดจังหวะ! 🎧');
-    updateHUD();
-  }
-
-  // ===== HUD =====
+  // ===== HUD / FEEDBACK =====
   function updateHUD(){
-    if(hudScore)  hudScore.textContent = score;
-    if(hudCombo)  hudCombo.textContent = combo;
-
-    // ยังไม่มีคำนวณ accuracy จริงจัง ใช้ placeholder ไว้ก่อน
-    if(hudAcc)    hudAcc.textContent   = '0.0%';
-
-    if(hudHp)     hudHp.textContent    = hp;
-    if(hudShield) hudShield.textContent= shield;
-    if(hudTime)   hudTime.textContent  = currentSongTime.toFixed(1);
+    if (hudScore)  hudScore.textContent = score;
+    if (hudCombo)  hudCombo.textContent = combo;
+    if (hudHp)     hudHp.textContent    = hp;
+    if (hudShield) hudShield.textContent = shield;
+    if (hudTime)   hudTime.textContent  = currentSongTime.toFixed(1);
+    // ยังไม่ได้อัปเดต Accuracy / FEVER / Progress detail ในเวอร์ชันย่อ
   }
 
-  function showFeedback(msg){
-    if(!feedbackEl) return;
-    feedbackEl.classList.remove('perfect','good','miss','bomb');
+  function setAcc(pct){
+    if (!hudAcc) return;
+    hudAcc.textContent = pct.toFixed(1) + '%';
+  }
+
+  function showFeedback(msg, grade){
+    if (!feedbackEl) return;
     feedbackEl.textContent = msg;
+    feedbackEl.classList.remove('perfect','good','miss','bomb');
+    if (grade){
+      feedbackEl.classList.add(grade);
+    }
   }
 
   // ===== BOOT =====
-  if(document.readyState==='loading')
-    document.addEventListener('DOMContentLoaded',init);
-  else
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
     init();
+  }
 
 })();
