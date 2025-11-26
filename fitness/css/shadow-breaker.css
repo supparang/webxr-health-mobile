@@ -1,4 +1,4 @@
-/* === css/shadow-breaker.css — VR Fitness Shadow Breaker (2025-11-29b) === */
+/* === css/shadow-breaker.css — VR Fitness Shadow Breaker (2025-11-29c, responsive full-height) === */
 
 :root {
   color-scheme: dark;
@@ -83,9 +83,10 @@ html, body {
 
 .sb-card {
   flex: 1;
-  max-width: 1200px;
-  margin: 18px auto 24px;
-  padding: 0 12px 24px;
+  max-width: 1300px;
+  margin: 12px auto 20px;
+  padding: 0 10px 24px;
+  width: 100%;
 }
 
 .sb-wrap {
@@ -96,7 +97,11 @@ html, body {
     radial-gradient(circle at bottom right, rgba(16,185,129,0.16), transparent 60%),
     #020617;
   box-shadow: 0 22px 60px rgba(15,23,42,0.95);
-  padding: 18px 18px 22px;
+  padding: 18px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  /* ให้การ์ดสูงเกือบเต็มหน้าจอ */
+  min-height: calc(100vh - 110px);
 }
 
 /* Generic */
@@ -327,7 +332,7 @@ html, body {
   color: #9ca3af;
 }
 
-/* Target Field */
+/* Target Field  — ให้เต็มจอมากขึ้น */
 
 .target-layer {
   position: relative;
@@ -337,8 +342,10 @@ html, body {
   background:
     radial-gradient(circle at top left, rgba(15,23,42,0.92), rgba(15,23,42,0.98)),
     radial-gradient(circle at bottom right, rgba(6,78,59,0.7), rgba(2,6,23,0.98));
-  min-height: min(60vh, 420px);
-  max-height: 540px;
+  flex: 1;
+  /* สนามจะสูงประมาณ 70–75% ของ viewport แต่ไม่ต่ำกว่า 380px */
+  min-height: clamp(380px, 72vh, 720px);
+  max-height: none;
   overflow: hidden;
 }
 
@@ -529,13 +536,13 @@ html, body {
   align-items: center;
   justify-content: center;
   transition: transform .08s ease-out;
-  font-size: 14px; /* base for em scale */
+  font-size: 14px;
 }
 .sb-target:active {
   transform: translate(-50%, -50%) scale(0.96);
 }
 
-/* ปรับ emoji ให้ “ใหญ่ขึ้น” อย่างชัดเจน */
+/* emoji ใหญ่ขึ้น */
 .sb-target-inner {
   width: 86%;
   height: 86%;
@@ -543,11 +550,10 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.6rem; /* ใหญ่กว่าของเดิมอย่างชัดเจน */
+  font-size: 2.6rem;
   text-shadow: 0 0 8px rgba(15,23,42,0.9);
 }
 
-/* base color per type */
 .sb-target--normal .sb-target-inner {
   background: radial-gradient(circle at 30% 20%, #fef9c3, #fbbf24);
 }
@@ -593,7 +599,7 @@ html, body {
     0 22px 46px rgba(15,23,42,1);
 }
 
-/* Animation เวลาอยู่เฉย ๆ นิดหน่อย */
+/* Animation เป้าขยับเบา ๆ */
 .sb-target {
   animation: sb-ring-pulse 1.4s ease-in-out infinite;
 }
@@ -694,6 +700,12 @@ html, body {
     grid-template-columns: minmax(0,1fr);
   }
   .sb-card {
-    margin-top: 10px;
+    margin-top: 8px;
+  }
+  .sb-wrap {
+    min-height: calc(100vh - 96px);
+  }
+  .target-layer {
+    min-height: clamp(340px, 68vh, 700px);
   }
 }
