@@ -1,4 +1,4 @@
-// === js/dom-renderer.js — Shadow Breaker DOM Target Renderer + FX (2025-11-28a) ===
+// === js/dom-renderer.js — Shadow Breaker DOM Target Renderer + FX (2025-11-29) ===
 'use strict';
 
 /**
@@ -24,10 +24,9 @@ export class DomRenderer {
   constructor(host, opts = {}) {
     this.host = host || document.body;
     this.opts = opts;
-    this.targets = new Map(); // id → element
+    this.targets = new Map(); // id → { el, cx, cy, size }
 
     if (getComputedStyle(this.host).position === 'static') {
-      // ให้เป็น relative เพื่อวาง absolute child ง่าย ๆ
       this.host.style.position = 'relative';
     }
   }
@@ -42,48 +41,84 @@ export class DomRenderer {
   spawnTarget(target) {
     if (!this.host || !target) return;
 
-    const rect = this.host.getBoundingClientRect();
+    const fieldRect = this.host.getBoundingClientRect();
     const size = target.sizePx || 96;
     const radius = size / 2;
-    const margin = radius + 8; // กันหลุดขอบ + glow
+    const margin = radius + 10; // กัน glow หลุดขอบ
 
-    const w = rect.width  || this.host.clientWidth  || 320;
-    const h = rect.height || this.host.clientHeight || 320;
+    const w = fieldRect.width  || this.host.clientWidth  || 320;
+    const h = fieldRect.height || this.host.clientHeight || 320;
 
-    const maxX = Math.max(margin, w - margin);
-    const maxY = Math.max(margin, h - margin);
+    if (w < margin * 2 || h < margin * 2) {
+      console.warn('[DomRenderer] playfield too small');
+      return;
+    }
 
-    const x = clamp(
-      margin + Math.random() * (w - margin * 2),
-      margin,
-      maxX
-    );
-    const y = clamp(
-      margin + Math.random() * (h - margin * 2),
-      margin,
-      maxY
-    );
+    // ---- เลือกตำแหน่งแบบพยายามไม่ให้ชนกันตรง ๆ ----
+    let cx = 0;
+    let cy = 0;
+
+    const isTooClose = (x, y) => {
+      for (const { cx: ox, cy: oy, size: os } of this.targets.values()) {
+        const dx = x - ox;
+        const dy = y - oy;
+        const dist2 = dx * dx + dy * dy;
+        const minDist = (size + os) * 0.55;
+        if (dist2 < minDist * minDist) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const maxTry = 8;
+    for (let i = 0; i < maxTry; i++) {
+      const x = clamp(
+        margin + Math.random() * (w - margin * 2),
+        margin,
+        w - margin
+      );
+      const y = clamp(
+        margin + Math.random() * (h - margin * 2),
+        margin,
+        h - margin
+      );
+      if (!isTooClose(x, y) || i === maxTry - 1) {
+        cx = x;
+        cy = y;
+        break;
+      }
+    }
 
     // ค่าปกติ 0..1 สำหรับงานวิจัย
-    const xNorm = w > 0 ? x / w : 0.5;
-    const yNorm = h > 0 ? y / h : 0.5;
+    const xNorm = w > 0 ? cx / w : 0.5;
+    const yNorm = h > 0 ? cy / h : 0.5;
     target.x_norm = +xNorm.toFixed(4);
     target.y_norm = +yNorm.toFixed(4);
 
+    // ---- สร้างปุ่มเป้า + emoji ภายใน ----
+    const type = target.type || 'normal';
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'sb-target' + (target.type ? ` sb-target--${target.type}` : '');
+    el.className = 'sb-target sb-target--' + type;
     el.dataset.id = String(target.id);
-    el.dataset.type = target.type || 'normal';
+    el.dataset.type = type;
 
     el.style.position = 'absolute';
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
-    // ใช้ translate(-50%,-50%) จาก CSS → ให้ left/top เป็นจุดกึ่งกลาง
-    el.style.left   = x + 'px';
-    el.style.top    = y + 'px';
+    // ใช้ translate(-50%,-50%) จาก CSS ให้ left/top เป็น center
+    el.style.left   = cx + 'px';
+    el.style.top    = cy + 'px';
 
-    // handler click / touch
+    // emoji / icon ตามชนิดเป้า
+    const emoji = this._iconForType(type, target);
+    const inner = document.createElement('div');
+    inner.className = 'sb-target-inner sb-target-inner--' + type;
+    inner.textContent = emoji;
+
+    el.appendChild(inner);
+
     const handler = (ev) => {
       ev.preventDefault();
       this._emitHit(target.id, ev);
@@ -92,7 +127,17 @@ export class DomRenderer {
     el.addEventListener('click', handler);
 
     this.host.appendChild(el);
-    this.targets.set(target.id, el);
+    this.targets.set(target.id, { el, cx, cy, size });
+  }
+
+  _iconForType(type, target) {
+    if (type === 'bomb')      return '💣';
+    if (type === 'decoy')     return '👻';
+    if (type === 'heal')      return '💚';
+    if (type === 'shield')    return '🛡️';
+    if (type === 'bossface')  return '😈';
+    // default: เป้าปกติ
+    return '🎯';
   }
 
   // ---------- REMOVE TARGET ----------
@@ -102,14 +147,18 @@ export class DomRenderer {
    * reason: 'hit' | 'timeout' | 'boss-change' | 'end' ...
    */
   removeTarget(id, reason = '') {
-    const el = this.targets.get(id);
-    if (!el) return;
+    const rec = this.targets.get(id);
+    if (!rec) return;
+    const el = rec.el;
 
     if (reason === 'timeout') {
       el.classList.add('sb-target--fade-timeout');
       setTimeout(() => el.remove(), 180);
     } else if (reason === 'boss-change' || reason === 'end') {
       el.classList.add('sb-target--fade-soft');
+      setTimeout(() => el.remove(), 140);
+    } else if (reason === 'hit') {
+      el.classList.add('sb-target--hit');
       setTimeout(() => el.remove(), 140);
     } else {
       el.remove();
@@ -122,11 +171,10 @@ export class DomRenderer {
 
   /**
    * เล่น effect ตอนตีโดนเป้า:
-   *   - สั่น / scale เป้า
-   *   - popup คะแนน/emoji
+   *   - popup คะแนน/emoji ลอยขึ้น
    */
   playHitFx(id, opts = {}) {
-    const el = this.targets.get(id);
+    const rec = this.targets.get(id);
     const host = this.host || document.body;
     if (!host) return;
 
@@ -136,28 +184,18 @@ export class DomRenderer {
     let x = clientX;
     let y = clientY;
 
-    if (el) {
-      // ใช้ center ของเป้าเป็นหลัก
-      const r = el.getBoundingClientRect();
+    if (rec && rec.el) {
+      const r = rec.el.getBoundingClientRect();
       x = r.left + r.width / 2;
       y = r.top  + r.height / 2;
-
-      // animation ตอนโดน
-      el.classList.add('sb-target--hit');
-      setTimeout(() => {
-        if (el.isConnected) el.remove();
-      }, 120);
-
-      this.targets.delete(id);
     } else {
-      // fallback: กลางสนาม
       if (x == null || y == null) {
         x = hostRect.left + hostRect.width / 2;
-        y = hostRect.top  + hostRect.height / 2;
+        y = hostRect.top  + hostRect.height  / 2;
       }
     }
 
-    // popup คะแนน / emoji
+    // popup
     const pop = document.createElement('div');
     pop.className = 'sb-pop';
 
