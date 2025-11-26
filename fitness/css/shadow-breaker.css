@@ -786,6 +786,87 @@ button:disabled,
 #sb-flash.sb-flash--active {
   opacity: 1;
 }
+/* เป้าหลัก */
+.sb-target {
+  position: absolute;
+  border-radius: 999px;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 30% 20%, #e0f2fe, #38bdf8);
+  box-shadow:
+    0 0 0 2px rgba(15,23,42,0.95),
+    0 0 0 5px rgba(56,189,248,0.4),
+    0 16px 32px rgba(15,23,42,0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* inner emoji */
+.sb-target-inner {
+  width: 72%;
+  height: 72%;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  text-shadow: 0 0 6px rgba(15,23,42,0.9);
+}
+
+/* สีตามชนิดเป้า */
+.sb-target--normal .sb-target-inner {
+  background: radial-gradient(circle at 30% 20%, #fef9c3, #fbbf24);
+}
+.sb-target--bomb {
+  box-shadow:
+    0 0 0 2px rgba(127,29,29,0.95),
+    0 0 0 5px rgba(248,113,113,0.6),
+    0 16px 32px rgba(127,29,29,0.9);
+}
+.sb-target--bomb .sb-target-inner {
+  background: radial-gradient(circle at 30% 20%, #fecaca, #f97373);
+}
+
+.sb-target--heal .sb-target-inner {
+  background: radial-gradient(circle at 30% 20%, #bbf7d0, #22c55e);
+}
+.sb-target--shield .sb-target-inner {
+  background: radial-gradient(circle at 30% 20%, #e0f2fe, #38bdf8);
+}
+.sb-target--decoy .sb-target-inner {
+  background: radial-gradient(circle at 30% 20%, #e9d5ff, #a855f7);
+}
+.sb-target--bossface .sb-target-inner {
+  background: radial-gradient(circle at 30% 20%, #fee2e2, #f43f5e);
+}
+
+/* animation ตอนโดน / fade ออก */
+.sb-target--hit {
+  animation: sb-target-hit 0.14s ease-out forwards;
+}
+.sb-target--fade-timeout {
+  animation: sb-target-fade 0.18s ease-out forwards;
+}
+.sb-target--fade-soft {
+  animation: sb-target-fade-soft 0.14s ease-out forwards;
+}
+
+@keyframes sb-target-hit {
+  0%   { transform: translate(-50%,-50%) scale(1); }
+  40%  { transform: translate(-50%,-50%) scale(1.08); }
+  100% { transform: translate(-50%,-50%) scale(0.6); opacity: 0; }
+}
+@keyframes sb-target-fade {
+  0%   { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(0.8); }
+}
+@keyframes sb-target-fade-soft {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 /* ---------- Responsive ---------- */
 
