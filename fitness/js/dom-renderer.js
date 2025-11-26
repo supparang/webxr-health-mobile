@@ -1,122 +1,196 @@
-// === js/dom-renderer.js — DOM target renderer + clamp inside playfield (2025-11-28d) ===
+// === js/dom-renderer.js — Shadow Breaker DOM Target Renderer + FX (2025-11-28a) ===
 'use strict';
 
-import { spawnHitParticle } from './particle.js';
+/**
+ * ใช้กับ ShadowBreakerEngine:
+ *   this.renderer = new DomRenderer(this.field, {
+ *     onTargetHit: (id, info) => this.handleHit(id, info)
+ *   });
+ *
+ * engine จะเรียก:
+ *   - renderer.spawnTarget(target)
+ *   - renderer.removeTarget(id, reason)
+ *   - renderer.playHitFx(id, opts)
+ */
 
 const clamp = (v, min, max) => (v < min ? min : (v > max ? max : v));
 
-function randRange(min, max) {
-  return min + Math.random() * (max - min);
-}
-
 export class DomRenderer {
   /**
-   * host = element ที่ใช้เป็นกรอบ gameplay (เช่น #target-layer)
-   * opts.onTargetHit(id, hitInfo) จะถูกเรียกเมื่อผู้เล่นคลิกเป้า
+   * @param {HTMLElement} host  พื้นที่ให้เป้าโผล่ (เช่น #target-layer)
+   * @param {Object} opts
+   *   - onTargetHit(id, info)  callback เมื่อมีการกดเป้า
    */
   constructor(host, opts = {}) {
     this.host = host || document.body;
-    this.onTargetHit = typeof opts.onTargetHit === 'function'
-      ? opts.onTargetHit
-      : () => {};
+    this.opts = opts;
+    this.targets = new Map(); // id → element
 
-    this.targets = new Map(); // id → { target, el }
-
-    // ให้แน่ใจว่า host เป็น relative + ตัดของที่ล้น
-    const cs = getComputedStyle(this.host);
-    if (cs.position === 'static') {
+    if (getComputedStyle(this.host).position === 'static') {
+      // ให้เป็น relative เพื่อวาง absolute child ง่าย ๆ
       this.host.style.position = 'relative';
     }
-    if (cs.overflow === 'visible') {
-      this.host.style.overflow = 'hidden';
-    }
   }
 
-  _measureHost() {
-    const rect = this.host.getBoundingClientRect();
-    return {
-      width: rect.width || this.host.clientWidth || 1,
-      height: rect.height || this.host.clientHeight || 1
-    };
-  }
+  // ---------- SPAWN TARGET ----------
 
   /**
-   * engine จะส่งอ็อบเจ็กต์ target เข้ามา (ดูใน engine.js)
-   * เราต้องวางเป้าใน host โดย:
-   *  - คำนึงถึง target.sizePx
-   *  - ใช้ zone_lr / zone_ud เพื่อสุ่มโซน
-   *  - หนีบไม่ให้หลุดขอบกรอบ gameplay
+   * สร้าง DOM เป้าตามข้อมูล target จาก engine._spawnTarget
+   * target: { id, type, sizePx, ... }
+   * จะอัปเดต target.x_norm / target.y_norm เป็นตำแหน่ง 0..1
    */
   spawnTarget(target) {
     if (!this.host || !target) return;
 
-    const { width, height } = this._measureHost();
+    const rect = this.host.getBoundingClientRect();
+    const size = target.sizePx || 96;
+    const radius = size / 2;
+    const margin = radius + 8; // กันหลุดขอบ + glow
 
-    const size = target.sizePx || 100;
-    const radiusX = size / 2;
-    const radiusY = size / 2;
-    const marginX = radiusX + 8; // กัน glow / stroke
-    const marginY = radiusY + 8;
+    const w = rect.width  || this.host.clientWidth  || 320;
+    const h = rect.height || this.host.clientHeight || 320;
 
-    // แบ่งจอเป็น 3x3 โซน ตาม zone_lr / zone_ud
-    const cols = 3;
-    const rows = 3;
+    const maxX = Math.max(margin, w - margin);
+    const maxY = Math.max(margin, h - margin);
 
-    const usableW = Math.max(width  - marginX * 2, 10);
-    const usableH = Math.max(height - marginY * 2, 10);
+    const x = clamp(
+      margin + Math.random() * (w - margin * 2),
+      margin,
+      maxX
+    );
+    const y = clamp(
+      margin + Math.random() * (h - margin * 2),
+      margin,
+      maxY
+    );
 
-    const cellW = usableW / cols;
-    const cellH = usableH / rows;
-
-    let colIndex = 1; // center
-    let rowIndex = 1; // middle
-
-    if (target.zone_lr === 'L') colIndex = 0;
-    else if (target.zone_lr === 'R') colIndex = 2;
-
-    if (target.zone_ud === 'U') rowIndex = 0;
-    else if (target.zone_ud === 'D') rowIndex = 2;
-
-    const xMin = marginX + colIndex * cellW;
-    const xMax = xMin + cellW;
-    const yMin = marginY + rowIndex * cellH;
-    const yMax = yMin + cellH;
-
-    let x = randRange(xMin, xMax);
-    let y = randRange(yMin, yMax);
-
-    // หนีบอีกชั้นกันหลุดเผื่อ rounding
-    x = clamp(x, marginX, width  - marginX);
-    y = clamp(y, marginY, height - marginY);
-
-    // เก็บ normalized pos ไว้ใช้ใน CSV
-    target.x_norm = clamp(x / width,  0, 1);
-    target.y_norm = clamp(y / height, 0, 1);
+    // ค่าปกติ 0..1 สำหรับงานวิจัย
+    const xNorm = w > 0 ? x / w : 0.5;
+    const yNorm = h > 0 ? y / h : 0.5;
+    target.x_norm = +xNorm.toFixed(4);
+    target.y_norm = +yNorm.toFixed(4);
 
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'sb-target sb-target--' + (target.type || 'normal');
+    el.className = 'sb-target' + (target.type ? ` sb-target--${target.type}` : '');
     el.dataset.id = String(target.id);
     el.dataset.type = target.type || 'normal';
 
+    el.style.position = 'absolute';
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
+    // ใช้ translate(-50%,-50%) จาก CSS → ให้ left/top เป็นจุดกึ่งกลาง
     el.style.left   = x + 'px';
     el.style.top    = y + 'px';
 
-    // ข้อความ/emoji ในเป้า (แล้วแต่ type)
-    let label = '●';
-    if (target.isBomb)      label = '💣';
-    else if (target.isHeal) label = '💚';
-    else if (target.isShield) label = '🛡️';
-    else if (target.isBossFace) label = '👑';
-    el.textContent = label;
-
-    const handleClick = (ev) => {
+    // handler click / touch
+    const handler = (ev) => {
       ev.preventDefault();
-      const info = {
-        clientX: ev.clientX,
-        clientY: ev.clientY
-      };
-      this.onTargetHit(target.id, info);
+      this._emitHit(target.id, ev);
     };
+    el.addEventListener('pointerdown', handler);
+    el.addEventListener('click', handler);
+
+    this.host.appendChild(el);
+    this.targets.set(target.id, el);
+  }
+
+  // ---------- REMOVE TARGET ----------
+
+  /**
+   * ลบเป้าตาม id พร้อม effect เล็กน้อย
+   * reason: 'hit' | 'timeout' | 'boss-change' | 'end' ...
+   */
+  removeTarget(id, reason = '') {
+    const el = this.targets.get(id);
+    if (!el) return;
+
+    if (reason === 'timeout') {
+      el.classList.add('sb-target--fade-timeout');
+      setTimeout(() => el.remove(), 180);
+    } else if (reason === 'boss-change' || reason === 'end') {
+      el.classList.add('sb-target--fade-soft');
+      setTimeout(() => el.remove(), 140);
+    } else {
+      el.remove();
+    }
+
+    this.targets.delete(id);
+  }
+
+  // ---------- HIT FX ----------
+
+  /**
+   * เล่น effect ตอนตีโดนเป้า:
+   *   - สั่น / scale เป้า
+   *   - popup คะแนน/emoji
+   */
+  playHitFx(id, opts = {}) {
+    const el = this.targets.get(id);
+    const host = this.host || document.body;
+    if (!host) return;
+
+    const { grade, scoreDelta, fxEmoji, clientX, clientY } = opts;
+
+    const hostRect = host.getBoundingClientRect();
+    let x = clientX;
+    let y = clientY;
+
+    if (el) {
+      // ใช้ center ของเป้าเป็นหลัก
+      const r = el.getBoundingClientRect();
+      x = r.left + r.width / 2;
+      y = r.top  + r.height / 2;
+
+      // animation ตอนโดน
+      el.classList.add('sb-target--hit');
+      setTimeout(() => {
+        if (el.isConnected) el.remove();
+      }, 120);
+
+      this.targets.delete(id);
+    } else {
+      // fallback: กลางสนาม
+      if (x == null || y == null) {
+        x = hostRect.left + hostRect.width / 2;
+        y = hostRect.top  + hostRect.height / 2;
+      }
+    }
+
+    // popup คะแนน / emoji
+    const pop = document.createElement('div');
+    pop.className = 'sb-pop';
+
+    const emoDefault =
+      fxEmoji ||
+      (grade === 'perfect' ? '💥' :
+       grade === 'good'    ? '⭐' :
+       grade === 'heal'    ? '💚' :
+       grade === 'shield'  ? '🛡️' :
+       grade === 'bomb'    ? '💣' : '💫');
+
+    if (typeof scoreDelta === 'number' && scoreDelta > 0) {
+      pop.textContent = `+${scoreDelta}`;
+    } else {
+      pop.textContent = emoDefault;
+    }
+
+    const xLocal = x - hostRect.left;
+    const yLocal = y - hostRect.top;
+    pop.style.left = xLocal + 'px';
+    pop.style.top  = yLocal + 'px';
+
+    host.appendChild(pop);
+    setTimeout(() => pop.remove(), 650);
+  }
+
+  // ---------- INTERNAL ----------
+
+  _emitHit(id, ev) {
+    if (!this.opts || typeof this.opts.onTargetHit !== 'function') return;
+    this.opts.onTargetHit(id, {
+      clientX: ev.clientX,
+      clientY: ev.clientY
+    });
+  }
+}
