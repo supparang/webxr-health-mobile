@@ -1,11 +1,15 @@
 // === js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV, 2025-12-01, fixed) ===
 'use strict';
 
+import { RbDomRenderer } from './dom-renderer-rhythm.js';
+
 (function(){
 
   // ===== CONFIG =====
   const LANES = [0,1,2,3,4];          // L2, L1, C, R1, R2
   const NOTE_EMOJI_BY_LANE = ['🎵','🎶','🎵','🎶','🎼'];
+  const renderer = new RbDomRenderer(field, { flashEl, feedbackEl, wrapEl });
+
 
   // หน้าต่างการให้คะแนนตาม offset (วินาที)
   const HIT_WINDOWS = {
