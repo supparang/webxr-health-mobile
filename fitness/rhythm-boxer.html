@@ -4,7 +4,8 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Fitness — Rhythm Boxer</title>
-    <link rel="icon" href="favicon.ico"/>
+  <meta name="color-scheme" content="light dark"/>
+  <link rel="icon" href="favicon.ico"/>
   <link rel="stylesheet" href="./css/rhythm-boxer.css"/>
 </head>
 <body>
@@ -20,7 +21,7 @@
         <h1 class="rb-title">Rhythm Boxer</h1>
         <p class="rb-subtitle">เกมชกตามจังหวะ 5 เลน + เก็บข้อมูลวิจัย</p>
       </div>
-      <a href="hub.html" class="rb-back-link">← กลับ Hub</a>
+      <a href="./hub.html" class="rb-back-link">← กลับ Hub</a>
     </header>
 
     <div class="rb-card">
@@ -37,7 +38,7 @@
       </div>
 
       <div class="rb-field-row">
-        <label>เลือกเพลง</label>
+        <label for="rb-track">เลือกเพลง</label>
         <select id="rb-track">
           <option value="t1">Warm-up Groove (ง่าย)</option>
           <option value="t2">Punch Rush (ปกติ)</option>
@@ -50,20 +51,22 @@
         <h3>ข้อมูลผู้เข้าร่วม (วิจัย)</h3>
         <div class="rb-field-row">
           <label for="rb-participant">รหัสผู้เข้าร่วม</label>
-          <input id="rb-participant" type="text" placeholder="เช่น P001">
+          <input id="rb-participant" type="text" placeholder="เช่น P001" autocomplete="off">
         </div>
         <div class="rb-field-row">
           <label for="rb-group">กลุ่ม</label>
-          <input id="rb-group" type="text" placeholder="เช่น G1 หรือ Control">
+          <input id="rb-group" type="text" placeholder="เช่น G1 หรือ Control" autocomplete="off">
         </div>
         <div class="rb-field-row">
           <label for="rb-note">บันทึก</label>
-          <input id="rb-note" type="text" placeholder="เช่น ก่อนฝึก / หลังฝึก">
+          <input id="rb-note" type="text" placeholder="เช่น ก่อนฝึก / หลังฝึก" autocomplete="off">
         </div>
       </div>
 
       <div class="rb-menu-actions">
-        <button id="rb-btn-start" class="rb-btn rb-btn-primary">เริ่มเกม</button>
+        <button id="rb-btn-start" class="rb-btn rb-btn-primary" type="button">
+          เริ่มเกม
+        </button>
       </div>
 
       <p class="rb-hint">
@@ -177,13 +180,15 @@
       </div>
 
       <!-- feedback bubble -->
-      <div id="rb-feedback" class="rb-feedback">
+      <div id="rb-feedback" class="rb-feedback" aria-live="polite">
         แตะ lane ให้ตรงเส้นแนวนอนด้านล่างตามจังหวะเพลง 🎵
       </div>
     </main>
 
     <footer class="rb-footer-play">
-      <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">หยุดก่อนเวลา</button>
+      <button id="rb-btn-stop" class="rb-btn rb-btn-ghost" type="button">
+        หยุดก่อนเวลา
+      </button>
     </footer>
   </section>
 
@@ -191,7 +196,9 @@
   <section id="rb-view-result" class="rb-view hidden">
     <header class="rb-header">
       <h2>สรุปผล Rhythm Boxer</h2>
-      <button id="rb-btn-back-menu" class="rb-btn rb-btn-ghost">← กลับเมนู</button>
+      <button id="rb-btn-back-menu" class="rb-btn rb-btn-ghost" type="button">
+        ← กลับเมนู
+      </button>
     </header>
 
     <div class="rb-card rb-result-card">
@@ -202,7 +209,9 @@
           <div class="rb-result-line">เหตุผลจบเกม: <strong id="rb-res-endreason">-</strong></div>
           <div class="rb-result-line">คะแนน: <strong id="rb-res-score">0</strong></div>
           <div class="rb-result-line">Max Combo: <strong id="rb-res-maxcombo">0</strong></div>
-          <div class="rb-result-line">Hit (P/G/Gd/M): <strong id="rb-res-detail-hit">0 / 0 / 0 / 0</strong></div>
+          <div class="rb-result-line">
+            Hit (P/G/Gd/M): <strong id="rb-res-detail-hit">0 / 0 / 0 / 0</strong>
+          </div>
         </div>
         <div>
           <div class="rb-result-line">Accuracy: <strong id="rb-res-acc">0.0 %</strong></div>
@@ -217,9 +226,15 @@
       <p id="rb-res-quality-note" class="rb-quality-note hidden"></p>
 
       <div class="rb-result-actions">
-        <button id="rb-btn-again" class="rb-btn rb-btn-primary">เล่นซ้ำเพลงเดิม</button>
-        <button id="rb-btn-dl-events" class="rb-btn rb-btn-secondary">ดาวน์โหลด Event CSV</button>
-        <button id="rb-btn-dl-sessions" class="rb-btn rb-btn-secondary">ดาวน์โหลด Session CSV</button>
+        <button id="rb-btn-again" class="rb-btn rb-btn-primary" type="button">
+          เล่นซ้ำเพลงเดิม
+        </button>
+        <button id="rb-btn-dl-events" class="rb-btn rb-btn-secondary" type="button">
+          ดาวน์โหลด Event CSV
+        </button>
+        <button id="rb-btn-dl-sessions" class="rb-btn rb-btn-secondary" type="button">
+          ดาวน์โหลด Session CSV
+        </button>
       </div>
     </div>
   </section>
