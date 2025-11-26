@@ -1,37 +1,28 @@
-// === fitness/js/rhythm-engine.js — Rhythm Boxer (FEVER + Result + FX, 2025-12-01) ===
-'use strict';
+// === js/rhythm-engine.js — Rhythm Boxer Engine (Research-ready, FX, 2025-11-30) ===
+(function () {
+  'use strict';
 
-(function(){
+  // ====== CONFIG ======
+  const LANES = [0, 1, 2, 3, 4]; // L2, L1, C, R1, R2
+  const NOTE_EMOJI_BY_LANE = ['🎵', '🎶', '🎵', '🎶', '🎼'];
 
-  // ===== CONFIG =====
-  const LANES = [0, 1, 2, 3, 4];               // L2, L1, C, R1, R2
-  const NOTE_EMOJI_BY_LANE = ['🎵','🎶','🎵','🎶','🎼'];
-
-  // หน้าต่างเวลา (วินาที) สำหรับ Perfect / Great / Good
+  // hit window (วินาที)
   const HIT_WINDOWS = {
     perfect: 0.06,
-    great  : 0.12,
-    good   : 0.20
+    great:   0.12,
+    good:    0.20
   };
-  const MISS_EXTRA = 0.05;                     // + เผื่อเวลา auto miss
 
-  const PRE_SPAWN_SEC = 2.0;                   // โน้ตออกมาก่อนถึงเส้นตี
-
-  // คะแนนต่อ hit (ถ้าอยู่ใน FEVER จะคูณเพิ่มด้านล่าง)
-  const SCORE_PER_HIT = {
-    perfect: 300,
-    great  : 220,
-    good   : 150
-  };
+  // เวลาเริ่ม spawn ก่อนถึงเส้นตี (วินาที)
+  const PRE_SPAWN_SEC = 2.0;
 
   // FEVER
-  const FEVER_GAIN = { perfect: 14, great: 10, good: 7 };
-  const FEVER_DECAY_IDLE = 10;                 // /sec ตอนยังไม่เข้า FEVER
-  const FEVER_DECAY_ACTIVE = 25;               // /sec ตอนกำลัง FEVER
-  const FEVER_THRESHOLD = 70;
-  const FEVER_MAX = 100;
+  const FEVER_GAIN = { perfect: 18, great: 12, good: 8 };
+  const FEVER_DECAY_PER_SEC = 9;
+  const FEVER_DURATION_SEC  = 5.0;
+  const FEVER_THRESHOLD     = 100;
 
-  // TRACKS (ตอนนี้มี track เดียว แต่รองรับเพิ่ม)
+  // ====== TRACKS / CHARTS ======
   const TRACKS = [
     {
       id: 't1',
@@ -40,624 +31,1105 @@
       duration: 32,
       bpm: 100,
       diff: 'easy',
-      chart: makeWarmupChart(100, 32)
+      chartBuilder: () => makeSimpleChart(100, 32, [2, 1, 3, 2, 1, 3, 2, 3])
+    },
+    {
+      id: 't2',
+      name: 'Punch Rush (ปกติ)',
+      audio: 'audio/punch-rush.mp3',
+      duration: 40,
+      bpm: 120,
+      diff: 'normal',
+      chartBuilder: () => makeSimpleChart(120, 40, [1, 2, 3, 4, 3, 2, 1, 0])
+    },
+    {
+      id: 't3',
+      name: 'Ultra Beat Combo (ยาก)',
+      audio: 'audio/ultra-combo.mp3',
+      duration: 48,
+      bpm: 135,
+      diff: 'hard',
+      chartBuilder: () => makeDenseChart(135, 48)
+    },
+    {
+      id: 'research',
+      name: 'Research Track 120 (วิจัย)',
+      audio: 'audio/research-120.mp3',
+      duration: 60,
+      bpm: 120,
+      diff: 'normal',
+      chartBuilder: () => makeResearchChart(120, 60)
     }
   ];
 
-  // ===== UTIL =====
-  const clamp = (v, a, b)=> v < a ? a : (v > b ? b : v);
-  const $      = (id)=> document.getElementById(id);
-
-  function mean(arr){
-    if(!arr.length) return 0;
-    return arr.reduce((s,v)=>s+v,0)/arr.length;
-  }
-  function std(arr){
-    if(arr.length < 2) return 0;
-    const m = mean(arr);
-    const v = arr.reduce((s,x)=>s+(x-m)*(x-m),0)/(arr.length-1);
-    return Math.sqrt(v);
+  function getTrackById(id) {
+    return TRACKS.find(t => t.id === id) || TRACKS[0];
   }
 
-  // ===== CHART GEN ตัวอย่าง =====
-  function makeWarmupChart(bpm, dur){
+  // สร้าง pattern ง่าย ๆ ตาม bpm / duration
+  function makeSimpleChart(bpm, dur, laneSeq) {
     const out = [];
     const beat = 60 / bpm;
     let t = 2.0;
-
-    const seq = [2,1,3,2,1,3,2,3];            // pattern 8 beat
-    const total = Math.floor((dur-3)/beat);
-    let i = 0;
-
-    while(t < dur-2 && i < total){
-      out.push({ time:t, lane:seq[i % seq.length], type:'note' });
+    const total = Math.floor((dur - 2.5) / beat);
+    for (let i = 0; i < total; i++) {
+      const lane = laneSeq[i % laneSeq.length];
+      out.push({ time: t, lane, kind: 'note' });
       t += beat;
-      i++;
     }
-
-    // sample HP / shield (ยังไม่ได้ใช้ mechanic พิเศษ)
-    out.push({ time:t+beat*0.5,  lane:0, type:'hp' });
-    out.push({ time:t+beat*1.5, lane:4, type:'shield' });
-
+    // แถม HP/Shield ตอนท้าย
+    out.push({ time: Math.min(dur - 4, t + beat * 0.5), lane: 0, kind: 'hp' });
+    out.push({ time: Math.min(dur - 3, t + beat * 1.5), lane: 4, kind: 'shield' });
     return out;
   }
 
-  // ===== DOM refs =====
-  let wrapEl, lanesEl, elField, hitLineEl, feedbackEl, flashEl;
-  let hudMode, hudTrack, hudScore, hudCombo, hudAcc, hudHp, hudShield, hudTime;
-  let hudPerfect, hudGreat, hudGood, hudMiss;
-  let feverFill, feverStatus, progFill, progText;
-
-  let viewMenu, viewPlay, viewResult;
-  let btnStop, btnAgain, btnBackMenu;
-
-  // ===== STATE =====
-  let score=0, combo=0, maxCombo=0;
-  let hp=100, shield=0;
-  let fever=0, feverActive=false, feverTimeTotal=0;
-  let started=false, running=false;
-  let startPerf=0, lastPerf=0, currentSongTime=0;
-  let currentMode='normal';
-  let currentTrack = TRACKS[0];
-
-  let activeNotes=[];
-  let chartIndex=0;
-
-  // สถิติวิจัย
-  let hitPerfect=0, hitGreat=0, hitGood=0, hitMiss=0;
-  let offsets=[];                              // off จากเป้าปกติ (วินาที)
-
-  // ===== INIT =====
-  function init(){
-    wrapEl      = $('rb-wrap');
-    lanesEl     = $('rb-lanes');
-    elField     = $('rb-field');
-    hitLineEl   = document.querySelector('.rb-hit-line');
-    feedbackEl  = $('rb-feedback');
-    flashEl     = $('rb-flash');
-
-    hudMode   = $('rb-hud-mode');
-    hudTrack  = $('rb-hud-track');
-    hudScore  = $('rb-hud-score');
-    hudCombo  = $('rb-hud-combo');
-    hudAcc    = $('rb-hud-acc');
-    hudHp     = $('rb-hud-hp');
-    hudShield = $('rb-hud-shield');
-    hudTime   = $('rb-hud-time');
-
-    hudPerfect = $('rb-hud-perfect');
-    hudGreat   = $('rb-hud-great');
-    hudGood    = $('rb-hud-good');
-    hudMiss    = $('rb-hud-miss');
-
-    feverFill   = $('rb-fever-fill');
-    feverStatus = $('rb-fever-status');
-    progFill    = $('rb-progress-fill');
-    progText    = $('rb-progress-text');
-
-    viewMenu   = $('rb-view-menu');
-    viewPlay   = $('rb-view-play');
-    viewResult = $('rb-view-result');
-
-    btnStop      = $('rb-btn-stop');
-    btnAgain     = $('rb-btn-again');
-    btnBackMenu  = $('rb-btn-back-menu');
-
-    const btnStart = $('rb-btn-start');
-    if(btnStart)  btnStart.addEventListener('click', startGameFromMenu);
-    if(btnStop)   btnStop.addEventListener('click', ()=> endGame('manual-stop'));
-    if(btnAgain)  btnAgain.addEventListener('click', ()=> restartSameTrack());
-    if(btnBackMenu) btnBackMenu.addEventListener('click', ()=> gotoMenu());
-
-    if(lanesEl){
-      lanesEl.addEventListener('pointerdown', onLaneTap);
+  // pattern หนาแน่นขึ้น
+  function makeDenseChart(bpm, dur) {
+    const out = [];
+    const beat = 60 / bpm;
+    let t = 2.0;
+    const total = Math.floor((dur - 3) / (beat * 0.5)); // 8th notes
+    for (let i = 0; i < total; i++) {
+      const lane = LANES[(i * 2 + (i % 3)) % LANES.length];
+      out.push({ time: t, lane, kind: 'note' });
+      if (i % 16 === 8) {
+        out.push({ time: t + beat * 0.25, lane: (lane + 1) % LANES.length, kind: 'note' });
+      }
+      t += beat * 0.5;
     }
-
-    resetHUD();
+    out.push({ time: dur - 8, lane: 1, kind: 'hp' });
+    out.push({ time: dur - 6, lane: 3, kind: 'shield' });
+    return out;
   }
 
-  // ===== GAME START / RESTART =====
-  function getTrackConfigFromMenu(){
-    const modeRadio = document.querySelector('input[name="mode"]:checked');
-    currentMode = (modeRadio && modeRadio.value === 'research') ? 'research' : 'normal';
+  // track วิจัย: pattern เรียบ ๆ
+  function makeResearchChart(bpm, dur) {
+    const out = [];
+    const beat = 60 / bpm;
+    let t = 2.0;
+    const total = Math.floor((dur - 4) / beat);
+    for (let i = 0; i < total; i++) {
+      const lane = LANES[i % LANES.length];
+      out.push({ time: t, lane, kind: 'note' });
+      t += beat;
+    }
+    return out;
+  }
 
-    const select = $('rb-track');
-    const chosen = select ? select.value : 't1';
-    const found = TRACKS.find(t=>t.id===chosen) || TRACKS[0];
-    currentTrack = found;
+  // ====== UTIL ======
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-    if(wrapEl){
-      wrapEl.setAttribute('data-diff', found.diff || 'normal');
+  function $(id) { return document.getElementById(id); }
+
+  function makeSessionId() {
+    const t = new Date();
+    return `RB-${t.getFullYear()}${String(t.getMonth() + 1).padStart(2, '0')}${String(t.getDate()).padStart(2, '0')}` +
+           `-${String(t.getHours()).padStart(2, '0')}${String(t.getMinutes()).padStart(2, '0')}${String(t.getSeconds()).padStart(2, '0')}`;
+  }
+
+  function mean(arr) {
+    if (!arr.length) return 0;
+    return arr.reduce((s, v) => s + v, 0) / arr.length;
+  }
+
+  function std(arr) {
+    if (arr.length < 2) return 0;
+    const m = mean(arr);
+    const v = arr.reduce((s, v2) => s + Math.pow(v2 - m, 2), 0) / (arr.length - 1);
+    return Math.sqrt(v);
+  }
+
+  class SimpleLogger {
+    constructor() { this.rows = []; }
+    clear() { this.rows = []; }
+    add(r) { this.rows.push(r); }
+    toCsv() {
+      if (!this.rows.length) return '';
+      const cols = Object.keys(this.rows[0]);
+      const esc = (v) => {
+        if (v == null) return '';
+        const s = String(v);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      const lines = [cols.join(',')];
+      for (const r of this.rows) {
+        lines.push(cols.map(c => esc(r[c])).join(','));
+      }
+      return lines.join('\n');
     }
   }
 
-  function startGameFromMenu(){
-    getTrackConfigFromMenu();
-    internalStartGame();
+  // ====== DOM & STATE ======
+  const dom = {};
+  const state = {
+    mode: 'normal',
+    currentTrackId: 't1',
+    currentTrack: null,
+    chart: [],
+    sessionId: '',
+    participant: '',
+    group: '',
+    noteLabel: '',
+
+    running: false,
+    started: false,
+    ended: false,
+
+    startPerf: 0,
+    lastPerf: 0,
+    songTime: 0,
+    audioStartedAt: 0,
+
+    notes: [],
+    nextNoteIndex: 0,
+    noteSeq: 0,
+
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+    hp: 100,
+    shield: 0,
+    feverGauge: 0,
+    feverOn: false,
+    feverTime: 0,
+    feverCount: 0,
+
+    countPerfect: 0,
+    countGreat: 0,
+    countGood: 0,
+    countMiss: 0,
+    totalJudgeable: 0,
+
+    offsets: [], // sec (signed)
+    endReason: '',
+    loopId: null
+  };
+
+  const logs = {
+    events: new SimpleLogger(),
+    sessions: new SimpleLogger()
+  };
+
+  // ====== INIT ======
+  function init() {
+    // views
+    dom.viewMenu   = $('rb-view-menu');
+    dom.viewPlay   = $('rb-view-play');
+    dom.viewResult = $('rb-view-result');
+
+    // menu
+    dom.trackSel   = $('rb-track');
+    dom.modeRadios = Array.from(document.querySelectorAll('input[name="mode"]'));
+    dom.btnStart   = $('rb-btn-start');
+
+    dom.researchFieldsWrap = $('rb-research-fields');
+    dom.inParticipant = $('rb-participant');
+    dom.inGroup       = $('rb-group');
+    dom.inNote        = $('rb-note');
+
+    // HUD play
+    dom.hudMode   = $('rb-hud-mode');
+    dom.hudTrack  = $('rb-hud-track');
+    dom.hudScore  = $('rb-hud-score');
+    dom.hudCombo  = $('rb-hud-combo');
+    dom.hudAcc    = $('rb-hud-acc');
+    dom.hudHp     = $('rb-hud-hp');
+    dom.hudShield = $('rb-hud-shield');
+    dom.hudTime   = $('rb-hud-time');
+
+    dom.hudPerfect = $('rb-hud-perfect');
+    dom.hudGreat   = $('rb-hud-great');
+    dom.hudGood    = $('rb-hud-good');
+    dom.hudMiss    = $('rb-hud-miss');
+
+    dom.feverFill   = $('rb-fever-fill');
+    dom.feverStatus = $('rb-fever-status');
+    dom.progressFill = $('rb-progress-fill');
+    dom.progressText = $('rb-progress-text');
+
+    dom.field   = $('rb-field');
+    dom.lanes   = $('rb-lanes');
+    dom.hitLine = document.querySelector('.rb-hit-line');
+    dom.feedback = $('rb-feedback');
+    dom.flash    = $('rb-flash');
+
+    dom.btnStop      = $('rb-btn-stop');
+    dom.btnBackMenu  = $('rb-btn-back-menu');
+    dom.btnAgain     = $('rb-btn-again');
+    dom.btnDlEvents  = $('rb-btn-dl-events');
+    dom.btnDlSessions= $('rb-btn-dl-sessions');
+
+    dom.audio = $('rb-audio');
+
+    // result
+    dom.resMode      = $('rb-res-mode');
+    dom.resTrack     = $('rb-res-track');
+    dom.resEndReason = $('rb-res-endreason');
+    dom.resScore     = $('rb-res-score');
+    dom.resMaxCombo  = $('rb-res-maxcombo');
+    dom.resDetailHit = $('rb-res-detail-hit');
+    dom.resAcc       = $('rb-res-acc');
+    dom.resOffsetAvg = $('rb-res-offset-avg');
+    dom.resOffsetStd = $('rb-res-offset-std');
+    dom.resDuration  = $('rb-res-duration');
+    dom.resParticipant = $('rb-res-participant');
+    dom.resRank      = $('rb-res-rank');
+    dom.resQuality   = $('rb-res-quality-note');
+
+    bindMenuUI();
+    bindPlayUI();
+    bindResultUI();
+
+    showView('menu');
+    updateResearchVisibility();
   }
 
-  function restartSameTrack(){
-    // เริ่มใหม่ด้วย mode/track เดิม
-    internalStartGame();
+  // ====== VIEW SWITCH ======
+  function showView(which) {
+    if (dom.viewMenu)   dom.viewMenu.classList.add('hidden');
+    if (dom.viewPlay)   dom.viewPlay.classList.add('hidden');
+    if (dom.viewResult) dom.viewResult.classList.add('hidden');
+
+    if (which === 'menu'   && dom.viewMenu)   dom.viewMenu.classList.remove('hidden');
+    if (which === 'play'   && dom.viewPlay)   dom.viewPlay.classList.remove('hidden');
+    if (which === 'result' && dom.viewResult) dom.viewResult.classList.remove('hidden');
   }
 
-  function internalStartGame(){
-    // reset core state
-    score = 0; combo = 0; maxCombo = 0;
-    hp = 100; shield = 0;
-    fever = 0; feverActive = false; feverTimeTotal = 0;
-    started = false; running = false;
-    currentSongTime = 0;
-    activeNotes = [];
-    chartIndex  = 0;
+  // ====== MENU BINDINGS ======
+  function bindMenuUI() {
+    if (dom.btnStart) {
+      dom.btnStart.addEventListener('click', () => {
+        const mode = getModeFromUI();
+        const trackId = getTrackIdFromUI(mode);
+        const meta = collectResearchMeta(mode);
+        startSession(mode, trackId, meta);
+      });
+    }
 
-    hitPerfect=hitGreat=hitGood=hitMiss=0;
-    offsets = [];
+    dom.modeRadios.forEach(r => {
+      r.addEventListener('change', updateResearchVisibility);
+    });
 
-    resetHUD();
-    updateHUD(0);
-
-    // switch view
-    if(viewMenu)   viewMenu.classList.add('hidden');
-    if(viewResult) viewResult.classList.add('hidden');
-    if(viewPlay)   viewPlay.classList.remove('hidden');
-
-    if(hudMode)  hudMode.textContent  = currentMode === 'research' ? 'Research' : 'Normal';
-    if(hudTrack) hudTrack.textContent = currentTrack.name || 'Track';
-
-    showFeedback('แตะ lane เพื่อเริ่มเพลง 🎵');
-
-    // ตั้ง progress bar เริ่ม 0
-    updateProgressBar(0);
-    updateFeverBar();
+    if (dom.trackSel) {
+      dom.trackSel.addEventListener('change', () => {
+        // ถ้าเลือก research track โดยตรง ให้ติ๊กโหมดวิจัย
+        if (dom.trackSel.value === 'research') {
+          const researchRadio = dom.modeRadios.find(r => r.value === 'research');
+          if (researchRadio) researchRadio.checked = true;
+        }
+        updateResearchVisibility();
+      });
+    }
   }
 
-  // ===== MAIN LOOP =====
-  function handleFirstTap(){
-    if(started) return;
-    started = true;
-    running = true;
-    startPerf = performance.now();
-    lastPerf  = startPerf;
-    currentSongTime = 0;
-
-    requestAnimationFrame(loop);
+  function getModeFromUI() {
+    const checked = dom.modeRadios.find(r => r.checked);
+    return checked ? checked.value : 'normal';
   }
 
-  function loop(now){
-    if(!running) return;
+  function getTrackIdFromUI(mode) {
+    if (!dom.trackSel) return 't1';
+    if (mode === 'research') {
+      return 'research';
+    }
+    return dom.trackSel.value || 't1';
+  }
 
-    const dt = (now - lastPerf) / 1000;
-    const t  = (now - startPerf) / 1000;
-    lastPerf = now;
-    currentSongTime = t;
+  function collectResearchMeta(mode) {
+    if (mode !== 'research') return { participant: '', group: '', note: '' };
+    return {
+      participant: dom.inParticipant ? dom.inParticipant.value.trim() : '',
+      group:       dom.inGroup ? dom.inGroup.value.trim() : '',
+      note:        dom.inNote ? dom.inNote.value.trim() : ''
+    };
+  }
 
-    const dur = currentTrack.duration || 30;
+  function updateResearchVisibility() {
+    const mode = getModeFromUI();
+    if (!dom.researchFieldsWrap) return;
+    if (mode === 'research') dom.researchFieldsWrap.classList.remove('hidden');
+    else dom.researchFieldsWrap.classList.add('hidden');
+  }
 
-    updateTimeline(t, dt, dur);
-    updateHUD(dt);
+  // ====== PLAY UI BINDINGS ======
+  function bindPlayUI() {
+    if (dom.lanes) {
+      dom.lanes.addEventListener('pointerdown', onLanePointerDown);
+      dom.lanes.addEventListener('click', onLanePointerDown);
+    }
+    if (dom.btnStop) {
+      dom.btnStop.addEventListener('click', () => {
+        if (state.running) {
+          finishSession('manual-stop');
+        }
+      });
+    }
+  }
 
-    if(t >= dur){
-      endGame('song-end');
+  function bindResultUI() {
+    if (dom.btnBackMenu) {
+      dom.btnBackMenu.addEventListener('click', () => {
+        showView('menu');
+      });
+    }
+    if (dom.btnAgain) {
+      dom.btnAgain.addEventListener('click', () => {
+        const meta = collectResearchMeta(state.mode);
+        startSession(state.mode, state.currentTrackId, meta);
+      });
+    }
+    if (dom.btnDlEvents) {
+      dom.btnDlEvents.addEventListener('click', () => {
+        const csv = logs.events.toCsv();
+        if (!csv) {
+          alert('ยังไม่มีข้อมูล Event CSV ลองเล่นให้จบสักรอบก่อนค่ะ');
+          return;
+        }
+        downloadCsv('rhythm-boxer-events.csv', csv);
+      });
+    }
+    if (dom.btnDlSessions) {
+      dom.btnDlSessions.addEventListener('click', () => {
+        const csv = logs.sessions.toCsv();
+        if (!csv) {
+          alert('ยังไม่มีข้อมูล Session CSV');
+          return;
+        }
+        downloadCsv('rhythm-boxer-sessions.csv', csv);
+      });
+    }
+  }
+
+  function downloadCsv(name, text) {
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ====== SESSION START ======
+  function resetState() {
+    state.running = false;
+    state.started = false;
+    state.ended   = false;
+    state.songTime = 0;
+    state.startPerf = 0;
+    state.lastPerf = 0;
+
+    state.notes = [];
+    state.nextNoteIndex = 0;
+    state.noteSeq = 0;
+
+    state.score = 0;
+    state.combo = 0;
+    state.maxCombo = 0;
+    state.hp = 100;
+    state.shield = 0;
+
+    state.feverGauge = 0;
+    state.feverOn = false;
+    state.feverTime = 0;
+    state.feverCount = 0;
+
+    state.countPerfect = 0;
+    state.countGreat = 0;
+    state.countGood = 0;
+    state.countMiss = 0;
+    state.totalJudgeable = 0;
+
+    state.offsets = [];
+    state.endReason = '';
+
+    logs.events.clear();
+    state.sessionId = makeSessionId();
+
+    if (dom.field) {
+      dom.field.classList.remove('rb-shake');
+      // ลบ note เก่าทั้งหมด
+      const oldNotes = dom.field.querySelectorAll('.rb-note');
+      oldNotes.forEach(el => el.remove());
+    }
+  }
+
+  function startSession(mode, trackId, researchMeta) {
+    resetState();
+
+    state.mode = mode || 'normal';
+    state.currentTrackId = trackId || 't1';
+    state.currentTrack   = getTrackById(state.currentTrackId);
+
+    // สร้าง chart ใหม่
+    state.chart = (state.currentTrack.chartBuilder && state.currentTrack.chartBuilder()) || [];
+    state.chart.sort((a, b) => a.time - b.time);
+    state.nextNoteIndex = 0;
+
+    state.totalJudgeable = state.chart.filter(n => n.kind === 'note').length;
+
+    // audio
+    if (dom.audio && state.currentTrack.audio) {
+      dom.audio.src = state.currentTrack.audio;
+      dom.audio.load();
+    }
+
+    // meta
+    state.participant = researchMeta && researchMeta.participant || '';
+    state.group       = researchMeta && researchMeta.group || '';
+    state.noteLabel   = researchMeta && researchMeta.note || '';
+
+    // HUD
+    if (dom.hudMode) {
+      dom.hudMode.textContent = state.mode === 'research' ? 'Research' : 'Normal';
+    }
+    if (dom.hudTrack) {
+      dom.hudTrack.textContent = state.currentTrack.name;
+    }
+
+    updateHUD(true);
+
+    showView('play');
+    showFeedback('แตะ lane ใดก็ได้เพื่อเริ่มเพลง 🎵');
+
+    state.running = false;
+    state.started = false;
+    state.ended   = false;
+
+    if (dom.field) {
+      dom.field.classList.remove('rb-shake');
+    }
+  }
+
+  // ====== MAIN LOOP ======
+  function beginPlaybackAndLoop() {
+    if (state.started) return;
+    state.started = true;
+    state.running = true;
+    state.startPerf = performance.now();
+    state.lastPerf  = state.startPerf;
+    state.songTime  = 0;
+
+    if (dom.audio) {
+      const p = dom.audio.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {/* autoplay ปล่อยผ่าน */});
+      }
+    }
+
+    state.loopId = requestAnimationFrame(loop);
+  }
+
+  function loop(now) {
+    if (!state.running) return;
+
+    const dt = (now - state.lastPerf) / 1000;
+    state.lastPerf = now;
+    state.songTime += dt;
+
+    updateTimeline(dt);
+    updateHUD();
+
+    const dur = state.currentTrack.duration || 30;
+    if (state.songTime >= dur + 0.3 || state.hp <= 0) {
+      const reason = state.hp <= 0 ? 'hp-zero' : 'song-end';
+      finishSession(reason);
       return;
     }
 
-    requestAnimationFrame(loop);
+    state.loopId = requestAnimationFrame(loop);
   }
 
-  function updateTimeline(songTime, dt, dur){
-    spawnNotes(songTime);
+  function updateTimeline(dt) {
+    const songTime = state.songTime;
+
+    // spawn notes
+    const pre = PRE_SPAWN_SEC;
+    const chart = state.chart;
+    while (
+      state.nextNoteIndex < chart.length &&
+      chart[state.nextNoteIndex].time <= songTime + pre
+    ) {
+      spawnNote(chart[state.nextNoteIndex]);
+      state.nextNoteIndex++;
+    }
+
+    // update positions
     updateNotePositions(songTime);
+
+    // auto-miss
     autoJudgeMiss(songTime);
 
-    // เส้นตี
-    if(hitLineEl){
-      const phase = (songTime * (currentTrack.bpm || 100) / 60) % 1;
-      hitLineEl.style.opacity = phase < 0.15 ? 1 : 0.6;
+    // FEVER decay
+    if (state.feverOn) {
+      state.feverTime += dt;
+      state.feverGauge = clamp(state.feverGauge - FEVER_DECAY_PER_SEC * dt * 1.4, 0, 120);
+      if (state.feverGauge <= 0) {
+        state.feverOn = false;
+      }
+    } else {
+      state.feverGauge = clamp(state.feverGauge - FEVER_DECAY_PER_SEC * dt * 0.5, 0, 120);
     }
 
-    // FEVER + Progress
-    updateFever(dt);
-    updateProgressBar(songTime / dur);
-  }
-
-  // ===== NOTE MANAGEMENT =====
-  function spawnNotes(songTime){
-    const chart = currentTrack.chart;
-    const pre   = PRE_SPAWN_SEC;
-
-    while(chartIndex < chart.length && chart[chartIndex].time <= songTime + pre){
-      createNote(chart[chartIndex]);
-      chartIndex++;
+    // timing guide effect
+    if (dom.hitLine && state.currentTrack.bpm) {
+      const phase = (songTime * state.currentTrack.bpm / 60) % 1;
+      dom.hitLine.style.opacity = phase < 0.12 ? 1 : 0.65;
     }
   }
 
-  function createNote(info){
-    const laneIndex = clamp(info.lane|0, 0, 4);
-    if(!lanesEl) return;
+  // ====== NOTES ======
+  function spawnNote(info) {
+    if (!dom.lanes) return;
 
-    const laneEl = lanesEl.querySelector(`.rb-lane[data-lane="${laneIndex}"]`);
-    if(!laneEl) return;
+    const laneIndex = clamp((info.lane | 0), 0, LANES.length - 1);
+    const laneEl = dom.lanes.querySelector(`.rb-lane[data-lane="${laneIndex}"]`);
+    if (!laneEl) return;
 
     const noteEl = document.createElement('div');
     noteEl.className = 'rb-note';
+    noteEl.dataset.kind = info.kind || 'note';
 
     const inner = document.createElement('div');
     inner.className = 'rb-note-inner';
-    inner.textContent = NOTE_EMOJI_BY_LANE[laneIndex] || '🎵';
-    noteEl.appendChild(inner);
 
+    if (info.kind === 'hp') {
+      inner.textContent = '💚';
+    } else if (info.kind === 'shield') {
+      inner.textContent = '🛡️';
+    } else {
+      inner.textContent = NOTE_EMOJI_BY_LANE[laneIndex] || '🎵';
+    }
+
+    noteEl.appendChild(inner);
     laneEl.appendChild(noteEl);
 
-    requestAnimationFrame(()=> noteEl.classList.add('rb-note-spawned'));
+    // ให้โน้ตโผล่จากด้านบน (สูงกว่ากรอบ) ลงมาเส้นตี
+    const laneRect = laneEl.getBoundingClientRect();
+    const travel = laneRect.height * 0.9; // ระยะวิ่ง
+    noteEl.style.bottom = '40px';
+    noteEl.style.transform = `translate(-50%, ${-travel}px)`;
 
-    activeNotes.push({
+    const id = ++state.noteSeq;
+    const noteObj = {
+      id,
       lane: laneIndex,
       time: info.time,
-      type: info.type || 'note',
-      el:   noteEl,
-      judged:false,
-      removed:false
+      kind: info.kind || 'note',
+      el: noteEl,
+      judged: false,
+      removed: false,
+      hit: false
+    };
+
+    state.notes.push(noteObj);
+
+    // log spawn
+    logs.events.add({
+      session_id: state.sessionId,
+      event_type: 'spawn',
+      note_id: id,
+      lane: laneIndex,
+      kind: noteObj.kind,
+      time_s: +noteObj.time.toFixed(3),
+      ts: new Date().toISOString()
     });
   }
 
-  function updateNotePositions(songTime){
-    if(!lanesEl) return;
-    const rect = lanesEl.getBoundingClientRect();
-    const h    = rect.height || 1;
-    const pre  = PRE_SPAWN_SEC;
-    const travel = h * 0.85;
+  function updateNotePositions(songTime) {
+    if (!dom.lanes) return;
+    const laneRect = dom.lanes.getBoundingClientRect();
+    const travel = laneRect.height * 0.9;
+    const pre = PRE_SPAWN_SEC;
 
-    for(const n of activeNotes){
-      if(!n.el || n.removed) continue;
-      const dt = n.time - songTime;
-      const progress = 1 - (dt / pre);              // 0 → ยังไม่มา, 1 → ถึงเส้นตี
-      const pClamp   = clamp(progress,0,1.2);
-      const y = (pClamp - 1) * travel;
+    for (const n of state.notes) {
+      if (!n.el || n.removed) continue;
+      const dt = n.time - songTime; // เหลือก่อนถึงเวลา ideal
+      const progress = 1 - (dt / pre); // 0 → 1
+      const pClamp = clamp(progress, 0, 1.25);
+      const y = (pClamp - 1) * travel; // -travel → 0
 
-      n.el.style.transform = `translateX(-50%) translateY(${y}px)`;
-      n.el.style.opacity   = (pClamp <= 1.0) ? 1 : clamp(1.2 - pClamp,0,1);
+      n.el.style.transform = `translate(-50%, ${y}px)`;
+      n.el.style.opacity = pClamp <= 0 ? 0 : 1;
     }
   }
 
-  function autoJudgeMiss(songTime){
-    const missWindow = HIT_WINDOWS.good + MISS_EXTRA;
-    for(const n of activeNotes){
-      if(n.judged) continue;
-      if(songTime > n.time + missWindow){
-        applyMiss(n, 'late');
+  function autoJudgeMiss(songTime) {
+    const missWindow = HIT_WINDOWS.good + 0.08;
+    for (const n of state.notes) {
+      if (n.judged) continue;
+      if (songTime > n.time + missWindow) {
+        applyMiss(n);
       }
     }
-    activeNotes = activeNotes.filter(n => !n.removed);
+    state.notes = state.notes.filter(n => !n.removed);
   }
 
-  // ===== INPUT / JUDGING =====
-  function onLaneTap(ev){
-    if(!running){
-      handleFirstTap();
-      return;
-    }
+  // ====== INPUT ======
+  function onLanePointerDown(ev) {
     const laneEl = ev.target.closest('.rb-lane');
-    if(!laneEl) return;
-
-    const lane = parseInt(laneEl.dataset.lane || '0',10);
-
-    const nowT = currentSongTime;
-    let best=null, bestAbs=Infinity, bestOffset=0;
-
-    for(const n of activeNotes){
-      if(n.judged || n.lane !== lane) continue;
-      const off = nowT - n.time;
-      const abs = Math.abs(off);
-      if(abs <= HIT_WINDOWS.good + 0.02 && abs < bestAbs){
-        best = n; bestAbs = abs; bestOffset = off;
-      }
-    }
-
-    if(!best){
-      // แตะว่าง ๆ ไม่ตัด HP แต่เตือนเบา ๆ ได้ถ้าต้องการ
+    if (!laneEl || !dom.lanes) {
+      if (!state.started) beginPlaybackAndLoop();
       return;
     }
 
-    let grade;
-    if(bestAbs <= HIT_WINDOWS.perfect)      grade = 'perfect';
-    else if(bestAbs <= HIT_WINDOWS.great)   grade = 'great';
-    else                                    grade = 'good';
+    const laneIndex = parseInt(laneEl.dataset.lane || '0', 10);
 
-    applyHit(best, grade, bestOffset);
-  }
-
-  function applyHit(n, grade, offset){
-    n.judged  = true;
-    n.removed = true;
-    if(n.el) n.el.remove();
-
-    const feverBoost = feverActive ? 1.3 : 1.0;
-    const base = SCORE_PER_HIT[grade] || 100;
-    const delta = Math.round(base * feverBoost);
-
-    score += delta;
-    combo++;
-    if(combo > maxCombo) maxCombo = combo;
-
-    // สถิติ
-    if(grade === 'perfect') hitPerfect++;
-    else if(grade === 'great') hitGreat++;
-    else if(grade === 'good') hitGood++;
-    offsets.push(offset);
-
-    gainFever(FEVER_GAIN[grade] || 0);
-
-    updateHUD(0);
-    setAccuracy();
-
-    showFeedback(grade === 'perfect' ? 'Perfect! 🎯' :
-                 grade === 'great'   ? 'Great! 🔥' :
-                 'Good! 🎵', 'perfect');
-
-    spawnScorePopup(n, grade, delta);
-  }
-
-  function applyMiss(n, reason){
-    n.judged  = true;
-    n.removed = true;
-    if(n.el) n.el.remove();
-
-    combo = 0;
-    hp = clamp(hp - 8, 0, 100);
-    hitMiss++;
-
-    updateHUD(0);
-    setAccuracy();
-
-    showFeedback('พลาดจังหวะ! 🎧', 'miss');
-    spawnScorePopup(n, 'miss', 0);
-
-    if(elField){
-      elField.classList.add('rb-shake');
-      setTimeout(()=> elField.classList.remove('rb-shake'), 300);
-    }
-    if(flashEl){
-      flashEl.classList.add('active');
-      setTimeout(()=> flashEl.classList.remove('active'), 120);
+    if (!state.started) {
+      beginPlaybackAndLoop();
     }
 
-    if(hp <= 0){
-      endGame('hp-zero');
-    }
+    judgeTapOnLane(laneIndex, ev);
   }
 
-  // ===== FEVER / PROGRESS =====
-  function gainFever(amount){
-    if(amount <= 0) return;
-    fever = clamp(fever + amount, 0, FEVER_MAX);
-    if(!feverActive && fever >= FEVER_THRESHOLD){
-      feverActive = true;
-      if(feverStatus){
-        feverStatus.textContent = 'FEVER!!';
-        feverStatus.classList.add('on');
+  function judgeTapOnLane(laneIndex, ev) {
+    const songTime = state.songTime;
+    let bestNote = null;
+    let bestAbsOffset = Infinity;
+
+    for (const n of state.notes) {
+      if (n.judged || n.lane !== laneIndex) continue;
+      const offset = songTime - n.time;
+      const abs = Math.abs(offset);
+      if (abs < bestAbsOffset) {
+        bestAbsOffset = abs;
+        bestNote = n;
       }
     }
-    updateFeverBar();
+
+    if (!bestNote) {
+      // กดพลาด lane – ถือเป็น miss เบา ๆ
+      shakeFieldSoft();
+      return;
+    }
+
+    const offset = songTime - bestNote.time;
+    const abs = Math.abs(offset);
+
+    let grade = 'miss';
+    if (abs <= HIT_WINDOWS.perfect) grade = 'perfect';
+    else if (abs <= HIT_WINDOWS.great) grade = 'great';
+    else if (abs <= HIT_WINDOWS.good) grade = 'good';
+
+    if (grade === 'miss') {
+      applyMiss(bestNote, offset, ev);
+    } else {
+      applyHit(bestNote, grade, offset, ev);
+    }
   }
 
-  function updateFever(dt){
-    if(feverActive){
-      fever -= FEVER_DECAY_ACTIVE * dt;
-      feverTimeTotal += dt;
-      if(fever <= 0){
-        fever = 0;
-        feverActive = false;
-        if(feverStatus){
-          feverStatus.textContent = 'Ready';
-          feverStatus.classList.remove('on');
-        }
+  // ====== HIT / MISS ======
+  function applyHit(note, grade, offsetSec, ev) {
+    note.judged = true;
+    note.hit = true;
+
+    let baseScore = 0;
+    if (note.kind === 'hp') {
+      baseScore = 80;
+    } else if (note.kind === 'shield') {
+      baseScore = 60;
+    } else {
+      baseScore =
+        grade === 'perfect' ? 120 :
+        grade === 'great'   ? 80  :
+        50;
+    }
+
+    // fever bonus
+    let scoreGain = baseScore;
+    if (state.feverOn && note.kind === 'note') {
+      scoreGain = Math.round(baseScore * 1.5);
+    }
+
+    state.score += scoreGain;
+    state.combo += 1;
+    if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+    // HP / shield effect
+    if (note.kind === 'hp') {
+      state.hp = clamp(state.hp + 15, 0, 100);
+    } else if (note.kind === 'shield') {
+      state.shield = clamp(state.shield + 1, 0, 9);
+    }
+
+    // FEVER gauge
+    if (note.kind === 'note') {
+      const add = FEVER_GAIN[grade] || 5;
+      state.feverGauge = clamp(state.feverGauge + add, 0, 140);
+      if (!state.feverOn && state.feverGauge >= FEVER_THRESHOLD) {
+        state.feverOn = true;
+        state.feverGauge = 120; // เติมเกินเล็กน้อย
+        state.feverTime = 0;
+        state.feverCount += 1;
+        showFeedback('FEVER MODE! ชกติด ๆ ให้คอมโบพุ่งเลย ⚡', 'perfect');
+        shakeFieldHard();
       }
-    }else{
-      fever -= FEVER_DECAY_IDLE * dt;
-      if(fever < 0) fever = 0;
-      if(feverStatus && fever < FEVER_THRESHOLD*0.6){
-        feverStatus.textContent = 'Ready';
-        feverStatus.classList.remove('on');
+    }
+
+    // hit stats
+    if (note.kind === 'note') {
+      state.totalJudgeable = state.totalJudgeable || 0;
+      state.offsets.push(offsetSec);
+      if (grade === 'perfect') state.countPerfect += 1;
+      else if (grade === 'great') state.countGreat += 1;
+      else if (grade === 'good') state.countGood += 1;
+    }
+
+    // effect / popup
+    showHitFX(note, grade, scoreGain, ev);
+
+    // log hit
+    logs.events.add({
+      session_id: state.sessionId,
+      event_type: 'hit',
+      note_id: note.id,
+      lane: note.lane,
+      kind: note.kind,
+      grade,
+      offset_s: +offsetSec.toFixed(4),
+      time_song_s: +state.songTime.toFixed(3),
+      combo_after: state.combo,
+      score_gain: scoreGain,
+      score_total: state.score,
+      fever_on: state.feverOn ? 1 : 0,
+      fever_gauge: +state.feverGauge.toFixed(1),
+      hp_after: state.hp,
+      shield_after: state.shield,
+      ts: new Date().toISOString()
+    });
+
+    // remove note
+    if (note.el) {
+      note.el.remove();
+    }
+    note.removed = true;
+
+    // feedback text
+    if (note.kind === 'hp') {
+      showFeedback('เติม HP แล้ว ลุยต่อ! 💚', 'good');
+    } else if (note.kind === 'shield') {
+      showFeedback('ได้ Shield เพิ่ม! ใช้กัน miss ได้ 1 ครั้ง 🛡️', 'good');
+    } else if (grade === 'perfect') {
+      showFeedback('Perfect! จังหวะเป๊ะมาก 🎯', 'perfect');
+    } else if (grade === 'great') {
+      showFeedback('Great! จังหวะดีมาก 👍', 'good');
+    } else {
+      showFeedback('Good! ลองให้เป๊ะขึ้นอีกนิดนะ 😄', 'good');
+    }
+  }
+
+  function applyMiss(note, offsetSec, ev) {
+    note.judged = true;
+    note.hit = false;
+
+    // ใช้ shield กัน miss ได้
+    let usedShield = false;
+    if (state.shield > 0 && note.kind === 'note') {
+      state.shield -= 1;
+      usedShield = true;
+    } else {
+      state.combo = 0;
+      state.hp = clamp(state.hp - 6, 0, 100);
+      state.feverGauge = clamp(state.feverGauge - 12, 0, 120);
+      state.feverOn = false;
+    }
+
+    if (note.kind === 'note') {
+      state.countMiss += 1;
+      if (!usedShield && offsetSec != null) {
+        state.offsets.push(offsetSec);
       }
     }
-    updateFeverBar();
-  }
 
-  function updateFeverBar(){
-    if(!feverFill) return;
-    const r = FEVER_MAX ? (fever/FEVER_MAX) : 0;
-    feverFill.style.transform = `scaleX(${clamp(r,0,1)})`;
-  }
+    showMissFX(note, usedShield, ev);
 
-  function updateProgressBar(norm){
-    const r = clamp(norm,0,1);
-    if(progFill) progFill.style.transform = `scaleX(${r})`;
-    if(progText) progText.textContent = Math.round(r*100) + '%';
-  }
+    logs.events.add({
+      session_id: state.sessionId,
+      event_type: 'miss',
+      note_id: note.id,
+      lane: note.lane,
+      kind: note.kind,
+      used_shield: usedShield ? 1 : 0,
+      offset_s: offsetSec != null ? +offsetSec.toFixed(4) : '',
+      time_song_s: +state.songTime.toFixed(3),
+      combo_after: state.combo,
+      score_total: state.score,
+      fever_on: state.feverOn ? 1 : 0,
+      fever_gauge: +state.feverGauge.toFixed(1),
+      hp_after: state.hp,
+      shield_after: state.shield,
+      ts: new Date().toISOString()
+    });
 
-  // ===== HUD / FEEDBACK =====
-  function resetHUD(){
-    if(hudScore)  hudScore.textContent = '0';
-    if(hudCombo)  hudCombo.textContent = '0';
-    if(hudAcc)    hudAcc.textContent   = '0.0%';
-    if(hudHp)     hudHp.textContent    = '100';
-    if(hudShield) hudShield.textContent= '0';
-    if(hudTime)   hudTime.textContent  = '0.0';
-
-    if(hudPerfect) hudPerfect.textContent = '0';
-    if(hudGreat)   hudGreat.textContent   = '0';
-    if(hudGood)    hudGood.textContent    = '0';
-    if(hudMiss)    hudMiss.textContent    = '0';
-
-    if(feverStatus){
-      feverStatus.textContent = 'FEVER';
-      feverStatus.classList.remove('on');
+    if (note.el) {
+      note.el.remove();
     }
-    updateFeverBar();
-    updateProgressBar(0);
-  }
+    note.removed = true;
 
-  function updateHUD(/*dt*/){
-    if(hudScore)  hudScore.textContent  = String(score);
-    if(hudCombo)  hudCombo.textContent  = String(combo);
-    if(hudHp)     hudHp.textContent     = String(hp);
-    if(hudShield) hudShield.textContent = String(shield);
-    if(hudTime)   hudTime.textContent   = currentSongTime.toFixed(1);
-
-    if(hudPerfect) hudPerfect.textContent = String(hitPerfect);
-    if(hudGreat)   hudGreat.textContent   = String(hitGreat);
-    if(hudGood)    hudGood.textContent    = String(hitGood);
-    if(hudMiss)    hudMiss.textContent    = String(hitMiss);
-  }
-
-  function setAccuracy(){
-    const hits = hitPerfect + hitGreat + hitGood;
-    const total = hits + hitMiss;
-    const acc = total > 0 ? (hits / total) * 100 : 0;
-    if(hudAcc) hudAcc.textContent = acc.toFixed(1) + '%';
-    return acc;
-  }
-
-  function showFeedback(msg, grade){
-    if(!feedbackEl) return;
-    feedbackEl.textContent = msg;
-    feedbackEl.classList.remove('perfect','good','miss','bomb');
-    if(grade) feedbackEl.classList.add(grade);
-  }
-
-  // ===== FX: popup + particles =====
-  function spawnHitParticlesAt(x, y, grade){
-    if(!elField) return;
-    const count  = grade === 'perfect' ? 12 : grade === 'great' ? 9 : 7;
-    const emoji  = grade === 'miss' ? '💥' : '✨';
-    const spread = grade === 'perfect' ? 32 : 26;
-
-    for(let i=0;i<count;i++){
-      const shard = document.createElement('div');
-      shard.className = 'rb-hit-particle';
-      const angle = Math.random()*Math.PI*2;
-      const dist  = spread + Math.random()*18;
-
-      shard.style.left = x + 'px';
-      shard.style.top  = y + 'px';
-      shard.style.setProperty('--dx', (Math.cos(angle)*dist)+'px');
-      shard.style.setProperty('--dy', (Math.sin(angle)*dist)+'px');
-      shard.textContent = emoji;
-
-      elField.appendChild(shard);
-      setTimeout(()=> shard.remove(), 550);
+    if (usedShield) {
+      showFeedback('พลาดไป แต่ Shield ช่วยกันไว้แล้ว 🛡️', 'good');
+    } else {
+      showFeedback('พลาดจังหวะ ลองโฟกัสที่ beat ถัดไปนะ 🎧', 'miss');
+      flashDamage();
+      shakeFieldSoft();
     }
   }
 
-  function spawnScorePopup(note, grade, scoreDelta){
-    if(!elField || !note || !note.el) return;
+  // ====== FX ======
+  function showHitFX(note, grade, scoreGain, ev) {
+    if (!dom.field) return;
+    if (!note || !note.el) return;
 
-    const noteRect  = note.el.getBoundingClientRect();
-    const fieldRect = elField.getBoundingClientRect();
+    const hostRect = dom.field.getBoundingClientRect();
+    const r = note.el.getBoundingClientRect();
+    const cx = r.left + r.width / 2 - hostRect.left;
+    const cy = r.top + r.height / 2 - hostRect.top;
 
-    const x = noteRect.left + noteRect.width/2  - fieldRect.left;
-    const y = noteRect.top  + noteRect.height/2 - fieldRect.top - 4;
-
+    // score popup
     const pop = document.createElement('div');
     pop.className = 'rb-score-popup';
 
+    if (grade === 'perfect') pop.classList.add('rb-score-perfect');
+    else if (grade === 'great') pop.classList.add('rb-score-great');
+    else if (grade === 'good') pop.classList.add('rb-score-good');
+    else if (grade === 'miss') pop.classList.add('rb-score-miss');
+
     let label = '';
-    if(grade === 'perfect'){
-      pop.classList.add('rb-score-perfect');
-      label = `PERFECT +${scoreDelta}`;
-    }else if(grade === 'great'){
-      pop.classList.add('rb-score-great');
-      label = `GREAT +${scoreDelta}`;
-    }else if(grade === 'good'){
-      pop.classList.add('rb-score-good');
-      label = `GOOD +${scoreDelta}`;
-    }else if(grade === 'miss'){
-      pop.classList.add('rb-score-miss');
-      label = 'MISS';
-    }else{
-      label = `+${scoreDelta}`;
-    }
+    if (grade === 'perfect') label = `PERFECT +${scoreGain}`;
+    else if (grade === 'great') label = `GREAT +${scoreGain}`;
+    else if (grade === 'good') label = `GOOD +${scoreGain}`;
+    else label = `+${scoreGain}`;
 
     pop.textContent = label;
-    pop.style.left  = x + 'px';
-    pop.style.top   = y + 'px';
+    pop.style.left = cx + 'px';
+    pop.style.top  = cy + 'px';
+    pop.style.bottom = 'auto';
+    pop.style.transform = 'translate(-50%, -50%)';
 
-    elField.appendChild(pop);
-    setTimeout(()=> pop.remove(), 600);
+    dom.field.appendChild(pop);
+    // animation controlled by CSS keyframes rb-score-pop
+    setTimeout(() => {
+      if (pop.parentNode) pop.parentNode.removeChild(pop);
+    }, 650);
 
-    spawnHitParticlesAt(x, y, grade);
+    // particles ใช้ emoji ต่างตาม grade
+    const emoji =
+      grade === 'perfect' ? '💥' :
+      grade === 'great'   ? '✨' :
+      grade === 'good'    ? '⭐' : '🎵';
+
+    if (window.RbParticles && typeof window.RbParticles.burstHit === 'function') {
+      window.RbParticles.burstHit(dom.field, { x: cx, y: cy }, {
+        emoji,
+        count: grade === 'perfect' ? 12 : 8
+      });
+    }
   }
 
-  // ===== END GAME / RESULT =====
-  function endGame(reason){
-    if(!started) return;
-    running = false;
+  function showMissFX(note, usedShield, ev) {
+    if (!dom.field || !note || !note.el) return;
+    const hostRect = dom.field.getBoundingClientRect();
+    const r = note.el.getBoundingClientRect();
+    const cx = r.left + r.width / 2 - hostRect.left;
+    const cy = r.top + r.height / 2 - hostRect.top;
 
-    // คำนวณ Accuracy / Offset
-    const acc = setAccuracy();
-    const mOffset = mean(offsets);
-    const sOffset = std(offsets);
+    const pop = document.createElement('div');
+    pop.className = 'rb-score-popup rb-score-miss';
+    pop.style.left = cx + 'px';
+    pop.style.top  = cy + 'px';
+    pop.style.bottom = 'auto';
+    pop.style.transform = 'translate(-50%, -50%)';
+    pop.textContent = usedShield ? 'SHIELD' : 'MISS';
+    dom.field.appendChild(pop);
+    setTimeout(() => pop.remove(), 650);
 
-    // เติมข้อมูลหน้า RESULT
-    if(viewPlay)   viewPlay.classList.add('hidden');
-    if(viewResult) viewResult.classList.remove('hidden');
-
-    const resMode   = $('rb-res-mode');
-    const resTrack  = $('rb-res-track');
-    const resReason = $('rb-res-endreason');
-    const resScore  = $('rb-res-score');
-    const resMaxC   = $('rb-res-maxcombo');
-    const resHit    = $('rb-res-detail-hit');
-    const resAcc    = $('rb-res-acc');
-    const resOffM   = $('rb-res-offset-avg');
-    const resOffS   = $('rb-res-offset-std');
-    const resDur    = $('rb-res-duration');
-    const resPart   = $('rb-res-participant');
-    const resRank   = $('rb-res-rank');
-
-    if(resMode)  resMode.textContent  = currentMode === 'research' ? 'Research' : 'Normal';
-    if(resTrack) resTrack.textContent = currentTrack.name || 'Track';
-
-    let reasonText = '-';
-    if(reason === 'song-end')   reasonText = 'เพลงจบ';
-    else if(reason === 'hp-zero')   reasonText = 'HP หมด';
-    else if(reason === 'manual-stop') reasonText = 'หยุดก่อนเวลา';
-    if(resReason) resReason.textContent = reasonText;
-
-    if(resScore)  resScore.textContent  = String(score);
-    if(resMaxC)   resMaxC.textContent   = String(maxCombo);
-    if(resHit)    resHit.textContent    =
-      `${hitPerfect} / ${hitGreat} / ${hitGood} / ${hitMiss}`;
-    if(resAcc)    resAcc.textContent    = acc.toFixed(1) + ' %';
-    if(resOffM)   resOffM.textContent   = offsets.length ? mOffset.toFixed(3) : '-';
-    if(resOffS)   resOffS.textContent   = offsets.length ? sOffset.toFixed(3) : '-';
-    if(resDur)    resDur.textContent    = currentSongTime.toFixed(1) + ' s';
-
-    if(resPart)   resPart.textContent   = '-';   // ไว้เชื่อมฟอร์มวิจัยทีหลัง
-
-    // grade rank
-    let rank = '-';
-    if(acc >= 95 && hitPerfect > 0)      rank = 'SSS';
-    else if(acc >= 90)                   rank = 'SS';
-    else if(acc >= 80)                   rank = 'S';
-    else if(acc >= 70)                   rank = 'A';
-    else if(acc >= 60)                   rank = 'B';
-    else                                 rank = 'C';
-    if(resRank)  resRank.textContent = rank;
+    if (!usedShield && window.RbParticles && window.RbParticles.burstHit) {
+      window.RbParticles.burstHit(dom.field, { x: cx, y: cy }, {
+        emoji: '💣',
+        count: 10
+      });
+    }
   }
 
-  function gotoMenu(){
-    if(viewResult) viewResult.classList.add('hidden');
-    if(viewPlay)   viewPlay.classList.add('hidden');
-    if(viewMenu)   viewMenu.classList.remove('hidden');
+  function shakeFieldSoft() {
+    if (!dom.field) return;
+    dom.field.classList.add('rb-shake');
+    setTimeout(() => dom.field && dom.field.classList.remove('rb-shake'), 260);
+  }
+  function shakeFieldHard() {
+    if (!dom.field) return;
+    dom.field.classList.add('rb-shake');
+    setTimeout(() => dom.field && dom.field.classList.remove('rb-shake'), 420);
   }
 
-  // ===== BOOT =====
-  if(document.readyState === 'loading'){
+  function flashDamage() {
+    if (!dom.flash) return;
+    dom.flash.classList.add('active');
+    setTimeout(() => dom.flash && dom.flash.classList.remove('active'), 120);
+  }
+
+  function showFeedback(text, tone) {
+    if (!dom.feedback) return;
+    dom.feedback.textContent = text;
+    dom.feedback.className = 'rb-feedback';
+    if (tone === 'perfect') dom.feedback.classList.add('perfect');
+    else if (tone === 'good') dom.feedback.classList.add('good');
+    else if (tone === 'miss') dom.feedback.classList.add('miss');
+    else if (tone === 'bomb') dom.feedback.classList.add('bomb');
+  }
+
+  // ====== HUD / RESULT ======
+  function updateHUD(resetStats) {
+    const hits = state.countPerfect + state.countGreat + state.countGood;
+    const total = hits + state.countMiss;
+    const acc = total ? (hits / total) * 100 : 0;
+
+    if (dom.hudScore) dom.hudScore.textContent = state.score;
+    if (dom.hudCombo) dom.hudCombo.textContent = state.combo;
+    if (dom.hudHp) dom.hudHp.textContent = state.hp;
+    if (dom.hudShield) dom.hudShield.textContent = state.shield;
+    if (dom.hudTime) dom.hudTime.textContent = state.songTime.toFixed(1);
+    if (dom.hudAcc) dom.hudAcc.textContent = acc.toFixed(1) + '%';
+
+    if (dom.hudPerfect) dom.hudPerfect.textContent = state.countPerfect;
+    if (dom.hudGreat)   dom.hudGreat.textContent   = state.countGreat;
+    if (dom.hudGood)    dom.hudGood.textContent    = state.countGood;
+    if (dom.hudMiss)    dom.hudMiss.textContent    = state.countMiss;
+
+    const dur = state.currentTrack ? state.currentTrack.duration : 30;
+    const prog = clamp(state.songTime / dur, 0, 1);
+    if (dom.progressFill) {
+      dom.progressFill.style.transform = `scaleX(${prog})`;
+    }
+    if (dom.progressText) {
+      dom.progressText.textContent = Math.round(prog * 100) + '%';
+    }
+
+    const fg = clamp(state.feverGauge, 0, 120) / 100;
+    if (dom.feverFill) {
+      dom.feverFill.style.transform = `scaleX(${fg})`;
+    }
+    if (dom.feverStatus) {
+      dom.feverStatus.textContent = state.feverOn ? 'FEVER' : 'Ready';
+      dom.feverStatus.classList.toggle('on', state.feverOn);
+    }
+  }
+
+  function finishSession(reason) {
+    if (state.ended) return;
+    state.ended = true;
+    state.running = false;
+    state.endReason = reason || 'unknown';
+
+    if (state.loopId != null) {
+      cancelAnimationFrame(state.loopId);
+      state.loopId = null;
+    }
+
+    if (dom.audio) {
+      dom.audio.pause();
+      dom.audio.currentTime = 0;
+    }
+
+    // ลบ note ทั้งหมด
+    for (const n of state.notes) {
+      if (n.el) n.el.remove();
+      n.removed = true;
+    }
+    state.notes = [];
+
+    const hits = state.countPerfect + state.countGreat + state.countGood;
+    const total = hits + state.countMiss;
+    const acc = total ? (hits / total) * 100 : 0;
+    const duration = state.songTime;
+
+    const m = mean(state.offsets);
+    const s = std(state.offsets);
+
+    const rank =
+      acc >= 95 && state.score >= 8000 ? 'SSS' :
+      acc >= 90 && state.score >= 6500 ? 'SS'  :
+      acc >= 85 && state.score >= 5000 ? 'S'   :
+      acc >= 75 ? 'A' :
+      acc >= 60 ? 'B' :
+      acc >= 45 ? 'C' : 'D';
+
+    // session log row
+    logs.sessions.add({
+      session_id: state.sessionId,
+      mode: state.mode,
+      track_id: state.currentTrackId,
+      track_name: state.currentTrack ? state.currentTrack.name : '',
+      end_reason: state.endReason,
+      duration_s: +duration.toFixed(3),
+      score: state.score,
+      rank,
+      acc_pct: +acc.toFixed(1),
+      perfect: state.countPerfect,
+      great: state.countGreat,
+      good: state.countGood,
+      miss: state.countMiss,
+      max_combo: state.maxCombo,
+      fever_count: state.feverCount,
+      fever_time_s: +state.feverTime.toFixed(2),
+      hp_final: state.hp,
+      shield_final: state.shield,
+      offset_mean_s: +m.toFixed(4),
+      offset_sd_s: +s.toFixed(4),
+      participant: state.participant || '',
+      group: state.group || '',
+      note_label: state.noteLabel || '',
+      ts_end: new Date().toISOString()
+    });
+
+    // update result view
+    if (dom.resMode) dom.resMode.textContent = state.mode === 'research' ? 'โหมดวิจัย' : 'โหมดปกติ';
+    if (dom.resTrack) dom.resTrack.textContent = state.currentTrack ? state.currentTrack.name : '-';
+    if (dom.resEndReason) {
+      const map = {
+        'song-end': 'เพลงจบ',
+        'hp-zero': 'พลังชีวิตหมด',
+        'manual-stop': 'หยุดก่อนเวลา'
+      };
+      dom.resEndReason.textContent = map[state.endReason] || state.endReason;
+    }
+    if (dom.resScore) dom.resScore.textContent = state.score;
+    if (dom.resMaxCombo) dom.resMaxCombo.textContent = state.maxCombo;
+    if (dom.resDetailHit) {
+      dom.resDetailHit.textContent =
+        `${state.countPerfect} / ${state.countGreat} / ${state.countGood} / ${state.countMiss}`;
+    }
+    if (dom.resAcc) dom.resAcc.textContent = acc.toFixed(1) + ' %';
+    if (dom.resOffsetAvg) {
+      dom.resOffsetAvg.textContent = state.offsets.length ? m.toFixed(3) + ' s' : '-';
+    }
+    if (dom.resOffsetStd) {
+      dom.resOffsetStd.textContent = state.offsets.length ? s.toFixed(3) + ' s' : '-';
+    }
+    if (dom.resDuration) dom.resDuration.textContent = duration.toFixed(1) + ' s';
+    if (dom.resParticipant) dom.resParticipant.textContent = state.participant || '-';
+    if (dom.resRank) dom.resRank.textContent = rank;
+
+    if (dom.resQuality) {
+      dom.resQuality.classList.add('hidden');
+      if (acc >= 90 && state.maxCombo >= 30) {
+        dom.resQuality.textContent = 'ข้อมูลคุณภาพสูงมาก เหมาะสำหรับใช้เป็น baseline ในงานวิจัย ✅';
+        dom.resQuality.classList.remove('hidden');
+      } else if (acc < 60 || state.hp < 20) {
+        dom.resQuality.textContent = 'รอบนี้อาจใช้ซ้อมมากกว่าทดสอบจริง (Accuracy ต่ำ/HP ใกล้หมด) 📝';
+        dom.resQuality.classList.remove('hidden');
+      }
+    }
+
+    showView('result');
+  }
+
+  // ====== BOOT ======
+  if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
-  }else{
+  } else {
     init();
   }
-
 })();
