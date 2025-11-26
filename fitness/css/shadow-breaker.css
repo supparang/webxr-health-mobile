@@ -383,38 +383,36 @@ body {
 
 /* HUD ด้านบน */
 
+/* ===== HUD ด้านบน ===== */
 .hud {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 16px;
-  padding: 8px 10px;
-  background: radial-gradient(circle at 0% 0%, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.85));
-  border-radius: 999px;
-  border: 1px solid rgba(30, 64, 175, 0.9);
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.9);
-  flex-shrink: 0;
+  margin-bottom: 10px;
 }
 
 .stat-left {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex: 1;
   min-width: 0;
 }
 
 .hp-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .hp-label {
   font-size: 11px;
-  letter-spacing: 0.12em;
-  opacity: 0.7;
-  min-width: 54px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  min-width: 52px;
 }
 
+/* แท่ง HP */
 .hp-bar {
   flex: 1;
   height: 10px;
@@ -424,13 +422,13 @@ body {
   border: 1px solid rgba(30, 64, 175, 0.9);
 }
 
-/* แก้ใหม่ */
+/* ตรงนี้สำคัญมาก */
 .hp-bar .bar {
   height: 100%;
-  width: 100%;                  /* เดิมเป็น 0% เลยไม่เห็นอะไร */
+  width: 100%;                 /* ต้องเต็ม 100% */
   transform-origin: left center;
-  transform: scaleX(1);         /* เริ่มเต็มหลอด */
-  transition: transform 0.16s ease-out;
+  transform: scaleX(1);        /* เริ่มเต็มหลอด */
+  transition: transform 0.18s ease-out;
 }
 
 .hp-bar .green {
@@ -438,28 +436,32 @@ body {
 }
 
 .hp-bar .red {
-  background: linear-gradient(90deg, #f97316, #ef4444);
+  background: linear-gradient(90deg, #fb923c, #ef4444);
 }
 
-
+/* HUD ด้านขวา */
 .stat-right {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  text-transform: uppercase;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .stat-item {
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(75, 85, 99, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #e5e7eb;
+  background: radial-gradient(circle at top, rgba(56, 189, 248, .09), transparent 55%);
 }
+
 .stat-item span {
   font-weight: 600;
   margin-left: 4px;
 }
+
 
 /* Boss portrait */
 
