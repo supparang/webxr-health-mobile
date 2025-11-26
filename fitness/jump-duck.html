@@ -3,78 +3,192 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Jump-Duck — VR Fitness</title>
+  <title>Jump-Duck — VR Fitness Academy</title>
   <link rel="icon" href="favicon.ico"/>
-  <link rel="stylesheet" href="hub.css"/>
-  <style>
-    .jd-wrap{
-      max-width:900px;
-      margin:20px auto 32px;
-      padding:0 16px 24px;
-      color:#e5e7eb;
-    }
-    .jd-header{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:center;
-      margin-bottom:12px;
-    }
-    .jd-title-block h1{margin:0 0 4px;font-size:24px;}
-    .jd-sub{margin:0;font-size:13px;opacity:.82;}
-    .jd-back{color:#e5e7eb;text-decoration:none;
-      border-radius:999px;padding:6px 12px;
-      border:1px solid rgba(148,163,184,0.7);
-      background:rgba(15,23,42,0.96);}
-    .jd-card{
-      border-radius:22px;
-      padding:18px 16px 20px;
-      background:
-        radial-gradient(circle at top left,rgba(56,189,248,0.22),transparent 55%),
-        radial-gradient(circle at bottom right,rgba(236,72,153,0.20),transparent 55%),
-        rgba(15,23,42,0.96);
-      box-shadow:0 22px 54px rgba(15,23,42,0.96);
-      font-size:14px;
-    }
-    .jd-placeholder{
-      margin-top:10px;
-      padding:16px 12px;
-      border-radius:18px;
-      background:rgba(15,23,42,0.96);
-      border:1px dashed rgba(148,163,184,0.7);
-      text-align:center;
-      font-size:13px;
-      opacity:.92;
-    }
-  </style>
+  <!-- ใช้สไตล์ของ Jump-Duck (ชุดที่เขียนไว้ท้ายข้อความของคุณ) -->
+  <link rel="stylesheet" href="css/jump-duck.css"/>
 </head>
 <body>
-  <main class="jd-wrap">
-    <header class="jd-header">
-      <div class="jd-title-block">
-        <h1>Jump-Duck</h1>
-        <p class="jd-sub">ต้นแบบเกมกระโดด-ก้มหลบสิ่งกีดขวาง (ยังไม่เชื่อม engine เต็ม)</p>
-      </div>
-      <a href="hub.html" class="jd-back">⬅ กลับ HUB</a>
-    </header>
-
-    <section class="jd-card">
-      <p>
-        หน้านี้เป็น <strong>placeholder</strong> สำหรับเกม Jump-Duck ในชุด VR Fitness Academy<br/>
-        อาจารย์สามารถนำโค้ด engine ของ Jump-Duck ที่เคยพัฒนาไว้
-        มาเชื่อมต่อกับหน้านี้ภายหลังได้เลย (เช่น <code>js/jump-duck-engine.js</code>).
+  <div id="jd-app">
+    <!-- ===== VIEW: MENU ===== -->
+    <section id="view-menu" class="jd-view">
+      <h1 class="jd-title">
+        <span>🦘 Jump-Duck</span>
+      </h1>
+      <p class="jd-subtitle">
+        เกมฝึกกระโดด-ก้มหลบสิ่งกีดขวาง เพื่อความคล่องตัว แกนกลางลำตัว และการทรงตัว
       </p>
-      <ol>
-        <li>กำหนด logic การ spawn สิ่งกีดขวาง (jump / duck)</li>
-        <li>เชื่อมกับปุ่ม/gesture จาก VR controller หรือการแตะจอ</li>
-        <li>เก็บสถิติเวลา reaction, จำนวน miss, combo</li>
-      </ol>
 
-      <div class="jd-placeholder">
-        Prototype only — ยังไม่ใช่ build สุดท้ายของเกม Jump-Duck<br/>
-        (ใช้สำหรับทดสอบ flow ของ Hub ก่อน)
+      <div class="jd-field">
+        <label for="jd-diff">ระดับความยาก</label>
+        <select id="jd-diff">
+          <option value="easy">Easy — จังหวะช้า เน้นทำให้ถูก</option>
+          <option value="normal" selected>Normal — สมดุลระหว่างความเร็วและความท้าทาย</option>
+          <option value="hard">Hard — เร็วและท้าทายมาก</option>
+        </select>
+      </div>
+
+      <div class="jd-field">
+        <label for="jd-duration">ระยะเวลาเล่นต่อรอบ</label>
+        <select id="jd-duration">
+          <option value="45">45 วินาที</option>
+          <option value="60" selected>60 วินาที</option>
+          <option value="90">90 วินาที</option>
+        </select>
+      </div>
+
+      <div class="jd-howto-block">
+        <h3 class="jd-howto-title">วิธีการเล่น</h3>
+        <ul class="jd-howto-list">
+          <li>แบ่งหน้าจอเป็น 2 ส่วน: ด้านบน = Jump, ด้านล่าง = Duck</li>
+          <li>สิ่งกีดขวางเตี้ย (low) → ต้อง <strong>Jump</strong> ข้าม</li>
+          <li>สิ่งกีดขวางสูง (high) → ต้อง <strong>Duck</strong> ก้มหลบ</li>
+          <li>เล่นบนคีย์บอร์ดได้ด้วย: ⬆ = Jump, ⬇ = Duck</li>
+        </ul>
+      </div>
+
+      <p class="jd-howto-inline">
+        ในโหมด VR ให้ผู้เล่นขยับตัวกระโดด/ก้มจริง แล้วครูหรือผู้ช่วยกด Jump / Duck บนจอควบคู่ไปกับจังหวะ
+      </p>
+
+      <div class="jd-btn-row">
+        <button class="jd-btn jd-btn-primary" data-action="start">
+          ▶ เริ่มเล่น Jump-Duck
+        </button>
+      </div>
+
+      <div class="jd-btn-row jd-btn-row-secondary">
+        <a href="hub.html" class="jd-btn">
+          ⬅ กลับ VR Fitness Hub
+        </a>
       </div>
     </section>
-  </main>
+
+    <!-- ===== VIEW: PLAY ===== -->
+    <section id="view-play" class="jd-view jd-hidden">
+      <h2 class="jd-section-title">โหมดเล่น Jump-Duck</h2>
+
+      <!-- HUD แถวบน -->
+      <div class="jd-hud-row">
+        <div class="jd-hud-chip">
+          Mode: <strong id="hud-mode">Play</strong>
+        </div>
+        <div class="jd-hud-chip">
+          Diff: <strong id="hud-diff">normal</strong>
+        </div>
+        <div class="jd-hud-chip">
+          Duration: <strong id="hud-duration">60s</strong>
+        </div>
+      </div>
+
+      <!-- HUD แถวล่าง -->
+      <div class="jd-hud-row">
+        <div class="jd-hud-chip">
+          Stability: <strong id="hud-stability">100%</strong>
+        </div>
+        <div class="jd-hud-chip">
+          Obstacles: <strong id="hud-obstacles">0 / 0</strong>
+        </div>
+        <div class="jd-hud-chip">
+          Score: <strong id="hud-score">0</strong>
+        </div>
+        <div class="jd-hud-chip">
+          Combo: <strong id="hud-combo">0</strong>
+        </div>
+        <div class="jd-hud-chip">
+          Time left: <strong id="hud-time">60.0</strong>s
+        </div>
+      </div>
+
+      <!-- พื้นที่เล่น -->
+      <div id="jd-play-area" class="jd-play-area">
+        <div class="jd-track">
+          <div class="jd-ground"></div>
+        </div>
+
+        <!-- Avatar ผู้เล่น -->
+        <div id="jd-avatar" class="jd-avatar">
+          <div class="jd-avatar-emoji">🧍‍♂️</div>
+        </div>
+
+        <!-- สิ่งกีดขวาง -->
+        <div id="jd-obstacles" class="jd-obstacles"></div>
+
+        <!-- ข้อความ Judge (GOOD / MISS / COMBO) -->
+        <div id="jd-judge" class="jd-judge">READY</div>
+      </div>
+
+      <div class="jd-howto-inline">
+        แตะครึ่งบนของจอ = Jump · แตะครึ่งล่าง = Duck · หรือใช้ปุ่ม ⬆ / ⬇ บนคีย์บอร์ดก็ได้
+      </div>
+
+      <div class="jd-btn-row">
+        <button class="jd-btn jd-btn-primary" data-action="stop-early">
+          ⏹ หยุดก่อนเวลา
+        </button>
+        <a href="hub.html" class="jd-btn">
+          ⬅ กลับ Hub
+        </a>
+      </div>
+    </section>
+
+    <!-- ===== VIEW: RESULT ===== -->
+    <section id="view-result" class="jd-view jd-hidden">
+      <h2 class="jd-section-title">📊 สรุปผล Jump-Duck</h2>
+
+      <div class="jd-result-grid">
+        <div class="jd-result-row">
+          <span>Mode</span><b id="res-mode">Play</b>
+        </div>
+        <div class="jd-result-row">
+          <span>Difficulty</span><b id="res-diff">normal</b>
+        </div>
+        <div class="jd-result-row">
+          <span>Duration</span><b id="res-duration">60s</b>
+        </div>
+        <div class="jd-result-row">
+          <span>Obstacles ทั้งหมด</span><b id="res-total-obs">0</b>
+        </div>
+        <div class="jd-result-row">
+          <span>Hits</span><b id="res-hits">0</b>
+        </div>
+        <div class="jd-result-row">
+          <span>Miss</span><b id="res-miss">0</b>
+        </div>
+        <div class="jd-result-row">
+          <span>Accuracy</span><b id="res-acc">0.0 %</b>
+        </div>
+        <div class="jd-result-row">
+          <span>RT เฉลี่ย</span><b id="res-rt-mean">-</b>
+        </div>
+        <div class="jd-result-row">
+          <span>Stability ต่ำสุด</span><b id="res-stability-min">0.0 %</b>
+        </div>
+        <div class="jd-result-row">
+          <span>Score</span><b id="res-score">0</b>
+        </div>
+        <div class="jd-result-row">
+          <span>Rank</span><b id="res-rank">C</b>
+        </div>
+      </div>
+
+      <p class="jd-note">
+        ค่าพวกนี้สามารถใช้เป็นตัวชี้วัดสมรรถภาพการทรงตัว / การตอบสนอง และใช้เปรียบเทียบรอบก่อน-หลังการฝึกได้
+      </p>
+
+      <div class="jd-btn-row">
+        <button class="jd-btn jd-btn-primary" data-action="play-again">
+          🔁 เล่นอีกครั้ง
+        </button>
+      </div>
+      <div class="jd-btn-row jd-btn-row-secondary">
+        <button class="jd-btn" data-action="back-menu">🏠 กลับเมนู Jump-Duck</button>
+        <a href="hub.html" class="jd-btn">⬅ กลับ Hub</a>
+      </div>
+    </section>
+  </div>
+
+  <!-- JS engine ที่คุณมีอยู่แล้ว -->
+  <script src="js/jump-duck.js"></script>
 </body>
 </html>
