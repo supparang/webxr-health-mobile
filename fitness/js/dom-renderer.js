@@ -1,8 +1,6 @@
 // === js/dom-renderer.js — Shadow Breaker DOM target renderer (2025-11-30b) ===
 'use strict';
 
-import { spawnHitParticle } from './particle.js';
-
 export class DomRenderer {
   constructor(field, opts = {}) {
     this.field = field || document.body;
@@ -16,9 +14,6 @@ export class DomRenderer {
   }
 
   _ensureFieldRect() {
-    if (!this.field) {
-      return { width: 1, height: 1, left: 0, top: 0 };
-    }
     const rect = this.field.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) {
       return {
@@ -31,36 +26,28 @@ export class DomRenderer {
     return rect;
   }
 
-  // ===================== SPAWN TARGET =====================
-  // สุ่มเป้าให้อยู่ "ในกรอบสนามจริง" ไม่หลุดขอบ
+  // สุ่มตำแหน่งเป้าในสนาม + ไม่หลุดขอบ
   spawnTarget(t) {
     if (!this.field || !t) return;
 
     const rect = this._ensureFieldRect();
+    const size = t.sizePx || 120;
+    const margin = size * 0.5 + 8;
+
     const w = rect.width;
     const h = rect.height;
 
-    const size = t.sizePx || 120;
+    const minX = margin;
+    const maxX = Math.max(margin, w - margin);
+    const minY = margin;
+    const maxY = Math.max(margin, h - margin);
 
-    // buffer สำหรับขอบใน + ring (::before inset -6px) + shadow
-    const padding = 12;      // ห่างขอบใน
-    const ringPad = 8;       // พื้นที่ให้ ring/เงาไม่โดนตัด
-    const pad = padding + ringPad;
+    const x = minX + Math.random() * (maxX - minX);
+    const y = minY + Math.random() * (maxY - minY);
 
-    // x,y ที่นี่คือ "left/top" ของปุ่ม ไม่ใช่ center
-    const minX = pad;
-    const minY = pad;
-    const maxX = Math.max(minX, w - size - pad);
-    const maxY = Math.max(minY, h - size - pad);
-
-    const left = minX + Math.random() * (maxX - minX || 1);
-    const top  = minY + Math.random() * (maxY - minY || 1);
-
-    // เก็บตำแหน่งศูนย์กลางแบบ 0..1 ไว้ให้ engine / CSV
-    const cx = left + size / 2;
-    const cy = top  + size / 2;
-    t.x_norm = +(cx / w).toFixed(4);
-    t.y_norm = +(cy / h).toFixed(4);
+    // เก็บค่าปกติ 0..1 ไว้ให้ engine log ลง CSV
+    t.x_norm = +(x / w).toFixed(4);
+    t.y_norm = +(y / h).toFixed(4);
 
     const el = document.createElement('button');
     el.type = 'button';
@@ -71,11 +58,18 @@ export class DomRenderer {
     el.style.position = 'absolute';
     el.style.width = size + 'px';
     el.style.height = size + 'px';
-    el.style.left = left + 'px';
-    el.style.top  = top + 'px';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.transform = 'translate(-50%, -50%)';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
+
+    // 🔎 ขยาย emoji ตามขนาดเป้า (ใหญ่ขึ้นชัดเจน)
+    // 0.6–0.7 ของเส้นผ่านศูนย์กลางจะดูเต็มแต่ไม่ล้น
+    const emojiFontPx = Math.round(size * 0.65);
+    inner.style.fontSize = emojiFontPx + 'px';
+
     inner.textContent = this._emojiFor(t);
     el.appendChild(inner);
 
@@ -89,7 +83,7 @@ export class DomRenderer {
       }
     };
 
-    // รองรับ pointer / click (เมาส์, touch, VR pointer)
+    // รองรับทั้ง pointer / click
     el.addEventListener('pointerdown', handleHit);
     el.addEventListener('click', handleHit);
 
@@ -124,24 +118,24 @@ export class DomRenderer {
     this.targets.delete(id);
   }
 
-  // ===================== HIT FX =====================
-  // เอฟเฟกต์คะแนน + เป้าแตก + particle ที่จุดเป้า
+  // เอฟเฟ็กต์คะแนน + ชิ้นเป้าแตก ที่ "จุดกลางของเป้า"
   playHitFx(id, info = {}) {
     if (!this.field) return;
-
     const hostRect = this._ensureFieldRect();
+
     let screenX = info.clientX ?? null;
     let screenY = info.clientY ?? null;
 
+    // fallback: เอาจุดกลางของ DOM เป้า
     const targetEl = this.targets.get(id);
     if ((screenX == null || screenY == null) && targetEl) {
       const r = targetEl.getBoundingClientRect();
       screenX = r.left + r.width / 2;
-      screenY = r.top  + r.height / 2;
+      screenY = r.top + r.height / 2;
     }
+
     if (screenX == null || screenY == null) return;
 
-    // แปลงเป็นพิกัดภายใน field
     const x = screenX - hostRect.left;
     const y = screenY - hostRect.top;
 
@@ -177,12 +171,12 @@ export class DomRenderer {
     this.field.appendChild(pop);
     setTimeout(() => pop.remove(), 650);
 
-    // ชิ้นเป้าแตกกระจาย
+    // ชิ้นเป้าแตกกระจายเล็ก ๆ
     for (let i = 0; i < 10; i++) {
       const shard = document.createElement('div');
       shard.className = 'sb-hit-shard';
       const angle = Math.random() * Math.PI * 2;
-      const dist  = 32 + Math.random() * 28;
+      const dist = 32 + Math.random() * 28;
       shard.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
       shard.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
       shard.style.left = x + 'px';
@@ -191,18 +185,7 @@ export class DomRenderer {
       setTimeout(() => shard.remove(), 500);
     }
 
-    // extra particle emoji
-    spawnHitParticle(this.field, {
-      x,
-      y,
-      emoji: fxEmoji === '💣' ? '💥' : '✨',
-      count: grade === 'perfect' ? 8 : 5,
-      spread: 48,
-      lifeMs: 520,
-      className: 'sb-hit-particle'
-    });
-
-    // เสียงตีเป้า
+    // เสียงตีเป้า (ใช้ SFX เดิม)
     if (window.SFX?.play) {
       const vol = grade === 'perfect' ? 1.0 : grade === 'good' ? 0.8 : 0.6;
       window.SFX.play('hit', {
