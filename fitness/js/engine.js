@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-29a) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-30a) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -6,7 +6,7 @@ import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 import { recordSession } from './stats-store.js';
 
-const BUILD_VERSION = 'sb-2025-11-29a';
+const BUILD_VERSION = 'sb-2025-11-30a';
 
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -18,10 +18,10 @@ const DIFF_CONFIG = {
   easy: {
     label: 'Easy',
     timeSec: 60,
-    spawnMs:    [950, 850, 750],
+    spawnMs:    [980, 880, 780],
     lifeMs:     [2300, 2100, 1900],
     maxActive:  [3, 4, 5],
-    baseSizePx: 120,
+    baseSizePx: 125,
   },
   normal: {
     label: 'Normal',
@@ -29,7 +29,7 @@ const DIFF_CONFIG = {
     spawnMs:    [880, 780, 680],
     lifeMs:     [2100, 1900, 1700],
     maxActive:  [4, 5, 6],
-    baseSizePx: 105,
+    baseSizePx: 110,
   },
   hard: {
     label: 'Hard',
@@ -37,14 +37,15 @@ const DIFF_CONFIG = {
     spawnMs:    [820, 720, 620],
     lifeMs:     [1950, 1750, 1550],
     maxActive:  [5, 6, 7],
-    baseSizePx: 92,
+    baseSizePx: 95,
   }
 };
 
+// ขนาดเป้าแต่ละ phase (1 ใหญ่ → 3 เล็ก)
 const PHASE_SIZE_FACTOR = {
-  1: 1.15,
+  1: 1.2,
   2: 1.0,
-  3: 0.85
+  3: 0.8
 };
 
 const BOSSES = [
@@ -61,8 +62,8 @@ const BOSSES = [
   {
     id: 1,
     key: 'neon',
-    name: 'Neon Knuckle',
-    emoji: '🌀',
+    name: 'Neon Fist',
+    emoji: '🧤',
     hpMax: 110,
     introTitle: 'หมัดไฟนีออน',
     introDesc: 'เป้าเล็กลงและเร็วขึ้น ต้องจับจังหวะให้ดี 💡',
@@ -70,21 +71,21 @@ const BOSSES = [
   },
   {
     id: 2,
-    key: 'guard',
-    name: 'Shadow Guard',
-    emoji: '🤖',
+    key: 'tempo',
+    name: 'Tempo Titan',
+    emoji: '🎵',
     hpMax: 130,
-    introTitle: 'ผู้พิทักษ์เงา',
+    introTitle: 'ไททันจังหวะ',
     introDesc: 'มีเป้าลวงและบอมบ์ปนมา ฝึกสมาธิและการตัดสินใจ 🧠',
     hint: 'สังเกตสีขอบและไอคอน เป้าลวงจะมีบรรยากาศแปลก ๆ'
   },
   {
     id: 3,
-    key: 'final',
-    name: 'Final Burst',
-    emoji: '💀',
+    key: 'shadow',
+    name: 'Shadow King',
+    emoji: '👑',
     hpMax: 150,
-    introTitle: 'บอสสุดท้ายสายระเบิด',
+    introTitle: 'ราชาแห่งเงา',
     introDesc: 'โหมดโหดสุด เน้นคอมโบต่อเนื่องและความอึด 💪',
     hint: 'เน้นไม่พลาด ถ้าคอมโบไม่หลุด คะแนนจะพุ่งแรงมาก'
   }
@@ -94,6 +95,19 @@ function hpRatioToPhase(ratio) {
   if (ratio <= 0.33) return 3;
   if (ratio <= 0.66) return 2;
   return 1;
+}
+
+// ---------- helper สำหรับสถิติ RT ----------
+function mean(arr) {
+  if (!arr || !arr.length) return null;
+  const s = arr.reduce((a, b) => a + b, 0);
+  return s / arr.length;
+}
+function sd(arr, m) {
+  if (!arr || arr.length < 2) return null;
+  const mu = (m != null ? m : mean(arr));
+  const v = arr.reduce((acc, x) => acc + Math.pow(x - mu, 2), 0) / (arr.length - 1);
+  return Math.sqrt(v);
 }
 
 // ---------- ENGINE CLASS ----------
@@ -115,12 +129,14 @@ class ShadowBreakerEngine {
     this.sessionLogger = new SessionLogger();
     this.hooks = opts.hooks || {};
 
+    // boss intro overlay
     this.introEl       = $('#bossIntro');
     this.introEmojiEl  = $('#boss-intro-emoji');
     this.introNameEl   = $('#boss-intro-name');
     this.introTitleEl  = $('#boss-intro-title');
     this.introDescEl   = $('#boss-intro-desc');
 
+    // HUD
     this.hud = {
       time:  $('#stat-time'),
       score: $('#stat-score'),
@@ -184,6 +200,11 @@ class ShadowBreakerEngine {
     this.diffKey = DIFF_CONFIG[diffKey] ? diffKey : 'normal';
     this.diff    = DIFF_CONFIG[this.diffKey];
 
+    // แจ้ง renderer ให้เปลี่ยน ring สีตาม diff
+    if (this.renderer && typeof this.renderer.setDifficulty === 'function') {
+      this.renderer.setDifficulty(this.diffKey);
+    }
+
     this.timeLimitMs = (timeSec || this.diff.timeSec) * 1000;
 
     this.sessionCounter += 1;
@@ -212,6 +233,7 @@ class ShadowBreakerEngine {
     this.totalTargets   = 0;
     this.totalHits      = 0;
     this.totalBombHits  = 0;
+
     this.feverGauge     = 0;
     this.feverOn        = false;
     this.feverCount     = 0;
@@ -234,21 +256,17 @@ class ShadowBreakerEngine {
     this.waitingIntro = true;
     this.bossFaceAlive = false;
 
+    // ---------- ตัวแปรสำหรับวิจัยเพิ่มเติม ----------
+    this.rtNormal = [];       // RT เป้าปกติ (s)
+    this.rtDecoy  = [];       // RT เป้าหลอก (s)
+
+    this.zoneHitCounts = { L: 0, C: 0, R: 0 };
+    this.zoneHitTotal  = 0;
+
     this.eventLogger.clear();
     this.sessionLogger.clear();
 
     if (this.field) this.field.innerHTML = '';
-
-    // --- Stats สำหรับ RT และโซน (เพื่อการวิจัย) ---
-    this.rtStats = {
-      normal: { sumMs: 0, sumSqMs: 0, count: 0 },
-      decoy:  { sumMs: 0, sumSqMs: 0, count: 0 }
-    };
-    this.zoneStats = {
-      leftHits:  0,
-      rightHits: 0,
-      totalLR:   0       // นับเฉพาะ L/R
-    };
 
     this._updateBossHUD();
     this._updateHUD();
@@ -334,14 +352,15 @@ class ShadowBreakerEngine {
     this.elapsedMs   += dt;
     this.remainingMs = Math.max(0, this.timeLimitMs - this.elapsedMs);
 
+    // FEVER: ทำให้ขึ้นง่ายขึ้น + decay ช้าลง
     if (this.feverOn) {
       this.feverTimeMs += dt;
-      this.feverGauge = clamp(this.feverGauge - dt * 0.03, 0, 100);
+      this.feverGauge = clamp(this.feverGauge - dt * 0.02, 0, 100); // เดิม 0.03
       if (this.feverGauge <= 0) {
         this.feverOn = false;
       }
     } else {
-      this.feverGauge = clamp(this.feverGauge - dt * 0.01, 0, 100);
+      this.feverGauge = clamp(this.feverGauge - dt * 0.006, 0, 100); // เดิม 0.01
     }
 
     if (this.playerHp <= 30) {
@@ -517,33 +536,10 @@ class ShadowBreakerEngine {
     if (!t || this.ended) return;
 
     const now = performance.now();
-    const age = now - t.spawnTime;
-    const ratio = clamp(age / t.lifeMs, 0, 1);
+    const ageMs = now - t.spawnTime;
+    const ratio = clamp(ageMs / t.lifeMs, 0, 1);
+    const ageSec = ageMs / 1000;
 
-    // --- สถิติ RT & zone สำหรับวิจัย ---
-    const isNormalTarget =
-      !t.isDecoy && !t.isBomb && !t.isHeal && !t.isShield && !t.isBossFace;
-    const isDecoyTarget = !!t.isDecoy;
-
-    if (isNormalTarget) {
-      const s = this.rtStats.normal;
-      s.sumMs   += age;
-      s.sumSqMs += age * age;
-      s.count   += 1;
-    } else if (isDecoyTarget) {
-      const s = this.rtStats.decoy;
-      s.sumMs   += age;
-      s.sumSqMs += age * age;
-      s.count   += 1;
-    }
-
-    if (t.zone_lr === 'L' || t.zone_lr === 'R') {
-      this.zoneStats.totalLR += 1;
-      if (t.zone_lr === 'L') this.zoneStats.leftHits += 1;
-      else this.zoneStats.rightHits += 1;
-    }
-
-    // --- grading per-target ---
     let grade = 'good';
     let scoreDelta = 0;
     let fxEmoji = '✨';
@@ -564,59 +560,71 @@ class ShadowBreakerEngine {
       this.combo = 0;
       scoreDelta = 0;
       fxEmoji = '🎯';
+      // RT เป้าหลอก
+      this.rtDecoy.push(ageSec);
     } else if (t.isHeal) {
       grade = 'heal';
       this.combo += 1;
-      scoreDelta = 50;
+      scoreDelta = 60;
       this.score += scoreDelta;
-      this.playerHp = clamp(this.playerHp + 10, 0, this.playerHpMax);
+      this.playerHp = clamp(this.playerHp + 12, 0, this.playerHpMax);
       fxEmoji = '💚';
-      this._gainFever(4);
+      this._gainFever(6);
     } else if (t.isShield) {
       grade = 'shield';
       this.combo += 1;
-      scoreDelta = 40;
+      scoreDelta = 50;
       this.score += scoreDelta;
       fxEmoji = '🛡️';
-      this._gainFever(3);
+      this._gainFever(5);
     } else if (t.isBossFace) {
       grade = 'perfect';
-      scoreDelta = 220;
+      scoreDelta = 260;
       this.score += scoreDelta;
       this.combo += 2;
       fxEmoji = '💥';
-      this._gainFever(10);
-      this._damageBoss(15);
+      this._gainFever(16);
+      this._damageBoss(18);
       this.bossFaceAlive = false;
+      this.rtNormal.push(ageSec);
     } else {
       if (ratio <= 0.35) grade = 'perfect';
       else if (ratio >= 0.9) grade = 'bad';
       else grade = 'good';
 
       if (grade === 'perfect') {
-        scoreDelta = 140;
-        this._damageBoss(3);
+        scoreDelta = 150;
+        this._damageBoss(4);
         fxEmoji = '💥';
-        this._gainFever(9);
+        this._gainFever(14);   // เดิม 9
       } else if (grade === 'good') {
-        scoreDelta = 95;
-        this._damageBoss(2);
+        scoreDelta = 100;
+        this._damageBoss(2.5);
         fxEmoji = '⭐';
-        this._gainFever(6);
+        this._gainFever(9);    // เดิม 6
       } else {
-        scoreDelta = 45;
+        scoreDelta = 50;
         this._damageBoss(1);
         fxEmoji = '💫';
-        this._gainFever(3);
+        this._gainFever(5);    // เดิม 3
       }
 
       this.score += scoreDelta;
       this.combo += 1;
       this.totalHits += 1;
+
+      // RT เป้าปกติ
+      this.rtNormal.push(ageSec);
+
+      // zone hit
+      if (t.zone_lr && (t.zone_lr === 'L' || t.zone_lr === 'C' || t.zone_lr === 'R')) {
+        this.zoneHitCounts[t.zone_lr] = (this.zoneHitCounts[t.zone_lr] || 0) + 1;
+        this.zoneHitTotal += 1;
+      }
     }
 
     if (this.feverOn && scoreDelta > 0) {
-      const bonus = Math.round(scoreDelta * 0.3);
+      const bonus = Math.round(scoreDelta * 0.35);
       this.score += bonus;
     }
 
@@ -667,7 +675,7 @@ class ShadowBreakerEngine {
       target_id: t.id,
       target_type: t.type,
       grade,
-      age_ms: Math.round(age),
+      age_ms: Math.round(ageMs),
       score_delta: scoreDelta,
       combo_before: comboBefore,
       combo_after: this.combo,
@@ -787,8 +795,6 @@ class ShadowBreakerEngine {
     }
     this.hud.score && (this.hud.score.textContent = this.score);
     this.hud.combo && (this.hud.combo.textContent = this.combo);
-
-    // HUD PHASE = ลำดับบอส (1–4)
     this.hud.phase && (this.hud.phase.textContent = this.bossIndex + 1);
 
     const pRatio = clamp(this.playerHp / this.playerHpMax, 0, 1);
@@ -833,36 +839,24 @@ class ShadowBreakerEngine {
     const durationS = this.elapsedMs / 1000;
     const acc = this.totalTargets ? (this.totalHits / this.totalTargets) * 100 : 0;
 
-    // --- คำนวณ RT mean / SD & zone ---
-    const rn = this.rtStats?.normal || { sumMs:0, sumSqMs:0, count:0 };
-    const rd = this.rtStats?.decoy  || { sumMs:0, sumSqMs:0, count:0 };
+    // ---------- คำนวณ RT / zone สำหรับวิจัย ----------
+    const rtNormMean = mean(this.rtNormal);
+    const rtNormSd   = sd(this.rtNormal, rtNormMean);
+    const rtDecoyMean = mean(this.rtDecoy);
+    const rtDecoySd   = sd(this.rtDecoy, rtDecoyMean);
 
-    function calcRt(stat) {
-      if (!stat.count) return { meanS: '', sdS: '' };
-      const meanMs = stat.sumMs / stat.count;
-      const meanSq = stat.sumSqMs / stat.count;
-      const varMs  = Math.max(0, meanSq - meanMs * meanMs);
-      const sdMs   = Math.sqrt(varMs);
-      return {
-        meanS: + (meanMs / 1000).toFixed(3),
-        sdS:   + (sdMs  / 1000).toFixed(3)
-      };
-    }
+    const leftPct   = this.zoneHitTotal ? (this.zoneHitCounts.L / this.zoneHitTotal) * 100 : 0;
+    const rightPct  = this.zoneHitTotal ? (this.zoneHitCounts.R / this.zoneHitTotal) * 100 : 0;
+    const centerPct = this.zoneHitTotal ? (this.zoneHitCounts.C / this.zoneHitTotal) * 100 : 0;
 
-    const rtNorm = calcRt(rn);
-    const rtDec  = calcRt(rd);
-
-    const zs = this.zoneStats || { leftHits:0, rightHits:0, totalLR:0 };
-    const leftPct  = zs.totalLR ? +((zs.leftHits  / zs.totalLR) * 100).toFixed(1) : '';
-    const rightPct = zs.totalLR ? +((zs.rightHits / zs.totalLR) * 100).toFixed(1) : '';
-
-    // --- เกรดรวม SSS, SS, S, A, B, C ---
-    const grade =
-      acc >= 95 && this.score >= 12000 ? 'SSS' :
-      acc >= 90 && this.score >= 10000 ? 'SS'  :
-      acc >= 85 && this.score >= 8000  ? 'S'   :
-      acc >= 75                        ? 'A'   :
-      acc >= 60                        ? 'B'   : 'C';
+    // ---------- Grade ใหม่ SSS / SS / S / A / B / C ----------
+    let grade = 'C';
+    if (acc >= 92 && this.score >= 9000) grade = 'SSS';
+    else if (acc >= 88 && this.score >= 7500) grade = 'SS';
+    else if (acc >= 80 && this.score >= 6000) grade = 'S';
+    else if (acc >= 72) grade = 'A';
+    else if (acc >= 60) grade = 'B';
+    else grade = 'C';
 
     const sessionRow = {
       session_id: this.sessionId,
@@ -900,13 +894,16 @@ class ShadowBreakerEngine {
       error_count: 0,
       focus_events: 0,
 
-      // --- ตัวแปรวิจัย RT & zone ใหม่ ---
-      rt_normal_mean_s: rtNorm.meanS,
-      rt_normal_sd_s:   rtNorm.sdS,
-      rt_decoy_mean_s:  rtDec.meanS,
-      rt_decoy_sd_s:    rtDec.sdS,
-      zone_left_hit_pct:  leftPct,
-      zone_right_hit_pct: rightPct
+      // ====== ตัวแปรวิจัยเพิ่ม ======
+      rt_normal_mean_s: rtNormMean != null ? +rtNormMean.toFixed(3) : '',
+      rt_normal_sd_s:   rtNormSd   != null ? +rtNormSd.toFixed(3)   : '',
+      rt_decoy_mean_s:  rtDecoyMean != null ? +rtDecoyMean.toFixed(3) : '',
+      rt_decoy_sd_s:    rtDecoySd   != null ? +rtDecoySd.toFixed(3)   : '',
+      rt_normal_n: this.rtNormal.length,
+      rt_decoy_n:  this.rtDecoy.length,
+      zone_left_hit_pct:   +leftPct.toFixed(1),
+      zone_right_hit_pct:  +rightPct.toFixed(1),
+      zone_center_hit_pct: +centerPct.toFixed(1)
     };
 
     this.sessionLogger.add(sessionRow);
@@ -985,13 +982,13 @@ export function initShadowBreaker() {
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
         setText('#res-totalhits', summary.total_hits ?? 0);
 
-        // Reaction Time จากสถิติใหม่
-        if (summary.rt_normal_mean_s !== '' && typeof summary.rt_normal_mean_s === 'number') {
+        // Reaction Time แสดงที่หน้าสรุป
+        if (summary.rt_normal_mean_s != null && summary.rt_normal_mean_s !== '') {
           setText('#res-rt-normal', summary.rt_normal_mean_s.toFixed(3) + ' s');
         } else {
           setText('#res-rt-normal', '-');
         }
-        if (summary.rt_decoy_mean_s !== '' && typeof summary.rt_decoy_mean_s === 'number') {
+        if (summary.rt_decoy_mean_s != null && summary.rt_decoy_mean_s !== '') {
           setText('#res-rt-decoy', summary.rt_decoy_mean_s.toFixed(3) + ' s');
         } else {
           setText('#res-rt-decoy', '-');
