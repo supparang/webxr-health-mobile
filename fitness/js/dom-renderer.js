@@ -9,16 +9,12 @@ export class DomRenderer {
     this.opts = opts;
     this.targets = new Map(); // id → { el, cx, cy, size }
 
-    const style = getComputedStyle(this.host);
-    if (style.position === 'static') {
+    if (getComputedStyle(this.host).position === 'static') {
       this.host.style.position = 'relative';
-    }
-    if (style.overflow === 'visible') {
-      this.host.style.overflow = 'hidden';
     }
   }
 
-  // ---------- SPAWN TARGET ----------
+  // ---------- SPAWN ----------
 
   spawnTarget(target) {
     if (!this.host || !target) return;
@@ -36,6 +32,7 @@ export class DomRenderer {
       return;
     }
 
+    // zone L/C/R × U/M/D → fraction
     const zoneLR = target.zone_lr || 'C';
     const zoneUD = target.zone_ud || 'M';
 
@@ -53,7 +50,7 @@ export class DomRenderer {
     const zoneXMin = w * xMinF;
     const zoneXMax = w * xMaxF;
     const zoneYMin = h * yMinF;
-    const zoneYMax = h * yMaxF;
+    const zoneYMax = h * xMaxF ? h * yMaxF : h * yMaxF; // safe
 
     const safeXMin = clamp(zoneXMin, margin, w - margin);
     const safeXMax = clamp(zoneXMax, margin, w - margin);
@@ -132,7 +129,7 @@ export class DomRenderer {
     return '🎯';
   }
 
-  // ---------- REMOVE TARGET ----------
+  // ---------- REMOVE ----------
 
   removeTarget(id, reason = '') {
     const rec = this.targets.get(id);
@@ -155,10 +152,10 @@ export class DomRenderer {
     this.targets.delete(id);
   }
 
-  // ---------- HIT FX ----------
+  // ---------- FX ----------
 
   playHitFx(id, opts = {}) {
-    const rec = this.targets.get(id);
+    const rec  = this.targets.get(id);
     const host = this.host || document.body;
     if (!host) return;
 
@@ -174,16 +171,25 @@ export class DomRenderer {
       y = r.top  + r.height / 2;
     } else {
       if (x == null || y == null) {
-        x = hostRect.left + hostRect.width / 2;
-        y = hostRect.top  + hostRect.height  / 2;
+        x = hostRect.left + hostRect.width  / 2;
+        y = hostRect.top  + hostRect.height / 2;
       }
     }
 
     const xLocal = x - hostRect.left;
     const yLocal = y - hostRect.top;
 
+    // Popup PERFECT / GOOD / MISS
     const pop = document.createElement('div');
     pop.className = 'sb-pop';
+
+    const emoDefault =
+      fxEmoji ||
+      (grade === 'perfect' ? '💥' :
+       grade === 'good'    ? '⭐' :
+       grade === 'heal'    ? '💚' :
+       grade === 'shield'  ? '🛡️' :
+       grade === 'bomb'    ? '💣' : '💫');
 
     let label = '';
     if (grade === 'perfect') label = 'PERFECT';
@@ -194,23 +200,13 @@ export class DomRenderer {
     else if (grade === 'shield') label = 'SHIELD';
     else label = 'MISS';
 
-    const emoDefault =
-      fxEmoji ||
-      (grade === 'perfect' ? '💥' :
-       grade === 'good'    ? '⭐' :
-       grade === 'heal'    ? '💚' :
-       grade === 'shield'  ? '🛡️' :
-       grade === 'bomb'    ? '💣' : '💫');
-
     if (typeof scoreDelta === 'number' && scoreDelta > 0) {
       pop.textContent = `+${scoreDelta}`;
     } else {
       pop.textContent = label || emoDefault;
     }
 
-    if (grade) {
-      pop.classList.add('sb-pop--' + grade);
-    }
+    if (grade) pop.classList.add('sb-pop--' + grade);
 
     pop.style.left = xLocal + 'px';
     pop.style.top  = yLocal + 'px';
@@ -218,6 +214,7 @@ export class DomRenderer {
     host.appendChild(pop);
     setTimeout(() => pop.remove(), 650);
 
+    // shards แตกกระจาย
     const shardCount = 7;
     for (let i = 0; i < shardCount; i++) {
       const shard = document.createElement('div');
