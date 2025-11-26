@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-30a) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-30b) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -6,7 +6,7 @@ import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 import { recordSession } from './stats-store.js';
 
-const BUILD_VERSION = 'sb-2025-11-30a';
+const BUILD_VERSION = 'sb-2025-11-30b';
 
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -28,7 +28,7 @@ const DIFF_CONFIG = {
     spawnMs:    [950, 850, 750],
     lifeMs:     [2300, 2100, 1900],
     maxActive:  [3, 4, 5],
-    baseSizePx: 120,
+    baseSizePx: 120
   },
   normal: {
     label: 'Normal',
@@ -36,7 +36,7 @@ const DIFF_CONFIG = {
     spawnMs:    [880, 780, 680],
     lifeMs:     [2100, 1900, 1700],
     maxActive:  [4, 5, 6],
-    baseSizePx: 105,
+    baseSizePx: 105
   },
   hard: {
     label: 'Hard',
@@ -44,11 +44,10 @@ const DIFF_CONFIG = {
     spawnMs:    [820, 720, 620],
     lifeMs:     [1950, 1750, 1550],
     maxActive:  [5, 6, 7],
-    baseSizePx: 92,
+    baseSizePx: 92
   }
 };
 
-// ตัวคูณขนาดเป้าตาม phase (1–3)
 const PHASE_SIZE_FACTOR = {
   1: 1.10,
   2: 1.0,
@@ -168,7 +167,6 @@ class ShadowBreakerEngine {
     this.menuOpenedAt = performance.now();
   }
 
-  // log event → CSV
   _logEvent(extra = {}) {
     if (!this.eventLogger) return;
     this.eventLogger.add({
@@ -233,14 +231,42 @@ class ShadowBreakerEngine {
 
     this.shieldCollected = 0;
 
-    // RT สำหรับวิจัย
+    // ---------- RT buffers ----------
     this.rtNormalAll = [];
     this.rtDecoyAll  = [];
     this.rtPhaseNormal = [];
     this.rtPhaseDecoy  = [];
+    // split ตาม zone L/R และ U/M/D
+    this.rtPhaseNormalZoneLR = [];
+    this.rtPhaseDecoyZoneLR  = [];
+    this.rtPhaseNormalZoneUD = [];
+    this.rtPhaseDecoyZoneUD  = [];
+
     for (let i = 0; i < BOSSES.length; i++) {
       this.rtPhaseNormal[i] = { 1: [], 2: [], 3: [] };
       this.rtPhaseDecoy[i]  = { 1: [], 2: [], 3: [] };
+
+      this.rtPhaseNormalZoneLR[i] = {
+        1: { L: [], C: [], R: [] },
+        2: { L: [], C: [], R: [] },
+        3: { L: [], C: [], R: [] }
+      };
+      this.rtPhaseDecoyZoneLR[i] = {
+        1: { L: [], C: [], R: [] },
+        2: { L: [], C: [], R: [] },
+        3: { L: [], C: [], R: [] }
+      };
+
+      this.rtPhaseNormalZoneUD[i] = {
+        1: { U: [], M: [], D: [] },
+        2: { U: [], M: [], D: [] },
+        3: { U: [], M: [], D: [] }
+      };
+      this.rtPhaseDecoyZoneUD[i] = {
+        1: { U: [], M: [], D: [] },
+        2: { U: [], M: [], D: [] },
+        3: { U: [], M: [], D: [] }
+      };
     }
 
     this.targets = new Map();
@@ -326,7 +352,6 @@ class ShadowBreakerEngine {
 
   _loop(ts) {
     if (!this.loopRunning) return;
-
     if (this.ended) {
       this.loopRunning = false;
       return;
@@ -425,8 +450,8 @@ class ShadowBreakerEngine {
     const lifeMs = diff.lifeMs[phaseIdx] || diff.lifeMs[1];
     const spawnMs = diff.spawnMs[phaseIdx] || diff.spawnMs[1];
 
-    const zoneLR = ['L','C','R'][Math.floor(Math.random()*3)];
-    const zoneUD = ['U','M','D'][Math.floor(Math.random()*3)];
+    const zoneLR = ['L', 'C', 'R'][Math.floor(Math.random() * 3)];
+    const zoneUD = ['U', 'M', 'D'][Math.floor(Math.random() * 3)];
 
     const target = {
       id,
@@ -610,7 +635,6 @@ class ShadowBreakerEngine {
       this.totalHits += 1;
     }
 
-    // Fever bonus
     if (this.feverOn && scoreDelta > 0) {
       const bonus = Math.round(scoreDelta * 0.4);
       this.score += bonus;
@@ -618,7 +642,6 @@ class ShadowBreakerEngine {
 
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-    // ข้อความโค้ช
     if (this.hud.feedback) {
       let msg = '';
       let cls = 'sb-feedback';
@@ -650,19 +673,34 @@ class ShadowBreakerEngine {
       this.hud.feedback.className = cls;
     }
 
-    // บันทึก RT ลงตัวแปรวิจัย
+    // ---------- เก็บ RT ลงตัวแปรวิจัย ----------
     const bi = (typeof t.bossIndex === 'number') ? t.bossIndex : this.bossIndex;
     const ph = (typeof t.bossPhase === 'number') ? t.bossPhase : this.bossPhase;
+
+    const zoneLR = (t.zone_lr === 'L' || t.zone_lr === 'R' || t.zone_lr === 'C') ? t.zone_lr : 'C';
+    const zoneUD = (t.zone_ud === 'U' || t.zone_ud === 'M' || t.zone_ud === 'D') ? t.zone_ud : 'M';
 
     if (isNormalTarget) {
       this.rtNormalAll.push(age);
       if (this.rtPhaseNormal[bi] && this.rtPhaseNormal[bi][ph]) {
         this.rtPhaseNormal[bi][ph].push(age);
       }
+      if (this.rtPhaseNormalZoneLR[bi] && this.rtPhaseNormalZoneLR[bi][ph]) {
+        this.rtPhaseNormalZoneLR[bi][ph][zoneLR].push(age);
+      }
+      if (this.rtPhaseNormalZoneUD[bi] && this.rtPhaseNormalZoneUD[bi][ph]) {
+        this.rtPhaseNormalZoneUD[bi][ph][zoneUD].push(age);
+      }
     } else if (t.isDecoy) {
       this.rtDecoyAll.push(age);
       if (this.rtPhaseDecoy[bi] && this.rtPhaseDecoy[bi][ph]) {
         this.rtPhaseDecoy[bi][ph].push(age);
+      }
+      if (this.rtPhaseDecoyZoneLR[bi] && this.rtPhaseDecoyZoneLR[bi][ph]) {
+        this.rtPhaseDecoyZoneLR[bi][ph][zoneLR].push(age);
+      }
+      if (this.rtPhaseDecoyZoneUD[bi] && this.rtPhaseDecoyZoneUD[bi][ph]) {
+        this.rtPhaseDecoyZoneUD[bi][ph][zoneUD].push(age);
       }
     }
 
@@ -897,7 +935,6 @@ class ShadowBreakerEngine {
       error_count: 0,
       focus_events: 0,
 
-      // global RT เฉลี่ย
       rt_normal_mean_s: rtNormalMeanMs != null
         ? +(rtNormalMeanMs / 1000).toFixed(4)
         : '',
@@ -905,11 +942,10 @@ class ShadowBreakerEngine {
         ? +(rtDecoyMeanMs / 1000).toFixed(4)
         : '',
 
-      // shield รวบรวมทั้งหมด
       shield_total_collected: this.shieldCollected
     };
 
-    // RT เฉลี่ยตาม Boss (1–4) / Phase (1–3) — ปกติ + เป้าลวง
+    // RT เฉลี่ยตาม Boss/Phase (รวมทุกโซน)
     for (let bi = 0; bi < BOSSES.length; bi++) {
       for (let ph = 1; ph <= 3; ph++) {
         const arrN = (this.rtPhaseNormal[bi] && this.rtPhaseNormal[bi][ph]) || [];
@@ -922,6 +958,56 @@ class ShadowBreakerEngine {
 
         sessionRow[keyN] = mN != null ? +(mN / 1000).toFixed(4) : '';
         sessionRow[keyD] = mD != null ? +(mD / 1000).toFixed(4) : '';
+      }
+    }
+
+    // RT split ตาม Zone L/R และ U/M/D ต่อ Boss/Phase
+    const zonesLR = ['L', 'C', 'R'];
+    const zonesUD = ['U', 'M', 'D'];
+
+    for (let bi = 0; bi < BOSSES.length; bi++) {
+      for (let ph = 1; ph <= 3; ph++) {
+        // LR
+        for (const z of zonesLR) {
+          const arrN =
+            this.rtPhaseNormalZoneLR[bi] &&
+            this.rtPhaseNormalZoneLR[bi][ph] &&
+            this.rtPhaseNormalZoneLR[bi][ph][z];
+          const arrD =
+            this.rtPhaseDecoyZoneLR[bi] &&
+            this.rtPhaseDecoyZoneLR[bi][ph] &&
+            this.rtPhaseDecoyZoneLR[bi][ph][z];
+
+          const mN = mean(arrN || []);
+          const mD = mean(arrD || []);
+
+          const keyN = `rt_b${bi + 1}_p${ph}_LR_${z}_s`;
+          const keyD = `rt_decoy_b${bi + 1}_p${ph}_LR_${z}_s`;
+
+          sessionRow[keyN] = mN != null ? +(mN / 1000).toFixed(4) : '';
+          sessionRow[keyD] = mD != null ? +(mD / 1000).toFixed(4) : '';
+        }
+
+        // UD
+        for (const z of zonesUD) {
+          const arrN =
+            this.rtPhaseNormalZoneUD[bi] &&
+            this.rtPhaseNormalZoneUD[bi][ph] &&
+            this.rtPhaseNormalZoneUD[bi][ph][z];
+          const arrD =
+            this.rtPhaseDecoyZoneUD[bi] &&
+            this.rtPhaseDecoyZoneUD[bi][ph] &&
+            this.rtPhaseDecoyZoneUD[bi][ph][z];
+
+          const mN = mean(arrN || []);
+          const mD = mean(arrD || []);
+
+          const keyN = `rt_b${bi + 1}_p${ph}_UD_${z}_s`;
+          const keyD = `rt_decoy_b${bi + 1}_p${ph}_UD_${z}_s`;
+
+          sessionRow[keyN] = mN != null ? +(mN / 1000).toFixed(4) : '';
+          sessionRow[keyD] = mD != null ? +(mD / 1000).toFixed(4) : '';
+        }
       }
     }
 
@@ -941,7 +1027,6 @@ class ShadowBreakerEngine {
       this.hooks.onEnd(result);
     }
 
-    // บันทึก summary เบื้องต้นลง stats-store (สำหรับ Hub)
     try {
       recordSession('shadow-breaker', {
         score: result.final_score,
@@ -1002,7 +1087,7 @@ export function initShadowBreaker() {
 
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
 
-        // RT รวม
+        // RT รวมอย่างเดียว (ไม่แสดงแยก Boss/Phase)
         if (summary.rt_normal_mean_s !== undefined && summary.rt_normal_mean_s !== '') {
           setText('#res-rt-normal',
             Number(summary.rt_normal_mean_s).toFixed(3) + ' s');
@@ -1016,7 +1101,6 @@ export function initShadowBreaker() {
           setText('#res-rt-decoy', '-');
         }
 
-        // FEVER / boss / low HP
         setText(
           '#res-fever-time',
           typeof summary.fever_total_time_s === 'number'
@@ -1037,36 +1121,6 @@ export function initShadowBreaker() {
           setText('#res-menu-latency', '-');
         }
 
-        // RT แยก Boss/Phase — ปกติ + decoy
-        const mapPhase = [
-          ['rt_b1_p1_mean_s',      '#res-rt-b1p1'],
-          ['rt_b1_p2_mean_s',      '#res-rt-b1p2'],
-          ['rt_b1_p3_mean_s',      '#res-rt-b1p3'],
-          ['rt_b2_p1_mean_s',      '#res-rt-b2p1'],
-          ['rt_b2_p2_mean_s',      '#res-rt-b2p2'],
-          ['rt_b2_p3_mean_s',      '#res-rt-b2p3'],
-          ['rt_b3_p1_mean_s',      '#res-rt-b3p1'],
-          ['rt_b3_p2_mean_s',      '#res-rt-b3p2'],
-          ['rt_b3_p3_mean_s',      '#res-rt-b3p3'],
-          ['rt_b4_p1_mean_s',      '#res-rt-b4p1'],
-          ['rt_b4_p2_mean_s',      '#res-rt-b4p2'],
-          ['rt_b4_p3_mean_s',      '#res-rt-b4p3']
-        ];
-
-        mapPhase.forEach(([key, sel]) => {
-          const v = summary[key];
-          const el = document.querySelector(sel);
-          if (!el) return;
-          if (v == null || v === '') {
-            el.textContent = '-';
-          } else {
-            const num = typeof v === 'number' ? v : Number(v);
-            el.textContent = num.toFixed(3) + ' s';
-          }
-        });
-
-        // ถ้าอยากโชว์ decoy per phase ในตารางอื่น สามารถอ่าน key rt_decoy_bX_pY_mean_s จาก summary ได้เหมือนกัน
-
         setText('#res-participant', summary.participant || '-');
 
         if (viewResult) {
@@ -1074,7 +1128,6 @@ export function initShadowBreaker() {
           viewResult.dataset.sessionCsv = summary.sessionCsv || '';
         }
 
-        // ข้อความ hint ปิดท้ายเพื่อใช้สอน/วิจัย
         const hintEl = $('#res-end-hint');
         if (hintEl) {
           if (summary.accuracy_pct >= 85 && summary.final_score >= 4000) {
