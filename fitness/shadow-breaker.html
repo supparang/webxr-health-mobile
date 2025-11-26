@@ -238,7 +238,7 @@
           </div>
         </section>
 
-        <!-- Boss Intro Overlay (ตอนนี้ engine ยังไม่เรียกใช้ แต่อาจใช้ต่อได้ภายหลัง) -->
+        <!-- Boss Intro Overlay -->
         <div id="bossIntro" class="boss-intro hidden">
           <div id="boss-intro-emoji" class="emoji boss-intro-emoji">🐣</div>
           <div id="boss-intro-name" class="name boss-intro-name">Bubble Glove</div>
@@ -252,10 +252,11 @@
     </main>
   </div>
 
-  <!-- ========== Scripts (modules) ========== -->
+  <!-- ========== Scripts (SFX + Engine) ========== -->
+  <script src="./js/sfx.js"></script>
   <script type="module" src="./js/shadow-breaker.js"></script>
 
-  <!-- SFX (เผื่อใช้ต่อในภายหลัง) -->
+  <!-- (optional) preload audio tags, sfx.js จะใช้หรือ fallback ก็ได้ -->
   <audio id="sfx-hit"   src="./sfx/hit.mp3"         preload="auto"></audio>
   <audio id="sfx-boss"  src="./sfx/boss-intro.mp3"  preload="auto"></audio>
   <audio id="sfx-fever" src="./sfx/fever.mp3"       preload="auto"></audio>
