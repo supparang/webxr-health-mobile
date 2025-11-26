@@ -11,22 +11,22 @@
 
 <body>
   <div class="sb-shell">
-    <!-- Header เหมือน Hub -->
+    <!-- Header -->
     <header class="sb-header">
       <div class="sb-brand">
         <div class="sb-logo-pill">SB</div>
         <div class="sb-brand-text">
           <div class="sb-brand-title">VR Fitness — Shadow Breaker</div>
-          <div class="sb-brand-subtitle">ตีเป้า Boss Fight ฝึกกำลังแขนและความไวในการตอบสนอง</div>
+          <div class="sb-brand-subtitle">
+            ตีเป้า Boss Fight ฝึกกำลังแขนและความไวในการตอบสนอง
+          </div>
         </div>
       </div>
-      <a href="./hub.html" class="sb-back-link">
-        ← กลับสู่ VR Fitness Hub
-      </a>
+      <a href="./hub.html" class="sb-back-link">← กลับสู่ VR Fitness Hub</a>
     </header>
 
     <main class="sb-card">
-      <div class="sb-wrap" id="sb-wrap">
+      <div class="sb-wrap" id="sb-wrap" data-boss="0" data-phase="1">
         <!-- ========== MENU VIEW ========== -->
         <section id="view-menu">
           <h1 class="title">🥊 Shadow Breaker 🎯</h1>
@@ -66,24 +66,26 @@
                   📋 โหมดวิจัย (Research Mode)
                 </button>
                 <p class="hint">
-                  โหมดวิจัยจะบันทึกข้อมูลการเล่นเป็นไฟล์ CSV สำหรับวิเคราะห์ Reaction Time, Accuracy และคอมโบ
+                  โหมดวิจัยจะบันทึกข้อมูลการเล่นเป็นไฟล์ CSV สำหรับวิเคราะห์ Reaction Time,
+                  Accuracy และคอมโบ
                 </p>
               </div>
             </div>
 
-            <!-- ขวา: Preview / คำอธิบาย -->
+            <!-- ขวา: วิธีเล่น / คำอธิบาย -->
             <div class="menu-right">
               <div class="preview-panel">
                 <div class="preview-title">📌 วิธีเล่นเบื้องต้น</div>
                 <p class="preview-text">
-                  เป้า Emoji จะโผล่ทั่วจอสนาม — ใช้การชก/แตะให้ทันก่อนหายไป ยิ่งตีเร็วและแม่น คะแนนยิ่งสูง!
+                  เป้า Emoji จะโผล่ทั่วจอสนาม — ใช้การชก/แตะให้ทันก่อนหายไป ยิ่งตีเร็วและแม่น
+                  คะแนนยิ่งสูง!
                 </p>
                 <ul class="preview-list">
                   <li>🎯 <strong>Perfect</strong> — ตีเร็วมาก ได้คะแนน+คอมโบสูงสุด</li>
                   <li>⭐ <strong>Good</strong> — จังหวะดี คะแนนปานกลาง</li>
                   <li>💫 <strong>Bad</strong> — ช้าหน่อย คะแนนน้อย</li>
                   <li>💣 บอมบ์ — ตีผิด HP ลด ระวังให้ดี</li>
-                  <li>💚 Heal / 🛡️ Shield — เติม HP & เกราะ</li>
+                  <li>💚 Heal / 🛡️ Shield — เติม HP &amp; เกราะ</li>
                   <li>⚡ FEVER — เมื่อเกจเต็ม คะแนนจะบูสต์พิเศษ</li>
                 </ul>
               </div>
@@ -115,7 +117,9 @@
 
           <div class="form-btns">
             <button class="btn-ghost" data-action="back-to-menu">ย้อนกลับ</button>
-            <button class="btn-main" data-action="research-begin-play">▶ เริ่มเล่นโหมดวิจัย</button>
+            <button class="btn-main" data-action="research-begin-play">
+              ▶ เริ่มเล่นโหมดวิจัย
+            </button>
           </div>
         </section>
 
@@ -127,13 +131,13 @@
               <div class="hp-row">
                 <div class="hp-label">PLAYER</div>
                 <div class="hp-bar">
-                  <div id="player-fill" class="bar green" data-sb-player-hp></div>
+                  <div class="bar green" data-sb-player-hp></div>
                 </div>
               </div>
               <div class="hp-row">
                 <div class="hp-label">BOSS</div>
                 <div class="hp-bar">
-                  <div id="boss-fill" class="bar red" data-sb-boss-hp></div>
+                  <div class="bar red" data-sb-boss-hp></div>
                 </div>
               </div>
             </div>
@@ -150,6 +154,9 @@
               </div>
               <div class="stat-item">
                 PHASE <span id="stat-phase">1</span>
+              </div>
+              <div class="stat-item">
+                MISS <span id="stat-miss">0</span>
               </div>
             </div>
           </div>
@@ -172,7 +179,7 @@
           <div class="fever-hud">
             <div class="fever-label">FEVER</div>
             <div class="fever-bar">
-              <div id="fever-fill" class="bar fever"></div>
+              <div id="fever-fill"></div>
             </div>
             <div id="fever-status" class="status">Ready</div>
           </div>
@@ -185,6 +192,17 @@
           <!-- ปุ่มควบคุมล่าง -->
           <div class="play-controls">
             <button class="btn-ghost" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
+          </div>
+
+          <!-- Boss Intro Overlay -->
+          <div id="bossIntro" class="boss-intro hidden">
+            <div id="boss-intro-emoji" class="emoji boss-intro-emoji">🐣</div>
+            <div id="boss-intro-name" class="name boss-intro-name">Bubble Glove</div>
+            <div id="boss-intro-title" class="title boss-intro-title">บอสมือใหม่สายฟอง</div>
+            <div id="boss-intro-desc" class="desc boss-intro-desc">
+              ตีเป้าให้แตกก่อนหายไป!
+            </div>
+            <p class="tap-hint boss-intro-hint">แตะหรือคลิกเพื่อเริ่มต่อสู้!</p>
           </div>
         </section>
 
@@ -237,26 +255,15 @@
             <button class="btn-ghost" data-action="back-to-menu">🏠 กลับเมนู</button>
           </div>
         </section>
-
-        <!-- Boss Intro Overlay -->
-        <div id="bossIntro" class="boss-intro hidden">
-          <div id="boss-intro-emoji" class="emoji boss-intro-emoji">🐣</div>
-          <div id="boss-intro-name" class="name boss-intro-name">Bubble Glove</div>
-          <div id="boss-intro-title" class="title boss-intro-title">บอสมือใหม่สายฟอง</div>
-          <div id="boss-intro-desc" class="desc boss-intro-desc">
-            ตีเป้าให้แตกก่อนหายไป!
-          </div>
-          <p class="tap-hint boss-intro-hint">แตะหรือคลิกเพื่อเริ่มต่อสู้!</p>
-        </div>
       </div>
     </main>
   </div>
 
-  <!-- ========== Scripts (SFX + Engine) ========== -->
-  <script src="./js/sfx.js"></script>
+  <!-- Scripts -->
   <script type="module" src="./js/shadow-breaker.js"></script>
+  <script src="./js/sfx.js"></script>
 
-  <!-- (optional) preload audio tags, sfx.js จะใช้หรือ fallback ก็ได้ -->
+  <!-- SFX audio tags (optional fallback/preload) -->
   <audio id="sfx-hit"   src="./sfx/hit.mp3"         preload="auto"></audio>
   <audio id="sfx-boss"  src="./sfx/boss-intro.mp3"  preload="auto"></audio>
   <audio id="sfx-fever" src="./sfx/fever.mp3"       preload="auto"></audio>
