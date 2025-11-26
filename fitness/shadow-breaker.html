@@ -11,23 +11,23 @@
 
 <body>
   <div class="sb-shell">
-    <!-- ===== Header เหมือน Hub ===== -->
+    <!-- Header เหมือน Hub -->
     <header class="sb-header">
       <div class="sb-brand">
         <div class="sb-logo-pill">SB</div>
         <div class="sb-brand-text">
           <div class="sb-brand-title">VR Fitness — Shadow Breaker</div>
-          <div class="sb-brand-subtitle">
-            ตีเป้า Boss Fight ฝึกกำลังแขนและความไวในการตอบสนอง
-          </div>
+          <div class="sb-brand-subtitle">ตีเป้า Boss Fight ฝึกกำลังแขนและความไวในการตอบสนอง</div>
         </div>
       </div>
-      <a href="./hub.html" class="sb-back-link">← กลับสู่ VR Fitness Hub</a>
+      <a href="./hub.html" class="sb-back-link">
+        ← กลับสู่ VR Fitness Hub
+      </a>
     </header>
 
     <main class="sb-card">
       <div class="sb-wrap" id="sb-wrap">
-        <!-- ========== VIEW: MENU ========== -->
+        <!-- ========== MENU VIEW ========== -->
         <section id="view-menu">
           <h1 class="title">🥊 Shadow Breaker 🎯</h1>
           <p class="subtitle">
@@ -66,36 +66,32 @@
                   📋 โหมดวิจัย (Research Mode)
                 </button>
                 <p class="hint">
-                  โหมดวิจัยจะบันทึกข้อมูลการเล่นเป็นไฟล์ CSV สำหรับวิเคราะห์ Reaction Time,
-                  Accuracy, คอมโบ, โล่ป้องกัน และตัวชี้วัดอื่น ๆ
+                  โหมดวิจัยจะบันทึกข้อมูลการเล่นเป็นไฟล์ CSV สำหรับวิเคราะห์ Reaction Time, Accuracy, คอมโบ และตัวแปรตาม Boss / Phase
                 </p>
               </div>
             </div>
 
-            <!-- ขวา: วิธีเล่น / อธิบาย -->
+            <!-- ขวา: Preview / คำอธิบาย -->
             <div class="menu-right">
               <div class="preview-panel">
                 <div class="preview-title">📌 วิธีเล่นเบื้องต้น</div>
                 <p class="preview-text">
-                  เป้า Emoji จะโผล่ทั่วจอสนาม — ใช้การชก/แตะให้ทันก่อนหายไป
-                  ยิ่งตีเร็วและแม่น คะแนนยิ่งสูง!
+                  เป้า Emoji จะโผล่ทั่วจอสนาม — ใช้การชก/แตะให้ทันก่อนหายไป ยิ่งตีเร็วและแม่น คะแนนยิ่งสูง!
                 </p>
                 <ul class="preview-list">
                   <li>🎯 <strong>Perfect</strong> — ตีเร็วมาก ได้คะแนน+คอมโบสูงสุด</li>
                   <li>⭐ <strong>Good</strong> — จังหวะดี คะแนนปานกลาง</li>
-                  <li>💫 <strong>Late</strong> — ช้าไปหน่อย คะแนนน้อย</li>
-                  <li>💣 <strong>Bomb</strong> — ตีผิด HP ลด และนับ Miss</li>
-                  <li>🎯 <strong>Decoy</strong> — เป้าลวง ตีแล้วเสีย HP และคอมโบหลุด</li>
-                  <li>💚 <strong>Heal</strong> — เติม HP และได้คะแนนโบนัส</li>
-                  <li>🛡️ <strong>Shield</strong> — เก็บโล่ไว้กันความเสียหาย ใช้ได้อัตโนมัติ</li>
-                  <li>⚡ <strong>FEVER</strong> — เกจเต็มแล้วคะแนนจะบูสต์พิเศษ + เอฟเฟ็กต์ไฟลุก</li>
+                  <li>💫 <strong>Bad</strong> — ช้าหน่อย คะแนนน้อย</li>
+                  <li>💣 บอมบ์ — ตีผิด HP ลด ระวังให้ดี</li>
+                  <li>💚 Heal / 🛡️ Shield — เติม HP & เกราะ</li>
+                  <li>⚡ FEVER — เมื่อเกจเต็ม คะแนนจะบูสต์พิเศษ</li>
                 </ul>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- ========== VIEW: RESEARCH FORM ========== -->
+        <!-- ========== RESEARCH FORM ========== -->
         <section id="view-research-form" class="hidden">
           <h2 class="section-title">โหมดวิจัย (Research Mode)</h2>
           <p class="section-desc">
@@ -119,38 +115,52 @@
 
           <div class="form-btns">
             <button class="btn-ghost" data-action="back-to-menu">ย้อนกลับ</button>
-            <button class="btn-main" data-action="research-begin-play">
-              ▶ เริ่มเล่นโหมดวิจัย
-            </button>
+            <button class="btn-main" data-action="research-begin-play">▶ เริ่มเล่นโหมดวิจัย</button>
           </div>
         </section>
 
-        <!-- ========== VIEW: PLAY ========== -->
+        <!-- ========== PLAY VIEW ========== -->
         <section id="view-play" class="hidden">
-          <!-- HUD ด้านบน: HP + ตัวเลขสถิติ -->
+          <!-- HUD บนสุด -->
           <div class="hud">
             <div class="stat-left">
               <div class="hp-row">
                 <div class="hp-label">PLAYER</div>
                 <div class="hp-bar">
-                  <div class="bar green" data-sb-player-hp></div>
+                  <div id="player-fill" class="bar green" data-sb-player-hp></div>
                 </div>
               </div>
               <div class="hp-row">
                 <div class="hp-label">BOSS</div>
                 <div class="hp-bar">
-                  <div class="bar red" data-sb-boss-hp></div>
+                  <div id="boss-fill" class="bar red" data-sb-boss-hp></div>
                 </div>
               </div>
             </div>
 
             <div class="stat-right">
-              <div class="stat-pill">TIME <span id="stat-time">60.0</span></div>
-              <div class="stat-pill">SCORE <span id="stat-score">0</span></div>
-              <div class="stat-pill">COMBO <span id="stat-combo">0</span></div>
-              <div class="stat-pill">BOSS <span id="stat-phase">1</span></div>
-              <div class="stat-pill">MISS <span id="stat-miss">0</span></div>
-              <div class="stat-pill">SHIELD <span id="stat-shield">0</span></div>
+              <div class="stat-row">
+                <div class="stat-item">
+                  TIME <span id="stat-time">60.0</span>
+                </div>
+                <div class="stat-item">
+                  SCORE <span id="stat-score">0</span>
+                </div>
+                <div class="stat-item">
+                  COMBO <span id="stat-combo">0</span>
+                </div>
+                <div class="stat-item">
+                  PHASE <span id="stat-phase">1</span>
+                </div>
+              </div>
+              <div class="stat-row">
+                <div class="stat-item">
+                  MISS <span id="stat-miss">0</span>
+                </div>
+                <div class="stat-item">
+                  SHIELD <span id="stat-shield">0</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -160,15 +170,15 @@
             <div class="boss-meta">
               <div id="boss-portrait-name" class="name">Bubble Glove</div>
               <div id="boss-portrait-hint" class="hint">
-                โฟกัสที่เป้าฟองใหญ่ ๆ แล้วตีให้ทัน
+                โฟกัสที่เป้าฟองแล้วตีให้ทัน
               </div>
             </div>
           </div>
 
-          <!-- สนามให้เป้าโผล่ (เต็มความกว้าง/สูงของพื้นที่เล่น) -->
+          <!-- สนามให้เป้าโผล่ -->
           <div id="target-layer" class="target-layer" data-sb-field></div>
 
-          <!-- FEVER HUD (อยู่ในจอเดียวกับ gameplay) -->
+          <!-- FEVER HUD -->
           <div class="fever-hud">
             <div class="fever-label">FEVER</div>
             <div class="fever-bar">
@@ -182,13 +192,13 @@
             ตีเป้าให้ทันก่อนหายไป แล้วดูว่าคอมโบจะยาวแค่ไหน!
           </div>
 
-          <!-- ปุ่มหยุด -->
+          <!-- ปุ่มควบคุมล่าง -->
           <div class="play-controls">
             <button class="btn-ghost" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
           </div>
         </section>
 
-        <!-- ========== VIEW: RESULT ========== -->
+        <!-- ========== RESULT VIEW ========== -->
         <section id="view-result" class="hidden">
           <h2 class="section-title">📊 สรุปผลการเล่น</h2>
 
@@ -202,9 +212,11 @@
                 <tr><td>คะแนนรวม</td><td id="res-score">0</td></tr>
                 <tr><td>เกรด</td><td id="res-grade">-</td></tr>
                 <tr><td>คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
-                <tr><td>จำนวนพลาด (Miss)</td><td id="res-miss">0</td></tr>
+                <tr><td>จำนวนพลาด (MISS)</td><td id="res-miss">0</td></tr>
                 <tr><td>จำนวนเป้าถูกตี</td><td id="res-totalhits">0</td></tr>
                 <tr><td>ความแม่นยำ</td><td id="res-accuracy">0%</td></tr>
+                <tr><td>Reaction Time (เป้าปกติ)</td><td id="res-rt-normal">-</td></tr>
+                <tr><td>Reaction Time (เป้าลวง/decoy)</td><td id="res-rt-decoy">-</td></tr>
               </table>
             </div>
 
@@ -212,14 +224,9 @@
             <div class="result-side">
               <h3>ตัวชี้วัดเพิ่มเติม</h3>
               <p>⏱ เวลาใน FEVER รวม: <span id="res-fever-time">0.00 s</span></p>
-              <p>🎯 จำนวนบอสที่ผ่าน: <span id="res-bosses">0</span></p>
-              <p>❤️‍🩹 เวลา HP ต่ำรวม: <span id="res-lowhp-time">0.00 s</span></p>
+              <p>💥 จำนวนบอสที่ผ่าน: <span id="res-bosses">0</span></p>
+              <p>❤️‍🔥 เวลา HP ต่ำรวม: <span id="res-lowhp-time">0.00 s</span></p>
               <p>⚙️ เวลา จากเมนู → เล่นจริง: <span id="res-menu-latency">-</span></p>
-
-              <h4>โล่ป้องกัน (Shield)</h4>
-              <p>🛡️ เก็บโล่ได้ทั้งหมด: <span id="res-shield-collected">0</span></p>
-              <p>🛡️ ใช้โล่ไปทั้งหมด: <span id="res-shield-used">0</span></p>
-              <p>🛡️ โล่คงเหลือเมื่อจบเกม: <span id="res-shield-left">0</span></p>
 
               <div class="csv-btns">
                 <button class="btn-sub" data-action="download-csv-events">
@@ -231,6 +238,95 @@
               </div>
             </div>
           </div>
+
+          <!-- สถิติ RT แยกตาม Boss / Phase -->
+          <h3>📌 Reaction Time ตาม Boss / Phase</h3>
+          <p class="section-desc">
+            ใช้สำหรับวิเคราะห์การเรียนรู้ตามระดับความยากของบอสและเฟส (หน่วย: วินาที, เป้าปกติเท่านั้น)
+          </p>
+
+          <div class="rt-grid">
+            <table class="rt-table">
+              <thead>
+                <tr>
+                  <th>Boss 1 — Bubble Glove</th>
+                  <th>Phase 1</th>
+                  <th>Phase 2</th>
+                  <th>Phase 3</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>RT เฉลี่ย (s)</td>
+                  <td id="res-rt-b1p1">-</td>
+                  <td id="res-rt-b1p2">-</td>
+                  <td id="res-rt-b1p3">-</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <table class="rt-table">
+              <thead>
+                <tr>
+                  <th>Boss 2 — Neon Knuckle</th>
+                  <th>Phase 1</th>
+                  <th>Phase 2</th>
+                  <th>Phase 3</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>RT เฉลี่ย (s)</td>
+                  <td id="res-rt-b2p1">-</td>
+                  <td id="res-rt-b2p2">-</td>
+                  <td id="res-rt-b2p3">-</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <table class="rt-table">
+              <thead>
+                <tr>
+                  <th>Boss 3 — Shadow Guard</th>
+                  <th>Phase 1</th>
+                  <th>Phase 2</th>
+                  <th>Phase 3</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>RT เฉลี่ย (s)</td>
+                  <td id="res-rt-b3p1">-</td>
+                  <td id="res-rt-b3p2">-</td>
+                  <td id="res-rt-b3p3">-</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <table class="rt-table">
+              <thead>
+                <tr>
+                  <th>Boss 4 — Final Burst</th>
+                  <th>Phase 1</th>
+                  <th>Phase 2</th>
+                  <th>Phase 3</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>RT เฉลี่ย (s)</td>
+                  <td id="res-rt-b4p1">-</td>
+                  <td id="res-rt-b4p2">-</td>
+                  <td id="res-rt-b4p3">-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Hint ปิดท้ายสำหรับเชิงวิจัย / เชิงสอน -->
+          <p id="res-end-hint" class="res-hint">
+            <!-- engine.js จะเขียนข้อความแนะนำตอนจบเกม -->
+          </p>
 
           <h3>ข้อมูลผู้เข้าร่วม</h3>
           <p>รหัสผู้เข้าร่วม: <span id="res-participant">-</span></p>
