@@ -1,8 +1,8 @@
-// === js/rhythm-boxer.js — Rhythm Boxer bootstrap + UI wiring (2025-11-30) ===
+// === js/rhythm-boxer.js — Rhythm Boxer bootstrap + UI wiring (2025-11-30b) ===
 'use strict';
 
 (function () {
-  const $  = (id) => document.getElementById(id);
+  const $  = (id)  => document.getElementById(id);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
   let engine = null;
@@ -26,7 +26,8 @@
     const sel = $('rb-track');
     if (!sel) return 't1';
     let v = sel.value || 't1';
-    // ถ้าเลือกโหมดวิจัย ให้ล็อกเพลงเป็น research track
+
+    // โหมดวิจัย → ล็อกเพลงเป็น research track เสมอ
     if (mode === 'research') {
       v = 'research';
       sel.value = 'research';
@@ -45,16 +46,30 @@
   function updateResearchFieldsVisibility() {
     const mode = getSelectedMode();
     const box  = $('rb-research-fields');
-    if (!box) return;
-    box.classList.toggle('hidden', mode !== 'research');
+    const sel  = $('rb-track');
+    if (!box || !sel) return;
+
+    if (mode === 'research') {
+      box.classList.remove('hidden');
+      // ล็อก dropdown เพลงไว้ที่ research + disable
+      sel.value    = 'research';
+      sel.disabled = true;
+    } else {
+      box.classList.add('hidden');
+      sel.disabled = false;
+      // ถ้าเคยอยู่ research ให้เด้งกลับเพลงแรก
+      if (sel.value === 'research') {
+        sel.value = 't1';
+      }
+    }
   }
 
   function bindUI() {
-    const wrap    = $('rb-wrap');
-    const field   = $('rb-field');
-    const lanes   = $('rb-lanes');
-    const audioEl = $('rb-audio');
-    const flashEl = $('rb-flash');
+    const wrap       = $('rb-wrap');
+    const field      = $('rb-field');
+    const lanes      = $('rb-lanes');
+    const audioEl    = $('rb-audio');
+    const flashEl    = $('rb-flash');
     const feedbackEl = $('rb-feedback');
 
     if (!wrap || !field || !lanes) {
@@ -62,12 +77,14 @@
       return;
     }
 
+    // DOM renderer (effect คะแนน + particle)
     const renderer = new window.RbDomRenderer(field, {
       flashEl,
       feedbackEl,
       wrapEl: wrap
     });
 
+    // สร้าง engine หลัก
     engine = new window.RhythmBoxerEngine({
       wrap,
       field,
@@ -145,7 +162,7 @@
 
     // ====== Events ======
 
-    // เปลี่ยนโหมด → แสดง/ซ่อนฟอร์มวิจัย
+    // เปลี่ยนโหมด → แสดง/ซ่อนฟอร์มวิจัย + ล็อกเพลง
     $$('input[name="mode"]').forEach(radio => {
       radio.addEventListener('change', updateResearchFieldsVisibility);
     });
@@ -156,9 +173,9 @@
     if (btnStart) {
       btnStart.addEventListener('click', () => {
         if (!engine) return;
-        const mode = getSelectedMode();
+        const mode    = getSelectedMode();
         const trackId = getSelectedTrackId(mode);
-        const meta = mode === 'research' ? collectResearchMeta() : {};
+        const meta    = mode === 'research' ? collectResearchMeta() : {};
 
         lastConfig = { mode, trackId, meta };
 
@@ -166,8 +183,12 @@
 
         // HUD เบื้องต้น
         const trackMeta = window.RB_TRACKS_META?.find(t => t.id === trackId) || null;
-        if ($('rb-hud-mode'))  $('rb-hud-mode').textContent  = (mode === 'research' ? 'Research' : 'Normal');
-        if ($('rb-hud-track')) $('rb-hud-track').textContent = trackMeta ? trackMeta.nameShort : trackId;
+        if ($('rb-hud-mode')) {
+          $('rb-hud-mode').textContent = (mode === 'research' ? 'Research' : 'Normal');
+        }
+        if ($('rb-hud-track')) {
+          $('rb-hud-track').textContent = trackMeta ? trackMeta.nameShort : trackId;
+        }
 
         showView('rb-view-play');
       });
@@ -200,7 +221,7 @@
       });
     }
 
-    // โหลด CSV
+    // ดาวน์โหลด CSV (events / sessions)
     function downloadCsv(name, text) {
       if (!text) {
         alert('ยังไม่มีข้อมูล CSV ลองเล่นเกมให้จบก่อนค่ะ');
