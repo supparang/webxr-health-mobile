@@ -797,4 +797,31 @@ button:disabled,
   }
 
   .sb-card {
-    padding:
+    padding: 10px 8px 14px;
+  }
+
+  #sb-wrap.sb-wrap {
+    padding: 14px 10px 12px;
+    border-radius: 18px;
+  }
+
+  .menu-grid {
+    flex-direction: column;
+  }
+
+  .stat-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .target-layer {
+    min-height: 300px;
+    height: min(60vh, 420px);
+  }
+
+  .btn-main,
+  .btn-sub {
+    width: 100%;
+    justify-content: center;
+  }
+}
