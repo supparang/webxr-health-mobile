@@ -1,36 +1,572 @@
-ฃ/* ===== FEVER HUD ===== */
+/* === shadow-breaker.css — VR Fitness: Shadow Breaker (2025-11-30a) === */
+
+/* ---------- Reset + Layout พื้นฐาน ---------- */
+
+:root {
+  color-scheme: light dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  color: #e5e7eb;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.18), transparent 55%),
+    #020617;
+}
+
+/* ---------- โครงหลัก ---------- */
+
+.sb-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header เหมือน Hub */
+
+.sb-header {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+  backdrop-filter: blur(16px);
+  background: linear-gradient(
+      120deg,
+      rgba(15, 23, 42, 0.9),
+      rgba(15, 23, 42, 0.7)
+    );
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.sb-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sb-logo-pill {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 20%, #fbbf24, #f97316);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #111827;
+  font-size: 17px;
+  box-shadow:
+    0 0 0 2px rgba(15, 23, 42, 0.7),
+    0 10px 25px rgba(15, 23, 42, 0.9);
+}
+
+.sb-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sb-brand-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.sb-brand-subtitle {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.sb-back-link {
+  font-size: 13px;
+  color: #e5e7eb;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: radial-gradient(circle at 0% 0%, rgba(148, 163, 184, 0.25), transparent 55%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.sb-back-link:hover {
+  border-color: #f97316;
+  color: #f97316;
+}
+
+/* ---------- Card หลัก & Playground ---------- */
+
+.sb-card {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.sb-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  border-radius: 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(30, 64, 175, 0.5), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(14, 116, 144, 0.4), transparent 55%),
+    #020617;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow:
+    0 22px 40px rgba(15, 23, 42, 0.9),
+    0 0 0 1px rgba(15, 23, 42, 0.9);
+  min-height: min(720px, calc(100vh - 96px));
+  max-height: calc(100vh - 96px);
+  display: flex;
+}
+
+/* ให้ทุก view กินพื้นที่เต็ม ไม่ต้อง scroll */
+.sb-wrap > section {
+  flex: 1;
+  padding: 20px 20px 18px;
+  overflow: hidden;
+}
+
+/* ทำ wrapper เขย่าเวลาข้าม phase / fever */
+.sb-wrap-shake {
+  animation: sb-wrap-shake 0.24s ease-in-out;
+}
+
+@keyframes sb-wrap-shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+  75% { transform: translateX(-1px); }
+  100% { transform: translateX(0); }
+}
+
+/* ---------- สถานะซ่อน view ---------- */
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- วิว MENU ---------- */
+
+#view-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#view-menu .title {
+  font-size: 26px;
+  margin: 0;
+}
+
+#view-menu .subtitle {
+  margin: 4px 0 10px;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 20px;
+  height: 100%;
+}
+
+.menu-left,
+.menu-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.menu-block {
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(55, 65, 81, 0.8);
+}
+
+.menu-block label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.menu-block select,
+.menu-block input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(75, 85, 99, 0.9);
+  padding: 6px 8px;
+  font-size: 13px;
+  background: rgba(15, 23, 42, 0.95);
+  color: #e5e7eb;
+}
+
+.menu-block .hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* ปุ่มหลัก / รอง */
+
+.btn-main,
+.btn-sub,
+.btn-ghost {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease,
+    background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+}
+
+.btn-main {
+  background: radial-gradient(circle at 0% 0%, #fbbf24, #f97316);
+  color: #111827;
+  box-shadow:
+    0 10px 25px rgba(248, 113, 113, 0.45),
+    0 0 0 1px rgba(15, 23, 42, 0.8);
+}
+.btn-main:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 30px rgba(248, 113, 113, 0.6),
+    0 0 0 1px rgba(15, 23, 42, 0.9);
+}
+
+.btn-sub {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(30, 64, 175, 0.95));
+  color: #e5e7eb;
+  border-color: rgba(59, 130, 246, 0.7);
+}
+.btn-sub:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.7);
+}
+
+.btn-ghost {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(75, 85, 99, 0.85);
+  color: #e5e7eb;
+}
+.btn-ghost:hover {
+  background: rgba(31, 41, 55, 0.9);
+}
+
+.preview-panel {
+  height: 100%;
+  background: radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.4), transparent 55%),
+    rgba(15, 23, 42, 0.9);
+  border-radius: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(30, 64, 175, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.preview-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.preview-text {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.preview-list {
+  padding-left: 18px;
+  margin: 4px 0 0;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* ---------- วิว Research Form ---------- */
+
+#view-research-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.section-desc {
+  margin: 0 0 10px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.form-block {
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+}
+
+.form-block.full {
+  grid-column: 1 / -1;
+}
+
+.form-block label {
+  font-size: 13px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.form-block input {
+  width: 100%;
+  border-radius: 9px;
+  border: 1px solid rgba(75, 85, 99, 0.9);
+  background: rgba(15, 23, 42, 0.95);
+  color: #e5e7eb;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.form-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* ---------- วิว PLAY (Gameplay) ---------- */
+
+#view-play {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+
+/* HUD ด้านบน */
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 10px;
+  background: radial-gradient(circle at 0% 0%, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.85));
+  border-radius: 999px;
+  border: 1px solid rgba(30, 64, 175, 0.9);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.9);
+  flex-shrink: 0;
+}
+
+.stat-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hp-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  opacity: 0.7;
+  min-width: 54px;
+}
+
+.hp-bar {
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+  border: 1px solid rgba(30, 64, 175, 0.9);
+}
+
+.hp-bar .bar {
+  height: 100%;
+  width: 0%;
+  transform-origin: left center;
+  transition: width 0.16s ease-out;
+}
+
+.hp-bar .green {
+  background: linear-gradient(90deg, #22c55e, #a3e635);
+}
+.hp-bar .red {
+  background: linear-gradient(90deg, #f97316, #ef4444);
+}
+
+.stat-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.stat-item {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(75, 85, 99, 0.9);
+}
+.stat-item span {
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+/* Boss portrait */
+
+.boss-portrait {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 0% 0%, rgba(30, 64, 175, 0.9), rgba(2, 6, 23, 0.9));
+  border: 1px solid rgba(59, 130, 246, 0.9);
+  flex-shrink: 0;
+}
+
+.boss-portrait .emoji {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 20%, #fbbf24, #f97316);
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.8);
+  font-size: 22px;
+}
+
+.boss-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.boss-meta .name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.boss-meta .hint {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* เวลา HP บอสต่ำ ให้ portrait สั่น (engine ใส่คลาส sb-shake) */
+#boss-portrait.sb-shake {
+  animation: sb-wrap-shake 0.24s ease-in-out infinite;
+}
+
+/* สนาม gameplay (#target-layer) */
+
+.target-layer {
+  position: relative;
+  flex: 1;
+  margin-top: 8px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.5), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(56, 189, 248, 0.4), transparent 55%),
+    #020617;
+  border: 1px solid rgba(30, 64, 175, 0.8);
+  overflow: hidden;
+  box-shadow: inset 0 0 22px rgba(15, 23, 42, 0.9);
+}
+
+/* ให้เป้าไม่หลุดกรอบ: margin ของ dom-renderer จะมาคำนวณจาก rect นี้ */
+
+.target-layer::before {
+  /* เส้นพื้นฐานที่ให้เด็กมองว่าอยู่กลางจอ (light guide) */
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.15);
+  pointer-events: none;
+}
+
+/* FEVER HUD ด้านล่าง */
+
 .fever-hud {
   position: absolute;
   left: 50%;
-  bottom: 16px;
+  bottom: 14px;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(15,23,42,.78);
+  background: rgba(15, 23, 42, 0.9);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(148,163,184,.5);
+  border: 1px solid rgba(148, 163, 184, 0.6);
   font-size: 13px;
   z-index: 20;
 }
 
 .fever-label {
   font-weight: 600;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  opacity: 0.85;
 }
 
 .fever-bar {
   position: relative;
-  width: min(260px, 45vw);
+  width: min(260px, 50vw);
   height: 10px;
   border-radius: 999px;
-  overflow: hidden;
   background: radial-gradient(circle at 0% 50%, #1f2937, #020617);
+  overflow: hidden;
 }
 
-/* เปลวไฟ overlay */
+/* เปลวไฟ */
 .fever-bar::before,
 .fever-bar::after {
   content: "";
@@ -39,15 +575,15 @@
   opacity: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 10% 0%, rgba(255,255,255,.35), transparent 52%),
-    radial-gradient(circle at 20% 60%, rgba(249,115,22,.55), transparent 55%),
-    radial-gradient(circle at 80% 20%, rgba(251,191,36,.6), transparent 55%);
+    radial-gradient(circle at 10% 0%, rgba(255, 255, 255, 0.3), transparent 52%),
+    radial-gradient(circle at 20% 60%, rgba(249, 115, 22, 0.55), transparent 55%),
+    radial-gradient(circle at 80% 20%, rgba(251, 191, 36, 0.6), transparent 55%);
   transform-origin: center;
 }
 
 .sb-fever-on .fever-bar::before,
 .sb-fever-on .fever-bar::after {
-  opacity: .9;
+  opacity: 0.95;
   animation: sb-fever-flame 0.7s ease-in-out infinite alternate;
 }
 
@@ -65,29 +601,502 @@
   min-width: 60px;
   text-align: center;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  opacity: .75;
+  opacity: 0.75;
 }
-
 .fever-hud .status.on {
   color: #facc15;
-  text-shadow: 0 0 8px rgba(250,204,21,.9);
+  text-shadow: 0 0 8px rgba(250, 204, 21, 0.9);
   opacity: 1;
 }
 
-/* Container ติด FEVER */
+/* FEVER = ไฟล้อมสนาม */
 .sb-fever-on .target-layer {
   box-shadow:
-    inset 0 0 28px rgba(248,113,113,0.65),
-    0 0 38px rgba(251,146,60,0.9);
+    inset 0 0 28px rgba(248, 113, 113, 0.7),
+    0 0 36px rgba(251, 146, 60, 0.85);
   animation: sb-fever-pulse 0.65s ease-in-out infinite alternate;
 }
 
-/* keyframes */
+/* Feedback โค้ช */
+
+.sb-feedback {
+  margin-top: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(75, 85, 99, 0.9);
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.sb-feedback.good {
+  border-color: rgba(34, 197, 94, 0.9);
+}
+.sb-feedback.perfect {
+  border-color: rgba(250, 204, 21, 0.95);
+}
+.sb-feedback.miss,
+.sb-feedback.bad {
+  border-color: rgba(239, 68, 68, 0.9);
+}
+
+/* ปุ่มหยุด */
+
+.play-controls {
+  margin-top: 4px;
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* ---------- Target / เป้า ---------- */
+
+.sb-target {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  position: absolute;
+  /* เอฟเฟกต์ขยับนิดหน่อย */
+  animation: sb-target-float 1.6s ease-in-out infinite alternate;
+}
+
+/* วงนอก + ring cycle */
+.sb-target::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: inherit;
+  border: 2px solid var(--sb-ring-color, rgba(59, 130, 246, 0.85));
+  box-shadow: 0 0 10px rgba(15, 23, 42, 0.6);
+  opacity: 0.9;
+  animation: sb-ring-pulse 1.4s ease-in-out infinite;
+}
+
+.sb-target-inner {
+  position: relative;
+  inset: 0;
+  width: 84%;
+  height: 84%;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 20%, rgba(15, 23, 42, 0.1), transparent 60%),
+    radial-gradient(circle at 50% 100%, rgba(15, 23, 42, 0.4), transparent 65%),
+    rgba(15, 23, 42, 0.9);
+  box-shadow:
+    0 3px 10px rgba(15, 23, 42, 0.9),
+    inset 0 0 0 1px rgba(15, 23, 42, 1);
+  color: #f9fafb;
+
+  /* ทำ emoji ให้ "ใหญ่" เห็นชัดมาก */
+  font-size: 52px;
+}
+
+/* บางเป้า (bossface) ให้ emoji ใหญ่ขึ้นอีกนิด
+   engine ส่ง isBossFace → dom-renderer ใช้ .sb-target--bossface */
+.sb-target--bossface .sb-target-inner {
+  font-size: 58px;
+}
+
+/* ประเภทเป้า: สีวงแหวนและพื้นหลังใน inner */
+
+.sb-target--normal {
+  --sb-ring-color: rgba(59, 130, 246, 0.95);
+}
+.sb-target--bomb {
+  --sb-ring-color: rgba(248, 113, 113, 0.95);
+}
+.sb-target--heal {
+  --sb-ring-color: rgba(52, 211, 153, 0.95);
+}
+.sb-target--shield {
+  --sb-ring-color: rgba(129, 140, 248, 0.95);
+}
+.sb-target--decoy {
+  --sb-ring-color: rgba(251, 191, 36, 0.95);
+}
+.sb-target--bossface {
+  --sb-ring-color: rgba(250, 204, 21, 1);
+}
+
+/* Diff แต่ละระดับเปลี่ยนโทน ring เล็กน้อย */
+
+.sb-target--diff-easy {
+  --sb-ring-color: rgba(34, 197, 94, 0.98);
+}
+.sb-target--diff-normal {
+  --sb-ring-color: rgba(59, 130, 246, 0.98);
+}
+.sb-target--diff-hard {
+  --sb-ring-color: rgba(248, 113, 113, 0.98);
+}
+
+/* Phase: ปรับความเร็ว pulse */
+
+.sb-wrap[data-phase="1"] .sb-target::before {
+  animation-duration: 1.6s;
+}
+.sb-wrap[data-phase="2"] .sb-target::before {
+  animation-duration: 1.25s;
+}
+.sb-wrap[data-phase="3"] .sb-target::before {
+  animation-duration: 1.0s;
+}
+
+/* เอฟเฟกต์ตอนโดนตี / หายไป */
+
+.sb-target--hit {
+  animation: sb-target-hit 0.16s ease-out forwards;
+}
+
+.sb-target--fade-timeout {
+  animation: sb-target-timeout 0.2s ease-out forwards;
+}
+.sb-target--fade-soft {
+  animation: sb-target-fade 0.16s ease-out forwards;
+}
+
+/* Pop text PERFECT / GOOD / MISS ให้เด้งตรงเป้า */
+
+.sb-pop {
+  position: absolute;
+  transform: translate(-50%, -60%);
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow:
+    0 0 4px rgba(15, 23, 42, 0.9),
+    0 2px 6px rgba(0, 0, 0, 0.8);
+  animation: sb-pop-rise 0.6s ease-out forwards;
+  z-index: 30;
+}
+
+.sb-pop--perfect {
+  color: #facc15;
+}
+.sb-pop--good {
+  color: #22c55e;
+}
+.sb-pop--bad {
+  color: #38bdf8;
+}
+.sb-pop--miss,
+.sb-pop--bomb {
+  color: #f97316;
+}
+.sb-pop--heal {
+  color: #4ade80;
+}
+.sb-pop--shield {
+  color: #a5b4fc;
+}
+
+/* เศษเป้าแตก */
+
+.sb-hit-shard {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 20%, #f9fafb, #f97316);
+  pointer-events: none;
+  opacity: 0.95;
+  animation: sb-hit-shard 0.45s ease-out forwards;
+  transform: translate(var(--dx, 0), var(--dy, 0));
+}
+
+/* ---------- Boss Intro Overlay ---------- */
+
+.boss-intro {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(15, 23, 42, 0.2), transparent 55%),
+    rgba(15, 23, 42, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  text-align: center;
+  padding: 20px;
+}
+
+.boss-intro-emoji {
+  font-size: 56px;
+  margin-bottom: 10px;
+}
+
+.boss-intro-name {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.boss-intro-title {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-bottom: 10px;
+}
+
+.boss-intro-desc {
+  font-size: 13px;
+  opacity: 0.85;
+  max-width: 360px;
+}
+
+.boss-intro-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* ---------- Result View ---------- */
+
+#view-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: rgba(15, 23, 42, 0.95);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(55, 65, 81, 1);
+}
+.result-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(31, 41, 55, 1);
+}
+.result-table tr:last-child td {
+  border-bottom: none;
+}
+.result-table td:first-child {
+  width: 40%;
+  opacity: 0.8;
+}
+
+.result-side {
+  background: rgba(15, 23, 42, 0.95);
+  border-radius: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(55, 65, 81, 1);
+  font-size: 13px;
+}
+
+.result-side h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.csv-btns {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.result-btns {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#view-result h3 {
+  margin: 6px 0 2px;
+  font-size: 14px;
+}
+
+/* ---------- Boss Theme ตาม boss+phase ---------- */
+
+/* Boss 0 — Bubble Glove: โทนฟ้า-เขียวฟองน้ำ */
+.sb-wrap[data-boss="0"][data-phase="1"] .target-layer {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.35), transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(45, 212, 191, 0.3), transparent 60%),
+    #020617;
+}
+.sb-wrap[data-boss="0"][data-phase="2"] .target-layer {
+  background:
+    radial-gradient(circle at 0% 100%, rgba(56, 189, 248, 0.38), transparent 60%),
+    radial-gradient(circle at 80% 10%, rgba(45, 212, 191, 0.3), transparent 60%),
+    #020617;
+}
+.sb-wrap[data-boss="0"][data-phase="3"] .target-layer {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.45), transparent 60%),
+    radial-gradient(circle at 10% 80%, rgba(45, 212, 191, 0.35), transparent 60%),
+    #020617;
+}
+
+/* Boss 1 — Neon Knuckle: โทนชมพู-ม่วงนีออน */
+.sb-wrap[data-boss="1"][data-phase="1"] .target-layer {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(244, 114, 182, 0.4), transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(96, 165, 250, 0.35), transparent 60%),
+    #020617;
+}
+.sb-wrap[data-boss="1"][data-phase="2"] .target-layer {
+  background:
+    radial-gradient(circle at 80% 0%, rgba(129, 140, 248, 0.42), transparent 60%),
+    radial-gradient(circle at 10% 90%, rgba(244, 114, 182, 0.35), transparent 60%),
+    #020617;
+}
+.sb-wrap[data-boss="1"][data-phase="3"] .target-layer {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(244, 114, 182, 0.5), transparent 60%),
+    radial-gradient(circle at 50% 100%, rgba(129, 140, 248, 0.45), transparent 60%),
+    #020617;
+}
+
+/* Boss 2 — Shadow Guard: โทนเขียวมินต์-เทา */
+.sb-wrap[data-boss="2"][data-phase="1"] .target-layer {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(94, 234, 212, 0.35), transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(148, 163, 184, 0.4), transparent 60%),
+    #020617;
+}
+.sb-wrap[data-boss="2"][data-phase="2"] .target-layer {
+  background:
+    radial-gradient(circle at 0% 100%, rgba(94, 234, 212, 0.4), transparent 60%),
+    radial-gradient(circle at 100% 0%, rgba(148, 163, 184, 0.4), transparent 60%),
+    #020617;
+}
+.sb-wrap[data-boss="2"][data-phase="3"] .target-layer {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(94, 234, 212, 0.5), transparent 60%),
+    radial-gradient(circle at 50% 100%, rgba(148, 163, 184, 0.45), transparent 60%),
+    #020617;
+}
+
+/* Boss 3 — Final Burst: โทนแดง-ทองไฟลุก */
+.sb-wrap[data-boss="3"][data-phase="1"] .target-layer {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(248, 113, 113, 0.5), transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(251, 191, 36, 0.4), transparent 60%),
+    #020617;
+}
+.sb-wrap[data-boss="3"][data-phase="2"] .target-layer {
+  background:
+    radial-gradient(circle at 80% 0%, rgba(248, 113, 113, 0.55), transparent 60%),
+    radial-gradient(circle at 10% 90%, rgba(251, 191, 36, 0.45), transparent 60%),
+    #020617;
+}
+.sb-wrap[data-boss="3"][data-phase="3"] .target-layer {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(248, 113, 113, 0.6), transparent 60%),
+    radial-gradient(circle at 50% 100%, rgba(251, 191, 36, 0.55), transparent 60%),
+    #020617;
+}
+
+/* ---------- Keyframes ---------- */
+
+@keyframes sb-target-float {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes sb-ring-pulse {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes sb-target-hit {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes sb-target-timeout {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes sb-target-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sb-pop-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -60%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -80%);
+  }
+}
+
+@keyframes sb-hit-shard {
+  0% {
+    opacity: 1;
+    transform: translate(var(--dx, 0), var(--dy, 0)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--dx, 0) * 1.3), calc(var(--dy, 0) * 1.3))
+      scale(0.4);
+  }
+}
+
 @keyframes sb-fever-bar {
-  0%   { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
 }
 
 @keyframes sb-fever-flame {
@@ -109,5 +1118,45 @@
   100% {
     transform: translateY(-1px);
     filter: saturate(1.2);
+  }
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 900px) {
+  .menu-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .result-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hud {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stat-right {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .fever-hud {
+    bottom: 10px;
+    transform: translateX(-50%) scale(0.92);
+  }
+
+  .sb-wrap {
+    min-height: calc(100vh - 96px);
+    max-height: calc(100vh - 96px);
+  }
+}
+
+@media (max-width: 600px) {
+  .sb-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
