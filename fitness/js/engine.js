@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-29b) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-29a) ===
 'use strict';
 
 import { DomRenderer } from './dom-renderer.js';
@@ -6,7 +6,7 @@ import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 import { recordSession } from './stats-store.js';
 
-const BUILD_VERSION = 'sb-2025-11-29b';
+const BUILD_VERSION = 'sb-2025-11-29a';
 
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -113,7 +113,7 @@ class ShadowBreakerEngine {
 
     this.eventLogger   = new EventLogger();
     this.sessionLogger = new SessionLogger();
-    this.hooks         = opts.hooks || {};
+    this.hooks = opts.hooks || {};
 
     this.introEl       = $('#bossIntro');
     this.introEmojiEl  = $('#boss-intro-emoji');
@@ -139,7 +139,9 @@ class ShadowBreakerEngine {
     this._loopBound = (ts) => this._loop(ts);
     this._introTapHandler = (ev) => {
       ev.preventDefault();
-      if (this.waitingIntro) this._hideIntroAndResume();
+      if (this.waitingIntro) {
+        this._hideIntroAndResume();
+      }
     };
 
     if (this.introEl) {
@@ -222,20 +224,31 @@ class ShadowBreakerEngine {
     this.elapsedMs   = 0;
     this.remainingMs = this.timeLimitMs;
 
-    this.startedAt   = null;
-    this.lastTs      = null;
+    this.startedAt = null;
+    this.lastTs    = null;
     this.nextSpawnAt = null;
-    this.paused      = true;
-    this.ended       = false;
+    this.paused    = true;
+    this.ended     = false;
     this.loopRunning = false;
 
-    this.waitingIntro  = true;
+    this.waitingIntro = true;
     this.bossFaceAlive = false;
 
     this.eventLogger.clear();
     this.sessionLogger.clear();
 
     if (this.field) this.field.innerHTML = '';
+
+    // --- Stats สำหรับ RT และโซน (เพื่อการวิจัย) ---
+    this.rtStats = {
+      normal: { sumMs: 0, sumSqMs: 0, count: 0 },
+      decoy:  { sumMs: 0, sumSqMs: 0, count: 0 }
+    };
+    this.zoneStats = {
+      leftHits:  0,
+      rightHits: 0,
+      totalLR:   0       // นับเฉพาะ L/R
+    };
 
     this._updateBossHUD();
     this._updateHUD();
@@ -311,7 +324,9 @@ class ShadowBreakerEngine {
       return;
     }
 
-    if (!this.lastTs) this.lastTs = ts;
+    if (!this.lastTs) {
+      this.lastTs = ts;
+    }
 
     const dt = ts - this.lastTs;
     this.lastTs = ts;
@@ -322,7 +337,9 @@ class ShadowBreakerEngine {
     if (this.feverOn) {
       this.feverTimeMs += dt;
       this.feverGauge = clamp(this.feverGauge - dt * 0.03, 0, 100);
-      if (this.feverGauge <= 0) this.feverOn = false;
+      if (this.feverGauge <= 0) {
+        this.feverOn = false;
+      }
     } else {
       this.feverGauge = clamp(this.feverGauge - dt * 0.01, 0, 100);
     }
@@ -503,6 +520,30 @@ class ShadowBreakerEngine {
     const age = now - t.spawnTime;
     const ratio = clamp(age / t.lifeMs, 0, 1);
 
+    // --- สถิติ RT & zone สำหรับวิจัย ---
+    const isNormalTarget =
+      !t.isDecoy && !t.isBomb && !t.isHeal && !t.isShield && !t.isBossFace;
+    const isDecoyTarget = !!t.isDecoy;
+
+    if (isNormalTarget) {
+      const s = this.rtStats.normal;
+      s.sumMs   += age;
+      s.sumSqMs += age * age;
+      s.count   += 1;
+    } else if (isDecoyTarget) {
+      const s = this.rtStats.decoy;
+      s.sumMs   += age;
+      s.sumSqMs += age * age;
+      s.count   += 1;
+    }
+
+    if (t.zone_lr === 'L' || t.zone_lr === 'R') {
+      this.zoneStats.totalLR += 1;
+      if (t.zone_lr === 'L') this.zoneStats.leftHits += 1;
+      else this.zoneStats.rightHits += 1;
+    }
+
+    // --- grading per-target ---
     let grade = 'good';
     let scoreDelta = 0;
     let fxEmoji = '✨';
@@ -746,6 +787,8 @@ class ShadowBreakerEngine {
     }
     this.hud.score && (this.hud.score.textContent = this.score);
     this.hud.combo && (this.hud.combo.textContent = this.combo);
+
+    // HUD PHASE = ลำดับบอส (1–4)
     this.hud.phase && (this.hud.phase.textContent = this.bossIndex + 1);
 
     const pRatio = clamp(this.playerHp / this.playerHpMax, 0, 1);
@@ -790,13 +833,36 @@ class ShadowBreakerEngine {
     const durationS = this.elapsedMs / 1000;
     const acc = this.totalTargets ? (this.totalHits / this.totalTargets) * 100 : 0;
 
-const grade =
-  acc >= 95 && this.score >= 12000 ? 'SSS' :
-  acc >= 90 && this.score >= 10000 ? 'SS'  :
-  acc >= 85 && this.score >= 8000  ? 'S'   :
-  acc >= 75                        ? 'A'   :
-  acc >= 60                        ? 'B'   : 'C';
+    // --- คำนวณ RT mean / SD & zone ---
+    const rn = this.rtStats?.normal || { sumMs:0, sumSqMs:0, count:0 };
+    const rd = this.rtStats?.decoy  || { sumMs:0, sumSqMs:0, count:0 };
 
+    function calcRt(stat) {
+      if (!stat.count) return { meanS: '', sdS: '' };
+      const meanMs = stat.sumMs / stat.count;
+      const meanSq = stat.sumSqMs / stat.count;
+      const varMs  = Math.max(0, meanSq - meanMs * meanMs);
+      const sdMs   = Math.sqrt(varMs);
+      return {
+        meanS: + (meanMs / 1000).toFixed(3),
+        sdS:   + (sdMs  / 1000).toFixed(3)
+      };
+    }
+
+    const rtNorm = calcRt(rn);
+    const rtDec  = calcRt(rd);
+
+    const zs = this.zoneStats || { leftHits:0, rightHits:0, totalLR:0 };
+    const leftPct  = zs.totalLR ? +((zs.leftHits  / zs.totalLR) * 100).toFixed(1) : '';
+    const rightPct = zs.totalLR ? +((zs.rightHits / zs.totalLR) * 100).toFixed(1) : '';
+
+    // --- เกรดรวม SSS, SS, S, A, B, C ---
+    const grade =
+      acc >= 95 && this.score >= 12000 ? 'SSS' :
+      acc >= 90 && this.score >= 10000 ? 'SS'  :
+      acc >= 85 && this.score >= 8000  ? 'S'   :
+      acc >= 75                        ? 'A'   :
+      acc >= 60                        ? 'B'   : 'C';
 
     const sessionRow = {
       session_id: this.sessionId,
@@ -832,7 +898,15 @@ const grade =
       env_viewport_h: window.innerHeight,
       env_input_mode: ('ontouchstart' in window) ? 'touch' : 'mouse',
       error_count: 0,
-      focus_events: 0
+      focus_events: 0,
+
+      // --- ตัวแปรวิจัย RT & zone ใหม่ ---
+      rt_normal_mean_s: rtNorm.meanS,
+      rt_normal_sd_s:   rtNorm.sdS,
+      rt_decoy_mean_s:  rtDec.meanS,
+      rt_decoy_sd_s:    rtDec.sdS,
+      zone_left_hit_pct:  leftPct,
+      zone_right_hit_pct: rightPct
     };
 
     this.sessionLogger.add(sessionRow);
@@ -851,6 +925,7 @@ const grade =
       this.hooks.onEnd(result);
     }
 
+    // บันทึก summary เบื้องต้นลง stats-store (สำหรับ Hub)
     try {
       recordSession('shadow-breaker', {
         score: result.final_score,
@@ -872,9 +947,9 @@ const grade =
 export function initShadowBreaker() {
   const wrap   = $('#sb-wrap') || document.body;
   const field  = $('#target-layer') || wrap;
-  const viewMenu     = $('#view-menu');
-  const viewPlay     = $('#view-play');
-  const viewResult   = $('#view-result');
+  const viewMenu    = $('#view-menu');
+  const viewPlay    = $('#view-play');
+  const viewResult  = $('#view-result');
   const viewResearch = $('#view-research-form');
 
   let lastMode = 'normal';
@@ -910,19 +985,29 @@ export function initShadowBreaker() {
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
         setText('#res-totalhits', summary.total_hits ?? 0);
 
-        setText(
-          '#res-fever-time',
+        // Reaction Time จากสถิติใหม่
+        if (summary.rt_normal_mean_s !== '' && typeof summary.rt_normal_mean_s === 'number') {
+          setText('#res-rt-normal', summary.rt_normal_mean_s.toFixed(3) + ' s');
+        } else {
+          setText('#res-rt-normal', '-');
+        }
+        if (summary.rt_decoy_mean_s !== '' && typeof summary.rt_decoy_mean_s === 'number') {
+          setText('#res-rt-decoy', summary.rt_decoy_mean_s.toFixed(3) + ' s');
+        } else {
+          setText('#res-rt-decoy', '-');
+        }
+
+        setText('#res-fever-time',
           typeof summary.fever_total_time_s === 'number'
             ? summary.fever_total_time_s.toFixed(2) + ' s'
-            : (summary.fever_total_time_s || 0) + ' s'
-        );
+            : (summary.fever_total_time_s || 0) + ' s');
+
         setText('#res-bosses', summary.bosses_cleared ?? 0);
-        setText(
-          '#res-lowhp-time',
+
+        setText('#res-lowhp-time',
           typeof summary.low_hp_time_s === 'number'
             ? summary.low_hp_time_s.toFixed(2) + ' s'
-            : (summary.low_hp_time_s || 0) + ' s'
-        );
+            : (summary.low_hp_time_s || 0) + ' s');
 
         if (typeof summary.menu_to_play_ms === 'number') {
           setText('#res-menu-latency', (summary.menu_to_play_ms / 1000).toFixed(2) + ' s');
@@ -931,48 +1016,6 @@ export function initShadowBreaker() {
         }
 
         setText('#res-participant', summary.participant || '-');
-
-        // === คำนวณ Reaction Time (ปกติ / หลอก) จาก eventLogger ===
-        let rtNormal = null;
-        let rtDecoy  = null;
-
-        const rows =
-          (engine.eventLogger && (engine.eventLogger.rows || engine.eventLogger._rows)) || [];
-
-        let sumNormal = 0, countNormal = 0;
-        let sumDecoy  = 0, countDecoy  = 0;
-
-        for (const ev of rows) {
-          if (!ev || ev.event_type !== 'hit') continue;
-
-          const type = ev.target_type;
-          let age = ev.age_ms;
-          if (typeof age === 'string') age = parseFloat(age);
-          if (typeof age !== 'number' || !Number.isFinite(age) || age <= 0) continue;
-
-          if (type === 'decoy') {
-            sumDecoy  += age;
-            countDecoy++;
-          } else if (type !== 'bomb' && type !== 'heal' && type !== 'shield' && type !== 'bossface') {
-            sumNormal += age;
-            countNormal++;
-          }
-        }
-
-        if (countNormal > 0) rtNormal = (sumNormal / countNormal) / 1000;
-        if (countDecoy  > 0) rtDecoy  = (sumDecoy  / countDecoy)  / 1000;
-
-        if (rtNormal != null) {
-          setText('#res-rt-normal', rtNormal.toFixed(2) + ' s');
-        } else {
-          setText('#res-rt-normal', '-');
-        }
-
-        if (rtDecoy != null) {
-          setText('#res-rt-decoy', rtDecoy.toFixed(2) + ' s');
-        } else {
-          setText('#res-rt-decoy', '-');
-        }
 
         if (viewResult) {
           viewResult.dataset.eventsCsv  = summary.eventsCsv || '';
