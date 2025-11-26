@@ -3,233 +3,235 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>VR Fitness — Jump Duck Rush</title>
-  <meta name="color-scheme" content="light dark"/>
-  <link rel="icon" href="./favicon.ico"/>
-  <link rel="stylesheet" href="./css/jump-duck.css"/>
+  <title>Fitness — Rhythm Boxer</title>
+  <link rel="icon" href="favicon.ico"/>
+  <link rel="stylesheet" href="./css/rhythm-boxer.css"/>
 </head>
-
 <body>
-<div class="jd-shell">
-  <!-- Header เหมือน Hub / Shadow Breaker -->
-  <header class="jd-header">
-    <div class="jd-brand">
-      <div class="jd-logo-pill">JD</div>
-      <div class="jd-brand-text">
-        <div class="jd-brand-title">VR Fitness — Jump Duck Rush</div>
-        <div class="jd-brand-subtitle">
-          เกมกระโดด–ก้มหลบสิ่งกีดขวาง ฝึกขา แกนกลางลำตัว และการตอบสนอง
+<div id="rb-wrap" data-diff="normal">
+
+  <!-- flash สำหรับโดนระเบิด / damage -->
+  <div id="rb-flash"></div>
+
+  <!-- ===== VIEW: MENU ===== -->
+  <section id="rb-view-menu" class="rb-view">
+    <header class="rb-header">
+      <div>
+        <h1 class="rb-title">Rhythm Boxer</h1>
+        <p class="rb-subtitle">เกมชกตามจังหวะ 5 เลน + เก็บข้อมูลวิจัย</p>
+      </div>
+      <a href="hub.html" class="rb-back-link">← กลับ Hub</a>
+    </header>
+
+    <div class="rb-card">
+      <h2>โหมดการเล่น</h2>
+      <div class="rb-mode-row">
+        <label class="rb-radio">
+          <input type="radio" name="mode" value="normal" checked>
+          <span>โหมดปกติ</span>
+        </label>
+        <label class="rb-radio">
+          <input type="radio" name="mode" value="research">
+          <span>โหมดวิจัย (ล็อกเพลง)</span>
+        </label>
+      </div>
+
+      <div class="rb-field-row">
+        <label>เลือกเพลง</label>
+        <select id="rb-track">
+          <option value="t1">Warm-up Groove (ง่าย)</option>
+          <option value="t2">Punch Rush (ปกติ)</option>
+          <option value="t3">Ultra Beat Combo (ยาก)</option>
+          <option value="research">Research Track 120 (วิจัย)</option>
+        </select>
+      </div>
+
+      <div id="rb-research-fields" class="rb-research hidden">
+        <h3>ข้อมูลผู้เข้าร่วม (วิจัย)</h3>
+        <div class="rb-field-row">
+          <label for="rb-participant">รหัสผู้เข้าร่วม</label>
+          <input id="rb-participant" type="text" placeholder="เช่น P001">
+        </div>
+        <div class="rb-field-row">
+          <label for="rb-group">กลุ่ม</label>
+          <input id="rb-group" type="text" placeholder="เช่น G1 หรือ Control">
+        </div>
+        <div class="rb-field-row">
+          <label for="rb-note">บันทึก</label>
+          <input id="rb-note" type="text" placeholder="เช่น ก่อนฝึก / หลังฝึก">
         </div>
       </div>
+
+      <div class="rb-menu-actions">
+        <button id="rb-btn-start" class="rb-btn rb-btn-primary">เริ่มเกม</button>
+      </div>
+
+      <p class="rb-hint">
+        💡 แนะนำ: ใช้หูฟัง และแตะ/ชกให้ตรงเส้นแนวนอนด้านล่างตามจังหวะเพลง
+      </p>
     </div>
-    <a href="./hub.html" class="jd-back-link">
-      ← กลับสู่ VR Fitness Hub
-    </a>
-  </header>
+  </section>
 
-  <main class="jd-card">
-    <div class="jd-wrap" id="jd-wrap">
-      <!-- ========== VIEW: MENU ========== -->
-      <section id="jd-view-menu">
-        <h1 class="jd-title">🦘 Jump Duck Rush 🛡️</h1>
-        <p class="jd-subtitle">
-          หลบสิ่งกีดขวางด้วยการกระโดด (Jump) หรือก้ม (Duck) ตามคำสั่ง
-        </p>
-
-        <div class="jd-menu-grid">
-          <!-- ซ้าย: ตั้งค่า / โหมดวิจัย -->
-          <div class="jd-menu-left">
-            <div class="jd-menu-block">
-              <label for="jd-diff">ระดับความยาก</label>
-              <select id="jd-diff">
-                <option value="easy">Easy — จังหวะช้า</option>
-                <option value="normal" selected>Normal — สมดุล</option>
-                <option value="hard">Hard — ท้าทาย</option>
-              </select>
-            </div>
-
-            <div class="jd-menu-block">
-              <label for="jd-duration">ระยะเวลาเล่นต่อรอบ</label>
-              <select id="jd-duration">
-                <option value="45">45 วินาที</option>
-                <option value="60" selected>60 วินาที</option>
-                <option value="75">75 วินาที</option>
-              </select>
-            </div>
-
-            <div class="jd-menu-block">
-              <button data-action="start-normal" class="jd-btn jd-btn-main">
-                ⚡ เริ่มเล่นเลย
-              </button>
-            </div>
-
-            <div class="jd-menu-block">
-              <button data-action="start-research" class="jd-btn jd-btn-sub">
-                📋 โหมดวิจัย (Research Mode)
-              </button>
-              <p class="jd-hint">
-                โหมดวิจัยจะบันทึกข้อมูลการหลบ (Jump/Duck), Reaction Time,
-                Accuracy และ Miss ลง CSV
-              </p>
-            </div>
-          </div>
-
-          <!-- ขวา: ฟอร์มวิจัย -->
-          <div class="jd-menu-right">
-            <div id="jd-research-box" class="jd-research jd-hidden">
-              <h3>ข้อมูลผู้เข้าร่วม (วิจัย)</h3>
-              <div class="jd-field-row">
-                <label for="jd-participant">รหัสผู้เข้าร่วม</label>
-                <input id="jd-participant" placeholder="เช่น P001"/>
-              </div>
-              <div class="jd-field-row">
-                <label for="jd-group">กลุ่มทดลอง</label>
-                <input id="jd-group" placeholder="เช่น A / B / Control"/>
-              </div>
-              <div class="jd-field-row">
-                <label for="jd-note">หมายเหตุ</label>
-                <input id="jd-note" placeholder="เช่น ก่อนฝึก / หลังฝึก"/>
-              </div>
-              <p class="jd-research-hint">
-                ข้อมูลนี้จะถูกแนบใน Session CSV ทุกครั้งที่เล่นโหมดวิจัย
-              </p>
-            </div>
-          </div>
+  <!-- ===== VIEW: PLAY ===== -->
+  <section id="rb-view-play" class="rb-view hidden">
+    <header class="rb-header rb-header-play">
+      <div class="rb-hud-left">
+        <div class="rb-hud-line">
+          <span class="rb-tag">Mode</span>
+          <span id="rb-hud-mode" class="rb-hud-val">Normal</span>
         </div>
-      </section>
-
-      <!-- ========== VIEW: PLAY ========== -->
-      <section id="jd-view-play" class="jd-hidden">
-        <!-- HUD -->
-        <div class="jd-hud">
-          <div class="jd-hud-col">
-            <div class="jd-hud-row">
-              <span class="jd-tag">Mode</span>
-              <span id="jd-hud-mode" class="jd-val">Normal</span>
-            </div>
-            <div class="jd-hud-row">
-              <span class="jd-tag">Diff</span>
-              <span id="jd-hud-diff" class="jd-val">Normal</span>
-            </div>
-          </div>
-
-          <div class="jd-hud-col jd-hud-center">
-            <div class="jd-hud-row">
-              <span class="jd-tag">Score</span>
-              <span id="jd-hud-score" class="jd-val jd-val-score">0</span>
-            </div>
-            <div class="jd-hud-row">
-              <span class="jd-tag">Combo</span>
-              <span id="jd-hud-combo" class="jd-val">0</span>
-              <span class="jd-tag">Miss</span>
-              <span id="jd-hud-miss" class="jd-val">0</span>
-            </div>
-          </div>
-
-          <div class="jd-hud-col jd-hud-right">
-            <div class="jd-hud-row">
-              <span class="jd-tag">HP</span>
-              <span id="jd-hud-hp" class="jd-val">100</span>
-            </div>
-            <div class="jd-hud-row">
-              <span class="jd-tag">Time</span>
-              <span id="jd-hud-time" class="jd-val">0.0</span>
-            </div>
-          </div>
+        <div class="rb-hud-line">
+          <span class="rb-tag">Track</span>
+          <span id="rb-hud-track" class="rb-hud-val">Warm-up Groove</span>
         </div>
+      </div>
 
-        <!-- Progress / FEVER -->
-        <div class="jd-bars">
-          <div class="jd-bar-label-row">
-            <span>FEVER</span>
-            <span id="jd-fever-status" class="jd-fever-status">Ready</span>
-          </div>
-          <div class="jd-fever-bar">
-            <div id="jd-fever-fill" class="jd-fever-fill"></div>
-          </div>
-
-          <div class="jd-bar-label-row jd-bar-label-row-progress">
-            <span>Progress</span>
-            <span id="jd-progress-text">0%</span>
-          </div>
-          <div class="jd-progress-bar">
-            <div id="jd-progress-fill" class="jd-progress-fill"></div>
-          </div>
+      <div class="rb-hud-center">
+        <div class="rb-hud-line rb-hud-scoreline">
+          <span class="rb-tag">Score</span>
+          <span id="rb-hud-score" class="rb-hud-val rb-hud-score">0</span>
         </div>
-
-        <!-- ฟีดแบ็กโค้ช -->
-        <div id="jd-feedback" class="jd-feedback">
-          รอสิ่งกีดขวาง จากนั้นใช้ปุ่ม <strong>Jump</strong> หรือ <strong>Duck</strong> ให้ถูกจังหวะ!
+        <div class="rb-hud-line">
+          <span class="rb-tag">Combo</span>
+          <span id="rb-hud-combo" class="rb-hud-val">0</span>
+          <span class="rb-tag">Acc</span>
+          <span id="rb-hud-acc" class="rb-hud-val">0.0%</span>
         </div>
+      </div>
 
-        <!-- สนาม gameplay -->
-        <div id="jd-field" class="jd-field">
-          <!-- พื้นหลังเลเยอร์ -->
-          <div class="jd-track-layer"></div>
-
-          <!-- ตัวละคร -->
-          <div class="jd-avatar" id="jd-avatar">
-            <div class="jd-avatar-body">🧍‍♂️</div>
-          </div>
-
-          <!-- สิ่งกีดขวางจะถูกเติมด้วย JS -->
-          <div id="jd-obstacles" class="jd-obstacles"></div>
-
-          <!-- เส้นกำกับตำแหน่งชน -->
-          <div class="jd-hit-line"></div>
+      <div class="rb-hud-right">
+        <div class="rb-hud-line">
+          <span class="rb-tag">HP</span>
+          <span id="rb-hud-hp" class="rb-hud-val">100</span>
+          <span class="rb-tag">Shield</span>
+          <span id="rb-hud-shield" class="rb-hud-val">0</span>
         </div>
-
-        <!-- ปุ่มควบคุมล่าง -->
-        <div class="jd-controls">
-          <button id="jd-btn-jump" class="jd-btn jd-btn-main">⬆ Jump</button>
-          <button id="jd-btn-duck" class="jd-btn jd-btn-sub">⬇ Duck</button>
-          <button id="jd-btn-stop" class="jd-btn jd-btn-ghost">⏹ หยุดก่อนเวลา</button>
+        <div class="rb-hud-line">
+          <span class="rb-tag">Time</span>
+          <span id="rb-hud-time" class="rb-hud-val">0.0</span>
         </div>
-      </section>
+      </div>
+    </header>
 
-      <!-- ========== VIEW: RESULT ========== -->
-      <section id="jd-view-result" class="jd-hidden">
-        <h2 class="jd-section-title">📊 สรุปผล Jump Duck Rush</h2>
+    <!-- FEVER + Progress -->
+    <div class="rb-bars">
+      <div class="rb-bar-label-row">
+        <span>FEVER</span>
+        <span id="rb-fever-status" class="rb-fever-status">FEVER</span>
+      </div>
+      <div class="rb-fever-bar">
+        <div id="rb-fever-fill" class="rb-fever-fill"></div>
+      </div>
 
-        <div class="jd-result-grid">
-          <div>
-            <div class="jd-result-line">โหมด: <strong id="jd-res-mode">-</strong></div>
-            <div class="jd-result-line">ระดับความยาก: <strong id="jd-res-diff">-</strong></div>
-            <div class="jd-result-line">เหตุผลจบเกม: <strong id="jd-res-endreason">-</strong></div>
-            <div class="jd-result-line">คะแนนรวม: <strong id="jd-res-score">0</strong></div>
-            <div class="jd-result-line">Max Combo: <strong id="jd-res-maxcombo">0</strong></div>
-          </div>
-          <div>
-            <div class="jd-result-line">จำนวน Jump ถูก: <strong id="jd-res-jump-ok">0</strong></div>
-            <div class="jd-result-line">จำนวน Duck ถูก: <strong id="jd-res-duck-ok">0</strong></div>
-            <div class="jd-result-line">Miss รวม: <strong id="jd-res-miss">0</strong></div>
-            <div class="jd-result-line">Accuracy: <strong id="jd-res-acc">0.0 %</strong></div>
-            <div class="jd-result-line">Duration: <strong id="jd-res-duration">0.0 s</strong></div>
-          </div>
-        </div>
-
-        <h3 class="jd-section-subtitle">ข้อมูลผู้เข้าร่วม</h3>
-        <p>รหัสผู้เข้าร่วม: <strong id="jd-res-participant">-</strong></p>
-        <p>กลุ่ม: <strong id="jd-res-group">-</strong></p>
-        <p>บันทึก: <strong id="jd-res-note">-</strong></p>
-
-        <div class="jd-result-actions">
-          <button id="jd-btn-again" class="jd-btn jd-btn-main">🔁 เล่นอีกครั้ง</button>
-          <button id="jd-btn-back-menu" class="jd-btn jd-btn-ghost">🏠 กลับเมนู</button>
-          <button id="jd-btn-dl-events" class="jd-btn jd-btn-sub">📄 Event CSV</button>
-          <button id="jd-btn-dl-sessions" class="jd-btn jd-btn-sub">📊 Session CSV</button>
-        </div>
-      </section>
+      <div class="rb-bar-label-row rb-bar-label-row-progress">
+        <span>Progress</span>
+        <span id="rb-progress-text">0%</span>
+      </div>
+      <div class="rb-progress-bar">
+        <div id="rb-progress-fill" class="rb-progress-fill"></div>
+      </div>
     </div>
-  </main>
+
+    <!-- Hit detail row -->
+    <div class="rb-hitstats-row">
+      <span>Perfect: <strong id="rb-hud-perfect">0</strong></span>
+      <span>Great: <strong id="rb-hud-great">0</strong></span>
+      <span>Good: <strong id="rb-hud-good">0</strong></span>
+      <span>Miss: <strong id="rb-hud-miss">0</strong></span>
+    </div>
+
+    <!-- GAME FIELD -->
+    <main id="rb-field">
+      <!-- 8-beat timing guide -->
+      <div class="rb-timing-guide">
+        <div class="rb-timing-row">
+          <span class="rb-beat">1</span>
+          <span class="rb-beat">2</span>
+          <span class="rb-beat">3</span>
+          <span class="rb-beat">4</span>
+          <span class="rb-beat">5</span>
+          <span class="rb-beat">6</span>
+          <span class="rb-beat">7</span>
+          <span class="rb-beat">8</span>
+        </div>
+        <div class="rb-hit-line"></div>
+      </div>
+
+      <!-- lanes -->
+      <div id="rb-lanes" class="rb-lanes">
+        <div class="rb-lane" data-lane="0">
+          <div class="rb-lane-label">L2</div>
+        </div>
+        <div class="rb-lane" data-lane="1">
+          <div class="rb-lane-label">L1</div>
+        </div>
+        <div class="rb-lane" data-lane="2">
+          <div class="rb-lane-label">C</div>
+        </div>
+        <div class="rb-lane" data-lane="3">
+          <div class="rb-lane-label">R1</div>
+        </div>
+        <div class="rb-lane" data-lane="4">
+          <div class="rb-lane-label">R2</div>
+        </div>
+      </div>
+
+      <!-- feedback bubble -->
+      <div id="rb-feedback" class="rb-feedback">
+        แตะ lane ให้ตรงเส้นแนวนอนด้านล่างตามจังหวะเพลง 🎵
+      </div>
+    </main>
+
+    <footer class="rb-footer-play">
+      <button id="rb-btn-stop" class="rb-btn rb-btn-ghost">หยุดก่อนเวลา</button>
+    </footer>
+  </section>
+
+  <!-- ===== VIEW: RESULT ===== -->
+  <section id="rb-view-result" class="rb-view hidden">
+    <header class="rb-header">
+      <h2>สรุปผล Rhythm Boxer</h2>
+      <button id="rb-btn-back-menu" class="rb-btn rb-btn-ghost">← กลับเมนู</button>
+    </header>
+
+    <div class="rb-card rb-result-card">
+      <div class="rb-result-grid">
+        <div>
+          <div class="rb-result-line">โหมด: <strong id="rb-res-mode">-</strong></div>
+          <div class="rb-result-line">เพลง: <strong id="rb-res-track">-</strong></div>
+          <div class="rb-result-line">เหตุผลจบเกม: <strong id="rb-res-endreason">-</strong></div>
+          <div class="rb-result-line">คะแนน: <strong id="rb-res-score">0</strong></div>
+          <div class="rb-result-line">Max Combo: <strong id="rb-res-maxcombo">0</strong></div>
+          <div class="rb-result-line">
+            Hit (P/G/Gd/M): <strong id="rb-res-detail-hit">0 / 0 / 0 / 0</strong>
+          </div>
+        </div>
+        <div>
+          <div class="rb-result-line">Accuracy: <strong id="rb-res-acc">0.0 %</strong></div>
+          <div class="rb-result-line">Offset เฉลี่ย: <strong id="rb-res-offset-avg">-</strong></div>
+          <div class="rb-result-line">Offset SD: <strong id="rb-res-offset-std">-</strong></div>
+          <div class="rb-result-line">Duration: <strong id="rb-res-duration">0.0 s</strong></div>
+          <div class="rb-result-line">ผู้เข้าร่วม: <strong id="rb-res-participant">-</strong></div>
+          <div class="rb-result-line">Rank: <strong id="rb-res-rank">-</strong></div>
+        </div>
+      </div>
+
+      <p id="rb-res-quality-note" class="rb-quality-note hidden"></p>
+
+      <div class="rb-result-actions">
+        <button id="rb-btn-again" class="rb-btn rb-btn-primary">เล่นซ้ำเพลงเดิม</button>
+        <button id="rb-btn-dl-events" class="rb-btn rb-btn-secondary">ดาวน์โหลด Event CSV</button>
+        <button id="rb-btn-dl-sessions" class="rb-btn rb-btn-secondary">ดาวน์โหลด Session CSV</button>
+      </div>
+    </div>
+  </section>
+
+  <audio id="rb-audio" preload="auto"></audio>
 </div>
 
-<!-- เสียงพื้นฐาน (เผื่อใช้ต่อ) -->
-<audio id="jd-sfx-good" src="./sfx/jd-good.mp3" preload="auto"></audio>
-<audio id="jd-sfx-miss" src="./sfx/jd-miss.mp3" preload="auto"></audio>
-<audio id="jd-sfx-fever" src="./sfx/jd-fever.mp3" preload="auto"></audio>
-
-<!-- JS -->
-<script type="module" src="./js/jump-duck.js"></script>
+<!-- ลำดับโหลดสคริปต์: renderer + engine + bootstrap -->
+<script src="./js/dom-renderer-rb.js"></script>
+<script src="./js/rhythm-engine.js"></script>
+<script src="./js/rhythm-boxer.js"></script>
 </body>
 </html>
