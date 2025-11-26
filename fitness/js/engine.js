@@ -16,37 +16,41 @@ const clamp = (v, min, max) => (v < min ? min : (v > max ? max : v));
 
 const DIFF_CONFIG = {
   easy: {
-    label: 'easy',
+    label: 'Easy',
     timeSec: 60,
-    // phase 1–3
-    spawnMs:    [950, 850, 750],
+    spawnMs:    [950, 860, 780],
     lifeMs:     [2300, 2100, 1900],
     maxActive:  [3, 4, 5],
-    baseSizePx: 110,   // เล็กลงจากเดิมนิดหน่อย
+    baseSizePx: 140,
+    feverGain:  { perfect: 10, good: 7, bad: 4, heal: 5, shield: 4, bossface: 12 },
+    feverDecayPerSec: 8
   },
   normal: {
-    label: 'normal',
+    label: 'Normal',
     timeSec: 60,
     spawnMs:    [880, 780, 680],
     lifeMs:     [2100, 1900, 1700],
     maxActive:  [4, 5, 6],
-    baseSizePx: 100,
+    baseSizePx: 120,
+    feverGain:  { perfect: 11, good: 8, bad: 4, heal: 6, shield: 5, bossface: 14 },
+    feverDecayPerSec: 10
   },
   hard: {
-    label: 'hard',
+    label: 'Hard',
     timeSec: 60,
     spawnMs:    [820, 720, 620],
     lifeMs:     [1950, 1750, 1550],
     maxActive:  [5, 6, 7],
-    baseSizePx: 90,
+    baseSizePx: 100,
+    feverGain:  { perfect: 12, good: 9, bad: 4, heal: 7, shield: 6, bossface: 16 },
+    feverDecayPerSec: 12
   }
 };
 
-// ขนาดเป้าตาม phase
 const PHASE_SIZE_FACTOR = {
-  1: 1.1,
+  1: 1.12,
   2: 1.0,
-  3: 0.9
+  3: 0.86
 };
 
 const BOSSES = [
@@ -98,21 +102,6 @@ function hpRatioToPhase(ratio) {
   return 1;
 }
 
-// ช่วยคำนวณค่าเฉลี่ย / SD สำหรับ RT
-function computeMeanSd(listMs) {
-  if (!listMs || listMs.length === 0) {
-    return { mean: '', sd: '' };
-  }
-  const n = listMs.length;
-  const meanMs = listMs.reduce((a, b) => a + b, 0) / n;
-  const varMs = listMs.reduce((acc, v) => acc + Math.pow(v - meanMs, 2), 0) / n;
-  const sdMs = Math.sqrt(varMs);
-  return {
-    mean: +(meanMs / 1000).toFixed(3), // s
-    sd:   +(sdMs / 1000).toFixed(3)
-  };
-}
-
 // ---------- ENGINE CLASS ----------
 
 class ShadowBreakerEngine {
@@ -139,14 +128,19 @@ class ShadowBreakerEngine {
     this.introDescEl   = $('#boss-intro-desc');
 
     this.hud = {
-      time:  $('#stat-time'),
-      score: $('#stat-score'),
-      combo: $('#stat-combo'),
-      phase: $('#stat-phase'),
+      time:   $('#stat-time'),
+      score:  $('#stat-score'),
+      combo:  $('#stat-combo'),
+      phase:  $('#stat-phase'),
+      miss:   $('#stat-miss'),
+      shield: $('#stat-shield'),
+
       hpPlayerBar: $('[data-sb-player-hp]'),
       hpBossBar:   $('[data-sb-boss-hp]'),
+
       feverFill:   $('#fever-fill'),
       feverStatus: $('#fever-status'),
+
       feedback:    $('#sb-feedback'),
       bossEmoji:   $('#boss-portrait-emoji'),
       bossName:    $('#boss-portrait-name'),
@@ -201,13 +195,15 @@ class ShadowBreakerEngine {
     this.diffKey = DIFF_CONFIG[diffKey] ? diffKey : 'normal';
     this.diff    = DIFF_CONFIG[this.diffKey];
 
+    this.renderer.setDifficulty(this.diffKey);
+
     this.timeLimitMs = (timeSec || this.diff.timeSec) * 1000;
 
     this.sessionCounter += 1;
     this.sessionId = `SB-${Date.now()}-${this.sessionCounter}`;
     this.runIndex  = this.sessionCounter;
 
-    this.participant = participantMeta.id   || (this.mode === 'research' ? '' : `NORMAL-${this.runIndex}`);
+    this.participant = participantMeta.id    || (this.mode === 'research' ? '' : `NORMAL-${this.runIndex}`);
     this.group       = participantMeta.group || '';
     this.note        = participantMeta.note  || '';
 
@@ -224,25 +220,28 @@ class ShadowBreakerEngine {
     this.score     = 0;
     this.combo     = 0;
     this.maxCombo  = 0;
-    this.missCount = 0;
 
+    this.missCount = 0;          // 👈 นับ miss ทั้งหมด
     this.totalTargets   = 0;
     this.totalHits      = 0;
     this.totalBombHits  = 0;
 
-    this.feverGauge     = 0;
-    this.feverOn        = false;
-    this.feverCount     = 0;
-    this.feverTimeMs    = 0;
-    this.lowHpTimeMs    = 0;
+    // Shield
+    this.shieldCharges     = 0;  // โล่ที่มีอยู่
+    this.maxShieldCharges  = 3;
+    this.shieldCollected   = 0;  // เก็บได้ทั้งหมดกี่ครั้ง
+    this.shieldUsedCount   = 0;  // ใช้ไปกี่ครั้ง
 
-    // สำหรับวิจัย RT
-    this.rtNormal = []; // เป้าปกติ (รวม heal / shield / bossface)
-    this.rtDecoy  = []; // เป้าหลอก / bomb
-    this.zoneHits = { L: 0, C: 0, R: 0 };
+    // FEVER
+    this.feverGauge  = 0;
+    this.feverOn     = false;
+    this.feverCount  = 0;
+    this.feverTimeMs = 0;
 
-    this.targets = new Map();
-    this.spawnSeq = 0;
+    this.lowHpTimeMs = 0;
+
+    this.targets    = new Map();
+    this.spawnSeq   = 0;
 
     this.elapsedMs   = 0;
     this.remainingMs = this.timeLimitMs;
@@ -256,6 +255,8 @@ class ShadowBreakerEngine {
 
     this.waitingIntro = true;
     this.bossFaceAlive = false;
+
+    this.menuToPlayMs = 0;
 
     this.eventLogger.clear();
     this.sessionLogger.clear();
@@ -287,7 +288,7 @@ class ShadowBreakerEngine {
     if (!this.startedAt) {
       this.startedAt = now;
       this.lastTs    = now;
-      this.nextSpawnAt = now + 400;
+      this.nextSpawnAt = now + 450;
       this.elapsedMs   = 0;
       this.remainingMs = this.timeLimitMs;
       this.menuToPlayMs = now - this.menuOpenedAt;
@@ -320,27 +321,6 @@ class ShadowBreakerEngine {
     }
   }
 
-  // ---------- FEVER VISUAL ----------
-
-  _setFever(on) {
-    if (this.feverOn === on) return;
-    this.feverOn = on;
-
-    if (on) {
-      this.feverCount += 1;
-      if (this.hud.feedback) {
-        this.hud.feedback.textContent = 'FEVER MODE! คะแนนพุ่งไฟลุก 🔥';
-        this.hud.feedback.className = 'sb-feedback perfect';
-      }
-      this.wrap && this.wrap.classList.add('sb-fever-on');
-      if (window.SFX?.play) {
-        window.SFX.play('fever', { group: 'fever', baseVolume: 1, intensity: 1, minGap: 500 });
-      }
-    } else {
-      this.wrap && this.wrap.classList.remove('sb-fever-on');
-    }
-  }
-
   // ---------- MAIN LOOP ----------
 
   _loop(ts) {
@@ -357,24 +337,26 @@ class ShadowBreakerEngine {
       return;
     }
 
-    if (!this.lastTs) this.lastTs = ts;
+    if (!this.lastTs) {
+      this.lastTs = ts;
+    }
 
     const dt = ts - this.lastTs;
     this.lastTs = ts;
-    const dtSec = dt / 1000;
 
     this.elapsedMs   += dt;
     this.remainingMs = Math.max(0, this.timeLimitMs - this.elapsedMs);
 
-    // FEVER gauge: decay ช้าลง (เห็นผลง่ายขึ้น)
+    // FEVER decay
+    const decayRate = this.diff.feverDecayPerSec;
     if (this.feverOn) {
       this.feverTimeMs += dt;
-      this.feverGauge = clamp(this.feverGauge - dtSec * 18, 0, 100); // หมดใน ~5–6 s
+      this.feverGauge = clamp(this.feverGauge - dt * (decayRate * 0.04), 0, 100);
       if (this.feverGauge <= 0) {
-        this._setFever(false);
+        this.feverOn = false;
       }
     } else {
-      this.feverGauge = clamp(this.feverGauge - dtSec * 4, 0, 100); // decay เบา ๆ
+      this.feverGauge = clamp(this.feverGauge - dt * (decayRate * 0.015), 0, 100);
     }
 
     if (this.playerHp <= 30) {
@@ -382,7 +364,7 @@ class ShadowBreakerEngine {
     }
 
     if (!this.nextSpawnAt) {
-      this.nextSpawnAt = ts + 400;
+      this.nextSpawnAt = ts + 450;
     }
     if (ts >= this.nextSpawnAt) {
       this._spawnTarget(ts);
@@ -393,12 +375,13 @@ class ShadowBreakerEngine {
       return;
     }
 
+    this._checkTimeouts(ts);
+
     if (this.playerHp <= 0) {
       this._finish('player-down');
       return;
     }
 
-    this._checkTimeouts(ts);
     this._updateHUD();
     this.rafId = requestAnimationFrame(this._loopBound);
   }
@@ -413,11 +396,10 @@ class ShadowBreakerEngine {
 
     const maxActive = diff.maxActive[phaseIdx] || diff.maxActive[1];
     if (this.targets.size >= maxActive) {
-      this.nextSpawnAt = now + 140;
+      this.nextSpawnAt = now + 120;
       return;
     }
 
-    // เลือกชนิดเป้า
     let type = 'normal';
     const r = Math.random();
     if (!this.bossFaceAlive && (this.bossHp / this.bossHpMax) <= 0.28 && r > 0.65) {
@@ -438,9 +420,9 @@ class ShadowBreakerEngine {
     const sizeBase = diff.baseSizePx * (PHASE_SIZE_FACTOR[this.bossPhase] || 1.0);
     let sizePx = sizeBase;
     if (type === 'bomb' || type === 'decoy') sizePx *= 0.9;
-    if (type === 'bossface') sizePx *= 1.18;
+    if (type === 'bossface') sizePx *= 1.25;
 
-    const lifeMs  = diff.lifeMs[phaseIdx]  || diff.lifeMs[1];
+    const lifeMs = diff.lifeMs[phaseIdx] || diff.lifeMs[1];
     const spawnMs = diff.spawnMs[phaseIdx] || diff.spawnMs[1];
 
     const zoneLR = ['L','C','R'][Math.floor(Math.random()*3)];
@@ -488,7 +470,8 @@ class ShadowBreakerEngine {
       zone_ud: zoneUD,
       fever_on: this.feverOn ? 1 : 0,
       player_hp: this.playerHp,
-      boss_hp: this.bossHp
+      boss_hp: this.bossHp,
+      shields_left: this.shieldCharges
     });
 
     let interval = spawnMs;
@@ -502,7 +485,7 @@ class ShadowBreakerEngine {
     for (const [id, t] of this.targets) {
       if (now >= t.expireTime) {
         toRemove.push(id);
-        this._registerMiss(t);
+        this._registerMiss(t, 'timeout');
       }
     }
     for (const id of toRemove) {
@@ -511,11 +494,12 @@ class ShadowBreakerEngine {
     }
   }
 
-  _registerMiss(t) {
+  _registerMiss(t, reason = 'timeout') {
+    // นับ miss เฉพาะเป้าปกติ / perfect-zone เท่านั้น
     if (!t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield) {
       this.missCount += 1;
       this.combo = 0;
-      this.playerHp = clamp(this.playerHp - 4, 0, this.playerHpMax);
+      this._applyDamage(4, 'miss-' + reason);
 
       if (this.hud.feedback) {
         this.hud.feedback.textContent = 'พลาดจังหวะ! ลองมองเป้าถัดไปล่วงหน้า 🔍';
@@ -537,10 +521,56 @@ class ShadowBreakerEngine {
       grade: 'miss',
       age_ms: t.lifeMs,
       player_hp_after: this.playerHp,
-      boss_hp_after: this.bossHp
+      boss_hp_after: this.bossHp,
+      miss_count: this.missCount,
+      shields_left: this.shieldCharges
     });
 
     this._updateHUD();
+  }
+
+  // ---------- DAMAGE & SHIELD ----------
+
+  _applyDamage(amount, reason) {
+    // ถ้ามี Shield → ใช้แทนการเสีย HP
+    if (this.shieldCharges > 0) {
+      const before = this.shieldCharges;
+      this.shieldCharges = Math.max(0, this.shieldCharges - 1);
+      this.shieldUsedCount += 1;
+
+      if (this.hud.feedback) {
+        this.hud.feedback.textContent = 'โล่ช่วยกันความเสียหายไว้ 1 ครั้ง! 🛡️';
+        this.hud.feedback.className = 'sb-feedback good';
+      }
+
+      this._logEvent({
+        event_type: 'shield_block',
+        reason,
+        damage_blocked: amount,
+        shield_before: before,
+        shield_after: this.shieldCharges,
+        player_hp_after: this.playerHp
+      });
+
+      this._updateHUD();
+      return;
+    }
+
+    const hpBefore = this.playerHp;
+    this.playerHp = clamp(this.playerHp - amount, 0, this.playerHpMax);
+
+    this._logEvent({
+      event_type: 'damage',
+      reason,
+      damage: amount,
+      player_hp_before: hpBefore,
+      player_hp_after: this.playerHp,
+      shields_left: this.shieldCharges
+    });
+
+    if (this.playerHp <= 0) {
+      this._finish('player-down');
+    }
   }
 
   // ---------- HIT ----------
@@ -560,47 +590,52 @@ class ShadowBreakerEngine {
     const comboBefore = this.combo;
     const hpBefore    = this.playerHp;
     const feverBefore = this.feverGauge;
+    const shieldsBefore = this.shieldCharges;
 
-    // RT log
-    const isDecoyLike = t.isDecoy || t.isBomb;
-    if (isDecoyLike) this.rtDecoy.push(age);
-    else this.rtNormal.push(age);
-
-    // hit logic
+    // ---------------- hit types ----------------
     if (t.isBomb) {
       grade = 'bomb';
-      this.combo = 0;
       this.totalBombHits += 1;
-      this._hitByBomb();
+      this.missCount += 1;           // นับเป็น miss ด้วย
+      this.combo = 0;
+      this._applyDamage(18, 'bomb-hit');
       scoreDelta = 0;
       fxEmoji = '💣';
     } else if (t.isDecoy) {
       grade = 'miss';
+      this.missCount += 1;
       this.combo = 0;
+      this._applyDamage(6, 'decoy-hit');
       scoreDelta = 0;
       fxEmoji = '🎯';
     } else if (t.isHeal) {
       grade = 'heal';
       this.combo += 1;
-      scoreDelta = 60;
+      scoreDelta = 50;
       this.score += scoreDelta;
-      this.playerHp = clamp(this.playerHp + 12, 0, this.playerHpMax);
+      this.playerHp = clamp(this.playerHp + 10, 0, this.playerHpMax);
       fxEmoji = '💚';
-      this._gainFever(8);
+      this._gainFever(this.diff.feverGain.heal || 5);
     } else if (t.isShield) {
       grade = 'shield';
       this.combo += 1;
-      scoreDelta = 50;
+      scoreDelta = 40;
       this.score += scoreDelta;
+      this.shieldCharges = Math.min(this.maxShieldCharges, this.shieldCharges + 1);
+      this.shieldCollected += 1;
       fxEmoji = '🛡️';
-      this._gainFever(6);
+      this._gainFever(this.diff.feverGain.shield || 4);
+      if (this.hud.feedback) {
+        this.hud.feedback.textContent = `ได้โล่เพิ่ม! (เหลือ ${this.shieldCharges} อัน) 🛡️`;
+        this.hud.feedback.className = 'sb-feedback good';
+      }
     } else if (t.isBossFace) {
       grade = 'perfect';
-      scoreDelta = 260;
+      scoreDelta = 250;
       this.score += scoreDelta;
-      this.combo += 3;
+      this.combo += 2;
       fxEmoji = '💥';
-      this._gainFever(16);
+      this._gainFever(this.diff.feverGain.bossface || 10);
       this._damageBoss(18);
       this.bossFaceAlive = false;
     } else {
@@ -609,20 +644,20 @@ class ShadowBreakerEngine {
       else grade = 'good';
 
       if (grade === 'perfect') {
-        scoreDelta = 150;
-        this._damageBoss(4);
+        scoreDelta = 140;
+        this._damageBoss(3);
         fxEmoji = '💥';
-        this._gainFever(12);
+        this._gainFever(this.diff.feverGain.perfect || 9);
       } else if (grade === 'good') {
-        scoreDelta = 100;
-        this._damageBoss(2.5);
+        scoreDelta = 95;
+        this._damageBoss(2);
         fxEmoji = '⭐';
-        this._gainFever(8);
+        this._gainFever(this.diff.feverGain.good || 6);
       } else {
-        scoreDelta = 50;
-        this._damageBoss(1.3);
+        scoreDelta = 45;
+        this._damageBoss(1);
         fxEmoji = '💫';
-        this._gainFever(5);
+        this._gainFever(this.diff.feverGain.bad || 3);
       }
 
       this.score += scoreDelta;
@@ -630,21 +665,13 @@ class ShadowBreakerEngine {
       this.totalHits += 1;
     }
 
-    // FEVER bonus เพิ่มคะแนนพิเศษตอนเกจลุก
     if (this.feverOn && scoreDelta > 0) {
       const bonus = Math.round(scoreDelta * 0.35);
       this.score += bonus;
-      scoreDelta += bonus; // ใช้ตัวเลขรวมแสดงใน popup
+      scoreDelta += bonus;
     }
 
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-
-    // Zone hit counter (L / C / R)
-    if (!isDecoyLike) {
-      if (t.zone_lr === 'L') this.zoneHits.L++;
-      else if (t.zone_lr === 'R') this.zoneHits.R++;
-      else this.zoneHits.C++;
-    }
 
     if (this.hud.feedback) {
       let msg = '';
@@ -705,7 +732,10 @@ class ShadowBreakerEngine {
       zone_lr: t.zone_lr,
       zone_ud: t.zone_ud,
       screen_x: hitInfo?.clientX ?? null,
-      screen_y: hitInfo?.clientY ?? null
+      screen_y: hitInfo?.clientY ?? null,
+      miss_count: this.missCount,
+      shield_before: shieldsBefore,
+      shield_after: this.shieldCharges
     });
 
     if (this.playerHp <= 0) {
@@ -717,14 +747,18 @@ class ShadowBreakerEngine {
     this._updateBossHUD();
   }
 
-  _hitByBomb() {
-    this.playerHp = clamp(this.playerHp - 18, 0, this.playerHpMax);
-  }
-
   _gainFever(amount) {
     this.feverGauge = clamp(this.feverGauge + amount, 0, 100);
     if (!this.feverOn && this.feverGauge >= 100) {
-      this._setFever(true);
+      this.feverOn = true;
+      this.feverCount += 1;
+      if (this.hud.feedback) {
+        this.hud.feedback.textContent = 'FEVER MODE! คะแนนพุ่ง ⚡';
+        this.hud.feedback.className = 'sb-feedback perfect';
+      }
+      if (window.SFX?.play) {
+        window.SFX.play('fever', { group: 'fever', baseVolume: 1, intensity: 1, minGap: 500 });
+      }
     }
   }
 
@@ -758,7 +792,7 @@ class ShadowBreakerEngine {
   _onBossCleared() {
     this.bossesCleared += 1;
 
-    const rewardScore = 600;
+    const rewardScore = 500;
     this.score += rewardScore;
     if (this.hud.feedback) {
       this.hud.feedback.textContent =
@@ -792,7 +826,6 @@ class ShadowBreakerEngine {
     this.wrap.dataset.diff  = this.diffKey;
     this.wrap.dataset.boss  = String(this.bossIndex);
     this.wrap.dataset.phase = String(this.bossPhase);
-    this.wrap.classList.toggle('sb-lowhp', this.playerHp <= 30);
   }
 
   // ---------- HUD & RESULT ----------
@@ -802,21 +835,22 @@ class ShadowBreakerEngine {
       const sec = this.remainingMs / 1000;
       this.hud.time.textContent = sec.toFixed(1);
     }
-    this.hud.score && (this.hud.score.textContent = this.score);
-    this.hud.combo && (this.hud.combo.textContent = this.combo);
-    this.hud.phase && (this.hud.phase.textContent = this.bossIndex + 1);
+    this.hud.score  && (this.hud.score.textContent  = this.score);
+    this.hud.combo  && (this.hud.combo.textContent  = this.combo);
+    this.hud.phase  && (this.hud.phase.textContent  = this.bossIndex + 1);
+    this.hud.miss   && (this.hud.miss.textContent   = this.missCount);
+    this.hud.shield && (this.hud.shield.textContent = this.shieldCharges);
 
-    const pRatio = this.playerHpMax > 0 ? clamp(this.playerHp / this.playerHpMax, 0, 1) : 0;
-    const bRatio = this.bossHpMax   > 0 ? clamp(this.bossHp   / this.bossHpMax,   0, 1) : 0;
+    const pRatio = clamp(this.playerHp / this.playerHpMax, 0, 1);
+    const bRatio = clamp(this.bossHp   / this.bossHpMax,   0, 1);
 
-    // ใช้ scaleX + min 5% เพื่อให้เห็นแท่งชัด
     if (this.hud.hpPlayerBar) {
-      const r = pRatio <= 0 ? 0 : Math.max(pRatio, 0.05);
-      this.hud.hpPlayerBar.style.transform = `scaleX(${r})`;
+      this.hud.hpPlayerBar.style.width = (pRatio * 100) + '%';
+      this.hud.hpPlayerBar.style.display = 'block';
     }
     if (this.hud.hpBossBar) {
-      const r = bRatio <= 0 ? 0 : Math.max(bRatio, 0.05);
-      this.hud.hpBossBar.style.transform = `scaleX(${r})`;
+      this.hud.hpBossBar.style.width = (bRatio * 100) + '%';
+      this.hud.hpBossBar.style.display = 'block';
     }
 
     const fv = clamp(this.feverGauge, 0, 100) / 100;
@@ -849,21 +883,14 @@ class ShadowBreakerEngine {
     const durationS = this.elapsedMs / 1000;
     const acc = this.totalTargets ? (this.totalHits / this.totalTargets) * 100 : 0;
 
-    // เกรดแบบ SSS / SS / S / A / B / C
-    const score = this.score;
-    const grade =
-      acc >= 95 && score >= 9000 ? 'SSS' :
-      acc >= 90 && score >= 7000 ? 'SS'  :
-      acc >= 80 ? 'S' :
-      acc >= 70 ? 'A' :
-      acc >= 60 ? 'B' : 'C';
-
-    const rtNormStats  = computeMeanSd(this.rtNormal);
-    const rtDecoyStats = computeMeanSd(this.rtDecoy);
-
-    const leftRightTotal = this.zoneHits.L + this.zoneHits.R;
-    const leftPct  = leftRightTotal ? (this.zoneHits.L / leftRightTotal) * 100 : null;
-    const rightPct = leftRightTotal ? (this.zoneHits.R / leftRightTotal) * 100 : null;
+    // เกรดแบบ SSS, SS, S, A, B, C
+    let grade = 'C';
+    if (acc >= 96 && this.score >= 9000) grade = 'SSS';
+    else if (acc >= 92 && this.score >= 7500) grade = 'SS';
+    else if (acc >= 85) grade = 'S';
+    else if (acc >= 75) grade = 'A';
+    else if (acc >= 65) grade = 'B';
+    else grade = 'C';
 
     const sessionRow = {
       session_id: this.sessionId,
@@ -882,7 +909,7 @@ class ShadowBreakerEngine {
       grade,
       total_targets: this.totalTargets,
       total_hits: this.totalHits,
-      total_miss: this.missCount,
+      total_miss: this.missCount,              // 👈 miss รวม
       total_bombs_hit: this.totalBombHits,
       accuracy_pct: +acc.toFixed(1),
       max_combo: this.maxCombo,
@@ -894,19 +921,15 @@ class ShadowBreakerEngine {
       participant: this.participant,
       group: this.group,
       note: this.note,
-      // RT stats (สำหรับวิจัย)
-      rt_normal_mean_s: rtNormStats.mean,
-      rt_normal_sd_s:   rtNormStats.sd,
-      rt_decoy_mean_s:  rtDecoyStats.mean,
-      rt_decoy_sd_s:    rtDecoyStats.sd,
-      zone_left_hit_pct:  leftPct  != null ? +leftPct.toFixed(1)  : '',
-      zone_right_hit_pct: rightPct != null ? +rightPct.toFixed(1) : '',
       env_ua: navigator.userAgent || '',
       env_viewport_w: window.innerWidth,
       env_viewport_h: window.innerHeight,
       env_input_mode: ('ontouchstart' in window) ? 'touch' : 'mouse',
-      error_count: 0,
-      focus_events: 0
+
+      // 👇 สรุปข้อมูล Shield สำหรับวิจัย
+      shield_collected: this.shieldCollected,
+      shield_used: this.shieldUsedCount,
+      shield_left: this.shieldCharges
     };
 
     this.sessionLogger.add(sessionRow);
@@ -925,7 +948,6 @@ class ShadowBreakerEngine {
       this.hooks.onEnd(result);
     }
 
-    // summary ลง stats-store ให้ Hub ใช้
     try {
       recordSession('shadow-breaker', {
         score: result.final_score,
@@ -985,18 +1007,6 @@ export function initShadowBreaker() {
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
         setText('#res-totalhits', summary.total_hits ?? 0);
 
-        // RT summary
-        setText('#res-rt-normal',
-          summary.rt_normal_mean_s !== ''
-            ? `${summary.rt_normal_mean_s}s (SD ${summary.rt_normal_sd_s})`
-            : '-'
-        );
-        setText('#res-rt-decoy',
-          summary.rt_decoy_mean_s !== ''
-            ? `${summary.rt_decoy_mean_s}s (SD ${summary.rt_decoy_sd_s})`
-            : '-'
-        );
-
         setText('#res-fever-time',
           typeof summary.fever_total_time_s === 'number'
             ? summary.fever_total_time_s.toFixed(2) + ' s'
@@ -1007,7 +1017,7 @@ export function initShadowBreaker() {
         setText('#res-lowhp-time',
           typeof summary.low_hp_time_s === 'number'
             ? summary.low_hp_time_s.toFixed(2) + ' s'
-            : (summary.low_hp_time_s || 0) + ' s');
+            : (summary.lowhp_time_s || 0) + ' s');
 
         if (typeof summary.menu_to_play_ms === 'number') {
           setText('#res-menu-latency', (summary.menu_to_play_ms / 1000).toFixed(2) + ' s');
@@ -1016,6 +1026,11 @@ export function initShadowBreaker() {
         }
 
         setText('#res-participant', summary.participant || '-');
+
+        // shield summary (ถ้ามี element)
+        setText('#res-shield-collected', summary.shield_collected ?? 0);
+        setText('#res-shield-used', summary.shield_used ?? 0);
+        setText('#res-shield-left', summary.shield_left ?? 0);
 
         if (viewResult) {
           viewResult.dataset.eventsCsv  = summary.eventsCsv || '';
@@ -1129,5 +1144,5 @@ export function initShadowBreaker() {
 
   showView('menu');
   engine.markMenuOpened();
-  console.log('[ShadowBreaker] engine initialized', BUILD_VERSION);
+  console.log('[ShadowBreaker] engine initialized');
 }
