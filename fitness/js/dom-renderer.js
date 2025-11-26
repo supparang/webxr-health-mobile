@@ -1,4 +1,4 @@
-// === js/dom-renderer.js — Shadow Breaker DOM target renderer (2025-11-30b) ===
+// === js/dom-renderer.js — Shadow Breaker DOM target renderer (2025-11-30c) ===
 'use strict';
 
 export class DomRenderer {
@@ -26,21 +26,25 @@ export class DomRenderer {
     return rect;
   }
 
-  // สุ่มตำแหน่งเป้าในสนาม + ไม่หลุดขอบ
+  // สุ่มตำแหน่งเป้าในสนาม + ไม่หลุด/ชนขอบ gameplay
   spawnTarget(t) {
     if (!this.field || !t) return;
 
     const rect = this._ensureFieldRect();
     const size = t.sizePx || 120;
-    const margin = size * 0.5 + 8;
 
     const w = rect.width;
     const h = rect.height;
 
-    const minX = margin;
-    const maxX = Math.max(margin, w - margin);
-    const minY = margin;
-    const maxY = Math.max(margin, h - margin);
+    // radius ของเป้า + safe zone เพิ่มอีก 40px กันไปชนขอบกรอบ
+    const radius = size * 0.5;
+    const SAFE_EXTRA = 40;        // ถ้ายังรู้สึกใกล้ขอบไป เพิ่มตัวเลขนี้ได้อีก
+    const safe = radius + SAFE_EXTRA;
+
+    const minX = safe;
+    const maxX = Math.max(safe, w - safe);
+    const minY = safe;
+    const maxY = Math.max(safe, h - safe);
 
     const x = minX + Math.random() * (maxX - minX);
     const y = minY + Math.random() * (maxY - minY);
@@ -56,21 +60,22 @@ export class DomRenderer {
       `sb-target--${t.type || 'normal'} ` +
       `sb-target--diff-${this.diffKey || 'normal'}`;
     el.style.position = 'absolute';
+
+    // ใช้ (x,y) เป็น "จุดศูนย์กลางเป้า"
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
     el.style.width = size + 'px';
     el.style.height = size + 'px';
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
     el.style.transform = 'translate(-50%, -50%)';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
 
-    // 🔎 ขยาย emoji ตามขนาดเป้า (ใหญ่ขึ้นชัดเจน)
-    // 0.6–0.7 ของเส้นผ่านศูนย์กลางจะดูเต็มแต่ไม่ล้น
+    // ขยาย emoji ให้ใหญ่ตามขนาดเป้า (ประมาณ 65% ของเส้นผ่านศูนย์กลาง)
     const emojiFontPx = Math.round(size * 0.65);
     inner.style.fontSize = emojiFontPx + 'px';
-
     inner.textContent = this._emojiFor(t);
+
     el.appendChild(inner);
 
     const handleHit = (ev) => {
@@ -83,7 +88,6 @@ export class DomRenderer {
       }
     };
 
-    // รองรับทั้ง pointer / click
     el.addEventListener('pointerdown', handleHit);
     el.addEventListener('click', handleHit);
 
@@ -118,7 +122,7 @@ export class DomRenderer {
     this.targets.delete(id);
   }
 
-  // เอฟเฟ็กต์คะแนน + ชิ้นเป้าแตก ที่ "จุดกลางของเป้า"
+  // เอฟเฟ็กต์คะแนน + ชิ้นเป้าแตก ที่จุดกลางของเป้า
   playHitFx(id, info = {}) {
     if (!this.field) return;
     const hostRect = this._ensureFieldRect();
@@ -126,7 +130,6 @@ export class DomRenderer {
     let screenX = info.clientX ?? null;
     let screenY = info.clientY ?? null;
 
-    // fallback: เอาจุดกลางของ DOM เป้า
     const targetEl = this.targets.get(id);
     if ((screenX == null || screenY == null) && targetEl) {
       const r = targetEl.getBoundingClientRect();
@@ -171,7 +174,6 @@ export class DomRenderer {
     this.field.appendChild(pop);
     setTimeout(() => pop.remove(), 650);
 
-    // ชิ้นเป้าแตกกระจายเล็ก ๆ
     for (let i = 0; i < 10; i++) {
       const shard = document.createElement('div');
       shard.className = 'sb-hit-shard';
@@ -185,7 +187,6 @@ export class DomRenderer {
       setTimeout(() => shard.remove(), 500);
     }
 
-    // เสียงตีเป้า (ใช้ SFX เดิม)
     if (window.SFX?.play) {
       const vol = grade === 'perfect' ? 1.0 : grade === 'good' ? 0.8 : 0.6;
       window.SFX.play('hit', {
