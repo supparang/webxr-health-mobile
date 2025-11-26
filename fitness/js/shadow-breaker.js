@@ -1,9 +1,9 @@
-// === js/shadow-breaker.js — Shadow Breaker bootstrap (2025-11-27c) ===
+// === js/shadow-breaker.js — Shadow Breaker bootstrap (2025-11-28b) ===
 'use strict';
 
 import { initShadowBreaker } from './engine.js';
 
-window.addEventListener('DOMContentLoaded', () => {
+function bootShadowBreaker() {
   try {
     // ให้ engine.js จัดการทุกอย่าง:
     // - สร้าง ShadowBreakerEngine
@@ -16,4 +16,12 @@ window.addEventListener('DOMContentLoaded', () => {
     console.error('ShadowBreaker init failed', e);
     alert('ไม่สามารถเริ่มเกม Shadow Breaker ได้ กรุณารีเฟรชหน้า');
   }
-});
+}
+
+// ถ้า DOM ยังโหลดไม่เสร็จ ให้รอ DOMContentLoaded
+// ถ้าโหลดเสร็จแล้ว ให้เรียกเลย
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', bootShadowBreaker);
+} else {
+  bootShadowBreaker();
+}
