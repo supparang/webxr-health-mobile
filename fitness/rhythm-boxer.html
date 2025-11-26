@@ -3,9 +3,8 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <meta name="color-scheme" content="dark"/>
   <title>VR Fitness — Rhythm Boxer</title>
-  <link rel="icon" href="favicon.ico"/>
+  <link rel="icon" href="./favicon.ico"/>
   <link rel="stylesheet" href="./css/rhythm-boxer.css"/>
 </head>
 <body>
@@ -14,25 +13,22 @@
   <!-- flash สำหรับโดนระเบิด / damage -->
   <div id="rb-flash"></div>
 
-  <!-- ===== VIEW: MENU ===== -->
+  <!-- ========== VIEW: MENU ========== -->
   <section id="rb-view-menu" class="rb-view">
-    <!-- header แบบเดียวกับ Hub / Shadow Breaker -->
-    <header class="rb-header rb-header-main">
-      <div class="rb-brand">
-        <div class="rb-logo-pill">RB</div>
-        <div class="rb-brand-text">
-          <div class="rb-brand-title">VR Fitness — Rhythm Boxer</div>
-          <div class="rb-brand-subtitle">
-            เกมชกตามจังหวะ 5 เลน สำหรับฝึกกำลังแขน การประสานมือ–ตา และความแม่นยำ
-          </div>
-        </div>
+    <header class="rb-header">
+      <div>
+        <h1 class="rb-title">Rhythm Boxer</h1>
+        <p class="rb-subtitle">
+          เกมชกตามจังหวะ 5 เลน + เก็บข้อมูลวิจัยแบบละเอียด
+        </p>
       </div>
-      <a href="hub.html" class="rb-back-link rb-back-main">← กลับสู่ VR Fitness Hub</a>
+      <a href="./hub.html" class="rb-back-link">← กลับสู่ VR Fitness Hub</a>
     </header>
 
-    <div class="rb-card rb-card-menu">
-      <h2 class="rb-section-title">เลือกโหมดการเล่น</h2>
+    <div class="rb-card">
+      <h2 style="margin-top:0;">เลือกโหมดการเล่น</h2>
 
+      <!-- โหมดการเล่น -->
       <div class="rb-mode-row">
         <label class="rb-radio">
           <input type="radio" name="rb-mode" value="normal" checked>
@@ -44,6 +40,7 @@
         </label>
       </div>
 
+      <!-- เลือกเพลง -->
       <div class="rb-field-row">
         <label for="rb-track">เลือกเพลง</label>
         <select id="rb-track">
@@ -54,20 +51,23 @@
         </select>
       </div>
 
-      <!-- ฟอร์มโหมดวิจัย -->
+      <!-- ข้อมูลโหมดวิจัย -->
       <div id="rb-research-fields" class="rb-research hidden">
-        <h3 class="rb-subsection-title">ข้อมูลผู้เข้าร่วม (โหมดวิจัย)</h3>
+        <h3 style="margin-top:4px;">ข้อมูลผู้เข้าร่วม (Research Mode)</h3>
+
         <div class="rb-field-row">
-          <label for="rb-participant">รหัสผู้เข้าร่วม</label>
+          <label for="rb-participant">รหัสผู้เข้าร่วม (participant_id)</label>
           <input id="rb-participant" type="text" placeholder="เช่น P001">
         </div>
+
         <div class="rb-field-row">
-          <label for="rb-group">กลุ่ม</label>
-          <input id="rb-group" type="text" placeholder="เช่น G1 หรือ Control">
+          <label for="rb-group">กลุ่มทดลอง (group)</label>
+          <input id="rb-group" type="text" placeholder="เช่น A / B / Control">
         </div>
+
         <div class="rb-field-row">
-          <label for="rb-note">บันทึก</label>
-          <input id="rb-note" type="text" placeholder="เช่น ก่อนฝึก / หลังฝึก">
+          <label for="rb-note">บันทึกเพิ่มเติม (note)</label>
+          <input id="rb-note" type="text" placeholder="เช่น ก่อนฝึก / หลังฝึก / รอบที่ 2">
         </div>
       </div>
 
@@ -78,34 +78,36 @@
       </div>
 
       <p class="rb-hint">
-        💡 แนะนำ: ใช้หูฟัง และแตะ/ชกให้ตรงเส้นแนวนอนด้านล่างตามจังหวะเพลง
+        💡 แนะนำ: ใช้หูฟัง และแตะ/ชกให้ตรงเส้นแนวนอนด้านล่างตามจังหวะเพลง<br>
+        เมื่อเลือก “โหมดวิจัย” ระบบจะล็อกเพลงเป็น Research Track และบันทึก
+        <code>participant_id</code>, <code>group</code>, <code>note</code> ลงใน Session CSV ให้อัตโนมัติ
       </p>
     </div>
   </section>
 
-  <!-- ===== VIEW: PLAY ===== -->
+  <!-- ========== VIEW: PLAY ========== -->
   <section id="rb-view-play" class="rb-view hidden">
     <header class="rb-header rb-header-play">
       <div class="rb-hud-left">
         <div class="rb-hud-line">
-          <span class="rb-tag">Mode</span>
+          <span class="rb-tag">MODE</span>
           <span id="rb-hud-mode" class="rb-hud-val">Normal</span>
         </div>
         <div class="rb-hud-line">
-          <span class="rb-tag">Track</span>
-          <span id="rb-hud-track" class="rb-hud-val">Warm-up Groove</span>
+          <span class="rb-tag">TRACK</span>
+          <span id="rb-hud-track" class="rb-hud-val">Warm-up Groove (ง่าย)</span>
         </div>
       </div>
 
       <div class="rb-hud-center">
         <div class="rb-hud-line rb-hud-scoreline">
-          <span class="rb-tag">Score</span>
+          <span class="rb-tag">SCORE</span>
           <span id="rb-hud-score" class="rb-hud-val rb-hud-score">0</span>
         </div>
         <div class="rb-hud-line">
-          <span class="rb-tag">Combo</span>
+          <span class="rb-tag">COMBO</span>
           <span id="rb-hud-combo" class="rb-hud-val">0</span>
-          <span class="rb-tag">Acc</span>
+          <span class="rb-tag">ACC</span>
           <span id="rb-hud-acc" class="rb-hud-val">0.0%</span>
         </div>
       </div>
@@ -114,11 +116,11 @@
         <div class="rb-hud-line">
           <span class="rb-tag">HP</span>
           <span id="rb-hud-hp" class="rb-hud-val">100</span>
-          <span class="rb-tag">Shield</span>
+          <span class="rb-tag">SHIELD</span>
           <span id="rb-hud-shield" class="rb-hud-val">0</span>
         </div>
         <div class="rb-hud-line">
-          <span class="rb-tag">Time</span>
+          <span class="rb-tag">TIME</span>
           <span id="rb-hud-time" class="rb-hud-val">0.0</span>
         </div>
       </div>
@@ -143,15 +145,17 @@
       </div>
     </div>
 
+    <!-- Hit detail row -->
     <div class="rb-hitstats-row">
       <span>Perfect: <strong id="rb-hud-perfect">0</strong></span>
       <span>Great: <strong id="rb-hud-great">0</strong></span>
-      <span>Good:  <strong id="rb-hud-good">0</strong></span>
-      <span>Miss:  <strong id="rb-hud-miss">0</strong></span>
+      <span>Good: <strong id="rb-hud-good">0</strong></span>
+      <span>Miss: <strong id="rb-hud-miss">0</strong></span>
     </div>
 
     <!-- GAME FIELD -->
     <main id="rb-field">
+      <!-- timing guide -->
       <div class="rb-timing-guide">
         <div class="rb-timing-row">
           <span class="rb-beat">1</span>
@@ -166,6 +170,7 @@
         <div class="rb-hit-line"></div>
       </div>
 
+      <!-- lanes -->
       <div id="rb-lanes" class="rb-lanes">
         <div class="rb-lane" data-lane="0"><div class="rb-lane-label">L2</div></div>
         <div class="rb-lane" data-lane="1"><div class="rb-lane-label">L1</div></div>
@@ -174,6 +179,7 @@
         <div class="rb-lane" data-lane="4"><div class="rb-lane-label">R2</div></div>
       </div>
 
+      <!-- feedback -->
       <div id="rb-feedback" class="rb-feedback">
         แตะ lane ให้ตรงเส้นแนวนอนด้านล่างตามจังหวะเพลง 🎵
       </div>
@@ -184,7 +190,7 @@
     </footer>
   </section>
 
-  <!-- ===== VIEW: RESULT ===== -->
+  <!-- ========== VIEW: RESULT ========== -->
   <section id="rb-view-result" class="rb-view hidden">
     <header class="rb-header">
       <h2>สรุปผล Rhythm Boxer</h2>
@@ -199,7 +205,9 @@
           <div class="rb-result-line">เหตุผลจบเกม: <strong id="rb-res-endreason">-</strong></div>
           <div class="rb-result-line">คะแนน: <strong id="rb-res-score">0</strong></div>
           <div class="rb-result-line">Max Combo: <strong id="rb-res-maxcombo">0</strong></div>
-          <div class="rb-result-line">Hit (P/G/Gd/M): <strong id="rb-res-detail-hit">0 / 0 / 0 / 0</strong></div>
+          <div class="rb-result-line">
+            Hit (P/G/Gd/M): <strong id="rb-res-detail-hit">0 / 0 / 0 / 0</strong>
+          </div>
         </div>
         <div>
           <div class="rb-result-line">Accuracy: <strong id="rb-res-acc">0.0 %</strong></div>
@@ -224,17 +232,10 @@
   <audio id="rb-audio" preload="auto"></audio>
 </div>
 
-<!-- shared particle FX (ใช้ร่วมกับ Shadow Breaker) -->
-<script type="module" src="./js/particle.js"></script>
-
-<!-- ⭐ ใหม่: DOM renderer สำหรับ Rhythm -->
+<!-- ลำดับโหลด: particle → dom renderer → engine → UI -->
+<script src="./js/particle.js"></script>
 <script src="./js/dom-renderer-rb.js"></script>
-
-<!-- core engine (exposes window.RhythmBoxerEngine) -->
 <script src="./js/rhythm-engine.js"></script>
-
-<!-- bootstrap / DOM wiring -->
 <script src="./js/rhythm-boxer.js"></script>
 </body>
 </html>
-
