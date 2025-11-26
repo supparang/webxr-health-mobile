@@ -615,3 +615,42 @@ html,body{
     flex-wrap:wrap;
   }
 }
+/* hit particle FX — เศษเป้าแตกแบบ Shadow Breaker */
+
+.rb-hit-particle{
+  position:absolute;
+  left:0;
+  top:0;
+  transform:translate(-50%,-50%) translate3d(0,0,0);
+  font-size:1.2rem;
+  pointer-events:none;
+  opacity:0;
+  animation:rb-hit-particle 0.55s ease-out forwards;
+  filter:drop-shadow(0 0 8px rgba(0,0,0,0.85));
+}
+
+@keyframes rb-hit-particle{
+  0%{
+    opacity:1;
+    transform:translate(-50%,-50%) scale(0.7);
+  }
+  70%{
+    opacity:1;
+    transform:
+      translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
+      scale(1);
+  }
+  100%{
+    opacity:0;
+    transform:
+      translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
+      scale(0.9);
+  }
+}
+
+/* ให้ emoji อยู่กลางโน้ตชัด ๆ */
+.rb-note-inner{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
