@@ -1,7 +1,7 @@
 // === js/engine.js — Shadow Breaker Engine + Flow (2025-11-30b) ===
 'use strict';
 
-import { DomRenderer } from './dom-renderer.js';
+import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 import { recordSession } from './stats-store.js';
@@ -11,6 +11,7 @@ const BUILD_VERSION = 'sb-2025-11-30b';
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const clamp = (v, min, max) => (v < min ? min : (v > max ? max : v));
+const renderer = new DomRendererShadow(field, { flashEl, feedbackEl, wrapEl });
 
 function mean(arr) {
   if (!arr || !arr.length) return null;
