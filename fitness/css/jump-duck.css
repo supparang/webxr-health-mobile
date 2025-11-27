@@ -379,6 +379,34 @@ html,body{
   bottom:80px;
 }
 
+/* ด้านในของสิ่งกีดขวาง: icon + label JUMP/DUCK */
+.jd-obstacle-inner{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+}
+
+.jd-obs-icon{
+  font-size:1.4rem;
+}
+
+.jd-obs-tag{
+  font-size:0.7rem;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  color:var(--jd-muted);
+}
+
+/* สีเน้นต่างกันระหว่าง JUMP vs DUCK */
+.jd-obstacle--low .jd-obs-tag{
+  color:#22c55e;   /* เขียว = JUMP */
+}
+.jd-obstacle--high .jd-obs-tag{
+  color:#38bdf8;   /* ฟ้า = DUCK */
+}
+
 /* เส้นชน */
 
 .jd-hit-line{
