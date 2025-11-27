@@ -1,124 +1,379 @@
-/* ---- GLOBAL: ให้ทั้งหน้าเท่าจอ และไม่เลื่อน ---- */
-html,
-body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;            /* ตัด scroll หลักออก */
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, sans-serif;
-  color: #e5e7eb;
+/* === css/shadow-breaker.css — Shadow Breaker Menu (2025-12-02) === */
+
+:root{
+  color-scheme: dark;
+  --sb-bg: #020617;
+  --sb-card: #020617;
+  --sb-border: #1f2937;
+  --sb-text: #e5e7eb;
+  --sb-muted: #9ca3af;
+  --sb-accent: #38bdf8;
+  --sb-accent2: #a855f7;
+  --sb-danger: #fb7185;
+  --sb-gold: #facc15;
+  --sb-success: #22c55e;
+}
+
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
+}
+
+html,body{
+  margin:0;
+  padding:0;
+  min-height:100%;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,0.2), transparent 55%),
-    #020617;
+    radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 60%),
+    radial-gradient(circle at bottom right,rgba(168,85,247,0.18),transparent 60%),
+    var(--sb-bg);
+  color:var(--sb-text);
 }
 
-/* ---- SHELL / CARD ---- */
-.sb-shell {
-  height: 100vh;               /* ล็อกสูงเท่าจอ */
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* layout */
+
+.sb-wrap{
+  max-width:980px;
+  margin:0 auto;
+  padding:18px 12px 32px;
 }
 
-.sb-header {
-  padding: 6px 10px;           /* ย่อ header ลงหน่อย */
+/* top header */
+
+.sb-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:16px;
 }
 
-/* card เป็น flex container เต็มที่ */
-.sb-card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 6px 6px 8px;
+.sb-tag-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
 
-/* wrap ไม่ใช้ min-height แล้ว ให้ flex:1 แทน */
-.sb-wrap {
-  flex: 1;
-  min-height: 0;
-  background: radial-gradient(circle at top, #020617, #020617);
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  padding: 8px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.9);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  position: relative;          /* ให้ overlay/feedback อ้างอิง */
+.sb-tag{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:2px 8px;
+  font-size:0.8rem;
+  border-radius:999px;
+  background:rgba(15,23,42,0.9);
+  border:1px solid rgba(148,163,184,0.6);
+  color:#e5e7eb;
+}
+.sb-tag-sub{
+  font-size:0.9rem;
+  color:var(--sb-muted);
 }
 
-/* ---- PLAY VIEW: ใช้ flex เต็มจอ ---- */
-#view-play {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.sb-top-lead{
+  margin:6px 0 0;
+  font-size:0.9rem;
+  color:var(--sb-muted);
 }
 
-/* HUD ด้านบน: ย่อ padding/ฟอนต์ ให้เตี้ยลง */
-.hud {
-  flex: 0 0 auto;
-  padding: 4px 6px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.9));
-  border: 1px solid rgba(148, 163, 184, 0.5);
-  display: flex;
-  gap: 6px;
-  font-size: 10px;
+.sb-back-link{
+  align-self:flex-start;
+  font-size:0.9rem;
+  color:var(--sb-accent);
+  text-decoration:none;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(56,189,248,0.5);
+  background:rgba(15,23,42,0.85);
+}
+.sb-back-link:hover{
+  background:rgba(30,64,175,0.9);
+  border-color:#38bdf8;
 }
 
-.hp-bar {
-  flex: 1;
-  height: 7px;
+/* card */
+
+.sb-card{
+  background:
+    radial-gradient(circle at top left,rgba(56,189,248,0.12),transparent 55%),
+    radial-gradient(circle at bottom right,rgba(168,85,247,0.12),transparent 55%),
+    rgba(15,23,42,0.96);
+  border:1px solid var(--sb-border);
+  border-radius:18px;
+  padding:16px 16px 18px;
+  box-shadow:0 18px 40px rgba(0,0,0,0.6);
 }
 
-/* boss portrait กินที่นิดเดียว */
-.boss-portrait {
-  flex: 0 0 auto;
-  padding: 5px 6px;
-  border-radius: 12px;
+.sb-card-main{
+  margin-bottom:14px;
 }
 
-/* สนามเป้า: กินพื้นที่หลักของจอ */
-.target-layer {
-  flex: 1 1 auto;
-  min-height: 0;
-  position: relative;
-  border-radius: 18px;
-  overflow: hidden;
-  background: radial-gradient(circle at top, rgba(15,23,42,0.98), #020617);
-  border: 1px solid rgba(30, 64, 175, 0.85);
+/* brand header */
+
+.sb-card-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
 }
 
-/* FEVER + ปุ่มล่าง: สูงคงที่บาง ๆ */
-.fever-hud {
-  flex: 0 0 auto;
-  padding: 3px 6px;
-  font-size: 10px;
+.sb-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
 }
 
-.play-controls {
-  flex: 0 0 auto;
-  margin-top: 2px;
+.sb-logo-pill{
+  width:40px;
+  height:40px;
+  border-radius:999px;
+  background:linear-gradient(145deg,#22c55e,#38bdf8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:0.95rem;
+  color:#020617;
+  box-shadow:0 0 16px rgba(56,189,248,0.9);
 }
 
-/* ข้อความ feedback ลอยอยู่ใน wrap ไม่ดัน layout */
-.sb-feedback {
-  position: absolute;
-  left: 50%;
-  bottom: 42px;                /* ให้อยู่เหนือปุ่มหยุดนิดหน่อย */
-  transform: translateX(-50%);
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 10px;
-  background: rgba(15,23,42,0.9);
-  border: 1px solid rgba(148, 163, 184, 0.6);
-  pointer-events: none;
-  z-index: 50;
+.sb-brand-text{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.sb-brand-title{
+  margin:0;
+  font-size:1.3rem;
+}
+
+.sb-brand-subtitle{
+  margin:0;
+  font-size:0.9rem;
+  color:var(--sb-muted);
+}
+
+/* sections */
+
+.sb-section{
+  margin-top:10px;
+}
+
+.sb-section-title{
+  margin:0 0 8px;
+  font-size:1rem;
+}
+
+.sb-section-inline .sb-section-title{
+  margin-top:6px;
+}
+
+.sb-text{
+  margin:0 0 6px;
+  font-size:0.9rem;
+  color:var(--sb-text);
+}
+.sb-text-small{
+  font-size:0.85rem;
+  color:var(--sb-muted);
+}
+
+/* fields */
+
+.sb-field-row{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin-bottom:10px;
+  font-size:0.9rem;
+}
+.sb-field-row label{
+  color:var(--sb-muted);
+}
+
+/* select แบบ pill */
+
+.sb-select-pill{
+  display:inline-flex;
+  align-items:center;
+  max-width:260px;
+}
+
+.sb-select-pill select{
+  width:100%;
+  padding:6px 10px;
+  font-size:0.9rem;
+  border-radius:999px;
+  border:1px solid #1f2937;
+  background:#020617;
+  color:var(--sb-text);
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  background-image:
+    linear-gradient(45deg,transparent 50%,#6b7280 50%),
+    linear-gradient(135deg,#6b7280 50%,transparent 50%);
+  background-position:
+    calc(100% - 12px) 55%,
+    calc(100% - 7px) 55%;
+  background-size:5px 5px,5px 5px;
+  background-repeat:no-repeat;
+}
+.sb-select-pill select:focus{
+  outline:none;
+  border-color:var(--sb-accent);
+  box-shadow:0 0 0 1px rgba(56,189,248,0.6);
+}
+
+/* actions */
+
+.sb-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+  margin:8px 0 6px;
+}
+
+.sb-btn{
+  border-radius:999px;
+  border:1px solid transparent;
+  padding:8px 18px;
+  font-size:0.95rem;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+
+.sb-btn-primary{
+  background:linear-gradient(90deg,#38bdf8,#a855f7);
+  color:#020617;
+  font-weight:600;
+  box-shadow:0 10px 25px rgba(15,23,42,0.8);
+}
+.sb-btn-primary:hover{
+  filter:brightness(1.05);
+}
+
+/* research switch */
+
+.sb-switch{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  cursor:pointer;
+  font-size:0.9rem;
+  color:var(--sb-muted);
+}
+.sb-switch input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+.sb-switch-pill{
+  width:38px;
+  height:20px;
+  border-radius:999px;
+  background:#111827;
+  border:1px solid #374151;
+  position:relative;
+  flex-shrink:0;
+  transition:background .2s ease,border-color .2s ease;
+}
+.sb-switch-pill::before{
+  content:"";
+  position:absolute;
+  left:2px;
+  top:2px;
+  width:14px;
+  height:14px;
+  border-radius:999px;
+  background:#e5e7eb;
+  box-shadow:0 1px 4px rgba(0,0,0,0.6);
+  transition:transform .2s ease;
+}
+.sb-switch input:checked + .sb-switch-pill{
+  background:linear-gradient(90deg,#22c55e,#38bdf8);
+  border-color:transparent;
+}
+.sb-switch input:checked + .sb-switch-pill::before{
+  transform:translateX(16px);
+}
+.sb-switch-label{
+  white-space:nowrap;
+}
+
+/* bullet legend */
+
+.sb-legend{
+  list-style:none;
+  margin:4px 0 0;
+  padding:0;
+  font-size:0.9rem;
+}
+.sb-legend li{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:4px;
+}
+.sb-dot{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  flex-shrink:0;
+}
+.sb-dot-perfect{ background:#facc15; box-shadow:0 0 8px rgba(250,204,21,0.8); }
+.sb-dot-good{ background:#22c55e; box-shadow:0 0 8px rgba(34,197,94,0.8); }
+.sb-dot-bad{ background:#f97316; box-shadow:0 0 8px rgba(249,115,22,0.8); }
+.sb-dot-bomb{ background:#fb7185; box-shadow:0 0 8px rgba(248,113,113,0.9); }
+.sb-dot-heal{ background:#38bdf8; box-shadow:0 0 8px rgba(56,189,248,0.9); }
+.sb-dot-fever{ background:#a855f7; box-shadow:0 0 8px rgba(168,85,247,0.9); }
+
+/* hint */
+
+.sb-hint{
+  margin:6px 0 0;
+  font-size:0.85rem;
+  color:var(--sb-muted);
+}
+
+/* research card */
+
+.sb-card-research{
+  font-size:0.9rem;
+}
+
+/* responsive */
+
+@media (max-width:720px){
+  .sb-wrap{
+    padding:12px 10px 24px;
+  }
+  .sb-top{
+    flex-direction:column;
+    gap:8px;
+  }
+  .sb-back-link{
+    align-self:flex-start;
+  }
+  .sb-card{
+    padding:14px 12px 16px;
+  }
+  .sb-section-title{
+    font-size:0.95rem;
+  }
+  .sb-select-pill{
+    max-width:100%;
+  }
+  .sb-actions{
+    flex-direction:column;
+    align-items:flex-start;
+  }
 }
