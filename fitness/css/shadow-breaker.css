@@ -568,6 +568,17 @@ body {
   mix-blend-mode: screen;
 }
 
+/* emoji กลางเป้า */
+.sb-target-emoji {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  pointer-events: none;
+}
+
 /* phase color accent (via data-phase on #sb-wrap) */
 #sb-wrap[data-phase="1"] .sb-ring {
   border-color: rgba(56, 189, 248, 0.8);
