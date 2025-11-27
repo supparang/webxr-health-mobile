@@ -1,18 +1,10 @@
-/* === css/shadow-breaker.css — Mobile-first single-screen layout (2025-12-02) === */
-
-/* ---------- Global ---------- */
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
+/* ---- GLOBAL: ให้ทั้งหน้าเท่าจอ และไม่เลื่อน ---- */
 html,
 body {
   margin: 0;
   padding: 0;
   height: 100%;
+  overflow: hidden;            /* ตัด scroll หลักออก */
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, sans-serif;
   color: #e5e7eb;
@@ -22,434 +14,78 @@ body {
     #020617;
 }
 
-.hidden {
-  display: none !important;
-}
-
-body {
-  -webkit-font-smoothing: antialiased;
-}
-
-/* ---------- Shell & Header ---------- */
-
+/* ---- SHELL / CARD ---- */
 .sb-shell {
+  height: 100vh;               /* ล็อกสูงเท่าจอ */
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 .sb-header {
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-  background: linear-gradient(to right, rgba(15,23,42,0.95), rgba(15,23,42,0.85));
+  padding: 6px 10px;           /* ย่อ header ลงหน่อย */
 }
 
-.sb-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sb-logo-pill {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: #22c55e;
-  color: #022c22;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.sb-brand-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sb-brand-title {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.sb-brand-subtitle {
-  font-size: 11px;
-  color: #cbd5f5;
-}
-
-.sb-back-link {
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.7);
-  color: #e5e7eb;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-/* ---------- Card Wrap ---------- */
-
+/* card เป็น flex container เต็มที่ */
 .sb-card {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 960px;
   margin: 0 auto;
-  padding: 10px 10px 16px;
+  padding: 6px 6px 8px;
 }
 
+/* wrap ไม่ใช้ min-height แล้ว ให้ flex:1 แทน */
 .sb-wrap {
+  flex: 1;
+  min-height: 0;
   background: radial-gradient(circle at top, #020617, #020617);
   border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  padding: 10px;
+  padding: 8px;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.9);
-  min-height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-/* theme จาก boss/phase (แค่ปรับสีเล็กน้อย) */
-.sb-wrap[data-boss="0"] {
-  background: radial-gradient(circle at bottom, rgba(56,189,248,0.18), #020617);
-}
-.sb-wrap[data-boss="1"] {
-  background: radial-gradient(circle at bottom, rgba(251,191,36,0.18), #020617);
-}
-.sb-wrap[data-boss="2"] {
-  background: radial-gradient(circle at bottom, rgba(129,140,248,0.22), #020617);
-}
-.sb-wrap[data-boss="3"] {
-  background: radial-gradient(circle at bottom, rgba(248,113,113,0.24), #020617);
-}
-
-.sb-wrap-shake {
-  animation: sb-shake 0.35s ease-in-out;
-}
-
-@keyframes sb-shake {
-  0% { transform: translateX(0); }
-  20% { transform: translateX(-4px); }
-  40% { transform: translateX(4px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(3px); }
-  100% { transform: translateX(0); }
-}
-
-/* ---------- Menu View ---------- */
-
-#view-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.title {
-  margin: 4px 0 2px;
-  font-size: 22px;
-}
-
-.subtitle {
-  margin: 0 0 8px;
-  font-size: 13px;
-  color: #cbd5f5;
-}
-
-.menu-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 10px;
-}
-
-@media (max-width: 720px) {
-  .menu-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.menu-left,
-.menu-right {
-  background: radial-gradient(circle at top left, rgba(15,23,42,0.95), #020617);
-  border-radius: 14px;
-  padding: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-}
-
-.menu-block {
-  margin-bottom: 10px;
-}
-
-.menu-block:last-child {
-  margin-bottom: 0;
-}
-
-label {
-  display: block;
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-select,
-input {
-  width: 100%;
-  padding: 6px 8px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.8);
-  background: #020617;
-  color: #e5e7eb;
-  font-size: 13px;
-}
-
-.btn-main,
-.btn-sub,
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   gap: 6px;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 8px 14px;
-  font-weight: 500;
+  position: relative;          /* ให้ overlay/feedback อ้างอิง */
 }
 
-.btn-main {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: #022c22;
-  box-shadow: 0 10px 25px rgba(22, 163, 74, 0.55);
-}
-
-.btn-sub {
-  background: rgba(15,23,42,0.9);
-  border: 1px solid rgba(148, 163, 184, 0.8);
-  color: #e5e7eb;
-}
-
-.btn-ghost {
-  background: transparent;
-  border: 1px solid rgba(148, 163, 184, 0.7);
-  color: #e5e7eb;
-}
-
-.btn-main:active,
-.btn-sub:active,
-.btn-ghost:active {
-  transform: translateY(1px);
-}
-
-.hint {
-  margin-top: 4px;
-  font-size: 11px;
-  color: #a5b4fc;
-}
-
-.preview-panel {
-  background: radial-gradient(circle at top, rgba(15,23,42,0.95), #020617);
-  border-radius: 12px;
-  padding: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-}
-
-.preview-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.preview-text {
-  margin: 0 0 6px;
-  font-size: 12px;
-  color: #cbd5f5;
-}
-
-.preview-list {
-  margin: 0;
-  padding-left: 16px;
-  font-size: 11px;
-  display: grid;
-  gap: 2px;
-}
-
-/* ---------- Research Form ---------- */
-
-#view-research-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.section-title {
-  margin: 4px 0 2px;
-  font-size: 18px;
-}
-
-.section-desc {
-  margin: 0 0 6px;
-  font-size: 12px;
-  color: #cbd5f5;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.form-block.full {
-  grid-column: 1 / -1;
-}
-
-.form-btns {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-/* ---------- PLAY VIEW (single-screen layout) ---------- */
-
+/* ---- PLAY VIEW: ใช้ flex เต็มจอ ---- */
 #view-play {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-height: 0;  /* สำคัญเพื่อให้ flex ทำงานเต็มจอ */
 }
 
-/* HUD ด้านบน (กินพื้นที่เล็ก ๆ) */
+/* HUD ด้านบน: ย่อ padding/ฟอนต์ ให้เตี้ยลง */
 .hud {
   flex: 0 0 auto;
-  padding: 6px 8px;
+  padding: 4px 6px;
   border-radius: 12px;
   background: linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.9));
   border: 1px solid rgba(148, 163, 184, 0.5);
   display: flex;
-  gap: 8px;
-  font-size: 11px;
-}
-
-.stat-left,
-.stat-right {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.stat-left {
-  flex: 0 0 38%;
-}
-
-.stat-right {
-  flex: 1;
-  align-items: flex-end;
-  text-align: right;
-}
-
-.hp-row {
-  display: flex;
-  align-items: center;
   gap: 6px;
-}
-
-.hp-label {
   font-size: 10px;
-  letter-spacing: 0.05em;
-  color: #a5b4fc;
 }
 
 .hp-bar {
   flex: 1;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  overflow: hidden;
-  border: 1px solid rgba(30,64,175,0.7);
+  height: 7px;
 }
 
-.hp-bar .bar {
-  height: 100%;
-  width: 60%;
-  border-radius: inherit;
-  transform-origin: left center;
-}
-
-.bar.green {
-  background: linear-gradient(90deg, #22c55e, #4ade80);
-}
-
-.bar.red {
-  background: linear-gradient(90deg, #f97373, #ef4444);
-}
-
-.stat-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 4px;
-}
-
-.stat-item {
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  border: 1px solid rgba(148, 163, 184, 0.5);
-}
-
-/* Boss portrait กินที่ไม่มากอยู่เหนือสนาม */
-
+/* boss portrait กินที่นิดเดียว */
 .boss-portrait {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  padding: 5px 6px;
   border-radius: 12px;
-  background: radial-gradient(circle at left, rgba(56,189,248,0.22), rgba(15,23,42,0.96));
-  border: 1px solid rgba(148, 163, 184, 0.55);
-  font-size: 11px;
 }
 
-.boss-portrait .emoji {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: #fbbf24;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  box-shadow: 0 8px 18px rgba(251,191,36,0.6);
-}
-
-.boss-meta .name {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.boss-meta .hint {
-  font-size: 11px;
-  color: #e5e7eb;
-}
-
-#boss-portrait.sb-shake {
-  animation: boss-warn .4s ease-in-out infinite;
-}
-
-@keyframes boss-warn {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-2px); }
-  75% { transform: translateX(2px); }
-}
-
-/* สนามเป้า: ใช้ flex:1 ให้กินพื้นที่หลักของจอ */
-
+/* สนามเป้า: กินพื้นที่หลักของจอ */
 .target-layer {
   flex: 1 1 auto;
   min-height: 0;
@@ -460,300 +96,29 @@ input {
   border: 1px solid rgba(30, 64, 175, 0.85);
 }
 
-/* FEVER + controls กินพื้นที่เล็ก ๆ ล่างจอ */
-
+/* FEVER + ปุ่มล่าง: สูงคงที่บาง ๆ */
 .fever-hud {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.95);
-  border: 1px solid rgba(148, 163, 184, 0.6);
-  font-size: 11px;
-}
-
-.fever-label {
-  font-weight: 600;
-  font-size: 11px;
-}
-
-.fever-bar {
-  flex: 1;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  overflow: hidden;
-  border: 1px solid rgba(59, 130, 246, 0.8);
-}
-
-.fever-bar .bar.fever {
-  height: 100%;
-  width: 0%;
-  transform-origin: left center;
-  transform: scaleX(0);
-  background: linear-gradient(90deg, #f59e0b, #f97316, #fb7185);
-}
-
-.fever-hud .status {
-  min-width: 48px;
-  text-align: right;
+  padding: 3px 6px;
   font-size: 10px;
-  color: #e5e7eb;
 }
-
-.fever-hud .status.on {
-  color: #f97316;
-  font-weight: 600;
-}
-
-/* ปุ่มหยุดก่อนเวลา */
 
 .play-controls {
   flex: 0 0 auto;
-  display: flex;
-  justify-content: center;
   margin-top: 2px;
 }
 
-/* ---------- Feedback message ---------- */
-
+/* ข้อความ feedback ลอยอยู่ใน wrap ไม่ดัน layout */
 .sb-feedback {
   position: absolute;
   left: 50%;
-  top: 6px;
+  bottom: 42px;                /* ให้อยู่เหนือปุ่มหยุดนิดหน่อย */
   transform: translateX(-50%);
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 10px;
   background: rgba(15,23,42,0.9);
   border: 1px solid rgba(148, 163, 184, 0.6);
-  color: #e5e7eb;
   pointer-events: none;
   z-index: 50;
-}
-
-.sb-feedback.perfect {
-  border-color: rgba(74, 222, 128, 0.8);
-  color: #bbf7d0;
-}
-
-.sb-feedback.good {
-  border-color: rgba(56, 189, 248, 0.85);
-  color: #bae6fd;
-}
-
-.sb-feedback.bad,
-.sb-feedback.miss {
-  border-color: rgba(248, 113, 113, 0.9);
-  color: #fecaca;
-}
-
-/* ---------- Target / FX ---------- */
-
-.sb-target {
-  transition: transform 0.12s ease-out, opacity 0.12s ease-out;
-}
-
-.sb-target:active {
-  transform: translate(-50%, -50%) scale(0.96);
-}
-
-.sb-frag,
-.sb-score-fx,
-.sb-miss {
-  will-change: transform, opacity;
-}
-
-/* ---------- Boss Intro Overlay ---------- */
-
-.boss-intro {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at top, rgba(15,23,42,0.98), rgba(15,23,42,0.96));
-  z-index: 200;
-}
-
-.boss-intro-emoji {
-  font-size: 52px;
-  margin-bottom: 6px;
-}
-
-.boss-intro-name {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-
-.boss-intro-title {
-  font-size: 13px;
-  margin-bottom: 4px;
-  color: #a5b4fc;
-}
-
-.boss-intro-desc {
-  font-size: 12px;
-  color: #e5e7eb;
-  margin-bottom: 8px;
-  padding: 0 20px;
-  text-align: center;
-}
-
-.boss-intro-hint {
-  font-size: 12px;
-  color: #fbbf24;
-}
-
-/* ---------- Result View ---------- */
-
-#view-result {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.result-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 10px;
-}
-
-@media (max-width: 720px) {
-  .result-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.result-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  background: rgba(15,23,42,0.96);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.result-table td {
-  padding: 4px 8px;
-  border-bottom: 1px solid rgba(30, 64, 175, 0.6);
-}
-
-.result-table tr:last-child td {
-  border-bottom: none;
-}
-
-.result-table td:first-child {
-  width: 58%;
-  color: #9ca3af;
-}
-
-.result-side {
-  background: rgba(15,23,42,0.96);
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  padding: 8px 10px;
-  font-size: 12px;
-}
-
-.result-side h3 {
-  margin: 0 0 4px;
-  font-size: 13px;
-}
-
-.csv-btns {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.res-hint {
-  font-size: 12px;
-  color: #c4b5fd;
-  background: rgba(15,23,42,0.92);
-  border-radius: 10px;
-  padding: 6px 8px;
-  border: 1px solid rgba(129,140,248,0.7);
-}
-
-.rt-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-@media (max-width: 720px) {
-  .rt-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.rt-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-  background: rgba(15,23,42,0.96);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.rt-table th,
-.rt-table td {
-  padding: 4px 6px;
-  border-bottom: 1px solid rgba(30,64,175,0.5);
-}
-
-.rt-table thead th {
-  background: rgba(15,23,42,0.95);
-  font-weight: 600;
-}
-
-.result-btns {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-
-/* ---------- Small screens tweak ---------- */
-
-@media (max-width: 480px) {
-  .sb-card {
-    padding: 8px 6px 12px;
-  }
-
-  .sb-wrap {
-    padding: 8px;
-    border-radius: 14px;
-    min-height: calc(100vh - 110px);
-  }
-
-  .hud {
-    font-size: 10px;
-  }
-
-  .boss-portrait .emoji {
-    width: 30px;
-    height: 30px;
-    font-size: 20px;
-  }
-
-  .boss-meta .name {
-    font-size: 12px;
-  }
-
-  .sb-feedback {
-    font-size: 10px;
-  }
-}
-
-/* ---------- FEVER wrap effect ---------- */
-
-.sb-fever-on {
-  box-shadow: 0 0 0 2px rgba(251,191,36,0.55),
-              0 0 32px rgba(251,191,36,0.75);
 }
