@@ -1,6 +1,7 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-11-30b) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-02) ===
 'use strict';
 
+import { DomRenderer } from './dom-renderer.js';
 import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
@@ -11,7 +12,6 @@ const BUILD_VERSION = 'sb-2025-11-30b';
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const clamp = (v, min, max) => (v < min ? min : (v > max ? max : v));
-const renderer = new DomRendererShadow(field, { flashEl, feedbackEl, wrapEl });
 
 function mean(arr) {
   if (!arr || !arr.length) return null;
@@ -115,6 +115,7 @@ class ShadowBreakerEngine {
     this.diffKey = 'normal';
     this.diff    = DIFF_CONFIG.normal;
 
+    // renderer หลักสำหรับ spawn/remove เป้า + hit detection
     this.renderer = new DomRenderer(this.field, {
       onTargetHit: (id, info) => this.handleHit(id, info)
     });
@@ -146,6 +147,12 @@ class ShadowBreakerEngine {
       bossName:    $('#boss-portrait-name'),
       bossHint:    $('#boss-portrait-hint')
     };
+
+    // renderer เอฟเฟกต์ (คะแนนเด้ง, particle, MISS)
+    this.fxRenderer = new DomRendererShadow(this.field, {
+      wrapEl: this.wrap,
+      feedbackEl: this.hud.feedback
+    });
 
     this._loopBound = (ts) => this._loop(ts);
     this._introTapHandler = (ev) => {
@@ -237,7 +244,6 @@ class ShadowBreakerEngine {
     this.rtDecoyAll  = [];
     this.rtPhaseNormal = [];
     this.rtPhaseDecoy  = [];
-    // split ตาม zone L/R และ U/M/D
     this.rtPhaseNormalZoneLR = [];
     this.rtPhaseDecoyZoneLR  = [];
     this.rtPhaseNormalZoneUD = [];
@@ -705,13 +711,28 @@ class ShadowBreakerEngine {
       }
     }
 
-    this.renderer.playHitFx(t.id, {
-      grade,
-      scoreDelta,
-      fxEmoji,
-      clientX: hitInfo?.clientX,
-      clientY: hitInfo?.clientY
-    });
+    // ===== เอฟเฟกต์คะแนน & particle ที่ตำแหน่งเป้า/คลิก =====
+    const sx =
+      (hitInfo && (hitInfo.clientX ?? hitInfo.x ?? hitInfo.screenX)) ??
+      (window.innerWidth / 2);
+    const sy =
+      (hitInfo && (hitInfo.clientY ?? hitInfo.y ?? hitInfo.screenY)) ??
+      (window.innerHeight / 2);
+
+    if (this.fxRenderer) {
+      if (grade === 'bomb' || grade === 'miss') {
+        this.fxRenderer.showMissFx({ x: sx, y: sy });
+      } else if (scoreDelta > 0) {
+        this.fxRenderer.showHitFx({
+          x: sx,
+          y: sy,
+          scoreDelta,
+          lane: hitInfo?.lane ?? null,
+          // map good → great เพื่อให้สีฟ้าแยกจาก perfect
+          judgment: grade === 'good' ? 'great' : grade
+        });
+      }
+    }
 
     this.targets.delete(id);
     this.renderer.removeTarget(id, 'hit');
