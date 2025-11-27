@@ -1,7 +1,6 @@
 // === js/dom-renderer-rb.js — Rhythm Boxer Renderer (2025-12-02) ===
-'use strict';
-
 (function () {
+  'use strict';
 
   class RbDomRenderer {
     constructor(host, opts = {}) {
@@ -133,8 +132,5 @@
     }
   }
 
-  if (typeof window !== 'undefined') {
-    window.RbDomRenderer = RbDomRenderer;
-  }
-
+  window.RbDomRenderer = RbDomRenderer;
 })();
