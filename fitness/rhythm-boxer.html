@@ -39,12 +39,35 @@
         </label>
         <label class="rb-mode-btn">
           <input type="radio" name="mode" value="research"/>
-          <span>Research</span>
+          <span>Research (วิจัย)</span>
         </label>
       </div>
       <p id="rb-mode-desc" class="rb-mode-desc">
-        Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
+        Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)<br/>
+        Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV
       </p>
+
+      <!-- ระดับความยาก -->
+      <div class="rb-diff-box">
+        <div class="rb-diff-label">ระดับความยาก</div>
+        <div class="rb-diff-toggle">
+          <label class="rb-diff-btn">
+            <input type="radio" name="diff" value="easy" checked/>
+            <span>ง่าย</span>
+          </label>
+          <label class="rb-diff-btn">
+            <input type="radio" name="diff" value="normal"/>
+            <span>ปกติ</span>
+          </label>
+          <label class="rb-diff-btn">
+            <input type="radio" name="diff" value="hard"/>
+            <span>ยาก</span>
+          </label>
+        </div>
+        <p class="rb-diff-note">
+          * ระดับความยากจะใช้กำหนดขนาดโน้ต / ความหนาแน่นของจังหวะ และใช้เป็นตัวแปรในงานวิจัย
+        </p>
+      </div>
     </section>
 
     <!-- เลือกเพลง -->
@@ -97,7 +120,7 @@
           ▶ เริ่มเล่น Rhythm Boxer
         </button>
         <button type="button" class="rb-btn rb-btn-ghost"
-          onclick="alert('เคล็ดลับ: เริ่มจากเพลง Warm-up Groove ในโหมด Normal ก่อน แล้วค่อยสลับไป Research Track เมื่อผู้เข้าร่วมคุ้นเคยจังหวะแล้วนะคะ 😊');">
+          onclick="alert('เคล็ดลับ: เริ่มจากเพลง Warm-up Groove ในโหมด Normal + ระดับง่าย ก่อน แล้วค่อยปรับระดับ/โหมดวิจัยเมื่อผู้เข้าร่วมคุ้นเคยแล้วนะคะ 😊');">
           💡 เคล็ดลับสำหรับครู / นักวิจัย
         </button>
       </div>
@@ -122,6 +145,7 @@
     <section class="rb-hud">
       <div class="rb-hud-row">
         <div class="rb-chip">Mode: <span id="rb-hud-mode">Normal</span></div>
+        <div class="rb-chip">Diff: <span id="rb-hud-diff">Normal</span></div>
         <div class="rb-chip">Track: <span id="rb-hud-track">Warm-up</span></div>
         <div class="rb-chip">Score: <span id="rb-hud-score">0</span></div>
         <div class="rb-chip">Combo: <span id="rb-hud-combo">0</span></div>
@@ -207,6 +231,9 @@
         <h2 class="rb-result-title">Overview</h2>
         <div class="rb-result-row">
           <span>Mode</span><b id="rb-res-mode">-</b>
+        </div>
+        <div class="rb-result-row">
+          <span>Diff</span><b id="rb-res-diff">-</b>
         </div>
         <div class="rb-result-row">
           <span>Track</span><b id="rb-res-track">-</b>
