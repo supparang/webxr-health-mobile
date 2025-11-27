@@ -160,6 +160,15 @@ body {
   color: #e5e7eb;
 }
 
+.sb-target-emoji{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:28px;
+}
+
 /* HP + Fever bars area */
 .sb-bar-row {
   display: flex;
