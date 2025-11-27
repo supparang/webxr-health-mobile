@@ -1,4 +1,4 @@
-// === js/dom-renderer-shadow.js — Shadow Breaker Renderer (2025-12-02) ===
+// === js/dom-renderer-shadow.js — Shadow Breaker Renderer (FX only, 2025-12-02) ===
 'use strict';
 
 export class DomRendererShadow {
