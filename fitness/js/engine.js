@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-02, tuned) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-02) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -19,7 +19,7 @@ function mean(arr) {
   return sum / arr.length;
 }
 
-// ---------- SMALL UI HELPERS (GRADE FX ที่เด้งตรงเป้า) ----------
+// ---------- SMALL UI HELPERS: grade label เด้งตรงเป้า ----------
 
 function spawnGradeLabel(x, y, text, color) {
   if (!text) return;
@@ -29,8 +29,7 @@ function spawnGradeLabel(x, y, text, color) {
     position: 'fixed',
     left: x + 'px',
     top: y + 'px',
-    // เริ่มต้นเหนือเป้านิดหน่อย เพื่อต่างจากเอฟเฟกต์คะแนน
-    transform: 'translate(-50%, -140%) scale(1)',
+    transform: 'translate(-50%, -50%) scale(1)',
     color: color || '#facc15',
     fontWeight: '700',
     fontSize: '18px',
@@ -42,8 +41,7 @@ function spawnGradeLabel(x, y, text, color) {
   });
   document.body.appendChild(el);
   requestAnimationFrame(() => {
-    // ลอยสูงขึ้นไปอีกหน่อย
-    el.style.transform = 'translate(-50%, -200%) scale(1.1)';
+    el.style.transform = 'translate(-50%, -120%) scale(1.1)';
     el.style.opacity = '0';
   });
   setTimeout(() => el.remove(), 600);
@@ -258,6 +256,10 @@ class ShadowBreakerEngine {
     this.bossPhase   = 1;
     this.bossesCleared = 0;
 
+    // boss face state
+    this.bossFaceAlive   = false;
+    this.bossFaceSpawned = false;
+
     this.score     = 0;
     this.combo     = 0;
     this.maxCombo  = 0;
@@ -274,6 +276,7 @@ class ShadowBreakerEngine {
     this.lowHpTimeMs    = 0;
 
     this.shieldCollected = 0;
+    this.shieldStacks    = 0;   // เกราะที่ยังเหลือใช้ absorb ผิดพลาด
 
     // ---------- RT buffers ----------
     this.rtNormalAll = [];
@@ -326,7 +329,6 @@ class ShadowBreakerEngine {
     this.loopRunning = false;
 
     this.waitingIntro = true;
-    this.bossFaceAlive = false;
 
     this.eventLogger.clear();
     this.sessionLogger.clear();
@@ -468,9 +470,18 @@ class ShadowBreakerEngine {
       return;
     }
 
+    const bossRatio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 0;
+
     let type = 'normal';
     const r = Math.random();
-    if (!this.bossFaceAlive && (this.bossHp / this.bossHpMax) <= 0.28 && r > 0.65) {
+
+    // บังคับให้หน้าบอสโผล่แน่ ๆ 1 ครั้งเมื่อ HP เหลือน้อย
+    if (!this.bossFaceSpawned && bossRatio <= 0.30) {
+      type = 'bossface';
+      this.bossFaceSpawned = true;
+      this.bossFaceAlive   = true;
+    // หลังจากนั้น ถ้าหลุดไปแล้วยังใกล้ตายอยู่ → มีโอกาสสุ่มโผล่เพิ่ม
+    } else if (!this.bossFaceAlive && bossRatio <= 0.28 && r > 0.65) {
       type = 'bossface';
       this.bossFaceAlive = true;
     } else if (r > 0.94) {
@@ -562,20 +573,22 @@ class ShadowBreakerEngine {
   }
 
   _registerMiss(t) {
+    // miss จากการหมดเวลา (เฉพาะ normal target) → ใช้ shield absorb ก่อน
     if (!t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield) {
-      this.missCount += 1;
-      this.combo = 0;
-
-      // ใช้ Shield ก่อน ถ้ามี → ถ้าไม่มีค่อยหัก HP
-      if (this.shieldCollected > 0) {
-        this.shieldCollected = Math.max(0, this.shieldCollected - 1);
+      if (this.shieldStacks > 0) {
+        this.shieldStacks -= 1;
+        if (this.hud.feedback) {
+          this.hud.feedback.textContent = 'เกราะรับให้ 1 ครั้ง ⛨';
+          this.hud.feedback.className = 'sb-feedback good';
+        }
       } else {
+        this.missCount += 1;
+        this.combo = 0;
         this.playerHp = clamp(this.playerHp - 4, 0, this.playerHpMax);
-      }
-
-      if (this.hud.feedback) {
-        this.hud.feedback.textContent = 'พลาดจังหวะ! ลองมองเป้าถัดไปล่วงหน้า 🔍';
-        this.hud.feedback.className = 'sb-feedback miss';
+        if (this.hud.feedback) {
+          this.hud.feedback.textContent = 'พลาดจังหวะ! ลองมองเป้าถัดไปล่วงหน้า 🔍';
+          this.hud.feedback.className = 'sb-feedback miss';
+        }
       }
     }
 
@@ -627,11 +640,18 @@ class ShadowBreakerEngine {
       this._hitByBomb();
       scoreDelta = 0;
       fxEmoji = '💣';
+
     } else if (t.isDecoy) {
       grade = 'miss';
-      this.combo = 0;
+      // ตีเป้าลวง → ใช้ shield ก่อน ถ้ามี
+      if (this.shieldStacks > 0) {
+        this.shieldStacks -= 1;
+      } else {
+        this.combo = 0;
+      }
       scoreDelta = 0;
       fxEmoji = '🎯';
+
     } else if (t.isHeal) {
       grade = 'heal';
       this.combo += 1;
@@ -640,6 +660,7 @@ class ShadowBreakerEngine {
       this.playerHp = clamp(this.playerHp + 12, 0, this.playerHpMax);
       fxEmoji = '💚';
       this._gainFever(9);
+
     } else if (t.isShield) {
       grade = 'shield';
       this.combo += 1;
@@ -648,6 +669,8 @@ class ShadowBreakerEngine {
       fxEmoji = '🛡️';
       this._gainFever(7);
       this.shieldCollected += 1;
+      this.shieldStacks += 1;
+
     } else if (t.isBossFace) {
       grade = 'perfect';
       scoreDelta = 240;
@@ -657,6 +680,7 @@ class ShadowBreakerEngine {
       this._gainFever(14);
       this._damageBoss(18);
       this.bossFaceAlive = false;
+
     } else {
       if (ratio <= 0.35) grade = 'perfect';
       else if (ratio >= 0.9) grade = 'bad';
@@ -705,7 +729,9 @@ class ShadowBreakerEngine {
         msg = 'ช้าไปนิด ลองตีให้เร็วกว่านี้หน่อยนะ 😅';
         cls += ' bad';
       } else if (grade === 'bomb') {
-        msg = 'ระเบิด! HP ลด ระวังหน่อย 💣';
+        msg = this.shieldStacks >= 0
+          ? 'ระเบิด! เกราะช่วยรับแรงไว้ให้ 💣'
+          : 'ระเบิด! HP ลด ระวังหน่อย 💣';
         cls += ' miss';
       } else if (grade === 'heal') {
         msg = 'เติมพลัง! ❤️‍🩹';
@@ -754,15 +780,15 @@ class ShadowBreakerEngine {
       }
     }
 
-    // ===== ให้คำว่า PERFECT / GOOD / MISS เด้ง "ตรงเป้า" =====
-    const pos = this._getHitScreenPos(t, hitInfo);
-    if (pos.cx != null && pos.cy != null) {
+    // ===== ให้คำว่า PERFECT / GOOD / MISS เด้งตรงเป้า =====
+    const cx = (hitInfo && typeof hitInfo.clientX === 'number') ? hitInfo.clientX : null;
+    const cy = (hitInfo && typeof hitInfo.clientY === 'number') ? hitInfo.clientY : null;
+    if (cx !== null && cy !== null) {
       const { text, color } = mapGradeToLabel(grade);
       if (text) {
-        spawnGradeLabel(pos.cx, pos.cy, text, color);
+        spawnGradeLabel(cx, cy, text, color);
       }
     }
-    // ===== END Grade FX =====
 
     this.renderer.playHitFx(t.id, {
       grade,
@@ -806,43 +832,9 @@ class ShadowBreakerEngine {
     this._updateBossHUD();
   }
 
-  // ใช้หา position กลางเป้าในจอ สำหรับเด้งเกรด
-  _getHitScreenPos(t, hitInfo) {
-    let cx = null;
-    let cy = null;
-
-    if (hitInfo) {
-      if (typeof hitInfo.clientX === 'number' && typeof hitInfo.clientY === 'number') {
-        cx = hitInfo.clientX;
-        cy = hitInfo.clientY;
-      } else if (typeof hitInfo.x === 'number' && typeof hitInfo.y === 'number') {
-        cx = hitInfo.x;
-        cy = hitInfo.y;
-      } else if (hitInfo.el && hitInfo.el.getBoundingClientRect) {
-        const r = hitInfo.el.getBoundingClientRect();
-        cx = r.left + r.width / 2;
-        cy = r.top + r.height / 2;
-      }
-    }
-
-    if ((cx == null || cy == null) && this.field && t) {
-      const rect = this.field.getBoundingClientRect();
-      if (typeof t.x_norm === 'number' && typeof t.y_norm === 'number') {
-        cx = rect.left + t.x_norm * rect.width;
-        cy = rect.top + t.y_norm * rect.height;
-      } else {
-        cx = rect.left + rect.width / 2;
-        cy = rect.top + rect.height / 2;
-      }
-    }
-
-    return { cx, cy };
-  }
-
   _hitByBomb() {
-    // ถ้ามี shield ใช้เกราะก่อน
-    if (this.shieldCollected > 0) {
-      this.shieldCollected = Math.max(0, this.shieldCollected - 1);
+    if (this.shieldStacks > 0) {
+      this.shieldStacks -= 1;
       return;
     }
     this.playerHp = clamp(this.playerHp - 18, 0, this.playerHpMax);
@@ -909,7 +901,10 @@ class ShadowBreakerEngine {
       this.bossHpMax = this.currentBoss.hpMax;
       this.bossHp    = this.bossHpMax;
       this.bossPhase = 1;
-      this.bossFaceAlive = false;
+
+      // reset boss face state สำหรับบอสใหม่
+      this.bossFaceAlive   = false;
+      this.bossFaceSpawned = false;
 
       for (const [id] of this.targets) {
         this.renderer.removeTarget(id, 'boss-change');
@@ -942,7 +937,8 @@ class ShadowBreakerEngine {
     this.hud.combo  && (this.hud.combo.textContent  = this.combo);
     this.hud.phase  && (this.hud.phase.textContent  = this.bossPhase);
     this.hud.miss   && (this.hud.miss.textContent   = this.missCount);
-    this.hud.shield && (this.hud.shield.textContent = this.shieldCollected);
+    // แสดงจำนวนเกราะที่เหลือให้เห็นตรง shield
+    this.hud.shield && (this.hud.shield.textContent = this.shieldStacks);
 
     const pRatio = clamp(this.playerHp / this.playerHpMax, 0, 1);
     const bRatio = clamp(this.bossHp   / this.bossHpMax,   0, 1);
@@ -1185,6 +1181,7 @@ export function initShadowBreaker() {
 
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
 
+        // RT รวม
         if (summary.rt_normal_mean_s !== undefined && summary.rt_normal_mean_s !== '') {
           setText('#res-rt-normal',
             Number(summary.rt_normal_mean_s).toFixed(3) + ' s');
@@ -1220,6 +1217,7 @@ export function initShadowBreaker() {
 
         setText('#res-participant', summary.participant || '-');
 
+        // RT per Boss/Phase (normal targets)
         for (let bi = 1; bi <= 4; bi++) {
           for (let ph = 1; ph <= 3; ph++) {
             const key = `rt_b${bi}_p${ph}_mean_s`;
