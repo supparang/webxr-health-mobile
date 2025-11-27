@@ -120,103 +120,119 @@
 
   </main>
 
-  <!-- ===== VIEW: PLAY ===== -->
-  <section id="view-play" class="sb-card sb-card-main hidden">
-
-    <header class="sb-card-header">
-      <div class="sb-brand">
-        <div class="sb-logo-pill">SB</div>
-        <div class="sb-brand-text">
-          <h1 class="sb-brand-title">Shadow Breaker 🎯</h1>
-          <p class="sb-brand-subtitle">โหมดเล่นจริง — ตีเป้าให้ทัน เก็บคอมโบ และล้มบอสทีละตัว</p>
-        </div>
+<!-- ===== VIEW: PLAY ===== -->
+<section id="view-play" class="sb-view-play hidden">
+  <!-- Header + HUD -->
+  <header class="sb-header">
+    <div class="sb-header-left">
+      <div class="sb-game-tag">SB</div>
+      <div>
+        <h1 class="sb-title">Shadow Breaker 🎯</h1>
+        <p class="sb-subtitle">
+          โหมดเล่นจริง — ตีเป้าให้ทัน เก็บคอมโบ และล้มบอสทีละตัว
+        </p>
       </div>
-      <button class="sb-back-link" data-action="back-to-menu">← กลับเมนูหลัก</button>
-    </header>
+    </div>
+    <a href="hub.html" class="sb-back-hub" data-action="back-to-menu">
+      ← กลับสู่ VR Fitness Hub
+    </a>
+  </header>
 
-    <!-- HUD ด้านบน -->
-    <div class="sb-play-top">
-      <div class="sb-top-stats">
-        <div class="sb-stat">
-          <span class="sb-stat-label">Time</span>
-          <span class="sb-stat-value" id="stat-time">0.0</span>
-        </div>
-        <div class="sb-stat">
-          <span class="sb-stat-label">Score</span>
-          <span class="sb-stat-value" id="stat-score">0</span>
-        </div>
-        <div class="sb-stat">
-          <span class="sb-stat-label">Combo</span>
-          <span class="sb-stat-value" id="stat-combo">0</span>
-        </div>
-        <div class="sb-stat">
-          <span class="sb-stat-label">Phase</span>
-          <span class="sb-stat-value" id="stat-phase">1</span>
-        </div>
-        <div class="sb-stat">
-          <span class="sb-stat-label">Miss</span>
-          <span class="sb-stat-value" id="stat-miss">0</span>
-        </div>
-        <div class="sb-stat">
-          <span class="sb-stat-label">Shield</span>
-          <span class="sb-stat-value" id="stat-shield">0</span>
-        </div>
-        <div class="sb-stat">
-          <span class="sb-stat-label">Fever</span>
-          <span class="sb-stat-value" id="fever-status">Ready</span>
-        </div>
+  <!-- HUD แถวบน -->
+  <div class="sb-hud-top">
+    <div class="sb-hud-top-left">
+      <div class="sb-hud-stat">
+        <span class="sb-hud-stat-label">Time</span>
+        <span class="sb-hud-stat-value" id="stat-time">60.0</span>
       </div>
-
-      <div class="sb-hp-rows">
-        <div class="sb-hp-row">
-          <span class="sb-hp-label">Player</span>
-          <div class="sb-hp-bar">
-            <div data-sb-player-hp></div>
-          </div>
-        </div>
-        <div class="sb-hp-row">
-          <span class="sb-hp-label">Boss</span>
-          <div class="sb-hp-bar">
-            <div data-sb-boss-hp></div>
-          </div>
-        </div>
+      <div class="sb-hud-stat">
+        <span class="sb-hud-stat-label">Score</span>
+        <span class="sb-hud-stat-value" id="stat-score">0</span>
       </div>
+      <div class="sb-hud-stat">
+        <span class="sb-hud-stat-label">Combo</span>
+        <span class="sb-hud-stat-value" id="stat-combo">0</span>
+      </div>
+      <div class="sb-hud-stat">
+        <span class="sb-hud-stat-label">Phase</span>
+        <span class="sb-hud-stat-value" id="stat-phase">1</span>
+      </div>
+      <div class="sb-hud-stat">
+        <span class="sb-hud-stat-label">Miss</span>
+        <span class="sb-hud-stat-value" id="stat-miss">0</span>
+      </div>
+      <div class="sb-hud-stat">
+        <span class="sb-hud-stat-label">Shield</span>
+        <span class="sb-hud-stat-value" id="stat-shield">0</span>
+      </div>
+    </div>
 
-      <div class="sb-fever-row">
-        <span class="sb-fever-label">Fever</span>
-        <div id="fever-bar">
+    <div class="sb-hud-top-right">
+      <div class="sb-fever-chip">
+        <span class="sb-hud-stat-label">FEVER</span>
+        <span id="fever-status">Ready</span>
+        <div class="sb-fever-bar">
           <div id="fever-fill"></div>
         </div>
-        <span id="fever-status">Ready</span>
       </div>
+    </div>
+  </div>
 
-      <p id="sb-feedback" class="sb-feedback"></p>
+  <!-- HP Bars -->
+  <div class="sb-hp-bars">
+    <div class="sb-hp-row">
+      <div class="sb-hp-row-label">Player</div>
+      <div class="sb-hp-track">
+        <div class="sb-hp-fill sb-hp-fill-player" data-sb-player-hp></div>
+      </div>
+    </div>
+    <div class="sb-hp-row">
+      <div class="sb-hp-row-label">Boss</div>
+      <div class="sb-hp-track">
+        <div class="sb-hp-fill sb-hp-fill-boss" data-sb-boss-hp></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ข้อความ feedback -->
+  <p id="sb-feedback" class="sb-feedback">
+    แตะหน้าจอหรือชกเป้าเพื่อเริ่มคอมโบแรกของคุณ! 💥
+  </p>
+
+  <!-- Layout: gameplay + การ์ดบอส -->
+  <div class="sb-play-layout">
+    <!-- Gameplay field -->
+    <div class="sb-playfield-shell">
+      <div class="sb-playfield">
+        <div id="target-layer"></div>
+      </div>
     </div>
 
-    <!-- Gameplay + Boss Panel -->
-    <div class="sb-play-main">
-      <div class="sb-play-left">
-        <div class="sb-play-field">
-          <div id="target-layer"></div>
-        </div>
-
-        <div class="sb-play-controls">
-          <button class="sb-btn" data-action="stop-early">⏹ หยุดก่อนเวลา</button>
-          <button class="sb-btn" data-action="back-to-menu">← กลับเมนูหลัก</button>
+    <!-- Boss / ปุ่มควบคุม -->
+    <aside class="sb-boss-card" id="boss-portrait">
+      <div class="sb-boss-header">
+        <div id="boss-portrait-emoji">🐣</div>
+        <div>
+          <div id="boss-portrait-name">Bubble Glove</div>
+          <div class="sb-boss-subtitle">บอสตัวปัจจุบัน</div>
         </div>
       </div>
+      <p id="boss-portrait-hint">
+        โฟกัสที่เป้าฟองใหญ่ ๆ แล้วตีให้ทันก่อนแตกหายไป!
+      </p>
 
-      <aside class="sb-boss-panel" id="boss-portrait">
-        <div class="sb-boss-header">
-          <span id="boss-portrait-emoji">🐣</span>
-          <div>
-            <div id="boss-portrait-name">Bubble Glove</div>
-          </div>
-        </div>
-        <p id="boss-portrait-hint">โฟกัสที่เป้าฟองใหญ่ ๆ แล้วตีให้ทัน</p>
-      </aside>
-    </div>
-  </section>
+      <div class="sb-boss-footer">
+        <button class="sb-btn sb-btn-ghost" data-action="stop-early">
+          ⏸️ หยุดก่อนเวลา
+        </button>
+        <button class="sb-btn sb-btn-ghost" data-action="back-to-menu">
+          ← กลับเมนูหลัก
+        </button>
+      </div>
+    </aside>
+  </div>
+</section>
+
 
   <!-- ===== VIEW: RESULT ===== -->
   <section id="view-result" class="sb-card sb-card-main hidden" data-events-csv="" data-session-csv="">
