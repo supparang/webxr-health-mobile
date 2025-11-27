@@ -271,6 +271,62 @@ html,body{
   color:var(--rb-muted);
 }
 
+/* ===== DIFFICULTY TOGGLE ===== */
+
+.rb-diff-box{
+  margin-top:8px;
+}
+
+.rb-diff-label{
+  font-size:0.9rem;
+  margin-bottom:3px;
+}
+
+.rb-diff-toggle{
+  display:inline-flex;
+  gap:4px;
+  padding:2px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.7);
+  background:rgba(15,23,42,0.96);
+}
+
+.rb-diff-btn{
+  position:relative;
+  flex:1 1 0;
+  font-size:0.85rem;
+}
+
+.rb-diff-btn input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  cursor:pointer;
+}
+
+.rb-diff-btn span{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:5px 10px;
+  border-radius:999px;
+  color:var(--rb-muted);
+  white-space:nowrap;
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease;
+}
+
+.rb-diff-btn input:checked + span{
+  background:linear-gradient(90deg,#22c55e,#38bdf8);
+  color:#020617;
+  box-shadow:0 0 10px rgba(34,197,94,0.85);
+}
+
+.rb-diff-note{
+  margin:4px 0 0;
+  font-size:0.78rem;
+  color:var(--rb-muted);
+}
+
 /* ===== BUTTONS ===== */
 
 .rb-btn{
