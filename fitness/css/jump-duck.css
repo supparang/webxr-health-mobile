@@ -1,4 +1,4 @@
-/* === css/jump-duck.css — Jump Duck Rush UI (2025-12-01 full) === */
+/* === css/jump-duck.css — Jump Duck Rush UI (2025-12-02) === */
 
 :root{
   color-scheme: dark;
@@ -123,6 +123,7 @@ html,body{
   color:var(--jd-muted);
 }
 .jd-field-row input,
+#jd-mode,
 #jd-diff,
 #jd-duration{
   border-radius:10px;
@@ -133,11 +134,27 @@ html,body{
   color:var(--jd-text);
 }
 .jd-field-row input:focus,
+#jd-mode:focus,
 #jd-diff:focus,
 #jd-duration:focus{
   outline:none;
   border-color:var(--jd-accent);
   box-shadow:0 0 0 1px rgba(56,189,248,0.55);
+}
+
+/* Research meta box */
+
+.jd-research{
+  background:rgba(15,23,42,0.92);
+  border-radius:14px;
+  border:1px dashed #1e293b;
+  padding:10px 10px 12px;
+  margin-top:4px;
+}
+.jd-research-hint{
+  margin:4px 0 0;
+  font-size:0.8rem;
+  color:var(--jd-muted);
 }
 
 /* How-to */
@@ -183,15 +200,13 @@ html,body{
   transform:translateY(-1px);
 }
 
-.jd-btn-primary,
-.jd-btn-main{
+.jd-btn-primary{
   background:linear-gradient(90deg,#22c55e,#38bdf8);
   color:#020617;
   font-weight:600;
   box-shadow:0 14px 30px rgba(16,185,129,0.55);
 }
-.jd-btn-primary:hover,
-.jd-btn-main:hover{
+.jd-btn-primary:hover{
   filter:brightness(1.05);
 }
 
@@ -272,78 +287,6 @@ html,body{
   font-variant-numeric:tabular-nums;
 }
 
-/* Bars (เตรียมไว้เผื่อใช้ FEVER/Progress ในอนาคต) */
-
-.jd-bars{
-  margin-bottom:10px;
-}
-
-.jd-bar-label-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  font-size:0.8rem;
-  color:var(--jd-muted);
-  margin-bottom:3px;
-}
-.jd-bar-label-row-progress{
-  margin-top:6px;
-}
-
-.jd-fever-bar,
-.jd-progress-bar{
-  position:relative;
-  width:100%;
-  height:12px;
-  border-radius:999px;
-  overflow:hidden;
-  background:linear-gradient(90deg,#020617,#020617);
-  border:1px solid #0f172a;
-}
-
-.jd-fever-fill,
-.jd-progress-fill{
-  position:absolute;
-  inset:0;
-  transform-origin:left center;
-  transform:scaleX(0);
-}
-
-.jd-fever-fill{
-  background:linear-gradient(90deg,#f97316,#facc15);
-  box-shadow:0 0 18px rgba(248,181,0,0.9);
-}
-.jd-progress-fill{
-  background:linear-gradient(90deg,#22c55e,#38bdf8);
-  box-shadow:0 0 14px rgba(34,197,94,0.75);
-}
-
-.jd-fever-status{
-  font-size:0.8rem;
-  padding:1px 8px;
-  border-radius:999px;
-  border:1px solid #1f2937;
-  background:#020617;
-}
-.jd-fever-status.on{
-  border-color:#f97316;
-  color:#fed7aa;
-  box-shadow:0 0 10px rgba(248,113,22,0.9);
-}
-
-/* Feedback (หากใช้) */
-
-.jd-feedback{
-  margin-bottom:8px;
-  padding:4px 10px;
-  border-radius:999px;
-  background:rgba(15,23,42,0.9);
-  border:1px solid rgba(31,41,55,0.9);
-  font-size:0.82rem;
-  text-align:center;
-  color:var(--jd-text);
-}
-
 /* Field (ฐานของพื้นที่เล่น) */
 
 .jd-field{
@@ -413,7 +356,7 @@ html,body{
 
 .jd-obstacle{
   position:absolute;
-  left:100%;   /* เริ่มที่ขวาสุด แล้วให้ JS เลื่อนด้วย left:% */
+  left:100%;
   bottom:0;
   width:60px;
   height:60px;
@@ -449,7 +392,7 @@ html,body{
   box-shadow:0 0 12px rgba(148,163,184,0.9);
 }
 
-/* Judge text (GOOD / MISS / COMBO) */
+/* Judge text (GOOD / MISS / COMBO / Tips) */
 
 .jd-judge{
   position:absolute;
