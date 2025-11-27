@@ -83,7 +83,13 @@ export class DomRendererShadow {
     target.x_norm = xNorm;
     target.y_norm = yNorm;
 
-    const size = target.sizePx || 110;
+    let size = target.sizePx || 110;
+
+// ถ้าเป็น boss-face ให้บังคับอย่างน้อย ~180px
+if (target.isBossFace && size < 180) {
+  size = 180;
+}
+
 
     const el = document.createElement('button');
     el.type = 'button';
