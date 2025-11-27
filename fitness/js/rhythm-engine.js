@@ -1,70 +1,82 @@
-// === js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV, 2025-12-01, fixed) ===
-'use strict';
-
-(function(){
+// === js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV, 2025-12-02) ===
+(function () {
+  'use strict';
 
   // ===== CONFIG =====
-  const LANES = [0,1,2,3,4];          // L2, L1, C, R1, R2
-  const NOTE_EMOJI_BY_LANE = ['🎵','🎶','🎵','🎶','🎼'];
+  const LANES = [0, 1, 2, 3, 4]; // L2, L1, C, R1, R2
+  const NOTE_EMOJI_BY_LANE = ['🎵', '🎶', '🎵', '🎶', '🎼'];
 
   // หน้าต่างการให้คะแนนตาม offset (วินาที)
   const HIT_WINDOWS = {
     perfect: 0.06,
-    great:   0.12,
-    good:    0.20
+    great: 0.12,
+    good: 0.2
   };
 
   // เวลาโน้ตใช้ตกลงมาถึงเส้นตี (วินาที)
   const PRE_SPAWN_SEC = 2.0;
 
   // ===== TRACKS =====
-  function makeWarmupChart(bpm, dur){
+  function makeChart(bpm, dur, seq) {
     const out = [];
     const beat = 60 / bpm;
     let t = 2.0;
-
-    const seq = [2,1,3,2,1,3,2,3];  // ลำดับเลน (C, L1, R1 ...)
     const total = Math.floor((dur - 3) / beat);
     let i = 0;
 
-    while (t < dur - 2 && i < total){
+    while (t < dur - 2 && i < total) {
       out.push({ time: t, lane: seq[i % seq.length], type: 'note' });
       t += beat;
       i++;
     }
-
-    // ตัวอย่าง event พิเศษ (เพิ่ม HP / Shield) — ตอนนี้ยังเป็นโน้ตปกติ
-    out.push({ time: t + beat * 0.5, lane: 0, type: 'note' });
-    out.push({ time: t + beat * 1.5, lane: 4, type: 'note' });
-
     return out;
   }
 
   const TRACKS = [
     {
-      id: 't1',
-      name: 'Warm-up Groove (ง่าย)',
+      id: 'n1',
+      name: 'Warm-up Groove (ง่าย · 100 BPM)',
       nameShort: 'Warm-up Groove',
       audio: './audio/warmup-groove.mp3',
       bpm: 100,
       durationSec: 32,
       diff: 'easy',
-      chart: makeWarmupChart(100, 32)
+      chart: makeChart(100, 32, [2, 1, 3, 2, 1, 3, 2, 3])
     },
     {
-      id: 'research',
-      name: 'Research Track 120',
+      id: 'n2',
+      name: 'Focus Combo (ปกติ · 120 BPM)',
+      nameShort: 'Focus Combo',
+      audio: './audio/focus-combo.mp3',
+      bpm: 120,
+      durationSec: 32,
+      diff: 'normal',
+      chart: makeChart(120, 32, [2, 3, 1, 2, 3, 4, 2, 3])
+    },
+    {
+      id: 'n3',
+      name: 'Speed Rush (ยาก · 140 BPM)',
+      nameShort: 'Speed Rush',
+      audio: './audio/speed-rush.mp3',
+      bpm: 140,
+      durationSec: 32,
+      diff: 'hard',
+      chart: makeChart(140, 32, [1, 3, 2, 4, 0, 2, 3, 1])
+    },
+    {
+      id: 'r1',
+      name: 'Research Track 120 (ทดลอง · 120 BPM)',
       nameShort: 'Research 120',
       audio: './audio/research-120.mp3',
       bpm: 120,
       durationSec: 32,
-      diff: 'normal',
-      chart: makeWarmupChart(120, 32)
+      diff: 'research',
+      chart: makeChart(120, 32, [2, 1, 3, 2, 1, 3, 2, 3])
     }
   ];
 
   // meta ให้ rhythm-boxer.js ใช้เติมชื่อเพลง / HUD
-  window.RB_TRACKS_META = TRACKS.map(t => ({
+  window.RB_TRACKS_META = TRACKS.map((t) => ({
     id: t.id,
     name: t.name,
     nameShort: t.nameShort || t.name,
@@ -73,111 +85,115 @@
   }));
 
   // ===== UTIL =====
-  function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
-  function mean(arr){
-    if (!arr.length) return 0;
-    return arr.reduce((s,v) => s + v, 0) / arr.length;
+  function clamp(v, a, b) {
+    return v < a ? a : v > b ? b : v;
   }
-  function std(arr){
+  function mean(arr) {
+    if (!arr.length) return 0;
+    return arr.reduce((s, v) => s + v, 0) / arr.length;
+  }
+  function std(arr) {
     if (arr.length < 2) return 0;
     const m = mean(arr);
-    const v = mean(arr.map(x => (x - m) * (x - m)));
+    const v = mean(arr.map((x) => (x - m) * (x - m)));
     return Math.sqrt(v);
   }
-  function segmentIndex(songTime, duration){
+  function segmentIndex(songTime, duration) {
     if (!duration || duration <= 0) return 1;
     const r = songTime / duration;
-    if (r < 1/3) return 1;
-    if (r < 2/3) return 2;
+    if (r < 1 / 3) return 1;
+    if (r < 2 / 3) return 2;
     return 3;
   }
-  function sideOfLane(lane){
+  function sideOfLane(lane) {
     if (lane === 2) return 'C';
     if (lane === 0 || lane === 1) return 'L';
     return 'R';
   }
-  function makeSessionId(){
+  function makeSessionId() {
     const t = new Date();
-    const pad = (n)=>String(n).padStart(2,'0');
-    return `RB-${t.getFullYear()}${pad(t.getMonth()+1)}${pad(t.getDate())}` +
-           `-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`;
+    const pad = (n) => String(n).padStart(2, '0');
+    return (
+      `RB-${t.getFullYear()}${pad(t.getMonth() + 1)}${pad(t.getDate())}` +
+      `-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`
+    );
   }
-  function detectDeviceType(){
-    const ua = (navigator && navigator.userAgent || '').toLowerCase();
-    if (ua.includes('vr') || ua.includes('oculus')) return 'vr';
-    if (ua.includes('tablet')) return 'tablet';
-    if (ua.includes('mobi')) return 'mobile';
+  function detectDeviceType() {
+    const ua = (navigator && navigator.userAgent) || '';
+    const low = ua.toLowerCase();
+    if (low.includes('vr') || low.includes('oculus')) return 'vr';
+    if (low.includes('tablet')) return 'tablet';
+    if (low.includes('mobi')) return 'mobile';
     return 'pc';
   }
 
-  // ===== CSV TABLE (ใช้ร่วมกันทั้ง Event / Session) =====
+  // ===== CSV TABLE =====
   class CsvTable {
-    constructor(){
+    constructor() {
       this.rows = [];
     }
-    clear(){
+    clear() {
       this.rows = [];
     }
-    add(row){
+    add(row) {
       this.rows.push(row);
     }
-    toCsv(){
+    toCsv() {
       const rows = this.rows;
       if (!rows.length) return '';
       const keysSet = new Set();
-      for (const r of rows){
-        Object.keys(r).forEach(k => keysSet.add(k));
+      for (const r of rows) {
+        Object.keys(r).forEach((k) => keysSet.add(k));
       }
       const keys = Array.from(keysSet);
       const esc = (v) => {
         if (v == null) return '';
         const s = String(v);
-        if (s.includes('"') || s.includes(',') || s.includes('\n')){
-          return '"' + s.replace(/"/g,'""') + '"';
+        if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+          return '"' + s.replace(/"/g, '""') + '"';
         }
         return s;
       };
       const lines = [];
       lines.push(keys.join(','));
-      for (const r of rows){
-        lines.push(keys.map(k => esc(r[k])).join(','));
+      for (const r of rows) {
+        lines.push(keys.map((k) => esc(r[k])).join(','));
       }
       return lines.join('\n');
     }
   }
 
   // ===== JUDGE =====
-  function judgeFromOffset(dt){
+  function judgeFromOffset(dt) {
     const adt = Math.abs(dt);
     if (adt <= HIT_WINDOWS.perfect) return 'perfect';
-    if (adt <= HIT_WINDOWS.great)   return 'great';
-    if (adt <= HIT_WINDOWS.good)    return 'good';
+    if (adt <= HIT_WINDOWS.great) return 'great';
+    if (adt <= HIT_WINDOWS.good) return 'good';
     return 'miss';
   }
 
   // ===== ENGINE CLASS =====
   class RhythmBoxerEngine {
-    constructor(opts){
-      this.wrap     = opts.wrap;
-      this.field    = opts.field;
-      this.lanesEl  = opts.lanesEl;
-      this.audio    = opts.audio;
+    constructor(opts) {
+      this.wrap = opts.wrap;
+      this.field = opts.field;
+      this.lanesEl = opts.lanesEl;
+      this.audio = opts.audio;
       this.renderer = opts.renderer || null;
-      this.hud      = opts.hud || {};
-      this.hooks    = opts.hooks || {};
+      this.hud = opts.hud || {};
+      this.hooks = opts.hooks || {};
 
-      this.eventTable   = new CsvTable();
+      this.eventTable = new CsvTable();
       this.sessionTable = new CsvTable();
 
-      this._rafId       = null;
-      this._chartIndex  = 0;   // reset index
+      this._rafId = null;
+      this._chartIndex = 0;
 
       this._bindLanePointer();
     }
 
-    _bindLanePointer(){
+    _bindLanePointer() {
       if (!this.lanesEl) return;
-      // สำรอง: เผื่อ rhythm-boxer.js ไม่ได้ bind เอง
       this.lanesEl.addEventListener('pointerdown', (ev) => {
         const laneEl = ev.target.closest('.rb-lane');
         if (!laneEl) return;
@@ -187,64 +203,59 @@
     }
 
     // ===== PUBLIC API =====
-    start(mode, trackId, meta){
-      // ยกเลิก loop เก่า
-      if (this._rafId != null){
+    start(mode, trackId, meta) {
+      if (this._rafId != null) {
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
       }
 
-      this.mode  = mode || 'normal';
-      this.meta  = meta || {};
-      this.track = TRACKS.find(t => t.id === trackId) || TRACKS[0];
+      this.mode = mode || 'normal';
+      this.meta = meta || {};
+      this.track = TRACKS.find((t) => t.id === trackId) || TRACKS[0];
 
-      this.sessionId  = makeSessionId();
+      this.sessionId = makeSessionId();
       this.deviceType = detectDeviceType();
 
-      // gameplay state
-      this.songTime   = 0;
-      this.startPerf  = performance.now();
-      this.running    = true;
-      this.ended      = false;
+      this.songTime = 0;
+      this.startPerf = performance.now();
+      this.running = true;
+      this.ended = false;
 
-      this.score      = 0;
-      this.combo      = 0;
-      this.maxCombo   = 0;
-      this.hp         = 100;
-      this.hpMin      = 100;
+      this.score = 0;
+      this.combo = 0;
+      this.maxCombo = 0;
+      this.hp = 100;
+      this.hpMin = 100;
       this.hpUnder50Time = 0;
-      this.shield     = 0;
+      this.shield = 0;
 
       this.totalNotes = 0;
       this.hitPerfect = 0;
-      this.hitGreat   = 0;
-      this.hitGood    = 0;
-      this.hitMiss    = 0;
+      this.hitGreat = 0;
+      this.hitGood = 0;
+      this.hitMiss = 0;
 
-      this.offsets    = [];   // signed offsets
+      this.offsets = [];
       this.offsetsAbs = [];
-      this.earlyHits  = 0;
-      this.lateHits   = 0;
+      this.earlyHits = 0;
+      this.lateHits = 0;
 
-      this.leftHits   = 0;
-      this.rightHits  = 0;
+      this.leftHits = 0;
+      this.rightHits = 0;
 
-      // FEVER
-      this.feverGauge          = 0;
-      this.feverActive         = false;
-      this.feverEntryCount     = 0;
-      this.feverTotalTimeSec   = 0;
+      this.feverGauge = 0;
+      this.feverActive = false;
+      this.feverEntryCount = 0;
+      this.feverTotalTimeSec = 0;
       this.timeToFirstFeverSec = null;
-      this.feverEndTime        = 0;
+      this.feverEndTime = 0;
 
       this.lastUpdatePerf = performance.now();
 
-      // notes
-      this.notes       = [];  // {id,lane,time,type,state,el}
-      this.nextNoteId  = 1;
-      this._chartIndex = 0;   // reset ทุกครั้งที่เริ่มเพลงใหม่
+      this.notes = [];
+      this.nextNoteId = 1;
+      this._chartIndex = 0;
 
-      // reset Event CSV (Session CSV ให้สะสมข้าม run ได้)
       this.eventTable.clear();
 
       this._setupAudio();
@@ -252,33 +263,32 @@
       this._loop();
     }
 
-    stop(reason){
+    stop(reason) {
       if (this.ended) return;
       this._finish(reason || 'manual-stop');
     }
 
-    handleLaneTap(lane){
+    handleLaneTap(lane) {
       if (!this.running) return;
 
-      const nowPerf  = performance.now();
+      const nowPerf = performance.now();
       const songTime = (nowPerf - this.startPerf) / 1000;
-      this.songTime  = songTime;
+      this.songTime = songTime;
 
-      // หาโน้ตใน lane นี้ ที่ยัง pending และใกล้ที่สุด
       let best = null;
       let bestAbs = Infinity;
-      for (const n of this.notes){
+      for (const n of this.notes) {
         if (n.state !== 'pending') continue;
         if (n.lane !== lane) continue;
-        const dt  = songTime - n.time;
+        const dt = songTime - n.time;
         const adt = Math.abs(dt);
-        if (adt < bestAbs){
+        if (adt < bestAbs) {
           bestAbs = adt;
           best = { note: n, dt };
         }
       }
 
-      if (!best){
+      if (!best) {
         this._applyEmptyTapMiss(songTime, lane);
         return;
       }
@@ -286,45 +296,43 @@
       const { note, dt } = best;
       const judgment = judgeFromOffset(dt);
 
-      if (judgment === 'miss'){
-        this._applyMiss(note, songTime, dt, /*byTap=*/true);
+      if (judgment === 'miss') {
+        this._applyMiss(note, songTime, dt, true);
       } else {
         this._applyHit(note, songTime, dt, judgment);
       }
     }
 
-    getEventsCsv(){
+    getEventsCsv() {
       return this.eventTable.toCsv();
     }
 
-    getSessionCsv(){
+    getSessionCsv() {
       return this.sessionTable.toCsv();
     }
 
     // ===== INTERNAL: AUDIO & LOOP =====
-    _setupAudio(){
+    _setupAudio() {
       if (!this.audio) return;
 
       this.audio.pause();
       this.audio.currentTime = 0;
       this.audio.src = this.track.audio || '';
-      this.audio.onended = () => {
-        // ให้ loop จัดการจบเองตาม durationSec
-      };
+      this.audio.onended = () => {};
 
       const p = this.audio.play();
-      if (p && typeof p.catch === 'function'){
+      if (p && typeof p.catch === 'function') {
         p.catch(() => {
-          // autoplay fail → เล่นแบบ mute ก็ได้
+          /* autoplay fail — เงียบก็ได้ */
         });
       }
     }
 
-    _loop(){
+    _loop() {
       if (!this.running) return;
 
       const now = performance.now();
-      const dt  = (now - this.lastUpdatePerf) / 1000;
+      const dt = (now - this.lastUpdatePerf) / 1000;
       this.lastUpdatePerf = now;
 
       const songTime = (now - this.startPerf) / 1000;
@@ -335,7 +343,7 @@
       this._updateTimeline(songTime, dt);
       this._updateHUD(songTime);
 
-      if (songTime >= dur){
+      if (songTime >= dur) {
         this._finish('song-end');
         return;
       }
@@ -344,44 +352,47 @@
     }
 
     // ===== INTERNAL: TIMELINE / NOTES =====
-    _updateTimeline(songTime, dt){
+    _updateTimeline(songTime, dt) {
       this._spawnNotes(songTime);
       this._updateNotePositions(songTime);
       this._autoJudgeMiss(songTime);
 
-      // FEVER + HP ใต้ 50%
-      if (this.feverActive){
+      if (this.feverActive) {
         this.feverTotalTimeSec += dt;
-        if (songTime >= this.feverEndTime){
+        if (songTime >= this.feverEndTime) {
           this.feverActive = false;
-          this.feverGauge  = 0;
+          this.feverGauge = 0;
         }
       }
 
-      if (this.hp < 50){
+      if (this.hp < 50) {
         this.hpUnder50Time += dt;
       }
     }
 
-    _spawnNotes(songTime){
+    _spawnNotes(songTime) {
       const chart = this.track.chart || [];
-      const pre   = PRE_SPAWN_SEC;
+      const pre = PRE_SPAWN_SEC;
 
       if (this._chartIndex == null) this._chartIndex = 0;
 
-      while (this._chartIndex < chart.length &&
-             chart[this._chartIndex].time <= songTime + pre){
+      while (
+        this._chartIndex < chart.length &&
+        chart[this._chartIndex].time <= songTime + pre
+      ) {
         const info = chart[this._chartIndex];
         this._createNote(info);
         this._chartIndex++;
       }
     }
 
-    _createNote(info){
+    _createNote(info) {
       if (!this.lanesEl) return;
 
       const laneIndex = clamp(info.lane | 0, 0, 4);
-      const laneEl = this.lanesEl.querySelector(`.rb-lane[data-lane="${laneIndex}"]`);
+      const laneEl = this.lanesEl.querySelector(
+        `.rb-lane[data-lane="${laneIndex}"]`
+      );
       if (!laneEl) return;
 
       const noteEl = document.createElement('div');
@@ -406,54 +417,54 @@
       this.totalNotes++;
     }
 
-    _updateNotePositions(songTime){
+    _updateNotePositions(songTime) {
       if (!this.lanesEl) return;
       const rect = this.lanesEl.getBoundingClientRect();
-      const h    = rect.height || 1;
+      const h = rect.height || 1;
       const travel = h * 0.85;
       const pre = PRE_SPAWN_SEC;
 
-      for (const n of this.notes){
+      for (const n of this.notes) {
         if (!n.el || n.state === 'hit' || n.state === 'miss') continue;
 
         const dt = n.time - songTime;
-        const progress = 1 - (dt / pre);  // 0 → บน, 1 → ถึงเส้น
+        const progress = 1 - dt / pre;
         const pClamp = clamp(progress, 0, 1.2);
 
         const y = (pClamp - 1) * travel;
         n.el.style.transform = `translateY(${y}px)`;
-        n.el.style.opacity = (pClamp <= 1.0) ? 1 : clamp(1.2 - pClamp, 0, 1);
+        n.el.style.opacity = pClamp <= 1.0 ? 1 : clamp(1.2 - pClamp, 0, 1);
       }
     }
 
-    _autoJudgeMiss(songTime){
+    _autoJudgeMiss(songTime) {
       const missWindow = HIT_WINDOWS.good + 0.05;
 
-      for (const n of this.notes){
+      for (const n of this.notes) {
         if (n.state !== 'pending') continue;
-        if (songTime > n.time + missWindow){
-          this._applyMiss(n, songTime, null, /*byTap=*/false);
+        if (songTime > n.time + missWindow) {
+          this._applyMiss(n, songTime, null, false);
         }
       }
 
-      // เก็บแต่โน้ตที่ยัง pending (ตัวที่ hit/miss จะถูกลบ)
-      this.notes = this.notes.filter(n => n.state === 'pending');
+      this.notes = this.notes.filter((n) => n.state === 'pending');
     }
 
     // ===== INTERNAL: HIT / MISS =====
-    _applyHit(note, songTime, dt, judgment){
+    _applyHit(note, songTime, dt, judgment) {
       note.state = 'hit';
-      if (note.el){
+      if (note.el) {
         note.el.remove();
         note.el = null;
       }
 
       const side = sideOfLane(note.lane);
-      const abs  = Math.abs(dt);
+      const abs = Math.abs(dt);
 
       this.offsets.push(dt);
       this.offsetsAbs.push(abs);
-      if (dt < 0) this.earlyHits++; else this.lateHits++;
+      if (dt < 0) this.earlyHits++;
+      else this.lateHits++;
 
       if (side === 'L') this.leftHits++;
       else if (side === 'R') this.rightHits++;
@@ -462,11 +473,9 @@
       else if (judgment === 'great') this.hitGreat++;
       else if (judgment === 'good') this.hitGood++;
 
-      let baseScore = (judgment === 'perfect')
-        ? 300 : (judgment === 'great')
-        ? 200 : 100;
-
-      if (this.feverActive){
+      let baseScore =
+        judgment === 'perfect' ? 300 : judgment === 'great' ? 200 : 100;
+      if (this.feverActive) {
         baseScore = Math.round(baseScore * 1.5);
       }
 
@@ -474,18 +483,16 @@
       this.combo++;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-      if (judgment === 'perfect'){
+      if (judgment === 'perfect') {
         this.hp = clamp(this.hp + 1, 0, 100);
       }
       this.hpMin = Math.min(this.hpMin, this.hp);
 
       const feverGain =
-        judgment === 'perfect' ? 7 :
-        judgment === 'great'   ? 5 :
-        3;
+        judgment === 'perfect' ? 7 : judgment === 'great' ? 5 : 3;
       this._addFeverGauge(feverGain, songTime);
 
-      if (this.renderer && typeof this.renderer.showHitFx === 'function'){
+      if (this.renderer && typeof this.renderer.showHitFx === 'function') {
         this.renderer.showHitFx({
           lane: note.lane,
           judgment,
@@ -514,9 +521,9 @@
       });
     }
 
-    _applyMiss(note, songTime, dtOrNull, byTap){
+    _applyMiss(note, songTime, dtOrNull, byTap) {
       note.state = 'miss';
-      if (note.el){
+      if (note.el) {
         note.el.remove();
         note.el = null;
       }
@@ -530,7 +537,7 @@
 
       this._addFeverGauge(-8, songTime);
 
-      if (this.renderer && typeof this.renderer.showMissFx === 'function'){
+      if (this.renderer && typeof this.renderer.showMissFx === 'function') {
         this.renderer.showMissFx({
           lane: note.lane,
           songTime
@@ -558,7 +565,7 @@
       });
     }
 
-    _applyEmptyTapMiss(songTime, lane){
+    _applyEmptyTapMiss(songTime, lane) {
       this.combo = 0;
       const dmg = 2;
       this.hp = clamp(this.hp - dmg, 0, 100);
@@ -584,48 +591,50 @@
     }
 
     // ===== FEVER =====
-    _addFeverGauge(delta, songTime){
+    _addFeverGauge(delta, songTime) {
       this.feverGauge = clamp(this.feverGauge + delta, 0, 100);
 
-      if (!this.feverActive && this.feverGauge >= 100){
+      if (!this.feverActive && this.feverGauge >= 100) {
         this.feverActive = true;
-        this.feverGauge  = 100;
+        this.feverGauge = 100;
         this.feverEntryCount++;
 
-        if (this.timeToFirstFeverSec == null){
+        if (this.timeToFirstFeverSec == null) {
           this.timeToFirstFeverSec = songTime;
         }
 
-        this.feverEndTime = songTime + 5.0; // 5 วินาที
+        this.feverEndTime = songTime + 5.0;
       }
     }
 
     // ===== HUD =====
-    _updateHUD(songTime){
+    _updateHUD(songTime) {
       const h = this.hud;
-      if (h.score)  h.score.textContent  = this.score;
-      if (h.combo)  h.combo.textContent  = this.combo;
-      if (h.hp)     h.hp.textContent     = this.hp;
+      if (h.score) h.score.textContent = this.score;
+      if (h.combo) h.combo.textContent = this.combo;
+      if (h.hp) h.hp.textContent = this.hp;
       if (h.shield) h.shield.textContent = this.shield;
-      if (h.time)   h.time.textContent   = songTime.toFixed(1);
+      if (h.time) h.time.textContent = songTime.toFixed(1);
 
-      const totalJudged = this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
-      const totalNotes  = this.totalNotes || 1;
-      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes * 100) : 0;
+      const totalJudged =
+        this.hitPerfect + this.hitGreat + this.hitGood + this.hitMiss;
+      const totalNotes = this.totalNotes || 1;
+      const acc = totalJudged
+        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
+        : 0;
       if (h.acc) h.acc.textContent = acc.toFixed(1) + '%';
 
       if (h.countPerfect) h.countPerfect.textContent = this.hitPerfect;
-      if (h.countGreat)   h.countGreat.textContent   = this.hitGreat;
-      if (h.countGood)    h.countGood.textContent    = this.hitGood;
-      if (h.countMiss)    h.countMiss.textContent    = this.hitMiss;
+      if (h.countGreat) h.countGreat.textContent = this.hitGreat;
+      if (h.countGood) h.countGood.textContent = this.hitGood;
+      if (h.countMiss) h.countMiss.textContent = this.hitMiss;
 
-      // FEVER bar
-      if (h.feverFill){
+      if (h.feverFill) {
         const scale = this.feverGauge / 100;
         h.feverFill.style.transform = `scaleX(${scale})`;
       }
-      if (h.feverStatus){
-        if (this.feverActive){
+      if (h.feverStatus) {
+        if (this.feverActive) {
           h.feverStatus.textContent = 'FEVER!!';
           h.feverStatus.classList.add('on');
         } else {
@@ -634,26 +643,25 @@
         }
       }
 
-      // Progress bar (ตามเวลา)
-      if (h.progFill || h.progText){
+      if (h.progFill || h.progText) {
         const dur = this.track.durationSec || 1;
         const prog = clamp(songTime / dur, 0, 1);
-        if (h.progFill){
+        if (h.progFill) {
           h.progFill.style.transform = `scaleX(${prog})`;
         }
-        if (h.progText){
+        if (h.progText) {
           h.progText.textContent = Math.round(prog * 100) + '%';
         }
       }
     }
 
     // ===== CSV LOGGING =====
-    _logEventRow(extra){
+    _logEventRow(extra) {
       const base = {
         session_id: this.sessionId,
-        participant_id: (this.meta.id || this.meta.participant_id || ''),
-        group: (this.meta.group || ''),
-        note: (this.meta.note || ''),
+        participant_id: this.meta.id || this.meta.participant_id || '',
+        group: this.meta.group || '',
+        note: this.meta.note || '',
         mode: this.mode,
         track_id: this.track.id,
         track_name: this.track.name,
@@ -665,45 +673,55 @@
       this.eventTable.add(Object.assign(base, extra));
     }
 
-    _finish(endReason){
+    _finish(endReason) {
       this.running = false;
-      this.ended   = true;
-      if (this._rafId != null){
+      this.ended = true;
+      if (this._rafId != null) {
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
       }
-      if (this.audio){
+      if (this.audio) {
         this.audio.pause();
       }
 
-      const dur = Math.min(this.songTime, this.track.durationSec || this.songTime);
+      const dur = Math.min(
+        this.songTime,
+        this.track.durationSec || this.songTime
+      );
 
       const totalNotes = this.totalNotes || 1;
-      const totalHits  = this.hitPerfect + this.hitGreat + this.hitGood;
+      const totalHits = this.hitPerfect + this.hitGreat + this.hitGood;
       const totalJudged = totalHits + this.hitMiss;
-      const acc = totalJudged ? ((totalJudged - this.hitMiss) / totalNotes * 100) : 0;
+      const acc = totalJudged
+        ? ((totalJudged - this.hitMiss) / totalNotes) * 100
+        : 0;
 
       const mOffset = this.offsets.length ? mean(this.offsets) : 0;
       const sOffset = this.offsets.length ? std(this.offsets) : 0;
-      const mAbs    = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
+      const mAbs = this.offsetsAbs.length ? mean(this.offsetsAbs) : 0;
 
-      const earlyPct = totalHits ? (this.earlyHits / totalHits * 100) : 0;
-      const latePct  = totalHits ? (this.lateHits  / totalHits * 100) : 0;
+      const earlyPct = totalHits ? (this.earlyHits / totalHits) * 100 : 0;
+      const latePct = totalHits ? (this.lateHits / totalHits) * 100 : 0;
 
-      const leftHitPct  = totalHits ? (this.leftHits  / totalHits * 100) : 0;
-      const rightHitPct = totalHits ? (this.rightHits / totalHits * 100) : 0;
+      const leftHitPct = totalHits ? (this.leftHits / totalHits) * 100 : 0;
+      const rightHitPct = totalHits ? (this.rightHits / totalHits) * 100 : 0;
 
-      const feverTimePct = dur > 0 ? (this.feverTotalTimeSec / dur * 100) : 0;
+      const feverTimePct = dur > 0 ? (this.feverTotalTimeSec / dur) * 100 : 0;
 
-      // Rank
       const rank =
-        acc >= 95 ? 'SSS' :
-        acc >= 90 ? 'SS'  :
-        acc >= 85 ? 'S'   :
-        acc >= 75 ? 'A'   :
-        acc >= 65 ? 'B'   : 'C';
+        acc >= 95
+          ? 'SSS'
+          : acc >= 90
+          ? 'SS'
+          : acc >= 85
+          ? 'S'
+          : acc >= 75
+          ? 'A'
+          : acc >= 65
+          ? 'B'
+          : 'C';
 
-      const trialValid = (totalJudged >= 10 && acc >= 40) ? 1 : 0;
+      const trialValid = totalJudged >= 10 && acc >= 40 ? 1 : 0;
 
       const sessionRow = {
         session_id: this.sessionId,
@@ -712,9 +730,9 @@
         track_name: this.track.name,
         bpm: this.track.bpm,
         difficulty: this.track.diff,
-        participant_id: (this.meta.id || this.meta.participant_id || ''),
-        group: (this.meta.group || ''),
-        note: (this.meta.note || ''),
+        participant_id: this.meta.id || this.meta.participant_id || '',
+        group: this.meta.group || '',
+        note: this.meta.note || '',
         score_final: this.score,
         max_combo: this.maxCombo,
         hit_perfect: this.hitPerfect,
@@ -733,7 +751,8 @@
         fever_entry_count: this.feverEntryCount,
         fever_total_time_s: this.feverTotalTimeSec,
         fever_time_pct: feverTimePct,
-        time_to_first_fever_s: this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : '',
+        time_to_first_fever_s:
+          this.timeToFirstFeverSec != null ? this.timeToFirstFeverSec : '',
         hp_start: 100,
         hp_end: this.hp,
         hp_min: this.hpMin,
@@ -748,7 +767,6 @@
 
       this.sessionTable.add(sessionRow);
 
-      // summary ส่งไปให้ rhythm-boxer.js
       const summary = {
         modeLabel: this.mode === 'research' ? 'Research' : 'Normal',
         trackName: this.track.name,
@@ -763,18 +781,18 @@
         offsetMean: mOffset,
         offsetStd: sOffset,
         durationSec: dur,
-        participant: (this.meta.id || this.meta.participant_id || ''),
+        participant: this.meta.id || this.meta.participant_id || '',
         rank,
-        qualityNote: trialValid ? '' : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
+        qualityNote: trialValid
+          ? ''
+          : 'รอบนี้คุณภาพข้อมูลอาจไม่เพียงพอ (hit น้อยหรือ miss เยอะ)'
       };
 
-      if (this.hooks && typeof this.hooks.onEnd === 'function'){
+      if (this.hooks && typeof this.hooks.onEnd === 'function') {
         this.hooks.onEnd(summary);
       }
     }
-
-  } // end class
+  }
 
   window.RhythmBoxerEngine = RhythmBoxerEngine;
-
 })();
