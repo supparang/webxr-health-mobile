@@ -1,15 +1,11 @@
 // === js/rhythm-engine.js — Rhythm Boxer Engine (Research + CSV, 2025-12-01, fixed) ===
 'use strict';
 
-import { RbDomRenderer } from './dom-renderer-rhythm.js';
-
 (function(){
 
   // ===== CONFIG =====
   const LANES = [0,1,2,3,4];          // L2, L1, C, R1, R2
   const NOTE_EMOJI_BY_LANE = ['🎵','🎶','🎵','🎶','🎼'];
-  const renderer = new RbDomRenderer(field, { flashEl, feedbackEl, wrapEl });
-
 
   // หน้าต่างการให้คะแนนตาม offset (วินาที)
   const HIT_WINDOWS = {
@@ -174,7 +170,7 @@ import { RbDomRenderer } from './dom-renderer-rhythm.js';
       this.sessionTable = new CsvTable();
 
       this._rafId       = null;
-      this._chartIndex  = 0;   // ข้อ 1: init ค่าเริ่มต้นกันลืม
+      this._chartIndex  = 0;   // reset index
 
       this._bindLanePointer();
     }
@@ -246,7 +242,7 @@ import { RbDomRenderer } from './dom-renderer-rhythm.js';
       // notes
       this.notes       = [];  // {id,lane,time,type,state,el}
       this.nextNoteId  = 1;
-      this._chartIndex = 0;   // ข้อ 1 (ต่อ): reset ทุกครั้งที่เริ่มเพลงใหม่
+      this._chartIndex = 0;   // reset ทุกครั้งที่เริ่มเพลงใหม่
 
       // reset Event CSV (Session CSV ให้สะสมข้าม run ได้)
       this.eventTable.clear();
@@ -353,7 +349,7 @@ import { RbDomRenderer } from './dom-renderer-rhythm.js';
       this._updateNotePositions(songTime);
       this._autoJudgeMiss(songTime);
 
-      // ข้อ 2: FEVER + HP ใต้ 50%
+      // FEVER + HP ใต้ 50%
       if (this.feverActive){
         this.feverTotalTimeSec += dt;
         if (songTime >= this.feverEndTime){
@@ -371,7 +367,6 @@ import { RbDomRenderer } from './dom-renderer-rhythm.js';
       const chart = this.track.chart || [];
       const pre   = PRE_SPAWN_SEC;
 
-      // กัน edge case ถ้าหายไป
       if (this._chartIndex == null) this._chartIndex = 0;
 
       while (this._chartIndex < chart.length &&
@@ -467,7 +462,6 @@ import { RbDomRenderer } from './dom-renderer-rhythm.js';
       else if (judgment === 'great') this.hitGreat++;
       else if (judgment === 'good') this.hitGood++;
 
-      // ข้อ 2: คะแนน + combo + FEVER นุ่มนวลขึ้น
       let baseScore = (judgment === 'perfect')
         ? 300 : (judgment === 'great')
         ? 200 : 100;
@@ -491,7 +485,6 @@ import { RbDomRenderer } from './dom-renderer-rhythm.js';
         3;
       this._addFeverGauge(feverGain, songTime);
 
-      // FX — ให้ dom-renderer ทำ effect แตกกระจาย + คะแนนเด้งตรงเป้า
       if (this.renderer && typeof this.renderer.showHitFx === 'function'){
         this.renderer.showHitFx({
           lane: note.lane,
@@ -502,7 +495,6 @@ import { RbDomRenderer } from './dom-renderer-rhythm.js';
         });
       }
 
-      // Event CSV (ข้อ 3: เก็บ meta วิจัยครบ)
       this._logEventRow({
         event_type: 'hit',
         song_time_s: songTime.toFixed(3),
