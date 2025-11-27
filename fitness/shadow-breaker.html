@@ -338,7 +338,10 @@
 <!-- BOOTSTRAP -->
 <script type="module">
   import { initShadowBreaker } from './js/engine.js';
-  initShadowBreaker();
+
+  window.addEventListener('DOMContentLoaded', () => {
+    initShadowBreaker();
+  });
 </script>
 </body>
 </html>
