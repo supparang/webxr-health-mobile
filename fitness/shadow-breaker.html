@@ -11,91 +11,113 @@
 <body>
 <div id="sb-wrap" class="sb-wrap" data-diff="normal" data-boss="0" data-phase="1">
 
-  <!-- ===== VIEW: MENU ===== -->
-  <main id="view-menu" class="sb-card sb-card-main">
-    <header class="sb-card-header">
-      <div class="sb-brand">
-        <div class="sb-logo-pill">SB</div>
-        <div class="sb-brand-text">
-          <h1 class="sb-brand-title">Shadow Breaker 🎯</h1>
-          <p class="sb-brand-subtitle">
-            เกมตีเป้าแบบ Boss Fight สำหรับฝึกกำลังแขน คอมโบ และการตอบสนอง
-          </p>
-        </div>
+<section id="view-menu" class="sb-view sb-view-menu">
+  <header class="sb-header">
+    <div class="sb-header-left">
+      <div class="sb-game-tag">SB</div>
+      <div>
+        <h1 class="sb-title">Shadow Breaker 🎯</h1>
+        <p class="sb-subtitle">
+          เกมตีเป้าแนว Boss Fight สำหรับฝึกกำลังแขน คอมโบ และการตอบสนอง
+        </p>
       </div>
-      <a href="hub.html" class="sb-back-link">← กลับสู่ VR Fitness Hub</a>
-    </header>
+    </div>
+    <a href="../hub.html" class="sb-back-hub">← กลับสู่ VR Fitness Hub</a>
+  </header>
 
-    <!-- ตั้งค่าก่อนเล่น -->
-    <section class="sb-section">
-      <h2 class="sb-section-title">ตั้งค่าก่อนเล่น</h2>
+  <!-- ===== MENU LAYOUT ===== -->
+  <div class="sb-menu-layout">
+    <!-- LEFT: SETTINGS + START BUTTONS -->
+    <div class="sb-card sb-card-main">
+      <h2 class="sb-card-title">ตั้งค่าก่อนเล่น</h2>
 
-      <div class="sb-field-row">
-        <label for="difficulty">ระดับความยาก</label>
-        <div class="sb-select-pill">
-          <select id="difficulty">
+      <div class="sb-form-grid">
+        <div class="sb-form-group">
+          <label for="difficulty" class="sb-label">ระดับความยาก</label>
+          <select id="difficulty" class="sb-select">
             <option value="easy">Easy — ผ่อนคลาย</option>
             <option value="normal" selected>Normal — สมดุล</option>
             <option value="hard">Hard — ท้าทาย</option>
           </select>
         </div>
-      </div>
 
-      <div class="sb-field-row">
-        <label for="duration">ระยะเวลาเล่นต่อรอบ</label>
-        <div class="sb-select-pill">
-          <select id="duration">
-            <option value="45">45 วินาที</option>
+        <div class="sb-form-group">
+          <label for="duration" class="sb-label">ระยะเวลาเล่นต่อรอบ</label>
+          <select id="duration" class="sb-select">
+            <option value="45">45 วินาที (สั้น)</option>
             <option value="60" selected>60 วินาที (มาตรฐาน)</option>
-            <option value="90">90 วินาที</option>
+            <option value="90">90 วินาที (ยาว)</option>
           </select>
         </div>
       </div>
 
-      <div class="sb-actions">
+      <div class="sb-start-row">
         <button class="sb-btn sb-btn-primary" data-action="start-normal">
           ⚡ เริ่มเล่นเลย
         </button>
-        <button class="sb-btn" data-action="start-research">
-          🧪 เปิดโหมดวิจัย (Research Mode)
-        </button>
+
+        <label class="sb-toggle-research">
+          <input type="checkbox" id="toggle-research" />
+          <span class="sb-toggle-pill"></span>
+          <span class="sb-toggle-label">เปิดโหมดวิจัย (Research Mode)</span>
+        </label>
       </div>
 
       <p class="sb-hint">
-        โหมดปกติจะเหมาะสำหรับเล่นฝึกทั่วไป ส่วนโหมดวิจัยจะมีการบันทึกข้อมูลเชิงลึก
+        โหมดปกติจะเหมาะสำหรับเล่นและฝึกทั่วไป ส่วนโหมดวิจัยจะมีการบันทึกข้อมูลเชิงลึก
         เพื่อใช้เปรียบเทียบผลก่อน–หลังโปรแกรมฝึก
       </p>
-    </section>
+    </div>
 
-    <!-- วิธีเล่น -->
-    <section class="sb-section sb-section-inline">
-      <h2 class="sb-section-title">📌 วิธีเล่นเบื้องต้น</h2>
-      <p class="sb-text">
-        เป้า Emoji จะโผล่ทั่วจอสนาม — ใช้การชก/แตะให้ทันก่อนหายไป ยิ่งตีเร็วและแม่น คะแนนยิ่งสูง!
-      </p>
-      <ul class="sb-legend">
-        <li><span class="sb-dot sb-dot-perfect"></span> <strong>Perfect</strong> — ดีที่สุด ได้คะแนน+คอมโบสูงสุด</li>
-        <li><span class="sb-dot sb-dot-good"></span> <strong>Good</strong> — จังหวะดี คะแนนปานกลาง</li>
-        <li><span class="sb-dot sb-dot-bad"></span> <strong>Bad</strong> — ช้าหรือพลาด คะแนนน้อย</li>
-        <li><span class="sb-dot sb-dot-bomb"></span> <strong>Bomb</strong> — ตีผิด HP ลด ควรระวัง</li>
-        <li><span class="sb-dot sb-dot-heal"></span> <strong>Heal / Shield</strong> — เติม HP & เกราะ</li>
-        <li><span class="sb-dot sb-dot-fever"></span> <strong>FEVER</strong> — เมื่อเกจเต็ม คะแนนพุ่งสูงพิเศษ</li>
-      </ul>
-    </section>
+    <!-- RIGHT: HOW TO & RESEARCH EXPLAIN -->
+    <div class="sb-menu-right">
+      <!-- HOW TO PLAY CARD -->
+      <div class="sb-card">
+        <h2 class="sb-card-title">
+          📌 วิธีเล่นเบื้องต้น
+        </h2>
+        <p class="sb-card-intro">
+          เป้า Emoji จะโผล่ทั่วจอสนาม — ใช้การชก/แตะให้ทันก่อนหายไป
+          ยิ่งตีเร็วและแม่น คะแนนยิ่งสูง!
+        </p>
 
-    <!-- อธิบายโหมดวิจัย -->
-    <section class="sb-card sb-card-research">
-      <h2 class="sb-section-title">โหมดวิจัย (Research Mode)</h2>
-      <p class="sb-text">
-        เมื่อเปิดโหมดวิจัย เกมจะเก็บข้อมูลทุกครั้งที่ตีเป้า (Hit/Miss, Reaction Time, Boss Phase)
-        พร้อมข้อมูลสรุปต่อรอบเล่นเป็นไฟล์ CSV 2 ชนิด ได้แก่ Event CSV และ Session CSV
-        เพื่อนำไปวิเคราะห์สถิติ เช่น RT, ความแม่นยำ, คอมโบเฉลี่ย, การเปลี่ยนแปลงตาม Phase ของ Boss เป็นต้น
-      </p>
-      <p class="sb-text sb-text-small">
-        สามารถใช้ร่วมกับ VR Fitness เกมอื่น ๆ (เช่น Rhythm Boxer) เพื่อเปรียบเทียบรูปแบบการตอบสนอง
-        ของผู้ฝึกในหลายกิจกรรมได้
-      </p>
-    </section>
+        <ul class="sb-howto-list">
+          <li><span class="dot dot-perfect"></span><strong>Perfect</strong> — ดีที่สุด ได้คะแนน+คอมโบสูงสุด</li>
+          <li><span class="dot dot-good"></span><strong>Good</strong> — จังหวะดี คะแนนปานกลาง</li>
+          <li><span class="dot dot-bad"></span><strong>Bad</strong> — ช้าหรือพลาด คะแนนน้อย</li>
+          <li><span class="dot dot-bomb"></span><strong>Bomb</strong> — ตีผิด HP ลด ควรระวัง</li>
+          <li><span class="dot dot-heal"></span><strong>Heal / Shield</strong> — เติม HP / เกราะ</li>
+          <li><span class="dot dot-fever"></span><strong>FEVER</strong> — เกจเต็ม คะแนนพุ่งพิเศษ</li>
+        </ul>
+
+        <p class="sb-card-footnote">
+          หากต้องการใช้เป็นแบบฝึกเพื่อเก็บสถิติ เปรียบเทียบก่อน–หลัง
+          ให้เปิดโหมดวิจัย และดาวน์โหลดไฟล์ CSV หลังจบรอบได้
+        </p>
+      </div>
+
+      <!-- RESEARCH MODE CARD (SHORT) -->
+      <div class="sb-card sb-card-research">
+        <h2 class="sb-card-title">
+          📊 โหมดวิจัย (Research Mode)
+        </h2>
+        <p class="sb-card-intro">
+          เมื่อเปิดโหมดวิจัย เกมจะเก็บข้อมูลทุกคลิกที่ตีเป้า (Hit/Miss, Reaction Time, Boss Phase)
+          พร้อมข้อมูลสรุปต่อรอบเล่นเป็นไฟล์ CSV 2 ชนิด: <strong>Event CSV</strong> และ
+          <strong>Session CSV</strong>
+        </p>
+        <ul class="sb-howto-list">
+          <li>ใช้วิเคราะห์ RT, ความแม่นยำ, คอมโบ, เวลาในแต่ละ Phase ของ Boss</li>
+          <li>ใช้ร่วมกับเกม VR Fitness เกมอื่น ๆ (เช่น Rhythm Boxer) เพื่อเปรียบเทียบรูปแบบการตอบสนอง</li>
+        </ul>
+        <button class="sb-btn sb-btn-ghost" data-action="start-research">
+          🧪 เปิดแบบฟอร์มโหมดวิจัย
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
   </main>
 
   <!-- ===== VIEW: PLAY ===== -->
