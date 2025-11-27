@@ -5,129 +5,207 @@ export class DomRendererShadow {
   constructor(host, opts = {}) {
     this.host = host || document.body;
     this.wrapEl = opts.wrapEl || document.body;
-    this.onTargetHit = opts.onTargetHit || null;
+    this.onTargetHit = opts.onTargetHit || (() => {});
+
+    // ให้ host เป็นตำแหน่งอ้างอิง
+    const style = window.getComputedStyle(this.host);
+    if (style.position === 'static' || !style.position) {
+      this.host.style.position = 'relative';
+    }
+
     this.targets = new Map();
     this.diffKey = 'normal';
+
+    window.addEventListener('resize', () => this._updateBounds());
+    this._updateBounds();
   }
 
-  setDifficulty(key) {
-    this.diffKey = key || 'normal';
-    if (this.wrapEl) this.wrapEl.dataset.sbDiff = this.diffKey;
+  setDifficulty(diffKey) {
+    this.diffKey = diffKey || 'normal';
   }
 
-  // เลือก emoji ตามประเภทเป้า
-  _emojiFor(t) {
-    if (t.isBomb || t.type === 'bomb') return '💣';
-    if (t.isHeal || t.type === 'heal') return '💚';
-    if (t.isShield || t.type === 'shield') return '🛡️';
-    if (t.isDecoy || t.type === 'decoy') return '🎯';
-    if (t.isBossFace || t.type === 'bossface') return '👊';
-    return '🥊';
-  }
-
-  // map zone L/R/U/D ให้เป็นตำแหน่งในสนาม
-  _positionFor(target) {
-    const hostRect = this.host.getBoundingClientRect();
-    const lr = target.zone_lr || 'C';
-    const ud = target.zone_ud || 'M';
-
-    const xFrac = lr === 'L' ? 0.22 : lr === 'R' ? 0.78 : 0.5;
-    const yFrac = ud === 'U' ? 0.27 : ud === 'D' ? 0.80 : 0.55;
-
-    const x = hostRect.left + hostRect.width * xFrac;
-    const y = hostRect.top + hostRect.height * yFrac;
-
-    // เก็บ normalized ไว้สำหรับงานวิจัย
-    target.x_norm = (x - hostRect.left) / hostRect.width;
-    target.y_norm = (y - hostRect.top) / hostRect.height;
-
-    return { x, y };
-  }
-
-  // ===== สร้างเป้า (ใช้ sizePx จาก engine + ring effect) =====
-  spawnTarget(target) {
+  _updateBounds() {
     if (!this.host) return;
+    const r = this.host.getBoundingClientRect();
+    this.bounds = {
+      left: r.left,
+      top: r.top,
+      width: r.width,
+      height: r.height
+    };
+  }
 
-    const { x, y } = this._positionFor(target);
+  // แปลง zone L/C/R, U/M/D → ตำแหน่งภายในกรอบ playfield เป็นสัดส่วน 0–1
+  _pickNormalizedPos(zoneLR, zoneUD) {
+    const lrRanges = {
+      L: [0.16, 0.38],
+      C: [0.40, 0.60],
+      R: [0.62, 0.86]
+    };
+    const udRanges = {
+      U: [0.22, 0.38],
+      M: [0.42, 0.62],
+      D: [0.66, 0.82]
+    };
+
+    const [lx1, lx2] = lrRanges[zoneLR] || lrRanges.C;
+    const [uy1, uy2] = udRanges[zoneUD] || udRanges.M;
+
+    const nx = lx1 + Math.random() * (lx2 - lx1);
+    const ny = uy1 + Math.random() * (uy2 - uy1);
+
+    return { nx, ny };
+  }
+
+  // ---------- SPAWN ----------
+
+  spawnTarget(target) {
+    if (!this.bounds) this._updateBounds();
+    const { zone_lr, zone_ud } = target;
+
+    const { nx, ny } = this._pickNormalizedPos(zone_lr, zone_ud);
+    // เก็บกลับไปใน target เพื่อใช้ใน CSV
+    target.x_norm = nx;
+    target.y_norm = ny;
+
     const size = target.sizePx || 110;
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `sb-target sb-target-type-${target.type || 'normal'}`;
-    btn.style.width  = size + 'px';
-    btn.style.height = size + 'px';
-    btn.style.left   = x + 'px';
-    btn.style.top    = y + 'px';
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = [
+      'sb-target',
+      `sb-target-${target.type || 'normal'}`,
+      `sb-diff-${this.diffKey}`,
+      `sb-boss-${target.bossIndex ?? 0}`,
+      `sb-phase-${target.bossPhase ?? 1}`
+    ].join(' ');
 
-    // กำหนดสีวงแหวนตามความยาก + phase
-    const baseHue =
-      target.diffKey === 'easy'   ? 160 :
-      target.diffKey === 'hard'   ? 310 :
-                                    210;      // normal
-    const phaseShift = ((target.bossPhase || 1) - 1) * 16; // Phase 1–3 ไล่สี
-    const hue = baseHue + phaseShift;
-    btn.style.setProperty('--sb-ring-hue', String(hue));
+    Object.assign(el.style, {
+      position: 'absolute',
+      left: (nx * 100) + '%',
+      top: (ny * 100) + '%',
+      width: size + 'px',
+      height: size + 'px',
+      transform: 'translate(-50%,-50%) scale(0.7)',
+      borderRadius: '999px',
+      border: 'none',
+      padding: '0',
+      cursor: 'pointer',
+      opacity: '0',
+      transition: 'transform .2s ease-out, opacity .2s ease-out'
+    });
+
+    // วงแหวน + emoji ภายในเป้า (เผื่อไปตกแต่งต่อ)
+    const ring = document.createElement('div');
+    ring.className = 'sb-target-ring';
+    ring.style.width = '100%';
+    ring.style.height = '100%';
+    ring.style.borderRadius = 'inherit';
+    ring.style.display = 'flex';
+    ring.style.alignItems = 'center';
+    ring.style.justifyContent = 'center';
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
-    inner.textContent = this._emojiFor(target);
-    btn.appendChild(inner);
+    inner.textContent = target.isBomb ? '💣'
+      : target.isHeal ? '💚'
+      : target.isShield ? '🛡️'
+      : target.isDecoy ? '🎯'
+      : '🥊';
 
-    const ring = document.createElement('div');
-    ring.className = 'sb-target-ring';
-    btn.appendChild(ring);
+    ring.appendChild(inner);
+    el.appendChild(ring);
 
-    const hit = (ev) => {
+    const handleHit = (ev) => {
       ev.preventDefault();
-      ev.stopPropagation();
-      const pt = ev.changedTouches ? ev.changedTouches[0] : ev;
-      if (this.onTargetHit) {
-        this.onTargetHit(target.id, {
-          clientX: pt.clientX,
-          clientY: pt.clientY
-        });
-      }
+      const info = {
+        clientX: ev.clientX,
+        clientY: ev.clientY
+      };
+      this.onTargetHit(target.id, info);
     };
 
-    btn.addEventListener('click', hit);
-    btn.addEventListener('pointerdown', hit);
-    btn.addEventListener('touchstart', hit, { passive: false });
+    el.addEventListener('click', handleHit);
+    el.addEventListener('touchstart', (ev) => {
+      if (ev.touches && ev.touches[0]) {
+        const t = ev.touches[0];
+        this.onTargetHit(target.id, { clientX: t.clientX, clientY: t.clientY });
+      } else {
+        handleHit(ev);
+      }
+    }, { passive: true });
 
-    this.host.appendChild(btn);
+    this.host.appendChild(el);
+    this.targets.set(target.id, el);
 
-    // trigger animation ตอนโผล่
+    // pop-in effect เวลาโผล่
     requestAnimationFrame(() => {
-      btn.classList.add('sb-target--spawn');
+      el.style.opacity = '1';
+      el.style.transform = 'translate(-50%,-50%) scale(1)';
     });
-
-    this.targets.set(target.id, { el: btn, data: target });
   }
 
-  // ลบเป้า (ตอน timeout / โดนตี / จบเกม)
-  removeTarget(id, reason) {
-    const rec = this.targets.get(id);
-    if (!rec || !rec.el) return;
-    const el = rec.el;
-    this.targets.delete(id);
+  // ---------- REMOVE ----------
 
-    if (reason === 'hit') {
-      el.classList.add('sb-target--bye');
-      setTimeout(() => el.remove(), 240);
-    } else if (reason === 'timeout') {
-      el.classList.add('sb-target--timeout');
-      setTimeout(() => el.remove(), 240);
+  removeTarget(id, reason) {
+    const el = this.targets.get(id);
+    if (!el) return;
+
+    if (reason === 'timeout') {
+      // fade out ตอนหมดเวลา
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%,-50%) scale(0.6)';
+      setTimeout(() => el.remove(), 160);
     } else {
       el.remove();
     }
+
+    this.targets.delete(id);
   }
 
-  // effect ตอนถูกตี (เพิ่ม particle ได้ภายหลัง ถ้าอยากให้แตกกระจาย)
-  playHitFx(id, { grade, fxEmoji, clientX, clientY } = {}) {
-    // ถ้าต้องการก็สามารถใส่ particle เพิ่มตรงนี้ได้
-    // ตอนนี้ปล่อยว่างไว้ ให้ engine จัดการเกรด + score text แล้ว
-  }
-}
+  // ---------- FX ----------
 
-if (typeof window !== 'undefined') {
-  window.DomRendererShadow = DomRendererShadow;
+  playHitFx(id, info) {
+    this.showHitFx(info || {});
+    // ถ้าต้องการ effect เพิ่ม สามารถต่อจากตรงนี้ได้
+  }
+
+  showHitFx({ clientX, clientY }) {
+    if (typeof clientX !== 'number' || typeof clientY !== 'number') return;
+
+    const fragCount = 10;
+    for (let i = 0; i < fragCount; i++) {
+      const f = document.createElement('div');
+      f.className = 'sb-frag';
+      const size = 6 + Math.random() * 6;
+      Object.assign(f.style, {
+        position: 'fixed',
+        left: clientX + 'px',
+        top: clientY + 'px',
+        width: size + 'px',
+        height: size + 'px',
+        borderRadius: '999px',
+        background: 'rgba(248,250,252,.95)',
+        pointerEvents: 'none',
+        zIndex: 999,
+        opacity: '1',
+        transform: 'translate(-50%,-50%)',
+        transition: 'transform .4s ease-out, opacity .4s ease-out'
+      });
+
+      document.body.appendChild(f);
+
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 40 + Math.random() * 40;
+      const tx = Math.cos(ang) * dist;
+      const ty = Math.sin(ang) * dist;
+
+      requestAnimationFrame(() => {
+        f.style.transform = `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px))`;
+        f.style.opacity = '0';
+      });
+
+      setTimeout(() => f.remove(), 420);
+    }
+  }
 }
