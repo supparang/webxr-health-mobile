@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-XX) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-02, tuned) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -6,7 +6,7 @@ import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 import { recordSession } from './stats-store.js';
 
-const BUILD_VERSION = 'sb-2025-12-XX';
+const BUILD_VERSION = 'sb-2025-12-02';
 
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -19,7 +19,7 @@ function mean(arr) {
   return sum / arr.length;
 }
 
-// ---------- SMALL UI HELPERS (GRADE LABEL) ----------
+// ---------- SMALL UI HELPERS (GRADE FX ที่เด้งตรงเป้า) ----------
 
 function spawnGradeLabel(x, y, text, color) {
   if (!text) return;
@@ -29,7 +29,8 @@ function spawnGradeLabel(x, y, text, color) {
     position: 'fixed',
     left: x + 'px',
     top: y + 'px',
-    transform: 'translate(-50%, -50%) scale(1)',
+    // เริ่มต้นเหนือเป้านิดหน่อย เพื่อต่างจากเอฟเฟกต์คะแนน
+    transform: 'translate(-50%, -140%) scale(1)',
     color: color || '#facc15',
     fontWeight: '700',
     fontSize: '18px',
@@ -41,7 +42,8 @@ function spawnGradeLabel(x, y, text, color) {
   });
   document.body.appendChild(el);
   requestAnimationFrame(() => {
-    el.style.transform = 'translate(-50%, -120%) scale(1.1)';
+    // ลอยสูงขึ้นไปอีกหน่อย
+    el.style.transform = 'translate(-50%, -200%) scale(1.1)';
     el.style.opacity = '0';
   });
   setTimeout(() => el.remove(), 600);
@@ -155,7 +157,6 @@ class ShadowBreakerEngine {
     this.diffKey = 'normal';
     this.diff    = DIFF_CONFIG.normal;
 
-    // renderer สำหรับ spawn/ลบ/FX
     this.renderer = new DomRendererShadow(this.field, {
       wrapEl: this.wrap,
       onTargetHit: (id, info) => this.handleHit(id, info)
@@ -561,24 +562,20 @@ class ShadowBreakerEngine {
   }
 
   _registerMiss(t) {
-    // พลาดเป้าธรรมดา → ถ้ามีเกราะ ใช้เกราะก่อน, ถ้าไม่มีเกราะ → HP ลด
     if (!t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield) {
-      if (this.shieldCollected > 0) {
-        // ใช้เกราะ 1 ชิ้นกันดาเมจ
-        this.shieldCollected = Math.max(0, this.shieldCollected - 1);
-        if (this.hud.feedback) {
-          this.hud.feedback.textContent = 'เกราะช่วยกันดาเมจให้ 1 ครั้ง 🛡️';
-          this.hud.feedback.className = 'sb-feedback good';
-        }
-      } else {
-        this.missCount += 1;
-        this.combo = 0;
-        this.playerHp = clamp(this.playerHp - 4, 0, this.playerHpMax);
+      this.missCount += 1;
+      this.combo = 0;
 
-        if (this.hud.feedback) {
-          this.hud.feedback.textContent = 'พลาดจังหวะ! ลองมองเป้าถัดไปล่วงหน้า 🔍';
-          this.hud.feedback.className = 'sb-feedback miss';
-        }
+      // ใช้ Shield ก่อน ถ้ามี → ถ้าไม่มีค่อยหัก HP
+      if (this.shieldCollected > 0) {
+        this.shieldCollected = Math.max(0, this.shieldCollected - 1);
+      } else {
+        this.playerHp = clamp(this.playerHp - 4, 0, this.playerHpMax);
+      }
+
+      if (this.hud.feedback) {
+        this.hud.feedback.textContent = 'พลาดจังหวะ! ลองมองเป้าถัดไปล่วงหน้า 🔍';
+        this.hud.feedback.className = 'sb-feedback miss';
       }
     }
 
@@ -624,7 +621,6 @@ class ShadowBreakerEngine {
       !t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield;
 
     if (t.isBomb) {
-      // ถ้ามีเกราะ → ใช้เกราะกันระเบิด, ถ้าไม่มีก็โดนดาเมจ
       grade = 'bomb';
       this.combo = 0;
       this.totalBombHits += 1;
@@ -709,15 +705,13 @@ class ShadowBreakerEngine {
         msg = 'ช้าไปนิด ลองตีให้เร็วกว่านี้หน่อยนะ 😅';
         cls += ' bad';
       } else if (grade === 'bomb') {
-        msg = (this.shieldCollected > 0)
-          ? 'เกราะช่วยกันระเบิดไว้ให้แล้ว! 🛡️'
-          : 'ระเบิด! HP ลด ระวังหน่อย 💣';
+        msg = 'ระเบิด! HP ลด ระวังหน่อย 💣';
         cls += ' miss';
       } else if (grade === 'heal') {
         msg = 'เติมพลัง! ❤️‍🩹';
         cls += ' good';
       } else if (grade === 'shield') {
-        msg = 'เกราะพร้อม! 🛡️ ใช้กันดาเมจได้ 1 ครั้ง';
+        msg = 'เกราะพร้อม! 🛡️';
         cls += ' good';
       } else if (grade === 'miss') {
         msg = 'เป้าลวง! อย่าหลงกลง่าย ๆ 😈';
@@ -760,13 +754,12 @@ class ShadowBreakerEngine {
       }
     }
 
-    // ===== ให้คำว่า PERFECT / GOOD / MISS เด้งตรงตำแหน่งที่แตะ =====
-    const cx = (hitInfo && typeof hitInfo.clientX === 'number') ? hitInfo.clientX : null;
-    const cy = (hitInfo && typeof hitInfo.clientY === 'number') ? hitInfo.clientY : null;
-    if (cx !== null && cy !== null) {
+    // ===== ให้คำว่า PERFECT / GOOD / MISS เด้ง "ตรงเป้า" =====
+    const pos = this._getHitScreenPos(t, hitInfo);
+    if (pos.cx != null && pos.cy != null) {
       const { text, color } = mapGradeToLabel(grade);
       if (text) {
-        spawnGradeLabel(cx, cy, text, color);
+        spawnGradeLabel(pos.cx, pos.cy, text, color);
       }
     }
     // ===== END Grade FX =====
@@ -813,18 +806,45 @@ class ShadowBreakerEngine {
     this._updateBossHUD();
   }
 
-  _hitByBomb() {
-    // ถ้ามีเกราะ → ใช้เกราะ 1 ชิ้นกันดาเมจ, ถ้าไม่มีก็โดนเต็ม ๆ
-    if (this.shieldCollected > 0) {
-      this.shieldCollected = Math.max(0, this.shieldCollected - 1);
-      if (this.hud.feedback) {
-        this.hud.feedback.textContent = 'เกราะรับแรงระเบิดให้หมดแล้ว 🛡️';
-        this.hud.feedback.className = 'sb-feedback good';
+  // ใช้หา position กลางเป้าในจอ สำหรับเด้งเกรด
+  _getHitScreenPos(t, hitInfo) {
+    let cx = null;
+    let cy = null;
+
+    if (hitInfo) {
+      if (typeof hitInfo.clientX === 'number' && typeof hitInfo.clientY === 'number') {
+        cx = hitInfo.clientX;
+        cy = hitInfo.clientY;
+      } else if (typeof hitInfo.x === 'number' && typeof hitInfo.y === 'number') {
+        cx = hitInfo.x;
+        cy = hitInfo.y;
+      } else if (hitInfo.el && hitInfo.el.getBoundingClientRect) {
+        const r = hitInfo.el.getBoundingClientRect();
+        cx = r.left + r.width / 2;
+        cy = r.top + r.height / 2;
       }
-      this._updateHUD();
-      return;
     }
 
+    if ((cx == null || cy == null) && this.field && t) {
+      const rect = this.field.getBoundingClientRect();
+      if (typeof t.x_norm === 'number' && typeof t.y_norm === 'number') {
+        cx = rect.left + t.x_norm * rect.width;
+        cy = rect.top + t.y_norm * rect.height;
+      } else {
+        cx = rect.left + rect.width / 2;
+        cy = rect.top + rect.height / 2;
+      }
+    }
+
+    return { cx, cy };
+  }
+
+  _hitByBomb() {
+    // ถ้ามี shield ใช้เกราะก่อน
+    if (this.shieldCollected > 0) {
+      this.shieldCollected = Math.max(0, this.shieldCollected - 1);
+      return;
+    }
     this.playerHp = clamp(this.playerHp - 18, 0, this.playerHpMax);
   }
 
@@ -1165,7 +1185,6 @@ export function initShadowBreaker() {
 
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
 
-        // RT รวม
         if (summary.rt_normal_mean_s !== undefined && summary.rt_normal_mean_s !== '') {
           setText('#res-rt-normal',
             Number(summary.rt_normal_mean_s).toFixed(3) + ' s');
@@ -1201,7 +1220,6 @@ export function initShadowBreaker() {
 
         setText('#res-participant', summary.participant || '-');
 
-        // RT per Boss/Phase (normal targets)
         for (let bi = 1; bi <= 4; bi++) {
           for (let ph = 1; ph <= 3; ph++) {
             const key = `rt_b${bi}_p${ph}_mean_s`;
