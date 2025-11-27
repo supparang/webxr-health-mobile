@@ -267,7 +267,7 @@ class ShadowBreakerEngine {
 
     this.feverGauge     = 0;
     this.feverOn        = false;
-    this.feverCount     = 0;
+       this.feverCount     = 0;
     this.feverTimeMs    = 0;
     this.lowHpTimeMs    = 0;
 
@@ -1139,7 +1139,7 @@ export function initShadowBreaker() {
 
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
 
-        // RT รวม
+        // RT รวมเท่านั้น
         if (summary.rt_normal_mean_s !== undefined && summary.rt_normal_mean_s !== '') {
           setText('#res-rt-normal',
             Number(summary.rt_normal_mean_s).toFixed(3) + ' s');
@@ -1175,8 +1175,7 @@ export function initShadowBreaker() {
 
         setText('#res-participant', summary.participant || '-');
 
-        // ❌ ไม่เติมค่า RT per Boss/Phase ลง UI อีกต่อไป
-        // (ค่าพวกนี้ยังอยู่ครบใน summary/sessionCsv เพื่อนำไปวิเคราะห์ภายนอก)
+        // ไม่เติมค่า RT per Boss/Phase ลง UI — อยู่ใน CSV เท่านั้น
 
         if (viewResult) {
           viewResult.dataset.eventsCsv  = summary.eventsCsv || '';
