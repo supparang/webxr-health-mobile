@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (hide RT per boss/phase on UI) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-XX) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -6,7 +6,7 @@ import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 import { recordSession } from './stats-store.js';
 
-const BUILD_VERSION = 'sb-2025-12-02';
+const BUILD_VERSION = 'sb-2025-12-XX';
 
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -19,7 +19,7 @@ function mean(arr) {
   return sum / arr.length;
 }
 
-// ---------- SMALL UI HELPERS ----------
+// ---------- SMALL UI HELPERS (GRADE LABEL) ----------
 
 function spawnGradeLabel(x, y, text, color) {
   if (!text) return;
@@ -37,7 +37,7 @@ function spawnGradeLabel(x, y, text, color) {
     pointerEvents: 'none',
     zIndex: 999,
     opacity: 1,
-    transition: 'transform .55s ease-out, opacity .55s ease-out',
+    transition: 'transform .55s ease-out, opacity .55s ease-out'
   });
   document.body.appendChild(el);
   requestAnimationFrame(() => {
@@ -49,10 +49,10 @@ function spawnGradeLabel(x, y, text, color) {
 
 function mapGradeToLabel(grade) {
   switch (grade) {
-    case 'perfect': return { text: 'PERFECT', color: '#4ade80' };
-    case 'good':    return { text: 'GOOD',    color: '#38bdf8' };
-    case 'bad':     return { text: 'BAD',     color: '#fb923c' };
-    case 'miss':    return { text: 'MISS',    color: '#fb7185' };
+    case 'perfect': return { text: 'PERFECT', color: '#4ade80' };  // เขียว
+    case 'good':    return { text: 'GOOD',    color: '#38bdf8' };  // ฟ้า
+    case 'bad':     return { text: 'BAD',     color: '#fb923c' };  // ส้ม
+    case 'miss':    return { text: 'MISS',    color: '#fb7185' };  // แดง
     case 'bomb':    return { text: 'BOMB',    color: '#fb7185' };
     case 'heal':    return { text: 'HEAL',    color: '#4ade80' };
     case 'shield':  return { text: 'SHIELD',  color: '#a5b4fc' };
@@ -155,6 +155,7 @@ class ShadowBreakerEngine {
     this.diffKey = 'normal';
     this.diff    = DIFF_CONFIG.normal;
 
+    // renderer สำหรับ spawn/ลบ/FX
     this.renderer = new DomRendererShadow(this.field, {
       wrapEl: this.wrap,
       onTargetHit: (id, info) => this.handleHit(id, info)
@@ -267,7 +268,7 @@ class ShadowBreakerEngine {
 
     this.feverGauge     = 0;
     this.feverOn        = false;
-       this.feverCount     = 0;
+    this.feverCount     = 0;
     this.feverTimeMs    = 0;
     this.lowHpTimeMs    = 0;
 
@@ -560,14 +561,24 @@ class ShadowBreakerEngine {
   }
 
   _registerMiss(t) {
+    // พลาดเป้าธรรมดา → ถ้ามีเกราะ ใช้เกราะก่อน, ถ้าไม่มีเกราะ → HP ลด
     if (!t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield) {
-      this.missCount += 1;
-      this.combo = 0;
-      this.playerHp = clamp(this.playerHp - 4, 0, this.playerHpMax);
+      if (this.shieldCollected > 0) {
+        // ใช้เกราะ 1 ชิ้นกันดาเมจ
+        this.shieldCollected = Math.max(0, this.shieldCollected - 1);
+        if (this.hud.feedback) {
+          this.hud.feedback.textContent = 'เกราะช่วยกันดาเมจให้ 1 ครั้ง 🛡️';
+          this.hud.feedback.className = 'sb-feedback good';
+        }
+      } else {
+        this.missCount += 1;
+        this.combo = 0;
+        this.playerHp = clamp(this.playerHp - 4, 0, this.playerHpMax);
 
-      if (this.hud.feedback) {
-        this.hud.feedback.textContent = 'พลาดจังหวะ! ลองมองเป้าถัดไปล่วงหน้า 🔍';
-        this.hud.feedback.className = 'sb-feedback miss';
+        if (this.hud.feedback) {
+          this.hud.feedback.textContent = 'พลาดจังหวะ! ลองมองเป้าถัดไปล่วงหน้า 🔍';
+          this.hud.feedback.className = 'sb-feedback miss';
+        }
       }
     }
 
@@ -613,6 +624,7 @@ class ShadowBreakerEngine {
       !t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield;
 
     if (t.isBomb) {
+      // ถ้ามีเกราะ → ใช้เกราะกันระเบิด, ถ้าไม่มีก็โดนดาเมจ
       grade = 'bomb';
       this.combo = 0;
       this.totalBombHits += 1;
@@ -683,7 +695,7 @@ class ShadowBreakerEngine {
 
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-    // HUD feedback
+    // ข้อความใน HUD ด้านบน
     if (this.hud.feedback) {
       let msg = '';
       let cls = 'sb-feedback';
@@ -697,13 +709,15 @@ class ShadowBreakerEngine {
         msg = 'ช้าไปนิด ลองตีให้เร็วกว่านี้หน่อยนะ 😅';
         cls += ' bad';
       } else if (grade === 'bomb') {
-        msg = 'ระเบิด! HP ลด ระวังหน่อย 💣';
+        msg = (this.shieldCollected > 0)
+          ? 'เกราะช่วยกันระเบิดไว้ให้แล้ว! 🛡️'
+          : 'ระเบิด! HP ลด ระวังหน่อย 💣';
         cls += ' miss';
       } else if (grade === 'heal') {
         msg = 'เติมพลัง! ❤️‍🩹';
         cls += ' good';
       } else if (grade === 'shield') {
-        msg = 'เกราะพร้อม! 🛡️';
+        msg = 'เกราะพร้อม! 🛡️ ใช้กันดาเมจได้ 1 ครั้ง';
         cls += ' good';
       } else if (grade === 'miss') {
         msg = 'เป้าลวง! อย่าหลงกลง่าย ๆ 😈';
@@ -715,7 +729,7 @@ class ShadowBreakerEngine {
       this.hud.feedback.className = cls;
     }
 
-    // ---------- RT เก็บลงตัวแปรวิจัย ----------
+    // ---------- เก็บ RT ลงตัวแปรวิจัย ----------
     const bi = (typeof t.bossIndex === 'number') ? t.bossIndex : this.bossIndex;
     const ph = (typeof t.bossPhase === 'number') ? t.bossPhase : this.bossPhase;
 
@@ -746,7 +760,7 @@ class ShadowBreakerEngine {
       }
     }
 
-    // Grade label ตรงเป้า
+    // ===== ให้คำว่า PERFECT / GOOD / MISS เด้งตรงตำแหน่งที่แตะ =====
     const cx = (hitInfo && typeof hitInfo.clientX === 'number') ? hitInfo.clientX : null;
     const cy = (hitInfo && typeof hitInfo.clientY === 'number') ? hitInfo.clientY : null;
     if (cx !== null && cy !== null) {
@@ -755,6 +769,7 @@ class ShadowBreakerEngine {
         spawnGradeLabel(cx, cy, text, color);
       }
     }
+    // ===== END Grade FX =====
 
     this.renderer.playHitFx(t.id, {
       grade,
@@ -799,6 +814,17 @@ class ShadowBreakerEngine {
   }
 
   _hitByBomb() {
+    // ถ้ามีเกราะ → ใช้เกราะ 1 ชิ้นกันดาเมจ, ถ้าไม่มีก็โดนเต็ม ๆ
+    if (this.shieldCollected > 0) {
+      this.shieldCollected = Math.max(0, this.shieldCollected - 1);
+      if (this.hud.feedback) {
+        this.hud.feedback.textContent = 'เกราะรับแรงระเบิดให้หมดแล้ว 🛡️';
+        this.hud.feedback.className = 'sb-feedback good';
+      }
+      this._updateHUD();
+      return;
+    }
+
     this.playerHp = clamp(this.playerHp - 18, 0, this.playerHpMax);
   }
 
@@ -997,7 +1023,7 @@ class ShadowBreakerEngine {
       shield_total_collected: this.shieldCollected
     };
 
-    // RT เฉลี่ยตาม Boss/Phase (รวมทุกโซน) — *เก็บลง CSV เท่านั้น*
+    // RT เฉลี่ยตาม Boss/Phase (รวมทุกโซน)
     for (let bi = 0; bi < BOSSES.length; bi++) {
       for (let ph = 1; ph <= 3; ph++) {
         const arrN = (this.rtPhaseNormal[bi] && this.rtPhaseNormal[bi][ph]) || [];
@@ -1013,7 +1039,7 @@ class ShadowBreakerEngine {
       }
     }
 
-    // RT split ตาม Zone L/R และ U/M/D ต่อ Boss/Phase — *เก็บลง CSV เท่านั้น*
+    // RT split ตาม Zone L/R และ U/M/D ต่อ Boss/Phase
     const zonesLR = ['L', 'C', 'R'];
     const zonesUD = ['U', 'M', 'D'];
 
@@ -1139,7 +1165,7 @@ export function initShadowBreaker() {
 
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
 
-        // RT รวมเท่านั้น
+        // RT รวม
         if (summary.rt_normal_mean_s !== undefined && summary.rt_normal_mean_s !== '') {
           setText('#res-rt-normal',
             Number(summary.rt_normal_mean_s).toFixed(3) + ' s');
@@ -1175,7 +1201,19 @@ export function initShadowBreaker() {
 
         setText('#res-participant', summary.participant || '-');
 
-        // ไม่เติมค่า RT per Boss/Phase ลง UI — อยู่ใน CSV เท่านั้น
+        // RT per Boss/Phase (normal targets)
+        for (let bi = 1; bi <= 4; bi++) {
+          for (let ph = 1; ph <= 3; ph++) {
+            const key = `rt_b${bi}_p${ph}_mean_s`;
+            const outId = `#res-rt-b${bi}p${ph}`;
+            const v = summary[key];
+            if (v !== undefined && v !== '') {
+              setText(outId, Number(v).toFixed(3) + ' s');
+            } else {
+              setText(outId, '-');
+            }
+          }
+        }
 
         if (viewResult) {
           viewResult.dataset.eventsCsv  = summary.eventsCsv || '';
@@ -1247,13 +1285,6 @@ export function initShadowBreaker() {
     const diffKey = getDiffKey();
     const durSec  = getDurationSec();
     const meta    = collectResearchMeta();
-
-    // ป้องกันเข้าโหมดวิจัยโดยไม่กรอกข้อมูล
-    if (!meta.id || !meta.group) {
-      alert('กรุณากรอกรหัสผู้เข้าร่วม และกลุ่ม/ห้อง ให้ครบก่อนเริ่มโหมดวิจัยค่ะ');
-      return;
-    }
-
     engine.start('research', diffKey, durSec, meta);
     showView('play');
   });
