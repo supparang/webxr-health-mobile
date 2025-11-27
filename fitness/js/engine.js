@@ -18,6 +18,46 @@ function mean(arr) {
   for (const v of arr) sum += v;
   return sum / arr.length;
 }
+// ---------- SMALL UI HELPERS ----------
+
+function spawnGradeLabel(x, y, text, color) {
+  if (!text) return;
+  const el = document.createElement('div');
+  el.textContent = text;
+  Object.assign(el.style, {
+    position: 'fixed',
+    left: x + 'px',
+    top: y + 'px',
+    transform: 'translate(-50%, -50%) scale(1)',
+    color: color || '#facc15',
+    fontWeight: '700',
+    fontSize: '18px',
+    textShadow: '0 0 8px rgba(0,0,0,.9)',
+    pointerEvents: 'none',
+    zIndex: 999,
+    opacity: 1,
+    transition: 'transform .55s ease-out, opacity .55s ease-out',
+  });
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    el.style.transform = 'translate(-50%, -120%) scale(1.1)';
+    el.style.opacity = '0';
+  });
+  setTimeout(() => el.remove(), 600);
+}
+
+function mapGradeToLabel(grade) {
+  switch (grade) {
+    case 'perfect': return { text: 'PERFECT', color: '#4ade80' };  // เขียว
+    case 'good':    return { text: 'GOOD',    color: '#38bdf8' };  // ฟ้า
+    case 'bad':     return { text: 'BAD',     color: '#fb923c' };  // ส้ม
+    case 'miss':    return { text: 'MISS',    color: '#fb7185' };  // แดง
+    case 'bomb':    return { text: 'BOMB',    color: '#fb7185' };
+    case 'heal':    return { text: 'HEAL',    color: '#4ade80' };
+    case 'shield':  return { text: 'SHIELD',  color: '#a5b4fc' };
+    default:        return { text: '',        color: '#facc15' };
+  }
+}
 
 // ---------- CONFIG ----------
 
@@ -643,6 +683,7 @@ class ShadowBreakerEngine {
 
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
+    // ข้อความใน HUD ด้านบน
     if (this.hud.feedback) {
       let msg = '';
       let cls = 'sb-feedback';
@@ -673,6 +714,90 @@ class ShadowBreakerEngine {
       this.hud.feedback.textContent = msg;
       this.hud.feedback.className = cls;
     }
+
+    // ---------- เก็บ RT ลงตัวแปรวิจัย ----------
+    const bi = (typeof t.bossIndex === 'number') ? t.bossIndex : this.bossIndex;
+    const ph = (typeof t.bossPhase === 'number') ? t.bossPhase : this.bossPhase;
+
+    const zoneLR = (t.zone_lr === 'L' || t.zone_lr === 'R' || t.zone_lr === 'C') ? t.zone_lr : 'C';
+    const zoneUD = (t.zone_ud === 'U' || t.zone_ud === 'M' || t.zone_ud === 'D') ? t.zone_ud : 'M';
+
+    if (isNormalTarget) {
+      this.rtNormalAll.push(age);
+      if (this.rtPhaseNormal[bi] && this.rtPhaseNormal[bi][ph]) {
+        this.rtPhaseNormal[bi][ph].push(age);
+      }
+      if (this.rtPhaseNormalZoneLR[bi] && this.rtPhaseNormalZoneLR[bi][ph]) {
+        this.rtPhaseNormalZoneLR[bi][ph][zoneLR].push(age);
+      }
+      if (this.rtPhaseNormalZoneUD[bi] && this.rtPhaseNormalZoneUD[bi][ph]) {
+        this.rtPhaseNormalZoneUD[bi][ph][zoneUD].push(age);
+      }
+    } else if (t.isDecoy) {
+      this.rtDecoyAll.push(age);
+      if (this.rtPhaseDecoy[bi] && this.rtPhaseDecoy[bi][ph]) {
+        this.rtPhaseDecoy[bi][ph].push(age);
+      }
+      if (this.rtPhaseDecoyZoneLR[bi] && this.rtPhaseDecoyZoneLR[bi][ph]) {
+        this.rtPhaseDecoyZoneLR[bi][ph][zoneLR].push(age);
+      }
+      if (this.rtPhaseDecoyZoneUD[bi] && this.rtPhaseDecoyZoneUD[bi][ph]) {
+        this.rtPhaseDecoyZoneUD[bi][ph][zoneUD].push(age);
+      }
+    }
+
+    // ===== ตรงนี้คือ NEW PART: ให้คำว่า PERFECT / GOOD / MISS เด้งตรงเป้า =====
+    const cx = (hitInfo && typeof hitInfo.clientX === 'number') ? hitInfo.clientX : null;
+    const cy = (hitInfo && typeof hitInfo.clientY === 'number') ? hitInfo.clientY : null;
+    if (cx !== null && cy !== null) {
+      const { text, color } = mapGradeToLabel(grade);
+      if (text) {
+        spawnGradeLabel(cx, cy, text, color);
+      }
+    }
+    // ===== END NEW PART =====
+
+    this.renderer.playHitFx(t.id, {
+      grade,
+      scoreDelta,
+      fxEmoji,
+      clientX: hitInfo?.clientX,
+      clientY: hitInfo?.clientY
+    });
+
+    this.targets.delete(id);
+    this.renderer.removeTarget(id, 'hit');
+
+    this._logEvent({
+      event_type: 'hit',
+      target_id: t.id,
+      target_type: t.type,
+      grade,
+      age_ms: Math.round(age),
+      score_delta: scoreDelta,
+      combo_before: comboBefore,
+      combo_after: this.combo,
+      player_hp_before: hpBefore,
+      player_hp_after: this.playerHp,
+      fever_before: feverBefore,
+      fever_after: this.feverGauge,
+      fever_on: this.feverOn ? 1 : 0,
+      x_norm: t.x_norm,
+      y_norm: t.y_norm,
+      zone_lr: t.zone_lr,
+      zone_ud: t.zone_ud,
+      screen_x: hitInfo?.clientX ?? null,
+      screen_y: hitInfo?.clientY ?? null
+    });
+
+    if (this.playerHp <= 0) {
+      this._finish('bomb-ko');
+      return;
+    }
+
+    this._updateHUD();
+    this._updateBossHUD();
+  }
 
     // ---------- เก็บ RT ลงตัวแปรวิจัย ----------
     const bi = (typeof t.bossIndex === 'number') ? t.bossIndex : this.bossIndex;
