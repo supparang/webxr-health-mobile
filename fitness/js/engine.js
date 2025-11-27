@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-12-03) ===
+// === js/engine.js — Shadow Breaker core (2025-12-03, fixed) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -171,7 +171,8 @@ export function initShadowBreaker() {
     return weights[weights.length - 1].v;
   }
 
-  const currentBoss = () => BOSSES[state.bossIndex] || BOSSES[BOSSES.length - 1];
+  const currentBoss = () =>
+    BOSSES[state.bossIndex] || BOSSES[BOSSES.length - 1];
 
   function updateBossUi() {
     const boss = currentBoss();
@@ -263,7 +264,7 @@ export function initShadowBreaker() {
 
   function scheduleNextSpawn() {
     if (!state || !state.running) return;
-    const cfg = DIFF_CONFIG[state.diffKey];
+    const cfg = DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal;
     const delay = randRange(cfg.spawnIntervalMin, cfg.spawnIntervalMax);
     spawnTimer = setTimeout(() => {
       if (!state || !state.running) return;
@@ -272,30 +273,51 @@ export function initShadowBreaker() {
     }, delay);
   }
 
-function spawnBossFaceTarget() {
-  const bossMeta = BOSS_LIST[state.bossIndex]; // มี .emoji อยู่
-  const id = state.nextTargetId++;
+  // เรียกหน้า boss-face ตอน HP ต่ำ
+  function spawnBossFaceTarget() {
+    const cfg = DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal;
+    const bossMeta = currentBoss();
+    const now = performance.now();
+    const id = state.nextTargetId++;
 
-  const t = {
-    id,
-    type: 'bossface',
-    isBossFace: true,
-    bossIndex: state.bossIndex,
-    bossPhase: state.bossPhase,
-    bossEmoji: bossMeta.emoji,   // 👈 สำคัญ
-    sizePx: 200,                 // ใหญ่กว่าปกติ
-    ttlMs: 1800,
-    isDecoy: false,
-    isBomb: false,
-    isHeal: false,
-    isShield: false,
-    scoreBase: 150
-  };
+    const data = {
+      id,
+      type: 'bossface',
+      bossIndex: state.bossIndex,
+      bossPhase: state.bossPhase,
+      spawnTime: now,
+      isBossFace: true,
+      bossEmoji: bossMeta.emoji,
+      sizePx: cfg.baseSize * 1.8,
+      timeoutAt: now + cfg.targetLifetime * 1.4
+    };
 
-  state.liveTargets.set(id, t);
-  renderer.spawnTarget(t);
-}
+    state.targets.set(id, data);
+    ensureRenderer().spawnTarget(data);
 
+    data.timeoutHandle = setTimeout(() => {
+      if (!state.running) return;
+      if (!state.targets.has(id)) return;
+      state.targets.delete(id);
+      if (renderer) renderer.removeTarget(id, 'timeout');
+      state.miss++;
+      statMiss.textContent = String(state.miss);
+      state.combo = 0;
+      statCombo.textContent = '0';
+      setFeedback('พลาดหน้า boss! รอบหน้าลองโฟกัสให้ทัน 💥', 'miss');
+      logEvent('timeout', data, { grade: 'miss' });
+    }, cfg.targetLifetime * 1.4);
+  }
+
+  function spawnOneTarget() {
+    const cfg = DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal;
+
+    // ถ้า boss ใกล้ตาย และยังไม่เคย spawn boss-face ให้ spawn ก่อน
+    if (!state.bossFaceSpawned && state.bossHp > 0 && state.bossHp <= BOSSFACE_THRESHOLD) {
+      state.bossFaceSpawned = true;
+      spawnBossFaceTarget();
+      return;
+    }
 
     const kind = pickWeighted([
       { v: 'normal', w: 70 },
@@ -309,10 +331,12 @@ function spawnBossFaceTarget() {
   }
 
   function spawnTargetOfType(kind, extra) {
-    const cfg = DIFF_CONFIG[state.diffKey];
+    const cfg = DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal;
     const now = performance.now();
     const id = state.nextTargetId++;
     const ttl = cfg.targetLifetime;
+
+    const size = (extra && extra.size) || cfg.baseSize;
 
     const data = {
       id,
@@ -321,8 +345,13 @@ function spawnBossFaceTarget() {
       bossPhase: state.bossPhase,
       spawnTime: now,
       isBossFace: (extra && extra.isBossFace) || false,
-      sizePx: (extra && extra.size) || cfg.baseSize,
-      timeoutAt: now + ttl
+      bossEmoji: extra && extra.bossEmoji,
+      sizePx: size,
+      timeoutAt: now + ttl,
+      isDecoy: kind === 'decoy',
+      isBomb: kind === 'bomb',
+      isHeal: kind === 'heal',
+      isShield: kind === 'shield'
     };
 
     state.targets.set(id, data);
@@ -331,10 +360,10 @@ function spawnBossFaceTarget() {
 
     // timeout → miss
     data.timeoutHandle = setTimeout(() => {
-      if (!state.running) return;
+      if (!state || !state.running) return;
       if (!state.targets.has(id)) return;
       state.targets.delete(id);
-      renderer.removeTarget(id, 'timeout');
+      if (renderer) renderer.removeTarget(id, 'timeout');
       state.miss++;
       statMiss.textContent = String(state.miss);
       state.combo = 0;
@@ -414,7 +443,7 @@ function spawnBossFaceTarget() {
       );
     }
 
-    // FEVER gauge
+    // FEVER gauge (เฉพาะ normal)
     if (data.type === 'normal') {
       state.fever += FEVER_PER_HIT;
       if (!state.feverOn && state.fever >= 1) {
@@ -483,8 +512,8 @@ function spawnBossFaceTarget() {
       is_boss_face: targetData ? !!targetData.isBossFace : '',
       event_type: type,
       rt_ms: extra && extra.rtMs != null ? Math.round(extra.rtMs) : '',
-      grade: extra && extra.grade || '',
-      score_delta: extra && extra.scoreDelta || '',
+      grade: (extra && extra.grade) || '',
+      score_delta: (extra && extra.scoreDelta) || '',
       combo_after: state.combo,
       score_after: state.score,
       player_hp: state.playerHp.toFixed(3),
@@ -581,9 +610,9 @@ function spawnBossFaceTarget() {
       fever_time_sec: +(state.feverActiveMs / 1000).toFixed(2),
       lowhp_time_sec: +(state.lowHpMs / 1000).toFixed(2),
       bosses_cleared: state.clearedBosses,
-      participant_id: state.researchMeta && state.researchMeta.id || '',
-      participant_group: state.researchMeta && state.researchMeta.group || '',
-      participant_note: state.researchMeta && state.researchMeta.note || '',
+      participant_id: (state.researchMeta && state.researchMeta.id) || '',
+      participant_group: (state.researchMeta && state.researchMeta.group) || '',
+      participant_note: (state.researchMeta && state.researchMeta.note) || '',
       menu_latency_ms: Math.round(state.startedAt - menuOpenedAt),
       rt_normal_ms: state.rtNormalCount ? +(state.rtNormalSum / state.rtNormalCount).toFixed(1) : '',
       rt_decoy_ms: state.rtDecoyCount ? +(state.rtDecoySum / state.rtDecoyCount).toFixed(1) : ''
@@ -630,7 +659,7 @@ function spawnBossFaceTarget() {
   function startGame(mode, researchMeta) {
     const diffKey = difficultySel.value || 'normal';
     const durationSec = parseInt(durationSel.value || '60', 10);
-    DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
+    DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal; // แค่ validate
 
     clearRenderer();
     resetHud();
