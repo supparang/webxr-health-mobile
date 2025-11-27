@@ -9,10 +9,10 @@
   <link rel="stylesheet" href="css/shadow-breaker.css"/>
 </head>
 <body>
-<div class="sb-wrap">
+<div id="sb-wrap" class="sb-wrap">
 
-  <!-- การ์ดหลัก -->
-  <main class="sb-card sb-card-main">
+  <!-- ========== VIEW: MENU (ตั้งค่าก่อนเล่น) ========== -->
+  <main id="view-menu" class="sb-card sb-card-main">
     <header class="sb-card-header">
       <div class="sb-brand">
         <div class="sb-logo-pill">SB</div>
@@ -23,7 +23,9 @@
           </p>
         </div>
       </div>
-     <a href="hub.html" class="sb-back-link">← กลับสู่ VR Fitness Hub</a
+      <a href="hub.html" class="sb-back-link" data-action="back-to-menu-hub">
+        ← กลับสู่ VR Fitness Hub
+      </a>
     </header>
 
     <!-- ตั้งค่าก่อนเล่น -->
@@ -31,9 +33,9 @@
       <h2 class="sb-section-title">ตั้งค่าก่อนเล่น</h2>
 
       <div class="sb-field-row">
-        <label for="sb-diff">ระดับความยาก</label>
+        <label for="difficulty">ระดับความยาก</label>
         <div class="sb-select-pill">
-          <select id="sb-diff">
+          <select id="difficulty">
             <option value="easy">Easy — ผ่อนคลาย</option>
             <option value="normal" selected>Normal — สมดุล</option>
             <option value="hard">Hard — ท้าทาย</option>
@@ -42,9 +44,9 @@
       </div>
 
       <div class="sb-field-row">
-        <label for="sb-duration">ระยะเวลาเล่นต่อรอบ</label>
+        <label for="duration">ระยะเวลาเล่นต่อรอบ</label>
         <div class="sb-select-pill">
-          <select id="sb-duration">
+          <select id="duration">
             <option value="45">45 วินาที</option>
             <option value="60" selected>60 วินาที (มาตรฐาน)</option>
             <option value="90">90 วินาที</option>
@@ -53,15 +55,12 @@
       </div>
 
       <div class="sb-actions">
-        <button id="sb-btn-start" class="sb-btn sb-btn-primary">
-          ⚡ เริ่มเล่นเลย
+        <button class="sb-btn sb-btn-primary" data-action="start-normal">
+          ⚡ เริ่มเล่น Shadow Breaker
         </button>
-
-        <label class="sb-switch">
-          <input id="sb-research-mode" type="checkbox"/>
-          <span class="sb-switch-pill"></span>
-          <span class="sb-switch-label">โหมดวิจัย (Research Mode)</span>
-        </label>
+        <button class="sb-btn sb-btn-secondary" data-action="start-research">
+          📊 โหมดวิจัย (Research Mode)
+        </button>
       </div>
 
       <p class="sb-hint">
@@ -88,22 +87,245 @@
     </section>
   </main>
 
-  <!-- การ์ดอธิบายโหมดวิจัย -->
-  <section class="sb-card sb-card-research">
-    <h2 class="sb-section-title">โหมดวิจัย (Research Mode)</h2>
-    <p class="sb-text">
-      เมื่อเปิดโหมดวิจัย เกมจะเก็บข้อมูลทุกครั้งที่ตีเป้า (Hit/Miss, Reaction Time, Boss Phase)
-      พร้อมข้อมูลสรุปต่อรอบเล่นเป็นไฟล์ CSV 2 ชนิด ได้แก่ Event CSV และ Session CSV
-      เพื่อนำไปวิเคราะห์สถิติ เช่น RT, ความแม่นยำ, คอมโบเฉลี่ย, การเปลี่ยนแปลงตาม Phase ของ Boss เป็นต้น
-    </p>
-    <p class="sb-text sb-text-small">
-      ใช้ร่วมกับ VR Fitness เกมอื่น ๆ (เช่น Rhythm Boxer) เพื่อเปรียบเทียบรูปแบบการตอบสนองของผู้ฝึกในหลายกิจกรรมได้
-    </p>
+  <!-- ========== VIEW: RESEARCH FORM ========== -->
+  <section id="view-research-form" class="sb-card sb-card-research hidden">
+    <header class="sb-card-header">
+      <div class="sb-brand">
+        <div class="sb-logo-pill">SB</div>
+        <div class="sb-brand-text">
+          <h2 class="sb-brand-title">Shadow Breaker · โหมดวิจัย</h2>
+          <p class="sb-brand-subtitle">
+            กรอกข้อมูลผู้เข้าร่วมสำหรับบันทึกในไฟล์ CSV
+          </p>
+        </div>
+      </div>
+      <button class="sb-back-main" data-action="back-to-menu">← กลับเมนูเกม</button>
+    </header>
+
+    <section class="sb-section">
+      <p class="sb-text">
+        เกมจะเก็บข้อมูลทุกการตีเป้า (Hit/Miss, Reaction Time, Boss Phase)
+        พร้อมสรุปผลต่อรอบเป็นไฟล์ Event CSV และ Session CSV
+      </p>
+
+      <div class="sb-field-row">
+        <label for="research-id">รหัสผู้เข้าร่วม / Participant ID</label>
+        <input id="research-id" type="text" placeholder="เช่น P001 หรือ เลขประจำตัวนิสิต"/>
+      </div>
+
+      <div class="sb-field-row">
+        <label for="research-group">กลุ่มทดลอง / Group</label>
+        <input id="research-group" type="text" placeholder="เช่น Control, VR-Training"/>
+      </div>
+
+      <div class="sb-field-row">
+        <label for="research-note">บันทึกเพิ่มเติม</label>
+        <textarea id="research-note" rows="3" placeholder="เช่น รอบก่อน-หลังโปรแกรมฝึก, หมายเหตุสุขภาพ"></textarea>
+      </div>
+
+      <div class="sb-actions">
+        <button class="sb-btn sb-btn-primary" data-action="research-begin-play">
+          ▶ เริ่มเล่น Shadow Breaker (โหมดวิจัย)
+        </button>
+        <button class="sb-btn sb-btn-ghost" data-action="back-to-menu">ยกเลิก / กลับเมนู</button>
+      </div>
+    </section>
+  </section>
+
+  <!-- ========== VIEW: PLAY (สนามต่อสู้กับบอส) ========== -->
+  <section id="view-play" class="sb-card sb-card-play hidden">
+    <header class="sb-card-header">
+      <div class="sb-brand">
+        <div class="sb-logo-pill">SB</div>
+        <div class="sb-brand-text">
+          <h2 class="sb-brand-title">Shadow Breaker · Boss Fight</h2>
+          <p class="sb-brand-subtitle">
+            แตะ/ชกเป้า Emoji ให้ทันจังหวะ · ระวังบอมบ์และเป้าลวง!
+          </p>
+        </div>
+      </div>
+      <button class="sb-back-main" data-action="back-to-menu">← กลับเมนู</button>
+    </header>
+
+    <!-- HUD บน -->
+    <section class="sb-section sb-hud">
+      <div class="sb-hp-row">
+        <div class="sb-hp-block">
+          <span class="sb-tag">Player HP</span>
+          <div class="sb-hp-bar">
+            <div class="sb-hp-fill sb-hp-player" data-sb-player-hp></div>
+          </div>
+        </div>
+        <div class="sb-hp-block sb-hp-block-right">
+          <span class="sb-tag">Boss HP</span>
+          <div class="sb-hp-bar">
+            <div class="sb-hp-fill sb-hp-boss" data-sb-boss-hp></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sb-stat-row">
+        <span>Time: <strong id="stat-time">0.0</strong>s</span>
+        <span>Score: <strong id="stat-score">0</strong></span>
+        <span>Combo: <strong id="stat-combo">0</strong></span>
+        <span>Phase: <strong id="stat-phase">1</strong></span>
+        <span>Miss: <strong id="stat-miss">0</strong></span>
+        <span>Shield: <strong id="stat-shield">0</strong></span>
+      </div>
+
+      <div class="sb-fever-row">
+        <div class="sb-fever-bar">
+          <div id="fever-fill" class="sb-fever-fill"></div>
+        </div>
+        <span id="fever-status" class="sb-fever-status">Ready</span>
+      </div>
+    </section>
+
+    <!-- สนาม + หน้าบอส -->
+    <section class="sb-section sb-play-layout">
+      <div class="sb-play-field">
+        <div id="target-layer" class="sb-target-layer"></div>
+        <div id="sb-feedback" class="sb-feedback">
+          แตะ/ชกเป้าตามจังหวะให้ทัน! 🎯
+        </div>
+      </div>
+
+      <aside id="boss-portrait" class="sb-boss-portrait">
+        <div id="boss-portrait-emoji" class="sb-boss-emoji">🐣</div>
+        <h3 id="boss-portrait-name" class="sb-boss-name">Bubble Glove</h3>
+        <p id="boss-portrait-hint" class="sb-boss-hint">
+          โฟกัสที่เป้าฟองใหญ่ ๆ แล้วตีให้ทัน
+        </p>
+      </aside>
+    </section>
+
+    <footer class="sb-play-footer">
+      <button class="sb-btn sb-btn-secondary" data-action="stop-early">
+        ⏹ หยุดก่อนเวลา
+      </button>
+    </footer>
+
+    <!-- Intro บอส (tap เพื่อเริ่ม) -->
+    <div id="bossIntro" class="sb-boss-intro hidden">
+      <div class="sb-boss-intro-inner">
+        <div id="boss-intro-emoji" class="sb-boss-intro-emoji">🐣</div>
+        <h3 id="boss-intro-name" class="sb-boss-intro-name">Bubble Glove</h3>
+        <p id="boss-intro-title" class="sb-boss-intro-title">เริ่มต่อสู้กับบอสตัวแรก!</p>
+        <p id="boss-intro-desc" class="sb-boss-intro-desc">
+          เป้าใหญ่ หน่วงเวลาเล็กน้อย เหมาะสำหรับวอร์มอัพ 🔰
+        </p>
+        <p class="sb-boss-intro-hint">แตะหน้าจอหรือคลิก เพื่อเริ่มต่อสู้</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== VIEW: RESULT (สรุปผล) ========== -->
+  <section id="view-result" class="sb-card sb-card-result hidden">
+    <header class="sb-card-header">
+      <div class="sb-brand">
+        <div class="sb-logo-pill">SB</div>
+        <div class="sb-brand-text">
+          <h2 class="sb-brand-title">Shadow Breaker · สรุปผลรอบเล่น</h2>
+          <p class="sb-brand-subtitle">
+            ใช้เปรียบเทียบก่อน-หลังโปรแกรมฝึก หรือระหว่างกลุ่มทดลอง
+          </p>
+        </div>
+      </div>
+      <button class="sb-back-main" data-action="back-to-menu">← กลับเมนู</button>
+    </header>
+
+    <section class="sb-section">
+      <div class="sb-result-grid">
+        <div class="sb-result-col">
+          <p>โหมด: <strong id="res-mode">-</strong></p>
+          <p>ความยาก: <strong id="res-diff">-</strong></p>
+          <p>เหตุผลจบเกม: <strong id="res-endreason">-</strong></p>
+          <p>คะแนนรวม: <strong id="res-score">0</strong></p>
+          <p>เกรด: <strong id="res-grade">-</strong></p>
+        </div>
+        <div class="sb-result-col">
+          <p>Max Combo: <strong id="res-maxcombo">0</strong></p>
+          <p>จำนวนตีโดน: <strong id="res-totalhits">0</strong></p>
+          <p>จำนวน Miss: <strong id="res-miss">0</strong></p>
+          <p>Accuracy: <strong id="res-accuracy">0%</strong></p>
+          <p>จำนวนบอสที่เคลียร์: <strong id="res-bosses">0</strong></p>
+        </div>
+        <div class="sb-result-col">
+          <p>เวลา FEVER สะสม: <strong id="res-fever-time">0 s</strong></p>
+          <p>เวลา HP ต่ำ: <strong id="res-lowhp-time">0 s</strong></p>
+          <p>เวลาเตรียมจากเมนูถึงเริ่มเล่น: <strong id="res-menu-latency">-</strong></p>
+          <p>Participant: <strong id="res-participant">-</strong></p>
+        </div>
+      </div>
+
+      <h3 class="sb-subtitle">Reaction Time รวม</h3>
+      <p>RT เป้าปกติ: <strong id="res-rt-normal">-</strong></p>
+      <p>RT เป้าลวง (Decoy): <strong id="res-rt-decoy">-</strong></p>
+
+      <h3 class="sb-subtitle">RT แยกตาม Boss / Phase (Normal Targets)</h3>
+      <div class="sb-rt-table-wrap">
+        <table class="sb-rt-table">
+          <thead>
+            <tr>
+              <th>Boss / Phase</th>
+              <th>Phase 1</th>
+              <th>Phase 2</th>
+              <th>Phase 3</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Boss 1</td>
+              <td id="res-rt-b1p1">-</td>
+              <td id="res-rt-b1p2">-</td>
+              <td id="res-rt-b1p3">-</td>
+            </tr>
+            <tr>
+              <td>Boss 2</td>
+              <td id="res-rt-b2p1">-</td>
+              <td id="res-rt-b2p2">-</td>
+              <td id="res-rt-b2p3">-</td>
+            </tr>
+            <tr>
+              <td>Boss 3</td>
+              <td id="res-rt-b3p1">-</td>
+              <td id="res-rt-b3p2">-</td>
+              <td id="res-rt-b3p3">-</td>
+            </tr>
+            <tr>
+              <td>Boss 4</td>
+              <td id="res-rt-b4p1">-</td>
+              <td id="res-rt-b4p2">-</td>
+              <td id="res-rt-b4p3">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p id="res-end-hint" class="sb-result-hint">
+        ผลการเล่นรอบนี้จะใช้เป็น baseline หรือใช้เทียบก่อน-หลังโปรแกรมฝึกได้
+      </p>
+
+      <div class="sb-result-actions">
+        <button class="sb-btn sb-btn-primary" data-action="play-again">
+          ▶ เล่น Shadow Breaker อีกครั้ง
+        </button>
+        <button class="sb-btn sb-btn-secondary" data-action="download-csv-events">
+          ⬇ ดาวน์โหลด Event CSV
+        </button>
+        <button class="sb-btn sb-btn-secondary" data-action="download-csv-session">
+          ⬇ ดาวน์โหลด Session CSV
+        </button>
+        <button class="sb-btn sb-btn-ghost" data-action="back-to-menu">
+          ← กลับเมนู
+        </button>
+      </div>
+    </section>
   </section>
 
 </div>
 
-<!-- JS เดิมของ Shadow Breaker -->
-<script src="js/main-shadow.js"></script>
+<!-- JS (ต้องเป็น module เพื่อใช้ import/export ใน engine.js) -->
+<script type="module" src="js/main-shadow.js"></script>
 </body>
 </html>
