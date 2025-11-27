@@ -1,4 +1,4 @@
-// === fitness/js/jump-duck.js — DOM-based Jump-Duck engine (2025-12-01) ===
+// === fitness/js/jump-duck.js — DOM-based Jump-Duck engine (Research-ready v1.1 — 2025-12-02) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -116,6 +116,58 @@ function fmtMs(ms){
   return ms.toFixed(0)+' ms';
 }
 
+/* ---------- Event logging helpers ---------- */
+
+function pushEvent(row){
+  if (!state) return;
+  if (!state.events) state.events = [];
+  state.events.push(row);
+}
+
+function buildEventsCsv(){
+  if (!state || !state.events || !state.events.length) return '';
+  const rows = state.events;
+  const cols = Object.keys(rows[0]);
+  const esc = (v)=>{
+    if (v == null) return '';
+    const s = String(v);
+    if (s.includes('"') || s.includes(',') || s.includes('\n')){
+      return '"' + s.replace(/"/g,'""') + '"';
+    }
+    return s;
+  };
+  const lines = [cols.join(',')];
+  for (const r of rows){
+    lines.push(cols.map(c=>esc(r[c])).join(','));
+  }
+  return lines.join('\n');
+}
+
+function buildSummary(){
+  if (!state) return null;
+  const totalObs = state.obstaclesSpawned || 0;
+  const hits     = state.hits || 0;
+  const misses   = state.miss || 0;
+  const acc      = totalObs ? hits/totalObs : 0;
+  const rtMean   = state.hitRTs.length
+    ? state.hitRTs.reduce((a,b)=>a+b,0)/state.hitRTs.length
+    : 0;
+
+  return {
+    mode: 'play',
+    diff: state.diffKey,
+    duration_planned_s: (state.durationMs||0)/1000,
+    duration_actual_s: (state.elapsedMs||0)/1000,
+    obstacles_total: totalObs,
+    hits,
+    misses,
+    acc_pct: +(acc*100).toFixed(2),
+    rt_mean_ms: rtMean ? +rtMean.toFixed(1) : 0,
+    stability_min_pct: +(state.minStability||0).toFixed(1),
+    score_final: Math.round(state.score||0)
+  };
+}
+
 /* ---------- Game init / start / stop ---------- */
 
 function startGame(){
@@ -149,7 +201,8 @@ function startGame(){
     combo: 0,
     maxCombo: 0,
 
-    hitRTs: []
+    hitRTs: [],
+    events: []          // <-- เก็บ event ทั้งหมด
   };
 
   running   = true;
@@ -181,7 +234,7 @@ function endGame(reason){
 
   if (!state) return;
 
-  // สร้างสรุป
+  // สร้างสรุปสำหรับแสดงผล
   const totalObs = state.obstaclesSpawned || 0;
   const hits     = state.hits || 0;
   const misses   = state.miss || 0;
@@ -218,7 +271,7 @@ function fillResultView(acc, rtMean, totalObs){
     if (acc >= 0.90 && stab >= 85) rank='S';
     else if (acc >= 0.80 && stab >= 75) rank='A';
     else if (acc >= 0.65 && stab >= 60) rank='B';
-    else if (acc < 0.40 || stab < 40) rank='D';
+    else if (acc < 0.40 || stab < 40)   rank='D';
     resRank.textContent = rank;
   }
 }
@@ -271,13 +324,12 @@ let nextObstacleId = 1;
 
 function spawnObstacle(ts){
   if (!elObsHost || !state) return;
-  const cfg = state.cfg || JD_DIFFS.normal;
 
   const isHigh = Math.random() < 0.5; // สลับ high/low
   const type   = isHigh ? 'high' : 'low';
 
   const el = document.createElement('div');
-  // ✅ ให้ตรงกับ jump-duck.css: jd-obstacle--low / jd-obstacle--high
+  // ให้ตรงกับ jump-duck.css: jd-obstacle--low / jd-obstacle--high
   el.className = 'jd-obstacle ' + (type === 'high' ? 'jd-obstacle--high' : 'jd-obstacle--low');
   el.dataset.id = String(nextObstacleId);
   el.textContent = isHigh ? '🟥' : '🧱';
@@ -325,12 +377,13 @@ function updateObstacles(dt, now){
       obs.centerTime = now;
     }
 
+    const needType = (obs.type === 'high') ? 'duck' : 'jump';
+
     // Check HIT window (ใกล้ center)
     if (!obs.resolved && obs.x <= CENTER_X + 6 && obs.x >= CENTER_X - 6){
       const action = lastAction;
       if (action && action.time){
         const dtAction = Math.abs(action.time - now); // ระยะห่างเวลาระหว่างกด กับตำแหน่งกลาง
-        const needType = (obs.type === 'high') ? 'duck' : 'jump';
         const matchPose= (action.type === needType);
 
         if (matchPose && dtAction <= cfg.hitWindowMs){
@@ -362,6 +415,20 @@ function updateObstacles(dt, now){
           const rt = dtAction;
           state.hitRTs.push(rt);
 
+          // log event
+          pushEvent({
+            event_type: 'hit',
+            obstacle_type: obs.type,
+            required_action: needType,
+            action: action.type,
+            rt_ms: Math.round(rt),
+            time_ms: Math.round(state.elapsedMs),
+            diff: state.diffKey,
+            combo_after: state.combo,
+            score_after: Math.round(state.score),
+            stability_after_pct: +state.stability.toFixed(1)
+          });
+
           if (state.combo >= 8){
             showJudge('COMBO x'+state.combo, 'combo');
           }else{
@@ -387,6 +454,20 @@ function updateObstacles(dt, now){
         setTimeout(()=> obs.element && obs.element.remove(), 260);
         obs.element = null;
       }
+
+      // log event (miss)
+      pushEvent({
+        event_type: 'miss',
+        obstacle_type: obs.type,
+        required_action: needType,
+        action: lastAction ? lastAction.type : '',
+        rt_ms: '', // ไม่ได้ตีใน window
+        time_ms: Math.round(state.elapsedMs),
+        diff: state.diffKey,
+        combo_after: state.combo,
+        score_after: Math.round(state.score),
+        stability_after_pct: +state.stability.toFixed(1)
+      });
 
       showJudge('MISS', 'miss');
       if (elPlayArea){
@@ -486,5 +567,18 @@ function initJD(){
 
   showView('menu');
 }
+
+/* ---------- Export interface for research ---------- */
+
+window.JD_EXPORT = {
+  /** สรุปผลรอบล่าสุดเป็น object สำหรับใช้ในวิจัย */
+  getSummary(){
+    return buildSummary();
+  },
+  /** log ทุก event เป็น CSV string (คัดลอกไปวางใน Excel / R / SPSS ได้เลย) */
+  getEventsCsv(){
+    return buildEventsCsv();
+  }
+};
 
 window.addEventListener('DOMContentLoaded', initJD);
