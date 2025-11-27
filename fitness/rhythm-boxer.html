@@ -17,113 +17,106 @@
 
   <!-- ===== VIEW: MENU ===== -->
   <main id="rb-view-menu" class="rb-view">
-    <header class="rb-header">
-      <div class="rb-head-main">
-        <p class="rb-pill">VR Fitness Academy · Rhythm Mode</p>
-        <h1 class="rb-title">Rhythm&nbsp;Boxer</h1>
-        <p class="rb-sub">
-          ต่อยตามโน้ตให้ตรงจังหวะ ฝึกสมาธิ + การตอบสนอง
-          <span class="rb-sub-small">รองรับโหมดวิจัยเก็บ CSV</span>
-        </p>
+    <!-- Header แบบ Hub -->
+    <div class="rb-header-main">
+      <div class="rb-brand">
+        <div class="rb-logo-pill">RB</div>
+        <div class="rb-brand-text">
+          <div class="rb-brand-title">Rhythm Boxer</div>
+          <div class="rb-brand-subtitle">
+            ต่อยตามโน้ตให้ตรงจังหวะ ฝึกสมาธิ + การตอบสนอง · รองรับโหมดวิจัยเก็บ CSV
+          </div>
+        </div>
       </div>
-      <a href="hub.html" class="rb-back">⬅ กลับ HUB</a>
-    </header>
+      <a href="hub.html" class="rb-back-main">⬅ กลับ HUB</a>
+    </div>
 
-    <!-- โหมดเล่น / วิจัย -->
-    <section class="rb-section">
+    <!-- เลือกโหมด -->
+    <section class="rb-card rb-card-menu">
       <h2 class="rb-section-title">เลือกโหมดการเล่น</h2>
-      <div class="rb-mode-toggle">
-        <label class="rb-mode-btn">
+      <div class="rb-mode-row">
+        <label class="rb-radio">
           <input type="radio" name="mode" value="normal" checked/>
           <span>Normal</span>
         </label>
-        <label class="rb-mode-btn">
+        <label class="rb-radio">
           <input type="radio" name="mode" value="research"/>
           <span>Research (วิจัย)</span>
         </label>
       </div>
-      <p id="rb-mode-desc" class="rb-mode-desc">
-        Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)<br/>
-        Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV
+      <p id="rb-mode-desc" class="rb-hint">
+        Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)
+      </p>
+    </section>
+
+    <!-- เลือกเพลง / ระดับ -->
+    <section class="rb-card rb-card-menu">
+      <h2 class="rb-section-title">เลือกเพลง / ระดับ</h2>
+      <p id="rb-track-mode-label" class="rb-subsection-title">
+        โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก
       </p>
 
-      <!-- ระดับความยาก -->
-      <div class="rb-diff-box">
-        <div class="rb-diff-label">ระดับความยาก</div>
-        <div class="rb-diff-toggle">
-          <label class="rb-diff-btn">
-            <input type="radio" name="diff" value="easy" checked/>
-            <span>ง่าย</span>
-          </label>
-          <label class="rb-diff-btn">
-            <input type="radio" name="diff" value="normal"/>
-            <span>ปกติ</span>
-          </label>
-          <label class="rb-diff-btn">
-            <input type="radio" name="diff" value="hard"/>
-            <span>ยาก</span>
-          </label>
-        </div>
-        <p class="rb-diff-note">
-          * ระดับความยากจะใช้กำหนดขนาดโน้ต / ความหนาแน่นของจังหวะ และใช้เป็นตัวแปรในงานวิจัย
-        </p>
+      <div id="rb-track-options" class="rb-mode-row">
+        <!-- Normal mode tracks (3 เพลง) -->
+        <label class="rb-radio" data-mode="normal">
+          <input type="radio" name="track" value="n1" checked/>
+          <span>Warm-up Groove · ง่าย · 100 BPM</span>
+        </label>
+        <label class="rb-radio" data-mode="normal">
+          <input type="radio" name="track" value="n2"/>
+          <span>Focus Combo · ปกติ · 120 BPM</span>
+        </label>
+        <label class="rb-radio" data-mode="normal">
+          <input type="radio" name="track" value="n3"/>
+          <span>Speed Rush · ยาก · 140 BPM</span>
+        </label>
+
+        <!-- Research-only track -->
+        <label class="rb-radio" data-mode="research">
+          <input type="radio" name="track" value="r1"/>
+          <span>Research Track 120 · ทดลอง · 120 BPM</span>
+        </label>
       </div>
+
+      <p id="rb-track-hint" class="rb-hint">
+        แนะนำให้เริ่มจาก Warm-up Groove (ง่าย) ก่อน แล้วค่อยลองเพลงที่ยากขึ้น
+      </p>
     </section>
 
-    <!-- เลือกเพลง -->
-    <section class="rb-section rb-grid-2">
-      <div>
-        <h3 class="rb-section-subtitle">เลือกเพลง / ระดับ</h3>
-        <div class="rb-field">
-          <label for="rb-track">เพลง</label>
-          <select id="rb-track">
-            <option value="t1">Warm-up Groove (ง่าย · 100 BPM)</option>
-            <option value="research">Research Track 120 (ทดลอง · 120 BPM)</option>
-          </select>
-        </div>
+    <!-- ฟอร์มวิจัย -->
+    <section id="rb-research-fields" class="rb-card rb-card-menu rb-research hidden">
+      <h2 class="rb-section-title">ข้อมูลสำหรับงานวิจัย</h2>
 
-        <div class="rb-hint-block">
-          <p class="rb-hint-title">วิธีเล่นย่อ</p>
-          <ul class="rb-hint-list">
-            <li>แตะ/คลิกที่เลนให้ตรงกับสีของโน้ต</li>
-            <li>Perfect / Great / Good → ได้คะแนนและเกจ FEVER</li>
-            <li>Miss บ่อย ๆ HP จะลดลงและความแม่นยำจะต่ำลง</li>
-          </ul>
-        </div>
+      <div class="rb-field-row">
+        <label for="rb-participant">Participant ID</label>
+        <input id="rb-participant" type="text" placeholder="เช่น P001, S05 ฯลฯ"/>
+      </div>
+      <div class="rb-field-row">
+        <label for="rb-group">กลุ่ม / เงื่อนไข</label>
+        <input id="rb-group" type="text" placeholder="เช่น Control, VR-High, L/R-Swap"/>
+      </div>
+      <div class="rb-field-row">
+        <label for="rb-note">โน้ตเพิ่มเติม</label>
+        <input id="rb-note" type="text" placeholder="เช่น รอบก่อนฝึก, หลังฝึก, เวลาเล่น ฯลฯ"/>
       </div>
 
-      <!-- ฟอร์มวิจัย -->
-      <div id="rb-research-fields" class="rb-research-box hidden">
-        <h3 class="rb-section-subtitle">ข้อมูลสำหรับงานวิจัย</h3>
-        <div class="rb-field">
-          <label for="rb-participant">Participant ID</label>
-          <input id="rb-participant" type="text" placeholder="เช่น P001, S05 ฯลฯ"/>
-        </div>
-        <div class="rb-field">
-          <label for="rb-group">กลุ่ม / เงื่อนไข</label>
-          <input id="rb-group" type="text" placeholder="เช่น Control, VR-High, L/R-Swap"/>
-        </div>
-        <div class="rb-field">
-          <label for="rb-note">โน้ตเพิ่มเติม</label>
-          <textarea id="rb-note" rows="2" placeholder="หมายเหตุสั้น ๆ เช่น เวลาเล่น, ภาวะสุขภาพ ฯลฯ"></textarea>
-        </div>
-        <p class="rb-hint-inline">
-          โหมด Research: ระบบจะบันทึก Event CSV + Session CSV พร้อม offset, side (L/R), FEVER และ HP เพื่อใช้วิเคราะห์เชิงสถิติ
-        </p>
-      </div>
+      <p class="rb-hint">
+        โหมดวิจัยจะบันทึก Event CSV + Session CSV พร้อม offset, side (L/R), FEVER และ HP
+        เพื่อใช้วิเคราะห์เชิงสถิติ
+      </p>
     </section>
 
-    <!-- ปุ่มเริ่ม / คู่มือ -->
-    <section class="rb-section">
-      <div class="rb-btn-row">
+    <!-- ปุ่มเริ่ม -->
+    <section class="rb-card rb-card-menu">
+      <div class="rb-menu-actions">
         <button id="rb-btn-start" class="rb-btn rb-btn-primary">
           ▶ เริ่มเล่น Rhythm Boxer
         </button>
-        <button type="button" class="rb-btn rb-btn-ghost"
-          onclick="alert('เคล็ดลับ: เริ่มจากเพลง Warm-up Groove ในโหมด Normal + ระดับง่าย ก่อน แล้วค่อยปรับระดับ/โหมดวิจัยเมื่อผู้เข้าร่วมคุ้นเคยแล้วนะคะ 😊');">
-          💡 เคล็ดลับสำหรับครู / นักวิจัย
-        </button>
       </div>
+      <p class="rb-hint">
+        💡 เคล็ดลับ: ให้นักเรียนลองเล่นเพลงง่าย 1–2 รอบก่อน จากนั้นค่อยใช้ Research Track
+        ร่วมกับการเก็บข้อมูลเชิงวิจัย
+      </p>
     </section>
   </main>
 
@@ -145,7 +138,6 @@
     <section class="rb-hud">
       <div class="rb-hud-row">
         <div class="rb-chip">Mode: <span id="rb-hud-mode">Normal</span></div>
-        <div class="rb-chip">Diff: <span id="rb-hud-diff">Normal</span></div>
         <div class="rb-chip">Track: <span id="rb-hud-track">Warm-up</span></div>
         <div class="rb-chip">Score: <span id="rb-hud-score">0</span></div>
         <div class="rb-chip">Combo: <span id="rb-hud-combo">0</span></div>
@@ -233,9 +225,6 @@
           <span>Mode</span><b id="rb-res-mode">-</b>
         </div>
         <div class="rb-result-row">
-          <span>Diff</span><b id="rb-res-diff">-</b>
-        </div>
-        <div class="rb-result-row">
           <span>Track</span><b id="rb-res-track">-</b>
         </div>
         <div class="rb-result-row">
@@ -277,7 +266,7 @@
     </section>
 
     <p id="rb-res-quality-note" class="rb-quality-note hidden">
-      <!-- เติมจาก engine ถ้าข้อมูล trial ไม่ค่อยดี -->
+      <!-- engine จะเติมข้อความเตือนคุณภาพข้อมูลถ้าจำเป็น -->
     </p>
 
     <section class="rb-section">
@@ -309,7 +298,6 @@
 </div>
 
 <!-- SCRIPTS -->
-<script src="js/particle.js"></script>
 <script src="js/dom-renderer-rb.js"></script>
 <script src="js/rhythm-engine.js"></script>
 <script src="js/rhythm-boxer.js"></script>
