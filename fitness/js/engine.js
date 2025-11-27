@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-02 + grade FX) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-03) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -6,7 +6,7 @@ import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 import { recordSession } from './stats-store.js';
 
-const BUILD_VERSION = 'sb-2025-12-02';
+const BUILD_VERSION = 'sb-2025-12-03';
 
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -155,7 +155,6 @@ class ShadowBreakerEngine {
     this.diffKey = 'normal';
     this.diff    = DIFF_CONFIG.normal;
 
-    // ใช้ DomRendererShadow ตัวเดียวสำหรับ spawn/ลบ/FX
     this.renderer = new DomRendererShadow(this.field, {
       wrapEl: this.wrap,
       onTargetHit: (id, info) => this.handleHit(id, info)
@@ -564,7 +563,7 @@ class ShadowBreakerEngine {
     if (!t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield) {
       this.missCount += 1;
       this.combo = 0;
-      this.playerHp = clamp(this.playerHp - 4, 0, this.playerHpMax);
+      this._takeDamage(4, 'miss');
 
       if (this.hud.feedback) {
         this.hud.feedback.textContent = 'พลาดจังหวะ! ลองมองเป้าถัดไปล่วงหน้า 🔍';
@@ -624,7 +623,7 @@ class ShadowBreakerEngine {
       grade = 'miss';
       this.combo = 0;
       scoreDelta = 0;
-      fxEmoji = '🥊';
+      fxEmoji = '🎯';
     } else if (t.isHeal) {
       grade = 'heal';
       this.combo += 1;
@@ -684,7 +683,6 @@ class ShadowBreakerEngine {
 
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-    // ข้อความใน HUD ด้านบน
     if (this.hud.feedback) {
       let msg = '';
       let cls = 'sb-feedback';
@@ -747,7 +745,7 @@ class ShadowBreakerEngine {
       }
     }
 
-    // ===== แสดง PERFECT / GOOD / MISS เด้งตรงจุดที่ตี =====
+    // แสดง PERFECT / GOOD / MISS ตรงจุดที่ตี
     const cx = (hitInfo && typeof hitInfo.clientX === 'number') ? hitInfo.clientX : null;
     const cy = (hitInfo && typeof hitInfo.clientY === 'number') ? hitInfo.clientY : null;
     if (cx !== null && cy !== null) {
@@ -756,7 +754,6 @@ class ShadowBreakerEngine {
         spawnGradeLabel(cx, cy, text, color);
       }
     }
-    // ===== END grade label =====
 
     this.renderer.playHitFx(t.id, {
       grade,
@@ -800,8 +797,32 @@ class ShadowBreakerEngine {
     this._updateBossHUD();
   }
 
+  _takeDamage(amount, source = 'hit') {
+    if (this.shieldCollected > 0) {
+      this.shieldCollected -= 1;
+
+      if (this.hud.feedback) {
+        this.hud.feedback.textContent = 'เกราะรับดาเมจแทน! 🛡️';
+        this.hud.feedback.className = 'sb-feedback good';
+      }
+
+      this._logEvent({
+        event_type: 'shield-block',
+        damage_blocked: amount,
+        damage_source: source,
+        shield_left: this.shieldCollected,
+        player_hp_after: this.playerHp
+      });
+
+      this._updateHUD();
+      return;
+    }
+
+    this.playerHp = clamp(this.playerHp - amount, 0, this.playerHpMax);
+  }
+
   _hitByBomb() {
-    this.playerHp = clamp(this.playerHp - 18, 0, this.playerHpMax);
+    this._takeDamage(18, 'bomb');
   }
 
   _gainFever(amount) {
@@ -942,7 +963,6 @@ class ShadowBreakerEngine {
     const durationS = this.elapsedMs / 1000;
     const acc = this.totalTargets ? (this.totalHits / this.totalTargets) * 100 : 0;
 
-    // grade scale: SSS, SS, S, A, B, C
     let grade = 'C';
     if (acc >= 95 && this.score >= 4500) grade = 'SSS';
     else if (acc >= 90 && this.score >= 3800) grade = 'SS';
