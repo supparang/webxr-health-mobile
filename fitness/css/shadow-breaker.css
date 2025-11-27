@@ -537,3 +537,100 @@ html,body{
     grid-template-columns:1fr;
   }
 }
+/* ===== Shadow Breaker — Target & Spawn FX ===== */
+
+.sb-playfield {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 420px;
+  margin-top: 16px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: radial-gradient(circle at top,
+              rgba(56,189,248,.12), transparent 55%),
+              radial-gradient(circle at bottom,
+              rgba(129,140,248,.16), transparent 55%),
+              #020617;
+}
+
+/* ปุ่มเป้า */
+.sb-target {
+  position: absolute;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background:
+    radial-gradient(circle at 30% 20%,
+      rgba(255,255,255,.9),
+      rgba(15,23,42,.95));
+  box-shadow:
+    0 0 0 1px rgba(148,163,184,.7),
+    0 12px 28px rgba(15,23,42,.8);
+  transform: translate(-50%, -50%) scale(.8);
+  cursor: pointer;
+  transition:
+    transform .12s ease-out,
+    box-shadow .2s ease-out,
+    filter .15s ease-out;
+  touch-action: manipulation;
+}
+
+.sb-target-inner {
+  font-size: 2.1rem;
+  filter: drop-shadow(0 3px 6px rgba(15,23,42,.85));
+}
+
+/* วงแหวนรอบเป้า */
+.sb-target-ring {
+  --sb-ring-color: hsla(var(--sb-ring-hue, 210), 95%, 72%, 1);
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 2px solid var(--sb-ring-color);
+  box-shadow: 0 0 0 0 var(--sb-ring-color);
+  opacity: .9;
+  pointer-events: none;
+}
+
+/* ตอนโผล่ให้เด้ง + มี ring pulse 1 ครั้ง */
+.sb-target--spawn {
+  animation: sbTargetPop .24s ease-out forwards;
+}
+
+.sb-target--spawn .sb-target-ring {
+  animation: sbRingPulse .65s ease-out forwards;
+}
+
+/* ตอนโดนตี / ลบ */
+.sb-target--bye,
+.sb-target--timeout {
+  pointer-events: none;
+  animation: sbTargetBye .22s ease-in forwards;
+}
+
+@keyframes sbTargetPop {
+  0%   { transform: translate(-50%, -50%) scale(.55); filter: brightness(1.4); }
+  70%  { transform: translate(-50%, -50%) scale(1.07); filter: brightness(1.1); }
+  100% { transform: translate(-50%, -50%) scale(1);    filter: brightness(1); }
+}
+
+@keyframes sbRingPulse {
+  0% {
+    transform: scale(.7);
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--sb-ring-color);
+  }
+  100% {
+    transform: scale(1.18);
+    opacity: 0;
+    box-shadow: 0 0 0 18px transparent;
+  }
+}
+
+@keyframes sbTargetBye {
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(.5); opacity: 0; }
+}
