@@ -1,292 +1,549 @@
-/* === shadow-breaker.css — Layout + HUD + Gameplay (2025-12-03) === */
+/* === Shadow Breaker — Global === */
 
 :root {
   color-scheme: dark;
-  --sb-bg: #020617;
-  --sb-surface: #020617;
-  --sb-surface-soft: #020617;
-  --sb-card: #020617;
-  --sb-border-subtle: #1f2937;
-  --sb-text: #e5e7eb;
-  --sb-text-soft: #9ca3af;
-  --sb-accent: #38bdf8;
-  --sb-accent-soft: #0ea5e9;
 }
 
-/* ===== PAGE WRAP ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
 
 body {
-  margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 55%),
-              radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 55%),
-              #020617;
-  color: var(--sb-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.22), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.26), transparent 60%),
+    #020617;
+  color: #e5e7eb;
+}
+
+/* ==== Helpers ==== */
+
+.hidden {
+  display: none !important;
 }
 
 .sb-wrap {
   min-height: 100vh;
-  padding: 16px 16px 24px;
+  width: 100%;
+  padding-bottom: 24px;
+}
+
+.sb-root {
+  max-width: 1200px;
+  margin: 12px auto 32px;
+  padding: 0 16px;
+}
+
+/* generic buttons */
+
+.sb-btn {
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: .9rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+  white-space: nowrap;
+}
+
+.sb-btn-primary {
+  background: linear-gradient(135deg,#22c55e,#0ea5e9);
+  color: #020617;
+  box-shadow: 0 12px 22px rgba(15,23,42,.8);
+}
+
+.sb-btn-primary:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.sb-btn-ghost {
+  border: 1px solid rgba(148,163,184,.75);
+  background: transparent;
+  color: #e5e7eb;
+}
+
+.sb-btn-ghost:hover {
+  background: rgba(15,23,42,.9);
+}
+
+/* ===== Top App Header (Menu page) ===== */
+
+.sb-view-menu {
+  max-width: 1200px;
+  margin: 16px auto 32px;
+  padding: 0 16px 32px;
+}
+
+.sb-header {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* ===== TOP BRAND (ใช้ร่วมกับหน้าเมนู/เพลย์) ===== */
-
-.sb-card {
-  border-radius: 24px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: radial-gradient(circle at top left, rgba(148,163,184,.16), transparent 60%),
-              rgba(15,23,42,.98);
-  box-shadow: 0 18px 45px rgba(15,23,42,.9);
-  padding: 18px 20px;
-}
-
-.sb-card-main {
-  padding: 18px 24px 22px;
-}
-
-.sb-card-header {
-  display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 20px;
 }
 
-.sb-brand {
+.sb-header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
-.sb-logo-pill {
+.sb-game-tag {
   width: 40px;
   height: 40px;
   border-radius: 999px;
-  background: radial-gradient(circle at 30% 20%, #22d3ee, #2563eb);
-  box-shadow: 0 0 0 3px rgba(15,23,42,1), 0 10px 22px rgba(15,23,42,.8);
+  background: linear-gradient(135deg, #22c55e, #0ea5e9);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  color: #e5e7eb;
+  color: #0b1120;
 }
 
-.sb-brand-title {
-  font-size: 20px;
+.sb-title {
+  font-size: 1.4rem;
   margin: 0 0 2px;
 }
 
-.sb-brand-subtitle {
+.sb-subtitle {
   margin: 0;
-  font-size: 13px;
-  color: var(--sb-text-soft);
+  font-size: .9rem;
+  color: #9ca3af;
 }
 
-.sb-back-link {
-  font-size: 13px;
-  color: #c4d4ff;
-  text-decoration: none;
-  padding: 6px 11px;
+.sb-back-hub {
+  font-size: .9rem;
+  padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.4);
-  background: radial-gradient(circle at top left, rgba(148,163,184,.12), transparent 55%),
-              rgba(15,23,42,.92);
-  box-shadow: 0 7px 18px rgba(15,23,42,.7);
-}
-.sb-back-link:hover {
-  border-color: rgba(191,219,254,.9);
+  border: 1px solid rgba(148,163,184,.5);
+  text-decoration: none;
+  color: #e5e7eb;
+  background: rgba(15,23,42,.8);
 }
 
-/* ===== VIEW SWITCH (ใช้กับ JS showView) ===== */
-.hidden { display: none !important; }
-
-/* =========================================================
- * PLAY VIEW
- * ======================================================= */
-
-#view-play {
-  padding: 0;
+.sb-back-hub:hover {
+  background: rgba(30,64,175,.9);
 }
 
-/* --- Top HUD: Time / Score / Combo / Phase / Miss / Shield / FEVER --- */
+/* ===== MENU LAYOUT ===== */
 
-.sb-play-top {
+.sb-menu-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.sb-menu-right {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 14px;
+}
+
+/* cards */
+
+.sb-card {
+  background:
+    radial-gradient(circle at top left,
+      rgba(56,189,248,0.12), transparent 55%),
+    rgba(15,23,42,0.96);
+  border-radius: 18px;
+  padding: 16px 18px 18px;
+  border: 1px solid rgba(148,163,184,.35);
+  box-shadow: 0 18px 35px rgba(15,23,42,.9);
+}
+
+.sb-card-main {
+  padding-top: 18px;
+}
+
+.sb-card-title {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.sb-card-intro {
+  margin: 0 0 10px;
+  font-size: .9rem;
+  color: #e5e7eb;
+}
+
+.sb-card-footnote {
+  font-size: .85rem;
+  color: #9ca3af;
+  margin-top: 8px;
+}
+
+.sb-card-research {
+  background:
+    radial-gradient(circle at top,
+      rgba(94,234,212,0.16), transparent 52%),
+    rgba(15,23,42,0.97);
+}
+
+/* form */
+
+.sb-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.sb-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sb-label {
+  font-size: .85rem;
+  color: #cbd5f5;
+}
+
+.sb-select {
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.6);
+  background: rgba(15,23,42,.9);
+  color: #e5e7eb;
+  padding: 8px 12px;
+  font-size: .9rem;
+}
+
+/* buttons & toggle */
+
+.sb-start-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
   margin-bottom: 10px;
 }
 
-.sb-top-stats {
+.sb-toggle-research {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .85rem;
+  cursor: pointer;
+  color: #e5e7eb;
+}
+
+.sb-toggle-research input {
+  display: none;
+}
+
+.sb-toggle-pill {
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(51,65,85,1);
+  position: relative;
+}
+
+.sb-toggle-pill::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  transition: transform .2s ease;
+}
+
+#toggle-research:checked + .sb-toggle-pill::after {
+  transform: translateX(16px);
+}
+
+.sb-toggle-label {
+  user-select: none;
+}
+
+/* how-to */
+
+.sb-howto-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 4px;
+  font-size: .9rem;
+}
+
+.sb-howto-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.sb-howto-list strong {
+  margin-right: 2px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.dot-perfect { background:#4ade80; }
+.dot-good    { background:#38bdf8; }
+.dot-bad     { background:#fb923c; }
+.dot-bomb    { background:#fb7185; }
+.dot-heal    { background:#22c55e; }
+.dot-fever   { background:#a855f7; }
+
+.sb-hint {
+  margin: 0;
+  font-size: .8rem;
+  color: #9ca3af;
+}
+
+/* ===== PLAY VIEW ===== */
+
+.sb-view-play {
+  max-width: 1200px;
+  margin: 8px auto 32px;
+  padding: 0 16px;
+}
+
+/* top hud in one line */
+
+.sb-hud-top {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 14px 22px;
-  font-size: 13px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  font-size: .9rem;
+  margin-bottom: 10px;
 }
 
-.sb-stat {
-  display: inline-flex;
+.sb-hud-top-left {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+
+.sb-hud-stat {
+  display: flex;
   gap: 4px;
 }
 
-.sb-stat-label {
+.sb-hud-stat-label {
   text-transform: uppercase;
   letter-spacing: .06em;
-  font-weight: 500;
-  color: var(--sb-text-soft);
+  font-size: .75rem;
+  color: #9ca3af;
 }
-.sb-stat-value {
+
+.sb-hud-stat-value {
   font-weight: 600;
-  font-size: 14px;
 }
 
-/* --- HP bars --- */
-
-.sb-hp-rows {
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-}
-
-.sb-hp-row {
+.sb-hud-top-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.sb-hp-label {
-  min-width: 48px;
-  color: var(--sb-text-soft);
-}
+/* Fever gauge */
 
-.sb-hp-bar {
-  flex: 1;
-  position: relative;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(15,23,42,.9);
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(15,23,42,.9),
-              0 0 0 1px rgba(30,64,175,.7);
-}
-
-/* inner fill ที่ engine.js ปรับ width ให้ */
-[data-sb-player-hp],
-[data-sb-boss-hp] {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  transform-origin: left center;
-  transform: scaleX(1);
-}
-
-[data-sb-player-hp] {
-  background: linear-gradient(90deg, #22c55e, #22d3ee);
-}
-[data-sb-boss-hp] {
-  background: linear-gradient(90deg, #f97316, #fb7185);
-}
-
-/* --- FEVER row --- */
-
-.sb-fever-row {
-  margin-top: 6px;
-  display: flex;
+.sb-fever-chip {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.sb-fever-label {
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: var(--sb-text-soft);
-}
-
-#fever-bar {
-  flex: 1;
-  height: 8px;
+  gap: 6px;
+  padding: 4px 10px;
   border-radius: 999px;
+  background: rgba(15,23,42,.95);
+  border: 1px solid rgba(96,165,250,.7);
+  font-size: .8rem;
+}
+
+.sb-fever-bar {
   position: relative;
-  background: rgba(15,23,42,.9);
+  width: 96px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(30,64,175,.7);
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(31,41,55,.9);
 }
 
 #fever-fill {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
+  bottom: 0;
   transform-origin: left center;
   transform: scaleX(0);
-  background: linear-gradient(90deg, #facc15, #fb7185);
+  background: linear-gradient(90deg,#f97316,#facc15,#a855f7);
 }
 
 #fever-status {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sb-text-soft);
+  font-size: .75rem;
+  text-transform: uppercase;
 }
+
 #fever-status.on {
   color: #facc15;
 }
 
-/* --- Feedback text (Perfect / Good / Bomb / Miss ฯลฯ) --- */
+/* HP bars */
 
-#sb-feedback {
-  margin-top: 10px;
-  min-height: 1.35em;
-  font-size: 14px;
-  color: #e5e7eb;
-}
-.sb-feedback.good { color: #4ade80; }
-.sb-feedback.perfect { color: #22d3ee; }
-.sb-feedback.bad { color: #fb923c; }
-.sb-feedback.miss { color: #fb7185; }
-
-/* =========================================================
- * PLAY LAYOUT + GAMEPLAY AREA
- * ======================================================= */
-
-.sb-play-main {
-  margin-top: 10px;
-  display: flex;
-  gap: 20px;
-  align-items: stretch;
+.sb-hp-bars {
+  margin-top: 4px;
+  margin-bottom: 10px;
 }
 
-/* ซ้าย: gameplay field ใหญ่ */
-.sb-play-left {
-  flex: 1.6;
-  display: flex;
-  flex-direction: column;
+.sb-hp-row-label {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #9ca3af;
 }
 
-.sb-play-field {
-  flex: 1;
-}
-
-/* จอ gameplay จริง */
-#target-layer {
+.sb-hp-track {
+  margin-top: 2px;
   width: 100%;
-  height: min(480px, 60vh);
-  min-height: 260px;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,.22), transparent 65%),
-    radial-gradient(circle at center, #020617, #020617 55%, #020617 100%);
-  box-shadow: 0 20px 55px rgba(15,23,42,.95);
-  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15,23,42,.9);
   overflow: hidden;
 }
 
-/* เป้า/วงแหวน จาก DomRendererShadow ควรเป็น absolute ในนี้ */
+.sb-hp-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  transform-origin: left center;
+}
+
+/* player / boss color */
+
+.sb-hp-fill-player {
+  background: linear-gradient(90deg,#22c55e,#4ade80);
+}
+
+.sb-hp-fill-boss {
+  background: linear-gradient(90deg,#f97316,#fb7185);
+}
+
+/* main game layout */
+
+.sb-play-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(260px, .9fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* playfield */
+
+.sb-playfield-shell {
+  border-radius: 24px;
+  background: radial-gradient(circle at top left,
+        rgba(15,23,42,0.9), transparent 60%),
+      rgba(15,23,42,0.98);
+  box-shadow: 0 26px 50px rgba(15,23,42,.96);
+  padding: 10px;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.sb-playfield {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  flex: 1;
+  min-height: min(56vh, 520px);
+  background: radial-gradient(circle at top,
+      #020617, #020617 32%, #020617 60%, #020617 100%);
+}
+
+/* responsive aspect ratio for targets */
+
+#target-layer {
+  position: absolute;
+  inset: 0;
+}
+
+/* change background by boss / phase */
+
+#sb-wrap[data-boss="0"] .sb-playfield {
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.22), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(52,211,153,0.18), transparent 60%),
+    #020617;
+}
+
+#sb-wrap[data-boss="1"] .sb-playfield {
+  background:
+    radial-gradient(circle at top left, rgba(96,165,250,0.25), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(251,191,36,0.2), transparent 60%),
+    #020617;
+}
+
+#sb-wrap[data-boss="2"] .sb-playfield {
+  background:
+    radial-gradient(circle at top left, rgba(148,163,184,0.25), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(244,114,182,0.25), transparent 60%),
+    #020617;
+}
+
+#sb-wrap[data-boss="3"] .sb-playfield {
+  background:
+    radial-gradient(circle at top left, rgba(248,113,113,0.3), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(55,65,81,0.5), transparent 60%),
+    #020617;
+}
+
+/* phase overlay brightness */
+
+#sb-wrap[data-phase="1"] .sb-playfield {
+  filter: brightness(1.0);
+}
+
+#sb-wrap[data-phase="2"] .sb-playfield {
+  filter: brightness(1.05) saturate(1.05);
+}
+
+#sb-wrap[data-phase="3"] .sb-playfield {
+  filter: brightness(1.12) saturate(1.12);
+}
+
+/* boss shake */
+
+.sb-wrap-shake {
+  animation: sb-wrap-shake .26s ease-in-out;
+}
+
+@keyframes sb-wrap-shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+/* ===== Targets (Emoji bubbles) ===== */
+
 .sb-target {
   position: absolute;
   border-radius: 999px;
@@ -294,78 +551,158 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transform-origin: center;
 }
 
-/* ขนาด/เอฟเฟ็กต์เป้า (ตัวอย่าง: ให้ขอบมี ring cycle) */
+.sb-target-core {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,0.95), rgba(148,163,184,0.2)),
+    radial-gradient(circle at 70% 80%, rgba(14,165,233,0.75), rgba(16,185,129,0.85));
+  box-shadow: 0 12px 28px rgba(15,23,42,0.95);
+  position: relative;
+  overflow: hidden;
+}
+
+/* bubble ring */
+
 .sb-target-ring {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 2px solid rgba(248,250,252,.55);
-  box-shadow: 0 0 0 3px rgba(148,163,184,.12);
-  animation: sb-ring-pulse 1.4s infinite ease-out;
+  inset: 8%;
+  border-radius: 999px;
+  border: 3px solid rgba(248,250,252,0.5);
+  mix-blend-mode: screen;
+  animation: sb-ring-pulse 1.4s infinite ease-in-out;
 }
 
 @keyframes sb-ring-pulse {
   0% { transform: scale(1); opacity: .9; }
-  80% { transform: scale(1.18); opacity: 0; }
-  100% { transform: scale(1.18); opacity: 0; }
+  60% { transform: scale(1.12); opacity: .45; }
+  100% { transform: scale(1.04); opacity: .8; }
 }
 
-/* เป้า phase ต่าง ๆ ปรับโทนสีด้วย data-attribute ที่ wrap ใส่ให้แล้วใน engine.js */
-#sb-wrap[data-phase="1"] #target-layer {
+/* ring color per type (normal / bomb / heal / shield / bossface) */
+.sb-target-normal .sb-target-ring {
+  border-color: rgba(56,189,248,0.9);
+}
+
+.sb-target-bomb .sb-target-ring {
+  border-color: rgba(248,113,113,0.95);
+}
+
+.sb-target-heal .sb-target-ring {
+  border-color: rgba(52,211,153,0.95);
+}
+
+.sb-target-shield .sb-target-ring {
+  border-color: rgba(129,140,248,0.95);
+}
+
+.sb-target-bossface .sb-target-ring {
+  border-color: rgba(250,204,21,0.98);
+}
+
+/* ring cycle by phase (เพิ่มสีทีละเฟส) */
+#sb-wrap[data-phase="1"] .sb-target-ring {
+  box-shadow: 0 0 12px rgba(59,130,246,0.6);
+}
+#sb-wrap[data-phase="2"] .sb-target-ring {
+  box-shadow: 0 0 16px rgba(96,165,250,0.9),
+              0 0 24px rgba(52,211,153,0.6);
+}
+#sb-wrap[data-phase="3"] .sb-target-ring {
+  box-shadow: 0 0 20px rgba(250,204,21,1),
+              0 0 30px rgba(244,114,182,0.9);
+}
+
+/* emoji icon */
+
+.sb-target-emoji {
+  position: relative;
+  font-size: 0.52em;
+  filter: drop-shadow(0 3px 4px rgba(15,23,42,.75));
+}
+
+/* spawn pop animation */
+
+.sb-target-pop {
+  animation: sb-target-pop .18s ease-out;
+}
+
+@keyframes sb-target-pop {
+  0%   { transform: scale(.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* remove animation */
+
+.sb-target-out {
+  animation: sb-target-out .18s ease-in forwards;
+}
+
+@keyframes sb-target-out {
+  to {
+    transform: scale(.7);
+    opacity: 0;
+  }
+}
+
+/* FEVER visual on playfield */
+
+#sb-wrap.sb-fever-on .sb-playfield::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   background:
-    radial-gradient(circle at 10% 0%, rgba(56,189,248,.20), transparent 60%),
-    radial-gradient(circle at 90% 100%, rgba(45,212,191,.22), transparent 60%),
-    #020617;
+    radial-gradient(circle at top,
+      rgba(251,191,36,0.28), transparent 55%),
+    radial-gradient(circle at bottom,
+      rgba(244,114,182,0.25), transparent 60%);
+  pointer-events: none;
+  mix-blend-mode: screen;
 }
-#sb-wrap[data-phase="2"] #target-layer {
+
+/* ===== Feedback text (ด้านบน gameplay) ===== */
+
+#sb-feedback {
+  margin-top: 6px;
+  min-height: 1.2em;
+  font-size: .9rem;
+  color: #e5e7eb;
+  transition: opacity .14s ease;
+}
+
+.sb-feedback.perfect {
+  color: #4ade80;
+}
+.sb-feedback.good {
+  color: #38bdf8;
+}
+.sb-feedback.bad {
+  color: #fb923c;
+}
+.sb-feedback.miss {
+  color: #fb7185;
+}
+
+/* ===== Boss portrait card (right side) ===== */
+
+.sb-boss-card {
+  border-radius: 20px;
   background:
-    radial-gradient(circle at 0% 0%, rgba(251,191,36,.22), transparent 60%),
-    radial-gradient(circle at 100% 100%, rgba(244,114,182,.18), transparent 60%),
-    #020617;
-}
-#sb-wrap[data-phase="3"] #target-layer {
-  background:
-    radial-gradient(circle at 0% 20%, rgba(248,113,113,.22), transparent 55%),
-    radial-gradient(circle at 100% 80%, rgba(129,140,248,.22), transparent 55%),
-    #020617;
-}
-
-/* ขณะ FEVER ให้มี rim glow ที่สนาม */
-.sb-wrap.sb-fever-on #target-layer {
-  box-shadow: 0 0 0 2px rgba(250,204,21,.9),
-              0 0 40px rgba(251,191,36,.9),
-              0 26px 60px rgba(15,23,42,1);
-}
-
-/* ขณะ phase เปลี่ยนให้จอสั่นนิดหน่อย (engine.js ใส่ class ให้) */
-.sb-wrap-shake #target-layer {
-  animation: sb-shake .26s ease-in-out;
-}
-@keyframes sb-shake {
-  0%   { transform: translateX(0); }
-  25%  { transform: translateX(-6px); }
-  50%  { transform: translateX(4px); }
-  75%  { transform: translateX(-3px); }
-  100% { transform: translateX(0); }
-}
-
-/* ขวา: boss panel */
-
-.sb-boss-panel {
-  flex: 0 0 260px;
-  max-width: 320px;
-  border-radius: 24px;
-  border: 1px solid rgba(148,163,184,.25);
-  background:
-    radial-gradient(circle at top left, rgba(148,163,184,.26), transparent 60%),
-    rgba(15,23,42,.95);
+    radial-gradient(circle at top left,
+      rgba(56,189,248,0.18), transparent 60%),
+    rgba(15,23,42,0.98);
   padding: 16px 18px 18px;
-  box-shadow: 0 16px 36px rgba(15,23,42,.9);
+  border: 1px solid rgba(148,163,184,.4);
+  box-shadow: 0 18px 36px rgba(15,23,42,.96);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .sb-boss-header {
@@ -375,122 +712,206 @@ body {
 }
 
 #boss-portrait-emoji {
-  font-size: 30px;
+  font-size: 2rem;
 }
+
 #boss-portrait-name {
+  font-size: 1rem;
   font-weight: 600;
-  font-size: 16px;
 }
 
 #boss-portrait-hint {
-  font-size: 13px;
-  color: var(--sb-text-soft);
+  font-size: .9rem;
+  color: #cbd5f5;
 }
 
-/* portrait สั่นตอน HP ต่ำ (engine.js ใส่ class sb-shake) */
+/* ใช้เพิ่ม effect สั่นตอน HP ต่ำ */
 #boss-portrait.sb-shake {
-  animation: sb-portrait-shake .28s ease-in-out infinite alternate;
-}
-@keyframes sb-portrait-shake {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-3px); }
+  animation: boss-shake .35s ease-in-out;
 }
 
-/* ===== BOSS INTRO OVERLAY ===== */
+@keyframes boss-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+  100%{ transform: translateX(0); }
+}
+
+/* ===== Boss Intro Overlay ===== */
 
 #bossIntro {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at top, rgba(15,23,42,.8), rgba(15,23,42,.96));
+  background: rgba(15,23,42,0.88);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 900;
 }
-#bossIntro.hidden { display: none !important; }
+
+#bossIntro.hidden {
+  display: none !important;
+}
 
 .sb-boss-intro-card {
   max-width: 420px;
-  padding: 22px 22px 18px;
+  width: calc(100% - 40px);
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.22), transparent 55%),
+    #020617;
   border-radius: 22px;
-  background: radial-gradient(circle at top left, rgba(148,163,184,.24), transparent 60%),
-              rgba(15,23,42,.98);
-  border: 1px solid rgba(148,163,184,.45);
-  box-shadow: 0 20px 50px rgba(15,23,42,1);
+  padding: 20px 22px 18px;
+  border: 1px solid rgba(148,163,184,.6);
+  box-shadow: 0 24px 50px rgba(15,23,42,1);
   text-align: center;
 }
-.sb-boss-intro-name {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-.sb-boss-intro-title {
-  font-size: 14px;
-  color: var(--sb-text-soft);
-  margin-bottom: 10px;
+
+#boss-intro-emoji {
+  font-size: 2.4rem;
 }
 
-/* ===== BUTTONS ===== */
+#boss-intro-name {
+  margin: 6px 0 4px;
+  font-size: 1.2rem;
+}
 
-.sb-btn {
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.4);
-  background: radial-gradient(circle at top left, rgba(148,163,184,.18), transparent 55%),
-              rgba(15,23,42,.96);
+#boss-intro-title {
+  margin: 0 0 6px;
+  color: #bfdbfe;
+  font-size: .95rem;
+}
+
+#boss-intro-desc {
+  margin: 0 0 10px;
+  font-size: .9rem;
   color: #e5e7eb;
-  padding: 7px 14px;
-  font-size: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-.sb-btn-primary {
-  background: linear-gradient(90deg, #4f46e5, #06b6d4);
-  border-color: transparent;
 }
 
-/* ===== RESPONSIVE ===== */
+.sb-boss-intro-hint {
+  font-size: .8rem;
+  color: #9ca3af;
+}
 
-@media (max-width: 1024px) {
-  .sb-card-main {
-    padding-inline: 16px;
+/* ===== RESULT VIEW ===== */
+
+.sb-view-result {
+  max-width: 1200px;
+  margin: 12px auto 32px;
+  padding: 0 16px;
+}
+
+.sb-result-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, .9fr);
+  gap: 16px;
+}
+
+.sb-result-main {
+  background:
+    radial-gradient(circle at top left,
+    rgba(56,189,248,0.18), transparent 60%),
+    rgba(15,23,42,0.98);
+  border-radius: 18px;
+  padding: 16px 18px 18px;
+  border: 1px solid rgba(148,163,184,.4);
+  box-shadow: 0 18px 36px rgba(15,23,42,.95);
+}
+
+.sb-result-grid {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 6px 12px;
+  font-size: .9rem;
+}
+
+.sb-result-label {
+  font-size: .8rem;
+  color: #9ca3af;
+}
+
+/* ===== Research form ===== */
+
+.sb-view-research {
+  max-width: 680px;
+  margin: 12px auto 32px;
+  padding: 0 16px;
+}
+
+.sb-research-card {
+  background:
+    radial-gradient(circle at top left,
+      rgba(94,234,212,0.18), transparent 60%),
+    rgba(15,23,42,0.98);
+  border-radius: 18px;
+  padding: 16px 18px 18px;
+  border: 1px solid rgba(148,163,184,.5);
+  box-shadow: 0 18px 36px rgba(15,23,42,.95);
+}
+
+.sb-research-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 14px;
+}
+
+.sb-input,
+.sb-textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(148,163,184,.7);
+  background: rgba(15,23,42,.96);
+  color: #e5e7eb;
+  padding: 8px 10px;
+  font-size: .9rem;
+}
+
+.sb-textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+/* ===== Responsive ===== */
+
+@media (max-width: 960px) {
+  .sb-menu-layout {
+    grid-template-columns: minmax(0,1fr);
   }
-  .sb-play-main {
-    flex-direction: column;
+
+  .sb-play-layout {
+    grid-template-columns: minmax(0,1fr);
   }
-  .sb-boss-panel {
-    max-width: none;
+
+  .sb-result-layout {
+    grid-template-columns: minmax(0,1fr);
   }
-  #target-layer {
-    height: min(440px, 58vh);
+
+  .sb-view-play {
+    margin-top: 12px;
   }
 }
 
-@media (max-width: 768px) {
-  .sb-card-header {
+@media (max-width: 640px) {
+  .sb-header {
     flex-direction: column;
     align-items: flex-start;
   }
-  .sb-top-stats {
-    gap: 8px 16px;
-    font-size: 12px;
-  }
-  .sb-stat-value {
-    font-size: 13px;
-  }
-  #target-layer {
-    height: 55vh;
-    border-radius: 20px;
-  }
-}
 
-@media (max-width: 480px) {
-  .sb-wrap {
-    padding: 12px 10px 18px;
+  .sb-form-grid {
+    grid-template-columns: minmax(0,1fr);
   }
-  #target-layer {
-    height: 52vh;
-    min-height: 230px;
+
+  .sb-hud-top {
+    align-items: flex-start;
+  }
+
+  .sb-hud-top-left {
+    gap: 6px 12px;
+  }
+
+  .sb-playfield {
+    min-height: min(60vh, 520px);
   }
 }
