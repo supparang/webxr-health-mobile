@@ -1,26 +1,26 @@
-// === js/dom-renderer-shadow.js — Shadow Breaker DOM Renderer (2025-12-03) ===
+// === js/dom-renderer-shadow.js — Shadow Breaker DOM Renderer (2025-12-04) ===
 'use strict';
 
 /**
  * เรนเดอร์เป้า / เอฟเฟ็กต์ทั้งหมดใน DOM สำหรับ Shadow Breaker
- * - host = element สนาม (เช่น #target-layer)
- * - onTargetHit(id, {clientX, clientY}) callback กลับไปที่ engine
+ * - host = element ของสนาม (เช่น #target-layer)
+ * - this.onTargetHit(id, {clientX, clientY}) callback กลับไปที่ engine
  */
 export class DomRendererShadow {
   constructor(host, opts = {}) {
-    this.host = host || document.body;
-    this.wrapEl = opts.wrapEl || this.host;
+    this.host = host || document.getElementById('target-layer') || document.body;
+    this.wrapEl = opts.wrapEl || document.getElementById('sb-wrap') || this.host;
     this.flashEl = opts.flashEl || null;
-    this.feedbackEl = opts.feedbackEl || null;
-    this.onTargetHit = typeof opts.onTargetHit === 'function'
-      ? opts.onTargetHit
-      : () => {};
+    this.feedbackEl = opts.feedbackEl || document.getElementById('sb-feedback') || null;
 
-    /** mapping targetId -> { el, data } */
+    this.onTargetHit =
+      typeof opts.onTargetHit === 'function' ? opts.onTargetHit : () => {};
+
+    /** เก็บ mapping targetId -> { el, data } */
     this.targets = new Map();
     this.diffKey = 'normal';
 
-    // ให้สนามเป็น relative ป้องกันตำแหน่งเพี้ยน
+    // ให้สนามเป็น relative เสมอ ป้องกันตำแหน่งเพี้ยน
     if (this.host && getComputedStyle(this.host).position === 'static') {
       this.host.style.position = 'relative';
     }
@@ -45,10 +45,10 @@ export class DomRendererShadow {
 
   _emojiForTarget(t) {
     if (t.isBossFace) return t.bossEmoji || '💥';
-    if (t.type === 'bomb') return '💣';
-    if (t.type === 'heal') return '💚';
-    if (t.type === 'shield') return '🛡️';
-    if (t.type === 'decoy') return '🎯';
+    if (t.isBomb) return '💣';
+    if (t.isHeal) return '💚';
+    if (t.isShield) return '🛡️';
+    if (t.isDecoy) return '🎯';
     return '🥊';
   }
 
@@ -70,16 +70,16 @@ export class DomRendererShadow {
   // ---------- TARGET LIFECYCLE ----------
 
   /**
-   * engine จะส่ง object target เข้ามา
-   * - มี id, sizePx, bossPhase, type ฯลฯ
+   * สร้างเป้าขึ้นมาบนสนาม
+   * engine จะส่ง target object เข้ามา (มี sizePx, bossPhase ฯลฯ)
    */
   spawnTarget(target) {
     if (!this.host) return;
 
-    // สุ่มตำแหน่งแบบ normalized (0–1) แล้วเก็บกลับไปใช้ใน CSV ได้
-    const xNorm = Math.random();           // ทั้งแนวกว้าง
-    const yNorm = Math.random() * 0.82 + 0.09; // เว้นขอบบนล่างเล็กน้อย
+    const xNorm = Math.random();
+    const yNorm = Math.random() * 0.84 + 0.08; // เลี่ยงชิดขอบบน/ล่างเกินไป
 
+    // เก็บใส่ target เพื่อส่งลง CSV ได้
     target.x_norm = xNorm;
     target.y_norm = yNorm;
 
@@ -87,15 +87,19 @@ export class DomRendererShadow {
 
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = [
-      'sb-target',
-      `sb-phase-${target.bossPhase || 1}`,
-      `sb-diff-${this.diffKey}`
-    ].join(' ');
     el.dataset.id = String(target.id);
     el.setAttribute('aria-label', 'target');
 
-    // โครงสร้างตรงกับ shadow-breaker.css
+    const cls = ['sb-target', `sb-diff-${this.diffKey}`];
+
+    if (target.isBossFace) cls.push('sb-target--bossface');
+    if (target.isHeal) cls.push('sb-target--heal');
+    if (target.isShield) cls.push('sb-target--shield');
+    if (target.isBomb) cls.push('sb-target--bomb');
+
+    el.className = cls.join(' ');
+
+    // โครงสร้างตรงกับ shadow-breaker.css เดิม
     el.innerHTML = `
       <div class="sb-target-inner">
         <div class="sb-bubble-core"></div>
@@ -108,41 +112,25 @@ export class DomRendererShadow {
       position: 'absolute',
       width: size + 'px',
       height: size + 'px',
-      left: (xNorm * 100) + '%',
-      top: (yNorm * 100) + '%',
+      left: xNorm * 100 + '%',
+      top: yNorm * 100 + '%',
       transform: 'translate(-50%, -50%) scale(0.8)',
       opacity: '0',
       pointerEvents: 'auto'
     });
 
-    // สไตล์ emoji ให้ลอยอยู่กลางฟอง
-    const emo = el.querySelector('.sb-target-emoji');
-    if (emo) {
-      Object.assign(emo.style, {
-        position: 'absolute',
-        inset: '0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '32px',
-        pointerEvents: 'none'
-      });
-    }
-
     this.host.appendChild(el);
 
-    // spawn animation (ใช้ class เดียวกับใน CSS: .sb-target--spawned)
+    // animate in (ใช้ class sb-target--spawned ตาม CSS)
     requestAnimationFrame(() => {
       el.classList.add('sb-target--spawned');
-      el.style.opacity = '1';
-      el.style.transform = 'translate(-50%, -50%) scale(1)';
     });
 
     this.targets.set(target.id, { el, data: target });
   }
 
   /**
-   * เอฟเฟ็กต์ตอนตีโดน (engine เป็นคนลบเป้าโดยเรียก removeTarget)
+   * เอฟเฟ็กต์ตอนตีโดน (engine จะเป็นคนลบเป้าเองผ่าน removeTarget)
    */
   playHitFx(id, info = {}) {
     const rec = this.targets.get(id);
@@ -150,45 +138,35 @@ export class DomRendererShadow {
 
     const { grade, scoreDelta, fxEmoji, clientX, clientY } = info;
 
-    let cx = clientX;
-    let cy = clientY;
-
-    if (typeof cx !== 'number' || typeof cy !== 'number') {
+    let sx = clientX;
+    let sy = clientY;
+    if (typeof sx !== 'number' || typeof sy !== 'number') {
       const rect = rec.el.getBoundingClientRect();
-      cx = rect.left + rect.width / 2;
-      cy = rect.top + rect.height / 2;
+      sx = rect.left + rect.width / 2;
+      sy = rect.top + rect.height / 2;
     }
 
-    // แตกกระจาย
-    this._spawnBurstAtScreen(cx, cy, grade, fxEmoji);
-
-    // คะแนนเด้งตรงเป้า
+    this._spawnBurstAtScreen(sx, sy, grade, fxEmoji);
     if (scoreDelta && scoreDelta !== 0) {
-      this._spawnScoreBubble(cx, cy - 12, scoreDelta, grade);
+      this._spawnScoreFx(sx, sy - 10, scoreDelta, grade);
     }
 
-    // scale เล็กน้อยตอนโดน
     rec.el.classList.add('sb-target-hit');
-    setTimeout(() => rec.el.classList.remove('sb-target-hit'), 160);
+    setTimeout(() => rec.el.classList.remove('sb-target-hit'), 180);
   }
 
   /**
-   * ลบเป้าออกจากจอ
+   * ลบเป้าจากจอ เมื่อหมดเวลา / ตีโดน / เปลี่ยนบอส ฯลฯ
    */
   removeTarget(id, reason = 'timeout') {
     const rec = this.targets.get(id);
     if (!rec) return;
 
     const el = rec.el;
-
     if (reason === 'timeout') {
-      el.classList.remove('sb-target--spawned');
-      el.style.opacity = '0';
-      el.style.transform = 'translate(-50%, -50%) scale(0.9)';
+      el.classList.add('sb-target-timeout');
     } else {
-      el.classList.remove('sb-target--spawned');
-      el.style.opacity = '0';
-      el.style.transform = 'translate(-50%, -50%) scale(0.7)';
+      el.classList.add('sb-target-hide');
     }
 
     setTimeout(() => el.remove(), 220);
@@ -205,7 +183,8 @@ export class DomRendererShadow {
 
       const size = 6 + Math.random() * 6;
       const ang = (i / n) * Math.PI * 2;
-      const dist = 32 + Math.random() * 24;
+      const dist = 34 + Math.random() * 26;
+
       const dx = Math.cos(ang) * dist;
       const dy = Math.sin(ang) * dist;
 
@@ -220,16 +199,20 @@ export class DomRendererShadow {
       });
 
       const hueBase =
-        grade === 'perfect' ? 145 :
-        grade === 'good'    ? 200 :
-        grade === 'bomb'    ? 8   :
-        grade === 'heal'    ? 130 :
-        grade === 'shield'  ? 230 : 45;
+        grade === 'perfect'
+          ? 150
+          : grade === 'good'
+          ? 200
+          : grade === 'bomb'
+          ? 5
+          : grade === 'heal'
+          ? 130
+          : grade === 'shield'
+          ? 230
+          : 45;
 
-      frag.style.background =
-        `radial-gradient(circle at 30% 30%, hsl(${hueBase},100%,85%), hsl(${hueBase},90%,55%))`;
-      frag.style.boxShadow =
-        `0 0 8px hsla(${hueBase},100%,70%,.9)`;
+      frag.style.background = `radial-gradient(circle at 30% 30%, hsl(${hueBase},100%,85%), hsl(${hueBase},90%,55%))`;
+      frag.style.boxShadow = `0 0 8px hsla(${hueBase},100%,70%,.9)`;
 
       document.body.appendChild(frag);
 
@@ -249,11 +232,9 @@ export class DomRendererShadow {
     }
   }
 
-  _spawnScoreBubble(x, y, scoreDelta, grade) {
+  _spawnScoreFx(x, y, scoreDelta, grade) {
     const el = document.createElement('div');
-    // ใช้คลาสเดียวกับ CSS: .sb-score-fx + .good/.perfect/.bad/.miss
-    const g = grade || (scoreDelta > 0 ? 'good' : 'miss');
-    el.className = `sb-score-fx ${g}`;
+    el.className = `sb-score-fx ${grade || ''}`;
 
     const sign = scoreDelta > 0 ? '+' : '';
     el.textContent = sign + scoreDelta;
@@ -266,13 +247,14 @@ export class DomRendererShadow {
 
     document.body.appendChild(el);
 
+    // ให้ transition ทำงาน
     requestAnimationFrame(() => {
       el.classList.add('active');
-      el.style.transform = 'translate(-50%, -40px)';
+      el.style.transform = 'translate(-50%, -24px)';
+      el.style.opacity = '1';
     });
 
     setTimeout(() => {
-      el.classList.remove('active');
       el.style.opacity = '0';
     }, 450);
 
