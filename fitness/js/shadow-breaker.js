@@ -5,11 +5,6 @@ import { initShadowBreaker } from './engine.js';
 
 function bootShadowBreaker() {
   try {
-    // ให้ engine.js จัดการทุกอย่าง:
-    // - สร้าง ShadowBreakerEngine
-    // - ผูกปุ่มเมนู (start, research, stop, back-to-menu, play-again)
-    // - ใช้ DomRenderer / EventLogger / SessionLogger
-    // - อัปเดต HUD และหน้า RESULT + CSV
     initShadowBreaker();
     console.log('[ShadowBreaker] bootstrap OK');
   } catch (e) {
@@ -18,8 +13,6 @@ function bootShadowBreaker() {
   }
 }
 
-// ถ้า DOM ยังโหลดไม่เสร็จ ให้รอ DOMContentLoaded
-// ถ้าโหลดเสร็จแล้ว ให้เรียกเลย
 if (document.readyState === 'loading') {
   window.addEventListener('DOMContentLoaded', bootShadowBreaker);
 } else {
