@@ -1,277 +1,228 @@
-// === js/rhythm-boxer.js — Rhythm Boxer bootstrap + UI wiring (2025-11-30b) ===
-'use strict';
-
+// === js/rhythm-boxer.js — UI Controller (2025-12-02) ===
 (function () {
-  const $  = (id)  => document.getElementById(id);
-  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  'use strict';
 
-  let engine = null;
-  let lastConfig = null;
+  const $ = (sel) => document.querySelector(sel);
 
-  function showView(name) {
-    const views = ['rb-view-menu', 'rb-view-play', 'rb-view-result'];
-    views.forEach(id => {
-      const el = $(id);
-      if (!el) return;
-      el.classList.toggle('hidden', id !== name);
-    });
-  }
+  const wrap = $('#rb-wrap');
+  const viewMenu = $('#rb-view-menu');
+  const viewPlay = $('#rb-view-play');
+  const viewResult = $('#rb-view-result');
 
-  function getSelectedMode() {
+  const modeRadios = document.querySelectorAll('input[name="mode"]');
+  const trackOptions = $('#rb-track-options');
+
+  const modeDesc = $('#rb-mode-desc');
+  const trackModeLabel = $('#rb-track-mode-label');
+  const trackHint = $('#rb-track-hint');
+
+  const researchBox = $('#rb-research-fields');
+
+  const feedbackEl = $('#rb-feedback');
+  const flashEl = $('#rb-flash');
+  const fieldEl = $('#rb-field');
+  const lanesEl = $('#rb-lanes');
+  const audioEl = $('#rb-audio');
+
+  const hud = {
+    score: $('#rb-hud-score'),
+    combo: $('#rb-hud-combo'),
+    hp: $('#rb-hud-hp'),
+    shield: $('#rb-hud-shield'),
+    time: $('#rb-hud-time'),
+    acc: $('#rb-hud-acc'),
+    countPerfect: $('#rb-hud-perfect'),
+    countGreat: $('#rb-hud-great'),
+    countGood: $('#rb-hud-good'),
+    countMiss: $('#rb-hud-miss'),
+    feverFill: $('#rb-fever-fill'),
+    feverStatus: $('#rb-fever-status'),
+    progFill: $('#rb-progress-fill'),
+    progText: $('#rb-progress-text')
+  };
+
+  const renderer = new window.RbDomRenderer(fieldEl, {
+    flashEl,
+    feedbackEl,
+    wrapEl: document.body
+  });
+
+  const engine = new window.RhythmBoxerEngine({
+    wrap,
+    field: fieldEl,
+    lanesEl,
+    audio: audioEl,
+    renderer,
+    hud,
+    hooks: {
+      onEnd: handleEnd
+    }
+  });
+
+  function getCurrentMode() {
     const r = document.querySelector('input[name="mode"]:checked');
     return r ? r.value : 'normal';
   }
 
-  function getSelectedTrackId(mode) {
-    const sel = $('rb-track');
-    if (!sel) return 't1';
-    let v = sel.value || 't1';
+  function updateModeUI() {
+    const mode = getCurrentMode();
+    const isResearch = mode === 'research';
 
-    // โหมดวิจัย → ล็อกเพลงเป็น research track เสมอ
-    if (mode === 'research') {
-      v = 'research';
-      sel.value = 'research';
+    modeDesc.textContent = isResearch
+      ? 'Research: ใช้เก็บข้อมูลเชิงวิจัย พร้อมดาวน์โหลด CSV'
+      : 'Normal: เล่นสนุก / ใช้สอนทั่วไป (ไม่จำเป็นต้องกรอกข้อมูลผู้เข้าร่วม)';
+
+    researchBox.classList.toggle('hidden', !isResearch);
+
+    // โชว์เพลงเฉพาะโหมด
+    if (trackOptions) {
+      const labels = trackOptions.querySelectorAll('.rb-radio');
+      let firstVisible = null;
+
+      labels.forEach((lbl) => {
+        const m = lbl.dataset.mode || 'normal';
+        const show = isResearch ? m === 'research' : m === 'normal';
+        lbl.style.display = show ? 'inline-flex' : 'none';
+        const radio = lbl.querySelector('input[type="radio"]');
+        if (show && !firstVisible) firstVisible = radio;
+        if (!show && radio && radio.checked) {
+          radio.checked = false;
+        }
+      });
+
+      if (!document.querySelector('input[name="track"]:checked') && firstVisible) {
+        firstVisible.checked = true;
+      }
     }
-    return v;
+
+    trackModeLabel.textContent = isResearch
+      ? 'โหมด Research — ใช้ Research Track 120 สำหรับงานทดลอง'
+      : 'โหมด Normal — เพลง 3 ระดับ: ง่าย / ปกติ / ยาก';
+
+    trackHint.textContent = isResearch
+      ? 'เลือก Research Track 120 เพื่อเก็บ Offset / Reaction Time อย่างสม่ำเสมอ'
+      : 'แนะนำให้เริ่มจาก Warm-up Groove (ง่าย) แล้วค่อยลองเพลงที่ยากขึ้น';
   }
 
-  function collectResearchMeta() {
-    return {
-      id:    ($('rb-participant')?.value || '').trim(),
-      group: ($('rb-group')?.value || '').trim(),
-      note:  ($('rb-note')?.value || '').trim(),
-    };
-  }
+  modeRadios.forEach((r) => {
+    r.addEventListener('change', updateModeUI);
+  });
+  updateModeUI();
 
-  function updateResearchFieldsVisibility() {
-    const mode = getSelectedMode();
-    const box  = $('rb-research-fields');
-    const sel  = $('rb-track');
-    if (!box || !sel) return;
+  // เริ่มเล่น
+  $('#rb-btn-start').addEventListener('click', () => {
+    const mode = getCurrentMode();
+    const trackRadio = document.querySelector('input[name="track"]:checked');
+    const trackId = trackRadio ? trackRadio.value : 'n1';
 
+    const meta = {};
     if (mode === 'research') {
-      box.classList.remove('hidden');
-      // ล็อก dropdown เพลงไว้ที่ research + disable
-      sel.value    = 'research';
-      sel.disabled = true;
+      meta.id = ($('#rb-participant').value || '').trim();
+      meta.group = ($('#rb-group').value || '').trim();
+      meta.note = ($('#rb-note').value || '').trim();
+    }
+
+    applyDiffForTrack(trackId);
+
+    $('#rb-hud-mode').textContent = mode === 'research' ? 'Research' : 'Normal';
+    const tMeta = findTrackMeta(trackId);
+    $('#rb-hud-track').textContent = tMeta ? tMeta.nameShort : trackId;
+
+    showView('play');
+    engine.start(mode, trackId, meta);
+  });
+
+  // หยุดก่อนเวลา
+  $('#rb-btn-stop').addEventListener('click', () => {
+    engine.stop('user-stop');
+  });
+
+  // ปุ่มสรุปผล
+  $('#rb-btn-again').addEventListener('click', () => {
+    showView('menu');
+  });
+  $('#rb-btn-back-menu').addEventListener('click', () => {
+    showView('menu');
+  });
+
+  // ดาวน์โหลด CSV
+  $('#rb-btn-dl-events').addEventListener('click', () => {
+    downloadCsv(engine.getEventsCsv(), 'rb-events.csv');
+  });
+  $('#rb-btn-dl-sessions').addEventListener('click', () => {
+    downloadCsv(engine.getSessionCsv(), 'rb-sessions.csv');
+  });
+
+  function showView(which) {
+    viewMenu.classList.add('hidden');
+    viewPlay.classList.add('hidden');
+    viewResult.classList.add('hidden');
+
+    if (which === 'play') viewPlay.classList.remove('hidden');
+    else if (which === 'result') viewResult.classList.remove('hidden');
+    else viewMenu.classList.remove('hidden');
+
+    window.scrollTo(0, 0);
+  }
+
+  function handleEnd(summary) {
+    $('#rb-res-mode').textContent = summary.modeLabel;
+    $('#rb-res-track').textContent = summary.trackName;
+    $('#rb-res-endreason').textContent =
+      summary.endReason === 'song-end'
+        ? 'เพลงจบ'
+        : summary.endReason === 'user-stop' ||
+          summary.endReason === 'manual-stop'
+        ? 'หยุดก่อนเวลา'
+        : summary.endReason;
+
+    $('#rb-res-score').textContent = summary.finalScore;
+    $('#rb-res-maxcombo').textContent = summary.maxCombo;
+    $('#rb-res-detail-hit').textContent = `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`;
+    $('#rb-res-acc').textContent = summary.accuracyPct.toFixed(1) + ' %';
+    $('#rb-res-duration').textContent = summary.durationSec.toFixed(1) + ' s';
+    $('#rb-res-rank').textContent = summary.rank;
+    $('#rb-res-offset-avg').textContent = summary.offsetMean.toFixed(3) + ' s';
+    $('#rb-res-offset-std').textContent = summary.offsetStd.toFixed(3) + ' s';
+    $('#rb-res-participant').textContent = summary.participant || '-';
+
+    const q = $('#rb-res-quality-note');
+    if (summary.qualityNote) {
+      q.textContent = summary.qualityNote;
+      q.classList.remove('hidden');
     } else {
-      box.classList.add('hidden');
-      sel.disabled = false;
-      // ถ้าเคยอยู่ research ให้เด้งกลับเพลงแรก
-      if (sel.value === 'research') {
-        sel.value = 't1';
-      }
+      q.classList.add('hidden');
     }
+
+    showView('result');
   }
 
-  function bindUI() {
-    const wrap       = $('rb-wrap');
-    const field      = $('rb-field');
-    const lanes      = $('rb-lanes');
-    const audioEl    = $('rb-audio');
-    const flashEl    = $('rb-flash');
-    const feedbackEl = $('rb-feedback');
-
-    if (!wrap || !field || !lanes) {
-      console.error('[RhythmBoxer] Missing core DOM elements.');
-      return;
-    }
-
-    // DOM renderer (effect คะแนน + particle)
-    const renderer = new window.RbDomRenderer(field, {
-      flashEl,
-      feedbackEl,
-      wrapEl: wrap
-    });
-
-    // สร้าง engine หลัก
-    engine = new window.RhythmBoxerEngine({
-      wrap,
-      field,
-      lanesEl: lanes,
-      audio: audioEl,
-      renderer,
-      hud: {
-        mode:   $('rb-hud-mode'),
-        track:  $('rb-hud-track'),
-        score:  $('rb-hud-score'),
-        combo:  $('rb-hud-combo'),
-        acc:    $('rb-hud-acc'),
-        hp:     $('rb-hud-hp'),
-        shield: $('rb-hud-shield'),
-        time:   $('rb-hud-time'),
-
-        feverFill:   $('rb-fever-fill'),
-        feverStatus: $('rb-fever-status'),
-        progFill:    $('rb-progress-fill'),
-        progText:    $('rb-progress-text'),
-
-        countPerfect: $('rb-hud-perfect'),
-        countGreat:   $('rb-hud-great'),
-        countGood:    $('rb-hud-good'),
-        countMiss:    $('rb-hud-miss'),
-      },
-      hooks: {
-        onEnd: (summary) => {
-          // เติมหน้าผลลัพธ์
-          const setText = (id, v) => {
-            const el = $(id);
-            if (el) el.textContent = v;
-          };
-
-          setText('rb-res-mode',  summary.modeLabel || '-');
-          setText('rb-res-track', summary.trackName || '-');
-          setText('rb-res-endreason', summary.endReason || '-');
-          setText('rb-res-score', summary.finalScore);
-          setText('rb-res-maxcombo', summary.maxCombo);
-          setText(
-            'rb-res-detail-hit',
-            `${summary.hitPerfect} / ${summary.hitGreat} / ${summary.hitGood} / ${summary.hitMiss}`
-          );
-          setText('rb-res-acc', summary.accuracyPct.toFixed(1) + ' %');
-          setText(
-            'rb-res-offset-avg',
-            summary.offsetMean != null
-              ? (summary.offsetMean.toFixed(3) + ' s')
-              : '-'
-          );
-          setText(
-            'rb-res-offset-std',
-            summary.offsetStd != null
-              ? (summary.offsetStd.toFixed(3) + ' s')
-              : '-'
-          );
-          setText('rb-res-duration', summary.durationSec.toFixed(1) + ' s');
-          setText('rb-res-participant', summary.participant || '-');
-          setText('rb-res-rank', summary.rank || '-');
-
-          const qnote = $('rb-res-quality-note');
-          if (qnote) {
-            if (summary.qualityNote) {
-              qnote.textContent = summary.qualityNote;
-              qnote.classList.remove('hidden');
-            } else {
-              qnote.classList.add('hidden');
-            }
-          }
-
-          showView('rb-view-result');
-        }
-      }
-    });
-
-    // ====== Events ======
-
-    // เปลี่ยนโหมด → แสดง/ซ่อนฟอร์มวิจัย + ล็อกเพลง
-    $$('input[name="mode"]').forEach(radio => {
-      radio.addEventListener('change', updateResearchFieldsVisibility);
-    });
-    updateResearchFieldsVisibility();
-
-    // ปุ่มเริ่มเกม
-    const btnStart = $('rb-btn-start');
-    if (btnStart) {
-      btnStart.addEventListener('click', () => {
-        if (!engine) return;
-        const mode    = getSelectedMode();
-        const trackId = getSelectedTrackId(mode);
-        const meta    = mode === 'research' ? collectResearchMeta() : {};
-
-        lastConfig = { mode, trackId, meta };
-
-        engine.start(mode, trackId, meta);
-
-        // HUD เบื้องต้น
-        const trackMeta = window.RB_TRACKS_META?.find(t => t.id === trackId) || null;
-        if ($('rb-hud-mode')) {
-          $('rb-hud-mode').textContent = (mode === 'research' ? 'Research' : 'Normal');
-        }
-        if ($('rb-hud-track')) {
-          $('rb-hud-track').textContent = trackMeta ? trackMeta.nameShort : trackId;
-        }
-
-        showView('rb-view-play');
-      });
-    }
-
-    // ปุ่มหยุดก่อนเวลา
-    const btnStop = $('rb-btn-stop');
-    if (btnStop) {
-      btnStop.addEventListener('click', () => {
-        if (!engine) return;
-        engine.stop('manual-stop');
-      });
-    }
-
-    // ปุ่มกลับเมนูจาก result
-    const btnBackMenu = $('rb-btn-back-menu');
-    if (btnBackMenu) {
-      btnBackMenu.addEventListener('click', () => {
-        showView('rb-view-menu');
-      });
-    }
-
-    // ปุ่มเล่นซ้ำเพลงเดิม
-    const btnAgain = $('rb-btn-again');
-    if (btnAgain) {
-      btnAgain.addEventListener('click', () => {
-        if (!engine || !lastConfig) return;
-        engine.start(lastConfig.mode, lastConfig.trackId, lastConfig.meta || {});
-        showView('rb-view-play');
-      });
-    }
-
-    // ดาวน์โหลด CSV (events / sessions)
-    function downloadCsv(name, text) {
-      if (!text) {
-        alert('ยังไม่มีข้อมูล CSV ลองเล่นเกมให้จบก่อนค่ะ');
-        return;
-      }
-      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    const btnEv = $('rb-btn-dl-events');
-    if (btnEv) {
-      btnEv.addEventListener('click', () => {
-        if (!engine) return;
-        downloadCsv('rhythm-boxer-events.csv', engine.getEventsCsv());
-      });
-    }
-
-    const btnSess = $('rb-btn-dl-sessions');
-    if (btnSess) {
-      btnSess.addEventListener('click', () => {
-        if (!engine) return;
-        downloadCsv('rhythm-boxer-sessions.csv', engine.getSessionCsv());
-      });
-    }
-
-    // แตะ lane → ส่งให้ engine judge
-    if (lanes) {
-      lanes.addEventListener('pointerdown', (ev) => {
-        if (!engine) return;
-        const laneEl = ev.target.closest('.rb-lane');
-        if (!laneEl) return;
-        const lane = parseInt(laneEl.dataset.lane || '0', 10);
-        engine.handleLaneTap(lane);
-      });
-    }
-
-    // เริ่มต้นเปิดที่หน้าเมนู
-    showView('rb-view-menu');
+  function downloadCsv(csv, filename) {
+    if (!csv) return;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindUI);
-  } else {
-    bindUI();
+  function findTrackMeta(id) {
+    const list = window.RB_TRACKS_META || [];
+    return list.find((t) => t.id === id) || null;
+  }
+
+  function applyDiffForTrack(trackId) {
+    const meta = findTrackMeta(trackId);
+    const diff = meta ? meta.diff || 'normal' : 'normal';
+    if (!wrap) return;
+    if (diff === 'easy' || diff === 'hard') {
+      wrap.dataset.diff = diff;
+    } else {
+      wrap.dataset.diff = 'normal';
+    }
   }
 })();
