@@ -1,4 +1,4 @@
-// === fitness/js/jump-duck.js — DOM-based Jump-Duck engine (2025-11-19) ===
+// === fitness/js/jump-duck.js — DOM-based Jump-Duck engine (2025-12-01) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -124,13 +124,15 @@ function startGame(){
   const durSecStr = (elDuration?.value) || '60';
   const durationMs= parseInt(durSecStr,10)*1000 || 60000;
 
+  const now = performance.now();
+
   state = {
     mode:'play',
     diffKey,
     cfg:diffCfg,
 
     durationMs,
-    startTime: performance.now(),
+    startTime: now,
     elapsedMs: 0,
     remainingMs: durationMs,
 
@@ -138,7 +140,7 @@ function startGame(){
     minStability: 100,
 
     obstacles: [],
-    nextSpawnAt: performance.now() + 600,
+    nextSpawnAt: now + 600,
     obstaclesSpawned: 0,
     hits: 0,
     miss: 0,
@@ -151,7 +153,7 @@ function startGame(){
   };
 
   running   = true;
-  lastFrame = performance.now();
+  lastFrame = now;
 
   // Reset UI
   if (elHudMode) elHudMode.textContent = 'Play';
@@ -177,6 +179,8 @@ function endGame(reason){
   running = false;
   if (rafId!=null){ cancelAnimationFrame(rafId); rafId=null; }
 
+  if (!state) return;
+
   // สร้างสรุป
   const totalObs = state.obstaclesSpawned || 0;
   const hits     = state.hits || 0;
@@ -194,23 +198,23 @@ function endGame(reason){
 /* ---------- Result view ---------- */
 
 function fillResultView(acc, rtMean, totalObs){
-  const durSec = (state.durationMs||60000)/1000;
+  const durSec = (state && state.durationMs ? state.durationMs : 60000)/1000;
 
   if (resMode)         resMode.textContent         = 'Play';
-  if (resDiff)         resDiff.textContent         = state.diffKey || 'normal';
+  if (resDiff)         resDiff.textContent         = state?.diffKey || 'normal';
   if (resDuration)     resDuration.textContent     = durSec.toFixed(0)+'s';
   if (resTotalObs)     resTotalObs.textContent     = String(totalObs);
-  if (resHits)         resHits.textContent         = String(state.hits||0);
-  if (resMiss)         resMiss.textContent         = String(state.miss||0);
+  if (resHits)         resHits.textContent         = String(state?.hits||0);
+  if (resMiss)         resMiss.textContent         = String(state?.miss||0);
   if (resAcc)          resAcc.textContent          = (acc*100).toFixed(1)+' %';
   if (resRTMean)       resRTMean.textContent       = fmtMs(rtMean);
-  if (resStabilityMin) resStabilityMin.textContent = (state.minStability||0).toFixed(1)+' %';
-  if (resScore)        resScore.textContent        = String(Math.round(state.score));
+  if (resStabilityMin) resStabilityMin.textContent = (state?.minStability||0).toFixed(1)+' %';
+  if (resScore)        resScore.textContent        = String(Math.round(state?.score||0));
 
   // คำนวณ rank S / A / B / C / D
   if (resRank){
     let rank = 'C';
-    const stab = state.minStability;
+    const stab = state?.minStability ?? 0;
     if (acc >= 0.90 && stab >= 85) rank='S';
     else if (acc >= 0.80 && stab >= 75) rank='A';
     else if (acc >= 0.65 && stab >= 60) rank='B';
@@ -266,14 +270,15 @@ function loop(ts){
 let nextObstacleId = 1;
 
 function spawnObstacle(ts){
-  if (!elObsHost) return;
+  if (!elObsHost || !state) return;
   const cfg = state.cfg || JD_DIFFS.normal;
 
   const isHigh = Math.random() < 0.5; // สลับ high/low
   const type   = isHigh ? 'high' : 'low';
 
   const el = document.createElement('div');
-  el.className = 'jd-obstacle '+type;
+  // ✅ ให้ตรงกับ jump-duck.css: jd-obstacle--low / jd-obstacle--high
+  el.className = 'jd-obstacle ' + (type === 'high' ? 'jd-obstacle--high' : 'jd-obstacle--low');
   el.dataset.id = String(nextObstacleId);
   el.textContent = isHigh ? '🟥' : '🧱';
 
@@ -295,6 +300,7 @@ function spawnObstacle(ts){
 }
 
 function updateObstacles(dt, now){
+  if (!state) return;
   const cfg = state.cfg || JD_DIFFS.normal;
   const speed = cfg.speedUnitsPerSec;
   const move = speed * (dt/1000);
@@ -309,7 +315,7 @@ function updateObstacles(dt, now){
 
     obs.x -= move;
 
-    // update DOM position
+    // update DOM position (ใช้ left%)
     if (obs.element){
       obs.element.style.left = obs.x + '%';
     }
