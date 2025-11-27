@@ -1,13 +1,12 @@
 // === js/engine.js — Shadow Breaker Engine + Flow (2025-12-02) ===
 'use strict';
 
-import { DomRenderer } from './dom-renderer.js';
 import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
 import { recordSession } from './stats-store.js';
 
-const BUILD_VERSION = 'sb-2025-11-30b';
+const BUILD_VERSION = 'sb-2025-12-02';
 
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -115,8 +114,9 @@ class ShadowBreakerEngine {
     this.diffKey = 'normal';
     this.diff    = DIFF_CONFIG.normal;
 
-    // renderer หลักสำหรับ spawn/remove เป้า + hit detection
-    this.renderer = new DomRenderer(this.field, {
+    // ใช้ DomRendererShadow ตัวเดียวสำหรับ spawn/ลบ/FX
+    this.renderer = new DomRendererShadow(this.field, {
+      wrapEl: this.wrap,
       onTargetHit: (id, info) => this.handleHit(id, info)
     });
     this.renderer.setDifficulty(this.diffKey);
@@ -147,12 +147,6 @@ class ShadowBreakerEngine {
       bossName:    $('#boss-portrait-name'),
       bossHint:    $('#boss-portrait-hint')
     };
-
-    // renderer เอฟเฟกต์ (คะแนนเด้ง, particle, MISS)
-    this.fxRenderer = new DomRendererShadow(this.field, {
-      wrapEl: this.wrap,
-      feedbackEl: this.hud.feedback
-    });
 
     this._loopBound = (ts) => this._loop(ts);
     this._introTapHandler = (ev) => {
@@ -711,28 +705,13 @@ class ShadowBreakerEngine {
       }
     }
 
-    // ===== เอฟเฟกต์คะแนน & particle ที่ตำแหน่งเป้า/คลิก =====
-    const sx =
-      (hitInfo && (hitInfo.clientX ?? hitInfo.x ?? hitInfo.screenX)) ??
-      (window.innerWidth / 2);
-    const sy =
-      (hitInfo && (hitInfo.clientY ?? hitInfo.y ?? hitInfo.screenY)) ??
-      (window.innerHeight / 2);
-
-    if (this.fxRenderer) {
-      if (grade === 'bomb' || grade === 'miss') {
-        this.fxRenderer.showMissFx({ x: sx, y: sy });
-      } else if (scoreDelta > 0) {
-        this.fxRenderer.showHitFx({
-          x: sx,
-          y: sy,
-          scoreDelta,
-          lane: hitInfo?.lane ?? null,
-          // map good → great เพื่อให้สีฟ้าแยกจาก perfect
-          judgment: grade === 'good' ? 'great' : grade
-        });
-      }
-    }
+    this.renderer.playHitFx(t.id, {
+      grade,
+      scoreDelta,
+      fxEmoji,
+      clientX: hitInfo?.clientX,
+      clientY: hitInfo?.clientY
+    });
 
     this.targets.delete(id);
     this.renderer.removeTarget(id, 'hit');
@@ -1109,7 +1088,7 @@ export function initShadowBreaker() {
 
         setText('#res-accuracy', (summary.accuracy_pct ?? 0) + '%');
 
-        // RT รวมอย่างเดียว (ไม่แสดงแยก Boss/Phase)
+        // RT รวม
         if (summary.rt_normal_mean_s !== undefined && summary.rt_normal_mean_s !== '') {
           setText('#res-rt-normal',
             Number(summary.rt_normal_mean_s).toFixed(3) + ' s');
@@ -1144,6 +1123,20 @@ export function initShadowBreaker() {
         }
 
         setText('#res-participant', summary.participant || '-');
+
+        // RT per Boss/Phase (normal targets)
+        for (let bi = 1; bi <= 4; bi++) {
+          for (let ph = 1; ph <= 3; ph++) {
+            const key = `rt_b${bi}_p${ph}_mean_s`;
+            const outId = `#res-rt-b${bi}p${ph}`;
+            const v = summary[key];
+            if (v !== undefined && v !== '') {
+              setText(outId, Number(v).toFixed(3) + ' s');
+            } else {
+              setText(outId, '-');
+            }
+          }
+        }
 
         if (viewResult) {
           viewResult.dataset.eventsCsv  = summary.eventsCsv || '';
