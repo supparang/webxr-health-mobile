@@ -1,4 +1,4 @@
-/* === /fitness/css/rhythm-boxer.css — Rhythm Boxer (mobile 1-screen layout, 2025-12-02) === */
+/* === /fitness/css/rhythm-boxer.css — Rhythm Boxer (2025-12-02) === */
 
 :root{
   color-scheme: dark;
@@ -51,216 +51,233 @@ html,body{
   pointer-events:none;
   background:radial-gradient(circle at center,rgba(248,113,113,0.6),transparent 60%);
   opacity:0;
-  transition:opacity .16s ease-out;
+  transition:opacity 0.16s ease-out;
   z-index:50;
+}
+#rb-flash.active{
+  opacity:1;
 }
 
 /* generic views */
 
-.rb-view{display:block;}
-.rb-view.hidden,
-.hidden{display:none!important;}
+.rb-view{
+  display:block;
+}
+.rb-view.hidden{
+  display:none;
+}
 
-/* ===== MENU VIEW ===== */
+.hidden{
+  display:none !important;
+}
+
+/* ===== HEADER / MENU ===== */
 
 .rb-header{
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   justify-content:space-between;
-  gap:12px;
+  gap:16px;
   margin-bottom:16px;
 }
 
 .rb-head-main{
-  display:flex;
-  flex-direction:column;
-  gap:4px;
+  min-width:0;
 }
 
 .rb-pill{
-  margin:0;
+  display:inline-flex;
+  align-items:center;
   padding:2px 10px;
   border-radius:999px;
-  font-size:.75rem;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-  background:rgba(15,23,42,.9);
-  border:1px solid rgba(148,163,184,.6);
-  color:var(--rb-muted);
+  border:1px solid rgba(56,189,248,0.6);
+  font-size:0.75rem;
+  color:#bae6fd;
+  background:rgba(15,23,42,0.95);
 }
 
 .rb-title{
-  margin:0;
-  font-size:1.7rem;
-  font-weight:700;
+  margin:4px 0 2px;
+  font-size:1.6rem;
 }
 
 .rb-sub{
   margin:0;
-  font-size:.9rem;
+  font-size:0.9rem;
   color:var(--rb-muted);
 }
 .rb-sub-small{
-  font-size:.8rem;
-  color:var(--rb-accent);
+  display:block;
+  font-size:0.8rem;
+  color:#c4b5fd;
 }
+
+/* ปุ่มกลับ HUB แบบ pill */
 
 .rb-back{
-  font-size:.9rem;
+  font-size:0.85rem;
   padding:4px 10px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.6);
-  background:rgba(15,23,42,.92);
+  border:1px solid rgba(148,163,184,0.6);
+  background:rgba(15,23,42,0.9);
   color:var(--rb-text);
   text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  white-space:nowrap;
 }
 .rb-back:hover{
-  border-color:var(--rb-accent);
-  color:#e0f2fe;
+  background:rgba(30,64,175,0.9);
+  border-color:#38bdf8;
 }
 
-/* sections */
+/* ===== SECTIONS ===== */
 
 .rb-section{
-  margin-bottom:16px;
+  margin:10px 0 12px;
 }
 
 .rb-section-title{
-  margin:0 0 8px;
+  margin:0 0 6px;
   font-size:1rem;
-  font-weight:600;
 }
 
 .rb-section-subtitle{
-  margin:0 0 6px;
-  font-size:.9rem;
-  font-weight:500;
+  margin:4px 0 6px;
+  font-size:0.9rem;
 }
-
-/* mode toggle */
-
-.rb-mode-toggle{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin:6px 0 4px;
-}
-
-.rb-mode-btn{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:6px 12px;
-  border-radius:999px;
-  background:#020617;
-  border:1px solid #1f2937;
-  cursor:pointer;
-  font-size:.85rem;
-}
-.rb-mode-btn input{
-  accent-color:var(--rb-accent);
-}
-.rb-mode-btn span{
-  transform:translateY(-1px);
-}
-
-.rb-mode-desc{
-  margin:0;
-  font-size:.85rem;
-  color:var(--rb-muted);
-}
-
-/* grid layout (menu + research box) */
 
 .rb-grid-2{
   display:grid;
-  grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);
-  gap:14px;
+  grid-template-columns:minmax(0,1.1fr) minmax(0,0.9fr);
+  gap:12px;
 }
 
-/* form fields (menu) */
+/* fields & hint */
 
 .rb-field{
   display:flex;
   flex-direction:column;
   gap:4px;
-  margin-bottom:10px;
-  font-size:.9rem;
+  margin-bottom:8px;
+  font-size:0.9rem;
 }
+
 .rb-field label{
   color:var(--rb-muted);
 }
+
 .rb-field input,
-.rb-field select,
-.rb-field textarea{
+.rb-field textarea,
+.rb-field select{
   background:#020617;
   border:1px solid #1f2937;
   border-radius:8px;
   padding:6px 8px;
   color:var(--rb-text);
-  font-size:.9rem;
-}
-.rb-field textarea{
-  resize:vertical;
-  min-height:56px;
+  font-size:0.9rem;
 }
 .rb-field input:focus,
-.rb-field select:focus,
-.rb-field textarea:focus{
+.rb-field textarea:focus,
+.rb-field select:focus{
   outline:none;
   border-color:var(--rb-accent);
-  box-shadow:0 0 0 1px rgba(56,189,248,.5);
+  box-shadow:0 0 0 1px rgba(56,189,248,0.5);
 }
-
-/* hint block */
 
 .rb-hint-block{
   margin-top:6px;
   padding:8px 10px;
   border-radius:10px;
-  border:1px dashed rgba(148,163,184,.5);
-  background:rgba(15,23,42,.92);
-  font-size:.85rem;
+  border:1px dashed rgba(148,163,184,0.6);
+  background:rgba(15,23,42,0.9);
+  font-size:0.85rem;
 }
 .rb-hint-title{
   margin:0 0 4px;
   font-weight:600;
-  font-size:.9rem;
+  font-size:0.88rem;
 }
 .rb-hint-list{
   margin:0;
   padding-left:18px;
 }
-
-/* research box */
+.rb-hint-list li{
+  margin:2px 0;
+}
 
 .rb-research-box{
-  padding:10px 10px 8px;
+  padding:8px 10px;
   border-radius:12px;
-  border:1px dashed rgba(56,189,248,.6);
-  background:radial-gradient(circle at top left,rgba(56,189,248,.16),transparent 55%),
-             rgba(15,23,42,.96);
+  border:1px solid rgba(148,163,184,0.65);
+  background:rgba(15,23,42,0.96);
+  box-shadow:0 10px 24px rgba(0,0,0,0.55);
 }
+
 .rb-hint-inline{
-  margin:6px 0 0;
-  font-size:.8rem;
+  margin:4px 0 0;
+  font-size:0.8rem;
   color:var(--rb-muted);
 }
 
-/* buttons */
+/* ===== MODE TOGGLE ===== */
 
-.rb-btn-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:8px;
+.rb-mode-toggle{
+  display:inline-flex;
+  align-items:stretch;
+  gap:4px;
+  padding:3px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.96);
+  border:1px solid rgba(148,163,184,0.7);
+  box-shadow:0 10px 24px rgba(0,0,0,0.65);
+  margin:6px 0 4px;
 }
+
+.rb-mode-btn{
+  position:relative;
+  flex:1 1 0;
+  font-size:0.9rem;
+}
+
+.rb-mode-btn input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  cursor:pointer;
+}
+
+.rb-mode-btn span{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 14px;
+  border-radius:999px;
+  color:var(--rb-muted);
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease;
+  white-space:nowrap;
+}
+
+.rb-mode-btn input:checked + span{
+  background:linear-gradient(90deg,#38bdf8,#a855f7);
+  color:#020617;
+  box-shadow:0 0 14px rgba(56,189,248,0.9);
+}
+
+.rb-mode-desc{
+  margin-top:6px;
+  font-size:0.85rem;
+  color:var(--rb-muted);
+}
+
+/* ===== BUTTONS ===== */
 
 .rb-btn{
   border-radius:999px;
   border:1px solid transparent;
   padding:8px 16px;
-  font-size:.95rem;
+  font-size:0.95rem;
   cursor:pointer;
   background:#111827;
   color:var(--rb-text);
@@ -287,80 +304,91 @@ html,body{
 }
 .rb-btn-sm{
   padding:4px 10px;
-  font-size:.8rem;
+  font-size:0.8rem;
 }
 
-/* ===== PLAY VIEW ===== */
+.rb-btn-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+/* ===== PLAY VIEW / HUD ===== */
+
+#rb-view-play{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
 
 .rb-play-header{
   display:flex;
-  align-items:flex-end;
+  align-items:flex-start;
   justify-content:space-between;
   gap:8px;
-  margin-bottom:8px;
+  margin-bottom:4px;
 }
 
 .rb-title-sm{
   margin:0 0 2px;
-  font-size:1.3rem;
+  font-size:1.1rem;
 }
 .rb-sub-sm{
   margin:0;
-  font-size:.85rem;
+  font-size:0.82rem;
   color:var(--rb-muted);
 }
 
-/* HUD */
-
 .rb-hud{
-  margin:4px 0 6px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  font-size:0.78rem;
 }
 
 .rb-hud-row{
   display:flex;
   flex-wrap:wrap;
-  align-items:center;
-  gap:6px;
-  margin-bottom:4px;
+  gap:4px;
 }
 
 .rb-chip{
-  padding:2px 8px;
   border-radius:999px;
-  background:rgba(15,23,42,.9);
-  border:1px solid rgba(31,41,55,.9);
-  font-size:.78rem;
-  color:var(--rb-muted);
-}
-.rb-chip span{
-  color:var(--rb-text);
+  border:1px solid rgba(55,65,81,0.9);
+  padding:2px 8px;
+  background:rgba(15,23,42,0.92);
   font-variant-numeric:tabular-nums;
 }
 
-/* FEVER / PROGRESS bars */
+.rb-hud-judge-row .rb-chip{
+  background:rgba(10,16,32,0.96);
+}
+
+/* ===== FEVER / PROGRESS ===== */
 
 .rb-bars{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:8px;
-  margin:4px 0 8px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin:2px 0 4px;
+  font-size:0.78rem;
 }
 
 .rb-bar-block{
   display:flex;
-  flex-direction:column;
-  gap:3px;
+  align-items:center;
+  gap:6px;
 }
 
 .rb-bar-label{
-  font-size:.78rem;
+  width:64px;
   color:var(--rb-muted);
 }
 
 .rb-bar{
   position:relative;
-  width:100%;
-  height:12px;
+  flex:1;
+  height:10px;
   border-radius:999px;
   overflow:hidden;
   background:linear-gradient(90deg,#111827,#020617);
@@ -376,34 +404,34 @@ html,body{
 
 .rb-bar-fever{
   background:linear-gradient(90deg,#f97316,#facc15);
-  box-shadow:0 0 14px rgba(248,181,0,.7);
+  box-shadow:0 0 14px rgba(248,181,0,0.7);
 }
 
 .rb-bar-progress{
   background:linear-gradient(90deg,#22c55e,#38bdf8);
-  box-shadow:0 0 12px rgba(34,197,94,.7);
+  box-shadow:0 0 12px rgba(34,197,94,0.7);
 }
 
 .rb-bar-status{
-  font-size:.78rem;
-  color:var(--rb-muted);
+  width:60px;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
 }
 
-/* FEVER label */
-
 #rb-fever-status{
-  padding:1px 8px;
+  font-size:0.78rem;
+  padding:1px 6px;
   border-radius:999px;
   border:1px solid #1f2937;
-  display:inline-block;
+  background:#020617;
 }
 #rb-fever-status.on{
   border-color:#f97316;
   color:#fed7aa;
-  box-shadow:0 0 10px rgba(249,115,22,.9);
+  box-shadow:0 0 10px rgba(249,115,22,0.9);
 }
 
-/* GAME FIELD */
+/* ===== GAME FIELD ===== */
 
 .rb-field-wrap{
   margin-top:4px;
@@ -411,7 +439,6 @@ html,body{
 
 #rb-field{
   position:relative;
-  margin-top:4px;
   background:
     radial-gradient(circle at top,#1f2937,transparent 65%),
     #020617;
@@ -419,19 +446,36 @@ html,body{
   border:1px solid #111827;
   padding:10px 6px 18px;
   overflow:hidden;
-  min-height:320px;
-  box-shadow:0 18px 40px rgba(0,0,0,.7);
+  min-height:250px;
+  box-shadow:0 18px 40px rgba(0,0,0,0.7);
 }
 #rb-field.rb-shake{
-  animation:rb-shake .35s ease-out;
+  animation:rb-shake 0.35s ease-out;
 }
 @keyframes rb-shake{
-  0%{transform:translate3d(0,0,0);}
-  20%{transform:translate3d(-4px,2px,0);}
-  40%{transform:translate3d(3px,-3px,0);}
-  60%{transform:translate3d(-3px,2px,0);}
-  80%{transform:translate3d(2px,0,0);}
-  100%{transform:translate3d(0,0,0);}
+  0%{ transform:translate3d(0,0,0); }
+  20%{ transform:translate3d(-4px,2px,0); }
+  40%{ transform:translate3d(3px,-3px,0); }
+  60%{ transform:translate3d(-3px,2px,0); }
+  80%{ transform:translate3d(2px,0,0); }
+  100%{ transform:translate3d(0,0,0); }
+}
+
+/* FEVER effect บน field */
+
+#rb-field.rb-fever-on{
+  border-color:rgba(248,181,0,0.9);
+  box-shadow:
+    0 0 28px rgba(248,181,0,0.95),
+    0 18px 50px rgba(0,0,0,0.9);
+}
+#rb-field.rb-fever-on .rb-lane::before{
+  border-bottom-color:rgba(253,224,71,0.9);
+}
+#rb-field.rb-fever-on .rb-lane{
+  background:
+    radial-gradient(circle at top,rgba(248,181,0,0.32),transparent 65%),
+    rgba(15,23,42,0.95);
 }
 
 /* lanes */
@@ -449,8 +493,8 @@ html,body{
   position:relative;
   flex:1 1 0;
   border-radius:14px;
-  border:1px solid rgba(55,65,81,.85);
-  background:radial-gradient(circle at top,rgba(56,189,248,.24),transparent 60%);
+  border:1px solid rgba(55,65,81,0.85);
+  background:radial-gradient(circle at top,rgba(56,189,248,0.24),transparent 60%);
   overflow:hidden;
 }
 .rb-lane::before{
@@ -460,19 +504,19 @@ html,body{
   right:0;
   bottom:40px;
   height:2px;
-  border-bottom:2px solid rgba(148,163,184,.55);
+  border-bottom:2px solid rgba(148,163,184,0.55);
 }
 .rb-lane-label{
   position:absolute;
   bottom:8px;
   left:50%;
   transform:translateX(-50%);
-  font-size:.8rem;
+  font-size:0.8rem;
   color:#9ca3af;
-  background:rgba(15,23,42,.9);
+  background:rgba(15,23,42,0.9);
   padding:1px 8px;
   border-radius:999px;
-  border:1px solid rgba(55,65,81,.9);
+  border:1px solid rgba(55,65,81,0.9);
 }
 
 /* notes */
@@ -480,184 +524,77 @@ html,body{
 .rb-note{
   position:absolute;
   left:50%;
-  bottom:40px; /* เส้นตี */
-  transform:translate(-50%,-260px); /* เริ่มอยู่ด้านบน JS จะเลื่อนลง */
+  bottom:40px; /* ให้จังหวะตรงกับเส้นตี */
+  transform:translate(-50%, -260px); /* เริ่มอยู่ด้านบน เลื่อนลงมาใน JS */
   font-size:2.1rem;
-  filter:drop-shadow(0 0 6px rgba(0,0,0,.9));
+  filter:drop-shadow(0 0 6px rgba(0,0,0,0.9));
   opacity:0;
-  transition:opacity .18s ease-out;
 }
-.rb-note.rb-note-spawned{
+.rb-note-spawned{
   opacity:1;
 }
 
 /* ขนาดโน้ตตามความยาก (wrap[data-diff]) */
-#rb-wrap[data-diff="easy"]   .rb-note{font-size:2.6rem;}
-#rb-wrap[data-diff="normal"] .rb-note{font-size:2.2rem;}
-#rb-wrap[data-diff="hard"]   .rb-note{font-size:1.9rem;}
+#rb-wrap[data-diff="easy"] .rb-note{
+  font-size:2.6rem;
+}
+#rb-wrap[data-diff="normal"] .rb-note{
+  font-size:2.2rem;
+}
+#rb-wrap[data-diff="hard"] .rb-note{
+  font-size:1.9rem;
+}
 
+/* ให้ emoji อยู่กลางโน้ตชัด ๆ */
 .rb-note-inner{
   display:flex;
   align-items:center;
   justify-content:center;
 }
 
-/* feedback bubble */
+/* feedback bubble บน field */
 
-#rb-feedback{
+.rb-feedback{
   position:absolute;
   left:50%;
   top:10px;
   transform:translateX(-50%);
   padding:4px 10px;
   border-radius:999px;
-  background:rgba(15,23,42,.9);
-  border:1px solid rgba(55,65,81,.9);
-  font-size:.8rem;
+  background:rgba(15,23,42,0.9);
+  border:1px solid rgba(55,65,81,0.9);
+  font-size:0.8rem;
   color:#e5e7eb;
   pointer-events:none;
   max-width:90%;
   text-align:center;
 }
-#rb-feedback.perfect{
+.rb-feedback.perfect{
   border-color:#facc15;
   color:#facc15;
-  box-shadow:0 0 10px rgba(250,204,21,.8);
+  box-shadow:0 0 10px rgba(250,204,21,0.8);
 }
-#rb-feedback.good{
+.rb-feedback.good{
   border-color:#22c55e;
   color:#bbf7d0;
 }
-#rb-feedback.miss{
+.rb-feedback.miss{
   border-color:#fb7185;
   color:#fecaca;
 }
-#rb-feedback.bomb{
+.rb-feedback.bomb{
   border-color:#fb7185;
   color:#fecaca;
-  box-shadow:0 0 12px rgba(248,113,113,.9);
+  box-shadow:0 0 12px rgba(248,113,113,0.9);
 }
 
-/* how-to text under field */
+/* วิธีเล่นใต้ field */
 
 .rb-howto-inline{
-  margin:8px 2px 0;
-  font-size:.8rem;
+  margin:6px 2px 0;
+  font-size:0.8rem;
   color:var(--rb-muted);
   text-align:center;
-}
-
-/* footer (ถ้าใช้) */
-.rb-footer-play{
-  margin-top:10px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  font-size:.8rem;
-  color:var(--rb-muted);
-}
-
-/* ===== FX: hit particle + score ===== */
-
-.rb-particle{
-  position:absolute;
-  left:0;
-  top:0;
-  width:6px;
-  height:6px;
-  border-radius:999px;
-  pointer-events:none;
-  opacity:0;
-}
-
-.rb-score-fx{
-  position:absolute;
-  left:0;
-  top:0;
-  pointer-events:none;
-}
-
-/* legacy helpers (เผื่อ JS รุ่นเก่าใช้ชื่อเดิม) */
-.rb-hit-particle{
-  position:absolute;
-  left:0;
-  top:0;
-  transform:translate(-50%,-50%) translate3d(0,0,0);
-  font-size:1.2rem;
-  pointer-events:none;
-  opacity:0;
-  animation:rb-hit-particle .55s ease-out forwards;
-  filter:drop-shadow(0 0 8px rgba(0,0,0,.85));
-}
-@keyframes rb-hit-particle{
-  0%{
-    opacity:1;
-    transform:translate(-50%,-50%) scale(.7);
-  }
-  70%{
-    opacity:1;
-    transform:
-      translate(calc(-50% + var(--dx)),calc(-50% + var(--dy)))
-      scale(1);
-  }
-  100%{
-    opacity:0;
-    transform:
-      translate(calc(-50% + var(--dx)),calc(-50% + var(--dy)))
-      scale(.9);
-  }
-}
-
-/* score popup (ถ้าอยากใช้กลางจอ) */
-
-.rb-score-popup{
-  position:absolute;
-  left:50%;
-  bottom:75px;
-  transform:translateX(-50%);
-  font-size:.75rem;
-  padding:2px 8px;
-  border-radius:999px;
-  background:#020617;
-  border:1px solid #1f2937;
-  color:#e5e7eb;
-  opacity:0;
-  animation:rb-score-pop .6s ease-out forwards;
-  white-space:nowrap;
-}
-@keyframes rb-score-pop{
-  0%{opacity:0;transform:translate(-50%,10px) scale(.85);}
-  40%{opacity:1;transform:translate(-50%,-4px) scale(1);}
-  100%{opacity:0;transform:translate(-50%,-18px) scale(.9);}
-}
-.rb-score-perfect{
-  border-color:#facc15;
-  color:#facc15;
-  text-shadow:0 0 8px rgba(250,204,21,.9);
-}
-.rb-score-great{
-  border-color:#22c55e;
-  color:#bbf7d0;
-  text-shadow:0 0 8px rgba(34,197,94,.9);
-}
-.rb-score-good{
-  border-color:#38bdf8;
-  color:#bae6fd;
-  text-shadow:0 0 8px rgba(56,189,248,.9);
-}
-.rb-score-miss{
-  border-color:#4b5563;
-  color:#9ca3af;
-}
-.rb-score-bomb{
-  border-color:#fb7185;
-  color:#fecaca;
-  text-shadow:0 0 10px rgba(248,113,113,.95);
-}
-.rb-score-shield{
-  border-color:#22c55e;
-  color:#bbf7d0;
-  text-shadow:0 0 8px rgba(34,197,94,.9);
 }
 
 /* ===== RESULT VIEW ===== */
@@ -666,32 +603,30 @@ html,body{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
   gap:14px;
-  font-size:.9rem;
+  font-size:0.9rem;
 }
 
 .rb-result-card{
   padding:10px 10px 8px;
-  border-radius:12px;
+  border-radius:14px;
   border:1px solid var(--rb-border);
-  background:radial-gradient(circle at top left,rgba(56,189,248,.14),transparent 55%),
-             rgba(15,23,42,.96);
+  background:rgba(15,23,42,0.96);
+  box-shadow:0 12px 30px rgba(0,0,0,0.6);
 }
 
 .rb-result-title{
   margin:0 0 6px;
-  font-size:1rem;
-  font-weight:600;
+  font-size:0.95rem;
 }
 
 .rb-result-row{
   display:flex;
   justify-content:space-between;
-  gap:8px;
-  margin-bottom:4px;
+  gap:6px;
+  margin-bottom:3px;
 }
 .rb-result-row span{
   color:var(--rb-muted);
-  font-size:.85rem;
 }
 .rb-result-row b{
   font-variant-numeric:tabular-nums;
@@ -702,99 +637,41 @@ html,body{
   padding:6px 8px;
   border-radius:8px;
   border:1px solid #f97316;
-  background:rgba(30,64,175,.35);
-  font-size:.85rem;
+  background:rgba(30,64,175,0.35);
+  font-size:0.85rem;
   color:#fed7aa;
 }
 
-.rb-section-title-sm{
-  margin:10px 0 4px;
-  font-size:.95rem;
-  font-weight:600;
-}
-
 .rb-section-border{
-  margin-top:8px;
+  border-top:1px dashed rgba(55,65,81,0.9);
   padding-top:8px;
-  border-top:1px dashed rgba(55,65,81,.9);
+  margin-top:10px;
 }
 
-/* ===== RESPONSIVE (mobile) ===== */
+.rb-section-title-sm{
+  margin:0 0 4px;
+  font-size:0.9rem;
+}
+
+/* ===== RESPONSVIE ===== */
 
 @media (max-width:720px){
   #rb-wrap{
-    padding:8px 6px 12px;
+    padding:10px 8px 18px;
   }
-
   .rb-header{
     flex-direction:column;
     align-items:flex-start;
-    gap:6px;
   }
-
-  .rb-title{
-    font-size:1.4rem;
-  }
-
   .rb-grid-2{
-    grid-template-columns:minmax(0,1fr);
+    grid-template-columns:1fr;
   }
-
-  /* PLAY VIEW: บีบให้ทุกอย่างอยู่ในจอเดียว */
-
-  .rb-play-header{
-    flex-direction:row;
-    align-items:flex-end;
-    justify-content:space-between;
-    gap:6px;
-    margin-bottom:4px;
-  }
-  .rb-title-sm{
-    font-size:1.05rem;
-  }
-  .rb-sub-sm{
-    display:none; /* ซ่อนคำอธิบายยาว ๆ */
-  }
-
-  .rb-hud{
-    margin:2px 0 4px;
-  }
-  .rb-hud-row{
-    font-size:.75rem;
-    gap:4px;
-  }
-  .rb-chip{
-    padding:1px 6px;
-  }
-
-  /* ถ้าต้องการประหยัดความสูงมาก ๆ สามารถซ่อนแถว Perfect/Great/Good/Miss ได้
-     (ข้อมูลยังดูได้ในหน้าสรุปผล) */
-  .rb-hud-row:nth-of-type(3){
-    display:none;
-  }
-
-  .rb-bars{
-    margin:2px 0 6px;
-    grid-template-columns:minmax(0,1fr);
-    gap:4px;
-  }
-  .rb-bar{
-    height:10px;
-  }
-  .rb-bar-status{
-    font-size:.75rem;
-  }
-
   #rb-field{
-    min-height:260px;
-    padding:8px 4px 14px;
+    min-height:230px;
   }
-
-  .rb-howto-inline{
-    display:none; /* ซ่อนข้อความวิธีเล่นใต้สนาม ลดการเลื่อน */
-  }
-
-  .rb-result-grid{
-    gap:10px;
+}
+@media (min-height:780px){
+  #rb-field{
+    min-height:280px;
   }
 }
