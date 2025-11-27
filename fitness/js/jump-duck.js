@@ -424,16 +424,40 @@ function loop(ts){
 
 let nextObstacleId = 1;
 
+let nextObstacleId = 1;
+
 function spawnObstacle(ts){
   if (!elObsHost || !state) return;
 
+  // ======= ป้องกันไม่ให้กองเป็นกำแพง =======
+  // ถ้าก้อนสุดท้ายยังอยู่ใกล้ ๆ ขวา (x > 70) ก็ยังไม่ spawn ก้อนใหม่
+  const last = state.obstacles[state.obstacles.length - 1];
+  if (last && last.x > 70) {
+    return; // ข้ามรอบนี้ไปก่อน ให้เว้นระยะ
+  }
+
   const isHigh = Math.random() < 0.5;
-  const type   = isHigh ? 'high' : 'low';
+  const type   = isHigh ? 'high' : 'low';  // high = ต้อง DUCK, low = ต้อง JUMP
 
   const el = document.createElement('div');
   el.className = 'jd-obstacle ' + (type === 'high' ? 'jd-obstacle--high' : 'jd-obstacle--low');
   el.dataset.id = String(nextObstacleId);
-  el.textContent = isHigh ? '🟥' : '🧱';
+
+  // ======= ด้านในมีกล่อง icon + tag =======
+  const inner = document.createElement('div');
+  inner.className = 'jd-obstacle-inner';
+
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'jd-obs-icon';
+  iconSpan.textContent = isHigh ? '⬇' : '⬆';   // ลูกศรลง = DUCK, ขึ้น = JUMP
+
+  const tagSpan = document.createElement('span');
+  tagSpan.className = 'jd-obs-tag';
+  tagSpan.textContent = isHigh ? 'DUCK' : 'JUMP';
+
+  inner.appendChild(iconSpan);
+  inner.appendChild(tagSpan);
+  el.appendChild(inner);
 
   elObsHost.appendChild(el);
 
@@ -452,6 +476,7 @@ function spawnObstacle(ts){
 
   state.obstaclesSpawned++;
 }
+
 
 function updateObstacles(dt, now, progress){
   if (!state) return;
