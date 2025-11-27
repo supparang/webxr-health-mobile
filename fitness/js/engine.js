@@ -272,18 +272,30 @@ export function initShadowBreaker() {
     }, delay);
   }
 
-  function spawnOneTarget() {
-    const cfg = DIFF_CONFIG[state.diffKey];
+function spawnBossFaceTarget() {
+  const bossMeta = BOSS_LIST[state.bossIndex]; // มี .emoji อยู่
+  const id = state.nextTargetId++;
 
-    // เรียกหน้า boss ออกมาตอนใกล้ตาย
-    if (!state.bossFaceSpawned && state.bossHp <= BOSSFACE_THRESHOLD) {
-      state.bossFaceSpawned = true;
-      spawnTargetOfType('bossface', {
-        size: cfg.baseSize * 1.4,
-        isBossFace: true
-      });
-      return;
-    }
+  const t = {
+    id,
+    type: 'bossface',
+    isBossFace: true,
+    bossIndex: state.bossIndex,
+    bossPhase: state.bossPhase,
+    bossEmoji: bossMeta.emoji,   // 👈 สำคัญ
+    sizePx: 200,                 // ใหญ่กว่าปกติ
+    ttlMs: 1800,
+    isDecoy: false,
+    isBomb: false,
+    isHeal: false,
+    isShield: false,
+    scoreBase: 150
+  };
+
+  state.liveTargets.set(id, t);
+  renderer.spawnTarget(t);
+}
+
 
     const kind = pickWeighted([
       { v: 'normal', w: 70 },
