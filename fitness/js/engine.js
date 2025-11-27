@@ -1119,15 +1119,15 @@ class ShadowBreakerEngine {
   }
 }
 
-// ---------- BOOTSTRAP ----------
+// ---------- BOOTSTRAP & EXPORT ----------
 
 export function initShadowBreaker() {
-  const wrap   = $('#sb-wrap') || document.body;
-  const field  = $('#target-layer') || wrap;
-  const viewMenu    = $('#view-menu');
-  const viewPlay    = $('#view-play');
-  const viewResult  = $('#view-result');
-  const viewResearch = $('#view-research-form');
+  const wrap   = document.querySelector('#sb-wrap') || document.body;
+  const field  = document.querySelector('#target-layer') || wrap;
+  const viewMenu    = document.querySelector('#view-menu');
+  const viewPlay    = document.querySelector('#view-play');
+  const viewResult  = document.querySelector('#view-result');
+  const viewResearch = document.querySelector('#view-research-form');
 
   let lastMode = 'normal';
 
@@ -1335,4 +1335,9 @@ export function initShadowBreaker() {
   showView('menu');
   engine.markMenuOpened();
   console.log('[ShadowBreaker] engine initialized');
+}
+
+// เผื่อใช้เรียกจาก script อื่นแบบ non-module
+if (typeof window !== 'undefined') {
+  window.initShadowBreaker = initShadowBreaker;
 }
