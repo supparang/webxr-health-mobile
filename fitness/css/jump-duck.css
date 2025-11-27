@@ -1,4 +1,4 @@
-/* === css/jump-duck.css — Jump Duck Rush UI (2025-12-01) === */
+/* === css/jump-duck.css — Jump Duck Rush UI (2025-12-01 full) === */
 
 :root{
   color-scheme: dark;
@@ -41,51 +41,14 @@ html,body{
   padding:18px 14px 26px;
 }
 
-/* Header */
-
-.jd-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
-  margin-bottom:16px;
+.jd-wrap{
+  width:100%;
 }
 
-.jd-brand{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
+/* Generic view wrapper */
 
-.jd-logo-pill{
-  width:40px;
-  height:40px;
-  border-radius:999px;
-  background:radial-gradient(circle at 30% 20%,#22c55e,#0f172a);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:700;
-  color:#e5e7eb;
-  box-shadow:0 12px 30px rgba(0,0,0,0.6);
-}
-
-.jd-brand-title{
-  font-size:1.1rem;
-  font-weight:600;
-}
-.jd-brand-subtitle{
-  font-size:0.85rem;
-  color:var(--jd-muted);
-}
-
-.jd-back-link{
-  color:var(--jd-accent);
-  text-decoration:none;
-  font-size:0.9rem;
-}
-.jd-back-link:hover{
-  text-decoration:underline;
+.jd-view{
+  margin-bottom:18px;
 }
 
 /* Card */
@@ -99,10 +62,6 @@ html,body{
   border:1px solid var(--jd-border);
   padding:16px 16px 18px;
   box-shadow:0 24px 50px rgba(0,0,0,0.7);
-}
-
-.jd-wrap{
-  width:100%;
 }
 
 /* Typography */
@@ -126,51 +85,13 @@ html,body{
   font-size:1rem;
 }
 
-/* Buttons */
-
-.jd-btn{
-  border-radius:999px;
-  border:1px solid transparent;
-  padding:8px 16px;
-  font-size:0.95rem;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
-  background:#020617;
-  color:var(--jd-text);
-  transition:transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.08s;
-}
-.jd-btn-main{
-  background:linear-gradient(90deg,#22c55e,#38bdf8);
-  color:#020617;
-  font-weight:600;
-  box-shadow:0 14px 30px rgba(16,185,129,0.55);
-}
-.jd-btn-main:hover{
-  filter:brightness(1.05);
-}
-.jd-btn-sub{
-  border-color:#1f2937;
-  background:linear-gradient(90deg,#0f172a,#020617);
-}
-.jd-btn-sub:hover{
-  filter:brightness(1.06);
-}
-.jd-btn-ghost{
-  background:transparent;
-  border-color:transparent;
+.jd-note{
+  margin:10px 0 12px;
+  font-size:0.85rem;
   color:var(--jd-muted);
-}
-.jd-btn-ghost:hover{
-  color:var(--jd-text);
 }
 
 /* Menu layout */
-
-#jd-view-menu{
-}
 
 .jd-menu-grid{
   display:grid;
@@ -188,6 +109,8 @@ html,body{
   color:var(--jd-muted);
   margin:6px 0 0;
 }
+
+/* Field rows / inputs */
 
 .jd-field-row{
   display:flex;
@@ -217,16 +140,86 @@ html,body{
   box-shadow:0 0 0 1px rgba(56,189,248,0.55);
 }
 
-.jd-research{
-  background:rgba(15,23,42,0.85);
+/* How-to */
+
+.jd-howto-block{
+  padding:10px 12px;
   border-radius:14px;
-  border:1px dashed #1e293b;
-  padding:10px 10px 12px;
+  border:1px solid #1f2937;
+  background:rgba(15,23,42,0.9);
 }
-.jd-research-hint{
-  margin:4px 0 0;
-  font-size:0.8rem;
+.jd-howto-list{
+  margin:6px 0 4px 18px;
+  padding:0;
+  font-size:0.9rem;
+}
+.jd-howto-list li{
+  margin-bottom:4px;
+}
+.jd-howto-inline{
+  margin:8px 0 0;
+  font-size:0.85rem;
   color:var(--jd-muted);
+}
+
+/* Buttons */
+
+.jd-btn{
+  border-radius:999px;
+  border:1px solid transparent;
+  padding:8px 16px;
+  font-size:0.95rem;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  background:#020617;
+  color:var(--jd-text);
+  transition:transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.08s;
+  text-decoration:none;
+}
+.jd-btn:hover{
+  transform:translateY(-1px);
+}
+
+.jd-btn-primary,
+.jd-btn-main{
+  background:linear-gradient(90deg,#22c55e,#38bdf8);
+  color:#020617;
+  font-weight:600;
+  box-shadow:0 14px 30px rgba(16,185,129,0.55);
+}
+.jd-btn-primary:hover,
+.jd-btn-main:hover{
+  filter:brightness(1.05);
+}
+
+.jd-btn-sub{
+  border-color:#1f2937;
+  background:linear-gradient(90deg,#0f172a,#020617);
+}
+.jd-btn-sub:hover{
+  filter:brightness(1.06);
+}
+
+.jd-btn-ghost{
+  background:transparent;
+  border-color:transparent;
+  color:var(--jd-muted);
+}
+.jd-btn-ghost:hover{
+  color:var(--jd-text);
+}
+
+.jd-btn-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+.jd-btn-row-secondary{
+  margin-top:6px;
 }
 
 /* Helpers */
@@ -270,15 +263,16 @@ html,body{
   letter-spacing:0.06em;
   color:var(--jd-muted);
 }
-.jd-val{
+
+.jd-hud-chip{
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid #1f2937;
+  background:rgba(15,23,42,0.95);
   font-variant-numeric:tabular-nums;
 }
-.jd-val-score{
-  font-size:1.35rem;
-  color:var(--jd-gold);
-}
 
-/* Bars */
+/* Bars (เตรียมไว้เผื่อใช้ FEVER/Progress ในอนาคต) */
 
 .jd-bars{
   margin-bottom:10px;
@@ -337,7 +331,7 @@ html,body{
   box-shadow:0 0 10px rgba(248,113,22,0.9);
 }
 
-/* Feedback */
+/* Feedback (หากใช้) */
 
 .jd-feedback{
   margin-bottom:8px;
@@ -350,7 +344,7 @@ html,body{
   color:var(--jd-text);
 }
 
-/* Field */
+/* Field (ฐานของพื้นที่เล่น) */
 
 .jd-field{
   position:relative;
@@ -364,13 +358,25 @@ html,body{
   box-shadow:0 16px 40px rgba(0,0,0,0.8);
 }
 
-.jd-track-layer{
+/* พื้นที่เล่นหลักของ Jump-Duck */
+
+.jd-play-area{
+  position:relative;
+}
+
+/* track + ground */
+
+.jd-track{
   position:absolute;
   inset:0;
-  background:
-    linear-gradient(to right,rgba(15,118,110,0.35),rgba(30,64,175,0.4)),
-    radial-gradient(circle at bottom,rgba(15,23,42,0.9),transparent 60%);
-  opacity:0.9;
+  display:flex;
+  align-items:flex-end;
+}
+.jd-ground{
+  width:100%;
+  height:36px;
+  background:linear-gradient(to top,#020617,#0f172a);
+  box-shadow:0 -6px 18px rgba(0,0,0,0.9);
 }
 
 /* Avatar */
@@ -388,6 +394,15 @@ html,body{
   filter:drop-shadow(0 8px 12px rgba(0,0,0,0.9));
 }
 
+/* ท่าทาง Jump / Duck */
+
+.jd-avatar.jump{
+  transform:translateY(-40px);
+}
+.jd-avatar.duck{
+  transform:translateY(16px) scaleY(0.88);
+}
+
 /* Obstacles */
 
 .jd-obstacles{
@@ -398,7 +413,7 @@ html,body{
 
 .jd-obstacle{
   position:absolute;
-  right:-80px;
+  left:100%;   /* เริ่มที่ขวาสุด แล้วให้ JS เลื่อนด้วย left:% */
   bottom:0;
   width:60px;
   height:60px;
@@ -434,15 +449,38 @@ html,body{
   box-shadow:0 0 12px rgba(148,163,184,0.9);
 }
 
-/* Controls */
+/* Judge text (GOOD / MISS / COMBO) */
 
-.jd-controls{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  justify-content:space-between;
-  align-items:center;
-  margin-top:10px;
+.jd-judge{
+  position:absolute;
+  left:50%;
+  top:16%;
+  transform:translate(-50%, -8px);
+  padding:4px 14px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.92);
+  border:1px solid rgba(31,41,55,0.9);
+  font-size:0.95rem;
+  font-weight:600;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+  color:#e5e7eb;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.18s ease-out, transform 0.18s ease-out;
+}
+.jd-judge.show{
+  opacity:1;
+  transform:translate(-50%, 0);
+}
+.jd-judge.ok{
+  color:var(--jd-accent2);
+}
+.jd-judge.miss{
+  color:var(--jd-danger);
+}
+.jd-judge.combo{
+  color:var(--jd-gold);
 }
 
 /* Result */
@@ -450,19 +488,21 @@ html,body{
 .jd-result-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-  gap:14px;
+  gap:10px 16px;
   font-size:0.9rem;
   margin-bottom:8px;
 }
-.jd-result-line{
-  margin-bottom:4px;
-}
-
-.jd-result-actions{
+.jd-result-row{
   display:flex;
-  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:center;
   gap:8px;
-  margin-top:8px;
+}
+.jd-result-row span{
+  color:var(--jd-muted);
+}
+.jd-result-row b{
+  font-variant-numeric:tabular-nums;
 }
 
 /* Shake on hit/miss */
@@ -471,6 +511,9 @@ html,body{
   animation:jd-hit-pulse 0.25s ease-out;
 }
 .jd-field.jd-miss{
+  animation:jd-miss-shake 0.35s ease-out;
+}
+.jd-play-area.shake{
   animation:jd-miss-shake 0.35s ease-out;
 }
 
@@ -492,10 +535,6 @@ html,body{
 @media (max-width:720px){
   .jd-shell{
     padding:10px 8px 18px;
-  }
-  .jd-header{
-    flex-direction:column;
-    align-items:flex-start;
   }
   .jd-menu-grid{
     grid-template-columns:1fr;
