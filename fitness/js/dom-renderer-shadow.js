@@ -1,4 +1,4 @@
-// === js/dom-renderer-shadow.js — Shadow Breaker Renderer (2025-12-02) ===
+// === js/dom-renderer-shadow.js — Shadow Breaker Renderer (2025-12-03) ===
 'use strict';
 
 export class DomRendererShadow {
@@ -7,7 +7,6 @@ export class DomRendererShadow {
     this.wrapEl = opts.wrapEl || document.body;
     this.onTargetHit = opts.onTargetHit || (() => {});
 
-    // ให้ host เป็นตำแหน่งอ้างอิง
     const style = window.getComputedStyle(this.host);
     if (style.position === 'static' || !style.position) {
       this.host.style.position = 'relative';
@@ -35,7 +34,6 @@ export class DomRendererShadow {
     };
   }
 
-  // แปลง zone L/C/R, U/M/D → ตำแหน่งภายในกรอบ playfield เป็นสัดส่วน 0–1
   _pickNormalizedPos(zoneLR, zoneUD) {
     const lrRanges = {
       L: [0.16, 0.38],
@@ -57,14 +55,14 @@ export class DomRendererShadow {
     return { nx, ny };
   }
 
-  // ---------- SPAWN ----------
+  // ---------- SPAWN TARGET ----------
 
   spawnTarget(target) {
     if (!this.bounds) this._updateBounds();
-    const { zone_lr, zone_ud } = target;
 
+    const { zone_lr, zone_ud } = target;
     const { nx, ny } = this._pickNormalizedPos(zone_lr, zone_ud);
-    // เก็บกลับไปใน target เพื่อใช้ใน CSV
+
     target.x_norm = nx;
     target.y_norm = ny;
 
@@ -92,18 +90,33 @@ export class DomRendererShadow {
       padding: '0',
       cursor: 'pointer',
       opacity: '0',
-      transition: 'transform .2s ease-out, opacity .2s ease-out'
+      transition: 'transform .2s ease-out, opacity .2s ease-out',
+      boxShadow: '0 18px 35px rgba(15,23,42,0.9)'
     });
 
-    // วงแหวน + emoji ภายในเป้า (เผื่อไปตกแต่งต่อ)
+    // วงแหวน + พื้นหลัง gradient ให้ดู "นุ่ม ๆ"
     const ring = document.createElement('div');
     ring.className = 'sb-target-ring';
-    ring.style.width = '100%';
-    ring.style.height = '100%';
-    ring.style.borderRadius = 'inherit';
-    ring.style.display = 'flex';
-    ring.style.alignItems = 'center';
-    ring.style.justifyContent = 'center';
+    Object.assign(ring.style, {
+      width: '100%',
+      height: '100%',
+      borderRadius: 'inherit',
+      padding: '4px',
+      background: 'conic-gradient(from 210deg, rgba(96,165,250,.9), rgba(52,211,153,.9), rgba(244,114,182,.9), rgba(96,165,250,.9))'
+    });
+
+    const core = document.createElement('div');
+    core.className = 'sb-target-core';
+    Object.assign(core.style, {
+      width: '100%',
+      height: '100%',
+      borderRadius: 'inherit',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'radial-gradient(circle at 30% 20%, #f9fafb, #0f172a)',
+      boxShadow: 'inset 0 0 18px rgba(15,23,42,.85)'
+    });
 
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
@@ -112,47 +125,50 @@ export class DomRendererShadow {
       : target.isShield ? '🛡️'
       : target.isDecoy ? '🎯'
       : '🥊';
+    Object.assign(inner.style, {
+      fontSize: (size * 0.58) + 'px',
+      filter: 'drop-shadow(0 4px 6px rgba(15,23,42,.85))'
+    });
 
-    ring.appendChild(inner);
+    core.appendChild(inner);
+    ring.appendChild(core);
     el.appendChild(ring);
 
-    const handleHit = (ev) => {
+    const handleClick = (ev) => {
       ev.preventDefault();
-      const info = {
+      this.onTargetHit(target.id, {
         clientX: ev.clientX,
         clientY: ev.clientY
-      };
-      this.onTargetHit(target.id, info);
+      });
     };
 
-    el.addEventListener('click', handleHit);
+    el.addEventListener('click', handleClick);
     el.addEventListener('touchstart', (ev) => {
       if (ev.touches && ev.touches[0]) {
         const t = ev.touches[0];
         this.onTargetHit(target.id, { clientX: t.clientX, clientY: t.clientY });
       } else {
-        handleHit(ev);
+        handleClick(ev);
       }
     }, { passive: true });
 
     this.host.appendChild(el);
     this.targets.set(target.id, el);
 
-    // pop-in effect เวลาโผล่
+    // pop-in นิดหนึ่ง
     requestAnimationFrame(() => {
       el.style.opacity = '1';
       el.style.transform = 'translate(-50%,-50%) scale(1)';
     });
   }
 
-  // ---------- REMOVE ----------
+  // ---------- REMOVE TARGET ----------
 
   removeTarget(id, reason) {
     const el = this.targets.get(id);
     if (!el) return;
 
     if (reason === 'timeout') {
-      // fade out ตอนหมดเวลา
       el.style.opacity = '0';
       el.style.transform = 'translate(-50%,-50%) scale(0.6)';
       setTimeout(() => el.remove(), 160);
@@ -165,23 +181,49 @@ export class DomRendererShadow {
 
   // ---------- FX ----------
 
-  playHitFx(id, info) {
-    this.showHitFx(info || {});
-    // ถ้าต้องการ effect เพิ่ม สามารถต่อจากตรงนี้ได้
+  _spawnScoreText(x, y, scoreDelta, grade) {
+    if (typeof x !== 'number' || typeof y !== 'number') return;
+    if (!scoreDelta && scoreDelta !== 0) return;
+
+    const el = document.createElement('div');
+    el.textContent = scoreDelta > 0 ? `+${scoreDelta}` : scoreDelta;
+    Object.assign(el.style, {
+      position: 'fixed',
+      left: x + 'px',
+      top: y + 'px',
+      transform: 'translate(-50%,-50%) scale(1)',
+      fontWeight: '700',
+      fontSize: '18px',
+      color: grade === 'perfect' ? '#4ade80'
+        : grade === 'good' ? '#38bdf8'
+        : grade === 'bad' ? '#fb923c'
+        : '#e5e7eb',
+      textShadow: '0 0 10px rgba(0,0,0,.95)',
+      pointerEvents: 'none',
+      zIndex: 999,
+      opacity: 1,
+      transition: 'transform .55s ease-out, opacity .55s ease-out'
+    });
+
+    document.body.appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%,-120%) scale(1.1)';
+      el.style.opacity = '0';
+    });
+    setTimeout(() => el.remove(), 600);
   }
 
-  showHitFx({ clientX, clientY }) {
-    if (typeof clientX !== 'number' || typeof clientY !== 'number') return;
+  _spawnParticles(x, y) {
+    if (typeof x !== 'number' || typeof y !== 'number') return;
 
-    const fragCount = 10;
-    for (let i = 0; i < fragCount; i++) {
+    const n = 10;
+    for (let i = 0; i < n; i++) {
       const f = document.createElement('div');
-      f.className = 'sb-frag';
       const size = 6 + Math.random() * 6;
       Object.assign(f.style, {
         position: 'fixed',
-        left: clientX + 'px',
-        top: clientY + 'px',
+        left: x + 'px',
+        top: y + 'px',
         width: size + 'px',
         height: size + 'px',
         borderRadius: '999px',
@@ -207,5 +249,15 @@ export class DomRendererShadow {
 
       setTimeout(() => f.remove(), 420);
     }
+  }
+
+  playHitFx(id, info = {}) {
+    const x = info.clientX;
+    const y = info.clientY;
+    const scoreDelta = info.scoreDelta;
+    const grade = info.grade;
+
+    this._spawnParticles(x, y);
+    this._spawnScoreText(x, y, scoreDelta, grade);
   }
 }
