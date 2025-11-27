@@ -19,7 +19,7 @@ function mean(arr) {
   return sum / arr.length;
 }
 
-// ---------- SMALL UI HELPERS ----------
+// ---------- SMALL UI HELPERS (GRADE LABEL) ----------
 
 function spawnGradeLabel(x, y, text, color) {
   if (!text) return;
@@ -29,19 +29,19 @@ function spawnGradeLabel(x, y, text, color) {
     position: 'fixed',
     left: x + 'px',
     top: y + 'px',
-    transform: 'translate(-50%, -50%) scale(1)',
+    transform: 'translate(-50%, -140%) scale(1)', // ดันขึ้นสูงกว่าคะแนน
     color: color || '#facc15',
     fontWeight: '700',
-    fontSize: '18px',
+    fontSize: '17px',
     textShadow: '0 0 8px rgba(0,0,0,.9)',
     pointerEvents: 'none',
-    zIndex: 999,
+    zIndex: 1000,               // สูงกว่าคะแนนเล็กน้อย
     opacity: 1,
     transition: 'transform .55s ease-out, opacity .55s ease-out',
   });
   document.body.appendChild(el);
   requestAnimationFrame(() => {
-    el.style.transform = 'translate(-50%, -120%) scale(1.1)';
+    el.style.transform = 'translate(-50%, -190%) scale(1.1)';
     el.style.opacity = '0';
   });
   setTimeout(() => el.remove(), 600);
@@ -155,6 +155,7 @@ class ShadowBreakerEngine {
     this.diffKey = 'normal';
     this.diff    = DIFF_CONFIG.normal;
 
+    // ใช้ DomRendererShadow ตัวเดียวสำหรับ spawn/ลบ/FX
     this.renderer = new DomRendererShadow(this.field, {
       wrapEl: this.wrap,
       onTargetHit: (id, info) => this.handleHit(id, info)
@@ -272,6 +273,7 @@ class ShadowBreakerEngine {
     this.lowHpTimeMs    = 0;
 
     this.shieldCollected = 0;
+    this.shieldStack     = 0;  // เกราะที่ยังเหลือใช้งาน
 
     // ---------- RT buffers ----------
     this.rtNormalAll = [];
@@ -468,7 +470,9 @@ class ShadowBreakerEngine {
 
     let type = 'normal';
     const r = Math.random();
-    if (!this.bossFaceAlive && (this.bossHp / this.bossHpMax) <= 0.28 && r > 0.65) {
+    const hpRatio = this.bossHpMax > 0 ? this.bossHp / this.bossHpMax : 0;
+
+    if (!this.bossFaceAlive && hpRatio <= 0.28 && r > 0.65) {
       type = 'bossface';
       this.bossFaceAlive = true;
     } else if (r > 0.94) {
@@ -536,7 +540,8 @@ class ShadowBreakerEngine {
       zone_ud: zoneUD,
       fever_on: this.feverOn ? 1 : 0,
       player_hp: this.playerHp,
-      boss_hp: this.bossHp
+      boss_hp: this.bossHp,
+      shield_stack: this.shieldStack
     });
 
     let interval = spawnMs;
@@ -563,7 +568,13 @@ class ShadowBreakerEngine {
     if (!t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield) {
       this.missCount += 1;
       this.combo = 0;
-      this._takeDamage(4, 'miss');
+
+      // ใช้ shield ก่อน ถ้ามี
+      if (this.shieldStack > 0) {
+        this.shieldStack -= 1;
+      } else {
+        this.playerHp = clamp(this.playerHp - 4, 0, this.playerHpMax);
+      }
 
       if (this.hud.feedback) {
         this.hud.feedback.textContent = 'พลาดจังหวะ! ลองมองเป้าถัดไปล่วงหน้า 🔍';
@@ -585,7 +596,8 @@ class ShadowBreakerEngine {
       grade: 'miss',
       age_ms: t.lifeMs,
       player_hp_after: this.playerHp,
-      boss_hp_after: this.bossHp
+      boss_hp_after: this.bossHp,
+      shield_stack_after: this.shieldStack
     });
 
     this._updateHUD();
@@ -608,6 +620,7 @@ class ShadowBreakerEngine {
     const comboBefore = this.combo;
     const hpBefore    = this.playerHp;
     const feverBefore = this.feverGauge;
+    const shieldBefore = this.shieldStack;
 
     const isNormalTarget =
       !t.isDecoy && !t.isBomb && !t.isBossFace && !t.isHeal && !t.isShield;
@@ -616,7 +629,10 @@ class ShadowBreakerEngine {
       grade = 'bomb';
       this.combo = 0;
       this.totalBombHits += 1;
+
+      // ใช้ shield ก่อน ถ้ามี
       this._hitByBomb();
+
       scoreDelta = 0;
       fxEmoji = '💣';
     } else if (t.isDecoy) {
@@ -624,6 +640,7 @@ class ShadowBreakerEngine {
       this.combo = 0;
       scoreDelta = 0;
       fxEmoji = '🎯';
+      // ตีโดน decoy ไม่ลด HP โดยตรง แต่ถือว่า miss ในเชิง grade
     } else if (t.isHeal) {
       grade = 'heal';
       this.combo += 1;
@@ -640,6 +657,7 @@ class ShadowBreakerEngine {
       fxEmoji = '🛡️';
       this._gainFever(7);
       this.shieldCollected += 1;
+      this.shieldStack += 1;   // ได้เกราะเพิ่ม
     } else if (t.isBossFace) {
       grade = 'perfect';
       scoreDelta = 240;
@@ -683,6 +701,7 @@ class ShadowBreakerEngine {
 
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
+    // ข้อความใน HUD ด้านบน
     if (this.hud.feedback) {
       let msg = '';
       let cls = 'sb-feedback';
@@ -745,7 +764,7 @@ class ShadowBreakerEngine {
       }
     }
 
-    // แสดง PERFECT / GOOD / MISS ตรงจุดที่ตี
+    // ===== PERFECT / GOOD / MISS เด้งตรงเป้า (ไม่ซ้อนคะแนน) =====
     const cx = (hitInfo && typeof hitInfo.clientX === 'number') ? hitInfo.clientX : null;
     const cy = (hitInfo && typeof hitInfo.clientY === 'number') ? hitInfo.clientY : null;
     if (cx !== null && cy !== null) {
@@ -754,6 +773,7 @@ class ShadowBreakerEngine {
         spawnGradeLabel(cx, cy, text, color);
       }
     }
+    // ===== END GRADE LABEL =====
 
     this.renderer.playHitFx(t.id, {
       grade,
@@ -785,7 +805,9 @@ class ShadowBreakerEngine {
       zone_lr: t.zone_lr,
       zone_ud: t.zone_ud,
       screen_x: hitInfo?.clientX ?? null,
-      screen_y: hitInfo?.clientY ?? null
+      screen_y: hitInfo?.clientY ?? null,
+      shield_stack_before: shieldBefore,
+      shield_stack_after: this.shieldStack
     });
 
     if (this.playerHp <= 0) {
@@ -797,32 +819,12 @@ class ShadowBreakerEngine {
     this._updateBossHUD();
   }
 
-  _takeDamage(amount, source = 'hit') {
-    if (this.shieldCollected > 0) {
-      this.shieldCollected -= 1;
-
-      if (this.hud.feedback) {
-        this.hud.feedback.textContent = 'เกราะรับดาเมจแทน! 🛡️';
-        this.hud.feedback.className = 'sb-feedback good';
-      }
-
-      this._logEvent({
-        event_type: 'shield-block',
-        damage_blocked: amount,
-        damage_source: source,
-        shield_left: this.shieldCollected,
-        player_hp_after: this.playerHp
-      });
-
-      this._updateHUD();
-      return;
-    }
-
-    this.playerHp = clamp(this.playerHp - amount, 0, this.playerHpMax);
-  }
-
   _hitByBomb() {
-    this._takeDamage(18, 'bomb');
+    if (this.shieldStack > 0) {
+      this.shieldStack -= 1;
+    } else {
+      this.playerHp = clamp(this.playerHp - 18, 0, this.playerHpMax);
+    }
   }
 
   _gainFever(amount) {
@@ -919,7 +921,8 @@ class ShadowBreakerEngine {
     this.hud.combo  && (this.hud.combo.textContent  = this.combo);
     this.hud.phase  && (this.hud.phase.textContent  = this.bossPhase);
     this.hud.miss   && (this.hud.miss.textContent   = this.missCount);
-    this.hud.shield && (this.hud.shield.textContent = this.shieldCollected);
+    // โชว์จำนวน shield ที่ยังเหลือใช้งาน
+    this.hud.shield && (this.hud.shield.textContent = this.shieldStack);
 
     const pRatio = clamp(this.playerHp / this.playerHpMax, 0, 1);
     const bRatio = clamp(this.bossHp   / this.bossHpMax,   0, 1);
@@ -963,6 +966,7 @@ class ShadowBreakerEngine {
     const durationS = this.elapsedMs / 1000;
     const acc = this.totalTargets ? (this.totalHits / this.totalTargets) * 100 : 0;
 
+    // grade scale: SSS, SS, S, A, B, C
     let grade = 'C';
     if (acc >= 95 && this.score >= 4500) grade = 'SSS';
     else if (acc >= 90 && this.score >= 3800) grade = 'SS';
