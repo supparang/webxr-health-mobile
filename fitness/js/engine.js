@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-02) ===
+// === js/engine.js — Shadow Breaker Engine + Flow (2025-12-02 + grade FX) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -18,6 +18,7 @@ function mean(arr) {
   for (const v of arr) sum += v;
   return sum / arr.length;
 }
+
 // ---------- SMALL UI HELPERS ----------
 
 function spawnGradeLabel(x, y, text, color) {
@@ -623,7 +624,7 @@ class ShadowBreakerEngine {
       grade = 'miss';
       this.combo = 0;
       scoreDelta = 0;
-      fxEmoji = '🎯';
+      fxEmoji = '🥊';
     } else if (t.isHeal) {
       grade = 'heal';
       this.combo += 1;
@@ -746,7 +747,7 @@ class ShadowBreakerEngine {
       }
     }
 
-    // ===== ตรงนี้คือ NEW PART: ให้คำว่า PERFECT / GOOD / MISS เด้งตรงเป้า =====
+    // ===== แสดง PERFECT / GOOD / MISS เด้งตรงจุดที่ตี =====
     const cx = (hitInfo && typeof hitInfo.clientX === 'number') ? hitInfo.clientX : null;
     const cy = (hitInfo && typeof hitInfo.clientY === 'number') ? hitInfo.clientY : null;
     if (cx !== null && cy !== null) {
@@ -755,80 +756,7 @@ class ShadowBreakerEngine {
         spawnGradeLabel(cx, cy, text, color);
       }
     }
-    // ===== END NEW PART =====
-
-    this.renderer.playHitFx(t.id, {
-      grade,
-      scoreDelta,
-      fxEmoji,
-      clientX: hitInfo?.clientX,
-      clientY: hitInfo?.clientY
-    });
-
-    this.targets.delete(id);
-    this.renderer.removeTarget(id, 'hit');
-
-    this._logEvent({
-      event_type: 'hit',
-      target_id: t.id,
-      target_type: t.type,
-      grade,
-      age_ms: Math.round(age),
-      score_delta: scoreDelta,
-      combo_before: comboBefore,
-      combo_after: this.combo,
-      player_hp_before: hpBefore,
-      player_hp_after: this.playerHp,
-      fever_before: feverBefore,
-      fever_after: this.feverGauge,
-      fever_on: this.feverOn ? 1 : 0,
-      x_norm: t.x_norm,
-      y_norm: t.y_norm,
-      zone_lr: t.zone_lr,
-      zone_ud: t.zone_ud,
-      screen_x: hitInfo?.clientX ?? null,
-      screen_y: hitInfo?.clientY ?? null
-    });
-
-    if (this.playerHp <= 0) {
-      this._finish('bomb-ko');
-      return;
-    }
-
-    this._updateHUD();
-    this._updateBossHUD();
-  }
-
-    // ---------- เก็บ RT ลงตัวแปรวิจัย ----------
-    const bi = (typeof t.bossIndex === 'number') ? t.bossIndex : this.bossIndex;
-    const ph = (typeof t.bossPhase === 'number') ? t.bossPhase : this.bossPhase;
-
-    const zoneLR = (t.zone_lr === 'L' || t.zone_lr === 'R' || t.zone_lr === 'C') ? t.zone_lr : 'C';
-    const zoneUD = (t.zone_ud === 'U' || t.zone_ud === 'M' || t.zone_ud === 'D') ? t.zone_ud : 'M';
-
-    if (isNormalTarget) {
-      this.rtNormalAll.push(age);
-      if (this.rtPhaseNormal[bi] && this.rtPhaseNormal[bi][ph]) {
-        this.rtPhaseNormal[bi][ph].push(age);
-      }
-      if (this.rtPhaseNormalZoneLR[bi] && this.rtPhaseNormalZoneLR[bi][ph]) {
-        this.rtPhaseNormalZoneLR[bi][ph][zoneLR].push(age);
-      }
-      if (this.rtPhaseNormalZoneUD[bi] && this.rtPhaseNormalZoneUD[bi][ph]) {
-        this.rtPhaseNormalZoneUD[bi][ph][zoneUD].push(age);
-      }
-    } else if (t.isDecoy) {
-      this.rtDecoyAll.push(age);
-      if (this.rtPhaseDecoy[bi] && this.rtPhaseDecoy[bi][ph]) {
-        this.rtPhaseDecoy[bi][ph].push(age);
-      }
-      if (this.rtPhaseDecoyZoneLR[bi] && this.rtPhaseDecoyZoneLR[bi][ph]) {
-        this.rtPhaseDecoyZoneLR[bi][ph][zoneLR].push(age);
-      }
-      if (this.rtPhaseDecoyZoneUD[bi] && this.rtPhaseDecoyZoneUD[bi][ph]) {
-        this.rtPhaseDecoyZoneUD[bi][ph][zoneUD].push(age);
-      }
-    }
+    // ===== END grade label =====
 
     this.renderer.playHitFx(t.id, {
       grade,
