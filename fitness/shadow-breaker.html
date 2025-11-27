@@ -17,9 +17,7 @@
         <div class="sb-logo-pill">SB</div>
         <div class="sb-brand-text">
           <div class="sb-brand-title">VR Fitness — Shadow Breaker</div>
-          <div class="sb-brand-subtitle">
-            ตีเป้า Boss Fight ฝึกกำลังแขนและความไวในการตอบสนอง
-          </div>
+          <div class="sb-brand-subtitle">ตีเป้า Boss Fight ฝึกกำลังแขนและความไวในการตอบสนอง</div>
         </div>
       </div>
       <a href="./hub.html" class="sb-back-link">
@@ -68,8 +66,7 @@
                   📋 โหมดวิจัย (Research Mode)
                 </button>
                 <p class="hint">
-                  โหมดวิจัยจะบันทึกข้อมูลการเล่นเป็นไฟล์ CSV สำหรับวิเคราะห์ Reaction Time,
-                  Accuracy, คอมโบ และตัวแปรตาม Boss / Phase
+                  โหมดวิจัยจะบันทึกข้อมูลการเล่นเป็นไฟล์ CSV สำหรับวิเคราะห์ Reaction Time, Accuracy, คอมโบ และตัวแปรตาม Boss / Phase
                 </p>
               </div>
             </div>
@@ -79,8 +76,7 @@
               <div class="preview-panel">
                 <div class="preview-title">📌 วิธีเล่นเบื้องต้น</div>
                 <p class="preview-text">
-                  เป้า Emoji จะโผล่ทั่วจอสนาม — ใช้การชก/แตะให้ทันก่อนหายไป ยิ่งตีเร็วและแม่น
-                  คะแนนยิ่งสูง!
+                  เป้า Emoji จะโผล่ทั่วจอสนาม — ใช้การชก/แตะให้ทันก่อนหายไป ยิ่งตีเร็วและแม่น คะแนนยิ่งสูง!
                 </p>
                 <ul class="preview-list">
                   <li>🎯 <strong>Perfect</strong> — ตีเร็วมาก ได้คะแนน+คอมโบสูงสุด</li>
@@ -119,9 +115,7 @@
 
           <div class="form-btns">
             <button class="btn-ghost" data-action="back-to-menu">ย้อนกลับ</button>
-            <button class="btn-main" data-action="research-begin-play">
-              ▶ เริ่มเล่นโหมดวิจัย
-            </button>
+            <button class="btn-main" data-action="research-begin-play">▶ เริ่มเล่นโหมดวิจัย</button>
           </div>
         </section>
 
@@ -245,91 +239,6 @@
             </div>
           </div>
 
-          <!-- สถิติ RT แยกตาม Boss / Phase -->
-          <h3>📌 Reaction Time ตาม Boss / Phase</h3>
-          <p class="section-desc">
-            ใช้สำหรับวิเคราะห์การเรียนรู้ตามระดับความยากของบอสและเฟส (หน่วย: วินาที,
-            เป้าปกติเท่านั้น)
-          </p>
-
-          <div class="rt-grid">
-            <table class="rt-table">
-              <thead>
-                <tr>
-                  <th>Boss 1 — Bubble Glove</th>
-                  <th>Phase 1</th>
-                  <th>Phase 2</th>
-                  <th>Phase 3</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>RT เฉลี่ย (s)</td>
-                  <td id="res-rt-b1p1">-</td>
-                  <td id="res-rt-b1p2">-</td>
-                  <td id="res-rt-b1p3">-</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <table class="rt-table">
-              <thead>
-                <tr>
-                  <th>Boss 2 — Neon Knuckle</th>
-                  <th>Phase 1</th>
-                  <th>Phase 2</th>
-                  <th>Phase 3</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>RT เฉลี่ย (s)</td>
-                  <td id="res-rt-b2p1">-</td>
-                  <td id="res-rt-b2p2">-</td>
-                  <td id="res-rt-b2p3">-</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <table class="rt-table">
-              <thead>
-                <tr>
-                  <th>Boss 3 — Shadow Guard</th>
-                  <th>Phase 1</th>
-                  <th>Phase 2</th>
-                  <th>Phase 3</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>RT เฉลี่ย (s)</td>
-                  <td id="res-rt-b3p1">-</td>
-                  <td id="res-rt-b3p2">-</td>
-                  <td id="res-rt-b3p3">-</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <table class="rt-table">
-              <thead>
-                <tr>
-                  <th>Boss 4 — Final Burst</th>
-                  <th>Phase 1</th>
-                  <th>Phase 2</th>
-                  <th>Phase 3</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>RT เฉลี่ย (s)</td>
-                  <td id="res-rt-b4p1">-</td>
-                  <td id="res-rt-b4p2">-</td>
-                  <td id="res-rt-b4p3">-</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
           <!-- Hint ปิดท้ายสำหรับเชิงวิจัย / เชิงสอน -->
           <p id="res-end-hint" class="res-hint">
             <!-- engine.js จะเขียนข้อความแนะนำตอนจบเกม -->
@@ -361,34 +270,9 @@
   <!-- ========== Scripts (modules) ========== -->
   <script type="module" src="./js/shadow-breaker.js"></script>
 
-  <!-- SFX Audio Elements -->
-  <audio id="sfx-hit"   src="./sfx/hit.mp3"        preload="auto"></audio>
-  <audio id="sfx-boss"  src="./sfx/boss-intro.mp3" preload="auto"></audio>
-  <audio id="sfx-fever" src="./sfx/fever.mp3"      preload="auto"></audio>
-
-  <!-- Simple SFX helper (ใช้ร่วมกับ engine.js) -->
-  <script>
-    (function () {
-      const hitEl   = document.getElementById('sfx-hit');
-      const bossEl  = document.getElementById('sfx-boss');
-      const feverEl = document.getElementById('sfx-fever');
-
-      window.SFX = {
-        play(name, _opts) {
-          let el = null;
-          if (name === 'hit')   el = hitEl;
-          else if (name === 'boss')  el = bossEl;
-          else if (name === 'fever') el = feverEl;
-          if (!el) return;
-          try {
-            el.currentTime = 0;
-            el.play();
-          } catch (e) {
-            // เงียบ ๆ ถ้า browser บล็อก auto-play
-          }
-        }
-      };
-    })();
-  </script>
+  <!-- SFX -->
+  <audio id="sfx-hit"   src="./sfx/hit.mp3"         preload="auto"></audio>
+  <audio id="sfx-boss"  src="./sfx/boss-intro.mp3"  preload="auto"></audio>
+  <audio id="sfx-fever" src="./sfx/fever.mp3"       preload="auto"></audio>
 </body>
 </html>
