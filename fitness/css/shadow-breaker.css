@@ -1,5 +1,4 @@
-/* === Shadow Breaker — CSS (2025-12-04) ===================== */
-/* Reset / Base */
+/* ===== Reset / Base ===== */
 *,
 *::before,
 *::after {
@@ -28,13 +27,14 @@ body {
   display: none !important;
 }
 
-/* ===== Shell / Header (ธีมเดียวกับ Hub) ===== */
+/* ===== Shell เหมือน Hub ===== */
 .fitness-shell {
   max-width: 1120px;
   margin: 0 auto;
   padding: 16px 16px 32px;
 }
 
+/* Header ด้านบน */
 .fitness-header {
   display: flex;
   align-items: center;
@@ -137,27 +137,27 @@ body {
   filter: brightness(1.07);
 }
 
-/* Nav ด้านขวา */
+/* ===== Nav ด้านขวาใน Header ===== */
 .fitness-nav {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* ===== Wrapper & Views ===== */
+/* ===== Wrapper ของทุก view ===== */
 #sb-wrap {
   min-height: calc(100vh - 96px);
 }
 
-/* แยก view ด้วย is-active (สำคัญมาก) */
+/* ===== แผงหลักของแต่ละ view ===== */
 .sb-view {
-  display: none;
-}
-.sb-view.is-active {
-  display: block;
+  display: none;           /* default ไม่แสดง */
 }
 
-/* แผงหลักของแต่ละ view */
+.sb-view.is-active {
+  display: block;          /* engine.js จะใส่ class นี้ให้ */
+}
+
 .sb-panel {
   margin-top: 12px;
   background: radial-gradient(circle at top, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
@@ -384,10 +384,10 @@ body {
   font-weight: 600;
 }
 
-/* Layout หลักของ Play (desktop) */
+/* Layout หลักของ Play (desktop baseline) */
 .sb-play-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr) minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.9fr) minmax(0, 0.7fr);
   gap: 10px;
   margin-top: 10px;
   align-items: stretch;
@@ -452,12 +452,12 @@ body {
   gap: 6px;
 }
 
-/* สนามเป้า (ใช้ id sb-target-layer) */
+/* สนามเป้า (ต้องตรงกับ id ใน HTML / engine.js) */
 #sb-target-layer {
   position: relative;
   width: 100%;
-  height: min(60vh, 420px);
-  min-height: 260px;
+  height: min(72vh, 520px);  /* ขยายให้ใหญ่ขึ้น */
+  min-height: 280px;
   border-radius: 14px;
   overflow: hidden;
   background:
@@ -511,19 +511,22 @@ body {
   transition: transform 0.18s ease-out;
 }
 
-/* Feedback ข้อความ (ใช้กับ #sb-msg-main) */
+/* Feedback ข้อความ (engine.js ใช้ id=sb-msg-main) */
 .sb-msg-main {
   margin-top: 4px;
   font-size: 13px;
   color: #cbd5f5;
   min-height: 1.4em;
 }
+
 .sb-msg-main.perfect {
   color: #facc15;
 }
+
 .sb-msg-main.good {
   color: #4ade80;
 }
+
 .sb-msg-main.bad,
 .sb-msg-main.miss {
   color: #fb7185;
@@ -575,11 +578,12 @@ body {
     0 0 22px rgba(59,130,246,0.6);
 }
 
-/* emoji กลางเป้า */
+/* emoji กลางเป้า — ขนาดผูกกับ sizePx ใน renderer */
 .sb-target-emoji {
   position: relative;
   z-index: 2;
   pointer-events: none;
+  font-size: 0.7em;
 }
 
 /* type-specific */
@@ -688,7 +692,7 @@ body {
   background: radial-gradient(circle, #fecaca, #ef4444);
 }
 
-/* ===== HUD ล่าง / Stats ===== */
+/* ===== HUD ล่าง (ถ้ามี) ===== */
 .sb-hud-bottom {
   margin-top: 8px;
 }
@@ -790,24 +794,9 @@ body {
   color: #cbd5f5;
 }
 
-/* ========================================================= */
-/* = Responsive Layout ===================================== */
+/* ===== Responsive ===== */
 
-/* Desktop / tablet กว้าง: ใช้ layout grid เต็ม */
-@media (min-width: 901px) {
-  .sb-play-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr) minmax(0, 0.9fr);
-    gap: 10px;
-    align-items: stretch;
-  }
-
-  #sb-target-layer {
-    height: min(60vh, 420px);
-  }
-}
-
-/* มือถือ / tablet แนวตั้ง: ให้ play view พอดี 1 จอ */
+/* มือถือ / tablet แนวตั้ง: ให้ play view พอดีจอ และ stage ใหญ่สุดเท่าที่ทำได้ */
 @media (max-width: 900px) {
   .fitness-header {
     flex-direction: column;
@@ -815,17 +804,25 @@ body {
   }
 
   #sb-view-play .sb-panel--play {
-    height: calc(100vh - 96px);
+    height: calc(100vh - 90px);
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 8px 8px 10px;
+    gap: 4px;
+    padding: 8px 8px 8px;
     box-sizing: border-box;
   }
 
   .sb-hud-top {
     grid-template-columns: minmax(0, 1fr);
-    row-gap: 4px;
+    row-gap: 2px;
+  }
+
+  .sb-hp-box {
+    padding: 4px 8px;
+  }
+
+  .sb-time-value {
+    font-size: 18px;
   }
 
   .sb-play-layout {
@@ -834,7 +831,7 @@ body {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: 6px;
+    gap: 4px;
   }
 
   .sb-side-card--boss {
@@ -845,19 +842,10 @@ body {
     padding: 6px 8px;
   }
 
+  /* ซ่อนรายละเอียดบางส่วนบนมือถือให้จอเล่นสูงขึ้น */
   .sb-side-card--boss .sb-boss-hint,
   .sb-side-card--boss .sb-stat-list {
-    display: none; /* ตัด hint + stat ยาวบนจอเล็ก */
-  }
-
-  .sb-boss-emoji {
-    font-size: 26px;
-  }
-  .sb-boss-name {
-    font-size: 13px;
-  }
-  .sb-boss-meta {
-    font-size: 11px;
+    display: none;
   }
 
   .sb-play-main {
@@ -869,18 +857,9 @@ body {
   }
 
   #sb-target-layer {
+    flex: 1;
     height: 100%;
-    min-height: 0;
-    border-radius: 14px;
-  }
-
-  .sb-fever-wrap {
-    margin-top: 2px;
-  }
-
-  .sb-msg-main {
-    font-size: 11px;
-    margin-top: 2px;
+    min-height: 260px;
   }
 
   .sb-side-card {
@@ -889,26 +868,27 @@ body {
     font-size: 12px;
   }
 
-  .sb-hp-box {
-    margin-bottom: 4px;
+  .sb-msg-main {
+    font-size: 11px;
+    margin-top: 2px;
   }
 
-  .sb-hp-label {
-    font-size: 10px;
+  .sb-menu-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
-}
 
-/* มือถือจอเล็กมาก: ลดคอลัมน์ของ result / research */
-@media (max-width: 640px) {
-  #sb-target-layer {
-    height: min(58vh, 360px);
+  .sb-research-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sb-result-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
 
-  .sb-research-grid {
-    grid-template-columns: minmax(0, 1fr);
+/* เพิ่มเติมสำหรับจอเล็กมาก */
+@media (max-width: 640px) {
+  .fitness-shell {
+    padding-inline: 10px;
   }
 }
