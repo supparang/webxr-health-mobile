@@ -9,6 +9,23 @@
   <link rel="stylesheet" href="css/shadow-breaker.css"/>
 </head>
 <body>
+<!-- ===== Shadow Breaker HUD ===== -->
+<div id="sb-hud">
+  <div class="sb-hp-row">
+    <div class="sb-hp-label sb-hp-label-player">YOU</div>
+    <div class="sb-hp-bar">
+      <div id="sb-hp-player" class="sb-hp-fill sb-hp-player"></div>
+      <div id="sb-hp-boss" class="sb-hp-fill sb-hp-boss"></div>
+    </div>
+    <div class="sb-hp-label sb-hp-label-boss">
+      <span id="sb-boss-name">Boss 1</span>
+    </div>
+  </div>
+
+  <div class="sb-boss-portrait-wrap">
+    <div id="sb-boss-portrait" class="sb-boss-portrait">🐣</div>
+  </div>
+</div>
 <div id="sb-wrap" data-diff="normal" data-boss="0" data-phase="1">
   <div class="sb-shell">
     <!-- TOP BAR -->
