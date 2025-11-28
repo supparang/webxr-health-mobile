@@ -1,5 +1,303 @@
-/* ===== Shadow Breaker — Hit / Score FX ===== */
+/* ---------- PLAY LAYOUT (FIELD + BOSS CARD) ---------- */
 
+.sb-play-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(220px, 1.2fr);
+  gap: 14px;
+  align-items: stretch;
+  margin-top: 4px;
+}
+
+/* gameplay area */
+.sb-field-shell {
+  position: relative;
+  border-radius: 18px;
+  background: radial-gradient(circle at top left, #111827, #020617 60%);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+  min-height: 260px;
+}
+
+/* พื้นที่ spawn เป้า */
+#target-layer {
+  position: relative;
+  width: 100%;
+  height: clamp(260px, 44vh, 520px);
+}
+
+/* boss portrait card */
+.sb-boss-card {
+  border-radius: 18px;
+  background: radial-gradient(circle at top, rgba(56, 189, 248, 0.08), #020617);
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.9),
+    0 0 0 1px rgba(15, 23, 42, 0.9);
+  padding: 14px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sb-boss-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sb-boss-emoji {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  background: radial-gradient(circle at 30% 20%, #f9fafb, #d1d5db);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.7);
+}
+
+.sb-boss-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.sb-boss-hint {
+  font-size: 13px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+/* shake ตอน HP บอสต่ำ */
+#boss-portrait.sb-shake {
+  animation: sb-boss-shake 0.35s ease-in-out infinite;
+}
+
+@keyframes sb-boss-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-1px); }
+}
+
+/* ---------- TARGETS & FX (DOM) ---------- */
+
+/* main target bubble */
+.sb-target {
+  position: absolute;
+  border-radius: 999px;
+  cursor: pointer;
+  transform: translate(-50%, -50%) scale(0.8);
+  opacity: 0;
+  transition:
+    transform 0.16s ease-out,
+    opacity 0.16s ease-out,
+    box-shadow 0.16s ease-out;
+}
+
+/* เนื้อฟองนอก */
+.sb-target-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 30% 18%, #f9fafb, #cbd5f5 45%, #94a3b8 70%),
+    radial-gradient(circle at 70% 85%, rgba(244, 63, 94, 0.8), transparent 55%);
+  box-shadow:
+    0 12px 35px rgba(15, 23, 42, 0.9),
+    0 0 0 1px rgba(148, 163, 184, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+/* core สีแดงกลางเป้า (เหมือนถุงมือ) */
+.sb-bubble-core {
+  position: absolute;
+  inset: 18%;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 15%, #fecaca, #fb7185 40%, #be123c 80%);
+  box-shadow: 0 6px 18px rgba(248, 113, 113, 0.8);
+}
+
+/* emoji กลางเป้า */
+.sb-target-emoji {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(28px, 40%, 60px);
+  pointer-events: none; /* กันไม่ให้บัง pointer เวลาคลิก */
+  z-index: 3;
+  text-shadow:
+    0 0 8px rgba(15,23,42,.85),
+    0 0 16px rgba(15,23,42,.75);
+}
+
+/* ring รอบนอก */
+.sb-ring {
+  position: absolute;
+  inset: 4%;
+  border-radius: inherit;
+  border: 2px solid rgba(125, 211, 252, 0.7);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+  mix-blend-mode: screen;
+}
+
+/* phase สีของ ring ตาม phase บอส */
+#sb-wrap[data-phase="1"] .sb-ring {
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+}
+#sb-wrap[data-phase="2"] .sb-ring {
+  border-color: rgba(129, 140, 248, 0.9);
+  box-shadow: 0 0 12px rgba(129, 140, 248, 0.9);
+}
+#sb-wrap[data-phase="3"] .sb-ring {
+  border-color: rgba(251, 113, 133, 0.95);
+  box-shadow: 0 0 14px rgba(251, 113, 133, 0.95);
+}
+
+/* แอนิเมชันตอน spawn */
+.sb-target--spawned {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* สี border ตามชนิดเป้า */
+.sb-target--heal .sb-ring {
+  border-color: rgba(34, 197, 94, 0.9);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.9);
+}
+.sb-target--shield .sb-ring {
+  border-color: rgba(165, 180, 252, 1);
+  box-shadow: 0 0 12px rgba(165, 180, 252, 1);
+}
+.sb-target--bomb .sb-ring {
+  border-color: rgba(248, 113, 113, 1);
+  box-shadow: 0 0 12px rgba(248, 113, 113, 1);
+}
+
+/* boss-face target ขนาดใหญ่ + กรอบทอง + wiggle */
+.sb-target--bossface {
+  z-index: 20;
+  box-shadow:
+    0 18px 40px rgba(15,23,42,.95),
+    0 0 0 2px rgba(250,204,21,.8);
+  animation: sb-bossface-wiggle 0.65s ease-in-out infinite;
+}
+
+.sb-target--bossface .sb-ring {
+  border-width: 3px;
+  border-color: rgba(250,204,21,0.95);
+  box-shadow:
+    0 0 18px rgba(250,204,21,.9),
+    0 0 30px rgba(251,191,36,.9);
+}
+
+/* emoji boss ใหญ่ขึ้นในโหมด boss-face */
+.sb-target--bossface .sb-target-emoji {
+  font-size: clamp(42px, 55%, 76px);
+}
+
+/* glow + wiggle animation */
+@keyframes sb-bossface-wiggle {
+  0%   { transform: translate(-50%,-50%) scale(1.05) rotate(-1.5deg); }
+  25%  { transform: translate(-50%,-50%) scale(1.08) rotate(1.5deg); }
+  50%  { transform: translate(-50%,-50%) scale(1.07) rotate(-1deg); }
+  75%  { transform: translate(-50%,-50%) scale(1.1) rotate(1deg); }
+  100% { transform: translate(-50%,-50%) scale(1.06) rotate(0deg); }
+}
+
+/* ---------- WRAP EFFECTS (FEVER / PHASE / BOSS) ---------- */
+
+#sb-wrap.sb-fever-on {
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.8);
+}
+
+#sb-wrap.sb-wrap-shake {
+  animation: sb-wrap-shake 0.3s ease-in-out;
+}
+
+@keyframes sb-wrap-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
+
+/* background tone per boss */
+#sb-wrap[data-boss="0"] .sb-field-shell {
+  background: radial-gradient(circle at 25% 10%, #1e293b, #020617 65%);
+}
+#sb-wrap[data-boss="1"] .sb-field-shell {
+  background: radial-gradient(circle at 75% 0%, #0f172a, #020617 70%);
+}
+#sb-wrap[data-boss="2"] .sb-field-shell {
+  background: radial-gradient(circle at 10% 90%, #020617, #020617 65%);
+}
+#sb-wrap[data-boss="3"] .sb-field-shell {
+  background: radial-gradient(circle at 50% 50%, #020617, #000000 70%);
+}
+
+/* ---------- BOSS INTRO OVERLAY ---------- */
+
+#bossIntro {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.96), #020617f5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  cursor: pointer;
+}
+
+#bossIntro.hidden {
+  display: none !important;
+}
+
+.sb-intro-card {
+  max-width: 420px;
+  padding: 22px 20px 18px;
+  border-radius: 20px;
+  background: radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), #020617);
+  border: 1px solid rgba(129, 140, 248, 0.6);
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.9);
+  text-align: center;
+}
+
+.sb-intro-emoji {
+  font-size: 44px;
+  margin-bottom: 6px;
+}
+
+.sb-intro-name {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.sb-intro-title {
+  font-size: 14px;
+  color: #e5e7eb;
+  margin-bottom: 6px;
+}
+
+.sb-intro-desc {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.sb-intro-tip {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* ---------- SCORE FX & FRAGMENTS (DOM FX) ---------- */
+
+/* คะแนนเด้งตรงจุดคลิก */
 .sb-score-fx {
   position: fixed;
   z-index: 80;
@@ -26,6 +324,7 @@
   transform: translate(-50%, -50%) translateY(-32px);
 }
 
+/* สีตาม judgment */
 .sb-score-perfect {
   color: #fbbf24; /* เหลืองทอง */
 }
@@ -42,8 +341,7 @@
   color: #ef4444; /* แดง */
 }
 
-/* ===== fragments ===== */
-
+/* fragments แตกกระจาย */
 .sb-frag {
   position: fixed;
   z-index: 70;
@@ -74,9 +372,4 @@
 
 .sb-frag-miss {
   background: radial-gradient(circle, #fecaca, #ef4444);
-}
-
-/* emoji ตรงกลางเป้า (กันไม่ให้บัง pointer) */
-.sb-target-emoji {
-  pointer-events: none;
 }
