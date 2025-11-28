@@ -83,6 +83,11 @@ export class DomRendererShadow {
     emoji.className = 'sb-target-emoji';
     emoji.textContent = this.pickEmojiForTarget(data);
 
+    // ขนาด emoji ให้สัมพันธ์กับขนาดเป้า
+    // ใหญ่ประมาณ 55% ของวงกลม และไม่เล็กกว่า 32px
+    const emojiSize = Math.max(32, size * 0.55);
+    emoji.style.fontSize = emojiSize + 'px';
+
     inner.appendChild(core);
     inner.appendChild(ring);
     inner.appendChild(emoji);
