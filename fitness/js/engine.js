@@ -1,7 +1,18 @@
-// === js/engine.js — Shadow Breaker core (2025-12-04, Hub layout + Miss rules) ===
+// === js/engine.js — Shadow Breaker core (2025-12-04, Hub layout + Miss rules + Research logging) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
+import { EventLogger } from './event-logger.js';
+import { SessionLogger } from './session-logger.js';
+
+// ----- build / logging meta -----
+const GAME_ID = 'shadow-breaker';
+const BUILD_VERSION = 'shadow-breaker-2025-12-04';
+
+// logger instances (เก็บข้ามหลายรอบเล่นในหน้าเดียวกันได้)
+const eventLogger = new EventLogger();
+const sessionLogger = new SessionLogger();
+let runIndexCounter = 0;
 
 // ----- DOM refs (จะถูกเติมใน initShadowBreaker) -----
 let wrap;
@@ -114,7 +125,7 @@ function resetHud() {
   }
   if (feverFill) feverFill.style.transform = 'scaleX(0)';
 
-  // HP bar ล่าง + บน
+  // HP bar ล่าง + บน (ถ้า CSS ซ่อนด้านบนก็ไม่เป็นไร)
   if (hpYouBottom) hpYouBottom.style.transform = 'scaleX(1)';
   if (hpBossBottom) hpBossBottom.style.transform = 'scaleX(1)';
   if (hpYouTop) hpYouTop.style.transform = 'scaleX(1)';
@@ -144,7 +155,7 @@ function updateHpBars() {
 }
 
 function updateFeverUi(now) {
-  if (!feverFill) return;
+  if (!feverFill || !state) return;
   const v = Math.max(0, Math.min(1, state.fever));
   feverFill.style.transform = `scaleX(${v})`;
 
@@ -217,7 +228,7 @@ function spawnBossFaceTarget() {
   ensureRenderer().spawnTarget(data);
 
   data.timeoutHandle = setTimeout(() => {
-    if (!state.running) return;
+    if (!state || !state.running) return;
     if (!state.targets.has(id)) return;
     state.targets.delete(id);
     if (renderer) renderer.removeTarget(id, 'timeout');
@@ -367,6 +378,9 @@ function handleTargetHit(id, hitInfo) {
       setFeedback('โดนระเบิด! HP ลดลง รีบตั้งหลักใหม่ 💥', 'bad');
     }
     state.combo = 0;
+    if (data.type === 'bomb') {
+      state.bombsHit++;
+    }
   } else if (data.type === 'heal') {
     grade = 'heal';
     scoreDelta = 60;
@@ -409,6 +423,16 @@ function handleTargetHit(id, hitInfo) {
     );
   }
 
+  // นับเกรดสำหรับ research
+  if (grade === 'perfect') {
+    state.perfectCount++;
+  } else if (grade === 'good' || grade === 'heal' || grade === 'shield') {
+    state.goodCount++;
+  } else {
+    // รวม bad / miss / bomb / อื่น ๆ
+    state.badCount++;
+  }
+
   // FEVER gauge (เฉพาะ normal)
   if (data.type === 'normal') {
     state.fever += FEVER_PER_HIT;
@@ -416,6 +440,7 @@ function handleTargetHit(id, hitInfo) {
       state.feverOn = true;
       state.feverUntil = now + FEVER_DURATION_MS;
       state.fever = 1;
+      state.feverCount++;
       if (feverStatus) {
         feverStatus.textContent = 'ON';
         feverStatus.classList.add('on');
@@ -468,29 +493,54 @@ function handleTargetHit(id, hitInfo) {
 }
 
 // ===== logging / loop =====
-function logEvent(type, targetData, extra) {
-  const now = performance.now();
+function logEvent(type, targetData, extra = {}) {
+  if (!state) return;
+
+  const nowPerf = performance.now();
+  const tsMs = Math.round(nowPerf - state.startedAt);
+
   const row = {
-    ts_ms: Math.round(now - state.startedAt),
-    mode: state.mode,
-    diff: state.diffKey,
-    boss_index: state.bossIndex,
-    boss_phase: state.bossPhase,
+    // meta ผู้เข้าร่วม (ตอนนี้ยังไม่ได้ผูก form ใด ๆ)
+    participant: state.researchMeta && state.researchMeta.id || '',
+    group: state.researchMeta && state.researchMeta.group || '',
+    note: state.researchMeta && state.researchMeta.note || '',
+
+    session_id: state.sessionId || '',
+    run_index: state.runIndex || 0,
+
+    // timing / event
+    event_type: type,
+    ts_ms: tsMs,
+
+    // target / boss
     target_id: targetData ? targetData.id : '',
     target_type: targetData ? targetData.type : '',
-    is_boss_face: targetData ? !!targetData.isBossFace : '',
-    event_type: type,
-    rt_ms: extra && extra.rtMs != null ? Math.round(extra.rtMs) : '',
-    grade: (extra && extra.grade) || '',
-    score_delta: (extra && extra.scoreDelta) || '',
+    boss_id: targetData ? targetData.bossIndex : state.bossIndex,
+    boss_phase: targetData ? targetData.bossPhase : state.bossPhase,
+    is_boss_face: targetData ? !!targetData.isBossFace : false,
+
+    // performance
+    grade: extra && extra.grade || '',
+    age_ms: extra && typeof extra.rtMs === 'number' ? Math.round(extra.rtMs) : '',
+    score_delta: extra && extra.scoreDelta != null ? extra.scoreDelta : '',
     combo_after: state.combo,
     score_after: state.score,
-    player_hp: state.playerHp.toFixed(3),
-    boss_hp: state.bossHp.toFixed(3)
-  };
-  eventRows.push(row);
 
-  if (type === 'hit') {
+    // HP / gauge
+    player_hp_after: +state.playerHp.toFixed(3),
+    boss_hp_after: +state.bossHp.toFixed(3),
+    fever_on: state.feverOn,
+    diff: state.diffKey,
+    diff_label: DIFF_CONFIG[state.diffKey].label,
+    target_size_px: targetData && targetData.sizePx != null ? targetData.sizePx : ''
+    // สามารถเพิ่ม field อื่น (zone_lr / x_norm / ฯลฯ) ได้ภายหลัง
+  };
+
+  // เก็บแบบเดิม + ส่งเข้า EventLogger แบบใหม่
+  eventRows.push(row);
+  eventLogger.add(row);
+
+  if (type === 'hit' && targetData && typeof extra.rtMs === 'number') {
     if (targetData.type === 'decoy') {
       state.rtDecoySum += extra.rtMs;
       state.rtDecoyCount++;
@@ -572,6 +622,8 @@ function endGame(reason) {
   const totalTrials = state.totalHits + state.miss;
   const acc = totalTrials > 0 ? (state.totalHits / totalTrials) * 100 : 0;
 
+  const endWallTs = Date.now();
+
   sessionSummary = {
     mode: state.mode,
     diff: state.diffKey,
@@ -595,7 +647,63 @@ function endGame(reason) {
     rt_decoy_ms: state.rtDecoyCount ? +(state.rtDecoySum / state.rtDecoyCount).toFixed(1) : ''
   };
 
-  // อัปเดตหน้า result (ถ้ามี)
+  // ---- เติมเข้า SessionLogger สำหรับ CSV วิจัย ----
+  const sessionRow = {
+    session_id: state.sessionId || '',
+    build_version: BUILD_VERSION,
+
+    mode: state.mode,
+    difficulty: state.diffKey,
+    training_phase: '', // เผื่อใช้แบ่ง block ฝึก/จริง
+    run_index: state.runIndex || 0,
+
+    start_ts: new Date(state.wallStartTs).toISOString(),
+    end_ts: new Date(endWallTs).toISOString(),
+    duration_s: sessionSummary.duration_sec,
+    end_reason: reason,
+
+    final_score: sessionSummary.score,
+    grade: '', // ถ้าจะคิดเกรด A/B/C ค่อยเติมภายหลัง
+
+    total_targets: totalTrials,
+    total_hits: sessionSummary.total_hits,
+    total_miss: sessionSummary.miss,
+    total_bombs_hit: state.bombsHit || 0,
+
+    accuracy_pct: sessionSummary.accuracy_pct,
+    max_combo: sessionSummary.max_combo,
+
+    perfect_count: state.perfectCount || 0,
+    good_count: state.goodCount || 0,
+    bad_count: state.badCount || 0,
+
+    avg_rt_normal_ms: sessionSummary.rt_normal_ms || '',
+    std_rt_normal_ms: '',
+    avg_rt_decoy_ms: sessionSummary.rt_decoy_ms || '',
+    std_rt_decoy_ms: '',
+
+    fever_count: state.feverCount || 0,
+    fever_total_time_s: sessionSummary.fever_time_sec,
+    low_hp_time_s: sessionSummary.lowhp_time_sec,
+    bosses_cleared: sessionSummary.bosses_cleared,
+    menu_to_play_ms: sessionSummary.menu_latency_ms,
+
+    participant: sessionSummary.participant_id,
+    group: sessionSummary.participant_group,
+    note: sessionSummary.participant_note,
+
+    env_ua: (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '',
+    env_viewport_w: (typeof window !== 'undefined' && window.innerWidth) || 0,
+    env_viewport_h: (typeof window !== 'undefined' && window.innerHeight) || 0,
+    env_input_mode: 'pointer',
+
+    error_count: 0,
+    focus_events: ''
+  };
+
+  sessionLogger.add(sessionRow);
+
+  // ---- อัปเดตหน้า result (ถ้ามี) ----
   if (resTime) resTime.textContent = sessionSummary.duration_sec.toFixed(1) + ' s';
   if (resScore) resScore.textContent = String(sessionSummary.score);
   if (resMaxCombo) resMaxCombo.textContent = String(sessionSummary.max_combo);
@@ -613,6 +721,10 @@ function startGame(mode) {
 
   clearRenderer();
   resetHud();
+
+  const wallStartTs = Date.now();
+  const startedAt = performance.now();
+  const runIndex = ++runIndexCounter;
 
   state = {
     mode: mode || 'play',
@@ -639,13 +751,27 @@ function startGame(mode) {
     totalHits: 0,
     targets: new Map(),
     nextTargetId: 1,
-    startedAt: performance.now(),
-    lastTickAt: performance.now(),
+    startedAt,
+    lastTickAt: startedAt,
+    wallStartTs,
     researchMeta: null,
+
+    // RT accumulators
     rtNormalSum: 0,
     rtNormalCount: 0,
     rtDecoySum: 0,
-    rtDecoyCount: 0
+    rtDecoyCount: 0,
+
+    // research counters
+    bombsHit: 0,
+    perfectCount: 0,
+    goodCount: 0,
+    badCount: 0,
+    feverCount: 0,
+
+    // session meta
+    sessionId: `${GAME_ID}-${wallStartTs}`,
+    runIndex
   };
 
   eventRows = [];
@@ -773,5 +899,5 @@ export function initShadowBreaker() {
   showView('menu');
   menuOpenedAt = performance.now();
 
-  console.log('[ShadowBreaker] init complete (Hub layout)');
+  console.log('[ShadowBreaker] init complete (Hub layout + research logging)');
 }
