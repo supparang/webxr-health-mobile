@@ -1,4 +1,4 @@
-// === js/dom-renderer-shadow.js — Shadow Breaker DOM Renderer (2025-12-03 compactFX) ===
+// === js/dom-renderer-shadow.js — Shadow Breaker DOM Renderer (2025-12-03, emoji+FX upgrade) ===
 'use strict';
 
 /**
@@ -11,8 +11,8 @@ export class DomRendererShadow {
   /**
    * @param {HTMLElement} host  พื้นที่เกม (#target-layer)
    * @param {Object} opts
-   *   - wrapEl      พื้นที่ใช้วาด FX (เช่น #sb-wrap)
-   *   - feedbackEl  element ข้อความ feedback (ไม่บังคับ)
+   *   - wrapEl    พื้นที่ใช้วาด FX (เช่น #sb-wrap)
+   *   - feedbackEl element ข้อความ feedback (ยังไม่ใช้ใน renderer นี้)
    *   - onTargetHit(id, {clientX, clientY})
    */
   constructor(host, opts = {}) {
@@ -83,6 +83,11 @@ export class DomRendererShadow {
     emoji.className = 'sb-target-emoji';
     emoji.textContent = this.pickEmojiForTarget(data);
 
+    // ขนาด emoji ให้สัมพันธ์กับเป้า (ใหญ่ขึ้น/เล็กลงตาม sizePx)
+    const baseFactor = data.isBossFace ? 0.55 : 0.45;
+    const px = Math.round(size * baseFactor);
+    emoji.style.fontSize = px + 'px';
+
     inner.appendChild(core);
     inner.appendChild(ring);
     inner.appendChild(emoji);
@@ -91,7 +96,6 @@ export class DomRendererShadow {
     // handler ตอนแตะ/ชกเป้า
     const handler = (ev) => {
       ev.preventDefault();
-      ev.stopPropagation();
       if (this.onTargetHit) {
         this.onTargetHit(data.id, {
           clientX: ev.clientX,
@@ -99,8 +103,7 @@ export class DomRendererShadow {
         });
       }
     };
-    el.addEventListener('pointerdown', handler, { passive: false });
-    // เผื่อบาง browser ยังยิง click ให้ด้วย
+    el.addEventListener('pointerdown', handler);
     el.addEventListener('click', handler);
 
     this.host.appendChild(el);
@@ -116,23 +119,14 @@ export class DomRendererShadow {
   /**
    * ลบเป้าออก (ตอน timeout หรือ endGame)
    */
-  removeTarget(id, reason) {
+  removeTarget(id /*, reason */) {
     const entry = this.targets.get(id);
     if (!entry) return;
 
     const { el, handler } = entry;
     el.removeEventListener('pointerdown', handler);
     el.removeEventListener('click', handler);
-
-    // ถ้าเป็นกรณีตีโดน ให้มีอนิเมชันเป้าแตกเล็กน้อยก่อนลบ
-    if (reason === 'hit') {
-      el.classList.add('sb-target--hit');
-      setTimeout(() => {
-        el.remove();
-      }, 160);
-    } else {
-      el.remove();
-    }
+    el.remove();
 
     this.targets.delete(id);
   }
@@ -212,23 +206,25 @@ export class DomRendererShadow {
 
   // ===== internal helpers =====
 
+  // เลือก emoji ตามชนิดเป้า ให้ดูหลากหลาย/น่าเล่นขึ้น
   pickEmojiForTarget(data) {
     if (data.isBossFace && data.bossEmoji) return data.bossEmoji;
-    switch (data.type) {
-      case 'bomb':   return '💣';
-      case 'heal':   return '💊';
-      case 'shield': return '🛡️';
-      case 'decoy':  return '🎭';
-      default:       return '🥊';
-    }
-  }
 
-  /** map judgment ให้ใช้สี frag ที่มีใน CSS */
-  _mapFragClass(judgment) {
-    if (judgment === 'perfect') return 'perfect';
-    if (judgment === 'good' || judgment === 'heal' || judgment === 'shield') return 'good';
-    if (judgment === 'miss' || judgment === 'bomb' || judgment === 'bad') return 'miss';
-    return 'good';
+    const rnd = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    switch (data.type) {
+      case 'bomb':
+        return rnd(['💣', '🧨', '☄️']);
+      case 'heal':
+        return rnd(['💊', '🩹', '💉']);
+      case 'shield':
+        return rnd(['🛡️', '🧱', '🔰']);
+      case 'decoy':
+        return rnd(['🎭', '🃏', '👻']);
+      default:
+        // normal เป้าให้ความรู้สึกหมัด/พลัง
+        return rnd(['🥊', '👊', '🤜', '⚡️', '🔥']);
+    }
   }
 
   /** คะแนนเด้งตรงจุดที่ตีเป้า */
@@ -238,13 +234,7 @@ export class DomRendererShadow {
     const el = document.createElement('div');
     const j = judgment || 'good';
 
-    const clsGrade =
-      j === 'perfect' ? 'perfect' :
-      j === 'good' || j === 'heal' || j === 'shield' ? 'good' :
-      j === 'miss' || j === 'bomb' || j === 'bad' ? 'miss' :
-      'good';
-
-    el.className = `sb-score-fx sb-score-${clsGrade}`;
+    el.className = `sb-score-fx sb-score-${j}`;
 
     if (j === 'miss') {
       el.textContent = 'MISS';
@@ -271,19 +261,19 @@ export class DomRendererShadow {
   spawnHitParticle(x, y, judgment) {
     if (!this.wrapEl) return;
 
-    const mapped = this._mapFragClass(judgment);
-    const count = mapped === 'perfect' ? 18 : 14;
+    const j = judgment || 'good';
+    const count = j === 'perfect' ? 18 : 12;
 
     for (let i = 0; i < count; i++) {
       const el = document.createElement('div');
-      el.className = `sb-frag sb-frag-${mapped}`;
+      el.className = `sb-frag sb-frag-${j}`;
 
-      const size = 7 + Math.random() * 10;
-      const dist = 45 + Math.random() * 55;
+      const size = 6 + Math.random() * 8;
+      const dist = 40 + Math.random() * 50;
       const ang = (i / count) * Math.PI * 2;
       const dx = Math.cos(ang) * dist;
       const dy = Math.sin(ang) * dist;
-      const life = 420 + Math.random() * 260;
+      const life = 380 + Math.random() * 260;
 
       el.style.width = el.style.height = size + 'px';
       el.style.left = x + 'px';
@@ -308,17 +298,17 @@ export class DomRendererShadow {
   spawnMissParticle(x, y) {
     if (!this.wrapEl) return;
 
-    const count = 12;
+    const count = 10;
     for (let i = 0; i < count; i++) {
       const el = document.createElement('div');
       el.className = 'sb-frag sb-frag-miss';
 
-      const size = 6 + Math.random() * 7;
+      const size = 5 + Math.random() * 6;
       const dist = 30 + Math.random() * 40;
-      const ang = Math.random() * Math.PI + Math.PI / 2; // ลงล่างครึ่งวง
+      const ang = (Math.random() * Math.PI) + Math.PI / 2; // ลงล่างครึ่งวง
       const dx = Math.cos(ang) * dist;
       const dy = Math.sin(ang) * dist;
-      const life = 430 + Math.random() * 260;
+      const life = 420 + Math.random() * 260;
 
       el.style.width = el.style.height = size + 'px';
       el.style.left = x + 'px';
