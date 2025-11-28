@@ -633,19 +633,28 @@ data.timeoutHandle = setTimeout(() => {
     updateFeverUi(now);
 
     // safety: ตรวจ timeout เพิ่ม
-    const nowTargets = Array.from(state.targets.values());
-    for (const t of nowTargets) {
-      if (now >= t.timeoutAt) {
-        if (t.timeoutHandle) clearTimeout(t.timeoutHandle);
-        state.targets.delete(t.id);
-        if (renderer) renderer.removeTarget(t.id, "timeout");
-        state.miss++;
-        statMiss.textContent = String(state.miss);
-        state.combo = 0;
-        statCombo.textContent = "0";
-        logEvent("timeout", t, { grade: "miss" });
-      }
+const nowTargets = Array.from(state.targets.values());
+for (const t of nowTargets) {
+  if (now >= t.timeoutAt) {
+    if (t.timeoutHandle) clearTimeout(t.timeoutHandle);
+    state.targets.delete(t.id);
+    if (renderer) renderer.removeTarget(t.id, 'timeout');
+
+    const isPunishMiss = !t.isBomb && !t.isDecoy;
+
+    if (isPunishMiss) {
+      state.miss++;
+      statMiss.textContent = String(state.miss);
+      state.combo = 0;
+      statCombo.textContent = '0';
+      logEvent('timeout', t, { grade: 'miss' });
+    } else {
+      // bomb/decoy แค่ log ว่าหมดเวลา แต่ไม่ใช่ miss
+      logEvent('timeout', t, { grade: 'ignore' });
     }
+  }
+}
+
 
     gameLoopId = requestAnimationFrame(gameLoop);
   }
