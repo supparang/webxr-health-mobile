@@ -362,18 +362,26 @@ export function initShadowBreaker() {
     state.targets.set(id, data);
     ensureRenderer().spawnTarget(data);
 
-    data.timeoutHandle = setTimeout(() => {
-      if (!state.running) return;
-      if (!state.targets.has(id)) return;
-      state.targets.delete(id);
-      if (renderer) renderer.removeTarget(id, "timeout");
-      state.miss++;
-      statMiss.textContent = String(state.miss);
-      state.combo = 0;
-      statCombo.textContent = "0";
-      setFeedback("พลาดหน้า boss! รอบหน้าลองโฟกัสให้ทัน 💥", "miss");
-      logEvent("timeout", data, { grade: "miss" });
-    }, cfg.targetLifetime * 1.4);
+data.timeoutHandle = setTimeout(() => {
+  if (!state || !state.running) return;
+  if (!state.targets.has(id)) return;
+  state.targets.delete(id);
+  if (renderer) renderer.removeTarget(id, 'timeout');
+
+  // ถ้าเป็น bomb / decoy → ไม่ลงโทษเป็น Miss
+  const isPunishMiss = !data.isBomb && !data.isDecoy;
+
+  if (isPunishMiss) {
+    state.miss++;
+    statMiss.textContent = String(state.miss);
+    state.combo = 0;
+    statCombo.textContent = '0';
+    setFeedback('พลาดจังหวะ! ลองมองเป้าให้ชัดแล้วลองใหม่ 👀', 'miss');
+  }
+
+  logEvent('timeout', data, { grade: isPunishMiss ? 'miss' : 'ignore' });
+}, ttl);
+
   }
 
   function spawnOneTarget() {
