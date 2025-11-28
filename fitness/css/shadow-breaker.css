@@ -1,4 +1,4 @@
-/* === Shadow Breaker — Global Layout & Theme (2025-12-03) === */
+/* === Shadow Breaker — Global Layout & Theme (2025-12-03 fixed) === */
 
 :root {
   color-scheme: dark;
@@ -52,11 +52,13 @@ body {
   gap: clamp(6px, 1.6vh, 10px);
 }
 
-/* generic utilities */
+/* utilities */
 
 .hidden {
   display: none !important;
 }
+
+/* pills */
 
 .sb-pill {
   display: inline-flex;
@@ -125,18 +127,18 @@ body {
 
 .sb-view {
   flex: 1;
-  display: none;
+  display: flex;           /* <— FIX: ให้โชว์ปกติ */
+  flex-direction: column;
+  gap: 12px;
 }
 
-.sb-view.active {
-  display: flex;
-}
+/* (engine จะซ่อน/โชว์ด้วย .hidden แทน) */
 
 #view-menu,
 #view-result,
 #view-research-form {
+  /* เสริมเผื่อ */
   flex-direction: column;
-  gap: 12px;
 }
 
 /* ===== PLAY VIEW LAYOUT ===== */
@@ -148,7 +150,7 @@ body {
   gap: 8px;
 }
 
-/* top HUD: boss info + player/boss HP (บน) */
+/* top HUD */
 
 .sb-play-top {
   display: flex;
@@ -219,7 +221,7 @@ body {
   background: linear-gradient(90deg,#f97316,#ef4444);
 }
 
-/* boss portrait card ด้านล่าง field */
+/* boss card */
 
 .sb-boss-card {
   margin-top: 4px;
@@ -275,7 +277,7 @@ body {
 #target-layer {
   position: relative;
   flex: 1;
-  min-height: 0;
+  min-height: 260px;
   border-radius: 26px;
   background:
     radial-gradient(circle at 20% -10%, rgba(56,189,248,0.42), transparent 55%),
@@ -367,7 +369,7 @@ body {
     radial-gradient(circle at 50% 60%, rgba(15,23,42,0.95), #020617);
 }
 
-/* emoji ตรงกลางเป้า – ให้เด่นและมี animation นิดหน่อย */
+/* emoji กลางเป้า */
 
 .sb-target-emoji {
   position: relative;
@@ -377,6 +379,7 @@ body {
   text-shadow:
     0 0 8px rgba(15,23,42,0.9),
     0 0 16px rgba(15,23,42,0.95);
+  font-size: 2.1rem;
   animation: sbEmojiBounce 1.4s ease-in-out infinite;
 }
 
@@ -386,7 +389,7 @@ body {
   100% { transform: translateY(0); }
 }
 
-/* ===== BOTTOM BAR: stats + Fever + HP + buttons ===== */
+/* ===== BOTTOM BAR ===== */
 
 .sb-bottom-bar {
   margin-top: 6px;
@@ -423,7 +426,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* FEVER / status */
+/* FEVER */
 
 #fever-status {
   font-weight: 600;
@@ -435,7 +438,7 @@ body {
   color: #facc15;
 }
 
-/* bottom HP bars */
+/* bottom HP */
 
 .sb-bottom-hp {
   margin-top: 4px;
@@ -456,10 +459,7 @@ body {
   color: var(--sb-text-soft);
 }
 
-/* ด้านล่างจะใช้ hp-fill ตัวเดียวกับด้านบน:
-   - [data-sb-player-hp]
-   - [data-sb-boss-hp]
-*/
+/* reuse same fills */
 
 [data-sb-player-hp],
 [data-sb-boss-hp] {
@@ -468,7 +468,7 @@ body {
   transform-origin: left center;
 }
 
-/* bottom buttons */
+/* buttons */
 
 .sb-bottom-actions {
   margin-top: 6px;
@@ -502,7 +502,7 @@ body {
   transform: translateY(1px);
 }
 
-/* feedback text */
+/* feedback */
 
 .sb-feedback {
   margin-top: 4px;
@@ -583,9 +583,7 @@ body {
   opacity: 0.8;
 }
 
-/* ===== Score FX / Hit Fragments ===== */
-
-/* คะแนนเด้ง */
+/* ===== Score FX / Fragments ===== */
 
 .sb-score-fx {
   position: fixed;
@@ -614,22 +612,20 @@ body {
 }
 
 .sb-score-perfect {
-  color: #fbbf24; /* เหลืองทอง */
+  color: #fbbf24;
 }
 
 .sb-score-good {
-  color: #22c55e; /* เขียว */
+  color: #22c55e;
 }
 
 .sb-score-bad {
-  color: #fb923c; /* ส้ม */
+  color: #fb923c;
 }
 
 .sb-score-miss {
-  color: #ef4444; /* แดง */
+  color: #ef4444;
 }
-
-/* fragments */
 
 .sb-frag {
   position: fixed;
@@ -663,7 +659,7 @@ body {
   background: radial-gradient(circle, #fecaca, #ef4444);
 }
 
-/* ===== Responsive tweaks for small screens ===== */
+/* ===== Responsive tweaks ===== */
 
 @media (max-width: 480px) {
   #sb-wrap {
