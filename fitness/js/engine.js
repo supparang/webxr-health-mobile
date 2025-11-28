@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-12-03, HUD+FX synced) ===
+// === js/engine.js — Shadow Breaker core (2025-12-03, FEVER tuned + HUD+FX synced) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -116,9 +116,13 @@ export function initShadowBreaker() {
     }
   };
 
-  const FEVER_PER_HIT = 0.09;
-  const FEVER_DECAY_PER_SEC = 0.15;
-  const FEVER_DURATION_MS = 7000;
+  // === FEVER tuning (2025-12-03 — ให้ขึ้นง่ายและต่างตามเกรด) ===
+  const FEVER_GAIN_PERFECT = 0.26;   // PERFECT ~4–5 ครั้งก็เต็ม
+  const FEVER_GAIN_GOOD    = 0.20;
+  const FEVER_GAIN_BAD     = 0.14;   // จังหวะช้า (bad) ยังได้เกจอยู่ แต่ได้น้อยสุด
+  const FEVER_DECAY_PER_SEC = 0.08;  // เกจลดช้าลง
+  const FEVER_DURATION_MS  = 8000;   // อยู่ในโหมด FEVER 8 วิ
+
   const LOWHP_THRESHOLD = 0.3;
   const BOSSFACE_THRESHOLD = 0.28; // hp < นี้จะเรียกหน้า boss
 
@@ -158,9 +162,11 @@ export function initShadowBreaker() {
     feverStatus.classList.remove('on');
     if (feverFill) feverFill.style.transform = 'scaleX(0)';
 
-    // HP bar ล่าง/บน (ตอนนี้ใช้ชุดเดียวด้านบน)
+    // HP bar ล่าง
     if (playerHpFill) playerHpFill.style.transform = 'scaleX(1)';
     if (bossHpFill) bossHpFill.style.transform = 'scaleX(1)';
+
+    // HP bar บน
     if (hudPlayerHpTop) hudPlayerHpTop.style.transform = 'scaleX(1)';
     if (hudBossHpTop)   hudBossHpTop.style.transform   = 'scaleX(1)';
 
@@ -458,9 +464,19 @@ export function initShadowBreaker() {
       );
     }
 
-    // FEVER gauge (เฉพาะ normal)
+    // FEVER gauge (เฉพาะ normal) — ปรับให้ขึ้นง่ายและต่างตามเกรด
     if (data.type === 'normal') {
-      state.fever += FEVER_PER_HIT;
+      let feverGain;
+      if (grade === 'perfect') {
+        feverGain = FEVER_GAIN_PERFECT;
+      } else if (grade === 'good') {
+        feverGain = FEVER_GAIN_GOOD;
+      } else {
+        feverGain = FEVER_GAIN_BAD;
+      }
+
+      state.fever = Math.min(1, state.fever + feverGain);
+
       if (!state.feverOn && state.fever >= 1) {
         state.feverOn = true;
         state.feverUntil = now + FEVER_DURATION_MS;
