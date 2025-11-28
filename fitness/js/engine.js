@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-12-04, FEVER tuned + HUD/FX synced) ===
+// === js/engine.js — Shadow Breaker core (2025-12-04, FEVER tuned + Fire overlay) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -116,15 +116,15 @@ export function initShadowBreaker() {
     }
   };
 
-  // FEVER config — ปรับให้ขึ้นง่ายขึ้นหน่อย + รวมไว้ที่เดียวสำหรับงานวิจัย
+  // FEVER config — ปรับให้ขึ้นง่าย + ใช้จอไฟลุก
   const FEVER_CONFIG = {
-    perHit: 0.18,        // เดิม 0.09 → เพิ่มเป็น 0.18 ให้เกจขึ้นไวขึ้น
-    decayPerSec: 0.10,   // เดิม 0.15 → ลดการรั่วลง
-    durationMs: 8000     // เดิม 7000 ms → FEVER ค้างนานขึ้นเล็กน้อย
+    perHit: 0.18,        // hit ทีเกจขึ้นเยอะพอรู้สึก
+    decayPerSec: 0.10,   // ลดช้าลง
+    durationMs: 8000     // อยู่ในโหมดไฟ ~8 วินาที
   };
 
   const LOWHP_THRESHOLD = 0.3;
-  const BOSSFACE_THRESHOLD = 0.28; // hp < นี้จะเรียกหน้า boss
+  const BOSSFACE_THRESHOLD = 0.28;
 
   // ----- runtime state -----
   let renderer = null;
@@ -160,6 +160,7 @@ export function initShadowBreaker() {
     statShield.textContent = '0';
     feverStatus.textContent = 'READY';
     feverStatus.classList.remove('on');
+    wrap.classList.remove('sb-fever-on');
     if (feverFill) feverFill.style.transform = 'scaleX(0)';
 
     // HP bar ล่าง
@@ -230,7 +231,7 @@ export function initShadowBreaker() {
   }
 
   function updateFeverUi(now) {
-    if (!feverFill) return;
+    if (!feverFill || !state) return;
     const v = Math.max(0, Math.min(1, state.fever));
     feverFill.style.transform = `scaleX(${v})`;
 
@@ -238,6 +239,12 @@ export function initShadowBreaker() {
       state.feverOn = false;
       feverStatus.textContent = 'READY';
       feverStatus.classList.remove('on');
+      wrap.classList.remove('sb-fever-on');
+    }
+
+    // เผื่อกรณีมี FEVER แบบต่อเนื่อง
+    if (state.feverOn) {
+      wrap.classList.add('sb-fever-on');
     }
   }
 
@@ -354,7 +361,7 @@ export function initShadowBreaker() {
   function spawnTargetOfType(kind, extra) {
     const cfg = DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal;
     const now = performance.now();
-    const id = state.nextTargetId++;
+    aconst id = state.nextTargetId++;
     const ttl = cfg.targetLifetime;
 
     const size = (extra && extra.size) || cfg.baseSize;
@@ -473,6 +480,7 @@ export function initShadowBreaker() {
         state.fever = 1;
         feverStatus.textContent = 'ON';
         feverStatus.classList.add('on');
+        wrap.classList.add('sb-fever-on'); // เข้าโหมดไฟลุก
       }
     }
 
@@ -612,6 +620,8 @@ export function initShadowBreaker() {
       }
     }
     state.targets.clear();
+
+    wrap.classList.remove('sb-fever-on');
 
     const totalTrials = state.totalHits + state.miss;
     const acc = totalTrials > 0 ? (state.totalHits / totalTrials) * 100 : 0;
