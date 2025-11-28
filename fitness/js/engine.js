@@ -4,7 +4,7 @@
 import { DomRendererShadow } from './dom-renderer-shadow.js';
 import { EventLogger } from './event-logger.js';
 import { SessionLogger } from './session-logger.js';
-import { recordSession } from '../stats-store.js';
+import { recordSession } from './stats-store.js';
 
 // ----- DOM refs (จะถูกเติมใน initShadowBreaker) -----
 let wrap;
