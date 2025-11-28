@@ -358,48 +358,49 @@ export function initShadowBreaker() {
     spawnTargetOfType(kind, { size: cfg.baseSize });
   }
 
-  function spawnTargetOfType(kind, extra) {
-    const cfg = DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal;
-    const now = performance.now();
-    aconst id = state.nextTargetId++;
-    const ttl = cfg.targetLifetime;
+function spawnTargetOfType(kind, extra) {
+  const cfg = DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal;
+  const now = performance.now();
+  const id = state.nextTargetId++;        // ✅ แก้เหลือแค่ const
+  const ttl = cfg.targetLifetime;
 
-    const size = (extra && extra.size) || cfg.baseSize;
+  const size = (extra && extra.size) || cfg.baseSize;
 
-    const data = {
-      id,
-      type: kind,
-      bossIndex: state.bossIndex,
-      bossPhase: state.bossPhase,
-      spawnTime: now,
-      isBossFace: (extra && extra.isBossFace) || false,
-      bossEmoji: extra && extra.bossEmoji,
-      sizePx: size,
-      timeoutAt: now + ttl,
-      isDecoy: kind === 'decoy',
-      isBomb: kind === 'bomb',
-      isHeal: kind === 'heal',
-      isShield: kind === 'shield'
-    };
+  const data = {
+    id,
+    type: kind,
+    bossIndex: state.bossIndex,
+    bossPhase: state.bossPhase,
+    spawnTime: now,
+    isBossFace: (extra && extra.isBossFace) || false,
+    bossEmoji: extra && extra.bossEmoji,
+    sizePx: size,
+    timeoutAt: now + ttl,
+    isDecoy: kind === 'decoy',
+    isBomb: kind === 'bomb',
+    isHeal: kind === 'heal',
+    isShield: kind === 'shield'
+  };
 
-    state.targets.set(id, data);
+  state.targets.set(id, data);
 
-    ensureRenderer().spawnTarget(data);
+  ensureRenderer().spawnTarget(data);
 
-    // timeout → miss
-    data.timeoutHandle = setTimeout(() => {
-      if (!state || !state.running) return;
-      if (!state.targets.has(id)) return;
-      state.targets.delete(id);
-      if (renderer) renderer.removeTarget(id, 'timeout');
-      state.miss++;
-      statMiss.textContent = String(state.miss);
-      state.combo = 0;
-      statCombo.textContent = '0';
-      setFeedback('พลาดจังหวะ! ลองมองเป้าให้ชัดแล้วลองใหม่ 👀', 'miss');
-      logEvent('timeout', data, { grade: 'miss' });
-    }, ttl);
-  }
+  // timeout → miss
+  data.timeoutHandle = setTimeout(() => {
+    if (!state || !state.running) return;
+    if (!state.targets.has(id)) return;
+    state.targets.delete(id);
+    if (renderer) renderer.removeTarget(id, 'timeout');
+    state.miss++;
+    statMiss.textContent = String(state.miss);
+    state.combo = 0;
+    statCombo.textContent = '0';
+    setFeedback('พลาดจังหวะ! ลองมองเป้าให้ชัดแล้วลองใหม่ 👀', 'miss');
+    logEvent('timeout', data, { grade: 'miss' });
+  }, ttl);
+}
+
 
   function handleTargetHit(id, hitInfo) {
     if (!state || !state.running) return;
