@@ -194,119 +194,107 @@
       </section>
 
       <!-- ===== VIEW: RESULT ===== -->
-      <section id="sb-view-result" class="sb-view">
-        <div class="sb-panel">
-          <div class="sb-result-header">
-            <h2 class="sb-section-title">สรุปผลการเล่น Shadow Breaker</h2>
-            <p class="sb-result-hint">
-              โหมดธรรมดา: ดู Grade / Accuracy / จำนวนบอสที่เคลียร์ได้ •
-              โหมดวิจัย: ใช้ค่าด้านล่างในการวิเคราะห์เชิงสถิติ
-            </p>
-          </div>
+<section id="sb-view-result" class="sb-view hidden">
+  <div class="sb-panel sb-panel--result">
+    <header class="sb-result-header">
+      <h2>สรุปผลการเล่น — Shadow Breaker</h2>
+      <p class="sb-result-mode">
+        โหมด: <span id="sb-res-mode-label">-</span>
+        · ระดับ: <span id="sb-res-diff-label">-</span>
+      </p>
+    </header>
 
-          <div class="sb-result-grid">
-            <!-- กล่อง 1: สรุปคะแนน -->
-            <div class="sb-result-card">
-              <h3>สรุปคะแนน</h3>
-              <dl class="sb-result-kv">
-                <div>
-                  <dt>เวลาเล่น</dt>
-                  <dd id="sb-res-time">-</dd>
-                </div>
-                <div>
-                  <dt>คะแนน</dt>
-                  <dd id="sb-res-score">-</dd>
-                </div>
-                <div>
-                  <dt>Max Combo</dt>
-                  <dd id="sb-res-max-combo">-</dd>
-                </div>
-                <div>
-                  <dt>Miss</dt>
-                  <dd id="sb-res-miss">-</dd>
-                </div>
-                <div>
-                  <dt>เฟสสุดท้าย</dt>
-                  <dd id="sb-res-phase">-</dd>
-                </div>
-              </dl>
-            </div>
-
-            <!-- กล่อง 2: Grade + Accuracy + บอสที่เคลียร์ -->
-            <div class="sb-result-card">
-              <h3>เกรด &amp; ความแม่นยำ</h3>
-              <dl class="sb-result-kv">
-                <div>
-                  <dt>Grade</dt>
-                  <dd id="sb-res-grade">-</dd>
-                </div>
-                <div>
-                  <dt>Accuracy</dt>
-                  <dd id="sb-res-acc">-</dd>
-                </div>
-                <div>
-                  <dt>จำนวนบอสที่เคลียร์ได้</dt>
-                  <dd id="sb-res-bosses">-</dd>
-                </div>
-              </dl>
-            </div>
-
-            <!-- กล่อง 3: เมตริกโหมดวิจัย + ปุ่ม CSV -->
-            <div class="sb-result-card sb-result-research">
-              <h3>สำหรับงานวิจัย (Research Metrics)</h3>
-              <dl class="sb-result-kv">
-                <div>
-                  <dt>Accuracy (%)</dt>
-                  <dd id="sb-res-r-acc">-</dd>
-                </div>
-                <div>
-                  <dt>บอสที่เคลียร์ได้</dt>
-                  <dd id="sb-res-r-bosses">-</dd>
-                </div>
-                <div>
-                  <dt>RT เป้าปกติ (ms)</dt>
-                  <dd id="sb-res-rt-normal">-</dd>
-                </div>
-                <div>
-                  <dt>RT เป้าลวง (ms)</dt>
-                  <dd id="sb-res-rt-decoy">-</dd>
-                </div>
-                <div>
-                  <dt>เวลาในช่วง FEVER (s)</dt>
-                  <dd id="sb-res-fever-time">-</dd>
-                </div>
-                <div>
-                  <dt>เวลา HP ต่ำ (s)</dt>
-                  <dd id="sb-res-lowhp-time">-</dd>
-                </div>
-              </dl>
-
-              <div class="sb-result-download">
-                <button id="sb-btn-dl-events" type="button" class="sb-btn">
-                  ⬇ ดาวน์โหลด Event CSV
-                </button>
-                <button id="sb-btn-dl-sessions" type="button" class="sb-btn">
-                  ⬇ ดาวน์โหลด Session CSV
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="sb-result-footer">
-            <div class="sb-result-actions">
-              <button id="sb-btn-result-retry" type="button" class="sb-btn sb-btn-primary">
-                เล่นอีกครั้ง
-              </button>
-              <button id="sb-btn-result-menu" type="button" class="sb-btn sb-btn-secondary">
-                กลับเมนูหลัก
-              </button>
-            </div>
-            <p class="sb-result-hint">
-              สามารถนำไฟล์ CSV ไปวิเคราะห์ต่อใน SPSS / R / Python หรือใช้ทำ SEM / ANOVA ได้
-            </p>
-          </div>
+    <!-- แกนหลัก: เกรด + คะแนน + สถิติเบื้องต้น -->
+    <div class="sb-result-main">
+      <div class="sb-result-score">
+        <div class="sb-result-grade" id="sb-res-grade">-</div>
+        <div class="sb-result-score-num" id="sb-res-score">0</div>
+        <div class="sb-result-accuracy">
+          Accuracy:
+          <span id="sb-res-acc">0.0 %</span>
         </div>
-      </section>
+        <div class="sb-result-end">
+          Boss เคลียร์:
+          <span id="sb-res-bosses">0</span> ตัว
+        </div>
+      </div>
+
+      <dl class="sb-result-grid">
+        <div>
+          <dt>เวลาเล่น</dt>
+          <dd id="sb-res-time">0.0 s</dd>
+        </div>
+        <div>
+          <dt>Max Combo</dt>
+          <dd id="sb-res-max-combo">0</dd>
+        </div>
+        <div>
+          <dt>Miss ทั้งหมด</dt>
+          <dd id="sb-res-miss">0</dd>
+        </div>
+        <div>
+          <dt>Phase สุดท้าย</dt>
+          <dd id="sb-res-phase">1</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Extra สำหรับโหมดปกติ (Grade + Bosses ใช้ร่วมได้ทั้งสองโหมด) -->
+    <div id="sb-res-normal-extra" class="sb-result-hint">
+      🔍 เคล็ดลับ: เกรดจะขึ้นเป็น SSS / SS / S / A / B / C ตาม
+      Accuracy และจำนวนบอสที่เคลียร์ได้ ยิ่งเคลียร์หลายตัวและแม่นยำมาก
+      เกรดยิ่งสูง
+    </div>
+
+    <!-- กล่องสถิติวิจัย (โหมด research เท่านั้น) -->
+    <div id="sb-res-research" class="sb-research-grid hidden">
+      <div class="sb-result-card">
+        <h3>RT ปกติ (ms)</h3>
+        <p id="sb-res-rt-normal">-</p>
+      </div>
+      <div class="sb-result-card">
+        <h3>RT เป้าลวง (ms)</h3>
+        <p id="sb-res-rt-decoy">-</p>
+      </div>
+      <div class="sb-result-card">
+        <h3>เวลา FEVER รวม (s)</h3>
+        <p id="sb-res-fever-time">0.00</p>
+      </div>
+      <div class="sb-result-card">
+        <h3>เวลา HP ต่ำ (s)</h3>
+        <p id="sb-res-lowhp-time">0.00</p>
+      </div>
+      <div class="sb-result-card">
+        <h3>เวลาเมนู → เล่น (ms)</h3>
+        <p id="sb-res-menu-latency">0 ms</p>
+      </div>
+      <div class="sb-result-card">
+        <h3>Boss เคลียร์ (ตัว)</h3>
+        <p><span id="sb-res-bosses">0</span></p>
+      </div>
+    </div>
+
+    <!-- ปุ่ม action + ปุ่มดาวน์โหลด CSV -->
+    <div class="sb-result-actions">
+      <button id="sb-btn-result-retry" class="btn-primary">
+        เล่นอีกครั้ง
+      </button>
+      <button id="sb-btn-result-menu" class="btn-secondary">
+        กลับเมนูหลัก
+      </button>
+    </div>
+
+    <div class="sb-result-download">
+      <button id="sb-btn-dl-events" class="btn-ghost">
+        ⬇ ดาวน์โหลด Event CSV
+      </button>
+      <button id="sb-btn-dl-sessions" class="btn-ghost">
+        ⬇ ดาวน์โหลด Session CSV
+      </button>
+    </div>
+  </div>
+</section>
+
     </main>
   </div>
   <script type="module" src="js/shadow-breaker.js"></script>
