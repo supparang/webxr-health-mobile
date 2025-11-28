@@ -868,3 +868,76 @@ body {
 .sb-target-emoji {
   pointer-events: none;
 }
+/* ===== Shadow Breaker — Hit / Score FX ===== */
+
+.sb-score-fx {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  transform: translate(-50%, -50%) translateY(0);
+  opacity: 0;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 8px rgba(15,23,42,0.9);
+  transition:
+    transform .4s ease-out,
+    opacity .4s ease-out;
+}
+
+@media (min-width: 768px) {
+  .sb-score-fx {
+    font-size: 20px;
+  }
+}
+
+.sb-score-fx.is-live {
+  opacity: 1;
+  transform: translate(-50%, -50%) translateY(-32px);
+}
+
+.sb-score-perfect {
+  color: #fbbf24; /* เหลืองทอง */
+}
+
+.sb-score-good {
+  color: #22c55e; /* เขียว */
+}
+
+.sb-score-miss {
+  color: #ef4444; /* แดง */
+}
+
+/* ===== fragments ===== */
+
+.sb-frag {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  transform: translate(-50%, -50%) translate3d(0,0,0);
+  opacity: 0;
+  border-radius: 999px;
+  transition:
+    transform var(--life, 450ms) ease-out,
+    opacity var(--life, 450ms) ease-out;
+}
+
+.sb-frag.is-live {
+  opacity: 1;
+  transform:
+    translate(-50%, -50%)
+    translate3d(var(--dx, 0), var(--dy, 0), 0)
+    scale(0.2);
+}
+
+.sb-frag-perfect {
+  background: radial-gradient(circle, #facc15, #f97316);
+}
+
+.sb-frag-good {
+  background: radial-gradient(circle, #4ade80, #22c55e);
+}
+
+.sb-frag-miss {
+  background: radial-gradient(circle, #fecaca, #ef4444);
+}
