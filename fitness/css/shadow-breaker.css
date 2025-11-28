@@ -1,3 +1,369 @@
+/* === Shadow Breaker — VR Fitness Boss Fight (2025-12-03) === */
+
+/* ---------- RESET & BASE ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.16), transparent 55%),
+    #020617;
+  color: #e5e7eb;
+  min-height: 100vh;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* util */
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- WRAP / PAGE ---------- */
+
+#sb-wrap {
+  max-width: 960px;
+  margin: 20px auto 32px;
+  padding: 0 16px 32px;
+}
+
+/* section fade-in */
+
+#sb-wrap section {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+#sb-wrap section:not(.hidden) {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* back link */
+
+.sb-back {
+  margin-bottom: 8px;
+}
+
+.sb-back button,
+.sb-back a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background: rgba(15, 23, 42, 0.8);
+  color: #e5e7eb;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sb-back button:hover,
+.sb-back a:hover {
+  background: rgba(31, 41, 55, 0.95);
+}
+
+/* heading */
+
+.sb-page-title {
+  font-size: clamp(26px, 4vw, 32px);
+  font-weight: 800;
+  margin: 4px 0 4px;
+  letter-spacing: 0.03em;
+}
+
+.sb-page-sub {
+  font-size: 14px;
+  color: #d1d5db;
+  margin-bottom: 4px;
+}
+
+.sb-page-tagline {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 18px;
+}
+
+/* ---------- BUTTONS / CONTROLS ---------- */
+
+.sb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  padding: 7px 14px;
+  cursor: pointer;
+  background: linear-gradient(to right, #22c55e, #16a34a);
+  color: #022c22;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(22, 163, 74, 0.45);
+}
+
+.sb-btn--ghost {
+  background: rgba(15, 23, 42, 0.85);
+  color: #e5e7eb;
+  border-color: #4b5563;
+  box-shadow: none;
+}
+
+.sb-btn--secondary {
+  background: linear-gradient(to right, #38bdf8, #0ea5e9);
+  color: #022c22;
+}
+
+.sb-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 35px rgba(22, 163, 74, 0.55);
+}
+
+.sb-btn--ghost:hover {
+  background: rgba(31, 41, 55, 0.95);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.9);
+}
+
+.sb-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* select / input */
+
+.sb-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 4px;
+  margin-bottom: 10px;
+}
+
+.sb-field-row label {
+  font-size: 14px;
+  color: #e5e7eb;
+  min-width: 110px;
+}
+
+.sb-select,
+.sb-input {
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  padding: 6px 12px;
+  font-size: 14px;
+  min-width: 160px;
+}
+
+.sb-input {
+  border-radius: 12px;
+}
+
+/* ---------- VIEW: MENU ---------- */
+
+#view-menu {
+  margin-top: 10px;
+}
+
+.sb-menu-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.4fr);
+  gap: 14px;
+}
+
+.sb-card {
+  border-radius: 18px;
+  padding: 14px 16px 16px;
+  background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.96), #020617);
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.95),
+    0 0 0 1px rgba(31, 41, 55, 0.9);
+}
+
+.sb-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.sb-card-sub {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+
+.sb-help-list {
+  padding-left: 20px;
+  margin: 6px 0 10px;
+  font-size: 13px;
+  color: #d1d5db;
+}
+
+/* bottom hint in menu */
+
+.sb-menu-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* ---------- HUD TOP (YOU | BOSS) ---------- */
+
+.sb-hud-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.sb-hud-side {
+  flex: 1;
+}
+
+.sb-hud-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.sb-hp-bar {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(30, 64, 175, 0.9);
+}
+
+.sb-hp-fill-player,
+.sb-hp-fill-boss {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(1);
+  transition: transform 0.2s ease-out;
+}
+
+.sb-hp-fill-player {
+  background: linear-gradient(to right, #4ade80, #22c55e);
+}
+
+.sb-hp-fill-boss {
+  background: linear-gradient(to right, #fb7185, #b91c1c);
+}
+
+/* ---------- HUD BOTTOM (STATS) ---------- */
+
+.sb-bottom-hud {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.sb-stat-block {
+  border-radius: 12px;
+  padding: 6px 8px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 0 0 1px rgba(30, 64, 175, 0.7);
+}
+
+.sb-stat-label {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 2px;
+}
+
+.sb-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* time & fever */
+
+.sb-time-main {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* fever bar */
+
+.sb-fever-wrap {
+  margin-top: 4px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.7);
+}
+
+#fever-fill {
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(to right, #facc15, #f97316);
+  box-shadow: 0 0 16px rgba(234, 179, 8, 0.85);
+  transition: transform 0.2s ease-out;
+}
+
+#fever-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: #facc15;
+}
+
+#fever-status.on {
+  color: #f97316;
+}
+
+/* feedback text */
+
+#sb-feedback {
+  margin-top: 10px;
+  font-size: 14px;
+  min-height: 20px;
+}
+
+#sb-feedback.good {
+  color: #4ade80;
+}
+
+#sb-feedback.perfect {
+  color: #facc15;
+}
+
+#sb-feedback.miss,
+#sb-feedback.bad {
+  color: #fda4af;
+}
+
 /* ---------- PLAY LAYOUT (FIELD + BOSS CARD) ---------- */
 
 .sb-play-layout {
@@ -372,4 +738,68 @@
 
 .sb-frag-miss {
   background: radial-gradient(circle, #fecaca, #ef4444);
+}
+
+/* ---------- RESULT VIEW ---------- */
+
+#view-result {
+  margin-top: 16px;
+}
+
+.sb-result-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr);
+  gap: 14px;
+}
+
+.sb-result-list {
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.sb-result-list dt {
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.sb-result-list dd {
+  margin: 0 0 6px;
+  color: #d1d5db;
+}
+
+.sb-result-grade {
+  font-size: 32px;
+  font-weight: 800;
+}
+
+/* ---------- RESEARCH FORM ---------- */
+
+#view-research-form {
+  margin-top: 14px;
+}
+
+.sb-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.3fr);
+  gap: 14px;
+}
+
+.sb-form-note {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* ---------- RESPONSIVE ---------- */
+
+@media (max-width: 768px) {
+  .sb-menu-grid,
+  .sb-play-layout,
+  .sb-result-grid,
+  .sb-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #sb-wrap {
+    margin-top: 12px;
+  }
 }
