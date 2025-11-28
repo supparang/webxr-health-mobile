@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-12-04, Hub layout + Miss rules + Easier FEVER) ===
+// === js/engine.js — Shadow Breaker core (2025-12-04, Hub layout + Miss rules + Grade/Research) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -18,6 +18,9 @@ let diffSel, timeSel;
 let btnPlay, btnResearch, btnBackFromPlay;
 let btnPauseToggle, btnResultRetry, btnResultMenu;
 let resTime, resScore, resMaxCombo, resMissRes, resPhaseRes;
+// result view เฉพาะเกรด/วิจัย
+let resGrade, resAcc, resBossCleared;
+let resRtNormal, resRtDecoy, resFeverTime;
 
 // ----- config -----
 const BOSSES = [
@@ -57,13 +60,9 @@ const DIFF_CONFIG = {
   }
 };
 
-// ==== FEVER tuning (ปรับให้ขึ้นง่ายขึ้น) ====
-// เดิม FEVER_PER_HIT = 0.09, FEVER_DECAY_PER_SEC = 0.15
-// ตอนนี้ให้ 6–7 hit ก็มีโอกาสเต็ม และลดลงช้าลง
-const FEVER_PER_HIT = 0.16;
-const FEVER_DECAY_PER_SEC = 0.08;
+const FEVER_PER_HIT = 0.12;          // ปรับให้ขึ้นง่ายขึ้น
+const FEVER_DECAY_PER_SEC = 0.10;
 const FEVER_DURATION_MS = 7000;
-
 const LOWHP_THRESHOLD = 0.3;
 const BOSSFACE_THRESHOLD = 0.28; // hp < นี้จะเรียกหน้า boss
 
@@ -118,7 +117,7 @@ function resetHud() {
   }
   if (feverFill) feverFill.style.transform = 'scaleX(0)';
 
-  // HP bar ล่าง + บน (ถ้าไม่มี element ใด element หนึ่งก็จะข้ามเอง)
+  // HP bar ล่าง + บน
   if (hpYouBottom) hpYouBottom.style.transform = 'scaleX(1)';
   if (hpBossBottom) hpBossBottom.style.transform = 'scaleX(1)';
   if (hpYouTop) hpYouTop.style.transform = 'scaleX(1)';
@@ -221,7 +220,7 @@ function spawnBossFaceTarget() {
   ensureRenderer().spawnTarget(data);
 
   data.timeoutHandle = setTimeout(() => {
-    if (!state || !state.running) return;
+    if (!state.running) return;
     if (!state.targets.has(id)) return;
     state.targets.delete(id);
     if (renderer) renderer.removeTarget(id, 'timeout');
@@ -413,27 +412,13 @@ function handleTargetHit(id, hitInfo) {
     );
   }
 
-  // ==== FEVER gauge (เวอร์ชันใหม่) ====
-  // - normal เติม FEVER ตามปกติ
-  // - bossface ให้โบนัส FEVER เพิ่ม → ทำให้ช่วงใกล้ตายของบอสรู้สึกมันส์ขึ้น
-  let feverGain = 0;
-
+  // FEVER gauge (เฉพาะ normal)
   if (data.type === 'normal') {
-    feverGain += FEVER_PER_HIT;
-  }
-
-  if (data.isBossFace) {
-    feverGain += FEVER_PER_HIT * 1.2; // bonus ประมาณ 120% ของ 1 hit ปกติ
-  }
-
-  if (feverGain > 0 && !state.feverOn) {
-    state.fever = Math.min(1, state.fever + feverGain);
-
-    if (state.fever >= 1 && !state.feverOn) {
+    state.fever += FEVER_PER_HIT;
+    if (!state.feverOn && state.fever >= 1) {
       state.feverOn = true;
       state.feverUntil = now + FEVER_DURATION_MS;
       state.fever = 1;
-
       if (feverStatus) {
         feverStatus.textContent = 'ON';
         feverStatus.classList.add('on');
@@ -566,6 +551,30 @@ function gameLoop(now) {
   gameLoopId = requestAnimationFrame(gameLoop);
 }
 
+// ===== grade helper (SSS / SS / S / A / B / C) =====
+function computeGrade(summary) {
+  let acc = summary.accuracy_pct || 0;
+
+  // bonus ตามความยาก
+  if (summary.diffKey === 'hard') acc += 5;
+  else if (summary.diffKey === 'easy') acc -= 5;
+
+  // เคลียร์บอสครบทุกตัวโบนัสเพิ่ม
+  const totalBosses = BOSSES.length;
+  if (summary.bosses_cleared >= totalBosses) {
+    acc += 3;
+  }
+
+  acc = Math.max(0, Math.min(100, acc));
+
+  if (acc >= 97) return 'SSS';
+  if (acc >= 93) return 'SS';
+  if (acc >= 88) return 'S';
+  if (acc >= 75) return 'A';
+  if (acc >= 60) return 'B';
+  return 'C';
+}
+
 // ===== end game =====
 function endGame(reason) {
   if (!state || !state.running) return;
@@ -590,7 +599,7 @@ function endGame(reason) {
   const totalTrials = state.totalHits + state.miss;
   const acc = totalTrials > 0 ? (state.totalHits / totalTrials) * 100 : 0;
 
-  sessionSummary = {
+  const baseSummary = {
     mode: state.mode,
     diff: state.diffKey,
     diff_label: DIFF_CONFIG[state.diffKey].label,
@@ -613,12 +622,55 @@ function endGame(reason) {
     rt_decoy_ms: state.rtDecoyCount ? +(state.rtDecoySum / state.rtDecoyCount).toFixed(1) : ''
   };
 
-  // อัปเดตหน้า result (ถ้ามี)
-  if (resTime) resTime.textContent = sessionSummary.duration_sec.toFixed(1) + ' s';
+  const grade = computeGrade({
+    accuracy_pct: baseSummary.accuracy_pct,
+    score: baseSummary.score,
+    bosses_cleared: baseSummary.bosses_cleared,
+    diffKey: baseSummary.diff
+  });
+
+  sessionSummary = {
+    ...baseSummary,
+    grade
+  };
+
+  // อัปเดตหน้า result (พื้นฐาน)
+  if (resTime)  resTime.textContent = sessionSummary.duration_sec.toFixed(1) + ' s';
   if (resScore) resScore.textContent = String(sessionSummary.score);
   if (resMaxCombo) resMaxCombo.textContent = String(sessionSummary.max_combo);
   if (resMissRes) resMissRes.textContent = String(sessionSummary.miss);
   if (resPhaseRes) resPhaseRes.textContent = String(state.bossPhase);
+
+  // ข้อมูลเพิ่มโหมดธรรมดา + วิจัย
+  const isResearch = state.mode === 'research';
+
+  // ทั้งสองโหมด: แสดง 3 ค่าแรก
+  if (resGrade) {
+    resGrade.textContent = sessionSummary.grade;
+  }
+  if (resAcc) {
+    resAcc.textContent = sessionSummary.accuracy_pct.toFixed(1) + ' %';
+  }
+  if (resBossCleared) {
+    resBossCleared.textContent = `${sessionSummary.bosses_cleared}/${BOSSES.length}`;
+  }
+
+  // โหมดวิจัย: แสดงครบ 6 ค่า
+  if (isResearch) {
+    if (resRtNormal) {
+      resRtNormal.textContent = sessionSummary.rt_normal_ms
+        ? sessionSummary.rt_normal_ms + ' ms'
+        : '-';
+    }
+    if (resRtDecoy) {
+      resRtDecoy.textContent = sessionSummary.rt_decoy_ms
+        ? sessionSummary.rt_decoy_ms + ' ms'
+        : '-';
+    }
+    if (resFeverTime) {
+      resFeverTime.textContent = sessionSummary.fever_time_sec.toFixed(2) + ' s';
+    }
+  }
 
   showView('result');
 }
@@ -734,6 +786,14 @@ export function initShadowBreaker() {
     resMaxCombo = document.getElementById('sb-res-max-combo');
     resMissRes = document.getElementById('sb-res-miss');
     resPhaseRes = document.getElementById('sb-res-phase');
+
+    // result view เพิ่มเติม
+    resGrade = document.getElementById('sb-res-grade');
+    resAcc = document.getElementById('sb-res-acc');
+    resBossCleared = document.getElementById('sb-res-bosses');
+    resRtNormal = document.getElementById('sb-res-rt-normal');
+    resRtDecoy = document.getElementById('sb-res-rt-decoy');
+    resFeverTime = document.getElementById('sb-res-fever-time');
   }
 
   if (!wrap || !targetLayer) {
@@ -791,5 +851,5 @@ export function initShadowBreaker() {
   showView('menu');
   menuOpenedAt = performance.now();
 
-  console.log('[ShadowBreaker] init complete (Hub layout, FEVER tuned)');
+  console.log('[ShadowBreaker] init complete (Hub layout + Grade/Research)');
 }
