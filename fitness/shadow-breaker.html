@@ -5,382 +5,265 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>VR Fitness — Shadow Breaker</title>
   <meta name="color-scheme" content="light dark"/>
-  <link rel="icon" href="./favicon.ico"/>
-  <!-- ถ้าไฟล์ css อยู่โฟลเดอร์ css ให้แก้เป็น ./css/shadow-breaker.css -->
-  <link rel="stylesheet" href="./shadow-breaker.css"/>
+  <link rel="icon" href="assets/logo-vr-fitness.png"/>
+  <link rel="stylesheet" href="css/shadow-breaker.css"/>
 </head>
 <body>
-<div id="sb-wrap">
-  <div class="sb-shell">
+<div class="sb-wrap">
 
-    <!-- ===== TOP HUD: YOU / BOSS ===== -->
-    <header class="sb-topbar">
-      <div class="sb-topbar-left">
-        <div class="sb-title">
-          <div class="sb-title-main">Shadow Breaker 🎯</div>
-          <div class="sb-title-sub">โหมดเล่นจริง — ตีเป้าให้ทัน เก็บคอมโบ และล้มบอสทีละตัว</div>
-        </div>
-        <span class="sb-tag">VR Fitness · Boss Fight</span>
+  <!-- ===== COMMON HEADER ===== -->
+  <header class="sb-header">
+    <h1 class="sb-title">
+      Shadow Breaker 🎯
+    </h1>
+    <p class="sb-subtitle">
+      โหมดเล่นจริง — ตีเป้าให้ทัน เก็บคอมโบ และล้มบอสทีละตัว<br/>
+      <span class="sb-breadcrumb">VR Fitness · Boss Fight</span>
+    </p>
+    <p class="sb-back">
+      <a href="hub.html" class="sb-btn-link">← กลับสู่ VR Fitness Hub</a>
+    </p>
+  </header>
+
+  <!-- =========================================================
+       VIEW 1: MENU (ตั้งค่าก่อนเล่น)
+  ========================================================== -->
+  <section id="view-menu" class="sb-view">
+
+    <div class="sb-box">
+      <h2>YOU Player vs Boss</h2>
+      <ul>
+        <li>YOU Player</li>
+        <li>Boss 1 พร้อมลูกน้องเป้า Emoji 🐣</li>
+        <li>HP ผู้เล่น (YOU HP) &amp; HP บอส (Boss HP)</li>
+      </ul>
+    </div>
+
+    <div class="sb-box">
+      <h2>ตั้งค่าก่อนเล่น</h2>
+      <p>
+        โหมดปกติเหมาะสำหรับเล่นฝึกทั่วไป ส่วนโหมดวิจัยจะบันทึกข้อมูลเชิงลึก เช่น
+        RT, Accuracy, คอมโบ และ Boss / Phase เพื่อนำไปวิเคราะห์ภายหลัง
+      </p>
+
+      <div class="sb-form-row">
+        <label for="select-diff"><strong>ระดับความยาก</strong></label>
+        <select id="select-diff">
+          <option value="easy">Easy — ผ่อนคลาย</option>
+          <option value="normal" selected>Normal — สมดุล</option>
+          <option value="hard">Hard — ท้าทาย</option>
+        </select>
       </div>
-      <button class="sb-btn-ghost" onclick="location.href='../hub.html'">
-        ← กลับสู่ VR Fitness Hub
-      </button>
-    </header>
 
-    <!-- HUD แถวบน (YOU / Boss 1) -->
-    <div class="sb-card" style="margin-bottom:10px;">
-      <div class="sb-play-hud">
-        <div class="sb-stat-row">
-          <div class="sb-stat-group">
-            <span class="sb-stat-label">YOU</span>
-            <span class="sb-stat-value">Player</span>
-          </div>
-          <div class="sb-stat-group">
-            <span class="sb-stat-label">Boss</span>
-            <span class="sb-stat-value" id="sb-boss-name">Boss 1</span>
-          </div>
-          <div class="sb-stat-group">
-            <span class="sb-stat-label">Emoji</span>
-            <span class="sb-stat-value" id="sb-boss-portrait">🐣</span>
-          </div>
+      <div class="sb-form-row">
+        <label for="select-time"><strong>ระยะเวลาเล่นต่อรอบ</strong></label>
+        <select id="select-time">
+          <option value="45">45 วินาที</option>
+          <option value="60" selected>60 วินาที (มาตรฐาน)</option>
+          <option value="90">90 วินาที</option>
+        </select>
+      </div>
+
+      <div class="sb-actions-row">
+        <button id="btn-start" class="sb-btn-primary">⚡ เริ่มเล่นเลย</button>
+        <button id="btn-open-research" class="sb-btn-ghost">📄 เปิดโหมดวิจัย</button>
+      </div>
+    </div>
+
+    <div class="sb-box">
+      <h2>📌 วิธีเล่นเบื้องต้น</h2>
+      <ul>
+        <li><strong>เป้า Emoji</strong> จะโผล่ทั่วสนาม — ใช้การชก/แตะให้ทันก่อนหายไป ยิ่งตีเร็วและแม่น คะแนนยิ่งสูง!</li>
+        <li><strong>Perfect</strong> — ดีที่สุด ได้คะแนน+คอมโบสูงสุด</li>
+        <li><strong>Good</strong> — จังหวะดี คะแนนปานกลาง</li>
+        <li><strong>Bad / Miss</strong> — ช้าหรือพลาด คะแนนน้อยและคอมโบหลุด</li>
+        <li><strong>Bomb</strong> — ตีผิด HP ลด ควรระวัง</li>
+        <li><strong>Heal / Shield</strong> — เติม HP และเกราะ</li>
+        <li><strong>FEVER</strong> — เมื่อเกจเต็ม คะแนนทุก hit จะพุ่งสูง</li>
+      </ul>
+    </div>
+
+  </section>
+
+  <!-- =========================================================
+       VIEW 2: PLAY (ระหว่างเล่น + HUD โหมดวิจัย)
+  ========================================================== -->
+  <section id="view-play" class="sb-view hidden">
+
+    <div class="sb-box">
+      <h2>สถานะการต่อสู้</h2>
+
+      <div class="sb-grid">
+        <div class="sb-stat">
+          <span class="sb-label">เวลา</span>
+          <span class="sb-value"><span id="sb-time">0.0</span> s</span>
         </div>
+        <div class="sb-stat">
+          <span class="sb-label">คะแนน</span>
+          <span class="sb-value" id="sb-score">0</span>
+        </div>
+        <div class="sb-stat">
+          <span class="sb-label">คอมโบ</span>
+          <span class="sb-value" id="sb-combo">0</span>
+        </div>
+        <div class="sb-stat">
+          <span class="sb-label">Phase</span>
+          <span class="sb-value" id="sb-phase">1</span>
+        </div>
+        <div class="sb-stat">
+          <span class="sb-label">Miss</span>
+          <span class="sb-value" id="sb-miss">0</span>
+        </div>
+        <div class="sb-stat">
+          <span class="sb-label">Shield</span>
+          <span class="sb-value" id="sb-shield">0</span>
+        </div>
+        <div class="sb-stat">
+          <span class="sb-label">FEVER</span>
+          <span class="sb-value" id="sb-fever">READY</span>
+        </div>
+      </div>
 
-        <!-- HP bar บน -->
-        <div class="sb-bar-row">
-          <div class="sb-hp-line">
-            <span class="sb-hp-label">YOU HP</span>
-            <div class="sb-hp-track">
-              <div class="sb-hp-fill sb-hp-player" id="sb-hp-player"></div>
-            </div>
-          </div>
-          <div class="sb-hp-line">
-            <span class="sb-hp-label">Boss HP</span>
-            <div class="sb-hp-track">
-              <div class="sb-hp-fill sb-hp-boss" id="sb-hp-boss"></div>
-            </div>
-          </div>
+      <div class="sb-hp-row">
+        <div class="sb-hp">
+          <span class="sb-label">YOU HP</span>
+          <div class="sb-hp-bar"><div id="hp-you" class="sb-hp-fill"></div></div>
+        </div>
+        <div class="sb-hp">
+          <span class="sb-label">Boss HP</span>
+          <div class="sb-hp-bar"><div id="hp-boss" class="sb-hp-fill boss"></div></div>
         </div>
       </div>
     </div>
 
-    <!-- ===== MAIN VIEWS ===== -->
-    <main>
+    <div class="sb-box">
+      <h2>โหมดวิจัย (Research Mode)</h2>
+      <p class="sb-note">
+        ระบบจะเก็บ Event CSV และ Session CSV เพื่อวิเคราะห์สถิติ เช่น Reaction Time เฉลี่ย,
+        ความแม่นยำ, คอมโบสูงสุด และเวลาที่อยู่ในภาวะ FEVER เหมาะใช้เปรียบเทียบก่อน–หลังโปรแกรมฝึก
+        หรือระหว่างเกม VR Fitness อื่น ๆ
+      </p>
 
-      <!-- === VIEW: MENU === -->
-      <section id="view-menu" class="sb-card">
-        <div class="sb-menu-grid">
+      <p class="sb-hint-title">Fever</p>
+      <p class="sb-hint-body">
+        แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!<br/>
+        <span class="sb-emoji">🐣</span>
+      </p>
 
-          <!-- ซ้าย: ตั้งค่าก่อนเล่น -->
-          <div>
-            <h2 class="sb-menu-section-title">ตั้งค่าก่อนเล่น</h2>
-            <p class="sb-menu-note">
-              โหมดปกติเหมาะสำหรับเล่นฝึกทั่วไป ส่วนโหมดวิจัยจะบันทึกข้อมูลเชิงลึก เช่น RT, Accuracy,
-              คอมโบ และ Boss / Phase เพื่อนำไปวิเคราะห์ภายหลัง
-            </p>
+      <p class="sb-hint-title">Bubble Glove</p>
+      <p class="sb-hint-body">
+        บอสตัวปัจจุบัน — โฟกัสที่เป้าฟองใหญ่ ๆ แล้วตีให้ทัน
+      </p>
 
-            <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px; font-size:14px;">
-              <label>
-                ระดับความยาก<br/>
-                <select id="difficulty">
-                  <option value="easy">Easy — ผ่อนคลาย</option>
-                  <option value="normal" selected>Normal — สมดุล</option>
-                  <option value="hard">Hard — ท้าทาย</option>
-                </select>
-              </label>
-
-              <label>
-                ระยะเวลาเล่นต่อรอบ<br/>
-                <select id="duration">
-                  <option value="45">45 วินาที (สั้น)</option>
-                  <option value="60" selected>60 วินาที (มาตรฐาน)</option>
-                  <option value="90">90 วินาที (ยาว)</option>
-                </select>
-              </label>
-            </div>
-
-            <div class="sb-footer-row" style="margin-top:12px;">
-              <div class="sb-footer-left">
-                <button class="sb-btn sb-btn-primary" data-action="start-normal">
-                  ⚡ เริ่มเล่นเลย
-                </button>
-                <button class="sb-btn sb-btn-secondary" data-action="start-research">
-                  📋 เปิดโหมดวิจัย
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- ขวา: วิธีเล่นเบื้องต้น -->
-          <div>
-            <h2 class="sb-menu-section-title">📌 วิธีเล่นเบื้องต้น</h2>
-            <ul class="sb-howto-list">
-              <li>เป้า Emoji จะโผล่ทั่วสนาม — ใช้การชก/แตะให้ทันก่อนหายไป ยิ่งตีเร็วและแม่น คะแนนยิ่งสูง!</li>
-              <li><b>Perfect</b> — ดีที่สุด ได้คะแนน+คอมโบสูงสุด</li>
-              <li><b>Good</b> — จังหวะดี คะแนนปานกลาง</li>
-              <li><b>Bad / Miss</b> — ช้าหรือพลาด คะแนนน้อยและคอมโบหลุด</li>
-              <li><b>Bomb</b> — ตีผิด HP ลด ควรระวัง</li>
-              <li><b>Heal / Shield</b> — เติม HP และเกราะ</li>
-              <li><b>FEVER</b> — เมื่อเกจเต็ม คะแนนทุก hit จะพุ่งสูง</li>
-            </ul>
-
-            <h3 class="sb-menu-section-title" style="margin-top:14px;">โหมดวิจัย (Research Mode)</h3>
-            <p class="sb-menu-note">
-              ระบบจะเก็บ Event CSV และ Session CSV เพื่อวิเคราะห์สถิติ เช่น Reaction Time เฉลี่ย,
-              ความแม่นยำ, คอมโบสูงสุด และเวลาที่อยู่ในภาวะ FEVER เหมาะใช้เปรียบเทียบก่อน–หลังโปรแกรมฝึก
-              หรือระหว่างเกม VR Fitness อื่น ๆ
-            </p>
-          </div>
-
-        </div>
-      </section>
-
-      <!-- === VIEW: PLAY === -->
-      <section id="view-play" class="sb-card hidden">
-        <!-- HUD ด้านบนสำหรับสถิติ -->
-        <div class="sb-play-hud">
-          <div class="sb-stat-row">
-            <div class="sb-stat-group">
-              <span class="sb-stat-label">Time</span>
-              <span class="sb-stat-value" id="stat-time">0.0</span>
-            </div>
-            <div class="sb-stat-group">
-              <span class="sb-stat-label">Score</span>
-              <span class="sb-stat-value" id="stat-score">0</span>
-            </div>
-            <div class="sb-stat-group">
-              <span class="sb-stat-label">Combo</span>
-              <span class="sb-stat-value" id="stat-combo">0</span>
-            </div>
-            <div class="sb-stat-group">
-              <span class="sb-stat-label">Phase</span>
-              <span class="sb-stat-value" id="stat-phase">1</span>
-            </div>
-            <div class="sb-stat-group">
-              <span class="sb-stat-label">Miss</span>
-              <span class="sb-stat-value" id="stat-miss">0</span>
-            </div>
-            <div class="sb-stat-group">
-              <span class="sb-stat-label">Shield</span>
-              <span class="sb-stat-value" id="stat-shield">0</span>
-            </div>
-            <div class="sb-stat-group">
-              <span class="sb-stat-label">FEVER</span>
-              <span class="sb-stat-value" id="fever-status">READY</span>
-            </div>
-          </div>
-
-          <!-- HP + Fever bar ล่าง -->
-          <div class="sb-bar-row">
-            <div class="sb-hp-line">
-              <span class="sb-hp-label">YOU HP</span>
-              <div class="sb-hp-track">
-                <div class="sb-hp-fill sb-hp-player" data-sb-player-hp></div>
-              </div>
-            </div>
-            <div class="sb-hp-line">
-              <span class="sb-hp-label">Boss HP</span>
-              <div class="sb-hp-track">
-                <div class="sb-hp-fill sb-hp-boss" data-sb-boss-hp></div>
-              </div>
-            </div>
-
-            <div class="sb-fever-line">
-              <span class="sb-fever-label">Fever</span>
-              <div class="sb-fever-track">
-                <div id="fever-fill"></div>
-              </div>
-            </div>
-          </div>
-
-          <div id="sb-feedback">
-            แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!
-          </div>
-        </div>
-
-        <!-- Layout: field (ซ้าย) + boss card (ขวา) -->
-        <div class="sb-play-layout">
-          <div class="sb-field-shell">
-            <div id="target-layer"></div>
-          </div>
-
-          <!-- boss portrait card -->
-          <aside class="sb-boss-card" id="boss-portrait">
-            <div class="sb-boss-header">
-              <div class="sb-boss-emoji" id="boss-portrait-emoji">🐣</div>
-              <div>
-                <div class="sb-boss-name" id="boss-portrait-name">Bubble Glove</div>
-                <div class="sb-menu-note">บอสตัวปัจจุบัน</div>
-              </div>
-            </div>
-            <p class="sb-boss-hint" id="boss-portrait-hint">
-              โฟกัสที่เป้าฟองใหญ่ ๆ แล้วตีให้ทัน
-            </p>
-          </aside>
-        </div>
-
-        <!-- ปุ่มล่างขณะเล่น -->
-        <div class="sb-footer-row">
-          <div class="sb-footer-left">
-            <button class="sb-btn sb-btn-secondary" data-action="stop-early">
-              ⏹ หยุดก่อนเวลา
-            </button>
-          </div>
-          <div class="sb-footer-right">
-            <button class="sb-btn sb-btn-ghost" data-action="back-to-menu">
-              ← กลับเมนูหลัก
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- === VIEW: RESULT === -->
-      <section id="view-result" class="sb-card hidden">
-        <h2 class="sb-menu-section-title">สรุปผลการเล่น</h2>
-
-        <div class="sb-result-grid">
-          <!-- สรุปหลัก -->
-          <div>
-            <div class="sb-res-summary">
-              <div class="sb-res-label">โหมด:</div>
-              <div class="sb-res-value" id="res-mode">-</div>
-
-              <div class="sb-res-label">ความยาก:</div>
-              <div class="sb-res-value" id="res-diff">-</div>
-
-              <div class="sb-res-label">เหตุผลจบเกม:</div>
-              <div class="sb-res-value" id="res-endreason">-</div>
-
-              <div class="sb-res-label">คะแนน:</div>
-              <div class="sb-res-value" id="res-score">0</div>
-
-              <div class="sb-res-label">เกรด:</div>
-              <div class="sb-res-value" id="res-grade">-</div>
-
-              <div class="sb-res-label">ความแม่นยำ:</div>
-              <div class="sb-res-value" id="res-accuracy">0%</div>
-
-              <div class="sb-res-label">คอมโบสูงสุด:</div>
-              <div class="sb-res-value" id="res-maxcombo">0</div>
-
-              <div class="sb-res-label">จำนวนเป้าถูกตี:</div>
-              <div class="sb-res-value" id="res-totalhits">0</div>
-
-              <div class="sb-res-label">Miss ทั้งหมด:</div>
-              <div class="sb-res-value" id="res-miss">0</div>
-
-              <div class="sb-res-label">เวลา FEVER รวม:</div>
-              <div class="sb-res-value" id="res-fever-time">0 s</div>
-
-              <div class="sb-res-label">เวลา HP ต่ำ:</div>
-              <div class="sb-res-value" id="res-lowhp-time">0 s</div>
-
-              <div class="sb-res-label">จำนวนบอสที่เคลียร์:</div>
-              <div class="sb-res-value" id="res-bosses">0</div>
-
-              <div class="sb-res-label">เวลาจากเมนู → เริ่มเล่น:</div>
-              <div class="sb-res-value" id="res-menu-latency">-</div>
-
-              <div class="sb-res-label">รหัสผู้เข้าร่วม:</div>
-              <div class="sb-res-value" id="res-participant">-</div>
-            </div>
-
-            <p id="res-end-hint"></p>
-          </div>
-
-          <!-- กล่อง RT -->
-          <div class="sb-rt-box">
-            <h3>RT เฉลี่ยรวม</h3>
-            <p>
-              เป้าปกติ (Normal target): <span id="res-rt-normal">-</span> ms<br/>
-              เป้าลวง / เป้าหลอก (Decoy): <span id="res-rt-decoy">-</span> ms
-            </p>
-            <p class="sb-menu-note">
-              RT ตาม Boss / Phase และ Zone L/R, U/M/D จะถูกเก็บไว้ในไฟล์ CSV เพื่อใช้วิเคราะห์เชิงสถิติ
-              (ANOVA / Mixed models / SEM) ภายหลัง
-            </p>
-          </div>
-        </div>
-
-        <div class="sb-footer-row" style="margin-top:12px;">
-          <div class="sb-footer-left">
-            <button class="sb-btn sb-btn-primary" data-action="play-again">
-              ▶️ เล่นอีกรอบ
-            </button>
-            <button class="sb-btn sb-btn-secondary" data-action="download-csv-session">
-              ⬇ ดาวน์โหลด Session CSV
-            </button>
-            <button class="sb-btn sb-btn-secondary" data-action="download-csv-events">
-              ⬇ ดาวน์โหลด Event CSV
-            </button>
-          </div>
-          <div class="sb-footer-right">
-            <button class="sb-btn sb-btn-ghost" data-action="back-to-menu">
-              ← กลับเมนูหลัก
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- === VIEW: RESEARCH FORM === -->
-      <section id="view-research-form" class="sb-card hidden">
-        <h2 class="sb-menu-section-title">แบบฟอร์มโหมดวิจัย</h2>
-        <p class="sb-menu-note">
-          กรุณากรอกข้อมูลผู้เข้าร่วมให้ครบ โดยเฉพาะรหัสผู้เข้าร่วม จากนั้นกด “เริ่มเล่นในโหมดวิจัย”
-        </p>
-
-        <div class="sb-research-form">
-          <div>
-            <div class="sb-field-label">รหัสผู้เข้าร่วม / รหัสนักเรียน *</div>
-            <input id="research-id" class="sb-input" placeholder="เช่น P001 หรือ S-01"/>
-          </div>
-          <div>
-            <div class="sb-field-label">กลุ่ม / ห้อง / Section</div>
-            <input id="research-group" class="sb-input" placeholder="เช่น G1 หรือ ป.5/1"/>
-          </div>
-          <div>
-            <div class="sb-field-label">หมายเหตุเพิ่มเติม</div>
-            <textarea id="research-note" class="sb-input" rows="2"
-              placeholder="เช่น ก่อนฝึก, หลังฝึกสัปดาห์ที่ 4 ฯลฯ"></textarea>
-          </div>
-        </div>
-
-        <div class="sb-footer-row" style="margin-top:12px;">
-          <div class="sb-footer-left">
-            <button class="sb-btn sb-btn-primary" data-action="research-begin-play">
-              ▶️ เริ่มเล่นในโหมดวิจัย
-            </button>
-          </div>
-          <div class="sb-footer-right">
-            <button class="sb-btn sb-btn-ghost" data-action="back-to-menu">
-              ← กลับเมนูหลัก
-            </button>
-          </div>
-        </div>
-      </section>
-
-    </main>
-  </div>
-
-  <!-- ===== BOSS INTRO OVERLAY ===== -->
-  <div id="bossIntro" class="hidden">
-    <div class="sb-intro-card">
-      <div class="sb-intro-emoji" id="boss-intro-emoji">🐣</div>
-      <div class="sb-intro-name" id="boss-intro-name">Bubble Glove</div>
-      <div class="sb-intro-title" id="boss-intro-title">เริ่มต่อสู้กับบอสตัวแรก!</div>
-      <div class="sb-intro-desc" id="boss-intro-desc">
-        โฟกัสที่เป้าฟองใหญ่ ๆ แล้วตีให้ทัน
-      </div>
-      <div class="sb-intro-tip">
-        แตะที่หน้าจอหรือจอตรงนี้เพื่อเริ่มต่อสู้ 🥊
+      <div class="sb-actions-row">
+        <button id="btn-stop-early" class="sb-btn-secondary">⏹ หยุดก่อนเวลา</button>
+        <button id="btn-abort" class="sb-btn-ghost">← กลับเมนูหลัก</button>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ===== JS ===== -->
-<script type="module">
-  import { initShadowBreaker } from './js/engine.js';
-  window.addEventListener('DOMContentLoaded', initShadowBreaker);
-</script>
+  </section>
+
+  <!-- =========================================================
+       VIEW 3: RESULT SUMMARY (หลังเล่นจบ)
+  ========================================================== -->
+  <section id="view-result" class="sb-view hidden">
+
+    <div class="sb-box">
+      <h2>สรุปผลการเล่น</h2>
+
+      <p><strong>โหมด:</strong> <span id="result-mode">-</span></p>
+      <p><strong>ความยาก:</strong> <span id="result-diff">-</span></p>
+      <p><strong>เหตุผลจบเกม:</strong> <span id="result-end-reason">-</span></p>
+
+      <hr/>
+
+      <p><strong>คะแนน:</strong> <span id="result-score">0</span></p>
+      <p><strong>เกรด:</strong> <span id="result-grade">-</span></p>
+      <p><strong>ความแม่นยำ:</strong> <span id="result-acc">0%</span></p>
+      <p><strong>คอมโบสูงสุด:</strong> <span id="result-max-combo">0</span></p>
+      <p><strong>จำนวนเป้าถูกตี:</strong> <span id="result-hit-count">0</span></p>
+      <p><strong>Miss ทั้งหมด:</strong> <span id="result-miss-count">0</span></p>
+      <p><strong>เวลา FEVER รวม:</strong> <span id="result-fever-time">0 s</span></p>
+      <p><strong>เวลา HP ต่ำ:</strong> <span id="result-lowhp-time">0 s</span></p>
+      <p><strong>จำนวนบอสที่เคลียร์:</strong> <span id="result-boss-clear">0</span></p>
+      <p><strong>เวลาจากเมนู → เริ่มเล่น:</strong> <span id="result-start-lag">-</span></p>
+      <p><strong>รหัสผู้เข้าร่วม:</strong> <span id="result-participant">-</span></p>
+
+      <h3>RT เฉลี่ยรวม</h3>
+      <p><strong>เป้าปกติ (Normal target):</strong> <span id="result-rt-normal">-</span></p>
+      <p><strong>เป้าลวง / เป้าหลอก (Decoy):</strong> <span id="result-rt-decoy">-</span></p>
+
+      <p class="sb-note">
+        RT ตาม Boss / Phase และ Zone L/R, U/M/D จะถูกเก็บไว้ในไฟล์ CSV
+        เพื่อใช้วิเคราะห์เชิงสถิติ (ANOVA / Mixed models / SEM) ภายหลัง
+      </p>
+
+      <div class="sb-actions-row">
+        <button id="btn-replay" class="sb-btn-primary">▶️ เล่นอีกรอบ</button>
+        <button id="btn-back-home" class="sb-btn-ghost">← กลับเมนูหลัก</button>
+      </div>
+
+      <div class="sb-actions-row">
+        <button id="btn-dl-session" class="sb-btn-secondary">⬇ ดาวน์โหลด Session CSV</button>
+        <button id="btn-dl-event" class="sb-btn-secondary">⬇ ดาวน์โหลด Event CSV</button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- =========================================================
+       VIEW 4: RESEARCH FORM (กรอกก่อนเริ่มโหมดวิจัย)
+  ========================================================== -->
+  <section id="view-research-form" class="sb-view hidden">
+
+    <div class="sb-box">
+      <h2>แบบฟอร์มโหมดวิจัย</h2>
+      <p>
+        กรุณากรอกข้อมูลผู้เข้าร่วมให้ครบ โดยเฉพาะ
+        <strong>รหัสผู้เข้าร่วม</strong> จากนั้นกด “เริ่มเล่นในโหมดวิจัย”
+      </p>
+
+      <div class="sb-form-row">
+        <label for="input-participant">รหัสผู้เข้าร่วม / รหัสนักเรียน *</label>
+        <input id="input-participant" type="text"
+               placeholder="เช่น P001 หรือ ป.5/1-01"/>
+      </div>
+
+      <div class="sb-form-row">
+        <label for="input-section">กลุ่ม / ห้อง / Section</label>
+        <input id="input-section" type="text"
+               placeholder="เช่น G1 หรือ ป.5/1"/>
+      </div>
+
+      <div class="sb-form-row">
+        <label for="input-note">หมายเหตุเพิ่มเติม</label>
+        <textarea id="input-note"
+                  placeholder="เช่น ก่อนฝึก, หลังฝึกสัปดาห์ที่ 4 ฯลฯ"></textarea>
+      </div>
+
+      <div class="sb-actions-row">
+        <button id="btn-start-research" class="sb-btn-primary">
+          ▶ เริ่มเล่นในโหมดวิจัย
+        </button>
+        <button id="btn-cancel-research" class="sb-btn-ghost">
+          ← กลับเมนูหลัก
+        </button>
+      </div>
+    </div>
+
+    <div class="sb-box">
+      <h3>Bubble Glove</h3>
+      <p>
+        เริ่มต่อสู้กับบอสตัวแรก! โฟกัสที่เป้าฟองใหญ่ ๆ แล้วตีให้ทัน<br/>
+        แตะที่หน้าจอหรือตรงนี้เพื่อเริ่มต่อสู้ 🥊
+      </p>
+    </div>
+
+  </section>
+
+</div><!-- /.sb-wrap -->
+
+<!-- main controller (ต้องมีไฟล์นี้ใน fitness/js/) -->
+<script type="module" src="js/main-shadow.js"></script>
 </body>
 </html>
