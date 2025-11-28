@@ -9,7 +9,8 @@
   <link rel="stylesheet" href="css/shadow-breaker.css"/>
 </head>
 <body>
-<!-- ===== Shadow Breaker HUD ===== -->
+
+<!-- ===== Shadow Breaker HUD (Player/Boss HP + Portrait) ===== -->
 <div id="sb-hud">
   <div class="sb-hp-row">
     <div class="sb-hp-label sb-hp-label-player">YOU</div>
@@ -26,9 +27,11 @@
     <div id="sb-boss-portrait" class="sb-boss-portrait">🐣</div>
   </div>
 </div>
+
 <div id="sb-wrap" data-diff="normal" data-boss="0" data-phase="1">
   <div class="sb-shell">
-    <!-- TOP BAR -->
+
+    <!-- ================= TOP BAR ================= -->
     <header class="sb-topbar">
       <div class="sb-topbar-left">
         <div class="sb-title">
@@ -114,7 +117,7 @@
 
     <!-- ================= VIEW: PLAY ================= -->
     <section id="view-play" class="sb-card hidden">
-      <!-- HUD ด้านบน -->
+      <!-- HUD ด้านบนของหน้าจอเล่น -->
       <div class="sb-play-hud">
         <div class="sb-stat-row">
           <div class="sb-stat-group">
@@ -148,18 +151,6 @@
         </div>
 
         <div class="sb-bar-row">
-          <div class="sb-hp-line">
-            <span class="sb-hp-label">Player</span>
-            <div class="sb-hp-track">
-              <div class="sb-hp-fill sb-hp-player" data-sb-player-hp></div>
-            </div>
-          </div>
-          <div class="sb-hp-line">
-            <span class="sb-hp-label">Boss</span>
-            <div class="sb-hp-track">
-              <div class="sb-hp-fill sb-hp-boss" data-sb-boss-hp></div>
-            </div>
-          </div>
           <div class="sb-fever-line">
             <span class="sb-fever-label">Fever</span>
             <div class="sb-fever-track">
@@ -337,7 +328,7 @@
   </div>
 </div>
 
-<!-- BOSS INTRO OVERLAY -->
+<!-- ===== BOSS INTRO OVERLAY ===== -->
 <div id="bossIntro" class="hidden">
   <div class="sb-intro-card">
     <div id="boss-intro-emoji" class="sb-intro-emoji">🐣</div>
@@ -352,7 +343,7 @@
   </div>
 </div>
 
-<!-- BOOTSTRAP -->
+<!-- ===== BOOTSTRAP ===== -->
 <script type="module">
   import { initShadowBreaker } from './js/engine.js';
 
