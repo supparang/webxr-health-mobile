@@ -864,3 +864,7 @@ body {
 .sb-score-fx.active {
   opacity: 1;
 }
+/* emoji ตรงกลางเป้า (กันไม่ให้บัง pointer) */
+.sb-target-emoji {
+  pointer-events: none;
+}
