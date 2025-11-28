@@ -1,27 +1,17 @@
-// fitness/js/stats-store.js
-'use strict';
+import { recordSession } from '../fitness/js/stats-store.js';
+import { EventLogger } from './event-logger.js';
+import { SessionLogger } from './session-logger.js';
 
-const KEY = 'vrfitness_stats_v1';
+const eventLogger = new EventLogger();
+const sessionLogger = new SessionLogger();
 
-export function recordSession(gameId, summary) {
-  try {
-    const now = Date.now();
-    const item = { gameId, ts: now, ...summary };
-    const raw = localStorage.getItem(KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    list.unshift(item);
-    const trimmed = list.slice(0, 100); // เก็บสูงสุด 100 รอบล่าสุด
-    localStorage.setItem(KEY, JSON.stringify(trimmed));
-  } catch (e) {
-    console.warn('VRFitness: cannot save stats', e);
-  }
+// ใน logEvent:
+function logEvent(type, targetData, extra) {
+  // ... สร้าง row ตามเดิม
+  eventRows.push(row);          // ถ้ายังอยากเก็บแบบเดิม
+  eventLogger.add(row);         // เพิ่มแบบวิจัย
 }
 
-export function loadSessions() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
-}
+// ใน endGame(reason) หลังสร้าง sessionSummary:
+sessionLogger.add(sessionSummary);
+recordSession('shadow-breaker', sessionSummary);
