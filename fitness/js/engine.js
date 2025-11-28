@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-12-03, fixed) ===
+// === js/engine.js — Shadow Breaker core (2025-12-03, HUD+FX synced) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -23,6 +23,12 @@ export function initShadowBreaker() {
   const feverStatus = document.getElementById('fever-status');
   const playerHpFill = document.querySelector('[data-sb-player-hp]');
   const bossHpFill = document.querySelector('[data-sb-boss-hp]');
+
+  // HUD ด้านบน (YOU | Boss)
+  const hudPlayerHpTop = document.getElementById('sb-hp-player');
+  const hudBossHpTop   = document.getElementById('sb-hp-boss');
+  const hudBossNameTop = document.getElementById('sb-boss-name');
+  const hudBossPortraitTop = document.getElementById('sb-boss-portrait');
 
   const statTime = document.getElementById('stat-time');
   const statScore = document.getElementById('stat-score');
@@ -54,13 +60,13 @@ export function initShadowBreaker() {
   const btnStartNormal = document.querySelector('[data-action="start-normal"]');
   const btnStartResearch = document.querySelector('[data-action="start-research"]');
   const btnStopEarly = document.querySelector('[data-action="stop-early"]');
-  const btnBackFromPlay = viewPlay.querySelector('[data-action="back-to-menu"]');
+  const btnBackFromPlay = viewPlay?.querySelector('[data-action="back-to-menu"]');
   const btnPlayAgain = document.querySelector('[data-action="play-again"]');
-  const btnBackFromResult = viewResult.querySelector('[data-action="back-to-menu"]');
+  const btnBackFromResult = viewResult?.querySelector('[data-action="back-to-menu"]');
   const btnDownloadSession = document.querySelector('[data-action="download-csv-session"]');
   const btnDownloadEvents = document.querySelector('[data-action="download-csv-events"]');
   const btnResearchBegin = document.querySelector('[data-action="research-begin-play"]');
-  const btnBackFromResearch = viewResearchForm.querySelector('[data-action="back-to-menu"]');
+  const btnBackFromResearch = viewResearchForm?.querySelector('[data-action="back-to-menu"]');
 
   // research form inputs
   const researchIdInput = document.getElementById('research-id');
@@ -151,8 +157,15 @@ export function initShadowBreaker() {
     feverStatus.textContent = 'READY';
     feverStatus.classList.remove('on');
     if (feverFill) feverFill.style.transform = 'scaleX(0)';
+
+    // HP bar ล่าง
     if (playerHpFill) playerHpFill.style.transform = 'scaleX(1)';
     if (bossHpFill) bossHpFill.style.transform = 'scaleX(1)';
+
+    // HP bar บน
+    if (hudPlayerHpTop) hudPlayerHpTop.style.transform = 'scaleX(1)';
+    if (hudBossHpTop)   hudBossHpTop.style.transform   = 'scaleX(1)';
+
     if (feedbackEl) {
       feedbackEl.textContent = 'แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!';
       feedbackEl.className = 'sb-feedback';
@@ -179,6 +192,7 @@ export function initShadowBreaker() {
     wrap.dataset.boss = String(boss.id);
     wrap.dataset.phase = String(state.bossPhase);
 
+    // การ์ดด้านข้าง
     const nameEl = document.getElementById('boss-portrait-name');
     const emojiEl = document.getElementById('boss-portrait-emoji');
     const hintEl = document.getElementById('boss-portrait-hint');
@@ -186,6 +200,10 @@ export function initShadowBreaker() {
     if (nameEl) nameEl.textContent = boss.name;
     if (emojiEl) emojiEl.textContent = boss.emoji;
     if (hintEl) hintEl.textContent = boss.hint;
+
+    // HUD บน
+    if (hudBossNameTop) hudBossNameTop.textContent = boss.name;
+    if (hudBossPortraitTop) hudBossPortraitTop.textContent = boss.emoji;
 
     statPhase.textContent = String(state.bossPhase);
   }
@@ -198,14 +216,13 @@ export function initShadowBreaker() {
   }
 
   function updateHpBars() {
-    if (playerHpFill) {
-      const v = Math.max(0, Math.min(1, state.playerHp));
-      playerHpFill.style.transform = `scaleX(${v})`;
-    }
-    if (bossHpFill) {
-      const v = Math.max(0, Math.min(1, state.bossHp));
-      bossHpFill.style.transform = `scaleX(${v})`;
-    }
+    const vPlayer = Math.max(0, Math.min(1, state.playerHp));
+    const vBoss   = Math.max(0, Math.min(1, state.bossHp));
+
+    if (playerHpFill)   playerHpFill.style.transform   = `scaleX(${vPlayer})`;
+    if (bossHpFill)     bossHpFill.style.transform     = `scaleX(${vBoss})`;
+    if (hudPlayerHpTop) hudPlayerHpTop.style.transform = `scaleX(${vPlayer})`;
+    if (hudBossHpTop)   hudBossHpTop.style.transform   = `scaleX(${vBoss})`;
   }
 
   function updateFeverUi(now) {
@@ -251,7 +268,7 @@ export function initShadowBreaker() {
       feedbackEl,
       onTargetHit: handleTargetHit
     });
-    renderer.setDifficulty(state.diffKey);
+    renderer.setDifficulty(state?.diffKey || 'normal');
     return renderer;
   }
 
@@ -554,7 +571,7 @@ export function initShadowBreaker() {
     statTime.textContent = (state.timeLeftMs / 1000).toFixed(1);
     updateFeverUi(now);
 
-    // safety: check timeout ด้วย
+    // safety: ตรวจ timeout เพิ่ม
     const nowTargets = Array.from(state.targets.values());
     for (const t of nowTargets) {
       if (now >= t.timeoutAt) {
@@ -659,7 +676,7 @@ export function initShadowBreaker() {
   function startGame(mode, researchMeta) {
     const diffKey = difficultySel.value || 'normal';
     const durationSec = parseInt(durationSel.value || '60', 10);
-    DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal; // แค่ validate
+    DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal; // validate
 
     clearRenderer();
     resetHud();
