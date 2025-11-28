@@ -892,3 +892,16 @@ body {
     padding-inline: 10px;
   }
 }
+/* ===== ใช้ HP แค่ชุดเดียวด้านบน ===== */
+
+/* ซ่อนแถบ HP player / boss ด้านล่าง */
+#sb-hp-you-bottom,
+#sb-hp-boss-bottom {
+  display: none !important;
+}
+
+/* ถ้ามีการ์ดสรุป HP OVERVIEW แยกด้านล่าง ให้ซ่อนทั้งการ์ดเลย */
+#sb-card-hp-overview {
+  display: none !important;
+}
+
