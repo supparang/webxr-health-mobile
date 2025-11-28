@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-12-03, FEVER tuned + HUD+FX synced) ===
+// === js/engine.js — Shadow Breaker core (2025-12-04, FEVER tuned + HUD/FX synced) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -116,12 +116,12 @@ export function initShadowBreaker() {
     }
   };
 
-  // === FEVER tuning (2025-12-03 — ให้ขึ้นง่ายและต่างตามเกรด) ===
-  const FEVER_GAIN_PERFECT = 0.26;   // PERFECT ~4–5 ครั้งก็เต็ม
-  const FEVER_GAIN_GOOD    = 0.20;
-  const FEVER_GAIN_BAD     = 0.14;   // จังหวะช้า (bad) ยังได้เกจอยู่ แต่ได้น้อยสุด
-  const FEVER_DECAY_PER_SEC = 0.08;  // เกจลดช้าลง
-  const FEVER_DURATION_MS  = 8000;   // อยู่ในโหมด FEVER 8 วิ
+  // FEVER config — ปรับให้ขึ้นง่ายขึ้นหน่อย + รวมไว้ที่เดียวสำหรับงานวิจัย
+  const FEVER_CONFIG = {
+    perHit: 0.18,        // เดิม 0.09 → เพิ่มเป็น 0.18 ให้เกจขึ้นไวขึ้น
+    decayPerSec: 0.10,   // เดิม 0.15 → ลดการรั่วลง
+    durationMs: 8000     // เดิม 7000 ms → FEVER ค้างนานขึ้นเล็กน้อย
+  };
 
   const LOWHP_THRESHOLD = 0.3;
   const BOSSFACE_THRESHOLD = 0.28; // hp < นี้จะเรียกหน้า boss
@@ -464,22 +464,12 @@ export function initShadowBreaker() {
       );
     }
 
-    // FEVER gauge (เฉพาะ normal) — ปรับให้ขึ้นง่ายและต่างตามเกรด
+    // FEVER gauge (เฉพาะ normal)
     if (data.type === 'normal') {
-      let feverGain;
-      if (grade === 'perfect') {
-        feverGain = FEVER_GAIN_PERFECT;
-      } else if (grade === 'good') {
-        feverGain = FEVER_GAIN_GOOD;
-      } else {
-        feverGain = FEVER_GAIN_BAD;
-      }
-
-      state.fever = Math.min(1, state.fever + feverGain);
-
+      state.fever += FEVER_CONFIG.perHit;
       if (!state.feverOn && state.fever >= 1) {
         state.feverOn = true;
-        state.feverUntil = now + FEVER_DURATION_MS;
+        state.feverUntil = now + FEVER_CONFIG.durationMs;
         state.fever = 1;
         feverStatus.textContent = 'ON';
         feverStatus.classList.add('on');
@@ -571,7 +561,7 @@ export function initShadowBreaker() {
     state.timeLeftMs -= elapsed;
 
     if (state.fever > 0 && !state.feverOn) {
-      state.fever = Math.max(0, state.fever - FEVER_DECAY_PER_SEC * (elapsed / 1000));
+      state.fever = Math.max(0, state.fever - FEVER_CONFIG.decayPerSec * (elapsed / 1000));
     }
     if (state.feverOn) state.feverActiveMs += elapsed;
     if (state.playerHp <= LOWHP_THRESHOLD) state.lowHpMs += elapsed;
@@ -687,6 +677,121 @@ export function initShadowBreaker() {
     showView('result');
   }
 
+  function downloadCsv(filenameBase, rows) {
+    if (!rows || !rows.length) {
+      alert('ยังไม่มีข้อมูลสำหรับดาวน์โหลด');
+      return;
+    }
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.join(',')];
+    for (const r of rows) {
+      const line = headers.map(h => {
+        const val = r[h];
+        if (val == null) return '';
+        const s = String(val).replace(/"/g, '""');
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return `"${s}"`;
+        }
+        return s;
+      }).join(',');
+      lines.push(line);
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.download = filenameBase + '_' + stamp + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  const buildSessionRows = () => (sessionSummary ? [sessionSummary] : []);
+
+  // ----- wire buttons (กัน null + กันกดซ้ำตอนกำลังเล่น) -----
+
+  if (btnStartNormal) {
+    btnStartNormal.addEventListener('click', () => {
+      if (state && state.running) return;
+      startGame('normal', null);
+    });
+  }
+
+  if (btnStartResearch) {
+    btnStartResearch.addEventListener('click', () => {
+      if (state && state.running) return;
+      showView('research');
+    });
+  }
+
+  if (btnResearchBegin) {
+    btnResearchBegin.addEventListener('click', () => {
+      if (state && state.running) return;
+
+      const id = researchIdInput.value.trim();
+      const group = researchGroupInput.value.trim();
+      const note = researchNoteInput.value.trim();
+
+      if (!id) {
+        alert('กรุณาระบุ "รหัสผู้เข้าร่วม / รหัสนักเรียน" ก่อนเริ่มโหมดวิจัย');
+        researchIdInput.focus();
+        return;
+      }
+
+      startGame('research', { id, group, note });
+    });
+  }
+
+  if (btnBackFromResearch) {
+    btnBackFromResearch.addEventListener('click', () => {
+      if (state && state.running) return;
+      showView('menu');
+    });
+  }
+
+  if (btnStopEarly) {
+    btnStopEarly.addEventListener('click', () => {
+      if (!state || !state.running) return;
+      endGame('stop-early');
+    });
+  }
+
+  if (btnBackFromPlay) {
+    btnBackFromPlay.addEventListener('click', () => {
+      if (state && state.running) {
+        endGame('stop-early');
+      } else {
+        showView('menu');
+      }
+    });
+  }
+
+  if (btnPlayAgain) {
+    btnPlayAgain.addEventListener('click', () => {
+      showView('menu');
+    });
+  }
+
+  if (btnBackFromResult) {
+    btnBackFromResult.addEventListener('click', () => {
+      showView('menu');
+    });
+  }
+
+  if (btnDownloadSession) {
+    btnDownloadSession.addEventListener('click', () => {
+      downloadCsv('shadow-breaker_session', buildSessionRows());
+    });
+  }
+
+  if (btnDownloadEvents) {
+    btnDownloadEvents.addEventListener('click', () => {
+      downloadCsv('shadow-breaker_events', eventRows);
+    });
+  }
+
   function startGame(mode, researchMeta) {
     const diffKey = difficultySel.value || 'normal';
     const durationSec = parseInt(durationSel.value || '60', 10);
@@ -777,96 +882,6 @@ export function initShadowBreaker() {
       scheduleNextSpawn();
     }
   }
-
-  function downloadCsv(filenameBase, rows) {
-    if (!rows || !rows.length) {
-      alert('ยังไม่มีข้อมูลสำหรับดาวน์โหลด');
-      return;
-    }
-    const headers = Object.keys(rows[0]);
-    const lines = [headers.join(',')];
-    for (const r of rows) {
-      const line = headers.map(h => {
-        const val = r[h];
-        if (val == null) return '';
-        const s = String(val).replace(/"/g, '""');
-        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-          return `"${s}"`;
-        }
-        return s;
-      }).join(',');
-      lines.push(line);
-    }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    a.download = filenameBase + '_' + stamp + '.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  const buildSessionRows = () => (sessionSummary ? [sessionSummary] : []);
-
-  // ----- wire buttons -----
-
-  btnStartNormal.addEventListener('click', () => {
-    startGame('normal', null);
-  });
-
-  btnStartResearch.addEventListener('click', () => {
-    showView('research');
-  });
-
-  btnResearchBegin.addEventListener('click', () => {
-    const id = researchIdInput.value.trim();
-    const group = researchGroupInput.value.trim();
-    const note = researchNoteInput.value.trim();
-
-    if (!id) {
-      alert('กรุณาระบุ "รหัสผู้เข้าร่วม / รหัสนักเรียน" ก่อนเริ่มโหมดวิจัย');
-      researchIdInput.focus();
-      return;
-    }
-
-    startGame('research', { id, group, note });
-  });
-
-  btnBackFromResearch.addEventListener('click', () => {
-    showView('menu');
-  });
-
-  btnStopEarly.addEventListener('click', () => {
-    if (!state || !state.running) return;
-    endGame('stop-early');
-  });
-
-  btnBackFromPlay.addEventListener('click', () => {
-    if (state && state.running) {
-      endGame('stop-early');
-    } else {
-      showView('menu');
-    }
-  });
-
-  btnPlayAgain.addEventListener('click', () => {
-    showView('menu');
-  });
-
-  btnBackFromResult.addEventListener('click', () => {
-    showView('menu');
-  });
-
-  btnDownloadSession.addEventListener('click', () => {
-    downloadCsv('shadow-breaker_session', buildSessionRows());
-  });
-
-  btnDownloadEvents.addEventListener('click', () => {
-    downloadCsv('shadow-breaker_events', eventRows);
-  });
 
   // initial
   resetHud();
