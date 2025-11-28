@@ -4,96 +4,91 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>VR Fitness — Shadow Breaker</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
-  <link rel="stylesheet" href="./css/shadow-breaker.css"/>
+  <link rel="icon" href="../favicon.ico"/>
+  <link rel="stylesheet" href="../css/shadow-breaker.css"/>
+  <script type="module" src="../js/shadow-breaker.js" defer></script>
 </head>
-<body>
+<body class="fitness-bg">
   <div class="fitness-shell">
-    <!-- ===== HEADER (เหมือน Hub) ===== -->
+    <!-- ===== HEADER เหมือน Hub ===== -->
     <header class="fitness-header">
       <div class="fitness-brand">
-        <div class="fitness-logo">
-          <span>🥊</span>
-        </div>
+        <div class="fitness-logo">🥊</div>
         <div>
-          <div class="fitness-title">Shadow Breaker</div>
-          <div class="fitness-subtitle">โหมดฝึกชกเป้า + Boss</div>
+          <div class="fitness-title">Shadow Breaker — VR Fitness Academy</div>
+          <div class="fitness-subtitle">ชกเป้า emoji ตีบอส 4 ตัว เก็บข้อมูลวิจัยได้</div>
         </div>
       </div>
       <nav class="fitness-nav">
-        <a href="../hub.html" class="btn-link">← กลับ Hub</a>
+        <a href="../hub.html" class="btn-link">← กลับหน้า Hub</a>
       </nav>
     </header>
 
-    <!-- ===== MAIN WRAP (engine.js ใช้) ===== -->
-    <main id="sb-wrap" class="fitness-main" data-diff="normal" data-boss="0" data-phase="1">
+    <main id="sb-wrap">
       <!-- ===== VIEW: MENU ===== -->
       <section id="sb-view-menu" class="sb-view is-active">
         <div class="sb-panel">
-          <div class="sb-title">
-            <span class="sb-title-badge">Shadow Breaker</span>
-            <span class="sb-title-text">โหมดฝึกชกเป้า + Boss</span>
-          </div>
-          <p class="sb-lead">
-            เลือกความยากและเวลาที่ต้องการ แล้วเริ่มฝึกชกเป้าตามจังหวะเพื่อโจมตีบอส
-          </p>
-
           <div class="sb-menu-main">
-            <div class="sb-menu-grid">
-              <!-- ซ้าย: ฟอร์มตั้งค่า -->
-              <div>
-                <div class="sb-field">
-                  <label class="sb-label" for="sb-diff">ระดับความยาก</label>
-                  <select id="sb-diff" class="sb-select">
-                    <option value="easy">Easy — ผ่อนคลาย</option>
-                    <option value="normal" selected>Normal — สมดุล</option>
-                    <option value="hard">Hard — ท้าทาย</option>
-                  </select>
-                  <div class="sb-help">
-                    ยิ่งยาก เป้าจะเล็กลงและมาเร็วขึ้น ระเบิด/ล่อจะมากขึ้นเล็กน้อย
-                  </div>
-                </div>
+            <div class="sb-title">
+              <span class="sb-title-badge">VR Fitness</span>
+              <span class="sb-title-text">Shadow Breaker</span>
+            </div>
+            <p class="sb-lead">
+              ชกเป้า emoji เพื่อทำดาเมจใส่บอส 4 ตัว ขนาดและความเร็วเป้าจะเปลี่ยนตามระดับความยาก
+              รองรับทั้งโหมดเล่นทั่วไปและโหมดเก็บข้อมูลวิจัย
+            </p>
+          </div>
 
-                <div class="sb-field">
-                  <label class="sb-label" for="sb-time">ระยะเวลาเล่น</label>
-                  <select id="sb-time" class="sb-select">
-                    <option value="45">45 วินาที</option>
-                    <option value="60" selected>60 วินาที</option>
-                    <option value="90">90 วินาที</option>
-                  </select>
-                </div>
-
-                <div class="sb-menu-actions">
-                  <button id="sb-btn-play" class="btn-primary">
-                    ▶ เริ่มเล่นโหมดปกติ
-                  </button>
-                  <button id="sb-btn-research" class="btn-secondary">
-                    📊 โหมดวิจัย
-                  </button>
+          <div class="sb-menu-grid">
+            <div>
+              <div class="sb-field">
+                <label for="sb-diff" class="sb-label">ระดับความยาก</label>
+                <select id="sb-diff" class="sb-select">
+                  <option value="easy">Easy — ผ่อนคลาย</option>
+                  <option value="normal" selected>Normal — สมดุล</option>
+                  <option value="hard">Hard — ท้าทาย</option>
+                </select>
+                <div class="sb-help">
+                  Easy เป้าใหญ่ / ช้าลง • Hard เป้าเล็ก / เร็วขึ้น
                 </div>
               </div>
 
-              <!-- ขวา: คำอธิบายโหมดวิจัย -->
-              <aside class="sb-menu-right">
-                <h3 class="sb-box-title">รายละเอียดโหมดวิจัย</h3>
-                <ul class="sb-list">
-                  <li>เก็บข้อมูล Reaction time, Accuracy, Miss, Shield</li>
-                  <li>วิเคราะห์ผลก่อน–หลังโปรแกรม หรือเปรียบเทียบระหว่าง Zone</li>
-                  <li>ส่งออก CSV เพื่อนำไปวิเคราะห์ต่อใน Excel / R / SPSS</li>
-                </ul>
-                <p class="sb-mini-note">
-                  เหมาะสำหรับใช้ในงานวิจัยด้านสมรรถภาพ, VR fitness, serious game
-                </p>
-              </aside>
+              <div class="sb-field">
+                <label for="sb-time" class="sb-label">เวลาต่อรอบ (วินาที)</label>
+                <select id="sb-time" class="sb-select">
+                  <option value="45">45</option>
+                  <option value="60" selected>60</option>
+                  <option value="90">90</option>
+                </select>
+              </div>
+
+              <div class="sb-menu-actions">
+                <button id="sb-btn-play" type="button" class="btn-primary">
+                  เริ่มเล่นโหมดธรรมดา
+                </button>
+                <button id="sb-btn-research" type="button" class="btn-secondary">
+                  เริ่มเล่นโหมดวิจัย (เก็บข้อมูล)
+                </button>
+              </div>
             </div>
 
-            <footer class="sb-menu-footer">
-              <div>
-                <span class="dot-online"></span>ระบบพร้อมใช้งาน
-              </div>
-              <div>Tip: ใช้นิ้วแตะหรือเมาส์คลิกที่เป้าให้ทันก่อนหายไป</div>
-            </footer>
+            <div class="sb-menu-right">
+              <h3 class="sb-box-title">โหมดวิจัย (Research Mode)</h3>
+              <ul class="sb-list">
+                <li>บันทึก Event CSV ทุกครั้งที่ตีโดน / พลาด</li>
+                <li>บันทึก Session CSV ทุกครั้งที่จบรอบ</li>
+                <li>คำนวณ Accuracy, RT ปกติ / เป้าลวง</li>
+                <li>เก็บเวลาที่อยู่ในช่วง HP ต่ำ และ Fever</li>
+              </ul>
+              <p class="sb-mini-note">
+                ใช้คู่กับปุ่มดาวน์โหลด CSV ในหน้าสรุปผล
+              </p>
+            </div>
+          </div>
+
+          <div class="sb-menu-footer">
+            <span><span class="dot-online"></span>พร้อมใช้งานบน PC / มือถือ / แว่น VR</span>
+            <span>Build นี้เน้นเก็บข้อมูล Reaction Time และ Accuracy</span>
           </div>
         </div>
       </section>
@@ -101,33 +96,22 @@
       <!-- ===== VIEW: PLAY ===== -->
       <section id="sb-view-play" class="sb-view">
         <div class="sb-panel sb-panel--play">
-          <!-- แถวบน: HP + เวลา -->
-          <header class="sb-play-header-row">
-            <div class="sb-title">
-              <span class="sb-title-badge">Play</span>
-              <span class="sb-title-text">Shadow Breaker</span>
-            </div>
-            <button id="sb-btn-back-menu" class="btn-link">← กลับเมนู</button>
-          </header>
-
+          <!-- HUD บน: เวลา + HP ผู้เล่น/บอส -->
           <div class="sb-hud-top">
             <div class="sb-hp-box">
-              <div class="sb-hp-label">HP ผู้เล่น</div>
+              <span class="sb-hp-label">HP ผู้เล่น</span>
               <div class="sb-hp-bar">
                 <div id="sb-hp-you-top" class="sb-hp-fill"></div>
               </div>
             </div>
 
             <div class="sb-time-box">
-              <div class="sb-time-label">เวลา</div>
-              <div id="sb-text-time" class="sb-time-value">60.0 s</div>
-              <div id="sb-current-boss-name" class="sb-time-boss">
-                Bubble Glove 🐣
-              </div>
+              <span class="sb-time-label">เวลา</span>
+              <span id="sb-text-time" class="sb-time-value">0.0 s</span>
             </div>
 
             <div class="sb-hp-box">
-              <div class="sb-hp-label">HP Boss</div>
+              <span class="sb-hp-label">HP Boss</span>
               <div class="sb-hp-bar">
                 <div id="sb-hp-boss-top" class="sb-hp-fill sb-hp-fill--boss"></div>
               </div>
@@ -136,136 +120,194 @@
 
           <!-- Layout หลัก -->
           <div class="sb-play-layout">
-            <!-- ซ้าย: ข้อมูลบอส -->
+            <!-- ซ้าย: การ์ดบอส -->
             <aside class="sb-side-card sb-side-card--boss">
               <div class="sb-boss-portrait">
                 <div id="sb-meta-emoji" class="sb-boss-emoji">🐣</div>
                 <div id="sb-meta-name" class="sb-boss-name">Bubble Glove</div>
-                <div id="sb-meta-desc" class="sb-boss-hint">
-                  โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน
+                <div class="sb-boss-meta">
+                  เฟส <span id="sb-text-phase">1</span>
                 </div>
               </div>
+              <p id="sb-meta-desc" class="sb-boss-hint">
+                โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน
+              </p>
             </aside>
 
-            <!-- กลาง: สนามเล่น -->
-            <div class="sb-play-main">
+            <!-- กลาง: สนามเป้า -->
+            <section class="sb-play-main">
               <div id="sb-target-layer"></div>
+              <p id="sb-msg-main" class="sb-feedback">
+                แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!
+              </p>
 
-              <div class="sb-fever-wrap">
-                <div>
-                  <span class="sb-fever-label">FEVER:</span>
-                  <span id="sb-label-fever" class="sb-fever-status">READY</span>
-                </div>
+              <!-- FEVER UI — ซ่อนไว้ (ให้ logic ยังทำงานได้ แต่ไม่แสดง) -->
+              <div class="sb-fever-wrap" style="display:none;">
+                <span id="sb-label-fever" class="sb-fever-label sb-fever-status">READY</span>
                 <div class="sb-fever-bar">
                   <div id="sb-fever-bar" class="sb-fever-fill"></div>
                 </div>
               </div>
+            </section>
 
-              <p id="sb-msg-main" class="sb-feedback">
-                แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!
-              </p>
-            </div>
-
-            <!-- ขวา: สถิติย่อ + pause -->
-            <aside class="sb-side-card sb-side-card--stats">
+            <!-- ขวา: สถิติระหว่างเล่น -->
+            <aside class="sb-side-card">
+              <h3 class="sb-box-title">สถิติรอบนี้</h3>
               <div class="sb-stat-list">
                 <div class="sb-stat-row">
-                  <span>Score</span><span id="sb-text-score">0</span>
+                  <span>คะแนน</span>
+                  <strong id="sb-text-score">0</strong>
                 </div>
                 <div class="sb-stat-row">
-                  <span>Combo</span><span id="sb-text-combo">0</span>
+                  <span>Combo</span>
+                  <strong id="sb-text-combo">0</strong>
                 </div>
                 <div class="sb-stat-row">
-                  <span>Phase</span><span id="sb-text-phase">1</span>
+                  <span>Miss</span>
+                  <strong id="sb-text-miss">0</strong>
                 </div>
                 <div class="sb-stat-row">
-                  <span>Miss</span><span id="sb-text-miss">0</span>
-                </div>
-                <div class="sb-stat-row">
-                  <span>Shield</span><span id="sb-text-shield">0</span>
+                  <span>เกราะ (Shield)</span>
+                  <strong id="sb-text-shield">0</strong>
                 </div>
               </div>
-
-              <label class="sb-pause-row">
-                <input id="sb-btn-pause" type="checkbox"/>
-                <span>หยุดเล่นชั่วคราว (จบ Session นี้ก่อน)</span>
-              </label>
             </aside>
           </div>
 
-          <!-- การ์ด HP OVERVIEW (ซ่อนด้วย CSS แต่เก็บ id ไว้ให้ engine ใช้ได้) -->
-          <section class="sb-card sb-card-hp-overview">
-            <h3 class="sb-card-title">HP OVERVIEW</h3>
-            <div class="sb-hp-bar sb-hp-bar--mini">
-              <div id="sb-hp-you-bottom" class="sb-hp-fill"></div>
-            </div>
-            <div class="sb-hp-bar sb-hp-bar--mini">
-              <div id="sb-hp-boss-bottom" class="sb-hp-fill sb-hp-fill--boss"></div>
-            </div>
-          </section>
-
-          <!-- แถวล่าง: hint สั้น ๆ -->
-          <footer class="sb-hud-bottom">
+          <!-- แถบล่าง: ปุ่มควบคุม -->
+          <div class="sb-hud-bottom">
             <div class="sb-hud-bottom-inner">
               <div class="sb-hud-bottom-item">
-                แตะ/ชกที่เป้าสีเขียวเพื่อลด HP บอส
+                <button id="sb-btn-back-menu" type="button" class="sb-btn sb-btn-secondary">
+                  ← กลับเมนู
+                </button>
               </div>
               <div class="sb-hud-bottom-item">
-                ระวัง 💣 และ 🎭 — ถ้าไม่มีเกราะ HP จะลดลง
+                <label class="sb-toggle">
+                  <input id="sb-btn-pause" type="checkbox">
+                  <span>หยุดเล่นชั่วคราว</span>
+                </label>
               </div>
             </div>
-          </footer>
+          </div>
         </div>
       </section>
 
       <!-- ===== VIEW: RESULT ===== -->
       <section id="sb-view-result" class="sb-view">
         <div class="sb-panel">
-          <header class="sb-result-header">
-            <div class="sb-title">
-              <span class="sb-title-badge">Result</span>
-              <span class="sb-title-text">สรุปผลรอบนี้</span>
-            </div>
-          </header>
+          <div class="sb-result-header">
+            <h2 class="sb-section-title">สรุปผลการเล่น Shadow Breaker</h2>
+            <p class="sb-result-hint">
+              โหมดธรรมดา: ดู Grade / Accuracy / จำนวนบอสที่เคลียร์ได้ •
+              โหมดวิจัย: ใช้ค่าด้านล่างในการวิเคราะห์เชิงสถิติ
+            </p>
+          </div>
 
           <div class="sb-result-grid">
+            <!-- กล่อง 1: สรุปคะแนน -->
             <div class="sb-result-card">
-              <div class="sb-card-label">เวลาเล่น</div>
-              <div id="sb-res-time" class="sb-card-value">60.0 s</div>
+              <h3>สรุปคะแนน</h3>
+              <dl class="sb-result-kv">
+                <div>
+                  <dt>เวลาเล่น</dt>
+                  <dd id="sb-res-time">-</dd>
+                </div>
+                <div>
+                  <dt>คะแนน</dt>
+                  <dd id="sb-res-score">-</dd>
+                </div>
+                <div>
+                  <dt>Max Combo</dt>
+                  <dd id="sb-res-max-combo">-</dd>
+                </div>
+                <div>
+                  <dt>Miss</dt>
+                  <dd id="sb-res-miss">-</dd>
+                </div>
+                <div>
+                  <dt>เฟสสุดท้าย</dt>
+                  <dd id="sb-res-phase">-</dd>
+                </div>
+              </dl>
             </div>
+
+            <!-- กล่อง 2: Grade + Accuracy + บอสที่เคลียร์ -->
             <div class="sb-result-card">
-              <div class="sb-card-label">Score</div>
-              <div id="sb-res-score" class="sb-card-value">0</div>
+              <h3>เกรด &amp; ความแม่นยำ</h3>
+              <dl class="sb-result-kv">
+                <div>
+                  <dt>Grade</dt>
+                  <dd id="sb-res-grade">-</dd>
+                </div>
+                <div>
+                  <dt>Accuracy</dt>
+                  <dd id="sb-res-acc">-</dd>
+                </div>
+                <div>
+                  <dt>จำนวนบอสที่เคลียร์ได้</dt>
+                  <dd id="sb-res-bosses">-</dd>
+                </div>
+              </dl>
             </div>
-            <div class="sb-result-card">
-              <div class="sb-card-label">Max Combo</div>
-              <div id="sb-res-max-combo" class="sb-card-value">0</div>
-            </div>
-            <div class="sb-result-card">
-              <div class="sb-card-label">Miss</div>
-              <div id="sb-res-miss" class="sb-card-value">0</div>
+
+            <!-- กล่อง 3: เมตริกโหมดวิจัย + ปุ่ม CSV -->
+            <div class="sb-result-card sb-result-research">
+              <h3>สำหรับงานวิจัย (Research Metrics)</h3>
+              <dl class="sb-result-kv">
+                <div>
+                  <dt>Accuracy (%)</dt>
+                  <dd id="sb-res-r-acc">-</dd>
+                </div>
+                <div>
+                  <dt>บอสที่เคลียร์ได้</dt>
+                  <dd id="sb-res-r-bosses">-</dd>
+                </div>
+                <div>
+                  <dt>RT เป้าปกติ (ms)</dt>
+                  <dd id="sb-res-rt-normal">-</dd>
+                </div>
+                <div>
+                  <dt>RT เป้าลวง (ms)</dt>
+                  <dd id="sb-res-rt-decoy">-</dd>
+                </div>
+                <div>
+                  <dt>เวลาในช่วง FEVER (s)</dt>
+                  <dd id="sb-res-fever-time">-</dd>
+                </div>
+                <div>
+                  <dt>เวลา HP ต่ำ (s)</dt>
+                  <dd id="sb-res-lowhp-time">-</dd>
+                </div>
+              </dl>
+
+              <div class="sb-result-download">
+                <button id="sb-btn-dl-events" type="button" class="sb-btn">
+                  ⬇ ดาวน์โหลด Event CSV
+                </button>
+                <button id="sb-btn-dl-sessions" type="button" class="sb-btn">
+                  ⬇ ดาวน์โหลด Session CSV
+                </button>
+              </div>
             </div>
           </div>
 
-          <p class="sb-result-hint">
-            ใช้ผลรอบนี้เพื่อเทียบก่อน–หลังโปรแกรมฝึก หรือระหว่างโซน/กลุ่มผู้เล่น
-          </p>
-
-          <footer class="sb-result-footer">
+          <div class="sb-result-footer">
             <div class="sb-result-actions">
-              <button id="sb-btn-result-retry" class="btn-primary">
-                ▶ เล่นอีกรอบ
+              <button id="sb-btn-result-retry" type="button" class="sb-btn sb-btn-primary">
+                เล่นอีกครั้ง
               </button>
-              <button id="sb-btn-result-menu" class="btn-secondary">
-                ← กลับเมนู
+              <button id="sb-btn-result-menu" type="button" class="sb-btn sb-btn-secondary">
+                กลับเมนูหลัก
               </button>
             </div>
-          </footer>
+            <p class="sb-result-hint">
+              สามารถนำไฟล์ CSV ไปวิเคราะห์ต่อใน SPSS / R / Python หรือใช้ทำ SEM / ANOVA ได้
+            </p>
+          </div>
         </div>
       </section>
     </main>
   </div>
-
-  <script type="module" src="./js/shadow-breaker.js"></script>
 </body>
 </html>
