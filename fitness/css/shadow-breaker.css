@@ -1,852 +1,124 @@
-/* =========================================================
-   Shadow Breaker — Global Layout & Theme
-   ========================================================= */
-
-:root {
-  color-scheme: light dark;
-  --sb-bg: #020617;
-  --sb-bg-soft: #020617;
-  --sb-card: #020617;
-  --sb-card-deep: #020617;
-  --sb-border-soft: #0f172a;
-  --sb-border-strong: #1f2937;
-
-  --sb-green: #22c55e;
-  --sb-green-soft: #4ade80;
-  --sb-orange: #fb923c;
-  --sb-yellow: #facc15;
-  --sb-red: #ef4444;
-  --sb-blue: #38bdf8;
-  --sb-indigo: #4f46e5;
-
-  --sb-radius-lg: 28px;
-  --sb-radius-md: 18px;
-  --sb-radius-sm: 999px;
-  --sb-shadow-soft: 0 18px 60px rgba(15,23,42,0.65);
-  --sb-shadow-chip: 0 10px 30px rgba(15,23,42,0.7);
-  --sb-transition-fast: .18s ease-out;
-  --sb-transition-slow: .35s ease-out;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-body.sb-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #e5e7eb;
-  background:
-    radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,0.20), transparent 55%),
-    var(--sb-bg);
-  overflow-x: hidden;
-}
-
-/* wrap ทั้งหน้า */
-
-.sb-wrap {
-  min-height: 100vh;
-  padding: 16px 16px 32px;
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* =========================================================
-   Header / Hero
-   ========================================================= */
-
-.sb-header-top {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 12px;
-}
-
-.sb-btn-back {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 18px;
-  border-radius: 999px;
-  border: 1px solid rgba(52,211,153,0.25);
-  background: radial-gradient(circle at top left, rgba(52,211,153,0.35), rgba(21,128,61,0.85));
-  color: #ecfdf5;
-  text-decoration: none;
-  font-size: 14px;
-  box-shadow: 0 0 0 1px rgba(15,23,42,0.6), 0 16px 40px rgba(22,163,74,0.55);
-  transition: transform var(--sb-transition-fast), box-shadow var(--sb-transition-fast), filter var(--sb-transition-fast);
-}
-
-.sb-btn-back:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.08);
-}
-
-.sb-hero {
-  text-align: center;
-  padding: 8px 4px 12px;
-}
-
-.sb-title {
-  margin: 0 0 6px;
-  font-size: clamp(28px, 4vw, 40px);
-  letter-spacing: 0.03em;
-}
-
-.sb-title-emoji {
-  font-size: 0.9em;
-  margin-left: 4px;
-}
-
-.sb-subtitle {
-  margin: 0;
-  color: #cbd5f5;
-  font-size: 14px;
-}
-
-.sb-tags {
-  margin: 6px 0 0;
-  color: #a5b4fc;
-  font-size: 13px;
-}
-
-/* =========================================================
-   Main Views
-   ========================================================= */
-
-.sb-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.sb-view {
-  display: none;
-}
-
-.sb-view.is-active {
-  display: block;
-}
-
-/* =========================================================
-   Cards & Common UI
-   ========================================================= */
-
-.sb-card {
-  border-radius: var(--sb-radius-lg);
-  background:
-    radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,0.12), transparent 55%),
-    #020617;
-  border: 1px solid rgba(15,23,42,0.9);
-  box-shadow: var(--sb-shadow-soft);
-  padding: 22px 22px 20px;
-}
-
-.sb-card-menu {
-  margin-top: 8px;
-}
-
-.sb-card-title {
-  margin: 0 0 8px;
-  font-size: 20px;
-}
-
-.sb-card-desc {
-  margin: 0 0 16px;
-  font-size: 14px;
-  color: #cbd5f5;
-}
-
-.sb-note {
-  margin: 12px 0 0;
-  font-size: 13px;
-  color: #a5b4fc;
-}
-
-/* Form */
-
-.sb-form-row {
-  display: flex;
-  gap: 16px;
-  align-items: flex-end;
-  margin-bottom: 16px;
-}
-
-.sb-form-row--stack-mobile {
-  flex-wrap: wrap;
-}
-
-.sb-form-col {
-  flex: 1 1 180px;
-  min-width: 0;
-}
-
-.sb-label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 13px;
-  color: #cbd5f5;
-}
-
-.sb-label-block {
-  display: block;
-  font-size: 13px;
-  color: #cbd5f5;
-}
-
-.sb-label-block .sb-input {
-  margin-top: 4px;
-}
-
-.sb-select,
-.sb-input {
-  width: 100%;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,0.9);
-  background: rgba(15,23,42,0.9);
-  color: #e5e7eb;
-  font-size: 14px;
-  outline: none;
-}
-
-.sb-select:focus,
-.sb-input:focus {
-  border-color: rgba(96,165,250,1);
-  box-shadow: 0 0 0 1px rgba(37,99,235,0.7);
-}
-
-/* Buttons */
-
-.sb-btn-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.sb-btn-primary,
-.sb-btn-secondary,
-.sb-btn-ghost {
-  border-radius: 999px;
-  padding: 10px 20px;
-  border: 1px solid transparent;
-  font-size: 14px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-  transition: transform var(--sb-transition-fast),
-              box-shadow var(--sb-transition-fast),
-              filter var(--sb-transition-fast),
-              background var(--sb-transition-fast),
-              border-color var(--sb-transition-fast);
-}
-
-.sb-btn-primary {
-  background: radial-gradient(circle at top left, rgba(74,222,128,0.7), rgba(22,163,74,0.95));
-  color: #ecfdf5;
-  border-color: rgba(22,163,74,0.9);
-  box-shadow: var(--sb-shadow-chip);
-}
-
-.sb-btn-primary:hover {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
-}
-
-.sb-btn-secondary {
-  background: rgba(15,23,42,0.96);
-  border-color: rgba(148,163,184,0.9);
-  color: #e5e7eb;
-}
-
-.sb-btn-secondary:hover {
-  background: rgba(30,64,175,0.96);
-  border-color: rgba(129,140,248,1);
-}
-
-.sb-btn-ghost {
-  background: transparent;
-  border-color: rgba(148,163,184,0.6);
-  color: #cbd5f5;
-}
-
-.sb-btn-ghost:hover {
-  border-color: rgba(96,165,250,1);
-  background: rgba(15,23,42,0.85);
-}
-
-.sb-link-btn {
-  border: none;
-  background: transparent;
-  color: #a5b4fc;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 0;
-  text-decoration: none;
-}
-
-.sb-link-btn:hover {
-  text-decoration: underline;
-}
-
-/* Divider */
-
-.sb-divider {
-  margin: 18px 0;
-  height: 1px;
-  background: linear-gradient(to right, transparent, rgba(148,163,184,0.6), transparent);
-}
-
-/* Research form grid */
-
-.sb-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
-  gap: 12px;
-}
-
-/* =========================================================
-   PLAY VIEW LAYOUT
-   ========================================================= */
-
-.sb-view-play {
-  margin-top: 8px;
-}
-
-.sb-play-top {
-  margin-bottom: 8px;
-}
-
-.sb-hp-tags {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 6px;
-  font-size: 13px;
-}
-
-.sb-hp-tag {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.85);
-  border: 1px solid rgba(31,41,55,0.9);
-}
-
-.sb-hp-tag--you {
-  color: #bbf7d0;
-  border-color: rgba(34,197,94,0.9);
-}
-
-.sb-hp-tag--boss {
-  color: #fed7aa;
-  border-color: rgba(248,113,113,0.85);
-}
-
-.sb-hp-bars-top {
-  display: flex;
-  gap: 12px;
-}
-
-.sb-hp-bar {
-  flex: 1;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  overflow: hidden;
-}
-
-.sb-hp-bar-fill {
-  height: 100%;
-  width: 100%;
-  transform-origin: left center;
-  transform: scaleX(1);
-  transition: transform .2s ease-out, background .2s ease-out;
-  background: linear-gradient(90deg, #4ade80, #22c55e);
-}
-
-.sb-hp-bar-fill--boss {
-  background: linear-gradient(90deg, #fb923c, #ef4444);
-}
-
-/* main flex layout */
-
-.sb-layout {
-  display: grid;
-  grid-template-columns: minmax(220px, 28%) minmax(0, 1fr);
-  gap: 18px;
-  margin-bottom: 10px;
-  align-items: stretch;
-}
-
-.sb-panel {
-  border-radius: var(--sb-radius-lg);
-  background: radial-gradient(circle at top left, rgba(15,23,42,0.95), rgba(2,6,23,0.96));
-  border: 1px solid rgba(15,23,42,0.95);
-  box-shadow: 0 14px 40px rgba(15,23,42,0.8);
-}
-
-/* Left boss card */
-
-.sb-panel-left {
-  padding: 18px 18px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-
-.sb-boss-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.sb-boss-emoji {
-  width: 64px;
-  height: 64px;
-  border-radius: 999px;
-  background: radial-gradient(circle at 30% 20%, #fef9c3, #fb923c);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  box-shadow: 0 10px 30px rgba(15,23,42,0.9);
-}
-
-.sb-boss-text {
-  min-width: 0;
-}
-
-.sb-boss-name {
-  font-weight: 600;
-  margin-bottom: 2px;
-}
-
-.sb-boss-desc {
-  font-size: 13px;
-  color: #cbd5f5;
-}
-
-/* Center field */
-
-.sb-field-panel {
-  position: relative;
-  border-radius: var(--sb-radius-lg);
-  background:
-    radial-gradient(circle at top left, rgba(59,130,246,0.24), transparent 60%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,0.2), transparent 55%),
-    radial-gradient(circle at 10% 130%, rgba(248,113,113,0.25), transparent 60%),
-    #020617;
-  border: 1px solid rgba(15,23,42,0.95);
-  box-shadow: 0 14px 40px rgba(15,23,42,0.95);
-  padding: 8px;
-}
-
-.sb-target-layer {
-  position: relative;
-  width: 100%;
-  height: min(420px, 55vh);
-  min-height: 220px;
-  border-radius: calc(var(--sb-radius-lg) - 8px);
-  overflow: hidden;
-  background: radial-gradient(circle at 50% 0%, #1e293b, #020617);
-}
-
-/* =========================================================
-   TARGETS (Emoji bubbles)
-   ========================================================= */
-
-.sb-target {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%) scale(0.7);
-  opacity: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  touch-action: manipulation;
-  transition: transform .16s ease-out, opacity .16s ease-out, box-shadow .16s ease-out;
-}
-
-.sb-target--spawned {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-
-.sb-target-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    radial-gradient(circle at 30% 20%, #f97373, #991b1b);
-  box-shadow:
-    0 0 0 6px rgba(15,23,42,0.9),
-    0 14px 40px rgba(15,23,42,0.9);
-}
-
-/* core + ring */
-
-.sb-bubble-core {
-  position: absolute;
-  inset: 22%;
-  border-radius: 999px;
-  background: radial-gradient(circle at 30% 20%, #fecaca, #dc2626);
-  box-shadow: inset 0 0 25px rgba(127,29,29,0.7);
-}
-
-.sb-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background:
-    radial-gradient(circle at 30% 25%, rgba(254,249,195,0.65), transparent 65%),
-    radial-gradient(circle at 75% 80%, rgba(248,250,252,0.92), rgba(148,163,184,0.95));
-  opacity: 0.96;
-}
-
-/* emoji ตรงกลางเป้า (ให้ใหญ่พอดีกับขนาดเป้า) */
-
-.sb-target-emoji {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 64px;           /* ใหญ่ชัดเจนบนเป้า 100–160px */
-  text-shadow: 0 4px 10px rgba(15,23,42,0.7);
-  pointer-events: none;
-}
-
-/* Type variants */
-
-.sb-target--bossface .sb-target-inner {
-  background: radial-gradient(circle at 30% 20%, #4ade80, #15803d);
-}
-
-.sb-target--heal .sb-target-inner {
-  background: radial-gradient(circle at 30% 20%, #facc15, #f97316);
-}
-
-.sb-target--shield .sb-target-inner {
-  background: radial-gradient(circle at 30% 20%, #38bdf8, #1d4ed8);
-}
-
-.sb-target--bomb .sb-target-inner {
-  background: radial-gradient(circle at 30% 20%, #f97316, #7f1d1d);
-}
-
-.sb-target--decoy .sb-target-inner {
-  background: radial-gradient(circle at 30% 20%, #a855f7, #4c1d95);
-}
-
-/* =========================================================
-   BOTTOM HUD
-   ========================================================= */
-
-.sb-hud-bottom {
-  border-radius: var(--sb-radius-lg);
-  background: radial-gradient(circle at 0 0, rgba(15,23,42,0.95), rgba(15,23,42,0.98));
-  border: 1px solid rgba(15,23,42,0.9);
-  box-shadow: 0 16px 45px rgba(15,23,42,0.95);
-  padding: 14px 18px 10px;
-  font-size: 13px;
-}
-
-.sb-stats-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.sb-stats-row > div {
-  min-width: max-content;
-}
-
-/* FEVER bar */
-
-.sb-fever-bar-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.sb-fever-label {
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: .06em;
-}
-
-.sb-fever-bar {
-  position: relative;
-  flex: 1;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  overflow: hidden;
-}
-
-.sb-fever-fill {
-  position: absolute;
-  inset: 0;
-  width: 0%;
-  background: linear-gradient(90deg, #f97316, #facc15, #22c55e);
-  box-shadow: 0 0 18px rgba(250,204,21,0.7);
-  transform-origin: left center;
-  transform: scaleX(0);
-  transition: transform .2s ease-out, width .2s ease-out;
-}
-
-.sb-fever-status {
-  font-size: 11px;
-  color: #bbf7d0;
-}
-
-/* bottom HP bars */
-
-.sb-hp-bottom-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.sb-hp-bottom-label {
-  width: 60px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: #cbd5f5;
-}
-
-.sb-hp-bottom-bar {
-  flex: 1;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  overflow: hidden;
-}
-
-.sb-hp-bottom-fill {
-  height: 100%;
-  width: 100%;
-  transform-origin: left center;
-  transform: scaleX(1);
-  transition: transform .2s ease-out;
-}
-
-.sb-hp-bottom-fill--you {
-  background: linear-gradient(90deg, #4ade80, #22c55e);
-}
-
-.sb-hp-bottom-fill--boss {
-  background: linear-gradient(90deg, #fb923c, #ef4444);
-}
-
-/* footer */
-
-.sb-footer-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 6px;
-}
-
-.sb-footer-spacer {
-  flex: 1;
-}
-
-.sb-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-}
-
-.sb-help-text {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: #fed7aa;
-}
-
-/* =========================================================
-   RESULT VIEW
-   ========================================================= */
-
-.sb-card-result .sb-stats-row--result {
-  margin-top: 12px;
-}
-
-/* =========================================================
-   FX: Flash & Feedback
-   ========================================================= */
-
-.sb-flash {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at center, rgba(248,250,252,0.9), rgba(248,250,252,0));
-  opacity: 0;
-  transition: opacity .15s ease-out;
-  z-index: 60;
-}
-
-.sb-flash.is-on {
-  opacity: 0.5;
-}
-
-.sb-feedback {
-  position: fixed;
-  left: 50%;
-  top: 14%;
-  transform: translateX(-50%);
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.96);
-  border: 1px solid rgba(148,163,184,0.9);
-  color: #e5e7eb;
-  font-size: 13px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .18s ease-out, transform .18s ease-out;
-  z-index: 65;
-}
-
-.sb-feedback.is-show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(4px);
-}
-
-/* =========================================================
-   Hit / Score FX (จากเวอร์ชันล่าสุดของคุณ)
-   ========================================================= */
-
-/* ===== Shadow Breaker — Hit / Score FX ===== */
-
-.sb-score-fx {
-  position: fixed;
-  z-index: 80;
-  pointer-events: none;
-  transform: translate(-50%, -50%) translateY(0);
-  opacity: 0;
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.03em;
-  text-shadow: 0 0 8px rgba(15,23,42,0.9);
-  transition:
-    transform .4s ease-out,
-    opacity .4s ease-out;
-}
-
-@media (min-width: 768px) {
-  .sb-score-fx {
-    font-size: 20px;
+// === js/main-shadow.js — Shadow Breaker Page Controller (2025-12-XX) ===
+'use strict';
+
+(function () {
+  /** สลับ view ระหว่าง menu / play / result */
+  function showView(name) {
+    const views = document.querySelectorAll('.sb-view');
+    views.forEach((v) => v.classList.remove('is-active'));
+
+    const map = {
+      menu: document.getElementById('sb-view-menu'),
+      play: document.getElementById('sb-view-play'),
+      result: document.getElementById('sb-view-result')
+    };
+    if (map[name]) {
+      map[name].classList.add('is-active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
-}
 
-.sb-score-fx.is-live {
-  opacity: 1;
-  transform: translate(-50%, -50%) translateY(-32px);
-}
+  let lastGameMode = 'play'; // 'play' หรือ 'research'
 
-.sb-score-perfect {
-  color: #fbbf24; /* เหลืองทอง */
-}
+  /** callback จาก engine ตอนจบเกม (ถ้ามีส่งมา) */
+  function handleGameEnd(summary) {
+    // summary อาจมี { timeSec, score, maxCombo, miss, phase, mode } ฯลฯ
+    if (!summary) {
+      showView('menu');
+      return;
+    }
 
-.sb-score-good {
-  color: #22c55e; /* เขียว */
-}
+    // อัปเดตสรุปผลแบบง่าย ๆ
+    const setText = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(val);
+    };
 
-.sb-score-bad {
-  color: #fb923c; /* ส้ม */
-}
+    setText('sb-res-time', (summary.timeSec || 0).toFixed(1) + ' s');
+    setText('sb-res-score', summary.score || 0);
+    setText('sb-res-max-combo', summary.maxCombo || 0);
+    setText('sb-res-miss', summary.miss || 0);
+    setText('sb-res-phase', summary.phase || 1);
 
-.sb-score-miss {
-  color: #ef4444; /* แดง */
-}
-
-/* ===== fragments ===== */
-
-.sb-frag {
-  position: fixed;
-  z-index: 70;
-  pointer-events: none;
-  transform: translate(-50%, -50%) translate3d(0,0,0);
-  opacity: 0;
-  border-radius: 999px;
-  transition:
-    transform var(--life, 450ms) ease-out,
-    opacity var(--life, 450ms) ease-out;
-}
-
-.sb-frag.is-live {
-  opacity: 1;
-  transform:
-    translate(-50%, -50%)
-    translate3d(var(--dx, 0), var(--dy, 0), 0)
-    scale(0.2);
-}
-
-.sb-frag-perfect {
-  background: radial-gradient(circle, #facc15, #f97316);
-}
-
-.sb-frag-good {
-  background: radial-gradient(circle, #4ade80, #22c55e);
-}
-
-.sb-frag-miss {
-  background: radial-gradient(circle, #fecaca, #ef4444);
-}
-
-/* =========================================================
-   Responsive Tweaks
-   ========================================================= */
-
-@media (max-width: 900px) {
-  .sb-layout {
-    grid-template-columns: 1fr;
+    showView('result');
   }
-  .sb-panel-left {
-    min-height: 96px;
-  }
-  .sb-target-layer {
-    height: min(360px, 50vh);
-  }
-}
 
-@media (max-width: 640px) {
-  .sb-wrap {
-    padding: 12px 12px 20px;
+  /** เรียกตอนเริ่มเกมจากปุ่มเมนู */
+  function startGame(mode) {
+    lastGameMode = mode || 'play';
+
+    const diffSel = document.getElementById('sb-diff');
+    const timeSel = document.getElementById('sb-time');
+
+    const diff = (diffSel && diffSel.value) || 'normal';
+    const timeSec = parseInt((timeSel && timeSel.value) || '60', 10) || 60;
+
+    showView('play');
+
+    if (typeof initShadowBreaker === 'function') {
+      // ให้ engine จัดการทุกอย่าง
+      initShadowBreaker({
+        mode: lastGameMode, // 'play' หรือ 'research'
+        diff,
+        timeSec,
+        onEnd: handleGameEnd
+      });
+    } else {
+      console.warn('[ShadowBreaker] initShadowBreaker() not found');
+    }
   }
-  .sb-card {
-    padding: 18px 16px 16px;
+
+  /** ทำลาย instance เกมเวลาออกจากหน้าเล่น */
+  function destroyGameIfPossible() {
+    if (typeof destroyShadowBreaker === 'function') {
+      try {
+        destroyShadowBreaker();
+      } catch (err) {
+        console.warn('[ShadowBreaker] destroy error', err);
+      }
+    }
   }
-  .sb-hud-bottom {
-    padding: 10px 12px 8px;
-  }
-  .sb-stats-row {
-    gap: 8px;
-    font-size: 12px;
-  }
-  .sb-target-emoji {
-    font-size: 52px;
-  }
-}
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // ปุ่มในเมนู
+    const btnPlay = document.getElementById('sb-btn-play');
+    const btnResearch = document.getElementById('sb-btn-research');
+
+    btnPlay &&
+      btnPlay.addEventListener('click', () => {
+        startGame('play');
+      });
+
+    btnResearch &&
+      btnResearch.addEventListener('click', () => {
+        startGame('research');
+      });
+
+    // ปุ่มกลับเมนูใน HUD ด้านล่าง
+    const btnBackMenu = document.getElementById('sb-btn-back-menu');
+    if (btnBackMenu) {
+      btnBackMenu.addEventListener('click', () => {
+        destroyGameIfPossible();
+        showView('menu');
+      });
+    }
+
+    // ปุ่มจากหน้า result
+    const btnResRetry = document.getElementById('sb-btn-result-retry');
+    const btnResMenu = document.getElementById('sb-btn-result-menu');
+
+    btnResRetry &&
+      btnResRetry.addEventListener('click', () => {
+        startGame(lastGameMode || 'play');
+      });
+
+    btnResMenu &&
+      btnResMenu.addEventListener('click', () => {
+        destroyGameIfPossible();
+        showView('menu');
+      });
+
+    // เริ่มต้นที่หน้าเมนู
+    showView('menu');
+  });
+})();
