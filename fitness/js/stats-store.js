@@ -1,6 +1,6 @@
-import { recordSession } from 'stats-store.js';
-import { EventLogger } from 'event-logger.js';
-import { SessionLogger } from 'session-logger.js';
+import { recordSession } from '/stats-store.js';
+import { EventLogger } from '/event-logger.js';
+import { SessionLogger } from '/session-logger.js';
 
 const eventLogger = new EventLogger();
 const sessionLogger = new SessionLogger();
