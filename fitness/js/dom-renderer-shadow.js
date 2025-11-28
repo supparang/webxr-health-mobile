@@ -4,15 +4,14 @@
 /**
  * เรนเดอร์เป้า / เอฟเฟ็กต์ทั้งหมดใน DOM สำหรับ Shadow Breaker
  * - host = element ของสนาม (เช่น #target-layer)
- * - this.onTargetHit(id, {clientX, clientY}) callback กลับไปที่ engine
+ * - onTargetHit(id, {clientX, clientY}) callback กลับไปที่ engine
  */
 export class DomRendererShadow {
   constructor(host, opts = {}) {
-    this.host = host || document.getElementById('target-layer') || document.body;
-    this.wrapEl = opts.wrapEl || document.getElementById('sb-wrap') || this.host;
+    this.host = host || document.body;
+    this.wrapEl = opts.wrapEl || this.host;
     this.flashEl = opts.flashEl || null;
-    this.feedbackEl = opts.feedbackEl || document.getElementById('sb-feedback') || null;
-
+    this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit =
       typeof opts.onTargetHit === 'function' ? opts.onTargetHit : () => {};
 
@@ -76,36 +75,35 @@ export class DomRendererShadow {
   spawnTarget(target) {
     if (!this.host) return;
 
+    // random ตำแหน่งแบบ normalized เก็บลง target ด้วย
     const xNorm = Math.random();
     const yNorm = Math.random() * 0.84 + 0.08; // เลี่ยงชิดขอบบน/ล่างเกินไป
-
-    // เก็บใส่ target เพื่อส่งลง CSV ได้
     target.x_norm = xNorm;
     target.y_norm = yNorm;
 
-    let size = target.sizePx || 110;
-
-// ถ้าเป็น boss-face ให้บังคับอย่างน้อย ~180px
-if (target.isBossFace && size < 180) {
-  size = 180;
-}
-
+    const size = target.sizePx || 110;
 
     const el = document.createElement('button');
     el.type = 'button';
+
+    const extraClasses = [];
+    if (target.isBossFace) extraClasses.push('sb-target--bossface');
+    if (target.isHeal) extraClasses.push('sb-target--heal');
+    if (target.isShield) extraClasses.push('sb-target--shield');
+    if (target.isBomb) extraClasses.push('sb-target--bomb');
+    // decoy ใช้สี default
+
+    el.className = [
+      'sb-target',
+      ...extraClasses,
+      `sb-phase-${target.bossPhase || 1}`,
+      `sb-diff-${this.diffKey}`
+    ].join(' ');
+
     el.dataset.id = String(target.id);
     el.setAttribute('aria-label', 'target');
 
-    const cls = ['sb-target', `sb-diff-${this.diffKey}`];
-
-    if (target.isBossFace) cls.push('sb-target--bossface');
-    if (target.isHeal) cls.push('sb-target--heal');
-    if (target.isShield) cls.push('sb-target--shield');
-    if (target.isBomb) cls.push('sb-target--bomb');
-
-    el.className = cls.join(' ');
-
-    // โครงสร้างตรงกับ shadow-breaker.css เดิม
+    // โครงสร้างให้ตรง CSS: .sb-target-inner + .sb-bubble-core + .sb-ring
     el.innerHTML = `
       <div class="sb-target-inner">
         <div class="sb-bubble-core"></div>
@@ -125,9 +123,23 @@ if (target.isBossFace && size < 180) {
       pointerEvents: 'auto'
     });
 
+    const emojiSpan = el.querySelector('.sb-target-emoji');
+    if (emojiSpan) {
+      Object.assign(emojiSpan.style, {
+        position: 'absolute',
+        inset: '0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: Math.round(size * 0.5) + 'px',
+        textShadow: '0 0 8px rgba(15,23,42,0.9)',
+        pointerEvents: 'none'
+      });
+    }
+
     this.host.appendChild(el);
 
-    // animate in (ใช้ class sb-target--spawned ตาม CSS)
+    // ให้ CSS .sb-target--spawned ทำงาน (opacity 1 + scale 1)
     requestAnimationFrame(() => {
       el.classList.add('sb-target--spawned');
     });
@@ -136,29 +148,39 @@ if (target.isBossFace && size < 180) {
   }
 
   /**
-   * เอฟเฟ็กต์ตอนตีโดน (engine จะเป็นคนลบเป้าเองผ่าน removeTarget)
+   * เอฟเฟ็กต์ตอนตีโดน (แต่ไม่ลบเป้าในนี้ ให้ engine เป็นคนสั่ง removeTarget)
    */
   playHitFx(id, info = {}) {
     const rec = this.targets.get(id);
     if (!rec) return;
 
-    const { grade, scoreDelta, fxEmoji, clientX, clientY } = info;
+    const { grade, scoreDelta, clientX, clientY } = info;
 
-    let sx = clientX;
-    let sy = clientY;
-    if (typeof sx !== 'number' || typeof sy !== 'number') {
+    let baseX = null;
+    let baseY = null;
+
+    if (typeof clientX === 'number' && typeof clientY === 'number') {
+      baseX = clientX;
+      baseY = clientY;
+    } else {
       const rect = rec.el.getBoundingClientRect();
-      sx = rect.left + rect.width / 2;
-      sy = rect.top + rect.height / 2;
+      baseX = rect.left + rect.width / 2;
+      baseY = rect.top + rect.height / 2;
     }
 
-    this._spawnBurstAtScreen(sx, sy, grade, fxEmoji);
-    if (scoreDelta && scoreDelta !== 0) {
-      this._spawnScoreFx(sx, sy - 10, scoreDelta, grade);
+    // เอฟเฟ็กต์แตกกระจาย
+    this._spawnBurstAtScreen(baseX, baseY, grade);
+
+    // คะแนนเด้ง (+ / -)
+    if (typeof scoreDelta === 'number' && scoreDelta !== 0) {
+      this._spawnScoreBubble(baseX, baseY - 8, scoreDelta, grade);
     }
 
-    rec.el.classList.add('sb-target-hit');
-    setTimeout(() => rec.el.classList.remove('sb-target-hit'), 180);
+    // scale เป้าขึ้นเล็กน้อย
+    rec.el.style.transform = 'translate(-50%, -50%) scale(1.05)';
+    setTimeout(() => {
+      rec.el.style.transform = 'translate(-50%, -50%) scale(1)';
+    }, 120);
   }
 
   /**
@@ -170,18 +192,23 @@ if (target.isBossFace && size < 180) {
 
     const el = rec.el;
     if (reason === 'timeout') {
-      el.classList.add('sb-target-timeout');
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%, -50%) scale(0.6)';
     } else {
-      el.classList.add('sb-target-hide');
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%, -50%) scale(0.7)';
     }
 
-    setTimeout(() => el.remove(), 220);
+    setTimeout(() => {
+      el.remove();
+    }, 220);
+
     this.targets.delete(id);
   }
 
   // ---------- FX HELPERS ----------
 
-  _spawnBurstAtScreen(x, y, grade, fxEmoji) {
+  _spawnBurstAtScreen(x, y, grade) {
     const n = 10;
     for (let i = 0; i < n; i++) {
       const frag = document.createElement('div');
@@ -194,6 +221,13 @@ if (target.isBossFace && size < 180) {
       const dx = Math.cos(ang) * dist;
       const dy = Math.sin(ang) * dist;
 
+      const hueBase =
+        grade === 'perfect' ? 150 :
+        grade === 'good'    ? 200 :
+        grade === 'bomb'    ? 5   :
+        grade === 'heal'    ? 130 :
+        grade === 'shield'  ? 230 : 45;
+
       Object.assign(frag.style, {
         position: 'fixed',
         left: x + 'px',
@@ -201,24 +235,11 @@ if (target.isBossFace && size < 180) {
         width: size + 'px',
         height: size + 'px',
         transform: 'translate(-50%, -50%)',
-        opacity: '1'
+        opacity: '1',
+        zIndex: 998,
+        background: `radial-gradient(circle at 30% 30%, hsl(${hueBase},100%,85%), hsl(${hueBase},90%,55%))`,
+        boxShadow: `0 0 8px hsla(${hueBase},100%,70%,.9)`
       });
-
-      const hueBase =
-        grade === 'perfect'
-          ? 150
-          : grade === 'good'
-          ? 200
-          : grade === 'bomb'
-          ? 5
-          : grade === 'heal'
-          ? 130
-          : grade === 'shield'
-          ? 230
-          : 45;
-
-      frag.style.background = `radial-gradient(circle at 30% 30%, hsl(${hueBase},100%,85%), hsl(${hueBase},90%,55%))`;
-      frag.style.boxShadow = `0 0 8px hsla(${hueBase},100%,70%,.9)`;
 
       document.body.appendChild(frag);
 
@@ -238,7 +259,7 @@ if (target.isBossFace && size < 180) {
     }
   }
 
-  _spawnScoreFx(x, y, scoreDelta, grade) {
+  _spawnScoreBubble(x, y, scoreDelta, grade) {
     const el = document.createElement('div');
     el.className = `sb-score-fx ${grade || ''}`;
 
@@ -246,22 +267,25 @@ if (target.isBossFace && size < 180) {
     el.textContent = sign + scoreDelta;
 
     Object.assign(el.style, {
+      position: 'fixed',
       left: x + 'px',
       top: y + 'px',
-      transform: 'translate(-50%, 0)'
+      transform: 'translate(-50%, 0)',
+      opacity: '0',
+      zIndex: 999
     });
 
     document.body.appendChild(el);
 
-    // ให้ transition ทำงาน
+    // ให้ CSS transition ทำงาน
     requestAnimationFrame(() => {
       el.classList.add('active');
-      el.style.transform = 'translate(-50%, -24px)';
-      el.style.opacity = '1';
+      el.style.transform = 'translate(-50%, -28px)';
     });
 
     setTimeout(() => {
       el.style.opacity = '0';
+      el.style.transform = 'translate(-50%, -40px)';
     }, 450);
 
     setTimeout(() => el.remove(), 900);
