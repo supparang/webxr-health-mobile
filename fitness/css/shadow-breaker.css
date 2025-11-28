@@ -149,15 +149,16 @@ body {
   min-height: calc(100vh - 96px);
 }
 
-/* ===== แผงหลักของแต่ละ view ===== */
+/* ===== View switch ===== */
 .sb-view {
-  display: none;           /* default ไม่แสดง */
+  display: none;
 }
 
 .sb-view.is-active {
-  display: block;          /* engine.js จะใส่ class นี้ให้ */
+  display: block;
 }
 
+/* ===== แผงหลักของแต่ละ view ===== */
 .sb-panel {
   margin-top: 12px;
   background: radial-gradient(circle at top, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
@@ -256,7 +257,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 10px;
 }
 
 .sb-menu-right {
@@ -318,10 +319,16 @@ body {
   gap: 10px;
 }
 
+.sb-play-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 /* HUD ด้านบน */
 .sb-hud-top {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1fr);
   gap: 10px;
   align-items: center;
 }
@@ -350,6 +357,10 @@ body {
   background: rgba(15,23,42,0.9);
   overflow: hidden;
   border: 1px solid rgba(55,65,81,0.95);
+}
+
+.sb-hp-bar--mini {
+  margin-top: 6px;
 }
 
 .sb-hp-fill {
@@ -384,10 +395,15 @@ body {
   font-weight: 600;
 }
 
-/* Layout หลักของ Play (desktop baseline) */
+.sb-time-boss {
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+/* Layout หลักของ Play */
 .sb-play-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.9fr) minmax(0, 0.7fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.7fr) minmax(0, 0.9fr);
   gap: 10px;
   margin-top: 10px;
   align-items: stretch;
@@ -418,11 +434,6 @@ body {
   font-weight: 600;
 }
 
-.sb-boss-meta {
-  font-size: 12px;
-  color: #9ca3af;
-}
-
 .sb-boss-hint {
   margin: 6px 0 0;
   font-size: 13px;
@@ -445,6 +456,15 @@ body {
   margin-top: 4px;
 }
 
+.sb-pause-row {
+  margin-top: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd5f5;
+}
+
 /* พื้นที่เล่นกลาง */
 .sb-play-main {
   display: flex;
@@ -452,11 +472,11 @@ body {
   gap: 6px;
 }
 
-/* สนามเป้า (ต้องตรงกับ id ใน HTML / engine.js) */
+/* สนามเป้า */
 #sb-target-layer {
   position: relative;
   width: 100%;
-  height: min(72vh, 520px);  /* ขยายให้ใหญ่ขึ้น */
+  height: min(64vh, 520px);
   min-height: 280px;
   border-radius: 14px;
   overflow: hidden;
@@ -511,24 +531,24 @@ body {
   transition: transform 0.18s ease-out;
 }
 
-/* Feedback ข้อความ (engine.js ใช้ id=sb-msg-main) */
-.sb-msg-main {
+/* Feedback ข้อความ */
+.sb-feedback {
   margin-top: 4px;
   font-size: 13px;
   color: #cbd5f5;
   min-height: 1.4em;
 }
 
-.sb-msg-main.perfect {
+.sb-feedback.perfect {
   color: #facc15;
 }
 
-.sb-msg-main.good {
+.sb-feedback.good {
   color: #4ade80;
 }
 
-.sb-msg-main.bad,
-.sb-msg-main.miss {
+.sb-feedback.bad,
+.sb-feedback.miss {
   color: #fb7185;
 }
 
@@ -578,12 +598,11 @@ body {
     0 0 22px rgba(59,130,246,0.6);
 }
 
-/* emoji กลางเป้า — ขนาดผูกกับ sizePx ใน renderer */
+/* emoji กลางเป้า */
 .sb-target-emoji {
   position: relative;
   z-index: 2;
   pointer-events: none;
-  font-size: 0.7em;
 }
 
 /* type-specific */
@@ -692,7 +711,7 @@ body {
   background: radial-gradient(circle, #fecaca, #ef4444);
 }
 
-/* ===== HUD ล่าง (ถ้ามี) ===== */
+/* ===== HUD ล่าง ===== */
 .sb-hud-bottom {
   margin-top: 8px;
 }
@@ -709,7 +728,7 @@ body {
 }
 
 .sb-hud-bottom-item {
-  min-width: 120px;
+  min-width: 140px;
 }
 
 /* ===== Result View ===== */
@@ -731,6 +750,19 @@ body {
   padding: 10px 10px 12px;
 }
 
+.sb-card-label {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sb-card-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
 .sb-result-hint {
   margin-top: 8px;
   font-size: 12px;
@@ -745,7 +777,12 @@ body {
   justify-content: space-between;
 }
 
-/* ===== Research View ===== */
+.sb-result-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ===== Research View (ถ้าเพิ่มภายหลัง) ===== */
 .sb-research-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -753,7 +790,7 @@ body {
   margin-top: 8px;
 }
 
-/* ===== Boss Intro Overlay ===== */
+/* ===== Boss Intro Overlay (สำรอง ถ้าใช้ทีหลัง) ===== */
 .sb-boss-intro {
   position: fixed;
   inset: 0;
@@ -794,114 +831,58 @@ body {
   color: #cbd5f5;
 }
 
-/* ===== Responsive ===== */
+/* ===== ซ่อนการ์ด HP OVERVIEW (เอา HP ชุดล่างออกจากจอ) ===== */
+.sb-card-hp-overview {
+  display: none !important;
+}
 
-/* มือถือ / tablet แนวตั้ง: ให้ play view พอดีจอ และ stage ใหญ่สุดเท่าที่ทำได้ */
+/* ===== Responsive ===== */
 @media (max-width: 900px) {
   .fitness-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  #sb-view-play .sb-panel--play {
-    height: calc(100vh - 90px);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 8px 8px;
-    box-sizing: border-box;
-  }
-
-  .sb-hud-top {
+  .sb-menu-grid {
     grid-template-columns: minmax(0, 1fr);
-    row-gap: 2px;
-  }
-
-  .sb-hp-box {
-    padding: 4px 8px;
-  }
-
-  .sb-time-value {
-    font-size: 18px;
   }
 
   .sb-play-layout {
-    flex: 1;
-    min-height: 0;
-    display: grid;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: 4px;
   }
 
   .sb-side-card--boss {
     order: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 8px;
   }
 
-  /* ซ่อนรายละเอียดบางส่วนบนมือถือให้จอเล่นสูงขึ้น */
-  .sb-side-card--boss .sb-boss-hint,
-  .sb-side-card--boss .sb-stat-list {
-    display: none;
+  .sb-side-card--stats {
+    order: 3;
   }
 
   .sb-play-main {
     order: 2;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
   }
+}
 
+@media (max-width: 640px) {
   #sb-target-layer {
-    flex: 1;
-    height: 100%;
-    min-height: 260px;
+    height: min(60vh, 420px);
   }
 
-  .sb-side-card {
-    order: 3;
-    padding: 6px 8px 8px;
-    font-size: 12px;
-  }
-
-  .sb-msg-main {
-    font-size: 11px;
-    margin-top: 2px;
-  }
-
-  .sb-menu-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .sb-result-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .sb-research-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .sb-result-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .sb-hud-top {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 6px;
+  }
+
+  .sb-time-box {
+    order: -1;
   }
 }
-
-/* เพิ่มเติมสำหรับจอเล็กมาก */
-@media (max-width: 640px) {
-  .fitness-shell {
-    padding-inline: 10px;
-  }
-}
-/* ===== ใช้ HP แค่ชุดเดียวด้านบน ===== */
-
-/* ซ่อนแถบ HP player / boss ด้านล่าง */
-#sb-hp-you-bottom,
-#sb-hp-boss-bottom {
-  display: none !important;
-}
-
-/* ถ้ามีการ์ดสรุป HP OVERVIEW แยกด้านล่าง ให้ซ่อนทั้งการ์ดเลย */
-#sb-card-hp-overview {
-  display: none !important;
-}
-
