@@ -1,28 +1,326 @@
-/* ===== FEVER + Stats ===== */
+/* === Shadow Breaker — VR Fitness (2025-12-03) ======================= */
 
-/* เดิม .sb-stat-grid เคยเป็น display:grid
-   แก้เป็นแถวเดียวแบบชิปแนวนอน */
+:root {
+  color-scheme: dark;
+  --sb-bg: #020617;
+  --sb-bg-soft: rgba(15,23,42,0.96);
+  --sb-border-soft: rgba(51,65,85,0.9);
+  --sb-accent: #22c55e;
+  --sb-accent-soft: rgba(34,197,94,0.25);
+  --sb-accent-2: #3b82f6;
+  --sb-danger: #ef4444;
+  --sb-text-main: #e5e7eb;
+  --sb-text-muted: #9ca3af;
+  --sb-radius-lg: 22px;
+  --sb-radius-pill: 999px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
+    var(--sb-bg);
+  color: var(--sb-text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+/* ----- generic utils ----- */
+
+.hidden {
+  display: none !important;
+}
+
+.sb-pill {
+  border-radius: var(--sb-radius-pill);
+}
+
+.sb-btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px 18px;
+  border-radius: var(--sb-radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition:
+    transform 0.12s ease-out,
+    box-shadow 0.12s ease-out,
+    background 0.15s ease-out;
+  white-space: nowrap;
+}
+
+.sb-btn-primary {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #022c22;
+  box-shadow:
+    0 12px 30px rgba(22,163,74,0.45),
+    0 0 0 1px rgba(74,222,128,0.4);
+}
+
+.sb-btn-primary:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    0 6px 18px rgba(22,163,74,0.5),
+    0 0 0 1px rgba(74,222,128,0.5);
+}
+
+.sb-btn-ghost {
+  background: rgba(15,23,42,0.9);
+  color: #e5e7eb;
+  box-shadow: 0 0 0 1px rgba(51,65,85,0.9);
+}
+
+.sb-btn-ghost:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* ----- main wrapper ----- */
+
+#sb-wrap {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 12px 12px 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Header / Menu view ========================================== */
+
+.sb-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sb-back-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.sb-back-btn {
+  border-radius: var(--sb-radius-pill);
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #22c55e, #22c55e);
+  color: #022c22;
+  border: none;
+  box-shadow:
+    0 8px 22px rgba(22,163,74,0.6),
+    0 0 0 1px rgba(74,222,128,0.7);
+}
+
+.sb-title {
+  font-size: clamp(26px, 4.4vw, 32px);
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sb-subtitle {
+  margin-top: 2px;
+  font-size: 14px;
+  color: #cbd5f5;
+}
+
+.sb-breadcrumb {
+  font-size: 13px;
+  color: var(--sb-text-muted);
+}
+
+/* ===== PLAY view layout ============================================ */
+
+#view-play {
+  /* engine.js จะซ่อน/โชว์ด้วย .hidden */
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: calc(100vh - 20px);
+}
+
+/* TOP HUD ----------------------------------------------------------- */
+
+.sb-hud-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.sb-hud-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.sb-hud-label {
+  font-weight: 600;
+}
+
+.sb-hud-label.you {
+  color: #bbf7d0;
+}
+
+.sb-hud-label.boss {
+  color: #bfdbfe;
+}
+
+.sb-hp-rail {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  border-radius: var(--sb-radius-pill);
+  overflow: hidden;
+  background: radial-gradient(circle at 10% 0, rgba(59,130,246,0.35), #020617);
+  box-shadow:
+    inset 0 0 0 1px rgba(30,64,175,0.8),
+    0 4px 12px rgba(15,23,42,0.8);
+}
+
+.sb-hp-fill-player,
+.sb-hp-fill-boss {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(1);
+  transition: transform 0.16s ease-out;
+}
+
+.sb-hp-fill-player {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.sb-hp-fill-boss {
+  background: linear-gradient(90deg, #f97316, #ef4444);
+}
+
+/* ===== Arena + Boss info card ===================================== */
+
+.sb-play-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* arena */
+#target-layer {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 260px;
+  touch-action: manipulation;
+}
+
+/* boss card */
+.sb-boss-card {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: var(--sb-radius-lg);
+  background: radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
+              radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 55%),
+              rgba(15,23,42,0.96);
+  box-shadow:
+    0 18px 40px rgba(15,23,42,0.9),
+    0 0 0 1px rgba(30,64,175,0.9);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sb-boss-emoji {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  background:
+    radial-gradient(circle at 30% 0, rgba(248,250,252,0.9), transparent 70%),
+    radial-gradient(circle at 70% 120%, rgba(59,130,246,0.8), transparent 75%),
+    #020617;
+  box-shadow:
+    0 10px 30px rgba(15,23,42,0.9),
+    0 0 0 1px rgba(148,163,184,0.6);
+}
+
+.sb-boss-info-main {
+  flex: 1;
+}
+
+.sb-boss-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.sb-boss-desc {
+  font-size: 13px;
+  color: var(--sb-text-muted);
+  margin-top: 2px;
+}
+
+/* ===== Bottom HUD: stats + FEVER + buttons ======================== */
+
+.sb-bottom {
+  margin-top: 8px;
+  padding-bottom: 4px;
+}
+
+/* สถิติหลัก — ให้เป็นชิปแถวเดียว / สองแถวถ้าจอเล็ก */
 .sb-stat-grid {
   display: flex;
-  flex-wrap: wrap;           /* ถ้าจอแคบมากค่อยพับเป็น 2 แถว */
+  flex-wrap: wrap;
   gap: 4px 8px;
   font-size: 13px;
   margin-top: 4px;
 }
 
-/* แต่ละรายการ Time / Score / Combo / Phase / Miss / Shield */
 .sb-stat-grid > div {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
   padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  box-shadow: 0 0 0 1px rgba(30,64,175,0.75);
+  border-radius: var(--sb-radius-pill);
+  background: rgba(15,23,42,0.96);
+  box-shadow:
+    0 0 0 1px rgba(30,64,175,0.9),
+    0 6px 12px rgba(15,23,42,0.9);
 }
 
 .sb-stat-label {
-  color: #9ca3af;
+  color: var(--sb-text-muted);
   font-weight: 500;
 }
 
@@ -30,11 +328,336 @@
   font-weight: 700;
 }
 
-/* FEVER แถวล่างให้เตี้ยลงอีกนิด */
+/* FEVER row */
 .sb-fever-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 8px;
+  margin-top: 8px;
   font-size: 12px;
+}
+
+.sb-fever-label {
+  font-weight: 600;
+  color: #fde68a;
+}
+
+.sb-fever-status {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  color: var(--sb-text-muted);
+}
+
+.sb-fever-status.on {
+  color: #facc15;
+}
+
+.sb-fever-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--sb-radius-pill);
+  background: radial-gradient(circle at 10% 0, rgba(251,191,36,0.5), #020617);
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(202,138,4,0.9),
+    0 6px 16px rgba(15,23,42,0.9);
+}
+
+#fever-fill {
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, #fb923c, #facc15);
+  transition: transform 0.16s ease-out;
+}
+
+/* feedback text */
+.sb-feedback {
+  margin-top: 10px;
+  font-size: 14px;
+  text-align: center;
+  color: #e5e7eb;
+}
+
+.sb-feedback.perfect {
+  color: #facc15;
+}
+
+.sb-feedback.good {
+  color: #22c55e;
+}
+
+.sb-feedback.bad,
+.sb-feedback.miss {
+  color: #fecaca;
+}
+
+/* buttons at very bottom */
+.sb-bottom-buttons {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.sb-bottom-buttons .sb-btn {
+  flex: 1;
+  max-width: 230px;
+}
+
+/* map HP bottom bars (ดึงจาก data attribute) */
+[data-sb-player-hp],
+[data-sb-boss-hp] {
+  /* ให้ JS คุม transform: scaleX */
+}
+
+/* ===== Boss intro overlay ========================================= */
+
+#bossIntro {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(15,23,42,0.2), rgba(15,23,42,0.98));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+#bossIntro.hidden {
+  display: none;
+}
+
+.sb-boss-intro-card {
+  width: min(440px, 92vw);
+  padding: 20px 18px 18px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(251,191,36,0.26), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(56,189,248,0.25), transparent 70%),
+    rgba(15,23,42,0.98);
+  box-shadow:
+    0 24px 60px rgba(15,23,42,0.95),
+    0 0 0 1px rgba(30,64,175,0.9);
+  text-align: center;
+}
+
+.sb-boss-intro-emoji {
+  font-size: 42px;
+  margin-bottom: 4px;
+}
+
+.sb-boss-intro-title {
+  font-weight: 800;
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.sb-boss-intro-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #bfdbfe;
+}
+
+.sb-boss-intro-desc {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--sb-text-muted);
+}
+
+/* ===== Menu / Result / Research view cards ======================== */
+
+.sb-card {
+  margin-top: 10px;
+  padding: 14px 14px 16px;
+  border-radius: var(--sb-radius-lg);
+  background: var(--sb-bg-soft);
+  box-shadow:
+    0 18px 40px rgba(15,23,42,0.9),
+    0 0 0 1px rgba(30,64,175,0.9);
+}
+
+/* result table */
+.sb-result-list {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.sb-result-list dt {
+  color: var(--sb-text-muted);
+}
+
+.sb-result-list dd {
+  margin: 0 0 2px;
+  font-weight: 600;
+}
+
+/* research form */
+.sb-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sb-field label {
+  font-size: 13px;
+  color: var(--sb-text-muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.sb-field input,
+.sb-field textarea,
+.sb-field select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(51,65,85,0.95);
+  background: rgba(15,23,42,0.95);
+  color: var(--sb-text-main);
+  font-size: 14px;
+}
+
+.sb-field textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+/* ===== Hit / Score FX & fragments (จาก dom-renderer-shadow.js) ===== */
+
+.sb-score-fx {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  transform: translate(-50%, -50%) translateY(0);
+  opacity: 0;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 8px rgba(15,23,42,0.9);
+  transition:
+    transform .4s ease-out,
+    opacity .4s ease-out;
+}
+
+@media (min-width: 768px) {
+  .sb-score-fx {
+    font-size: 20px;
+  }
+}
+
+.sb-score-fx.is-live {
+  opacity: 1;
+  transform: translate(-50%, -50%) translateY(-32px);
+}
+
+.sb-score-perfect {
+  color: #fbbf24; /* เหลืองทอง */
+}
+
+.sb-score-good {
+  color: #22c55e; /* เขียว */
+}
+
+.sb-score-bad {
+  color: #fb923c; /* ส้ม */
+}
+
+.sb-score-miss {
+  color: #ef4444; /* แดง */
+}
+
+/* fragments */
+
+.sb-frag {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  transform: translate(-50%, -50%) translate3d(0,0,0);
+  opacity: 0;
+  border-radius: 999px;
+  transition:
+    transform var(--life, 450ms) ease-out,
+    opacity var(--life, 450ms) ease-out;
+}
+
+.sb-frag.is-live {
+  opacity: 1;
+  transform:
+    translate(-50%, -50%)
+    translate3d(var(--dx, 0), var(--dy, 0), 0)
+    scale(0.2);
+}
+
+.sb-frag-perfect {
+  background: radial-gradient(circle, #facc15, #f97316);
+}
+
+.sb-frag-good {
+  background: radial-gradient(circle, #4ade80, #22c55e);
+}
+
+.sb-frag-miss {
+  background: radial-gradient(circle, #fecaca, #ef4444);
+}
+
+/* emoji ตรงกลางเป้า (กันไม่ให้บัง pointer) */
+.sb-target-emoji {
+  pointer-events: none;
+}
+
+/* ===== Responsive tweaks ========================================== */
+
+@media (max-width: 480px), (max-height: 640px) {
+  #sb-wrap {
+    padding: 8px 8px 14px;
+  }
+
+  .sb-header {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .sb-back-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .sb-title {
+    font-size: 22px;
+  }
+
+  .sb-subtitle {
+    font-size: 13px;
+  }
+
+  #target-layer {
+    min-height: 220px;
+  }
+
+  .sb-boss-card {
+    padding: 10px 12px;
+  }
+
+  .sb-boss-emoji {
+    width: 46px;
+    height: 46px;
+    font-size: 26px;
+  }
+
+  .sb-stat-grid {
+    font-size: 12px;
+    gap: 3px 6px;
+  }
+
+  .sb-stat-grid > div {
+    padding: 2px 6px;
+  }
+
+  .sb-bottom-buttons .sb-btn {
+    padding: 9px 14px;
+    font-size: 13px;
+  }
 }
