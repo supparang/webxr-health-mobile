@@ -1,4 +1,4 @@
-// === js/event-logger.js — Event-level CSV logger (Shadow Breaker) ===
+// === js/event-logger.js — Event-level CSV logger (Shadow Breaker, 2025-12-04) ===
 'use strict';
 
 export class EventLogger {
@@ -45,16 +45,42 @@ export class EventLogger {
   }
 
   /**
+   * header = union ของทุก key จากทุกแถว
+   * - เรียงตาม order ของแถวแรกเป็นหลัก แล้วค่อยตามลำดับที่เจอในแถวถัด ๆ ไป
+   */
+  _buildHeaderCols() {
+    if (!this.logs.length) return [];
+
+    const cols = [];
+    const seen = new Set();
+
+    const pushKeys = (obj) => {
+      for (const k of Object.keys(obj)) {
+        if (!seen.has(k)) {
+          seen.add(k);
+          cols.push(k);
+        }
+      }
+    };
+
+    // แถวแรกก่อน
+    pushKeys(this.logs[0]);
+    // แถวอื่น ๆ เผื่อมี field เพิ่ม
+    for (let i = 1; i < this.logs.length; i++) {
+      pushKeys(this.logs[i]);
+    }
+    return cols;
+  }
+
+  /**
    * แปลง logs → CSV text
-   * - ใช้ key ของแถวแรกเป็น header (เรียงตาม Object.keys)
-   * - ถ้าแถวหลัง ๆ มี key เพิ่ม/ลด จะดึงเฉพาะคอลัมน์ที่อยู่ใน header
    * - ค่า null/undefined → ""
+   * - ถ้าใช้กับ Excel/ภาษาไทย แนะนำให้ prepend BOM ตอนสร้าง Blob ในฝั่งที่เรียกใช้
    */
   toCsv() {
     if (!this.logs.length) return '';
 
-    // ใช้ key ของ log แถวแรกเป็นคอลัมน์หลัก
-    const cols = Object.keys(this.logs[0]);
+    const cols = this._buildHeaderCols();
 
     const esc = (v) => {
       if (v == null) return '';
