@@ -1,4 +1,4 @@
-// === /HeroHealth/modes/plate.quest.js (Full, 5 หมู่ + โควตา – P.5 Friendly) ===
+// === /HeroHealth/modes/plate.quest.js (Diff-based goals + minis, P.5 Friendly) ===
 import { MissionDeck } from '../vr/mission.js';
 
 // โควต้าต่อชุด (รวม target = sum)
@@ -8,9 +8,94 @@ export const QUOTA = {
   hard:   [5,4,4,4,3]
 };
 
+// ตารางค่าตามระดับความยากสำหรับ Goal หลัก
+const GOAL_TABLE = {
+  easy: {
+    score1:   900,   // เป้าคะแนนหลักชุดแรก
+    score2:  1300,   // เป้าคะแนนสูง
+    combo1:     8,
+    combo2:    10,
+    miss1:      8,
+    miss2:      6,
+    timeMain:  30,
+    good1:     18,
+    good2:     24
+  },
+  normal: {
+    score1:  1400,
+    score2:  1800,
+    combo1:    12,
+    combo2:    14,
+    miss1:      6,
+    miss2:      4,
+    timeMain:  40,
+    good1:     24,
+    good2:     30
+  },
+  hard: {
+    score1:  1800,
+    score2:  2200,
+    combo1:    14,
+    combo2:    16,
+    miss1:      4,
+    miss2:      3,
+    timeMain:  45,
+    good1:     28,
+    good2:     34
+  }
+};
+
+// ตารางค่าตามระดับความยากสำหรับ Mini quest
+const MINI_TABLE = {
+  easy: {
+    partialRatio: 0.5,  // ต้องเก็บตามโควตารวมประมาณ 50%
+    score1:       700,
+    score2:      1000,
+    score3:      1300,
+    combo1:         8,
+    combo2:        10,
+    miss1:          8,
+    miss2:          6,
+    time1:         18,
+    time2:         25,
+    good1:        12,
+    good2:        18
+  },
+  normal: {
+    partialRatio: 0.6,
+    score1:       900,
+    score2:      1200,
+    score3:      1500,
+    combo1:        10,
+    combo2:        12,
+    miss1:          6,
+    miss2:          4,
+    time1:         20,
+    time2:         30,
+    good1:        14,
+    good2:        22
+  },
+  hard: {
+    partialRatio: 0.7,
+    score1:      1100,
+    score2:      1500,
+    score3:      1900,
+    combo1:        12,
+    combo2:        14,
+    miss1:          4,
+    miss2:          3,
+    time1:         22,
+    time2:         35,
+    good1:        18,
+    good2:        26
+  }
+};
+
 function buildPlateGoals(diff){
   const need  = QUOTA[diff] || QUOTA.normal; // [G1..G5]
   const total = need.reduce((a,b)=>a+b,0);
+
+  const K = GOAL_TABLE[diff] || GOAL_TABLE.normal;
 
   return [
     {
@@ -29,81 +114,84 @@ function buildPlateGoals(diff){
 
     {
       id:'g_score',
-      label:'คะแนนรวม 1,400+ แต้ม',
-      target: 1400,
-      check:s=>(s.score|0) >= 1400,
-      prog:s=>Math.min(1400, (s.score|0))
+      label:`คะแนนรวม ${K.score1}+ แต้ม`,
+      target: K.score1,
+      check:s=>(s.score|0) >= K.score1,
+      prog:s=>Math.min(K.score1, (s.score|0))
     },
 
     {
       id:'g_combo',
-      label:'คอมโบต่อเนื่อง ≥ 12',
-      target: 12,
-      check:s=>(s.comboMax|0) >= 12,
-      prog:s=>Math.min(12, (s.comboMax|0))
+      label:`คอมโบต่อเนื่อง ≥ ${K.combo1}`,
+      target: K.combo1,
+      check:s=>(s.comboMax|0) >= K.combo1,
+      prog:s=>Math.min(K.combo1, (s.comboMax|0))
     },
 
     {
       id:'g_nomiss',
-      label:'พลาด/หลุดเป้าไม่เกิน 6 ครั้ง',
-      target: 6,
-      check:s=>(s.junkMiss|0) <= 6,
-      prog:s=>Math.max(0, 6 - (s.junkMiss|0))
+      label:`พลาด/หลุดเป้าไม่เกิน ${K.miss1} ครั้ง`,
+      target: K.miss1,
+      check:s=>(s.junkMiss|0) <= K.miss1,
+      prog:s=>Math.max(0, K.miss1 - (s.junkMiss|0))
     },
 
     {
       id:'g_time',
-      label:'อยู่รอด 40s ⏱️',
-      target: 40,
-      check:s=>(s.tick|0) >= 40,
-      prog:s=>Math.min(40, (s.tick|0))
+      label:`อยู่รอด ${K.timeMain}s ⏱️`,
+      target: K.timeMain,
+      check:s=>(s.tick|0) >= K.timeMain,
+      prog:s=>Math.min(K.timeMain, (s.tick|0))
     },
 
     {
       id:'g_good24',
-      label:'เก็บของดี 24 ชิ้น ✅',
-      target: 24,
-      check:s=>(s.goodCount|0) >= 24,
-      prog:s=>Math.min(24, (s.goodCount|0))
+      label:`เก็บของดี ${K.good1} ชิ้น ✅`,
+      target: K.good1,
+      check:s=>(s.goodCount|0) >= K.good1,
+      prog:s=>Math.min(K.good1, (s.goodCount|0))
     },
 
     {
       id:'g_combo14',
-      label:'คอมโบต่อเนื่อง ≥ 14',
-      target: 14,
-      check:s=>(s.comboMax|0) >= 14,
-      prog:s=>Math.min(14, (s.comboMax|0))
+      label:`คอมโบต่อเนื่อง ≥ ${K.combo2}`,
+      target: K.combo2,
+      check:s=>(s.comboMax|0) >= K.combo2,
+      prog:s=>Math.min(K.combo2, (s.comboMax|0))
     },
 
     {
       id:'g_score1800',
-      label:'คะแนนรวม 1,800+ แต้ม',
-      target: 1800,
-      check:s=>(s.score|0) >= 1800,
-      prog:s=>Math.min(1800, (s.score|0))
+      label:`คะแนนรวม ${K.score2}+ แต้ม`,
+      target: K.score2,
+      check:s=>(s.score|0) >= K.score2,
+      prog:s=>Math.min(K.score2, (s.score|0))
     },
 
     {
       id:'g_good30',
-      label:'เก็บของดี 30 ชิ้น ✅',
-      target: 30,
-      check:s=>(s.goodCount|0) >= 30,
-      prog:s=>Math.min(30, (s.goodCount|0))
+      label:`เก็บของดี ${K.good2} ชิ้น ✅`,
+      target: K.good2,
+      check:s=>(s.goodCount|0) >= K.good2,
+      prog:s=>Math.min(K.good2, (s.goodCount|0))
     },
 
     {
       id:'g_nomiss4',
-      label:'พลาด/หลุดเป้าไม่เกิน 4 ครั้ง',
-      target: 4,
-      check:s=>(s.junkMiss|0) <= 4,
-      prog:s=>Math.max(0, 4 - (s.junkMiss|0))
+      label:`พลาด/หลุดเป้าไม่เกิน ${K.miss2} ครั้ง`,
+      target: K.miss2,
+      check:s=>(s.junkMiss|0) <= K.miss2,
+      prog:s=>Math.max(0, K.miss2 - (s.junkMiss|0))
     },
   ];
 }
 
 function buildPlateMinis(diff){
-  const need    = QUOTA[diff] || QUOTA.normal;
-  const partial = Math.ceil(need.reduce((a,b)=>a+b,0) * 0.6);
+  const needArr = QUOTA[diff] || QUOTA.normal;
+  const K = MINI_TABLE[diff] || MINI_TABLE.normal;
+
+  const totalNeed = needArr.reduce((a,b)=>a+b,0);
+  const partial   = Math.ceil(totalNeed * K.partialRatio);
 
   return [
     {
@@ -112,126 +200,126 @@ function buildPlateMinis(diff){
       target: partial,
       check:s=>{
         const c = (s.gCounts || [0,0,0,0,0]);
-        const sum = c.reduce((p,v,i)=> p + Math.min(v, need[i]), 0);
+        const sum = c.reduce((p,v,i)=> p + Math.min(v, needArr[i]), 0);
         return sum >= partial;
       },
       prog:s=>{
         const c = (s.gCounts || [0,0,0,0,0]);
-        return c.reduce((p,v,i)=> p + Math.min(v, need[i]), 0);
+        return c.reduce((p,v,i)=> p + Math.min(v, needArr[i]), 0);
       }
     },
 
     {
       id:'m_combo10',
-      label:'คอมโบต่อเนื่อง ≥ 10',
-      target: 10,
-      check:s=>(s.comboMax|0) >= 10,
-      prog:s=>Math.min(10, (s.comboMax|0))
+      label:`คอมโบต่อเนื่อง ≥ ${K.combo1}`,
+      target: K.combo1,
+      check:s=>(s.comboMax|0) >= K.combo1,
+      prog:s=>Math.min(K.combo1, (s.comboMax|0))
     },
 
     {
       id:'m_score900',
-      label:'คะแนนรวม 900+ แต้ม',
-      target: 900,
-      check:s=>(s.score|0) >= 900,
-      prog:s=>Math.min(900, (s.score|0))
+      label:`คะแนนรวม ${K.score1}+ แต้ม`,
+      target: K.score1,
+      check:s=>(s.score|0) >= K.score1,
+      prog:s=>Math.min(K.score1, (s.score|0))
     },
 
     {
       id:'m_nomiss6',
-      label:'พลาด/หลุดเป้าไม่เกิน 6 ครั้ง',
-      target: 6,
-      check:s=>(s.junkMiss|0) <= 6,
-      prog:s=>Math.max(0, 6 - (s.junkMiss|0))
+      label:`พลาด/หลุดเป้าไม่เกิน ${K.miss1} ครั้ง`,
+      target: K.miss1,
+      check:s=>(s.junkMiss|0) <= K.miss1,
+      prog:s=>Math.max(0, K.miss1 - (s.junkMiss|0))
     },
 
     {
       id:'m_good14',
-      label:'เก็บของดี 14 ชิ้น ✅',
-      target: 14,
-      check:s=>(s.goodCount|0) >= 14,
-      prog:s=>Math.min(14, (s.goodCount|0))
+      label:`เก็บของดี ${K.good1} ชิ้น ✅`,
+      target: K.good1,
+      check:s=>(s.goodCount|0) >= K.good1,
+      prog:s=>Math.min(K.good1, (s.goodCount|0))
     },
 
     {
       id:'m_time20',
-      label:'อยู่รอด 20s',
-      target: 20,
-      check:s=>(s.tick|0) >= 20,
-      prog:s=>Math.min(20, (s.tick|0))
+      label:`อยู่รอด ${K.time1}s`,
+      target: K.time1,
+      check:s=>(s.tick|0) >= K.time1,
+      prog:s=>Math.min(K.time1, (s.tick|0))
     },
 
     {
       id:'m_combo12',
-      label:'คอมโบต่อเนื่อง ≥ 12',
-      target: 12,
-      check:s=>(s.comboMax|0) >= 12,
-      prog:s=>Math.min(12, (s.comboMax|0))
+      label:`คอมโบต่อเนื่อง ≥ ${K.combo2}`,
+      target: K.combo2,
+      check:s=>(s.comboMax|0) >= K.combo2,
+      prog:s=>Math.min(K.combo2, (s.comboMax|0))
     },
 
     {
       id:'m_score1200',
-      label:'คะแนนรวม 1,200+ แต้ม',
-      target: 1200,
-      check:s=>(s.score|0) >= 1200,
-      prog:s=>Math.min(1200, (s.score|0))
+      label:`คะแนนรวม ${K.score2}+ แต้ม`,
+      target: K.score2,
+      check:s=>(s.score|0) >= K.score2,
+      prog:s=>Math.min(K.score2, (s.score|0))
     },
 
     {
       id:'m_good18',
-      label:'เก็บของดี 18 ชิ้น ✅',
-      target: 18,
-      check:s=>(s.goodCount|0) >= 18,
-      prog:s=>Math.min(18, (s.goodCount|0))
+      label:`เก็บของดี ${K.good2} ชิ้น ✅`,
+      target: K.good2,
+      check:s=>(s.goodCount|0) >= K.good2,
+      prog:s=>Math.min(K.good2, (s.goodCount|0))
     },
 
     {
       id:'m_time30',
-      label:'อยู่รอด 30s',
-      target: 30,
-      check:s=>(s.tick|0) >= 30,
-      prog:s=>Math.min(30, (s.tick|0))
+      label:`อยู่รอด ${K.time2}s`,
+      target: K.time2,
+      check:s=>(s.tick|0) >= K.time2,
+      prog:s=>Math.min(K.time2, (s.tick|0))
     },
 
     // อีก 5 เควสต์เสริม (รวม 15)
     {
       id:'m_combo14',
-      label:'คอมโบต่อเนื่อง ≥ 14',
-      target: 14,
-      check:s=>(s.comboMax|0) >= 14,
-      prog:s=>Math.min(14, (s.comboMax|0))
+      label:`คอมโบต่อเนื่อง ≥ ${K.combo2}`,
+      target: K.combo2,
+      check:s=>(s.comboMax|0) >= K.combo2,
+      prog:s=>Math.min(K.combo2, (s.comboMax|0))
     },
 
     {
       id:'m_score1500',
-      label:'คะแนนรวม 1,500+ แต้ม',
-      target: 1500,
-      check:s=>(s.score|0) >= 1500,
-      prog:s=>Math.min(1500, (s.score|0))
+      label:`คะแนนรวม ${K.score3}+ แต้ม`,
+      target: K.score3,
+      check:s=>(s.score|0) >= K.score3,
+      prog:s=>Math.min(K.score3, (s.score|0))
     },
 
     {
       id:'m_nomiss4',
-      label:'พลาด/หลุดเป้าไม่เกิน 4 ครั้ง',
-      target: 4,
-      check:s=>(s.junkMiss|0) <= 4,
-      prog:s=>Math.max(0, 4 - (s.junkMiss|0))
+      label:`พลาด/หลุดเป้าไม่เกิน ${K.miss2} ครั้ง`,
+      target: K.miss2,
+      check:s=>(s.junkMiss|0) <= K.miss2,
+      prog:s=>Math.max(0, K.miss2 - (s.junkMiss|0))
     },
 
     {
       id:'m_good22',
-      label:'เก็บของดี 22 ชิ้น ✅',
-      target: 22,
-      check:s=>(s.goodCount|0) >= 22,
-      prog:s=>Math.min(22, (s.goodCount|0))
+      label:`เก็บของดี ${K.good2} ชิ้น ✅`,
+      target: K.good2,
+      check:s=>(s.goodCount|0) >= K.good2,
+      prog:s=>Math.min(K.good2, (s.goodCount|0))
     },
 
     {
       id:'m_time25',
-      label:'อยู่รอด 25s',
-      target: 25,
-      check:s=>(s.tick|0) >= 25,
-      prog:s=>Math.min(25, (s.tick|0))
+      label:`อยู่รอด ${Math.round((K.time1 + K.time2)/2)}s`,
+      target: Math.round((K.time1 + K.time2)/2),
+      check:s=>(s.tick|0) >= Math.round((K.time1 + K.time2)/2),
+      prog:s=>Math.min(Math.round((K.time1 + K.time2)/2), (s.tick|0))
     },
   ];
 }
