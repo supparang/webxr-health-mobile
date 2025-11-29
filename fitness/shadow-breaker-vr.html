@@ -346,14 +346,14 @@
   <a-plane rotation="-90 0 0" width="16" height="16" color="#020617"
            material="shader:flat;opacity:0.9;src:#floorTex"></a-plane>
 
-  <!-- กล่องจาง ๆ เป็นพื้นหลังให้รู้ว่าอยู่ใน arena -->
-  <a-box position="0 1.8 -4" depth="0.3" height="4.2" width="7.5"
-         color="#020617"
-         material="opacity:0.7;transparent:true;shader:standard;metalness:0;roughness:1;">
-  </a-box>
+  <!-- แผงฉากหลังบาง ๆ ให้รู้ขอบ arena (อยู่ไกลกว่ากลุ่มเป้า) -->
+  <a-plane position="0 1.6 -4" rotation="0 0 0"
+           width="7.5" height="4.2"
+           color="#020617"
+           material="shader:flat;opacity:0.45;"></a-plane>
 
-  <!-- กลุ่มเป้า -->
-  <a-entity id="sbvr-target-root" position="0 1.8 -4"></a-entity>
+  <!-- กลุ่มเป้า (ลอยอยู่หน้า background) -->
+  <a-entity id="sbvr-target-root" position="0 1.6 -3"></a-entity>
 
   <!-- texture เล็ก ๆ สำหรับพื้น (optional) -->
   <a-assets>
@@ -374,7 +374,7 @@
 (function(){
   'use strict';
 
-  // ====== CONFIG ======
+  // ===== CONFIG =====
   const ROOT_ID = 'sbvr-target-root';
   const SPAWN_INTERVAL_MIN = 700;
   const SPAWN_INTERVAL_MAX = 1200;
@@ -407,8 +407,9 @@
     shield: '#a855f7'
   };
 
+  // ปรับขนาดตาม diff + phase
   const SIZE_BY_DIFF_PHASE = (diff, phase) => {
-    let base = 0.8;
+    let base = 0.8;           // metre
     if (diff === 'easy') base = 1.0;
     else if (diff === 'hard') base = 0.65;
     if (phase === 2) base *= 0.9;
@@ -416,7 +417,7 @@
     return base;
   };
 
-  // ====== STATE ======
+  // ===== STATE =====
   let root        = null;
   let running     = false;
   let spawnTimer  = null;
@@ -427,23 +428,21 @@
   let timeLeft    = SESSION_TIME;
   let timeTimer   = null;
 
-  // HUD refs
+  // HUD
   const hudScore = document.getElementById('hud-score');
   const hudMiss  = document.getElementById('hud-miss');
   const hudTime  = document.getElementById('hud-time');
   const hudPhase = document.getElementById('hud-phase');
 
-  function randRange(min, max){
-    return min + Math.random() * (max - min);
-  }
+  function randRange(min, max){ return min + Math.random() * (max - min); }
 
   function pickType(){
     const table = [
-      { t: 'normal', w: 70 },
-      { t: 'bomb',   w: 8  },
-      { t: 'decoy',  w: 8  },
-      { t: 'heal',   w: 7  },
-      { t: 'shield', w: 7  }
+      { t:'normal', w:70 },
+      { t:'bomb',   w: 8 },
+      { t:'decoy',  w: 8 },
+      { t:'heal',   w: 7 },
+      { t:'shield', w: 7 }
     ];
     const sum = table.reduce((a,c)=>a+c.w,0);
     let r = Math.random()*sum;
@@ -465,24 +464,23 @@
     hudTime.textContent = timeLeft.toFixed(1) + ' s';
   }
 
-  // ===== วาด emoji ลง canvas เป็น texture กลมสวย ๆ =====
+  // ===== วาด emoji ลง canvas เป็น “เหรียญ 3D” =====
   function drawEmojiTexture(canvasId, emoji, bgColor){
     const cvs = document.getElementById(canvasId);
     if (!cvs) return;
     const ctx = cvs.getContext('2d');
-    const w = cvs.width;
-    const h = cvs.height;
-    const r = Math.min(w, h) * 0.45;
+    const w = cvs.width, h = cvs.height;
+    const r = Math.min(w,h)*0.45;
 
     ctx.clearRect(0,0,w,h);
 
     // วงกลม gradient
     const grad = ctx.createRadialGradient(
       w*0.35, h*0.25, r*0.1,
-      w*0.5,  h*0.6,  r
+      w*0.5,  h*0.65, r
     );
     grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.25, bgColor);
+    grad.addColorStop(0.2, bgColor);
     grad.addColorStop(1, '#020617');
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -490,15 +488,15 @@
     ctx.fill();
 
     // ขอบสว่าง
-    ctx.lineWidth = r*0.12;
+    ctx.lineWidth   = r*0.12;
     ctx.strokeStyle = 'rgba(248,250,252,0.9)';
     ctx.stroke();
 
     // emoji ตรงกลาง
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = (r*1.2) + 'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
-    ctx.shadowColor = 'rgba(15,23,42,0.5)';
+    ctx.font = (r*1.15) + 'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+    ctx.shadowColor = 'rgba(15,23,42,0.55)';
     ctx.shadowBlur  = r*0.18;
     ctx.fillText(emoji, w/2, h/2);
     ctx.shadowBlur = 0;
@@ -531,10 +529,10 @@
         return;
       }
       updateTimeHud();
-    }, STEP * 1000);
+    }, STEP*1000);
   }
 
-  // ===== TARGET SPAWN (plane + ring 2D มี emoji ตรงกลาง) =====
+  // ===== SPAWN เป้า (emoji แผ่นกลม + ring) =====
   function spawnOneTarget(){
     if (!root || !running) return;
 
@@ -547,32 +545,29 @@
     const wrapper = document.createElement('a-entity');
     wrapper.setAttribute('position', `${x} ${y} 0`);
 
-    // hit area + emoji
-    const hitPlane = document.createElement('a-entity');
-    hitPlane.setAttribute('geometry',
+    // แผ่น emoji (หันเข้าหากล้อง)
+    const face = document.createElement('a-entity');
+    face.setAttribute('geometry',
       `primitive: plane; width: ${size}; height: ${size}`);
-    hitPlane.setAttribute(
-      'material',
-      `shader: flat; transparent: true; src: ${TEX_SRC[type] || TEX_SRC.normal}; side: double`
-    );
-    hitPlane.setAttribute('class', 'sbvr-target');
-    hitPlane.setAttribute('position', '0 0 0');
+    face.setAttribute('material',
+      `shader: flat; transparent: true; src: ${TEX_SRC[type] || TEX_SRC.normal}; side: double`);
+    face.setAttribute('class', 'sbvr-target');
+    face.setAttribute('position', '0 0 0');
 
-    // outer ring pulse
+    // ring รอบนอก
     const ring = document.createElement('a-entity');
     ring.setAttribute('geometry',
-      `primitive: circle; radius: ${size*0.65}; segments: 48`);
-    ring.setAttribute(
-      'material',
-      `color: ${RING_COLOR[type] || RING_COLOR.normal}; shader: flat; opacity: 0.9`
-    );
+      `primitive: ring; radiusInner: ${size*0.55}; radiusOuter: ${size*0.7}; segmentsTheta: 64`);
+    ring.setAttribute('material',
+      `color: ${RING_COLOR[type] || RING_COLOR.normal}; shader: flat; opacity:0.9`);
     ring.setAttribute('position', '0 0 -0.01');
     ring.setAttribute('animation__pulse',
-      'property: scale; to: 1.15 1.15 1; dir: alternate; dur: 800; loop: true; easing: easeInOutSine');
+      'property: scale; to: 1.12 1.12 1; dir: alternate; dur: 700; loop: true; easing: easeInOutSine');
 
     wrapper.appendChild(ring);
-    wrapper.appendChild(hitPlane);
+    wrapper.appendChild(face);
 
+    // click / แตะเป้า
     const onClick = (evt) => {
       if (!running) return;
       evt.stopPropagation();
@@ -580,11 +575,11 @@
       hitCount++;
       updateHud();
     };
-    hitPlane.addEventListener('click', onClick);
+    face.addEventListener('click', onClick);
 
     root.appendChild(wrapper);
 
-    // หายไปเอง → miss เฉพาะ normal
+    // หมดเวลา → หายเอง / นับ miss เฉพาะ normal
     setTimeout(() => {
       if (!wrapper.parentNode) return;
       try { root.removeChild(wrapper); } catch(e){}
@@ -640,7 +635,7 @@
     startGame();
   }
 
-  // debug จาก console
+  // debug
   window.SBVR = {
     start: startGame,
     stop:  stopGame,
