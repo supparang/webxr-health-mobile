@@ -74,12 +74,6 @@ body {
   opacity: 0.8;
 }
 
-.fitness-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .fitness-main {
   margin-top: 16px;
 }
@@ -143,12 +137,19 @@ body {
   filter: brightness(1.07);
 }
 
+/* ===== Nav ด้านขวาใน Header ===== */
+.fitness-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ===== Wrapper ของทุก view ===== */
 #sb-wrap {
   min-height: calc(100vh - 96px);
 }
 
-/* ===== Views ===== */
+/* ===== แผงหลักของแต่ละ view ===== */
 .sb-view {
   display: none;
 }
@@ -314,13 +315,13 @@ body {
 .sb-panel--play {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-/* HUD ด้านบน (HP + Time) */
+/* HUD ด้านบน: HP / Time / Boss HP */
 .sb-hud-top {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 1.1fr);
   gap: 10px;
   align-items: center;
 }
@@ -383,31 +384,61 @@ body {
   font-weight: 600;
 }
 
-/* Layout หลักของ Play: กลาง = gameplay, ขวา = boss card */
+/* Layout หลักของ Play
+   ซ้าย = stats / pause, ขวา = gameplay + boss */
 .sb-play-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); /* gameplay ใหญ่ขึ้น */
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.8fr);
   gap: 10px;
   margin-top: 10px;
   align-items: stretch;
 }
 
-/* บังคับ order ให้ gameplay อยู่ซ้าย, การ์ดบอสอยู่ขวา */
-.sb-play-main {
-  order: 1;
-}
-
-.sb-side-card--boss {
-  order: 2;
-}
-
-/* การ์ดด้านข้าง */
+/* การ์ดด้านข้าง (ฝั่งซ้าย + การ์ดบอสขวาใช้ร่วมกัน) */
 .sb-side-card {
   background: radial-gradient(circle at top, rgba(15,23,42,0.98), rgba(15,23,42,0.9));
   border-radius: 16px;
   border: 1px solid rgba(148,163,184,0.45);
   padding: 10px 10px 12px;
   font-size: 13px;
+}
+
+/* ฝั่งขวา: gameplay+boss เป็น grid 2 คอลัมน์ */
+.sb-play-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.1fr);
+  grid-template-rows: auto auto auto;
+  grid-template-areas:
+    "field boss"
+    "fever boss"
+    "msg   boss";
+  gap: 10px;
+  align-items: stretch;
+}
+
+/* สนามเป้า */
+#sb-target-layer,
+#target-layer {
+  grid-area: field;
+  position: relative;
+  width: 100%;
+  height: clamp(340px, 72vh, 580px);
+  min-height: 300px;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, rgba(15,23,42,0.92), #020617),
+    url("data:image/svg+xml,%3Csvg width='160' height='160' viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='rgba(51,65,85,0.75)' stroke-width='1'%3E%3Cpath d='M0 20h160M0 60h160M0 100h160M0 140h160M20 0v160M60 0v160M100 0v160M140 0v160'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: cover;
+  touch-action: manipulation;
+}
+
+/* การ์ดบอสฝั่งขวา */
+.sb-side-card--boss {
+  grid-area: boss;
+  align-self: stretch;
+  max-height: 100%;
+  overflow: auto;
 }
 
 .sb-boss-portrait {
@@ -438,7 +469,7 @@ body {
 }
 
 .sb-stat-list {
-  margin: 12px 0 0;
+  margin: 0;
   padding: 0;
 }
 
@@ -453,36 +484,14 @@ body {
   margin-top: 4px;
 }
 
-/* พื้นที่เล่นกลาง */
-.sb-play-main {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* สนามเป้า – ขยายสูงขึ้น + responsive ตามจอ */
-#sb-target-layer,
-#target-layer {
-  position: relative;
-  width: 100%;
-  height: clamp(320px, 68vh, 640px); /* desktop เติมจอมากขึ้น */
-  min-height: 280px;
-  border-radius: 14px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at center, rgba(15,23,42,0.92), #020617),
-    url("data:image/svg+xml,%3Csvg width='160' height='160' viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='rgba(51,65,85,0.75)' stroke-width='1'%3E%3Cpath d='M0 20h160M0 60h160M0 100h160M0 140h160M20 0v160M60 0v160M100 0v160M140 0v160'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: cover;
-  touch-action: manipulation;
-}
-
-/* FEVER bar + label */
+/* Fever bar */
 .sb-fever-wrap {
+  grid-area: fever;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  align-items: center;
-  margin-top: 4px;
+  align-items: flex-start;
+  margin-top: 2px;
 }
 
 .sb-fever-label {
@@ -502,7 +511,7 @@ body {
 }
 
 .sb-fever-bar {
-  width: min(260px, 70vw);
+  width: min(220px, 60vw);
   height: 10px;
   border-radius: 999px;
   background: radial-gradient(circle at 0% 0%, #0f172a, #020617);
@@ -520,12 +529,13 @@ body {
   transition: transform 0.18s ease-out;
 }
 
-/* Feedback ข้อความหลัก */
+/* ข้อความ feedback (engine ใช้ class sb-msg-main) */
 .sb-msg-main {
-  margin-top: 6px;
+  grid-area: msg;
+  margin-top: 4px;
   font-size: 13px;
   color: #cbd5f5;
-  min-height: 1.5em;
+  min-height: 1.4em;
 }
 
 .sb-msg-main.perfect {
@@ -544,7 +554,7 @@ body {
 /* ===== Targets (emoji bubble) ===== */
 .sb-target {
   position: absolute;
-  transform: translate(-50%, -50%) scale(0.78);
+  transform: translate(-50%, -50%);
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -552,9 +562,8 @@ body {
   pointer-events: auto;
   cursor: pointer;
   transition:
-    transform 140ms ease-out,
-    opacity 140ms ease-out;
-  opacity: 0;
+    transform 120ms ease-out,
+    opacity 120ms ease-out;
 }
 
 .sb-target-inner {
@@ -567,7 +576,7 @@ body {
   justify-content: center;
 }
 
-/* core + ring */
+/* วง core + ring */
 .sb-bubble-core {
   position: absolute;
   inset: 14%;
@@ -588,14 +597,15 @@ body {
     0 0 22px rgba(59,130,246,0.6);
 }
 
-/* emoji กลางเป้า: ขนาดเซ็ตผ่าน JS (font-size px) */
+/* emoji กลางเป้า — ขนาดสัมพันธ์กับเป้า (renderer จะตั้ง font-size ให้) */
 .sb-target-emoji {
   position: relative;
   z-index: 2;
   pointer-events: none;
+  font-size: 0.7em;
 }
 
-/* type-specific color */
+/* type-specific */
 .sb-target--bomb .sb-bubble-core {
   background: radial-gradient(circle at 30% 20%, #fee2e2, #ef4444);
   box-shadow: 0 0 22px rgba(248,113,113,0.8);
@@ -614,15 +624,15 @@ body {
   box-shadow: 0 0 26px rgba(251,191,36,0.9);
 }
 
-/* spawn / exit animation */
+/* spawn animation */
+.sb-target {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.72);
+}
+
 .sb-target.sb-target--spawned {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
-}
-
-.sb-target.sb-target-exit {
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0.6);
 }
 
 /* ===== Hit / Score FX ===== */
@@ -701,26 +711,6 @@ body {
   background: radial-gradient(circle, #fecaca, #ef4444);
 }
 
-/* ===== HUD ล่าง (ปุ่ม/ข้อมูลย่อ) ===== */
-.sb-hud-bottom {
-  margin-top: 8px;
-}
-
-.sb-hud-bottom-inner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding-top: 6px;
-  border-top: 1px dashed rgba(55,65,81,0.9);
-  font-size: 12px;
-}
-
-.sb-hud-bottom-item {
-  min-width: 120px;
-}
-
 /* ===== Result View ===== */
 .sb-result-header {
   margin-bottom: 8px;
@@ -762,6 +752,47 @@ body {
   margin-top: 8px;
 }
 
+/* ===== Boss Intro Overlay ===== */
+.sb-boss-intro {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(15,23,42,0.96), rgba(15,23,42,0.98));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+}
+
+.sb-boss-intro-card {
+  background: radial-gradient(circle at top, #0f172a, #020617);
+  border-radius: 20px;
+  padding: 18px 20px 18px;
+  border: 1px solid rgba(148,163,184,0.7);
+  max-width: 360px;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(15,23,42,0.95);
+}
+
+.sb-boss-intro-emoji {
+  font-size: 40px;
+  margin-bottom: 6px;
+}
+
+.sb-boss-intro-name {
+  font-weight: 600;
+  margin: 4px 0;
+}
+
+.sb-boss-intro-title {
+  font-size: 14px;
+  color: #e5e7eb;
+}
+
+.sb-boss-intro-desc {
+  font-size: 13px;
+  color: #cbd5f5;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 900px) {
   .fitness-header {
@@ -774,22 +805,23 @@ body {
   }
 
   .sb-play-layout {
-    grid-template-columns: minmax(0, 1fr); /* ซ้อนเป็นคอลัมน์เดียว */
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sb-play-main {
-    order: 1;               /* ให้ gameplay มาก่อนบน mobile */
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
   .sb-side-card--boss {
-    order: 2;
+    max-height: none;
+    order: 3;
   }
-}
 
-@media (max-width: 640px) {
   #sb-target-layer,
   #target-layer {
-    height: min(64vh, 420px); /* มือถือ สูงพอแต่ไม่เกินจอ */
+    height: min(64vh, 440px);
   }
 
   .sb-result-grid {
