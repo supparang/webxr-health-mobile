@@ -67,21 +67,23 @@
 
   <a-assets></a-assets>
 
-  <a-entity light="type: ambient; color: #FFF; intensity: 0.6"></a-entity>
-  <a-entity light="type: directional; color: #FFF; intensity: 0.4" position="-0.5 1 1"></a-entity>
-
   <a-entity id="rig" position="0 1.6 0">
     <a-camera id="camera" look-controls="pointerLockEnabled: true">
-      <a-cursor id="cursor"
-        raycaster="objects: [data-hha-tgt]"
-        fuse="true" fuse-timeout="1200"
-        material="color: #60a5fa; shader: flat"
-        position="0 0 -1" scale="0.03 0.03 0.03">
+    <!-- cursor เดียว ครอบคลุม PC + Mobile + VR -->
+      <a-cursor
+      id="cursor"
+      raycaster="objects: [data-hha-tgt]; far: 30"
+      material="color: #60a5fa; shader: flat"
+      position="0 0 -1"
+      scale="0.03 0.03 0.03">
       </a-cursor>
     </a-camera>
-    <a-entity id="rightHand"
-      laser-controls="hand: right"
-      raycaster="objects: [data-hha-tgt]; interval: 10">
+
+  <!-- VR Hand Controller (ยังใช้เหมือนเดิม) -->
+    <a-entity
+    id="rightHand"
+    laser-controls="hand: right"
+    raycaster="objects: [data-hha-tgt]; interval: 10">
     </a-entity>
   </a-entity>
 </a-scene>
