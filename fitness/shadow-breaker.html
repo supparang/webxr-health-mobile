@@ -132,10 +132,11 @@
         </div>
       </div>
 
-      <!-- ==== MAIN LAYOUT ==== -->
+      <!-- ==== MAIN LAYOUT (SIDE = สถิติ + BOSS + HP, CENTER = เกม) ==== -->
       <div class="sb-play-grid">
-        <!-- LEFT: STATS -->
-        <div class="sb-play-col sb-play-col-left">
+        <!-- SIDE: สถิติ + Boss card + HP overview -->
+        <div class="sb-play-col-side">
+          <!-- สถิติรอบนี้ -->
           <div class="sb-panel sb-panel-stats">
             <h3 class="sb-panel-title">สถิติรอบนี้</h3>
             <dl class="sb-stat-list">
@@ -165,10 +166,44 @@
               ⏹ จบและกลับเมนู
             </button>
           </div>
+
+          <!-- การ์ดข้อมูล Boss (ย้ายจากด้านล่างขึ้นมาขวาของสถิติ) -->
+          <aside class="sb-panel sb-panel-boss">
+            <div class="sb-boss-header">
+              <div class="sb-boss-emoji" id="sb-meta-emoji">🐣</div>
+              <div class="sb-boss-text">
+                <div class="sb-boss-name" id="sb-meta-name">Bubble Glove</div>
+                <div class="sb-boss-meta">
+                  <span id="sb-meta-phase">Phase 1</span>
+                  <span class="sb-meta-dot">•</span>
+                  <span>Shield: <span id="sb-meta-shield">0</span></span>
+                </div>
+              </div>
+            </div>
+            <p class="sb-boss-desc" id="sb-meta-desc">
+              โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน
+            </p>
+          </aside>
+
+          <!-- HP overview (PLAYER/BOSS) ย้ายขึ้นมาขวาของสถิติ -->
+          <div class="sb-hp-overview">
+            <div class="sb-hp-overview-item">
+              <span class="sb-hp-overview-label">PLAYER HP</span>
+              <div class="sb-hp-bar sb-hp-overview-bar">
+                <div class="sb-hp-fill sb-hp-you" id="sb-hp-you-bottom"></div>
+              </div>
+            </div>
+            <div class="sb-hp-overview-item">
+              <span class="sb-hp-overview-label">BOSS HP</span>
+              <div class="sb-hp-bar sb-hp-overview-bar">
+                <div class="sb-hp-fill sb-hp-boss" id="sb-hp-boss-bottom"></div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- CENTER: GAMEPLAY -->
-        <div class="sb-play-col sb-play-col-center">
+        <!-- CENTER: Gameplay -->
+        <div class="sb-play-col-center">
           <div class="sb-arena-card">
             <div class="sb-target-layer" id="sb-target-layer"></div>
           </div>
@@ -186,42 +221,6 @@
           <p id="sb-msg-main" class="sb-msg-main">
             แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!
           </p>
-        </div>
-
-        <!-- RIGHT: BOSS INFO -->
-        <div class="sb-play-col sb-play-col-right">
-          <aside class="sb-panel sb-panel-boss">
-            <div class="sb-boss-header">
-              <div class="sb-boss-emoji" id="sb-meta-emoji">🐣</div>
-              <div class="sb-boss-text">
-                <div class="sb-boss-name" id="sb-meta-name">Bubble Glove</div>
-                <div class="sb-boss-meta">
-                  <span id="sb-meta-phase">Phase 1</span>
-                  <span class="sb-meta-dot">•</span>
-                  <span>Shield: <span id="sb-meta-shield">0</span></span>
-                </div>
-              </div>
-            </div>
-            <p class="sb-boss-desc" id="sb-meta-desc">
-              โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน
-            </p>
-          </aside>
-        </div>
-      </div>
-
-      <!-- BOTTOM HP OVERVIEW (เดียว) -->
-      <div class="sb-hp-overview">
-        <div class="sb-hp-overview-item">
-          <span class="sb-hp-overview-label">PLAYER HP</span>
-          <div class="sb-hp-bar sb-hp-overview-bar">
-            <div class="sb-hp-fill sb-hp-you" id="sb-hp-you-bottom"></div>
-          </div>
-        </div>
-        <div class="sb-hp-overview-item">
-          <span class="sb-hp-overview-label">BOSS HP</span>
-          <div class="sb-hp-bar sb-hp-overview-bar">
-            <div class="sb-hp-fill sb-hp-boss" id="sb-hp-boss-bottom"></div>
-          </div>
         </div>
       </div>
     </div>
