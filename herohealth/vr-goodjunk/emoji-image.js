@@ -1,46 +1,69 @@
-(function (global) {
-  'use strict';
-  const exports = global.GAME_MODULES = global.GAME_MODULES || {};
-  const CACHE = new Map();
+// === /HeroHealth/vr/emoji-image.js ===
+// วาด Emoji ลง canvas แล้วเอาไปเป็น texture ของ <a-image>
+// ใช้คู่กับ GameEngine.js (Good vs Junk VR)
 
-  function drawEmoji(char, px = 128) {
-    const key = char + '@' + px;
-    if (CACHE.has(key)) return CACHE.get(key);
+'use strict';
 
-    const dpr = Math.max(1, Math.min(2, (window.devicePixelRatio || 1)));
-    const W = Math.round(px * dpr), H = Math.round(px * dpr);
-    const pad = Math.round(px * 0.30 * dpr);
+const CACHE = new Map();
 
-    const cv = document.createElement('canvas');
-    cv.width = W + pad * 2;
-    cv.height = H + pad * 2;
-    const ctx = cv.getContext('2d');
+function drawEmoji(char, px = 128) {
+  const key = `${char}@${px}`;
+  if (CACHE.has(key)) return CACHE.get(key);
 
-    const font = Math.round(px * dpr) + 'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
-    ctx.font = font;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.save();
-    ctx.shadowColor = 'rgba(255,255,255,.5)';
-    ctx.shadowBlur = Math.round(px * 0.2 * dpr);
-    ctx.fillText(char, cv.width / 2, cv.height / 2);
-    ctx.restore();
-    ctx.fillText(char, cv.width / 2, cv.height / 2);
+  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  const W = Math.round(px * dpr);
+  const H = Math.round(px * dpr);
+  const pad = Math.round(px * 0.30 * dpr);
 
-    const out = { src: cv.toDataURL('image/png'), w: cv.width, h: cv.height };
-    CACHE.set(key, out);
-    return out;
-  }
+  const cv = document.createElement('canvas');
+  cv.width  = W + pad * 2;
+  cv.height = H + pad * 2;
+  const ctx = cv.getContext('2d');
 
-  exports.emojiImage = function (char, scale = 0.65, px = 128) {
-    const img = drawEmoji(char, px);
-    const el = document.createElement('a-image');
-    el.setAttribute('src', img.src);
-    el.setAttribute('transparent', true);
-    el.setAttribute('material', 'transparent:true; alphaTest:0.01; side:double');
-    el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
-    el.dataset.emoji = char;
-    return el;
+  const fontPx = Math.round(px * dpr);
+  const fontFamily = 'system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+
+  ctx.font = `${fontPx}px ${fontFamily}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // แสงเงานิดหน่อยให้ดูฟู ๆ
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.45)';
+  ctx.shadowBlur  = Math.round(px * 0.22 * dpr);
+  ctx.fillText(char, cv.width / 2, cv.height / 2);
+  ctx.restore();
+
+  // เติมซ้ำอีกรอบให้สีแน่นขึ้น
+  ctx.fillText(char, cv.width / 2, cv.height / 2);
+
+  const out = {
+    src: cv.toDataURL('image/png'),
+    w:   cv.width,
+    h:   cv.height
   };
+  CACHE.set(key, out);
+  return out;
+}
 
-})(window);
+/**
+ * emojiImage(char, scale?, px?)
+ * - char  : emoji เช่น '🥦'
+ * - scale : scale ของ a-image (เริ่มต้น 0.65)
+ * - px    : ขนาดฐานตอนวาดลง canvas (เริ่มต้น 128)
+ */
+export function emojiImage(char, scale = 0.65, px = 128) {
+  const img = drawEmoji(char, px);
+
+  const el = document.createElement('a-image');
+  el.setAttribute('src', img.src);
+  el.setAttribute('transparent', true);
+  el.setAttribute('material', 'transparent:true; alphaTest:0.01; side:double');
+  el.setAttribute('scale', `${scale} ${scale} ${scale}`);
+  el.dataset.emoji = char; // เผื่อดีบัก / เช็กภายหลัง
+
+  return el;
+}
+
+// เผื่ออนาคตอยาก import default
+export default { emojiImage };
