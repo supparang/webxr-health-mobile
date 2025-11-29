@@ -1,4 +1,4 @@
-// === js/engine.js — Shadow Breaker core (2025-12-XX, phase layout + FEVER + CSV) ===
+// === js/engine.js — Shadow Breaker core (2025-12-XX, research required + FEVER + CSV) ===
 'use strict';
 
 import { DomRendererShadow } from './dom-renderer-shadow.js';
@@ -21,7 +21,7 @@ let hpYouBottom, hpBossBottom;
 let statTime, statScore, statCombo, statPhase, statMiss, statShield;
 let metaMiss;
 
-let bossNameTop; // (ยังไม่ได้ใช้บน HUD แต่เผื่อไว้)
+let bossNameTop;
 let bossEmojiSide, bossNameSide, bossDescSide;
 let bossPhaseLabel, bossShieldLabel;
 
@@ -33,6 +33,11 @@ let btnDownloadEvents, btnDownloadSession;
 
 let resTime, resScore, resMaxCombo, resMissRes, resPhaseRes;
 let resBossCleared, resAcc, resGrade;
+
+// --- NEW: ช่องกรอกข้อมูลโหมดวิจัย ---
+let inputParticipantId;
+let inputParticipantGroup;
+let inputParticipantNote;
 
 // ----- CONFIG -----
 const BOSSES = [
@@ -88,7 +93,7 @@ let menuOpenedAt = performance.now();
 let sessionSummary = null;
 let eventRows = [];
 
-let wired = false; // กัน init ซ้ำ
+let wired = false;
 
 // ===== utilities =====
 const randRange = (min, max) => min + Math.random() * (max - min);
@@ -318,7 +323,6 @@ function spawnTargetOfType(kind, extra) {
 function spawnOneTarget() {
   const cfg = DIFF_CONFIG[state.diffKey] || DIFF_CONFIG.normal;
 
-  // ถ้า boss ใกล้ตาย และยังไม่เคย spawn boss-face ให้ spawn ก่อน
   if (!state.bossFaceSpawned && state.bossHp > 0 && state.bossHp <= BOSSFACE_THRESHOLD) {
     state.bossFaceSpawned = true;
     spawnBossFaceTarget();
@@ -423,7 +427,6 @@ function handleTargetHit(id, hitInfo) {
     setFeedback('หมัดเด็ดใส่หน้าบอส! 💥', 'perfect');
     state.combo++;
   } else {
-    // normal target
     if (rt < 220) {
       grade = 'perfect';
       scoreDelta = 160;
@@ -446,7 +449,6 @@ function handleTargetHit(id, hitInfo) {
     );
   }
 
-  // FEVER gauge (เฉพาะ normal)
   if (data.type === 'normal') {
     state.fever += FEVER_PER_HIT;
     if (!state.feverOn && state.fever >= 1) {
@@ -460,13 +462,11 @@ function handleTargetHit(id, hitInfo) {
     }
   }
 
-  // apply fever bonus
   if (state.feverOn) {
     scoreDelta = Math.round(scoreDelta * 1.5);
     bossDmg *= 1.25;
   }
 
-  // apply changes
   state.score = Math.max(0, state.score + scoreDelta);
   if (hpDeltaPlayer !== 0) {
     state.playerHp = Math.max(0, Math.min(1, state.playerHp + hpDeltaPlayer));
@@ -561,7 +561,6 @@ function gameLoop(now) {
   if (statTime) statTime.textContent = (state.timeLeftMs / 1000).toFixed(1) + ' s';
   updateFeverUi(now);
 
-  // safety: ตรวจ timeout เพิ่ม (กันหลุด) + ใช้กติกา Miss แบบเดียวกัน
   const nowTargets = Array.from(state.targets.values());
   for (const t of nowTargets) {
     if (now >= t.timeoutAt) {
@@ -639,7 +638,6 @@ function endGame(reason) {
 
   const grade = gradeFromAccuracy(acc);
 
-  // อัปเดตหน้า result
   if (resTime) resTime.textContent = sessionSummary.duration_sec.toFixed(1) + ' s';
   if (resScore) resScore.textContent = String(sessionSummary.score);
   if (resMaxCombo) resMaxCombo.textContent = String(sessionSummary.max_combo);
@@ -649,7 +647,6 @@ function endGame(reason) {
   if (resAcc) resAcc.textContent = sessionSummary.accuracy_pct.toFixed(1) + ' %';
   if (resGrade) resGrade.textContent = grade;
 
-  // บันทึกสรุปไป stats-store (ใช้ในหน้า stats รวม)
   try {
     if (typeof recordSession === 'function') {
       recordSession({
@@ -664,11 +661,56 @@ function endGame(reason) {
   showView('result');
 }
 
+// ===== CSV download helpers =====
+function handleDownloadEvents() {
+  if (!sessionSummary || !eventRows.length) return;
+  try {
+    downloadEventCsv(eventRows, sessionSummary);
+  } catch (err) {
+    console.warn('[ShadowBreaker] downloadEventCsv failed', err);
+  }
+}
+
+function handleDownloadSession() {
+  if (!sessionSummary) return;
+  try {
+    downloadSessionCsv(sessionSummary);
+  } catch (err) {
+    console.warn('[ShadowBreaker] downloadSessionCsv failed', err);
+  }
+}
+
 // ===== start game =====
 function startGame(mode) {
   const diffKey = (diffSel && diffSel.value) || 'normal';
   const durationSec = parseInt((timeSel && timeSel.value) || '60', 10) || 60;
-  DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal; // validate
+  DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
+
+  // --- NEW: validate ข้อมูลโหมดวิจัยก่อนเริ่มเกม ---
+  let researchMeta = null;
+  if (mode === 'research' && (inputParticipantId || inputParticipantGroup || inputParticipantNote)) {
+    const idVal = inputParticipantId ? inputParticipantId.value.trim() : '';
+    const groupVal = inputParticipantGroup ? inputParticipantGroup.value.trim() : '';
+    const noteVal = inputParticipantNote ? inputParticipantNote.value.trim() : '';
+
+    // reset error class
+    if (inputParticipantId) inputParticipantId.classList.remove('sb-input-error');
+    if (inputParticipantGroup) inputParticipantGroup.classList.remove('sb-input-error');
+
+    if (!idVal || !groupVal) {
+      if (inputParticipantId && !idVal) inputParticipantId.classList.add('sb-input-error');
+      if (inputParticipantGroup && !groupVal) inputParticipantGroup.classList.add('sb-input-error');
+
+      if (feedbackEl) {
+        feedbackEl.textContent = 'กรุณากรอกข้อมูลผู้เข้าร่วม (รหัส + กลุ่ม) ให้ครบก่อนเริ่มโหมดวิจัย 👩‍🔬👨‍🔬';
+        feedbackEl.className = 'sb-msg-main warn';
+      }
+      alert('โหมดวิจัย: ต้องกรอก "รหัสผู้เข้าร่วม" และ "กลุ่ม" ให้ครบก่อนเริ่มเล่น');
+      return; // ยังไม่เริ่มเกม
+    }
+
+    researchMeta = { id: idVal, group: groupVal, note: noteVal };
+  }
 
   clearRenderer();
   resetHud();
@@ -700,7 +742,7 @@ function startGame(mode) {
     nextTargetId: 1,
     startedAt: performance.now(),
     lastTickAt: performance.now(),
-    researchMeta: null,
+    researchMeta, // <- ใช้ข้อมูลจากฟอร์ม (หรือ null ถ้าโหมดปกติ)
     rtNormalSum: 0,
     rtNormalCount: 0,
     rtDecoySum: 0,
@@ -726,25 +768,6 @@ function startGame(mode) {
   state.lastTickAt = performance.now();
   gameLoopId = requestAnimationFrame(gameLoop);
   scheduleNextSpawn();
-}
-
-// ===== CSV download helpers =====
-function handleDownloadEvents() {
-  if (!sessionSummary || !eventRows.length) return;
-  try {
-    downloadEventCsv(eventRows, sessionSummary);
-  } catch (err) {
-    console.warn('[ShadowBreaker] downloadEventCsv failed', err);
-  }
-}
-
-function handleDownloadSession() {
-  if (!sessionSummary) return;
-  try {
-    downloadSessionCsv(sessionSummary);
-  } catch (err) {
-    console.warn('[ShadowBreaker] downloadSessionCsv failed', err);
-  }
 }
 
 // ===== public init =====
@@ -802,6 +825,19 @@ export function initShadowBreaker() {
     resBossCleared = document.getElementById('sb-res-boss-cleared');
     resAcc = document.getElementById('sb-res-acc');
     resGrade = document.getElementById('sb-res-grade');
+
+    // --- NEW: ผูกช่องกรอกโหมดวิจัย (ใช้ id เหล่านี้ใน HTML) ---
+    inputParticipantId =
+      document.getElementById('sb-participant-id') ||
+      document.getElementById('sb-research-id');
+
+    inputParticipantGroup =
+      document.getElementById('sb-participant-group') ||
+      document.getElementById('sb-research-group');
+
+    inputParticipantNote =
+      document.getElementById('sb-participant-note') ||
+      document.getElementById('sb-research-note');
   }
 
   if (!wrap || !targetLayer) {
