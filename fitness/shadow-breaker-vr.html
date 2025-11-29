@@ -380,7 +380,7 @@
   const TARGET_LIFETIME   = 1600;
   const BASE_SPREAD_X     = 1.6;
   const BASE_SPREAD_Y     = 1.1;
-  const SESSION_TIME      = 60;   // วินาที
+  const SESSION_TIME      = 60;
 
   const EMOJI = {
     normal: '🥊',
@@ -398,21 +398,20 @@
     shield: '#tex-shield'
   };
 
-  // ring style แยกตาม type
-  const RING_MATERIAL = {
-    normal: 'color: #22c55e; metalness:0.2; roughness:0.2; emissive:#16a34a; emissiveIntensity:0.5',
-    bomb:   'color: #ef4444; metalness:0.4; roughness:0.2; emissive:#b91c1c; emissiveIntensity:0.8',
-    decoy:  'color: #f97316; metalness:0.3; roughness:0.3; emissive:#c2410c; emissiveIntensity:0.7',
-    heal:   'color: #0ea5e9; metalness:0.3; roughness:0.2; emissive:#0284c7; emissiveIntensity:0.7',
-    shield: 'color: #a855f7; metalness:0.4; roughness:0.2; emissive:#7e22ce; emissiveIntensity:0.8'
+  const RING_COLOR = {
+    normal: '#22c55e',
+    bomb:   '#ef4444',
+    decoy:  '#f97316',
+    heal:   '#0ea5e9',
+    shield: '#a855f7'
   };
 
   const SIZE_BY_DIFF_PHASE = (diff, phase) => {
-    let base = 0.7;
-    if (diff === 'easy') base = 0.9;
-    else if (diff === 'hard') base = 0.6;
-    if (phase === 2) base *= 0.85;
-    if (phase === 3) base *= 0.72;
+    let base = 0.8;
+    if (diff === 'easy') base = 1.0;
+    else if (diff === 'hard') base = 0.65;
+    if (phase === 2) base *= 0.9;
+    if (phase === 3) base *= 0.78;
     return base;
   };
 
@@ -465,7 +464,7 @@
     hudTime.textContent = timeLeft.toFixed(1) + ' s';
   }
 
-  // ===== วาด emoji ลง canvas เป็น texture =====
+  // ===== วาด emoji ลง canvas เป็น texture กลมสวย ๆ =====
   function drawEmojiTexture(canvasId, emoji, bgColor){
     const cvs = document.getElementById(canvasId);
     if (!cvs) return;
@@ -476,34 +475,30 @@
 
     ctx.clearRect(0,0,w,h);
 
-    // พื้นหลังโปร่ง ๆ
-    ctx.fillStyle = 'rgba(15,23,42,0)';
-    ctx.fillRect(0,0,w,h);
-
-    // วงกลมไล่สี
+    // วงกลม gradient
     const grad = ctx.createRadialGradient(
       w*0.35, h*0.25, r*0.1,
       w*0.5,  h*0.6,  r
     );
     grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.2, bgColor);
+    grad.addColorStop(0.25, bgColor);
     grad.addColorStop(1, '#020617');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(w/2, h/2, r, 0, Math.PI*2);
     ctx.fill();
 
-    // ขอบสว่าง ๆ
-    ctx.strokeStyle = 'rgba(248,250,252,0.85)';
+    // ขอบสว่าง
     ctx.lineWidth = r*0.12;
+    ctx.strokeStyle = 'rgba(248,250,252,0.9)';
     ctx.stroke();
 
-    // emoji
+    // emoji ตรงกลาง
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = (r*1.2) + 'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
-    ctx.shadowColor = 'rgba(15,23,42,0.4)';
-    ctx.shadowBlur  = r*0.15;
+    ctx.shadowColor = 'rgba(15,23,42,0.5)';
+    ctx.shadowBlur  = r*0.18;
     ctx.fillText(emoji, w/2, h/2);
     ctx.shadowBlur = 0;
   }
@@ -538,7 +533,7 @@
     }, STEP * 1000);
   }
 
-  // ===== TARGET SPAWN =====
+  // ===== TARGET SPAWN (plane + ring 2D มี emoji ตรงกลาง) =====
   function spawnOneTarget(){
     if (!root || !running) return;
 
@@ -547,40 +542,35 @@
 
     const x = randRange(-BASE_SPREAD_X, BASE_SPREAD_X);
     const y = randRange(-BASE_SPREAD_Y, BASE_SPREAD_Y);
-    const z = 0;
 
     const wrapper = document.createElement('a-entity');
-    wrapper.setAttribute('position', `${x} ${y} ${z}`);
+    wrapper.setAttribute('position', `${x} ${y} 0`);
 
-    // ring (โดน raycaster)
+    // hit area + emoji
+    const hitPlane = document.createElement('a-entity');
+    hitPlane.setAttribute('geometry',
+      `primitive: plane; width: ${size}; height: ${size}`);
+    hitPlane.setAttribute(
+      'material',
+      `shader: flat; transparent: true; src: ${TEX_SRC[type] || TEX_SRC.normal}; side: double`
+    );
+    hitPlane.setAttribute('class', 'sbvr-target');
+    hitPlane.setAttribute('position', '0 0 0');
+
+    // outer ring pulse
     const ring = document.createElement('a-entity');
-    ring.setAttribute(
-      'geometry',
-      `primitive: torus; radius: ${size*0.55}; radiusTubular: ${size*0.12}`
-    );
+    ring.setAttribute('geometry',
+      `primitive: circle; radius: ${size*0.65}; segments: 48`);
     ring.setAttribute(
       'material',
-      RING_MATERIAL[type] || RING_MATERIAL.normal
+      `color: ${RING_COLOR[type] || RING_COLOR.normal}; shader: flat; opacity: 0.9`
     );
-    ring.setAttribute(
-      'animation__spin',
-      'property: rotation; to: 0 360 0; dur: 1400; loop: true; easing: linear'
-    );
-    ring.setAttribute('class', 'sbvr-target');
-
-    // emoji plane ตรงกลาง
-    const face = document.createElement('a-plane');
-    face.setAttribute('width',  size);
-    face.setAttribute('height', size);
-    face.setAttribute(
-      'material',
-      `shader:flat; src:${TEX_SRC[type] || TEX_SRC.normal}; transparent:true; side:double`
-    );
-    face.setAttribute('position', '0 0 0.03');
-    face.setAttribute('look-at', '[camera]');
+    ring.setAttribute('position', '0 0 -0.01');
+    ring.setAttribute('animation__pulse',
+      'property: scale; to: 1.15 1.15 1; dir: alternate; dur: 800; loop: true; easing: easeInOutSine');
 
     wrapper.appendChild(ring);
-    wrapper.appendChild(face);
+    wrapper.appendChild(hitPlane);
 
     const onClick = (evt) => {
       if (!running) return;
@@ -589,11 +579,11 @@
       hitCount++;
       updateHud();
     };
-    ring.addEventListener('click', onClick);
+    hitPlane.addEventListener('click', onClick);
 
     root.appendChild(wrapper);
 
-    // timeout → miss สำหรับ normal
+    // หายไปเอง → miss เฉพาะ normal
     setTimeout(() => {
       if (!wrapper.parentNode) return;
       try { root.removeChild(wrapper); } catch(e){}
@@ -620,7 +610,7 @@
       console.warn('[SBVR] no #' + ROOT_ID);
       return;
     }
-    initTextures();      // ← วาด emoji textures ที่นี่
+    initTextures();
     running   = true;
     hitCount  = 0;
     missCount = 0;
@@ -649,7 +639,7 @@
     startGame();
   }
 
-  // debug
+  // debug จาก console
   window.SBVR = {
     start: startGame,
     stop:  stopGame,
