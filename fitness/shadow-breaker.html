@@ -38,6 +38,7 @@
           เลือกระดับความยากและเวลา จากนั้นเริ่มฝึกชกเป้าตามจังหวะเพื่อโจมตีบอส
         </p>
 
+        <!-- เลือกระดับความยาก + เวลา -->
         <div class="sb-menu-grid">
           <div class="sb-menu-field">
             <label for="sb-diff">ระดับความยาก</label>
@@ -56,6 +57,40 @@
             </select>
           </div>
         </div>
+
+        <!-- ฟอร์มข้อมูลผู้เข้าร่วมสำหรับโหมดวิจัย -->
+        <section class="sb-menu-detail sb-menu-detail-research">
+          <h3>ข้อมูลผู้เข้าร่วม (ใช้เฉพาะตอนเล่นโหมดวิจัย)</h3>
+          <div class="sb-menu-grid">
+            <div class="sb-menu-field">
+              <label for="sb-participant-id">รหัสผู้เข้าร่วม <span class="sb-required">*</span></label>
+              <input
+                id="sb-participant-id"
+                type="text"
+                placeholder="เช่น P001, S-01"
+              />
+            </div>
+            <div class="sb-menu-field">
+              <label for="sb-participant-group">กลุ่ม / เงื่อนไขการทดลอง <span class="sb-required">*</span></label>
+              <input
+                id="sb-participant-group"
+                type="text"
+                placeholder="เช่น Control / Training"
+              />
+            </div>
+            <div class="sb-menu-field">
+              <label for="sb-participant-note">บันทึกเพิ่มเติม (ไม่บังคับ)</label>
+              <input
+                id="sb-participant-note"
+                type="text"
+                placeholder="เช่น เล่นด้วย VR หรือจอมือถือ"
+              />
+            </div>
+          </div>
+          <p class="sb-menu-research-hint">
+            * ต้องกรอก <strong>รหัสผู้เข้าร่วม</strong> และ <strong>กลุ่ม</strong> ให้ครบก่อนกดปุ่ม “โหมดวิจัย”
+          </p>
+        </section>
 
         <div class="sb-menu-actions">
           <button id="sb-btn-play" class="sb-btn-primary">
