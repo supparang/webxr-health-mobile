@@ -1,0 +1,73 @@
+/* === /HeroHealth/css/hha-kid-bg.css (Kid Background – P.5 Style) === */
+
+/* ฟอนต์ + reset พื้นฐาน */
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* พื้นหลังแนวเด็ก ๆ ป.5 – ใช้เมื่อใส่ class="kid-bg" ที่ <body> */
+body.kid-bg {
+  color: #e5ecff;
+  background:
+    radial-gradient(circle at 0%   0%,   rgba(56,189,248,0.30) 0,  transparent 55%),
+    radial-gradient(circle at 100% 0%,   rgba(244,114,182,0.28) 0, transparent 55%),
+    radial-gradient(circle at 0%   100%, rgba(52,211,153,0.28) 0, transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(251,191,36,0.32) 0, transparent 55%),
+    #020617;
+  overflow: hidden;
+}
+
+/* ชั้นบับเบิลจาง ๆ ให้ดูขี้เล่น */
+body.kid-bg::before,
+body.kid-bg::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20% 40%, rgba(255,255,255,0.08) 0, transparent 55%),
+    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.05) 0, transparent 55%);
+  opacity: 0.7;
+  mix-blend-mode: screen;
+  z-index: -1;
+}
+
+/* กล่อง HUD / แถบด้านบน (ถ้ามี) ให้ดูกลมมนขึ้น */
+body.kid-bg .hha-top,
+body.kid-bg .hha-summary,
+body.kid-bg .hha-quest,
+body.kid-bg .hha-card {
+  border-radius: 18px;
+  background: linear-gradient(135deg, #020617, #020617);
+  box-shadow:
+    0 10px 25px rgba(15,23,42,0.7),
+    0 0 0 2px rgba(148,163,184,0.16);
+}
+
+/* ถ้ามี progress bar อยู่บนสุดให้เงานิ่ม ๆ */
+body.kid-bg .hha-bar,
+body.kid-bg .hha-progress {
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(15,23,42,0.7), 0 8px 18px rgba(15,23,42,0.85);
+}
+
+/* พื้นที่ spawn เป้า (DOM mode: goodjunk/groups/plate) */
+#spawnHost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 650;
+}
+
+/* เป้าแต่ละชิ้นให้ดูเด้ง ๆ น่ารักขึ้น */
+#spawnHost > div {
+  filter: drop-shadow(0 8px 18px rgba(15,23,42,0.8));
+  transition: transform 0.08s ease-out;
+}
+
+#spawnHost > div:active {
+  transform: translate(-50%, -50%) scale(0.96);
+}
