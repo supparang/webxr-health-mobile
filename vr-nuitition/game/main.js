@@ -1,14 +1,10 @@
-// === Hero Health — game/main.js (Multiverse + Boss + MiniQuest + Research CSV, Production 2025-11-29) ===
+// === Hero Health — game/main.js (Multiverse + Boss + MiniQuest + Research CSV) ===
 'use strict';
 
 // ---------- อ่านค่าจาก URL ----------
 const url = new URL(window.location.href);
 const MODE = (url.searchParams.get('mode') || 'goodjunk').toLowerCase();
-let rawDiff = (url.searchParams.get('diff') || 'normal').toLowerCase();
-
-// normalize diff เผื่อเมนูส่ง medium มา
-if (rawDiff === 'medium') rawDiff = 'normal';
-const DIFF = rawDiff;
+const DIFF = (url.searchParams.get('diff') || 'normal').toLowerCase();
 
 let timeParam = parseInt(url.searchParams.get('time'), 10);
 if (isNaN(timeParam) || timeParam <= 0) timeParam = 60;
@@ -128,7 +124,11 @@ function downloadTeacherCsv(summaries) {
     'boss_spawned',
     'boss_defeated',
     'rank_slug',
-    'rank_label'
+    'rank_label',
+    // benchmark (optional, เผื่อวิเคราะห์ทีหลัง)
+    'bench_target_acc',
+    'bench_target_mission',
+    'bench_expected_rt'
   ];
   const lines = [header.join(',')];
 
@@ -156,7 +156,16 @@ function downloadTeacherCsv(summaries) {
       (s.boss && s.boss.spawned) ? 1 : 0,
       (s.boss && s.boss.defeated) ? 1 : 0,
       s.rankSlug || '',
-      JSON.stringify(s.rankLabel || '').replace(/"/g, '""')
+      JSON.stringify(s.rankLabel || '').replace(/"/g, '""'),
+      (s.benchmark && s.benchmark.targetAccuracyPct != null)
+        ? s.benchmark.targetAccuracyPct
+        : '',
+      (s.benchmark && s.benchmark.targetMissionSuccessPct != null)
+        ? s.benchmark.targetMissionSuccessPct
+        : '',
+      (s.benchmark && s.benchmark.expectedAvgRTms != null)
+        ? s.benchmark.expectedAvgRTms
+        : ''
     ];
     lines.push(row.join(','));
   });
@@ -262,6 +271,11 @@ const cfg = (typeof MODE_IMPL.setupForDiff === 'function')
   ? (MODE_IMPL.setupForDiff(DIFF) || {})
   : {};
 
+// benchmark จากโหมด (ถ้ามี ใช้เก็บลง summary ด้วย)
+const BENCHMARK = (typeof MODE_IMPL.benchmarkForDiff === 'function')
+  ? (MODE_IMPL.benchmarkForDiff(DIFF) || null)
+  : null;
+
 const SPAWN_INTERVAL = cfg.SPAWN_INTERVAL || 700;
 const ITEM_LIFETIME  = cfg.ITEM_LIFETIME  || 1500;
 const MAX_ACTIVE     = cfg.MAX_ACTIVE     || 4;
@@ -276,10 +290,10 @@ const FEVER_DURATION       = cfg.FEVER_DURATION       || 6;
 const DIAMOND_TIME_BONUS   = cfg.DIAMOND_TIME_BONUS   || 2;
 
 // ---------- Boss Config ----------
-const BOSS_WINDOW_SEC  = 7;
-const BOSS_HP          = 5;
-const BOSS_SCORE_PER_HIT = 10;
-const BOSS_BONUS_CLEAR = 50;
+const BOSS_WINDOW_SEC  = 7;      // ช่วงวินาทีท้ายเกมที่ Boss จะโผล่
+const BOSS_HP          = 5;      // ต้องคลิกกี่ทีถึงล้ม
+const BOSS_SCORE_PER_HIT = 10;   // คะแนนต่อ hit
+const BOSS_BONUS_CLEAR = 50;     // โบนัสเมื่อล้มได้ก่อนหมดเวลา
 
 // ---------- State ----------
 let running = false;
@@ -299,7 +313,7 @@ let feverTriggeredCount = 0;
 let bossSpawned = false;
 let bossDefeated = false;
 
-// reaction time
+// ใช้สำหรับ reaction time
 let roundStartPerf = 0;
 
 // ---------- Mini Quest State ----------
@@ -400,7 +414,8 @@ function ensureGameCSS() {
       100%{ transform: translate(-50%,0); }
     }
     body.hha-fever::before {
-      content:''; position:fixed; inset:0;
+      content:'';
+      position:fixed;inset:0;
       pointer-events:none;
       background:
         radial-gradient(circle at top, rgba(248,113,113,0.2), transparent 55%),
@@ -434,6 +449,7 @@ function computeRank(scoreVal, goodVal, targetVal, accuracyVal) {
   const ratio = target > 0 ? (goodVal / target) : 0;
   const acc = (typeof accuracyVal === 'number') ? accuracyVal : null;
 
+  // Default
   let slug = 'rookie';
   let label = 'Rookie 🟢';
 
@@ -464,8 +480,6 @@ function createHUD() {
   const missionTextFromMode = (typeof MODE_IMPL.missionText === 'function')
     ? MODE_IMPL.missionText(MISSION_GOOD_TARGET)
     : ('ภารกิจ: เก็บให้ครบ ' + MISSION_GOOD_TARGET + ' ชิ้น');
-
-  const modeLabel = MODE_IMPL.label || MODE.toUpperCase();
 
   hud = document.createElement('div');
   hud.id = 'hha-hud';
@@ -549,7 +563,7 @@ function createHUD() {
         font-size:13px;z-index:9100;
         font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
       ">
-      ${modeLabel} • ${DIFF.toUpperCase()} • <span id="hha-time"></span>s
+      ${MODE.toUpperCase()} • ${DIFF.toUpperCase()} • <span id="hha-time"></span>s
     </div>
 
     <div id="hha-result"
@@ -1083,7 +1097,7 @@ function spawnBoss(host) {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'transform 0.12s.ease, opacity 0.12s ease',
+    transition: 'transform 0.12s ease, opacity 0.12s ease',
     pointerEvents: 'auto',
     background: 'radial-gradient(circle at 30% 20%, #fecaca, #b91c1c)',
     animation: 'hha-float 1.1s ease-in-out infinite'
@@ -1237,6 +1251,7 @@ function computeAndShowResult() {
     boss: { spawned: bossSpawned, defeated: bossDefeated },
     rankSlug: rank.slug,
     rankLabel: rank.label,
+    benchmark: BENCHMARK || null, // เก็บ diff benchmark ไว้ด้วย
     profile: playerProfile || {}
   };
   HHA_SUMMARIES.push(summary);
@@ -1262,6 +1277,7 @@ function startGame() {
   if (running) return;
   running = true;
 
+  // ซ่อนข้อความโหลด (กันเห็นตัวอักษรกลางจอระหว่างเล่น)
   hideLoadingScene();
 
   score = 0;
@@ -1329,6 +1345,7 @@ function bootstrap() {
   updateHUD();
   initExportDropdown();
 
+  // ซ่อน loading scene ทันทีที่ engine พร้อม
   hideLoadingScene();
 
   const restartBtn = $('#hha-restart');
