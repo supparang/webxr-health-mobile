@@ -4,7 +4,7 @@
 // เพื่อให้ goodjunk-vr.html ใช้ชื่อเดียวกันเสมอ
 
 // 👈 GameEngine.js อยู่ในโฟลเดอร์ /vr
-import { GameEngine } from '../vr-goodjunk/GameEngine.js';
+import { GameEngine } from './vr-goodjunk/GameEngine.js';
 
 // ใช้ชื่อ GameEngineVR สำหรับโหมด VR
 export const GameEngineVR = GameEngine;
