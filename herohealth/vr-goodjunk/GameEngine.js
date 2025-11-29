@@ -1,5 +1,4 @@
-// === /HeroHealth/vr/vr-goodjunk/GameEngine.js (Good vs Junk VR – with HUD) ===
-'use strict';
+// === /HeroHealth/vr/GameEngine.js (Good vs Junk VR — Production Ready) ===
 
 import { ensureFeverBar, setFever, setFeverActive, setShield } from './ui-fever.js';
 import { Difficulty } from './difficulty.js';
@@ -7,129 +6,191 @@ import { emojiImage } from './emoji-image.js';
 import { burstAt, floatScore, setShardMode } from './aframe-particles.js';
 import { Quest } from './quest-serial.js';
 
-// --- Game-wide state (required by Quest) ---
-let shield = 0;
-let fever = 0;
-let sceneEl = null;
-let targetRoot = null;
-let difficulty = new Difficulty();
-let gameConfig = null;
-let gameTimer = null;
-let spawnTimer = null;
-let timeLeftSec = 60;
+// ---- util: emit event แบบสั้น ๆ ----
+function emit(name, detail) {
+  try {
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+  } catch (_) {}
+}
+// ให้โมดูลอื่นที่เคยใช้ window.emit ใช้ต่อได้
+window.emit = emit;
 
-// expose minimal globals for Quest.js
-window.score = 0;
-window.combo = 0;
-window.misses = 0;
+// ---- ค่าพื้นฐานของเกม ----
+const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
+const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+
+const STAR  = '⭐';
+const DIA   = '💎';
+const SHIELD_EMOJI = '🛡️';
+const FIRE  = '🔥';
+const BONUS = [STAR, DIA, SHIELD_EMOJI, FIRE];
+
+// ---- state ภายใน Engine ----
+let sceneEl       = null;
+let targetRoot    = null;
+let difficulty    = new Difficulty();
+let difficultyLvl = 'normal';
+
+let durationSec   = 60;
+let elapsedSec    = 0;
+let timeLeftSec   = 60;
+
+let score         = 0;
+let combo         = 0;
+let comboMax      = 0;
+let goodHits      = 0;
+let junkHits      = 0;
+let goodMissTimeout = 0; // ของดีหลุดจอ
+let misses        = 0;   // พลาดรวม (โดนขยะ + ของดีหลุดจอ)
+
+let shield        = 0;
+let fever         = 0;
+let FEVER_ACTIVE  = false;
+let running       = false;
+
+let spawnTimer    = null;
+let gameTimer     = null;
+
+// เพื่อกันการ bind ซ้ำเวลากดเล่นหลายรอบ
+let inputBound    = false;
+
+// HUD elements
+let hudRoot = null;
+let hudScoreEl = null;
+let hudComboEl = null;
+let hudGoodEl  = null;
+let hudMissEl  = null;
+let hudTimeEl  = null;
+
+// ---- Global สำหรับ Quest.js ที่คาดหวังตัวแปรบน window ----
+window.score        = 0;
+window.combo        = 0;
+window.misses       = 0;
 window.FEVER_ACTIVE = false;
-window.running = false;
+window.running      = false;
 
-window.emit = function(name, detail) {
-  try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch (e) {}
-};
-
-window.feverStart = function() {
-  if (window.FEVER_ACTIVE) return;
+// ให้ Quest เรียกเปิดโหมด FEVER ได้
+window.feverStart = function feverStart() {
+  if (FEVER_ACTIVE) return;
+  FEVER_ACTIVE = true;
+  window.FEVER_ACTIVE = true;
   fever = 100;
   setFever(fever);
-  window.FEVER_ACTIVE = true;
   setFeverActive(true);
   Quest.onFever();
-  window.emit('hha:fever', { state: 'start' });
+  emit('hha:fever', { state: 'start' });
 };
 
-window.popupText = function(text, pos, color = '#fff') {
-  const worldPos = { x: 0, y: (pos && pos.y) || 1.4, z: -1.5 };
-  floatScore(sceneEl, worldPos, text, color);
-};
+// ---- HUD (Score / Combo / Good / Miss / Time) ----
+function ensureHudCss() {
+  if (document.getElementById('hha-hud-style')) return;
 
-// --- HUD (Score + Combo + Miss + Time) ---
-let hudEl = null;
-function ensureHud() {
-  if (hudEl && document.body.contains(hudEl)) return hudEl;
-
-  const cssId = 'hha-hud-style';
-  if (!document.getElementById(cssId)) {
-    const st = document.createElement('style');
-    st.id = cssId;
-    st.textContent = `
-      #hhaHud {
-        position: fixed;
-        left: 16px;
-        bottom: 16px;
-        padding: 10px 14px;
-        border-radius: 14px;
-        background: rgba(15,23,42,.86);
-        border: 1px solid rgba(148,163,184,.75);
-        color: #e5e7eb;
-        font: 600 13px/1.5 system-ui, -apple-system, 'IBM Plex Sans Thai', sans-serif;
-        z-index: 920;
-        box-shadow: 0 16px 40px rgba(0,0,0,.45);
-        backdrop-filter: blur(8px);
-        min-width: 180px;
-      }
-      #hhaHud .row {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-      }
-      #hhaHud .label {
-        opacity: .8;
-      }
-      #hhaHud .val {
-        font-weight: 700;
-      }
-      #hhaHud .big {
-        font-size: 16px;
-      }
-    `;
-    document.head.appendChild(st);
+  const st = document.createElement('style');
+  st.id = 'hha-hud-style';
+  st.textContent = `
+  #hha-hud{
+    position:fixed;
+    left:16px;
+    top:16px;
+    z-index:905;
+    pointer-events:none;
+    font-family: system-ui, -apple-system, 'IBM Plex Sans Thai', sans-serif;
   }
-
-  hudEl = document.getElementById('hhaHud');
-  if (!hudEl) {
-    hudEl = document.createElement('div');
-    hudEl.id = 'hhaHud';
-    hudEl.setAttribute('data-hha-ui', '');
-    document.body.appendChild(hudEl);
+  #hha-hud .card{
+    background:linear-gradient(145deg, rgba(15,23,42,.92), rgba(30,64,175,.88));
+    border-radius:18px;
+    padding:10px 14px;
+    box-shadow:0 14px 30px rgba(15,23,42,.7);
+    border:1px solid rgba(148,163,184,.7);
+    min-width:190px;
+    color:#e5e7eb;
   }
-  return hudEl;
+  #hha-hud .row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:13px;
+    margin:2px 0;
+  }
+  #hha-hud .row .label{
+    opacity:.9;
+  }
+  #hha-hud .row .val{
+    font-weight:700;
+    margin-left:8px;
+  }
+  #hha-hud .row .val.big{
+    font-size:17px;
+  }
+  @media (max-width:600px){
+    #hha-hud .card{
+      padding:8px 10px;
+      min-width:170px;
+    }
+    #hha-hud .row{
+      font-size:12px;
+    }
+  }
+  `;
+  document.head.appendChild(st);
 }
 
-function renderHud({ score, combo, misses, goodHits, timeLeft }) {
-  const hud = ensureHud();
-  hud.innerHTML = `
-    <div class="row">
-      <span class="label">คะแนน</span>
-      <span class="val big">${score|0}</span>
-    </div>
-    <div class="row">
-      <span class="label">คอมโบ</span>
-      <span class="val">x${combo|0}</span>
-    </div>
-    <div class="row">
-      <span class="label">เก็บของดี</span>
-      <span class="val">${goodHits|0}</span>
-    </div>
-    <div class="row">
-      <span class="label">พลาด</span>
-      <span class="val">${misses|0}</span>
-    </div>
-    <div class="row">
-      <span class="label">เวลา</span>
-      <span class="val">${Math.max(0, timeLeft|0)}s</span>
+function ensureHud() {
+  ensureHudCss();
+  if (hudRoot) return;
+
+  hudRoot = document.createElement('div');
+  hudRoot.id = 'hha-hud';
+  hudRoot.setAttribute('data-hha-ui', '1');
+  hudRoot.innerHTML = `
+    <div class="card">
+      <div class="row">
+        <span class="label">⭐ คะแนน</span>
+        <span class="val big" data-hha-hud="score">0</span>
+      </div>
+      <div class="row">
+        <span class="label">🔥 คอมโบ</span>
+        <span class="val" data-hha-hud="combo">x0</span>
+      </div>
+      <div class="row">
+        <span class="label">🥦 ของดี</span>
+        <span class="val" data-hha-hud="good">0</span>
+      </div>
+      <div class="row">
+        <span class="label">❌ พลาด</span>
+        <span class="val" data-hha-hud="miss">0</span>
+      </div>
+      <div class="row">
+        <span class="label">⏱ เวลา</span>
+        <span class="val" data-hha-hud="time">60s</span>
+      </div>
     </div>
   `;
+  document.body.appendChild(hudRoot);
+
+  hudScoreEl = hudRoot.querySelector('[data-hha-hud="score"]');
+  hudComboEl = hudRoot.querySelector('[data-hha-hud="combo"]');
+  hudGoodEl  = hudRoot.querySelector('[data-hha-hud="good"]');
+  hudMissEl  = hudRoot.querySelector('[data-hha-hud="miss"]');
+  hudTimeEl  = hudRoot.querySelector('[data-hha-hud="time"]');
 }
 
-// --- internal helpers ---
+function renderHud() {
+  if (!hudRoot) return;
+  if (hudScoreEl) hudScoreEl.textContent = String(score | 0);
+  if (hudComboEl) hudComboEl.textContent = 'x' + String(combo | 0);
+  if (hudGoodEl)  hudGoodEl.textContent  = String(goodHits | 0);
+  if (hudMissEl)  hudMissEl.textContent  = String(misses | 0);
+  if (hudTimeEl)  hudTimeEl.textContent  = String(Math.max(0, timeLeftSec | 0)) + 's';
+}
+
+// ---- FEVER / Shield helpers ----
 function mult() {
-  return window.FEVER_ACTIVE ? 2 : 1;
+  return FEVER_ACTIVE ? 2 : 1;
 }
 
 function gainFever(n) {
-  if (window.FEVER_ACTIVE) return;
+  if (FEVER_ACTIVE) return;
   fever = Math.max(0, Math.min(100, fever + n));
   setFever(fever);
   if (fever >= 100) {
@@ -138,35 +199,54 @@ function gainFever(n) {
 }
 
 function decayFever(base) {
-  const d = window.FEVER_ACTIVE ? 10 : base;
+  const d = FEVER_ACTIVE ? 10 : base;
   fever = Math.max(0, fever - d);
   setFever(fever);
-  if (window.FEVER_ACTIVE && fever <= 0) {
+  if (FEVER_ACTIVE && fever <= 0) {
+    FEVER_ACTIVE = false;
     window.FEVER_ACTIVE = false;
     setFeverActive(false);
-    window.emit('hha:fever', { state: 'end' });
+    emit('hha:fever', { state: 'end' });
   }
 }
 
-const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
-const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
-const STAR = '⭐', DIA = '💎', SHIELD_EMOJI = '🛡️', FIRE = '🔥';
-const BONUS = [STAR, DIA, SHIELD_EMOJI, FIRE];
+// ---- Input Binding (PC + Mobile + VR) ----
+function bindInputHandlers(scene) {
+  if (inputBound || !scene) return;
+  inputBound = true;
 
-let goodHits = 0;
+  // รองรับ trigger / tap (A-Frame จะยิง event 'click' ใส่ entity)
+  scene.addEventListener('click', (e) => {
+    if (!running) return;
+    const t = e.target;
+    if (t && t.dataset && t.dataset.hhaTgt) {
+      onHitTarget(t);
+    }
+  });
 
-// --- target spawn ---
+  // รองรับ mouse บน PC โดยอ่านจาก raycaster ของ <a-cursor>
+  scene.addEventListener('mousedown', () => {
+    if (!running) return;
+    const cursor = document.getElementById('cursor');
+    if (!cursor || !cursor.components || !cursor.components.raycaster) return;
+    const rc = cursor.components.raycaster;
+    const target = rc.intersectedEls && rc.intersectedEls[0];
+    if (target && target.dataset && target.dataset.hhaTgt) {
+      onHitTarget(target);
+    }
+  });
+}
+
+// ---- สร้างเป้า ----
 function spawnTarget() {
-  if (!window.running) return;
+  if (!running || !sceneEl || !targetRoot) return;
 
-  const cfg = gameConfig;
+  const cfg = difficulty.get(difficultyLvl) || { size: 0.8, rate: 800, life: 2200 };
+
   const isGood = Math.random() < 0.65;
   const usePower = Math.random() < 0.08;
 
-  let char;
-  let type;
-  let palette;
-
+  let char, type, palette;
   if (usePower) {
     char = BONUS[(Math.random() * BONUS.length) | 0];
     type = 'good';
@@ -183,237 +263,280 @@ function spawnTarget() {
 
   const scale = cfg.size * 0.6;
   const el = emojiImage(char, scale);
-  el.dataset.type = type;
-  el.dataset.char = char;
+  el.dataset.type    = type;
+  el.dataset.char    = char;
   el.dataset.palette = palette;
-  el.setAttribute('data-hha-tgt', '1');
+  el.dataset.hhaTgt  = '1';
 
-  const x = (Math.random() - 0.5) * 4;
-  const y = 1.0 + Math.random() * 1.0;
-  const z = -2.5 - Math.random() * 1.0;
+  const x = (Math.random() - 0.5) * 4;     // -2..+2
+  const y = 1.0 + Math.random() * 1.0;     // 1..2
+  const z = -2.5 - Math.random() * 1.0;    // -2.5..-3.5
   el.setAttribute('position', `${x} ${y} ${z}`);
 
   targetRoot.appendChild(el);
 
-  // life / expire
-  setTimeout(() => {
+  // อายุของเป้า
+  const lifeMs = cfg.life;
+  const timeoutId = setTimeout(() => {
     if (!el.parentNode) return;
+    // ถ้าเป็นของดีแล้วปล่อยหลุด = พลาด
     if (type === 'good') {
-      // miss good
-      window.misses++;
-      window.combo = 0;
-      window.emit('hha:miss', {});
+      goodMissTimeout++;
+      misses++;
+      combo = 0;
+      window.combo = combo;
+      emit('hha:miss', { reason: 'timeout-good' });
+      decayFever(10);
     } else {
-      // dodged junk → little fever
+      // หลบของขยะ = พฤติกรรมดี → +เฟเวอร์เล็กน้อย
       gainFever(4);
     }
-    el.remove();
-    renderHud({
-      score: window.score,
-      combo: window.combo,
-      misses: window.misses,
-      goodHits,
-      timeLeft: timeLeftSec
-    });
-  }, cfg.life);
+    try { el.remove(); } catch (_) {}
+    renderHud();
+  }, lifeMs);
 
-  spawnTimer = setTimeout(spawnTarget, cfg.rate);
+  // ถ้าเกมหยุดกลางคัน
+  el.addEventListener('removed', () => clearTimeout(timeoutId));
+
+  // plan spawn ถัดไป
+  const nextDelay = cfg.rate;
+  spawnTimer = setTimeout(spawnTarget, nextDelay);
 }
 
+// ---- ยิงโดนเป้า ----
 function onHitTarget(targetEl) {
-  if (!targetEl || !targetEl.parentNode) return;
+  if (!running || !targetEl || !targetEl.parentNode || !sceneEl) return;
 
-  const type = targetEl.dataset.type;
-  const char = targetEl.dataset.char;
-  const palette = targetEl.dataset.palette;
+  const type    = targetEl.dataset.type;
+  const char    = targetEl.dataset.char;
+  const palette = targetEl.dataset.palette || 'default';
 
-  const THREE = window.THREE;
-  let pos = null;
-  if (targetEl.object3D && THREE && THREE.Vector3) {
+  let pos;
+  try {
+    // THREE มาจาก A-Frame
+    // eslint-disable-next-line no-undef
     pos = targetEl.object3D.getWorldPosition(new THREE.Vector3());
-  } else {
-    pos = { x:0, y:1.4, z:-2.5 };
+  } catch (_) {
+    pos = { x: 0, y: 1.4, z: -1.8 };
   }
 
-  let scoreDelta = 0;
+  let delta = 0;
 
   if (type === 'good') {
+    // Power-ups
     if (char === STAR) {
-      scoreDelta = 40 * mult(); gainFever(10);
+      delta = 40 * mult();
+      score += delta;
+      gainFever(10);
     } else if (char === DIA) {
-      scoreDelta = 80 * mult(); gainFever(30);
+      delta = 80 * mult();
+      score += delta;
+      gainFever(30);
     } else if (char === SHIELD_EMOJI) {
-      scoreDelta = 20;
+      delta = 20;
+      score += delta;
       shield = Math.min(3, shield + 1);
       setShield(shield);
     } else if (char === FIRE) {
-      scoreDelta = 25;
+      delta = 25;
+      score += delta;
       window.feverStart();
     } else {
-      scoreDelta = (20 + window.combo * 2) * mult();
-      gainFever(8 + window.combo * 0.6);
+      // ของดีปกติ
+      delta = (20 + combo * 2) * mult();
+      score += delta;
+      gainFever(8 + combo * 0.6);
     }
 
-    window.score += scoreDelta;
-    window.combo++;
     goodHits++;
+    combo++;
+    comboMax = Math.max(comboMax, combo);
+
     Quest.onGood();
-    burstAt(sceneEl, pos, { mode: palette || 'goodjunk' });
-    floatScore(sceneEl, pos, `+${scoreDelta}`, '#22c55e');
+
+    burstAt(sceneEl, pos, { mode: palette });
+    floatScore(sceneEl, pos, '+' + delta, '#22c55e');
+
   } else {
-    // hit junk
+    // ตีโดนของขยะ
     if (shield > 0) {
       shield--;
       setShield(shield);
       burstAt(sceneEl, pos, { mode: 'hydration' });
-      floatScore(sceneEl, pos, 'SHIELDED!', '#60a5fa');
+      floatScore(sceneEl, pos, '🛡️', '#60a5fa');
     } else {
-      scoreDelta = -15;
-      window.score = Math.max(0, window.score + scoreDelta);
-      window.combo = 0;
-      window.misses++;
+      delta = -15;
+      score = Math.max(0, score + delta);
+      combo = 0;
+      junkHits++;
+      misses++;
       decayFever(18);
       Quest.onBad();
-      window.emit('hha:miss', {});
-      burstAt(sceneEl, pos, { mode: palette || 'plate' });
-      floatScore(sceneEl, pos, `${scoreDelta}`, '#ef4444');
+      emit('hha:miss', { reason: 'hit-junk' });
+      burstAt(sceneEl, pos, { mode: palette });
+      floatScore(sceneEl, pos, String(delta), '#ef4444');
     }
   }
 
-  window.emit('hha:score', {
-    score: window.score,
-    combo: window.combo,
-    delta: scoreDelta,
-    goodHits,
-    misses: window.misses
-  });
+  window.score  = score;
+  window.combo  = combo;
+  window.misses = misses;
 
-  renderHud({
-    score: window.score,
-    combo: window.combo,
-    misses: window.misses,
-    goodHits,
-    timeLeft: timeLeftSec
-  });
+  emit('hha:score', { score, combo, delta });
 
-  targetEl.remove();
+  try { targetEl.remove(); } catch (_) {}
+  renderHud();
 }
 
+// ---- tick รายวินาที ----
 function gameTick() {
-  if (!window.running) return;
+  if (!running) return;
+  elapsedSec += 1;
+  timeLeftSec = Math.max(0, durationSec - elapsedSec);
 
-  timeLeftSec = Math.max(0, timeLeftSec - 1);
+  // decay fever ตาม combo
+  if (combo <= 0) decayFever(6);
+  else            decayFever(2);
 
-  decayFever(window.combo <= 0 ? 6 : 2);
-
-  window.emit('hha:time', { sec: timeLeftSec });
-
-  renderHud({
-    score: window.score,
-    combo: window.combo,
-    misses: window.misses,
-    goodHits,
-    timeLeft: timeLeftSec
-  });
-
-  if (timeLeftSec <= 0) {
-    // ให้ Launcher จัดการจอจบเกมผ่าน hha:end
-    GameEngine.stop();
-    window.emit('hha:end', { score: window.score });
-  }
+  emit('hha:time', { sec: timeLeftSec });
+  renderHud();
 }
 
-// --- public controller ---
+// ---- Reset state ตอนเริ่มเกมใหม่ ----
+function resetState() {
+  score           = 0;
+  combo           = 0;
+  comboMax        = 0;
+  goodHits        = 0;
+  junkHits        = 0;
+  goodMissTimeout = 0;
+  misses          = 0;
+  shield          = 0;
+  fever           = 0;
+  FEVER_ACTIVE    = false;
+
+  elapsedSec  = 0;
+  timeLeftSec = durationSec;
+
+  window.score        = 0;
+  window.combo        = 0;
+  window.misses       = 0;
+  window.FEVER_ACTIVE = false;
+}
+
+// ---- Public API ----
 export const GameEngine = {
-  start(level = 'normal', durationSec = 60) {
+  /**
+   * start(level, opts?)
+   *  level: 'easy' | 'normal' | 'hard'
+   *  opts.durationSec: เวลาเล่น (วินาที) [optional, default 60]
+   */
+  start(level = 'normal', opts = {}) {
     sceneEl = document.querySelector('a-scene');
     if (!sceneEl) {
-      console.error('A-Frame scene not found');
+      console.error('[GameEngine] A-Frame <a-scene> not found');
       return;
     }
 
-    // cleanup old
-    if (targetRoot && targetRoot.parentNode) targetRoot.parentNode.removeChild(targetRoot);
-    targetRoot = document.createElement('a-entity');
-    targetRoot.id = 'targetRoot';
-    sceneEl.appendChild(targetRoot);
+    difficultyLvl = String(level || 'normal').toLowerCase();
+    durationSec   = (opts && Number.isFinite(opts.durationSec))
+      ? Math.max(20, Math.min(180, opts.durationSec | 0))
+      : 60;
+    timeLeftSec   = durationSec;
+    elapsedSec    = 0;
 
+    resetState();
     ensureFeverBar();
+    setFever(0);
+    setFeverActive(false);
+    setShield(0);
     setShardMode('goodjunk');
     ensureHud();
+    renderHud();
 
-    // reset state
-    window.score = 0;
-    window.combo = 0;
-    window.misses = 0;
-    shield = 0;
-    fever = 0;
-    goodHits = 0;
-    window.FEVER_ACTIVE = false;
-    window.running = true;
-    timeLeftSec = durationSec | 0;
+    bindInputHandlers(sceneEl);
 
-    setFever(0);
-    setShield(0);
-    setFeverActive(false);
+    // Reset target root
+    if (targetRoot && targetRoot.parentNode) {
+      targetRoot.parentNode.removeChild(targetRoot);
+    }
+    targetRoot = document.createElement('a-entity');
+    targetRoot.id = 'hha-target-root';
+    sceneEl.appendChild(targetRoot);
 
-    difficulty.set(level);
-    gameConfig = difficulty.get();
+    // set difficulty
+    difficulty.set(difficultyLvl);
 
+    // timers
     if (gameTimer) clearInterval(gameTimer);
     if (spawnTimer) clearTimeout(spawnTimer);
+    running       = true;
+    window.running = true;
 
-    gameTimer = setInterval(gameTick, 1000);
-    spawnTimer = setTimeout(spawnTarget, 1000);
+    gameTimer  = setInterval(gameTick, 1000);
+    spawnTimer = setTimeout(spawnTarget, 900);
 
-    Quest.start();
+    Quest.start(); // เริ่มระบบ Mini Quest แบบ serial
 
-    // click (VR trigger / mobile tap / mouse)
-    sceneEl.addEventListener('click', (e) => {
-      if (e.target && e.target.dataset && e.target.dataset.hhaTgt) {
-        onHitTarget(e.target);
-      }
-    });
-
-    // mouse-specific (desktop)
-    sceneEl.addEventListener('mousedown', () => {
-      if (!window.running) return;
-      const cursor = document.getElementById('cursor');
-      if (!cursor || !cursor.components || !cursor.components.raycaster) return;
-      const raycaster = cursor.components.raycaster;
-      const target = raycaster.intersectedEls && raycaster.intersectedEls[0];
-      if (target && target.dataset && target.dataset.hhaTgt) {
-        onHitTarget(target);
-      }
-    });
-
-    renderHud({
-      score: window.score,
-      combo: window.combo,
-      misses: window.misses,
-      goodHits,
-      timeLeft: timeLeftSec
-    });
-
-    window.emit('hha:score', { score: 0, combo: 0, delta: 0, goodHits: 0, misses: 0 });
-    window.emit('hha:time', { sec: timeLeftSec });
+    emit('hha:score', { score, combo, delta: 0 });
+    emit('hha:time', { sec: timeLeftSec });
   },
 
   stop() {
-    if (!window.running) return;
+    if (!running) return;
+    running       = false;
     window.running = false;
 
-    if (gameTimer) clearInterval(gameTimer);
-    if (spawnTimer) clearTimeout(spawnTimer);
-    gameTimer = null;
-    spawnTimer = null;
+    if (gameTimer) { clearInterval(gameTimer); gameTimer = null; }
+    if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null; }
 
     Quest.stop();
 
+    // ล้างเป้า
     if (targetRoot && targetRoot.parentNode) {
       targetRoot.parentNode.removeChild(targetRoot);
     }
     targetRoot = null;
+
+    // ลบ UI (HUD / Fever bar / Coach ฯลฯ)
+    document.querySelectorAll('[data-hha-ui]').forEach(el => {
+      try { el.remove(); } catch (_) {}
+    });
+    hudRoot = null;
+    hudScoreEl = hudComboEl = hudGoodEl = hudMissEl = hudTimeEl = null;
+
+    // ส่งสรุปสำหรับ research logger
+    emit('hha:end', {
+      mode:            'Good vs Junk VR',
+      difficulty:      difficultyLvl,
+      duration:        durationSec,
+      score,
+      comboMax,
+      goodHits,
+      junkHits,
+      goodMissTimeout,
+      misses
+    });
+  },
+
+  // สำหรับ debug / วิจัยเพิ่มเติม
+  getState() {
+    return {
+      running,
+      difficulty: difficultyLvl,
+      durationSec,
+      timeLeftSec,
+      score,
+      combo,
+      comboMax,
+      goodHits,
+      junkHits,
+      goodMissTimeout,
+      misses,
+      shield,
+      fever,
+      FEVER_ACTIVE
+    };
   }
 };
 
