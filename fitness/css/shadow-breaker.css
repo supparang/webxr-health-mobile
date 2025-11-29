@@ -786,3 +786,38 @@ body {
     align-items: flex-start;
   }
 }
+/* ===== FORCE STATS BOX TO TOP LEFT (DESKTOP) ===== */
+@media (min-width: 1025px) {
+  /* จัด layout แถวบน: [สถิติ][สนามเป้า][การ์ดบอส] */
+  .sb-play-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.8fr) minmax(0, 1.1fr);
+    grid-auto-rows: auto;
+    gap: 10px;
+    margin-top: 4px;          /* ให้ชิด HUD มากขึ้น */
+    align-items: flex-start;  /* ดันทุกคอลัมน์ชิดด้านบน */
+  }
+
+  /* กล่องสถิติรอบนี้ */
+  .sb-side-card--stats {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: flex-start;
+    margin-top: 0;
+  }
+
+  /* สนามเป้า (gameplay) */
+  .sb-play-main {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: flex-start;
+  }
+
+  /* การ์ดข้อมูลบอส */
+  .sb-side-card--boss {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: flex-start;
+    margin-top: 0;
+  }
+}
