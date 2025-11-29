@@ -33,60 +33,129 @@
 </header>
 
   <!-- ===== VIEW: MENU ===== -->
-  <section id="sb-view-menu" class="sb-view is-active">
-    <div class="sb-card sb-card-main">
-      <h1 class="sb-title">Shadow Breaker — ชกเป้าให้ทันจังหวะ</h1>
+<section id="sb-view-play" class="sb-view" aria-label="เล่นเกม Shadow Breaker">
+  <div class="sb-play-layout">
 
-      <h2 class="sb-section-title">โหมดฝึกชกเป้า + Boss</h2>
-      <p class="sb-lead">
-        เลือกความยากและเวลาที่ต้องการ แล้วเริ่มฝึกชกเป้าตามจังหวะเพื่อโจมตีบอส
-      </p>
+    <!-- แถวบน: สถิติเกมนี้ + HP/สถิติกลาง + Boss info -->
+    <div class="sb-play-row">
 
-      <div class="sb-menu-grid">
-        <div class="sb-menu-col">
-          <label class="sb-field">
-            <span class="sb-field-label">ระดับความยาก</span>
-            <select id="sb-diff" class="sb-select">
-              <option value="easy">Easy — ผ่อนคลาย</option>
-              <option value="normal" selected>Normal — สมดุล</option>
-              <option value="hard">Hard — ท้าทาย</option>
-            </select>
-            <p class="sb-field-hint">
-              ยิ่งยาก เป้าจะเล็กลงและมาเร็วขึ้น
-            </p>
-          </label>
+      <!-- ซ้าย: สถิติเกมนี้ -->
+      <aside class="sb-card sb-card-left" aria-label="สถิติเกมนี้">
+        <h2 class="sb-card-title">สถิติเกมนี้</h2>
+        <div class="sb-stat-block-row">
+          <div class="sb-stat-pill">
+            <span class="sb-stat-label">Score</span>
+            <span id="sb-stat-score" class="sb-stat-value">0</span>
+          </div>
+          <div class="sb-stat-pill">
+            <span class="sb-stat-label">Max Combo</span>
+            <span id="sb-stat-maxcombo" class="sb-stat-value">0</span>
+          </div>
+          <div class="sb-stat-pill">
+            <span class="sb-stat-label">Miss</span>
+            <span id="sb-stat-miss" class="sb-stat-value">0</span>
+          </div>
+          <div class="sb-stat-pill">
+            <span class="sb-stat-label">Shield</span>
+            <span id="sb-stat-shield" class="sb-stat-value">0</span>
+          </div>
         </div>
-        <div class="sb-menu-col">
-          <label class="sb-field">
-            <span class="sb-field-label">ระยะเวลาเล่น</span>
-            <select id="sb-time" class="sb-select">
-              <option value="45">45 วินาที</option>
-              <option value="60" selected>60 วินาที</option>
-              <option value="90">90 วินาที</option>
-            </select>
-          </label>
+
+        <p class="sb-pause-hint">
+          โหมด Pause: ใช้สำหรับหยุดก่อนจบ Session (จะนับเป็น stop-early ในไฟล์วิจัย)
+        </p>
+        <label class="sb-checkbox-row">
+          <input id="sb-btn-pause" type="checkbox">
+          <span>Pause / จบก่อนเวลา</span>
+        </label>
+
+        <button id="sb-btn-back-menu" class="sb-btn sb-btn-ghost sb-btn-full">
+          ⏹️ จบและกลับเมนู
+        </button>
+      </aside>
+
+      <!-- กลาง: HP + แถว Score / Combo / Time / Phase / Miss -->
+      <section class="sb-card sb-card-center" aria-label="สถานะผู้เล่นและบอส">
+        <div class="sb-hp-row">
+          <div class="sb-hp-block">
+            <div class="sb-hp-label">PLAYER HP</div>
+            <div class="sb-hp-bar">
+              <div id="sb-hp-you-top" class="sb-hp-fill sb-hp-fill-you"></div>
+            </div>
+          </div>
+          <div class="sb-hp-block">
+            <div class="sb-hp-label">BOSS HP</div>
+            <div class="sb-hp-bar">
+              <div id="sb-hp-boss-top" class="sb-hp-fill sb-hp-fill-boss"></div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="sb-menu-actions">
-        <button id="sb-btn-play" class="sb-btn sb-btn-primary">
-          ▶ เริ่มเล่นโหมดปกติ
-        </button>
-        <button id="sb-btn-research" class="sb-btn sb-btn-secondary">
-          📊 โหมดวิจัย
-        </button>
-      </div>
+        <!-- แถวสถิติแนวนอน -->
+        <div class="sb-hud-strip">
+          <div class="sb-hud-item">
+            <span class="sb-hud-label">Score</span>
+            <span id="sb-text-score" class="sb-hud-value">0</span>
+          </div>
+          <div class="sb-hud-item">
+            <span class="sb-hud-label">Combo</span>
+            <span id="sb-text-combo" class="sb-hud-value">0</span>
+          </div>
+          <div class="sb-hud-item">
+            <span class="sb-hud-label">Time Left</span>
+            <span id="sb-text-time" class="sb-hud-value">60.0 s</span>
+          </div>
+          <div class="sb-hud-item">
+            <span class="sb-hud-label">Phase</span>
+            <span id="sb-text-phase" class="sb-hud-value">1</span>
+          </div>
+          <div class="sb-hud-item">
+            <span class="sb-hud-label">Miss</span>
+            <span id="sb-text-miss" class="sb-hud-value">0</span>
+          </div>
+        </div>
+      </section>
 
-      <div class="sb-menu-research">
-        <h3 class="sb-section-title-sm">รายละเอียดโหมดวิจัย</h3>
-        <ul class="sb-bullets">
-          <li>เก็บข้อมูล <strong>Reaction time, Accuracy, Miss</strong></li>
-          <li>เปรียบเทียบก่อน–หลังโปรแกรม หรือระหว่าง Zone ซ้าย–ขวา</li>
-          <li>ส่งออก CSV เพื่อนำไปวิเคราะห์ต่อใน Excel / R / SPSS</li>
-        </ul>
-      </div>
+      <!-- ขวา: Boss info -->
+      <aside class="sb-card sb-card-boss" aria-label="ข้อมูลบอส">
+        <div class="sb-boss-head">
+          <div id="sb-meta-emoji" class="sb-boss-emoji">🐣</div>
+          <div class="sb-boss-text">
+            <div id="sb-current-boss-name" class="sb-boss-name">
+              Bubble Glove 🐣
+            </div>
+            <div class="sb-boss-sub">
+              Phase <span id="sb-meta-phase">1</span>
+              <span class="sb-boss-dot">•</span>
+              Shield: <span id="sb-meta-shield">0</span>
+            </div>
+          </div>
+        </div>
+        <p id="sb-meta-desc" class="sb-boss-desc">
+          โฟกัสที่ฟองใหญ่ ๆ แล้วตีให้ทัน
+        </p>
+      </aside>
     </div>
-  </section>
+
+    <!-- แถวล่าง: Gameplay เต็มก้อน -->
+    <div class="sb-play-main">
+      <div id="sb-target-layer" class="sb-target-layer"></div>
+
+      <div class="sb-fever-panel">
+        <div class="sb-fever-label">
+          FEVER <span id="sb-label-fever">READY</span>
+        </div>
+        <div class="sb-fever-bar-wrap">
+          <div id="sb-fever-bar" class="sb-fever-bar-fill"></div>
+        </div>
+      </div>
+
+      <p id="sb-msg-main" class="sb-msg-main">
+        แตะ/ชกเป้าให้ทัน ก่อนที่เป้าจะหายไป!
+      </p>
+    </div>
+  </div>
+</section>
 
   <!-- ===== VIEW: PLAY ===== -->
   <section id="sb-view-play" class="sb-view" aria-label="เล่น Shadow Breaker">
