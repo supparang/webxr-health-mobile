@@ -27,11 +27,11 @@ body {
   display: none !important;
 }
 
-/* ===== Shell เหมือน Hub ===== */
+/* ===== Shell ===== */
 .fitness-shell {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 16px 16px 32px;
+  padding: 10px 16px 28px;   /* ลด padding ด้านบนให้ขึ้นสูง */
 }
 
 /* Header ด้านบน */
@@ -40,11 +40,11 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-radius: 16px;
   background: linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.86));
   border: 1px solid rgba(148,163,184,0.35);
-  box-shadow: 0 18px 45px rgba(15,23,42,0.6);
+  box-shadow: 0 14px 36px rgba(15,23,42,0.6);
 }
 
 .fitness-brand {
@@ -75,10 +75,14 @@ body {
 }
 
 .fitness-main {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
-/* ===== ปุ่มพื้นฐาน ===== */
+#sb-wrap {
+  min-height: calc(100vh - 88px);
+}
+
+/* ===== Buttons ===== */
 .btn-primary,
 .btn-secondary,
 .btn-ghost,
@@ -137,19 +141,13 @@ body {
   filter: brightness(1.07);
 }
 
-/* ===== Nav ด้านขวาใน Header ===== */
 .fitness-nav {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* ===== Wrapper ของทุก view ===== */
-#sb-wrap {
-  min-height: calc(100vh - 96px);
-}
-
-/* ===== แผงหลักของแต่ละ view ===== */
+/* ===== Views ===== */
 .sb-view {
   display: none;
 }
@@ -158,21 +156,22 @@ body {
   display: block;
 }
 
+/* Panel หลัก */
 .sb-panel {
-  margin-top: 12px;
+  margin-top: 6px;                           /* ลดระยะห่างจาก header */
   background: radial-gradient(circle at top, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
   border-radius: 20px;
   border: 1px solid rgba(148,163,184,0.45);
-  padding: 18px 18px 20px;
-  box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+  padding: 14px 18px 18px;                    /* ลด padding ด้านบน */
+  box-shadow: 0 16px 34px rgba(15,23,42,0.85);
 }
 
-/* ===== Title / Lead ===== */
+/* ===== Titles ===== */
 .sb-title {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
 }
 
 .sb-title-badge {
@@ -192,7 +191,7 @@ body {
 }
 
 .sb-lead {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-size: 14px;
   color: #cbd5f5;
 }
@@ -201,14 +200,14 @@ body {
 .sb-menu-main {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .sb-menu-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr);
-  gap: 16px;
-  margin-top: 8px;
+  gap: 14px;
+  margin-top: 6px;
 }
 
 .sb-field {
@@ -263,7 +262,7 @@ body {
   background: radial-gradient(circle at top, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
   border-radius: 16px;
   border: 1px solid rgba(148,163,184,0.55);
-  padding: 12px 12px 14px;
+  padding: 10px 12px 12px;
   font-size: 13px;
 }
 
@@ -289,8 +288,8 @@ body {
 }
 
 .sb-menu-footer {
-  margin-top: 10px;
-  padding-top: 8px;
+  margin-top: 8px;
+  padding-top: 6px;
   border-top: 1px dashed rgba(75,85,99,0.9);
   display: flex;
   flex-wrap: wrap;
@@ -315,21 +314,21 @@ body {
 .sb-panel--play {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;            /* ลดช่องว่าง HUD กับ layout ลง */
 }
 
-/* HUD ด้านบน: HP / Time / Boss HP */
+/* HUD บน */
 .sb-hud-top {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 1.1fr);
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
 .sb-hp-box {
   background: radial-gradient(circle at top, rgba(15,23,42,0.98), rgba(15,23,42,0.9));
   border-radius: 14px;
-  padding: 8px 10px;
+  padding: 6px 10px 8px;
   border: 1px solid rgba(148,163,184,0.4);
 }
 
@@ -384,45 +383,50 @@ body {
   font-weight: 600;
 }
 
-/* Layout หลักของ Play
-   ซ้าย = stats, กลาง = gameplay, ขวา = boss card */
+/* Layout หลักของ Play – ใช้ grid-area ให้สถิติ & gameplay อยู่แถวบนสุดเสมอ */
 .sb-play-layout {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.9fr) minmax(0, 1.1fr);
-  gap: 12px;
-  margin-top: 12px;
-  align-items: stretch;
+  grid-template-areas: "stats main boss";
+  gap: 10px;
+  margin-top: 6px;
+  align-items: flex-start;      /* ดันทุกอย่างชิดบน */
 }
 
-/* การ์ดด้านข้าง (ใช้กับสถิติและบอส) */
+/* การ์ดด้านข้าง */
 .sb-side-card {
   background: radial-gradient(circle at top, rgba(15,23,42,0.98), rgba(15,23,42,0.9));
   border-radius: 16px;
   border: 1px solid rgba(148,163,184,0.45);
-  padding: 10px 10px 12px;
+  padding: 8px 10px 10px;
   font-size: 13px;
 }
 
 .sb-side-card--stats {
-  grid-column: 1;
-  align-self: stretch;
+  grid-area: stats;
+}
+
+.sb-side-card--boss {
+  grid-area: boss;
+  max-height: 100%;
+  overflow: auto;
 }
 
 .sb-play-main {
-  grid-column: 2;
+  grid-area: main;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
 }
 
-/* สนามเป้า ใหญ่เต็มคอลัมน์กลาง */
+/* สนามเป้า – ขยับขึ้นโดยให้สูงขึ้นนิดหน่อย แต่ยังเหลือที่ด้านล่าง */
 #sb-target-layer,
 #target-layer {
   position: relative;
   width: 100%;
   flex: 1 1 auto;
-  height: clamp(360px, 70vh, 580px);
+  height: clamp(380px, 65vh, 560px);
   min-height: 320px;
   border-radius: 14px;
   overflow: hidden;
@@ -433,13 +437,13 @@ body {
   touch-action: manipulation;
 }
 
-/* Fever & feedback อยู่ใต้สนาม */
+/* Fever + feedback ใกล้กับสนามมากขึ้น */
 .sb-fever-wrap {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   align-items: flex-start;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .sb-fever-label {
@@ -477,9 +481,9 @@ body {
   transition: transform 0.18s ease-out;
 }
 
-/* ข้อความ feedback จาก engine.js (ใช้ class sb-msg-main) */
+/* feedback */
 .sb-msg-main {
-  margin-top: 4px;
+  margin-top: 2px;
   font-size: 13px;
   color: #cbd5f5;
   min-height: 1.4em;
@@ -488,24 +492,15 @@ body {
 .sb-msg-main.perfect {
   color: #facc15;
 }
-
 .sb-msg-main.good {
   color: #4ade80;
 }
-
 .sb-msg-main.bad,
 .sb-msg-main.miss {
   color: #fb7185;
 }
 
-/* การ์ดบอสฝั่งขวา */
-.sb-side-card--boss {
-  grid-column: 3;
-  align-self: stretch;
-  max-height: 100%;
-  overflow: auto;
-}
-
+/* Boss card */
 .sb-boss-portrait {
   display: flex;
   flex-direction: column;
@@ -532,23 +527,22 @@ body {
   color: #cbd5f5;
 }
 
+/* Stat rows */
 .sb-stat-list {
   margin: 0;
   padding: 0;
 }
-
 .sb-stat-row {
   display: flex;
   justify-content: space-between;
   gap: 6px;
   font-size: 13px;
 }
-
 .sb-stat-row + .sb-stat-row {
   margin-top: 4px;
 }
 
-/* ===== Targets (emoji bubble) ===== */
+/* ===== Targets ===== */
 .sb-target {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -573,7 +567,6 @@ body {
   justify-content: center;
 }
 
-/* วง core + ring */
 .sb-bubble-core {
   position: absolute;
   inset: 14%;
@@ -594,7 +587,7 @@ body {
     0 0 22px rgba(59,130,246,0.6);
 }
 
-/* emoji กลางเป้า – renderer จะ set font-size ตามขนาดเป้า */
+/* emoji กลางเป้า */
 .sb-target-emoji {
   position: relative;
   z-index: 2;
@@ -607,15 +600,12 @@ body {
   background: radial-gradient(circle at 30% 20%, #fee2e2, #ef4444);
   box-shadow: 0 0 22px rgba(248,113,113,0.8);
 }
-
 .sb-target--heal .sb-bubble-core {
   background: radial-gradient(circle at 30% 20%, #dcfce7, #16a34a);
 }
-
 .sb-target--shield .sb-bubble-core {
   background: radial-gradient(circle at 30% 20%, #e0f2fe, #0284c7);
 }
-
 .sb-target--bossface .sb-bubble-core {
   background: radial-gradient(circle at 30% 20%, #fef3c7, #f97316);
   box-shadow: 0 0 26px rgba(251,191,36,0.9);
@@ -626,7 +616,6 @@ body {
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.72);
 }
-
 .sb-target.sb-target--spawned {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
@@ -647,33 +636,19 @@ body {
     transform .4s ease-out,
     opacity .4s ease-out;
 }
-
 @media (min-width: 768px) {
   .sb-score-fx {
     font-size: 20px;
   }
 }
-
 .sb-score-fx.is-live {
   opacity: 1;
   transform: translate(-50%, -50%) translateY(-32px);
 }
-
-.sb-score-perfect {
-  color: #fbbf24;
-}
-
-.sb-score-good {
-  color: #22c55e;
-}
-
-.sb-score-bad {
-  color: #fb923c;
-}
-
-.sb-score-miss {
-  color: #ef4444;
-}
+.sb-score-perfect { color: #fbbf24; }
+.sb-score-good    { color: #22c55e; }
+.sb-score-bad     { color: #fb923c; }
+.sb-score-miss    { color: #ef4444; }
 
 /* fragments */
 .sb-frag {
@@ -687,7 +662,6 @@ body {
     transform var(--life, 450ms) ease-out,
     opacity var(--life, 450ms) ease-out;
 }
-
 .sb-frag.is-live {
   opacity: 1;
   transform:
@@ -695,44 +669,37 @@ body {
     translate3d(var(--dx, 0), var(--dy, 0), 0)
     scale(0.2);
 }
-
 .sb-frag-perfect {
   background: radial-gradient(circle, #facc15, #f97316);
 }
-
 .sb-frag-good {
   background: radial-gradient(circle, #4ade80, #22c55e);
 }
-
 .sb-frag-miss {
   background: radial-gradient(circle, #fecaca, #ef4444);
 }
 
-/* ===== Result View ===== */
+/* ===== Result View / Research (คงเดิม) ===== */
 .sb-result-header {
   margin-bottom: 8px;
 }
-
 .sb-result-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   font-size: 12px;
 }
-
 .sb-result-card {
   background: radial-gradient(circle at top, rgba(15,23,42,0.98), rgba(15,23,42,0.9));
   border-radius: 14px;
   border: 1px solid rgba(148,163,184,0.5);
   padding: 10px 10px 12px;
 }
-
 .sb-result-hint {
   margin-top: 8px;
   font-size: 12px;
   color: #cbd5f5;
 }
-
 .sb-result-footer {
   margin-top: 10px;
   display: flex;
@@ -741,7 +708,6 @@ body {
   justify-content: space-between;
 }
 
-/* ===== Research View ===== */
 .sb-research-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -759,7 +725,6 @@ body {
   justify-content: center;
   z-index: 90;
 }
-
 .sb-boss-intro-card {
   background: radial-gradient(circle at top, #0f172a, #020617);
   border-radius: 20px;
@@ -769,22 +734,18 @@ body {
   text-align: center;
   box-shadow: 0 25px 60px rgba(15,23,42,0.95);
 }
-
 .sb-boss-intro-emoji {
   font-size: 40px;
   margin-bottom: 6px;
 }
-
 .sb-boss-intro-name {
   font-weight: 600;
   margin: 4px 0;
 }
-
 .sb-boss-intro-title {
   font-size: 14px;
   color: #e5e7eb;
 }
-
 .sb-boss-intro-desc {
   font-size: 13px;
   color: #cbd5f5;
@@ -799,24 +760,10 @@ body {
 
   .sb-play-layout {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .sb-side-card--stats,
-  .sb-play-main,
-  .sb-side-card--boss {
-    grid-column: auto;
-  }
-
-  .sb-play-main {
-    order: 1;
-  }
-
-  .sb-side-card--stats {
-    order: 2;
-  }
-
-  .sb-side-card--boss {
-    order: 3;
+    grid-template-areas:
+      "main"
+      "stats"
+      "boss";
   }
 
   #sb-target-layer,
