@@ -1,27 +1,18 @@
-// === js/event-logger.js — Event-level CSV logger (Shadow Breaker, 2025-12-04) ===
+// === js/event-logger.js — Event-level CSV logger (Shadow Breaker) ===
 'use strict';
 
 export class EventLogger {
   constructor() {
     /**
      * เก็บ log ราย event
-     * แต่ละแถวเป็น object เช่น
+     * ตัวอย่าง 1 แถว:
      * {
-     *   participant, group, note,
-     *   session_id, run_index,
-     *   event_type, ts,
-     *   target_id, boss_id, boss_phase,
-     *   decoy, bossFace,
-     *   grade, age_ms,
-     *   diff, diff_label,
-     *   fever_on,
-     *   score_delta, combo_before, combo_after,
-     *   player_hp_before, player_hp_after,
-     *   fever_before, fever_after,
-     *   target_size_px, spawn_interval_ms,
-     *   phase_at_spawn, phase_spawn_index,
-     *   x_norm, y_norm,
-     *   zone_lr, zone_ud,
+     *   ts_ms, mode, diff,
+     *   boss_index, boss_phase,
+     *   target_id, target_type, is_boss_face,
+     *   event_type, rt_ms, grade,
+     *   score_delta, combo_after, score_after,
+     *   player_hp, boss_hp,
      *   ...อื่น ๆ ตามที่ engine ใส่มา
      * }
      */
@@ -45,42 +36,16 @@ export class EventLogger {
   }
 
   /**
-   * header = union ของทุก key จากทุกแถว
-   * - เรียงตาม order ของแถวแรกเป็นหลัก แล้วค่อยตามลำดับที่เจอในแถวถัด ๆ ไป
-   */
-  _buildHeaderCols() {
-    if (!this.logs.length) return [];
-
-    const cols = [];
-    const seen = new Set();
-
-    const pushKeys = (obj) => {
-      for (const k of Object.keys(obj)) {
-        if (!seen.has(k)) {
-          seen.add(k);
-          cols.push(k);
-        }
-      }
-    };
-
-    // แถวแรกก่อน
-    pushKeys(this.logs[0]);
-    // แถวอื่น ๆ เผื่อมี field เพิ่ม
-    for (let i = 1; i < this.logs.length; i++) {
-      pushKeys(this.logs[i]);
-    }
-    return cols;
-  }
-
-  /**
    * แปลง logs → CSV text
+   * - ใช้ key ของแถวแรกเป็น header (เรียงตาม Object.keys)
+   * - ถ้าแถวหลัง ๆ มี key เพิ่ม/ลด จะดึงเฉพาะคอลัมน์ที่อยู่ใน header
    * - ค่า null/undefined → ""
-   * - ถ้าใช้กับ Excel/ภาษาไทย แนะนำให้ prepend BOM ตอนสร้าง Blob ในฝั่งที่เรียกใช้
    */
   toCsv() {
     if (!this.logs.length) return '';
 
-    const cols = this._buildHeaderCols();
+    // ใช้ key ของ log แถวแรกเป็นคอลัมน์หลัก
+    const cols = Object.keys(this.logs[0]);
 
     const esc = (v) => {
       if (v == null) return '';
@@ -102,5 +67,38 @@ export class EventLogger {
     }
 
     return lines.join('\n');
+  }
+}
+
+/**
+ * helper สำหรับดาวน์โหลดไฟล์ CSV event-level
+ * @param {EventLogger} logger
+ * @param {string} filename
+ */
+export function downloadEventCsv(logger, filename = 'shadow-breaker-events.csv') {
+  try {
+    if (!logger || typeof logger.toCsv !== 'function') {
+      console.warn('[EventLogger] invalid logger for download');
+      return;
+    }
+
+    const csv = logger.toCsv();
+    if (!csv) {
+      alert('ยังไม่มีข้อมูลเหตุการณ์ในรอบนี้');
+      return;
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Download event CSV failed', err);
+    alert('ไม่สามารถดาวน์โหลดไฟล์ CSV (event) ได้');
   }
 }
