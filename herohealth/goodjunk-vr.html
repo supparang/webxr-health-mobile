@@ -1,96 +1,117 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>🥦 Good vs Junk [VR - Serial Quests] 🍔</title>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
+  />
+  <title>🥦 HeroHealth — Good vs Junk (VR)</title>
+  <link rel="icon" href="./favicon.ico" />
 
-  <link rel="icon" href="./favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="./css/hha-kid-bg.css">
+  <!-- พื้นหลังแนวเด็ก ๆ ป.5 -->
+  <link rel="stylesheet" href="./css/hha-kid-bg.css" />
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;700&display=swap');
-    body{
-      font-family:'IBM Plex Sans Thai',system-ui,-apple-system,sans-serif;
-      margin:0;padding:0;overflow:hidden;
-    }
-    #uiOverlay{
-      position:fixed;inset:0;z-index:10000;
-      display:flex;flex-direction:column;justify-content:center;align-items:center;
-      background:rgba(17,24,39,0.9);color:#e8eefc;
-      backdrop-filter:blur(10px);padding:20px;text-align:center;
-      transition:opacity .3s ease;
-    }
-    #uiOverlay.hidden{opacity:0;pointer-events:none;}
-    #uiOverlay h1{font-size:3rem;margin:0 0 1rem;}
-    #uiOverlay h2{font-size:2.2rem;color:#f59e0b;}
-    .game-button{
-      font-family:'IBM Plex Sans Thai',system-ui;
-      font-size:1.2rem;font-weight:700;color:#fff;
-      background:linear-gradient(145deg,#22c55e,#16a34a);
-      border:none;border-radius:12px;
-      padding:14px 28px;cursor:pointer;
-      box-shadow:0 4px 15px rgba(34,197,94,.4);
-      transition:all .2s ease;margin:8px;
-    }
-    .game-button:hover{transform:translateY(-2px);}
-    .game-button.hard{
-      background:linear-gradient(145deg,#ef4444,#dc2626);
-      box-shadow:0 4px 15px rgba(239,68,68,.4);
-    }
-  </style>
 </head>
-<body class="kid-bg">
+<body class="hha-kid-bg">
 
-<div id="uiOverlay">
-  <div id="startScreen">
-    <h1>🥦 Good vs Junk (VR) 🍔</h1>
-    <p style="font-size:1.1rem;max-width:400px;opacity:.9;">
-      ใช้คอนโทรลเลอร์หรือจ้องมอง (Gaze) เพื่อยิง "ของดี" และ "พาวเวอร์อัป"<br>
-      ทำภารกิจที่ "โค้ช" บอกเพื่อรับคะแนนโบนัส!
-    </p>
-    <button class="game-button" id="startButtonEasy">เริ่มเกม (Easy)</button>
-    <button class="game-button" id="startButtonNormal">เริ่มเกม (Normal)</button>
-    <button class="game-button hard" id="startButtonHard">เริ่มเกม (Hard)</button>
+  <!-- เมฆ & เนินหญ้า -->
+  <div class="hha-kid-clouds"></div>
+  <div class="hha-kid-hills"></div>
+
+  <!-- ===== Overlay เริ่ม / จบ เกม ===== -->
+  <div id="uiOverlay" class="hha-overlay">
+    <div class="hha-card" id="startScreen">
+      <h1>🥦 Good vs Junk VR 🍔</h1>
+      <p>
+        เล็งเป้าด้วยจุดกลางจอ แล้วคลิก / แตะ / กดทริกเกอร์<br />
+        เก็บ “ของดี” และพาวเวอร์อัป ⭐💎🛡️🔥 ให้ได้มากที่สุด!
+      </p>
+      <p style="font-size:0.9rem;opacity:.9;margin-bottom:0.75rem;">
+        เล่นได้ทั้ง PC (เมาส์), มือถือ (แตะหน้าจอ) และแว่น VR (กดทริกเกอร์ / Gaze)
+      </p>
+      <button class="hha-btn" id="startButtonEasy">
+        <span class="emoji">🐣</span><span>เริ่มเกม (ง่าย)</span>
+      </button>
+      <button class="hha-btn" id="startButtonNormal">
+        <span class="emoji">🚀</span><span>เริ่มเกม (ปกติ)</span>
+      </button>
+      <button class="hha-btn hard" id="startButtonHard">
+        <span class="emoji">🔥</span><span>เริ่มเกม (ยาก)</span>
+      </button>
+    </div>
+
+    <div class="hha-card" id="resultsScreen" style="display:none;">
+      <h2>จบเกมแล้ว!</h2>
+      <p id="finalScore">คะแนน: 0</p>
+      <button class="hha-btn" id="playAgainButton">
+        <span class="emoji">🔁</span><span>เล่นอีกครั้ง</span>
+      </button>
+    </div>
   </div>
-  <div id="resultsScreen" style="display:none;">
-    <h2>เกมจบแล้ว!</h2>
-    <h1 id="finalScore">Score: 0</h1>
-    <button class="game-button" id="playAgainButton">เล่นอีกครั้ง</button>
-  </div>
-</div>
 
-<a-scene>
-  <a-entity id="rig" position="0 1.6 0">
-    <a-camera look-controls>
-      <a-cursor
-        id="cursor"
-        raycaster="objects: [data-hha-tgt]"
-        fuse="true" fuse-timeout="1200"
-        geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02"
-        material="color: #ffffff; shader: flat">
-      </a-cursor>
-    </a-camera>
-  </a-entity>
-</a-scene>
+  <!-- ครอสแฮร์กลางจอ (สำหรับ PC) -->
+  <div id="crossHair"></div>
 
-<!-- namespace กลาง -->
-<script>
-  window.GAME_MODULES = window.GAME_MODULES || {};
-</script>
+  <!-- ===== A-Frame Scene ===== -->
+  <a-scene
+    id="gameScene"
+    renderer="colorManagement: true; useLegacyLights: false"
+    loading-screen="dotsColor: white; backgroundColor: #020617"
+    background="color: #020617"
+  >
+    <a-assets></a-assets>
 
-<!-- 1–7: โมดูลเกม -->
-<script src="./vr-goodjunk/ui-fever.js"></script>
-<script src="./vr-goodjunk/coach.js"></script>
-<script src="./vr-goodjunk/difficulty.js"></script>
-<script src="./vr-goodjunk/emoji-image.js"></script>
-<script src="./vr-goodjunk/aframe-particles.js"></script>
-<script src="./vr-goodjunk/quest-serial.js"></script>
-<script src="./vr-goodjunk/game-engine-goodjunk.js"></script>
+    <!-- ไฟหลัก ๆ -->
+    <a-entity light="type: ambient; intensity: 0.8; color: #ffffff"></a-entity>
+    <a-entity
+      light="type: directional; intensity: 0.45; color: #ffffff"
+      position="-0.5 1 1"
+    ></a-entity>
 
-<!-- 8: ตัว launcher (ปุ่ม Start/End) -->
-<script src="./vr-goodjunk/launcher-goodjunk.js"></script>
+    <!-- กล้อง + cursor + controller -->
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="camera" look-controls="pointerLockEnabled: true">
+        <!-- cursor สำหรับ VR / mobile gaze / mouse -->
+        <a-cursor
+          id="cursor"
+          raycaster="objects: [data-hha-tgt]; interval: 20"
+          fuse="false"
+          material="color: #ffffff; shader: flat"
+          geometry="primitive: ring; radiusInner: 0.004; radiusOuter: 0.008"
+          position="0 0 -1"
+        ></a-cursor>
+      </a-camera>
 
+      <!-- right-hand laser controller (สำหรับแว่น VR) -->
+      <a-entity
+        id="rightHand"
+        laser-controls="hand: right"
+        raycaster="objects: [data-hha-tgt]; interval: 20"
+      ></a-entity>
+    </a-entity>
+  </a-scene>
+
+  <!-- ===== Scripts (ESM) ===== -->
+  <script type="module">
+    /* โมดูล UI กลางที่ใช้ร่วมกัน */
+    import "./vr/ui-fever.js";
+    import "./vr/coach.js";
+    import "./vr/aframe-particles.js";
+    import "./vr/emoji-image.js";
+    import "./vr/difficulty.js";
+    import "./vr/quest-serial.js";
+
+    /* สมองเกม + ระบบ input */
+    import { GameEngineVR } from "./vr-goodjunk/game-engine-goodjunk-vr.js";
+    import { attachCrossInput } from "./vr-goodjunk/input-cross.js";
+
+    attachCrossInput({
+      game: GameEngineVR,
+      durationMs: 60000 // 60 วินาที
+    });
+  </script>
 </body>
 </html>
