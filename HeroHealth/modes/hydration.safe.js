@@ -13,8 +13,14 @@ const STAR='⭐', DIA='💎', SHIELD='🛡️', FIRE='🔥';
 const BONUS=[STAR,DIA,SHIELD,FIRE];
 
 export async function boot(cfg = {}) {
-  const diff = (cfg.difficulty || 'normal').toLowerCase();
-  const dur  = (cfg.duration | 0) || 60;
+  const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
+  const diff = (diffRaw === 'easy' || diffRaw === 'hard' || diffRaw === 'normal')
+    ? diffRaw : 'normal';
+
+  let dur = Number(cfg.duration || 60);
+  if (!Number.isFinite(dur) || dur <= 0) dur = 60;
+  if (dur < 20) dur = 20;
+  if (dur > 180) dur = 180;
 
   // HUD เริ่มต้น
   ensureFeverBar();
@@ -23,7 +29,8 @@ export async function boot(cfg = {}) {
   setShield(0);
 
   ensureWaterGauge();
-  setWaterGauge(50);
+  let waterPct = 50;
+  setWaterGauge(waterPct);
 
   // Quest deck
   const deck = createHydrationQuest(diff);
@@ -40,8 +47,8 @@ export async function boot(cfg = {}) {
     const z = zoneFrom(waterPct);
     window.dispatchEvent(new CustomEvent('quest:update',{
       detail:{
-        goal: (goals.find(g=>!g.done) || goals[0] || null),
-        mini: (minis.find(m=>!m.done) || minis[0] || null),
+        goal: goals.find(g=>!g.done) || goals[0] || null,
+        mini: minis.find(m=>!m.done) || minis[0] || null,
         goalsAll: goals,
         minisAll: minis,
         hint: hint || `โซนน้ำ: ${z}`
@@ -52,7 +59,6 @@ export async function boot(cfg = {}) {
   // State หลักของโหมด
   let score=0, combo=0, comboMax=0, misses=0;
   let star=0, diamond=0, shield=0, fever=0, feverActive=false;
-  let waterPct=50;
 
   function mult(){ return feverActive ? 2 : 1; }
 
@@ -93,8 +99,8 @@ export async function boot(cfg = {}) {
   }
 
   function judge(ch, ctx){
-    const x = ctx.clientX || ctx.cx || 0;
-    const y = ctx.clientY || ctx.cy || 0;
+    const x = ctx?.clientX ?? ctx?.cx ?? 0;
+    const y = ctx?.clientY ?? ctx?.cy ?? 0;
 
     // ----- Power-ups -----
     if (ch === STAR){
@@ -148,6 +154,7 @@ export async function boot(cfg = {}) {
       scoreFX(x,y,d);
       return { good:true, scoreDelta:d };
     } else {
+      // แตะของไม่ดี
       if (shield > 0){
         shield--;
         setShield(shield);
@@ -182,18 +189,20 @@ export async function boot(cfg = {}) {
   function onSec(){
     const z = zoneFrom(waterPct);
 
-    // นับเวลา GREEN สะสม
+    // ✅ นับเวลา GREEN สะสมเป็นวินาที
     if (z === 'GREEN'){
-      decayFever(2);
       deck.stats.greenTick = (deck.stats.greenTick | 0) + 1;
+      decayFever(2);
     } else {
       decayFever(6);
     }
 
     // ดึงระดับน้ำกลับสู่สมดุล
-    addWater(z === 'HIGH' ? -4 : (z === 'LOW' ? +4 : -1));
+    if (z === 'HIGH')      addWater(-4);
+    else if (z === 'LOW')  addWater(+4);
+    else                   addWater(-1); // GREEN: ค่อย ๆ ลด
 
-    deck.second();
+    deck.second();   // ให้ MissionDeck นับ tick/time ภายใน
     syncDeck();
 
     const g = deck.getProgress('goals');
@@ -211,40 +220,51 @@ export async function boot(cfg = {}) {
     }
   }
 
+  let ended = false;
+
+  function finish(){
+    if (ended) return;
+    ended = true;
+
+    const g = deck.getProgress('goals');
+    const m = deck.getProgress('mini');
+
+    const goalCleared = g.length>0 && g.every(x=>x.done);
+    const goalsTotal  = accGoalDone + g.length;
+    const goalsDone   = accGoalDone + g.filter(x=>x.done).length;
+    const miniTotal   = accMiniDone + m.length;
+    const miniDone    = accMiniDone + m.filter(x=>x.done).length;
+
+    window.dispatchEvent(new CustomEvent('hha:end',{
+      detail:{
+        mode: 'Hydration',
+        difficulty: diff,
+        score,
+        misses,
+        comboMax,
+        duration: dur,
+        goalCleared,
+        goalsCleared: goalsDone,
+        goalsTotal,
+        questsCleared: miniDone,
+        questsTotal: miniTotal
+      }
+    }));
+  }
+
   // ใช้ hha:time จาก factory เป็น clock กลาง
-  window.addEventListener('hha:time',(e)=>{
+  const onTime = (e)=>{
     const sec = (e.detail?.sec | 0);
     if (sec >= 0) onSec();
     if (sec === 0){
-      const g = deck.getProgress('goals');
-      const m = deck.getProgress('mini');
-
-      const goalCleared = g.length>0 && g.every(x=>x.done);
-      const goalsTotal  = accGoalDone + g.length;
-      const goalsDone   = accGoalDone + g.filter(x=>x.done).length;
-      const miniTotal   = accMiniDone + m.length;
-      const miniDone    = accMiniDone + m.filter(x=>x.done).length;
-
-      window.dispatchEvent(new CustomEvent('hha:end',{
-        detail:{
-          mode: 'Hydration',
-          difficulty: diff,
-          score,
-          misses,
-          comboMax,
-          duration: dur,
-          goalCleared,
-          goalsCleared: goalsDone,
-          goalsTotal,
-          questsCleared: miniDone,
-          questsTotal: miniTotal
-        }
-      }));
+      finish();
+      window.removeEventListener('hha:time', onTime);
     }
-  });
+  };
+  window.addEventListener('hha:time', onTime);
 
-  // เรียก factory boot
-  return factoryBoot({
+  // เรียก factory boot (ตัวนี้จะ spawn เป้าและยิง hha:time ให้เอง)
+  const inst = await factoryBoot({
     difficulty: diff,
     duration:   dur,
     pools:      { good:[...GOOD, ...BONUS], bad:[...BAD] },
@@ -255,6 +275,11 @@ export async function boot(cfg = {}) {
     judge:(ch,ctx)=>judge(ch,ctx),
     onExpire
   });
+
+  // แสดงเควสต์ตั้งแต่เริ่ม
+  pushQuest('เริ่มโหมดน้ำสมดุล');
+
+  return inst;
 }
 
 export default { boot };
