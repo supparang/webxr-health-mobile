@@ -18,23 +18,24 @@
 <body>
 <div id="sb-wrap" data-diff="normal" data-phase="1" data-boss="0">
   <!-- ===== HEADER ===== -->
-  <header class="sb-header">
-    <div class="sb-header-left">
-      <div class="sb-app-pill">
-        <span class="sb-app-icon">🥊</span>
-        <span class="sb-app-title">
-          VR Fitness — <strong>Shadow Breaker</strong>
-        </span>
-        <span class="sb-app-subtitle">โหมดฝึกชกเป้า + Boss Battle สำหรับงานวิจัยการออกกำลังกาย</span>
-      </div>
-    </div>
-    <div class="sb-header-right">
-      <a href="../hub.html" class="sb-chip-btn">🏠 กลับ Hub</a>
-      <button type="button" id="sb-btn-latest-summary" class="sb-chip-btn sb-chip-secondary">
-        📊 สรุปผลล่าสุด
-      </button>
-    </div>
-  </header>
+<header class="sb-header-top">
+  <div class="sb-breadcrumb">
+    <span>🥊 VR Fitness — <strong>Shadow Breaker</strong></span>
+    <span>โหมดฝึกชกเป้า + Boss Battle สำหรับงานวิจัยการออกกำลังกาย</span>
+  </div>
+
+  <div class="sb-top-actions">
+    <a href="./hub.html" class="sb-pill-btn">
+      <span class="icon">🏠</span>
+      <span>กลับ Hub</span>
+    </a>
+
+    <button id="sb-btn-latest" type="button" class="sb-pill-btn">
+      <span class="icon">📊</span>
+      <span>สรุปผลล่าสุด</span>
+    </button>
+  </div>
+</header>
 
   <!-- ===== VIEW: MENU ===== -->
   <section id="sb-view-menu" class="sb-view is-active">
