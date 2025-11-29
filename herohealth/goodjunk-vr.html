@@ -67,25 +67,26 @@
 
   <a-assets></a-assets>
 
-  <a-entity id="rig" position="0 1.6 0">
-    <a-camera id="camera" look-controls="pointerLockEnabled: true">
-    <!-- cursor เดียว ครอบคลุม PC + Mobile + VR -->
-      <a-cursor
+<a-entity id="rig" position="0 1.6 0">
+  <a-camera id="camera" look-controls="pointerLockEnabled: true">
+    <!-- cursor กลางจอ: รองรับ PC + Mobile + VR -->
+    <a-cursor
       id="cursor"
       raycaster="objects: [data-hha-tgt]; far: 30"
       material="color: #60a5fa; shader: flat"
       position="0 0 -1"
       scale="0.03 0.03 0.03">
-      </a-cursor>
-    </a-camera>
+    </a-cursor>
+  </a-camera>
 
-  <!-- VR Hand Controller (ยังใช้เหมือนเดิม) -->
-    <a-entity
+  <!-- VR controller (สำหรับ headset ที่มีมือ) -->
+  <a-entity
     id="rightHand"
     laser-controls="hand: right"
     raycaster="objects: [data-hha-tgt]; interval: 10">
-    </a-entity>
   </a-entity>
+</a-entity>
+
 </a-scene>
 
 <!-- namespace กลาง -->
