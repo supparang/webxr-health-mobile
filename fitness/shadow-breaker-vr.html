@@ -378,7 +378,6 @@
   const SPAWN_INTERVAL_MIN = 700;       // ms
   const SPAWN_INTERVAL_MAX = 1200;
   const TARGET_LIFETIME = 1600;         // ms อยู่บนจอก่อนหาย
-  const BASE_DIST = 3.2;                // ระยะห่างจากผู้เล่น
   const BASE_SPREAD_X = 1.6;            // กระจายซ้าย-ขวา
   const BASE_SPREAD_Y = 1.1;            // กระจายบน-ล่าง
 
@@ -419,7 +418,7 @@
   let hitCount = 0;
   let missCount = 0;
 
-  // HUD (มี / ไม่มี ก็ไม่พัง)
+  // HUD
   const hudScore = document.getElementById('hud-score');
   const hudMiss  = document.getElementById('hud-miss');
 
@@ -457,10 +456,11 @@
     const type = pickType();
     const size = SIZE_BY_DIFF_PHASE(diff, phase);
 
-    // สุ่มตำแหน่งรอบ ๆ กลางจอ (หน้าผู้เล่น)
+    // สุ่มตำแหน่งรอบ ๆ กลางกำแพง arena
+    // root อยู่ที่ 0 1.8 -4 แล้ว → ตรงนี้ใช้ z=0 ก็พอ
     const x = randRange(-BASE_SPREAD_X, BASE_SPREAD_X);
     const y = randRange(-BASE_SPREAD_Y, BASE_SPREAD_Y);
-    const z = -BASE_DIST;
+    const z = 0;
 
     const wrapper = document.createElement('a-entity');
     const id = 'sbvr-target-' + Date.now() + '-' + Math.floor(Math.random()*9999);
@@ -470,42 +470,44 @@
 
     // วง ring
     const ring = document.createElement('a-entity');
-    ring.setAttribute('geometry', `primitive: torus; radius: ${size*0.55}; radiusTubular: ${size*0.12}`);
-    ring.setAttribute('material', RING_MATERIAL[type] || RING_MATERIAL.normal);
-    ring.setAttribute('animation__spin', `
-      property: rotation;
-      to: 0 360 0;
-      dur: 1400;
-      loop: true;
-      easing: linear
-    `);
+    ring.setAttribute(
+      'geometry',
+      `primitive: torus; radius: ${size*0.55}; radiusTubular: ${size*0.12}`
+    );
+    ring.setAttribute(
+      'material',
+      RING_MATERIAL[type] || RING_MATERIAL.normal
+    );
+    ring.setAttribute('animation__spin',
+      'property: rotation; to: 0 360 0; dur: 1400; loop: true; easing: linear'
+    );
 
-    // แผ่น emoji ตรงกลาง (billboard)
+    // แผ่น emoji ตรงกลาง (ใช้ text component แบบบรรทัดเดียว)
     const face = document.createElement('a-entity');
-    face.setAttribute('text', `
-      value: ${EMOJI[type] || EMOJI.normal};
-      align: center;
-      color: #ffffff;
-      width: ${size*3};
-    `);
-    face.setAttribute('position', `0 0 0.01`);
-    face.setAttribute('look-at', '[camera]');
+    face.setAttribute(
+      'text',
+      `value: ${EMOJI[type] || EMOJI.normal}; align: center; color: #ffffff; width: ${size*3}`
+    );
+    face.setAttribute('position', '0 0 0.01');
+    // ไม่ใช้ look-at เพื่อเลี่ยง error component ถ้ายังไม่โหลดเพิ่ม
 
     wrapper.appendChild(ring);
     wrapper.appendChild(face);
 
-    // interaction (click / cursor)
+    // interaction (click / cursor – ผ่าน raycaster ของ <a-cursor>)
     const clicked = (evt) => {
       if(!running) return;
       evt.stopPropagation();
-      root.removeChild(wrapper);
+      if (wrapper.parentNode === root) {
+        root.removeChild(wrapper);
+      }
       hitCount++;
       updateHud();
-      // ถ้าอยากยิง event กลับไป window ก็ได้
+      console.log('[SBVR] hit', type);
+      // ถ้าจะส่ง event กลับไป engine หลัก:
       // window.dispatchEvent(new CustomEvent('sbvr-hit',{detail:{type}}));
     };
     wrapper.addEventListener('click', clicked);
-    wrapper.addEventListener('mousedown', clicked); // เผื่อ raycaster อื่น
 
     root.appendChild(wrapper);
 
@@ -516,6 +518,7 @@
       if(type === 'normal'){
         missCount++;
         updateHud();
+        console.log('[SBVR] miss (timeout normal)');
       }
     }, TARGET_LIFETIME);
   }
@@ -553,14 +556,14 @@
   }
 
   // ====== BOOT ======
-  // เริ่มหลังจาก A-Frame โหลดเสร็จ
+  // เริ่มหลังจากหน้าโหลดเสร็จ
   if(document.readyState === 'loading'){
     window.addEventListener('load', startGame, {once:true});
   }else{
     startGame();
   }
 
-  // เผื่ออยาก debug จาก console
+  // เผื่อ debug จาก console
   window.SBVR = {
     start: startGame,
     stop:  stopGame,
@@ -569,6 +572,5 @@
   };
 })();
 </script>
-
 </body>
 </html>
