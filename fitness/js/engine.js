@@ -887,3 +887,19 @@ export function initShadowBreaker() {
 
   console.log('[ShadowBreaker] init complete (CSV loggers + research gate)');
 }
+// ===== bootstrp on page load =====
+if (typeof window !== 'undefined') {
+  const boot = () => {
+    try {
+      initShadowBreaker();
+    } catch (err) {
+      console.error('[ShadowBreaker] init failed:', err);
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+}
