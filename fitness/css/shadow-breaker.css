@@ -386,10 +386,19 @@ body {
 /* Layout หลักของ Play: กลาง = gameplay, ขวา = boss card */
 .sb-play-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); /* gameplay ใหญ่ขึ้น */
   gap: 10px;
   margin-top: 10px;
   align-items: stretch;
+}
+
+/* บังคับ order ให้ gameplay อยู่ซ้าย, การ์ดบอสอยู่ขวา */
+.sb-play-main {
+  order: 1;
+}
+
+.sb-side-card--boss {
+  order: 2;
 }
 
 /* การ์ดด้านข้าง */
@@ -451,13 +460,13 @@ body {
   gap: 6px;
 }
 
-/* สนามเป้า */
+/* สนามเป้า – ขยายสูงขึ้น + responsive ตามจอ */
 #sb-target-layer,
 #target-layer {
   position: relative;
   width: 100%;
-  height: min(60vh, 420px);
-  min-height: 260px;
+  height: clamp(320px, 68vh, 640px); /* desktop เติมจอมากขึ้น */
+  min-height: 280px;
   border-radius: 14px;
   overflow: hidden;
   background:
@@ -579,7 +588,7 @@ body {
     0 0 22px rgba(59,130,246,0.6);
 }
 
-/* emoji กลางเป้า จะถูกเซ็ต font-size ผ่าน JS */
+/* emoji กลางเป้า: ขนาดเซ็ตผ่าน JS (font-size px) */
 .sb-target-emoji {
   position: relative;
   z-index: 2;
@@ -765,7 +774,11 @@ body {
   }
 
   .sb-play-layout {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr); /* ซ้อนเป็นคอลัมน์เดียว */
+  }
+
+  .sb-play-main {
+    order: 1;               /* ให้ gameplay มาก่อนบน mobile */
   }
 
   .sb-side-card--boss {
@@ -776,7 +789,7 @@ body {
 @media (max-width: 640px) {
   #sb-target-layer,
   #target-layer {
-    height: min(58vh, 360px);
+    height: min(64vh, 420px); /* มือถือ สูงพอแต่ไม่เกินจอ */
   }
 
   .sb-result-grid {
