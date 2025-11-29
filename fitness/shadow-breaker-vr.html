@@ -374,12 +374,13 @@
   'use strict';
 
   // ====== CONFIG ======
-  const ROOT_ID = 'sbvr-target-root';   // <a-entity id="sbvr-target-root"></a-entity>
+  const ROOT_ID = 'sbvr-target-root';
   const SPAWN_INTERVAL_MIN = 700;       // ms
   const SPAWN_INTERVAL_MAX = 1200;
-  const TARGET_LIFETIME = 1600;         // ms อยู่บนจอก่อนหาย
-  const BASE_SPREAD_X = 1.6;            // กระจายซ้าย-ขวา
-  const BASE_SPREAD_Y = 1.1;            // กระจายบน-ล่าง
+  const TARGET_LIFETIME = 1600;         // ms
+  const BASE_SPREAD_X = 1.6;
+  const BASE_SPREAD_Y = 1.1;
+  const SESSION_TIME = 60;              // วินาที
 
   const EMOJI = {
     normal: '🥊',
@@ -398,36 +399,38 @@
     shield: 'color: #a855f7; metalness:0.4; roughness:0.2; emissive:#7e22ce; emissiveIntensity:0.8'
   };
 
-  // ขนาดเป้าตาม difficulty / phase (เผื่อจะผูกทีหลัง)
+  // ขนาดเป้าตาม diff / phase
   const SIZE_BY_DIFF_PHASE = (diff, phase) => {
     let base = 0.7; // meter
     if (diff === 'easy') base = 0.9;
     else if (diff === 'hard') base = 0.6;
-
     if (phase === 2) base *= 0.85;
     if (phase === 3) base *= 0.72;
     return base;
   };
 
-  // ====== RUNTIME STATE ======
-  let root = null;
-  let running = false;
-  let spawnTimer = null;
-  let diff = 'normal';
-  let phase = 1;
-  let hitCount = 0;
-  let missCount = 0;
+  // ====== STATE ======
+  let root        = null;
+  let running     = false;
+  let spawnTimer  = null;
+  let diff        = 'normal';
+  let phase       = 1;
+  let hitCount    = 0;
+  let missCount   = 0;
+  let timeLeft    = SESSION_TIME;
+  let timeTimer   = null;
 
-  // HUD
+  // HUD refs
   const hudScore = document.getElementById('hud-score');
   const hudMiss  = document.getElementById('hud-miss');
+  const hudTime  = document.getElementById('hud-time');
+  const hudPhase = document.getElementById('hud-phase');
 
   function randRange(min, max){
     return min + Math.random() * (max - min);
   }
 
   function pickType(){
-    // น้ำหนักสุ่ม type
     const table = [
       { t: 'normal', w: 70 },
       { t: 'bomb',   w: 8  },
@@ -445,19 +448,47 @@
   }
 
   function updateHud(){
-    if(hudScore) hudScore.textContent = hitCount;
-    if(hudMiss)  hudMiss.textContent  = missCount;
+    if (hudScore) hudScore.textContent = hitCount;
+    if (hudMiss)  hudMiss.textContent  = missCount;
+    if (hudPhase) hudPhase.textContent = phase;
+  }
+
+  function updateTimeHud(){
+    if (!hudTime) return;
+    hudTime.textContent = timeLeft.toFixed(1) + ' s';
+  }
+
+  // ===== TIMER =====
+  function startTimer(){
+    if (timeTimer) clearInterval(timeTimer);
+    timeLeft = SESSION_TIME;
+    updateTimeHud();
+
+    const STEP = 0.1; // วินาที
+    timeTimer = setInterval(() => {
+      if (!running) return;
+      timeLeft -= STEP;
+      if (timeLeft <= 0){
+        timeLeft = 0;
+        updateTimeHud();
+        stopGame();
+        clearInterval(timeTimer);
+        timeTimer = null;
+        console.log('[SBVR] session ended');
+        return;
+      }
+      updateTimeHud();
+    }, STEP * 1000);
   }
 
   // ====== TARGET SPAWN ======
   function spawnOneTarget(){
-    if(!root || !running) return;
+    if (!root || !running) return;
 
     const type = pickType();
     const size = SIZE_BY_DIFF_PHASE(diff, phase);
 
-    // สุ่มตำแหน่งรอบ ๆ กลางกำแพง arena
-    // root อยู่ที่ 0 1.8 -4 แล้ว → ตรงนี้ใช้ z=0 ก็พอ
+    // ตำแหน่งแถวกำแพง arena (root อยู่ที่ 0 1.8 -4 แล้ว)
     const x = randRange(-BASE_SPREAD_X, BASE_SPREAD_X);
     const y = randRange(-BASE_SPREAD_Y, BASE_SPREAD_Y);
     const z = 0;
@@ -465,10 +496,9 @@
     const wrapper = document.createElement('a-entity');
     const id = 'sbvr-target-' + Date.now() + '-' + Math.floor(Math.random()*9999);
     wrapper.setAttribute('id', id);
-    wrapper.setAttribute('class', 'sbvr-target');
     wrapper.setAttribute('position', `${x} ${y} ${z}`);
 
-    // วง ring
+    // วง ring (ตัวที่ raycaster เล็งโดนจริง ๆ)
     const ring = document.createElement('a-entity');
     ring.setAttribute(
       'geometry',
@@ -478,44 +508,46 @@
       'material',
       RING_MATERIAL[type] || RING_MATERIAL.normal
     );
-    ring.setAttribute('animation__spin',
+    ring.setAttribute(
+      'animation__spin',
       'property: rotation; to: 0 360 0; dur: 1400; loop: true; easing: linear'
     );
+    ring.setAttribute('class', 'sbvr-target');   // สำคัญ!! raycaster ใช้ class นี้
 
-    // แผ่น emoji ตรงกลาง (ใช้ text component แบบบรรทัดเดียว)
+    // emoji ตรงกลาง
     const face = document.createElement('a-entity');
-    face.setAttribute(
-      'text',
-      `value: ${EMOJI[type] || EMOJI.normal}; align: center; color: #ffffff; width: ${size*3}`
-    );
-    face.setAttribute('position', '0 0 0.01');
-    // ไม่ใช้ look-at เพื่อเลี่ยง error component ถ้ายังไม่โหลดเพิ่ม
+    face.setAttribute('position', '0 0 0.02');
+    face.setAttribute('text', {
+      value: EMOJI[type] || EMOJI.normal,
+      align: 'center',
+      color: '#ffffff',
+      width: size * 2.4,
+      side: 'double'
+    });
 
     wrapper.appendChild(ring);
     wrapper.appendChild(face);
 
-    // interaction (click / cursor – ผ่าน raycaster ของ <a-cursor>)
-    const clicked = (evt) => {
-      if(!running) return;
+    // interaction – ผูก click ที่ ring โดยตรง
+    const onClick = (evt) => {
+      if (!running) return;
       evt.stopPropagation();
-      if (wrapper.parentNode === root) {
+      if (wrapper.parentNode === root){
         root.removeChild(wrapper);
       }
       hitCount++;
       updateHud();
       console.log('[SBVR] hit', type);
-      // ถ้าจะส่ง event กลับไป engine หลัก:
-      // window.dispatchEvent(new CustomEvent('sbvr-hit',{detail:{type}}));
     };
-    wrapper.addEventListener('click', clicked);
+    ring.addEventListener('click', onClick);
 
     root.appendChild(wrapper);
 
-    // ตั้ง timeout ให้หายเอง → นับ miss เฉพาะ normal
+    // หายเองเมื่อหมดเวลา → นับ miss เฉพาะ normal
     setTimeout(() => {
-      if(!wrapper.parentNode) return;
+      if (!wrapper.parentNode) return;
       try { root.removeChild(wrapper); } catch(e){}
-      if(type === 'normal'){
+      if (type === 'normal'){
         missCount++;
         updateHud();
         console.log('[SBVR] miss (timeout normal)');
@@ -524,10 +556,10 @@
   }
 
   function scheduleNextSpawn(){
-    if(!running) return;
+    if (!running) return;
     const delay = randRange(SPAWN_INTERVAL_MIN, SPAWN_INTERVAL_MAX);
     spawnTimer = setTimeout(() => {
-      if(!running) return;
+      if (!running) return;
       spawnOneTarget();
       scheduleNextSpawn();
     }, delay);
@@ -535,7 +567,7 @@
 
   function startGame(){
     root = document.getElementById(ROOT_ID);
-    if(!root){
+    if (!root){
       console.warn('[ShadowBreaker VR] ไม่พบ #' + ROOT_ID + ' ใน scene');
       return;
     }
@@ -543,27 +575,32 @@
     hitCount  = 0;
     missCount = 0;
     updateHud();
+    updateTimeHud();
+    startTimer();
     scheduleNextSpawn();
     console.log('[ShadowBreaker VR] startGame OK, root=', root);
   }
 
   function stopGame(){
     running = false;
-    if(spawnTimer){
+    if (spawnTimer){
       clearTimeout(spawnTimer);
       spawnTimer = null;
     }
+    if (timeTimer){
+      clearInterval(timeTimer);
+      timeTimer = null;
+    }
   }
 
-  // ====== BOOT ======
-  // เริ่มหลังจากหน้าโหลดเสร็จ
-  if(document.readyState === 'loading'){
+  // ===== BOOT =====
+  if (document.readyState === 'loading'){
     window.addEventListener('load', startGame, {once:true});
-  }else{
+  } else {
     startGame();
   }
 
-  // เผื่อ debug จาก console
+  // debug จาก console
   window.SBVR = {
     start: startGame,
     stop:  stopGame,
