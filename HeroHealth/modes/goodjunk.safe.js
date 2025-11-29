@@ -1,4 +1,4 @@
-// === /HeroHealth/modes/goodjunk.safe.js (Full Pack – FX + Quest + Coach) ===
+// === /HeroHealth/modes/goodjunk.safe.js (Full Pack – FX + Quest + Coach, cleaned) ===
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
@@ -27,6 +27,9 @@ function coach(text, minGap = 2300) {
     window.dispatchEvent(new CustomEvent('hha:coach', { detail: { text } }));
   } catch (_) {}
 }
+
+// ป้องกัน hha:time listener ซ้อนหลายรอบเวลาเข้าโหมดซ้ำ
+let timeHandler = null;
 
 export async function boot(cfg = {}) {
   const diff = String(cfg.difficulty || 'normal').toLowerCase();
@@ -208,60 +211,34 @@ export async function boot(cfg = {}) {
   }
 
   function onSec(sec) {
-    if (combo <= 0) decayFever(6);
-    else           decayFever(2);
+    if (sec > 0) {
+      if (combo <= 0) decayFever(6);
+      else           decayFever(2);
 
-    deck.second();
-    syncDeck();
+      deck.second();
+      syncDeck();
 
-    const goals = deck.getProgress('goals');
-    const minis = deck.getProgress('mini');
+      const goals = deck.getProgress('goals');
+      const minis = deck.getProgress('mini');
 
-    if (goals.length > 0 && goals.every(g => g.done)) {
-      accGoalDone += goals.length;
-      deck.drawGoals(2);
-      pushQuest('Goal ใหม่');
-      coach('ถึงเป้าหมายใหญ่ชุดหนึ่งแล้ว เก่งมาก! ลองดูชุดถัดไปต่อเลย', 4000);
+      if (goals.length > 0 && goals.every(g => g.done)) {
+        accGoalDone += goals.length;
+        deck.drawGoals(2);
+        pushQuest('Goal ใหม่');
+        coach('ถึงเป้าหมายใหญ่ชุดหนึ่งแล้ว เก่งมาก! ลองดูชุดถัดไปต่อเลย', 4000);
+      }
+      if (minis.length > 0 && minis.every(m => m.done)) {
+        accMiniDone += minis.length;
+        deck.draw3();
+        pushQuest('Mini ใหม่');
+        coach('Mini quest ครบชุดแล้ว! ไปต่อภารกิจถัดไป!', 4000);
+      }
+
+      if (sec === 20) coach('เหลือ 20 วินาทีสุดท้าย เก็บคอมโบให้ได้เยอะที่สุด!', 5000);
+      if (sec === 10) coach('10 วินาทีสุดท้าย ลุยให้สุดกำลังเลย!', 6000);
     }
-    if (minis.length > 0 && minis.every(m => m.done)) {
-      accMiniDone += minis.length;
-      deck.draw3();
-      pushQuest('Mini ใหม่');
-      coach('Mini quest ครบชุดแล้ว! ไปต่อภารกิจถัดไป!', 4000);
-    }
 
-    // เตือนช่วงท้ายเวลา
-    if (sec === 20) coach('เหลือ 20 วินาทีสุดท้าย เก็บคอมโบให้ได้เยอะที่สุด!', 5000);
-    if (sec === 10) coach('10 วินาทีสุดท้าย ลุยให้สุดกำลังเลย!', 6000);
-  }
-
-  // global tick: เรียก onSec ทุกวินาที (ตาม hha:time จาก mode-factory)
-  window.addEventListener('hha:time', (e) => {
-    const s = (e.detail?.sec | 0);
-    if (s >= 0) onSec(s);
-  });
-
-  // ---- start factory ----
-  const ctrl = await factoryBoot({
-    difficulty: diff,
-    duration:   dur,
-    pools:   { good: [...GOOD, ...BONUS], bad: [...JUNK] },
-    goodRate: 0.62,
-    powerups: BONUS,
-    powerRate: 0.1,
-    powerEvery: 7,
-    judge: (ch, ctx) => judge(ch, ctx),
-    onExpire
-  });
-
-  // เควสต์ชุดแรก
-  pushQuest('เริ่ม');
-  coach('เลือกเฉพาะอาหารดี เช่น ผัก ผลไม้ นม หลีกเลี่ยงของขยะที่มีน้ำตาลและไขมันสูงนะ');
-
-  // สรุปตอนหมดเวลา (sec == 0)
-  window.addEventListener('hha:time', (e) => {
-    const s = (e.detail?.sec | 0);
-    if (s === 0) {
+    if (sec === 0) {
       const g = deck.getProgress('goals');
       const m = deck.getProgress('mini');
 
@@ -287,7 +264,34 @@ export async function boot(cfg = {}) {
         }
       }));
     }
+  }
+
+  // ลงทะเบียน hha:time (ล้างตัวเก่าก่อนกันซ้อน)
+  if (timeHandler) {
+    window.removeEventListener('hha:time', timeHandler);
+  }
+  timeHandler = (e) => {
+    const s = (e.detail?.sec | 0);
+    if (s >= 0) onSec(s);
+  };
+  window.addEventListener('hha:time', timeHandler);
+
+  // ---- start factory ----
+  const ctrl = await factoryBoot({
+    difficulty: diff,
+    duration:   dur,
+    pools:      { good: [...GOOD, ...BONUS], bad: [...JUNK] },
+    goodRate:   0.62,
+    powerups:   BONUS,
+    powerRate:  0.1,
+    powerEvery: 7,
+    judge:      (ch, ctx) => judge(ch, ctx),
+    onExpire
   });
+
+  // เควสต์ชุดแรก
+  pushQuest('เริ่ม');
+  coach('เลือกเฉพาะอาหารดี เช่น ผัก ผลไม้ นม หลีกเลี่ยงของขยะที่มีน้ำตาลและไขมันสูงนะ');
 
   return ctrl;
 }
