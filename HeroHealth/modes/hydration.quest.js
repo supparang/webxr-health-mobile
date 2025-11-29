@@ -3,25 +3,26 @@ import { MissionDeck } from '../vr/mission.js';
 
 function G(s){ 
   return {
-    score: s.score|0,
-    combo: s.combo|0,
-    comboMax: s.comboMax|0,
-    good: s.goodCount|0,
-    miss: s.junkMiss|0,
-    tick: s.tick|0,         // เวลารวมที่เล่นไป
-    green: s.greenTick|0    // เวลา “อยู่ GREEN” สะสม (เราจะอัปเดตจาก hydration.safe.js)
+    score:    s.score      | 0,
+    combo:    s.combo      | 0,
+    comboMax: s.comboMax   | 0,
+    good:     s.goodCount  | 0,
+    miss:     s.junkMiss   | 0,
+    tick:     s.tick       | 0, // เวลารวมที่เล่นไป (MissionDeck.second() ดูแลให้)
+    green:    s.greenTick  | 0  // เวลา “อยู่ GREEN” สะสม (เราอัปเดตจาก hydration.safe.js)
   };
 }
 
 function goalsFor(diff){
-  const K = {
-    easy:   {score:700,  combo:8,  miss:8,  green:18},
-    normal: {score:1200, combo:12, miss:6,  green:28},
-    hard:   {score:1800, combo:16, miss:4,  green:36}
-  }[diff] || {};
+  const table = {
+    easy:   { score:700,  combo: 8, miss: 8, green:18 },
+    normal: { score:1200, combo:12, miss: 6, green:28 },
+    hard:   { score:1800, combo:16, miss: 4, green:36 }
+  };
+  const K = table[diff] || table.normal;
 
   return [
-    // อยู่ GREEN สะสมให้ครบตามโควตา
+    // ✅ อยู่ GREEN สะสมให้ครบตามโควตา
     { id:'g_green', label:`อยู่ในโซนสมดุล (GREEN) รวม ${K.green}s`, target:K.green,
       check:s => G(s).green >= K.green,
       prog :s => Math.min(K.green, G(s).green) },
@@ -65,11 +66,12 @@ function goalsFor(diff){
 }
 
 function minisFor(diff){
-  const K = {
-    easy:   {score:500, combo:8,  good:12, miss:8},
-    normal: {score:900, combo:10, good:18, miss:6},
-    hard:   {score:1400,combo:12, good:24, miss:4}
-  }[diff] || {};
+  const table = {
+    easy:   { score: 500, combo: 8, good:12, miss: 8 },
+    normal: { score: 900, combo:10, good:18, miss: 6 },
+    hard:   { score:1400, combo:12, good:24, miss: 4 }
+  };
+  const K = table[diff] || table.normal;
 
   return [
     { id:'m_score', label:`คะแนน ${K.score}+`, target:K.score,
@@ -136,6 +138,9 @@ function minisFor(diff){
 }
 
 export function createHydrationQuest(diff='normal'){
-  return new MissionDeck({ goalPool: goalsFor(diff), miniPool: minisFor(diff) });
+  return new MissionDeck({
+    goalPool: goalsFor(diff),
+    miniPool: minisFor(diff)
+  });
 }
 export default { createHydrationQuest };
