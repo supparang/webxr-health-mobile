@@ -375,12 +375,12 @@
 
   // ====== CONFIG ======
   const ROOT_ID = 'sbvr-target-root';
-  const SPAWN_INTERVAL_MIN = 700;       // ms
+  const SPAWN_INTERVAL_MIN = 700;
   const SPAWN_INTERVAL_MAX = 1200;
-  const TARGET_LIFETIME = 1600;         // ms
-  const BASE_SPREAD_X = 1.6;
-  const BASE_SPREAD_Y = 1.1;
-  const SESSION_TIME = 60;              // วินาที
+  const TARGET_LIFETIME   = 1600;
+  const BASE_SPREAD_X     = 1.6;
+  const BASE_SPREAD_Y     = 1.1;
+  const SESSION_TIME      = 60;   // วินาที
 
   const EMOJI = {
     normal: '🥊',
@@ -388,6 +388,14 @@
     decoy:  '🎭',
     heal:   '💊',
     shield: '🛡️'
+  };
+
+  const TEX_SRC = {
+    normal: '#tex-normal',
+    bomb:   '#tex-bomb',
+    decoy:  '#tex-decoy',
+    heal:   '#tex-heal',
+    shield: '#tex-shield'
   };
 
   // ring style แยกตาม type
@@ -399,9 +407,8 @@
     shield: 'color: #a855f7; metalness:0.4; roughness:0.2; emissive:#7e22ce; emissiveIntensity:0.8'
   };
 
-  // ขนาดเป้าตาม diff / phase
   const SIZE_BY_DIFF_PHASE = (diff, phase) => {
-    let base = 0.7; // meter
+    let base = 0.7;
     if (diff === 'easy') base = 0.9;
     else if (diff === 'hard') base = 0.6;
     if (phase === 2) base *= 0.85;
@@ -458,13 +465,64 @@
     hudTime.textContent = timeLeft.toFixed(1) + ' s';
   }
 
+  // ===== วาด emoji ลง canvas เป็น texture =====
+  function drawEmojiTexture(canvasId, emoji, bgColor){
+    const cvs = document.getElementById(canvasId);
+    if (!cvs) return;
+    const ctx = cvs.getContext('2d');
+    const w = cvs.width;
+    const h = cvs.height;
+    const r = Math.min(w, h) * 0.45;
+
+    ctx.clearRect(0,0,w,h);
+
+    // พื้นหลังโปร่ง ๆ
+    ctx.fillStyle = 'rgba(15,23,42,0)';
+    ctx.fillRect(0,0,w,h);
+
+    // วงกลมไล่สี
+    const grad = ctx.createRadialGradient(
+      w*0.35, h*0.25, r*0.1,
+      w*0.5,  h*0.6,  r
+    );
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.2, bgColor);
+    grad.addColorStop(1, '#020617');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(w/2, h/2, r, 0, Math.PI*2);
+    ctx.fill();
+
+    // ขอบสว่าง ๆ
+    ctx.strokeStyle = 'rgba(248,250,252,0.85)';
+    ctx.lineWidth = r*0.12;
+    ctx.stroke();
+
+    // emoji
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = (r*1.2) + 'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+    ctx.shadowColor = 'rgba(15,23,42,0.4)';
+    ctx.shadowBlur  = r*0.15;
+    ctx.fillText(emoji, w/2, h/2);
+    ctx.shadowBlur = 0;
+  }
+
+  function initTextures(){
+    drawEmojiTexture('tex-normal', EMOJI.normal, '#22c55e');
+    drawEmojiTexture('tex-bomb',   EMOJI.bomb,   '#ef4444');
+    drawEmojiTexture('tex-decoy',  EMOJI.decoy,  '#f97316');
+    drawEmojiTexture('tex-heal',   EMOJI.heal,   '#0ea5e9');
+    drawEmojiTexture('tex-shield', EMOJI.shield, '#a855f7');
+  }
+
   // ===== TIMER =====
   function startTimer(){
     if (timeTimer) clearInterval(timeTimer);
     timeLeft = SESSION_TIME;
     updateTimeHud();
 
-    const STEP = 0.1; // วินาที
+    const STEP = 0.1;
     timeTimer = setInterval(() => {
       if (!running) return;
       timeLeft -= STEP;
@@ -474,31 +532,27 @@
         stopGame();
         clearInterval(timeTimer);
         timeTimer = null;
-        console.log('[SBVR] session ended');
         return;
       }
       updateTimeHud();
     }, STEP * 1000);
   }
 
-  // ====== TARGET SPAWN ======
+  // ===== TARGET SPAWN =====
   function spawnOneTarget(){
     if (!root || !running) return;
 
     const type = pickType();
     const size = SIZE_BY_DIFF_PHASE(diff, phase);
 
-    // ตำแหน่งแถวกำแพง arena (root อยู่ที่ 0 1.8 -4 แล้ว)
     const x = randRange(-BASE_SPREAD_X, BASE_SPREAD_X);
     const y = randRange(-BASE_SPREAD_Y, BASE_SPREAD_Y);
     const z = 0;
 
     const wrapper = document.createElement('a-entity');
-    const id = 'sbvr-target-' + Date.now() + '-' + Math.floor(Math.random()*9999);
-    wrapper.setAttribute('id', id);
     wrapper.setAttribute('position', `${x} ${y} ${z}`);
 
-    // วง ring (ตัวที่ raycaster เล็งโดนจริง ๆ)
+    // ring (โดน raycaster)
     const ring = document.createElement('a-entity');
     ring.setAttribute(
       'geometry',
@@ -512,45 +566,40 @@
       'animation__spin',
       'property: rotation; to: 0 360 0; dur: 1400; loop: true; easing: linear'
     );
-    ring.setAttribute('class', 'sbvr-target');   // สำคัญ!! raycaster ใช้ class นี้
+    ring.setAttribute('class', 'sbvr-target');
 
-    // emoji ตรงกลาง
-    const face = document.createElement('a-entity');
-    face.setAttribute('position', '0 0 0.02');
-    face.setAttribute('text', {
-      value: EMOJI[type] || EMOJI.normal,
-      align: 'center',
-      color: '#ffffff',
-      width: size * 2.4,
-      side: 'double'
-    });
+    // emoji plane ตรงกลาง
+    const face = document.createElement('a-plane');
+    face.setAttribute('width',  size);
+    face.setAttribute('height', size);
+    face.setAttribute(
+      'material',
+      `shader:flat; src:${TEX_SRC[type] || TEX_SRC.normal}; transparent:true; side:double`
+    );
+    face.setAttribute('position', '0 0 0.03');
+    face.setAttribute('look-at', '[camera]');
 
     wrapper.appendChild(ring);
     wrapper.appendChild(face);
 
-    // interaction – ผูก click ที่ ring โดยตรง
     const onClick = (evt) => {
       if (!running) return;
       evt.stopPropagation();
-      if (wrapper.parentNode === root){
-        root.removeChild(wrapper);
-      }
+      if (wrapper.parentNode === root) root.removeChild(wrapper);
       hitCount++;
       updateHud();
-      console.log('[SBVR] hit', type);
     };
     ring.addEventListener('click', onClick);
 
     root.appendChild(wrapper);
 
-    // หายเองเมื่อหมดเวลา → นับ miss เฉพาะ normal
+    // timeout → miss สำหรับ normal
     setTimeout(() => {
       if (!wrapper.parentNode) return;
       try { root.removeChild(wrapper); } catch(e){}
       if (type === 'normal'){
         missCount++;
         updateHud();
-        console.log('[SBVR] miss (timeout normal)');
       }
     }, TARGET_LIFETIME);
   }
@@ -568,9 +617,10 @@
   function startGame(){
     root = document.getElementById(ROOT_ID);
     if (!root){
-      console.warn('[ShadowBreaker VR] ไม่พบ #' + ROOT_ID + ' ใน scene');
+      console.warn('[SBVR] no #' + ROOT_ID);
       return;
     }
+    initTextures();      // ← วาด emoji textures ที่นี่
     running   = true;
     hitCount  = 0;
     missCount = 0;
@@ -578,7 +628,6 @@
     updateTimeHud();
     startTimer();
     scheduleNextSpawn();
-    console.log('[ShadowBreaker VR] startGame OK, root=', root);
   }
 
   function stopGame(){
@@ -600,7 +649,7 @@
     startGame();
   }
 
-  // debug จาก console
+  // debug
   window.SBVR = {
     start: startGame,
     stop:  stopGame,
