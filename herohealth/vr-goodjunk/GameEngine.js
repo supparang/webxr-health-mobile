@@ -7,7 +7,7 @@ import { ensureFeverBar, setFever, setFeverActive, setShield } from './ui-fever.
 import { Difficulty } from './difficulty.js';
 import { emojiImage } from './emoji-image.js';
 import { burstAt, floatScore, setShardMode } from './aframe-particles.js';
-import { Quest } from './Quest.js';
+import { Quest } from './quest-serial.js';
 
 // ---------- Global ที่ Quest / Coach ใช้ ----------
 window.score        = 0;
