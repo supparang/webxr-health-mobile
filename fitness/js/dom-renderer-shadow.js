@@ -1,159 +1,178 @@
-// === js/dom-renderer-shadow.js — Shadow Breaker Renderer (2025-12-XX) ===
+// === js/dom-renderer-shadow.js — Shadow Breaker Renderer (2025-12-05) ===
 'use strict';
+
+const EMOJI_BY_TYPE = {
+  normal:  '🥊',
+  bomb:    '💣',
+  decoy:   '🎭',  // เป้าลวง
+  heal:    '❤️',
+  shield:  '🛡️',
+  bossface:'👑'   // จะถูกแทนด้วย bossEmoji จริงตอน spawn
+};
 
 export class DomRendererShadow {
   constructor(host, opts = {}) {
-    this.host = host;
-    this.wrapEl = opts.wrapEl || document.body;
+    this.host       = host;
+    this.wrapEl     = opts.wrapEl || document.body;
     this.feedbackEl = opts.feedbackEl || null;
     this.onTargetHit = opts.onTargetHit || null;
 
     this.targets = new Map();
     this.diffKey = 'normal';
+
+    this._handleClick = this._handleClick.bind(this);
+    if (this.host) {
+      this.host.addEventListener('click', this._handleClick);
+    }
   }
 
-  setDifficulty(key) {
-    this.diffKey = key || 'normal';
+  setDifficulty(diffKey) {
+    this.diffKey = diffKey || 'normal';
   }
 
-  // ----- SPAWN -----
+  destroy() {
+    if (this.host) {
+      this.host.removeEventListener('click', this._handleClick);
+    }
+    this.clearTargets();
+  }
+
+  clearTargets() {
+    for (const el of this.targets.values()) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }
+    this.targets.clear();
+  }
+
+  // ===== public API used by engine =====
+
   spawnTarget(data) {
     if (!this.host) return;
 
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'sb-target';
-    if (data.isBossFace) el.classList.add('sb-target-boss');
-    if (data.isBomb) el.classList.add('sb-target-bomb');
-    if (data.isDecoy) el.classList.add('sb-target-decoy');
+
+    const type = data.isBossFace ? 'bossface' : (data.type || 'normal');
+    el.classList.add(`sb-target--${type}`);
+
+    const emoji = data.isBossFace && data.bossEmoji
+      ? data.bossEmoji
+      : (EMOJI_BY_TYPE[type] || EMOJI_BY_TYPE.normal);
 
     el.dataset.id = String(data.id);
+    el.dataset.type = type;
 
-    const emo = document.createElement('span');
-    emo.className = 'sb-target-emoji';
-    emo.textContent = data.isBossFace
-      ? (data.bossEmoji || '🥊')
-      : data.isBomb
-      ? '💣'
-      : '🥊';
-    el.appendChild(emo);
+    // ขนาดเป้า: ควบคุมผ่าน CSS variable
+    const size = data.sizePx || 120;
+    el.style.setProperty('--sb-target-size', `${size}px`);
 
-    const size = data.sizePx || 110;
-    el.style.setProperty('--sb-target-size', size + 'px');
+    // ตำแหน่งบน layer (ใช้ % ให้ responsive)
+    const x = Math.random() * 70 + 15; // ไม่ชิดขอบเกินไป
+    const y = Math.random() * 70 + 15;
+    el.style.left = x + '%';
+    el.style.top  = y + '%';
 
-    // กระจายเป้าให้เต็มพื้นที่ แต่เว้นขอบ
-    const hostRect = this.host.getBoundingClientRect();
-    const padX = hostRect.width * 0.12;
-    const padY = hostRect.height * 0.18;
-    const availableW = Math.max(20, hostRect.width - padX * 2);
-    const availableH = Math.max(20, hostRect.height - padY * 2);
+    // โครงสร้างภายใน
+    const core = document.createElement('span');
+    core.className = 'sb-target-core';
+    core.textContent = emoji;
 
-    const x = padX + Math.random() * availableW;
-    const y = padY + Math.random() * availableH;
-
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-
-    const clickHandler = (ev) => {
-      if (this.onTargetHit) {
-        this.onTargetHit(data.id, {
-          clientX: ev.clientX,
-          clientY: ev.clientY
-        });
-      }
-    };
-    el.addEventListener('click', clickHandler);
-
-    data._el = el;
-    data._clickHandler = clickHandler;
-    this.targets.set(data.id, data);
-
+    el.appendChild(core);
     this.host.appendChild(el);
+
+    this.targets.set(data.id, el);
   }
 
-  // ----- REMOVE -----
-  removeTarget(id /* reason */) {
-    const data = this.targets.get(id);
-    if (!data) return;
-    const el = data._el;
-    if (el && el.parentNode) {
-      el.removeEventListener('click', data._clickHandler);
-      el.parentNode.removeChild(el);
-    }
+  removeTarget(id, reason) {
+    const el = this.targets.get(id);
+    if (!el) return;
     this.targets.delete(id);
+
+    // ทำ animation เล็กน้อยตอนหาย
+    el.classList.add('sb-target--gone');
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, reason === 'hit' ? 250 : 150);
   }
 
-  // ----- FX -----
-  playHitFx(id, opts = {}) {
-    const data = this.targets.get(id);
-    if (!this.host) return;
+  playHitFx(id, opts) {
+    const el = this.targets.get(id);
+    if (!el) return;
 
-    const hostRect = this.host.getBoundingClientRect();
-    let x = opts.clientX;
-    let y = opts.clientY;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top  + rect.height / 2;
 
-    if ((!x || !y) && data && data._el) {
-      const r = data._el.getBoundingClientRect();
-      x = r.left + r.width / 2;
-      y = r.top + r.height / 2;
+    this._spawnScoreText(cx, cy, opts);
+    this._spawnBurst(cx, cy, opts);
+  }
+
+  // ===== internal helpers =====
+
+  _handleClick(ev) {
+    const target = ev.target.closest('.sb-target');
+    if (!target) return;
+
+    const id = parseInt(target.dataset.id, 10);
+    if (!this.targets.has(id)) return;
+
+    const rect = target.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top  + rect.height / 2;
+
+    if (this.onTargetHit) {
+      this.onTargetHit(id, {
+        clientX: cx,
+        clientY: cy
+      });
     }
-    if (!x || !y) return;
-
-    const localX = x - hostRect.left;
-    const localY = y - hostRect.top;
-
-    this.spawnHitParticles(localX, localY, opts.grade);
-    this.spawnScoreFx(localX, localY, opts.scoreDelta, opts.grade);
   }
 
-  spawnHitParticles(x, y /* grade */) {
-    const count = 18;
-    for (let i = 0; i < count; i++) {
+  _spawnScoreText(x, y, { grade, scoreDelta }) {
+    if (!this.wrapEl) return;
+    const el = document.createElement('div');
+    el.className = `sb-fx-score sb-fx-${grade || 'good'}`;
+    el.textContent = (scoreDelta > 0 ? '+' : '') + scoreDelta;
+
+    el.style.left = `${x}px`;
+    el.style.top  = `${y}px`;
+
+    document.body.appendChild(el);
+    requestAnimationFrame(() => {
+      el.classList.add('is-live');
+    });
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 700);
+  }
+
+  _spawnBurst(x, y, { grade }) {
+    if (!this.wrapEl) return;
+    const n = grade === 'perfect' ? 20 : 12;
+    for (let i = 0; i < n; i++) {
       const dot = document.createElement('div');
-      dot.className = 'sb-frag';
-      dot.style.left = x + 'px';
-      dot.style.top = y + 'px';
+      dot.className = `sb-fx-dot sb-fx-${grade || 'good'}`;
+      dot.style.left = `${x}px`;
+      dot.style.top  = `${y}px`;
 
-      const angle = (i / count) * Math.PI * 2;
+      const ang = (Math.PI * 2 * i) / n;
       const dist = 40 + Math.random() * 40;
-      const dx = Math.cos(angle) * dist;
-      const dy = Math.sin(angle) * dist;
+      const dx = Math.cos(ang) * dist;
+      const dy = Math.sin(ang) * dist;
+      const scale = 0.6 + Math.random() * 0.6;
 
-      dot.style.setProperty('--sb-frag-dx', dx + 'px');
-      dot.style.setProperty('--sb-frag-dy', dy + 'px');
+      dot.style.setProperty('--sb-fx-dx', `${dx}px`);
+      dot.style.setProperty('--sb-fx-dy', `${dy}px`);
+      dot.style.setProperty('--sb-fx-scale', scale.toString());
 
-      this.host.appendChild(dot);
-
+      document.body.appendChild(dot);
+      requestAnimationFrame(() => {
+        dot.classList.add('is-live');
+      });
       setTimeout(() => {
         if (dot.parentNode) dot.parentNode.removeChild(dot);
-      }, 620);
+      }, 550);
     }
-  }
-
-  spawnScoreFx(x, y, delta, grade) {
-    if (delta == null) return;
-    const fx = document.createElement('div');
-    fx.className = 'sb-score-fx';
-    if (grade) fx.classList.add('grade-' + grade);
-    fx.textContent = (delta > 0 ? '+' : '') + delta;
-    fx.style.left = x + 'px';
-    fx.style.top = y + 'px';
-
-    this.host.appendChild(fx);
-
-    setTimeout(() => {
-      if (fx.parentNode) fx.parentNode.removeChild(fx);
-    }, 820);
-  }
-
-  destroy() {
-    for (const [, data] of this.targets) {
-      const el = data._el;
-      if (el && el.parentNode) {
-        el.removeEventListener('click', data._clickHandler);
-        el.parentNode.removeChild(el);
-      }
-    }
-    this.targets.clear();
   }
 }
