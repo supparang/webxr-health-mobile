@@ -103,9 +103,11 @@ const DIFF_CONFIG = {
 };
 
 // FEVER ปรับให้ง่ายขึ้น
-const FEVER_PER_HIT = 0.12;
-const FEVER_DECAY_PER_SEC = 0.12;
-const FEVER_DURATION_MS = 7000;
+// ===== FEVER tuning (เวอร์ชันใหม่) =====
+const FEVER_PER_HIT = 0.18;      // เดิม 0.09 → ตอนนี้ประมาณ 5-6 hit ก็เต็ม
+const FEVER_DECAY_PER_SEC = 0.08; // เดิม 0.15 → ลดช้าลง
+const FEVER_DURATION_MS = 8000;   // อยู่ในโหมด FEVER ได้นานขึ้นนิดหน่อย
+
 const LOWHP_THRESHOLD = 0.3;
 const BOSSFACE_THRESHOLD = 0.28;
 
@@ -471,8 +473,16 @@ function handleTargetHit(id, hitInfo) {
     );
   }
 
-  if (data.type === 'normal') {
-    state.fever += FEVER_PER_HIT;
+  // FEVER gauge: นับทั้ง normal + heal + shield + boss-face
+  const feverEligible =
+    data.type === 'normal' ||
+    data.type === 'heal' ||
+    data.type === 'shield' ||
+    data.isBossFace;
+
+  if (feverEligible) {
+    state.fever = Math.min(1, state.fever + FEVER_PER_HIT);
+
     if (!state.feverOn && state.fever >= 1) {
       state.feverOn = true;
       state.feverUntil = now + FEVER_DURATION_MS;
@@ -483,6 +493,7 @@ function handleTargetHit(id, hitInfo) {
       }
     }
   }
+
 
   if (state.feverOn) {
     scoreDelta = Math.round(scoreDelta * 1.5);
