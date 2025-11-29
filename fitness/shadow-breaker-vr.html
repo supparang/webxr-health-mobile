@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VR Fitness — Shadow Breaker (VR)</title>
+
+  <!-- A-Frame core -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    :root{
+      --bg-main:#020617;
+      --panel:#020617;
+      --panel-soft:#020617;
+      --accent:#38bdf8;
+      --accent-hard:#fb923c;
+      --accent-easy:#22c55e;
+      --hp-player:#22c55e;
+      --hp-boss:#f97316;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+    }
+
+    *{box-sizing:border-box;font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;}
+
+    body{
+      margin:0;
+      background:radial-gradient(circle at top,#0f172a 0,#020617 55%,#020617 100%);
+      color:var(--text);
+      overflow:hidden;
+    }
+
+    /* ===== HUD ===== */
+    .hud-wrap{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      display:flex;
+      flex-direction:column;
+      padding:8px 14px 16px;
+      z-index:10;
+    }
+
+    .hud-top{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      justify-content:space-between;
+      pointer-events:auto;
+    }
+
+    .hud-card{
+      background:linear-gradient(135deg,#020617ee,#020617f7);
+      border-radius:16px;
+      padding:10px 14px;
+      box-shadow:0 16px 40px rgba(15,23,42,.6);
+      border:1px solid rgba(148,163,184,.25);
+      min-width:0;
+    }
+
+    .hud-card.small{
+      max-width:260px;
+    }
+
+    .hud-title{
+      font-size:13px;
+      font-weight:600;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+
+    .hud-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 18px;
+      align-items:center;
+      font-size:13px;
+    }
+
+    .stat-label{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.14em;
+      color:var(--muted);
+      margin-bottom:2px;
+    }
+    .stat-value{
+      font-size:15px;
+      font-weight:600;
+    }
+
+    .hp-bar{
+      position:relative;
+      width:100%;
+      height:7px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.9);
+      overflow:hidden;
+      margin-top:4px;
+    }
+    .hp-fill{
+      position:absolute;
+      inset:0;
+      transform-origin:left center;
+      transform:scaleX(1);
+      border-radius:inherit;
+    }
+    .hp-player-fill{
+      background:linear-gradient(90deg,#4ade80,#22c55e);
+    }
+    .hp-boss-fill{
+      background:linear-gradient(90deg,#fb923c,#f97316);
+    }
+
+    .hud-boss-name{
+      font-weight:600;
+      font-size:15px;
+      margin-bottom:4px;
+    }
+    .hud-boss-sub{
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .boss-emoji{
+      width:32px;height:32px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:20px;
+      background:radial-gradient(circle at 30% 20%,#fef3c7,#fbbf24);
+      box-shadow:0 0 0 2px rgba(253,224,71,.7),0 12px 30px rgba(15,23,42,.9);
+      margin-right:10px;
+      flex-shrink:0;
+    }
+
+    /* meta row (Score / Combo / Time / Phase / Miss / Fever) */
+    .hud-meta-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 18px;
+      font-size:13px;
+      margin-top:6px;
+    }
+    .meta-item{
+      display:flex;
+      flex-direction:column;
+      min-width:70px;
+    }
+
+    .fever-wrap{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-top:4px;
+    }
+    .fever-bar{
+      flex:1;
+      height:6px;
+      border-radius:999px;
+      background:rgba(15,23,42,.9);
+      overflow:hidden;
+    }
+    .fever-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#38bdf8,#a855f7,#f97316);
+      transition:width .15s ease-out;
+    }
+    .fever-label{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.16em;
+    }
+    .fever-on{
+      color:#f97316;
+    }
+
+    /* message bottom */
+    .hud-bottom{
+      margin-top:auto;
+      font-size:13px;
+      color:#f9fafb;
+      text-align:center;
+      text-shadow:0 2px 8px rgba(0,0,0,.8);
+    }
+    .hud-msg{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.75);
+      border:1px solid rgba(148,163,184,.55);
+      backdrop-filter:blur(12px);
+    }
+
+    /* hit / score FX (DOM, กลางจอ) */
+    .fx-score{
+      position:fixed;
+      left:50%;top:50%;
+      transform:translate(-50%,-60%);
+      font-size:26px;
+      font-weight:700;
+      pointer-events:none;
+      animation:fx-pop .5s ease-out forwards;
+      text-shadow:0 0 16px rgba(15,23,42,.9);
+      z-index:12;
+    }
+    .fx-score.good{color:#4ade80;}
+    .fx-score.bad{color:#f97316;}
+    .fx-score.miss{color:#ef4444;}
+
+    @keyframes fx-pop{
+      0%{opacity:0;transform:translate(-50%,-50%) scale(.3);}
+      40%{opacity:1;transform:translate(-50%,-56%) scale(1);}
+      100%{opacity:0;transform:translate(-50%,-80%) scale(.8);}
+    }
+
+    /* ===== Scene sizing ===== */
+    a-scene{
+      width:100vw;
+      height:100vh;
+    }
+
+    @media (max-width:768px){
+      .hud-top{
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .hud-card.small{
+        max-width:none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HUD ===== -->
+<div class="hud-wrap">
+  <div class="hud-top">
+    <!-- left: game stats -->
+    <div class="hud-card small">
+      <div class="hud-title">สถิติเกมนี้</div>
+      <div class="hud-row">
+        <div>
+          <div class="stat-label">Score</div>
+          <div class="stat-value" id="hud-score">0</div>
+        </div>
+        <div>
+          <div class="stat-label">Combo</div>
+          <div class="stat-value" id="hud-combo">0</div>
+        </div>
+        <div>
+          <div class="stat-label">Miss</div>
+          <div class="stat-value" id="hud-miss">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- center: HP + meta -->
+    <div class="hud-card">
+      <div class="hud-title">Shadow Breaker — VR</div>
+      <div class="hud-row">
+        <div style="flex:1;min-width:120px">
+          <div class="stat-label">PLAYER HP</div>
+          <div class="hp-bar">
+            <div class="hp-fill hp-player-fill" id="hud-hp-player"></div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:120px">
+          <div class="stat-label">BOSS HP</div>
+          <div class="hp-bar">
+            <div class="hp-fill hp-boss-fill" id="hud-hp-boss"></div>
+          </div>
+        </div>
+      </div>
+      <div class="hud-meta-row">
+        <div class="meta-item">
+          <span class="stat-label">Time</span>
+          <span class="stat-value" id="hud-time">60.0 s</span>
+        </div>
+        <div class="meta-item">
+          <span class="stat-label">Phase</span>
+          <span class="stat-value" id="hud-phase">1</span>
+        </div>
+        <div class="meta-item">
+          <span class="stat-label">Fever</span>
+          <div class="fever-wrap">
+            <span id="hud-fever-label" class="fever-label">READY</span>
+            <div class="fever-bar">
+              <div id="hud-fever-fill" class="fever-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- right: boss info -->
+    <div class="hud-card small">
+      <div class="hud-title">Boss Info</div>
+      <div style="display:flex;align-items:center;margin-bottom:4px;">
+        <div class="boss-emoji" id="hud-boss-emoji">🐣</div>
+        <div>
+          <div class="hud-boss-name" id="hud-boss-name">Bubble Glove</div>
+          <div class="hud-boss-sub" id="hud-boss-sub">Phase 1 • Shield 0</div>
+        </div>
+      </div>
+      <div class="hud-boss-sub" id="hud-boss-hint">
+        โฟกัสที่ฟองใหญ่ ๆ แล้วชกให้ทัน
+      </div>
+    </div>
+  </div>
+
+  <div class="hud-bottom">
+    <div class="hud-msg" id="hud-msg">
+      จ้องเป้าแล้วแตะหน้าจอ / คลิกเมาส์ เพื่อชกให้ทันจังหวะ 🎯
+    </div>
+  </div>
+</div>
+
+<!-- ===== A-Frame Scene ===== -->
+<a-scene renderer="antialias:true" background="color:#020617">
+  <!-- กล้อง + cursor -->
+  <a-entity id="rig" position="0 1.6 0">
+    <a-camera wasd-controls-enabled="false" look-controls="pointerLockEnabled: true">
+      <!-- cursor แบบวงกลมกลางจอ -->
+      <a-cursor
+        fuse="false"
+        raycaster="objects: .sbvr-target"
+        material="color: #f9fafb; shader: flat; opacity: 0.8"
+        geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.008">
+      </a-cursor>
+    </a-camera>
+  </a-entity>
+
+  <!-- แสง + ฉาก -->
+  <a-entity light="type:ambient;intensity:0.7;color:#ffffff"></a-entity>
+  <a-entity light="type:directional;intensity:0.8;color:#ffffff" position="2 4 1"></a-entity>
+
+  <a-sky color="#020617"></a-sky>
+
+  <a-plane rotation="-90 0 0" width="16" height="16" color="#020617"
+           material="shader:flat;opacity:0.9;src:#floorTex"></a-plane>
+
+  <!-- กล่องจาง ๆ เป็นพื้นหลังให้รู้ว่าอยู่ใน arena -->
+  <a-box position="0 1.8 -4" depth="0.3" height="4.2" width="7.5"
+         color="#020617"
+         material="opacity:0.7;transparent:true;shader:standard;metalness:0;roughness:1;">
+  </a-box>
+
+  <!-- กลุ่มเป้า -->
+  <a-entity id="sbvr-target-root" position="0 1.8 -4"></a-entity>
+
+  <!-- texture เล็ก ๆ สำหรับพื้น (optional) -->
+  <a-assets>
+    <canvas id="floorTex" width="256" height="256"></canvas>
+  </a-assets>
+</a-scene>
+
+<script>
+(function(){
+  // ===== Utility =====
+  function pickWeighted(items){
+    const sum = items.reduce((s,it)=>s+it.w,0);
+    let r = Math.random()*sum;
+    for(const it of items){
+      if(r < it.w) return it.v;
+      r -= it.w;
+    }
+    return items[items.length-1].v;
+  }
+
+  const diffFromUrl = (() => {
+    const m = location.search.match(/[?&]diff=(easy|normal|hard)/);
+    return m ? m[1] : 'normal';
+  })();
+
+  const DIFF_CONFIG = {
+    easy:   {duration:60, spawnMin:850,  spawnMax:1300, baseRadius:0.22, feverPerHit:0.20},
+    normal: {duration:60, spawnMin:700,  spawnMax:1100, baseRadius:0.18, feverPerHit:0.17},
+    hard:   {duration:60, spawnMin:550,  spawnMax:950,  baseRadius:0.15, feverPerHit:0.14}
+  };
+
+  const BOSSES = [
+    {id:0, name:'Bubble Glove', emoji:'🐣', hint:'โฟกัสที่ฟองใหญ่ ๆ แล้วชกให้ทัน'},
+    {id:1, name:'Spark Guard',  emoji:'⚡️', hint:'ระวังลูกระเบิดและเป้าลวงให้ดี'},
+    {id:2, name:'Shadow Mitt',  emoji:'🕶️', hint:'เป้าบางอันจะหลอก ต้องใช้จังหวะ'},
+    {id:3, name:'Galaxy Punch', emoji:'🌌', hint:'ด่านสุดท้าย เป้าเล็กและเร็วมาก'}
+  ];
+
+  const cfg = DIFF_CONFIG[diffFromUrl] || DIFF_CONFIG.normal;
+
+  // ===== DOM refs =====
+  const root = document.getElementById('sbvr-target-root');
+
+  const elScore  = document.getElementById('hud-score');
+  const elCombo  = document.getElementById('hud-combo');
+  const elMiss   = document.getElementById('hud-miss');
+  const elHpPlayer = document.getElementById('hud-hp-player');
+  const elHpBoss   = document.getElementById('hud-hp-boss');
+  const elTime   = document.getElementById('hud-time');
+  const elPhase  = document.getElementById('hud-phase');
+  const elFeverLabel = document.getElementById('hud-fever-label');
+  const elFeverFill  = document.getElementById('hud-fever-fill');
+  const elBossEmoji = document.getElementById('hud-boss-emoji');
+  const elBossName  = document.getElementById('hud-boss-name');
+  const elBossSub   = document.getElementById('hud-boss-sub');
+  const elBossHint  = document.getElementById('hud-boss-hint');
+  const elMsg       = document.getElementById('hud-msg');
+
+  // draw small grid texture on floor canvas
+  (function drawFloor(){
+    const canvas = document.getElementById('floorTex');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0,0,256,256);
+    ctx.strokeStyle = 'rgba(148,163,184,0.14)';
+    ctx.lineWidth = 1;
+    for(let i=0;i<=256;i+=32){
+      ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,256);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(256,i);ctx.stroke();
+    }
+  })();
+
+  // ===== Runtime state =====
+  let running = false;
+  let lastTick = performance.now();
+  let timeLeftMs = cfg.duration*1000;
+
+  let bossIndex = 0;
+  let bossPhase = 1;
+  let bossHp = 1;
+  let playerHp = 1;
+
+  let score = 0;
+  let combo = 0;
+  let maxCombo = 0;
+  let miss = 0;
+
+  let fever = 0;
+  let feverOn = false;
+  let feverUntil = 0;
+  const FEVER_DECAY_PER_SEC = 0.18;
+  const FEVER_DURATION_MS   = 7000;
+
+  let spawnTimer = null;
+  let nextTargetId = 1;
+  const targets = new Map();
+
+  const BOSS_DMG_NORMAL = {easy:.035, normal:.03, hard:.027}[diffFromUrl] || .03;
+  const BOSS_DMG_FACE   = {easy:.20,  normal:.23, hard:.26}[diffFromUrl] || .23;
+
+  // ===== UI helpers =====
+  function updateBossUi(){
+    const b = BOSSES[bossIndex] || BOSSES[BOSSES.length-1];
+    elBossEmoji.textContent = b.emoji;
+    elBossName.textContent  = b.name;
+    elBossSub.textContent   = `Phase ${bossPhase} • Shield 0`;
+    elBossHint.textContent  = b.hint;
+    elPhase.textContent     = String(bossPhase);
+  }
+
+  function updateHud(){
+    elScore.textContent = score;
+    elCombo.textContent = combo;
+    elMiss.textContent  = miss;
+    elHpPlayer.style.transform = `scaleX(${Math.max(0,playerHp)})`;
+    elHpBoss.style.transform   = `scaleX(${Math.max(0,bossHp)})`;
+  }
+
+  function showMsg(text){
+    elMsg.textContent = text;
+  }
+
+  function fxScore(delta, tone){
+    const el = document.createElement('div');
+    el.className = 'fx-score '+(tone||'');
+    el.textContent = (delta>0?'+':'')+delta;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),480);
+  }
+
+  // ===== Target spawn =====
+  function spawnTarget(){
+    if(!running) return;
+
+    const now = performance.now();
+
+    // ถ้าใกล้ตายและยังไม่โชว์ boss face → มีโอกาส spawn พิเศษ
+    let kind = pickWeighted([
+      {v:'normal', w:70},
+      {v:'decoy',  w:10},
+      {v:'bomb',   w:8},
+      {v:'heal',   w:6},
+      {v:'shield', w:6}
+    ]);
+
+    let radius = cfg.baseRadius;
+    if(bossPhase === 1) radius *= 1.1;
+    else if(bossPhase === 3) radius *= 0.9;
+
+    const id = nextTargetId++;
+    const x = (Math.random()-0.5)*2.4;   // กว้างประมาณ 2.4 หน่วย
+    const y = (Math.random()*0.9)-0.45;  // เลื่อนขึ้นลงนิดหน่อย
+
+    const colorMap = {
+      normal:'#38bdf8',
+      bomb:'#f97316',
+      decoy:'#64748b',
+      heal:'#4ade80',
+      shield:'#eab308',
+      bossface:'#f97316'
+    };
+
+    const ent = document.createElement('a-sphere');
+    ent.classList.add('sbvr-target');
+    ent.setAttribute('radius', radius);
+    ent.setAttribute('position', `${x} 0 ${y}`);
+    ent.setAttribute('color', colorMap[kind] || '#38bdf8');
+    ent.setAttribute('metalness', 0.2);
+    ent.setAttribute('roughness', 0.35);
+    ent.setAttribute('emissive', '#38bdf8');
+    ent.setAttribute('emissiveIntensity', 0.55);
+
+    ent.addEventListener('click', () => {
+      handleHit(id);
+    });
+
+    root.appendChild(ent);
+
+    const ttl = 1300 + Math.random()*600;
+    const data = {
+      id,
+      type:kind,
+      ent,
+      spawnTime:now,
+      timeoutAt:now+ttl,
+      timeoutHandle:setTimeout(()=>handleTimeout(id), ttl)
+    };
+    targets.set(id,data);
+  }
+
+  function scheduleNextSpawn(){
+    if(!running) return;
+    const delay = cfg.spawnMin + Math.random()*(cfg.spawnMax-cfg.spawnMin);
+    spawnTimer = setTimeout(()=>{
+      spawnTarget();
+      scheduleNextSpawn();
+    },delay);
+  }
+
+  // ===== Hit / Timeout =====
+  function handleTimeout(id){
+    const t = targets.get(id);
+    if(!t) return;
+    targets.delete(id);
+    if(t.ent && t.ent.parentNode) t.ent.parentNode.removeChild(t.ent);
+
+    if(!running) return;
+
+    if(t.type === 'normal'){
+      miss++;
+      combo = 0;
+      updateHud();
+      showMsg('พลาดจังหวะ! ลองมองเป้าให้ชัดแล้วลองใหม่ 👀');
+      fxScore(0,'miss');
+    }
+  }
+
+  function applyBossDamage(amount){
+    bossHp = Math.max(0,bossHp-amount);
+    if(bossHp > .66) bossPhase = 1;
+    else if(bossHp > .33) bossPhase = 2;
+    else bossPhase = 3;
+    updateBossUi();
+    if(bossHp <= 0){
+      bossIndex++;
+      if(bossIndex >= BOSSES.length){
+        endGame('clear-all');
+      }else{
+        bossHp = 1;
+        bossPhase = 1;
+        updateBossUi();
+        showMsg('ผ่านบอส! เตรียมรับมือบอสถัดไป 🔥');
+      }
+    }
+  }
+
+  function handleHit(id){
+    const t = targets.get(id);
+    if(!t || !running) return;
+    targets.delete(id);
+    if(t.timeoutHandle) clearTimeout(t.timeoutHandle);
+    if(t.ent && t.ent.parentNode) t.ent.parentNode.removeChild(t.ent);
+
+    const now = performance.now();
+    const rt = now - t.spawnTime;
+
+    let delta = 0;
+    let tone = 'good';
+
+    if(t.type === 'bomb' || t.type === 'decoy'){
+      delta = -80;
+      tone  = 'bad';
+      if(playerHp > 0.02){
+        playerHp = Math.max(0,playerHp-0.18);
+      }
+      combo = 0;
+      showMsg('โดนระเบิด / เป้าลวง! ระวังให้มากขึ้น 💥');
+    }else if(t.type === 'heal'){
+      delta = +80;
+      playerHp = Math.min(1,playerHp+0.18);
+      combo++;
+      showMsg('ได้ HP เพิ่มขึ้น 🩹');
+    }else if(t.type === 'shield'){
+      delta = +70;
+      combo++;
+      showMsg('ได้บัฟป้องกัน ✨ (ใช้ในงานวิจัยภายหลัง)');
+    }else{
+      // normal
+      if(rt < 200){ delta = 160; }
+      else if(rt < 450){ delta = 120; }
+      else{ delta = 70; tone = 'bad'; }
+
+      combo++;
+      applyBossDamage(BOSS_DMG_NORMAL);
+      showMsg(tone==='bad' ? 'จังหวะช้าไปนิด ลองเร่งหมัดอีกหน่อย 🔄' :
+                             'หมัดสวย! รักษาคอมโบไว้ให้ได้ 🎯');
+    }
+
+    if(feelFeverFromHit(t.type)){
+      tone = 'good';
+    }
+
+    score = Math.max(0,score+delta);
+    if(combo>maxCombo) maxCombo = combo;
+    updateHud();
+    fxScore(delta,tone);
+
+    if(playerHp <= 0){
+      endGame('player-down');
+    }
+  }
+
+  function feelFeverFromHit(targetType){
+    if(targetType === 'normal'){
+      fever += cfg.feverPerHit;
+    }else if(targetType === 'heal'){
+      fever += cfg.feverPerHit*0.7;
+    }
+    if(!feverOn && fever >= 1){
+      feverOn = true;
+      fever = 1;
+      feverUntil = performance.now()+FEVER_DURATION_MS;
+      elFeverLabel.textContent = 'ON';
+      elFeverLabel.classList.add('fever-on');
+      showMsg('FEVER MODE! คะแนน+ดาเมจเพิ่มขึ้น 🔥');
+      return true;
+    }
+    return false;
+  }
+
+  // ===== Loop =====
+  function gameLoop(ts){
+    if(!running) return;
+
+    const dt = ts - lastTick;
+    lastTick = ts;
+
+    timeLeftMs -= dt;
+    if(timeLeftMs <= 0){
+      timeLeftMs = 0;
+      elTime.textContent = '0.0 s';
+      endGame('time-up');
+      return;
+    }
+    elTime.textContent = (timeLeftMs/1000).toFixed(1)+' s';
+
+    // fever decay
+    if(feverOn){
+      if(ts >= feverUntil){
+        feverOn = false;
+        fever = 0;
+        elFeverLabel.textContent = 'READY';
+        elFeverLabel.classList.remove('fever-on');
+      }
+    }else if(fever > 0){
+      fever = Math.max(0, fever - FEVER_DECAY_PER_SEC*(dt/1000));
+    }
+    elFeverFill.style.width = (fever*100)+'%';
+
+    // timeout safety
+    const now = ts;
+    for(const t of Array.from(targets.values())){
+      if(now >= t.timeoutAt){
+        handleTimeout(t.id);
+      }
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // ===== Start / End =====
+  function startGame(){
+    running = true;
+    lastTick = performance.now();
+    timeLeftMs = cfg.duration*1000;
+
+    bossIndex = 0;
+    bossPhase = 1;
+    bossHp = 1;
+    playerHp = 1;
+    score = 0;
+    combo = 0;
+    maxCombo = 0;
+    miss = 0;
+    fever = 0;
+    feverOn = false;
+    elFeverFill.style.width = '0%';
+    elFeverLabel.textContent = 'READY';
+    elFeverLabel.classList.remove('fever-on');
+
+    updateBossUi();
+    updateHud();
+    showMsg('เริ่มเกม! จ้องเป้าแล้วแตะหน้าจอ / คลิกเมาส์เพื่อตีเป้า 💥');
+
+    // ล้างเป้าค้าง
+    for(const t of targets.values()){
+      if(t.timeoutHandle) clearTimeout(t.timeoutHandle);
+      if(t.ent && t.ent.parentNode) t.ent.parentNode.removeChild(t.ent);
+    }
+    targets.clear();
+
+    if(spawnTimer) clearTimeout(spawnTimer);
+    scheduleNextSpawn();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  function endGame(reason){
+    if(!running) return;
+    running = false;
+    if(spawnTimer) clearTimeout(spawnTimer);
+    spawnTimer = null;
+
+    for(const t of targets.values()){
+      if(t.timeoutHandle) clearTimeout(t.timeoutHandle);
+      if(t.ent && t.ent.parentNode) t.ent.parentNode.removeChild(t.ent);
+    }
+    targets.clear();
+
+    let msg = '';
+    if(reason==='time-up') msg = 'หมดเวลาแล้ว! ลองอีกครั้งเพื่อทำคะแนนให้ดีกว่าเดิม ⏱️';
+    else if(reason==='player-down') msg = 'พลังหมด! ลองเล็งให้แม่นขึ้นแล้วกลับมาสู้ใหม่ 💪';
+    else if(reason==='clear-all') msg = 'สุดยอด! เคลียร์บอสครบทุกตัวแล้ว 🎉';
+    else msg = 'จบเกมรอบนี้แล้ว ลองอีกครั้งได้เลย 🎮';
+
+    showMsg(msg);
+  }
+
+  // เริ่มเกมอัตโนมัติเมื่อโหลดเสร็จ (เหมือน goodjunk-vr ปกติ)
+  window.addEventListener('load', () => {
+    startGame();
+  });
+
+})();
+</script>
+</body>
+</html>
