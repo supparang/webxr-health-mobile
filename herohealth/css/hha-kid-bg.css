@@ -1,22 +1,181 @@
-/* === /HeroHealth/css/hha-kid-bg.css === */
-/* พื้นหลังโทนเด็ก ป.5 พาสเทลอ่อน ๆ */
-body.kid-bg {
-  margin: 0;
-  min-height: 100vh;
-  font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
-  background:
-    radial-gradient(circle at 0%   0%,   #e0f2fe 0, transparent 55%),
-    radial-gradient(circle at 100% 0%,   #fef9c3 0, transparent 55%),
-    radial-gradient(circle at 0%   100%, #dcfce7 0, transparent 55%),
-    radial-gradient(circle at 100% 100%, #fee2e2 0, transparent 55%),
-    linear-gradient(180deg, #f9fafb 0, #e0f2fe 35%, #fefce8 70%, #f9fafb 100%);
-  color: #0f172a;
+/* === HeroHealth – Kid Sky Background (P.5 style) === */
+
+:root {
+  --hha-bg-top: #02091a;
+  --hha-bg-bottom: #020617;
+  --hha-accent-blue: #38bdf8;
+  --hha-accent-green: #22c55e;
+  --hha-accent-yellow: #facc15;
+  --hha-card-bg: rgba(15, 23, 42, 0.92);
+  --hha-card-border: rgba(148, 163, 184, 0.65);
+  --hha-card-radius: 18px;
 }
 
-/* เผื่ออยากใช้ card หรือ overlay ให้เข้ากับธีม */
-.kid-panel {
-  background: rgba(15, 23, 42, 0.80);
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.7);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.6);
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body.hha-kid-bg {
+  margin: 0;
+  font-family: "IBM Plex Sans Thai", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  color: #e5e7eb;
+  background:
+    radial-gradient(circle at 10% 0, rgba(56, 189, 248, 0.28), transparent 55%),
+    radial-gradient(circle at 90% 100%, rgba(52, 211, 153, 0.28), transparent 55%),
+    radial-gradient(circle at 50% 110%, rgba(248, 250, 252, 0.14), transparent 55%),
+    linear-gradient(180deg, var(--hha-bg-top), var(--hha-bg-bottom));
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* ฟอง / เมฆด้านบนให้ดูเป็นท้องฟ้าเด็ก ๆ */
+.hha-kid-clouds {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 72px;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 5% 120%, rgba(15, 23, 42, 0.0), transparent 60%),
+    radial-gradient(circle at 10% 60%, rgba(248, 250, 252, 0.35), transparent 60%),
+    radial-gradient(circle at 30% 40%, rgba(241, 245, 249, 0.4), transparent 60%),
+    radial-gradient(circle at 55% 45%, rgba(226, 232, 240, 0.4), transparent 60%),
+    radial-gradient(circle at 80% 35%, rgba(241, 245, 249, 0.4), transparent 60%);
+}
+
+/* เนินหญ้าด้านล่าง */
+.hha-kid-hills {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: 88px;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 0 0, transparent 45%, rgba(15, 23, 42, 0.9) 80%),
+    radial-gradient(circle at 20% 100%, #15803d 0, #0f766e 40%, transparent 60%),
+    radial-gradient(circle at 55% 110%, #16a34a 0, #0f766e 46%, transparent 70%),
+    radial-gradient(circle at 95% 95%, #22c55e 0, #0f766e 45%, transparent 70%);
+}
+
+/* Overlay เริ่มเกม / จบเกม */
+#uiOverlay.hha-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.86));
+  color: #e5e7eb;
+  backdrop-filter: blur(12px);
+  transition: opacity 0.25s ease;
+}
+
+#uiOverlay.hha-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* กล่องการ์ด */
+.hha-card {
+  background: var(--hha-card-bg);
+  border-radius: var(--hha-card-radius);
+  border: 1px solid var(--hha-card-border);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.85);
+  padding: 20px 22px 18px;
+  max-width: 420px;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.hha-card h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.9rem;
+}
+
+.hha-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.4rem;
+  color: var(--hha-accent-yellow);
+}
+
+.hha-card p {
+  margin: 0 0 0.9rem;
+  font-size: 0.98rem;
+  opacity: 0.9;
+}
+
+/* ปุ่ม */
+.hha-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 10px 20px;
+  margin: 6px 4px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font: 700 0.98rem "IBM Plex Sans Thai", system-ui, sans-serif;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #f9fafb;
+  box-shadow: 0 10px 25px rgba(34, 197, 94, 0.55);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.hha-btn span.emoji {
+  font-size: 1.2rem;
+}
+
+.hha-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(22, 163, 74, 0.7);
+  filter: brightness(1.05);
+}
+
+.hha-btn:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 6px 15px rgba(22, 163, 74, 0.7);
+}
+
+.hha-btn.hard {
+  background: linear-gradient(135deg, #f97316, #ef4444);
+  box-shadow: 0 10px 25px rgba(248, 113, 113, 0.6);
+}
+
+/* ครอสแฮร์กลางจอ (เผื่อ PC Mouse มองไม่เห็น <a-cursor>) */
+#crossHair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 2px solid rgba(248, 250, 252, 0.9);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.32);
+  background: radial-gradient(circle at center, rgba(248, 250, 252, 1), rgba(248, 250, 252, 0.0));
+  opacity: 0.95;
+  pointer-events: none;
+  z-index: 8500;
+}
+
+/* ซ่อนครอสแฮร์บนอุปกรณ์ทัช (ให้ใช้ gaze/cursor เอง) */
+@media (pointer: coarse) {
+  #crossHair {
+    opacity: 0;
+  }
+}
+
+/* ข้อความสรุปคะแนนตอนจบ */
+#finalScore {
+  font-size: 1.7rem;
+  margin: 0.75rem 0 0.5rem;
+  color: #bfdbfe;
 }
