@@ -88,34 +88,40 @@
     <!-- แถวบน 3 คอลัมน์ -->
     <div class="sb-play-top">
       <!-- ซ้าย: สถิติเกมนี้ -->
-      <div class="sb-card sb-card-stat">
-        <h2 class="sb-section-title-sm">สถิติเกมนี้</h2>
-        <dl class="sb-stat-list">
-          <div class="sb-stat-row">
-            <dt>Score</dt><dd id="sb-panel-score">0</dd>
-          </div>
-          <div class="sb-stat-row">
-            <dt>Max Combo</dt><dd id="sb-panel-maxcombo">0</dd>
-          </div>
-          <div class="sb-stat-row">
-            <dt>Miss</dt><dd id="sb-panel-miss">0</dd>
-          </div>
-          <div class="sb-stat-row">
-            <dt>Shield</dt><dd id="sb-panel-shield">0</dd>
-          </div>
-        </dl>
+<div class="sb-card sb-card-stats">
+  <h3>สถิติเกมนี้</h3>
 
-        <p class="sb-pause-hint">
-          โหมด Pause: ใช้สำหรับหยุดก่อนจบ Session (จะนับเป็น stop-early ในไฟล์วิจัย)
-        </p>
-        <label class="sb-checkbox-row">
-          <input type="checkbox" id="sb-btn-pause" />
-          <span>Pause / จบก่อนเวลา</span>
-        </label>
-        <button id="sb-btn-back-menu" class="sb-btn sb-btn-secondary sb-btn-block">
-          ⏹ จบและกลับเมนู
-        </button>
-      </div>
+  <!-- แถวสถิติแนวนอน -->
+  <div class="sb-stat-row">
+    <div class="sb-stat-item">
+      <span class="sb-stat-label">Score</span>
+      <span class="sb-stat-value" id="sb-stat-score">0</span>
+    </div>
+    <div class="sb-stat-item">
+      <span class="sb-stat-label">Max Combo</span>
+      <span class="sb-stat-value" id="sb-stat-maxcombo">0</span>
+    </div>
+    <div class="sb-stat-item">
+      <span class="sb-stat-label">Miss</span>
+      <span class="sb-stat-value" id="sb-stat-miss">0</span>
+    </div>
+    <div class="sb-stat-item">
+      <span class="sb-stat-label">Shield</span>
+      <span class="sb-stat-value" id="sb-stat-shield">0</span>
+    </div>
+  </div>
+
+  <div class="sb-pause-row">
+    โหมด Pause: ใช้สำหรับหยุดก่อนจบ Session (จะนับเป็น stop-early ในไฟล์วิจัย)
+    <label>
+      <input type="checkbox" id="sb-btn-pause">
+      Pause / จบก่อนเวลา
+    </label>
+    <button type="button" class="sb-small-btn" id="sb-btn-back-menu">
+      จบและกลับเมนู
+    </button>
+  </div>
+</div>
 
       <!-- กลาง: HUD หลัก (Score / Combo / Time / Phase / HP) -->
       <div class="sb-card sb-card-hud">
