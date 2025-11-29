@@ -208,12 +208,31 @@ body {
   font-size: 15px;
 }
 
-.sb-stat-grid {
-  display: grid;
-  grid-template-columns: auto auto;
-  row-gap: 4px;
-  column-gap: 16px;
+/* สถิติแนวนอนแถวเดียว */
+.sb-card-stats h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.sb-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;              /* ระยะห่างแต่ละกล่อง */
+  flex-wrap: wrap;        /* จอเล็กให้พับลงบรรทัดใหม่ได้ */
+  margin-bottom: 8px;
+}
+
+.sb-stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
   font-size: 13px;
+  padding-right: 12px;
+  border-right: 1px solid rgba(148,163,184,0.3);
+}
+
+.sb-stat-item:last-child {
+  border-right: none;     /* ตัวสุดท้ายไม่ต้องมีเส้น */
 }
 
 .sb-stat-label {
@@ -221,8 +240,9 @@ body {
 }
 
 .sb-stat-value {
-  text-align: right;
+  font-weight: 600;
 }
+
 
 /* ช่อง Pause */
 
