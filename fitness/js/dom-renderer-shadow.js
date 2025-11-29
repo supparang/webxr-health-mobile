@@ -1,221 +1,323 @@
-// === js/dom-renderer-shadow.js — Shadow Breaker DOM Renderer (2025-12-04) ===
+// === js/dom-renderer-shadow.js — Shadow Breaker DOM Renderer (2025-12-04 pretty bubble) ===
 'use strict';
 
 /**
- * หน้าที่:
- * - สร้าง / ลบเป้าบน DOM
- * - จัดตำแหน่งเป้าแบบสุ่มภายใน layer
- * - ส่ง callback กลับไปให้ engine เมื่อตีโดนเป้า
- * - แสดง effect ตอนตีโดน (แตกกระจาย + ตัวเลขคะแนน) "ตรงกลางเป้า"
+ * DomRendererShadow
+ * - สร้าง/จัดการเป้า emoji ใน field (#sb-target-layer)
+ * - ยิง effect แตกกระจาย + คะแนนเด้ง "ตรงเป้า"
+ * - ส่งต่อ event hit ย้อนกลับไปหา engine ผ่าน onTargetHit(id, hitInfo)
  */
 export class DomRendererShadow {
   /**
-   * @param {HTMLElement} host   ชั้นที่ใช้วางเป้า (เช่น #sb-target-layer)
+   * @param {HTMLElement} host #sb-target-layer
    * @param {Object} opts
-   *   - wrapEl      : element ครอบทั้งเกม (ใช้ set data-diff อะไรพวกนี้)
-   *   - feedbackEl  : element ข้อความ (ถ้าจะเอามาใช้ทีหลัง)
-   *   - onTargetHit : function(id, hitInfo) เรียกเมื่อผู้เล่นตีโดนเป้า
+   *   - wrapEl      element ครอบเกม (ใช้วาด FX เพราะ .sb-frag / .sb-score-fx = position:fixed)
+   *   - feedbackEl  element ข้อความ (ยังไม่ใช้มาก แต่เผื่ออนาคต)
+   *   - onTargetHit function(id, {clientX, clientY})
    */
   constructor(host, opts = {}) {
     this.host = host;
     this.wrapEl = opts.wrapEl || document.body;
     this.feedbackEl = opts.feedbackEl || null;
-    this.onTargetHit = typeof opts.onTargetHit === 'function'
-      ? opts.onTargetHit
-      : null;
+    this.onTargetHit = typeof opts.onTargetHit === 'function' ? opts.onTargetHit : null;
 
-    // เก็บข้อมูลของแต่ละเป้า { id => { el, x, y, data } }
+    /** id -> { el, data, centerClientX, centerClientY, handler } */
     this.targets = new Map();
-
     this.diffKey = 'normal';
 
     if (this.host) {
-      this.host.classList.add('sb-target-layer');
+      // ให้แน่ใจว่าเป็น relative เพื่อใช้ left/top ได้
       const style = getComputedStyle(this.host);
       if (style.position === 'static') {
-        // กันเคสลืมใส่ position:relative; ใน CSS
         this.host.style.position = 'relative';
       }
     }
   }
 
-  // --- Config / lifecycle -----------------------------------
+  // ===== Public API (engine เรียก) ====================================
 
   setDifficulty(diffKey) {
     this.diffKey = diffKey || 'normal';
     if (this.wrapEl) this.wrapEl.dataset.diff = this.diffKey;
   }
 
-  destroy() {
-    for (const { el } of this.targets.values()) {
-      if (el && el.parentNode) el.parentNode.removeChild(el);
-    }
-    this.targets.clear();
-  }
-
-  // --- Target management -------------------------------------
-
   /**
-   * สร้างเป้าตัวใหม่บนจอ
-   * @param {Object} data ต้องมี id, sizePx อย่างน้อย
+   * สร้างเป้าใหม่ตาม data จาก engine
+   *   data: { id, type, sizePx, isBossFace, bossEmoji, ... }
    */
   spawnTarget(data) {
     if (!this.host || !data) return;
-    const id = data.id;
-    const size = data.sizePx || 120;
 
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = `sb-target sb-target-${data.type || 'normal'}`;
-    el.setAttribute('data-id', String(id));
-    el.setAttribute('data-type', data.type || 'normal');
+    const rect = this.host.getBoundingClientRect();
+    const size = data.sizePx || 120;
+    const half = size / 2;
+
+    // สุ่มตำแหน่งให้อยู่ "ในกรอบ" ทั้งก้อน (ไม่ชิดขอบเกินไป)
+    const maxX = Math.max(1, rect.width  - size);
+    const maxY = Math.max(1, rect.height - size);
+    const localX = half + Math.random() * maxX;
+    const localY = half + Math.random() * maxY;
+
+    const el = document.createElement('div');
+    el.className = 'sb-target';
+    el.dataset.id = String(data.id);
     el.style.width = size + 'px';
     el.style.height = size + 'px';
+    el.style.left = localX + 'px';
+    el.style.top = localY + 'px';
 
-    // icon ในเป้า (ใช้ emoji ตามประเภท)
+    // type-specific class
+    if (data.isBossFace) {
+      el.classList.add('sb-target--bossface');
+    } else if (data.isHeal) {
+      el.classList.add('sb-target--heal');
+    } else if (data.isShield) {
+      el.classList.add('sb-target--shield');
+    } else if (data.isBomb) {
+      el.classList.add('sb-target--bomb');
+    }
+
+    // === โครงสร้างภายในให้ match กับ CSS ที่มีอยู่ ===
     const inner = document.createElement('div');
     inner.className = 'sb-target-inner';
-    inner.textContent =
-      data.isBossFace
-        ? (data.bossEmoji || '😈')
-        : data.isBomb
-        ? '💣'
-        : data.isShield
-        ? '🛡️'
-        : data.isHeal
-        ? '✨'
-        : data.isDecoy
-        ? '🎭'
-        : '🥊';
+
+    const core = document.createElement('div');
+    core.className = 'sb-bubble-core';
+
+    const ring = document.createElement('div');
+    ring.className = 'sb-ring';
+
+    const emoji = document.createElement('div');
+    emoji.className = 'sb-target-emoji';
+    emoji.textContent = this._pickEmojiForTarget(data);
+
+    // emoji ให้ใหญ่ประมาณ 70% ของเป้า และไม่ต่ำกว่า 36px
+    const emojiSize = Math.max(36, size * 0.7);
+    emoji.style.fontSize = emojiSize + 'px';
+
+    inner.appendChild(core);
+    inner.appendChild(ring);
+    inner.appendChild(emoji);
     el.appendChild(inner);
 
-    // วางตำแหน่งแบบสุ่มภายใน host
-    const { x, y } = this._pickPosition(size);
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-
-    // เก็บข้อมูลไว้ใช้ตอนแสดง effect
-    this.targets.set(id, { el, x, y, data });
-
-    // ตีโดนเป้า
-    el.addEventListener('pointerup', (ev) => {
+    // handler ตอนแตะ/ชกเป้า
+    const handler = (ev) => {
       ev.preventDefault();
-      if (!this.targets.has(id)) return; // ถูกลบแล้ว
-      if (this.onTargetHit) {
-        this.onTargetHit(id, {
-          clientX: ev.clientX,
-          clientY: ev.clientY
-        });
-      }
-    });
+      if (!this.onTargetHit) return;
+      this.onTargetHit(data.id, {
+        clientX: ev.clientX,
+        clientY: ev.clientY
+      });
+    };
+    el.addEventListener('pointerdown', handler);
+    el.addEventListener('click', handler);
 
     this.host.appendChild(el);
+
+    // เก็บตำแหน่งแบบ "พิกัดจอ" ไว้ใช้ตอนเล่น FX (เพราะ .sb-frag / .sb-score-fx เป็น fixed)
+    const centerClientX = rect.left + localX;
+    const centerClientY = rect.top + localY;
+
+    this.targets.set(data.id, {
+      el,
+      data,
+      handler,
+      centerClientX,
+      centerClientY
+    });
+
+    // spawn animation
+    requestAnimationFrame(() => {
+      el.classList.add('sb-target--spawned');
+    });
   }
 
-  /**
-   * ลบเป้าออกจากจอ
-   */
   removeTarget(id /*, reason */) {
     const entry = this.targets.get(id);
     if (!entry) return;
-    const { el } = entry;
-    if (el && el.parentNode) {
+    const { el, handler } = entry;
+
+    if (el) {
+      el.removeEventListener('pointerdown', handler);
+      el.removeEventListener('click', handler);
       el.classList.add('sb-target-exit');
-      // ให้ animation เล่นนิดหน่อยแล้วค่อยลบ
       setTimeout(() => {
         if (el.parentNode) el.parentNode.removeChild(el);
-      }, 180);
+      }, 150);
     }
     this.targets.delete(id);
   }
 
+  clear() {
+    for (const { el, handler } of this.targets.values()) {
+      if (!el) continue;
+      el.removeEventListener('pointerdown', handler);
+      el.removeEventListener('click', handler);
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }
+    this.targets.clear();
+
+    if (this.wrapEl) {
+      const fxNodes = this.wrapEl.querySelectorAll('.sb-frag, .sb-score-fx');
+      fxNodes.forEach((n) => n.remove());
+    }
+  }
+
+  destroy() {
+    this.clear();
+    this.host = null;
+    this.wrapEl = null;
+    this.onTargetHit = null;
+  }
+
   /**
-   * เล่น effect ตอนตีโดนเป้า:
-   * - แตกกระจายรอบ ๆ เป้า
-   * - เด้งตัวเลขคะแนนตรงกลางเป้า
+   * engine เรียกตอนตีโดน ให้ renderer ยิง effect แตกกระจาย + คะแนน
+   * info: { grade, scoreDelta, clientX?, clientY? }
    */
   playHitFx(id, info = {}) {
+    let { clientX, clientY } = info;
+
     const entry = this.targets.get(id);
-    // ถ้าใน map ไม่มี (engine ลบไปแล้ว) ให้ใช้ตำแหน่งจาก pointer แทน
-    let x, y;
-    if (entry) {
-      x = entry.x;
-      y = entry.y;
-    } else if (this.host && info.clientX != null && info.clientY != null) {
-      const rect = this.host.getBoundingClientRect();
-      x = info.clientX - rect.left;
-      y = info.clientY - rect.top;
-    } else {
-      // fallback กลางจอ
-      const rect = this.host.getBoundingClientRect();
-      x = rect.width / 2;
-      y = rect.height / 2;
+    // ถ้าไม่มีพิกัดจาก pointer ให้ใช้ center ของเป้า
+    if ((clientX == null || clientY == null) && entry) {
+      clientX = entry.centerClientX;
+      clientY = entry.centerClientY;
     }
+
+    if (clientX == null || clientY == null) return;
 
     const grade = info.grade || 'good';
-    const scoreDelta = info.scoreDelta ?? 0;
+    const scoreDelta = info.scoreDelta || 0;
 
-    this._spawnHitParticle(x, y, grade);
-    this._spawnScoreText(x, y, scoreDelta, grade);
+    this.showHitFx({
+      x: clientX,
+      y: clientY,
+      scoreDelta,
+      judgment: grade
+    });
   }
 
-  // --- Internal helpers --------------------------------------
-
-  _pickPosition(size) {
-    const rect = this.host.getBoundingClientRect();
-    const margin = Math.max(40, size * 0.7); // กันไม่ให้ชิดขอบเกิน
-    const maxX = Math.max(margin, rect.width - margin);
-    const maxY = Math.max(margin, rect.height - margin);
-
-    const x = margin + Math.random() * (maxX - margin);
-    const y = margin + Math.random() * (maxY - margin);
-
-    return { x, y };
+  /** miss จาก engine (ถ้าต้องใช้ภายหลัง) */
+  showMissFx({ x, y }) {
+    if (x == null || y == null) return;
+    this._spawnMissParticle(x, y);
+    this._spawnScoreText(x, y, 0, 'miss');
   }
 
-  _spawnHitParticle(x, y, grade) {
-    if (!this.host) return;
-    const n = 14;
-    for (let i = 0; i < n; i++) {
-      const el = document.createElement('div');
-      el.className = `sb-frag sb-frag-${grade}`;
-      const sz = 6 + Math.random() * 6;
-      const ang = (i / n) * Math.PI * 2;
-      const dist = 40 + Math.random() * 36;
-      const dx = Math.cos(ang) * dist;
-      const dy = Math.sin(ang) * dist;
+  // ===== FX helpers =====================================================
 
-      el.style.width = sz + 'px';
-      el.style.height = sz + 'px';
-      el.style.left = x + 'px';
-      el.style.top = y + 'px';
-      el.style.setProperty('--dx', dx + 'px');
-      el.style.setProperty('--dy', dy + 'px');
+  showHitFx({ x, y, scoreDelta = 0, judgment = 'good' }) {
+    if (x == null || y == null) return;
+    this._spawnHitParticle(x, y, judgment);
+    this._spawnScoreText(x, y, scoreDelta, judgment);
+  }
 
-      this.host.appendChild(el);
-
-      // ลบหลัง animation จบ
-      setTimeout(() => {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      }, 420);
+  _pickEmojiForTarget(data) {
+    if (data.isBossFace && data.bossEmoji) return data.bossEmoji;
+    switch (data.type) {
+      case 'bomb':   return '💣';
+      case 'heal':   return '💊';
+      case 'shield': return '🛡️';
+      case 'decoy':  return '🎭';
+      default:       return '🥊';
     }
   }
 
-  _spawnScoreText(x, y, scoreDelta, grade) {
-    if (!this.host) return;
+  _spawnScoreText(x, y, scoreDelta, judgment) {
+    if (!this.wrapEl) return;
+
     const el = document.createElement('div');
-    el.className = `sb-score-fx sb-score-${grade}`;
-    const v = Number(scoreDelta) || 0;
-    const prefix = v > 0 ? '+' : '';
-    el.textContent = `${prefix}${v}`;
+    const j = judgment || 'good';
+
+    el.className = `sb-score-fx sb-score-${j}`;
+
+    if (j === 'miss') {
+      el.textContent = 'MISS';
+    } else {
+      const sign = scoreDelta > 0 ? '+' : '';
+      el.textContent = `${sign}${scoreDelta || 0}`;
+    }
 
     el.style.left = x + 'px';
     el.style.top = y + 'px';
 
-    this.host.appendChild(el);
+    this.wrapEl.appendChild(el);
+
+    requestAnimationFrame(() => {
+      el.classList.add('is-live');
+    });
 
     setTimeout(() => {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, 600);
+      el.remove();
+    }, 700);
+  }
+
+  _spawnHitParticle(x, y, judgment) {
+    if (!this.wrapEl) return;
+
+    const j = judgment || 'good';
+    const count = j === 'perfect' ? 18 : 12;
+
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = `sb-frag sb-frag-${j}`;
+
+      const size = 6 + Math.random() * 8;
+      const dist = 40 + Math.random() * 50;
+      const ang = (i / count) * Math.PI * 2;
+      const dx = Math.cos(ang) * dist;
+      const dy = Math.sin(ang) * dist;
+      const life = 380 + Math.random() * 260;
+
+      el.style.width = el.style.height = size + 'px';
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.setProperty('--dx', dx.toFixed(1) + 'px');
+      el.style.setProperty('--dy', dy.toFixed(1) + 'px');
+      el.style.setProperty('--life', life + 'ms');
+
+      this.wrapEl.appendChild(el);
+
+      requestAnimationFrame(() => {
+        el.classList.add('is-live');
+      });
+
+      setTimeout(() => {
+        el.remove();
+      }, life + 80);
+    }
+  }
+
+  _spawnMissParticle(x, y) {
+    if (!this.wrapEl) return;
+    const count = 10;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'sb-frag sb-frag-miss';
+
+      const size = 5 + Math.random() * 6;
+      const dist = 30 + Math.random() * 40;
+      const ang = (Math.random() * Math.PI) + Math.PI / 2;
+      const dx = Math.cos(ang) * dist;
+      const dy = Math.sin(ang) * dist;
+      const life = 420 + Math.random() * 260;
+
+      el.style.width = el.style.height = size + 'px';
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.setProperty('--dx', dx.toFixed(1) + 'px');
+      el.style.setProperty('--dy', dy.toFixed(1) + 'px');
+      el.style.setProperty('--life', life + 'ms');
+
+      this.wrapEl.appendChild(el);
+
+      requestAnimationFrame(() => {
+        el.classList.add('is-live');
+      });
+
+      setTimeout(() => {
+        el.remove();
+      }, life + 80);
+    }
   }
 }
