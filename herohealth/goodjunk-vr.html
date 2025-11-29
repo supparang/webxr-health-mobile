@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>🥦 Good vs Junk [VR - Serial Quests] 🍔</title>
+
+  <link rel="icon" href="/HeroHealth/favicon.ico" type="image/x-icon">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;700&display=swap');
+    body{
+      font-family:'IBM Plex Sans Thai',system-ui,-apple-system,sans-serif;
+      margin:0;padding:0;overflow:hidden;
+    }
+    #uiOverlay{
+      position:fixed;inset:0;z-index:10000;
+      display:flex;flex-direction:column;justify-content:center;align-items:center;
+      background:rgba(17,24,39,0.9);color:#e8eefc;
+      backdrop-filter:blur(10px);padding:20px;text-align:center;
+      transition:opacity .3s ease;
+    }
+    #uiOverlay.hidden{opacity:0;pointer-events:none;}
+    #uiOverlay h1{font-size:3rem;margin:0 0 1rem;}
+    #uiOverlay h2{font-size:2.2rem;color:#f59e0b;}
+    .game-button{
+      font-family:'IBM Plex Sans Thai',system-ui;
+      font-size:1.2rem;font-weight:700;color:#fff;
+      background:linear-gradient(145deg,#22c55e,#16a34a);
+      border:none;border-radius:12px;
+      padding:14px 28px;cursor:pointer;
+      box-shadow:0 4px 15px rgba(34,197,94,.4);
+      transition:all .2s ease;margin:8px;
+    }
+    .game-button:hover{transform:translateY(-2px);}
+    .game-button.hard{
+      background:linear-gradient(145deg,#ef4444,#dc2626);
+      box-shadow:0 4px 15px rgba(239,68,68,.4);
+    }
+  </style>
+</head>
+<body>
+
+<div id="uiOverlay">
+  <div id="startScreen">
+    <h1>🥦 Good vs Junk (VR) 🍔</h1>
+    <p style="font-size:1.1rem;max-width:400px;opacity:.9;">
+      ใช้คอนโทรลเลอร์หรือจ้องมอง (Gaze) เพื่อยิง "ของดี" และ "พาวเวอร์อัป"<br>
+      ทำภารกิจที่ "โค้ช" บอกเพื่อรับคะแนนโบนัส!
+    </p>
+    <button class="game-button" id="startButtonEasy">เริ่มเกม (Easy)</button>
+    <button class="game-button" id="startButtonNormal">เริ่มเกม (Normal)</button>
+    <button class="game-button hard" id="startButtonHard">เริ่มเกม (Hard)</button>
+  </div>
+  <div id="resultsScreen" style="display:none;">
+    <h2>เกมจบแล้ว!</h2>
+    <h1 id="finalScore">Score: 0</h1>
+    <button class="game-button" id="playAgainButton">เล่นอีกครั้ง</button>
+  </div>
+</div>
+
+<a-scene id="gameScene"
+  renderer="colorManagement: true; useLegacyLights: false"
+  loading-screen="dotsColor: white; backgroundColor: #0b1222"
+  background="color: #0b1222">
+
+  <a-assets></a-assets>
+
+  <a-entity light="type: ambient; color: #FFF; intensity: 0.6"></a-entity>
+  <a-entity light="type: directional; color: #FFF; intensity: 0.4" position="-0.5 1 1"></a-entity>
+
+  <a-entity id="rig" position="0 1.6 0">
+    <a-camera id="camera" look-controls="pointerLockEnabled: true">
+      <a-cursor id="cursor"
+        raycaster="objects: [data-hha-tgt]"
+        fuse="true" fuse-timeout="1200"
+        material="color: #60a5fa; shader: flat"
+        position="0 0 -1" scale="0.03 0.03 0.03">
+      </a-cursor>
+    </a-camera>
+    <a-entity id="rightHand"
+      laser-controls="hand: right"
+      raycaster="objects: [data-hha-tgt]; interval: 10">
+    </a-entity>
+  </a-entity>
+</a-scene>
+
+<!-- namespace กลาง -->
+<script>
+  window.GAME_MODULES = window.GAME_MODULES || {};
+</script>
+
+<!-- 1–7: โมดูลเกม -->
+<script src="./vr-goodjunk/ui-fever.js"></script>
+<script src="./vr-goodjunk/coach.js"></script>
+<script src="./vr-goodjunk/difficulty.js"></script>
+<script src="./vr-goodjunk/emoji-image.js"></script>
+<script src="./vr-goodjunk/aframe-particles.js"></script>
+<script src="./vr-goodjunk/quest-serial.js"></script>
+<script src="./vr-goodjunk/game-engine-goodjunk.js"></script>
+
+<!-- 8: ตัว launcher (ปุ่ม Start/End) -->
+<script src="./vr-goodjunk/launcher-goodjunk.js"></script>
+
+</body>
+</html>
