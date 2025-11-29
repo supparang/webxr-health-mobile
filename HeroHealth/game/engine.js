@@ -1,13 +1,16 @@
-// === /HeroHealth/game/engine.js
-// Mode Router + Central Controller (2025-11-29) ===
+// === /HeroHealth/game/engine.js (Static imports – ทุกโหมดมีเป้าแน่นอน) ===
 'use strict';
 
-// lazy import แต่ละโหมด
-const MODE_BOOTERS = {
-  goodjunk : () => import('../modes/goodjunk.safe.js'),
-  hydration: () => import('../modes/hydration.safe.js'),
-  plate    : () => import('../modes/plate.safe.js'),
-  groups   : () => import('../modes/groups.safe.js')
+import * as GoodJunkMode from '../modes/goodjunk.safe.js';
+import * as HydrationMode from '../modes/hydration.safe.js';
+import * as PlateMode     from '../modes/plate.safe.js';
+import * as GroupsMode    from '../modes/groups.safe.js';
+
+const MODE_TABLE = {
+  goodjunk : GoodJunkMode,
+  hydration: HydrationMode,
+  plate    : PlateMode,
+  groups   : GroupsMode
 };
 
 /**
@@ -25,51 +28,22 @@ export async function createGameEngine({
   difficulty = (difficulty || 'normal').toLowerCase();
   duration   = (+duration | 0) || 60;
 
-  const loader = MODE_BOOTERS[mode] || MODE_BOOTERS.goodjunk;
-  const mod    = await loader();
-
+  const mod = MODE_TABLE[mode] || MODE_TABLE.goodjunk;
   if (!mod || typeof mod.boot !== 'function') {
     throw new Error(`Mode "${mode}" ไม่มีฟังก์ชัน boot()`);
   }
 
-  let ctrl    = null;
-  let started = false;
-
-  async function ensureBooted() {
-    if (!ctrl) {
-      // แต่ละ safe-mode คืน controller (start/stop/pause/resume) ผ่าน factoryBoot
-      ctrl = await mod.boot({ difficulty, duration });
-    }
-    return ctrl;
-  }
+  // รองรับทั้ง boot แบบ sync และ async
+  const maybe = mod.boot({ difficulty, duration });
+  const ctrl  = (maybe && typeof maybe.then === 'function')
+    ? await maybe
+    : maybe;
 
   return {
-    async start() {
-      const c = await ensureBooted();
-      if (c && typeof c.start === 'function') {
-        c.start();
-      }
-      started = true;
-    },
-    async stop() {
-      if (!ctrl) return;
-      if (typeof ctrl.stop === 'function') {
-        ctrl.stop();
-      }
-      started = false;
-    },
-    async pause() {
-      if (!ctrl || !started) return;
-      if (typeof ctrl.pause === 'function') {
-        ctrl.pause();
-      }
-    },
-    async resume() {
-      if (!ctrl || !started) return;
-      if (typeof ctrl.resume === 'function') {
-        ctrl.resume();
-      }
-    }
+    start()  { if (ctrl && typeof ctrl.start  === 'function') ctrl.start(); },
+    stop()   { if (ctrl && typeof ctrl.stop   === 'function') ctrl.stop(); },
+    pause()  { if (ctrl && typeof ctrl.pause  === 'function') ctrl.pause(); },
+    resume() { if (ctrl && typeof ctrl.resume === 'function') ctrl.resume(); }
   };
 }
 
