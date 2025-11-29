@@ -356,8 +356,17 @@
 
   <!-- texture เล็ก ๆ สำหรับพื้น (optional) -->
   <a-assets>
-    <canvas id="floorTex" width="256" height="256"></canvas>
-  </a-assets>
+  <!-- emoji textures (วาดด้วย canvas) -->
+  <canvas id="tex-normal" width="256" height="256"></canvas>
+  <canvas id="tex-bomb"   width="256" height="256"></canvas>
+  <canvas id="tex-decoy"  width="256" height="256"></canvas>
+  <canvas id="tex-heal"   width="256" height="256"></canvas>
+  <canvas id="tex-shield" width="256" height="256"></canvas>
+
+  <!-- floor grid -->
+  <canvas id="floorTex" width="256" height="256"></canvas>
+</a-assets>
+
 </a-scene>
 
 <script>
@@ -391,6 +400,14 @@
     {id:3, name:'Galaxy Punch', emoji:'🌌', hint:'ด่านสุดท้าย เป้าเล็กและเร็วมาก'}
   ];
 
+  const TARGET_EMOJI = {
+    normal: '🥊',
+    bomb:   '💣',
+    decoy:  '🎭',
+    heal:   '🩹',
+    shield: '🛡️'
+  };
+
   const cfg = DIFF_CONFIG[diffFromUrl] || DIFF_CONFIG.normal;
 
   // ===== DOM refs =====
@@ -411,19 +428,51 @@
   const elBossHint  = document.getElementById('hud-boss-hint');
   const elMsg       = document.getElementById('hud-msg');
 
-  // draw small grid texture on floor canvas
-  (function drawFloor(){
-    const canvas = document.getElementById('floorTex');
-    if(!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#020617';
-    ctx.fillRect(0,0,256,256);
-    ctx.strokeStyle = 'rgba(148,163,184,0.14)';
-    ctx.lineWidth = 1;
-    for(let i=0;i<=256;i+=32){
-      ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,256);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(256,i);ctx.stroke();
+  // draw small grid + emoji textures
+  (function initTextures(){
+    // floor grid
+    const floor = document.getElementById('floorTex');
+    if(floor){
+      const ctx = floor.getContext('2d');
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0,0,256,256);
+      ctx.strokeStyle = 'rgba(148,163,184,0.14)';
+      ctx.lineWidth = 1;
+      for(let i=0;i<=256;i+=32){
+        ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,256);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(256,i);ctx.stroke();
+      }
     }
+
+    // emoji canvases
+    function drawEmojiOn(id, emoji){
+      const c = document.getElementById(id);
+      if(!c) return;
+      const ctx = c.getContext('2d');
+      const size = c.width;
+      ctx.clearRect(0,0,size,size);
+      // glow ring
+      ctx.beginPath();
+      ctx.arc(size/2,size/2,size*0.44,0,Math.PI*2);
+      ctx.fillStyle = 'rgba(15,23,42,0.88)';
+      ctx.fill();
+      ctx.lineWidth = size*0.03;
+      ctx.strokeStyle = 'rgba(148,163,184,0.65)';
+      ctx.stroke();
+      // emoji
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.font = (size*0.70)+'px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+      ctx.shadowColor='rgba(0,0,0,0.4)';
+      ctx.shadowBlur=size*0.08;
+      ctx.fillText(emoji,size/2,size/2+2);
+    }
+
+    drawEmojiOn('tex-normal', TARGET_EMOJI.normal);
+    drawEmojiOn('tex-bomb',   TARGET_EMOJI.bomb);
+    drawEmojiOn('tex-decoy',  TARGET_EMOJI.decoy);
+    drawEmojiOn('tex-heal',   TARGET_EMOJI.heal);
+    drawEmojiOn('tex-shield', TARGET_EMOJI.shield);
   })();
 
   // ===== Runtime state =====
@@ -484,13 +533,53 @@
     setTimeout(()=>el.remove(),480);
   }
 
-  // ===== Target spawn =====
+  // ===== Target spawn (emoji + ring) =====
+  function createTargetEntity(kind, radius, x, y){
+    const wrapper = document.createElement('a-entity');
+    wrapper.classList.add('sbvr-target');
+    wrapper.setAttribute('position', `${x} 0 ${y}`);
+    wrapper.setAttribute('look-at', '#rig'); // หันหา player ตลอด (ต้องมี look-at component ถ้าโหลดเพิ่ม)
+
+    // emoji plane
+    const plane = document.createElement('a-plane');
+    plane.setAttribute('width', radius*2.2);
+    plane.setAttribute('height', radius*2.2);
+    plane.setAttribute('material', `shader:flat;transparent:true;src:#tex-${kind}`);
+    plane.setAttribute('position','0 0 0.01');
+
+    // ring รอบ ๆ
+    const ring = document.createElement('a-ring');
+    ring.setAttribute('radius-inner', radius*1.15);
+    ring.setAttribute('radius-outer', radius*1.45);
+
+    const cycleConfig = {
+      normal: { color:'#38bdf8', dur:1200 },
+      bomb:   { color:'#f97316', dur:600  },
+      decoy:  { color:'#64748b', dur:1600 },
+      heal:   { color:'#4ade80', dur:1300 },
+      shield: { color:'#eab308', dur:900  }
+    }[kind] || { color:'#38bdf8', dur:1200 };
+
+    ring.setAttribute('material', `color:${cycleConfig.color};shader:flat;transparent:true;opacity:0.9`);
+    ring.setAttribute('animation', `property: rotation; to:0 0 360; loop:true; dur:${cycleConfig.dur}; easing:linear`);
+
+    wrapper.appendChild(ring);
+    wrapper.appendChild(plane);
+
+    // รับ click
+    wrapper.addEventListener('click', ()=>{
+      handleHitWrapper(wrapper);
+    });
+
+    root.appendChild(wrapper);
+    return wrapper;
+  }
+
   function spawnTarget(){
     if(!running) return;
 
     const now = performance.now();
 
-    // ถ้าใกล้ตายและยังไม่โชว์ boss face → มีโอกาส spawn พิเศษ
     let kind = pickWeighted([
       {v:'normal', w:70},
       {v:'decoy',  w:10},
@@ -504,33 +593,10 @@
     else if(bossPhase === 3) radius *= 0.9;
 
     const id = nextTargetId++;
-    const x = (Math.random()-0.5)*2.4;   // กว้างประมาณ 2.4 หน่วย
-    const y = (Math.random()*0.9)-0.45;  // เลื่อนขึ้นลงนิดหน่อย
+    const x = (Math.random()-0.5)*2.4;
+    const y = (Math.random()*0.9)-0.45;
 
-    const colorMap = {
-      normal:'#38bdf8',
-      bomb:'#f97316',
-      decoy:'#64748b',
-      heal:'#4ade80',
-      shield:'#eab308',
-      bossface:'#f97316'
-    };
-
-    const ent = document.createElement('a-sphere');
-    ent.classList.add('sbvr-target');
-    ent.setAttribute('radius', radius);
-    ent.setAttribute('position', `${x} 0 ${y}`);
-    ent.setAttribute('color', colorMap[kind] || '#38bdf8');
-    ent.setAttribute('metalness', 0.2);
-    ent.setAttribute('roughness', 0.35);
-    ent.setAttribute('emissive', '#38bdf8');
-    ent.setAttribute('emissiveIntensity', 0.55);
-
-    ent.addEventListener('click', () => {
-      handleHit(id);
-    });
-
-    root.appendChild(ent);
+    const ent = createTargetEntity(kind, radius, x, y);
 
     const ttl = 1300 + Math.random()*600;
     const data = {
@@ -554,6 +620,19 @@
   }
 
   // ===== Hit / Timeout =====
+  function findTargetByEntity(ent){
+    for(const t of targets.values()){
+      if(t.ent === ent) return t;
+    }
+    return null;
+  }
+
+  function handleHitWrapper(wrapper){
+    const t = findTargetByEntity(wrapper);
+    if(!t) return;
+    handleHit(t.id);
+  }
+
   function handleTimeout(id){
     const t = targets.get(id);
     if(!t) return;
@@ -681,7 +760,8 @@
     elTime.textContent = (timeLeftMs/1000).toFixed(1)+' s';
 
     // fever decay
-    if(feverOn){
+    if(fe
+verOn){
       if(ts >= feverUntil){
         feverOn = false;
         fever = 0;
@@ -726,7 +806,7 @@
 
     updateBossUi();
     updateHud();
-    showMsg('เริ่มเกม! จ้องเป้าแล้วแตะหน้าจอ / คลิกเมาส์เพื่อตีเป้า 💥');
+    showMsg('เริ่มเกม! จ้อง emoji แล้วแตะหน้าจอ / คลิกเมาส์เพื่อตีเป้า 💥');
 
     // ล้างเป้าค้าง
     for(const t of targets.values()){
@@ -762,7 +842,7 @@
     showMsg(msg);
   }
 
-  // เริ่มเกมอัตโนมัติเมื่อโหลดเสร็จ (เหมือน goodjunk-vr ปกติ)
+  // เริ่มเกมอัตโนมัติเมื่อโหลดเสร็จ
   window.addEventListener('load', () => {
     startGame();
   });
