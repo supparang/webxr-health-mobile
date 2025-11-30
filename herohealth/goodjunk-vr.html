@@ -289,6 +289,64 @@
         font-size:13px;
       }
     }
+
+    /* ===== Grade Bar (ล่างกลาง) ===== */
+    #hhaGradeBarVR{
+      position:fixed;
+      bottom:14px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:955;
+      width:min(520px, 92vw);
+      padding:6px 12px 8px;
+      border-radius:999px;
+      background:rgba(15,23,42,.95);
+      border:1px solid rgba(148,163,184,.9);
+      color:#e5e7eb;
+      font:600 12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;
+      box-shadow:0 18px 40px rgba(15,23,42,.9);
+    }
+    #hhaGradeBarVR .top-row{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:center;
+    }
+    #hhaGradeBarVR .top-row .grade-label{
+      font-size:12px;
+    }
+    #hhaGradeBarVR .top-row .score-label{
+      font-size:11px;
+      opacity:.9;
+    }
+    #hhaGradeBarVR .bar{
+      position:relative;
+      margin-top:4px;
+      height:8px;
+      border-radius:999px;
+      background:rgba(30,64,175,.8);
+      overflow:hidden;
+    }
+    #hhaGradeBarVR .fill{
+      position:absolute;
+      inset:0;
+      width:0%;
+      background:linear-gradient(90deg,#22c55e,#a855f7,#f97316,#ef4444);
+      transition:width .18s ease-out;
+    }
+    #hhaGradeBarVR .ticks{
+      display:flex;
+      justify-content:space-between;
+      margin-top:2px;
+      font-size:9px;
+      opacity:.75;
+    }
+    @media (max-width:640px){
+      #hhaGradeBarVR{
+        bottom:10px;
+        padding:6px 10px 7px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -393,6 +451,7 @@
     const GAME_DURATION_MS = 60_000; // ต้องตรงกับ logic การวิจัย (60 วินาที)
     let gameTimer = null;
     let currentDifficulty = 'normal';
+    window.hhaCurrentDiff = 'normal';
 
     function computeGrade(score, diff){
       const s = score | 0;
@@ -463,6 +522,7 @@
 
     function startGame(diff){
       currentDifficulty = diff || 'normal';
+      window.hhaCurrentDiff = currentDifficulty;
       clearGameTimer();
 
       hideOverlay();
@@ -494,7 +554,6 @@
     // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบเวลา/โหมดวิจัย)
     window.addEventListener('hha:end', (ev)=>{
       clearGameTimer();
-      // กันเรียกซ้ำ: ถ้า overlay แสดงผลแล้วก็ไม่ต้องทำอะไรเพิ่ม
       if (!uiOverlay.classList.contains('hidden') && resultsScreen.style.display === 'block'){
         return;
       }
@@ -584,12 +643,10 @@
       }
     }
 
-    // อัปเดตคะแนน/คอมโบ ทุกครั้งที่มี hha:score
     window.addEventListener('hha:score', function(e){
       const d = (e && e.detail) || {};
       createHud();
 
-      // คะแนน
       if (typeof d.score === 'number'){
         scoreEl.textContent = d.score;
       }else if (typeof d.total === 'number'){
@@ -598,7 +655,6 @@
         scoreEl.textContent = window.score|0;
       }
 
-      // คอมโบ
       let combo = 0;
       if (typeof d.combo === 'number') combo = d.combo;
       else if (typeof window.combo === 'number') combo = window.combo;
@@ -609,7 +665,6 @@
       }
     });
 
-    // เวลาพลาด (ตีโดนของขยะ)
     window.addEventListener('hha:miss', function(){
       createHud();
       if (typeof window.misses === 'number'){
@@ -620,7 +675,6 @@
       }
     });
 
-    // เกมจบ
     window.addEventListener('hha:end', function(e){
       const d = (e && e.detail) || {};
       createHud();
@@ -688,6 +742,108 @@
 
     window.addEventListener('quest:update', handler);
     window.addEventListener('hha:quest', handler);
+  })();
+  </script>
+
+  <!-- ===== Grade Bar HUD ===== -->
+  <script>
+  (function(){
+    'use strict';
+    const ID = 'hhaGradeBarVR';
+    let wrap, fillEl, gradeLabelEl, scoreLabelEl;
+
+    function thresholds(diff){
+      const d = diff || 'normal';
+      if (d === 'easy'){
+        return { max:2600 };
+      } else if (d === 'hard'){
+        return { max:3000 };
+      }
+      return { max:2800 }; // normal
+    }
+
+    function computeGrade(score, diff){
+      const s = score | 0;
+      const d = diff || 'normal';
+      if (d === 'easy'){
+        if (s >= 2600) return 'SSS';
+        if (s >= 2200) return 'SS';
+        if (s >= 1800) return 'S';
+        if (s >= 1400) return 'A';
+        if (s >= 900)  return 'B';
+        return 'C';
+      } else if (d === 'hard'){
+        if (s >= 3000) return 'SSS';
+        if (s >= 2600) return 'SS';
+        if (s >= 2200) return 'S';
+        if (s >= 1800) return 'A';
+        if (s >= 1200) return 'B';
+        return 'C';
+      } else {
+        if (s >= 2800) return 'SSS';
+        if (s >= 2400) return 'SS';
+        if (s >= 2000) return 'S';
+        if (s >= 1600) return 'A';
+        if (s >= 1100) return 'B';
+        return 'C';
+      }
+    }
+
+    function ensure(){
+      if (wrap && document.getElementById(ID)) return wrap;
+      wrap = document.createElement('div');
+      wrap.id = ID;
+      wrap.innerHTML = `
+        <div class="top-row">
+          <div class="grade-label" id="hhaGradeLabelVR">เกรดตอนนี้: -</div>
+          <div class="score-label" id="hhaGradeScoreVR">คะแนน: 0</div>
+        </div>
+        <div class="bar">
+          <div class="fill" id="hhaGradeFillVR"></div>
+        </div>
+        <div class="ticks">
+          <span>C</span><span>B</span><span>A</span><span>S</span><span>SS</span><span>SSS</span>
+        </div>
+      `;
+      document.body.appendChild(wrap);
+      gradeLabelEl = document.getElementById('hhaGradeLabelVR');
+      scoreLabelEl = document.getElementById('hhaGradeScoreVR');
+      fillEl       = document.getElementById('hhaGradeFillVR');
+      return wrap;
+    }
+
+    function update(score){
+      ensure();
+      const diff = window.hhaCurrentDiff || 'normal';
+      const cfg  = thresholds(diff);
+      const grade = computeGrade(score, diff);
+
+      gradeLabelEl.textContent = `เกรดตอนนี้: ${grade}`;
+      scoreLabelEl.textContent = `คะแนน: ${score|0}`;
+
+      const pct = Math.max(0, Math.min(1, score / cfg.max));
+      fillEl.style.width = (pct * 100).toFixed(1) + '%';
+    }
+
+    window.addEventListener('hha:score', function(e){
+      const d = (e && e.detail) || {};
+      let s;
+      if (typeof d.score === 'number') s = d.score;
+      else if (typeof d.total === 'number') s = d.total;
+      else if (typeof window.score === 'number') s = window.score|0;
+      else s = 0;
+      update(s);
+    });
+
+    window.addEventListener('hha:end', function(e){
+      const d = (e && e.detail) || {};
+      let s;
+      if (typeof d.scoreFinal === 'number') s = d.scoreFinal;
+      else if (typeof d.score === 'number') s = d.score;
+      else if (typeof window.score === 'number') s = window.score|0;
+      else s = 0;
+      update(s);
+    });
   })();
   </script>
 
