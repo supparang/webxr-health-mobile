@@ -340,9 +340,33 @@
     const btnHard   = document.getElementById('startButtonHard');
     const btnAgain  = document.getElementById('playAgainButton');
 
-    const GAME_DURATION_MS = 60_000; // ต้องตรงกับ logic การวิจัย (60 วินาที)
+    const GAME_DURATION_MS = 60_000; // 60 วินาที
     let gameTimer = null;
     let currentDifficulty = 'normal';
+
+    // สำหรับวิจัย / ส่งขึ้น Cloud
+    let sessionId   = null;
+    let startedAt   = null;
+    let sessionSent = false;
+
+    function detectDeviceType() {
+      const ua = navigator.userAgent || '';
+      if (navigator.xr || /Oculus|Quest|Vive|Mixed Reality|VR/i.test(ua)) return 'vr';
+      if (/Android|iPhone|iPad|iPod/i.test(ua)) return 'mobile';
+      return 'pc';
+    }
+
+    function makeSessionId() {
+      const t = new Date();
+      const y = t.getFullYear();
+      const m = String(t.getMonth()+1).padStart(2,'0');
+      const d = String(t.getDate()).padStart(2,'0');
+      const h = String(t.getHours()).padStart(2,'0');
+      const min = String(t.getMinutes()).padStart(2,'0');
+      const s = String(t.getSeconds()).padStart(2,'0');
+      const rand = String(Math.floor(Math.random()*10000)).padStart(4,'0');
+      return `GJVR-${y}${m}${d}-${h}${min}${s}-${rand}`;
+    }
 
     function hideOverlay(){
       uiOverlay.classList.add('hidden');
@@ -377,21 +401,84 @@
       }
     }
 
+    // สร้าง payload สำหรับวิจัย แล้ว broadcast เป็น hha:session
+    function sendSessionToCloud(extra = {}) {
+      try {
+        if (!startedAt) return;     // กันกรณีเกม fail ก่อนเริ่ม
+        if (sessionSent) return;    // กันยิงซ้ำ
+        sessionSent = true;
+
+        const endedAt = new Date();
+        const durationSec = Math.max(
+          0,
+          Math.round((endedAt.getTime() - startedAt.getTime()) / 1000)
+        );
+
+        const baseScore   = (window.score    ?? 0) | 0;
+        const baseComboMx = (window.comboMax ?? 0) | 0;
+        const baseMisses  = (window.misses   ?? 0) | 0;
+
+        const d = extra || {};
+
+        const payload = {
+          project: 'HeroHealth-GoodJunkVR',
+          sessionId: sessionId || makeSessionId(),
+          playerTag: window.hhaPlayerTag || '',  // เผื่ออนาคตมี input ชื่อนักเรียน
+          mode: 'Good vs Junk (VR)',
+          difficulty: currentDifficulty,
+          deviceType: detectDeviceType(),
+          userAgent: navigator.userAgent || '',
+          startedAtIso: startedAt.toISOString(),
+          endedAtIso: endedAt.toISOString(),
+          durationSec,
+
+          scoreFinal:   (d.scoreFinal ?? d.score ?? baseScore) | 0,
+          comboMax:     (d.comboMax   ?? baseComboMx)          | 0,
+          misses:       (d.misses     ?? baseMisses)           | 0,
+          goodHits:     d.goodHits     ?? null,
+          junkHits:     d.junkHits     ?? null,
+          feverCount:   d.feverCount   ?? null,
+          questsCleared:d.questsCleared?? null,
+          questsTotal:  d.questsTotal  ?? null,
+          goalsCleared: d.goalsCleared ?? null,
+          goalsTotal:   d.goalsTotal   ?? null
+        };
+
+        window.dispatchEvent(new CustomEvent('hha:session', { detail: payload }));
+      } catch (err) {
+        console.error('sendSessionToCloud error:', err);
+      }
+    }
+
     function startGame(diff){
       currentDifficulty = diff || 'normal';
       clearGameTimer();
+
+      // เตรียมข้อมูล session
+      sessionId   = makeSessionId();
+      startedAt   = new Date();
+      sessionSent = false;
 
       hideOverlay();
 
       // เริ่ม Engine ฝั่ง VR
       GameEngineVR.start(currentDifficulty);
 
-      // ตั้งเวลาให้จบเองที่ 60 วิ (กันเด็กเล่นยาว)
+      // ตั้งเวลาให้จบเองที่ 60 วิ (กันเล่นยาว)
       gameTimer = setTimeout(()=>{
         GameEngineVR.stop();
-        const score  = (window.score|0) || 0;
+        const score  = (window.score|0)    || 0;
         const comboM = (window.comboMax|0) || 0;
-        const miss   = (window.misses|0)  || 0;
+        const miss   = (window.misses|0)   || 0;
+
+        // ส่งขึ้น Cloud (เหตุผล: timeup)
+        sendSessionToCloud({
+          reason: 'timer',
+          scoreFinal: score,
+          comboMax: comboM,
+          misses: miss
+        });
+
         showResult(score, { comboMax: comboM, misses: miss });
       }, GAME_DURATION_MS);
     }
@@ -407,17 +494,30 @@
       startScreen.style.display   = 'block';
     });
 
-    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบเวลา/โหมดวิจัย)
+    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นหมดเวลา/จบโหมดวิจัยใน Engine)
     window.addEventListener('hha:end', (ev)=>{
       clearGameTimer();
-      // กันเรียกซ้ำ: ถ้า overlay แสดงผลแล้วก็ไม่ต้องทำอะไรเพิ่ม
-      if (!uiOverlay.classList.contains('hidden') && resultsScreen.style.display === 'block'){
-        return;
-      }
-      const d = ev && ev.detail ? ev.detail : {};
-      const score  = (typeof d.score === 'number')    ? d.score    : ((window.score|0)   || 0);
-      const comboM = (typeof d.comboMax === 'number') ? d.comboMax : ((window.comboMax|0)|| 0);
-      const miss   = (typeof d.misses === 'number')   ? d.misses   : ((window.misses|0)  || 0);
+
+      const d = (ev && ev.detail) || {};
+      const score  = (typeof d.score === 'number')    ? d.score    : ((window.score|0)    || 0);
+      const comboM = (typeof d.comboMax === 'number') ? d.comboMax : ((window.comboMax|0) || 0);
+      const miss   = (typeof d.misses === 'number')   ? d.misses   : ((window.misses|0)   || 0);
+
+      // ส่งขึ้น Cloud (เหตุผล: engine-end)
+      sendSessionToCloud({
+        reason: d.reason || 'engine-end',
+        scoreFinal: score,
+        comboMax: comboM,
+        misses: miss,
+        goodHits:     d.goodHits,
+        junkHits:     d.junkHits,
+        feverCount:   d.feverCount,
+        questsCleared:d.questsCleared,
+        questsTotal:  d.questsTotal,
+        goalsCleared: d.goalsCleared,
+        goalsTotal:   d.goalsTotal
+      });
+
       showResult(score, { comboMax: comboM, misses: miss });
     });
 
@@ -544,6 +644,17 @@
 
     window.addEventListener('beforeunload', stopTimer);
   })();
+  </script>
+
+  <!-- เรียกใช้ Cloud Logger สำหรับ Good vs Junk VR -->
+  <script type="module">
+    import { initCloudLogger } from './vr/hha-cloud-logger.js';
+
+    initCloudLogger({
+      endpoint: 'https://script.google.com/macros/s/AAAAAAAAAAAA/exec', // TODO: ใส่ URL Apps Script จริง
+      projectTag: 'HeroHealth-GoodJunkVR',
+      debug: true  // ตอนทดสอบเป็น true, production จะเปลี่ยนเป็น false ก็ได้
+    });
   </script>
 
 </body>
