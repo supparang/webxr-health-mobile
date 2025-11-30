@@ -25,7 +25,7 @@ const FLUSH_DELAY = 2000; // ดีเลย์เล็กน้อยก่อ
 // เรียกจาก goodjunk-vr.html
 export function initCloudLogger(opts = {}) {
   CONFIG = {
-    endpoint: (opts.endpoint || '').trim(),
+    endpoint: (opts.endpoint || 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec').trim(),
     projectTag: opts.projectTag || 'HeroHealth-GoodJunkVR',
     debug: !!opts.debug
   };
