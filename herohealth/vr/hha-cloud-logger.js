@@ -1,83 +1,70 @@
-// === /herohealth/vr-goodjunk/hha-cloud-logger.js ===
-// Hero Health — Cloud logger (Sessions + Events → Google Sheet)
-
-let config = {
-  endpoint: '',
-  projectTag: 'HeroHealth',
-  debug: false,
-  batchMs: 3000
-};
-
-let sessionQueue = [];
-let eventQueue   = [];
-let flushTimer   = null;
+// === /herohealth/vr/hha-cloud-logger.js ===
+// ส่ง Session + Events ไป Google Apps Script (2 ชีต: Sessions, Events)
 
 export function initCloudLogger(opts = {}) {
-  config = { ...config, ...opts };
+  const endpoint   = opts.endpoint || '';
+  const projectTag = opts.projectTag || 'HeroHealth';
+  const debug      = !!opts.debug;
 
-  if (!config.endpoint) {
-    console.warn('[HHA-Logger] No endpoint configured, logging disabled.');
+  if (!endpoint) {
+    console.warn('[HHA-Logger] endpoint not set');
     return;
   }
 
-  // ฟังสัญญาณจาก GameEngine
-  window.addEventListener('hha:session', onSession);
-  window.addEventListener('hha:event',   onEvent);
+  const queue = [];
+  let flushTimer = null;
 
-  if (config.debug) {
-    console.log('[HHA-Logger] Initialized', config);
+  function scheduleFlush() {
+    if (flushTimer) return;
+    flushTimer = setTimeout(flush, 1500);
+  }
+
+  async function flush() {
+    flushTimer = null;
+    if (!queue.length) return;
+
+    const payload = queue.splice(0, queue.length);
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project: projectTag,
+          events:  payload
+        })
+      });
+
+      if (!res.ok) {
+        if (debug) console.warn('[HHA-Logger] HTTP error', res.status);
+      } else if (debug) {
+        console.log('[HHA-Logger] sent payload', payload);
+      }
+    } catch (err) {
+      if (debug) console.warn('[HHA-Logger] network error', err);
+    }
+  }
+
+  function push(kind, data) {
+    const base = {
+      kind,
+      tsIso: new Date().toISOString()
+    };
+    queue.push(Object.assign(base, data || {}));
+    scheduleFlush();
+  }
+
+  window.addEventListener('hha:session', ev => {
+    push('session', ev.detail || {});
+  });
+
+  window.addEventListener('hha:event', ev => {
+    push('event', ev.detail || {});
+  });
+
+  if (debug) {
+    console.log('[HHA-Logger] init', { endpoint, projectTag });
   }
 }
 
-function onSession(ev) {
-  const row = (ev && ev.detail) || {};
-  sessionQueue.push({
-    sheet:   'sessions',           // ชีตสรุปครั้งเล่น
-    project: config.projectTag,
-    ...row
-  });
-  scheduleFlush();
-}
-
-function onEvent(ev) {
-  const row = (ev && ev.detail) || {};
-  eventQueue.push({
-    sheet:   'events',             // ชีต log ราย event
-    project: config.projectTag,
-    ...row
-  });
-  scheduleFlush();
-}
-
-function scheduleFlush() {
-  if (flushTimer) return;
-  flushTimer = setTimeout(flush, config.batchMs);
-}
-
-async function flush() {
-  if (!config.endpoint) return;
-  flushTimer = null;
-
-  if (!sessionQueue.length && !eventQueue.length) return;
-
-  const payload = {
-    project:  config.projectTag,
-    sessions: sessionQueue.splice(0),
-    events:   eventQueue.splice(0)
-  };
-
-  try {
-    if (config.debug) console.log('[HHA-Logger] sending', payload);
-
-    await fetch(config.endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      mode: 'no-cors' // ให้ Apps Script รับได้แม้ไม่ตั้ง CORS
-    });
-
-    if (config.debug) console.log('[HHA-Logger] sent payload');
-  } catch (err) {
-    if (config.debug) console.warn('[HHA-Logger] error', err);
-  }
-}
+export default { initCloudLogger };
