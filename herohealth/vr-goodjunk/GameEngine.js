@@ -356,6 +356,10 @@ function onHitTarget(targetEl) {
     window.score += scoreDelta;
     window.combo++;
     comboMaxInternal = Math.max(comboMaxInternal, window.combo);
+
+    // ⭐ ให้ global เอาไว้ให้ Quest / HUD ใช้
+    window.comboMax = comboMaxInternal;
+
     if (sessionStats) {
       sessionStats.comboMax = Math.max(sessionStats.comboMax || 0, comboMaxInternal);
     }
