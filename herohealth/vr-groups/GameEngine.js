@@ -6,7 +6,7 @@
     this.sceneEl = sceneEl;
     this.state = 'idle';
     this.diff = 'easy';
-    this.cfg = ns.foodGroupsDifficulty
+    this.cfg = ns.foodGroupsDifficultyFoodGroupsGame
       ? ns.foodGroupsDifficulty.get('easy')
       : { spawnInterval: 1200, speed: 1, duration: 60000 };
 
@@ -139,7 +139,7 @@ FoodGroupsGame.prototype.spawnTarget = function () {
   const endZ = -0.6;
 
   // วงกลมพื้นหลังของเป้า
-  el.setAttribute('geometry', 'primitive: circle; radius: 0.32; segments: 48');
+  el.setAttribute('geometry', 'primitive: circle; radius: 0.36; segments: 48');
   el.setAttribute(
     'material',
     `color: ${group.color}; shader: flat; opacity: 0.95; transparent: true`
@@ -148,21 +148,15 @@ FoodGroupsGame.prototype.spawnTarget = function () {
   el.setAttribute('data-hha-tgt', '1');
   el.setAttribute('data-group-id', String(group.id));
 
-  // label emoji ด้านหน้า (เป็นลูก entity แยก)
-  const label = document.createElement('a-entity');
-  label.setAttribute(
-    'text',
-    [
-      `value: ${group.emoji}`,
-      'align: center',
-      'anchor: center',
-      'baseline: center',
-      'color: #ffffff',
-      'width: 1.6'
-    ].join('; ')
-  );
-  label.setAttribute('position', '0 0 0.02'); // ดันมาด้านหน้าวงกลมนิดนึง
-  el.appendChild(label);
+  // ✅ emoji น่ารัก ๆ ใช้เป็นรูป PNG
+  if (group.img) {
+    const sprite = document.createElement('a-image');
+    sprite.setAttribute('src', group.img);
+    sprite.setAttribute('width', '0.65');
+    sprite.setAttribute('height', '0.65');
+    sprite.setAttribute('position', '0 0 0.02'); // ลอยเหนือวงกลมเล็กน้อย
+    el.appendChild(sprite);
+  }
 
   const dur = Math.round(5000 / (this.cfg.speed || 1));
   el.setAttribute(
