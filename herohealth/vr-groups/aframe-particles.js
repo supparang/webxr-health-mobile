@@ -26,9 +26,10 @@
           `${worldPos.x} ${worldPos.y} ${worldPos.z}`);
 
         p.setAttribute('animation__move',
-          `property: position; to: ${worldPos.x + jx} ${worldPos.y + jy} ${worldPos.z + jz}; dur: 420; easing: ease-out`);
+        `property: position; to: ${worldPos.x + jx} ${worldPos.y + jy} ${worldPos.z + jz}; dur: 420; easing: easeOutQuad`);
         p.setAttribute('animation__fade',
-          'property: material.opacity; to: 0; dur: 420; easing: linear');
+        'property: material.opacity; to: 0; dur: 420; easing: linear');
+
 
         this.scene.appendChild(p);
 
