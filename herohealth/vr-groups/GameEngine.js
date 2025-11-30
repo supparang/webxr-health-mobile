@@ -136,13 +136,22 @@ FoodGroupsGame.prototype.start = function (opts) {
 FoodGroupsGame.prototype.spawnTarget = function () {
   if (this.state !== 'playing' || !ns.foodGroupsEmoji) return;
 
+  const cfg = this.cfg || {};
+  const maxActive = cfg.maxActive || 5;
+
+  // ถ้าเป้าบนจอเยอะแล้ว ยังไม่ต้องออกเพิ่ม
+  if (this._targets.length >= maxActive) {
+    return;
+  }
+
   const group = ns.foodGroupsEmoji.pickRandomGroup();
   const el = document.createElement('a-entity');
 
-  const x = -1.5 + Math.random() * 3;
-  const y = 1 + Math.random() * 1.2;
-  const startZ = -6;
-  const endZ = -0.6;
+  // กระจายทั่วจอ — โซนด้านหน้า
+  // x: ซ้าย-ขวา, y: สูง-ต่ำ, z: ระยะห่าง
+  const x = -1.6 + Math.random() * 3.2;   // ประมาณ -1.6 ถึง 1.6
+  const y = 1.0 + Math.random() * 1.4;    // 1.0 ถึง 2.4 (ระดับหัว/อก)
+  const z = -3.2 + Math.random() * 0.8;   // ห่างประมาณ -3 ถึง -2.4
 
   // วงกลมพื้นหลังของเป้า
   el.setAttribute('geometry', 'primitive: circle; radius: 0.36; segments: 48');
@@ -150,41 +159,43 @@ FoodGroupsGame.prototype.spawnTarget = function () {
     'material',
     `color: ${group.color}; shader: flat; opacity: 0.95; transparent: true`
   );
-  el.setAttribute('position', `${x} ${y} ${startZ}`);
+  el.setAttribute('position', `${x} ${y} ${z}`);
   el.setAttribute('data-hha-tgt', '1');
   el.setAttribute('data-group-id', String(group.id));
 
-  // ✅ emoji น่ารัก ๆ ใช้เป็นรูป PNG
+  // emoji น่ารัก ๆ ใช้เป็นรูป PNG วางด้านหน้า
   if (group.img) {
     const sprite = document.createElement('a-image');
     sprite.setAttribute('src', group.img);
     sprite.setAttribute('width', '0.65');
     sprite.setAttribute('height', '0.65');
-    sprite.setAttribute('position', '0 0 0.02'); // ลอยเหนือวงกลมเล็กน้อย
+    sprite.setAttribute('position', '0 0 0.02');
     el.appendChild(sprite);
   }
 
-  const dur = Math.round(5000 / (this.cfg.speed || 1));
-  el.setAttribute(
-    'animation__move',
-    `property: position; to: ${x} ${y} ${endZ}; dur: ${dur}; easing: linear`
-  );
+  // effect ปรากฏนิดหน่อย (scale เข้า)
+  el.setAttribute('animation__pop',
+    'property: scale; from: 0.001 0.001 0.001; to: 1 1 1; dur: 180; easing: easeOutQuad');
 
   const self = this;
 
+  // ยิงโดน
   el.addEventListener('click', function () {
     self.onHitTarget(el);
   });
 
-  el.addEventListener('animationcomplete', function () {
+  // ตั้ง timer ให้เป้าหายไปเอง (miss) ถ้าไม่ได้ยิงทัน
+  const lifetime = cfg.targetLifetime || 2200;
+  el._hha_timeout = setTimeout(function () {
     if (el.__destroyed) return;
     el.__destroyed = true;
     self.onMissTarget(el);
-  });
+  }, lifetime);
 
   this.sceneEl.appendChild(el);
   this._targets.push(el);
 };
+
 
   FoodGroupsGame.prototype.safeRemoveTarget = function (el) {
     const idx = this._targets.indexOf(el);
