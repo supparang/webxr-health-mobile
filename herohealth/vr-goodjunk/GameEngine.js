@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Game Engine + Session/Event logging (research-ready)
+// Good vs Junk VR — Game Engine + Session/Event Stats (Research-ready)
 
 import {
   ensureFeverBar,
@@ -13,7 +13,7 @@ import { emojiImage } from './emoji-image.js';
 import { burstAt, floatScore, setShardMode } from './aframe-particles.js';
 import { Quest } from './quest-serial.js';
 
-// ---------- Global ที่ Quest.js ต้องใช้ ----------
+// ---------- Global ให้ Quest / HUD ใช้ ----------
 window.score        = 0;
 window.combo        = 0;
 window.misses       = 0;
@@ -30,19 +30,24 @@ let targetRoot  = null;
 let gameConfig  = null;
 let difficulty  = new Difficulty();
 
+// กลุ่มอีโมจิ
 const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
-const STAR = '⭐', DIA = '💎', SHIELD_EMOJI = '🛡️', FIRE = '🔥';
-const BONUS = [STAR, DIA, SHIELD_EMOJI, FIRE];
+
+const STAR  = '⭐';
+const DIA   = '💎';
+const SH    = '🛡️';
+const FIRE  = '🔥';
+const BONUS = [STAR, DIA, SH, FIRE];
 
 // ---------- ตัวแปรสำหรับวิจัย ----------
 let sessionStats      = null;
 let sessionStartMs    = 0;
-let perfStart         = 0;
 let comboMaxInternal  = 0;
 let inputsBound       = false;
+let targetIdSeq       = 0;
 
-// ---------- Utilities ----------
+// ---------- Helper ตรวจ device ----------
 function detectDeviceType() {
   const ua = (navigator.userAgent || '').toLowerCase();
   const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
@@ -58,46 +63,66 @@ function makeSessionId() {
   return `gjvr_${t}_${r}`;
 }
 
-function makeTargetId() {
-  return 't_' + Math.random().toString(36).slice(2, 10);
+// grade สำหรับสรุปผล
+function computeGrade(score, comboMax, misses) {
+  if (score >= 2600 && comboMax >= 22 && misses <= 2) return 'SSS';
+  if (score >= 2200 && comboMax >= 18 && misses <= 4) return 'SS';
+  if (score >= 1800) return 'S';
+  if (score >= 1400) return 'A';
+  if (score >= 900)  return 'B';
+  return 'C';
 }
 
-function emitEvent(detail) {
+// ---------- Event emitter สำหรับ Cloud logger ----------
+function emitEvent(kind, payload) {
+  if (!sessionStats) return;
+  const base = {
+    kind,
+    sessionId:  sessionStats.sessionId,
+    difficulty: sessionStats.difficulty,
+    game:       sessionStats.game
+  };
   try {
-    window.dispatchEvent(new CustomEvent('hha:event', { detail }));
-  } catch (_) {}
+    window.dispatchEvent(new CustomEvent('hha:event', {
+      detail: Object.assign(base, payload || {})
+    }));
+  } catch (e) {
+    console.warn('emitEvent error', e);
+  }
 }
 
-// ---------- Session summary ----------
+// ---------- จัดการ Session ----------
 function beginSession(meta) {
   const now = new Date();
   sessionStartMs = now.getTime();
-  perfStart = performance.now();
 
   sessionStats = {
-    sessionId:   makeSessionId(),
-    game:        'Good vs Junk',
-    mode:        'goodjunk-vr',
-    difficulty:  meta.difficulty || 'normal',
+    sessionId: makeSessionId(),
+    game: 'Good vs Junk',
+    mode: 'goodjunk-vr',
+    difficulty: meta.difficulty || 'normal',
 
-    // experiment meta (อ่านจาก URL)
-    playerId:   meta.playerId   || '',
-    group:      meta.group      || '',
-    prePost:    meta.prePost    || '',
-    className:  meta.className  || '',
-    school:     meta.school     || '',
+    // metadata จาก URL / experiment
+    playerId:  meta.playerId  || '',
+    group:     meta.group     || '',
+    prePost:   meta.prePost   || '',
+    className: meta.className || '',
+    school:    meta.school    || '',
 
-    device:       detectDeviceType(),
-    userAgent:    navigator.userAgent || '',
-    startTimeIso: now.toISOString(),
-    endTimeIso:   null,
+    device:        detectDeviceType(),
+    userAgent:     navigator.userAgent || '',
+    startTimeIso:  now.toISOString(),
+    endTimeIso:    null,
     durationSecPlanned: meta.durationSec || 60,
     durationSecPlayed:  0,
 
+    // summary
     scoreFinal: 0,
     comboMax:   0,
     misses:     0,
+    grade:      'C',
 
+    // counters
     goodHits:    0,
     junkHits:    0,
     starHits:    0,
@@ -115,16 +140,22 @@ function beginSession(meta) {
 function finishSession() {
   if (!sessionStats || sessionStats._sent) return;
 
-  const nowMs = Date.now();
-  const now   = new Date(nowMs);
-  const dur   = Math.max(0, Math.round((nowMs - sessionStartMs) / 1000));
+  const nowMs  = Date.now();
+  const now    = new Date(nowMs);
+  const durSec = Math.max(0, Math.round((nowMs - sessionStartMs) / 1000));
 
   sessionStats.endTimeIso        = now.toISOString();
-  sessionStats.durationSecPlayed = dur;
+  sessionStats.durationSecPlayed = durSec;
   sessionStats.scoreFinal        = window.score | 0;
   sessionStats.comboMax          = Math.max(sessionStats.comboMax || 0, comboMaxInternal | 0);
   sessionStats.misses            = window.misses | 0;
-  sessionStats._sent             = true;
+  sessionStats.grade             = computeGrade(
+    sessionStats.scoreFinal,
+    sessionStats.comboMax,
+    sessionStats.misses
+  );
+
+  sessionStats._sent = true;
 
   try {
     window.dispatchEvent(new CustomEvent('hha:session', { detail: sessionStats }));
@@ -134,10 +165,10 @@ function finishSession() {
   }
 }
 
-// ---------- Global helpers ให้ Quest.js ใช้ ----------
+// ---------- Global helpers ให้ Quest / UI ใช้ ----------
 window.emit = function(name, detail) {
   try { window.dispatchEvent(new CustomEvent(name, { detail })); }
-  catch (e) {}
+  catch (_) {}
 };
 
 window.feverStart = function() {
@@ -147,7 +178,9 @@ window.feverStart = function() {
   window.FEVER_ACTIVE = true;
   setFeverActive(true);
 
-  if (sessionStats) sessionStats.feverActivations += 1;
+  if (sessionStats) {
+    sessionStats.feverActivations += 1;
+  }
 
   Quest.onFever();
   window.emit('hha:fever', { state: 'start' });
@@ -158,7 +191,7 @@ window.popupText = function(text, pos, color = '#fff') {
   floatScore(sceneEl, worldPos, text, color);
 };
 
-// ---------- Game Logic ----------
+// ---------- FEVER ----------
 function mult() {
   return window.FEVER_ACTIVE ? 2 : 1;
 }
@@ -183,22 +216,18 @@ function decayFever(base) {
   }
 }
 
-// lane จากตำแหน่ง X ในโลก
-function laneFromX(x) {
-  if (x < -1.1) return 'L';
-  if (x >  1.1) return 'R';
-  return 'C';
-}
-
+// ---------- Spawn target ----------
 function spawnTarget() {
   if (!window.running) return;
-  const cfg = gameConfig;
-  if (!cfg) return;
 
+  const cfg = gameConfig;
   const isGood   = Math.random() < 0.65;
   const usePower = Math.random() < 0.08;
 
-  let char, type, palette;
+  let char;
+  let type;
+  let palette;
+
   if (usePower) {
     char    = BONUS[(Math.random() * BONUS.length) | 0];
     type    = 'good';
@@ -213,100 +242,103 @@ function spawnTarget() {
     palette = 'plate';
   }
 
-  const scale = cfg.size * 0.6;
-  const el    = emojiImage(char, scale);
+  const baseSize = cfg.size || 1;
+  const scale    = baseSize * 1.15; // เป้าใหญ่ขึ้น คลิกง่ายขึ้นทั้ง PC/VR
 
-  const x = (Math.random() - 0.5) * 4;         // -2..2
-  const y = 1.0 + Math.random() * 1.0;         // 1..2
-  const z = -2.5 - Math.random() * 1.0;        // -2.5..-3.5
-  const lane = laneFromX(x);
-  const born = performance.now();
-
-  el.setAttribute('position', `${x} ${y} ${z}`);
-  el.setAttribute('data-hha-tgt', '1');
-  el.dataset.type  = type;
-  el.dataset.char  = char;
-  el.dataset.lane  = lane;
-  el.dataset.spawn = String(born);
-  el.dataset.id    = makeTargetId();
+  const el = emojiImage(char, scale);
+  el.dataset.type    = type;
+  el.dataset.char    = char;
   el.dataset.palette = palette;
+  el.setAttribute('data-hha-tgt', '1');
+
+  const x = (Math.random() - 0.5) * 4;
+  const y = 1.0 + Math.random() * 1.0;
+  const z = -2.5 - Math.random() * 1.0;
+  el.setAttribute('position', `${x} ${y} ${z}`);
+
+  // lane + timing สำหรับ RT
+  const id      = ++targetIdSeq;
+  const spawnMs = performance.now();
+  const lane    = x < -1 ? 'L' : (x > 1 ? 'R' : 'C');
+
+  el.dataset.spawnMs = String(spawnMs);
+  el.dataset.lane    = lane;
+  el.dataset.eid     = String(id);
+
+  emitEvent('spawn', {
+    targetId: id,
+    emoji:    char,
+    lane,
+    type,
+    spawnMs
+  });
 
   targetRoot.appendChild(el);
 
-  // ถ้าเป้าหมดอายุแล้วยังไม่โดน
-  const life = cfg.life;
+  // หมดอายุ
   setTimeout(() => {
-    if (!el || !el.parentNode) return;
-    const nowPerf = performance.now();
-    const bornMs  = Number(el.dataset.spawn || 0);
-    const ageMs   = bornMs ? Math.round(nowPerf - bornMs) : life;
+    if (el && el.parentNode) {
+      const spawn = parseFloat(el.dataset.spawnMs || '0');
+      const rtMs  = spawn ? Math.max(0, Math.round(performance.now() - spawn)) : null;
+      const ln    = el.dataset.lane || 'C';
 
-    const baseEvent = {
-      sessionId: sessionStats ? sessionStats.sessionId : '',
-      tsIso: new Date().toISOString(),
-      tRelMs: perfStart ? Math.round(nowPerf - perfStart) : null,
-      targetId: el.dataset.id || '',
-      emoji: el.dataset.char || '',
-      lane: el.dataset.lane || 'C',
-      rtMs: null,
-      ageMs,
-      difficulty: sessionStats ? sessionStats.difficulty : '',
-      device: sessionStats ? sessionStats.device : detectDeviceType(),
-      scoreAfter: window.score | 0,
-      comboAfter: window.combo | 0,
-      missesAfter: window.misses | 0
-    };
+      if (type === 'good') {
+        // ปล่อยของดีหลุด → miss
+        window.misses++;
+        if (sessionStats) sessionStats.misses = window.misses;
+        window.combo = 0;
+        window.emit('hha:miss', {});
 
-    if (type === 'good') {
-      // ปล่อยของดีหลุด → miss
-      window.misses++;
-      if (sessionStats) sessionStats.misses = window.misses;
-      window.combo = 0;
-      window.emit('hha:miss', {});
-
-      emitEvent({
-        ...baseEvent,
-        event: 'timeout',
-        kind:  'miss-good'
-      });
-    } else {
-      // หลบของขยะได้
-      gainFever(4);
-      emitEvent({
-        ...baseEvent,
-        event: 'timeout',
-        kind:  'skip-junk'
-      });
+        emitEvent('timeout', {
+          targetId: el.dataset.eid || null,
+          emoji:    char,
+          lane:     ln,
+          type,
+          rtMs,
+          reason:   'good_missed'
+        });
+      } else {
+        // หลบของขยะ → เพิ่ม FEVER เบา ๆ
+        gainFever(4);
+        emitEvent('timeout', {
+          targetId: el.dataset.eid || null,
+          emoji:    char,
+          lane:     ln,
+          type,
+          rtMs,
+          reason:   'junk_avoided'
+        });
+      }
+      el.remove();
     }
-    el.remove();
-  }, life);
+  }, cfg.life);
 
   spawnTimer = setTimeout(spawnTarget, cfg.rate);
 }
 
+// ---------- เมื่อตีโดน ----------
 function onHitTarget(targetEl) {
   if (!targetEl || !targetEl.parentNode) return;
 
   const type    = targetEl.dataset.type;
   const char    = targetEl.dataset.char;
   const palette = targetEl.dataset.palette;
-  const lane    = targetEl.dataset.lane || 'C';
-  const id      = targetEl.dataset.id   || '';
   const pos     = targetEl.object3D.getWorldPosition(new THREE.Vector3());
 
-  const nowPerf = performance.now();
-  const bornMs  = Number(targetEl.dataset.spawn || 0);
-  const rtMs    = bornMs ? Math.max(0, Math.round(nowPerf - bornMs)) : null;
+  const lane    = targetEl.dataset.lane || 'C';
+  const spawnMs = parseFloat(targetEl.dataset.spawnMs || '0');
+  const rtMs    = spawnMs ? Math.max(0, Math.round(performance.now() - spawnMs)) : null;
+  const tId     = targetEl.dataset.eid || null;
 
   let scoreDelta = 0;
 
   if (type === 'good') {
-    // ---------- good / power-up ----------
+    // ---------- Good / Power-ups ----------
     if (sessionStats) {
       sessionStats.goodHits += 1;
       if (char === STAR)        sessionStats.starHits    += 1;
       else if (char === DIA)    sessionStats.diamondHits += 1;
-      else if (char === SHIELD_EMOJI) sessionStats.shieldHits += 1;
+      else if (char === SH)     sessionStats.shieldHits  += 1;
       else if (char === FIRE)   sessionStats.fireHits    += 1;
     }
 
@@ -316,7 +348,7 @@ function onHitTarget(targetEl) {
     } else if (char === DIA) {
       scoreDelta = 80 * mult();
       gainFever(30);
-    } else if (char === SHIELD_EMOJI) {
+    } else if (char === SH) {
       scoreDelta = 20;
       shield = Math.min(3, shield + 1);
       setShield(shield);
@@ -339,54 +371,19 @@ function onHitTarget(targetEl) {
     burstAt(sceneEl, pos, { mode: palette });
     floatScore(sceneEl, pos, `+${scoreDelta}`, '#22c55e');
 
-    emitEvent({
-      sessionId: sessionStats ? sessionStats.sessionId : '',
-      tsIso: new Date().toISOString(),
-      tRelMs: perfStart ? Math.round(nowPerf - perfStart) : null,
-      event: 'hit',
-      kind:  'good',
-      targetId: id,
-      emoji: char,
-      lane,
-      rtMs,
-      difficulty: sessionStats ? sessionStats.difficulty : '',
-      device: sessionStats ? sessionStats.device : detectDeviceType(),
-      scoreDelta,
-      scoreAfter: window.score | 0,
-      comboAfter: window.combo | 0,
-      missesAfter: window.misses | 0
-    });
-
   } else {
-    // ---------- bad (junk) ----------
-    if (sessionStats) sessionStats.junkHits += 1;
+    // ---------- Bad (ของขยะ) ----------
+    if (sessionStats) {
+      sessionStats.junkHits += 1;
+    }
 
     if (shield > 0) {
       shield--;
       setShield(shield);
       burstAt(sceneEl, pos, { mode: 'hydration' });
       floatScore(sceneEl, pos, 'SHIELDED!', '#60a5fa');
-
-      emitEvent({
-        sessionId: sessionStats ? sessionStats.sessionId : '',
-        tsIso: new Date().toISOString(),
-        tRelMs: perfStart ? Math.round(nowPerf - perfStart) : null,
-        event: 'hit',
-        kind:  'junk-shield',
-        targetId: id,
-        emoji: char,
-        lane,
-        rtMs,
-        difficulty: sessionStats ? sessionStats.difficulty : '',
-        device: sessionStats ? sessionStats.device : detectDeviceType(),
-        scoreDelta: 0,
-        scoreAfter: window.score | 0,
-        comboAfter: window.combo | 0,
-        missesAfter: window.misses | 0
-      });
-
     } else {
-      scoreDelta = -15;
+      scoreDelta   = -15;
       window.score = Math.max(0, window.score + scoreDelta);
       window.combo = 0;
       window.misses++;
@@ -397,26 +394,22 @@ function onHitTarget(targetEl) {
       window.emit('hha:miss', {});
       burstAt(sceneEl, pos, { mode: palette });
       floatScore(sceneEl, pos, `${scoreDelta}`, '#ef4444');
-
-      emitEvent({
-        sessionId: sessionStats ? sessionStats.sessionId : '',
-        tsIso: new Date().toISOString(),
-        tRelMs: perfStart ? Math.round(nowPerf - perfStart) : null,
-        event: 'hit',
-        kind:  'junk-penalty',
-        targetId: id,
-        emoji: char,
-        lane,
-        rtMs,
-        difficulty: sessionStats ? sessionStats.difficulty : '',
-        device: sessionStats ? sessionStats.device : detectDeviceType(),
-        scoreDelta,
-        scoreAfter: window.score | 0,
-        comboAfter: window.combo | 0,
-        missesAfter: window.misses | 0
-      });
     }
   }
+
+  emitEvent('hit', {
+    targetId:   tId,
+    emoji:      char,
+    lane,
+    type,
+    isGood:     type === 'good',
+    isPower:    BONUS.includes(char),
+    scoreDelta,
+    scoreAfter: window.score,
+    combo:      window.combo,
+    misses:     window.misses,
+    rtMs
+  });
 
   window.emit('hha:score', {
     score: window.score,
@@ -427,12 +420,14 @@ function onHitTarget(targetEl) {
   targetEl.remove();
 }
 
+// ---------- Tick ----------
 function gameTick() {
   if (!window.running) return;
 
   if (sessionStats && window.FEVER_ACTIVE) {
     sessionStats.feverTimeTotalSec += 1;
   }
+
   decayFever(window.combo <= 0 ? 6 : 2);
 }
 
@@ -456,19 +451,20 @@ export const GameEngine = {
     setShardMode('goodjunk');
 
     // reset state
-    window.score   = 0;
-    window.combo   = 0;
-    window.misses  = 0;
-    comboMaxInternal = 0;
-    shield         = 0;
-    fever          = 0;
+    window.score        = 0;
+    window.combo        = 0;
+    window.misses       = 0;
+    comboMaxInternal    = 0;
+    shield              = 0;
+    fever               = 0;
+    targetIdSeq         = 0;
     window.FEVER_ACTIVE = false;
     window.running      = true;
     setFever(0);
     setShield(0);
     setFeverActive(false);
 
-    // metadata จาก URL
+    // meta จาก URL
     const url = new URL(window.location.href);
     const p   = url.searchParams;
     const meta = {
@@ -477,14 +473,14 @@ export const GameEngine = {
       playerId:   p.get('pid')   || p.get('player') || '',
       group:      p.get('group') || '',
       prePost:    p.get('prePost') || p.get('phase') || '',
-      className:  p.get('class') || p.get('room') || '',
+      className:  p.get('class') || p.get('room')  || '',
       school:     p.get('school') || ''
     };
     beginSession(meta);
 
     // difficulty
     difficulty.set(level);
-    gameConfig = difficulty.get();
+    gameConfig = difficulty.get(); // { size, rate, life }
 
     if (gameTimer)  clearInterval(gameTimer);
     if (spawnTimer) clearTimeout(spawnTimer);
@@ -493,18 +489,19 @@ export const GameEngine = {
 
     Quest.start();
 
-    // ---------- Input (PC / Mobile / VR) ----------
+    // ---------- Input binding ----------
     if (!inputsBound) {
       inputsBound = true;
 
-      // click จาก VR trigger / gaze cursor
+      // VR/desktop click
       sceneEl.addEventListener('click', (e) => {
-        if (e.target && e.target.dataset && e.target.dataset.hhaTgt) {
-          onHitTarget(e.target);
+        const t = e.target;
+        if (t && t.dataset && t.dataset.hhaTgt) {
+          onHitTarget(t);
         }
       });
 
-      // เมาส์บน PC
+      // เมาส์บน PC ด้วย cursor
       sceneEl.addEventListener('loaded', () => {
         const canvas = sceneEl.canvas;
         if (!canvas) return;
@@ -542,7 +539,7 @@ export const GameEngine = {
     Quest.stop();
 
     if (targetRoot) {
-      try { targetRoot.remove(); } catch {}
+      try { targetRoot.remove(); } catch (_) {}
       targetRoot = null;
     }
 
