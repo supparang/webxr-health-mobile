@@ -52,46 +52,52 @@
     this._targets.length = 0;
   };
 
-  FoodGroupsGame.prototype.start = function (opts) {
-    opts = opts || {};
-    this.diff = opts.diff || 'normal';
-    if (ns.foodGroupsDifficulty) {
-      this.cfg = ns.foodGroupsDifficulty.get(this.diff);
+FoodGroupsGame.prototype.start = function (opts) {
+  opts = opts || {};
+  this.diff = opts.diff || 'normal';
+  if (ns.foodGroupsDifficulty) {
+    this.cfg = ns.foodGroupsDifficulty.get(this.diff);
+  }
+
+  this.state = 'playing';
+  this.score = 0;
+  this.clearTimers();
+  this.removeAllTargets();
+
+  // ✅ โชว์ HUD + reset ข้อความ
+  if (ns.foodGroupsUI) {
+    ns.foodGroupsUI.init && ns.foodGroupsUI.init();
+    ns.foodGroupsUI.show();
+    ns.foodGroupsUI.reset();
+  }
+
+  // ✅ reset ภารกิจ + ให้โค้ชบอก mission แรก
+  if (this.questManager) {
+    this.questManager.reset();
+  }
+  if (ns.foodGroupsCoach && ns.foodGroupsCoach.sayStart) {
+    ns.foodGroupsCoach.sayStart();
+  }
+
+  const duration = this.cfg.duration || 60000;
+  const startTime = performance.now();
+  this._startTime = startTime;
+
+  const self = this;
+  this._timeInterval = setInterval(function () {
+    const elapsed = performance.now() - startTime;
+    const remain = Math.max(0, duration - elapsed);
+    if (ns.foodGroupsUI && ns.foodGroupsUI.setTime) {
+      ns.foodGroupsUI.setTime(Math.ceil(remain / 1000));
     }
+  }, 250);
 
-    this.state = 'playing';
-    this.score = 0;
-    this.clearTimers();
-    this.removeAllTargets();
+  this._gameTimer = setTimeout(function () {
+    self.endGame();
+  }, duration);
 
-    if (ns.foodGroupsUI) {
-      ns.foodGroupsUI.show();
-      ns.foodGroupsUI.reset();
-    }
-    if (this.questManager) this.questManager.reset();
-    if (ns.foodGroupsCoach && ns.foodGroupsCoach.sayStart) {
-      ns.foodGroupsCoach.sayStart();
-    }
-
-    const duration = this.cfg.duration || 60000;
-    const startTime = performance.now();
-    this._startTime = startTime;
-
-    const self = this;
-    this._timeInterval = setInterval(function () {
-      const elapsed = performance.now() - startTime;
-      const remain = Math.max(0, duration - elapsed);
-      if (ns.foodGroupsUI && ns.foodGroupsUI.setTime) {
-        ns.foodGroupsUI.setTime(Math.ceil(remain / 1000));
-      }
-    }, 250);
-
-    this._gameTimer = setTimeout(function () {
-      self.endGame();
-    }, duration);
-
-    this.scheduleNextSpawn();
-  };
+  this.scheduleNextSpawn();
+};
 
   FoodGroupsGame.prototype.endGame = function () {
     if (this.state !== 'playing') return;
