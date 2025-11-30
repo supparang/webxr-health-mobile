@@ -1,6 +1,6 @@
 // === /herohealth/vr/game-engine-goodjunk-vr.js ===
 // Good vs Junk — VR Engine (PC / Mobile / VR Headset)
-// - spawn emoji targets ใน A-Frame
+// - spawn emoji targets ใน A-Frame (ใช้ a-image + dataURL)
 // - เก็บ score / combo / misses เป็น global (window.*)
 // - ส่ง event สำหรับวิจัย: hha:session, hha:event (RT, emoji, lane), hha:end
 
@@ -13,12 +13,10 @@ const FIRE = '🔥';
 const BONUS = [STAR, DIA, SHIELD_EMOJI, FIRE];
 
 const DIFF_CFG = {
-  easy:   { spawn: 950, life: 2400, size: 0.52 },
-  normal: { spawn: 780, life: 2100, size: 0.46 },
-  hard:   { spawn: 640, life: 1800, size: 0.40 }
+  easy:   { spawn: 950, life: 2400, size: 0.75 },
+  normal: { spawn: 780, life: 2100, size: 0.65 },
+  hard:   { spawn: 640, life: 1800, size: 0.55 }
 };
-
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
 
 function laneFromX(x) {
   if (x < -0.7) return 'L';
@@ -33,6 +31,35 @@ function detectDeviceType() {
   if (isVR) return 'vr-headset';
   if (isMobile) return 'mobile';
   return 'desktop';
+}
+
+// --- emoji → dataURL (ใช้ซ้ำได้) ---
+const emojiCache = {};
+function emojiSprite(emo, px = 256) {
+  const key = emo + '@' + px;
+  if (emojiCache[key]) return emojiCache[key];
+
+  const c = document.createElement('canvas');
+  c.width = c.height = px;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, px, px);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = (px * 0.8) + 'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = px * 0.10;
+  ctx.fillText(emo, px / 2, px / 2);
+
+  const url = c.toDataURL('image/png');
+  emojiCache[key] = url;
+  return url;
+}
+
+function judgeKind(ch) {
+  if (GOOD.includes(ch)) return 'good';
+  if (JUNK.includes(ch)) return 'junk';
+  if (BONUS.includes(ch)) return 'power';
+  return 'other';
 }
 
 const GameEngineVR = (() => {
@@ -54,7 +81,6 @@ const GameEngineVR = (() => {
     cfg: DIFF_CFG.normal
   };
 
-  // global stats (ใช้ร่วมกับ HUD และ logger)
   function resetGlobals() {
     window.score    = 0;
     window.combo    = 0;
@@ -85,8 +111,8 @@ const GameEngineVR = (() => {
   function logHitEvent(opts) {
     const {
       emoji,
-      kind,          // 'good' | 'junk' | 'power'
-      judgment,      // 'hit' | 'shielded' | 'expired' ฯลฯ
+      kind,
+      judgment,
       rtMs,
       scoreDelta,
       lane
@@ -121,32 +147,33 @@ const GameEngineVR = (() => {
     });
   }
 
-  function judgeKind(ch) {
-    if (GOOD.includes(ch)) return 'good';
-    if (JUNK.includes(ch)) return 'junk';
-    if (BONUS.includes(ch)) return 'power';
-    return 'other';
-  }
-
+  // ---------- สร้างเป้า ----------
   function createTargetEntity(emoji, cfg) {
-    const el = document.createElement('a-entity');
-    // emoji ด้วย text component (ให้ A-Frame โหลด text geometry เอง)
-    el.setAttribute('text', `value:${emoji}; align:center; color:#ffffff; width:2.2`);
-    el.setAttribute('scale', `${cfg.size} ${cfg.size} ${cfg.size}`);
-    el.setAttribute('data-hha-tgt', '1');
+    // ใช้ a-image + dataURL ทำเป็น sprite
+    const el = document.createElement('a-image');
+    el.setAttribute('src', emojiSprite(emoji, 256));
+    el.setAttribute('transparent', 'true');
+    el.setAttribute('alpha-test', '0.2');
+    el.setAttribute('side', 'double');
+    el.setAttribute('look-at', '#camera'); // หันเข้าหากล้องเสมอ
+
+    // ขนาดขึ้นกับ diff
+    const size = cfg.size;
+    el.setAttribute('width',  size.toString());
+    el.setAttribute('height', size.toString());
+
+    el.setAttribute('data-hha-tgt', '1');   // ให้ raycaster เจอ
     el.dataset.emoji = emoji;
 
-    // random ตำแหน่งใน cone ด้านหน้า
+    // random ตำแหน่งในโดมด้านหน้า
     const x = (Math.random() - 0.5) * 2.4;  // -1.2 ถึง 1.2
-    const y = 1.0 + Math.random() * 1.0;    // 1.0 - 2.0
-    const z = -2.2 - Math.random() * 1.2;   // -2.2 ถึง -3.4
+    const y = 1.0 + Math.random() * 1.1;    // 1.0 - 2.1
+    const z = -2.0 - Math.random() * 1.4;   // -2.0 ถึง -3.4
 
     const lane = laneFromX(x);
     el.setAttribute('position', `${x.toFixed(3)} ${y.toFixed(3)} ${z.toFixed(3)}`);
     el.dataset.lane = lane;
     el.dataset.spawnAt = String(performance.now());
-
-    // mark ประเภท
     el.dataset.kind = judgeKind(emoji);
 
     return el;
@@ -157,36 +184,31 @@ const GameEngineVR = (() => {
 
     const cfg = state.cfg;
 
-    // random power-up 10%
     let emoji;
     if (Math.random() < 0.10) {
+      // power-up 10%
       emoji = BONUS[(Math.random() * BONUS.length) | 0];
     } else {
       const isGood = Math.random() < 0.65;
-      if (isGood) {
-        emoji = GOOD[(Math.random() * GOOD.length) | 0];
-      } else {
-        emoji = JUNK[(Math.random() * JUNK.length) | 0];
-      }
+      emoji = isGood
+        ? GOOD[(Math.random() * GOOD.length) | 0]
+        : JUNK[(Math.random() * JUNK.length) | 0];
     }
 
     const el = createTargetEntity(emoji, cfg);
     state.targetRoot.appendChild(el);
 
     const life = cfg.life;
-    const spawnTime = Number(el.dataset.spawnAt || performance.now());
     const lane = el.dataset.lane || 'C';
     const kind = el.dataset.kind || judgeKind(emoji);
 
-    // timeout: หมดอายุ (ถือเป็น expired event)
+    // เป้าหมดอายุ
     setTimeout(() => {
       if (!state.running) return;
-      if (!el.parentNode) return; // โดนยิงไปแล้ว
-      try {
-        el.parentNode.removeChild(el);
-      } catch {}
+      if (!el.parentNode) return; // โดนยิงแล้ว
 
-      // log expired event
+      try { el.parentNode.removeChild(el); } catch {}
+
       logHitEvent({
         emoji,
         kind,
@@ -207,24 +229,21 @@ const GameEngineVR = (() => {
     }, state.cfg.spawn);
   }
 
+  // ---------- การยิงเป้า ----------
   function handleHit(targetEl) {
     if (!state.running || !targetEl || !targetEl.parentNode) return;
 
-    const emoji = targetEl.dataset.emoji || '?';
-    const kind  = targetEl.dataset.kind || judgeKind(emoji);
-    const lane  = targetEl.dataset.lane || 'C';
+    const emoji   = targetEl.dataset.emoji || '?';
+    const kind    = targetEl.dataset.kind || judgeKind(emoji);
+    const lane    = targetEl.dataset.lane || 'C';
     const spawnAt = Number(targetEl.dataset.spawnAt || performance.now());
-    const rtMs = Math.max(0, Math.round(performance.now() - spawnAt));
+    const rtMs    = Math.max(0, Math.round(performance.now() - spawnAt));
 
     let scoreDelta = 0;
     let judgment   = 'hit';
 
-    // ลบออกจาก scene ก่อน
-    try {
-      targetEl.parentNode.removeChild(targetEl);
-    } catch {}
+    try { targetEl.parentNode.removeChild(targetEl); } catch {}
 
-    // ----- Scoring -----
     if (kind === 'power') {
       if (emoji === STAR) {
         scoreDelta = 40;
@@ -238,6 +257,7 @@ const GameEngineVR = (() => {
       window.score = (window.score | 0) + scoreDelta;
       window.combo = (window.combo | 0) + 1;
       window.comboMax = Math.max(window.comboMax | 0, window.combo | 0);
+
     } else if (kind === 'good') {
       const base = 16;
       const combo = window.combo | 0;
@@ -245,24 +265,22 @@ const GameEngineVR = (() => {
       window.score = (window.score | 0) + scoreDelta;
       window.combo = combo + 1;
       window.comboMax = Math.max(window.comboMax | 0, window.combo | 0);
+
     } else if (kind === 'junk') {
-      // ยิงโดนของขยะ = miss
       scoreDelta = -12;
       window.score = Math.max(0, (window.score | 0) + scoreDelta);
       window.combo = 0;
       window.misses = (window.misses | 0) + 1;
       judgment = 'hit-junk';
-      emit('hha:miss', {});  // ให้ HUD อัปเดตด้วย
+      emit('hha:miss', {});
     }
 
-    // แจ้ง HUD
     emit('hha:score', {
       score: window.score | 0,
       combo: window.combo | 0,
       delta: scoreDelta
     });
 
-    // log event
     logHitEvent({
       emoji,
       kind,
@@ -273,10 +291,10 @@ const GameEngineVR = (() => {
     });
   }
 
+  // ---------- input: click / tap / VR cursor ----------
   function attachInput(sceneEl) {
     if (state.clickHandler || state.canvasHandler) return;
 
-    // สำหรับ VR cursor / mobile tap → ใช้ event click ของ A-Frame
     state.clickHandler = function (e) {
       const t = e.target;
       if (t && t.dataset && t.dataset.hhaTgt) {
@@ -285,24 +303,24 @@ const GameEngineVR = (() => {
     };
     sceneEl.addEventListener('click', state.clickHandler);
 
-    // สำหรับ desktop mouse กดบน canvas → ใช้ raycaster ของ cursor
-    const canvas = sceneEl.canvas;
-    if (!canvas) return;
-
-    state.canvasHandler = function () {
+    function canvasHandler() {
       if (!state.running) return;
       const cursor = document.getElementById('cursor');
-      if (!cursor) return;
-      const rc = cursor.components && cursor.components.raycaster;
-      if (!rc || !rc.intersectedEls || !rc.intersectedEls.length) return;
+      if (!cursor || !cursor.components || !cursor.components.raycaster) return;
+      const rc = cursor.components.raycaster;
+      if (!rc.intersectedEls || !rc.intersectedEls.length) return;
       const target = rc.intersectedEls[0];
       if (target && target.dataset && target.dataset.hhaTgt) {
         handleHit(target);
       }
-    };
+    }
 
-    canvas.addEventListener('mousedown', state.canvasHandler);
-    canvas.addEventListener('touchstart', state.canvasHandler, { passive: true });
+    const canvas = sceneEl.canvas;
+    if (canvas) {
+      state.canvasHandler = canvasHandler;
+      canvas.addEventListener('mousedown', canvasHandler);
+      canvas.addEventListener('touchstart', canvasHandler, { passive: true });
+    }
   }
 
   function detachInput() {
@@ -319,13 +337,12 @@ const GameEngineVR = (() => {
 
   function clearTargets() {
     if (state.targetRoot && state.targetRoot.parentNode) {
-      try {
-        state.targetRoot.parentNode.removeChild(state.targetRoot);
-      } catch {}
+      try { state.targetRoot.parentNode.removeChild(state.targetRoot); } catch {}
     }
     state.targetRoot = null;
   }
 
+  // ---------- public API ----------
   return {
     start(diff = 'normal') {
       if (state.running) this.stop();
@@ -347,37 +364,28 @@ const GameEngineVR = (() => {
 
       resetGlobals();
 
-      // container เป้า
       clearTargets();
       const root = document.createElement('a-entity');
       root.id = 'gjvrTargetRoot';
       scene.appendChild(root);
       state.targetRoot = root;
 
-      // timer สำหรับวัดเวลาเล่น
       clearInterval(state.tickTimer);
       state.tickTimer = setInterval(() => {
         if (!state.running) return;
-        const sec = Math.floor((performance.now() - state.startPerf) / 1000);
-        state.playedSec = sec;
+        state.playedSec = Math.floor((performance.now() - state.startPerf) / 1000);
       }, 1000);
 
-      // spawn เป้าเรื่อย ๆ
       scheduleNextSpawn();
-
-      // attach input
       attachInput(scene);
-
-      // log session
       logSession();
 
-      // initial HUD score
       emit('hha:score', { score: 0, combo: 0, delta: 0 });
     },
 
     stop() {
       if (!state.running) {
-        // ถ้าถูกเรียกซ้ำ ให้ยัง log end ได้ครั้งเดียว
+        // แต่ถ้า overlay เรียก stop ซ้ำ ตอนจบเกม ก็ไม่ต้อง error
         return;
       }
       state.running = false;
@@ -389,8 +397,6 @@ const GameEngineVR = (() => {
 
       detachInput();
       clearTargets();
-
-      // log summary → hha:end (Cloud logger จะดักไปเขียน Google Sheet)
       logEnd();
     }
   };
