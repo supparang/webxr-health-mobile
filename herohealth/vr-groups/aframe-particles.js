@@ -1,4 +1,4 @@
-// vr-goodjunk/aframe-particles.js
+// vr-groups/aframe-particles.js
 (function (ns) {
   'use strict';
 
@@ -40,4 +40,4 @@
   };
 
   ns.foodGroupsFx = Fx;
-})(window.GAME_MODULES);
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
