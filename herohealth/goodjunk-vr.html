@@ -317,15 +317,17 @@
 
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="camera" look-controls="pointerLockEnabled: true">
+  <!-- Cursor แบบวงแหวนใหญ่ขึ้น + ไม่ใช้ fuse แล้ว
+       → ใช้การ "คลิก" (mouse / tap / trigger) อย่างเดียว -->
         <a-cursor id="cursor"
-                  raycaster="objects: [data-hha-tgt]; interval: 50"
-                  fuse="true"
-                  fuse-timeout="900"
-                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.018"
-                  material="color: #ffffff; shader: flat; opacity: 0.95"
-                  position="0 0 -1">
+            raycaster="objects: [data-hha-tgt]; interval: 25"
+            fuse="false"
+            geometry="primitive: ring; radiusInner: 0.016; radiusOuter: 0.028"
+            material="color: #ffffff; shader: flat; opacity: 0.95"
+            position="0 0 -1">
         </a-cursor>
       </a-camera>
+
 
       <a-entity id="rightHand"
                 laser-controls="hand: right"
