@@ -1,69 +1,114 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// ส่ง Session + Events ไป Google Apps Script (2 ชีต: Sessions, Events)
+// Hero Health — Cloud Logger (Google Apps Script / Google Sheets)
+
+let CFG = {
+  endpoint: '',
+  projectTag: 'HeroHealth',
+  debug: false,
+  flushDelayMs: 2500,  // หน่วงรวม event 2.5 วินาทีค่อยยิงทีเดียว
+};
+
+let queueSessions = [];
+let queueEvents   = [];
+let flushTimer    = null;
 
 export function initCloudLogger(opts = {}) {
-  const endpoint   = opts.endpoint || '';
-  const projectTag = opts.projectTag || 'HeroHealth';
-  const debug      = !!opts.debug;
+  CFG = {
+    ...CFG,
+    endpoint:   opts.endpoint   || CFG.endpoint,
+    projectTag: opts.projectTag || CFG.projectTag,
+    debug:      !!opts.debug,
+    flushDelayMs: opts.flushDelayMs || CFG.flushDelayMs
+  };
 
-  if (!endpoint) {
-    console.warn('[HHA-Logger] endpoint not set');
+  if (!CFG.endpoint) {
+    console.warn('[HHA-Logger] Missing endpoint (Google Apps Script URL)');
     return;
   }
 
-  const queue = [];
-  let flushTimer = null;
-
-  function scheduleFlush() {
-    if (flushTimer) return;
-    flushTimer = setTimeout(flush, 1500);
+  if (CFG.debug) {
+    console.log('[HHA-Logger] init', CFG);
   }
 
-  async function flush() {
-    flushTimer = null;
-    if (!queue.length) return;
-
-    const payload = queue.splice(0, queue.length);
-
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project: projectTag,
-          events:  payload
-        })
-      });
-
-      if (!res.ok) {
-        if (debug) console.warn('[HHA-Logger] HTTP error', res.status);
-      } else if (debug) {
-        console.log('[HHA-Logger] sent payload', payload);
-      }
-    } catch (err) {
-      if (debug) console.warn('[HHA-Logger] network error', err);
-    }
-  }
-
-  function push(kind, data) {
-    const base = {
-      kind,
-      tsIso: new Date().toISOString()
-    };
-    queue.push(Object.assign(base, data || {}));
+  // ฟัง session summary
+  window.addEventListener('hha:session', (e) => {
+    const s = (e && e.detail) || {};
+    if (!s || !s.sessionId) return;
+    queueSessions.push({
+      project:   CFG.projectTag,
+      ts:        new Date().toISOString(),
+      ...s
+    });
+    if (CFG.debug) console.log('[HHA-Logger] queue session', s.sessionId);
     scheduleFlush();
+  });
+
+  // ฟัง event ระดับ hit / spawn / quest ฯลฯ
+  window.addEventListener('hha:event', (e) => {
+    const d = (e && e.detail) || {};
+    queueEvents.push({
+      project: CFG.projectTag,
+      ts:      new Date().toISOString(),
+      ...d
+    });
+    if (CFG.debug) console.log('[HHA-Logger] queue event', d.kind || 'unknown');
+    scheduleFlush();
+  });
+
+  // เผื่อจบเกมแล้วยังมี queue ค้างอยู่
+  window.addEventListener('hha:end', () => {
+    if (CFG.debug) console.log('[HHA-Logger] hha:end → flush now');
+    flush(true);
+  });
+
+  window.addEventListener('beforeunload', () => flush(true));
+}
+
+function scheduleFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => flush(false), CFG.flushDelayMs);
+}
+
+async function flush(force) {
+  if (!CFG.endpoint) return;
+
+  clearTimeout(flushTimer);
+  flushTimer = null;
+
+  if (!queueSessions.length && !queueEvents.length) {
+    if (CFG.debug) console.log('[HHA-Logger] nothing to flush');
+    return;
   }
 
-  window.addEventListener('hha:session', ev => {
-    push('session', ev.detail || {});
-  });
+  const payload = {
+    project: CFG.projectTag,
+    sentAt:  new Date().toISOString(),
+    sessions: queueSessions,
+    events:   queueEvents
+  };
 
-  window.addEventListener('hha:event', ev => {
-    push('event', ev.detail || {});
-  });
+  // เคลียร์คิวก่อน (กันส่งซ้ำถ้ารีเฟรช)
+  queueSessions = [];
+  queueEvents   = [];
 
-  if (debug) {
-    console.log('[HHA-Logger] init', { endpoint, projectTag });
+  if (CFG.debug) {
+    console.log('[HHA-Logger] FLUSH →', payload);
+  }
+
+  try {
+    const res = await fetch(CFG.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (CFG.debug) {
+      console.log('[HHA-Logger] status', res.status);
+    }
+  } catch (err) {
+    console.error('[HHA-Logger] flush error', err);
   }
 }
 
