@@ -1,4 +1,4 @@
-// vr-goodjunk/quest-serial.js
+// vr-groups/quest-serial.js
 (function (ns) {
   'use strict';
 
@@ -30,9 +30,6 @@
     this.onChange(this.getCurrent(), this.progress, false, null);
   };
 
-  /**
-   * notifyHit(groupId) → { completed, bonus }
-   */
   QuestManager.prototype.notifyHit = function (groupId) {
     const q = this.getCurrent();
     if (!q) return { completed: false, bonus: 0 };
@@ -45,7 +42,7 @@
       this.index++;
       this.progress = 0;
       this.onChange(this.getCurrent(), this.progress, true, finishedQuest);
-      return { completed: true, bonus: 80 }; // โบนัสเคลียร์ภารกิจ
+      return { completed: true, bonus: 80 };
     }
 
     this.onChange(q, this.progress, false, null);
@@ -54,4 +51,4 @@
 
   ns.FoodGroupsQuestManager = QuestManager;
   ns.FOOD_GROUP_QUESTS = QUESTS;
-})(window.GAME_MODULES);
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
