@@ -1,4 +1,4 @@
-// vr-goodjunk/ui-fever.js
+// vr-groups/ui-fever.js
 (function (ns) {
   'use strict';
 
@@ -74,4 +74,4 @@
   window.addEventListener('DOMContentLoaded', () => UI.init());
 
   ns.foodGroupsUI = UI;
-})(window.GAME_MODULES);
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
