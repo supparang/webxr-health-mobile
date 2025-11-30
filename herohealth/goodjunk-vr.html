@@ -709,16 +709,24 @@
   })();
   </script>
 
-  <!-- ===== Launcher + Cloud Logger (ES Module) ===== -->
+  <!-- สคริปต์หลักของเกม (มีอยู่แล้ว ไม่ต้องแก้ถ้าใช้งานได้) -->
+  <script type="module">
+    import { GameEngineVR } from './vr-goodjunk/game-engine-goodjunk-vr.js';
+
+  // ... โค้ดปุ่มเริ่มเกม / HUD / grade bar ที่เราเขียนไปก่อนหน้านี้ ...
+  </script>
+
+  <!-- สคริปต์ logger แยกต่างหาก -->
   <script type="module">
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
     initCloudLogger({
-      endpoint: 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec',
+    // endpoint ไม่ต้องใส่แล้ว มี default ในไฟล์ hha-cloud-logger.js
       projectTag: 'HeroHealth-GoodJunkVR',
-      debug: true
+      debug: true   <!-- ถ้าไม่อยากเห็น log เยอะภายหลังค่อยเปลี่ยนเป็น false -->
     });
   </script>
+
 
 
     const uiOverlay     = document.getElementById('uiOverlay');
