@@ -1,4 +1,4 @@
-// === /herohealth/vr/hha-cloud-logger.js (GoodJunkVR v4) ===
+// === /herohealth/vr/hha-cloud-logger.js (GoodJunkVR v3-final) ===
 // เก็บ log แบบ Session + Event แล้วส่งไป Google Apps Script
 // payload:
 //   {
@@ -9,11 +9,8 @@
 
 'use strict';
 
-// URL Web App จาก Apps Script (Deploy as web app)
-const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec';
-
 let CONFIG = {
-  endpoint: DEFAULT_ENDPOINT,
+  endpoint: '',
   projectTag: 'HeroHealth-GoodJunkVR',
   debug: false
 };
@@ -23,10 +20,11 @@ let eventQueue   = [];
 let flushTimer   = null;
 const FLUSH_DELAY = 2000; // ms
 
-// เรียกจาก goodjunk-vr.html หรือเกมอื่น ๆ
+// เรียกจาก goodjunk-vr.html
 export function initCloudLogger(opts = {}) {
   CONFIG = {
-    endpoint: (opts.endpoint || DEFAULT_ENDPOINT).trim(),
+    // ★ ใส่ default endpoint ของ WebApp ของคุณไว้ตรงนี้แล้ว ★
+    endpoint: (opts.endpoint || 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec').trim(),
     projectTag: opts.projectTag || 'HeroHealth-GoodJunkVR',
     debug: !!opts.debug
   };
@@ -36,7 +34,7 @@ export function initCloudLogger(opts = {}) {
     return;
   }
 
-  // ฟัง event จาก GameEngine
+  // ฟัง event จาก GameEngine.js
   window.addEventListener('hha:session', (e) => {
     const s = (e && e.detail) || {};
     sessionQueue.push(s);
@@ -84,7 +82,7 @@ function flush() {
     console.log('[HHA-Logger] flush →', payload);
   }
 
-  // 1) พยายามใช้ sendBeacon ก่อน
+  // 1) พยายามใช้ sendBeacon ก่อน (ไม่ติด CORS)
   if (trySendBeacon(false, payload)) return;
 
   // 2) ถ้าไม่ได้ ค่อย fallback เป็น fetch แบบ no-cors
@@ -93,7 +91,7 @@ function flush() {
 
     fetch(CONFIG.endpoint, {
       method: 'POST',
-      mode: 'no-cors', // ไม่อ่าน response แค่ยิงออกไป
+      mode: 'no-cors', // ไม่อ่าน response, แค่ให้ยิงออกไป
       keepalive: true,
       headers: {
         'Content-Type': 'text/plain;charset=utf-8'
