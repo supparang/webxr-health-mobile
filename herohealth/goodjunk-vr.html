@@ -449,18 +449,24 @@
                 raycaster="objects: [data-hha-tgt]; interval: 30">
       </a-entity>
     </a-entity>
-
   </a-scene>
 
   <!-- ===== Launcher + เชื่อม GameEngineVR (ES Module) ===== -->
   <script type="module">
-    import { GameEngineVR } from './vr-goodjunk/GameEngine.js';
+    import { GameEngine } from './vr-goodjunk/GameEngine.js';
+    import { initCloudLogger } from './vr/hha-cloud-logger.js';
+
+    // ---- ตั้งค่า Cloud Logger (ไป Google Apps Script) ----
+    initCloudLogger({
+      endpoint: 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec',
+      projectTag: 'HeroHealth-GoodJunkVR',
+      debug: true   // ทดสอบให้ true, ถ้า production ค่อยปรับเป็น false ก็ได้
+    });
 
     const uiOverlay     = document.getElementById('uiOverlay');
     const startScreen   = document.getElementById('startScreen');
     const resultsScreen = document.getElementById('resultsScreen');
     const finalScoreEl  = document.getElementById('finalScore');
-    const finalGradeEl  = document.getElementById('finalGrade');
     const resultComboEl = document.getElementById('resultDetailCombo');
     const resultMissEl  = document.getElementById('resultDetailMiss');
 
@@ -469,39 +475,34 @@
     const btnHard   = document.getElementById('startButtonHard');
     const btnAgain  = document.getElementById('playAgainButton');
 
-    const GAME_DURATION_MS = 60_000;
+    const GAME_DURATION_MS = 60_000; // ต้องตรงกับ logic การวิจัย (60 วินาที)
     let gameTimer = null;
     let currentDifficulty = 'normal';
-    window.currentDifficulty = currentDifficulty;
 
     function hideOverlay(){
       uiOverlay.classList.add('hidden');
     }
-    function showResultFromPayload(payload){
-      const score  = (typeof payload.scoreFinal === 'number')
-        ? payload.scoreFinal
-        : ((payload.score|0) || (window.score|0) || 0);
-      const comboM = (typeof payload.comboMax === 'number')
-        ? payload.comboMax
-        : ((payload.comboMax|0) || (window.comboMax|0) || 0);
-      const miss   = (typeof payload.misses === 'number')
-        ? payload.misses
-        : ((window.misses|0) || 0);
-      const grade  = payload.grade || payload.finalGrade || 'C';
-
-      finalScoreEl.textContent = `คะแนน: ${score|0}`;
-      finalGradeEl.textContent = `เกรด: ${grade}`;
-      resultComboEl.textContent = `คอมโบสูงสุด: x${comboM|0}`;
-      resultMissEl.textContent  = `พลาดทั้งหมด: ${miss|0} ครั้ง`;
-
+    function showStart(){
+      resultsScreen.style.display = 'none';
+      startScreen.style.display   = 'block';
+      uiOverlay.classList.remove('hidden');
+    }
+    function showResult(score, extra = {}){
       startScreen.style.display   = 'none';
       resultsScreen.style.display = 'block';
       uiOverlay.classList.remove('hidden');
 
-      const ev = new CustomEvent('hha:grade', {
-        detail:{ grade, score, comboMax: comboM, difficulty: currentDifficulty }
-      });
-      window.dispatchEvent(ev);
+      finalScoreEl.textContent = `คะแนน: ${score|0}`;
+      if (typeof extra.comboMax === 'number'){
+        resultComboEl.textContent = `คอมโบสูงสุด: x${extra.comboMax|0}`;
+      }else{
+        resultComboEl.textContent = '';
+      }
+      if (typeof extra.misses === 'number'){
+        resultMissEl.textContent = `พลาดทั้งหมด: ${extra.misses|0} ครั้ง`;
+      }else{
+        resultMissEl.textContent = '';
+      }
     }
 
     function clearGameTimer(){
@@ -513,71 +514,88 @@
 
     function startGame(diff){
       currentDifficulty = diff || 'normal';
-      window.currentDifficulty = currentDifficulty;
       clearGameTimer();
-      uiOverlay.classList.add('hidden');
 
-      GameEngineVR.start(currentDifficulty);
+      hideOverlay();
 
+      // เริ่ม Engine ฝั่ง VR
+      GameEngine.start(currentDifficulty);
+
+      // ตั้งเวลาให้จบเองที่ 60 วิ (กันเด็กเล่นยาว)
       gameTimer = setTimeout(()=>{
-        GameEngineVR.stop();
+        GameEngine.stop();
+        const score  = (window.score|0) || 0;
+        const comboM = (window.comboMax|0) || 0;
+        const miss   = (window.misses|0)  || 0;
+        showResult(score, { comboMax: comboM, misses: miss });
       }, GAME_DURATION_MS);
     }
 
+    // ปุ่มเริ่มเกม
     btnEasy  .addEventListener('click', ()=> startGame('easy'));
     btnNormal.addEventListener('click', ()=> startGame('normal'));
     btnHard  .addEventListener('click', ()=> startGame('hard'));
 
+    // ปุ่มเล่นอีกครั้ง → กลับหน้าเลือกความยาก
     btnAgain.addEventListener('click', ()=>{
       resultsScreen.style.display = 'none';
       startScreen.style.display   = 'block';
     });
 
+    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบเวลา/ผู้เล่นออก)
     window.addEventListener('hha:end', (ev)=>{
       clearGameTimer();
-      const d = (ev && ev.detail) || {};
-      showResultFromPayload(d);
+      const d = ev && ev.detail ? ev.detail : {};
+      const score  = (typeof d.scoreFinal === 'number') ? d.scoreFinal
+                    : (typeof d.score === 'number')      ? d.score
+                    : ((window.score|0) || 0);
+      const comboM = (typeof d.comboMax === 'number')    ? d.comboMax
+                    : ((window.comboMax|0) || 0);
+      const miss   = (typeof d.misses === 'number')      ? d.misses
+                    : ((window.misses|0)  || 0);
+
+      showResult(score, { comboMax: comboM, misses: miss });
     });
+
+    // เริ่มต้นด้วยหน้า Start
+    showStart();
   </script>
 
-  <!-- ===== HUD Script (คะแนน / เวลา / คอมโบ / พลาด + Grade Bar) ===== -->
+  <!-- ===== HUD คะแนน / เวลา / คอมโบ / พลาด (ไม่ใช่ module) ===== -->
   <script>
   (function(){
     'use strict';
 
     const HUD_ID = 'hhaHudVR';
-    const GAME_SECONDS = 60;
+    const GAME_SECONDS = 60; // นับถอยหลัง 60 วิ ให้ตรงกับตัวเกม
 
     let wrap, scoreEl, comboEl, missEl, timeEl;
-    let gradeTextEl, gradeFillEl;
     let running = false;
     let timerId = null;
 
     function createHud(){
-      if (!wrap || !document.getElementById(HUD_ID)) {
-        wrap = document.createElement('div');
-        wrap.id = HUD_ID;
-        wrap.setAttribute('data-hha-ui','');
-        wrap.innerHTML = `
-          <div class="line big">
-            <span>คะแนน: <span id="hudScoreVR">0</span></span>
-            <span class="pill">เวลา: <span id="hudTimeVR">${GAME_SECONDS}</span>s</span>
-          </div>
-          <div class="line">
-            <span>คอมโบ: <span id="hudComboVR">0</span></span>
-            <span>พลาด: <span id="hudMissVR" class="bad">0</span></span>
-          </div>
-        `;
-        document.body.appendChild(wrap);
-      }
+      if (wrap && document.getElementById(HUD_ID)) return wrap;
+
+      wrap = document.createElement('div');
+      wrap.id = HUD_ID;
+      wrap.setAttribute('data-hha-ui','');
+
+      wrap.innerHTML = `
+        <div class="line big">
+          <span>คะแนน: <span id="hudScoreVR">0</span></span>
+          <span class="pill">เวลา: <span id="hudTimeVR">${GAME_SECONDS}</span>s</span>
+        </div>
+        <div class="line">
+          <span>คอมโบ: <span id="hudComboVR">0</span></span>
+          <span>พลาด: <span id="hudMissVR" class="bad">0</span></span>
+        </div>
+      `;
+      document.body.appendChild(wrap);
 
       scoreEl = document.getElementById('hudScoreVR');
       comboEl = document.getElementById('hudComboVR');
       missEl  = document.getElementById('hudMissVR');
       timeEl  = document.getElementById('hudTimeVR');
-
-      gradeTextEl = document.getElementById('gradeText');
-      gradeFillEl = document.getElementById('gradeBarFill');
 
       return wrap;
     }
@@ -614,171 +632,59 @@
       }
     }
 
-    function calcGrade(score, diff, comboMax){
-      score = score|0;
-      comboMax = comboMax|0;
-      var sSSS = 2400, sSS = 2000, sS = 1600, sA = 1200, sB = 800;
-      if (diff === 'easy') {
-        sSSS -= 400; sSS -= 300; sS -= 200; sA -= 150; sB -= 100;
-      } else if (diff === 'hard') {
-        sSSS += 300; sSS += 250; sS += 200; sA += 150; sB += 100;
-      }
-      if (score >= sSSS && comboMax >= 20) return 'SSS';
-      if (score >= sSS)  return 'SS';
-      if (score >= sS)   return 'S';
-      if (score >= sA)   return 'A';
-      if (score >= sB)   return 'B';
-      return 'C';
-    }
-
-    function gradeToPercent(grade){
-      switch(grade){
-        case 'SSS': return 100;
-        case 'SS':  return 92;
-        case 'S':   return 84;
-        case 'A':   return 72;
-        case 'B':   return 56;
-        default:    return 40;
-      }
-    }
-
-    function updateGrade(score, combo){
-      createHud();
-      var diff  = window.currentDifficulty || 'normal';
-      var grade = calcGrade(score, diff, combo);
-      if (gradeTextEl) gradeTextEl.textContent = grade;
-      if (gradeFillEl) {
-        var pct = gradeToPercent(grade);
-        gradeFillEl.style.width = pct + '%';
-      }
-    }
-
+    // อัปเดตคะแนน/คอมโบ ทุกครั้งที่มี hha:score
     window.addEventListener('hha:score', function(e){
       const d = (e && e.detail) || {};
       createHud();
 
-      let score = 0;
+      // คะแนน
       if (typeof d.score === 'number'){
-        score = d.score;
+        scoreEl.textContent = d.score;
       }else if (typeof d.total === 'number'){
-        score = d.total;
+        scoreEl.textContent = d.total;
       }else if (typeof window.score === 'number'){
-        score = window.score|0;
+        scoreEl.textContent = window.score|0;
       }
-      if (scoreEl) scoreEl.textContent = score;
 
+      // คอมโบ
       let combo = 0;
       if (typeof d.combo === 'number') combo = d.combo;
       else if (typeof window.combo === 'number') combo = window.combo;
-      if (comboEl) comboEl.textContent = combo|0;
+      comboEl.textContent = combo|0;
 
       if (!running){
         startTimer();
       }
-
-      updateGrade(score, combo);
     });
 
+    // เวลาพลาด (ตีโดนของขยะ)
     window.addEventListener('hha:miss', function(){
       createHud();
-      if (typeof window.misses === 'number' && missEl){
+      if (typeof window.misses === 'number'){
         missEl.textContent = window.misses|0;
       }
-      if (typeof window.combo === 'number' && comboEl){
+      if (typeof window.combo === 'number'){
         comboEl.textContent = window.combo|0;
       }
     });
 
+    // เกมจบ
     window.addEventListener('hha:end', function(e){
       const d = (e && e.detail) || {};
       createHud();
-      if (typeof d.scoreFinal === 'number' && scoreEl){
-        scoreEl.textContent = d.scoreFinal|0;
-      } else if (typeof window.score === 'number' && scoreEl){
+      if (typeof d.scoreFinal === 'number'){
+        scoreEl.textContent = d.scoreFinal;
+      }else if (typeof d.score === 'number'){
+        scoreEl.textContent = d.score;
+      }else if (typeof window.score === 'number'){
         scoreEl.textContent = window.score|0;
       }
       stopTimer();
-    });
-
-    window.addEventListener('hha:grade', function(e){
-      const d = (e && e.detail) || {};
-      var g = d.grade || 'C';
-      if (gradeTextEl) gradeTextEl.textContent = g;
-      if (gradeFillEl) {
-        var pct = gradeToPercent(g);
-        gradeFillEl.style.width = pct + '%';
-      }
     });
 
     window.addEventListener('beforeunload', stopTimer);
   })();
   </script>
 
-  <!-- ===== Quest Panel Script ===== -->
-  <script>
-  (function(){
-    'use strict';
-    const panel   = document.getElementById('hhaQuestPanel');
-    const goalLbl = document.getElementById('questGoalLabel');
-    const goalProg= document.getElementById('questGoalProg');
-    const miniLbl = document.getElementById('questMiniLabel');
-    const miniProg= document.getElementById('questMiniProg');
-    const hintEl  = document.getElementById('questHint');
-
-    function renderQuest(detail){
-      if (!detail) return;
-      panel.style.display = 'block';
-
-      const g = detail.goal || null;
-      const m = detail.mini || null;
-
-      if (g){
-        goalLbl.textContent = 'Goal: ' + (g.label || '-');
-        if (typeof g.progress !== 'undefined' && typeof g.target !== 'undefined'){
-          goalProg.textContent = `ความคืบหน้า: ${g.progress}/${g.target}`;
-        } else if (typeof g.progress === 'number'){
-          goalProg.textContent = `ความคืบหน้า: ${g.progress}`;
-        } else {
-          goalProg.textContent = '';
-        }
-      } else {
-        goalLbl.textContent = 'Goal: -';
-        goalProg.textContent = '';
-      }
-
-      if (m){
-        miniLbl.textContent = 'Mini: ' + (m.label || '-');
-        if (typeof m.progress !== 'undefined' && typeof m.target !== 'undefined'){
-          miniProg.textContent = `ความคืบหน้า: ${m.progress}/${m.target}`;
-        } else if (typeof m.progress === 'number'){
-          miniProg.textContent = `ความคืบหน้า: ${m.progress}`;
-        } else {
-          miniProg.textContent = '';
-        }
-      } else {
-        miniLbl.textContent = 'Mini: -';
-        miniProg.textContent = '';
-      }
-
-      hintEl.textContent = detail.hint || '';
-    }
-
-    window.addEventListener('quest:update', function(e){
-      const d = (e && e.detail) || {};
-      renderQuest(d);
-    });
-  })();
-<!-- เรียกใช้ Cloud Logger สำหรับ Good vs Junk VR -->
-  <script type="module">
-    import { initCloudLogger } from './vr/hha-cloud-logger.js';
-
-      initCloudLogger({
-    // ตอนนี้มี default endpoint อยู่ในไฟล์แล้ว จะใส่หรือไม่ใส่ก็ได้
-    // ถ้าจะระบุเองก็ใช้บรรทัดนี้:
-    // endpoint: 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec',
-      projectTag: 'HeroHealth-GoodJunkVR',
-      debug: true   // ตอนทดสอบเปิด true จะเห็น log ใน console
-    });
-  </script>
 </body>
 </html>
