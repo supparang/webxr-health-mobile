@@ -1,4 +1,4 @@
-// === /herohealth/vr/hha-cloud-logger.js (GoodJunkVR v3) ===
+// === /herohealth/vr/hha-cloud-logger.js (GoodJunkVR v4) ===
 // เก็บ log แบบ Session + Event แล้วส่งไป Google Apps Script
 // payload:
 //   {
@@ -8,6 +8,9 @@
 //   }
 
 'use strict';
+
+// ★★ แก้ URL นี้ให้เป็น Web App URL ที่ลงท้ายด้วย /exec ★★
+const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec';
 
 let CONFIG = {
   endpoint: '',
@@ -23,8 +26,7 @@ const FLUSH_DELAY = 2000; // ms
 // เรียกจาก goodjunk-vr.html
 export function initCloudLogger(opts = {}) {
   CONFIG = {
-    // ★ ใส่ default endpoint ของ WebApp ของคุณไว้ตรงนี้แล้ว ★
-    endpoint: (opts.endpoint || 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec').trim(),
+    endpoint: (opts.endpoint || DEFAULT_ENDPOINT).trim(),
     projectTag: opts.projectTag || 'HeroHealth-GoodJunkVR',
     debug: !!opts.debug
   };
@@ -34,7 +36,7 @@ export function initCloudLogger(opts = {}) {
     return;
   }
 
-  // ฟัง event จาก GameEngine
+  // ฟัง event จาก GameEngine.js
   window.addEventListener('hha:session', (e) => {
     const s = (e && e.detail) || {};
     sessionQueue.push(s);
@@ -49,7 +51,7 @@ export function initCloudLogger(opts = {}) {
     scheduleFlush();
   });
 
-  // ปิดแท็บ → พยายามส่งรอบสุดท้าย
+  // เวลาปิดแท็บ → พยายามส่งรอบสุดท้าย
   window.addEventListener('beforeunload', () => {
     if (!sessionQueue.length && !eventQueue.length) return;
     trySendBeacon(true);
@@ -57,6 +59,28 @@ export function initCloudLogger(opts = {}) {
 
   if (CONFIG.debug) {
     console.log('[HHA-Logger] initCloudLogger', CONFIG);
+    // helper เล็ก ๆ สำหรับลองยิง test จาก console
+    window.hhaTestPing = function(){
+      const payload = {
+        projectTag: CONFIG.projectTag,
+        sessions: [{
+          sessionId: 'test_' + Date.now(),
+          mode: 'goodjunk-vr',
+          difficulty: 'debug',
+          device: 'debug',
+          startTimeIso: new Date().toISOString(),
+          endTimeIso: new Date().toISOString(),
+          durationSecPlayed: 0,
+          scoreFinal: 0,
+          comboMax: 0,
+          misses: 0
+        }],
+        events: []
+      };
+      const blob = new Blob([JSON.stringify(payload)], { type: 'text/plain' });
+      const ok = navigator.sendBeacon(CONFIG.endpoint, blob);
+      console.log('[HHA-Logger] hhaTestPing', ok, payload);
+    };
   }
 }
 
@@ -82,16 +106,16 @@ function flush() {
     console.log('[HHA-Logger] flush →', payload);
   }
 
-  // 1) ใช้ sendBeacon ก่อน
+  // 1) พยายามใช้ sendBeacon ก่อน (ไม่ติด CORS)
   if (trySendBeacon(false, payload)) return;
 
-  // 2) fallback เป็น fetch no-cors
+  // 2) ถ้าไม่ได้ ค่อย fallback เป็น fetch แบบ no-cors
   try {
     const body = JSON.stringify(payload);
 
     fetch(CONFIG.endpoint, {
       method: 'POST',
-      mode: 'no-cors',
+      mode: 'no-cors', // ไม่อ่าน response, แค่ให้ยิงออกไป
       keepalive: true,
       headers: {
         'Content-Type': 'text/plain;charset=utf-8'
