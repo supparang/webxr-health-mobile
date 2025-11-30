@@ -1,4 +1,4 @@
-// vr-goodjunk/coach.js
+// vr-groups/coach.js
 (function (ns) {
   'use strict';
 
@@ -11,7 +11,7 @@
 
     sayQuest(quest, progress) {
       if (!quest) {
-        this.say('เคลียร์ภารกิจครบแล้ว 🎉');
+        this.say('เคลียร์ภารกิจครบแล้ว 🎉 เล็งเป้าต่อเพื่อเก็บคะแนนเพิ่มได้เลย!');
         return;
       }
       const txt = `หมู่ ${quest.groupId} ให้ครบ ${quest.targetCount} ชิ้น `
@@ -24,9 +24,9 @@
     },
 
     sayFinish() {
-      this.say('สุดยอด จบเกมแล้ว! 🎉');
+      this.say('สุดยอด! จบเกมแล้ว 🎉');
     }
   };
 
   ns.foodGroupsCoach = Coach;
-})(window.GAME_MODULES);
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
