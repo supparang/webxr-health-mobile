@@ -41,6 +41,13 @@
   </style>
 </head>
 <body>
+  <div id="fgHint"
+     style="position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
+            background:rgba(15,23,42,.75);color:#e5e7eb;
+            padding:6px 12px;border-radius:999px;
+            font:500 13px system-ui,-apple-system;z-index:9999;">
+  เล็งวงแหวนกลางจอให้ทับเป้า แล้วคลิก / แตะ / กด Trigger เพื่อยิง 🎯
+  </div>
 
 <div id="uiOverlay">
   <div id="startScreen">
@@ -60,13 +67,11 @@
   </div>
 </div>
 
-<a-scene id="gameScene"
-  renderer="colorManagement: true; useLegacyLights: false"
-  loading-screen="dotsColor: white; backgroundColor: #0b1222"
-  background="color: #0b1222">
-<a-sky color="#020617"></a-sky>
-
-  <a-assets></a-assets>
+  <a-scene id="gameScene"
+    renderer="colorManagement: true; useLegacyLights: false"
+    loading-screen="dotsColor: white; backgroundColor: #0b1222"
+    background="color: #0b1222">
+  <a-sky color="#020617"></a-sky>
 
   <a-entity light="type: ambient; color: #FFF; intensity: 0.6"></a-entity>
   <a-entity light="type: directional; color: #FFF; intensity: 0.4" position="-0.5 1 1"></a-entity>
@@ -76,14 +81,17 @@
 
   <a-entity id="rig" position="0 1.6 0">
     <a-camera id="camera" look-controls="pointerLockEnabled: true; touchEnabled: true">
+    <!-- ⭐ วงแหวนเล็งกลางจอ ใช้ได้ทั้ง PC / Mobile / VR -->
       <a-cursor id="cursor"
+        cursor="fuse: true; fuseTimeout: 1200"
         raycaster="objects: [data-hha-tgt]"
-        material="color: #60a5fa; shader: flat"
-        position="0 0 -1" scale="0.03 0.03 0.03">
+        geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+        material="color: #fde047; shader: flat"
+        position="0 0 -1">
       </a-cursor>
     </a-camera>
 
-  <!-- VR controller (เหมือนเดิม) -->
+  <!-- VR controller ยิงได้ด้วย trigger -->
     <a-entity id="rightHand"
       laser-controls="hand: right"
       raycaster="objects: [data-hha-tgt]; interval: 10">
@@ -95,9 +103,6 @@
 <script>
   window.GAME_MODULES = window.GAME_MODULES || {};
 </script>
-
-<!-- ✅ ตัวช่วย input: PC / Mobile / VR -->
-<script src="./vr-groups/input-adapter.js"></script>
 
 <!-- 1–7: โมดูลเกม -->
 <script src="./vr-groups/ui-fever.js"></script>
