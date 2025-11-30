@@ -1,85 +1,128 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// Logger กลาง: รับ hha:session / hha:event → ส่งขึ้น Google Apps Script
-let cfg = {
-  endpoint: '',
-  projectTag: 'HeroHealth',
-  debug: false
-};
+// ส่งข้อมูล Session + Event ไป Google Sheet ผ่าน Apps Script
 
-let queue = [];
-let flushTimer = null;
+let cfg = null;
+let sessionQueue = [];
+let eventQueue   = [];
+let flushTimer   = null;
 
 export function initCloudLogger(options = {}) {
-  cfg = { ...cfg, ...options };
-
+  cfg = {
+    endpoint:   options.endpoint,
+    projectTag: options.projectTag || 'HeroHealth',
+    debug:      !!options.debug,
+  };
   if (!cfg.endpoint) {
-    console.warn('[HHA-Logger] endpoint is empty, no logging will be sent.');
+    console.warn('[HHA-Logger] ไม่มี endpoint');
     return;
   }
 
-  window.addEventListener('hha:session', (e) => onEvent('session', e.detail));
-  window.addEventListener('hha:event',   (e) => onEvent('event',   e.detail));
+  window.addEventListener('hha:session', onSession);
+  window.addEventListener('hha:event',   onEvent);
 
   if (cfg.debug) {
     console.log('[HHA-Logger] init', cfg);
   }
 }
 
-function onEvent(kind, detail = {}) {
-  if (!cfg.endpoint) return;
+function onSession(ev) {
+  if (!cfg) return;
+  const s = ev.detail || {};
+  const row = [
+    new Date().toISOString(), // 1 timestamp
+    cfg.projectTag,           // 2 projectTag
 
-  const nowIso = new Date().toISOString();
-  const rec = {
-    kind,                       // 'session' หรือ 'event'
-    project: cfg.projectTag,    // ชื่อโปรเจ็กต์
-    ts: nowIso,
-    // sheet name สำหรับ GAS แยกชีต
-    sheet: kind === 'session' ? 'Sessions' : 'Events',
-    ...detail
-  };
+    s.sessionId || '',        // 3 sessionId
+    s.game || '',             // 4 game
+    s.mode || '',             // 5 mode
+    s.difficulty || '',       // 6 difficulty
 
-  queue.push(rec);
-  if (cfg.debug) console.log('[HHA-Logger] queued', rec);
+    s.playerId || '',         // 7 playerId
+    s.group || '',            // 8 group
+    s.prePost || '',          // 9 pre/post
+    s.className || '',        // 10 class
+    s.school || '',           // 11 school
 
+    s.device || '',           // 12 device
+    s.userAgent || '',        // 13 userAgent
+
+    s.durationSecPlanned || 0,// 14 planned
+    s.durationSecPlayed || 0, // 15 played
+
+    s.scoreFinal || 0,        // 16 score
+    s.comboMax   || 0,        // 17 comboMax
+    s.misses     || 0,        // 18 misses
+
+    s.goodHits    || 0,       // 19 goodHits
+    s.junkHits    || 0,       // 20 junkHits
+    s.starHits    || 0,       // 21 star
+    s.diamondHits || 0,       // 22 diamond
+    s.shieldHits  || 0,       // 23 shield
+    s.fireHits    || 0,       // 24 fire
+
+    s.feverActivations  || 0, // 25 feverCount
+    s.feverTimeTotalSec || 0  // 26 feverTime
+  ];
+  sessionQueue.push(row);
+  scheduleFlush();
+}
+
+function onEvent(ev) {
+  if (!cfg) return;
+  const e = ev.detail || {};
+  const row = [
+    new Date().toISOString(),     // 1 timestamp
+    cfg.projectTag,               // 2 projectTag
+
+    e.sessionId || '',            // 3 sessionId
+    e.eventType || 'hit',         // 4 eventType (hit / miss / timeout)
+    e.emoji || '',                // 5 emoji
+    e.lane != null ? e.lane : '', // 6 lane (-1,0,1)
+    e.rtMs  != null ? e.rtMs  : '',//7 RT ms
+
+    e.hitType || '',              // 8 good/junk/bonus/timeout
+    e.scoreDelta || 0,            // 9 scoreDelta
+    e.comboAfter || 0,            //10 combo หลังตี
+    e.isGood ? 1 : 0              //11 isGoodFlag
+  ];
+  eventQueue.push(row);
   scheduleFlush();
 }
 
 function scheduleFlush() {
-  if (flushTimer || queue.length === 0) return;
-  flushTimer = setTimeout(flush, 1000);
+  if (flushTimer) return;
+  flushTimer = setTimeout(flush, 3000); // รวมทีละก้อนทุก 3 วิ
 }
 
 async function flush() {
-  flushTimer = null;
-  if (!queue.length || !cfg.endpoint) return;
+  if (!cfg || !cfg.endpoint) return;
 
-  const batch = queue.splice(0, queue.length);
+  const sessions = sessionQueue;
+  const events   = eventQueue;
+  sessionQueue = [];
+  eventQueue   = [];
+  flushTimer   = null;
+
+  if (!sessions.length && !events.length) return;
+
+  const payload = { projectTag: cfg.projectTag, sessions, events };
+
+  if (cfg.debug) {
+    console.log('[HHA-Logger] flush →', payload);
+  }
 
   try {
-    if (cfg.debug) console.log('[HHA-Logger] sending', batch.length, 'records');
-
     const res = await fetch(cfg.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ records: batch })
+      body: JSON.stringify(payload),
     });
 
-    const text = await res.text();
-    if (!res.ok) {
-      console.warn('[HHA-Logger] server error', res.status, text);
-    } else if (cfg.debug) {
-      console.log('[HHA-Logger] OK', text);
+    if (cfg.debug) {
+      const text = await res.text();
+      console.log('[HHA-Logger] status', res.status, 'resp:', text);
     }
   } catch (err) {
-    console.error('[HHA-Logger] fetch error', err);
+    console.warn('[HHA-Logger] error', err);
   }
 }
-
-// ป้องกันหายถ้า user ปิดหน้าเร็ว
-window.addEventListener('beforeunload', () => {
-  if (!queue.length || !cfg.endpoint) return;
-  navigator.sendBeacon?.(
-    cfg.endpoint,
-    JSON.stringify({ records: queue.splice(0, queue.length) })
-  );
-});
