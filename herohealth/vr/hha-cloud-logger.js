@@ -29,39 +29,39 @@ function onSession(ev) {
   if (!cfg) return;
   const s = ev.detail || {};
   const row = [
-    new Date().toISOString(), // 1 timestamp
-    cfg.projectTag,           // 2 projectTag
+    new Date().toISOString(),       // 1 timestamp
+    cfg.projectTag,                 // 2 projectTag
 
-    s.sessionId || '',        // 3 sessionId
-    s.game || '',             // 4 game
-    s.mode || '',             // 5 mode
-    s.difficulty || '',       // 6 difficulty
+    s.sessionId || '',              // 3 sessionId
+    s.game || '',                   // 4 game
+    s.mode || '',                   // 5 mode
+    s.difficulty || '',             // 6 difficulty
 
-    s.playerId || '',         // 7 playerId
-    s.group || '',            // 8 group
-    s.prePost || '',          // 9 pre/post
-    s.className || '',        // 10 class
-    s.school || '',           // 11 school
+    s.playerId || '',               // 7 playerId
+    s.group || '',                  // 8 group
+    s.prePost || '',                // 9 pre/post
+    s.className || '',              //10 class
+    s.school || '',                 //11 school
 
-    s.device || '',           // 12 device
-    s.userAgent || '',        // 13 userAgent
+    s.device || '',                 //12 device
+    s.userAgent || '',              //13 userAgent
 
-    s.durationSecPlanned || 0,// 14 planned
-    s.durationSecPlayed || 0, // 15 played
+    s.durationSecPlanned || 0,      //14 planned
+    s.durationSecPlayed  || 0,      //15 played
 
-    s.scoreFinal || 0,        // 16 score
-    s.comboMax   || 0,        // 17 comboMax
-    s.misses     || 0,        // 18 misses
+    s.scoreFinal || 0,              //16 score
+    s.comboMax   || 0,              //17 comboMax
+    s.misses     || 0,              //18 misses
 
-    s.goodHits    || 0,       // 19 goodHits
-    s.junkHits    || 0,       // 20 junkHits
-    s.starHits    || 0,       // 21 star
-    s.diamondHits || 0,       // 22 diamond
-    s.shieldHits  || 0,       // 23 shield
-    s.fireHits    || 0,       // 24 fire
+    s.goodHits    || 0,             //19 goodHits
+    s.junkHits    || 0,             //20 junkHits
+    s.starHits    || 0,             //21 star
+    s.diamondHits || 0,             //22 diamond
+    s.shieldHits  || 0,             //23 shield
+    s.fireHits    || 0,             //24 fire
 
-    s.feverActivations  || 0, // 25 feverCount
-    s.feverTimeTotalSec || 0  // 26 feverTime
+    s.feverActivations  || 0,       //25 feverCount
+    s.feverTimeTotalSec || 0        //26 feverTime
   ];
   sessionQueue.push(row);
   scheduleFlush();
@@ -71,19 +71,19 @@ function onEvent(ev) {
   if (!cfg) return;
   const e = ev.detail || {};
   const row = [
-    new Date().toISOString(),     // 1 timestamp
-    cfg.projectTag,               // 2 projectTag
+    new Date().toISOString(),            // 1 timestamp
+    cfg.projectTag,                      // 2 projectTag
 
-    e.sessionId || '',            // 3 sessionId
-    e.eventType || 'hit',         // 4 eventType (hit / miss / timeout)
-    e.emoji || '',                // 5 emoji
-    e.lane != null ? e.lane : '', // 6 lane (-1,0,1)
-    e.rtMs  != null ? e.rtMs  : '',//7 RT ms
+    e.sessionId  || '',                  // 3 sessionId
+    e.eventType  || 'hit',               // 4 eventType
+    e.emoji      || '',                  // 5 emoji
+    e.lane != null ? e.lane : '',        // 6 lane
+    e.rtMs  != null ? e.rtMs  : '',      // 7 RT ms
 
-    e.hitType || '',              // 8 good/junk/bonus/timeout
-    e.scoreDelta || 0,            // 9 scoreDelta
-    e.comboAfter || 0,            //10 combo หลังตี
-    e.isGood ? 1 : 0              //11 isGoodFlag
+    e.hitType    || '',                  // 8 hitType
+    e.scoreDelta || 0,                   // 9 scoreDelta
+    e.comboAfter || 0,                   //10 comboAfter
+    e.isGood ? 1 : 0                     //11 isGoodFlag
   ];
   eventQueue.push(row);
   scheduleFlush();
@@ -112,15 +112,18 @@ async function flush() {
   }
 
   try {
-    const res = await fetch(cfg.endpoint, {
+    // ใช้ mode: 'no-cors' เพื่อหลบปัญหา CORS ระหว่าง GitHub Pages ↔ Apps Script
+    await fetch(cfg.endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors', // <— จุดสำคัญ
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
       body: JSON.stringify(payload),
     });
 
     if (cfg.debug) {
-      const text = await res.text();
-      console.log('[HHA-Logger] status', res.status, 'resp:', text);
+      console.log('[HHA-Logger] sent payload (no-cors, อ่าน status ไม่ได้)');
     }
   } catch (err) {
     console.warn('[HHA-Logger] error', err);
