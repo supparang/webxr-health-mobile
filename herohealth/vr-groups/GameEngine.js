@@ -127,45 +127,64 @@
     }, interval);
   };
 
-  FoodGroupsGame.prototype.spawnTarget = function () {
-    if (this.state !== 'playing' || !ns.foodGroupsEmoji) return;
+FoodGroupsGame.prototype.spawnTarget = function () {
+  if (this.state !== 'playing' || !ns.foodGroupsEmoji) return;
 
-    const group = ns.foodGroupsEmoji.pickRandomGroup();
-    const el = document.createElement('a-entity');
+  const group = ns.foodGroupsEmoji.pickRandomGroup();
+  const el = document.createElement('a-entity');
 
-    const x = -1.5 + Math.random() * 3;
-    const y = 1 + Math.random() * 1.2;
-    const startZ = -6;
-    const endZ = -0.6;
+  const x = -1.5 + Math.random() * 3;
+  const y = 1 + Math.random() * 1.2;
+  const startZ = -6;
+  const endZ = -0.6;
 
-    el.setAttribute('geometry', 'primitive: circle; radius: 0.23');
-    el.setAttribute('material',
-      `color: ${group.color}; shader: flat; opacity: 0.95; transparent: true`);
-    el.setAttribute('text',
-      `value: ${group.emoji}; align: center; color: #0f172a; width: 2; zOffset: 0.02`);
-    el.setAttribute('position', `${x} ${y} ${startZ}`);
-    el.setAttribute('data-hha-tgt', '1');
-    el.setAttribute('data-group-id', String(group.id));
+  // วงกลมพื้นหลังของเป้า
+  el.setAttribute('geometry', 'primitive: circle; radius: 0.32; segments: 48');
+  el.setAttribute(
+    'material',
+    `color: ${group.color}; shader: flat; opacity: 0.95; transparent: true`
+  );
+  el.setAttribute('position', `${x} ${y} ${startZ}`);
+  el.setAttribute('data-hha-tgt', '1');
+  el.setAttribute('data-group-id', String(group.id));
 
-    const dur = Math.round(5000 / (this.cfg.speed || 1));
-    el.setAttribute('animation__move',
-      `property: position; to: ${x} ${y} ${endZ}; dur: ${dur}; easing: linear`);
+  // label emoji ด้านหน้า (เป็นลูก entity แยก)
+  const label = document.createElement('a-entity');
+  label.setAttribute(
+    'text',
+    [
+      `value: ${group.emoji}`,
+      'align: center',
+      'anchor: center',
+      'baseline: center',
+      'color: #ffffff',
+      'width: 1.6'
+    ].join('; ')
+  );
+  label.setAttribute('position', '0 0 0.02'); // ดันมาด้านหน้าวงกลมนิดนึง
+  el.appendChild(label);
 
-    const self = this;
+  const dur = Math.round(5000 / (this.cfg.speed || 1));
+  el.setAttribute(
+    'animation__move',
+    `property: position; to: ${x} ${y} ${endZ}; dur: ${dur}; easing: linear`
+  );
 
-    el.addEventListener('click', function () {
-      self.onHitTarget(el);
-    });
+  const self = this;
 
-    el.addEventListener('animationcomplete', function () {
-      if (el.__destroyed) return;
-      el.__destroyed = true;
-      self.onMissTarget(el);
-    });
+  el.addEventListener('click', function () {
+    self.onHitTarget(el);
+  });
 
-    this.sceneEl.appendChild(el);
-    this._targets.push(el);
-  };
+  el.addEventListener('animationcomplete', function () {
+    if (el.__destroyed) return;
+    el.__destroyed = true;
+    self.onMissTarget(el);
+  });
+
+  this.sceneEl.appendChild(el);
+  this._targets.push(el);
+};
 
   FoodGroupsGame.prototype.safeRemoveTarget = function (el) {
     const idx = this._targets.indexOf(el);
