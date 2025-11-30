@@ -6,7 +6,7 @@
   <title>🥦 Good vs Junk VR — Hero Health</title>
   <meta name="color-scheme" content="dark light"/>
 
-  <link rel="icon" href="./favicon.ico" type="image/x-icon"/>
+  <link rel="icon" href="/HeroHealth/favicon.ico" type="image/x-icon"/>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -281,7 +281,9 @@
     <div id="resultsScreen" class="ui-card" style="display:none;">
       <h2>เกมจบแล้ว!</h2>
       <h1 id="finalScore">คะแนน: 0</h1>
-      <div class="result-line" id="resultDetailMain">เยี่ยมมาก ลองเล่นอีกรอบให้ได้คะแนนสูงกว่าเดิมนะ 🎯</div>
+      <div class="result-line" id="resultDetailMain">
+        เยี่ยมมาก ลองเล่นอีกรอบให้ได้คะแนนสูงกว่าเดิมนะ 🎯
+      </div>
       <div class="result-line" id="resultDetailCombo"></div>
       <div class="result-line" id="resultDetailMiss"></div>
 
@@ -325,17 +327,8 @@
   </a-scene>
 
   <!-- ===== Launcher + เชื่อม GameEngineVR (ES Module) ===== -->
-  <!-- เรียกใช้ Cloud Logger สำหรับ Good vs Junk VR -->
   <script type="module">
-    import { initCloudLogger } from './vr/hha-cloud-logger.js';
-
-    initCloudLogger({
-      endpoint: 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec', 
-      projectTag: 'HeroHealth-GoodJunkVR',
-      debug: true   // ตอนทดสอบให้ true แล้วดู log ใน console
-    });
-  </script>
-
+    import { GameEngineVR } from './vr/game-engine-goodjunk-vr.js';
 
     const uiOverlay     = document.getElementById('uiOverlay');
     const startScreen   = document.getElementById('startScreen');
@@ -349,17 +342,8 @@
     const btnHard   = document.getElementById('startButtonHard');
     const btnAgain  = document.getElementById('playAgainButton');
 
-    const GAME_DURATION_MS = 60_000;
+    const GAME_DURATION_MS = 60_000; // 60 วินาที
     let gameTimer = null;
-    let currentDifficulty = 'normal';
-    let gameStartMs = null;
-    let sessionId = null;
-
-    function makeSessionId() {
-      if (sessionId) return sessionId;
-      sessionId = 'GJVR-' + Date.now() + '-' + Math.floor(Math.random()*1e5);
-      return sessionId;
-    }
 
     function hideOverlay(){
       uiOverlay.classList.add('hidden');
@@ -394,51 +378,14 @@
       }
     }
 
-    // ส่ง Session log ไปให้ logger (ซึ่งจะส่งต่อเข้า Google Sheet)
-    function sendSessionLog(reason = 'timeout') {
-      const startedAtIso = window.hhaStartedAtIso || new Date(gameStartMs || Date.now()).toISOString();
-      const endedAtIso   = new Date().toISOString();
-
-      const payload = {
-        recordType   : 'session',
-        sessionId    : makeSessionId(),
-        playerTag    : window.hhaPlayerTag || '',
-        mode         : 'GoodJunkVR',
-        difficulty   : currentDifficulty,
-        startedAtIso,
-        endedAtIso,
-        durationSec  : Math.round((Date.now() - (gameStartMs || Date.now())) / 1000),
-        scoreFinal   : (window.score   |0) || 0,
-        comboMax     : (window.comboMax|0) || 0,
-        misses       : (window.misses  |0) || 0,
-        gameVersion  : 'GJVR-1.0',
-        reason
-      };
-
-      // ยิง event hha:session ให้ hha-cloud-logger จับไปส่ง
-      window.dispatchEvent(new CustomEvent('hha:session', { detail: payload }));
-    }
-
     function startGame(diff){
-      currentDifficulty = diff || 'normal';
       clearGameTimer();
-
-      gameStartMs = Date.now();
-      window.hhaStartedAtIso = new Date(gameStartMs).toISOString();
-      makeSessionId(); // เตรียม sessionId
-
       hideOverlay();
-      GameEngineVR.start(currentDifficulty);
+      GameEngineVR.start(diff || 'normal');
 
-      gameTimer = setTimeout(()=>{
+      // บังคับจบเกมที่ 60 วิ → เรียก stop() (จะยิง hha:end ให้ logger + HTML)
+      gameTimer = setTimeout(() => {
         GameEngineVR.stop();
-        const score  = (window.score|0)   || 0;
-        const comboM = (window.comboMax|0)|| 0;
-        const miss   = (window.misses|0)  || 0;
-
-        sendSessionLog('timeout');
-
-        showResult(score, { comboMax: comboM, misses: miss });
       }, GAME_DURATION_MS);
     }
 
@@ -447,22 +394,19 @@
     btnNormal.addEventListener('click', ()=> startGame('normal'));
     btnHard  .addEventListener('click', ()=> startGame('hard'));
 
-    // ปุ่มเล่นอีกครั้ง → กลับหน้าเลือกความยาก
+    // ปุ่มเล่นอีกครั้ง → กลับหน้าเลือกความยาก (ยังไม่ auto start)
     btnAgain.addEventListener('click', ()=>{
       resultsScreen.style.display = 'none';
       startScreen.style.display   = 'block';
     });
 
-    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง
+    // เมื่อ Engine ยิง hha:end ขึ้นมา (รวมทั้งกรณีหมดเวลา 60 วิ)
     window.addEventListener('hha:end', (ev)=>{
       clearGameTimer();
-      const d = ev && ev.detail ? ev.detail : {};
+      const d = (ev && ev.detail) || {};
       const score  = (typeof d.score === 'number')    ? d.score    : ((window.score|0)   || 0);
       const comboM = (typeof d.comboMax === 'number') ? d.comboMax : ((window.comboMax|0)|| 0);
       const miss   = (typeof d.misses === 'number')   ? d.misses   : ((window.misses|0)  || 0);
-
-      sendSessionLog(d.reason || 'engine-end');
-
       showResult(score, { comboMax: comboM, misses: miss });
     });
 
@@ -474,7 +418,7 @@
     'use strict';
 
     const HUD_ID = 'hhaHudVR';
-    const GAME_SECONDS = 60;
+    const GAME_SECONDS = 60; // นับถอยหลัง 60 วิ ให้ตรงกับตัวเกม
 
     let wrap, scoreEl, comboEl, missEl, timeEl;
     let running = false;
@@ -539,10 +483,12 @@
       }
     }
 
+    // อัปเดตคะแนน/คอมโบ ทุกครั้งที่มี hha:score
     window.addEventListener('hha:score', function(e){
       const d = (e && e.detail) || {};
       createHud();
 
+      // คะแนน
       if (typeof d.score === 'number'){
         scoreEl.textContent = d.score;
       }else if (typeof d.total === 'number'){
@@ -551,6 +497,7 @@
         scoreEl.textContent = window.score|0;
       }
 
+      // คอมโบ
       let combo = 0;
       if (typeof d.combo === 'number') combo = d.combo;
       else if (typeof window.combo === 'number') combo = window.combo;
@@ -561,6 +508,7 @@
       }
     });
 
+    // เวลาพลาด (ตีโดนของขยะ)
     window.addEventListener('hha:miss', function(){
       createHud();
       if (typeof window.misses === 'number'){
@@ -571,6 +519,7 @@
       }
     });
 
+    // เกมจบ
     window.addEventListener('hha:end', function(e){
       const d = (e && e.detail) || {};
       createHud();
@@ -584,6 +533,18 @@
 
     window.addEventListener('beforeunload', stopTimer);
   })();
+  </script>
+
+  <!-- ===== Cloud Logger → Google Apps Script (SESSIONS / EVENTS / SUMMARY) ===== -->
+  <script type="module">
+    import { initCloudLogger } from './vr/hha-cloud-logger.js';
+
+    initCloudLogger({
+      endpoint: 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/execE',
+      // ^^^ ถ้า URL จริงของคุณเป็น /exec ให้แก้ให้ตรงตรงนี้
+      projectTag: 'HeroHealth-GoodJunkVR',
+      debug: true   // ทดสอบให้ true ก่อน จะ log body ใน console
+    });
   </script>
 
 </body>
