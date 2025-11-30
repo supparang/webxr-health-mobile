@@ -17,6 +17,7 @@
     if (!scene) return;
 
     function start(diff) {
+      console.log('[launcher] start game diff =', diff);  // ⭐ เพิ่มบรรทัดนี้
       if (startScreen) startScreen.style.display = 'none';
       if (resultsScreen) resultsScreen.style.display = 'none';
       if (uiOverlay) uiOverlay.classList.add('hidden');
