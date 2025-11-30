@@ -6,7 +6,7 @@
   <title>🥦 Good vs Junk VR — Hero Health</title>
   <meta name="color-scheme" content="dark light"/>
 
-  <link rel="icon" href="./favicon.ico" type="image/x-icon"/>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -174,14 +174,15 @@
       font-size:1.8rem;
       color:#f9fafb;
     }
+    #finalGrade{
+      margin:0 0 12px;
+      font-size:1.1rem;
+      color:#facc15;
+    }
     .result-line{
       font-size:.9rem;
       opacity:.9;
       margin-bottom:2px;
-    }
-    #finalGrade{
-      font-size:1.6rem;
-      margin:6px 0 10px;
     }
 
     @media (max-width:600px){
@@ -236,7 +237,18 @@
       background:rgba(56,189,248,.15);
     }
     #hhaHudVR .bad{ color:#fecaca; }
-        /* ===== QUEST HUD (Goal + Mini + Grade bar) ===== */
+
+    @media (max-width:640px){
+      #hhaHudVR{
+        left:8px;
+        top:8px;
+        padding:6px 9px;
+        font-size:12px;
+      }
+      #hhaHudVR .big{ font-size:13px; }
+    }
+
+    /* ===== QUEST HUD (Goal + Mini + Grade bar) ===== */
     #questHudVR{
       position:fixed;
       right:12px;
@@ -323,116 +335,6 @@
         padding:8px 10px;
       }
     }
-
-    /* ===== Quest Panel (Goal + Mini) ฝั่งขวาบน ===== */
-    #hhaQuestPanel{
-      position:fixed;
-      right:12px;
-      top:12px;
-      z-index:950;
-      max-width:280px;
-      padding:8px 10px;
-      border-radius:14px;
-      background:rgba(15,23,42,.9);
-      border:1px solid rgba(148,163,184,.9);
-      color:#e5e7eb;
-      font:600 12px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;
-      box-shadow:0 14px 40px rgba(15,23,42,.85);
-      backdrop-filter:blur(8px);
-    }
-    #hhaQuestPanel h3{
-      margin:0 0 4px;
-      font-size:12px;
-      letter-spacing:.03em;
-      text-transform:uppercase;
-      color:#a5b4fc;
-    }
-    .quest-main{
-      margin-bottom:4px;
-      font-size:12px;
-    }
-    .quest-mini{
-      font-size:11px;
-      opacity:.95;
-    }
-    .quest-label{
-      font-weight:600;
-    }
-    .quest-progress{
-      font-weight:500;
-      color:#bbf7d0;
-    }
-    .quest-hint{
-      margin-top:4px;
-      font-size:11px;
-      color:#e5e7eb;
-      opacity:.9;
-    }
-
-    /* ===== Grade Bar (บนกลางจอ) ===== */
-    #gradeHud{
-      position:fixed;
-      left:50%;
-      top:12px;
-      transform:translateX(-50%);
-      z-index:940;
-      min-width:160px;
-      max-width:260px;
-      padding:6px 10px 8px;
-      border-radius:999px;
-      background:rgba(15,23,42,.9);
-      border:1px solid rgba(148,163,184,.9);
-      font:600 12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;
-      color:#e5e7eb;
-      box-shadow:0 12px 32px rgba(15,23,42,.9);
-      backdrop-filter:blur(8px);
-    }
-    #gradeHudTop{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:4px;
-    }
-    #gradeLabel{
-      font-size:11px;
-      opacity:.9;
-    }
-    #gradeText{
-      font-size:16px;
-    }
-    #gradeBarOuter{
-      width:100%;
-      height:6px;
-      border-radius:999px;
-      background:rgba(30,64,175,.7);
-      overflow:hidden;
-    }
-    #gradeBarFill{
-      width:0%;
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#22c55e,#a3e635);
-      transition:width .25s ease;
-    }
-
-    @media (max-width:640px){
-      #hhaHudVR{
-        left:8px;
-        top:8px;
-        padding:6px 9px;
-        font-size:12px;
-      }
-      #hhaHudVR .big{ font-size:13px; }
-      #hhaQuestPanel{
-        right:8px;
-        top:8px;
-        max-width:220px;
-        padding:6px 8px;
-      }
-      #gradeHud{
-        top:54px;
-      }
-    }
   </style>
 </head>
 <body>
@@ -482,32 +384,7 @@
     </div>
   </div>
 
-  <!-- ===== HUD Quest Panel ===== -->
-  <div id="hhaQuestPanel" style="display:none;">
-    <h3>Quest Board</h3>
-    <div class="quest-main">
-      <span class="quest-label" id="questGoalLabel">Goal: -</span><br/>
-      <span class="quest-progress" id="questGoalProg"></span>
-    </div>
-    <div class="quest-mini">
-      <span class="quest-label" id="questMiniLabel">Mini: -</span><br/>
-      <span class="quest-progress" id="questMiniProg"></span>
-      <div class="quest-hint" id="questHint"></div>
-    </div>
-  </div>
-
-  <!-- ===== Grade Bar HUD ===== -->
-  <div id="gradeHud">
-    <div id="gradeHudTop">
-      <span id="gradeLabel">ระดับตอนนี้</span>
-      <span id="gradeText">C</span>
-    </div>
-    <div id="gradeBarOuter">
-      <div id="gradeBarFill"></div>
-    </div>
-  </div>
-
-  <!-- ===== A-Frame Scene ===== -->
+  <!-- ===== A-Frame Scene (VR World) ===== -->
   <a-scene id="gameScene"
            renderer="colorManagement: true"
            loading-screen="dotsColor: white; backgroundColor: #0b1222"
@@ -520,6 +397,7 @@
     <!-- กลุ่มผู้เล่น/กล้อง -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="camera" look-controls="pointerLockEnabled: true">
+        <!-- Cursor แบบ ring เห็นชัดสำหรับ Gaze/VR -->
         <a-cursor id="cursor"
                   raycaster="objects: [data-hha-tgt]; interval: 50"
                   fuse="true"
@@ -536,35 +414,63 @@
                 raycaster="objects: [data-hha-tgt]; interval: 30">
       </a-entity>
     </a-entity>
+
   </a-scene>
 
-  <!-- ===== Launcher + เชื่อม GameEngineVR (ES Module) ===== -->
+  <!-- ===== Launcher + เชื่อม GameEngine + Cloud Logger (ES Module) ===== -->
   <script type="module">
     import { GameEngine } from './vr-goodjunk/GameEngine.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-    // ---- ตั้งค่า Cloud Logger (ไป Google Apps Script) ----
+    // ตั้งค่าตัว logger → ส่งไป Google Apps Script
     initCloudLogger({
       endpoint: 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec',
       projectTag: 'HeroHealth-GoodJunkVR',
-      debug: true   // ทดสอบให้ true, ถ้า production ค่อยปรับเป็น false ก็ได้
+      debug: true
     });
 
+    // อ้างอิง UI
     const uiOverlay     = document.getElementById('uiOverlay');
     const startScreen   = document.getElementById('startScreen');
     const resultsScreen = document.getElementById('resultsScreen');
     const finalScoreEl  = document.getElementById('finalScore');
+    const finalGradeEl  = document.getElementById('finalGrade');
     const resultComboEl = document.getElementById('resultDetailCombo');
     const resultMissEl  = document.getElementById('resultDetailMiss');
+    const resultMainEl  = document.getElementById('resultDetailMain');
 
     const btnEasy   = document.getElementById('startButtonEasy');
     const btnNormal = document.getElementById('startButtonNormal');
     const btnHard   = document.getElementById('startButtonHard');
     const btnAgain  = document.getElementById('playAgainButton');
 
-    const GAME_DURATION_MS = 60_000; // ต้องตรงกับ logic การวิจัย (60 วินาที)
+    const GAME_DURATION_MS = 60_000; // 60 วินาที
     let gameTimer = null;
     let currentDifficulty = 'normal';
+
+    const GRADES = [
+      { label:'SSS', min:2400, msg:'สุดยอด! ระดับโปรโภชนาการเลย 🎉' },
+      { label:'SS',  min:2000, msg:'เก่งมาก! คุมของดีได้ดีเยี่ยม 💪' },
+      { label:'S',   min:1600, msg:'ดีมาก! ลองเลี่ยงของขยะให้ได้มากกว่านี้อีกนิดนะ 😄' },
+      { label:'A',   min:1200, msg:'ใช้ได้เลย! ถ้าลดของขยะอีกหน่อยจะเยี่ยมมาก 🥗' },
+      { label:'B',   min:800,  msg:'เริ่มโอเค ลองเล็งของดีให้มากขึ้นอีกหน่อย ✨' },
+      { label:'C',   min:0,    msg:'ไม่เป็นไร รอบหน้าโฟกัสของดีให้มากขึ้นนะ 😊' }
+    ];
+
+    function computeGrade(score){
+      const s = Math.max(0, score|0);
+      for (const g of GRADES){
+        if (s >= g.min) return g;
+      }
+      return GRADES[GRADES.length - 1];
+    }
+
+    function clearGameTimer(){
+      if (gameTimer){
+        clearTimeout(gameTimer);
+        gameTimer = null;
+      }
+    }
 
     function hideOverlay(){
       uiOverlay.classList.add('hidden');
@@ -579,7 +485,13 @@
       resultsScreen.style.display = 'block';
       uiOverlay.classList.remove('hidden');
 
-      finalScoreEl.textContent = `คะแนน: ${score|0}`;
+      const s = score|0;
+      finalScoreEl.textContent = `คะแนน: ${s}`;
+
+      const grade = computeGrade(s);
+      finalGradeEl.textContent = `เกรด: ${grade.label}`;
+      resultMainEl.textContent = grade.msg;
+
       if (typeof extra.comboMax === 'number'){
         resultComboEl.textContent = `คอมโบสูงสุด: x${extra.comboMax|0}`;
       }else{
@@ -592,23 +504,15 @@
       }
     }
 
-    function clearGameTimer(){
-      if (gameTimer){
-        clearTimeout(gameTimer);
-        gameTimer = null;
-      }
-    }
-
     function startGame(diff){
       currentDifficulty = diff || 'normal';
       clearGameTimer();
-
       hideOverlay();
 
       // เริ่ม Engine ฝั่ง VR
       GameEngine.start(currentDifficulty);
 
-      // ตั้งเวลาให้จบเองที่ 60 วิ (กันเด็กเล่นยาว)
+      // ตั้งเวลาให้จบเองที่ 60 วิ
       gameTimer = setTimeout(()=>{
         GameEngine.stop();
         const score  = (window.score|0) || 0;
@@ -629,26 +533,38 @@
       startScreen.style.display   = 'block';
     });
 
-    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบเวลา/ผู้เล่นออก)
+    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบจากด้านใน + session logger)
     window.addEventListener('hha:end', (ev)=>{
       clearGameTimer();
+
+      // ถ้า overlay แสดงผลแล้วไม่ต้องซ้ำ
+      if (!uiOverlay.classList.contains('hidden') && resultsScreen.style.display === 'block'){
+        return;
+      }
+
       const d = ev && ev.detail ? ev.detail : {};
-      const score  = (typeof d.scoreFinal === 'number') ? d.scoreFinal
-                    : (typeof d.score === 'number')      ? d.score
-                    : ((window.score|0) || 0);
-      const comboM = (typeof d.comboMax === 'number')    ? d.comboMax
-                    : ((window.comboMax|0) || 0);
-      const miss   = (typeof d.misses === 'number')      ? d.misses
-                    : ((window.misses|0)  || 0);
+      const score  = (typeof d.scoreFinal === 'number')
+        ? d.scoreFinal
+        : (typeof d.score === 'number')
+          ? d.score
+          : ((window.score|0) || 0);
+
+      const comboM = (typeof d.comboMax === 'number')
+        ? d.comboMax
+        : ((window.comboMax|0) || 0);
+
+      const miss   = (typeof d.misses === 'number')
+        ? d.misses
+        : ((window.misses|0) || 0);
 
       showResult(score, { comboMax: comboM, misses: miss });
     });
 
-    // เริ่มต้นด้วยหน้า Start
+    // เริ่มต้นแสดงหน้า Start
     showStart();
   </script>
 
-  <!-- ===== HUD คะแนน / เวลา / คอมโบ / พลาด (ไม่ใช่ module) ===== -->
+  <!-- ===== HUD Script (คะแนน / เวลา / คอมโบ / พลาด) ===== -->
   <script>
   (function(){
     'use strict';
@@ -759,9 +675,7 @@
     window.addEventListener('hha:end', function(e){
       const d = (e && e.detail) || {};
       createHud();
-      if (typeof d.scoreFinal === 'number'){
-        scoreEl.textContent = d.scoreFinal;
-      }else if (typeof d.score === 'number'){
+      if (typeof d.score === 'number'){
         scoreEl.textContent = d.score;
       }else if (typeof window.score === 'number'){
         scoreEl.textContent = window.score|0;
@@ -770,6 +684,131 @@
     });
 
     window.addEventListener('beforeunload', stopTimer);
+  })();
+  </script>
+
+  <!-- ===== QUEST HUD Script (Goal + Mini + Grade bar ขณะเล่น) ===== -->
+  <script>
+  (function(){
+    'use strict';
+
+    const HUD_ID = 'questHudVR';
+
+    let wrap, mainEl, miniEl, hintEl, gradeEl, gradeFillEl;
+
+    function createQuestHud(){
+      if (wrap && document.getElementById(HUD_ID)) return wrap;
+
+      wrap = document.createElement('div');
+      wrap.id = HUD_ID;
+      wrap.setAttribute('data-hha-ui','');
+
+      wrap.innerHTML = `
+        <div class="q-title">🎯 ภารกิจวันนี้</div>
+        <div class="q-main" id="qMainVR">–</div>
+        <div class="q-mini-label">Mini quest</div>
+        <div class="q-mini" id="qMiniVR">–</div>
+        <div class="q-hint" id="qHintVR"></div>
+        <div class="q-grade-row">
+          <div class="q-grade-head">
+            <span>ระดับเกรดโดยประมาณ</span>
+            <span class="q-grade-val" id="qGradeVR">C</span>
+          </div>
+          <div class="q-grade-bar">
+            <div class="q-grade-fill" id="qGradeFillVR"></div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(wrap);
+
+      mainEl      = document.getElementById('qMainVR');
+      miniEl      = document.getElementById('qMiniVR');
+      hintEl      = document.getElementById('qHintVR');
+      gradeEl     = document.getElementById('qGradeVR');
+      gradeFillEl = document.getElementById('qGradeFillVR');
+
+      return wrap;
+    }
+
+    function updateQuestUI(detail){
+      createQuestHud();
+      const d = detail || {};
+      const goal = d.goal || null;
+      const mini = d.mini || null;
+
+      if (goal && goal.label){
+        mainEl.textContent = goal.label;
+      } else {
+        mainEl.textContent = 'เล่นเก็บคะแนนของดีให้ได้เยอะที่สุด!';
+      }
+
+      if (mini && mini.label){
+        miniEl.textContent = mini.label;
+      } else {
+        miniEl.textContent = 'Mini quest จะปรากฏระหว่างเล่นเกม';
+      }
+
+      if (d.hint){
+        hintEl.textContent = d.hint;
+      } else {
+        hintEl.textContent = '';
+      }
+    }
+
+    const GRADES = [
+      { label:'SSS', min:2400 },
+      { label:'SS',  min:2000 },
+      { label:'S',   min:1600 },
+      { label:'A',   min:1200 },
+      { label:'B',   min:800  },
+      { label:'C',   min:0    }
+    ];
+    const MAX_FOR_BAR = 2400; // คะแนนระดับ SSS
+
+    function updateGrade(score){
+      createQuestHud();
+      const s = Math.max(0, score|0);
+
+      let g = GRADES[GRADES.length - 1]; // default C
+      for (const gr of GRADES){
+        if (s >= gr.min){
+          g = gr;
+          break;
+        }
+      }
+      gradeEl.textContent = g.label;
+
+      const pct = Math.max(0, Math.min(100, (s / MAX_FOR_BAR) * 100));
+      gradeFillEl.style.width = pct + '%';
+    }
+
+    // Quest system → ยิง quest:update ออกมา
+    window.addEventListener('quest:update', function(ev){
+      const d = (ev && ev.detail) || {};
+      updateQuestUI(d);
+    });
+
+    // ตอนคะแนนเปลี่ยน → ใช้สำหรับ grade bar
+    window.addEventListener('hha:score', function(ev){
+      const d = (ev && ev.detail) || {};
+      const score = (typeof d.score === 'number')
+        ? d.score
+        : (typeof d.total === 'number')
+          ? d.total
+          : (window.score|0) || 0;
+      updateGrade(score);
+    });
+
+    // ตอนเกมจบ → อัปเดต grade สุดท้าย
+    window.addEventListener('hha:end', function(ev){
+      const d = (ev && ev.detail) || {};
+      const score = (typeof d.scoreFinal === 'number')
+        ? d.scoreFinal
+        : (typeof d.score === 'number')
+          ? d.score
+          : (window.score|0) || 0;
+      updateGrade(score);
+    });
   })();
   </script>
 
