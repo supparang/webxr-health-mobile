@@ -647,15 +647,14 @@
   </script>
 
   <!-- เรียกใช้ Cloud Logger สำหรับ Good vs Junk VR -->
-  <script type="module">
-    import { initCloudLogger } from './vr/hha-cloud-logger.js';
+<script type="module">
+  import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-    initCloudLogger({
-      endpoint: 'https://script.google.com/macros/s/AAAAAAAAAAAA/exec', // TODO: ใส่ URL Apps Script จริง
-      projectTag: 'HeroHealth-GoodJunkVR',
-      debug: true  // ตอนทดสอบเป็น true, production จะเปลี่ยนเป็น false ก็ได้
-    });
-  </script>
-
+  initCloudLogger({
+    endpoint: 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec',
+    projectTag: 'HeroHealth-GoodJunkVR',
+    debug: true
+  });
+</script>
 </body>
 </html>
