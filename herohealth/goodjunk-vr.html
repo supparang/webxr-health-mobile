@@ -711,15 +711,15 @@
 
   <!-- ===== Launcher + Cloud Logger (ES Module) ===== -->
   <script type="module">
-    import { GameEngineVR } from './vr-goodjunk/game-engine-goodjunk-vr.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-    // ตั้งค่าการ log ไป Google Sheet ผ่าน Apps Script
     initCloudLogger({
       endpoint: 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec',
       projectTag: 'HeroHealth-GoodJunkVR',
       debug: true
     });
+  </script>
+
 
     const uiOverlay     = document.getElementById('uiOverlay');
     const startScreen   = document.getElementById('startScreen');
