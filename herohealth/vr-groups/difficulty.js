@@ -2,23 +2,23 @@
 (function (ns) {
   'use strict';
 
-  // ปรับความยากให้แบบ “pop-up” (ไม่วิ่งเข้าใกล้กล้องแล้ว)
+  // ปรับความยากแบบ pop-up: เป้าโผล่มาอยู่แป๊บเดียวแล้วหาย
   const TABLE = {
     easy: {
-      spawnInterval: 1100,   // ออกช้า
-      targetLifetime: 2300,  // อยู่บนจอ ~2.3 วินาที
-      maxActive: 4,          // บนจอไม่เกิน 4 เป้า
+      spawnInterval: 1300,   // ms ระยะห่างการออกเป้า
+      targetLifetime: 2600,  // ms ระยะเวลาที่เป้าอยู่
+      maxActive: 4,
       duration: 60000        // เวลาเล่นรวม 60s
     },
     normal: {
-      spawnInterval: 850,
-      targetLifetime: 2000,
+      spawnInterval: 1000,
+      targetLifetime: 2200,
       maxActive: 5,
       duration: 70000
     },
     hard: {
-      spawnInterval: 700,
-      targetLifetime: 1700,
+      spawnInterval: 800,
+      targetLifetime: 1800,
       maxActive: 6,
       duration: 80000
     }
