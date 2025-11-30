@@ -170,7 +170,7 @@
       color:#fbbf24;
     }
     #finalScore{
-      margin:0 0 12px;
+      margin:0 0 6px;
       font-size:1.8rem;
       color:#f9fafb;
     }
@@ -178,6 +178,10 @@
       font-size:.9rem;
       opacity:.9;
       margin-bottom:2px;
+    }
+    #finalGrade{
+      font-size:1.6rem;
+      margin:6px 0 10px;
     }
 
     @media (max-width:600px){
@@ -233,6 +237,97 @@
     }
     #hhaHudVR .bad{ color:#fecaca; }
 
+    /* ===== Quest Panel (Goal + Mini) ฝั่งขวาบน ===== */
+    #hhaQuestPanel{
+      position:fixed;
+      right:12px;
+      top:12px;
+      z-index:950;
+      max-width:280px;
+      padding:8px 10px;
+      border-radius:14px;
+      background:rgba(15,23,42,.9);
+      border:1px solid rgba(148,163,184,.9);
+      color:#e5e7eb;
+      font:600 12px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;
+      box-shadow:0 14px 40px rgba(15,23,42,.85);
+      backdrop-filter:blur(8px);
+    }
+    #hhaQuestPanel h3{
+      margin:0 0 4px;
+      font-size:12px;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      color:#a5b4fc;
+    }
+    .quest-main{
+      margin-bottom:4px;
+      font-size:12px;
+    }
+    .quest-mini{
+      font-size:11px;
+      opacity:.95;
+    }
+    .quest-label{
+      font-weight:600;
+    }
+    .quest-progress{
+      font-weight:500;
+      color:#bbf7d0;
+    }
+    .quest-hint{
+      margin-top:4px;
+      font-size:11px;
+      color:#e5e7eb;
+      opacity:.9;
+    }
+
+    /* ===== Grade Bar (บนกลางจอ) ===== */
+    #gradeHud{
+      position:fixed;
+      left:50%;
+      top:12px;
+      transform:translateX(-50%);
+      z-index:940;
+      min-width:160px;
+      max-width:260px;
+      padding:6px 10px 8px;
+      border-radius:999px;
+      background:rgba(15,23,42,.9);
+      border:1px solid rgba(148,163,184,.9);
+      font:600 12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;
+      color:#e5e7eb;
+      box-shadow:0 12px 32px rgba(15,23,42,.9);
+      backdrop-filter:blur(8px);
+    }
+    #gradeHudTop{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:4px;
+    }
+    #gradeLabel{
+      font-size:11px;
+      opacity:.9;
+    }
+    #gradeText{
+      font-size:16px;
+    }
+    #gradeBarOuter{
+      width:100%;
+      height:6px;
+      border-radius:999px;
+      background:rgba(30,64,175,.7);
+      overflow:hidden;
+    }
+    #gradeBarFill{
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#22c55e,#a3e635);
+      transition:width .25s ease;
+    }
+
     @media (max-width:640px){
       #hhaHudVR{
         left:8px;
@@ -241,40 +336,14 @@
         font-size:12px;
       }
       #hhaHudVR .big{ font-size:13px; }
-    }
-
-    /* ===== Quest HUD (Goal + Mini) ด้านบนกลาง ===== */
-    #questHudVR{
-      position:fixed;
-      top:12px;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:945;
-      max-width:520px;
-      width:calc(100% - 32px);
-      padding:6px 10px;
-      border-radius:999px;
-      background:rgba(15,23,42,.9);
-      border:1px solid rgba(148,163,184,.9);
-      color:#e5e7eb;
-      font:500 12px/1.4 'IBM Plex Sans Thai',system-ui,sans-serif;
-      display:none;
-      gap:4px;
-      box-shadow:0 16px 40px rgba(15,23,42,.9);
-    }
-    #questGoalLabel{ font-weight:600; white-space:nowrap; }
-    #questGoalText{ flex:1; min-width:0; }
-    #questMiniText{ font-size:11px; opacity:.9; }
-
-    @media (max-width:640px){
-      #questHudVR{
-        top:auto;
-        bottom:10px;
-        font-size:11px;
-        padding:5px 9px;
+      #hhaQuestPanel{
+        right:8px;
+        top:8px;
+        max-width:220px;
+        padding:6px 8px;
       }
-      #questMiniText{
-        display:none;
+      #gradeHud{
+        top:54px;
       }
     }
   </style>
@@ -315,6 +384,7 @@
     <div id="resultsScreen" class="ui-card" style="display:none;">
       <h2>เกมจบแล้ว!</h2>
       <h1 id="finalScore">คะแนน: 0</h1>
+      <div id="finalGrade">เกรด: C</div>
       <div class="result-line" id="resultDetailMain">เยี่ยมมาก ลองเล่นอีกรอบให้ได้คะแนนสูงกว่าเดิมนะ 🎯</div>
       <div class="result-line" id="resultDetailCombo"></div>
       <div class="result-line" id="resultDetailMiss"></div>
@@ -325,14 +395,32 @@
     </div>
   </div>
 
-  <!-- ===== Quest HUD ===== -->
-  <div id="questHudVR">
-    <span id="questGoalLabel">🎯 Goal:</span>
-    <span id="questGoalText"></span>
-    <span id="questMiniText"></span>
+  <!-- ===== HUD Quest Panel ===== -->
+  <div id="hhaQuestPanel" style="display:none;">
+    <h3>Quest Board</h3>
+    <div class="quest-main">
+      <span class="quest-label" id="questGoalLabel">Goal: -</span><br/>
+      <span class="quest-progress" id="questGoalProg"></span>
+    </div>
+    <div class="quest-mini">
+      <span class="quest-label" id="questMiniLabel">Mini: -</span><br/>
+      <span class="quest-progress" id="questMiniProg"></span>
+      <div class="quest-hint" id="questHint"></div>
+    </div>
   </div>
 
-  <!-- ===== A-Frame Scene (VR World) ===== -->
+  <!-- ===== Grade Bar HUD ===== -->
+  <div id="gradeHud">
+    <div id="gradeHudTop">
+      <span id="gradeLabel">ระดับตอนนี้</span>
+      <span id="gradeText">C</span>
+    </div>
+    <div id="gradeBarOuter">
+      <div id="gradeBarFill"></div>
+    </div>
+  </div>
+
+  <!-- ===== A-Frame Scene ===== -->
   <a-scene id="gameScene"
            renderer="colorManagement: true"
            loading-screen="dotsColor: white; backgroundColor: #0b1222"
@@ -345,7 +433,6 @@
     <!-- กลุ่มผู้เล่น/กล้อง -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="camera" look-controls="pointerLockEnabled: true">
-        <!-- Cursor แบบ ring เห็นชัดสำหรับ Gaze/VR -->
         <a-cursor id="cursor"
                   raycaster="objects: [data-hha-tgt]; interval: 50"
                   fuse="true"
@@ -365,14 +452,15 @@
 
   </a-scene>
 
-  <!-- ===== Launcher + เชื่อม GameEngine (ES Module) ===== -->
+  <!-- ===== Launcher + เชื่อม GameEngineVR (ES Module) ===== -->
   <script type="module">
-    import { GameEngine } from './vr-goodjunk/GameEngine.js';
+    import { GameEngineVR } from './vr-goodjunk/GameEngine.js';
 
     const uiOverlay     = document.getElementById('uiOverlay');
     const startScreen   = document.getElementById('startScreen');
     const resultsScreen = document.getElementById('resultsScreen');
     const finalScoreEl  = document.getElementById('finalScore');
+    const finalGradeEl  = document.getElementById('finalGrade');
     const resultComboEl = document.getElementById('resultDetailCombo');
     const resultMissEl  = document.getElementById('resultDetailMiss');
 
@@ -381,36 +469,39 @@
     const btnHard   = document.getElementById('startButtonHard');
     const btnAgain  = document.getElementById('playAgainButton');
 
-    const GAME_DURATION_MS = 60_000; // ต้องตรงกับ logic การวิจัย (60 วินาที)
+    const GAME_DURATION_MS = 60_000;
     let gameTimer = null;
     let currentDifficulty = 'normal';
+    window.currentDifficulty = currentDifficulty;
 
     function hideOverlay(){
       uiOverlay.classList.add('hidden');
     }
-    function showStart(){
-      resultsScreen.style.display = 'none';
-      startScreen.style.display   = 'block';
-      uiOverlay.classList.remove('hidden');
-    }
-    function showResult(score, extra = {}){
+    function showResultFromPayload(payload){
+      const score  = (typeof payload.scoreFinal === 'number')
+        ? payload.scoreFinal
+        : ((payload.score|0) || (window.score|0) || 0);
+      const comboM = (typeof payload.comboMax === 'number')
+        ? payload.comboMax
+        : ((payload.comboMax|0) || (window.comboMax|0) || 0);
+      const miss   = (typeof payload.misses === 'number')
+        ? payload.misses
+        : ((window.misses|0) || 0);
+      const grade  = payload.grade || payload.finalGrade || 'C';
+
+      finalScoreEl.textContent = `คะแนน: ${score|0}`;
+      finalGradeEl.textContent = `เกรด: ${grade}`;
+      resultComboEl.textContent = `คอมโบสูงสุด: x${comboM|0}`;
+      resultMissEl.textContent  = `พลาดทั้งหมด: ${miss|0} ครั้ง`;
+
       startScreen.style.display   = 'none';
       resultsScreen.style.display = 'block';
       uiOverlay.classList.remove('hidden');
 
-      const sc = score|0;
-      finalScoreEl.textContent = `คะแนน: ${sc}`;
-
-      if (typeof extra.comboMax === 'number'){
-        resultComboEl.textContent = `คอมโบสูงสุด: x${extra.comboMax|0}`;
-      }else{
-        resultComboEl.textContent = '';
-      }
-      if (typeof extra.misses === 'number'){
-        resultMissEl.textContent = `พลาดทั้งหมด: ${extra.misses|0} ครั้ง`;
-      }else{
-        resultMissEl.textContent = '';
-      }
+      const ev = new CustomEvent('hha:grade', {
+        detail:{ grade, score, comboMax: comboM, difficulty: currentDifficulty }
+      });
+      window.dispatchEvent(ev);
     }
 
     function clearGameTimer(){
@@ -422,88 +513,71 @@
 
     function startGame(diff){
       currentDifficulty = diff || 'normal';
+      window.currentDifficulty = currentDifficulty;
       clearGameTimer();
+      uiOverlay.classList.add('hidden');
 
-      hideOverlay();
+      GameEngineVR.start(currentDifficulty);
 
-      console.log('[Launcher] startGame', currentDifficulty);
-
-      // เริ่ม Engine ฝั่ง VR
-      GameEngine.start(currentDifficulty);
-
-      // ตั้งเวลาให้จบเองที่ 60 วิ (กันเด็กเล่นยาว)
       gameTimer = setTimeout(()=>{
-        console.log('[Launcher] auto stop after 60s');
-        GameEngine.stop();
-        const score  = (window.score|0) || 0;
-        const comboM = (window.comboMax|0) || 0;
-        const miss   = (window.misses|0)  || 0;
-        showResult(score, { comboMax: comboM, misses: miss });
+        GameEngineVR.stop();
       }, GAME_DURATION_MS);
     }
 
-    // ปุ่มเริ่มเกม
     btnEasy  .addEventListener('click', ()=> startGame('easy'));
     btnNormal.addEventListener('click', ()=> startGame('normal'));
     btnHard  .addEventListener('click', ()=> startGame('hard'));
 
-    // ปุ่มเล่นอีกครั้ง → กลับหน้าเลือกความยาก
     btnAgain.addEventListener('click', ()=>{
       resultsScreen.style.display = 'none';
       startScreen.style.display   = 'block';
     });
 
-    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบเวลา/โหมดวิจัย)
     window.addEventListener('hha:end', (ev)=>{
       clearGameTimer();
-      const d = ev && ev.detail ? ev.detail : {};
-      const score  = (typeof d.scoreFinal === 'number') ? d.scoreFinal :
-                     (typeof d.score === 'number')      ? d.score      :
-                     ((window.score|0)   || 0);
-      const comboM = (typeof d.comboMax === 'number') ? d.comboMax : ((window.comboMax|0)|| 0);
-      const miss   = (typeof d.misses   === 'number') ? d.misses   : ((window.misses|0)  || 0);
-      showResult(score, { comboMax: comboM, misses: miss });
+      const d = (ev && ev.detail) || {};
+      showResultFromPayload(d);
     });
-
-    // เผื่ออยากกลับหน้าเริ่มแบบ manual จาก devtool
-    window.hhaShowStart = showStart;
   </script>
 
-  <!-- ===== HUD Script (คะแนน / เวลา / คอมโบ / พลาด) ===== -->
+  <!-- ===== HUD Script (คะแนน / เวลา / คอมโบ / พลาด + Grade Bar) ===== -->
   <script>
   (function(){
     'use strict';
 
     const HUD_ID = 'hhaHudVR';
-    const GAME_SECONDS = 60; // นับถอยหลัง 60 วิ ให้ตรงกับตัวเกม
+    const GAME_SECONDS = 60;
 
     let wrap, scoreEl, comboEl, missEl, timeEl;
+    let gradeTextEl, gradeFillEl;
     let running = false;
     let timerId = null;
 
     function createHud(){
-      if (wrap && document.getElementById(HUD_ID)) return wrap;
-
-      wrap = document.createElement('div');
-      wrap.id = HUD_ID;
-      wrap.setAttribute('data-hha-ui','');
-
-      wrap.innerHTML = `
-        <div class="line big">
-          <span>คะแนน: <span id="hudScoreVR">0</span></span>
-          <span class="pill">เวลา: <span id="hudTimeVR">${GAME_SECONDS}</span>s</span>
-        </div>
-        <div class="line">
-          <span>คอมโบ: <span id="hudComboVR">0</span></span>
-          <span>พลาด: <span id="hudMissVR" class="bad">0</span></span>
-        </div>
-      `;
-      document.body.appendChild(wrap);
+      if (!wrap || !document.getElementById(HUD_ID)) {
+        wrap = document.createElement('div');
+        wrap.id = HUD_ID;
+        wrap.setAttribute('data-hha-ui','');
+        wrap.innerHTML = `
+          <div class="line big">
+            <span>คะแนน: <span id="hudScoreVR">0</span></span>
+            <span class="pill">เวลา: <span id="hudTimeVR">${GAME_SECONDS}</span>s</span>
+          </div>
+          <div class="line">
+            <span>คอมโบ: <span id="hudComboVR">0</span></span>
+            <span>พลาด: <span id="hudMissVR" class="bad">0</span></span>
+          </div>
+        `;
+        document.body.appendChild(wrap);
+      }
 
       scoreEl = document.getElementById('hudScoreVR');
       comboEl = document.getElementById('hudComboVR');
       missEl  = document.getElementById('hudMissVR');
       timeEl  = document.getElementById('hudTimeVR');
+
+      gradeTextEl = document.getElementById('gradeText');
+      gradeFillEl = document.getElementById('gradeBarFill');
 
       return wrap;
     }
@@ -540,84 +614,163 @@
       }
     }
 
-    // อัปเดตคะแนน/คอมโบ ทุกครั้งที่มี hha:score
+    function calcGrade(score, diff, comboMax){
+      score = score|0;
+      comboMax = comboMax|0;
+      var sSSS = 2400, sSS = 2000, sS = 1600, sA = 1200, sB = 800;
+      if (diff === 'easy') {
+        sSSS -= 400; sSS -= 300; sS -= 200; sA -= 150; sB -= 100;
+      } else if (diff === 'hard') {
+        sSSS += 300; sSS += 250; sS += 200; sA += 150; sB += 100;
+      }
+      if (score >= sSSS && comboMax >= 20) return 'SSS';
+      if (score >= sSS)  return 'SS';
+      if (score >= sS)   return 'S';
+      if (score >= sA)   return 'A';
+      if (score >= sB)   return 'B';
+      return 'C';
+    }
+
+    function gradeToPercent(grade){
+      switch(grade){
+        case 'SSS': return 100;
+        case 'SS':  return 92;
+        case 'S':   return 84;
+        case 'A':   return 72;
+        case 'B':   return 56;
+        default:    return 40;
+      }
+    }
+
+    function updateGrade(score, combo){
+      createHud();
+      var diff  = window.currentDifficulty || 'normal';
+      var grade = calcGrade(score, diff, combo);
+      if (gradeTextEl) gradeTextEl.textContent = grade;
+      if (gradeFillEl) {
+        var pct = gradeToPercent(grade);
+        gradeFillEl.style.width = pct + '%';
+      }
+    }
+
     window.addEventListener('hha:score', function(e){
       const d = (e && e.detail) || {};
       createHud();
 
-      // คะแนน
+      let score = 0;
       if (typeof d.score === 'number'){
-        scoreEl.textContent = d.score;
+        score = d.score;
       }else if (typeof d.total === 'number'){
-        scoreEl.textContent = d.total;
+        score = d.total;
       }else if (typeof window.score === 'number'){
-        scoreEl.textContent = window.score|0;
+        score = window.score|0;
       }
+      if (scoreEl) scoreEl.textContent = score;
 
-      // คอมโบ
       let combo = 0;
       if (typeof d.combo === 'number') combo = d.combo;
       else if (typeof window.combo === 'number') combo = window.combo;
-      comboEl.textContent = combo|0;
+      if (comboEl) comboEl.textContent = combo|0;
 
       if (!running){
         startTimer();
       }
+
+      updateGrade(score, combo);
     });
 
-    // เวลาพลาด (ตีโดนของขยะ)
     window.addEventListener('hha:miss', function(){
       createHud();
-      if (typeof window.misses === 'number'){
+      if (typeof window.misses === 'number' && missEl){
         missEl.textContent = window.misses|0;
       }
-      if (typeof window.combo === 'number'){
+      if (typeof window.combo === 'number' && comboEl){
         comboEl.textContent = window.combo|0;
       }
     });
 
-    // เกมจบ
     window.addEventListener('hha:end', function(e){
       const d = (e && e.detail) || {};
       createHud();
-      if (typeof d.score === 'number'){
-        scoreEl.textContent = d.score;
-      }else if (typeof d.scoreFinal === 'number'){
-        scoreEl.textContent = d.scoreFinal;
-      }else if (typeof window.score === 'number'){
+      if (typeof d.scoreFinal === 'number' && scoreEl){
+        scoreEl.textContent = d.scoreFinal|0;
+      } else if (typeof window.score === 'number' && scoreEl){
         scoreEl.textContent = window.score|0;
       }
       stopTimer();
+    });
+
+    window.addEventListener('hha:grade', function(e){
+      const d = (e && e.detail) || {};
+      var g = d.grade || 'C';
+      if (gradeTextEl) gradeTextEl.textContent = g;
+      if (gradeFillEl) {
+        var pct = gradeToPercent(g);
+        gradeFillEl.style.width = pct + '%';
+      }
     });
 
     window.addEventListener('beforeunload', stopTimer);
   })();
   </script>
 
-  <!-- ===== Quest HUD Script (ฟัง quest:update จาก Quest.js) ===== -->
+  <!-- ===== Quest Panel Script ===== -->
   <script>
   (function(){
     'use strict';
-    const box   = document.getElementById('questHudVR');
-    const gText = document.getElementById('questGoalText');
-    const mText = document.getElementById('questMiniText');
-    if (!box) return;
+    const panel   = document.getElementById('hhaQuestPanel');
+    const goalLbl = document.getElementById('questGoalLabel');
+    const goalProg= document.getElementById('questGoalProg');
+    const miniLbl = document.getElementById('questMiniLabel');
+    const miniProg= document.getElementById('questMiniProg');
+    const hintEl  = document.getElementById('questHint');
 
-    window.addEventListener('quest:update', function(ev){
-      const d = (ev && ev.detail) || {};
-      const g = d.goal || null;
-      const m = d.mini || null;
+    function renderQuest(detail){
+      if (!detail) return;
+      panel.style.display = 'block';
 
-      gText.textContent = g ? g.label || '' : '';
-      mText.textContent = m ? '⭐ ' + (m.label || '') : '';
+      const g = detail.goal || null;
+      const m = detail.mini || null;
 
-      if (g || m) box.style.display = 'flex';
-      else        box.style.display = 'none';
+      if (g){
+        goalLbl.textContent = 'Goal: ' + (g.label || '-');
+        if (typeof g.progress !== 'undefined' && typeof g.target !== 'undefined'){
+          goalProg.textContent = `ความคืบหน้า: ${g.progress}/${g.target}`;
+        } else if (typeof g.progress === 'number'){
+          goalProg.textContent = `ความคืบหน้า: ${g.progress}`;
+        } else {
+          goalProg.textContent = '';
+        }
+      } else {
+        goalLbl.textContent = 'Goal: -';
+        goalProg.textContent = '';
+      }
+
+      if (m){
+        miniLbl.textContent = 'Mini: ' + (m.label || '-');
+        if (typeof m.progress !== 'undefined' && typeof m.target !== 'undefined'){
+          miniProg.textContent = `ความคืบหน้า: ${m.progress}/${m.target}`;
+        } else if (typeof m.progress === 'number'){
+          miniProg.textContent = `ความคืบหน้า: ${m.progress}`;
+        } else {
+          miniProg.textContent = '';
+        }
+      } else {
+        miniLbl.textContent = 'Mini: -';
+        miniProg.textContent = '';
+      }
+
+      hintEl.textContent = detail.hint || '';
+    }
+
+    window.addEventListener('quest:update', function(e){
+      const d = (e && e.detail) || {};
+      renderQuest(d);
     });
   })();
   </script>
 
-  <!-- ===== Cloud Logger Script (ES Module) ===== -->
+  <!-- ===== Cloud Logger Init (ES Module) ===== -->
   <script type="module">
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
