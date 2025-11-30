@@ -30,6 +30,10 @@
     this.onChange(this.getCurrent(), this.progress, false, null);
   };
 
+  /**
+   * แจ้งว่าเป้าที่โดนเป็นหมู่ไหน
+   * return { completed, bonus }
+   */
   QuestManager.prototype.notifyHit = function (groupId) {
     const q = this.getCurrent();
     if (!q) return { completed: false, bonus: 0 };
