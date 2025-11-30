@@ -1,117 +1,550 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
-  />
-  <title>🥦 HeroHealth — Good vs Junk (VR)</title>
-  <link rel="icon" href="./favicon.ico" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+  <title>🥦 Good vs Junk VR — Hero Health</title>
+  <meta name="color-scheme" content="dark light"/>
 
-  <!-- พื้นหลังแนวเด็ก ๆ ป.5 -->
-  <link rel="stylesheet" href="./css/hha-kid-bg.css" />
+  <link rel="icon" href="/HeroHealth/favicon.ico" type="image/x-icon"/>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- ฟอนต์ไทยสำหรับ UI -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root{
+      color-scheme: dark light;
+    }
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      overflow:hidden;
+      font-family:'IBM Plex Sans Thai',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      /* พื้นหลังแนวเด็ก ป.5 — พาสเทล + ลายกลม ๆ */
+      background:
+        radial-gradient(circle at 0% 0%, #e0f2fe 0, transparent 55%),
+        radial-gradient(circle at 100% 0%, #fee2e2 0, transparent 55%),
+        radial-gradient(circle at 0% 100%, #dcfce7 0, transparent 55%),
+        radial-gradient(circle at 100% 100%, #fef9c3 0, transparent 55%),
+        #020617;
+      color:#e5e7eb;
+    }
+
+    /* ===== UI Overlay (Start / Result) ===== */
+    #uiOverlay{
+      position:fixed;
+      inset:0;
+      z-index:10000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+      padding:16px;
+      text-align:center;
+      color:#0f172a;
+      transition:opacity .28s ease, visibility .28s ease;
+    }
+    #uiOverlay::before,
+    #uiOverlay::after{
+      content:"";
+      position:absolute;
+      inset:12%;
+      border-radius:32px;
+      background:
+        radial-gradient(circle at 10% 20%, rgba(56,189,248,.25) 0, transparent 55%),
+        radial-gradient(circle at 90% 80%, rgba(52,211,153,.25) 0, transparent 55%),
+        radial-gradient(circle at 80% 10%, rgba(251,146,60,.25) 0, transparent 55%);
+      filter:blur(2px);
+      z-index:-2;
+    }
+    #uiOverlay::after{
+      inset:20%;
+      background:
+        radial-gradient(circle at 0% 100%, rgba(129,140,248,.28) 0, transparent 55%),
+        radial-gradient(circle at 100% 0%, rgba(248,250,252,.5) 0, transparent 50%);
+      opacity:.9;
+    }
+    #uiOverlay.hidden{
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    .ui-card{
+      position:relative;
+      max-width:520px;
+      width:100%;
+      padding:20px 20px 18px;
+      border-radius:24px;
+      background:rgba(15,23,42,.88);
+      border:1px solid rgba(148,163,184,.9);
+      box-shadow:0 24px 60px rgba(15,23,42,.9);
+      color:#e5e7eb;
+      backdrop-filter:blur(14px);
+    }
+
+    .ui-card h1{
+      margin:0 0 6px;
+      font-size:1.8rem;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:.35em;
+    }
+    .ui-card h1 span.small{
+      font-size:1.1rem;
+      font-weight:400;
+      opacity:.9;
+    }
+    .ui-card p{
+      margin:4px 0 14px;
+      font-size:.95rem;
+      opacity:.9;
+    }
+
+    .kid-chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:6px;
+      font-size:.8rem;
+      margin-bottom:10px;
+    }
+    .kid-chip{
+      padding:4px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.85);
+      border:1px solid rgba(148,163,184,.6);
+      display:flex;
+      align-items:center;
+      gap:4px;
+      color:#e5e7eb;
+    }
+
+    .btn-row{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+      margin-top:6px;
+    }
+    .game-button{
+      font-family:'IBM Plex Sans Thai',system-ui;
+      font-weight:700;
+      font-size:.95rem;
+      padding:10px 18px;
+      border-radius:999px;
+      border:none;
+      cursor:pointer;
+      color:#f9fafb;
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      box-shadow:0 10px 25px rgba(34,197,94,.45);
+      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .game-button span.lvl{
+      padding:1px 8px;
+      border-radius:999px;
+      background:rgba(15,23,42,.9);
+      font-size:.75rem;
+    }
+    .game-button:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.03);
+      box-shadow:0 16px 32px rgba(34,197,94,.55);
+    }
+    .game-button.hard{
+      background:linear-gradient(135deg,#f97316,#ef4444);
+      box-shadow:0 10px 25px rgba(239,68,68,.55);
+    }
+
+    #resultsScreen h2{
+      margin:0 0 6px;
+      font-size:1.5rem;
+      color:#fbbf24;
+    }
+    #finalScore{
+      margin:0 0 12px;
+      font-size:1.8rem;
+      color:#f9fafb;
+    }
+    .result-line{
+      font-size:.9rem;
+      opacity:.9;
+      margin-bottom:2px;
+    }
+
+    @media (max-width:600px){
+      .ui-card{
+        padding:16px 14px 14px;
+        border-radius:20px;
+      }
+      .ui-card h1{
+        font-size:1.45rem;
+      }
+      .ui-card p{
+        font-size:.9rem;
+      }
+      .game-button{
+        width:100%;
+        justify-content:center;
+      }
+    }
+
+    /* ===== A-Frame Canvas full screen ===== */
+    a-scene{
+      position:fixed !important;
+      inset:0;
+    }
+
+    /* ===== HUD คะแนน/เวลา/คอมโบ/พลาด (ฝั่งซ้ายบน) ===== */
+    #hhaHudVR{
+      position:fixed;
+      left:12px;
+      top:12px;
+      z-index:950;
+      padding:8px 12px;
+      border-radius:14px;
+      background:rgba(15,23,42,.9);
+      border:1px solid rgba(148,163,184,.95);
+      color:#e5e7eb;
+      font:600 13px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;
+      box-shadow:0 14px 40px rgba(15,23,42,.9);
+      backdrop-filter:blur(8px);
+    }
+    #hhaHudVR .line{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:2px;
+    }
+    #hhaHudVR .line:last-child{ margin-bottom:0; }
+    #hhaHudVR .big{ font-size:15px; }
+    #hhaHudVR .pill{
+      padding:2px 8px;
+      border-radius:999px;
+      background:rgba(56,189,248,.15);
+    }
+    #hhaHudVR .bad{ color:#fecaca; }
+
+    @media (max-width:640px){
+      #hhaHudVR{
+        left:8px;
+        top:8px;
+        padding:6px 9px;
+        font-size:12px;
+      }
+      #hhaHudVR .big{ font-size:13px; }
+    }
+
+  </style>
 </head>
-<body class="hha-kid-bg">
+<body>
 
-  <!-- เมฆ & เนินหญ้า -->
-  <div class="hha-kid-clouds"></div>
-  <div class="hha-kid-hills"></div>
-
-  <!-- ===== Overlay เริ่ม / จบ เกม ===== -->
-  <div id="uiOverlay" class="hha-overlay">
-    <div class="hha-card" id="startScreen">
-      <h1>🥦 Good vs Junk VR 🍔</h1>
+  <!-- ===== UI Overlay (Start + Result) ===== -->
+  <div id="uiOverlay">
+    <div id="startScreen" class="ui-card">
+      <h1>🥦 Good vs Junk VR <span class="small">Hero Health</span></h1>
       <p>
-        เล็งเป้าด้วยจุดกลางจอ แล้วคลิก / แตะ / กดทริกเกอร์<br />
-        เก็บ “ของดี” และพาวเวอร์อัป ⭐💎🛡️🔥 ให้ได้มากที่สุด!
+        เล็งเป้าแล้ว “ยิงของดี” กับ “พาวเวอร์อัป” ⭐💎<br/>
+        พยายามเลี่ยงของขยะ 🍟🍩 แล้วทำคอมโบให้ยาวที่สุด!
       </p>
-      <p style="font-size:0.9rem;opacity:.9;margin-bottom:0.75rem;">
-        เล่นได้ทั้ง PC (เมาส์), มือถือ (แตะหน้าจอ) และแว่น VR (กดทริกเกอร์ / Gaze)
-      </p>
-      <button class="hha-btn" id="startButtonEasy">
-        <span class="emoji">🐣</span><span>เริ่มเกม (ง่าย)</span>
-      </button>
-      <button class="hha-btn" id="startButtonNormal">
-        <span class="emoji">🚀</span><span>เริ่มเกม (ปกติ)</span>
-      </button>
-      <button class="hha-btn hard" id="startButtonHard">
-        <span class="emoji">🔥</span><span>เริ่มเกม (ยาก)</span>
-      </button>
+
+      <div class="kid-chip-row">
+        <div class="kid-chip">🍎 จับคู่ผัก–ผลไม้–นม ให้ได้เยอะ ๆ</div>
+        <div class="kid-chip">⏱ เกมยาว ~60 วินาที</div>
+        <div class="kid-chip">🎯 เล่นได้ทั้ง PC / Mobile / VR Headset</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="game-button" id="startButtonEasy">
+          🌱 ง่าย
+          <span class="lvl">Easy</span>
+        </button>
+        <button class="game-button" id="startButtonNormal">
+          ⚖️ ปกติ
+          <span class="lvl">Normal</span>
+        </button>
+        <button class="game-button hard" id="startButtonHard">
+          🔥 ท้าทาย
+          <span class="lvl">Hard</span>
+        </button>
+      </div>
     </div>
 
-    <div class="hha-card" id="resultsScreen" style="display:none;">
-      <h2>จบเกมแล้ว!</h2>
-      <p id="finalScore">คะแนน: 0</p>
-      <button class="hha-btn" id="playAgainButton">
-        <span class="emoji">🔁</span><span>เล่นอีกครั้ง</span>
-      </button>
+    <div id="resultsScreen" class="ui-card" style="display:none;">
+      <h2>เกมจบแล้ว!</h2>
+      <h1 id="finalScore">คะแนน: 0</h1>
+      <div class="result-line" id="resultDetailMain">เยี่ยมมาก ลองเล่นอีกรอบให้ได้คะแนนสูงกว่าเดิมนะ 🎯</div>
+      <div class="result-line" id="resultDetailCombo"></div>
+      <div class="result-line" id="resultDetailMiss"></div>
+
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="game-button" id="playAgainButton">เล่นอีกครั้ง ▶</button>
+      </div>
     </div>
   </div>
 
-  <!-- ครอสแฮร์กลางจอ (สำหรับ PC) -->
-  <div id="crossHair"></div>
+  <!-- ===== A-Frame Scene (VR World) ===== -->
+  <a-scene id="gameScene"
+           renderer="colorManagement: true"
+           loading-screen="dotsColor: white; backgroundColor: #0b1222"
+           background="color: #020617">
 
-  <!-- ===== A-Frame Scene ===== -->
-  <a-scene
-    id="gameScene"
-    renderer="colorManagement: true; useLegacyLights: false"
-    loading-screen="dotsColor: white; backgroundColor: #020617"
-    background="color: #020617"
-  >
-    <a-assets></a-assets>
+    <!-- Ambient + Directional light -->
+    <a-entity light="type: ambient; color: #FFF; intensity: 0.6"></a-entity>
+    <a-entity light="type: directional; color: #FFF; intensity: 0.4" position="-0.5 1 1"></a-entity>
 
-    <!-- ไฟหลัก ๆ -->
-    <a-entity light="type: ambient; intensity: 0.8; color: #ffffff"></a-entity>
-    <a-entity
-      light="type: directional; intensity: 0.45; color: #ffffff"
-      position="-0.5 1 1"
-    ></a-entity>
-
-    <!-- กล้อง + cursor + controller -->
+    <!-- กลุ่มผู้เล่น/กล้อง -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="camera" look-controls="pointerLockEnabled: true">
-        <!-- cursor สำหรับ VR / mobile gaze / mouse -->
-        <a-cursor
-          id="cursor"
-          raycaster="objects: [data-hha-tgt]; interval: 20"
-          fuse="false"
-          material="color: #ffffff; shader: flat"
-          geometry="primitive: ring; radiusInner: 0.004; radiusOuter: 0.008"
-          position="0 0 -1"
-        ></a-cursor>
+        <!-- Cursor แบบ ring เห็นชัดสำหรับ Gaze/VR -->
+        <a-cursor id="cursor"
+                  raycaster="objects: [data-hha-tgt]; interval: 50"
+                  fuse="true"
+                  fuse-timeout="900"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.018"
+                  material="color: #ffffff; shader: flat; opacity: 0.95"
+                  position="0 0 -1">
+        </a-cursor>
       </a-camera>
 
-      <!-- right-hand laser controller (สำหรับแว่น VR) -->
-      <a-entity
-        id="rightHand"
-        laser-controls="hand: right"
-        raycaster="objects: [data-hha-tgt]; interval: 20"
-      ></a-entity>
+      <!-- มือขวา (VR controller) -->
+      <a-entity id="rightHand"
+                laser-controls="hand: right"
+                raycaster="objects: [data-hha-tgt]; interval: 30">
+      </a-entity>
     </a-entity>
+
   </a-scene>
 
-  <!-- ===== Scripts (ESM) ===== -->
+  <!-- ===== Launcher + เชื่อม GameEngineVR (ES Module) ===== -->
   <script type="module">
-    /* โมดูล UI กลางที่ใช้ร่วมกัน */
-    import "./vr-goodjunk/ui-fever.js";
-    import "./vr-goodjunk/coach.js";
-    import "./vr-goodjunk/aframe-particles.js";
-    import "./vr-goodjunk/emoji-image.js";
-    import "./vr-goodjunk/difficulty.js";
-    import "./vr-goodjunk/quest-serial.js";
+    import { GameEngineVR } from './vr/game-engine-goodjunk-vr.js';
 
-    /* สมองเกม + ระบบ input */
-    import { GameEngineVR } from "./vr-goodjunk/game-engine-goodjunk-vr.js";
-    import { attachCrossInput } from "./vr-goodjunk/input-cross.js";
+    const uiOverlay     = document.getElementById('uiOverlay');
+    const startScreen   = document.getElementById('startScreen');
+    const resultsScreen = document.getElementById('resultsScreen');
+    const finalScoreEl  = document.getElementById('finalScore');
+    const resultComboEl = document.getElementById('resultDetailCombo');
+    const resultMissEl  = document.getElementById('resultDetailMiss');
 
-    attachCrossInput({
-      game: GameEngineVR,
-      durationMs: 60000 // 60 วินาที
+    const btnEasy   = document.getElementById('startButtonEasy');
+    const btnNormal = document.getElementById('startButtonNormal');
+    const btnHard   = document.getElementById('startButtonHard');
+    const btnAgain  = document.getElementById('playAgainButton');
+
+    const GAME_DURATION_MS = 60_000; // ต้องตรงกับ logic การวิจัย (60 วินาที)
+    let gameTimer = null;
+    let currentDifficulty = 'normal';
+
+    function hideOverlay(){
+      uiOverlay.classList.add('hidden');
+    }
+    function showStart(){
+      resultsScreen.style.display = 'none';
+      startScreen.style.display   = 'block';
+      uiOverlay.classList.remove('hidden');
+    }
+    function showResult(score, extra = {}){
+      startScreen.style.display   = 'none';
+      resultsScreen.style.display = 'block';
+      uiOverlay.classList.remove('hidden');
+
+      finalScoreEl.textContent = `คะแนน: ${score|0}`;
+      if (typeof extra.comboMax === 'number'){
+        resultComboEl.textContent = `คอมโบสูงสุด: x${extra.comboMax|0}`;
+      }else{
+        resultComboEl.textContent = '';
+      }
+      if (typeof extra.misses === 'number'){
+        resultMissEl.textContent = `พลาดทั้งหมด: ${extra.misses|0} ครั้ง`;
+      }else{
+        resultMissEl.textContent = '';
+      }
+    }
+
+    function clearGameTimer(){
+      if (gameTimer){
+        clearTimeout(gameTimer);
+        gameTimer = null;
+      }
+    }
+
+    function startGame(diff){
+      currentDifficulty = diff || 'normal';
+      clearGameTimer();
+
+      hideOverlay();
+
+      // เริ่ม Engine ฝั่ง VR
+      GameEngineVR.start(currentDifficulty);
+
+      // ตั้งเวลาให้จบเองที่ 60 วิ (กันเด็กเล่นยาว)
+      gameTimer = setTimeout(()=>{
+        GameEngineVR.stop();
+        const score  = (window.score|0) || 0;
+        const comboM = (window.comboMax|0) || 0;
+        const miss   = (window.misses|0)  || 0;
+        showResult(score, { comboMax: comboM, misses: miss });
+      }, GAME_DURATION_MS);
+    }
+
+    // ปุ่มเริ่มเกม
+    btnEasy  .addEventListener('click', ()=> startGame('easy'));
+    btnNormal.addEventListener('click', ()=> startGame('normal'));
+    btnHard  .addEventListener('click', ()=> startGame('hard'));
+
+    // ปุ่มเล่นอีกครั้ง → กลับหน้าเลือกความยาก
+    btnAgain.addEventListener('click', ()=>{
+      resultsScreen.style.display = 'none';
+      startScreen.style.display   = 'block';
     });
+
+    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบเวลา/โหมดวิจัย)
+    window.addEventListener('hha:end', (ev)=>{
+      clearGameTimer();
+      // กันเรียกซ้ำ: ถ้า overlay แสดงผลแล้วก็ไม่ต้องทำอะไรเพิ่ม
+      if (!uiOverlay.classList.contains('hidden') && resultsScreen.style.display === 'block'){
+        return;
+      }
+      const d = ev && ev.detail ? ev.detail : {};
+      const score  = (typeof d.score === 'number')    ? d.score    : ((window.score|0)   || 0);
+      const comboM = (typeof d.comboMax === 'number') ? d.comboMax : ((window.comboMax|0)|| 0);
+      const miss   = (typeof d.misses === 'number')   ? d.misses   : ((window.misses|0)  || 0);
+      showResult(score, { comboMax: comboM, misses: miss });
+    });
+
   </script>
+
+  <!-- ===== HUD Script (คะแนน / เวลา / คอมโบ / พลาด) ===== -->
+  <script>
+  (function(){
+    'use strict';
+
+    const HUD_ID = 'hhaHudVR';
+    const GAME_SECONDS = 60; // นับถอยหลัง 60 วิ ให้ตรงกับตัวเกม
+
+    let wrap, scoreEl, comboEl, missEl, timeEl;
+    let running = false;
+    let timerId = null;
+
+    function createHud(){
+      if (wrap && document.getElementById(HUD_ID)) return wrap;
+
+      wrap = document.createElement('div');
+      wrap.id = HUD_ID;
+      wrap.setAttribute('data-hha-ui','');
+
+      wrap.innerHTML = `
+        <div class="line big">
+          <span>คะแนน: <span id="hudScoreVR">0</span></span>
+          <span class="pill">เวลา: <span id="hudTimeVR">${GAME_SECONDS}</span>s</span>
+        </div>
+        <div class="line">
+          <span>คอมโบ: <span id="hudComboVR">0</span></span>
+          <span>พลาด: <span id="hudMissVR" class="bad">0</span></span>
+        </div>
+      `;
+      document.body.appendChild(wrap);
+
+      scoreEl = document.getElementById('hudScoreVR');
+      comboEl = document.getElementById('hudComboVR');
+      missEl  = document.getElementById('hudMissVR');
+      timeEl  = document.getElementById('hudTimeVR');
+
+      return wrap;
+    }
+
+    function startTimer(){
+      createHud();
+      if (timerId) clearInterval(timerId);
+      let left = GAME_SECONDS;
+      if (timeEl) timeEl.textContent = left;
+      running = true;
+
+      timerId = setInterval(function(){
+        if (!running){
+          clearInterval(timerId);
+          timerId = null;
+          return;
+        }
+        left--;
+        if (left < 0) left = 0;
+        if (timeEl) timeEl.textContent = left;
+        if (left <= 0){
+          clearInterval(timerId);
+          timerId = null;
+          running = false;
+        }
+      }, 1000);
+    }
+
+    function stopTimer(){
+      running = false;
+      if (timerId){
+        clearInterval(timerId);
+        timerId = null;
+      }
+    }
+
+    // อัปเดตคะแนน/คอมโบ ทุกครั้งที่มี hha:score
+    window.addEventListener('hha:score', function(e){
+      const d = (e && e.detail) || {};
+      createHud();
+
+      // คะแนน
+      if (typeof d.score === 'number'){
+        scoreEl.textContent = d.score;
+      }else if (typeof d.total === 'number'){
+        scoreEl.textContent = d.total;
+      }else if (typeof window.score === 'number'){
+        scoreEl.textContent = window.score|0;
+      }
+
+      // คอมโบ
+      let combo = 0;
+      if (typeof d.combo === 'number') combo = d.combo;
+      else if (typeof window.combo === 'number') combo = window.combo;
+      comboEl.textContent = combo|0;
+
+      if (!running){
+        startTimer();
+      }
+    });
+
+    // เวลาพลาด (ตีโดนของขยะ)
+    window.addEventListener('hha:miss', function(){
+      createHud();
+      if (typeof window.misses === 'number'){
+        missEl.textContent = window.misses|0;
+      }
+      if (typeof window.combo === 'number'){
+        comboEl.textContent = window.combo|0;
+      }
+    });
+
+    // เกมจบ
+    window.addEventListener('hha:end', function(e){
+      const d = (e && e.detail) || {};
+      createHud();
+      if (typeof d.score === 'number'){
+        scoreEl.textContent = d.score;
+      }else if (typeof window.score === 'number'){
+        scoreEl.textContent = window.score|0;
+      }
+      stopTimer();
+    });
+
+    window.addEventListener('beforeunload', stopTimer);
+  })();
+  </script>
+
 </body>
 </html>
