@@ -211,21 +211,24 @@
   };
 
   // ----- A-Frame component -----
-  AFRAME.registerComponent('food-groups-game', {
-    init: function () {
-      this.game = new FoodGroupsGame(this.el.sceneEl);
+AFRAME.registerComponent('food-groups-game', {
+  init: function () {
+    console.log('[food-groups-game] init');  // ⭐ ใส่ log test ได้เหมือนกัน
 
-      const self = this;
-      this.el.sceneEl.addEventListener('fg-start', function (e) {
-        const diff = (e.detail && e.detail.diff) || 'normal';
-        self.game.start({ diff });
-      });
+    this.game = new ns.FoodGroupsGame(this.el.sceneEl);
 
-      this.el.sceneEl.addEventListener('fg-stop', function () {
-        self.game.endGame();
-      });
-    }
-  });
+    const self = this;
+    this.el.sceneEl.addEventListener('fg-start', function (e) {
+      const diff = (e.detail && e.detail.diff) || 'normal';
+      console.log('[food-groups-game] receive fg-start, diff =', diff); // ⭐ log
+      self.game.start({ diff });
+    });
+
+    this.el.sceneEl.addEventListener('fg-stop', function () {
+      self.game.endGame();
+    });
+  }
+});
 
   ns.FoodGroupsGame = FoodGroupsGame;
 })(window.GAME_MODULES);
