@@ -19,7 +19,7 @@
       wrap.style.transform = 'translateX(-50%)';
       wrap.style.padding = '8px 16px';
       wrap.style.borderRadius = '999px';
-      wrap.style.background = 'rgba(15,23,42,.85)';
+      wrap.style.background = 'rgba(15,23,42,.88)';
       wrap.style.color = '#e5e7eb';
       wrap.style.font = '600 14px system-ui, -apple-system, sans-serif';
       wrap.style.zIndex = '9999';
@@ -34,9 +34,9 @@
 
       document.body.appendChild(wrap);
 
-      this.wrap = wrap;
+      this.wrap    = wrap;
       this.scoreEl = document.getElementById('fgScore');
-      this.timeEl = document.getElementById('fgTime');
+      this.timeEl  = document.getElementById('fgTime');
       this.questEl = document.getElementById('fgQuest');
     },
 
@@ -61,17 +61,22 @@
 
     setQuest(text) {
       if (!this.questEl) return;
-      this.questEl.textContent = 'ภารกิจ: ' + text;
+      this.questEl.textContent = 'ภารกิจ: ' + (text || '-');
     },
 
     reset() {
       this.setScore(0);
       this.setTime(0);
-      this.setQuest('-');
+      this.setQuest('ฟังภารกิจจากโค้ช แล้วเล็งให้ถูกหมู่เลย! ✨');
     }
   };
 
-  window.addEventListener('DOMContentLoaded', () => UI.init());
+  // สร้าง HUD ทันทีที่หน้าโหลด
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => UI.init());
+  } else {
+    UI.init();
+  }
 
   ns.foodGroupsUI = UI;
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
