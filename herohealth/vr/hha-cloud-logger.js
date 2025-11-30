@@ -2,7 +2,7 @@
 // HeroHealth Cloud Logger — ส่ง hha:session ไปเก็บบน Google Sheet ผ่าน Apps Script
 
 // ✅ ตรงนี้ให้เปลี่ยนเป็น URL ของ Google Apps Script ที่จะสร้างในขั้นตอนถัดไป
-const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/XXXXXXXXXXXX/exec';
+const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec';
 
 const RETRY_KEY = 'hha_cloud_retry_queue_v1';
 
