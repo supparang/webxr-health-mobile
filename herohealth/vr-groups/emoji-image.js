@@ -51,8 +51,9 @@
   }
 
   ns.foodGroupsEmoji = {
-    pickRandomGroup,
-    getById,
-    all: GROUPS
+    all: groups,
+    pickRandomGroup: function () {
+      return groups[Math.floor(Math.random() * groups.length)];
+    }
   };
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
