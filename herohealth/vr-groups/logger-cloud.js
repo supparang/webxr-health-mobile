@@ -7,142 +7,128 @@
 //     events:   [ { ... } ]
 //   }
 
-(function (ns) {
-  'use strict';
+'use strict';
 
-  let CONFIG = {
-    endpoint: '',
-    projectTag: 'HeroHealth-GroupsVR'
+let CONFIG = {
+  endpoint: '',
+  projectTag: 'HeroHealth-GroupsVR',
+  debug: false
+};
+
+let sessionQueue = [];
+let eventQueue   = [];
+let flushTimer   = null;
+const FLUSH_DELAY = 2000; // ms
+
+// เรียกจาก groups-vr.html
+export function initCloudLogger(opts = {}) {
+  CONFIG = {
+    // ★ ใส่ default endpoint ของ WebApp ของคุณไว้ตรงนี้แล้ว ★
+    endpoint: (opts.endpoint || 'https://script.google.com/macros/s/AKfycbzHWEKSuPE_-qED_iMJKyQCfS5hfLGgB-NAX-lWFok6jMq2MlYzaGK9uF0PxRLYuVH6/exec').trim(),
+    projectTag: opts.projectTag || 'HeroHealth-GroupsVR',
+    debug: !!opts.debug
   };
 
-  function init(opts) {
-    opts = opts || {};
-    CONFIG.endpoint = (opts.endpoint || '').trim();
-    if (opts.projectTag) CONFIG.projectTag = opts.projectTag;
-
-    console.log('[GroupsVR CloudLogger] init', CONFIG);
+  if (!CONFIG.endpoint) {
+    console.warn('[HHA-Logger] no endpoint configured');
+    return;
   }
 
-  // ===== helper: สร้าง payload ของ session ให้ตรงกับ Apps Script =====
-  function buildSessionPayload(rawSession, rawEvents) {
-    rawSession = rawSession || {};
-    rawEvents = rawEvents || [];
+  // ฟัง event จาก GameEngine.js
+  window.addEventListener('hha:session', (e) => {
+    const s = (e && e.detail) || {};
+    sessionQueue.push(s);
+    if (CONFIG.debug) console.log('[HHA-Logger] queue session', s);
+    scheduleFlush();
+  });
 
-    // duration เป็นวินาที
-    const durationMs = rawSession.durationMs || null;
-    const gameDurationSec = durationMs ? Math.round(durationMs / 1000) : '';
+  window.addEventListener('hha:event', (e) => {
+    const ev = (e && e.detail) || {};
+    eventQueue.push(ev);
+    if (CONFIG.debug) console.log('[HHA-Logger] queue event', ev);
+    scheduleFlush();
+  });
 
-    // คำนวณสถิติจาก events (hit/miss)
-    let hitCount = 0;
-    let totalShots = 0;
-    let sumRT = 0;
-    let rtN = 0;
+  // เวลาปิดแท็บ → พยายามส่งรอบสุดท้าย
+  window.addEventListener('beforeunload', () => {
+    if (!sessionQueue.length && !eventQueue.length) return;
+    trySendBeacon(true);
+  });
 
-    rawEvents.forEach(ev => {
-      if (ev.type === 'hit' || ev.type === 'miss') {
-        totalShots++;
-        if (ev.type === 'hit') hitCount++;
-
-        if (typeof ev.rtMs === 'number') {
-          sumRT += ev.rtMs;
-          rtN++;
-        }
-      }
-    });
-
-    const hitRate = totalShots > 0 ? hitCount / totalShots : 0;
-    const avgRT = rtN > 0 ? Math.round(sumRT / rtN) : 0;
-
-    // goodCount = จำนวน hit, badCount = miss
-    const goodCount = hitCount;
-    const badCount = totalShots - hitCount;
-
-    return {
-      // ❗ ชื่อฟิลด์ให้ตรงกับ Apps Script
-      sessionId: rawSession.sessionId || rawSession.sid || '',
-      playerId: rawSession.playerName || rawSession.playerClass || '',
-      deviceType: rawSession.deviceType || '',
-      difficulty: rawSession.diff || rawSession.difficulty || '',
-      gameDuration: gameDurationSec,
-      totalScore: rawSession.score != null ? rawSession.score : 0,
-      questCompleted: rawSession.questsCleared != null ? rawSession.questsCleared : 0,
-      questList: rawSession.questList || [],
-
-      goodCount: goodCount,
-      badCount: badCount,
-      hitRate: hitRate,
-      avgRT: avgRT,
-
-      // เก็บเพิ่มใน rawSession ไว้ดูทีหลัง (อยู่ในคอลัมน์ rawSession)
-      mode: rawSession.mode || 'groups-vr',
-      startedAt: rawSession.startedAt || null,
-      endedAt: rawSession.endedAt || null,
-      groupStats: rawSession.groupStats || null
-    };
+  if (CONFIG.debug) {
+    console.log('[HHA-Logger] initCloudLogger', CONFIG);
   }
+}
 
-  // ===== helper: แปลง rawEvents → payload สำหรับชีต Events =====
-  function buildEventsPayload(rawSession, rawEvents) {
-    const sid = rawSession.sessionId || rawSession.sid || '';
-    const out = [];
+function scheduleFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flush();
+  }, FLUSH_DELAY);
+}
 
-    rawEvents.forEach(ev => {
-      if (ev.type !== 'hit' && ev.type !== 'miss') return;
+function flush() {
+  if (!CONFIG.endpoint) return;
+  if (!sessionQueue.length && !eventQueue.length) return;
 
-      out.push({
-        // timestamp ให้ Apps Script ใส่เอง (new Date())
-        sessionId: sid,
-        groupId: ev.groupId || '',
-        emoji: ev.emoji || '',          // ตอนนี้ยังไม่มี emoji ใน log ก็เว้นได้
-        isGood: ev.isGood,              // ยังไม่ได้ใช้ก็ได้
-        isQuestTarget: !!ev.isQuestTarget,
-        hitOrMiss: ev.type,             // 'hit' หรือ 'miss'
-        rtMs: ev.rtMs != null ? ev.rtMs : null,
-        scoreDelta: ev.scoreDelta != null ? ev.scoreDelta : 0,
-        pos: ev.pos || null
-      });
-    });
-
-    return out;
-  }
-
-  // ===== main: เรียกจาก GameEngine.endGame() =====
-  async function send(rawSession, rawEvents) {
-    if (!CONFIG.endpoint) {
-      console.warn('[GroupsVR CloudLogger] no endpoint configured');
-      return;
-    }
-
-    rawEvents = rawEvents || [];
-
-    const sessionPayload = buildSessionPayload(rawSession, rawEvents);
-    const eventsPayload = buildEventsPayload(rawSession, rawEvents);
-
-    const payload = {
-      projectTag: CONFIG.projectTag,
-      sessions: [sessionPayload],  // ★ แบบ GoodJunk: array
-      events: eventsPayload
-    };
-
-    // log ฝั่ง client ไว้ดูใน DevTools
-    console.log('[GroupsVR CloudLogger] sending payload', payload);
-
-    try {
-      const res = await fetch(CONFIG.endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const text = await res.text();
-      console.log('[GroupsVR CloudLogger] response', res.status, text);
-    } catch (err) {
-      console.warn('[GroupsVR CloudLogger] send error', err);
-    }
-  }
-
-  ns.foodGroupsCloudLogger = {
-    init,
-    send
+  const payload = {
+    projectTag: CONFIG.projectTag,
+    sessions: sessionQueue.splice(0),
+    events:   eventQueue.splice(0)
   };
-})(window.GAME_MODULES || (window.GAME_MODULES = {}));
+
+  if (CONFIG.debug) {
+    console.log('[HHA-Logger] flush →', payload);
+  }
+
+  // 1) พยายามใช้ sendBeacon ก่อน (ไม่ติด CORS)
+  if (trySendBeacon(false, payload)) return;
+
+  // 2) ถ้าไม่ได้ ค่อย fallback เป็น fetch แบบ no-cors
+  try {
+    const body = JSON.stringify(payload);
+
+    fetch(CONFIG.endpoint, {
+      method: 'POST',
+      mode: 'no-cors', // ไม่อ่าน response, แค่ให้ยิงออกไป
+      keepalive: true,
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body
+    }).then(() => {
+      if (CONFIG.debug) console.log('[HHA-Logger] sent payload (fetch no-cors)');
+    }).catch(err => {
+      if (CONFIG.debug) console.error('[HHA-Logger] fetch error', err);
+    });
+  } catch (err) {
+    if (CONFIG.debug) console.error('[HHA-Logger] outer error', err);
+  }
+}
+
+function trySendBeacon(force, payload) {
+  if (!navigator.sendBeacon) return false;
+
+  const data = payload || {
+    projectTag: CONFIG.projectTag,
+    sessions: sessionQueue.splice(0),
+    events:   eventQueue.splice(0)
+  };
+
+  if (!data.sessions.length && !data.events.length && !force) {
+    return false;
+  }
+
+  try {
+    const blob = new Blob([JSON.stringify(data)], { type: 'text/plain' });
+    const ok = navigator.sendBeacon(CONFIG.endpoint, blob);
+    if (CONFIG.debug) console.log('[HHA-Logger] sendBeacon', ok, data);
+    return ok;
+  } catch (err) {
+    if (CONFIG.debug) console.warn('[HHA-Logger] sendBeacon error → fallback fetch', err);
+    return false;
+  }
+}
+
+export default { initCloudLogger };
