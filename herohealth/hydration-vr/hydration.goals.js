@@ -14,7 +14,6 @@ export function hydrationGoalsFor(diff) {
   const K = table[D] || table.normal;
 
   return [
-    // ✅ อยู่ GREEN สะสมให้ครบตามโควตา
     {
       id:'g_green',
       label:`อยู่ในโซนสมดุล (GREEN) รวม ${K.green}s`,
@@ -22,7 +21,6 @@ export function hydrationGoalsFor(diff) {
       check:s => G(s).green >= K.green,
       prog :s => Math.min(K.green, G(s).green)
     },
-
     {
       id:'g_score',
       label:`คะแนนรวม ${K.score}+`,
@@ -30,7 +28,6 @@ export function hydrationGoalsFor(diff) {
       check:s => G(s).score >= K.score,
       prog :s => Math.min(K.score, G(s).score)
     },
-
     {
       id:'g_combo',
       label:`คอมโบ ≥ ${K.combo}`,
@@ -38,16 +35,13 @@ export function hydrationGoalsFor(diff) {
       check:s => G(s).comboMax >= K.combo,
       prog :s => Math.min(K.combo, G(s).comboMax)
     },
-
     {
       id:'g_nomiss',
       label:`พลาดไม่เกิน ${K.miss}`,
       target:K.miss,
       check:s => G(s).miss <= K.miss,
-      // แสดงเป็น quota ที่ "เหลืออยู่"
       prog :s => Math.max(0, K.miss - G(s).miss)
     },
-
     {
       id:'g_good24',
       label:'เก็บไฮเดรต 24',
@@ -55,7 +49,6 @@ export function hydrationGoalsFor(diff) {
       check:s => G(s).good >= 24,
       prog :s => Math.min(24, G(s).good)
     },
-
     {
       id:'g_score1600',
       label:'คะแนน 1600+',
@@ -63,7 +56,6 @@ export function hydrationGoalsFor(diff) {
       check:s => G(s).score >= 1600,
       prog :s => Math.min(1600, G(s).score)
     },
-
     {
       id:'g_combo14',
       label:'คอมโบ ≥ 14',
@@ -71,7 +63,6 @@ export function hydrationGoalsFor(diff) {
       check:s => G(s).comboMax >= 14,
       prog :s => Math.min(14, G(s).comboMax)
     },
-
     {
       id:'g_good18',
       label:'เก็บไฮเดรต 18',
@@ -79,7 +70,6 @@ export function hydrationGoalsFor(diff) {
       check:s => G(s).good >= 18,
       prog :s => Math.min(18, G(s).good)
     },
-
     {
       id:'g_nomiss6',
       label:'พลาด ≤ 6',
@@ -87,7 +77,6 @@ export function hydrationGoalsFor(diff) {
       check:s => G(s).miss <= 6,
       prog :s => Math.max(0, 6 - G(s).miss)
     },
-
     {
       id:'g_time30',
       label:'อยู่รอด 30s',
