@@ -318,6 +318,7 @@
       background:rgba(51,65,85,.8);
       overflow:hidden;
     }
+    
     #questHudVR .q-grade-fill{
       position:absolute;
       left:0;
@@ -327,6 +328,26 @@
       border-radius:999px;
       background:linear-gradient(90deg,#22c55e,#a855f7);
       transition:width .2s ease-out;
+    }
+      #questHudVR .q-row{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:6px;
+    }
+    #questHudVR .q-prog{
+      font-size:11px;
+      font-weight:600;
+      color:#bbf7d0;
+      white-space:nowrap;
+    }
+    #questHudVR .q-prog.done{
+      color:#4ade80;
+    }
+    #questHudVR .q-status{
+      margin-top:4px;
+      font-size:11px;
+      color:#a5b4fc;
     }
 
     @media (max-width:640px){
@@ -815,6 +836,7 @@
   </script>
 
   <!-- ===== QUEST HUD Script (Goal + Mini + Grade bar ขณะเล่น) ===== -->
+  <!-- ===== QUEST HUD Script (Goal + Mini + Grade bar ขณะเล่น) ===== -->
   <script>
   (function(){
     'use strict';
@@ -822,6 +844,7 @@
     const HUD_ID = 'questHudVR';
 
     let wrap, mainEl, miniEl, hintEl, gradeEl, gradeFillEl;
+    let mainProgEl, miniProgEl, statusEl;
 
     function createQuestHud(){
       if (wrap && document.getElementById(HUD_ID)) return wrap;
@@ -832,10 +855,21 @@
 
       wrap.innerHTML = `
         <div class="q-title">🎯 ภารกิจวันนี้</div>
-        <div class="q-main" id="qMainVR">–</div>
+
+        <div class="q-row">
+          <div class="q-main" id="qMainVR">–</div>
+          <div class="q-prog" id="qMainProgVR"></div>
+        </div>
+
         <div class="q-mini-label">Mini quest</div>
-        <div class="q-mini" id="qMiniVR">–</div>
+        <div class="q-row">
+          <div class="q-mini" id="qMiniVR">–</div>
+          <div class="q-prog" id="qMiniProgVR"></div>
+        </div>
+
         <div class="q-hint" id="qHintVR"></div>
+        <div class="q-status" id="qStatusVR"></div>
+
         <div class="q-grade-row">
           <div class="q-grade-head">
             <span>ระดับเกรดโดยประมาณ</span>
@@ -854,31 +888,63 @@
       gradeEl     = document.getElementById('qGradeVR');
       gradeFillEl = document.getElementById('qGradeFillVR');
 
+      mainProgEl  = document.getElementById('qMainProgVR');
+      miniProgEl  = document.getElementById('qMiniProgVR');
+      statusEl    = document.getElementById('qStatusVR');
+
       return wrap;
     }
 
     function updateQuestUI(detail){
       createQuestHud();
       const d = detail || {};
-      const goal = d.goal || null;
-      const mini = d.mini || null;
+      const goal = d.goal || {};
+      const mini = d.mini || {};
 
-      if (goal && goal.label){
-        mainEl.textContent = goal.label;
-      } else {
-        mainEl.textContent = 'เล่นเก็บคะแนนของดีให้ได้เยอะที่สุด!';
-      }
-
-      if (mini && mini.label){
-        miniEl.textContent = mini.label;
-      } else {
-        miniEl.textContent = 'Mini quest จะปรากฏระหว่างเล่นเกม';
-      }
+      // ข้อความหลัก
+      mainEl.textContent = goal.label || 'เล่นเก็บของดีให้ได้เยอะที่สุด!';
+      miniEl.textContent = mini.label || 'Mini quest จะปรากฏระหว่างเล่นเกม';
 
       if (d.hint){
         hintEl.textContent = d.hint;
       } else {
         hintEl.textContent = '';
+      }
+
+      // progress หลัก: goodCount / target
+      if (goal.progress) {
+        const cur = goal.progress.current | 0;
+        const tgt = goal.progress.target | 0;
+        mainProgEl.textContent = `${Math.min(cur, tgt)}/${tgt}`;
+        mainProgEl.classList.toggle('done', !!goal.done);
+      } else {
+        mainProgEl.textContent = '';
+        mainProgEl.classList.remove('done');
+      }
+
+      // progress mini: bestCombo / target
+      if (mini.progress) {
+        const cur = mini.progress.current | 0;
+        const tgt = mini.progress.target | 0;
+        miniProgEl.textContent = `x${Math.min(cur, tgt)}/x${tgt}`;
+        miniProgEl.classList.toggle('done', !!mini.done);
+      } else {
+        miniProgEl.textContent = '';
+        miniProgEl.classList.remove('done');
+      }
+
+      // สรุปสถานะ
+      const mainDone = !!goal.done;
+      const miniDone = !!mini.done;
+
+      if (mainDone && miniDone) {
+        statusEl.textContent = '✅ ผ่านทั้ง Goal และ Mini quest แล้ว เยี่ยมมาก!';
+      } else if (mainDone && !miniDone) {
+        statusEl.textContent = '✅ ผ่าน Goal แล้ว เหลือ Mini quest อีกนิดเดียว!';
+      } else if (!mainDone && miniDone) {
+        statusEl.textContent = '✅ ผ่าน Mini quest แล้ว เก็บของดีให้ครบ Goal ด้วยนะ!';
+      } else {
+        statusEl.textContent = '';
       }
     }
 
@@ -938,6 +1004,5 @@
     });
   })();
   </script>
-
 </body>
 </html>
