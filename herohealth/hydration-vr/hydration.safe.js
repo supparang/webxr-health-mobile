@@ -10,9 +10,9 @@ import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fe
 import { createHydrationQuest } from './hydration.quest.js';
 
 // GOOD = น้ำดี / ของกินที่ช่วย hydration
-const GOOD = ['💧','🥛','🍉'];               // น้ำ / นม / ผลไม้ฉ่ำน้ำ
+const GOOD = ['💧', '🥛', '🍉'];               // น้ำ / นม / ผลไม้ฉ่ำน้ำ
 // BAD = น้ำหวาน / คาเฟอีน / แอลกอฮอล์ ฯลฯ
-const BAD  = ['🥤','🧋','🍺','☕️'];          // น้ำหวาน / ชาไข่มุก / แอลกอฮอล์ / คาเฟอีน
+const BAD  = ['🥤', '🧋', '🍺', '☕️'];         // น้ำหวาน / ชาไข่มุก / แอลกอฮอล์ / คาเฟอีน
 
 // Power-ups
 const STAR   = '⭐';
@@ -22,7 +22,7 @@ const FIRE   = '🔥';
 const BONUS  = [STAR, DIA, SHIELD, FIRE];
 
 export async function boot(cfg = {}) {
-  // ----- difficulty / duration -----
+  // ---------- difficulty / duration ----------
   const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
   const diff = (diffRaw === 'easy' || diffRaw === 'hard' || diffRaw === 'normal')
     ? diffRaw : 'normal';
@@ -32,19 +32,19 @@ export async function boot(cfg = {}) {
   if (dur < 20)  dur = 20;
   if (dur > 180) dur = 180;
 
-  // ----- HUD เริ่มต้น -----
+  // ---------- HUD เริ่มต้น ----------
   ensureFeverBar();
   setFever(0);
   setFeverActive(false);
   setShield(0);
 
   ensureWaterGauge();
-  let waterPct   = 50;
+  let waterPct = 50;
   const waterRes = setWaterGauge(waterPct);
-  let waterZone  = waterRes.zone || 'GREEN';
+  let waterZone = waterRes.zone || 'GREEN';
   const waterStart = waterPct;
 
-  // Quest deck
+  // ---------- Quest deck ----------
   const deck = createHydrationQuest(diff);
   deck.drawGoals(2);
   deck.draw3();
@@ -72,15 +72,15 @@ export async function boot(cfg = {}) {
     }));
   }
 
-  // ----- State หลักของโหมด -----
-  let score      = 0;
-  let combo      = 0;
-  let comboMax   = 0;
-  let misses     = 0;
-  let star       = 0;
-  let diamond    = 0;
-  let shield     = 0;
-  let fever      = 0;
+  // ---------- State หลักของโหมด ----------
+  let score       = 0;
+  let combo       = 0;
+  let comboMax    = 0;
+  let misses      = 0;
+  let star        = 0;
+  let diamond     = 0;
+  let shield      = 0;
+  let fever       = 0;
   let feverActive = false;
 
   function mult() {
@@ -212,6 +212,7 @@ export async function boot(cfg = {}) {
     } else {
       // BAD
       if (shield > 0) {
+        // มีเกราะ → ไม่ถือว่า miss
         shield--;
         setShield(shield);
         addWater(-4);
@@ -222,6 +223,7 @@ export async function boot(cfg = {}) {
         return { good: false, scoreDelta: 0 };
       }
 
+      // ไม่มีเกราะ → นับ miss
       addWater(-8);
       const d = -10;
       score = Math.max(0, score + d);
@@ -229,7 +231,7 @@ export async function boot(cfg = {}) {
       misses++;
 
       decayFever(14);
-      deck.onJunk();
+      deck.onJunk();        // นับเป็น junkMiss สำหรับ quest
       syncDeck();
       pushQuest();
 
@@ -238,18 +240,18 @@ export async function boot(cfg = {}) {
     }
   }
 
-  // เมื่อปล่อยเป้าหมดเวลา
+  // ---------- onExpire: นับเฉพาะ BAD ที่หลุดเวลา ----------
   function onExpire(ev) {
-    // นับเฉพาะ BAD ที่ปล่อยผ่านว่าเป็น miss เล็กน้อย
-    if (ev && !ev.isGood) {
-      misses++;
-      deck.onJunk();
+    // ปล่อย BAD ผ่านไปเท่านั้นที่นับ miss
+    if (ev && ev.type === 'bad') {
+      misses++;           // ใช้ใน summary hha:end
+      deck.onJunk();      // ใช้ใน MissionDeck → G(s).miss
       syncDeck();
       pushQuest();
     }
   }
 
-  // เรียกทุกวินาทีจาก onTime
+  // ---------- เรียกทุกวินาทีจาก hha:time ----------
   function onSec() {
     const z = zoneFrom(waterPct);
 
@@ -304,7 +306,7 @@ export async function boot(cfg = {}) {
 
     const greenTick = deck.stats.greenTick | 0;
 
-    const waterEnd = waterPct;
+    const waterEnd     = waterPct;
     const waterZoneEnd = zoneFrom(waterPct);
 
     window.dispatchEvent(new CustomEvent('hha:end', {
@@ -350,7 +352,7 @@ export async function boot(cfg = {}) {
   };
   window.addEventListener('hha:time', onTime);
 
-  // เรียก factory boot (ตัวนี้จะ spawn เป้าและยิง hha:time ให้เอง)
+  // ---------- เรียก factory boot (spawn เป้า + ยิง hha:time) ----------
   const inst = await factoryBoot({
     difficulty: diff,
     duration:   dur,
@@ -359,7 +361,7 @@ export async function boot(cfg = {}) {
     powerups:   BONUS,
     powerRate:  0.10,
     powerEvery: 7,
-    spawnStyle: 'pop',              // << โหมดเป้า: โผล่มาแล้วหายไปเอง
+    spawnStyle: 'pop',              // เป้าโผล่มาแล้วหายไปเอง (ไม่ต้องตก)
     judge:     (ch, ctx) => judge(ch, ctx),
     onExpire
   });
