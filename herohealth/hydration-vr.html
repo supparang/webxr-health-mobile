@@ -582,7 +582,8 @@
 </div>
 
 <script type="module">
-  import hydrationMode from './hydration.safe.js';
+  // ✅ ไฟล์โหมดอยู่ในโฟลเดอร์ /herohealth/hydration-vr/
+  import hydrationMode from './hydration-vr/hydration.safe.js';
 
   const diffSel   = document.getElementById('diff-select');
   const diffLabel = document.getElementById('diff-label');
@@ -705,10 +706,10 @@
       diffSel.value = d;
       diffLabel.textContent = d;
 
-      // ปรับเวลานิด ๆ ตามโหมด (ถ้าอยากให้ต่าง)
-      if (d === 'easy')      durRange.value = 60;
-      else if (d === 'normal') durRange.value = 60;
-      else if (d === 'hard') durRange.value = 70;
+      // ปรับเวลานิด ๆ ตามโหมด (ปรับได้ตามใจ)
+      if (d === 'easy')         durRange.value = 60;
+      else if (d === 'normal')  durRange.value = 60;
+      else if (d === 'hard')    durRange.value = 70;
       durLabel.textContent = durRange.value;
     });
   });
@@ -719,7 +720,6 @@
   });
 
   modeStart.addEventListener('click', ()=>{
-    // ใช้โหมดที่เลือกตั้งค่าให้ panel แล้วเริ่มเกมเลย
     diffSel.value = selectedDiff;
     diffLabel.textContent = selectedDiff;
     modeOverlay.style.display = 'none';
@@ -840,7 +840,7 @@
 
   // initial label
   diffLabel.textContent = diffSel.value;
-  durLabel.textContent = durRange.value;
+  durLabel.textContent  = durRange.value;
   setStatus('พร้อมเริ่ม Hydration — เลือกโหมดจากหน้าจอแรก หรือปรับด้านขวาแล้วกด Start');
 </script>
 </body>
