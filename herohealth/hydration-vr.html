@@ -3,736 +3,135 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hero Health — Hydration VR</title>
+  <title>Hydration VR — Hero Health</title>
   <meta name="color-scheme" content="light dark"/>
-  <link rel="icon" href="./favicon.ico" type="image/x-icon"/>
 
-  <!-- A-Frame สำหรับฉาก VR -->
+  <link rel="icon" href="./favicon.ico"/>
+
+  <!-- สไตล์หลักของหน้า (ให้สร้างไฟล์นี้หรือชี้ไป css ที่มีอยู่แล้วก็ได้) -->
+  <link rel="stylesheet" href="./css/hydration-vr.css"/>
+
+  <!-- A-Frame สำหรับโหมด VR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <style>
-    :root{color-scheme:light dark;}
-    *{box-sizing:border-box;}
-    body{
-      margin:0;
-      min-height:100vh;
-      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.22), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(52,211,153,0.26), transparent 55%),
-        #020617;
-      color:#e5e7eb;
-    }
-    .page{
-      max-width:1040px;
-      margin:16px auto 28px;
-      padding:0 16px 32px;
-    }
-    header{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:14px;
-    }
-    .title-block h1{
-      margin:0 0 4px;
-      font-size:1.4rem;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .title-pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:3px 8px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.85);
-      border:1px solid rgba(56,189,248,0.8);
-      font-size:.72rem;
-      color:#e0f2fe;
-    }
-    .title-block p{
-      margin:4px 0 0;
-      font-size:.8rem;
-      opacity:.9;
-    }
-    .layout{
-      display:grid;
-      grid-template-columns:minmax(0,1.7fr) minmax(0,1.1fr);
-      gap:16px;
-    }
-    @media (max-width:900px){
-      .layout{grid-template-columns:minmax(0,1fr);}
-    }
-
-    .vr-shell{
-      position:relative;
-      border-radius:18px;
-      overflow:hidden;
-      border:1px solid rgba(15,23,42,0.9);
-      box-shadow:0 22px 60px rgba(15,23,42,0.95);
-      background:#020817;
-      min-height:320px;
-    }
-    .vr-shell a-scene{width:100%;height:100%;}
-
-    .side-panel{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .card{
-      border-radius:16px;
-      padding:10px 11px;
-      background:rgba(15,23,42,0.94);
-      border:1px solid rgba(30,64,175,0.7);
-      box-shadow:0 16px 40px rgba(15,23,42,0.95);
-    }
-    .card h2{
-      margin:0 0 6px;
-      font-size:.9rem;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .card p{
-      margin:0 0 8px;
-      font-size:.8rem;
-      opacity:.9;
-    }
-
-    .config-grid{
-      display:grid;
-      grid-template-columns:minmax(0,1fr);
-      gap:8px;
-      font-size:.8rem;
-    }
-    .field label{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:2px;
-    }
-    .field small{opacity:.7;margin-left:4px;}
-
-    select,input[type="range"]{width:100%;font:inherit;}
-    select{
-      background:#020617;
-      color:#e5e7eb;
-      border-radius:999px;
-      border:1px solid rgba(51,65,85,0.9);
-      padding:4px 9px;
-      outline:none;
-    }
-    input[type="range"]{accent-color:#22c55e;}
-
-    .btn-row{
-      display:flex;
-      gap:8px;
-      margin-top:8px;
-    }
-    .btn{
-      border-radius:999px;
-      border:1px solid transparent;
-      padding:6px 12px;
-      font-size:.82rem;
-      font-weight:600;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      background:linear-gradient(135deg,#22c55e,#4ade80);
-      color:#022c22;
-      box-shadow:0 12px 28px rgba(22,163,74,0.65);
-    }
-    .btn.secondary{
-      background:transparent;
-      border-color:rgba(148,163,184,0.7);
-      color:#e5e7eb;
-      box-shadow:none;
-    }
-    .btn[disabled]{opacity:.5;cursor:default;box-shadow:none;}
-
-    .hint{margin-top:4px;font-size:.72rem;opacity:.8;}
-
-    .quest-main{display:flex;flex-direction:column;gap:8px;font-size:.8rem;}
-    .quest-item{
-      padding:6px 8px;
-      border-radius:12px;
-      background:rgba(15,23,42,0.9);
-      border:1px solid rgba(56,189,248,0.55);
-    }
-    .quest-item.mini{border-color:rgba(132,204,22,0.7);}
-    .quest-item h3{
-      margin:0 0 4px;
-      font-size:.8rem;
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-    }
-    .quest-bar{
-      position:relative;
-      width:100%;
-      height:6px;
-      border-radius:999px;
-      background:#020617;
-      overflow:hidden;
-    }
-    .quest-bar-inner{
-      position:absolute;
-      inset:0;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#38bdf8,#22c55e);
-      transition:width .2s ease-out;
-    }
-    .quest-meta{
-      margin-top:3px;
-      display:flex;
-      justify-content:space-between;
-      font-size:.7rem;
-      opacity:.85;
-    }
-    .quest-hint{margin-top:4px;font-size:.72rem;opacity:.85;}
-
-    .overlay-center{
-      position:absolute;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      pointer-events:none;
-      z-index:8;
-    }
-    .overlay-pill{
-      padding:8px 14px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.92);
-      border:1px solid rgba(56,189,248,0.85);
-      font-size:.8rem;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      box-shadow:0 16px 40px rgba(15,23,42,0.96);
-    }
-    .dot{
-      width:6px;height:6px;
-      border-radius:999px;
-      background:#22c55e;
-      box-shadow:0 0 8px rgba(34,197,94,0.9);
-    }
-
-    .result-card{
-      border-radius:16px;
-      padding:8px 11px;
-      background:rgba(15,23,42,0.96);
-      border:1px solid rgba(56,189,248,0.8);
-      box-shadow:0 18px 46px rgba(15,23,42,0.97);
-      font-size:.8rem;
-    }
-    .result-grid{
-      display:grid;
-      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-      gap:6px 16px;
-      margin-top:4px;
-    }
-    .result-grid div{
-      display:flex;
-      justify-content:space-between;
-      gap:6px;
-    }
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-      padding:2px 6px;
-      border-radius:999px;
-      font-size:.7rem;
-      border:1px solid rgba(74,222,128,0.75);
-      background:rgba(21,128,61,0.35);
-    }
-
-    /* Overlay เลือกโหมด */
-    .mode-overlay{
-      position:fixed;
-      inset:0;
-      z-index:40;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:
-        radial-gradient(circle at top, rgba(56,189,248,0.25), transparent 55%),
-        rgba(15,23,42,0.96);
-    }
-    .mode-card{
-      max-width:420px;
-      width:100%;
-      padding:16px 16px 14px;
-      border-radius:22px;
-      background:rgba(15,23,42,0.98);
-      border:1px solid rgba(56,189,248,0.9);
-      box-shadow:0 26px 80px rgba(15,23,42,0.98);
-    }
-    .mode-card-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:10px;
-      margin-bottom:10px;
-    }
-    .mode-card-head h2{
-      margin:0;
-      font-size:1rem;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .mode-card-head p{
-      margin:2px 0 0;
-      font-size:.78rem;
-      opacity:.85;
-    }
-    .mode-close{
-      border:none;
-      background:transparent;
-      color:#9ca3af;
-      cursor:pointer;
-      font-size:1rem;
-      padding:2px 4px;
-      border-radius:999px;
-    }
-    .mode-close:hover{background:rgba(31,41,55,0.9);}
-    .mode-options{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
-      margin-bottom:8px;
-    }
-    .mode-btn{
-      border-radius:16px;
-      padding:8px 6px;
-      border:1px solid rgba(55,65,81,0.9);
-      background:rgba(15,23,42,0.95);
-      color:#e5e7eb;
-      cursor:pointer;
-      font-size:.78rem;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:4px;
-      text-align:center;
-    }
-    .mode-btn span.big{font-size:1.1rem;font-weight:600;}
-    .mode-btn span.sub{font-size:.7rem;opacity:.85;}
-    .mode-btn[data-active="1"]{
-      border-color:rgba(52,211,153,1);
-      box-shadow:0 0 16px rgba(34,197,94,0.7);
-      background:radial-gradient(circle at top,rgba(52,211,153,0.35),rgba(15,23,42,0.97));
-    }
-    .mode-footer{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:8px;
-      margin-top:4px;
-      font-size:.75rem;
-      opacity:.9;
-    }
-    .mode-footer .btn-main{
-      border-radius:999px;
-      padding:6px 12px;
-      border:none;
-      cursor:pointer;
-      font-size:.82rem;
-      font-weight:600;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      background:linear-gradient(135deg,#22c55e,#4ade80);
-      color:#022c22;
-      box-shadow:0 16px 36px rgba(22,163,74,0.8);
-    }
-    @media (max-width:640px){
-      .mode-card{margin:0 12px;}
-      .mode-options{grid-template-columns:1fr;}
-    }
-  </style>
 </head>
 <body>
-<div class="page">
-  <header>
-    <div class="title-block">
-      <h1>
-        <span>💧 Hydration VR</span>
-        <span class="title-pill">
-          <span>Hero Health</span>
-          <span>โหมดน้ำสมดุล</span>
-        </span>
-      </h1>
-      <p>ฝึกดื่มน้ำให้สมดุลด้วย emoji เป้า + เกจน้ำ + Fever + Quest เล่นได้ทั้ง PC / Mobile / VR Headset.</p>
-    </div>
-  </header>
-
-  <!-- Overlay เลือกโหมด -->
-  <div id="mode-overlay" class="mode-overlay">
-    <div class="mode-card">
-      <div class="mode-card-head">
-        <div>
-          <h2>เลือกโหมด Hydration</h2>
-          <p>เลือกความยากก่อนเข้าเล่น (เริ่มต้นที่ &quot;ปกติ&quot;)</p>
+  <div class="hv-wrap">
+    <!-- ===== HEADER ===== -->
+    <header class="hv-header">
+      <div class="hv-title-block">
+        <div class="hv-title-row">
+          <span class="hv-emoji">💧</span>
+          <h1 class="hv-title">Hydration VR</h1>
+          <span class="hv-badge">Hero Health</span>
+          <span class="hv-badge hv-badge-green">โหมดน้ำสมดุล</span>
         </div>
-        <button id="mode-close" class="mode-close" title="ปิดหน้าต่างนี้">✕</button>
+        <p class="hv-subtitle">
+          ฝึกดื่มน้ำให้สมดุลด้วย emoji เป้า + เกจน้ำ + Fever + Quest เล่นได้ทั้ง PC / Mobile / VR Headset.
+        </p>
       </div>
-      <div class="mode-options">
-        <button class="mode-btn" id="mode-easy" data-diff="easy">
-          <span>😊</span>
-          <span class="big">ง่าย</span>
-          <span class="sub">เป้าออกช้า เควสต์เบา</span>
-        </button>
-        <button class="mode-btn" id="mode-normal" data-diff="normal" data-active="1">
-          <span>💪</span>
-          <span class="big">ปกติ</span>
-          <span class="sub">บาลานซ์ สนุก+ท้าทาย</span>
-        </button>
-        <button class="mode-btn" id="mode-hard" data-diff="hard">
-          <span>🔥</span>
-          <span class="big">ยาก</span>
-          <span class="sub">สายท้าทาย เป้าเร็ว</span>
-        </button>
-      </div>
-      <div class="mode-footer">
-        <div>โหมดที่เลือกจะตั้งค่าให้แผงด้านขวาและเริ่มเกมให้อัตโนมัติ</div>
-        <button id="mode-start" class="btn-main">
-          <span>▶</span><span>เริ่มเล่น</span>
-        </button>
-      </div>
-    </div>
-  </div>
 
-  <main class="layout">
-    <!-- ฉาก VR -->
-    <section class="vr-shell">
-      <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
-        <a-sky color="#020617"></a-sky>
-        <a-entity light="type:ambient;intensity:0.65;color:#e5e7eb"></a-entity>
-        <a-entity light="type:directional;intensity:0.7;color:#bfdbfe" position="1 1 0.5"></a-entity>
-        <a-entity id="camRig" position="0 1.6 0" camera look-controls wasd-controls="acceleration:2"></a-entity>
-      </a-scene>
+      <!-- water gauge จะถูกเติมโดย ui-water.js -->
+      <div class="hv-water-gauge-shell">
+        <!-- ensureWaterGauge() จะสร้างเกจจริง ๆ แปะเพิ่มเข้ามา -->
+      </div>
+    </header>
 
-      <div class="overlay-center">
-        <div id="hydration-status" class="overlay-pill">
-          <span class="dot" id="hydration-dot"></span>
-          <span id="hydration-status-text">กำลังรอโหมด Hydration...</span>
+    <!-- ===== MAIN LAYOUT ===== -->
+    <main class="hv-main">
+      <!-- === ฝั่งซ้าย: พื้นที่เล่น VR / เป้า === -->
+      <section class="hv-left">
+        <div class="hv-play-card">
+          <div class="hv-status-row">
+            <div id="hv-status" class="hv-status">
+              กด Start Hydration เพื่อเริ่มโหมดน้ำสมดุล
+            </div>
+          </div>
+
+          <!-- พื้นที่เล่น / spawn เป้า (ใช้โดย mode-factory.js) -->
+          <div id="hha-play" class="hv-playfield">
+            <!-- A-Frame scene ฝังด้านหลัง (สำหรับ VR Headset) -->
+            <a-scene
+              embedded
+              vr-mode-ui="enabled: true"
+              renderer="colorManagement: true"
+              background="color: #020617">
+              <a-entity position="0 1.6 0">
+                <a-entity camera wasd-controls look-controls></a-entity>
+              </a-entity>
+            </a-scene>
+
+            <!-- วงเล็งกลางจอ (ตกแต่งด้วย CSS) -->
+            <div class="hv-crosshair"></div>
+          </div>
+
+          <!-- ปุ่มออกเกม (ถ้ามี logic พิเศษเพิ่มทีหลังได้) -->
+          <button class="hv-exit-btn" type="button" onclick="history.back()">
+            ออกจากเกม
+          </button>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Panel ตั้งค่า + Quest + ผลลัพธ์ -->
-    <aside class="side-panel">
-      <section class="card">
-        <h2>⚙️ ตั้งค่าการเล่น</h2>
-        <p>เลือกความยากและเวลาเล่น แล้วกด <strong>Start Hydration</strong>.</p>
+      <!-- === ฝั่งขวา: แผงตั้งค่า + Quest HUD === -->
+      <aside class="hv-right">
+        <!-- การตั้งค่าการเล่น -->
+        <section class="hv-panel">
+          <h2 class="hv-panel-title">ตั้งค่าการเล่น</h2>
+          <p class="hv-panel-text">
+            เลือกระดับความยากและเวลาเล่น แล้วกด <strong>Start Hydration</strong>.
+          </p>
 
-        <div class="config-grid">
-          <div class="field">
-            <label>
-              <span>ระดับความยาก</span>
-              <small id="diff-label">normal</small>
-            </label>
-            <select id="diff-select">
-              <option value="easy">ง่าย</option>
-              <option value="normal" selected>ปกติ</option>
-              <option value="hard">ยาก</option>
+          <!-- เลือกความยาก -->
+          <div class="hv-field">
+            <label for="hv-diff" class="hv-label">ระดับความยาก</label>
+            <select id="hv-diff" class="hv-select">
+              <option value="easy">ง่าย (easy)</option>
+              <option value="normal" selected>ปกติ (normal)</option>
+              <option value="hard">ยาก (hard)</option>
             </select>
           </div>
 
-          <div class="field">
-            <label>
-              <span>เวลาเล่น (วินาที)</span>
-              <small><span id="dur-label">60</span>s</small>
+          <!-- เวลาเล่น -->
+          <div class="hv-field">
+            <label for="hv-time" class="hv-label">
+              เวลาเล่น (วินาที)
+              <span id="hv-time-label" class="hv-time-label">60s</span>
             </label>
-            <input id="dur-range" type="range" min="30" max="120" step="10" value="60"/>
+            <input id="hv-time" class="hv-range" type="range"
+                   min="20" max="180" step="5" value="60"/>
           </div>
-        </div>
 
-        <div class="btn-row">
-          <button id="btn-start" class="btn"><span>▶</span><span>Start Hydration</span></button>
-          <button id="btn-stop" class="btn secondary" disabled><span>⏹</span><span>Stop</span></button>
-        </div>
-        <div class="hint">
-          • PC: คลิกเมาส์ที่เป้า<br/>
-          • Mobile: แตะหน้าจอที่เป้า<br/>
-          • VR Headset: เปิดหน้านี้ใน browser ของแว่น แล้วกดปุ่ม VR ของ A-Frame.
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>🎯 Mission & Mini Quest</h2>
-        <div class="quest-main" id="quest-panel">
-          <div class="quest-item">
-            <h3><span>ยังไม่มีเควสต์</span><span>–</span></h3>
-            <div class="quest-bar"><div class="quest-bar-inner" style="width:0%"></div></div>
-            <div class="quest-meta">
-              <span>เป้าหมาย: –</span>
-              <span>ความคืบหน้า: 0/0</span>
-            </div>
-            <div class="quest-hint">กด Start เพื่อเริ่มโหมด Hydration.</div>
+          <!-- ปุ่มควบคุม -->
+          <div class="hv-buttons">
+            <button id="hv-btn-start" type="button" class="hv-btn hv-btn-primary">
+              ▶ Start Hydration
+            </button>
+            <button id="hv-btn-stop" type="button" class="hv-btn hv-btn-ghost" disabled>
+              ■ Stop
+            </button>
           </div>
-        </div>
-      </section>
 
-      <section class="card" id="result-wrap" style="display:none;">
-        <div class="result-card" id="result-card"></div>
-      </section>
-    </aside>
-  </main>
-</div>
+          <ul class="hv-hints">
+            <li>PC: คลิกเมาส์ที่เป้า</li>
+            <li>Mobile: แตะที่เป้า</li>
+            <li>VR Headset: เปิดหน้านี้ใน browser ของแว่น แล้วกดปุ่ม VR ของ A-Frame</li>
+          </ul>
+        </section>
 
-<script type="module">
-  console.log('hydration-vr.html module loaded');
-
-  // ✅ important: path นี้ต้องตรงกับโครงสร้างที่คุณมี
-  import hydrationMode from './hydration-vr/hydration.safe.js';
-
-  const diffSel   = document.getElementById('diff-select');
-  const diffLabel = document.getElementById('diff-label');
-  const durRange  = document.getElementById('dur-range');
-  const durLabel  = document.getElementById('dur-label');
-
-  const btnStart  = document.getElementById('btn-start');
-  const btnStop   = document.getElementById('btn-stop');
-
-  const statusBox = document.getElementById('hydration-status');
-  const statusDot = document.getElementById('hydration-dot');
-  const statusTxt = document.getElementById('hydration-status-text');
-
-  const questPanel = document.getElementById('quest-panel');
-  const resultWrap = document.getElementById('result-wrap');
-  const resultCard = document.getElementById('result-card');
-
-  // overlay เลือกโหมด
-  const modeOverlay = document.getElementById('mode-overlay');
-  const modeClose   = document.getElementById('mode-close');
-  const modeStart   = document.getElementById('mode-start');
-  const modeBtns    = document.querySelectorAll('.mode-btn');
-
-  let selectedDiff = 'normal';
-  let currentInst  = null;
-  let playing      = false;
-
-  function setStatus(text, mode='idle'){
-    statusTxt.textContent = text;
-    if (mode === 'playing'){
-      statusBox.style.borderColor = 'rgba(34,197,94,0.9)';
-      statusDot.style.background = '#22c55e';
-      statusDot.style.boxShadow = '0 0 12px rgba(34,197,94,0.9)';
-    }else if(mode === 'done'){
-      statusBox.style.borderColor = 'rgba(56,189,248,0.9)';
-      statusDot.style.background = '#38bdf8';
-      statusDot.style.boxShadow = '0 0 12px rgba(56,189,248,0.9)';
-    }else{
-      statusBox.style.borderColor = 'rgba(56,189,248,0.8)';
-      statusDot.style.background = '#22c55e';
-      statusDot.style.boxShadow = '0 0 8px rgba(34,197,94,0.9)';
-    }
-  }
-
-  diffSel.addEventListener('change', ()=>{
-    diffLabel.textContent = diffSel.value;
-  });
-  durRange.addEventListener('input', ()=>{
-    durLabel.textContent = durRange.value;
-  });
-
-  async function startGame(){
-    if (playing) return;
-    playing = true;
-    resultWrap.style.display = 'none';
-    resultCard.innerHTML = '';
-
-    btnStart.disabled = true;
-    btnStop.disabled  = false;
-    setStatus('กำลังโหลด Hydration mode...', 'playing');
-
-    const diff = diffSel.value;
-    const dur  = parseInt(durRange.value, 10) || 60;
-
-    try{
-      if (currentInst && typeof currentInst.stop === 'function'){
-        currentInst.stop();
-      }
-    }catch(e){ console.warn(e); }
-
-    try{
-      currentInst = await hydrationMode.boot({ difficulty: diff, duration: dur });
-      setStatus(`กำลังเล่น Hydration (${diff}) – ตีเป้าน้ำดี หลีกเลี่ยงน้ำหวาน!`, 'playing');
-    }catch(err){
-      console.error('Hydration boot error', err);
-      setStatus('เกิดข้อผิดพลาดในการเริ่มโหมด Hydration', 'idle');
-      playing = false;
-      btnStart.disabled = false;
-      btnStop.disabled  = true;
-    }
-  }
-
-  function stopGame(){
-    if (!playing) return;
-    playing = false;
-    try{
-      if (currentInst && typeof currentInst.stop === 'function'){
-        currentInst.stop();
-      }
-    }catch(e){ console.warn(e); }
-    setStatus('หยุดโหมด Hydration แล้ว', 'idle');
-    btnStart.disabled = false;
-    btnStop.disabled  = true;
-  }
-
-  btnStart.addEventListener('click', startGame);
-  btnStop.addEventListener('click', stopGame);
-
-  // ===== logic overlay เลือกโหมด =====
-  function updateModeButtons(activeDiff){
-    selectedDiff = activeDiff;
-    modeBtns.forEach(btn=>{
-      const d = btn.getAttribute('data-diff');
-      btn.dataset.active = (d === activeDiff) ? '1' : '0';
-    });
-  }
-  modeBtns.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const d = btn.getAttribute('data-diff') || 'normal';
-      updateModeButtons(d);
-      diffSel.value = d;
-      diffLabel.textContent = d;
-      if (d === 'easy')         durRange.value = 60;
-      else if (d === 'normal')  durRange.value = 60;
-      else if (d === 'hard')    durRange.value = 70;
-      durLabel.textContent = durRange.value;
-    });
-  });
-  modeClose.addEventListener('click', ()=>{
-    modeOverlay.style.display = 'none';
-    setStatus('พร้อมเริ่ม Hydration — เลือกความยากแล้วกด Start');
-  });
-  modeStart.addEventListener('click', ()=>{
-    diffSel.value = selectedDiff;
-    diffLabel.textContent = selectedDiff;
-    modeOverlay.style.display = 'none';
-    startGame();
-  });
-  updateModeButtons('normal');
-
-  // อัปเดต quest
-  window.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
-    const goal    = d.goal || null;
-    const mini    = d.mini || null;
-    const goalsAll = d.goalsAll || [];
-    const minisAll = d.minisAll || [];
-    const hint    = d.hint || '';
-
-    function renderItem(label, obj, isMini){
-      if (!obj){
-        return `
-          <div class="quest-item ${isMini?'mini':''}">
-            <h3><span>${label}</span><span>–</span></h3>
-            <div class="quest-bar"><div class="quest-bar-inner" style="width:0%"></div></div>
-            <div class="quest-meta">
-              <span>เป้าหมาย: –</span>
-              <span>ความคืบหน้า: 0/0</span>
-            </div>
-          </div>`;
-      }
-      const target   = obj.target || 0;
-      const progress = obj.progress || 0;
-      const done     = obj.done;
-      const pct      = target>0 ? Math.min(100,(progress/target)*100) : 0;
-      const flag     = done ? '✓' : `${Math.round(pct)}%`;
-      return `
-        <div class="quest-item ${isMini?'mini':''}">
-          <h3><span>${label}</span><span>${flag}</span></h3>
-          <div class="quest-bar">
-            <div class="quest-bar-inner" style="width:${pct}%;"></div>
+        <!-- Mission & Mini Quest HUD (แผงขวาล่าง) -->
+        <section class="hv-panel">
+          <h2 class="hv-panel-title">Mission &amp; Mini Quest</h2>
+          <div id="hv-quest-root" class="hv-quest-root">
+            <!-- attachQuestHud() จะ render ข้อมูลเควสต์ลงใน div นี้ -->
+            <p class="hv-panel-text hv-muted">
+              ยังไม่มีเควสต์ — กด Start เพื่อเริ่มโหมด Hydration.
+            </p>
           </div>
-          <div class="quest-meta">
-            <span>เป้าหมาย: ${obj.label}</span>
-            <span>${progress}/${target}</span>
-          </div>
-        </div>`;
-    }
+        </section>
+      </aside>
+    </main>
+  </div>
 
-    questPanel.innerHTML = `
-      ${renderItem('⭐ Goal', goal, false)}
-      ${renderItem('🎯 Mini quest', mini, true)}
-      <div class="quest-hint">${hint ? '💬 '+hint : ''}</div>
-      <div class="quest-hint" style="margin-top:2px;opacity:.7;">
-        Goals ทั้งหมด: ${goalsAll.length} | Minis: ${minisAll.length}
-      </div>
-    `;
-  });
-
-  // รับผลจบเกม
-  window.addEventListener('hha:end', (e)=>{
-    const d = e.detail || {};
-    if (d.mode !== 'Hydration') return;
-
-    playing = false;
-    btnStart.disabled = false;
-    btnStop.disabled  = true;
-    setStatus('จบโหมด Hydration แล้ว ดูผลสรุปด้านขวา', 'done');
-
-    const {
-      score = 0,
-      misses = 0,
-      comboMax = 0,
-      duration = 0,
-      goalCleared = false,
-      goalsCleared = 0,
-      goalsTotal = 0,
-      questsCleared = 0,
-      questsTotal = 0,
-      greenTick = 0,
-      waterStart = 50,
-      waterEnd = 50,
-      waterZoneEnd = 'GREEN',
-      difficulty = 'normal'
-    } = d;
-
-    const badge = goalCleared
-      ? `<span class="badge">✅ ผ่าน Goals หลัก</span>`
-      : `<span class="badge" style="border-color:rgba(248,113,113,0.8);background:rgba(127,29,29,0.45);">🧪 ทดลองอีกครั้ง</span>`;
-
-    resultCard.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-        <div>
-          <div style="font-size:.78rem;opacity:.8;">สรุปผลโหมด Hydration</div>
-          <div style="font-size:.9rem;">คะแนนรวม: <strong>${score}</strong></div>
-        </div>
-        ${badge}
-      </div>
-      <div class="result-grid">
-        <div><span>โหมด</span><span>${difficulty}</span></div>
-        <div><span>เวลาเล่น</span><span>${duration}s</span></div>
-        <div><span>คอมโบสูงสุด</span><span>${comboMax}</span></div>
-        <div><span>พลาด (Bad)</span><span>${misses}</span></div>
-        <div><span>Goals สำเร็จ</span><span>${goalsCleared}/${goalsTotal}</span></div>
-        <div><span>Mini quests</span><span>${questsCleared}/${questsTotal}</span></div>
-        <div><span>เวลาใน GREEN</span><span>${greenTick}s</span></div>
-        <div><span>ระดับน้ำเริ่มต้น</span><span>${waterStart}%</span></div>
-        <div><span>ระดับน้ำสุดท้าย</span><span>${waterEnd}%</span></div>
-        <div><span>โซนสุดท้าย</span><span>${waterZoneEnd}</span></div>
-      </div>
-    `;
-    resultWrap.style.display = 'block';
-  });
-
-  // initial
-  diffLabel.textContent = diffSel.value;
-  durLabel.textContent  = durRange.value;
-  setStatus('พร้อมเริ่ม Hydration — เลือกโหมดจากหน้าจอแรก หรือปรับด้านขวาแล้วกด Start');
-</script>
+  <!-- สคริปต์ควบคุมหน้า Hydration VR -->
+  <script type="module" src="./hydration-vr/hydration-vr.js"></script>
 </body>
 </html>
