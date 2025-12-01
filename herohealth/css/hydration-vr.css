@@ -1,362 +1,99 @@
-/* === /herohealth/css/hydration-vr.css === */
-
-:root {
-  color-scheme: dark;
-  --hv-bg: #020617;
-  --hv-panel: #020617;
-  --hv-panel-soft: #020617;
-  --hv-border-soft: rgba(148, 163, 184, 0.5);
-  --hv-accent: #38bdf8;
-  --hv-accent-soft: rgba(56, 189, 248, 0.16);
-  --hv-green: #22c55e;
-  --hv-danger: #fb7185;
-  --hv-text: #e5e7eb;
-  --hv-muted: #9ca3af;
-  --hv-radius-lg: 18px;
-  --hv-radius-xl: 22px;
-  --hv-radius-pill: 999px;
+<style>
+:root{
+  --bg:#0f172a;
+  --panel: rgba(255,255,255,0.06);
+  --panel-border: rgba(255,255,255,0.15);
+  --text:#e2e8f0;
+  --soft:#94a3b8;
+  --green:#22c55e;
+  --blue:#38bdf8;
+  --red:#fb7185;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+body{
+  margin:0;
+  font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+  background: radial-gradient(circle at top left,#075985 0%,#0f172a 60%);
+  color:var(--text);
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(56,189,248,0.2), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 55%),
-    var(--hv-bg);
-  color: var(--hv-text);
+.hv-center{
+  max-width: 860px;
+  margin: 60px auto;
+  padding: 32px 40px;
+  background: var(--panel);
+  border:1px solid var(--panel-border);
+  border-radius:20px;
+  backdrop-filter: blur(16px);
+  text-align:center;
 }
 
-/* ===== WRAP & LAYOUT ===== */
-
-.hv-wrap {
-  max-width: 1280px;
-  margin: 12px auto 24px;
-  padding: 0 16px 24px;
+.hv-title{
+  font-size:42px;
+  font-weight:700;
+  margin-bottom:4px;
 }
 
-/* Header */
-
-.hv-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+.hv-sub{
+  color:var(--soft);
+  font-size:15px;
+  margin-bottom:20px;
 }
 
-.hv-title-block {
-  flex: 1 1 auto;
+.hv-badge{
+  display:inline-block;
+  background: rgba(255,255,255,0.12);
+  padding:6px 14px;
+  border-radius:40px;
+  font-size:13px;
+  margin-bottom:16px;
+  color:#e0f2fe;
 }
 
-.hv-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+.hv-diff-wrap{
+  display:flex;
+  justify-content:center;
+  gap:16px;
+  margin:24px 0 32px;
 }
 
-.hv-emoji {
-  font-size: 26px;
+.hv-diff-btn{
+  border:none;
+  font-size:18px;
+  padding:14px 28px;
+  border-radius:40px;
+  cursor:pointer;
+  transition:.2s;
+  color:white;
 }
 
-.hv-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0;
+.hv-easy{ background:linear-gradient(135deg,#22c55e,#16a34a); }
+.hv-normal{ background:linear-gradient(135deg,#38bdf8,#0ea5e9); }
+.hv-hard{ background:linear-gradient(135deg,#fb7185,#ef4444); }
+
+.hv-diff-btn:hover{
+  transform: translateY(-2px);
 }
 
-.hv-badge {
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: var(--hv-radius-pill);
-  border: 1px solid rgba(148, 163, 184, 0.6);
-  background: rgba(15,23,42,0.9);
-  color: var(--hv-muted);
+.hv-start{
+  margin-top:10px;
+  padding:16px 38px;
+  font-size:22px;
+  border-radius:40px;
+  background:linear-gradient(135deg,#60a5fa,#3b82f6);
+  border:none;
+  color:white;
+  cursor:pointer;
+  transition:.2s;
+}
+.hv-start:hover{
+  transform:scale(1.05);
 }
 
-.hv-badge-green {
-  border-color: rgba(34, 197, 94, 0.7);
-  color: #bbf7d0;
-  background: linear-gradient(90deg, rgba(22,163,74,0.15), rgba(8,47,73,0.9));
+.hv-time{
+  margin-top:18px;
+  font-size:14px;
+  color:#bae6fd;
 }
 
-.hv-subtitle {
-  margin: 0;
-  font-size: 13px;
-  color: var(--hv-muted);
-}
-
-/* น้ำไว้ให้ ui-water.js วาดเกจ */
-
-.hv-water-gauge-shell {
-  min-width: 260px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* ===== MAIN LAYOUT ===== */
-
-.hv-main {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2.2fr);
-  gap: 16px;
-}
-
-/* ==== LEFT: playfield ==== */
-
-.hv-left { min-width: 0; }
-
-.hv-play-card {
-  position: relative;
-  background: radial-gradient(circle at top, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
-  border-radius: var(--hv-radius-xl);
-  padding: 12px 12px 16px;
-  border: 1px solid rgba(15,23,42,0.9);
-  box-shadow:
-    0 18px 35px rgba(15,23,42,0.9),
-    0 0 0 1px rgba(15,23,42,0.8);
-  min-height: 420px;
-}
-
-.hv-status-row {
-  margin-bottom: 8px;
-}
-
-.hv-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: var(--hv-radius-pill);
-  font-size: 12px;
-  color: #bbf7d0;
-  background: radial-gradient(circle at left, rgba(34,197,94,0.26), rgba(15,23,42,0.98));
-}
-
-.hv-status::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: #22c55e;
-}
-
-/* playfield ให้เกม / A-Frame */
-
-.hv-playfield {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--hv-radius-lg);
-  background: radial-gradient(circle at top, #020617, #020617);
-  min-height: 360px;
-}
-
-/* A-Frame embedded: fill playfield */
-
-.hv-playfield a-scene {
-  position: absolute !important;
-  inset: 0;
-}
-
-.hv-crosshair {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  border: 3px solid rgba(250, 204, 21, 0.86);
-  box-shadow: 0 0 16px rgba(250, 204, 21, 0.7);
-  pointer-events: none;
-}
-
-.hv-exit-btn {
-  position: absolute;
-  left: 14px;
-  bottom: 14px;
-  padding: 4px 11px;
-  font-size: 12px;
-  border-radius: var(--hv-radius-pill);
-  border: 1px solid rgba(248,113,113,0.7);
-  background: rgba(15,23,42,0.9);
-  color: #fecaca;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
-}
-.hv-exit-btn:hover {
-  background: rgba(220,38,38,0.8);
-  transform: translateY(-1px);
-}
-
-/* ==== RIGHT: panels ==== */
-
-.hv-right {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.hv-panel {
-  background: radial-gradient(circle at top, rgba(15,23,42,0.92), rgba(15,23,42,0.98));
-  border-radius: var(--hv-radius-xl);
-  padding: 12px 14px 14px;
-  border: 1px solid rgba(31,41,55,0.95);
-  box-shadow: 0 14px 26px rgba(15,23,42,0.85);
-}
-
-.hv-panel-title {
-  margin: 0 0 4px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.hv-panel-text {
-  margin: 0 0 8px;
-  font-size: 13px;
-  color: var(--hv-muted);
-}
-
-.hv-field {
-  margin-bottom: 10px;
-}
-
-.hv-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-  margin-bottom: 4px;
-}
-
-.hv-time-label {
-  font-size: 12px;
-  color: var(--hv-accent);
-}
-
-/* controls */
-
-.hv-select {
-  width: 100%;
-  padding: 6px 10px;
-  font-size: 13px;
-  border-radius: 999px;
-  border: 1px solid rgba(55,65,81,0.9);
-  background: rgba(15,23,42,0.98);
-  color: var(--hv-text);
-  outline: none;
-}
-
-.hv-select:focus {
-  border-color: var(--hv-accent);
-  box-shadow: 0 0 0 1px rgba(56,189,248,0.6);
-}
-
-.hv-range {
-  width: 100%;
-}
-
-/* buttons */
-
-.hv-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0 6px;
-}
-
-.hv-btn {
-  border-radius: var(--hv-radius-pill);
-  padding: 6px 13px;
-  font-size: 13px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  background: rgba(15,23,42,0.9);
-  color: var(--hv-text);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: background 0.15s, transform 0.08s, box-shadow 0.15s, border-color 0.15s;
-}
-
-.hv-btn-primary {
-  background: linear-gradient(90deg, #22c55e, #14b8a6);
-  border-color: rgba(34,197,94,0.9);
-  color: #022c22;
-  box-shadow: 0 8px 18px rgba(34,197,94,0.45);
-}
-
-.hv-btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(34,197,94,0.6);
-}
-
-.hv-btn-ghost {
-  border-color: rgba(148, 163, 184, 0.6);
-  color: var(--hv-muted);
-}
-
-.hv-btn-ghost:hover:not(:disabled) {
-  background: rgba(15,23,42,0.9);
-}
-
-.hv-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-  box-shadow: none;
-}
-
-/* hints */
-
-.hv-hints {
-  margin: 4px 0 0;
-  padding-left: 18px;
-  font-size: 12px;
-  color: var(--hv-muted);
-}
-
-.hv-hints li + li {
-  margin-top: 2px;
-}
-
-/* Quest HUD container (เนื้อในใช้ quest-hud-vr.js ของเดิม) */
-
-.hv-quest-root {
-  font-size: 13px;
-}
-
-.hv-muted {
-  color: var(--hv-muted);
-}
-
-/* ===== responsive ===== */
-
-@media (max-width: 960px) {
-  .hv-main {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .hv-right {
-    order: -1;
-  }
-}
-
-@media (max-width: 600px) {
-  .hv-wrap {
-    margin-top: 8px;
-    padding-inline: 10px;
-  }
-  .hv-play-card {
-    min-height: 320px;
-  }
-  .hv-playfield {
-    min-height: 260px;
-  }
-}
+</style>
