@@ -56,8 +56,10 @@
     <div id="startScreen">
       <h1>💚🍚🥦Food Groups (VR) 🍔</h1>
       <p style="font-size:1.1rem;max-width:400px;opacity:.9;">
-        ใช้คอนโทรลเลอร์หรือจ้องมอง (Gaze) เพื่อยิง "หมู่ 1–5" และ "พาวเวอร์อัป"<br>
-        ทำภารกิจที่ "โค้ช" บอกเพื่อรับคะแนนโบนัส!
+        เล็งให้ตรงเป้า แล้ว ยิงปุ๊ง! 🎯<br>
+        สะสมอาหาร หมู่ 1–5 และพาวเวอร์อัปพิเศษ 🍎✨<br>
+        โค้ชจะมี “ภารกิจลับ” ให้ทำ — ถ้าสำเร็จจะได้ คะแนนโบนัสพุ่ง! 🚀<br>
+        ทำภารกิจที่ "โค้ช" บอกเพื่อรับคะแนนโบนัส!<br>
       </p>
       <button class="game-button" id="startButtonEasy">เริ่มเกม (Easy)</button>
       <button class="game-button" id="startButtonNormal">เริ่มเกม (Normal)</button>
@@ -80,9 +82,11 @@
 
   <!-- A-Frame scene -->
   <a-scene id="gameScene"
-    renderer="colorManagement: true; useLegacyLights: false"
-    loading-screen="dotsColor: white; backgroundColor: #0b1222"
-    background="color: #0b1222">
+  renderer="colorManagement: true; useLegacyLights: false"
+  loading-screen="dotsColor: white; backgroundColor: #0b1222"
+  background="color: #0b1222"
+  fg-input-adapter>
+
 
     <a-sky color="#020617"></a-sky>
 
@@ -112,10 +116,28 @@
     </a-entity>
   </a-scene>
 
-<!-- namespace กลาง -->
-  <script>
-    window.GAME_MODULES = window.GAME_MODULES || {};
-  </script>
+  <!-- โมดูลเกม Groups -->
+<script>
+  window.GAME_MODULES = window.GAME_MODULES || {};
+</script>
+
+<!-- โมดูล logger & audio (ใหม่) -->
+<script src="./vr-groups/logger-cloud.js"></script>
+<script src="./vr-groups/audio.js"></script>
+
+<script src="./vr-groups/ui-fever.js"></script>
+<script src="./vr-groups/coach.js"></script>
+<script src="./vr-groups/difficulty.js"></script>
+<script src="./vr-groups/emoji-image.js"></script>
+<script src="./vr-groups/aframe-particles.js"></script>
+<script src="./vr-groups/quest-serial.js"></script>
+
+<!-- ⭐ auto select input แบบ Goodjunk -->
+<script src="./vr-groups/input-adapter.js"></script>
+
+<script src="./vr-groups/GameEngine.js"></script>
+<script src="./vr-groups/launcher-groups.js"></script>
+
 
   <!-- โมดูล logger & audio (ใหม่) -->
   <script src="./vr-groups/logger-cloud.js"></script>
@@ -124,16 +146,7 @@
 <audio id="fgSfxHit"   src="./audio/hit.mp3"   preload="auto"></audio>
 <audio id="fgSfxMiss"  src="./audio/miss.mp3"  preload="auto"></audio>
 <audio id="fgSfxQuest" src="./audio/quest.mp3" preload="auto"></audio>
-  <!-- โมดูลเกม Groups -->
-  <script src="./vr-groups/ui-fever.js"></script>
-  <script src="./vr-groups/coach.js"></script>
-  <script src="./vr-groups/difficulty.js"></script>
-  <script src="./vr-groups/emoji-image.js"></script>
-  <script src="./vr-groups/aframe-particles.js"></script>
-  <script src="./vr-groups/quest-serial.js"></script>
-  <script src="./vr-groups/GameEngine.js"></script>
-  <script src="./vr-groups/launcher-groups.js"></script>
-
+  
   <!-- ตั้งค่า endpoint ของ Google Apps Script ตรงนี้ -->
   <script>
     (function () {
