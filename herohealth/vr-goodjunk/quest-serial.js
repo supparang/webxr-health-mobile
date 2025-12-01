@@ -1,85 +1,113 @@
 // === /herohealth/vr/vr-goodjunk/quest-serial.js ===
-// Quest System สำหรับ Good vs Junk VR
-// - มี Goal หลัก + Mini Quest
-// - ยิง event 'quest:update' เพื่อให้ HUD ฝั่ง goodjunk-vr.html แสดงผล
+// Quest system สำหรับ Good vs Junk VR (Goal + Mini quest + Progress)
 
 'use strict';
 
-// ไว้ใช้เก็บ state ภายใน Quest
-const QuestState = {
-  goodCount: 0,     // นับจำนวน "ของดี" ที่เก็บได้
-  junkHit:  0,     // นับจำนวนครั้งที่โดนของขยะ
-  feverCount: 0    // นับจำนวนครั้งที่เข้าโหมด FEVER
-};
-
-// ยิง event ไปให้ HUD (goodjunk-vr.html ฟังอยู่)
-function emitQuestUpdate() {
-  const good = QuestState.goodCount | 0;
-  const junk = QuestState.junkHit  | 0;
-
-  // ใช้ comboMax จาก window (GameEngine จะเป็นคนอัปเดต)
-  const comboMax = (window.comboMax | 0) || (window.combo | 0) || 0;
-
-  const detail = {
-    // Goal หลัก: เก็บของดีให้ได้ 30 ชิ้นขึ้นไป
-    goal: {
-      id: 'good-30',
-      label: 'เก็บของดี (🥦🍎🥛) ให้ได้อย่างน้อย 30 ชิ้น',
-      progress: good,
-      target: 30
-    },
-
-    // Mini quest: ทำคอมโบให้ถึง x10
-    mini: {
-      id: 'combo-10',
-      label: 'ทำคอมโบให้ถึง x10',
-      progress: comboMax,
-      target: 10
-    },
-
-    // ข้อความฮินต์สั้น ๆ
-    hint: 'เล็งของดี 🥦🍎🥛 ให้เร็ว ๆ และพยายามไม่โดนของขยะ 🍟🍩 จะได้คอมโบยาว ๆ นะ!'
-  };
-
+// ใช้ emit ชื่อ event เดียวกับระบบหลัก
+function emit(name, detail) {
   try {
-    window.dispatchEvent(new CustomEvent('quest:update', { detail }));
-  } catch (e) {
-    console.warn('quest:update dispatch error', e);
-  }
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+  } catch (_) {}
 }
 
-export const Quest = {
-  start() {
-    // รีเซ็ตทุกครั้งที่เริ่มเกมใหม่
-    QuestState.goodCount = 0;
-    QuestState.junkHit   = 0;
-    QuestState.feverCount= 0;
+const DEFAULT_CONFIG = {
+  mainTargetGood: 30,   // เก็บของดีอย่างน้อย 30 ชิ้น
+  miniTargetCombo: 10   // ทำคอมโบให้ถึง x10
+};
 
-    // ยิงครั้งแรกเพื่อให้ HUD แสดง goal/mini ตั้งแต่ยังไม่เล่น
-    emitQuestUpdate();
+const Quest = {
+  _state: null,
+
+  start() {
+    this._state = {
+      goodCount: 0,
+      junkHits: 0,
+      bestCombo: 0,
+      mainTargetGood: DEFAULT_CONFIG.mainTargetGood,
+      miniTargetCombo: DEFAULT_CONFIG.miniTargetCombo,
+      mainDone: false,
+      miniDone: false
+    };
+    this._emitUpdate();
   },
 
   stop() {
-    // ตอนนี้ยังไม่ต้องทำอะไรเป็นพิเศษ
+    // ยังไม่ต้องทำอะไรเพิ่มตอนหยุด
   },
 
-  // เรียกจาก GameEngine เวลาเก็บของดีได้
   onGood() {
-    QuestState.goodCount++;
-    emitQuestUpdate();
+    if (!this._state) return;
+    const st = this._state;
+
+    st.goodCount += 1;
+
+    // combo ปัจจุบัน/สูงสุด อ่านจาก global
+    const comboNow = (window.combo | 0);
+    const comboMax = (window.comboMax | 0);
+    st.bestCombo = Math.max(st.bestCombo, comboNow, comboMax);
+
+    this._updateDoneFlags();
+    this._emitUpdate();
   },
 
-  // เรียกจาก GameEngine เวลาโดนของขยะ
   onBad() {
-    QuestState.junkHit++;
-    emitQuestUpdate();
+    if (!this._state) return;
+    const st = this._state;
+
+    st.junkHits += 1;
+
+    // อัปเดต best combo จากค่า global เผื่อดีดขึ้นจากที่อื่น
+    const comboMax = (window.comboMax | 0);
+    st.bestCombo = Math.max(st.bestCombo, comboMax);
+
+    this._updateDoneFlags();
+    this._emitUpdate();
   },
 
-  // เรียกจาก GameEngine เวลาเข้าโหมด FEVER
   onFever() {
-    QuestState.feverCount++;
-    emitQuestUpdate();
+    // ถ้าอยากใช้ Fever เป็นเงื่อนไข Quest เพิ่มทีหลังได้
+    if (!this._state) return;
+    this._emitUpdate();
+  },
+
+  _updateDoneFlags() {
+    const st = this._state;
+    st.mainDone = st.goodCount >= st.mainTargetGood;
+    st.miniDone = st.bestCombo >= st.miniTargetCombo;
+  },
+
+  _emitUpdate() {
+    if (!this._state) return;
+    const st = this._state;
+
+    const detail = {
+      goal: {
+        label: 'เก็บของดี (🥦 🍎 🥛) ให้ได้อย่างน้อย 30 ชิ้น',
+        progress: {
+          current: st.goodCount,
+          target: st.mainTargetGood
+        },
+        done: st.mainDone
+      },
+      mini: {
+        label: 'ทำคอมโบให้ถึง x10',
+        progress: {
+          current: st.bestCombo,
+          target: st.miniTargetCombo
+        },
+        done: st.miniDone
+      },
+      hint: 'เล็งของดี 🥦 🍎 🥛 ให้เร็ว ๆ และพยายามไม่โดนของขยะ 🌭🍩 จะได้คอมโบยาว ๆ นะ!'
+    };
+
+    emit('quest:update', detail);
+
+    // ถ้าผ่านแล้ว ยิง event เพิ่ม เผื่ออนาคตจะใช้เล่น effect
+    if (st.mainDone) emit('quest:goal-done', detail);
+    if (st.miniDone) emit('quest:mini-done', detail);
+    if (st.mainDone && st.miniDone) emit('quest:all-done', detail);
   }
 };
 
+export { Quest };
 export default Quest;
