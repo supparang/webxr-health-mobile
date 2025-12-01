@@ -9,8 +9,8 @@ import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import Particles from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 
-// deck ภารกิจของโหมดนี้
-import { createHydrationQuest } from './hydration.quest.js';
+// ✅ ดึงทุกอย่างจาก hydration.quest.js แล้วค่อยเลือกฟังก์ชันที่มี
+import * as HQ from './hydration.quest.js';
 
 // emoji
 const GOOD = ['💧','🥛','🍉'];               // น้ำดี
@@ -32,6 +32,23 @@ function safeBurstAt(x,y,opt){
   if (Particles && typeof Particles.burstAt === 'function') {
     Particles.burstAt(x,y,opt);
   }
+}
+
+// ✅ helper หา factory ของ quest ไม่ว่าจะ export แบบไหน
+function getCreateHydrationQuest() {
+  if (typeof HQ.createHydrationQuest === 'function') {
+    return HQ.createHydrationQuest;
+  }
+  if (HQ.default) {
+    if (typeof HQ.default.createHydrationQuest === 'function') {
+      return HQ.default.createHydrationQuest;
+    }
+    if (typeof HQ.default === 'function') {
+      // กรณี export default function(...)
+      return HQ.default;
+    }
+  }
+  throw new Error('createHydrationQuest not found in hydration.quest.js');
 }
 
 export async function boot(cfg = {}) {
@@ -60,7 +77,8 @@ export async function boot(cfg = {}) {
   // ----- Quest Deck (กัน error ไว้) -----
   let deck;
   try {
-    deck = createHydrationQuest(diff);
+    const factory = getCreateHydrationQuest();
+    deck = factory(diff);
   } catch (err) {
     console.error('[Hydration] createHydrationQuest error', err);
     // ถ้า quest พัง ให้ใช้ deck ปลอมที่ไม่ทำอะไร เพื่อไม่ให้เกมล้ม
@@ -249,7 +267,7 @@ export async function boot(cfg = {}) {
     }
   }
 
-  // ----- tick รายวินาที (ได้จาก factory ผ่าน event hha:time) -----
+  // ----- tick รายวินาที -----
   function onSec(){
     const z = zoneFrom(waterPct);
 
@@ -300,8 +318,8 @@ export async function boot(cfg = {}) {
     const miniTotal  = accMiniDone + m.length;
     const miniDone   = accMiniDone + m.filter(x=>x.done).length;
 
-    const greenTick   = deck.stats.greenTick | 0;
-    const waterEnd    = waterPct;
+    const greenTick    = deck.stats.greenTick | 0;
+    const waterEnd     = waterPct;
     const waterZoneEnd = zoneFrom(waterPct);
 
     window.dispatchEvent(new CustomEvent('hha:end',{
@@ -340,7 +358,7 @@ export async function boot(cfg = {}) {
   };
   window.addEventListener('hha:time', onTime);
 
-  // ----- เรียก factoryBoot ให้สร้างสนาม/เป้าแบบ GoodJunk/Groups -----
+  // ----- เรียก factoryBoot -----
   const inst = await factoryBoot({
     difficulty: diff,
     duration:   dur,
