@@ -10,10 +10,9 @@
     debug: false
   };
 
-  // ---------- public: init ----------
   function init(opts) {
     opts = opts || {};
-    CONFIG.endpoint  = (opts.endpoint || '').trim();
+    CONFIG.endpoint   = (opts.endpoint || '').trim();
     CONFIG.projectTag = opts.projectTag || 'HeroHealth-GroupsVR';
     CONFIG.debug      = !!opts.debug;
 
@@ -24,7 +23,6 @@
     }
   }
 
-  // ---------- helper: สร้าง payload SESSION ----------
   function buildSessionPayload(rawSession, rawEvents) {
     rawSession = rawSession || {};
     rawEvents  = rawEvents  || [];
@@ -48,8 +46,8 @@
       }
     });
 
-    const hitRate = totalShots > 0 ? hitCount / totalShots : 0;
-    const avgRT   = rtN > 0 ? Math.round(sumRT / rtN) : 0;
+    const hitRate   = totalShots > 0 ? hitCount / totalShots : 0;
+    const avgRT     = rtN > 0 ? Math.round(sumRT / rtN) : 0;
     const goodCount = hitCount;
     const badCount  = totalShots - hitCount;
 
@@ -76,7 +74,6 @@
     };
   }
 
-  // ---------- helper: สร้าง payload EVENTS ----------
   function buildEventsPayload(rawSession, rawEvents) {
     rawSession = rawSession || {};
     rawEvents  = rawEvents  || [];
@@ -86,37 +83,36 @@
     return rawEvents
       .filter(ev => ev.type === 'hit' || ev.type === 'miss')
       .map(ev => ({
-        sessionId: sid,
-        groupId:   ev.groupId || '',
-        emoji:     ev.emoji || '',
-        isGood:    ev.isGood,
+        sessionId:     sid,
+        groupId:       ev.groupId || '',
+        emoji:         ev.emoji || '',
+        isGood:        ev.isGood,
         isQuestTarget: !!ev.isQuestTarget,
-        hitOrMiss: ev.type,            // 'hit' / 'miss'
-        rtMs:      ev.rtMs != null ? ev.rtMs : null,
-        scoreDelta: ev.scoreDelta != null ? ev.scoreDelta : 0,
-        pos:       ev.pos || null
+        hitOrMiss:     ev.type,
+        rtMs:          ev.rtMs != null ? ev.rtMs : null,
+        scoreDelta:    ev.scoreDelta != null ? ev.scoreDelta : 0,
+        pos:           ev.pos || null
       }));
   }
 
-  // ---------- core sender: เลี่ยง CORS ----------
   function sendPayload(payload) {
     if (!CONFIG.endpoint) return;
 
     const body = JSON.stringify(payload);
 
-    // 1) พยายามใช้ sendBeacon ก่อน (เหมาะกับตอนปิดหน้า/เน็ตช้า)
+    // 1) ลอง sendBeacon ก่อน
     if (navigator.sendBeacon) {
       try {
         const blob = new Blob([body], { type: 'text/plain' });
         const ok = navigator.sendBeacon(CONFIG.endpoint, blob);
         if (CONFIG.debug) console.log('[GroupsVR Logger] sendBeacon', ok, payload);
-        if (ok) return;      // ถ้า ok แล้วก็ไม่ต้องทำ fetch ซ้ำ
+        if (ok) return;
       } catch (err) {
-        if (CONFIG.debug) console.warn('[GroupsVR Logger] sendBeacon error → fallback fetch', err);
+        if (CONFIG.debug) console.warn('[GroupsVR Logger] sendBeacon error → fetch', err);
       }
     }
 
-    // 2) fallback: fetch แบบ no-cors + text/plain (จะไม่โดน preflight → ไม่ติด CORS)
+    // 2) fallback เป็น fetch แบบ no-cors + text/plain (เลี่ยง CORS)
     try {
       fetch(CONFIG.endpoint, {
         method: 'POST',
@@ -128,23 +124,16 @@
         body
       })
         .then(() => {
-          if (CONFIG.debug) {
-            console.log('[GroupsVR Logger] sent via fetch no-cors');
-          }
+          if (CONFIG.debug) console.log('[GroupsVR Logger] sent via fetch no-cors');
         })
         .catch(err => {
-          if (CONFIG.debug) {
-            console.error('[GroupsVR Logger] send error', err);
-          }
+          if (CONFIG.debug) console.error('[GroupsVR Logger] send error', err);
         });
     } catch (err) {
-      if (CONFIG.debug) {
-        console.error('[GroupsVR Logger] outer error', err);
-      }
+      if (CONFIG.debug) console.error('[GroupsVR Logger] outer error', err);
     }
   }
 
-  // ---------- public: send (เรียกจาก GameEngine.endGame) ----------
   function send(rawSession, rawEvents) {
     const sessionPayload = buildSessionPayload(rawSession, rawEvents || []);
     const eventsPayload  = buildEventsPayload(rawSession, rawEvents || []);
@@ -158,7 +147,7 @@
     sendPayload(payload);
   }
 
-  // export ไปไว้ใน namespace กลาง
+  // export เป็น namespace กลาง
   ns.foodGroupsCloudLogger = {
     init,
     send
