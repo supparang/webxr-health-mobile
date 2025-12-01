@@ -4,6 +4,7 @@
 
   const GAME_VERSION = 'GroupsVR_v1.0';
 
+  // ---------- detect device ----------
   function detectDeviceType() {
     try {
       if (window.AFRAME && AFRAME.utils && AFRAME.utils.device) {
@@ -18,13 +19,15 @@
     return 'desktop';
   }
 
+  // ---------- in-memory log ----------
   function logEvent(type, detail) {
     try {
       const arr = (window.HHA_FOODGROUPS_LOG = window.HHA_FOODGROUPS_LOG || []);
-      arr.push(Object.assign({ ts: Date.now(), type: type }, detail));
+      arr.push(Object.assign({ ts: Date.now(), type }, detail));
     } catch (e) {}
   }
 
+  // ---------- main game ----------
   function FoodGroupsGame(sceneEl) {
     this.sceneEl = sceneEl;
     this.state = 'idle';
@@ -52,6 +55,7 @@
     this.groupStats = {};
     this.resetGroupStats();
 
+    // FX + UI
     if (ns.foodGroupsFx && ns.foodGroupsFx.init) {
       ns.foodGroupsFx.init(sceneEl);
     }
@@ -60,6 +64,8 @@
     }
 
     const self = this;
+
+    // Quest manager
     this.questManager = ns.FoodGroupsQuestManager
       ? new ns.FoodGroupsQuestManager(function (quest, progress, justFinished, finishedQuest) {
           const status =
@@ -67,18 +73,20 @@
               ? self.questManager.getStatus()
               : null;
 
+          // โค้ช (bubble ล่าง)
           if (ns.foodGroupsCoach && ns.foodGroupsCoach.onQuestChange) {
             ns.foodGroupsCoach.onQuestChange({
               current: quest,
               progress: progress || 0,
               justFinished: !!justFinished,
               finished: finishedQuest || null,
-              status: status
+              status
             });
           } else if (ns.foodGroupsCoach && ns.foodGroupsCoach.sayQuest) {
             ns.foodGroupsCoach.sayQuest(quest, progress || 0);
           }
 
+          // HUD ด้านบน (goal + progress)
           if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.update) {
             ns.foodGroupsQuestHUD.update(status, quest, !!justFinished);
           }
@@ -134,6 +142,7 @@
       this.cfg = ns.foodGroupsDifficulty.get(this.diff);
     }
 
+    // reset log
     window.HHA_FOODGROUPS_LOG = [];
 
     this.state = 'playing';
@@ -268,29 +277,24 @@
     }, interval);
   };
 
+  // ---------- spawn target ----------
   FoodGroupsGame.prototype.spawnTarget = function () {
     if (this.state !== 'playing') return;
 
     const cfg = this.cfg || {};
     const maxActive = cfg.maxActive || 5;
 
-    // ถ้าเป้าในจอถึงจำนวนสูงสุดแล้ว ยังไม่สร้างเพิ่ม
     if (this._targets.length >= maxActive) {
       return;
     }
 
-    // ===== เลือก group แบบปลอดภัย =====
+    // เลือก group อย่างปลอดภัย
     let group = null;
-
     if (ns.foodGroupsEmoji && ns.foodGroupsEmoji.pickRandomGroup) {
       group = ns.foodGroupsEmoji.pickRandomGroup();
     }
-
-    // fallback ถ้า emoji module พัง หรือคืนค่าไม่ได้
     if (!group) {
-      if (CONFIG && CONFIG.debug) {
-        console.warn('[GroupsGame] emoji module not ready, use fallback target');
-      }
+      console.warn('[GroupsGame] emoji module not ready, use fallback target');
       group = {
         id: 0,
         label: 'target',
@@ -308,7 +312,7 @@
 
     const el = document.createElement('a-entity');
 
-    // กระจายตำแหน่งทั่วกลางจอ
+    // กระจายตำแหน่งกลางจอ
     const x = -1.2 + Math.random() * 2.4;
     const y = 0.9 + Math.random() * 1.0;
     const z = -2.8 + Math.random() * 0.6;
@@ -324,10 +328,8 @@
     el.setAttribute('data-group-id', String(group.id));
     el.setAttribute('data-quest-target', isQuestTarget ? '1' : '0');
 
-    // ----- emoji / รูปภาพบนเป้า -----
-    // ----- emoji / รูปภาพบนเป้า -----
+    // ----- emoji บนเป้า (msdf text) -----
     if (group.img) {
-      // ถ้าในอนาคตมีรูป PNG/SVG ก็ใช้ช่องนี้ได้เลย
       const sprite = document.createElement('a-image');
       sprite.setAttribute('src', group.img);
       sprite.setAttribute('width', '0.7');
@@ -335,22 +337,23 @@
       sprite.setAttribute('position', '0 0 0.03');
       el.appendChild(sprite);
     } else if (group.emoji) {
-      // ใช้ text component ของ A-Frame วาด emoji ตัวใหญ่ ๆ กลางเป้า
       const label = document.createElement('a-entity');
       label.setAttribute('text', {
-        value: group.emoji,   // เช่น 🍚 🥦 🍉
+        value: group.emoji,
         align: 'center',
         anchor: 'center',
         baseline: 'center',
-        width: 3,             // ยิ่งมาก = ตัวใหญ่ขึ้น
-        color: '#ffffff'
+        width: 2.2,
+        color: '#ffffff',
+        shader: 'msdf',
+        font: 'https://cdn.aframe.io/fonts/mozillavr.fnt'
       });
       label.setAttribute('position', '0 0 0.03');
+      label.setAttribute('scale', '1 1 1');
       el.appendChild(label);
     }
 
-
-    // วงแหวนรอบ ๆ ถ้าเป็นเป้าภารกิจ
+    // วงแหวน highlight ถ้าเป็นเป้าภารกิจ
     if (isQuestTarget) {
       const ring = document.createElement('a-ring');
       ring.setAttribute('radius-inner', (radius + 0.05).toString());
@@ -391,11 +394,11 @@
     logEvent('spawn', {
       groupId: group.id,
       isQuestTarget: !!isQuestTarget,
-      pos: { x: x, y: y, z: z }
+      pos: { x, y, z }
     });
   };
 
-
+  // ---------- helpers for hit / miss ----------
   FoodGroupsGame.prototype.safeRemoveTarget = function (el) {
     const idx = this._targets.indexOf(el);
     if (idx !== -1) this._targets.splice(idx, 1);
@@ -468,7 +471,7 @@
     }
 
     logEvent('hit', {
-      groupId: groupId,
+      groupId,
       isQuestTarget: !!isQuestTarget,
       scoreDelta: gained,
       rtMs: rt,
@@ -527,7 +530,7 @@
     }
 
     logEvent('miss', {
-      groupId: groupId,
+      groupId,
       rtMs: rt,
       pos: worldPos
     });
@@ -535,6 +538,7 @@
     this.safeRemoveTarget(el);
   };
 
+  // ---------- A-Frame component ----------
   AFRAME.registerComponent('food-groups-game', {
     init: function () {
       this.game = new ns.FoodGroupsGame(this.el.sceneEl);
@@ -542,7 +546,7 @@
 
       this.el.sceneEl.addEventListener('fg-start', function (e) {
         const diff = (e.detail && e.detail.diff) || 'normal';
-        self.game.start({ diff: diff });
+        self.game.start({ diff });
       });
 
       this.el.sceneEl.addEventListener('fg-stop', function (e) {
