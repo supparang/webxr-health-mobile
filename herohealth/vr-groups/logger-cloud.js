@@ -7,128 +7,109 @@
 //     events:   [ { ... } ]
 //   }
 
-'use strict';
+(function (ns) {
+  'use strict';
 
-let CONFIG = {
-  endpoint: '',
-  projectTag: 'HeroHealth-GroupsVR',
-  debug: false
-};
-
-let sessionQueue = [];
-let eventQueue   = [];
-let flushTimer   = null;
-const FLUSH_DELAY = 2000; // ms
-
-// เรียกจาก groups-vr.html
-export function initCloudLogger(opts = {}) {
-  CONFIG = {
-    // ★ ใส่ default endpoint ของ WebApp ของคุณไว้ตรงนี้แล้ว ★
-    endpoint: (opts.endpoint || 'https://script.google.com/macros/s/AKfycbzHWEKSuPE_-qED_iMJKyQCfS5hfLGgB-NAX-lWFok6jMq2MlYzaGK9uF0PxRLYuVH6/exec').trim(),
-    projectTag: opts.projectTag || 'HeroHealth-GroupsVR',
-    debug: !!opts.debug
+  let CONFIG = {
+    endpoint: '',
+    projectTag: 'HeroHealth-GroupsVR',
+    debug: false
   };
 
-  if (!CONFIG.endpoint) {
-    console.warn('[HHA-Logger] no endpoint configured');
-    return;
+  // ---------- init จาก groups-vr.html ----------
+  // ตัวอย่างการเรียก:
+  // GAME_MODULES.foodGroupsCloudLogger.init({
+  //   endpoint: 'https://script.google.com/macros/s/XXXXX/exec',
+  //   projectTag: 'HeroHealth-GroupsVR',
+  //   debug: true
+  // });
+  function init(opts) {
+    opts = opts || {};
+    CONFIG.endpoint  = (opts.endpoint || '').trim();
+    CONFIG.projectTag = opts.projectTag || CONFIG.projectTag;
+    CONFIG.debug      = !!opts.debug;
+
+    if (!CONFIG.endpoint) {
+      console.warn('[GroupsVR CloudLogger] no endpoint configured');
+      return;
+    }
+
+    if (CONFIG.debug) {
+      console.log('[GroupsVR CloudLogger] init', CONFIG);
+    }
   }
 
-  // ฟัง event จาก GameEngine.js
-  window.addEventListener('hha:session', (e) => {
-    const s = (e && e.detail) || {};
-    sessionQueue.push(s);
-    if (CONFIG.debug) console.log('[HHA-Logger] queue session', s);
-    scheduleFlush();
-  });
-
-  window.addEventListener('hha:event', (e) => {
-    const ev = (e && e.detail) || {};
-    eventQueue.push(ev);
-    if (CONFIG.debug) console.log('[HHA-Logger] queue event', ev);
-    scheduleFlush();
-  });
-
-  // เวลาปิดแท็บ → พยายามส่งรอบสุดท้าย
-  window.addEventListener('beforeunload', () => {
-    if (!sessionQueue.length && !eventQueue.length) return;
-    trySendBeacon(true);
-  });
-
-  if (CONFIG.debug) {
-    console.log('[HHA-Logger] initCloudLogger', CONFIG);
+  // ---------- helper: สร้าง payload รวม ----------
+  function buildPayload(rawSession, rawEvents) {
+    return {
+      projectTag: CONFIG.projectTag,
+      sessions: rawSession ? [ rawSession ] : [],
+      events: Array.isArray(rawEvents) ? rawEvents : []
+    };
   }
-}
 
-function scheduleFlush() {
-  if (flushTimer) return;
-  flushTimer = setTimeout(() => {
-    flushTimer = null;
-    flush();
-  }, FLUSH_DELAY);
-}
+  // ---------- พยายามส่งด้วย sendBeacon ก่อน ----------
+  function trySendBeacon(payload) {
+    if (!navigator.sendBeacon) return false;
+    try {
+      const blob = new Blob([JSON.stringify(payload)], {
+        type: 'text/plain;charset=utf-8'
+      });
+      const ok = navigator.sendBeacon(CONFIG.endpoint, blob);
+      if (CONFIG.debug) {
+        console.log('[GroupsVR CloudLogger] sendBeacon', ok, payload);
+      }
+      return ok;
+    } catch (err) {
+      if (CONFIG.debug) {
+        console.warn('[GroupsVR CloudLogger] sendBeacon error', err);
+      }
+      return false;
+    }
+  }
 
-function flush() {
-  if (!CONFIG.endpoint) return;
-  if (!sessionQueue.length && !eventQueue.length) return;
+  // ---------- main: เรียกจาก GameEngine.endGame() ----------
+  async function send(rawSession, rawEvents) {
+    if (!CONFIG.endpoint) {
+      if (CONFIG.debug) console.warn('[GroupsVR CloudLogger] no endpoint');
+      return;
+    }
 
-  const payload = {
-    projectTag: CONFIG.projectTag,
-    sessions: sessionQueue.splice(0),
-    events:   eventQueue.splice(0)
+    const payload = buildPayload(rawSession, rawEvents || []);
+
+    if (CONFIG.debug) {
+      console.log('[GroupsVR CloudLogger] send payload', payload);
+    }
+
+    // 1) ลองใช้ sendBeacon ก่อน (ดีสำหรับตอนปิดแท็บ)
+    if (trySendBeacon(payload)) return;
+
+    // 2) ถ้าไม่ได้ ค่อย fallback เป็น fetch
+    try {
+      await fetch(CONFIG.endpoint, {
+        method: 'POST',
+        // ใช้ no-cors ให้ยิงออกได้ง่ายบน mobile/VR
+        mode: 'no-cors',
+        keepalive: true,
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (CONFIG.debug) {
+        console.log('[GroupsVR CloudLogger] sent payload via fetch');
+      }
+    } catch (err) {
+      if (CONFIG.debug) {
+        console.error('[GroupsVR CloudLogger] fetch error', err);
+      }
+    }
+  }
+
+  // export เข้า namespace กลาง
+  ns.foodGroupsCloudLogger = {
+    init,
+    send
   };
 
-  if (CONFIG.debug) {
-    console.log('[HHA-Logger] flush →', payload);
-  }
-
-  // 1) พยายามใช้ sendBeacon ก่อน (ไม่ติด CORS)
-  if (trySendBeacon(false, payload)) return;
-
-  // 2) ถ้าไม่ได้ ค่อย fallback เป็น fetch แบบ no-cors
-  try {
-    const body = JSON.stringify(payload);
-
-    fetch(CONFIG.endpoint, {
-      method: 'POST',
-      mode: 'no-cors', // ไม่อ่าน response, แค่ให้ยิงออกไป
-      keepalive: true,
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
-      body
-    }).then(() => {
-      if (CONFIG.debug) console.log('[HHA-Logger] sent payload (fetch no-cors)');
-    }).catch(err => {
-      if (CONFIG.debug) console.error('[HHA-Logger] fetch error', err);
-    });
-  } catch (err) {
-    if (CONFIG.debug) console.error('[HHA-Logger] outer error', err);
-  }
-}
-
-function trySendBeacon(force, payload) {
-  if (!navigator.sendBeacon) return false;
-
-  const data = payload || {
-    projectTag: CONFIG.projectTag,
-    sessions: sessionQueue.splice(0),
-    events:   eventQueue.splice(0)
-  };
-
-  if (!data.sessions.length && !data.events.length && !force) {
-    return false;
-  }
-
-  try {
-    const blob = new Blob([JSON.stringify(data)], { type: 'text/plain' });
-    const ok = navigator.sendBeacon(CONFIG.endpoint, blob);
-    if (CONFIG.debug) console.log('[HHA-Logger] sendBeacon', ok, data);
-    return ok;
-  } catch (err) {
-    if (CONFIG.debug) console.warn('[HHA-Logger] sendBeacon error → fallback fetch', err);
-    return false;
-  }
-}
-
-export default { initCloudLogger };
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
