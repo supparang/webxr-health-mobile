@@ -31,9 +31,13 @@
       border:none;border-radius:12px;
       padding:14px 28px;cursor:pointer;
       box-shadow:0 4px 15px rgba(34,197,94,.4);
-      transition:all .2s.ease;margin:8px;
+      transition:all .2s ease;margin:8px;
     }
     .game-button:hover{transform:translateY(-2px);}
+    .game-button.normal{
+      background:linear-gradient(145deg,#0ea5e9,#0284c7);
+      box-shadow:0 4px 15px rgba(56,189,248,.4);
+    }
     .game-button.hard{
       background:linear-gradient(145deg,#ef4444,#dc2626);
       box-shadow:0 4px 15px rgba(239,68,68,.4);
@@ -52,33 +56,38 @@
   </div>
 
   <!-- overlay เมนู + หน้าสรุป -->
-  <div style="text-align:center;color:#e5e7eb;font-family:'IBM Plex Sans Thai',sans-serif;">
-  
-  <h1 style="font-size:2.8rem;margin:0;">
-    🍱🍉🍟 <span style="font-weight:700;">Food Groups VR</span>
-    <span style="opacity:.7;font-size:1.4rem;">Hero Health</span>
-  </h1>
+  <div id="uiOverlay">
 
-  <p style="font-size:1.15rem;line-height:1.5;max-width:520px;margin:18px auto 10px;">
-    เล็งให้ตรงเป้า แล้วยิงปุ๊ง! 🎯 <br>
-    สะสมอาหาร <b>หมู่ 1–5</b> และ “พาวเวอร์อัปพิเศษ” 🍎✨ <br>
-    พยายามเลือกอาหารดี ๆ 🍇 แล้วทำคอมโบให้เยอะที่สุด!
-  </p>
+    <!-- ===== START SCREEN (สไตล์ GoodJunk) ===== -->
+    <div id="startScreen">
+      <div style="text-align:center;color:#e5e7eb;font-family:'IBM Plex Sans Thai',sans-serif;">
 
-  <div style="font-size:.95rem;opacity:.9;margin-bottom:12px;line-height:1.4;">
-    🍉 จับอาหารดีให้ได้เยอะ ๆ <br>
-    🕒 เกมยาว ~60 วินาที <br>
-    🎮 เล่นได้ทั้ง PC / Mobile / VR Headset
-  </div>
+        <h1 style="font-size:2.8rem;margin:0;">
+          🍱🍉🍟 <span style="font-weight:700;">Food Groups VR</span>
+          <span style="opacity:.7;font-size:1.4rem;">Hero Health</span>
+        </h1>
 
-  <div style="margin-top:20px;">
-    <button class="game-button" style="background:#22c55e;">🥗 ง่าย Easy</button>
-    <button class="game-button" style="background:#0ea5e9;">⚖️ ปกติ Normal</button>
-    <button class="game-button hard" style="background:#ef4444;">🔥 ท้าทาย Hard</button>
-  </div>
+        <p style="font-size:1.15rem;line-height:1.5;max-width:520px;margin:18px auto 10px;">
+          เล็งให้ตรงเป้า แล้วยิงปุ๊ง! 🎯 <br>
+          สะสมอาหาร <b>หมู่ 1–5</b> และ “พาวเวอร์อัปพิเศษ” 🍎✨ <br>
+          พยายามเลือกอาหารดี ๆ 🍇 แล้วทำคอมโบให้เยอะที่สุด!
+        </p>
 
-</div>
+        <div style="font-size:.95rem;opacity:.9;margin-bottom:12px;line-height:1.4;">
+          🍉 จับอาหารดีให้ได้เยอะ ๆ <br>
+          🕒 เกมยาว ~60 วินาที <br>
+          🎮 เล่นได้ทั้ง PC / Mobile / VR Headset
+        </div>
 
+        <div style="margin-top:20px;">
+          <button class="game-button" id="startButtonEasy">🥗 ง่าย Easy</button>
+          <button class="game-button normal" id="startButtonNormal">⚖️ ปกติ Normal</button>
+          <button class="game-button hard" id="startButtonHard">🔥 ท้าทาย Hard</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== RESULT SCREEN ===== -->
     <div id="resultsScreen" style="display:none;">
       <h2>เกมจบแล้ว!</h2>
       <h1 id="finalScore">Score: 0</h1>
@@ -91,15 +100,14 @@
 
       <button class="game-button" id="playAgainButton">เล่นอีกครั้ง</button>
     </div>
-  </div> <!-- ✅ ปิด uiOverlay ให้เรียบร้อย -->
+  </div> <!-- /#uiOverlay -->
 
   <!-- A-Frame scene -->
   <a-scene id="gameScene"
-  renderer="colorManagement: true; useLegacyLights: false"
-  loading-screen="dotsColor: white; backgroundColor: #0b1222"
-  background="color: #0b1222"
-  fg-input-adapter>
-
+    renderer="colorManagement: true; useLegacyLights: false"
+    loading-screen="dotsColor: white; backgroundColor: #0b1222"
+    background="color: #0b1222"
+    fg-input-adapter>
 
     <a-sky color="#020617"></a-sky>
 
@@ -129,43 +137,40 @@
     </a-entity>
   </a-scene>
 
-  <!-- โมดูลเกม Groups -->
-<script>
-  window.GAME_MODULES = window.GAME_MODULES || {};
-</script>
+  <!-- namespace กลาง -->
+  <script>
+    window.GAME_MODULES = window.GAME_MODULES || {};
+  </script>
 
-<!-- โมดูล logger & audio (ใหม่) -->
-<script src="./vr-groups/logger-cloud.js"></script>
-<script src="./vr-groups/audio.js"></script>
-
-<script src="./vr-groups/ui-fever.js"></script>
-<script src="./vr-groups/coach.js"></script>
-<script src="./vr-groups/difficulty.js"></script>
-<script src="./vr-groups/emoji-image.js"></script>
-<script src="./vr-groups/aframe-particles.js"></script>
-<script src="./vr-groups/quest-serial.js"></script>
-
-<!-- ⭐ auto select input แบบ Goodjunk -->
-<script src="./vr-groups/input-adapter.js"></script>
-
-<script src="./vr-groups/GameEngine.js"></script>
-<script src="./vr-groups/launcher-groups.js"></script>
-
-
-  <!-- โมดูล logger & audio (ใหม่) -->
+  <!-- โมดูล logger & audio -->
   <script src="./vr-groups/logger-cloud.js"></script>
   <script src="./vr-groups/audio.js"></script>
 
-<audio id="fgSfxHit"   src="./audio/hit.mp3"   preload="auto"></audio>
-<audio id="fgSfxMiss"  src="./audio/miss.mp3"  preload="auto"></audio>
-<audio id="fgSfxQuest" src="./audio/quest.mp3" preload="auto"></audio>
-  
+  <!-- โมดูลเกม Groups -->
+  <script src="./vr-groups/ui-fever.js"></script>
+  <script src="./vr-groups/coach.js"></script>
+  <script src="./vr-groups/difficulty.js"></script>
+  <script src="./vr-groups/emoji-image.js"></script>
+  <script src="./vr-groups/aframe-particles.js"></script>
+  <script src="./vr-groups/quest-serial.js"></script>
+
+  <!-- auto select input แบบ GoodJunk -->
+  <script src="./vr-groups/input-adapter.js"></script>
+
+  <script src="./vr-groups/GameEngine.js"></script>
+  <script src="./vr-groups/launcher-groups.js"></script>
+
+  <!-- เสียงเอฟเฟกต์ -->
+  <audio id="fgSfxHit"   src="./audio/hit.mp3"   preload="auto"></audio>
+  <audio id="fgSfxMiss"  src="./audio/miss.mp3"  preload="auto"></audio>
+  <audio id="fgSfxQuest" src="./audio/quest.mp3" preload="auto"></audio>
+
   <!-- ตั้งค่า endpoint ของ Google Apps Script ตรงนี้ -->
   <script>
     (function () {
       if (!window.GAME_MODULES || !GAME_MODULES.foodGroupsCloudLogger) return;
       GAME_MODULES.foodGroupsCloudLogger.init({
-        endpoint: 'https://script.google.com/macros/s/AKfycbzEW94iBXISShedudnv-vE0k0_gDkiGtU8r2yatyr_sj4l8dRDhgxgjU6rGyyv0Yh7p/exec', // ⭐ ใส่ WebApp URL ของคุณ
+        endpoint: 'https://script.google.com/macros/s/AKfycbzEW94iBXISShedudnv-vE0k0_gDkiGtU8r2yatyr_sj4l8dRDhgxgjU6rGyyv0Yh7p/exec',
         projectTag: 'HeroHealth-GroupsVR'
       });
     })();
