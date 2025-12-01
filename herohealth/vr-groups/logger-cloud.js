@@ -3,7 +3,7 @@
   'use strict';
 
   const CloudLogger = {
-    endpoint: '',
+    endpoint: 'https://script.google.com/macros/s/AKfycbzEW94iBXISShedudnv-vE0k0_gDkiGtU8r2yatyr_sj4l8dRDhgxgjU6rGyyv0Yh7p/exec',
     projectTag: 'HeroHealth-GroupsVR',
 
     init(opts) {
