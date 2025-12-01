@@ -13,33 +13,36 @@
     if (opts.projectTag) CONFIG.projectTag = opts.projectTag;
   }
 
-  // แปลง rawSession จากเกม -> ฟอร์แมตที่ Apps Script ต้องการ
-  function adaptSession(raw) {
-    raw = raw || {};
+  // สร้าง session object ให้ตรงกับ Apps Script
+  function buildSessionPayload(rawSession, rawEvents) {
+    rawSession = rawSession || {};
+    rawEvents = rawEvents || [];
 
-    const durationMs =
-      raw.durationMs != null ? raw.durationMs :
-      (raw.gameDurationMs != null ? raw.gameDurationMs : null);
+    // ดึง duration เป็นวินาที
+    const durationMs = rawSession.durationMs || null;
+    const gameDurationSec = durationMs ? Math.round(durationMs / 1000) : '';
 
-    // นับสถิติพื้นฐานจาก events ใน window.HHA_FOODGROUPS_LOG ถ้ามี
-    const evLog = (window.HHA_FOODGROUPS_LOG || []).filter(ev =>
-      ev.type === 'hit' || ev.type === 'miss'
-    );
+    // คำนวณสถิติจาก events (hit/miss) ถ้ามี
+    let hitCount = 0;
+    let totalShots = 0;
+    let sumRT = 0;
+    let rtN = 0;
+    let goodCount = 0;
+    let badCount = 0;
 
-    let goodCount = 0, badCount = 0, hitCount = 0, totalShots = 0;
-    let sumRT = 0, rtN = 0;
-
-    evLog.forEach(ev => {
-      if (ev.isGood === true) goodCount++;
-      if (ev.isGood === false) badCount++;
-
+    rawEvents.forEach(ev => {
       if (ev.type === 'hit' || ev.type === 'miss') {
         totalShots++;
         if (ev.type === 'hit') hitCount++;
-      }
-      if (typeof ev.rtMs === 'number') {
-        sumRT += ev.rtMs;
-        rtN++;
+
+        if (typeof ev.rtMs === 'number') {
+          sumRT += ev.rtMs;
+          rtN++;
+        }
+
+        // ถ้ามี isGood ใน log ก็เก็บ ไม่มีก็จะเป็น 0 ทั้งคู่ (ไปแมปจาก groupId ทีหลังได้)
+        if (ev.isGood === true) goodCount++;
+        if (ev.isGood === false) badCount++;
       }
     });
 
@@ -47,61 +50,65 @@
     const avgRT = rtN > 0 ? Math.round(sumRT / rtN) : 0;
 
     return {
-      // ❗ ชื่อฟิลด์ให้ตรงกับ Apps Script
-      sessionId: raw.sessionId || raw.sid || '',
-      playerId: raw.playerId || raw.playerName || '',
-      deviceType: raw.deviceType || '',
-      difficulty: raw.difficulty || raw.diff || '',
-      gameDuration: raw.gameDuration || (durationMs ? Math.round(durationMs / 1000) : ''),
-      totalScore: raw.totalScore != null ? raw.totalScore : (raw.score || 0),
-      questCompleted: raw.questCompleted != null ? raw.questCompleted : (raw.questsCleared || 0),
-      questList: raw.questList || raw.quests || [],
+      // ❗ชื่อฟิลด์ให้ตรงกับ Apps Script
+      sessionId: rawSession.sessionId || rawSession.sid || '',
+      playerId: rawSession.playerName || rawSession.playerClass || '',
+      deviceType: rawSession.deviceType || '',
+      difficulty: rawSession.diff || rawSession.difficulty || '',
+      gameDuration: gameDurationSec,
+      totalScore: rawSession.score != null ? rawSession.score : 0,
+      questCompleted: rawSession.questsCleared != null ? rawSession.questsCleared : 0,
+      questList: rawSession.questList || [],
+
       goodCount: goodCount,
       badCount: badCount,
       hitRate: hitRate,
       avgRT: avgRT,
 
-      // เก็บข้อมูลดิบอื่น ๆ เพิ่มได้
-      mode: raw.mode || 'groups-vr',
-      startedAt: raw.startedAt || null,
-      endedAt: raw.endedAt || null
+      // เก็บเพิ่มไว้ใน rawSession เผื่อใช้ทีหลัง
+      mode: rawSession.mode || 'groups-vr',
+      startedAt: rawSession.startedAt || null,
+      endedAt: rawSession.endedAt || null
     };
   }
 
-  // แปลง event log ในเกม -> ฟอร์แมตที่ Apps Script ต้องการ
-  function adaptEvents(sessionId) {
-    const rawEvents = window.HHA_FOODGROUPS_LOG || [];
-    const list = [];
+  // สร้าง events list ให้ตรง Apps Script
+  function buildEventsPayload(rawSession, rawEvents) {
+    const sid = rawSession.sessionId || rawSession.sid || '';
+    const out = [];
 
     rawEvents.forEach(ev => {
       if (ev.type !== 'hit' && ev.type !== 'miss') return;
 
-      list.push({
-        sessionId: sessionId,
+      out.push({
+        // timestamp จะให้ Apps Script เติมเอง (new Date())
+        sessionId: sid,
         groupId: ev.groupId || '',
-        emoji: ev.emoji || '',          // ถ้ามี emoji ใน log
-        isGood: ev.isGood,              // true / false / undefined
+        emoji: ev.emoji || '',          // ตอนนี้ยังไม่มีใน log, ปล่อยว่างไว้ได้
+        isGood: ev.isGood,              // ตอนนี้อาจเป็น undefined ทั้งหมด
         isQuestTarget: !!ev.isQuestTarget,
-        hitOrMiss: ev.type,             // 'hit' หรือ 'miss'
+        hitOrMiss: ev.type,             // 'hit' | 'miss'
         rtMs: ev.rtMs != null ? ev.rtMs : null,
         scoreDelta: ev.scoreDelta != null ? ev.scoreDelta : 0,
         pos: ev.pos || null
       });
     });
 
-    return list;
+    return out;
   }
 
-  async function send(rawSession) {
+  async function send(rawSession, rawEvents) {
     if (!CONFIG.endpoint) return;
 
-    const sess = adaptSession(rawSession || {});
-    const events = adaptEvents(sess.sessionId);
+    rawEvents = rawEvents || [];
+
+    const sessionPayload = buildSessionPayload(rawSession, rawEvents);
+    const eventsPayload = buildEventsPayload(rawSession, rawEvents);
 
     const payload = {
       projectTag: CONFIG.projectTag,
-      session: sess,
-      events: events
+      session: sessionPayload,
+      events: eventsPayload
     };
 
     try {
