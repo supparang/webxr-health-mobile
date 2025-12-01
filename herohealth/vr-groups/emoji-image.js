@@ -1,110 +1,59 @@
 // vr-groups/emoji-image.js
-// ข้อมูลหมู่อาหาร 1–5 + ลิงก์รูป emoji (Twemoji) สำหรับใช้บนเป้า
+// เก็บ emoji ของอาหารแต่ละหมู่ + helper ให้ GameEngine ใช้
 
 (function (ns) {
   'use strict';
 
   ns = ns || (window.GAME_MODULES = window.GAME_MODULES || {});
 
-  const T_BASE = 'https://twemoji.maxcdn.com/v/latest/svg/';
+  // ใช้ไอเดียเหมือน GOOD / BAD ใน Hydration
+  const G1 = ['🍚', '🍙', '🍞', '🥖', '🥨'];            // หมู่ 1 ข้าว-แป้ง
+  const G2 = ['🍗', '🥚', '🥩', '🍣', '🥜'];            // หมู่ 2 เนื้อ-โปรตีน
+  const G3 = ['🥦', '🥕', '🥒', '🧄', '🧅'];            // หมู่ 3 ผัก
+  const G4 = ['🍎', '🍌', '🍉', '🍇', '🍓'];            // หมู่ 4 ผลไม้
+  const G5 = ['🥛', '🧀', '🍦', '🍨', '🍧'];            // หมู่ 5 นม-ผลิตภัณฑ์นม
 
-  const GROUP_TYPES = [
-    {
-      id: 1,
-      label: 'หมู่ 1 ข้าว-แป้ง',
-      color: '#22c55e',
-      emoji: '🍚',
-      img: T_BASE + '1f35a.svg',
-      emojis: [
-        { emoji: '🍚', img: T_BASE + '1f35a.svg' },
-        { emoji: '🍙', img: T_BASE + '1f359.svg' },
-        { emoji: '🍞', img: T_BASE + '1f35e.svg' },
-        { emoji: '🥖', img: T_BASE + '1f956.svg' },
-        { emoji: '🥨', img: T_BASE + '1f968.svg' }
-      ]
-    },
-    {
-      id: 2,
-      label: 'หมู่ 2 เนื้อ-โปรตีน',
-      color: '#eab308',
-      emoji: '🍗',
-      img: T_BASE + '1f357.svg',
-      emojis: [
-        { emoji: '🍗', img: T_BASE + '1f357.svg' },
-        { emoji: '🥚', img: T_BASE + '1f95a.svg' },
-        { emoji: '🥩', img: T_BASE + '1f969.svg' },
-        { emoji: '🍣', img: T_BASE + '1f363.svg' },
-        { emoji: '🥜', img: T_BASE + '1f95c.svg' }
-      ]
-    },
-    {
-      id: 3,
-      label: 'หมู่ 3 ผัก',
-      color: '#16a34a',
-      emoji: '🥦',
-      img: T_BASE + '1f966.svg',
-      emojis: [
-        { emoji: '🥦', img: T_BASE + '1f966.svg' },
-        { emoji: '🥕', img: T_BASE + '1f955.svg' },
-        { emoji: '🥒', img: T_BASE + '1f952.svg' },
-        { emoji: '🧄', img: T_BASE + '1f9c4.svg' },
-        { emoji: '🧅', img: T_BASE + '1f9c5.svg' }
-      ]
-    },
-    {
-      id: 4,
-      label: 'หมู่ 4 ผลไม้',
-      color: '#f97316',
-      emoji: '🍎',
-      img: T_BASE + '1f34e.svg',
-      emojis: [
-        { emoji: '🍎', img: T_BASE + '1f34e.svg' },
-        { emoji: '🍌', img: T_BASE + '1f34c.svg' },
-        { emoji: '🍉', img: T_BASE + '1f349.svg' },
-        { emoji: '🍇', img: T_BASE + '1f347.svg' },
-        { emoji: '🍓', img: T_BASE + '1f353.svg' }
-      ]
-    },
-    {
-      id: 5,
-      label: 'หมู่ 5 นม-ผลิตภัณฑ์นม',
-      color: '#38bdf8',
-      emoji: '🥛',
-      img: T_BASE + '1f95b.svg',
-      emojis: [
-        { emoji: '🥛', img: T_BASE + '1f95b.svg' },
-        { emoji: '🧀', img: T_BASE + '1f9c0.svg' },
-        { emoji: '🍦', img: T_BASE + '1f366.svg' },
-        { emoji: '🍨', img: T_BASE + '1f368.svg' },
-        { emoji: '🍧', img: T_BASE + '1f367.svg' }
-      ]
-    }
+  const GROUPS = [
+    { id: 1, label: 'หมู่ 1 ข้าว-แป้ง',       color: '#22c55e', emojiList: G1, legendEmoji: '🍚' },
+    { id: 2, label: 'หมู่ 2 เนื้อ-โปรตีน',    color: '#eab308', emojiList: G2, legendEmoji: '🍗' },
+    { id: 3, label: 'หมู่ 3 ผัก',             color: '#16a34a', emojiList: G3, legendEmoji: '🥦' },
+    { id: 4, label: 'หมู่ 4 ผลไม้',           color: '#f97316', emojiList: G4, legendEmoji: '🍎' },
+    { id: 5, label: 'หมู่ 5 นม-ผลิตภัณฑ์นม',  color: '#38bdf8', emojiList: G5, legendEmoji: '🥛' }
   ];
 
-  // สุ่มเมนูย่อยในหมู่
-  function pickRandomGroup() {
-    if (!GROUP_TYPES.length) return null;
-    const t = GROUP_TYPES[Math.floor(Math.random() * GROUP_TYPES.length)];
-    const list = t.emojis && t.emojis.length ? t.emojis : [{ emoji: t.emoji, img: t.img }];
-    const item = list[Math.floor(Math.random() * list.length)];
+  function pickRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
 
+  // ใช้ตอน spawn เป้า
+  function pickRandomGroup() {
+    const g = pickRandom(GROUPS);
     return {
-      id: t.id,
-      label: t.label,
-      color: t.color,
-      emoji: item.emoji,
-      img: item.img
+      id: g.id,
+      label: g.label,
+      color: g.color,
+      emoji: pickRandom(g.emojiList),  // ตัวที่จะขึ้นบนเป้าจริง
+      img: null                         // ไม่ใช้รูปภาพแล้ว
     };
   }
 
   function getGroupTypeById(id) {
     id = parseInt(id, 10);
-    return GROUP_TYPES.find(g => g.id === id) || null;
+    return GROUPS.find(g => g.id === id) || null;
   }
 
+  // ใช้กับ legend + groupStats: ให้มี emoji ตัวแทน 1 ตัวต่อหมู่
+  const ALL_FOR_LEGEND = GROUPS.map(g => ({
+    id: g.id,
+    label: g.label,
+    color: g.color,
+    emoji: g.legendEmoji,
+    img: null
+  }));
+
   ns.foodGroupsEmoji = {
-    all: GROUP_TYPES,   // legend + groupStats
-    types: GROUP_TYPES,
+    all: ALL_FOR_LEGEND,
+    groups: GROUPS,
     pickRandomGroup,
     getGroupTypeById
   };
