@@ -1,11 +1,11 @@
 // vr-groups/logger-cloud.js
 // ส่งข้อมูลเกม Food Groups VR ขึ้น Google Apps Script แบบ "GoodJunk style"
 // payload:
-//   {
-//     projectTag: 'HeroHealth-GroupsVR',
-//     sessions: [ { ... } ],
-//     events:   [ { ... } ]
-//   }
+// {
+//   projectTag: 'HeroHealth-GroupsVR',
+//   sessions: [ { ... } ],
+//   events:   [ { ... } ]
+// }
 
 (function (ns) {
   'use strict';
@@ -13,23 +13,28 @@
   ns = ns || (window.GAME_MODULES = window.GAME_MODULES || {});
 
   let CONFIG = {
-    endpoint: '',
+    endpoint: '',                     // ★ ให้กำหนดผ่าน init() เท่านั้น
     projectTag: 'HeroHealth-GroupsVR',
     debug: false
   };
 
   function init(opts) {
     opts = opts || {};
-    CONFIG.endpoint = (opts.endpoint || '').trim();
-    if (opts.projectTag) CONFIG.projectTag = opts.projectTag;
-    if (typeof opts.debug === 'boolean') CONFIG.debug = opts.debug;
-    if (CONFIG.debug) console.log('[GroupsVR Logger] init', CONFIG);
+    CONFIG.endpoint  = (opts.endpoint || '').trim();
+    CONFIG.projectTag = opts.projectTag || CONFIG.projectTag;
+    CONFIG.debug      = !!opts.debug;
+
+    if (!CONFIG.endpoint) {
+      console.warn('[GroupsVR Logger] NO endpoint configured');
+    } else if (CONFIG.debug) {
+      console.log('[GroupsVR Logger] init', CONFIG);
+    }
   }
 
-  // ===== helper: สร้าง payload ของ session ให้ตรง Apps Script (แบบ GoodJunk) =====
+  // ===== helper: สร้าง payload ของ session =====
   function buildSessionPayload(rawSession, rawEvents) {
     rawSession = rawSession || {};
-    rawEvents = rawEvents || [];
+    rawEvents  = rawEvents || [];
 
     const durationMs = rawSession.durationMs || null;
     const gameDurationSec = durationMs ? Math.round(durationMs / 1000) : '';
@@ -51,29 +56,29 @@
     });
 
     const hitRate = totalShots > 0 ? hitCount / totalShots : 0;
-    const avgRT = rtN > 0 ? Math.round(sumRT / rtN) : 0;
+    const avgRT   = rtN > 0 ? Math.round(sumRT / rtN) : 0;
 
     const goodCount = hitCount;
-    const badCount = totalShots - hitCount;
+    const badCount  = totalShots - hitCount;
 
     return {
-      sessionId: rawSession.sessionId || rawSession.sid || '',
-      playerId: rawSession.playerName || rawSession.playerClass || '',
-      deviceType: rawSession.deviceType || '',
-      difficulty: rawSession.diff || rawSession.difficulty || '',
+      sessionId:   rawSession.sessionId || rawSession.sid || '',
+      playerId:    rawSession.playerName || rawSession.playerClass || '',
+      deviceType:  rawSession.deviceType || '',
+      difficulty:  rawSession.diff || rawSession.difficulty || '',
       gameDuration: gameDurationSec,
-      totalScore: rawSession.score != null ? rawSession.score : 0,
+      totalScore:  rawSession.score != null ? rawSession.score : 0,
       questCompleted: rawSession.questsCleared != null ? rawSession.questsCleared : 0,
-      questList: rawSession.questList || [],
+      questList:   rawSession.questList || [],
 
       goodCount,
       badCount,
       hitRate,
       avgRT,
 
-      mode: rawSession.mode || 'groups-vr',
-      startedAt: rawSession.startedAt || null,
-      endedAt: rawSession.endedAt || null,
+      mode:       rawSession.mode || 'groups-vr',
+      startedAt:  rawSession.startedAt || null,
+      endedAt:    rawSession.endedAt || null,
       groupStats: rawSession.groupStats || null
     };
   }
@@ -86,15 +91,15 @@
     (rawEvents || []).forEach(ev => {
       if (ev.type !== 'hit' && ev.type !== 'miss') return;
       out.push({
-        sessionId: sid,
-        groupId: ev.groupId || '',
-        emoji: ev.emoji || '',
-        isGood: ev.isGood,
+        sessionId:    sid,
+        groupId:      ev.groupId || '',
+        emoji:        ev.emoji || '',
+        isGood:       ev.isGood,
         isQuestTarget: !!ev.isQuestTarget,
-        hitOrMiss: ev.type,
-        rtMs: ev.rtMs != null ? ev.rtMs : null,
-        scoreDelta: ev.scoreDelta != null ? ev.scoreDelta : 0,
-        pos: ev.pos || null
+        hitOrMiss:    ev.type,                  // 'hit' / 'miss'
+        rtMs:         ev.rtMs != null ? ev.rtMs : null,
+        scoreDelta:   ev.scoreDelta != null ? ev.scoreDelta : 0,
+        pos:          ev.pos || null
       });
     });
 
@@ -102,18 +107,23 @@
   }
 
   async function send(rawSession, rawEvents) {
-    if (!CONFIG.endpoint) return;
+    if (!CONFIG.endpoint) {
+      if (CONFIG.debug) console.warn('[GroupsVR Logger] no endpoint, skip send');
+      return;
+    }
 
     const sessionPayload = buildSessionPayload(rawSession, rawEvents);
-    const eventsPayload = buildEventsPayload(rawSession, rawEvents);
+    const eventsPayload  = buildEventsPayload(rawSession, rawEvents);
 
     const payload = {
       projectTag: CONFIG.projectTag,
       sessions: [sessionPayload],
-      events: eventsPayload
+      events:   eventsPayload
     };
 
-    if (CONFIG.debug) console.log('[GroupsVR Logger] send →', payload);
+    if (CONFIG.debug) {
+      console.log('[GroupsVR Logger] send →', payload);
+    }
 
     try {
       await fetch(CONFIG.endpoint, {
@@ -126,8 +136,5 @@
     }
   }
 
-  ns.foodGroupsCloudLogger = {
-    init,
-    send
-  };
+  ns.foodGroupsCloudLogger = { init, send };
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
