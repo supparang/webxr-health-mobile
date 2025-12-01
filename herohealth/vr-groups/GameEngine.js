@@ -269,16 +269,37 @@
   };
 
   FoodGroupsGame.prototype.spawnTarget = function () {
-    if (this.state !== 'playing' || !ns.foodGroupsEmoji) return;
+    if (this.state !== 'playing') return;
 
     const cfg = this.cfg || {};
     const maxActive = cfg.maxActive || 5;
 
+    // ถ้าเป้าในจอถึงจำนวนสูงสุดแล้ว ยังไม่สร้างเพิ่ม
     if (this._targets.length >= maxActive) {
       return;
     }
 
-    const group = ns.foodGroupsEmoji.pickRandomGroup();
+    // ===== เลือก group แบบปลอดภัย =====
+    let group = null;
+
+    if (ns.foodGroupsEmoji && ns.foodGroupsEmoji.pickRandomGroup) {
+      group = ns.foodGroupsEmoji.pickRandomGroup();
+    }
+
+    // fallback ถ้า emoji module พัง หรือคืนค่าไม่ได้
+    if (!group) {
+      if (CONFIG && CONFIG.debug) {
+        console.warn('[GroupsGame] emoji module not ready, use fallback target');
+      }
+      group = {
+        id: 0,
+        label: 'target',
+        emoji: '🎯',
+        color: '#22c55e',
+        img: null
+      };
+    }
+
     const currentQuest =
       this.questManager && this.questManager.getCurrent
         ? this.questManager.getCurrent()
@@ -287,6 +308,7 @@
 
     const el = document.createElement('a-entity');
 
+    // กระจายตำแหน่งทั่วกลางจอ
     const x = -1.2 + Math.random() * 2.4;
     const y = 0.9 + Math.random() * 1.0;
     const z = -2.8 + Math.random() * 0.6;
@@ -295,13 +317,14 @@
     el.setAttribute('geometry', `primitive: circle; radius: ${radius}; segments: 64`);
     el.setAttribute(
       'material',
-      `color: ${group.color}; shader: flat; opacity: 0.95; transparent: true`
+      `color: ${group.color || '#22c55e'}; shader: flat; opacity: 0.95; transparent: true`
     );
     el.setAttribute('position', `${x} ${y} ${z}`);
     el.setAttribute('data-hha-tgt', '1');
     el.setAttribute('data-group-id', String(group.id));
     el.setAttribute('data-quest-target', isQuestTarget ? '1' : '0');
 
+    // ----- emoji / รูปภาพบนเป้า -----
     if (group.img) {
       const sprite = document.createElement('a-image');
       sprite.setAttribute('src', group.img);
@@ -309,8 +332,18 @@
       sprite.setAttribute('height', '0.65');
       sprite.setAttribute('position', '0 0 0.02');
       el.appendChild(sprite);
+    } else if (group.emoji) {
+      // ถ้าอยากให้มี emoji ติดกลางเป้าแบบ fallback
+      const sprite = document.createElement('a-text');
+      sprite.setAttribute('value', group.emoji);
+      sprite.setAttribute('align', 'center');
+      sprite.setAttribute('color', '#ffffff');
+      sprite.setAttribute('width', '3');
+      sprite.setAttribute('position', '0 0 0.02');
+      el.appendChild(sprite);
     }
 
+    // วงแหวนรอบ ๆ ถ้าเป็นเป้าภารกิจ
     if (isQuestTarget) {
       const ring = document.createElement('a-ring');
       ring.setAttribute('radius-inner', (radius + 0.05).toString());
@@ -354,6 +387,7 @@
       pos: { x: x, y: y, z: z }
     });
   };
+
 
   FoodGroupsGame.prototype.safeRemoveTarget = function (el) {
     const idx = this._targets.indexOf(el);
