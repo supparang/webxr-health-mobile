@@ -2,13 +2,28 @@
 (function (ns) {
   'use strict';
 
-  // ---- logger ง่าย ๆ เก็บลง array ใน window ----
+  // ---- ตรวจชนิดอุปกรณ์ ----
+  function detectDeviceType() {
+    try {
+      if (window.AFRAME && AFRAME.utils && AFRAME.utils.device) {
+        const d = AFRAME.utils.device;
+        if (d.isMobileVR()) return 'mobile-vr';
+        if (d.isMobile()) return 'mobile';
+        return 'desktop';
+      }
+    } catch (e) {}
+    const ua = navigator.userAgent || '';
+    if (/Mobile|Android|iPhone|iPad/i.test(ua)) return 'mobile';
+    return 'desktop';
+  }
+
+  // ---- logger ลง memory ----
   function logEvent(type, detail) {
     try {
       const arr = (window.HHA_FOODGROUPS_LOG = window.HHA_FOODGROUPS_LOG || []);
       arr.push(Object.assign({ ts: Date.now(), type: type }, detail));
     } catch (e) {
-      // เงียบไป ไม่ให้เกมพัง
+      // เงียบ
     }
   }
 
@@ -25,8 +40,11 @@
     this._spawnTimer = null;
     this._gameTimer = null;
     this._timeInterval = null;
-    this._startTime = 0;
+    this._startPerfTime = 0;
+    this._startWallTime = 0;
 
+    this.deviceType = detectDeviceType();
+    this.session = ns.foodGroupsSession || {};
     this.groupStats = {};
     this.resetGroupStats();
 
@@ -49,6 +67,10 @@
             });
           } else if (ns.foodGroupsCoach && ns.foodGroupsCoach.sayQuest) {
             ns.foodGroupsCoach.sayQuest(quest, progress || 0);
+          }
+
+          if (justFinished && finishedQuest && ns.foodGroupsAudio) {
+            ns.foodGroupsAudio.playQuest();
           }
         })
       : null;
@@ -98,6 +120,9 @@
       this.cfg = ns.foodGroupsDifficulty.get(this.diff);
     }
 
+    // reset log memory สำหรับ session นี้
+    window.HHA_FOODGROUPS_LOG = [];
+
     this.state = 'playing';
     this.score = 0;
     this.clearTimers();
@@ -121,12 +146,13 @@
     }
 
     const duration = this.cfg.duration || 60000;
-    const startTime = performance.now();
-    this._startTime = startTime;
+    const startPerf = performance.now();
+    this._startPerfTime = startPerf;
+    this._startWallTime = Date.now();
 
     const self = this;
     this._timeInterval = setInterval(function () {
-      const elapsed = performance.now() - startTime;
+      const elapsed = performance.now() - startPerf;
       const remain = Math.max(0, duration - elapsed);
       if (ns.foodGroupsUI && ns.foodGroupsUI.setTime) {
         ns.foodGroupsUI.setTime(Math.ceil(remain / 1000));
@@ -137,7 +163,13 @@
       self.endGame('timeout');
     }, duration);
 
-    logEvent('start', { diff: this.diff });
+    logEvent('start', {
+      diff: this.diff,
+      deviceType: this.deviceType,
+      sessionId: this.session.sessionId || null,
+      playerName: this.session.playerName || null,
+      playerClass: this.session.playerClass || null
+    });
 
     this.scheduleNextSpawn();
   };
@@ -158,12 +190,36 @@
       ? this.questManager.getClearedCount()
       : 0;
 
+    const endTime = Date.now();
+    const durationMs = endTime - (this._startWallTime || endTime);
+
     logEvent('end', {
       diff: this.diff,
       score: this.score,
       questsCleared: questsCleared,
       reason: reason || 'end'
     });
+
+    // ----- สร้าง summary สำหรับส่งขึ้น Cloud -----
+    const sessionSummary = {
+      mode: 'groups-vr',
+      diff: this.diff,
+      deviceType: this.deviceType,
+      score: this.score,
+      questsCleared: questsCleared,
+      startedAt: this._startWallTime || null,
+      endedAt: endTime,
+      durationMs: durationMs,
+      sessionId: this.session.sessionId || null,
+      playerName: this.session.playerName || null,
+      playerClass: this.session.playerClass || null
+    };
+
+    const events = (window.HHA_FOODGROUPS_LOG || []).slice();
+
+    if (ns.foodGroupsCloudLogger && ns.foodGroupsCloudLogger.send) {
+      ns.foodGroupsCloudLogger.send(sessionSummary, events);
+    }
 
     this.sceneEl.emit('fg-game-over', {
       score: this.score,
@@ -322,6 +378,10 @@
       ns.foodGroupsFx.burst(wp);
     }
 
+    if (ns.foodGroupsAudio) {
+      ns.foodGroupsAudio.playHit();
+    }
+
     logEvent('hit', {
       groupId: groupId,
       isQuestTarget: !!isQuestTarget,
@@ -344,6 +404,9 @@
           text: 'MISS'
         });
       }
+      if (ns.foodGroupsAudio) {
+        ns.foodGroupsAudio.playMiss();
+      }
     }
 
     const groupId = parseInt(
@@ -361,10 +424,10 @@
     this.safeRemoveTarget(el);
   };
 
-  // ----- ลงทะเบียน A-Frame component -----
+  // ----- A-Frame component -----
   AFRAME.registerComponent('food-groups-game', {
     init: function () {
-      this.game = new FoodGroupsGame(this.el.sceneEl);
+      this.game = new ns.FoodGroupsGame(this.el.sceneEl);
       const self = this;
 
       this.el.sceneEl.addEventListener('fg-start', function (e) {
