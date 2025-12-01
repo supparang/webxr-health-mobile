@@ -19,6 +19,8 @@
     opts = opts || {};
     CONFIG.endpoint = (opts.endpoint || '').trim();
     if (opts.projectTag) CONFIG.projectTag = opts.projectTag;
+
+    console.log('[GroupsVR CloudLogger] init', CONFIG);
   }
 
   // ===== helper: สร้าง payload ของ session ให้ตรงกับ Apps Script =====
@@ -106,7 +108,10 @@
 
   // ===== main: เรียกจาก GameEngine.endGame() =====
   async function send(rawSession, rawEvents) {
-    if (!CONFIG.endpoint) return;
+    if (!CONFIG.endpoint) {
+      console.warn('[GroupsVR CloudLogger] no endpoint configured');
+      return;
+    }
 
     rawEvents = rawEvents || [];
 
@@ -119,12 +124,18 @@
       events: eventsPayload
     };
 
+    // log ฝั่ง client ไว้ดูใน DevTools
+    console.log('[GroupsVR CloudLogger] sending payload', payload);
+
     try {
-      await fetch(CONFIG.endpoint, {
+      const res = await fetch(CONFIG.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+
+      const text = await res.text();
+      console.log('[GroupsVR CloudLogger] response', res.status, text);
     } catch (err) {
       console.warn('[GroupsVR CloudLogger] send error', err);
     }
