@@ -222,8 +222,8 @@
     /* ===== HUD คะแนน/เวลา/คอมโบ/พลาด (ฝั่งซ้ายบน) ===== */
     #hhaHudVR{
       position:fixed;
-      left:12px;
-      top:12px;
+      left:calc(12px + env(safe-area-inset-left, 0px));
+      top:calc(12px + env(safe-area-inset-top, 0px));
       z-index:950;
       padding:8px 12px;
       border-radius:14px;
@@ -251,8 +251,8 @@
 
     @media (max-width:640px){
       #hhaHudVR{
-        left:8px;
-        top:8px;
+        left:calc(8px + env(safe-area-inset-left, 0px));
+        top:calc(8px + env(safe-area-inset-top, 0px));
         padding:6px 9px;
         font-size:12px;
       }
@@ -262,8 +262,8 @@
     /* ===== QUEST HUD (Goal + Mini + Grade bar) ===== */
     #questHudVR{
       position:fixed;
-      right:12px;
-      top:80px;
+      right:calc(12px + env(safe-area-inset-right, 0px));
+      top:calc(80px + env(safe-area-inset-top, 0px));
       z-index:960;
       max-width:260px;
       padding:10px 12px;
@@ -338,7 +338,7 @@
       transition:width .2s ease-out;
     }
 
-    /* progress & status เพิ่มเติม */
+    /* progress & status mini quest */
     #questHudVR .q-row{
       display:flex;
       align-items:baseline;
@@ -362,8 +362,8 @@
 
     @media (max-width:640px){
       #questHudVR{
-        right:8px;
-        top:72px;
+        right:calc(8px + env(safe-area-inset-right, 0px));
+        top:calc(72px + env(safe-area-inset-top, 0px));
         max-width:220px;
         padding:8px 10px;
       }
@@ -590,11 +590,10 @@
       startScreen.style.display   = 'block';
     });
 
-    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบจากด้านใน + session logger)
+    // ถ้า Engine ยิงสัญญาณ hha:end มาเอง
     window.addEventListener('hha:end', (ev)=>{
       clearGameTimer();
 
-      // ถ้า overlay แสดงผลแล้วไม่ต้องซ้ำ
       if (!uiOverlay.classList.contains('hidden') && resultsScreen.style.display === 'block'){
         return;
       }
@@ -821,7 +820,7 @@
       const goal = d.goal || {};
       const mini = d.mini || {};
 
-      // ข้อความ main goal
+      // main goal
       mainEl.textContent = goal.label || 'เล่นเก็บของดีให้ได้เยอะที่สุด!';
       if (d.hint){
         hintEl.textContent = d.hint;
@@ -829,7 +828,6 @@
         hintEl.textContent = '';
       }
 
-      // progress main: goodCount / target
       if (goal.progress) {
         const cur = goal.progress.current | 0;
         const tgt = goal.progress.target | 0;
@@ -855,7 +853,7 @@
 
       // สถานะรวม
       const mainDone     = !!goal.done;
-      const miniDoneAll  = !!mini.done; // true = ผ่าน mini ครบทุกอันแล้ว
+      const miniDoneAll  = !!mini.done;
       const cleared      = mini.clearedCount | 0;
       const totalMini    = mini.total | 0;
       const idx          = (mini.index | 0); // 0-based
@@ -887,13 +885,13 @@
       { label:'B',   min:800  },
       { label:'C',   min:0    }
     ];
-    const MAX_FOR_BAR = 2400; // คะแนนระดับ SSS
+    const MAX_FOR_BAR = 2400;
 
     function updateGrade(score){
       createQuestHud();
       const s = Math.max(0, score|0);
 
-      let g = GRADES[GRADES.length - 1]; // default C
+      let g = GRADES[GRADES.length - 1];
       for (const gr of GRADES){
         if (s >= gr.min){
           g = gr;
@@ -906,13 +904,11 @@
       gradeFillEl.style.width = pct + '%';
     }
 
-    // Quest system → ยิง quest:update ออกมา
     window.addEventListener('quest:update', function(ev){
       const d = (ev && ev.detail) || {};
       updateQuestUI(d);
     });
 
-    // ตอนคะแนนเปลี่ยน → ใช้สำหรับ grade bar
     window.addEventListener('hha:score', function(ev){
       const d = (ev && ev.detail) || {};
       const score = (typeof d.score === 'number')
@@ -923,7 +919,6 @@
       updateGrade(score);
     });
 
-    // ตอนเกมจบ → อัปเดต grade สุดท้าย
     window.addEventListener('hha:end', function(ev){
       const d = (ev && ev.detail) || {};
       const score = (typeof d.scoreFinal === 'number')
