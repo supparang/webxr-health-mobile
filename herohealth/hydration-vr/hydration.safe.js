@@ -1,6 +1,6 @@
 // === /herohealth/hydration-vr/hydration.quest.js ===
 // ใช้ greenTick นับเวลาในโซน GREEN จริง ๆ + สร้าง MissionDeck
-import { MissionDeck } from '../vr/mission.js';
+import { MissionDeck } from './vr/mission.js';
 
 function G(s){ 
   return {
