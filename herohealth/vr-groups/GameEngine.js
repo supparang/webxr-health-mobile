@@ -33,7 +33,13 @@
     this.diff = 'normal';
     this.cfg = ns.foodGroupsDifficulty
       ? ns.foodGroupsDifficulty.get('normal')
-      : { spawnInterval: 1200, targetLifetime: 2200, maxActive: 5, duration: 60000, targetRadius: 0.5 };
+      : {
+          spawnInterval: 1200,
+          targetLifetime: 2200,
+          maxActive: 5,
+          duration: 60000,
+          targetRadius: 0.5
+        };
 
     this.score = 0;
     this._targets = [];
@@ -48,22 +54,32 @@
     this.groupStats = {};
     this.resetGroupStats();
 
+    // FX 3D
     if (ns.foodGroupsFx && ns.foodGroupsFx.init) {
       ns.foodGroupsFx.init(sceneEl);
     }
+    // UI HUD หลัก (คะแนน เวลา ฯลฯ)
     if (ns.foodGroupsUI && ns.foodGroupsUI.attachScene) {
       ns.foodGroupsUI.attachScene(sceneEl);
     }
 
     const self = this;
-    this.questManager = ns.FoodGroupsQuestManager
-      ? new ns.FoodGroupsQuestManager(function (quest, progress, justFinished, finishedQuest) {
-          // ★ ดึงสถานะภารกิจ (current / total / cleared)
-          var status = self.questManager && self.questManager.getStatus
-            ? self.questManager.getStatus()
-            : null;
 
-          // ส่งให้โค้ชพูด
+    // Quest Manager + HUD ภารกิจ
+    this.questManager = ns.FoodGroupsQuestManager
+      ? new ns.FoodGroupsQuestManager(function (
+          quest,
+          progress,
+          justFinished,
+          finishedQuest
+        ) {
+          // ดึงสถานะภารกิจ (current/total/cleared)
+          const status =
+            self.questManager && self.questManager.getStatus
+              ? self.questManager.getStatus()
+              : null;
+
+          // ส่งให้โค้ช / voice แสดง
           if (ns.foodGroupsCoach && ns.foodGroupsCoach.onQuestChange) {
             ns.foodGroupsCoach.onQuestChange({
               current: quest,
@@ -76,7 +92,7 @@
             ns.foodGroupsCoach.sayQuest(quest, progress || 0);
           }
 
-          // ส่งให้ HUD แสดงภารกิจค้างไว้บนจอ
+          // HUD ด้านบนบอกภารกิจ
           if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.update) {
             ns.foodGroupsQuestHUD.update(status, quest, !!justFinished);
           }
@@ -145,7 +161,11 @@
       ns.foodGroupsUI.init && ns.foodGroupsUI.init();
       ns.foodGroupsUI.show();
       ns.foodGroupsUI.reset();
-      if (ns.foodGroupsEmoji && ns.foodGroupsEmoji.all && ns.foodGroupsUI.setLegend) {
+      if (
+        ns.foodGroupsEmoji &&
+        ns.foodGroupsEmoji.all &&
+        ns.foodGroupsUI.setLegend
+      ) {
         ns.foodGroupsUI.setLegend(ns.foodGroupsEmoji.all);
       }
     }
@@ -203,9 +223,10 @@
       ns.foodGroupsCoach.sayFinish();
     }
 
-    const questsCleared = this.questManager && this.questManager.getClearedCount
-      ? this.questManager.getClearedCount()
-      : 0;
+    const questsCleared =
+      this.questManager && this.questManager.getClearedCount
+        ? this.questManager.getClearedCount()
+        : 0;
 
     const endTime = Date.now();
     const durationMs = endTime - (this._startWallTime || endTime);
@@ -217,7 +238,7 @@
       reason: reason || 'end'
     });
 
-    // ----- สร้าง summary สำหรับส่งขึ้น Cloud -----
+    // ----- summary สำหรับ Cloud Logger (Google Sheet) -----
     const sessionSummary = {
       mode: 'groups-vr',
       diff: this.diff,
@@ -230,7 +251,6 @@
       sessionId: this.session.sessionId || null,
       playerName: this.session.playerName || null,
       playerClass: this.session.playerClass || null,
-      // ★ รวมสรุปต่อหมู่ไว้ใน rawSession ด้วย
       groupStats: this.groupStats
     };
 
@@ -247,11 +267,12 @@
       groupStats: this.groupStats
     });
 
-    // จบเกมแล้ว HUD แสดงสรุปภารกิจทั้งหมด
+    // HUD ภารกิจตอนจบ
     if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.finish) {
-      const status = this.questManager && this.questManager.getStatus
-        ? this.questManager.getStatus()
-        : null;
+      const status =
+        this.questManager && this.questManager.getStatus
+          ? this.questManager.getStatus()
+          : null;
       ns.foodGroupsQuestHUD.finish(status);
     }
   };
@@ -278,20 +299,24 @@
     }
 
     const group = ns.foodGroupsEmoji.pickRandomGroup();
-    const currentQuest = this.questManager && this.questManager.getCurrent
-      ? this.questManager.getCurrent()
-      : null;
+    const currentQuest =
+      this.questManager && this.questManager.getCurrent
+        ? this.questManager.getCurrent()
+        : null;
     const isQuestTarget = currentQuest && currentQuest.groupId === group.id;
 
     const el = document.createElement('a-entity');
 
-    // ★ ตำแหน่งในโซนเล็งง่าย
+    // ตำแหน่งในโซนเล็งง่าย
     const x = -1.2 + Math.random() * 2.4;
     const y = 0.9 + Math.random() * 1.0;
     const z = -2.8 + Math.random() * 0.6;
 
     const radius = cfg.targetRadius || 0.5;
-    el.setAttribute('geometry', `primitive: circle; radius: ${radius}; segments: 64`);
+    el.setAttribute(
+      'geometry',
+      `primitive: circle; radius: ${radius}; segments: 64`
+    );
     el.setAttribute(
       'material',
       `color: ${group.color}; shader: flat; opacity: 0.95; transparent: true`
@@ -369,14 +394,17 @@
       el._hha_timeout = null;
     }
 
-    const groupId = parseInt(
-      el.getAttribute('data-group-id') || (el.dataset && el.dataset.groupId) || '0',
-      10
-    ) || 0;
+    const groupId =
+      parseInt(
+        el.getAttribute('data-group-id') ||
+          (el.dataset && el.dataset.groupId) ||
+          '0',
+        10
+      ) || 0;
     const isQuestTarget = el.getAttribute('data-quest-target') === '1';
 
     const now = performance.now();
-    const rt = el.__spawnTime ? (now - el.__spawnTime) : null;
+    const rt = el.__spawnTime ? now - el.__spawnTime : null;
 
     let bonus = 0;
     if (this.questManager) {
@@ -407,8 +435,12 @@
       worldPos = { x: wp.x, y: wp.y, z: wp.z };
     }
 
-    if (ns.foodGroupsFx && typeof ns.foodGroupsFx.burst === 'function'
-      && el.object3D && window.THREE) {
+    if (
+      ns.foodGroupsFx &&
+      typeof ns.foodGroupsFx.burst === 'function' &&
+      el.object3D &&
+      window.THREE
+    ) {
       const wp = new THREE.Vector3();
       el.object3D.getWorldPosition(wp);
       ns.foodGroupsFx.burst(wp);
@@ -432,7 +464,7 @@
 
   FoodGroupsGame.prototype.onMissTarget = function (el) {
     if (this.state === 'playing') {
-
+      // โหมดฝึก: easy ไม่หักคะแนน
       if (this.diff === 'easy') {
         if (ns.foodGroupsUI) {
           ns.foodGroupsUI.setScore(this.score);
@@ -444,6 +476,7 @@
           });
         }
       } else {
+        // normal / hard หักคะแนน
         this.score = Math.max(0, this.score - 3);
         if (ns.foodGroupsUI) {
           ns.foodGroupsUI.setScore(this.score);
@@ -461,12 +494,15 @@
       }
     }
 
-    const groupId = parseInt(
-      el.getAttribute('data-group-id') || (el.dataset && el.dataset.groupId) || '0',
-      10
-    ) || 0;
+    const groupId =
+      parseInt(
+        el.getAttribute('data-group-id') ||
+          (el.dataset && el.dataset.groupId) ||
+          '0',
+        10
+      ) || 0;
     const now = performance.now();
-    const rt = el.__spawnTime ? (now - el.__spawnTime) : null;
+    const rt = el.__spawnTime ? now - el.__spawnTime : null;
 
     let worldPos = null;
     if (el.object3D && window.THREE) {
