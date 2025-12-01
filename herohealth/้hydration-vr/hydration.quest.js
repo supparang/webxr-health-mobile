@@ -2,7 +2,7 @@
 // Glue file สำหรับ MissionDeck ของโหมด Hydration
 // (โครงสร้างเหมือน goodjunk.quest.js / groups.quest.js)
 
-import { MissionDeck } from '../vr/mission.js';
+import { MissionDeck } from './mission.js';
 import { hydrationGoalsFor } from './hydration.goals.js';
 import { hydrationMinisFor } from './hydration.minis.js';
 
