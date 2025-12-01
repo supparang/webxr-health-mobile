@@ -58,15 +58,27 @@
     const self = this;
     this.questManager = ns.FoodGroupsQuestManager
       ? new ns.FoodGroupsQuestManager(function (quest, progress, justFinished, finishedQuest) {
+          // ★ ดึงสถานะภารกิจ (current / total / cleared)
+          var status = self.questManager && self.questManager.getStatus
+            ? self.questManager.getStatus()
+            : null;
+
+          // ส่งให้โค้ชพูด
           if (ns.foodGroupsCoach && ns.foodGroupsCoach.onQuestChange) {
             ns.foodGroupsCoach.onQuestChange({
               current: quest,
               progress: progress || 0,
               justFinished: !!justFinished,
-              finished: finishedQuest || null
+              finished: finishedQuest || null,
+              status: status
             });
           } else if (ns.foodGroupsCoach && ns.foodGroupsCoach.sayQuest) {
             ns.foodGroupsCoach.sayQuest(quest, progress || 0);
+          }
+
+          // ส่งให้ HUD แสดงภารกิจค้างไว้บนจอ
+          if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.update) {
+            ns.foodGroupsQuestHUD.update(status, quest, !!justFinished);
           }
 
           if (justFinished && finishedQuest && ns.foodGroupsAudio) {
@@ -136,6 +148,11 @@
       if (ns.foodGroupsEmoji && ns.foodGroupsEmoji.all && ns.foodGroupsUI.setLegend) {
         ns.foodGroupsUI.setLegend(ns.foodGroupsEmoji.all);
       }
+    }
+
+    // รีเซ็ต HUD ภารกิจ
+    if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.reset) {
+      ns.foodGroupsQuestHUD.reset();
     }
 
     if (this.questManager) {
@@ -213,7 +230,7 @@
       sessionId: this.session.sessionId || null,
       playerName: this.session.playerName || null,
       playerClass: this.session.playerClass || null,
-      // ★ รวมสรุปต่อหมู่ไว้ใน rawSession ด้วย (ใช้วิเคราะห์ทีหลัง)
+      // ★ รวมสรุปต่อหมู่ไว้ใน rawSession ด้วย
       groupStats: this.groupStats
     };
 
@@ -229,6 +246,14 @@
       questsCleared: questsCleared,
       groupStats: this.groupStats
     });
+
+    // จบเกมแล้ว HUD แสดงสรุปภารกิจทั้งหมด
+    if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.finish) {
+      const status = this.questManager && this.questManager.getStatus
+        ? this.questManager.getStatus()
+        : null;
+      ns.foodGroupsQuestHUD.finish(status);
+    }
   };
 
   FoodGroupsGame.prototype.scheduleNextSpawn = function () {
@@ -260,12 +285,12 @@
 
     const el = document.createElement('a-entity');
 
-    // ★ ปรับให้กระจายแต่ยังอยู่ในโซนเล็งง่าย (ใกล้กลางจอ)
+    // ★ ตำแหน่งในโซนเล็งง่าย
     const x = -1.2 + Math.random() * 2.4;
     const y = 0.9 + Math.random() * 1.0;
     const z = -2.8 + Math.random() * 0.6;
 
-    const radius = cfg.targetRadius || 0.5; // ★ ใช้ radius จาก difficulty
+    const radius = cfg.targetRadius || 0.5;
     el.setAttribute('geometry', `primitive: circle; radius: ${radius}; segments: 64`);
     el.setAttribute(
       'material',
@@ -375,7 +400,6 @@
       });
     }
 
-    // world position ของเป้า (ไว้เก็บใน log → Google Sheet)
     let worldPos = null;
     if (el.object3D && window.THREE) {
       const wp = new THREE.Vector3();
@@ -394,7 +418,6 @@
       ns.foodGroupsAudio.playHit();
     }
 
-    // ★ เพิ่ม judgment แยก normal / quest (ใช้วิเคราะห์ หรือโชว์ UI ก็ได้)
     logEvent('hit', {
       groupId: groupId,
       isQuestTarget: !!isQuestTarget,
@@ -410,7 +433,6 @@
   FoodGroupsGame.prototype.onMissTarget = function (el) {
     if (this.state === 'playing') {
 
-      // ★ 1) Easy = โหมดฝึก → ไม่หักคะแนน, ข้อความเบา ๆ
       if (this.diff === 'easy') {
         if (ns.foodGroupsUI) {
           ns.foodGroupsUI.setScore(this.score);
@@ -422,7 +444,6 @@
           });
         }
       } else {
-        // normal / hard: หักคะแนนตามเดิม
         this.score = Math.max(0, this.score - 3);
         if (ns.foodGroupsUI) {
           ns.foodGroupsUI.setScore(this.score);
