@@ -1,51 +1,83 @@
 // vr-groups/input-adapter.js
-(function () {
+(function (ns) {
   'use strict';
 
-  function setup() {
-    const sceneEl  = document.getElementById('gameScene');
-    const cursorEl = document.getElementById('cursor');
+  function detectDeviceType() {
+    try {
+      if (window.AFRAME && AFRAME.utils && AFRAME.utils.device) {
+        const d = AFRAME.utils.device;
+        if (d.isMobileVR && d.isMobileVR()) return 'mobile-vr';
+        if (d.checkHeadsetConnected && d.checkHeadsetConnected()) return 'desktop-vr';
+        if (d.isMobile && d.isMobile()) return 'mobile';
+        return 'desktop';
+      }
+    } catch (e) {}
+    const ua = navigator.userAgent || '';
+    if (/Mobile|Android|iPhone|iPad/i.test(ua)) return 'mobile';
+    return 'desktop';
+  }
 
-    if (!sceneEl || !cursorEl || !window.AFRAME) return;
+  AFRAME.registerComponent('fg-input-adapter', {
+    init: function () {
+      const cam = document.getElementById('camera');
+      const cursor = document.getElementById('cursor');
+      const hintEl = document.getElementById('fgHint');
+      const rightHand = document.getElementById('rightHand');
 
-    const dev        = AFRAME.utils.device;
-    const isMobile   = dev.isMobile();
-    const isMobileVR = dev.isMobileVR(); // Cardboard / Quest browser ฯลฯ
+      if (!cam || !cursor) return;
 
-    // ====== HUD บอกวิธีบังคับ ======
-    const hint = document.createElement('div');
-    hint.id = 'fgControlsHint';
-    hint.style.position   = 'fixed';
-    hint.style.bottom     = '10px';
-    hint.style.left       = '50%';
-    hint.style.transform  = 'translateX(-50%)';
-    hint.style.padding    = '6px 12px';
-    hint.style.borderRadius = '999px';
-    hint.style.background = 'rgba(15,23,42,.75)';
-    hint.style.color      = '#e5e7eb';
-    hint.style.font       = '500 13px system-ui,-apple-system,Segoe UI,sans-serif';
-    hint.style.zIndex     = '9999';
+      const type = detectDeviceType();
 
-    if (isMobileVR) {
-      // 🥽 VR Headset → ใช้ Trigger เป็นหลัก + Gaze สำรอง
-      cursorEl.setAttribute('cursor', 'fuse: true; fuseTimeout: 1200; rayOrigin: entity');
-      hint.textContent = 'VR: ใช้ Trigger ยิง หรือจ้องค้างให้วงกลมเต็ม 🔫';
-    } else if (isMobile) {
-      // 📱 มือถือ: แตะบนเป้า เล็งด้วยการหมุนเครื่อง
-      cursorEl.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
-      hint.textContent = 'Mobile: แตะบนเป้าเพื่อยิง เล็งด้วยการหมุนมือถือ 📱';
-    } else {
-      // 🖥 PC: เมาส์
-      cursorEl.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
-      hint.textContent = 'PC: ใช้เมาส์เล็งแล้วคลิกซ้ายยิง 🖱️';
+      // base raycaster ให้ยิงเฉพาะเป้า
+      cursor.setAttribute('raycaster', 'objects: [data-hha-tgt]');
+
+      if (type === 'desktop') {
+        // 🖥 PC: ใช้เมาส์เล็ง + คลิก
+        cam.setAttribute('look-controls', 'pointerLockEnabled: false; touchEnabled: true');
+        cursor.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
+        cursor.setAttribute('geometry', 'primitive: ring; radiusInner: 0.01; radiusOuter: 0.02');
+        cursor.setAttribute('material',
+          'color: #fde047; shader: flat; opacity: 0.95;');
+        if (hintEl) {
+          hintEl.textContent = 'ลากเมาส์เลื่อนเป้า แล้วคลิกซ้ายเพื่อยิง 🎯';
+        }
+      } else if (type === 'mobile') {
+        // 📱 โทรศัพท์: ใช้วงแหวนกลางจอ + แตะ
+        cam.setAttribute('look-controls',
+          'pointerLockEnabled: false; touchEnabled: true');
+        cursor.setAttribute('cursor', 'rayOrigin: entity; fuse: true; fuseTimeout: 1200');
+        cursor.setAttribute('geometry', 'primitive: ring; radiusInner: 0.02; radiusOuter: 0.04');
+        if (hintEl) {
+          hintEl.textContent = 'หันมือถือให้วงแหวนทับเป้า แล้วแตะหน้าจอเพื่อยิง 🎯';
+        }
+      } else {
+        // 🕶 VR Headset (mobile-vr / desktop-vr)
+        cam.setAttribute('look-controls',
+          'pointerLockEnabled: false; touchEnabled: false');
+        // ใช้ทั้ง gaze และ controller ได้
+        cursor.setAttribute('cursor', 'rayOrigin: entity; fuse: true; fuseTimeout: 1200');
+        cursor.setAttribute('geometry', 'primitive: ring; radiusInner: 0.02; radiusOuter: 0.04');
+
+        if (rightHand) {
+          rightHand.setAttribute('laser-controls', 'hand: right');
+          rightHand.setAttribute('raycaster', 'objects: [data-hha-tgt]; interval: 10');
+        }
+
+        if (hintEl) {
+          hintEl.textContent = 'ใช้ Trigger บนคอนโทรลเลอร์ หรือจ้องค้างที่เป้าเพื่อยิง 🎯';
+        }
+      }
+
+      // auto-hide hint หลัง 8 วินาที (ไม่บังจอ)
+      if (hintEl) {
+        setTimeout(function () {
+          hintEl.style.transition = 'opacity .5s ease';
+          hintEl.style.opacity = '0';
+          hintEl.style.pointerEvents = 'none';
+        }, 8000);
+      }
     }
+  });
 
-    document.body.appendChild(hint);
-  }
-
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    window.addEventListener('load', setup);
-  } else {
-    window.addEventListener('DOMContentLoaded', setup);
-  }
-})();
+  ns.foodGroupsInputAdapter = true;
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
