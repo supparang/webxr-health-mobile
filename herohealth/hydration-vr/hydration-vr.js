@@ -1,10 +1,9 @@
 // === /herohealth/hydration-vr/hydration-vr.js ===
-// Controller หน้า Hydration VR – คุมปุ่ม Start/Stop + diff + time + Quest HUD
+// Controller หน้า Hydration VR – คุมปุ่ม Start/Stop + diff + time
 
 'use strict';
 
 import { boot as bootHydration } from './hydration.safe.js';
-import { attachQuestHud } from '../vr/quest-hud-vr.js';
 
 let currentInstance = null;
 let isRunning = false;
@@ -27,7 +26,7 @@ function setupUI() {
   if (diffSel) {
     const applyDiff = () => {
       currentDiff = String(diffSel.value || 'easy').toLowerCase();
-      if (!['easy','normal','hard'].includes(currentDiff)) {
+      if (!['easy', 'normal', 'hard'].includes(currentDiff)) {
         currentDiff = 'normal';
       }
     };
@@ -77,7 +76,7 @@ function setupUI() {
       try {
         currentInstance = await bootHydration({
           difficulty: currentDiff,
-          duration: currentDur
+          duration:   currentDur
         });
       } catch (err) {
         console.error('[HydrationVR] boot error', err);
@@ -118,17 +117,7 @@ function setupUI() {
     btnStop.disabled = true;
   }
 
-  // --- Quest HUD (Mission & Mini quest panel) ---
-  const questRoot = $('#hv-quest-root');
-  if (questRoot) {
-    try {
-      attachQuestHud(questRoot);
-    } catch (e) {
-      console.warn('[HydrationVR] attachQuestHud error', e);
-    }
-  }
-
-  // --- เมื่อจบเกม (ได้ event จาก hydration.safe.js) ---
+  // เมื่อจบเกม (จาก hydration.safe.js)
   window.addEventListener('hha:end', ev => {
     const d = ev.detail || {};
     if (d.mode !== 'Hydration') return;
@@ -138,14 +127,13 @@ function setupUI() {
     if (btnStop)  btnStop.disabled  = true;
 
     if (statusEl) {
-      const score  = d.score ?? 0;
-      const green  = d.greenTick ?? 0;
-      const miss   = d.misses ?? 0;
+      const score = d.score ?? 0;
+      const green = d.greenTick ?? 0;
+      const miss  = d.misses ?? 0;
       statusEl.textContent =
         `จบเกม – คะแนน ${score} | อยู่ GREEN ${green}s | MISS ${miss}`;
     }
 
-    // ถ้า instance มี destroy ก็จัดการปิดให้เรียบร้อย
     if (currentInstance && typeof currentInstance.destroy === 'function') {
       try { currentInstance.destroy(); } catch (e) {}
     }
