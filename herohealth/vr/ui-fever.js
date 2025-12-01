@@ -1,15 +1,20 @@
 // === /herohealth/vr/ui-fever.js
 // Fever bar + Shield indicator สำหรับ HeroHealth VR
+// ใช้ร่วมกันได้ทุกโหมด (GoodJunk / Groups / Hydration)
 
 'use strict';
 
-let wrap    = null;
-let bar     = null;
-let label   = null;
-let shieldWrap = null;
+let wrap        = null;  // กล่องหลัก
+let barInner    = null;  // แท่ง fever ด้านใน
+let valueSpan   = null;  // ตัวเลข %
+let shieldIcons = null;  // แถวไอคอน shield
 
+// -----------------------------------------------------
+// internal helpers
+// -----------------------------------------------------
 function ensureStyle() {
   if (document.getElementById('hha-fever-style')) return;
+
   const style = document.createElement('style');
   style.id = 'hha-fever-style';
   style.textContent = `
@@ -19,7 +24,7 @@ function ensureStyle() {
     left:10px;
     z-index:12;
     min-width:180px;
-    max-width:240px;
+    max-width:260px;
     padding:6px 9px 7px;
     border-radius:14px;
     background:rgba(15,23,42,0.95);
@@ -59,7 +64,9 @@ function ensureStyle() {
     border-radius:999px;
     background:linear-gradient(90deg,#f97316,#facc15);
     box-shadow:0 0 0 rgba(250,204,21,0);
-    transition:width .22s ease-out, box-shadow .22s ease-out;
+    transition:
+      width .22s ease-out,
+      box-shadow .22s ease-out;
   }
   .hha-fever-wrap[data-active="1"] .hha-fever-bar-inner{
     box-shadow:0 0 18px rgba(250,204,21,0.9);
@@ -79,6 +86,17 @@ function ensureStyle() {
   document.head.appendChild(style);
 }
 
+function clamp(v, min, max) {
+  v = Number(v) || 0;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+
+// -----------------------------------------------------
+// public API
+// -----------------------------------------------------
+
 export function ensureFeverBar() {
   if (wrap && wrap.isConnected) return wrap;
   ensureStyle();
@@ -87,41 +105,50 @@ export function ensureFeverBar() {
   wrap.className = 'hha-fever-wrap';
   wrap.dataset.active = '0';
 
+  // แถวบน: label + value
   const top = document.createElement('div');
   top.className = 'hha-fever-top';
 
-  const lab = document.createElement('div');
-  lab.className = 'hha-fever-label';
+  const label = document.createElement('div');
+  label.className = 'hha-fever-label';
+
   const em = document.createElement('span');
   em.className = 'hha-fever-label-emoji';
   em.textContent = '🔥';
+
   const txt = document.createElement('span');
   txt.textContent = 'Fever gauge';
-  lab.appendChild(em);
-  lab.appendChild(txt);
-  label = txt;
 
-  const val = document.createElement('span');
-  val.style.fontWeight = '500';
-  val.textContent = '0%';
+  label.appendChild(em);
+  label.appendChild(txt);
 
-  top.appendChild(lab);
-  top.appendChild(val);
+  const vSpan = document.createElement('span');
+  vSpan.style.fontWeight = '500';
+  vSpan.textContent = '0%';
+  valueSpan = vSpan;
 
+  top.appendChild(label);
+  top.appendChild(vSpan);
+
+  // แท่ง fever
   const barOuter = document.createElement('div');
   barOuter.className = 'hha-fever-bar';
   const inner = document.createElement('div');
   inner.className = 'hha-fever-bar-inner';
   barOuter.appendChild(inner);
-  bar = inner;
+  barInner = inner;
 
+  // แถว shield
   const shieldRow = document.createElement('div');
   shieldRow.className = 'hha-shield-wrap';
+
   const shLabel = document.createElement('span');
   shLabel.textContent = '🛡 Shield:';
+
   const shIcons = document.createElement('span');
   shIcons.className = 'hha-shield-icons';
-  shieldWrap = shIcons;
+  shieldIcons = shIcons;
+
   shieldRow.appendChild(shLabel);
   shieldRow.appendChild(shIcons);
 
@@ -133,28 +160,44 @@ export function ensureFeverBar() {
   return wrap;
 }
 
+/**
+ * ตั้งค่าเปอร์เซ็นต์ fever (0–100)
+ */
 export function setFever(value) {
   if (!wrap || !wrap.isConnected) ensureFeverBar();
-  const v = clamp(Number(value) || 0, 0, 100);
-  if (bar) bar.style.width = v + '%';
-  const txt = v.toFixed(0) + '%';
-  if (label && label.nextSibling) {
-    label.nextSibling.textContent = txt;
-  } else if (wrap) {
-    // fallback: หา span ตัวท้าย
-    const spans = wrap.querySelectorAll('.hha-fever-top span');
-    if (spans.length >= 2) spans[spans.length - 1].textContent = txt;
+  const v = clamp(value, 0, 100);
+
+  if (barInner) {
+    barInner.style.width = v + '%';
+  }
+  if (valueSpan) {
+    valueSpan.textContent = v.toFixed(0) + '%';
   }
 }
 
+/**
+ * เปิด/ปิดสถานะ Fever (มี glow ที่แท่ง)
+ */
 export function setFeverActive(active) {
   if (!wrap || !wrap.isConnected) ensureFeverBar();
   wrap.dataset.active = active ? '1' : '0';
 }
 
+/**
+ * ตั้งจำนวน shield (0–5)
+ */
 export function setShield(count) {
   if (!wrap || !wrap.isConnected) ensureFeverBar();
-  const n = clamp(Number(count) || 0, 0, 5);
-  if (!shieldWrap) return;
-  shieldWrap.innerHTML = '';
-  for (let i = 0; i < n; i
+  if (!shieldIcons) return;
+
+  const n = clamp(count, 0, 5);
+  shieldIcons.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const span = document.createElement('span');
+    span.textContent = '🛡️';
+    shieldIcons.appendChild(span);
+  }
+}
+
+const FeverUI = { ensureFeverBar, setFever, setFeverActive, setShield };
+export default FeverUI;
