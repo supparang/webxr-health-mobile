@@ -1,25 +1,86 @@
 // vr-groups/emoji-image.js
-// เก็บ emoji ของอาหารแต่ละหมู่ + helper ให้ GameEngine ใช้
+// ข้อมูลหมู่อาหาร 1–5 + ลิงก์รูป emoji (Twemoji PNG) สำหรับใช้บนเป้า
 
 (function (ns) {
   'use strict';
 
   ns = ns || (window.GAME_MODULES = window.GAME_MODULES || {});
 
-  // ใช้ไอเดียเหมือน GOOD / BAD ใน Hydration
-  const G1 = ['🍚', '🍙', '🍞', '🥖', '🥨'];            // หมู่ 1 ข้าว-แป้ง
-  const G2 = ['🍗', '🥚', '🥩', '🍣', '🥜'];            // หมู่ 2 เนื้อ-โปรตีน
-  const G3 = ['🥦', '🥕', '🥒', '🧄', '🧅'];            // หมู่ 3 ผัก
-  const G4 = ['🍎', '🍌', '🍉', '🍇', '🍓'];            // หมู่ 4 ผลไม้
-  const G5 = ['🥛', '🧀', '🍦', '🍨', '🍧'];            // หมู่ 5 นม-ผลิตภัณฑ์นม
+  // ใช้ Twemoji จาก CDNJS แทน maxcdn (อันเก่ามัก 404 แล้ว)
+  const T_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/';
 
-  const GROUPS = [
-    { id: 1, label: 'หมู่ 1 ข้าว-แป้ง',       color: '#22c55e', emojiList: G1, legendEmoji: '🍚' },
-    { id: 2, label: 'หมู่ 2 เนื้อ-โปรตีน',    color: '#eab308', emojiList: G2, legendEmoji: '🍗' },
-    { id: 3, label: 'หมู่ 3 ผัก',             color: '#16a34a', emojiList: G3, legendEmoji: '🥦' },
-    { id: 4, label: 'หมู่ 4 ผลไม้',           color: '#f97316', emojiList: G4, legendEmoji: '🍎' },
-    { id: 5, label: 'หมู่ 5 นม-ผลิตภัณฑ์นม',  color: '#38bdf8', emojiList: G5, legendEmoji: '🥛' }
+  const GROUP_TYPES = [
+    {
+      id: 1,
+      label: 'หมู่ 1 ข้าว-แป้ง',
+      color: '#22c55e',
+      legendEmoji: '🍚',
+      emojis: [
+        { emoji: '🍚', code: '1f35a' },
+        { emoji: '🍙', code: '1f359' },
+        { emoji: '🍞', code: '1f35e' },
+        { emoji: '🥖', code: '1f956' },
+        { emoji: '🥨', code: '1f968' }
+      ]
+    },
+    {
+      id: 2,
+      label: 'หมู่ 2 เนื้อ-โปรตีน',
+      color: '#eab308',
+      legendEmoji: '🍗',
+      emojis: [
+        { emoji: '🍗', code: '1f357' },
+        { emoji: '🥚', code: '1f95a' },
+        { emoji: '🥩', code: '1f969' },
+        { emoji: '🍣', code: '1f363' },
+        { emoji: '🥜', code: '1f95c' }
+      ]
+    },
+    {
+      id: 3,
+      label: 'หมู่ 3 ผัก',
+      color: '#16a34a',
+      legendEmoji: '🥦',
+      emojis: [
+        { emoji: '🥦', code: '1f966' },
+        { emoji: '🥕', code: '1f955' },
+        { emoji: '🥒', code: '1f952' },
+        { emoji: '🧄', code: '1f9c4' },
+        { emoji: '🧅', code: '1f9c5' }
+      ]
+    },
+    {
+      id: 4,
+      label: 'หมู่ 4 ผลไม้',
+      color: '#f97316',
+      legendEmoji: '🍎',
+      emojis: [
+        { emoji: '🍎', code: '1f34e' },
+        { emoji: '🍌', code: '1f34c' },
+        { emoji: '🍉', code: '1f349' },
+        { emoji: '🍇', code: '1f347' },
+        { emoji: '🍓', code: '1f353' }
+      ]
+    },
+    {
+      id: 5,
+      label: 'หมู่ 5 นม-ผลิตภัณฑ์นม',
+      color: '#38bdf8',
+      legendEmoji: '🥛',
+      emojis: [
+        { emoji: '🥛', code: '1f95b' },
+        { emoji: '🧀', code: '1f9c0' },
+        { emoji: '🍦', code: '1f366' },
+        { emoji: '🍨', code: '1f368' },
+        { emoji: '🍧', code: '1f367' }
+      ]
+    }
   ];
+
+  function pngUrl(code) {
+    // code เช่น '1f35a' → .../1f35a.png
+    return T_BASE + code + '.png';
+  }
 
   function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
@@ -27,33 +88,36 @@
 
   // ใช้ตอน spawn เป้า
   function pickRandomGroup() {
-    const g = pickRandom(GROUPS);
+    if (!GROUP_TYPES.length) return null;
+    const base = pickRandom(GROUP_TYPES);
+    const item = pickRandom(base.emojis);
+
     return {
-      id: g.id,
-      label: g.label,
-      color: g.color,
-      emoji: pickRandom(g.emojiList),  // ตัวที่จะขึ้นบนเป้าจริง
-      img: null                         // ไม่ใช้รูปภาพแล้ว
+      id: base.id,
+      label: base.label,
+      color: base.color,
+      emoji: item.emoji,
+      img: pngUrl(item.code)   // สำคัญ: ให้ GameEngine ใช้ a-image
     };
   }
 
   function getGroupTypeById(id) {
     id = parseInt(id, 10);
-    return GROUPS.find(g => g.id === id) || null;
+    return GROUP_TYPES.find(g => g.id === id) || null;
   }
 
-  // ใช้กับ legend + groupStats: ให้มี emoji ตัวแทน 1 ตัวต่อหมู่
-  const ALL_FOR_LEGEND = GROUPS.map(g => ({
+  // สำหรับ legend และ groupStats (ใช้ emoji ตัวแทนหมู่)
+  const ALL_FOR_LEGEND = GROUP_TYPES.map(g => ({
     id: g.id,
     label: g.label,
     color: g.color,
     emoji: g.legendEmoji,
-    img: null
+    img: pngUrl(g.emojis[0].code)
   }));
 
   ns.foodGroupsEmoji = {
     all: ALL_FOR_LEGEND,
-    groups: GROUPS,
+    groups: GROUP_TYPES,
     pickRandomGroup,
     getGroupTypeById
   };
