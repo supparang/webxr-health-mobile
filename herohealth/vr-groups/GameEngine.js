@@ -2,7 +2,8 @@
 (function (ns) {
   'use strict';
 
-  // ---- ตรวจชนิดอุปกรณ์ ----
+  const GAME_VERSION = 'GroupsVR_v1.0';
+
   function detectDeviceType() {
     try {
       if (window.AFRAME && AFRAME.utils && AFRAME.utils.device) {
@@ -17,14 +18,11 @@
     return 'desktop';
   }
 
-  // ---- logger ลง memory ----
   function logEvent(type, detail) {
     try {
       const arr = (window.HHA_FOODGROUPS_LOG = window.HHA_FOODGROUPS_LOG || []);
       arr.push(Object.assign({ ts: Date.now(), type: type }, detail));
-    } catch (e) {
-      // เงียบ
-    }
+    } catch (e) {}
   }
 
   function FoodGroupsGame(sceneEl) {
@@ -54,32 +52,21 @@
     this.groupStats = {};
     this.resetGroupStats();
 
-    // FX 3D
     if (ns.foodGroupsFx && ns.foodGroupsFx.init) {
       ns.foodGroupsFx.init(sceneEl);
     }
-    // UI HUD หลัก (คะแนน เวลา ฯลฯ)
     if (ns.foodGroupsUI && ns.foodGroupsUI.attachScene) {
       ns.foodGroupsUI.attachScene(sceneEl);
     }
 
     const self = this;
-
-    // Quest Manager + HUD ภารกิจ
     this.questManager = ns.FoodGroupsQuestManager
-      ? new ns.FoodGroupsQuestManager(function (
-          quest,
-          progress,
-          justFinished,
-          finishedQuest
-        ) {
-          // ดึงสถานะภารกิจ (current/total/cleared)
+      ? new ns.FoodGroupsQuestManager(function (quest, progress, justFinished, finishedQuest) {
           const status =
             self.questManager && self.questManager.getStatus
               ? self.questManager.getStatus()
               : null;
 
-          // ส่งให้โค้ช / voice แสดง
           if (ns.foodGroupsCoach && ns.foodGroupsCoach.onQuestChange) {
             ns.foodGroupsCoach.onQuestChange({
               current: quest,
@@ -92,7 +79,6 @@
             ns.foodGroupsCoach.sayQuest(quest, progress || 0);
           }
 
-          // HUD ด้านบนบอกภารกิจ
           if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.update) {
             ns.foodGroupsQuestHUD.update(status, quest, !!justFinished);
           }
@@ -148,7 +134,6 @@
       this.cfg = ns.foodGroupsDifficulty.get(this.diff);
     }
 
-    // reset log memory สำหรับ session นี้
     window.HHA_FOODGROUPS_LOG = [];
 
     this.state = 'playing';
@@ -161,16 +146,11 @@
       ns.foodGroupsUI.init && ns.foodGroupsUI.init();
       ns.foodGroupsUI.show();
       ns.foodGroupsUI.reset();
-      if (
-        ns.foodGroupsEmoji &&
-        ns.foodGroupsEmoji.all &&
-        ns.foodGroupsUI.setLegend
-      ) {
+      if (ns.foodGroupsEmoji && ns.foodGroupsEmoji.all && ns.foodGroupsUI.setLegend) {
         ns.foodGroupsUI.setLegend(ns.foodGroupsEmoji.all);
       }
     }
 
-    // รีเซ็ต HUD ภารกิจ
     if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.reset) {
       ns.foodGroupsQuestHUD.reset();
     }
@@ -230,6 +210,10 @@
 
     const endTime = Date.now();
     const durationMs = endTime - (this._startWallTime || endTime);
+    const status =
+      this.questManager && this.questManager.getStatus
+        ? this.questManager.getStatus()
+        : { total: null };
 
     logEvent('end', {
       diff: this.diff,
@@ -238,13 +222,14 @@
       reason: reason || 'end'
     });
 
-    // ----- summary สำหรับ Cloud Logger (Google Sheet) -----
     const sessionSummary = {
       mode: 'groups-vr',
+      version: GAME_VERSION,
       diff: this.diff,
       deviceType: this.deviceType,
       score: this.score,
       questsCleared: questsCleared,
+      questsTotal: status.total != null ? status.total : null,
       startedAt: this._startWallTime || null,
       endedAt: endTime,
       durationMs: durationMs,
@@ -267,12 +252,7 @@
       groupStats: this.groupStats
     });
 
-    // HUD ภารกิจตอนจบ
     if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.finish) {
-      const status =
-        this.questManager && this.questManager.getStatus
-          ? this.questManager.getStatus()
-          : null;
       ns.foodGroupsQuestHUD.finish(status);
     }
   };
@@ -307,16 +287,12 @@
 
     const el = document.createElement('a-entity');
 
-    // ตำแหน่งในโซนเล็งง่าย
     const x = -1.2 + Math.random() * 2.4;
     const y = 0.9 + Math.random() * 1.0;
     const z = -2.8 + Math.random() * 0.6;
 
     const radius = cfg.targetRadius || 0.5;
-    el.setAttribute(
-      'geometry',
-      `primitive: circle; radius: ${radius}; segments: 64`
-    );
+    el.setAttribute('geometry', `primitive: circle; radius: ${radius}; segments: 64`);
     el.setAttribute(
       'material',
       `color: ${group.color}; shader: flat; opacity: 0.95; transparent: true`
@@ -464,7 +440,6 @@
 
   FoodGroupsGame.prototype.onMissTarget = function (el) {
     if (this.state === 'playing') {
-      // โหมดฝึก: easy ไม่หักคะแนน
       if (this.diff === 'easy') {
         if (ns.foodGroupsUI) {
           ns.foodGroupsUI.setScore(this.score);
@@ -476,7 +451,6 @@
           });
         }
       } else {
-        // normal / hard หักคะแนน
         this.score = Math.max(0, this.score - 3);
         if (ns.foodGroupsUI) {
           ns.foodGroupsUI.setScore(this.score);
@@ -520,7 +494,6 @@
     this.safeRemoveTarget(el);
   };
 
-  // ----- A-Frame component -----
   AFRAME.registerComponent('food-groups-game', {
     init: function () {
       this.game = new ns.FoodGroupsGame(this.el.sceneEl);
