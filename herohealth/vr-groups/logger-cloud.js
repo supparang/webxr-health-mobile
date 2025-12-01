@@ -1,140 +1,115 @@
 // vr-groups/logger-cloud.js
-// ส่งข้อมูลเกม Food Groups VR ขึ้น Google Apps Script แบบ "GoodJunk style"
-// payload:
-// {
-//   projectTag: 'HeroHealth-GroupsVR',
-//   sessions: [ { ... } ],
-//   events:   [ { ... } ]
-// }
+'use strict';
 
-(function (ns) {
-  'use strict';
+let CONFIG = {
+  endpoint: '',
+  projectTag: 'HeroHealth-GroupsVR',
+  debug: false
+};
 
-  ns = ns || (window.GAME_MODULES = window.GAME_MODULES || {});
+let sessionQueue = [];
+let eventQueue   = [];
+let flushTimer   = null;
+const FLUSH_DELAY = 2000; // ms
 
-  let CONFIG = {
-    endpoint: '',                     // ★ ให้กำหนดผ่าน init() เท่านั้น
-    projectTag: 'HeroHealth-GroupsVR',
-    debug: false
+export function initCloudLogger(opts = {}) {
+  CONFIG = {
+    endpoint: (opts.endpoint || 'https://script.google.com/macros/s/AKfycbzEW94iBXISShedudnv-vE0k0_gDkiGtU8r2yatyr_sj4l8dRDhgxgjU6rGyyv0Yh7p/exec').trim(),
+    projectTag: opts.projectTag || 'HeroHealth-GroupsVR',
+    debug: !!opts.debug
   };
 
-  function init(opts) {
-    opts = opts || {};
-    CONFIG.endpoint  = (opts.endpoint || '').trim();
-    CONFIG.projectTag = opts.projectTag || CONFIG.projectTag;
-    CONFIG.debug      = !!opts.debug;
-
-    if (!CONFIG.endpoint) {
-      console.warn('[GroupsVR Logger] NO endpoint configured');
-    } else if (CONFIG.debug) {
-      console.log('[GroupsVR Logger] init', CONFIG);
-    }
+  if (!CONFIG.endpoint) {
+    console.warn('[GroupsVR-Logger] no endpoint configured');
+    return;
   }
 
-  // ===== helper: สร้าง payload ของ session =====
-  function buildSessionPayload(rawSession, rawEvents) {
-    rawSession = rawSession || {};
-    rawEvents  = rawEvents || [];
+  window.addEventListener('hha:session', (e) => {
+    const s = (e && e.detail) || {};
+    sessionQueue.push(s);
+    if (CONFIG.debug) console.log('[GroupsVR-Logger] queue session', s);
+    scheduleFlush();
+  });
 
-    const durationMs = rawSession.durationMs || null;
-    const gameDurationSec = durationMs ? Math.round(durationMs / 1000) : '';
+  window.addEventListener('hha:event', (e) => {
+    const ev = (e && e.detail) || {};
+    eventQueue.push(ev);
+    if (CONFIG.debug) console.log('[GroupsVR-Logger] queue event', ev);
+    scheduleFlush();
+  });
 
-    let hitCount = 0;
-    let totalShots = 0;
-    let sumRT = 0;
-    let rtN = 0;
+  window.addEventListener('beforeunload', () => {
+    if (!sessionQueue.length && !eventQueue.length) return;
+    trySendBeacon(true);
+  });
 
-    rawEvents.forEach(ev => {
-      if (ev.type === 'hit' || ev.type === 'miss') {
-        totalShots++;
-        if (ev.type === 'hit') hitCount++;
-        if (typeof ev.rtMs === 'number') {
-          sumRT += ev.rtMs;
-          rtN++;
-        }
-      }
+  if (CONFIG.debug) console.log('[GroupsVR-Logger] init', CONFIG);
+}
+
+function scheduleFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flush();
+  }, FLUSH_DELAY);
+}
+
+function flush() {
+  if (!CONFIG.endpoint) return;
+  if (!sessionQueue.length && !eventQueue.length) return;
+
+  const payload = {
+    projectTag: CONFIG.projectTag,
+    sessions: sessionQueue.splice(0),
+    events:   eventQueue.splice(0)
+  };
+
+  if (CONFIG.debug) console.log('[GroupsVR-Logger] flush →', payload);
+
+  // 1) ลองใช้ sendBeacon ก่อน
+  if (trySendBeacon(false, payload)) return;
+
+  // 2) ถ้าไม่ได้ ค่อย fallback เป็น fetch no-cors
+  try {
+    const body = JSON.stringify(payload);
+    fetch(CONFIG.endpoint, {
+      method: 'POST',
+      mode: 'no-cors', // ⬅ สำคัญสุด: no-cors
+      keepalive: true,
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8' // ⬅ เลี่ยง preflight
+      },
+      body
+    }).then(() => {
+      if (CONFIG.debug) console.log('[GroupsVR-Logger] sent via fetch no-cors');
+    }).catch(err => {
+      if (CONFIG.debug) console.error('[GroupsVR-Logger] fetch error', err);
     });
-
-    const hitRate = totalShots > 0 ? hitCount / totalShots : 0;
-    const avgRT   = rtN > 0 ? Math.round(sumRT / rtN) : 0;
-
-    const goodCount = hitCount;
-    const badCount  = totalShots - hitCount;
-
-    return {
-      sessionId:   rawSession.sessionId || rawSession.sid || '',
-      playerId:    rawSession.playerName || rawSession.playerClass || '',
-      deviceType:  rawSession.deviceType || '',
-      difficulty:  rawSession.diff || rawSession.difficulty || '',
-      gameDuration: gameDurationSec,
-      totalScore:  rawSession.score != null ? rawSession.score : 0,
-      questCompleted: rawSession.questsCleared != null ? rawSession.questsCleared : 0,
-      questList:   rawSession.questList || [],
-
-      goodCount,
-      badCount,
-      hitRate,
-      avgRT,
-
-      mode:       rawSession.mode || 'groups-vr',
-      startedAt:  rawSession.startedAt || null,
-      endedAt:    rawSession.endedAt || null,
-      groupStats: rawSession.groupStats || null
-    };
+  } catch (err) {
+    if (CONFIG.debug) console.error('[GroupsVR-Logger] outer error', err);
   }
+}
 
-  // ===== helper: แปลง events → payload =====
-  function buildEventsPayload(rawSession, rawEvents) {
-    const sid = rawSession.sessionId || rawSession.sid || '';
-    const out = [];
+function trySendBeacon(force, payload) {
+  if (!navigator.sendBeacon) return false;
 
-    (rawEvents || []).forEach(ev => {
-      if (ev.type !== 'hit' && ev.type !== 'miss') return;
-      out.push({
-        sessionId:    sid,
-        groupId:      ev.groupId || '',
-        emoji:        ev.emoji || '',
-        isGood:       ev.isGood,
-        isQuestTarget: !!ev.isQuestTarget,
-        hitOrMiss:    ev.type,                  // 'hit' / 'miss'
-        rtMs:         ev.rtMs != null ? ev.rtMs : null,
-        scoreDelta:   ev.scoreDelta != null ? ev.scoreDelta : 0,
-        pos:          ev.pos || null
-      });
-    });
+  const data = payload || {
+    projectTag: CONFIG.projectTag,
+    sessions: sessionQueue.splice(0),
+    events:   eventQueue.splice(0)
+  };
 
-    return out;
+  if (!data.sessions.length && !data.events.length && !force) return false;
+
+  try {
+    const blob = new Blob([JSON.stringify(data)], { type: 'text/plain' });
+    const ok = navigator.sendBeacon(CONFIG.endpoint, blob);
+    if (CONFIG.debug) console.log('[GroupsVR-Logger] sendBeacon', ok, data);
+    return ok;
+  } catch (err) {
+    if (CONFIG.debug) console.warn('[GroupsVR-Logger] sendBeacon error', err);
+    return false;
   }
+}
 
-  async function send(rawSession, rawEvents) {
-    if (!CONFIG.endpoint) {
-      if (CONFIG.debug) console.warn('[GroupsVR Logger] no endpoint, skip send');
-      return;
-    }
-
-    const sessionPayload = buildSessionPayload(rawSession, rawEvents);
-    const eventsPayload  = buildEventsPayload(rawSession, rawEvents);
-
-    const payload = {
-      projectTag: CONFIG.projectTag,
-      sessions: [sessionPayload],
-      events:   eventsPayload
-    };
-
-    if (CONFIG.debug) {
-      console.log('[GroupsVR Logger] send →', payload);
-    }
-
-    try {
-      await fetch(CONFIG.endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch (err) {
-      if (CONFIG.debug) console.warn('[GroupsVR Logger] send error', err);
-    }
-  }
-
-  ns.foodGroupsCloudLogger = { init, send };
-})(window.GAME_MODULES || (window.GAME_MODULES = {}));
+export default { initCloudLogger };
