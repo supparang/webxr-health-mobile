@@ -1,6 +1,11 @@
 // vr-groups/logger-cloud.js
-// ส่งข้อมูลเกม Food Groups VR ขึ้น Google Apps Script → Google Sheet
-// ใช้คู่กับ doPost(e) ที่มีชีต Session / Events
+// ส่งข้อมูลเกม Food Groups VR ขึ้น Google Apps Script แบบ "GoodJunk style"
+// payload:
+//   {
+//     projectTag: 'HeroHealth-GroupsVR',
+//     sessions: [ { ... } ],
+//     events:   [ { ... } ]
+//   }
 
 (function (ns) {
   'use strict';
@@ -46,7 +51,7 @@
     const hitRate = totalShots > 0 ? hitCount / totalShots : 0;
     const avgRT = rtN > 0 ? Math.round(sumRT / rtN) : 0;
 
-    // ตีความ goodCount = จำนวน hit (ยิงโดน), badCount = miss ทั้งหมด
+    // goodCount = จำนวน hit, badCount = miss
     const goodCount = hitCount;
     const badCount = totalShots - hitCount;
 
@@ -66,10 +71,11 @@
       hitRate: hitRate,
       avgRT: avgRT,
 
-      // เก็บเพิ่มใน rawSession ไว้ดูทีหลัง
+      // เก็บเพิ่มใน rawSession ไว้ดูทีหลัง (อยู่ในคอลัมน์ rawSession)
       mode: rawSession.mode || 'groups-vr',
       startedAt: rawSession.startedAt || null,
-      endedAt: rawSession.endedAt || null
+      endedAt: rawSession.endedAt || null,
+      groupStats: rawSession.groupStats || null
     };
   }
 
@@ -85,7 +91,7 @@
         // timestamp ให้ Apps Script ใส่เอง (new Date())
         sessionId: sid,
         groupId: ev.groupId || '',
-        emoji: ev.emoji || '',          // ตอนนี้ยังไม่มี emoji ใน log ก็ปล่อยว่างได้
+        emoji: ev.emoji || '',          // ตอนนี้ยังไม่มี emoji ใน log ก็เว้นได้
         isGood: ev.isGood,              // ยังไม่ได้ใช้ก็ได้
         isQuestTarget: !!ev.isQuestTarget,
         hitOrMiss: ev.type,             // 'hit' หรือ 'miss'
@@ -109,7 +115,7 @@
 
     const payload = {
       projectTag: CONFIG.projectTag,
-      session: sessionPayload,
+      sessions: [sessionPayload],  // ★ แบบ GoodJunk: array
       events: eventsPayload
     };
 
