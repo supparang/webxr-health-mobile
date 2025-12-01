@@ -263,17 +263,18 @@
 <script src="./vr-groups/GameEngine.js"></script>
 <script src="./vr-groups/launcher-groups.js"></script>
 
-<script>
-  // ★ ตรงนี้สำคัญ: ตั้งค่า endpoint + เปิด debug ชั่วคราว
-  (function () {
-    if (!window.GAME_MODULES || !GAME_MODULES.foodGroupsCloudLogger) return;
-    GAME_MODULES.foodGroupsCloudLogger.init({
-      endpoint: 'https://script.google.com/macros/s/AKfycbzEW94iBXISShedudnv-vE0k0_gDkiGtU8r2yatyr_sj4l8dRDhgxgjU6rGyyv0Yh7p/exec',
-      projectTag: 'HeroHealth-GroupsVR',
-      debug: true   // ให้เห็น log ใน Console ก่อน
-    });
-  })();
-</script>
+  <script src="./vr-groups/logger-cloud.js"></script>
+  <script>
+    (function () {
+      if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
+        GAME_MODULES.foodGroupsCloudLogger.init({
+          endpoint: 'https://script.google.com/macros/s/AKfycbzEW94iBXISShedudnv-vE0k0_gDkiGtU8r2yatyr_sj4l8dRDhgxgjU6rGyyv0Yh7p/exec',
+          projectTag: 'HeroHealth-GroupsVR',
+          debug: true   // เปิดดู log ชั่วคราว ถ้าเรียบร้อยแล้วเปลี่ยนเป็น false ได้
+        });
+      }
+    })();
+  </script>
 
 </body>
 </html>
