@@ -479,8 +479,7 @@
 </div>
 
 <script type="module">
-  import hydrationMode from './hydration-vr/hydration.safe.js';
-
+    import hydrationMode from './hydration.safe.js';
   const url = new URL(window.location.href);
   const diffParam = (url.searchParams.get('diff') || 'normal').toLowerCase();
   const timeParam = parseInt(url.searchParams.get('time') || url.searchParams.get('duration') || '60', 10);
