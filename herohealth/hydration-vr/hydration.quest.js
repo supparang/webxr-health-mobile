@@ -1,8 +1,7 @@
-// === /HeroHealth/modes/hydration.quest.js
+// === /herohealth/hydration-vr/hydration.quest.js
 // Glue file สำหรับ MissionDeck ของโหมด Hydration
-// (โครงสร้างเหมือน goodjunk.quest.js / groups.quest.js)
 
-import { MissionDeck } from './mission.js';
+import { MissionDeck } from '../vr/mission.js';       // <<-- สำคัญ: ../vr/mission.js
 import { hydrationGoalsFor } from './hydration.goals.js';
 import { hydrationMinisFor } from './hydration.minis.js';
 
