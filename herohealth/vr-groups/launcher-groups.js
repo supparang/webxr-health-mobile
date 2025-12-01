@@ -66,7 +66,7 @@
 
       hideHintLater();
 
-      scene.emit('fg-start', { diff: diff });
+      sceneEl.emit('fg-start', { diff: 'easy' });
     }
 
     if (btnEasy)   btnEasy.addEventListener('click', () => start('easy'));
