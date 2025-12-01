@@ -1,8 +1,7 @@
 // === /herohealth/vr/vr-goodjunk/quest-serial.js ===
 // Quest system สำหรับ Good vs Junk VR
-// - 1 Main goal (เก็บของดี >= N ชิ้น)
+// - 1 Main goal (เก็บของดี >= 30 ชิ้น)
 // - Mini quest ต่อเนื่องหลายอัน (คอมโบ x5 -> x8 -> x10 ...)
-//   ทำอันหนึ่งครบแล้วจะเลื่อนไปอันถัดไปทันที
 
 'use strict';
 
@@ -19,7 +18,6 @@ const DEFAULT_CONFIG = {
 };
 
 // mini quest แบบต่อเนื่อง
-// สามารถแก้ target / ข้อความทีหลังได้ง่าย ๆ
 const MINI_LIST = [
   {
     id: 'combo5',
@@ -61,11 +59,10 @@ const Quest = {
           cleared: false
         };
       }),
-      currentMiniIndex: 0,  // index mini ที่กำลังเล่นอยู่ (0..len)
-      miniClearedCount: 0   // ผ่านไปแล้วกี่ mini
+      currentMiniIndex: 0,
+      miniClearedCount: 0
     };
 
-    // ให้ HUD หรือส่วนอื่นใช้ได้ง่าย ๆ
     window.hhaMiniCleared = 0;
     window.hhaMiniTotal   = this._state.miniList.length;
 
@@ -107,7 +104,6 @@ const Quest = {
 
   onFever() {
     if (!this._state) return;
-    // ยังไม่เอา fever มาคิด quest เพิ่ม แค่ให้ HUD อัปเดตได้
     this._emitUpdate();
   },
 
@@ -116,23 +112,19 @@ const Quest = {
     st.mainDone = st.goodCount >= st.mainTargetGood;
   },
 
-  // ตรวจว่าถึงเงื่อนไข mini quest ปัจจุบันหรือยัง
   _onComboChange() {
     const st = this._state;
     const comboNow = window.combo | 0;
 
-    // ยังมี mini quest ให้ทำอยู่หรือไม่
     if (st.currentMiniIndex >= st.miniList.length) {
-      return; // ผ่านครบหมดแล้ว
+      return; // ผ่านทุก mini แล้ว
     }
 
     const mini = st.miniList[st.currentMiniIndex];
     if (!mini.cleared && comboNow >= mini.targetCombo) {
-      // ผ่าน mini ปัจจุบัน
       mini.cleared = true;
       st.miniClearedCount += 1;
 
-      // อัปเดต global สำหรับ UI/Research
       window.hhaMiniCleared = st.miniClearedCount;
       window.hhaMiniTotal   = st.miniList.length;
 
@@ -143,11 +135,9 @@ const Quest = {
         clearedCount: st.miniClearedCount
       });
 
-      // ขยับไป mini ถัดไป (ถ้ามี)
       st.currentMiniIndex += 1;
 
       if (st.currentMiniIndex >= st.miniList.length) {
-        // ผ่าน mini quest ครบทุกอันแล้ว
         emit('quest:all-mini-done', {
           clearedCount: st.miniClearedCount,
           total: st.miniList.length
@@ -162,7 +152,6 @@ const Quest = {
 
     const comboNow = window.combo | 0;
 
-    // main goal detail
     const goalDetail = {
       label: 'เก็บของดี (🥦 🍎 🥛) ให้ได้อย่างน้อย 30 ชิ้น',
       progress: {
@@ -172,7 +161,6 @@ const Quest = {
       done: st.mainDone
     };
 
-    // mini quest detail (อันที่กำลัง active อยู่ ณ ตอนนี้)
     let miniDetail;
     const totalMini = st.miniList.length;
 
@@ -186,13 +174,12 @@ const Quest = {
           current: cur,
           target: mini.targetCombo
         },
-        done: false, // อันปัจจุบันยังไม่ผ่าน (ถ้าผ่านแล้วจะเลื่อนไปอันใหม่)
-        index: st.currentMiniIndex,      // 0-based
+        done: false,
+        index: st.currentMiniIndex,
         total: totalMini,
         clearedCount: st.miniClearedCount
       };
     } else {
-      // ผ่าน mini quest ครบแล้ว
       miniDetail = {
         label: 'ผ่าน Mini quest ครบทุกภารกิจแล้ว 🎉',
         progress: {
@@ -212,7 +199,6 @@ const Quest = {
       hint: 'เล็งของดี 🥦 🍎 🥛 ให้เร็ว ๆ และพยายามไม่โดนของขยะ 🌭🍩 จะได้คอมโบยาว ๆ นะ!'
     };
 
-    // sync global ไว้ให้ส่วนอื่นใช้ (เช่นหน้าสรุปผล / logger)
     window.hhaMiniCleared = st.miniClearedCount;
     window.hhaMiniTotal   = totalMini;
 
@@ -221,7 +207,6 @@ const Quest = {
     if (st.mainDone) emit('quest:goal-done', detail);
   },
 
-  // ให้ GameEngine หรือ logger เรียกตอนจบเกมได้
   getSummary() {
     if (!this._state) return null;
     return {
