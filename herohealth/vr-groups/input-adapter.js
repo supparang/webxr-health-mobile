@@ -1,83 +1,89 @@
 // vr-groups/input-adapter.js
+// รวม input: เมาส์ (PC) + ทัช (Mobile) + Trigger (VR)
+// แล้วไปยิง click ใส่เป้า data-hha-tgt
+
 (function (ns) {
   'use strict';
 
-  function detectDeviceType() {
-    try {
-      if (window.AFRAME && AFRAME.utils && AFRAME.utils.device) {
-        const d = AFRAME.utils.device;
-        if (d.isMobileVR && d.isMobileVR()) return 'mobile-vr';
-        if (d.checkHeadsetConnected && d.checkHeadsetConnected()) return 'desktop-vr';
-        if (d.isMobile && d.isMobile()) return 'mobile';
-        return 'desktop';
-      }
-    } catch (e) {}
-    const ua = navigator.userAgent || '';
-    if (/Mobile|Android|iPhone|iPad/i.test(ua)) return 'mobile';
-    return 'desktop';
-  }
-
   AFRAME.registerComponent('fg-input-adapter', {
     init: function () {
-      const cam = document.getElementById('camera');
-      const cursor = document.getElementById('cursor');
-      const hintEl = document.getElementById('fgHint');
-      const rightHand = document.getElementById('rightHand');
+      const scene    = this.el;
+      const cursor   = document.querySelector('#cursor');
+      const hand     = document.querySelector('#rightHand');
 
-      if (!cam || !cursor) return;
+      let activeRaycaster = null;
 
-      const type = detectDeviceType();
-
-      // base raycaster ให้ยิงเฉพาะเป้า
-      cursor.setAttribute('raycaster', 'objects: [data-hha-tgt]');
-
-      if (type === 'desktop') {
-        // 🖥 PC: ใช้เมาส์เล็ง + คลิก
-        cam.setAttribute('look-controls', 'pointerLockEnabled: false; touchEnabled: true');
-        cursor.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
-        cursor.setAttribute('geometry', 'primitive: ring; radiusInner: 0.01; radiusOuter: 0.02');
-        cursor.setAttribute('material',
-          'color: #fde047; shader: flat; opacity: 0.95;');
-        if (hintEl) {
-          hintEl.textContent = 'ลากเมาส์เลื่อนเป้า แล้วคลิกซ้ายเพื่อยิง 🎯';
-        }
-      } else if (type === 'mobile') {
-        // 📱 โทรศัพท์: ใช้วงแหวนกลางจอ + แตะ
-        cam.setAttribute('look-controls',
-          'pointerLockEnabled: false; touchEnabled: true');
-        cursor.setAttribute('cursor', 'rayOrigin: entity; fuse: true; fuseTimeout: 1200');
-        cursor.setAttribute('geometry', 'primitive: ring; radiusInner: 0.02; radiusOuter: 0.04');
-        if (hintEl) {
-          hintEl.textContent = 'หันมือถือให้วงแหวนทับเป้า แล้วแตะหน้าจอเพื่อยิง 🎯';
-        }
-      } else {
-        // 🕶 VR Headset (mobile-vr / desktop-vr)
-        cam.setAttribute('look-controls',
-          'pointerLockEnabled: false; touchEnabled: false');
-        // ใช้ทั้ง gaze และ controller ได้
-        cursor.setAttribute('cursor', 'rayOrigin: entity; fuse: true; fuseTimeout: 1200');
-        cursor.setAttribute('geometry', 'primitive: ring; radiusInner: 0.02; radiusOuter: 0.04');
-
-        if (rightHand) {
-          rightHand.setAttribute('laser-controls', 'hand: right');
-          rightHand.setAttribute('raycaster', 'objects: [data-hha-tgt]; interval: 10');
-        }
-
-        if (hintEl) {
-          hintEl.textContent = 'ใช้ Trigger บนคอนโทรลเลอร์ หรือจ้องค้างที่เป้าเพื่อยิง 🎯';
+      function pickActiveRaycaster() {
+        // ถ้าอยู่ในโหมด VR: ให้ controller สำคัญสุด
+        if (scene.is('vr-mode') && hand && hand.components.raycaster) {
+          activeRaycaster = hand;
+        } else {
+          // ปกติ: ใช้ cursor กลางจอ
+          activeRaycaster = cursor;
         }
       }
 
-      // auto-hide hint หลัง 8 วินาที (ไม่บังจอ)
-      if (hintEl) {
-        setTimeout(function () {
-          hintEl.style.transition = 'opacity .5s ease';
-          hintEl.style.opacity = '0';
-          hintEl.style.pointerEvents = 'none';
-        }, 8000);
+      pickActiveRaycaster();
+      scene.addEventListener('enter-vr', pickActiveRaycaster);
+      scene.addEventListener('exit-vr', pickActiveRaycaster);
+
+      function findTargetFromRaycaster(rayComp) {
+        if (!rayComp) return null;
+
+        // A-Frame จะเก็บ element ที่โดน raycaster ไว้ใน intersectedEls
+        if (rayComp.intersectedEls && rayComp.intersectedEls.length > 0) {
+          return rayComp.intersectedEls[0];
+        }
+
+        // เผื่อบางเวอร์ชันใช้ intersections (object3D)
+        if (rayComp.intersections && rayComp.intersections.length > 0) {
+          const obj = rayComp.intersections[0].object;
+          if (obj && obj.el) return obj.el;
+        }
+        return null;
       }
+
+      function shoot() {
+        if (!activeRaycaster || !activeRaycaster.components.raycaster) return;
+        const rayComp = activeRaycaster.components.raycaster;
+        const target = findTargetFromRaycaster(rayComp);
+        if (!target) return;
+
+        // ยิงเฉพาะเป้าที่ตั้ง data-hha-tgt ไว้
+        if (!target.hasAttribute('data-hha-tgt')) return;
+
+        // ให้เป้ารับ event click (GameEngine ผูก listener ไว้แล้ว)
+        target.emit('click');
+      }
+
+      // ---------- Desktop: เมาส์คลิกซ้าย ----------
+      window.addEventListener('mousedown', function (evt) {
+        if (evt.button !== 0) return; // เฉพาะปุ่มซ้าย
+        shoot();
+      });
+
+      // ---------- Mobile: แตะหน้าจอ ----------
+      window.addEventListener('touchstart', function () {
+        shoot();
+      }, { passive: true });
+
+      // ---------- VR: trigger / ปุ่มหลัก ----------
+      if (hand) {
+        hand.addEventListener('triggerdown', shoot);
+        hand.addEventListener('gripdown', shoot);
+        hand.addEventListener('abuttondown', shoot);
+        hand.addEventListener('bbuttondown', shoot);
+        hand.addEventListener('xbuttondown', shoot);
+        hand.addEventListener('ybuttondown', shoot);
+      }
+
+      // ---------- เผื่อใช้คีย์บอร์ด Space ยิง ----------
+      window.addEventListener('keydown', function (evt) {
+        if (evt.code === 'Space' || evt.code === 'Enter') {
+          shoot();
+        }
+      });
     }
   });
 
-  ns.foodGroupsInputAdapter = true;
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
