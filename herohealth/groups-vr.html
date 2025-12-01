@@ -245,38 +245,35 @@
   <script>
     window.GAME_MODULES = window.GAME_MODULES || {};
   </script>
-
-  <!-- โมดูล logger & audio -->
-  <script src="./vr-groups/logger-cloud.js"></script>
-  <script src="./vr-groups/audio.js"></script>
-
-  <!-- โมดูลเกม Groups -->
-  <script src="./vr-groups/ui-fever.js"></script>
-  <script src="./vr-groups/coach.js"></script>
-  <script src="./vr-groups/difficulty.js"></script>
-  <script src="./vr-groups/emoji-image.js"></script>
-  <script src="./vr-groups/aframe-particles.js"></script>
-  <script src="./vr-groups/quest-serial.js"></script>
-  <!-- auto select input แบบ GoodJunk -->
-  <script src="./vr-groups/input-adapter.js"></script>
-  <script src="./vr-groups/GameEngine.js"></script>
-  <script src="./vr-groups/launcher-groups.js"></script>
-
   <!-- เสียงเอฟเฟกต์ -->
   <audio id="fgSfxHit"   src="./audio/hit.mp3"   preload="auto"></audio>
   <audio id="fgSfxMiss"  src="./audio/miss.mp3"  preload="auto"></audio>
   <audio id="fgSfxQuest" src="./audio/quest.mp3" preload="auto"></audio>
+  
+<script src="./vr-groups/logger-cloud.js"></script>
+<script src="./vr-groups/audio.js"></script>
 
-  <!-- ตั้งค่า endpoint ของ Google Apps Script -->
-  <script>
-    (function () {
-      if (!window.GAME_MODULES || !GAME_MODULES.foodGroupsCloudLogger) return;
-      GAME_MODULES.foodGroupsCloudLogger.init({
-        endpoint: 'https://script.google.com/macros/s/AKfycbzEW94iBXISShedudnv-vE0k0_gDkiGtU8r2yatyr_sj4l8dRDhgxgjU6rGyyv0Yh7p/exec',
-        projectTag: 'HeroHealth-GroupsVR',
-        debug: false
-      });
-    })();
-  </script>
+<script src="./vr-groups/ui-fever.js"></script>
+<script src="./vr-groups/coach.js"></script>
+<script src="./vr-groups/difficulty.js"></script>
+<script src="./vr-groups/emoji-image.js"></script>
+<script src="./vr-groups/aframe-particles.js"></script>
+<script src="./vr-groups/quest-serial.js"></script>
+<script src="./vr-groups/input-adapter.js"></script>
+<script src="./vr-groups/GameEngine.js"></script>
+<script src="./vr-groups/launcher-groups.js"></script>
+
+<script>
+  // ★ ตรงนี้สำคัญ: ตั้งค่า endpoint + เปิด debug ชั่วคราว
+  (function () {
+    if (!window.GAME_MODULES || !GAME_MODULES.foodGroupsCloudLogger) return;
+    GAME_MODULES.foodGroupsCloudLogger.init({
+      endpoint: 'https://script.google.com/macros/s/AKfycbzEW94iBXISShedudnv-vE0k0_gDkiGtU8r2yatyr_sj4l8dRDhgxgjU6rGyyv0Yh7p/exec',
+      projectTag: 'HeroHealth-GroupsVR',
+      debug: true   // ให้เห็น log ใน Console ก่อน
+    });
+  })();
+</script>
+
 </body>
 </html>
