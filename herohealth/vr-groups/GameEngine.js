@@ -328,30 +328,17 @@
     el.setAttribute('data-group-id', String(group.id));
     el.setAttribute('data-quest-target', isQuestTarget ? '1' : '0');
 
-    // ----- emoji บนเป้า (msdf text) -----
-    if (group.img) {
-      const sprite = document.createElement('a-image');
-      sprite.setAttribute('src', group.img);
-      sprite.setAttribute('width', '0.7');
-      sprite.setAttribute('height', '0.7');
-      sprite.setAttribute('position', '0 0 0.03');
-      el.appendChild(sprite);
-    } else if (group.emoji) {
-      const label = document.createElement('a-entity');
-      label.setAttribute('text', {
-        value: group.emoji,
-        align: 'center',
-        anchor: 'center',
-        baseline: 'center',
-        width: 2.2,
-        color: '#ffffff',
-        shader: 'msdf',
-        font: 'https://cdn.aframe.io/fonts/mozillavr.fnt'
-      });
-      label.setAttribute('position', '0 0 0.03');
-      label.setAttribute('scale', '1 1 1');
-      el.appendChild(label);
-    }
+// ----- emoji บนเป้า (ใช้ a-text เพราะรองรับ emoji ได้ดีกว่า) -----
+if (group.emoji) {
+  const label = document.createElement('a-text');
+  label.setAttribute('value', group.emoji);    // เช่น 🍚 🥦 🍓
+  label.setAttribute('align', 'center');
+  label.setAttribute('anchor', 'center');
+  label.setAttribute('color', '#ffffff');
+  label.setAttribute('width', '2.5');          // ยิ่งมาก = ตัวใหญ่ขึ้น
+  label.setAttribute('position', '0 0 0.03');  // ลอยเหนือวงกลมเล็กน้อย
+  el.appendChild(label);
+}
 
     // วงแหวน highlight ถ้าเป็นเป้าภารกิจ
     if (isQuestTarget) {
