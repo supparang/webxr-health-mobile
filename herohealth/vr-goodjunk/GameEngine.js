@@ -24,14 +24,14 @@ window.FEVER_ACTIVE  = false;
 window.running       = false;
 
 // ---------- ตัวแปรภายใน Engine ----------
-let shield    = 0;
-let fever     = 0;
-let gameTimer = null;
-let spawnTimer = null;
-let sceneEl   = null;
-let targetRoot = null;
-let gameConfig = null;
-let difficulty = new Difficulty();
+let shield      = 0;
+let fever       = 0;
+let gameTimer   = null;
+let spawnTimer  = null;
+let sceneEl     = null;
+let targetRoot  = null;
+let gameConfig  = null;
+let difficulty  = new Difficulty();
 
 const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
@@ -39,11 +39,11 @@ const STAR = '⭐', DIA = '💎', SHIELD_EMOJI = '🛡️', FIRE = '🔥';
 const BONUS = [STAR, DIA, SHIELD_EMOJI, FIRE];
 
 // ---------- ตัวแปรสำหรับวิจัย (Session Stats + Event) ----------
-let sessionStats   = null;
-let sessionStartMs = 0;
-let comboMaxInternal = 0;
-let inputsBound = false;
-let currentSessionId = null;
+let sessionStats      = null;
+let sessionStartMs    = 0;
+let comboMaxInternal  = 0;
+let inputsBound       = false;
+let currentSessionId  = null;
 
 // helper: ตรวจชนิดอุปกรณ์แบบง่าย ๆ
 function detectDeviceType() {
@@ -115,6 +115,11 @@ function beginSession(meta) {
     feverActivations:   0,
     feverTimeTotalSec:  0,
 
+    // quest summary (เติมตอนปิด session)
+    mainGoalDone: false,
+    miniCleared:  0,
+    miniTotal:    0,
+
     _sent: false
   };
 
@@ -133,6 +138,16 @@ function finishSession() {
   sessionStats.scoreFinal        = window.score | 0;
   sessionStats.comboMax          = Math.max(sessionStats.comboMax || 0, comboMaxInternal | 0);
   sessionStats.misses            = window.misses | 0;
+
+  // ✅ ดึงสรุป mini quest จาก Quest แล้วเก็บลง session
+  if (Quest && typeof Quest.getSummary === 'function') {
+    const qs = Quest.getSummary();
+    if (qs) {
+      sessionStats.mainGoalDone  = !!qs.mainDone;
+      sessionStats.miniCleared   = qs.miniCleared | 0;
+      sessionStats.miniTotal     = qs.miniTotal | 0;
+    }
+  }
 
   sessionStats._sent = true;
 
@@ -195,33 +210,6 @@ function decayFever(base) {
   }
 }
 
-// helper หาระยะยิงจาก cursor กลางจอ
-function getCursorRaycaster() {
-  const cursor = document.getElementById('cursor');
-  if (!cursor || !cursor.components || !cursor.components.raycaster) return null;
-  return cursor.components.raycaster;
-}
-
-// ยิง ray จากกลางจอ → ถ้าโดนเป้า เรียก onHitTarget
-function shootFromCursorRay() {
-  if (!window.running) return;
-
-  const ray = getCursorRaycaster();
-  if (!ray) return;
-
-  try {
-    ray.refreshObjects && ray.refreshObjects();
-  } catch (_) {}
-
-  const hit = ray.intersectedEls && ray.intersectedEls[0];
-  if (hit && hit.dataset && hit.dataset.hhaTgt) {
-    onHitTarget(hit);
-  }
-}
-
-// เปิดให้สคริปต์อื่นเรียกได้ (เช่นปุ่ม fireBtn)
-window.goodjunkShootFromCenter = shootFromCursorRay;
-
 function spawnTarget() {
   if (!window.running) return;
   const cfg = gameConfig;
@@ -267,13 +255,9 @@ function spawnTarget() {
   el.dataset.lane = lane;
   el.dataset.spawnAt = String(performance.now());
 
-  // ผูก click ตรงกับเป้า (รองรับทุกแพลตฟอร์ม: VR trigger, gaze, fireBtn, tap)
-  el.addEventListener('click', () => {
-    if (!window.running) return;
-    onHitTarget(el);
-  });
-
-  targetRoot.appendChild(el);
+  if (targetRoot) {
+    targetRoot.appendChild(el);
+  }
 
   // หมดอายุเป้า
   setTimeout(() => {
@@ -281,8 +265,8 @@ function spawnTarget() {
       const spawnAt = Number(el.dataset.spawnAt || '0');
       const rtMs = spawnAt ? Math.round(performance.now() - spawnAt) : '';
       const lane = el.dataset.lane || '';
-      const char = el.dataset.char || char;
-      const itemType = el.dataset.itemType || itemType;
+      const ch = el.dataset.char || char;
+      const itemType2 = el.dataset.itemType || itemType;
 
       if (type === 'good') {
         // ปล่อยของดีหลุด → miss
@@ -294,13 +278,13 @@ function spawnTarget() {
         emitEvent({
           sessionId: currentSessionId || (sessionStats && sessionStats.sessionId) || '',
           type: 'timeout-good',
-          emoji: char,
+          emoji: ch,
           lane,
           rtMs,
           totalScore: window.score | 0,
           combo: window.combo | 0,
           isGood: true,
-          itemType
+          itemType: itemType2
         });
       } else {
         // หลบของขยะ → ถือว่าหลีกเลี่ยง junk ได้
@@ -308,13 +292,13 @@ function spawnTarget() {
         emitEvent({
           sessionId: currentSessionId || (sessionStats && sessionStats.sessionId) || '',
           type: 'avoid-junk',
-          emoji: char,
+          emoji: ch,
           lane,
           rtMs,
           totalScore: window.score | 0,
           combo: window.combo | 0,
           isGood: false,
-          itemType
+          itemType: itemType2
         });
       }
       el.remove();
@@ -331,7 +315,17 @@ function onHitTarget(targetEl) {
   const char = targetEl.dataset.char;
   const palette = targetEl.dataset.palette;
   const itemTypeOrig = targetEl.dataset.itemType || 'good';
-  const pos = targetEl.object3D.getWorldPosition(new THREE.Vector3());
+
+  let pos;
+  try {
+    if (targetEl.object3D && targetEl.object3D.getWorldPosition && window.THREE) {
+      pos = targetEl.object3D.getWorldPosition(new THREE.Vector3());
+    } else {
+      pos = { x: 0, y: 1.5, z: -2.0 };
+    }
+  } catch (_) {
+    pos = { x: 0, y: 1.5, z: -2.0 };
+  }
 
   const spawnAt = Number(targetEl.dataset.spawnAt || '0');
   const rtMs = spawnAt ? Math.round(performance.now() - spawnAt) : '';
@@ -344,10 +338,10 @@ function onHitTarget(targetEl) {
     // ---------- Good / Power-ups ----------
     if (sessionStats) {
       sessionStats.goodHits += 1;
-      if (char === STAR)        sessionStats.starHits   += 1;
-      else if (char === DIA)    sessionStats.diamondHits+= 1;
-      else if (char === SHIELD_EMOJI) sessionStats.shieldHits+=1;
-      else if (char === FIRE)   sessionStats.fireHits   += 1;
+      if (char === STAR)             sessionStats.starHits    += 1;
+      else if (char === DIA)         sessionStats.diamondHits += 1;
+      else if (char === SHIELD_EMOJI)sessionStats.shieldHits  += 1;
+      else if (char === FIRE)        sessionStats.fireHits    += 1;
     }
 
     if (char === STAR) {
@@ -516,28 +510,42 @@ export const GameEngine = {
     if (!inputsBound) {
       inputsBound = true;
 
-      // รองรับ click จาก VR trigger / gaze cursor (event ถูกยิงตรงที่ target อยู่แล้ว)
+      // ฟังก์ชันกลางสำหรับยิงจาก cursor (ใช้ได้ทั้ง PC / Mobile)
+      function fireFromCursor() {
+        if (!window.running) return;
+        const cursor = document.getElementById('cursor');
+        if (!cursor) return;
+        const ray = cursor.components && cursor.components.raycaster;
+        if (!ray) return;
+        const hit = ray.intersectedEls && ray.intersectedEls[0];
+        if (hit && hit.dataset && hit.dataset.hhaTgt) {
+          onHitTarget(hit);
+        }
+      }
+
+      // รองรับ click จาก VR trigger / gaze cursor + click ทั่ว ๆ ไป
       sceneEl.addEventListener('click', (e) => {
+        if (!window.running) return;
+
         if (e.target && e.target.dataset && e.target.dataset.hhaTgt) {
           onHitTarget(e.target);
+          return;
         }
+        fireFromCursor();
       });
 
-      // รองรับเมาส์บน PC + tap บน mobile จาก canvas (ยิงจากกลางจอ)
+      // รองรับเมาส์บน PC + แตะจอบน Mobile
       sceneEl.addEventListener('loaded', () => {
         const canvas = sceneEl.canvas;
         if (!canvas) return;
 
-        // PC: คลิกเมาส์กลางจอ
         canvas.addEventListener('mousedown', () => {
-          shootFromCursorRay();
+          fireFromCursor();
         });
 
-        // Mobile: tap กลางจอ
-        canvas.addEventListener('touchstart', (ev) => {
-          ev.preventDefault();
-          shootFromCursorRay();
-        }, { passive: false });
+        canvas.addEventListener('touchstart', () => {
+          fireFromCursor();
+        }, { passive: true });
       });
     }
 
