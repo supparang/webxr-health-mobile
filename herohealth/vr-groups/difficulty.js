@@ -2,30 +2,33 @@
 (function (ns) {
   'use strict';
 
-  // ปรับความยากแบบ pop-up: เป้าโผล่มาอยู่แป๊บเดียวแล้วหาย
   const TABLE = {
     easy: {
-      spawnInterval: 1300,   // ms ระยะห่างการออกเป้า
-      targetLifetime: 2600,  // ms ระยะเวลาที่เป้าอยู่
+      spawnInterval: 1400,     // ศัตรูออกช้าหน่อย
+      targetLifetime: 2800,    // อยู่บนจอนาน
       maxActive: 4,
-      duration: 60000        // เวลาเล่นรวม 60s
+      duration: 60000,
+      targetRadius: 0.6        // 🎯 เป้าใหญ่สุด
     },
     normal: {
-      spawnInterval: 1000,
-      targetLifetime: 2200,
+      spawnInterval: 1100,
+      targetLifetime: 2300,
       maxActive: 5,
-      duration: 70000
+      duration: 60000,
+      targetRadius: 0.5        // 🎯 กลาง ๆ
     },
     hard: {
-      spawnInterval: 800,
-      targetLifetime: 1800,
+      spawnInterval: 900,
+      targetLifetime: 2000,
       maxActive: 6,
-      duration: 80000
+      duration: 60000,
+      targetRadius: 0.42       // 🎯 เล็กลง ท้าทายขึ้น
     }
   };
 
   ns.foodGroupsDifficulty = {
     get(diff) {
+      diff = (diff || 'normal').toLowerCase();
       return TABLE[diff] || TABLE.normal;
     }
   };
