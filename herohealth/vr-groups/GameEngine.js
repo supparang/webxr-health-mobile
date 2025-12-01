@@ -33,7 +33,7 @@
     this.diff = 'normal';
     this.cfg = ns.foodGroupsDifficulty
       ? ns.foodGroupsDifficulty.get('normal')
-      : { spawnInterval: 1200, targetLifetime: 2200, maxActive: 5, duration: 60000 };
+      : { spawnInterval: 1200, targetLifetime: 2200, maxActive: 5, duration: 60000, targetRadius: 0.5 };
 
     this.score = 0;
     this._targets = [];
@@ -212,7 +212,9 @@
       durationMs: durationMs,
       sessionId: this.session.sessionId || null,
       playerName: this.session.playerName || null,
-      playerClass: this.session.playerClass || null
+      playerClass: this.session.playerClass || null,
+      // ★ รวมสรุปต่อหมู่ไว้ใน rawSession ด้วย (ใช้วิเคราะห์ทีหลัง)
+      groupStats: this.groupStats
     };
 
     const events = (window.HHA_FOODGROUPS_LOG || []).slice();
@@ -258,13 +260,13 @@
 
     const el = document.createElement('a-entity');
 
-    const x = -1.6 + Math.random() * 3.2;
-    const y = 1.0 + Math.random() * 1.4;
-    const z = -3.0 + Math.random() * 0.8;
+    // ★ ปรับให้กระจายแต่ยังอยู่ในโซนเล็งง่าย (ใกล้กลางจอ)
+    const x = -1.2 + Math.random() * 2.4;
+    const y = 0.9 + Math.random() * 1.0;
+    const z = -2.8 + Math.random() * 0.6;
 
-    const radius = (this.cfg && this.cfg.targetRadius) || 0.5; // เป้าใหญ่ขึ้น
+    const radius = cfg.targetRadius || 0.5; // ★ ใช้ radius จาก difficulty
     el.setAttribute('geometry', `primitive: circle; radius: ${radius}; segments: 64`);
-
     el.setAttribute(
       'material',
       `color: ${group.color}; shader: flat; opacity: 0.95; transparent: true`
@@ -285,8 +287,8 @@
 
     if (isQuestTarget) {
       const ring = document.createElement('a-ring');
-      ring.setAttribute('radius-inner', '0.39');
-      ring.setAttribute('radius-outer', '0.48');
+      ring.setAttribute('radius-inner', (radius + 0.05).toString());
+      ring.setAttribute('radius-outer', (radius + 0.13).toString());
       ring.setAttribute('color', '#facc15');
       ring.setAttribute('position', '0 0 0.01');
       el.appendChild(ring);
@@ -392,12 +394,14 @@
       ns.foodGroupsAudio.playHit();
     }
 
+    // ★ เพิ่ม judgment แยก normal / quest (ใช้วิเคราะห์ หรือโชว์ UI ก็ได้)
     logEvent('hit', {
       groupId: groupId,
       isQuestTarget: !!isQuestTarget,
       scoreDelta: gained,
       rtMs: rt,
-      pos: worldPos
+      pos: worldPos,
+      judgment: bonus > 0 ? 'quest' : 'normal'
     });
 
     this.safeRemoveTarget(el);
@@ -405,16 +409,32 @@
 
   FoodGroupsGame.prototype.onMissTarget = function (el) {
     if (this.state === 'playing') {
-      this.score = Math.max(0, this.score - 3);
-      if (ns.foodGroupsUI) {
-        ns.foodGroupsUI.setScore(this.score);
-        ns.foodGroupsUI.flashJudgment({
-          isMiss: true,
-          scoreDelta: 0,
-          isQuestTarget: false,
-          text: 'MISS'
-        });
+
+      // ★ 1) Easy = โหมดฝึก → ไม่หักคะแนน, ข้อความเบา ๆ
+      if (this.diff === 'easy') {
+        if (ns.foodGroupsUI) {
+          ns.foodGroupsUI.setScore(this.score);
+          ns.foodGroupsUI.flashJudgment({
+            isMiss: true,
+            scoreDelta: 0,
+            isQuestTarget: false,
+            text: 'ลองใหม่อีกที 😊'
+          });
+        }
+      } else {
+        // normal / hard: หักคะแนนตามเดิม
+        this.score = Math.max(0, this.score - 3);
+        if (ns.foodGroupsUI) {
+          ns.foodGroupsUI.setScore(this.score);
+          ns.foodGroupsUI.flashJudgment({
+            isMiss: true,
+            scoreDelta: 0,
+            isQuestTarget: false,
+            text: 'MISS'
+          });
+        }
       }
+
       if (ns.foodGroupsAudio) {
         ns.foodGroupsAudio.playMiss();
       }
