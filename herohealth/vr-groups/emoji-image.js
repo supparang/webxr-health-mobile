@@ -1,59 +1,68 @@
 // vr-groups/emoji-image.js
+// กำหนดข้อมูล "หมู่ 1–5" สำหรับ Food Groups VR
+
 (function (ns) {
   'use strict';
 
-  // ใช้ Twemoji PNG (ผ่าน jsDelivr CDN)
-  // หมู่ 1–5: 🍚 🍗 🥛 🥦 🍌
+  // ถ้ามี namespace อยู่แล้วก็ใช้ต่อ ไม่งั้นสร้างใหม่
+  ns = ns || (window.GAME_MODULES = window.GAME_MODULES || {});
+
+  // ===== รายการหมู่อาหาร (แก้ emoji / สี / label ได้เลย) =====
   const GROUPS = [
     {
       id: 1,
+      label: 'หมู่ 1 ข้าว-แป้ง',
       emoji: '🍚',
-      label: 'ข้าว-แป้ง',
-      color: '#f97316',
-      img: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14/assets/72x72/1f35a.png' // 🍚
+      color: '#22c55e',   // เขียวอ่อน
+      img: ''             // ถ้ามีรูปเช่น '#fg-g1' ใส่ตรงนี้
     },
     {
       id: 2,
+      label: 'หมู่ 2 เนื้อ-โปรตีน',
       emoji: '🍗',
-      label: 'เนื้อ-ถั่ว',
-      color: '#22c55e',
-      img: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14/assets/72x72/1f357.png' // 🍗
+      color: '#eab308',   // เหลือง
+      img: ''
     },
     {
       id: 3,
-      emoji: '🥛',
-      label: 'นม',
-      color: '#38bdf8',
-      img: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14/assets/72x72/1f95b.png' // 🥛
+      label: 'หมู่ 3 ผัก',
+      emoji: '🥦',
+      color: '#16a34a',
+      img: ''
     },
     {
       id: 4,
-      emoji: '🥦',
-      label: 'ผัก',
-      color: '#16a34a',
-      img: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14/assets/72x72/1f966.png' // 🥦
+      label: 'หมู่ 4 ผลไม้',
+      emoji: '🍉',
+      color: '#f97316',
+      img: ''
     },
     {
       id: 5,
-      emoji: '🍌',
-      label: 'ผลไม้',
-      color: '#eab308',
-      img: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14/assets/72x72/1f34c.png' // 🍌
+      label: 'หมู่ 5 นม',
+      emoji: '🥛',
+      color: '#38bdf8',
+      img: ''
     }
   ];
 
+  // ===== ฟังก์ชันสุ่มหมู่ =====
   function pickRandomGroup() {
-    return GROUPS[Math.floor(Math.random() * GROUPS.length)];
+    if (!GROUPS.length) return null;
+    const idx = Math.floor(Math.random() * GROUPS.length);
+    return GROUPS[idx];
   }
 
   function getById(id) {
+    id = parseInt(id, 10);
     return GROUPS.find(g => g.id === id) || null;
   }
 
+  // export เข้า namespace กลาง
   ns.foodGroupsEmoji = {
-    all: groups,
-    pickRandomGroup: function () {
-      return groups[Math.floor(Math.random() * groups.length)];
-    }
+    all: GROUPS,
+    pickRandomGroup,
+    getById
   };
+
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
