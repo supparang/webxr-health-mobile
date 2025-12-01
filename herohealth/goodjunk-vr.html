@@ -47,8 +47,6 @@
       text-align:center;
       color:#0f172a;
       transition:opacity .28s ease, visibility .28s ease;
-      /* ตอน overlay โชว์ → ให้คลิกได้ */
-      pointer-events:auto;
     }
     #uiOverlay::before,
     #uiOverlay::after{
@@ -73,7 +71,7 @@
     #uiOverlay.hidden{
       opacity:0;
       visibility:hidden;
-      pointer-events:none; /* ตอนเล่นเกม → overlay โปร่ง ไม่บังการหมุน/แตะ */
+      pointer-events:none;
     }
 
     .ui-card{
@@ -161,21 +159,20 @@
       filter:brightness(1.03);
       box-shadow:0 16px 32px rgba(34,197,94,.55);
     }
-    /* ปุ่ม Normal ให้เป็นโทนฟ้า-เขียวแทนเขียว */
-    #startButtonNormal{
-      background:linear-gradient(135deg,#22d3ee,#0ea5e9);   /* ฟ้าอมเขียว */
-      box-shadow:0 10px 25px rgba(56,189,248,.55);
+    .game-button.hard{
+      background:linear-gradient(135deg,#f97316,#ef4444);
+      box-shadow:0 10px 25px rgba(239,68,68,.55);
     }
 
+    /* ปุ่ม Normal ใช้โทนฟ้า */
+    #startButtonNormal{
+      background:linear-gradient(135deg,#22d3ee,#0ea5e9);
+      box-shadow:0 10px 25px rgba(56,189,248,.55);
+    }
     #startButtonNormal:hover{
       transform:translateY(-1px);
       filter:brightness(1.03);
       box-shadow:0 16px 32px rgba(56,189,248,.7);
-    }
-
-    .game-button.hard{
-      background:linear-gradient(135deg,#f97316,#ef4444);
-      box-shadow:0 10px 25px rgba(239,68,68,.55);
     }
 
     #resultsScreen h2{
@@ -330,7 +327,6 @@
       background:rgba(51,65,85,.8);
       overflow:hidden;
     }
-    
     #questHudVR .q-grade-fill{
       position:absolute;
       left:0;
@@ -341,27 +337,8 @@
       background:linear-gradient(90deg,#22c55e,#a855f7);
       transition:width .2s ease-out;
     }
-      #questHudVR .q-row{
-      display:flex;
-      align-items:baseline;
-      justify-content:space-between;
-      gap:6px;
-    }
-    #questHudVR .q-prog{
-      font-size:11px;
-      font-weight:600;
-      color:#bbf7d0;
-      white-space:nowrap;
-    }
-    #questHudVR .q-prog.done{
-      color:#4ade80;
-    }
-    #questHudVR .q-status{
-      margin-top:4px;
-      font-size:11px;
-      color:#a5b4fc;
-    }
 
+    /* progress & status เพิ่มเติม */
     #questHudVR .q-row{
       display:flex;
       align-items:baseline;
@@ -389,56 +366,6 @@
         top:72px;
         max-width:220px;
         padding:8px 10px;
-      }
-    }
-
-    /* ===== ปุ่มยิง! กลางล่างจอ (PC + Mobile) ===== */
-    #fireBtn{
-      position:fixed;
-      left:50%;
-      bottom:16px;
-      transform:translateX(-50%);
-      z-index:980;
-      min-width:130px;
-      padding:10px 20px;
-      border-radius:999px;
-      border:1px solid rgba(254,215,170,0.9);
-      background:
-        radial-gradient(circle at 0 0, rgba(248,113,113,0.35), transparent 55%),
-        linear-gradient(135deg,#fb923c,#f97316);
-      color:#451a03;
-      font-family:'IBM Plex Sans Thai',system-ui;
-      font-size:1rem;
-      font-weight:700;
-      display:none; /* โชว์เฉพาะตอนเล่นเกม */
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      box-shadow:0 14px 30px rgba(15,23,42,.9);
-      cursor:pointer;
-      pointer-events:auto;
-      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
-    }
-    #fireBtn span.small{
-      font-size:.8rem;
-      opacity:.85;
-    }
-    #fireBtn:hover{
-      transform:translateX(-50%) translateY(-1px);
-      box-shadow:0 20px 40px rgba(15,23,42,1);
-      filter:brightness(1.03);
-    }
-    #fireBtn:active{
-      transform:translateX(-50%) translateY(0);
-      box-shadow:0 10px 22px rgba(15,23,42,.9);
-    }
-
-    @media (max-width:640px){
-      #fireBtn{
-        bottom:12px;
-        min-width:120px;
-        padding:9px 18px;
-        font-size:.95rem;
       }
     }
   </style>
@@ -483,22 +410,19 @@
       <div class="result-line" id="resultDetailMain">เยี่ยมมาก ลองเล่นอีกรอบให้ได้คะแนนสูงกว่าเดิมนะ 🎯</div>
       <div class="result-line" id="resultDetailCombo"></div>
       <div class="result-line" id="resultDetailMiss"></div>
-      <div class="result-line" id="resultDetailMini"></div> <!-- ⬅ บรรทัดใหม่ -->
+      <div class="result-line" id="resultDetailMini"></div>
 
       <div class="btn-row" style="margin-top:12px;">
         <button class="game-button" id="playAgainButton">เล่นอีกครั้ง ▶</button>
       </div>
     </div>
-
-  <!-- ปุ่มยิง! กลางล่างจอ -->
-  <button id="fireBtn">🔫 ยิง! <span class="small">(แตะเพื่อยิงเป้า)</span></button>
+  </div>
 
   <!-- ===== A-Frame Scene (VR World) ===== -->
   <a-scene id="gameScene"
            renderer="colorManagement: true"
            loading-screen="dotsColor: white; backgroundColor: #0b1222"
-           background="color: #020617"
-           device-orientation-permission-ui="enabled: true">
+           background="color: #020617">
 
     <!-- Ambient + Directional light -->
     <a-entity light="type: ambient; color: #FFF; intensity: 0.6"></a-entity>
@@ -506,19 +430,16 @@
 
     <!-- กลุ่มผู้เล่น/กล้อง -->
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="camera"
-                wasd-controls-enabled="false"
-                look-controls="touchEnabled: true; magicWindowTrackingEnabled: true; pointerLockEnabled: true">
-        <!-- Cursor แบบ ring เห็นชัดสำหรับ Gaze/VR + ใช้ยิงจากกลางจอ -->
-        <a-entity id="cursor"
-                  cursor="fuse: false"
+      <a-camera id="camera" look-controls="pointerLockEnabled: true">
+        <!-- Cursor แบบ ring เห็นชัดสำหรับ Gaze/VR -->
+        <a-cursor id="cursor"
                   raycaster="objects: [data-hha-tgt]; interval: 50"
-                  position="0 0 0">
-          <a-ring geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.018"
+                  fuse="true"
+                  fuse-timeout="900"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.018"
                   material="color: #ffffff; shader: flat; opacity: 0.95"
                   position="0 0 -1">
-          </a-ring>
-        </a-entity>
+        </a-cursor>
       </a-camera>
 
       <!-- มือขวา (VR controller) -->
@@ -551,8 +472,7 @@
     const resultComboEl = document.getElementById('resultDetailCombo');
     const resultMissEl  = document.getElementById('resultDetailMiss');
     const resultMainEl  = document.getElementById('resultDetailMain');
-    const resultMiniEl  = document.getElementById('resultDetailMini'); // ⬅ เพิ่ม
-    const fireBtn       = document.getElementById('fireBtn');
+    const resultMiniEl  = document.getElementById('resultDetailMini');
 
     const btnEasy   = document.getElementById('startButtonEasy');
     const btnNormal = document.getElementById('startButtonNormal');
@@ -589,19 +509,16 @@
 
     function hideOverlay(){
       uiOverlay.classList.add('hidden');
-      if (fireBtn) fireBtn.style.display = 'flex'; // โชว์ปุ่มยิงตอนเล่น
     }
     function showStart(){
       resultsScreen.style.display = 'none';
       startScreen.style.display   = 'block';
       uiOverlay.classList.remove('hidden');
-      if (fireBtn) fireBtn.style.display = 'none';
     }
     function showResult(score, extra = {}){
       startScreen.style.display   = 'none';
       resultsScreen.style.display = 'block';
       uiOverlay.classList.remove('hidden');
-      if (fireBtn) fireBtn.style.display = 'none';
 
       const s = score|0;
       finalScoreEl.textContent = `คะแนน: ${s}`;
@@ -621,7 +538,6 @@
         resultMissEl.textContent = '';
       }
 
-      // ✅ สรุป mini quest
       const miniCleared = (typeof extra.miniCleared === 'number')
         ? extra.miniCleared
         : (typeof window.hhaMiniCleared === 'number'
@@ -646,7 +562,6 @@
       clearGameTimer();
       hideOverlay();
 
-      // เริ่ม Engine ฝั่ง VR
       GameEngine.start(currentDifficulty);
 
       // ตั้งเวลาให้จบเองที่ 60 วิ
@@ -655,7 +570,12 @@
         const score  = (window.score|0) || 0;
         const comboM = (window.comboMax|0) || 0;
         const miss   = (window.misses|0)  || 0;
-        showResult(score, { comboMax: comboM, misses: miss });
+        showResult(score, {
+          comboMax: comboM,
+          misses: miss,
+          miniCleared: (window.hhaMiniCleared|0) || 0,
+          miniTotal: (window.hhaMiniTotal|0) || 0
+        });
       }, GAME_DURATION_MS);
     }
 
@@ -668,7 +588,6 @@
     btnAgain.addEventListener('click', ()=>{
       resultsScreen.style.display = 'none';
       startScreen.style.display   = 'block';
-      if (fireBtn) fireBtn.style.display = 'none';
     });
 
     // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบจากด้านใน + session logger)
@@ -695,74 +614,23 @@
         ? d.misses
         : ((window.misses|0) || 0);
 
-      showResult(score, { comboMax: comboM, misses: miss });
+      const miniCleared = (typeof d.miniCleared === 'number')
+        ? d.miniCleared
+        : ((window.hhaMiniCleared|0) || 0);
+      const miniTotal   = (typeof d.miniTotal === 'number')
+        ? d.miniTotal
+        : ((window.hhaMiniTotal|0) || 0);
+
+      showResult(score, {
+        comboMax: comboM,
+        misses: miss,
+        miniCleared,
+        miniTotal
+      });
     });
 
     // เริ่มต้นแสดงหน้า Start
     showStart();
-  </script>
-
-  <!-- ===== ยิงจากกลางจอด้วยปุ่ม fireBtn (PC + Mobile) ===== -->
-  <script>
-  (function(){
-    'use strict';
-
-    const fireBtn  = document.getElementById('fireBtn');
-    const cursorEl = document.getElementById('cursor');
-
-    if (!fireBtn || !cursorEl) {
-      console.warn('[GoodJunk VR] fireBtn หรือ cursor ไม่พบ');
-      return;
-    }
-
-    function shootFromCenter(){
-      const rayComp = cursorEl.components && cursorEl.components.raycaster;
-      if (!rayComp){
-        console.warn('[GoodJunk VR] raycaster ยังไม่พร้อมบน cursor');
-        return;
-      }
-
-      // รีเฟรช list ของเป้า [data-hha-tgt]
-      try {
-        rayComp.refreshObjects && rayComp.refreshObjects();
-      } catch(e){}
-
-      const targets = rayComp.intersectedEls || [];
-      if (!targets.length){
-        flashCursorMiss();
-        return;
-      }
-
-      const hitEl = targets[0];
-      // ส่ง event click ให้เป้าที่โดน ray
-      hitEl.emit('click', { origin:'center-ray', cursor: cursorEl });
-      flashCursorHit();
-    }
-
-    function flashCursorHit(){
-      const ring = cursorEl.querySelector('a-ring');
-      if (!ring) return;
-      const origMat = ring.getAttribute('material') || {};
-      const origColor = origMat.color || '#ffffff';
-      ring.setAttribute('material','color','#22c55e');
-      setTimeout(()=> ring.setAttribute('material','color',origColor), 120);
-    }
-
-    function flashCursorMiss(){
-      const ring = cursorEl.querySelector('a-ring');
-      if (!ring) return;
-      const origMat = ring.getAttribute('material') || {};
-      const origColor = origMat.color || '#ffffff';
-      ring.setAttribute('material','color','#f97316');
-      setTimeout(()=> ring.setAttribute('material','color',origColor), 120);
-    }
-
-    fireBtn.addEventListener('click', shootFromCenter);
-    fireBtn.addEventListener('touchstart', function(ev){
-      ev.preventDefault();
-      shootFromCenter();
-    }, { passive:false });
-  })();
   </script>
 
   <!-- ===== HUD Script (คะแนน / เวลา / คอมโบ / พลาด) ===== -->
@@ -979,14 +847,13 @@
         const cur = mini.progress.current | 0;
         const tgt = mini.progress.target | 0;
         miniProgEl.textContent = `x${Math.min(cur, tgt)}/x${tgt}`;
-        // ถ้าทำ mini ครบทุกอันแล้ว quest-serial จะส่ง done: true มา
         miniProgEl.classList.toggle('done', !!mini.done);
       } else {
         miniProgEl.textContent = '';
         miniProgEl.classList.remove('done');
       }
 
-      // สถานะรวม: ผ่าน goal? ผ่าน mini ไปแล้วกี่อัน?
+      // สถานะรวม
       const mainDone     = !!goal.done;
       const miniDoneAll  = !!mini.done; // true = ผ่าน mini ครบทุกอันแล้ว
       const cleared      = mini.clearedCount | 0;
@@ -1068,5 +935,6 @@
     });
   })();
   </script>
+
 </body>
 </html>
