@@ -47,6 +47,8 @@
       text-align:center;
       color:#0f172a;
       transition:opacity .28s ease, visibility .28s ease;
+      /* ตอน overlay โชว์ → ให้คลิกได้ */
+      pointer-events:auto;
     }
     #uiOverlay::before,
     #uiOverlay::after{
@@ -71,7 +73,7 @@
     #uiOverlay.hidden{
       opacity:0;
       visibility:hidden;
-      pointer-events:none;
+      pointer-events:none; /* ตอนเล่นเกม → overlay โปร่ง ไม่บังการหมุน/แตะ */
     }
 
     .ui-card{
@@ -335,6 +337,56 @@
         padding:8px 10px;
       }
     }
+
+    /* ===== ปุ่มยิง! กลางล่างจอ (PC + Mobile) ===== */
+    #fireBtn{
+      position:fixed;
+      left:50%;
+      bottom:16px;
+      transform:translateX(-50%);
+      z-index:980;
+      min-width:130px;
+      padding:10px 20px;
+      border-radius:999px;
+      border:1px solid rgba(254,215,170,0.9);
+      background:
+        radial-gradient(circle at 0 0, rgba(248,113,113,0.35), transparent 55%),
+        linear-gradient(135deg,#fb923c,#f97316);
+      color:#451a03;
+      font-family:'IBM Plex Sans Thai',system-ui;
+      font-size:1rem;
+      font-weight:700;
+      display:none; /* โชว์เฉพาะตอนเล่นเกม */
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      box-shadow:0 14px 30px rgba(15,23,42,.9);
+      cursor:pointer;
+      pointer-events:auto;
+      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    }
+    #fireBtn span.small{
+      font-size:.8rem;
+      opacity:.85;
+    }
+    #fireBtn:hover{
+      transform:translateX(-50%) translateY(-1px);
+      box-shadow:0 20px 40px rgba(15,23,42,1);
+      filter:brightness(1.03);
+    }
+    #fireBtn:active{
+      transform:translateX(-50%) translateY(0);
+      box-shadow:0 10px 22px rgba(15,23,42,.9);
+    }
+
+    @media (max-width:640px){
+      #fireBtn{
+        bottom:12px;
+        min-width:120px;
+        padding:9px 18px;
+        font-size:.95rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -384,11 +436,15 @@
     </div>
   </div>
 
+  <!-- ปุ่มยิง! กลางล่างจอ -->
+  <button id="fireBtn">🔫 ยิง! <span class="small">(แตะเพื่อยิงเป้า)</span></button>
+
   <!-- ===== A-Frame Scene (VR World) ===== -->
   <a-scene id="gameScene"
            renderer="colorManagement: true"
            loading-screen="dotsColor: white; backgroundColor: #0b1222"
-           background="color: #020617">
+           background="color: #020617"
+           device-orientation-permission-ui="enabled: true">
 
     <!-- Ambient + Directional light -->
     <a-entity light="type: ambient; color: #FFF; intensity: 0.6"></a-entity>
@@ -396,16 +452,19 @@
 
     <!-- กลุ่มผู้เล่น/กล้อง -->
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="camera" look-controls="pointerLockEnabled: true">
-        <!-- Cursor แบบ ring เห็นชัดสำหรับ Gaze/VR -->
-        <a-cursor id="cursor"
+      <a-camera id="camera"
+                wasd-controls-enabled="false"
+                look-controls="touchEnabled: true; magicWindowTrackingEnabled: true; pointerLockEnabled: true">
+        <!-- Cursor แบบ ring เห็นชัดสำหรับ Gaze/VR + ใช้ยิงจากกลางจอ -->
+        <a-entity id="cursor"
+                  cursor="fuse: false"
                   raycaster="objects: [data-hha-tgt]; interval: 50"
-                  fuse="true"
-                  fuse-timeout="900"
-                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.018"
+                  position="0 0 0">
+          <a-ring geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.018"
                   material="color: #ffffff; shader: flat; opacity: 0.95"
                   position="0 0 -1">
-        </a-cursor>
+          </a-ring>
+        </a-entity>
       </a-camera>
 
       <!-- มือขวา (VR controller) -->
@@ -438,6 +497,7 @@
     const resultComboEl = document.getElementById('resultDetailCombo');
     const resultMissEl  = document.getElementById('resultDetailMiss');
     const resultMainEl  = document.getElementById('resultDetailMain');
+    const fireBtn       = document.getElementById('fireBtn');
 
     const btnEasy   = document.getElementById('startButtonEasy');
     const btnNormal = document.getElementById('startButtonNormal');
@@ -474,16 +534,19 @@
 
     function hideOverlay(){
       uiOverlay.classList.add('hidden');
+      if (fireBtn) fireBtn.style.display = 'flex'; // โชว์ปุ่มยิงตอนเล่น
     }
     function showStart(){
       resultsScreen.style.display = 'none';
       startScreen.style.display   = 'block';
       uiOverlay.classList.remove('hidden');
+      if (fireBtn) fireBtn.style.display = 'none';
     }
     function showResult(score, extra = {}){
       startScreen.style.display   = 'none';
       resultsScreen.style.display = 'block';
       uiOverlay.classList.remove('hidden');
+      if (fireBtn) fireBtn.style.display = 'none';
 
       const s = score|0;
       finalScoreEl.textContent = `คะแนน: ${s}`;
@@ -531,6 +594,7 @@
     btnAgain.addEventListener('click', ()=>{
       resultsScreen.style.display = 'none';
       startScreen.style.display   = 'block';
+      if (fireBtn) fireBtn.style.display = 'none';
     });
 
     // ถ้า Engine ยิงสัญญาณ hha:end มาเอง (เช่นจบจากด้านใน + session logger)
@@ -562,6 +626,69 @@
 
     // เริ่มต้นแสดงหน้า Start
     showStart();
+  </script>
+
+  <!-- ===== ยิงจากกลางจอด้วยปุ่ม fireBtn (PC + Mobile) ===== -->
+  <script>
+  (function(){
+    'use strict';
+
+    const fireBtn  = document.getElementById('fireBtn');
+    const cursorEl = document.getElementById('cursor');
+
+    if (!fireBtn || !cursorEl) {
+      console.warn('[GoodJunk VR] fireBtn หรือ cursor ไม่พบ');
+      return;
+    }
+
+    function shootFromCenter(){
+      const rayComp = cursorEl.components && cursorEl.components.raycaster;
+      if (!rayComp){
+        console.warn('[GoodJunk VR] raycaster ยังไม่พร้อมบน cursor');
+        return;
+      }
+
+      // รีเฟรช list ของเป้า [data-hha-tgt]
+      try {
+        rayComp.refreshObjects && rayComp.refreshObjects();
+      } catch(e){}
+
+      const targets = rayComp.intersectedEls || [];
+      if (!targets.length){
+        flashCursorMiss();
+        return;
+      }
+
+      const hitEl = targets[0];
+      // ส่ง event click ให้เป้าที่โดน ray
+      hitEl.emit('click', { origin:'center-ray', cursor: cursorEl });
+      flashCursorHit();
+    }
+
+    function flashCursorHit(){
+      const ring = cursorEl.querySelector('a-ring');
+      if (!ring) return;
+      const origMat = ring.getAttribute('material') || {};
+      const origColor = origMat.color || '#ffffff';
+      ring.setAttribute('material','color','#22c55e');
+      setTimeout(()=> ring.setAttribute('material','color',origColor), 120);
+    }
+
+    function flashCursorMiss(){
+      const ring = cursorEl.querySelector('a-ring');
+      if (!ring) return;
+      const origMat = ring.getAttribute('material') || {};
+      const origColor = origMat.color || '#ffffff';
+      ring.setAttribute('material','color','#f97316');
+      setTimeout(()=> ring.setAttribute('material','color',origColor), 120);
+    }
+
+    fireBtn.addEventListener('click', shootFromCenter);
+    fireBtn.addEventListener('touchstart', function(ev){
+      ev.preventDefault();
+      shootFromCenter();
+    }, { passive:false });
+  })();
   </script>
 
   <!-- ===== HUD Script (คะแนน / เวลา / คอมโบ / พลาด) ===== -->
