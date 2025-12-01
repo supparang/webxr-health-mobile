@@ -7,16 +7,22 @@
   // ===== กำหนดภารกิจ (ปรับตัวเลขทีหลังได้) =====
   // ถ้ามี ns.foodGroupsQuestDefs อยู่แล้ว จะใช้ของเดิมแทน
   var QUEST_DEFS = ns.foodGroupsQuestDefs || [
-    { id: 'Q1', groupId: 1, target: 5,  label: 'เก็บอาหารหมู่ 1 ให้ครบ 5 ชิ้น' },
-    { id: 'Q2', groupId: 2, target: 5,  label: 'เก็บอาหารหมู่ 2 ให้ครบ 5 ชิ้น' },
-    { id: 'Q3', groupId: 3, target: 5,  label: 'เก็บอาหารหมู่ 3 ให้ครบ 5 ชิ้น' }
+    { id: 'Q1', groupId: 1, target: 5, label: 'เก็บอาหารหมู่ 1 ให้ครบ 5 ชิ้น' },
+    { id: 'Q2', groupId: 2, target: 5, label: 'เก็บอาหารหมู่ 2 ให้ครบ 5 ชิ้น' },
+    { id: 'Q3', groupId: 3, target: 5, label: 'เก็บอาหารหมู่ 3 ให้ครบ 5 ชิ้น' }
   ];
+
+  function normalizeTarget(t) {
+    // ถ้าไม่ได้กำหนด target หรือไม่ใช่ตัวเลข → ใช้ค่า default = 5
+    if (typeof t !== 'number' || !isFinite(t) || t <= 0) return 5;
+    return Math.round(t);
+  }
 
   function cloneQuest(q) {
     return {
       id: q.id,
       groupId: q.groupId,
-      target: q.target,
+      target: normalizeTarget(q.target),
       label: q.label,
       progress: 0,
       done: false
@@ -63,11 +69,14 @@
           status.cleared + '/' + status.total + ' ภารกิจ)';
       }
 
+      var target = normalizeTarget(quest.target);
+      var done = quest.progress || 0;
+      var remain = Math.max(0, target - done);
+
       var line1 = 'ภารกิจ ' + status.currentIndex + '/' + status.total +
-        ' : ' + (quest.label || ('หมู่ ' + quest.groupId));
-      var remain = Math.max(0, (quest.target || 0) - (quest.progress || 0));
-      var line2 = 'เหลืออีก ' + remain + ' ชิ้น | ' +
-        'สำเร็จแล้ว ' + status.cleared + ' ภารกิจ';
+        ' : ' + (quest.label || ('เก็บอาหารหมู่ ' + quest.groupId + ' ให้ครบ ' + target + ' ชิ้น'));
+      var line2 = 'ทำได้แล้ว ' + done + '/' + target + ' ชิ้น · เหลืออีก ' + remain +
+        ' ชิ้น | สำเร็จแล้ว ' + status.cleared + ' ภารกิจ';
 
       return line1 + '<br/>' + line2;
     }
@@ -95,7 +104,7 @@
           hud.innerHTML = 'จบเกมแล้ว';
         } else if (status.cleared >= status.total) {
           hud.innerHTML = '🎉 เยี่ยมมาก! ภารกิจทั้งหมดสำเร็จแล้ว (' +
-            status.cleared + '/' + status.total + ')';
+            status.cleared + '/' + status.total + ' ภารกิจ)';
         } else {
           hud.innerHTML = 'จบเวลาแล้ว สำเร็จ ' +
             status.cleared + '/' + status.total + ' ภารกิจ';
@@ -115,18 +124,17 @@
   }
 
   FoodGroupsQuestManager.prototype.reset = function () {
-    var self = this;
     this.quests = QUEST_DEFS.map(cloneQuest);
     this.index = 0;
     this.clearedCount = 0;
 
     var q = this.getCurrent();
-    // แจ้ง HUD เริ่มภารกิจแรก
     var status = this.getStatus();
+
     QuestHUD.reset();
     QuestHUD.update(status, q, false);
 
-    // แจ้ง callback ภายนอกด้วย
+    // progressCount = 0 ตอนเริ่ม
     this.onChange(q, 0, false, null);
   };
 
@@ -159,6 +167,8 @@
     }
 
     q.progress = (q.progress || 0) + 1;
+    q.target = normalizeTarget(q.target);
+
     var justFinished = false;
     var finishedQuest = null;
 
@@ -175,8 +185,11 @@
     var current = this.getCurrent();
     var status = this.getStatus();
 
-    // แจ้ง HUD + โค้ชผ่าน onChange
-    this.onChange(current, (q.progress / q.target) || 0, justFinished, finishedQuest);
+    // ★ ส่งเป็น "จำนวนชิ้นที่ทำได้" ไม่ใช่สัดส่วน
+    var progressCount = q.progress;
+
+    this.onChange(current, progressCount, justFinished, finishedQuest);
+    QuestHUD.update(status, current || q, justFinished);
 
     return {
       bonus: justFinished ? 10 : 0  // ให้โบนัสเวลาจบภารกิจ
