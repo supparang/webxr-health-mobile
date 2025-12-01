@@ -262,7 +262,9 @@
     const y = 1.0 + Math.random() * 1.4;
     const z = -3.0 + Math.random() * 0.8;
 
-    el.setAttribute('geometry', 'primitive: circle; radius: 0.36; segments: 48');
+    const radius = (this.cfg && this.cfg.targetRadius) || 0.5; // เป้าใหญ่ขึ้น
+    el.setAttribute('geometry', `primitive: circle; radius: ${radius}; segments: 64`);
+
     el.setAttribute(
       'material',
       `color: ${group.color}; shader: flat; opacity: 0.95; transparent: true`
