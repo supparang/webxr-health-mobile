@@ -31,7 +31,7 @@
       border:none;border-radius:12px;
       padding:14px 28px;cursor:pointer;
       box-shadow:0 4px 15px rgba(34,197,94,.4);
-      transition:all .2s ease;margin:8px;
+      transition:all .2s.ease;margin:8px;
     }
     .game-button:hover{transform:translateY(-2px);}
     .game-button.hard{
@@ -41,85 +41,91 @@
   </style>
 </head>
 <body>
+
+  <!-- hint ด้านล่าง -->
   <div id="fgHint"
-     style="position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
-            background:rgba(15,23,42,.75);color:#e5e7eb;
-            padding:6px 12px;border-radius:999px;
-            font:500 13px system-ui,-apple-system;z-index:9999;">
-  เล็งวงแหวนกลางจอให้ทับเป้า แล้วคลิก / แตะ / กด Trigger เพื่อยิง 🎯
+       style="position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
+              background:rgba(15,23,42,.75);color:#e5e7eb;
+              padding:6px 12px;border-radius:999px;
+              font:500 13px system-ui,-apple-system;z-index:9999;">
+    เล็งวงแหวนกลางจอให้ทับเป้า แล้วคลิก / แตะ / กด Trigger เพื่อยิง 🎯
   </div>
 
-<div id="uiOverlay">
-  <div id="startScreen">
-    <h1>💚🍚🥦Food Groups (VR) 🍔</h1>
-    <p style="font-size:1.1rem;max-width:400px;opacity:.9;">
-      ใช้คอนโทรลเลอร์หรือจ้องมอง (Gaze) เพื่อยิง "หมู่ 1–5" และ "พาวเวอร์อัป"<br>
-      ทำภารกิจที่ "โค้ช" บอกเพื่อรับคะแนนโบนัส!
-    </p>
-    <button class="game-button" id="startButtonEasy">เริ่มเกม (Easy)</button>
-    <button class="game-button" id="startButtonNormal">เริ่มเกม (Normal)</button>
-    <button class="game-button hard" id="startButtonHard">เริ่มเกม (Hard)</button>
-  </div>
-<div id="resultsScreen" style="display:none;">
-  <h2>เกมจบแล้ว!</h2>
-  <h1 id="finalScore">Score: 0</h1>
+  <!-- overlay เมนู + หน้าสรุป -->
+  <div id="uiOverlay">
+    <div id="startScreen">
+      <h1>💚🍚🥦Food Groups (VR) 🍔</h1>
+      <p style="font-size:1.1rem;max-width:400px;opacity:.9;">
+        ใช้คอนโทรลเลอร์หรือจ้องมอง (Gaze) เพื่อยิง "หมู่ 1–5" และ "พาวเวอร์อัป"<br>
+        ทำภารกิจที่ "โค้ช" บอกเพื่อรับคะแนนโบนัส!
+      </p>
+      <button class="game-button" id="startButtonEasy">เริ่มเกม (Easy)</button>
+      <button class="game-button" id="startButtonNormal">เริ่มเกม (Normal)</button>
+      <button class="game-button hard" id="startButtonHard">เริ่มเกม (Hard)</button>
+    </div>
 
-  <!-- ✅ ตรงนี้ไว้สรุปผลรายหมู่ -->
-  <div id="fgSummary"
-       style="font-size:.95rem;line-height:1.4;margin-top:8px;
-              text-align:left;max-width:420px;margin-inline:auto;">
-  </div>
+    <div id="resultsScreen" style="display:none;">
+      <h2>เกมจบแล้ว!</h2>
+      <h1 id="finalScore">Score: 0</h1>
 
-  <button class="game-button" id="playAgainButton">เล่นอีกครั้ง</button>
-</div>
+      <!-- สรุปผลรายหมู่ -->
+      <div id="fgSummary"
+           style="font-size:.95rem;line-height:1.4;margin-top:8px;
+                  text-align:left;max-width:420px;margin-inline:auto;">
+      </div>
 
+      <button class="game-button" id="playAgainButton">เล่นอีกครั้ง</button>
+    </div>
+  </div> <!-- ✅ ปิด uiOverlay ให้เรียบร้อย -->
 
+  <!-- A-Frame scene -->
   <a-scene id="gameScene"
     renderer="colorManagement: true; useLegacyLights: false"
     loading-screen="dotsColor: white; backgroundColor: #0b1222"
     background="color: #0b1222">
-  <a-sky color="#020617"></a-sky>
 
-  <a-entity light="type: ambient; color: #FFF; intensity: 0.6"></a-entity>
-  <a-entity light="type: directional; color: #FFF; intensity: 0.4" position="-0.5 1 1"></a-entity>
+    <a-sky color="#020617"></a-sky>
 
-  <!-- ⭐⭐ ตัวนี้สำคัญสุด ถ้าไม่มี = เกมไม่เริ่มแน่นอน -->
-  <a-entity id="gameRoot" food-groups-game></a-entity>
+    <a-entity light="type: ambient; color: #FFF; intensity: 0.6"></a-entity>
+    <a-entity light="type: directional; color: #FFF; intensity: 0.4" position="-0.5 1 1"></a-entity>
 
-  <a-entity id="rig" position="0 1.6 0">
-    <a-camera id="camera" look-controls="pointerLockEnabled: true; touchEnabled: true">
-    <!-- ⭐ วงแหวนเล็งกลางจอ ใช้ได้ทั้ง PC / Mobile / VR -->
-      <a-cursor id="cursor"
-        cursor="fuse: true; fuseTimeout: 1200"
-        raycaster="objects: [data-hha-tgt]"
-        geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.04"
-        material="color: #fde047; shader: flat; opacity: 0.95"
-        position="0 0 -1">
-      </a-cursor>
-    </a-camera>
+    <!-- ตัวเกม -->
+    <a-entity id="gameRoot" food-groups-game></a-entity>
 
-  <!-- VR controller ยิงได้ด้วย trigger -->
-    <a-entity id="rightHand"
-      laser-controls="hand: right"
-      raycaster="objects: [data-hha-tgt]; interval: 10">
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="camera" look-controls="pointerLockEnabled: true; touchEnabled: true">
+        <!-- วงแหวนเล็งกลางจอ -->
+        <a-cursor id="cursor"
+          cursor="fuse: true; fuseTimeout: 1200"
+          raycaster="objects: [data-hha-tgt]"
+          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.04"
+          material="color: #fde047; shader: flat; opacity: 0.95"
+          position="0 0 -1">
+        </a-cursor>
+      </a-camera>
+
+      <!-- VR controller ยิงได้ด้วย trigger -->
+      <a-entity id="rightHand"
+        laser-controls="hand: right"
+        raycaster="objects: [data-hha-tgt]; interval: 10">
+      </a-entity>
     </a-entity>
-  </a-entity>
-</a-scene>
+  </a-scene>
 
-<!-- namespace กลาง -->
-<script>
-  window.GAME_MODULES = window.GAME_MODULES || {};
-</script>
+  <!-- namespace กลาง -->
+  <script>
+    window.GAME_MODULES = window.GAME_MODULES || {};
+  </script>
 
-<!-- โมดูลเกม Groups -->
-<script src="./vr-groups/ui-fever.js"></script>
-<script src="./vr-groups/coach.js"></script>
-<script src="./vr-groups/difficulty.js"></script>
-<script src="./vr-groups/emoji-image.js"></script>
-<script src="./vr-groups/aframe-particles.js"></script>
-<script src="./vr-groups/quest-serial.js"></script>
-<script src="./vr-groups/GameEngine.js"></script>
-<script src="./vr-groups/launcher-groups.js"></script>
+  <!-- โมดูลเกม Groups -->
+  <script src="./vr-groups/ui-fever.js"></script>
+  <script src="./vr-groups/coach.js"></script>
+  <script src="./vr-groups/difficulty.js"></script>
+  <script src="./vr-groups/emoji-image.js"></script>
+  <script src="./vr-groups/aframe-particles.js"></script>
+  <script src="./vr-groups/quest-serial.js"></script>
+  <script src="./vr-groups/GameEngine.js"></script>
+  <script src="./vr-groups/launcher-groups.js"></script>
 
 </body>
 </html>
