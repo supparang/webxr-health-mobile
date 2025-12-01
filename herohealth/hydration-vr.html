@@ -4,161 +4,75 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Hydration VR — Hero Health</title>
-  <meta name="color-scheme" content="light dark"/>
+  <meta name="color-scheme" content="dark"/>
 
   <link rel="icon" href="./favicon.ico"/>
 
-  <!-- สไตล์หลักของหน้า (ให้สร้างไฟล์นี้หรือชี้ไป css ที่มีอยู่แล้วก็ได้) -->
+  <!-- ใช้สไตล์เดียวกับ Good vs Junk VR -->
+  <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
+  <!-- ถ้ามีไฟล์ hydration-vr.css แล้วอยากจูนเพิ่มก็ใส่อันนี้ได้ด้วย
   <link rel="stylesheet" href="./css/hydration-vr.css"/>
-
-  <!-- A-Frame สำหรับโหมด VR -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  -->
 </head>
 <body>
-  <div class="hv-wrap">
-    <!-- ===== HEADER ===== -->
-    <header class="hv-header">
-      <div class="hv-title-block">
-        <div class="hv-title-row">
-          <span class="hv-emoji">💧</span>
-          <h1 class="hv-title">Hydration VR</h1>
-          <span class="hv-badge">Hero Health</span>
-          <span class="hv-badge hv-badge-green">โหมดน้ำสมดุล</span>
-        </div>
-        <p class="hv-subtitle">
-          ฝึกดื่มน้ำให้สมดุลด้วย emoji เป้า + เกจน้ำ + Fever + Quest เล่นได้ทั้ง PC / Mobile / VR Headset.
-        </p>
-      </div>
 
-      <!-- water gauge จะถูกเติมโดย ui-water.js -->
-      <div class="hv-water-gauge-shell">
-        <!-- ensureWaterGauge() จะสร้างเกจจริง ๆ แปะเพิ่มเข้ามา -->
-      </div>
-    </header>
-<div class="hv-center">
-
-  <div class="hv-title">💧 Hydration VR</div>
-  <div class="hv-sub">Hero Health – โหมดน้ำสมดุล</div>
-
-  <div class="hv-sub">
-    ฝึกดื่มน้ำดี + หลีกเลี่ยงน้ำหวาน<br/>
-    รักษาระดับน้ำให้ GREEN Zone นานที่สุด!
+  <!-- ===== SCENE WRAP / LOADING ===== -->
+  <div class="hha-scene-wrap">
+    <div class="hha-loading-msg">
+      💧 กำลังโหลดโหมด Hydration VR...
+    </div>
   </div>
 
-  <div class="hv-badge">⚡ เล่นได้ทั้ง PC / Mobile / VR Headset</div>
+  <!-- วงกลมเล็งกลางจอ (crosshair) ให้สไตล์จาก goodjunk-vr.css ดูแล -->
+  <div class="hha-crosshair"></div>
 
-  <!-- Difficulty -->
-  <div class="hv-diff-wrap">
-    <button class="hv-diff-btn hv-easy" data-diff="easy">🌱 ง่าย<br><small>Easy</small></button>
-    <button class="hv-diff-btn hv-normal" data-diff="normal">🌊 ปกติ<br><small>Normal</small></button>
-    <button class="hv-diff-btn hv-hard" data-diff="hard">🔥 ท้าทาย<br><small>Hard</small></button>
-  </div>
+  <!-- ปุ่ม VR มุมขวาล่าง (ใช้คลาสเดิมของ GoodJunk VR) -->
+  <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
-  <!-- Start -->
-  <button id="hv-btn-start" class="hv-start">▶ Start Hydration</button>
+  <!-- ===== SCRIPT ZONE ===== -->
+  <!-- HUD เควสต์ / สกอร์ ฯลฯ (แนบแบบ side-effect เหมือน Good vs Junk) -->
+  <script type="module" src="./vr/quest-hud-vr.js"></script>
 
-  <div class="hv-time">
-    เวลาเล่น 60s | เลือกความยาก → กด Start เพื่อเริ่ม
-  </div>
+  <!-- โหมด Hydration VR -->
+  <script type="module">
+    import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
 
-</div>
+    // อ่าน URL param: ?diff=easy|normal|hard&time=60
+    const url = new URL(window.location.href);
+    let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
+    if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
 
-    <!-- ===== MAIN LAYOUT ===== -->
-    <main class="hv-main">
-      <!-- === ฝั่งซ้าย: พื้นที่เล่น VR / เป้า === -->
-      <section class="hv-left">
-        <div class="hv-play-card">
-          <div class="hv-status-row">
-            <div id="hv-status" class="hv-status">
-              กด Start Hydration เพื่อเริ่มโหมดน้ำสมดุล
-            </div>
-          </div>
+    let dur = parseInt(url.searchParams.get('time'), 10);
+    if (Number.isNaN(dur) || dur <= 0) dur = 60;
+    if (dur < 20)  dur = 20;
+    if (dur > 180) dur = 180;
 
-          <!-- พื้นที่เล่น / spawn เป้า (ใช้โดย mode-factory.js) -->
-          <div id="hha-play" class="hv-playfield">
-            <!-- A-Frame scene ฝังด้านหลัง (สำหรับ VR Headset) -->
-            <a-scene
-              embedded
-              vr-mode-ui="enabled: true"
-              renderer="colorManagement: true"
-              background="color: #020617">
-              <a-entity position="0 1.6 0">
-                <a-entity camera wasd-controls look-controls></a-entity>
-              </a-entity>
-            </a-scene>
+    // เริ่มโหมด Hydration (engine ภายในจะสร้างเป้า, HUD, เควสต์ ฯลฯ ให้เอง)
+    bootHydration({
+      difficulty: diff,
+      duration:   dur
+    }).then(inst => {
+      // ถ้ามี scene-wrap ให้ซ่อนตอนเริ่มเล่น
+      const wrap = document.querySelector('.hha-scene-wrap');
+      if (wrap) wrap.style.display = 'none';
 
-            <!-- วงเล็งกลางจอ (ตกแต่งด้วย CSS) -->
-            <div class="hv-crosshair"></div>
-          </div>
-
-          <!-- ปุ่มออกเกม (ถ้ามี logic พิเศษเพิ่มทีหลังได้) -->
-          <button class="hv-exit-btn" type="button" onclick="history.back()">
-            ออกจากเกม
-          </button>
-        </div>
-      </section>
-
-      <!-- === ฝั่งขวา: แผงตั้งค่า + Quest HUD === -->
-      <aside class="hv-right">
-        <!-- การตั้งค่าการเล่น -->
-        <section class="hv-panel">
-          <h2 class="hv-panel-title">ตั้งค่าการเล่น</h2>
-          <p class="hv-panel-text">
-            เลือกระดับความยากและเวลาเล่น แล้วกด <strong>Start Hydration</strong>.
-          </p>
-
-          <!-- เลือกความยาก -->
-          <div class="hv-field">
-            <label for="hv-diff" class="hv-label">ระดับความยาก</label>
-            <select id="hv-diff" class="hv-select">
-              <option value="easy">ง่าย (easy)</option>
-              <option value="normal" selected>ปกติ (normal)</option>
-              <option value="hard">ยาก (hard)</option>
-            </select>
-          </div>
-
-          <!-- เวลาเล่น -->
-          <div class="hv-field">
-            <label for="hv-time" class="hv-label">
-              เวลาเล่น (วินาที)
-              <span id="hv-time-label" class="hv-time-label">60s</span>
-            </label>
-            <input id="hv-time" class="hv-range" type="range"
-                   min="20" max="180" step="5" value="60"/>
-          </div>
-
-          <!-- ปุ่มควบคุม -->
-          <div class="hv-buttons">
-            <button id="hv-btn-start" type="button" class="hv-btn hv-btn-primary">
-              ▶ Start Hydration
-            </button>
-            <button id="hv-btn-stop" type="button" class="hv-btn hv-btn-ghost" disabled>
-              ■ Stop
-            </button>
-          </div>
-
-          <ul class="hv-hints">
-            <li>PC: คลิกเมาส์ที่เป้า</li>
-            <li>Mobile: แตะที่เป้า</li>
-            <li>VR Headset: เปิดหน้านี้ใน browser ของแว่น แล้วกดปุ่ม VR ของ A-Frame</li>
-          </ul>
-        </section>
-
-        <!-- Mission & Mini Quest HUD (แผงขวาล่าง) -->
-        <section class="hv-panel">
-          <h2 class="hv-panel-title">Mission &amp; Mini Quest</h2>
-          <div id="hv-quest-root" class="hv-quest-root">
-            <!-- attachQuestHud() จะ render ข้อมูลเควสต์ลงใน div นี้ -->
-            <p class="hv-panel-text hv-muted">
-              ยังไม่มีเควสต์ — กด Start เพื่อเริ่มโหมด Hydration.
-            </p>
-          </div>
-        </section>
-      </aside>
-    </main>
-  </div>
-
-  <!-- สคริปต์ควบคุมหน้า Hydration VR -->
-  <script type="module" src="./hydration-vr/hydration-vr.js"></script>
+      // กัน memory leak ถ้าอนาคตอยากหยุดเกมผ่านปุ่มอื่น
+      window.addEventListener('beforeunload', () => {
+        try {
+          if (inst && typeof inst.destroy === 'function') {
+            inst.destroy();
+          }
+        } catch (e) {
+          console.warn('[HydrationVR] destroy error on unload', e);
+        }
+      });
+    }).catch(err => {
+      console.error('[HydrationVR] boot error', err);
+      const msg = document.querySelector('.hha-loading-msg');
+      if (msg) {
+        msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
+      }
+    });
+  </script>
 </body>
 </html>
