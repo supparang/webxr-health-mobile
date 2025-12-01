@@ -325,23 +325,30 @@
     el.setAttribute('data-quest-target', isQuestTarget ? '1' : '0');
 
     // ----- emoji / รูปภาพบนเป้า -----
+    // ----- emoji / รูปภาพบนเป้า -----
     if (group.img) {
+      // ถ้าในอนาคตมีรูป PNG/SVG ก็ใช้ช่องนี้ได้เลย
       const sprite = document.createElement('a-image');
       sprite.setAttribute('src', group.img);
-      sprite.setAttribute('width', '0.65');
-      sprite.setAttribute('height', '0.65');
-      sprite.setAttribute('position', '0 0 0.02');
+      sprite.setAttribute('width', '0.7');
+      sprite.setAttribute('height', '0.7');
+      sprite.setAttribute('position', '0 0 0.03');
       el.appendChild(sprite);
     } else if (group.emoji) {
-      // ถ้าอยากให้มี emoji ติดกลางเป้าแบบ fallback
-      const sprite = document.createElement('a-text');
-      sprite.setAttribute('value', group.emoji);
-      sprite.setAttribute('align', 'center');
-      sprite.setAttribute('color', '#ffffff');
-      sprite.setAttribute('width', '3');
-      sprite.setAttribute('position', '0 0 0.02');
-      el.appendChild(sprite);
+      // ใช้ text component ของ A-Frame วาด emoji ตัวใหญ่ ๆ กลางเป้า
+      const label = document.createElement('a-entity');
+      label.setAttribute('text', {
+        value: group.emoji,   // เช่น 🍚 🥦 🍉
+        align: 'center',
+        anchor: 'center',
+        baseline: 'center',
+        width: 3,             // ยิ่งมาก = ตัวใหญ่ขึ้น
+        color: '#ffffff'
+      });
+      label.setAttribute('position', '0 0 0.03');
+      el.appendChild(label);
     }
+
 
     // วงแหวนรอบ ๆ ถ้าเป็นเป้าภารกิจ
     if (isQuestTarget) {
