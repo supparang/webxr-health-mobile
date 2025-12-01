@@ -195,6 +195,33 @@ function decayFever(base) {
   }
 }
 
+// helper หาระยะยิงจาก cursor กลางจอ
+function getCursorRaycaster() {
+  const cursor = document.getElementById('cursor');
+  if (!cursor || !cursor.components || !cursor.components.raycaster) return null;
+  return cursor.components.raycaster;
+}
+
+// ยิง ray จากกลางจอ → ถ้าโดนเป้า เรียก onHitTarget
+function shootFromCursorRay() {
+  if (!window.running) return;
+
+  const ray = getCursorRaycaster();
+  if (!ray) return;
+
+  try {
+    ray.refreshObjects && ray.refreshObjects();
+  } catch (_) {}
+
+  const hit = ray.intersectedEls && ray.intersectedEls[0];
+  if (hit && hit.dataset && hit.dataset.hhaTgt) {
+    onHitTarget(hit);
+  }
+}
+
+// เปิดให้สคริปต์อื่นเรียกได้ (เช่นปุ่ม fireBtn)
+window.goodjunkShootFromCenter = shootFromCursorRay;
+
 function spawnTarget() {
   if (!window.running) return;
   const cfg = gameConfig;
@@ -239,6 +266,12 @@ function spawnTarget() {
   el.setAttribute('position', `${x} ${y} ${z}`);
   el.dataset.lane = lane;
   el.dataset.spawnAt = String(performance.now());
+
+  // ผูก click ตรงกับเป้า (รองรับทุกแพลตฟอร์ม: VR trigger, gaze, fireBtn, tap)
+  el.addEventListener('click', () => {
+    if (!window.running) return;
+    onHitTarget(el);
+  });
 
   targetRoot.appendChild(el);
 
@@ -483,29 +516,28 @@ export const GameEngine = {
     if (!inputsBound) {
       inputsBound = true;
 
-      // รองรับ click จาก VR trigger / gaze cursor
+      // รองรับ click จาก VR trigger / gaze cursor (event ถูกยิงตรงที่ target อยู่แล้ว)
       sceneEl.addEventListener('click', (e) => {
         if (e.target && e.target.dataset && e.target.dataset.hhaTgt) {
           onHitTarget(e.target);
         }
       });
 
-      // รองรับเมาส์บน PC
+      // รองรับเมาส์บน PC + tap บน mobile จาก canvas (ยิงจากกลางจอ)
       sceneEl.addEventListener('loaded', () => {
         const canvas = sceneEl.canvas;
         if (!canvas) return;
 
+        // PC: คลิกเมาส์กลางจอ
         canvas.addEventListener('mousedown', () => {
-          if (!window.running) return;
-          const cursor = document.getElementById('cursor');
-          if (!cursor) return;
-          const ray = cursor.components && cursor.components.raycaster;
-          if (!ray) return;
-          const hit = ray.intersectedEls && ray.intersectedEls[0];
-          if (hit && hit.dataset && hit.dataset.hhaTgt) {
-            onHitTarget(hit);
-          }
+          shootFromCursorRay();
         });
+
+        // Mobile: tap กลางจอ
+        canvas.addEventListener('touchstart', (ev) => {
+          ev.preventDefault();
+          shootFromCursorRay();
+        }, { passive: false });
       });
     }
 
