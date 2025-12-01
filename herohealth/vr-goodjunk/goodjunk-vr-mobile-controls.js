@@ -1,4 +1,4 @@
-// === js/goodjunk-vr-mobile-controls.js ===
+// === vr-goodjunk/goodjunk-vr-mobile-controls.js ===
 // คอนโทรลเฉพาะฝั่งการเล็ง/ยิงบนมือถือ & เดสก์ท็อป
 // - หมุนมุมมอง: A-Frame ทำให้ผ่าน look-controls อยู่แล้ว
 // - ยิง: ใช้ปุ่ม #fireBtn ยิง ray จาก cursor (#vrCursor) ไปโดน .gj-target
