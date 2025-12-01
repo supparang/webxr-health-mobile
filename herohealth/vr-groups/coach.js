@@ -1,81 +1,85 @@
 // vr-groups/coach.js
+// โค้ชตัวหนังสือเล็ก ๆ ด้านบน บอกภารกิจ / ให้กำลังใจ
+
 (function (ns) {
   'use strict';
 
-  const GROUP_TIPS = {
-    1: [
-      'หมู่ 1 🍚 ให้พลังงานหลัก ถ้าเล่นกีฬาเยอะ อย่าลืมข้าว-แป้งนะ!',
-      'ข้าว-แป้งช่วยให้มีแรงคิด แรงวิ่ง แต่กินหวานน้อย ๆ จะดีกว่า 😉'
-    ],
-    2: [
-      'หมู่ 2 🍗 เนื้อ-ถั่ว ช่วยซ่อมแซมร่างกาย เหมือนทีมซ่อมเกราะฮีโร่!',
-      'อย่าลืมโปรตีนในทุกมื้อ จะได้กล้ามเนื้อแข็งแรง 💪'
-    ],
-    3: [
-      'หมู่ 3 🥛 นม ช่วยให้กระดูกและฟันแข็งแรง กระโดดโลดเต้นได้สบาย!',
-      'ดื่มนมวันละแก้ว ใส่ใจฟันและกระดูกนะ 🦴'
-    ],
-    4: [
-      'หมู่ 4 🥦 ผัก มีใยอาหารเยอะ ช่วยให้ขับถ่ายดี ท้องไม่ผูก 😊',
-      'จานข้าวถ้ามีผักสีเขียว ๆ ด้วย จะครบเครื่องกว่าเดิม!'
-    ],
-    5: [
-      'หมู่ 5 🍌 ผลไม้ช่วยเติมวิตามิน แทนขนมหวานได้ดีมาก 🎁',
-      'ลองเปลี่ยนขนมถุง เป็นผลไม้ซักชิ้นดูไหม? 🍎'
-    ]
-  };
+  var el = null;
 
-  function pickTipForGroup(groupId) {
-    const arr = GROUP_TIPS[groupId];
-    if (!arr || !arr.length) return null;
-    const idx = Math.floor(Math.random() * arr.length);
-    return arr[idx];
+  function ensureEl() {
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'fgCoach';
+    el.style.position = 'fixed';
+    el.style.bottom = '18px';
+    el.style.left = '50%';
+    el.style.transform = 'translateX(-50%)';
+    el.style.padding = '6px 14px';
+    el.style.borderRadius = '999px';
+    el.style.background = 'rgba(15,23,42,0.9)';
+    el.style.color = '#e5e7eb';
+    el.style.fontFamily = "system-ui, -apple-system, 'IBM Plex Sans Thai', sans-serif";
+    el.style.fontSize = '13px';
+    el.style.lineHeight = '1.4';
+    el.style.boxShadow = '0 6px 18px rgba(15,23,42,0.6)';
+    el.style.zIndex = '9997';
+    el.style.pointerEvents = 'none';
+    el.style.maxWidth = '92vw';
+    el.style.textAlign = 'center';
+    el.style.opacity = '0';
+    el.style.transition = 'opacity .2s ease';
+    document.body.appendChild(el);
+    return el;
   }
 
-  const Coach = {
-    say(text) {
-      if (ns.foodGroupsUI && ns.foodGroupsUI.setQuest) {
-        ns.foodGroupsUI.setQuest(text);
-      }
+  function showText(text) {
+    var box = ensureEl();
+    box.innerHTML = text;
+    box.style.opacity = '1';
+    clearTimeout(showText._timer);
+    showText._timer = setTimeout(function () {
+      box.style.opacity = '0';
+    }, 3000);
+  }
+
+  var Coach = {
+    sayStart: function () {
+      showText('🎮 เล็งเป้าแล้วเก็บอาหารดี ๆ ให้ครบทุกหมู่ สู้ ๆ !');
+    },
+    sayFinish: function () {
+      showText('⏰ หมดเวลาแล้ว มาดูคะแนนกับภารกิจที่สำเร็จกัน!');
     },
 
-    sayQuest(quest, progress) {
-      if (!quest) {
-        this.say('เคลียร์ภารกิจครบแล้ว 🎉 เล็งเป้าต่อเพื่อเก็บคะแนนเพิ่มได้เลย!');
+    sayQuest: function (quest, progressCount) {
+      if (!quest) return;
+      var target = quest.target || 5;
+      var done = progressCount || 0;
+      showText('🎯 ' + (quest.label || 'เก็บหมู่ ' + quest.groupId) +
+        ' (' + done + '/' + target + ' ชิ้น)');
+    },
+
+    onQuestChange: function (info) {
+      var quest = info.current;
+      var status = info.status;
+      if (!quest && status) {
+        showText('🎉 เยี่ยมมาก! คุณทำครบ ' + status.cleared + ' ภารกิจแล้ว');
         return;
       }
-      const txt = `หมู่ ${quest.groupId} ให้ครบ ${quest.targetCount} ชิ้น `
-        + `(ตอนนี้ ${progress}/${quest.targetCount})`;
-      this.say(txt);
-    },
+      if (!quest) return;
 
-    sayTipForGroup(groupId) {
-      const tip = pickTipForGroup(groupId);
-      if (tip) {
-        this.say(tip);
-      }
-    },
+      var target = quest.target || 5;
+      var done = quest.progress || 0;
 
-    sayStart() {
-      this.say('ฟังภารกิจจากโค้ช แล้วเล็งให้ถูกหมู่เลย! 💥');
-    },
+      var prefix = info.justFinished
+        ? '✔ ภารกิจสำเร็จ! ต่อไป... '
+        : '📌 ภารกิจ ' + status.currentIndex + '/' + status.total + ': ';
 
-    sayFinish() {
-      this.say('สุดยอด! จบเกมแล้ว 🎉');
-    },
-
-    /**
-     * ctx: { current, progress, justFinished, finished }
-     */
-    onQuestChange(ctx) {
-      if (ctx.justFinished && ctx.finished) {
-        // เคลียร์หมู่หนึ่งแล้ว → แสดง tip ด้านโภชนาการ
-        this.sayTipForGroup(ctx.finished.groupId);
-      } else {
-        this.sayQuest(ctx.current, ctx.progress || 0);
-      }
+      showText(prefix +
+        (quest.label || ('หมู่ ' + quest.groupId)) +
+        ' (' + done + '/' + target + ' ชิ้น)');
     }
   };
 
   ns.foodGroupsCoach = Coach;
+
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
