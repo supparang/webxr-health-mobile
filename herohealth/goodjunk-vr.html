@@ -539,6 +539,7 @@
     const resultComboEl = document.getElementById('resultDetailCombo');
     const resultMissEl  = document.getElementById('resultDetailMiss');
     const resultMainEl  = document.getElementById('resultDetailMain');
+    const resultMiniEl  = document.getElementById('resultDetailMini'); // ⬅ เพิ่ม
     const fireBtn       = document.getElementById('fireBtn');
 
     const btnEasy   = document.getElementById('startButtonEasy');
@@ -606,6 +607,25 @@
         resultMissEl.textContent = `พลาดทั้งหมด: ${extra.misses|0} ครั้ง`;
       }else{
         resultMissEl.textContent = '';
+      }
+
+      // ✅ สรุป mini quest
+      const miniCleared = (typeof extra.miniCleared === 'number')
+        ? extra.miniCleared
+        : (typeof window.hhaMiniCleared === 'number'
+            ? window.hhaMiniCleared
+            : 0);
+      const miniTotal = (typeof extra.miniTotal === 'number')
+        ? extra.miniTotal
+        : (typeof window.hhaMiniTotal === 'number'
+            ? window.hhaMiniTotal
+            : 0);
+
+      if (miniTotal > 0) {
+        resultMiniEl.textContent =
+          `ผ่าน Mini quest ทั้งหมด ${miniCleared}/${miniTotal} ภารกิจ`;
+      } else {
+        resultMiniEl.textContent = '';
       }
     }
 
