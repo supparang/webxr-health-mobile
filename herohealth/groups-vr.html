@@ -112,11 +112,18 @@
     </a-entity>
   </a-scene>
 
-  <!-- namespace กลาง -->
+<!-- namespace กลาง -->
   <script>
     window.GAME_MODULES = window.GAME_MODULES || {};
   </script>
 
+  <!-- โมดูล logger & audio (ใหม่) -->
+  <script src="./vr-groups/logger-cloud.js"></script>
+  <script src="./vr-groups/audio.js"></script>
+
+<audio id="fgSfxHit"   src="./audio/hit.mp3"   preload="auto"></audio>
+<audio id="fgSfxMiss"  src="./audio/miss.mp3"  preload="auto"></audio>
+<audio id="fgSfxQuest" src="./audio/quest.mp3" preload="auto"></audio>
   <!-- โมดูลเกม Groups -->
   <script src="./vr-groups/ui-fever.js"></script>
   <script src="./vr-groups/coach.js"></script>
@@ -127,5 +134,15 @@
   <script src="./vr-groups/GameEngine.js"></script>
   <script src="./vr-groups/launcher-groups.js"></script>
 
+  <!-- ตั้งค่า endpoint ของ Google Apps Script ตรงนี้ -->
+  <script>
+    (function () {
+      if (!window.GAME_MODULES || !GAME_MODULES.foodGroupsCloudLogger) return;
+      GAME_MODULES.foodGroupsCloudLogger.init({
+        endpoint: 'https://script.google.com/macros/s/xxxxxxx/exec', // ⭐ ใส่ WebApp URL ของคุณ
+        projectTag: 'HeroHealth-GroupsVR'
+      });
+    })();
+  </script>
 </body>
 </html>
