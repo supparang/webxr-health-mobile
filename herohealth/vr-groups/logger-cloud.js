@@ -10,106 +10,124 @@
 (function (ns) {
   'use strict';
 
+  ns = ns || (window.GAME_MODULES = window.GAME_MODULES || {});
+
   let CONFIG = {
     endpoint: '',
     projectTag: 'HeroHealth-GroupsVR',
     debug: false
   };
 
-  // ---------- init จาก groups-vr.html ----------
-  // ตัวอย่างการเรียก:
-  // GAME_MODULES.foodGroupsCloudLogger.init({
-  //   endpoint: 'https://script.google.com/macros/s/XXXXX/exec',
-  //   projectTag: 'HeroHealth-GroupsVR',
-  //   debug: true
-  // });
   function init(opts) {
     opts = opts || {};
-    CONFIG.endpoint  = (opts.endpoint || '').trim();
-    CONFIG.projectTag = opts.projectTag || CONFIG.projectTag;
-    CONFIG.debug      = !!opts.debug;
-
-    if (!CONFIG.endpoint) {
-      console.warn('[GroupsVR CloudLogger] no endpoint configured');
-      return;
-    }
-
-    if (CONFIG.debug) {
-      console.log('[GroupsVR CloudLogger] init', CONFIG);
-    }
+    CONFIG.endpoint = (opts.endpoint || '').trim();
+    if (opts.projectTag) CONFIG.projectTag = opts.projectTag;
+    if (typeof opts.debug === 'boolean') CONFIG.debug = opts.debug;
+    if (CONFIG.debug) console.log('[GroupsVR Logger] init', CONFIG);
   }
 
-  // ---------- helper: สร้าง payload รวม ----------
-  function buildPayload(rawSession, rawEvents) {
+  // ===== helper: สร้าง payload ของ session ให้ตรง Apps Script (แบบ GoodJunk) =====
+  function buildSessionPayload(rawSession, rawEvents) {
+    rawSession = rawSession || {};
+    rawEvents = rawEvents || [];
+
+    const durationMs = rawSession.durationMs || null;
+    const gameDurationSec = durationMs ? Math.round(durationMs / 1000) : '';
+
+    let hitCount = 0;
+    let totalShots = 0;
+    let sumRT = 0;
+    let rtN = 0;
+
+    rawEvents.forEach(ev => {
+      if (ev.type === 'hit' || ev.type === 'miss') {
+        totalShots++;
+        if (ev.type === 'hit') hitCount++;
+        if (typeof ev.rtMs === 'number') {
+          sumRT += ev.rtMs;
+          rtN++;
+        }
+      }
+    });
+
+    const hitRate = totalShots > 0 ? hitCount / totalShots : 0;
+    const avgRT = rtN > 0 ? Math.round(sumRT / rtN) : 0;
+
+    const goodCount = hitCount;
+    const badCount = totalShots - hitCount;
+
     return {
-      projectTag: CONFIG.projectTag,
-      sessions: rawSession ? [ rawSession ] : [],
-      events: Array.isArray(rawEvents) ? rawEvents : []
+      sessionId: rawSession.sessionId || rawSession.sid || '',
+      playerId: rawSession.playerName || rawSession.playerClass || '',
+      deviceType: rawSession.deviceType || '',
+      difficulty: rawSession.diff || rawSession.difficulty || '',
+      gameDuration: gameDurationSec,
+      totalScore: rawSession.score != null ? rawSession.score : 0,
+      questCompleted: rawSession.questsCleared != null ? rawSession.questsCleared : 0,
+      questList: rawSession.questList || [],
+
+      goodCount,
+      badCount,
+      hitRate,
+      avgRT,
+
+      mode: rawSession.mode || 'groups-vr',
+      startedAt: rawSession.startedAt || null,
+      endedAt: rawSession.endedAt || null,
+      groupStats: rawSession.groupStats || null
     };
   }
 
-  // ---------- พยายามส่งด้วย sendBeacon ก่อน ----------
-  function trySendBeacon(payload) {
-    if (!navigator.sendBeacon) return false;
-    try {
-      const blob = new Blob([JSON.stringify(payload)], {
-        type: 'text/plain;charset=utf-8'
+  // ===== helper: แปลง events → payload =====
+  function buildEventsPayload(rawSession, rawEvents) {
+    const sid = rawSession.sessionId || rawSession.sid || '';
+    const out = [];
+
+    (rawEvents || []).forEach(ev => {
+      if (ev.type !== 'hit' && ev.type !== 'miss') return;
+      out.push({
+        sessionId: sid,
+        groupId: ev.groupId || '',
+        emoji: ev.emoji || '',
+        isGood: ev.isGood,
+        isQuestTarget: !!ev.isQuestTarget,
+        hitOrMiss: ev.type,
+        rtMs: ev.rtMs != null ? ev.rtMs : null,
+        scoreDelta: ev.scoreDelta != null ? ev.scoreDelta : 0,
+        pos: ev.pos || null
       });
-      const ok = navigator.sendBeacon(CONFIG.endpoint, blob);
-      if (CONFIG.debug) {
-        console.log('[GroupsVR CloudLogger] sendBeacon', ok, payload);
-      }
-      return ok;
-    } catch (err) {
-      if (CONFIG.debug) {
-        console.warn('[GroupsVR CloudLogger] sendBeacon error', err);
-      }
-      return false;
-    }
+    });
+
+    return out;
   }
 
-  // ---------- main: เรียกจาก GameEngine.endGame() ----------
   async function send(rawSession, rawEvents) {
-    if (!CONFIG.endpoint) {
-      if (CONFIG.debug) console.warn('[GroupsVR CloudLogger] no endpoint');
-      return;
-    }
+    if (!CONFIG.endpoint) return;
 
-    const payload = buildPayload(rawSession, rawEvents || []);
+    const sessionPayload = buildSessionPayload(rawSession, rawEvents);
+    const eventsPayload = buildEventsPayload(rawSession, rawEvents);
 
-    if (CONFIG.debug) {
-      console.log('[GroupsVR CloudLogger] send payload', payload);
-    }
+    const payload = {
+      projectTag: CONFIG.projectTag,
+      sessions: [sessionPayload],
+      events: eventsPayload
+    };
 
-    // 1) ลองใช้ sendBeacon ก่อน (ดีสำหรับตอนปิดแท็บ)
-    if (trySendBeacon(payload)) return;
+    if (CONFIG.debug) console.log('[GroupsVR Logger] send →', payload);
 
-    // 2) ถ้าไม่ได้ ค่อย fallback เป็น fetch
     try {
       await fetch(CONFIG.endpoint, {
         method: 'POST',
-        // ใช้ no-cors ให้ยิงออกได้ง่ายบน mobile/VR
-        mode: 'no-cors',
-        keepalive: true,
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (CONFIG.debug) {
-        console.log('[GroupsVR CloudLogger] sent payload via fetch');
-      }
     } catch (err) {
-      if (CONFIG.debug) {
-        console.error('[GroupsVR CloudLogger] fetch error', err);
-      }
+      if (CONFIG.debug) console.warn('[GroupsVR Logger] send error', err);
     }
   }
 
-  // export เข้า namespace กลาง
   ns.foodGroupsCloudLogger = {
     init,
     send
   };
-
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
