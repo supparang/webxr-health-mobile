@@ -350,6 +350,27 @@
       color:#a5b4fc;
     }
 
+    #questHudVR .q-row{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:6px;
+    }
+    #questHudVR .q-prog{
+      font-size:11px;
+      font-weight:600;
+      color:#bbf7d0;
+      white-space:nowrap;
+    }
+    #questHudVR .q-prog.done{
+      color:#4ade80;
+    }
+    #questHudVR .q-status{
+      margin-top:4px;
+      font-size:11px;
+      color:#a5b4fc;
+    }
+
     @media (max-width:640px){
       #questHudVR{
         right:8px;
@@ -836,7 +857,6 @@
   </script>
 
   <!-- ===== QUEST HUD Script (Goal + Mini + Grade bar ขณะเล่น) ===== -->
-  <!-- ===== QUEST HUD Script (Goal + Mini + Grade bar ขณะเล่น) ===== -->
   <script>
   (function(){
     'use strict';
@@ -901,17 +921,15 @@
       const goal = d.goal || {};
       const mini = d.mini || {};
 
-      // ข้อความหลัก
+      // ข้อความ main goal
       mainEl.textContent = goal.label || 'เล่นเก็บของดีให้ได้เยอะที่สุด!';
-      miniEl.textContent = mini.label || 'Mini quest จะปรากฏระหว่างเล่นเกม';
-
       if (d.hint){
         hintEl.textContent = d.hint;
       } else {
         hintEl.textContent = '';
       }
 
-      // progress หลัก: goodCount / target
+      // progress main: goodCount / target
       if (goal.progress) {
         const cur = goal.progress.current | 0;
         const tgt = goal.progress.target | 0;
@@ -922,27 +940,41 @@
         mainProgEl.classList.remove('done');
       }
 
-      // progress mini: bestCombo / target
+      // mini quest ปัจจุบัน
+      miniEl.textContent = mini.label || 'Mini quest จะปรากฏระหว่างเล่นเกม';
+
       if (mini.progress) {
         const cur = mini.progress.current | 0;
         const tgt = mini.progress.target | 0;
         miniProgEl.textContent = `x${Math.min(cur, tgt)}/x${tgt}`;
+        // ถ้าทำ mini ครบทุกอันแล้ว quest-serial จะส่ง done: true มา
         miniProgEl.classList.toggle('done', !!mini.done);
       } else {
         miniProgEl.textContent = '';
         miniProgEl.classList.remove('done');
       }
 
-      // สรุปสถานะ
-      const mainDone = !!goal.done;
-      const miniDone = !!mini.done;
+      // สถานะรวม: ผ่าน goal? ผ่าน mini ไปแล้วกี่อัน?
+      const mainDone     = !!goal.done;
+      const miniDoneAll  = !!mini.done; // true = ผ่าน mini ครบทุกอันแล้ว
+      const cleared      = mini.clearedCount | 0;
+      const totalMini    = mini.total | 0;
+      const idx          = (mini.index | 0); // 0-based
 
-      if (mainDone && miniDone) {
-        statusEl.textContent = '✅ ผ่านทั้ง Goal และ Mini quest แล้ว เยี่ยมมาก!';
-      } else if (mainDone && !miniDone) {
-        statusEl.textContent = '✅ ผ่าน Goal แล้ว เหลือ Mini quest อีกนิดเดียว!';
-      } else if (!mainDone && miniDone) {
-        statusEl.textContent = '✅ ผ่าน Mini quest แล้ว เก็บของดีให้ครบ Goal ด้วยนะ!';
+      if (totalMini > 0) {
+        if (mainDone && miniDoneAll) {
+          statusEl.textContent =
+            `✅ ผ่าน Goal และ Mini quest ทั้งหมด (${cleared}/${totalMini}) แล้ว!`;
+        } else if (mainDone && !miniDoneAll) {
+          statusEl.textContent =
+            `✅ ผ่าน Goal แล้ว • ตอนนี้อยู่ Mini quest ที่ ${idx + 1}/${totalMini} (ผ่านแล้ว ${cleared} ภารกิจ)`;
+        } else if (!mainDone && miniDoneAll) {
+          statusEl.textContent =
+            `✅ ผ่าน Mini quest ทั้งหมด (${cleared}/${totalMini}) แล้ว • เก็บของดีให้ครบ Goal ด้วยนะ`;
+        } else {
+          statusEl.textContent =
+            `Mini quest ที่ ${Math.min(idx + 1, totalMini)}/${totalMini} (ผ่านแล้ว ${cleared} ภารกิจ)`;
+        }
       } else {
         statusEl.textContent = '';
       }
