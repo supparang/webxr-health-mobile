@@ -6,13 +6,11 @@
   <title>Hero Health — Hydration VR</title>
   <meta name="color-scheme" content="light dark"/>
 
-  <!-- A-Frame core สำหรับฉาก VR พื้นหลัง (เล่นได้ PC/Mobile/VR Headset) -->
+  <!-- A-Frame สำหรับฉาก VR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
-    :root{
-      color-scheme: light dark;
-    }
+    :root{color-scheme:light dark;}
     *{box-sizing:border-box;}
     body{
       margin:0;
@@ -59,19 +57,15 @@
       font-size:.8rem;
       opacity:.9;
     }
-
     .layout{
       display:grid;
       grid-template-columns:minmax(0,1.7fr) minmax(0,1.1fr);
       gap:16px;
     }
     @media (max-width:900px){
-      .layout{
-        grid-template-columns:minmax(0,1fr);
-      }
+      .layout{grid-template-columns:minmax(0,1fr);}
     }
 
-    /* VR shell + A-Frame scene */
     .vr-shell{
       position:relative;
       border-radius:18px;
@@ -81,12 +75,8 @@
       background:#020817;
       min-height:320px;
     }
-    .vr-shell a-scene{
-      width:100%;
-      height:100%;
-    }
+    .vr-shell a-scene{width:100%;height:100%;}
 
-    /* Panel ขวา: config + quest */
     .side-panel{
       display:flex;
       flex-direction:column;
@@ -124,14 +114,9 @@
       align-items:center;
       margin-bottom:2px;
     }
-    .field small{
-      opacity:.7;
-      margin-left:4px;
-    }
-    select, input[type="range"]{
-      width:100%;
-      font:inherit;
-    }
+    .field small{opacity:.7;margin-left:4px;}
+
+    select,input[type="range"]{width:100%;font:inherit;}
     select{
       background:#020617;
       color:#e5e7eb;
@@ -140,9 +125,7 @@
       padding:4px 9px;
       outline:none;
     }
-    input[type="range"]{
-      accent-color:#22c55e;
-    }
+    input[type="range"]{accent-color:#22c55e;}
 
     .btn-row{
       display:flex;
@@ -169,34 +152,18 @@
       color:#e5e7eb;
       box-shadow:none;
     }
-    .btn[disabled]{
-      opacity:.5;
-      cursor:default;
-      box-shadow:none;
-    }
+    .btn[disabled]{opacity:.5;cursor:default;box-shadow:none;}
 
-    .hint{
-      margin-top:4px;
-      font-size:.72rem;
-      opacity:.8;
-    }
+    .hint{margin-top:4px;font-size:.72rem;opacity:.8;}
 
-    /* Quest panel */
-    .quest-main{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      font-size:.8rem;
-    }
+    .quest-main{display:flex;flex-direction:column;gap:8px;font-size:.8rem;}
     .quest-item{
       padding:6px 8px;
       border-radius:12px;
       background:rgba(15,23,42,0.9);
       border:1px solid rgba(56,189,248,0.55);
     }
-    .quest-item.mini{
-      border-color:rgba(132,204,22,0.7);
-    }
+    .quest-item.mini{border-color:rgba(132,204,22,0.7);}
     .quest-item h3{
       margin:0 0 4px;
       font-size:.8rem;
@@ -227,13 +194,8 @@
       font-size:.7rem;
       opacity:.85;
     }
-    .quest-hint{
-      margin-top:4px;
-      font-size:.72rem;
-      opacity:.85;
-    }
+    .quest-hint{margin-top:4px;font-size:.72rem;opacity:.85;}
 
-    /* Overlay loading + result */
     .overlay-center{
       position:absolute;
       inset:0;
@@ -255,8 +217,7 @@
       box-shadow:0 16px 40px rgba(15,23,42,0.96);
     }
     .dot{
-      width:6px;
-      height:6px;
+      width:6px;height:6px;
       border-radius:999px;
       background:#22c55e;
       box-shadow:0 0 8px rgba(34,197,94,0.9);
@@ -292,7 +253,7 @@
       background:rgba(21,128,61,0.35);
     }
 
-    /* === MODE SELECT OVERLAY === */
+    /* Overlay เลือกโหมด */
     .mode-overlay{
       position:fixed;
       inset:0;
@@ -341,10 +302,7 @@
       padding:2px 4px;
       border-radius:999px;
     }
-    .mode-close:hover{
-      background:rgba(31,41,55,0.9);
-    }
-
+    .mode-close:hover{background:rgba(31,41,55,0.9);}
     .mode-options{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
@@ -365,20 +323,13 @@
       gap:4px;
       text-align:center;
     }
-    .mode-btn span.big{
-      font-size:1.1rem;
-      font-weight:600;
-    }
-    .mode-btn span.sub{
-      font-size:.7rem;
-      opacity:.85;
-    }
+    .mode-btn span.big{font-size:1.1rem;font-weight:600;}
+    .mode-btn span.sub{font-size:.7rem;opacity:.85;}
     .mode-btn[data-active="1"]{
       border-color:rgba(52,211,153,1);
       box-shadow:0 0 16px rgba(34,197,94,0.7);
       background:radial-gradient(circle at top,rgba(52,211,153,0.35),rgba(15,23,42,0.97));
     }
-
     .mode-footer{
       display:flex;
       justify-content:space-between;
@@ -403,12 +354,8 @@
       box-shadow:0 16px 36px rgba(22,163,74,0.8);
     }
     @media (max-width:640px){
-      .mode-card{
-        margin:0 12px;
-      }
-      .mode-options{
-        grid-template-columns:1fr;
-      }
+      .mode-card{margin:0 12px;}
+      .mode-options{grid-template-columns:1fr;}
     }
   </style>
 </head>
@@ -420,85 +367,59 @@
         <span>💧 Hydration VR</span>
         <span class="title-pill">
           <span>Hero Health</span>
-          <span>VR Nutrition – โหมดน้ำสมดุล</span>
+          <span>โหมดน้ำสมดุล</span>
         </span>
       </h1>
-      <p>
-        โหมดฝึก &quot;ดื่มน้ำให้สมดุล&quot; ใช้ emoji เป้า + เกจน้ำ + Fever + Mission/Quest
-        รองรับการเล่นบน PC, Mobile, และ VR Headset (ผ่าน WebXR).
-      </p>
+      <p>ฝึกดื่มน้ำให้สมดุลด้วย emoji เป้า + เกจน้ำ + Fever + Quest เล่นได้ทั้ง PC / Mobile / VR Headset.</p>
     </div>
   </header>
 
-  <!-- ===== MODE SELECT OVERLAY (โผล่มาหน้าแรก) ===== -->
+  <!-- Overlay เลือกโหมด -->
   <div id="mode-overlay" class="mode-overlay">
     <div class="mode-card">
       <div class="mode-card-head">
         <div>
           <h2>เลือกโหมด Hydration</h2>
-          <p>เลือกความยากก่อนเข้าเล่น — สามารถเปลี่ยนทีหลังในแผงตั้งค่าด้านขวาได้</p>
+          <p>เลือกความยากก่อนเข้าเล่น (เริ่มต้นที่ &quot;ปกติ&quot;)</p>
         </div>
-        <button id="mode-close" class="mode-close" title="ข้ามการเลือกโหมด">
-          ✕
-        </button>
+        <button id="mode-close" class="mode-close" title="ปิดหน้าต่างนี้">✕</button>
       </div>
-
       <div class="mode-options">
         <button class="mode-btn" id="mode-easy" data-diff="easy">
           <span>😊</span>
           <span class="big">ง่าย</span>
-          <span class="sub">เป้าออกช้า เควสต์ไม่โหด เหมาะสำหรับเริ่มต้น</span>
+          <span class="sub">เป้าออกช้า เควสต์เบา</span>
         </button>
         <button class="mode-btn" id="mode-normal" data-diff="normal" data-active="1">
           <span>💪</span>
           <span class="big">ปกติ</span>
-          <span class="sub">บาลานซ์ระหว่างความสนุกและความท้าทาย</span>
+          <span class="sub">บาลานซ์ สนุก+ท้าทาย</span>
         </button>
         <button class="mode-btn" id="mode-hard" data-diff="hard">
           <span>🔥</span>
           <span class="big">ยาก</span>
-          <span class="sub">เป้าออกเร็ว เควสต์เข้ม เหมาะกับสายท้าทาย</span>
+          <span class="sub">สายท้าทาย เป้าเร็ว</span>
         </button>
       </div>
-
       <div class="mode-footer">
-        <div>
-          โหมดที่เลือกจะตั้งค่าให้แผง <strong>ระดับความยาก</strong> และเริ่มเกมให้อัตโนมัติ<br/>
-          (เริ่มต้นที่ <strong>ปกติ</strong> ถ้ายังไม่เลือก)
-        </div>
+        <div>โหมดที่เลือกจะตั้งค่าให้แผงด้านขวาและเริ่มเกมให้อัตโนมัติ</div>
         <button id="mode-start" class="btn-main">
-          <span>▶</span><span>เริ่มเล่นโหมดที่เลือก</span>
+          <span>▶</span><span>เริ่มเล่น</span>
         </button>
       </div>
     </div>
   </div>
 
   <main class="layout">
-    <!-- ซ้าย: ฉาก VR + overlay กลางจอ -->
+    <!-- ฉาก VR -->
     <section class="vr-shell">
-      <!-- A-Frame scene พื้นหลัง (VR/360°) -->
-      <a-scene
-        embedded
-        vr-mode-ui="enabled: true"
-        renderer="antialias: true"
-      >
+      <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
         <a-sky color="#020617"></a-sky>
-
-        <!-- แสงอ่อน ๆ -->
         <a-entity light="type:ambient;intensity:0.65;color:#e5e7eb"></a-entity>
         <a-entity light="type:directional;intensity:0.7;color:#bfdbfe" position="1 1 0.5"></a-entity>
-
-        <!-- กล้อง + ควบคุม -->
-        <a-entity
-          id="camRig"
-          position="0 1.6 0"
-          camera
-          look-controls
-          wasd-controls="acceleration:2"
-        ></a-entity>
+        <a-entity id="camRig" position="0 1.6 0" camera look-controls wasd-controls="acceleration:2"></a-entity>
       </a-scene>
 
-      <!-- overlay กลางจอ: loading + result -->
       <div class="overlay-center">
         <div id="hydration-status" class="overlay-pill">
           <span class="dot" id="hydration-dot"></span>
@@ -507,11 +428,11 @@
       </div>
     </section>
 
-    <!-- ขวา: ตั้งค่าการเล่น + Quest + ผลลัพธ์ -->
+    <!-- Panel ตั้งค่า + Quest + ผลลัพธ์ -->
     <aside class="side-panel">
       <section class="card">
         <h2>⚙️ ตั้งค่าการเล่น</h2>
-        <p>เลือกความยากและเวลาเล่น จากนั้นกด <strong>Start Hydration</strong> — เป้า emoji จะโผล่มาให้ตีเองอัตโนมัติ.</p>
+        <p>เลือกความยากและเวลาเล่น แล้วกด <strong>Start Hydration</strong>.</p>
 
         <div class="config-grid">
           <div class="field">
@@ -520,9 +441,9 @@
               <small id="diff-label">normal</small>
             </label>
             <select id="diff-select">
-              <option value="easy">ง่าย (เด็กเล็ก)</option>
+              <option value="easy">ง่าย</option>
               <option value="normal" selected>ปกติ</option>
-              <option value="hard">ยาก (ท้าทาย)</option>
+              <option value="hard">ยาก</option>
             </select>
           </div>
 
@@ -536,17 +457,13 @@
         </div>
 
         <div class="btn-row">
-          <button id="btn-start" class="btn">
-            <span>▶</span> <span>Start Hydration</span>
-          </button>
-          <button id="btn-stop" class="btn secondary" disabled>
-            <span>⏹</span> <span>Stop</span>
-          </button>
+          <button id="btn-start" class="btn"><span>▶</span><span>Start Hydration</span></button>
+          <button id="btn-stop" class="btn secondary" disabled><span>⏹</span><span>Stop</span></button>
         </div>
         <div class="hint">
-          • PC: ใช้เมาส์คลิกเป้า<br/>
-          • Mobile: ใช้นิ้วแตะเป้า (แนวนอน/แนวตั้งได้)<br/>
-          • VR Headset: เปิดหน้านี้ใน browser ของอุปกรณ์ แล้วกดปุ่ม VR ของ A-Frame.
+          • PC: คลิกเมาส์ที่เป้า<br/>
+          • Mobile: แตะหน้าจอที่เป้า<br/>
+          • VR Headset: เปิดหน้านี้ใน browser ของแว่น แล้วกดปุ่ม VR ของ A-Frame.
         </div>
       </section>
 
@@ -554,35 +471,28 @@
         <h2>🎯 Mission & Mini Quest</h2>
         <div class="quest-main" id="quest-panel">
           <div class="quest-item">
-            <h3>
-              <span>ยังไม่มีเควสต์</span>
-              <span>–</span>
-            </h3>
-            <div class="quest-bar">
-              <div class="quest-bar-inner" style="width:0%"></div>
-            </div>
+            <h3><span>ยังไม่มีเควสต์</span><span>–</span></h3>
+            <div class="quest-bar"><div class="quest-bar-inner" style="width:0%"></div></div>
             <div class="quest-meta">
               <span>เป้าหมาย: –</span>
               <span>ความคืบหน้า: 0/0</span>
             </div>
-            <div class="quest-hint">
-              กด Start เพื่อเริ่มโหมด Hydration.
-            </div>
+            <div class="quest-hint">กด Start เพื่อเริ่มโหมด Hydration.</div>
           </div>
         </div>
       </section>
 
       <section class="card" id="result-wrap" style="display:none;">
-        <div class="result-card" id="result-card">
-          <!-- เนื้อหาจะถูกเติมผ่าน JS -->
-        </div>
+        <div class="result-card" id="result-card"></div>
       </section>
     </aside>
   </main>
 </div>
 
 <script type="module">
-  // ✅ ไฟล์โหมดอยู่ในโฟลเดอร์ /herohealth/hydration-vr/
+  console.log('hydration-vr.html module loaded');
+
+  // ✅ important: path นี้ต้องตรงกับโครงสร้างที่คุณมี
   import hydrationMode from './hydration-vr/hydration.safe.js';
 
   const diffSel   = document.getElementById('diff-select');
@@ -601,16 +511,15 @@
   const resultWrap = document.getElementById('result-wrap');
   const resultCard = document.getElementById('result-card');
 
-  // Mode overlay
+  // overlay เลือกโหมด
   const modeOverlay = document.getElementById('mode-overlay');
   const modeClose   = document.getElementById('mode-close');
   const modeStart   = document.getElementById('mode-start');
   const modeBtns    = document.querySelectorAll('.mode-btn');
 
   let selectedDiff = 'normal';
-
-  let currentInst = null;
-  let playing = false;
+  let currentInst  = null;
+  let playing      = false;
 
   function setStatus(text, mode='idle'){
     statusTxt.textContent = text;
@@ -629,7 +538,6 @@
     }
   }
 
-  // sync label
   diffSel.addEventListener('change', ()=>{
     diffLabel.textContent = diffSel.value;
   });
@@ -650,7 +558,6 @@
     const diff = diffSel.value;
     const dur  = parseInt(durRange.value, 10) || 60;
 
-    // stop inst เก่าถ้ามี
     try{
       if (currentInst && typeof currentInst.stop === 'function'){
         currentInst.stop();
@@ -658,10 +565,7 @@
     }catch(e){ console.warn(e); }
 
     try{
-      currentInst = await hydrationMode.boot({
-        difficulty: diff,
-        duration: dur
-      });
+      currentInst = await hydrationMode.boot({ difficulty: diff, duration: dur });
       setStatus(`กำลังเล่น Hydration (${diff}) – ตีเป้าน้ำดี หลีกเลี่ยงน้ำหวาน!`, 'playing');
     }catch(err){
       console.error('Hydration boot error', err);
@@ -688,7 +592,7 @@
   btnStart.addEventListener('click', startGame);
   btnStop.addEventListener('click', stopGame);
 
-  // ===== Mode overlay logic =====
+  // ===== logic overlay เลือกโหมด =====
   function updateModeButtons(activeDiff){
     selectedDiff = activeDiff;
     modeBtns.forEach(btn=>{
@@ -696,71 +600,59 @@
       btn.dataset.active = (d === activeDiff) ? '1' : '0';
     });
   }
-
   modeBtns.forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const d = btn.getAttribute('data-diff') || 'normal';
       updateModeButtons(d);
-
-      // ตั้งค่าลง panel ด้านขวา
       diffSel.value = d;
       diffLabel.textContent = d;
-
-      // ปรับเวลานิด ๆ ตามโหมด (ปรับได้ตามใจ)
       if (d === 'easy')         durRange.value = 60;
       else if (d === 'normal')  durRange.value = 60;
       else if (d === 'hard')    durRange.value = 70;
       durLabel.textContent = durRange.value;
     });
   });
-
   modeClose.addEventListener('click', ()=>{
     modeOverlay.style.display = 'none';
     setStatus('พร้อมเริ่ม Hydration — เลือกความยากแล้วกด Start');
   });
-
   modeStart.addEventListener('click', ()=>{
     diffSel.value = selectedDiff;
     diffLabel.textContent = selectedDiff;
     modeOverlay.style.display = 'none';
     startGame();
   });
-
-  // default active = normal
   updateModeButtons('normal');
 
-  // อัปเดตแผง Quest จาก event quest:update
+  // อัปเดต quest
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
-    const goal = d.goal || null;
-    const mini = d.mini || null;
+    const goal    = d.goal || null;
+    const mini    = d.mini || null;
     const goalsAll = d.goalsAll || [];
     const minisAll = d.minisAll || [];
-    const hint  = d.hint || '';
+    const hint    = d.hint || '';
 
     function renderItem(label, obj, isMini){
       if (!obj){
         return `
-        <div class="quest-item ${isMini ? 'mini':''}">
-          <h3><span>${label}</span><span>–</span></h3>
-          <div class="quest-bar"><div class="quest-bar-inner" style="width:0%"></div></div>
-          <div class="quest-meta">
-            <span>เป้าหมาย: –</span>
-            <span>ความคืบหน้า: 0/0</span>
-          </div>
-        </div>`;
+          <div class="quest-item ${isMini?'mini':''}">
+            <h3><span>${label}</span><span>–</span></h3>
+            <div class="quest-bar"><div class="quest-bar-inner" style="width:0%"></div></div>
+            <div class="quest-meta">
+              <span>เป้าหมาย: –</span>
+              <span>ความคืบหน้า: 0/0</span>
+            </div>
+          </div>`;
       }
       const target   = obj.target || 0;
       const progress = obj.progress || 0;
       const done     = obj.done;
-      const pct      = target > 0 ? Math.min(100, (progress/target)*100) : 0;
+      const pct      = target>0 ? Math.min(100,(progress/target)*100) : 0;
       const flag     = done ? '✓' : `${Math.round(pct)}%`;
       return `
-        <div class="quest-item ${isMini ? 'mini':''}">
-          <h3>
-            <span>${label}</span>
-            <span>${flag}</span>
-          </h3>
+        <div class="quest-item ${isMini?'mini':''}">
+          <h3><span>${label}</span><span>${flag}</span></h3>
           <div class="quest-bar">
             <div class="quest-bar-inner" style="width:${pct}%;"></div>
           </div>
@@ -774,16 +666,14 @@
     questPanel.innerHTML = `
       ${renderItem('⭐ Goal', goal, false)}
       ${renderItem('🎯 Mini quest', mini, true)}
-      <div class="quest-hint">
-        ${hint ? ('💬 ' + hint) : ''}
-      </div>
+      <div class="quest-hint">${hint ? '💬 '+hint : ''}</div>
       <div class="quest-hint" style="margin-top:2px;opacity:.7;">
         Goals ทั้งหมด: ${goalsAll.length} | Minis: ${minisAll.length}
       </div>
     `;
   });
 
-  // รับผลจบเกมจาก Hydration (hha:end)
+  // รับผลจบเกม
   window.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
     if (d.mode !== 'Hydration') return;
@@ -838,7 +728,7 @@
     resultWrap.style.display = 'block';
   });
 
-  // initial label
+  // initial
   diffLabel.textContent = diffSel.value;
   durLabel.textContent  = durRange.value;
   setStatus('พร้อมเริ่ม Hydration — เลือกโหมดจากหน้าจอแรก หรือปรับด้านขวาแล้วกด Start');
