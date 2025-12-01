@@ -1,5 +1,5 @@
 // vr-groups/coach.js
-// โค้ชตัวหนังสือเล็ก ๆ ด้านบน บอกภารกิจ / ให้กำลังใจ
+// โค้ชตัวหนังสือเล็ก ๆ ด้านล่าง บอกภารกิจ / ให้กำลังใจ
 
 (function (ns) {
   'use strict';
@@ -58,25 +58,46 @@
         ' (' + done + '/' + target + ' ชิ้น)');
     },
 
+    // ถูกเรียกจาก GameEngine ทุกครั้งที่ progress ภารกิจเปลี่ยน
     onQuestChange: function (info) {
-      var quest = info.current;
-      var status = info.status;
-      if (!quest && status) {
-        showText('🎉 เยี่ยมมาก! คุณทำครบ ' + status.cleared + ' ภารกิจแล้ว');
+      info = info || {};
+      var quest  = info.current || info.finished || null;
+      var status = info.status || {};
+
+      // กัน status ว่าง ให้มีค่า default
+      var currentIndex = (typeof status.currentIndex === 'number')
+        ? status.currentIndex
+        : (quest ? 1 : 0);
+      var total = (typeof status.total === 'number')
+        ? status.total
+        : (quest ? 1 : 0);
+      var cleared = (typeof status.cleared === 'number')
+        ? status.cleared
+        : (info.cleared || 0);
+
+      // กรณีไม่มี quest แล้ว แต่มี status → แปลว่าทำครบแล้ว
+      if (!quest && total > 0) {
+        showText('🎉 เยี่ยมมาก! คุณทำครบ ' + cleared + '/' + total + ' ภารกิจแล้ว');
         return;
       }
-      if (!quest) return;
+      if (!quest) {
+        // ยังไม่มีภารกิจโหลด (ตอนเริ่มเกมมาก ๆ)
+        showText('🕒 ภารกิจจะเริ่มในไม่กี่วินาที...');
+        return;
+      }
 
       var target = quest.target || 5;
-      var done = quest.progress || 0;
+      var done   = quest.progress || 0;
 
       var prefix = info.justFinished
         ? '✔ ภารกิจสำเร็จ! ต่อไป... '
-        : '📌 ภารกิจ ' + status.currentIndex + '/' + status.total + ': ';
+        : '📌 ภารกิจ ' + currentIndex + '/' + total + ': ';
 
-      showText(prefix +
+      showText(
+        prefix +
         (quest.label || ('หมู่ ' + quest.groupId)) +
-        ' (' + done + '/' + target + ' ชิ้น)');
+        ' (' + done + '/' + target + ' ชิ้น · สำเร็จแล้ว ' + cleared + ' ภารกิจ)'
+      );
     }
   };
 
