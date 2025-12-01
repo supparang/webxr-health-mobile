@@ -7,8 +7,8 @@
     try {
       if (window.AFRAME && AFRAME.utils && AFRAME.utils.device) {
         const d = AFRAME.utils.device;
-        if (d.isMobileVR()) return 'mobile-vr';
-        if (d.isMobile()) return 'mobile';
+        if (d.isMobileVR && d.isMobileVR()) return 'mobile-vr';
+        if (d.isMobile && d.isMobile()) return 'mobile';
         return 'desktop';
       }
     } catch (e) {}
@@ -371,6 +371,14 @@
       });
     }
 
+    // world position ของเป้า (ไว้เก็บใน log → Google Sheet)
+    let worldPos = null;
+    if (el.object3D && window.THREE) {
+      const wp = new THREE.Vector3();
+      el.object3D.getWorldPosition(wp);
+      worldPos = { x: wp.x, y: wp.y, z: wp.z };
+    }
+
     if (ns.foodGroupsFx && typeof ns.foodGroupsFx.burst === 'function'
       && el.object3D && window.THREE) {
       const wp = new THREE.Vector3();
@@ -386,7 +394,8 @@
       groupId: groupId,
       isQuestTarget: !!isQuestTarget,
       scoreDelta: gained,
-      rtMs: rt
+      rtMs: rt,
+      pos: worldPos
     });
 
     this.safeRemoveTarget(el);
@@ -416,9 +425,17 @@
     const now = performance.now();
     const rt = el.__spawnTime ? (now - el.__spawnTime) : null;
 
+    let worldPos = null;
+    if (el.object3D && window.THREE) {
+      const wp = new THREE.Vector3();
+      el.object3D.getWorldPosition(wp);
+      worldPos = { x: wp.x, y: wp.y, z: wp.z };
+    }
+
     logEvent('miss', {
       groupId: groupId,
-      rtMs: rt
+      rtMs: rt,
+      pos: worldPos
     });
 
     this.safeRemoveTarget(el);
@@ -436,7 +453,7 @@
       });
 
       this.el.sceneEl.addEventListener('fg-stop', function (e) {
-        const reason = e.detail && e.detail.reason || 'stop';
+        const reason = (e.detail && e.detail.reason) || 'stop';
         self.game.endGame(reason);
       });
     }
