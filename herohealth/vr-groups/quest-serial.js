@@ -4,8 +4,7 @@
 (function (ns) {
   'use strict';
 
-  // ===== กำหนดภารกิจ (ปรับตัวเลขทีหลังได้) =====
-  // ถ้ามี ns.foodGroupsQuestDefs อยู่แล้ว จะใช้ของเดิมแทน
+  // ===== กำหนดภารกิจ (แก้ตัวเลข / ข้อความได้) =====
   var QUEST_DEFS = ns.foodGroupsQuestDefs || [
     { id: 'Q1', groupId: 1, target: 5, label: 'เก็บอาหารหมู่ 1 ให้ครบ 5 ชิ้น' },
     { id: 'Q2', groupId: 2, target: 5, label: 'เก็บอาหารหมู่ 2 ให้ครบ 5 ชิ้น' },
@@ -13,7 +12,6 @@
   ];
 
   function normalizeTarget(t) {
-    // ถ้าไม่ได้กำหนด target หรือไม่ใช่ตัวเลข → ใช้ค่า default = 5
     if (typeof t !== 'number' || !isFinite(t) || t <= 0) return 5;
     return Math.round(t);
   }
@@ -64,7 +62,6 @@
       }
 
       if (!quest) {
-        // เคลียร์ครบแล้ว
         return '🎉 ภารกิจทั้งหมดสำเร็จแล้ว (' +
           status.cleared + '/' + status.total + ' ภารกิจ)';
       }
@@ -73,9 +70,11 @@
       var done = quest.progress || 0;
       var remain = Math.max(0, target - done);
 
-      var line1 = 'ภารกิจ ' + status.currentIndex + '/' + status.total +
+      var line1 =
+        'ภารกิจ ' + status.currentIndex + '/' + status.total +
         ' : ' + (quest.label || ('เก็บอาหารหมู่ ' + quest.groupId + ' ให้ครบ ' + target + ' ชิ้น'));
-      var line2 = 'ทำได้แล้ว ' + done + '/' + target + ' ชิ้น · เหลืออีก ' + remain +
+      var line2 =
+        'ทำได้แล้ว ' + done + '/' + target + ' ชิ้น · เหลืออีก ' + remain +
         ' ชิ้น | สำเร็จแล้ว ' + status.cleared + ' ภารกิจ';
 
       return line1 + '<br/>' + line2;
@@ -90,7 +89,6 @@
         var hud = ensure();
         hud.innerHTML = format(status, quest);
         if (justFinished) {
-          // แสดงแถบเขียวเบา ๆ เวลาเคลียร์ภารกิจ
           hud.style.background = 'rgba(22,163,74,0.9)';
           setTimeout(function () {
             if (!hud) return;
@@ -113,7 +111,7 @@
     };
   })();
 
-  // ===== Quest Manager สำหรับนับภารกิจ =====
+  // ===== Quest Manager =====
   function FoodGroupsQuestManager(onChange) {
     this.onChange = typeof onChange === 'function' ? onChange : function () {};
     this.quests = [];
@@ -134,7 +132,6 @@
     QuestHUD.reset();
     QuestHUD.update(status, q, false);
 
-    // progressCount = 0 ตอนเริ่ม
     this.onChange(q, 0, false, null);
   };
 
@@ -157,7 +154,7 @@
     };
   };
 
-  // เรียกจากเกมเมื่อยิงโดนเป้าหมาย (groupId)
+  // เรียกจาก GameEngine เมื่อ hit groupId
   FoodGroupsQuestManager.prototype.notifyHit = function (groupId) {
     var q = this.getCurrent();
     if (!q) return null;
@@ -177,26 +174,21 @@
       justFinished = true;
       finishedQuest = q;
       this.clearedCount++;
-
-      // ข้ามไปภารกิจถัดไป
       this.index++;
     }
 
     var current = this.getCurrent();
     var status = this.getStatus();
-
-    // ★ ส่งเป็น "จำนวนชิ้นที่ทำได้" ไม่ใช่สัดส่วน
     var progressCount = q.progress;
 
     this.onChange(current, progressCount, justFinished, finishedQuest);
     QuestHUD.update(status, current || q, justFinished);
 
     return {
-      bonus: justFinished ? 10 : 0  // ให้โบนัสเวลาจบภารกิจ
+      bonus: justFinished ? 10 : 0
     };
   };
 
-  // export
   ns.FoodGroupsQuestManager = FoodGroupsQuestManager;
   ns.foodGroupsQuestHUD = QuestHUD;
 
