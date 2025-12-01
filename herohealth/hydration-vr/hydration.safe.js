@@ -4,6 +4,7 @@
 // - ใช้ MissionDeck (createHydrationQuest)
 // - ส่ง hha:end พร้อมข้อมูลสถิติและเควสต์ที่เคลียร์แล้ว
 
+// === /herohealth/hydration-vr/hydration.safe.js ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import Particles from '../vr/particles.js';
