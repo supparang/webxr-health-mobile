@@ -1,4 +1,4 @@
-// === /herohealth/vr/vr-goodjunk/GameEngine.js ===
+// === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Game Engine + Session & Event Stats (Research-ready)
 
 'use strict';
@@ -146,6 +146,8 @@ function finishSession() {
       sessionStats.mainGoalDone  = !!qs.mainDone;
       sessionStats.miniCleared   = qs.miniCleared | 0;
       sessionStats.miniTotal     = qs.miniTotal | 0;
+      sessionStats.goalsCleared  = qs.mainDone ? 1 : 0;
+      sessionStats.goalsTotal    = 1;
     }
   }
 
@@ -308,6 +310,16 @@ function spawnTarget() {
   spawnTimer = setTimeout(spawnTarget, cfg.rate);
 }
 
+function emitScoreHud(scoreDelta) {
+  window.emit('hha:score', {
+    score:   window.score,
+    combo:   window.combo,
+    comboMax: window.comboMax,
+    misses:  window.misses,
+    delta:   scoreDelta
+  });
+}
+
 function onHitTarget(targetEl) {
   if (!targetEl || !targetEl.parentNode) return;
 
@@ -338,10 +350,10 @@ function onHitTarget(targetEl) {
     // ---------- Good / Power-ups ----------
     if (sessionStats) {
       sessionStats.goodHits += 1;
-      if (char === STAR)             sessionStats.starHits    += 1;
-      else if (char === DIA)         sessionStats.diamondHits += 1;
-      else if (char === SHIELD_EMOJI)sessionStats.shieldHits  += 1;
-      else if (char === FIRE)        sessionStats.fireHits    += 1;
+      if (char === STAR)              sessionStats.starHits    += 1;
+      else if (char === DIA)          sessionStats.diamondHits += 1;
+      else if (char === SHIELD_EMOJI) sessionStats.shieldHits  += 1;
+      else if (char === FIRE)         sessionStats.fireHits    += 1;
     }
 
     if (char === STAR) {
@@ -405,6 +417,7 @@ function onHitTarget(targetEl) {
         itemType
       });
 
+      emitScoreHud(0);
       targetEl.remove();
       return;
     }
@@ -435,11 +448,7 @@ function onHitTarget(targetEl) {
     itemType
   });
 
-  window.emit('hha:score', {
-    score: window.score,
-    combo: window.combo,
-    delta: scoreDelta
-  });
+  emitScoreHud(scoreDelta);
 
   targetEl.remove();
 }
@@ -490,10 +499,10 @@ export const GameEngine = {
       difficulty: (level || 'normal'),
       durationSec: 60,
       playerId: p.get('pid')   || p.get('player') || '',
-      group:    p.get('group') || '',
-      prePost:  p.get('prePost') || p.get('phase') || '',
-      className:p.get('class') || p.get('room')  || '',
-      school:   p.get('school')|| ''
+      group:     p.get('group') || '',
+      prePost:   p.get('prePost') || p.get('phase') || '',
+      className: p.get('class') || p.get('room')  || '',
+      school:    p.get('school')|| ''
     };
     beginSession(meta);
 
@@ -549,7 +558,7 @@ export const GameEngine = {
       });
     }
 
-    window.emit('hha:score', { score: 0, combo: 0, delta: 0 });
+    emitScoreHud(0);
   },
 
   stop() {
