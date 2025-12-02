@@ -197,7 +197,7 @@
       font-weight:600;
     }
 
-    /* ===== Center hint: “ลากนิ้วเพื่อหมุนมุมมอง” บนมือถือไม่มี gyro ===== */
+    /* ===== Center hint: “ลากนิ้วเพื่อหมุนมุมมอง” ===== */
     .hint-center{
       position:fixed;
       left:50%;
@@ -270,9 +270,12 @@
       <a-camera id="gj-camera"
                 wasd-controls-enabled="false"
                 look-controls="pointerLockEnabled: false">
-        <!-- crosshair -->
-        <a-entity geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-                  material="shader: flat"
+        <!-- crosshair + raycaster (สำคัญมาก) -->
+        <a-entity id="cursor"
+                  cursor="fuse: false; rayOrigin: mouse"
+                  raycaster="objects: [data-hha-tgt]"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+                  material="shader: flat; color: #ffffff"
                   position="0 0 -0.9">
         </a-entity>
       </a-camera>
@@ -309,7 +312,7 @@
           </div>
           <div class="metric">
             <div class="metric-label">คอมโบสูงสุด</div>
-            <div class="metric-value" id="hud-combo">0</div>
+            <div class="metric-value" id="hud-combo" data-max="0">0</div>
           </div>
           <div class="metric">
             <div class="metric-label">พลาด</div>
@@ -318,7 +321,7 @@
         </div>
       </div>
 
-      <!-- Right: quest panel -->
+      <!-- Right: quest panel (จะโชว์เมื่อมี event quest:update) -->
       <div class="hud-card hud-quest">
         <div class="quest-title">Quest</div>
         <div id="hud-quest-main" class="quest-main-label">ภารกิจหลักจะโผล่ตรงนี้</div>
@@ -364,10 +367,10 @@
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
   </div>
 
-  <!-- ===== Logic: Boot โหมด + HUD + Touch Look ===== -->
+  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look ===== -->
   <script type="module">
-    import { boot as bootGoodJunk } from '../modes/goodjunk.safe.js';
-    import { attachTouchLook } from './touch-look-goodjunk.js'; // ไฟล์ที่เราทำโหมดหมุนด้วยนิ้ว
+    import { GameEngine } from './GameEngine.js';
+    import { attachTouchLook } from './touch-look-goodjunk.js';
 
     function getParam(name, fallback){
       const url = new URL(window.location.href);
@@ -402,6 +405,7 @@
     const elEndMini   = document.getElementById('end-mini');
 
     let lastCoachTimeout = null;
+    let hudMissCount = 0;
 
     function setCoach(text){
       if (!text) return;
@@ -413,14 +417,14 @@
       }, 4200);
     }
 
-    // HUD: เวลา
+    // HUD: เวลา (ใช้ hha:time จาก GameEngine/fireTimer)
     window.addEventListener('hha:time', (e)=>{
       const sec = (e.detail?.sec | 0);
       if (sec < 0) return;
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest
+    // HUD: Quest (ถ้า Quest ใน GameEngine ยิง event 'quest:update' อยู่ก็ใช้ได้เลย)
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -461,40 +465,61 @@
       if (text) setCoach(text);
     });
 
-    // HUD: End summary
-    window.addEventListener('hha:end', (e)=>{
-      const d = e.detail || {};
-      if ((d.mode||'').toLowerCase() !== 'good vs junk' &&
-          (d.mode||'').toLowerCase() !== 'good vs junk' &&
-          (d.mode||'').toLowerCase() !== 'goodvsjunk'){
-        // ถ้าแชร์ใช้ hha:end ร่วมกับโหมดอื่น ให้ปล่อยผ่าน
-        // หรือจะไม่เช็คเลยก็ได้ ถ้าใช้หน้าเฉพาะ GoodJunk
-      }
-      elEndScore.textContent = d.score ?? 0;
-      elEndCombo.textContent = d.comboMax ?? 0;
-      elEndMiss.textContent  = d.misses ?? 0;
-      elEndGoal.textContent  = `${d.goalsCleared ?? 0} / ${d.goalsTotal ?? 0}`;
-      elEndMini.textContent  = `${d.questsCleared ?? 0} / ${d.questsTotal ?? 0}`;
-      elEndToast.classList.add('show');
-    });
-
-    // เก็บสถิติ score/combo/miss จาก logger กลางถ้ามีส่ง event แยก
-    // ถ้าใน engine ตัวกลางมี 'hha:score' ก็อัปเดต HUD จากตรงนี้
+    // HUD: คะแนน / คอมโบ / miss จาก GameEngine (hha:score + hha:miss)
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
-      if (typeof d.total === 'number') elScore.textContent = d.total;
-      if (typeof d.comboMax === 'number') elCombo.textContent = d.comboMax;
-      if (typeof d.miss === 'number') elMiss.textContent = d.miss;
+      if (typeof d.score === 'number') {
+        elScore.textContent = d.score;
+      }
+      if (typeof d.combo === 'number') {
+        const c = d.combo | 0;
+        const prevMax = parseInt(elCombo.dataset.max || '0', 10);
+        const max = Math.max(prevMax, c);
+        elCombo.dataset.max = String(max);
+        elCombo.textContent = max;
+      }
+      if (typeof d.misses === 'number') {
+        hudMissCount = d.misses;
+        elMiss.textContent = hudMissCount;
+      }
+    });
+
+    window.addEventListener('hha:miss', ()=>{
+      hudMissCount += 1;
+      elMiss.textContent = hudMissCount;
+    });
+
+    // HUD: End summary (ใช้ sessionStats จาก GameEngine.finishSession)
+    window.addEventListener('hha:end', (e)=>{
+      const d = e.detail || {};
+      if ((d.game || '').toLowerCase().indexOf('good vs junk') === -1 &&
+          (d.mode || '').toLowerCase().indexOf('good') === -1) {
+        // ถ้าเป็นโหมดอื่นที่แชร์ event นี้ ข้ามได้
+      }
+
+      const scoreFinal = d.scoreFinal ?? d.score ?? 0;
+      const comboMax   = d.comboMax ?? 0;
+      const misses     = d.misses ?? 0;
+      const goalsCleared  = d.goalsCleared ?? d.miniCleared ?? 0;
+      const goalsTotal    = d.goalsTotal ?? d.miniTotal ?? 0;
+      const miniCleared   = d.miniCleared ?? 0;
+      const miniTotal     = d.miniTotal ?? 0;
+
+      elEndScore.textContent = scoreFinal;
+      elEndCombo.textContent = comboMax;
+      elEndMiss.textContent  = misses;
+      elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
+      elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
+      elEndToast.classList.add('show');
     });
 
     function initTouchLook(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
-        onlyIfNoGyro: true,      // ถ้ามี gyro ให้ใช้แบบหมุนหัวตามปกติ
-        sensitivity: 0.006,
+        // ให้ใช้ลากนิ้วได้เสมอ ทั้งมือถือ/PC
+        sensitivity: 0.25,          // องศาต่อพิกเซล
         areaEl: document.body,
         onActiveChange: (active)=>{
-          // ถ้าเข้าโหมด "หมุนด้วยนิ้ว" ให้โชว์ hint ตรงกลางจอ
           if (active){
             elTouchHint.classList.add('show');
             setTimeout(()=> elTouchHint.classList.remove('show'), 3200);
@@ -503,7 +528,7 @@
       });
     }
 
-    window.addEventListener('DOMContentLoaded', async () => {
+    window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       let   dur  = parseInt(getParam('time','60'), 10);
       if (isNaN(dur) || dur <= 0) dur = 60;
@@ -512,26 +537,34 @@
 
       elDiff.textContent = diff.toUpperCase();
 
-      // ตั้ง initial text
       elScore.textContent = '0';
       elCombo.textContent = '0';
+      elCombo.dataset.max = '0';
       elMiss.textContent  = '0';
       elTime.textContent  = dur + 's';
+      hudMissCount = 0;
 
-      // Attach touch-look สำหรับมือถือที่ไม่มี gyro
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
 
-      // Boot โมด Good vs Junk (ใช้ mode-factory ข้างใน)
-      try{
-        await bootGoodJunk({
-          difficulty: diff,
-          duration:   dur
-        });
-      }catch(err){
-        console.error('bootGoodJunk error', err);
-        setCoach('โหลดโหมด Good vs Junk มีปัญหา ลองรีเฟรชหน้าอีกครั้งนะ');
+      // เริ่มเกมด้วย GameEngine เดิม (VR)
+      GameEngine.start(diff);
+
+      // ทำ countdown timer → ส่ง hha:time → ให้ GameEngine เก็บเวลา FEVER
+      let timeLeft = dur;
+      function tickTime(){
+        timeLeft -= 1;
+        if (timeLeft < 0) return;
+        window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+        if (timeLeft <= 0){
+          clearInterval(timerId);
+          GameEngine.stop();
+        }
       }
+
+      // ยิงครั้งแรกเพื่อเซ็ต HUD
+      window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+      const timerId = setInterval(tickTime, 1000);
     });
   </script>
 </body>
