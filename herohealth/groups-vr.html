@@ -179,11 +179,15 @@
         <div class="fg-chip">🎮 เล่นได้ทั้ง PC / Mobile / VR Headset</div>
       </div>
 
-      <div class="fg-playinfo">
-        💻 PC: ใช้เมาส์หมุนมุมมอง แล้วคลิกซ้ายเพื่อยิง<br>
-        📱 Mobile: หมุนโทรศัพท์ให้วงกลมกลางจอทับเป้า แล้วแตะหน้าจอเพื่อยิง<br>
-        🥽 VR: เล็งด้วยคอนโทรลเลอร์ แล้วกด Trigger เพื่อยิง
-      </div>
+      <div id="fgHint"
+       style="position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
+            background:rgba(15,23,42,.75);color:#e5e7eb;
+            padding:6px 12px;border-radius:999px;
+            font:500 13px system-ui,-apple-system;z-index:9999;">
+        🖱 บนคอม: เลื่อนเมาส์เล็งวงแหวนให้ทับเป้า แล้วคลิกซ้ายเพื่อยิง<br>
+        📱 บนมือถือ: หมุนโทรศัพท์ให้วงแหวนทับเป้า แล้วแตะหน้าจอเพื่อยิง<br>
+      🎮 VR: ใช้ Trigger บนคอนโทรลเลอร์ยิงเมื่อวงแหวนทับเป้า 🎯
+    </div>
 
       <div class="fg-buttons">
         <button class="game-button btn-easy"   id="startButtonEasy">🥗 ง่าย (Easy)</button>
@@ -218,11 +222,10 @@
 
   <!-- A-Frame scene -->
   <a-scene id="gameScene"
-           renderer="colorManagement: true; useLegacyLights: false"
-           loading-screen="dotsColor: white; backgroundColor: #0b1222"
-           background="color: #0b1222"
-           fg-input-adapter
-           crossorigin="anonymous">
+    renderer="colorManagement: true"
+    loading-screen="dotsColor: white; backgroundColor: #0b1222"
+    background="color: #0b1222"
+    fg-input-adapter>
 
     <a-sky color="#020617"></a-sky>
 
