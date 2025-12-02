@@ -1,10 +1,17 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
 // เก็บ log แบบ Session + Event แล้วส่งไป Google Apps Script
+// payload:
+//   {
+//     projectTag: 'HeroHealth-GoodJunkVR',
+//     sessions: [ { ... } ],
+//     events:   [ { ... } ]
+//   }
 
 'use strict';
 
 let CONFIG = {
-  endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',                 // ★★ ใส่ URL WebApp ของ Google Apps Script ตรงนี้ ★★
+  // ★★ ใส่ URL WebApp ของ Google Apps Script ตรงนี้ ( /exec ) ★★
+  endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
   projectTag: 'HeroHealth-GoodJunkVR',
   debug: false
 };
@@ -32,9 +39,10 @@ export function initCloudLogger(opts = {}) {
 }
 
 // ---------- internal helpers ----------
+
 function scheduleFlush() {
   if (!CONFIG.endpoint) {
-    // ไม่มี endpoint → ไม่ส่งอะไร ป้องกัน error CORS/405
+    // ไม่มี endpoint → เคลียร์คิวทิ้ง ป้องกัน error
     sessionQueue.length = 0;
     eventQueue.length   = 0;
     return;
@@ -43,46 +51,57 @@ function scheduleFlush() {
   flushTimer = setTimeout(flushNow, FLUSH_DELAY);
 }
 
-async function flushNow() {
-  flushTimer = null;
-
-  if (!CONFIG.endpoint) return;
-  if (!sessionQueue.length && !eventQueue.length) return;
+function buildPayload() {
+  if (!sessionQueue.length && !eventQueue.length) return null;
 
   const payload = {
     projectTag: CONFIG.projectTag,
-    sessions:   sessionQueue.slice(),
-    events:     eventQueue.slice()
+    sessions:   sessionQueue.splice(0),
+    events:     eventQueue.splice(0)
   };
+  return payload;
+}
+
+function flushNow() {
+  flushTimer = null;
+  if (!CONFIG.endpoint) return;
+
+  const payload = buildPayload();
+  if (!payload) return;
+
+  const bodyStr = JSON.stringify(payload);
 
   if (CONFIG.debug) {
     console.log('[HHA Logger] flush payload', payload);
   }
 
-  sessionQueue.length = 0;
-  eventQueue.length   = 0;
-
+  // 1) พยายามใช้ sendBeacon ก่อน (simple request → ไม่โดน CORS/preflight)
+  let sent = false;
   try {
-    const res = await fetch(CONFIG.endpoint, {
-      method: 'POST',
-      mode: 'cors',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    if (CONFIG.debug) {
-      console.log('[HHA Logger] send OK', await res.text());
+    if (navigator.sendBeacon) {
+      const blob = new Blob([bodyStr], { type: 'text/plain;charset=utf-8' });
+      sent = navigator.sendBeacon(CONFIG.endpoint, blob);
+      if (CONFIG.debug) console.log('[HHA Logger] sendBeacon sent=', sent);
     }
   } catch (err) {
-    if (CONFIG.debug) {
-      console.error('[HHA Logger] send error', err);
-    }
+    if (CONFIG.debug) console.warn('[HHA Logger] sendBeacon error', err);
+  }
+  if (sent) return;
+
+  // 2) ถ้าใช้ sendBeacon ไม่ได้ → fallback เป็น fetch แบบ no-cors
+  try {
+    fetch(CONFIG.endpoint, {
+      method: 'POST',
+      mode: 'no-cors',           // ไม่อ่าน response แต่ไม่เด้ง CORS error
+      // ไม่ตั้ง header พิเศษเลย → browser ใช้ text/plain simple request
+      body: bodyStr,
+      keepalive: true
+    }).catch(err => {
+      if (CONFIG.debug) console.warn('[HHA Logger] fetch error', err);
+    });
+    if (CONFIG.debug) console.log('[HHA Logger] fetch(no-cors) fired');
+  } catch (err) {
+    if (CONFIG.debug) console.warn('[HHA Logger] fetch throw', err);
   }
 }
 
