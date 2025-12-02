@@ -1,106 +1,156 @@
 // vr-groups/coach.js
-// โค้ชตัวหนังสือเล็ก ๆ ด้านล่าง บอกภารกิจ / ให้กำลังใจ
+// โค้ชพูด + แสดงสถานะภารกิจ (quest) ด้านล่างจอ
 
 (function (ns) {
   'use strict';
 
-  var el = null;
+  let rootEl   = null;
+  let lineMain = null;
+  let lineSub  = null;
 
-  function ensureEl() {
-    if (el) return el;
-    el = document.createElement('div');
-    el.id = 'fgCoach';
-    el.style.position = 'fixed';
-    el.style.bottom = '18px';
-    el.style.left = '50%';
-    el.style.transform = 'translateX(-50%)';
-    el.style.padding = '6px 14px';
-    el.style.borderRadius = '999px';
-    el.style.background = 'rgba(15,23,42,0.9)';
-    el.style.color = '#e5e7eb';
-    el.style.fontFamily = "system-ui, -apple-system, 'IBM Plex Sans Thai', sans-serif";
-    el.style.fontSize = '13px';
-    el.style.lineHeight = '1.4';
-    el.style.boxShadow = '0 6px 18px rgba(15,23,42,0.6)';
-    el.style.zIndex = '9997';
-    el.style.pointerEvents = 'none';
-    el.style.maxWidth = '92vw';
-    el.style.textAlign = 'center';
-    el.style.opacity = '0';
-    el.style.transition = 'opacity .2s ease';
-    document.body.appendChild(el);
-    return el;
+  function ensureDom() {
+    if (rootEl) return;
+
+    rootEl = document.createElement('div');
+    rootEl.id = 'fgCoach';
+    rootEl.style.position        = 'fixed';
+    rootEl.style.left            = '50%';
+    rootEl.style.bottom          = '18px';
+    rootEl.style.transform       = 'translateX(-50%)';
+    rootEl.style.zIndex          = '9500';
+    rootEl.style.maxWidth        = '90vw';
+    rootEl.style.background      = 'rgba(15,23,42,0.88)';
+    rootEl.style.borderRadius    = '999px';
+    rootEl.style.border          = '1px solid rgba(148,163,184,0.65)';
+    rootEl.style.boxShadow       = '0 12px 30px rgba(15,23,42,0.8)';
+    rootEl.style.padding         = '6px 16px';
+    rootEl.style.fontFamily      = "'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif";
+    rootEl.style.fontSize        = '13px';
+    rootEl.style.color           = '#e5e7eb';
+    rootEl.style.display         = 'flex';
+    rootEl.style.alignItems      = 'center';
+    rootEl.style.gap             = '8px';
+    rootEl.style.pointerEvents   = 'none';
+
+    const avatar = document.createElement('span');
+    avatar.textContent = '🥦';
+    avatar.style.fontSize = '18px';
+
+    const textWrap = document.createElement('div');
+    textWrap.style.display   = 'flex';
+    textWrap.style.flexDirection = 'column';
+    textWrap.style.alignItems = 'flex-start';
+
+    lineMain = document.createElement('div');
+    lineMain.style.fontWeight = '600';
+
+    lineSub = document.createElement('div');
+    lineSub.style.opacity = '0.9';
+    lineSub.style.fontSize = '12px';
+
+    textWrap.appendChild(lineMain);
+    textWrap.appendChild(lineSub);
+    rootEl.appendChild(avatar);
+    rootEl.appendChild(textWrap);
+    document.body.appendChild(rootEl);
   }
 
-  function showText(text) {
-    var box = ensureEl();
-    box.innerHTML = text;
-    box.style.opacity = '1';
-    clearTimeout(showText._timer);
-    showText._timer = setTimeout(function () {
-      box.style.opacity = '0';
-    }, 3000);
+  function setCoachText(main, sub) {
+    ensureDom();
+    if (main != null) lineMain.textContent = main;
+    if (sub  != null) lineSub.textContent  = sub;
   }
 
-  var Coach = {
-    sayStart: function () {
-      showText('🎮 เล็งเป้าแล้วเก็บอาหารดี ๆ ให้ครบทุกหมู่ สู้ ๆ !');
-    },
-    sayFinish: function () {
-      showText('⏰ หมดเวลาแล้ว มาดูคะแนนกับภารกิจที่สำเร็จกัน!');
-    },
+  // ---------- public API ----------
 
-    sayQuest: function (quest, progressCount) {
-      if (!quest) return;
-      var target = quest.target || 5;
-      var done = progressCount || 0;
-      showText('🎯 ' + (quest.label || 'เก็บหมู่ ' + quest.groupId) +
-        ' (' + done + '/' + target + ' ชิ้น)');
-    },
+  function sayStart() {
+    setCoachText(
+      'วันนี้มาลองเลือกอาหารดี ๆ ให้ครบทุกหมู่กันนะ 💚',
+      'เล็ง emoji อาหารแล้วยิงให้ตรงหมู่ เป้าภารกิจจะมีวงแหวนสีทองล้อมอยู่ ✨'
+    );
+  }
 
-    // ถูกเรียกจาก GameEngine ทุกครั้งที่ progress ภารกิจเปลี่ยน
-    onQuestChange: function (info) {
-      info = info || {};
-      var quest  = info.current || info.finished || null;
-      var status = info.status || {};
+  function sayFinish(sessionInfo) {
+    let msg = 'เยี่ยมมาก! เล่นจบรอบแล้ว 🎉';
+    let sub = 'ลองเล่นอีกครั้งเพื่อเก็บคะแนนให้สูงขึ้น หรือเปรียบเทียบก่อน–หลังการสอนนะ';
 
-      // กัน status ว่าง ให้มีค่า default
-      var currentIndex = (typeof status.currentIndex === 'number')
-        ? status.currentIndex
-        : (quest ? 1 : 0);
-      var total = (typeof status.total === 'number')
-        ? status.total
-        : (quest ? 1 : 0);
-      var cleared = (typeof status.cleared === 'number')
-        ? status.cleared
-        : (info.cleared || 0);
-
-      // กรณีไม่มี quest แล้ว แต่มี status → แปลว่าทำครบแล้ว
-      if (!quest && total > 0) {
-        showText('🎉 เยี่ยมมาก! คุณทำครบ ' + cleared + '/' + total + ' ภารกิจแล้ว');
-        return;
-      }
-      if (!quest) {
-        // ยังไม่มีภารกิจโหลด (ตอนเริ่มเกมมาก ๆ)
-        showText('🕒 ภารกิจจะเริ่มในไม่กี่วินาที...');
-        return;
-      }
-
-      var target = quest.target || 5;
-      var done   = quest.progress || 0;
-
-      var prefix = info.justFinished
-        ? '✔ ภารกิจสำเร็จ! ต่อไป... '
-        : '📌 ภารกิจ ' + currentIndex + '/' + total + ': ';
-
-      showText(
-        prefix +
-        (quest.label || ('หมู่ ' + quest.groupId)) +
-        ' (' + done + '/' + target + ' ชิ้น · สำเร็จแล้ว ' + cleared + ' ภารกิจ)'
-      );
+    if (sessionInfo && typeof sessionInfo.questsCleared === 'number' &&
+        typeof sessionInfo.questsTotal === 'number' && sessionInfo.questsTotal > 0) {
+      msg = `จบรอบแล้ว 🎉 ทำภารกิจสำเร็จ ${sessionInfo.questsCleared}/${sessionInfo.questsTotal} ภารกิจ`;
+      sub = 'ถ้าอยากเก็บภารกิจให้ครบทุกหมู่ ลองเล่นอีกรอบแล้วโฟกัสเป้าภารกิจ (วงแหวนทอง) ดูนะ ✨';
     }
+
+    setCoachText(msg, sub);
+  }
+
+  function sayQuest(quest, progress) {
+    if (!quest) return;
+    const need = quest.need || quest.target || quest.count || 5;
+    const got  = progress || 0;
+
+    const foodLabel = quest.label || quest.name || 'อาหารดี';
+    const em        = quest.emoji || '🍎';
+
+    const main = `ภารกิจ: ยิง ${em} ${foodLabel} ให้ครบ ${need} ครั้ง!`;
+    const sub  = `ตอนนี้ทำได้ ${got}/${need} แล้ว สู้ต่ออีกนิดจะได้โบนัสพิเศษนะ ✨`;
+
+    setCoachText(main, sub);
+  }
+
+  /**
+   * onQuestChange(payload)
+   * payload = {
+   *   current, progress, justFinished, finished, status
+   * }
+   * status (จาก questManager.getStatus()) น่าจะมี:
+   *   { currentIndex, total, cleared, left, ... }
+   */
+  function onQuestChange(payload) {
+    payload = payload || {};
+    const q       = payload.current || null;
+    const prog    = payload.progress || 0;
+    const status  = payload.status  || null;
+    const justFin = !!payload.justFinished;
+
+    if (q) {
+      sayQuest(q, prog);
+    } else {
+      // ไม่มีภารกิจ active (เช่น จบทุกอันแล้ว)
+      const cleared = status && typeof status.cleared === 'number'
+        ? status.cleared
+        : (status && typeof status.currentIndex === 'number'
+           ? status.currentIndex
+           : null);
+      const total   = status && typeof status.total === 'number'
+        ? status.total
+        : null;
+
+      let main = 'ภารกิจของรอบนี้ครบแล้ว เยี่ยมมาก! 💚';
+      let sub  = 'ลองโฟกัสเลือกอาหารดี ๆ ทุกหมู่ แล้วดูคะแนนรวมของตัวเองนะ';
+
+      if (cleared != null && total != null) {
+        main = `ทำภารกิจสำเร็จแล้ว ${cleared}/${total} ภารกิจ 🎉`;
+        sub  = 'ถ้าอยากลองเปลี่ยนความยาก ให้ครูปรับเป็น Normal หรือ Hard เพื่อเก็บข้อมูลเปรียบเทียบได้เลย';
+      }
+
+      setCoachText(main, sub);
+    }
+
+    // ถ้าเพิ่งเคลียร์ภารกิจนี้เสร็จ ให้ใส่ข้อความยินดีสั้น ๆ
+    if (justFin && payload.finished) {
+      const em = payload.finished.emoji || '✨';
+      const foodLabel = payload.finished.label || 'อาหารดี';
+
+      const main = `ภารกิจสำเร็จ! ${em} เก็บ ${foodLabel} ได้ครบแล้ว 🎉`;
+      const sub  = 'เดี๋ยวโค้ชจะส่งภารกิจถัดไปให้ ลองดูว่ารอบนี้จะทำได้ครบทุกหมู่ไหมนะ 💪';
+      setCoachText(main, sub);
+    }
+  }
+
+  ns.foodGroupsCoach = {
+    sayStart,
+    sayFinish,
+    sayQuest,
+    onQuestChange
   };
-
-  ns.foodGroupsCoach = Coach;
-
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
