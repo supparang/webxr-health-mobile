@@ -538,16 +538,15 @@
       elTime.textContent  = dur + 's';
       hudMissCount = 0;
 
-      const cam = document.querySelector('#gj-camera');
-      initTouchLook(cam);
-
-      // ★ Init logger (ตั้ง endpoint ในไฟล์ hha-cloud-logger.js แล้ว)
+      // ★★ เรียก Cloud Logger สำหรับ GoodJunk VR ★★
       initCloudLogger({
-        // ถ้าใน hha-cloud-logger.js มี default endpoint แล้ว จะไม่ใส่ก็ได้
-        // endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
+        endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec', // ← ใส่ของจริง
         projectTag: 'HeroHealth-GoodJunkVR',
         debug: false
       });
+
+      const cam = document.querySelector('#gj-camera');
+      initTouchLook(cam);
 
       // เริ่มเกม
       GameEngine.start(diff);
