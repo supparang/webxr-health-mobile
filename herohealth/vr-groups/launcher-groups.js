@@ -73,6 +73,19 @@
       summaryEl.innerHTML = html;
     }
   }
+const noteEl = document.getElementById('fgOverallNote');
+if (noteEl && data && data.groupStats) {
+  let totalHits = 0;
+  let totalSpawns = 0;
+  Object.values(data.groupStats).forEach(g => {
+    totalHits += g.hits || 0;
+    totalSpawns += g.spawns || 0;
+  });
+  const pct = totalSpawns > 0 ? Math.round((totalHits / totalSpawns) * 100) : 0;
+  noteEl.innerHTML =
+    'ครั้งนี้เลือกอาหารดีได้ <b>' + pct +
+    '%</b> ของทั้งหมด 💚<br>ลองเล่นใหม่อีกครั้ง เพื่อเก็บคะแนนให้สูงขึ้นหรือใช้เปรียบเทียบก่อน–หลังการสอนได้เลย!';
+}
 
   // ---------- สั่งเริ่มเกม ----------
   function startGame(diff) {
