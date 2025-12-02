@@ -192,17 +192,28 @@
       </div>
     </div>
 
-    <div id="resultsScreen" class="fg-panel" style="display:none;">
-      <h2>เกมจบแล้ว!</h2>
-      <h1 id="finalScore">Score: 0</h1>
+  <div id="resultsScreen" style="display:none;">
+    <h2 style="font-size:2.4rem;margin-bottom:.5rem;">เกมจบแล้ว!</h2>
+    <h1 id="finalScore" style="font-size:3rem;color:#22c55e;margin:0 0 1rem;">
+      Score: 0
+    </h1>
 
-      <!-- สรุปผลรายหมู่ -->
-      <div id="fgSummary"></div>
-
-      <div class="fg-buttons" style="margin-top:18px;">
-        <button class="game-button btn-normal" id="playAgainButton">เล่นอีกครั้ง 🚀</button>
-      </div>
+    <div id="fgSummary"
+       style="font-size:.95rem;line-height:1.5;margin-top:8px;
+              text-align:left;max-width:480px;margin-inline:auto;">
+    <!-- จะถูกเติมด้วย JS เช่น  
+         • หมู่ 1 ข้าว-แป้ง : ถูกยิงโดน 12/12 เป้า (100%)  -->
     </div>
+
+    <p id="fgOverallNote"
+     style="margin-top:14px;font-size:0.95rem;opacity:.9;">
+    ครั้งนี้เลือกอาหารดีได้ <b>—%</b> ของทั้งหมด 💚 <br>
+    ลองเล่นใหม่อีกครั้ง เพื่อเก็บคะแนนให้สูงขึ้นหรือเปรียบเทียบก่อน–หลังการสอนได้เลย!
+    </p>
+
+    <button class="game-button" id="playAgainButton">
+      เล่นอีกครั้ง 🚀
+    </button>
   </div>
 
   <!-- A-Frame scene -->
