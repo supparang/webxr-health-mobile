@@ -1,16 +1,7 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// เก็บ log แบบ Session + Event แล้วส่งไป Google Apps Script
-// payload:
-//   {
-//     projectTag: 'HeroHealth-GoodJunkVR',
-//     sessions: [ { ... } ],
-//     events:   [ { ... } ]
-//   }
-
 'use strict';
 
 let CONFIG = {
-  // ★★ ใส่ URL WebApp ของ Google Apps Script ตรงนี้ ( /exec ) ★★
   endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
   projectTag: 'HeroHealth-GoodJunkVR',
   debug: false
@@ -19,30 +10,21 @@ let CONFIG = {
 let sessionQueue = [];
 let eventQueue   = [];
 let flushTimer   = null;
-const FLUSH_DELAY = 2000; // ms
+const FLUSH_DELAY = 2000;
 
-// ---------- public API ----------
 export function initCloudLogger(opts = {}) {
   CONFIG = {
     endpoint:   opts.endpoint   || CONFIG.endpoint || '',
     projectTag: opts.projectTag || CONFIG.projectTag,
     debug:      !!opts.debug
   };
-
   if (!CONFIG.endpoint) {
     console.warn('[HHA Logger] endpoint ยังว่างอยู่ จะไม่ส่งข้อมูลขึ้น Google Sheet');
   }
-
-  if (CONFIG.debug) {
-    console.log('[HHA Logger] init', CONFIG);
-  }
 }
-
-// ---------- internal helpers ----------
 
 function scheduleFlush() {
   if (!CONFIG.endpoint) {
-    // ไม่มี endpoint → เคลียร์คิวทิ้ง ป้องกัน error
     sessionQueue.length = 0;
     eventQueue.length   = 0;
     return;
@@ -53,13 +35,11 @@ function scheduleFlush() {
 
 function buildPayload() {
   if (!sessionQueue.length && !eventQueue.length) return null;
-
-  const payload = {
+  return {
     projectTag: CONFIG.projectTag,
     sessions:   sessionQueue.splice(0),
     events:     eventQueue.splice(0)
   };
-  return payload;
 }
 
 function flushNow() {
@@ -71,51 +51,35 @@ function flushNow() {
 
   const bodyStr = JSON.stringify(payload);
 
-  if (CONFIG.debug) {
-    console.log('[HHA Logger] flush payload', payload);
-  }
-
-  // 1) พยายามใช้ sendBeacon ก่อน (simple request → ไม่โดน CORS/preflight)
+  // 1) sendBeacon ก่อน
   let sent = false;
   try {
     if (navigator.sendBeacon) {
       const blob = new Blob([bodyStr], { type: 'text/plain;charset=utf-8' });
       sent = navigator.sendBeacon(CONFIG.endpoint, blob);
-      if (CONFIG.debug) console.log('[HHA Logger] sendBeacon sent=', sent);
     }
-  } catch (err) {
-    if (CONFIG.debug) console.warn('[HHA Logger] sendBeacon error', err);
-  }
+  } catch (_) {}
   if (sent) return;
 
-  // 2) ถ้าใช้ sendBeacon ไม่ได้ → fallback เป็น fetch แบบ no-cors
+  // 2) fallback fetch(no-cors)
   try {
     fetch(CONFIG.endpoint, {
       method: 'POST',
-      mode: 'no-cors',           // ไม่อ่าน response แต่ไม่เด้ง CORS error
-      // ไม่ตั้ง header พิเศษเลย → browser ใช้ text/plain simple request
+      mode: 'no-cors',
       body: bodyStr,
       keepalive: true
-    }).catch(err => {
-      if (CONFIG.debug) console.warn('[HHA Logger] fetch error', err);
-    });
-    if (CONFIG.debug) console.log('[HHA Logger] fetch(no-cors) fired');
-  } catch (err) {
-    if (CONFIG.debug) console.warn('[HHA Logger] fetch throw', err);
-  }
+    }).catch(()=>{});
+  } catch (_) {}
 }
 
-// ---------- global event listeners ----------
-// session summary จาก GameEngine.finishSession()
+// session summary
 window.addEventListener('hha:session', (e) => {
-  const data = e.detail || {};
-  sessionQueue.push(data);
+  sessionQueue.push(e.detail || {});
   scheduleFlush();
 });
 
-// event ต่อครั้งจาก GameEngine (hit / miss / timeout ฯลฯ)
+// per-event
 window.addEventListener('hha:event', (e) => {
-  const data = e.detail || {};
-  eventQueue.push(data);
+  eventQueue.push(e.detail || {});
   scheduleFlush();
 });
