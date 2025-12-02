@@ -4,6 +4,16 @@
 
   const GAME_VERSION = 'GroupsVR_v1.0';
 
+  // ---------- helper: gen sessionId ----------
+  function genSessionId() {
+    return (
+      'FG-' +
+      Date.now().toString(36) +
+      '-' +
+      Math.random().toString(36).slice(2, 8)
+    );
+  }
+
   // ---------- detect device ----------
   function detectDeviceType() {
     try {
@@ -23,7 +33,7 @@
   function logEvent(type, detail) {
     try {
       const arr = (window.HHA_FOODGROUPS_LOG = window.HHA_FOODGROUPS_LOG || []);
-      arr.push(Object.assign({ ts: Date.now(), type }, detail));
+      arr.push(Object.assign({ ts: Date.now(), type: type }, detail));
     } catch (e) {}
   }
 
@@ -67,7 +77,12 @@
 
     // Quest manager
     this.questManager = ns.FoodGroupsQuestManager
-      ? new ns.FoodGroupsQuestManager(function (quest, progress, justFinished, finishedQuest) {
+      ? new ns.FoodGroupsQuestManager(function (
+          quest,
+          progress,
+          justFinished,
+          finishedQuest
+        ) {
           const status =
             self.questManager && self.questManager.getStatus
               ? self.questManager.getStatus()
@@ -80,7 +95,7 @@
               progress: progress || 0,
               justFinished: !!justFinished,
               finished: finishedQuest || null,
-              status
+              status: status
             });
           } else if (ns.foodGroupsCoach && ns.foodGroupsCoach.sayQuest) {
             ns.foodGroupsCoach.sayQuest(quest, progress || 0);
@@ -140,6 +155,12 @@
     this.diff = opts.diff || 'normal';
     if (ns.foodGroupsDifficulty) {
       this.cfg = ns.foodGroupsDifficulty.get(this.diff);
+    }
+
+    // ถ้า sessionId ยังไม่มี → สุ่มให้เลย
+    if (!this.session) this.session = {};
+    if (!this.session.sessionId) {
+      this.session.sessionId = genSessionId();
     }
 
     // reset log
@@ -328,27 +349,18 @@
     el.setAttribute('data-group-id', String(group.id));
     el.setAttribute('data-quest-target', isQuestTarget ? '1' : '0');
 
-// ----- emoji บนเป้า -----
-if (group.img) {
-  const sprite = document.createElement('a-image');
-  sprite.setAttribute('src', group.img);
-  sprite.setAttribute('width', '0.9');
-  sprite.setAttribute('height', '0.9');
-  sprite.setAttribute('position', '0 0 0.03');
-  el.appendChild(sprite);
-} else if (group.emoji) {
-  const label = document.createElement('a-entity');
-  label.setAttribute('text', {
-    value: group.emoji,
-    align: 'center',
-    anchor: 'center',
-    baseline: 'center',
-    width: 2.5,
-    color: '#ffffff'
-  });
-  label.setAttribute('position', '0 0 0.03');
-  el.appendChild(label);
-}
+    // ----- emoji บนเป้า (ใช้ a-text รองรับ emoji) -----
+    if (group.emoji) {
+      const label = document.createElement('a-text');
+      label.setAttribute('value', group.emoji);
+      label.setAttribute('align', 'center');
+      label.setAttribute('anchor', 'center');
+      label.setAttribute('color', '#ffffff');
+      label.setAttribute('width', '2.5');
+      label.setAttribute('position', '0 0 0.03');
+      el.appendChild(label);
+    }
+
     // วงแหวน highlight ถ้าเป็นเป้าภารกิจ
     if (isQuestTarget) {
       const ring = document.createElement('a-ring');
@@ -390,7 +402,7 @@ if (group.img) {
     logEvent('spawn', {
       groupId: group.id,
       isQuestTarget: !!isQuestTarget,
-      pos: { x, y, z }
+      pos: { x: x, y: y, z: z }
     });
   };
 
@@ -467,7 +479,7 @@ if (group.img) {
     }
 
     logEvent('hit', {
-      groupId,
+      groupId: groupId,
       isQuestTarget: !!isQuestTarget,
       scoreDelta: gained,
       rtMs: rt,
@@ -526,7 +538,7 @@ if (group.img) {
     }
 
     logEvent('miss', {
-      groupId,
+      groupId: groupId,
       rtMs: rt,
       pos: worldPos
     });
@@ -542,7 +554,7 @@ if (group.img) {
 
       this.el.sceneEl.addEventListener('fg-start', function (e) {
         const diff = (e.detail && e.detail.diff) || 'normal';
-        self.game.start({ diff });
+        self.game.start({ diff: diff });
       });
 
       this.el.sceneEl.addEventListener('fg-stop', function (e) {
