@@ -265,12 +265,11 @@
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
     background="color: #020617">
 
-    <!-- กล้องกลาง + crosshair -->
+    <!-- กล้องกลาง + crosshair + raycaster -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="gj-camera"
                 wasd-controls-enabled="false"
                 look-controls="pointerLockEnabled: false">
-        <!-- crosshair + raycaster (สำคัญมาก) -->
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
                   raycaster="objects: [data-hha-tgt]"
@@ -281,7 +280,7 @@
       </a-camera>
     </a-entity>
 
-    <!-- พื้น + แสงง่าย ๆ -->
+    <!-- พื้น + แสง -->
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
     <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
@@ -321,7 +320,7 @@
         </div>
       </div>
 
-      <!-- Right: quest panel (จะโชว์เมื่อมี event quest:update) -->
+      <!-- Right: quest panel -->
       <div class="hud-card hud-quest">
         <div class="quest-title">Quest</div>
         <div id="hud-quest-main" class="quest-main-label">ภารกิจหลักจะโผล่ตรงนี้</div>
@@ -367,10 +366,11 @@
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
   </div>
 
-  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look ===== -->
+  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
     import { GameEngine } from './vr-goodjunk/GameEngine.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
+    import { initCloudLogger } from './vr/hha-cloud-logger.js';   // ★ เพิ่ม logger
 
     function getParam(name, fallback){
       const url = new URL(window.location.href);
@@ -417,14 +417,14 @@
       }, 4200);
     }
 
-    // HUD: เวลา (ใช้ hha:time จาก GameEngine/fireTimer)
+    // HUD: เวลา
     window.addEventListener('hha:time', (e)=>{
       const sec = (e.detail?.sec | 0);
       if (sec < 0) return;
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest (ถ้า Quest ใน GameEngine ยิง event 'quest:update' อยู่ก็ใช้ได้เลย)
+    // HUD: Quest
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -465,7 +465,7 @@
       if (text) setCoach(text);
     });
 
-    // HUD: คะแนน / คอมโบ / miss จาก GameEngine (hha:score + hha:miss)
+    // HUD: คะแนน / คอมโบ / miss
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
       if (typeof d.score === 'number') {
@@ -489,14 +489,9 @@
       elMiss.textContent = hudMissCount;
     });
 
-    // HUD: End summary (ใช้ sessionStats จาก GameEngine.finishSession)
+    // HUD: End summary
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
-      if ((d.game || '').toLowerCase().indexOf('good vs junk') === -1 &&
-          (d.mode || '').toLowerCase().indexOf('good') === -1) {
-        // ถ้าเป็นโหมดอื่นที่แชร์ event นี้ ข้ามได้
-      }
-
       const scoreFinal = d.scoreFinal ?? d.score ?? 0;
       const comboMax   = d.comboMax ?? 0;
       const misses     = d.misses ?? 0;
@@ -516,8 +511,7 @@
     function initTouchLook(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
-        // ให้ใช้ลากนิ้วได้เสมอ ทั้งมือถือ/PC
-        sensitivity: 0.25,          // องศาต่อพิกเซล
+        sensitivity: 0.25,
         areaEl: document.body,
         onActiveChange: (active)=>{
           if (active){
@@ -547,10 +541,18 @@
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
 
-      // เริ่มเกมด้วย GameEngine เดิม (VR)
+      // ★ Init logger (ตั้ง endpoint ในไฟล์ hha-cloud-logger.js แล้ว)
+      initCloudLogger({
+        // ถ้าใน hha-cloud-logger.js มี default endpoint แล้ว จะไม่ใส่ก็ได้
+        // endpoint: 'https://script.google.com/macros/s/....../exec',
+        projectTag: 'HeroHealth-GoodJunkVR',
+        debug: false
+      });
+
+      // เริ่มเกม
       GameEngine.start(diff);
 
-      // ทำ countdown timer → ส่ง hha:time → ให้ GameEngine เก็บเวลา FEVER
+      // countdown timer → hha:time → GameEngine.stop() เมื่อหมดเวลา
       let timeLeft = dur;
       function tickTime(){
         timeLeft -= 1;
@@ -562,7 +564,6 @@
         }
       }
 
-      // ยิงครั้งแรกเพื่อเซ็ต HUD
       window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
       const timerId = setInterval(tickTime, 1000);
     });
