@@ -154,9 +154,11 @@
 </head>
 <body>
 
-  <!-- hint ด้านล่าง -->
+  <!-- hint ด้านล่าง (ตัวเดียว ไม่ซ้ำ id) -->
   <div id="fgHint">
-    เล็งวงแหวนกลางจอให้ทับเป้า แล้วคลิก / แตะ / กด Trigger เพื่อยิง 🎯
+    🖱 บนคอม: เลื่อนเมาส์เล็งวงแหวนให้ทับเป้า แล้วคลิกซ้ายเพื่อยิง •
+    📱 มือถือ: หมุนโทรศัพท์ให้วงแหวนทับเป้า แล้วแตะหน้าจอเพื่อยิง •
+    🎮 VR: ใช้ Trigger บนคอนโทรลเลอร์เมื่อวงแหวนทับเป้า 🎯
   </div>
 
   <!-- overlay เมนู + หน้าสรุป -->
@@ -179,16 +181,6 @@
         <div class="fg-chip">🎮 เล่นได้ทั้ง PC / Mobile / VR Headset</div>
       </div>
 
-      <div id="fgHint"
-       style="position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
-            background:rgba(15,23,42,.75);color:#e5e7eb;
-            padding:6px 12px;border-radius:999px;
-            font:500 13px system-ui,-apple-system;z-index:9999;">
-        🖱 บนคอม: เลื่อนเมาส์เล็งวงแหวนให้ทับเป้า แล้วคลิกซ้ายเพื่อยิง<br>
-        📱 บนมือถือ: หมุนโทรศัพท์ให้วงแหวนทับเป้า แล้วแตะหน้าจอเพื่อยิง<br>
-      🎮 VR: ใช้ Trigger บนคอนโทรลเลอร์ยิงเมื่อวงแหวนทับเป้า 🎯
-    </div>
-
       <div class="fg-buttons">
         <button class="game-button btn-easy"   id="startButtonEasy">🥗 ง่าย (Easy)</button>
         <button class="game-button btn-normal" id="startButtonNormal">⚖️ ปกติ (Normal)</button>
@@ -196,29 +188,28 @@
       </div>
     </div>
 
-  <div id="resultsScreen" style="display:none;">
-    <h2 style="font-size:2.4rem;margin-bottom:.5rem;">เกมจบแล้ว!</h2>
-    <h1 id="finalScore" style="font-size:3rem;color:#22c55e;margin:0 0 1rem;">
-      Score: 0
-    </h1>
+    <div id="resultsScreen" style="display:none;">
+      <h2 style="font-size:2.4rem;margin-bottom:.5rem;">เกมจบแล้ว!</h2>
+      <h1 id="finalScore" style="font-size:3rem;color:#22c55e;margin:0 0 1rem;">
+        Score: 0
+      </h1>
 
-    <div id="fgSummary"
-       style="font-size:.95rem;line-height:1.5;margin-top:8px;
-              text-align:left;max-width:480px;margin-inline:auto;">
-    <!-- จะถูกเติมด้วย JS เช่น  
-         • หมู่ 1 ข้าว-แป้ง : ถูกยิงโดน 12/12 เป้า (100%)  -->
+      <div id="fgSummary"
+           style="font-size:.95rem;line-height:1.5;margin-top:8px;
+                  text-align:left;max-width:480px;margin-inline:auto;">
+      </div>
+
+      <p id="fgOverallNote"
+         style="margin-top:14px;font-size:0.95rem;opacity:.9;">
+        ครั้งนี้เลือกอาหารดีได้ <b>—%</b> ของทั้งหมด 💚 <br>
+        ลองเล่นใหม่อีกครั้ง เพื่อเก็บคะแนนให้สูงขึ้นหรือเปรียบเทียบก่อน–หลังการสอนได้เลย!
+      </p>
+
+      <button class="game-button" id="playAgainButton">
+        เล่นอีกครั้ง 🚀
+      </button>
     </div>
-
-    <p id="fgOverallNote"
-     style="margin-top:14px;font-size:0.95rem;opacity:.9;">
-    ครั้งนี้เลือกอาหารดีได้ <b>—%</b> ของทั้งหมด 💚 <br>
-    ลองเล่นใหม่อีกครั้ง เพื่อเก็บคะแนนให้สูงขึ้นหรือเปรียบเทียบก่อน–หลังการสอนได้เลย!
-    </p>
-
-    <button class="game-button" id="playAgainButton">
-      เล่นอีกครั้ง 🚀
-    </button>
-  </div>
+  </div> <!-- ✅ ปิด uiOverlay ให้เรียบร้อย -->
 
   <!-- A-Frame scene -->
   <a-scene id="gameScene"
@@ -259,36 +250,38 @@
   <script>
     window.GAME_MODULES = window.GAME_MODULES || {};
   </script>
+
   <!-- เสียงเอฟเฟกต์ -->
   <audio id="fgSfxHit"   src="./audio/hit.mp3"   preload="auto"></audio>
   <audio id="fgSfxMiss"  src="./audio/miss.mp3"  preload="auto"></audio>
   <audio id="fgSfxQuest" src="./audio/quest.mp3" preload="auto"></audio>
-  
-<script src="./vr-groups/logger-cloud.js"></script>
-<script src="./vr-groups/audio.js"></script>
 
-<script src="./vr-groups/ui-fever.js"></script>
-<script src="./vr-groups/coach.js"></script>
-<script src="./vr-groups/difficulty.js"></script>
-<script src="./vr-groups/emoji-image.js"></script>
-<script src="./vr-groups/aframe-particles.js"></script>
-<script src="./vr-groups/quest-serial.js"></script>
-<script src="./vr-groups/input-adapter.js"></script>
-<script src="./vr-groups/GameEngine.js"></script>
-<script src="./vr-groups/launcher-groups.js"></script>
+  <!-- โมดูลเกม Groups -->
+  <script src="./vr-groups/audio.js"></script>
 
-<script src="./vr-groups/logger-cloud.js"></script>
-<script>
-  (function () {
-    if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
-      GAME_MODULES.foodGroupsCloudLogger.init({
-        endpoint: 'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
-        projectTag: 'HeroHealth-GroupsVR',
-        debug: true   // ทดสอบเสร็จค่อยเปลี่ยนเป็น false
-      });
-    }
-  })();
-</script>
+  <script src="./vr-groups/ui-fever.js"></script>
+  <script src="./vr-groups/coach.js"></script>
+  <script src="./vr-groups/difficulty.js"></script>
+  <script src="./vr-groups/emoji-image.js"></script>
+  <script src="./vr-groups/aframe-particles.js"></script>
+  <script src="./vr-groups/quest-serial.js"></script>
+  <script src="./vr-groups/input-adapter.js"></script>
+  <script src="./vr-groups/GameEngine.js"></script>
+  <script src="./vr-groups/launcher-groups.js"></script>
+
+  <!-- logger (เวอร์ชันมี init + send แบบ GoodJunk) -->
+  <script src="./vr-groups/logger-cloud.js"></script>
+  <script>
+    (function () {
+      if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
+        GAME_MODULES.foodGroupsCloudLogger.init({
+          endpoint: 'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
+          projectTag: 'HeroHealth-GroupsVR',
+          debug: true   // ทดสอบเสร็จค่อยเปลี่ยนเป็น false
+        });
+      }
+    })();
+  </script>
 
 </body>
 </html>
