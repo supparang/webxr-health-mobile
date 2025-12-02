@@ -1,17 +1,12 @@
-// === /herohealth/vr/hha-cloud-logger.js (GoodJunkVR v3-final) ===
-// เก็บ log แบบ Session + Event แล้วส่งไป Google Apps Script
-// payload:
-//   {
-//     projectTag: 'HeroHealth-GoodJunkVR',
-//     sessions: [ { ... } ],
-//     events:   [ { ... } ]
-//   }
+// === /herohealth/vr/hha-cloud-logger.js ===
+// HeroHealth Cloud Logger (VR Pack) – ส่ง Session + Event ไป Google Sheet
 
 'use strict';
 
 let CONFIG = {
-  endpoint: '',
-  projectTag: 'HeroHealth-GoodJunkVR',
+  // ★★ เปลี่ยนเป็น WebApp URL ของ Google Apps Script ของคุณ ★★
+  endpoint: 'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
+  projectTag: 'HHA-GoodJunk-ResearchPack-v1.2.0',
   debug: false
 };
 
@@ -20,115 +15,98 @@ let eventQueue   = [];
 let flushTimer   = null;
 const FLUSH_DELAY = 2000; // ms
 
-// เรียกจาก goodjunk-vr.html
-export function initCloudLogger(opts = {}) {
-  CONFIG = {
-    // ★ ใส่ default endpoint ของ WebApp ของคุณไว้ตรงนี้แล้ว ★
-    endpoint: (opts.endpoint || 'https://script.google.com/macros/s/AKfycbxNor4osZ3NI_pGtYd8hGlwyMRTF9J2I4kCFiHUO-G_4VBj2ZqtTXiqsFU8KWDqRSTQ/exec').trim(),
-    projectTag: opts.projectTag || 'HeroHealth-GoodJunkVR',
-    debug: !!opts.debug
-  };
+function logSession(s) {
+  if (!s) return;
+  sessionQueue.push(s);
+  scheduleFlush();
+}
 
-  if (!CONFIG.endpoint) {
-    console.warn('[HHA-Logger] no endpoint configured');
-    return;
-  }
-
-  // ฟัง event จาก GameEngine.js
-  window.addEventListener('hha:session', (e) => {
-    const s = (e && e.detail) || {};
-    sessionQueue.push(s);
-    if (CONFIG.debug) console.log('[HHA-Logger] queue session', s);
-    scheduleFlush();
-  });
-
-  window.addEventListener('hha:event', (e) => {
-    const ev = (e && e.detail) || {};
-    eventQueue.push(ev);
-    if (CONFIG.debug) console.log('[HHA-Logger] queue event', ev);
-    scheduleFlush();
-  });
-
-  // เวลาปิดแท็บ → พยายามส่งรอบสุดท้าย
-  window.addEventListener('beforeunload', () => {
-    if (!sessionQueue.length && !eventQueue.length) return;
-    trySendBeacon(true);
-  });
-
-  if (CONFIG.debug) {
-    console.log('[HHA-Logger] initCloudLogger', CONFIG);
-  }
+function logEvent(e) {
+  if (!e) return;
+  eventQueue.push(e);
+  scheduleFlush();
 }
 
 function scheduleFlush() {
   if (flushTimer) return;
-  flushTimer = setTimeout(() => {
-    flushTimer = null;
-    flush();
-  }, FLUSH_DELAY);
+  flushTimer = setTimeout(flushNow, FLUSH_DELAY);
 }
 
-function flush() {
-  if (!CONFIG.endpoint) return;
-  if (!sessionQueue.length && !eventQueue.length) return;
+async function flushNow() {
+  flushTimer = null;
+
+  if (!CONFIG.endpoint) {
+    console.warn('[HHA CloudLogger] ไม่มี endpoint – ไม่ส่งอะไร');
+    return;
+  }
+  if (sessionQueue.length === 0 && eventQueue.length === 0) return;
 
   const payload = {
     projectTag: CONFIG.projectTag,
-    sessions: sessionQueue.splice(0),
-    events:   eventQueue.splice(0)
+    sessions:   sessionQueue,
+    events:     eventQueue
   };
 
-  if (CONFIG.debug) {
-    console.log('[HHA-Logger] flush →', payload);
-  }
+  // เก็บสำรองไว้ก่อน เผื่อส่งไม่สำเร็จค่อยเอากลับเข้า queue
+  const toSendSessions = sessionQueue;
+  const toSendEvents   = eventQueue;
+  sessionQueue = [];
+  eventQueue   = [];
 
-  // 1) พยายามใช้ sendBeacon ก่อน (ไม่ติด CORS)
-  if (trySendBeacon(false, payload)) return;
-
-  // 2) ถ้าไม่ได้ ค่อย fallback เป็น fetch แบบ no-cors
   try {
-    const body = JSON.stringify(payload);
-
-    fetch(CONFIG.endpoint, {
+    const res = await fetch(CONFIG.endpoint, {
       method: 'POST',
-      mode: 'no-cors', // ไม่อ่าน response, แค่ให้ยิงออกไป
-      keepalive: true,
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
-      body
-    }).then(() => {
-      if (CONFIG.debug) console.log('[HHA-Logger] sent payload (fetch no-cors)');
-    }).catch(err => {
-      if (CONFIG.debug) console.error('[HHA-Logger] fetch error', err);
+      mode: 'cors',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
     });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(()=> '');
+      console.warn('[HHA CloudLogger] ส่งไม่สำเร็จ', res.status, txt);
+      sessionQueue = toSendSessions.concat(sessionQueue);
+      eventQueue   = toSendEvents.concat(eventQueue);
+      return;
+    }
+
+    if (CONFIG.debug) {
+      console.log('[HHA CloudLogger] ส่งขึ้น Google Sheet แล้ว', payload);
+    }
   } catch (err) {
-    if (CONFIG.debug) console.error('[HHA-Logger] outer error', err);
+    console.error('[HHA CloudLogger] fetch error', err);
+    sessionQueue = toSendSessions.concat(sessionQueue);
+    eventQueue   = toSendEvents.concat(eventQueue);
   }
 }
 
-function trySendBeacon(force, payload) {
-  if (!navigator.sendBeacon) return false;
+// --- ดัก event จากเกม (GoodJunk VR + โหมดอื่น ๆ ที่ใช้ hha:* ร่วมกัน) ---
 
-  const data = payload || {
-    projectTag: CONFIG.projectTag,
-    sessions: sessionQueue.splice(0),
-    events:   eventQueue.splice(0)
-  };
+// Session summary เต็ม ๆ (ฝั่ง Engine ควรยิงตอนจบเกม)
+window.addEventListener('hha:session', (e)=>{
+  logSession(e.detail || {});
+});
 
-  if (!data.sessions.length && !data.events.length && !force) {
-    return false;
+// Event ระดับช็อต (hit / miss / timeout ฯลฯ) ถ้ามีส่งมา
+window.addEventListener('hha:event', (e)=>{
+  logEvent(e.detail || {});
+});
+
+// กันพลาด: ถ้า engine ยิงแค่ hha:end อย่างเดียว
+window.addEventListener('hha:end', (e)=>{
+  const d = e.detail || {};
+  if (d && Object.keys(d).length && !d.sessionId) {
+    logSession(d);
   }
+  scheduleFlush();
+});
 
-  try {
-    const blob = new Blob([JSON.stringify(data)], { type: 'text/plain' });
-    const ok = navigator.sendBeacon(CONFIG.endpoint, blob);
-    if (CONFIG.debug) console.log('[HHA-Logger] sendBeacon', ok, data);
-    return ok;
-  } catch (err) {
-    if (CONFIG.debug) console.warn('[HHA-Logger] sendBeacon error → fallback fetch', err);
-    return false;
-  }
-}
+// ปิดแท็บ/รีเฟรช → พยายาม flush รอบสุดท้าย
+window.addEventListener('beforeunload', ()=>{
+  flushNow();
+});
 
-export default { initCloudLogger };
+// ให้เรียกจาก console ได้ ถ้าต้องการ
+window.HHACloudLogger = {
+  flush: flushNow,
+  config: CONFIG
+};
