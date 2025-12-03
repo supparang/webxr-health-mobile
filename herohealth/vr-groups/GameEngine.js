@@ -147,6 +147,11 @@
       this.cfg = ns.foodGroupsDifficulty.get(this.diff);
     }
 
+    // แจ้งโค้ชเรื่องระดับความยาก
+    if (ns.foodGroupsCoach && ns.foodGroupsCoach.setDifficulty) {
+      ns.foodGroupsCoach.setDifficulty(this.diff);
+    }
+
     // reset log
     window.HHA_FOODGROUPS_LOG = [];
 
@@ -213,9 +218,6 @@
     this.removeAllTargets();
 
     if (ns.foodGroupsUI) ns.foodGroupsUI.hide();
-    if (ns.foodGroupsCoach && ns.foodGroupsCoach.sayFinish) {
-      ns.foodGroupsCoach.sayFinish();
-    }
 
     const questsCleared =
       this.questManager && this.questManager.getClearedCount
@@ -228,6 +230,16 @@
       this.questManager && this.questManager.getStatus
         ? this.questManager.getStatus()
         : { total: null };
+
+    // ให้โค้ชสรุปตอนจบ (รู้ diff + ภารกิจ)
+    if (ns.foodGroupsCoach && ns.foodGroupsCoach.sayFinish) {
+      ns.foodGroupsCoach.sayFinish({
+        score: this.score,
+        diff: this.diff,
+        questsCleared: questsCleared,
+        questsTotal: status.total != null ? status.total : null
+      });
+    }
 
     logEvent('end', {
       diff: this.diff,
@@ -455,6 +467,18 @@
       });
     }
 
+    // ให้โค้ชรีแอคเวลายิงโดน
+    if (ns.foodGroupsCoach && ns.foodGroupsCoach.onHit) {
+      ns.foodGroupsCoach.onHit({
+        groupId,
+        emoji,
+        isGood,
+        isQuestTarget,
+        scoreDelta: gained,
+        rtMs: rt
+      });
+    }
+
     let worldPos = null;
     if (el.object3D && window.THREE) {
       const wp = new THREE.Vector3();
@@ -533,6 +557,16 @@
 
     const now = performance.now();
     const rt  = el.__spawnTime ? now - el.__spawnTime : null;
+
+    // ให้โค้ชรู้ว่าพลาด
+    if (ns.foodGroupsCoach && ns.foodGroupsCoach.onMiss) {
+      ns.foodGroupsCoach.onMiss({
+        groupId,
+        emoji,
+        isGood,
+        rtMs: rt
+      });
+    }
 
     let worldPos = null;
     if (el.object3D && window.THREE) {
