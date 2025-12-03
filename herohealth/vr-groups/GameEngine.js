@@ -4,6 +4,49 @@
 
   const GAME_VERSION = 'GroupsVR_v1.0';
 
+  // ---------- small emoji → sprite cache ----------
+  const EMOJI_SPRITE_CACHE = {};
+
+  function createEmojiDataURL(emoji) {
+    if (!emoji) return null;
+    if (EMOJI_SPRITE_CACHE[emoji]) return EMOJI_SPRITE_CACHE[emoji];
+
+    try {
+      const canvas = document.createElement('canvas');
+      const size = 256;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, size, size);
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // font stack เผื่อ emoji
+      ctx.font = '200px system-ui, -apple-system, "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+
+      ctx.fillText(emoji, size / 2, size / 2);
+      const url = canvas.toDataURL('image/png');
+      EMOJI_SPRITE_CACHE[emoji] = url;
+      return url;
+    } catch (e) {
+      console.warn('[GroupsGame] emoji sprite error', e);
+      return null;
+    }
+  }
+
+  function makeEmojiSpriteEntity(emoji, radius) {
+    const url = createEmojiDataURL(emoji);
+    const img = document.createElement('a-image');
+    if (url) img.setAttribute('src', url);
+
+    const w = radius * 2 * 1.1;
+    const h = radius * 2 * 1.1;
+    img.setAttribute('width', w.toString());
+    img.setAttribute('height', h.toString());
+    img.setAttribute('position', '0 0 0.03');
+    return img;
+  }
+
   // ---------- detect device ----------
   function detectDeviceType() {
     try {
@@ -295,6 +338,8 @@
     const totalGoodHits = statsArr.reduce((s, g) => s + (g.goodHits || 0), 0);
     const totalBadHits  = statsArr.reduce((s, g) => s + (g.badHits  || 0), 0);
 
+    const questsTotal = status.total != null ? status.total : null;
+
     // สรุป session สำหรับส่งขึ้น Cloud
     const sessionSummary = {
       mode: 'groups-vr',
@@ -303,7 +348,7 @@
       deviceType: this.deviceType,
       score: this.score,
       questsCleared: questsCleared,
-      questsTotal: status.total != null ? status.total : null,
+      questsTotal: questsTotal,
       startedAt: this._startWallTime || null,
       endedAt: endTime,
       durationMs: durationMs,
@@ -327,6 +372,7 @@
       score: this.score,
       diff: this.diff,
       questsCleared: questsCleared,
+      questsTotal: questsTotal,
       groupStats: this.groupStats
     });
 
@@ -401,24 +447,20 @@
     el.setAttribute('data-emoji', group.emoji || '');
     el.setAttribute('data-is-good', group.isGood ? '1' : '0');
 
-    // แปะ emoji เป็นรูปภาพบนเป้า (ถ้ามี resource)
-    if (group.img) {
+    // ★★★ ใช้ emoji sprite แบบ GoodJunk style ★★★
+    if (group.emoji) {
+      const sprite = makeEmojiSpriteEntity(group.emoji, radius);
+      el.appendChild(sprite);
+    } else if (group.img) {
+      // เผื่ออนาคตมี img ตรง ๆ
       const sprite = document.createElement('a-image');
       sprite.setAttribute('src', group.img);
-      sprite.setAttribute('width',  (radius * 2 * 1.1).toString());
-      sprite.setAttribute('height', (radius * 2 * 1.1).toString());
+      const w = radius * 2 * 1.1;
+      const h = radius * 2 * 1.1;
+      sprite.setAttribute('width',  w.toString());
+      sprite.setAttribute('height', h.toString());
       sprite.setAttribute('position', '0 0 0.03');
       el.appendChild(sprite);
-    } else if (group.emoji) {
-      // fallback ใช้ a-text ถ้าไม่มีรูป
-      const label = document.createElement('a-text');
-      label.setAttribute('value', group.emoji);
-      label.setAttribute('align', 'center');
-      label.setAttribute('anchor', 'center');
-      label.setAttribute('color', '#ffffff');
-      label.setAttribute('width', '2.5');
-      label.setAttribute('position', '0 0 0.03');
-      el.appendChild(label);
     }
 
     // วงแหวน highlight ถ้าเป็นเป้าภารกิจ
@@ -632,7 +674,6 @@
 
     const now = performance.now();
     const rt  = el.__spawnTime ? now - el.__spawnTime : null;
-
     const isQuestTarget = el.getAttribute('data-quest-target') === '1';
 
     // ให้โค้ชรู้ว่าพลาด
