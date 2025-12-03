@@ -13,7 +13,10 @@ import {
 import { Difficulty } from './difficulty.js';
 import { emojiImage } from './emoji-image.js';
 import { burstAt, floatScore, setShardMode } from './aframe-particles.js';
-import { Quest } from './quest-serial.js';
+
+// ★ ใหม่: ใช้ Quest Director + defs แทน Quest แบบเก่า
+import { makeQuestDirector } from './quest-director.js';
+import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
 // ---------- Global ที่ส่วนอื่นใช้ ----------
 window.score        = 0;
@@ -51,6 +54,16 @@ let sessionStartMs    = 0;
 let comboMaxInternal  = 0;
 let inputsBound       = false;
 let currentSessionId  = null;
+
+// ★ ใหม่: Quest Director + state ที่ใช้คำนวณ goal / mini
+let questDir   = null;
+let questState = {
+  score:    0,
+  goodHits: 0, // นับเฉพาะ “อาหารดีจริง ๆ” ไม่รวม power-ups
+  miss:     0,
+  comboMax: 0,
+  timeLeft: 60
+};
 
 // helper: ตรวจชนิดอุปกรณ์แบบง่าย ๆ
 function detectDeviceType() {
@@ -122,10 +135,12 @@ function beginSession(meta) {
     feverActivations:   0,
     feverTimeTotalSec:  0,
 
-    // quest summary (เติมตอนปิด session)
+    // quest summary (จะเติมตอนจบจาก questDir)
     mainGoalDone: false,
     miniCleared:  0,
     miniTotal:    0,
+    goalsCleared: 0,
+    goalsTotal:   0,
 
     _sent: false
   };
@@ -146,13 +161,18 @@ function finishSession() {
   sessionStats.comboMax          = Math.max(sessionStats.comboMax || 0, comboMaxInternal | 0);
   sessionStats.misses            = window.misses | 0;
 
-  // ✅ ดึงสรุป mini quest จาก Quest แล้วเก็บลง session
-  if (Quest && typeof Quest.getSummary === 'function') {
-    const qs = Quest.getSummary();
+  // ✅ ใช้ Quest Director สรุป goal / mini
+  if (questDir && typeof questDir.summary === 'function') {
+    const qs = questDir.summary();
     if (qs) {
-      sessionStats.mainGoalDone  = !!qs.mainDone;
-      sessionStats.miniCleared   = qs.miniCleared | 0;
-      sessionStats.miniTotal     = qs.miniTotal | 0;
+      sessionStats.goalsCleared = qs.goalsCleared | 0;
+      sessionStats.goalsTotal   = qs.goalsTotal   | 0;
+      sessionStats.miniCleared  = qs.miniCleared  | 0;
+      sessionStats.miniTotal    = qs.miniTotal    | 0;
+
+      // mainGoalDone = ทำ goal ครบชุด
+      sessionStats.mainGoalDone =
+        (sessionStats.goalsTotal > 0 && sessionStats.goalsCleared >= sessionStats.goalsTotal);
     }
   }
 
@@ -166,7 +186,7 @@ function finishSession() {
   }
 }
 
-// ---------- Global helpers ให้ Quest.js ใช้ ----------
+// ---------- Global helpers ----------
 window.emit = function(name, detail) {
   try { window.dispatchEvent(new CustomEvent(name, { detail })); }
   catch (_) {}
@@ -183,7 +203,6 @@ window.feverStart = function() {
     sessionStats.feverActivations += 1;
   }
 
-  Quest.onFever?.();
   window.emit('hha:fever', { state: 'start' });
 };
 
@@ -258,9 +277,9 @@ function spawnTarget() {
 
   const scale = cfg.size * 0.6;
   const el = emojiImage(char, scale || DEFAULT_CFG.size);
-  el.dataset.type    = type;
-  el.dataset.char    = char;
-  el.dataset.palette = palette;
+  el.dataset.type     = type;
+  el.dataset.char     = char;
+  el.dataset.palette  = palette;
   el.dataset.itemType = itemType;
   el.setAttribute('data-hha-tgt', '1'); // ให้ raycaster จับได้
 
@@ -292,6 +311,11 @@ function spawnTarget() {
         if (sessionStats) sessionStats.misses = window.misses;
         window.combo = 0;
         window.emit('hha:miss', {});
+
+        // อัปเดต quest state
+        questState.miss     = window.misses;
+        questState.comboMax = window.comboMax;
+        if (questDir) questDir.update(questState);
 
         emitEvent({
           sessionId: currentSessionId || (sessionStats && sessionStats.sessionId) || '',
@@ -394,7 +418,6 @@ function onHitTarget(targetEl) {
       sessionStats.comboMax = Math.max(sessionStats.comboMax || 0, comboMaxInternal);
     }
 
-    Quest.onGood?.();
     burstAt(sceneEl, pos, { mode: palette });
     floatScore(sceneEl, pos, `+${scoreDelta}`, '#22c55e');
 
@@ -434,11 +457,20 @@ function onHitTarget(targetEl) {
     if (sessionStats) sessionStats.misses = window.misses;
 
     decayFever(18);
-    Quest.onBad?.();
     window.emit('hha:miss', {});
     burstAt(sceneEl, pos, { mode: palette });
     floatScore(sceneEl, pos, `${scoreDelta}`, '#ef4444');
   }
+
+  // อัปเดต quest state หลังจาก hit
+  questState.score    = window.score;
+  questState.miss     = window.misses;
+  questState.comboMax = window.comboMax;
+  // goodHits นับเฉพาะอาหารดีจริง ๆ ไม่รวม power-ups
+  if (type === 'good' && itemType === 'good') {
+    questState.goodHits = (questState.goodHits || 0) + 1;
+  }
+  if (questDir) questDir.update(questState);
 
   // ส่ง event ให้ logger (hit)
   emitEvent({
@@ -516,6 +548,24 @@ export const GameEngine = {
     };
     beginSession(meta);
 
+    // ★ ตั้งค่า questState + สร้าง Quest Director
+    questState = {
+      score:    0,
+      goodHits: 0,
+      miss:     0,
+      comboMax: 0,
+      timeLeft: meta.durationSec || 60
+    };
+
+    questDir = makeQuestDirector({
+      diff: meta.difficulty || 'normal',
+      goalDefs: GOODJUNK_GOALS,
+      miniDefs: GOODJUNK_MINIS,
+      maxGoals: 2,
+      maxMini:  3
+    });
+    questDir.start({ timeLeft: questState.timeLeft });
+
     // ดึง config ตามระดับ ถ้าเพี้ยนจะมี fallback
     try {
       difficulty.set(level);
@@ -531,8 +581,6 @@ export const GameEngine = {
     if (spawnTimer) clearTimeout(spawnTimer);
     gameTimer = setInterval(gameTick, 1000);
     spawnTimer = setTimeout(spawnTarget, 1000);
-
-    Quest.start?.();
 
     if (!inputsBound) {
       inputsBound = true;
@@ -592,8 +640,6 @@ export const GameEngine = {
     gameTimer = null;
     spawnTimer = null;
 
-    Quest.stop?.();
-
     if (targetRoot) {
       try { targetRoot.remove(); } catch (_) {}
       targetRoot = null;
@@ -604,3 +650,12 @@ export const GameEngine = {
 };
 
 export default GameEngine;
+
+// ★ sync เวลา questState.timeLeft จาก hha:time (มาจาก goodjunk-vr.html)
+window.addEventListener('hha:time', (e) => {
+  const sec = (e.detail && typeof e.detail.sec === 'number')
+    ? e.detail.sec
+    : 0;
+  questState.timeLeft = sec;
+  if (questDir) questDir.update(questState);
+});
