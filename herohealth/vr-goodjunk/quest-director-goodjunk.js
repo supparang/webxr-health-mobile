@@ -304,5 +304,15 @@ export const Quest = {
     };
   }
 };
+// ===== เพิ่มส่วนนี้ที่ท้ายไฟล์ quest-director-goodjunk.js =====
 
+// factory ให้ GameEngine เดิมที่เรียก makeQuestDirector() ใช้ได้
+export function makeQuestDirector() {
+  return Quest;          // Quest คือ object เดิมที่เราสร้างไว้ในไฟล์นี้
+}
+
+// เผื่อมีการเรียกแบบ global (ไม่ผ่าน import)
+if (typeof window !== 'undefined') {
+  window.makeQuestDirector = makeQuestDirector;
+}
 export default Quest;
