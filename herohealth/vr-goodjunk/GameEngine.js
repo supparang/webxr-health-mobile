@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Game Engine + Session & Event Stats (Research-ready, fixed spawn)
+// Good vs Junk VR — Game Engine + Quest Director + Session & Event Stats (Research-ready)
 
 'use strict';
 
@@ -13,11 +13,6 @@ import {
 import { Difficulty } from './difficulty.js';
 import { emojiImage } from './emoji-image.js';
 import { burstAt, floatScore, setShardMode } from './aframe-particles.js';
-
-// ใช้ Quest ตัวเก่า (quest-serial) สำหรับสรุป session
-import { Quest } from './quest-serial.js';
-
-// ใช้ director ใหม่สำหรับอ่าน GOODJUNK_GOALS + GOODJUNK_MINIS
 import { makeQuestDirector } from './quest-director-goodjunk.js';
 
 // ---------- Global ที่ส่วนอื่นใช้ ----------
@@ -37,6 +32,7 @@ let sceneEl     = null;
 let targetRoot  = null;
 let gameConfig  = null;
 let difficulty  = new Difficulty();
+let questDir    = null;   // ★ ใช้ director ใหม่
 
 const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
@@ -56,16 +52,6 @@ let sessionStartMs    = 0;
 let comboMaxInternal  = 0;
 let inputsBound       = false;
 let currentSessionId  = null;
-
-// ★ ใหม่: Quest Director + state ที่ใช้คำนวณ goal / mini
-let questDir   = null;
-let questState = {
-  score:    0,
-  goodHits: 0, // นับเฉพาะ “อาหารดีจริง ๆ” ไม่รวม power-ups
-  miss:     0,
-  comboMax: 0,
-  timeLeft: 60
-};
 
 // helper: ตรวจชนิดอุปกรณ์แบบง่าย ๆ
 function detectDeviceType() {
@@ -137,12 +123,12 @@ function beginSession(meta) {
     feverActivations:   0,
     feverTimeTotalSec:  0,
 
-    // quest summary (จะเติมตอนจบจาก questDir)
+    // quest summary → ดึงจาก questDir ตอนจบ
     mainGoalDone: false,
-    miniCleared:  0,
-    miniTotal:    0,
     goalsCleared: 0,
     goalsTotal:   0,
+    miniCleared:  0,
+    miniTotal:    0,
 
     _sent: false
   };
@@ -163,18 +149,17 @@ function finishSession() {
   sessionStats.comboMax          = Math.max(sessionStats.comboMax || 0, comboMaxInternal | 0);
   sessionStats.misses            = window.misses | 0;
 
-  // ✅ ใช้ Quest Director สรุป goal / mini
-  if (questDir && typeof questDir.summary === 'function') {
-    const qs = questDir.summary();
+  // ★ ดึงสรุปจาก quest director
+  if (questDir && typeof questDir.getSummary === 'function') {
+    const qs = questDir.getSummary();
     if (qs) {
       sessionStats.goalsCleared = qs.goalsCleared | 0;
       sessionStats.goalsTotal   = qs.goalsTotal   | 0;
       sessionStats.miniCleared  = qs.miniCleared  | 0;
       sessionStats.miniTotal    = qs.miniTotal    | 0;
 
-      // mainGoalDone = ทำ goal ครบชุด
-      sessionStats.mainGoalDone =
-        (sessionStats.goalsTotal > 0 && sessionStats.goalsCleared >= sessionStats.goalsTotal);
+      // mainGoalDone = ผ่าน goal ทั้งชุด
+      sessionStats.mainGoalDone = (qs.goalsTotal > 0 && qs.goalsCleared >= qs.goalsTotal);
     }
   }
 
@@ -188,7 +173,7 @@ function finishSession() {
   }
 }
 
-// ---------- Global helpers ----------
+// ---------- Global helpers (ใช้ร่วมระบบอื่น) ----------
 window.emit = function(name, detail) {
   try { window.dispatchEvent(new CustomEvent(name, { detail })); }
   catch (_) {}
@@ -245,6 +230,17 @@ function getCfg() {
   const rate = (typeof cfg.rate === 'number' && isFinite(cfg.rate) && cfg.rate > 50) ? cfg.rate : DEFAULT_CFG.rate;
   const life = (typeof cfg.life === 'number' && isFinite(cfg.life) && cfg.life > 200) ? cfg.life : DEFAULT_CFG.life;
   return { size, rate, life };
+}
+
+// รวม logic อัปเดต questDirector ให้ใช้ที่เดียว
+function updateQuestDirector() {
+  if (!questDir || !sessionStats) return;
+  questDir.update({
+    score: sessionStats.scoreFinal || window.score || 0,
+    goodHits: sessionStats.goodHits || 0,
+    misses: sessionStats.misses || window.misses || 0,
+    comboMax: comboMaxInternal || window.comboMax || 0
+  });
 }
 
 function spawnTarget() {
@@ -314,11 +310,6 @@ function spawnTarget() {
         window.combo = 0;
         window.emit('hha:miss', {});
 
-        // อัปเดต quest state
-        questState.miss     = window.misses;
-        questState.comboMax = window.comboMax;
-        if (questDir) questDir.update(questState);
-
         emitEvent({
           sessionId: currentSessionId || (sessionStats && sessionStats.sessionId) || '',
           type: 'timeout-good',
@@ -345,6 +336,8 @@ function spawnTarget() {
           itemType: itemType2
         });
       }
+
+      updateQuestDirector();
       el.remove();
     }
   }, cfg.life);
@@ -418,6 +411,7 @@ function onHitTarget(targetEl) {
 
     if (sessionStats) {
       sessionStats.comboMax = Math.max(sessionStats.comboMax || 0, comboMaxInternal);
+      sessionStats.scoreFinal = window.score;
     }
 
     burstAt(sceneEl, pos, { mode: palette });
@@ -449,6 +443,7 @@ function onHitTarget(targetEl) {
       });
 
       targetEl.remove();
+      updateQuestDirector();
       return;
     }
 
@@ -456,23 +451,16 @@ function onHitTarget(targetEl) {
     window.score = Math.max(0, window.score + scoreDelta);
     window.combo = 0;
     window.misses++;
-    if (sessionStats) sessionStats.misses = window.misses;
+    if (sessionStats) {
+      sessionStats.misses = window.misses;
+      sessionStats.scoreFinal = window.score;
+    }
 
     decayFever(18);
     window.emit('hha:miss', {});
     burstAt(sceneEl, pos, { mode: palette });
     floatScore(sceneEl, pos, `${scoreDelta}`, '#ef4444');
   }
-
-  // อัปเดต quest state หลังจาก hit
-  questState.score    = window.score;
-  questState.miss     = window.misses;
-  questState.comboMax = window.comboMax;
-  // goodHits นับเฉพาะอาหารดีจริง ๆ ไม่รวม power-ups
-  if (type === 'good' && itemType === 'good') {
-    questState.goodHits = (questState.goodHits || 0) + 1;
-  }
-  if (questDir) questDir.update(questState);
 
   // ส่ง event ให้ logger (hit)
   emitEvent({
@@ -494,6 +482,7 @@ function onHitTarget(targetEl) {
     misses: window.misses
   });
 
+  updateQuestDirector();
   targetEl.remove();
 }
 
@@ -550,23 +539,14 @@ export const GameEngine = {
     };
     beginSession(meta);
 
-    // ★ ตั้งค่า questState + สร้าง Quest Director
-    questState = {
-      score:    0,
-      goodHits: 0,
-      miss:     0,
-      comboMax: 0,
-      timeLeft: meta.durationSec || 60
-    };
-
-    questDir = makeQuestDirector({
-      diff: meta.difficulty || 'normal',
-      goalDefs: GOODJUNK_GOALS,
-      miniDefs: GOODJUNK_MINIS,
-      maxGoals: 2,
-      maxMini:  3
-    });
-    questDir.start({ timeLeft: questState.timeLeft });
+    // ★ สร้าง Quest Director ตามระดับความยาก
+    try {
+      questDir = makeQuestDirector({ diff: level || 'normal' });
+      questDir.reset();
+    } catch (e) {
+      console.warn('makeQuestDirector error', e);
+      questDir = null;
+    }
 
     // ดึง config ตามระดับ ถ้าเพี้ยนจะมี fallback
     try {
@@ -627,6 +607,7 @@ export const GameEngine = {
     }
 
     window.emit('hha:score', { score: 0, combo: 0, delta: 0, misses: 0 });
+    updateQuestDirector();
   },
 
   stop() {
@@ -652,12 +633,3 @@ export const GameEngine = {
 };
 
 export default GameEngine;
-
-// ★ sync เวลา questState.timeLeft จาก hha:time (มาจาก goodjunk-vr.html)
-window.addEventListener('hha:time', (e) => {
-  const sec = (e.detail && typeof e.detail.sec === 'number')
-    ? e.detail.sec
-    : 0;
-  questState.timeLeft = sec;
-  if (questDir) questDir.update(questState);
-});
