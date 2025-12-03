@@ -1,12 +1,5 @@
 // vr-groups/logger-cloud.js
 // ส่งข้อมูลเกม Food Groups VR ขึ้น Google Apps Script แบบ "GoodJunk style"
-// payload:
-//   {
-//     projectTag: 'HeroHealth-GroupsVR',
-//     sessions: [ { ... } ],
-//     events:   [ { ... } ]
-//   }
-
 (function (ns) {
   'use strict';
 
@@ -29,7 +22,6 @@
     }
   }
 
-  // ----- สร้าง payload ของ session ให้ตรงกับ Apps Script -----
   function buildSessionPayload(rawSession, rawEvents) {
     rawSession = rawSession || {};
     rawEvents  = rawEvents  || [];
@@ -75,7 +67,6 @@
       hitRate,
       avgRT,
 
-      // เก็บ extra ใน rawSession เพื่อดูย้อนหลัง
       mode:      rawSession.mode || 'groups-vr',
       version:   rawSession.version || '',
       startedAt: rawSession.startedAt || null,
@@ -84,7 +75,6 @@
     };
   }
 
-  // ----- แปลง rawEvents → payload สำหรับแท็บ Events -----
   function buildEventsPayload(rawSession, rawEvents) {
     rawSession = rawSession || {};
     rawEvents  = rawEvents  || [];
@@ -101,7 +91,7 @@
         emoji:     ev.emoji   || '',
         isGood:    ev.isGood,
         isQuestTarget: !!ev.isQuestTarget,
-        hitOrMiss: ev.type,                     // 'hit' หรือ 'miss'
+        hitOrMiss: ev.type,
         rtMs:      ev.rtMs != null ? ev.rtMs : null,
         scoreDelta: ev.scoreDelta != null ? ev.scoreDelta : 0,
         pos:        ev.pos || null
@@ -111,7 +101,6 @@
     return out;
   }
 
-  // ----- ส่งจริง -----
   function send(rawSession, rawEvents) {
     if (!CONFIG.endpoint) {
       if (CONFIG.debug) console.warn('[GroupsVR Logger] no endpoint, skip send');
@@ -135,7 +124,6 @@
       console.log('[GroupsVR Logger] send →', payload);
     }
 
-    // 1) ลองใช้ sendBeacon (ปิดแท็บก็ยังส่งได้บางส่วน)
     if (navigator.sendBeacon) {
       try {
         const blob = new Blob([body], { type: 'text/plain' });
@@ -147,7 +135,6 @@
       }
     }
 
-    // 2) fallback เป็น fetch mode no-cors + text/plain (กัน preflight/CORS)
     try {
       fetch(CONFIG.endpoint, {
         method: 'POST',
