@@ -19,6 +19,33 @@
     return 'desktop';
   }
 
+  // ---------- scoring helpers ----------
+  function baseScoreForDiff(diff) {
+    switch ((diff || '').toLowerCase()) {
+      case 'easy':   return 8;
+      case 'hard':   return 12;
+      case 'normal':
+      default:       return 10;
+    }
+  }
+
+  function missPenaltyForDiff(diff) {
+    switch ((diff || '').toLowerCase()) {
+      case 'easy':   return 0;
+      case 'hard':   return 5;
+      case 'normal':
+      default:       return 3;
+    }
+  }
+
+  function classifyJudgment(rtMs) {
+    if (rtMs == null) return 'normal';
+    if (rtMs < 350)   return 'perfect';
+    if (rtMs < 800)   return 'good';
+    if (rtMs < 1300)  return 'late';
+    return 'slow';
+  }
+
   // ---------- in-memory log ----------
   function logEvent(type, detail) {
     try {
@@ -27,33 +54,6 @@
     } catch (e) {
       // เงียบ ๆ ถ้า log พัง
     }
-  }
-
-  // ---------- scoring helpers (1–3) ----------
-  function computeBaseScore(diff) {
-    switch (diff) {
-      case 'easy':   return 8;   // ยิงโดนก็ได้กำลังใจ
-      case 'hard':   return 12;  // โหมดยาก → ให้เยอะขึ้น
-      case 'normal':
-      default:       return 10;
-    }
-  }
-
-  function computeMissPenalty(diff) {
-    switch (diff) {
-      case 'easy':   return 0;   // easy ไม่หักคะแนน
-      case 'hard':   return 5;   // hard หักหนักหน่อย
-      case 'normal':
-      default:       return 3;
-    }
-  }
-
-  // judgment ตาม reaction time (4)
-  function classifyJudgment(rtMs) {
-    if (rtMs == null) return 'normal';
-    if (rtMs < 400)       return 'perfect';
-    if (rtMs < 800)       return 'good';
-    return 'late';
   }
 
   // ---------- main game ----------
@@ -137,6 +137,7 @@
           id: g.id,
           label: g.label,
           emoji: g.emoji,
+          isGood: !!g.isGood,
           spawns: 0,
           hits: 0
         };
@@ -346,7 +347,8 @@
         label: 'target',
         emoji: '🎯',
         color: '#22c55e',
-        img: null
+        img: null,
+        isGood: true
       };
     }
 
@@ -374,9 +376,9 @@
     el.setAttribute('data-group-id', String(group.id));
     el.setAttribute('data-quest-target', isQuestTarget ? '1' : '0');
     el.setAttribute('data-emoji', group.emoji || '');
-    el.setAttribute('data-is-good', '1'); // (5) ตอนนี้ถือว่าทั้งหมดเป็นอาหารดี — พร้อมต่อยอดทีหลัง
+    el.setAttribute('data-is-good', group.isGood ? '1' : '0');
 
-    // แปะ emoji เป็นรูปภาพบนเป้า (เหมือน GoodJunk)
+    // แปะ emoji เป็นรูปภาพบนเป้า (ถ้ามี resource)
     if (group.img) {
       const sprite = document.createElement('a-image');
       sprite.setAttribute('src', group.img);
@@ -437,6 +439,7 @@
     logEvent('spawn', {
       groupId: group.id,
       emoji:   group.emoji || '',
+      isGood:  !!group.isGood,
       isQuestTarget: !!isQuestTarget,
       pos: { x, y, z }
     });
@@ -472,27 +475,29 @@
     const now = performance.now();
     const rt  = el.__spawnTime ? now - el.__spawnTime : null;
 
-    // (1) base score ตาม diff
-    const baseScore = computeBaseScore(this.diff);
-
+    // base + bonus ตาม diff และ quest
+    const baseScore = baseScoreForDiff(this.diff);
     let bonus = 0;
+
     if (this.questManager) {
       const res = this.questManager.notifyHit(groupId);
       if (res && res.bonus) bonus += res.bonus;
     }
-    // (2) โบนัสเพิ่มถ้าเป็นเป้า quest
-    if (isQuestTarget) {
-      bonus += 5;
+    if (isQuestTarget) bonus += 5;
+
+    let gained = baseScore + bonus;
+    // ถ้าของไม่ดี อาจจะหักคะแนนเล็กน้อย (แต่ไม่ให้ต่ำกว่า 0)
+    if (!isGood) {
+      const penalty = Math.max(1, Math.round(missPenaltyForDiff(this.diff) / 2));
+      gained = -penalty;
     }
 
-    const gained = baseScore + bonus;
-    this.score  += gained;
+    this.score = Math.max(0, this.score + gained);
 
     if (this.groupStats[groupId]) {
       this.groupStats[groupId].hits++;
     }
 
-    // (4) judgment จาก reaction time
     const judgment = classifyJudgment(rt);
 
     if (ns.foodGroupsUI) {
@@ -501,7 +506,8 @@
         scoreDelta: gained,
         isMiss: false,
         isQuestTarget: isQuestTarget,
-        judgment: judgment
+        judgment,
+        isGood
       });
     }
 
@@ -548,32 +554,17 @@
       scoreDelta: gained,
       rtMs: rt,
       pos: worldPos,
-      judgment: judgment   // (4) เก็บลง log
+      judgment
     });
 
     this.safeRemoveTarget(el);
   };
 
   FoodGroupsGame.prototype.onMissTarget = function (el) {
-    const groupId =
-      parseInt(
-        el.getAttribute('data-group-id') ||
-          (el.dataset && el.dataset.groupId) ||
-          '0',
-        10
-      ) || 0;
-    const emoji  = el.getAttribute('data-emoji') || '';
-    const isGood = el.getAttribute('data-is-good') !== '0';
-
-    const now = performance.now();
-    const rt  = el.__spawnTime ? now - el.__spawnTime : null;
+    const penalty = missPenaltyForDiff(this.diff);
 
     if (this.state === 'playing') {
-      // (3) ใช้ penalty ตาม diff
-      const penalty = computeMissPenalty(this.diff);
-
-      if (penalty === 0) {
-        // easy: ไม่หักคะแนน แค่ให้กำลังใจ
+      if (this.diff === 'easy') {
         if (ns.foodGroupsUI) {
           ns.foodGroupsUI.setScore(this.score);
           ns.foodGroupsUI.flashJudgment({
@@ -599,16 +590,29 @@
       if (ns.foodGroupsAudio) {
         ns.foodGroupsAudio.playMiss();
       }
+    }
 
-      // ให้โค้ชรู้ว่าพลาด
-      if (ns.foodGroupsCoach && ns.foodGroupsCoach.onMiss) {
-        ns.foodGroupsCoach.onMiss({
-          groupId,
-          emoji,
-          isGood,
-          rtMs: rt
-        });
-      }
+    const groupId =
+      parseInt(
+        el.getAttribute('data-group-id') ||
+          (el.dataset && el.dataset.groupId) ||
+          '0',
+        10
+      ) || 0;
+    const emoji  = el.getAttribute('data-emoji') || '';
+    const isGood = el.getAttribute('data-is-good') !== '0';
+
+    const now = performance.now();
+    const rt  = el.__spawnTime ? now - el.__spawnTime : null;
+
+    // ให้โค้ชรู้ว่าพลาด
+    if (ns.foodGroupsCoach && ns.foodGroupsCoach.onMiss) {
+      ns.foodGroupsCoach.onMiss({
+        groupId,
+        emoji,
+        isGood,
+        rtMs: rt
+      });
     }
 
     let worldPos = null;
