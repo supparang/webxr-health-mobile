@@ -1,40 +1,66 @@
-// vr-groups/difficulty.js
+// === /herohealth/vr-groups/difficulty.js ===
+// Production Ready — Food Groups VR Difficulty Table
+// 2025-12-05
+
 (function (ns) {
   'use strict';
 
-  // ค่าความยาก 3 ระดับ สำหรับ Groups VR
+  /**
+   * ค่าที่ส่งออกให้ GameEngine.js ใช้
+   * spawnInterval → ms (ยิ่งน้อยยิ่งเร็ว)
+   * fallSpeed     → ความเร็วตก
+   * scale         → ขนาดเป้า
+   * maxActive     → จำนวนเป้าพร้อมกัน
+   * goodRatio     → โอกาสเจออาหารดี (%)
+   * quest:
+   *   goalsPick   → เลือก goal จำนวนกี่อัน
+   *   miniPick    → เลือก mini quest จำนวนกี่อัน
+   */
+
   const TABLE = {
     easy: {
-      // เด็กเล็ก / เริ่มฝึก
-      spawnInterval: 1400,   // ms ระยะห่างการเกิดเป้า
-      targetLifetime: 2600,  // ms เป้าอยู่ได้นานขึ้น
-      maxActive: 4,          // เป้าสูงสุดบนจอ
-      duration: 60000,       // 60 วินาที
-      targetRadius: 0.6      // เป้าใหญ่
+      spawnInterval: 1400,
+      fallSpeed: 0.011,
+      scale: 1.35,
+      maxActive: 3,
+      goodRatio: 0.85,   // เจอของดีเยอะ
+      quest: {
+        goalsPick: 2,
+        miniPick: 3
+      }
     },
+
     normal: {
-      // โมดมาตรฐาน ใช้เก็บข้อมูลวิจัย
       spawnInterval: 1100,
-      targetLifetime: 2300,
-      maxActive: 5,
-      duration: 60000,
-      targetRadius: 0.5
+      fallSpeed: 0.014,
+      scale: 1.15,
+      maxActive: 4,
+      goodRatio: 0.72,
+      quest: {
+        goalsPick: 2,
+        miniPick: 3
+      }
     },
+
     hard: {
-      // ท้าทาย เด็กเริ่มชินแล้ว
       spawnInterval: 850,
-      targetLifetime: 2000,
-      maxActive: 6,
-      duration: 60000,
-      targetRadius: 0.45
+      fallSpeed: 0.018,
+      scale: 1.0,
+      maxActive: 5,
+      goodRatio: 0.55,   // มั่วเยอะขึ้น ต้องเลือกจริง
+      quest: {
+        goalsPick: 2,
+        miniPick: 3
+      }
     }
   };
 
-  ns.foodGroupsDifficulty = {
-    get: function (diff) {
-      diff = (diff || 'normal').toLowerCase();
-      return TABLE[diff] || TABLE.normal;
-    },
-    table: TABLE
-  };
+  // ให้ GameEngine ขอ config ด้วย difficulty key
+  function get(diff) {
+    diff = String(diff || 'normal').toLowerCase();
+    return TABLE[diff] || TABLE.normal;
+  }
+
+  ns.foodGroupsDifficulty = { get, TABLE };
+
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
