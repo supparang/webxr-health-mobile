@@ -2,49 +2,41 @@
 (function (ns) {
   'use strict';
 
-  function get(id) {
-    return document.getElementById(id) || null;
+  const settings = ns.foodGroupsSettings = ns.foodGroupsSettings || {};
+
+  // โหลดสถานะ mute จาก localStorage
+  if (typeof settings.soundMuted !== 'boolean') {
+    try {
+      const saved = localStorage.getItem('fgSoundMuted');
+      settings.soundMuted = (saved === '1');
+    } catch (e) {
+      settings.soundMuted = false;
+    }
   }
 
-  function safePlay(el) {
+  function play(id) {
+    if (settings.soundMuted) return;
+    const el = document.getElementById(id);
     if (!el) return;
-    // บาง browser ไม่ให้ autoplay ถ้าไม่มี interaction มาก่อน
     try {
-      const p = el.cloneNode(true); // clone เพื่อให้เล่นซ้อนกันได้
-      p.volume = el.volume != null ? el.volume : 0.9;
-      p.play().catch(() => {});
+      el.currentTime = 0;
+      el.play().catch(() => {});
     } catch (e) {}
   }
 
-  const AudioFx = {
-    hitEl: null,
-    missEl: null,
-    questEl: null,
+  ns.foodGroupsAudio = {
+    playHit()   { play('fgSfxHit'); },
+    playMiss()  { play('fgSfxMiss'); },
+    playQuest() { play('fgSfxQuest'); },
 
-    init() {
-      this.hitEl = get('fgSfxHit');
-      this.missEl = get('fgSfxMiss');
-      this.questEl = get('fgSfxQuest');
+    setMuted(muted) {
+      settings.soundMuted = !!muted;
+      try {
+        localStorage.setItem('fgSoundMuted', muted ? '1' : '0');
+      } catch (e) {}
     },
-
-    playHit() {
-      safePlay(this.hitEl);
-    },
-
-    playMiss() {
-      safePlay(this.missEl);
-    },
-
-    playQuest() {
-      safePlay(this.questEl);
+    isMuted() {
+      return !!settings.soundMuted;
     }
   };
-
-  if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', () => AudioFx.init());
-  } else {
-    AudioFx.init();
-  }
-
-  ns.foodGroupsAudio = AudioFx;
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
