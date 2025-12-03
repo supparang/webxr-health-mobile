@@ -62,7 +62,7 @@
   ns.foodGroupsEmoji = {
     all: ALL,
 
-    // ใช้สุ่มแบบ simple: good:bad = ~3:1
+    // ใช้สุ่มแบบ simple: good:bad ≈ 3:1
     pickRandomGroup() {
       // 75% โอกาสได้ของดี 25% ได้ของไม่ดี
       const useGood = Math.random() < 0.75;
