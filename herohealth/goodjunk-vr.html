@@ -165,7 +165,7 @@
       justify-content:space-between;
     }
 
-    /* ===== Coach bubble ใน HUD ด้านล่าง ===== */
+    /* ===== Coach bubble ===== */
     .hud-bottom{
       display:flex;
       flex-direction:column;
@@ -175,7 +175,7 @@
     .coach-bubble{
       min-width:60%;
       max-width:680px;
-      text-align:center;
+      text-align:left;
       background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%),
                  rgba(15,23,42,0.96);
       border-radius:999px;
@@ -184,7 +184,7 @@
       font-size:13px;
       display:none;
       align-items:center;
-      justify-content:center;
+      justify-content:flex-start;
       gap:8px;
       pointer-events:auto;
     }
@@ -195,6 +195,17 @@
       letter-spacing:.16em;
       color:#6ee7b7;
       font-weight:600;
+    }
+
+    /* 👇 Avatar โค้ช */
+    .coach-avatar{
+      width:36px;
+      height:36px;
+      border-radius:999px;
+      flex-shrink:0;
+      background:#020617;
+      box-shadow:0 0 0 2px rgba(52,211,153,0.65);
+      object-fit:cover;
     }
 
     /* ===== Center hint: “ลากนิ้วเพื่อหมุนมุมมอง” ===== */
@@ -344,11 +355,17 @@
       </div>
     </div>
 
-    <!-- Bottom: coach (HUD หลัก) -->
+    <!-- Bottom: coach (avatar + text) -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <span class="coach-label">โค้ช</span>
-        <span id="coach-text">แตะของดีให้ตรงเป้าหมาย</span>
+        <img src="./assets/coach-neutral.png"
+             alt="Coach"
+             id="coach-avatar"
+             class="coach-avatar">
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
+          <span class="coach-label">โค้ช</span>
+          <span id="coach-text">แตะของดีให้ตรงเป้าหมาย</span>
+        </div>
       </div>
     </div>
   </div>
@@ -395,6 +412,7 @@
 
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
+    const elCoachAvatar = document.getElementById('coach-avatar');
     const elTouchHint   = document.getElementById('touch-hint');
 
     const elEndToast  = document.getElementById('end-toast');
@@ -407,10 +425,26 @@
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
+    // ภาพโค้ชตามอารมณ์
+    const coachFaces = {
+      neutral: './assets/coach-neutral.png',
+      happy:   './assets/coach-happy.png',
+      sad:     './assets/coach-sad.png',
+      fever:   './assets/coach-fever.png'
+    };
+
+    function setCoachFace(mood){
+      if (!elCoachAvatar) return;
+      const src = coachFaces[mood] || coachFaces.neutral;
+      elCoachAvatar.src = src;
+    }
+
     function setCoach(text){
       if (!text) return;
       elCoachText.textContent = text;
       elCoachBubble.classList.add('show');
+      // default = neutral ถ้า caller ไม่สั่ง mood เอง
+      setCoachFace('neutral');
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(()=> {
         elCoachBubble.classList.remove('show');
@@ -457,27 +491,15 @@
       if (d.hint){
         elQuestHint.textContent = d.hint;
       }
-
-      // 🔁 ส่งต่อข้อความ quest ไปให้ bubble โค้ช (coach-bubble.js)
-      const questText =
-        d.hint ||
-        (goal && goal.label) ||
-        (mini && mini.label) ||
-        '';
-      if (questText){
-        window.dispatchEvent(new CustomEvent('hha:quest', {
-          detail: { text: questText }
-        }));
-      }
     });
 
-    // HUD: Coach (จาก goodjunk.safe / GameEngine ที่ยิง hha:coach)
+    // HUD: Coach (ข้อความจากโหมดต่าง ๆ)
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
       if (text) setCoach(text);
     });
 
-    // HUD: คะแนน / คอมโบ / miss
+    // HUD: คะแนน / คอมโบ / miss + อารมณ์โค้ชจากคอมโบ
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
       if (typeof d.score === 'number') {
@@ -489,6 +511,13 @@
         const max = Math.max(prevMax, c);
         elCombo.dataset.max = String(max);
         elCombo.textContent = max;
+
+        // mood โค้ชจากคอมโบ
+        if (c >= 10) {
+          setCoachFace('fever');
+        } else if (c >= 5) {
+          setCoachFace('happy');
+        }
       }
       if (typeof d.misses === 'number') {
         hudMissCount = d.misses;
@@ -499,6 +528,14 @@
     window.addEventListener('hha:miss', ()=>{
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
+      setCoachFace('sad');
+    });
+
+    // (ถ้าอนาคตมี event hha:fever ก็ใช้ตัวนี้ได้)
+    window.addEventListener('hha:fever', (e)=>{
+      const st = e.detail?.state || 'change';
+      if (st === 'start') setCoachFace('fever');
+      if (st === 'end')   setCoachFace('neutral');
     });
 
     // HUD: End summary
@@ -550,6 +587,10 @@
       elTime.textContent  = dur + 's';
       hudMissCount = 0;
 
+      // โค้ชเริ่มต้น
+      setCoachFace('neutral');
+      setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
+
       // ★★ Cloud Logger สำหรับ GoodJunk VR ★★
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
@@ -579,8 +620,5 @@
       const timerId = setInterval(tickTime, 1000);
     });
   </script>
-
-  <!-- 🔹 Bubble โค้ชแบบลอยด้านบน (coach-bubble.js) -->
-  <script src="./vr/coach-bubble.js"></script>
 </body>
 </html>
