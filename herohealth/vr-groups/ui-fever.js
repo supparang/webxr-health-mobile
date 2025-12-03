@@ -1,180 +1,208 @@
-// vr-groups/ui-fever.js
-(function (ns) {
-  'use strict';
+// === /herohealth/vr/ui-fever.js
+// Fever bar + Shield indicator สำหรับ HeroHealth VR
+// ใช้ร่วมกันได้ทุกโหมด (GoodJunk / Groups / Hydration)
 
-  const UI = {
-    wrap: null,
-    scoreEl: null,
-    timeEl: null,
-    questEl: null,
-    legendEl: null,
-    hitFxEl: null,
-    quitBtn: null,
-    sceneEl: null,
+'use strict';
 
-    init() {
-      if (this.wrap) return;
+let wrap        = null;  // กล่องหลัก
+let barInner    = null;  // แท่ง fever ด้านใน
+let valueSpan   = null;  // ตัวเลข %
+let shieldIcons = null;  // แถวไอคอน shield
 
-      // ===== แถบ HUD ด้านบน =====
-      const wrap = document.createElement('div');
-      wrap.id = 'fgHud';
-      wrap.style.position = 'fixed';
-      wrap.style.top = '10px';
-      wrap.style.left = '50%';
-      wrap.style.transform = 'translateX(-50%)';
-      wrap.style.padding = '8px 16px 4px';
-      wrap.style.borderRadius = '999px';
-      wrap.style.background = 'rgba(15,23,42,.9)';
-      wrap.style.color = '#e5e7eb';
-      wrap.style.font = '600 14px system-ui, -apple-system, sans-serif';
-      wrap.style.zIndex = '9999';
-      wrap.style.display = 'none';
-      wrap.style.boxShadow = '0 4px 18px rgba(15,23,42,.7)';
+// -----------------------------------------------------
+// internal helpers
+// -----------------------------------------------------
+function ensureStyle() {
+  if (document.getElementById('hha-fever-style')) return;
 
-      wrap.innerHTML = `
-        <div>
-          <span id="fgScore">คะแนน: 0</span>
-          · <span id="fgTime">เวลา: 0s</span>
-          · <span id="fgQuest">ภารกิจ: -</span>
-        </div>
-        <div id="fgLegend"
-             style="margin-top:4px;font-weight:500;font-size:12px;
-                    opacity:.9;white-space:nowrap;">
-        </div>
-      `;
-
-      document.body.appendChild(wrap);
-
-      this.wrap    = wrap;
-      this.scoreEl = document.getElementById('fgScore');
-      this.timeEl  = document.getElementById('fgTime');
-      this.questEl = document.getElementById('fgQuest');
-      this.legendEl = document.getElementById('fgLegend');
-
-      // ===== กล่องข้อความ HIT / MISS ใต้ HUD =====
-      const fx = document.createElement('div');
-      fx.id = 'fgHitFx';
-      fx.style.position = 'fixed';
-      fx.style.top = '56px';
-      fx.style.left = '50%';
-      fx.style.transform = 'translateX(-50%)';
-      fx.style.font = '700 20px system-ui,-apple-system';
-      fx.style.color = '#4ade80';
-      fx.style.pointerEvents = 'none';
-      fx.style.opacity = '0';
-      fx.style.zIndex = '9999';
-      document.body.appendChild(fx);
-      this.hitFxEl = fx;
-    },
-
-    attachScene(sceneEl) {
-      this.sceneEl = sceneEl;
-      if (this.quitBtn) return;
-
-      const btn = document.createElement('button');
-      btn.id = 'fgQuitBtn';
-      btn.textContent = 'ออกเกม';
-      btn.style.position = 'fixed';
-      btn.style.bottom = '12px';
-      btn.style.left = '12px';
-      btn.style.padding = '6px 12px';
-      btn.style.font = '500 13px system-ui,-apple-system';
-      btn.style.borderRadius = '999px';
-      btn.style.border = '1px solid #f97373';
-      btn.style.background = 'rgba(15,23,42,.9)';
-      btn.style.color = '#fecaca';
-      btn.style.cursor = 'pointer';
-      btn.style.zIndex = '9999';
-      btn.style.display = 'none';
-
-      btn.addEventListener('click', () => {
-        if (this.sceneEl) {
-          this.sceneEl.emit('fg-stop', { reason: 'quit' });
-        }
-      });
-
-      document.body.appendChild(btn);
-      this.quitBtn = btn;
-    },
-
-    show() {
-      if (!this.wrap) this.init();
-      this.wrap.style.display = 'block';
-      if (this.quitBtn) this.quitBtn.style.display = 'inline-block';
-    },
-
-    hide() {
-      if (this.wrap) this.wrap.style.display = 'none';
-      if (this.quitBtn) this.quitBtn.style.display = 'none';
-    },
-
-    setScore(v) {
-      if (!this.scoreEl) return;
-      this.scoreEl.textContent = 'คะแนน: ' + v;
-    },
-
-    setTime(sec) {
-      if (!this.timeEl) return;
-      this.timeEl.textContent = 'เวลา: ' + sec + 's';
-    },
-
-    setQuest(text) {
-      if (!this.questEl) return;
-      this.questEl.textContent = 'ภารกิจ: ' + (text || '-');
-    },
-
-    setLegend(groups) {
-      if (!this.legendEl) return;
-      if (!groups || !groups.length) {
-        this.legendEl.textContent = '';
-        return;
-      }
-      this.legendEl.innerHTML = groups.map(g => (
-        `<span style="margin-right:8px;">
-           ${g.id}: ${g.emoji} ${g.label}
-         </span>`
-      )).join('');
-    },
-
-    flashJudgment(opts) {
-      if (!this.hitFxEl) return;
-      const el = this.hitFxEl;
-      const isMiss = !!opts.isMiss;
-      const text = opts.text || (isMiss ? 'MISS' : `+${opts.scoreDelta || 0}`);
-
-      el.textContent = text;
-      if (isMiss) {
-        el.style.color = '#fca5a5';
-      } else if (opts.isQuestTarget) {
-        el.style.color = '#facc15';
-      } else {
-        el.style.color = '#4ade80';
-      }
-
-      // reset animation
-      el.style.transition = 'none';
-      el.style.opacity = '1';
-      el.style.transform = 'translate(-50%,0)';
-      // force reflow
-      void el.offsetWidth;
-      // animate fade-out
-      el.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-      el.style.opacity = '0';
-      el.style.transform = 'translate(-50%,-10px)';
-    },
-
-    reset() {
-      this.setScore(0);
-      this.setTime(0);
-      this.setQuest('ฟังภารกิจจากโค้ช แล้วเล็งให้ถูกหมู่เลย! ✨');
-    }
-  };
-
-  if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', () => UI.init());
-  } else {
-    UI.init();
+  const style = document.createElement('style');
+  style.id = 'hha-fever-style';
+  style.textContent = `
+  .hha-fever-wrap{
+    position:fixed;
+    bottom:8px;
+    left:10px;
+    z-index:12;
+    min-width:180px;
+    max-width:260px;
+    padding:6px 9px 7px;
+    border-radius:14px;
+    background:rgba(15,23,42,0.95);
+    border:1px solid rgba(251,191,36,0.9);
+    box-shadow:0 18px 40px rgba(15,23,42,0.95);
+    font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+    font-size:11px;
+    color:#e5e7eb;
   }
+  .hha-fever-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:6px;
+    margin-bottom:3px;
+  }
+  .hha-fever-label{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .hha-fever-label-emoji{
+    font-size:15px;
+  }
+  .hha-fever-bar{
+    position:relative;
+    width:100%;
+    height:6px;
+    border-radius:999px;
+    background:#020617;
+    overflow:hidden;
+  }
+  .hha-fever-bar-inner{
+    position:absolute;
+    inset:0;
+    width:0%;
+    border-radius:999px;
+    background:linear-gradient(90deg,#f97316,#facc15);
+    box-shadow:0 0 0 rgba(250,204,21,0);
+    transition:
+      width .22s ease-out,
+      box-shadow .22s ease-out;
+  }
+  .hha-fever-wrap[data-active="1"] .hha-fever-bar-inner{
+    box-shadow:0 0 18px rgba(250,204,21,0.9);
+  }
+  .hha-shield-wrap{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    margin-top:3px;
+    font-size:11px;
+  }
+  .hha-shield-icons{
+    display:flex;
+    gap:2px;
+  }
+  `;
+  document.head.appendChild(style);
+}
 
-  ns.foodGroupsUI = UI;
-})(window.GAME_MODULES || (window.GAME_MODULES = {}));
+function clamp(v, min, max) {
+  v = Number(v) || 0;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+
+// -----------------------------------------------------
+// public API
+// -----------------------------------------------------
+
+export function ensureFeverBar() {
+  if (wrap && wrap.isConnected) return wrap;
+  ensureStyle();
+
+  wrap = document.createElement('div');
+  wrap.className = 'hha-fever-wrap';
+  wrap.dataset.active = '0';
+
+  // แถวบน: label + value
+  const top = document.createElement('div');
+  top.className = 'hha-fever-top';
+
+  const label = document.createElement('div');
+  label.className = 'hha-fever-label';
+
+  const em = document.createElement('span');
+  em.className = 'hha-fever-label-emoji';
+  em.textContent = '🔥';
+
+  const txt = document.createElement('span');
+  txt.textContent = 'Fever gauge';
+
+  label.appendChild(em);
+  label.appendChild(txt);
+
+  const vSpan = document.createElement('span');
+  vSpan.style.fontWeight = '500';
+  vSpan.textContent = '0%';
+  valueSpan = vSpan;
+
+  top.appendChild(label);
+  top.appendChild(vSpan);
+
+  // แท่ง fever
+  const barOuter = document.createElement('div');
+  barOuter.className = 'hha-fever-bar';
+  const inner = document.createElement('div');
+  inner.className = 'hha-fever-bar-inner';
+  barOuter.appendChild(inner);
+  barInner = inner;
+
+  // แถว shield
+  const shieldRow = document.createElement('div');
+  shieldRow.className = 'hha-shield-wrap';
+
+  const shLabel = document.createElement('span');
+  shLabel.textContent = '🛡 Shield:';
+
+  const shIcons = document.createElement('span');
+  shIcons.className = 'hha-shield-icons';
+  shieldIcons = shIcons;
+
+  shieldRow.appendChild(shLabel);
+  shieldRow.appendChild(shIcons);
+
+  wrap.appendChild(top);
+  wrap.appendChild(barOuter);
+  wrap.appendChild(shieldRow);
+
+  document.body.appendChild(wrap);
+  return wrap;
+}
+
+/**
+ * ตั้งค่าเปอร์เซ็นต์ fever (0–100)
+ */
+export function setFever(value) {
+  if (!wrap || !wrap.isConnected) ensureFeverBar();
+  const v = clamp(value, 0, 100);
+
+  if (barInner) {
+    barInner.style.width = v + '%';
+  }
+  if (valueSpan) {
+    valueSpan.textContent = v.toFixed(0) + '%';
+  }
+}
+
+/**
+ * เปิด/ปิดสถานะ Fever (มี glow ที่แท่ง)
+ */
+export function setFeverActive(active) {
+  if (!wrap || !wrap.isConnected) ensureFeverBar();
+  wrap.dataset.active = active ? '1' : '0';
+}
+
+/**
+ * ตั้งจำนวน shield (0–5)
+ */
+export function setShield(count) {
+  if (!wrap || !wrap.isConnected) ensureFeverBar();
+  if (!shieldIcons) return;
+
+  const n = clamp(count, 0, 5);
+  shieldIcons.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const span = document.createElement('span');
+    span.textContent = '🛡️';
+    shieldIcons.appendChild(span);
+  }
+}
+
+const FeverUI = { ensureFeverBar, setFever, setFeverActive, setShield };
+export default FeverUI;
+
+// ★★★ เพิ่ม global สำหรับเกมอื่น ๆ ที่ไม่ใช้ ES module (เช่น Groups VR) ★★★
+if (typeof window !== 'undefined') {
+  window.HHA_FeverUI = Object.assign(window.HHA_FeverUI || {}, FeverUI);
+}
