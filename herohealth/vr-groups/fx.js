@@ -1,149 +1,107 @@
 // === vr-groups/fx.js (2025-12-03 Production Ready) ===
-// เอฟเฟกต์เป้าแตก, คะแนนเด้ง, และ miss FX
-// ใช้ DOM ล้วน เพื่อทำงานบน A15 / MobileVR ได้เร็วกว่า A-Frame particle
+// เอฟเฟกต์ภาพสำหรับ Food Groups VR
+// ใช้ร่วมกับ A-Frame + THREE ได้ทันที
 
 (function (ns) {
   'use strict';
 
-  const FX_ROOT_ID = 'fg-fx-root';
-  let root = null;
+  const Fx = {};
 
-  function ensureRoot() {
-    if (root && root.isConnected) return root;
+  // ------------------------------------------------------
+  // INTERNAL: สร้าง particle 1 ชิ้น
+  // ------------------------------------------------------
+  function createParticle(color, life = 380) {
+    const el = document.createElement('a-sphere');
+    el.setAttribute('radius', '0.02');
+    el.setAttribute('segments-height', '8');
+    el.setAttribute('segments-width', '8');
+    el.setAttribute('color', color);
+    el.setAttribute('opacity', '0.95');
+    el.setAttribute('shader', 'flat');
+    el.setAttribute('scale', '1 1 1');
 
-    root = document.createElement('div');
-    root.id = FX_ROOT_ID;
-    root.style.position = 'fixed';
-    root.style.left = '0';
-    root.style.top = '0';
-    root.style.width = '100vw';
-    root.style.height = '100vh';
-    root.style.pointerEvents = 'none';
-    root.style.zIndex = '700';     // สูงกว่า HUD นิดหน่อย
-    document.body.appendChild(root);
-    return root;
+    // ละลายหาย
+    el.setAttribute('animation__fade', {
+      property: 'opacity',
+      to: 0,
+      dur: life,
+      easing: 'easeOutQuad'
+    });
+    return el;
   }
 
-  // ------------------------------------------------------------
-  // แปลงตำแหน่ง world → screen
-  // ------------------------------------------------------------
-  function worldToScreen(pos) {
-    const scene = document.querySelector('a-scene');
-    if (!scene) return { x: window.innerWidth/2, y: window.innerHeight/2 };
+  // ------------------------------------------------------
+  // INTERNAL: ยิง particle ออกหลายทิศทาง
+  // ------------------------------------------------------
+  function spawnBurstParticles(scene, wp, color) {
+    const NUM = 10 + Math.floor(Math.random() * 6); // 10–15 ชิ้น
+    for (let i = 0; i < NUM; i++) {
+      const p = createParticle(color);
+      const dx = (Math.random() - 0.5) * 0.8;
+      const dy = (Math.random() - 0.5) * 0.8;
+      const dz = (Math.random() - 0.5) * 0.8;
+      const dist = 0.18 + Math.random() * 0.2;
 
-    const camera = scene.camera;
-    if (!camera) return { x: window.innerWidth/2, y: window.innerHeight/2 };
+      p.object3D.position.set(wp.x, wp.y, wp.z);
 
-    const vector = new THREE.Vector3(pos.x, pos.y, pos.z);
-    vector.project(camera);
+      p.setAttribute('animation__move', {
+        property: 'position',
+        to: `${wp.x + dx * dist} ${wp.y + dy * dist} ${wp.z + dz * dist}`,
+        dur: 300,
+        easing: 'easeOutCubic'
+      });
 
-    return {
-      x: (vector.x * 0.5 + 0.5) * window.innerWidth,
-      y: (-vector.y * 0.5 + 0.5) * window.innerHeight
-    };
-  }
+      scene.appendChild(p);
 
-  // ------------------------------------------------------------
-  // Hit particle: emoji แตกกระจาย 8 ชิ้น
-  // ------------------------------------------------------------
-  function spawnBurst(emoji, pos) {
-    ensureRoot();
-    const p = worldToScreen(pos);
-
-    for (let i = 0; i < 8; i++) {
-      const el = document.createElement('div');
-      el.textContent = emoji;
-      el.style.position = 'fixed';
-      el.style.left = p.x + 'px';
-      el.style.top = p.y + 'px';
-      el.style.transform = 'translate(-50%, -50%)';
-      el.style.fontSize = '22px';
-      el.style.opacity = '1';
-      el.style.transition = 'transform .45s ease-out, opacity .45s ease-out';
-      root.appendChild(el);
-
-      const ang = Math.random() * Math.PI * 2;
-      const dist = 40 + Math.random() * 40;
-
-      setTimeout(() => {
-        el.style.transform =
-          `translate(${Math.cos(ang)*dist}px, ${Math.sin(ang)*dist}px) scale(0.6)`;
-        el.style.opacity = '0';
-      }, 10);
-
-      setTimeout(() => el.remove(), 500);
+      // auto remove
+      setTimeout(() => p.remove(), 420);
     }
   }
 
-  // ------------------------------------------------------------
-  // คะแนนเด้งตรงจุดที่ยิงโดน
-  // ------------------------------------------------------------
-  function spawnScore(scoreDelta, pos, judgment = 'good') {
-    ensureRoot();
-    const p = worldToScreen(pos);
+  // ------------------------------------------------------
+  // Hit effect — แตกกระจายแบบน่ารัก ๆ
+  // ------------------------------------------------------
+  Fx.burst = function (wp, isGood = true) {
+    const scene = document.querySelector('a-scene');
+    if (!scene || !wp) return;
 
-    const el = document.createElement('div');
-    el.textContent = scoreDelta > 0 ? `+${scoreDelta}` : `${scoreDelta}`;
-    el.style.position = 'fixed';
-    el.style.left = p.x + 'px';
-    el.style.top = p.y + 'px';
-    el.style.transform = 'translate(-50%, -50%)';
-    el.style.fontSize = '20px';
-    el.style.fontWeight = '700';
-    el.style.opacity = '1';
-
-    if (judgment === 'perfect') el.style.color = '#facc15';
-    else if (judgment === 'good') el.style.color = '#34d399';
-    else el.style.color = '#f87171';
-
-    el.style.transition =
-      'transform .55s ease-out, opacity .55s ease-out';
-
-    root.appendChild(el);
-
-    setTimeout(() => {
-      el.style.transform = 'translate(-50%,-70px)';
-      el.style.opacity = '0';
-    }, 10);
-
-    setTimeout(() => el.remove(), 600);
-  }
-
-  // ------------------------------------------------------------
-  // Miss effect (จุดแดงเล็ก ๆ แสดงตำแหน่ง miss)
-  // ------------------------------------------------------------
-  function spawnMiss(pos) {
-    ensureRoot();
-    const p = worldToScreen(pos);
-
-    const el = document.createElement('div');
-    el.textContent = '✖';
-    el.style.position = 'fixed';
-    el.style.left = p.x + 'px';
-    el.style.top = p.y + 'px';
-    el.style.transform = 'translate(-50%, -50%) scale(1)';
-    el.style.fontSize = '20px';
-    el.style.color = '#f87171';
-    el.style.opacity = '1';
-    el.style.transition = 'transform .45s ease-out, opacity .45s ease-out';
-
-    root.appendChild(el);
-
-    setTimeout(() => {
-      el.style.transform = 'translate(-50%, -50%) scale(0.3)';
-      el.style.opacity = '0';
-    }, 10);
-
-    setTimeout(() => el.remove(), 450);
-  }
-
-  // ------------------------------------------------------------
-  // API ส่งกลับให้ GameEngine.js ใช้
-  // ------------------------------------------------------------
-  ns.foodGroupsFX = {
-    spawnBurst,
-    spawnScore,
-    spawnMiss
+    const color = isGood ? '#22c55e' : '#ef4444';
+    spawnBurstParticles(scene, wp, color);
   };
+
+  // ------------------------------------------------------
+  // Miss effect — ฟุ้งเบา ๆ
+  // ------------------------------------------------------
+  Fx.miss = function (wp) {
+    const scene = document.querySelector('a-scene');
+    if (!scene || !wp) return;
+
+    const NUM = 6;
+    const color = '#9ca3af';
+
+    for (let i = 0; i < NUM; i++) {
+      const p = createParticle(color, 300);
+      const dx = (Math.random() - 0.5) * 0.3;
+      const dy = (Math.random() - 0.5) * 0.3;
+      const dz = (Math.random() - 0.5) * 0.3;
+      const dist = 0.12 + Math.random() * 0.1;
+
+      p.object3D.position.set(wp.x, wp.y, wp.z);
+      p.setAttribute('animation__move', {
+        property: 'position',
+        to: `${wp.x + dx * dist} ${wp.y + dy * dist} ${wp.z + dz * dist}`,
+        dur: 240,
+        easing: 'easeOutQuad'
+      });
+
+      scene.appendChild(p);
+      setTimeout(() => p.remove(), 300);
+    }
+  };
+
+  // ------------------------------------------------------
+  // API ใช้จาก GameEngine.js
+  // ------------------------------------------------------
+  ns.foodGroupsFx = Fx;
 
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
