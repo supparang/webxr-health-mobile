@@ -615,5 +615,21 @@
       const timerId = setInterval(tickTime, 1000);
     });
   </script>
+    <!-- ... ใต้ GameEngine.js ตรงนี้ให้เพิ่ม ... -->
+  <script src="./vr-groups/logger-cloud.js"></script>
+
+  <script>
+    (function () {
+      if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
+        GAME_MODULES.foodGroupsCloudLogger.init({
+          endpoint: 'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
+          projectTag: 'HeroHealth-GroupsVR',
+          debug: true   // ทดสอบเสร็จแล้วค่อยเปลี่ยนเป็น false
+        });
+      } else {
+        console.warn('[GroupsVR] foodGroupsCloudLogger not found');
+      }
+    })();
+  </script>
 </body>
 </html>
