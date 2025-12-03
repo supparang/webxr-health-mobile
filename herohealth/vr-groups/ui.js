@@ -1,108 +1,116 @@
 // === vr-groups/ui.js (2025-12-03 Production Ready) ===
-// UI สำหรับ Goal + Mini Quest บน HUD ของ GroupsVR
+// UI ของ Food Groups VR – คะแนน, Quest HUD, และ Coach Bubble
 
 (function (ns) {
   'use strict';
 
-  let elGoal = null;
-  let elMini = null;
+  const UI = {};
 
-  function ensureUI() {
-    if (elGoal && elMini) return;
+  // -------------------------------------------------------------------
+  // SELECTOR ของ HUD (จับ DOM ที่ groups-vr.html มีอยู่แล้ว)
+  // -------------------------------------------------------------------
+  const elScore     = document.getElementById('hud-score');
+  const elQuestMain = document.getElementById('hud-quest-main');
+  const elQuestMini = document.getElementById('hud-quest-mini');
+  const elMainBar   = document.getElementById('hud-quest-main-bar');
+  const elMiniBar   = document.getElementById('hud-quest-mini-bar');
+  const elMainCap   = document.getElementById('hud-quest-main-caption');
+  const elMiniCap   = document.getElementById('hud-quest-mini-caption');
+  const elCoach     = document.getElementById('coach-bubble');
+  const elCoachText = document.getElementById('coach-text');
 
-    // กล่อง HUD
-    let hud = document.getElementById('fg-quest-panel');
-    if (!hud) {
-      hud = document.createElement('div');
-      hud.id = 'fg-quest-panel';
-      hud.style.position = 'fixed';
-      hud.style.top = '12px';
-      hud.style.left = '50%';
-      hud.style.transform = 'translateX(-50%)';
-      hud.style.zIndex = '600';
-      hud.style.pointerEvents = 'none';
-      hud.style.display = 'flex';
-      hud.style.flexDirection = 'column';
-      hud.style.alignItems = 'center';
-      hud.style.gap = '6px';
-      document.body.appendChild(hud);
-    }
+  // -------------------------------------------------------------------
+  // คะแนน
+  // -------------------------------------------------------------------
+  UI.setScore = function (v) {
+    if (elScore) elScore.textContent = v;
+  };
 
-    // Goal
-    elGoal = document.createElement('div');
-    elGoal.style.background = 'rgba(15,23,42,0.9)';
-    elGoal.style.color = '#facc15';
-    elGoal.style.padding = '6px 12px';
-    elGoal.style.fontSize = '13px';
-    elGoal.style.border = '1px solid rgba(250,204,21,0.45)';
-    elGoal.style.borderRadius = '14px';
-    elGoal.style.fontWeight = '600';
-    elGoal.style.textAlign = 'center';
-    elGoal.style.minWidth = '220px';
-    elGoal.style.boxShadow = '0 8px 20px rgba(0,0,0,0.35)';
+  // -------------------------------------------------------------------
+  // Coach Bubble
+  // -------------------------------------------------------------------
+  let coachTimer = null;
 
-    // Mini
-    elMini = document.createElement('div');
-    elMini.style.background = 'rgba(15,23,42,0.9)';
-    elMini.style.color = '#34d399';
-    elMini.style.padding = '6px 12px';
-    elMini.style.fontSize = '12px';
-    elMini.style.border = '1px solid rgba(52,211,153,0.45)';
-    elMini.style.borderRadius = '14px';
-    elMini.style.fontWeight = '500';
-    elMini.style.textAlign = 'center';
-    elMini.style.minWidth = '200px';
-    elMini.style.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
+  UI.setCoach = function (text) {
+    if (!elCoach || !elCoachText) return;
+    elCoachText.textContent = text;
+    elCoach.classList.add('show');
 
-    hud.appendChild(elGoal);
-    hud.appendChild(elMini);
-  }
+    if (coachTimer) clearTimeout(coachTimer);
+    coachTimer = setTimeout(() => {
+      elCoach.classList.remove('show');
+    }, 3500);
+  };
 
-  // ---------------------------------------------------------
-  // อัปเดตจาก quest-manager.js
-  // ---------------------------------------------------------
-  window.addEventListener('quest:update', (e) => {
-    ensureUI();
-    const d = e.detail;
+  // -------------------------------------------------------------------
+  // Quest HUD – goal + mini quest
+  // รับ event จาก quest-manager.js → GameEngine.js → ui.js
+  // -------------------------------------------------------------------
+  UI.updateQuest = function (d) {
+    if (!d) return;
 
+    // ===== Goal =====
     if (d.goal) {
       const g = d.goal;
-      elGoal.textContent =
-        `🎯 ${g.label}  (${g.prog}/${g.target})`;
+      elQuestMain.textContent = g.label || 'Goal';
+      const pct = g.target > 0 ? (g.prog / g.target) * 100 : 0;
+      elMainBar.style.width = Math.min(100, pct) + '%';
+      elMainCap.textContent = `${g.prog} / ${g.target}`;
+    } else {
+      // goal เคลียร์แล้ว
+      elQuestMain.textContent = 'Goal สำเร็จแล้ว 🎉';
+      elMainBar.style.width = '100%';
+      elMainCap.textContent = '';
     }
 
+    // ===== Mini Quest =====
     if (d.mini) {
       const m = d.mini;
-      if (m.type === 'avoid') {
-        elMini.textContent = `⚡ เลี่ยง Junk ${m.target || 1} / ${m.prog}`;
-      } else {
-        elMini.textContent =
-          `✨ ${m.label}  (${m.prog}/${m.target})`;
-      }
+      elQuestMini.textContent = 'Mini: ' + (m.label || '');
+      const pct = m.target > 0 ? (m.prog / m.target) * 100 : 0;
+      elMiniBar.style.width = Math.min(100, pct) + '%';
+      elMiniCap.textContent = `${m.prog} / ${m.target}`;
+    } else {
+      elQuestMini.textContent = 'Mini quest สำเร็จ 🎯';
+      elMiniBar.style.width = '100%';
+      elMiniCap.textContent = '';
     }
+
+    // hint ถ้ามี
+    if (d.hint) {
+      const hint = document.getElementById('hud-quest-hint');
+      if (hint) hint.textContent = d.hint;
+    }
+  };
+
+  // -------------------------------------------------------------------
+  // สรุปผลตอนจบเกม (GameEngine.js เรียก)
+  // -------------------------------------------------------------------
+  UI.showEnd = function (score, cleared, total) {
+    const elToast = document.getElementById('end-toast');
+    const elScore2 = document.getElementById('end-score');
+    const elQuest2 = document.getElementById('end-quest');
+
+    if (!elToast) return;
+
+    elScore2.textContent = score;
+    elQuest2.textContent = `${cleared} / ${total}`;
+
+    elToast.classList.add('show');
+  };
+
+  // -------------------------------------------------------------------
+  // EVENT LISTENERS จาก GameEngine / Quest Manager
+  // -------------------------------------------------------------------
+  window.addEventListener('quest:update', e => {
+    UI.updateQuest(e.detail);
   });
 
-  // ---------------------------------------------------------
-  // เอฟเฟกต์เมื่อผ่าน quest (goal/mini)
-  // ---------------------------------------------------------
-  window.addEventListener('quest:clear-goal', () => {
-    ensureUI();
-    elGoal.style.background = 'rgba(250,204,21,0.22)';
-    elGoal.style.color = '#facc15';
-    elGoal.style.borderColor = 'rgba(250,204,21,0.8)';
-    elGoal.style.fontWeight = '700';
-    elGoal.textContent = '🎉 สำเร็จ! — Goal ผ่านแล้ว';
+  window.addEventListener('hha:coach', e => {
+    const text = e.detail?.text || '';
+    if (text) UI.setCoach(text);
   });
 
-  window.addEventListener('quest:clear-mini', () => {
-    ensureUI();
-    elMini.style.background = 'rgba(52,211,153,0.22)';
-    elMini.style.color = '#34d399';
-    elMini.style.borderColor = 'rgba(52,211,153,0.75)';
-    elMini.style.fontWeight = '700';
-    elMini.textContent = '💫 Mini Quest สำเร็จ!';
-  });
-
-  ns.foodGroupsUI = { ensureUI };
-
+  // -------------------------------------------------------------------
+  ns.foodGroupsUI = UI;
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
