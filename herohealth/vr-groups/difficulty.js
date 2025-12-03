@@ -1,45 +1,40 @@
 // vr-groups/difficulty.js
-// ตารางตั้งค่าความยากของ Food Groups VR
-
 (function (ns) {
   'use strict';
 
+  // ค่าความยาก 3 ระดับ สำหรับ Groups VR
   const TABLE = {
     easy: {
-      label: 'ง่าย',
-      spawnInterval: 1300,   // ms ระยะห่างระหว่างการเกิดเป้า
-      targetLifetime: 2600,  // ms เป้าอยู่ได้นาน → ง่าย
-      maxActive: 4,          // จำนวนเป้าพร้อมกันบนจอ
-      duration: 60000,       // ระยะเวลาเล่นต่อรอบ (ms)
-      targetRadius: 0.58     // ขนาดเป้าใหญ่สุด
+      // เด็กเล็ก / เริ่มฝึก
+      spawnInterval: 1400,   // ms ระยะห่างการเกิดเป้า
+      targetLifetime: 2600,  // ms เป้าอยู่ได้นานขึ้น
+      maxActive: 4,          // เป้าสูงสุดบนจอ
+      duration: 60000,       // 60 วินาที
+      targetRadius: 0.6      // เป้าใหญ่
     },
     normal: {
-      label: 'ปกติ',
-      spawnInterval: 900,
-      targetLifetime: 2100,
+      // โมดมาตรฐาน ใช้เก็บข้อมูลวิจัย
+      spawnInterval: 1100,
+      targetLifetime: 2300,
       maxActive: 5,
       duration: 60000,
-      targetRadius: 0.50
+      targetRadius: 0.5
     },
     hard: {
-      label: 'ท้าทาย',
-      spawnInterval: 650,
-      targetLifetime: 1700,  // เป้าหายไว
-      maxActive: 6,          // เป้าเยอะ
+      // ท้าทาย เด็กเริ่มชินแล้ว
+      spawnInterval: 850,
+      targetLifetime: 2000,
+      maxActive: 6,
       duration: 60000,
-      targetRadius: 0.42     // เป้าเล็กสุด
+      targetRadius: 0.45
     }
   };
 
-  const api = {
-    get(diff) {
+  ns.foodGroupsDifficulty = {
+    get: function (diff) {
       diff = (diff || 'normal').toLowerCase();
       return TABLE[diff] || TABLE.normal;
     },
-    debugTable() {
-      return JSON.parse(JSON.stringify(TABLE));
-    }
+    table: TABLE
   };
-
-  ns.foodGroupsDifficulty = api;
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
