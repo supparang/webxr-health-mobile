@@ -1,179 +1,228 @@
 // === /herohealth/vr-groups/quest-manager.js ===
 // Food Groups VR — Quest Manager (2025-12-04)
-// แยก Goal / MiniQuest ตามระดับความยาก และสุ่มให้ตรงระดับ 100%
 
 'use strict';
 
 window.GAME_MODULES = window.GAME_MODULES || {};
 const ns = window.GAME_MODULES;
 
-export class QuestManager {
-  constructor(diff = 'normal') {
-    this.diff = diff;
-    this.goals = [];
-    this.minis = [];
-    this.activeGoals = [];
-    this.activeMinis = [];
-    this.progress = {
-      goals: {},
-      minis: {}
-    };
+/***************************************************
+ * 1) ฐานข้อมูล GOALS (ภารกิจหลัก)
+ ***************************************************/
+const GOALS = [
+  // ---------- EASY ----------
+  {
+    id: 'g1', level: 'easy',
+    label: 'ยิงผักใบเขียวให้ได้',
+    groups: [2],
+    emoji: '🥬',
+    target: 4
+  },
+  {
+    id: 'g2', level: 'easy',
+    label: 'เลือกผลไม้ 5 หมู่ที่ดีต่อสุขภาพ',
+    groups: [3],
+    emoji: '🍉',
+    target: 4
+  },
+  {
+    id: 'g3', level: 'easy',
+    label: 'โปรตีนดี ๆ ช่วยซ่อมแซมร่างกาย',
+    groups: [4],
+    emoji: '🍗',
+    target: 4
+  },
+
+  // ---------- NORMAL ----------
+  {
+    id: 'g4', level: 'normal',
+    label: 'เลือกอาหารหมู่ 1 ให้ครบปริมาณ',
+    groups: [1],
+    emoji: '🍚',
+    target: 5
+  },
+  {
+    id: 'g5', level: 'normal',
+    label: 'กินผักผลไม้ผสมรวมอย่างน้อย',
+    groups: [2,3],
+    emoji: '🥦',
+    target: 6
+  },
+  {
+    id: 'g6', level: 'normal',
+    label: 'ยิงโปรตีนให้ครบทั้ง 5 แบบ',
+    groups: [4],
+    emoji: '🐟',
+    target: 5
+  },
+  {
+    id: 'g7', level: 'normal',
+    label: 'เลือกนมและผลิตภัณฑ์นมให้มากขึ้น',
+    groups: [5],
+    emoji: '🥛',
+    target: 5
+  },
+
+  // ---------- HARD ----------
+  {
+    id: 'g8', level: 'hard',
+    label: 'เลือกอาหารดีจาก 3 หมู่ที่กำหนด',
+    groups: [1,3,4],
+    emoji: '🍚',
+    target: 7
+  },
+  {
+    id: 'g9', level: 'hard',
+    label: 'ผัก ผลไม้ โปรตีน อย่างละอย่าง',
+    groups: [2,3,4],
+    emoji: '🥦',
+    target: 9
+  },
+  {
+    id: 'g10', level: 'hard',
+    label: 'ภารกิจผสมขั้นสูง เลี่ยงของหวานทั้งหมด',
+    groups: [1,2,3,4,5],
+    emoji: '🍇',
+    target: 8
+  }
+];
+
+/***************************************************
+ * 2) MINi QUEST (15 แบบ)
+ ***************************************************/
+const MINI = [
+  // EASY mini
+  { id:'m1', level:'easy', label:'ยิงผัก 2 ชนิด', groups:[2], target:2, emoji:'🥕' },
+  { id:'m2', level:'easy', label:'ผลไม้คู่เพื่อนรัก', groups:[3], target:2, emoji:'🍌' },
+  { id:'m3', level:'easy', label:'เลือกโปรตีน 2 อย่าง', groups:[4], target:2, emoji:'🐟' },
+
+  // NORMAL mini
+  { id:'m4', level:'normal', label:'โปรตีน + ผลไม้ อย่างละ 1', groups:[3,4], target:2, emoji:'🍗' },
+  { id:'m5', level:'normal', label:'เลี่ยงของทอดให้หมด', badGroups:[9], target:3, emoji:'🍟' },
+  { id:'m6', level:'normal', label:'เลือกอาหารหมู่ 5 ให้ครบ 3 ครั้ง', groups:[5], target:3, emoji:'🥛' },
+  { id:'m7', level:'normal', label:'กินผักผสม 3 ชนิด', groups:[2], target:3, emoji:'🥬' },
+  { id:'m8', level:'normal', label:'เลือกธัญพืชครบ 3', groups:[1], target:3, emoji:'🌽' },
+
+  // HARD mini
+  { id:'m9',  level:'hard', label:'ยิงอาหารดีสลับกัน 5 ครั้ง', groups:[1,2,3,4,5], target:5, emoji:'🍱' },
+  { id:'m10', level:'hard', label:'เลี่ยงอาหารหวานทั้งหมด', badGroups:[9], target:5, emoji:'🧋' },
+  { id:'m11', level:'hard', label:'ยิงโปรตีน 4 แบบ', groups:[4], target:4, emoji:'🍗' },
+  { id:'m12', level:'hard', label:'ผัก–ผลไม้ รวม 6 ครั้ง', groups:[2,3], target:6, emoji:'🥗' },
+  { id:'m13', level:'hard', label:'ธัญพืช + โปรตีน รวม 6 ครั้ง', groups:[1,4], target:6, emoji:'🍞' },
+  { id:'m14', level:'hard', label:'หมู่อาหารดีทั้งหมดรวม 8 ครั้ง', groups:[1,2,3,4,5], target:8, emoji:'🥗' },
+  { id:'m15', level:'hard', label:'ภารกิจผสมขั้นสูง 7 ครั้ง', groups:[1,3,5], target:7, emoji:'🥛' }
+];
+
+/***************************************************
+ * 3) เลือก Quest ตามระดับเกม
+ ***************************************************/
+function pickRandom(arr, n) {
+  const copy = [...arr];
+  const out = [];
+  while (out.length < n && copy.length > 0) {
+    const idx = Math.floor(Math.random() * copy.length);
+    out.push(copy[idx]);
+    copy.splice(idx, 1);
+  }
+  return out;
+}
+
+function pickForLevel(level, type = 'goal') {
+  if (type === 'goal') {
+    const pool = GOALS.filter(g => g.level === level);
+    return pickRandom(pool, 2); // ★ เลือก 2 อัน
+  }
+  if (type === 'mini') {
+    const pool = MINI.filter(m => m.level === level);
+    return pickRandom(pool, 3); // ★ เลือก 3 อัน
+  }
+  return [];
+}
+
+/***************************************************
+ * 4) Quest Manager class
+ ***************************************************/
+class QuestManager {
+  constructor(level = 'normal') {
+    this.level = level;
+
+    this.goals = pickForLevel(level, 'goal');
+    this.minis = pickForLevel(level, 'mini');
+
+    this.goals.forEach(g => g.prog = 0);
+    this.minis.forEach(m => m.prog = 0);
+
+    this.goalIndex = 0;
+    this.miniIndex = 0;
   }
 
-  // -----------------------------
-  // 1) Quest Pools
-  // -----------------------------
-  getGoalPool() {
-    return {
-      easy: [
-        { id: 'E1', label: 'เก็บผักให้ครบ 5 ชิ้น 🥬', need: 5, type: 'veg' },
-        { id: 'E2', label: 'เลือกผลไม้ดี ๆ ให้ครบ 5 ชิ้น 🍎🍉', need: 5, type: 'fruit' },
-        { id: 'E3', label: 'เพิ่มพลังงานด้วยธัญพืช 6 ชิ้น 🌽🍞', need: 6, type: 'grain' }
-      ],
-      normal: [
-        { id: 'N1', label: 'เก็บผักให้ครบ 10 ชิ้น 🥦', need: 10, type: 'veg' },
-        { id: 'N2', label: 'ผลไม้ดี 8 ชิ้น 🍊🍇', need: 8, type: 'fruit' },
-        { id: 'N3', label: 'โปรตีนดี 6 ชิ้น 🥚🫘🐟', need: 6, type: 'protein' },
-        { id: 'N4', label: 'เลือกแต่อาหารดี 15 ชิ้น 💚', need: 15, type: 'good' },
-        { id: 'N5', label: 'อาหาร 3 หมู่ หมู่ละ 3 ชิ้น', need: 9, type: 'multi3' }
-      ],
-      hard: [
-        { id: 'H1', label: 'เก็บอาหารดี 20 ชิ้นใน 25 วิ ⚡', need: 20, type: 'good-fast' },
-        { id: 'H2', label: 'คอมโบอาหารดีติดกัน 5 ครั้ง 🔥', need: 5, type: 'good-combo' },
-        { id: 'H3', label: 'ทำภารกิจหมู่ให้สำเร็จ 3 ด่าน 🎯', need: 3, type: 'multi-phase' }
-      ]
-    };
+  currentGoal() {
+    return this.goals[this.goalIndex] || null;
   }
 
-  getMiniPool() {
-    return {
-      easy: [
-        { id: 'ME1', label: 'ผักติดกัน 2 ครั้ง', need: 2, type: 'veg-chain' },
-        { id: 'ME2', label: 'ผลไม้รวม 3 ชิ้น 🍓🍉', need: 3, type: 'fruit' },
-        { id: 'ME3', label: 'หลีกเลี่ยง Junk ให้ได้ 3 วิ ⏳', need: 3, type: 'avoid-junk' }
-      ],
-      normal: [
-        { id: 'MN1', label: 'โปรตีนดี 3 ชิ้น 🥚🫘', need: 3, type: 'protein' },
-        { id: 'MN2', label: 'สลับหมู่ 3 ครั้ง', need: 3, type: 'switch-group' },
-        { id: 'MN3', label: 'อาหารดีติดกัน 4 ครั้ง 🔥', need: 4, type: 'good-chain' },
-        { id: 'MN4', label: 'ผัก+ผลไม้รวม 6 ชิ้น', need: 6, type: 'plant-mix' }
-      ],
-      hard: [
-        { id: 'MH1', label: 'เก็บอาหารดี 8 ชิ้นห้ามพลาด', need: 8, type: 'good-perfect' },
-        { id: 'MH2', label: 'สลับซ้าย-ขวา 6 ครั้ง ↔️', need: 6, type: 'switch-lr' },
-        { id: 'MH3', label: 'ยิงเป้าตรงกลาง 5 ครั้ง 🎯', need: 5, type: 'mid-hit' },
-        { id: 'MH4', label: 'ยิงตามหมู่ที่โค้ชสั่ง 4 ครั้ง', need: 4, type: 'coach-call' }
-      ]
-    };
+  currentMini() {
+    return this.minis[this.miniIndex] || null;
   }
 
-  // -----------------------------
-  // Helper: random pick
-  // -----------------------------
-  pick(pool, count) {
-    const arr = [...pool];
-    const chosen = [];
-    for (let i = 0; i < count && arr.length > 0; i++) {
-      const idx = Math.floor(Math.random() * arr.length);
-      chosen.push(arr[idx]);
-      arr.splice(idx, 1);
-    }
-    return chosen;
-  }
+  /*****************************************
+   * update เมื่อผู้เล่นยิงโดนอาหาร
+   *****************************************/
+  updateOnHit(item) {
+    const grp = item.group;
 
-  // -----------------------------
-  // Init quests ตามระดับ
-  // -----------------------------
-  init() {
-    const goalPool = this.getGoalPool();
-    const miniPool = this.getMiniPool();
-
-    let G = [], M = [];
-
-    if (this.diff === 'easy') {
-      G = goalPool.easy;
-      M = miniPool.easy;
-      this.activeGoals = this.pick(G, 2);
-      this.activeMinis = this.pick(M, 3);
-    }
-    else if (this.diff === 'hard') {
-      G = goalPool.hard;
-      M = miniPool.hard;
-      this.activeGoals = this.pick(G, 2);
-      this.activeMinis = this.pick(M, 3);
-    }
-    else {
-      G = goalPool.normal;
-      M = miniPool.normal;
-      this.activeGoals = this.pick(G, 2);
-      this.activeMinis = this.pick(M, 3);
-    }
-
-    // init progress
-    this.activeGoals.forEach(g => this.progress.goals[g.id] = 0);
-    this.activeMinis.forEach(m => this.progress.minis[m.id] = 0);
-
-    console.log('[QuestManager] Goals:', this.activeGoals);
-    console.log('[QuestManager] Minis:', this.activeMinis);
-  }
-
-  // -----------------------------
-  // Update Quest Progress
-  // -----------------------------
-  update(type, item) {
-    // type เช่น veg, fruit, protein, good, junk ฯลฯ
-    const checkList = [...this.activeGoals, ...this.activeMinis];
-
-    checkList.forEach(q => {
-      if (q.type === item.type) {
-
-        // ทำ progress เพิ่ม
-        this.progress.goals[q.id] = (this.progress.goals[q.id] || 0);
-        this.progress.minis[q.id] = (this.progress.minis[q.id] || 0);
-
-        if (this.progress.goals.hasOwnProperty(q.id)) {
-          this.progress.goals[q.id]++;
+    // --- goal ---
+    const g = this.currentGoal();
+    if (g) {
+      const ok = g.groups?.includes(grp);
+      if (ok) {
+        g.prog++;
+        if (g.prog >= g.target) {
+          this.goalIndex++;
         }
-        if (this.progress.minis.hasOwnProperty(q.id)) {
-          this.progress.minis[q.id]++;
-        }
-
-        // ส่ง event ให้ UI + Coach
-        window.dispatchEvent(new CustomEvent('fg-quest-progress', {
-          detail: {
-            id: q.id,
-            label: q.label,
-            value: (this.progress.goals[q.id] || this.progress.minis[q.id]),
-            need: q.need
-          }
-        }));
       }
-    });
+    }
+
+    // --- mini quest ---
+    const m = this.currentMini();
+    if (m) {
+      const ok2 = m.groups?.includes(grp);
+      const bad = m.badGroups?.includes(grp);
+
+      if (ok2) m.prog++;
+      if (bad) m.prog--; // ถ้าจงใจให้ลงโทษ
+
+      if (m.prog >= m.target) {
+        this.miniIndex++;
+      }
+    }
   }
 
-  // -----------------------------
-  // Check Complete
-  // -----------------------------
-  getSummary() {
-    let goalDone = 0;
-    let miniDone = 0;
-
-    this.activeGoals.forEach(g => {
-      if ((this.progress.goals[g.id] || 0) >= g.need) goalDone++;
-    });
-
-    this.activeMinis.forEach(m => {
-      if ((this.progress.minis[m.id] || 0) >= m.need) miniDone++;
-    });
+  /*****************************************
+   * เตรียมส่งให้ HUD
+   *****************************************/
+  exportForHUD() {
+    const g = this.currentGoal();
+    const m = this.currentMini();
 
     return {
-      goalTotal: this.activeGoals.length,
-      miniTotal: this.activeMinis.length,
-      goalDone,
-      miniDone
+      goal: g ? {
+        label: g.label,
+        prog: g.prog,
+        target: g.target,
+        emoji: g.emoji
+      } : null,
+      mini: m ? {
+        label: m.label,
+        prog: m.prog,
+        target: m.target,
+        emoji: m.emoji
+      } : null
     };
   }
 }
 
-// export default
-ns.foodGroupsQuestManager = QuestManager;
+ns.foodGroupsQuest = {
+  QuestManager,
+  GOALS,
+  MINI
+};
