@@ -40,7 +40,7 @@
     .hud-root{
       position:fixed;
       inset:0;
-      pointer-events:none;        /* ไม่บัง gesture หมุน/แตะที่ scene */
+      pointer-events:none;
       z-index:650;
       display:flex;
       flex-direction:column;
@@ -61,7 +61,7 @@
       padding:8px 10px;
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
-      pointer-events:none;        /* ไม่ให้คลิก / แตะบัง canvas */
+      pointer-events:auto;
     }
 
     .hud-main{
@@ -165,7 +165,7 @@
       justify-content:space-between;
     }
 
-    /* ===== Coach bubble ===== */
+    /* ===== Coach bubble ใน HUD ด้านล่าง ===== */
     .hud-bottom{
       display:flex;
       flex-direction:column;
@@ -186,7 +186,7 @@
       align-items:center;
       justify-content:center;
       gap:8px;
-      pointer-events:none;        /* ไม่บังการแตะ/หมุน */
+      pointer-events:auto;
     }
     .coach-bubble.show{ display:flex; }
     .coach-label{
@@ -344,7 +344,7 @@
       </div>
     </div>
 
-    <!-- Bottom: coach -->
+    <!-- Bottom: coach (HUD หลัก) -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <span class="coach-label">โค้ช</span>
@@ -424,32 +424,18 @@
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest (รองรับ kind = 'missMax')
+    // HUD: Quest
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
 
       if (goal){
-        const kind  = goal.kind || 'generic';
-        const prog  = goal.prog  | 0;
-        const tgt   = goal.target| 0;
-        const pct   = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
-
         elQuestMain.textContent = goal.label || 'ภารกิจหลัก';
+        const prog = goal.prog|0, tgt = goal.target|0;
+        const pct  = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
         elQuestMainBar.style.width = pct + '%';
-
-        if (kind === 'missMax') {
-          const miss    = (goal.value ?? prog) | 0;
-          const failed  = !!goal.failed;
-          if (failed) {
-            elQuestMainCap.textContent = `${miss} / ≤${tgt} (เกินเป้า)`;
-          } else {
-            elQuestMainCap.textContent = `${miss} / ≤${tgt}`;
-          }
-        } else {
-          elQuestMainCap.textContent = `${prog} / ${tgt}`;
-        }
+        elQuestMainCap.textContent = `${prog} / ${tgt}`;
       }else{
         elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
         elQuestMainBar.style.width = '100%';
@@ -471,9 +457,21 @@
       if (d.hint){
         elQuestHint.textContent = d.hint;
       }
+
+      // 🔁 ส่งต่อข้อความ quest ไปให้ bubble โค้ช (coach-bubble.js)
+      const questText =
+        d.hint ||
+        (goal && goal.label) ||
+        (mini && mini.label) ||
+        '';
+      if (questText){
+        window.dispatchEvent(new CustomEvent('hha:quest', {
+          detail: { text: questText }
+        }));
+      }
     });
 
-    // HUD: Coach
+    // HUD: Coach (จาก goodjunk.safe / GameEngine ที่ยิง hha:coach)
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
       if (text) setCoach(text);
@@ -552,7 +550,7 @@
       elTime.textContent  = dur + 's';
       hudMissCount = 0;
 
-      // เรียก Cloud Logger สำหรับ GoodJunk VR
+      // ★★ Cloud Logger สำหรับ GoodJunk VR ★★
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
@@ -581,5 +579,8 @@
       const timerId = setInterval(tickTime, 1000);
     });
   </script>
+
+  <!-- 🔹 Bubble โค้ชแบบลอยด้านบน (coach-bubble.js) -->
+  <script src="./vr/coach-bubble.js"></script>
 </body>
 </html>
