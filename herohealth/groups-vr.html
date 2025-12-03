@@ -35,69 +35,11 @@
       overflow:hidden;
     }
     a-scene{
-      position:fixed;inset:0;width:100vw;height:100vh;
+      position:fixed;
+      inset:0;
+      width:100vw;
+      height:100vh;
     }
-
-    .hud-root{
-      position:fixed;inset:0;
-      display:flex;flex-direction:column;justify-content:space-between;
-      padding:10px;pointer-events:none;z-index:650;
-    }
-    .hud-top{
-      display:flex;justify-content:space-between;gap:8px;align-items:flex-start;
-    }
-    .hud-card{
-      background:linear-gradient(135deg,rgba(15,23,42,0.95),rgba(15,23,42,0.82));
-      border-radius:var(--radius-lg);
-      padding:8px 10px;
-      border:1px solid rgba(148,163,184,0.25);
-      box-shadow:0 18px 40px rgba(15,23,42,0.7);
-      pointer-events:auto;
-    }
-    .hud-main-title{
-      font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-soft);
-    }
-    .hud-main-mode{font-size:15px;font-weight:700;}
-    .hud-pill{
-      font-size:11px;padding:2px 8px;border-radius:var(--radius-pill);
-      background:rgba(15,118,110,0.2);border:1px solid rgba(45,212,191,0.5);
-      color:#a5f3fc;display:inline-flex;align-items:center;gap:4px;
-    }
-    .hud-metrics{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;}
-    .metric-label{
-      font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-soft);
-    }
-    .metric-value{font-size:15px;font-weight:700;}
-    .metric-value.accent{color:var(--accent);}
-
-    .hud-bottom{
-      display:flex;justify-content:center;align-items:center;
-    }
-    .coach-bubble{
-      min-width:60%;max-width:640px;
-      background:rgba(15,23,42,0.95);
-      border-radius:var(--radius-pill);
-      padding:8px 14px;border:1px solid rgba(52,211,153,0.5);
-      font-size:13px;display:none;align-items:center;gap:8px;
-      pointer-events:auto;
-    }
-    .coach-bubble.show{display:flex;}
-    .coach-label{
-      font-size:11px;text-transform:uppercase;letter-spacing:.16em;
-      color:#6ee7b7;font-weight:600;
-    }
-
-    .end-toast{
-      position:fixed;left:50%;top:18%;transform:translateX(-50%);
-      background:rgba(15,23,42,0.96);
-      padding:12px 16px;border-radius:18px;
-      border:1px solid rgba(250,204,21,0.7);
-      min-width:260px;max-width:380px;font-size:13px;
-      display:none;z-index:652;pointer-events:auto;
-    }
-    .end-toast.show{display:block;}
-    .end-title{font-size:14px;font-weight:700;margin-bottom:4px;}
-    .end-row{display:flex;justify-content:space-between;font-size:12px;margin-top:2px;}
   </style>
 </head>
 <body>
@@ -110,7 +52,7 @@
 
     <!-- กล้อง + cursor ยิงเป้า -->
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera wasd-controls-enabled="false">
+      <a-camera wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
                   raycaster="objects: [data-hha-tgt]"
@@ -121,64 +63,35 @@
       </a-camera>
     </a-entity>
 
-    <!-- แสง+พื้น -->
+    <!-- แสง + พื้น -->
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.7" position="1 2 0.5"></a-entity>
     <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
              material="color: #020617;"></a-plane>
 
-    <!-- ตัวเกม GroupsVR (GameEngine.js register component นี้ไว้แล้ว) -->
+    <!-- ตัวเกม Food Groups VR (ผูกกับ GameEngine ผ่าน component food-groups-game) -->
     <a-entity id="fg-root" food-groups-game></a-entity>
   </a-scene>
 
-  <!-- ===== HUD ===== -->
-  <div class="hud-root">
-    <div class="hud-top">
-      <div class="hud-card" style="flex:1;max-width:360px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-          <div>
-            <div class="hud-main-title">Hero Health • Nutrition VR</div>
-            <div class="hud-main-mode">Food Groups</div>
-          </div>
-          <div class="hud-pill">
-            <span id="hud-diff-label">NORMAL</span>
-            <span>•</span>
-            <span id="hud-time-label">60s</span>
-          </div>
-        </div>
-        <div class="hud-metrics">
-          <div class="metric">
-            <div class="metric-label">คะแนน</div>
-            <div class="metric-value accent" id="hud-score">0</div>
-          </div>
-        </div>
-      </div>
+  <!-- ===== Bridge Fever UI (ui-fever.js เป็น ES module → ผูกเข้า GAME_MODULES) ===== -->
+  <script type="module">
+    import FeverUI, {
+      ensureFeverBar,
+      setFever,
+      setFeverActive,
+      setShield
+    } from './vr/ui-fever.js';
 
-      <div class="hud-card" style="min-width:180px;">
-        <div class="hud-main-title">สรุปกลุ่มอาหาร</div>
-        <div style="font-size:12px;color:var(--text-soft);margin-top:4px;">
-          ยิงกลุ่มอาหารให้ตรงภารกิจที่โค้ชบอกบนจอ
-        </div>
-      </div>
-    </div>
+    window.GAME_MODULES = window.GAME_MODULES || {};
+    window.GAME_MODULES.FeverUI = {
+      ensureFeverBar,
+      setFever,
+      setFeverActive,
+      setShield
+    };
+  </script>
 
-    <div class="hud-bottom">
-      <div class="coach-bubble" id="coach-bubble">
-        <span class="coach-label">โค้ช</span>
-        <span id="coach-text">แตะที่เป้าอาหารตามคำสั่งด้านบน</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- End summary -->
-  <div class="end-toast" id="end-toast">
-    <div class="end-title">สรุปผล • Food Groups VR</div>
-    <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
-    <div class="end-row"><span>ภารกิจสำเร็จ</span><strong id="end-quest">0 / -</strong></div>
-  </div>
-  <!-- Fever UI shared -->
-  <script type="module" src="./vr/ui-fever.js"></script>
-  <!-- ===== Modules (non-module scripts) ===== -->
+  <!-- ===== Groups VR modules (non-module IIFE) ===== -->
   <script src="./vr-groups/emoji-image.js"></script>
   <script src="./vr-groups/difficulty.js"></script>
   <script src="./vr-groups/ui.js"></script>
@@ -197,59 +110,36 @@
       }
 
       const diff = String(getParam('diff','normal')).toLowerCase();
-      let   dur  = parseInt(getParam('time','60'), 10);
-      if (isNaN(dur) || dur <= 0) dur = 60;
-
-      const elScore = document.getElementById('hud-score');
-      const elDiff  = document.getElementById('hud-diff-label');
-      const elTime  = document.getElementById('hud-time-label');
-      const elCoach = document.getElementById('coach-bubble');
-      const elCoachText = document.getElementById('coach-text');
-      const elEndToast  = document.getElementById('end-toast');
-      const elEndScore  = document.getElementById('end-score');
-      const elEndQuest  = document.getElementById('end-quest');
-
-      elDiff.textContent = diff.toUpperCase();
-      elTime.textContent = dur + 's';
-      elScore.textContent = '0';
 
       // ★ init Cloud Logger ของ GroupsVR ให้ตรง endpoint Apps Script
-      if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
-        GAME_MODULES.foodGroupsCloudLogger.init({
+      if (window.GAME_MODULES && window.GAME_MODULES.foodGroupsCloudLogger) {
+        window.GAME_MODULES.foodGroupsCloudLogger.init({
           endpoint: 'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
           projectTag: 'HeroHealth-GroupsVR',
-          debug: true   // ทดสอบเสร็จเปลี่ยนเป็น false ได้
+          debug: false   // ถ้าอยากดู log ก็เปลี่ยนเป็น true ชั่วคราวได้
         });
       } else {
         console.warn('[GroupsVR] foodGroupsCloudLogger not found');
       }
 
-      // ต่อ HUD กับ GameEngine ผ่าน event จาก GameEngine.js
-      window.HHA_FOODGROUPS_LOG = window.HHA_FOODGROUPS_LOG || [];
-
-      // UI setScore เรียกผ่าน ns.foodGroupsUI อยู่แล้ว
-      // ตรงนี้แค่ทำ coach + end summary เพิ่ม
-      window.addEventListener('fg-game-over', function (e) {
-        const d = e.detail || {};
-        elEndScore.textContent = d.score != null ? d.score : 0;
-        if (d.questsCleared != null && d.groupStats) {
-          elEndQuest.textContent = d.questsCleared + ' / ' + (d.questsTotal != null ? d.questsTotal : '-');
+      // ให้โค้ชพูดประโยคแรก (coach.js จะจัดการเปลี่ยนประโยคตาม quest เอง)
+      window.addEventListener('DOMContentLoaded', function () {
+        if (window.GAME_MODULES && window.GAME_MODULES.foodGroupsCoach) {
+          window.GAME_MODULES.foodGroupsCoach.sayStart && window.GAME_MODULES.foodGroupsCoach.sayStart();
         }
-        elEndToast.classList.add('show');
       });
 
-      // ให้โค้ชโชว์ข้อความแรก
-      function setCoach(text){
-        if (!text) return;
-        elCoachText.textContent = text;
-        elCoach.classList.add('show');
-      }
-      setCoach('แตะเป้าอาหารให้ทันเวลานะ!');
-
-      // เริ่มเกมเมื่อ scene โหลดแล้ว → ส่ง event fg-start ให้ component food-groups-game
+      // เริ่มเกมเมื่อ scene โหลด → ส่ง event fg-start ให้ component food-groups-game
       const scene = document.querySelector('a-scene');
       scene.addEventListener('loaded', function () {
         scene.emit('fg-start', { diff: diff });
+      });
+
+      // ตอนจบเกม GameEngine จะ emit fg-game-over → ui.js / logger จัดการสรุปเอง
+      window.addEventListener('fg-game-over', function (e) {
+        const d = e.detail || {};
+        console.log('[GroupsVR] game over', d);
+        // ถ้าต้องการ overlay สรุปเพิ่ม สามารถใช้ข้อมูล d.score, d.questsCleared, d.groupStats ตรงนี้ได้
       });
     })();
   </script>
