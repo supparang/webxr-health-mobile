@@ -14,9 +14,11 @@ import { Difficulty } from './difficulty.js';
 import { emojiImage } from './emoji-image.js';
 import { burstAt, floatScore, setShardMode } from './aframe-particles.js';
 
-// ★ ใหม่: ใช้ Quest Director + defs แทน Quest แบบเก่า
-import { Quest } from './quest-director-goodjunk.js';
-import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
+// ใช้ Quest ตัวเก่า (quest-serial) สำหรับสรุป session
+import { Quest } from './quest-serial.js';
+
+// ใช้ director ใหม่สำหรับอ่าน GOODJUNK_GOALS + GOODJUNK_MINIS
+import { makeQuestDirector } from './quest-director-goodjunk.js';
 
 // ---------- Global ที่ส่วนอื่นใช้ ----------
 window.score        = 0;
