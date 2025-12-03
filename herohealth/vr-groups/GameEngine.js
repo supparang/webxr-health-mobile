@@ -1,233 +1,110 @@
-// === vr-groups/GameEngine.js (2025-12-03 Production Ready) ===
-// Food Groups VR – ระบบยิงเป้า emoji, Quest, Coach, FX, Logging
+'use strict';
 
-(function (ns) {
-  'use strict';
+import { emojiImage } from './emoji-image.js';
+import { FOOD_GROUPS, DIFF_TABLE } from './difficulty.js';
+import { playHitFx, playMissFx } from './fx.js';
+import { GroupsQuestManager } from './quest-manager.js';
 
-  const emojiDB = ns.foodGroupsEmoji;
-  const UI      = ns.foodGroupsUI;
-  const FX      = ns.foodGroupsFX;
-  const Coach   = ns.foodGroupsCoach;
-  const Logger  = ns.foodGroupsCloudLogger;
-  const { QuestManager } = ns.foodGroupsQuest;
+AFRAME.registerComponent('food-groups-game', {
+  schema: {},
 
-  let scene;
-  let root;
-  let activeTargets = [];
-  let running = false;
-  let score = 0;
+  init() {
+    this.running = false;
+    this.targets = [];
+    this.spawnClock = 0;
 
-  let quest;
-  let diff = 'normal';
+    this.diff = 'normal';
 
-  // spawn speed ตามระดับความยาก
-  const DIFF_TABLE = {
-    easy:   { spawnInterval: 1200, speed: 0.005 },
-    normal: { spawnInterval: 900,  speed: 0.0065 },
-    hard:   { spawnInterval: 700,  speed: 0.008 }
-  };
+    // Quest system
+    this.quest = new GroupsQuestManager();
 
-  // ------------------------------------------------------------
-  // สร้างเป้า emoji
-  // ------------------------------------------------------------
-  function createTarget(emojiItem) {
-    const id = 'tgt-' + Math.random().toString(36).substr(2, 8);
+    // Listen for fg-start from HTML
+    this.el.sceneEl.addEventListener('fg-start', e => {
+      this.startGame(e.detail.diff || 'normal');
+    });
+  },
+
+  startGame(diff) {
+    this.diff = diff;
+    const cfg = DIFF_TABLE[diff] || DIFF_TABLE.normal;
+    this.cfg = cfg;
+
+    this.running = true;
+    this.spawnClock = 0;
+
+    this.quest.start(diff);
+
+    console.log('[GroupsVR] Game Start', diff);
+  },
+
+  tick(time, dt) {
+    if (!this.running) return;
+
+    // spawn
+    this.spawnClock += dt;
+    if (this.spawnClock >= this.cfg.SPAWN_INTERVAL) {
+      this.spawnClock = 0;
+      this.spawnTarget();
+    }
+
+    // update + clean
+    this.updateTargets(dt);
+  },
+
+  spawnTarget() {
+    const item = FOOD_GROUPS[Math.floor(Math.random() * FOOD_GROUPS.length)];
+
+    const y = 1.3;
+    const x = (Math.random() * 1.6) - 0.8;
+    const z = -2.2;
 
     const el = document.createElement('a-entity');
-    el.setAttribute('id', id);
     el.setAttribute('data-hha-tgt', '1');
-    el.setAttribute('position', randPos());
+    el.setAttribute('position', { x, y, z });
+    el.setAttribute('scale', '0.8 0.8 0.8');
 
-    // emoji → 3D billboard texture
-    el.setAttribute('text', {
-      value: emojiItem.emoji,
-      align: 'center',
-      width: 2.2,
-      color: '#FFF'
-    });
+    const url = emojiImage(item.emoji);
+    el.setAttribute('material', { src: url, transparent: true });
+    el.setAttribute('geometry', { primitive: 'plane', height: 0.6, width: 0.6 });
 
-    el.dataset.group = emojiGroup(emojiItem.group);
-    el.dataset.emoji = emojiItem.emoji;
-    el.dataset.good  = emojiItem.isGood ? '1' : '0';
+    el.addEventListener('click', () => this.onHit(el, item));
 
-    root.appendChild(el);
+    this.el.sceneEl.appendChild(el);
 
-    return {
-      id,
+    this.targets.push({
       el,
-      group: el.dataset.group,
-      emoji: emojiItem.emoji,
-      good: emojiItem.isGood,
-      y: 1.6,
-      speed: DIFF_TABLE[diff].speed
-    };
-  }
-
-  function emojiGroup(groupId) {
-    const map = {
-      1: 'grain',
-      2: 'veg',
-      3: 'fruit',
-      4: 'protein',
-      5: 'dairy',
-      9: 'junk'
-    };
-    return map[groupId] || 'unknown';
-  }
-
-  function randPos() {
-    const x = (Math.random() * 6 - 3).toFixed(2);
-    const z = (Math.random() * -4 - 2).toFixed(2);
-    return `${x} 1.6 ${z}`;
-  }
-
-  // ------------------------------------------------------------
-  // ยิงโดน
-  // ------------------------------------------------------------
-  function onHit(tgt, hitPos) {
-    score += tgt.good ? 10 : -5;
-
-    UI.setScore(score);
-    FX.burst(hitPos, tgt.emoji, tgt.good);
-    Coach.sayHit(tgt.good);
-
-    // อัปเดต progress quest
-    quest.onHit(tgt.group);
-
-    Logger.sendHit({
-      groupId: tgt.group,
-      emoji: tgt.emoji,
-      isGood: tgt.good,
-      pos: hitPos
+      ttl: this.cfg.ITEM_LIFETIME
     });
-  }
+  },
 
-  // ------------------------------------------------------------
-  // พลาด (ยิงไม่โดน)
-  // ------------------------------------------------------------
-  function onMiss() {
-    Coach.sayMiss();
-    Logger.sendMiss();
-  }
+  updateTargets(dt) {
+    for (let i = this.targets.length - 1; i >= 0; i--) {
+      const t = this.targets[i];
+      t.ttl -= dt;
 
-  // ------------------------------------------------------------
-  // อัปเดตตำแหน่งเป้า
-  // ------------------------------------------------------------
-  function updateTargets(dt) {
-    const out = [];
-
-    for (const tgt of activeTargets) {
-      tgt.y -= tgt.speed * dt;
-      tgt.el.setAttribute('position', `0 ${tgt.y} -3`);
-
-      if (tgt.y < 0.3) {
-        tgt.el.remove();
-      } else {
-        out.push(tgt);
+      if (t.ttl <= 0) {
+        playMissFx(t.el.object3D.position);
+        t.el.remove();
+        this.targets.splice(i, 1);
       }
     }
-    activeTargets = out;
-  }
+  },
 
-  // ------------------------------------------------------------
-  // Loop
-  // ------------------------------------------------------------
-  let last = 0;
-  function tick(t) {
-    if (!running) return;
-    if (!last) last = t;
-    const dt = t - last;
-    last = t;
+  onHit(el, item) {
+    playHitFx(el.object3D.position);
 
-    updateTargets(dt);
+    const ok = this.quest.check(item.group, item.name);
 
-    requestAnimationFrame(tick);
-  }
+    window.dispatchEvent(new CustomEvent('fg-score', {
+      detail: { score: this.quest.score }
+    }));
 
-  // ------------------------------------------------------------
-  // spawn เป้าใหม่
-  // ------------------------------------------------------------
-  function spawnLoop() {
-    if (!running) return;
-
-    const item = emojiDB.pickRandomGroup();
-    const tgt = createTarget(item);
-    activeTargets.push(tgt);
-
-    setTimeout(spawnLoop, DIFF_TABLE[diff].spawnInterval);
-  }
-
-  // ------------------------------------------------------------
-  // เริ่มเกม
-  // ------------------------------------------------------------
-  function start(d='normal') {
-    diff = d;
-    running = true;
-    score = 0;
-    UI.setScore(0);
-
-    quest = new QuestManager(diff);
-    quest.start();
-
-    Logger.startSession(diff);
-
-    spawnLoop();
-    tick(0);
-  }
-
-  // ------------------------------------------------------------
-  // หยุดเกม
-  // ------------------------------------------------------------
-  function stop() {
-    running = false;
-
-    activeTargets.forEach(t => t.el.remove());
-    activeTargets = [];
-
-    Logger.endSession({ score, questsCleared: quest.currentGoal });
-
-    UI.showEnd(score, quest.currentGoal, quest.goals.length);
-  }
-
-  // ------------------------------------------------------------
-  // A-Frame component
-  // ------------------------------------------------------------
-  AFRAME.registerComponent('food-groups-game', {
-    init() {
-      scene = this.el.sceneEl;
-      root  = this.el;
-
-      // คลิกยิงเป้า
-      scene.addEventListener('click', e => {
-        const ray = scene.components.raycaster || null;
-        if (!ray || !ray.intersections || ray.intersections.length === 0) {
-          onMiss();
-          return;
-        }
-
-        const obj = ray.intersections[0].object.el;
-        if (!obj || !obj.dataset || !obj.dataset.hhaTgt) {
-          onMiss();
-          return;
-        }
-
-        const tgt = activeTargets.find(t => t.el === obj);
-        if (!tgt) return;
-
-        const pos = ray.intersections[0].point || { x:0,y:0,z:0 };
-        onHit(tgt, pos);
-
-        obj.remove();
-        activeTargets = activeTargets.filter(t => t.el !== obj);
-      });
-
-      // เริ่มเกมเมื่อ engine พร้อม
-      scene.addEventListener('fg-start', e => {
-        start(e.detail?.diff || 'normal');
-      });
+    if (ok) {
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail: { text: `🎯 ${item.name}` }
+      }));
     }
-  });
 
-  ns.FoodGroupsEngine = { start, stop };
-
-})(window.GAME_MODULES || (window.GAME_MODULES = {}));
+    el.remove();
+  }
+});
