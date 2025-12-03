@@ -2,6 +2,7 @@
 // Quest Director สำหรับ Good vs Junk VR
 // - อ่านนิยามจาก GOODJUNK_GOALS / GOODJUNK_MINIS
 // - สุ่มเลือก Goals 2 อัน + Mini 3 อัน ตามระดับความยาก
+// - บังคับให้ quest แบบ missMax อยู่ "ท้ายสุด" ของลำดับ
 // - ยิง event "quest:update" ให้ HUD ใน goodjunk-vr.html ใช้ได้ทันที
 
 'use strict';
@@ -49,7 +50,36 @@ function makeInstance(def, tier) {
   };
 }
 
-// --------- Quest Director object (compatible กับ GameEngine) ---------
+// เลือก goals โดยบังคับ missMax ให้ไปอยู่ท้าย
+function pickGoalsWithMissLast(defs, tier, maxCount) {
+  const nonMiss = defs.filter(d => d.kind !== 'missMax');
+  const miss    = defs.filter(d => d.kind === 'missMax');
+
+  const pickedNonMiss = pickRandom(nonMiss, maxCount);
+  const remaining = maxCount - pickedNonMiss.length;
+  const pickedMiss = remaining > 0 ? pickRandom(miss, remaining) : [];
+
+  // non-miss มาก่อน miss เสมอ
+  return pickedNonMiss
+    .map(def => makeInstance(def, tier))
+    .concat(pickedMiss.map(def => makeInstance(def, tier)));
+}
+
+// เลือก minis โดยบังคับ missMax ให้ไปอยู่ท้าย
+function pickMinisWithMissLast(defs, tier, maxCount) {
+  const nonMiss = defs.filter(d => d.kind !== 'missMax');
+  const miss    = defs.filter(d => d.kind === 'missMax');
+
+  const pickedNonMiss = pickRandom(nonMiss, maxCount);
+  const remaining = maxCount - pickedNonMiss.length;
+  const pickedMiss = remaining > 0 ? pickRandom(miss, remaining) : [];
+
+  return pickedNonMiss
+    .map(def => makeInstance(def, tier))
+    .concat(pickedMiss.map(def => makeInstance(def, tier)));
+}
+
+// --------- Quest Director object (ใช้ร่วมกับ GameEngine) ---------
 export const Quest = {
   _state: null,
 
@@ -64,13 +94,11 @@ export const Quest = {
     }
     const tier = tierKey(diff);
 
-    // สุ่ม 2 goals + 3 mini จากตาราง
-    const goalsPicked = pickRandom(GOODJUNK_GOALS, 2).map(def =>
-      makeInstance(def, tier)
-    );
-    const minisPicked = pickRandom(GOODJUNK_MINIS, 3).map(def =>
-      makeInstance(def, tier)
-    );
+    // ✅ เลือก Goals 2 อัน โดย missMax จะไปอยู่ท้ายเสมอ
+    const goalsPicked = pickGoalsWithMissLast(GOODJUNK_GOALS, tier, 2);
+
+    // ✅ เลือก Mini quests 3 อัน โดย missMax ไปอยู่ท้ายเหมือนกัน
+    const minisPicked = pickMinisWithMissLast(GOODJUNK_MINIS, tier, 3);
 
     this._state = {
       diff,
@@ -87,19 +115,20 @@ export const Quest = {
       minis: minisPicked
     };
 
-    // ค่าให้ HUD รู้ว่า มีทั้งหมดกี่อัน (ใช้ตอนสรุปผลได้)
+    // ค่าให้ HUD รู้ว่า มีทั้งหมดกี่อัน (ใช้ตอนสรุปผล)
     window.hhaGoalsTotal = goalsPicked.length;
     window.hhaGoalsDone  = 0;
     window.hhaMiniTotal  = minisPicked.length;
     window.hhaMiniDone   = 0;
 
+    this._recalc();
     this._emitUpdate();
   },
 
   stop() {
-    // mark ว่าจบเกมแล้ว → ใช้ตัดสิน missMax
     if (!this._state) return;
-    this._state.finished = true;
+    this._state.finished = true; // จบเกมแล้ว → ใช้ตัดสิน missMax
+
     this._recalc();      // คำนวณ done/fail รอบสุดท้าย
     this._emitUpdate();  // ส่ง snapshot ท้ายเกมอีกครั้ง
   },
@@ -165,10 +194,10 @@ export const Quest = {
         inst.prog = comboMax;
         inst.done = inst.prog >= inst.target;
       } else if (kind === 'missMax') {
-        // ✅ แสดงเป็น "แตะของขยะไปแล้วกี่ครั้ง / โควตา"
+        // แสดงว่าแตะของขยะไปแล้วกี่ครั้ง / quota
         inst.prog = Math.min(inst.target, junkHits);
 
-        // ✅ ผ่านเควสต์ได้ก็ตอน "จบเกมแล้ว" และ junkHits ≤ target
+        // ✅ ผ่านเควสต์ตอน "จบเกมแล้ว" และ junkHits ≤ target เท่านั้น
         if (finished) {
           inst.done = junkHits <= inst.target;
         } else {
@@ -195,7 +224,7 @@ export const Quest = {
     const goals = st.goals || [];
     const minis = st.minis || [];
 
-    // เลือก "ตัวปัจจุบัน" = อันแรกที่ยังไม่ done ถ้ามี
+    // เลือก "ตัวปัจจุบัน" = อันแรกในลำดับที่ยังไม่ done
     const curGoal = goals.find(g => !g.done) || goals[0] || null;
     const curMini = minis.find(m => !m.done) || minis[0] || null;
 
@@ -247,14 +276,12 @@ export const Quest = {
   },
 
   _buildHint(st) {
-    const parts = [];
-    parts.push(`คะแนน: ${st.score}|0`.replace('|0','')); // กัน undefined
+    const sc  = st.score | 0;
+    const gd  = st.goodHits | 0;
+    const jk  = st.junkHits | 0;
+    const cmb = st.bestCombo | 0;
 
-    parts.push(`อาหารดี: ${st.goodHits|0} ชิ้น`);
-    parts.push(`ขยะ: ${st.junkHits|0} ชิ้น`);
-    parts.push(`คอมโบสูงสุด: ${st.bestCombo|0}`);
-
-    return parts.join(' • ');
+    return `คะแนน: ${sc} • อาหารดี: ${gd} ชิ้น • ขยะ: ${jk} ชิ้น • คอมโบสูงสุด: ${cmb}`;
   },
 
   // ใช้ตอน GameEngine.finishSession เรียกสรุป
