@@ -1,279 +1,223 @@
 // vr-groups/coach.js
-// โค้ชโภชนาการสำหรับเกม Food Groups VR
-// - พูดตามระดับความยาก (easy / normal / hard)
-// - แสดงภารกิจ + progress
-// - ลอยอยู่ด้านล่างจอ (ไม่ทับ hint / ปุ่ม VR)
-
+// โค้ชโภชนาการ — พูดแตกต่างกันตามระดับความยาก + react ตอนยิงโดน/พลาด
 (function (ns) {
   'use strict';
 
-  let coachWrap   = null;
-  let coachText   = null;
-  let coachBadge  = null;
-  let hideTimer   = null;
+  let bubbleEl = null;
+  let nameEl   = null;
+  let textEl   = null;
+  let faceEl   = null;
+
   let currentDiff = 'normal';
+  let lastHitTs   = 0;
+  let lastMissTs  = 0;
 
-  // ---------- DOM สร้าง bubble โค้ช ----------
   function ensureDom() {
-    if (coachWrap) return;
+    if (bubbleEl) return;
+    bubbleEl = document.getElementById('fgCoachBubble');
+    nameEl   = document.getElementById('fgCoachName');
+    textEl   = document.getElementById('fgCoachText');
+    faceEl   = document.getElementById('fgCoachFace');
 
-    coachWrap = document.createElement('div');
-    coachWrap.id = 'fg-coach';
-    coachWrap.style.position = 'fixed';
-    coachWrap.style.left = '50%';
-
-    // ยกโค้ชให้สูงขึ้น ไม่ชน hint / ปุ่ม VR ด้านล่าง
-    const isMobile = window.innerWidth <= 768;
-    coachWrap.style.bottom = isMobile ? '150px' : '110px';
-
-    coachWrap.style.transform = 'translateX(-50%)';
-    coachWrap.style.zIndex = '12000';
-    coachWrap.style.pointerEvents = 'none';
-    coachWrap.style.maxWidth = '520px';
-    coachWrap.style.padding = '0 12px';
-    coachWrap.style.boxSizing = 'border-box';
-
-    const inner = document.createElement('div');
-    inner.style.display = 'flex';
-    inner.style.alignItems = 'center';
-    inner.style.gap = '10px';
-    inner.style.padding = '8px 14px';
-    inner.style.borderRadius = '999px';
-    inner.style.background = 'rgba(15,23,42,0.90)';
-    inner.style.boxShadow = '0 12px 32px rgba(15,23,42,0.85)';
-    inner.style.color = '#e5e7eb';
-    inner.style.fontFamily = "'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif";
-    inner.style.fontSize = '13px';
-    inner.style.lineHeight = '1.35';
-    inner.style.opacity = '0';
-    inner.style.transform = 'translateY(10px)';
-    inner.style.transition = 'opacity .18s ease, transform .18s ease';
-    inner.style.pointerEvents = 'auto';
-
-    const avatar = document.createElement('div');
-    avatar.textContent = '🧑‍🍳';
-    avatar.style.width = '32px';
-    avatar.style.height = '32px';
-    avatar.style.flex = '0 0 32px';
-    avatar.style.display = 'flex';
-    avatar.style.alignItems = 'center';
-    avatar.style.justifyContent = 'center';
-    avatar.style.borderRadius = '999px';
-    avatar.style.background = 'radial-gradient(circle at 30% 20%, #f97316, #b91c1c)';
-    avatar.style.fontSize = '20px';
-
-    const textBox = document.createElement('div');
-    textBox.style.display = 'flex';
-    textBox.style.flexDirection = 'column';
-    textBox.style.gap = '2px';
-
-    coachBadge = document.createElement('div');
-    coachBadge.style.fontSize = '11px';
-    coachBadge.style.opacity = '0.85';
-
-    coachText = document.createElement('div');
-    coachText.style.fontSize = '13px';
-
-    textBox.appendChild(coachBadge);
-    textBox.appendChild(coachText);
-    inner.appendChild(avatar);
-    inner.appendChild(textBox);
-    coachWrap.appendChild(inner);
-    document.body.appendChild(coachWrap);
-
-    coachWrap._inner = inner;
-
-    // ปรับตำแหน่งใหม่เวลาหมุนจอ / resize
-    window.addEventListener('resize', () => {
-      const mobile = window.innerWidth <= 768;
-      coachWrap.style.bottom = mobile ? '150px' : '110px';
-    });
-
-    updateBadge();
-  }
-
-  // ---------- helper: ปรับ badge ตามระดับความยาก ----------
-  function updateBadge() {
-    if (!coachBadge) return;
-    let label = 'โค้ชโภชนาการ';
-
-    switch ((currentDiff || 'normal').toLowerCase()) {
-      case 'easy':
-        label = 'โค้ชโภชนาการ (โหมดชิล ๆ)';
-        break;
-      case 'hard':
-        label = 'โค้ชโภชนาการ (โหมดยาก ⚡)';
-        break;
-      default:
-        label = 'โค้ชโภชนาการ';
+    if (bubbleEl) {
+      bubbleEl.style.display       = 'flex';
+      bubbleEl.style.pointerEvents = 'none'; // กันไม่ให้บังการคลิก
     }
-    coachBadge.textContent = label;
   }
 
-  // ---------- public: setDifficulty ----------
-  function setDifficulty(diff) {
-    currentDiff = diff || 'normal';
-    if (!coachWrap) return; // ไว้ถูกอัปเดตตอน ensureDom
-    updateBadge();
-  }
-
-  // ---------- helper: แสดงข้อความ ----------
-  function show(text, opts = {}) {
+  function showBubble(msg, opts) {
     ensureDom();
-    if (!coachWrap || !coachText || !coachWrap._inner) return;
+    if (!bubbleEl || !textEl) return;
 
-    if (hideTimer) {
-      clearTimeout(hideTimer);
-      hideTimer = null;
+    opts = opts || {};
+
+    if (nameEl && opts.name) {
+      nameEl.textContent = opts.name;
+    } else if (nameEl && !nameEl.textContent) {
+      nameEl.textContent = 'โค้ชผักบุ้ง';
     }
 
-    coachText.textContent = text;
-    updateBadge();
+    if (faceEl && opts.face) {
+      faceEl.textContent = opts.face;
+    } else if (faceEl && !faceEl.textContent) {
+      faceEl.textContent = '🥦';
+    }
 
-    // fade in
-    const inner = coachWrap._inner;
-    inner.style.opacity = '1';
-    inner.style.transform = 'translateY(0)';
+    textEl.textContent = msg;
+    bubbleEl.style.opacity = '1';
+    bubbleEl.classList.remove('fg-coach-pop');
+    // force reflow
+    void bubbleEl.offsetWidth;
+    bubbleEl.classList.add('fg-coach-pop');
 
-    const duration = opts.duration || 3500;
-    if (duration > 0) {
-      hideTimer = setTimeout(hide, duration);
+    const ttl = typeof opts.ttl === 'number' ? opts.ttl : 2600;
+    if (ttl > 0) {
+      setTimeout(() => {
+        if (!bubbleEl) return;
+        bubbleEl.style.opacity = '0.0';
+      }, ttl);
     }
   }
 
-  function hide() {
-    if (!coachWrap || !coachWrap._inner) return;
-    const inner = coachWrap._inner;
-    inner.style.opacity = '0';
-    inner.style.transform = 'translateY(10px)';
+  function diffLabel(diff) {
+    switch ((diff || '').toLowerCase()) {
+      case 'easy':   return 'ง่าย';
+      case 'hard':   return 'ยาก';
+      case 'normal':
+      default:       return 'ปกติ';
+    }
   }
 
-  // ---------- public: เริ่มเกม ----------
-  function sayStart() {
-    let msg = 'พร้อมยัง? มายิงอาหารดี ๆ กัน! 💚';
+  const Coach = {
+    setDifficulty(diff) {
+      currentDiff = diff || 'normal';
+      showBubble(`วันนี้เราเล่นระดับ “${diffLabel(currentDiff)}” นะ ลองจัดจานให้สมดุลให้ได้เยอะที่สุด 🎯`, {
+        face: '🧑‍🍳',
+        ttl: 3500
+      });
+    },
 
-    switch ((currentDiff || 'normal').toLowerCase()) {
-      case 'easy':
-        msg = 'เริ่มโหมดชิล ๆ กันก่อนนะ เก็บอาหารดีให้ครบทุกหมู่แบบสบาย ๆ 💚';
-        break;
-      case 'hard':
-        msg = 'โหมดยากแล้วนะ! เล็งให้ไว ยิงให้แม่น เก็บอาหารดีให้ครบทุกหมู่เลย ⚡';
-        break;
-      default:
-        msg = 'เริ่มกันเลย! เล็งอาหารดี ๆ ให้ตรงวงแหวนแล้วยิงให้ไว 💚';
-    }
-
-    show(msg, { duration: 4200 });
-  }
-
-  // ---------- public: ตอนเปลี่ยนภารกิจ / progress ----------
-  function onQuestChange(payload) {
-    ensureDom();
-    if (!payload) return;
-
-    const { current, progress, justFinished, finished, status } = payload;
-
-    // ถ้าเพิ่งเคลียร์ภารกิจหนึ่งเสร็จ
-    if (justFinished && finished) {
-      const title =
-        finished.title || finished.label || finished.name || 'ภารกิจอาหารดีสำเร็จแล้ว';
-      const emoji = finished.emoji || finished.icon || '✨';
-
-      let done = null;
-      let total = null;
-
-      if (typeof progress === 'object' && progress) {
-        if (typeof progress.done === 'number') done = progress.done;
-        if (typeof progress.total === 'number') total = progress.total;
-      }
-
-      let msg = `${emoji} เยี่ยมมาก! ${title} สำเร็จแล้ว!`;
-
-      if (done != null && total != null) {
-        msg += ` (ทำได้ ${done}/${total})`;
-      }
-
-      show(msg, { duration: 4500 });
-      return;
-    }
-
-    // ถ้าไม่มีภารกิจเลย
-    if (!current) {
-      const total = status && typeof status.total === 'number' ? status.total : null;
-      if (total === 0) {
-        show('ตอนนี้ยังไม่มีภารกิจใหม่ ลองยิงอาหารดี ๆ เก็บคะแนนไปก่อนนะ 💚', {
-          duration: 3600
+    sayStart() {
+      if (currentDiff === 'easy') {
+        showBubble('เริ่มเลย! โค้ชจะคอยช่วยบอกหมู่อาหารให้นะ เล็งช้า ๆ ก็ได้ 🤝', {
+          face: '😊',
+          ttl: 3200
+        });
+      } else if (currentDiff === 'hard') {
+        showBubble('โหมดท้าทาย! ยิงให้ไว เลือกให้ถูกหมู่ ใครไวกว่าได้คะแนนเยอะ 🏅', {
+          face: '😎',
+          ttl: 3200
         });
       } else {
-        hide();
+        showBubble('มาเล่นจัดหมู่อาหารให้ครบ 5 หมู่กันนะ เล็งดี ๆ แล้วกดยิงเลย ✨', {
+          face: '🥦',
+          ttl: 3200
+        });
       }
-      return;
-    }
+    },
 
-    // มีภารกิจปัจจุบัน → สร้างข้อความ
-    const emoji = current.emoji || current.icon || '🥦';
-    const title =
-      current.title ||
-      current.label ||
-      current.name ||
-      'ภารกิจสะสมอาหารดีแต่ละหมู่';
-    const need =
-      current.targetCount ||
-      current.goalCount ||
-      current.count ||
-      current.need ||
-      null;
+    sayFinish(summary) {
+      summary = summary || {};
+      const score   = summary.score   || 0;
+      const cleared = summary.questsCleared || 0;
+      const total   = summary.questsTotal != null ? summary.questsTotal : null;
 
-    let done = null;
-    let total = null;
-
-    if (typeof progress === 'object' && progress) {
-      if (typeof progress.done === 'number') done = progress.done;
-      if (typeof progress.total === 'number') total = progress.total;
-    }
-
-    if (done == null && need != null) {
-      done = Math.min(current.hitCount || 0, need);
-      total = need;
-    }
-
-    let body = `${emoji} ภารกิจ: ${title}`;
-    if (done != null && total != null && total > 0) {
-      body += ` — ตอนนี้ได้ ${done}/${total} แล้ว สู้ต่ออีกนิดนะ! ✨`;
-    } else {
-      body += ' — เล็งอาหารให้ตรงหมู่ แล้วเก็บให้ได้หลาย ๆ ครั้ง! ✨';
-    }
-
-    show(body, { duration: 4200 });
-  }
-
-  // ---------- public: พูดทั่วไป (fallback เก่า) ----------
-  function sayQuest(quest, progress) {
-    // ใช้โครงสร้างเดียวกับ onQuestChange แบบง่าย ๆ
-    onQuestChange({ current: quest, progress, justFinished: false, finished: null });
-  }
-
-  // ---------- public: จบเกม ----------
-  function sayFinish(summary) {
-    let msg = 'จบเกมแล้ว! มาดูกันว่ารอบนี้เก็บอาหารดีได้เยอะแค่ไหน ✨';
-
-    if (summary && typeof summary.questsCleared === 'number') {
-      if (summary.questsCleared > 0) {
-        msg = `สุดยอด! คุณทำภารกิจสำเร็จไป ${summary.questsCleared} ภารกิจเลย 🎉`;
+      let msg;
+      if (total != null && cleared >= total && total > 0) {
+        msg = `สุดยอดเลย! เคลียร์ภารกิจครบ ${cleared}/${total} ภารกิจ ได้ ${score} คะแนน 🎉`;
+      } else if (score > 120) {
+        msg = `เยี่ยมมาก! คะแนน ${score} แล้ว ลองรอบหน้าท้าทายระดับที่ยากขึ้นดูไหม 😄`;
       } else {
-        msg = 'รอบนี้ยังไม่จบภารกิจ ลองเล่นอีกครั้งให้ได้ครบทุกหมู่ดูนะ 💪';
+        msg = `จบเกมแล้ว ได้ ${score} คะแนน รอบหน้าลองโฟกัสผัก-ผลไม้ให้มากขึ้นนะ 🌱`;
+      }
+
+      showBubble(msg, {
+        face: '👏',
+        ttl: 4000
+      });
+    },
+
+    // ใช้กรณี fallback ถ้าไม่ได้ใช้ onQuestChange
+    sayQuest(quest, progress) {
+      if (!quest) return;
+      const pct = Math.round((progress || 0) * 100);
+      let label = quest.title || quest.label || 'ภารกิจหมู่อาหาร';
+      showBubble(`${label} คืบหน้า ${pct}% แล้ว สู้ต่ออีกหน่อย! 💪`, {
+        face: '🥕'
+      });
+    },
+
+    onQuestChange(info) {
+      if (!info) return;
+      const { current, justFinished, finished, status } = info;
+
+      if (justFinished && finished) {
+        const label = finished.title || finished.label || 'ภารกิจ';
+        showBubble(`เยี่ยม! ทำ “${label}” สำเร็จแล้ว 🎉`, {
+          face: '🎯',
+          ttl: 3200
+        });
+        return;
+      }
+
+      if (current && (!status || status.index % 2 === 0)) {
+        const label = current.title || current.label || 'ภารกิจถัดไป';
+        showBubble(`ต่อไปลองโฟกัส “${label}” ให้มากขึ้นนะ 🥗`, {
+          face: '🥗',
+          ttl: 2600
+        });
+      }
+    },
+
+    onHit(hit) {
+      const now = Date.now();
+      // กันโค้ชพูดถี่เกินไป
+      if (now - lastHitTs < 600) return;
+      lastHitTs = now;
+
+      if (!hit) return;
+      const { isGood, isQuestTarget, judgment, emoji } = hit;
+
+      let msg = null;
+      let face = '🥦';
+
+      if (isGood) {
+        if (judgment === 'perfect') {
+          msg = `ยิงไวมาก! ${emoji} แบบนี้แหละจานสุขภาพสุดปัง ✨`;
+          face = '🤩';
+        } else if (judgment === 'good') {
+          msg = `ยอดเยี่ยม เลือกอาหารดีได้อีกหนึ่งอย่างแล้วนะ ${emoji} 👍`;
+          face = '😄';
+        } else if (judgment === 'late') {
+          msg = `เกือบไม่ทันแล้ว แต่ก็ยิงโดน ${emoji} ทันเวลาเลย 😌`;
+          face = '🙂';
+        } else {
+          msg = `ยิงโดนแล้ว! ค่อย ๆ มองให้รอบก่อนกดยิงก็ได้ ${emoji}`;
+          face = '😊';
+        }
+
+        if (isQuestTarget) {
+          msg += ' (เป้าหมายภารกิจด้วย เยี่ยมมาก!)';
+        }
+      } else {
+        // ยิงโดนอาหารควรลด
+        msg = `อุ๊ย นั่นเป็นอาหารควรลดนะ ${emoji} รอบหน้าลองเล็งผัก-ผลไม้แทน 🥗`;
+        face = '😅';
+      }
+
+      showBubble(msg, {
+        face,
+        ttl: 2200
+      });
+    },
+
+    onMiss(miss) {
+      const now = Date.now();
+      if (now - lastMissTs < 900) return;
+      lastMissTs = now;
+
+      const isGood = miss && miss.isGood;
+
+      if (currentDiff === 'easy') {
+        showBubble('ไม่เป็นไร ลองหายใจลึก ๆ แล้วเล็งใหม่อีกทีนะ 😊', {
+          face: '🙂',
+          ttl: 2000
+        });
+      } else {
+        if (isGood) {
+          showBubble('ปล่อยของดีหลุดไปหนึ่ง 😢 รอบหน้าโฟกัสที่หมู่อาหารให้มากขึ้นนะ', {
+            face: '😥',
+            ttl: 2400
+          });
+        } else {
+          showBubble('พลาดไปนิดเดียวเอง ลองมองให้ชัดก่อนกดยิงอีกครั้งนะ 💪', {
+            face: '😌',
+            ttl: 2200
+          });
+        }
       }
     }
-
-    show(msg, { duration: 5000 });
-  }
-
-  // ---------- export ----------
-  ns.foodGroupsCoach = {
-    setDifficulty,
-    sayStart,
-    sayQuest,
-    onQuestChange,
-    sayFinish
   };
+
+  ns.foodGroupsCoach = Coach;
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
