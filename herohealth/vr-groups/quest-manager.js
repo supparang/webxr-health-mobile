@@ -1,206 +1,201 @@
 // === vr-groups/quest-manager.js (2025-12-03 Production Ready) ===
-// ระบบ Goal + Mini Quest สำหรับ Food Groups VR
-// เลือกตามระดับเกม (easy/normal/hard) และสุ่มไม่ซ้ำรอบเดียว
+// ระบบ Goal / Mini Quest สำหรับ Food Groups VR
+// เลือกตามระดับ diff และส่ง event 'quest:update', 'quest:done'
 
 (function (ns) {
   'use strict';
 
-  // -----------------------------------------------------
-  // 1) Goal pools (10 แบบ)
-  // -----------------------------------------------------
+  // ------------------------------------------------------------
+  // GOAL POOL
+  // ------------------------------------------------------------
   const GOALS = {
     easy: [
-      { id: 'g1', label: 'หมู่ 1 (ข้าว-แป้ง) ให้ครบ 3', group: 1, target: 3 },
-      { id: 'g2', label: 'หมู่ 2 (ผัก) ให้ครบ 3',        group: 2, target: 3 },
-      { id: 'g3', label: 'หมู่ 3 (ผลไม้) ให้ครบ 3',     group: 3, target: 3 },
-      { id: 'g4', label: 'หมู่ 4 (โปรตีน) ให้ครบ 3',    group: 4, target: 3 },
-      { id: 'g5', label: 'หมู่ 5 (นม) ให้ครบ 3',         group: 5, target: 3 }
+      { id: 'veg-3',  label: 'ผัก 3 ชิ้น', group: 'veg',   target: 3 },
+      { id: 'fruit-2',label: 'ผลไม้ 2 ชิ้น', group: 'fruit', target: 2 },
+      { id: 'grain-2',label: 'ธัญพืช 2 ชิ้น', group: 'grain', target: 2 }
     ],
+
     normal: [
-      { id: 'g6', label: 'หมู่ 1 ให้ครบ 5', group: 1, target: 5 },
-      { id: 'g7', label: 'หมู่ 2 ให้ครบ 5', group: 2, target: 5 },
-      { id: 'g8', label: 'หมู่ 3 ให้ครบ 5', group: 3, target: 5 },
-      { id: 'g9', label: 'หมู่ 4 ให้ครบ 5', group: 4, target: 5 },
-      { id: 'g10', label: 'หมู่ 5 ให้ครบ 5', group: 5, target: 5 }
+      { id: 'protein-3', label: 'โปรตีน 3 ชิ้น', group: 'protein', target: 3 },
+      { id: 'dairy-2',   label: 'นม/โยเกิร์ต 2 ชิ้น', group: 'dairy', target: 2 },
+      { id: 'mix-4',     label: 'อาหารรวม 4 ชิ้น', group: 'mix', target: 4 }
     ],
+
     hard: [
-      { id: 'g11', label: 'โปรตีน + ผัก รวม 6', groups: [2,4], target: 6 },
-      { id: 'g12', label: 'ผลไม้ + ธัญพืช รวม 6', groups: [1,3], target: 6 },
-      { id: 'g13', label: 'หมู่ดีให้ครบ 8', groups: [1,2,3,4,5], target: 8 },
-      { id: 'g14', label: 'โปรตีนอย่างเดียว 7', group: 4, target: 7 },
-      { id: 'g15', label: 'นม + ผัก รวม 7', groups: [2,5], target: 7 }
+      { id: 'veg-fruit-5', label: 'ผัก+ผลไม้รวม 5 ชิ้น', group: ['veg','fruit'], target: 5 },
+      { id: 'grain-protein-5', label: 'ธัญพืช+โปรตีน 5 ชิ้น', group: ['grain','protein'], target: 5 },
+      { id: 'rainbow-6', label: 'กินครบ 5 หมู่รวม 6 ชิ้น', group: ['veg','fruit','grain','protein','dairy'], target: 6 }
     ]
   };
 
-  // -----------------------------------------------------
-  // 2) Mini Quest pools (15 แบบ)
-  // -----------------------------------------------------
-  const MINI = {
+  // ------------------------------------------------------------
+  // MINI QUEST POOL (15 แบบ)
+  // ------------------------------------------------------------
+  const MINIS = {
     easy: [
-      { id: 'm1',  label: 'ผลไม้ 2',          group: 3, target: 2 },
-      { id: 'm2',  label: 'ผัก 2',            group: 2, target: 2 },
-      { id: 'm3',  label: 'เลี่ยง Junk 5 วิ', type: 'avoid', duration: 5000 }
+      { id: 'mini-veg-1',   label: 'ผัก 1 ชิ้น', group: 'veg', target: 1 },
+      { id: 'mini-fruit-1', label: 'ผลไม้ 1 ชิ้น', group: 'fruit', target: 1 },
+      { id: 'mini-grain-1', label: 'ธัญพืช 1 ชิ้น', group: 'grain', target: 1 },
+      { id: 'mini-protein-1', label: 'โปรตีน 1 ชิ้น', group: 'protein', target: 1 },
+      { id: 'mini-dairy-1', label: 'นม/โยเกิร์ต 1 ชิ้น', group: 'dairy', target: 1 }
     ],
+
     normal: [
-      { id: 'm4',  label: 'โปรตีน 3',         group: 4, target: 3 },
-      { id: 'm5',  label: 'ผลไม้ 3',          group: 3, target: 3 },
-      { id: 'm6',  label: 'ของดีรวม 4',       groups: [1,2,3,4,5], target: 4 },
-      { id: 'm7',  label: 'เลี่ยง Junk 7 วิ', type: 'avoid', duration: 7000 }
+      { id: 'mini-veg-2', label: 'ผัก 2 ชิ้น', group: 'veg', target: 2 },
+      { id: 'mini-fruit-2', label: 'ผลไม้ 2 ชิ้น', group: 'fruit', target: 2 },
+      { id: 'mini-mix-3', label: 'อาหารรวม 3 ชิ้น', group: 'mix', target: 3 },
+      { id: 'mini-dairy-2', label: 'นม/โยเกิร์ต 2 ชิ้น', group: 'dairy', target: 2 },
+      { id: 'mini-protein-2', label: 'โปรตีน 2 ชิ้น', group: 'protein', target: 2 }
     ],
+
     hard: [
-      { id: 'm8',  label: 'ผัก + โปรตีน รวม 5', groups: [2,4], target: 5 },
-      { id: 'm9',  label: 'ผลไม้ + นม รวม 5',   groups: [3,5], target: 5 },
-      { id: 'm10', label: 'ของดีรวม 6',         groups: [1,2,3,4,5], target: 6 },
-      { id: 'm11', label: 'เลี่ยง Junk 10 วิ',  type: 'avoid', duration: 10000 },
-      { id: 'm12', label: 'โปรตีน 4',           group: 4, target: 4 }
+      { id: 'mini-veg-fruit-3', label: 'ผัก+ผลไม้รวม 3 ชิ้น', group: ['veg','fruit'], target: 3 },
+      { id: 'mini-protein-grain-3', label: 'โปรตีน+ธัญพืชรวม 3 ชิ้น', group: ['protein','grain'], target: 3 },
+      { id: 'mini-5mix', label: 'ครบ 5 หมู่ 5 ชิ้น', group: ['veg','fruit','grain','protein','dairy'], target: 5 },
+      { id: 'mini-fast-3', label: 'เร็ว! ยิงถูก 3 ครั้งติด', group: 'any', target: 3, type: 'combo' },
+      { id: 'mini-accuracy-4', label: 'ความแม่นยำ 4 ครั้งติด', group: 'any', target: 4, type: 'hitOnly' }
     ]
   };
 
-  // -----------------------------------------------------
-  // Utility
-  // -----------------------------------------------------
-  function pickOne(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
+  // ------------------------------------------------------------
+  // ระบบสุ่ม Quest ตามระดับ diff
+  // ------------------------------------------------------------
+  function pickRandom(list, n) {
+    const copy = list.slice();
+    const out = [];
+    while (copy.length && out.length < n) {
+      const i = Math.floor(Math.random()*copy.length);
+      out.push(copy.splice(i,1)[0]);
+    }
+    return out;
   }
 
-  // -----------------------------------------------------
+  // ------------------------------------------------------------
   // QuestManager class
-  // -----------------------------------------------------
+  // ------------------------------------------------------------
   class QuestManager {
-    constructor(diff = 'normal') {
+    constructor(diff='normal') {
       this.diff = diff;
+      this.goals = pickRandom(GOALS[diff], 2);      // ★ เลือก 2 goal
+      this.minis = pickRandom(MINIS[diff], 3);      // ★ เลือก 3 mini quest
 
-      // เลือก goal 1 อัน + mini 1 อัน
-      this.goal = JSON.parse(JSON.stringify(pickOne(GOALS[diff])));
-      this.mini = JSON.parse(JSON.stringify(pickOne(MINI[diff])));
+      this.currentGoal = 0;
+      this.currentMini = 0;
 
-      this.goal.progress = 0;
-      this.mini.progress = 0;
+      this.activeGoal = null;
+      this.activeMini = null;
 
-      // สำหรับ mini quest แบบ avoid junk
-      this.avoidActive = false;
-      this.avoidTimer = null;
-
-      this.dispatchUpdate();
+      // progress
+      this.goalProg = 0;
+      this.miniProg = 0;
     }
 
-    // ---------------------------------------------------
-    // ส่งข้อมูลไป HUD
-    // ---------------------------------------------------
-    dispatchUpdate() {
+    // ------------------------------------------------------------
+    // เริ่ม Quest ชุดแรก
+    // ------------------------------------------------------------
+    start() {
+      this.activeGoal = this.goals[this.currentGoal];
+      this.activeMini = this.minis[this.currentMini];
+      this.goalProg = 0;
+      this.miniProg = 0;
+
+      this.broadcastUpdate();
+      this.broadcastCoach(`🎯 ภารกิจ: ${this.activeGoal.label}`);
+    }
+
+    // ------------------------------------------------------------
+    // เมื่อยิงโดนเป้า → เช็คว่าตรงกลุ่มไหม
+    // ------------------------------------------------------------
+    onHit(groupId) {
+      // ----- MAIN GOAL -----
+      if (this.activeGoal) {
+        if (this.matchGroup(this.activeGoal.group, groupId)) {
+          this.goalProg++;
+          if (this.goalProg >= this.activeGoal.target) {
+            this.finishGoal();
+          }
+        }
+      }
+
+      // ----- MINI QUEST -----
+      if (this.activeMini) {
+        if (this.matchGroup(this.activeMini.group, groupId)) {
+          this.miniProg++;
+          if (this.miniProg >= this.activeMini.target) {
+            this.finishMini();
+          }
+        }
+      }
+
+      this.broadcastUpdate();
+    }
+
+    // กลุ่มตรงกันไหม (รองรับ array และ string)
+    matchGroup(goalGroup, hitGroup) {
+      if (!goalGroup) return false;
+      if (Array.isArray(goalGroup)) return goalGroup.includes(hitGroup);
+      return goalGroup === hitGroup || goalGroup === 'any';
+    }
+
+    // ------------------------------------------------------------
+    // จบ Goal หนึ่งอัน
+    // ------------------------------------------------------------
+    finishGoal() {
+      this.broadcastCoach(`🎉 ภารกิจสำเร็จ: ${this.activeGoal.label}`);
+      this.currentGoal++;
+
+      if (this.currentGoal >= this.goals.length) {
+        this.activeGoal = null; // หมดแล้ว
+        this.broadcastCoach(`🏆 ภารกิจหลักครบทั้งหมดแล้ว!`);
+      } else {
+        this.activeGoal = this.goals[this.currentGoal];
+        this.goalProg = 0;
+        this.broadcastCoach(`🎯 ภารกิจต่อไป: ${this.activeGoal.label}`);
+      }
+    }
+
+    // ------------------------------------------------------------
+    // จบ Mini Quest หนึ่งอัน
+    // ------------------------------------------------------------
+    finishMini() {
+      this.broadcastCoach(`✨ Mini Quest สำเร็จ: ${this.activeMini.label}`);
+      this.currentMini++;
+
+      if (this.currentMini >= this.minis.length) {
+        this.activeMini = null;
+      } else {
+        this.activeMini = this.minis[this.currentMini];
+        this.miniProg = 0;
+      }
+    }
+
+    // ------------------------------------------------------------
+    // ส่งข้อมูลให้ HUD
+    // ------------------------------------------------------------
+    broadcastUpdate() {
       window.dispatchEvent(new CustomEvent('quest:update', {
         detail: {
-          goal: {
-            label: this.goal.label,
-            prog: this.goal.progress,
-            target: this.goal.target
-          },
-          mini: {
-            label: this.mini.label,
-            prog: this.mini.progress,
-            target: this.mini.target || null,
-            type: this.mini.type || 'collect'
-          }
+          goal: this.activeGoal
+            ? { label: this.activeGoal.label, prog: this.goalProg, target: this.activeGoal.target }
+            : null,
+
+          mini: this.activeMini
+            ? { label: this.activeMini.label, prog: this.miniProg, target: this.activeMini.target }
+            : null
         }
       }));
     }
 
-    // ---------------------------------------------------
-    // ให้ GameEngine แจ้งว่า player ยิงโดนอาหาร
-    // ---------------------------------------------------
-    onHit(ev) {
-      const g = ev.groupId;
-      const isGood = ev.isGood;
-
-      // ----- Goal แบบ group เดี่ยว -----
-      if (this.goal.group && g === this.goal.group) {
-        this.goal.progress++;
-      }
-
-      // ----- Goal แบบหลายกลุ่ม -----
-      if (this.goal.groups && this.goal.groups.includes(g)) {
-        this.goal.progress++;
-      }
-
-      // ----- Mini collect -----
-      if (!this.mini.type || this.mini.type === 'collect') {
-        if (this.mini.group && g === this.mini.group) {
-          this.mini.progress++;
-        }
-        if (this.mini.groups && this.mini.groups.includes(g)) {
-          this.mini.progress++;
-        }
-      }
-
-      // ----- Mini avoid -----
-      if (this.mini.type === 'avoid') {
-        if (!isGood) {
-          // โดน junk = ล้มเหลว → reset timer
-          this.startAvoidMode(this.mini.duration);
-        }
-      }
-
-      this.checkClear();
-      this.dispatchUpdate();
-    }
-
-    // ---------------------------------------------------
-    // Mini quest แบบ Avoid (เลี่ยง Junk)
-    // ---------------------------------------------------
-    startAvoidMode(duration) {
-      this.mini.progress = 0;
-      this.avoidActive = true;
-
-      if (this.avoidTimer) clearTimeout(this.avoidTimer);
-
-      this.avoidTimer = setTimeout(() => {
-        this.mini.progress = this.mini.target || 1;
-        this.checkClear();
-        this.dispatchUpdate();
-      }, duration);
-    }
-
-    // ---------------------------------------------------
-    // ตรวจว่า goal / mini ผ่านหรือยัง
-    // ---------------------------------------------------
-    checkClear() {
-      if (!this.goal.cleared && this.goal.progress >= this.goal.target) {
-        this.goal.cleared = true;
-        window.dispatchEvent(new CustomEvent('quest:clear-goal', {
-          detail: { goal: this.goal }
-        }));
-      }
-
-      if (!this.mini.cleared &&
-          (!this.mini.type || this.mini.type === 'collect') &&
-          this.mini.progress >= this.mini.target) {
-        this.mini.cleared = true;
-        window.dispatchEvent(new CustomEvent('quest:clear-mini', {
-          detail: { mini: this.mini }
-        }));
-      }
-
-      if (!this.mini.cleared && this.mini.type === 'avoid') {
-        if (this.mini.progress >= (this.mini.target || 1)) {
-          this.mini.cleared = true;
-          window.dispatchEvent(new CustomEvent('quest:clear-mini', {
-            detail: { mini: this.mini }
-          }));
-        }
-      }
-    }
-
-    // ---------------------------------------------------
-    // ส่งสรุปให้ GameEngine บันทึกลง session
-    // ---------------------------------------------------
-    exportSummary() {
-      return {
-        goal: this.goal,
-        mini: this.mini
-      };
+    broadcastCoach(text) {
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail: { text }
+      }));
     }
   }
 
-  ns.FoodGroupsQuestManager = QuestManager;
+  // export
+  ns.foodGroupsQuest = {
+    QuestManager
+  };
 
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
