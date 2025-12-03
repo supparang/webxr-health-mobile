@@ -1,124 +1,344 @@
-// vr-groups/coach.js — Safe-Area + Mobile Friendly
+// vr-groups/coach.js
+// โค้ชอาหาร 5 หมู่ — มี bubble ล่างจอ + คำพูดต่างกันตามระดับความยาก
 (function (ns) {
   'use strict';
 
-  let rootEl = null;
-  let lineMain = null;
-  let lineSub = null;
+  // ---------- สร้าง DOM โค้ช ----------
+  let coachWrap, coachText, coachBadge;
 
   function ensureDom() {
-    if (rootEl) return;
+    if (coachWrap) return;
 
-    rootEl = document.createElement('div');
-    rootEl.id = 'fgCoach';
+    coachWrap = document.createElement('div');
+    coachWrap.id = 'fg-coach';
+    coachWrap.style.position = 'fixed';
+    coachWrap.style.left = '50%';
+    coachWrap.style.bottom = '68px';
+    coachWrap.style.transform = 'translateX(-50%)';
+    coachWrap.style.zIndex = '12000';
+    coachWrap.style.pointerEvents = 'none';
+    coachWrap.style.maxWidth = '520px';
+    coachWrap.style.padding = '0 12px';
+    coachWrap.style.boxSizing = 'border-box';
 
-    Object.assign(rootEl.style, {
-      position: 'fixed',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: '9500',
-      maxWidth: '92vw',
-      background: 'rgba(15,23,42,0.88)',
-      borderRadius: '999px',
-      border: '1px solid rgba(148,163,184,0.65)',
-      boxShadow: '0 12px 30px rgba(15,23,42,0.8)',
-      padding: '8px 18px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      pointerEvents: 'none',
-      fontFamily: "'IBM Plex Sans Thai', system-ui",
-      color: '#e5e7eb',
+    const inner = document.createElement('div');
+    inner.style.display = 'flex';
+    inner.style.alignItems = 'center';
+    inner.style.gap = '10px';
+    inner.style.padding = '8px 14px';
+    inner.style.borderRadius = '999px';
+    inner.style.background = 'rgba(15,23,42,0.90)';
+    inner.style.boxShadow = '0 12px 32px rgba(15,23,42,0.85)';
+    inner.style.color = '#e5e7eb';
+    inner.style.fontFamily = "'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif";
+    inner.style.fontSize = '13px';
+    inner.style.lineHeight = '1.35';
+    inner.style.opacity = '0';
+    inner.style.transform = 'translateY(10px)';
+    inner.style.transition = 'opacity .18s ease, transform .18s ease';
+    inner.style.pointerEvents = 'auto';
 
-      /** 🔥 กันโดนบัง โดยใช้พื้นที่ปลอดภัยของ iOS + buffer 24px */
-      bottom: 'calc(env(safe-area-inset-bottom, 16px) + 24px)'
-    });
-
-    // avatar
-    const avatar = document.createElement('span');
-    avatar.textContent = '🥦';
+    // avatar โค้ช
+    const avatar = document.createElement('div');
+    avatar.textContent = '🧑‍🍳';
+    avatar.style.width = '32px';
+    avatar.style.height = '32px';
+    avatar.style.flex = '0 0 32px';
+    avatar.style.display = 'flex';
+    avatar.style.alignItems = 'center';
+    avatar.style.justifyContent = 'center';
+    avatar.style.borderRadius = '999px';
+    avatar.style.background = 'radial-gradient(circle at 30% 20%, #f97316, #b91c1c)';
     avatar.style.fontSize = '20px';
 
-    const wrap = document.createElement('div');
-    wrap.style.display = 'flex';
-    wrap.style.flexDirection = 'column';
+    const textBox = document.createElement('div');
+    textBox.style.display = 'flex';
+    textBox.style.flexDirection = 'column';
+    textBox.style.gap = '2px';
 
-    lineMain = document.createElement('div');
-    lineMain.style.fontWeight = '600';
-    lineMain.style.fontSize = '14px';
+    coachBadge = document.createElement('div');
+    coachBadge.textContent = 'โค้ชโภชนาการ';
+    coachBadge.style.fontSize = '11px';
+    coachBadge.style.opacity = '0.85';
 
-    lineSub = document.createElement('div');
-    lineSub.style.fontSize = '12px';
-    lineSub.style.opacity = '0.9';
+    coachText = document.createElement('div');
+    coachText.textContent = 'พร้อมยัง? มายิงอาหารดี ๆ กัน! 💚';
+    coachText.style.fontSize = '13px';
 
-    wrap.appendChild(lineMain);
-    wrap.appendChild(lineSub);
-    rootEl.appendChild(avatar);
-    rootEl.appendChild(wrap);
+    textBox.appendChild(coachBadge);
+    textBox.appendChild(coachText);
 
-    document.body.appendChild(rootEl);
+    inner.appendChild(avatar);
+    inner.appendChild(textBox);
+    coachWrap.appendChild(inner);
+    document.body.appendChild(coachWrap);
 
-    // 📱 Mobile optimization
-    const mq = window.matchMedia("(max-width: 600px)");
-    if (mq.matches) {
-      lineMain.style.fontSize = '13px';
-      lineSub.style.fontSize = '11px';
-      rootEl.style.padding = '6px 14px';
-    }
+    coachWrap._inner = inner;
   }
 
-  function setCoach(main, sub) {
+  // ---------- state ----------
+  let currentDiff   = 'normal';
+  let lastSpeakAt   = 0;
+  const MIN_INTERVAL_MS = 1200;   // เว้นระยะไม่ให้พูดถี่เกินไป
+  let hideTimer     = null;
+
+  function diffLabel(diff) {
+    if (diff === 'easy')   return 'โหมดง่าย';
+    if (diff === 'hard')   return 'โหมดท้าทาย';
+    return 'โหมดปกติ';
+  }
+
+  function speak(text, opts = {}) {
     ensureDom();
-    if (main != null) lineMain.textContent = main;
-    if (sub  != null) lineSub.textContent  = sub;
-  }
+    const now = Date.now();
+    const force = !!opts.force;
 
-  // โค้ชพูดตอนเริ่มเกม
-  function sayStart() {
-    setCoach(
-      'วันนี้มาลองเลือกอาหารดี ๆ ให้ครบทุกหมู่กันนะ 💚',
-      'เล็ง emoji อาหารแล้วกดยิง เป้าภารกิจจะมีวงแหวนทอง ✨'
-    );
-  }
+    if (!force && now - lastSpeakAt < MIN_INTERVAL_MS) return;
+    lastSpeakAt = now;
 
-  // โค้ชพูดตอนจบเกม
-  function sayFinish(info) {
-    let main = 'เยี่ยมมาก! เล่นจบรอบแล้ว 🎉';
-    let sub  = 'ลองเล่นอีกครั้งเพื่อเก็บคะแนนให้สูงขึ้นนะ!';
+    coachText.textContent = text || '';
 
-    if (info?.questsTotal) {
-      main = `ทำภารกิจสำเร็จแล้ว ${info.questsCleared}/${info.questsTotal} ภารกิจ 🎉`;
-      sub  = 'เก็บภารกิจให้ครบทุกหมู่ได้เลย ✨';
-    }
-    setCoach(main, sub);
-  }
-
-  // ตอนมีภารกิจใหม่ / ความคืบหน้า
-  function sayQuest(quest, progress) {
-    if (!quest) return;
-    const need = quest.need || 5;
-    const em   = quest.emoji || '🍎';
-
-    setCoach(
-      `ภารกิจ: เก็บ ${em} ให้ครบ ${need} ครั้ง!`,
-      `ตอนนี้ได้ ${progress}/${need} แล้ว สู้ต่ออีกนิดนะ ✨`
-    );
-  }
-
-  // ตัวจัดการกลาง
-  function onQuestChange(p) {
-    if (p.justFinished && p.finished) {
-      setCoach(
-        `ภารกิจสำเร็จ! ${p.finished.emoji || '✨'} 🎉`,
-        'โค้ชจะส่งภารกิจถัดไปให้นะ!'
-      );
-    } else if (p.current) {
-      sayQuest(p.current, p.progress);
+    if (opts.badge) {
+      coachBadge.textContent = opts.badge;
     } else {
-      setCoach('ทำภารกิจของรอบนี้ครบแล้ว 💚', 'ลองเก็บคะแนนรวมให้สูงขึ้นนะ!');
+      coachBadge.textContent = 'โค้ชโภชนาการ';
     }
+
+    const inner = coachWrap._inner;
+    inner.style.opacity = '1';
+    inner.style.transform = 'translateY(0)';
+
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+    const timeout = opts.sticky ? 4500 : 2600;
+    hideTimer = setTimeout(() => {
+      inner.style.opacity = '0';
+      inner.style.transform = 'translateY(10px)';
+    }, timeout);
   }
 
-  ns.foodGroupsCoach = { sayStart, sayFinish, sayQuest, onQuestChange };
+  // ---------- ตารางคำพูดตามความยาก ----------
+  const MSG = {
+    start: {
+      easy: [
+        'โหมดง่ายเริ่มแล้ว ลองเล็งให้ตรงเป้า ช้า ๆ แต่แม่น ๆ นะ 💚',
+        'เริ่มซ้อมก่อนสบาย ๆ เลือกอาหารดีให้ได้เยอะที่สุดเลย! 🥦'
+      ],
+      normal: [
+        'โหมดปกติ มาเช็คว่าจำหมู่ 1–5 ได้แค่ไหนกัน! 💪',
+        'พร้อมมั้ย? เล็งดี ๆ แล้วลุยเก็บคอมโบไปเลย 🎯'
+      ],
+      hard: [
+        'โหมดท้าทาย! ยิงให้เร็วและแม่น ระวังอย่าพลาดบ่อยนะ 🔥',
+        'ระดับยากแล้วนะ ลองโฟกัสหมู่ที่โค้ชสั่งให้เป๊ะ ๆ เลย 💥'
+      ]
+    },
+    hitGood: {
+      easy: [
+        'ดีมาก! เก็บอาหารดีได้อีกหนึ่งแล้ว 💚',
+        'เยี่ยมเลย ยิงโดนเป้าพอดี! 🎯'
+      ],
+      normal: [
+        'สวยครับ! คอมโบเริ่มมาแล้วนะ 💪',
+        'เป๊ะมาก! รักษาจังหวะไว้แบบนี้แหละ 🥦'
+      ],
+      hard: [
+        'แจ่มเลย! แบบนี้แหละโหมดท้าทาย 🔥',
+        'เป้าตรงเป๊ะ เก็บคะแนนต่อเนื่องไปเลย! 💥'
+      ]
+    },
+    hitQuest: {
+      easy: [
+        'ภารกิจโดนอีกหนึ่ง! ใกล้ครบแล้วนะ 😊',
+        'สุดยอด! ยิงตามที่โค้ชสั่งได้ตรงเป้าเลย 💚'
+      ],
+      normal: [
+        'ภารกิจคืบหน้าอีกก้าวนึงแล้วดีมาก! 📊',
+        'ยิงโดนตาม mission เป๊ะ ๆ เลย เก็บต่อไป! 🎯'
+      ],
+      hard: [
+        'ภารกิจระดับยากยังทำได้ สมกับเป็นสายโหด! 🔥',
+        'โดนเป้าภารกิจอีกอัน เก็บให้ครบให้ได้เลย! 💥'
+      ]
+    },
+    miss: {
+      easy: [
+        'พลาดนิดเดียว ไม่เป็นไร ลองเล็งใหม่นะ 😊',
+        'เกือบแล้ว! ขยับเล็งอีกนิดเดียวเอง 💚'
+      ],
+      normal: [
+        'พลาดไปหน่อย ลองจับจังหวะใหม่อีกที 💡',
+        'ไม่เป็นไร โฟกัสใหม่แล้วยิงต่อเลย 💪'
+      ],
+      hard: [
+        'โหมดท้าทาย พลาดนิดเดียวก็มีผลนะ โฟกัสใหม่! 🔥',
+        'พลาดไป แต่ยังกลับมาได้ เก็บคอมโบกลับมาเลย 💥'
+      ]
+    },
+    questNew: {
+      easy: 'ภารกิจใหม่! เล็งหมู่ %s ให้ครบตามที่โค้ชบอกนะ 💚',
+      normal: 'Mission ใหม่: เน้นหมู่ %s ให้ครบตามจำนวนที่กำหนด 📌',
+      hard: 'ภารกิจโหมดโหด: ยิงหมู่ %s ให้ครบตามเป้าหมายให้ได้! 🔥'
+    },
+    questProgress: {
+      easy: 'หมู่ %s ทำได้ %d จาก %d แล้ว เก่งมาก! 💚',
+      normal: 'หมู่ %s คืบหน้า %d / %d เป้าแล้ว สู้ต่อ! 💪',
+      hard: 'หมู่ %s ตอนนี้ %d / %d แล้ว อย่าปล่อยให้หลุดมือ! 🔥'
+    },
+    questDone: {
+      easy: 'เย้! ภารกิจหมู่ %s สำเร็จเรียบร้อยแล้ว 🎉',
+      normal: 'Mission หมู่ %s จบสวยงาม ไปภารกิจถัดไปกัน! 🚀',
+      hard: 'ภารกิจหมู่ %s ผ่านแบบสายโหด! พร้อมลุยด่านต่อไป 💥'
+    },
+    finish: {
+      veryGood: {
+        easy: [
+          'ทำได้ดีมากเลย คะแนนสวย ภารกิจผ่านไปหลายอันสุด ๆ 💚',
+          'สุดยอด! เลือกอาหารดีได้เยอะมาก ภาพรวมคือดีงามเลย 🎉'
+        ],
+        normal: [
+          'ทำได้ดี คะแนนและภารกิจถือว่าใช้ได้เลย 👍',
+          'จบเกมสวย! เอาไปใช้เทียบก่อน–หลังการสอนได้เลย 💪'
+        ],
+        hard: [
+          'โหมดท้าทายแล้วยังทำได้ดีมาก สมกับเป็นโปร! 🔥',
+          'คะแนนสวย ภารกิจผ่านหลายอันในโหมดยาก ดีมาก! 💥'
+        ]
+      },
+      ok: {
+        easy: [
+          'พื้นฐานดีแล้ว ลองเล่นอีกสักรอบ คะแนนน่าจะดีกว่านี้ 💚',
+          'โอเคเลย รอบหน้าโฟกัสให้ตรงเป้าขึ้นอีกหน่อยนะ 😊'
+        ],
+        normal: [
+          'ถือว่าใช้ได้ มีพื้นที่ให้พัฒนาอีก ลองรอบใหม่ได้เลย 💡',
+          'คะแนนกลาง ๆ รอบหน้าลองเล็งเร็วขึ้นอีกนิดนะ 💪'
+        ],
+        hard: [
+          'โหมดยากไม่ธรรมดา ลองอีกสักรอบ รับรองคะแนนดีขึ้น 🔥',
+          'รอดมาได้ในโหมดท้าทาย ถือว่าเก่งแล้ว ลองปรับจังหวะรอบต่อไป 💥'
+        ]
+      },
+      needPractice: {
+        easy: [
+          'ไม่เป็นไร รอบนี้ถือเป็นการซ้อม ลองเล่นใหม่อีกครั้งนะ 💚',
+          'ยังจับจังหวะได้ไม่มาก ลองโหมดง่ายอีกรอบก่อนก็ได้ 😊'
+        ],
+        normal: [
+          'ดูเหมือนจะพลาดเยอะไปหน่อย ลองโฟกัสที่หมู่ที่โค้ชสั่งก่อน 💡',
+          'คะแนนยังไม่สูง ลองค่อย ๆ เล็งทีละเป้า รอบหน้าต้องดีกว่านี้แน่ 💪'
+        ],
+        hard: [
+          'โหมดท้าทายจริง ๆ รอบนี้หนัก ลองสลับไปโหมดปกติซ้อมก่อนก็ได้นะ 🔥',
+          'ภารกิจยังไม่ผ่านเยอะ ลองคุมจังหวะให้แม่นกว่านี้ในรอบหน้า 💥'
+        ]
+      }
+    }
+  };
 
+  function randFrom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  // ---------- public API ----------
+  const Coach = {
+    setDifficulty(diff) {
+      currentDiff = (diff === 'easy' || diff === 'hard') ? diff : 'normal';
+    },
+
+    sayStart() {
+      const lines = MSG.start[currentDiff] || MSG.start.normal;
+      speak(randFrom(lines), { badge: diffLabel(currentDiff), force: true });
+    },
+
+    onQuestChange(payload) {
+      if (!payload) return;
+      const { current, progress, justFinished, status } = payload || {};
+      const total   = status && typeof status.total === 'number' ? status.total : null;
+      const currentIndex = status && typeof status.currentIndex === 'number'
+        ? status.currentIndex
+        : null;
+
+      // ภารกิจที่เพิ่งจบ
+      if (justFinished && current) {
+        const groupLabel = current.label || ('หมู่ ' + (current.groupId || '?'));
+        const tpl = MSG.questDone[currentDiff] || MSG.questDone.normal;
+        const line = tpl.replace('%s', groupLabel);
+        speak(line, { badge: 'ภารกิจสำเร็จ 🎉' });
+        return;
+      }
+
+      // mission ใหม่
+      if (current && progress === 0 && currentIndex === 0) {
+        const groupLabel = current.label || ('หมู่ ' + (current.groupId || '?'));
+        const tpl = MSG.questNew[currentDiff] || MSG.questNew.normal;
+        const line = tpl.replace('%s', groupLabel);
+        speak(line, { badge: 'ภารกิจใหม่ 📌', sticky: true });
+        return;
+      }
+
+      // อัปเดต progress ทั่วไป
+      if (current && typeof progress === 'number' && status && typeof status.target === 'number') {
+        const groupLabel = current.label || ('หมู่ ' + (current.groupId || '?'));
+        const tpl = MSG.questProgress[currentDiff] || MSG.questProgress.normal;
+        const line = tpl.replace('%s', groupLabel).replace('%d', progress).replace('%d', status.target);
+        speak(line, { badge: 'ความคืบหน้าภารกิจ 📊' });
+      }
+    },
+
+    onHit(info) {
+      if (!info) return;
+      const { isQuestTarget } = info;
+
+      // ถ้าโดนเป้าภารกิจ
+      if (isQuestTarget) {
+        const lines = MSG.hitQuest[currentDiff] || MSG.hitQuest.normal;
+        speak(randFrom(lines), { badge: 'โดนเป้าภารกิจ 🎯' });
+        return;
+      }
+
+      // ยิงโดนทั่วไป
+      const lines = MSG.hitGood[currentDiff] || MSG.hitGood.normal;
+      speak(randFrom(lines), { badge: 'ยิงโดนเป้า ✅' });
+    },
+
+    onMiss(info) {
+      const lines = MSG.miss[currentDiff] || MSG.miss.normal;
+      speak(randFrom(lines), { badge: 'พลาดนิดหน่อย 😅' });
+    },
+
+    sayFinish(summary) {
+      summary = summary || {};
+      const score         = summary.score || 0;
+      const diff          = summary.diff || currentDiff;
+      const questsCleared = summary.questsCleared || 0;
+      const questsTotal   = summary.questsTotal || 0;
+
+      currentDiff = (diff === 'easy' || diff === 'hard') ? diff : 'normal';
+
+      let levelKey = 'ok';
+
+      // ใช้สัดส่วนภารกิจเป็นเกณฑ์คร่าว ๆ
+      let questRatio = 0;
+      if (questsTotal > 0) {
+        questRatio = questsCleared / questsTotal;
+      }
+
+      if (questRatio >= 0.7 || score >= 800) {
+        levelKey = 'veryGood';
+      } else if (questRatio <= 0.3 && score < 400) {
+        levelKey = 'needPractice';
+      }
+
+      const bundle = MSG.finish[levelKey] || MSG.finish.ok;
+      const lines  = bundle[currentDiff] || bundle.normal;
+      const text   = randFrom(lines);
+
+      speak(text, { badge: 'สรุปหลังเล่น 🧾', sticky: true, force: true });
+    }
+  };
+
+  ns.foodGroupsCoach = Coach;
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
