@@ -1,132 +1,179 @@
 // === /herohealth/vr-groups/quest-manager.js ===
-// ระบบ Quest สำหรับ Food Groups VR
-// ใช้ชื่อ: GAME_MODULES.FoodGroupsQuestManager
+// Food Groups VR — Quest Manager (2025-12-04)
+// แยก Goal / MiniQuest ตามระดับความยาก และสุ่มให้ตรงระดับ 100%
 
-(function (ns) {
-  'use strict';
+'use strict';
 
-  // -------------------------
-  // ชุดเควสต์ตัวอย่าง
-  // ใช้ groupId จาก emoji-image.js
-  // -------------------------
-  const DEFAULT_QUESTS = [
-    {
-      id: 'veg10',
-      label: 'เก็บผักให้ครบ 10 ครั้ง',
-      groupId: 2,       // ผัก
-      target: 10
-    },
-    {
-      id: 'fruit8',
-      label: 'เก็บผลไม้ให้ครบ 8 ครั้ง',
-      groupId: 3,       // ผลไม้
-      target: 8
-    },
-    {
-      id: 'protein6',
-      label: 'เก็บโปรตีนดีให้ครบ 6 ครั้ง',
-      groupId: 4,       // โปรตีน
-      target: 6
-    },
-    {
-      id: 'milk5',
-      label: 'เลือกนม / โยเกิร์ตให้ครบ 5 ครั้ง',
-      groupId: 5,       // นม
-      target: 5
+window.GAME_MODULES = window.GAME_MODULES || {};
+const ns = window.GAME_MODULES;
+
+export class QuestManager {
+  constructor(diff = 'normal') {
+    this.diff = diff;
+    this.goals = [];
+    this.minis = [];
+    this.activeGoals = [];
+    this.activeMinis = [];
+    this.progress = {
+      goals: {},
+      minis: {}
+    };
+  }
+
+  // -----------------------------
+  // 1) Quest Pools
+  // -----------------------------
+  getGoalPool() {
+    return {
+      easy: [
+        { id: 'E1', label: 'เก็บผักให้ครบ 5 ชิ้น 🥬', need: 5, type: 'veg' },
+        { id: 'E2', label: 'เลือกผลไม้ดี ๆ ให้ครบ 5 ชิ้น 🍎🍉', need: 5, type: 'fruit' },
+        { id: 'E3', label: 'เพิ่มพลังงานด้วยธัญพืช 6 ชิ้น 🌽🍞', need: 6, type: 'grain' }
+      ],
+      normal: [
+        { id: 'N1', label: 'เก็บผักให้ครบ 10 ชิ้น 🥦', need: 10, type: 'veg' },
+        { id: 'N2', label: 'ผลไม้ดี 8 ชิ้น 🍊🍇', need: 8, type: 'fruit' },
+        { id: 'N3', label: 'โปรตีนดี 6 ชิ้น 🥚🫘🐟', need: 6, type: 'protein' },
+        { id: 'N4', label: 'เลือกแต่อาหารดี 15 ชิ้น 💚', need: 15, type: 'good' },
+        { id: 'N5', label: 'อาหาร 3 หมู่ หมู่ละ 3 ชิ้น', need: 9, type: 'multi3' }
+      ],
+      hard: [
+        { id: 'H1', label: 'เก็บอาหารดี 20 ชิ้นใน 25 วิ ⚡', need: 20, type: 'good-fast' },
+        { id: 'H2', label: 'คอมโบอาหารดีติดกัน 5 ครั้ง 🔥', need: 5, type: 'good-combo' },
+        { id: 'H3', label: 'ทำภารกิจหมู่ให้สำเร็จ 3 ด่าน 🎯', need: 3, type: 'multi-phase' }
+      ]
+    };
+  }
+
+  getMiniPool() {
+    return {
+      easy: [
+        { id: 'ME1', label: 'ผักติดกัน 2 ครั้ง', need: 2, type: 'veg-chain' },
+        { id: 'ME2', label: 'ผลไม้รวม 3 ชิ้น 🍓🍉', need: 3, type: 'fruit' },
+        { id: 'ME3', label: 'หลีกเลี่ยง Junk ให้ได้ 3 วิ ⏳', need: 3, type: 'avoid-junk' }
+      ],
+      normal: [
+        { id: 'MN1', label: 'โปรตีนดี 3 ชิ้น 🥚🫘', need: 3, type: 'protein' },
+        { id: 'MN2', label: 'สลับหมู่ 3 ครั้ง', need: 3, type: 'switch-group' },
+        { id: 'MN3', label: 'อาหารดีติดกัน 4 ครั้ง 🔥', need: 4, type: 'good-chain' },
+        { id: 'MN4', label: 'ผัก+ผลไม้รวม 6 ชิ้น', need: 6, type: 'plant-mix' }
+      ],
+      hard: [
+        { id: 'MH1', label: 'เก็บอาหารดี 8 ชิ้นห้ามพลาด', need: 8, type: 'good-perfect' },
+        { id: 'MH2', label: 'สลับซ้าย-ขวา 6 ครั้ง ↔️', need: 6, type: 'switch-lr' },
+        { id: 'MH3', label: 'ยิงเป้าตรงกลาง 5 ครั้ง 🎯', need: 5, type: 'mid-hit' },
+        { id: 'MH4', label: 'ยิงตามหมู่ที่โค้ชสั่ง 4 ครั้ง', need: 4, type: 'coach-call' }
+      ]
+    };
+  }
+
+  // -----------------------------
+  // Helper: random pick
+  // -----------------------------
+  pick(pool, count) {
+    const arr = [...pool];
+    const chosen = [];
+    for (let i = 0; i < count && arr.length > 0; i++) {
+      const idx = Math.floor(Math.random() * arr.length);
+      chosen.push(arr[idx]);
+      arr.splice(idx, 1);
     }
-  ];
-
-  function cloneQuest(q) {
-    return {
-      id: q.id,
-      label: q.label,
-      groupId: q.groupId,
-      target: q.target,
-      prog: 0,
-      cleared: false
-    };
+    return chosen;
   }
 
-  /**
-   * @param {Function} onChangeCb
-   *   ฟังก์ชันเรียกกลับเวลา quest เปลี่ยน
-   *   (quest, progress, justFinished, finishedQuest)
-   */
-  function FoodGroupsQuestManager(onChangeCb) {
-    this.onChangeCb = typeof onChangeCb === 'function' ? onChangeCb : null;
+  // -----------------------------
+  // Init quests ตามระดับ
+  // -----------------------------
+  init() {
+    const goalPool = this.getGoalPool();
+    const miniPool = this.getMiniPool();
 
-    this.quests = DEFAULT_QUESTS.map(cloneQuest);
-    this.currentIndex = 0;
-    this.bonusPerHit = 2;  // โบนัสคะแนนเพิ่มถ้าโจมตีโดนเป้าตรง quest
+    let G = [], M = [];
+
+    if (this.diff === 'easy') {
+      G = goalPool.easy;
+      M = miniPool.easy;
+      this.activeGoals = this.pick(G, 2);
+      this.activeMinis = this.pick(M, 3);
+    }
+    else if (this.diff === 'hard') {
+      G = goalPool.hard;
+      M = miniPool.hard;
+      this.activeGoals = this.pick(G, 2);
+      this.activeMinis = this.pick(M, 3);
+    }
+    else {
+      G = goalPool.normal;
+      M = miniPool.normal;
+      this.activeGoals = this.pick(G, 2);
+      this.activeMinis = this.pick(M, 3);
+    }
+
+    // init progress
+    this.activeGoals.forEach(g => this.progress.goals[g.id] = 0);
+    this.activeMinis.forEach(m => this.progress.minis[m.id] = 0);
+
+    console.log('[QuestManager] Goals:', this.activeGoals);
+    console.log('[QuestManager] Minis:', this.activeMinis);
   }
 
-  FoodGroupsQuestManager.prototype.reset = function () {
-    this.quests = DEFAULT_QUESTS.map(cloneQuest);
-    this.currentIndex = 0;
-    this._emitChange(false, null);
-  };
+  // -----------------------------
+  // Update Quest Progress
+  // -----------------------------
+  update(type, item) {
+    // type เช่น veg, fruit, protein, good, junk ฯลฯ
+    const checkList = [...this.activeGoals, ...this.activeMinis];
 
-  FoodGroupsQuestManager.prototype.getCurrent = function () {
-    if (this.currentIndex < 0 || this.currentIndex >= this.quests.length) return null;
-    return this.quests[this.currentIndex];
-  };
+    checkList.forEach(q => {
+      if (q.type === item.type) {
 
-  FoodGroupsQuestManager.prototype.getClearedCount = function () {
-    return this.quests.filter(function (q) { return q.cleared; }).length;
-  };
+        // ทำ progress เพิ่ม
+        this.progress.goals[q.id] = (this.progress.goals[q.id] || 0);
+        this.progress.minis[q.id] = (this.progress.minis[q.id] || 0);
 
-  FoodGroupsQuestManager.prototype.getStatus = function () {
-    const total = this.quests.length;
-    const cleared = this.getClearedCount();
-    return {
-      total: total,
-      cleared: cleared,
-      currentIndex: this.currentIndex,
-      current: this.getCurrent(),
-      list: this.quests.slice()
-    };
-  };
-
-  FoodGroupsQuestManager.prototype._emitChange = function (justFinished, finishedQuest) {
-    if (!this.onChangeCb) return;
-    const current = this.getCurrent();
-    const progress = current ? current.prog : 0;
-    this.onChangeCb(current, progress, !!justFinished, finishedQuest || null);
-  };
-
-  /**
-   * เรียกเมื่อยิงโดนเป้าหมาย groupId
-   * @returns {{ bonus:number }|null}
-   */
-  FoodGroupsQuestManager.prototype.notifyHit = function (groupId) {
-    const cur = this.getCurrent();
-    if (!cur || cur.cleared) return { bonus: 0 };
-
-    let justFinished = false;
-    let bonus = 0;
-
-    if (groupId === cur.groupId) {
-      cur.prog += 1;
-      bonus += this.bonusPerHit;
-
-      if (cur.prog >= cur.target) {
-        cur.cleared = true;
-        justFinished = true;
-
-        // ขยับไปเควสต์ถัดไป
-        if (this.currentIndex < this.quests.length - 1) {
-          this.currentIndex += 1;
-        } else {
-          this.currentIndex = this.quests.length; // ไม่มีเควสต์แล้ว
+        if (this.progress.goals.hasOwnProperty(q.id)) {
+          this.progress.goals[q.id]++;
         }
+        if (this.progress.minis.hasOwnProperty(q.id)) {
+          this.progress.minis[q.id]++;
+        }
+
+        // ส่ง event ให้ UI + Coach
+        window.dispatchEvent(new CustomEvent('fg-quest-progress', {
+          detail: {
+            id: q.id,
+            label: q.label,
+            value: (this.progress.goals[q.id] || this.progress.minis[q.id]),
+            need: q.need
+          }
+        }));
       }
-    }
+    });
+  }
 
-    const finishedQuest = justFinished ? cur : null;
-    this._emitChange(justFinished, finishedQuest);
+  // -----------------------------
+  // Check Complete
+  // -----------------------------
+  getSummary() {
+    let goalDone = 0;
+    let miniDone = 0;
 
-    return { bonus: bonus };
-  };
+    this.activeGoals.forEach(g => {
+      if ((this.progress.goals[g.id] || 0) >= g.need) goalDone++;
+    });
 
-  ns.FoodGroupsQuestManager = FoodGroupsQuestManager;
-})(window.GAME_MODULES || (window.GAME_MODULES = {}));
+    this.activeMinis.forEach(m => {
+      if ((this.progress.minis[m.id] || 0) >= m.need) miniDone++;
+    });
+
+    return {
+      goalTotal: this.activeGoals.length,
+      miniTotal: this.activeMinis.length,
+      goalDone,
+      miniDone
+    };
+  }
+}
+
+// export default
+ns.foodGroupsQuestManager = QuestManager;
