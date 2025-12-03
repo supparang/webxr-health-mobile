@@ -1,134 +1,299 @@
 // === /herohealth/vr-groups/ui.js ===
-// Food Groups VR — HUD / UI Controller (2025-12-04)
+// Food Groups VR — HUD UI Module
+// แสดง SCORE + GOAL + MINI QUEST + Feedback (2025-12-05)
 
-'use strict';
+(function (ns) {
+  'use strict';
 
-window.GAME_MODULES = window.GAME_MODULES || {};
-const ns = window.GAME_MODULES;
+  let root = null;
+  let scoreEl = null;
+  let goalLabelEl = null;
+  let goalBarEl = null;
+  let goalCaptionEl = null;
+  let miniLabelEl = null;
+  let miniBarEl = null;
+  let miniCaptionEl = null;
+  let hintEl = null;
 
-export class FoodGroupsUI {
-  constructor() {
-    this.elScore = document.getElementById('hud-score');
-    this.elDiff = document.getElementById('hud-diff-label');
-    this.elTime = document.getElementById('hud-time-label');
-    this.elCoach = document.getElementById('coach-text');
-    this.elCoachBubble = document.getElementById('coach-bubble');
-    this.elEndToast = document.getElementById('end-toast');
-    this.elEndScore = document.getElementById('end-score');
-    this.elEndQuest = document.getElementById('end-quest');
+  let flashLayer = null;
 
-    // สร้าง progress panel เพิ่มสำหรับ Goal / Mini
-    this.panel = this.ensurePanel();
-    this.goalListEl = this.panel.querySelector('.fg-goals');
-    this.miniListEl = this.panel.querySelector('.fg-minis');
+  function ensureStructure() {
+    if (root && root.isConnected) return;
 
-    this.score = 0;
-    this.lastCoachTimeout = null;
-
-    this.handleQuestProgress = this.handleQuestProgress.bind(this);
-    window.addEventListener('fg-quest-progress', this.handleQuestProgress);
-  }
-
-  ensurePanel() {
-    let wrap = document.querySelector('.fg-quest-panel');
-    if (wrap) return wrap;
-
-    wrap = document.createElement('div');
-    wrap.className = 'fg-quest-panel';
-    wrap.style.position = 'fixed';
-    wrap.style.top = '80px';
-    wrap.style.left = '10px';
-    wrap.style.zIndex = '651';
-    wrap.style.background = 'rgba(15,23,42,0.85)';
-    wrap.style.border = '1px solid rgba(52,211,153,0.45)';
-    wrap.style.borderRadius = '14px';
-    wrap.style.padding = '8px 10px';
-    wrap.style.color = '#e5e7eb';
-    wrap.style.fontFamily = 'system-ui,Segoe UI,Inter';
-    wrap.style.fontSize = '12px';
-    wrap.style.width = '220px';
-    wrap.style.backdropFilter = 'blur(6px)';
-    wrap.innerHTML = `
-      <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:#6ee7b7;">🎯 เป้าหมาย</div>
-      <div class="fg-goals" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px;"></div>
-      <div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#fde68a;">⭐ Mini Quest</div>
-      <div class="fg-minis" style="display:flex;flex-direction:column;gap:4px;"></div>
+    // ======================
+    // ROOT HUD Wrapper
+    // ======================
+    root = document.createElement('div');
+    root.id = 'fg-hud';
+    root.style.cssText = `
+      position:fixed;
+      top:10px;
+      left:10px;
+      z-index:700;
+      width:260px;
+      font-family:system-ui,Segoe UI,Roboto,sans-serif;
+      color:#e5e7eb;
+      pointer-events:none;
     `;
-    document.body.appendChild(wrap);
-    return wrap;
+
+    // SCORE
+    const scoreBox = document.createElement('div');
+    scoreBox.style.cssText = `
+      background:rgba(15,23,42,0.85);
+      padding:6px 10px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,0.25);
+      margin-bottom:8px;
+    `;
+    const sLabel = document.createElement('div');
+    sLabel.style.cssText = `
+      font-size:11px;
+      opacity:.7;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    `;
+    sLabel.textContent = 'Score';
+
+    scoreEl = document.createElement('div');
+    scoreEl.style.cssText = `
+      font-size:22px;
+      font-weight:700;
+      margin-top:2px;
+      color:#22c55e;
+    `;
+    scoreEl.textContent = '0';
+
+    scoreBox.appendChild(sLabel);
+    scoreBox.appendChild(scoreEl);
+    root.appendChild(scoreBox);
+
+    // ======================
+    // GOAL PANEL
+    // ======================
+    const goalBox = document.createElement('div');
+    goalBox.style.cssText = `
+      background:rgba(15,23,42,0.92);
+      padding:6px 10px 8px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,0.35);
+      margin-bottom:8px;
+    `;
+
+    const goalTitle = document.createElement('div');
+    goalTitle.textContent = 'Goal';
+    goalTitle.style.cssText = `
+      font-size:11px;
+      text-transform:uppercase;
+      opacity:.65;
+      margin-bottom:4px;
+    `;
+
+    goalLabelEl = document.createElement('div');
+    goalLabelEl.style.cssText = `
+      font-size:14px;
+      font-weight:600;
+    `;
+    goalLabelEl.textContent = '-';
+
+    // bar
+    const goalBar = document.createElement('div');
+    goalBar.style.cssText = `
+      width:100%;height:6px;background:#0f172a;
+      border-radius:999px;overflow:hidden;margin-top:4px;
+    `;
+    goalBarEl = document.createElement('div');
+    goalBarEl.style.cssText = `
+      height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#86efac);
+      transition:width .18s ease-out;
+    `;
+    goalBar.appendChild(goalBarEl);
+
+    goalCaptionEl = document.createElement('div');
+    goalCaptionEl.style.cssText = `
+      margin-top:3px;
+      font-size:11px;
+      color:#9ca3af;
+    `;
+    goalCaptionEl.textContent = '0 / 0';
+
+    goalBox.appendChild(goalTitle);
+    goalBox.appendChild(goalLabelEl);
+    goalBox.appendChild(goalBar);
+    goalBox.appendChild(goalCaptionEl);
+
+    root.appendChild(goalBox);
+
+    // ======================
+    // MINI QUEST PANEL
+    // ======================
+    const miniBox = document.createElement('div');
+    miniBox.style.cssText = `
+      background:rgba(15,23,42,0.92);
+      padding:6px 10px 8px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,0.35);
+      margin-bottom:10px;
+    `;
+
+    const miniTitle = document.createElement('div');
+    miniTitle.textContent = 'Mini Quest';
+    miniTitle.style.cssText = `
+      font-size:11px;
+      text-transform:uppercase;
+      opacity:.65;
+      margin-bottom:4px;
+    `;
+
+    miniLabelEl = document.createElement('div');
+    miniLabelEl.style.cssText = `
+      font-size:13px;
+      font-weight:600;
+    `;
+    miniLabelEl.textContent = '-';
+
+    const miniBar = document.createElement('div');
+    miniBar.style.cssText = `
+      width:100%;height:6px;background:#0f172a;
+      border-radius:999px;overflow:hidden;margin-top:4px;
+    `;
+    miniBarEl = document.createElement('div');
+    miniBarEl.style.cssText = `
+      height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#bef264);
+      transition:width .18s ease-out;
+    `;
+    miniBar.appendChild(miniBarEl);
+
+    miniCaptionEl = document.createElement('div');
+    miniCaptionEl.style.cssText = `
+      margin-top:3px;
+      font-size:11px;color:#9ca3af;
+    `;
+
+    miniBox.appendChild(miniTitle);
+    miniBox.appendChild(miniLabelEl);
+    miniBox.appendChild(miniBar);
+    miniBox.appendChild(miniCaptionEl);
+    root.appendChild(miniBox);
+
+    // Hint
+    hintEl = document.createElement('div');
+    hintEl.style.cssText = `
+      background:rgba(34,197,94,0.15);
+      border:1px solid rgba(34,197,94,0.35);
+      padding:6px 10px;
+      border-radius:10px;
+      font-size:12px;
+      display:none;
+      margin-bottom:8px;
+    `;
+    hintEl.textContent = '';
+    root.appendChild(hintEl);
+
+    // Flash layer (hit / miss)
+    flashLayer = document.createElement('div');
+    flashLayer.style.cssText = `
+      position:fixed;inset:0;z-index:699;
+      background:rgba(255,255,255,0);
+      pointer-events:none;
+      transition:background .12s ease-out;
+    `;
+    document.body.appendChild(flashLayer);
+
+    document.body.appendChild(root);
   }
 
-  setScore(value) {
-    this.score = value;
-    if (this.elScore) this.elScore.textContent = value;
+  /******************************************************
+   * PUBLIC API
+   ******************************************************/
+  function init() {
+    ensureStructure();
   }
 
-  setCoach(text) {
-    if (!text) return;
-    this.elCoach.textContent = text;
-    this.elCoachBubble.classList.add('show');
-    if (this.lastCoachTimeout) clearTimeout(this.lastCoachTimeout);
-    this.lastCoachTimeout = setTimeout(() => {
-      this.elCoachBubble.classList.remove('show');
-    }, 4000);
+  function show() {
+    if (!root) ensureStructure();
+    root.style.display = 'block';
   }
 
-  showSummary(data) {
-    if (!data) return;
-    this.elEndScore.textContent = data.score || 0;
-    this.elEndQuest.textContent = `${data.goalDone} / ${data.goalTotal}`;
-    this.elEndToast.classList.add('show');
+  function hide() {
+    if (!root) return;
+    root.style.display = 'none';
   }
 
-  renderQuestList(goals, minis) {
-    if (!Array.isArray(goals) || !Array.isArray(minis)) return;
-
-    this.goalListEl.innerHTML = '';
-    this.miniListEl.innerHTML = '';
-
-    goals.forEach(g => {
-      const el = document.createElement('div');
-      el.className = 'fg-qrow';
-      el.dataset.id = g.id;
-      el.innerHTML = `
-        <div>${g.label}</div>
-        <div class="bar" style="height:4px;border-radius:999px;background:#0f172a;margin-top:2px;overflow:hidden;">
-          <div class="fill" style="width:0%;height:100%;background:linear-gradient(90deg,#22c55e,#86efac);transition:width .2s;"></div>
-        </div>
-      `;
-      this.goalListEl.appendChild(el);
-    });
-
-    minis.forEach(m => {
-      const el = document.createElement('div');
-      el.className = 'fg-qrow';
-      el.dataset.id = m.id;
-      el.innerHTML = `
-        <div>${m.label}</div>
-        <div class="bar" style="height:4px;border-radius:999px;background:#0f172a;margin-top:2px;overflow:hidden;">
-          <div class="fill" style="width:0%;height:100%;background:linear-gradient(90deg,#facc15,#fbbf24);transition:width .2s;"></div>
-        </div>
-      `;
-      this.miniListEl.appendChild(el);
-    });
+  function reset() {
+    if (!root) ensureStructure();
+    scoreEl.textContent = '0';
+    goalLabelEl.textContent = '-';
+    goalBarEl.style.width = '0%';
+    goalCaptionEl.textContent = '0 / 0';
+    miniLabelEl.textContent = '-';
+    miniBarEl.style.width = '0%';
+    miniCaptionEl.textContent = '0 / 0';
+    hintEl.style.display = 'none';
   }
 
-  handleQuestProgress(e) {
-    const d = e.detail || {};
-    const id = d.id;
-    const val = d.value || 0;
-    const need = d.need || 1;
+  function setScore(v) {
+    if (scoreEl) scoreEl.textContent = v;
+  }
 
-    const el = this.panel.querySelector(`.fg-qrow[data-id="${id}"] .fill`);
-    if (!el) return;
+  function updateQuest(q) {
+    if (!q) return;
 
-    const pct = Math.min(100, Math.round((val / need) * 100));
-    el.style.width = pct + '%';
-    if (pct >= 100) {
-      el.style.background = 'linear-gradient(90deg,#4ade80,#22c55e)';
-      this.setCoach(`🎉 ภารกิจ "${d.label}" สำเร็จแล้ว!`);
+    // Goal
+    if (q.goal) {
+      goalLabelEl.textContent = q.goal.label || '-';
+      const pct = q.goal.target > 0 ? (q.goal.progress / q.goal.target) * 100 : 0;
+      goalBarEl.style.width = `${pct}%`;
+      goalCaptionEl.textContent = `${q.goal.progress} / ${q.goal.target}`;
+    } else {
+      goalLabelEl.textContent = 'Completed 🎉';
+      goalBarEl.style.width = '100%';
+    }
+
+    // Mini
+    if (q.mini) {
+      miniLabelEl.textContent = q.mini.label || '-';
+      const pct2 = q.mini.target > 0 ? (q.mini.progress / q.mini.target) * 100 : 0;
+      miniBarEl.style.width = `${pct2}%`;
+      miniCaptionEl.textContent = `${q.mini.progress} / ${q.mini.target}`;
+    } else {
+      miniLabelEl.textContent = 'Done';
+      miniBarEl.style.width = '100%';
+    }
+
+    // Hint
+    if (q.hint) {
+      hintEl.style.display = 'block';
+      hintEl.textContent = q.hint;
+    } else {
+      hintEl.style.display = 'none';
     }
   }
-}
 
-ns.foodGroupsUI = FoodGroupsUI;
+  function flashHit() {
+    if (!flashLayer) return;
+    flashLayer.style.background = 'rgba(255,255,255,0.25)';
+    setTimeout(() => {
+      flashLayer.style.background = 'rgba(255,255,255,0)';
+    }, 60);
+  }
+
+  function flashMiss() {
+    if (!flashLayer) return;
+    flashLayer.style.background = 'rgba(255,0,0,0.22)';
+    setTimeout(() => {
+      flashLayer.style.background = 'rgba(255,255,255,0)';
+    }, 120);
+  }
+
+  ns.foodGroupsUI = {
+    init,
+    show,
+    hide,
+    reset,
+    setScore,
+    updateQuest,
+    flashHit,
+    flashMiss
+  };
+
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
