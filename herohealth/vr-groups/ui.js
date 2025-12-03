@@ -1,154 +1,161 @@
 // === /herohealth/vr-groups/ui.js ===
-// Food Groups VR — UI Layer (HUD logic only, NO CSS here)
-// 2025-12-05 Production Ready
+// UI controller สำหรับ Food Groups VR (Score + Time + Quest HUD)
+// Production Ready (2025-12-05)
 
 (function (ns) {
   'use strict';
 
-  let scoreEl = null;
-  let legendEl = null;
-  let judgmentWrap = null;
+  const UI = {};
 
-  // สร้าง style เฉพาะของ judgment popup
-  function ensureStyle() {
-    if (document.getElementById('fg-ui-style')) return;
+  // DOM refs
+  let elScore, elTime;
+  let elQuestMain, elQuestMini;
+  let elQuestMainBar, elQuestMiniBar;
+  let elQuestMainCap, elQuestMiniCap, elQuestHint;
 
-    const st = document.createElement('style');
-    st.id = 'fg-ui-style';
-    st.textContent = `
-      .fg-judge{
-        position:fixed;
-        left:50%; top:50%;
-        transform:translate(-50%,-50%);
-        font-size:28px;
-        font-weight:700;
-        opacity:0;
-        pointer-events:none;
-        transition:opacity .18s ease-out, transform .18s ease-out;
-        z-index:960;
-        text-shadow:0 4px 12px rgba(0,0,0,0.6);
-      }
-      .fg-judge.show{
-        opacity:1;
-        transform:translate(-50%,-60%);
-      }
-      .fg-legend{
-        position:fixed;
-        right:10px; bottom:10px;
-        background:rgba(15,23,42,0.75);
-        border:1px solid rgba(255,255,255,0.15);
-        border-radius:12px;
-        padding:8px 10px;
-        font-size:13px;
-        color:#e5e7eb;
-        z-index:940;
-        display:none;
-      }
-      .fg-legend.show{ display:block; }
-      .fg-legend-row{
-        display:flex;
-        justify-content:space-between;
-        min-width:140px;
-        gap:8px;
-        padding:2px 0;
-      }
-    `;
-    document.head.appendChild(st);
-  }
+  //--------------------------------------------------------------------
+  // init UI – เรียกจาก GameEngine.start()
+  //--------------------------------------------------------------------
+  UI.attachScene = function () {
+    elScore        = document.getElementById('hud-score');
+    elTime         = document.getElementById('hud-time-label');
 
-  // สร้าง element หลัก
-  function init() {
-    ensureStyle();
+    elQuestMain    = document.getElementById('hud-quest-main');
+    elQuestMini    = document.getElementById('hud-quest-mini');
 
-    scoreEl = document.getElementById('hud-score');
-    if (!scoreEl) {
-      console.warn('[GroupsUI] #hud-score not found.');
-    }
+    elQuestMainBar = document.getElementById('hud-quest-main-bar');
+    elQuestMiniBar = document.getElementById('hud-quest-mini-bar');
 
-    // Legend
-    legendEl = document.createElement('div');
-    legendEl.className = 'fg-legend';
-    document.body.appendChild(legendEl);
+    elQuestMainCap = document.getElementById('hud-quest-main-caption');
+    elQuestMiniCap = document.getElementById('hud-quest-mini-caption');
 
-    // judgment popup
-    judgmentWrap = document.createElement('div');
-    judgmentWrap.className = 'fg-judge';
-    judgmentWrap.textContent = '';
-    document.body.appendChild(judgmentWrap);
-  }
-
-  function show() {
-    if (legendEl) legendEl.classList.add('show');
-  }
-
-  function hide() {
-    if (legendEl) legendEl.classList.remove('show');
-  }
-
-  // ตั้งคะแนน (เปลี่ยนสีตามบวก/ลบ)
-  function setScore(v) {
-    if (!scoreEl) return;
-    scoreEl.textContent = v;
-  }
-
-  // Legend แสดง emoji + label ของแต่ละกลุ่มอาหาร
-  function setLegend(list) {
-    if (!legendEl) return;
-    legendEl.innerHTML = '';
-
-    if (!Array.isArray(list)) return;
-
-    list.forEach(g => {
-      const row = document.createElement('div');
-      row.className = 'fg-legend-row';
-      row.innerHTML = `
-        <span>${g.emoji || ''}</span>
-        <span>${g.label || ''}</span>
-      `;
-      legendEl.appendChild(row);
-    });
-  }
-
-  /**
-   * Flash judgment เช่น Perfect, Good, Miss
-   * detail = {
-   *   scoreDelta, isMiss, isQuestTarget, judgment
-   * }
-   */
-  function flashJudgment(detail) {
-    if (!judgmentWrap) return;
-
-    let text = '';
-    let color = '#ffffff';
-
-    if (detail.isMiss) {
-      text = detail.text || 'MISS';
-      color = '#f87171';
-    } else {
-      switch (detail.judgment) {
-        case 'perfect': color = '#fde047'; text = 'PERFECT'; break;
-        case 'good':    color = '#4ade80'; text = 'GOOD'; break;
-        case 'late':    color = '#fbbf24'; text = 'LATE'; break;
-        case 'slow':    color = '#f87171'; text = 'SLOW'; break;
-        default:        color = '#ffffff'; text = detail.scoreDelta >= 0 ? `+${detail.scoreDelta}` : `${detail.scoreDelta}`;
-      }
-    }
-
-    judgmentWrap.style.color = color;
-    judgmentWrap.textContent = text;
-
-    judgmentWrap.classList.add('show');
-    setTimeout(() => judgmentWrap.classList.remove('show'), 380);
-  }
-
-  // export
-  ns.foodGroupsUI = {
-    init,
-    show,
-    hide,
-    setScore,
-    setLegend,
-    flashJudgment
+    elQuestHint    = document.getElementById('hud-quest-hint');
   };
+
+  UI.init = function () {
+    if (!elScore) UI.attachScene();
+
+    elScore.textContent = '0';
+    elTime.textContent  = '60s';
+
+    // reset quest HUD
+    elQuestMain.textContent = 'ภารกิจหลักกำลังเริ่ม…';
+    elQuestMini.textContent = 'Mini quest กำลังเริ่ม…';
+
+    elQuestMainBar.style.width = '0%';
+    elQuestMiniBar.style.width = '0%';
+
+    elQuestMainCap.textContent = '0 / 0';
+    elQuestMiniCap.textContent = '0 / 0';
+
+    if (elQuestHint) elQuestHint.textContent = '';
+  };
+
+  //--------------------------------------------------------------------
+  // เวลา (ถูกเรียกจาก GameEngine ผ่าน event)
+  //--------------------------------------------------------------------
+  UI.setTime = function (sec) {
+    if (!elTime) return;
+    elTime.textContent = sec + 's';
+  };
+
+  //--------------------------------------------------------------------
+  // คะแนน
+  //--------------------------------------------------------------------
+  UI.setScore = function (score) {
+    if (!elScore) return;
+    elScore.textContent = String(score);
+  };
+
+  //--------------------------------------------------------------------
+  // Effect ตอนยิงโดน / พลาด
+  //--------------------------------------------------------------------
+  UI.flashJudgment = function (opts) {
+    const {
+      isMiss,
+      scoreDelta,
+      judgment
+    } = opts || {};
+
+    // ส่ง event ไป HUD ระดับบนสุด (goodjunk style)
+    window.dispatchEvent(new CustomEvent('hha:score', {
+      detail: {
+        scoreDelta,
+        judgment
+      }
+    }));
+
+    if (isMiss) {
+      window.dispatchEvent(new CustomEvent('hha:miss'));
+    }
+  };
+
+  //--------------------------------------------------------------------
+  // Quest HUD (รับ event จาก quest-manager.js)
+  //--------------------------------------------------------------------
+  UI.update = function (status, quest, justFinished) {
+    if (!quest) return;
+
+    // goal + mini
+    const goal = status?.goal || quest.goal;
+    const mini = status?.mini || quest.mini;
+
+    //----------------------------------------------------------------
+    // Goal
+    //----------------------------------------------------------------
+    if (quest.goal) {
+      elQuestMain.textContent = quest.goal.label;
+      const prog  = quest.goal.prog | 0;
+      const tgt   = quest.goal.target | 0;
+      const pct   = tgt > 0 ? (prog / tgt) * 100 : 0;
+
+      elQuestMainBar.style.width = pct + '%';
+      elQuestMainCap.textContent = `${prog} / ${tgt}`;
+    } else {
+      elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
+      elQuestMainBar.style.width = '100%';
+      elQuestMainCap.textContent = '';
+    }
+
+    //----------------------------------------------------------------
+    // Mini Quest
+    //----------------------------------------------------------------
+    if (quest.mini) {
+      elQuestMini.textContent = 'Mini: ' + quest.mini.label;
+      const progM = quest.mini.prog | 0;
+      const tgtM  = quest.mini.count || quest.mini.target || 0;
+      const pctM  = tgtM > 0 ? (progM / tgtM) * 100 : 0;
+
+      elQuestMiniBar.style.width = pctM + '%';
+      elQuestMiniCap.textContent = `${progM} / ${tgtM}`;
+    } else {
+      elQuestMini.textContent = 'Mini quest ครบแล้ว ✓';
+      elQuestMiniBar.style.width = '100%';
+      elQuestMiniCap.textContent = '';
+    }
+
+    //----------------------------------------------------------------
+    // hint
+    //----------------------------------------------------------------
+    if (quest.hint && elQuestHint) {
+      elQuestHint.textContent = quest.hint;
+    }
+  };
+
+  //--------------------------------------------------------------------
+  // End game UI
+  //--------------------------------------------------------------------
+  UI.hide = function () {
+    // ถ้าอยาก fade out ก็เพิ่มได้
+  };
+
+  UI.show = function () {
+    // ไม่ต้องทำอะไร HUD เป็น fixed overlay อยู่แล้ว
+  };
+
+  //--------------------------------------------------------------------
+  // ผูกเข้าระบบ global
+  //--------------------------------------------------------------------
+  ns.foodGroupsUI = UI;
 
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
