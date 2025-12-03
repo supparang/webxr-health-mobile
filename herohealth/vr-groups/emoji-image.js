@@ -1,106 +1,73 @@
 // vr-groups/emoji-image.js
-// สร้าง sprite emoji เป็นรูปภาพ แล้วให้ GameEngine เอาไปใช้เป็นเป้า
-
+// กำหนด emoji สำหรับหมู่อาหาร + flag isGood
 (function (ns) {
   'use strict';
 
-  // ---- กำหนดหมู่ 1–5 + power-ups แบบมี emoji หลายแบบต่อหมู่ ----
-  const RAW_GROUPS = [
-    {
-      id: 1,
-      label: 'หมู่ 1 ข้าว-แป้ง',
-      color: '#f97316',
-      emojis: ['🍚','🍙','🍞','🥨','🥯']
-    },
-    {
-      id: 2,
-      label: 'หมู่ 2 โปรตีน',
-      color: '#22c55e',
-      emojis: ['🍗','🍖','🥚','🧀','🐟']
-    },
-    {
-      id: 3,
-      label: 'หมู่ 3 ผัก',
-      color: '#22c55e',
-      emojis: ['🥦','🥕','🥒','🥬','🍅']
-    },
-    {
-      id: 4,
-      label: 'หมู่ 4 ผลไม้',
-      color: '#eab308',
-      emojis: ['🍎','🍌','🍇','🍉','🍓']
-    },
-    {
-      id: 5,
-      label: 'หมู่ 5 นม-ไขมันดี',
-      color: '#0ea5e9',
-      emojis: ['🥛','🧈','🥜','🥥','🧃']
-    }
-    // ถ้าอยากมีเป้าประเภทพิเศษ เช่น ⭐ / 💎 เพิ่มเป็น id 6,7 ได้
+  // หมู่หลัก (อาหารดี)
+  const MAIN_GOOD = [
+    // หมู่ 1: ข้าว-แป้ง ธัญพืช
+    { id: 1,  group: 1, label: 'ข้าว-แป้ง',    emoji: '🍚', color: '#facc15', isGood: true },
+    { id: 2,  group: 1, label: 'ขนมปังโฮลวีต', emoji: '🍞', color: '#facc15', isGood: true },
+    { id: 3,  group: 1, label: 'เส้นหมี่ข้าวกล้อง', emoji: '🍜', color: '#facc15', isGood: true },
+    { id: 4,  group: 1, label: 'มันฝรั่ง',      emoji: '🥔', color: '#facc15', isGood: true },
+    { id: 5,  group: 1, label: 'ข้าวโพด',      emoji: '🌽', color: '#facc15', isGood: true },
+
+    // หมู่ 2: ผัก
+    { id: 10, group: 2, label: 'ผักใบเขียว',   emoji: '🥬', color: '#22c55e', isGood: true },
+    { id: 11, group: 2, label: 'บรอกโคลี',     emoji: '🥦', color: '#22c55e', isGood: true },
+    { id: 12, group: 2, label: 'แครอท',        emoji: '🥕', color: '#22c55e', isGood: true },
+    { id: 13, group: 2, label: 'มะเขือเทศ',    emoji: '🍅', color: '#22c55e', isGood: true },
+    { id: 14, group: 2, label: 'สลัดผัก',      emoji: '🥗', color: '#22c55e', isGood: true },
+
+    // หมู่ 3: ผลไม้
+    { id: 20, group: 3, label: 'แตงโม',        emoji: '🍉', color: '#f97316', isGood: true },
+    { id: 21, group: 3, label: 'สตรอว์เบอร์รี', emoji: '🍓', color: '#f97316', isGood: true },
+    { id: 22, group: 3, label: 'กล้วย',        emoji: '🍌', color: '#f97316', isGood: true },
+    { id: 23, group: 3, label: 'ส้ม',          emoji: '🍊', color: '#f97316', isGood: true },
+    { id: 24, group: 3, label: 'องุ่น',        emoji: '🍇', color: '#f97316', isGood: true },
+
+    // หมู่ 4: โปรตีน
+    { id: 30, group: 4, label: 'ปลา',          emoji: '🐟', color: '#38bdf8', isGood: true },
+    { id: 31, group: 4, label: 'ไก่',          emoji: '🍗', color: '#38bdf8', isGood: true },
+    { id: 32, group: 4, label: 'เต้าหู้',      emoji: '🧈', color: '#38bdf8', isGood: true },
+    { id: 33, group: 4, label: 'ถั่ว',         emoji: '🫘', color: '#38bdf8', isGood: true },
+    { id: 34, group: 4, label: 'ไข่',          emoji: '🥚', color: '#38bdf8', isGood: true },
+
+    // หมู่ 5: นม
+    { id: 40, group: 5, label: 'นม',           emoji: '🥛', color: '#a855f7', isGood: true },
+    { id: 41, group: 5, label: 'โยเกิร์ต',     emoji: '🍦', color: '#a855f7', isGood: true },
+    { id: 42, group: 5, label: 'ชีส',          emoji: '🧀', color: '#a855f7', isGood: true },
+    { id: 43, group: 5, label: 'นมถั่วเหลือง', emoji: '🥤', color: '#a855f7', isGood: true },
+    { id: 44, group: 5, label: 'นมเปรี้ยวไขมันต่ำ', emoji: '🧃', color: '#a855f7', isGood: true }
   ];
 
-  // ---- helper: วาด emoji ลง canvas → dataURL ----
-  const emojiCache = {};
+  // กลุ่ม “อาหารควรลด” / junk / หวาน มัน เค็ม
+  const BAD_FOODS = [
+    { id: 100, group: 9, label: 'น้ำอัดลม',    emoji: '🥤', color: '#ef4444', isGood: false },
+    { id: 101, group: 9, label: 'ชานมไข่มุก', emoji: '🧋', color: '#ef4444', isGood: false },
+    { id: 102, group: 9, label: 'ของทอด',     emoji: '🍟', color: '#ef4444', isGood: false },
+    { id: 103, group: 9, label: 'พิซซ่า',     emoji: '🍕', color: '#ef4444', isGood: false },
+    { id: 104, group: 9, label: 'โดนัท',      emoji: '🍩', color: '#ef4444', isGood: false }
+  ];
 
-  function makeEmojiTexture(emoji, size) {
-    size = size || 256;
-    const canvas = document.createElement('canvas');
-    canvas.width  = size;
-    canvas.height = size;
+  const ALL = MAIN_GOOD.concat(BAD_FOODS);
 
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, size, size);
-
-    // พื้นหลังใส (transparent)
-    // ถ้าอยากให้มีแผ่นกลม ๆ ด้านหลังก็เติมได้
-    // ctx.fillStyle = 'rgba(0,0,0,0)';
-    // ctx.fillRect(0,0,size,size);
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = (size * 0.7) + 'px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-
-    ctx.fillText(emoji, size / 2, size / 2 + size * 0.06);
-
-    return canvas.toDataURL('image/png');
-  }
-
-  function getEmojiImage(emoji) {
-    if (emojiCache[emoji]) return emojiCache[emoji];
-    const url = makeEmojiTexture(emoji, 256);
-    emojiCache[emoji] = url;
-    return url;
-  }
-
-  // ---- เตรียมรายการหมู่แบบพื้นฐาน (ใช้กับ legend / สรุปผล) ----
-  const baseGroups = RAW_GROUPS.map(g => {
-    const em = g.emojis && g.emojis.length ? g.emojis[0] : '❓';
-    return {
-      id: g.id,
-      label: g.label,
-      color: g.color,
-      emoji: em,
-      img: getEmojiImage(em),
-      emojiChoices: g.emojis.slice()
-    };
-  });
-
-  // ---- เลือกหมู่แบบสุ่ม + สุ่ม emoji ในหมู่นั้นทุกครั้งที่ spawn ----
-  function pickRandomGroup() {
-    const g = baseGroups[Math.floor(Math.random() * baseGroups.length)];
-    const choices = g.emojiChoices && g.emojiChoices.length ? g.emojiChoices : [g.emoji];
-    const emoji = choices[Math.floor(Math.random() * choices.length)];
-    return {
-      id: g.id,
-      label: g.label,
-      color: g.color,
-      emoji: emoji,
-      img: getEmojiImage(emoji)
-    };
+  function pickRandom(arr) {
+    const n = arr.length;
+    if (!n) return null;
+    const idx = Math.floor(Math.random() * n);
+    return arr[idx];
   }
 
   ns.foodGroupsEmoji = {
-    all: baseGroups,         // ใช้โชว์ legend / HUD
-    pickRandomGroup          // ใช้ตอนสร้างเป้าแต่ละลูก
+    all: ALL,
+
+    // ใช้สุ่มแบบ simple: good:bad = ~3:1
+    pickRandomGroup() {
+      // 75% โอกาสได้ของดี 25% ได้ของไม่ดี
+      const useGood = Math.random() < 0.75;
+      const pool = useGood ? MAIN_GOOD : ALL; // ALL ทำให้มี bad ปนอยู่, แต่ good เยอะกว่า
+      return pickRandom(pool);
+    }
   };
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
