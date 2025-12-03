@@ -1,150 +1,169 @@
 // === /herohealth/vr-groups/coach.js ===
-// โค้ชพูดตามสถานการณ์ + ความยาก • รองรับ Goal + Mini Quest
-// Production Ready
+// โค้ชสำหรับ Food Groups VR (ใช้ emoji เป็นการ์ตูนโค้ชเล็ก ๆ ใน bubble)
+// ผูกกับ GameEngine ผ่าน ns.foodGroupsCoach
+//  - setDifficulty(diff)
+//  - sayStart(info)
+//  - onQuestChange({ current, progress, justFinished, finished, status })
+//  - onHit({ groupId, emoji, isGood, isQuestTarget, scoreDelta, rtMs, judgment })
+//  - onMiss({ groupId, emoji, isGood, rtMs })
+//  - sayFinish(summary)
 
 (function (ns) {
   'use strict';
 
-  const Coach = {};
-  let lastSpeakTime = 0;
-  const COOLDOWN = 1800; // ms กันพูดรัวเกินไป
+  const EMOJI = {
+    neutral:      '🥦',
+    goodHit:      '🍎',
+    questTarget:  '🎯',
+    badHit:       '🍩',
+    miss:         '😅',
+    startEasy:    '🙂',
+    startNormal:  '💪',
+    startHard:    '🔥',
+    finishGood:   '🎉',
+    finishSoSo:   '👍',
+    finishBad:    '🧠'
+  };
 
-  let hudEl = null;
-  let textEl = null;
+  let currentDiff = 'normal';
+  let lastMsgTime = 0;
+  const MIN_INTERVAL_MS = 1200;
 
-  //--------------------------------------------------------------------
-  // init — รับ element จาก groups-vr.html
-  //--------------------------------------------------------------------
-  Coach.init = function () {
-    hudEl = document.getElementById('coach-bubble');
-    textEl = document.getElementById('coach-text');
-    if (!hudEl || !textEl) {
-      console.warn('[GroupsVR Coach] HUD element missing!');
+  function now() { return Date.now(); }
+
+  function canSpeak() {
+    const t = now();
+    if (t - lastMsgTime < MIN_INTERVAL_MS) return false;
+    lastMsgTime = t;
+    return true;
+  }
+
+  function setCoachBubble(text) {
+    const bubble = document.getElementById('coach-bubble');
+    const label  = bubble ? bubble.querySelector('.coach-label') : null;
+    const span   = document.getElementById('coach-text');
+    if (!bubble || !span) return;
+
+    // ให้ label ยังคงเป็นคำว่า "โค้ช" ส่วน emoji ไปอยู่ในข้อความ
+    span.textContent = text;
+    bubble.classList.add('show');
+
+    if (setCoachBubble._timer) clearTimeout(setCoachBubble._timer);
+    setCoachBubble._timer = setTimeout(function () {
+      bubble.classList.remove('show');
+    }, 4200);
+  }
+
+  function diffEmoji(diff) {
+    switch ((diff || '').toLowerCase()) {
+      case 'easy':   return EMOJI.startEasy;
+      case 'hard':   return EMOJI.startHard;
+      case 'normal':
+      default:       return EMOJI.startNormal;
+    }
+  }
+
+  const Coach = {
+    setDifficulty(diff) {
+      currentDiff = (diff || 'normal').toLowerCase();
+      if (!canSpeak()) return;
+      const e = diffEmoji(currentDiff);
+      if (currentDiff === 'easy') {
+        setCoachBubble(`${e} โค้ชจัดให้แบบสบาย ๆ เริ่มจากภารกิจง่ายก่อนนะ`);
+      } else if (currentDiff === 'hard') {
+        setCoachBubble(`${e} โหมดท้าทาย! เลือกกลุ่มอาหารดีให้เป๊ะ ๆ เลย 💥`);
+      } else {
+        setCoachBubble(`${e} โหมดปกติ เน้นบาลานซ์ 5 หมู่ให้ดีนะ`);
+      }
+    },
+
+    sayStart(info) {
+      // info อาจมี { questsCleared, questsTotal } ถ้าอยากใช้ ก็อ่านจากตรงนี้ได้
+      if (!canSpeak()) return;
+      const e = diffEmoji(currentDiff);
+      setCoachBubble(`${e} เริ่มภารกิจจัดหมู่แล้ว เล็งให้ตรงกลุ่มอาหารที่ดีนะ!`);
+    },
+
+    // ถ้าถูกเรียกตรง ๆ จากที่อื่น
+    sayQuest(quest, progress) {
+      if (!quest) return;
+      if (!canSpeak()) return;
+      const e = EMOJI.questTarget;
+      const prog = progress | 0;
+      const tgt  = quest.target | 0;
+      setCoachBubble(`${e} ภารกิจ: ${quest.label}  (${prog}/${tgt})`);
+    },
+
+    onQuestChange(payload) {
+      if (!payload) return;
+      const quest  = payload.current || null;
+      const prog   = payload.progress | 0;
+      const justFinished = !!payload.justFinished;
+      const finishedQuest = payload.finished || null;
+
+      if (justFinished && finishedQuest) {
+        if (!canSpeak()) return;
+        const e = EMOJI.finishGood;
+        setCoachBubble(`${e} เยี่ยมเลย! เคลียร์ภารกิจ: ${finishedQuest.label}`);
+        return;
+      }
+
+      if (!quest) return;
+      if (!canSpeak()) return;
+
+      const tgt = quest.target | 0;
+      const e   = EMOJI.questTarget;
+      setCoachBubble(`${e} เป้าหมายตอนนี้: ${quest.label}  (${prog}/${tgt})`);
+    },
+
+    onHit(info) {
+      if (!info) return;
+      const { isGood, isQuestTarget, emoji, judgment } = info;
+
+      // บางจังหวะไม่ต้องพูดทุกครั้ง เพื่อลดสแปม
+      if (!canSpeak()) return;
+
+      if (isGood) {
+        if (isQuestTarget) {
+          setCoachBubble(`${EMOJI.goodHit} เก่งมาก! เลือกกลุ่มที่โค้ชสั่งถูกเป๊ะเลย ${emoji || ''}`);
+        } else {
+          if (judgment === 'perfect') {
+            setCoachBubble(`${EMOJI.goodHit} ยิงเป๊ะมาก perfect เลย! ${emoji || ''}`);
+          } else {
+            setCoachBubble(`${EMOJI.goodHit} ดีมาก เลือกกลุ่มอาหารดีได้ถูกต้องแล้ว ${emoji || ''}`);
+          }
+        }
+      } else {
+        setCoachBubble(`${EMOJI.badHit} อันนี้เป็นของที่ควรลดนะ ลองเน้นกลุ่มอาหารดี ๆ แทน 🥗`);
+      }
+    },
+
+    onMiss(info) {
+      if (!info) return;
+      if (!canSpeak()) return;
+      setCoachBubble(`${EMOJI.miss} พลาดนิดนึง ไม่เป็นไร ลองเล็งใหม่ให้ตรงกลุ่มอาหารที่ดีนะ`);
+    },
+
+    sayFinish(summary) {
+      summary = summary || {};
+      const score   = summary.score || 0;
+      const qc      = summary.questsCleared || 0;
+      const totalQ  = summary.questsTotal != null ? summary.questsTotal : null;
+
+      let e = EMOJI.finishSoSo;
+      if (qc >= 2) e = EMOJI.finishGood;
+      if (qc === 0 && score === 0) e = EMOJI.finishBad;
+
+      let msg = `${e} จบเกมแล้ว! ได้คะแนนรวม ${score} คะแนน`;
+      if (totalQ != null) {
+        msg += ` และทำภารกิจสำเร็จ ${qc}/${totalQ} ภารกิจ`;
+      }
+      msg += ' รอบหน้าลองบาลานซ์กลุ่มอาหารให้ดียิ่งขึ้นนะ 🥗';
+
+      setCoachBubble(msg);
     }
   };
 
-  //--------------------------------------------------------------------
-  // speak — แสดงข้อความ
-  //--------------------------------------------------------------------
-  function speak(msg) {
-    const now = performance.now();
-    if (now - lastSpeakTime < COOLDOWN) return;  // กันสแปมโค้ชพูด
-    lastSpeakTime = now;
-
-    if (!hudEl || !textEl) return;
-
-    textEl.textContent = msg;
-    hudEl.classList.add('show');
-
-    // ซ่อนอัตโนมัติ
-    setTimeout(() => {
-      hudEl.classList.remove('show');
-    }, 2400);
-  }
-
-  //--------------------------------------------------------------------
-  // ชุดคำพูดตามระดับ
-  //--------------------------------------------------------------------
-  const VOICE = {
-    easy: {
-      start: [
-        'เริ่มกันเบา ๆ นะ ยิงให้ตรงกลุ่มอาหารจ้า!',
-        'สบาย ๆ เลย ยิ่งเร็วได้คะแนนเยอะนะ!',
-      ],
-      hit: [
-        'ดีมาก! ตรงกลุ่มพอดีเลย!',
-        'สุดยอด! ยิงถูกต้อง!',
-      ],
-      miss: [
-        'โอ๊ะ! กลุ่มไม่ตรง ลองใหม่นะ!',
-        'ไม่เป็นไร ๆ ตั้งใจอีกนิด!',
-      ],
-      quest: [
-        'โฟกัสกลุ่มนี้ก่อนนะ!',
-        'ภารกิจมาแล้ว ยิงให้ตรงกลุ่มนี้!',
-      ],
-      warn: [
-        'ค่อย ๆ ดูสัญลักษณ์ แล้วเลือกให้ถูกนะ!',
-      ]
-    },
-
-    normal: {
-      start: [
-        'เริ่มภารกิจกันเลย จัดกลุ่มอาหารให้ถูกนะ!',
-        'ระวังกลุ่มที่คล้ายกันนะ ดูดี ๆ ก่อนยิง!'
-      ],
-      hit: [
-        'ดีมาก! จัดได้ถูกต้อง!',
-        'โอเคเลย! ไปต่อ!'
-      ],
-      miss: [
-        'พลาดนิดเดียว ดูกลุ่มให้ชัดก่อนยิงนะ!',
-        'อย่ารีบเกินไป ตั้งใจอีกนิด!'
-      ],
-      quest: [
-        'เป้าหมายภารกิจมาแล้ว เล็งให้แม่น!',
-        'เลือกให้ตรงกลุ่มภารกิจนะ!'
-      ],
-      warn: [
-        'กลุ่มนี้สับสนได้ง่ายนะ ดูดี ๆ!',
-      ]
-    },
-
-    hard: {
-      start: [
-        'ระดับยาก! ต้องโฟกัสสุด ๆ นะ!',
-        'เข้าสู่โหมดท้าทาย เล็งให้เป๊ะ!',
-      ],
-      hit: [
-        'ดีมาก! ความแม่นยำสูง!',
-        'สุดยอด ยิงได้ตรงจุด!'
-      ],
-      miss: [
-        'พลาดแบบนี้ไม่ได้แล้วนะ!',
-        'ระวัง! กลุ่มคล้ายกันมาก!'
-      ],
-      quest: [
-        'ภารกิจสำคัญ! ยิงผิดไม่ได้!',
-        'เล็งให้ชัวร์ก่อนยิงภารกิจ!',
-      ],
-      warn: [
-        'อย่าพลาดเด็ดขาด ดูสัญลักษณ์ให้ละเอียด!',
-      ]
-    }
-  };
-
-  //--------------------------------------------------------------------
-  // Random helper
-  //--------------------------------------------------------------------
-  function pick(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-
-  //--------------------------------------------------------------------
-  // API: พูดตามสถานการณ์
-  //--------------------------------------------------------------------
-  Coach.speakStart = diff => speak(pick(VOICE[diff].start));
-  Coach.speakHit   = diff => speak(pick(VOICE[diff].hit));
-  Coach.speakMiss  = diff => speak(pick(VOICE[diff].miss));
-  Coach.speakQuest = diff => speak(pick(VOICE[diff].quest));
-  Coach.speakWarn  = diff => speak(pick(VOICE[diff].warn));
-
-  //--------------------------------------------------------------------
-  // API: พูดตาม goal / mini quest
-  //--------------------------------------------------------------------
-  Coach.speakGoal = function (diff, goalObj) {
-    if (!goalObj) return;
-    speak(`ภารกิจ: ${goalObj.title || 'ทำให้ถูกต้องนะ!'}!`);
-  };
-
-  Coach.speakMini = function (diff, miniObj) {
-    if (!miniObj) return;
-    speak(`มินิคเวสต์: ${miniObj.title || 'ทำให้ถูกต้องนะ!'}!`);
-  };
-
-  //--------------------------------------------------------------------
-  // export
-  //--------------------------------------------------------------------
   ns.foodGroupsCoach = Coach;
 
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
