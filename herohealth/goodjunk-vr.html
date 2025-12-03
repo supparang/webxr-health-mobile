@@ -40,7 +40,7 @@
     .hud-root{
       position:fixed;
       inset:0;
-      pointer-events:none;
+      pointer-events:none;        /* ไม่บัง gesture หมุน/แตะที่ scene */
       z-index:650;
       display:flex;
       flex-direction:column;
@@ -61,7 +61,7 @@
       padding:8px 10px;
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
-      pointer-events:auto;
+      pointer-events:none;        /* ไม่ให้คลิก / แตะบัง canvas */
     }
 
     .hud-main{
@@ -186,7 +186,7 @@
       align-items:center;
       justify-content:center;
       gap:8px;
-      pointer-events:auto;
+      pointer-events:none;        /* ไม่บังการแตะ/หมุน */
     }
     .coach-bubble.show{ display:flex; }
     .coach-label{
@@ -370,7 +370,7 @@
   <script type="module">
     import { GameEngine } from './vr-goodjunk/GameEngine.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
-    import { initCloudLogger } from './vr/hha-cloud-logger.js';   // ★ เพิ่ม logger
+    import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
     function getParam(name, fallback){
       const url = new URL(window.location.href);
@@ -424,18 +424,32 @@
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest
+    // HUD: Quest (รองรับ kind = 'missMax')
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
 
       if (goal){
+        const kind  = goal.kind || 'generic';
+        const prog  = goal.prog  | 0;
+        const tgt   = goal.target| 0;
+        const pct   = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
+
         elQuestMain.textContent = goal.label || 'ภารกิจหลัก';
-        const prog = goal.prog|0, tgt = goal.target|0;
-        const pct  = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
         elQuestMainBar.style.width = pct + '%';
-        elQuestMainCap.textContent = `${prog} / ${tgt}`;
+
+        if (kind === 'missMax') {
+          const miss    = (goal.value ?? prog) | 0;
+          const failed  = !!goal.failed;
+          if (failed) {
+            elQuestMainCap.textContent = `${miss} / ≤${tgt} (เกินเป้า)`;
+          } else {
+            elQuestMainCap.textContent = `${miss} / ≤${tgt}`;
+          }
+        } else {
+          elQuestMainCap.textContent = `${prog} / ${tgt}`;
+        }
       }else{
         elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
         elQuestMainBar.style.width = '100%';
@@ -538,9 +552,9 @@
       elTime.textContent  = dur + 's';
       hudMissCount = 0;
 
-      // ★★ เรียก Cloud Logger สำหรับ GoodJunk VR ★★
+      // เรียก Cloud Logger สำหรับ GoodJunk VR
       initCloudLogger({
-        endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec', // ← ใส่ของจริง
+        endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
         debug: false
       });
