@@ -197,15 +197,13 @@
       font-weight:600;
     }
 
-    /* 👇 Avatar โค้ช */
-    .coach-avatar{
-      width:36px;
-      height:36px;
-      border-radius:999px;
+    /* coach emoji “การ์ตูนโค้ช” */
+    .coach-emoji{
+      font-size:26px;
+      line-height:1;
+      width:32px;
+      text-align:center;
       flex-shrink:0;
-      background:#020617;
-      box-shadow:0 0 0 2px rgba(52,211,153,0.65);
-      object-fit:cover;
     }
 
     /* ===== Center hint: “ลากนิ้วเพื่อหมุนมุมมอง” ===== */
@@ -355,13 +353,10 @@
       </div>
     </div>
 
-    <!-- Bottom: coach (avatar + text) -->
+    <!-- Bottom: coach (emoji + text) -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <img src="./assets/coach-neutral.png"
-             alt="Coach"
-             id="coach-avatar"
-             class="coach-avatar">
+        <span id="coach-emoji" class="coach-emoji">🙂</span>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="coach-label">โค้ช</span>
           <span id="coach-text">แตะของดีให้ตรงเป้าหมาย</span>
@@ -412,7 +407,7 @@
 
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
-    const elCoachAvatar = document.getElementById('coach-avatar');
+    const elCoachEmoji  = document.getElementById('coach-emoji');
     const elTouchHint   = document.getElementById('touch-hint');
 
     const elEndToast  = document.getElementById('end-toast');
@@ -425,26 +420,23 @@
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
-    // ภาพโค้ชตามอารมณ์
+    // อารมณ์โค้ชด้วย emoji
     const coachFaces = {
-      neutral: './assets/coach-neutral.png',
-      happy:   './assets/coach-happy.png',
-      sad:     './assets/coach-sad.png',
-      fever:   './assets/coach-fever.png'
+      neutral: '🙂',
+      happy:   '😄',
+      sad:     '😢',
+      fever:   '🔥'
     };
 
     function setCoachFace(mood){
-      if (!elCoachAvatar) return;
-      const src = coachFaces[mood] || coachFaces.neutral;
-      elCoachAvatar.src = src;
+      if (!elCoachEmoji) return;
+      elCoachEmoji.textContent = coachFaces[mood] || coachFaces.neutral;
     }
 
     function setCoach(text){
       if (!text) return;
       elCoachText.textContent = text;
       elCoachBubble.classList.add('show');
-      // default = neutral ถ้า caller ไม่สั่ง mood เอง
-      setCoachFace('neutral');
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(()=> {
         elCoachBubble.classList.remove('show');
@@ -493,10 +485,14 @@
       }
     });
 
-    // HUD: Coach (ข้อความจากโหมดต่าง ๆ)
+    // HUD: Coach (ข้อความจากโมดต่าง ๆ)
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
-      if (text) setCoach(text);
+      if (text) {
+        setCoach(text);
+        // ถ้าเป็นข้อความให้กำลังใจทั่วไป ให้หน้า neutral/happy
+        setCoachFace('happy');
+      }
     });
 
     // HUD: คะแนน / คอมโบ / miss + อารมณ์โค้ชจากคอมโบ
@@ -512,11 +508,13 @@
         elCombo.dataset.max = String(max);
         elCombo.textContent = max;
 
-        // mood โค้ชจากคอมโบ
+        // mood ตามคอมโบ
         if (c >= 10) {
-          setCoachFace('fever');
+          setCoachFace('fever');   // โหมดเทพ
         } else if (c >= 5) {
-          setCoachFace('happy');
+          setCoachFace('happy');   // เล่นดี
+        } else if (c === 0 && hudMissCount === 0) {
+          setCoachFace('neutral');
         }
       }
       if (typeof d.misses === 'number') {
@@ -529,13 +527,19 @@
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
       setCoachFace('sad');
+      setCoach('ไม่เป็นไร ลองโฟกัสที่ผัก ผลไม้ และนมอีกครั้งนะ 😌');
     });
 
-    // (ถ้าอนาคตมี event hha:fever ก็ใช้ตัวนี้ได้)
+    // (ถ้าภายหลังมี event hha:fever จาก engine ก็ใช้ตัวนี้ได้)
     window.addEventListener('hha:fever', (e)=>{
       const st = e.detail?.state || 'change';
-      if (st === 'start') setCoachFace('fever');
-      if (st === 'end')   setCoachFace('neutral');
+      if (st === 'start') {
+        setCoachFace('fever');
+        setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
+      }
+      if (st === 'end') {
+        setCoachFace('neutral');
+      }
     });
 
     // HUD: End summary
@@ -555,6 +559,10 @@
       elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
       elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
       elEndToast.classList.add('show');
+
+      // ปิดด้วยหน้า happy ถ้าคะแนนดี หรือ neutral
+      setCoachFace(misses <= 3 ? 'happy' : 'neutral');
+      setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
     });
 
     function initTouchLook(cameraEl){
