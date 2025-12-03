@@ -1,111 +1,78 @@
 // vr-groups/launcher-groups.js
-(function () {
+(function (ns) {
   'use strict';
 
-  const sceneEl       = document.querySelector('#gameScene');
-  const uiOverlay     = document.getElementById('uiOverlay');
-  const startScreen   = document.getElementById('startScreen');
-  const resultsScreen = document.getElementById('resultsScreen');
-  const finalScoreEl  = document.getElementById('finalScore');
-  const summaryEl     = document.getElementById('fgSummary');
-  const noteEl        = document.getElementById('fgOverallNote');
+  document.addEventListener('DOMContentLoaded', function () {
+    const sceneEl = document.querySelector('#gameScene');
+    const overlay = document.getElementById('uiOverlay');
+    const startScreen = document.getElementById('startScreen');
+    const resultsScreen = document.getElementById('resultsScreen');
+    const finalScoreEl = document.getElementById('finalScore');
+    const summaryEl = document.getElementById('fgSummary');
+    const playAgainBtn = document.getElementById('playAgainButton');
 
-  const btnEasy   = document.getElementById('startButtonEasy');
-  const btnNormal = document.getElementById('startButtonNormal');
-  const btnHard   = document.getElementById('startButtonHard');
-  const btnAgain  = document.getElementById('playAgainButton');
-
-  function startGame(diff) {
-    if (!sceneEl) return;
-    // ซ่อน overlay แล้วเริ่มเกม
-    if (uiOverlay) uiOverlay.classList.add('hidden');
-    if (resultsScreen) resultsScreen.style.display = 'none';
-    if (startScreen)   startScreen.style.display   = 'none';
-
-    sceneEl.emit('fg-start', { diff: diff }, false);
-  }
-
-  if (btnEasy) {
-    btnEasy.addEventListener('click', function () {
-      startGame('easy');
-    });
-  }
-  if (btnNormal) {
-    btnNormal.addEventListener('click', function () {
-      startGame('normal');
-    });
-  }
-  if (btnHard) {
-    btnHard.addEventListener('click', function () {
-      startGame('hard');
-    });
-  }
-
-  if (btnAgain) {
-    btnAgain.addEventListener('click', function () {
-      // กลับมาหน้าเลือกโหมด
-      if (resultsScreen) resultsScreen.style.display = 'none';
-      if (startScreen)   startScreen.style.display   = 'block';
-    });
-  }
-
-  // ----- จบเกม → สรุปผล + แสดง overlay -----
-  if (sceneEl) {
-    sceneEl.addEventListener('fg-game-over', function (evt) {
-      const detail = (evt && evt.detail) || {};
-
-      const score        = detail.score || 0;
-      const groupStats   = detail.groupStats || {};
-      const questsCleared = detail.questsCleared || 0;
-
-      // show overlay
-      if (uiOverlay) uiOverlay.classList.remove('hidden');
-      if (startScreen)   startScreen.style.display   = 'none';
-      if (resultsScreen) resultsScreen.style.display = 'block';
-
-      if (finalScoreEl) {
-        finalScoreEl.textContent = 'Score: ' + score;
+    function startGame(diff) {
+      // แจ้งโค้ชเรื่องความยาก
+      if (ns.foodGroupsCoach && ns.foodGroupsCoach.setDifficulty) {
+        ns.foodGroupsCoach.setDifficulty(diff);
       }
 
-      // ---- สรุปตามหมู่ ----
-      if (summaryEl) {
-        const lines = [];
-        Object.keys(groupStats).forEach(function (k) {
-          const g = groupStats[k] || {};
-          const spawns = g.spawns || 0;
-          const hits   = g.hits   || 0;
-          const pct    = spawns > 0 ? Math.round((hits / spawns) * 100) : 0;
-          const emoji  = g.emoji || '';
-          const label  = g.label || ('หมู่ ' + k);
-          lines.push(
-            '• ' + emoji + ' ' + label + ' : ยิงโดน ' +
-            hits + '/' + spawns + ' เป้า (' + pct + '%)'
-          );
-        });
+      // ซ่อนหน้าเมนู
+      startScreen.style.display = 'none';
+      resultsScreen.style.display = 'none';
+      overlay.classList.add('hidden');
 
-        if (!lines.length) {
-          lines.push('ยังไม่มีข้อมูลการยิงเป้าในรอบนี้');
-        }
+      // ส่ง event ให้ GameEngine เริ่ม
+      sceneEl.emit('fg-start', { diff: diff });
+    }
 
-        summaryEl.innerHTML = lines.join('<br>');
-      }
+    document.getElementById('startButtonEasy')
+      .addEventListener('click', () => startGame('easy'));
+    document.getElementById('startButtonNormal')
+      .addEventListener('click', () => startGame('normal'));
+    document.getElementById('startButtonHard')
+      .addEventListener('click', () => startGame('hard'));
 
-      // ---- สรุปเปอร์เซ็นต์รวม (note ด้านล่าง) ----
-      if (noteEl) {
-        let totalHits   = 0;
-        let totalSpawns = 0;
-        Object.values(groupStats).forEach(function (g) {
-          totalHits   += g.hits   || 0;
-          totalSpawns += g.spawns || 0;
-        });
-        const pct = totalSpawns > 0 ? Math.round((totalHits / totalSpawns) * 100) : 0;
+    // ตอนเกมจบ GameEngine จะ emit 'fg-game-over'
+    sceneEl.addEventListener('fg-game-over', function (e) {
+      const data = e.detail || {};
+      const groupStats = data.groupStats || {};
 
-        noteEl.innerHTML =
-          'ครั้งนี้เลือกอาหารดีได้ <b>' + pct +
-          '%</b> ของทั้งหมด 💚<br>' +
-          'สำเร็จภารกิจไปแล้ว <b>' + questsCleared +
-          '</b> ภารกิจ ลองเล่นใหม่เพื่อเก็บคะแนนให้สูงขึ้น หรือใช้เปรียบเทียบก่อน–หลังการสอนได้เลย!';
-      }
+      let html = '';
+      const labels = {
+        1: 'หมู่ 1 ข้าว-แป้ง',
+        2: 'หมู่ 2 เนื้อ-โปรตีน',
+        3: 'หมู่ 3 ผัก',
+        4: 'หมู่ 4 ผลไม้',
+        5: 'หมู่ 5 นม-ผลิตภัณฑ์นม'
+      };
+
+      Object.keys(groupStats).forEach(id => {
+        const g = groupStats[id];
+        if (!g) return;
+        const total = g.spawns || 0;
+        const hit   = g.hits   || 0;
+        const pct   = total > 0 ? Math.round((hit / total) * 100) : 0;
+        const label = labels[g.id] || `หมู่ ${g.id}`;
+
+        html += `• ${label} : ถูกยิงโดน ${hit}/${total} เป้า (${pct}%)<br>`;
+      });
+
+      finalScoreEl.textContent = `Score: ${data.score || 0}`;
+      summaryEl.innerHTML = html || 'ยังไม่มีข้อมูลการยิงในรอบนี้';
+
+      overlay.classList.remove('hidden');
+      startScreen.style.display = 'none';
+      resultsScreen.style.display = 'block';
     });
-  }
-})();
+
+    if (playAgainBtn) {
+      playAgainBtn.addEventListener('click', () => {
+        overlay.classList.remove('hidden');
+        startScreen.style.display = 'block';
+        resultsScreen.style.display = 'none';
+      });
+    }
+  });
+
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
