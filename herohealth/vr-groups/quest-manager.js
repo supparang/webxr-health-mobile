@@ -1,248 +1,171 @@
 // === /herohealth/vr-groups/quest-manager.js ===
-// ระบบ Goal + Mini Quest • รองรับ easy / normal / hard
+// Quest Manager for Food Groups VR
 // Production Ready 2025-12-05
 
 (function (ns) {
   'use strict';
 
-  const QuestMgr = {};
-
-  //--------------------------------------------------------------------
-  // Goal 10 แบบ แบ่งระดับ
-  //--------------------------------------------------------------------
+  // --------------------------------------------------
+  // Goal 10 แบบ แบ่งระดับง่าย / ปกติ / ยาก
+  // --------------------------------------------------
   const GOALS = {
     easy: [
-      { id: 'g1',  title: 'เลือกเฉพาะ ผัก', group: 'veg', target: 5 },
-      { id: 'g2',  title: 'เลือกเฉพาะ ผลไม้', group: 'fruit', target: 5 },
-      { id: 'g3',  title: 'เลือกเฉพาะ ข้าว-แป้ง', group: 'grain', target: 5 },
-      { id: 'g4',  title: 'เลือกเฉพาะ โปรตีน', group: 'protein', target: 5 },
-      { id: 'g5',  title: 'เลือกเฉพาะ นม', group: 'dairy', target: 5 },
+      { id: 'E1', label: 'ยิงหมู่ 1 ให้ครบ', targetGroup: 1, target: 4 },
+      { id: 'E2', label: 'ยิงหมู่ 2 ให้ครบ', targetGroup: 2, target: 4 },
+      { id: 'E3', label: 'ยิงหมู่ 3 ให้ครบ', targetGroup: 3, target: 4 },
+      { id: 'E4', label: 'ยิงเฉพาะของดี',   targetGroup: 'good', target: 6 },
+      { id: 'E5', label: 'หลีกเลี่ยงของไม่ดี', targetGroup: 'bad', target: 0 }
     ],
-
     normal: [
-      { id: 'g6',  title: 'ผัก & ผลไม้ สลับกัน', group: ['veg','fruit'], target: 8 },
-      { id: 'g7',  title: 'เน้นโปรตีนลีน', group: 'protein', target: 7 },
-      { id: 'g8',  title: 'หลีกเลี่ยงนมเนย เลือกเฉพาะที่ไม่ใช่ dairy', group: ['veg','fruit','grain','protein'], target: 10 },
+      { id: 'N1', label: 'ยิงหมู่ 4 ให้ครบ', targetGroup: 4, target: 5 },
+      { id: 'N2', label: 'ยิงหมู่ 5 ให้ครบ', targetGroup: 5, target: 5 },
+      { id: 'N3', label: 'ยิงหมู่ 1 + หมู่ 2', targetGroup: [1,2], target: 7 },
+      { id: 'N4', label: 'ยิงผลไม้หมู่ 3', targetGroup: 3, target: 8 },
+      { id: 'N5', label: 'ยิงโปรตีนหมู่ 4', targetGroup: 4, target: 8 }
     ],
-
     hard: [
-      { id: 'g9',  title: 'เลือกให้ครบทุกหมู่ (หมุนไปเรื่อย ๆ)', group: ['veg','fruit','grain','protein','dairy'], target: 12 },
-      { id: 'g10', title: 'โปรตีนอย่างเดียว ห้ามหมู่อื่นเด็ดขาด', group: 'protein', target: 10 }
+      { id: 'H1', label: 'ยิงให้ครบ 3 หมู่', targetGroup: [1,2,3], target: 12 },
+      { id: 'H2', label: 'ยิงหมู่ 4 + 5', targetGroup: [4,5], target: 12 },
+      { id: 'H3', label: 'ยิงเฉพาะของดี (มากกว่า 10)', targetGroup: 'good', target: 12 },
+      { id: 'H4', label: 'ห้ามโดนของไม่ดี', targetGroup: 'bad', target: 0 },
+      { id: 'H5', label: 'ยิงครบ 15 ชิ้น', targetGroup: 'any', target: 15 }
     ]
   };
 
-  //--------------------------------------------------------------------
-  // Mini Quest 15 แบบ แบ่งระดับ
-  //--------------------------------------------------------------------
+  // --------------------------------------------------
+  // Mini Quest 15 แบบ แบ่งระดับง่าย / ปกติ / ยาก
+  // --------------------------------------------------
   const MINIS = {
     easy: [
-      { id: 'm1', title: 'ผัก 3 ชิ้นติดกัน', group: 'veg', chain: 3 },
-      { id: 'm2', title: 'ผลไม้ 3 ชิ้นติดกัน', group: 'fruit', chain: 3 },
-      { id: 'm3', title: 'โปรตีน 3 ชิ้นติดกัน', group: 'protein', chain: 3 },
-      { id: 'm4', title: 'เลือกของดีรวดเร็ว 5 ชิ้น', group: ['veg','fruit','protein'], target: 5 },
-      { id: 'm5', title: 'ยิงให้ทันเวลา 10 วิ', timer: 10, target: 4 },
+      { id: 'ME1', label: 'ยิงหมู่ 1 จำนวน 2 ชิ้น', targetGroup: 1, target: 2 },
+      { id: 'ME2', label: 'ยิงหมู่ 2 จำนวน 2 ชิ้น', targetGroup: 2, target: 2 },
+      { id: 'ME3', label: 'ยิงหมู่ 3 จำนวน 2 ชิ้น', targetGroup: 3, target: 2 },
+      { id: 'ME4', label: 'ยิงเฉพาะของดี 3 ชิ้น', targetGroup: 'good', target: 3 },
+      { id: 'ME5', label: 'อย่าพลาดเกิน 1 ครั้ง', targetGroup: 'any', target: 3, noMiss: true }
     ],
-
     normal: [
-      { id: 'm6',  title: 'แป้ง 4 ชิ้นติดกัน', group: 'grain', chain: 4 },
-      { id: 'm7',  title: 'สลับ ผัก → ผลไม้ → ผัก', seq: ['veg','fruit','veg'] },
-      { id: 'm8',  title: 'เลือกอย่างน้อย 6 ชิ้นใน 15 วิ', timer: 15, target: 6 },
-      { id: 'm9',  title: 'หมู่ใดยังไม่ถูกเลือก? เลือกให้ครบ', allGroups: true, target: 5 },
-      { id: 'm10', title: 'ยิงพลาดไม่เกิน 1 ครั้งใน 12 วิ', timer: 12, limitMiss: 1 },
+      { id: 'MN1', label: 'ยิงหมู่ 4 จำนวน 3 ชิ้น', targetGroup: 4, target: 3 },
+      { id: 'MN2', label: 'ยิงหมู่ 5 จำนวน 3 ชิ้น', targetGroup: 5, target: 3 },
+      { id: 'MN3', label: 'ยิงหมู่ผัก + ผลไม้', targetGroup: [2,3], target: 5 },
+      { id: 'MN4', label: 'ยิงเฉพาะโปรตีน', targetGroup: 4, target: 5 },
+      { id: 'MN5', label: 'ยิงของดี 5 ชิ้น', targetGroup: 'good', target: 5 }
     ],
-
     hard: [
-      { id: 'm11', title: 'โปรตีน 5 ชิ้นติดกัน แบบไม่พลาด', group: 'protein', chain: 5 },
-      { id: 'm12', title: 'สลับ 4 หมู่ (veg→fruit→grain→protein)', seq: ['veg','fruit','grain','protein'] },
-      { id: 'm13', title: 'เลือกถูกติดต่อกัน 10 ชิ้น', chainCorrect: 10 },
-      { id: 'm14', title: 'เลือกผิดไม่ได้เลย 15 วิ', timer: 15, limitMiss: 0 },
-      { id: 'm15', title: 'เลือกให้ครบทุกหมู่ก่อนหมดเวลา', allGroups: true, target: 10 },
+      { id: 'MH1', label: 'ยิงให้ครบทุกหมู่ (1–5)', targetGroup: [1,2,3,4,5], target: 8 },
+      { id: 'MH2', label: 'ยิงเฉพาะหมู่ 1–3', targetGroup: [1,2,3], target: 8 },
+      { id: 'MH3', label: 'อย่าพลาดเลย 0 ครั้ง', targetGroup: 'any', target: 5, noMiss: true },
+      { id: 'MH4', label: 'ยิงของดี 10 ชิ้น', targetGroup: 'good', target: 10 },
+      { id: 'MH5', label: 'ยิงให้ได้ต่อเนื่อง 6 ครั้ง', targetGroup: 'any', target: 6, combo: true }
     ]
   };
 
-  //--------------------------------------------------------------------
-  // Internal state
-  //--------------------------------------------------------------------
-  let diff = 'normal';
-  let goals = [];
-  let minis = [];
-
-  let activeGoal = null;
-  let activeMini = null;
-
-  //--------------------------------------------------------------------
-  // Random select 2 goals + 3 minis ตามระดับเกม
-  //--------------------------------------------------------------------
-  function pickRandom(arr, n) {
-    const copy = [...arr];
+  // --------------------------------------------------
+  // Helper
+  // --------------------------------------------------
+  function pick(set, n) {
+    const arr = [...set];
     const out = [];
-    for (let i = 0; i < n && copy.length > 0; i++) {
-      const idx = Math.floor(Math.random() * copy.length);
-      out.push(copy.splice(idx, 1)[0]);
+    while (arr.length && out.length < n) {
+      const i = Math.floor(Math.random() * arr.length);
+      out.push(arr.splice(i, 1)[0]);
     }
     return out;
   }
 
-  //--------------------------------------------------------------------
-  // Init
-  //--------------------------------------------------------------------
-  QuestMgr.init = function (difficulty = 'normal') {
-    diff = difficulty;
+  function match(targetGroup, food) {
+    if (!food) return false;
 
-    goals = pickRandom(GOALS[diff], 2);
-    minis = pickRandom(MINIS[diff], 3);
+    if (targetGroup === 'any') return true;
+    if (targetGroup === 'good') return food.isGood === true;
+    if (targetGroup === 'bad') return food.isGood === false;
 
-    // ตั้งภารกิจแรก
-    activeGoal = {
-      ...goals[0],
-      prog: 0
-    };
-
-    activeMini = {
-      ...minis[0],
-      prog: 0,
-      chainProg: 0,
-      seqIndex: 0
-    };
-
-    dispatchUpdate();
-  };
-
-  //--------------------------------------------------------------------
-  // ตรวจว่าตรงเงื่อนไขของ goal หรือไม่
-  //--------------------------------------------------------------------
-  function matchGoal(g, foodGroup) {
-    if (!g.group) return false;
-    if (Array.isArray(g.group)) return g.group.includes(foodGroup);
-    return g.group === foodGroup;
+    if (Array.isArray(targetGroup)) {
+      return targetGroup.includes(food.group);
+    }
+    return food.group === targetGroup;
   }
 
-  //--------------------------------------------------------------------
-  // ตรวจ mini quest แบบต่าง ๆ
-  //--------------------------------------------------------------------
-  function matchMini(m, foodGroup, hitCorrect, missCount) {
+  // --------------------------------------------------
+  // Quest Manager Class
+  // --------------------------------------------------
+  class FoodGroupsQuestManager {
+    constructor(diff = 'normal') {
+      this.diff = diff;
+      this.goals = pick(GOALS[diff], 1);       // เลือก Goal 1 อัน
+      this.minis = pick(MINIS[diff], 2);       // เลือก Mini quest 2 อัน
 
-    // แบบ chain
-    if (m.group && m.chain) {
-      if (foodGroup === m.group) {
-        m.chainProg = (m.chainProg || 0) + 1;
-        if (m.chainProg >= m.chain) m.prog = m.target || m.chain;
-      } else {
-        m.chainProg = 0;
-      }
+      // progress
+      this.goalProg = 0;
+      this.miniProg = Array(this.minis.length).fill(0);
+
+      this.goalCleared = false;
+      this.miniCleared = this.minis.map(()=>false);
+
+      this.onUpdate = null; // callback → GameEngine.js
     }
 
-    // แบบ seq
-    if (m.seq) {
-      const want = m.seq[m.seqIndex];
-      if (foodGroup === want) {
-        m.seqIndex++;
-        if (m.seqIndex >= m.seq.length) {
-          m.prog = m.seq.length;
+    // ---------- เริ่มใหม่ ----------
+    reset() {
+      this.goalProg = 0;
+      this.miniProg = Array(this.minis.length).fill(0);
+      this.goalCleared = false;
+      this.miniCleared = this.minis.map(()=>false);
+    }
+
+    // ---------- ตรวจ hit ----------
+    onHit(food, combo, missCount) {
+      if (!food) return;
+
+      // ---- Goal ----
+      const goal = this.goals[0];
+      if (!this.goalCleared && match(goal.targetGroup, food)) {
+        this.goalProg++;
+        if (this.goalProg >= goal.target) {
+          this.goalCleared = true;
         }
       }
-    }
 
-    // แบบ allGroups
-    if (m.allGroups) {
-      if (!m._set) m._set = {};
-      m._set[foodGroup] = true;
-      m.prog = Object.keys(m._set).length;
-    }
+      // ---- Mini quests ----
+      this.minis.forEach((mq, i) => {
+        if (this.miniCleared[i]) return;
 
-    // แบบ chainCorrect
-    if (m.chainCorrect) {
-      if (hitCorrect) {
-        m.chainProg = (m.chainProg || 0) + 1;
-        if (m.chainProg >= m.chainCorrect) m.prog = m.chainCorrect;
-      } else {
-        m.chainProg = 0;
-      }
-    }
+        // เงื่อนไขพิเศษ
+        if (mq.noMiss && missCount > 0) return;
+        if (mq.combo && combo < this.miniProg[i] + 1) return;
 
-    // แบบ timer-limitMiss
-    if (m.timer) {
-      if (!m._timerStarted) {
-        m._timerStarted = true;
-        m._startTime = performance.now();
-        m._missStart = missCount || 0;
-      }
-      const t = (performance.now() - m._startTime) / 1000;
-      if (t <= m.timer) {
-        if (m.limitMiss != null) {
-          const usedMiss = (missCount || 0) - (m._missStart || 0);
-          if (usedMiss <= m.limitMiss) {
-            m.prog = (m.prog || 0) + 1;
+        if (match(mq.targetGroup, food)) {
+          this.miniProg[i]++;
+          if (this.miniProg[i] >= mq.target) {
+            this.miniCleared[i] = true;
           }
-        } else {
-          m.prog = (m.prog || 0) + 1;
         }
-      }
+      });
+
+      this.emitUpdate();
     }
 
-    return m;
+    emitUpdate() {
+      if (!this.onUpdate) return;
+
+      const goal = this.goals[0];
+
+      this.onUpdate({
+        goal: {
+          label: goal.label,
+          prog: this.goalProg,
+          target: goal.target
+        },
+        minis: this.minis.map((mq, i) => ({
+          label: mq.label,
+          prog: this.miniProg[i],
+          target: mq.target,
+          cleared: this.miniCleared[i]
+        }))
+      });
+    }
   }
 
-  //--------------------------------------------------------------------
-  // เมื่อยิงโดน
-  //--------------------------------------------------------------------
-  QuestMgr.onHit = function (foodGroup, hitCorrect, missCount) {
-    // ตรวจ goal
-    if (activeGoal && matchGoal(activeGoal, foodGroup)) {
-      activeGoal.prog++;
-      if (activeGoal.prog >= activeGoal.target) {
-        // จบ goal นี้ → เอา goal ถัดไป
-        if (goals.length > 1) goals.shift();
-        activeGoal = goals[0]
-          ? { ...goals[0], prog: 0 }
-          : null;
-      }
-    }
-
-    // ตรวจ mini
-    if (activeMini) {
-      activeMini = matchMini(activeMini, foodGroup, hitCorrect, missCount);
-
-      if (activeMini.prog >= (activeMini.target || activeMini.chain || activeMini.seq?.length || 0)) {
-        if (minis.length > 1) minis.shift();
-        activeMini = minis[0]
-          ? { ...minis[0], prog: 0, chainProg: 0, seqIndex: 0 }
-          : null;
-      }
-    }
-
-    dispatchUpdate();
-  };
-
-  //--------------------------------------------------------------------
-  // ส่ง event → HUD groups-vr.html
-  //--------------------------------------------------------------------
-  function dispatchUpdate() {
-    window.dispatchEvent(new CustomEvent('quest:update', {
-      detail: {
-        goal: activeGoal
-          ? { label: activeGoal.title, prog: activeGoal.prog, target: activeGoal.target }
-          : null,
-        mini: activeMini
-          ? { label: activeMini.title, prog: activeMini.prog,
-              target: (activeMini.target || activeMini.chain || activeMini.seq?.length || 0) }
-          : null
-      }
-    }));
-  }
-
-  //--------------------------------------------------------------------
-  // สรุปผลให้ end screen
-  //--------------------------------------------------------------------
-  QuestMgr.getSummary = function () {
-    return {
-      goalsTotal: goals.length + (activeGoal ? 1 : 0),
-      goalsCleared: (!activeGoal ? 1 : 0), // simplified
-      miniTotal: minis.length + (activeMini ? 1 : 0),
-      miniCleared: (!activeMini ? 1 : 0)
-    };
-  };
-
-  ns.foodGroupsQuest = QuestMgr;
+  // --------------------------------------------------
+  ns.foodGroupsQuestManager = FoodGroupsQuestManager;
 
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
