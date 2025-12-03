@@ -1,89 +1,67 @@
 // vr-groups/input-adapter.js
-// รวม input: เมาส์ (PC) + ทัช (Mobile) + Trigger (VR)
-// แล้วไปยิง click ใส่เป้า data-hha-tgt
+// ทำให้เล็ง-ยิงได้เหมือน GoodJunk:
+// - PC: คลิกซ้าย → ยิงเป้าที่ raycaster ชี้อยู่
+// - มือถือ: แตะจอ → ยิงเป้า
+// - VR: trigger / selectstart ที่ controller → ยิงเป้า
 
-(function (ns) {
+(function () {
   'use strict';
+
+  function triggerFromRaycaster(rayEl) {
+    if (!rayEl || !rayEl.components || !rayEl.components.raycaster) return;
+
+    const ray = rayEl.components.raycaster;
+    const list = ray.intersections || ray.intersectedEls || [];
+
+    let targetEl = null;
+
+    // A-Frame 1.5 มักได้ intersections เป็น array ของ THREE.Object3D
+    if (list.length && list[0].object && list[0].object.el) {
+      targetEl = list[0].object.el;
+    } else if (list.length && list[0].el) {
+      targetEl = list[0].el;
+    }
+
+    if (!targetEl) return;
+
+    // ยิง event click ทั้งแบบ A-Frame และ DOM
+    targetEl.emit('click');
+    try {
+      targetEl.dispatchEvent(new Event('click'));
+    } catch (e) {
+      // บาง browser ไม่ให้สร้าง Event แบบนี้ก็ข้ามไป
+    }
+  }
 
   AFRAME.registerComponent('fg-input-adapter', {
     init: function () {
-      const scene    = this.el;
-      const cursor   = document.querySelector('#cursor');
-      const hand     = document.querySelector('#rightHand');
+      const sceneEl   = this.el;
+      const cursorEl  = sceneEl.querySelector('#cursor');
+      const rightHand = sceneEl.querySelector('#rightHand');
 
-      let activeRaycaster = null;
-
-      function pickActiveRaycaster() {
-        // ถ้าอยู่ในโหมด VR: ให้ controller สำคัญสุด
-        if (scene.is('vr-mode') && hand && hand.components.raycaster) {
-          activeRaycaster = hand;
-        } else {
-          // ปกติ: ใช้ cursor กลางจอ
-          activeRaycaster = cursor;
-        }
-      }
-
-      pickActiveRaycaster();
-      scene.addEventListener('enter-vr', pickActiveRaycaster);
-      scene.addEventListener('exit-vr', pickActiveRaycaster);
-
-      function findTargetFromRaycaster(rayComp) {
-        if (!rayComp) return null;
-
-        // A-Frame จะเก็บ element ที่โดน raycaster ไว้ใน intersectedEls
-        if (rayComp.intersectedEls && rayComp.intersectedEls.length > 0) {
-          return rayComp.intersectedEls[0];
-        }
-
-        // เผื่อบางเวอร์ชันใช้ intersections (object3D)
-        if (rayComp.intersections && rayComp.intersections.length > 0) {
-          const obj = rayComp.intersections[0].object;
-          if (obj && obj.el) return obj.el;
-        }
-        return null;
-      }
-
-      function shoot() {
-        if (!activeRaycaster || !activeRaycaster.components.raycaster) return;
-        const rayComp = activeRaycaster.components.raycaster;
-        const target = findTargetFromRaycaster(rayComp);
-        if (!target) return;
-
-        // ยิงเฉพาะเป้าที่ตั้ง data-hha-tgt ไว้
-        if (!target.hasAttribute('data-hha-tgt')) return;
-
-        // ให้เป้ารับ event click (GameEngine ผูก listener ไว้แล้ว)
-        target.emit('click');
-      }
-
-      // ---------- Desktop: เมาส์คลิกซ้าย ----------
-      window.addEventListener('mousedown', function (evt) {
-        if (evt.button !== 0) return; // เฉพาะปุ่มซ้าย
-        shoot();
+      // --- Desktop: คลิกซ้าย ---
+      window.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) return;      // เอาเฉพาะปุ่มซ้าย
+        triggerFromRaycaster(cursorEl);
       });
 
-      // ---------- Mobile: แตะหน้าจอ ----------
-      window.addEventListener('touchstart', function () {
-        shoot();
-      }, { passive: true });
+      // --- Mobile: แตะจอ ---
+      window.addEventListener(
+        'touchstart',
+        function () {
+          triggerFromRaycaster(cursorEl);
+        },
+        { passive: true }
+      );
 
-      // ---------- VR: trigger / ปุ่มหลัก ----------
-      if (hand) {
-        hand.addEventListener('triggerdown', shoot);
-        hand.addEventListener('gripdown', shoot);
-        hand.addEventListener('abuttondown', shoot);
-        hand.addEventListener('bbuttondown', shoot);
-        hand.addEventListener('xbuttondown', shoot);
-        hand.addEventListener('ybuttondown', shoot);
+      // --- VR Controller: trigger / selectstart ---
+      if (rightHand) {
+        const fire = () => triggerFromRaycaster(rightHand);
+        rightHand.addEventListener('triggerdown', fire);
+        rightHand.addEventListener('triggerup', fire);
+        rightHand.addEventListener('selectstart', fire);
+        rightHand.addEventListener('select', fire);
       }
-
-      // ---------- เผื่อใช้คีย์บอร์ด Space ยิง ----------
-      window.addEventListener('keydown', function (evt) {
-        if (evt.code === 'Space' || evt.code === 'Enter') {
-          shoot();
-        }
-      });
     }
   });
-
-})(window.GAME_MODULES || (window.GAME_MODULES = {}));
+})();
