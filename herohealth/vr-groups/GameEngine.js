@@ -50,7 +50,12 @@
   function logEvent(type, detail) {
     try {
       const arr = (window.HHA_FOODGROUPS_LOG = window.HHA_FOODGROUPS_LOG || []);
-      arr.push(Object.assign({ ts: Date.now(), type }, detail));
+      const payload = Object.assign({ ts: Date.now(), type }, detail);
+      // ผูก diff ปัจจุบันเข้าไปด้วย (ถ้ามี)
+      if (ns && ns.FoodGroupsGame && ns.FoodGroupsGame.currentDiff && !payload.diff) {
+        payload.diff = ns.FoodGroupsGame.currentDiff;
+      }
+      arr.push(payload);
     } catch (e) {
       // เงียบ ๆ ถ้า log พัง
     }
@@ -84,6 +89,9 @@
     this.session    = ns.foodGroupsSession || {};
     this.groupStats = {};
     this.resetGroupStats();
+
+    // ค่าเริ่มต้นของ diff สำหรับ logEvent
+    FoodGroupsGame.currentDiff = this.diff;
 
     // FX + UI
     if (ns.foodGroupsFx && ns.foodGroupsFx.init) {
@@ -139,7 +147,9 @@
           emoji: g.emoji,
           isGood: !!g.isGood,
           spawns: 0,
-          hits: 0
+          hits: 0,
+          goodHits: 0,
+          badHits: 0
         };
       });
     }
@@ -174,6 +184,8 @@
     if (ns.foodGroupsDifficulty) {
       this.cfg = ns.foodGroupsDifficulty.get(this.diff);
     }
+
+    FoodGroupsGame.currentDiff = this.diff;
 
     // แจ้งโค้ชเรื่องระดับความยาก
     if (ns.foodGroupsCoach && ns.foodGroupsCoach.setDifficulty) {
@@ -276,6 +288,13 @@
       reason: reason || 'end'
     });
 
+    // รวมสถิติกลุ่มสำหรับ sessionSummary
+    const statsArr = Object.values(this.groupStats || {});
+    const totalSpawns   = statsArr.reduce((s, g) => s + (g.spawns   || 0), 0);
+    const totalHits     = statsArr.reduce((s, g) => s + (g.hits     || 0), 0);
+    const totalGoodHits = statsArr.reduce((s, g) => s + (g.goodHits || 0), 0);
+    const totalBadHits  = statsArr.reduce((s, g) => s + (g.badHits  || 0), 0);
+
     // สรุป session สำหรับส่งขึ้น Cloud
     const sessionSummary = {
       mode: 'groups-vr',
@@ -291,7 +310,11 @@
       sessionId:   this.session.sessionId   || null,
       playerName:  this.session.playerName  || null,
       playerClass: this.session.playerClass || null,
-      groupStats: this.groupStats
+      groupStats: this.groupStats,
+      totalSpawns,
+      totalHits,
+      totalGoodHits,
+      totalBadHits
     };
 
     const events = (window.HHA_FOODGROUPS_LOG || []).slice();
@@ -475,7 +498,6 @@
     const now = performance.now();
     const rt  = el.__spawnTime ? now - el.__spawnTime : null;
 
-    // base + bonus ตาม diff และ quest
     const baseScore = baseScoreForDiff(this.diff);
     let bonus = 0;
 
@@ -486,7 +508,8 @@
     if (isQuestTarget) bonus += 5;
 
     let gained = baseScore + bonus;
-    // ถ้าของไม่ดี อาจจะหักคะแนนเล็กน้อย (แต่ไม่ให้ต่ำกว่า 0)
+
+    // ถ้าเป็นอาหารควรลด → หักคะแนนเบา ๆ
     if (!isGood) {
       const penalty = Math.max(1, Math.round(missPenaltyForDiff(this.diff) / 2));
       gained = -penalty;
@@ -494,8 +517,11 @@
 
     this.score = Math.max(0, this.score + gained);
 
-    if (this.groupStats[groupId]) {
-      this.groupStats[groupId].hits++;
+    const gs = this.groupStats[groupId];
+    if (gs) {
+      gs.hits++;
+      if (isGood) gs.goodHits++;
+      else        gs.badHits++;
     }
 
     const judgment = classifyJudgment(rt);
@@ -551,6 +577,8 @@
       emoji,
       isGood,
       isQuestTarget: !!isQuestTarget,
+      baseScore,
+      bonus,
       scoreDelta: gained,
       rtMs: rt,
       pos: worldPos,
@@ -605,6 +633,8 @@
     const now = performance.now();
     const rt  = el.__spawnTime ? now - el.__spawnTime : null;
 
+    const isQuestTarget = el.getAttribute('data-quest-target') === '1';
+
     // ให้โค้ชรู้ว่าพลาด
     if (ns.foodGroupsCoach && ns.foodGroupsCoach.onMiss) {
       ns.foodGroupsCoach.onMiss({
@@ -626,6 +656,7 @@
       groupId,
       emoji,
       isGood,
+      isQuestTarget,
       rtMs: rt,
       pos: worldPos
     });
