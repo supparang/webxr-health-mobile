@@ -1,110 +1,122 @@
+// === /herohealth/vr-groups/GameEngine.js ===
+// Production Ready – Food Groups VR Engine (2025-12-06)
+
 'use strict';
 
-import { emojiImage } from './emoji-image.js';
-import { FOOD_GROUPS, DIFF_TABLE } from './difficulty.js';
-import { playHitFx, playMissFx } from './fx.js';
-import { GroupsQuestManager } from './quest-manager.js';
+(function (ns) {
 
-AFRAME.registerComponent('food-groups-game', {
-  schema: {},
+  const emoji = ns.foodGroupsEmoji;                     // emoji-image.js
+  const diffAPI = ns.foodGroupsDifficulty;              // difficulty.js
+  const Quest = ns.GroupsQuestManager;                  // quest-manager.js
+  const fx = ns.foodGroupsFx || {};                     // fx.js (optional)
 
-  init() {
-    this.running = false;
-    this.targets = [];
-    this.spawnClock = 0;
+  class FoodGroupsEngine {
+    constructor(sceneEl) {
+      this.scene = sceneEl;
+      this.running = false;
 
-    this.diff = 'normal';
-
-    // Quest system
-    this.quest = new GroupsQuestManager();
-
-    // Listen for fg-start from HTML
-    this.el.sceneEl.addEventListener('fg-start', e => {
-      this.startGame(e.detail.diff || 'normal');
-    });
-  },
-
-  startGame(diff) {
-    this.diff = diff;
-    const cfg = DIFF_TABLE[diff] || DIFF_TABLE.normal;
-    this.cfg = cfg;
-
-    this.running = true;
-    this.spawnClock = 0;
-
-    this.quest.start(diff);
-
-    console.log('[GroupsVR] Game Start', diff);
-  },
-
-  tick(time, dt) {
-    if (!this.running) return;
-
-    // spawn
-    this.spawnClock += dt;
-    if (this.spawnClock >= this.cfg.SPAWN_INTERVAL) {
+      this.targets = [];
       this.spawnClock = 0;
-      this.spawnTarget();
+
+      this.quest = new Quest();
+      this.cfg = diffAPI.get('normal');
     }
 
-    // update + clean
-    this.updateTargets(dt);
-  },
+    start(diff = 'normal') {
+      this.cfg = diffAPI.get(diff);
+      this.quest.start(diff);
 
-  spawnTarget() {
-    const item = FOOD_GROUPS[Math.floor(Math.random() * FOOD_GROUPS.length)];
+      this.running = true;
+      this.spawnClock = 0;
 
-    const y = 1.3;
-    const x = (Math.random() * 1.6) - 0.8;
-    const z = -2.2;
+      console.log('[GroupsVR] START', diff);
+    }
 
-    const el = document.createElement('a-entity');
-    el.setAttribute('data-hha-tgt', '1');
-    el.setAttribute('position', { x, y, z });
-    el.setAttribute('scale', '0.8 0.8 0.8');
+    tick(dt) {
+      if (!this.running) return;
 
-    const url = emojiImage(item.emoji);
-    el.setAttribute('material', { src: url, transparent: true });
-    el.setAttribute('geometry', { primitive: 'plane', height: 0.6, width: 0.6 });
+      // spawn
+      this.spawnClock += dt;
+      if (this.spawnClock >= this.cfg.spawnInterval) {
+        this.spawnClock = 0;
+        this.spawnTarget();
+      }
 
-    el.addEventListener('click', () => this.onHit(el, item));
+      // update movement / TTL
+      this.updateTargets(dt);
+    }
 
-    this.el.sceneEl.appendChild(el);
+    spawnTarget() {
+      const item = emoji.pickRandom();   // ใช้ random ที่เราสร้าง
 
-    this.targets.push({
-      el,
-      ttl: this.cfg.ITEM_LIFETIME
-    });
-  },
+      const el = document.createElement('a-entity');
+      el.setAttribute('data-hha-tgt', '1');
 
-  updateTargets(dt) {
-    for (let i = this.targets.length - 1; i >= 0; i--) {
-      const t = this.targets[i];
-      t.ttl -= dt;
+      const x = (Math.random() * 1.6) - 0.8;
+      el.object3D.position.set(x, 1.4, -2.3);
+      el.object3D.scale.set(this.cfg.scale, this.cfg.scale, this.cfg.scale);
 
-      if (t.ttl <= 0) {
-        playMissFx(t.el.object3D.position);
-        t.el.remove();
-        this.targets.splice(i, 1);
+      // ตั้ง material ให้ emoji
+      el.setAttribute('geometry', {
+        primitive: 'plane',
+        width: 0.6,
+        height: 0.6
+      });
+
+      el.setAttribute('material', {
+        src: item.url,
+        transparent: true,
+        side: 'double'
+      });
+
+      el.addEventListener('click', () => this.onHit(el, item));
+
+      this.scene.appendChild(el);
+
+      this.targets.push({
+        el,
+        vy: this.cfg.fallSpeed,
+        ttl: this.cfg.fallSpeed > 0 ? 99999 : this.cfg.itemLifetime,
+        item
+      });
+    }
+
+    updateTargets(dt) {
+      for (let i = this.targets.length - 1; i >= 0; i--) {
+        const t = this.targets[i];
+
+        // ตกลงด้านล่าง
+        t.el.object3D.position.y -= t.vy * (dt / 16);
+
+        // ถ้าตกพ้นพื้น
+        if (t.el.object3D.position.y < 0.3) {
+          if (fx.playMissFx) fx.playMissFx(t.el.object3D.position);
+          t.el.remove();
+          this.targets.splice(i, 1);
+          continue;
+        }
       }
     }
-  },
 
-  onHit(el, item) {
-    playHitFx(el.object3D.position);
+    onHit(el, item) {
+      if (fx.playHitFx) fx.playHitFx(el.object3D.position);
 
-    const ok = this.quest.check(item.group, item.name);
+      const ok = this.quest.check(item.group, item.emoji);
 
-    window.dispatchEvent(new CustomEvent('fg-score', {
-      detail: { score: this.quest.score }
-    }));
-
-    if (ok) {
-      window.dispatchEvent(new CustomEvent('hha:coach', {
-        detail: { text: `🎯 ${item.name}` }
+      window.dispatchEvent(new CustomEvent('fg-score', {
+        detail: { score: this.quest.score }
       }));
-    }
 
-    el.remove();
+      if (ok) {
+        window.dispatchEvent(new CustomEvent('hha:coach', {
+          detail: { text: `🎯 เก่งมาก! ${item.emoji}` }
+        }));
+      }
+
+      el.remove();
+    }
   }
-});
+
+  ns.FoodGroupsEngine = FoodGroupsEngine;
+
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
