@@ -1,195 +1,119 @@
 // vr-groups/quest-serial.js
-// จัดการภารกิจแบบต่อเนื่อง (Serial Quests) + HUD แสดงสถานะ
+// จัดการภารกิจแบบต่อเนื่อง (Serial Quests)
 
 (function (ns) {
   'use strict';
 
-  // ===== กำหนดภารกิจ (แก้ตัวเลข / ข้อความได้) =====
-  var QUEST_DEFS = ns.foodGroupsQuestDefs || [
-    { id: 'Q1', groupId: 1, target: 5, label: 'เก็บอาหารหมู่ 1 ให้ครบ 5 ชิ้น' },
-    { id: 'Q2', groupId: 2, target: 5, label: 'เก็บอาหารหมู่ 2 ให้ครบ 5 ชิ้น' },
-    { id: 'Q3', groupId: 3, target: 5, label: 'เก็บอาหารหมู่ 3 ให้ครบ 5 ชิ้น' }
+  // ==== ตั้งภารกิจพื้นฐาน (ตัวอย่าง 3 ภารกิจ) ====
+  const QUESTS = [
+    {
+      id: 'q1',
+      groupId: 1,
+      emoji: '🍚',
+      label: 'หมู่ 1 ข้าว-แป้ง',
+      need: 5
+    },
+    {
+      id: 'q2',
+      groupId: 3,
+      emoji: '🥦',
+      label: 'หมู่ 3 ผัก',
+      need: 6
+    },
+    {
+      id: 'q3',
+      groupId: 4,
+      emoji: '🍎',
+      label: 'หมู่ 4 ผลไม้',
+      need: 6
+    }
   ];
 
-  function normalizeTarget(t) {
-    if (typeof t !== 'number' || !isFinite(t) || t <= 0) return 5;
-    return Math.round(t);
-  }
-
-  function cloneQuest(q) {
-    return {
-      id: q.id,
-      groupId: q.groupId,
-      target: normalizeTarget(q.target),
-      label: q.label,
-      progress: 0,
-      done: false
-    };
-  }
-
-  // ===== HUD แสดงภารกิจบนจอ =====
-  var QuestHUD = (function () {
-    var el = null;
-
-    function ensure() {
-      if (el) return el;
-      el = document.createElement('div');
-      el.id = 'fgQuestHUD';
-      el.style.position = 'fixed';
-      el.style.top = '12px';
-      el.style.left = '50%';
-      el.style.transform = 'translateX(-50%)';
-      el.style.padding = '6px 12px';
-      el.style.borderRadius = '999px';
-      el.style.fontFamily = "system-ui, -apple-system, 'IBM Plex Sans Thai', sans-serif";
-      el.style.fontSize = '13px';
-      el.style.lineHeight = '1.4';
-      el.style.background = 'rgba(15,23,42,0.82)';
-      el.style.color = '#e5e7eb';
-      el.style.boxShadow = '0 6px 18px rgba(15,23,42,0.55)';
-      el.style.zIndex = '9998';
-      el.style.pointerEvents = 'none';
-      el.style.textAlign = 'center';
-      el.style.maxWidth = '90vw';
-      el.innerHTML = 'ภารกิจจะเริ่มเร็ว ๆ นี้...';
-      document.body.appendChild(el);
-      return el;
-    }
-
-    function format(status, quest) {
-      if (!status || !status.total) {
-        return 'ยังไม่มีภารกิจ';
-      }
-
-      if (!quest) {
-        return '🎉 ภารกิจทั้งหมดสำเร็จแล้ว (' +
-          status.cleared + '/' + status.total + ' ภารกิจ)';
-      }
-
-      var target = normalizeTarget(quest.target);
-      var done = quest.progress || 0;
-      var remain = Math.max(0, target - done);
-
-      var line1 =
-        'ภารกิจ ' + status.currentIndex + '/' + status.total +
-        ' : ' + (quest.label || ('เก็บอาหารหมู่ ' + quest.groupId + ' ให้ครบ ' + target + ' ชิ้น'));
-      var line2 =
-        'ทำได้แล้ว ' + done + '/' + target + ' ชิ้น · เหลืออีก ' + remain +
-        ' ชิ้น | สำเร็จแล้ว ' + status.cleared + ' ภารกิจ';
-
-      return line1 + '<br/>' + line2;
-    }
-
-    return {
-      reset: function () {
-        var hud = ensure();
-        hud.innerHTML = 'ภารกิจจะเริ่มเร็ว ๆ นี้...';
-      },
-      update: function (status, quest, justFinished) {
-        var hud = ensure();
-        hud.innerHTML = format(status, quest);
-        if (justFinished) {
-          hud.style.background = 'rgba(22,163,74,0.9)';
-          setTimeout(function () {
-            if (!hud) return;
-            hud.style.background = 'rgba(15,23,42,0.82)';
-          }, 700);
-        }
-      },
-      finish: function (status) {
-        var hud = ensure();
-        if (!status || !status.total) {
-          hud.innerHTML = 'จบเกมแล้ว';
-        } else if (status.cleared >= status.total) {
-          hud.innerHTML = '🎉 เยี่ยมมาก! ภารกิจทั้งหมดสำเร็จแล้ว (' +
-            status.cleared + '/' + status.total + ' ภารกิจ)';
-        } else {
-          hud.innerHTML = 'จบเวลาแล้ว สำเร็จ ' +
-            status.cleared + '/' + status.total + ' ภารกิจ';
-        }
-      }
-    };
-  })();
-
-  // ===== Quest Manager =====
   function FoodGroupsQuestManager(onChange) {
-    this.onChange = typeof onChange === 'function' ? onChange : function () {};
-    this.quests = [];
-    this.index = 0;
-    this.clearedCount = 0;
+    this.onChange = typeof onChange === 'function' ? onChange : null;
+
+    this.quests = QUESTS.slice();
+    this.currentIndex = -1;
+    this.currentProgress = 0;
+    this.cleared = 0;
 
     this.reset();
   }
 
   FoodGroupsQuestManager.prototype.reset = function () {
-    this.quests = QUEST_DEFS.map(cloneQuest);
-    this.index = 0;
-    this.clearedCount = 0;
-
-    var q = this.getCurrent();
-    var status = this.getStatus();
-
-    QuestHUD.reset();
-    QuestHUD.update(status, q, false);
-
-    this.onChange(q, 0, false, null);
+    this.currentIndex = 0;
+    this.currentProgress = 0;
+    this.cleared = 0;
+    this._emitChange(false, null); // แจ้งให้โค้ชอัปเดต HUD
   };
 
   FoodGroupsQuestManager.prototype.getCurrent = function () {
-    if (this.index < 0 || this.index >= this.quests.length) return null;
-    return this.quests[this.index];
+    if (this.currentIndex < 0 || this.currentIndex >= this.quests.length) {
+      return null;
+    }
+    return this.quests[this.currentIndex];
   };
 
   FoodGroupsQuestManager.prototype.getClearedCount = function () {
-    return this.clearedCount;
+    return this.cleared;
   };
 
   FoodGroupsQuestManager.prototype.getStatus = function () {
-    var total = this.quests.length;
-    var hasCurrent = this.index >= 0 && this.index < total;
     return {
-      currentIndex: hasCurrent ? (this.index + 1) : total,
-      total: total,
-      cleared: this.clearedCount
+      total: this.quests.length,
+      currentIndex: this.currentIndex,
+      cleared: this.cleared
     };
   };
 
-  // เรียกจาก GameEngine เมื่อ hit groupId
+  /**
+   * เรียกทุกครั้งที่ยิงโดนเป้า
+   * @param {number} groupId - หมู่ของอาหารที่โดนยิง
+   * @returns {{bonus:number}|null}
+   */
   FoodGroupsQuestManager.prototype.notifyHit = function (groupId) {
-    var q = this.getCurrent();
+    const q = this.getCurrent();
     if (!q) return null;
 
-    if (q.groupId !== groupId) {
-      return { bonus: 0 };
+    let justFinished = false;
+    let finishedQuest = null;
+
+    if (q.groupId === groupId) {
+      this.currentProgress++;
+
+      if (this.currentProgress >= (q.need || 5)) {
+        justFinished = true;
+        finishedQuest = q;
+        this.cleared++;
+        this.currentIndex++;
+        this.currentProgress = 0;
+      }
     }
 
-    q.progress = (q.progress || 0) + 1;
-    q.target = normalizeTarget(q.target);
+    this._emitChange(justFinished, finishedQuest);
 
-    var justFinished = false;
-    var finishedQuest = null;
-
-    if (!q.done && q.progress >= q.target) {
-      q.done = true;
-      justFinished = true;
-      finishedQuest = q;
-      this.clearedCount++;
-      this.index++;
+    // bonus score เวลาโดนเป้าภารกิจ
+    if (q.groupId === groupId) {
+      return { bonus: 5 }; // +5 คะแนนเพิ่มจาก base
     }
+    return null;
+  };
 
-    var current = this.getCurrent();
-    var status = this.getStatus();
-    var progressCount = q.progress;
+  FoodGroupsQuestManager.prototype._emitChange = function (justFinished, finishedQuest) {
+    if (!this.onChange) return;
 
-    this.onChange(current, progressCount, justFinished, finishedQuest);
-    QuestHUD.update(status, current || q, justFinished);
+    const quest = this.getCurrent();
+    const progress = this.currentProgress;
+    const status = this.getStatus();
 
-    return {
-      bonus: justFinished ? 10 : 0
-    };
+    this.onChange(
+      quest,
+      progress,
+      !!justFinished,
+      finishedQuest || null
+    );
   };
 
   ns.FoodGroupsQuestManager = FoodGroupsQuestManager;
-  ns.foodGroupsQuestHUD = QuestHUD;
 
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
