@@ -29,6 +29,33 @@
     }
   }
 
+  // ---------- scoring helpers (1–3) ----------
+  function computeBaseScore(diff) {
+    switch (diff) {
+      case 'easy':   return 8;   // ยิงโดนก็ได้กำลังใจ
+      case 'hard':   return 12;  // โหมดยาก → ให้เยอะขึ้น
+      case 'normal':
+      default:       return 10;
+    }
+  }
+
+  function computeMissPenalty(diff) {
+    switch (diff) {
+      case 'easy':   return 0;   // easy ไม่หักคะแนน
+      case 'hard':   return 5;   // hard หักหนักหน่อย
+      case 'normal':
+      default:       return 3;
+    }
+  }
+
+  // judgment ตาม reaction time (4)
+  function classifyJudgment(rtMs) {
+    if (rtMs == null) return 'normal';
+    if (rtMs < 400)       return 'perfect';
+    if (rtMs < 800)       return 'good';
+    return 'late';
+  }
+
   // ---------- main game ----------
   function FoodGroupsGame(sceneEl) {
     this.sceneEl = sceneEl;
@@ -347,7 +374,7 @@
     el.setAttribute('data-group-id', String(group.id));
     el.setAttribute('data-quest-target', isQuestTarget ? '1' : '0');
     el.setAttribute('data-emoji', group.emoji || '');
-    el.setAttribute('data-is-good', '1'); // ตอนนี้ถือว่าทั้งหมดเป็นอาหารดี
+    el.setAttribute('data-is-good', '1'); // (5) ตอนนี้ถือว่าทั้งหมดเป็นอาหารดี — พร้อมต่อยอดทีหลัง
 
     // แปะ emoji เป็นรูปภาพบนเป้า (เหมือน GoodJunk)
     if (group.img) {
@@ -445,25 +472,36 @@
     const now = performance.now();
     const rt  = el.__spawnTime ? now - el.__spawnTime : null;
 
+    // (1) base score ตาม diff
+    const baseScore = computeBaseScore(this.diff);
+
     let bonus = 0;
     if (this.questManager) {
       const res = this.questManager.notifyHit(groupId);
       if (res && res.bonus) bonus += res.bonus;
     }
+    // (2) โบนัสเพิ่มถ้าเป็นเป้า quest
+    if (isQuestTarget) {
+      bonus += 5;
+    }
 
-    const gained = 10 + bonus;
+    const gained = baseScore + bonus;
     this.score  += gained;
 
     if (this.groupStats[groupId]) {
       this.groupStats[groupId].hits++;
     }
 
+    // (4) judgment จาก reaction time
+    const judgment = classifyJudgment(rt);
+
     if (ns.foodGroupsUI) {
       ns.foodGroupsUI.setScore(this.score);
       ns.foodGroupsUI.flashJudgment({
         scoreDelta: gained,
         isMiss: false,
-        isQuestTarget: isQuestTarget
+        isQuestTarget: isQuestTarget,
+        judgment: judgment
       });
     }
 
@@ -475,7 +513,8 @@
         isGood,
         isQuestTarget,
         scoreDelta: gained,
-        rtMs: rt
+        rtMs: rt,
+        judgment
       });
     }
 
@@ -509,42 +548,13 @@
       scoreDelta: gained,
       rtMs: rt,
       pos: worldPos,
-      judgment: bonus > 0 ? 'quest' : 'normal'
+      judgment: judgment   // (4) เก็บลง log
     });
 
     this.safeRemoveTarget(el);
   };
 
   FoodGroupsGame.prototype.onMissTarget = function (el) {
-    if (this.state === 'playing') {
-      if (this.diff === 'easy') {
-        if (ns.foodGroupsUI) {
-          ns.foodGroupsUI.setScore(this.score);
-          ns.foodGroupsUI.flashJudgment({
-            isMiss: true,
-            scoreDelta: 0,
-            isQuestTarget: false,
-            text: 'ลองใหม่อีกที 😊'
-          });
-        }
-      } else {
-        this.score = Math.max(0, this.score - 3);
-        if (ns.foodGroupsUI) {
-          ns.foodGroupsUI.setScore(this.score);
-          ns.foodGroupsUI.flashJudgment({
-            isMiss: true,
-            scoreDelta: 0,
-            isQuestTarget: false,
-            text: 'MISS'
-          });
-        }
-      }
-
-      if (ns.foodGroupsAudio) {
-        ns.foodGroupsAudio.playMiss();
-      }
-    }
-
     const groupId =
       parseInt(
         el.getAttribute('data-group-id') ||
@@ -558,14 +568,47 @@
     const now = performance.now();
     const rt  = el.__spawnTime ? now - el.__spawnTime : null;
 
-    // ให้โค้ชรู้ว่าพลาด
-    if (ns.foodGroupsCoach && ns.foodGroupsCoach.onMiss) {
-      ns.foodGroupsCoach.onMiss({
-        groupId,
-        emoji,
-        isGood,
-        rtMs: rt
-      });
+    if (this.state === 'playing') {
+      // (3) ใช้ penalty ตาม diff
+      const penalty = computeMissPenalty(this.diff);
+
+      if (penalty === 0) {
+        // easy: ไม่หักคะแนน แค่ให้กำลังใจ
+        if (ns.foodGroupsUI) {
+          ns.foodGroupsUI.setScore(this.score);
+          ns.foodGroupsUI.flashJudgment({
+            isMiss: true,
+            scoreDelta: 0,
+            isQuestTarget: false,
+            text: 'ลองใหม่อีกที 😊'
+          });
+        }
+      } else {
+        this.score = Math.max(0, this.score - penalty);
+        if (ns.foodGroupsUI) {
+          ns.foodGroupsUI.setScore(this.score);
+          ns.foodGroupsUI.flashJudgment({
+            isMiss: true,
+            scoreDelta: -penalty,
+            isQuestTarget: false,
+            text: 'MISS'
+          });
+        }
+      }
+
+      if (ns.foodGroupsAudio) {
+        ns.foodGroupsAudio.playMiss();
+      }
+
+      // ให้โค้ชรู้ว่าพลาด
+      if (ns.foodGroupsCoach && ns.foodGroupsCoach.onMiss) {
+        ns.foodGroupsCoach.onMiss({
+          groupId,
+          emoji,
+          isGood,
+          rtMs: rt
+        });
+      }
     }
 
     let worldPos = null;
