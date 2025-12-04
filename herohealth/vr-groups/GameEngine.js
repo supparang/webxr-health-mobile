@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (with Fever + Cloud Logger)
-// 2025-12-05
+// 2025-12-05 (ตำแหน่งเป้าเวอร์ชันปรับให้เห็นชัด)
 
 (function (ns) {
   'use strict';
@@ -166,9 +166,10 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      const x = (Math.random() * 1.8) - 0.9;
-      const y = 1.1 + Math.random() * 0.8;
-      const z = -2.3;
+      // ★★ ปรับตำแหน่งให้ลอยอยู่กลางจอมากขึ้น ★★
+      const x = (Math.random() * 1.6) - 0.8; // ซ้าย–ขวาใกล้เคียง GoodJunk
+      const y = 1.5;                         // สูงระดับสายตา
+      const z = -1.8;                        // ใกล้ขึ้น ไม่ไกลเกินไป
       el.setAttribute('position', { x, y, z });
 
       const scale = this.cfg.scale || 1.0;
