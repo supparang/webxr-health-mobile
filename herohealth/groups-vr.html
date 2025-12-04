@@ -35,7 +35,6 @@
       height:100vh;
     }
 
-    /* hint กลางจอเวลาหมุนจอ (ถ้าจะใช้ทีหลัง) */
     .fg-touch-hint{
       position:fixed;
       left:50%;
@@ -62,7 +61,7 @@
     renderer="antialias: true; colorManagement: true"
     background="color: #020617">
 
-    <!-- กล้อง + cursor ยิงเป้า (mouse + VR) -->
+    <!-- กล้อง + cursor ยิงเป้า -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera wasd-controls-enabled="false">
         <a-entity id="fg-cursor"
@@ -81,16 +80,15 @@
     <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
              material="color: #020617;"></a-plane>
 
-    <!-- ตัวเกม: ใช้ component จาก GameEngine.js -->
+    <!-- ตัวเกม: component จาก GameEngine.js -->
     <a-entity id="fg-root" food-groups-game></a-entity>
   </a-scene>
 
-  <!-- hint กลางจอ (เผื่ออยากใช้ touch-look ทีหลัง) -->
   <div id="fg-touch-hint" class="fg-touch-hint">
     ลากนิ้วเพื่อหมุนมุมมอง 👆
   </div>
 
-  <!-- ===== Bridge ui-fever.js → ให้ใช้ร่วมกับระบบอื่นได้ ===== -->
+  <!-- ===== Bridge ui-fever.js → FeverUI global ===== -->
   <script type="module">
     import FeverUI, {
       ensureFeverBar,
@@ -108,7 +106,7 @@
     };
   </script>
 
-  <!-- ===== กลุ่มสคริปต์ของ Food Groups VR ===== -->
+  <!-- ===== Food Groups VR scripts ===== -->
   <script src="./vr-groups/emoji-image.js"></script>
   <script src="./vr-groups/difficulty.js"></script>
   <script src="./vr-groups/fx.js"></script>
@@ -118,7 +116,7 @@
   <script src="./vr-groups/logger-cloud.js"></script>
   <script src="./vr-groups/GameEngine.js"></script>
 
-  <!-- ===== Boot เกม + Cloud Logger + diff param ===== -->
+  <!-- ===== Boot เกม + Cloud Logger ===== -->
   <script>
     (function () {
       function getParam(name, fallback) {
@@ -133,18 +131,16 @@
 
       const diff = String(getParam('diff', 'normal')).toLowerCase();
 
-      // ★ init Cloud Logger ให้ตรง endpoint Apps Script ที่ให้มา
       if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
         GAME_MODULES.foodGroupsCloudLogger.init({
           endpoint: 'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
           projectTag: 'HeroHealth-GroupsVR',
-          debug: false   // ถ้าจะดู console log ให้เปลี่ยนเป็น true
+          debug: false
         });
       } else {
         console.warn('[GroupsVR] foodGroupsCloudLogger not found');
       }
 
-      // เริ่มเกมเมื่อ scene โหลดเสร็จ → ส่ง event fg-start ไปที่ component food-groups-game
       const scene = document.querySelector('a-scene');
       if (!scene) {
         console.error('[GroupsVR] <a-scene> not found');
@@ -156,11 +152,9 @@
         scene.emit('fg-start', { diff: diff });
       });
 
-      // ถ้าอยากทำ end-toast เพิ่มเติม สามารถ listen ตรงนี้ได้
       window.addEventListener('fg-game-over', function (e) {
         const d = e.detail || {};
         console.log('[GroupsVR] game over', d);
-        // การสรุปผลปล่อยให้ ui.js / coach.js จัดการแสดงบน HUD แล้ว
       });
     })();
   </script>
