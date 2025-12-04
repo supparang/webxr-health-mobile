@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (Fever + Quest + Cloud Logger)
-// 2025-12-05
+// Food Groups VR — Game Engine (with Fever + Cloud Logger + Quest)
+// 2025-12-06
 
 (function (ns) {
   'use strict';
@@ -12,7 +12,6 @@
   }
 
   const FEVER_MAX = 100;
-  const QuestManager = ns.GroupsQuestManager || null;
 
   function clamp(v, min, max) {
     v = Number(v) || 0;
@@ -26,7 +25,6 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
-    // fallback
     return {
       spawnInterval: 1200,
       fallSpeed: 0.011,
@@ -66,14 +64,11 @@
       this.fever       = 0;
       this.feverActive = false;
 
-      // Quest
-      this.quest = null;
-
       // Logging
       this.sessionId = createSessionId();
       this.events    = [];
 
-      // Fever bar (ถ้ามีโหลด ui-fever.js เป็น global FeverUI)
+      // Fever bar (จาก ui-fever.js)
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -97,7 +92,9 @@
       this._lastLogSec = -1;
     },
 
-    // ------------- start / tick -------------
+    // -------------------------------------------------------
+    // start / tick
+    // -------------------------------------------------------
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
@@ -121,14 +118,6 @@
         ns.FeverUI.setShield(0);
       }
 
-      // เริ่มระบบ Quest ตามระดับความยาก
-      if (QuestManager) {
-        this.quest = new QuestManager();
-        this.quest.start(this.diffKey, this.cfg);
-      } else {
-        this.quest = null;
-      }
-
       console.log('[GroupsVR] start diff=', this.diffKey, 'cfg=', this.cfg);
     },
 
@@ -139,7 +128,6 @@
       this.elapsed    += dt;
       this.spawnClock += dt;
 
-      // debug log ทุก ๆ 1 วินาที
       const sec = (this.elapsed / 1000) | 0;
       if (sec !== this._lastLogSec) {
         this._lastLogSec = sec;
@@ -153,7 +141,7 @@
 
       const cfg       = this.cfg || {};
       const interval  = cfg.spawnInterval || 1200;
-      const maxActive = cfg.maxActive || 4;
+      const maxActive = cfg.maxActive   || 4;
 
       if (this.spawnClock >= interval) {
         this.spawnClock = 0;
@@ -165,7 +153,9 @@
       this.updateTargets(dt);
     },
 
-    // ------------- spawn & move -------------
+    // -------------------------------------------------------
+    // spawn & move
+    // -------------------------------------------------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -176,7 +166,10 @@
 
       console.log('[GroupsVR] spawnTarget()', item);
 
-      const el = document.createElement('a-entity');
+      const hasEmoji = item && item.url;
+
+      // ใช้ a-image ถ้ามี emoji texture, ไม่งั้นใช้กล่องสีเขียว
+      const el = document.createElement(hasEmoji ? 'a-image' : 'a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
       const x = (Math.random() * 1.8) - 0.9;
@@ -185,20 +178,20 @@
       el.setAttribute('position', { x, y, z });
 
       const scale = this.cfg.scale || 1.0;
-      el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
-
-      if (item && item.url) {
-        // ใช้ texture emoji จาก emoji-image.js
-        el.setAttribute('geometry', 'primitive: plane; height: 0.9; width: 0.9');
-        el.setAttribute(
-          'material',
-          'src: ' + item.url +
-          '; transparent: true; alphaTest: 0.01; side: double; shader: flat'
-        );
+      if (hasEmoji) {
+        // a-image + dataURL emoji
+        el.setAttribute('src', item.url);
+        el.setAttribute('transparent', true);
+        el.setAttribute('material',
+          'transparent:true; alphaTest:0.01; side:double');
+        el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
       } else {
-        // fallback กล่องสีเขียว — ถ้า emoji texture พัง อย่างน้อยจะเห็นเป้าแน่นอน
-        el.setAttribute('geometry', 'primitive: box; depth: 0.4; height: 0.4; width: 0.4');
-        el.setAttribute('material', 'color: #22c55e; shader: flat');
+        // fallback — กล่องสีเขียว (กันจอโล่ง ถ้า emoji พัง)
+        el.setAttribute('geometry',
+          'primitive: box; depth: 0.4; height: 0.4; width: 0.4');
+        el.setAttribute('material',
+          'color:#22c55e; shader:flat');
+        el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
       }
 
       const groupId = item && item.group != null ? item.group : 0;
@@ -237,7 +230,9 @@
       if (el.parentNode) el.parentNode.removeChild(el);
     },
 
-    // ------------- hit / miss -------------
+    // -------------------------------------------------------
+    // hit / miss
+    // -------------------------------------------------------
     onHit: function (el) {
       const isGood  = el.getAttribute('data-good') === '1';
       const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
@@ -254,14 +249,6 @@
       if (elScore) elScore.textContent = String(this.score);
 
       this.updateFeverOnHit(isGood);
-
-      // อัปเดต Quest
-      if (this.quest && this.quest.onHit) {
-        this.quest.onHit({
-          groupId: groupId,
-          isGood: isGood
-        });
-      }
 
       this.logEvent({
         type: 'hit',
@@ -307,7 +294,9 @@
       return { x: v.x, y: v.y, z: v.z };
     },
 
-    // ------------- Fever -------------
+    // -------------------------------------------------------
+    // Fever
+    // -------------------------------------------------------
     updateFeverOnHit: function (isGood) {
       if (!ns.FeverUI) return;
 
@@ -345,12 +334,16 @@
       ns.FeverUI.setFever(f);
     },
 
-    // ------------- Logging -------------
+    // -------------------------------------------------------
+    // Logging
+    // -------------------------------------------------------
     logEvent: function (ev) {
       this.events.push(ev);
     },
 
-    // ------------- finish -------------
+    // -------------------------------------------------------
+    // finish
+    // -------------------------------------------------------
     finish: function (reason) {
       if (!this.running) return;
       this.running = false;
@@ -363,33 +356,23 @@
 
       const scene = this.el.sceneEl;
 
-      let qsum = this.quest && this.quest.getSummary
-        ? this.quest.getSummary()
-        : null;
-
       if (ns.foodGroupsCloudLogger && typeof ns.foodGroupsCloudLogger.send === 'function') {
         const rawSession = {
-          sessionId: this.sessionId,
-          score: this.score,
+          sessionId:  this.sessionId,
+          score:      this.score,
           difficulty: this.diffKey,
-          durationMs: this.elapsed,
-          questsCleared: qsum ? qsum.cleared : 0,
-          questsTotal: qsum ? qsum.total : 0,
-          clearedGoals: qsum ? qsum.clearedGoals : 0,
-          clearedMinis: qsum ? qsum.clearedMinis : 0
+          durationMs: this.elapsed
         };
         ns.foodGroupsCloudLogger.send(rawSession, this.events);
       }
 
       scene.emit('fg-game-over', {
-        score: this.score,
-        diff: this.diffKey,
-        reason: reason || 'finish',
-        questsCleared: qsum ? qsum.cleared : 0,
-        questsTotal: qsum ? qsum.total : 0
+        score:  this.score,
+        diff:   this.diffKey,
+        reason: reason || 'finish'
       });
 
-      console.log('[GroupsVR] finish', reason, 'score=', this.score, 'quest=', qsum);
+      console.log('[GroupsVR] finish', reason, 'score=', this.score);
     }
   });
 
