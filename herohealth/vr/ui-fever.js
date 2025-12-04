@@ -1,6 +1,5 @@
-// === /herohealth/vr/ui-fever.js
-// Fever bar + Shield indicator สำหรับ HeroHealth VR
-// ใช้ร่วมกันได้ทุกโหมด (GoodJunk / Groups / Hydration)
+// === /herohealth/vr/ui-fever.js ===
+// Fever bar + Shield indicator สำหรับ HeroHealth VR (GoodJunk / Groups / Hydration)
 
 'use strict';
 
@@ -160,9 +159,7 @@ export function ensureFeverBar() {
   return wrap;
 }
 
-/**
- * ตั้งค่าเปอร์เซ็นต์ fever (0–100)
- */
+/** ตั้งค่าเปอร์เซ็นต์ fever (0–100) */
 export function setFever(value) {
   if (!wrap || !wrap.isConnected) ensureFeverBar();
   const v = clamp(value, 0, 100);
@@ -175,17 +172,13 @@ export function setFever(value) {
   }
 }
 
-/**
- * เปิด/ปิดสถานะ Fever (มี glow ที่แท่ง)
- */
+/** เปิด/ปิดสถานะ Fever (มี glow ที่แท่ง) */
 export function setFeverActive(active) {
   if (!wrap || !wrap.isConnected) ensureFeverBar();
   wrap.dataset.active = active ? '1' : '0';
 }
 
-/**
- * ตั้งจำนวน shield (0–5)
- */
+/** ตั้งจำนวน shield (0–5) */
 export function setShield(count) {
   if (!wrap || !wrap.isConnected) ensureFeverBar();
   if (!shieldIcons) return;
@@ -201,3 +194,9 @@ export function setShield(count) {
 
 const FeverUI = { ensureFeverBar, setFever, setFeverActive, setShield };
 export default FeverUI;
+
+// ---- ผูกเข้า window.GAME_MODULES ให้เกมอื่นเรียกใช้แบบ non-module ได้ ----
+if (typeof window !== 'undefined') {
+  const ns = window.GAME_MODULES || (window.GAME_MODULES = {});
+  ns.FeverUI = FeverUI;
+}
