@@ -1,13 +1,13 @@
 // === /herohealth/vr-groups/emoji-image.js ===
-// Port จาก GoodJunk emojiImage ให้ใช้แบบ global (ไม่ใช้ ES module)
+// Emoji → <a-image> สำหรับ Food Groups VR (แบบ non-module)
 // 2025-12-05
 
 (function (ns) {
-  'use strict';https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/vr-groups/emoji-image.js
+  'use strict';
 
   const CACHE = new Map();
 
-  function drawEmoji(char, px = 128) {
+  function drawEmoji(char, px) {
     const key = `${char}@${px}`;
     if (CACHE.has(key)) return CACHE.get(key);
 
@@ -29,14 +29,14 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // เงาให้ฟู ๆ หน่อย
+    // เงานิดหน่อยให้ emoji ฟู ๆ
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,.45)';
     ctx.shadowBlur  = Math.round(px * 0.22 * dpr);
     ctx.fillText(char, cv.width / 2, cv.height / 2);
     ctx.restore();
 
-    // เติมรอบสองให้สีแน่น
+    // เติมซ้ำอีกรอบให้สีแน่น
     ctx.fillText(char, cv.width / 2, cv.height / 2);
 
     const out = {
@@ -51,10 +51,10 @@
   /**
    * emojiImage(char, scale?, px?)
    * - char  : emoji เช่น '🥦'
-   * - scale : scale ของ a-image (เริ่มต้น 0.65)
-   * - px    : ขนาดฐาน canvas (เริ่มต้น 128)
+   * - scale : scale ของ a-image (เริ่มต้น 0.8)
+   * - px    : ขนาดฐานตอนวาดลง canvas (เริ่มต้น 160)
    */
-  function emojiImage(char, scale = 0.65, px = 128) {
+  function emojiImage(char, scale = 0.8, px = 160) {
     const img = drawEmoji(char, px);
 
     const el = document.createElement('a-image');
@@ -65,15 +65,14 @@
       'transparent:true; alphaTest:0.01; side:double'
     );
     el.setAttribute('scale', `${scale} ${scale} ${scale}`);
-    el.dataset.emoji = char; // เผื่อดีบัก
+    el.dataset.emoji = char;
 
     return el;
   }
 
-  // expose แบบ global สำหรับ Food Groups
+  // ผูกไว้กับ GAME_MODULES ให้ GameEngine.js เรียก ns.foodGroupsEmojiImage.emojiImage
   ns.foodGroupsEmojiImage = {
-    emojiImage,
-    drawEmoji
+    emojiImage
   };
 
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
