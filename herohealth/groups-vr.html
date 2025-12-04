@@ -164,7 +164,7 @@
       <div class="hud-card" style="min-width:180px;">
         <div class="hud-main-title">สรุปกลุ่มอาหาร</div>
         <div style="font-size:12px;color:var(--text-soft);margin-top:4px;">
-          ยิงกลุ่มอาหารให้ตรงตามคำสั่งของโค้ช
+          ยิงกลุ่มอาหารให้ตรงภารกิจที่โค้ชบอกบนจอ
         </div>
       </div>
     </div>
@@ -172,7 +172,7 @@
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <span class="coach-label">โค้ช</span>
-        <span id="coach-text">แตะที่เป้าอาหารให้ทันเวลานะ!</span>
+        <span id="coach-text">แตะที่เป้าอาหารตามคำสั่งด้านบน</span>
       </div>
     </div>
   </div>
@@ -181,13 +181,13 @@
   <div class="end-toast" id="end-toast">
     <div class="end-title">สรุปผล • Food Groups VR</div>
     <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
-    <div class="end-row"><span>ภารกิจสำเร็จ</span><strong id="end-quest">-</strong></div>
+    <div class="end-row"><span>ภารกิจสำเร็จ</span><strong id="end-quest">0 / -</strong></div>
   </div>
 
-  <!-- ===== Fever Bar (non-module version ต้องผูก FeverUI เข้ากับ GAME_MODULES) ===== -->
+  <!-- ===== เกม + ระบบต่าง ๆ (ใช้โฟลเดอร์ herohealth/vr-groups) ===== -->
+  <!-- Fever bar (global) -->
   <script src="./vr/ui-fever.js"></script>
 
-  <!-- ===== เกม + Logger + Emoji ===== -->
   <script src="./vr-groups/emoji-image.js"></script>
   <script src="./vr-groups/difficulty.js"></script>
   <script src="./vr-groups/logger-cloud.js"></script>
@@ -215,7 +215,7 @@
       elTime.textContent = '60s';
       elScore.textContent = '0';
 
-      // ★ Cloud logger สำหรับ GroupsVR
+      // Cloud logger
       if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
         GAME_MODULES.foodGroupsCloudLogger.init({
           endpoint: 'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
@@ -228,7 +228,10 @@
       window.addEventListener('fg-game-over', function (e) {
         const d = e.detail || {};
         elEndScore.textContent = d.score != null ? d.score : 0;
-        elEndQuest.textContent = '-';
+        if (d.questsCleared != null) {
+          const total = d.questsTotal != null ? d.questsTotal : '-';
+          elEndQuest.textContent = d.questsCleared + ' / ' + total;
+        }
         elEndToast.classList.add('show');
       });
 
@@ -242,6 +245,7 @@
       // เริ่มเกมเมื่อ scene โหลดแล้ว
       const scene = document.querySelector('a-scene');
       scene.addEventListener('loaded', function () {
+        console.log('[GroupsVR] scene loaded → emit fg-start');
         scene.emit('fg-start', { diff: diff });
       });
     })();
