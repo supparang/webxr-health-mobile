@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (classic script + Fever + Cloud Logger)
-// เวอร์ชันสำหรับโหลดด้วย <script src="./vr-groups/GameEngine.js"></script>
+// Food Groups VR — Game Engine (with Fever + Cloud Logger)
+// 2025-12-05
 
 (function (ns) {
   'use strict';
@@ -48,10 +48,12 @@
     schema: {},
 
     init: function () {
+      console.log('[GroupsVR] component init');
+
       this.running    = false;
       this.targets    = [];
       this.elapsed    = 0;
-      this.durationMs = 60000;      // 60s (ตอนนี้ fix ไว้ก่อน)
+      this.durationMs = 60000;      // 60s
       this.diffKey    = 'normal';
       this.cfg        = pickDifficulty(this.diffKey);
 
@@ -66,7 +68,7 @@
       this.sessionId = createSessionId();
       this.events    = [];
 
-      // เตรียม Fever bar ถ้ามีโหลดจาก vr/ui-fever.js
+      // Fever bar (ถ้ามีโหลด ui-fever.js เป็น global FeverUI)
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -83,13 +85,14 @@
         self.start(diff);
       });
 
-      // ถ้าจะมีหยุดเองในอนาคต
       scene.addEventListener('fg-stop', function () {
         self.finish('stop');
       });
+
+      this._lastLogSec = -1;
     },
 
-    // -------- start / tick --------
+    // ------------- start / tick -------------
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
@@ -113,17 +116,7 @@
         ns.FeverUI.setShield(0);
       }
 
-      // ถ้ามี UI helper ก็อัปเดต label แบบปลอดภัย
-      if (ns.foodGroupsUI) {
-        if (typeof ns.foodGroupsUI.setDifficulty === 'function') {
-          ns.foodGroupsUI.setDifficulty(this.diffKey);
-        }
-        if (typeof ns.foodGroupsUI.setScore === 'function') {
-          ns.foodGroupsUI.setScore(0);
-        }
-      }
-
-      console.log('[GroupsVR] start diff=', this.diffKey);
+      console.log('[GroupsVR] start diff=', this.diffKey, 'cfg=', this.cfg);
     },
 
     tick: function (time, dt) {
@@ -133,7 +126,13 @@
       this.elapsed    += dt;
       this.spawnClock += dt;
 
-      // หมดเวลา → finish
+      // debug log ทุก ๆ 1 วินาที
+      const sec = (this.elapsed / 1000) | 0;
+      if (sec !== this._lastLogSec) {
+        this._lastLogSec = sec;
+        console.log('[GroupsVR] tick sec=', sec, 'targets=', this.targets.length);
+      }
+
       if (this.elapsed >= this.durationMs) {
         this.finish('timeout');
         return;
@@ -153,16 +152,16 @@
       this.updateTargets(dt);
     },
 
-    // -------- spawn & move --------
+    // ------------- spawn & move -------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
-      if (!emojiMod || typeof emojiMod.pickRandom !== 'function') {
-        console.warn('[GroupsVR] foodGroupsEmoji.pickRandom missing');
-        return;
+      let item = null;
+
+      if (emojiMod && typeof emojiMod.pickRandom === 'function') {
+        item = emojiMod.pickRandom();
       }
 
-      const item = emojiMod.pickRandom(); // {emoji, group, isGood, url}
-      if (!item) return;
+      console.log('[GroupsVR] spawnTarget()', item);
 
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
@@ -175,26 +174,33 @@
       const scale = this.cfg.scale || 1.0;
       el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
 
-      el.setAttribute('geometry', 'primitive: plane; height: 0.7; width: 0.7');
-      if (item.url) {
+      if (item && item.url) {
+        el.setAttribute('geometry', 'primitive: plane; height: 0.7; width: 0.7');
         el.setAttribute('material', {
           src: item.url,
           transparent: true,
-          alphaTest: 0.05
+          alphaTest: 0.05,
+          side: 'double'
         });
       } else {
+        // fallback กล่องสีเขียว — ถ้า emoji texture พัง อย่างน้อยจะเห็นเป้าแน่นอน
+        el.setAttribute('geometry', 'primitive: box; depth: 0.4; height: 0.4; width: 0.4');
         el.setAttribute('material', {
           color: '#22c55e',
           shader: 'flat'
         });
       }
 
-      el.setAttribute('data-group', String(item.group || 0));
-      el.setAttribute('data-good', item.isGood ? '1' : '0');
-      el._life      = 3000;          // อยู่ได้ 3 วินาที
+      const groupId = item && item.group != null ? item.group : 0;
+      const isGood  = item && item.isGood ? 1 : 0;
+
+      el.setAttribute('data-group', String(groupId));
+      el.setAttribute('data-good', String(isGood));
+
+      el._life      = 3000;
       el._age       = 0;
       el._spawnTime = performance.now();
-      el._metaItem  = item;
+      el._metaItem  = item || {};
 
       const self = this;
       el.addEventListener('click', function () {
@@ -221,7 +227,7 @@
       if (el.parentNode) el.parentNode.removeChild(el);
     },
 
-    // -------- hit / miss --------
+    // ------------- hit / miss -------------
     onHit: function (el) {
       const isGood  = el.getAttribute('data-good') === '1';
       const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
@@ -236,14 +242,9 @@
 
       const elScore = document.getElementById('hud-score');
       if (elScore) elScore.textContent = String(this.score);
-      if (ns.foodGroupsUI && typeof ns.foodGroupsUI.setScore === 'function') {
-        ns.foodGroupsUI.setScore(this.score);
-      }
 
-      // Fever
       this.updateFeverOnHit(isGood);
 
-      // log event
       this.logEvent({
         type: 'hit',
         groupId: groupId,
@@ -283,12 +284,12 @@
     },
 
     copyWorldPos: function (el) {
-      if (!el || !el.object3D) return null;
+      if (!el || !el.object3D || !window.THREE) return null;
       const v = el.object3D.getWorldPosition(new THREE.Vector3());
       return { x: v.x, y: v.y, z: v.z };
     },
 
-    // -------- Fever --------
+    // ------------- Fever -------------
     updateFeverOnHit: function (isGood) {
       if (!ns.FeverUI) return;
 
@@ -326,12 +327,12 @@
       ns.FeverUI.setFever(f);
     },
 
-    // -------- Logging --------
+    // ------------- Logging -------------
     logEvent: function (ev) {
       this.events.push(ev);
     },
 
-    // -------- finish --------
+    // ------------- finish -------------
     finish: function (reason) {
       if (!this.running) return;
       this.running = false;
@@ -344,7 +345,6 @@
 
       const scene = this.el.sceneEl;
 
-      // ส่ง log ขึ้น Google Sheet ถ้ามี logger
       if (ns.foodGroupsCloudLogger && typeof ns.foodGroupsCloudLogger.send === 'function') {
         const rawSession = {
           sessionId: this.sessionId,
@@ -355,7 +355,6 @@
         ns.foodGroupsCloudLogger.send(rawSession, this.events);
       }
 
-      // แจ้งไปให้ groups-vr.html แสดง summary
       scene.emit('fg-game-over', {
         score: this.score,
         diff: this.diffKey,
