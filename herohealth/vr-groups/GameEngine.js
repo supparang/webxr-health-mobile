@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (with Fever + Cloud Logger)
-// 2025-12-05 (emoji target visible + Fever bar ready + material fix)
+// 2025-12-05b (emoji target visible + Fever bar + material flat)
 
 (function (ns) {
   'use strict';
@@ -171,40 +171,45 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ตำแหน่งเกิด
-      const x = (Math.random() * 1.8) - 0.9;
-      const y = 1.1 + Math.random() * 0.8;
-      const z = -2.3;
+      // ตำแหน่งเกิด (ให้อยู่หน้ากลางจอ)
+      const x = (Math.random() * 1.6) - 0.8;
+      const y = 1.2 + Math.random() * 0.6;
+      const z = -2.0;
       el.setAttribute('position', { x, y, z });
 
       const scale = this.cfg.scale || 1.0;
-      el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
+      el.setAttribute('scale', `${scale} ${scale} ${scale}`);
+      el.setAttribute('visible', true);
 
-      // ใช้การตั้งค่า geometry/material แบบแยก field
       if (item && item.url) {
+        // เป้าใช้ plane ใหญ่ขึ้นหน่อย
         el.setAttribute('geometry', {
           primitive: 'plane',
-          height: 0.7,
-          width:  0.7
+          height: 0.9,
+          width:  0.9
         });
 
-        // สำคัญ: ตั้ง src ผ่าน field แยก เพื่อไม่ให้ data URL ไปชนกับ parser
-        el.setAttribute('material', 'src', item.url);
-        el.setAttribute('material', 'transparent', true);
-        el.setAttribute('material', 'alphaTest', 0.05);
-        el.setAttribute('material', 'side', 'double');
-        // ถ้าต้องการ flat shader จริง ๆ ใช้บรรทัดนี้ได้ (ปลอดภัยกว่าตอนเป็น string เดียว):
-        // el.setAttribute('material', 'shader', 'flat');
+        // ใช้ material แบบ object + flat shader ให้สว่างไม่ต้องพึ่งแสง
+        el.setAttribute('material', {
+          src:        item.url,
+          shader:     'flat',
+          transparent:true,
+          alphaTest:  0.01,
+          side:       'double',
+          color:      '#ffffff'
+        });
       } else {
         // fallback กล่องสีเขียวถ้า emoji พัง
         el.setAttribute('geometry', {
           primitive: 'box',
-          depth:  0.4,
-          height: 0.4,
-          width:  0.4
+          depth:  0.5,
+          height: 0.5,
+          width:  0.5
         });
-        el.setAttribute('material', 'color', '#22c55e');
-        el.setAttribute('material', 'shader', 'flat');
+        el.setAttribute('material', {
+          color:  '#22c55e',
+          shader: 'flat'
+        });
       }
 
       const groupId = item && item.group != null ? item.group : 0;
