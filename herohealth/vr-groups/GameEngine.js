@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (with Fever + Cloud Logger + Emoji Targets)
+// Food Groups VR — Game Engine (Emoji + Fever + Quest + Cloud Logger)
 // 2025-12-05
 
 (function (ns) {
@@ -13,68 +13,6 @@
 
   const FEVER_MAX = 100;
 
-  // --------------------------------------------------------------------
-  // ชุดข้อมูลอาหารดี / อาหารควรลด (ใช้สุ่มเป้า)
-  // --------------------------------------------------------------------
-  const GOOD_ITEMS = [
-    // หมู่ 1 – ข้าว แป้ง
-    { emoji: '🍚', group: 1 },
-    { emoji: '🍞', group: 1 },
-    { emoji: '🥔', group: 1 },
-    { emoji: '🌽', group: 1 },
-    { emoji: '🍜', group: 1 },
-
-    // หมู่ 2 – ผัก
-    { emoji: '🥬', group: 2 },
-    { emoji: '🥦', group: 2 },
-    { emoji: '🥕', group: 2 },
-    { emoji: '🍅', group: 2 },
-
-    // หมู่ 3 – ผลไม้
-    { emoji: '🍉', group: 3 },
-    { emoji: '🍓', group: 3 },
-    { emoji: '🍌', group: 3 },
-    { emoji: '🍊', group: 3 },
-    { emoji: '🍇', group: 3 },
-
-    // หมู่ 4 – โปรตีน
-    { emoji: '🐟', group: 4 },
-    { emoji: '🍗', group: 4 },
-    { emoji: '🥚', group: 4 },
-    { emoji: '🥜', group: 4 },
-
-    // หมู่ 5 – นม และผลิตภัณฑ์นม
-    { emoji: '🥛', group: 5 },
-    { emoji: '🧀', group: 5 }
-  ];
-
-  const JUNK_ITEMS = [
-    { emoji: '🍔', group: 9 },
-    { emoji: '🍟', group: 9 },
-    { emoji: '🍕', group: 9 },
-    { emoji: '🍩', group: 9 },
-    { emoji: '🍪', group: 9 },
-    { emoji: '🍫', group: 9 },
-    { emoji: '🍰', group: 9 },
-    { emoji: '🥤', group: 9 },
-    { emoji: '🧋', group: 9 }
-  ];
-
-  function pickItem(goodRatio) {
-    const r = Math.random();
-    const useGood = r < goodRatio;               // โอกาสเจออาหารดีตาม diff
-    const list = useGood ? GOOD_ITEMS : JUNK_ITEMS;
-    const base = list[Math.floor(Math.random() * list.length)];
-    return {
-      emoji: base.emoji,
-      group: base.group,
-      isGood: useGood
-    };
-  }
-
-  // --------------------------------------------------------------------
-  // Helper functions
-  // --------------------------------------------------------------------
   function clamp(v, min, max) {
     v = Number(v) || 0;
     if (v < min) return min;
@@ -87,7 +25,6 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
-    // fallback ถ้า table ไม่เจอ
     return {
       spawnInterval: 1200,
       fallSpeed: 0.011,
@@ -107,9 +44,20 @@
     );
   }
 
-  // --------------------------------------------------------------------
-  // Component หลักของเกม
-  // --------------------------------------------------------------------
+  // สุ่ม emoji อาหารดี/ควรลดจากโมดูล emoji
+  function pickEmojiItem() {
+    if (ns.foodGroupsEmoji && typeof ns.foodGroupsEmoji.pickRandom === 'function') {
+      return ns.foodGroupsEmoji.pickRandom();
+    }
+    // fallback: แค่สุ่ม emoji ง่าย ๆ
+    const GOOD = ['🍚','🍞','🥕','🥦','🍎','🍊','🍌','🍇','🥬','🥛','🐟','🍗'];
+    const BAD  = ['🍔','🍟','🍕','🍩','🥤','🧋'];
+    const all  = GOOD.concat(BAD);
+    const emo  = all[Math.floor(Math.random() * all.length)];
+    const isGood = GOOD.includes(emo);
+    return { emoji: emo, group: isGood ? 1 : 9, isGood };
+  }
+
   A.registerComponent('food-groups-game', {
     schema: {},
 
@@ -130,11 +78,21 @@
       this.fever       = 0;
       this.feverActive = false;
 
+      // Quest state (main + mini)
+      this.goal  = { label: 'จัดกลุ่มอาหารให้ถูกต้อง', prog: 0, target: 10 };
+      this.mini  = { label: 'เก็บอาหารดีให้ครบ 5 ชิ้น', prog: 0, target: 5 };
+      this.goalDone = false;
+      this.miniDone = false;
+      this.totalHits = 0;
+      this.goodHits  = 0;
+      this.questsCleared = 0;
+      this.questsTotal   = 2;
+
       // Logging
       this.sessionId = createSessionId();
       this.events    = [];
 
-      // Fever bar (ถ้ามีโหลด ui-fever.js เป็น global FeverUI)
+      // Fever bar (จาก ui-fever.js)
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -158,6 +116,57 @@
       this._lastLogSec = -1;
     },
 
+    // ---------- Quest helper ----------
+    sendQuestUpdate: function () {
+      const detail = {
+        goal: this.goalDone ? null : {
+          label: this.goal.label,
+          prog:  this.goal.prog,
+          target:this.goal.target
+        },
+        mini: this.miniDone ? null : {
+          label: this.mini.label,
+          prog:  this.mini.prog,
+          target:this.mini.target
+        },
+        hint: (!this.goalDone || !this.miniDone)
+          ? 'เลือกอาหารดีให้ตรงตามกลุ่ม และเลี่ยงอาหารควรลด'
+          : 'เยี่ยมมาก! ลองเน้นอาหารดีต่อไปนะ'
+      };
+      window.dispatchEvent(new CustomEvent('quest:update', { detail }));
+    },
+
+    updateQuestOnHit: function (isGood) {
+      this.totalHits++;
+      if (isGood) this.goodHits++;
+
+      // main goal: นับทุก hit
+      if (!this.goalDone) {
+        this.goal.prog = this.totalHits;
+        if (this.goal.prog >= this.goal.target) {
+          this.goalDone = true;
+          this.questsCleared++;
+          window.dispatchEvent(new CustomEvent('hha:coach', {
+            detail: { text: '🎉 Goal สำเร็จแล้ว! จัดกลุ่มได้ครบแล้ว' }
+          }));
+        }
+      }
+
+      // mini quest: นับเฉพาะอาหารดี
+      if (!this.miniDone && isGood) {
+        this.mini.prog = this.goodHits;
+        if (this.mini.prog >= this.mini.target) {
+          this.miniDone = true;
+          this.questsCleared++;
+          window.dispatchEvent(new CustomEvent('hha:coach', {
+            detail: { text: '🎯 เก็บอาหารดีครบแล้ว ลองรักษาระดับต่อไป!' }
+          }));
+        }
+      }
+
+      this.sendQuestUpdate();
+    },
+
     // ------------- start / tick -------------
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
@@ -172,6 +181,17 @@
       this.feverActive = false;
       this.events.length = 0;
       this.sessionId = createSessionId();
+
+      // reset quest
+      this.goal.prog = 0;
+      this.mini.prog = 0;
+      this.goalDone = false;
+      this.miniDone = false;
+      this.totalHits = 0;
+      this.goodHits  = 0;
+      this.questsCleared = 0;
+      this.questsTotal   = 2;
+      this.sendQuestUpdate();
 
       const elScore = document.getElementById('hud-score');
       if (elScore) elScore.textContent = '0';
@@ -192,7 +212,6 @@
       this.elapsed    += dt;
       this.spawnClock += dt;
 
-      // debug log ทุก ๆ 1 วินาที
       const sec = (this.elapsed / 1000) | 0;
       if (sec !== this._lastLogSec) {
         this._lastLogSec = sec;
@@ -220,43 +239,44 @@
 
     // ------------- spawn & move -------------
     spawnTarget: function () {
-      const cfg  = this.cfg || {};
-      const item = pickItem(cfg.goodRatio || 0.75);
+      const item = pickEmojiItem();
+      console.log('[GroupsVR] spawnTarget()', item);
 
-      // ใช้ emojiImage แบบ GoodJunk (global จาก vr-groups/emoji-image.js)
-      const emojiMod = ns.foodGroupsEmojiImage;
+      const x = (Math.random() * 1.8) - 0.9;
+      const y = 1.1 + Math.random() * 0.8;
+      const z = -2.3;
+
       let el;
 
-      if (emojiMod && typeof emojiMod.emojiImage === 'function') {
-        const scale = cfg.scale || 0.8;
-        el = emojiMod.emojiImage(item.emoji, scale, 160);
+      // ถ้ามีโมดูล emojiImage ให้ใช้ (แบบ goodjunk)
+      if (ns.foodGroupsEmojiImage && typeof ns.foodGroupsEmojiImage.emojiImage === 'function') {
+        el = ns.foodGroupsEmojiImage.emojiImage(item.emoji, this.cfg.scale || 1.1, 160);
+        el.setAttribute('position', { x, y, z });
       } else {
-        // fallback กล่องสีเขียว — กันกรณี emojiImage ใช้งานไม่ได้
+        // fallback เป็น plane ธรรมดา
         el = document.createElement('a-entity');
-        el.setAttribute(
-          'geometry',
-          'primitive: box; depth:0.4; height:0.4; width:0.4'
-        );
-        el.setAttribute(
-          'material',
-          'color:#22c55e; shader:flat'
-        );
+        el.setAttribute('position', { x, y, z });
+        el.setAttribute('geometry', 'primitive: plane; height: 0.7; width: 0.7');
+        el.setAttribute('material', {
+          color: item.isGood ? '#22c55e' : '#ef4444',
+          shader: 'flat'
+        });
+        const scale = this.cfg.scale || 1.0;
+        el.setAttribute('scale', `${scale} ${scale} ${scale}`);
       }
 
       el.setAttribute('data-hha-tgt', '1');
 
-      const x = (Math.random() * 1.8) - 0.9;
-      const y = 1.0 + Math.random() * 0.8;
-      const z = -2.3;
-      el.setAttribute('position', { x, y, z });
+      const groupId = item && item.group != null ? item.group : 0;
+      const isGood  = item && item.isGood ? 1 : 0;
 
-      el.setAttribute('data-group', String(item.group));
-      el.setAttribute('data-good', item.isGood ? '1' : '0');
+      el.setAttribute('data-group', String(groupId));
+      el.setAttribute('data-good', String(isGood));
 
-      el._metaItem  = item;
       el._life      = 3000;
       el._age       = 0;
       el._spawnTime = performance.now();
+      el._metaItem  = item || {};
 
       const self = this;
       el.addEventListener('click', function () {
@@ -300,6 +320,7 @@
       if (elScore) elScore.textContent = String(this.score);
 
       this.updateFeverOnHit(isGood);
+      this.updateQuestOnHit(isGood);
 
       this.logEvent({
         type: 'hit',
@@ -406,15 +427,24 @@
           sessionId: this.sessionId,
           score: this.score,
           difficulty: this.diffKey,
-          durationMs: this.elapsed
+          durationMs: this.elapsed,
+          questsCleared: this.questsCleared,
+          questsTotal: this.questsTotal
         };
         ns.foodGroupsCloudLogger.send(rawSession, this.events);
+      }
+
+      // เผื่อมี UI สำหรับ summary
+      if (ns.foodGroupsUI && typeof ns.foodGroupsUI.showEnd === 'function') {
+        ns.foodGroupsUI.showEnd(this.score, this.questsCleared, this.questsTotal);
       }
 
       scene.emit('fg-game-over', {
         score: this.score,
         diff: this.diffKey,
-        reason: reason || 'finish'
+        reason: reason || 'finish',
+        questsCleared: this.questsCleared,
+        questsTotal: this.questsTotal
       });
 
       console.log('[GroupsVR] finish', reason, 'score=', this.score);
