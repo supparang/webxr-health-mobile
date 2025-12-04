@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (with Fever + Cloud Logger)
-// 2025-12-05b (emoji target visible + Fever bar + material flat)
+// 2025-12-05 (fix: remove shader=flat so emoji shows correctly)
 
 (function (ns) {
   'use strict';
@@ -100,15 +100,15 @@
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
 
-      this.running     = true;
-      this.elapsed     = 0;
-      this.spawnClock  = 0;
+      this.running    = true;
+      this.elapsed    = 0;
+      this.spawnClock = 0;
       this.targets.length = 0;
-      this.score       = 0;
-      this.fever       = 0;
+      this.score      = 0;
+      this.fever      = 0;
       this.feverActive = false;
       this.events.length = 0;
-      this.sessionId   = createSessionId();
+      this.sessionId = createSessionId();
 
       const elScore = document.getElementById('hud-score');
       if (elScore) elScore.textContent = '0';
@@ -129,7 +129,7 @@
       this.elapsed    += dt;
       this.spawnClock += dt;
 
-      // debug log ทุก ๆ 1 วินาที (ช่วยดู targets count)
+      // debug log ทุก ๆ 1 วินาที
       const sec = (this.elapsed / 1000) | 0;
       if (sec !== this._lastLogSec) {
         this._lastLogSec = sec;
@@ -171,45 +171,35 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ตำแหน่งเกิด (ให้อยู่หน้ากลางจอ)
-      const x = (Math.random() * 1.6) - 0.8;
-      const y = 1.2 + Math.random() * 0.6;
-      const z = -2.0;
+      // ตำแหน่งเกิด
+      const x = (Math.random() * 1.8) - 0.9;
+      const y = 1.1 + Math.random() * 0.8;
+      const z = -2.3;
       el.setAttribute('position', { x, y, z });
 
       const scale = this.cfg.scale || 1.0;
-      el.setAttribute('scale', `${scale} ${scale} ${scale}`);
-      el.setAttribute('visible', true);
+      el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
 
+      // === ใช้ texture emoji แบบไม่ระบุ shader (ให้ default ของ A-Frame จัดการ) ===
       if (item && item.url) {
-        // เป้าใช้ plane ใหญ่ขึ้นหน่อย
-        el.setAttribute('geometry', {
-          primitive: 'plane',
-          height: 0.9,
-          width:  0.9
-        });
-
-        // ใช้ material แบบ object + flat shader ให้สว่างไม่ต้องพึ่งแสง
-        el.setAttribute('material', {
-          src:        item.url,
-          shader:     'flat',
-          transparent:true,
-          alphaTest:  0.01,
-          side:       'double',
-          color:      '#ffffff'
-        });
+        el.setAttribute(
+          'geometry',
+          'primitive: plane; height: 0.7; width: 0.7;'
+        );
+        el.setAttribute(
+          'material',
+          `src: ${item.url}; transparent: true; alphaTest: 0.05; side: double;`
+        );
       } else {
-        // fallback กล่องสีเขียวถ้า emoji พัง
-        el.setAttribute('geometry', {
-          primitive: 'box',
-          depth:  0.5,
-          height: 0.5,
-          width:  0.5
-        });
-        el.setAttribute('material', {
-          color:  '#22c55e',
-          shader: 'flat'
-        });
+        // fallback กล่องสีเขียว
+        el.setAttribute(
+          'geometry',
+          'primitive: box; depth: 0.4; height: 0.4; width: 0.4;'
+        );
+        el.setAttribute(
+          'material',
+          'color: #22c55e;'
+        );
       }
 
       const groupId = item && item.group != null ? item.group : 0;
@@ -218,7 +208,7 @@
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good', String(isGood));
 
-      el._life      = 3000;                  // อายุเป้า (ms)
+      el._life      = 3000;
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
