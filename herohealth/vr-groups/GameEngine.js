@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (with Fever + Cloud Logger)
-// 2025-12-05 (ตำแหน่งเป้าเวอร์ชันปรับให้เห็นชัด)
+// 2025-12-05 (emoji target visible + Fever bar ready)
 
 (function (ns) {
   'use strict';
@@ -25,6 +25,7 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
+    // fallback
     return {
       spawnInterval: 1200,
       fallSpeed: 0.011,
@@ -68,7 +69,7 @@
       this.sessionId = createSessionId();
       this.events    = [];
 
-      // Fever bar (ถ้ามีโหลด ui-fever.js เป็น global FeverUI)
+      // Fever bar (ถ้ามี FeverUI จาก ui-fever.js)
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -92,7 +93,9 @@
       this._lastLogSec = -1;
     },
 
-    // ------------- start / tick -------------
+    // --------------------------------------------------
+    // start / tick
+    // --------------------------------------------------
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
@@ -126,7 +129,7 @@
       this.elapsed    += dt;
       this.spawnClock += dt;
 
-      // debug log ทุก ๆ 1 วินาที
+      // debug log ทุก ๆ 1 วินาที (ช่วยดู targets count)
       const sec = (this.elapsed / 1000) | 0;
       if (sec !== this._lastLogSec) {
         this._lastLogSec = sec;
@@ -152,7 +155,9 @@
       this.updateTargets(dt);
     },
 
-    // ------------- spawn & move -------------
+    // --------------------------------------------------
+    // spawn & life
+    // --------------------------------------------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -166,30 +171,35 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ★★ ปรับตำแหน่งให้ลอยอยู่กลางจอมากขึ้น ★★
-      const x = (Math.random() * 1.6) - 0.8; // ซ้าย–ขวาใกล้เคียง GoodJunk
-      const y = 1.5;                         // สูงระดับสายตา
-      const z = -1.8;                        // ใกล้ขึ้น ไม่ไกลเกินไป
+      // ตำแหน่งเกิด
+      const x = (Math.random() * 1.8) - 0.9;
+      const y = 1.1 + Math.random() * 0.8;
+      const z = -2.3;
       el.setAttribute('position', { x, y, z });
 
       const scale = this.cfg.scale || 1.0;
       el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
 
+      // --- ที่สำคัญ: ใช้ material เป็น "string" ให้ A-Frame parse ---
       if (item && item.url) {
-        el.setAttribute('geometry', 'primitive: plane; height: 0.7; width: 0.7');
-        el.setAttribute('material', {
-          src: item.url,
-          transparent: true,
-          alphaTest: 0.05,
-          side: 'double'
-        });
+        el.setAttribute(
+          'geometry',
+          'primitive: plane; height: 0.7; width: 0.7;'
+        );
+        el.setAttribute(
+          'material',
+          `src: ${item.url}; transparent: true; alphaTest: 0.05; shader: flat; side: double;`
+        );
       } else {
-        // fallback กล่องสีเขียว — ถ้า emoji texture พัง อย่างน้อยจะเห็นเป้าแน่นอน
-        el.setAttribute('geometry', 'primitive: box; depth: 0.4; height: 0.4; width: 0.4');
-        el.setAttribute('material', {
-          color: '#22c55e',
-          shader: 'flat'
-        });
+        // fallback กล่องสีเขียวถ้า emoji พัง
+        el.setAttribute(
+          'geometry',
+          'primitive: box; depth: 0.4; height: 0.4; width: 0.4;'
+        );
+        el.setAttribute(
+          'material',
+          'color: #22c55e; shader: flat;'
+        );
       }
 
       const groupId = item && item.group != null ? item.group : 0;
@@ -198,7 +208,7 @@
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good', String(isGood));
 
-      el._life      = 3000;
+      el._life      = 3000;                  // อายุเป้า (ms)
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
@@ -228,7 +238,9 @@
       if (el.parentNode) el.parentNode.removeChild(el);
     },
 
-    // ------------- hit / miss -------------
+    // --------------------------------------------------
+    // hit / miss
+    // --------------------------------------------------
     onHit: function (el) {
       const isGood  = el.getAttribute('data-good') === '1';
       const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
@@ -290,7 +302,9 @@
       return { x: v.x, y: v.y, z: v.z };
     },
 
-    // ------------- Fever -------------
+    // --------------------------------------------------
+    // Fever gauge
+    // --------------------------------------------------
     updateFeverOnHit: function (isGood) {
       if (!ns.FeverUI) return;
 
@@ -328,12 +342,16 @@
       ns.FeverUI.setFever(f);
     },
 
-    // ------------- Logging -------------
+    // --------------------------------------------------
+    // Logging
+    // --------------------------------------------------
     logEvent: function (ev) {
       this.events.push(ev);
     },
 
-    // ------------- finish -------------
+    // --------------------------------------------------
+    // finish
+    // --------------------------------------------------
     finish: function (reason) {
       if (!this.running) return;
       this.running = false;
