@@ -1,11 +1,10 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine + Quest + Cloud Logger + Research Stats
-// 2025-12-05
+// Food Groups VR — Game Engine + Quest + Cloud Logger + Fever Gauge (2025-12-05)
 
 (function (ns) {
   'use strict';
 
-  const GAME_VERSION = 'GroupsVR_v1.0';
+  const GAME_VERSION = 'GroupsVR_v1.1-Fever';
 
   // ---------- detect device ----------
   function detectDeviceType() {
@@ -54,25 +53,15 @@
     try {
       const arr = (window.HHA_FOODGROUPS_LOG = window.HHA_FOODGROUPS_LOG || []);
       const payload = Object.assign({ ts: Date.now(), type }, detail);
-      // ผูก diff ปัจจุบันเข้าไปใน log ด้วย
+      // ผูก diff ปัจจุบันเข้าไปด้วย (ถ้ามี)
       if (ns && ns.FoodGroupsGame && ns.FoodGroupsGame.currentDiff && !payload.diff) {
         payload.diff = ns.FoodGroupsGame.currentDiff;
       }
       arr.push(payload);
     } catch (e) {
-      // เงียบถ้า log พัง
+      // เงียบ ๆ ถ้า log พัง
     }
   }
-
-  // ---------- meta กลุ่มอาหาร (ใช้เก็บ stats ต่อหมู่) ----------
-  const GROUP_META = {
-    1: { id: 1, label: 'หมู่ 1 ข้าว-แป้ง',          emoji: '🍚', isGood: true },
-    2: { id: 2, label: 'หมู่ 2 ผัก',                emoji: '🥬', isGood: true },
-    3: { id: 3, label: 'หมู่ 3 ผลไม้',              emoji: '🍉', isGood: true },
-    4: { id: 4, label: 'หมู่ 4 เนื้อสัตว์/โปรตีน',  emoji: '🍗', isGood: true },
-    5: { id: 5, label: 'หมู่ 5 นม',                 emoji: '🥛', isGood: true },
-    9: { id: 9, label: 'อาหารควรลด',                emoji: '🍟', isGood: false }
-  };
 
   // ---------- main game ----------
   function FoodGroupsGame(sceneEl) {
@@ -84,10 +73,10 @@
       ? ns.foodGroupsDifficulty.get('normal')
       : {
           spawnInterval: 1200,
-          fallSpeed: 0.012,
-          targetRadius: 0.5,
+          targetLifetime: 2200,
           maxActive: 5,
-          duration: 60000
+          duration: 60000,
+          targetRadius: 0.5
         };
 
     this.score          = 0;
@@ -95,14 +84,21 @@
     this._spawnTimer    = null;
     this._gameTimer     = null;
     this._timeInterval  = null;
+    this._startPerfTime = 0;
     this._startWallTime = 0;
+
+    // Fever state
+    this.fever          = 0;       // 0–100
+    this.feverActive    = false;
+    this.shieldCount    = 0;
+    this._feverTimeout  = null;
 
     this.deviceType = detectDeviceType();
     this.session    = ns.foodGroupsSession || {};
     this.groupStats = {};
     this.resetGroupStats();
 
-    // ค่า diff ปัจจุบันสำหรับ logEvent
+    // ค่าเริ่มต้นของ diff สำหรับ logEvent
     FoodGroupsGame.currentDiff = this.diff;
 
     // FX + UI
@@ -111,6 +107,14 @@
     }
     if (ns.foodGroupsUI && ns.foodGroupsUI.attachScene) {
       ns.foodGroupsUI.attachScene(sceneEl);
+    }
+
+    // Fever UI shared
+    if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
+      ns.FeverUI.ensureFeverBar();
+      ns.FeverUI.setFever(0);
+      ns.FeverUI.setFeverActive(false);
+      ns.FeverUI.setShield(0);
     }
 
     const self = this;
@@ -136,7 +140,7 @@
             ns.foodGroupsCoach.sayQuest(quest, progress || 0);
           }
 
-          // HUD ด้านบน (goal + mini progress)
+          // HUD ด้านบน (goal + progress)
           if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.update) {
             ns.foodGroupsQuestHUD.update(status, quest, !!justFinished);
           }
@@ -151,19 +155,34 @@
   // ---------- helpers ----------
   FoodGroupsGame.prototype.resetGroupStats = function () {
     this.groupStats = {};
-    Object.keys(GROUP_META).forEach(key => {
-      const m = GROUP_META[key];
-      this.groupStats[m.id] = {
-        id: m.id,
-        label: m.label,
-        emoji: m.emoji,
-        isGood: !!m.isGood,
-        spawns: 0,
-        hits: 0,
-        goodHits: 0,
-        badHits: 0
-      };
-    });
+    if (ns.foodGroupsEmoji && ns.foodGroupsEmoji.all) {
+      ns.foodGroupsEmoji.all.forEach(g => {
+        this.groupStats[g.id] = {
+          id: g.id,
+          label: g.label,
+          emoji: g.emoji,
+          isGood: !!g.isGood,
+          spawns: 0,
+          hits: 0,
+          goodHits: 0,
+          badHits: 0
+        };
+      });
+    }
+  };
+
+  FoodGroupsGame.prototype._clearFeverTimer = function () {
+    if (this._feverTimeout) {
+      clearTimeout(this._feverTimeout);
+      this._feverTimeout = null;
+    }
+  };
+
+  FoodGroupsGame.prototype._updateFeverUI = function () {
+    if (!ns.FeverUI) return;
+    if (ns.FeverUI.setFever)       ns.FeverUI.setFever(this.fever);
+    if (ns.FeverUI.setFeverActive) ns.FeverUI.setFeverActive(this.feverActive);
+    if (ns.FeverUI.setShield)      ns.FeverUI.setShield(this.shieldCount || 0);
   };
 
   FoodGroupsGame.prototype.clearTimers = function () {
@@ -179,11 +198,12 @@
       clearInterval(this._timeInterval);
       this._timeInterval = null;
     }
+    this._clearFeverTimer();
   };
 
   FoodGroupsGame.prototype.removeAllTargets = function () {
-    this._targets.forEach(t => {
-      if (t && t.el && t.el.parentNode) t.el.parentNode.removeChild(t.el);
+    this._targets.forEach(el => {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
     });
     this._targets.length = 0;
   };
@@ -197,6 +217,13 @@
     }
 
     FoodGroupsGame.currentDiff = this.diff;
+
+    // reset fever
+    this.fever       = 0;
+    this.feverActive = false;
+    this.shieldCount = 0;
+    this._clearFeverTimer();
+    this._updateFeverUI();
 
     // แจ้งโค้ชเรื่องระดับความยาก
     if (ns.foodGroupsCoach && ns.foodGroupsCoach.setDifficulty) {
@@ -212,11 +239,10 @@
     this.removeAllTargets();
     this.resetGroupStats();
 
-    // UI
     if (ns.foodGroupsUI) {
       ns.foodGroupsUI.init && ns.foodGroupsUI.init();
-      ns.foodGroupsUI.show && ns.foodGroupsUI.show();
-      ns.foodGroupsUI.reset && ns.foodGroupsUI.reset();
+      ns.foodGroupsUI.show();
+      ns.foodGroupsUI.reset();
       if (ns.foodGroupsEmoji && ns.foodGroupsEmoji.all && ns.foodGroupsUI.setLegend) {
         ns.foodGroupsUI.setLegend(ns.foodGroupsEmoji.all);
       }
@@ -226,22 +252,22 @@
       ns.foodGroupsQuestHUD.reset();
     }
 
-    if (this.questManager && this.questManager.reset) {
+    if (this.questManager) {
       this.questManager.reset(this.diff);
     }
-
     if (ns.foodGroupsCoach && ns.foodGroupsCoach.sayStart) {
       ns.foodGroupsCoach.sayStart();
     }
 
-    const duration = this.cfg.duration || 60000;
+    const duration  = this.cfg.duration || 60000;
+    const startPerf = performance.now();
+    this._startPerfTime = startPerf;
     this._startWallTime = Date.now();
-    const startWall = this._startWallTime;
 
     const self = this;
     this._timeInterval = setInterval(function () {
-      const now    = Date.now();
-      const remain = Math.max(0, duration - (now - startWall));
+      const elapsed = performance.now() - startPerf;
+      const remain  = Math.max(0, duration - elapsed);
       if (ns.foodGroupsUI && ns.foodGroupsUI.setTime) {
         ns.foodGroupsUI.setTime(Math.ceil(remain / 1000));
       }
@@ -269,7 +295,7 @@
     this.clearTimers();
     this.removeAllTargets();
 
-    if (ns.foodGroupsUI && ns.foodGroupsUI.hide) ns.foodGroupsUI.hide();
+    if (ns.foodGroupsUI) ns.foodGroupsUI.hide();
 
     const questsCleared =
       this.questManager && this.questManager.getClearedCount
@@ -326,7 +352,9 @@
       totalSpawns,
       totalHits,
       totalGoodHits,
-      totalBadHits
+      totalBadHits,
+      feverMax: this.fever,           // เก็บค่าที่เหลือตอนจบคร่าว ๆ
+      feverActive: this.feverActive
     };
 
     const events = (window.HHA_FOODGROUPS_LOG || []).slice();
@@ -346,13 +374,69 @@
     if (ns.foodGroupsQuestHUD && ns.foodGroupsQuestHUD.finish) {
       ns.foodGroupsQuestHUD.finish(status);
     }
+
+    // ปิด fever ตอนจบ
+    this.fever       = 0;
+    this.feverActive = false;
+    this._updateFeverUI();
+  };
+
+  // ---------- Fever update helpers ----------
+  FoodGroupsGame.prototype._gainFeverOnHit = function (opts) {
+    const isGood       = !!opts.isGood;
+    const isQuest      = !!opts.isQuestTarget;
+    const judgment     = opts.judgment || 'normal';
+
+    let delta = 0;
+
+    if (isGood) {
+      delta += 6;
+      if (isQuest) delta += 4;
+      if (judgment === 'perfect') delta += 4;
+      else if (judgment === 'good') delta += 2;
+    } else {
+      // ยิงของควรลด → ลด fever
+      delta -= (this.diff === 'easy' ? 6 : 10);
+    }
+
+    this.fever = Math.max(0, Math.min(100, this.fever + delta));
+
+    // เข้า Fever mode ถ้าเต็ม
+    if (this.fever >= 100 && !this.feverActive) {
+      this.fever       = 100;
+      this.feverActive = true;
+
+      // ให้ fever ค้างสัก 8 วิ แล้วค่อยดรอป
+      this._clearFeverTimer();
+      const self = this;
+      this._feverTimeout = setTimeout(function () {
+        self.feverActive = false;
+        // ค่อย ๆ ลดลงครึ่งหนึ่งหลังหมด fever
+        self.fever = Math.max(0, Math.round(self.fever * 0.4));
+        self._updateFeverUI();
+      }, 8000);
+    }
+
+    this._updateFeverUI();
+  };
+
+  FoodGroupsGame.prototype._loseFeverOnMiss = function () {
+    let delta = (this.diff === 'easy') ? -4 : -8;
+    this.fever = Math.max(0, this.fever + delta);
+
+    // ถ้าต่ำกว่า 25% ให้หลุดจาก fever
+    if (this.fever < 25 && this.feverActive) {
+      this.feverActive = false;
+      this._clearFeverTimer();
+    }
+    this._updateFeverUI();
   };
 
   // ---------- spawn loop ----------
   FoodGroupsGame.prototype.scheduleNextSpawn = function () {
     if (this.state !== 'playing') return;
     const self     = this;
-    const interval = this.cfg.spawnInterval || this.cfg.SPAWN_INTERVAL || 1200;
+    const interval = this.cfg.spawnInterval || 1200;
 
     this._spawnTimer = setTimeout(function () {
       self.spawnTarget();
@@ -367,60 +451,67 @@
     const cfg       = this.cfg || {};
     const maxActive = cfg.maxActive || 5;
 
-    // limit active
-    if (this._targets.length >= maxActive) return;
-
-    // เลือก emoji จาก emoji-image.js
-    let item = null;
-    if (ns.foodGroupsEmoji && typeof ns.foodGroupsEmoji.pickRandom === 'function') {
-      item = ns.foodGroupsEmoji.pickRandom();
-    }
-    if (!item) {
-      console.warn('[GroupsVR] emoji module not ready, fallback 🎯');
-      item = { emoji: '🎯', group: 0, isGood: true, url: null };
+    if (this._targets.length >= maxActive) {
+      return;
     }
 
-    const groupId = item.group || 0;
-    const isGood  = !!item.isGood;
+    // เลือก group + emoji อย่างปลอดภัย
+    let group = null;
+    if (ns.foodGroupsEmoji && ns.foodGroupsEmoji.pickRandomGroup) {
+      group = ns.foodGroupsEmoji.pickRandomGroup();
+    } else if (ns.foodGroupsEmoji && ns.foodGroupsEmoji.pickRandom) {
+      group = ns.foodGroupsEmoji.pickRandom();
+    }
+    if (!group) {
+      console.warn('[GroupsGame] emoji module not ready, use fallback target');
+      group = {
+        id: 0,
+        label: 'target',
+        emoji: '🎯',
+        color: '#22c55e',
+        img: null,
+        isGood: true
+      };
+    }
 
-    // ข้อมูล quest ปัจจุบัน
     const currentQuest =
       this.questManager && this.questManager.getCurrent
         ? this.questManager.getCurrent()
         : null;
-    const isQuestTarget = currentQuest && currentQuest.groupId === groupId;
+    const isQuestTarget = currentQuest && currentQuest.groupId === group.id;
 
     const el = document.createElement('a-entity');
 
-    // สุ่มตำแหน่งบริเวณกลาง ๆ จอ
+    // กระจายตำแหน่งกลางจอ
     const x = -1.2 + Math.random() * 2.4;
-    const y = 1.4  + Math.random() * 0.4;
-    const z = -2.6 + Math.random() * 0.4;
+    const y = 0.9  + Math.random() * 1.0;
+    const z = -2.8 + Math.random() * 0.6;
 
     const radius = cfg.targetRadius || 0.5;
     el.setAttribute('geometry', `primitive: circle; radius: ${radius}; segments: 64`);
     el.setAttribute(
       'material',
-      `color: ${isGood ? '#22c55e' : '#f97316'}; shader: flat; opacity: 0.9; transparent: true`
+      `color: ${group.color || '#22c55e'}; shader: flat; opacity: 0.95; transparent: true`
     );
     el.setAttribute('position', `${x} ${y} ${z}`);
     el.setAttribute('data-hha-tgt', '1');
-    el.setAttribute('data-group-id', String(groupId));
+    el.setAttribute('data-group-id', String(group.id));
     el.setAttribute('data-quest-target', isQuestTarget ? '1' : '0');
-    el.setAttribute('data-emoji', item.emoji || '');
-    el.setAttribute('data-is-good', isGood ? '1' : '0');
+    el.setAttribute('data-emoji', group.emoji || '');
+    el.setAttribute('data-is-good', group.isGood ? '1' : '0');
 
-    // แปะ emoji เป็นรูปภาพบนเป้า (ใช้ texture url จาก emoji-image.js)
-    if (item.url) {
+    // แปะ emoji เป็นรูปภาพบนเป้า (ถ้ามี resource)
+    if (group.img) {
       const sprite = document.createElement('a-image');
-      sprite.setAttribute('src', item.url);
+      sprite.setAttribute('src', group.img);
       sprite.setAttribute('width',  (radius * 2 * 1.1).toString());
       sprite.setAttribute('height', (radius * 2 * 1.1).toString());
       sprite.setAttribute('position', '0 0 0.03');
       el.appendChild(sprite);
-    } else if (item.emoji) {
+    } else if (group.emoji) {
+      // fallback ใช้ a-text ถ้าไม่มีรูป
       const label = document.createElement('a-text');
-      label.setAttribute('value', item.emoji);
+      label.setAttribute('value', group.emoji);
       label.setAttribute('align', 'center');
       label.setAttribute('anchor', 'center');
       label.setAttribute('color', '#ffffff');
@@ -444,78 +535,46 @@
       'property: scale; from: 0.001 0.001 0.001; to: 1 1 1; dur: 180; easing: easeOutQuad'
     );
 
-    // เก็บเวลาที่ spawn เพื่อคำนวณ RT
     const spawnTime = performance.now();
-    el.__spawnTime  = spawnTime;
+    el.__spawnTime = spawnTime;
 
-    // สำหรับให้ตกลง (ตาม fallSpeed)
-    const fallSpeed = cfg.fallSpeed || 0;
-    const info = {
-      el,
-      groupId,
-      isGood,
-      fallSpeed,
-      ttl: cfg.targetLifetime || 2200
-    };
-
-    if (this.groupStats[groupId]) {
-      this.groupStats[groupId].spawns++;
+    if (this.groupStats[group.id]) {
+      this.groupStats[group.id].spawns++;
     }
 
     const self = this;
 
     el.addEventListener('click', function () {
-      self.onHitTarget(info);
+      self.onHitTarget(el);
     });
 
-    // timeout ถ้ายังไม่ได้ยิง
     const lifetime = cfg.targetLifetime || 2200;
     el._hha_timeout = setTimeout(function () {
       if (el.__destroyed) return;
       el.__destroyed = true;
-      self.onMissTarget(info);
+      self.onMissTarget(el);
     }, lifetime);
 
     this.sceneEl.appendChild(el);
-    this._targets.push(info);
+    this._targets.push(el);
 
     logEvent('spawn', {
-      groupId,
-      emoji:   item.emoji || '',
-      isGood,
+      groupId: group.id,
+      emoji:   group.emoji || '',
+      isGood:  !!group.isGood,
       isQuestTarget: !!isQuestTarget,
       pos: { x, y, z }
     });
   };
 
-  // อัปเดตการเคลื่อนที่ของเป้า (ตกลงเล็กน้อย)
-  FoodGroupsGame.prototype.updateTargets = function (dt) {
-    if (!this._targets || !this._targets.length) return;
-    const deltaSec = dt / 1000;
-
-    for (let i = this._targets.length - 1; i >= 0; i--) {
-      const t  = this._targets[i];
-      const el = t.el;
-      if (!el || !el.object3D) continue;
-
-      // move down
-      if (t.fallSpeed) {
-        const p = el.object3D.position;
-        p.y -= t.fallSpeed * deltaSec;
-      }
-    }
-  };
-
   // ---------- helpers for hit / miss ----------
-  FoodGroupsGame.prototype.safeRemoveTarget = function (info) {
-    const el = info.el;
-    const idx = this._targets.indexOf(info);
+  FoodGroupsGame.prototype.safeRemoveTarget = function (el) {
+    const idx = this._targets.indexOf(el);
     if (idx !== -1) this._targets.splice(idx, 1);
-    if (el && el.parentNode) el.parentNode.removeChild(el);
+    if (el.parentNode) el.parentNode.removeChild(el);
   };
 
-  FoodGroupsGame.prototype.onHitTarget = function (info) {
-    const el = info.el;
+  FoodGroupsGame.prototype.onHitTarget = function (el) {
     if (this.state !== 'playing' || !el || el.__destroyed) return;
     el.__destroyed = true;
 
@@ -524,10 +583,16 @@
       el._hha_timeout = null;
     }
 
-    const groupId = info.groupId || 0;
-    const isGood  = info.isGood;
+    const groupId =
+      parseInt(
+        el.getAttribute('data-group-id') ||
+          (el.dataset && el.dataset.groupId) ||
+          '0',
+        10
+      ) || 0;
     const isQuestTarget = el.getAttribute('data-quest-target') === '1';
     const emoji   = el.getAttribute('data-emoji') || '';
+    const isGood  = el.getAttribute('data-is-good') !== '0';
 
     const now = performance.now();
     const rt  = el.__spawnTime ? now - el.__spawnTime : null;
@@ -535,7 +600,7 @@
     const baseScore = baseScoreForDiff(this.diff);
     let bonus = 0;
 
-    if (this.questManager && this.questManager.notifyHit) {
+    if (this.questManager) {
       const res = this.questManager.notifyHit(groupId);
       if (res && res.bonus) bonus += res.bonus;
     }
@@ -547,6 +612,13 @@
     if (!isGood) {
       const penalty = Math.max(1, Math.round(missPenaltyForDiff(this.diff) / 2));
       gained = -penalty;
+    }
+
+    // ถ้าอยู่ใน FEVER และเป็นการยิงอาหารดี → x2
+    let feverMult = 1;
+    if (this.feverActive && isGood && gained > 0) {
+      feverMult = 2;
+      gained = gained * feverMult;
     }
 
     this.score = Math.max(0, this.score + gained);
@@ -561,15 +633,23 @@
     const judgment = classifyJudgment(rt);
 
     if (ns.foodGroupsUI) {
-      ns.foodGroupsUI.setScore && ns.foodGroupsUI.setScore(this.score);
-      ns.foodGroupsUI.flashJudgment && ns.foodGroupsUI.flashJudgment({
+      ns.foodGroupsUI.setScore(this.score);
+      ns.foodGroupsUI.flashJudgment({
         scoreDelta: gained,
         isMiss: false,
         isQuestTarget: isQuestTarget,
         judgment,
-        isGood
+        isGood,
+        feverActive: this.feverActive
       });
     }
+
+    // Fever update จาก hit
+    this._gainFeverOnHit({
+      isGood,
+      isQuestTarget,
+      judgment
+    });
 
     // ให้โค้ชรีแอคเวลายิงโดน
     if (ns.foodGroupsCoach && ns.foodGroupsCoach.onHit) {
@@ -580,7 +660,9 @@
         isQuestTarget,
         scoreDelta: gained,
         rtMs: rt,
-        judgment
+        judgment,
+        fever: this.fever,
+        feverActive: this.feverActive
       });
     }
 
@@ -602,7 +684,7 @@
       ns.foodGroupsFx.burst(wp);
     }
 
-    if (ns.foodGroupsAudio && ns.foodGroupsAudio.playHit) {
+    if (ns.foodGroupsAudio) {
       ns.foodGroupsAudio.playHit();
     }
 
@@ -613,24 +695,26 @@
       isQuestTarget: !!isQuestTarget,
       baseScore,
       bonus,
+      feverMult,
       scoreDelta: gained,
       rtMs: rt,
       pos: worldPos,
-      judgment
+      judgment,
+      fever: this.fever,
+      feverActive: this.feverActive
     });
 
-    this.safeRemoveTarget(info);
+    this.safeRemoveTarget(el);
   };
 
-  FoodGroupsGame.prototype.onMissTarget = function (info) {
-    const el = info.el;
+  FoodGroupsGame.prototype.onMissTarget = function (el) {
     const penalty = missPenaltyForDiff(this.diff);
 
     if (this.state === 'playing') {
       if (this.diff === 'easy') {
         if (ns.foodGroupsUI) {
-          ns.foodGroupsUI.setScore && ns.foodGroupsUI.setScore(this.score);
-          ns.foodGroupsUI.flashJudgment && ns.foodGroupsUI.flashJudgment({
+          ns.foodGroupsUI.setScore(this.score);
+          ns.foodGroupsUI.flashJudgment({
             isMiss: true,
             scoreDelta: 0,
             isQuestTarget: false,
@@ -640,8 +724,8 @@
       } else {
         this.score = Math.max(0, this.score - penalty);
         if (ns.foodGroupsUI) {
-          ns.foodGroupsUI.setScore && ns.foodGroupsUI.setScore(this.score);
-          ns.foodGroupsUI.flashJudgment && ns.foodGroupsUI.flashJudgment({
+          ns.foodGroupsUI.setScore(this.score);
+          ns.foodGroupsUI.flashJudgment({
             isMiss: true,
             scoreDelta: -penalty,
             isQuestTarget: false,
@@ -650,19 +734,27 @@
         }
       }
 
-      if (ns.foodGroupsAudio && ns.foodGroupsAudio.playMiss) {
+      if (ns.foodGroupsAudio) {
         ns.foodGroupsAudio.playMiss();
       }
+
+      // ลด Fever เมื่อพลาด
+      this._loseFeverOnMiss();
     }
 
-    const groupId = info.groupId || 0;
-    const emoji   = el.getAttribute('data-emoji') || '';
-    const isGood  = info.isGood;
+    const groupId =
+      parseInt(
+        el.getAttribute('data-group-id') ||
+          (el.dataset && el.dataset.groupId) ||
+          '0',
+        10
+      ) || 0;
+    const emoji  = el.getAttribute('data-emoji') || '';
+    const isGood = el.getAttribute('data-is-good') !== '0';
+    const isQuestTarget = el.getAttribute('data-quest-target') === '1';
 
     const now = performance.now();
     const rt  = el.__spawnTime ? now - el.__spawnTime : null;
-
-    const isQuestTarget = el.getAttribute('data-quest-target') === '1';
 
     // ให้โค้ชรู้ว่าพลาด
     if (ns.foodGroupsCoach && ns.foodGroupsCoach.onMiss) {
@@ -670,7 +762,9 @@
         groupId,
         emoji,
         isGood,
-        rtMs: rt
+        rtMs: rt,
+        fever: this.fever,
+        feverActive: this.feverActive
       });
     }
 
@@ -687,10 +781,12 @@
       isGood,
       isQuestTarget,
       rtMs: rt,
-      pos: worldPos
+      pos: worldPos,
+      fever: this.fever,
+      feverActive: this.feverActive
     });
 
-    this.safeRemoveTarget(info);
+    this.safeRemoveTarget(el);
   };
 
   // ---------- A-Frame component ----------
@@ -708,14 +804,8 @@
         const reason = (e.detail && e.detail.reason) || 'stop';
         self.game.endGame(reason);
       });
-    },
-    tick: function (time, dt) {
-      if (this.game && this.game.state === 'playing') {
-        this.game.updateTargets(dt);
-      }
     }
   });
 
   ns.FoodGroupsGame = FoodGroupsGame;
-
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
