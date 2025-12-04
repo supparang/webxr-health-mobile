@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (with Fever + Cloud Logger)
-// 2025-12-05 (emoji target visible + Fever bar ready)
+// 2025-12-05 (emoji target visible + Fever bar ready + material fix)
 
 (function (ns) {
   'use strict';
@@ -100,15 +100,15 @@
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
 
-      this.running    = true;
-      this.elapsed    = 0;
-      this.spawnClock = 0;
+      this.running     = true;
+      this.elapsed     = 0;
+      this.spawnClock  = 0;
       this.targets.length = 0;
-      this.score      = 0;
-      this.fever      = 0;
+      this.score       = 0;
+      this.fever       = 0;
       this.feverActive = false;
       this.events.length = 0;
-      this.sessionId = createSessionId();
+      this.sessionId   = createSessionId();
 
       const elScore = document.getElementById('hud-score');
       if (elScore) elScore.textContent = '0';
@@ -180,26 +180,31 @@
       const scale = this.cfg.scale || 1.0;
       el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
 
-      // --- ที่สำคัญ: ใช้ material เป็น "string" ให้ A-Frame parse ---
+      // ใช้การตั้งค่า geometry/material แบบแยก field
       if (item && item.url) {
-        el.setAttribute(
-          'geometry',
-          'primitive: plane; height: 0.7; width: 0.7;'
-        );
-        el.setAttribute(
-          'material',
-          `src: ${item.url}; transparent: true; alphaTest: 0.05; shader: flat; side: double;`
-        );
+        el.setAttribute('geometry', {
+          primitive: 'plane',
+          height: 0.7,
+          width:  0.7
+        });
+
+        // สำคัญ: ตั้ง src ผ่าน field แยก เพื่อไม่ให้ data URL ไปชนกับ parser
+        el.setAttribute('material', 'src', item.url);
+        el.setAttribute('material', 'transparent', true);
+        el.setAttribute('material', 'alphaTest', 0.05);
+        el.setAttribute('material', 'side', 'double');
+        // ถ้าต้องการ flat shader จริง ๆ ใช้บรรทัดนี้ได้ (ปลอดภัยกว่าตอนเป็น string เดียว):
+        // el.setAttribute('material', 'shader', 'flat');
       } else {
         // fallback กล่องสีเขียวถ้า emoji พัง
-        el.setAttribute(
-          'geometry',
-          'primitive: box; depth: 0.4; height: 0.4; width: 0.4;'
-        );
-        el.setAttribute(
-          'material',
-          'color: #22c55e; shader: flat;'
-        );
+        el.setAttribute('geometry', {
+          primitive: 'box',
+          depth:  0.4,
+          height: 0.4,
+          width:  0.4
+        });
+        el.setAttribute('material', 'color', '#22c55e');
+        el.setAttribute('material', 'shader', 'flat');
       }
 
       const groupId = item && item.group != null ? item.group : 0;
