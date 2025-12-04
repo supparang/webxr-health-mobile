@@ -1,81 +1,79 @@
 // === /herohealth/vr-groups/emoji-image.js ===
-// Food Groups VR — ชุด emoji + random picker (ไม่ยุ่งกับ shader/texture)
+// Port จาก GoodJunk emojiImage ให้ใช้แบบ global (ไม่ใช้ ES module)
 // 2025-12-05
 
 (function (ns) {
-  'use strict';
+  'use strict';https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/vr-groups/emoji-image.js
 
-  ns = ns || (window.GAME_MODULES = window.GAME_MODULES || {});
+  const CACHE = new Map();
 
-  // -------------------------------------------------------------------
-  // ข้อมูลอาหาร: emoji + หมู่ + ดี/ควรลด
-  // group: 1–5 = อาหาร 5 หมู่, 9 = ของหวาน/ของมัน/น้ำหวาน
-  // -------------------------------------------------------------------
-  const ITEMS = [
-    // หมู่ 1 ข้าว-แป้ง
-    { emoji: '🍚',  group: 1, isGood: true },
-    { emoji: '🍞',  group: 1, isGood: true },
-    { emoji: '🥔',  group: 1, isGood: true },
-    { emoji: '🌽',  group: 1, isGood: true },
-    { emoji: '🍜',  group: 1, isGood: true },
+  function drawEmoji(char, px = 128) {
+    const key = `${char}@${px}`;
+    if (CACHE.has(key)) return CACHE.get(key);
 
-    // หมู่ 2 ผัก
-    { emoji: '🥬',  group: 2, isGood: true },
-    { emoji: '🥦',  group: 2, isGood: true },
-    { emoji: '🥕',  group: 2, isGood: true },
-    { emoji: '🍅',  group: 2, isGood: true },
-    { emoji: '🥗',  group: 2, isGood: true },
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const W = Math.round(px * dpr);
+    const H = Math.round(px * dpr);
+    const pad = Math.round(px * 0.30 * dpr);
 
-    // หมู่ 3 ผลไม้
-    { emoji: '🍉',  group: 3, isGood: true },
-    { emoji: '🍓',  group: 3, isGood: true },
-    { emoji: '🍌',  group: 3, isGood: true },
-    { emoji: '🍊',  group: 3, isGood: true },
-    { emoji: '🍇',  group: 3, isGood: true },
+    const cv = document.createElement('canvas');
+    cv.width  = W + pad * 2;
+    cv.height = H + pad * 2;
+    const ctx = cv.getContext('2d');
 
-    // หมู่ 4 เนื้อสัตว์/ถั่ว
-    { emoji: '🐟',  group: 4, isGood: true },
-    { emoji: '🍗',  group: 4, isGood: true },
-    { emoji: '🫘',  group: 4, isGood: true },
-    { emoji: '🥚',  group: 4, isGood: true },
-    { emoji: '🥜',  group: 4, isGood: true },
+    const fontPx = Math.round(px * dpr);
+    const fontFamily =
+      'system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
 
-    // หมู่ 5 นม
-    { emoji: '🥛',  group: 5, isGood: true },
-    { emoji: '🧀',  group: 5, isGood: true },
-    { emoji: '🍦',  group: 5, isGood: true },
+    ctx.font = `${fontPx}px ${fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
-    // ของหวาน/มัน/น้ำหวาน (กลุ่มควรลด)
-    { emoji: '🍔',  group: 9, isGood: false },
-    { emoji: '🍟',  group: 9, isGood: false },
-    { emoji: '🍕',  group: 9, isGood: false },
-    { emoji: '🍩',  group: 9, isGood: false },
-    { emoji: '🍪',  group: 9, isGood: false },
-    { emoji: '🧁',  group: 9, isGood: false },
-    { emoji: '🍫',  group: 9, isGood: false },
-    { emoji: '🍰',  group: 9, isGood: false },
-    { emoji: '🥤',  group: 9, isGood: false },
-    { emoji: '🧋',  group: 9, isGood: false }
-  ];
+    // เงาให้ฟู ๆ หน่อย
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.45)';
+    ctx.shadowBlur  = Math.round(px * 0.22 * dpr);
+    ctx.fillText(char, cv.width / 2, cv.height / 2);
+    ctx.restore();
 
-  const GOOD = ITEMS.filter(i => i.isGood);
-  const BAD  = ITEMS.filter(i => !i.isGood);
+    // เติมรอบสองให้สีแน่น
+    ctx.fillText(char, cv.width / 2, cv.height / 2);
 
-  // goodRatio ~ โอกาสออก “อาหารดี” (0–1)
-  function pickRandom(goodRatio) {
-    goodRatio = typeof goodRatio === 'number' ? goodRatio : 0.75;
-    if (Math.random() < goodRatio && GOOD.length) {
-      return GOOD[Math.floor(Math.random() * GOOD.length)];
-    }
-    const pool = ITEMS;
-    return pool[Math.floor(Math.random() * pool.length)];
+    const out = {
+      src: cv.toDataURL('image/png'),
+      w:   cv.width,
+      h:   cv.height
+    };
+    CACHE.set(key, out);
+    return out;
   }
 
-  ns.foodGroupsEmoji = {
-    ITEMS,
-    GOOD,
-    BAD,
-    pickRandom
+  /**
+   * emojiImage(char, scale?, px?)
+   * - char  : emoji เช่น '🥦'
+   * - scale : scale ของ a-image (เริ่มต้น 0.65)
+   * - px    : ขนาดฐาน canvas (เริ่มต้น 128)
+   */
+  function emojiImage(char, scale = 0.65, px = 128) {
+    const img = drawEmoji(char, px);
+
+    const el = document.createElement('a-image');
+    el.setAttribute('src', img.src);
+    el.setAttribute('transparent', true);
+    el.setAttribute(
+      'material',
+      'transparent:true; alphaTest:0.01; side:double'
+    );
+    el.setAttribute('scale', `${scale} ${scale} ${scale}`);
+    el.dataset.emoji = char; // เผื่อดีบัก
+
+    return el;
+  }
+
+  // expose แบบ global สำหรับ Food Groups
+  ns.foodGroupsEmojiImage = {
+    emojiImage,
+    drawEmoji
   };
 
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
