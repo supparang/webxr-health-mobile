@@ -79,7 +79,6 @@
       const scene = this.el.sceneEl;
       const self  = this;
 
-      // groups-vr.html → scene.emit('fg-start',{diff})
       scene.addEventListener('fg-start', function (e) {
         const diff = (e && e.detail && e.detail.diff) || 'normal';
         self.start(diff);
@@ -168,31 +167,39 @@
 
       const hasEmoji = item && item.url;
 
-      // ใช้ a-image ถ้ามี emoji texture, ไม่งั้นใช้กล่องสีเขียว
-      const el = document.createElement(hasEmoji ? 'a-image' : 'a-entity');
+      let el;
+      const scale = this.cfg.scale || 1.0;
+
+      if (hasEmoji) {
+        // ใช้ a-image + dataURL จาก emoji-image.js
+        el = document.createElement('a-image');
+        el.setAttribute('src', item.url);
+        el.setAttribute('transparent', 'true');
+        el.setAttribute(
+          'material',
+          'transparent:true; side:double; alphaTest:0.01'
+        );
+        el.setAttribute('width', 0.9 * scale);
+        el.setAttribute('height', 0.9 * scale);
+        // ให้หันมาทางกล้องแน่ ๆ
+        el.setAttribute('rotation', '0 180 0');
+      } else {
+        // fallback — กล่องสีเขียว
+        el = document.createElement('a-entity');
+        el.setAttribute(
+          'geometry',
+          'primitive: box; depth: 0.4; height: 0.4; width: 0.4'
+        );
+        el.setAttribute('material', 'color:#22c55e; shader:flat');
+        el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
+      }
+
       el.setAttribute('data-hha-tgt', '1');
 
       const x = (Math.random() * 1.8) - 0.9;
       const y = 1.1 + Math.random() * 0.8;
       const z = -2.3;
       el.setAttribute('position', { x, y, z });
-
-      const scale = this.cfg.scale || 1.0;
-      if (hasEmoji) {
-        // a-image + dataURL emoji
-        el.setAttribute('src', item.url);
-        el.setAttribute('transparent', true);
-        el.setAttribute('material',
-          'transparent:true; alphaTest:0.01; side:double');
-        el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
-      } else {
-        // fallback — กล่องสีเขียว (กันจอโล่ง ถ้า emoji พัง)
-        el.setAttribute('geometry',
-          'primitive: box; depth: 0.4; height: 0.4; width: 0.4');
-        el.setAttribute('material',
-          'color:#22c55e; shader:flat');
-        el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
-      }
 
       const groupId = item && item.group != null ? item.group : 0;
       const isGood  = item && item.isGood ? 1 : 0;
