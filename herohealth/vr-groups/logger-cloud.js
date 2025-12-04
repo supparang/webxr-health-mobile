@@ -1,5 +1,6 @@
-// vr-groups/logger-cloud.js
-// ส่งข้อมูลเกม Food Groups VR ขึ้น Google Apps Script แบบ "GoodJunk style"
+// === /herohealth/vr-groups/logger-cloud.js ===
+// ส่งข้อมูล Food Groups VR ไป Google Apps Script
+
 (function (ns) {
   'use strict';
 
@@ -154,8 +155,6 @@
     }
   }
 
-  ns.foodGroupsCloudLogger = {
-    init,
-    send
-  };
+  ns.foodGroupsCloudLogger = { init, send };
+
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
