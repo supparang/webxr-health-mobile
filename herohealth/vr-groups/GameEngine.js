@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (with Fever + Cloud Logger + Emoji Text)
+// Food Groups VR — Game Engine (with Fever + Cloud Logger + Emoji Targets)
 // 2025-12-05
 
 (function (ns) {
@@ -13,6 +13,68 @@
 
   const FEVER_MAX = 100;
 
+  // --------------------------------------------------------------------
+  // ชุดข้อมูลอาหารดี / อาหารควรลด (ใช้สุ่มเป้า)
+  // --------------------------------------------------------------------
+  const GOOD_ITEMS = [
+    // หมู่ 1 – ข้าว แป้ง
+    { emoji: '🍚', group: 1 },
+    { emoji: '🍞', group: 1 },
+    { emoji: '🥔', group: 1 },
+    { emoji: '🌽', group: 1 },
+    { emoji: '🍜', group: 1 },
+
+    // หมู่ 2 – ผัก
+    { emoji: '🥬', group: 2 },
+    { emoji: '🥦', group: 2 },
+    { emoji: '🥕', group: 2 },
+    { emoji: '🍅', group: 2 },
+
+    // หมู่ 3 – ผลไม้
+    { emoji: '🍉', group: 3 },
+    { emoji: '🍓', group: 3 },
+    { emoji: '🍌', group: 3 },
+    { emoji: '🍊', group: 3 },
+    { emoji: '🍇', group: 3 },
+
+    // หมู่ 4 – โปรตีน
+    { emoji: '🐟', group: 4 },
+    { emoji: '🍗', group: 4 },
+    { emoji: '🥚', group: 4 },
+    { emoji: '🥜', group: 4 },
+
+    // หมู่ 5 – นม และผลิตภัณฑ์นม
+    { emoji: '🥛', group: 5 },
+    { emoji: '🧀', group: 5 }
+  ];
+
+  const JUNK_ITEMS = [
+    { emoji: '🍔', group: 9 },
+    { emoji: '🍟', group: 9 },
+    { emoji: '🍕', group: 9 },
+    { emoji: '🍩', group: 9 },
+    { emoji: '🍪', group: 9 },
+    { emoji: '🍫', group: 9 },
+    { emoji: '🍰', group: 9 },
+    { emoji: '🥤', group: 9 },
+    { emoji: '🧋', group: 9 }
+  ];
+
+  function pickItem(goodRatio) {
+    const r = Math.random();
+    const useGood = r < goodRatio;               // โอกาสเจออาหารดีตาม diff
+    const list = useGood ? GOOD_ITEMS : JUNK_ITEMS;
+    const base = list[Math.floor(Math.random() * list.length)];
+    return {
+      emoji: base.emoji,
+      group: base.group,
+      isGood: useGood
+    };
+  }
+
+  // --------------------------------------------------------------------
+  // Helper functions
+  // --------------------------------------------------------------------
   function clamp(v, min, max) {
     v = Number(v) || 0;
     if (v < min) return min;
@@ -25,6 +87,7 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
+    // fallback ถ้า table ไม่เจอ
     return {
       spawnInterval: 1200,
       fallSpeed: 0.011,
@@ -44,6 +107,9 @@
     );
   }
 
+  // --------------------------------------------------------------------
+  // Component หลักของเกม
+  // --------------------------------------------------------------------
   A.registerComponent('food-groups-game', {
     schema: {},
 
@@ -154,52 +220,43 @@
 
     // ------------- spawn & move -------------
     spawnTarget: function () {
-      const emojiMod = ns.foodGroupsEmoji;
-      let item = null;
+      const cfg  = this.cfg || {};
+      const item = pickItem(cfg.goodRatio || 0.75);
 
-      if (emojiMod && typeof emojiMod.pickRandom === 'function') {
-        item = emojiMod.pickRandom(this.cfg.goodRatio);
+      // ใช้ emojiImage แบบ GoodJunk (global จาก vr-groups/emoji-image.js)
+      const emojiMod = ns.foodGroupsEmojiImage;
+      let el;
+
+      if (emojiMod && typeof emojiMod.emojiImage === 'function') {
+        const scale = cfg.scale || 0.8;
+        el = emojiMod.emojiImage(item.emoji, scale, 160);
+      } else {
+        // fallback กล่องสีเขียว — กันกรณี emojiImage ใช้งานไม่ได้
+        el = document.createElement('a-entity');
+        el.setAttribute(
+          'geometry',
+          'primitive: box; depth:0.4; height:0.4; width:0.4'
+        );
+        el.setAttribute(
+          'material',
+          'color:#22c55e; shader:flat'
+        );
       }
 
-      console.log('[GroupsVR] spawnTarget()', item);
-
-      const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
       const x = (Math.random() * 1.8) - 0.9;
-      const y = 1.1 + Math.random() * 0.8;
+      const y = 1.0 + Math.random() * 0.8;
       const z = -2.3;
       el.setAttribute('position', { x, y, z });
 
-      const scale = this.cfg.scale || 1.0;
-      el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
+      el.setAttribute('data-group', String(item.group));
+      el.setAttribute('data-good', item.isGood ? '1' : '0');
 
-      if (item && item.emoji) {
-        // ใช้ text component แสดง emoji โดยตรง
-        el.setAttribute('text', {
-          value: item.emoji,
-          align: 'center',
-          anchor: 'center',
-          baseline: 'center',
-          width: 2.5,
-          color: '#ffffff'
-        });
-      } else {
-        // fallback กล่องสีเขียว — กรณีไม่มีข้อมูล
-        el.setAttribute('geometry', 'primitive: box; depth: 0.4; height: 0.4; width: 0.4');
-        el.setAttribute('material', 'color: #22c55e; shader: flat');
-      }
-
-      const groupId = item && item.group != null ? item.group : 0;
-      const isGood  = item && item.isGood ? 1 : 0;
-
-      el.setAttribute('data-group', String(groupId));
-      el.setAttribute('data-good', String(isGood));
-
+      el._metaItem  = item;
       el._life      = 3000;
       el._age       = 0;
       el._spawnTime = performance.now();
-      el._metaItem  = item || {};
 
       const self = this;
       el.addEventListener('click', function () {
