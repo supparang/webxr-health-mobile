@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (with Fever + Cloud Logger)
-// 2025-12-05 (fix: remove shader=flat so emoji shows correctly)
+// Food Groups VR — Game Engine (with Fever + Cloud Logger + Emoji Text)
+// 2025-12-05
 
 (function (ns) {
   'use strict';
@@ -25,7 +25,6 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
-    // fallback
     return {
       spawnInterval: 1200,
       fallSpeed: 0.011,
@@ -69,7 +68,7 @@
       this.sessionId = createSessionId();
       this.events    = [];
 
-      // Fever bar (ถ้ามี FeverUI จาก ui-fever.js)
+      // Fever bar (ถ้ามีโหลด ui-fever.js เป็น global FeverUI)
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -93,9 +92,7 @@
       this._lastLogSec = -1;
     },
 
-    // --------------------------------------------------
-    // start / tick
-    // --------------------------------------------------
+    // ------------- start / tick -------------
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
@@ -155,15 +152,13 @@
       this.updateTargets(dt);
     },
 
-    // --------------------------------------------------
-    // spawn & life
-    // --------------------------------------------------
+    // ------------- spawn & move -------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
 
       if (emojiMod && typeof emojiMod.pickRandom === 'function') {
-        item = emojiMod.pickRandom();
+        item = emojiMod.pickRandom(this.cfg.goodRatio);
       }
 
       console.log('[GroupsVR] spawnTarget()', item);
@@ -171,7 +166,6 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ตำแหน่งเกิด
       const x = (Math.random() * 1.8) - 0.9;
       const y = 1.1 + Math.random() * 0.8;
       const z = -2.3;
@@ -180,26 +174,20 @@
       const scale = this.cfg.scale || 1.0;
       el.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
 
-      // === ใช้ texture emoji แบบไม่ระบุ shader (ให้ default ของ A-Frame จัดการ) ===
-      if (item && item.url) {
-        el.setAttribute(
-          'geometry',
-          'primitive: plane; height: 0.7; width: 0.7;'
-        );
-        el.setAttribute(
-          'material',
-          `src: ${item.url}; transparent: true; alphaTest: 0.05; side: double;`
-        );
+      if (item && item.emoji) {
+        // ใช้ text component แสดง emoji โดยตรง
+        el.setAttribute('text', {
+          value: item.emoji,
+          align: 'center',
+          anchor: 'center',
+          baseline: 'center',
+          width: 2.5,
+          color: '#ffffff'
+        });
       } else {
-        // fallback กล่องสีเขียว
-        el.setAttribute(
-          'geometry',
-          'primitive: box; depth: 0.4; height: 0.4; width: 0.4;'
-        );
-        el.setAttribute(
-          'material',
-          'color: #22c55e;'
-        );
+        // fallback กล่องสีเขียว — กรณีไม่มีข้อมูล
+        el.setAttribute('geometry', 'primitive: box; depth: 0.4; height: 0.4; width: 0.4');
+        el.setAttribute('material', 'color: #22c55e; shader: flat');
       }
 
       const groupId = item && item.group != null ? item.group : 0;
@@ -238,9 +226,7 @@
       if (el.parentNode) el.parentNode.removeChild(el);
     },
 
-    // --------------------------------------------------
-    // hit / miss
-    // --------------------------------------------------
+    // ------------- hit / miss -------------
     onHit: function (el) {
       const isGood  = el.getAttribute('data-good') === '1';
       const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
@@ -302,9 +288,7 @@
       return { x: v.x, y: v.y, z: v.z };
     },
 
-    // --------------------------------------------------
-    // Fever gauge
-    // --------------------------------------------------
+    // ------------- Fever -------------
     updateFeverOnHit: function (isGood) {
       if (!ns.FeverUI) return;
 
@@ -342,16 +326,12 @@
       ns.FeverUI.setFever(f);
     },
 
-    // --------------------------------------------------
-    // Logging
-    // --------------------------------------------------
+    // ------------- Logging -------------
     logEvent: function (ev) {
       this.events.push(ev);
     },
 
-    // --------------------------------------------------
-    // finish
-    // --------------------------------------------------
+    // ------------- finish -------------
     finish: function (reason) {
       if (!this.running) return;
       this.running = false;
