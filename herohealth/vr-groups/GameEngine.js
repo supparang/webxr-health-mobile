@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (Fever + Cloud Logger + Quest)
-// 2025-12-06 (emoji fix)
+// Food Groups VR — Game Engine (Emoji Target + Fever + Cloud Logger)
+// 2025-12-06 (force emoji texture, no more green boxes)
 
 (function (ns) {
   'use strict';
@@ -44,6 +44,115 @@
     );
   }
 
+  // --------------------------------------------------------
+  // Emoji + กลุ่มอาหาร (อยู่ในไฟล์นี้เลย จะได้ไม่พังเรื่อง namespace)
+  // group: 1–5 = หมู่หลัก, 9 = ของที่ควรลด
+  // --------------------------------------------------------
+  const FOOD_ITEMS_GOOD = [
+    // หมู่ 1
+    { emoji: '🍚', group: 1, isGood: true, name: 'ข้าวสวย' },
+    { emoji: '🍞', group: 1, isGood: true, name: 'ขนมปัง' },
+    { emoji: '🍜', group: 1, isGood: true, name: 'ก๋วยเตี๋ยว' },
+    { emoji: '🥔', group: 1, isGood: true, name: 'มันฝรั่ง' },
+    { emoji: '🌽', group: 1, isGood: true, name: 'ข้าวโพด' },
+
+    // หมู่ 2 ผัก
+    { emoji: '🥬', group: 2, isGood: true, name: 'ผักใบเขียว' },
+    { emoji: '🥦', group: 2, isGood: true, name: 'บรอกโคลี' },
+    { emoji: '🥕', group: 2, isGood: true, name: 'แครอท' },
+    { emoji: '🍅', group: 2, isGood: true, name: 'มะเขือเทศ' },
+    { emoji: '🥗', group: 2, isGood: true, name: 'สลัดผัก' },
+
+    // หมู่ 3 ผลไม้
+    { emoji: '🍉', group: 3, isGood: true, name: 'แตงโม' },
+    { emoji: '🍓', group: 3, isGood: true, name: 'สตรอว์เบอร์รี' },
+    { emoji: '🍌', group: 3, isGood: true, name: 'กล้วย' },
+    { emoji: '🍊', group: 3, isGood: true, name: 'ส้ม' },
+    { emoji: '🍇', group: 3, isGood: true, name: 'องุ่น' },
+
+    // หมู่ 4 เนื้อสัตว์-ถั่ว-ไข่
+    { emoji: '🐟', group: 4, isGood: true, name: 'ปลา' },
+    { emoji: '🍗', group: 4, isGood: true, name: 'ไก่' },
+    { emoji: '🫘', group: 4, isGood: true, name: 'ถั่ว' },
+    { emoji: '🥚', group: 4, isGood: true, name: 'ไข่' },
+    { emoji: '🥩', group: 4, isGood: true, name: 'เนื้อแดง' },
+
+    // หมู่ 5 นม-ผลิตภัณฑ์จากนม
+    { emoji: '🥛', group: 5, isGood: true, name: 'นม' },
+    { emoji: '🧀', group: 5, isGood: true, name: 'ชีส' },
+    { emoji: '🍦', group: 5, isGood: true, name: 'ไอศกรีม' },
+    { emoji: '🧃', group: 5, isGood: true, name: 'นมเปรี้ยว/โยเกิร์ต' },
+    { emoji: '🥤', group: 5, isGood: true, name: 'นมรสหวาน' }
+  ];
+
+  const FOOD_ITEMS_BAD = [
+    { emoji: '🍟', group: 9, isGood: false, name: 'มันฝรั่งทอด' },
+    { emoji: '🍔', group: 9, isGood: false, name: 'เบอร์เกอร์' },
+    { emoji: '🍕', group: 9, isGood: false, name: 'พิซซ่า' },
+    { emoji: '🍩', group: 9, isGood: false, name: 'โดนัท' },
+    { emoji: '🍫', group: 9, isGood: false, name: 'ช็อกโกแลต' },
+    { emoji: '🧋', group: 9, isGood: false, name: 'ชานมไข่มุก' },
+    { emoji: '🥤', group: 9, isGood: false, name: 'น้ำอัดลม' }
+  ];
+
+  const FOOD_ITEMS_ALL = FOOD_ITEMS_GOOD.concat(FOOD_ITEMS_BAD);
+
+  // cache texture ตาม emoji → dataURL
+  const emojiTexCache = {};
+
+  function makeEmojiTexture(emojiChar) {
+    const canvas = document.createElement('canvas');
+    const size = 256;
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, size, size);
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.font = '200px "Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.45)';
+    ctx.shadowBlur  = 28;
+    ctx.fillText(emojiChar, size / 2, size / 2 + 8);
+    ctx.restore();
+
+    ctx.fillText(emojiChar, size / 2, size / 2 + 8);
+
+    return canvas.toDataURL('image/png');
+  }
+
+  function getEmojiTexture(emojiChar) {
+    if (!emojiChar) emojiChar = '🍎';
+    if (emojiTexCache[emojiChar]) return emojiTexCache[emojiChar];
+
+    const url = makeEmojiTexture(emojiChar);
+    emojiTexCache[emojiChar] = url;
+    return url;
+  }
+
+  // random: 75% good, 25% all (มีของไม่ดีปน)
+  function pickRandomFoodItem() {
+    const r = Math.random();
+    if (r < 0.75) {
+      return FOOD_ITEMS_GOOD[Math.floor(Math.random() * FOOD_ITEMS_GOOD.length)];
+    }
+    return FOOD_ITEMS_ALL[Math.floor(Math.random() * FOOD_ITEMS_ALL.length)];
+  }
+
+  // เผื่อไฟล์อื่นอยากใช้ data นี้
+  ns.foodGroupsEmoji = ns.foodGroupsEmoji || {};
+  ns.foodGroupsEmoji.items = FOOD_ITEMS_ALL;
+
+  // --------------------------------------------------------
+  // A-Frame component
+  // --------------------------------------------------------
   A.registerComponent('food-groups-game', {
     schema: {},
 
@@ -152,28 +261,12 @@
 
     // ---------------- spawn & move ----------------
     spawnTarget: function () {
-      const emojiMod = ns.foodGroupsEmoji;
-      let item = null;
-
-      if (emojiMod && typeof emojiMod.pickRandom === 'function') {
-        item = emojiMod.pickRandom();
-      }
-
-      // กันเหนียว: ถ้า pickRandom ไม่เซ็ต url ให้ ลอง gen จาก emoji อีกที
-      if (item && !item.url && emojiMod && typeof emojiMod.emojiImage === 'function') {
-        try {
-          item.url = emojiMod.emojiImage(item.emoji);
-        } catch (e) {
-          console.warn('[GroupsVR] emojiImage failed', e);
-        }
-      }
-
+      const item = pickRandomFoodItem();   // 🔥 เลือก emoji + group ที่นี่
       console.log('[GroupsVR] spawnTarget()', item);
 
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ตำแหน่งเป้า
       const x = (Math.random() * 1.8) - 0.9;
       const y = 1.1 + Math.random() * 0.8;
       const z = -2.3;
@@ -181,21 +274,21 @@
 
       const scale = (this.cfg && this.cfg.scale) || 1.0;
 
-      if (item && item.url) {
-        // เป้าเป็น plane + emoji texture
+      const emojiUrl = getEmojiTexture(item.emoji);
+      if (emojiUrl) {
         el.setAttribute('geometry', {
           primitive: 'plane',
           height: 0.9 * scale,
           width:  0.9 * scale
         });
         el.setAttribute('material', {
-          src:         item.url,    // data:image/png;base64,...
+          src:         emojiUrl,
           transparent: true,
           alphaTest:   0.01,
           side:       'double'
         });
       } else {
-        // fallback กล่องสีเขียว (กรณี emoji-image พัง)
+        // fallback (กรณี canvas พังจริง ๆ)
         el.setAttribute('geometry', {
           primitive: 'box',
           depth: 0.4 * scale,
@@ -208,8 +301,8 @@
         });
       }
 
-      const groupId = item && item.group != null ? item.group : 0;
-      const isGood  = item && item.isGood ? 1 : 0;
+      const groupId = item.group != null ? item.group : 0;
+      const isGood  = item.isGood ? 1 : 0;
 
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good', String(isGood));
