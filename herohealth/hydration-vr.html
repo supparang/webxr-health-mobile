@@ -6,13 +6,12 @@
   <title>Hydration VR — Hero Health</title>
   <meta name="color-scheme" content="dark"/>
 
-  <link rel="icon" href="./favicon.ico"/>
+  <link rel="icon" href="../favicon.ico"/>
 
   <!-- ใช้สไตล์เดียวกับ Good vs Junk VR -->
-  <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
-  <!-- ถ้ามีไฟล์ hydration-vr.css แล้วอยากจูนเพิ่มก็ใส่อันนี้ได้ด้วย
-  <link rel="stylesheet" href="./css/hydration-vr.css"/>
-  -->
+  <link rel="stylesheet" href="../css/goodjunk-vr.css"/>
+  <!-- ถ้าต้องการจูนสไตล์เฉพาะ Hydration เพิ่ม สามารถสร้างไฟล์นี้แล้วเปิดใช้ได้ -->
+  <!-- <link rel="stylesheet" href="../css/hydration-vr.css"/> -->
 </head>
 <body>
 
@@ -23,24 +22,28 @@
     </div>
   </div>
 
-  <!-- วงกลมเล็งกลางจอ (crosshair) ให้สไตล์จาก goodjunk-vr.css ดูแล -->
+  <!-- วงกลมเล็งกลางจอ (crosshair) ใช้สไตล์จาก goodjunk-vr.css -->
   <div class="hha-crosshair"></div>
 
   <!-- ปุ่ม VR มุมขวาล่าง (ใช้คลาสเดิมของ GoodJunk VR) -->
   <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
   <!-- ===== SCRIPT ZONE ===== -->
+
   <!-- HUD เควสต์ / สกอร์ ฯลฯ (แนบแบบ side-effect เหมือน Good vs Junk) -->
-  <script type="module" src="./vr/quest-hud-vr.js"></script>
+  <script type="module" src="../vr/quest-hud-vr.js"></script>
 
   <!-- โหมด Hydration VR -->
   <script type="module">
-    import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
+    import { boot as bootHydration } from './hydration.safe.js';
 
     // อ่าน URL param: ?diff=easy|normal|hard&time=60
     const url = new URL(window.location.href);
+
     let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
-    if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
+    if (!['easy', 'normal', 'hard'].includes(diff)) {
+      diff = 'normal';
+    }
 
     let dur = parseInt(url.searchParams.get('time'), 10);
     if (Number.isNaN(dur) || dur <= 0) dur = 60;
@@ -56,7 +59,7 @@
       const wrap = document.querySelector('.hha-scene-wrap');
       if (wrap) wrap.style.display = 'none';
 
-      // กัน memory leak ถ้าอนาคตอยากหยุดเกมผ่านปุ่มอื่น
+      // กัน memory leak ถ้าออกจากหน้า
       window.addEventListener('beforeunload', () => {
         try {
           if (inst && typeof inst.destroy === 'function') {
