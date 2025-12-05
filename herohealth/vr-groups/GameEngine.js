@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (falling targets, safe lifetime)
+// Food Groups VR — Game Engine (DEBUG: force-visible targets)
 // 2025-12-06
 
 (function (ns) {
@@ -25,11 +25,12 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
+    // fallback ที่ง่ายสุด
     return {
-      spawnInterval: 1100,
-      fallSpeed: 0.007,   // ช้าหน่อย
-      scale: 1.15,
-      maxActive: 4,
+      spawnInterval: 1200,
+      fallSpeed: 0.011,
+      scale: 1.2,
+      maxActive: 3,
       goodRatio: 0.75,
       quest: { goalsPick: 2, miniPick: 3 }
     };
@@ -53,22 +54,25 @@
       this.running    = false;
       this.targets    = [];
       this.elapsed    = 0;
-      this.durationMs = 60000;
+      this.durationMs = 60000; // 60s
       this.diffKey    = 'normal';
       this.cfg        = pickDifficulty(this.diffKey);
 
       this.spawnClock = 0;
       this.score      = 0;
 
+      // Fever
       this.fever       = 0;
       this.feverActive = false;
 
+      // Logging
       this.sessionId = createSessionId();
       this.events    = [];
 
       this._hudScore = document.getElementById('hud-score');
       this._hudTime  = document.getElementById('hud-time-label');
 
+      // Fever bar
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -91,6 +95,7 @@
       this._lastLogSec = -1;
     },
 
+    // ---------------- start / tick ----------------
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
@@ -106,7 +111,7 @@
       this.sessionId      = createSessionId();
 
       if (this._hudScore) this._hudScore.textContent = '0';
-      if (this._hudTime) {
+      if (this._hudTime)  {
         const sec = (this.durationMs / 1000) | 0;
         this._hudTime.textContent = sec + 's';
       }
@@ -133,8 +138,8 @@
       }
 
       const cfg       = this.cfg || {};
-      const interval  = cfg.spawnInterval || 1100;
-      const maxActive = cfg.maxActive || 4;
+      const interval  = cfg.spawnInterval || 1200;
+      const maxActive = cfg.maxActive || 3;
 
       if (this.spawnClock >= interval) {
         this.spawnClock = 0;
@@ -143,7 +148,8 @@
         }
       }
 
-      this.updateTargets(dt);
+      // ★★ DEBUG: ยังไม่ให้เป้าขยับ / ลบเอง ★★
+      // this.updateTargets(dt);
 
       if (this._hudTime) {
         const remainMs  = Math.max(0, this.durationMs - this.elapsed);
@@ -158,7 +164,7 @@
       }
     },
 
-    // ---------- spawn (เริ่มใกล้ระดับตา) ----------
+    // ---------------- spawn target (ตรงหน้า กลางจอ) ----------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -172,24 +178,23 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // กลางจอ ใกล้ระดับสายตา
-      const xRange = 0.7;
-      const x = (Math.random() * (2 * xRange)) - xRange;
-      const y = 1.9 + Math.random() * 0.4; // 1.9–2.3
+      // ตำแหน่งให้เห็นแน่นอน (แถวล่างกลางจอ)
+      const x = (Math.random() * 0.8) - 0.4; // ซ้าย-ขวานิดหน่อย
+      const y = 1.6;                         // ระดับสายตา/ต่ำลงนิด
       const z = -3.0;
       el.setAttribute('position', { x, y, z });
 
-      const scale  = this.cfg.scale || 1.15;
+      const scale  = this.cfg.scale || 1.2;
       const isGood = item.isGood ? true : false;
 
       el.setAttribute('geometry', {
         primitive: 'circle',
-        radius: 0.42 * scale
+        radius: 0.5 * scale
       });
       el.setAttribute('material', {
         shader: 'flat',
         color: isGood ? '#22c55e' : '#f97316',
-        opacity: 0.98,
+        opacity: 1.0,
         side: 'double'
       });
 
@@ -199,7 +204,7 @@
         value: emojiChar,
         align: 'center',
         color: '#ffffff',
-        width: 1.6 * scale,
+        width: 2.0 * scale,
         baseline: 'center',
         shader: 'msdf'
       });
@@ -207,12 +212,11 @@
       el.appendChild(txt);
 
       const groupId = item && item.group != null ? item.group : 0;
-
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good',  isGood ? '1' : '0');
 
-      // อายุเป้ายาว 15 วินาที (ให้เห็นแน่ ๆ)
-      el._life      = 15000;
+      // อายุยาวมาก แต่ตอนนี้จริง ๆ ไม่ได้ใช้ (เพราะไม่เรียก updateTargets)
+      el._life      = 999999;
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
@@ -225,29 +229,11 @@
       this.el.sceneEl.appendChild(el);
       this.targets.push(el);
 
-      console.log('[GroupsVR] spawnTarget()', item, 'total=', this.targets.length);
+      console.log('[GroupsVR] spawnTarget(DEBUG)', item, 'total=', this.targets.length);
     },
 
-    // ---------- ตกลงช้า ๆ + หมดอายุอย่างเดียว ----------
-    updateTargets: function (dt) {
-      const fallSpeed = (this.cfg && this.cfg.fallSpeed) || 0.007;
-      const step = fallSpeed * (dt / 16.7);
-
-      for (let i = this.targets.length - 1; i >= 0; i--) {
-        const t = this.targets[i];
-
-        t._age += dt;
-
-        const pos = t.getAttribute('position') || { x: 0, y: 0, z: 0 };
-        pos.y -= step;
-        t.setAttribute('position', pos);
-
-        // ยังไม่เช็ค out-of-bounds แค่หมดอายุ
-        if (t._age >= t._life) {
-          this.onMiss(t);
-        }
-      }
-    },
+    // ตอนนี้ยังไม่ใช้ (กันงง)
+    updateTargets: function (dt) {},
 
     removeTarget: function (el) {
       const idx = this.targets.indexOf(el);
@@ -255,6 +241,7 @@
       if (el.parentNode) el.parentNode.removeChild(el);
     },
 
+    // ---------------- hit / miss ----------------
     onHit: function (el) {
       const isGood  = el.getAttribute('data-good') === '1';
       const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
@@ -315,6 +302,7 @@
       return { x: v.x, y: v.y, z: v.z };
     },
 
+    // ---------------- Fever ----------------
     updateFeverOnHit: function (isGood) {
       if (!ns.FeverUI) return;
 
@@ -352,6 +340,7 @@
       ns.FeverUI.setFever(f);
     },
 
+    // ---------------- Logging + finish ----------------
     logEvent: function (ev) {
       this.events.push(ev);
     },
