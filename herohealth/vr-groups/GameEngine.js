@@ -2,9 +2,10 @@
 // Food Groups VR — Game Engine
 // • emoji badge targets (ไม่ซ้อนกัน)
 // • ขนาดเป้าตามระดับ (ง่าย/ปกติ/ยาก)
-// • Goal + Mini quest
+// • Goal + Mini quest พร้อม progress บน HUD
+// • Coach bubble พูดอัปเดตตามความคืบหน้า
 // • DOM FX: คะแนน/คำตัดสินเด้งตรงเป้า + burst วงกลม
-// 2025-12-06
+// 2025-12-06 (progress + coach)
 
 (function (ns) {
   'use strict';
@@ -75,8 +76,7 @@
         fallSpeed: 0.0,
         scale: 1.3,
         maxActive: 3,
-        goodRatio: 0.8,
-        quest: { goalsPick: 1, miniPick: 2 }
+        goodRatio: 0.8
       };
     }
     if (diffKey === 'hard') {
@@ -85,8 +85,7 @@
         fallSpeed: 0.0,
         scale: 0.8,
         maxActive: 4,
-        goodRatio: 0.7,
-        quest: { goalsPick: 2, miniPick: 3 }
+        goodRatio: 0.7
       };
     }
     // normal
@@ -95,8 +94,7 @@
       fallSpeed: 0.0,
       scale: 1.0,
       maxActive: 3,
-      goodRatio: 0.75,
-      quest: { goalsPick: 2, miniPick: 3 }
+      goodRatio: 0.75
     };
   }
 
@@ -217,6 +215,13 @@
     }, 450);
   }
 
+  // ===== Goal config ตามระดับ =====
+  const GOAL_TABLE = {
+    easy:    { scoreTarget: 80,  goodTarget: 8 },
+    normal:  { scoreTarget: 150, goodTarget: 12 },
+    hard:    { scoreTarget: 220, goodTarget: 18 }
+  };
+
   A.registerComponent('food-groups-game', {
     schema: {},
 
@@ -239,13 +244,31 @@
       this.sessionId = createSessionId();
       this.events    = [];
 
+      // Goal / mini quest state
+      this.goalScoreTarget = 150;
+      this.goalGoodTarget  = 12;
+      this.goodHits        = 0;
+
+      this.goalText = '';
+      this.miniText = '';
+
+      this.goalHalfCoachShown = false;
+      this.goalDoneCoachShown = false;
+      this.miniHalfCoachShown = false;
+      this.miniDoneCoachShown = false;
+      this.missCoachCounter   = 0;
+
       // HUD
       this._hudScore = doc.getElementById('hud-score');
       this._hudTime  = doc.getElementById('hud-time-label');
+      this._hudGoal  = doc.getElementById('hud-goal-text');
+      this._hudMini  = doc.getElementById('hud-mini-text');
 
-      // Goal / mini quest text
-      this.goalText = '';
-      this.miniText = '';
+      // Coach DOM
+      this._coachBubble = doc.getElementById('coach-bubble');
+      this._coachText   = doc.getElementById('coach-text');
+      this._lastCoachKey = null;
+      this._lastCoachTime = 0;
 
       if (USE_FEVER_UI && ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
@@ -269,6 +292,82 @@
       this._lastLogSec = -1;
     },
 
+    // ===== Coach helper =====
+    coachSay: function (text, key) {
+      const now = performance.now();
+      if (!this._coachText || !this._coachBubble) return;
+      // กันพูดซ้ำบ่อย ๆ
+      if (key && this._lastCoachKey === key && now - this._lastCoachTime < 4000) {
+        return;
+      }
+      this._coachText.textContent = text;
+      this._coachBubble.classList.add('show');
+      this._lastCoachKey = key || null;
+      this._lastCoachTime = now;
+    },
+
+    updateGoalHud: function () {
+      const scoreTarget = this.goalScoreTarget || 0;
+      const goodTarget  = this.goalGoodTarget || 0;
+
+      if (this._hudGoal) {
+        this._hudGoal.textContent =
+          'คะแนน ' + scoreTarget + '+ (' +
+          this.score + ' / ' + scoreTarget + ')';
+      }
+
+      if (this._hudMini) {
+        this._hudMini.textContent =
+          'เก็บอาหารดี ' + goodTarget + ' ชิ้น (' +
+          this.goodHits + ' / ' + goodTarget + ')';
+      }
+    },
+
+    checkCoachProgress: function () {
+      const scoreTarget = this.goalScoreTarget || 0;
+      const goodTarget  = this.goalGoodTarget || 0;
+
+      // goal ครึ่งหนึ่ง
+      if (
+        scoreTarget > 0 &&
+        !this.goalHalfCoachShown &&
+        this.score >= scoreTarget * 0.5
+      ) {
+        this.goalHalfCoachShown = true;
+        this.coachSay('ดีมาก! คะแนนเกินครึ่งเป้าหมายแล้ว ✨', 'goal-half');
+      }
+
+      // goal สำเร็จ
+      if (
+        scoreTarget > 0 &&
+        !this.goalDoneCoachShown &&
+        this.score >= scoreTarget
+      ) {
+        this.goalDoneCoachShown = true;
+        this.coachSay('เยี่ยมเลย! แตะเป้าคะแนนวันนี้แล้ว 🎉', 'goal-done');
+      }
+
+      // mini quest ครึ่งหนึ่ง
+      if (
+        goodTarget > 0 &&
+        !this.miniHalfCoachShown &&
+        this.goodHits >= Math.ceil(goodTarget * 0.5)
+      ) {
+        this.miniHalfCoachShown = true;
+        this.coachSay('เก็บอาหารดีได้เยอะแล้ว สู้ต่ออีกนิดนะ 💪', 'mini-half');
+      }
+
+      // mini quest สำเร็จ
+      if (
+        goodTarget > 0 &&
+        !this.miniDoneCoachShown &&
+        this.goodHits >= goodTarget
+      ) {
+        this.miniDoneCoachShown = true;
+        this.coachSay('สุดยอดเลย! เก็บอาหารดีครบตามภารกิจแล้ว 🥦', 'mini-done');
+      }
+    },
+
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
@@ -283,42 +382,39 @@
       this.events.length = 0;
       this.sessionId   = createSessionId();
 
+      this.goodHits = 0;
+      this.goalHalfCoachShown = false;
+      this.goalDoneCoachShown = false;
+      this.miniHalfCoachShown = false;
+      this.miniDoneCoachShown = false;
+      this.missCoachCounter   = 0;
+
       if (this._hudScore) this._hudScore.textContent = '0';
       if (this._hudTime) {
         const sec = (this.durationMs / 1000) | 0;
         this._hudTime.textContent = sec + 's';
       }
 
-      // ตั้ง Goal / Mini quest ตามความยาก
-      let goal, mini;
-      switch (this.diffKey) {
-        case 'easy':
-          goal = 'คะแนน 80+';
-          mini = 'เก็บอาหารดี 8 ชิ้น';
-          break;
-        case 'hard':
-          goal = 'คะแนน 220+';
-          mini = 'เก็บอาหารดี 18 ชิ้น';
-          break;
-        case 'normal':
-        default:
-          goal = 'คะแนน 150+';
-          mini = 'เก็บอาหารดี 12 ชิ้น';
-          break;
-      }
-      this.goalText = goal;
-      this.miniText = mini;
+      // ตั้ง target ตาม diff
+      const g = GOAL_TABLE[this.diffKey] || GOAL_TABLE.normal;
+      this.goalScoreTarget = g.scoreTarget;
+      this.goalGoodTarget  = g.goodTarget;
 
-      const elGoal = doc.getElementById('hud-goal-text');
-      const elMini = doc.getElementById('hud-mini-text');
-      if (elGoal) elGoal.textContent = goal;
-      if (elMini) elMini.textContent = mini;
+      // เก็บ text สำหรับสรุปตอนจบ (ไม่ต้องมี progress)
+      this.goalText =
+        'คะแนนอย่างน้อย ' + this.goalScoreTarget;
+      this.miniText =
+        'เก็บอาหารดี ' + this.goalGoodTarget + ' ชิ้น';
+
+      this.updateGoalHud();
 
       if (USE_FEVER_UI && ns.FeverUI) {
         ns.FeverUI.setFever(0);
         ns.FeverUI.setFeverActive(false);
         ns.FeverUI.setShield(0);
       }
+
+      this.coachSay('แตะเป้าอาหารให้ตรงหมวด แล้วเก็บอาหารดีให้ได้ตามภารกิจนะ!', 'start');
 
       console.log('[GroupsVR] start diff=', this.diffKey, 'cfg=', this.cfg);
     },
@@ -504,6 +600,13 @@
       this.score = Math.max(0, this.score + delta);
       if (this._hudScore) this._hudScore.textContent = String(this.score);
 
+      if (isGood) {
+        this.goodHits += 1;
+      }
+
+      this.updateGoalHud();
+      this.checkCoachProgress();
+
       this.updateFeverOnHit(isGood);
 
       const worldPos  = this.copyWorldPos(el);
@@ -526,6 +629,14 @@
       });
 
       this.removeTarget(el);
+
+      if (!isGood) {
+        this.missCoachCounter++;
+        if (this.missCoachCounter >= 3) {
+          this.missCoachCounter = 0;
+          this.coachSay('พลาดไปนิด ลองโฟกัสที่อาหารกลุ่มที่ใช่ดูอีกทีนะ 👀', 'miss-tip');
+        }
+      }
     },
 
     onMiss: function (el) {
@@ -556,6 +667,12 @@
       });
 
       this.removeTarget(el);
+
+      this.missCoachCounter++;
+      if (this.missCoachCounter >= 3) {
+        this.missCoachCounter = 0;
+        this.coachSay('พลาดไปบ้างไม่เป็นไร ค่อย ๆ เลือกให้ตรงกลุ่มนะ 🙂', 'miss-tip');
+      }
     },
 
     copyWorldPos: function (el) {
@@ -603,17 +720,26 @@
           difficulty: this.diffKey,
           durationMs: this.elapsed,
           goal:       this.goalText,
-          miniQuest:  this.miniText
+          miniQuest:  this.miniText,
+          goodHits:   this.goodHits
         };
         ns.foodGroupsCloudLogger.send(rawSession, this.events);
       }
 
+      // นับว่าผ่าน goal/mini quest กี่อัน
+      let questsCleared = 0;
+      let questsTotal   = 2;
+      if (this.score >= this.goalScoreTarget) questsCleared++;
+      if (this.goodHits >= this.goalGoodTarget) questsCleared++;
+
       scene.emit('fg-game-over', {
-        score:     this.score,
-        diff:      this.diffKey,
-        reason:    reason || 'finish',
-        goal:      this.goalText,
-        miniQuest: this.miniText
+        score:        this.score,
+        diff:         this.diffKey,
+        reason:       reason || 'finish',
+        goal:         this.goalText,
+        miniQuest:    this.miniText,
+        questsCleared,
+        questsTotal
       });
 
       console.log('[GroupsVR] finish', reason, 'score=', this.score);
