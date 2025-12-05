@@ -10,62 +10,89 @@
 
   <!-- ใช้สไตล์เดียวกับ Good vs Junk VR -->
   <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
+  <!-- สไตล์เสริมเฉพาะ Hydration -->
   <link rel="stylesheet" href="./css/hydration-vr.css"/>
 </head>
 <body>
 
-  <!-- ===== Loading Screen ===== -->
+  <!-- ===== SCENE WRAP / LOADING ===== -->
   <div class="hha-scene-wrap">
     <div class="hha-loading-msg">
       💧 กำลังโหลดโหมด Hydration VR...
     </div>
   </div>
 
-  <!-- Crosshair ตรงกลางจอ -->
+  <!-- crosshair กลางจอ (คลาสเดียวกับ GoodJunk) -->
   <div class="hha-crosshair"></div>
 
-  <!-- ปุ่ม VR มุมขวาล่าง -->
+  <!-- ปุ่ม VR มุมขวาล่าง (ใช้คลาสเดิมของ GoodJunk VR) -->
   <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
-  <!-- HUD ภารกิจ / คะแนน / สเตตัส (เหมือน Good vs Junk VR) -->
+  <!-- HUD เควสต์ / คะแนน / มิชชั่น (เหมือน GoodJunk VR) -->
   <script type="module" src="./vr/quest-hud-vr.js"></script>
 
-  <!-- Boot โหมด Hydration -->
+  <!-- ===== MAIN SCRIPT: BOOT HYDRATION ENGINE ===== -->
   <script type="module">
-    import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
+    const msgEl  = document.querySelector('.hha-loading-msg');
+    const wrapEl = document.querySelector('.hha-scene-wrap');
 
-    // อ่าน URL param เช่น ?diff=easy|normal|hard&time=60
-    const url = new URL(window.location.href);
+    async function startHydration() {
+      try {
+        if (msgEl) msgEl.textContent = '💧 เริ่มโหลด engine โหมด Hydration...';
 
-    let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
-    if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
+        // 🔍 debug: ลอง import แบบ dynamic เพื่อให้เห็น error ชัด ๆ
+        const mod = await import('./hydration-vr/hydration.safe.js');
 
-    let dur = parseInt(url.searchParams.get('time'), 10);
-    if (Number.isNaN(dur) || dur <= 0) dur = 60;
-    if (dur < 20)  dur = 20;
-    if (dur > 180) dur = 180;
+        if (!mod || typeof mod.boot !== 'function') {
+          throw new Error('ไม่พบฟังก์ชัน boot ใน hydration.safe.js');
+        }
 
-    bootHydration({
-      difficulty: diff,
-      duration:   dur
-    }).then(inst => {
-      // ซ่อนจอโหลดเมื่อพร้อมเล่น
-      const wrap = document.querySelector('.hha-scene-wrap');
-      if (wrap) wrap.style.display = 'none';
+        if (msgEl) msgEl.textContent = '💧 กำลังเริ่มโหมด Hydration...';
 
-      // กัน memory leak เวลาออกจากหน้า
-      window.addEventListener('beforeunload', () => {
-        try { inst && typeof inst.destroy === 'function' && inst.destroy(); }
-        catch (e) { console.warn('[HydrationVR] destroy error on unload', e); }
-      });
-    }).catch(err => {
-      console.error('[HydrationVR] boot error', err);
-      const msg = document.querySelector('.hha-loading-msg');
-      if (msg) {
-        msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
+        // อ่าน diff / time จาก URL เช่น hydration-vr.html?diff=easy&time=60
+        const url = new URL(window.location.href);
+        let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
+        if (!['easy', 'normal', 'hard'].includes(diff)) diff = 'normal';
+
+        let dur = parseInt(url.searchParams.get('time'), 10);
+        if (Number.isNaN(dur) || dur <= 0) dur = 60;
+        if (dur < 20)  dur = 20;
+        if (dur > 180) dur = 180;
+
+        const inst = await mod.boot({
+          difficulty: diff,
+          duration:   dur
+        });
+
+        // ซ่อนหน้าจอ Loading เมื่อ boot เสร็จ
+        if (wrapEl) wrapEl.style.display = 'none';
+
+        // กัน memory leak
+        window.addEventListener('beforeunload', () => {
+          try {
+            inst && typeof inst.destroy === 'function' && inst.destroy();
+          } catch (e) {
+            console.warn('[HydrationVR] destroy on unload error', e);
+          }
+        });
+
+      } catch (err) {
+        console.error('[HydrationVR] boot error', err);
+        if (msgEl) {
+          msgEl.textContent = 'เริ่มโหมด Hydration ไม่สำเร็จ: ' + (err.message || err);
+        }
+      }
+    }
+
+    // เผื่อมี error อื่น ๆ ในหน้า
+    window.addEventListener('error', (e) => {
+      console.error('[HydrationVR] window error', e.error || e.message);
+      if (msgEl && wrapEl && wrapEl.style.display !== 'none') {
+        msgEl.textContent = 'Error: ' + (e.error?.message || e.message || 'ไม่ทราบสาเหตุ');
       }
     });
-  </script>
 
+    startHydration();
+  </script>
 </body>
 </html>
