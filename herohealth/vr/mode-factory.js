@@ -1,5 +1,5 @@
 // === /herohealth/vr/mode-factory.js ===
-// Engine กลางสำหรับโหมด emoji (Hydration / โหมดอื่น ๆ)
+// Engine กลางสำหรับโหมด emoji (GoodJunk / Hydration / ฯลฯ)
 
 'use strict';
 
@@ -52,7 +52,7 @@ function randomScreenPos() {
   return { x, y };
 }
 
-// difficulty → preset (เพิ่ม sizeFactor สำหรับขนาดเป้า)
+// difficulty → preset (เพิ่ม sizeFactor ให้ต่างชัดเจน)
 function difficultyPreset(diff = 'normal') {
   const d = String(diff || 'normal').toLowerCase();
   if (d === 'easy') {
@@ -60,7 +60,7 @@ function difficultyPreset(diff = 'normal') {
       spawnInterval: 1100,
       lifeTime: 2300,
       maxActive: 4,
-      sizeFactor: 1.25   // เป้าใหญ่หน่อย
+      sizeFactor: 1.9   // ง่าย → เป้าใหญ่
     };
   }
   if (d === 'hard') {
@@ -68,7 +68,7 @@ function difficultyPreset(diff = 'normal') {
       spawnInterval: 750,
       lifeTime: 1900,
       maxActive: 6,
-      sizeFactor: 0.85   // เป้าเล็กลง
+      sizeFactor: 0.9   // ยาก → เป้าเล็กลง
     };
   }
   // normal
@@ -76,7 +76,7 @@ function difficultyPreset(diff = 'normal') {
     spawnInterval: 900,
     lifeTime: 2100,
     maxActive: 5,
-    sizeFactor: 1.0
+    sizeFactor: 1.4    // ปกติ กลาง ๆ
   };
 }
 
