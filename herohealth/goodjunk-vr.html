@@ -40,12 +40,12 @@
     .hud-root{
       position:fixed;
       inset:0;
+      pointer-events:none;
       z-index:650;
       display:flex;
       flex-direction:column;
       justify-content:space-between;
       padding:10px 10px 14px;
-      pointer-events:none;
     }
 
     .hud-top{
@@ -61,7 +61,7 @@
       padding:8px 10px;
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
-      pointer-events:none;
+      pointer-events:auto;
     }
 
     .hud-main{
@@ -186,7 +186,7 @@
       align-items:center;
       justify-content:center;
       gap:8px;
-      pointer-events:none;
+      pointer-events:auto;
     }
     .coach-bubble.show{ display:flex; }
     .coach-label{
@@ -197,7 +197,7 @@
       font-weight:600;
     }
 
-    /* ===== Center hint ===== */
+    /* Center hint: “ลากนิ้วเพื่อหมุนมุมมอง” */
     .hint-center{
       position:fixed;
       left:50%;
@@ -215,7 +215,7 @@
     }
     .hint-center.show{ display:block; }
 
-    /* ===== End Summary Toast ===== */
+    /* End Summary Toast */
     .end-toast{
       position:fixed;
       left:50%;
@@ -232,7 +232,7 @@
       box-shadow:0 20px 40px rgba(15,23,42,0.85);
       display:none;
       z-index:652;
-      pointer-events:none;
+      pointer-events:auto;
     }
     .end-toast.show{ display:block; }
     .end-title{
@@ -248,7 +248,7 @@
     }
     .end-row strong{ font-weight:600; }
 
-    /* ===== A-Frame canvas full ===== */
+    /* A-Frame canvas full */
     a-scene{
       width:100vw;
       height:100vh;
@@ -348,7 +348,7 @@
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <span class="coach-label">โค้ช</span>
-        <span id="coach-text">แตะของดีให้ตรงเป้าหมาย</span>
+        <span id="coach-text">แตะอาหารดีให้ตรงเป้าหมาย</span>
       </div>
     </div>
   </div>
@@ -372,16 +372,13 @@
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-    const GOOD_EMOJI = ['🥦','🥕','🍎','🍌','🥗','🍇','🍓','🍊','🥬','🥛','🍞'];
-    const JUNK_EMOJI = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬'];
-
     function getParam(name, fallback){
       const url = new URL(window.location.href);
       const v = url.searchParams.get(name);
       return v !== null && v !== '' ? v : fallback;
     }
 
-    // HUD element refs
+    // HUD refs
     const elScore   = document.getElementById('hud-score');
     const elCombo   = document.getElementById('hud-combo');
     const elMiss    = document.getElementById('hud-miss');
@@ -427,8 +424,8 @@
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest (ฟังจาก GameEngine)
-    window.addEventListener('hha:quest', (e)=>{
+    // HUD: Quest
+    window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
@@ -525,40 +522,68 @@
       });
     }
 
-    // ===== Emoji overlay: วนดูเป้าแล้วแปะ emoji =====
-    function attachEmojiOverlay(){
-      const scene = document.querySelector('a-scene');
-      if (!scene) return;
-      const nodes = scene.querySelectorAll('[data-hha-tgt]');
-      nodes.forEach(el => {
-        if (el.__emojiAdded) return;
+    /* ===== Emoji overlay บนเป้า VR ===== */
+    const GOOD_EMOJI = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑'];
+    const JUNK_EMOJI = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
+    const BONUS_EMOJI = ['⭐','💎','🛡️','🔥'];
 
-        let color = '';
+    function pickEmojiForTarget(el){
+      // 1) ถ้ามี data-emoji / data-char ก็ใช้ตรง ๆ ก่อน
+      const direct =
+        el.getAttribute('data-emoji') ||
+        el.getAttribute('data-hha-char') ||
+        el.getAttribute('data-char');
+      if (direct) return direct;
+
+      // 2) เดาจากสี (good = เขียว / junk = ส้ม)
+      const mat = el.getAttribute('material') || {};
+      const c = String(mat.color || '').toLowerCase();
+
+      function rand(arr){
+        return arr[Math.floor(Math.random()*arr.length)];
+      }
+
+      if (c.includes('16a34a') || c.includes('22c55e') || c.includes('4ade80')) {
+        return rand(GOOD_EMOJI);
+      }
+      if (c.includes('ea580c') || c.includes('f97316') || c.includes('fb923c')) {
+        return rand(JUNK_EMOJI);
+      }
+      return rand(BONUS_EMOJI);
+    }
+
+    function decorateTargetsWithEmoji(){
+      const nodes = document.querySelectorAll('a-entity[data-hha-tgt]:not([data-emoji-ready])');
+      nodes.forEach(el => {
+        el.setAttribute('data-emoji-ready','1');
+
+        // ทำ hit-area ให้โปร่งใส (ถ้าอยากให้เห็นแต่ emoji อย่างเดียว)
         try {
           const mat = el.getAttribute('material') || {};
-          color = (mat.color || mat).toString().toLowerCase();
-        } catch(_) {}
+          el.setAttribute('material', {
+            color: mat.color || '#ffffff',
+            opacity: 0,
+            transparent: true
+          });
+        } catch(e){}
 
-        let emoji;
-        if (color.includes('22c55e') || color.includes('green')) {
-          emoji = GOOD_EMOJI[Math.floor(Math.random()*GOOD_EMOJI.length)];
-        } else {
-          emoji = JUNK_EMOJI[Math.floor(Math.random()*JUNK_EMOJI.length)];
-        }
+        const emoji = pickEmojiForTarget(el);
 
         const txt = document.createElement('a-text');
         txt.setAttribute('value', emoji);
         txt.setAttribute('align', 'center');
+        txt.setAttribute('anchor','center');
         txt.setAttribute('color', '#ffffff');
-        txt.setAttribute('width', '1.6');
-        txt.setAttribute('side', 'double');
-        txt.setAttribute('position', '0 0 0.02');
+        txt.setAttribute('width', '1.6');      // ขนาด emoji
+        txt.setAttribute('position','0 0 0.02');
         el.appendChild(txt);
-
-        el.__emojiAdded = true;
       });
     }
 
+    // วิ่งวนเบา ๆ เพื่อหาเป้าใหม่ที่เพิ่ง spawn แล้วแปะ emoji ให้
+    setInterval(decorateTargetsWithEmoji, 180);
+
+    // ===== Boot ทั้งหมด =====
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       let   dur  = parseInt(getParam('time','60'), 10);
@@ -585,18 +610,15 @@
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
 
-      // เริ่มเกม (ใช้ signature ปัจจุบันของ GameEngine)
-      GameEngine.start(diff, dur);
+      // เริ่มเกม
+      GameEngine.start(diff);
 
-      // countdown timer → hha:time → GameEngine.stop() เมื่อหมดเวลา
+      // timer → hha:time
       let timeLeft = dur;
       function tickTime(){
         timeLeft -= 1;
         if (timeLeft < 0) return;
         window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-        if (typeof GameEngine.tickTime === 'function') {
-          GameEngine.tickTime(timeLeft);
-        }
         if (timeLeft <= 0){
           clearInterval(timerId);
           GameEngine.stop();
@@ -605,9 +627,6 @@
 
       window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
       const timerId = setInterval(tickTime, 1000);
-
-      // emoji overlay loop
-      setInterval(attachEmojiOverlay, 200);
     });
   </script>
 </body>
