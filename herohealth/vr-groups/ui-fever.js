@@ -1,7 +1,6 @@
 // === /herohealth/vr/ui-fever.js ===
 // Global Fever UI for Hero Health VR (non-module)
-// ใช้ร่วมกับ GAME_MODULES.FeverUI
-// 2025-12-06
+// 2025-12-06 — no "export", attached to window.GAME_MODULES.FeverUI
 
 (function (root) {
   'use strict';
@@ -94,9 +93,9 @@
     doc.head.appendChild(style);
   }
 
-  let feverWrap   = null;
-  let feverFill   = null;
-  let shieldFill  = null;
+  let feverWrap  = null;
+  let feverFill  = null;
+  let shieldFill = null;
 
   function ensureFeverBar() {
     ensureBaseStyle();
@@ -132,19 +131,26 @@
 
       doc.body.appendChild(feverWrap);
     } else {
-      feverFill  = feverWrap.querySelector('.hha-fever-fill');
-      shieldFill = feverWrap.querySelector('.hha-fever-shield');
+      const bar = feverWrap.querySelector('.hha-fever-bar') ||
+                  (function () {
+                    const b = doc.createElement('div');
+                    b.className = 'hha-fever-bar';
+                    feverWrap.appendChild(b);
+                    return b;
+                  })();
+
+      feverFill = feverWrap.querySelector('.hha-fever-fill');
       if (!feverFill) {
         feverFill = doc.createElement('div');
         feverFill.className = 'hha-fever-fill';
-        const bar = feverWrap.querySelector('.hha-fever-bar');
-        if (bar) bar.appendChild(feverFill);
+        bar.appendChild(feverFill);
       }
+
+      shieldFill = feverWrap.querySelector('.hha-fever-shield');
       if (!shieldFill) {
         shieldFill = doc.createElement('div');
         shieldFill.className = 'hha-fever-shield';
-        const bar = feverWrap.querySelector('.hha-fever-bar');
-        if (bar) bar.appendChild(shieldFill);
+        bar.appendChild(shieldFill);
       }
     }
   }
@@ -182,7 +188,7 @@
     setShield
   };
 
-  // ผูกเข้า global ทั้งสองแบบ
+  // ผูกเข้า global
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.FeverUI = FeverUI;
   root.FeverUI = FeverUI;
