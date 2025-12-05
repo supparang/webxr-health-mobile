@@ -225,7 +225,7 @@ export async function boot(cfg = {}) {
       return { good: true, scoreDelta: d };
     }
 
-    // ปกติ: GOOD / BAD
+    // GOOD / BAD
     if (GOOD.includes(ch)) {
       addWater(+8);
       const d = (14 + combo * 2) * mult();
@@ -238,7 +238,7 @@ export async function boot(cfg = {}) {
       scoreFX(x, y, d);
       return { good: true, scoreDelta: d };
     } else {
-      // แตะของไม่ดี
+      // แตะ BAD
       if (shield > 0) {
         shield--;
         setShield(shield);
@@ -261,10 +261,11 @@ export async function boot(cfg = {}) {
     }
   }
 
-  // ----- เมื่อเป้าหายไปเอง (expire) -----
+  // ----- เมื่อเป้าหายไปเอง -----
   function onExpire(ev) {
-    // factoryBoot ส่ง ev.isGood = true/false มาให้
-    if (ev && !ev.isGood) {
+    // factoryBoot ส่ง { isGood:true/false } มาให้
+    // นับ miss เฉพาะ BAD
+    if (ev && ev.isBad) {
       misses++;
       deck.onJunk && deck.onJunk();
       syncDeck();
@@ -349,7 +350,7 @@ export async function boot(cfg = {}) {
     }));
   }
 
-  // clock กลางจาก factory (นับเวลาถอยหลัง)
+  // ตัวจับเวลา (ส่ง sec จาก mode-factory)
   const onTime = (e) => {
     const sec = (e.detail && typeof e.detail.sec === 'number')
       ? e.detail.sec
@@ -363,7 +364,7 @@ export async function boot(cfg = {}) {
   };
   window.addEventListener('hha:time', onTime);
 
-  // ----- เรียก factoryBoot -----
+  // ----- เรียก engine กลาง -----
   const inst = await factoryBoot({
     difficulty: diff,
     duration:   dur,
@@ -373,7 +374,7 @@ export async function boot(cfg = {}) {
     powerups:   BONUS,
     powerRate:  0.10,
     powerEvery: 7,
-    spawnStyle: 'pop',      // ให้เป้าโผล่แล้วหายเองอัตโนมัติ
+    spawnStyle: 'pop',      // เป้าโผล่–หายเอง
     judge:     (ch, ctx) => judge(ch, ctx),
     onExpire
   });
