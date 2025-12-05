@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (emoji badge + center target)
+// Food Groups VR — Game Engine (emoji badge + Fever + Cloud logger)
 // 2025-12-06
 
 (function (ns) {
@@ -189,7 +189,7 @@
       const z = -2.2;
       el.setAttribute('position', { x, y, z });
 
-      const scale  = this.cfg.scale || 1.0;
+      const scale  = this.cfg.scale || 1.2;
       const isGood = item.isGood ? true : false;
 
       // วงกลมพื้นหลัง (hitbox) สีแตกต่าง good / not-good
@@ -219,32 +219,20 @@
       border.setAttribute('position', { x: 0, y: 0, z: 0.005 });
       el.appendChild(border);
 
-      // ถ้ามีไฟล์รูป ให้ใช้ <a-image> แบบ Hydration
-      const texSrc = item.img || item.tex || item.url || null;
-
-      if (texSrc) {
-        const img = document.createElement('a-image');
-        img.setAttribute('src', texSrc);
-        img.setAttribute('width', 0.7 * scale);
-        img.setAttribute('height', 0.7 * scale);
-        img.setAttribute('position', { x: 0, y: 0, z: 0.01 });
-        img.setAttribute('transparent', true);
-        el.appendChild(img);
-      } else {
-        // fallback: ใช้ตัวอักษร emoji
-        const emojiChar = item.emoji || (isGood ? 'G' : 'J');
-        const txt = document.createElement('a-entity');
-        txt.setAttribute('text', {
-          value: emojiChar,
-          align: 'center',
-          color: '#ffffff',
-          width: 1.6 * scale,
-          baseline: 'center',
-          shader: 'msdf'
-        });
-        txt.setAttribute('position', { x: 0, y: 0, z: 0.01 });
-        el.appendChild(txt);
-      }
+      // emoji text ตรงกลาง
+      const emojiChar = item.emoji || (isGood ? '✅' : '✖️');
+      const txt = document.createElement('a-entity');
+      txt.setAttribute('text', {
+        value: emojiChar,
+        align: 'center',
+        color: '#ffffff',
+        width: 1.8 * scale,
+        baseline: 'center',
+        shader: 'msdf'
+        // ถ้ามี font msdf ใน <a-assets> ให้เพิ่ม: font: '#font-roboto-msdf'
+      });
+      txt.setAttribute('position', { x: 0, y: 0, z: 0.02 });
+      el.appendChild(txt);
 
       const groupId = item && item.group != null ? item.group : 0;
       el.setAttribute('data-group', String(groupId));
