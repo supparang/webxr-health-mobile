@@ -1,15 +1,17 @@
 // === /herohealth/vr-groups/emoji-image.js ===
-// Food Groups emoji pool (non-module, global)
+// Food Groups VR — Emoji pool (5 หมู่ + Junk)
 // 2025-12-06
 
 (function (root) {
   'use strict';
 
+  // group:
+  // 1 = ข้าว-แป้ง, 2 = ผัก, 3 = ผลไม้, 4 = โปรตีน, 5 = นม, 0 = Junk
   const GOOD_ITEMS = [
-    // หมู่ 1 ข้าว-แป้ง
+    // หมู่ 1
     { emoji: '🍚', group: 1, isGood: true,  name: 'ข้าวสวย' },
-    { emoji: '🍞', group: 1, isGood: true,  name: 'ขนมปังโฮลวีต' },
-    { emoji: '🥖', group: 1, isGood: true,  name: 'ขนมปัง' },
+    { emoji: '🍞', group: 1, isGood: true,  name: 'ขนมปัง' },
+    { emoji: '🥖', group: 1, isGood: true,  name: 'ขนมปังแท่ง' },
 
     // หมู่ 2 ผัก
     { emoji: '🥦', group: 2, isGood: true,  name: 'บรอกโคลี' },
@@ -19,7 +21,7 @@
     // หมู่ 3 ผลไม้
     { emoji: '🍎', group: 3, isGood: true,  name: 'แอปเปิล' },
     { emoji: '🍌', group: 3, isGood: true,  name: 'กล้วย' },
-    { emoji: '🍇', group: 3, isGood: true,  name: 'องุ่น' },
+    { emoji: '🍉', group: 3, isGood: true,  name: 'แตงโม' },
 
     // หมู่ 4 โปรตีน
     { emoji: '🍗', group: 4, isGood: true,  name: 'ไก่' },
@@ -41,7 +43,7 @@
   ];
 
   function pickRandom() {
-    // good 70% / junk 30% เป็น default
+    // good 70% / junk 30%
     const r = Math.random();
     const pool = r < 0.7 ? GOOD_ITEMS : JUNK_ITEMS;
     const idx = (Math.random() * pool.length) | 0;
