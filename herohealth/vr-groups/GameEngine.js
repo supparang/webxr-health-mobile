@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (Hydration-style)
+// Food Groups VR — Game Engine (falling targets, safe lifetime)
 // 2025-12-06
 
 (function (ns) {
@@ -27,7 +27,7 @@
     }
     return {
       spawnInterval: 1100,
-      fallSpeed: 0.009,
+      fallSpeed: 0.007,   // ช้าหน่อย
       scale: 1.15,
       maxActive: 4,
       goodRatio: 0.75,
@@ -53,7 +53,7 @@
       this.running    = false;
       this.targets    = [];
       this.elapsed    = 0;
-      this.durationMs = 60000; // 60s
+      this.durationMs = 60000;
       this.diffKey    = 'normal';
       this.cfg        = pickDifficulty(this.diffKey);
 
@@ -69,7 +69,6 @@
       this._hudScore = document.getElementById('hud-score');
       this._hudTime  = document.getElementById('hud-time-label');
 
-      // Fever UI (มีหรือไม่มีก็ได้)
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -92,7 +91,6 @@
       this._lastLogSec = -1;
     },
 
-    // ------------- start / tick -------------
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
@@ -108,7 +106,7 @@
       this.sessionId      = createSessionId();
 
       if (this._hudScore) this._hudScore.textContent = '0';
-      if (this._hudTime)  {
+      if (this._hudTime) {
         const sec = (this.durationMs / 1000) | 0;
         this._hudTime.textContent = sec + 's';
       }
@@ -129,7 +127,6 @@
       this.elapsed    += dt;
       this.spawnClock += dt;
 
-      // หมดเวลา
       if (this.elapsed >= this.durationMs) {
         this.finish('timeout');
         return;
@@ -139,7 +136,6 @@
       const interval  = cfg.spawnInterval || 1100;
       const maxActive = cfg.maxActive || 4;
 
-      // spawn เป้าใหม่ตาม interval
       if (this.spawnClock >= interval) {
         this.spawnClock = 0;
         if (this.targets.length < maxActive) {
@@ -147,10 +143,8 @@
         }
       }
 
-      // อัปเดตตำแหน่งเป้าทั้งหมด
       this.updateTargets(dt);
 
-      // HUD time (นับถอยหลัง)
       if (this._hudTime) {
         const remainMs  = Math.max(0, this.durationMs - this.elapsed);
         const remainSec = (remainMs / 1000) | 0;
@@ -164,7 +158,7 @@
       }
     },
 
-    // ------------- spawn targets (emoji + circle) -------------
+    // ---------- spawn (เริ่มใกล้ระดับตา) ----------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -178,17 +172,16 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // โซนกลางจอ เหมือน Hydration แต่เริ่มสูงกว่าแล้วตกลงมา
+      // กลางจอ ใกล้ระดับสายตา
       const xRange = 0.7;
       const x = (Math.random() * (2 * xRange)) - xRange;
-      const y = 2.4 + Math.random() * 0.6; // เริ่มเหนือศีรษะ
+      const y = 1.9 + Math.random() * 0.4; // 1.9–2.3
       const z = -3.0;
       el.setAttribute('position', { x, y, z });
 
       const scale  = this.cfg.scale || 1.15;
       const isGood = item.isGood ? true : false;
 
-      // วงกลมสีพื้นหลัง
       el.setAttribute('geometry', {
         primitive: 'circle',
         radius: 0.42 * scale
@@ -200,7 +193,6 @@
         side: 'double'
       });
 
-      // Emoji text ซ้อน
       const emojiChar = item.emoji || (isGood ? 'G' : 'J');
       const txt = document.createElement('a-entity');
       txt.setAttribute('text', {
@@ -219,8 +211,8 @@
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good',  isGood ? '1' : '0');
 
-      // อายุเป้า ~7 วินาที
-      el._life      = 7000;
+      // อายุเป้ายาว 15 วินาที (ให้เห็นแน่ ๆ)
+      el._life      = 15000;
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
@@ -236,10 +228,10 @@
       console.log('[GroupsVR] spawnTarget()', item, 'total=', this.targets.length);
     },
 
-    // ------------- move & auto-miss -------------
+    // ---------- ตกลงช้า ๆ + หมดอายุอย่างเดียว ----------
     updateTargets: function (dt) {
-      const fallSpeed = (this.cfg && this.cfg.fallSpeed) || 0.009;
-      const step = fallSpeed * (dt / 16.7); // ปรับตามเฟรมเรต
+      const fallSpeed = (this.cfg && this.cfg.fallSpeed) || 0.007;
+      const step = fallSpeed * (dt / 16.7);
 
       for (let i = this.targets.length - 1; i >= 0; i--) {
         const t = this.targets[i];
@@ -250,11 +242,8 @@
         pos.y -= step;
         t.setAttribute('position', pos);
 
-        // หลุดขอบล่าง หรือหมดอายุ = miss
-        const outOfBounds = pos.y <= 0.2;
-        const expired     = t._age >= t._life;
-
-        if (outOfBounds || expired) {
+        // ยังไม่เช็ค out-of-bounds แค่หมดอายุ
+        if (t._age >= t._life) {
           this.onMiss(t);
         }
       }
@@ -266,7 +255,6 @@
       if (el.parentNode) el.parentNode.removeChild(el);
     },
 
-    // ------------- hit / miss -------------
     onHit: function (el) {
       const isGood  = el.getAttribute('data-good') === '1';
       const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
@@ -327,7 +315,6 @@
       return { x: v.x, y: v.y, z: v.z };
     },
 
-    // ------------- Fever (optional) -------------
     updateFeverOnHit: function (isGood) {
       if (!ns.FeverUI) return;
 
@@ -365,7 +352,6 @@
       ns.FeverUI.setFever(f);
     },
 
-    // ------------- logging / finish -------------
     logEvent: function (ev) {
       this.events.push(ev);
     },
