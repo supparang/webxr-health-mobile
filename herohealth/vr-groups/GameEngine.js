@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (Emoji a-text + Fever + Cloud Logger)
-// 2025-12-06
+// 2025-12-06 (falling targets + HUD time update)
 
 (function (ns) {
   'use strict';
@@ -69,6 +69,10 @@
       this.sessionId = createSessionId();
       this.events    = [];
 
+      // HUD refs
+      this._hudScore = document.getElementById('hud-score');
+      this._hudTime  = document.getElementById('hud-time-label');
+
       // Fever bar
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
@@ -97,18 +101,21 @@
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
 
-      this.running       = true;
-      this.elapsed       = 0;
-      this.spawnClock    = 0;
+      this.running        = true;
+      this.elapsed        = 0;
+      this.spawnClock     = 0;
       this.targets.length = 0;
-      this.score         = 0;
-      this.fever         = 0;
-      this.feverActive   = false;
-      this.events.length = 0;
-      this.sessionId     = createSessionId();
+      this.score          = 0;
+      this.fever          = 0;
+      this.feverActive    = false;
+      this.events.length  = 0;
+      this.sessionId      = createSessionId();
 
-      const elScore = document.getElementById('hud-score');
-      if (elScore) elScore.textContent = '0';
+      if (this._hudScore) this._hudScore.textContent = '0';
+      if (this._hudTime)  {
+        const sec = (this.durationMs / 1000) | 0;
+        this._hudTime.textContent = sec + 's';
+      }
 
       if (ns.FeverUI) {
         ns.FeverUI.setFever(0);
@@ -130,6 +137,13 @@
       if (sec !== this._lastLogSec) {
         this._lastLogSec = sec;
         console.log('[GroupsVR] tick sec=', sec, 'targets=', this.targets.length);
+      }
+
+      // update HUD time (นับถอยหลัง)
+      if (this._hudTime) {
+        const remainMs = Math.max(0, this.durationMs - this.elapsed);
+        const remainSec = (remainMs / 1000) | 0;
+        this._hudTime.textContent = remainSec + 's';
       }
 
       if (this.elapsed >= this.durationMs) {
@@ -169,9 +183,9 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ตำแหน่งเป้า
+      // ตำแหน่งเป้า (สุ่มซ้าย-ขวา + สูงหน่อย)
       const x = (Math.random() * 1.8) - 0.9;
-      const y = 1.1 + Math.random() * 0.8;
+      const y = 1.4 + Math.random() * 0.8;
       const z = -2.3;
       el.setAttribute('position', { x, y, z });
 
@@ -209,7 +223,8 @@
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good', String(isGood));
 
-      el._life      = 3000;
+      // อายุของเป้า + เวลา spawn
+      el._life      = 4000; // อายุสูงสุด ~4s
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
@@ -224,10 +239,23 @@
     },
 
     updateTargets: function (dt) {
+      const fallSpeed = (this.cfg && this.cfg.fallSpeed) || 0.011;
+      const step = fallSpeed * (dt / 16.7); // ปรับตามเฟรมเรต
+
       for (let i = this.targets.length - 1; i >= 0; i--) {
         const t = this.targets[i];
+
         t._age += dt;
-        if (t._age >= t._life) {
+
+        // ขยับเป้าลงด้านล่าง
+        const pos = t.getAttribute('position') || { x: 0, y: 0, z: 0 };
+        pos.y -= step;
+        t.setAttribute('position', pos);
+
+        const outOfBounds = pos.y <= 0.2;
+        const expired     = t._age >= t._life;
+
+        if (outOfBounds || expired) {
           this.onMiss(t);
         }
       }
@@ -252,8 +280,7 @@
       let delta = isGood ? 10 : -5;
       this.score = Math.max(0, this.score + delta);
 
-      const elScore = document.getElementById('hud-score');
-      if (elScore) elScore.textContent = String(this.score);
+      if (this._hudScore) this._hudScore.textContent = String(this.score);
 
       this.updateFeverOnHit(isGood);
 
@@ -354,6 +381,10 @@
         if (el.parentNode) el.parentNode.removeChild(el);
       }
       this.targets.length = 0;
+
+      if (this._hudTime) {
+        this._hudTime.textContent = '0s';
+      }
 
       const scene = this.el.sceneEl;
 
