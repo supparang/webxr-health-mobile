@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (emoji badge + Fever + Cloud logger)
+// Food Groups VR — Game Engine (emoji badge + Fever + Cloud logger, canvas emoji)
 // 2025-12-06
 
 (function (ns) {
@@ -18,6 +18,42 @@
     if (v < min) return min;
     if (v > max) return max;
     return v;
+  }
+
+  // cache dataURL ของ emoji แต่ละตัว ป้องกันวาด canvas ซ้ำ ๆ
+  const emojiTexCache = {};
+
+  function makeEmojiTexture(emojiChar) {
+    emojiChar = emojiChar || '🍎';
+    if (emojiTexCache[emojiChar]) {
+      return emojiTexCache[emojiChar];
+    }
+
+    const canvas = document.createElement('canvas');
+    const size = 256;
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, size, size);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // ลองใช้ฟอนต์ emoji หลัก ๆ
+    ctx.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif';
+
+    // เงาจาง ๆ ให้ดูเป็น badge หน่อย
+    ctx.fillStyle = 'rgba(15,23,42,0.35)';
+    ctx.beginPath();
+    ctx.arc(size / 2 + 6, size / 2 + 6, size / 2.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(emojiChar, size / 2, size / 2);
+
+    const url = canvas.toDataURL('image/png');
+    emojiTexCache[emojiChar] = url;
+    return url;
   }
 
   function pickDifficulty(diffKey) {
@@ -219,20 +255,18 @@
       border.setAttribute('position', { x: 0, y: 0, z: 0.005 });
       el.appendChild(border);
 
-      // emoji text ตรงกลาง
+      // emoji ตรงกลาง ใช้ texture จาก canvas → a-image
       const emojiChar = item.emoji || (isGood ? '✅' : '✖️');
-      const txt = document.createElement('a-entity');
-      txt.setAttribute('text', {
-        value: emojiChar,
-        align: 'center',
-        color: '#ffffff',
-        width: 1.8 * scale,
-        baseline: 'center',
-        shader: 'msdf'
-        // ถ้ามี font msdf ใน <a-assets> ให้เพิ่ม: font: '#font-roboto-msdf'
-      });
-      txt.setAttribute('position', { x: 0, y: 0, z: 0.02 });
-      el.appendChild(txt);
+      const texUrl = makeEmojiTexture(emojiChar);
+
+      if (texUrl) {
+        const img = document.createElement('a-image');
+        img.setAttribute('src', texUrl);
+        img.setAttribute('width', 0.7 * scale);
+        img.setAttribute('height', 0.7 * scale);
+        img.setAttribute('position', { x: 0, y: 0, z: 0.02 });
+        el.appendChild(img);
+      }
 
       const groupId = item && item.group != null ? item.group : 0;
       el.setAttribute('data-group', String(groupId));
