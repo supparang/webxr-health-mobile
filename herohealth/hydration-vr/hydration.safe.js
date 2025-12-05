@@ -140,24 +140,35 @@ export async function boot(cfg = {}) {
       minis = deck.getProgress('mini') || deck.getProgress('minis') || [];
     }
 
+    const activeGoal = goals.find(g => !g.done) || goals[0] || null;
+    const activeMini = minis.find(m => !m.done) || minis[0] || null;
+
+    // สร้างข้อความที่ HUD / โค้ชอ่านได้แน่ ๆ
+    const goalText =
+      (activeGoal && (activeGoal.label || activeGoal.title || activeGoal.text || activeGoal.desc)) ||
+      '-';
+    const miniText =
+      (activeMini && (activeMini.label || activeMini.title || activeMini.text || activeMini.desc)) ||
+      '-';
+
     const z = zoneFrom(waterPct);
 
     const payload = {
-      goal: goals.find(g => !g.done) || goals[0] || null,
-      mini: minis.find(m => !m.done) || minis[0] || null,
+      mode:     'Hydration',
+      modeKey:  'hydration-vr',
+      goal:     activeGoal,
+      mini:     activeMini,
       goalsAll: goals,
       minisAll: minis,
+      goalText,
+      miniText,
       hint: hint || `โซนน้ำ: ${z}`
     };
 
-    // ใช้กับของเก่า (quest-hud)
-    window.dispatchEvent(new CustomEvent('quest:update', {
-      detail: payload
-    }));
-    // และ hha:quest สำหรับโค้ช
-    window.dispatchEvent(new CustomEvent('hha:quest', {
-      detail: payload
-    }));
+    // ตัวเก่า (HUD GoodJunk / Groups)
+    window.dispatchEvent(new CustomEvent('quest:update', { detail: payload }));
+    // ตัวใหม่ (ใช้ hha:quest เช่นเดียวกับเกมอื่น และให้โค้ชใช้ด้วย)
+    window.dispatchEvent(new CustomEvent('hha:quest', { detail: payload }));
   }
 
   // ----- state หลัก -----
