@@ -3,15 +3,18 @@
 
 'use strict';
 
+// engine กลาง
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import Particles from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 
+// ดึงทุกอย่างจาก hydration.quest.js แล้วค่อยเลือกฟังก์ชัน
 import * as HQ from './hydration.quest.js';
 
-const GOOD = ['💧', '🥛', '🍉'];
-const BAD  = ['🥤', '🧋', '🍺', '☕️'];
+// emoji
+const GOOD = ['💧', '🥛', '🍉'];              // น้ำดี
+const BAD  = ['🥤', '🧋', '🍺', '☕️'];       // น้ำหวาน / คาเฟอีน ฯลฯ
 
 const STAR   = '⭐';
 const DIA    = '💎';
@@ -19,6 +22,7 @@ const SHIELD = '🛡️';
 const FIRE   = '🔥';
 const BONUS  = [STAR, DIA, SHIELD, FIRE];
 
+// helper กันไว้ ถ้า Particles ไม่มี
 function safeScorePop(x, y, text, opt) {
   if (Particles && typeof Particles.scorePop === 'function') {
     Particles.scorePop(x, y, text, opt);
@@ -30,6 +34,7 @@ function safeBurstAt(x, y, opt) {
   }
 }
 
+// เลือก factory สำหรับ quest ไม่ว่าจะ export แบบไหน
 function getCreateHydrationQuest() {
   if (typeof HQ.createHydrationQuest === 'function') {
     return HQ.createHydrationQuest;
@@ -39,6 +44,7 @@ function getCreateHydrationQuest() {
       return HQ.default.createHydrationQuest;
     }
     if (typeof HQ.default === 'function') {
+      // กรณี export default function(...)
       return HQ.default;
     }
   }
@@ -46,6 +52,7 @@ function getCreateHydrationQuest() {
 }
 
 export async function boot(cfg = {}) {
+  // ----- อ่าน difficulty + duration -----
   const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
   const diff = (diffRaw === 'easy' || diffRaw === 'hard' || diffRaw === 'normal')
     ? diffRaw : 'normal';
@@ -55,6 +62,7 @@ export async function boot(cfg = {}) {
   if (dur < 20)  dur = 20;
   if (dur > 180) dur = 180;
 
+  // ----- HUD เริ่มต้น -----
   ensureFeverBar();
   setFever(0);
   setFeverActive(false);
@@ -66,12 +74,14 @@ export async function boot(cfg = {}) {
   let waterZone  = waterRes.zone || 'GREEN';
   const waterStart = waterPct;
 
+  // ----- Quest Deck -----
   let deck;
   try {
     const factory = getCreateHydrationQuest();
     deck = factory(diff);
   } catch (err) {
     console.error('[Hydration] createHydrationQuest error', err);
+    // ถ้า quest พัง ให้ใช้ deck ปลอมที่ไม่ทำอะไร เพื่อไม่ให้เกมล้ม
     deck = {
       stats: { greenTick: 0, zone: waterZone },
       updateScore() {},
@@ -89,38 +99,12 @@ export async function boot(cfg = {}) {
   deck.stats.greenTick = 0;
   deck.stats.zone      = waterZone;
 
+  // ✅ สุ่มภารกิจชุดแรกออกมา (ใน hydration.quest.js drawGoals/draw3 เป็น no-op อยู่แล้ว)
+  if (typeof deck.drawGoals === 'function') deck.drawGoals(2);
+  if (typeof deck.draw3 === 'function')     deck.draw3();
+
   let accMiniDone = 0;
   let accGoalDone = 0;
-
-  // ----- state หลัก -----
-  let score       = 0;
-  let combo       = 0;
-  let comboMax    = 0;
-  let misses      = 0;
-  let star        = 0;
-  let diamond     = 0;
-  let shield      = 0;
-  let fever       = 0;
-  let feverActive = false;
-
-  function mult() { return feverActive ? 2 : 1; }
-
-  // ส่ง event ให้ HUD กลาง (quest-hud-vr.js / logger)
-  function pushScore() {
-    window.dispatchEvent(new CustomEvent('hha:score', {
-      detail: {
-        mode:       'Hydration',
-        modeKey:    'hydration-vr',
-        difficulty: diff,
-        score,
-        combo,
-        comboMax,
-        misses,
-        waterPct,
-        waterZone
-      }
-    }));
-  }
 
   function pushQuest(hint) {
     if (!deck || typeof deck.getProgress !== 'function') return;
@@ -131,14 +115,6 @@ export async function boot(cfg = {}) {
 
     window.dispatchEvent(new CustomEvent('quest:update', {
       detail: {
-        mode:       'Hydration',
-        modeKey:    'hydration-vr',
-        difficulty: diff,
-        score,
-        combo,
-        misses,
-        waterPct,
-        waterZone: z,
         goal: goals.find(g => !g.done) || goals[0] || null,
         mini: minis.find(m => !m.done) || minis[0] || null,
         goalsAll: goals,
@@ -147,6 +123,19 @@ export async function boot(cfg = {}) {
       }
     }));
   }
+
+  // ----- state หลัก -----
+  let score       = 0;
+  let combo       = 0;
+  let comboMax    = 0;
+  let misses      = 0;   // นับ “แตะน้ำไม่ดีตอนไม่มีเกราะ” เท่านั้น
+  let star        = 0;
+  let diamond     = 0;
+  let shield      = 0;
+  let fever       = 0;
+  let feverActive = false;
+
+  function mult() { return feverActive ? 2 : 1; }
 
   function gainFever(n) {
     fever = Math.max(0, Math.min(100, fever + n));
@@ -192,13 +181,15 @@ export async function boot(cfg = {}) {
     const x = ctx?.clientX ?? ctx?.cx ?? 0;
     const y = ctx?.clientY ?? ctx?.cy ?? 0;
 
+    // Power-ups
     if (ch === STAR) {
       const d = 40 * mult();
       score += d; star++;
       gainFever(10);
-      deck.onGood && deck.onGood();
+      deck.onGood && deck.onGood();    // นับเป็น event ดีต่อ quest
       combo++; comboMax = Math.max(comboMax, combo);
-      syncDeck(); scoreFX(x, y, d); pushScore(); pushQuest();
+      syncDeck(); pushQuest();
+      scoreFX(x, y, d);
       return { good: true, scoreDelta: d };
     }
     if (ch === DIA) {
@@ -207,7 +198,8 @@ export async function boot(cfg = {}) {
       gainFever(30);
       deck.onGood && deck.onGood();
       combo++; comboMax = Math.max(comboMax, combo);
-      syncDeck(); scoreFX(x, y, d); pushScore(); pushQuest();
+      syncDeck(); pushQuest();
+      scoreFX(x, y, d);
       return { good: true, scoreDelta: d };
     }
     if (ch === SHIELD) {
@@ -216,7 +208,8 @@ export async function boot(cfg = {}) {
       const d = 20;
       score += d;
       deck.onGood && deck.onGood();
-      syncDeck(); scoreFX(x, y, d); pushScore(); pushQuest();
+      syncDeck(); pushQuest();
+      scoreFX(x, y, d);
       return { good: true, scoreDelta: d };
     }
     if (ch === FIRE) {
@@ -227,11 +220,14 @@ export async function boot(cfg = {}) {
       const d = 25;
       score += d;
       deck.onGood && deck.onGood();
-      syncDeck(); scoreFX(x, y, d); pushScore(); pushQuest();
+      syncDeck(); pushQuest();
+      scoreFX(x, y, d);
       return { good: true, scoreDelta: d };
     }
 
+    // ปกติ: GOOD / BAD
     if (GOOD.includes(ch)) {
+      // ✅ น้ำดี → ไม่เป็น miss เสมอ
       addWater(+8);
       const d = (14 + combo * 2) * mult();
       score += d;
@@ -239,38 +235,55 @@ export async function boot(cfg = {}) {
       comboMax = Math.max(comboMax, combo);
       gainFever(6 + combo * 0.4);
       deck.onGood && deck.onGood();
-      syncDeck(); scoreFX(x, y, d); pushScore(); pushQuest();
+      syncDeck(); pushQuest();
+      scoreFX(x, y, d);
       return { good: true, scoreDelta: d };
     } else {
+      // แตะของไม่ดี
       if (shield > 0) {
+        // มีเกราะ → บล็อกความเสียหาย, ไม่เป็น miss
         shield--;
         setShield(shield);
         addWater(-4);
         decayFever(6);
-        syncDeck(); scoreFX(x, y, 0); pushScore(); pushQuest();
+        syncDeck(); pushQuest();
+        scoreFX(x, y, 0);
         return { good: false, scoreDelta: 0 };
       }
+
+      // ❌ ไม่มีเกราะ + แตะน้ำไม่ดี → นับเป็น miss
       addWater(-8);
       const d = -10;
       score = Math.max(0, score + d);
       combo = 0;
-      misses++;
+      misses++;                         // << นับ miss ตรงนี้เท่านั้น
       decayFever(14);
-      deck.onJunk && deck.onJunk();
-      syncDeck(); scoreFX(x, y, d); pushScore(); pushQuest();
+      deck.onJunk && deck.onJunk();     // สำหรับ quest: พลาด junk
+      syncDeck(); pushQuest();
+      scoreFX(x, y, d);
       return { good: false, scoreDelta: d };
     }
   }
 
   // ----- เมื่อเป้าหายไปเอง (expire) -----
+  // ตามนิยามใหม่:
+  //   - ปล่อยน้ำดีหาย → ไม่เป็น miss
+  //   - ปล่อย junk หาย → ไม่เป็น miss เช่นกัน
   function onExpire(ev) {
-    if (ev && !ev.isGood) {
-      misses++;
-      deck.onJunk && deck.onJunk();
-      syncDeck();
-      pushScore();
-      pushQuest();
+    if (!ev) return;
+
+    // ถ้าอยากให้ quest รู้ว่ามี event เกิดขึ้นตอนเป้าหมดเวลา
+    // สามารถเลือกเรียก onGood/onJunk ได้ แต่ "ไม่" ไปยุ่งกับ misses
+    /*
+    if (ev.isGood && typeof deck.onGood === 'function') {
+      deck.onGood();
+    } else if (!ev.isGood && typeof deck.onJunk === 'function') {
+      deck.onJunk();
     }
+    */
+
+    syncDeck();
+    pushQuest();
   }
 
   // ----- tick รายวินาที -----
@@ -292,7 +305,6 @@ export async function boot(cfg = {}) {
       deck.second();
     }
     syncDeck();
-    pushScore();
 
     const g = (deck.getProgress && deck.getProgress('goals')) || [];
     const m = (deck.getProgress && deck.getProgress('mini'))  || [];
@@ -309,6 +321,7 @@ export async function boot(cfg = {}) {
     }
   }
 
+  // ----- จบเกม -----
   let ended = false;
   function finish() {
     if (ended) return;
@@ -334,7 +347,7 @@ export async function boot(cfg = {}) {
         modeLabel: 'Hydration',
         difficulty: diff,
         score,
-        misses,
+        misses,             // << miss ตามนิยามใหม่
         comboMax,
         duration: dur,
         greenTick,
@@ -350,6 +363,7 @@ export async function boot(cfg = {}) {
     }));
   }
 
+  // clock กลางจาก factory (นับเวลาถอยหลัง)
   const onTime = (e) => {
     const sec = (e.detail && typeof e.detail.sec === 'number')
       ? e.detail.sec
@@ -363,7 +377,7 @@ export async function boot(cfg = {}) {
   };
   window.addEventListener('hha:time', onTime);
 
-  // เริ่ม engine
+  // ----- เรียก factoryBoot -----
   const inst = await factoryBoot({
     difficulty: diff,
     duration:   dur,
@@ -373,13 +387,12 @@ export async function boot(cfg = {}) {
     powerups:   BONUS,
     powerRate:  0.10,
     powerEvery: 7,
-    spawnStyle: 'pop',
+    spawnStyle: 'pop',      // ให้เป้าโผล่แล้วหายเองอัตโนมัติ
     judge:     (ch, ctx) => judge(ch, ctx),
     onExpire
   });
 
-  // initial HUD
-  pushScore();
+  // แสดงเควสต์ตั้งแต่เริ่ม
   pushQuest('เริ่มโหมดน้ำสมดุล');
 
   return inst;
