@@ -1,99 +1,39 @@
-<style>
-:root{
-  --bg:#0f172a;
-  --panel: rgba(255,255,255,0.06);
-  --panel-border: rgba(255,255,255,0.15);
-  --text:#e2e8f0;
-  --soft:#94a3b8;
-  --green:#22c55e;
-  --blue:#38bdf8;
-  --red:#fb7185;
+/* === /herohealth/css/hydration-vr.css === */
+/* Override บางอย่างของ goodjunk-vr.css เฉพาะหน้า Hydration VR */
+
+:root {
+  --hydration-bg-top:  #075985;
+  --hydration-bg-bot:  #020617;
+  --hydration-text:    #e5e7eb;
 }
 
-body{
-  margin:0;
-  font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-  background: radial-gradient(circle at top left,#075985 0%,#0f172a 60%);
-  color:var(--text);
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
-.hv-center{
-  max-width: 860px;
-  margin: 60px auto;
-  padding: 32px 40px;
-  background: var(--panel);
-  border:1px solid var(--panel-border);
-  border-radius:20px;
-  backdrop-filter: blur(16px);
-  text-align:center;
+body {
+  font-family: system-ui, Segoe UI, Inter, Roboto, sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.25) 0%, transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.18) 0%, transparent 55%),
+    linear-gradient(to bottom, var(--hydration-bg-top), var(--hydration-bg-bot));
+  color: var(--hydration-text);
 }
 
-.hv-title{
-  font-size:42px;
-  font-weight:700;
-  margin-bottom:4px;
+/* เป้า emoji — ค่า default (normal) */
+.hha-target {
+  font-size: 48px !important;      /* ใหญ่กว่าของ GoodJunk */
 }
 
-.hv-sub{
-  color:var(--soft);
-  font-size:15px;
-  margin-bottom:20px;
+/* Easy: ใหญ่สุด */
+body[data-diff="easy"] .hha-target {
+  font-size: 60px !important;
 }
 
-.hv-badge{
-  display:inline-block;
-  background: rgba(255,255,255,0.12);
-  padding:6px 14px;
-  border-radius:40px;
-  font-size:13px;
-  margin-bottom:16px;
-  color:#e0f2fe;
+/* Hard: เล็กลงหน่อย */
+body[data-diff="hard"] .hha-target {
+  font-size: 40px !important;
 }
-
-.hv-diff-wrap{
-  display:flex;
-  justify-content:center;
-  gap:16px;
-  margin:24px 0 32px;
-}
-
-.hv-diff-btn{
-  border:none;
-  font-size:18px;
-  padding:14px 28px;
-  border-radius:40px;
-  cursor:pointer;
-  transition:.2s;
-  color:white;
-}
-
-.hv-easy{ background:linear-gradient(135deg,#22c55e,#16a34a); }
-.hv-normal{ background:linear-gradient(135deg,#38bdf8,#0ea5e9); }
-.hv-hard{ background:linear-gradient(135deg,#fb7185,#ef4444); }
-
-.hv-diff-btn:hover{
-  transform: translateY(-2px);
-}
-
-.hv-start{
-  margin-top:10px;
-  padding:16px 38px;
-  font-size:22px;
-  border-radius:40px;
-  background:linear-gradient(135deg,#60a5fa,#3b82f6);
-  border:none;
-  color:white;
-  cursor:pointer;
-  transition:.2s;
-}
-.hv-start:hover{
-  transform:scale(1.05);
-}
-
-.hv-time{
-  margin-top:18px;
-  font-size:14px;
-  color:#bae6fd;
-}
-
-</style>
