@@ -45,7 +45,7 @@
       flex-direction:column;
       justify-content:space-between;
       padding:10px 10px 14px;
-      pointer-events:none;          /* ✅ ทั้ง HUD ไม่บังคลิก A-Frame */
+      pointer-events:none;
     }
 
     .hud-top{
@@ -61,7 +61,7 @@
       padding:8px 10px;
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
-      pointer-events:none;          /* ✅ ไม่รับ pointer */
+      pointer-events:none;
     }
 
     .hud-main{
@@ -186,7 +186,7 @@
       align-items:center;
       justify-content:center;
       gap:8px;
-      pointer-events:none;          /* ✅ ไม่บัง tap/คลิก ฉาก VR */
+      pointer-events:none;
     }
     .coach-bubble.show{ display:flex; }
     .coach-label{
@@ -197,7 +197,7 @@
       font-weight:600;
     }
 
-    /* ===== Center hint: “ลากนิ้วเพื่อหมุนมุมมอง” ===== */
+    /* ===== Center hint ===== */
     .hint-center{
       position:fixed;
       left:50%;
@@ -232,7 +232,7 @@
       box-shadow:0 20px 40px rgba(15,23,42,0.85);
       display:none;
       z-index:652;
-      pointer-events:none;          /* ✅ แค่โชว์ ไม่รับคลิก */
+      pointer-events:none;
     }
     .end-toast.show{ display:block; }
     .end-title{
@@ -263,7 +263,8 @@
   <a-scene
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-    background="color: #020617">
+    background="color: #020617"
+    hha-emoji-overlay>  <!-- ✅ เพิ่ม component แปะ emoji -->
 
     <!-- กล้องกลาง + crosshair + raycaster -->
     <a-entity id="rig" position="0 1.6 0">
@@ -371,6 +372,44 @@
     import { GameEngine } from './vr-goodjunk/GameEngine.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
+
+    /* ---------- A-Frame component: แปะ emoji บนเป้า ---------- */
+    if (window.AFRAME && !AFRAME.components['hha-emoji-overlay']) {
+      AFRAME.registerComponent('hha-emoji-overlay', {
+        init() {
+          this._goodSet = ['🥦','🥕','🍎','🍌','🥗','🍇','🍓','🍊','🥬','🥛','🍞'];
+          this._junkSet = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬'];
+        },
+        tick() {
+          const scene = this.el.sceneEl || this.el;
+          const nodes = scene.querySelectorAll('.hha-target');
+          nodes.forEach(el => {
+            if (el.__emojiAdded) return;
+
+            const mat = el.getAttribute('material') || {};
+            const color = (mat.color || mat).toString().toLowerCase();
+            let emoji;
+            if (color.includes('22c55e') || color.includes('green')) {
+              const arr = this._goodSet;
+              emoji = arr[Math.floor(Math.random() * arr.length)];
+            } else {
+              const arr = this._junkSet;
+              emoji = arr[Math.floor(Math.random() * arr.length)];
+            }
+
+            const txt = document.createElement('a-text');
+            txt.setAttribute('value', emoji);
+            txt.setAttribute('align', 'center');
+            txt.setAttribute('color', '#ffffff');
+            txt.setAttribute('width', '2.4');
+            txt.setAttribute('position', '0 0 0.01');
+            el.appendChild(txt);
+
+            el.__emojiAdded = true;
+          });
+        }
+      });
+    }
 
     function getParam(name, fallback){
       const url = new URL(window.location.href);
