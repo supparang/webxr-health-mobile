@@ -1,5 +1,8 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (emoji badge + spaced targets + Cloud logger)
+// Food Groups VR — Game Engine
+// • emoji badge targets
+// • fixed spawn slots (ไม่ให้เป้าซ้อนกัน)
+// • simple goal / mini quest fields (ส่งไปตอนจบเกม)
 // 2025-12-06
 
 (function (ns) {
@@ -11,7 +14,6 @@
     return;
   }
 
-  // สำหรับฉาก Food Groups ตอนนี้ยังไม่ต้องใช้ Fever bar บน HUD
   const USE_FEVER_UI = false;
   const FEVER_MAX = 100;
 
@@ -22,7 +24,7 @@
     return v;
   }
 
-  // === emoji → texture (canvas) cache ===
+  // ===== emoji → texture (canvas) cache =====
   const emojiTexCache = {};
 
   function makeEmojiTexture(emojiChar) {
@@ -36,15 +38,15 @@
     if (!ctx) return null;
 
     ctx.clearRect(0, 0, size, size);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
 
-    // วาดเงาจานกลม ๆ ด้านหลัง
+    // เงาด้านหลัง
     ctx.fillStyle = 'rgba(15,23,42,0.35)';
     ctx.beginPath();
     ctx.arc(size / 2 + 6, size / 2 + 6, size / 2.6, 0, Math.PI * 2);
     ctx.fill();
 
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.font =
       '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif';
     ctx.fillStyle = '#ffffff';
@@ -64,7 +66,7 @@
     return {
       spawnInterval: 1200,
       fallSpeed: 0.0,
-      scale: 1.0,
+      scale: 0.9,
       maxActive: 3,
       goodRatio: 0.75,
       quest: { goalsPick: 2, miniPick: 3 }
@@ -76,20 +78,19 @@
       'FG-' +
       Date.now().toString(36) +
       '-' +
-      Math.random()
-        .toString(36)
-        .slice(2, 8)
+      Math.random().toString(36).slice(2, 8)
     );
   }
 
-  // === ตัวช่วยสุ่มตำแหน่ง + กันเป้าชนกัน ===
-  function randomSpawnPos() {
-    // พื้นที่เล่น: กึ่งกลางจอขึ้นมาหน่อย ไม่ทับ HUD ด้านล่าง
-    const x = Math.random() * 1.8 - 0.9; // -0.9..+0.9
-    const y = 1.3 + Math.random() * 0.8; // 1.3..2.1
-    const z = -2.2 + (Math.random() * 0.4 - 0.2); // -2.4..-2.0
-    return { x, y, z };
-  }
+  // ===== fixed spawn slots (กันเป้าซ้อนกัน) =====
+  // เลย์เอาต์แบบ 5 ตำแหน่ง
+  const SPAWN_SLOTS = [
+    { x: -0.9, y: 1.6, z: -2.3 },
+    { x: 0.0, y: 1.7, z: -2.2 },
+    { x: 0.9, y: 1.6, z: -2.3 },
+    { x: -0.45, y: 2.1, z: -2.2 },
+    { x: 0.45, y: 2.1, z: -2.2 }
+  ];
 
   function distanceSq(a, b) {
     const dx = a.x - b.x;
@@ -98,25 +99,41 @@
     return dx * dx + dy * dy + dz * dz;
   }
 
-  // หา position ที่ไม่เข้าใกล้เป้าที่มีอยู่เกินไป
-  function findClearPos(activeTargets, minDist) {
-    const minSq = minDist * minDist;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const pos = randomSpawnPos();
-      let ok = true;
-      for (let i = 0; i < activeTargets.length; i++) {
-        const t = activeTargets[i];
-        if (!t || !t.getAttribute) continue;
-        const p = t.getAttribute('position') || { x: 0, y: 0, z: 0 };
-        if (distanceSq(pos, p) < minSq) {
-          ok = false;
-          break;
-        }
+  function findSlotIndexForPos(pos) {
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < SPAWN_SLOTS.length; i++) {
+      const d = distanceSq(pos, SPAWN_SLOTS[i]);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
       }
-      if (ok) return pos;
     }
-    // ถ้าพยายาม 10 ครั้งแล้วยังชน ก็ยอมใช้ครั้งสุดท้าย
-    return randomSpawnPos();
+    return best;
+  }
+
+  // คืนตำแหน่งจาก slot ที่ยังไม่ถูกใช้ (1 เป้าต่อ 1 slot)
+  function pickFreeSlot(activeTargets) {
+    const used = new Set();
+    for (let i = 0; i < activeTargets.length; i++) {
+      const t = activeTargets[i];
+      if (!t || !t.getAttribute) continue;
+      const p = t.getAttribute('position') || { x: 0, y: 0, z: 0 };
+      const idx = findSlotIndexForPos(p);
+      used.add(idx);
+    }
+
+    const free = [];
+    for (let i = 0; i < SPAWN_SLOTS.length; i++) {
+      if (!used.has(i)) free.push(i);
+    }
+
+    if (free.length === 0) {
+      // ถ้าเต็มทุก slot ก็สุ่มที่หนึ่ง (อาจจะเริ่มชนเล็กน้อย แต่น้อยมาก)
+      return SPAWN_SLOTS[Math.floor(Math.random() * SPAWN_SLOTS.length)];
+    }
+    const pick = free[Math.floor(Math.random() * free.length)];
+    return SPAWN_SLOTS[pick];
   }
 
   A.registerComponent('food-groups-game', {
@@ -135,19 +152,20 @@
       this.spawnClock = 0;
       this.score = 0;
 
-      // Fever (ตอนนี้ไม่มี UI แต่เก็บค่าไว้เผื่อใช้วิเคราะห์)
       this.fever = 0;
       this.feverActive = false;
 
-      // Logging
       this.sessionId = createSessionId();
       this.events = [];
 
-      // HUD elements
+      // HUD
       this._hudScore = document.getElementById('hud-score');
       this._hudTime = document.getElementById('hud-time-label');
 
-      // Fever bar (ปิดในฉากนี้)
+      // Goal / mini quest (ไว้ส่งตอนจบเกม + แสดง HUD)
+      this.goalText = '';
+      this.miniText = '';
+
       if (USE_FEVER_UI && ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -190,6 +208,31 @@
         this._hudTime.textContent = sec + 's';
       }
 
+      // ตั้งค่า goal / mini quest ง่าย ๆ จากระดับความยาก
+      let goal, mini;
+      switch (this.diffKey) {
+        case 'easy':
+          goal = 'คะแนน 80+';
+          mini = 'เก็บอาหารดี 8 ชิ้น';
+          break;
+        case 'hard':
+          goal = 'คะแนน 220+';
+          mini = 'เก็บอาหารดี 18 ชิ้น';
+          break;
+        case 'normal':
+        default:
+          goal = 'คะแนน 150+';
+          mini = 'เก็บอาหารดี 12 ชิ้น';
+          break;
+      }
+      this.goalText = goal;
+      this.miniText = mini;
+
+      const elGoal = document.getElementById('hud-goal-text');
+      const elMini = document.getElementById('hud-mini-text');
+      if (elGoal) elGoal.textContent = goal;
+      if (elMini) elMini.textContent = mini;
+
       if (USE_FEVER_UI && ns.FeverUI) {
         ns.FeverUI.setFever(0);
         ns.FeverUI.setFeverActive(false);
@@ -215,7 +258,6 @@
       const interval = cfg.spawnInterval || 1200;
       const maxActive = cfg.maxActive || 3;
 
-      // สร้างเป้าใหม่ (กระจาย + ไม่ชนกัน)
       if (this.spawnClock >= interval) {
         this.spawnClock = 0;
         if (this.targets.length < maxActive) {
@@ -238,7 +280,7 @@
       }
     },
 
-    // ===== spawnTarget: emoji badge + กันเป้าซ้อน =====
+    // ===== spawnTarget: ใช้ slot ไม่ให้ซ้อนกัน =====
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -252,16 +294,16 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      const pos = findClearPos(this.targets, 0.9); // กันชนรัศมีประมาณ 0.9 m
+      const pos = pickFreeSlot(this.targets);
       el.setAttribute('position', pos);
 
-      const scale = this.cfg.scale || 1.0;
+      const scale = this.cfg.scale || 0.9;
       const isGood = !!item.isGood;
 
       // พื้นวงกลม
       el.setAttribute('geometry', {
         primitive: 'circle',
-        radius: 0.42 * scale
+        radius: 0.40 * scale
       });
       el.setAttribute('material', {
         shader: 'flat',
@@ -274,12 +316,12 @@
       const border = document.createElement('a-entity');
       border.setAttribute('geometry', {
         primitive: 'ring',
-        radiusInner: 0.42 * scale,
-        radiusOuter: 0.48 * scale
+        radiusInner: 0.40 * scale,
+        radiusOuter: 0.46 * scale
       });
       border.setAttribute('material', {
         shader: 'flat',
-        color: '#0f172a',
+        color: '#020617',
         side: 'double'
       });
       border.setAttribute('position', { x: 0, y: 0, z: 0.005 });
@@ -291,8 +333,8 @@
       if (texUrl) {
         const img = document.createElement('a-image');
         img.setAttribute('src', texUrl);
-        img.setAttribute('width', 0.65 * scale);
-        img.setAttribute('height', 0.65 * scale);
+        img.setAttribute('width', 0.64 * scale);
+        img.setAttribute('height', 0.64 * scale);
         img.setAttribute('position', { x: 0, y: 0, z: 0.02 });
         el.appendChild(img);
       }
@@ -314,7 +356,7 @@
       this.el.sceneEl.appendChild(el);
       this.targets.push(el);
 
-      console.log('[GroupsVR] spawnTarget(EMOJI BADGE)', item, 'total=', this.targets.length);
+      console.log('[GroupsVR] spawnTarget', item, 'total=', this.targets.length);
     },
 
     updateTargets: function (dt) {
@@ -394,25 +436,17 @@
       return { x: v.x, y: v.y, z: v.z };
     },
 
-    // === Fever (ไม่มี UI แต่เก็บค่าไว้) ===
     updateFeverOnHit: function (isGood) {
-      if (!USE_FEVER_UI || !ns.FeverUI) {
-        // แค่เก็บค่าไว้เผื่อวิเคราะห์
-        let f = this.fever || 0;
-        f += isGood ? 8 : -12;
-        this.fever = clamp(f, 0, FEVER_MAX);
-        return;
-      }
-      // (กรณีอนาคตเปิด USE_FEVER_UI กลับมา)
+      // ตอนนี้ยังไม่โชว์ Fever UI — แค่เก็บค่าคร่าว ๆ
+      let f = this.fever || 0;
+      f += isGood ? 8 : -12;
+      this.fever = clamp(f, 0, FEVER_MAX);
     },
 
     updateFeverOnMiss: function () {
-      if (!USE_FEVER_UI || !ns.FeverUI) {
-        let f = this.fever || 0;
-        f -= 5;
-        this.fever = clamp(f, 0, FEVER_MAX);
-        return;
-      }
+      let f = this.fever || 0;
+      f -= 5;
+      this.fever = clamp(f, 0, FEVER_MAX);
     },
 
     logEvent: function (ev) {
@@ -438,7 +472,9 @@
           sessionId: this.sessionId,
           score: this.score,
           difficulty: this.diffKey,
-          durationMs: this.elapsed
+          durationMs: this.elapsed,
+          goal: this.goalText,
+          miniQuest: this.miniText
         };
         ns.foodGroupsCloudLogger.send(rawSession, this.events);
       }
@@ -446,7 +482,9 @@
       scene.emit('fg-game-over', {
         score: this.score,
         diff: this.diffKey,
-        reason: reason || 'finish'
+        reason: reason || 'finish',
+        goal: this.goalText,
+        miniQuest: this.miniText
       });
 
       console.log('[GroupsVR] finish', reason, 'score=', this.score);
