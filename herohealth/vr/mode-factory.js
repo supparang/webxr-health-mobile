@@ -52,7 +52,7 @@ function randomScreenPos() {
   return { x, y };
 }
 
-// difficulty → preset (เพิ่ม sizeFactor ให้ต่างชัดเจน)
+// difficulty → preset (กำหนดขนาดเป้า + ช่วงเวลา)
 function difficultyPreset(diff = 'normal') {
   const d = String(diff || 'normal').toLowerCase();
   if (d === 'easy') {
@@ -60,15 +60,18 @@ function difficultyPreset(diff = 'normal') {
       spawnInterval: 1100,
       lifeTime: 2300,
       maxActive: 4,
-      sizeFactor: 1.9   // ง่าย → เป้าใหญ่
+      sizeFactor: 2.4,   // ใหญ่มาก
+      fontSize: 46
     };
+    // *ประมาณเท่า GoodJunk easy แต่ใหญ่กว่าเล็กน้อย*
   }
   if (d === 'hard') {
     return {
       spawnInterval: 750,
       lifeTime: 1900,
       maxActive: 6,
-      sizeFactor: 0.9   // ยาก → เป้าเล็กลง
+      sizeFactor: 1.2,   // เล็กลง
+      fontSize: 34
     };
   }
   // normal
@@ -76,7 +79,8 @@ function difficultyPreset(diff = 'normal') {
     spawnInterval: 900,
     lifeTime: 2100,
     maxActive: 5,
-    sizeFactor: 1.4    // ปกติ กลาง ๆ
+    sizeFactor: 1.8,    // กลาง
+    fontSize: 40
   };
 }
 
@@ -158,10 +162,12 @@ export async function boot(cfg = {}) {
     el.textContent = ch;
     el.style.position = 'fixed';
 
-    const scale = preset.sizeFactor || 1;
+    const scale = preset.sizeFactor || 1.8;
+    const font = (preset.fontSize || 40);
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
     el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    el.style.fontSize  = `${font}px`;
     el.style.pointerEvents = 'none';
 
     el.dataset.char   = ch;
@@ -219,7 +225,9 @@ export async function boot(cfg = {}) {
 
     let best = null;
     let bestDist = Infinity;
-    const hitRadius = 70;
+
+    const baseRadius = 70;
+    const hitRadius = baseRadius * (preset.sizeFactor || 1.8); // Easy → area ใหญ่สุด
 
     activeTargets.forEach(el => {
       const rect = el.getBoundingClientRect();
