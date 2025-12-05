@@ -6,12 +6,11 @@
   <title>Hydration VR — Hero Health</title>
   <meta name="color-scheme" content="dark"/>
 
+  <!-- icon ของ herohealth -->
   <link rel="icon" href="../favicon.ico"/>
 
   <!-- ใช้สไตล์เดียวกับ Good vs Junk VR -->
   <link rel="stylesheet" href="../css/goodjunk-vr.css"/>
-  <!-- ถ้าต้องการจูนสไตล์เฉพาะ Hydration เพิ่ม สามารถสร้างไฟล์นี้แล้วเปิดใช้ได้ -->
-  <!-- <link rel="stylesheet" href="../css/hydration-vr.css"/> -->
 </head>
 <body>
 
@@ -22,52 +21,40 @@
     </div>
   </div>
 
-  <!-- วงกลมเล็งกลางจอ (crosshair) ใช้สไตล์จาก goodjunk-vr.css -->
+  <!-- เล็งกลางจอ -->
   <div class="hha-crosshair"></div>
 
-  <!-- ปุ่ม VR มุมขวาล่าง (ใช้คลาสเดิมของ GoodJunk VR) -->
+  <!-- ปุ่ม VR มุมขวาล่าง -->
   <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
-  <!-- ===== SCRIPT ZONE ===== -->
-
-  <!-- HUD เควสต์ / สกอร์ ฯลฯ (แนบแบบ side-effect เหมือน Good vs Junk) -->
+  <!-- HUD เควสต์ / Goal / Mini quest -->
   <script type="module" src="../vr/quest-hud-vr.js"></script>
 
-  <!-- โหมด Hydration VR -->
+  <!-- Hydration VR Engine -->
   <script type="module">
     import { boot as bootHydration } from './hydration.safe.js';
 
     // อ่าน URL param: ?diff=easy|normal|hard&time=60
     const url = new URL(window.location.href);
-
     let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
-    if (!['easy', 'normal', 'hard'].includes(diff)) {
-      diff = 'normal';
-    }
+    if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
 
     let dur = parseInt(url.searchParams.get('time'), 10);
     if (Number.isNaN(dur) || dur <= 0) dur = 60;
     if (dur < 20)  dur = 20;
     if (dur > 180) dur = 180;
 
-    // เริ่มโหมด Hydration (engine ภายในจะสร้างเป้า, HUD, เควสต์ ฯลฯ ให้เอง)
+    // เริ่มโหมด Hydration
     bootHydration({
       difficulty: diff,
       duration:   dur
     }).then(inst => {
-      // ถ้ามี scene-wrap ให้ซ่อนตอนเริ่มเล่น
       const wrap = document.querySelector('.hha-scene-wrap');
       if (wrap) wrap.style.display = 'none';
 
-      // กัน memory leak ถ้าออกจากหน้า
+      // กัน memory leak เวลาออกหน้า
       window.addEventListener('beforeunload', () => {
-        try {
-          if (inst && typeof inst.destroy === 'function') {
-            inst.destroy();
-          }
-        } catch (e) {
-          console.warn('[HydrationVR] destroy error on unload', e);
-        }
+        try { inst && inst.destroy && inst.destroy(); } catch (e) {}
       });
     }).catch(err => {
       console.error('[HydrationVR] boot error', err);
@@ -77,5 +64,6 @@
       }
     });
   </script>
+
 </body>
 </html>
