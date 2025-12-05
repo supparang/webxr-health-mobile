@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (DEBUG: force-visible targets)
+// Food Groups VR — Game Engine (step 1: falling slowly, no auto-miss)
 // 2025-12-06
 
 (function (ns) {
@@ -25,10 +25,10 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
-    // fallback ที่ง่ายสุด
+    // ใช้ค่าที่ง่ายและเห็นชัด
     return {
       spawnInterval: 1200,
-      fallSpeed: 0.011,
+      fallSpeed: 0.004,   // ช้ามากก่อน
       scale: 1.2,
       maxActive: 3,
       goodRatio: 0.75,
@@ -148,8 +148,8 @@
         }
       }
 
-      // ★★ DEBUG: ยังไม่ให้เป้าขยับ / ลบเอง ★★
-      // this.updateTargets(dt);
+      // ★ ตอนนี้ให้เป้าค่อย ๆ ตกลง แต่ยังไม่ลบเอง
+      this.updateTargets(dt);
 
       if (this._hudTime) {
         const remainMs  = Math.max(0, this.durationMs - this.elapsed);
@@ -178,9 +178,9 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ตำแหน่งให้เห็นแน่นอน (แถวล่างกลางจอ)
-      const x = (Math.random() * 0.8) - 0.4; // ซ้าย-ขวานิดหน่อย
-      const y = 1.6;                         // ระดับสายตา/ต่ำลงนิด
+      // ตำแหน่งแบบที่เห็นชัด (เหมือน debug)
+      const x = (Math.random() * 0.8) - 0.4;
+      const y = 1.6;
       const z = -3.0;
       el.setAttribute('position', { x, y, z });
 
@@ -215,8 +215,8 @@
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good',  isGood ? '1' : '0');
 
-      // อายุยาวมาก แต่ตอนนี้จริง ๆ ไม่ได้ใช้ (เพราะไม่เรียก updateTargets)
-      el._life      = 999999;
+      // อายุยาว แต่ตอนนี้ยังไม่ใช้ลบ (แค่เก็บไว้ log)
+      el._life      = 15000;
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
@@ -229,11 +229,27 @@
       this.el.sceneEl.appendChild(el);
       this.targets.push(el);
 
-      console.log('[GroupsVR] spawnTarget(DEBUG)', item, 'total=', this.targets.length);
+      console.log('[GroupsVR] spawnTarget(STEP1)', item, 'total=', this.targets.length);
     },
 
-    // ตอนนี้ยังไม่ใช้ (กันงง)
-    updateTargets: function (dt) {},
+    // ---------------- ให้ตกลงเล็กน้อย (ไม่มี auto-miss) ----------------
+    updateTargets: function (dt) {
+      const fallSpeed = (this.cfg && this.cfg.fallSpeed) || 0.004;
+      const step = fallSpeed * (dt / 16.7); // normalize ให้เฟรมเรตต่างกันยังพอใกล้กัน
+
+      for (let i = 0; i < this.targets.length; i++) {
+        const t = this.targets[i];
+
+        t._age += dt;
+
+        const pos = t.getAttribute('position') || { x: 0, y: 0, z: 0 };
+        pos.y -= step;            // ค่อย ๆ ลด y
+        t.setAttribute('position', pos);
+
+        // ★ ยังไม่ลบเป้า ไม่เรียก onMiss ตรงนี้
+        // ถ้าจะดูค่า y ตอน debug: console.log('[FG] pos.y =', pos.y);
+      }
+    },
 
     removeTarget: function (el) {
       const idx = this.targets.indexOf(el);
