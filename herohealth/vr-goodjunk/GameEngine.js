@@ -1,23 +1,24 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Sprite Targets + Coach events (2025-12-05)
+// Good vs Junk VR — Emoji Pop Targets (no falling) + Coach events (2025-12-05)
 
 'use strict';
 
 export const GameEngine = (function () {
-  // ---------- ชุด emoji ----------
-  const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛',
-               '🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑'];
+  // ---------- emoji ชุดอาหาร ----------
+  const GOOD = [
+    '🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛',
+    '🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑'
+  ];
   const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
 
-  const GOOD_RATE  = 0.65;    // โอกาสเป็นของดี
-  const SPAWN_MS   = 950;     // ความถี่การเกิดเป้า
-  const FALL_SPEED = 0.012;   // ความเร็วตก
-  const DESPAWN_Y  = 0.05;    // ต่ำกว่านี้ถือว่าหลุดจอ
+  const GOOD_RATE       = 0.65;   // โอกาสเป็นของดี
+  const SPAWN_INTERVAL  = 900;    // ms ความถี่เกิดเป้า
+  const TARGET_LIFETIME = 900;    // ms อยู่บนจอแป๊บเดียวแล้วหาย
+  const MAX_ACTIVE      = 4;      // เป้าพร้อมกันสูงสุด
 
   let sceneEl = null;
   let running = false;
   let spawnTimer = null;
-  let moveTimer  = null;
   let activeTargets = [];
 
   let score = 0;
@@ -38,8 +39,8 @@ export const GameEngine = (function () {
     ctx.clearRect(0, 0, 256, 256);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // ใช้ system emoji font
-    ctx.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif';
+    ctx.font =
+      '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif';
     ctx.fillText(ch, 128, 140);
 
     const url = canvas.toDataURL('image/png');
@@ -78,38 +79,46 @@ export const GameEngine = (function () {
     });
   }
 
-  // ---------- สร้างเป้า (วงกลม + emoji sprite) ----------
+  // ---------- ลบเป้า ----------
+  function removeTarget(el) {
+    activeTargets = activeTargets.filter(t => t !== el);
+    if (el && el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
+  }
+
+  // ---------- สร้างเป้า (emoji โผล่มาเฉย ๆ) ----------
   function createTargetEntity(emoji, kind) {
     if (!sceneEl) return null;
 
     const root = document.createElement('a-entity');
 
-    // สุ่มตำแหน่ง X / Y
-    const x = -1.0 + Math.random() * 2.0;  // -1 ถึง +1
-    const y = 2.2 + Math.random() * 0.5;   // โผล่ด้านบนจอ
+    // สุ่มตำแหน่งรอบ ๆ กลางจอ
+    const x = -0.9 + Math.random() * 1.8;   // -0.9 ถึง +0.9
+    const y = 0.9 + Math.random() * 0.7;    // 0.9–1.6 (ระดับสายตา)
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
-    root.setAttribute('scale', { x: 1.0, y: 1.0, z: 1.0 });
+    root.setAttribute('scale', { x: 1, y: 1, z: 1 });
     root.setAttribute('data-hha-tgt', '1');
     root.classList.add('gj-target');
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
 
-    // วงกลมโปร่ง ๆ ให้รู้ว่าเป็น good/junk
-    const ring = document.createElement('a-circle');
-    ring.setAttribute('radius', kind === 'good' ? 0.38 : 0.34);
-    ring.setAttribute('material', {
+    // วงกลมพื้นหลังบาง ๆ
+    const circle = document.createElement('a-circle');
+    circle.setAttribute('radius', kind === 'good' ? 0.45 : 0.4);
+    circle.setAttribute('material', {
       color: kind === 'good' ? '#22c55e' : '#f97316',
-      opacity: 0.26,
+      opacity: 0.35,
       metalness: 0,
       roughness: 1
     });
 
-    // emoji เป็น texture บน plane
+    // emoji เป็น sprite ทับด้านหน้า
     const sprite = document.createElement('a-plane');
-    sprite.setAttribute('width', 0.7);
-    sprite.setAttribute('height', 0.7);
+    sprite.setAttribute('width', 0.8);
+    sprite.setAttribute('height', 0.8);
     sprite.setAttribute('position', { x: 0, y: 0, z: 0.01 });
     sprite.setAttribute('material', {
       src: getEmojiTexture(emoji),
@@ -117,35 +126,44 @@ export const GameEngine = (function () {
       alphaTest: 0.01
     });
 
-    root.appendChild(ring);
+    root.appendChild(circle);
     root.appendChild(sprite);
 
-    // คลิกโดนเป้า
+    // ยิงโดนเป้า
     root.addEventListener('click', () => onHit(root));
 
     sceneEl.appendChild(root);
+
+    // ตั้งเวลาให้เป้าหายไปเอง (ถือว่าพลาดถ้าเป็นของดี)
+    setTimeout(() => {
+      if (!running) return;
+      if (!root.parentNode) return; // โดนยิงไปแล้ว
+      onExpire(root);
+    }, TARGET_LIFETIME);
+
     return root;
   }
 
-  // ---------- โดนเป้า ----------
+  // ---------- ยิงโดน ----------
   function onHit(el) {
     if (!running || !el) return;
+    if (!el.parentNode) return; // กันยิงซ้ำ
 
     const kind = el.dataset.kind || 'junk';
-
-    activeTargets = activeTargets.filter(t => t !== el);
-    el.parentNode && el.parentNode.removeChild(el);
+    removeTarget(el);
 
     if (kind === 'good') {
       score += 10 + combo * 2;
       combo++;
       comboMax = Math.max(comboMax, combo);
 
-      if (combo === 1)       coach('เปิดคอมโบแล้ว! เลือกผัก ผลไม้ นมต่อเลย 🥦🍎🥛');
-      else if (combo === 5) coach('คอมโบ x5 แล้ว เยี่ยมมาก! 🔥');
-      else if (combo === 10)coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
-
-    } else { // junk
+      if (combo === 1)
+        coach('เปิดคอมโบแล้ว! เลือกผัก ผลไม้ นมต่อเลย 🥦🍎🥛');
+      else if (combo === 5)
+        coach('คอมโบ x5 แล้ว เยี่ยมมาก! 🔥');
+      else if (combo === 10)
+        coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
+    } else {
       score = Math.max(0, score - 8);
       combo = 0;
       misses++;
@@ -156,47 +174,35 @@ export const GameEngine = (function () {
     emitScore();
   }
 
-  // ---------- เป้าตกหลุดจอ ----------
-  function onMissFall(el) {
+  // ---------- เป้าหายเพราะหมดเวลา ----------
+  function onExpire(el) {
     if (!running || !el) return;
+    if (!el.parentNode) return;
 
     const kind = el.dataset.kind || 'junk';
-
-    activeTargets = activeTargets.filter(t => t !== el);
-    el.parentNode && el.parentNode.removeChild(el);
+    removeTarget(el);
 
     if (kind === 'good') {
+      // พลาดของดี
       misses++;
       combo = 0;
       coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้ามากขึ้น 😊');
       emitMiss();
       emitScore();
     }
-    // junk หลุดจอ ไม่ถือว่าพลาด
+    // ถ้า junk หายไป ไม่ถือว่าพลาด
   }
 
-  // ---------- อัปเดตตำแหน่งทุกเฟรม ----------
-  function tickMove() {
-    if (!running) return;
-    for (let i = activeTargets.length - 1; i >= 0; i--) {
-      const el = activeTargets[i];
-      if (!el) continue;
-      const pos = el.getAttribute('position');
-      pos.y -= FALL_SPEED;
-      el.setAttribute('position', pos);
-      if (pos.y < DESPAWN_Y) {
-        onMissFall(el);
-      }
-    }
-  }
-
-  // ---------- สุ่ม spawn เป้าใหม่ ----------
+  // ---------- สุ่ม spawn เป้า ----------
   function tickSpawn() {
     if (!running) return;
+    if (activeTargets.length >= MAX_ACTIVE) return;
+
     const isGood = Math.random() < GOOD_RATE;
     const pool = isGood ? GOOD : JUNK;
     const emoji = pool[Math.floor(Math.random() * pool.length)];
     const kind = isGood ? 'good' : 'junk';
+
     const el = createTargetEntity(emoji, kind);
     if (el) activeTargets.push(el);
   }
@@ -206,19 +212,18 @@ export const GameEngine = (function () {
     running = true;
     score = 0;
     combo = 0;
-    misses = 0;
     comboMax = 0;
+    misses = 0;
 
-    // ล้างเป้าเก่า
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
     activeTargets = [];
 
     emitScore();
     coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
 
-    tickSpawn(); // spawn ทันที 1 ลูก
-    spawnTimer = setInterval(tickSpawn, SPAWN_MS);
-    moveTimer  = setInterval(tickMove, 16);
+    // spawn ทันที 1 ลูก แล้วค่อย spawn ต่อเนื่อง
+    tickSpawn();
+    spawnTimer = setInterval(tickSpawn, SPAWN_INTERVAL);
   }
 
   function start(diff) {
@@ -240,7 +245,6 @@ export const GameEngine = (function () {
     running = false;
 
     clearInterval(spawnTimer);
-    clearInterval(moveTimer);
 
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
     activeTargets = [];
