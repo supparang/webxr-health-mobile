@@ -1,14 +1,19 @@
 // === /herohealth/vr/ui-fever.js ===
-// Fever bar + Shield indicator (global, non-module)
+// Fever bar + Shield indicator (non-module version)
+// ใช้ร่วมกับ HeroHealth VR ทุกโหมด
+// 2025-12-06
 
 (function (ns) {
   'use strict';
 
-  let wrap        = null;
-  let barInner    = null;
-  let valueSpan   = null;
-  let shieldIcons = null;
+  let wrap        = null;  // กล่องหลัก
+  let barInner    = null;  // แท่ง fever ด้านใน
+  let valueSpan   = null;  // ตัวเลข %
+  let shieldIcons = null;  // แถวไอคอน shield
 
+  // -----------------------------------------------------
+  // internal helpers
+  // -----------------------------------------------------
   function ensureStyle() {
     if (document.getElementById('hha-fever-style')) return;
 
@@ -19,7 +24,7 @@
       position:fixed;
       bottom:8px;
       left:10px;
-      z-index:700;
+      z-index:900;
       min-width:180px;
       max-width:260px;
       padding:6px 9px 7px;
@@ -90,6 +95,10 @@
     return v;
   }
 
+  // -----------------------------------------------------
+  // public API
+  // -----------------------------------------------------
+
   function ensureFeverBar() {
     if (wrap && wrap.isConnected) return wrap;
     ensureStyle();
@@ -98,6 +107,7 @@
     wrap.className = 'hha-fever-wrap';
     wrap.dataset.active = '0';
 
+    // แถวบน: label + value
     const top = document.createElement('div');
     top.className = 'hha-fever-top';
 
@@ -122,6 +132,7 @@
     top.appendChild(label);
     top.appendChild(vSpan);
 
+    // แท่ง fever
     const barOuter = document.createElement('div');
     barOuter.className = 'hha-fever-bar';
     const inner = document.createElement('div');
@@ -129,6 +140,7 @@
     barOuter.appendChild(inner);
     barInner = inner;
 
+    // แถว shield
     const shieldRow = document.createElement('div');
     shieldRow.className = 'hha-shield-wrap';
 
@@ -150,6 +162,7 @@
     return wrap;
   }
 
+  // ตั้งค่าเปอร์เซ็นต์ fever (0–100)
   function setFever(value) {
     if (!wrap || !wrap.isConnected) ensureFeverBar();
     const v = clamp(value, 0, 100);
@@ -162,11 +175,13 @@
     }
   }
 
+  // เปิด/ปิดสถานะ Fever (มี glow ที่แท่ง)
   function setFeverActive(active) {
     if (!wrap || !wrap.isConnected) ensureFeverBar();
     wrap.dataset.active = active ? '1' : '0';
   }
 
+  // ตั้งจำนวน shield (0–5)
   function setShield(count) {
     if (!wrap || !wrap.isConnected) ensureFeverBar();
     if (!shieldIcons) return;
@@ -180,6 +195,12 @@
     }
   }
 
-  ns.FeverUI = { ensureFeverBar, setFever, setFeverActive, setShield };
+  // โยนออกเป็น GAME_MODULES.FeverUI
+  ns.FeverUI = {
+    ensureFeverBar,
+    setFever,
+    setFeverActive,
+    setShield
+  };
 
 })(window.GAME_MODULES || (window.GAME_MODULES = {}));
