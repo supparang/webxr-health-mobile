@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (debug + simple fall animation)
+// Food Groups VR — Game Engine (fall + auto-miss)
 // 2025-12-06
 
 (function (ns) {
@@ -25,10 +25,10 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
-    // ค่าง่าย ๆ ให้เห็นชัด
+    // ค่า fallback ง่าย ๆ
     return {
       spawnInterval: 1200,
-      fallSpeed: 0.004, // (ยังไม่ใช้ แต่เผื่อ)
+      fallSpeed: 0.004, // ยังไม่ใช้ตรง ๆ แต่เก็บไว้เผื่อ
       scale: 1.2,
       maxActive: 3,
       goodRatio: 0.75,
@@ -145,7 +145,8 @@
         }
       }
 
-      // *** ตอนนี้ยังไม่ขยับด้วย JS เลย ใช้ animation ของ A-Frame แทน ***
+      // เช็คว่าตกเลยเส้นล่าง → miss
+      this.updateTargets(dt);
 
       if (this._hudTime) {
         const remainMs  = Math.max(0, this.durationMs - this.elapsed);
@@ -174,10 +175,11 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ตำแหน่งให้เห็นแน่นอน
-      const x = (Math.random() * 0.8) - 0.4;
-      const yStart = 1.6;
-      const z = -3.0;
+      // ให้เกิดสูงหน่อยแล้วตกลงผ่านกลางจอ
+      const x      = (Math.random() * 0.8) - 0.4;
+      const yStart = 1.8;
+      const yEnd   = 0.3;   // ใกล้พื้น
+      const z      = -3.0;
       el.setAttribute('position', { x, y: yStart, z });
 
       const scale  = this.cfg.scale || 1.2;
@@ -211,19 +213,17 @@
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good',  isGood ? '1' : '0');
 
-      // อายุ / meta สำหรับ log
+      // meta สำหรับ log
       el._life      = 15000;
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
 
-      // ★ ให้ตกลงนิดหน่อยด้วย animation ของ A-Frame
-      const yEnd = 0.6; // จุดที่อยากให้มาหยุด
+      // ให้ตกลงจาก yStart → yEnd
       const animStr =
         'property: position; ' +
         `to: ${x} ${yEnd} ${z}; ` +
-        'dur: 4000; easing: linear; loop: false';
-
+        'dur: 3000; easing: linear; loop: false';
       el.setAttribute('animation__fall', animStr);
 
       const self = this;
@@ -237,8 +237,26 @@
       console.log('[GroupsVR] spawnTarget(ANIM)', item, 'total=', this.targets.length);
     },
 
-    // ยังไม่ใช้ auto-miss ตอนนี้
-    updateTargets: function (dt) {},
+    // ---------------- auto-miss เมื่อตกต่ำเกินไป ----------------
+    updateTargets: function (dt) {
+      const MISS_Y = 0.28;  // ต่ำกว่านี้ถือว่าเลยเส้นล่าง
+
+      for (let i = this.targets.length - 1; i >= 0; i--) {
+        const t = this.targets[i];
+        if (!t || !t.parentNode) {
+          this.targets.splice(i, 1);
+          continue;
+        }
+
+        const pos = t.getAttribute('position');
+        if (!pos) continue;
+
+        if (pos.y <= MISS_Y) {
+          // ถ้าไม่ได้ยิงจนตกเลย → miss
+          this.onMiss(t);
+        }
+      }
+    },
 
     removeTarget: function (el) {
       const idx = this.targets.indexOf(el);
