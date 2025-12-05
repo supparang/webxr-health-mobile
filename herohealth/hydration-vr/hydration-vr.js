@@ -63,12 +63,14 @@ function setupUI() {
 
       if (statusEl) {
         statusEl.textContent =
-          `กำลังเล่น Hydration (${currentDiff}) – ตีเป้าน้ำดี เลี่ยงน้ำหวาน!`;
+          `กำลังเล่น Hydration (${currentDiff}, ${currentDur}s) – ตีเป้าน้ำดี เลี่ยงน้ำหวาน!`;
       }
 
       // ทำลาย instance เดิมถ้ามี
       if (currentInstance && typeof currentInstance.destroy === 'function') {
-        try { currentInstance.destroy(); } catch (e) {
+        try {
+          currentInstance.destroy();
+        } catch (e) {
           console.warn('[HydrationVR] destroy previous instance error', e);
         }
       }
@@ -117,7 +119,7 @@ function setupUI() {
     btnStop.disabled = true;
   }
 
-  // เมื่อจบเกม (จาก hydration.safe.js)
+  // --- เมื่อจบเกมจาก engine (hha:end มาจาก hydration.safe.js) ---
   window.addEventListener('hha:end', ev => {
     const d = ev.detail || {};
     if (d.mode !== 'Hydration') return;
@@ -127,15 +129,24 @@ function setupUI() {
     if (btnStop)  btnStop.disabled  = true;
 
     if (statusEl) {
-      const score = d.score ?? 0;
-      const green = d.greenTick ?? 0;
-      const miss  = d.misses ?? 0;
+      const score   = d.score ?? 0;
+      const green   = d.greenTick ?? 0;
+      const miss    = d.misses ?? 0;
+      const gDone   = d.goalsCleared ?? 0;
+      const gTotal  = d.goalsTotal ?? 0;
+      const mDone   = d.questsCleared ?? 0;
+      const mTotal  = d.questsTotal ?? 0;
+
       statusEl.textContent =
-        `จบเกม – คะแนน ${score} | อยู่ GREEN ${green}s | MISS ${miss}`;
+        `จบเกม – คะแนน ${score} | GREEN ${green}s | MISS ${miss} | Goals ${gDone}/${gTotal} | Mini ${mDone}/${mTotal}`;
     }
 
     if (currentInstance && typeof currentInstance.destroy === 'function') {
-      try { currentInstance.destroy(); } catch (e) {}
+      try {
+        currentInstance.destroy();
+      } catch (e) {
+        console.warn('[HydrationVR] destroy after end error', e);
+      }
     }
     currentInstance = null;
   });
