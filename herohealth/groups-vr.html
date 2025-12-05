@@ -224,8 +224,10 @@
         });
       }
 
-      // summary ตอนจบเกม
-      window.addEventListener('fg-game-over', function (e) {
+      const scene = document.querySelector('a-scene');
+
+      // summary ตอนจบเกม (ฟัง event จาก scene)
+      scene.addEventListener('fg-game-over', function (e) {
         const d = e.detail || {};
         elEndScore.textContent = d.score != null ? d.score : 0;
         if (d.questsCleared != null) {
@@ -243,12 +245,13 @@
       setCoach('แตะเป้าอาหารให้ทันเวลานะ!');
 
       // เริ่มเกมเมื่อ scene โหลดแล้ว
-      const scene = document.querySelector('a-scene');
       scene.addEventListener('loaded', function () {
         console.log('[GroupsVR] scene loaded → emit fg-start');
         scene.emit('fg-start', { diff: diff });
       });
     })();
   </script>
+</body>
+</html>
 </body>
 </html>
