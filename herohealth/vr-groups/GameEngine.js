@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (stable central target)
-// 2025-12-06
+// 2025-12-06 (center-fixed)
 
 (function (ns) {
   'use strict';
@@ -27,7 +27,7 @@
     }
     // fallback ง่าย ๆ ถ้ายังไม่ได้ตั้ง difficulty table
     return {
-      spawnInterval: 1200,      // มีกี่ ms ค่อยเกิดเป้าใหม่
+      spawnInterval: 1200,      // ms ต่อการเกิดเป้า
       fallSpeed: 0.0,           // ยังไม่ใช้ (เผื่ออนาคต)
       scale: 1.2,
       maxActive: 3,
@@ -169,7 +169,7 @@
       }
     },
 
-    // ---------------- spawn target (เวอร์ชันชัวร์: กลางจอเสมอ) ----------------
+    // ---------------- spawn target (ตำแหน่งกลางจอจริง ๆ) ----------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -183,19 +183,19 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ★ ตำแหน่งให้โผล่แน่นอน: กลางจอระดับสายตา
+      // ★ กล้องอยู่ที่ (0, 1.6, 0) → ให้เป้าอยู่ระดับเดียวกันหน้าเราเล็กน้อย
       const x = 0;
-      const y = 1.3;
-      const z = -2.2;
+      const y = 1.6;   // ยกขึ้นมาเท่าระดับกล้อง
+      const z = -2.2;  // หน้าเราออกไปหน่อย
       el.setAttribute('position', { x, y, z });
 
-      const scale  = this.cfg.scale || 1.2;
+      const scale  = this.cfg.scale || 1.0;
       const isGood = item.isGood ? true : false;
 
       // วงกลมพื้นหลัง (hitbox)
       el.setAttribute('geometry', {
         primitive: 'circle',
-        radius: 0.5 * scale
+        radius: 0.4 * scale
       });
       el.setAttribute('material', {
         shader: 'flat',
@@ -211,7 +211,7 @@
         value: emojiChar,
         align: 'center',
         color: '#ffffff',
-        width: 2.0 * scale,
+        width: 1.6 * scale,
         baseline: 'center',
         shader: 'msdf'
       });
@@ -228,7 +228,6 @@
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
 
-      // ยังไม่ใส่ animation__fall ในเวอร์ชัน stable นี้
       const self = this;
       el.addEventListener('click', function () {
         self.onHit(el);
@@ -237,13 +236,13 @@
       this.el.sceneEl.appendChild(el);
       this.targets.push(el);
 
-      console.log('[GroupsVR] spawnTarget(DEBUG CENTER)', item, 'total=', this.targets.length);
+      console.log('[GroupsVR] spawnTarget(CENTER FIX)', item, 'total=', this.targets.length);
     },
 
     // ---------------- ยังไม่ auto-miss (เวอร์ชัน stable) ----------------
     updateTargets: function (dt) {
       // เวอร์ชันนี้ยังไม่ให้เป้าหายเอง / miss อัตโนมัติ
-      // ถ้าจะให้หมดอายุ ค่อยเพิ่ม logic ตรงนี้ภายหลัง
+      // ถ้าจะให้หมดอายุ/ตก ค่อยเพิ่ม logic ตรงนี้ภายหลัง
     },
 
     removeTarget: function (el) {
