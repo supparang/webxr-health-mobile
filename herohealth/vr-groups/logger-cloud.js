@@ -1,9 +1,8 @@
 // === /herohealth/vr-groups/logger-cloud.js ===
-// Food Groups VR — Cloud Logger (non-module version)
-// ส่ง Session + Events ไป Google Apps Script
+// Food Groups VR — Cloud Logger (non-module, global)
 // 2025-12-06
 
-(function (ns) {
+(function (root) {
   'use strict';
 
   let CONFIG = {
@@ -12,63 +11,60 @@
     debug: false
   };
 
-  function logDebug(...args) {
+  function init(opts) {
+    opts = opts || {};
+    CONFIG.endpoint   = opts.endpoint   || CONFIG.endpoint;
+    CONFIG.projectTag = opts.projectTag || CONFIG.projectTag;
+    CONFIG.debug      = !!opts.debug;
+
     if (CONFIG.debug) {
-      console.log('[GroupsVR:Cloud]', ...args);
+      console.log('[GroupsVR-Logger] init', CONFIG);
     }
   }
 
-  /**
-   * เรียกจาก groups-vr.html
-   *   GAME_MODULES.foodGroupsCloudLogger.init({
-   *     endpoint: 'https://script.google.com/macros/s/XXXX/exec',
-   *     projectTag: 'HeroHealth-GroupsVR',
-   *     debug: true/false
-   *   })
-   */
-  function init(opts) {
-    opts = opts || {};
-    CONFIG.endpoint   = opts.endpoint   || CONFIG.endpoint || '';
-    CONFIG.projectTag = opts.projectTag || CONFIG.projectTag || 'HeroHealth-GroupsVR';
-    CONFIG.debug      = !!opts.debug;
-    logDebug('init', CONFIG);
-  }
+  function send(sessionSummary, events) {
+    if (CONFIG.debug) {
+      console.log('[GroupsVR-Logger] send()', { sessionSummary, events });
+    }
 
-  /**
-   * ส่งข้อมูลขึ้น Google Apps Script
-   * session: { sessionId, score, difficulty, durationMs, ... }
-   * events : [{ type, emoji, groupId, rtMs, scoreDelta, pos, ... }, ...]
-   */
-  function send(session, events) {
-    if (!CONFIG.endpoint) {
-      logDebug('skip send: no endpoint');
+    const endpoint = CONFIG.endpoint;
+    if (!endpoint || typeof fetch !== 'function') {
+      if (CONFIG.debug) {
+        console.warn('[GroupsVR-Logger] no endpoint or fetch not available, skip send');
+      }
       return;
     }
 
     const payload = {
       projectTag: CONFIG.projectTag,
-      sessions: [session || {}],
+      session: sessionSummary,
       events: Array.isArray(events) ? events : []
     };
 
-    logDebug('send payload', payload);
-
-    fetch(CONFIG.endpoint, {
+    fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      mode: 'no-cors', // กัน CORS error ฝั่ง browser
+      mode: 'no-cors', // ปลอดภัยสำหรับ Apps Script
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(payload)
     }).then(function () {
-      logDebug('sent OK (no-cors)');
+      if (CONFIG.debug) {
+        console.log('[GroupsVR-Logger] sent OK (no-cors)');
+      }
     }).catch(function (err) {
-      console.warn('[GroupsVR:Cloud] send error', err);
+      if (CONFIG.debug) {
+        console.warn('[GroupsVR-Logger] send error', err);
+      }
     });
   }
 
-  // โยนออกเป็น GAME_MODULES.foodGroupsCloudLogger
-  ns.foodGroupsCloudLogger = {
+  const mod = {
     init,
     send
   };
 
-})(window.GAME_MODULES || (window.GAME_MODULES = {}));
+  root.GAME_MODULES = root.GAME_MODULES || {};
+  root.GAME_MODULES.foodGroupsCloudLogger = mod;
+
+})(window);
