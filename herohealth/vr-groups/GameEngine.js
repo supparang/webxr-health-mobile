@@ -1,6 +1,7 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine
 // • emoji badge targets (ไม่ซ้อนกัน)
+// • ขนาดเป้าตามระดับ (ง่าย/ปกติ/ยาก)
 // • Goal + Mini quest
 // • DOM FX: คะแนน/คำตัดสินเด้งตรงเป้า + burst วงกลม
 // 2025-12-06
@@ -58,16 +59,41 @@
     return url;
   }
 
+  // ===== Difficulty (มีทั้งจาก difficulty.js และ fallback) =====
   function pickDifficulty(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
+
+    // ใช้ค่าจาก difficulty.js ถ้ามี
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
-    // fallback
+
+    // fallback — เผื่อโหลดไฟล์ difficulty.js ไม่ได้
+    if (diffKey === 'easy') {
+      return {
+        spawnInterval: 1400,
+        fallSpeed: 0.0,
+        scale: 1.3,
+        maxActive: 3,
+        goodRatio: 0.8,
+        quest: { goalsPick: 1, miniPick: 2 }
+      };
+    }
+    if (diffKey === 'hard') {
+      return {
+        spawnInterval: 900,
+        fallSpeed: 0.0,
+        scale: 0.8,
+        maxActive: 4,
+        goodRatio: 0.7,
+        quest: { goalsPick: 2, miniPick: 3 }
+      };
+    }
+    // normal
     return {
       spawnInterval: 1200,
       fallSpeed: 0.0,
-      scale: 0.9,
+      scale: 1.0,
       maxActive: 3,
       goodRatio: 0.75,
       quest: { goalsPick: 2, miniPick: 3 }
@@ -85,11 +111,11 @@
 
   // ===== fixed spawn slots (กันเป้าซ้อนกัน) =====
   const SPAWN_SLOTS = [
-    { x: -0.9, y: 1.6, z: -2.3 },
-    { x: 0.0,  y: 1.7, z: -2.2 },
-    { x: 0.9,  y: 1.6, z: -2.3 },
+    { x: -0.9,  y: 1.6, z: -2.3 },
+    { x:  0.0,  y: 1.7, z: -2.2 },
+    { x:  0.9,  y: 1.6, z: -2.3 },
     { x: -0.45, y: 2.1, z: -2.2 },
-    { x: 0.45, y: 2.1, z: -2.2 }
+    { x:  0.45, y: 2.1, z: -2.2 }
   ];
 
   function distanceSq(a, b) {
@@ -145,7 +171,7 @@
     return fxLayer;
   }
 
-  function spawnScoreFx(screenPos, delta, judgment) {
+  function spawnScoreFx(screenPos, delta) {
     const layer = ensureFxLayer();
     const el = doc.createElement('div');
     el.className = 'fg-fx-score';
@@ -156,7 +182,7 @@
     el.textContent = sign + String(delta);
 
     el.style.left = screenPos.x + 'px';
-    el.style.top = screenPos.y + 'px';
+    el.style.top  = screenPos.y + 'px';
 
     layer.appendChild(el);
     setTimeout(() => {
@@ -170,7 +196,7 @@
     el.className = 'fg-fx-judgment';
     el.textContent = judgment || '';
     el.style.left = screenPos.x + 'px';
-    el.style.top = screenPos.y + 'px';
+    el.style.top  = screenPos.y + 'px';
     layer.appendChild(el);
     setTimeout(() => {
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -184,7 +210,7 @@
     if (isGood) el.classList.add('good');
     else el.classList.add('bad');
     el.style.left = screenPos.x + 'px';
-    el.style.top = screenPos.y + 'px';
+    el.style.top  = screenPos.y + 'px';
     layer.appendChild(el);
     setTimeout(() => {
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -197,21 +223,21 @@
     init: function () {
       console.log('[GroupsVR] component init');
 
-      this.running = false;
-      this.targets = [];
-      this.elapsed = 0;
+      this.running    = false;
+      this.targets    = [];
+      this.elapsed    = 0;
       this.durationMs = 60000;
-      this.diffKey = 'normal';
-      this.cfg = pickDifficulty(this.diffKey);
+      this.diffKey    = 'normal';
+      this.cfg        = pickDifficulty(this.diffKey);
 
       this.spawnClock = 0;
-      this.score = 0;
+      this.score      = 0;
 
-      this.fever = 0;
+      this.fever       = 0;
       this.feverActive = false;
 
       this.sessionId = createSessionId();
-      this.events = [];
+      this.events    = [];
 
       // HUD
       this._hudScore = doc.getElementById('hud-score');
@@ -229,7 +255,7 @@
       }
 
       const scene = this.el.sceneEl;
-      const self = this;
+      const self  = this;
 
       scene.addEventListener('fg-start', function (e) {
         const diff = (e && e.detail && e.detail.diff) || 'normal';
@@ -245,17 +271,17 @@
 
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
-      this.cfg = pickDifficulty(this.diffKey);
+      this.cfg     = pickDifficulty(this.diffKey);
 
-      this.running = true;
-      this.elapsed = 0;
-      this.spawnClock = 0;
+      this.running     = true;
+      this.elapsed     = 0;
+      this.spawnClock  = 0;
       this.targets.length = 0;
-      this.score = 0;
-      this.fever = 0;
+      this.score       = 0;
+      this.fever       = 0;
       this.feverActive = false;
       this.events.length = 0;
-      this.sessionId = createSessionId();
+      this.sessionId   = createSessionId();
 
       if (this._hudScore) this._hudScore.textContent = '0';
       if (this._hudTime) {
@@ -301,7 +327,7 @@
       if (!this.running) return;
       if (!dt || dt <= 0) dt = 16;
 
-      this.elapsed += dt;
+      this.elapsed    += dt;
       this.spawnClock += dt;
 
       if (this.elapsed >= this.durationMs) {
@@ -309,7 +335,7 @@
         return;
       }
 
-      const cfg = this.cfg || {};
+      const cfg       = this.cfg || {};
       const interval  = cfg.spawnInterval || 1200;
       const maxActive = cfg.maxActive || 3;
 
@@ -335,7 +361,7 @@
       }
     },
 
-    // ===== เป้า emoji badge (ไม่ซ้อนกัน) =====
+    // ===== เป้า emoji badge (ไม่ซ้อนกัน + scale ตาม diff) =====
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -352,7 +378,7 @@
       const pos = pickFreeSlot(this.targets);
       el.setAttribute('position', pos);
 
-      const scale  = this.cfg.scale || 0.9;
+      const scale  = this.cfg.scale || 1.0;
       const isGood = !!item.isGood;
 
       // พื้นวงกลม
@@ -398,10 +424,10 @@
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good', isGood ? '1' : '0');
 
-      el._life       = 15000;
-      el._age        = 0;
-      el._spawnTime  = performance.now();
-      el._metaItem   = item || {};
+      el._life      = 15000;
+      el._age       = 0;
+      el._spawnTime = performance.now();
+      el._metaItem  = item || {};
 
       const self = this;
       el.addEventListener('click', function () {
@@ -435,18 +461,32 @@
     // ===== world → screen helper =====
     worldToScreen: function (pos) {
       try {
-        if (!pos || !window.THREE) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        if (!pos || !window.THREE) {
+          return {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+          };
+        }
         const scene = this.el.sceneEl;
-        const cam = scene && scene.camera;
-        if (!cam) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        const cam   = scene && scene.camera;
+        if (!cam) {
+          return {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+          };
+        }
 
         const v = new THREE.Vector3(pos.x, pos.y, pos.z);
         v.project(cam);
+
         const x = (v.x * 0.5 + 0.5) * window.innerWidth;
         const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
         return { x, y };
       } catch (e) {
-        return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        return {
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2
+        };
       }
     },
 
@@ -469,9 +509,8 @@
       const worldPos  = this.copyWorldPos(el);
       const screenPos = this.worldToScreen(worldPos);
 
-      // FX: คะแนน + คำตัดสิน + burst ตรงเป้า
       const judgment = isGood ? 'GOOD' : 'MISS';
-      spawnScoreFx(screenPos, delta, judgment);
+      spawnScoreFx(screenPos, delta);
       spawnJudgmentFx(screenPos, judgment);
       spawnBurstFx(screenPos, isGood);
 
