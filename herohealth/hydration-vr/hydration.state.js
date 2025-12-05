@@ -1,25 +1,27 @@
-// === hydration.safe.js (updated with coach movement) ===
-import CoachVR from './hydration.coach.js';
+// === /herohealth/hydration-vr/hydration.state.js ===
+// Helper สำหรับโหมด Hydration (ใช้ร่วมใน goals/minis)
 
-export function safeSetup(game) {
-
-  window.addEventListener('DOMContentLoaded', () => {
-    CoachVR.init();
-  });
-
-  // ดักทุกเป้าที่ spawn
-  game.on('spawn', t => {
-    // auto-move coach ออกไปอีกฝั่ง
-    CoachVR.avoidTarget(t.x);
-
-    // ตรวจว่าตรงโค้ชหรือใกล้
-    const dist = Math.abs(t.x - (window.innerWidth / 2));
-    const near = dist < 160;
-    CoachVR.nearTarget(near);
-  });
-
-  // เมื่อผ่าน mission หรือ mini quest
-  game.on('mission:new', text => {
-    CoachVR.bounce(`🎉 ภารกิจใหม่: ${text}`);
-  });
+export function mapHydrationState(s = {}) {
+  return {
+    score:    s.score      | 0,
+    combo:    s.combo      | 0,
+    comboMax: s.comboMax   | 0,
+    good:     s.goodCount  | 0,
+    miss:     s.junkMiss   | 0, // จำนวนโดนน้ำหวาน / ผิดพลาดที่ deck ใช้
+    tick:     s.tick       | 0, // เวลาเล่นสะสม (วินาที, MissionDeck.second() ดูแลให้)
+    green:    s.greenTick  | 0  // เวลา “อยู่ GREEN” สะสม (อัปเดตจาก hydration.safe.js)
+  };
 }
+
+// ปรับ diff ให้ปลอดภัย (ถ้าไม่ได้ easy/hard → normal)
+export function normalizeHydrationDiff(diff) {
+  const d = String(diff || 'normal').toLowerCase();
+  if (d === 'easy' || d === 'hard') return d;
+  return 'normal';
+}
+
+// เผื่อกรณีมีคน import default
+export default {
+  mapHydrationState,
+  normalizeHydrationDiff
+};
