@@ -1,48 +1,67 @@
 // === /herohealth/vr-groups/difficulty.js ===
-// Food Groups VR — Difficulty table (Hydration-style tuning)
+// Food Groups VR — Difficulty table (easy / normal / hard)
+// ปรับขนาดเป้า (scale) + ความถี่ spawn ตามระดับ
 // 2025-12-06
 
-(function (root) {
+(function (ns) {
   'use strict';
 
   const TABLE = {
     easy: {
-      // ช้า เป้าใหญ่ จำนวนไม่เยอะ
-      spawnInterval: 1400,
-      fallSpeed: 0.007,
-      scale: 1.35,
-      maxActive: 3,
-      goodRatio: 0.8,
-      quest: { goalsPick: 2, miniPick: 3 }
+      engine: {
+        spawnInterval: 1400,  // ช้าหน่อย
+        fallSpeed: 0.0,       // ตอนนี้ยังไม่ตก
+        maxActive: 3,
+        scale: 1.3,           // เป้าใหญ่ที่สุด
+        goodRatio: 0.8
+      },
+      quest: {
+        goalsPick: 1,
+        miniPick: 2
+      }
     },
     normal: {
-      // ค่า default ใกล้ Hydration โหมดปกติ
-      spawnInterval: 1100,
-      fallSpeed: 0.009,
-      scale: 1.15,
-      maxActive: 4,
-      goodRatio: 0.75,
-      quest: { goalsPick: 2, miniPick: 3 }
+      engine: {
+        spawnInterval: 1200,
+        fallSpeed: 0.0,
+        maxActive: 3,
+        scale: 1.0,           // ขนาดปกติ
+        goodRatio: 0.75
+      },
+      quest: {
+        goalsPick: 2,
+        miniPick: 3
+      }
     },
     hard: {
-      // เร็ว เป้าเล็กขึ้น และมีเป้าพร้อมกันมากขึ้น
-      spawnInterval: 850,
-      fallSpeed: 0.011,
-      scale: 1.0,
-      maxActive: 5,
-      goodRatio: 0.7,
-      quest: { goalsPick: 3, miniPick: 4 }
+      engine: {
+        spawnInterval: 900,   // เร็วขึ้น
+        fallSpeed: 0.0,
+        maxActive: 4,
+        scale: 0.8,           // เป้าเล็กสุด
+        goodRatio: 0.7
+      },
+      quest: {
+        goalsPick: 2,
+        miniPick: 3
+      }
     }
   };
 
-  function get(diffKey) {
-    const k = String(diffKey || 'normal').toLowerCase();
-    return TABLE[k] || TABLE.normal;
-  }
+  ns.foodGroupsDifficulty = {
+    get: function (diffKey) {
+      diffKey = String(diffKey || 'normal').toLowerCase();
+      const row = TABLE[diffKey] || TABLE.normal;
+      // คืนเฉพาะส่วน engine + quest รวมกัน เพื่อให้ GameEngine ใช้ง่าย
+      return {
+        spawnInterval: row.engine.spawnInterval,
+        fallSpeed: row.engine.fallSpeed,
+        maxActive: row.engine.maxActive,
+        scale: row.engine.scale,
+        goodRatio: row.engine.goodRatio,
+        quest: row.quest
+      };
+    }
+  };
 
-  const mod = { TABLE, get };
-
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.foodGroupsDifficulty = mod;
-
-})(window);
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
