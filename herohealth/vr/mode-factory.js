@@ -1,9 +1,5 @@
 // === /herohealth/vr/mode-factory.js ===
 // Engine กลางสำหรับโหมด emoji (Hydration / โหมดอื่น ๆ)
-// - สร้างเป้า emoji กระจายบนจอ
-// - จัดการเวลาเล่น / event hha:time
-// - รองรับ judge() ภายนอก + onExpire()
-// ใช้ได้ทั้ง PC / Mobile / VR (คลิก/แตะที่จอเพื่อยิง)
 
 'use strict';
 
@@ -11,15 +7,15 @@
  * cfg:
  *  difficulty: 'easy' | 'normal' | 'hard'
  *  duration:   seconds
- *  modeKey:    string (ใช้แท็ก session ถ้าจำเป็น)
+ *  modeKey:    string
  *  pools:      { good: [...chars], bad: [...chars] }
- *  goodRate:   0..1   // สัดส่วน good
+ *  goodRate:   0..1
  *  powerups:   [...chars]
- *  powerRate:  0..1   // โอกาสเป็น powerup
- *  powerEvery: n      // ทุก ๆ n ตัวบังคับสุ่ม power 1 ครั้ง
- *  spawnStyle: 'pop'  // (ตอนนี้รองรับแบบโผล่แล้วหายเอง)
- *  judge(ch, ctx):    fn
- *  onExpire(ev):      fn({ char, isGood, isPower })
+ *  powerRate:  0..1
+ *  powerEvery: n
+ *  spawnStyle: 'pop'
+ *  judge(ch, ctx)
+ *  onExpire(ev)
  */
 
 // ----- random position แบบ responsive (กันเป้าไปทับ HUD + ขอบล่าง) -----
@@ -27,30 +23,26 @@ function randomScreenPos() {
   const w = window.innerWidth  || 1280;
   const h = window.innerHeight || 720;
 
-  // HUD ด้านบน (เช่น Water balance)
   const hud = document.querySelector('.hha-water');
-  let hudH = 120; // fallback กรณีหา element ไม่เจอ
+  let hudH = 120;
   if (hud) {
     const rect = hud.getBoundingClientRect();
     hudH = rect.height + 16;
   }
 
-  const bottomSafe = 140; // กันปุ่มล่าง / bar มือถือ
+  const bottomSafe = 140;
 
   const topRaw    = hudH;
   const bottomRaw = h - bottomSafe;
 
-  // safety เผื่อจอเตี้ย
   const top    = Math.min(topRaw, h * 0.55);
   const bottom = Math.max(bottomRaw, h * 0.45);
 
-  // จำกัดให้อยู่โซนกลาง ๆ แนวตั้ง
   const midY  = (top + bottom) / 2;
   const spanY = Math.min(bottom - top, h * 0.45);
   const yMin  = midY - spanY / 2;
   const yMax  = midY + spanY / 2;
 
-  // ซ้าย/ขวา เว้น margin 10%
   const left  = w * 0.10;
   const right = w * 0.90;
 
@@ -60,28 +52,31 @@ function randomScreenPos() {
   return { x, y };
 }
 
-// difficulty → พารามิเตอร์พื้นฐาน
+// difficulty → preset (เพิ่ม sizeFactor สำหรับขนาดเป้า)
 function difficultyPreset(diff = 'normal') {
   const d = String(diff || 'normal').toLowerCase();
   if (d === 'easy') {
     return {
       spawnInterval: 1100,
       lifeTime: 2300,
-      maxActive: 4
+      maxActive: 4,
+      sizeFactor: 1.25   // เป้าใหญ่หน่อย
     };
   }
   if (d === 'hard') {
     return {
       spawnInterval: 750,
       lifeTime: 1900,
-      maxActive: 6
+      maxActive: 6,
+      sizeFactor: 0.85   // เป้าเล็กลง
     };
   }
   // normal
   return {
     spawnInterval: 900,
     lifeTime: 2100,
-    maxActive: 5
+    maxActive: 5,
+    sizeFactor: 1.0
   };
 }
 
@@ -123,7 +118,6 @@ export async function boot(cfg = {}) {
   let timeTimer    = null;
   let spawnCount   = 0;
 
-  // ----- helper สุ่ม emoji -----
   function pick(array, fallback = '❔') {
     if (!array || array.length === 0) return fallback;
     const i = Math.floor(Math.random() * array.length);
@@ -131,13 +125,11 @@ export async function boot(cfg = {}) {
   }
 
   function decideChar() {
-    // บังคับ power ทุก ๆ powerEvery ตัว ถ้ามี
     if (powPool.length && powerEvery > 0 && spawnCount > 0 && spawnCount % powerEvery === 0) {
       const ch = pick(powPool);
       return { ch, isGood: false, isPower: true };
     }
 
-    // ปกติ
     const r = Math.random();
     if (powPool.length && r < powerRate) {
       const ch = pick(powPool);
@@ -165,10 +157,12 @@ export async function boot(cfg = {}) {
     el.className = 'hha-target';
     el.textContent = ch;
     el.style.position = 'fixed';
+
+    const scale = preset.sizeFactor || 1;
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
-    el.style.transform = 'translate(-50%, -50%)';
-    el.style.pointerEvents = 'none'; // ยิงด้วยคลิกที่ไหนก็ได้
+    el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    el.style.pointerEvents = 'none';
 
     el.dataset.char   = ch;
     el.dataset.good   = String(!!isGood);
@@ -186,7 +180,6 @@ export async function boot(cfg = {}) {
     document.body.appendChild(el);
     activeTargets.add(el);
 
-    // ตั้งเวลา expire
     const lifeId = window.setTimeout(() => {
       lifeTimers.delete(el);
       if (!activeTargets.has(el)) return;
@@ -206,7 +199,7 @@ export async function boot(cfg = {}) {
     spawnCount++;
   }
 
-  // ----- ยิงเป้า: คลิก/แตะที่จอ → หาเป้าใกล้สุด -----
+  // ----- ยิงเป้า: คลิก/แตะ → หาเป้าใกล้สุด -----
   function handleShoot(ev) {
     if (!running) return;
 
@@ -224,10 +217,9 @@ export async function boot(cfg = {}) {
       cy = window.innerHeight / 2;
     }
 
-    // หาเป้าใกล้ที่สุดใน radius
     let best = null;
     let bestDist = Infinity;
-    const hitRadius = 70; // px
+    const hitRadius = 70;
 
     activeTargets.forEach(el => {
       const rect = el.getBoundingClientRect();
@@ -242,13 +234,12 @@ export async function boot(cfg = {}) {
       }
     });
 
-    if (!best) return; // ยังไม่ถือว่า miss ให้ logic ภายนอกจัดการเอง
+    if (!best) return;
 
     const ch      = best.dataset.char || best.textContent || '❔';
     const isGood  = best.dataset.good === 'true';
     const isPower = best.dataset.power === 'true';
 
-    // ตัด life timer + ลบ DOM
     const lifeId = lifeTimers.get(best);
     if (lifeId) {
       window.clearTimeout(lifeId);
@@ -268,9 +259,8 @@ export async function boot(cfg = {}) {
     }
   }
 
-  // ----- จัดการเวลา hha:time -----
+  // ----- clock ส่ง hha:time -----
   function startClock() {
-    // ส่งค่าเริ่มต้น
     window.dispatchEvent(new CustomEvent('hha:time', {
       detail: { sec: secLeft }
     }));
@@ -291,7 +281,7 @@ export async function boot(cfg = {}) {
   }
 
   function startSpawner() {
-    spawnOne(); // spawn ทันที
+    spawnOne();
     spawnTimer = window.setInterval(() => {
       if (!running) return;
       spawnOne();
@@ -311,7 +301,6 @@ export async function boot(cfg = {}) {
       timeTimer = null;
     }
 
-    // ลบเป้าทั้งหมด
     lifeTimers.forEach(id => window.clearTimeout(id));
     lifeTimers.clear();
     activeTargets.forEach(el => {
@@ -350,5 +339,4 @@ export async function boot(cfg = {}) {
   };
 }
 
-// default export เผื่อที่อื่นเคย import แบบ default
 export default { boot };
