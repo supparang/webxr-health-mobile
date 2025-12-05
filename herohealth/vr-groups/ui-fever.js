@@ -1,206 +1,190 @@
 // === /herohealth/vr/ui-fever.js ===
-// Fever bar + Shield indicator (non-module version)
-// ใช้ร่วมกับ HeroHealth VR ทุกโหมด
+// Global Fever UI for Hero Health VR (non-module)
+// ใช้ร่วมกับ GAME_MODULES.FeverUI
 // 2025-12-06
 
-(function (ns) {
+(function (root) {
   'use strict';
 
-  let wrap        = null;  // กล่องหลัก
-  let barInner    = null;  // แท่ง fever ด้านใน
-  let valueSpan   = null;  // ตัวเลข %
-  let shieldIcons = null;  // แถวไอคอน shield
+  const doc = root.document;
 
-  // -----------------------------------------------------
-  // internal helpers
-  // -----------------------------------------------------
-  function ensureStyle() {
-    if (document.getElementById('hha-fever-style')) return;
+  function ensureBaseStyle() {
+    if (doc.getElementById('hha-fever-style')) return;
 
-    const style = document.createElement('style');
-    style.id = 'hha-fever-style';
-    style.textContent = `
+    const css = `
     .hha-fever-wrap{
       position:fixed;
-      bottom:8px;
-      left:10px;
-      z-index:900;
-      min-width:180px;
-      max-width:260px;
-      padding:6px 9px 7px;
-      border-radius:14px;
-      background:rgba(15,23,42,0.95);
-      border:1px solid rgba(251,191,36,0.9);
-      box-shadow:0 18px 40px rgba(15,23,42,0.95);
-      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-      font-size:11px;
-      color:#e5e7eb;
+      left:50%;
+      top:8px;
+      transform:translateX(-50%);
+      z-index:640;
+      pointer-events:none;
+      min-width:220px;
+      max-width:340px;
+      padding:6px 10px 8px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.96);
+      border:1px solid rgba(52,211,153,0.8);
+      box-shadow:0 18px 40px rgba(15,23,42,0.7);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
-    .hha-fever-top{
+    .hha-fever-inner{
       display:flex;
-      justify-content:space-between;
       align-items:center;
-      gap:6px;
-      margin-bottom:3px;
+      gap:8px;
     }
     .hha-fever-label{
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .hha-fever-label-emoji{
-      font-size:15px;
+      font-size:11px;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      color:#6ee7b7;
+      font-weight:600;
+      white-space:nowrap;
     }
     .hha-fever-bar{
       position:relative;
-      width:100%;
-      height:6px;
+      flex:1;
+      height:8px;
       border-radius:999px;
-      background:#020617;
+      background:rgba(15,23,42,0.9);
       overflow:hidden;
     }
-    .hha-fever-bar-inner{
+    .hha-fever-fill{
       position:absolute;
-      inset:0;
+      left:0;top:0;bottom:0;
       width:0%;
       border-radius:999px;
-      background:linear-gradient(90deg,#f97316,#facc15);
-      box-shadow:0 0 0 rgba(250,204,21,0);
-      transition:
-        width .22s ease-out,
-        box-shadow .22s ease-out;
+      background:linear-gradient(90deg,#22c55e,#a3e635,#facc15);
+      transition:width .18s ease-out, filter .18s ease-out;
     }
-    .hha-fever-wrap[data-active="1"] .hha-fever-bar-inner{
-      box-shadow:0 0 18px rgba(250,204,21,0.9);
+    .hha-fever-shield{
+      position:absolute;
+      left:0;top:0;bottom:0;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,rgba(59,130,246,0.7),rgba(56,189,248,0.9));
+      mix-blend-mode:screen;
+      opacity:.85;
+      pointer-events:none;
+      transition:width .18s ease-out;
     }
-    .hha-shield-wrap{
-      display:flex;
-      align-items:center;
-      gap:4px;
-      margin-top:3px;
-      font-size:11px;
+    .hha-fever-wrap.is-active .hha-fever-fill{
+      filter:drop-shadow(0 0 8px rgba(250,204,21,0.9));
     }
-    .hha-shield-icons{
-      display:flex;
-      gap:2px;
+    .hha-fever-wrap.is-active .hha-fever-label::after{
+      content:"• FEVER!";
+      margin-left:6px;
+      color:#fde68a;
+    }
+    @media (max-width:640px){
+      .hha-fever-wrap{
+        top:6px;
+        padding:4px 8px 6px;
+      }
+      .hha-fever-label{
+        font-size:10px;
+        letter-spacing:.12em;
+      }
     }
     `;
-    document.head.appendChild(style);
+
+    const style = doc.createElement('style');
+    style.id = 'hha-fever-style';
+    style.textContent = css;
+    doc.head.appendChild(style);
   }
 
-  function clamp(v, min, max) {
-    v = Number(v) || 0;
-    if (v < min) return min;
-    if (v > max) return max;
-    return v;
-  }
-
-  // -----------------------------------------------------
-  // public API
-  // -----------------------------------------------------
+  let feverWrap   = null;
+  let feverFill   = null;
+  let shieldFill  = null;
 
   function ensureFeverBar() {
-    if (wrap && wrap.isConnected) return wrap;
-    ensureStyle();
+    ensureBaseStyle();
 
-    wrap = document.createElement('div');
-    wrap.className = 'hha-fever-wrap';
-    wrap.dataset.active = '0';
+    if (feverWrap && feverFill && shieldFill) return;
 
-    // แถวบน: label + value
-    const top = document.createElement('div');
-    top.className = 'hha-fever-top';
+    feverWrap = doc.querySelector('.hha-fever-wrap');
+    if (!feverWrap) {
+      feverWrap = doc.createElement('div');
+      feverWrap.className = 'hha-fever-wrap';
 
-    const label = document.createElement('div');
-    label.className = 'hha-fever-label';
+      const inner = doc.createElement('div');
+      inner.className = 'hha-fever-inner';
 
-    const em = document.createElement('span');
-    em.className = 'hha-fever-label-emoji';
-    em.textContent = '🔥';
+      const label = doc.createElement('div');
+      label.className = 'hha-fever-label';
+      label.textContent = 'FEVER GAUGE';
 
-    const txt = document.createElement('span');
-    txt.textContent = 'Fever gauge';
+      const bar = doc.createElement('div');
+      bar.className = 'hha-fever-bar';
 
-    label.appendChild(em);
-    label.appendChild(txt);
+      feverFill = doc.createElement('div');
+      feverFill.className = 'hha-fever-fill';
 
-    const vSpan = document.createElement('span');
-    vSpan.style.fontWeight = '500';
-    vSpan.textContent = '0%';
-    valueSpan = vSpan;
+      shieldFill = doc.createElement('div');
+      shieldFill.className = 'hha-fever-shield';
 
-    top.appendChild(label);
-    top.appendChild(vSpan);
+      bar.appendChild(feverFill);
+      bar.appendChild(shieldFill);
+      inner.appendChild(label);
+      inner.appendChild(bar);
+      feverWrap.appendChild(inner);
 
-    // แท่ง fever
-    const barOuter = document.createElement('div');
-    barOuter.className = 'hha-fever-bar';
-    const inner = document.createElement('div');
-    inner.className = 'hha-fever-bar-inner';
-    barOuter.appendChild(inner);
-    barInner = inner;
-
-    // แถว shield
-    const shieldRow = document.createElement('div');
-    shieldRow.className = 'hha-shield-wrap';
-
-    const shLabel = document.createElement('span');
-    shLabel.textContent = '🛡 Shield:';
-
-    const shIcons = document.createElement('span');
-    shIcons.className = 'hha-shield-icons';
-    shieldIcons = shIcons;
-
-    shieldRow.appendChild(shLabel);
-    shieldRow.appendChild(shIcons);
-
-    wrap.appendChild(top);
-    wrap.appendChild(barOuter);
-    wrap.appendChild(shieldRow);
-
-    document.body.appendChild(wrap);
-    return wrap;
-  }
-
-  // ตั้งค่าเปอร์เซ็นต์ fever (0–100)
-  function setFever(value) {
-    if (!wrap || !wrap.isConnected) ensureFeverBar();
-    const v = clamp(value, 0, 100);
-
-    if (barInner) {
-      barInner.style.width = v + '%';
-    }
-    if (valueSpan) {
-      valueSpan.textContent = v.toFixed(0) + '%';
+      doc.body.appendChild(feverWrap);
+    } else {
+      feverFill  = feverWrap.querySelector('.hha-fever-fill');
+      shieldFill = feverWrap.querySelector('.hha-fever-shield');
+      if (!feverFill) {
+        feverFill = doc.createElement('div');
+        feverFill.className = 'hha-fever-fill';
+        const bar = feverWrap.querySelector('.hha-fever-bar');
+        if (bar) bar.appendChild(feverFill);
+      }
+      if (!shieldFill) {
+        shieldFill = doc.createElement('div');
+        shieldFill.className = 'hha-fever-shield';
+        const bar = feverWrap.querySelector('.hha-fever-bar');
+        if (bar) bar.appendChild(shieldFill);
+      }
     }
   }
 
-  // เปิด/ปิดสถานะ Fever (มี glow ที่แท่ง)
+  function setFever(percent) {
+    ensureFeverBar();
+    if (!feverFill) return;
+    let p = Number(percent) || 0;
+    if (p < 0) p = 0;
+    if (p > 100) p = 100;
+    feverFill.style.width = p + '%';
+  }
+
   function setFeverActive(active) {
-    if (!wrap || !wrap.isConnected) ensureFeverBar();
-    wrap.dataset.active = active ? '1' : '0';
+    ensureFeverBar();
+    if (!feverWrap) return;
+    if (active) feverWrap.classList.add('is-active');
+    else        feverWrap.classList.remove('is-active');
   }
 
-  // ตั้งจำนวน shield (0–5)
-  function setShield(count) {
-    if (!wrap || !wrap.isConnected) ensureFeverBar();
-    if (!shieldIcons) return;
-
-    const n = clamp(count, 0, 5);
-    shieldIcons.innerHTML = '';
-    for (let i = 0; i < n; i++) {
-      const span = document.createElement('span');
-      span.textContent = '🛡️';
-      shieldIcons.appendChild(span);
-    }
+  // shieldValue: 0–1
+  function setShield(value) {
+    ensureFeverBar();
+    if (!shieldFill) return;
+    let v = Number(value) || 0;
+    if (v < 0) v = 0;
+    if (v > 1) v = 1;
+    shieldFill.style.width = (v * 100) + '%';
   }
 
-  // โยนออกเป็น GAME_MODULES.FeverUI
-  ns.FeverUI = {
+  const FeverUI = {
     ensureFeverBar,
     setFever,
     setFeverActive,
     setShield
   };
 
-})(window.GAME_MODULES || (window.GAME_MODULES = {}));
+  // ผูกเข้า global ทั้งสองแบบ
+  root.GAME_MODULES = root.GAME_MODULES || {};
+  root.GAME_MODULES.FeverUI = FeverUI;
+  root.FeverUI = FeverUI;
+
+})(window);
