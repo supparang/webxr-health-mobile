@@ -1,8 +1,8 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine
-// • emoji badge targets
-// • fixed spawn slots (ไม่ให้เป้าซ้อนกัน)
-// • simple goal / mini quest fields (ส่งไปตอนจบเกม)
+// • emoji badge targets (ไม่ซ้อนกัน)
+// • Goal + Mini quest
+// • DOM FX: คะแนน/คำตัดสินเด้งตรงเป้า + burst วงกลม
 // 2025-12-06
 
 (function (ns) {
@@ -14,6 +14,7 @@
     return;
   }
 
+  const doc = window.document;
   const USE_FEVER_UI = false;
   const FEVER_MAX = 100;
 
@@ -31,7 +32,7 @@
     emojiChar = emojiChar || '🍎';
     if (emojiTexCache[emojiChar]) return emojiTexCache[emojiChar];
 
-    const canvas = document.createElement('canvas');
+    const canvas = doc.createElement('canvas');
     const size = 256;
     canvas.width = canvas.height = size;
     const ctx = canvas.getContext('2d');
@@ -39,7 +40,7 @@
 
     ctx.clearRect(0, 0, size, size);
 
-    // เงาด้านหลัง
+    // เงาจานด้านหลัง
     ctx.fillStyle = 'rgba(15,23,42,0.35)';
     ctx.beginPath();
     ctx.arc(size / 2 + 6, size / 2 + 6, size / 2.6, 0, Math.PI * 2);
@@ -83,11 +84,10 @@
   }
 
   // ===== fixed spawn slots (กันเป้าซ้อนกัน) =====
-  // เลย์เอาต์แบบ 5 ตำแหน่ง
   const SPAWN_SLOTS = [
     { x: -0.9, y: 1.6, z: -2.3 },
-    { x: 0.0, y: 1.7, z: -2.2 },
-    { x: 0.9, y: 1.6, z: -2.3 },
+    { x: 0.0,  y: 1.7, z: -2.2 },
+    { x: 0.9,  y: 1.6, z: -2.3 },
     { x: -0.45, y: 2.1, z: -2.2 },
     { x: 0.45, y: 2.1, z: -2.2 }
   ];
@@ -112,7 +112,6 @@
     return best;
   }
 
-  // คืนตำแหน่งจาก slot ที่ยังไม่ถูกใช้ (1 เป้าต่อ 1 slot)
   function pickFreeSlot(activeTargets) {
     const used = new Set();
     for (let i = 0; i < activeTargets.length; i++) {
@@ -129,11 +128,67 @@
     }
 
     if (free.length === 0) {
-      // ถ้าเต็มทุก slot ก็สุ่มที่หนึ่ง (อาจจะเริ่มชนเล็กน้อย แต่น้อยมาก)
       return SPAWN_SLOTS[Math.floor(Math.random() * SPAWN_SLOTS.length)];
     }
     const pick = free[Math.floor(Math.random() * free.length)];
     return SPAWN_SLOTS[pick];
+  }
+
+  // ===== DOM FX layer =====
+  let fxLayer = null;
+
+  function ensureFxLayer() {
+    if (fxLayer && fxLayer.parentNode) return fxLayer;
+    fxLayer = doc.createElement('div');
+    fxLayer.className = 'fg-fx-layer';
+    doc.body.appendChild(fxLayer);
+    return fxLayer;
+  }
+
+  function spawnScoreFx(screenPos, delta, judgment) {
+    const layer = ensureFxLayer();
+    const el = doc.createElement('div');
+    el.className = 'fg-fx-score';
+    if (delta > 0) el.classList.add('good');
+    if (delta < 0) el.classList.add('bad');
+
+    const sign = delta > 0 ? '+' : '';
+    el.textContent = sign + String(delta);
+
+    el.style.left = screenPos.x + 'px';
+    el.style.top = screenPos.y + 'px';
+
+    layer.appendChild(el);
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 900);
+  }
+
+  function spawnJudgmentFx(screenPos, judgment) {
+    const layer = ensureFxLayer();
+    const el = doc.createElement('div');
+    el.className = 'fg-fx-judgment';
+    el.textContent = judgment || '';
+    el.style.left = screenPos.x + 'px';
+    el.style.top = screenPos.y + 'px';
+    layer.appendChild(el);
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 650);
+  }
+
+  function spawnBurstFx(screenPos, isGood) {
+    const layer = ensureFxLayer();
+    const el = doc.createElement('div');
+    el.className = 'fg-fx-burst';
+    if (isGood) el.classList.add('good');
+    else el.classList.add('bad');
+    el.style.left = screenPos.x + 'px';
+    el.style.top = screenPos.y + 'px';
+    layer.appendChild(el);
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 450);
   }
 
   A.registerComponent('food-groups-game', {
@@ -159,10 +214,10 @@
       this.events = [];
 
       // HUD
-      this._hudScore = document.getElementById('hud-score');
-      this._hudTime = document.getElementById('hud-time-label');
+      this._hudScore = doc.getElementById('hud-score');
+      this._hudTime  = doc.getElementById('hud-time-label');
 
-      // Goal / mini quest (ไว้ส่งตอนจบเกม + แสดง HUD)
+      // Goal / mini quest text
       this.goalText = '';
       this.miniText = '';
 
@@ -208,7 +263,7 @@
         this._hudTime.textContent = sec + 's';
       }
 
-      // ตั้งค่า goal / mini quest ง่าย ๆ จากระดับความยาก
+      // ตั้ง Goal / Mini quest ตามความยาก
       let goal, mini;
       switch (this.diffKey) {
         case 'easy':
@@ -228,8 +283,8 @@
       this.goalText = goal;
       this.miniText = mini;
 
-      const elGoal = document.getElementById('hud-goal-text');
-      const elMini = document.getElementById('hud-mini-text');
+      const elGoal = doc.getElementById('hud-goal-text');
+      const elMini = doc.getElementById('hud-mini-text');
       if (elGoal) elGoal.textContent = goal;
       if (elMini) elMini.textContent = mini;
 
@@ -255,7 +310,7 @@
       }
 
       const cfg = this.cfg || {};
-      const interval = cfg.spawnInterval || 1200;
+      const interval  = cfg.spawnInterval || 1200;
       const maxActive = cfg.maxActive || 3;
 
       if (this.spawnClock >= interval) {
@@ -268,7 +323,7 @@
       this.updateTargets(dt);
 
       if (this._hudTime) {
-        const remainMs = Math.max(0, this.durationMs - this.elapsed);
+        const remainMs  = Math.max(0, this.durationMs - this.elapsed);
         const remainSec = (remainMs / 1000) | 0;
         this._hudTime.textContent = remainSec + 's';
       }
@@ -280,7 +335,7 @@
       }
     },
 
-    // ===== spawnTarget: ใช้ slot ไม่ให้ซ้อนกัน =====
+    // ===== เป้า emoji badge (ไม่ซ้อนกัน) =====
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -291,13 +346,13 @@
         item = { emoji: '🍎', group: 3, isGood: true, name: 'ผลไม้' };
       }
 
-      const el = document.createElement('a-entity');
+      const el = doc.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
       const pos = pickFreeSlot(this.targets);
       el.setAttribute('position', pos);
 
-      const scale = this.cfg.scale || 0.9;
+      const scale  = this.cfg.scale || 0.9;
       const isGood = !!item.isGood;
 
       // พื้นวงกลม
@@ -313,7 +368,7 @@
       });
 
       // ขอบ
-      const border = document.createElement('a-entity');
+      const border = doc.createElement('a-entity');
       border.setAttribute('geometry', {
         primitive: 'ring',
         radiusInner: 0.40 * scale,
@@ -331,9 +386,9 @@
       const emojiChar = item.emoji || (isGood ? '✅' : '✖️');
       const texUrl = makeEmojiTexture(emojiChar);
       if (texUrl) {
-        const img = document.createElement('a-image');
+        const img = doc.createElement('a-image');
         img.setAttribute('src', texUrl);
-        img.setAttribute('width', 0.64 * scale);
+        img.setAttribute('width',  0.64 * scale);
         img.setAttribute('height', 0.64 * scale);
         img.setAttribute('position', { x: 0, y: 0, z: 0.02 });
         el.appendChild(img);
@@ -343,10 +398,10 @@
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good', isGood ? '1' : '0');
 
-      el._life = 15000;
-      el._age = 0;
-      el._spawnTime = performance.now();
-      el._metaItem = item || {};
+      el._life       = 15000;
+      el._age        = 0;
+      el._spawnTime  = performance.now();
+      el._metaItem   = item || {};
 
       const self = this;
       el.addEventListener('click', function () {
@@ -377,13 +432,32 @@
       if (el && el.parentNode) el.parentNode.removeChild(el);
     },
 
-    onHit: function (el) {
-      const isGood = el.getAttribute('data-good') === '1';
-      const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
-      const item = el._metaItem || {};
-      const emoji = item.emoji || '';
+    // ===== world → screen helper =====
+    worldToScreen: function (pos) {
+      try {
+        if (!pos || !window.THREE) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        const scene = this.el.sceneEl;
+        const cam = scene && scene.camera;
+        if (!cam) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
-      const now = performance.now();
+        const v = new THREE.Vector3(pos.x, pos.y, pos.z);
+        v.project(cam);
+        const x = (v.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
+        return { x, y };
+      } catch (e) {
+        return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      }
+    },
+
+    // ===== hit / miss =====
+    onHit: function (el) {
+      const isGood  = el.getAttribute('data-good') === '1';
+      const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
+      const item    = el._metaItem || {};
+      const emoji   = item.emoji || '';
+
+      const now  = performance.now();
       const rtMs = el._spawnTime ? now - el._spawnTime : null;
 
       let delta = isGood ? 10 : -5;
@@ -391,6 +465,15 @@
       if (this._hudScore) this._hudScore.textContent = String(this.score);
 
       this.updateFeverOnHit(isGood);
+
+      const worldPos  = this.copyWorldPos(el);
+      const screenPos = this.worldToScreen(worldPos);
+
+      // FX: คะแนน + คำตัดสิน + burst ตรงเป้า
+      const judgment = isGood ? 'GOOD' : 'MISS';
+      spawnScoreFx(screenPos, delta, judgment);
+      spawnJudgmentFx(screenPos, judgment);
+      spawnBurstFx(screenPos, isGood);
 
       this.logEvent({
         type: 'hit',
@@ -400,7 +483,7 @@
         hitOrMiss: 'hit',
         rtMs,
         scoreDelta: delta,
-        pos: this.copyWorldPos(el)
+        pos: worldPos
       });
 
       this.removeTarget(el);
@@ -408,13 +491,19 @@
 
     onMiss: function (el) {
       const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
-      const item = el._metaItem || {};
-      const emoji = item.emoji || '';
+      const item    = el._metaItem || {};
+      const emoji   = item.emoji || '';
 
-      const now = performance.now();
+      const now  = performance.now();
       const rtMs = el._spawnTime ? now - el._spawnTime : null;
 
       this.updateFeverOnMiss();
+
+      const worldPos  = this.copyWorldPos(el);
+      const screenPos = this.worldToScreen(worldPos);
+
+      spawnJudgmentFx(screenPos, 'MISS');
+      spawnBurstFx(screenPos, false);
 
       this.logEvent({
         type: 'miss',
@@ -424,7 +513,7 @@
         hitOrMiss: 'miss',
         rtMs,
         scoreDelta: 0,
-        pos: this.copyWorldPos(el)
+        pos: worldPos
       });
 
       this.removeTarget(el);
@@ -436,8 +525,8 @@
       return { x: v.x, y: v.y, z: v.z };
     },
 
+    // ===== Fever (ตอนนี้ไม่โชว์ UI แค่เก็บค่า) =====
     updateFeverOnHit: function (isGood) {
-      // ตอนนี้ยังไม่โชว์ Fever UI — แค่เก็บค่าคร่าว ๆ
       let f = this.fever || 0;
       f += isGood ? 8 : -12;
       this.fever = clamp(f, 0, FEVER_MAX);
@@ -449,6 +538,7 @@
       this.fever = clamp(f, 0, FEVER_MAX);
     },
 
+    // ===== Logging / Finish =====
     logEvent: function (ev) {
       this.events.push(ev);
     },
@@ -469,21 +559,21 @@
 
       if (ns.foodGroupsCloudLogger && typeof ns.foodGroupsCloudLogger.send === 'function') {
         const rawSession = {
-          sessionId: this.sessionId,
-          score: this.score,
+          sessionId:  this.sessionId,
+          score:      this.score,
           difficulty: this.diffKey,
           durationMs: this.elapsed,
-          goal: this.goalText,
-          miniQuest: this.miniText
+          goal:       this.goalText,
+          miniQuest:  this.miniText
         };
         ns.foodGroupsCloudLogger.send(rawSession, this.events);
       }
 
       scene.emit('fg-game-over', {
-        score: this.score,
-        diff: this.diffKey,
-        reason: reason || 'finish',
-        goal: this.goalText,
+        score:     this.score,
+        diff:      this.diffKey,
+        reason:    reason || 'finish',
+        goal:      this.goalText,
         miniQuest: this.miniText
       });
 
