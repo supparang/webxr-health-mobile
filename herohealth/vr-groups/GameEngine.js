@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (stable central target)
-// 2025-12-06 (center-fixed)
+// Food Groups VR — Game Engine (emoji badge + center target)
+// 2025-12-06
 
 (function (ns) {
   'use strict';
@@ -25,10 +25,10 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
-    // fallback ง่าย ๆ ถ้ายังไม่ได้ตั้ง difficulty table
+    // fallback ถ้ายังไม่เซ็ต difficulty table
     return {
-      spawnInterval: 1200,      // ms ต่อการเกิดเป้า
-      fallSpeed: 0.0,           // ยังไม่ใช้ (เผื่ออนาคต)
+      spawnInterval: 1200,      // ms ต่อเป้าใหม่
+      fallSpeed: 0.0,           // ยังไม่ใช้ (เผื่ออนาคตให้เป้าตก)
       scale: 1.2,
       maxActive: 3,
       goodRatio: 0.75,
@@ -152,7 +152,7 @@
         }
       }
 
-      // ตอนนี้เวอร์ชัน stable ยังไม่ขยับเป้า / auto-miss
+      // อัปเดตอายุเป้า (ตอนนี้ยังไม่เคลื่อนที่ มีแค่ timeout → miss)
       this.updateTargets(dt);
 
       // HUD time
@@ -169,7 +169,7 @@
       }
     },
 
-    // ---------------- spawn target (ตำแหน่งกลางจอจริง ๆ) ----------------
+    // ---------------- spawn target (emoji badge แบบ Hydration-style) ----------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -183,47 +183,75 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ★ กล้องอยู่ที่ (0, 1.6, 0) → ให้เป้าอยู่ระดับเดียวกันหน้าเราเล็กน้อย
+      // กล้องอยู่ที่ (0, 1.6, 0) → ให้เป้าอยู่ระดับเดียวกัน หน้าเราออกไปนิด
       const x = 0;
-      const y = 1.6;   // ยกขึ้นมาเท่าระดับกล้อง
-      const z = -2.2;  // หน้าเราออกไปหน่อย
+      const y = 1.6;
+      const z = -2.2;
       el.setAttribute('position', { x, y, z });
 
       const scale  = this.cfg.scale || 1.0;
       const isGood = item.isGood ? true : false;
 
-      // วงกลมพื้นหลัง (hitbox)
+      // วงกลมพื้นหลัง (hitbox) สีแตกต่าง good / not-good
       el.setAttribute('geometry', {
         primitive: 'circle',
-        radius: 0.4 * scale
+        radius: 0.45 * scale
       });
       el.setAttribute('material', {
         shader: 'flat',
-        color: isGood ? '#22c55e' : '#f97316',
+        color: isGood ? '#16a34a' : '#f97316',
         opacity: 1.0,
         side: 'double'
       });
 
-      // emoji ตรงกลาง
-      const emojiChar = item.emoji || (isGood ? 'G' : 'J');
-      const txt = document.createElement('a-entity');
-      txt.setAttribute('text', {
-        value: emojiChar,
-        align: 'center',
-        color: '#ffffff',
-        width: 1.6 * scale,
-        baseline: 'center',
-        shader: 'msdf'
+      // ขอบ ring ให้เหมือน badge
+      const border = document.createElement('a-entity');
+      border.setAttribute('geometry', {
+        primitive: 'ring',
+        radiusInner: 0.45 * scale,
+        radiusOuter: 0.50 * scale
       });
-      txt.setAttribute('position', { x: 0, y: 0, z: 0.01 });
-      el.appendChild(txt);
+      border.setAttribute('material', {
+        shader: 'flat',
+        color: '#0f172a',
+        side: 'double'
+      });
+      border.setAttribute('position', { x: 0, y: 0, z: 0.005 });
+      el.appendChild(border);
+
+      // ถ้ามีไฟล์รูป ให้ใช้ <a-image> แบบ Hydration
+      const texSrc = item.img || item.tex || item.url || null;
+
+      if (texSrc) {
+        const img = document.createElement('a-image');
+        img.setAttribute('src', texSrc);
+        img.setAttribute('width', 0.7 * scale);
+        img.setAttribute('height', 0.7 * scale);
+        img.setAttribute('position', { x: 0, y: 0, z: 0.01 });
+        img.setAttribute('transparent', true);
+        el.appendChild(img);
+      } else {
+        // fallback: ใช้ตัวอักษร emoji
+        const emojiChar = item.emoji || (isGood ? 'G' : 'J');
+        const txt = document.createElement('a-entity');
+        txt.setAttribute('text', {
+          value: emojiChar,
+          align: 'center',
+          color: '#ffffff',
+          width: 1.6 * scale,
+          baseline: 'center',
+          shader: 'msdf'
+        });
+        txt.setAttribute('position', { x: 0, y: 0, z: 0.01 });
+        el.appendChild(txt);
+      }
 
       const groupId = item && item.group != null ? item.group : 0;
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good',  isGood ? '1' : '0');
 
       // meta สำหรับ log
-      el._life      = 15000;
+      el._life      = 15000; // เป้าอยู่ได้ 15 วิ ถ้ายังไม่โดนให้เป็น miss
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
@@ -236,19 +264,28 @@
       this.el.sceneEl.appendChild(el);
       this.targets.push(el);
 
-      console.log('[GroupsVR] spawnTarget(CENTER FIX)', item, 'total=', this.targets.length);
+      console.log('[GroupsVR] spawnTarget(EMOJI BADGE)', item, 'total=', this.targets.length);
     },
 
-    // ---------------- ยังไม่ auto-miss (เวอร์ชัน stable) ----------------
+    // ---------------- aging / auto-miss ----------------
     updateTargets: function (dt) {
-      // เวอร์ชันนี้ยังไม่ให้เป้าหายเอง / miss อัตโนมัติ
-      // ถ้าจะให้หมดอายุ/ตก ค่อยเพิ่ม logic ตรงนี้ภายหลัง
+      if (!this.targets || this.targets.length === 0) return;
+
+      for (let i = this.targets.length - 1; i >= 0; i--) {
+        const t = this.targets[i];
+        if (!t) continue;
+        t._age = (t._age || 0) + dt;
+        if (t._life && t._age >= t._life) {
+          // หมดอายุถือว่า Miss
+          this.onMiss(t);
+        }
+      }
     },
 
     removeTarget: function (el) {
       const idx = this.targets.indexOf(el);
       if (idx !== -1) this.targets.splice(idx, 1);
-      if (el.parentNode) el.parentNode.removeChild(el);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
     },
 
     // ---------------- hit / miss ----------------
@@ -361,7 +398,7 @@
 
       for (let i = 0; i < this.targets.length; i++) {
         const el = this.targets[i];
-        if (el.parentNode) el.parentNode.removeChild(el);
+        if (el && el.parentNode) el.parentNode.removeChild(el);
       }
       this.targets.length = 0;
 
