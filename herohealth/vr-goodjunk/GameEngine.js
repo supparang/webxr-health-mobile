@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets (no falling) + Coach events (2025-12-05)
+// Good vs Junk VR — Emoji Pop Targets (no falling) + Simple Quest + Coach (2025-12-05)
 
 'use strict';
 
@@ -11,9 +11,10 @@ export const GameEngine = (function () {
   ];
   const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
 
+  // ---------- พารามิเตอร์เกม ----------
   const GOOD_RATE       = 0.65;   // โอกาสเป็นของดี
   const SPAWN_INTERVAL  = 900;    // ms ความถี่เกิดเป้า
-  const TARGET_LIFETIME = 900;    // ms อยู่บนจอแป๊บเดียวแล้วหาย
+  const TARGET_LIFETIME = 900;    // ms เป้าอยู่บนจอแป๊บเดียวแล้วหาย
   const MAX_ACTIVE      = 4;      // เป้าพร้อมกันสูงสุด
 
   let sceneEl = null;
@@ -25,8 +26,10 @@ export const GameEngine = (function () {
   let combo = 0;
   let comboMax = 0;
   let misses = 0;
+  let goodHit = 0;     // ตีของดีสำเร็จ
+  let junkHit = 0;     // เผลอตีของขยะ
 
-  // ---------- emoji → texture cache ----------
+  // ---------- Emoji → texture cache ----------
   const emojiTexCache = new Map();
 
   function getEmojiTexture(ch) {
@@ -48,7 +51,7 @@ export const GameEngine = (function () {
     return url;
   }
 
-  // ---------- helper: emit event ----------
+  // ---------- emit events ----------
   function emit(type, detail) {
     window.dispatchEvent(new CustomEvent(type, { detail }));
   }
@@ -66,16 +69,77 @@ export const GameEngine = (function () {
     emit('hha:miss', { misses });
   }
 
+  // ---------- Quest แบบง่าย ----------
+  const GOAL = {
+    label: 'เก็บอาหารดีให้ครบ 25 ชิ้น',
+    prog: 0,
+    target: 25,
+    done: false
+  };
+
+  const MINI = {
+    label: 'รักษาคอมโบให้ถึง x5 อย่างน้อย 1 ครั้ง',
+    prog: 0,       // เก็บ “จำนวนครั้งที่เคยถึง x5”
+    target: 1,
+    done: false
+  };
+
+  function pushQuest(hint) {
+    const goalObj = {
+      label: GOAL.label,
+      prog: GOAL.prog,
+      target: GOAL.target,
+      done: GOAL.done
+    };
+    const miniObj = {
+      label: MINI.label,
+      prog: MINI.prog,
+      target: MINI.target,
+      done: MINI.done
+    };
+
+    emit('quest:update', {
+      goal: goalObj,
+      mini: miniObj,
+      goalsAll: [goalObj],
+      minisAll: [miniObj],
+      hint: hint || ''
+    });
+  }
+
+  function updateGoalFromGoodHit() {
+    GOAL.prog = goodHit;
+    if (!GOAL.done && GOAL.prog >= GOAL.target) {
+      GOAL.done = true;
+      coach('ภารกิจหลักสำเร็จแล้ว! เก็บผัก ผลไม้ครบตามเป้าแล้ว 🎉');
+      pushQuest('Goal สำเร็จแล้ว');
+    } else {
+      pushQuest('');
+    }
+  }
+
+  function updateMiniFromCombo() {
+    // ถึงคอมโบ 5 เมื่อไหร่ นับว่า mini สำเร็จแล้ว 1 ครั้ง
+    if (!MINI.done && combo >= 5) {
+      MINI.prog = 1;
+      MINI.done = true;
+      coach('สุดยอด! คอมโบถึง x5 แล้ว Mini quest ผ่านเรียบร้อย 🎯');
+      pushQuest('Mini quest สำเร็จแล้ว');
+    } else {
+      pushQuest('');
+    }
+  }
+
   function emitEnd() {
     emit('hha:end', {
       mode: 'Good vs Junk (VR)',
       score,
       comboMax,
       misses,
-      goalsCleared: 0,
-      goalsTotal: 0,
-      miniCleared: 0,
-      miniTotal: 0
+      goalsCleared: GOAL.done ? 1 : 0,
+      goalsTotal: 1,
+      miniCleared: MINI.done ? 1 : 0,
+      miniTotal: 1
     });
   }
 
@@ -87,15 +151,15 @@ export const GameEngine = (function () {
     }
   }
 
-  // ---------- สร้างเป้า (emoji โผล่มาเฉย ๆ) ----------
+  // ---------- สร้างเป้า (emoji pop) ----------
   function createTargetEntity(emoji, kind) {
     if (!sceneEl) return null;
 
     const root = document.createElement('a-entity');
 
-    // สุ่มตำแหน่งรอบ ๆ กลางจอ
-    const x = -0.9 + Math.random() * 1.8;   // -0.9 ถึง +0.9
-    const y = 0.9 + Math.random() * 0.7;    // 0.9–1.6 (ระดับสายตา)
+    // สุ่มตำแหน่ง “ใกล้กลางจอ” เพื่อให้เล็งง่ายขึ้น
+    const x = -0.45 + Math.random() * 0.9;   // -0.45 ถึง +0.45
+    const y = 1.0  + Math.random() * 0.4;    // 1.0–1.4 ระดับสายตา
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
@@ -105,17 +169,17 @@ export const GameEngine = (function () {
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
 
-    // วงกลมพื้นหลังบาง ๆ
+    // วงกลมพื้นหลังสีอ่อน
     const circle = document.createElement('a-circle');
     circle.setAttribute('radius', kind === 'good' ? 0.45 : 0.4);
     circle.setAttribute('material', {
       color: kind === 'good' ? '#22c55e' : '#f97316',
-      opacity: 0.35,
+      opacity: 0.32,
       metalness: 0,
       roughness: 1
     });
 
-    // emoji เป็น sprite ทับด้านหน้า
+    // emoji sprite ทับด้านหน้า
     const sprite = document.createElement('a-plane');
     sprite.setAttribute('width', 0.8);
     sprite.setAttribute('height', 0.8);
@@ -134,10 +198,10 @@ export const GameEngine = (function () {
 
     sceneEl.appendChild(root);
 
-    // ตั้งเวลาให้เป้าหายไปเอง (ถือว่าพลาดถ้าเป็นของดี)
+    // ตั้งเวลาให้เป้าหายไปเอง
     setTimeout(() => {
       if (!running) return;
-      if (!root.parentNode) return; // โดนยิงไปแล้ว
+      if (!root.parentNode) return; // ยิงไปแล้ว
       onExpire(root);
     }, TARGET_LIFETIME);
 
@@ -153,6 +217,7 @@ export const GameEngine = (function () {
     removeTarget(el);
 
     if (kind === 'good') {
+      goodHit++;
       score += 10 + combo * 2;
       combo++;
       comboMax = Math.max(comboMax, combo);
@@ -163,12 +228,19 @@ export const GameEngine = (function () {
         coach('คอมโบ x5 แล้ว เยี่ยมมาก! 🔥');
       else if (combo === 10)
         coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
+
+      updateGoalFromGoodHit();
+      updateMiniFromCombo();
     } else {
+      // ตีของขยะ
+      junkHit++;
       score = Math.max(0, score - 8);
       combo = 0;
       misses++;
       coach('โดนของขยะแล้ว ระวังพวก 🍔🍩 อีกนะ');
       emitMiss();
+      updateGoalFromGoodHit();
+      pushQuest('');
     }
 
     emitScore();
@@ -186,11 +258,12 @@ export const GameEngine = (function () {
       // พลาดของดี
       misses++;
       combo = 0;
-      coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้ามากขึ้น 😊');
+      coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้มากขึ้น 😊');
       emitMiss();
       emitScore();
+      updateGoalFromGoodHit();
+      pushQuest('');
     }
-    // ถ้า junk หายไป ไม่ถือว่าพลาด
   }
 
   // ---------- สุ่ม spawn เป้า ----------
@@ -214,12 +287,19 @@ export const GameEngine = (function () {
     combo = 0;
     comboMax = 0;
     misses = 0;
+    goodHit = 0;
+    junkHit = 0;
+
+    // reset quest
+    GOAL.prog = 0; GOAL.done = false;
+    MINI.prog = 0; MINI.done = false;
 
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
     activeTargets = [];
 
     emitScore();
     coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
+    pushQuest('เริ่มเกม');
 
     // spawn ทันที 1 ลูก แล้วค่อย spawn ต่อเนื่อง
     tickSpawn();
