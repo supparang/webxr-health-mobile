@@ -2,49 +2,130 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
   <title>Hydration VR — Hero Health</title>
   <meta name="color-scheme" content="dark"/>
 
   <link rel="icon" href="./favicon.ico"/>
 
-  <!-- พื้นหลัง + HUD หลัก -->
+  <!-- ใช้สไตล์หลักของ Good vs Junk VR -->
   <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
-  <!-- ถ้ามี hydration-vr.css ให้ใช้จูนเพิ่มเติม -->
-  <link rel="stylesheet" href="./css/hydration-vr.css"/>
+
+  <!-- สไตล์เสริมสำหรับ Hydration (inline, ไม่ต้องมีไฟล์เพิ่ม) -->
+  <style>
+    :root{
+      color-scheme: dark;
+    }
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      padding:0;
+      overflow:hidden;
+      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.20), transparent 55%),
+        #020617;
+      color:#e5e7eb;
+    }
+
+    /* โหลดตอนเริ่ม */
+    .hha-scene-wrap{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:radial-gradient(circle at top,#0f172a,#020617 65%);
+      z-index:40;
+    }
+    .hha-loading-msg{
+      padding:14px 18px;
+      border-radius:999px;
+      background:rgba(15,23,42,.95);
+      box-shadow:0 0 30px rgba(0,0,0,.6);
+      font-size:14px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    /* crosshair ใช้ของ goodjunk-vr.css ต่อ แต่กันไว้ */
+    .hha-crosshair{
+      position:fixed;
+      left:50%;
+      top:50%;
+      width:22px;
+      height:22px;
+      margin-left:-11px;
+      margin-top:-11px;
+      border-radius:999px;
+      border:2px solid rgba(248,250,252,0.9);
+      box-shadow:0 0 10px rgba(15,23,42,.8);
+      z-index:20;
+      pointer-events:none;
+    }
+
+    /* ปุ่ม VR มุมขวาล่าง (เหมือน GoodJunk) */
+    .hha-vr-btn{
+      position:fixed;
+      right:12px;
+      bottom:14px;
+      z-index:30;
+      padding:6px 14px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.8);
+      background:rgba(15,23,42,.92);
+      color:#e5e7eb;
+      font-size:13px;
+      cursor:pointer;
+      box-shadow:0 10px 25px rgba(0,0,0,.65);
+    }
+    .hha-vr-btn:hover{
+      background:rgba(30,64,175,.95);
+    }
+
+    /* ให้ HUD / เควสต์ อยู่ในจอเดียว mobile-first */
+    @media (max-width:767px){
+      .hha-hud-topright,
+      .hha-quest-panel{
+        transform:scale(.9);
+        transform-origin:top right;
+      }
+    }
+  </style>
 </head>
 <body>
 
   <!-- ===== SCENE WRAP / LOADING ===== -->
   <div class="hha-scene-wrap">
     <div class="hha-loading-msg">
-      💧 กำลังโหลดโหมด Hydration VR...
+      💧 <span>กำลังโหลดโหมด Hydration VR...</span>
     </div>
   </div>
 
-  <!-- crosshair กลางจอ -->
+  <!-- วงกลมเล็งกลางจอ -->
   <div class="hha-crosshair"></div>
 
-  <!-- ปุ่ม VR มุมซ้ายบน (สไตล์เหมือน GoodJunk) -->
+  <!-- ปุ่ม VR (ใช้ร่วมกับ A-Frame / WebXR ถ้าตั้งค่าใน scene แล้ว) -->
   <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
-
-  <!-- ===== COACH BUBBLE ด้านล่างจอ ===== -->
-  <!-- (จะถูกสร้าง DOM เพิ่มเติมโดย coach-bubble.js) -->
 
   <!-- ===== SCRIPT ZONE ===== -->
 
-  <!-- HUD เควสต์ / สกอร์ ฯลฯ (เหมือน Good vs Junk VR) -->
+  <!-- HUD เควสต์ + สกอร์ + goal / mini quest (เหมือน Good vs Junk VR) -->
   <script type="module" src="./vr/quest-hud-vr.js"></script>
 
-  <!-- โค้ชกลางล่าง + auto-move + fade + bounce mission -->
+  <!-- Bubble โค้ชกลางล่างจอ (ใช้ร่วมกับทุกโหมด) -->
   <script type="module" src="./vr/coach-bubble.js"></script>
 
-  <!-- โหมด Hydration VR -->
+  <!-- โหมด Hydration VR (ตัว engine หลัก) -->
   <script type="module">
     import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
 
-    // อ่าน URL param: ?diff=easy|normal|hard&time=60
+    // อ่านค่าจาก URL: ?diff=easy|normal|hard&time=60
     const url = new URL(window.location.href);
+
     let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
     if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
 
@@ -53,16 +134,16 @@
     if (dur < 20)  dur = 20;
     if (dur > 180) dur = 180;
 
-    // เริ่มโหมด Hydration (engine ภายในจะสร้างเป้า, HUD, เควสต์ ฯลฯ ให้เอง)
+    // เริ่มโหมด Hydration
     bootHydration({
       difficulty: diff,
       duration:   dur
     }).then(inst => {
-      // ซ่อนข้อความโหลด
+      // ซ่อนโหลด
       const wrap = document.querySelector('.hha-scene-wrap');
       if (wrap) wrap.style.display = 'none';
 
-      // กัน memory leak ถ้าออกจากหน้า
+      // กัน memory leak ตอนออกจากหน้า
       window.addEventListener('beforeunload', () => {
         try {
           if (inst && typeof inst.destroy === 'function') {
@@ -74,7 +155,7 @@
       });
     }).catch(err => {
       console.error('[HydrationVR] boot error', err);
-      const msg = document.querySelector('.hha-loading-msg');
+      const msg = document.querySelector('.hha-loading-msg span');
       if (msg) {
         msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
       }
