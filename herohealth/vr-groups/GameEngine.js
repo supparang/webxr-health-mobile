@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (DEBUG: force-visible targets)
+// Food Groups VR — Game Engine (Hydration-style)
 // 2025-12-06
 
 (function (ns) {
@@ -25,12 +25,11 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
-    // fallback
     return {
-      spawnInterval: 1200,
+      spawnInterval: 1100,
       fallSpeed: 0.009,
-      scale: 1.2,
-      maxActive: 3,
+      scale: 1.15,
+      maxActive: 4,
       goodRatio: 0.75,
       quest: { goalsPick: 2, miniPick: 3 }
     };
@@ -70,6 +69,7 @@
       this._hudScore = document.getElementById('hud-score');
       this._hudTime  = document.getElementById('hud-time-label');
 
+      // Fever UI (มีหรือไม่มีก็ได้)
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -92,6 +92,7 @@
       this._lastLogSec = -1;
     },
 
+    // ------------- start / tick -------------
     start: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.cfg     = pickDifficulty(this.diffKey);
@@ -128,15 +129,17 @@
       this.elapsed    += dt;
       this.spawnClock += dt;
 
+      // หมดเวลา
       if (this.elapsed >= this.durationMs) {
         this.finish('timeout');
         return;
       }
 
       const cfg       = this.cfg || {};
-      const interval  = cfg.spawnInterval || 1200;
-      const maxActive = cfg.maxActive || 3;
+      const interval  = cfg.spawnInterval || 1100;
+      const maxActive = cfg.maxActive || 4;
 
+      // spawn เป้าใหม่ตาม interval
       if (this.spawnClock >= interval) {
         this.spawnClock = 0;
         if (this.targets.length < maxActive) {
@@ -144,9 +147,10 @@
         }
       }
 
-      // DEBUG: ยังไม่ขยับ/ลบเป้า เพื่อให้เห็นแน่นอน
-      // this.updateTargets(dt);
+      // อัปเดตตำแหน่งเป้าทั้งหมด
+      this.updateTargets(dt);
 
+      // HUD time (นับถอยหลัง)
       if (this._hudTime) {
         const remainMs  = Math.max(0, this.durationMs - this.elapsed);
         const remainSec = (remainMs / 1000) | 0;
@@ -160,7 +164,7 @@
       }
     },
 
-    // ---------- spawn target fixed in front of camera ----------
+    // ------------- spawn targets (emoji + circle) -------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -174,33 +178,36 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // DEBUG: ให้อยู่แถวกลางหน้าจอแน่นอน
-      const x = (Math.random() * 0.8) - 0.4; // แกว่งซ้ายขวานิดหน่อย
-      const y = 1.6;
+      // โซนกลางจอ เหมือน Hydration แต่เริ่มสูงกว่าแล้วตกลงมา
+      const xRange = 0.7;
+      const x = (Math.random() * (2 * xRange)) - xRange;
+      const y = 2.4 + Math.random() * 0.6; // เริ่มเหนือศีรษะ
       const z = -3.0;
       el.setAttribute('position', { x, y, z });
 
-      const scale  = this.cfg.scale || 1.2;
+      const scale  = this.cfg.scale || 1.15;
       const isGood = item.isGood ? true : false;
 
+      // วงกลมสีพื้นหลัง
       el.setAttribute('geometry', {
         primitive: 'circle',
-        radius: 0.5 * scale
+        radius: 0.42 * scale
       });
       el.setAttribute('material', {
         shader: 'flat',
         color: isGood ? '#22c55e' : '#f97316',
-        opacity: 1.0,
+        opacity: 0.98,
         side: 'double'
       });
 
+      // Emoji text ซ้อน
       const emojiChar = item.emoji || (isGood ? 'G' : 'J');
       const txt = document.createElement('a-entity');
       txt.setAttribute('text', {
         value: emojiChar,
         align: 'center',
         color: '#ffffff',
-        width: 2.0 * scale,
+        width: 1.6 * scale,
         baseline: 'center',
         shader: 'msdf'
       });
@@ -212,7 +219,8 @@
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good',  isGood ? '1' : '0');
 
-      el._life      = 999999; // DEBUG: ไม่หมดอายุ
+      // อายุเป้า ~7 วินาที
+      el._life      = 7000;
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
@@ -225,11 +233,32 @@
       this.el.sceneEl.appendChild(el);
       this.targets.push(el);
 
-      console.log('[GroupsVR] spawnTarget(DEBUG)', item, 'total=', this.targets.length);
+      console.log('[GroupsVR] spawnTarget()', item, 'total=', this.targets.length);
     },
 
-    // ตอนนี้ยังไม่ใช้ updateTargets สำหรับ debug
-    updateTargets: function (dt) {},
+    // ------------- move & auto-miss -------------
+    updateTargets: function (dt) {
+      const fallSpeed = (this.cfg && this.cfg.fallSpeed) || 0.009;
+      const step = fallSpeed * (dt / 16.7); // ปรับตามเฟรมเรต
+
+      for (let i = this.targets.length - 1; i >= 0; i--) {
+        const t = this.targets[i];
+
+        t._age += dt;
+
+        const pos = t.getAttribute('position') || { x: 0, y: 0, z: 0 };
+        pos.y -= step;
+        t.setAttribute('position', pos);
+
+        // หลุดขอบล่าง หรือหมดอายุ = miss
+        const outOfBounds = pos.y <= 0.2;
+        const expired     = t._age >= t._life;
+
+        if (outOfBounds || expired) {
+          this.onMiss(t);
+        }
+      }
+    },
 
     removeTarget: function (el) {
       const idx = this.targets.indexOf(el);
@@ -237,6 +266,7 @@
       if (el.parentNode) el.parentNode.removeChild(el);
     },
 
+    // ------------- hit / miss -------------
     onHit: function (el) {
       const isGood  = el.getAttribute('data-good') === '1';
       const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
@@ -268,7 +298,6 @@
     },
 
     onMiss: function (el) {
-      // สำหรับ debug เราไม่เรียก onMiss จาก updateTargets เลย
       const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
       const item    = el._metaItem || {};
       const emoji   = item.emoji || '';
@@ -298,13 +327,17 @@
       return { x: v.x, y: v.y, z: v.z };
     },
 
+    // ------------- Fever (optional) -------------
     updateFeverOnHit: function (isGood) {
       if (!ns.FeverUI) return;
+
       let f = this.fever || 0;
       if (isGood) f += 8;
       else        f -= 12;
+
       f = clamp(f, 0, FEVER_MAX);
       this.fever = f;
+
       if (f >= FEVER_MAX && !this.feverActive) {
         this.feverActive = true;
         ns.FeverUI.setFeverActive(true);
@@ -313,15 +346,18 @@
         this.feverActive = false;
         ns.FeverUI.setFeverActive(false);
       }
+
       ns.FeverUI.setFever(f);
     },
 
     updateFeverOnMiss: function () {
       if (!ns.FeverUI) return;
+
       let f = this.fever || 0;
       f -= 5;
       f = clamp(f, 0, FEVER_MAX);
       this.fever = f;
+
       if (f < 30 && this.feverActive) {
         this.feverActive = false;
         ns.FeverUI.setFeverActive(false);
@@ -329,6 +365,7 @@
       ns.FeverUI.setFever(f);
     },
 
+    // ------------- logging / finish -------------
     logEvent: function (ev) {
       this.events.push(ev);
     },
