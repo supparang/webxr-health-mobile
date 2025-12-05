@@ -97,7 +97,8 @@ export async function boot(cfg = {}) {
       second() {},
       getProgress() { return []; },
       drawGoals() {},
-      draw3() {}
+      draw3() {},
+      drawMini() {}
     };
   }
 
@@ -105,9 +106,15 @@ export async function boot(cfg = {}) {
   deck.stats.greenTick = 0;
   deck.stats.zone      = waterZone;
 
-  // สุ่มภารกิจชุดแรก
-  if (typeof deck.drawGoals === 'function') deck.drawGoals(2);
-  if (typeof deck.draw3 === 'function')     deck.draw3();
+  // ✅ สุ่มภารกิจชุดแรก (รองรับทั้ง drawMini(3) และ draw3())
+  if (typeof deck.drawGoals === 'function') {
+    deck.drawGoals(2);
+  }
+  if (typeof deck.drawMini === 'function') {
+    deck.drawMini(3);
+  } else if (typeof deck.draw3 === 'function') {
+    deck.draw3();
+  }
 
   let accMiniDone = 0;
   let accGoalDone = 0;
@@ -116,9 +123,24 @@ export async function boot(cfg = {}) {
   function pushQuest(hint) {
     if (!deck || typeof deck.getProgress !== 'function') return;
 
-    const goals = deck.getProgress('goals') || [];
-    const minis = deck.getProgress('mini')  || [];
-    const z     = zoneFrom(waterPct);
+    let goals = deck.getProgress('goals') || [];
+    let minis = deck.getProgress('mini')  || deck.getProgress('minis') || [];
+
+    // ถ้ายังไม่มีเลย ให้สุ่มใหม่อีกครั้งเพื่อกัน HUD ว่างเปล่า
+    if (goals.length === 0 && typeof deck.drawGoals === 'function') {
+      deck.drawGoals(2);
+      goals = deck.getProgress('goals') || [];
+    }
+    if (minis.length === 0) {
+      if (typeof deck.drawMini === 'function') {
+        deck.drawMini(3);
+      } else if (typeof deck.draw3 === 'function') {
+        deck.draw3();
+      }
+      minis = deck.getProgress('mini') || deck.getProgress('minis') || [];
+    }
+
+    const z = zoneFrom(waterPct);
 
     const payload = {
       goal: goals.find(g => !g.done) || goals[0] || null,
@@ -128,12 +150,11 @@ export async function boot(cfg = {}) {
       hint: hint || `โซนน้ำ: ${z}`
     };
 
-    // สำหรับโค้ช / ระบบอื่น ๆ
+    // ใช้กับของเก่า (quest-hud)
     window.dispatchEvent(new CustomEvent('quest:update', {
       detail: payload
     }));
-
-    // 🔸 สำคัญ: HUD ใช้ event นี้ → ทำให้ Goal / Mini quest แสดงบน panel
+    // และ hha:quest สำหรับโค้ช
     window.dispatchEvent(new CustomEvent('hha:quest', {
       detail: payload
     }));
@@ -343,16 +364,22 @@ export async function boot(cfg = {}) {
     syncDeck();
 
     const g = (deck.getProgress && deck.getProgress('goals')) || [];
-    const m = (deck.getProgress && deck.getProgress('mini'))  || [];
+    const m = (deck.getProgress && (deck.getProgress('mini') || deck.getProgress('minis'))) || [];
 
     if (g.length > 0 && g.every(x => x.done)) {
       accGoalDone += g.length;
-      deck.drawGoals && deck.drawGoals(2);
+      if (typeof deck.drawGoals === 'function') {
+        deck.drawGoals(2);
+      }
       pushQuest('Goal ใหม่');
     }
     if (m.length > 0 && m.every(x => x.done)) {
       accMiniDone += m.length;
-      deck.draw3 && deck.draw3();
+      if (typeof deck.drawMini === 'function') {
+        deck.drawMini(3);
+      } else if (typeof deck.draw3 === 'function') {
+        deck.draw3();
+      }
       pushQuest('Mini ใหม่');
     }
 
@@ -367,7 +394,7 @@ export async function boot(cfg = {}) {
     ended = true;
 
     const g = (deck.getProgress && deck.getProgress('goals')) || [];
-    const m = (deck.getProgress && deck.getProgress('mini'))  || [];
+    const m = (deck.getProgress && (deck.getProgress('mini') || deck.getProgress('minis'))) || [];
 
     const goalCleared = g.length > 0 && g.every(x => x.done);
 
