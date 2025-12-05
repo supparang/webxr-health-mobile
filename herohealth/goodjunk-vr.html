@@ -10,9 +10,6 @@
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ถ้ามีไฟล์ CSS แยกไว้ก็ใช้ร่วมกันได้ -->
-  <!-- <link rel="stylesheet" href="./css/goodjunk-vr.css" /> -->
-
   <style>
     :root{
       color-scheme: light dark;
@@ -30,7 +27,7 @@
     body{
       margin:0;
       min-height:100vh;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background:
         radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
         radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
@@ -43,12 +40,12 @@
     .hud-root{
       position:fixed;
       inset:0;
-      pointer-events:none;
       z-index:650;
       display:flex;
       flex-direction:column;
       justify-content:space-between;
       padding:10px 10px 14px;
+      pointer-events:none;          /* ✅ ทั้ง HUD ไม่บังคลิก A-Frame */
     }
 
     .hud-top{
@@ -64,7 +61,7 @@
       padding:8px 10px;
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
-      pointer-events:auto;
+      pointer-events:none;          /* ✅ ไม่รับ pointer */
     }
 
     .hud-main{
@@ -168,7 +165,7 @@
       justify-content:space-between;
     }
 
-    /* ===== Coach bubble ด้านล่าง ===== */
+    /* ===== Coach bubble ===== */
     .hud-bottom{
       display:flex;
       flex-direction:column;
@@ -189,7 +186,7 @@
       align-items:center;
       justify-content:center;
       gap:8px;
-      pointer-events:auto;
+      pointer-events:none;          /* ✅ ไม่บัง tap/คลิก ฉาก VR */
     }
     .coach-bubble.show{ display:flex; }
     .coach-label{
@@ -200,7 +197,7 @@
       font-weight:600;
     }
 
-    /* Hint กลางจอ */
+    /* ===== Center hint: “ลากนิ้วเพื่อหมุนมุมมอง” ===== */
     .hint-center{
       position:fixed;
       left:50%;
@@ -218,7 +215,7 @@
     }
     .hint-center.show{ display:block; }
 
-    /* Toast สรุปท้ายเกม */
+    /* ===== End Summary Toast ===== */
     .end-toast{
       position:fixed;
       left:50%;
@@ -235,7 +232,7 @@
       box-shadow:0 20px 40px rgba(15,23,42,0.85);
       display:none;
       z-index:652;
-      pointer-events:auto;
+      pointer-events:none;          /* ✅ แค่โชว์ ไม่รับคลิก */
     }
     .end-toast.show{ display:block; }
     .end-title{
@@ -251,7 +248,7 @@
     }
     .end-row strong{ font-weight:600; }
 
-    /* A-Frame canvas full screen */
+    /* ===== A-Frame canvas full ===== */
     a-scene{
       width:100vw;
       height:100vh;
@@ -262,26 +259,25 @@
 </head>
 <body>
 
-  <!-- ===== A-Frame Scene ===== -->
+  <!-- ===== A-Frame Scene (พื้นหลัง VR) ===== -->
   <a-scene
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
     background="color: #020617">
 
-    <!-- กล้อง + crosshair -->
+    <!-- กล้องกลาง + crosshair + raycaster -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="gj-camera"
-          wasd-controls-enabled="false"
-          look-controls="pointerLockEnabled: false">
-      <a-entity id="cursor"
-            cursor="fuse: false"
-            raycaster="objects: [data-hha-tgt]"
-            geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-            material="shader: flat; color: #ffffff"
-            position="0 0 -0.9">
-      </a-entity>
-    </a-camera>
-
+                wasd-controls-enabled="false"
+                look-controls="pointerLockEnabled: false">
+        <a-entity id="cursor"
+                  cursor="fuse: false; rayOrigin: mouse"
+                  raycaster="objects: .hha-target"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+                  material="shader: flat; color: #ffffff"
+                  position="0 0 -0.9">
+        </a-entity>
+      </a-camera>
     </a-entity>
 
     <!-- พื้น + แสง -->
@@ -290,19 +286,16 @@
     <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
              material="color: #020617; metalness: 0; roughness: 1"></a-plane>
     <a-sky color="#020617"></a-sky>
-
-    <!-- ตำแหน่ง spawn emoji -->
-    <a-entity id="target-root"></a-entity>
   </a-scene>
 
   <!-- ===== HUD Overlay (2D) ===== -->
   <div class="hud-root">
     <div class="hud-top">
-      <!-- ซ้าย: โหมด + metric -->
+      <!-- Left: mode + metrics -->
       <div class="hud-card" style="flex:1;max-width:360px;">
         <div class="hud-main">
           <div>
-            <div class="hud-main-title">HERO HEALTH • NUTRITION VR</div>
+            <div class="hud-main-title">Hero Health • Nutrition VR</div>
             <div class="hud-main-mode">Good vs Junk</div>
           </div>
           <div class="hud-pill">
@@ -327,9 +320,9 @@
         </div>
       </div>
 
-      <!-- ขวา: Quest panel -->
+      <!-- Right: quest panel -->
       <div class="hud-card hud-quest">
-        <div class="quest-title">QUEST</div>
+        <div class="quest-title">Quest</div>
         <div id="hud-quest-main" class="quest-main-label">ภารกิจหลักจะโผล่ตรงนี้</div>
         <div id="hud-quest-mini" class="quest-mini-label">Mini quest จะโผล่ตรงนี้</div>
         <div class="quest-progress-wrap">
@@ -351,19 +344,19 @@
       </div>
     </div>
 
-    <!-- ล่าง: coach bubble -->
+    <!-- Bottom: coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <span class="coach-label">โค้ช</span>
-        <span id="coach-text">แตะอาหารดีให้ตรงเป้าหมาย</span>
+        <span id="coach-text">แตะของดีให้ตรงเป้าหมาย</span>
       </div>
     </div>
   </div>
 
-  <!-- Hint กลางจอ -->
+  <!-- Center hint for touch-look -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
 
-  <!-- Toast สรุปผล -->
+  <!-- End summary -->
   <div class="end-toast" id="end-toast">
     <div class="end-title">สรุปผล • Good vs Junk</div>
     <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
@@ -373,10 +366,7 @@
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
   </div>
 
-  <!-- Bubble โค้ชรวม (ฟัง hha:score ฯลฯ) -->
-  <script src="./vr/coach-bubble.js"></script>
-
-  <!-- ===== Logic: Boot GameEngine + HUD + TouchLook + Cloud Logger ===== -->
+  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
     import { GameEngine } from './vr-goodjunk/GameEngine.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
@@ -388,7 +378,7 @@
       return v !== null && v !== '' ? v : fallback;
     }
 
-    // HUD refs
+    // HUD element refs
     const elScore   = document.getElementById('hud-score');
     const elCombo   = document.getElementById('hud-combo');
     const elMiss    = document.getElementById('hud-miss');
@@ -427,14 +417,14 @@
       }, 4200);
     }
 
-    /* เวลา */
+    // HUD: เวลา
     window.addEventListener('hha:time', (e)=>{
       const sec = (e.detail?.sec | 0);
       if (sec < 0) return;
       elTime.textContent = sec + 's';
     });
 
-    /* Quest จาก quest-director.js (event: hha:quest) */
+    // HUD: Quest
     window.addEventListener('hha:quest', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -469,13 +459,13 @@
       }
     });
 
-    /* โค้ชจากโหมด (hha:coach) ให้ขึ้น bubble ด้านล่าง */
+    // HUD: Coach
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
       if (text) setCoach(text);
     });
 
-    /* คะแนน / คอมโบ / miss */
+    // HUD: คะแนน / คอมโบ / miss
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
       if (typeof d.score === 'number') {
@@ -499,14 +489,14 @@
       elMiss.textContent = hudMissCount;
     });
 
-    /* สรุปตอนจบเกมจาก GameEngine.stop() */
+    // HUD: End summary
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
       const scoreFinal = d.scoreFinal ?? d.score ?? 0;
       const comboMax   = d.comboMax ?? 0;
       const misses     = d.misses ?? 0;
-      const goalsCleared  = d.goalsCleared ?? 0;
-      const goalsTotal    = d.goalsTotal ?? 0;
+      const goalsCleared  = d.goalsCleared ?? d.miniCleared ?? 0;
+      const goalsTotal    = d.goalsTotal ?? d.miniTotal ?? 0;
       const miniCleared   = d.miniCleared ?? 0;
       const miniTotal     = d.miniTotal ?? 0;
 
@@ -548,7 +538,7 @@
       elTime.textContent  = dur + 's';
       hudMissCount = 0;
 
-      // Cloud logger
+      // Cloud Logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
@@ -561,7 +551,7 @@
       // เริ่มเกม
       GameEngine.start(diff, dur);
 
-      // countdown → hha:time + GameEngine.tickTime()
+      // countdown timer → hha:time → GameEngine.stop() เมื่อหมดเวลา
       let timeLeft = dur;
       function tickTime(){
         timeLeft -= 1;
@@ -574,9 +564,7 @@
         }
       }
 
-      // initial fire
       window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-      GameEngine.tickTime(timeLeft);
       const timerId = setInterval(tickTime, 1000);
     });
   </script>
