@@ -1,17 +1,18 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Circle Targets + Coach events
+// Good vs Junk VR — Emoji Sprite Targets + Coach events (2025-12-05)
 
 'use strict';
 
 export const GameEngine = (function () {
+  // ---------- ชุด emoji ----------
   const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛',
                '🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑'];
   const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
 
-  const GOOD_RATE  = 0.65;     // โอกาสเป็นของดี
-  const SPAWN_MS   = 950;      // ความถี่การเกิดเป้า (ms)
-  const FALL_SPEED = 0.012;    // ความเร็วตก
-  const DESPAWN_Y  = 0.15;     // ต่ำกว่านี้ถือว่าหลุดจอ
+  const GOOD_RATE  = 0.65;    // โอกาสเป็นของดี
+  const SPAWN_MS   = 950;     // ความถี่การเกิดเป้า
+  const FALL_SPEED = 0.012;   // ความเร็วตก
+  const DESPAWN_Y  = 0.05;    // ต่ำกว่านี้ถือว่าหลุดจอ
 
   let sceneEl = null;
   let running = false;
@@ -23,6 +24,28 @@ export const GameEngine = (function () {
   let combo = 0;
   let comboMax = 0;
   let misses = 0;
+
+  // ---------- emoji → texture cache ----------
+  const emojiTexCache = new Map();
+
+  function getEmojiTexture(ch) {
+    if (emojiTexCache.has(ch)) return emojiTexCache.get(ch);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    ctx.clearRect(0, 0, 256, 256);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // ใช้ system emoji font
+    ctx.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif';
+    ctx.fillText(ch, 128, 140);
+
+    const url = canvas.toDataURL('image/png');
+    emojiTexCache.set(ch, url);
+    return url;
+  }
 
   // ---------- helper: emit event ----------
   function emit(type, detail) {
@@ -55,7 +78,7 @@ export const GameEngine = (function () {
     });
   }
 
-  // ---------- สร้างเป้า (วงกลม + emoji) ----------
+  // ---------- สร้างเป้า (วงกลม + emoji sprite) ----------
   function createTargetEntity(emoji, kind) {
     if (!sceneEl) return null;
 
@@ -63,7 +86,7 @@ export const GameEngine = (function () {
 
     // สุ่มตำแหน่ง X / Y
     const x = -1.0 + Math.random() * 2.0;  // -1 ถึง +1
-    const y = 2.1 + Math.random() * 0.6;   // สูงเหนือศีรษะนิดหน่อย
+    const y = 2.2 + Math.random() * 0.5;   // โผล่ด้านบนจอ
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
@@ -73,28 +96,29 @@ export const GameEngine = (function () {
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
 
-    // วงกลมสีให้เห็นชัด
-    const circle = document.createElement('a-circle');
-    circle.setAttribute('radius', kind === 'good' ? 0.32 : 0.28);
-    circle.setAttribute('material', {
+    // วงกลมโปร่ง ๆ ให้รู้ว่าเป็น good/junk
+    const ring = document.createElement('a-circle');
+    ring.setAttribute('radius', kind === 'good' ? 0.38 : 0.34);
+    ring.setAttribute('material', {
       color: kind === 'good' ? '#22c55e' : '#f97316',
-      opacity: 0.95,
+      opacity: 0.26,
       metalness: 0,
       roughness: 1
     });
 
-    // emoji อยู่ด้านหน้า
-    const txt = document.createElement('a-entity');
-    txt.setAttribute('text', {
-      value: emoji,
-      align: 'center',
-      width: 4,
-      color: '#111827'
+    // emoji เป็น texture บน plane
+    const sprite = document.createElement('a-plane');
+    sprite.setAttribute('width', 0.7);
+    sprite.setAttribute('height', 0.7);
+    sprite.setAttribute('position', { x: 0, y: 0, z: 0.01 });
+    sprite.setAttribute('material', {
+      src: getEmojiTexture(emoji),
+      transparent: true,
+      alphaTest: 0.01
     });
-    txt.setAttribute('position', { x: 0, y: 0, z: 0.01 });
 
-    root.appendChild(circle);
-    root.appendChild(txt);
+    root.appendChild(ring);
+    root.appendChild(sprite);
 
     // คลิกโดนเป้า
     root.addEventListener('click', () => onHit(root));
@@ -117,9 +141,9 @@ export const GameEngine = (function () {
       combo++;
       comboMax = Math.max(comboMax, combo);
 
-      if (combo === 1)       coach('เปิดคอมโบแล้ว! เลือกผัก ผลไม้ นมต่อเลย 🥦🥛');
+      if (combo === 1)       coach('เปิดคอมโบแล้ว! เลือกผัก ผลไม้ นมต่อเลย 🥦🍎🥛');
       else if (combo === 5) coach('คอมโบ x5 แล้ว เยี่ยมมาก! 🔥');
-      else if (combo === 10)coach('สุดยอด! โปรโหมดแล้ว x10 💪');
+      else if (combo === 10)coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
 
     } else { // junk
       score = Math.max(0, score - 8);
@@ -148,7 +172,7 @@ export const GameEngine = (function () {
       emitMiss();
       emitScore();
     }
-    // ถ้าเป็น junk หลุดจอเฉย ๆ ไม่ถือว่าพลาด
+    // junk หลุดจอ ไม่ถือว่าพลาด
   }
 
   // ---------- อัปเดตตำแหน่งทุกเฟรม ----------
@@ -204,7 +228,6 @@ export const GameEngine = (function () {
       console.error('[GoodJunkVR] ไม่พบ <a-scene>');
       return;
     }
-    // รอให้ A-Frame โหลดก่อน
     if (sceneEl.hasLoaded) {
       _startCore(diff);
     } else {
