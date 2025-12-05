@@ -3,6 +3,11 @@
 
 'use strict';
 
+// ---------- helper ส่ง event ให้ HUD / Coach ----------
+function emit(name, detail = {}) {
+  window.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
 // engine กลาง
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
@@ -51,6 +56,47 @@ function getCreateHydrationQuest() {
   throw new Error('createHydrationQuest not found in hydration.quest.js');
 }
 
+// ---------- map progress ของ goal / mini ให้ HUD ใช้ ----------
+function mapQuestProgress(q) {
+  if (!q) return null;
+
+  // พยายามเดา field ปัจจุบัน/เป้าหมาย จาก MissionDeck
+  const cur =
+    Number(
+      q.value ??
+      q.progress ??
+      q.progValue ??
+      q.current ??
+      0
+    ) || 0;
+
+  const target =
+    Number(
+      q.target ??
+      q.goal ??
+      q.max ??
+      q.maxValue ??
+      0
+    ) || 0;
+
+  const pct = target > 0
+    ? Math.max(0, Math.min(100, Math.round((cur / target) * 100)))
+    : 0;
+
+  const status = q.done ? 'done' : 'active';
+
+  return {
+    id: q.id || '',
+    label: q.label || '',
+    done: !!q.done,
+    current: cur,
+    target,
+    pct,
+    status
+  };
+}
+
+// ---------- main boot ----------
 export async function boot(cfg = {}) {
   // ----- อ่าน difficulty + duration -----
   const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
@@ -99,36 +145,18 @@ export async function boot(cfg = {}) {
   deck.stats.greenTick = 0;
   deck.stats.zone      = waterZone;
 
-  // ✅ สุ่มภารกิจชุดแรกออกมา (ใน hydration.quest.js drawGoals/draw3 เป็น no-op อยู่แล้ว)
+  // ✅ สุ่มภารกิจชุดแรกออกมา
   if (typeof deck.drawGoals === 'function') deck.drawGoals(2);
   if (typeof deck.draw3 === 'function')     deck.draw3();
 
   let accMiniDone = 0;
   let accGoalDone = 0;
 
-  function pushQuest(hint) {
-    if (!deck || typeof deck.getProgress !== 'function') return;
-
-    const goals = deck.getProgress('goals') || [];
-    const minis = deck.getProgress('mini')  || [];
-    const z     = zoneFrom(waterPct);
-
-    window.dispatchEvent(new CustomEvent('quest:update', {
-      detail: {
-        goal: goals.find(g => !g.done) || goals[0] || null,
-        mini: minis.find(m => !m.done) || minis[0] || null,
-        goalsAll: goals,
-        minisAll: minis,
-        hint: hint || `โซนน้ำ: ${z}`
-      }
-    }));
-  }
-
-  // ----- state หลัก -----
+  // ------- state หลัก -------
   let score       = 0;
   let combo       = 0;
   let comboMax    = 0;
-  let misses      = 0;   // นับ “แตะน้ำไม่ดีตอนไม่มีเกราะ” เท่านั้น
+  let misses      = 0;
   let star        = 0;
   let diamond     = 0;
   let shield      = 0;
@@ -176,6 +204,56 @@ export async function boot(cfg = {}) {
     safeBurstAt(x, y, { color: good ? '#22c55e' : '#f97316' });
   }
 
+  // ------ ส่ง progress ให้ HUD + โค้ช ------
+  function pushQuest(hint) {
+    if (!deck || typeof deck.getProgress !== 'function') return;
+
+    const rawGoals = deck.getProgress('goals') || [];
+    const rawMinis = deck.getProgress('mini')  || [];
+    const z        = zoneFrom(waterPct);
+
+    const goalRaw = rawGoals.find(g => !g.done) || rawGoals[0] || null;
+    const miniRaw = rawMinis.find(m => !m.done) || rawMinis[0] || null;
+
+    const goal = mapQuestProgress(goalRaw);
+    const mini = mapQuestProgress(miniRaw);
+    const goalsAll = rawGoals.map(mapQuestProgress);
+    const minisAll = rawMinis.map(mapQuestProgress);
+
+    // status text แบบเด็ก ป.5 ใช้ง่าย ๆ
+    let goalStatus = 'ยังไม่มีภารกิจใหญ่';
+    if (goal) {
+      if (goal.done) {
+        goalStatus = 'ภารกิจใหญ่สำเร็จแล้ว เยี่ยมมาก! 🎉';
+      } else if (goal.target > 0) {
+        goalStatus = `ภารกิจใหญ่คืบหน้า ${goal.pct}%`;
+      } else {
+        goalStatus = 'ทำภารกิจใหญ่ต่อไปนะ';
+      }
+    }
+
+    let miniStatus = 'ยังไม่มี Mini quest';
+    if (mini) {
+      if (mini.done) {
+        miniStatus = 'Mini quest นี้ผ่านแล้ว เก่งมาก! 🌟';
+      } else if (mini.target > 0) {
+        miniStatus = `Mini quest คืบหน้า ${mini.pct}%`;
+      } else {
+        miniStatus = 'Mini quest กำลังทำอยู่';
+      }
+    }
+
+    emit('quest:update', {
+      goal,
+      mini,
+      goalsAll,
+      minisAll,
+      hint: hint || `โซนน้ำ: ${z}`,
+      goalStatus,
+      miniStatus
+    });
+  }
+
   // ----- judge เมื่อยิง/แตะเป้า -----
   function judge(ch, ctx) {
     const x = ctx?.clientX ?? ctx?.cx ?? 0;
@@ -186,7 +264,7 @@ export async function boot(cfg = {}) {
       const d = 40 * mult();
       score += d; star++;
       gainFever(10);
-      deck.onGood && deck.onGood();    // นับเป็น event ดีต่อ quest
+      deck.onGood && deck.onGood();
       combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
@@ -227,7 +305,6 @@ export async function boot(cfg = {}) {
 
     // ปกติ: GOOD / BAD
     if (GOOD.includes(ch)) {
-      // ✅ น้ำดี → ไม่เป็น miss เสมอ
       addWater(+8);
       const d = (14 + combo * 2) * mult();
       score += d;
@@ -241,7 +318,6 @@ export async function boot(cfg = {}) {
     } else {
       // แตะของไม่ดี
       if (shield > 0) {
-        // มีเกราะ → บล็อกความเสียหาย, ไม่เป็น miss
         shield--;
         setShield(shield);
         addWater(-4);
@@ -250,15 +326,13 @@ export async function boot(cfg = {}) {
         scoreFX(x, y, 0);
         return { good: false, scoreDelta: 0 };
       }
-
-      // ❌ ไม่มีเกราะ + แตะน้ำไม่ดี → นับเป็น miss
       addWater(-8);
       const d = -10;
       score = Math.max(0, score + d);
       combo = 0;
-      misses++;                         // << นับ miss ตรงนี้เท่านั้น
+      misses++;
       decayFever(14);
-      deck.onJunk && deck.onJunk();     // สำหรับ quest: พลาด junk
+      deck.onJunk && deck.onJunk();
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
       return { good: false, scoreDelta: d };
@@ -266,24 +340,14 @@ export async function boot(cfg = {}) {
   }
 
   // ----- เมื่อเป้าหายไปเอง (expire) -----
-  // ตามนิยามใหม่:
-  //   - ปล่อยน้ำดีหาย → ไม่เป็น miss
-  //   - ปล่อย junk หาย → ไม่เป็น miss เช่นกัน
   function onExpire(ev) {
-    if (!ev) return;
-
-    // ถ้าอยากให้ quest รู้ว่ามี event เกิดขึ้นตอนเป้าหมดเวลา
-    // สามารถเลือกเรียก onGood/onJunk ได้ แต่ "ไม่" ไปยุ่งกับ misses
-    /*
-    if (ev.isGood && typeof deck.onGood === 'function') {
-      deck.onGood();
-    } else if (!ev.isGood && typeof deck.onJunk === 'function') {
-      deck.onJunk();
+    // factoryBoot ส่ง ev.isGood = true/false มาให้
+    if (ev && !ev.isGood) {
+      misses++;
+      deck.onJunk && deck.onJunk();
+      syncDeck();
+      pushQuest();
     }
-    */
-
-    syncDeck();
-    pushQuest();
   }
 
   // ----- tick รายวินาที -----
@@ -319,6 +383,12 @@ export async function boot(cfg = {}) {
       deck.draw3 && deck.draw3();
       pushQuest('Mini ใหม่');
     }
+
+    // ส่งเวลา / miss / score ให้ HUD ทั่วไป
+    emit('hha:time',  { secTick: deck.stats.tick | 0 });
+    emit('hha:score', { value: score });
+    emit('hha:combo', { value: combo, max: comboMax });
+    emit('hha:miss',  { value: misses });
   }
 
   // ----- จบเกม -----
@@ -341,26 +411,24 @@ export async function boot(cfg = {}) {
     const waterEnd     = waterPct;
     const waterZoneEnd = zoneFrom(waterPct);
 
-    window.dispatchEvent(new CustomEvent('hha:end', {
-      detail: {
-        mode: 'Hydration',
-        modeLabel: 'Hydration',
-        difficulty: diff,
-        score,
-        misses,             // << miss ตามนิยามใหม่
-        comboMax,
-        duration: dur,
-        greenTick,
-        goalCleared,
-        goalsCleared: goalsDone,
-        goalsTotal,
-        questsCleared: miniDone,
-        questsTotal: miniTotal,
-        waterStart,
-        waterEnd,
-        waterZoneEnd
-      }
-    }));
+    emit('hha:end', {
+      mode: 'Hydration',
+      modeLabel: 'Hydration',
+      difficulty: diff,
+      score,
+      misses,
+      comboMax,
+      duration: dur,
+      greenTick,
+      goalCleared,
+      goalsCleared: goalsDone,
+      goalsTotal,
+      questsCleared: miniDone,
+      questsTotal: miniTotal,
+      waterStart,
+      waterEnd,
+      waterZoneEnd
+    });
   }
 
   // clock กลางจาก factory (นับเวลาถอยหลัง)
