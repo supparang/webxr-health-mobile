@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (fall + auto-miss)
+// Food Groups VR — Game Engine (stable central target)
 // 2025-12-06
 
 (function (ns) {
@@ -25,10 +25,10 @@
     if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
       return ns.foodGroupsDifficulty.get(diffKey);
     }
-    // ค่า fallback ง่าย ๆ
+    // fallback ง่าย ๆ ถ้ายังไม่ได้ตั้ง difficulty table
     return {
-      spawnInterval: 1200,
-      fallSpeed: 0.004, // ยังไม่ใช้ตรง ๆ แต่เก็บไว้เผื่อ
+      spawnInterval: 1200,      // มีกี่ ms ค่อยเกิดเป้าใหม่
+      fallSpeed: 0.0,           // ยังไม่ใช้ (เผื่ออนาคต)
       scale: 1.2,
       maxActive: 3,
       goodRatio: 0.75,
@@ -61,15 +61,19 @@
       this.spawnClock = 0;
       this.score      = 0;
 
+      // Fever
       this.fever       = 0;
       this.feverActive = false;
 
+      // Logging
       this.sessionId = createSessionId();
       this.events    = [];
 
+      // HUD cache
       this._hudScore = document.getElementById('hud-score');
       this._hudTime  = document.getElementById('hud-time-label');
 
+      // Fever bar (global)
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -80,11 +84,13 @@
       const scene = this.el.sceneEl;
       const self  = this;
 
+      // เริ่มเกมจาก groups-vr.html
       scene.addEventListener('fg-start', function (e) {
         const diff = (e && e.detail && e.detail.diff) || 'normal';
         self.start(diff);
       });
 
+      // หยุดเกม
       scene.addEventListener('fg-stop', function () {
         self.finish('stop');
       });
@@ -138,6 +144,7 @@
       const interval  = cfg.spawnInterval || 1200;
       const maxActive = cfg.maxActive || 3;
 
+      // spawn เป้าใหม่
       if (this.spawnClock >= interval) {
         this.spawnClock = 0;
         if (this.targets.length < maxActive) {
@@ -145,9 +152,10 @@
         }
       }
 
-      // เช็คว่าตกเลยเส้นล่าง → miss
+      // ตอนนี้เวอร์ชัน stable ยังไม่ขยับเป้า / auto-miss
       this.updateTargets(dt);
 
+      // HUD time
       if (this._hudTime) {
         const remainMs  = Math.max(0, this.durationMs - this.elapsed);
         const remainSec = (remainMs / 1000) | 0;
@@ -161,7 +169,7 @@
       }
     },
 
-    // ---------------- spawn target ----------------
+    // ---------------- spawn target (เวอร์ชันชัวร์: กลางจอเสมอ) ----------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -175,16 +183,16 @@
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
-      // ให้เกิดสูงหน่อยแล้วตกลงผ่านกลางจอ
-      const x      = (Math.random() * 0.8) - 0.4;
-      const yStart = 1.8;
-      const yEnd   = 0.3;   // ใกล้พื้น
-      const z      = -3.0;
-      el.setAttribute('position', { x, y: yStart, z });
+      // ★ ตำแหน่งให้โผล่แน่นอน: กลางจอระดับสายตา
+      const x = 0;
+      const y = 1.3;
+      const z = -2.2;
+      el.setAttribute('position', { x, y, z });
 
       const scale  = this.cfg.scale || 1.2;
       const isGood = item.isGood ? true : false;
 
+      // วงกลมพื้นหลัง (hitbox)
       el.setAttribute('geometry', {
         primitive: 'circle',
         radius: 0.5 * scale
@@ -196,6 +204,7 @@
         side: 'double'
       });
 
+      // emoji ตรงกลาง
       const emojiChar = item.emoji || (isGood ? 'G' : 'J');
       const txt = document.createElement('a-entity');
       txt.setAttribute('text', {
@@ -219,13 +228,7 @@
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
 
-      // ให้ตกลงจาก yStart → yEnd
-      const animStr =
-        'property: position; ' +
-        `to: ${x} ${yEnd} ${z}; ` +
-        'dur: 3000; easing: linear; loop: false';
-      el.setAttribute('animation__fall', animStr);
-
+      // ยังไม่ใส่ animation__fall ในเวอร์ชัน stable นี้
       const self = this;
       el.addEventListener('click', function () {
         self.onHit(el);
@@ -234,28 +237,13 @@
       this.el.sceneEl.appendChild(el);
       this.targets.push(el);
 
-      console.log('[GroupsVR] spawnTarget(ANIM)', item, 'total=', this.targets.length);
+      console.log('[GroupsVR] spawnTarget(DEBUG CENTER)', item, 'total=', this.targets.length);
     },
 
-    // ---------------- auto-miss เมื่อตกต่ำเกินไป ----------------
+    // ---------------- ยังไม่ auto-miss (เวอร์ชัน stable) ----------------
     updateTargets: function (dt) {
-      const MISS_Y = 0.28;  // ต่ำกว่านี้ถือว่าเลยเส้นล่าง
-
-      for (let i = this.targets.length - 1; i >= 0; i--) {
-        const t = this.targets[i];
-        if (!t || !t.parentNode) {
-          this.targets.splice(i, 1);
-          continue;
-        }
-
-        const pos = t.getAttribute('position');
-        if (!pos) continue;
-
-        if (pos.y <= MISS_Y) {
-          // ถ้าไม่ได้ยิงจนตกเลย → miss
-          this.onMiss(t);
-        }
-      }
+      // เวอร์ชันนี้ยังไม่ให้เป้าหายเอง / miss อัตโนมัติ
+      // ถ้าจะให้หมดอายุ ค่อยเพิ่ม logic ตรงนี้ภายหลัง
     },
 
     removeTarget: function (el) {
@@ -382,6 +370,7 @@
 
       const scene = this.el.sceneEl;
 
+      // ส่งข้อมูลไป Google Sheet (ถ้าตั้ง logger ไว้)
       if (ns.foodGroupsCloudLogger && typeof ns.foodGroupsCloudLogger.send === 'function') {
         const rawSession = {
           sessionId:  this.sessionId,
