@@ -10,60 +10,7 @@
 
   <!-- ใช้สไตล์เดียวกับ Good vs Junk VR -->
   <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
-  <!-- ถ้ามีไฟล์ hydration-vr.css แล้วอยากจูนเพิ่มก็ใส่อันนี้ได้ด้วย
   <link rel="stylesheet" href="./css/hydration-vr.css"/>
-  -->
-
-  <!-- สไตล์กล่องสรุปตอนจบ (overlay กลางจอ) -->
-  <style>
-    .hha-end-overlay {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(15,23,42,.78);
-      z-index: 60;
-      font-family: system-ui, Segoe UI, Inter, Roboto, sans-serif;
-      color: #e5e7eb;
-    }
-    .hha-end-card {
-      background: rgba(15,23,42,.96);
-      border-radius: 18px;
-      padding: 20px 22px;
-      min-width: 260px;
-      max-width: 90vw;
-      box-shadow: 0 20px 60px rgba(0,0,0,.75);
-    }
-    .hha-end-card h2 {
-      margin: 0 0 6px;
-      font-size: 18px;
-    }
-    .hha-end-card h3 {
-      margin: 4px 0 10px;
-      font-size: 14px;
-      font-weight: 500;
-      opacity: .9;
-    }
-    .hha-end-card p {
-      margin: 3px 0;
-      font-size: 14px;
-    }
-    .hha-end-card .hha-end-highlight {
-      font-weight: 600;
-    }
-    .hha-end-card button {
-      margin-top: 12px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      border: none;
-      background: #22c55e;
-      color: #022c22;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-    }
-  </style>
 </head>
 <body>
 
@@ -74,15 +21,19 @@
     </div>
   </div>
 
-  <!-- วงกลมเล็งกลางจอ (crosshair) ให้สไตล์จาก goodjunk-vr.css ดูแล -->
+  <!-- วงกลมเล็งกลางจอ (crosshair) ใช้สไตล์จาก goodjunk-vr.css -->
   <div class="hha-crosshair"></div>
 
-  <!-- ปุ่ม VR มุมขวาล่าง (ใช้คลาสเดิมของ GoodJunk VR) -->
+  <!-- ปุ่ม VR มุมซ้ายบน (สไตล์เดิม GoodJunk) -->
   <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
   <!-- ===== SCRIPT ZONE ===== -->
-  <!-- HUD เควสต์ / สกอร์ ฯลฯ (แนบแบบ side-effect เหมือน Good vs Junk) -->
+
+  <!-- HUD เควสต์ / สกอร์ ฯลฯ (มี panel มุมขวาบน) -->
   <script type="module" src="./vr/quest-hud-vr.js"></script>
+
+  <!-- โค้ชหยดน้ำ (emoji + auto-move + bubble mission) -->
+  <script type="module" src="./vr/coach-bubble.js"></script>
 
   <!-- โหมด Hydration VR -->
   <script type="module">
@@ -98,16 +49,16 @@
     if (dur < 20)  dur = 20;
     if (dur > 180) dur = 180;
 
-    // เริ่มโหมด Hydration (engine ภายในจะสร้างเป้า, HUD, เควสต์ ฯลฯ ให้เอง)
+    // เริ่มโหมด Hydration
     bootHydration({
       difficulty: diff,
       duration:   dur
     }).then(inst => {
-      // ถ้ามี scene-wrap ให้ซ่อนตอนเริ่มเล่น
+      // ซ่อนข้อความโหลด
       const wrap = document.querySelector('.hha-scene-wrap');
       if (wrap) wrap.style.display = 'none';
 
-      // กัน memory leak ถ้าอนาคตอยากหยุดเกมผ่านปุ่มอื่น
+      // กัน memory leak ตอนออกหน้า
       window.addEventListener('beforeunload', () => {
         try {
           if (inst && typeof inst.destroy === 'function') {
@@ -123,86 +74,6 @@
       if (msg) {
         msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
       }
-    });
-  </script>
-
-  <!-- สรุปผลตอนจบ พร้อม Goals / Mini quests เคลียร์ -->
-  <script type="module">
-    function formatTime(sec) {
-      sec = sec | 0;
-      const m = Math.floor(sec / 60);
-      const s = sec % 60;
-      return m + ':' + (s < 10 ? '0' + s : s);
-    }
-
-    window.addEventListener('hha:end', (ev) => {
-      const d = ev.detail || {};
-      // แสดงเฉพาะโหมด Hydration
-      if ((d.mode || '').toLowerCase() !== 'hydration') return;
-
-      // ลบ overlay เก่า (ถ้ามี)
-      const old = document.querySelector('.hha-end-overlay');
-      if (old) old.remove();
-
-      const overlay = document.createElement('div');
-      overlay.className = 'hha-end-overlay';
-
-      const card = document.createElement('div');
-      card.className = 'hha-end-card';
-
-      const h2 = document.createElement('h2');
-      h2.textContent = 'สรุปโหมด Hydration';
-      card.appendChild(h2);
-
-      const h3 = document.createElement('h3');
-      const diffLabel = (d.difficulty || 'normal').toUpperCase();
-      h3.textContent = `ระดับความยาก: ${diffLabel}`;
-      card.appendChild(h3);
-
-      const pScore = document.createElement('p');
-      pScore.innerHTML =
-        `คะแนนรวม: <span class="hha-end-highlight">${d.score ?? 0}</span>` +
-        ` | Combo สูงสุด: ${d.comboMax ?? 0}`;
-      card.appendChild(pScore);
-
-      const pTime = document.createElement('p');
-      const dur = d.duration ?? d.timeSec ?? 0;
-      const miss = d.misses ?? d.miss ?? 0;
-      pTime.textContent = `เวลาเล่น: ${formatTime(dur)} | Miss: ${miss}`;
-      card.appendChild(pTime);
-
-      if (typeof d.greenTick === 'number') {
-        const pGreen = document.createElement('p');
-        pGreen.textContent = `อยู่ในโซนสมดุล (GREEN): ${d.greenTick}s`;
-        card.appendChild(pGreen);
-      }
-
-      // ✅ แสดง 2 ค่า: Goals / Mini quests เคลียร์แล้วกี่อัน
-      if (typeof d.goalsCleared === 'number' && typeof d.goalsTotal === 'number') {
-        const pGoals = document.createElement('p');
-        pGoals.innerHTML =
-          `Goals ที่ทำสำเร็จ: <span class="hha-end-highlight">` +
-          `${d.goalsCleared}/${d.goalsTotal}</span>`;
-        card.appendChild(pGoals);
-      }
-
-      if (typeof d.questsCleared === 'number' && typeof d.questsTotal === 'number') {
-        const pMini = document.createElement('p');
-        pMini.innerHTML =
-          `Mini quests ที่ทำสำเร็จ: <span class="hha-end-highlight">` +
-          `${d.questsCleared}/${d.questsTotal}</span>`;
-        card.appendChild(pMini);
-      }
-
-      const btn = document.createElement('button');
-      btn.textContent = 'เล่นอีกรอบ';
-      btn.addEventListener('click', () => {
-        location.reload();
-      });
-      card.appendChild(btn);
-
-      overlay.appendChild(card);
-      document.body.appendChild(overlay);
     });
   </script>
 </body>
