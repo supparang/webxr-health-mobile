@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/logger-cloud.js ===
-// Food Groups VR — Cloud Logger (non-module, global)
+// Food Groups VR — Cloud logger (Apps Script / no-cors)
 // 2025-12-06
 
 (function (root) {
@@ -23,14 +23,10 @@
   }
 
   function send(sessionSummary, events) {
-    if (CONFIG.debug) {
-      console.log('[GroupsVR-Logger] send()', { sessionSummary, events });
-    }
-
     const endpoint = CONFIG.endpoint;
     if (!endpoint || typeof fetch !== 'function') {
       if (CONFIG.debug) {
-        console.warn('[GroupsVR-Logger] no endpoint or fetch not available, skip send');
+        console.warn('[GroupsVR-Logger] no endpoint or fetch not available');
       }
       return;
     }
@@ -41,9 +37,13 @@
       events: Array.isArray(events) ? events : []
     };
 
+    if (CONFIG.debug) {
+      console.log('[GroupsVR-Logger] send()', payload);
+    }
+
     fetch(endpoint, {
       method: 'POST',
-      mode: 'no-cors', // ปลอดภัยสำหรับ Apps Script
+      mode: 'no-cors',
       headers: {
         'Content-Type': 'application/json'
       },
@@ -59,10 +59,7 @@
     });
   }
 
-  const mod = {
-    init,
-    send
-  };
+  const mod = { init, send };
 
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.foodGroupsCloudLogger = mod;
