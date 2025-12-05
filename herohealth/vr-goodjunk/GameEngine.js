@@ -1,286 +1,223 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Minimal A-Frame Engine (targets visible + HUD events)
+// Good vs Junk VR — Emoji Target Engine (ชัด ๆ)
+// สร้างเป้าเป็นแผ่นการ์ด + emoji 3D ให้เล็งแล้วคลิกได้
 
 'use strict';
 
-const A = window.AFRAME;
-if (!A) {
-  console.error('[GoodJunkVR] AFRAME not found');
-}
+export const GameEngine = (function () {
 
-// ---------- Config ----------
-const GOOD_EMOJI = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅'];
-const JUNK_EMOJI = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬'];
+  // ----- กำหนดชุด emoji -----
+  const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑'];
+  const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
 
-const DIFF_TABLE = {
-  easy:   { spawnInterval: 1300, fallSpeed: 0.75 },
-  normal: { spawnInterval: 950,  fallSpeed: 1.05 },
-  hard:   { spawnInterval: 750,  fallSpeed: 1.35 }
-};
+  const GOOD_RATE   = 0.65;   // โอกาสของดี
+  const SPAWN_MS    = 900;    // ช่วงห่างการ spawn
+  const FALL_SPEED  = 0.015;  // ความเร็วตก
+  const DESPAWN_Y   = 0.2;    // ต่ำกว่านี้ถือว่าหลุดเฟรม
 
-// ---------- State ----------
-let rootEl = null;
-let running = false;
-let currentDiff = 'normal';
+  let sceneEl        = null;
+  let running        = false;
+  let spawnTimer     = null;
+  let moveTimer      = null;
+  let activeTargets  = [];
 
-let spawnTimer = null;
-let moveTimer  = null;
-let lastMoveAt = 0;
+  let score    = 0;
+  let combo    = 0;
+  let comboMax = 0;
+  let misses   = 0;
 
-let nextId = 1;
-let targets = []; // {id, el, isGood, createdAt, lifetime, x,y,z}
-
-// stats
-let score = 0;
-let combo = 0;
-let maxCombo = 0;
-let misses = 0;
-let goodHits = 0;
-
-// simple quest target
-const GOAL_TARGET_GOOD   = 30;
-const MINI_TARGET_COMBO  = 10;
-
-// ---------- helpers ----------
-function randRange(min, max) { return min + Math.random() * (max - min); }
-
-function emit(name, detail) {
-  try { window.dispatchEvent(new CustomEvent(name, { detail })); }
-  catch (e) { console.warn('[GoodJunkVR] emit error', name, e); }
-}
-
-function ensureRootEntity() {
-  return new Promise((resolve) => {
-    if (rootEl && rootEl.isConnected) return resolve(rootEl);
-    const scene = document.querySelector('a-scene');
-    if (!scene) return resolve(null);
-
-    const attach = () => {
-      let root = scene.querySelector('#target-root');
-      if (!root) {
-        root = document.createElement('a-entity');
-        root.id = 'target-root';
-        scene.appendChild(root);
-      }
-      rootEl = root;
-      resolve(rootEl);
-    };
-
-    if (scene.hasLoaded) attach();
-    else scene.addEventListener('loaded', attach, { once: true });
-  });
-}
-
-function resetStats() {
-  score = 0;
-  combo = 0;
-  maxCombo = 0;
-  misses = 0;
-  goodHits = 0;
-
-  emit('hha:score', { score, combo, misses });
-  updateQuestHUD();
-}
-
-function updateQuestHUD(hint) {
-  const goal = {
-    label: `เก็บอาหารดีให้ได้อย่างน้อย ${GOAL_TARGET_GOOD} ชิ้น`,
-    prog: goodHits,
-    target: GOAL_TARGET_GOOD
-  };
-  const mini = {
-    label: `ทำคอมโบต่อเนื่องให้ได้อย่างน้อย ${MINI_TARGET_COMBO}`,
-    prog: maxCombo,
-    target: MINI_TARGET_COMBO
-  };
-  emit('hha:quest', { goal, mini, hint: hint || '' });
-}
-
-function removeTarget(t) {
-  if (!t) return;
-  if (t.el && t.el.parentNode) t.el.parentNode.removeChild(t.el);
-  targets = targets.filter(x => x.id !== t.id);
-}
-
-// ---------- spawn / move ----------
-function spawnOne() {
-  if (!running || !rootEl) return;
-
-  const isGood = Math.random() < 0.65;
-  const emoji = isGood
-    ? GOOD_EMOJI[Math.floor(Math.random() * GOOD_EMOJI.length)]
-    : JUNK_EMOJI[Math.floor(Math.random() * JUNK_EMOJI.length)];
-
-  const x = randRange(-1.8, 1.8);
-  const y = randRange(1.3, 2.3);
-  const z = -3.0;
-
-  const base = document.createElement('a-entity');
-  base.setAttribute('position', `${x} ${y} ${z}`);
-
-  // 🔹 ให้ base ก็เป็น target
-  base.setAttribute('data-hha-tgt', '');
-  base.classList.add('hha-target');
-
-  // วงกลมพื้นหลัง (จาน)
-  const plate = document.createElement('a-entity');
-  plate.setAttribute('geometry', 'primitive: circle; radius: 0.35; segments: 32');
-  plate.setAttribute(
-    'material',
-    `color: ${isGood ? '#22c55e' : '#f97316'}; emissive: ${isGood ? '#22c55e' : '#f97316'}; emissiveIntensity: 0.35; side: double`
-  );
-  plate.setAttribute('rotation', '-90 0 0');
-  plate.setAttribute('data-hha-tgt', '');
-  plate.classList.add('hha-target');
-  base.appendChild(plate);
-
-  // emoji text
-  const label = document.createElement('a-entity');
-  label.setAttribute(
-    'text',
-    `value: ${emoji}; align: center; width: 2.4; color: #ffffff; side: double`
-  );
-  label.setAttribute('position', '0 0 0.02');
-  label.setAttribute('rotation', '-90 0 0');
-  label.setAttribute('data-hha-tgt', '');
-  label.classList.add('hha-target');
-  base.appendChild(label);
-
-  const target = {
-    id: nextId++,
-    el: base,
-    isGood,
-    createdAt: performance.now(),
-    lifetime: 2600,
-    x, y, z
-  };
-
-  // 🔹 ผูก click ให้ทุกชั้น เผื่อ ray โดน child
-  const onClick = () => handleHit(target);
-  base.addEventListener('click', onClick);
-  plate.addEventListener('click', onClick);
-  label.addEventListener('click', onClick);
-
-  rootEl.appendChild(base);
-  targets.push(target);
-}
-
-function handleHit(target) {
-  if (!running) return;
-  if (!targets.find(t => t.id === target.id)) return; // ถูกลบไปแล้ว
-
-  const wasGood = target.isGood;
-  removeTarget(target);
-
-  if (wasGood) {
-    goodHits += 1;
-    combo += 1;
-    if (combo > maxCombo) maxCombo = combo;
-    const delta = 20 + combo * 2;
-    score += delta;
-    emit('hha:score', { score, combo, misses });
-    updateQuestHUD();
-  } else {
-    combo = 0;
-    misses += 1;
-    score = Math.max(0, score - 12);
-    emit('hha:miss', { misses });
-    emit('hha:score', { score, combo, misses });
-    updateQuestHUD('ระวังอาหารขยะ! เลือกผัก ผลไม้ นมให้มากขึ้น');
+  // ----- helper ยิง event ให้ HUD -----
+  function emitScore() {
+    window.dispatchEvent(new CustomEvent('hha:score', {
+      detail: { score, combo, misses }
+    }));
   }
-}
 
-function expireAsMiss(target) {
-  removeTarget(target);
-  combo = 0;
-  misses += 1;
-  emit('hha:miss', { misses });
-  emit('hha:score', { score, combo, misses });
-  updateQuestHUD();
-}
+  function emitMiss() {
+    window.dispatchEvent(new CustomEvent('hha:miss', {
+      detail: { misses }
+    }));
+  }
 
-function startMoveLoop() {
-  if (moveTimer) return;
-  lastMoveAt = performance.now();
-  const speed = DIFF_TABLE[currentDiff]?.fallSpeed || DIFF_TABLE.normal.fallSpeed;
+  function emitEnd() {
+    window.dispatchEvent(new CustomEvent('hha:end', {
+      detail: {
+        mode:         'Good vs Junk (VR)',
+        score,
+        comboMax,
+        misses,
+        goalsCleared: 0,
+        goalsTotal:   0,
+        miniCleared:  0,
+        miniTotal:    0
+      }
+    }));
+  }
 
-  moveTimer = setInterval(() => {
+  // ----- สร้างเป้าเป็น “การ์ด + emoji” -----
+  function createTargetEntity(emoji, kind) {
+    if (!sceneEl) return null;
+
+    // parent entity
+    const root = document.createElement('a-entity');
+
+    // random ตำแหน่งข้างหน้า player
+    const x = -1.2 + Math.random() * 2.4;   // -1.2 .. 1.2
+    const y = 2.0 + Math.random() * 0.7;    // 2.0 .. 2.7
+    const z = -2.4 - Math.random() * 0.6;   // -2.4 .. -3.0
+
+    root.setAttribute('position', { x, y, z });
+    root.dataset.kind  = kind;    // good / junk
+    root.dataset.emoji = emoji;
+
+    // แผ่นการ์ดพื้นหลัง (ให้ raycaster โดนง่าย ๆ)
+    const card = document.createElement('a-plane');
+    card.setAttribute('width', 0.8);
+    card.setAttribute('height', 0.8);
+    card.setAttribute('material',
+      'color: #020617; opacity: 0.92; metalness: 0; roughness: 1');
+    card.setAttribute('data-hha-tgt', '1');   // raycaster จะยิง element นี้
+    card.classList.add('gj-target');
+
+    // emoji text อยู่ด้านหน้าเล็กน้อย
+    const txt = document.createElement('a-entity');
+    txt.setAttribute('text', {
+      value: emoji,
+      align: 'center',
+      width: 4,
+      color: '#ffffff'
+    });
+    txt.setAttribute('position', { x: 0, y: 0, z: 0.01 });
+
+    // คลิกการ์ด = โดนเป้า
+    card.addEventListener('click', () => {
+      onHit(root);
+    });
+
+    root.appendChild(card);
+    root.appendChild(txt);
+    sceneEl.appendChild(root);
+    return root;
+  }
+
+  // ----- โดนเป้า -----
+  function onHit(root) {
     if (!running) return;
-    const now = performance.now();
-    const dt = now - lastMoveAt;
-    lastMoveAt = now;
+    if (!root || !root.parentNode) return;
 
-    for (let i = targets.length - 1; i >= 0; i--) {
-      const t = targets[i];
-      t.y -= (dt / 1000) * speed;
-      if (t.el) t.el.setAttribute('position', `${t.x} ${t.y} ${t.z}`);
-      if (now - t.createdAt > t.lifetime) {
-        expireAsMiss(t);
+    const kind = root.dataset.kind || 'junk';
+
+    activeTargets = activeTargets.filter(t => t.el !== root);
+    root.parentNode.removeChild(root);
+
+    if (kind === 'good') {
+      const delta = 10 + combo * 2;
+      score += delta;
+      combo += 1;
+      comboMax = Math.max(comboMax, combo);
+    } else {
+      const delta = -8;
+      score  = Math.max(0, score + delta);
+      combo  = 0;
+      misses += 1;
+      emitMiss();
+    }
+    emitScore();
+  }
+
+  // ----- หลุดเฟรมด้านล่าง -----
+  function onMissFall(root) {
+    if (!running) return;
+    if (!root || !root.parentNode) return;
+
+    const kind = root.dataset.kind || 'junk';
+
+    activeTargets = activeTargets.filter(t => t.el !== root);
+    root.parentNode.removeChild(root);
+
+    // ถ้าของดีหลุด = miss, ของขยะหลุด = ปล่อยผ่าน
+    if (kind === 'good') {
+      misses += 1;
+      combo = 0;
+      emitMiss();
+      emitScore();
+    }
+  }
+
+  // ----- ขยับเป้าลงทุกเฟรม -----
+  function tickMove() {
+    if (!running) return;
+    for (let i = activeTargets.length - 1; i >= 0; i--) {
+      const t   = activeTargets[i];
+      const el  = t.el;
+      if (!el || !el.parentNode) {
+        activeTargets.splice(i, 1);
+        continue;
+      }
+      const pos = el.getAttribute('position');
+      if (!pos) continue;
+      pos.y -= FALL_SPEED;
+      el.setAttribute('position', pos);
+
+      if (pos.y <= DESPAWN_Y) {
+        onMissFall(el);
       }
     }
-  }, 16);
-}
+  }
 
-// ---------- API ----------
-function start(diff = 'normal', durationSec = 60) {
-  currentDiff = String(diff || 'normal').toLowerCase();
-  if (!DIFF_TABLE[currentDiff]) currentDiff = 'normal';
+  // ----- สร้างเป้าใหม่เรื่อย ๆ -----
+  function tickSpawn() {
+    if (!running) return;
+    const isGood = Math.random() < GOOD_RATE;
+    const pool   = isGood ? GOOD : JUNK;
+    const emoji  = pool[(Math.random() * pool.length) | 0];
+    const kind   = isGood ? 'good' : 'junk';
 
-  running = true;
-  resetStats();
+    const el = createTargetEntity(emoji, kind);
+    if (el) activeTargets.push({ el });
+  }
 
-  ensureRootEntity().then((root) => {
-    if (!root) {
-      console.error('[GoodJunkVR] no a-scene / target-root');
+  // ----- public API -----
+  function start(diff) {
+    if (running) return;
+    sceneEl = document.querySelector('a-scene');
+    if (!sceneEl) {
+      console.error('[GoodJunkVR] a-scene not found');
       return;
     }
-    rootEl = root;
 
-    targets.forEach(t => removeTarget(t));
-    targets = [];
+    running = true;
+    score = 0;
+    combo = 0;
+    comboMax = 0;
+    misses = 0;
+    activeTargets = [];
 
-    const cfg = DIFF_TABLE[currentDiff] || DIFF_TABLE.normal;
-    const interval = cfg.spawnInterval;
+    emitScore();
 
-    if (spawnTimer) clearInterval(spawnTimer);
-    spawnTimer = setInterval(() => { if (running) spawnOne(); }, interval);
+    // เริ่มเกม: spawn + move
+    tickSpawn(); // ลูกแรกทันที
+    spawnTimer = setInterval(tickSpawn, SPAWN_MS);
+    moveTimer  = setInterval(tickMove, 16); // ~60 FPS
 
-    startMoveLoop();
-    updateQuestHUD('เลือกอาหารดี หลีกเลี่ยงอาหารขยะให้ได้มากที่สุด');
-  });
-}
+    console.log('[GoodJunkVR] GameEngine started, diff =', diff);
+  }
 
-function tickTime(sec) {
-  if (!running) return;
-  if (sec === 20) updateQuestHUD('เหลือ 20 วินาที ลองเก็บคอมโบให้ได้สูงสุด!');
-  if (sec === 10) updateQuestHUD('โค้งสุดท้าย 10 วินาทีสุดท้าย ลุยเลย!');
-}
+  function stop() {
+    if (!running) return;
+    running = false;
 
-function stop() {
-  if (!running) return;
-  running = false;
+    if (spawnTimer) { clearInterval(spawnTimer); spawnTimer = null; }
+    if (moveTimer)  { clearInterval(moveTimer);  moveTimer  = null; }
 
-  if (spawnTimer) { clearInterval(spawnTimer); spawnTimer = null; }
-  if (moveTimer)  { clearInterval(moveTimer);  moveTimer  = null; }
+    activeTargets.forEach(t => {
+      if (t.el && t.el.parentNode) t.el.parentNode.removeChild(t.el);
+    });
+    activeTargets = [];
 
-  targets.forEach(t => removeTarget(t));
-  targets = [];
+    emitEnd();
+    console.log('[GoodJunkVR] GameEngine stopped');
+  }
 
-  emit('hha:end', {
-    mode: 'Good vs Junk VR',
-    difficulty: currentDiff,
-    score,
-    scoreFinal: score,
-    comboMax: maxCombo,
-    misses,
-    duration: null,
-    goalsCleared: (goodHits >= GOAL_TARGET_GOOD ? 1 : 0),
-    goalsTotal: 1,
-    miniCleared: (maxCombo >= MINI_TARGET_COMBO ? 1 : 0),
-    miniTotal: 1
-  });
-}
-
-// ---------- export ----------
-export const GameEngine = { start, tickTime, stop };
-export default { GameEngine };
+  return { start, stop };
+})();
