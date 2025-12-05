@@ -10,6 +10,9 @@
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
+  <!-- ถ้ามีไฟล์ CSS แยกไว้ก็ใช้ร่วมกันได้ -->
+  <!-- <link rel="stylesheet" href="./css/goodjunk-vr.css" /> -->
+
   <style>
     :root{
       color-scheme: light dark;
@@ -27,7 +30,7 @@
     body{
       margin:0;
       min-height:100vh;
-      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
         radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
         radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
@@ -165,7 +168,7 @@
       justify-content:space-between;
     }
 
-    /* ===== Coach bubble ===== */
+    /* ===== Coach bubble ด้านล่าง ===== */
     .hud-bottom{
       display:flex;
       flex-direction:column;
@@ -175,7 +178,7 @@
     .coach-bubble{
       min-width:60%;
       max-width:680px;
-      text-align:left;
+      text-align:center;
       background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%),
                  rgba(15,23,42,0.96);
       border-radius:999px;
@@ -184,7 +187,7 @@
       font-size:13px;
       display:none;
       align-items:center;
-      justify-content:flex-start;
+      justify-content:center;
       gap:8px;
       pointer-events:auto;
     }
@@ -197,16 +200,7 @@
       font-weight:600;
     }
 
-    /* coach emoji “การ์ตูนโค้ช” */
-    .coach-emoji{
-      font-size:26px;
-      line-height:1;
-      width:32px;
-      text-align:center;
-      flex-shrink:0;
-    }
-
-    /* ===== Center hint: “ลากนิ้วเพื่อหมุนมุมมอง” ===== */
+    /* Hint กลางจอ */
     .hint-center{
       position:fixed;
       left:50%;
@@ -224,7 +218,7 @@
     }
     .hint-center.show{ display:block; }
 
-    /* ===== End Summary Toast ===== */
+    /* Toast สรุปท้ายเกม */
     .end-toast{
       position:fixed;
       left:50%;
@@ -257,7 +251,7 @@
     }
     .end-row strong{ font-weight:600; }
 
-    /* ===== A-Frame canvas full ===== */
+    /* A-Frame canvas full screen */
     a-scene{
       width:100vw;
       height:100vh;
@@ -268,13 +262,13 @@
 </head>
 <body>
 
-  <!-- ===== A-Frame Scene (พื้นหลัง VR) ===== -->
+  <!-- ===== A-Frame Scene ===== -->
   <a-scene
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
     background="color: #020617">
 
-    <!-- กล้องกลาง + crosshair + raycaster -->
+    <!-- กล้อง + crosshair -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="gj-camera"
                 wasd-controls-enabled="false"
@@ -295,16 +289,19 @@
     <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
              material="color: #020617; metalness: 0; roughness: 1"></a-plane>
     <a-sky color="#020617"></a-sky>
+
+    <!-- ตำแหน่ง spawn emoji -->
+    <a-entity id="target-root"></a-entity>
   </a-scene>
 
   <!-- ===== HUD Overlay (2D) ===== -->
   <div class="hud-root">
     <div class="hud-top">
-      <!-- Left: mode + metrics -->
+      <!-- ซ้าย: โหมด + metric -->
       <div class="hud-card" style="flex:1;max-width:360px;">
         <div class="hud-main">
           <div>
-            <div class="hud-main-title">Hero Health • Nutrition VR</div>
+            <div class="hud-main-title">HERO HEALTH • NUTRITION VR</div>
             <div class="hud-main-mode">Good vs Junk</div>
           </div>
           <div class="hud-pill">
@@ -329,9 +326,9 @@
         </div>
       </div>
 
-      <!-- Right: quest panel -->
+      <!-- ขวา: Quest panel -->
       <div class="hud-card hud-quest">
-        <div class="quest-title">Quest</div>
+        <div class="quest-title">QUEST</div>
         <div id="hud-quest-main" class="quest-main-label">ภารกิจหลักจะโผล่ตรงนี้</div>
         <div id="hud-quest-mini" class="quest-mini-label">Mini quest จะโผล่ตรงนี้</div>
         <div class="quest-progress-wrap">
@@ -353,22 +350,19 @@
       </div>
     </div>
 
-    <!-- Bottom: coach (emoji + text) -->
+    <!-- ล่าง: coach bubble -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <span id="coach-emoji" class="coach-emoji">🙂</span>
-        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
-          <span class="coach-label">โค้ช</span>
-          <span id="coach-text">แตะของดีให้ตรงเป้าหมาย</span>
-        </div>
+        <span class="coach-label">โค้ช</span>
+        <span id="coach-text">แตะอาหารดีให้ตรงเป้าหมาย</span>
       </div>
     </div>
   </div>
 
-  <!-- Center hint for touch-look -->
+  <!-- Hint กลางจอ -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
 
-  <!-- End summary -->
+  <!-- Toast สรุปผล -->
   <div class="end-toast" id="end-toast">
     <div class="end-title">สรุปผล • Good vs Junk</div>
     <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
@@ -378,7 +372,10 @@
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
   </div>
 
-  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
+  <!-- Bubble โค้ชรวม (ฟัง hha:score ฯลฯ) -->
+  <script src="./vr/coach-bubble.js"></script>
+
+  <!-- ===== Logic: Boot GameEngine + HUD + TouchLook + Cloud Logger ===== -->
   <script type="module">
     import { GameEngine } from './vr-goodjunk/GameEngine.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
@@ -390,7 +387,7 @@
       return v !== null && v !== '' ? v : fallback;
     }
 
-    // HUD element refs
+    // HUD refs
     const elScore   = document.getElementById('hud-score');
     const elCombo   = document.getElementById('hud-combo');
     const elMiss    = document.getElementById('hud-miss');
@@ -407,7 +404,6 @@
 
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
-    const elCoachEmoji  = document.getElementById('coach-emoji');
     const elTouchHint   = document.getElementById('touch-hint');
 
     const elEndToast  = document.getElementById('end-toast');
@@ -420,19 +416,6 @@
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
-    // อารมณ์โค้ชด้วย emoji
-    const coachFaces = {
-      neutral: '🙂',
-      happy:   '😄',
-      sad:     '😢',
-      fever:   '🔥'
-    };
-
-    function setCoachFace(mood){
-      if (!elCoachEmoji) return;
-      elCoachEmoji.textContent = coachFaces[mood] || coachFaces.neutral;
-    }
-
     function setCoach(text){
       if (!text) return;
       elCoachText.textContent = text;
@@ -443,15 +426,15 @@
       }, 4200);
     }
 
-    // HUD: เวลา
+    /* เวลา */
     window.addEventListener('hha:time', (e)=>{
       const sec = (e.detail?.sec | 0);
       if (sec < 0) return;
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest
-    window.addEventListener('quest:update', (e)=>{
+    /* Quest จาก quest-director.js (event: hha:quest) */
+    window.addEventListener('hha:quest', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
@@ -485,17 +468,13 @@
       }
     });
 
-    // HUD: Coach (ข้อความจากโมดต่าง ๆ)
+    /* โค้ชจากโหมด (hha:coach) ให้ขึ้น bubble ด้านล่าง */
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
-      if (text) {
-        setCoach(text);
-        // ถ้าเป็นข้อความให้กำลังใจทั่วไป ให้หน้า neutral/happy
-        setCoachFace('happy');
-      }
+      if (text) setCoach(text);
     });
 
-    // HUD: คะแนน / คอมโบ / miss + อารมณ์โค้ชจากคอมโบ
+    /* คะแนน / คอมโบ / miss */
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
       if (typeof d.score === 'number') {
@@ -507,15 +486,6 @@
         const max = Math.max(prevMax, c);
         elCombo.dataset.max = String(max);
         elCombo.textContent = max;
-
-        // mood ตามคอมโบ
-        if (c >= 10) {
-          setCoachFace('fever');   // โหมดเทพ
-        } else if (c >= 5) {
-          setCoachFace('happy');   // เล่นดี
-        } else if (c === 0 && hudMissCount === 0) {
-          setCoachFace('neutral');
-        }
       }
       if (typeof d.misses === 'number') {
         hudMissCount = d.misses;
@@ -526,30 +496,16 @@
     window.addEventListener('hha:miss', ()=>{
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
-      setCoachFace('sad');
-      setCoach('ไม่เป็นไร ลองโฟกัสที่ผัก ผลไม้ และนมอีกครั้งนะ 😌');
     });
 
-    // (ถ้าภายหลังมี event hha:fever จาก engine ก็ใช้ตัวนี้ได้)
-    window.addEventListener('hha:fever', (e)=>{
-      const st = e.detail?.state || 'change';
-      if (st === 'start') {
-        setCoachFace('fever');
-        setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
-      }
-      if (st === 'end') {
-        setCoachFace('neutral');
-      }
-    });
-
-    // HUD: End summary
+    /* สรุปตอนจบเกมจาก GameEngine.stop() */
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
       const scoreFinal = d.scoreFinal ?? d.score ?? 0;
       const comboMax   = d.comboMax ?? 0;
       const misses     = d.misses ?? 0;
-      const goalsCleared  = d.goalsCleared ?? d.miniCleared ?? 0;
-      const goalsTotal    = d.goalsTotal ?? d.miniTotal ?? 0;
+      const goalsCleared  = d.goalsCleared ?? 0;
+      const goalsTotal    = d.goalsTotal ?? 0;
       const miniCleared   = d.miniCleared ?? 0;
       const miniTotal     = d.miniTotal ?? 0;
 
@@ -559,10 +515,6 @@
       elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
       elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
       elEndToast.classList.add('show');
-
-      // ปิดด้วยหน้า happy ถ้าคะแนนดี หรือ neutral
-      setCoachFace(misses <= 3 ? 'happy' : 'neutral');
-      setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
     });
 
     function initTouchLook(cameraEl){
@@ -595,11 +547,7 @@
       elTime.textContent  = dur + 's';
       hudMissCount = 0;
 
-      // โค้ชเริ่มต้น
-      setCoachFace('neutral');
-      setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
-
-      // ★★ Cloud Logger สำหรับ GoodJunk VR ★★
+      // Cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
@@ -610,21 +558,24 @@
       initTouchLook(cam);
 
       // เริ่มเกม
-      GameEngine.start(diff);
+      GameEngine.start(diff, dur);
 
-      // countdown timer → hha:time → GameEngine.stop() เมื่อหมดเวลา
+      // countdown → hha:time + GameEngine.tickTime()
       let timeLeft = dur;
       function tickTime(){
         timeLeft -= 1;
         if (timeLeft < 0) return;
         window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+        GameEngine.tickTime(timeLeft);
         if (timeLeft <= 0){
           clearInterval(timerId);
           GameEngine.stop();
         }
       }
 
+      // initial fire
       window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+      GameEngine.tickTime(timeLeft);
       const timerId = setInterval(tickTime, 1000);
     });
   </script>
