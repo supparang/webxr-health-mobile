@@ -1,257 +1,393 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Hero Health — Food Groups VR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon">
+// === /herohealth/vr-groups/GameEngine.js ===
+// Food Groups VR — Game Engine (stable central target)
+// 2025-12-06 (center-fixed)
 
-  <!-- A-Frame core -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+(function (ns) {
+  'use strict';
 
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg-main:#020617;
-      --panel:#020617;
-      --panel-soft:#0b1120;
-      --accent:#22c55e;
-      --accent-soft:rgba(34,197,94,0.18);
-      --text-main:#e5e7eb;
-      --text-soft:#9ca3af;
-      --radius-lg:18px;
-      --radius-pill:999px;
+  const A = window.AFRAME;
+  if (!A) {
+    console.error('[GroupsVR] AFRAME not found');
+    return;
+  }
+
+  const FEVER_MAX = 100;
+
+  function clamp(v, min, max) {
+    v = Number(v) || 0;
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
+  }
+
+  function pickDifficulty(diffKey) {
+    diffKey = String(diffKey || 'normal').toLowerCase();
+    if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
+      return ns.foodGroupsDifficulty.get(diffKey);
     }
-    *{box-sizing:border-box;}
-    html,body{
-      margin:0;padding:0;height:100%;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
-        var(--bg-main);
-      color:var(--text-main);
-      overflow:hidden;
-    }
-    a-scene{
-      position:fixed;inset:0;width:100vw;height:100vh;
-    }
+    // fallback ง่าย ๆ ถ้ายังไม่ได้ตั้ง difficulty table
+    return {
+      spawnInterval: 1200,      // ms ต่อการเกิดเป้า
+      fallSpeed: 0.0,           // ยังไม่ใช้ (เผื่ออนาคต)
+      scale: 1.2,
+      maxActive: 3,
+      goodRatio: 0.75,
+      quest: { goalsPick: 2, miniPick: 3 }
+    };
+  }
 
-    .hud-root{
-      position:fixed;inset:0;
-      display:flex;flex-direction:column;justify-content:space-between;
-      padding:10px;pointer-events:none;z-index:650;
-    }
-    .hud-top{
-      display:flex;justify-content:space-between;gap:8px;align-items:flex-start;
-    }
-    .hud-card{
-      background:linear-gradient(135deg,rgba(15,23,42,0.95),rgba(15,23,42,0.82));
-      border-radius:var(--radius-lg);
-      padding:8px 10px;
-      border:1px solid rgba(148,163,184,0.25);
-      box-shadow:0 18px 40px rgba(15,23,42,0.7);
-      pointer-events:auto;
-    }
-    .hud-main-title{
-      font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-soft);
-    }
-    .hud-main-mode{font-size:15px;font-weight:700;}
-    .hud-pill{
-      font-size:11px;padding:2px 8px;border-radius:var(--radius-pill);
-      background:rgba(15,118,110,0.2);border:1px solid rgba(45,212,191,0.5);
-      color:#a5f3fc;display:inline-flex;align-items:center;gap:4px;
-    }
-    .hud-metrics{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;}
-    .metric-label{
-      font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-soft);
-    }
-    .metric-value{font-size:15px;font-weight:700;}
-    .metric-value.accent{color:var(--accent);}
+  function createSessionId() {
+    return (
+      'FG-' +
+      Date.now().toString(36) +
+      '-' +
+      Math.random().toString(36).slice(2, 8)
+    );
+  }
 
-    .hud-bottom{
-      display:flex;justify-content:center;align-items:center;
-    }
-    .coach-bubble{
-      min-width:60%;max-width:640px;
-      background:rgba(15,23,42,0.95);
-      border-radius:var(--radius-pill);
-      padding:8px 14px;border:1px solid rgba(52,211,153,0.5);
-      font-size:13px;display:none;align-items:center;gap:8px;
-      pointer-events:auto;
-    }
-    .coach-bubble.show{display:flex;}
-    .coach-label{
-      font-size:11px;text-transform:uppercase;letter-spacing:.16em;
-      color:#6ee7b7;font-weight:600;
-    }
+  A.registerComponent('food-groups-game', {
+    schema: {},
 
-    .end-toast{
-      position:fixed;left:50%;top:18%;transform:translateX(-50%);
-      background:rgba(15,23,42,0.96);
-      padding:12px 16px;border-radius:18px;
-      border:1px solid rgba(250,204,21,0.7);
-      min-width:260px;max-width:380px;font-size:13px;
-      display:none;z-index:652;pointer-events:auto;
-    }
-    .end-toast.show{display:block;}
-    .end-title{font-size:14px;font-weight:700;margin-bottom:4px;}
-    .end-row{display:flex;justify-content:space-between;font-size:12px;margin-top:2px;}
+    init: function () {
+      console.log('[GroupsVR] component init');
 
-    @media (max-width:640px){
-      .hud-root{padding:8px;}
-      .hud-card{padding:6px 8px;}
-      .hud-main-title{font-size:12px;}
-      .hud-main-mode{font-size:14px;}
-    }
-  </style>
-</head>
-<body>
+      this.running    = false;
+      this.targets    = [];
+      this.elapsed    = 0;
+      this.durationMs = 60000; // 60s
+      this.diffKey    = 'normal';
+      this.cfg        = pickDifficulty(this.diffKey);
 
-  <!-- ===== A-Frame Scene ===== -->
-  <a-scene
-    vr-mode-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true"
-    background="color: #020617">
+      this.spawnClock = 0;
+      this.score      = 0;
 
-    <!-- กล้อง + cursor ยิงเป้า -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera wasd-controls-enabled="false">
-        <a-entity id="cursor"
-                  cursor="fuse: false; rayOrigin: mouse"
-                  raycaster="objects: [data-hha-tgt]"
-                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-                  material="shader: flat; color: #ffffff"
-                  position="0 0 -0.9">
-        </a-entity>
-      </a-camera>
-    </a-entity>
+      // Fever
+      this.fever       = 0;
+      this.feverActive = false;
 
-    <!-- แสง+พื้น -->
-    <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
-    <a-entity light="type: directional; intensity: 0.7" position="1 2 0.5"></a-entity>
-    <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
-             material="color: #020617;"></a-plane>
+      // Logging
+      this.sessionId = createSessionId();
+      this.events    = [];
 
-    <!-- ตัวเกม -->
-    <a-entity id="fg-root" food-groups-game></a-entity>
-  </a-scene>
+      // HUD cache
+      this._hudScore = document.getElementById('hud-score');
+      this._hudTime  = document.getElementById('hud-time-label');
 
-  <!-- ===== HUD ===== -->
-  <div class="hud-root">
-    <div class="hud-top">
-      <div class="hud-card" style="flex:1;max-width:360px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-          <div>
-            <div class="hud-main-title">Hero Health • Nutrition VR</div>
-            <div class="hud-main-mode">Food Groups</div>
-          </div>
-          <div class="hud-pill">
-            <span id="hud-diff-label">NORMAL</span>
-            <span>•</span>
-            <span id="hud-time-label">60s</span>
-          </div>
-        </div>
-        <div class="hud-metrics">
-          <div class="metric">
-            <div class="metric-label">คะแนน</div>
-            <div class="metric-value accent" id="hud-score">0</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="hud-card" style="min-width:180px;">
-        <div class="hud-main-title">สรุปกลุ่มอาหาร</div>
-        <div style="font-size:12px;color:var(--text-soft);margin-top:4px;">
-          ยิงกลุ่มอาหารให้ตรงภารกิจที่โค้ชบอกบนจอ
-        </div>
-      </div>
-    </div>
-
-    <div class="hud-bottom">
-      <div class="coach-bubble" id="coach-bubble">
-        <span class="coach-label">โค้ช</span>
-        <span id="coach-text">แตะที่เป้าอาหารตามคำสั่งด้านบน</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- End summary -->
-  <div class="end-toast" id="end-toast">
-    <div class="end-title">สรุปผล • Food Groups VR</div>
-    <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
-    <div class="end-row"><span>ภารกิจสำเร็จ</span><strong id="end-quest">0 / -</strong></div>
-  </div>
-
-  <!-- ===== เกม + ระบบต่าง ๆ (ใช้โฟลเดอร์ herohealth/vr-groups) ===== -->
-  <!-- ตัด Fever bar ออกชั่วคราว เพื่อลบ error export -->
-  <!-- <script src="./vr/ui-fever.js"></script> -->
-
-  <script src="./vr-groups/emoji-image.js"></script>
-  <script src="./vr-groups/difficulty.js"></script>
-  <script src="./vr-groups/logger-cloud.js"></script>
-  <script src="./vr-groups/GameEngine.js"></script>
-
-  <script>
-    (function () {
-      function getParam(name, fallback) {
-        const url = new URL(window.location.href);
-        const v = url.searchParams.get(name);
-        return v !== null && v !== '' ? v : fallback;
+      // Fever bar (global)
+      if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
+        ns.FeverUI.ensureFeverBar();
+        ns.FeverUI.setFever(0);
+        ns.FeverUI.setFeverActive(false);
+        ns.FeverUI.setShield(0);
       }
 
-      const diff = String(getParam('diff','normal')).toLowerCase();
-      const elScore = document.getElementById('hud-score');
-      const elDiff  = document.getElementById('hud-diff-label');
-      const elTime  = document.getElementById('hud-time-label');
-      const elCoach = document.getElementById('coach-bubble');
-      const elCoachText = document.getElementById('coach-text');
-      const elEndToast  = document.getElementById('end-toast');
-      const elEndScore  = document.getElementById('end-score');
-      const elEndQuest  = document.getElementById('end-quest');
+      const scene = this.el.sceneEl;
+      const self  = this;
 
-      elDiff.textContent = diff.toUpperCase();
-      elTime.textContent = '60s';
-      elScore.textContent = '0';
+      // เริ่มเกมจาก groups-vr.html
+      scene.addEventListener('fg-start', function (e) {
+        const diff = (e && e.detail && e.detail.diff) || 'normal';
+        self.start(diff);
+      });
 
-      // Cloud logger
-      if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
-        GAME_MODULES.foodGroupsCloudLogger.init({
-          endpoint: 'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
-          projectTag: 'HeroHealth-GroupsVR',
-          debug: false
-        });
+      // หยุดเกม
+      scene.addEventListener('fg-stop', function () {
+        self.finish('stop');
+      });
+
+      this._lastLogSec = -1;
+    },
+
+    // ---------------- start / tick ----------------
+    start: function (diffKey) {
+      this.diffKey = String(diffKey || 'normal').toLowerCase();
+      this.cfg     = pickDifficulty(this.diffKey);
+
+      this.running        = true;
+      this.elapsed        = 0;
+      this.spawnClock     = 0;
+      this.targets.length = 0;
+      this.score          = 0;
+      this.fever          = 0;
+      this.feverActive    = false;
+      this.events.length  = 0;
+      this.sessionId      = createSessionId();
+
+      if (this._hudScore) this._hudScore.textContent = '0';
+      if (this._hudTime)  {
+        const sec = (this.durationMs / 1000) | 0;
+        this._hudTime.textContent = sec + 's';
       }
 
-      const scene = document.querySelector('a-scene');
+      if (ns.FeverUI) {
+        ns.FeverUI.setFever(0);
+        ns.FeverUI.setFeverActive(false);
+        ns.FeverUI.setShield(0);
+      }
 
-      // summary ตอนจบเกม (ฟัง event จาก scene)
-      scene.addEventListener('fg-game-over', function (e) {
-        const d = e.detail || {};
-        elEndScore.textContent = d.score != null ? d.score : 0;
-        if (d.questsCleared != null) {
-          const total = d.questsTotal != null ? d.questsTotal : '-';
-          elEndQuest.textContent = d.questsCleared + ' / ' + total;
+      console.log('[GroupsVR] start diff=', this.diffKey, 'cfg=', this.cfg);
+    },
+
+    tick: function (time, dt) {
+      if (!this.running) return;
+      if (!dt || dt <= 0) dt = 16;
+
+      this.elapsed    += dt;
+      this.spawnClock += dt;
+
+      if (this.elapsed >= this.durationMs) {
+        this.finish('timeout');
+        return;
+      }
+
+      const cfg       = this.cfg || {};
+      const interval  = cfg.spawnInterval || 1200;
+      const maxActive = cfg.maxActive || 3;
+
+      // spawn เป้าใหม่
+      if (this.spawnClock >= interval) {
+        this.spawnClock = 0;
+        if (this.targets.length < maxActive) {
+          this.spawnTarget();
         }
-        elEndToast.classList.add('show');
-      });
-
-      function setCoach(text){
-        if (!text) return;
-        elCoachText.textContent = text;
-        elCoach.classList.add('show');
       }
-      setCoach('แตะเป้าอาหารให้ทันเวลานะ!');
 
-      // เริ่มเกมเมื่อ scene โหลดแล้ว
-      scene.addEventListener('loaded', function () {
-        console.log('[GroupsVR] scene loaded → emit fg-start');
-        scene.emit('fg-start', { diff: diff });
+      // ตอนนี้เวอร์ชัน stable ยังไม่ขยับเป้า / auto-miss
+      this.updateTargets(dt);
+
+      // HUD time
+      if (this._hudTime) {
+        const remainMs  = Math.max(0, this.durationMs - this.elapsed);
+        const remainSec = (remainMs / 1000) | 0;
+        this._hudTime.textContent = remainSec + 's';
+      }
+
+      const sec = (this.elapsed / 1000) | 0;
+      if (sec !== this._lastLogSec) {
+        this._lastLogSec = sec;
+        console.log('[GroupsVR] tick sec=', sec, 'targets=', this.targets.length);
+      }
+    },
+
+    // ---------------- spawn target (ตำแหน่งกลางจอจริง ๆ) ----------------
+    spawnTarget: function () {
+      const emojiMod = ns.foodGroupsEmoji;
+      let item = null;
+      if (emojiMod && typeof emojiMod.pickRandom === 'function') {
+        item = emojiMod.pickRandom();
+      }
+      if (!item) {
+        item = { emoji: '🍎', group: 3, isGood: true, name: 'ผลไม้' };
+      }
+
+      const el = document.createElement('a-entity');
+      el.setAttribute('data-hha-tgt', '1');
+
+      // ★ กล้องอยู่ที่ (0, 1.6, 0) → ให้เป้าอยู่ระดับเดียวกันหน้าเราเล็กน้อย
+      const x = 0;
+      const y = 1.6;   // ยกขึ้นมาเท่าระดับกล้อง
+      const z = -2.2;  // หน้าเราออกไปหน่อย
+      el.setAttribute('position', { x, y, z });
+
+      const scale  = this.cfg.scale || 1.0;
+      const isGood = item.isGood ? true : false;
+
+      // วงกลมพื้นหลัง (hitbox)
+      el.setAttribute('geometry', {
+        primitive: 'circle',
+        radius: 0.4 * scale
       });
-    })();
-  </script>
-</body>
-</html>
-</body>
-</html>
+      el.setAttribute('material', {
+        shader: 'flat',
+        color: isGood ? '#22c55e' : '#f97316',
+        opacity: 1.0,
+        side: 'double'
+      });
+
+      // emoji ตรงกลาง
+      const emojiChar = item.emoji || (isGood ? 'G' : 'J');
+      const txt = document.createElement('a-entity');
+      txt.setAttribute('text', {
+        value: emojiChar,
+        align: 'center',
+        color: '#ffffff',
+        width: 1.6 * scale,
+        baseline: 'center',
+        shader: 'msdf'
+      });
+      txt.setAttribute('position', { x: 0, y: 0, z: 0.01 });
+      el.appendChild(txt);
+
+      const groupId = item && item.group != null ? item.group : 0;
+      el.setAttribute('data-group', String(groupId));
+      el.setAttribute('data-good',  isGood ? '1' : '0');
+
+      // meta สำหรับ log
+      el._life      = 15000;
+      el._age       = 0;
+      el._spawnTime = performance.now();
+      el._metaItem  = item || {};
+
+      const self = this;
+      el.addEventListener('click', function () {
+        self.onHit(el);
+      });
+
+      this.el.sceneEl.appendChild(el);
+      this.targets.push(el);
+
+      console.log('[GroupsVR] spawnTarget(CENTER FIX)', item, 'total=', this.targets.length);
+    },
+
+    // ---------------- ยังไม่ auto-miss (เวอร์ชัน stable) ----------------
+    updateTargets: function (dt) {
+      // เวอร์ชันนี้ยังไม่ให้เป้าหายเอง / miss อัตโนมัติ
+      // ถ้าจะให้หมดอายุ/ตก ค่อยเพิ่ม logic ตรงนี้ภายหลัง
+    },
+
+    removeTarget: function (el) {
+      const idx = this.targets.indexOf(el);
+      if (idx !== -1) this.targets.splice(idx, 1);
+      if (el.parentNode) el.parentNode.removeChild(el);
+    },
+
+    // ---------------- hit / miss ----------------
+    onHit: function (el) {
+      const isGood  = el.getAttribute('data-good') === '1';
+      const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
+      const item    = el._metaItem || {};
+      const emoji   = item.emoji || '';
+
+      const now  = performance.now();
+      const rtMs = el._spawnTime ? (now - el._spawnTime) : null;
+
+      let delta = isGood ? 10 : -5;
+      this.score = Math.max(0, this.score + delta);
+
+      if (this._hudScore) this._hudScore.textContent = String(this.score);
+
+      this.updateFeverOnHit(isGood);
+
+      this.logEvent({
+        type: 'hit',
+        groupId,
+        emoji,
+        isGood: !!isGood,
+        hitOrMiss: 'hit',
+        rtMs,
+        scoreDelta: delta,
+        pos: this.copyWorldPos(el)
+      });
+
+      this.removeTarget(el);
+    },
+
+    onMiss: function (el) {
+      const groupId = parseInt(el.getAttribute('data-group') || '0', 10) || 0;
+      const item    = el._metaItem || {};
+      const emoji   = item.emoji || '';
+
+      const now  = performance.now();
+      const rtMs = el._spawnTime ? (now - el._spawnTime) : null;
+
+      this.updateFeverOnMiss();
+
+      this.logEvent({
+        type: 'miss',
+        groupId,
+        emoji,
+        isGood: false,
+        hitOrMiss: 'miss',
+        rtMs,
+        scoreDelta: 0,
+        pos: this.copyWorldPos(el)
+      });
+
+      this.removeTarget(el);
+    },
+
+    copyWorldPos: function (el) {
+      if (!el || !el.object3D || !window.THREE) return null;
+      const v = el.object3D.getWorldPosition(new THREE.Vector3());
+      return { x: v.x, y: v.y, z: v.z };
+    },
+
+    // ---------------- Fever ----------------
+    updateFeverOnHit: function (isGood) {
+      if (!ns.FeverUI) return;
+
+      let f = this.fever || 0;
+      if (isGood) f += 8;
+      else        f -= 12;
+
+      f = clamp(f, 0, FEVER_MAX);
+      this.fever = f;
+
+      if (f >= FEVER_MAX && !this.feverActive) {
+        this.feverActive = true;
+        ns.FeverUI.setFeverActive(true);
+      }
+      if (f < 30 && this.feverActive) {
+        this.feverActive = false;
+        ns.FeverUI.setFeverActive(false);
+      }
+
+      ns.FeverUI.setFever(f);
+    },
+
+    updateFeverOnMiss: function () {
+      if (!ns.FeverUI) return;
+
+      let f = this.fever || 0;
+      f -= 5;
+      f = clamp(f, 0, FEVER_MAX);
+      this.fever = f;
+
+      if (f < 30 && this.feverActive) {
+        this.feverActive = false;
+        ns.FeverUI.setFeverActive(false);
+      }
+      ns.FeverUI.setFever(f);
+    },
+
+    // ---------------- Logging + finish ----------------
+    logEvent: function (ev) {
+      this.events.push(ev);
+    },
+
+    finish: function (reason) {
+      if (!this.running) return;
+      this.running = false;
+
+      for (let i = 0; i < this.targets.length; i++) {
+        const el = this.targets[i];
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }
+      this.targets.length = 0;
+
+      if (this._hudTime) this._hudTime.textContent = '0s';
+
+      const scene = this.el.sceneEl;
+
+      // ส่งข้อมูลไป Google Sheet (ถ้าตั้ง logger ไว้)
+      if (ns.foodGroupsCloudLogger && typeof ns.foodGroupsCloudLogger.send === 'function') {
+        const rawSession = {
+          sessionId:  this.sessionId,
+          score:      this.score,
+          difficulty: this.diffKey,
+          durationMs: this.elapsed
+        };
+        ns.foodGroupsCloudLogger.send(rawSession, this.events);
+      }
+
+      scene.emit('fg-game-over', {
+        score:  this.score,
+        diff:   this.diffKey,
+        reason: reason || 'finish'
+      });
+
+      console.log('[GroupsVR] finish', reason, 'score=', this.score);
+    }
+  });
+
+})(window.GAME_MODULES || (window.GAME_MODULES = {}));
