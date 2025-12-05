@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (Emoji a-text + Fever + Cloud Logger)
-// 2025-12-06 (falling targets + HUD time update)
+// Food Groups VR — Game Engine (Emoji + Colored Circle + Cloud Logger)
+// 2025-12-06
 
 (function (ns) {
   'use strict';
@@ -73,7 +73,7 @@
       this._hudScore = document.getElementById('hud-score');
       this._hudTime  = document.getElementById('hud-time-label');
 
-      // Fever bar
+      // Fever bar (มีหรือไม่มีก็ได้)
       if (ns.FeverUI && ns.FeverUI.ensureFeverBar) {
         ns.FeverUI.ensureFeverBar();
         ns.FeverUI.setFever(0);
@@ -133,19 +133,7 @@
       this.elapsed    += dt;
       this.spawnClock += dt;
 
-      const sec = (this.elapsed / 1000) | 0;
-      if (sec !== this._lastLogSec) {
-        this._lastLogSec = sec;
-        console.log('[GroupsVR] tick sec=', sec, 'targets=', this.targets.length);
-      }
-
-      // update HUD time (นับถอยหลัง)
-      if (this._hudTime) {
-        const remainMs = Math.max(0, this.durationMs - this.elapsed);
-        const remainSec = (remainMs / 1000) | 0;
-        this._hudTime.textContent = remainSec + 's';
-      }
-
+      // หมดเวลาเมื่อครบ duration
       if (this.elapsed >= this.durationMs) {
         this.finish('timeout');
         return;
@@ -155,6 +143,7 @@
       const interval  = cfg.spawnInterval || 1200;
       const maxActive = cfg.maxActive || 4;
 
+      // spawn เป้าใหม่ตาม interval
       if (this.spawnClock >= interval) {
         this.spawnClock = 0;
         if (this.targets.length < maxActive) {
@@ -162,10 +151,25 @@
         }
       }
 
+      // อัปเดตตำแหน่งเป้า / อายุเป้า
       this.updateTargets(dt);
+
+      // อัปเดตเวลาใน HUD (นับถอยหลัง)
+      if (this._hudTime) {
+        const remainMs  = Math.max(0, this.durationMs - this.elapsed);
+        const remainSec = (remainMs / 1000) | 0;
+        this._hudTime.textContent = remainSec + 's';
+      }
+
+      // log ทุก ๆ 1 วินาที หลังจาก spawn+update แล้ว
+      const sec = (this.elapsed / 1000) | 0;
+      if (sec !== this._lastLogSec) {
+        this._lastLogSec = sec;
+        console.log('[GroupsVR] tick sec=', sec, 'targets=', this.targets.length);
+      }
     },
 
-    // ---------------- spawn & move (emoji a-text) ----------------
+    // ---------------- spawn & move (emoji + circle) ----------------
     spawnTarget: function () {
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
@@ -175,56 +179,53 @@
       }
 
       if (!item) {
-        item = { emoji: '🍎', group: 1, isGood: true, name: 'ผลไม้' };
+        item = { emoji: '🍎', group: 3, isGood: true, name: 'ผลไม้' };
       }
-
-      console.log('[GroupsVR] spawnTarget()', item);
 
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
 
       // ตำแหน่งเป้า (สุ่มซ้าย-ขวา + สูงหน่อย)
       const x = (Math.random() * 1.8) - 0.9;
-      const y = 1.4 + Math.random() * 0.8;
-      const z = -2.3;
+      const y = 1.5 + Math.random() * 0.8;
+      const z = -2.4;
       el.setAttribute('position', { x, y, z });
 
-      const scale = this.cfg.scale || 1.0;
+      const scale  = this.cfg.scale || 1.0;
+      const isGood = item.isGood ? true : false;
 
-      // พื้นหลัง (plane โปร่งใสเล็กน้อย ไว้เป็น hitbox)
+      // วงกลมสีเป็นตัวเป้า (ให้เห็นแน่นอน)
       el.setAttribute('geometry', {
-        primitive: 'plane',
-        height: 0.9 * scale,
-        width:  0.9 * scale
+        primitive: 'circle',
+        radius: 0.35 * scale
       });
       el.setAttribute('material', {
-        color: '#000000',
-        opacity: 0.0,
-        transparent: true,
+        color: isGood ? '#22c55e' : '#f97316',
+        opacity: 0.96,
         side: 'double'
       });
 
-      // CHILD: emoji ด้วย a-text
-      const emojiChar = item.emoji || '🍎';
+      // CHILD: emoji หรืออักษร
+      const emojiChar = item.emoji || (isGood ? 'G' : 'J');
       const txt = document.createElement('a-entity');
       txt.setAttribute('text', {
         value: emojiChar,
         align: 'center',
         color: '#ffffff',
-        width: 2.2 * scale,
-        baseline: 'center'
+        width: 1.4 * scale,
+        baseline: 'center',
+        shader: 'msdf'
       });
       txt.setAttribute('position', { x: 0, y: 0, z: 0.01 });
       el.appendChild(txt);
 
       const groupId = item && item.group != null ? item.group : 0;
-      const isGood  = item && item.isGood ? 1 : 0;
 
       el.setAttribute('data-group', String(groupId));
-      el.setAttribute('data-good', String(isGood));
+      el.setAttribute('data-good',  isGood ? '1' : '0');
 
       // อายุของเป้า + เวลา spawn
-      el._life      = 4000; // อายุสูงสุด ~4s
+      el._life      = 5000; // อายุสูงสุด ~5s
       el._age       = 0;
       el._spawnTime = performance.now();
       el._metaItem  = item || {};
@@ -236,6 +237,8 @@
 
       this.el.sceneEl.appendChild(el);
       this.targets.push(el);
+
+      console.log('[GroupsVR] spawnTarget()', item, 'total=', this.targets.length);
     },
 
     updateTargets: function (dt) {
@@ -252,7 +255,7 @@
         pos.y -= step;
         t.setAttribute('position', pos);
 
-        const outOfBounds = pos.y <= 0.2;
+        const outOfBounds = pos.y <= 0.1;
         const expired     = t._age >= t._life;
 
         if (outOfBounds || expired) {
