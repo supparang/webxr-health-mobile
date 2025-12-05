@@ -1,83 +1,102 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hydration VR — Hero Health</title>
-  <meta name="color-scheme" content="dark"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Hydration VR</title>
 
-  <link rel="icon" href="./favicon.ico"/>
+<link rel="stylesheet" href="./css/hydration-vr.css"/>
+<link rel="stylesheet" href="./css/hha-kid-bg.css"/>
 
-  <!-- สไตล์หลักจาก Good vs Junk VR -->
-  <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
-  <!-- Override เพิ่มสำหรับโหมด Hydration -->
-  <link rel="stylesheet" href="./css/hydration-vr.css"/>
+<style>
+/* ==== MOBILE FIRST ==== */
+body {
+  margin:0; overflow:hidden;
+  font-family:system-ui;
+  background:radial-gradient(circle at top left,#075985,#0f172a 60%);
+}
+
+/* Coach zone */
+#hha-coach-wrap {
+  position:fixed;
+  bottom:12px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  transition:opacity .3s ease;
+  z-index:99;
+}
+
+#hha-coach-emoji {
+  font-size:48px;
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.4));
+}
+
+#hha-coach-text {
+  margin-top:4px;
+  padding:6px 14px;
+  background:rgba(15,23,42,.9);
+  border-radius:14px;
+  color:#fff;
+  font-size:15px;
+  max-width:70vw;
+  text-align:center;
+  transition:.25s ease;
+  opacity:0.95;
+}
+
+/* HUD mobile-first */
+#hud-panel {
+  position:fixed;
+  top:10px;
+  right:10px;
+  width:160px;
+  padding:10px 12px;
+  border-radius:16px;
+  background:rgba(0,0,0,.35);
+  color:#fff;
+  font-size:13px;
+  backdrop-filter:blur(4px);
+  z-index:50;
+}
+
+@media (min-width:768px) {
+  #hud-panel { width:220px; font-size:15px; }
+  #hha-coach-emoji { font-size:60px; }
+}
+</style>
+
 </head>
 <body>
 
-  <!-- ===== SCENE WRAP / LOADING ===== -->
-  <div class="hha-scene-wrap">
-    <div class="hha-loading-msg">
-      💧 กำลังโหลดโหมด Hydration VR...
-    </div>
-  </div>
+<!-- ===== Coach ===== -->
+<div id="hha-coach-wrap">
+  <div id="hha-coach-emoji">💧</div>
+  <div id="hha-coach-text">สวัสดีจ้า!</div>
+</div>
 
-  <!-- crosshair กลางจอ -->
-  <div class="hha-crosshair"></div>
+<!-- Water HUD -->
+<div class="hha-water"></div>
 
-  <!-- ปุ่ม VR มุมซ้ายบน (สไตล์จาก goodjunk-vr.css) -->
-  <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
+<!-- HUD panel -->
+<div id="hud-panel">
+  <div>HERO HEALTH</div>
+  <div>Score <span id="hud-score">0</span></div>
+  <div>Time <span id="hud-time">0:00</span></div>
+  <div>Combo <span id="hud-combo">0</span></div>
+  <div>Miss <span id="hud-miss">0</span></div>
+  <div id="hud-goal"></div>
+  <div id="hud-mini"></div>
+</div>
 
-  <!-- ===== SCRIPT ZONE ===== -->
-  <!-- HUD เควสต์ / สกอร์ ฯลฯ (ใช้ร่วมกับ Good vs Junk) -->
-  <script type="module" src="./vr/quest-hud-vr.js"></script>
+<script type="module">
+import { bootHydrationVR } from './hydration-vr/hydration.boot.js';
+import CoachVR from './hydration-vr/hydration.coach.js';
 
-  <!-- โค้ชหยดน้ำ (bubble ด้านล่างจอ) -->
-  <script src="./vr/hha-coach.js"></script>
+bootHydrationVR();
+</script>
 
-  <!-- โหมด Hydration VR -->
-  <script type="module">
-    import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
-
-    // อ่าน URL param: ?diff=easy|normal|hard&time=60
-    const url = new URL(window.location.href);
-    let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
-    if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
-
-    let dur = parseInt(url.searchParams.get('time'), 10);
-    if (Number.isNaN(dur) || dur <= 0) dur = 60;
-    if (dur < 20)  dur = 20;
-    if (dur > 180) dur = 180;
-
-    // ส่งค่า diff ให้ CSS ใช้ปรับขนาดเป้า
-    document.body.dataset.diff = diff;
-
-    // เริ่มโหมด Hydration
-    bootHydration({
-      difficulty: diff,
-      duration:   dur
-    }).then(inst => {
-      const wrap = document.querySelector('.hha-scene-wrap');
-      if (wrap) wrap.style.display = 'none';
-
-      // cleanup ตอนออกจากหน้า
-      window.addEventListener('beforeunload', () => {
-        try {
-          if (inst && typeof inst.destroy === 'function') {
-            inst.destroy();
-          }
-        } catch (e) {
-          console.warn('[HydrationVR] destroy error on unload', e);
-        }
-      });
-    }).catch(err => {
-      console.error('[HydrationVR] boot error', err);
-      const msg = document.querySelector('.hha-loading-msg');
-      if (msg) {
-        msg.textContent =
-          'เริ่มโหมด Hydration ไม่สำเร็จ: ' + (err && err.message ? err.message : '');
-      }
-    });
-  </script>
 </body>
 </html>
