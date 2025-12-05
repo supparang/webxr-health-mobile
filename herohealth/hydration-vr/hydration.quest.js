@@ -1,48 +1,90 @@
-// === /herohealth/hydration-vr/hydration.quest.js ===
-// ระบบ Quest/Goals สำหรับโหมด Hydration VR
+// === /herohealth/hydration-vr/hydration.goals.js ===
+// เป้าหมายหลัก (Goals) ของโหมด Hydration
 
-'use strict';
+import { mapHydrationState as G, normalizeHydrationDiff } from './hydration.state.js';
 
-import { MissionDeck } from '../vr/mission.js';
-
-// goals / mini จากไฟล์แยก
-import hydrationGoalsFor from './hydration.goals.js';
-import hydrationMinisFor from './hydration.minis.js';
-
-// state helper
-import { mapHydrationState, normalizeHydrationDiff } from './hydration.state.js';
-
-/**
- * Create Quest Deck for Hydration Mode
- * diff = easy | normal | hard
- */
-export function createHydrationQuest(diff = 'normal') {
+export function hydrationGoalsFor(diff) {
   const D = normalizeHydrationDiff(diff);
 
-  // โหลดตาราง goals / minis
-  const goals = hydrationGoalsFor(D);
-  const minis = hydrationMinisFor(D);
-
-  // ใช้ MissionDeck กลาง
-  const deck = new MissionDeck({
-    goals,
-    minis,
-
-    // map state ที่ใช้เช็คโปรเกรส
-    mapState: s => mapHydrationState(s),
-
-    // ให้ goals/missions ผ่านแบบสุ่มที่ไม่ซ้ำ
-    drawGoalCount: 2,
-    drawMiniCount: 3
-  });
-
-  // เตรียมสถิติเฉพาะ Hydration
-  deck.stats = {
-    greenTick: 0,
-    zone: 'GREEN'
+  const table = {
+    easy:   { score:  700, combo:  8, miss: 8, green: 18 },
+    normal: { score: 1200, combo: 12, miss: 6, green: 28 },
+    hard:   { score: 1800, combo: 16, miss: 4, green: 36 }
   };
+  const K = table[D] || table.normal;
 
-  return deck;
+  return [
+    {
+      id: 'g_green',
+      label: `อยู่ในโซนสมดุล (GREEN) รวม ${K.green}s`,
+      target: K.green,
+      check: s => G(s).green >= K.green,
+      prog : s => Math.min(K.green, G(s).green)
+    },
+    {
+      id: 'g_score',
+      label: `คะแนนรวม ${K.score}+`,
+      target: K.score,
+      check: s => G(s).score >= K.score,
+      prog : s => Math.min(K.score, G(s).score)
+    },
+    {
+      id: 'g_combo',
+      label: `คอมโบ ≥ ${K.combo}`,
+      target: K.combo,
+      check: s => G(s).comboMax >= K.combo,
+      prog : s => Math.min(K.combo, G(s).comboMax)
+    },
+    {
+      id: 'g_nomiss',
+      label: `พลาดไม่เกิน ${K.miss}`,
+      target: K.miss,
+      check: s => G(s).miss <= K.miss,
+      prog : s => Math.max(0, K.miss - G(s).miss)
+    },
+    {
+      id: 'g_good24',
+      label: 'เก็บไฮเดรต 24',
+      target: 24,
+      check: s => G(s).good >= 24,
+      prog : s => Math.min(24, G(s).good)
+    },
+    {
+      id: 'g_score1600',
+      label: 'คะแนน 1600+',
+      target: 1600,
+      check: s => G(s).score >= 1600,
+      prog : s => Math.min(1600, G(s).score)
+    },
+    {
+      id: 'g_combo14',
+      label: 'คอมโบ ≥ 14',
+      target: 14,
+      check: s => G(s).comboMax >= 14,
+      prog : s => Math.min(14, G(s).comboMax)
+    },
+    {
+      id: 'g_good18',
+      label: 'เก็บไฮเดรต 18',
+      target: 18,
+      check: s => G(s).good >= 18,
+      prog : s => Math.min(18, G(s).good)
+    },
+    {
+      id: 'g_nomiss6',
+      label: 'พลาด ≤ 6',
+      target: 6,
+      check: s => G(s).miss <= 6,
+      prog : s => Math.max(0, 6 - G(s).miss)
+    },
+    {
+      id: 'g_time30',
+      label: 'อยู่รอด 30s',
+      target: 30,
+      check: s => G(s).tick >= 30,
+      prog : s => Math.min(30, G(s).tick)
+    }
+  ];
 }
 
-export default { createHydrationQuest };
+export default hydrationGoalsFor;
