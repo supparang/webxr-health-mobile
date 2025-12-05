@@ -1,259 +1,408 @@
 <!doctype html>
 <html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Hero Health — Food Groups VR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>Hero Health — Food Groups VR</title>
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <!-- A-Frame core -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg-main:#020617;
-      --panel:#020617;
-      --panel-soft:#0b1120;
-      --accent:#22c55e;
-      --accent-soft:rgba(34,197,94,0.18);
-      --text-main:#e5e7eb;
-      --text-soft:#9ca3af;
-      --radius-lg:18px;
-      --radius-pill:999px;
-    }
-    *{box-sizing:border-box;}
-    html,body{
-      margin:0;padding:0;height:100%;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
-        var(--bg-main);
-      color:var(--text-main);
-      overflow:hidden;
-    }
-    a-scene{
-      position:fixed;inset:0;width:100vw;height:100vh;
-    }
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg-main: #020617;
+        --panel: #020617;
+        --panel-soft: #0b1120;
+        --accent: #22c55e;
+        --accent-soft: rgba(34, 197, 94, 0.18);
+        --text-main: #e5e7eb;
+        --text-soft: #9ca3af;
+        --radius-lg: 18px;
+        --radius-pill: 999px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 55%),
+          radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.22), transparent 55%),
+          var(--bg-main);
+        color: var(--text-main);
+        overflow: hidden;
+      }
+      a-scene {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+      }
 
-    .hud-root{
-      position:fixed;inset:0;
-      display:flex;flex-direction:column;justify-content:space-between;
-      padding:10px;pointer-events:none;z-index:650;
-    }
-    .hud-top{
-      display:flex;justify-content:space-between;gap:8px;align-items:flex-start;
-    }
-    .hud-card{
-      background:linear-gradient(135deg,rgba(15,23,42,0.95),rgba(15,23,42,0.82));
-      border-radius:var(--radius-lg);
-      padding:8px 10px;
-      border:1px solid rgba(148,163,184,0.25);
-      box-shadow:0 18px 40px rgba(15,23,42,0.7);
-      pointer-events:auto;
-    }
-    .hud-main-title{
-      font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-soft);
-    }
-    .hud-main-mode{font-size:15px;font-weight:700;}
-    .hud-pill{
-      font-size:11px;padding:2px 8px;border-radius:var(--radius-pill);
-      background:rgba(15,118,110,0.2);border:1px solid rgba(45,212,191,0.5);
-      color:#a5f3fc;display:inline-flex;align-items:center;gap:4px;
-    }
-    .hud-metrics{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;}
-    .metric-label{
-      font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-soft);
-    }
-    .metric-value{font-size:15px;font-weight:700;}
-    .metric-value.accent{color:var(--accent);}
+      .hud-root {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 10px;
+        pointer-events: none;
+        z-index: 650;
+      }
+      .hud-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .hud-card {
+        background: linear-gradient(
+          135deg,
+          rgba(15, 23, 42, 0.95),
+          rgba(15, 23, 42, 0.82)
+        );
+        border-radius: var(--radius-lg);
+        padding: 8px 10px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.7);
+        pointer-events: auto;
+      }
+      .hud-main-title {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-soft);
+      }
+      .hud-main-mode {
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .hud-pill {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+        background: rgba(15, 118, 110, 0.2);
+        border: 1px solid rgba(45, 212, 191, 0.5);
+        color: #a5f3fc;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .hud-metrics {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+      }
+      .metric-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-soft);
+      }
+      .metric-value {
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .metric-value.accent {
+        color: var(--accent);
+      }
 
-    .hud-bottom{
-      display:flex;justify-content:center;align-items:center;
-    }
-    .coach-bubble{
-      min-width:60%;max-width:640px;
-      background:rgba(15,23,42,0.95);
-      border-radius:var(--radius-pill);
-      padding:8px 14px;border:1px solid rgba(52,211,153,0.5);
-      font-size:13px;display:none;align-items:center;gap:8px;
-      pointer-events:auto;
-    }
-    .coach-bubble.show{display:flex;}
-    .coach-label{
-      font-size:11px;text-transform:uppercase;letter-spacing:.16em;
-      color:#6ee7b7;font-weight:600;
-    }
+      .hud-bottom {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
 
-    .end-toast{
-      position:fixed;left:50%;top:18%;transform:translateX(-50%);
-      background:rgba(15,23,42,0.96);
-      padding:12px 16px;border-radius:18px;
-      border:1px solid rgba(250,204,21,0.7);
-      min-width:260px;max-width:380px;font-size:13px;
-      display:none;z-index:652;pointer-events:auto;
-    }
-    .end-toast.show{display:block;}
-    .end-title{font-size:14px;font-weight:700;margin-bottom:4px;}
-    .end-row{display:flex;justify-content:space-between;font-size:12px;margin-top:2px;}
+      .coach-bubble {
+        min-width: 60%;
+        max-width: 640px;
+        background: rgba(15, 23, 42, 0.95);
+        border-radius: var(--radius-pill);
+        padding: 8px 14px;
+        border: 1px solid rgba(52, 211, 153, 0.5);
+        font-size: 13px;
+        display: none;
+        align-items: center;
+        gap: 10px;
+        pointer-events: auto;
+      }
+      .coach-bubble.show {
+        display: flex;
+      }
+      .coach-face {
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        background: radial-gradient(circle at 30% 30%, #fef9c3, #f97316);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.7);
+      }
+      .coach-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: #6ee7b7;
+        font-weight: 600;
+      }
 
-    @media (max-width:640px){
-      .hud-root{padding:8px;}
-      .hud-card{padding:6px 8px;}
-      .hud-main-title{font-size:12px;}
-      .hud-main-mode{font-size:14px;}
-    }
-  </style>
-</head>
-<body>
+      .end-toast {
+        position: fixed;
+        left: 50%;
+        top: 18%;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.96);
+        padding: 12px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(250, 204, 21, 0.7);
+        min-width: 260px;
+        max-width: 380px;
+        font-size: 13px;
+        display: none;
+        z-index: 652;
+        pointer-events: auto;
+      }
+      .end-toast.show {
+        display: block;
+      }
+      .end-title {
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .end-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        margin-top: 2px;
+      }
 
-  <!-- ===== A-Frame Scene ===== -->
-  <a-scene
-    vr-mode-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true"
-    background="color: #020617">
+      @media (max-width: 640px) {
+        .hud-root {
+          padding: 8px;
+        }
+        .hud-card {
+          padding: 6px 8px;
+        }
+        .hud-main-title {
+          font-size: 12px;
+        }
+        .hud-main-mode {
+          font-size: 14px;
+        }
+        .coach-bubble {
+          min-width: 84%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ===== A-Frame Scene ===== -->
+    <a-scene
+      vr-mode-ui="enabled: true"
+      renderer="antialias: true; colorManagement: true"
+      background="color: #020617"
+    >
+      <!-- กล้อง + cursor ยิงเป้า -->
+      <a-entity id="rig" position="0 1.6 0">
+        <a-camera wasd-controls-enabled="false">
+          <a-entity
+            id="cursor"
+            cursor="fuse: false; rayOrigin: mouse"
+            raycaster="objects: [data-hha-tgt]"
+            geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+            material="shader: flat; color: #ffffff"
+            position="0 0 -0.9"
+          >
+          </a-entity>
+        </a-camera>
+      </a-entity>
 
-    <!-- กล้อง + cursor ยิงเป้า -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera wasd-controls-enabled="false">
-        <a-entity id="cursor"
-                  cursor="fuse: false; rayOrigin: mouse"
-                  raycaster="objects: [data-hha-tgt]"
-                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-                  material="shader: flat; color: #ffffff"
-                  position="0 0 -0.9">
-        </a-entity>
-      </a-camera>
-    </a-entity>
+      <!-- แสง+พื้น -->
+      <a-entity
+        light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"
+      ></a-entity>
+      <a-entity
+        light="type: directional; intensity: 0.7"
+        position="1 2 0.5"
+      ></a-entity>
+      <a-plane
+        position="0 0 0"
+        rotation="-90 0 0"
+        width="16"
+        height="16"
+        material="color: #020617;"
+      ></a-plane>
 
-    <!-- แสง+พื้น -->
-    <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
-    <a-entity light="type: directional; intensity: 0.7" position="1 2 0.5"></a-entity>
-    <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
-             material="color: #020617;"></a-plane>
+      <!-- ตัวเกม -->
+      <a-entity id="fg-root" food-groups-game></a-entity>
+    </a-scene>
 
-    <!-- ตัวเกม -->
-    <a-entity id="fg-root" food-groups-game></a-entity>
-  </a-scene>
+    <!-- ===== HUD ===== -->
+    <div class="hud-root">
+      <div class="hud-top">
+        <div class="hud-card" style="flex: 1; max-width: 360px">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              gap: 8px;
+            "
+          >
+            <div>
+              <div class="hud-main-title">Hero Health • Nutrition VR</div>
+              <div class="hud-main-mode">Food Groups</div>
+            </div>
+            <div class="hud-pill">
+              <span id="hud-diff-label">NORMAL</span>
+              <span>•</span>
+              <span id="hud-time-label">60s</span>
+            </div>
+          </div>
+          <div class="hud-metrics">
+            <div class="metric">
+              <div class="metric-label">คะแนน</div>
+              <div class="metric-value accent" id="hud-score">0</div>
+            </div>
+          </div>
+        </div>
 
-  <!-- ===== HUD ===== -->
-  <div class="hud-root">
-    <div class="hud-top">
-      <div class="hud-card" style="flex:1;max-width:360px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div class="hud-card" style="min-width: 180px">
+          <div class="hud-main-title">สรุปกลุ่มอาหาร</div>
+          <div
+            style="
+              font-size: 12px;
+              color: var(--text-soft);
+              margin-top: 4px;
+            "
+          >
+            ยิงกลุ่มอาหารให้ตรงภารกิจที่โค้ชบอกบนจอ
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="coach-bubble" id="coach-bubble">
+          <span class="coach-face" id="coach-face">🥦</span>
           <div>
-            <div class="hud-main-title">Hero Health • Nutrition VR</div>
-            <div class="hud-main-mode">Food Groups</div>
+            <div class="coach-label">โค้ชโภชนาการ</div>
+            <div id="coach-text">แตะเป้าอาหารให้ทันเวลานะ!</div>
           </div>
-          <div class="hud-pill">
-            <span id="hud-diff-label">NORMAL</span>
-            <span>•</span>
-            <span id="hud-time-label">60s</span>
-          </div>
-        </div>
-        <div class="hud-metrics">
-          <div class="metric">
-            <div class="metric-label">คะแนน</div>
-            <div class="metric-value accent" id="hud-score">0</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="hud-card" style="min-width:180px;">
-        <div class="hud-main-title">สรุปกลุ่มอาหาร</div>
-        <div style="font-size:12px;color:var(--text-soft);margin-top:4px;">
-          แตะกลุ่มอาหารให้ตรงภารกิจที่โค้ชบอกบนจอ
         </div>
       </div>
     </div>
 
-    <div class="hud-bottom">
-      <div class="coach-bubble" id="coach-bubble">
-        <span class="coach-label">โค้ช</span>
-        <span id="coach-text">แตะที่เป้าอาหารให้ทันเวลานะ!</span>
+    <!-- End summary -->
+    <div class="end-toast" id="end-toast">
+      <div class="end-title">สรุปผล • Food Groups VR</div>
+      <div class="end-row">
+        <span>คะแนนรวม</span><strong id="end-score">0</strong>
+      </div>
+      <div class="end-row">
+        <span>ภารกิจสำเร็จ</span><strong id="end-quest">0 / -</strong>
       </div>
     </div>
-  </div>
 
-  <!-- End summary -->
-  <div class="end-toast" id="end-toast">
-    <div class="end-title">สรุปผล • Food Groups VR</div>
-    <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
-    <div class="end-row"><span>ภารกิจสำเร็จ</span><strong id="end-quest">0 / -</strong></div>
-  </div>
+    <!-- ===== เกม + ระบบต่าง ๆ (ใช้โฟลเดอร์ herohealth/vr-groups) ===== -->
+    <!-- Fever bar (global) -->
+    <script src="./vr/ui-fever.js"></script>
 
-  <!-- ===== เกม + ระบบต่าง ๆ (ใช้โฟลเดอร์ herohealth/vr-groups และ vr) ===== -->
-  <!-- Fever bar (global) -->
-  <script src="./vr/ui-fever.js"></script>
+    <script src="./vr-groups/emoji-image.js"></script>
+    <script src="./vr-groups/difficulty.js"></script>
+    <script src="./vr-groups/logger-cloud.js"></script>
+    <script src="./vr-groups/GameEngine.js"></script>
 
-  <script src="./vr-groups/emoji-image.js"></script>
-  <script src="./vr-groups/difficulty.js"></script>
-  <script src="./vr-groups/logger-cloud.js"></script>
-  <script src="./vr-groups/GameEngine.js"></script>
+    <script>
+      (function () {
+        function getParam(name, fallback) {
+          const url = new URL(window.location.href);
+          const v = url.searchParams.get(name);
+          return v !== null && v !== '' ? v : fallback;
+        }
 
-  <script>
-    (function () {
-      function getParam(name, fallback) {
-        var url = new URL(window.location.href);
-        var v = url.searchParams.get(name);
-        return (v !== null && v !== '') ? v : fallback;
-      }
+        const diff = String(getParam('diff', 'normal')).toLowerCase();
+        const elScore = document.getElementById('hud-score');
+        const elDiff = document.getElementById('hud-diff-label');
+        const elTime = document.getElementById('hud-time-label');
+        const elCoach = document.getElementById('coach-bubble');
+        const elCoachText = document.getElementById('coach-text');
+        const elEndToast = document.getElementById('end-toast');
+        const elEndScore = document.getElementById('end-score');
+        const elEndQuest = document.getElementById('end-quest');
 
-      var diff = String(getParam('diff','normal')).toLowerCase();
+        elDiff.textContent = diff.toUpperCase();
+        elTime.textContent = '60s';
+        elScore.textContent = '0';
 
-      var elScore = document.getElementById('hud-score');
-      var elDiff  = document.getElementById('hud-diff-label');
-      var elTime  = document.getElementById('hud-time-label');
-      var elCoach = document.getElementById('coach-bubble');
-      var elCoachText = document.getElementById('coach-text');
-      var elEndToast  = document.getElementById('end-toast');
-      var elEndScore  = document.getElementById('end-score');
-      var elEndQuest  = document.getElementById('end-quest');
+        // Cloud logger
+        if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
+          GAME_MODULES.foodGroupsCloudLogger.init({
+            endpoint:
+              'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
+            projectTag: 'HeroHealth-GroupsVR',
+            debug: false
+          });
+        }
 
-      if (elDiff)  elDiff.textContent  = diff.toUpperCase();
-      if (elTime)  elTime.textContent  = '60s';
-      if (elScore) elScore.textContent = '0';
+        // summary ตอนจบเกม
+        const scene = document.querySelector('a-scene');
 
-      // Cloud logger
-      if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
-        GAME_MODULES.foodGroupsCloudLogger.init({
-          endpoint: 'https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec',
-          projectTag: 'HeroHealth-GroupsVR',
-          debug: false
-        });
-      }
-
-      function setCoach(text){
-        if (!text) return;
-        elCoachText.textContent = text;
-        elCoach.classList.add('show');
-      }
-      setCoach('แตะเป้าอาหารให้ทันเวลานะ!');
-
-      var scene = document.querySelector('a-scene');
-
-      // summary ตอนจบเกม
-      if (scene) {
         scene.addEventListener('fg-game-over', function (e) {
-          var d = e.detail || {};
-          elEndScore.textContent = (d.score != null ? d.score : 0);
+          const d = e.detail || {};
+          elEndScore.textContent = d.score != null ? d.score : 0;
           if (d.questsCleared != null) {
-            var total = (d.questsTotal != null ? d.questsTotal : '-');
+            const total = d.questsTotal != null ? d.questsTotal : '-';
             elEndQuest.textContent = d.questsCleared + ' / ' + total;
-          } else {
-            elEndQuest.textContent = '0 / -';
           }
           elEndToast.classList.add('show');
         });
 
+        function setCoach(text) {
+          if (!text) return;
+          elCoachText.textContent = text;
+          elCoach.classList.add('show');
+        }
+
+        // --- โค้ชพูดข้อความวนไปทุก 8 วิ ---
+        const coachLines = [
+          'แตะเป้าอาหารให้ทันเวลานะ!',
+          'ลองเลือกให้ครบ 5 หมู่ ดูสิ 😋',
+          'ผักผลไม้เยอะ ๆ ได้คะแนนดีนะ 🥦🍎',
+          'หลบอาหารมันจัด หวานจัด ไว้หน่อยน้า ✋',
+          'โค้ชเชียร์อยู่ตรงนี้ สู้ ๆ นะเด็ก ป.5 💪'
+        ];
+        let coachIdx = 0;
+
+        function cycleCoach() {
+          setCoach(coachLines[coachIdx]);
+          coachIdx = (coachIdx + 1) % coachLines.length;
+        }
+
+        // เรียกครั้งแรก + ตั้ง loop
+        cycleCoach();
+        setInterval(cycleCoach, 8000);
+
+        // เริ่มเกมเมื่อ scene โหลดแล้ว
         scene.addEventListener('loaded', function () {
-          console.log('[GroupsVR] scene loaded → emit fg-start (diff=' + diff + ')');
+          console.log('[GroupsVR] scene loaded → emit fg-start');
           scene.emit('fg-start', { diff: diff });
         });
-      }
-    })();
-  </script>
-</body>
+      })();
+    </script>
+  </body>
 </html>
