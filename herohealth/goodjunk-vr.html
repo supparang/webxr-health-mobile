@@ -263,8 +263,7 @@
   <a-scene
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-    background="color: #020617"
-    hha-emoji-overlay>  <!-- ✅ เพิ่ม component แปะ emoji -->
+    background="color: #020617">
 
     <!-- กล้องกลาง + crosshair + raycaster -->
     <a-entity id="rig" position="0 1.6 0">
@@ -273,7 +272,7 @@
                 look-controls="pointerLockEnabled: false">
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
-                  raycaster="objects: .hha-target"
+                  raycaster="objects: [data-hha-tgt]"
                   geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
                   material="shader: flat; color: #ffffff"
                   position="0 0 -0.9">
@@ -367,49 +366,14 @@
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
   </div>
 
-  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
+  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger + Emoji Overlay ===== -->
   <script type="module">
     import { GameEngine } from './vr-goodjunk/GameEngine.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-    /* ---------- A-Frame component: แปะ emoji บนเป้า ---------- */
-    if (window.AFRAME && !AFRAME.components['hha-emoji-overlay']) {
-      AFRAME.registerComponent('hha-emoji-overlay', {
-        init() {
-          this._goodSet = ['🥦','🥕','🍎','🍌','🥗','🍇','🍓','🍊','🥬','🥛','🍞'];
-          this._junkSet = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬'];
-        },
-        tick() {
-          const scene = this.el.sceneEl || this.el;
-          const nodes = scene.querySelectorAll('.hha-target');
-          nodes.forEach(el => {
-            if (el.__emojiAdded) return;
-
-            const mat = el.getAttribute('material') || {};
-            const color = (mat.color || mat).toString().toLowerCase();
-            let emoji;
-            if (color.includes('22c55e') || color.includes('green')) {
-              const arr = this._goodSet;
-              emoji = arr[Math.floor(Math.random() * arr.length)];
-            } else {
-              const arr = this._junkSet;
-              emoji = arr[Math.floor(Math.random() * arr.length)];
-            }
-
-            const txt = document.createElement('a-text');
-            txt.setAttribute('value', emoji);
-            txt.setAttribute('align', 'center');
-            txt.setAttribute('color', '#ffffff');
-            txt.setAttribute('width', '2.4');
-            txt.setAttribute('position', '0 0 0.01');
-            el.appendChild(txt);
-
-            el.__emojiAdded = true;
-          });
-        }
-      });
-    }
+    const GOOD_EMOJI = ['🥦','🥕','🍎','🍌','🥗','🍇','🍓','🍊','🥬','🥛','🍞'];
+    const JUNK_EMOJI = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬'];
 
     function getParam(name, fallback){
       const url = new URL(window.location.href);
@@ -463,7 +427,7 @@
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest
+    // HUD: Quest (ฟังจาก GameEngine)
     window.addEventListener('hha:quest', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -561,6 +525,40 @@
       });
     }
 
+    // ===== Emoji overlay: วนดูเป้าแล้วแปะ emoji =====
+    function attachEmojiOverlay(){
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+      const nodes = scene.querySelectorAll('[data-hha-tgt]');
+      nodes.forEach(el => {
+        if (el.__emojiAdded) return;
+
+        let color = '';
+        try {
+          const mat = el.getAttribute('material') || {};
+          color = (mat.color || mat).toString().toLowerCase();
+        } catch(_) {}
+
+        let emoji;
+        if (color.includes('22c55e') || color.includes('green')) {
+          emoji = GOOD_EMOJI[Math.floor(Math.random()*GOOD_EMOJI.length)];
+        } else {
+          emoji = JUNK_EMOJI[Math.floor(Math.random()*JUNK_EMOJI.length)];
+        }
+
+        const txt = document.createElement('a-text');
+        txt.setAttribute('value', emoji);
+        txt.setAttribute('align', 'center');
+        txt.setAttribute('color', '#ffffff');
+        txt.setAttribute('width', '1.6');
+        txt.setAttribute('side', 'double');
+        txt.setAttribute('position', '0 0 0.02');
+        el.appendChild(txt);
+
+        el.__emojiAdded = true;
+      });
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       let   dur  = parseInt(getParam('time','60'), 10);
@@ -587,7 +585,7 @@
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
 
-      // เริ่มเกม
+      // เริ่มเกม (ใช้ signature ปัจจุบันของ GameEngine)
       GameEngine.start(diff, dur);
 
       // countdown timer → hha:time → GameEngine.stop() เมื่อหมดเวลา
@@ -596,7 +594,9 @@
         timeLeft -= 1;
         if (timeLeft < 0) return;
         window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-        GameEngine.tickTime(timeLeft);
+        if (typeof GameEngine.tickTime === 'function') {
+          GameEngine.tickTime(timeLeft);
+        }
         if (timeLeft <= 0){
           clearInterval(timerId);
           GameEngine.stop();
@@ -605,6 +605,9 @@
 
       window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
       const timerId = setInterval(tickTime, 1000);
+
+      // emoji overlay loop
+      setInterval(attachEmojiOverlay, 200);
     });
   </script>
 </body>
