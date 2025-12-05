@@ -2,97 +2,66 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Hydration VR — Hero Health</title>
   <meta name="color-scheme" content="dark"/>
 
   <link rel="icon" href="./favicon.ico"/>
 
-  <!-- ใช้สไตล์หลักของ Good vs Junk VR -->
+  <!-- ใช้สไตล์เดียวกับ Good vs Junk VR -->
   <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
+  <!-- ถ้ามีไฟล์ hydration-vr.css แล้วอยากจูนเพิ่มก็ใส่อันนี้ได้ด้วย
+  <link rel="stylesheet" href="./css/hydration-vr.css"/>
+  -->
 
-  <!-- สไตล์เสริมสำหรับ Hydration (inline, ไม่ต้องมีไฟล์เพิ่ม) -->
+  <!-- สไตล์กล่องสรุปตอนจบ (overlay กลางจอ) -->
   <style>
-    :root{
-      color-scheme: dark;
+    .hha-end-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15,23,42,.78);
+      z-index: 60;
+      font-family: system-ui, Segoe UI, Inter, Roboto, sans-serif;
+      color: #e5e7eb;
     }
-    *{ box-sizing:border-box; }
-
-    body{
-      margin:0;
-      padding:0;
-      overflow:hidden;
-      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.20), transparent 55%),
-        #020617;
-      color:#e5e7eb;
+    .hha-end-card {
+      background: rgba(15,23,42,.96);
+      border-radius: 18px;
+      padding: 20px 22px;
+      min-width: 260px;
+      max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,.75);
     }
-
-    /* โหลดตอนเริ่ม */
-    .hha-scene-wrap{
-      position:fixed;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:radial-gradient(circle at top,#0f172a,#020617 65%);
-      z-index:40;
+    .hha-end-card h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
     }
-    .hha-loading-msg{
-      padding:14px 18px;
-      border-radius:999px;
-      background:rgba(15,23,42,.95);
-      box-shadow:0 0 30px rgba(0,0,0,.6);
-      font-size:14px;
-      display:flex;
-      align-items:center;
-      gap:10px;
+    .hha-end-card h3 {
+      margin: 4px 0 10px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: .9;
     }
-
-    /* crosshair ใช้ของ goodjunk-vr.css ต่อ แต่กันไว้ */
-    .hha-crosshair{
-      position:fixed;
-      left:50%;
-      top:50%;
-      width:22px;
-      height:22px;
-      margin-left:-11px;
-      margin-top:-11px;
-      border-radius:999px;
-      border:2px solid rgba(248,250,252,0.9);
-      box-shadow:0 0 10px rgba(15,23,42,.8);
-      z-index:20;
-      pointer-events:none;
+    .hha-end-card p {
+      margin: 3px 0;
+      font-size: 14px;
     }
-
-    /* ปุ่ม VR มุมขวาล่าง (เหมือน GoodJunk) */
-    .hha-vr-btn{
-      position:fixed;
-      right:12px;
-      bottom:14px;
-      z-index:30;
-      padding:6px 14px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.8);
-      background:rgba(15,23,42,.92);
-      color:#e5e7eb;
-      font-size:13px;
-      cursor:pointer;
-      box-shadow:0 10px 25px rgba(0,0,0,.65);
+    .hha-end-card .hha-end-highlight {
+      font-weight: 600;
     }
-    .hha-vr-btn:hover{
-      background:rgba(30,64,175,.95);
-    }
-
-    /* ให้ HUD / เควสต์ อยู่ในจอเดียว mobile-first */
-    @media (max-width:767px){
-      .hha-hud-topright,
-      .hha-quest-panel{
-        transform:scale(.9);
-        transform-origin:top right;
-      }
+    .hha-end-card button {
+      margin-top: 12px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: none;
+      background: #22c55e;
+      color: #022c22;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -101,31 +70,26 @@
   <!-- ===== SCENE WRAP / LOADING ===== -->
   <div class="hha-scene-wrap">
     <div class="hha-loading-msg">
-      💧 <span>กำลังโหลดโหมด Hydration VR...</span>
+      💧 กำลังโหลดโหมด Hydration VR...
     </div>
   </div>
 
-  <!-- วงกลมเล็งกลางจอ -->
+  <!-- วงกลมเล็งกลางจอ (crosshair) ให้สไตล์จาก goodjunk-vr.css ดูแล -->
   <div class="hha-crosshair"></div>
 
-  <!-- ปุ่ม VR (ใช้ร่วมกับ A-Frame / WebXR ถ้าตั้งค่าใน scene แล้ว) -->
+  <!-- ปุ่ม VR มุมขวาล่าง (ใช้คลาสเดิมของ GoodJunk VR) -->
   <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
   <!-- ===== SCRIPT ZONE ===== -->
-
-  <!-- HUD เควสต์ + สกอร์ + goal / mini quest (เหมือน Good vs Junk VR) -->
+  <!-- HUD เควสต์ / สกอร์ ฯลฯ (แนบแบบ side-effect เหมือน Good vs Junk) -->
   <script type="module" src="./vr/quest-hud-vr.js"></script>
 
-  <!-- Bubble โค้ชกลางล่างจอ (ใช้ร่วมกับทุกโหมด) -->
-  <script type="module" src="./vr/coach-bubble.js"></script>
-
-  <!-- โหมด Hydration VR (ตัว engine หลัก) -->
+  <!-- โหมด Hydration VR -->
   <script type="module">
     import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
 
-    // อ่านค่าจาก URL: ?diff=easy|normal|hard&time=60
+    // อ่าน URL param: ?diff=easy|normal|hard&time=60
     const url = new URL(window.location.href);
-
     let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
     if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
 
@@ -134,16 +98,16 @@
     if (dur < 20)  dur = 20;
     if (dur > 180) dur = 180;
 
-    // เริ่มโหมด Hydration
+    // เริ่มโหมด Hydration (engine ภายในจะสร้างเป้า, HUD, เควสต์ ฯลฯ ให้เอง)
     bootHydration({
       difficulty: diff,
       duration:   dur
     }).then(inst => {
-      // ซ่อนโหลด
+      // ถ้ามี scene-wrap ให้ซ่อนตอนเริ่มเล่น
       const wrap = document.querySelector('.hha-scene-wrap');
       if (wrap) wrap.style.display = 'none';
 
-      // กัน memory leak ตอนออกจากหน้า
+      // กัน memory leak ถ้าอนาคตอยากหยุดเกมผ่านปุ่มอื่น
       window.addEventListener('beforeunload', () => {
         try {
           if (inst && typeof inst.destroy === 'function') {
@@ -155,10 +119,90 @@
       });
     }).catch(err => {
       console.error('[HydrationVR] boot error', err);
-      const msg = document.querySelector('.hha-loading-msg span');
+      const msg = document.querySelector('.hha-loading-msg');
       if (msg) {
         msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
       }
+    });
+  </script>
+
+  <!-- สรุปผลตอนจบ พร้อม Goals / Mini quests เคลียร์ -->
+  <script type="module">
+    function formatTime(sec) {
+      sec = sec | 0;
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return m + ':' + (s < 10 ? '0' + s : s);
+    }
+
+    window.addEventListener('hha:end', (ev) => {
+      const d = ev.detail || {};
+      // แสดงเฉพาะโหมด Hydration
+      if ((d.mode || '').toLowerCase() !== 'hydration') return;
+
+      // ลบ overlay เก่า (ถ้ามี)
+      const old = document.querySelector('.hha-end-overlay');
+      if (old) old.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'hha-end-overlay';
+
+      const card = document.createElement('div');
+      card.className = 'hha-end-card';
+
+      const h2 = document.createElement('h2');
+      h2.textContent = 'สรุปโหมด Hydration';
+      card.appendChild(h2);
+
+      const h3 = document.createElement('h3');
+      const diffLabel = (d.difficulty || 'normal').toUpperCase();
+      h3.textContent = `ระดับความยาก: ${diffLabel}`;
+      card.appendChild(h3);
+
+      const pScore = document.createElement('p');
+      pScore.innerHTML =
+        `คะแนนรวม: <span class="hha-end-highlight">${d.score ?? 0}</span>` +
+        ` | Combo สูงสุด: ${d.comboMax ?? 0}`;
+      card.appendChild(pScore);
+
+      const pTime = document.createElement('p');
+      const dur = d.duration ?? d.timeSec ?? 0;
+      const miss = d.misses ?? d.miss ?? 0;
+      pTime.textContent = `เวลาเล่น: ${formatTime(dur)} | Miss: ${miss}`;
+      card.appendChild(pTime);
+
+      if (typeof d.greenTick === 'number') {
+        const pGreen = document.createElement('p');
+        pGreen.textContent = `อยู่ในโซนสมดุล (GREEN): ${d.greenTick}s`;
+        card.appendChild(pGreen);
+      }
+
+      // ✅ แสดง 2 ค่า: Goals / Mini quests เคลียร์แล้วกี่อัน
+      if (typeof d.goalsCleared === 'number' && typeof d.goalsTotal === 'number') {
+        const pGoals = document.createElement('p');
+        pGoals.innerHTML =
+          `Goals ที่ทำสำเร็จ: <span class="hha-end-highlight">` +
+          `${d.goalsCleared}/${d.goalsTotal}</span>`;
+        card.appendChild(pGoals);
+      }
+
+      if (typeof d.questsCleared === 'number' && typeof d.questsTotal === 'number') {
+        const pMini = document.createElement('p');
+        pMini.innerHTML =
+          `Mini quests ที่ทำสำเร็จ: <span class="hha-end-highlight">` +
+          `${d.questsCleared}/${d.questsTotal}</span>`;
+        card.appendChild(pMini);
+      }
+
+      const btn = document.createElement('button');
+      btn.textContent = 'เล่นอีกรอบ';
+      btn.addEventListener('click', () => {
+        location.reload();
+      });
+      card.appendChild(btn);
+
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
     });
   </script>
 </body>
