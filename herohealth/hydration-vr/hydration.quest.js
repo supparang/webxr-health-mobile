@@ -1,90 +1,92 @@
-// === /herohealth/hydration-vr/hydration.goals.js ===
-// เป้าหมายหลัก (Goals) ของโหมด Hydration
+// === /herohealth/hydration-vr/hydration.quest.js ===
+// Deck ภารกิจสำหรับโหมด Hydration (ใช้ goals/minis ที่นิยามแยกไฟล์ไว้)
 
-import { mapHydrationState as G, normalizeHydrationDiff } from './hydration.state.js';
+import { hydrationGoalsFor } from './hydration.goals.js';
+import { hydrationMinisFor } from './hydration.minis.js';
+import { mapHydrationState, normalizeHydrationDiff } from './hydration.state.js';
 
-export function hydrationGoalsFor(diff) {
-  const D = normalizeHydrationDiff(diff);
+// สร้าง deck ภารกิจแบบง่าย ๆ (ไม่พึ่ง MissionDeck เดิมก็ได้)
+export function createHydrationQuest(diffRaw) {
+  const diff = normalizeHydrationDiff(diffRaw);
 
-  const table = {
-    easy:   { score:  700, combo:  8, miss: 8, green: 18 },
-    normal: { score: 1200, combo: 12, miss: 6, green: 28 },
-    hard:   { score: 1800, combo: 16, miss: 4, green: 36 }
+  const goalDefs = hydrationGoalsFor(diff);
+  const miniDefs = hydrationMinisFor(diff);
+
+  // state กลาง (ให้ safe.js ไปอัปเดตค่าเพิ่ม)
+  const stats = {
+    score:      0,
+    combo:      0,
+    comboMax:   0,
+    goodCount:  0,
+    junkMiss:   0,
+    tick:       0,
+    greenTick:  0,
+    zone:       'GREEN'
   };
-  const K = table[D] || table.normal;
 
-  return [
-    {
-      id: 'g_green',
-      label: `อยู่ในโซนสมดุล (GREEN) รวม ${K.green}s`,
-      target: K.green,
-      check: s => G(s).green >= K.green,
-      prog : s => Math.min(K.green, G(s).green)
+  const deck = {
+    stats,
+    _goals: [],
+    _minis: [],
+
+    _recalc() {
+      const S = mapHydrationState(stats);
+
+      this._goals = goalDefs.map(def => ({
+        id:     def.id,
+        label:  def.label,
+        target: def.target,
+        value:  def.prog(S),
+        done:   !!def.check(S)
+      }));
+
+      this._minis = miniDefs.map(def => ({
+        id:     def.id,
+        label:  def.label,
+        target: def.target,
+        value:  def.prog(S),
+        done:   !!def.check(S)
+      }));
     },
-    {
-      id: 'g_score',
-      label: `คะแนนรวม ${K.score}+`,
-      target: K.score,
-      check: s => G(s).score >= K.score,
-      prog : s => Math.min(K.score, G(s).score)
+
+    // ==== callback จาก hydration.safe.js ====
+    updateScore(v) {
+      stats.score = v | 0;
+      this._recalc();
     },
-    {
-      id: 'g_combo',
-      label: `คอมโบ ≥ ${K.combo}`,
-      target: K.combo,
-      check: s => G(s).comboMax >= K.combo,
-      prog : s => Math.min(K.combo, G(s).comboMax)
+    updateCombo(v) {
+      v = v | 0;
+      stats.combo = v;
+      if (v > (stats.comboMax | 0)) stats.comboMax = v;
+      this._recalc();
     },
-    {
-      id: 'g_nomiss',
-      label: `พลาดไม่เกิน ${K.miss}`,
-      target: K.miss,
-      check: s => G(s).miss <= K.miss,
-      prog : s => Math.max(0, K.miss - G(s).miss)
+    onGood() {
+      stats.goodCount = (stats.goodCount | 0) + 1;
+      this._recalc();
     },
-    {
-      id: 'g_good24',
-      label: 'เก็บไฮเดรต 24',
-      target: 24,
-      check: s => G(s).good >= 24,
-      prog : s => Math.min(24, G(s).good)
+    onJunk() {
+      stats.junkMiss = (stats.junkMiss | 0) + 1;
+      this._recalc();
     },
-    {
-      id: 'g_score1600',
-      label: 'คะแนน 1600+',
-      target: 1600,
-      check: s => G(s).score >= 1600,
-      prog : s => Math.min(1600, G(s).score)
+    second() {
+      stats.tick = (stats.tick | 0) + 1;
+      this._recalc();
     },
-    {
-      id: 'g_combo14',
-      label: 'คอมโบ ≥ 14',
-      target: 14,
-      check: s => G(s).comboMax >= 14,
-      prog : s => Math.min(14, G(s).comboMax)
+
+    // ==== API ให้ HUD ใช้ ====
+    getProgress(kind) {
+      if (kind === 'goals') return this._goals;
+      if (kind === 'mini')  return this._minis;
+      return [...this._goals, ...this._minis];
     },
-    {
-      id: 'g_good18',
-      label: 'เก็บไฮเดรต 18',
-      target: 18,
-      check: s => G(s).good >= 18,
-      prog : s => Math.min(18, G(s).good)
-    },
-    {
-      id: 'g_nomiss6',
-      label: 'พลาด ≤ 6',
-      target: 6,
-      check: s => G(s).miss <= 6,
-      prog : s => Math.max(0, 6 - G(s).miss)
-    },
-    {
-      id: 'g_time30',
-      label: 'อยู่รอด 30s',
-      target: 30,
-      check: s => G(s).tick >= 30,
-      prog : s => Math.min(30, G(s).tick)
-    }
-  ];
+
+    // ใน Hydration ใช้ goal ทั้งชุดอยู่แล้ว เลยให้เป็น no-op
+    drawGoals(/* count */) {},
+    draw3() {}
+  };
+
+  deck._recalc();
+  return deck;
 }
 
-export default hydrationGoalsFor;
+export default { createHydrationQuest };
