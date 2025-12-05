@@ -130,7 +130,7 @@
   </div>
 
   <!-- ===== เกม + ระบบต่าง ๆ ===== -->
-  <!-- Fever bar (ใช้ร่วมกับเกมอื่นได้ แต่ GameEngine ตั้ง USE_FEVER_UI=false อยู่) -->
+  <!-- Fever bar (ไฟล์นี้เป็น non-module แล้ว) -->
   <script src="./vr/ui-fever.js"></script>
 
   <script src="./vr-groups/emoji-image.js"></script>
@@ -148,16 +148,16 @@
 
       const diff = String(getParam("diff", "normal")).toLowerCase();
 
-      const elScore = document.getElementById("hud-score");
-      const elDiff = document.getElementById("hud-diff-label");
-      const elTime = document.getElementById("hud-time-label");
-      const elCoach = document.getElementById("coach-bubble");
+      const elScore   = document.getElementById("hud-score");
+      const elDiff    = document.getElementById("hud-diff-label");
+      const elTime    = document.getElementById("hud-time-label");
+      const elCoach   = document.getElementById("coach-bubble");
       const elCoachText = document.getElementById("coach-text");
-      const elEndToast = document.getElementById("end-toast");
-      const elEndScore = document.getElementById("end-score");
-      const elEndQuest = document.getElementById("end-quest");
-      const elEndGoal = document.getElementById("end-goal-text");
-      const elEndMini = document.getElementById("end-mini-text");
+      const elEndToast  = document.getElementById("end-toast");
+      const elEndScore  = document.getElementById("end-score");
+      const elEndQuest  = document.getElementById("end-quest");
+      const elEndGoal   = document.getElementById("end-goal-text");
+      const elEndMini   = document.getElementById("end-mini-text");
 
       elDiff.textContent = diff.toUpperCase();
       elTime.textContent = "60s";
@@ -194,7 +194,7 @@
           elEndQuest.textContent = "- / -";
         }
 
-        if (d.goal) elEndGoal.textContent = d.goal;
+        if (d.goal)      elEndGoal.textContent = d.goal;
         if (d.miniQuest) elEndMini.textContent = d.miniQuest;
 
         elEndToast.classList.add("show");
