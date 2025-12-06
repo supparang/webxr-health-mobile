@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach + FX
-// ใช้ร่วม FeverUI + Particles (shared) 2025-12-06
+// ใช้ร่วม FeverUI + Particles (shared) 2025-12-06 (size tuned smaller)
 
 'use strict';
 
@@ -40,7 +40,7 @@ export const GameEngine = (function () {
   let SPAWN_INTERVAL  = 900;
   let TARGET_LIFETIME = 900;
   let MAX_ACTIVE      = 4;
-  let SIZE_FACTOR     = 1.0; // ปรับขนาดเป้าตามระดับความยาก
+  let SIZE_FACTOR     = 0.9; // baseline (ถูกเซ็ตใหม่ใน applyDifficulty)
 
   // type weights (จะปรับตาม diff)
   let TYPE_WEIGHTS = {
@@ -488,6 +488,7 @@ export const GameEngine = (function () {
       // ถ้ามี shield ใช้กันก่อน ไม่เสียแต้ม
       if (shieldCount > 0) {
         shieldCount -= 1;
+        if (FeverUI && FeverUI.setShield) FeverUI.setFeverShield?.(shieldCount);
         if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
         coach('โชคดีมีเกราะกันไว้ ของขยะไม่ทำร้ายคะแนนรอบนี้ 🛡️');
         showHitFx(el, kind, 'miss', 0);
@@ -613,7 +614,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 1100;
       MAX_ACTIVE      = 3;
       GOOD_RATE       = 0.72;
-      SIZE_FACTOR     = 1.10;  // ง่าย: เป้าใหญ่สุด
+      SIZE_FACTOR     = 0.90;  // ง่าย: เล็กลงจากเดิม แต่ยังใหญ่สุดในสามระดับ
 
       TYPE_WEIGHTS = {
         good:    75,
@@ -630,7 +631,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 850;
       MAX_ACTIVE      = 5;
       GOOD_RATE       = 0.6;
-      SIZE_FACTOR     = 0.85;  // ยาก: เป้าเล็กที่สุด
+      SIZE_FACTOR     = 0.60;  // ยาก: เล็กสุด
 
       TYPE_WEIGHTS = {
         good:    65,
@@ -647,7 +648,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 900;
       MAX_ACTIVE      = 4;
       GOOD_RATE       = 0.66;
-      SIZE_FACTOR     = 1.00;  // ปกติ: กลาง ๆ
+      SIZE_FACTOR     = 0.75;  // ปกติ: กลาง ๆ ระหว่าง easy/hard
 
       TYPE_WEIGHTS = {
         good:    70,
