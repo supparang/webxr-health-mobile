@@ -8,11 +8,11 @@
 
   <link rel="icon" href="./favicon.ico"/>
 
-  <!-- ใช้สไตล์เดียวกับ Good vs Junk VR -->
+  <!-- ใช้สไตล์เดียวกับ Good vs Junk VR ก่อน แล้วค่อย override ด้วย hydration-vr.css -->
   <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
   <link rel="stylesheet" href="./css/hydration-vr.css"/>
 </head>
-<body class="hydration-mode">
+<body>
 
   <!-- ===== SCENE WRAP / LOADING ===== -->
   <div class="hha-scene-wrap">
@@ -21,21 +21,24 @@
     </div>
   </div>
 
-  <!-- วงกลมเล็งกลางจอ (crosshair) ใช้สไตล์จาก goodjunk-vr.css -->
+  <!-- วงกลมเล็งกลางจอ -->
   <div class="hha-crosshair"></div>
 
-  <!-- ปุ่ม VR ย้ายมาล่างขวา (override ด้วย hydration-vr.css) -->
+  <!-- ปุ่ม VR (จะถูกจัดตำแหน่งด้วย hydration-vr.css) -->
   <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
   <!-- ===== SCRIPT ZONE ===== -->
 
-  <!-- 🌟 Fever gauge + Shield (global FeverUI ใช้ร่วมทุกโหมด) -->
+  <!-- 🎇 เอฟเฟกต์แตกกระจาย + GOOD / MISS / PERFECT -->
+  <script src="./vr/particles.js"></script>
+
+  <!-- 🌟 Fever gauge + Shield (ล่างซ้าย ใช้ร่วมทุกโหมด) -->
   <script src="./vr/ui-fever.js"></script>
 
-  <!-- HUD เควสต์ / สกอร์ ฯลฯ (panel) -->
+  <!-- HUD เควสต์ / สกอร์ / Goal + Mini quest (มุมขวาบน) -->
   <script type="module" src="./vr/quest-hud-vr.js"></script>
 
-  <!-- โค้ชหยดน้ำ (emoji + auto-move + bubble mission) -->
+  <!-- โค้ชหยดน้ำ (bubble ล่างกลาง) -->
   <script type="module" src="./vr/coach-bubble.js"></script>
 
   <!-- โหมด Hydration VR -->
