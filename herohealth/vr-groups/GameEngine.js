@@ -1,139 +1,333 @@
-    // ---------- spawn target (emoji sprite) ----------
-    spawnTarget: function () {
-      const emojiMod = ns.foodGroupsEmoji;
-      let item = null;
+// === /herohealth/vr/food-groups/GameEngine.js ===
+// Food Groups VR — DOM Target Engine + Coach + Goals
 
-      if (emojiMod && typeof emojiMod.pickRandom === 'function') {
-        item = emojiMod.pickRandom(); // {emoji, group, isGood, name, ...}
+(() => {
+  'use strict';
+
+  // ---------- ค่าพื้นฐานของเกม ----------
+  const GAME = {
+    durationSec: 60,       // เวลาเล่น
+    goalScore: 150,        // คะแนนเป้าหมาย
+    miniGood: 12,          // จำนวนของดีที่ต้องเก็บ
+    maxActive: 3,          // เป้าได้พร้อมกันสูงสุด
+    targetLifetime: 2600,  // เป้าอยู่ได้กี่ ms
+    spawnBaseInterval: 900 // ใช้ร่วมกับ random spawn
+  };
+
+  const SIZE_BY_DIFF = {
+    easy:   1.25,
+    normal: 1.0,
+    hard:   0.8
+  };
+
+  const GOOD_EMOJIS = ['🥦', '🥕', '🍎', '🍊', '🍚', '🥚'];
+  const JUNK_EMOJIS = ['🍩', '🍕', '🍟', '🍰', '🥤'];
+
+  // ---------- State ----------
+  const STATE = {
+    running: false,
+    timeLeft: GAME.durationSec,
+    score: 0,
+    combo: 0,
+    misses: 0,
+    goodHits: 0,
+    totalTargets: 0,
+    activeTargets: 0,
+    diff: 'normal',
+    sizeFactor: 1.0,
+    tickTimer: null
+  };
+
+  const $ = (sel) => document.querySelector(sel);
+
+  // ---------- Coach bubble ----------
+  let coachTimer = null;
+
+  function setCoachMessage(text, emoji) {
+    const bubble = $('#coach-bubble');
+    const avatar = $('#coach-avatar');
+    const textEl = $('#coach-text');
+    if (!bubble || !textEl) return;
+
+    if (emoji && avatar) avatar.textContent = emoji;
+    textEl.textContent = text;
+    bubble.classList.add('show');
+
+    if (coachTimer) clearTimeout(coachTimer);
+    coachTimer = setTimeout(() => {
+      bubble.classList.remove('show');
+    }, 3500);
+  }
+
+  // ---------- Helpers ----------
+  function clamp(v, min, max) {
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
+  }
+
+  function randomFrom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  // ตำแหน่งแบบ random ทั่ว ๆ กลางจอ (เลี่ยง HUD บน/ล่าง)
+  function randomScreenPos() {
+    const w = window.innerWidth || 1280;
+    const h = window.innerHeight || 720;
+
+    const topSafe = 120;   // กัน HUD + fever
+    const bottomSafe = 180; // กัน coach bubble + ขอบจอ
+    const leftSafe = w * 0.15;
+    const rightSafe = w * 0.85;
+
+    const x = leftSafe + Math.random() * (rightSafe - leftSafe);
+    const y = topSafe + Math.random() * (h - topSafe - bottomSafe);
+    return { x, y };
+  }
+
+  // ---------- HUD ----------
+  function updateTopHUD() {
+    const scoreEl = document.querySelector('[data-role="score-value"]');
+    if (scoreEl) scoreEl.textContent = STATE.score.toString();
+
+    const diffLabel = $('#diff-label');
+    if (diffLabel) {
+      diffLabel.textContent =
+        STATE.diff.toUpperCase() + ' • ' + STATE.timeLeft.toFixed(0) + 's';
+    }
+
+    const goalEl = $('#goal-progress');
+    const miniEl = $('#mini-progress');
+
+    if (goalEl) {
+      const shown = clamp(STATE.score, 0, GAME.goalScore);
+      goalEl.textContent = `${shown} / ${GAME.goalScore}`;
+    }
+    if (miniEl) {
+      const shownGood = clamp(STATE.goodHits, 0, GAME.miniGood);
+      miniEl.textContent = `${shownGood} / ${GAME.miniGood}`;
+    }
+  }
+
+  // ---------- ผลลัพธ์ ----------
+  function showResultOverlay() {
+    const ov = $('#result-overlay');
+    if (!ov) return;
+
+    $('#res-score').textContent = STATE.score.toString();
+    $('#res-good').textContent = STATE.goodHits.toString();
+    $('#res-miss').textContent = STATE.misses.toString();
+
+    const goalFlag = STATE.score >= GAME.goalScore ? 'ผ่าน ✅' : 'ยังไม่ถึง ❌';
+    const miniFlag = STATE.goodHits >= GAME.miniGood ? 'ผ่าน ✅' : 'ยังไม่ถึง ❌';
+
+    $('#res-goal-flag').textContent = goalFlag;
+    $('#res-mini-flag').textContent = miniFlag;
+
+    ov.classList.add('show');
+  }
+
+  function hideResultOverlay() {
+    const ov = $('#result-overlay');
+    if (!ov) return;
+    ov.classList.remove('show');
+  }
+
+  // ---------- Target logic ----------
+  function spawnTarget() {
+    if (!STATE.running) return;
+    if (STATE.activeTargets >= GAME.maxActive) return;
+
+    const layer = $('#fg-layer');
+    if (!layer) return;
+
+    const { x, y } = randomScreenPos();
+    const isGood = Math.random() < 0.65;
+
+    const el = document.createElement('div');
+    el.className = 'fg-target ' + (isGood ? 'fg-good' : 'fg-junk');
+    el.dataset.good = isGood ? '1' : '0';
+    el.dataset.hit = '0';
+    el.dataset.birth = String(performance.now());
+    el.setAttribute('data-emoji', isGood ? randomFrom(GOOD_EMOJIS) : randomFrom(JUNK_EMOJIS));
+
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.transform = `translate(-50%, -50%) scale(${STATE.sizeFactor})`;
+
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      handleHit(el);
+    });
+
+    layer.appendChild(el);
+    STATE.activeTargets++;
+    STATE.totalTargets++;
+
+    setTimeout(() => {
+      // ถ้ายังไม่โดนตีถือว่าพลาด
+      if (!el.isConnected) return;
+      if (el.dataset.hit === '1') return;
+      handleMiss(el);
+    }, GAME.targetLifetime);
+  }
+
+  function handleHit(el) {
+    if (!STATE.running) return;
+    if (!el || !el.isConnected) return;
+
+    el.dataset.hit = '1';
+
+    const isGood = el.dataset.good === '1';
+    let scoreDelta = isGood ? 10 : -8;
+
+    STATE.combo = isGood ? STATE.combo + 1 : 0;
+    if (STATE.combo >= 5 && isGood) {
+      scoreDelta += 5; // small combo bonus
+    }
+
+    STATE.score = Math.max(0, STATE.score + scoreDelta);
+    if (isGood) STATE.goodHits++;
+
+    STATE.activeTargets = Math.max(0, STATE.activeTargets - 1);
+
+    // effect เล็กน้อย
+    el.classList.add('hit');
+    setTimeout(() => {
+      if (el.isConnected) el.remove();
+    }, 120);
+
+    updateTopHUD();
+
+    // Coach reaction เล็กน้อย
+    if (isGood && STATE.goodHits === 1) {
+      setCoachMessage('เยี่ยมเลย เริ่มเก็บอาหารดีได้แล้ว 🎉', '😄');
+    } else if (!isGood && STATE.misses % 3 === 0) {
+      setCoachMessage('ระวังของมันของหวานหน่อยน้า 🍩', '😅');
+    }
+  }
+
+  function handleMiss(el) {
+    if (!STATE.running) {
+      if (el && el.isConnected) el.remove();
+      return;
+    }
+
+    STATE.misses++;
+    STATE.combo = 0;
+    STATE.activeTargets = Math.max(0, STATE.activeTargets - 1);
+
+    if (el && el.isConnected) {
+      el.classList.add('hit');
+      setTimeout(() => {
+        if (el.isConnected) el.remove();
+      }, 100);
+    }
+
+    updateTopHUD();
+
+    if (STATE.misses === 3) {
+      setCoachMessage('พลาดไปบ้างไม่เป็นไร ค่อย ๆ เล็งใหม่นะ 😊', '🙂');
+    }
+  }
+
+  // ---------- Game loop ----------
+  function clearAllTargets() {
+    document.querySelectorAll('.fg-target').forEach((el) => el.remove());
+    STATE.activeTargets = 0;
+  }
+
+  function gameTick() {
+    if (!STATE.running) return;
+
+    STATE.timeLeft -= 0.25;
+    if (STATE.timeLeft <= 0) {
+      STATE.timeLeft = 0;
+      updateTopHUD();
+      endGame();
+      return;
+    }
+
+    // โอกาส spawn ทุก ๆ 250 ms
+    const p = 0.45;
+    if (STATE.activeTargets < GAME.maxActive && Math.random() < p) {
+      spawnTarget();
+    }
+
+    updateTopHUD();
+  }
+
+  function startGame() {
+    hideResultOverlay();
+    clearAllTargets();
+
+    STATE.running = true;
+    STATE.timeLeft = GAME.durationSec;
+    STATE.score = 0;
+    STATE.combo = 0;
+    STATE.misses = 0;
+    STATE.goodHits = 0;
+    STATE.totalTargets = 0;
+    STATE.activeTargets = 0;
+
+    updateTopHUD();
+
+    if (STATE.tickTimer) clearInterval(STATE.tickTimer);
+    STATE.tickTimer = setInterval(gameTick, 250);
+
+    // เริ่มต้นให้มีเป้าสัก 1–2 อัน
+    spawnTarget();
+    spawnTarget();
+
+    setCoachMessage('แตะเป้าอาหารให้ตรงกลุ่มหมวดนะ!', '🥦');
+
+    // Fever bar (ถ้ามี)
+    if (window.FeverUI && window.FeverUI.ensureFeverBar) {
+      window.FeverUI.ensureFeverBar();
+      if (window.FeverUI.setFever) window.FeverUI.setFever(0);
+      if (window.FeverUI.setShield) window.FeverUI.setShield(0);
+    }
+  }
+
+  function endGame() {
+    STATE.running = false;
+    if (STATE.tickTimer) clearInterval(STATE.tickTimer);
+    clearAllTargets();
+
+    showResultOverlay();
+
+    if (STATE.score >= GAME.goalScore && STATE.goodHits >= GAME.miniGood) {
+      setCoachMessage('สุดยอด! ทำครบทั้ง Goal และ Mini quest เลย 🎉', '🤩');
+    } else {
+      setCoachMessage('เก่งมากแล้ว รอบหน้าลองทำให้เต็มเป้านะ 💪', '😊');
+    }
+  }
+
+  // ---------- Init ----------
+  function init() {
+    // อ่าน diff จาก URL ?diff=easy/normal/hard
+    try {
+      const url = new URL(window.location.href);
+      const diffParam = (url.searchParams.get('diff') || 'normal').toLowerCase();
+      if (diffParam === 'easy' || diffParam === 'hard' || diffParam === 'normal') {
+        STATE.diff = diffParam;
       }
-      if (!item) {
-        item = { emoji: '🍎', group: 1, isGood: true, name: 'ผลไม้' };
-      }
+    } catch (e) {
+      // ignore
+    }
 
-      const scale = this.cfg.scale || 1.0;
+    STATE.sizeFactor = SIZE_BY_DIFF[STATE.diff] || 1.0;
 
-      // ===== พื้นที่สุ่มเป้าให้โผล่กลางจอ =====
-      // คุมขอบซ้ายขวา
-      const xMin = -1.6;
-      const xMax =  1.6;
-      // ดันขึ้นจากขอบล่าง ให้เล่นกลางจอมากขึ้น
-      const yMin = 0.9;
-      const yMax = 2.0;
-
-      let x = xMin + Math.random() * (xMax - xMin);
-      let y = yMin + Math.random() * (yMax - yMin);
-      const z = -2.3;
-
-      // กันเป้าซ้อนกันเกินไป (เช็คระยะห่างจากเป้าอื่น)
-      const minDist2 = 0.7 * 0.7;
-      for (let tries = 0; tries < 6; tries++) {
-        let ok = true;
-        for (let i = 0; i < this.targets.length; i++) {
-          const t = this.targets[i];
-          const p = t.object3D ? t.object3D.position : t.getAttribute('position');
-          if (!p) continue;
-          const dx = p.x - x;
-          const dy = p.y - y;
-          if (dx * dx + dy * dy < minDist2) {
-            ok = false;
-            break;
-          }
-        }
-        if (ok) break;
-        x = xMin + Math.random() * (xMax - xMin);
-        y = yMin + Math.random() * (yMax - yMin);
-      }
-
-      const el = document.createElement('a-entity');
-      el.setAttribute('data-hha-tgt', '1');
-      el.setAttribute('position', { x, y, z });
-
-      // ฐานวงกลม
-      const baseColor = item.isGood ? '#16a34a' : '#ea580c';
-      el.setAttribute('geometry', {
-        primitive: 'circle',
-        radius: 0.45 * scale,
-        segments: 48
+    const restartBtn = $('#res-restart');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', () => {
+        startGame();
       });
-      el.setAttribute('material', {
-        color: baseColor,
-        opacity: 1.0,
-        shader: 'flat',
-        side: 'double'
-      });
+    }
 
-      // ขอบเข้ม
-      const rim = document.createElement('a-entity');
-      rim.setAttribute('geometry', {
-        primitive: 'ring',
-        radiusInner: 0.47 * scale,
-        radiusOuter: 0.55 * scale,
-        segmentsTheta: 64
-      });
-      rim.setAttribute('material', {
-        color: '#020617',
-        shader: 'flat',
-        side: 'double'
-      });
-      rim.setAttribute('position', { x: 0, y: 0, z: 0.001 });
-      el.appendChild(rim);
+    // เริ่มเกมเมื่อโหลดหน้าเสร็จ
+    startGame();
+  }
 
-      // ===== emoji การ์ตูน =====
-      const emojiChar = item.emoji || '🍎';
-      let emojiTex = null;
-      if (window.emojiImage && typeof window.emojiImage === 'function') {
-        try {
-          emojiTex = window.emojiImage(emojiChar);
-        } catch (e) {
-          console.warn('[GroupsVR] emojiImage error', e);
-        }
-      }
-
-      if (emojiTex) {
-        const sprite = document.createElement('a-entity');
-        sprite.setAttribute('geometry', {
-          primitive: 'circle',
-          radius: 0.33 * scale,
-          segments: 48
-        });
-        sprite.setAttribute('material', {
-          src: emojiTex,
-          transparent: true,
-          side: 'double'
-        });
-        sprite.setAttribute('position', { x: 0, y: 0, z: 0.002 });
-        sprite.setAttribute('look-at', '[camera]');
-        el.appendChild(sprite);
-      } else {
-        // fallback เป็นตัวอักษร emoji ถ้ายังไม่มี texture
-        const txt = document.createElement('a-entity');
-        txt.setAttribute('text', {
-          value: emojiChar,
-          align: 'center',
-          color: '#ffffff',
-          width: 2.0 * scale,
-          baseline: 'center'
-        });
-        txt.setAttribute('position', { x: 0, y: 0, z: 0.01 });
-        txt.setAttribute('look-at', '[camera]');
-        el.appendChild(txt);
-      }
-
-      const groupId = item && item.group != null ? item.group : 0;
-      const isGood = item && item.isGood ? 1 : 0;
-      el.setAttribute('data-group', String(groupId));
-      el.setAttribute('data-good', String(isGood));
-
-      el._life = 3200;
-      el._age = 0;
-      el._spawnTime = performance.now();
-      el._metaItem = item || {};
-
-      const self = this;
-      el.addEventListener('click', function () {
-        self.onHit(el);
-      });
-
-      this.el.sceneEl.appendChild(el);
-      this.targets.push(el);
-    },
+  window.addEventListener('load', init);
+})();
