@@ -209,11 +209,24 @@ export async function boot(cfg = {}) {
     }));
   }
 
+  // ✅ GOOD / PERFECT / MISS เด้งที่เป้า ด้วย judgment
   function scoreFX(x, y, val, judgment) {
     const label = judgment || ((val > 0 ? '+' : '') + val);
-    const good  = val >= 0;
-    safeScorePop(x, y, label, { good });
-    safeBurstAt(x, y, { color: good ? '#22c55e' : '#f97316' });
+    const j = (judgment || '').toString().toLowerCase();
+
+    let goodFlag = val >= 0;
+    if (j === 'miss') goodFlag = false;
+    if (j === 'perfect' || j === 'good' || j === 'fever' || j === 'block') {
+      goodFlag = true;
+    }
+
+    const opts = { good: goodFlag };
+    if (judgment) {
+      opts.judgment = j; // ให้ particles.js เลือกคลาสสี: good / perfect / miss
+    }
+
+    safeScorePop(x, y, label, opts);
+    safeBurstAt(x, y, { color: goodFlag ? '#22c55e' : '#f97316' });
   }
 
   // ----- judge เมื่อยิง/แตะเป้า -----
@@ -229,7 +242,7 @@ export async function boot(cfg = {}) {
       deck.onGood && deck.onGood();
       combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
-      scoreFX(x, y, d, 'GOOD');
+      scoreFX(x, y, d, 'good');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
@@ -240,7 +253,7 @@ export async function boot(cfg = {}) {
       deck.onGood && deck.onGood();
       combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
-      scoreFX(x, y, d, 'PERFECT');
+      scoreFX(x, y, d, 'perfect');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
@@ -251,7 +264,7 @@ export async function boot(cfg = {}) {
       score += d;
       deck.onGood && deck.onGood();
       syncDeck(); pushQuest();
-      scoreFX(x, y, d, 'GOOD');
+      scoreFX(x, y, d, 'good');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
@@ -263,7 +276,7 @@ export async function boot(cfg = {}) {
       score += d;
       deck.onGood && deck.onGood();
       syncDeck(); pushQuest();
-      scoreFX(x, y, d, 'FEVER');
+      scoreFX(x, y, d, 'fever');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
@@ -279,7 +292,7 @@ export async function boot(cfg = {}) {
       gainFever(6 + combo * 0.4);
       deck.onGood && deck.onGood();
       syncDeck(); pushQuest();
-      scoreFX(x, y, d, combo >= 8 ? 'PERFECT' : 'GOOD');
+      scoreFX(x, y, d, combo >= 8 ? 'perfect' : 'good');
       pushHudScore();
       return { good: true, scoreDelta: d };
     } else {
@@ -291,7 +304,7 @@ export async function boot(cfg = {}) {
         addWater(-4);
         decayFever(6);
         syncDeck(); pushQuest();
-        scoreFX(x, y, 0, 'BLOCK');
+        scoreFX(x, y, 0, 'block');
         pushHudScore();
         return { good: false, scoreDelta: 0 };
       }
@@ -304,7 +317,7 @@ export async function boot(cfg = {}) {
       decayFever(14);
       deck.onJunk && deck.onJunk();
       syncDeck(); pushQuest();
-      scoreFX(x, y, d, 'MISS');
+      scoreFX(x, y, d, 'miss');
       pushHudScore();
       return { good: false, scoreDelta: d };
     }
@@ -370,8 +383,6 @@ export async function boot(cfg = {}) {
     const g = (deck.getProgress && deck.getProgress('goals')) || [];
     const m = (deck.getProgress && deck.getProgress('mini'))  || [];
 
-    const goalCleared = g.length > 0 && g.every(x => x.done);
-
     const goalsTotal = accGoalDone + g.length;
     const goalsDone  = accGoalDone + g.filter(x => x.done).length;
     const miniTotal  = accMiniDone + m.length;
@@ -392,7 +403,6 @@ export async function boot(cfg = {}) {
         comboMax,
         duration: dur,
         greenTick,
-        goalCleared,
         goalsCleared: goalsDone,
         goalsTotal,
         questsCleared: miniDone,
