@@ -89,18 +89,31 @@
       </div>
 
       <!-- ขวา: Goal + Mini quest -->
-      <div class="hud-card" style="min-width: 220px">
-        <div class="hud-main-title">เป้าหมายวันนี้</div>
-        <div class="goal-line">
-          <span class="metric-label">Goal</span>
-          <span id="hud-goal-text">คะแนน 150+</span>
-        </div>
-        <div class="goal-line">
-          <span class="metric-label">Mini quest</span>
-          <span id="hud-mini-text">เก็บอาหารดี 12 ชิ้น</span>
-        </div>
-      </div>
-    </div>
+<!-- ====== HUD: Goal / Mini quest ====== -->
+<div class="fg-quest-panel">
+  <div class="fg-quest-title">เป้าหมายวันนี้</div>
+
+  <div class="fg-quest-row">
+    <span class="fg-quest-label">GOAL</span>
+    <span class="fg-quest-main" id="hud-goal-main">
+      คะแนน 150+
+    </span>
+    <span class="fg-quest-progress" id="hud-goal-progress">
+      (0 / 150)
+    </span>
+  </div>
+
+  <div class="fg-quest-row">
+    <span class="fg-quest-label">MINI QUEST</span>
+    <span class="fg-quest-main" id="hud-mini-main">
+      เก็บอาหารดี 12 ชิ้น
+    </span>
+    <span class="fg-quest-progress" id="hud-mini-progress">
+      (0 / 12)
+    </span>
+  </div>
+</div>
+
 
     <!-- โค้ชพูดด้านล่าง -->
     <div class="hud-bottom">
