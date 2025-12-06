@@ -1,17 +1,19 @@
-// === /herohealth/vr/food-groups/GameEngine.js ===
+// === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — DOM Target Engine + Coach + Goals
+// ใช้ร่วมกับ #fg-layer, CSS .fg-target*, ui-fever.js
 
 (() => {
   'use strict';
 
-  // ---------- ค่าพื้นฐานของเกม ----------
+  // ---------- config ----------
   const GAME = {
-    durationSec: 60,       // เวลาเล่น
-    goalScore: 150,        // คะแนนเป้าหมาย
-    miniGood: 12,          // จำนวนของดีที่ต้องเก็บ
-    maxActive: 3,          // เป้าได้พร้อมกันสูงสุด
-    targetLifetime: 2600,  // เป้าอยู่ได้กี่ ms
-    spawnBaseInterval: 900 // ใช้ร่วมกับ random spawn
+    durationSec: 60,
+    goalScore: 150,
+    miniGood: 12,
+    maxActive: 3,
+    targetLifetime: 2600,
+    spawnIntervalMs: 250,   // gameTick ทุก 250 ms
+    spawnProb: 0.45         // โอกาส spawn ต่อ tick
   };
 
   const SIZE_BY_DIFF = {
@@ -23,7 +25,7 @@
   const GOOD_EMOJIS = ['🥦', '🥕', '🍎', '🍊', '🍚', '🥚'];
   const JUNK_EMOJIS = ['🍩', '🍕', '🍟', '🍰', '🥤'];
 
-  // ---------- State ----------
+  // ---------- state ----------
   const STATE = {
     running: false,
     timeLeft: GAME.durationSec,
@@ -40,7 +42,7 @@
 
   const $ = (sel) => document.querySelector(sel);
 
-  // ---------- Coach bubble ----------
+  // ---------- coach ----------
   let coachTimer = null;
 
   function setCoachMessage(text, emoji) {
@@ -59,7 +61,7 @@
     }, 3500);
   }
 
-  // ---------- Helpers ----------
+  // ---------- helpers ----------
   function clamp(v, min, max) {
     if (v < min) return min;
     if (v > max) return max;
@@ -70,13 +72,12 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ตำแหน่งแบบ random ทั่ว ๆ กลางจอ (เลี่ยง HUD บน/ล่าง)
   function randomScreenPos() {
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe = 120;   // กัน HUD + fever
-    const bottomSafe = 180; // กัน coach bubble + ขอบจอ
+    const topSafe = 120;     // กัน HUD + fever
+    const bottomSafe = 180;  // กัน coach ด้านล่าง
     const leftSafe = w * 0.15;
     const rightSafe = w * 0.85;
 
@@ -109,7 +110,7 @@
     }
   }
 
-  // ---------- ผลลัพธ์ ----------
+  // ---------- result overlay ----------
   function showResultOverlay() {
     const ov = $('#result-overlay');
     if (!ov) return;
@@ -133,13 +134,13 @@
     ov.classList.remove('show');
   }
 
-  // ---------- Target logic ----------
+  // ---------- target ----------
   function spawnTarget() {
     if (!STATE.running) return;
     if (STATE.activeTargets >= GAME.maxActive) return;
 
     const layer = $('#fg-layer');
-    if (!layer) return;
+    if (!layer) return; // ถ้าไม่มีเลเยอร์ -> ไม่มีเป้าโผล่
 
     const { x, y } = randomScreenPos();
     const isGood = Math.random() < 0.65;
@@ -149,7 +150,9 @@
     el.dataset.good = isGood ? '1' : '0';
     el.dataset.hit = '0';
     el.dataset.birth = String(performance.now());
-    el.setAttribute('data-emoji', isGood ? randomFrom(GOOD_EMOJIS) : randomFrom(JUNK_EMOJIS));
+
+    const emojiChar = isGood ? randomFrom(GOOD_EMOJIS) : randomFrom(JUNK_EMOJIS);
+    el.setAttribute('data-emoji', emojiChar);
 
     el.style.left = x + 'px';
     el.style.top = y + 'px';
@@ -165,7 +168,6 @@
     STATE.totalTargets++;
 
     setTimeout(() => {
-      // ถ้ายังไม่โดนตีถือว่าพลาด
       if (!el.isConnected) return;
       if (el.dataset.hit === '1') return;
       handleMiss(el);
@@ -183,7 +185,7 @@
 
     STATE.combo = isGood ? STATE.combo + 1 : 0;
     if (STATE.combo >= 5 && isGood) {
-      scoreDelta += 5; // small combo bonus
+      scoreDelta += 5;
     }
 
     STATE.score = Math.max(0, STATE.score + scoreDelta);
@@ -191,7 +193,6 @@
 
     STATE.activeTargets = Math.max(0, STATE.activeTargets - 1);
 
-    // effect เล็กน้อย
     el.classList.add('hit');
     setTimeout(() => {
       if (el.isConnected) el.remove();
@@ -199,7 +200,6 @@
 
     updateTopHUD();
 
-    // Coach reaction เล็กน้อย
     if (isGood && STATE.goodHits === 1) {
       setCoachMessage('เยี่ยมเลย เริ่มเก็บอาหารดีได้แล้ว 🎉', '😄');
     } else if (!isGood && STATE.misses % 3 === 0) {
@@ -231,16 +231,16 @@
     }
   }
 
-  // ---------- Game loop ----------
   function clearAllTargets() {
     document.querySelectorAll('.fg-target').forEach((el) => el.remove());
     STATE.activeTargets = 0;
   }
 
+  // ---------- game loop ----------
   function gameTick() {
     if (!STATE.running) return;
 
-    STATE.timeLeft -= 0.25;
+    STATE.timeLeft -= GAME.spawnIntervalMs / 1000;
     if (STATE.timeLeft <= 0) {
       STATE.timeLeft = 0;
       updateTopHUD();
@@ -248,9 +248,7 @@
       return;
     }
 
-    // โอกาส spawn ทุก ๆ 250 ms
-    const p = 0.45;
-    if (STATE.activeTargets < GAME.maxActive && Math.random() < p) {
+    if (STATE.activeTargets < GAME.maxActive && Math.random() < GAME.spawnProb) {
       spawnTarget();
     }
 
@@ -273,15 +271,14 @@
     updateTopHUD();
 
     if (STATE.tickTimer) clearInterval(STATE.tickTimer);
-    STATE.tickTimer = setInterval(gameTick, 250);
+    STATE.tickTimer = setInterval(gameTick, GAME.spawnIntervalMs);
 
-    // เริ่มต้นให้มีเป้าสัก 1–2 อัน
+    // เริ่มมีเป้า 1–2 อัน
     spawnTarget();
     spawnTarget();
 
     setCoachMessage('แตะเป้าอาหารให้ตรงกลุ่มหมวดนะ!', '🥦');
 
-    // Fever bar (ถ้ามี)
     if (window.FeverUI && window.FeverUI.ensureFeverBar) {
       window.FeverUI.ensureFeverBar();
       if (window.FeverUI.setFever) window.FeverUI.setFever(0);
@@ -303,18 +300,15 @@
     }
   }
 
-  // ---------- Init ----------
+  // ---------- init ----------
   function init() {
-    // อ่าน diff จาก URL ?diff=easy/normal/hard
     try {
       const url = new URL(window.location.href);
       const diffParam = (url.searchParams.get('diff') || 'normal').toLowerCase();
       if (diffParam === 'easy' || diffParam === 'hard' || diffParam === 'normal') {
         STATE.diff = diffParam;
       }
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
 
     STATE.sizeFactor = SIZE_BY_DIFF[STATE.diff] || 1.0;
 
@@ -325,7 +319,6 @@
       });
     }
 
-    // เริ่มเกมเมื่อโหลดหน้าเสร็จ
     startGame();
   }
 
