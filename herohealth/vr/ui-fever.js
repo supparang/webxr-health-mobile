@@ -27,6 +27,7 @@
         bottom:12px;
         z-index:900;
         font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
+        pointer-events:none; /* ไม่บังคลิก/ลากในเกม */
       }
       .hha-fever-card{
         min-width:210px;
