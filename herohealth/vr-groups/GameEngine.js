@@ -56,6 +56,7 @@
   }
 
   // ---------- Quest pools ----------
+  // 10 แบบ → สุ่มมาใช้ 2/10
   const GOAL_POOL = [
     {
       id: 'G_SCORE_150',
@@ -123,17 +124,18 @@
     }
   ];
 
+  // 15 แบบ → สุ่มมาใช้ 3/15
   const MINI_POOL = [
-    { id: 'M_SCORE_60',  label: 'ทำคะแนนย่อยให้ถึง 60 แต้ม',  kind: 'score',     easy: 40, normal: 60,  hard: 80  },
-    { id: 'M_SCORE_90',  label: 'ทำคะแนนย่อยให้ถึง 90 แต้ม',  kind: 'score',     easy: 60, normal: 90,  hard: 120 },
-    { id: 'M_SCORE_120', label: 'ทำคะแนนย่อยให้ถึง 120 แต้ม', kind: 'score',     easy: 80, normal: 120, hard: 150 },
+    { id: 'M_SCORE_60',  label: 'ทำคะแนนย่อยให้ถึง 60 แต้ม',   kind: 'score',     easy: 40, normal: 60,  hard: 80  },
+    { id: 'M_SCORE_90',  label: 'ทำคะแนนย่อยให้ถึง 90 แต้ม',   kind: 'score',     easy: 60, normal: 90,  hard: 120 },
+    { id: 'M_SCORE_120', label: 'ทำคะแนนย่อยให้ถึง 120 แต้ม',  kind: 'score',     easy: 80, normal: 120, hard: 150 },
     { id: 'M_GOOD_6',    label: 'เก็บอาหารดีอย่างน้อย 6 ชิ้น', kind: 'goodHits', easy: 4,  normal: 6,   hard: 8   },
     { id: 'M_GOOD_8',    label: 'เก็บอาหารดีอย่างน้อย 8 ชิ้น', kind: 'goodHits', easy: 5,  normal: 8,   hard: 10  },
     { id: 'M_GOOD_10',   label: 'เก็บอาหารดีอย่างน้อย 10 ชิ้น',kind: 'goodHits', easy: 6,  normal: 10,  hard: 12  },
     { id: 'M_GOOD_4',    label: 'เริ่มจากอาหารดี 4 ชิ้นให้ได้ก่อน',kind: 'goodHits', easy: 3, normal: 4, hard: 5 },
     { id: 'M_SCORE_40',  label: 'เก็บคะแนนแรกให้ถึง 40 แต้ม', kind: 'score', easy: 30, normal: 40, hard: 60 },
     { id: 'M_SCORE_80',  label: 'เก็บคะแนนเพิ่มให้ถึง 80 แต้ม',kind: 'score', easy: 50, normal: 80, hard: 100 },
-    { id: 'M_GOOD_12',   label: 'ลองเก็บอาหารดี 12 ชิ้นดู',   kind: 'goodHits', easy: 8, normal: 12, hard: 14 },
+    { id: 'M_GOOD_12',   label: 'ลองเก็บอาหารดี 12 ชิ้นดู',   kind: 'goodHits', easy: 8,  normal: 12,  hard: 14 },
     { id: 'M_SCORE_30',  label: 'วอร์มอัพ 30 แต้มแรก',         kind: 'score', easy: 20, normal: 30, hard: 45 },
     { id: 'M_GOOD_5',    label: 'อย่าให้พลาด เก็บอาหารดี 5 ชิ้น',kind: 'goodHits', easy: 3, normal: 5, hard: 7 },
     { id: 'M_SCORE_50',  label: 'ทำคะแนนเก็บเพิ่มให้ถึง 50 แต้ม',kind: 'score', easy: 35, normal: 50, hard: 70 },
@@ -151,27 +153,12 @@
     }
 
     if (diffKey === 'easy') {
-      return {
-        spawnInterval: 1400,
-        maxActive: 3,
-        sizeFactor: 1.15,
-        lifeTime: 2600
-      };
+      return { spawnInterval: 1400, maxActive: 3, sizeFactor: 1.15, lifeTime: 2600 };
     }
     if (diffKey === 'hard') {
-      return {
-        spawnInterval: 900,
-        maxActive: 5,
-        sizeFactor: 0.9,
-        lifeTime: 2200
-      };
+      return { spawnInterval: 900, maxActive: 5, sizeFactor: 0.9, lifeTime: 2200 };
     }
-    return {
-      spawnInterval: 1200,
-      maxActive: 4,
-      sizeFactor: 1.0,
-      lifeTime: 2400
-    };
+    return { spawnInterval: 1200, maxActive: 4, sizeFactor: 1.0, lifeTime: 2400 };
   }
 
   function shuffle(arr) {
@@ -303,8 +290,8 @@
       this.miniIndex     = 0;
       this.goalsCleared  = 0;
       this.miniCleared   = 0;
-      this.goalLimit     = 2;
-      this.miniLimit     = 3;
+      this.goalLimit     = 2;  // 2/10
+      this.miniLimit     = 3;  // 3/15
 
       // event จาก HTML
       const startHandler = (e) => {
@@ -328,15 +315,6 @@
       this.elCoachBubble.classList.add('show');
     },
 
-    // ---------- Quest helper ----------
-    getMetric: function (kind) {
-      switch (kind) {
-        case 'score':    return this.score;
-        case 'goodHits': return this.goodHits;
-        default:         return 0;
-      }
-    },
-
     updateFever: function (delta) {
       this.fever = (this.fever || 0) + delta;
       if (this.fever < 0) this.fever = 0;
@@ -357,6 +335,7 @@
       }
     },
 
+    // ---------- Quest helper ----------
     setupQuests: function () {
       const diff = this.diffKey || 'normal';
 
@@ -393,7 +372,7 @@
       const idxKey     = type === 'goal' ? 'goalIndex' : 'miniIndex';
       const clearedKey = type === 'goal' ? 'goalsCleared' : 'miniCleared';
 
-      let idx     = this[idxKey] || 0;
+      let idx = this[idxKey] || 0;
       const prevCleared = this[clearedKey] || 0;
 
       while (idx < list.length) {
@@ -425,11 +404,11 @@
       }
 
       if (this[clearedKey] > prevCleared) {
-        if (type === 'goal') {
-          this.coachSay('เยี่ยม! ทำตามเป้าหมายหลักได้แล้ว ✅', 800);
-        } else {
-          this.coachSay('มินิภารกิจผ่านแล้ว ไปต่อเลย! ⭐', 800);
-        }
+        // coach report: Goal 1/2, Mini 2/3
+        const gTotal = this.goalQueue.length || 0;
+        const mTotal = this.miniQueue.length || 0;
+        const msg = `Goal ${this.goalsCleared}/${gTotal}, Mini ${this.miniCleared}/${mTotal} ผ่านแล้ว เยี่ยมมาก! ✅`;
+        this.coachSay(msg, 800);
       }
 
       this[idxKey] = Math.min(idx, list.length);
@@ -698,7 +677,7 @@
           this.badStreak = 0;
           this.updateFever(FEVER_HIT_GAIN);
 
-          fxText = '+10';
+          fxText = 'GOOD +10';
           fxKind = 'fg-fx--good';
 
           if (this.goodStreak === 3) {
@@ -708,7 +687,7 @@
           if (this.shield > 0) {
             this.shield -= 1;
             FeverUI.setShield(this.shield);
-            fxText = 'Shield!';
+            fxText = 'GUARD';
             fxKind = 'fg-fx--power';
             this.coachSay('เกราะกันไว้ทันพอดีเลย 🛡️', 1200);
           } else {
@@ -719,7 +698,7 @@
             this.goodStreak = 0;
             this.updateFever(-FEVER_MISS_LOSS);
 
-            fxText = '-8';
+            fxText = 'MISS -8';
             fxKind = 'fg-fx--bad';
 
             if (this.badStreak >= 2) {
@@ -730,13 +709,13 @@
       } else if (type === 'star') {
         this.score += 20;
         this.updateFever(25);
-        fxText = '+20 ⭐';
+        fxText = 'PERFECT ⭐ +20';
         fxKind = 'fg-fx--power';
         this.coachSay('ดาวพิเศษ! คะแนนพุ่งเลย ⭐', 1200);
       } else if (type === 'diamond') {
         this.score += 30;
         this.updateFever(35);
-        fxText = '+30 💎';
+        fxText = 'PERFECT 💎 +30';
         fxKind = 'fg-fx--power';
         this.coachSay('เพชรพลังงาน! เก็บได้เยี่ยม 💎', 1200);
       } else if (type === 'shield') {
