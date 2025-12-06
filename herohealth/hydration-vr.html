@@ -21,28 +21,28 @@
     </div>
   </div>
 
-  <!-- crosshair -->
+  <!-- วงกลมเล็งกลางจอ (crosshair) ใช้สไตล์จาก goodjunk-vr.css -->
   <div class="hha-crosshair"></div>
 
-  <!-- ปุ่ม VR -->
+  <!-- ปุ่ม VR มุมซ้ายบน (สไตล์เดิม GoodJunk) -->
   <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
-  <!-- ============= โค้ช (NEW) ============= -->
-  <div id="hha-coach-wrap">
-    <div id="hha-coach-emoji">💧</div>
-    <div id="hha-coach-text">กำลังเริ่มโหมดน้ำ…</div>
-  </div>
+  <!-- ===== SCRIPT ZONE ===== -->
 
-  <!-- HUD -->
+  <!-- 🌟 Fever gauge + Shield (global FeverUI ใช้ร่วมทุกโหมด) -->
+  <script src="./vr/ui-fever.js"></script>
+
+  <!-- HUD เควสต์ / สกอร์ ฯลฯ (panel มุมขวาบน) -->
   <script type="module" src="./vr/quest-hud-vr.js"></script>
 
-  <!-- Script โค้ช -->
+  <!-- โค้ชหยดน้ำ (emoji + auto-move + bubble mission) -->
   <script type="module" src="./vr/coach-bubble.js"></script>
 
-  <!-- Hydration VR -->
+  <!-- โหมด Hydration VR -->
   <script type="module">
     import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
 
+    // อ่าน URL param: ?diff=easy|normal|hard&time=60
     const url = new URL(window.location.href);
     let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
     if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
@@ -52,24 +52,32 @@
     if (dur < 20)  dur = 20;
     if (dur > 180) dur = 180;
 
+    // เริ่มโหมด Hydration
     bootHydration({
       difficulty: diff,
       duration:   dur
     }).then(inst => {
+      // ซ่อนข้อความโหลด
+      const wrap = document.querySelector('.hha-scene-wrap');
+      if (wrap) wrap.style.display = 'none';
 
-      document.querySelector('.hha-scene-wrap').style.display = 'none';
-
-      // destroy on unload
+      // กัน memory leak ตอนออกหน้า
       window.addEventListener('beforeunload', () => {
-        if (inst?.destroy) inst.destroy();
+        try {
+          if (inst && typeof inst.destroy === 'function') {
+            inst.destroy();
+          }
+        } catch (e) {
+          console.warn('[HydrationVR] destroy error on unload', e);
+        }
       });
-
     }).catch(err => {
       console.error('[HydrationVR] boot error', err);
       const msg = document.querySelector('.hha-loading-msg');
-      if (msg) msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
+      if (msg) {
+        msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
+      }
     });
   </script>
-
 </body>
 </html>
