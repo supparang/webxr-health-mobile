@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (DOM emoji targets + Goal/Mini + Fever + FX)
-// 2025-12-06
+// 2025-12-06 (no external difficulty.js dependence)
 
 (function (ns) {
   'use strict';
@@ -137,17 +137,11 @@
     }
   }
 
-  // ---------- Difficulty ----------
+  // ---------- Difficulty (internal only) ----------
   function getDiffConfig(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
-    // ถ้ามีตาราง difficulty แยกไฟล์
-    if (ns.foodGroupsDifficulty && typeof ns.foodGroupsDifficulty.get === 'function') {
-      const cfg = ns.foodGroupsDifficulty.get(diffKey);
-      if (cfg) return cfg;
-    }
-
-    // fallback
+    // **ไม่ใช้ difficulty.js ภายนอก** เพื่อกัน undefined
     if (diffKey === 'easy') {
       return {
         spawnInterval: 1400,
@@ -188,7 +182,7 @@
     };
   }
 
-  // ---------- Emoji / group ----------
+  // ---------- Emoji ----------
   const GOOD_EMOJI = ['🥦', '🍎', '🍚', '🍳', '🥛', '🍌', '🍇', '🥕', '🥝'];
   const JUNK_EMOJI = ['🍩', '🍟', '🍕', '🥤', '🍰', '🍫', '🍭', '🍪'];
 
@@ -205,7 +199,7 @@
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe    = 120;  // กัน HUD บน
+    const topSafe    = 140;  // กัน HUD บน
     const bottomSafe = 160;  // กันโค้ชด้านล่าง
 
     const left  = w * 0.15;
@@ -216,7 +210,6 @@
     return { x: x, y: y };
   }
 
-  // ---------- Helper clamp ----------
   function clamp(v, min, max) {
     v = Number(v) || 0;
     if (v < min) return min;
@@ -232,7 +225,6 @@
       const scene = this.el.sceneEl;
       this.scene = scene;
 
-      // DOM layer เป้า
       this.layer = document.getElementById('fg-layer');
       if (!this.layer) {
         this.layer = document.createElement('div');
@@ -240,7 +232,6 @@
         document.body.appendChild(this.layer);
       }
 
-      // HUD elements
       this.elScore     = document.getElementById('hud-score');
       this.elTime      = document.getElementById('hud-time-label');
       this.elGoalMain  = document.getElementById('hud-goal-main');
@@ -250,10 +241,9 @@
       this.elCoach     = document.getElementById('coach-bubble');
       this.elCoachText = document.getElementById('coach-text');
 
-      // state
       this.running    = false;
       this.elapsed    = 0;
-      this.timeLimit  = 60000; // ms
+      this.timeLimit  = 60000;
       this.spawnTimer = 0;
       this.targets    = [];
       this.score      = 0;
@@ -263,14 +253,12 @@
       this.diffKey = 'normal';
       this.diffCfg = getDiffConfig(this.diffKey);
 
-      // fever state
       this.fever = 0;
       FeverUI.ensureFeverBar();
       FeverUI.setFever(0);
       FeverUI.setShield(0);
       FeverUI.setFeverActive(false);
 
-      // listen start event from HTML
       const startHandler = (e) => {
         const diff = (e.detail && e.detail.diff) || 'normal';
         this.startGame(diff);
@@ -290,8 +278,7 @@
     updateFever: function (delta) {
       this.fever = clamp((this.fever || 0) + delta, 0, FEVER_MAX);
       FeverUI.setFever(this.fever);
-      const active = this.fever >= FEVER_MAX;
-      FeverUI.setFeverActive(active);
+      FeverUI.setFeverActive(this.fever >= FEVER_MAX);
     },
 
     startGame: function (diffKey) {
@@ -377,7 +364,6 @@
       this.elapsed    += dt;
       this.spawnTimer += dt;
 
-      // time
       const remain = Math.max(0, this.timeLimit - this.elapsed);
       if (this.elTime) {
         this.elTime.textContent = Math.ceil(remain / 1000) + 's';
@@ -387,7 +373,6 @@
         return;
       }
 
-      // spawn target
       if (this.spawnTimer >= this.diffCfg.spawnInterval) {
         this.spawnTimer = 0;
         this.spawnTarget();
@@ -409,7 +394,6 @@
       el.style.left = pos.x + 'px';
       el.style.top  = pos.y + 'px';
 
-      // scale ตามระดับความยาก
       const baseScale = this.diffCfg.sizeFactor || 1.0;
       el.style.transform = 'translate(-50%, -50%) scale(' + baseScale + ')';
 
@@ -432,7 +416,6 @@
 
       this.layer.appendChild(el);
 
-      // auto-remove ถ้าไม่กดทัน → นับเป็น miss
       const life = this.diffCfg.lifeTime || 2300;
       const self = this;
       targetObj.timeoutId = setTimeout(function () {
@@ -471,7 +454,6 @@
       const el = target.el;
       if (!el || !el.parentNode) return;
 
-      // หา screen position สำหรับ FX
       let x = 0;
       let y = 0;
       if (ev && ev.clientX != null) {
