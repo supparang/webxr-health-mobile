@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (DOM emoji targets + Goal/Mini + Fever + FX)
-// 2025-12-06 (no external difficulty.js dependence)
+// Food Groups VR — Game Engine (DOM emoji targets + Food-Group Goal/Mini + Fever + FX)
+// 2025-12-06 (food-group wording for goal / mini)
 
 (function (ns) {
   'use strict';
@@ -141,7 +141,6 @@
   function getDiffConfig(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
-    // **ไม่ใช้ difficulty.js ภายนอก** เพื่อกัน undefined
     if (diffKey === 'easy') {
       return {
         spawnInterval: 1400,
@@ -151,8 +150,8 @@
         goodScore:     10,
         junkPenalty:   5,
         junkRatio:     0.25,
-        goalScore:     120,
-        goalGoodHits:  10
+        goalScore:     120,  // ใช้กับ mini quest: คะแนนจากหมู่อาหารดี
+        goalGoodHits:  10    // ใช้กับ GOAL: จำนวนอาหารดีจากหมู่อาหาร
       };
     }
     if (diffKey === 'hard') {
@@ -194,13 +193,13 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ---------- Random position (กลางจอ, ไม่ชน HUD/โค้ช) ----------
+  // ---------- Random position ----------
   function randomScreenPos() {
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe    = 140;  // กัน HUD บน
-    const bottomSafe = 160;  // กันโค้ชด้านล่าง
+    const topSafe    = 140;
+    const bottomSafe = 160;
 
     const left  = w * 0.15;
     const right = w * 0.85;
@@ -298,13 +297,18 @@
       if (this.elScore) this.elScore.textContent = '0';
       if (this.elTime)  this.elTime.textContent  = '60s';
 
+      // ----- text เกี่ยวกับ "หมู่อาหาร" -----
       if (this.elGoalMain) {
+        // GOAL: เลือกอาหารดีจากหมู่อาหารให้ครบตามจำนวน
         this.elGoalMain.textContent =
-          'ทำคะแนนให้ได้ ' + this.diffCfg.goalScore + '+';
+          'เลือกอาหารดีจากหมู่อาหารให้ได้อย่างน้อย ' +
+          this.diffCfg.goalGoodHits + ' ชิ้น';
       }
       if (this.elMiniMain) {
+        // MINI: เก็บคะแนนจากหมู่อาหารดีรวมทั้งเกม
         this.elMiniMain.textContent =
-          'เก็บอาหารดี ' + this.diffCfg.goalGoodHits + ' ชิ้น';
+          'ทำคะแนนจากหมู่อาหารดีให้ได้ ' +
+          this.diffCfg.goalScore + ' คะแนนขึ้นไป';
       }
 
       this.updateGoalHUD();
@@ -314,7 +318,7 @@
       FeverUI.setShield(0);
       FeverUI.setFeverActive(false);
 
-      this.setCoach('เลือกอาหารดีให้เยอะที่สุด ระวังขยะอาหารด้วยนะ!');
+      this.setCoach('เลือกอาหารดีจากหมู่อาหารหลัก 5 หมู่ให้เยอะที่สุดนะ! 🥦🍚🥛');
 
       console.log('[GroupsVR] startGame', this.diffKey, this.diffCfg);
     },
@@ -330,8 +334,10 @@
       let questsCleared = 0;
       const questsTotal = 2;
 
-      if (this.score    >= this.diffCfg.goalScore)    questsCleared++;
+      // GOAL = จำนวนอาหารดีจากหมู่อาหาร
       if (this.goodHits >= this.diffCfg.goalGoodHits) questsCleared++;
+      // MINI = คะแนนจากการเลือกอาหารดี
+      if (this.score    >= this.diffCfg.goalScore)    questsCleared++;
 
       const detail = {
         score:      this.score,
@@ -339,21 +345,23 @@
         missCount:  this.missCount,
         questsCleared: questsCleared,
         questsTotal:   questsTotal,
-        goal: 'คะแนน ' + this.diffCfg.goalScore +
-              '+ (' + this.score + ' / ' + this.diffCfg.goalScore + ')',
-        miniQuest: 'อาหารดี ' + this.diffCfg.goalGoodHits +
-                   ' ชิ้น (' + this.goodHits + ' / ' + this.diffCfg.goalGoodHits + ')'
+        goal:
+          'อาหารดีจากหมู่อาหาร ' + this.diffCfg.goalGoodHits +
+          ' ชิ้น (' + this.goodHits + ' / ' + this.diffCfg.goalGoodHits + ')',
+        miniQuest:
+          'คะแนนจากหมู่อาหารดี ' + this.diffCfg.goalScore +
+          '+ (' + this.score + ' / ' + this.diffCfg.goalScore + ')'
       };
 
       scene.emit('fg-game-over', detail);
       console.log('[GroupsVR] game over', detail);
 
       if (questsCleared === questsTotal) {
-        this.setCoach('สุดยอด! ผ่านทั้ง Goal และ Mini quest เลย 🎉');
+        this.setCoach('สุดยอด! เลือกหมู่อาหารดีครบตามเป้าและได้คะแนนเกินเป้าแล้ว 🎉');
       } else if (questsCleared === 1) {
-        this.setCoach('ดีมาก! ลองเล่นรอบต่อไปให้ผ่านทุกภารกิจดูนะ 💪');
+        this.setCoach('ดีมาก! รอบหน้าลองทำให้ผ่านทั้งจำนวนชิ้นและคะแนนเลยนะ 💪');
       } else {
-        this.setCoach('ไม่เป็นไร รอบหน้าเลือกอาหารดีให้มากขึ้นนะ 😊');
+        this.setCoach('ไม่เป็นไร รอบหน้าเลือกอาหารดีจากหมู่อาหารให้มากขึ้นอีกหน่อยนะ 😊');
       }
     },
 
@@ -496,13 +504,15 @@
     },
 
     updateGoalHUD: function () {
+      // GOAL = ชิ้นอาหารดีจากหมู่อาหาร
       if (this.elGoalProg) {
         this.elGoalProg.textContent =
-          '(' + this.score + ' / ' + this.diffCfg.goalScore + ')';
+          '(' + this.goodHits + ' / ' + this.diffCfg.goalGoodHits + ')';
       }
+      // MINI = คะแนนรวมจากหมู่อาหารดี
       if (this.elMiniProg) {
         this.elMiniProg.textContent =
-          '(' + this.goodHits + ' / ' + this.diffCfg.goalGoodHits + ')';
+          '(' + this.score + ' / ' + this.diffCfg.goalScore + ')';
       }
     },
 
