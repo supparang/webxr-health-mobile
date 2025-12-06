@@ -117,40 +117,6 @@
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
-    /* Fever bar */
-    .fever-wrap{
-      margin-top:6px;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .fever-label{
-      font-size:10px;
-      text-transform:uppercase;
-      letter-spacing:.12em;
-      color:var(--text-soft);
-    }
-    .fever-bar{
-      flex:1;
-      position:relative;
-      height:4px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.9);
-      overflow:hidden;
-    }
-    .fever-bar-fill{
-      position:absolute;
-      inset:0;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg, rgba(250,204,21,0.2), var(--fever));
-      box-shadow:0 0 0 rgba(250,204,21,0);
-      transition:width .12s ease-out, box-shadow .16s ease-out;
-    }
-    .fever-bar-fill.active{
-      box-shadow:0 0 22px rgba(250,204,21,0.75);
-    }
-
     .hud-quest{
       max-width:280px;
       font-size:12px;
@@ -200,7 +166,7 @@
       justify-content:space-between;
     }
 
-    /* ===== Coach bubble ===== */
+    /* ===== Coach bubble (หน้าการ์ตูน) ===== */
     .hud-bottom{
       display:flex;
       flex-direction:column;
@@ -214,16 +180,15 @@
       background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%),
                  rgba(15,23,42,0.96);
       border-radius:999px;
-      padding:8px 14px;
+      padding:8px 16px 8px 12px;
       border:1px solid rgba(52,211,153,0.45);
       font-size:13px;
       display:none;
       align-items:center;
       justify-content:flex-start;
-      gap:8px;
+      gap:10px;
       pointer-events:auto;
     }
-    .coach-bubble.show{ display:flex; }
     .coach-label{
       font-size:11px;
       text-transform:uppercase;
@@ -231,12 +196,66 @@
       color:#6ee7b7;
       font-weight:600;
     }
-    .coach-emoji{
-      font-size:26px;
-      line-height:1;
-      width:32px;
-      text-align:center;
+
+    .coach-avatar{
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      background:radial-gradient(circle at 30% 20%, #e0f2fe, #38bdf8); /* default neutral */
+      display:flex;
+      align-items:center;
+      justify-content:center;
       flex-shrink:0;
+      box-shadow:0 0 0 0 rgba(56,189,248,0.6);
+      transition:background .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+    .coach-emoji{
+      font-size:22px;
+      line-height:1;
+    }
+
+    /* ===== Fever panel ล่างซ้าย ===== */
+    .fever-panel{
+      position:fixed;
+      left:12px;
+      bottom:16px;
+      z-index:651;
+      min-width:170px;
+      max-width:220px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.96);
+      border:1px solid rgba(250,204,21,0.6);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      pointer-events:none;
+    }
+    .fever-label{
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      color:var(--text-soft);
+    }
+    .fever-bar{
+      flex:1;
+      position:relative;
+      height:4px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.9);
+      overflow:hidden;
+    }
+    .fever-bar-fill{
+      position:absolute;
+      inset:0;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(250,204,21,0.2), var(--fever));
+      box-shadow:0 0 0 rgba(250,204,21,0);
+      transition:width .12s ease-out, box-shadow .16s ease-out;
+    }
+    .fever-bar-fill.active{
+      box-shadow:0 0 22px rgba(250,204,21,0.75);
     }
 
     /* ===== Center hint ===== */
@@ -331,7 +350,7 @@
   <!-- ===== HUD Overlay ===== -->
   <div class="hud-root">
     <div class="hud-top">
-      <!-- Left: mode + metrics + fever -->
+      <!-- Left: mode + metrics -->
       <div class="hud-card" style="flex:1;max-width:360px;">
         <div class="hud-main">
           <div>
@@ -344,7 +363,6 @@
             <span id="hud-time-label">60s</span>
           </div>
         </div>
-
         <div class="hud-metrics">
           <div class="metric">
             <div class="metric-label">คะแนน</div>
@@ -357,13 +375,6 @@
           <div class="metric">
             <div class="metric-label">พลาด</div>
             <div class="metric-value danger" id="hud-miss">0</div>
-          </div>
-        </div>
-
-        <div class="fever-wrap">
-          <div class="fever-label">FEVER</div>
-          <div class="fever-bar">
-            <div id="fever-bar-fill" class="fever-bar-fill"></div>
           </div>
         </div>
       </div>
@@ -392,15 +403,25 @@
       </div>
     </div>
 
-    <!-- Bottom: coach -->
+    <!-- Bottom: coach (avatar + text) -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <span id="coach-emoji" class="coach-emoji">🙂</span>
+        <div id="coach-avatar" class="coach-avatar">
+          <span id="coach-emoji" class="coach-emoji">🙂</span>
+        </div>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="coach-label">โค้ช</span>
           <span id="coach-text">แตะของดีให้ตรงเป้าหมาย</span>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Fever bar ล่างซ้าย -->
+  <div class="fever-panel">
+    <div class="fever-label">FEVER</div>
+    <div class="fever-bar">
+      <div id="fever-bar-fill" class="fever-bar-fill"></div>
     </div>
   </div>
 
@@ -447,6 +468,7 @@
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
     const elCoachEmoji  = document.getElementById('coach-emoji');
+    const elCoachAvatar = document.getElementById('coach-avatar');
     const elTouchHint   = document.getElementById('touch-hint');
 
     const elEndToast  = document.getElementById('end-toast');
@@ -461,6 +483,7 @@
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
+    // อารมณ์โค้ชเป็น emoji
     const coachFaces = {
       neutral: '🙂',
       happy:   '😄',
@@ -469,8 +492,21 @@
     };
 
     function setCoachFace(mood){
-      if (!elCoachEmoji) return;
-      elCoachEmoji.textContent = coachFaces[mood] || coachFaces.neutral;
+      if (elCoachEmoji) {
+        elCoachEmoji.textContent = coachFaces[mood] || coachFaces.neutral;
+      }
+      if (elCoachAvatar) {
+        // เปลี่ยนสี background avatar ตามอารมณ์
+        let bg = 'radial-gradient(circle at 30% 20%, #e0f2fe, #38bdf8)';
+        if (mood === 'happy') {
+          bg = 'radial-gradient(circle at 30% 20%, #bbf7d0, #22c55e)';
+        } else if (mood === 'sad') {
+          bg = 'radial-gradient(circle at 30% 20%, #fecaca, #f97373)';
+        } else if (mood === 'fever') {
+          bg = 'radial-gradient(circle at 30% 20%, #fef3c7, #facc15)';
+        }
+        elCoachAvatar.style.background = bg;
+      }
     }
 
     function setCoach(text){
