@@ -21,6 +21,7 @@
       --danger:#f97316;
       --text-main:#e5e7eb;
       --text-soft:#9ca3af;
+      --fever:#facc15;
     }
     *{ box-sizing:border-box; }
 
@@ -116,6 +117,40 @@
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
+    /* Fever bar */
+    .fever-wrap{
+      margin-top:6px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .fever-label{
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      color:var(--text-soft);
+    }
+    .fever-bar{
+      flex:1;
+      position:relative;
+      height:4px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.9);
+      overflow:hidden;
+    }
+    .fever-bar-fill{
+      position:absolute;
+      inset:0;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(250,204,21,0.2), var(--fever));
+      box-shadow:0 0 0 rgba(250,204,21,0);
+      transition:width .12s ease-out, box-shadow .16s ease-out;
+    }
+    .fever-bar-fill.active{
+      box-shadow:0 0 22px rgba(250,204,21,0.75);
+    }
+
     .hud-quest{
       max-width:280px;
       font-size:12px;
@@ -204,7 +239,7 @@
       flex-shrink:0;
     }
 
-    /* ===== Center hint: “ลากนิ้วเพื่อหมุนมุมมอง” ===== */
+    /* ===== Center hint ===== */
     .hint-center{
       position:fixed;
       left:50%;
@@ -266,13 +301,12 @@
 </head>
 <body>
 
-  <!-- ===== A-Frame Scene (พื้นหลัง VR) ===== -->
+  <!-- ===== A-Frame Scene ===== -->
   <a-scene
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
     background="color: #020617">
 
-    <!-- กล้องกลาง + crosshair + raycaster -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="gj-camera"
                 wasd-controls-enabled="false"
@@ -287,19 +321,17 @@
       </a-camera>
     </a-entity>
 
-    <!-- พื้น + แสง -->
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
-    <a-plane position="0 -0.8 0" rotation="-90 0 0" width="16" height="16"
-         material="color: #020617; metalness: 0; roughness: 1"></a-plane>
-
+    <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
+             material="color: #020617; metalness: 0; roughness: 1"></a-plane>
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- ===== HUD Overlay (2D) ===== -->
+  <!-- ===== HUD Overlay ===== -->
   <div class="hud-root">
     <div class="hud-top">
-      <!-- Left: mode + metrics -->
+      <!-- Left: mode + metrics + fever -->
       <div class="hud-card" style="flex:1;max-width:360px;">
         <div class="hud-main">
           <div>
@@ -312,6 +344,7 @@
             <span id="hud-time-label">60s</span>
           </div>
         </div>
+
         <div class="hud-metrics">
           <div class="metric">
             <div class="metric-label">คะแนน</div>
@@ -326,11 +359,18 @@
             <div class="metric-value danger" id="hud-miss">0</div>
           </div>
         </div>
+
+        <div class="fever-wrap">
+          <div class="fever-label">FEVER</div>
+          <div class="fever-bar">
+            <div id="fever-bar-fill" class="fever-bar-fill"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Right: quest panel -->
       <div class="hud-card hud-quest">
-        <div class="quest-title">QUEST</div>
+        <div class="quest-title">Quest</div>
         <div id="hud-quest-main" class="quest-main-label">ภารกิจหลักจะโผล่ตรงนี้</div>
         <div id="hud-quest-mini" class="quest-mini-label">Mini quest จะโผล่ตรงนี้</div>
         <div class="quest-progress-wrap">
@@ -352,7 +392,7 @@
       </div>
     </div>
 
-    <!-- Bottom: coach (emoji + text) -->
+    <!-- Bottom: coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <span id="coach-emoji" class="coach-emoji">🙂</span>
@@ -364,7 +404,7 @@
     </div>
   </div>
 
-  <!-- Center hint for touch-look -->
+  <!-- Center hint -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
 
   <!-- End summary -->
@@ -377,7 +417,7 @@
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
   </div>
 
-  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
+  <!-- ===== Logic: GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
     import { GameEngine } from './vr-goodjunk/GameEngine.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
@@ -416,10 +456,11 @@
     const elEndGoal   = document.getElementById('end-goal');
     const elEndMini   = document.getElementById('end-mini');
 
+    const elFeverFill = document.getElementById('fever-bar-fill');
+
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
-    // อารมณ์โค้ชด้วย emoji
     const coachFaces = {
       neutral: '🙂',
       happy:   '😄',
@@ -442,14 +483,14 @@
       }, 4200);
     }
 
-    // HUD: เวลา
+    // เวลา
     window.addEventListener('hha:time', (e)=>{
       const sec = (e.detail?.sec | 0);
       if (sec < 0) return;
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest
+    // Quest
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -484,7 +525,7 @@
       }
     });
 
-    // HUD: Coach (ข้อความจาก engine)
+    // Coach (ข้อความจาก engine)
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
       if (text) {
@@ -493,7 +534,7 @@
       }
     });
 
-    // HUD: คะแนน / คอมโบ / miss + อารมณ์โค้ชจากคอมโบ
+    // คะแนน / คอมโบ / miss
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
       if (typeof d.score === 'number') {
@@ -506,9 +547,13 @@
         elCombo.dataset.max = String(max);
         elCombo.textContent = max;
 
-        if (c >= 10)      setCoachFace('fever');
-        else if (c >= 5)  setCoachFace('happy');
-        else if (c === 0 && hudMissCount === 0) setCoachFace('neutral');
+        if (c >= 10) {
+          setCoachFace('fever');
+        } else if (c >= 5) {
+          setCoachFace('happy');
+        } else if (c === 0 && hudMissCount === 0) {
+          setCoachFace('neutral');
+        }
       }
       if (typeof d.misses === 'number') {
         hudMissCount = d.misses;
@@ -520,28 +565,35 @@
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
       setCoachFace('sad');
-      setCoach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้ามากขึ้น 😊');
+      setCoach('ไม่เป็นไร ลองโฟกัสที่ผัก ผลไม้ และนมอีกครั้งนะ 😌');
     });
 
+    // Fever bar
     window.addEventListener('hha:fever', (e)=>{
-      const st = e.detail?.state || 'change';
-      if (st === 'start') {
+      const d = e.detail || {};
+      const max = d.max || 0;
+      const v   = d.value || 0;
+      const pct = max > 0 ? Math.max(0, Math.min(100, (v / max) * 100)) : 0;
+      elFeverFill.style.width = pct + '%';
+
+      if (d.state === 'start') {
+        elFeverFill.classList.add('active');
         setCoachFace('fever');
         setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
-      }
-      if (st === 'end') {
+      } else if (d.state === 'end') {
+        elFeverFill.classList.remove('active');
         setCoachFace('neutral');
       }
     });
 
-    // HUD: End summary
+    // End summary
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
       const scoreFinal = d.scoreFinal ?? d.score ?? 0;
       const comboMax   = d.comboMax ?? 0;
       const misses     = d.misses ?? 0;
-      const goalsCleared  = d.goalsCleared ?? 0;
-      const goalsTotal    = d.goalsTotal ?? 0;
+      const goalsCleared  = d.goalsCleared ?? d.miniCleared ?? 0;
+      const goalsTotal    = d.goalsTotal ?? d.miniTotal ?? 0;
       const miniCleared   = d.miniCleared ?? 0;
       const miniTotal     = d.miniTotal ?? 0;
 
@@ -556,6 +608,7 @@
       setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
     });
 
+    // Touch look
     function initTouchLook(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
@@ -588,9 +641,9 @@
 
       // โค้ชเริ่มต้น
       setCoachFace('neutral');
-      setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
+      setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
 
-      // Cloud Logger สำหรับ GoodJunk VR
+      // Cloud Logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
@@ -603,7 +656,7 @@
       // เริ่มเกม
       GameEngine.start(diff);
 
-      // countdown timer → hha:time → GameEngine.stop() เมื่อหมดเวลา
+      // countdown timer
       let timeLeft = dur;
       function tickTime(){
         timeLeft -= 1;
