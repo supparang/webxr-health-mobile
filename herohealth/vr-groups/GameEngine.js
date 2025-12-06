@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (DOM targets + Goal / Mini quest HUD)
-// 2025-12-06
+// 2025-12-06 — เพิ่ม life time ให้เป้าหายเอง + รองรับ difficulty.js
 
 (function (ns) {
   'use strict';
@@ -11,7 +11,7 @@
     return;
   }
 
-  // ---- Fever UI (optional) ----
+  // ---------- Fever UI (optional) ----------
   const FeverUI =
     (window.GAME_MODULES && window.GAME_MODULES.FeverUI) ||
     window.FeverUI || {
@@ -21,11 +21,11 @@
       setShield() {}
     };
 
-  // ---- Difficulty helper ----
+  // ---------- Difficulty helper ----------
   function getDiffConfig(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
-    // ถ้ามีตาราง difficulty แยกไฟล์
+    // ถ้ามีโมดูล difficulty แยกไฟล์
     if (
       ns.foodGroupsDifficulty &&
       typeof ns.foodGroupsDifficulty.get === 'function'
@@ -39,30 +39,35 @@
       return {
         spawnInterval: 1300,
         maxActive: 3,
-        sizeFactor: 1.15
+        scale: 1.15,
+        goodRatio: 0.75,
+        lifeMs: 2600
       };
     }
     if (diffKey === 'hard') {
       return {
         spawnInterval: 800,
         maxActive: 5,
-        sizeFactor: 0.9
+        scale: 0.9,
+        goodRatio: 0.5,
+        lifeMs: 2000
       };
     }
     // normal
     return {
       spawnInterval: 1100,
       maxActive: 4,
-      sizeFactor: 1.0
+      scale: 1.0,
+      goodRatio: 0.6,
+      lifeMs: 2300
     };
   }
 
-  // ---- Emoji helper ----
+  // ---------- Emoji helper ----------
   const GOOD_EMOJI = ['🥦', '🍎', '🍚', '🍳', '🥛', '🍌', '🍇'];
   const JUNK_EMOJI = ['🍩', '🍟', '🍕', '🥤', '🍰', '🍫', '🍭'];
 
   function pickEmoji(isGood) {
-    // ถ้ามีโมดูล emoji-image ให้มันเลือก
     if (
       ns.emojiImage &&
       typeof ns.emojiImage.pick === 'function'
@@ -73,13 +78,13 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ---- Random position (กลางจอ, หลบ HUD + โค้ช) ----
+  // ---------- Random position (กลางจอ, หลบ HUD + โค้ช) ----------
   function randomScreenPos() {
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe = 120;   // HUD บน
-    const bottomSafe = 140; // โค้ชด้านล่าง
+    const topSafe = 120;     // HUD บน
+    const bottomSafe = 140;  // โค้ชล่าง
 
     const left = w * 0.15;
     const right = w * 0.85;
@@ -90,7 +95,9 @@
     return { x, y };
   }
 
-  // ---- Component main ----
+  // =================================================================
+  // A-Frame component
+  // =================================================================
   A.registerComponent('food-groups-game', {
     schema: {},
 
@@ -203,6 +210,17 @@
       this.elapsed += dt;
       this.spawnTimer += dt;
 
+      const lifeMs = this.diffCfg.lifeMs || 2300;
+
+      // เคลียร์เป้าที่หมดเวลา (miss)
+      for (let i = this.targets.length - 1; i >= 0; i--) {
+        const tgt = this.targets[i];
+        if (!tgt.alive) continue;
+        if (this.elapsed - tgt.spawnTime >= lifeMs) {
+          this.handleMiss(tgt);
+        }
+      }
+
       // เวลา
       const remain = Math.max(0, this.timeLimit - this.elapsed);
       if (this.elTime) {
@@ -222,9 +240,13 @@
 
     spawnTarget: function () {
       if (!this.layer) return;
-      if (this.targets.length >= this.diffCfg.maxActive) return;
 
-      const isGood = Math.random() < 0.6;
+      if (this.targets.filter(t => t.alive).length >= this.diffCfg.maxActive) {
+        return;
+      }
+
+      const goodRatio = this.diffCfg.goodRatio != null ? this.diffCfg.goodRatio : 0.6;
+      const isGood = Math.random() < goodRatio;
       const emoji = pickEmoji(isGood);
       const pos = randomScreenPos();
 
@@ -234,13 +256,15 @@
       el.style.left = pos.x + 'px';
       el.style.top = pos.y + 'px';
 
-      // scale ตามระดับความยาก
-      const baseScale = this.diffCfg.sizeFactor || 1.0;
+      const baseScale =
+        (this.diffCfg.scale != null ? this.diffCfg.scale : this.diffCfg.sizeFactor) || 1.0;
       el.style.transform = 'translate(-50%, -50%) scale(' + baseScale + ')';
 
       const targetObj = {
         el,
-        isGood
+        isGood,
+        alive: true,
+        spawnTime: this.elapsed
       };
       this.targets.push(targetObj);
 
@@ -257,9 +281,9 @@
     },
 
     handleHit: function (target) {
-      if (!this.running) return;
+      if (!this.running || !target.alive) return;
       const el = target.el;
-      if (!el || !el.parentNode) return;
+      target.alive = false;
 
       // คะแนนง่าย ๆ: good +10, junk -8
       if (target.isGood) {
@@ -273,17 +297,34 @@
       this.updateGoalHUD();
 
       // เอฟเฟกต์หายไป
-      el.classList.add('hit');
-      setTimeout(() => {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      }, 120);
+      if (el) {
+        el.classList.add('hit');
+        setTimeout(() => {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }, 120);
+      }
 
-      this.targets = this.targets.filter((t) => t !== target);
+      // เก็บ array ให้สะอาด
+      this.targets = this.targets.filter((t) => t.alive);
+    },
+
+    handleMiss: function (target) {
+      if (!target.alive) return;
+      target.alive = false;
+      this.missCount += 1;
+
+      const el = target.el;
+      if (el && el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+
+      this.targets = this.targets.filter((t) => t.alive);
     },
 
     clearTargets: function () {
       if (!this.layer) return;
       this.targets.forEach((t) => {
+        t.alive = false;
         if (t.el && t.el.parentNode) {
           t.el.parentNode.removeChild(t.el);
         }
