@@ -32,47 +32,45 @@ body.hydration-mode .hha-vr-btn{
   box-shadow:0 10px 26px rgba(15,23,42,.9);
 }
 
-/* ========= HUD ปรับให้มาใต้ water bar ========= */
-/* water gauge จาก ui-water.js มักอยู่ top:10px ให้ panel ลงมาต่อด้านล่าง */
+/* ========= WATER BAR ด้านบน ========= */
 
 body.hydration-mode .hha-water-wrap{
-  /* ถ้ามี element นี้ ใช้จัดตำแหน่งเกจน้ำ */
   position:fixed;
   left:50%;
-  top:10px;
+  top:6px;                       /* ชิดบนขึ้นนิดหน่อย */
   transform:translateX(-50%);
   z-index:820;
 }
 
-/* กล่อง HUD ด้านบน – เอามาไว้ต่อจาก water bar และจัดกลางจอ */
+/* ========= HUD ใต้ water bar (ขยับลงมาอีก) ========= */
 
 body.hydration-mode .hha-quest-panel{
   position:fixed;
   left:50%;
-  top:78px;            /* ระยะห่างจาก water bar */
+  top:115px;                     /* เดิม ~78px → ขยับลงมาอีกเยอะ ๆ */
   transform:translateX(-50%);
   right:auto;
   z-index:830;
   max-width:92vw;
 }
 
-/* ให้ส่วนข้อความ Goal / Mini quest ไม่ชิดขอบเกินไป */
 body.hydration-mode .hha-quest-panel .hha-quest-main{
   padding-top:6px;
   padding-bottom:10px;
 }
 
-/* เว้นพื้นที่เล่นเกมด้านกลางจอ (กันชน HUD บน + Fever ด้านล่าง) */
+/* ========= พื้นที่เล่นเกม (กันชน HUD + Fever) ========= */
+
 body.hydration-mode .hha-play-safe{
   position:fixed;
   left:0;
   right:0;
-  top:150px;        /* ต่ำกว่า HUD */
-  bottom:130px;     /* เหนือ Fever gauge */
+  top:185px;                     /* ต่ำกว่า HUD ใหม่ */
+  bottom:130px;                  /* เหนือ Fever gauge */
   pointer-events:none;
 }
 
-/* crosshair ยังให้ตรงกลางของพื้นที่ปลอดภัย */
+/* crosshair ยังให้อยู่กลางจอ */
 body.hydration-mode .hha-crosshair{
   position:fixed;
   left:50%;
@@ -81,14 +79,9 @@ body.hydration-mode .hha-crosshair{
   z-index:100;
 }
 
-/* ====== ปรับให้เป้าไม่ขึ้นใต้ HUD ====== */
-/* ถ้า engine ใช้ layer .hha-target-layer ก็ให้เริ่มจาก top:150px */
-
+/* ถ้า engine ใช้ layer นี้สำหรับเป้า ให้ spawn เฉพาะใน safe-area */
 body.hydration-mode .hha-target-layer{
   position:fixed;
-  inset:150px 0 130px 0;
+  inset:185px 0 130px 0;        /* top ตรงกับ play-safe, bottom เหนือ fever */
   pointer-events:none;
 }
-
-/* ถ้าไม่มี class ด้านบน engine ใช้ random screen → ไม่เป็นไร
-   อย่างน้อย crosshair / HUD / Fever ไม่ทับกันแล้ว */
