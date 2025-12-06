@@ -1,90 +1,136 @@
-// === /herohealth/hydration-vr/hydration.goals.js
-// เป้าหมายหลัก (Goals) ของโหมด Hydration
+// === /herohealth/hydration-vr/hydration.goals.js ===
+// Goal หลักของโหมด Hydration
+// ใช้ร่วมกับ MissionDeck (สุ่ม 2/10 อัน) และจัดลำดับง่าย → ยาก
+// กลุ่ม "miss" (พลาดไม่เกิน…) จะถูกเรียงไปอยู่ท้ายสุด
 
-import { mapHydrationState as G, normalizeHydrationDiff } from './hydration.state.js';
+import { mapHydrationState, normalizeHydrationDiff } from './hydration.state.js';
 
-export function hydrationGoalsFor(diff) {
-  const D = normalizeHydrationDiff(diff);
+// template กลาง ใช้กำหนด threshold แยกตาม diff
+const GOAL_TEMPLATES = [
+  // ---------- กลุ่มคะแนน ----------
+  {
+    id: 'score-basic',
+    group: 'score',
+    tier: 1,
+    thresholds: { easy: 800, normal: 1200, hard: 1600 },
+    makeLabel: v => `คะแนน ${v}+`,
+    check: (s, v) => s.score >= v
+  },
+  {
+    id: 'score-middle',
+    group: 'score',
+    tier: 2,
+    thresholds: { easy: 1200, normal: 1600, hard: 2200 },
+    makeLabel: v => `คะแนน ${v}+`,
+    check: (s, v) => s.score >= v
+  },
+  {
+    id: 'score-high',
+    group: 'score',
+    tier: 3,
+    thresholds: { easy: 1600, normal: 2200, hard: 2800 },
+    makeLabel: v => `คะแนน ${v}+`,
+    check: (s, v) => s.score >= v
+  },
 
-  const table = {
-    easy:   { score: 700,  combo:  8, miss: 8, green: 18 },
-    normal: { score:1200,  combo: 12, miss: 6, green: 28 },
-    hard:   { score:1800,  combo: 16, miss: 4, green: 36 }
-  };
-  const K = table[D] || table.normal;
+  // ---------- กลุ่ม combo ----------
+  {
+    id: 'combo-basic',
+    group: 'combo',
+    tier: 1,
+    thresholds: { easy: 10, normal: 14, hard: 18 },
+    makeLabel: v => `คอมโบ ≥ ${v}`,
+    check: (s, v) => s.comboMax >= v
+  },
+  {
+    id: 'combo-strong',
+    group: 'combo',
+    tier: 2,
+    thresholds: { easy: 14, normal: 18, hard: 22 },
+    makeLabel: v => `คอมโบ ≥ ${v}`,
+    check: (s, v) => s.comboMax >= v
+  },
 
-  return [
-    {
-      id:'g_green',
-      label:`อยู่ในโซนสมดุล (GREEN) รวม ${K.green}s`,
-      target:K.green,
-      check:s => G(s).green >= K.green,
-      prog :s => Math.min(K.green, G(s).green)
-    },
-    {
-      id:'g_score',
-      label:`คะแนนรวม ${K.score}+`,
-      target:K.score,
-      check:s => G(s).score >= K.score,
-      prog :s => Math.min(K.score, G(s).score)
-    },
-    {
-      id:'g_combo',
-      label:`คอมโบ ≥ ${K.combo}`,
-      target:K.combo,
-      check:s => G(s).comboMax >= K.combo,
-      prog :s => Math.min(K.combo, G(s).comboMax)
-    },
-    {
-      id:'g_nomiss',
-      label:`พลาดไม่เกิน ${K.miss}`,
-      target:K.miss,
-      check:s => G(s).miss <= K.miss,
-      prog :s => Math.max(0, K.miss - G(s).miss)
-    },
-    {
-      id:'g_good24',
-      label:'เก็บไฮเดรต 24',
-      target:24,
-      check:s => G(s).good >= 24,
-      prog :s => Math.min(24, G(s).good)
-    },
-    {
-      id:'g_score1600',
-      label:'คะแนน 1600+',
-      target:1600,
-      check:s => G(s).score >= 1600,
-      prog :s => Math.min(1600, G(s).score)
-    },
-    {
-      id:'g_combo14',
-      label:'คอมโบ ≥ 14',
-      target:14,
-      check:s => G(s).comboMax >= 14,
-      prog :s => Math.min(14, G(s).comboMax)
-    },
-    {
-      id:'g_good18',
-      label:'เก็บไฮเดรต 18',
-      target:18,
-      check:s => G(s).good >= 18,
-      prog :s => Math.min(18, G(s).good)
-    },
-    {
-      id:'g_nomiss6',
-      label:'พลาด ≤ 6',
-      target:6,
-      check:s => G(s).miss <= 6,
-      prog :s => Math.max(0, 6 - G(s).miss)
-    },
-    {
-      id:'g_time30',
-      label:'อยู่รอด 30s',
-      target:30,
-      check:s => G(s).tick >= 30,
-      prog :s => Math.min(30, G(s).tick)
-    }
-  ];
+  // ---------- กลุ่ม GREEN time ----------
+  {
+    id: 'green-basic',
+    group: 'green',
+    tier: 1,
+    thresholds: { easy: 20, normal: 30, hard: 40 },
+    makeLabel: v => `อยู่โซน GREEN รวม ≥ ${v}s`,
+    check: (s, v) => s.green >= v
+  },
+  {
+    id: 'green-strong',
+    group: 'green',
+    tier: 2,
+    thresholds: { easy: 30, normal: 45, hard: 60 },
+    makeLabel: v => `อยู่โซน GREEN รวม ≥ ${v}s`,
+    check: (s, v) => s.green >= v
+  },
+
+  // ---------- กลุ่ม miss (ยากสุด ให้ไปท้ายสุด) ----------
+  {
+    id: 'miss-soft',
+    group: 'miss',
+    tier: 2,
+    thresholds: { easy: 8, normal: 6, hard: 5 },
+    makeLabel: v => `พลาดไม่เกิน ${v}`,
+    check: (s, v) => s.miss <= v
+  },
+  {
+    id: 'miss-mid',
+    group: 'miss',
+    tier: 3,
+    thresholds: { easy: 6, normal: 5, hard: 4 },
+    makeLabel: v => `พลาดไม่เกิน ${v}`,
+    check: (s, v) => s.miss <= v
+  },
+  {
+    id: 'miss-hard',
+    group: 'miss',
+    tier: 4,
+    thresholds: { easy: 5, normal: 4, hard: 3 },
+    makeLabel: v => `พลาดไม่เกิน ${v}`,
+    check: (s, v) => s.miss <= v
+  }
+];
+
+// คืน pool ของ goal 10 อัน ตาม diff ที่เลือก
+export function hydrationGoalsFor(diffRaw = 'normal') {
+  const diff = normalizeHydrationDiff(diffRaw);
+
+  const items = GOAL_TEMPLATES.map(t => {
+    const v = t.thresholds[diff];
+    return {
+      id: `${t.id}-${diff}`,
+      group: t.group,         // ใช้จัดกลุ่ม / debug
+      tier: t.tier,           // ใช้เรียงง่าย → ยาก
+      label: t.makeLabel(v),  // ข้อความที่โชว์ใน HUD
+      threshold: v,
+      check(stateRaw) {       // ให้ MissionDeck เรียกเช็คว่า clear หรือยัง
+        const s = mapHydrationState(stateRaw);
+        return t.check(s, v);
+      }
+    };
+  });
+
+  // เรียงลำดับ:
+  // 1) non-miss ก่อน (score/combo/green)
+  // 2) ด้านในเรียงตาม tier จากน้อย → มาก (ง่าย → ยาก)
+  // 3) miss-* ทั้งหมดตามหลังสุด และเรียงตาม tier เช่นกัน
+  const nonMiss = items
+    .filter(g => g.group !== 'miss')
+    .sort((a, b) => a.tier - b.tier || a.id.localeCompare(b.id));
+
+  const missOnly = items
+    .filter(g => g.group === 'miss')
+    .sort((a, b) => a.tier - b.tier || a.id.localeCompare(b.id));
+
+  const pool = [...nonMiss, ...missOnly];
+
+  // ใช้แค่ 10 อันแรกสำหรับสุ่ม (MissionDeck จะ active ทีละ 2)
+  return pool.slice(0, 10);
 }
 
-export default hydrationGoalsFor;
+export default { hydrationGoalsFor };
