@@ -1,373 +1,315 @@
-/* ===== Food Groups VR — HUD & Layout ===== */
-
 :root {
   color-scheme: dark;
-  --bg-main: #020617;
-  --panel: #020617;
-  --panel-soft: #0b1120;
-  --accent: #22c55e;
-  --accent-soft: rgba(34, 197, 94, 0.18);
-  --text-main: #e5e7eb;
-  --text-soft: #9ca3af;
-  --radius-lg: 18px;
-  --radius-pill: 999px;
+  --bg-main:#020617;
+  --panel:#020617;
+  --panel-soft:#0b1120;
+  --accent:#22c55e;
+  --accent-soft:rgba(34,197,94,0.20);
+  --danger:#f97373;
+  --text-main:#e5e7eb;
+  --text-soft:#9ca3af;
+  --radius-lg:18px;
+  --radius-pill:999px;
 }
 
-* {
-  box-sizing: border-box;
+*,
+*::before,
+*::after {
+  box-sizing:border-box;
 }
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+html, body {
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:
-    radial-gradient(
-      circle at top left,
-      rgba(56, 189, 248, 0.16),
-      transparent 55%
-    ),
-    radial-gradient(
-      circle at bottom right,
-      rgba(34, 197, 94, 0.22),
-      transparent 55%
-    ),
-    var(--bg-main);
-  color: var(--text-main);
-  overflow: hidden;
+    radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.24), transparent 55%),
+    #020617;
+  color:var(--text-main);
 }
 
+/* ทำให้ a-scene เป็นพื้นหลังเต็มจอ */
+.a-fullscreen body > a-scene,
 a-scene {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
+  position:fixed;
+  inset:0;
+  z-index:0;
 }
 
-/* ===== HUD layout ===== */
-
-.hud-root {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 10px;
-  pointer-events: none;
-  z-index: 650;
-}
-
-.hud-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: flex-start;
-}
+/* ===== HUD Cards ===== */
 
 .hud-card {
-  background: linear-gradient(
-    135deg,
-    rgba(15, 23, 42, 0.95),
-    rgba(15, 23, 42, 0.82)
-  );
-  border-radius: var(--radius-lg);
-  padding: 8px 10px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.7);
-  pointer-events: auto;
+  position:fixed;
+  z-index:50;
+  background:radial-gradient(circle at top, #0f172a, #020617);
+  border-radius:var(--radius-lg);
+  padding:10px 14px;
+  border:1px solid rgba(148,163,184,0.25);
+  box-shadow:
+    0 18px 40px rgba(15,23,42,0.9),
+    0 0 0 1px rgba(15,23,42,1);
+  color:var(--text-main);
 }
 
-.hud-main-title {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-soft);
+/* ซ้ายบน — คะแนน */
+.hud-score {
+  left:10px;
+  top:10px;
+  min-width:230px;
 }
 
-.hud-main-mode {
-  font-size: 15px;
-  font-weight: 700;
+.hud-title {
+  font-size:11px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--text-soft);
+  margin-bottom:4px;
 }
 
-.hud-pill {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  background: rgba(15, 118, 110, 0.2);
-  border: 1px solid rgba(45, 212, 191, 0.5);
-  color: #a5f3fc;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.hud-subtitle {
+  font-size:18px;
+  font-weight:600;
+  margin-bottom:4px;
 }
 
-.hud-metrics {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
+.hud-meta {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:8px;
 }
 
-.metric-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-soft);
+.hud-badge {
+  border-radius:999px;
+  padding:2px 8px;
+  font-size:11px;
+  border:1px solid rgba(148,163,184,0.45);
+  color:var(--text-soft);
 }
 
-.metric-value {
-  font-size: 15px;
-  font-weight: 700;
+.hud-score-line {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:13px;
+  margin-top:4px;
 }
 
-.metric-value.accent {
-  color: var(--accent);
+.hud-score-value {
+  font-size:18px;
+  font-weight:700;
 }
 
-/* Goal / Mini quest */
-
-.goal-line {
-  font-size: 12px;
-  margin-top: 4px;
-  color: var(--text-soft);
-  display: flex;
-  gap: 6px;
+/* ขวาบน — Goal + Mini quest */
+.hud-goal {
+  right:10px;
+  top:10px;
+  min-width:260px;
 }
 
-.goal-line .metric-label {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  color: var(--text-soft);
+.goal-title {
+  font-size:12px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--text-soft);
+  margin-bottom:4px;
 }
 
-/* ===== Coach bubble ===== */
+.goal-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  padding:3px 0;
+}
+
+.goal-label {
+  color:var(--text-main);
+  opacity:.88;
+}
+
+.goal-value {
+  font-variant-numeric:tabular-nums;
+  font-weight:600;
+  color:#bbf7d0;
+}
+
+/* ===== Coach bubble กลางล่าง ===== */
 
 .hud-bottom {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:10px;
+  z-index:120;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  pointer-events:none;
 }
 
 .coach-bubble {
-  min-width: 60%;
-  max-width: 640px;
-  background: rgba(15, 23, 42, 0.95);
-  border-radius: var(--radius-pill);
-  padding: 8px 14px;
-  border: 1px solid rgba(52, 211, 153, 0.5);
-  font-size: 13px;
-  display: none;
-  align-items: center;
-  gap: 8px;
-  pointer-events: auto;
+  min-width:60%;
+  max-width:640px;
+  background:rgba(15,23,42,0.95);
+  border-radius:var(--radius-pill);
+  padding:8px 14px;
+  border:1px solid rgba(52,211,153,0.5);
+  font-size:13px;
+  display:none;
+  align-items:center;
+  gap:8px;
+  pointer-events:auto;
 }
 
 .coach-bubble.show {
-  display: flex;
+  display:flex;
 }
 
 .coach-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: #6ee7b7;
-  font-weight: 600;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  color:#6ee7b7;
+  font-weight:600;
 }
 
 /* โค้ชการ์ตูน emoji น่ารัก ๆ */
-
 .coach-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #fef3c7, #f97316);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.9);
-  animation: coach-breathe 2.4s ease-in-out infinite;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, #fef3c7, #f97316);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  box-shadow:0 0 0 2px rgba(15,23,42,0.9);
+  animation:coach-breathe 2.4s ease-in-out infinite;
 }
 
 @keyframes coach-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.07);
-  }
+  0%,100% { transform:scale(1); }
+  50%     { transform:scale(1.07); }
 }
 
-/* ===== FX layer: คะแนน+effect ตรงเป้า ===== */
-
-.fg-fx-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 645;
-}
-
-/* คะแนนเด้ง */
-
-.fg-fx-score {
-  position: absolute;
-  transform: translate(-50%, 0);
-  font-size: 18px;
-  font-weight: 700;
-  color: #facc15;
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
-  animation: fg-score-pop 0.9s ease-out forwards;
-}
-
-.fg-fx-score.good {
-  color: #4ade80;
-}
-
-.fg-fx-score.bad {
-  color: #f97373;
-}
-
-/* GOOD / MISS */
-
-.fg-fx-judgment {
-  position: absolute;
-  transform: translate(-50%, 0);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #e5e7eb;
-  text-shadow: 0 0 6px rgba(15, 23, 42, 0.9);
-  animation: fg-judge-pop 0.65s ease-out forwards;
-}
-
-/* วงกลมแตก */
-
-.fg-fx-burst {
-  position: absolute;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: 2px solid #facc15;
-  box-shadow: 0 0 10px rgba(250, 204, 21, 0.8);
-  transform: translate(-50%, -50%);
-  animation: fg-burst 0.45s ease-out forwards;
-}
-
-.fg-fx-burst.good {
-  border-color: #4ade80;
-  box-shadow: 0 0 10px rgba(74, 222, 128, 0.8);
-}
-
-.fg-fx-burst.bad {
-  border-color: #fb7185;
-  box-shadow: 0 0 10px rgba(248, 113, 113, 0.8);
-}
-
-/* ===== Animations ===== */
-
-@keyframes fg-score-pop {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, 10px) scale(0.7);
-  }
-  30% {
-    opacity: 1;
-    transform: translate(-50%, -6px) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -40px) scale(1);
-  }
-}
-
-@keyframes fg-judge-pop {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, 12px) scale(0.8);
-  }
-  40% {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -24px) scale(1);
-  }
-}
-
-@keyframes fg-burst {
-  0% {
-    opacity: 0.9;
-    transform: translate(-50%, -50%) scale(0.4);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1.25);
-  }
-}
-
-/* ===== End summary toast ===== */
-
-.end-toast {
-  position: fixed;
-  left: 50%;
-  top: 18%;
-  transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.96);
-  padding: 12px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(250, 204, 21, 0.7);
-  min-width: 260px;
-  max-width: 380px;
-  font-size: 13px;
-  display: none;
-  z-index: 652;
-  pointer-events: auto;
-}
-
-.end-toast.show {
-  display: block;
-}
-
-.end-title {
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.end-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  margin-top: 2px;
-}
-
-/* ===== Responsive ===== */
-
-@media (max-width: 640px) {
-  .hud-root {
-    padding: 8px;
-  }
-
-  .hud-card {
-    padding: 6px 8px;
-  }
-
-  .hud-main-title {
-    font-size: 12px;
-  }
-
-  .hud-main-mode {
-    font-size: 14px;
-  }
-
+@media (max-width:640px) {
   .coach-bubble {
-    min-width: 80%;
+    min-width:0;
+    width:calc(100% - 32px);
+    font-size:12px;
   }
+}
+
+/* ===== Target Layer ===== */
+
+#fg-layer {
+  position:fixed;
+  inset:0;
+  z-index:40;
+  pointer-events:none;
+}
+
+/* เป้าอาหาร */
+.fg-target {
+  position:absolute;
+  width:132px;
+  height:132px;
+  border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, #f97316, #c2410c);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:auto;
+  cursor:pointer;
+  box-shadow:
+    0 12px 32px rgba(15,23,42,0.85),
+    0 0 0 4px rgba(15,23,42,0.9);
+  transform:translate(-50%, -50%) scale(1);
+  transition:transform .12s ease-out, opacity .12s ease-out, box-shadow .12s ease-out;
+}
+
+/* สีพื้นแบ่ง Good / Junk */
+.fg-good {
+  background:radial-gradient(circle at 30% 30%, #22c55e, #15803d);
+}
+
+.fg-junk {
+  background:radial-gradient(circle at 30% 30%, #f97316, #c2410c);
+}
+
+/* ภาพ emoji ในเป้า — ใช้ pseudo แทนถ้ายังไม่มี sprite */
+.fg-target::before {
+  content:attr(data-emoji);
+  font-size:52px;
+}
+
+/* ตอนโดนตี */
+.fg-target.hit {
+  transform:translate(-50%, -50%) scale(0.6);
+  opacity:0;
+}
+
+/* ===== Result overlay ===== */
+
+.result-overlay {
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,0.92);
+  z-index:200;
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+
+.result-overlay.show {
+  display:flex;
+}
+
+.result-card {
+  background:rgba(15,23,42,1);
+  border-radius:24px;
+  padding:24px 26px 20px;
+  max-width:420px;
+  width:90%;
+  border:1px solid rgba(148,163,184,0.5);
+  box-shadow:0 24px 60px rgba(0,0,0,0.85);
+}
+
+.result-card h2 {
+  margin:0 0 12px;
+  font-size:20px;
+}
+
+.result-card p {
+  margin:4px 0;
+  font-size:14px;
+}
+
+.result-card hr {
+  border:0;
+  border-top:1px solid rgba(51,65,85,0.9);
+  margin:10px 0;
+}
+
+.result-card button {
+  margin-top:12px;
+  padding:8px 16px;
+  border-radius:999px;
+  border:none;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  background:linear-gradient(90deg,#22c55e,#4ade80);
+  color:#022c22;
+}
+
+/* ให้ Fever gauge จาก ui-fever.js อยู่ layer สูงกว่า a-scene */
+.hha-fever-wrap {
+  z-index:80 !important;
 }
