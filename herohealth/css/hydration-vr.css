@@ -1,297 +1,175 @@
 /* === /herohealth/css/hydration-vr.css === */
-/* Mobile-first styling for Hydration VR (overlay-only overrides) */
-
-:root {
-  --hh-bg-main: #020617;
-  --hh-panel: rgba(15,23,42,0.98);
-  --hh-panel-soft: rgba(15,23,42,0.82);
-  --hh-border-soft: rgba(148,163,184,0.35);
-  --hh-accent: #22c55e;
-  --hh-accent-soft: rgba(34,197,94,0.15);
-  --hh-text-main: #e5e7eb;
-  --hh-text-soft: #9ca3af;
-  --hh-radius-lg: 18px;
-  --hh-radius-pill: 999px;
-}
+/* Layout เฉพาะโหมด Hydration VR (ใช้ร่วมกับ goodjunk-vr.css) */
 
 /* พื้นหลังหลัก */
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Inter, Roboto, sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,0.20), transparent 55%),
-    var(--hh-bg-main);
-  color: var(--hh-text-main);
+  background: radial-gradient(circle at 20% 0%, #1f2937 0, #020617 55%, #020617 100%);
+  color: #e5e7eb;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Thonburi", sans-serif;
 }
 
-/* === Loading overlay === */
+/* ===== Loading Scene ===== */
 .hha-scene-wrap {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
-  background: radial-gradient(circle at top, rgba(15,23,42,0.95), rgba(15,23,42,0.98));
+  background: radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.22), transparent 55%),
+              radial-gradient(circle at 85% 0%, rgba(129, 140, 248, 0.18), transparent 60%),
+              rgba(15, 23, 42, 0.96);
+  z-index: 900;
 }
 
 .hha-loading-msg {
   padding: 14px 20px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.98);
-  border: 1px solid rgba(148,163,184,0.55);
-  font-size: 14px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.9);
+  font-size: 15px;
 }
 
-/* === Crosshair กลางจอ (ใช้จาก goodjunk แต่เผื่อไม่มี) === */
+/* ===== Crosshair กลางจอ ===== */
 .hha-crosshair {
   position: fixed;
   left: 50%;
   top: 50%;
-  width: 22px;
-  height: 22px;
-  margin-left: -11px;
-  margin-top: -11px;
-  border-radius: 50%;
-  border: 2px solid rgba(148,163,184,0.55);
-  box-shadow: 0 0 10px rgba(148,163,184,0.6);
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.65),
+              0 0 0 4px rgba(15, 23, 42, 0.8);
+  background: radial-gradient(circle at 30% 30%, rgba(248, 250, 252, 0.85), rgba(15, 23, 42, 0.85));
+  opacity: 0.9;
   pointer-events: none;
-  z-index: 18;
+  z-index: 40;
 }
 
-/* ปุ่ม VR มุมซ้ายบน */
+/* ===== ปุ่ม VR มุมซ้ายบน ===== */
 .hha-vr-btn {
   position: fixed;
-  left: 8px;
-  top: 8px;
-  z-index: 40;
-  padding: 4px 10px;
-  border-radius: 8px;
+  left: 12px;
+  top: 10px;
+  z-index: 80;
+  padding: 5px 10px;
+  border-radius: 999px;
   border: 0;
-  background: rgba(15,23,42,0.92);
-  color: var(--hh-text-main);
-  font-size: 12px;
+  background: rgba(15, 23, 42, 0.95);
+  color: #e5e7eb;
+  font-size: 13px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.9);
 }
 
-/* === Water gauge (บนกลาง) – ใช้จาก ui-water.js === */
-.hha-water {
+/* ===== Water Gauge (ui-water.js) – กลางด้านบน ===== */
+#hha-water-wrap {
   position: fixed;
   left: 50%;
   top: 8px;
   transform: translateX(-50%);
-  z-index: 30;
+  z-index: 120;
 }
 
-/* ปรับ card ให้เหมาะกับมือถือมากขึ้น */
-.hha-water-card {
-  background: rgba(15,23,42,0.96);
-  padding: 4px 12px 6px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,0.45);
-  min-width: 220px;
-}
-
-/* === Quest HUD มุมขวาบน (จาก quest-hud-vr.js) === */
-.hha-hud-panel {
+/* ===== Quest HUD (quest-hud-vr.js) – มุมขวาบน ===== */
+#hha-quest-panel {
   position: fixed;
-  right: 8px;
-  top: 68px;
-  z-index: 32;
+  right: 14px;
+  top: 54px;
+  z-index: 130;
 }
 
-.hha-hud-card {
-  background: var(--hh-panel);
-  border-radius: var(--hh-radius-lg);
-  border: 1px solid rgba(148,163,184,0.55);
-  padding: 10px 14px 12px;
-  min-width: 250px;
-  max-width: min(320px, 90vw);
-  box-shadow: 0 18px 40px rgba(15,23,42,0.8);
-  font-size: 13px;
-}
-
-.hha-hud-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 4px;
-}
-
-.hha-hud-tag {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  border: 1px solid rgba(148,163,184,0.55);
-}
-
-.hha-hud-goal,
-.hha-hud-mini {
-  margin-top: 6px;
-  border-radius: 12px;
-  padding: 6px 10px;
-  font-size: 12px;
-  border: 1px solid rgba(148,163,184,0.5);
-}
-
-.hha-hud-goal {
-  background: rgba(16,185,129,0.12);
-  border-color: rgba(34,197,94,0.6);
-}
-
-.hha-hud-mini {
-  background: rgba(15,23,42,0.85);
-}
-
-/* ปรับ HUD บนจอเล็กให้เลื่อนลงมาหน่อย */
-@media (max-width: 768px) {
-  .hha-hud-panel {
-    top: 72px;
-    right: 6px;
-  }
-
-  .hha-hud-card {
-    min-width: 230px;
-    max-width: 92vw;
-    padding: 8px 10px 10px;
+/* ปรับให้กล่อง HUD ไม่กินพื้นที่แนวนอนมากเกินไปในมือถือ */
+@media (max-width: 820px) {
+  #hha-quest-panel {
+    right: 10px;
+    top: 64px;
+    transform-origin: top right;
+    transform: scale(0.94);
   }
 }
 
-/* === Fever gauge – bottom left === */
-.hha-fever-wrap {
-  position: fixed;
-  left: 10px;
-  bottom: 10px;
-  z-index: 40;
-  max-width: 220px;
-}
-
-.hha-fever-card {
-  background: rgba(15,23,42,0.96);
-  border-radius: 14px;
-  padding: 6px 10px 8px;
-  border: 1px solid rgba(148,163,184,0.55);
-  font: 12px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-}
-
-.hha-fever-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.hha-fever-icon  { margin-right: 2px; }
-.hha-fever-label { opacity: .85; }
-.hha-fever-pct   { opacity: .9; }
-
-.hha-fever-bar {
-  width: 100%;
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(15,23,42,0.9);
-  overflow: hidden;
-  margin-bottom: 4px;
-}
-
-.hha-fever-bar-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg,#fb923c,#f97316,#ef4444);
-  transition: width .18s ease-out;
-}
-
-.hha-fever-shield {
-  font-size: 11px;
-  opacity: .9;
-}
-
-/* Fever mode → มี glow */
-.hha-fever-wrap.hha-fever-active .hha-fever-card {
-  box-shadow: 0 0 16px rgba(248,113,113,0.55);
-  border-color: rgba(248,113,113,0.9);
-}
-
-/* จอเล็กให้ card ขยับเข้าในนิดนึง */
-@media (max-width: 600px) {
-  .hha-fever-wrap {
-    left: 8px;
-    bottom: 8px;
-    max-width: 200px;
-  }
-}
-
-/* === Coach bubble – bottom center === */
-
+/* ===== Coach Bubble (coach-bubble.js) – ล่างกลาง ===== */
 #hha-coach-wrap {
   position: fixed;
   left: 50%;
-  bottom: 16px;
+  bottom: 92px; /* เผื่อพื้นที่ให้ Fever gauge */
   transform: translateX(-50%);
-  z-index: 38;
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  pointer-events: none; /* ให้แตะเป้าได้ */
-}
-
-.hha-coach-face {
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  background: radial-gradient(circle at 30% 20%, #38bdf8, #0ea5e9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  box-shadow: 0 10px 24px rgba(15,23,42,0.9);
-}
-
-.hha-coach-bubble {
-  max-width: min(380px, 80vw);
-  background: rgba(15,23,42,0.96);
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,0.6);
-  padding: 8px 14px;
-  font-size: 13px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  opacity: 0;
-  transform: translateY(10px) scale(.98);
-  transition: opacity .25s ease-out, transform .25s ease-out;
+  z-index: 160;
   pointer-events: none;
 }
 
-.hha-coach-bubble.show {
-  opacity: 1;
-  transform: translateY(0) scale(1);
+#hha-coach-face {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  font-size: 40px;
+  text-shadow: 0 10px 22px rgba(15, 23, 42, 0.9);
 }
 
-/* จอเล็ก – ย่อ coach นิดนึง */
-@media (max-width: 600px) {
+#hha-coach-bubble {
+  position: relative;
+  max-width: min(420px, 90vw);
+  margin: 0 auto;
+  padding: 8px 14px 9px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(56, 189, 248, 0.8);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.95);
+  font-size: 13px;
+  color: #e5e7eb;
+  pointer-events: auto;
+}
+
+/* motion เล็ก ๆ เวลา mission ใหม่ */
+#hha-coach-wrap.coach-bounce #hha-coach-bubble {
+  transform: translateY(-4px) scale(1.04);
+  transition: transform 0.2s ease-out;
+}
+
+/* ===== ปรับ Fever gauge ล่างซ้าย (ui-fever.js) ===== */
+/* ตำแหน่งพื้นฐาน (desktop) อยู่ใน ui-fever.js แล้ว
+   ที่นี่แค่ปรับสำหรับมือถือไม่ให้ชนขอบล่าง */
+@media (max-width: 820px) {
+  .hha-fever-wrap {
+    bottom: 64px !important;
+    transform-origin: left bottom;
+    transform: scale(0.95);
+  }
+}
+
+/* ===== พื้นที่เล่น (emoji targets) ===== */
+/* เราใช้ฉาก A-Frame เป็นพื้นหลัง ดังนั้นไม่ต้องมี overlay อื่น
+   แค่กันไม่ให้ element อื่นบังกลางจอ */
+.hha-play-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ถ้ามี emoji DOM layer เพิ่มเติมให้ pointer-events เปิดแค่เป้า */
+.hha-play-layer .hydration-target {
+  pointer-events: auto;
+}
+
+/* ===== ปรับเพิ่มเติมสำหรับจอเล็กมาก (เช่น iPhone SE) ===== */
+@media (max-width: 480px) {
+  #hha-water-wrap {
+    top: 6px;
+  }
+
+  #hha-quest-panel {
+    top: 58px;
+    transform: scale(0.9);
+  }
+
   #hha-coach-wrap {
-    bottom: 10px;
-  }
-
-  .hha-coach-face {
-    width: 34px;
-    height: 34px;
-    font-size: 20px;
-  }
-
-  .hha-coach-bubble {
-    max-width: 82vw;
-    font-size: 12px;
-    padding: 7px 12px;
+    bottom: 88px;
   }
 }
