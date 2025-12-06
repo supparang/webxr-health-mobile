@@ -1,5 +1,9 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Coach (2025-12-06, shared FeverUI)
+// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Coach
+// (2025-12-06, shared FeverUI + quest-director 2/10 & 3/15)
+
+import { makeQuestDirector } from './quest-director.js';
+import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
 'use strict';
 
@@ -21,7 +25,7 @@ export const GameEngine = (function () {
   ];
   const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
 
-  // ---------- ค่าพื้นฐาน (จะถูก override ตาม diff) ----------
+  // ---------- ค่าพื้นฐาน (ปรับตาม diff) ----------
   let GOOD_RATE       = 0.65;
   let SPAWN_INTERVAL  = 900;
   let TARGET_LIFETIME = 900;
@@ -38,35 +42,22 @@ export const GameEngine = (function () {
   let spawnTimer = null;
   let activeTargets = [];
 
-  let score = 0;
-  let combo = 0;
+  // Core state
+  let score    = 0;
+  let combo    = 0;
   let comboMax = 0;
-  let misses = 0;
-  let goodHit = 0;
-  let junkHit = 0;
+  let misses   = 0;
+  let goodHit  = 0;
+  let junkHit  = 0;
 
   // Fever state
-  let fever = 0;
+  let fever       = 0;
   let feverActive = false;
-  let feverTimer = null;
+  let feverTimer  = null;
 
-  // ---------- Quest state ----------
-  const GOAL = {
-    label: 'เก็บอาหารดีให้ครบ 25 ชิ้น',
-    prog: 0,
-    target: 25,
-    done: false
-  };
-
-  const MINI = {
-    label: 'รักษาคอมโบให้ถึง x5 อย่างน้อย 1 ครั้ง',
-    prog: 0,      // 0 หรือ 1 (ผ่าน/ไม่ผ่าน)
-    target: 1,
-    done: false
-  };
-
-  // threshold คอมโบที่ใช้สำหรับ Mini (จะสุ่มตาม diff)
-  let miniComboNeed = 5;
+  // Quest director (2 goals / 3 minis จาก 10/15)
+  let quest    = null;
+  let timeLeft = 60;   // จะ sync จาก hha:time ของ HTML
 
   // ---------- Emoji → texture cache ----------
   const emojiTexCache = new Map();
@@ -112,20 +103,35 @@ export const GameEngine = (function () {
     return v < min ? min : (v > max ? max : v);
   }
 
-  function randInt(min, max){
-    return Math.floor(min + Math.random() * (max - min + 1));
+  // state ปัจจุบันส่งให้ quest-director
+  function questState() {
+    return {
+      score,
+      goodHits: goodHit,
+      miss: misses,
+      comboMax,
+      timeLeft
+    };
   }
 
-  // ---------- Fever (ใช้ร่วม FeverUI + ยิง event เดิม) ----------
+  // sync เวลา (จาก goodjunk-vr.html ที่ยิง hha:time)
+  window.addEventListener('hha:time', (e) => {
+    const sec = e && e.detail && typeof e.detail.sec === 'number'
+      ? e.detail.sec
+      : null;
+    if (sec === null) return;
+    timeLeft = sec;
+    if (quest) quest.update(questState());
+  });
+
+  // ---------- Fever (ใช้ร่วม FeverUI + event hha:fever) ----------
   function setFever(value, stateHint) {
     fever = clamp(value, 0, FEVER_MAX);
 
-    // อัปเดต Fever bar กลาง (shared UI)
     if (FeverUI && typeof FeverUI.setFever === 'function') {
       FeverUI.setFever(fever);
     }
 
-    // ยิง event เผื่อ HUD ตัวอื่นยังใช้ hha:fever อยู่
     emit('hha:fever', {
       state: stateHint || (feverActive ? 'active' : 'charge'),
       value: fever,
@@ -168,68 +174,6 @@ export const GameEngine = (function () {
     emit('hha:fever', { state:'end', value: fever, max: FEVER_MAX });
   }
 
-  // ---------- Quest ----------
-  function pushQuest(hint) {
-    // clamp prog ไม่ให้โชว์เกิน target
-    const goalObj = {
-      label: GOAL.label,
-      prog: Math.min(GOAL.prog, GOAL.target),
-      target: GOAL.target,
-      done: GOAL.done
-    };
-    const miniObj = {
-      label: MINI.label,
-      prog: Math.min(MINI.prog, MINI.target),
-      target: MINI.target,
-      done: MINI.done
-    };
-
-    emit('quest:update', {
-      goal: goalObj,
-      mini: miniObj,
-      goalsAll: [goalObj],
-      minisAll: [miniObj],
-      hint: hint || ''
-    });
-  }
-
-  function updateGoalFromGoodHit() {
-    GOAL.prog = goodHit;
-    if (!GOAL.done && GOAL.prog >= GOAL.target) {
-      GOAL.done = true;
-      coach('ภารกิจหลักสำเร็จแล้ว! เก็บผัก ผลไม้ครบตามเป้าแล้ว 🎉');
-      pushQuest('Goal สำเร็จแล้ว');
-    } else {
-      pushQuest('');
-    }
-  }
-
-  function updateMiniFromCombo() {
-    if (!MINI.done && combo >= miniComboNeed) {
-      MINI.prog = 1;
-      MINI.done = true;
-      coach(
-        `สุดยอด! คอมโบถึง x${miniComboNeed} แล้ว Mini quest ผ่านเรียบร้อย 🎯`
-      );
-      pushQuest('Mini quest สำเร็จแล้ว');
-    } else {
-      pushQuest('');
-    }
-  }
-
-  function emitEnd() {
-    emit('hha:end', {
-      mode: 'Good vs Junk (VR)',
-      score,
-      comboMax,
-      misses,
-      goalsCleared: GOAL.done ? 1 : 0,
-      goalsTotal: 1,
-      miniCleared: MINI.done ? 1 : 0,
-      miniTotal: 1
-    });
-  }
-
   // ---------- ลบเป้า ----------
   function removeTarget(el) {
     activeTargets = activeTargets.filter(t => t !== el);
@@ -238,16 +182,15 @@ export const GameEngine = (function () {
     }
   }
 
-  // ---------- สร้างเป้า (emoji pop) ----------
+  // ---------- สร้างเป้า (emoji pop กลางจอ กระจายทั่ว) ----------
   function createTargetEntity(emoji, kind) {
     if (!sceneEl) return null;
 
     const root = document.createElement('a-entity');
 
-    // กล้องอยู่ประมาณ (0,1.6,0)
-    // → ให้สุ่มในกล่องกลางจอ: x [-1,1], y [1.4,2.4]
-    const x = -1.0 + Math.random() * 2.0;     // กระจายซ้าย-ขวา
-    const y = 1.4 + Math.random() * 1.0;      // สูงกว่าขอบโต๊ะ
+    // กล้องประมาณ (0,1.6,0) → ยิงในกรอบกลางจอ
+    const x = -1.0 + Math.random() * 2.0;   // -1 ถึง +1
+    const y =  1.4 + Math.random() * 1.0;   // 1.4–2.4
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
@@ -277,7 +220,7 @@ export const GameEngine = (function () {
       alphaTest: 0.01
     });
 
-    // ★ geometry ที่ถูกยิงต้องมี data-hha-tgt
+    // ★ geometry ที่ถูกยิงต้องมี data-hha-tgt ให้ raycaster เจอ
     circle.setAttribute('data-hha-tgt', '1');
     sprite.setAttribute('data-hha-tgt', '1');
 
@@ -289,7 +232,7 @@ export const GameEngine = (function () {
     root.appendChild(sprite);
     sceneEl.appendChild(root);
 
-    // ให้เป้าอยู่แป๊บเดียวแล้วหาย (ไม่มีตกลงมา)
+    // อยู่แป๊บเดียวแล้วหาย (ไม่ตกลงมา)
     setTimeout(() => {
       if (!running) return;
       if (!root.parentNode) return;
@@ -326,14 +269,13 @@ export const GameEngine = (function () {
 
       if (combo === 1)
         coach('เปิดคอมโบแล้ว! เลือกผัก ผลไม้ นมต่อเลย 🥦🍎🥛');
-      else if (combo === miniComboNeed)
-        coach(`คอมโบ x${miniComboNeed} แล้ว เยี่ยมมาก! 🔥`);
+      else if (combo === 5)
+        coach('คอมโบ x5 แล้ว เยี่ยมมาก! 🔥');
       else if (combo === 10)
         coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
 
-      updateGoalFromGoodHit();
-      updateMiniFromCombo();
     } else {
+      // ตีของขยะ
       junkHit++;
       score = Math.max(0, score - 8);
       combo = 0;
@@ -349,11 +291,12 @@ export const GameEngine = (function () {
       }
 
       emitMiss();
-      updateGoalFromGoodHit();
-      pushQuest('');
     }
 
     emitScore();
+
+    // อัปเดต Quest state ทุก hit
+    if (quest) quest.update(questState());
   }
 
   // ---------- เป้าหายเพราะหมดเวลา ----------
@@ -365,6 +308,7 @@ export const GameEngine = (function () {
     removeTarget(el);
 
     if (kind === 'good') {
+      // พลาดของดี
       misses++;
       combo = 0;
       coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้มากขึ้น 😊');
@@ -379,8 +323,8 @@ export const GameEngine = (function () {
 
       emitMiss();
       emitScore();
-      updateGoalFromGoodHit();
-      pushQuest('');
+
+      if (quest) quest.update(questState());
     }
   }
 
@@ -398,65 +342,73 @@ export const GameEngine = (function () {
     if (el) activeTargets.push(el);
   }
 
-  // ---------- ตั้งค่า difficulty ----------
+  // ---------- ตั้งค่า difficulty (เฉพาะจังหวะเกม) ----------
   function applyDifficulty(diffKey) {
     const d = String(diffKey || 'normal').toLowerCase();
-    let goalMin, goalMax, comboMin, comboMaxVal;
 
     if (d === 'easy') {
       SPAWN_INTERVAL  = 1100;
       TARGET_LIFETIME = 1100;
       MAX_ACTIVE      = 3;
       GOOD_RATE       = 0.7;
-      goalMin = 15; goalMax = 20;
-      comboMin = 3; comboMaxVal = 4;
     } else if (d === 'hard') {
       SPAWN_INTERVAL  = 750;
       TARGET_LIFETIME = 850;
       MAX_ACTIVE      = 5;
       GOOD_RATE       = 0.6;
-      goalMin = 25; goalMax = 30;
-      comboMin = 6; comboMaxVal = 8;
     } else { // normal
       SPAWN_INTERVAL  = 900;
       TARGET_LIFETIME = 900;
       MAX_ACTIVE      = 4;
       GOOD_RATE       = 0.65;
-      goalMin = 20; goalMax = 25;
-      comboMin = 4; comboMaxVal = 6;
+    }
+  }
+
+  // ---------- สรุปตอนจบ (ดึงผลจาก quest-director) ----------
+  function emitEnd() {
+    let goalsCleared = 0;
+    let goalsTotal   = 0;
+    let miniCleared  = 0;
+    let miniTotal    = 0;
+
+    if (quest) {
+      const s = quest.summary();
+      goalsCleared = s.goalsCleared;
+      goalsTotal   = s.goalsTotal;
+      miniCleared  = s.miniCleared;
+      miniTotal    = s.miniTotal;
     }
 
-    // สุ่มเป้า goal + mini quest
-    const goalTarget = randInt(goalMin, goalMax);
-    miniComboNeed = randInt(comboMin, comboMaxVal);
-
-    GOAL.target = goalTarget;
-    GOAL.label  = `เก็บอาหารดีให้ครบ ${goalTarget} ชิ้น`;
-    GOAL.prog   = 0;
-    GOAL.done   = false;
-
-    MINI.target = 1;
-    MINI.prog   = 0;
-    MINI.done   = false;
-    MINI.label  = `รักษาคอมโบให้ถึง x${miniComboNeed} อย่างน้อย 1 ครั้ง`;
+    emit('hha:end', {
+      mode: 'Good vs Junk (VR)',
+      score,
+      comboMax,
+      misses,
+      goalsCleared,
+      goalsTotal,
+      miniCleared,
+      miniTotal
+    });
   }
 
   // ---------- start / stop ----------
   function _startCore(diffKey) {
     running = true;
-    score = 0;
-    combo = 0;
+
+    score    = 0;
+    combo    = 0;
     comboMax = 0;
-    misses = 0;
-    goodHit = 0;
-    junkHit = 0;
+    misses   = 0;
+    goodHit  = 0;
+    junkHit  = 0;
 
     applyDifficulty(diffKey);
 
-    // reset fever + UI กลาง
-    fever = 0;
+    // reset Fever + UI
+    fever       = 0;
     feverActive = false;
     if (feverTimer) clearTimeout(feverTimer);
+
     if (FeverUI && typeof FeverUI.ensureFeverBar === 'function') {
       FeverUI.ensureFeverBar();
     }
@@ -471,13 +423,25 @@ export const GameEngine = (function () {
     }
     setFever(0, 'charge');
 
+    // ล้างเป้าเก่า
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
     activeTargets = [];
 
+    // สร้าง Quest director (สุ่ม goal 2 จาก 10, mini 3 จาก 15 ตาม diff)
+    quest = makeQuestDirector({
+      diff: String(diffKey || 'normal').toLowerCase(),
+      goalDefs: GOODJUNK_GOALS,
+      miniDefs: GOODJUNK_MINIS,
+      maxGoals: 2,
+      maxMini: 3
+    });
+
+    quest.start({ timeLeft });
+
     emitScore();
     coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
-    pushQuest('เริ่มเกม');
 
+    // spawn แรก + loop
     tickSpawn();
     spawnTimer = setInterval(tickSpawn, SPAWN_INTERVAL);
   }
