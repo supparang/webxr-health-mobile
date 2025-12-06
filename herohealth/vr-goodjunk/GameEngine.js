@@ -1,9 +1,19 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Coach (2025-12-06)
+// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Coach (2025-12-06, shared FeverUI)
 
 'use strict';
 
 export const GameEngine = (function () {
+  // ---------- Fever UI (shared across modes) ----------
+  const FeverUI =
+    (window.GAME_MODULES && window.GAME_MODULES.FeverUI) ||
+    window.FeverUI || {
+      ensureFeverBar() {},
+      setFever() {},
+      setFeverActive() {},
+      setShield() {}
+    };
+
   // ---------- emoji ชุดอาหาร ----------
   const GOOD = [
     '🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛',
@@ -106,9 +116,16 @@ export const GameEngine = (function () {
     return Math.floor(min + Math.random() * (max - min + 1));
   }
 
-  // ---------- Fever ----------
+  // ---------- Fever (ใช้ร่วม FeverUI + ยิง event เดิม) ----------
   function setFever(value, stateHint) {
     fever = clamp(value, 0, FEVER_MAX);
+
+    // อัปเดต Fever bar กลาง (shared UI)
+    if (FeverUI && typeof FeverUI.setFever === 'function') {
+      FeverUI.setFever(fever);
+    }
+
+    // ยิง event เผื่อ HUD ตัวอื่นยังใช้ hha:fever อยู่
     emit('hha:fever', {
       state: stateHint || (feverActive ? 'active' : 'charge'),
       value: fever,
@@ -120,6 +137,14 @@ export const GameEngine = (function () {
     if (feverActive) return;
     feverActive = true;
     fever = FEVER_MAX;
+
+    if (FeverUI && typeof FeverUI.setFeverActive === 'function') {
+      FeverUI.setFeverActive(true);
+    }
+    if (FeverUI && typeof FeverUI.setFever === 'function') {
+      FeverUI.setFever(fever);
+    }
+
     emit('hha:fever', { state:'start', value: fever, max: FEVER_MAX });
 
     if (feverTimer) clearTimeout(feverTimer);
@@ -132,6 +157,14 @@ export const GameEngine = (function () {
     if (!feverActive) return;
     feverActive = false;
     fever = 0;
+
+    if (FeverUI && typeof FeverUI.setFeverActive === 'function') {
+      FeverUI.setFeverActive(false);
+    }
+    if (FeverUI && typeof FeverUI.setFever === 'function') {
+      FeverUI.setFever(fever);
+    }
+
     emit('hha:fever', { state:'end', value: fever, max: FEVER_MAX });
   }
 
@@ -420,10 +453,22 @@ export const GameEngine = (function () {
 
     applyDifficulty(diffKey);
 
-    // reset fever
+    // reset fever + UI กลาง
     fever = 0;
     feverActive = false;
     if (feverTimer) clearTimeout(feverTimer);
+    if (FeverUI && typeof FeverUI.ensureFeverBar === 'function') {
+      FeverUI.ensureFeverBar();
+    }
+    if (FeverUI && typeof FeverUI.setFever === 'function') {
+      FeverUI.setFever(0);
+    }
+    if (FeverUI && typeof FeverUI.setFeverActive === 'function') {
+      FeverUI.setFeverActive(false);
+    }
+    if (FeverUI && typeof FeverUI.setShield === 'function') {
+      FeverUI.setShield(0);
+    }
     setFever(0, 'charge');
 
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
