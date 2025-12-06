@@ -1,5 +1,5 @@
 /* === /herohealth/css/hydration-vr.css === */
-/* Layout เฉพาะหน้า Hydration VR */
+/* Layout เฉพาะหน้า Hydration VR (override ของ GoodJunk) */
 
 :root{
   --hydration-bg:#020617;
@@ -41,23 +41,24 @@ body{
   z-index:820;
 }
 
-/* ---------- HYDRATION HUD ใต้ water bar (เลื่อนลงเยอะ ๆ) ---------- */
+/* ---------- HYDRATION HUD ใต้ water bar (ไม่ให้โดนทับ) ---------- */
 
 .hha-quest-panel{
   position:fixed;
   left:50%;
-  top:140px;              /* <<< เลื่อนลงจาก water bar ชัด ๆ */
   transform:translateX(-50%);
+  top:150px !important;          /* <<< ดันลงจาก water bar แบบบังคับ */
   z-index:830;
   max-width:92vw;
 }
 
+/* padding ด้านในเล็กน้อย */
 .hha-quest-panel .hha-quest-main{
   padding-top:6px;
   padding-bottom:10px;
 }
 
-/* ---------- พื้นที่เล่นเกมกลางจอ (กันไม่ให้โดน HUD / Fever ทับ) ---------- */
+/* ---------- crosshair ตรงกลางจอ ---------- */
 
 .hha-crosshair{
   position:fixed;
@@ -67,29 +68,9 @@ body{
   z-index:200;
 }
 
-/* ถ้ามี layer สำหรับ emoji/เป้า ให้ครอบด้วยคลาสนี้ */
-.hha-play-safe,
-.hha-target-layer{
-  position:fixed;
-  left:0;
-  right:0;
-  top:240px;      /* ใต้ HUD ใหม่ */
-  bottom:120px;   /* เหนือ Fever gauge + coach bubble */
-  pointer-events:none;
-}
-
-.hha-target-layer > *{
-  pointer-events:auto;
-}
-
-/* จอสูงมาก ๆ ขยับขึ้นนิดหน่อย แต่ยังไม่ไปชน water bar */
-@media (min-height:900px){
+/* ---------- ปรับสำหรับจอเตี้ยมาก ๆ ---------- */
+@media (max-height:720px){
   .hha-quest-panel{
-    top:150px;
-  }
-  .hha-play-safe,
-  .hha-target-layer{
-    top:250px;
-    bottom:130px;
+    top:135px !important;
   }
 }
