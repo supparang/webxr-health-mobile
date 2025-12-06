@@ -1,204 +1,94 @@
 /* === /herohealth/css/hydration-vr.css === */
-/* สไตล์เฉพาะโหมด Hydration VR – พื้นหลัง, HUD, layout บนมือถือ */
+/* ปรับ layout สำหรับโหมด Hydration VR */
 
-body{
-  margin:0;
-  padding:0;
-  background:radial-gradient(circle at 20% 0%,#0f172a,#020617 55%,#020617);
+:root{
+  --hydration-bg:#020617;
+}
+
+/* ฉากพื้นหลัง – ให้ space ตรงกลางเยอะ ๆ */
+body.hydration-mode{
+  background:#020617;
   color:#e5e7eb;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
 }
 
-/* ฉากโหลดตอนเริ่ม */
-.hha-scene-wrap{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:radial-gradient(circle at 20% 0%,#020617,#020617 40%,#000 100%);
-  z-index:500;
-}
-.hha-loading-msg{
-  padding:14px 18px;
-  border-radius:16px;
-  background:rgba(15,23,42,.96);
-  border:1px solid rgba(148,163,184,.75);
-  box-shadow:0 18px 40px rgba(15,23,42,.95);
-  font-size:14px;
-}
+/* ========= VR BUTTON → ล่างขวา ========= */
 
-/* ปุ่ม VR มุมซ้ายบน */
-.hha-vr-btn{
+body.hydration-mode .hha-vr-btn{
   position:fixed;
-  left:10px;
-  top:72px;
-  z-index:140;
-  padding:6px 12px;
+  right:14px;
+  bottom:18px;
+  left:auto;
+  top:auto;
+  z-index:980;
+  padding:6px 14px;
   border-radius:999px;
-  border:none;
-  background:rgba(15,23,42,.92);
+  border:1px solid rgba(148,163,184,.7);
+  background:rgba(15,23,42,.96);
   color:#e5e7eb;
   font-size:13px;
   font-weight:600;
-  box-shadow:0 10px 24px rgba(15,23,42,.9);
-}
-
-/* crosshair กลางจอ */
-.hha-crosshair{
-  position:fixed;
-  left:50%;
-  top:58%;
-  transform:translate(-50%,-50%);
-  width:32px;
-  height:32px;
-  border-radius:999px;
-  box-shadow:0 0 0 2px rgba(148,163,184,.55),
-             0 0 0 6px rgba(15,23,42,.95);
-  background:radial-gradient(circle at 30% 20%,#e5e7eb,#9ca3af 55%,#4b5563);
-  opacity:.9;
-  z-index:40;
-}
-
-/* ===== WATER GAUGE (ไฟล์ ui-water.js ใส่คลาสนี้) ===== */
-.hha-water-wrap{
-  position:fixed;
-  left:50%;
-  top:14px;
-  transform:translateX(-50%);
-  z-index:150;
-}
-
-/* ===== QUEST HUD PANEL (มุมขวาบน) ===== */
-/* ★ ขยับลงเยอะ ๆ กันชน water gauge แน่นอน */
-.hha-quest-panel-vr{
-  position:fixed;
-  right:10px;
-  top:175px;          /* เดิม ~110, ขยับลง 175px */
-  z-index:130;
-  max-width:360px;
-}
-
-/* การ์ด HUD */
-.hha-hud-card{
-  background:
-    radial-gradient(circle at 0 0,rgba(56,189,248,.15),transparent 55%),
-    rgba(15,23,42,.96);
-  border-radius:22px;
-  padding:12px 16px;
-  border:1px solid rgba(148,163,184,.65);
-  box-shadow:0 18px 40px rgba(15,23,42,.92);
-  font-size:13px;
-}
-.hha-hud-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-bottom:6px;
-  font-size:13px;
-}
-.hha-hud-title{
-  font-weight:700;
-  letter-spacing:.16em;
+  letter-spacing:.08em;
   text-transform:uppercase;
-  color:#e5e7eb;
-}
-.hha-hud-badge{
-  padding:3px 10px;
-  border-radius:999px;
-  font-size:11px;
-  background:rgba(15,23,42,.9);
-  border:1px solid rgba(74,222,128,.8);
-}
-.hha-hud-main{
-  display:grid;
-  grid-template-columns:auto auto;
-  gap:4px 16px;
-  font-size:13px;
-}
-.hha-hud-label-soft{
-  color:#9ca3af;
-}
-.hha-hud-highlight{
-  font-weight:600;
+  box-shadow:0 10px 26px rgba(15,23,42,.9);
 }
 
-/* แถว goal / mini quest */
-.hha-hud-goal,
-.hha-hud-mini{
-  margin-top:8px;
-  font-size:13px;
-  border-radius:14px;
-  padding:7px 10px;
-  border:1px solid rgba(148,163,184,.65);
-}
-.hha-hud-goal{
-  background:rgba(21,128,61,.25);
-  border-color:rgba(34,197,94,.8);
-}
-.hha-hud-mini{
-  background:rgba(30,64,175,.35);
-  border-color:rgba(59,130,246,.8);
-}
+/* ========= HUD ปรับให้มาใต้ water bar ========= */
+/* water gauge จาก ui-water.js มักอยู่ top:10px ให้ panel ลงมาต่อด้านล่าง */
 
-/* FEVER จาก ui-fever.js – แค่เว้น margin นิดหน่อย */
-#hha-fever-wrap{
-  margin-bottom:10px;
-}
-
-/* COACH BUBBLE */
-.hha-coach-wrap{
+body.hydration-mode .hha-water-wrap{
+  /* ถ้ามี element นี้ ใช้จัดตำแหน่งเกจน้ำ */
   position:fixed;
   left:50%;
-  bottom:16px;
+  top:10px;
   transform:translateX(-50%);
-  z-index:120;
-  max-width:320px;
-}
-.hha-coach-bubble{
-  background:rgba(15,23,42,.96);
-  border-radius:999px;
-  padding:8px 14px;
-  border:1px solid rgba(148,163,184,.6);
-  font-size:13px;
-  box-shadow:0 16px 36px rgba(15,23,42,.95);
+  z-index:820;
 }
 
-/* ===== MOBILE LAYOUT ===== */
-@media (max-width: 768px){
-  .hha-vr-btn{
-    top:66px;
-    left:8px;
-    padding:5px 10px;
-    font-size:12px;
-  }
+/* กล่อง HUD ด้านบน – เอามาไว้ต่อจาก water bar และจัดกลางจอ */
 
-  .hha-water-wrap{
-    top:8px;
-  }
-
-  /* ★ มือถือให้ HUD ลงอีก และใช้ !important ตัดค่าเดิมทิ้ง */
-  .hha-quest-panel-vr{
-    top:190px !important;
-    right:8px;
-    left:8px;
-    max-width:none;
-  }
-
-  .hha-hud-card{
-    padding:10px 12px;
-    border-radius:20px;
-    font-size:12px;
-  }
-
-  .hha-crosshair{
-    top:60%;
-    width:26px;
-    height:26px;
-  }
-
-  .hha-coach-wrap{
-    bottom:14px;
-    max-width:280px;
-  }
+body.hydration-mode .hha-quest-panel{
+  position:fixed;
+  left:50%;
+  top:78px;            /* ระยะห่างจาก water bar */
+  transform:translateX(-50%);
+  right:auto;
+  z-index:830;
+  max-width:92vw;
 }
+
+/* ให้ส่วนข้อความ Goal / Mini quest ไม่ชิดขอบเกินไป */
+body.hydration-mode .hha-quest-panel .hha-quest-main{
+  padding-top:6px;
+  padding-bottom:10px;
+}
+
+/* เว้นพื้นที่เล่นเกมด้านกลางจอ (กันชน HUD บน + Fever ด้านล่าง) */
+body.hydration-mode .hha-play-safe{
+  position:fixed;
+  left:0;
+  right:0;
+  top:150px;        /* ต่ำกว่า HUD */
+  bottom:130px;     /* เหนือ Fever gauge */
+  pointer-events:none;
+}
+
+/* crosshair ยังให้ตรงกลางของพื้นที่ปลอดภัย */
+body.hydration-mode .hha-crosshair{
+  position:fixed;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  z-index:100;
+}
+
+/* ====== ปรับให้เป้าไม่ขึ้นใต้ HUD ====== */
+/* ถ้า engine ใช้ layer .hha-target-layer ก็ให้เริ่มจาก top:150px */
+
+body.hydration-mode .hha-target-layer{
+  position:fixed;
+  inset:150px 0 130px 0;
+  pointer-events:none;
+}
+
+/* ถ้าไม่มี class ด้านบน engine ใช้ random screen → ไม่เป็นไร
+   อย่างน้อย crosshair / HUD / Fever ไม่ทับกันแล้ว */
