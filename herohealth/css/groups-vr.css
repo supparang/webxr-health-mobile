@@ -1,4 +1,5 @@
 /* === Hero Health — Food Groups VR (HUD + Targets + Result) === */
+/* Layout แบบเดียวกับ Good vs Junk VR */
 /* 2025-12-06 */
 
 :root {
@@ -43,13 +44,43 @@ a-scene {
   z-index:0;
 }
 
-/* ===================== HUD: SCORE (ซ้ายบน) ===================== */
+/* =========================================================
+   HUD ROOT + TOP ROW (เหมือน goodjunk)
+   ========================================================= */
+
+.hud-root {
+  position:fixed;
+  inset:0;
+  z-index:40;
+  pointer-events:none;
+}
+
+/* แถวบน: การ์ดซ้าย (score) + ขวา (quest) */
+.hud-top {
+  position:absolute;
+  left:0;
+  right:0;
+  top:0;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  padding:calc(env(safe-area-inset-top, 0px) + 8px) 10px 0;
+  pointer-events:none;
+}
+
+/* การ์ดภายใน hud-top ให้รับ pointer-events ได้เอง */
+.hud-top > * {
+  pointer-events:auto;
+}
+
+/* =========================================================
+   HUD SCORE CARD (ซ้ายบน)
+   ========================================================= */
 
 .hud-card {
-  position:fixed;
-  left:10px;
-  top:10px;
-  z-index:50;
+  flex:1 1 0;
+  max-width:360px;
   background:radial-gradient(circle at top, #0f172a, #020617);
   border-radius:var(--radius-lg);
   padding:10px 14px;
@@ -58,11 +89,8 @@ a-scene {
     0 18px 40px rgba(15,23,42,0.9),
     0 0 0 1px rgba(15,23,42,1);
   color:var(--text-main);
-  min-width:230px;
-  max-width:360px;
 }
 
-/* ชื่อเกม + โหมด */
 .hud-main-title {
   font-size:11px;
   letter-spacing:.18em;
@@ -76,7 +104,7 @@ a-scene {
   font-weight:600;
 }
 
-/* แคปซูล NORMAL • 60s */
+/* NORMAL • 60s */
 .hud-pill {
   border-radius:999px;
   padding:3px 10px;
@@ -110,14 +138,12 @@ a-scene {
   color:#a7f3d0;
 }
 
-/* ===================== HUD: GOAL + MINI QUEST (ขวาบน) ===================== */
+/* =========================================================
+   HUD QUEST CARD (ขวาบน) — layout ตาม goodjunk
+   ========================================================= */
 
 .fg-quest-panel {
-  position:fixed;
-  right:10px;
-  top:10px;
-  z-index:60;
-  min-width:260px;
+  flex:1 1 0;
   max-width:320px;
   padding:10px 14px;
   border-radius:var(--radius-lg);
@@ -167,13 +193,15 @@ a-scene {
   white-space:nowrap;
 }
 
-/* ===================== COACH BUBBLE (กลางล่าง) ===================== */
+/* =========================================================
+   COACH BUBBLE (กลางล่าง)
+   ========================================================= */
 
 .hud-bottom {
-  position:fixed;
+  position:absolute;
   left:0;
   right:0;
-  bottom:10px;
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 56px); /* ยกขึ้นแบบ goodjunk */
   z-index:120;
   display:flex;
   justify-content:center;
@@ -207,7 +235,6 @@ a-scene {
   font-weight:600;
 }
 
-/* โค้ช emoji */
 .coach-avatar {
   width:28px;
   height:28px;
@@ -226,7 +253,9 @@ a-scene {
   50%     { transform:scale(1.07); }
 }
 
-/* ===================== DOM TARGET LAYER ===================== */
+/* =========================================================
+   TARGET LAYER
+   ========================================================= */
 
 #fg-layer {
   position:fixed;
@@ -235,7 +264,7 @@ a-scene {
   pointer-events:none;
 }
 
-/* เป้าอาหาร (DOM circle) */
+/* เป้าอาหาร */
 .fg-target {
   position:absolute;
   width:132px;
@@ -269,13 +298,15 @@ a-scene {
   font-size:52px;
 }
 
-/* ตอนโดนตีให้หดและจางหาย */
+/* ตอนโดนตีแล้วหายไป */
 .fg-target.hit {
   transform:translate(-50%, -50%) scale(0.6);
   opacity:0;
 }
 
-/* ===================== RESULT OVERLAY (จบเกม) ===================== */
+/* =========================================================
+   RESULT OVERLAY (จบเกม)
+   ========================================================= */
 
 .result-overlay {
   position:fixed;
@@ -345,14 +376,17 @@ a-scene {
   color:#e5e7eb;
 }
 
-/* ===================== FEVER GAUGE Z-INDEX FIX ===================== */
-/* ทำให้ Fever gauge จาก ui-fever.js ลอยเหนือฉากแน่นอน */
+/* =========================================================
+   FEVER GAUGE Z-INDEX (จาก ui-fever.js)
+   ========================================================= */
 
 .hha-fever-wrap {
   z-index:900 !important;
 }
 
-/* ===================== PARTICLE FX LAYER (ซ้อนกับ /vr/particles.js) ===================== */
+/* =========================================================
+   PARTICLE FX LAYER (จาก /vr/particles.js)
+   ========================================================= */
 
 .hha-fx-layer{
   position:fixed;
@@ -362,34 +396,26 @@ a-scene {
   overflow:hidden;
 }
 
-/* ===================== MOBILE LAYOUT FIX ===================== */
+/* =========================================================
+   MOBILE TWEAKS
+   ========================================================= */
 
 @media (max-width:640px) {
 
-  /* การ์ดคะแนนซ้ายบนให้เล็กลงนิดหน่อย */
-  .hud-card {
-    left:8px;
-    top:8px;
-    max-width:230px;
-    padding:8px 10px;
+  .hud-top{
+    flex-direction:column;
+    align-items:stretch;
+    gap:8px;
+    padding:calc(env(safe-area-inset-top, 0px) + 8px) 10px 0;
   }
 
-  /* Goal / Mini quest ขยับลง ไม่ทับการ์ดซ้าย */
+  .hud-card,
   .fg-quest-panel{
-    right:8px;
-    top:72px;
-    padding:8px 10px;
-    min-width:0;
-    max-width:230px;
+    max-width:none;
   }
 
-  .fg-quest-row{
-    flex-wrap:wrap;
-  }
-
-  /* coach bubble ยกขึ้น ไม่ชนปุ่ม VR มุมล่างขวา */
   .hud-bottom{
-    bottom:56px;
+    bottom:calc(env(safe-area-inset-bottom, 0px) + 50px);
   }
 
   .coach-bubble{
