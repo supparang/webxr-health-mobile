@@ -7,7 +7,19 @@
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import Particles from '../vr/particles.js';
-import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
+
+// ✅ import ui-fever แบบ side-effect (ให้มันผูก FeverUI ไว้กับ window.GAME_MODULES)
+import '../vr/ui-fever.js';
+
+// ดึง FeverUI จาก global (ใช้ร่วมทุกโหมด GoodJunk / Groups / Hydration)
+const FeverUI =
+  (window.GAME_MODULES && window.GAME_MODULES.FeverUI) ||
+  window.FeverUI || {
+    ensureFeverBar() {},
+    setFever() {},
+    setFeverActive() {},
+    setShield() {}
+  };
 
 // ดึงทุกอย่างจาก hydration.quest.js แล้วค่อยเลือกฟังก์ชัน
 import * as HQ from './hydration.quest.js';
@@ -21,23 +33,6 @@ const DIA    = '💎';
 const SHIELD = '🛡️';
 const FIRE   = '🔥';
 const BONUS  = [STAR, DIA, SHIELD, FIRE];
-
-// ---------- helper ----------
-
-// ยิง event ไป HUD + coach
-function emit(type, detail) {
-  window.dispatchEvent(new CustomEvent(type, { detail }));
-}
-
-// โค้ชแนวเด็ก ป.5
-function coach(text, mood = 'info') {
-  if (!text) return;
-  emit('hha:coach', {
-    mode: 'Hydration',
-    mood,             // 'info' | 'warn' | 'happy' ฯลฯ (แล้วแต่ coach-bubble จะใช้)
-    text
-  });
-}
 
 // helper กันไว้ ถ้า Particles ไม่มี
 function safeScorePop(x, y, text, opt) {
@@ -80,10 +75,10 @@ export async function boot(cfg = {}) {
   if (dur > 180) dur = 180;
 
   // ----- HUD เริ่มต้น -----
-  ensureFeverBar();
-  setFever(0);
-  setFeverActive(false);
-  setShield(0);
+  FeverUI.ensureFeverBar();
+  FeverUI.setFever(0);
+  FeverUI.setFeverActive(false);
+  FeverUI.setShield(0);
 
   ensureWaterGauge();
   let waterPct = 50;
@@ -116,7 +111,7 @@ export async function boot(cfg = {}) {
   deck.stats.greenTick = 0;
   deck.stats.zone      = waterZone;
 
-  // ✅ สุ่มภารกิจชุดแรกออกมา (2 goal / 3 mini จะถูกจัดลำดับใน hydration.quest + MissionDeck)
+  // ✅ สุ่มภารกิจชุดแรกออกมา (MissionDeck จะสุ่ม goal 2/10 + mini 3/15 อยู่ในตัวมันเอง)
   if (typeof deck.drawGoals === 'function') deck.drawGoals(2);
   if (typeof deck.draw3 === 'function')     deck.draw3();
 
@@ -130,52 +125,47 @@ export async function boot(cfg = {}) {
     const minis = deck.getProgress('mini')  || [];
     const z     = zoneFrom(waterPct);
 
-    // HUD ขวามือ (quest-hud) ใช้ event นี้
-    emit('quest:update', {
-      goal: goals.find(g => !g.done) || goals[0] || null,
-      mini: minis.find(m => !m.done) || minis[0] || null,
-      goalsAll: goals,
-      minisAll: minis,
-      hint: hint || `โซนน้ำ: ${z}`
-    });
+    window.dispatchEvent(new CustomEvent('quest:update', {
+      detail: {
+        goal: goals.find(g => !g.done) || goals[0] || null,
+        mini: minis.find(m => !m.done) || minis[0] || null,
+        goalsAll: goals,
+        minisAll: minis,
+        hint: hint || `โซนน้ำ: ${z}`
+      }
+    }));
   }
 
   // ----- state หลัก -----
   let score       = 0;
   let combo       = 0;
   let comboMax    = 0;
-  let misses      = 0;     // นับ miss หลัก = โดนน้ำหวาน / junk จริง ๆ
+  let misses      = 0;
   let star        = 0;
   let diamond     = 0;
   let shield      = 0;
   let fever       = 0;
   let feverActive = false;
-  let elapsedSec  = 0;     // เวลาเล่นสะสม (วินาที)
-
-  // สถิติสำหรับ miss แยก
-  let hitGood        = 0;  // ยิงโดนน้ำดี
-  let hitJunk        = 0;  // ยิงโดนน้ำหวาน
-  let missGoodSoft   = 0;  // ปล่อยน้ำดีหาย (soft miss – ไม่เอาไปรวม misses หลัก)
+  let elapsedSec  = 0;   // เวลาเล่นสะสม (นับขึ้นเอง ใช้กับ HUD)
 
   function mult() { return feverActive ? 2 : 1; }
 
   function gainFever(n) {
     fever = Math.max(0, Math.min(100, fever + n));
-    setFever(fever);
+    FeverUI.setFever(fever);
     if (!feverActive && fever >= 100) {
       feverActive = true;
-      setFeverActive(true);
-      coach('โหมดไฟลุกแล้ว! ตีให้ไวเลยเพื่อน 🔥', 'happy');
+      FeverUI.setFeverActive(true);
     }
   }
 
   function decayFever(n) {
     const d = feverActive ? 10 : n;
     fever = Math.max(0, fever - d);
-    setFever(fever);
+    FeverUI.setFever(fever);
     if (feverActive && fever <= 0) {
       feverActive = false;
-      setFeverActive(false);
+      FeverUI.setFeverActive(false);
     }
   }
 
@@ -192,61 +182,25 @@ export async function boot(cfg = {}) {
     if (typeof deck.updateCombo === 'function') deck.updateCombo(combo);
   }
 
-  // คำนวณ miss / accuracy / ระดับสี HUD
-  function calcMissMetrics() {
-    const miss_junk = misses;          // miss หลักจากโดนน้ำหวาน
-    const miss_good = missGoodSoft;    // ปล่อยน้ำดีหาย (soft)
-
-    const totalEvents = hitGood + hitJunk + miss_good;
-    const accuracy    = totalEvents > 0 ? hitGood / totalEvents : 1;
-
-    const greenTick   = deck.stats.greenTick | 0;
-    const greenShare  = elapsedSec > 0 ? greenTick / elapsedSec : 0;
-
-    let missLevel = 'ok';
-    if (totalEvents < 8) {
-      missLevel = 'ok';  // ยังเล่นไม่นาน
-    } else if (accuracy >= 0.8 && miss_junk <= 2 && greenShare >= 0.5) {
-      missLevel = 'great'; // เขียวเยอะ แม่นดี
-    } else if (accuracy >= 0.6 && miss_junk <= 5 && greenShare >= 0.3) {
-      missLevel = 'ok';
-    } else {
-      missLevel = 'warn';
-    }
-
-    return {
-      miss_junk,
-      miss_good,
-      accuracy,
-      greenShare,
-      missLevel,
-      totalShots: hitGood + hitJunk
-    };
-  }
-
   // ✅ ส่งข้อมูลขึ้น HUD / logger (score, combo, miss ฯลฯ)
   function pushHudScore(extra = {}) {
-    const m = calcMissMetrics();
-    emit('hha:score', {
-      mode:       'Hydration',
-      modeKey:    'hydration-vr',
-      modeLabel:  'Hydration',
-      difficulty: diff,
-      score,
-      combo,
-      comboMax,
-      misses,        // miss หลัก (junk)
-      miss: misses,
-      miss_junk: m.miss_junk,
-      miss_good: m.miss_good,
-      accuracy: m.accuracy,
-      greenShare: m.greenShare,
-      missLevel: m.missLevel,   // HUD ใช้เปลี่ยนสี
-      timeSec:    elapsedSec,
-      waterPct,
-      waterZone,
-      ...extra
-    });
+    window.dispatchEvent(new CustomEvent('hha:score', {
+      detail: {
+        mode:       'Hydration',
+        modeKey:    'hydration-vr',
+        modeLabel:  'Hydration',
+        difficulty: diff,
+        score,
+        combo,
+        comboMax,
+        misses,
+        miss:       misses,        // เผื่อ HUD ใช้ชื่อ miss
+        timeSec:    elapsedSec,
+        waterPct,
+        waterZone,
+        ...extra
+      }
+    }));
   }
 
   function scoreFX(x, y, val) {
@@ -270,7 +224,6 @@ export async function boot(cfg = {}) {
       combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      coach('ได้ดาว Boost คะแนนแล้ว เย่! 🌟', 'happy');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
@@ -282,42 +235,37 @@ export async function boot(cfg = {}) {
       combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      coach('เพชรน้ำใสมาแล้ว คะแนนกระฉูด 💎', 'happy');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
     if (ch === SHIELD) {
       shield = Math.min(3, shield + 1);
-      setShield(shield);
+      FeverUI.setShield(shield);
       const d = 20;
       score += d;
       deck.onGood && deck.onGood();
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      coach('ได้เกราะกันน้ำหวานแล้ว ใช้ให้คุ้มเลยนะ 🛡️', 'info');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
     if (ch === FIRE) {
       feverActive = true;
-      setFeverActive(true);
+      FeverUI.setFeverActive(true);
       fever = Math.max(fever, 60);
-      setFever(fever);
+      FeverUI.setFever(fever);
       const d = 25;
       score += d;
       deck.onGood && deck.onGood();
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      coach('โหมดไฟลุก! ตีน้ำดีรัว ๆ เลย 🔥', 'happy');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
 
     // ปกติ: GOOD / BAD
-    if (GOOD.includes(ch)) {
+    if ( GOOD.includes(ch) ) {
       // ยิงโดนน้ำดี → ไม่เป็น miss
-      hitGood++;
-
       addWater(+8);
       const d = (14 + combo * 2) * mult();
       score += d;
@@ -327,45 +275,31 @@ export async function boot(cfg = {}) {
       deck.onGood && deck.onGood();
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
-
-      if (combo === 3) {
-        coach('คอมโบ 3 แล้ว เก่งมากเพื่อน ✨', 'happy');
-      } else if (combo === 5) {
-        coach('คอมโบ x5 แล้ว อย่าพลาดนะ สุดยอดด 💪', 'happy');
-      }
-
       pushHudScore();
       return { good: true, scoreDelta: d };
     } else {
       // ยิงโดนน้ำไม่ดี (junk)
-      hitJunk++;
-
       if (shield > 0) {
         // มี shield → กัน miss ให้
         shield--;
-        setShield(shield);
+        FeverUI.setShield(shield);
         addWater(-4);
         decayFever(6);
         syncDeck(); pushQuest();
         scoreFX(x, y, 0);
-        coach('โชคดีมีเกราะกันน้ำหวานไว้แล้ว 😎', 'info');
         pushHudScore();
         return { good: false, scoreDelta: 0 };
       }
-
-      // 👉 miss_junk จริง
+      // 👉 เคสนับเป็น miss จริง
       addWater(-8);
       const d = -10;
       score = Math.max(0, score + d);
       combo = 0;
-      misses++;     // นับ miss หลัก
+      misses++;
       decayFever(14);
       deck.onJunk && deck.onJunk();
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
-
-      coach('โอ๊ะ โดนน้ำหวานแล้ว ระวังฟันผุนะเพื่อน 😅', 'warn');
-
       pushHudScore();
       return { good: false, scoreDelta: d };
     }
@@ -373,23 +307,14 @@ export async function boot(cfg = {}) {
 
   // ----- เมื่อเป้าหายไปเอง (expire) -----
   function onExpire(ev) {
-    // ✅ ตามนิยามใหม่:
-    //    - ปล่อยน้ำดีหาย → soft miss (miss_good) แต่ไม่เพิ่ม misses หลัก
-    //    - ปล่อย junk หาย → ไม่เพิ่ม miss แต่ให้ deck.onJunk() รู้ว่าพลาด
-    if (!ev) return;
-
-    // แจ้ง MissionDeck ว่ามี “พลาด” เกิดขึ้น (ใช้กับ goal/mini แบบพลาดไม่เกิน K)
-    deck.onJunk && deck.onJunk();
-    syncDeck();
-    pushQuest();
-
-    if (ev.isGood) {
-      // soft miss จากปล่อยของดี
-      missGoodSoft++;
-      coach('น้ำดีหลุดไปแล้ว ไม่น่าเลยเนอะ คราวหน้าลองไวขึ้นนิดนึง 😊', 'info');
+    // ✅ ตามนิยามใหม่: ปล่อยน้ำดี/น้ำไม่ดีให้หาย → ไม่เพิ่ม miss
+    // แต่ยังถือว่าเป็น junk event ให้ deck รับรู้ได้
+    if (ev && !ev.isGood) {
+      deck.onJunk && deck.onJunk();
+      syncDeck();
+      pushQuest();
+      pushHudScore({ reason: 'expire' });
     }
-
-    pushHudScore({ reason: 'expire' });
   }
 
   // ----- tick รายวินาที -----
@@ -401,14 +326,8 @@ export async function boot(cfg = {}) {
     if (z === 'GREEN') {
       deck.stats.greenTick = (deck.stats.greenTick | 0) + 1;
       decayFever(2);
-      if (elapsedSec % 10 === 0) {
-        coach('ดีมาก น้ำในร่างกายกำลังสมดุล อยู่ GREEN ต่อไปนะ 💧', 'happy');
-      }
     } else {
       decayFever(6);
-      if (elapsedSec % 12 === 0) {
-        coach('น้ำเริ่มไม่สมดุลแล้ว จัดน้ำดีเพิ่มหน่อยเร็ว 💦', 'warn');
-      }
     }
 
     if (z === 'HIGH')      addWater(-4);
@@ -426,17 +345,15 @@ export async function boot(cfg = {}) {
     if (g.length > 0 && g.every(x => x.done)) {
       accGoalDone += g.length;
       deck.drawGoals && deck.drawGoals(2);
-      pushQuest('Goal ใหม่มาแล้ว ลองดูด้านขวานะ 👀');
-      coach('ภารกิจหลักชุดหนึ่งผ่านแล้ว เก่งมากก 🎉', 'happy');
+      pushQuest('Goal ใหม่');
     }
     if (m.length > 0 && m.every(x => x.done)) {
       accMiniDone += m.length;
       deck.draw3 && deck.draw3();
-      pushQuest('Mini quest ชุดใหม่มาแล้ว ✨');
-      coach('มินิเควสต์จบแล้ว ได้ชุดใหม่ต่อเลย สู้ ๆ 🤩', 'happy');
+      pushQuest('Mini ใหม่');
     }
 
-    // อัปเดต HUD ทุกวินาที (มี missLevel, accuracy, greenShare)
+    // อัปเดต HUD ทุกวินาที
     pushHudScore();
   }
 
@@ -459,31 +376,28 @@ export async function boot(cfg = {}) {
     const greenTick    = deck.stats.greenTick | 0;
     const waterEnd     = waterPct;
     const waterZoneEnd = zoneFrom(waterPct);
-    const missMetrics  = calcMissMetrics();
-
-    coach('จบเกมแล้ว ไปดูคะแนนกับภารกิจที่ทำได้กันเลย 🎊', 'happy');
 
     // ยิง hha:end พร้อมสรุป
-    emit('hha:end', {
-      mode: 'Hydration',
-      modeLabel: 'Hydration',
-      difficulty: diff,
-      score,
-      misses,                   // miss หลักจาก junk
-      miss_junk: missMetrics.miss_junk,
-      miss_good: missMetrics.miss_good,
-      accuracy:  missMetrics.accuracy,
-      greenTick,
-      duration:  dur,
-      goalCleared,
-      goalsCleared: goalsDone,
-      goalsTotal,
-      questsCleared: miniDone,
-      questsTotal: miniTotal,
-      waterStart,
-      waterEnd,
-      waterZoneEnd
-    });
+    window.dispatchEvent(new CustomEvent('hha:end', {
+      detail: {
+        mode: 'Hydration',
+        modeLabel: 'Hydration',
+        difficulty: diff,
+        score,
+        misses,
+        comboMax,
+        duration: dur,
+        greenTick,
+        goalCleared,
+        goalsCleared: goalsDone,
+        goalsTotal,
+        questsCleared: miniDone,
+        questsTotal: miniTotal,
+        waterStart,
+        waterEnd,
+        waterZoneEnd
+      }
+    }));
 
     // ยิง hha:score ปิดท้ายด้วยสถานะ ended
     pushHudScore({ ended: true });
@@ -518,9 +432,8 @@ export async function boot(cfg = {}) {
     onExpire
   });
 
-  // แสดงเควสต์ + โค้ชตั้งแต่เริ่ม
-  pushQuest('เริ่มโหมดน้ำสมดุลแล้ว แตะเฉพาะน้ำดีนะ 💧');
-  coach('มาเล่นน้ำสมดุลกัน เพื่อน ๆ เล็งน้ำดี 💧🥛 เลี่ยงน้ำหวาน 🥤 นะ!', 'info');
+  // แสดงเควสต์ตั้งแต่เริ่ม
+  pushQuest('เริ่มโหมดน้ำสมดุล');
   // อัปเดต HUD state แรก
   pushHudScore();
 
