@@ -1,33 +1,36 @@
 // === /herohealth/vr/ui-fever.js ===
-// Shared Fever gauge + Shield + Fire Overlay (GoodJunk / Hydration / Groups)
-// 2025-12-06 — non-module (ไม่มี export, ใช้ window.GAME_MODULES.FeverUI)
+// Shared Fever gauge + Shield + Fire Overlay
+// ใช้ร่วม GoodJunk / Hydration / Food Groups VR
+// 2025-12-06
 
 'use strict';
 
 (function (global) {
-  let feverRoot   = null;
-  let barEl       = null;
-  let pctEl       = null;
-  let shieldEl    = null;
-  let cardEl      = null;
-  let flamesEl    = null;
+  let feverRoot    = null;
+  let barEl        = null;
+  let pctEl        = null;
+  let shieldEl     = null;
+  let cardEl       = null;
+  let flamesEl     = null;
   let styleInjected = false;
 
-  // ----- inject CSS ครั้งเดียว -----
+  // -----------------------------------
+  //  CSS ใส่ครั้งเดียว
+  // -----------------------------------
   function ensureStyle() {
     if (styleInjected) return;
     styleInjected = true;
 
-    const css = global.document.createElement('style');
+    const css = document.createElement('style');
     css.id = 'hha-fever-style';
     css.textContent = `
       .hha-fever-wrap{
         position:fixed;
         left:10px;
         bottom:12px;
-        z-index:900;
+        z-index:800; /* ต่ำกว่า HUD / โค้ช */
         font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
-        pointer-events:none; /* ไม่บังคลิก/ลากในเกม */
+        pointer-events:none; /* ไม่บังการคลิกเป้า */
       }
       .hha-fever-card{
         min-width:210px;
@@ -107,13 +110,13 @@
         background:linear-gradient(90deg,#22c55e,#f97316,#ef4444);
         transition:width .20s ease-out;
       }
-      .hha-fever-active{
+      .hha-fever-card.hha-fever-active{
         border-color:rgba(251,191,36,0.9);
         box-shadow:0 0 0 1px rgba(251,191,36,0.6),
                    0 18px 40px rgba(248,250,252,0.15);
       }
 
-      /* ไฟลุกท่วมจอตอน fever */
+      /* ไฟลุกท่วมจอตอน Fever */
       .hha-fever-flames{
         position:fixed;
         inset:0;
@@ -145,23 +148,28 @@
         50% { transform:translate3d(0,-4px,0) scale(1.06); }
         100%{ transform:translate3d(0,4px,0) scale(1.08); }
       }
+
+      @media (max-width:640px){
+        .hha-fever-wrap{
+          left:8px;
+          bottom:10px;
+          max-width:260px;
+        }
+      }
     `;
-    global.document.head.appendChild(css);
+    document.head.appendChild(css);
   }
 
-  /**
-   * สร้าง Fever bar + flames overlay
-   * ใช้ร่วมกันทุกเกม (GoodJunk / Hydration / Groups)
-   */
+  // -----------------------------------
+  //  สร้าง Fever bar + Flames overlay
+  // -----------------------------------
   function ensureFeverBar() {
-    if (feverRoot) return feverRoot;
+    if (feverRoot && feverRoot.isConnected) return feverRoot;
 
     ensureStyle();
 
-    const doc = global.document;
-
     // การ์ด Fever มุมล่างซ้าย
-    feverRoot = doc.createElement('div');
+    feverRoot = document.createElement('div');
     feverRoot.id = 'hha-fever-wrap';
     feverRoot.className = 'hha-fever-wrap';
     feverRoot.innerHTML = `
@@ -184,27 +192,27 @@
         </div>
       </div>
     `;
-    doc.body.appendChild(feverRoot);
+    document.body.appendChild(feverRoot);
 
     cardEl   = feverRoot.querySelector('.hha-fever-card');
     barEl    = feverRoot.querySelector('#hha-fever-bar');
     pctEl    = feverRoot.querySelector('#hha-fever-pct');
     shieldEl = feverRoot.querySelector('#hha-fever-shield');
 
-    // overlay ไฟลุกทั้งจอ (สร้างแยก)
-    if (!flamesEl) {
-      flamesEl = doc.createElement('div');
+    // overlay ไฟลุกท่วมจอ
+    if (!flamesEl || !flamesEl.isConnected) {
+      flamesEl = document.createElement('div');
       flamesEl.id = 'hha-fever-flames';
       flamesEl.className = 'hha-fever-flames';
-      doc.body.appendChild(flamesEl);
+      document.body.appendChild(flamesEl);
     }
 
     return feverRoot;
   }
 
-  /**
-   * อัปเดตค่าความร้อนของ Fever (0–100)
-   */
+  // -----------------------------------
+  //  อัปเดตค่า Fever (0–100)
+  // -----------------------------------
   function setFever(pct) {
     if (!feverRoot) ensureFeverBar();
     const v = Math.max(0, Math.min(100, Number(pct) || 0));
@@ -217,37 +225,38 @@
     }
   }
 
-  /**
-   * เปิด/ปิดโหมด Fever
-   * - การ์ด Glow
-   * - ไฟลุกท่วมจอ (overlay)
-   */
+  // -----------------------------------
+  //  เปิด/ปิดโหมด Fever (การ์ด + ไฟลุก)
+  // -----------------------------------
   function setFeverActive(active) {
     if (!feverRoot) ensureFeverBar();
+    const on = !!active;
+
     if (cardEl) {
-      cardEl.classList.toggle('hha-fever-active', !!active);
+      cardEl.classList.toggle('hha-fever-active', on);
     }
     if (flamesEl) {
-      flamesEl.classList.toggle('on', !!active);
+      flamesEl.classList.toggle('on', on);
     }
   }
 
-  /**
-   * อัปเดตจำนวน Shield (จำนวนเกราะ)
-   * ทุกเกมเรียกได้เหมือนกัน
-   */
+  // -----------------------------------
+  //  อัปเดตจำนวน Shield
+  // -----------------------------------
   function setShield(count) {
     if (!feverRoot) ensureFeverBar();
     if (!shieldEl) return;
+
     const n = Math.max(0, Number(count) || 0);
     shieldEl.textContent = n.toString();
   }
 
-  // ----- ผูกเข้า global ให้ GameEngine เรียกใช้ผ่าน FeverUI -----
+  // -----------------------------------
+  //  ผูกเข้า global ให้ทุกเกมเรียกใช้
+  // -----------------------------------
   const FeverUI = { ensureFeverBar, setFever, setFeverActive, setShield };
 
   global.GAME_MODULES = global.GAME_MODULES || {};
   global.GAME_MODULES.FeverUI = FeverUI;
   global.FeverUI = FeverUI;
-
 })(window);
