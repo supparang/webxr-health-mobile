@@ -1,17 +1,16 @@
 /* === /herohealth/css/hydration-vr.css === */
-/* ปรับ layout สำหรับโหมด Hydration VR */
+/* Layout สำหรับ Hydration VR */
 
 :root{
   --hydration-bg:#020617;
 }
 
-/* ฉากพื้นหลัง – ให้ space ตรงกลางเยอะ ๆ */
 body.hydration-mode{
   background:#020617;
   color:#e5e7eb;
 }
 
-/* ========= VR BUTTON → ล่างขวา ========= */
+/* ========= ปุ่ม VR → ล่างขวา ========= */
 
 body.hydration-mode .hha-vr-btn{
   position:fixed;
@@ -37,17 +36,17 @@ body.hydration-mode .hha-vr-btn{
 body.hydration-mode .hha-water-wrap{
   position:fixed;
   left:50%;
-  top:6px;                       /* ชิดบนขึ้นนิดหน่อย */
+  top:4px;
   transform:translateX(-50%);
   z-index:820;
 }
 
-/* ========= HUD ใต้ water bar (ขยับลงมาอีก) ========= */
+/* ========= HUD HYDRATION ใต้ water bar (เลื่อนลงอีกเยอะ) ========= */
 
 body.hydration-mode .hha-quest-panel{
   position:fixed;
   left:50%;
-  top:115px;                     /* เดิม ~78px → ขยับลงมาอีกเยอะ ๆ */
+  top:150px;                  /* เดิม ~115 → เลื่อนลงมาอีก */
   transform:translateX(-50%);
   right:auto;
   z-index:830;
@@ -65,12 +64,19 @@ body.hydration-mode .hha-play-safe{
   position:fixed;
   left:0;
   right:0;
-  top:185px;                     /* ต่ำกว่า HUD ใหม่ */
-  bottom:130px;                  /* เหนือ Fever gauge */
+  top:220px;                 /* ตาม HUD ใหม่ */
+  bottom:130px;              /* เหนือ Fever gauge */
   pointer-events:none;
 }
 
-/* crosshair ยังให้อยู่กลางจอ */
+/* ถ้า engine ใช้ layer สำหรับเป้า ให้กันพื้นที่เหมือนกัน */
+body.hydration-mode .hha-target-layer{
+  position:fixed;
+  inset:220px 0 130px 0;
+  pointer-events:none;
+}
+
+/* crosshair กลางจอ */
 body.hydration-mode .hha-crosshair{
   position:fixed;
   left:50%;
@@ -79,9 +85,13 @@ body.hydration-mode .hha-crosshair{
   z-index:100;
 }
 
-/* ถ้า engine ใช้ layer นี้สำหรับเป้า ให้ spawn เฉพาะใน safe-area */
-body.hydration-mode .hha-target-layer{
-  position:fixed;
-  inset:185px 0 130px 0;        /* top ตรงกับ play-safe, bottom เหนือ fever */
-  pointer-events:none;
+/* ปรับนิดสำหรับจอสูงมาก ๆ (tablet แนวนอน) */
+@media (min-height:900px){
+  body.hydration-mode .hha-quest-panel{
+    top:170px;
+  }
+  body.hydration-mode .hha-play-safe,
+  body.hydration-mode .hha-target-layer{
+    top:240px;
+  }
 }
