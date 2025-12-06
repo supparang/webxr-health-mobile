@@ -7,7 +7,19 @@
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import Particles from '../vr/particles.js';
-import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
+
+// ⚠️ แก้ตรงนี้: import แบบ namespace แทน named export
+import * as UIFever from '../vr/ui-fever.js';
+
+// map ฟังก์ชันจาก UIFever (ถ้าไม่มีให้เป็น no-op กัน error)
+const ensureFeverBar =
+  typeof UIFever.ensureFeverBar === 'function' ? UIFever.ensureFeverBar : () => {};
+const setFever =
+  typeof UIFever.setFever === 'function' ? UIFever.setFever : () => {};
+const setFeverActive =
+  typeof UIFever.setFeverActive === 'function' ? UIFever.setFeverActive : () => {};
+const setShield =
+  typeof UIFever.setShield === 'function' ? UIFever.setShield : () => {};
 
 // ดึงทุกอย่างจาก hydration.quest.js แล้วค่อยเลือกฟังก์ชัน
 import * as HQ from './hydration.quest.js';
@@ -18,9 +30,9 @@ const BAD  = ['🥤', '🧋', '🍺', '☕️'];   // น้ำหวาน / �
 
 const STAR   = '⭐';
 const DIA    = '💎';
-const SHIELD = '🛡️';
+const SHIELD_EMO = '🛡️';
 const FIRE   = '🔥';
-const BONUS  = [STAR, DIA, SHIELD, FIRE];
+const BONUS  = [STAR, DIA, SHIELD_EMO, FIRE];
 
 // ---------- helper ปลอดภัย ----------
 
@@ -126,7 +138,7 @@ export async function boot(cfg = {}) {
     let goals = deck.getProgress('goals') || [];
     let minis = deck.getProgress('mini')  || deck.getProgress('minis') || [];
 
-    // ถ้ายังไม่มีเลย ให้สุ่มใหม่อีกครั้งเพื่อกัน HUD ว่างเปล่า
+    // ถ้ายังไม่มีเลย ให้สุ่มใหม่อีกครั้ง
     if (goals.length === 0 && typeof deck.drawGoals === 'function') {
       deck.drawGoals(2);
       goals = deck.getProgress('goals') || [];
@@ -143,7 +155,6 @@ export async function boot(cfg = {}) {
     const activeGoal = goals.find(g => !g.done) || goals[0] || null;
     const activeMini = minis.find(m => !m.done) || minis[0] || null;
 
-    // สร้างข้อความที่ HUD / โค้ชอ่านได้แน่ ๆ
     const goalText =
       (activeGoal && (activeGoal.label || activeGoal.title || activeGoal.text || activeGoal.desc)) ||
       '-';
@@ -165,10 +176,8 @@ export async function boot(cfg = {}) {
       hint: hint || `โซนน้ำ: ${z}`
     };
 
-    // ตัวเก่า (HUD GoodJunk / Groups)
     window.dispatchEvent(new CustomEvent('quest:update', { detail: payload }));
-    // ตัวใหม่ (ใช้ hha:quest เช่นเดียวกับเกมอื่น และให้โค้ชใช้ด้วย)
-    window.dispatchEvent(new CustomEvent('hha:quest', { detail: payload }));
+    window.dispatchEvent(new CustomEvent('hha:quest',    { detail: payload }));
   }
 
   // ----- state หลัก -----
@@ -181,7 +190,7 @@ export async function boot(cfg = {}) {
   let shield      = 0;
   let fever       = 0;
   let feverActive = false;
-  let elapsedSec  = 0;   // เวลาเล่นสะสม (นับขึ้น)
+  let elapsedSec  = 0;   // เวลาเล่นสะสม
 
   function mult() { return feverActive ? 2 : 1; }
 
@@ -217,7 +226,6 @@ export async function boot(cfg = {}) {
     if (typeof deck.updateCombo === 'function') deck.updateCombo(combo);
   }
 
-  // ส่งข้อมูลขึ้น HUD / logger (score, combo, miss ฯลฯ)
   function pushHudScore(extra = {}) {
     window.dispatchEvent(new CustomEvent('hha:score', {
       detail: {
@@ -245,7 +253,7 @@ export async function boot(cfg = {}) {
     safeBurstAt(x, y, { color: good ? '#22c55e' : '#f97316' });
   }
 
-  // ---------- judge เมื่อยิง/แตะเป้า ----------
+  // ---------- judge ----------
   function judge(ch, ctx) {
     const x = ctx?.clientX ?? ctx?.cx ?? 0;
     const y = ctx?.clientY ?? ctx?.cy ?? 0;
@@ -273,7 +281,7 @@ export async function boot(cfg = {}) {
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
-    if (ch === SHIELD) {
+    if (ch === SHIELD_EMO) {
       shield = Math.min(3, shield + 1);
       setShield(shield);
       const d = 20;
@@ -300,7 +308,6 @@ export async function boot(cfg = {}) {
 
     // GOOD / BAD ปกติ
     if (GOOD.includes(ch)) {
-      // ยิงโดนน้ำดี → ไม่เป็น miss
       addWater(+8);
       const d = (14 + combo * 2) * mult();
       score += d;
@@ -313,9 +320,7 @@ export async function boot(cfg = {}) {
       pushHudScore();
       return { good: true, scoreDelta: d };
     } else {
-      // ยิงโดนน้ำไม่ดี (junk)
       if (shield > 0) {
-        // กัน miss
         shield--;
         setShield(shield);
         addWater(-4);
@@ -326,7 +331,6 @@ export async function boot(cfg = {}) {
         return { good: false, scoreDelta: 0 };
       }
 
-      // นับเป็น miss จริง
       addWater(-8);
       const d = -10;
       score = Math.max(0, score + d);
@@ -341,9 +345,9 @@ export async function boot(cfg = {}) {
     }
   }
 
-  // ----- เมื่อเป้าหายเอง (expire) -----
+  // ----- เมื่อเป้าหายเอง -----
   function onExpire(ev) {
-    // ตามนิยามใหม่: ปล่อยน้ำดี/น้ำไม่ดีให้หาย → ไม่เพิ่ม miss
+    // ไม่เพิ่ม miss แต่ให้ deck รู้ว่า junk หาย
     if (ev && !ev.isGood) {
       deck.onJunk && deck.onJunk();
       syncDeck();
@@ -394,7 +398,6 @@ export async function boot(cfg = {}) {
       pushQuest('Mini ใหม่');
     }
 
-    // อัปเดต HUD ทุกวินาที
     pushHudScore();
   }
 
@@ -471,9 +474,8 @@ export async function boot(cfg = {}) {
     onExpire
   });
 
-  // แสดงเควสต์ตั้งแต่เริ่ม
+  // เริ่มต้น
   pushQuest('เริ่มโหมดน้ำสมดุล');
-  // HUD state แรก
   pushHudScore();
 
   return inst;
