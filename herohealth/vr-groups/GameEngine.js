@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (DOM targets + Goal / Mini quest HUD)
-// 2025-12-06 — เพิ่ม life time ให้เป้าหายเอง + รองรับ difficulty.js
+// Food Groups VR — Game Engine (DOM targets + Goal / Mini quest HUD + shared FeverUI)
+// 2025-12-06
 
 (function (ns) {
   'use strict';
@@ -11,7 +11,7 @@
     return;
   }
 
-  // ---------- Fever UI (optional) ----------
+  // ---- Fever UI (shared) ----
   const FeverUI =
     (window.GAME_MODULES && window.GAME_MODULES.FeverUI) ||
     window.FeverUI || {
@@ -21,11 +21,15 @@
       setShield() {}
     };
 
-  // ---------- Difficulty helper ----------
+  const FEVER_MAX       = 100;
+  const FEVER_HIT_GAIN  = 10;
+  const FEVER_MISS_LOSS = 20;
+
+  // ---- Difficulty helper ----
   function getDiffConfig(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
-    // ถ้ามีโมดูล difficulty แยกไฟล์
+    // ถ้ามีตาราง difficulty แยกไฟล์
     if (
       ns.foodGroupsDifficulty &&
       typeof ns.foodGroupsDifficulty.get === 'function'
@@ -39,35 +43,30 @@
       return {
         spawnInterval: 1300,
         maxActive: 3,
-        scale: 1.15,
-        goodRatio: 0.75,
-        lifeMs: 2600
+        sizeFactor: 1.15
       };
     }
     if (diffKey === 'hard') {
       return {
         spawnInterval: 800,
         maxActive: 5,
-        scale: 0.9,
-        goodRatio: 0.5,
-        lifeMs: 2000
+        sizeFactor: 0.9
       };
     }
     // normal
     return {
       spawnInterval: 1100,
       maxActive: 4,
-      scale: 1.0,
-      goodRatio: 0.6,
-      lifeMs: 2300
+      sizeFactor: 1.0
     };
   }
 
-  // ---------- Emoji helper ----------
+  // ---- Emoji helper ----
   const GOOD_EMOJI = ['🥦', '🍎', '🍚', '🍳', '🥛', '🍌', '🍇'];
   const JUNK_EMOJI = ['🍩', '🍟', '🍕', '🥤', '🍰', '🍫', '🍭'];
 
   function pickEmoji(isGood) {
+    // ถ้ามีโมดูล emoji-image ให้มันเลือก
     if (
       ns.emojiImage &&
       typeof ns.emojiImage.pick === 'function'
@@ -78,13 +77,13 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ---------- Random position (กลางจอ, หลบ HUD + โค้ช) ----------
+  // ---- Random position (กลางจอ, หลบ HUD + โค้ช) ----
   function randomScreenPos() {
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe = 120;     // HUD บน
-    const bottomSafe = 140;  // โค้ชล่าง
+    const topSafe = 120;   // HUD บน
+    const bottomSafe = 140; // โค้ชด้านล่าง
 
     const left = w * 0.15;
     const right = w * 0.85;
@@ -95,9 +94,7 @@
     return { x, y };
   }
 
-  // =================================================================
-  // A-Frame component
-  // =================================================================
+  // ---- Component main ----
   A.registerComponent('food-groups-game', {
     schema: {},
 
@@ -114,28 +111,31 @@
       }
 
       // HUD element
-      this.elScore = document.getElementById('hud-score');
-      this.elTime = document.getElementById('hud-time-label');
+      this.elScore    = document.getElementById('hud-score');
+      this.elTime     = document.getElementById('hud-time-label');
       this.elGoalProg = document.getElementById('hud-goal-progress');
       this.elMiniProg = document.getElementById('hud-mini-progress');
 
       // state
-      this.running = false;
-      this.elapsed = 0;
-      this.timeLimit = 60000; // ms
+      this.running    = false;
+      this.elapsed    = 0;
+      this.timeLimit  = 60000; // ms
       this.spawnTimer = 0;
-      this.targets = [];
-      this.score = 0;
-      this.goodHits = 0;
-      this.missCount = 0;
+      this.targets    = [];
+      this.score      = 0;
+      this.goodHits   = 0;
+      this.missCount  = 0;
 
       // goal / mini quest
-      this.goalScore = 150;
-      this.goalGoodHits = 12;
+      this.goalScore     = 150;
+      this.goalGoodHits  = 12;
 
       this.diffKey = 'normal';
       this.diffCfg = getDiffConfig(this.diffKey);
 
+      // Fever state + UI กลาง
+      this.fever       = 0;
+      this.feverActive = false;
       FeverUI.ensureFeverBar();
       FeverUI.setFever(0);
       FeverUI.setFeverActive(false);
@@ -151,24 +151,44 @@
       console.log('[GroupsVR] Game component initialized');
     },
 
+    // ---- helper อัปเดต Fever ----
+    updateFever: function (delta) {
+      this.fever = (this.fever || 0) + delta;
+      if (this.fever < 0) this.fever = 0;
+      if (this.fever > FEVER_MAX) this.fever = FEVER_MAX;
+
+      if (FeverUI && typeof FeverUI.setFever === 'function') {
+        FeverUI.setFever(this.fever);
+      }
+
+      const active = this.fever >= FEVER_MAX;
+      if (FeverUI && typeof FeverUI.setFeverActive === 'function') {
+        FeverUI.setFeverActive(active);
+      }
+    },
+
     startGame: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.diffCfg = getDiffConfig(this.diffKey);
 
       this.clearTargets();
 
-      this.running = true;
-      this.elapsed = 0;
+      this.running    = true;
+      this.elapsed    = 0;
       this.spawnTimer = 0;
-      this.score = 0;
-      this.goodHits = 0;
-      this.missCount = 0;
+      this.score      = 0;
+      this.goodHits   = 0;
+      this.missCount  = 0;
 
       if (this.elScore) this.elScore.textContent = '0';
-      if (this.elTime) this.elTime.textContent = '60s';
+      if (this.elTime)  this.elTime.textContent  = '60s';
 
       this.updateGoalHUD();
 
+      // reset fever กลาง
+      this.fever       = 0;
+      this.feverActive = false;
+      FeverUI.ensureFeverBar();
       FeverUI.setFever(0);
       FeverUI.setFeverActive(false);
       FeverUI.setShield(0);
@@ -195,8 +215,8 @@
         miniQuest: `เก็บอาหารดี ${this.goalGoodHits} ชิ้น (${this.goodHits} / ${this.goalGoodHits})`
       };
 
-      if (this.score >= this.goalScore) detail.questsCleared++;
-      if (this.goodHits >= this.goalGoodHits) detail.questsCleared++;
+      if (this.score     >= this.goalScore)    detail.questsCleared++;
+      if (this.goodHits  >= this.goalGoodHits) detail.questsCleared++;
 
       scene.emit('fg-game-over', detail);
       console.log('[GroupsVR] game over', detail);
@@ -207,19 +227,8 @@
 
       dt = dt || 16;
 
-      this.elapsed += dt;
+      this.elapsed    += dt;
       this.spawnTimer += dt;
-
-      const lifeMs = this.diffCfg.lifeMs || 2300;
-
-      // เคลียร์เป้าที่หมดเวลา (miss)
-      for (let i = this.targets.length - 1; i >= 0; i--) {
-        const tgt = this.targets[i];
-        if (!tgt.alive) continue;
-        if (this.elapsed - tgt.spawnTime >= lifeMs) {
-          this.handleMiss(tgt);
-        }
-      }
 
       // เวลา
       const remain = Math.max(0, this.timeLimit - this.elapsed);
@@ -240,31 +249,25 @@
 
     spawnTarget: function () {
       if (!this.layer) return;
+      if (this.targets.length >= this.diffCfg.maxActive) return;
 
-      if (this.targets.filter(t => t.alive).length >= this.diffCfg.maxActive) {
-        return;
-      }
-
-      const goodRatio = this.diffCfg.goodRatio != null ? this.diffCfg.goodRatio : 0.6;
-      const isGood = Math.random() < goodRatio;
-      const emoji = pickEmoji(isGood);
-      const pos = randomScreenPos();
+      const isGood = Math.random() < 0.6;
+      const emoji  = pickEmoji(isGood);
+      const pos    = randomScreenPos();
 
       const el = document.createElement('div');
       el.className = 'fg-target ' + (isGood ? 'fg-good' : 'fg-junk');
       el.setAttribute('data-emoji', emoji);
       el.style.left = pos.x + 'px';
-      el.style.top = pos.y + 'px';
+      el.style.top  = pos.y + 'px';
 
-      const baseScale =
-        (this.diffCfg.scale != null ? this.diffCfg.scale : this.diffCfg.sizeFactor) || 1.0;
+      // scale ตามระดับความยาก
+      const baseScale = this.diffCfg.sizeFactor || 1.0;
       el.style.transform = 'translate(-50%, -50%) scale(' + baseScale + ')';
 
       const targetObj = {
         el,
-        isGood,
-        alive: true,
-        spawnTime: this.elapsed
+        isGood
       };
       this.targets.push(targetObj);
 
@@ -281,50 +284,36 @@
     },
 
     handleHit: function (target) {
-      if (!this.running || !target.alive) return;
+      if (!this.running) return;
       const el = target.el;
-      target.alive = false;
+      if (!el || !el.parentNode) return;
 
       // คะแนนง่าย ๆ: good +10, junk -8
       if (target.isGood) {
-        this.score += 10;
+        this.score    += 10;
         this.goodHits += 1;
+        this.updateFever(FEVER_HIT_GAIN);
       } else {
         this.score = Math.max(0, this.score - 8);
+        this.missCount += 1;
+        this.updateFever(-FEVER_MISS_LOSS);
       }
 
       if (this.elScore) this.elScore.textContent = String(this.score);
       this.updateGoalHUD();
 
       // เอฟเฟกต์หายไป
-      if (el) {
-        el.classList.add('hit');
-        setTimeout(() => {
-          if (el.parentNode) el.parentNode.removeChild(el);
-        }, 120);
-      }
+      el.classList.add('hit');
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 120);
 
-      // เก็บ array ให้สะอาด
-      this.targets = this.targets.filter((t) => t.alive);
-    },
-
-    handleMiss: function (target) {
-      if (!target.alive) return;
-      target.alive = false;
-      this.missCount += 1;
-
-      const el = target.el;
-      if (el && el.parentNode) {
-        el.parentNode.removeChild(el);
-      }
-
-      this.targets = this.targets.filter((t) => t.alive);
+      this.targets = this.targets.filter((t) => t !== target);
     },
 
     clearTargets: function () {
       if (!this.layer) return;
       this.targets.forEach((t) => {
-        t.alive = false;
         if (t.el && t.el.parentNode) {
           t.el.parentNode.removeChild(t.el);
         }
