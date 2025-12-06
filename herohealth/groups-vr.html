@@ -1,226 +1,86 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,viewport-fit=cover"
-  />
-  <title>Hero Health — Food Groups VR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Hydration VR — Hero Health</title>
+  <meta name="color-scheme" content="dark"/>
 
-  <!-- A-Frame core -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <link rel="icon" href="./favicon.ico"/>
 
-  <!-- CSS แยกไฟล์ -->
-  <link rel="stylesheet" href="./css/groups-vr.css" />
+  <!-- ใช้สไตล์เดียวกับ Good vs Junk VR ก่อน แล้วค่อย override ด้วย hydration-vr.css -->
+  <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
+  <link rel="stylesheet" href="./css/hydration-vr.css"/>
 </head>
 <body>
-  <!-- ===== A-Frame Scene ===== -->
-  <a-scene
-    vr-mode-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true"
-    background="color: #020617"
-  >
-    <!-- กล้อง + cursor ยิงเป้า -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera wasd-controls-enabled="false">
-        <a-entity
-          id="cursor"
-          cursor="fuse: false; rayOrigin: mouse"
-          raycaster="objects: [data-hha-tgt]"
-          geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-          material="shader: flat; color: #ffffff"
-          position="0 0 -0.9"
-        ></a-entity>
-      </a-camera>
-    </a-entity>
 
-    <!-- แสง + พื้น -->
-    <a-entity
-      light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"
-    ></a-entity>
-    <a-entity
-      light="type: directional; intensity: 0.7"
-      position="1 2 0.5"
-    ></a-entity>
-    <a-plane
-      position="0 0 0"
-      rotation="-90 0 0"
-      width="16"
-      height="16"
-      material="color: #020617;"
-    ></a-plane>
-
-    <!-- ตัวเกม -->
-    <a-entity id="fg-root" food-groups-game></a-entity>
-  </a-scene>
-
-  <!-- ===== HUD: คะแนน ซ้ายบน ===== -->
-  <div class="hud-card hud-score">
-    <div
-      style="
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-      "
-    >
-      <div>
-        <div class="hud-main-title">Hero Health • Nutrition VR</div>
-        <div class="hud-main-mode">Food Groups</div>
-      </div>
-      <div class="hud-pill">
-        <span id="hud-diff-label">NORMAL</span>
-        <span>•</span>
-        <span id="hud-time-label">60s</span>
-      </div>
-    </div>
-    <div class="hud-metrics">
-      <div class="metric">
-        <div class="metric-label">คะแนน</div>
-        <div class="metric-value accent" id="hud-score">0</div>
-      </div>
+  <!-- ===== SCENE WRAP / LOADING ===== -->
+  <div class="hha-scene-wrap">
+    <div class="hha-loading-msg">
+      💧 กำลังโหลดโหมด Hydration VR...
     </div>
   </div>
 
-  <!-- ===== HUD: Goal / Mini quest ขวาบน ===== -->
-  <div class="fg-quest-panel">
-    <div class="fg-quest-title">เป้าหมายวันนี้</div>
+  <!-- วงกลมเล็งกลางจอ -->
+  <div class="hha-crosshair"></div>
 
-    <div class="fg-quest-row">
-      <span class="fg-quest-label">GOAL</span>
-      <span class="fg-quest-main" id="hud-goal-main">
-        คะแนน 150+
-      </span>
-      <span class="fg-quest-progress" id="hud-goal-progress">
-        0 / 150
-      </span>
-    </div>
+  <!-- ปุ่ม VR (จะถูกจัดตำแหน่งด้วย hydration-vr.css) -->
+  <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
-    <div class="fg-quest-row">
-      <span class="fg-quest-label">MINI QUEST</span>
-      <span class="fg-quest-main" id="hud-mini-main">
-        เก็บอาหารดี 12 ชิ้น
-      </span>
-      <span class="fg-quest-progress" id="hud-mini-progress">
-        0 / 12
-      </span>
-    </div>
-  </div>
+  <!-- ===== SCRIPT ZONE ===== -->
 
-  <!-- โค้ชพูดด้านล่าง กลางล่าง -->
-  <div class="hud-bottom">
-    <div class="coach-bubble" id="coach-bubble">
-      <span class="coach-avatar">🥦</span>
-      <span class="coach-label">โค้ชโภชนาการ</span>
-      <span id="coach-text">แตะเป้าอาหารให้ทันเวลานะ!</span>
-    </div>
-  </div>
+  <!-- 🎇 เอฟเฟกต์แตกกระจาย + GOOD / MISS / PERFECT -->
+  <script src="./vr/particles.js"></script>
 
-  <!-- End summary -->
-  <div class="end-toast" id="end-toast">
-    <div class="end-card">
-      <h2>สรุปผล • Food Groups VR</h2>
-
-      <div class="end-row">
-        <span>คะแนนรวม</span><strong id="end-score">0</strong>
-      </div>
-      <div class="end-row">
-        <span>ภารกิจสำเร็จ</span><strong id="end-quest">0 / -</strong>
-      </div>
-      <div class="end-row">
-        <span>Goal</span><span id="end-goal-text">-</span>
-      </div>
-      <div class="end-row">
-        <span>Mini quest</span><span id="end-mini-text">-</span>
-      </div>
-
-      <div class="end-actions">
-        <button class="end-btn end-btn-ghost" onclick="location.reload()">เล่นอีกครั้ง</button>
-        <button class="end-btn end-btn-primary" onclick="history.back()">กลับเมนู</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== เกม + ระบบต่าง ๆ ===== -->
-  <!-- Fever bar (non-module) -->
+  <!-- 🌟 Fever gauge + Shield (ล่างซ้าย ใช้ร่วมทุกโหมด) -->
   <script src="./vr/ui-fever.js"></script>
 
-  <script src="./vr-groups/emoji-image.js"></script>
-  <script src="./vr-groups/difficulty.js"></script>
-  <script src="./vr-groups/logger-cloud.js"></script>
-  <script src="./vr-groups/GameEngine.js"></script>
+  <!-- HUD เควสต์ / สกอร์ / Goal + Mini quest (มุมขวาบน) -->
+  <script type="module" src="./vr/quest-hud-vr.js"></script>
 
-  <script>
-    (function () {
-      function getParam(name, fallback) {
-        const url = new URL(window.location.href);
-        const v = url.searchParams.get(name);
-        return v !== null && v !== "" ? v : fallback;
-      }
+  <!-- โค้ชหยดน้ำ (bubble ล่างกลาง) -->
+  <script type="module" src="./vr/coach-bubble.js"></script>
 
-      const diff = String(getParam("diff", "normal")).toLowerCase();
+  <!-- โหมด Hydration VR -->
+  <script type="module">
+    import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
 
-      const elScore   = document.getElementById("hud-score");
-      const elDiff    = document.getElementById("hud-diff-label");
-      const elTime    = document.getElementById("hud-time-label");
-      const elCoach   = document.getElementById("coach-bubble");
-      const elCoachText = document.getElementById("coach-text");
-      const elEndToast  = document.getElementById("end-toast");
-      const elEndScore  = document.getElementById("end-score");
-      const elEndQuest  = document.getElementById("end-quest");
-      const elEndGoal   = document.getElementById("end-goal-text");
-      const elEndMini   = document.getElementById("end-mini-text");
+    // อ่าน URL param: ?diff=easy|normal|hard&time=60
+    const url = new URL(window.location.href);
+    let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
+    if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
 
-      elDiff.textContent = diff.toUpperCase();
-      elTime.textContent = "60s";
-      elScore.textContent = "0";
+    let dur = parseInt(url.searchParams.get('time'), 10);
+    if (Number.isNaN(dur) || dur <= 0) dur = 60;
+    if (dur < 20)  dur = 20;
+    if (dur > 180) dur = 180;
 
-      // Cloud logger
-      if (window.GAME_MODULES && GAME_MODULES.foodGroupsCloudLogger) {
-        GAME_MODULES.foodGroupsCloudLogger.init({
-          endpoint:
-            "https://script.google.com/macros/s/AKfycbywOHz1nHrybbLwuVCWHW1XyJLoNio2BF5ugchDk0q0qfcgZ2z7ZSIYGQuxguyTDBU/exec",
-          projectTag: "HeroHealth-GroupsVR",
-          debug: false
-        });
-      }
+    // เริ่มโหมด Hydration
+    bootHydration({
+      difficulty: diff,
+      duration:   dur
+    }).then(inst => {
+      // ซ่อนข้อความโหลด
+      const wrap = document.querySelector('.hha-scene-wrap');
+      if (wrap) wrap.style.display = 'none';
 
-      function setCoach(text) {
-        if (!text) return;
-        elCoachText.textContent = text;
-        elCoach.classList.add("show");
-      }
-      setCoach("แตะเป้าอาหารให้ทันเวลานะ!");
-
-      const scene = document.querySelector("a-scene");
-
-      // สรุปตอนจบเกม (รับ event จาก GameEngine)
-      scene.addEventListener("fg-game-over", function (e) {
-        const d = e.detail || {};
-        elEndScore.textContent = d.score != null ? d.score : 0;
-
-        if (d.questsCleared != null) {
-          const total = d.questsTotal != null ? d.questsTotal : "-";
-          elEndQuest.textContent = d.questsCleared + " / " + total;
-        } else {
-          elEndQuest.textContent = "- / -";
+      // กัน memory leak ตอนออกหน้า
+      window.addEventListener('beforeunload', () => {
+        try {
+          if (inst && typeof inst.destroy === 'function') {
+            inst.destroy();
+          }
+        } catch (e) {
+          console.warn('[HydrationVR] destroy error on unload', e);
         }
-
-        if (d.goal)      elEndGoal.textContent = d.goal;
-        if (d.miniQuest) elEndMini.textContent = d.miniQuest;
-
-        elEndToast.classList.add("show");
       });
-
-      // เริ่มเกมเมื่อ scene โหลดแล้ว
-      scene.addEventListener("loaded", function () {
-        console.log("[GroupsVR] scene loaded → emit fg-start");
-        scene.emit("fg-start", { diff: diff });
-      });
-    })();
+    }).catch(err => {
+      console.error('[HydrationVR] boot error', err);
+      const msg = document.querySelector('.hha-loading-msg');
+      if (msg) {
+        msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
+      }
+    });
   </script>
 </body>
 </html>
