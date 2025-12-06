@@ -203,12 +203,33 @@ export async function boot(cfg = {}) {
     }));
   }
 
-  function scoreFX(x, y, val) {
-    const label = (val > 0 ? '+' : '') + val;
-    const good  = val >= 0;
-    safeScorePop(x, y, label, { good });
-    safeBurstAt(x, y, { color: good ? '#22c55e' : '#f97316' });
+function scoreFX(x, y, val, judgment = null) {
+  const label = (val > 0 ? '+' : '') + val;
+  const good  = val >= 0;
+
+  // 1) เด้งคะแนน (เล็กกว่า)
+  safeScorePop(x, y, label, {
+    good,
+    kind: 'score',
+    judgment
+  });
+
+  // 2) เด้งคำว่า GOOD / MISS / PERFECT (ใหญ่กว่า)
+  if (judgment) {
+    safeScorePop(x, y, judgment, {
+      good,
+      kind: 'judgment',
+      strong: true,
+      judgment
+    });
   }
+
+  // 3) แตกกระจายรอบเป้า
+  safeBurstAt(x, y, {
+    color: good ? '#22c55e' : '#f97316',
+    judgment
+  });
+}
 
   // ----- judge เมื่อยิง/แตะเป้า -----
   function judge(ch, ctx) {
