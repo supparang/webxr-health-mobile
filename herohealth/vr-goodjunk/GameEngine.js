@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets (no falling) + Simple Quest + Coach (2025-12-05)
+// Good vs Junk VR — Emoji Pop Targets (no falling) + Simple Quest + Coach (2025-12-05b)
 
 'use strict';
 
@@ -157,9 +157,11 @@ export const GameEngine = (function () {
 
     const root = document.createElement('a-entity');
 
-    // สุ่มตำแหน่ง “ใกล้กลางจอ” เพื่อให้เล็งง่ายขึ้น
-    const x = -0.45 + Math.random() * 0.9;   // -0.45 ถึง +0.45
-    const y = 1.0  + Math.random() * 0.4;    // 1.0–1.4 ระดับสายตา
+    // กล้องอยู่ที่ y ≈ 1.6 → ให้เป้าโผล่ระดับสายตา ใกล้ crosshair
+    const x = -0.55 + Math.random() * 1.1;   // -0.55 ถึง +0.55 (ขยับซ้าย-ขวากลางจอ)
+    const yBase = 1.6;                       // ระดับสายตา
+    const yJitter = (Math.random() * 0.3) - 0.15; // แกว่งเล็กน้อย 1.45–1.75
+    const y = yBase + yJitter;
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
