@@ -40,6 +40,7 @@ export const GameEngine = (function () {
   let SPAWN_INTERVAL  = 900;
   let TARGET_LIFETIME = 900;
   let MAX_ACTIVE      = 4;
+  let SIZE_FACTOR     = 1.0; // ปรับขนาดเป้าตามระดับความยาก
 
   // type weights (จะปรับตาม diff)
   let TYPE_WEIGHTS = {
@@ -359,17 +360,18 @@ export const GameEngine = (function () {
     root.dataset.born = String(performance.now());
 
     // วงกลมพื้นหลัง
-    const circle = document.createElement('a-circle');
     let color = '#22c55e';
     if (kind === 'junk')   color = '#f97316';
     if (kind === 'star')   color = '#fde047';
     if (kind === 'diamond')color = '#38bdf8';
     if (kind === 'shield') color = '#60a5fa';
 
-    circle.setAttribute('radius',
+    const baseRadius =
       kind === 'good' ? 0.45 :
-      kind === 'junk' ? 0.42 : 0.40
-    );
+      kind === 'junk' ? 0.42 : 0.40;
+
+    const circle = document.createElement('a-circle');
+    circle.setAttribute('radius', baseRadius * SIZE_FACTOR);
     circle.setAttribute('material', {
       color,
       opacity: 0.30,
@@ -378,9 +380,10 @@ export const GameEngine = (function () {
     });
 
     // emoji sprite
+    const baseSize = 0.8 * SIZE_FACTOR;
     const sprite = document.createElement('a-plane');
-    sprite.setAttribute('width', 0.8);
-    sprite.setAttribute('height', 0.8);
+    sprite.setAttribute('width', baseSize);
+    sprite.setAttribute('height', baseSize);
     sprite.setAttribute('position', { x: 0, y: 0, z: 0.01 });
     sprite.setAttribute('material', {
       src: getEmojiTexture(emoji),
@@ -610,6 +613,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 1100;
       MAX_ACTIVE      = 3;
       GOOD_RATE       = 0.72;
+      SIZE_FACTOR     = 1.10;  // ง่าย: เป้าใหญ่สุด
 
       TYPE_WEIGHTS = {
         good:    75,
@@ -626,6 +630,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 850;
       MAX_ACTIVE      = 5;
       GOOD_RATE       = 0.6;
+      SIZE_FACTOR     = 0.85;  // ยาก: เป้าเล็กที่สุด
 
       TYPE_WEIGHTS = {
         good:    65,
@@ -642,6 +647,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 900;
       MAX_ACTIVE      = 4;
       GOOD_RATE       = 0.66;
+      SIZE_FACTOR     = 1.00;  // ปกติ: กลาง ๆ
 
       TYPE_WEIGHTS = {
         good:    70,
