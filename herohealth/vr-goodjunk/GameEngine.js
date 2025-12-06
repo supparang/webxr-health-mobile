@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
-// ใช้ร่วม FeverUI (shared) 2025-12-06
+// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach + FX
+// ใช้ร่วม FeverUI + Particles (shared) 2025-12-06
 
 'use strict';
 
@@ -13,6 +13,14 @@ export const GameEngine = (function () {
       setFever() {},
       setFeverActive() {},
       setShield() {}
+    };
+
+  // ---------- Particles DOM FX (shared) ----------
+  const Particles =
+    (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
+    window.Particles || {
+      burstAt () {},
+      scorePop () {}
     };
 
   // ---------- emoji ชุดอาหาร ----------
@@ -130,6 +138,92 @@ export const GameEngine = (function () {
 
   function randInt(min, max){
     return Math.floor(min + Math.random() * (max - min + 1));
+  }
+
+  // world → screen สำหรับ FX
+  function worldToScreen(el) {
+    try {
+      const THREE = window.THREE;
+      if (!THREE || !sceneEl || !sceneEl.camera || !el.object3D) {
+        return {
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2
+        };
+      }
+      const vec = new THREE.Vector3();
+      vec.setFromMatrixPosition(el.object3D.matrixWorld);
+      vec.project(sceneEl.camera);
+      const x = (vec.x + 1) / 2 * window.innerWidth;
+      const y = (1 - vec.y) / 2 * window.innerHeight;
+      return { x, y };
+    } catch (err) {
+      return {
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2
+      };
+    }
+  }
+
+  // judgment ตามอายุเป้า
+  function getJudgment(el) {
+    const born = Number(el.dataset.born || '0');
+    if (!born || !TARGET_LIFETIME) return 'good';
+    const age = performance.now() - born;
+    const t = TARGET_LIFETIME;
+    if (age < t * 0.33) return 'perfect';
+    if (age < t * 0.66) return 'good';
+    return 'late';
+  }
+
+  function showHitFx(el, kind, judgment, scoreDelta) {
+    const pos = worldToScreen(el);
+    const x = pos.x;
+    const y = pos.y;
+
+    if (Particles && typeof Particles.burstAt === 'function') {
+      const opts = {};
+      if (kind === 'good')    opts.good = true;
+      if (kind === 'junk')    opts.bad = true;
+      if (kind === 'star')    opts.star = true;
+      if (kind === 'diamond') opts.diamond = true;
+      if (kind === 'shield')  opts.shield = true;
+      Particles.burstAt(x, y, opts);
+    }
+
+    if (Particles && typeof Particles.scorePop === 'function') {
+      // คะแนนเด้ง
+      if (typeof scoreDelta === 'number' && scoreDelta !== 0) {
+        const txt = (scoreDelta > 0 ? '+' : '') + scoreDelta;
+        Particles.scorePop(x, y, txt, {
+          good: kind === 'good' || kind === 'star' || kind === 'diamond' || kind === 'shield',
+          bad:  kind === 'junk'
+        });
+      }
+      // Perfect / Good / Late / Miss
+      if (judgment) {
+        let label = '';
+        if (judgment === 'perfect') label = 'Perfect';
+        else if (judgment === 'good') label = 'Good';
+        else if (judgment === 'late') label = 'Late';
+        else if (judgment === 'miss') label = 'Miss';
+        if (label) {
+          Particles.scorePop(x, y, label, { small: true });
+        }
+      }
+    }
+  }
+
+  function showMissFx(el) {
+    const pos = worldToScreen(el);
+    const x = pos.x;
+    const y = pos.y;
+
+    if (Particles && typeof Particles.burstAt === 'function') {
+      Particles.burstAt(x, y, { bad: true });
+    }
+    if (Particles && typeof Particles.scorePop === 'function') {
+      Particles.scorePop(x, y, 'Miss', { bad: true });
+    }
   }
 
   // ---------- Fever (ใช้ร่วม FeverUI + ยิง event เดิม) ----------
@@ -262,6 +356,7 @@ export const GameEngine = (function () {
     root.classList.add('gj-target');
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
+    root.dataset.born = String(performance.now());
 
     // วงกลมพื้นหลัง
     const circle = document.createElement('a-circle');
@@ -321,14 +416,20 @@ export const GameEngine = (function () {
     if (!el.parentNode) return;
 
     const kind = el.dataset.kind || 'junk';
-    removeTarget(el);
+    const judgmentRaw = getJudgment(el);
+    // สำหรับ junk จะถือว่าเป็น miss
+    const judgment = (kind === 'junk') ? 'miss' : judgmentRaw;
+
+    const scoreBefore = score;
 
     // ---------- shield / star / diamond ----------
     if (kind === 'shield') {
       shieldCount += 1;
       if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
       coach('ได้เกราะป้องกัน 1 ชิ้น! ถ้าเผลอแตะของขยะจะไม่เสียแต้มทันที 🛡️');
+      showHitFx(el, kind, null, 0);
       emitScore();
+      removeTarget(el);
       return;
     }
 
@@ -336,7 +437,9 @@ export const GameEngine = (function () {
       const mult = feverActive ? 2 : 1;
       score += 80 * mult;
       coach('ดวงดาวโบนัส! ได้แต้มพิเศษเพิ่มขึ้น ⭐');
+      showHitFx(el, kind, judgment, score - scoreBefore);
       emitScore();
+      removeTarget(el);
       return;
     }
 
@@ -345,7 +448,9 @@ export const GameEngine = (function () {
       score += 60 * mult;
       setFever(fever + 30, 'charge');
       coach('ได้เพชรพลังงาน! Fever ขึ้นไวขึ้น 💎');
+      showHitFx(el, kind, judgment, score - scoreBefore);
       emitScore();
+      removeTarget(el);
       return;
     }
 
@@ -382,7 +487,9 @@ export const GameEngine = (function () {
         shieldCount -= 1;
         if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
         coach('โชคดีมีเกราะกันไว้ ของขยะไม่ทำร้ายคะแนนรอบนี้ 🛡️');
+        showHitFx(el, kind, 'miss', 0);
         emitScore();
+        removeTarget(el);
         return;
       }
 
@@ -405,7 +512,11 @@ export const GameEngine = (function () {
       pushQuest('');
     }
 
+    // FX + score emit
+    showHitFx(el, kind, judgment, score - scoreBefore);
     emitScore();
+
+    removeTarget(el);
   }
 
   // ---------- เป้าหายเพราะหมดเวลา ----------
@@ -414,9 +525,12 @@ export const GameEngine = (function () {
     if (!el.parentNode) return;
 
     const kind = el.dataset.kind || 'junk';
-    removeTarget(el);
 
     if (kind === 'good') {
+      // พลาดของดี → นับ miss + เอฟเฟกต์ Miss
+      showMissFx(el);
+      removeTarget(el);
+
       misses++;
       combo = 0;
       coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้มากขึ้น 😊');
@@ -433,8 +547,10 @@ export const GameEngine = (function () {
       emitScore();
       updateGoalFromGoodHit();
       pushQuest('');
+    } else {
+      // star / diamond / shield / junk หมดเวลา: ไม่ทำโทษ
+      removeTarget(el);
     }
-    // star / diamond / shield / junk หมดเวลา: ไม่ทำโทษ
   }
 
   // ---------- สุ่ม spawn ----------
@@ -566,7 +682,7 @@ export const GameEngine = (function () {
 
     applyDifficulty(diffKey);
 
-    // reset fever + UI กลาง (★ ตรงนี้คือที่ใช้ snippet ที่ถาม)
+    // reset fever + UI กลาง
     if (FeverUI && FeverUI.ensureFeverBar) FeverUI.ensureFeverBar();
     if (FeverUI && FeverUI.setFever)      FeverUI.setFever(0);
     if (FeverUI && FeverUI.setShield)     FeverUI.setShield(shieldCount);
