@@ -8,42 +8,51 @@
 
   <link rel="icon" href="./favicon.ico"/>
 
-  <!-- ใช้สไตล์เดียวกับ Good vs Junk VR -->
+  <!-- A-Frame core (ใช้ร่วมกับ factory กลาง) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- ใช้สไตล์เดียวกับ Good vs Junk VR + layout เฉพาะ Hydration -->
   <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
   <link rel="stylesheet" href="./css/hydration-vr.css"/>
 </head>
 <body>
 
-  <!-- ===== SCENE WRAP / LOADING ===== -->
+  <!-- ===== LOADING OVERLAY ===== -->
   <div class="hha-scene-wrap">
     <div class="hha-loading-msg">
       💧 กำลังโหลดโหมด Hydration VR...
     </div>
   </div>
 
-  <!-- วงกลมเล็งกลางจอ (crosshair) ใช้สไตล์จาก goodjunk-vr.css -->
+  <!-- Crosshair กลางจอ -->
   <div class="hha-crosshair"></div>
 
-  <!-- ปุ่ม VR มุมซ้ายบน (สไตล์เดิม GoodJunk) -->
+  <!-- ปุ่ม VR มุมซ้ายบน -->
   <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
 
-  <!-- ===== SCRIPT ZONE ===== -->
+  <!-- ===== GLOBAL UI / FX (non-module) ===== -->
 
-  <!-- 🌟 Fever gauge + Shield (global FeverUI ใช้ร่วมทุกโหมด) -->
+  <!-- Fever gauge + Shield ล่างซ้าย (ใช้ร่วมทุกโหมด) -->
   <script src="./vr/ui-fever.js"></script>
 
-  <!-- HUD เควสต์ / สกอร์ ฯลฯ (panel มุมขวาบน) -->
+  <!-- Particle FX (GOOD / PERFECT / MISS เด้งที่เป้า) -->
+  <script src="./vr/particles.js"></script>
+
+  <!-- ===== HUD & COACH (module) ===== -->
+
+  <!-- HUD สกอร์ / Goal / Mini quest มุมขวาบน -->
   <script type="module" src="./vr/quest-hud-vr.js"></script>
 
-  <!-- โค้ชหยดน้ำ (emoji + auto-move + bubble mission) -->
+  <!-- โค้ชหยดน้ำ (อีโมจิ + bubble hint ล่างกลาง) -->
   <script type="module" src="./vr/coach-bubble.js"></script>
 
-  <!-- โหมด Hydration VR -->
+  <!-- ===== HYDRATION GAME BOOT (module) ===== -->
   <script type="module">
     import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
 
-    // อ่าน URL param: ?diff=easy|normal|hard&time=60
+    // อ่าน URL: ?diff=easy|normal|hard&time=60
     const url = new URL(window.location.href);
+
     let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
     if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
 
