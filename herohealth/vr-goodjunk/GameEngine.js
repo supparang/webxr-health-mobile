@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets (no falling) + Simple Quest + Coach (2025-12-05b)
+// Good vs Junk VR — Emoji Pop Targets + Simple Quest + Fever + Coach (2025-12-05c)
 
 'use strict';
 
@@ -17,6 +17,12 @@ export const GameEngine = (function () {
   const TARGET_LIFETIME = 900;    // ms เป้าอยู่บนจอแป๊บเดียวแล้วหาย
   const MAX_ACTIVE      = 4;      // เป้าพร้อมกันสูงสุด
 
+  // Fever
+  const FEVER_MAX       = 100;
+  const FEVER_HIT_GAIN  = 18;     // ได้จากการตีของดี
+  const FEVER_MISS_LOSS = 30;     // หายเมื่อพลาด/ตีของขยะ
+  const FEVER_DURATION  = 5000;   // ms ช่วงเปิด fever
+
   let sceneEl = null;
   let running = false;
   let spawnTimer = null;
@@ -28,6 +34,11 @@ export const GameEngine = (function () {
   let misses = 0;
   let goodHit = 0;     // ตีของดีสำเร็จ
   let junkHit = 0;     // เผลอตีของขยะ
+
+  // Fever state
+  let fever = 0;
+  let feverActive = false;
+  let feverTimer = null;
 
   // ---------- Emoji → texture cache ----------
   const emojiTexCache = new Map();
@@ -67,6 +78,39 @@ export const GameEngine = (function () {
 
   function emitMiss() {
     emit('hha:miss', { misses });
+  }
+
+  // ---------- Fever helpers ----------
+  function clamp(v, min, max){
+    return v < min ? min : (v > max ? max : v);
+  }
+
+  function setFever(value, stateHint) {
+    fever = clamp(value, 0, FEVER_MAX);
+    emit('hha:fever', {
+      state: stateHint || (feverActive ? 'active' : 'charge'),
+      value: fever,
+      max: FEVER_MAX
+    });
+  }
+
+  function startFever() {
+    if (feverActive) return;
+    feverActive = true;
+    fever = FEVER_MAX;
+    emit('hha:fever', { state:'start', value: fever, max: FEVER_MAX });
+
+    if (feverTimer) clearTimeout(feverTimer);
+    feverTimer = setTimeout(() => {
+      endFever();
+    }, FEVER_DURATION);
+  }
+
+  function endFever() {
+    if (!feverActive) return;
+    feverActive = false;
+    fever = 0;
+    emit('hha:fever', { state:'end', value: fever, max: FEVER_MAX });
   }
 
   // ---------- Quest แบบง่าย ----------
@@ -157,16 +201,15 @@ export const GameEngine = (function () {
 
     const root = document.createElement('a-entity');
 
-    // กล้องอยู่ที่ y ≈ 1.6 → ให้เป้าโผล่ระดับสายตา ใกล้ crosshair
-    const x = -0.55 + Math.random() * 1.1;   // -0.55 ถึง +0.55 (ขยับซ้าย-ขวากลางจอ)
-    const yBase = 1.6;                       // ระดับสายตา
-    const yJitter = (Math.random() * 0.3) - 0.15; // แกว่งเล็กน้อย 1.45–1.75
+    // กล้องจริงอยู่ที่ (0,1.6,0) → ให้เป้าโผล่ระดับสายตาใกล้ crosshair
+    const x = -0.55 + Math.random() * 1.1;   // -0.55 ถึง +0.55
+    const yBase = 1.6;
+    const yJitter = (Math.random() * 0.1) - 0.05; // 1.55–1.65 (ไม่ต่ำเกิน)
     const y = yBase + yJitter;
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
     root.setAttribute('scale', { x: 1, y: 1, z: 1 });
-    root.setAttribute('data-hha-tgt', '1');
     root.classList.add('gj-target');
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
@@ -192,12 +235,17 @@ export const GameEngine = (function () {
       alphaTest: 0.01
     });
 
+    // ★ สำคัญ: geometry ที่ถูกยิงจะต้องมี data-hha-tgt ให้ raycaster เห็น
+    circle.setAttribute('data-hha-tgt', '1');
+    sprite.setAttribute('data-hha-tgt', '1');
+
+    // ยิงโดน (ให้ event ไปที่ root เพื่อรวม logic ที่เดียว)
+    const hitHandler = () => onHit(root);
+    circle.addEventListener('click', hitHandler);
+    sprite.addEventListener('click', hitHandler);
+
     root.appendChild(circle);
     root.appendChild(sprite);
-
-    // ยิงโดนเป้า
-    root.addEventListener('click', () => onHit(root));
-
     sceneEl.appendChild(root);
 
     // ตั้งเวลาให้เป้าหายไปเอง
@@ -220,9 +268,22 @@ export const GameEngine = (function () {
 
     if (kind === 'good') {
       goodHit++;
-      score += 10 + combo * 2;
+
+      // คะแนน + combo + fever
       combo++;
       comboMax = Math.max(comboMax, combo);
+
+      const base = 10 + combo * 2;
+      const mult = feverActive ? 2 : 1;   // fever คูณ 2
+      score += base * mult;
+
+      // ปั่น fever
+      const nextFever = fever + FEVER_HIT_GAIN;
+      if (!feverActive && nextFever >= FEVER_MAX) {
+        startFever();
+      } else {
+        setFever(nextFever, 'charge');
+      }
 
       if (combo === 1)
         coach('เปิดคอมโบแล้ว! เลือกผัก ผลไม้ นมต่อเลย 🥦🍎🥛');
@@ -240,6 +301,16 @@ export const GameEngine = (function () {
       combo = 0;
       misses++;
       coach('โดนของขยะแล้ว ระวังพวก 🍔🍩 อีกนะ');
+
+      // ลด fever และอาจตัด fever ทิ้ง
+      let nextFever = fever - FEVER_MISS_LOSS;
+      if (feverActive && nextFever <= 0) {
+        endFever();
+        nextFever = 0;
+      } else {
+        setFever(nextFever, 'charge');
+      }
+
       emitMiss();
       updateGoalFromGoodHit();
       pushQuest('');
@@ -261,6 +332,16 @@ export const GameEngine = (function () {
       misses++;
       combo = 0;
       coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้มากขึ้น 😊');
+
+      // พลาดก็ทำให้ fever ลด
+      let nextFever = fever - FEVER_MISS_LOSS;
+      if (feverActive && nextFever <= 0) {
+        endFever();
+        nextFever = 0;
+      } else {
+        setFever(nextFever, 'charge');
+      }
+
       emitMiss();
       emitScore();
       updateGoalFromGoodHit();
@@ -296,6 +377,12 @@ export const GameEngine = (function () {
     GOAL.prog = 0; GOAL.done = false;
     MINI.prog = 0; MINI.done = false;
 
+    // reset fever
+    fever = 0;
+    feverActive = false;
+    if (feverTimer) clearTimeout(feverTimer);
+    setFever(0, 'charge');
+
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
     activeTargets = [];
 
@@ -327,6 +414,8 @@ export const GameEngine = (function () {
     running = false;
 
     clearInterval(spawnTimer);
+    if (feverTimer) clearTimeout(feverTimer);
+    endFever();
 
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
     activeTargets = [];
