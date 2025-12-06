@@ -1,25 +1,25 @@
 /* === /herohealth/css/hydration-vr.css === */
-/* Layout สำหรับ Hydration VR */
+/* Layout เฉพาะหน้า Hydration VR */
 
 :root{
   --hydration-bg:#020617;
 }
 
-body.hydration-mode{
+body{
   background:#020617;
   color:#e5e7eb;
 }
 
-/* ========= ปุ่ม VR → ล่างขวา ========= */
+/* ---------- ปุ่ม VR → ล่างขวา ---------- */
 
-body.hydration-mode .hha-vr-btn{
+.hha-vr-btn{
   position:fixed;
-  right:14px;
-  bottom:18px;
+  right:16px;
+  bottom:20px;
   left:auto;
   top:auto;
   z-index:980;
-  padding:6px 14px;
+  padding:6px 16px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.7);
   background:rgba(15,23,42,.96);
@@ -31,67 +31,67 @@ body.hydration-mode .hha-vr-btn{
   box-shadow:0 10px 26px rgba(15,23,42,.9);
 }
 
-/* ========= WATER BAR ด้านบน ========= */
+/* ---------- WATER GAUGE ด้านบนกลาง ---------- */
 
-body.hydration-mode .hha-water-wrap{
+.hha-water-wrap{
   position:fixed;
   left:50%;
-  top:4px;
+  top:6px;
   transform:translateX(-50%);
   z-index:820;
 }
 
-/* ========= HUD HYDRATION ใต้ water bar (เลื่อนลงอีกเยอะ) ========= */
+/* ---------- HYDRATION HUD ใต้ water bar (เลื่อนลงเยอะ ๆ) ---------- */
 
-body.hydration-mode .hha-quest-panel{
+.hha-quest-panel{
   position:fixed;
   left:50%;
-  top:150px;                  /* เดิม ~115 → เลื่อนลงมาอีก */
+  top:110px;              /* <<< ลงมาห่าง water bar ชัด ๆ */
   transform:translateX(-50%);
-  right:auto;
   z-index:830;
   max-width:92vw;
 }
 
-body.hydration-mode .hha-quest-panel .hha-quest-main{
+/* extra padding ให้การ์ดไม่แน่นเกินไป */
+.hha-quest-panel .hha-quest-main{
   padding-top:6px;
   padding-bottom:10px;
 }
 
-/* ========= พื้นที่เล่นเกม (กันชน HUD + Fever) ========= */
+/* ---------- พื้นที่เล่นเกมกลางจอ (กันไม่ให้โดน HUD / Fever ทับ) ---------- */
 
-body.hydration-mode .hha-play-safe{
-  position:fixed;
-  left:0;
-  right:0;
-  top:220px;                 /* ตาม HUD ใหม่ */
-  bottom:130px;              /* เหนือ Fever gauge */
-  pointer-events:none;
-}
-
-/* ถ้า engine ใช้ layer สำหรับเป้า ให้กันพื้นที่เหมือนกัน */
-body.hydration-mode .hha-target-layer{
-  position:fixed;
-  inset:220px 0 130px 0;
-  pointer-events:none;
-}
-
-/* crosshair กลางจอ */
-body.hydration-mode .hha-crosshair{
+.hha-crosshair{
   position:fixed;
   left:50%;
   top:50%;
   transform:translate(-50%,-50%);
-  z-index:100;
+  z-index:200;
 }
 
-/* ปรับนิดสำหรับจอสูงมาก ๆ (tablet แนวนอน) */
+/* ถ้าคุณมี div layer สำหรับ emoji / target ใช้คลาสนี้ครอบไว้ */
+.hha-play-safe,
+.hha-target-layer{
+  position:fixed;
+  left:0;
+  right:0;
+  top:210px;      /* ใต้ HUD */
+  bottom:120px;   /* เหนือ Fever gauge + โค้ช bubble */
+  pointer-events:none;
+}
+
+/* ถ้า element ลูกต้องรับคลิก ให้เปิด pointer-events เฉพาะนั้น */
+.hha-target-layer > *{
+  pointer-events:auto;
+}
+
+/* เผื่อจอสูงมาก ๆ (tablet แนวนอน) ขยับขึ้นนิดหน่อย */
 @media (min-height:900px){
-  body.hydration-mode .hha-quest-panel{
-    top:170px;
+  .hha-quest-panel{
+    top:130px;
   }
-  body.hydration-mode .hha-play-safe,
-  body.hydration-mode .hha-target-layer{
-    top:240px;
+  .hha-play-safe,
+  .hha-target-layer{
+    top:230px;
+    bottom:130px;
   }
 }
