@@ -14,6 +14,16 @@ function shuffle(arr) {
   return a;
 }
 
+// ส่งข้อความไป bubble โค้ช
+function coach(text) {
+  if (!text) return;
+  try {
+    window.dispatchEvent(new CustomEvent('hha:coach', {
+      detail: { text: String(text) }
+    }));
+  } catch (_) {}
+}
+
 // map diff → tier key
 function tierKey(diff) {
   if (diff === 'easy') return 'easy';
@@ -42,14 +52,8 @@ export function makeQuestDirector({
   maxMini  = 3
 } = {}) {
 
-  // แยก early / late ตาม lateOnly (เช่น missMax ให้ออกหลัง ๆ)
-  const goalEarly = goalDefs.filter(d => !d.lateOnly);
-  const goalLate  = goalDefs.filter(d =>  d.lateOnly);
-  const miniEarly = miniDefs.filter(d => !d.lateOnly);
-  const miniLate  = miniDefs.filter(d =>  d.lateOnly);
-
-  const goalOrder = [...shuffle(goalEarly), ...shuffle(goalLate)];
-  const miniOrder = [...shuffle(miniEarly), ...shuffle(miniLate)];
+  const goalOrder = shuffle(goalDefs);
+  const miniOrder = shuffle(miniDefs);
 
   let goalsCleared = 0;
   let miniCleared  = 0;
@@ -60,8 +64,7 @@ export function makeQuestDirector({
   let currentGoal = null;
   let currentMini = null;
 
-  let timeLeft     = 60; // จะอัปเดตจาก state ภายนอก
-  let totalTimeRef = 60; // เก็บเวลาตั้งต้นไว้ใช้คำนวณอัตราส่วนเวลา
+  let timeLeft = 60; // จะอัปเดตจาก state ภายนอก
 
   // ส่งข้อมูลไป HUD ผ่าน event 'quest:update'
   function emitHUD() {
@@ -99,6 +102,9 @@ export function makeQuestDirector({
     const base = goalOrder[goalIdx++ % goalOrder.length];
     currentGoal = makeInstance(base, diff);
     emitHUD();
+
+    // บอกผู้เล่นว่าได้ Goal ใหม่อะไร
+    coach(`Goal ใหม่: ${currentGoal.label}`);
   }
 
   function nextMini() {
@@ -110,6 +116,9 @@ export function makeQuestDirector({
     const base = miniOrder[miniIdx++ % miniOrder.length];
     currentMini = makeInstance(base, diff);
     emitHUD();
+
+    // บอกผู้เล่นว่าได้ Mini quest ใหม่อะไร
+    coach(`Mini quest ใหม่: ${currentMini.label}`);
   }
 
   // แปลง state → progress ตาม kind
@@ -119,32 +128,24 @@ export function makeQuestDirector({
     const kind = def.kind;
 
     if (kind === 'score') {
-      const raw = state.score | 0;
-      inst.prog = Math.min(raw, inst.target);   // ✅ ไม่ให้เกิน target
+      inst.prog = state.score | 0;
     } else if (kind === 'goodHits') {
-      const raw = state.goodHits | 0;
-      inst.prog = Math.min(raw, inst.target);
-    } else if (kind === 'combo') {
-      const raw = state.comboMax | 0;
-      inst.prog = Math.min(raw, inst.target);
+      inst.prog = state.goodHits | 0;
     } else if (kind === 'missMax') {
-      // แสดง "ใช้โควต้าไปแล้วกี่ครั้ง" แต่ clamp ไม่เกิน target
+      // แสดงความคืบหน้าเป็น "ใช้โควต้าไปแล้วกี่ครั้ง"
       const used = state.miss | 0;
-      inst.prog = Math.min(used, inst.target);
+      const usedClamped = Math.min(used, inst.target);
+      inst.prog = usedClamped;
+    } else if (kind === 'combo') {
+      inst.prog = state.comboMax | 0;
     }
   }
 
-  function checkFinish(inst, def, state) {
+  function checkFinish(inst) {
     if (!inst || inst.done) return false;
 
+    // missMax: เราจะตัดสินตอนท้ายเกม (ไม่ mark กลางเกม)
     if (inst.kind === 'missMax') {
-      // ✅ เควสต์ "พลาดไม่เกิน X" ให้ตัดสินตอนหมดเวลาเท่านั้น
-      const missUsed = (state.miss | 0);
-      const tLeft    = typeof state.timeLeft === 'number' ? state.timeLeft : timeLeft;
-      if (tLeft <= 0 && missUsed <= inst.target) {
-        inst.done = true;
-        return true;
-      }
       return false;
     }
 
@@ -157,8 +158,7 @@ export function makeQuestDirector({
 
   function start(initialState) {
     if (initialState && typeof initialState.timeLeft === 'number') {
-      timeLeft     = initialState.timeLeft;
-      totalTimeRef = initialState.timeLeft;
+      timeLeft = initialState.timeLeft;
     }
     nextGoal();
     nextMini();
@@ -168,17 +168,16 @@ export function makeQuestDirector({
     if (!state) state = {};
     if (typeof state.timeLeft === 'number') {
       timeLeft = state.timeLeft;
-      if (!totalTimeRef && timeLeft > 0) {
-        totalTimeRef = timeLeft;
-      }
     }
 
     if (currentGoal) {
       const base = goalDefs.find(d => d.id === currentGoal.id);
       if (base) {
         evalDef(currentGoal, base, state);
-        if (checkFinish(currentGoal, base, state)) {
+        if (checkFinish(currentGoal)) {
           goalsCleared++;
+          // ★ บอกสถานะ Goal/Mini แบบที่ต้องการ
+          coach(`Goal ${goalsCleared}/${maxGoals} ผ่านแล้ว, Mini ${miniCleared}/${maxMini}`);
           if (timeLeft > 0) nextGoal();
         }
       }
@@ -188,8 +187,9 @@ export function makeQuestDirector({
       const baseM = miniDefs.find(d => d.id === currentMini.id);
       if (baseM) {
         evalDef(currentMini, baseM, state);
-        if (checkFinish(currentMini, baseM, state)) {
+        if (checkFinish(currentMini)) {
           miniCleared++;
+          coach(`Mini ${miniCleared}/${maxMini} ผ่านแล้ว, Goal ${goalsCleared}/${maxGoals}`);
           if (timeLeft > 0) nextMini();
         }
       }
@@ -198,16 +198,13 @@ export function makeQuestDirector({
     emitHUD();
   }
 
-  function summary(state = {}) {
-    // สรุปผลรวม + handle missMax กรณียังไม่ถูก mark done แต่ผ่านเงื่อนไขตอนจบ
-    const s = {
+  function summary() {
+    return {
       goalsCleared,
       goalsTotal: maxGoals,
       miniCleared,
       miniTotal: maxMini
     };
-
-    return s;
   }
 
   return { start, update, summary };
