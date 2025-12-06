@@ -189,6 +189,9 @@
       gap:10px;
       pointer-events:auto;
     }
+    .coach-bubble.show{
+      display:flex;
+    }
     .coach-label{
       font-size:11px;
       text-transform:uppercase;
@@ -201,7 +204,7 @@
       width:34px;
       height:34px;
       border-radius:999px;
-      background:radial-gradient(circle at 30% 20%, #e0f2fe, #38bdf8); /* default neutral */
+      background:radial-gradient(circle at 30% 20%, #e0f2fe, #38bdf8); /* neutral */
       display:flex;
       align-items:center;
       justify-content:center;
@@ -256,6 +259,27 @@
     }
     .fever-bar-fill.active{
       box-shadow:0 0 22px rgba(250,204,21,0.75);
+    }
+
+    /* ===== Fever overlay ท่วมจอ ===== */
+    .fever-overlay{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:640;
+      background:
+        radial-gradient(circle at center, rgba(250,250,210,0.4), rgba(250,204,21,0.0) 55%),
+        rgba(250,204,21,0.18);
+      opacity:0;
+      transition:opacity .25s ease-out;
+    }
+    .fever-overlay.show{
+      opacity:1;
+      animation:feverPulse 0.9s ease-in-out infinite alternate;
+    }
+    @keyframes feverPulse{
+      from{ opacity:0.45; }
+      to  { opacity:0.9; }
     }
 
     /* ===== Center hint ===== */
@@ -425,6 +449,9 @@
     </div>
   </div>
 
+  <!-- Fever overlay -->
+  <div id="fever-overlay" class="fever-overlay"></div>
+
   <!-- Center hint -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
 
@@ -478,7 +505,8 @@
     const elEndGoal   = document.getElementById('end-goal');
     const elEndMini   = document.getElementById('end-mini');
 
-    const elFeverFill = document.getElementById('fever-bar-fill');
+    const elFeverFill   = document.getElementById('fever-bar-fill');
+    const elFeverOverlay= document.getElementById('fever-overlay');
 
     let lastCoachTimeout = null;
     let hudMissCount = 0;
@@ -496,7 +524,6 @@
         elCoachEmoji.textContent = coachFaces[mood] || coachFaces.neutral;
       }
       if (elCoachAvatar) {
-        // เปลี่ยนสี background avatar ตามอารมณ์
         let bg = 'radial-gradient(circle at 30% 20%, #e0f2fe, #38bdf8)';
         if (mood === 'happy') {
           bg = 'radial-gradient(circle at 30% 20%, #bbf7d0, #22c55e)';
@@ -604,7 +631,7 @@
       setCoach('ไม่เป็นไร ลองโฟกัสที่ผัก ผลไม้ และนมอีกครั้งนะ 😌');
     });
 
-    // Fever bar
+    // Fever bar + overlay
     window.addEventListener('hha:fever', (e)=>{
       const d = e.detail || {};
       const max = d.max || 0;
@@ -614,10 +641,12 @@
 
       if (d.state === 'start') {
         elFeverFill.classList.add('active');
+        elFeverOverlay.classList.add('show');
         setCoachFace('fever');
         setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
       } else if (d.state === 'end') {
         elFeverFill.classList.remove('active');
+        elFeverOverlay.classList.remove('show');
         setCoachFace('neutral');
       }
     });
