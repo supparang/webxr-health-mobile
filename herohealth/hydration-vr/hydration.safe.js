@@ -8,18 +8,24 @@ import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import Particles from '../vr/particles.js';
 
-// ⚠️ แก้ตรงนี้: import แบบ namespace แทน named export
+// -------- FEVER BAR: รองรับทั้ง module export และ global --------
 import * as UIFever from '../vr/ui-fever.js';
 
-// map ฟังก์ชันจาก UIFever (ถ้าไม่มีให้เป็น no-op กัน error)
-const ensureFeverBar =
-  typeof UIFever.ensureFeverBar === 'function' ? UIFever.ensureFeverBar : () => {};
-const setFever =
-  typeof UIFever.setFever === 'function' ? UIFever.setFever : () => {};
-const setFeverActive =
-  typeof UIFever.setFeverActive === 'function' ? UIFever.setFeverActive : () => {};
-const setShield =
-  typeof UIFever.setShield === 'function' ? UIFever.setShield : () => {};
+const g = (typeof window !== 'undefined') ? window : {};
+
+function pick(fnName) {
+  if (typeof UIFever[fnName] === 'function') return UIFever[fnName];
+  if (g.HHA_FEVER && typeof g.HHA_FEVER[fnName] === 'function') {
+    return g.HHA_FEVER[fnName].bind(g.HHA_FEVER);
+  }
+  if (typeof g[fnName] === 'function') return g[fnName].bind(g);
+  return () => {}; // fallback ป้องกัน error แต่จะไม่ทำอะไร
+}
+
+const ensureFeverBar = pick('ensureFeverBar');
+const setFever       = pick('setFever');
+const setFeverActive = pick('setFeverActive');
+const setShield      = pick('setShield');
 
 // ดึงทุกอย่างจาก hydration.quest.js แล้วค่อยเลือกฟังก์ชัน
 import * as HQ from './hydration.quest.js';
@@ -58,7 +64,6 @@ function getCreateHydrationQuest() {
       return HQ.default.createHydrationQuest;
     }
     if (typeof HQ.default === 'function') {
-      // กรณี export default function(...)
       return HQ.default;
     }
   }
