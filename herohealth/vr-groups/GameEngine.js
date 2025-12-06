@@ -329,31 +329,33 @@
 
     // ---------- spawn target (emoji sprite) ----------
 
+    // ---------- spawn target (emoji sprite) ----------
     spawnTarget: function () {
+      // ดึงข้อมูลอาหารจากโมดูล foodGroupsEmoji (เหมือนที่ใช้ใน version ก่อน ๆ)
       const emojiMod = ns.foodGroupsEmoji;
       let item = null;
 
       if (emojiMod && typeof emojiMod.pickRandom === 'function') {
-        item = emojiMod.pickRandom();
+        item = emojiMod.pickRandom(); // {emoji, group, isGood, name, ...}
       }
-
       if (!item) {
-        // fallback
         item = { emoji: '🍎', group: 1, isGood: true, name: 'ผลไม้' };
       }
 
       const scale = this.cfg.scale || 1.0;
 
-      // สุ่มตำแหน่ง: กระจายบริเวณกลางจอ ไม่อยู่แต่ล่าง
-      const xMin = -1.4;
-      const xMax = 1.4;
-      const yMin = 0.6;
-      const yMax = 1.4;
+      // ===== กำหนดตำแหน่งให้โผล่ "กลางจอ" มากขึ้น =====
+      // x กระจายซ้าย-ขวา
+      const xMin = -1.6;
+      const xMax =  1.6;
+      // y ดันขึ้นมาจากขอบล่าง (เดิมมันต่ำไป)
+      const yMin = 0.8;
+      const yMax = 1.8;
       let x = xMin + Math.random() * (xMax - xMin);
       let y = yMin + Math.random() * (yMax - yMin);
       const z = -2.3;
 
-      // กันไม่ให้เป้าซ้อนกันเกินไป (เช็คระยะห่างคร่าว ๆ)
+      // กันเป้าซ้อนกันเกินไป (ดูระยะห่างจากเป้าอื่น ๆ)
       const minDist2 = 0.6 * 0.6;
       for (let tries = 0; tries < 6; tries++) {
         let ok = true;
@@ -375,18 +377,15 @@
 
       const el = document.createElement('a-entity');
       el.setAttribute('data-hha-tgt', '1');
-
       el.setAttribute('position', { x, y, z });
 
-      // hitbox กลม ๆ
+      // วงกลมฐาน (พื้นสีเขียว/ส้ม)
+      const baseColor = item.isGood ? '#16a34a' : '#ea580c';
       el.setAttribute('geometry', {
         primitive: 'circle',
         radius: 0.45 * scale,
         segments: 48
       });
-
-      // พื้นสีตาม good / junk
-      const baseColor = item.isGood ? '#16a34a' : '#ea580c';
       el.setAttribute('material', {
         color: baseColor,
         opacity: 1.0,
@@ -394,7 +393,7 @@
         side: 'double'
       });
 
-      // วงขอบด้านนอก
+      // วงขอบเข้มด้านนอก
       const rim = document.createElement('a-entity');
       rim.setAttribute('geometry', {
         primitive: 'ring',
@@ -410,8 +409,20 @@
       rim.setAttribute('position', { x: 0, y: 0, z: 0.001 });
       el.appendChild(rim);
 
-      // emoji image (จาก emoji-image.js ถ้ามี texture)
-      if (item.texture) {
+      // ===== ตรงนี้ทำให้เป็น "emoji การ์ตูน" จริง ๆ =====
+      // ถ้ามี window.emojiImage (เหมือน hydration) ใช้เป็น texture เลย
+      const emojiChar = item.emoji || '🍎';
+      let emojiTex = null;
+      if (window.emojiImage && typeof window.emojiImage === 'function') {
+        try {
+          emojiTex = window.emojiImage(emojiChar);
+        } catch (e) {
+          console.warn('[GroupsVR] emojiImage error', e);
+        }
+      }
+
+      if (emojiTex) {
+        // ใช้ texture รูปการ์ตูน emoji
         const sprite = document.createElement('a-entity');
         sprite.setAttribute('geometry', {
           primitive: 'circle',
@@ -419,29 +430,31 @@
           segments: 48
         });
         sprite.setAttribute('material', {
-          src: item.texture,
+          src: emojiTex,
           transparent: true,
           side: 'double'
         });
         sprite.setAttribute('position', { x: 0, y: 0, z: 0.002 });
+        sprite.setAttribute('look-at', '[camera]');
         el.appendChild(sprite);
       } else {
         // fallback เป็นตัวอักษร emoji
         const txt = document.createElement('a-entity');
         txt.setAttribute('text', {
-          value: item.emoji || '🍎',
+          value: emojiChar,
           align: 'center',
           color: '#ffffff',
-          width: 2.2 * scale,
+          width: 2.0 * scale,
           baseline: 'center'
         });
         txt.setAttribute('position', { x: 0, y: 0, z: 0.01 });
+        txt.setAttribute('look-at', '[camera]');
         el.appendChild(txt);
       }
 
+      // meta สำหรับ logic เกม
       const groupId = item && item.group != null ? item.group : 0;
       const isGood = item && item.isGood ? 1 : 0;
-
       el.setAttribute('data-group', String(groupId));
       el.setAttribute('data-good', String(isGood));
 
