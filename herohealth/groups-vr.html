@@ -59,63 +59,54 @@
 
   <!-- ===== HUD ===== -->
   <div class="hud-root">
-    <div class="hud-top">
-      <!-- ซ้าย: โหมด + คะแนน -->
-      <div class="hud-card" style="flex: 1; max-width: 360px">
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 8px;
-          "
-        >
-          <div>
-            <div class="hud-main-title">Hero Health • Nutrition VR</div>
-            <div class="hud-main-mode">Food Groups</div>
-          </div>
-          <div class="hud-pill">
-            <span id="hud-diff-label">NORMAL</span>
-            <span>•</span>
-            <span id="hud-time-label">60s</span>
-          </div>
+    <!-- ซ้ายบน: โหมด + คะแนน -->
+    <div class="hud-card hud-score">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <div>
+          <div class="hud-main-title">Hero Health • Nutrition VR</div>
+          <div class="hud-main-mode">Food Groups</div>
         </div>
-        <div class="hud-metrics">
-          <div class="metric">
-            <div class="metric-label">คะแนน</div>
-            <div class="metric-value accent" id="hud-score">0</div>
-          </div>
+        <div class="hud-pill">
+          <span id="hud-diff-label">NORMAL</span>
+          <span>•</span>
+          <span id="hud-time-label">60s</span>
         </div>
       </div>
+      <div class="hud-metrics">
+        <div class="metric">
+          <div class="metric-label">คะแนน</div>
+          <div class="metric-value accent" id="hud-score">0</div>
+        </div>
+      </div>
+    </div>
 
-      <!-- ขวา: Goal + Mini quest -->
-<!-- ====== HUD: Goal / Mini quest ====== -->
-<div class="fg-quest-panel">
-  <div class="fg-quest-title">เป้าหมายวันนี้</div>
+    <!-- ขวาบน: Goal + Mini quest -->
+    <div class="hud-card hud-goal">
+      <div class="goal-title">เป้าหมายวันนี้</div>
 
-  <div class="fg-quest-row">
-    <span class="fg-quest-label">GOAL</span>
-    <span class="fg-quest-main" id="hud-goal-main">
-      คะแนน 150+
-    </span>
-    <span class="fg-quest-progress" id="hud-goal-progress">
-      (0 / 150)
-    </span>
-  </div>
+      <div class="goal-row">
+        <span class="goal-label">GOAL</span>
+        <span class="goal-value" id="hud-goal-progress">
+          0 / 150
+        </span>
+      </div>
 
-  <div class="fg-quest-row">
-    <span class="fg-quest-label">MINI QUEST</span>
-    <span class="fg-quest-main" id="hud-mini-main">
-      เก็บอาหารดี 12 ชิ้น
-    </span>
-    <span class="fg-quest-progress" id="hud-mini-progress">
-      (0 / 12)
-    </span>
-  </div>
-</div>
+      <div class="goal-row">
+        <span class="goal-label">MINI QUEST</span>
+        <span class="goal-value" id="hud-mini-progress">
+          0 / 12
+        </span>
+      </div>
+    </div>
 
-
-    <!-- โค้ชพูดด้านล่าง -->
+    <!-- โค้ชพูดด้านล่าง (กลางล่าง) -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <span class="coach-avatar">🥦</span>
@@ -143,7 +134,7 @@
   </div>
 
   <!-- ===== เกม + ระบบต่าง ๆ ===== -->
-  <!-- Fever bar (ไฟล์นี้เป็น non-module แล้ว) -->
+  <!-- Fever bar (non-module) -->
   <script src="./vr/ui-fever.js"></script>
 
   <script src="./vr-groups/emoji-image.js"></script>
@@ -161,10 +152,10 @@
 
       const diff = String(getParam("diff", "normal")).toLowerCase();
 
-      const elScore   = document.getElementById("hud-score");
-      const elDiff    = document.getElementById("hud-diff-label");
-      const elTime    = document.getElementById("hud-time-label");
-      const elCoach   = document.getElementById("coach-bubble");
+      const elScore     = document.getElementById("hud-score");
+      const elDiff      = document.getElementById("hud-diff-label");
+      const elTime      = document.getElementById("hud-time-label");
+      const elCoach     = document.getElementById("coach-bubble");
       const elCoachText = document.getElementById("coach-text");
       const elEndToast  = document.getElementById("end-toast");
       const elEndScore  = document.getElementById("end-score");
@@ -172,8 +163,8 @@
       const elEndGoal   = document.getElementById("end-goal-text");
       const elEndMini   = document.getElementById("end-mini-text");
 
-      elDiff.textContent = diff.toUpperCase();
-      elTime.textContent = "60s";
+      elDiff.textContent  = diff.toUpperCase();
+      elTime.textContent  = "60s";
       elScore.textContent = "0";
 
       // Cloud logger
