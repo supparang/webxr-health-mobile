@@ -171,8 +171,8 @@
       flex-direction:column;
       align-items:center;
       gap:8px;
-      /* ★ เพิ่มที่ว่างให้ Fever Gauge ไม่ซ้อน */
-      padding-bottom:72px; /* ประมาณความสูง Fever bar */
+      /* เผื่อที่ให้ Fever Gauge ด้านล่าง */
+      padding-bottom:72px;
     }
     .coach-bubble{
       min-width:60%;
@@ -359,7 +359,7 @@
         <span id="coach-emoji" class="coach-emoji">🙂</span>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="coach-label">โค้ช</span>
-          <span id="coach-text">แตะของดีให้ตรงเป้าหมาย</span>
+          <span id="coach-text">แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ</span>
         </div>
       </div>
     </div>
@@ -377,6 +377,9 @@
     <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 0</strong></div>
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
   </div>
+
+  <!-- ★ เพิ่ม Fever UI แบบ global กลับมา -->
+  <script src="./vr/ui-fever.js"></script>
 
   <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
