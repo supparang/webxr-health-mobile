@@ -1,7 +1,6 @@
 /* === /herohealth/css/hydration-vr.css === */
 /* สไตล์เฉพาะโหมด Hydration VR – พื้นหลัง, HUD, layout บนมือถือ */
 
-/* พื้นหลังหลัก */
 body{
   margin:0;
   padding:0;
@@ -33,7 +32,7 @@ body{
 .hha-vr-btn{
   position:fixed;
   left:10px;
-  top:65px;
+  top:72px;
   z-index:140;
   padding:6px 12px;
   border-radius:999px;
@@ -49,7 +48,7 @@ body{
 .hha-crosshair{
   position:fixed;
   left:50%;
-  top:55%;
+  top:58%;
   transform:translate(-50%,-50%);
   width:32px;
   height:32px;
@@ -61,21 +60,21 @@ body{
   z-index:40;
 }
 
-/* ===== WATER GAUGE (บนสุด) ===== */
-/* ถ้า ui-water.js ใส่ element ที่มีคลาสนี้ ให้จัดให้ลอยบนสุดซ้ายกลาง */
+/* ===== WATER GAUGE (ไฟล์ ui-water.js ใส่คลาสนี้) ===== */
 .hha-water-wrap{
   position:fixed;
   left:50%;
-  top:16px;
+  top:14px;
   transform:translateX(-50%);
   z-index:150;
 }
 
 /* ===== QUEST HUD PANEL (มุมขวาบน) ===== */
+/* ★ ขยับลงเยอะ ๆ กันชน water gauge แน่นอน */
 .hha-quest-panel-vr{
   position:fixed;
   right:10px;
-  top:110px;           /* desktop / tablet: เลื่อนลงจาก water gauge พอสมควร */
+  top:175px;          /* เดิม ~110, ขยับลง 175px */
   z-index:130;
   max-width:360px;
 }
@@ -142,13 +141,12 @@ body{
   border-color:rgba(59,130,246,.8);
 }
 
-/* ===== FEVER GAUGE (อยู่ใน ui-fever.js) =====
-   hydration-vr.css แค่กัน margin ใต้โค้ชไม่ให้แนบขอบจอมากไป  */
+/* FEVER จาก ui-fever.js – แค่เว้น margin นิดหน่อย */
 #hha-fever-wrap{
   margin-bottom:10px;
 }
 
-/* ===== COACH BUBBLE (จาก coach-bubble.js) ===== */
+/* COACH BUBBLE */
 .hha-coach-wrap{
   position:fixed;
   left:50%;
@@ -169,7 +167,7 @@ body{
 /* ===== MOBILE LAYOUT ===== */
 @media (max-width: 768px){
   .hha-vr-btn{
-    top:60px;
+    top:66px;
     left:8px;
     padding:5px 10px;
     font-size:12px;
@@ -179,8 +177,9 @@ body{
     top:8px;
   }
 
+  /* ★ มือถือให้ HUD ลงอีก และใช้ !important ตัดค่าเดิมทิ้ง */
   .hha-quest-panel-vr{
-    top:140px !important;  /* ★ เลื่อนลงอีกบนมือถือ ไม่ทับ water gauge แน่นอน */
+    top:190px !important;
     right:8px;
     left:8px;
     max-width:none;
@@ -193,7 +192,7 @@ body{
   }
 
   .hha-crosshair{
-    top:58%;
+    top:60%;
     width:26px;
     height:26px;
   }
