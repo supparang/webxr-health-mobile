@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Coach
-// (2025-12-06 + เป้าอยู่กลางจอ + FX แตก + GOOD/MISS float text)
+// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
+// ใช้ร่วม FeverUI (shared) 2025-12-06
 
 'use strict';
 
@@ -22,11 +22,25 @@ export const GameEngine = (function () {
   ];
   const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
 
+  // special targets
+  const STAR_EMOJI    = '⭐';
+  const DIAMOND_EMOJI = '💎';
+  const SHIELD_EMOJI  = '🛡️';
+
   // ---------- ค่าพื้นฐาน (จะถูก override ตาม diff) ----------
   let GOOD_RATE       = 0.65;
   let SPAWN_INTERVAL  = 900;
   let TARGET_LIFETIME = 900;
   let MAX_ACTIVE      = 4;
+
+  // type weights (จะปรับตาม diff)
+  let TYPE_WEIGHTS = {
+    good:    70,
+    junk:    20,
+    star:     4,
+    diamond:  3,
+    shield:   3
+  };
 
   // Fever
   const FEVER_MAX       = 100;
@@ -45,13 +59,14 @@ export const GameEngine = (function () {
   let misses = 0;
   let goodHit = 0;
   let junkHit = 0;
+  let shieldCount = 0;
 
   // Fever state
   let fever = 0;
   let feverActive = false;
   let feverTimer = null;
 
-  // ---------- Quest state (เวอร์ชันง่าย 1 Goal + 1 Mini) ----------
+  // ---------- Quest state (เป้าหมายแบบง่าย 1 goal + 1 mini) ----------
   const GOAL = {
     label: 'เก็บอาหารดีให้ครบ 25 ชิ้น',
     prog: 0,
@@ -117,82 +132,16 @@ export const GameEngine = (function () {
     return Math.floor(min + Math.random() * (max - min + 1));
   }
 
-  // ---------- FX: เป้าแตก + GOOD/MISS เด้งตรงเป้า ----------
-  function playHitFx(el, isGood) {
-    if (!sceneEl || !el) {
-      removeTarget(el);
-      return;
-    }
-
-    try {
-      const circle = el.querySelector('a-circle');
-      const sprite = el.querySelector('a-plane');
-
-      // scale & fade วงกลมพื้นหลัง
-      if (circle) {
-        circle.setAttribute(
-          'animation__scale',
-          'property: scale; to: 1.4 1.4 1; dur: 120; easing: ease-out'
-        );
-        circle.setAttribute(
-          'animation__fade',
-          'property: material.opacity; to: 0; dur: 200; delay: 80; easing: linear'
-        );
-      }
-
-      // emoji เด้งเล็กน้อยแล้วค่อยเฟด
-      if (sprite) {
-        sprite.setAttribute(
-          'animation__pop',
-          'property: scale; to: 1.2 1.2 1; dur: 80; dir: alternate; easing: ease-out'
-        );
-        sprite.setAttribute(
-          'animation__fade',
-          'property: material.opacity; to: 0; dur: 200; delay: 80; easing: linear'
-        );
-      }
-
-      // ตัวหนังสือ GOOD / MISS ลอยขึ้น
-      const pos = el.getAttribute('position') || { x: 0, y: 1.8, z: -3 };
-      const label = isGood ? 'GOOD' : 'MISS';
-      const color = isGood ? '#bbf7d0' : '#fecaca';
-
-      const fx = document.createElement('a-entity');
-      fx.setAttribute('position', { x: pos.x, y: pos.y + 0.3, z: pos.z });
-      fx.setAttribute('text', {
-        value: label,
-        align: 'center',
-        width: 3,
-        color
-      });
-      fx.setAttribute(
-        'animation__move',
-        `property: position; to: ${pos.x} ${pos.y + 0.9} ${pos.z}; dur: 450; easing: ease-out`
-      );
-      fx.setAttribute(
-        'animation__fade',
-        'property: text.opacity; to: 0; dur: 450; easing: linear'
-      );
-      sceneEl.appendChild(fx);
-      setTimeout(() => {
-        if (fx.parentNode) fx.parentNode.removeChild(fx);
-      }, 520);
-
-      // รอให้แอนิเมชันจบก่อนค่อยลบเป้า
-      setTimeout(() => removeTarget(el), 240);
-    } catch (e) {
-      removeTarget(el);
-    }
-  }
-
   // ---------- Fever (ใช้ร่วม FeverUI + ยิง event เดิม) ----------
   function setFever(value, stateHint) {
     fever = clamp(value, 0, FEVER_MAX);
 
+    // อัปเดต Fever bar
     if (FeverUI && typeof FeverUI.setFever === 'function') {
       FeverUI.setFever(fever);
     }
 
+    // ยิง event เผื่อ HUD อื่น ๆ
     emit('hha:fever', {
       state: stateHint || (feverActive ? 'active' : 'charge'),
       value: fever,
@@ -205,12 +154,8 @@ export const GameEngine = (function () {
     feverActive = true;
     fever = FEVER_MAX;
 
-    if (FeverUI && typeof FeverUI.setFeverActive === 'function') {
-      FeverUI.setFeverActive(true);
-    }
-    if (FeverUI && typeof FeverUI.setFever === 'function') {
-      FeverUI.setFever(fever);
-    }
+    if (FeverUI && FeverUI.setFeverActive) FeverUI.setFeverActive(true);
+    if (FeverUI && FeverUI.setFever)       FeverUI.setFever(fever);
 
     emit('hha:fever', { state:'start', value: fever, max: FEVER_MAX });
 
@@ -225,17 +170,13 @@ export const GameEngine = (function () {
     feverActive = false;
     fever = 0;
 
-    if (FeverUI && typeof FeverUI.setFeverActive === 'function') {
-      FeverUI.setFeverActive(false);
-    }
-    if (FeverUI && typeof FeverUI.setFever === 'function') {
-      FeverUI.setFever(fever);
-    }
+    if (FeverUI && FeverUI.setFeverActive) FeverUI.setFeverActive(false);
+    if (FeverUI && FeverUI.setFever)       FeverUI.setFever(fever);
 
     emit('hha:fever', { state:'end', value: fever, max: FEVER_MAX });
   }
 
-  // ---------- Quest (เวอร์ชันง่าย) ----------
+  // ---------- Quest ----------
   function pushQuest(hint) {
     const goalObj = {
       label: GOAL.label,
@@ -310,10 +251,10 @@ export const GameEngine = (function () {
 
     const root = document.createElement('a-entity');
 
-    // ★ ยกเป้าขึ้นกลางจอ และกระจายซ้ายขวาให้กว้างขึ้น
-    // กล้อง ~ (0,1.6,0) → ให้สุ่ม x [-1,1], y [1.8,2.4]
-    const x = -1.0 + Math.random() * 2.0;
-    const y = 1.8 + Math.random() * 0.6;
+    // กล้องอยู่ประมาณ (0,1.6,0)
+    // → ให้สุ่มในกล่องกลางจอ: x [-1.2,1.2], y [1.8,2.6]
+    const x = -1.2 + Math.random() * 2.4;
+    const y = 1.8  + Math.random() * 0.8;
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
@@ -324,10 +265,19 @@ export const GameEngine = (function () {
 
     // วงกลมพื้นหลัง
     const circle = document.createElement('a-circle');
-    circle.setAttribute('radius', kind === 'good' ? 0.45 : 0.4);
+    let color = '#22c55e';
+    if (kind === 'junk')   color = '#f97316';
+    if (kind === 'star')   color = '#fde047';
+    if (kind === 'diamond')color = '#38bdf8';
+    if (kind === 'shield') color = '#60a5fa';
+
+    circle.setAttribute('radius',
+      kind === 'good' ? 0.45 :
+      kind === 'junk' ? 0.42 : 0.40
+    );
     circle.setAttribute('material', {
-      color: kind === 'good' ? '#22c55e' : '#f97316',
-      opacity: 0.32,
+      color,
+      opacity: 0.30,
       metalness: 0,
       roughness: 1
     });
@@ -371,7 +321,35 @@ export const GameEngine = (function () {
     if (!el.parentNode) return;
 
     const kind = el.dataset.kind || 'junk';
+    removeTarget(el);
 
+    // ---------- shield / star / diamond ----------
+    if (kind === 'shield') {
+      shieldCount += 1;
+      if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
+      coach('ได้เกราะป้องกัน 1 ชิ้น! ถ้าเผลอแตะของขยะจะไม่เสียแต้มทันที 🛡️');
+      emitScore();
+      return;
+    }
+
+    if (kind === 'star') {
+      const mult = feverActive ? 2 : 1;
+      score += 80 * mult;
+      coach('ดวงดาวโบนัส! ได้แต้มพิเศษเพิ่มขึ้น ⭐');
+      emitScore();
+      return;
+    }
+
+    if (kind === 'diamond') {
+      const mult = feverActive ? 2 : 1;
+      score += 60 * mult;
+      setFever(fever + 30, 'charge');
+      coach('ได้เพชรพลังงาน! Fever ขึ้นไวขึ้น 💎');
+      emitScore();
+      return;
+    }
+
+    // ---------- good / junk ----------
     if (kind === 'good') {
       goodHit++;
 
@@ -398,9 +376,16 @@ export const GameEngine = (function () {
 
       updateGoalFromGoodHit();
       updateMiniFromCombo();
+    } else { // junk
+      // ถ้ามี shield ใช้กันก่อน ไม่เสียแต้ม
+      if (shieldCount > 0) {
+        shieldCount -= 1;
+        if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
+        coach('โชคดีมีเกราะกันไว้ ของขยะไม่ทำร้ายคะแนนรอบนี้ 🛡️');
+        emitScore();
+        return;
+      }
 
-      playHitFx(el, true);
-    } else {
       junkHit++;
       score = Math.max(0, score - 8);
       combo = 0;
@@ -418,8 +403,6 @@ export const GameEngine = (function () {
       emitMiss();
       updateGoalFromGoodHit();
       pushQuest('');
-
-      playHitFx(el, false);
     }
 
     emitScore();
@@ -451,17 +434,51 @@ export const GameEngine = (function () {
       updateGoalFromGoodHit();
       pushQuest('');
     }
+    // star / diamond / shield / junk หมดเวลา: ไม่ทำโทษ
   }
 
   // ---------- สุ่ม spawn ----------
+  function pickType() {
+    const w = TYPE_WEIGHTS;
+    const sum =
+      (w.good   || 0) +
+      (w.junk   || 0) +
+      (w.star   || 0) +
+      (w.diamond|| 0) +
+      (w.shield || 0);
+
+    let r = Math.random() * sum;
+
+    if ((r -= w.good) <= 0)    return 'good';
+    if ((r -= w.junk) <= 0)    return 'junk';
+    if ((r -= w.star) <= 0)    return 'star';
+    if ((r -= w.diamond) <= 0) return 'diamond';
+    return 'shield';
+  }
+
   function tickSpawn() {
     if (!running) return;
     if (activeTargets.length >= MAX_ACTIVE) return;
 
-    const isGood = Math.random() < GOOD_RATE;
-    const pool = isGood ? GOOD : JUNK;
-    const emoji = pool[Math.floor(Math.random() * pool.length)];
-    const kind = isGood ? 'good' : 'junk';
+    const type = pickType();
+
+    let emoji, kind;
+    if (type === 'good') {
+      emoji = GOOD[Math.floor(Math.random() * GOOD.length)];
+      kind  = 'good';
+    } else if (type === 'junk') {
+      emoji = JUNK[Math.floor(Math.random() * JUNK.length)];
+      kind  = 'junk';
+    } else if (type === 'star') {
+      emoji = STAR_EMOJI;
+      kind  = 'star';
+    } else if (type === 'diamond') {
+      emoji = DIAMOND_EMOJI;
+      kind  = 'diamond';
+    } else {
+      emoji = SHIELD_EMOJI;
+      kind  = 'shield';
+    }
 
     const el = createTargetEntity(emoji, kind);
     if (el) activeTargets.push(el);
@@ -476,22 +493,49 @@ export const GameEngine = (function () {
       SPAWN_INTERVAL  = 1100;
       TARGET_LIFETIME = 1100;
       MAX_ACTIVE      = 3;
-      GOOD_RATE       = 0.7;
-      goalMin = 15; goalMax = 20;
+      GOOD_RATE       = 0.72;
+
+      TYPE_WEIGHTS = {
+        good:    75,
+        junk:    15,
+        star:     4,
+        diamond:  3,
+        shield:   3
+      };
+
+      goalMin = 14; goalMax = 18;
       comboMin = 3; comboMaxVal = 4;
     } else if (d === 'hard') {
       SPAWN_INTERVAL  = 750;
       TARGET_LIFETIME = 850;
       MAX_ACTIVE      = 5;
       GOOD_RATE       = 0.6;
-      goalMin = 25; goalMax = 30;
+
+      TYPE_WEIGHTS = {
+        good:    65,
+        junk:    22,
+        star:     5,
+        diamond:  4,
+        shield:   4
+      };
+
+      goalMin = 22; goalMax = 28;
       comboMin = 6; comboMaxVal = 8;
     } else { // normal
       SPAWN_INTERVAL  = 900;
       TARGET_LIFETIME = 900;
       MAX_ACTIVE      = 4;
-      GOOD_RATE       = 0.65;
-      goalMin = 20; goalMax = 25;
+      GOOD_RATE       = 0.66;
+
+      TYPE_WEIGHTS = {
+        good:    70,
+        junk:    18,
+        star:     4,
+        diamond:  4,
+        shield:   4
+      };
+
+      goalMin = 18; goalMax = 22;
       comboMin = 4; comboMaxVal = 6;
     }
 
@@ -518,25 +562,19 @@ export const GameEngine = (function () {
     misses = 0;
     goodHit = 0;
     junkHit = 0;
+    shieldCount = 0;
 
     applyDifficulty(diffKey);
 
-    // reset fever + UI กลาง
+    // reset fever + UI กลาง (★ ตรงนี้คือที่ใช้ snippet ที่ถาม)
+    if (FeverUI && FeverUI.ensureFeverBar) FeverUI.ensureFeverBar();
+    if (FeverUI && FeverUI.setFever)      FeverUI.setFever(0);
+    if (FeverUI && FeverUI.setShield)     FeverUI.setShield(shieldCount);
+    if (FeverUI && FeverUI.setFeverActive)FeverUI.setFeverActive(false);
+
     fever = 0;
     feverActive = false;
     if (feverTimer) clearTimeout(feverTimer);
-    if (FeverUI && typeof FeverUI.ensureFeverBar === 'function') {
-      FeverUI.ensureFeverBar();
-    }
-    if (FeverUI && typeof FeverUI.setFever === 'function') {
-      FeverUI.setFever(0);
-    }
-    if (FeverUI && typeof FeverUI.setFeverActive === 'function') {
-      FeverUI.setFeverActive(false);
-    }
-    if (FeverUI && typeof FeverUI.setShield === 'function') {
-      FeverUI.setShield(0);
-    }
     setFever(0, 'charge');
 
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
