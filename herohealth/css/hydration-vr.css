@@ -46,13 +46,12 @@ body{
 .hha-quest-panel{
   position:fixed;
   left:50%;
-  top:110px;              /* <<< ลงมาห่าง water bar ชัด ๆ */
+  top:140px;              /* <<< เลื่อนลงจาก water bar ชัด ๆ */
   transform:translateX(-50%);
   z-index:830;
   max-width:92vw;
 }
 
-/* extra padding ให้การ์ดไม่แน่นเกินไป */
 .hha-quest-panel .hha-quest-main{
   padding-top:6px;
   padding-bottom:10px;
@@ -68,30 +67,29 @@ body{
   z-index:200;
 }
 
-/* ถ้าคุณมี div layer สำหรับ emoji / target ใช้คลาสนี้ครอบไว้ */
+/* ถ้ามี layer สำหรับ emoji/เป้า ให้ครอบด้วยคลาสนี้ */
 .hha-play-safe,
 .hha-target-layer{
   position:fixed;
   left:0;
   right:0;
-  top:210px;      /* ใต้ HUD */
-  bottom:120px;   /* เหนือ Fever gauge + โค้ช bubble */
+  top:240px;      /* ใต้ HUD ใหม่ */
+  bottom:120px;   /* เหนือ Fever gauge + coach bubble */
   pointer-events:none;
 }
 
-/* ถ้า element ลูกต้องรับคลิก ให้เปิด pointer-events เฉพาะนั้น */
 .hha-target-layer > *{
   pointer-events:auto;
 }
 
-/* เผื่อจอสูงมาก ๆ (tablet แนวนอน) ขยับขึ้นนิดหน่อย */
+/* จอสูงมาก ๆ ขยับขึ้นนิดหน่อย แต่ยังไม่ไปชน water bar */
 @media (min-height:900px){
   .hha-quest-panel{
-    top:130px;
+    top:150px;
   }
   .hha-play-safe,
   .hha-target-layer{
-    top:230px;
+    top:250px;
     bottom:130px;
   }
 }
