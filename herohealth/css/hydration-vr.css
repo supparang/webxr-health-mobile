@@ -70,21 +70,19 @@ body {
 }
 
 /* ===== WATER GAUGE (กลางด้านบน) ===== */
-/* (สไตล์พื้นฐานส่วนหนึ่งมาจาก goodjunk-vr.css; ตรงนี้ fix ตำแหน่งให้ชัด) */
 .hha-water-wrap{
   position:fixed;
   left:50%;
-  top:8px;
+  top:6px;
   transform:translateX(-50%);
   z-index:120;
 }
 
 /* ===== QUEST HUD PANEL (มุมขวาบน) ===== */
-/* ใช้กับ quest-hud-vr.js */
 .hha-quest-panel-vr{
   position:fixed;
   right:10px;
-  top:80px;          /* ★ ขยับลงไม่ให้ทับ water gauge */
+  top:104px;         /* ★ เลื่อนลงจาก gauge ชัด ๆ */
   z-index:130;
   max-width:360px;
 }
@@ -101,7 +99,6 @@ body {
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
 }
 
-/* ปรับให้ header / goal / mini quest อ่านง่ายบนมือถือ */
 .hha-quest-header{
   display:flex;
   justify-content:space-between;
@@ -156,9 +153,8 @@ body {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px){
-  /* มือถือ: ให้ panel กินความกว้างเกือบเต็ม และลงมาห่าง gauge ชัดเจน */
   .hha-quest-panel-vr{
-    top:92px;        /* ★ เลื่อนลงเพิ่มอีกบนจอเล็ก */
+    top:118px;       /* ★ มือถือ เลื่อนลงอีก ไม่ทับ water gauge แน่นอน */
     right:8px;
     left:8px;
     max-width:none;
@@ -168,14 +164,14 @@ body {
     padding:9px 12px 11px;
   }
   .hha-water-wrap{
-    top:10px;
-    transform:translateX(-50%) scale(.95);
+    top:8px;
+    transform:translateX(-50%) scale(.94);
   }
 }
 
 @media (min-width: 1280px){
   .hha-quest-panel-vr{
-    top:82px;
+    top:100px;
     right:18px;
   }
 }
