@@ -1,86 +1,254 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hydration VR — Hero Health</title>
-  <meta name="color-scheme" content="dark"/>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  />
+  <title>Hero Health — Food Groups VR</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <link rel="icon" href="./favicon.ico"/>
+  <!-- A-Frame core -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ใช้สไตล์เดียวกับ Good vs Junk VR ก่อน แล้วค่อย override ด้วย hydration-vr.css -->
-  <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
-  <link rel="stylesheet" href="./css/hydration-vr.css"/>
+  <!-- CSS layout (เหมือน GoodJunk) -->
+  <link rel="stylesheet" href="./css/groups-vr.css" />
 </head>
 <body>
+  <!-- ===== A-Frame Scene (ฉากพื้นหลัง VR) ===== -->
+  <a-scene
+    vr-mode-ui="enabled: true"
+    renderer="antialias: true; colorManagement: true"
+    background="color: #020617"
+  >
+    <!-- กล้อง + cursor เล็ง (ใช้ rayOrigin: mouse ให้คลิกได้ทั้ง PC/Mobile) -->
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera wasd-controls-enabled="false">
+        <a-entity
+          id="cursor"
+          cursor="fuse: false; rayOrigin: mouse"
+          raycaster="objects: [data-hha-tgt]"
+          geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+          material="shader: flat; color: #ffffff"
+          position="0 0 -0.9"
+        ></a-entity>
+      </a-camera>
+    </a-entity>
 
-  <!-- ===== SCENE WRAP / LOADING ===== -->
-  <div class="hha-scene-wrap">
-    <div class="hha-loading-msg">
-      💧 กำลังโหลดโหมด Hydration VR...
+    <!-- แสง + พื้น -->
+    <a-entity
+      light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"
+    ></a-entity>
+    <a-entity
+      light="type: directional; intensity: 0.7"
+      position="1 2 0.5"
+    ></a-entity>
+    <a-plane
+      position="0 0 0"
+      rotation="-90 0 0"
+      width="16"
+      height="16"
+      material="color: #020617;"
+    ></a-plane>
+
+    <!-- ตัวเกม: A-Frame component food-groups-game จะจัดการทั้งหมด -->
+    <a-entity id="fg-root" food-groups-game></a-entity>
+  </a-scene>
+
+  <!-- ===== HUD เหมือน GoodJunk ===== -->
+  <div class="hud-root">
+    <div class="hud-top">
+      <!-- ซ้ายบน: โหมด + เวลา + คะแนน -->
+      <div class="hud-card">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+          "
+        >
+          <div>
+            <div class="hud-main-title">Hero Health • Nutrition VR</div>
+            <div class="hud-main-mode">Food Groups</div>
+          </div>
+          <div class="hud-pill">
+            <span id="hud-diff-label">NORMAL</span>
+            <span>•</span>
+            <span id="hud-time-label">60s</span>
+          </div>
+        </div>
+
+        <div class="hud-metrics">
+          <div class="metric">
+            <div class="metric-label">คะแนน</div>
+            <div class="metric-value accent" id="hud-score">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ขวาบน: Goal + Mini quest -->
+      <div class="fg-quest-panel">
+        <div class="fg-quest-title">เป้าหมายวันนี้</div>
+
+        <div class="fg-quest-row">
+          <span class="fg-quest-label">GOAL</span>
+          <span class="fg-quest-main" id="hud-goal-main">
+            -
+          </span>
+          <span class="fg-quest-progress" id="hud-goal-progress">
+            0 / -
+          </span>
+        </div>
+
+        <div class="fg-quest-row">
+          <span class="fg-quest-label">MINI QUEST</span>
+          <span class="fg-quest-main" id="hud-mini-main">
+            -
+          </span>
+          <span class="fg-quest-progress" id="hud-mini-progress">
+            0 / -
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ล่างกลาง: โค้ชพูด -->
+    <div class="hud-bottom">
+      <div class="coach-bubble" id="coach-bubble">
+        <span class="coach-avatar">🥦</span>
+        <span class="coach-label">โค้ชโภชนาการ</span>
+        <span id="coach-text">แตะเป้าอาหารให้ทันเวลานะ!</span>
+      </div>
     </div>
   </div>
 
-  <!-- วงกลมเล็งกลางจอ -->
-  <div class="hha-crosshair"></div>
+  <!-- ชั้น DOM สำหรับเป้า emoji -->
+  <div id="fg-layer"></div>
 
-  <!-- ปุ่ม VR (จะถูกจัดตำแหน่งด้วย hydration-vr.css) -->
-  <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
+  <!-- ===== หน้าสรุปผลตอนจบเกม ===== -->
+  <div class="result-overlay" id="fg-result">
+    <div class="result-card">
+      <h2>สรุปผล • Food Groups VR</h2>
+      <p>คะแนนรวม: <strong id="fg-res-score">0</strong></p>
+      <p>ภารกิจสำเร็จ: <strong id="fg-res-quest">0 / 2</strong></p>
+      <p>Goal: <span id="fg-res-goal">-</span></p>
+      <p>Mini quest: <span id="fg-res-mini">-</span></p>
+      <hr />
+      <button id="fg-btn-retry">เล่นอีกครั้ง</button>
+      <button id="fg-btn-hub" style="margin-left:8px;background:linear-gradient(90deg,#38bdf8,#22c55e);">
+        กลับหน้า Hub
+      </button>
+    </div>
+  </div>
 
-  <!-- ===== SCRIPT ZONE ===== -->
+  <!-- ===== ระบบ Fever + FX ===== -->
+  <!-- Fever gauge + ไฟท่วมจอ (เป็น ES module + ผูก global FeverUI) -->
+  <script type="module" src="./vr/ui-fever.js"></script>
+  <!-- FX คะแนนเด้ง / เป้าแตก (ES module) -->
+  <script type="module" src="./vr/particles.js"></script>
 
-  <!-- 🎇 เอฟเฟกต์แตกกระจาย + GOOD / MISS / PERFECT -->
-  <script src="./vr/particles.js"></script>
+  <!-- ===== โมดูลเฉพาะ Food Groups ===== -->
+  <script src="./vr-groups/emoji-image.js"></script>
+  <script src="./vr-groups/difficulty.js"></script>
+  <script src="./vr-groups/logger-cloud.js"></script>
+  <!-- GameEngine ใช้ AFRAME.registerComponent + FeverUI + Particles -->
+  <script type="module" src="./vr-groups/GameEngine.js"></script>
 
-  <!-- 🌟 Fever gauge + Shield (ล่างซ้าย ใช้ร่วมทุกโหมด) -->
-  <script src="./vr/ui-fever.js"></script>
-
-  <!-- HUD เควสต์ / สกอร์ / Goal + Mini quest (มุมขวาบน) -->
-  <script type="module" src="./vr/quest-hud-vr.js"></script>
-
-  <!-- โค้ชหยดน้ำ (bubble ล่างกลาง) -->
-  <script type="module" src="./vr/coach-bubble.js"></script>
-
-  <!-- โหมด Hydration VR -->
-  <script type="module">
-    import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
-
-    // อ่าน URL param: ?diff=easy|normal|hard&time=60
-    const url = new URL(window.location.href);
-    let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
-    if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
-
-    let dur = parseInt(url.searchParams.get('time'), 10);
-    if (Number.isNaN(dur) || dur <= 0) dur = 60;
-    if (dur < 20)  dur = 20;
-    if (dur > 180) dur = 180;
-
-    // เริ่มโหมด Hydration
-    bootHydration({
-      difficulty: diff,
-      duration:   dur
-    }).then(inst => {
-      // ซ่อนข้อความโหลด
-      const wrap = document.querySelector('.hha-scene-wrap');
-      if (wrap) wrap.style.display = 'none';
-
-      // กัน memory leak ตอนออกหน้า
-      window.addEventListener('beforeunload', () => {
-        try {
-          if (inst && typeof inst.destroy === 'function') {
-            inst.destroy();
-          }
-        } catch (e) {
-          console.warn('[HydrationVR] destroy error on unload', e);
-        }
-      });
-    }).catch(err => {
-      console.error('[HydrationVR] boot error', err);
-      const msg = document.querySelector('.hha-loading-msg');
-      if (msg) {
-        msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
+  <!-- ===== HTML-side glue: HUD + Summary + Hub ===== -->
+  <script>
+    (function () {
+      // helper อ่าน query string
+      function getParam(name, fallback) {
+        const url = new URL(window.location.href);
+        const v = url.searchParams.get(name);
+        return v !== null && v !== '' ? v : fallback;
       }
-    });
+
+      const diffParam = String(getParam('diff', 'normal')).toLowerCase();
+      let timeParam = parseInt(getParam('time', '60'), 10);
+      if (isNaN(timeParam) || timeParam <= 0) timeParam = 60;
+      if (timeParam < 20) timeParam = 20;
+      if (timeParam > 180) timeParam = 180;
+
+      const elScore  = document.getElementById('hud-score');
+      const elDiff   = document.getElementById('hud-diff-label');
+      const elTime   = document.getElementById('hud-time-label');
+      const elCoach  = document.getElementById('coach-bubble');
+      const elCoachText = document.getElementById('coach-text');
+
+      const resOverlay = document.getElementById('fg-result');
+      const resScore   = document.getElementById('fg-res-score');
+      const resQuest   = document.getElementById('fg-res-quest');
+      const resGoal    = document.getElementById('fg-res-goal');
+      const resMini    = document.getElementById('fg-res-mini');
+      const btnRetry   = document.getElementById('fg-btn-retry');
+      const btnHub     = document.getElementById('fg-btn-hub');
+
+      elDiff.textContent = diffParam.toUpperCase();
+      elTime.textContent = timeParam + 's';
+      elScore.textContent = '0';
+
+      // coach helper
+      function setCoach(text) {
+        if (!text) return;
+        elCoachText.textContent = text;
+        elCoach.classList.add('show');
+      }
+
+      setCoach('แตะเป้าอาหารให้ทันเวลานะ!');
+
+      const scene = document.querySelector('a-scene');
+
+      // รับ event จาก GameEngine ตอนจบเกม
+      scene.addEventListener('fg-game-over', function (e) {
+        const d = e.detail || {};
+        resScore.textContent = d.score != null ? d.score : 0;
+
+        if (d.questsCleared != null) {
+          const total = d.questsTotal != null ? d.questsTotal : 2;
+          resQuest.textContent = d.questsCleared + ' / ' + total;
+        } else {
+          resQuest.textContent = '- / -';
+        }
+
+        resGoal.textContent = d.goal || '-';
+        resMini.textContent = d.miniQuest || '-';
+
+        resOverlay.classList.add('show');
+      });
+
+      // GameEngine อาจยิง event ให้โค้ชพูด (optional)
+      window.addEventListener('fg-coach', function (e) {
+        const msg = e.detail && e.detail.text;
+        if (msg) setCoach(msg);
+      });
+
+      // ปุ่มเล่นใหม่: โหลดหน้าเดิมพร้อม diff/time เดิม
+      if (btnRetry) {
+        btnRetry.addEventListener('click', function () {
+          const url = new URL(window.location.href);
+          url.searchParams.set('diff', diffParam);
+          url.searchParams.set('time', String(timeParam));
+          window.location.href = url.toString();
+        });
+      }
+
+      // ปุ่มกลับ Hub (เปลี่ยน path ได้ตามที่จัดวางไฟล์จริง)
+      if (btnHub) {
+        btnHub.addEventListener('click', function () {
+          window.location.href = './hub.html';
+        });
+      }
+
+      // แจ้ง GameEngine ให้เริ่มเกมเมื่อ scene โหลดแล้ว
+      scene.addEventListener('loaded', function () {
+        console.log('[GroupsVR] scene loaded → emit fg-start');
+        scene.emit('fg-start', { diff: diffParam, duration: timeParam });
+      });
+    })();
   </script>
 </body>
 </html>
