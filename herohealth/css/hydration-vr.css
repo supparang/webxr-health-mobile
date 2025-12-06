@@ -44,11 +44,11 @@ body{
 /* ---------- HYDRATION HUD ใต้ water bar (ไม่ให้โดนทับ) ---------- */
 
 .hha-quest-panel{
-  position:fixed;
-  left:50%;
-  transform:translateX(-50%);
-  top:150px !important;          /* <<< ดันลงจาก water bar แบบบังคับ */
-  z-index:830;
+  position:fixed !important;
+  left:50% !important;
+  transform:translateX(-50%) !important;
+  top:200px !important;          /* <<< ดันลงจาก water bar เยอะ ๆ */
+  z-index:830 !important;
   max-width:92vw;
 }
 
@@ -71,6 +71,11 @@ body{
 /* ---------- ปรับสำหรับจอเตี้ยมาก ๆ ---------- */
 @media (max-height:720px){
   .hha-quest-panel{
-    top:135px !important;
+    top:185px !important;
+  }
+}
+@media (max-height:640px){
+  .hha-quest-panel{
+    top:170px !important;
   }
 }
