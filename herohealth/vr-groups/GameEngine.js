@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (DOM targets + Goal / Mini quest HUD + shared FeverUI)
-// 2025-12-06 (size by difficulty)
+// 2025-12-06 (size by difficulty + target lifetime)
 
 (function (ns) {
   'use strict';
@@ -25,19 +25,17 @@
   const FEVER_HIT_GAIN  = 10;
   const FEVER_MISS_LOSS = 20;
 
-  // ขนาดเป้าตามระดับ (ตัวคูณของ .fg-target)
-  // อยากเล็ก/ใหญ่กว่านี้ ปรับเลขตรงนี้ได้เลย
+  // ขนาดเป้าตามระดับ
   const SIZE_BY_DIFF = {
-    easy:   0.90, // ง่าย: ใหญ่สุด
-    normal: 0.78, // ปกติ
-    hard:   0.66  // ยาก: เล็กสุด
+    easy:   0.90,
+    normal: 0.78,
+    hard:   0.66
   };
 
   // ---- Difficulty helper ----
   function getDiffConfig(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
-    // ดึงจาก difficulty.js ถ้ามี
     if (
       ns.foodGroupsDifficulty &&
       typeof ns.foodGroupsDifficulty.get === 'function'
@@ -46,26 +44,29 @@
       if (cfg) return cfg;
     }
 
-    // fallback ถ้าไม่มีไฟล์ difficulty.js
+    // fallback
     if (diffKey === 'easy') {
       return {
         spawnInterval: 1300,
         maxActive: 3,
-        sizeFactor: 1.0
+        sizeFactor: 1.0,
+        itemLifetime: 2600
       };
     }
     if (diffKey === 'hard') {
       return {
         spawnInterval: 800,
         maxActive: 5,
-        sizeFactor: 1.0
+        sizeFactor: 1.0,
+        itemLifetime: 1900
       };
     }
     // normal
     return {
       spawnInterval: 1100,
       maxActive: 4,
-      sizeFactor: 1.0
+      sizeFactor: 1.0,
+      itemLifetime: 2200
     };
   }
 
@@ -74,7 +75,6 @@
   const JUNK_EMOJI = ['🍩', '🍟', '🍕', '🥤', '🍰', '🍫', '🍭'];
 
   function pickEmoji(isGood) {
-    // ใช้โมดูล emoji-image ถ้ามี
     if (
       ns.emojiImage &&
       typeof ns.emojiImage.pick === 'function'
@@ -90,8 +90,8 @@
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe = 140;    // HUD บน + กล่อง goal
-    const bottomSafe = 160; // โค้ชด้านล่าง
+    const topSafe = 140;
+    const bottomSafe = 160;
 
     const left = w * 0.12;
     const right = w * 0.88;
@@ -138,17 +138,17 @@
       this.goodHits   = 0;
       this.missCount  = 0;
 
-      // goal / mini quest ค่า default (จะสุ่มใหม่ตอน startGame)
+      // goal / mini quest
       this.goalScore     = 150;
       this.goalGoodHits  = 12;
       this.goalText      = 'ทำคะแนนให้ได้อย่างน้อย 150 แต้ม';
       this.miniText      = 'เก็บอาหารดีให้ครบ 12 ชิ้น';
 
-      this.diffKey  = 'normal';
-      this.diffCfg  = getDiffConfig(this.diffKey);
+      this.diffKey   = 'normal';
+      this.diffCfg   = getDiffConfig(this.diffKey);
       this.sizeFactor = SIZE_BY_DIFF[this.diffKey] || 0.78;
 
-      // Fever state + UI
+      // Fever
       this.fever       = 0;
       this.feverActive = false;
       FeverUI.ensureFeverBar();
@@ -156,7 +156,7 @@
       FeverUI.setFeverActive(false);
       FeverUI.setShield(0);
 
-      // รอ event จาก HTML
+      // listen start event
       const startHandler = (e) => {
         const diff = (e.detail && e.detail.diff) || 'normal';
         this.startGame(diff);
@@ -166,25 +166,21 @@
       console.log('[GroupsVR] Game component initialized');
     },
 
-    // ---- helper อัปเดต Fever ----
     updateFever: function (delta) {
       this.fever = (this.fever || 0) + delta;
       if (this.fever < 0) this.fever = 0;
       if (this.fever > FEVER_MAX) this.fever = FEVER_MAX;
 
-      if (FeverUI && typeof FeverUI.setFever === 'function') {
+      if (FeverUI && FeverUI.setFever) {
         FeverUI.setFever(this.fever);
       }
-
       const active = this.fever >= FEVER_MAX;
-      if (FeverUI && typeof FeverUI.setFeverActive === 'function') {
+      if (FeverUI && FeverUI.setFeverActive) {
         FeverUI.setFeverActive(active);
       }
     },
 
-    // สุ่ม goal+mini quest ตามระดับ
     pickQuests: function () {
-      // ง่าย–ปกติ–ยาก: ตั้งช่วงสุ่มต่างกัน
       if (this.diffKey === 'easy') {
         this.goalScore    = 120 + Math.floor(Math.random() * 40); // 120–159
         this.goalGoodHits = 8 + Math.floor(Math.random() * 3);    // 8–10
@@ -234,11 +230,9 @@
       if (this.elScore) this.elScore.textContent = '0';
       if (this.elTime)  this.elTime.textContent  = '60s';
 
-      // สุ่มภารกิจใหม่ทุกเกม
       this.pickQuests();
       this.updateGoalHUD();
 
-      // reset fever
       this.fever       = 0;
       this.feverActive = false;
       FeverUI.ensureFeverBar();
@@ -283,7 +277,6 @@
       this.elapsed    += dt;
       this.spawnTimer += dt;
 
-      // เวลา
       const remain = Math.max(0, this.timeLimit - this.elapsed);
       if (this.elTime) {
         this.elTime.textContent = Math.ceil(remain / 1000) + 's';
@@ -293,7 +286,6 @@
         return;
       }
 
-      // spawn เป้า
       if (this.spawnTimer >= this.diffCfg.spawnInterval) {
         this.spawnTimer = 0;
         this.spawnTarget();
@@ -314,7 +306,7 @@
       el.style.left = pos.x + 'px';
       el.style.top  = pos.y + 'px';
 
-      // ★ ขนาดเป้าตามระดับความยาก
+      // ขนาดเป้าตามระดับ
       const baseScale =
         (this.diffCfg.sizeFactor || 1.0) *
         (this.sizeFactor || 0.78);
@@ -323,7 +315,9 @@
 
       const targetObj = {
         el,
-        isGood
+        isGood,
+        hit: false,
+        timeoutId: null
       };
       this.targets.push(targetObj);
 
@@ -337,6 +331,28 @@
       el.addEventListener('pointerdown', onHit);
 
       this.layer.appendChild(el);
+
+      // ★ อายุเป้า — ถ้าไม่ตีทันเวลาให้หายเอง
+      const ttl =
+        this.diffCfg.itemLifetime ||
+        this.diffCfg.ITEM_LIFETIME ||
+        2200;
+
+      targetObj.timeoutId = window.setTimeout(() => {
+        if (!this.running) return;
+        if (targetObj.hit) return;
+
+        // remove จากจอ
+        if (el.parentNode) el.parentNode.removeChild(el);
+        this.targets = this.targets.filter((t) => t !== targetObj);
+
+        // ถ้าเป็นอาหารดี → นับเป็น miss
+        if (targetObj.isGood) {
+          this.missCount += 1;
+          this.updateFever(-FEVER_MISS_LOSS * 0.5);
+          this.updateGoalHUD();
+        }
+      }, ttl);
     },
 
     handleHit: function (target, ev) {
@@ -344,17 +360,21 @@
       const el = target.el;
       if (!el || !el.parentNode) return;
 
+      target.hit = true;
+      if (target.timeoutId) {
+        clearTimeout(target.timeoutId);
+        target.timeoutId = null;
+      }
+
       const rect = el.getBoundingClientRect();
       const x = rect.left + rect.width / 2;
       const y = rect.top + rect.height / 2;
 
-      // คะแนน: good +10, junk -8
       if (target.isGood) {
         this.score    += 10;
         this.goodHits += 1;
         this.updateFever(FEVER_HIT_GAIN);
 
-        // FX คะแนน + แตกกระจาย (Particles ใช้ร่วม GoodJunk)
         if (window.HHA_Particles && window.HHA_Particles.scorePop) {
           window.HHA_Particles.scorePop(x, y, '+10', { good: true });
         }
@@ -377,7 +397,6 @@
       if (this.elScore) this.elScore.textContent = String(this.score);
       this.updateGoalHUD();
 
-      // เอฟเฟกต์หายไป
       el.classList.add('hit');
       setTimeout(() => {
         if (el.parentNode) el.parentNode.removeChild(el);
@@ -389,6 +408,7 @@
     clearTargets: function () {
       if (!this.layer) return;
       this.targets.forEach((t) => {
+        if (t.timeoutId) clearTimeout(t.timeoutId);
         if (t.el && t.el.parentNode) {
           t.el.parentNode.removeChild(t.el);
         }
