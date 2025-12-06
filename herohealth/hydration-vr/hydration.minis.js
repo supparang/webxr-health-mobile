@@ -1,140 +1,166 @@
 // === /herohealth/hydration-vr/hydration.minis.js ===
-// Mini quests ของโหมด Hydration
+// Mini quest ของ Hydration – ใช้สุ่ม 3/15
+// กลุ่ม “พลาดไม่เกิน …” จะถูกจัดให้ยากสุดและอยู่ท้าย pool
 
-import { mapHydrationState as G, normalizeHydrationDiff } from './hydration.state.js';
+import { mapHydrationState, normalizeHydrationDiff } from './hydration.state.js';
 
-export function hydrationMinisFor(diff) {
-  const D = normalizeHydrationDiff(diff);
+const MINI_TEMPLATES = [
+  // ---------- คะแนนย่อย ----------
+  {
+    id: 'm-score-1',
+    group: 'score',
+    tier: 1,
+    thresholds: { easy: 600, normal: 900, hard: 1200 },
+    makeLabel: v => `เก็บคะแนนอย่างน้อย ${v}+`,
+    check: (s, v) => s.score >= v
+  },
+  {
+    id: 'm-score-2',
+    group: 'score',
+    tier: 2,
+    thresholds: { easy: 900, normal: 1300, hard: 1700 },
+    makeLabel: v => `เก็บคะแนนอย่างน้อย ${v}+`,
+    check: (s, v) => s.score >= v
+  },
+  {
+    id: 'm-score-3',
+    group: 'score',
+    tier: 3,
+    thresholds: { easy: 1300, normal: 1800, hard: 2400 },
+    makeLabel: v => `เก็บคะแนนอย่างน้อย ${v}+`,
+    check: (s, v) => s.score >= v
+  },
 
-  const table = {
-    easy:   { score:  500, combo:  8, good: 12, miss: 8 },
-    normal: { score:  900, combo: 10, good: 18, miss: 6 },
-    hard:   { score: 1400, combo: 12, good: 24, miss: 4 }
-  };
-  const K = table[D] || table.normal;
+  // ---------- combo / สายคอมโบ ----------
+  {
+    id: 'm-combo-1',
+    group: 'combo',
+    tier: 1,
+    thresholds: { easy: 8, normal: 10, hard: 12 },
+    makeLabel: v => `ทำคอมโบต่อเนื่อง ≥ ${v}`,
+    check: (s, v) => s.comboMax >= v
+  },
+  {
+    id: 'm-combo-2',
+    group: 'combo',
+    tier: 2,
+    thresholds: { easy: 12, normal: 15, hard: 18 },
+    makeLabel: v => `ทำคอมโบต่อเนื่อง ≥ ${v}`,
+    check: (s, v) => s.comboMax >= v
+  },
 
-  return [
-    {
-      id: 'm_score',
-      label: `คะแนน ${K.score}+`,
-      target: K.score,
-      check: s => G(s).score >= K.score,
-      prog : s => Math.min(K.score, G(s).score)
-    },
+  // ---------- GREEN time ย่อย ----------
+  {
+    id: 'm-green-1',
+    group: 'green',
+    tier: 1,
+    thresholds: { easy: 15, normal: 20, hard: 25 },
+    makeLabel: v => `รักษาโซน GREEN รวม ≥ ${v}s`,
+    check: (s, v) => s.green >= v
+  },
+  {
+    id: 'm-green-2',
+    group: 'green',
+    tier: 2,
+    thresholds: { easy: 25, normal: 35, hard: 45 },
+    makeLabel: v => `รักษาโซน GREEN รวม ≥ ${v}s`,
+    check: (s, v) => s.green >= v
+  },
 
-    {
-      id: 'm_combo',
-      label: `คอมโบ ≥ ${K.combo}`,
-      target: K.combo,
-      check: s => G(s).comboMax >= K.combo,
-      prog : s => Math.min(K.combo, G(s).comboMax)
-    },
+  // ---------- ภารกิจยิงน้ำดี ----------
+  {
+    id: 'm-good-1',
+    group: 'good',
+    tier: 1,
+    thresholds: { easy: 18, normal: 24, hard: 30 },
+    makeLabel: v => `ยิงโดนน้ำดีอย่างน้อย ${v} ครั้ง`,
+    check: (s, v) => s.good >= v
+  },
+  {
+    id: 'm-good-2',
+    group: 'good',
+    tier: 2,
+    thresholds: { easy: 24, normal: 32, hard: 40 },
+    makeLabel: v => `ยิงโดนน้ำดีอย่างน้อย ${v} ครั้ง`,
+    check: (s, v) => s.good >= v
+  },
 
-    {
-      id: 'm_good',
-      label: `เก็บไฮเดรต ${K.good}`,
-      target: K.good,
-      check: s => G(s).good >= K.good,
-      prog : s => Math.min(K.good, G(s).good)
-    },
+  // ---------- ภารกิจเวลาเล่น ----------
+  {
+    id: 'm-time-1',
+    group: 'time',
+    tier: 1,
+    thresholds: { easy: 30, normal: 40, hard: 50 },
+    makeLabel: v => `เล่นไปอย่างน้อย ${v}s`,
+    check: (s, v) => s.tick >= v
+  },
+  {
+    id: 'm-time-2',
+    group: 'time',
+    tier: 2,
+    thresholds: { easy: 45, normal: 60, hard: 75 },
+    makeLabel: v => `เล่นไปอย่างน้อย ${v}s`,
+    check: (s, v) => s.tick >= v
+  },
 
-    {
-      id: 'm_nomiss',
-      label: `พลาดไม่เกิน ${K.miss}`,
-      target: K.miss,
-      check: s => G(s).miss <= K.miss,
-      prog : s => Math.max(0, K.miss - G(s).miss)
-    },
+  // ---------- กลุ่ม miss (ยากสุด – อยู่ท้าย) ----------
+  {
+    id: 'm-miss-soft',
+    group: 'miss',
+    tier: 2,
+    thresholds: { easy: 10, normal: 8, hard: 6 },
+    makeLabel: v => `ทั้งเกมพลาดไม่เกิน ${v}`,
+    check: (s, v) => s.miss <= v
+  },
+  {
+    id: 'm-miss-mid',
+    group: 'miss',
+    tier: 3,
+    thresholds: { easy: 8, normal: 6, hard: 4 },
+    makeLabel: v => `ทั้งเกมพลาดไม่เกิน ${v}`,
+    check: (s, v) => s.miss <= v
+  },
+  {
+    id: 'm-miss-hard',
+    group: 'miss',
+    tier: 4,
+    thresholds: { easy: 6, normal: 5, hard: 3 },
+    makeLabel: v => `ทั้งเกมพลาดไม่เกิน ${v}`,
+    check: (s, v) => s.miss <= v
+  }
+];
 
-    // ✅ ใช้ greenTick สำหรับเวลา GREEN
-    {
-      id: 'm_green12',
-      label: 'อยู่ GREEN 12s',
-      target: 12,
-      check: s => G(s).green >= 12,
-      prog : s => Math.min(12, G(s).green)
-    },
+export function hydrationMinisFor(diffRaw = 'normal') {
+  const diff = normalizeHydrationDiff(diffRaw);
 
-    {
-      id: 'm_time15',
-      label: 'อยู่รอด 15s',
-      target: 15,
-      check: s => G(s).tick >= 15,
-      prog : s => Math.min(15, G(s).tick)
-    },
+  const items = MINI_TEMPLATES.map(t => {
+    const v = t.thresholds[diff];
+    return {
+      id: `${t.id}-${diff}`,
+      group: t.group,
+      tier: t.tier,
+      label: t.makeLabel(v),
+      threshold: v,
+      check(stateRaw) {
+        const s = mapHydrationState(stateRaw);
+        return t.check(s, v);
+      }
+    };
+  });
 
-    {
-      id: 'm_combo12',
-      label: 'คอมโบ ≥ 12',
-      target: 12,
-      check: s => G(s).comboMax >= 12,
-      prog : s => Math.min(12, G(s).comboMax)
-    },
+  // non-miss ก่อน, miss ท้ายสุด, เรียงตาม tier เพื่อให้ง่าย → ยาก
+  const nonMiss = items
+    .filter(m => m.group !== 'miss')
+    .sort((a, b) => a.tier - b.tier || a.id.localeCompare(b.id));
 
-    {
-      id: 'm_score1100',
-      label: 'คะแนน 1100+',
-      target: 1100,
-      check: s => G(s).score >= 1100,
-      prog : s => Math.min(1100, G(s).score)
-    },
+  const missOnly = items
+    .filter(m => m.group === 'miss')
+    .sort((a, b) => a.tier - b.tier || a.id.localeCompare(b.id));
 
-    {
-      id: 'm_good16',
-      label: 'เก็บไฮเดรต 16',
-      target: 16,
-      check: s => G(s).good >= 16,
-      prog : s => Math.min(16, G(s).good)
-    },
+  const pool = [...nonMiss, ...missOnly];
 
-    {
-      id: 'm_nomiss4',
-      label: 'พลาด ≤ 4',
-      target: 4,
-      check: s => G(s).miss <= 4,
-      prog : s => Math.max(0, 4 - G(s).miss)
-    },
-
-    {
-      id: 'm_green8',
-      label: 'อยู่ GREEN 8s',
-      target: 8,
-      check: s => G(s).green >= 8,
-      prog : s => Math.min(8, G(s).green)
-    },
-
-    {
-      id: 'm_score800',
-      label: 'คะแนน 800+',
-      target: 800,
-      check: s => G(s).score >= 800,
-      prog : s => Math.min(800, G(s).score)
-    },
-
-    {
-      id: 'm_good10',
-      label: 'เก็บไฮเดรต 10',
-      target: 10,
-      check: s => G(s).good >= 10,
-      prog : s => Math.min(10, G(s).good)
-    },
-
-    {
-      id: 'm_combo10',
-      label: 'คอมโบ ≥ 10',
-      target: 10,
-      check: s => G(s).comboMax >= 10,
-      prog : s => Math.min(10, G(s).comboMax)
-    },
-
-    {
-      id: 'm_time25',
-      label: 'อยู่รอด 25s',
-      target: 25,
-      check: s => G(s).tick >= 25,
-      prog : s => Math.min(25, G(s).tick)
-    }
-  ];
+  // ใช้ 15 อันแรกสำหรับสุ่ม (MissionDeck จะแอคทีฟทีละ 3)
+  return pool.slice(0, 15);
 }
 
-export default hydrationMinisFor;
+export default { hydrationMinisFor };
