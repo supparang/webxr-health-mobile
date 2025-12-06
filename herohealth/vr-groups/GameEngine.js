@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (DOM targets + Goal / Mini quest + FeverUI)
+// Food Groups VR — Game Engine (DOM targets + Goal / Mini quest + FeverUI + Coach + FX)
 // 2025-12-06
 
 (function (ns) {
@@ -25,8 +25,37 @@
   const FEVER_HIT_GAIN  = 10;
   const FEVER_MISS_LOSS = 15;
 
+  // ---------- Coach / FX style ----------
+  function ensureFxStyle() {
+    if (document.getElementById('fg-fx-style')) return;
+    const st = document.createElement('style');
+    st.id = 'fg-fx-style';
+    st.textContent = `
+      .fg-fx {
+        position:fixed;
+        z-index:90;
+        pointer-events:none;
+        transform:translate(-50%, -50%);
+        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
+        font-size:18px;
+        font-weight:700;
+        text-shadow:0 0 12px rgba(15,23,42,.9);
+        opacity:0;
+        animation:fg-fx-pop .55s ease-out forwards;
+      }
+      .fg-fx--good { color:#bbf7d0; }
+      .fg-fx--bad  { color:#fecaca; }
+      .fg-fx--power{ color:#facc15; }
+      @keyframes fg-fx-pop{
+        0%   { transform:translate(-50%, -50%) scale(.8); opacity:0; }
+        20%  { transform:translate(-50%, -60%) scale(1.05); opacity:1; }
+        100% { transform:translate(-50%, -90%) scale(.9); opacity:0; }
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
   // ---------- Quest pools ----------
-  // kind: 'score' | 'goodHits'
   const GOAL_POOL = [
     {
       id: 'G_SCORE_150',
@@ -66,7 +95,7 @@
     },
     {
       id: 'G_MIX_1',
-      label: 'ทำคะแนนและอาหารดีให้ถึงเป้า (คะแนน 160+, อาหารดี ≥ 14 ชิ้น)',
+      label: 'คะแนน 160+ และอาหารดี ≥ 14 ชิ้น',
       kind: 'mixed1',
       easy:  { score: 120, good: 10 },
       normal:{ score: 160, good: 14 },
@@ -74,7 +103,7 @@
     },
     {
       id: 'G_MIX_2',
-      label: 'เล่นจบโดยเก็บอาหารดีเยอะและไม่โดนขยะมาก',
+      label: 'เก็บคะแนนและอาหารดีถึงเป้าตามระดับ',
       kind: 'mixed2',
       easy:  { score: 130, good: 10 },
       normal:{ score: 170, good: 14 },
@@ -82,13 +111,13 @@
     },
     {
       id: 'G_SCORE_100',
-      label: 'อุ่นเครื่องให้ได้อย่างน้อย 100 แต้ม',
+      label: 'อุ่นเครื่องอย่างน้อย 100 แต้ม',
       kind: 'score',
       easy: 80, normal: 100, hard: 130
     },
     {
       id: 'G_GOOD_10',
-      label: 'เริ่มต้นด้วยอาหารดี 10 ชิ้น',
+      label: 'เริ่มจากอาหารดี 10 ชิ้น',
       kind: 'goodHits',
       easy: 7, normal: 10, hard: 14
     }
@@ -101,18 +130,18 @@
     { id: 'M_GOOD_6',    label: 'เก็บอาหารดีอย่างน้อย 6 ชิ้น', kind: 'goodHits', easy: 4,  normal: 6,   hard: 8   },
     { id: 'M_GOOD_8',    label: 'เก็บอาหารดีอย่างน้อย 8 ชิ้น', kind: 'goodHits', easy: 5,  normal: 8,   hard: 10  },
     { id: 'M_GOOD_10',   label: 'เก็บอาหารดีอย่างน้อย 10 ชิ้น',kind: 'goodHits', easy: 6,  normal: 10,  hard: 12  },
-    { id: 'M_GOOD_4',    label: 'เริ่มจากเก็บอาหารดี 4 ชิ้นให้ได้ก่อน',kind: 'goodHits', easy: 3, normal: 4, hard: 5 },
+    { id: 'M_GOOD_4',    label: 'เริ่มจากอาหารดี 4 ชิ้นให้ได้ก่อน',kind: 'goodHits', easy: 3, normal: 4, hard: 5 },
     { id: 'M_SCORE_40',  label: 'เก็บคะแนนแรกให้ถึง 40 แต้ม', kind: 'score', easy: 30, normal: 40, hard: 60 },
     { id: 'M_SCORE_80',  label: 'เก็บคะแนนเพิ่มให้ถึง 80 แต้ม',kind: 'score', easy: 50, normal: 80, hard: 100 },
     { id: 'M_GOOD_12',   label: 'ลองเก็บอาหารดี 12 ชิ้นดู',   kind: 'goodHits', easy: 8, normal: 12, hard: 14 },
     { id: 'M_SCORE_30',  label: 'วอร์มอัพ 30 แต้มแรก',         kind: 'score', easy: 20, normal: 30, hard: 45 },
     { id: 'M_GOOD_5',    label: 'อย่าให้พลาด เก็บอาหารดี 5 ชิ้น',kind: 'goodHits', easy: 3, normal: 5, hard: 7 },
-    { id: 'M_SCORE_50',  label: 'ทำคะแนนเก็บเพิ่มอีกให้ถึง 50 แต้ม',kind: 'score', easy: 35, normal: 50, hard: 70 },
+    { id: 'M_SCORE_50',  label: 'ทำคะแนนเก็บเพิ่มให้ถึง 50 แต้ม',kind: 'score', easy: 35, normal: 50, hard: 70 },
     { id: 'M_GOOD_7',    label: 'เก็บอาหารดี 7 ชิ้นให้ได้',    kind: 'goodHits', easy: 4, normal: 7, hard: 9 },
     { id: 'M_GOOD_9',    label: 'ท้าทาย! อาหารดี 9 ชิ้น',      kind: 'goodHits', easy: 6, normal: 9, hard: 11 }
   ];
 
-  // ---------- Difficulty helper ----------
+  // ---------- Utils ----------
   function getDiffConfig(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
@@ -121,7 +150,6 @@
       if (cfg) return cfg;
     }
 
-    // fallback
     if (diffKey === 'easy') {
       return {
         spawnInterval: 1400,
@@ -138,7 +166,6 @@
         lifeTime: 2200
       };
     }
-    // normal
     return {
       spawnInterval: 1200,
       maxActive: 4,
@@ -169,7 +196,6 @@
   const JUNK_EMOJI_FALLBACK = ['🍩', '🍟', '🍕', '🥤', '🍰', '🍫', '🍭'];
 
   function chooseEmoji(kind) {
-    // ถ้ามี emojiImage จริง ใช้เลย
     if (ns.emojiImage && typeof ns.emojiImage.pick === 'function') {
       const ch = ns.emojiImage.pick(kind);
       const info = (typeof ns.emojiImage.getInfo === 'function')
@@ -185,12 +211,10 @@
       };
     }
 
-    // fallback
     if (kind === 'junk') {
       const ch = JUNK_EMOJI_FALLBACK[Math.floor(Math.random() * JUNK_EMOJI_FALLBACK.length)];
       return { emoji: ch, isGood: false, itemType: 'food', group: 'junk' };
     }
-    // star / diamond / shield fallback เป็น emoji ตรงตัว
     if (kind === 'star')    return { emoji: '⭐', isGood: true, itemType: 'star',    group: 'power' };
     if (kind === 'diamond') return { emoji: '💎', isGood: true, itemType: 'diamond', group: 'power' };
     if (kind === 'shield')  return { emoji: '🛡️', isGood: true, itemType: 'shield',  group: 'power' };
@@ -204,8 +228,8 @@
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe    = 120;  // HUD บน
-    const bottomSafe = 150;  // Coach + Fever ล่าง
+    const topSafe    = 120;
+    const bottomSafe = 150;
 
     const left  = w * 0.15;
     const right = w * 0.85;
@@ -224,6 +248,8 @@
       const scene = this.el.sceneEl;
       this.scene = scene;
 
+      ensureFxStyle();
+
       // DOM layer สำหรับเป้า
       this.layer = document.getElementById('fg-layer');
       if (!this.layer) {
@@ -240,16 +266,24 @@
       this.elMiniMain  = document.getElementById('hud-mini-main');
       this.elMiniProg  = document.getElementById('hud-mini-progress');
 
+      // coach
+      this.elCoachBubble = document.getElementById('coach-bubble');
+      this.elCoachText   = document.getElementById('coach-text');
+      this.lastCoachAt   = 0;
+
       // state
       this.running     = false;
       this.elapsed     = 0;
-      this.timeLimit   = 60000; // ms
+      this.timeLimit   = 60000;
       this.spawnTimer  = 0;
       this.targets     = [];
       this.score       = 0;
       this.goodHits    = 0;
       this.junkHits    = 0;
       this.missCount   = 0;
+
+      this.goodStreak  = 0;
+      this.badStreak   = 0;
 
       // Fever + shield
       this.fever       = 0;
@@ -272,7 +306,7 @@
       this.goalLimit     = 2;
       this.miniLimit     = 3;
 
-      // รอ event จาก HTML
+      // event จาก HTML
       const startHandler = (e) => {
         const diff = (e.detail && e.detail.diff) || 'normal';
         this.startGame(diff);
@@ -282,13 +316,24 @@
       console.log('[GroupsVR] Game component initialized');
     },
 
-    // ---------- helper ----------
+    // ---------- Coach helper ----------
+    coachSay: function (text, minGapMs) {
+      minGapMs = minGapMs || 1200;
+      const now = performance.now ? performance.now() : Date.now();
+      if (now - this.lastCoachAt < minGapMs) return;
+      this.lastCoachAt = now;
+
+      if (!this.elCoachText || !this.elCoachBubble) return;
+      this.elCoachText.textContent = text;
+      this.elCoachBubble.classList.add('show');
+    },
+
+    // ---------- Quest helper ----------
     getMetric: function (kind) {
       switch (kind) {
         case 'score':    return this.score;
         case 'goodHits': return this.goodHits;
-        default:
-          return 0;
+        default:         return 0;
       }
     },
 
@@ -302,6 +347,11 @@
       }
 
       const active = this.fever >= FEVER_MAX;
+      if (active && !this.feverActive) {
+        this.coachSay('FEVER! ตีให้สุดเลย! 🔥', 500);
+      }
+      this.feverActive = active;
+
       if (FeverUI && typeof FeverUI.setFeverActive === 'function') {
         FeverUI.setFeverActive(active);
       }
@@ -310,7 +360,6 @@
     setupQuests: function () {
       const diff = this.diffKey || 'normal';
 
-      // สุ่ม goal 2 จาก 10
       const gList = shuffle(GOAL_POOL).slice(0, this.goalLimit);
       this.goalQueue = gList.map((q) => {
         let target;
@@ -320,14 +369,9 @@
         } else {
           target = getQuestTarget(q, diff);
         }
-        return {
-          def: q,
-          target: target,
-          done: false
-        };
+        return { def: q, target, done: false };
       });
 
-      // สุ่ม mini 3 จาก 15
       const mList = shuffle(MINI_POOL).slice(0, this.miniLimit);
       this.miniQueue = mList.map((q) => ({
         def: q,
@@ -349,18 +393,18 @@
       const idxKey     = type === 'goal' ? 'goalIndex' : 'miniIndex';
       const clearedKey = type === 'goal' ? 'goalsCleared' : 'miniCleared';
 
-      let idx = this[idxKey] || 0;
+      let idx     = this[idxKey] || 0;
+      const prevCleared = this[clearedKey] || 0;
 
       while (idx < list.length) {
-        const q = list[idx];
+        const q   = list[idx];
+        const def = q.def;
         if (q.done) {
           idx++;
           continue;
         }
 
-        const def = q.def;
         let ok = false;
-
         if (def.kind === 'score') {
           ok = this.score >= q.target;
         } else if (def.kind === 'goodHits') {
@@ -375,17 +419,23 @@
           q.done = true;
           this[clearedKey] = (this[clearedKey] || 0) + 1;
           idx++;
-          // loop ต่อเผื่อค่าปัจจุบันเกินเป้าของหลายภารกิจ
           continue;
         }
-        break; // ภารกิจนี้ยังไม่จบ → เป็นตัว active
+        break;
+      }
+
+      if (this[clearedKey] > prevCleared) {
+        if (type === 'goal') {
+          this.coachSay('เยี่ยม! ทำตามเป้าหมายหลักได้แล้ว ✅', 800);
+        } else {
+          this.coachSay('มินิภารกิจผ่านแล้ว ไปต่อเลย! ⭐', 800);
+        }
       }
 
       this[idxKey] = Math.min(idx, list.length);
     },
 
     updateQuestHUD: function () {
-      // Goal
       if (this.elGoalMain && this.elGoalProg) {
         let text = '-';
         let prog = '-';
@@ -395,23 +445,18 @@
             text = 'ทำครบทุกเป้าหมายหลักแล้ว';
             prog = this.goalsCleared + ' / ' + this.goalQueue.length;
           } else {
-            const q = this.goalQueue[this.goalIndex];
+            const q   = this.goalQueue[this.goalIndex];
             const def = q.def;
             text = def.label;
 
-            let cur = 0;
-            if (def.kind === 'score')      cur = this.score;
-            else if (def.kind === 'goodHits') cur = this.goodHits;
-            else if (def.kind === 'mixed1' || def.kind === 'mixed2') {
+            if (def.kind === 'mixed1' || def.kind === 'mixed2') {
               const t = q.target || {};
-              prog = `คะแนน ${this.score}/${t.score || 0}, อาหารดี ${this.goodHits}/${t.good || 0}`;
+              prog = `คะแนน ${this.score}/${t.score || 0}, ดี ${this.goodHits}/${t.good || 0}`;
+              if (q.done) prog += ' ✓';
+            } else {
+              const cur = (def.kind === 'score') ? this.score : this.goodHits;
+              prog = cur + ' / ' + q.target + (q.done ? ' ✓' : '');
             }
-
-            if (def.kind !== 'mixed1' && def.kind !== 'mixed2') {
-              prog = cur + ' / ' + q.target;
-            }
-
-            if (q.done) prog += ' ✓';
           }
         }
 
@@ -419,7 +464,6 @@
         this.elGoalProg.textContent = prog;
       }
 
-      // Mini quest
       if (this.elMiniMain && this.elMiniProg) {
         let text = '-';
         let prog = '-';
@@ -429,16 +473,12 @@
             text = 'ทำครบมินิภารกิจแล้ว';
             prog = this.miniCleared + ' / ' + this.miniQueue.length;
           } else {
-            const q = this.miniQueue[this.miniIndex];
+            const q   = this.miniQueue[this.miniIndex];
             const def = q.def;
             text = def.label;
 
-            let cur = 0;
-            if (def.kind === 'score')      cur = this.score;
-            else if (def.kind === 'goodHits') cur = this.goodHits;
-
-            prog = cur + ' / ' + q.target;
-            if (q.done) prog += ' ✓';
+            const cur = (def.kind === 'score') ? this.score : this.goodHits;
+            prog = cur + ' / ' + q.target + (q.done ? ' ✓' : '');
           }
         }
 
@@ -461,11 +501,12 @@
       this.goodHits   = 0;
       this.junkHits   = 0;
       this.missCount  = 0;
+      this.goodStreak = 0;
+      this.badStreak  = 0;
 
       if (this.elScore) this.elScore.textContent = '0';
       if (this.elTime)  this.elTime.textContent  = '60s';
 
-      // Fever + shield reset
       this.fever       = 0;
       this.feverActive = false;
       this.shield      = 0;
@@ -474,9 +515,10 @@
       FeverUI.setFeverActive(false);
       FeverUI.setShield(0);
 
-      // quests
       this.setupQuests();
       this.updateQuestHUD();
+
+      this.coachSay('เกมเริ่มแล้ว! เลือกอาหารดี ๆ ให้ทันเวลานะ 🥦', 0);
 
       console.log('[GroupsVR] startGame', this.diffKey, this.diffCfg);
     },
@@ -505,6 +547,8 @@
       };
 
       scene.emit('fg-game-over', detail);
+      this.coachSay('ยอดมาก! มาดูสรุปผลกันเลย 🎉', 0);
+
       console.log('[GroupsVR] game over', detail);
     },
 
@@ -517,7 +561,6 @@
       this.elapsed    += dt;
       this.spawnTimer += dt;
 
-      // เวลา
       const remain = Math.max(0, this.timeLimit - this.elapsed);
       if (this.elTime) {
         this.elTime.textContent = Math.ceil(remain / 1000) + 's';
@@ -527,10 +570,8 @@
         return;
       }
 
-      // อัปเดตอายุเป้า / ลบเป้าที่หมดเวลา
       this.updateTargets(dt);
 
-      // spawn เป้าใหม่
       if (this.spawnTimer >= this.diffCfg.spawnInterval) {
         this.spawnTimer = 0;
         this.spawnTarget();
@@ -546,19 +587,37 @@
         t.age += dt;
 
         if (t.age >= life) {
-          // เป้าหมดเวลา → ลบออก และนับ miss เล็กน้อย
           if (t.el && t.el.parentNode) {
             t.el.parentNode.removeChild(t.el);
           }
           this.targets.splice(i, 1);
 
-          // ถ้าเป็นอาหารดี พลาดจะถือว่า miss เล็กน้อย / ลด fever เล็กน้อย
           if (t.itemType === 'food' && t.isGood) {
             this.missCount += 1;
+            this.badStreak += 1;
+            this.goodStreak = 0;
             this.updateFever(-FEVER_MISS_LOSS * 0.5);
+
+            if (this.badStreak >= 3) {
+              this.coachSay('ลองโฟกัสที่อาหารดีให้มากขึ้นนะ 🍎', 1200);
+            }
           }
         }
       }
+    },
+
+    // ---------- FX ----------
+    spawnFxText: function (x, y, text, kind) {
+      const el = document.createElement('div');
+      el.className = 'fg-fx ' + (kind || '');
+      el.textContent = text;
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+
+      document.body.appendChild(el);
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 600);
     },
 
     // ---------- Spawn / Hit ----------
@@ -566,7 +625,6 @@
       if (!this.layer) return;
       if (this.targets.length >= this.diffCfg.maxActive) return;
 
-      // สุ่มชนิดไอเท็ม
       const r = Math.random();
       let kind = 'good';
       if (r < 0.55) {
@@ -590,16 +648,21 @@
       el.style.left = pos.x + 'px';
       el.style.top  = pos.y + 'px';
 
-      // scale ตามระดับความยาก
       const baseScale = this.diffCfg.sizeFactor || 1.0;
       el.style.transform = 'translate(-50%, -50%) scale(' + baseScale + ')';
 
       const targetObj = {
         el,
         isGood: info.isGood,
-        itemType: info.itemType || (kind === 'shield' ? 'shield' : (kind === 'star' ? 'star' : (kind === 'diamond' ? 'diamond' : 'food'))),
+        itemType: info.itemType || (
+          kind === 'shield'  ? 'shield'  :
+          kind === 'star'    ? 'star'    :
+          kind === 'diamond' ? 'diamond' : 'food'
+        ),
         group: info.group || null,
-        age: 0
+        age: 0,
+        x: pos.x,
+        y: pos.y
       };
       this.targets.push(targetObj);
 
@@ -621,43 +684,78 @@
       if (!el || !el.parentNode) return;
 
       const type = target.itemType || 'food';
+      const x = target.x;
+      const y = target.y;
+
+      let fxText = '';
+      let fxKind = 'fg-fx--good';
 
       if (type === 'food') {
         if (target.isGood) {
           this.score    += 10;
           this.goodHits += 1;
+          this.goodStreak += 1;
+          this.badStreak = 0;
           this.updateFever(FEVER_HIT_GAIN);
+
+          fxText = '+10';
+          fxKind = 'fg-fx--good';
+
+          if (this.goodStreak === 3) {
+            this.coachSay('สุดยอด! เลือกอาหารดีติดกันเลย 👏', 1000);
+          }
         } else {
-          // ถ้ามี shield ให้กันความเสียหาย
           if (this.shield > 0) {
             this.shield -= 1;
             FeverUI.setShield(this.shield);
+            fxText = 'Shield!';
+            fxKind = 'fg-fx--power';
+            this.coachSay('เกราะกันไว้ทันพอดีเลย 🛡️', 1200);
           } else {
             this.score = Math.max(0, this.score - 8);
             this.junkHits += 1;
             this.missCount += 1;
+            this.badStreak += 1;
+            this.goodStreak = 0;
             this.updateFever(-FEVER_MISS_LOSS);
+
+            fxText = '-8';
+            fxKind = 'fg-fx--bad';
+
+            if (this.badStreak >= 2) {
+              this.coachSay('ระวังขยะหน่อยนะ ลองเล็งให้ดีขึ้น 🧠', 1200);
+            }
           }
         }
       } else if (type === 'star') {
         this.score += 20;
         this.updateFever(25);
+        fxText = '+20 ⭐';
+        fxKind = 'fg-fx--power';
+        this.coachSay('ดาวพิเศษ! คะแนนพุ่งเลย ⭐', 1200);
       } else if (type === 'diamond') {
         this.score += 30;
         this.updateFever(35);
+        fxText = '+30 💎';
+        fxKind = 'fg-fx--power';
+        this.coachSay('เพชรพลังงาน! เก็บได้เยี่ยม 💎', 1200);
       } else if (type === 'shield') {
         this.shield = Math.min(3, (this.shield || 0) + 1);
         FeverUI.setShield(this.shield);
+        fxText = 'Shield +1';
+        fxKind = 'fg-fx--power';
       }
 
       if (this.elScore) this.elScore.textContent = String(this.score);
 
-      // อัปเดต quest
       this.evaluateQuestList(this.goalQueue, 'goal');
       this.evaluateQuestList(this.miniQueue, 'mini');
       this.updateQuestHUD();
 
-      // เอฟเฟกต์หายไป
+      if (fxText) {
+        this.spawnFxText(x, y, fxText, fxKind);
+      }
+
       el.classList.add('hit');
       setTimeout(() => {
         if (el.parentNode) el.parentNode.removeChild(el);
