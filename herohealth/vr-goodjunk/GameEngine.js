@@ -1,9 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Coach
-// (2025-12-06, shared FeverUI + quest-director 2/10 & 3/15)
-
-import { makeQuestDirector } from './quest-director.js';
-import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
+// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Powerups + Coach
+// (2025-12-06, shared FeverUI + STAR/DIAMOND/SHIELD)
 
 'use strict';
 
@@ -18,18 +15,24 @@ export const GameEngine = (function () {
       setShield() {}
     };
 
-  // ---------- emoji ชุดอาหาร ----------
+  // ---------- emoji ชุดอาหาร + powerups ----------
   const GOOD = [
     '🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛',
     '🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑'
   ];
-  const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
+  const JUNK  = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
 
-  // ---------- ค่าพื้นฐาน (ปรับตาม diff) ----------
+  const STAR        = '⭐';
+  const DIA         = '💎';
+  const SHIELD_ICON = '🛡️';
+  const POWERUP_SET = [STAR, DIA, SHIELD_ICON];
+
+  // ---------- ค่าพื้นฐาน (จะถูก override ตาม diff) ----------
   let GOOD_RATE       = 0.65;
   let SPAWN_INTERVAL  = 900;
   let TARGET_LIFETIME = 900;
   let MAX_ACTIVE      = 4;
+  const POWER_RATE    = 0.14;   // โอกาส spawn powerup (ที่เหลือเป็น good / junk)
 
   // Fever
   const FEVER_MAX       = 100;
@@ -42,7 +45,6 @@ export const GameEngine = (function () {
   let spawnTimer = null;
   let activeTargets = [];
 
-  // Core state
   let score    = 0;
   let combo    = 0;
   let comboMax = 0;
@@ -55,9 +57,26 @@ export const GameEngine = (function () {
   let feverActive = false;
   let feverTimer  = null;
 
-  // Quest director (2 goals / 3 minis จาก 10/15)
-  let quest    = null;
-  let timeLeft = 60;   // จะ sync จาก hha:time ของ HTML
+  // Shield state
+  let shield = 0;           // จำนวนเกราะปัจจุบัน (0–3)
+
+  // ---------- Quest state (ง่าย ๆ ชุดเดียว) ----------
+  const GOAL = {
+    label: 'เก็บอาหารดีให้ครบ 25 ชิ้น',
+    prog: 0,
+    target: 25,
+    done: false
+  };
+
+  const MINI = {
+    label: 'รักษาคอมโบให้ถึง x5 อย่างน้อย 1 ครั้ง',
+    prog: 0,
+    target: 1,
+    done: false
+  };
+
+  // threshold คอมโบที่ใช้สำหรับ Mini (จะสุ่มตาม diff)
+  let miniComboNeed = 5;
 
   // ---------- Emoji → texture cache ----------
   const emojiTexCache = new Map();
@@ -103,28 +122,11 @@ export const GameEngine = (function () {
     return v < min ? min : (v > max ? max : v);
   }
 
-  // state ปัจจุบันส่งให้ quest-director
-  function questState() {
-    return {
-      score,
-      goodHits: goodHit,
-      miss: misses,
-      comboMax,
-      timeLeft
-    };
+  function randInt(min, max){
+    return Math.floor(min + Math.random() * (max - min + 1));
   }
 
-  // sync เวลา (จาก goodjunk-vr.html ที่ยิง hha:time)
-  window.addEventListener('hha:time', (e) => {
-    const sec = e && e.detail && typeof e.detail.sec === 'number'
-      ? e.detail.sec
-      : null;
-    if (sec === null) return;
-    timeLeft = sec;
-    if (quest) quest.update(questState());
-  });
-
-  // ---------- Fever (ใช้ร่วม FeverUI + event hha:fever) ----------
+  // ---------- Fever (ใช้ร่วม FeverUI + hha:fever) ----------
   function setFever(value, stateHint) {
     fever = clamp(value, 0, FEVER_MAX);
 
@@ -135,7 +137,7 @@ export const GameEngine = (function () {
     emit('hha:fever', {
       state: stateHint || (feverActive ? 'active' : 'charge'),
       value: fever,
-      max: FEVER_MAX
+      max:   FEVER_MAX
     });
   }
 
@@ -174,6 +176,67 @@ export const GameEngine = (function () {
     emit('hha:fever', { state:'end', value: fever, max: FEVER_MAX });
   }
 
+  // ---------- Quest ----------
+  function pushQuest(hint) {
+    const goalObj = {
+      label: GOAL.label,
+      prog:  Math.min(GOAL.prog, GOAL.target),
+      target:GOAL.target,
+      done:  GOAL.done
+    };
+    const miniObj = {
+      label: MINI.label,
+      prog:  Math.min(MINI.prog, MINI.target),
+      target:MINI.target,
+      done:  MINI.done
+    };
+
+    emit('quest:update', {
+      goal:     goalObj,
+      mini:     miniObj,
+      goalsAll: [goalObj],
+      minisAll: [miniObj],
+      hint:     hint || ''
+    });
+  }
+
+  function updateGoalFromGoodHit() {
+    GOAL.prog = goodHit;
+    if (!GOAL.done && GOAL.prog >= GOAL.target) {
+      GOAL.done = true;
+      coach('ภารกิจหลักสำเร็จแล้ว! เก็บผัก ผลไม้ครบตามเป้าแล้ว 🎉');
+      pushQuest('Goal สำเร็จแล้ว');
+    } else {
+      pushQuest('');
+    }
+  }
+
+  function updateMiniFromCombo() {
+    if (!MINI.done && combo >= miniComboNeed) {
+      MINI.prog = 1;
+      MINI.done = true;
+      coach(
+        `สุดยอด! คอมโบถึง x${miniComboNeed} แล้ว Mini quest ผ่านเรียบร้อย 🎯`
+      );
+      pushQuest('Mini quest สำเร็จแล้ว');
+    } else {
+      pushQuest('');
+    }
+  }
+
+  function emitEnd() {
+    emit('hha:end', {
+      mode: 'Good vs Junk (VR)',
+      score,
+      comboMax,
+      misses,
+      goalsCleared: GOAL.done ? 1 : 0,
+      goalsTotal:   1,
+      miniCleared:  MINI.done ? 1 : 0,
+      miniTotal:    1
+    });
+  }
+
   // ---------- ลบเป้า ----------
   function removeTarget(el) {
     activeTargets = activeTargets.filter(t => t !== el);
@@ -182,45 +245,44 @@ export const GameEngine = (function () {
     }
   }
 
-  // ---------- สร้างเป้า (emoji pop กลางจอ กระจายทั่ว) ----------
+  // ---------- สร้างเป้า (emoji pop กลางจอ) ----------
   function createTargetEntity(emoji, kind) {
     if (!sceneEl) return null;
 
     const root = document.createElement('a-entity');
 
-    // กล้องประมาณ (0,1.6,0) → ยิงในกรอบกลางจอ
-    const x = -1.0 + Math.random() * 2.0;   // -1 ถึง +1
-    const y =  1.4 + Math.random() * 1.0;   // 1.4–2.4
+    // กล้องอยู่ประมาณ (0,1.6,0)
+    // → ให้สุ่มในกรอบกลางจอ: x ~ [-0.7,0.7], y ~ [1.4,2.1]
+    const x = -0.7 + Math.random() * 1.4;
+    const y =  1.4 + Math.random() * 0.7;
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
     root.setAttribute('scale', { x: 1, y: 1, z: 1 });
     root.classList.add('gj-target');
-    root.dataset.kind = kind;
+    root.dataset.kind  = kind;
     root.dataset.emoji = emoji;
 
-    // วงกลมพื้นหลัง
     const circle = document.createElement('a-circle');
-    circle.setAttribute('radius', kind === 'good' ? 0.45 : 0.4);
+    circle.setAttribute('radius', kind === 'junk' ? 0.38 : 0.45);
     circle.setAttribute('material', {
-      color: kind === 'good' ? '#22c55e' : '#f97316',
+      color:   kind === 'junk' ? '#f97316' : '#22c55e',
       opacity: 0.32,
       metalness: 0,
       roughness: 1
     });
 
-    // emoji sprite
     const sprite = document.createElement('a-plane');
     sprite.setAttribute('width', 0.8);
-    sprite.setAttribute('height', 0.8);
+    sprite.setAttribute('height',0.8);
     sprite.setAttribute('position', { x: 0, y: 0, z: 0.01 });
     sprite.setAttribute('material', {
-      src: getEmojiTexture(emoji),
+      src:         getEmojiTexture(emoji),
       transparent: true,
-      alphaTest: 0.01
+      alphaTest:   0.01
     });
 
-    // ★ geometry ที่ถูกยิงต้องมี data-hha-tgt ให้ raycaster เจอ
+    // ★ geometry ที่ raycaster ยิงได้
     circle.setAttribute('data-hha-tgt', '1');
     sprite.setAttribute('data-hha-tgt', '1');
 
@@ -232,7 +294,6 @@ export const GameEngine = (function () {
     root.appendChild(sprite);
     sceneEl.appendChild(root);
 
-    // อยู่แป๊บเดียวแล้วหาย (ไม่ตกลงมา)
     setTimeout(() => {
       if (!running) return;
       if (!root.parentNode) return;
@@ -250,6 +311,47 @@ export const GameEngine = (function () {
     const kind = el.dataset.kind || 'junk';
     removeTarget(el);
 
+    // ----- Powerups -----
+    if (kind === 'star') {
+      const base = 60;
+      const mult = feverActive ? 2 : 1;
+      score += base * mult;
+
+      setFever(fever + 28, 'charge');
+
+      coach('ได้ ⭐ โบนัสใหญ่! คะแนนพุ่งเลย ✨');
+      emitScore();
+      pushQuest('');
+      return;
+    }
+
+    if (kind === 'diamond') {
+      const base = 90;
+      const mult = feverActive ? 2 : 1;
+      score += base * mult;
+
+      setFever(fever + 40, 'charge');
+
+      coach('ว้าว! 💎 เพชรโภชนาการ ได้คะแนนก้อนใหญ่เลย! 💎');
+      emitScore();
+      pushQuest('');
+      return;
+    }
+
+    if (kind === 'shield') {
+      shield = Math.min(3, shield + 1);
+      if (FeverUI && typeof FeverUI.setShield === 'function') {
+        FeverUI.setShield(shield);
+      }
+      score += 20;
+
+      coach('ได้ 🛡️ เกราะป้องกันแล้ว! พลาดครั้งหน้าเกราะจะช่วยรับให้นะ');
+      emitScore();
+      pushQuest('');
+      return;
+    }
+
+    // ----- ปกติ: good / junk -----
     if (kind === 'good') {
       goodHit++;
 
@@ -260,27 +362,44 @@ export const GameEngine = (function () {
       const mult = feverActive ? 2 : 1;
       score += base * mult;
 
-      const nextFever = fever + FEVER_HIT_GAIN;
-      if (!feverActive && nextFever >= FEVER_MAX) {
+      const nextF = fever + FEVER_HIT_GAIN;
+      if (!feverActive && nextF >= FEVER_MAX) {
         startFever();
       } else {
-        setFever(nextFever, 'charge');
+        setFever(nextF, 'charge');
       }
 
       if (combo === 1)
         coach('เปิดคอมโบแล้ว! เลือกผัก ผลไม้ นมต่อเลย 🥦🍎🥛');
-      else if (combo === 5)
-        coach('คอมโบ x5 แล้ว เยี่ยมมาก! 🔥');
+      else if (combo === miniComboNeed)
+        coach(`คอมโบ x${miniComboNeed} แล้ว เยี่ยมมาก! 🔥`);
       else if (combo === 10)
         coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
 
+      updateGoalFromGoodHit();
+      updateMiniFromCombo();
     } else {
-      // ตีของขยะ
+      // ---- ตีของขยะ ----
+      if (shield > 0) {
+        // ใช้เกราะกันพลาด: ไม่เพิ่ม miss, แค่หักเกราะ + fever นิดหน่อย
+        shield -= 1;
+        if (FeverUI && typeof FeverUI.setShield === 'function') {
+          FeverUI.setShield(shield);
+        }
+
+        combo = Math.max(0, combo - 1);
+        setFever(fever - FEVER_MISS_LOSS * 0.5, 'charge');
+
+        coach('เกราะ 🛡️ ช่วยกันของขยะให้แล้ว รอบหน้าลองเล็งให้แม่นขึ้นนะ!');
+        emitScore();
+        pushQuest('');
+        return;
+      }
+
       junkHit++;
-      score = Math.max(0, score - 8);
-      combo = 0;
+      score  = Math.max(0, score - 8);
+      combo  = 0;
       misses++;
-      coach('โดนของขยะแล้ว ระวังพวก 🍔🍩 อีกนะ');
 
       let nextFever = fever - FEVER_MISS_LOSS;
       if (feverActive && nextFever <= 0) {
@@ -290,13 +409,13 @@ export const GameEngine = (function () {
         setFever(nextFever, 'charge');
       }
 
+      coach('โดนของขยะแล้ว ระวังพวก 🍔🍩 อีกนะ');
       emitMiss();
+      updateGoalFromGoodHit();
+      pushQuest('');
     }
 
     emitScore();
-
-    // อัปเดต Quest state ทุก hit
-    if (quest) quest.update(questState());
   }
 
   // ---------- เป้าหายเพราะหมดเวลา ----------
@@ -307,25 +426,39 @@ export const GameEngine = (function () {
     const kind = el.dataset.kind || 'junk';
     removeTarget(el);
 
-    if (kind === 'good') {
-      // พลาดของดี
-      misses++;
-      combo = 0;
-      coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้มากขึ้น 😊');
+    // powerups หมดเวลา: ไม่ลงโทษ
+    if (kind !== 'good') return;
 
-      let nextFever = fever - FEVER_MISS_LOSS;
-      if (feverActive && nextFever <= 0) {
-        endFever();
-        nextFever = 0;
-      } else {
-        setFever(nextFever, 'charge');
+    // ของดีหลุดจอ
+    if (shield > 0) {
+      // เกราะช่วยรับของดีที่พลาด → ไม่เพิ่ม miss
+      shield -= 1;
+      if (FeverUI && typeof FeverUI.setShield === 'function') {
+        FeverUI.setShield(shield);
       }
-
-      emitMiss();
+      setFever(fever - FEVER_MISS_LOSS * 0.5, 'charge');
+      coach('เกราะช่วยรับของดีที่พลาดไป ลองแตะให้ทันครั้งหน้านะ 😊');
       emitScore();
-
-      if (quest) quest.update(questState());
+      pushQuest('');
+      return;
     }
+
+    misses++;
+    combo = 0;
+    coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้มากขึ้น 😊');
+
+    let nextFever = fever - FEVER_MISS_LOSS;
+    if (feverActive && nextFever <= 0) {
+      endFever();
+      nextFever = 0;
+    } else {
+      setFever(nextFever, 'charge');
+    }
+
+    emitMiss();
+    emitScore();
+    updateGoalFromGoodHit();
+    pushQuest('');
   }
 
   // ---------- สุ่ม spawn ----------
@@ -333,78 +466,81 @@ export const GameEngine = (function () {
     if (!running) return;
     if (activeTargets.length >= MAX_ACTIVE) return;
 
-    const isGood = Math.random() < GOOD_RATE;
-    const pool = isGood ? GOOD : JUNK;
-    const emoji = pool[Math.floor(Math.random() * pool.length)];
-    const kind = isGood ? 'good' : 'junk';
+    let emoji, kind;
+
+    // สุ่มว่าจะเป็น powerup หรือไม่
+    if (Math.random() < POWER_RATE) {
+      const p = POWERUP_SET[Math.floor(Math.random() * POWERUP_SET.length)];
+      emoji = p;
+      if (p === STAR)        kind = 'star';
+      else if (p === DIA)    kind = 'diamond';
+      else                   kind = 'shield';
+    } else {
+      const isGood = Math.random() < GOOD_RATE;
+      const pool   = isGood ? GOOD : JUNK;
+      emoji = pool[Math.floor(Math.random() * pool.length)];
+      kind  = isGood ? 'good' : 'junk';
+    }
 
     const el = createTargetEntity(emoji, kind);
     if (el) activeTargets.push(el);
   }
 
-  // ---------- ตั้งค่า difficulty (เฉพาะจังหวะเกม) ----------
+  // ---------- ตั้งค่า difficulty ----------
   function applyDifficulty(diffKey) {
     const d = String(diffKey || 'normal').toLowerCase();
+    let goalMin, goalMax, comboMin, comboMaxVal;
 
     if (d === 'easy') {
       SPAWN_INTERVAL  = 1100;
       TARGET_LIFETIME = 1100;
       MAX_ACTIVE      = 3;
       GOOD_RATE       = 0.7;
+      goalMin = 15; goalMax = 20;
+      comboMin = 3; comboMaxVal = 4;
     } else if (d === 'hard') {
       SPAWN_INTERVAL  = 750;
       TARGET_LIFETIME = 850;
       MAX_ACTIVE      = 5;
       GOOD_RATE       = 0.6;
+      goalMin = 25; goalMax = 30;
+      comboMin = 6; comboMaxVal = 8;
     } else { // normal
       SPAWN_INTERVAL  = 900;
       TARGET_LIFETIME = 900;
       MAX_ACTIVE      = 4;
       GOOD_RATE       = 0.65;
-    }
-  }
-
-  // ---------- สรุปตอนจบ (ดึงผลจาก quest-director) ----------
-  function emitEnd() {
-    let goalsCleared = 0;
-    let goalsTotal   = 0;
-    let miniCleared  = 0;
-    let miniTotal    = 0;
-
-    if (quest) {
-      const s = quest.summary();
-      goalsCleared = s.goalsCleared;
-      goalsTotal   = s.goalsTotal;
-      miniCleared  = s.miniCleared;
-      miniTotal    = s.miniTotal;
+      goalMin = 20; goalMax = 25;
+      comboMin = 4; comboMaxVal = 6;
     }
 
-    emit('hha:end', {
-      mode: 'Good vs Junk (VR)',
-      score,
-      comboMax,
-      misses,
-      goalsCleared,
-      goalsTotal,
-      miniCleared,
-      miniTotal
-    });
+    const goalTarget = randInt(goalMin, goalMax);
+    miniComboNeed    = randInt(comboMin, comboMaxVal);
+
+    GOAL.target = goalTarget;
+    GOAL.label  = `เก็บอาหารดีให้ครบ ${goalTarget} ชิ้น`;
+    GOAL.prog   = 0;
+    GOAL.done   = false;
+
+    MINI.target = 1;
+    MINI.prog   = 0;
+    MINI.done   = false;
+    MINI.label  = `รักษาคอมโบให้ถึง x${miniComboNeed} อย่างน้อย 1 ครั้ง`;
   }
 
   // ---------- start / stop ----------
   function _startCore(diffKey) {
     running = true;
-
     score    = 0;
     combo    = 0;
     comboMax = 0;
     misses   = 0;
     goodHit  = 0;
     junkHit  = 0;
+    shield   = 0;
 
     applyDifficulty(diffKey);
 
-    // reset Fever + UI
     fever       = 0;
     feverActive = false;
     if (feverTimer) clearTimeout(feverTimer);
@@ -423,25 +559,13 @@ export const GameEngine = (function () {
     }
     setFever(0, 'charge');
 
-    // ล้างเป้าเก่า
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
     activeTargets = [];
 
-    // สร้าง Quest director (สุ่ม goal 2 จาก 10, mini 3 จาก 15 ตาม diff)
-    quest = makeQuestDirector({
-      diff: String(diffKey || 'normal').toLowerCase(),
-      goalDefs: GOODJUNK_GOALS,
-      miniDefs: GOODJUNK_MINIS,
-      maxGoals: 2,
-      maxMini: 3
-    });
-
-    quest.start({ timeLeft });
-
     emitScore();
     coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
+    pushQuest('เริ่มเกม');
 
-    // spawn แรก + loop
     tickSpawn();
     spawnTimer = setInterval(tickSpawn, SPAWN_INTERVAL);
   }
