@@ -48,8 +48,8 @@ a-scene {
 .hud-root {
   position:fixed;
   inset:0;
-  z-index:60;           /* เหนือเป้า / เอฟเฟกต์ แต่ใต้เมนูอื่น */
-  pointer-events:none;  /* ปล่อยให้ลูกเป็นคนรับ */
+  z-index:60;           /* เหนือเป้า / FX แต่ไม่บัง VR ปุ่ม */
+  pointer-events:none;  /* โดย default ไม่รับคลิก */
   display:flex;
   flex-direction:column;
   justify-content:space-between;
@@ -62,13 +62,12 @@ a-scene {
   align-items:flex-start;
   padding:10px;
   gap:10px;
-  pointer-events:none;
 }
 
 /* การ์ด HUD พื้นฐาน (ใช้ทั้ง Score + Quest) */
 .hud-card,
 .fg-quest-panel {
-  pointer-events:auto;
+  pointer-events:auto;   /* ให้การ์ดเองคลิกได้ (ถ้าจะใส่ปุ่ม) */
   background:radial-gradient(circle at top, #0f172a, #020617);
   border-radius:var(--radius-lg);
   padding:10px 14px;
@@ -125,7 +124,7 @@ a-scene {
   color:#bbf7d0;
 }
 
-/* ขวาบน — Goal + Mini quest (แบบการ์ด Quest GoodJunk) */
+/* ขวาบน — Goal + Mini quest */
 .fg-quest-panel {
   min-width:260px;
   max-width:320px;
@@ -230,11 +229,11 @@ a-scene {
 #fg-layer {
   position:fixed;
   inset:0;
-  z-index:40;        /* เหนือ scene / ใต้ HUD + Fever + FX */
+  z-index:40;         /* เหนือ scene / ใต้ HUD + Fever + FX */
   pointer-events:none;
 }
 
-/* เป้าอาหาร */
+/* เป้าอาหาร: ตัวเดียวที่รับคลิกกลางจอ */
 .fg-target {
   position:absolute;
   width:132px;
@@ -244,7 +243,7 @@ a-scene {
   display:flex;
   align-items:center;
   justify-content:center;
-  pointer-events:auto;
+  pointer-events:auto;   /* ให้เป้ารับคลิก */
   cursor:pointer;
   box-shadow:
     0 12px 32px rgba(15,23,42,0.85),
@@ -284,10 +283,15 @@ a-scene {
   display:none;
   align-items:center;
   justify-content:center;
+  pointer-events:none;        /* เริ่มต้นไม่รับคลิก */
+  opacity:0;
+  transition:opacity .25s ease-out;
 }
 
 .result-overlay.show {
   display:flex;
+  pointer-events:auto;
+  opacity:1;
 }
 
 .result-card {
@@ -359,7 +363,20 @@ a-scene {
   }
 }
 
-/* ให้ Fever gauge จาก ui-fever.js อยู่เหนือ scene แต่ไม่บัง HUD */
+/* ===== ป้องกัน layer อื่นบังเป้า / คลิก ===== */
+
+/* เอฟเฟกต์คะแนน / เศษเป้าแตก ให้มองเห็นแต่ไม่จับคลิก */
+.hha-fx-layer {
+  pointer-events:none !important;
+  z-index:50; /* ใต้ HUD, เหนือเป้า */
+}
+
+/* ไฟ fever จาก ui-fever.js ไม่ให้รับคลิก */
+.hha-fever-flames {
+  pointer-events:none !important;
+}
+
+/* ให้ Fever gauge จาก ui-fever.js อยู่เหนือ scene แต่ไม่บัง HUD/เป้า */
 .hha-fever-wrap {
   z-index:80 !important;
 }
