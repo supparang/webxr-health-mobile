@@ -345,3 +345,83 @@ a-scene {
 .hha-fever-wrap {
   z-index:80 !important;
 }
+/* ===== Summary overlay (End toast) ===== */
+
+.end-toast {
+  position:fixed;
+  inset:0;
+  z-index:200;
+  display:none;               /* ซ่อนก่อน */
+  align-items:center;
+  justify-content:center;
+  background:rgba(15,23,42,0.92);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
+}
+
+.end-toast.show {
+  display:flex;               /* โชว์ตอนจบเกม */
+}
+
+.end-card {
+  background:rgba(15,23,42,1);
+  border-radius:24px;
+  padding:22px 24px 18px;
+  max-width:420px;
+  width:90%;
+  border:1px solid rgba(148,163,184,0.5);
+  box-shadow:0 24px 60px rgba(0,0,0,0.85);
+}
+
+.end-card h2 {
+  margin:0 0 10px;
+  font-size:20px;
+}
+
+.end-card p {
+  margin:4px 0;
+  font-size:14px;
+}
+
+.end-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:14px;
+  margin:4px 0;
+}
+
+.end-row span:first-child {
+  color:var(--text-soft);
+}
+
+.end-row strong {
+  font-variant-numeric:tabular-nums;
+  font-weight:600;
+}
+
+.end-actions {
+  margin-top:12px;
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+.end-btn {
+  padding:8px 14px;
+  border-radius:999px;
+  border:none;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:600;
+}
+
+.end-btn-primary {
+  background:linear-gradient(90deg,#22c55e,#4ade80);
+  color:#022c22;
+}
+
+.end-btn-ghost {
+  background:transparent;
+  color:#e5e7eb;
+  border:1px solid rgba(148,163,184,0.5);
+}
