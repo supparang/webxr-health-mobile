@@ -43,21 +43,24 @@
       return {
         spawnInterval: 1300,
         maxActive: 3,
-        sizeFactor: 1.15
+        sizeFactor: 1.15,
+        itemLifetime: 2600
       };
     }
     if (diffKey === 'hard') {
       return {
         spawnInterval: 800,
         maxActive: 5,
-        sizeFactor: 0.9
+        sizeFactor: 0.9,
+        itemLifetime: 2100
       };
     }
     // normal
     return {
       spawnInterval: 1100,
       maxActive: 4,
-      sizeFactor: 1.0
+      sizeFactor: 1.0,
+      itemLifetime: 2300
     };
   }
 
@@ -82,8 +85,8 @@
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe = 120;   // HUD บน
-    const bottomSafe = 140; // โค้ชด้านล่าง
+    const topSafe = 120;     // HUD บน
+    const bottomSafe = 140;  // โค้ชด้านล่าง
 
     const left = w * 0.15;
     const right = w * 0.85;
@@ -115,6 +118,8 @@
       this.elTime     = document.getElementById('hud-time-label');
       this.elGoalProg = document.getElementById('hud-goal-progress');
       this.elMiniProg = document.getElementById('hud-mini-progress');
+      this.elGoalMain = document.getElementById('hud-goal-main');
+      this.elMiniMain = document.getElementById('hud-mini-main');
 
       // state
       this.running    = false;
@@ -240,6 +245,24 @@
         return;
       }
 
+      // อายุของเป้า (miss auto)
+      const targets = this.targets;
+      for (let i = targets.length - 1; i >= 0; i--) {
+        const tObj = targets[i];
+        tObj.life -= dt;
+        if (tObj.life <= 0) {
+          // หมดเวลา: ถือว่าพลาด
+          if (tObj.isGood) {
+            this.missCount += 1;
+            this.updateFever(-FEVER_MISS_LOSS * 0.5);
+          }
+          if (tObj.el && tObj.el.parentNode) {
+            tObj.el.parentNode.removeChild(tObj.el);
+          }
+          targets.splice(i, 1);
+        }
+      }
+
       // spawn เป้า
       if (this.spawnTimer >= this.diffCfg.spawnInterval) {
         this.spawnTimer = 0;
@@ -267,7 +290,8 @@
 
       const targetObj = {
         el,
-        isGood
+        isGood,
+        life: this.diffCfg.itemLifetime || 2300   // อายุของเป้า (ms)
       };
       this.targets.push(targetObj);
 
@@ -322,13 +346,22 @@
     },
 
     updateGoalHUD: function () {
+      // ข้อความเป้าหมาย
+      if (this.elGoalMain) {
+        this.elGoalMain.textContent = 'คะแนน ' + this.goalScore + '+';
+      }
+      if (this.elMiniMain) {
+        this.elMiniMain.textContent = 'เก็บอาหารดี ' + this.goalGoodHits + ' ชิ้น';
+      }
+
+      // progress (ไม่ให้เกิน)
       if (this.elGoalProg) {
-        this.elGoalProg.textContent =
-          this.score + ' / ' + this.goalScore;
+        const s = Math.min(this.score, this.goalScore);
+        this.elGoalProg.textContent = s + ' / ' + this.goalScore;
       }
       if (this.elMiniProg) {
-        this.elMiniProg.textContent =
-          this.goodHits + ' / ' + this.goalGoodHits;
+        const g = Math.min(this.goodHits, this.goalGoodHits);
+        this.elMiniProg.textContent = g + ' / ' + this.goalGoodHits;
       }
     },
 
