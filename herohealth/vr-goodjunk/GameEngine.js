@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach + FX
-// ใช้ร่วม FeverUI + Particles (shared) 2025-12-06 (small targets)
+// Good vs Junk VR — Emoji Pop Targets + Multi-Quest (2/10 + 3/15) + Fever + Shield + Coach + FX
+// 2025-12-07 — เป้าเล็กลง, effect แตกกระจาย, คะแนนเด้ง, Miss/Good/Perfect ที่เป้า
 
 'use strict';
 
@@ -75,23 +75,42 @@ export const GameEngine = (function () {
   let feverActive = false;
   let feverTimer = null;
 
-  // ---------- Quest state (เป้าหมายแบบง่าย 1 goal + 1 mini) ----------
-  const GOAL = {
-    label: 'เก็บอาหารดีให้ครบ 25 ชิ้น',
-    prog: 0,
-    target: 25,
-    done: false
-  };
+  // ---------- Quest pool ----------
+  // มี goal 10 แบบ / mini quest 15 แบบ → สุ่มมา 2 + 3 ในแต่ละเกม
+  const GOAL_TEMPLATES = [
+    { id: 'g1',  label: 'เก็บอาหารดีให้ครบ 10 ชิ้น', target: 10 },
+    { id: 'g2',  label: 'เก็บอาหารดีให้ครบ 12 ชิ้น', target: 12 },
+    { id: 'g3',  label: 'เก็บอาหารดีให้ครบ 14 ชิ้น', target: 14 },
+    { id: 'g4',  label: 'เก็บอาหารดีให้ครบ 16 ชิ้น', target: 16 },
+    { id: 'g5',  label: 'เก็บอาหารดีให้ครบ 18 ชิ้น', target: 18 },
+    { id: 'g6',  label: 'เก็บอาหารดีให้ครบ 20 ชิ้น', target: 20 },
+    { id: 'g7',  label: 'เก็บอาหารดีให้ครบ 22 ชิ้น', target: 22 },
+    { id: 'g8',  label: 'เก็บอาหารดีให้ครบ 24 ชิ้น', target: 24 },
+    { id: 'g9',  label: 'เก็บอาหารดีให้ครบ 26 ชิ้น', target: 26 },
+    { id: 'g10', label: 'เก็บอาหารดีให้ครบ 28 ชิ้น', target: 28 }
+  ];
 
-  const MINI = {
-    label: 'รักษาคอมโบให้ถึง x5 อย่างน้อย 1 ครั้ง',
-    prog: 0,      // 0 หรือ 1 (ผ่าน/ไม่ผ่าน)
-    target: 1,
-    done: false
-  };
+  const MINI_TEMPLATES = [
+    { id:'m1',  label:'ทำคอมโบให้ถึง x3 อย่างน้อย 1 ครั้ง',  threshold:3 },
+    { id:'m2',  label:'ทำคอมโบให้ถึง x4 อย่างน้อย 1 ครั้ง',  threshold:4 },
+    { id:'m3',  label:'ทำคอมโบให้ถึง x5 อย่างน้อย 1 ครั้ง',  threshold:5 },
+    { id:'m4',  label:'ทำคอมโบให้ถึง x6 อย่างน้อย 1 ครั้ง',  threshold:6 },
+    { id:'m5',  label:'ทำคอมโบให้ถึง x7 อย่างน้อย 1 ครั้ง',  threshold:7 },
+    { id:'m6',  label:'ทำคอมโบให้ถึง x8 อย่างน้อย 1 ครั้ง',  threshold:8 },
+    { id:'m7',  label:'ทำคอมโบให้ถึง x9 อย่างน้อย 1 ครั้ง',  threshold:9 },
+    { id:'m8',  label:'ทำคอมโบให้ถึง x10 อย่างน้อย 1 ครั้ง', threshold:10 },
+    { id:'m9',  label:'ทำคอมโบยาว ๆ ไม่ให้หลุดจนถึง x5',      threshold:5 },
+    { id:'m10', label:'ทำคอมโบยาว ๆ ไม่ให้หลุดจนถึง x7',      threshold:7 },
+    { id:'m11', label:'ทำคอมโบยาว ๆ ไม่ให้หลุดจนถึง x9',      threshold:9 },
+    { id:'m12', label:'เป็นสายโปร! ทำคอมโบ x6 ขึ้นไป',        threshold:6 },
+    { id:'m13', label:'เป็นสายโปร! ทำคอมโบ x8 ขึ้นไป',        threshold:8 },
+    { id:'m14', label:'เป็นสายโปร! ทำคอมโบ x10 ขึ้นไป',       threshold:10 },
+    { id:'m15', label:'รักษาคอมโบสูงสุดให้ได้อย่างน้อย x4',   threshold:4 }
+  ];
 
-  // threshold คอมโบที่ใช้สำหรับ Mini (จะสุ่มตาม diff)
-  let miniComboNeed = 5;
+  let activeGoals = []; // สุ่มมา 2 จาก 10
+  let activeMinis = []; // สุ่มมา 3 จาก 15
+  let miniComboNeed = 5; // ใช้สำหรับข้อความโค้ชบางจังหวะ
 
   // ---------- Emoji → texture cache ----------
   const emojiTexCache = new Map();
@@ -139,6 +158,17 @@ export const GameEngine = (function () {
 
   function randInt(min, max){
     return Math.floor(min + Math.random() * (max - min + 1));
+  }
+
+  function pickSome(list, count) {
+    const arr = list.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = arr[i];
+      arr[i] = arr[j];
+      arr[j] = t;
+    }
+    return arr.slice(0, Math.min(count, arr.length));
   }
 
   // world → screen สำหรับ FX
@@ -272,63 +302,113 @@ export const GameEngine = (function () {
   }
 
   // ---------- Quest ----------
+  function setupQuestsForRun() {
+    // สุ่ม goal 2 จาก 10
+    activeGoals = pickSome(GOAL_TEMPLATES, 2).map(g => ({
+      id: g.id,
+      label: g.label,
+      target: g.target,
+      prog: 0,
+      done: false
+    }));
+    // สุ่ม mini 3 จาก 15
+    activeMinis = pickSome(MINI_TEMPLATES, 3).map(m => ({
+      id: m.id,
+      label: m.label,
+      threshold: m.threshold,
+      target: m.threshold,
+      prog: 0,
+      done: false
+    }));
+    // ใช้ threshold ของ mini ตัวแรกสำหรับข้อความโค้ชแบบเดิม
+    miniComboNeed = activeMinis[0] ? activeMinis[0].threshold : 5;
+  }
+
   function pushQuest(hint) {
-    const goalObj = {
-      label: GOAL.label,
-      prog: Math.min(GOAL.prog, GOAL.target),
-      target: GOAL.target,
-      done: GOAL.done
-    };
-    const miniObj = {
-      label: MINI.label,
-      prog: Math.min(MINI.prog, MINI.target),
-      target: MINI.target,
-      done: MINI.done
-    };
+    const goalsUi = activeGoals.map(g => ({
+      label: g.label,
+      prog: Math.min(g.prog, g.target),
+      target: g.target,
+      done: g.done
+    }));
+    const minisUi = activeMinis.map(m => ({
+      label: m.label,
+      prog: Math.min(m.prog, m.target),
+      target: m.target,
+      done: m.done
+    }));
+
+    const primaryGoal = goalsUi[0] || null;
+    const primaryMini = minisUi[0] || null;
+
+    const goalsCleared = goalsUi.filter(g => g.done).length;
+    const minisCleared = minisUi.filter(m => m.done).length;
+
+    const statusText =
+      `Goals ${goalsCleared}/${goalsUi.length} (สุ่มจาก ${GOAL_TEMPLATES.length}) • ` +
+      `Mini ${minisCleared}/${minisUi.length} (สุ่มจาก ${MINI_TEMPLATES.length})`;
 
     emit('quest:update', {
-      goal: goalObj,
-      mini: miniObj,
-      goalsAll: [goalObj],
-      minisAll: [miniObj],
-      hint: hint || ''
+      goal: primaryGoal,
+      mini: primaryMini,
+      goalsAll: goalsUi,
+      minisAll: minisUi,
+      hint: hint || statusText,
+      status: statusText
     });
   }
 
-  function updateGoalFromGoodHit() {
-    GOAL.prog = goodHit;
-    if (!GOAL.done && GOAL.prog >= GOAL.target) {
-      GOAL.done = true;
-      coach('ภารกิจหลักสำเร็จแล้ว! เก็บผัก ผลไม้ครบตามเป้าแล้ว 🎉');
-      pushQuest('Goal สำเร็จแล้ว');
-    } else {
+  function updateGoalsFromGoodHit() {
+    if (!activeGoals.length) {
       pushQuest('');
+      return;
     }
+    let allDone = true;
+    activeGoals.forEach(g => {
+      g.prog = goodHit;
+      if (!g.done && g.prog >= g.target) {
+        g.done = true;
+      }
+      if (!g.done) allDone = false;
+    });
+    if (allDone) {
+      coach('ภารกิจหลักทั้งหมดสำเร็จแล้ว! เยี่ยมมาก 🎉');
+    }
+    pushQuest('');
   }
 
-  function updateMiniFromCombo() {
-    if (!MINI.done && combo >= miniComboNeed) {
-      MINI.prog = 1;
-      MINI.done = true;
-      coach(
-        'สุดยอด! คอมโบถึง x' + miniComboNeed + ' แล้ว Mini quest ผ่านเรียบร้อย 🎯'
-      );
-      pushQuest('Mini quest สำเร็จแล้ว');
-    } else {
+  function updateMinisFromCombo() {
+    if (!activeMinis.length) {
       pushQuest('');
+      return;
     }
+    let allDone = true;
+    activeMinis.forEach(m => {
+      m.prog = Math.min(comboMax, m.target);
+      if (!m.done && comboMax >= m.threshold) {
+        m.done = true;
+      }
+      if (!m.done) allDone = false;
+    });
+    if (allDone) {
+      coach('Mini quest ทั้งหมดสำเร็จแล้ว ✨');
+    }
+    pushQuest('');
   }
 
   function emitEnd() {
+    const goalsCleared = activeGoals.filter(g => g.done).length;
+    const minisCleared = activeMinis.filter(m => m.done).length;
+
     emit('hha:end', {
       mode: 'Good vs Junk (VR)',
       score,
       comboMax,
       misses,
-      goalsCleared: GOAL.done ? 1 : 0,
-      goalsTotal: 1,
-      miniCleared: MINI.done ? 1 : 0,
-      miniTotal: 1
+      goalsCleared,
+      goalsTotal: activeGoals.length,
+      miniCleared: minisCleared,
+      miniTotal: activeMinis.length
     });
   }
 
@@ -478,12 +558,12 @@ export const GameEngine = (function () {
       if (combo === 1)
         coach('เปิดคอมโบแล้ว! เลือกผัก ผลไม้ นมต่อเลย 🥦🍎🥛');
       else if (combo === miniComboNeed)
-        coach('คอมโบ x' + miniComboNeed + ' แล้ว เยี่ยมมาก! 🔥');
+        coach(`คอมโบ x${miniComboNeed} แล้ว เยี่ยมมาก! 🔥`);
       else if (combo === 10)
         coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
 
-      updateGoalFromGoodHit();
-      updateMiniFromCombo();
+      updateGoalsFromGoodHit();
+      updateMinisFromCombo();
     } else { // junk
       // ถ้ามี shield ใช้กันก่อน ไม่เสียแต้ม
       if (shieldCount > 0) {
@@ -511,7 +591,7 @@ export const GameEngine = (function () {
       }
 
       emitMiss();
-      updateGoalFromGoodHit();
+      updateGoalsFromGoodHit();
       pushQuest('');
     }
 
@@ -548,7 +628,7 @@ export const GameEngine = (function () {
 
       emitMiss();
       emitScore();
-      updateGoalFromGoodHit();
+      updateGoalsFromGoodHit();
       pushQuest('');
     } else {
       // star / diamond / shield / junk หมดเวลา: ไม่ทำโทษ
@@ -606,7 +686,6 @@ export const GameEngine = (function () {
   // ---------- ตั้งค่า difficulty ----------
   function applyDifficulty(diffKey) {
     const d = String(diffKey || 'normal').toLowerCase();
-    let goalMin, goalMax, comboMin, comboMaxVal;
 
     if (d === 'easy') {
       SPAWN_INTERVAL  = 1100;
@@ -622,9 +701,6 @@ export const GameEngine = (function () {
         diamond:  3,
         shield:   3
       };
-
-      goalMin = 14; goalMax = 18;
-      comboMin = 3; comboMaxVal = 4;
     } else if (d === 'hard') {
       SPAWN_INTERVAL  = 750;
       TARGET_LIFETIME = 850;
@@ -639,9 +715,6 @@ export const GameEngine = (function () {
         diamond:  4,
         shield:   4
       };
-
-      goalMin = 22; goalMax = 28;
-      comboMin = 6; comboMaxVal = 8;
     } else { // normal
       SPAWN_INTERVAL  = 900;
       TARGET_LIFETIME = 900;
@@ -656,23 +729,7 @@ export const GameEngine = (function () {
         diamond:  4,
         shield:   4
       };
-
-      goalMin = 18; goalMax = 22;
-      comboMin = 4; comboMaxVal = 6;
     }
-
-    const goalTarget = randInt(goalMin, goalMax);
-    miniComboNeed = randInt(comboMin, comboMaxVal);
-
-    GOAL.target = goalTarget;
-    GOAL.label  = 'เก็บอาหารดีให้ครบ ' + goalTarget + ' ชิ้น';
-    GOAL.prog   = 0;
-    GOAL.done   = false;
-
-    MINI.target = 1;
-    MINI.prog   = 0;
-    MINI.done   = false;
-    MINI.label  = 'รักษาคอมโบให้ถึง x' + miniComboNeed + ' อย่างน้อย 1 ครั้ง';
   }
 
   // ---------- start / stop ----------
@@ -687,6 +744,7 @@ export const GameEngine = (function () {
     shieldCount = 0;
 
     applyDifficulty(diffKey);
+    setupQuestsForRun();
 
     // reset fever + UI กลาง
     if (FeverUI && FeverUI.ensureFeverBar) FeverUI.ensureFeverBar();
