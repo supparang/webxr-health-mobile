@@ -82,6 +82,24 @@ export async function boot(cfg = {}) {
 
   function mult() { return feverActive ? 2 : 1; }
 
+  function emitStat(extra = {}) {
+    // ยิง event ให้ HUD รู้ค่า score/combo/miss/fever แบบ realtime
+    try {
+      window.dispatchEvent(new CustomEvent('hha:stat', {
+        detail: {
+          mode: 'Balanced Plate',
+          difficulty: diff,
+          score,
+          combo,
+          misses,
+          fever,
+          feverActive,
+          ...extra
+        }
+      }));
+    } catch {}
+  }
+
   function gainFever(n) {
     fever = Math.max(0, Math.min(100, fever + n));
     setFever(fever);
@@ -90,6 +108,7 @@ export async function boot(cfg = {}) {
       setFeverActive(true);
       coach('จานพลังพิเศษ ✨ เก็บให้ครบ 5 หมู่เลย!');
     }
+    emitStat();
   }
 
   function decayFever(n) {
@@ -100,6 +119,7 @@ export async function boot(cfg = {}) {
       feverActive = false;
       setFeverActive(false);
     }
+    emitStat();
   }
 
   function syncDeck() {
@@ -108,6 +128,7 @@ export async function boot(cfg = {}) {
     deck.stats.gCounts = [...gCounts];
     deck.stats.star    = star;
     deck.stats.diamond = diamond;
+    emitStat();
   }
 
   function pushQuest(hint) {
@@ -310,6 +331,8 @@ export async function boot(cfg = {}) {
     const miniTotal   = accMiniDone + m.length;
     const miniDone    = accMiniDone + m.filter(x => x.done).length;
 
+    emitStat({ ended: true });
+
     window.dispatchEvent(new CustomEvent('hha:end', {
       detail: {
         mode: 'Balanced Plate',
@@ -371,6 +394,9 @@ export async function boot(cfg = {}) {
   // แสดงเควสต์ + โค้ชตั้งแต่เริ่ม
   pushQuest('เริ่ม');
   coach('จัดจานให้ครบ 5 หมู่ 🍚🥩🥦🍎🥛 เลี่ยงของทอดกับของหวานนะ');
+
+  // ยิง stat เริ่มต้นให้ HUD
+  emitStat();
 
   return ctrl;
 }
