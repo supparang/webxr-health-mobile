@@ -1,6 +1,7 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (DOM Targets + Food-Group Quests + Fever/Particles)
-// + Coach tutorial: อธิบายหมู่อาหารทีละข้อ + นับถอยหลังก่อนเริ่ม
+// + Coach tutorial (หมู่ 1–5 + countdown)
+// + Hit FX: MISS / GOOD / PERFECT / LATE
 // 2025-12-07
 
 (function (ns) {
@@ -22,7 +23,7 @@
       setShield() {}
     };
 
-  // -------- Particles (optional) --------
+  // -------- Particles (global จาก /vr/particles.js) --------
   const Particles = window.HHA_PARTICLES || null;
 
   const FEVER_MAX       = 100;
@@ -48,13 +49,13 @@
 
   function comboToText(combo) {
     return combo
-      .map((id) => FOOD_GROUP_LABEL[id] || ('หมู่ ' + id))
+      .map(id => FOOD_GROUP_LABEL[id] || ('หมู่ ' + id))
       .join(' + ');
   }
 
   function comboToShort(combo) {
     return combo
-      .map((id) => FOOD_GROUP_SHORT[id] || ('หมู่ ' + id))
+      .map(id => FOOD_GROUP_SHORT[id] || ('หมู่ ' + id))
       .join('+');
   }
 
@@ -169,10 +170,7 @@
   function getDiffConfig(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
-    if (
-      ns.foodGroupsDifficulty &&
-      typeof ns.foodGroupsDifficulty.get === 'function'
-    ) {
+    if (ns.foodGroupsDifficulty && typeof ns.foodGroupsDifficulty.get === 'function') {
       const cfg = ns.foodGroupsDifficulty.get(diffKey);
       if (cfg) return cfg;
     }
@@ -250,7 +248,6 @@
     ];
   }
 
-  // Goal: 2 ภารกิจสั้น + detail
   function buildGoals(cfg, diffKey) {
     const baseGood = cfg.baseGood || 12;
     const combos = getCombosForDiff(diffKey);
@@ -280,7 +277,6 @@
     });
   }
 
-  // Mini quest: 3 ภารกิจจาก pool
   function buildMiniQuests(cfg, diffKey) {
     const baseScore = cfg.baseScore || 160;
     const combos = getCombosForDiff(diffKey);
@@ -405,7 +401,6 @@
       this.elEndMiniTxt = document.getElementById('end-mini-text');
       this.elMiss       = document.getElementById('hud-miss');
 
-      // phase: 'idle' | 'tutorial' | 'play' | 'ended'
       this.phase       = 'idle';
       this.running     = false;
       this.elapsed     = 0;
@@ -462,7 +457,7 @@
       }, 2500);
     },
 
-    // ----- Tutorial sequence (หมู่ 1–5 + countdown) -----
+    // ----- Tutorial sequence -----
     runTutorialSequence: function () {
       const self = this;
 
@@ -476,7 +471,7 @@
       ];
 
       let delay = 0;
-      const per = 2600; // ms ต่อหนึ่งข้อความ
+      const per = 2600;
 
       msgs.forEach((msg) => {
         setTimeout(() => {
@@ -486,7 +481,6 @@
         delay += per;
       });
 
-      // พร้อมไหม + นับถอยหลัง 3,2,1
       setTimeout(() => {
         if (!self.running || self.phase !== 'tutorial') return;
         self.coachSay('พร้อมไหม... เดี๋ยวเริ่มจัดหมู่อาหารกันนะ');
@@ -512,7 +506,6 @@
       this.phase      = 'play';
       this.elapsed    = 0;
       this.spawnTimer = 0;
-      // เวลาใน HUD ตั้งเป็น 60s ตอนเริ่มจริง
       if (this.elTime) this.elTime.textContent = '60s';
     },
 
@@ -524,7 +517,7 @@
       this.clearTargets();
 
       this.running    = true;
-      this.phase      = 'tutorial'; // เริ่มด้วย phase สอน
+      this.phase      = 'tutorial';
       this.elapsed    = 0;
       this.spawnTimer = 0;
       this.score      = 0;
@@ -538,7 +531,7 @@
 
       if (this.elScore) this.elScore.textContent = '0';
       if (this.elDiff)  this.elDiff.textContent  = this.diffKey.toUpperCase();
-      if (this.elTime)  this.elTime.textContent  = 'เตรียมตัว'; // ยังไม่เริ่มนับจริง
+      if (this.elTime)  this.elTime.textContent  = 'เตรียมตัว';
       if (this.elMiss)  this.elMiss.textContent  = '0';
 
       this.fever       = 0;
@@ -551,7 +544,6 @@
       ensureLegendCard();
       this.updateQuestHUD();
 
-      // เรียก tutorial coach
       this.runTutorialSequence();
 
       console.log('[GroupsVR] startGame (tutorial phase)', this.diffKey, this.diffCfg);
@@ -610,7 +602,7 @@
     // ----- Tick -----
     tick: function (time, dt) {
       if (!this.running) return;
-      if (this.phase !== 'play') return; // ช่วง tutorial / countdown ไม่ต้อง spawn เป้า
+      if (this.phase !== 'play') return;
 
       dt = dt || 16;
       this.elapsed    += dt;
@@ -696,7 +688,7 @@
       this.targets = [];
     },
 
-    // ----- Hit / Miss -----
+    // ----- Hit / Miss (มี GOOD / PERFECT / MISS) -----
     handleHit: function (target, x, y) {
       if (!this.running || this.phase !== 'play') return;
       const el = target.el;
@@ -731,15 +723,16 @@
 
       if (Particles && Particles.scorePop) {
         const txt =
-          (label === 'MISS' ? 'MISS ' : label + ' ') +
-          (delta > 0 ? '+' + delta : delta);
+          label +
+          ' ' +
+          (delta > 0 ? '+' + delta : delta.toString());
         Particles.scorePop(x, y, txt, { good: delta > 0 });
       }
       if (Particles && Particles.burstAt) {
         Particles.burstAt(x, y, {
           color: delta > 0 ? '#22c55e' : '#f97373',
-          count: delta > 0 ? 14 : 10,
-          radius: 60
+          count: delta > 0 ? 16 : 10,
+          radius: 64
         });
       }
 
@@ -751,19 +744,34 @@
       this.updateQuestProgress();
     },
 
+    // ----- Expire = LATE (เฉพาะเป้าดี) -----
     handleExpire: function (target) {
       if (!target || !target.el) return;
+
       const rect = target.el.getBoundingClientRect();
       const x = rect.left + rect.width / 2;
       const y = rect.top + rect.height / 2;
 
       if (target.isGood) {
+        // นับเป็น LATE + หักคะแนนเล็กน้อย + เพิ่ม miss
         this.missCount += 1;
-        this.updateFever(-FEVER_MISS_LOSS * 0.5);
         if (this.elMiss) this.elMiss.textContent = String(this.missCount);
 
+        const penalty = 5;
+        this.score = Math.max(0, this.score - penalty);
+        if (this.elScore) this.elScore.textContent = String(this.score);
+
+        this.updateFever(-FEVER_MISS_LOSS * 0.5);
+
         if (Particles && Particles.scorePop) {
-          Particles.scorePop(x, y, 'MISS', { good: false });
+          Particles.scorePop(x, y, 'LATE -' + penalty, { good: false });
+        }
+        if (Particles && Particles.burstAt) {
+          Particles.burstAt(x, y, {
+            color: '#f97373',
+            count: 10,
+            radius: 50
+          });
         }
       }
 
