@@ -61,7 +61,7 @@
       padding:8px 10px;
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
-      /* pointer-events: none;  // ให้ HUD ไม่รับคลิก ปล่อยให้ A-Frame รับเต็ม ๆ */
+      pointer-events:auto;
     }
 
     .hud-main{
@@ -188,9 +188,22 @@
       align-items:center;
       justify-content:flex-start;
       gap:8px;
-      /* pointer-events:none;  // ให้ bubble ไม่กิน event คลิก */
+      pointer-events:auto;
     }
     .coach-bubble.show{ display:flex; }
+
+    /* wiggle animation เวลาโค้ชพูด */
+    .coach-bubble.wiggle{
+      animation: coachWiggle .45s ease-out;
+    }
+    @keyframes coachWiggle{
+      0%   { transform: translateX(0); }
+      25%  { transform: translateX(-6px); }
+      50%  { transform: translateX(6px); }
+      75%  { transform: translateX(-4px); }
+      100% { transform: translateX(0); }
+    }
+
     .coach-label{
       font-size:11px;
       text-transform:uppercase;
@@ -241,7 +254,7 @@
       box-shadow:0 20px 40px rgba(15,23,42,0.85);
       display:none;
       z-index:652;
-      /* pointer-events:none;  // Toast แสดงผลอย่างเดียว ไม่ต้องรับคลิก */
+      pointer-events:auto;
     }
     .end-toast.show{ display:block; }
     .end-title{
@@ -378,8 +391,9 @@
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
   </div>
 
-  <!-- ★ เพิ่ม Fever UI แบบ global กลับมา -->
+  <!-- ★ Fever UI แบบ global + Particles (FX) -->
   <script src="./vr/ui-fever.js"></script>
+  <script src="./vr/particles.js"></script>
 
   <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
@@ -439,6 +453,12 @@
       if (!text) return;
       elCoachText.textContent = text;
       elCoachBubble.classList.add('show');
+
+      // ทำให้โค้ชขยับซ้ายขวาทุกครั้งที่พูด
+      elCoachBubble.classList.remove('wiggle');
+      void elCoachBubble.offsetWidth; // force reflow
+      elCoachBubble.classList.add('wiggle');
+
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(()=> {
         elCoachBubble.classList.remove('show');
@@ -452,7 +472,7 @@
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest
+    // HUD: Quest (main + mini + status รวม)
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -482,12 +502,17 @@
         elQuestMiniCap.textContent = '';
       }
 
-      if (d.hint){
+      // แสดง status รวมของทุกภารกิจ
+      if (d.status){
+        elQuestHint.textContent = d.status;
+      } else if (d.hint){
         elQuestHint.textContent = d.hint;
+      } else {
+        elQuestHint.textContent = '';
       }
     });
 
-    // HUD: Coach
+    // HUD: Coach (ข้อความ)
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
       if (text) {
@@ -547,8 +572,8 @@
       const scoreFinal = d.scoreFinal ?? d.score ?? 0;
       const comboMax   = d.comboMax ?? 0;
       const misses     = d.misses ?? 0;
-      const goalsCleared  = d.goalsCleared ?? d.miniCleared ?? 0;
-      const goalsTotal    = d.goalsTotal ?? d.miniTotal ?? 0;
+      const goalsCleared  = d.goalsCleared ?? 0;
+      const goalsTotal    = d.goalsTotal ?? 0;
       const miniCleared   = d.miniCleared ?? 0;
       const miniTotal     = d.miniTotal ?? 0;
 
