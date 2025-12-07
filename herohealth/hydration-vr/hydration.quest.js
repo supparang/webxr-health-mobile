@@ -1,547 +1,452 @@
 // === /herohealth/hydration-vr/hydration.quest.js ===
 // Mission Deck สำหรับ Hydration VR
-// - Goal: สุ่ม 2 จาก 10
-// - Mini quest: สุ่ม 3 จาก 15
-// - เควสต์ "พลาดไม่เกิน..." จะอยู่ในกลุ่ม miss-type และถูกสุ่มหลังสุด
-// 2025-12-07
+// - สุ่ม Goal 2 ภารกิจ จาก pool (ประมาณ 10 แบบ)
+// - สุ่ม Mini quest 3 ภารกิจ จาก pool (ประมาณ 15 แบบย่อยกว่า)
+// - แยกเกณฑ์ตาม diff: easy / normal / hard
+// - มีโค้ชมีอารมณ์ร่วม: เชียร์ / เตือน / ฉลอง
 
 'use strict';
 
-// -----------------------------
-// 1) ค่าพื้นฐานตามระดับความยาก
-// -----------------------------
-function diffConfig(diffKey) {
-  const d = String(diffKey || 'normal').toLowerCase();
-  if (d === 'easy') {
-    return {
-      missGoalCap: 4,
-      missMiniCap: 8,
-      goodGoal1: 10,
-      goodGoal2: 14,
-      comboGoal: 6,
-      comboGoalHard: 8,
-      streakMini1: 5,
-      streakMini2: 6,
-      greenSec1: 12,
-      greenSec2: 18,
-      accGoal: 80,
-      accMini: 75
-    };
+// ----- Helper ทั่วไป -----
+function coach(text) {
+  if (!text) return;
+  window.dispatchEvent(
+    new CustomEvent('hha:coach', {
+      detail: { text, modeKey: 'hydration-vr' }
+    })
+  );
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
-  if (d === 'hard') {
-    return {
-      missGoalCap: 6,
-      missMiniCap: 5,
-      goodGoal1: 16,
-      goodGoal2: 20,
-      comboGoal: 10,
-      comboGoalHard: 12,
-      streakMini1: 8,
-      streakMini2: 10,
-      greenSec1: 20,
-      greenSec2: 26,
-      accGoal: 90,
-      accMini: 85
-    };
+  return a;
+}
+
+function clone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+// ----- Template ภารกิจพื้นฐาน -----
+// type:
+//   - 'good'     : จำนวนยิงน้ำดีถูก
+//   - 'greenSec' : อยู่ในโซน GREEN สะสม (deck.stats.greenTick)
+//   - 'combo'    : combo สูงสุด
+//   - 'maxMiss'  : รักษาจำนวนผิด (badCount) ไม่เกินเกณฑ์ (เงื่อนไขคงอยู่)
+// note: labelTemplate ใส่ {target} ให้ระบบแทนค่า
+
+const GOAL_TEMPLATES = [
+  {
+    id: 'good-amount-1',
+    type: 'good',
+    thresholds: {
+      easy:   { target: 12, label: 'เก็บน้ำดีให้ครบ {target} ครั้ง' },
+      normal: { target: 16, label: 'เก็บน้ำดีให้ครบ {target} ครั้ง' },
+      hard:   { target: 20, label: 'เก็บน้ำดีให้ครบ {target} ครั้ง' }
+    }
+  },
+  {
+    id: 'good-amount-2',
+    type: 'good',
+    thresholds: {
+      easy:   { target: 14, label: 'เก็บน้ำดีให้ครบ {target} ครั้ง' },
+      normal: { target: 18, label: 'เก็บน้ำดีให้ครบ {target} ครั้ง' },
+      hard:   { target: 22, label: 'เก็บน้ำดีให้ครบ {target} ครั้ง' }
+    }
+  },
+  {
+    id: 'green-sec-1',
+    type: 'greenSec',
+    thresholds: {
+      easy:   { target: 15, label: 'อยู่ในโซนน้ำสมดุล (GREEN) รวม {target} วินาที' },
+      normal: { target: 20, label: 'อยู่ในโซนน้ำสมดุล (GREEN) รวม {target} วินาที' },
+      hard:   { target: 25, label: 'อยู่ในโซนน้ำสมดุล (GREEN) รวม {target} วินาที' }
+    }
+  },
+  {
+    id: 'combo-max-1',
+    type: 'combo',
+    thresholds: {
+      easy:   { target: 4, label: 'ทำคอมโบให้ถึง x{target} อย่างน้อย 1 ครั้ง' },
+      normal: { target: 6, label: 'ทำคอมโบให้ถึง x{target} อย่างน้อย 1 ครั้ง' },
+      hard:   { target: 8, label: 'ทำคอมโบให้ถึง x{target} อย่างน้อย 1 ครั้ง' }
+    }
+  },
+  {
+    id: 'max-miss-1',
+    type: 'maxMiss',
+    thresholds: {
+      easy:   { target: 6, label: 'ทั้งเกมพลาดไม่เกิน {target} ครั้ง' },
+      normal: { target: 5, label: 'ทั้งเกมพลาดไม่เกิน {target} ครั้ง' },
+      hard:   { target: 4, label: 'ทั้งเกมพลาดไม่เกิน {target} ครั้ง' }
+    }
+  },
+  {
+    id: 'max-miss-2',
+    type: 'maxMiss',
+    thresholds: {
+      easy:   { target: 7, label: 'พลาดน้ำไม่ดีรวมไม่เกิน {target} แก้ว' },
+      normal: { target: 6, label: 'พลาดน้ำไม่ดีรวมไม่เกิน {target} แก้ว' },
+      hard:   { target: 5, label: 'พลาดน้ำไม่ดีรวมไม่เกิน {target} แก้ว' }
+    }
+  },
+  {
+    id: 'green-sec-2',
+    type: 'greenSec',
+    thresholds: {
+      easy:   { target: 18, label: 'พยายามให้อยู่โซน GREEN นาน {target} วินาที' },
+      normal: { target: 22, label: 'พยายามให้อยู่โซน GREEN นาน {target} วินาที' },
+      hard:   { target: 28, label: 'พยายามให้อยู่โซน GREEN นาน {target} วินาที' }
+    }
+  },
+  {
+    id: 'good-amount-3',
+    type: 'good',
+    thresholds: {
+      easy:   { target: 10, label: 'ยิงโดนน้ำดีติดกันรวม {target} ครั้ง' },
+      normal: { target: 13, label: 'ยิงโดนน้ำดีติดกันรวม {target} ครั้ง' },
+      hard:   { target: 16, label: 'ยิงโดนน้ำดีติดกันรวม {target} ครั้ง' }
+    }
+  },
+  {
+    id: 'combo-max-2',
+    type: 'combo',
+    thresholds: {
+      easy:   { target: 5, label: 'ดันคอมโบให้ถึง x{target}' },
+      normal: { target: 7, label: 'ดันคอมโบให้ถึง x{target}' },
+      hard:   { target: 9, label: 'ดันคอมโบให้ถึง x{target}' }
+    }
+  },
+  {
+    id: 'green-sec-3',
+    type: 'greenSec',
+    thresholds: {
+      easy:   { target: 12, label: 'อย่างน้อยอยู่โซน GREEN ต่อเนื่องรวม {target} วินาที' },
+      normal: { target: 16, label: 'อย่างน้อยอยู่โซน GREEN ต่อเนื่องรวม {target} วินาที' },
+      hard:   { target: 20, label: 'อย่างน้อยอยู่โซน GREEN ต่อเนื่องรวม {target} วินาที' }
+    }
   }
-  // normal (default)
-  return {
-    missGoalCap: 5,
-    missMiniCap: 6,
-    goodGoal1: 12,
-    goodGoal2: 16,
-    comboGoal: 8,
-    comboGoalHard: 10,
-    streakMini1: 6,
-    streakMini2: 8,
-    greenSec1: 16,
-    greenSec2: 22,
-    accGoal: 85,
-    accMini: 80
-  };
-}
+];
 
-// -----------------------------
-// 2) สร้าง Template Goals / Minis
-// -----------------------------
-function buildGoalTemplates(cfg) {
-  // ทั้งหมด 10 เป้า (แยก non-miss / miss)
-  const nonMiss = [
-    {
-      id: 'G_GOOD_TOTAL_1',
-      kind: 'goodTotal',
-      label: `เก็บน้ำดีอย่างน้อย ${cfg.goodGoal1} ครั้ง`,
-      target: cfg.goodGoal1
-    },
-    {
-      id: 'G_GOOD_TOTAL_2',
-      kind: 'goodTotal',
-      label: `เก็บน้ำดีอย่างน้อย ${cfg.goodGoal2} ครั้ง`,
-      target: cfg.goodGoal2
-    },
-    {
-      id: 'G_COMBO_MAX',
-      kind: 'comboMax',
-      label: `คอมโบสูงสุดให้ถึงอย่างน้อย x${cfg.comboGoal}`,
-      target: cfg.comboGoal
-    },
-    {
-      id: 'G_COMBO_MAX_HARD',
-      kind: 'comboMax',
-      label: `คอมโบสูงสุดให้ถึงอย่างน้อย x${cfg.comboGoalHard}`,
-      target: cfg.comboGoalHard
-    },
-    {
-      id: 'G_ACC',
-      kind: 'accuracy',
-      label: `ความแม่นยำไม่ต่ำกว่า ${cfg.accGoal}%`,
-      target: cfg.accGoal
-    },
-    {
-      id: 'G_GREEN_TIME_1',
-      kind: 'greenTime',
-      label: `อยู่ในโซน GREEN อย่างน้อย ${cfg.greenSec1} วินาที`,
-      target: cfg.greenSec1
-    },
-    {
-      id: 'G_GREEN_TIME_2',
-      kind: 'greenTime',
-      label: `อยู่ในโซน GREEN อย่างน้อย ${cfg.greenSec2} วินาที`,
-      target: cfg.greenSec2
+// Mini quest จะเบากว่า เป้าต่ำกว่า (ใช้ type เดียวกัน)
+const MINI_TEMPLATES = [
+  {
+    id: 'mini-good-1',
+    type: 'good',
+    thresholds: {
+      easy:   { target: 6, label: 'เก็บน้ำดีอย่างน้อย {target} แก้ว' },
+      normal: { target: 8, label: 'เก็บน้ำดีอย่างน้อย {target} แก้ว' },
+      hard:   { target: 10, label: 'เก็บน้ำดีอย่างน้อย {target} แก้ว' }
     }
-  ];
-
-  const missType = [
-    {
-      id: 'G_MISS_CAP',
-      kind: 'missCap',
-      label: `พลาดไม่เกิน ${cfg.missGoalCap}`,
-      target: cfg.missGoalCap,
-      isMissType: true
-    },
-    {
-      id: 'G_MISS_RATE',
-      kind: 'missRate',
-      label: 'พลาดให้น้อยกว่า 20% ของทั้งหมด',
-      target: 20,
-      isMissType: true
-    },
-    {
-      id: 'G_LOW_ZONE',
-      kind: 'avoidLow',
-      label: 'อยู่โซน LOW ให้น้อยกว่า ¼ ของเวลา',
-      target: 25, // เปอร์เซ็นต์เวลา LOW สูงสุด
-      isMissType: true
+  },
+  {
+    id: 'mini-good-2',
+    type: 'good',
+    thresholds: {
+      easy:   { target: 7, label: 'เล็งโดนน้ำดีสะสม {target} ครั้ง' },
+      normal: { target: 9, label: 'เล็งโดนน้ำดีสะสม {target} ครั้ง' },
+      hard:   { target: 11, label: 'เล็งโดนน้ำดีสะสม {target} ครั้ง' }
     }
-  ];
-
-  return { nonMiss, missType };
-}
-
-function buildMiniTemplates(cfg) {
-  // 15 mini quest (5 easy-ish + 5 medium + 5 hard-ish), แบ่ง non-miss / miss
-  const nonMiss = [
-    // EASY-LIKE
-    {
-      id: 'M_STREAK_GOOD_1',
-      kind: 'goodStreak',
-      label: `เก็บน้ำดีต่อเนื่องให้ได้ ${cfg.streakMini1} ครั้ง`,
-      target: cfg.streakMini1
-    },
-    {
-      id: 'M_STREAK_GOOD_2',
-      kind: 'goodStreak',
-      label: `เก็บน้ำดีต่อเนื่องให้ได้ ${cfg.streakMini2} ครั้ง`,
-      target: cfg.streakMini2
-    },
-    {
-      id: 'M_COMBO_REACH_1',
-      kind: 'comboReach',
-      label: 'ทำคอมโบให้ถึงอย่างน้อย x4 สัก 1 ครั้ง',
-      target: 4
-    },
-    {
-      id: 'M_COMBO_REACH_2',
-      kind: 'comboReach',
-      label: 'ทำคอมโบให้ถึงอย่างน้อย x6 สัก 1 ครั้ง',
-      target: 6
-    },
-    {
-      id: 'M_ACC_MID',
-      kind: 'accuracy',
-      label: `รักษาความแม่นยำไม่ต่ำกว่า ${cfg.accMini}%`,
-      target: cfg.accMini
-    },
-
-    // MEDIUM
-    {
-      id: 'M_GOOD_TOTAL_1',
-      kind: 'goodTotal',
-      label: 'เก็บน้ำดีอย่างน้อย 10 ครั้ง',
-      target: 10
-    },
-    {
-      id: 'M_GREEN_TICKS',
-      kind: 'greenTime',
-      label: 'อยู่โซน GREEN ต่อเนื่องให้ได้อย่างน้อย 8 วินาที',
-      target: 8
-    },
-    {
-      id: 'M_COMBO_CHAIN',
-      kind: 'comboChain',
-      label: 'ทำคอมโบ ≥ x5 ให้ได้อย่างน้อย 2 ครั้งในเกมเดียว',
-      target: 5, // เก็บที่ค่า combo, ใช้นับจำนวนครั้งใน state
-      extra: { neededTimes: 2 }
-    },
-    {
-      id: 'M_FAST_START',
-      kind: 'fastStart',
-      label: 'ใน 20 วินาทีแรก ให้คอมโบสูงสุดถึงอย่างน้อย x4',
-      target: 4
-    },
-    {
-      id: 'M_GREEN_BONUS',
-      kind: 'greenBonus',
-      label: 'จบเกมด้วยโซนน้ำ GREEN',
-      target: 1
+  },
+  {
+    id: 'mini-green-1',
+    type: 'greenSec',
+    thresholds: {
+      easy:   { target: 8, label: 'อยู่โซน GREEN รวม {target} วินาที' },
+      normal: { target: 10, label: 'อยู่โซน GREEN รวม {target} วินาที' },
+      hard:   { target: 12, label: 'อยู่โซน GREEN รวม {target} วินาที' }
     }
-  ];
-
-  const missType = [
-    {
-      id: 'M_MISS_CAP_ALL',
-      kind: 'missCap',
-      label: `ทั้งเกมพลาดไม่เกิน ${cfg.missMiniCap}`,
-      target: cfg.missMiniCap,
-      isMissType: true
-    },
-    {
-      id: 'M_MISS_STREAK',
-      kind: 'avoidMissStreak',
-      label: 'อย่าพลาดติดกันเกิน 2 ครั้ง',
-      target: 2,
-      isMissType: true
-    },
-    {
-      id: 'M_BAD_RATIO',
-      kind: 'missRate',
-      label: 'เก็บน้ำไม่ดี (junk) ไม่เกิน ¼ ของทั้งหมด',
-      target: 25,
-      isMissType: true
-    },
-    {
-      id: 'M_LOW_AVOID',
-      kind: 'avoidLow',
-      label: 'ระวังอย่าให้โซนน้ำตกไป LOW บ่อยเกินไป',
-      target: 30,
-      isMissType: true
-    },
-    {
-      id: 'M_ZERO_MISS_WINDOW',
-      kind: 'zeroMissWindow',
-      label: 'เล่นแบบไม่พลาดเลย 10 วินาทีติดกันสัก 1 ครั้ง',
-      target: 10,
-      isMissType: true
+  },
+  {
+    id: 'mini-green-2',
+    type: 'greenSec',
+    thresholds: {
+      easy:   { target: 10, label: 'พยายามรักษาโซน GREEN ให้ได้ {target} วินาที' },
+      normal: { target: 12, label: 'พยายามรักษาโซน GREEN ให้ได้ {target} วินาที' },
+      hard:   { target: 14, label: 'พยายามรักษาโซน GREEN ให้ได้ {target} วินาที' }
     }
-  ];
+  },
+  {
+    id: 'mini-combo-1',
+    type: 'combo',
+    thresholds: {
+      easy:   { target: 3, label: 'ทำคอมโบให้ถึง x{target} สัก 1 ครั้ง' },
+      normal: { target: 4, label: 'ทำคอมโบให้ถึง x{target} สัก 1 ครั้ง' },
+      hard:   { target: 5, label: 'ทำคอมโบให้ถึง x{target} สัก 1 ครั้ง' }
+    }
+  },
+  {
+    id: 'mini-combo-2',
+    type: 'combo',
+    thresholds: {
+      easy:   { target: 4, label: 'คอมโบสูงสุดให้ได้ x{target} ขึ้นไป' },
+      normal: { target: 5, label: 'คอมโบสูงสุดให้ได้ x{target} ขึ้นไป' },
+      hard:   { target: 6, label: 'คอมโบสูงสุดให้ได้ x{target} ขึ้นไป' }
+    }
+  },
+  {
+    id: 'mini-maxmiss-1',
+    type: 'maxMiss',
+    thresholds: {
+      easy:   { target: 4, label: 'ทังเกมพลาดไม่เกิน {target} ครั้ง' },
+      normal: { target: 3, label: 'ทังเกมพลาดไม่เกิน {target} ครั้ง' },
+      hard:   { target: 2, label: 'ทังเกมพลาดไม่เกิน {target} ครั้ง' }
+    }
+  },
+  {
+    id: 'mini-maxmiss-2',
+    type: 'maxMiss',
+    thresholds: {
+      easy:   { target: 5, label: 'ระวังน้ำหวาน พลาดไม่เกิน {target} แก้ว' },
+      normal: { target: 4, label: 'ระวังน้ำหวาน พลาดไม่เกิน {target} แก้ว' },
+      hard:   { target: 3, label: 'ระวังน้ำหวาน พลาดไม่เกิน {target} แก้ว' }
+    }
+  },
+  {
+    id: 'mini-green-3',
+    type: 'greenSec',
+    thresholds: {
+      easy:   { target: 6, label: 'อยู่ GREEN ติด ๆ กันให้ได้ {target} วินาที' },
+      normal: { target: 8, label: 'อยู่ GREEN ติด ๆ กันให้ได้ {target} วินาที' },
+      hard:   { target: 10, label: 'อยู่ GREEN ติด ๆ กันให้ได้ {target} วินาที' }
+    }
+  },
+  {
+    id: 'mini-good-3',
+    type: 'good',
+    thresholds: {
+      easy:   { target: 5, label: 'ยิงน้ำดีติดกัน 5 ครั้งโดยไม่โดนของหวาน' },
+      normal: { target: 6, label: 'ยิงน้ำดีติดกัน 6 ครั้งโดยไม่โดนของหวาน' },
+      hard:   { target: 7, label: 'ยิงน้ำดีติดกัน 7 ครั้งโดยไม่โดนของหวาน' }
+    }
+  },
+  {
+    id: 'mini-good-4',
+    type: 'good',
+    thresholds: {
+      easy:   { target: 8, label: 'รวม ๆ แล้วเก็บน้ำดีให้ได้ {target} แก้ว' },
+      normal: { target: 10, label: 'รวม ๆ แล้วเก็บน้ำดีให้ได้ {target} แก้ว' },
+      hard:   { target: 12, label: 'รวม ๆ แล้วเก็บน้ำดีให้ได้ {target} แก้ว' }
+    }
+  },
+  {
+    id: 'mini-combo-3',
+    type: 'combo',
+    thresholds: {
+      easy:   { target: 3, label: 'ให้คอมโบไม่ตกจนกว่าจะถึง x{target}' },
+      normal: { target: 4, label: 'ให้คอมโบไม่ตกจนกว่าจะถึง x{target}' },
+      hard:   { target: 5, label: 'ให้คอมโบไม่ตกจนกว่าจะถึง x{target}' }
+    }
+  },
+  {
+    id: 'mini-green-4',
+    type: 'greenSec',
+    thresholds: {
+      easy:   { target: 7, label: 'อยู่ GREEN ได้นาน {target} วินาทีโดยรวม' },
+      normal: { target: 9, label: 'อยู่ GREEN ได้นาน {target} วินาทีโดยรวม' },
+      hard:   { target: 11, label: 'อยู่ GREEN ได้นาน {target} วินาทีโดยรวม' }
+    }
+  },
+  {
+    id: 'mini-maxmiss-3',
+    type: 'maxMiss',
+    thresholds: {
+      easy:   { target: 4, label: 'ฝึกเลี่ยงน้ำหวาน พลาดไม่เกิน {target}' },
+      normal: { target: 3, label: 'ฝึกเลี่ยงน้ำหวาน พลาดไม่เกิน {target}' },
+      hard:   { target: 2, label: 'ฝึกเลี่ยงน้ำหวาน พลาดไม่เกิน {target}' }
+    }
+  },
+  {
+    id: 'mini-good-5',
+    type: 'good',
+    thresholds: {
+      easy:   { target: 6, label: 'เก็บน้ำดีหมวด 💧/🥛 อย่างน้อย {target} ครั้ง' },
+      normal: { target: 8, label: 'เก็บน้ำดีหมวด 💧/🥛 อย่างน้อย {target} ครั้ง' },
+      hard:   { target: 10, label: 'เก็บน้ำดีหมวด 💧/🥛 อย่างน้อย {target} ครั้ง' }
+    }
+  }
+];
 
-  return { nonMiss, missType };
-}
+// ----- สร้าง quest object จาก template + diff -----
+function buildQuestFromTemplate(tpl, diff) {
+  const cfg = tpl.thresholds[diff] || tpl.thresholds.normal;
+  const label = cfg.label.replace('{target}', String(cfg.target));
 
-// -----------------------------
-// 3) ตัวช่วยสุ่ม & clone
-// -----------------------------
-function randPick(arr) {
-  if (!arr.length) return null;
-  const i = Math.floor(Math.random() * arr.length);
-  return arr.splice(i, 1)[0];
-}
-
-function cloneQuest(q) {
-  return {
-    id: q.id,
-    kind: q.kind,
-    label: q.label,
-    target: q.target || 0,
+  const base = {
+    id: tpl.id,
+    type: tpl.type,
+    label,
+    target: cfg.target,
     prog: 0,
     done: false,
-    isMissType: !!q.isMissType,
-    extra: q.extra ? { ...q.extra } : undefined
+    // สำหรับ maxMiss จะถือว่า "ผ่าน" ตั้งแต่เริ่ม จนกว่าจะเกินเป้า
+    ok: tpl.type === 'maxMiss'
   };
+  return base;
 }
 
-// -----------------------------
-// 4) สร้าง Deck หลัก
-// -----------------------------
-export function createHydrationQuest(diffKey) {
-  const cfg = diffConfig(diffKey);
+// ----- factory หลัก -----
+export function createHydrationQuest(diffRaw = 'normal') {
+  const diff = ['easy', 'normal', 'hard'].includes(diffRaw)
+    ? diffRaw
+    : 'normal';
 
-  // สถานะรวมสำหรับนับสถิติ
-  const stats = {
+  // state ภายใน deck
+  const state = {
+    diff,
     score: 0,
     combo: 0,
-    comboMax: 0,
-    goodHits: 0,
-    badHits: 0, // ใช้แทน miss
-    totalHits: 0,
-    greenTick: 0, // จะถูก hydration.safe.js เซ็ตจากภายนอก
-    zone: 'GREEN',
-    secPlayed: 0,
-    secNoMissStreak: 0,
-    missStreak: 0,
-    goodStreak: 0,
-    maxGoodStreak: 0,
-    fastWindowMaxCombo: 0, // ภายใน 20 วินาทีแรก
-    timesComboGE5: 0
+    bestCombo: 0,
+    goodCount: 0,
+    badCount: 0,
+    goalsPool: shuffle(GOAL_TEMPLATES),
+    minisPool: shuffle(MINI_TEMPLATES),
+    goals: [],
+    minis: [],
+    stats: {
+      greenTick: 0,
+      zone: 'GREEN'
+    }
   };
 
-  // template pool
-  const goalTpl = buildGoalTemplates(cfg);
-  const miniTpl = buildMiniTemplates(cfg);
-
-  // pool ที่จะถูกใช้สุ่มจริง (clone แยก)
-  const poolGoalsNonMiss = goalTpl.nonMiss.map(cloneQuest);
-  const poolGoalsMiss    = goalTpl.missType.map(cloneQuest);
-  const poolMiniNonMiss  = miniTpl.nonMiss.map(cloneQuest);
-  const poolMiniMiss     = miniTpl.missType.map(cloneQuest);
-
-  // เควสต์ที่ "ใช้งานอยู่" ตอนนี้
-  let activeGoals = [];
-  let activeMini  = [];
-
-  // -------------------------
-  // 4.1 ฟังก์ชันคำนวณ progress
-  // -------------------------
+  // ----- core update ของแต่ละ quest -----
   function updateQuestProgress(q) {
-    switch (q.kind) {
-      case 'goodTotal': {
-        q.prog = Math.min(stats.goodHits, q.target);
-        q.done = stats.goodHits >= q.target;
+    if (!q) return;
+    switch (q.type) {
+      case 'good':
+        q.prog = Math.min(state.goodCount, q.target);
+        if (!q.done && q.prog >= q.target) {
+          q.done = true;
+          coach('เยี่ยมมาก! เก็บน้ำดีได้ครบตามเป้าแล้ว 🎯');
+        }
         break;
-      }
-      case 'comboMax': {
-        q.prog = Math.min(stats.comboMax, q.target);
-        q.done = stats.comboMax >= q.target;
-        break;
-      }
-      case 'accuracy': {
-        const total = stats.totalHits || 1;
-        const acc = (stats.goodHits / total) * 100;
-        q.prog = Math.round(acc);
-        q.done = acc >= q.target;
-        break;
-      }
-      case 'greenTime': {
-        q.prog = Math.min(stats.greenTick, q.target);
-        q.done = stats.greenTick >= q.target;
-        break;
-      }
-      case 'missCap': {
-        q.prog = Math.min(stats.badHits, q.target);
-        q.done = stats.badHits <= q.target;
-        break;
-      }
-      case 'missRate': {
-        const total2 = stats.totalHits || 1;
-        const missPct = (stats.badHits / total2) * 100;
-        q.prog = Math.round(missPct);
-        q.done = missPct <= q.target;
-        break;
-      }
-      case 'avoidLow': {
-        // ประเมินแบบง่าย ๆ: ถ้า zone ส่วนใหญ่เป็น GREEN/HIGH ถือว่าผ่าน
-        // ให้ใช้ greenTick เป็นตัวแทน "ไม่ LOW มาก"
-        const sec = stats.secPlayed || 1;
-        const lowSec = Math.max(0, sec - stats.greenTick);
-        const lowPct = (lowSec / sec) * 100;
-        q.prog = Math.round(lowPct);
-        q.done = lowPct <= q.target;
-        break;
-      }
 
-      // -------- Mini-only kinds --------
-      case 'goodStreak': {
-        q.prog = Math.min(stats.maxGoodStreak, q.target);
-        q.done = stats.maxGoodStreak >= q.target;
+      case 'greenSec':
+        q.prog = Math.min(state.stats.greenTick | 0, q.target);
+        if (!q.done && q.prog >= q.target) {
+          q.done = true;
+          coach('สุดยอดเลย รักษาโซนน้ำสมดุลได้ตามเวลาที่ตั้งใจไว้แล้ว 💧👏');
+        }
         break;
-      }
-      case 'comboReach': {
-        q.prog = Math.min(stats.comboMax, q.target);
-        q.done = stats.comboMax >= q.target;
+
+      case 'combo':
+        q.prog = Math.min(state.bestCombo, q.target);
+        if (!q.done && q.prog >= q.target) {
+          q.done = true;
+          coach('คอมโบโหดมาก! ถึง x' + q.target + ' แล้ว 🔥');
+        }
         break;
-      }
-      case 'comboChain': {
-        q.prog = Math.min(stats.timesComboGE5, (q.extra && q.extra.neededTimes) || 2);
-        q.done = stats.timesComboGE5 >= ((q.extra && q.extra.neededTimes) || 2);
-        break;
-      }
-      case 'fastStart': {
-        q.prog = Math.min(stats.fastWindowMaxCombo, q.target);
-        q.done = stats.fastWindowMaxCombo >= q.target;
-        break;
-      }
-      case 'greenBonus': {
-        q.prog = stats.zone === 'GREEN' ? 1 : 0;
-        q.done = stats.zone === 'GREEN';
-        break;
-      }
-      case 'avoidMissStreak': {
-        q.prog = stats.missStreak;
-        q.done = stats.missStreak <= q.target;
-        break;
-      }
-      case 'zeroMissWindow': {
-        q.prog = Math.min(stats.secNoMissStreak, q.target);
-        q.done = stats.secNoMissStreak >= q.target;
-        break;
-      }
-      default:
+
+      case 'maxMiss':
+        // เงื่อนไข: ถ้ายังไม่เกิน target = ผ่านอยู่, ถ้าเกินแล้ว = ล้มเหลว
+        if (state.badCount > q.target) {
+          if (q.ok) {
+            coach('แอบพลาดเกินเป้าแล้ว รอบหน้าลองเลี่ยงน้ำหวานให้มากกว่านี้นะ 😅');
+          }
+          q.ok = false;
+          q.done = false;
+          q.prog = 0;
+        } else {
+          q.ok = true;
+          q.prog = q.target - state.badCount; // เหลือ margin เท่าไหร่
+          q.done = true; // ถือว่าผ่านตราบเท่าที่ยังไม่เกิน
+        }
         break;
     }
   }
 
-  function updateAllProgress() {
-    activeGoals.forEach(updateQuestProgress);
-    activeMini.forEach(updateQuestProgress);
+  function updateAll() {
+    state.goals.forEach(updateQuestProgress);
+    state.minis.forEach(updateQuestProgress);
   }
 
-  // -------------------------
-  // 4.2 ฟังก์ชันสุ่ม Goal / Mini
-  // -------------------------
-  function drawGoals(count) {
-    const result = [];
+  // ----- draw goals / minis -----
+  function drawGoals(n = 2) {
+    state.goals = [];
+    const pool = state.goalsPool.slice();
+    // ให้ task ประเภท maxMiss ถูกดันไปท้าย ๆ
+    pool.sort((a, b) => {
+      const ma = a.type === 'maxMiss' ? 1 : 0;
+      const mb = b.type === 'maxMiss' ? 1 : 0;
+      return ma - mb;
+    });
 
-    // เลือกจาก non-miss ก่อน
-    while (result.length < count && poolGoalsNonMiss.length) {
-      const q = randPick(poolGoalsNonMiss);
-      if (q) result.push(q);
-    }
-    // ถ้ายังไม่ครบ ค่อยดึง miss-type
-    while (result.length < count && poolGoalsMiss.length) {
-      const q = randPick(poolGoalsMiss);
-      if (q) result.push(q);
-    }
-
-    activeGoals = result;
-    updateAllProgress();
-    return activeGoals;
+    const chosen = pool.slice(0, Math.max(0, n));
+    state.goals = chosen.map((tpl) => buildQuestFromTemplate(tpl, diff));
+    updateAll();
+    coach('ภารกิจหลักมาแล้ว ลองอ่านเป้าหมายว่าให้ทำอะไรบ้างนะ 💡');
   }
 
   function draw3() {
-    const result = [];
+    state.minis = [];
+    const pool = state.minisPool.slice();
+    // mini ที่เป็น maxMiss ก็ไปท้ายเหมือนกัน
+    pool.sort((a, b) => {
+      const ma = a.type === 'maxMiss' ? 1 : 0;
+      const mb = b.type === 'maxMiss' ? 1 : 0;
+      return ma - mb;
+    });
 
-    while (result.length < 3 && poolMiniNonMiss.length) {
-      const q = randPick(poolMiniNonMiss);
-      if (q) result.push(q);
-    }
-    while (result.length < 3 && poolMiniMiss.length) {
-      const q = randPick(poolMiniMiss);
-      if (q) result.push(q);
-    }
-
-    activeMini = result;
-    updateAllProgress();
-    return activeMini;
+    const chosen = pool.slice(0, 3);
+    state.minis = chosen.map((tpl) => buildQuestFromTemplate(tpl, diff));
+    updateAll();
+    coach('Mini quest มาเพิ่มแล้ว ลองเก็บให้ได้เยอะที่สุดเลย ✨');
   }
 
-  // -------------------------
-  // 4.3 Hook จากเกมหลัก
-  // -------------------------
-  function updateScore(v) {
-    stats.score = Number(v) || 0;
+  // ----- API ที่ hydration.safe.js เรียก -----
+  function updateScore(score) {
+    state.score = score | 0;
   }
 
-  function updateCombo(v) {
-    const c = Number(v) || 0;
-    stats.combo = c;
-    if (c > stats.comboMax) stats.comboMax = c;
-
-    // ใช้ combo สำหรับนับ timesComboGE5
-    if (c >= 5) {
-      // ถ้าเพิ่งข้าม threshold ให้เพิ่ม 1 ครั้ง
-      if (!stats._lastComboGE5) {
-        stats.timesComboGE5 += 1;
-        stats._lastComboGE5 = true;
-      }
-    } else {
-      stats._lastComboGE5 = false;
+  function updateCombo(combo) {
+    state.combo = combo | 0;
+    if (state.combo > state.bestCombo) {
+      state.bestCombo = state.combo;
     }
-
-    // ภายใน 20 วินาทีแรก ใช้ max combo สำหรับ fastStart
-    if (stats.secPlayed <= 20 && c > stats.fastWindowMaxCombo) {
-      stats.fastWindowMaxCombo = c;
-    }
-
-    updateAllProgress();
+    updateAll();
   }
 
   function onGood() {
-    stats.goodHits += 1;
-    stats.totalHits += 1;
-    stats.goodStreak += 1;
-    if (stats.goodStreak > stats.maxGoodStreak) stats.maxGoodStreak = stats.goodStreak;
-
-    // reset miss streak
-    stats.missStreak = 0;
-
-    updateAllProgress();
+    state.goodCount += 1;
+    updateAll();
   }
 
   function onJunk() {
-    stats.badHits += 1;
-    stats.totalHits += 1;
-
-    stats.goodStreak = 0;
-    stats.missStreak += 1;
-    stats.secNoMissStreak = 0; // รีเซ็ต streak แบบ "ไม่พลาดเลย"
-
-    updateAllProgress();
+    state.badCount += 1;
+    // เตือนนิดหน่อยเวลาเริ่มพลาดเยอะในโหมดเด็ก ป.5
+    if (state.badCount === 3) {
+      coach('เริ่มพลาดเยอะแล้ว ระวังหลบน้ำหวานให้ดีนะ 👀');
+    }
+    updateAll();
   }
 
-  // เรียกทุก 1 วินาทีจาก hydration.safe.js
   function second() {
-    stats.secPlayed += 1;
+    // hydration.safe.js จะอัปเดต stats.greenTick / stats.zone ให้เอง
+    updateAll();
+    const allGoals = state.goals;
+    const allMinis = state.minis;
 
-    // ถ้าไม่มี miss ใหม่ในวินาทีนั้น (ใช้ missStreak เป็นตัวบอกคร่าว ๆ)
-    if (stats.missStreak === 0) {
-      stats.secNoMissStreak += 1;
-    } else {
-      // วินาทีนี้มี miss แล้ว ถูกรีเซ็ตใน onJunk ไปแล้ว
+    // ถ้าเป้าจบครบหมด → รอบต่อไปค่อยให้ drawGoals/draw3 ใหม่ (safe.js เป็นคนเรียก)
+    if (allGoals.length && allGoals.every((g) => g.done)) {
+      coach('Goal รอบนี้ครบแล้ว เดี๋ยวมีภารกิจใหม่ให้อีกนะ 🎉');
     }
-
-    updateAllProgress();
+    if (allMinis.length && allMinis.every((m) => m.done)) {
+      coach('เก็บ Mini quest หมดชุดแล้ว เก่งมาก! 💫');
+    }
   }
 
-  // -------------------------
-  // 4.4 อ่าน progress ให้ HUD
-  // -------------------------
   function getProgress(kind) {
-    if (kind === 'goals') {
-      return activeGoals.map(q => ({
-        id: q.id,
-        label: q.label,
-        prog: q.prog,
-        target: q.target,
-        done: !!q.done
-      }));
-    }
-    if (kind === 'mini') {
-      return activeMini.map(q => ({
-        id: q.id,
-        label: q.label,
-        prog: q.prog,
-        target: q.target,
-        done: !!q.done
-      }));
-    }
+    if (kind === 'goals' || kind === 'goal') return clone(state.goals);
+    if (kind === 'mini' || kind === 'minis') return clone(state.minis);
     return [];
   }
 
-  // -------------------------
-  // 4.5 คืนค่าตัว deck
-  // -------------------------
-  const deck = {
-    stats,              // hydration.safe.js จะเซ็ต zone / greenTick เพิ่ม
+  // object ที่ส่งกลับไปให้ hydration.safe.js
+  return {
+    stats: state.stats,
     updateScore,
     updateCombo,
     onGood,
@@ -551,9 +456,6 @@ export function createHydrationQuest(diffKey) {
     drawGoals,
     draw3
   };
-
-  return deck;
 }
 
-// เผื่อกรณี import default
 export default { createHydrationQuest };
