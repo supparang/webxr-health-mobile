@@ -190,60 +190,112 @@
       if (timeParam < 20) timeParam = 20;
       if (timeParam > 180) timeParam = 180;
 
-      const elScore     = document.getElementById('hud-score');
-      const elDiff      = document.getElementById('hud-diff-label');
-      const elTime      = document.getElementById('hud-time-label');
-      const elCoach     = document.getElementById('coach-bubble');
-      const elCoachText = document.getElementById('coach-text');
+      const elScore      = document.getElementById('hud-score');
+      const elDiff       = document.getElementById('hud-diff-label');
+      const elTime       = document.getElementById('hud-time-label');
+      const elCoach      = document.getElementById('coach-bubble');
+      const elCoachText  = document.getElementById('coach-text');
+      const elCoachAvatar= document.querySelector('.coach-avatar');
 
-      // Toast สรุปผล
-      const endToast = document.getElementById('fg-end');
-      const resScore = document.getElementById('fg-res-score');
-      const resQuest = document.getElementById('fg-res-quest');
-      const resGoal  = document.getElementById('fg-res-goal');
-      const resMini  = document.getElementById('fg-res-mini');
-      const btnRetry = document.getElementById('fg-btn-retry');
-      const btnHub   = document.getElementById('fg-btn-hub');
+      const resOverlay = document.getElementById('fg-result');
+      const resScore   = document.getElementById('fg-res-score');
+      const resQuest   = document.getElementById('fg-res-quest');
+      const resGoal    = document.getElementById('fg-res-goal');
+      const resMini    = document.getElementById('fg-res-mini');
+      const btnRetry   = document.getElementById('fg-btn-retry');
+      const btnHub     = document.getElementById('fg-btn-hub');
 
       elDiff.textContent = diffParam.toUpperCase();
       elTime.textContent = timeParam + 's';
       elScore.textContent = '0';
 
-      // coach helper (รองรับ mood: good / bad / hype)
+      // ----- coach helper (รองรับ mood: good / bad / hype) -----
       function setCoach(text, mood) {
         if (!text) return;
         elCoachText.textContent = text;
         elCoach.classList.add('show');
 
-        // ล้าง class mood เก่า
+        // reset mood
         elCoach.classList.remove('coach-good', 'coach-bad', 'coach-hype');
-        const avatar = elCoach.querySelector('.coach-avatar');
-        if (avatar) {
-          avatar.classList.remove(
+        if (elCoachAvatar) {
+          elCoachAvatar.classList.remove(
             'coach-avatar-good',
             'coach-avatar-bad',
             'coach-avatar-hype'
           );
         }
 
-        if (mood === 'good') {
-          elCoach.classList.add('coach-good');
-          if (avatar) avatar.classList.add('coach-avatar-good');
-        } else if (mood === 'bad') {
-          elCoach.classList.add('coach-bad');
-          if (avatar) avatar.classList.add('coach-avatar-bad');
-        } else if (mood === 'hype') {
-          elCoach.classList.add('coach-hype');
-          if (avatar) avatar.classList.add('coach-avatar-hype');
+        if (mood && ['good', 'bad', 'hype'].includes(mood)) {
+          elCoach.classList.add('coach-' + mood);
+          if (elCoachAvatar) {
+            elCoachAvatar.classList.add('coach-avatar-' + mood);
+          }
         }
       }
 
-      // ข้อความเริ่มต้น
-      setCoach('แตะเป้าอาหารให้ทันเวลา แล้วเน้นหมู่อาหารดีจากหมู่ที่กำหนดนะ! 🥦');
+      // ข้อความอธิบายหมู่แบบ step-by-step ตามระดับ
+      function getGroupIntroLines(diff) {
+        switch (diff) {
+          case 'easy':
+            return [
+              'วันนี้โฟกัสหมู่ที่ 1 และหมู่ที่ 2 ก่อนนะ 🍚 + 🍗',
+              'หมู่ที่ 1 คือข้าว แป้ง ธัญพืช ให้พลังงาน เช่น ข้าวสวย ขนมปัง เส้นก๋วยเตี๋ยว',
+              'หมู่ที่ 2 คือโปรตีนจากเนื้อสัตว์และถั่ว เช่น ไก่ ปลา เต้าหู้ ถั่วต่าง ๆ',
+              'เลือกเป้าอาหารดีจากสองหมู่นี้ แล้วหลบของขยะให้ดี ๆ นะ'
+            ];
+          case 'hard':
+            return [
+              'โหมดยากเน้นจัดครบหลายหมู่ โดยเฉพาะโปรตีน ผัก และผลไม้ 💪',
+              'หมู่ที่ 2: โปรตีนช่วยซ่อมแซมส่วนที่สึกหรอ เช่น ปลา ไก่ ถั่วเมล็ดแห้ง',
+              'หมู่ที่ 3: ผักให้วิตามิน แร่ธาตุ และใยอาหาร ช่วยระบบขับถ่าย',
+              'หมู่ที่ 4: ผลไม้ให้วิตามินและน้ำตาลธรรมชาติ เลือกผลไม้สดจะดีที่สุด',
+              'พยายามเก็บเป้าจากหมู่ดี ๆ เหล่านี้ให้ได้มากที่สุด แล้วคุมของขยะให้น้อย ๆ นะ'
+            ];
+          default: // normal
+            return [
+              'โหมดปกติจะเน้นหมู่ที่ 1–3 คือ ข้าว โปรตีน และผัก 🍚🍗🥦',
+              'หมู่ที่ 1: ข้าวและแป้งเป็นพลังงานหลักให้ร่างกาย',
+              'หมู่ที่ 2: โปรตีนช่วยให้กล้ามเนื้อแข็งแรง ซ่อมแซมส่วนที่สึกหรอ',
+              'หมู่ที่ 3: ผักมีวิตามิน แร่ธาตุ และใยอาหาร ช่วยให้ร่างกายแข็งแรง',
+              'เป้าคือเลือกหมู่อาหารดี ๆ ตามนี้ แล้วเลี่ยงของขยะที่ไม่อยู่ในหมู่หลัก ๆ'
+            ];
+        }
+      }
+
+      // ----- Pre-game intro + countdown -----
+      function runIntroAndCountdown(scene) {
+        const lines = getGroupIntroLines(diffParam);
+
+        let t = 400; // เริ่มหลังโหลดนิดหน่อย
+
+        // intro ทีละบรรทัด
+        lines.forEach((msg) => {
+          setTimeout(() => {
+            setCoach(msg, 'good');
+          }, t);
+          t += 2600; // ระยะเวลาอ่านต่อบรรทัด
+        });
+
+        // เตรียมตัวนับถอยหลัง 3-2-1-Go
+        setTimeout(() => setCoach('เตรียมตัวให้พร้อมนะ... 3', 'hype'), t);
+        t += 700;
+        setTimeout(() => setCoach('2', 'hype'), t);
+        t += 700;
+        setTimeout(() => setCoach('1', 'hype'), t);
+        t += 700;
+        setTimeout(() => setCoach('Go! เล็งหมู่อาหารดีแล้วแตะเป้าให้ทันเวลา! 💥', 'hype'), t);
+
+        // เริ่มเกมจริงหลัง Go เล็กน้อย
+        t += 500;
+        setTimeout(() => {
+          console.log('[GroupsVR] intro finished → emit fg-start');
+          scene.emit('fg-start', { diff: diffParam, duration: timeParam });
+        }, t);
+      }
 
       const scene = document.querySelector('a-scene');
 
-      // รับ event จาก GameEngine ตอนจบเกม → แสดง toast
+      // รับ event จาก GameEngine ตอนจบเกม → แสดงหน้าสรุป + ปุ่ม
       scene.addEventListener('fg-game-over', function (e) {
         const d = e.detail || {};
         resScore.textContent = d.score != null ? d.score : 0;
@@ -258,17 +310,14 @@
         resGoal.textContent = d.goal || '-';
         resMini.textContent = d.miniQuest || '-';
 
-        if (endToast) {
-          endToast.classList.add('show');
-        }
+        resOverlay.classList.add('show');
       });
 
-      // GameEngine ยิง event ให้โค้ชพูด + อารมณ์
+      // GameEngine ยิง event ให้โค้ชพูดระหว่างเกม (hit / miss / endGame)
       window.addEventListener('fg-coach', function (e) {
-        const d = e.detail || {};
-        if (d.text) {
-          setCoach(d.text, d.mood);
-        }
+        const msg  = e.detail && e.detail.text;
+        const mood = e.detail && e.detail.mood;
+        if (msg) setCoach(msg, mood);
       });
 
       // ปุ่มเล่นใหม่: โหลดหน้าเดิมพร้อม diff/time เดิม
@@ -281,17 +330,17 @@
         });
       }
 
-      // ปุ่มกลับ Hub (เปลี่ยน path ได้ตามที่จัดวางไฟล์จริง)
+      // ปุ่มกลับ Hub
       if (btnHub) {
         btnHub.addEventListener('click', function () {
           window.location.href = './hub.html';
         });
       }
 
-      // แจ้ง GameEngine ให้เริ่มเกมเมื่อ scene โหลดแล้ว
+      // เมื่อ scene โหลดเสร็จ → ให้โค้ชเริ่มอธิบาย + นับถอยหลังก่อนเริ่มเกม
       scene.addEventListener('loaded', function () {
-        console.log('[GroupsVR] scene loaded → emit fg-start');
-        scene.emit('fg-start', { diff: diffParam, duration: timeParam });
+        console.log('[GroupsVR] scene loaded → run intro + countdown');
+        runIntroAndCountdown(scene);
       });
     })();
   </script>
