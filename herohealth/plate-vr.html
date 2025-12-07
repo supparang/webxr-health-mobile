@@ -302,6 +302,19 @@
     elQuestMini.textContent = miniText;
     elQuestHint.textContent = d.hint || elQuestHint.textContent;
   });
+    // ------- Status เมื่อเคลียร์ภารกิจ (Goal / Mini) -------
+  window.addEventListener('quest:cleared', (e) => {
+    const cleared = e.detail?.cleared || [];
+    if (!cleared.length) return;
+
+    // เอาเควสต์ตัวแรกที่เพิ่งสำเร็จมาใช้เป็นข้อความหลัก
+    const q = cleared[0];
+    const label = q.type === 'goal' ? 'Goal หลัก' : 'Mini Quest';
+
+    const msg = `✅ สำเร็จแล้ว: ${q.text}`;
+    elQuestHint.textContent = msg;
+    showCoach(`${label} สำเร็จแล้ว 🎉  ${q.text}`);
+  });
 
   // ------- Coach Bubble -------
   function showCoach(text){
