@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-07 FX Version — burst + score + judge popup
+// 2025-12-07 FX Version — burst + score + judge popup (with safe Particles resolve)
 
 'use strict';
 
@@ -20,9 +20,12 @@ export const GameEngine = (function () {
     };
 
   // ---------- Particles (global) ----------
-  const Particles =
-    (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
-    window.Particles || null;
+  // ดึงสดจาก window ทุกครั้ง (กันเคสโหลดไม่ทันบนมือถือ)
+  function getParticles() {
+    return (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
+           window.Particles ||
+           null;
+  }
 
   // ---------- emoji ชุดอาหาร ----------
   const GOOD = [
@@ -429,13 +432,14 @@ export const GameEngine = (function () {
       emitScore();
       emitJudge('Shield');
 
-      if (Particles) {
-        Particles.burstAt(sx, sy, {
+      const P = getParticles();
+      if (P) {
+        P.burstAt(sx, sy, {
           color: '#60a5fa',
           count: 10,
           radius: 40
         });
-        Particles.scorePop(sx, sy, 'Shield', {
+        P.scorePop(sx, sy, 'Shield', {
           kind: 'judge',
           judgment: 'BLOCK'
         });
@@ -464,16 +468,17 @@ export const GameEngine = (function () {
       emitJudge('Bonus');
       emitScore();
 
-      if (Particles) {
-        Particles.burstAt(sx, sy, {
+      const P = getParticles();
+      if (P) {
+        P.burstAt(sx, sy, {
           color: '#facc15',
           count: 16,
           radius: 70
         });
-        Particles.scorePop(sx, sy, '+' + scoreDelta, {
+        P.scorePop(sx, sy, '+' + scoreDelta, {
           kind: 'score'
         });
-        Particles.scorePop(sx, sy, 'BONUS', {
+        P.scorePop(sx, sy, 'BONUS', {
           kind: 'judge',
           judgment: 'GOOD'
         });
@@ -503,16 +508,17 @@ export const GameEngine = (function () {
       emitJudge('Bonus');
       emitScore();
 
-      if (Particles) {
-        Particles.burstAt(sx, sy, {
+      const P = getParticles();
+      if (P) {
+        P.burstAt(sx, sy, {
           color: '#38bdf8',
           count: 16,
           radius: 70
         });
-        Particles.scorePop(sx, sy, '+' + scoreDelta, {
+        P.scorePop(sx, sy, '+' + scoreDelta, {
           kind: 'score'
         });
-        Particles.scorePop(sx, sy, 'BONUS', {
+        P.scorePop(sx, sy, 'BONUS', {
           kind: 'judge',
           judgment: 'GOOD'
         });
@@ -572,13 +578,14 @@ export const GameEngine = (function () {
         emitScore();
         emitJudge('Guard');
 
-        if (Particles) {
-          Particles.burstAt(sx, sy, {
+        const P = getParticles();
+        if (P) {
+          P.burstAt(sx, sy, {
             color: '#60a5fa',
             count: 10,
             radius: 40
           });
-          Particles.scorePop(sx, sy, 'BLOCK', {
+          P.scorePop(sx, sy, 'BLOCK', {
             kind: 'judge',
             judgment: 'BLOCK'
           });
@@ -625,7 +632,8 @@ export const GameEngine = (function () {
     emitJudge(judgment);
 
     // ---------- FX: เป้าแตก + คะแนน + คำตัดสิน ----------
-    if (Particles) {
+    const P = getParticles();
+    if (P) {
       const jUpper = String(judgment || '').toUpperCase();
 
       let color = '#22c55e';
@@ -635,7 +643,7 @@ export const GameEngine = (function () {
 
       const goodFlag = kind === 'good';
 
-      Particles.burstAt(sx, sy, {
+      P.burstAt(sx, sy, {
         color,
         count: goodFlag ? 14 : 10,
         radius: goodFlag ? 60 : 50
@@ -644,12 +652,12 @@ export const GameEngine = (function () {
       if (scoreDelta) {
         const text =
           scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
-        Particles.scorePop(sx, sy, text, {
+        P.scorePop(sx, sy, text, {
           kind: 'score'
         });
       }
 
-      Particles.scorePop(sx, sy, jUpper, {
+      P.scorePop(sx, sy, jUpper, {
         kind: 'judge',
         judgment: jUpper
       });
@@ -704,13 +712,14 @@ export const GameEngine = (function () {
       pushQuest('');
       emitJudge('Miss');
 
-      if (Particles) {
-        Particles.burstAt(sx, sy, {
+      const P = getParticles();
+      if (P) {
+        P.burstAt(sx, sy, {
           color: '#f97316',
           count: 10,
           radius: 45
         });
-        Particles.scorePop(sx, sy, 'MISS', {
+        P.scorePop(sx, sy, 'MISS', {
           kind: 'judge',
           judgment: 'MISS'
         });
