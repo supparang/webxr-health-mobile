@@ -1,10 +1,10 @@
 // === /herohealth/vr/particles.js ===
 // Simple DOM-based particle & score FX for HeroHealth VR
-// ใช้กับโหมด GoodJunk / Groups / Hydration ได้เหมือนกัน
+// ใช้กับ GoodJunk / Groups / Hydration ได้เหมือนกัน
 //
-// Particles.scorePop(x, y, "+50", { kind:"score" });
-// Particles.scorePop(x, y, "GOOD", { kind:"judge", judgment:"GOOD" });
-// Particles.burstAt(x, y, { color:"#22c55e", count:14, radius:60 });
+//   Particles.scorePop(x, y, "+50", { kind:"score" });
+//   Particles.scorePop(x, y, "GOOD", { kind:"judge", judgment:"GOOD" });
+//   Particles.burstAt(x, y, { color:"#22c55e", count:14, radius:60 });
 
 'use strict';
 
@@ -23,7 +23,7 @@
         position:fixed;
         inset:0;
         pointer-events:none;
-        z-index:640; /* เหนือฉาก แต่ใต้ HUD */
+        z-index:652; /* เหนือ HUD (650) แต่ยังต่ำกว่า countdown (655) */
         overflow:hidden;
       }
 
@@ -112,9 +112,13 @@
       classes.push('hha-score-pop--score');
     } else if (opts.kind === 'judge') {
       const j = String(opts.judgment || '').toUpperCase();
-      if (j === 'GOOD' || j === 'BLOCK') classes.push('hha-score-pop--good');
-      else if (j === 'PERFECT') classes.push('hha-score-pop--perfect');
-      else if (j === 'MISS' || j === 'LATE') classes.push('hha-score-pop--bad');
+      if (j === 'GOOD' || j === 'BLOCK' || j === 'BONUS') {
+        classes.push('hha-score-pop--good');
+      } else if (j === 'PERFECT') {
+        classes.push('hha-score-pop--perfect');
+      } else if (j === 'MISS' || j === 'LATE') {
+        classes.push('hha-score-pop--bad');
+      }
     }
     el.className = classes.join(' ');
     el.textContent = text;
