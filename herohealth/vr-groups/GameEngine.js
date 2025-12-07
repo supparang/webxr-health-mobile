@@ -2,10 +2,10 @@
 // Food Groups VR — Game Engine (DOM targets + Goal / Mini quest + Fever + FX)
 // 2025-12-07
 
-(function (ns) {
+(function (ns, global) {
   'use strict';
 
-  const A = window.AFRAME;
+  const A = global.AFRAME;
   if (!A) {
     console.error('[GroupsVR] AFRAME not found');
     return;
@@ -13,36 +13,36 @@
 
   // ----- Fever UI (shared global) -----
   const FeverUI =
-    (window.GAME_MODULES && window.GAME_MODULES.FeverUI) ||
-    window.FeverUI || {
+    (global.GAME_MODULES && global.GAME_MODULES.FeverUI) ||
+    global.FeverUI || {
       ensureFeverBar() {},
       setFever() {},
       setFeverActive() {},
       setShield() {}
     };
 
-  // ----- Particles (คะแนนเด้ง + เป้าแตก) -----
+  // ----- FX (particles.js: HHA_PARTICLES) -----
   const Particles =
-    window.HHA_PARTICLES ||
-    (window.GAME_MODULES && window.GAME_MODULES.Particles) || {
+    global.HHA_PARTICLES ||
+    (global.GAME_MODULES && global.GAME_MODULES.Particles) || {
       scorePop() {},
       burstAt() {}
     };
-
-  const scorePop = Particles.scorePop || function () {};
-  const burstAt  = Particles.burstAt  || function () {};
 
   const FEVER_MAX       = 100;
   const FEVER_HIT_GAIN  = 10;
   const FEVER_MISS_LOSS = 25;
 
-  // ----- Difficulty helper -----
+  // ---------- Difficulty helper ----------
   function getDiffConfig(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
     // ถ้ามีไฟล์ difficulty.js แยกไว้ ให้ลองใช้ก่อน
-    if (ns.foodGroupsDifficulty && typeof ns.foodGroupsDifficulty.get === 'function') {
-      const cfg = ns.foodGroupsDifficulty.get(diffKey);
+    const diffSrc =
+      (ns.foodGroupsDifficulty) ||
+      (global.foodGroupsDifficulty);
+    if (diffSrc && typeof diffSrc.get === 'function') {
+      const cfg = diffSrc.get(diffKey);
       if (cfg) return cfg;
     }
 
@@ -72,26 +72,26 @@
     };
   }
 
-  // ----- Emoji helper (good / junk) -----
+  // ---------- Emoji helper (good / junk) ----------
   const GOOD_EMOJI = ['🥦', '🍎', '🍚', '🍳', '🥛', '🍌', '🍇', '🥕', '🍊'];
   const JUNK_EMOJI = ['🍩', '🍟', '🍕', '🥤', '🍰', '🍫', '🍭', '🧃'];
 
   function pickEmoji(isGood) {
-    // ถ้ามีโมดูล emoji-image ให้มันเลือก
-    if (ns.emojiImage && typeof ns.emojiImage.pick === 'function') {
-      return ns.emojiImage.pick(isGood ? 'good' : 'junk');
+    const src = ns.emojiImage || global.emojiImage;
+    if (src && typeof src.pick === 'function') {
+      return src.pick(isGood ? 'good' : 'junk');
     }
     const arr = isGood ? GOOD_EMOJI : JUNK_EMOJI;
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ----- Random position (กลางจอหลบ HUD + โค้ช) -----
+  // ---------- Random position (กลางจอหลบ HUD+โค้ช) ----------
   function randomScreenPos() {
-    const w = window.innerWidth || 1280;
-    const h = window.innerHeight || 720;
+    const w = global.innerWidth || 1280;
+    const h = global.innerHeight || 720;
 
-    const topSafe    = 140;  // ให้พ้น HUD บน
-    const bottomSafe = 160;  // ให้พ้น coach + fever ด้านล่าง
+    const topSafe    = 140; // พ้น HUD บน
+    const bottomSafe = 170; // พ้น coach + fever ด้านล่าง
 
     const left  = w * 0.14;
     const right = w * 0.86;
@@ -101,11 +101,11 @@
     return { x, y };
   }
 
-  // ----- helper coach -----
-  function coachSay(text, mood) {
+  // ---------- Coach helper ----------
+  function coachSay(text) {
     if (!text) return;
-    window.dispatchEvent(
-      new CustomEvent('fg-coach', { detail: { text, mood } })
+    global.dispatchEvent(
+      new CustomEvent('fg-coach', { detail: { text } })
     );
   }
 
@@ -132,19 +132,19 @@
       this.elGoalProg = document.getElementById('hud-goal-progress');
       this.elMiniMain = document.getElementById('hud-mini-main');
       this.elMiniProg = document.getElementById('hud-mini-progress');
-      this.elMiss     = document.getElementById('hud-miss'); // ถ้ามีใน HTML จะใช้งานได้
+      this.elMiss     = document.getElementById('hud-miss'); // ถ้ามีใน HUD ให้ใช้
 
       // state
-      this.running    = false;
+      this.running    = false;   // จะเป็น true หลังเคานต์ดาวน์จบ
       this.elapsed    = 0;
-      this.timeLimit  = 60000; // ms
+      this.timeLimit  = 60000;   // ms
       this.spawnTimer = 0;
       this.targets    = [];
       this.score      = 0;
       this.goodHits   = 0;
       this.missCount  = 0;
 
-      // goal / mini quest (เวอร์ชันเรียบ ๆ)
+      // goal / mini quest
       this.goalTargetScore = 150;
       this.miniTargetGood  = 12;
 
@@ -158,6 +158,8 @@
       FeverUI.setFever(0);
       FeverUI.setFeverActive(false);
       FeverUI.setShield(0);
+
+      this._introTimers = [];
 
       // รอ event เริ่มเกมจาก HTML glue
       const startHandler = (e) => {
@@ -187,20 +189,26 @@
 
     // ---------- Game flow ----------
     startGame: function (diffKey, durationSec) {
+      // ล้าง timeout ของ intro รอบก่อน
+      if (this._introTimers && this._introTimers.length) {
+        this._introTimers.forEach(clearTimeout);
+        this._introTimers.length = 0;
+      }
+
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.diffCfg = getDiffConfig(this.diffKey);
 
       this.clearTargets();
-      this.running    = true;
+      this.running    = false; // จะเปิดหลังเคานต์ดาวน์
       this.elapsed    = 0;
       this.spawnTimer = 0;
       this.score      = 0;
       this.goodHits   = 0;
       this.missCount  = 0;
 
-      this.timeLimit = (Number(durationSec) || 60) * 1000;
+      this.timeLimit  = (Number(durationSec) || 60) * 1000;
 
-      // ปรับเป้าตามระดับความยากคร่าว ๆ
+      // ปรับเป้าตามระดับความยาก + ผูกกับ "หมู่" โดยคร่าว ๆ
       if (this.diffKey === 'easy') {
         this.goalTargetScore = 120;
         this.miniTargetGood  = 10;
@@ -216,9 +224,6 @@
       if (this.elTime)  this.elTime.textContent  = Math.ceil(this.timeLimit / 1000) + 's';
       if (this.elMiss)  this.elMiss.textContent  = '0';
 
-      this.updateQuestText();
-      this.updateQuestProgress();
-
       // reset fever
       this.fever       = 0;
       this.feverActive = false;
@@ -227,12 +232,61 @@
       FeverUI.setFeverActive(false);
       FeverUI.setShield(0);
 
+      this.updateQuestText();
+      this.updateQuestProgress();
+
       console.log('[GroupsVR] startGame', this.diffKey, this.diffCfg);
-      coachSay('ภารกิจวันนี้: เลือกอาหารดีจากหมู่ที่กำหนด และหลบของขยะให้ได้มากที่สุดนะ 🥦', 'hype');
+
+      // sequence อธิบายหมู่ + count down
+      this.runIntroSequence();
+    },
+
+    runIntroSequence: function () {
+      const timers = this._introTimers;
+
+      function addTimer(fn, delay) {
+        const id = setTimeout(fn, delay);
+        timers.push(id);
+      }
+
+      // อธิบายหมู่ตามระดับ
+      if (this.diffKey === 'easy') {
+        coachSay('วันนี้เราจะโฟกัสหมู่ 1 + 2 นะ: ข้าวแป้ง และผักผลไม้ 🍚🥦');
+        addTimer(() => {
+          coachSay('เลือกอาหารดีจากหมู่ที่กำหนด เลี่ยงของขยะให้ได้มากที่สุด 💪');
+        }, 1400);
+      } else if (this.diffKey === 'hard') {
+        coachSay('วันนี้จัดเต็มหมู่ 1 + 2 + 3: ข้าวแป้ง ผักผลไม้ และเนื้อสัตว์ให้ครบเลยนะ 🍚🥦🍗');
+        addTimer(() => {
+          coachSay('ยิ่งเลือกได้หลากหลายหมู่อาหารดี คะแนนยิ่งพุ่งเลย! 🌟');
+        }, 1400);
+      } else {
+        coachSay('วันนี้หมู่ 1 + 2 + 3 เหมือนกัน แต่ความเร็วจะไวขึ้นหน่อยนะ ✨');
+        addTimer(() => {
+          coachSay('โฟกัสอาหารดีให้ทันเวลา เลี่ยงของหวานและของทอดให้ดี ๆ 😉');
+        }, 1400);
+      }
+
+      // เคานต์ดาวน์ 3–2–1–Go ก่อนเริ่ม spawn เป้า
+      let t = 2600;
+      addTimer(() => { coachSay('เตรียมตัวนะ... 3'); }, t);
+      t += 700;
+      addTimer(() => { coachSay('2'); }, t);
+      t += 700;
+      addTimer(() => { coachSay('1'); }, t);
+      t += 700;
+      addTimer(() => {
+        coachSay('Go! เล็งอาหารดีจากหมู่ที่กำหนดให้ทันเลย! 🥦🔥');
+        this.running = true;
+      }, t);
     },
 
     endGame: function () {
-      if (!this.running) return;
+      if (!this.running && this.elapsed > 0) {
+        // ถ้าเกมไม่ได้วิ่งแล้ว และเคยเล่นไปแล้ว ก็ไม่ต้องซ้ำ
+        return;
+      }
+
       this.running = false;
       this.clearTargets();
 
@@ -256,11 +310,11 @@
       console.log('[GroupsVR] game over', detail);
 
       if (goalOK && miniOK) {
-        coachSay('สุดยอด! จัดหมู่อาหารได้ตรงเป้าเลย ภารกิจวันนี้ผ่านสวยมาก 🎉', 'good');
+        coachSay('สุดยอด! จัดหมู่อาหารได้ตรงเป้า ภารกิจวันนี้ผ่านสวยมาก 🎉');
       } else if (goalOK || miniOK) {
-        coachSay('ทำได้ใกล้เคียงมากแล้ว ครั้งหน้าลองโฟกัสให้ครบทุกหมู่ดูนะ 💪', 'hype');
+        coachSay('ทำได้ใกล้เคียงมากแล้ว ครั้งหน้าลองโฟกัสให้ครบทุกหมู่ดูนะ 💪');
       } else {
-        coachSay('ไม่เป็นไร ไว้มาลองใหม่อีกครั้ง เลือกหมู่อาหารดีให้มากขึ้นนะ 😊', 'bad');
+        coachSay('ไม่เป็นไร ไว้มาลองใหม่อีกครั้ง เลือกหมู่อาหารดีให้มากขึ้นนะ 😊');
       }
     },
 
@@ -288,8 +342,8 @@
         this.spawnTarget();
       }
 
-      // เช็คอายุเป้า → ถ้าหมดเวลาให้จัดการ timeout
-      const now    = this.elapsed;
+      // เช็คอายุเป้า → ถ้าหมดเวลาให้ MISS แล้วลบ
+      const now = this.elapsed;
       const lifeMs = this.diffCfg.targetLifetime || 2500;
       for (let i = this.targets.length - 1; i >= 0; i--) {
         const t = this.targets[i];
@@ -314,7 +368,11 @@
 
       const el = document.createElement('div');
       el.className = 'fg-target ' + (isGood ? 'fg-good' : 'fg-junk');
+
+      // ใช้ emoji เป็น text จริง (แก้ปัญหา mobile ไม่แสดง ::before)
       el.setAttribute('data-emoji', emoji);
+      el.textContent = emoji;
+
       el.style.left = pos.x + 'px';
       el.style.top  = pos.y + 'px';
 
@@ -377,24 +435,23 @@
         this.updateFever(FEVER_HIT_GAIN + (judgment === 'PERFECT' ? 5 : 0));
 
         if (judgment === 'PERFECT' && Math.random() < 0.25) {
-          coachSay('สุดยอด! เลือกอาหารดีได้ตรงหมู่เลย 🌟', 'good');
+          coachSay('สุดยอด! เลือกอาหารดีได้ตรงเป้าสุด ๆ เลย 🌟');
         }
       } else {
-        // ตีโดน junk → MISS
+        // ตีโดน junk → MISS + หักคะแนน + เพิ่ม missCount
         judgment = 'MISS';
         delta    = -8;
         this.missCount += 1;
         this.updateFever(-FEVER_MISS_LOSS);
 
-        if (this.elMiss) this.elMiss.textContent = String(this.missCount);
-
         if (this.missCount === 3) {
-          coachSay('เริ่มพลาดของขยะบ่อยแล้วนะ ลองโฟกัสอาหารดีมากขึ้นหน่อย 😉', 'bad');
+          coachSay('เริ่มพลาดของขยะบ่อยแล้วนะ ลองโฟกัสอาหารดีมากขึ้นหน่อย 😉');
         }
       }
 
       this.score = Math.max(0, this.score + delta);
       if (this.elScore) this.elScore.textContent = String(this.score);
+      if (this.elMiss)  this.elMiss.textContent  = String(this.missCount);
 
       this.updateQuestProgress();
 
@@ -405,8 +462,8 @@
         const y = rect.top  + rect.height / 2;
 
         const label = `${judgment} ${delta > 0 ? '+' + delta : delta}`;
-        scorePop(x, y, label, { good: delta > 0 });
-        burstAt(x, y, {
+        Particles.scorePop(x, y, label, { good: delta > 0 });
+        Particles.burstAt(x, y, {
           color: goodHit ? '#22c55e' : '#f97316',
           count: goodHit ? 16 : 12,
           radius: 60
@@ -431,27 +488,20 @@
       const el = target.el;
       target.consumed = true;
 
-      if (target.isGood) {
-        // พลาดอาหารดี → นับ miss
-        this.missCount += 1;
-        if (this.elMiss) this.elMiss.textContent = String(this.missCount);
-        this.updateFever(-FEVER_MISS_LOSS);
+      this.missCount += 1;
+      if (this.elMiss) this.elMiss.textContent = String(this.missCount);
+      this.updateFever(-FEVER_MISS_LOSS);
 
-        // FX MISS สำหรับอาหารดีที่ปล่อยหลุด
-        try {
-          if (el) {
-            const rect = el.getBoundingClientRect();
-            const x = rect.left + rect.width / 2;
-            const y = rect.top  + rect.height / 2;
-            scorePop(x, y, 'MISS 0', { good: false });
-            burstAt(x, y, { color: '#f97316', count: 10, radius: 50 });
-          }
-        } catch (err) {}
-      } else {
-        // เป้าขยะหายไปเอง → ถือว่าหลบได้ดี ไม่ต้องนับ miss
-        // จะให้ reward เล็ก ๆ ก็ได้ (เพิ่ม fever นิดหน่อย)
-        this.updateFever(FEVER_HIT_GAIN * 0.3);
-      }
+      // FX Miss
+      try {
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const x = rect.left + rect.width / 2;
+          const y = rect.top  + rect.height / 2;
+          Particles.scorePop(x, y, 'MISS 0', { good: false });
+          Particles.burstAt(x, y, { color: '#f97316', count: 10, radius: 50 });
+        }
+      } catch (err) {}
 
       if (el && el.parentNode) {
         el.classList.add('hit');
@@ -476,8 +526,16 @@
     // ---------- Quest HUD ----------
     updateQuestText: function () {
       if (this.elGoalMain) {
-        this.elGoalMain.textContent =
-          'จัดหมู่อาหารดีจากหมู่ที่กำหนดให้ได้ตามเป้า';
+        if (this.diffKey === 'easy') {
+          this.elGoalMain.textContent =
+            'จัดหมู่อาหารดีหมู่ 1+2 (ข้าวแป้ง + ผักผลไม้) ให้ได้ตามเป้า';
+        } else if (this.diffKey === 'hard') {
+          this.elGoalMain.textContent =
+            'จัดหมู่อาหารดีหมู่ 1+2+3 ให้ครบหลาย ๆ ชิ้นตามเป้า';
+        } else {
+          this.elGoalMain.textContent =
+            'จัดหมู่อาหารดีจากหมู่ที่กำหนด ให้ได้คะแนนตามเป้า';
+        }
       }
       if (this.elMiniMain) {
         this.elMiniMain.textContent =
@@ -499,8 +557,12 @@
     remove: function () {
       this.clearTargets();
       this.running = false;
+      if (this._introTimers && this._introTimers.length) {
+        this._introTimers.forEach(clearTimeout);
+        this._introTimers.length = 0;
+      }
     }
   });
 
   ns.foodGroupsGame = ns.foodGroupsGame || {};
-})(window.GAME_MODULES || (window.GAME_MODULES = {}));
+})(window.GAME_MODULES || (window.GAME_MODULES = {}), window);
