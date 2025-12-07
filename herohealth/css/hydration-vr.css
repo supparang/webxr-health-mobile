@@ -8,7 +8,8 @@
 
 /* ปรับฉากรวมให้ต่อเนื่องกับธีม GoodJunk */
 body{
-  background: radial-gradient(circle at 20% 0%, #020617 0, #020617 30%, #020617 60%, #020617 100%);
+  background:
+    radial-gradient(circle at 20% 0%, #020617 0, #020617 30%, #020617 60%, #020617 100%);
 }
 
 /* ===== VR button: ล่างขวา ===== */
@@ -22,54 +23,52 @@ body{
   z-index:940;
 }
 
-/* ===== HUD คะแนนหลัก (HYDRATION) — มุมซ้ายบน ใต้ water bar ===== */
-.hha-hud-panel{
+/* ===== Water gauge (ui-water.js) — อยู่บนสุดตรงกลาง ===== */
+.hha-water-wrap{
   position:fixed;
-  left:10px;
-  top:calc(var(--hha-hydration-safe-top) + 8px);
-  z-index:620;
+  left:50%;
+  top:10px;
+  transform:translateX(-50%);
+  z-index:700;
 }
 
-/* กันไม่ให้มี style เก่าแบบจอกลางจากไฟล์อื่นมาทับ */
-.hha-hud-panel.center,
-.hha-hud-panel.is-center{
-  left:10px !important;
-  top:calc(var(--hha-hydration-safe-top) + 8px) !important;
-  transform:none !important;
-}
-
-/* ===== QUEST panel (Goal + Mini quest) — มุมขวาบน ใต้ water bar ===== */
-.hha-quest-panel{
+/* ===== HUD รวม (คะแนน + COMBO + MISS + Goal + Mini) ===== */
+/* quest-hud-vr.js สร้าง #hha-quest-hud */
+#hha-quest-hud{
   position:fixed;
   right:10px;
   top:calc(var(--hha-hydration-safe-top) + 8px);
-  z-index:625;
-  max-width:260px;
+  max-width:320px;
+  z-index:630;
 }
 
-/* ลบ style ที่อาจเซ็ตให้กลางจอจาก goodjunk เวอร์ชันเก่า */
-.hha-quest-panel.center,
-.hha-quest-panel.is-center{
+/* กัน style อื่น (ถ้ามี) ที่ดันให้ไปกลางจอ */
+#hha-quest-hud.center,
+#hha-quest-hud.is-center{
   right:10px !important;
   left:auto !important;
   top:calc(var(--hha-hydration-safe-top) + 8px) !important;
   transform:none !important;
 }
 
-/* การ์ดด้านในคลิกได้ตามปกติ */
-.hha-quest-panel .hha-quest-card{
+/* การ์ดด้านใน clickable ตามปกติ */
+#hha-quest-hud .hha-hud-top,
+#hha-quest-hud .hha-hud-quest-wrap{
   pointer-events:auto;
 }
 
-/* ===== Water gauge (ui-water.js) — ให้ลอยเหนือ HUD เล็กน้อย ===== */
-/* ถ้า ui-water กำหนด class .hha-water-wrap / .hha-water-card อยู่แล้ว
-   เราแค่ปรับ top นิดหน่อยให้ไม่ชนขอบ */
-.hha-water-wrap{
+/* ถ้าเคยมี .hha-hud-panel / .hha-quest-panel จากโหมดอื่น ให้ดันไปมุมซ้ายบนใต้ water bar เฉย ๆ */
+.hha-hud-panel{
   position:fixed;
-  left:50%;
-  top:10px;
-  transform:translateX(-50%);
-  z-index:610;
+  left:10px;
+  top:calc(var(--hha-hydration-safe-top) + 8px);
+  z-index:620;
+}
+.hha-hud-panel.center,
+.hha-hud-panel.is-center{
+  left:10px !important;
+  top:calc(var(--hha-hydration-safe-top) + 8px) !important;
+  transform:none !important;
 }
 
 /* ===== Coach bubble — ยกขึ้นเหนือ Fever gauge ===== */
@@ -80,7 +79,7 @@ body{
   left:50%;
   bottom:120px;        /* เผื่อความสูงของ Fever gauge */
   transform:translateX(-50%);
-  z-index:630;
+  z-index:635;
 }
 
 /* กันไม่ให้ style อื่นลาก bubble ลงมาต่ำเกินไป */
@@ -89,15 +88,23 @@ body{
   bottom:120px !important;
 }
 
-/* ===== Crosshair กลางจอ (เผื่อดีไวซ์แปลก) ===== */
+/* ===== Crosshair กลางจอ ===== */
 .hha-crosshair{
   z-index:400;
 }
 
 /* ===== ปรับเลเยอร์ FX เป้าแตก / คะแนนเด้ง ===== */
-/* ให้ลอยอยู่เหนือฉากแต่ใต้ HUD */
+/* ให้ลอยอยู่เหนือฉากแต่ใต้ HUD / coach */
 .hha-fx-layer{
   z-index:500;
+}
+
+/* ===== Fever gauge + shield (ui-fever.js) — มุมล่างซ้าย ===== */
+.hha-fever-wrap{
+  position:fixed;
+  left:10px;
+  bottom:12px;
+  z-index:620;
 }
 
 /* ========= Media query สำหรับหน้าจอเล็ก (มือถือแนวตั้ง) ========= */
@@ -106,13 +113,14 @@ body{
     --hha-hydration-safe-top: 132px;
   }
 
-  .hha-hud-panel{
+  #hha-quest-hud{
     top:calc(var(--hha-hydration-safe-top) + 4px);
+    right:8px;
+    max-width:280px;
   }
 
-  .hha-quest-panel{
+  .hha-hud-panel{
     top:calc(var(--hha-hydration-safe-top) + 4px);
-    max-width:260px;
   }
 
   .hha-water-wrap{
