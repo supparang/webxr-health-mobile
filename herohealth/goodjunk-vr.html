@@ -375,11 +375,14 @@
             <span id="hud-time-label">60s</span>
           </div>
         </div>
-        <div class="hud-metrics">
-          <div class="metric">
-            <div class="metric-label">คะแนน</div>
-            <div class="metric-value accent" id="hud-score">0</div>
+        <div class="metric">
+          <div class="metric-label">คะแนน</div>
+          <div class="metric-value accent" id="hud-score">0</div>
+          <div class="metric-label" id="hud-judge" style="margin-top:2px;font-size:11px;color:#e5e7eb;">
+          &nbsp;
           </div>
+        </div>
+
           <div class="metric">
             <div class="metric-label">คอมโบสูงสุด</div>
             <div class="metric-value" id="hud-combo" data-max="0">0</div>
@@ -738,6 +741,13 @@
           window.location.href = './hub.html';
         });
       }
+      const elJudge = document.getElementById('hud-judge');
+
+      window.addEventListener('hha:judge', (e) => {
+      const label = (e.detail && e.detail.label) || '';
+      if (!elJudge) return;
+      elJudge.textContent = label || '';
+      });
 
       // ถ้าสลับแท็บหรือจอหาย → หยุดเกม
       document.addEventListener('visibilitychange', () => {
