@@ -40,42 +40,50 @@
 
   <!-- ===== HUD / UI Overlay ===== -->
   <div id="hud">
-    <div class="hud-top">
-      <div class="hud-left">
-        <div class="hud-title">
-          <span>🍽️ Balanced Plate VR</span>
-          <span class="hud-pill">
-            <span class="label">ระดับ</span>
-            <span id="hud-diff">-</span>
-          </span>
-        </div>
-        <div class="hud-info-row">
-          <div class="hud-badge">
-            <span>คะแนน</span>
-            <span class="value" id="hud-score">0</span>
-          </div>
-          <div class="hud-badge">
-            <span>คอมโบ</span>
-            <span class="value" id="hud-combo">0</span>
-          </div>
-          <div class="hud-badge">
-            <span>จานสมดุล</span>
-            <span class="value" id="hud-plates">0</span>
-          </div>
-          <div class="hud-badge">
-            <span>แตะของไม่ดี (MISS)</span>
-            <span class="value" id="hud-miss">0</span>
-          </div>
-        </div>
-      </div>
+<div class="hud-top">
+  <div class="hud-left">
+    <div class="hud-title">
+      <span>🍽️ Balanced Plate VR</span>
+      <span class="hud-pill">
+        <span class="label">ระดับ</span>
+        <span id="hud-diff">-</span>
+      </span>
+    </div>
 
-      <div class="hud-right">
-        <div class="hud-timer">
-          <span class="icon">⏱️</span>
-          <span>เหลือเวลา</span>
-          <span class="value" id="hud-time">60</span>
-          <span>วิ</span>
-        </div>
+    <div class="hud-info-row">
+      <div class="hud-badge">
+        <span>คะแนน</span>
+        <span class="value" id="hud-score">0</span>
+      </div>
+      <div class="hud-badge">
+        <span>คอมโบ</span>
+        <span class="value" id="hud-combo">0</span>
+      </div>
+      <div class="hud-badge">
+        <span>จานสมดุล</span>
+        <span class="value" id="hud-plates">0</span>
+      </div>
+      <div class="hud-badge">
+        <span>แตะของไม่ดี (MISS)</span>
+        <span class="value" id="hud-miss">0</span>
+      </div>
+    </div>
+
+    <!-- ✅ ย้าย legend มาอยู่ฝั่งซ้ายตรงนี้ -->
+    <div class="hud-groups-legend">
+      <span>1 ข้าว-แป้ง 🍚🍞</span>
+      <span>2 โปรตีน 🥩🍗</span>
+      <span>3 ผัก 🥦🥕</span>
+      <span>4 ผลไม้ 🍎🍌</span>
+      <span>5 นม/ผลิตภัณฑ์นม 🥛🧀</span>
+    </div>
+  </div>
+
+  <div class="hud-right">
+    <div class="hud-timer"> ... </div>
+    <div class="hud-groups" id="hud-groups"> ... </div>
+  </div>
+</div>
 
         <!-- แถวจำนวนที่เก็บได้ในแต่ละหมู่ -->
         <div class="hud-groups" id="hud-groups">
