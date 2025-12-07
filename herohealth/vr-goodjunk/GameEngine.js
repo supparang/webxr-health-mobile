@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Multi-Quest + Fever + Shield + Coach + FX
 // 2025-12-07 — เป้าเล็กตามระดับ, กระจายตามจอแบบ responsive, เป้าอยู่นานขึ้น,
-// Perfect/Good/Late/Miss เด้งตรงเป้า, ยกเป้าขึ้นด้านบน, รองรับ particles.js
+// Perfect/Good/Late/Miss เด้งตรงเป้า (ไม่ซ้อนกับคะแนน), ยกเป้าขึ้นด้านบน, รองรับ particles.js
 
 'use strict';
 
@@ -20,8 +20,8 @@ export const GameEngine = (function () {
   const Particles =
     (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
     window.Particles || {
-      burstAt () {},
-      scorePop () {}
+      burstAt() {},
+      scorePop() {}
     };
 
   // ---------- emoji ชุดอาหาร ----------
@@ -209,11 +209,13 @@ export const GameEngine = (function () {
     return 'late';
   }
 
+  // ---------- FX ตอนยิงโดน ----------
   function showHitFx(el, kind, judgment, scoreDelta) {
     const pos = worldToScreen(el);
     const x = pos.x;
     const y = pos.y;
 
+    // จุดกลางใช้ทำ particle แตก
     if (Particles && typeof Particles.burstAt === 'function') {
       const opts = {};
       if (kind === 'good')    opts.good = true;
@@ -224,22 +226,30 @@ export const GameEngine = (function () {
       Particles.burstAt(x, y, opts);
     }
 
+    // แยกตำแหน่ง Y: คะแนน กับข้อความ Perfect/Good/Late/Miss ไม่ทับกัน
+    const yScore = y;       // คะแนนอยู่กลางเป้า
+    const yLabel = y - 24;  // ข้อความตัดสินลอยขึ้นสูงกว่านิดหนึ่ง
+
     if (Particles && typeof Particles.scorePop === 'function') {
+      // คะแนน + / -
       if (typeof scoreDelta === 'number' && scoreDelta !== 0) {
         const txt = (scoreDelta > 0 ? '+' : '') + scoreDelta;
-        Particles.scorePop(x, y, txt, {
+        Particles.scorePop(x, yScore, txt, {
           good: kind === 'good' || kind === 'star' || kind === 'diamond' || kind === 'shield',
           bad:  kind === 'junk'
         });
       }
+
+      // ข้อความ Miss / Late / Good / Perfect
       if (judgment) {
         let label = '';
         if (judgment === 'perfect') label = 'Perfect';
         else if (judgment === 'good') label = 'Good';
         else if (judgment === 'late') label = 'Late';
         else if (judgment === 'miss') label = 'Miss';
+
         if (label) {
-          Particles.scorePop(x, y, label, { small: true });
+          Particles.scorePop(x, yLabel, label, { small: true });
         }
       }
     }
@@ -254,7 +264,7 @@ export const GameEngine = (function () {
       Particles.burstAt(x, y, { bad: true });
     }
     if (Particles && typeof Particles.scorePop === 'function') {
-      Particles.scorePop(x, y, 'Miss', { bad: true });
+      Particles.scorePop(x, y - 16, 'Miss', { bad: true, small: true });
     }
   }
 
@@ -425,7 +435,7 @@ export const GameEngine = (function () {
     const minX = -halfX;
     const maxX = halfX;
 
-    // ★ ยกช่วง y ขึ้นไปด้านบน (เดิม 2.2–3.0 → ดันอีก)
+    // ★ ยกช่วง y ขึ้นไปด้านบน
     const minY = 2.6;
     const maxY = 3.4;
 
