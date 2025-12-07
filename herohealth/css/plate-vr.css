@@ -453,3 +453,8 @@ a-scene{
 .hud-groups-legend span{
   white-space:nowrap;
 }
+@media (max-width:768px){
+  .hud-groups-legend{
+    font-size:9px;
+  }
+}
