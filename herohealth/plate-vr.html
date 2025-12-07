@@ -13,15 +13,14 @@
   <!-- A-Frame core (ใช้ scene พื้นฐาน + เผื่อ mode-factory ใช้) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Particle FX (global: window.Particles / window.GAME_MODULES.Particles) -->
-  <script src="./vr/particles.js"></script>    <!-- เป้าแตก + คะแนนเด้ง -->
-  <script src="./vr/ui-fever.js"></script>     <!-- Fever กลาง -->
-
+  <!-- Particle FX + Fever UI (global IIFE) -->
+  <script src="./vr/particles.js"></script>
+  <script src="./vr/ui-fever.js"></script>
 </head>
 <body>
 <div class="app">
 
-  <!-- ===== VR Scene (พื้นหลัง, โมเดลให้ mode-factory ใส่ของ) ===== -->
+  <!-- ===== VR Scene ===== -->
   <div id="scene-wrap">
     <a-scene
       vr-mode-ui="enabled: true"
@@ -67,9 +66,9 @@
             <span>แตะของไม่ดี (MISS)</span>
             <span class="value" id="hud-miss">0</span>
           </div>
-          <!-- ✅ เกรด Real-time -->
-          <div class="hud-badge">
-            <span>เกรด</span>
+          <!-- ✅ เกรด real-time -->
+          <div class="hud-badge hud-badge-grade">
+            <span>เกรด (real-time)</span>
             <span class="value" id="hud-grade">-</span>
           </div>
         </div>
@@ -91,7 +90,6 @@
           <span class="value" id="hud-time">60</span>
           <span>วิ</span>
         </div>
-
         <!-- แถวจำนวนที่เก็บได้ในแต่ละหมู่ -->
         <div class="hud-groups" id="hud-groups">
           <span>หมู่ 1: <strong id="g1">0</strong></span>
@@ -121,6 +119,10 @@
       </div>
       <div class="quest-hint" id="quest-hint">
         โควตาใน 1 จานจะแสดงที่นี่
+      </div>
+      <!-- ✅ สถานะ Goal / Mini รวมทั้งเกม -->
+      <div class="quest-hint" id="quest-status">
+        Goal: 0/0 • Mini: 0/0
       </div>
     </div>
   </div>
@@ -214,9 +216,10 @@
   const elGrade   = document.getElementById('hud-grade');
 
   // Quest
-  const elQuestGoal = document.getElementById('quest-goal');
-  const elQuestMini = document.getElementById('quest-mini');
-  const elQuestHint = document.getElementById('quest-hint');
+  const elQuestGoal   = document.getElementById('quest-goal');
+  const elQuestMini   = document.getElementById('quest-mini');
+  const elQuestHint   = document.getElementById('quest-hint');
+  const elQuestStatus = document.getElementById('quest-status');
 
   // Coach
   const elCoachBubble = document.getElementById('coach-bubble');
@@ -295,9 +298,26 @@
       elG5.textContent = g5;
     }
 
-    // ✅ อัปเดตเกรด (real-time)
+    // ✅ สถานะ Goal / Mini แบบ real-time
+    if (typeof d.goalsCleared === 'number' && typeof d.goalsTotal === 'number' &&
+        typeof d.questsCleared === 'number' && typeof d.questsTotal === 'number') {
+      elQuestStatus.textContent =
+        `Goal: ${d.goalsCleared}/${d.goalsTotal} • Mini: ${d.questsCleared}/${d.questsTotal}`;
+    }
+
+    // ✅ เกรด real-time + สี
     if (d.grade) {
-      elGrade.textContent = d.grade;   // SSS / SS / S / A / B / C
+      elGrade.textContent = d.grade;
+      const badge = elGrade.parentElement;
+      badge.classList.remove(
+        'hud-badge-grade-SSS',
+        'hud-badge-grade-SS',
+        'hud-badge-grade-S',
+        'hud-badge-grade-A',
+        'hud-badge-grade-B',
+        'hud-badge-grade-C'
+      );
+      badge.classList.add('hud-badge-grade-' + d.grade);
     }
   });
 
@@ -340,9 +360,13 @@
       timerId = null;
     }
 
+    const grade = d.grade || '-';
+
     elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
-    elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
-    elSumDiff.textContent  = `ระดับ ${diffLabel(d.difficulty || diffParam)}`;
+    elSumSub.textContent   =
+      `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
+    elSumDiff.textContent  =
+      `ระดับ ${diffLabel(d.difficulty || diffParam)} • เกรด ${grade}`;
 
     elSumScore.textContent  = d.score ?? 0;
     elSumCombo.textContent  = d.comboMax ?? 0;
