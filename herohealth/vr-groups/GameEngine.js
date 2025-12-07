@@ -1,8 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (DOM targets + Goal / Mini quest + Fever + FX)
-// 2025-12-07
-
-import { scorePop, burstAt } from '../vr/particles.js';
+// 2025-12-07 (ใช้ HHA_PARTICLES global)
 
 (function (ns) {
   'use strict';
@@ -23,6 +21,14 @@ import { scorePop, burstAt } from '../vr/particles.js';
       setShield() {}
     };
 
+  // ----- Particles (scorePop / burstAt) จาก global -----
+  const Particles =
+    (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
+    window.HHA_PARTICLES || {
+      scorePop () {},
+      burstAt () {}
+    };
+
   const FEVER_MAX       = 100;
   const FEVER_HIT_GAIN  = 10;
   const FEVER_MISS_LOSS = 25;
@@ -31,7 +37,6 @@ import { scorePop, burstAt } from '../vr/particles.js';
   function getDiffConfig (diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
-    // ถ้ามีไฟล์ difficulty.js แยกไว้ ให้ลองใช้ก่อน
     if (
       ns.foodGroupsDifficulty &&
       typeof ns.foodGroupsDifficulty.get === 'function'
@@ -40,7 +45,7 @@ import { scorePop, burstAt } from '../vr/particles.js';
       if (cfg) return cfg;
     }
 
-    // fallback ภายในไฟล์นี้
+    // fallback
     if (diffKey === 'easy') {
       return {
         spawnInterval: 1300,
@@ -71,7 +76,6 @@ import { scorePop, burstAt } from '../vr/particles.js';
   const JUNK_EMOJI = ['🍩', '🍟', '🍕', '🥤', '🍰', '🍫', '🍭', '🧃'];
 
   function pickEmoji(isGood) {
-    // ถ้ามีโมดูล emoji-image ให้มันเลือก
     if (ns.emojiImage && typeof ns.emojiImage.pick === 'function') {
       return ns.emojiImage.pick(isGood ? 'good' : 'junk');
     }
@@ -84,8 +88,8 @@ import { scorePop, burstAt } from '../vr/particles.js';
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe    = 140;  // ให้พ้น HUD บน
-    const bottomSafe = 160;  // ให้พ้น coach + fever ด้านล่าง
+    const topSafe    = 140;
+    const bottomSafe = 160;
 
     const left  = w * 0.14;
     const right = w * 0.86;
@@ -96,10 +100,10 @@ import { scorePop, burstAt } from '../vr/particles.js';
   }
 
   // ----- helper coach -----
-  function coachSay (text) {
+  function coachSay (text, mood) {
     if (!text) return;
     window.dispatchEvent(
-      new CustomEvent('fg-coach', { detail: { text } })
+      new CustomEvent('fg-coach', { detail: { text, mood } })
     );
   }
 
@@ -120,32 +124,31 @@ import { scorePop, burstAt } from '../vr/particles.js';
       }
 
       // HUD elements
-      this.elScore      = document.getElementById('hud-score');
-      this.elTime       = document.getElementById('hud-time-label');
-      this.elGoalMain   = document.getElementById('hud-goal-main');
-      this.elGoalProg   = document.getElementById('hud-goal-progress');
-      this.elMiniMain   = document.getElementById('hud-mini-main');
-      this.elMiniProg   = document.getElementById('hud-mini-progress');
-      this.elMiss       = document.getElementById('hud-miss'); // ถ้ามีให้ใช้
+      this.elScore    = document.getElementById('hud-score');
+      this.elTime     = document.getElementById('hud-time-label');
+      this.elGoalMain = document.getElementById('hud-goal-main');
+      this.elGoalProg = document.getElementById('hud-goal-progress');
+      this.elMiniMain = document.getElementById('hud-mini-main');
+      this.elMiniProg = document.getElementById('hud-mini-progress');
+      this.elMiss     = document.getElementById('hud-miss'); // optional
 
       // state
       this.running    = false;
       this.elapsed    = 0;
-      this.timeLimit  = 60000; // ms
+      this.timeLimit  = 60000;
       this.spawnTimer = 0;
       this.targets    = [];
       this.score      = 0;
       this.goodHits   = 0;
       this.missCount  = 0;
 
-      // goal / mini quest (เวอร์ชันเรียบ ๆ)
-      this.goalTargetScore  = 150;
-      this.miniTargetGood   = 12;
+      this.goalTargetScore = 150;
+      this.miniTargetGood  = 12;
 
       this.diffKey = 'normal';
       this.diffCfg = getDiffConfig(this.diffKey);
 
-      // Fever state
+      // Fever
       this.fever       = 0;
       this.feverActive = false;
       FeverUI.ensureFeverBar();
@@ -153,7 +156,7 @@ import { scorePop, burstAt } from '../vr/particles.js';
       FeverUI.setFeverActive(false);
       FeverUI.setShield(0);
 
-      // รอ event เริ่มเกมจาก HTML glue
+      // รอ event เริ่มเกมจาก HTML
       const startHandler = (e) => {
         const diff = (e.detail && e.detail.diff) || 'normal';
         const dur  = (e.detail && e.detail.duration) || 60;
@@ -192,9 +195,8 @@ import { scorePop, burstAt } from '../vr/particles.js';
       this.goodHits   = 0;
       this.missCount  = 0;
 
-      this.timeLimit  = (Number(durationSec) || 60) * 1000;
+      this.timeLimit = (Number(durationSec) || 60) * 1000;
 
-      // ปรับเป้าตามระดับความยากคร่าว ๆ
       if (this.diffKey === 'easy') {
         this.goalTargetScore = 120;
         this.miniTargetGood  = 10;
@@ -213,7 +215,6 @@ import { scorePop, burstAt } from '../vr/particles.js';
       this.updateQuestText();
       this.updateQuestProgress();
 
-      // reset fever
       this.fever       = 0;
       this.feverActive = false;
       FeverUI.ensureFeverBar();
@@ -221,8 +222,8 @@ import { scorePop, burstAt } from '../vr/particles.js';
       FeverUI.setFeverActive(false);
       FeverUI.setShield(0);
 
-      console.log('[GroupsVR] startGame', this.diffKey, this.diffCfg);
       coachSay('เลือกอาหารดีจากหมู่ที่กำหนด เลี่ยงของขยะให้ได้เยอะที่สุดนะ 🥦');
+      console.log('[GroupsVR] startGame', this.diffKey, this.diffCfg);
     },
 
     endGame: function () {
@@ -250,11 +251,11 @@ import { scorePop, burstAt } from '../vr/particles.js';
       console.log('[GroupsVR] game over', detail);
 
       if (goalOK && miniOK) {
-        coachSay('สุดยอด! จัดหมู่อาหารได้ตรงเป้าเลย ภารกิจวันนี้ผ่านสวยมาก 🎉');
+        coachSay('สุดยอด! จัดหมู่อาหารได้ตรงเป้าเลย ภารกิจวันนี้ผ่านสวยมาก 🎉','good');
       } else if (goalOK || miniOK) {
-        coachSay('ทำได้ใกล้เคียงมากแล้ว ครั้งหน้าลองโฟกัสให้ครบทุกหมู่ดูนะ 💪');
+        coachSay('ทำได้ใกล้เคียงมากแล้ว ครั้งหน้าลองโฟกัสให้ครบทุกหมู่ดูนะ 💪','hype');
       } else {
-        coachSay('ไม่เป็นไร ไว้มาลองใหม่อีกครั้ง เลือกหมู่อาหารดีให้มากขึ้นนะ 😊');
+        coachSay('ไม่เป็นไร ไว้มาลองใหม่อีกครั้ง เลือกหมู่อาหารดีให้มากขึ้นนะ 😊','bad');
       }
     },
 
@@ -266,7 +267,6 @@ import { scorePop, burstAt } from '../vr/particles.js';
       this.elapsed    += dt;
       this.spawnTimer += dt;
 
-      // เวลา
       const remain = Math.max(0, this.timeLimit - this.elapsed);
       if (this.elTime) {
         this.elTime.textContent = Math.ceil(remain / 1000) + 's';
@@ -276,13 +276,11 @@ import { scorePop, burstAt } from '../vr/particles.js';
         return;
       }
 
-      // spawn เป้าใหม่
       if (this.spawnTimer >= this.diffCfg.spawnInterval) {
         this.spawnTimer = 0;
         this.spawnTarget();
       }
 
-      // เช็คอายุเป้า → ถ้าหมดเวลาให้ MISS แล้วลบ
       const now = this.elapsed;
       const lifeMs = this.diffCfg.targetLifetime || 2500;
       for (let i = this.targets.length - 1; i >= 0; i--) {
@@ -300,7 +298,6 @@ import { scorePop, burstAt } from '../vr/particles.js';
       if (!this.layer) return;
       if (this.targets.length >= this.diffCfg.maxActive) return;
 
-      // 65% good, 35% junk พอให้มีโอกาสพลาด
       const isGood = Math.random() < 0.65;
       const emoji  = pickEmoji(isGood);
       const pos    = randomScreenPos();
@@ -355,7 +352,6 @@ import { scorePop, burstAt } from '../vr/particles.js';
       let goodHit  = false;
 
       if (target.isGood) {
-        // ตีโดนอาหารดี → PERFECT / GOOD / LATE
         if (ratio <= 0.35) {
           judgment = 'PERFECT';
           delta    = 15;
@@ -371,17 +367,16 @@ import { scorePop, burstAt } from '../vr/particles.js';
         this.updateFever(FEVER_HIT_GAIN + (judgment === 'PERFECT' ? 5 : 0));
 
         if (judgment === 'PERFECT' && Math.random() < 0.25) {
-          coachSay('สุดยอด! เลือกอาหารดีได้ตรงเป้าสุด ๆ เลย 🌟');
+          coachSay('สุดยอด! เลือกอาหารดีได้ตรงเป้าสุด ๆ เลย 🌟','hype');
         }
       } else {
-        // ตีโดน junk → MISS
         judgment = 'MISS';
         delta    = -8;
         this.missCount += 1;
         this.updateFever(-FEVER_MISS_LOSS);
 
         if (this.missCount === 3) {
-          coachSay('เริ่มพลาดของขยะบ่อยแล้วนะ ลองโฟกัสอาหารดีมากขึ้นหน่อย 😉');
+          coachSay('เริ่มพลาดของขยะบ่อยแล้วนะ ลองโฟกัสอาหารดีมากขึ้นหน่อย 😉','bad');
         }
       }
 
@@ -398,8 +393,8 @@ import { scorePop, burstAt } from '../vr/particles.js';
         const y = rect.top  + rect.height / 2;
 
         const label = `${judgment} ${delta > 0 ? '+' + delta : delta}`;
-        scorePop(x, y, label, { good: delta > 0 });
-        burstAt(x, y, {
+        Particles.scorePop(x, y, label, { good: delta > 0 });
+        Particles.burstAt(x, y, {
           color: goodHit ? '#22c55e' : '#f97316',
           count: goodHit ? 16 : 12,
           radius: 60
@@ -408,7 +403,6 @@ import { scorePop, burstAt } from '../vr/particles.js';
         console.warn('[GroupsVR] FX error', err);
       }
 
-      // ลบ DOM
       el.classList.add('hit');
       setTimeout(() => {
         if (el.parentNode) el.parentNode.removeChild(el);
@@ -428,14 +422,13 @@ import { scorePop, burstAt } from '../vr/particles.js';
       if (this.elMiss) this.elMiss.textContent = String(this.missCount);
       this.updateFever(-FEVER_MISS_LOSS);
 
-      // FX Miss
       try {
         if (el) {
           const rect = el.getBoundingClientRect();
           const x = rect.left + rect.width / 2;
           const y = rect.top  + rect.height / 2;
-          scorePop(x, y, 'MISS 0', { good: false });
-          burstAt(x, y, { color: '#f97316', count: 10, radius: 50 });
+          Particles.scorePop(x, y, 'MISS 0', { good: false });
+          Particles.burstAt(x, y, { color: '#f97316', count: 10, radius: 50 });
         }
       } catch (err) {}
 
