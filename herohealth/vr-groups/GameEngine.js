@@ -1,5 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (DOM Targets + Food-Group Quests + Fever/Particles)
+// + Coach tutorial: อธิบายหมู่อาหารทีละข้อ + นับถอยหลังก่อนเริ่ม
 // 2025-12-07
 
 (function (ns) {
@@ -46,14 +47,12 @@
   };
 
   function comboToText(combo) {
-    // [1,2,3] -> "หมู่ 1 ... + หมู่ 2 ... + หมู่ 3 ..."
     return combo
       .map((id) => FOOD_GROUP_LABEL[id] || ('หมู่ ' + id))
       .join(' + ');
   }
 
   function comboToShort(combo) {
-    // [1,2,3] -> "หมู่ 1+2+3"
     return combo
       .map((id) => FOOD_GROUP_SHORT[id] || ('หมู่ ' + id))
       .join('+');
@@ -267,9 +266,7 @@
         type: 'good',
         target,
         combo,
-        // ข้อความสั้นบน HUD
         text: 'จัดเมนู ' + shortLabel + ' ให้ได้อาหารดี ≥ ' + target + ' ชิ้น',
-        // detail สำหรับโค้ช / หน้าสรุป
         detail:
           'Goal: จัดเมนูให้ครบ ' +
           combo.length +
@@ -283,7 +280,7 @@
     });
   }
 
-  // Mini quest: 3 ภารกิจจาก pool (ใช้คะแนน/จำนวน good)
+  // Mini quest: 3 ภารกิจจาก pool
   function buildMiniQuests(cfg, diffKey) {
     const baseScore = cfg.baseScore || 160;
     const combos = getCombosForDiff(diffKey);
@@ -408,6 +405,8 @@
       this.elEndMiniTxt = document.getElementById('end-mini-text');
       this.elMiss       = document.getElementById('hud-miss');
 
+      // phase: 'idle' | 'tutorial' | 'play' | 'ended'
+      this.phase       = 'idle';
       this.running     = false;
       this.elapsed     = 0;
       this.timeLimit   = 60000;
@@ -463,6 +462,60 @@
       }, 2500);
     },
 
+    // ----- Tutorial sequence (หมู่ 1–5 + countdown) -----
+    runTutorialSequence: function () {
+      const self = this;
+
+      const msgs = [
+        'หมู่ 1 คือ ข้าว แป้ง ธัญพืช — ให้พลังงานหลัก เช่น ข้าวสวย ขนมปัง ข้าวกล้อง 🍚',
+        'หมู่ 2 คือ ผัก — ช่วยให้ได้วิตามิน แร่ธาตุ และใยอาหาร เช่น ผักใบเขียว แครอต 🥦🥕',
+        'หมู่ 3 คือ ผลไม้ — ให้วิตามินและใยอาหาร เช่น กล้วย แอปเปิล องุ่น 🍌🍎🍇',
+        'หมู่ 4 คือ เนื้อสัตว์และโปรตีน — ช่วยซ่อมแซมส่วนที่สึกหรอ เช่น ไก่ ปลา ไข่ 🥩🍗🥚',
+        'หมู่ 5 คือ นมและผลิตภัณฑ์นม — ช่วยเสริมกระดูกและฟันให้แข็งแรง 🥛🧀',
+        'ดูการ์ดภารกิจมุมขวาบน แล้วเลือกอาหารดีให้ครบหมู่ตามที่กำหนดนะ ✨'
+      ];
+
+      let delay = 0;
+      const per = 2600; // ms ต่อหนึ่งข้อความ
+
+      msgs.forEach((msg) => {
+        setTimeout(() => {
+          if (!self.running || self.phase !== 'tutorial') return;
+          self.coachSay(msg);
+        }, delay);
+        delay += per;
+      });
+
+      // พร้อมไหม + นับถอยหลัง 3,2,1
+      setTimeout(() => {
+        if (!self.running || self.phase !== 'tutorial') return;
+        self.coachSay('พร้อมไหม... เดี๋ยวเริ่มจัดหมู่อาหารกันนะ');
+      }, delay);
+      delay += 1600;
+
+      ['3', '2', '1'].forEach((n) => {
+        setTimeout(() => {
+          if (!self.running || self.phase !== 'tutorial') return;
+          self.coachSay(n);
+        }, delay);
+        delay += 900;
+      });
+
+      setTimeout(() => {
+        if (!self.running || self.phase !== 'tutorial') return;
+        self.coachSay('เริ่มจัดหมู่อาหารเลย! แตะอาหารดีให้ตรงหมู่ที่กำหนด ✨');
+        self.beginPlayPhase();
+      }, delay + 200);
+    },
+
+    beginPlayPhase: function () {
+      this.phase      = 'play';
+      this.elapsed    = 0;
+      this.spawnTimer = 0;
+      // เวลาใน HUD ตั้งเป็น 60s ตอนเริ่มจริง
+      if (this.elTime) this.elTime.textContent = '60s';
+    },
+
     // ----- Start / End -----
     startGame: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
@@ -471,6 +524,7 @@
       this.clearTargets();
 
       this.running    = true;
+      this.phase      = 'tutorial'; // เริ่มด้วย phase สอน
       this.elapsed    = 0;
       this.spawnTimer = 0;
       this.score      = 0;
@@ -483,8 +537,8 @@
       this.miniIndex  = 0;
 
       if (this.elScore) this.elScore.textContent = '0';
-      if (this.elTime)  this.elTime.textContent  = '60s';
       if (this.elDiff)  this.elDiff.textContent  = this.diffKey.toUpperCase();
+      if (this.elTime)  this.elTime.textContent  = 'เตรียมตัว'; // ยังไม่เริ่มนับจริง
       if (this.elMiss)  this.elMiss.textContent  = '0';
 
       this.fever       = 0;
@@ -497,14 +551,16 @@
       ensureLegendCard();
       this.updateQuestHUD();
 
-      this.coachSay('อ่านกล่อง “หมู่อาหาร 5 หมู่” มุมขวาบน แล้วทำตามภารกิจบนการ์ดนะ!');
+      // เรียก tutorial coach
+      this.runTutorialSequence();
 
-      console.log('[GroupsVR] startGame', this.diffKey, this.diffCfg);
+      console.log('[GroupsVR] startGame (tutorial phase)', this.diffKey, this.diffCfg);
     },
 
     endGame: function () {
       if (!this.running) return;
       this.running = false;
+      this.phase   = 'ended';
 
       this.clearTargets();
 
@@ -554,6 +610,7 @@
     // ----- Tick -----
     tick: function (time, dt) {
       if (!this.running) return;
+      if (this.phase !== 'play') return; // ช่วง tutorial / countdown ไม่ต้อง spawn เป้า
 
       dt = dt || 16;
       this.elapsed    += dt;
@@ -641,7 +698,7 @@
 
     // ----- Hit / Miss -----
     handleHit: function (target, x, y) {
-      if (!this.running) return;
+      if (!this.running || this.phase !== 'play') return;
       const el = target.el;
       if (!el || !el.parentNode) return;
 
@@ -786,6 +843,7 @@
     remove: function () {
       this.clearTargets();
       this.running = false;
+      this.phase   = 'ended';
     }
   });
 
