@@ -441,3 +441,15 @@ a-scene{
     0 0 20px rgba(248,113,113,0.7),
     0 0 28px rgba(248,113,113,0.55);
 }
+.hud-groups-legend{
+  margin-top:4px;
+  font-size:10px;
+  color:var(--text-soft);
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 10px;
+}
+
+.hud-groups-legend span{
+  white-space:nowrap;
+}
