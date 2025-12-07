@@ -6,9 +6,29 @@ import { createPlateQuest, QUOTA } from './plate.quest.js';
 
 // ใช้ Particles จาก global ที่มาจาก /vr/particles.js (IIFE)
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
-const Particles = (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-                  ROOT.Particles ||
-                  { burstAt(){}, scorePop(){} };
+// === Particles (shared) ===
+const Particles =
+  (window.HHA_PARTICLES) ||
+  (window.GAME_MODULES && window.GAME_MODULES.Particles) || {
+    scorePop(){},
+    burstAt(){}
+  };
+function spawnHitFx(el, isGood, scoreDelta) {
+  // แปลงตำแหน่งเป้า → พิกัดจอ (อย่างน้อยเอาใกล้ ๆ กลางจอไว้ก่อนก็ได้)
+  const x = window.innerWidth  / 2;
+  const y = window.innerHeight / 2;
+
+  // effect แตกกระจาย
+  Particles.burstAt(x, y, {
+    color: isGood ? '#22c55e' : '#f97316',
+    count: 16,
+    radius: 60
+  });
+
+  // คะแนนเด้ง
+  const text = (scoreDelta > 0 ? '+' : '') + scoreDelta;
+  Particles.scorePop(x, y, text, { good: isGood });
+}
 
 const GROUPS = {
   1: ['🍚','🍙','🍞','🥯','🥐'],                  // ข้าว-แป้ง
