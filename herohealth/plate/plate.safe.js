@@ -1,9 +1,19 @@
 // === /herohealth/plate/plate.safe.js
 // MISS = กดของไม่ดีเท่านั้น + โค้ช ป.5 + cleanup hha:time listener
 import { boot as factoryBoot } from '../vr/mode-factory.js';
-import Particles from '../vr/particles.js';
+// ❌ ไม่ต้อง import particles แบบ module แล้ว
+// import Particles from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { createPlateQuest, QUOTA } from './plate.quest.js';
+
+// ใช้ Particles จาก global ที่มาจาก /vr/particles.js (IIFE)
+const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+const Particles = (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+                  ROOT.Particles ||
+                  {
+                    burstAt(){},
+                    scorePop(){}
+                  };
 
 const GROUPS = {
   1: ['🍚','🍙','🍞','🥯','🥐'],                  // ข้าว-แป้ง
@@ -149,7 +159,7 @@ export async function boot(cfg = {}) {
   function scoreFX(x, y, val, good) {
     try {
       Particles.scorePop(x, y, (val > 0 ? '+' : '') + val, { good });
-      Particles.burstAt(x, y, { color: good ? '#22c55e' : '#f97316' });
+      Particles.burstAt(x, y, { good });
     } catch {}
   }
 
