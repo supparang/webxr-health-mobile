@@ -375,24 +375,30 @@
             <span id="hud-time-label">60s</span>
           </div>
         </div>
-        <div class="metric">
-          <div class="metric-label">คะแนน</div>
-          <div class="metric-value accent" id="hud-score">0</div>
-          <div class="metric-label" id="hud-judge" style="margin-top:2px;font-size:11px;color:#e5e7eb;">
-          &nbsp;
+
+        <!-- ✅ ใส่ .hud-metrics ครอบ metric ทั้งสามอัน -->
+        <div class="hud-metrics">
+          <div class="metric">
+            <div class="metric-label">คะแนน</div>
+            <div class="metric-value accent" id="hud-score">0</div>
+            <div class="metric-label" id="hud-judge"
+                 style="margin-top:2px;font-size:11px;color:#e5e7eb;">
+              &nbsp;
+            </div>
           </div>
-        </div>
 
           <div class="metric">
             <div class="metric-label">คอมโบสูงสุด</div>
             <div class="metric-value" id="hud-combo" data-max="0">0</div>
           </div>
+
           <div class="metric">
             <div class="metric-label">พลาด</div>
             <div class="metric-value danger" id="hud-miss">0</div>
           </div>
         </div>
       </div>
+
 
       <!-- Right: quest panel -->
       <div class="hud-card hud-quest">
