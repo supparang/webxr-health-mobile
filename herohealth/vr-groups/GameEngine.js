@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (DOM targets + Goal / Mini quest HUD + Coach + Fever + FX)
-// 2025-12-07
+// 2025-12-07 (Coach reacts on GOOD / MISS + endGame mood)
 
 (function (ns) {
   'use strict';
@@ -34,7 +34,6 @@
   function getDiffConfig(diffKey) {
     diffKey = String(diffKey || 'normal').toLowerCase();
 
-    // ถ้ามีตาราง difficulty แยกไฟล์
     if (
       ns.foodGroupsDifficulty &&
       typeof ns.foodGroupsDifficulty.get === 'function'
@@ -43,7 +42,6 @@
       if (cfg) return cfg;
     }
 
-    // fallback ง่าย/ปกติ/ยาก
     if (diffKey === 'easy') {
       return {
         spawnInterval: 1300,
@@ -71,7 +69,6 @@
   const JUNK_EMOJI = ['🍩', '🍟', '🍕', '🥤', '🍰', '🍫', '🍭'];
 
   function pickEmoji(isGood) {
-    // ถ้ามีโมดูล emoji-image ให้มันเลือก
     if (
       ns.emojiImage &&
       typeof ns.emojiImage.pick === 'function'
@@ -87,8 +84,8 @@
     const w = window.innerWidth || 1280;
     const h = window.innerHeight || 720;
 
-    const topSafe = 120;    // HUD บน
-    const bottomSafe = 150; // โค้ชด้านล่าง
+    const topSafe = 120;
+    const bottomSafe = 150;
 
     const left = w * 0.15;
     const right = w * 0.85;
@@ -138,24 +135,28 @@
       this.goodHits      = 0;
       this.missCount     = 0;
 
-      // goal / mini quest (ค่า default)
+      // goal / mini quest
       this.goalScore     = 150;
       this.goalGoodHits  = 12;
       this.goalText      = 'จัดหมู่อาหารให้ถูกตามโจทย์';
       this.miniText      = 'เลือกอาหารดีตามจำนวนที่กำหนด';
 
-      this.diffKey = 'normal';
-      this.diffCfg = getDiffConfig(this.diffKey);
+      this.diffKey       = 'normal';
+      this.diffCfg       = getDiffConfig(this.diffKey);
 
       // Fever state
-      this.fever       = 0;
-      this.feverActive = false;
+      this.fever         = 0;
+      this.feverActive   = false;
       FeverUI.ensureFeverBar();
       FeverUI.setFever(0);
       FeverUI.setFeverActive(false);
       FeverUI.setShield(0);
 
-      // รอ event จาก HTML → แทนที่จะ startGame ทันที ให้ intro ก่อน
+      // Coach reaction state
+      this.goodStreak        = 0;
+      this.missStreak        = 0;
+      this.lastCoachHintTime = 0;
+
       const startHandler = (e) => {
         const diff = (e.detail && e.detail.diff) || 'normal';
         this.startWithIntro(diff);
@@ -192,7 +193,44 @@
       }
     },
 
-    // ---- ตั้งค่าตัวแปรก่อนเริ่มรอบ (ใช้ทั้ง intro + startGame จริง) ----
+    // ---- helper: ปรับ Coach ตาม GOOD / MISS ตอนตีเป้า ----
+    handleCoachReaction: function (judgment) {
+      const now = (window.performance && performance.now)
+        ? performance.now()
+        : Date.now();
+      const COACH_COOLDOWN = 2200; // ms กันสแปม
+
+      // อัปเดต streak
+      if (judgment === 'GOOD') {
+        this.goodStreak++;
+        this.missStreak = 0;
+      } else if (judgment === 'MISS') {
+        this.missStreak++;
+        this.goodStreak = 0;
+      }
+
+      // เช็กว่าจะพูดไหม (cooldown)
+      if (now - (this.lastCoachHintTime || 0) < COACH_COOLDOWN) return;
+
+      // ชมแรง ๆ ถ้าดีติดกัน
+      if (judgment === 'GOOD' && this.goodStreak >= 3) {
+        this.setCoachText('สุดยอด! เลือกอาหารดีติดกันหลายเป้าเลย 👏🥦');
+        this.lastCoachHintTime = now;
+        return;
+      }
+
+      // บ่นเบา ๆ ถ้าพลาดหลายครั้ง
+      if (judgment === 'MISS' && this.missStreak >= 2) {
+        if (this.diffKey === 'easy') {
+          this.setCoachText('เบา ๆ กับของหวานมันเค็มนะ ลองหาอาหารหมู่ดี ๆ ให้มากขึ้นนะ 😊');
+        } else {
+          this.setCoachText('ระวังของขยะด้วยน้า ลองโฟกัสที่หมู่อาหารดีเป็นหลัก 💡');
+        }
+        this.lastCoachHintTime = now;
+      }
+    },
+
+    // ---- ตั้งค่าตัวแปรก่อนเริ่มรอบ ----
     resetRound: function (diffKey) {
       this.diffKey = String(diffKey || 'normal').toLowerCase();
       this.diffCfg = getDiffConfig(this.diffKey);
@@ -207,18 +245,22 @@
       this.goodHits      = 0;
       this.missCount     = 0;
 
+      this.goodStreak        = 0;
+      this.missStreak        = 0;
+      this.lastCoachHintTime = 0;
+
       if (this.elScore) this.elScore.textContent = '0';
       if (this.elTime)  this.elTime.textContent  = '60s';
 
-      // ตั้งโจทย์ Goal / Mini ตามระดับ (concept จัดหมู่อาหาร)
+      // ตั้งโจทย์ Goal / Mini ให้ตรง concept จัดหมู่อาหาร
       if (this.diffKey === 'easy') {
-        this.goalText     = 'จัดหมู่อาหารหมู่ที่ 1+2 (ข้าวแป้ง + ผักผลไม้)';
-        this.miniText     = 'เก็บอาหารดีให้ครบ 10 ชิ้น';
+        this.goalText     = 'จัดหมู่อาหารหมู่ 1+2 (ข้าวแป้ง + ผักผลไม้)';
+        this.miniText     = 'เก็บอาหารดี 10 ชิ้น เลี่ยงของขยะให้ได้เยอะที่สุด';
         this.goalScore    = 120;
         this.goalGoodHits = 10;
       } else if (this.diffKey === 'hard') {
-        this.goalText     = 'จัดหมู่อาหารหมู่ 1+2+3+4 ให้สมดุล';
-        this.miniText     = 'เก็บอาหารดี 18 ชิ้น หลีกเลี่ยงขยะ!';
+        this.goalText     = 'จัดหมู่อาหารหมู่ 1+2+3+4 ให้สมดุลภายในเวลา 60 วินาที';
+        this.miniText     = 'เก็บอาหารดี 18 ชิ้น และพยายามไม่โดนของขยะบ่อย ๆ';
         this.goalScore    = 220;
         this.goalGoodHits = 18;
       } else {
@@ -249,15 +291,14 @@
 
       const self = this;
 
-      // สคริปต์อธิบายหมู่อาหารสั้น ๆ (ผู้ใช้จะไปเติม logic รายละเอียดเองทีหลังได้)
       const script = [
         'วันนี้เราจะฝึก "จัดหมู่อาหาร 5 หมู่" กันนะ 🍽️',
         'หมู่ที่ 1: ข้าว แป้ง ธัญพืช → ให้พลังงาน 💪',
-        'หมู่ที่ 2: ผักใบเขียว ผักสีสัน → ช่วยเรื่องวิตามินและไฟเบอร์ 🥦',
-        'หมู่ที่ 3: ผลไม้ → วิตามิน + น้ำตาลธรรมชาติ 🍎🍌',
+        'หมู่ที่ 2: ผักหลากสี → วิตามิน + ไฟเบอร์ ช่วยให้ขับถ่ายดี 🥦',
+        'หมู่ที่ 3: ผลไม้ → วิตามิน + น้ำตาลธรรมชาติ แต่ก็ไม่ควรเยอะเกินไปนะ 🍎🍌',
         'หมู่ที่ 4: เนื้อสัตว์ ไข่ ถั่วเมล็ดแห้ง → เสริมโปรตีนและกล้ามเนื้อ 🍗🥚',
-        'หมู่ที่ 5: นมและผลิตภัณฑ์จากนม → เสริมแคลเซียมและกระดูกแข็งแรง 🥛',
-        'เลือกอาหารให้ตรงหมู่ เป้าอาหารดีแตะได้เลย ของขยะหลบให้ไว ๆ นะ!'
+        'หมู่ที่ 5: นมและผลิตภัณฑ์จากนม → เสริมแคลเซียม กระดูกและฟันแข็งแรง 🥛',
+        'เดี๋ยวในเกม เป้าที่เป็นอาหารดีให้แตะได้เลย ส่วนของขยะให้หลบให้ไว ๆ นะ!'
       ];
 
       let stepIndex = 0;
@@ -268,7 +309,6 @@
           stepIndex++;
           setTimeout(playNextLine, 2300);
         } else {
-          // จบคำอธิบาย → เริ่มนับถอยหลัง
           startCountdown();
         }
       }
@@ -281,7 +321,7 @@
             n--;
             setTimeout(tickCountdown, 900);
           } else {
-            self.setCoachText('เริ่มจัดหมู่อาหารเลย! แตะแต่ของดีนะ 🥦🍎');
+            self.setCoachText('เริ่มจัดหมู่อาหารเลย! แตะแต่อาหารดีนะ 🥦🍎');
             self.startGame(self.diffKey);
           }
         }
@@ -291,9 +331,8 @@
       playNextLine();
     },
 
-    // ---- เริ่มเกมจริง (หลัง intro + countdown) ----
+    // ---- เริ่มเกมจริง ----
     startGame: function (diffKey) {
-      // ถ้ามี diffKey ใหม่ ให้ reset แต่ไม่ต้องอธิบายซ้ำ
       if (diffKey && diffKey !== this.diffKey) {
         this.resetRound(diffKey);
       }
@@ -327,17 +366,26 @@
         miniQuest: `${this.miniText} (อาหารดี ${this.goodHits} / ${this.goalGoodHits})`
       };
 
-      if (this.score    >= this.goalScore)    detail.questsCleared++;
-      if (this.goodHits >= this.goalGoodHits) detail.questsCleared++;
+      const passGoal = this.score    >= this.goalScore;
+      const passMini = this.goodHits >= this.goalGoodHits;
+      if (passGoal) detail.questsCleared++;
+      if (passMini) detail.questsCleared++;
 
       scene.emit('fg-game-over', detail);
       console.log('[GroupsVR] game over', detail);
 
-      // โค้ชสรุปสั้น ๆ ตอนจบ
-      if (this.goodHits >= this.goalGoodHits) {
-        this.setCoachText('เยี่ยมมาก! จัดหมู่อาหารได้ดีเลย 🥳 ลองระดับที่ยากขึ้นได้นะ');
+      // ---- โค้ชสรุปตามผลการเล่น ----
+      const totalTaps = this.goodHits + this.missCount;
+      const missRate = totalTaps > 0 ? this.missCount / totalTaps : 0;
+
+      if (passGoal && passMini && missRate <= 0.2) {
+        this.setCoachText('สุดยอด! จัดหมู่อาหารได้ดีมาก แทบไม่โดนของขยะเลย 🏆✨');
+      } else if (passGoal || passMini) {
+        this.setCoachText('ทำได้ดีเลย! ผ่านบางภารกิจแล้ว ลองโฟกัสอาหารดีให้มากขึ้นอีกนิดนะ 💪');
+      } else if (missRate > 0.5) {
+        this.setCoachText('รอบนี้โดนของขยะเยอะไปหน่อย ลองสังเกตว่าหมู่ไหนคืออาหารดี แล้วลองใหม่อีกครั้งนะ 😊');
       } else {
-        this.setCoachText('ลองใหม่อีกครั้งนะ ลองโฟกัสที่อาหารดีให้มากขึ้น 💪');
+        this.setCoachText('เกือบแล้วนะ! ลองหายใจลึก ๆ แล้วตั้งใจเลือกหมู่อาหารดีใหม่อีกรอบ 💚');
       }
     },
 
@@ -349,7 +397,6 @@
       this.elapsed    += dt;
       this.spawnTimer += dt;
 
-      // เวลา
       const remain = Math.max(0, this.timeLimit - this.elapsed);
       if (this.elTime) {
         this.elTime.textContent = Math.ceil(remain / 1000) + 's';
@@ -359,7 +406,6 @@
         return;
       }
 
-      // spawn เป้า
       if (this.spawnTimer >= this.diffCfg.spawnInterval) {
         this.spawnTimer = 0;
         this.spawnTarget();
@@ -380,7 +426,6 @@
       el.style.left = pos.x + 'px';
       el.style.top  = pos.y + 'px';
 
-      // scale ตามระดับความยาก
       const baseScale = this.diffCfg.sizeFactor || 1.0;
       el.style.transform = 'translate(-50%, -50%) scale(' + baseScale + ')';
 
@@ -407,7 +452,6 @@
       const el = target.el;
       if (!el || !el.parentNode) return;
 
-      // คะแนนง่าย ๆ: good +10, junk -8
       let scoreDelta = 0;
       let judgment   = 'MISS';
 
@@ -428,7 +472,7 @@
       if (this.elScore) this.elScore.textContent = String(this.score);
       this.updateGoalHUD();
 
-      // FX: เป้าแตก + คะแนนเด้ง
+      // FX
       if (Particles && typeof Particles.burstAt === 'function') {
         const rect = el.getBoundingClientRect();
         const x = rect.left + rect.width / 2;
@@ -449,7 +493,9 @@
         }
       }
 
-      // ลบเป้า
+      // โค้ช React ตาม Good/Miss
+      this.handleCoachReaction(judgment);
+
       el.classList.add('hit');
       setTimeout(() => {
         if (el.parentNode) el.parentNode.removeChild(el);
@@ -470,7 +516,7 @@
 
     updateGoalHUD: function () {
       if (this.elGoalProg) {
-        const cur = Math.min(this.score, this.goalScore); // ไม่ให้เกินใน progress
+        const cur = Math.min(this.score, this.goalScore);
         this.elGoalProg.textContent = cur + ' / ' + this.goalScore;
       }
       if (this.elMiniProg) {
