@@ -377,6 +377,80 @@ a-scene {
   font-size:13px;
 }
 
+.end-toast {
+  position:fixed;
+  right:12px;
+  bottom:12px;
+  z-index:120;
+  max-width:280px;
+  width:calc(100% - 32px);
+  padding:12px 14px 10px;
+  border-radius:18px;
+  background:radial-gradient(circle at top,#0f172a,#020617);
+  border:1px solid rgba(148,163,184,0.5);
+  box-shadow:
+    0 18px 40px rgba(15,23,42,0.95),
+    0 0 0 1px rgba(15,23,42,1);
+  font-size:13px;
+  color:var(--text-main);
+  display:none;
+}
+
+.end-toast.show{
+  display:block;
+}
+
+.end-title{
+  font-size:14px;
+  font-weight:600;
+  margin-bottom:6px;
+}
+
+.end-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  margin:2px 0;
+}
+
+.end-row span{
+  opacity:.9;
+}
+
+.end-row strong{
+  font-variant-numeric:tabular-nums;
+}
+
+/* ปุ่มในสรุปเกม */
+.end-actions{
+  margin-top:10px;
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+.end-btn{
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.7);
+  padding:4px 10px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  background:rgba(15,23,42,0.9);
+  color:#e5e7eb;
+}
+
+.end-btn.primary{
+  background:linear-gradient(90deg,#22c55e,#4ade80);
+  color:#022c22;
+  border:none;
+}
+
+.end-btn.ghost:hover{
+  background:rgba(31,41,55,0.9);
+}
+
 /* ให้ Fever gauge จาก ui-fever.js อยู่ layer สูงกว่าฉาก */
 .hha-fever-wrap {
   z-index:80 !important;
