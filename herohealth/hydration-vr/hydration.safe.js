@@ -113,13 +113,14 @@ export async function boot(cfg = {}) {
   deck.stats.greenTick = 0;
   deck.stats.zone      = waterZone;
 
-  // ✅ สุ่มภารกิจชุดแรกออกมา (MissionDeck จะสุ่มจาก pool goal/mini ที่แบ่งระดับไว้แล้ว)
+  // ✅ สุ่มภารกิจชุดแรกออกมา (goal 2 อัน / mini 3 อัน ตาม diff ใน hydration.quest.js)
   if (typeof deck.drawGoals === 'function') deck.drawGoals(2);
   if (typeof deck.draw3 === 'function')     deck.draw3();
 
   let accMiniDone = 0;
   let accGoalDone = 0;
 
+  // ---------- ส่งสถานะเควสต์ไป HUD ----------
   function pushQuest(hint) {
     if (!deck || typeof deck.getProgress !== 'function') return;
 
@@ -127,21 +128,26 @@ export async function boot(cfg = {}) {
     const minis = deck.getProgress('mini')  || [];
     const z     = zoneFrom(waterPct);
 
-    // 🔹 แถวที่ HUD ใช้แสดงจริง ๆ: goal 2 อัน + mini 3 อัน
+    // main เป้าที่ HUD เก่าใช้
+    const mainGoal = goals.find(g => !g.done) || goals[0] || null;
+    const mainMini = minis.find(m => !m.done) || minis[0] || null;
+
+    // row สำหรับแสดงหลายอัน
     const goalsRow = goals.slice(0, 2);
     const minisRow = minis.slice(0, 3);
 
     window.dispatchEvent(new CustomEvent('quest:update', {
       detail: {
-        // current เป้าโฟกัส (ถ้าจะใช้)
-        currentGoal: goals.find(g => !g.done) || goals[0] || null,
-        currentMini: minis.find(m => !m.done) || minis[0] || null,
-        // แถวเต็มสำหรับ panel:
-        goalsRow,
-        minisRow,
-        // เก็บทั้งหมดเผื่อสรุปตอนจบ
+        // ชื่อเดิมที่ quest-hud-vr.js ใช้อยู่
+        goal: mainGoal,
+        mini: mainMini,
         goalsAll: goals,
         minisAll: minis,
+
+        // เพิ่มข้อมูลเผื่อใช้วาด list หลายอัน
+        goalsRow,
+        minisRow,
+
         hint: hint || `โซนน้ำ: ${z}`,
         diff
       }
@@ -229,13 +235,12 @@ export async function boot(cfg = {}) {
     const baseX = x || (window.innerWidth / 2);
     const baseY = y || (window.innerHeight / 2);
 
-    // ขยับแยกนิดหน่อยให้ไม่ทับกัน
+    // คำว่า GOOD / MISS / PERFECT / BLOCK / FEVER
     if (judgment) {
-      // คำว่า GOOD / MISS / PERFECT / BLOCK / FEVER
       safeScorePop(baseX - 22, baseY, judgment, { good });
     }
+    // ตัวเลขคะแนน +20 / -10
     if (numLabel) {
-      // ตัวเลขคะแนน +20 / -10
       safeScorePop(baseX + 22, baseY, numLabel, { good });
     }
 
