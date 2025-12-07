@@ -1,239 +1,268 @@
 // === /herohealth/hydration-vr/hydration.quest.js ===
-// Mission Deck สำหรับโหมด Hydration VR
-// - สุ่ม Goal 2 ภารกิจจาก pool ~10 ใบต่อเกม
-// - สุ่ม Mini quest 3 ภารกิจจาก pool ~15 ใบต่อเกม
-// - รองรับ diff: easy / normal / hard
+// Quest system สำหรับโหมด Hydration (ใช้ร่วมกับ hydration.safe.js)
+//
+// คุณสมบัติ:
+// - แยก goal / mini ตาม diff: easy / normal / hard (จาก hydration.goals/minis)
+// - เลือก goal ทีละ 2 จาก pool 10 อัน
+// - เลือก mini ทีละ 3 จาก pool 15 อัน
+// - ภารกิจกลุ่ม "พลาดไม่เกิน ..." (nomiss / miss) จะถูกสุ่มใช้ทีหลังสุด
+// - ภายในแต่ละกลุ่ม (ปกติ / miss) จัดลำดับจากง่าย → ยาก ตาม target
+// - ส่งข้อมูลให้ HUD ผ่าน getProgress('goals'|'mini') เป็น {id,label,target,prog,done}
 
-'use strict';
+import { hydrationGoalsFor } from './hydration.goals.js';
+import { hydrationMinisFor } from './hydration.minis.js';
+import { mapHydrationState, normalizeHydrationDiff } from './hydration.state.js';
 
 /**
- * สุ่มเลือก n รายการแบบไม่ซ้ำจากอาร์เรย์ src
+ * แบ่งประเภท goal/mini:
+ * - isMiss: ภารกิจเกี่ยวกับ "พลาดไม่เกิน", "MISS" ฯลฯ
+ * ใช้ทั้ง id และ label ในการเดา
  */
-function pickMany(src, n) {
-  const arr = [...src];
-  const out = [];
-  while (arr.length && out.length < n) {
-    const idx = Math.floor(Math.random() * arr.length);
-    out.push(arr.splice(idx, 1)[0]);
+function isMissQuest(item) {
+  const id = String(item.id || '').toLowerCase();
+  const label = String(item.label || '');
+  if (id.includes('nomiss') || id.includes('miss')) return true;
+  if (label.includes('พลาด')) return true;
+  return false;
+}
+
+/**
+ * สร้าง meta ให้แต่ละ quest สำหรับจัดลำดับง่าย → ยาก
+ * - ภารกิจทั่วไป: target น้อย → ง่าย
+ * - ภารกิจ miss: target มาก → ง่าย (พลาดได้เยอะ = ง่าย)
+ */
+function decorateQuest(item) {
+  const q = { ...item };
+  q._isMiss = isMissQuest(item);
+  const t = Number(item.target || 0);
+
+  if (q._isMiss) {
+    // พลาดได้เยอะ → ง่ายกว่า → score สูง
+    q._difficultyScore = isNaN(t) ? 0 : t * 1; // target มาก = ง่าย
+  } else {
+    // ภารกิจทั่วไป → target น้อย = ง่าย
+    q._difficultyScore = isNaN(t) ? 0 : -t;    // target มาก = ยาก
   }
-  return out;
+
+  // runtime state
+  q._done = false;
+  q._value = 0;
+
+  return q;
 }
 
 /**
- * สร้างอ็อบเจกต์ภารกิจจาก template
+ * แยกเป็น 2 กลุ่ม: nonMiss / miss แล้วจัดเรียงตามความง่าย
  */
-function makeCard(tpl, tier, kind) {
-  return {
-    id: tpl.id,
-    label: tpl.label,
-    kind,          // 'goal' / 'mini'
-    tier,          // easy / normal / hard
-    metric: tpl.metric,   // ใช้คีย์อะไรใน stats
-    mode: tpl.mode || 'gte', // เปรียบเทียบแบบไหน
-    target: tpl.target,
-    prog: 0,
-    done: false
-  };
+function splitAndSort(pool) {
+  const decorated = pool.map(decorateQuest);
+
+  const nonMiss = decorated
+    .filter(q => !q._isMiss)
+    .sort((a, b) => a._difficultyScore - b._difficultyScore);
+
+  const miss = decorated
+    .filter(q => q._isMiss)
+    .sort((a, b) => a._difficultyScore - b._difficultyScore);
+
+  return { nonMiss, miss };
 }
 
 /**
- * อัปเดต progress ของการ์ดจาก stats ปัจจุบัน
+ * สุ่มหยิบ 1 ตัวจาก array แล้วเอาออก (ถ้า wantRandom = true)
+ * ถ้าไม่อยาก random มากจะใช้แบบ "หยิบตัวแรก" ก็ได้
  */
-function updateCardProgress(card, stats) {
-  const v = stats[card.metric] || 0;
-  card.prog = Math.min(card.target, Math.max(0, Math.round(v)));
-
-  switch (card.mode) {
-    case 'lte': // ค่าน้อยกว่าหรือเท่ากับเป้าถือว่าผ่าน (เช่น miss ไม่เกิน 6)
-      card.done = v <= card.target;
-      break;
-    case 'rangeGreen': // โซนน้ำ GREEN อย่างน้อย target วินาที
-      card.prog = Math.min(card.target, stats.greenTick || 0);
-      card.done = (stats.greenTick || 0) >= card.target;
-      break;
-    default: // gte
-      card.done = v >= card.target;
-  }
+function takeOne(arr, random = true) {
+  if (!arr.length) return null;
+  if (!random) return arr.shift();
+  const idx = Math.floor(Math.random() * arr.length);
+  const item = arr[idx];
+  arr.splice(idx, 1);
+  return item;
 }
 
-// ---------- Template ภารกิจ ----------
-
-// metric ที่ใช้ใน stats มี:
-// score, comboMax, missHits, goodHits, junkHits, greenTick, timeSec
-
-const GOAL_TEMPLATES = {
-  easy: [
-    { id: 'g_e_score_800',      label: 'ทำคะแนนให้ได้อย่างน้อย 800 คะแนน',        metric: 'score',     target: 800 },
-    { id: 'g_e_score_1200',     label: 'ทำคะแนนให้ได้อย่างน้อย 1,200 คะแนน',       metric: 'score',     target: 1200 },
-    { id: 'g_e_good_12',        label: 'เก็บน้ำดีให้ครบ 12 ครั้ง',                  metric: 'goodHits', target: 12 },
-    { id: 'g_e_good_16',        label: 'เก็บน้ำดีให้ครบ 16 ครั้ง',                  metric: 'goodHits', target: 16 },
-    { id: 'g_e_combo_4',        label: 'ดันคอมโบให้ถึงอย่างน้อย x4 สัก 1 ครั้ง',   metric: 'comboMax', target: 4 },
-    { id: 'g_e_green_20',       label: 'รักษาโซน GREEN รวมอย่างน้อย 20 วินาที',    metric: 'greenTick', target: 20, mode: 'rangeGreen' },
-    { id: 'g_e_green_30',       label: 'รักษาโซน GREEN รวมอย่างน้อย 30 วินาที',    metric: 'greenTick', target: 30, mode: 'rangeGreen' },
-    { id: 'g_e_miss_leq_8',     label: 'ทั้งเกมพลาดไม่เกิน 8 ครั้ง',                metric: 'missHits', target: 8,  mode: 'lte' },
-    { id: 'g_e_miss_leq_6',     label: 'ทั้งเกมพลาดไม่เกิน 6 ครั้ง',                metric: 'missHits', target: 6,  mode: 'lte' },
-    { id: 'g_e_time_40',        label: 'เล่นให้นานอย่างน้อย 40 วินาทีในโหมดนี้',   metric: 'timeSec',  target: 40 }
-  ],
-  normal: [
-    { id: 'g_n_score_1600',     label: 'ทำคะแนนให้ได้อย่างน้อย 1,600 คะแนน',       metric: 'score',     target: 1600 },
-    { id: 'g_n_score_2200',     label: 'ทำคะแนนให้ได้อย่างน้อย 2,200 คะแนน',       metric: 'score',     target: 2200 },
-    { id: 'g_n_good_18',        label: 'เก็บน้ำดีให้ครบ 18 ครั้ง',                  metric: 'goodHits', target: 18 },
-    { id: 'g_n_good_22',        label: 'เก็บน้ำดีให้ครบ 22 ครั้ง',                  metric: 'goodHits', target: 22 },
-    { id: 'g_n_combo_6',        label: 'ดันคอมโบให้ถึงอย่างน้อย x6 สัก 1 ครั้ง',   metric: 'comboMax', target: 6 },
-    { id: 'g_n_green_35',       label: 'รักษาโซน GREEN รวมอย่างน้อย 35 วินาที',    metric: 'greenTick', target: 35, mode: 'rangeGreen' },
-    { id: 'g_n_green_45',       label: 'รักษาโซน GREEN รวมอย่างน้อย 45 วินาที',    metric: 'greenTick', target: 45, mode: 'rangeGreen' },
-    { id: 'g_n_miss_leq_6',     label: 'ทั้งเกมพลาดไม่เกิน 6 ครั้ง',                metric: 'missHits', target: 6,  mode: 'lte' },
-    { id: 'g_n_miss_leq_5',     label: 'ทั้งเกมพลาดไม่เกิน 5 ครั้ง',                metric: 'missHits', target: 5,  mode: 'lte' },
-    { id: 'g_n_time_60',        label: 'เล่นให้นานอย่างน้อย 60 วินาทีในโหมดนี้',   metric: 'timeSec',  target: 60 }
-  ],
-  hard: [
-    { id: 'g_h_score_2200',     label: 'ทำคะแนนให้ได้อย่างน้อย 2,200 คะแนน',       metric: 'score',     target: 2200 },
-    { id: 'g_h_score_2800',     label: 'ทำคะแนนให้ได้อย่างน้อย 2,800 คะแนน',       metric: 'score',     target: 2800 },
-    { id: 'g_h_good_22',        label: 'เก็บน้ำดีให้ครบ 22 ครั้ง',                  metric: 'goodHits', target: 22 },
-    { id: 'g_h_good_26',        label: 'เก็บน้ำดีให้ครบ 26 ครั้ง',                  metric: 'goodHits', target: 26 },
-    { id: 'g_h_combo_8',        label: 'ดันคอมโบให้ถึงอย่างน้อย x8 สัก 1 ครั้ง',   metric: 'comboMax', target: 8 },
-    { id: 'g_h_green_45',       label: 'รักษาโซน GREEN รวมอย่างน้อย 45 วินาที',    metric: 'greenTick', target: 45, mode: 'rangeGreen' },
-    { id: 'g_h_green_55',       label: 'รักษาโซน GREEN รวมอย่างน้อย 55 วินาที',    metric: 'greenTick', target: 55, mode: 'rangeGreen' },
-    { id: 'g_h_miss_leq_5',     label: 'ทั้งเกมพลาดไม่เกิน 5 ครั้ง',                metric: 'missHits', target: 5,  mode: 'lte' },
-    { id: 'g_h_miss_leq_4',     label: 'ทั้งเกมพลาดไม่เกิน 4 ครั้ง',                metric: 'missHits', target: 4,  mode: 'lte' },
-    { id: 'g_h_time_80',        label: 'เล่นให้นานอย่างน้อย 80 วินาทีในโหมดนี้',   metric: 'timeSec',  target: 80 }
-  ]
-};
-
-const MINI_TEMPLATES = {
-  easy: [
-    { id: 'm_e_combo_3',        label: 'ทำคอมโบให้ถึง x3 อย่างน้อย 1 ครั้ง',       metric: 'comboMax', target: 3 },
-    { id: 'm_e_combo_4',        label: 'ทำคอมโบให้ถึง x4 อย่างน้อย 1 ครั้ง',       metric: 'comboMax', target: 4 },
-    { id: 'm_e_good_8',         label: 'เก็บน้ำดีให้ครบ 8 ครั้ง',                    metric: 'goodHits', target: 8 },
-    { id: 'm_e_good_12',        label: 'เก็บน้ำดีให้ครบ 12 ครั้ง',                   metric: 'goodHits', target: 12 },
-    { id: 'm_e_green_15',       label: 'รักษาโซน GREEN รวมอย่างน้อย 15 วินาที',     metric: 'greenTick', target: 15, mode: 'rangeGreen' },
-    { id: 'm_e_green_20',       label: 'รักษาโซน GREEN รวมอย่างน้อย 20 วินาที',     metric: 'greenTick', target: 20, mode: 'rangeGreen' },
-    { id: 'm_e_miss_leq_6',     label: 'ทั้งเกมพลาดไม่เกิน 6 ครั้ง',                metric: 'missHits', target: 6,  mode: 'lte' },
-    { id: 'm_e_miss_leq_7',     label: 'ทั้งเกมพลาดไม่เกิน 7 ครั้ง',                metric: 'missHits', target: 7,  mode: 'lte' },
-    { id: 'm_e_time_30',        label: 'เล่นโหมดนี้ให้นานอย่างน้อย 30 วินาที',      metric: 'timeSec',  target: 30 },
-    { id: 'm_e_junk_leq_6',     label: 'โดนน้ำหวาน/คาเฟอีนไม่เกิน 6 แก้ว',        metric: 'junkHits', target: 6,  mode: 'lte' },
-    { id: 'm_e_junk_leq_8',     label: 'โดนน้ำหวาน/คาเฟอีนไม่เกิน 8 แก้ว',        metric: 'junkHits', target: 8,  mode: 'lte' },
-    { id: 'm_e_score_700',      label: 'เก็บคะแนนอย่างน้อย 700 คะแนน',             metric: 'score',     target: 700 },
-    { id: 'm_e_score_900',      label: 'เก็บคะแนนอย่างน้อย 900 คะแนน',             metric: 'score',     target: 900 },
-    { id: 'm_e_good_more_junk', label: 'เก็บน้ำดีมากกว่าน้ำหวานตลอดทั้งเกม',       metric: 'goodMinusJunk', target: 1 }
-  ],
-  normal: [
-    { id: 'm_n_combo_4',        label: 'ทำคอมโบให้ถึง x4 อย่างน้อย 1 ครั้ง',       metric: 'comboMax', target: 4 },
-    { id: 'm_n_combo_6',        label: 'ทำคอมโบให้ถึง x6 อย่างน้อย 1 ครั้ง',       metric: 'comboMax', target: 6 },
-    { id: 'm_n_good_14',        label: 'เก็บน้ำดีให้ครบ 14 ครั้ง',                   metric: 'goodHits', target: 14 },
-    { id: 'm_n_good_18',        label: 'เก็บน้ำดีให้ครบ 18 ครั้ง',                   metric: 'goodHits', target: 18 },
-    { id: 'm_n_green_25',       label: 'รักษาโซน GREEN รวมอย่างน้อย 25 วินาที',     metric: 'greenTick', target: 25, mode: 'rangeGreen' },
-    { id: 'm_n_green_30',       label: 'รักษาโซน GREEN รวมอย่างน้อย 30 วินาที',     metric: 'greenTick', target: 30, mode: 'rangeGreen' },
-    { id: 'm_n_miss_leq_6',     label: 'ทั้งเกมพลาดไม่เกิน 6 ครั้ง',                metric: 'missHits', target: 6,  mode: 'lte' },
-    { id: 'm_n_miss_leq_5',     label: 'ทั้งเกมพลาดไม่เกิน 5 ครั้ง',                metric: 'missHits', target: 5,  mode: 'lte' },
-    { id: 'm_n_time_45',        label: 'เล่นโหมดนี้ให้นานอย่างน้อย 45 วินาที',      metric: 'timeSec',  target: 45 },
-    { id: 'm_n_junk_leq_6',     label: 'โดนน้ำหวาน/คาเฟอีนไม่เกิน 6 แก้ว',        metric: 'junkHits', target: 6,  mode: 'lte' },
-    { id: 'm_n_junk_leq_5',     label: 'โดนน้ำหวาน/คาเฟอีนไม่เกิน 5 แก้ว',        metric: 'junkHits', target: 5,  mode: 'lte' },
-    { id: 'm_n_score_1200',     label: 'เก็บคะแนนอย่างน้อย 1,200 คะแนน',           metric: 'score',     target: 1200 },
-    { id: 'm_n_score_1500',     label: 'เก็บคะแนนอย่างน้อย 1,500 คะแนน',           metric: 'score',     target: 1500 },
-    { id: 'm_n_good_more_junk', label: 'เก็บน้ำดีอย่างน้อย 10 แก้ว มากกว่าน้ำหวาน', metric: 'goodMinusJunk', target: 3 }
-  ],
-  hard: [
-    { id: 'm_h_combo_6',        label: 'ทำคอมโบให้ถึง x6 อย่างน้อย 1 ครั้ง',       metric: 'comboMax', target: 6 },
-    { id: 'm_h_combo_8',        label: 'ทำคอมโบให้ถึง x8 อย่างน้อย 1 ครั้ง',       metric: 'comboMax', target: 8 },
-    { id: 'm_h_good_18',        label: 'เก็บน้ำดีให้ครบ 18 ครั้ง',                   metric: 'goodHits', target: 18 },
-    { id: 'm_h_good_22',        label: 'เก็บน้ำดีให้ครบ 22 ครั้ง',                   metric: 'goodHits', target: 22 },
-    { id: 'm_h_green_35',       label: 'รักษาโซน GREEN รวมอย่างน้อย 35 วินาที',     metric: 'greenTick', target: 35, mode: 'rangeGreen' },
-    { id: 'm_h_green_40',       label: 'รักษาโซน GREEN รวมอย่างน้อย 40 วินาที',     metric: 'greenTick', target: 40, mode: 'rangeGreen' },
-    { id: 'm_h_miss_leq_5',     label: 'ทั้งเกมพลาดไม่เกิน 5 ครั้ง',                metric: 'missHits', target: 5,  mode: 'lte' },
-    { id: 'm_h_miss_leq_4',     label: 'ทั้งเกมพลาดไม่เกิน 4 ครั้ง',                metric: 'missHits', target: 4,  mode: 'lte' },
-    { id: 'm_h_time_60',        label: 'เล่นโหมดนี้ให้นานอย่างน้อย 60 วินาที',      metric: 'timeSec',  target: 60 },
-    { id: 'm_h_junk_leq_4',     label: 'โดนน้ำหวาน/คาเฟอีนไม่เกิน 4 แก้ว',        metric: 'junkHits', target: 4,  mode: 'lte' },
-    { id: 'm_h_junk_leq_3',     label: 'โดนน้ำหวาน/คาเฟอีนไม่เกิน 3 แก้ว',        metric: 'junkHits', target: 3,  mode: 'lte' },
-    { id: 'm_h_score_1600',     label: 'เก็บคะแนนอย่างน้อย 1,600 คะแนน',           metric: 'score',     target: 1600 },
-    { id: 'm_h_score_2000',     label: 'เก็บคะแนนอย่างน้อย 2,000 คะแนน',           metric: 'score',     target: 2000 },
-    { id: 'm_h_good_more_junk', label: 'เก็บน้ำดีอย่างน้อย 15 แก้ว มากกว่าน้ำหวาน', metric: 'goodMinusJunk', target: 5 }
-  ]
-};
-
 /**
- * สร้าง Deck สำหรับโหมด Hydration ตาม diff
+ * สร้าง Deck สำหรับ Hydration ที่ใช้กับ hydration.safe.js
+ * คืน object ที่มี:
+ *   stats, updateScore, updateCombo, onGood, onJunk, second,
+ *   getProgress(kind), drawGoals(n), draw3()
  */
-export function createHydrationQuest(diff = 'normal') {
-  const tier = (diff === 'easy' || diff === 'hard') ? diff : 'normal';
+export function createHydrationQuest(diffRaw = 'normal') {
+  const diff = normalizeHydrationDiff(diffRaw);
 
+  // ดึง pool ตาม diff (easy / normal / hard)
+  const goalPool = hydrationGoalsFor(diff);
+  const miniPool = hydrationMinisFor(diff);
+
+  // แยก nonMiss / miss + จัดง่าย → ยาก
+  const goalBuckets = splitAndSort(goalPool);
+  const miniBuckets = splitAndSort(miniPool);
+
+  // เหลือให้สุ่ม
+  let goalsNonMissLeft = [...goalBuckets.nonMiss];
+  let goalsMissLeft    = [...goalBuckets.miss];
+
+  let minisNonMissLeft = [...miniBuckets.nonMiss];
+  let minisMissLeft    = [...miniBuckets.miss];
+
+  // active ชุดปัจจุบัน
+  let activeGoals = [];
+  let activeMinis = [];
+
+  // stats ที่ hydration.safe.js จะใช้ mapHydrationState()
   const stats = {
     score: 0,
     combo: 0,
     comboMax: 0,
-    missHits: 0,
-    goodHits: 0,
-    junkHits: 0,
-    goodMinusJunk: 0,
-    greenTick: 0,
-    timeSec: 0,
+    goodCount: 0,
+    junkMiss: 0,
+    tick: 0,        // เวลาเล่นสะสม (sec) — เพิ่มใน second()
+    greenTick: 0,   // อัปเดตจาก hydration.safe.js
     zone: 'GREEN'
   };
 
-  let goals = [];
-  let minis = [];
+  // ----- helper: refresh สถานะ done / prog ของทุก quest -----
+  function refreshProgress() {
+    const s = mapHydrationState(stats);
 
-  function refreshAll() {
-    goals.forEach((g) => updateCardProgress(g, stats));
-    minis.forEach((m) => updateCardProgress(m, stats));
+    function updateItem(q) {
+      try {
+        const done = typeof q.check === 'function' ? !!q.check(s) : false;
+        const val  = typeof q.prog === 'function' ? q.prog(s) : 0;
+        q._done   = done;
+        q._value  = val;
+      } catch (e) {
+        q._done  = false;
+        q._value = 0;
+      }
+    }
+
+    activeGoals.forEach(updateItem);
+    activeMinis.forEach(updateItem);
   }
+
+  function viewItems(arr) {
+    // แปลงเป็น object แบบโปร่ง ๆ ให้ HUD ใช้ง่าย
+    return arr.map(q => ({
+      id: q.id,
+      label: q.label,
+      target: q.target,
+      prog: q._value,
+      done: !!q._done,
+      isMiss: !!q._isMiss
+    }));
+  }
+
+  // ----- API ที่ hydration.safe.js จะเรียก -----
+
+  function updateScore(v) {
+    stats.score = Number(v) || 0;
+    refreshProgress();
+  }
+
+  function updateCombo(v) {
+    const c = Number(v) || 0;
+    stats.combo = c;
+    if (c > stats.comboMax) stats.comboMax = c;
+    refreshProgress();
+  }
+
+  function onGood() {
+    stats.goodCount += 1;
+    refreshProgress();
+  }
+
+  function onJunk() {
+    stats.junkMiss += 1;
+    refreshProgress();
+  }
+
+  function second() {
+    stats.tick += 1;
+    refreshProgress();
+  }
+
+  /**
+   * คืน progress ตามประเภท
+   * - 'goals' → goal ปัจจุบัน 2 อัน
+   * - 'mini'  → mini ปัจจุบัน 3 อัน
+   */
+  function getProgress(kind) {
+    if (kind === 'goals') return viewItems(activeGoals);
+    if (kind === 'mini')  return viewItems(activeMinis);
+    return viewItems(activeGoals).concat(viewItems(activeMinis));
+  }
+
+  /**
+   * สุ่ม goal ชุดใหม่:
+   * - เลือกจาก nonMiss ก่อนจนหมด แล้วค่อยใช้ miss
+   * - n ปกติ = 2 (ตามที่ hydration.safe.js เรียก)
+   */
+  function drawGoals(n = 2) {
+    activeGoals = [];
+
+    for (let i = 0; i < n; i++) {
+      const pool = goalsNonMissLeft.length ? goalsNonMissLeft : goalsMissLeft;
+      if (!pool.length) break;
+      const q = takeOne(pool, true);
+      if (q) {
+        q._done = false;
+        q._value = 0;
+        activeGoals.push(q);
+      }
+    }
+
+    // ถ้าใช้หมดแล้วทั้งสอง bucket → reset loop ใหม่ (เผื่อเล่นนาน)
+    if (!goalsNonMissLeft.length && !goalsMissLeft.length) {
+      goalsNonMissLeft = [...goalBuckets.nonMiss];
+      goalsMissLeft    = [...goalBuckets.miss];
+    }
+
+    refreshProgress();
+  }
+
+  /**
+   * สุ่ม mini quest 3 อัน:
+   * - เลือก nonMiss ก่อน แล้วค่อย miss
+   * - hydration.safe.js เรียกผ่าน deck.draw3()
+   */
+  function draw3() {
+    const n = 3;
+    activeMinis = [];
+
+    for (let i = 0; i < n; i++) {
+      const pool = minisNonMissLeft.length ? minisNonMissLeft : minisMissLeft;
+      if (!pool.length) break;
+      const q = takeOne(pool, true);
+      if (q) {
+        q._done = false;
+        q._value = 0;
+        activeMinis.push(q);
+      }
+    }
+
+    if (!minisNonMissLeft.length && !minisMissLeft.length) {
+      minisNonMissLeft = [...miniBuckets.nonMiss];
+      minisMissLeft    = [...miniBuckets.miss];
+    }
+
+    refreshProgress();
+  }
+
+  // ----- เริ่มต้นครั้งแรก -----
+  drawGoals(2);
+  draw3();
 
   return {
     stats,
-
-    // --- เรียกจาก hydration.safe.js ---
-    updateScore(v) {
-      stats.score = Number(v) || 0;
-      refreshAll();
-    },
-
-    updateCombo(v) {
-      stats.combo = Number(v) || 0;
-      if (stats.combo > stats.comboMax) stats.comboMax = stats.combo;
-      refreshAll();
-    },
-
-    onGood() {
-      stats.goodHits += 1;
-      stats.goodMinusJunk = stats.goodHits - stats.junkHits;
-      refreshAll();
-    },
-
-    onJunk() {
-      stats.junkHits += 1;
-      stats.missHits += 1; // ใช้เป็น miss หลักของภารกิจ
-      stats.goodMinusJunk = stats.goodHits - stats.junkHits;
-      refreshAll();
-    },
-
-    second() {
-      stats.timeSec += 1;
-      // greenTick และ zone ถูกอัปเดตจาก hydration.safe.js โดยตรงใน stats
-      refreshAll();
-    },
-
-    // hydration.safe.js จะอัปเดต zone + greenTick ให้โดยตรง
-    // (เช่น deck.stats.greenTick++, deck.stats.zone = ...)
-
-    drawGoals(count) {
-      const src = GOAL_TEMPLATES[tier] || GOAL_TEMPLATES.normal;
-      const picked = pickMany(src, count || 2);
-      goals = picked.map((tpl) => makeCard(tpl, tier, 'goal'));
-      refreshAll();
-    },
-
-    draw3() {
-      const src = MINI_TEMPLATES[tier] || MINI_TEMPLATES.normal;
-      const picked = pickMany(src, 3);
-      minis = picked.map((tpl) => makeCard(tpl, tier, 'mini'));
-      refreshAll();
-    },
-
-    getProgress(kind) {
-      if (kind === 'goals' || kind === 'goal') return goals;
-      if (kind === 'mini' || kind === 'minis') return minis;
-      return [];
-    }
+    updateScore,
+    updateCombo,
+    onGood,
+    onJunk,
+    second,
+    getProgress,
+    drawGoals,
+    draw3
   };
 }
 
