@@ -1,7 +1,29 @@
 // === /herohealth/plate/plate.safe.js
 // MISS = กดของไม่ดีเท่านั้น + โค้ช ป.5 + multi-plate + cleanup hha:time listener
+
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { createPlateQuest, QUOTA } from './plate.quest.js';
+
+// ใช้ Particles จาก global (จาก /vr/particles.js IIFE)
+const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+
+const Particles =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+  ROOT.Particles ||
+  { burstAt(){}, scorePop(){} };
+
+// ใช้ FeverUI จาก global (จาก /vr/ui-fever.js IIFE)
+const FeverUI =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
+  ROOT.FeverUI ||
+  {
+    ensureFeverBar(){},
+    setFever(){},
+    setFeverActive(){},
+    setShield(){}
+  };
+
+const { ensureFeverBar, setFever, setFeverActive, setShield } = FeverUI;
 
 // ใช้ Particles จาก global ที่มาจาก /vr/particles.js (IIFE)
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
