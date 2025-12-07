@@ -2,7 +2,7 @@
 // Food Groups VR — Game Engine (DOM targets + Goal / Mini quest + Fever + FX)
 // 2025-12-07
 
-import Particles, { scorePop, burstAt } from '../vr/particles.js';
+import { scorePop, burstAt } from '../vr/particles.js';
 
 (function (ns) {
   'use strict';
