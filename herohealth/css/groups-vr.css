@@ -193,8 +193,7 @@ a-scene {
   position:absolute;
   left:0;
   right:0;
-  /* ยกขึ้นจากขอบล่าง + เผื่อ safe-area */
-  bottom:calc(72px + env(safe-area-inset-bottom, 10px));
+  bottom:64px;           /* ดันขึ้นเพื่อไม่ให้ทับ Fever bar */
   display:flex;
   justify-content:center;
   align-items:center;
@@ -318,7 +317,10 @@ a-scene {
     0 12px 32px rgba(15,23,42,0.85),
     0 0 0 4px rgba(15,23,42,0.9);
   transform:translate(-50%, -50%) scale(1);
-  transition:transform .12s ease-out, opacity .12s ease-out, box-shadow .12s ease-out;
+  transition:
+    transform .12s ease-out,
+    opacity .12s ease-out,
+    box-shadow .12s ease-out;
 }
 
 /* สีพื้นแบ่ง Good / Junk */
@@ -332,4 +334,160 @@ a-scene {
 
 /* Emoji บนเป้า */
 .fg-target::before {
-  content
+  content:attr(data-emoji);
+  display:block;
+  font-size:clamp(40px, 7vmin, 64px);
+  line-height:1;
+  color:#fefce8;
+  text-shadow:
+    0 2px 4px rgba(15,23,42,0.9),
+    0 0 10px rgba(15,23,42,0.9);
+}
+
+/* ตอนโดนตี */
+.fg-target.hit {
+  transform:translate(-50%, -50%) scale(0.6);
+  opacity:0;
+}
+
+/* ===== สรุปผลแบบ overlay เต็มจอ ===== */
+
+.result-overlay {
+  position:fixed;
+  inset:0;
+  z-index:120;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:radial-gradient(circle at top,#020617ee,#020617f5);
+  backdrop-filter:blur(10px);
+}
+
+.result-overlay.show {
+  display:flex;
+}
+
+.result-card {
+  width:90%;
+  max-width:420px;
+  padding:18px 18px 14px;
+  border-radius:18px;
+  background:radial-gradient(circle at top,#0f172a,#020617);
+  border:1px solid rgba(148,163,184,0.7);
+  box-shadow:
+    0 22px 55px rgba(0,0,0,0.85),
+    0 0 0 1px rgba(15,23,42,1);
+  color:var(--text-main);
+  font-size:14px;
+}
+
+.result-card h2 {
+  margin:0 0 8px;
+  font-size:16px;
+}
+
+.result-card p {
+  margin:4px 0;
+  font-size:13px;
+}
+
+.result-card hr {
+  border:none;
+  border-top:1px solid rgba(148,163,184,0.5);
+  margin:10px 0;
+}
+
+.result-card button {
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.7);
+  padding:6px 12px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  background:rgba(15,23,42,0.9);
+  color:#e5e7eb;
+}
+
+.result-card button + button {
+  margin-left:8px;
+}
+
+/* ===== End toast (ถ้ายังใช้) ===== */
+
+.end-toast {
+  position:fixed;
+  right:12px;
+  bottom:12px;
+  z-index:120;
+  max-width:280px;
+  width:calc(100% - 32px);
+  padding:12px 14px 10px;
+  border-radius:18px;
+  background:radial-gradient(circle at top,#0f172a,#020617);
+  border:1px solid rgba(148,163,184,0.5);
+  box-shadow:
+    0 18px 40px rgba(15,23,42,0.95),
+    0 0 0 1px rgba(15,23,42,1);
+  font-size:13px;
+  color:var(--text-main);
+  display:none;
+}
+
+.end-toast.show{
+  display:block;
+}
+
+.end-title{
+  font-size:14px;
+  font-weight:600;
+  margin-bottom:6px;
+}
+
+.end-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  margin:2px 0;
+}
+
+.end-row span{
+  opacity:.9;
+}
+
+.end-row strong{
+  font-variant-numeric:tabular-nums;
+}
+
+.end-actions{
+  margin-top:10px;
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+.end-btn{
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.7);
+  padding:4px 10px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  background:rgba(15,23,42,0.9);
+  color:#e5e7eb;
+}
+
+.end-btn.primary{
+  background:linear-gradient(90deg,#22c55e,#4ade80);
+  color:#022c22;
+  border:none;
+}
+
+.end-btn.ghost:hover{
+  background:rgba(31,41,55,0.9);
+}
+
+/* ให้ Fever gauge จาก ui-fever.js อยู่ layer เหนือฉาก + ใต้ coach */
+.hha-fever-wrap {
+  z-index:80 !important;
+}
