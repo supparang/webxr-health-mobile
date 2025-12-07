@@ -1,7 +1,6 @@
-// === /herohealth/plate/plate.safe.js
-// Balanced Plate VR
-// MISS = กดของไม่ดีเท่านั้น + โค้ช ป.5 + multi-plate + cleanup hha:time listener
-// ยิงค่า goalsCleared / questsCleared + grade SSS/SS/S/A/B/C ผ่าน hha:stat
+// === /herohealth/plate/plate.safe.js ===
+// Balanced Plate VR — MISS = แตะของไม่ดีเท่านั้น + โค้ช ป.5
+// multi-plate + grade SSS/SS/S/A/B/C + goals/quests เข้า hha:stat
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { createPlateQuest, QUOTA } from './plate.quest.js';
@@ -20,10 +19,10 @@ const FeverUI =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
   ROOT.FeverUI ||
   {
-    ensureFeverBar(){},
-    setFever(){},
-    setFeverActive(){},
-    setShield(){}
+    ensureFeverBar() {},
+    setFever() {},
+    setFeverActive() {},
+    setShield() {}
   };
 
 const { ensureFeverBar, setFever, setFeverActive, setShield } = FeverUI;
@@ -53,6 +52,48 @@ function foodGroup(emo) {
   return 0;
 }
 
+// ---- Grade helper ----
+function computeGrade(metrics) {
+  const {
+    score = 0,
+    platesDone = 0,
+    misses = 0,
+    goalsCleared = 0,
+    goalsTotal = 0,
+    questsCleared = 0,
+    questsTotal = 0,
+    diff = 'normal'
+  } = metrics || {};
+
+  const s        = Number(score) || 0;
+  const plates   = Number(platesDone) || 0;
+  const miss     = Number(misses) || 0;
+  const goalRate = goalsTotal  > 0 ? goalsCleared  / goalsTotal  : 0;
+  const questRate= questsTotal > 0 ? questsCleared / questsTotal : 0;
+
+  // ตัวชี้วัดรวมคร่าว ๆ
+  let index = s;
+  index += plates * 80;
+  index += (goalRate + questRate) * 100;
+  index -= miss * 15;
+
+  // ปรับตามระดับความยาก
+  let sss = 420, ss = 340, s1 = 260, a = 180, b = 100;
+  const d = String(diff || 'normal').toLowerCase();
+  if (d === 'easy') {
+    sss = 380; ss = 300; s1 = 220; a = 150; b = 80;
+  } else if (d === 'hard') {
+    sss = 480; ss = 400; s1 = 320; a = 240; b = 140;
+  }
+
+  if (index >= sss) return 'SSS';
+  if (index >= ss)  return 'SS';
+  if (index >= s1)  return 'S';
+  if (index >= a)   return 'A';
+  if (index >= b)   return 'B';
+  return 'C';
+}
+
 // ---- Coach helper ----
 let lastCoachAt = 0;
 function coach(text, minGap = 2200) {
@@ -63,36 +104,6 @@ function coach(text, minGap = 2200) {
   try {
     window.dispatchEvent(new CustomEvent('hha:coach', { detail: { text } }));
   } catch {}
-}
-
-// ---- Grade helper ----
-function computeGrade(score, misses, goalsDone, goalsTotal, miniDone, miniTotal, platesDone) {
-  // นอร์มคะแนน (สมมติ 800 คือค่อนข้างสูงสำหรับ 60 วิ)
-  const scoreNorm = Math.min(1, (Number(score) || 0) / 800);
-
-  const missPenalty = Math.max(0, 1 - (Number(misses) || 0) * 0.08);
-
-  const gTot = Number(goalsTotal) || 0;
-  const mTot = Number(miniTotal) || 0;
-  const goalRatio = gTot > 0 ? (Number(goalsDone) || 0) / gTot : 0;
-  const miniRatio = mTot > 0 ? (Number(miniDone) || 0) / mTot : 0;
-
-  const plateBonus = Math.min(1, (Number(platesDone) || 0) / 4);
-
-  const perf =
-    (scoreNorm * 0.35 +
-     goalRatio  * 0.25 +
-     miniRatio  * 0.20 +
-     plateBonus * 0.20) * missPenalty;
-
-  let grade = 'C';
-  if (perf >= 0.92) grade = 'SSS';
-  else if (perf >= 0.80) grade = 'SS';
-  else if (perf >= 0.68) grade = 'S';
-  else if (perf >= 0.55) grade = 'A';
-  else if (perf >= 0.40) grade = 'B';
-
-  return { grade, perf };
 }
 
 export async function boot(cfg = {}) {
@@ -113,8 +124,8 @@ export async function boot(cfg = {}) {
 
   // Quest deck
   const deck = createPlateQuest(diff);
-  deck.drawGoals(2);   // เลือก goal มา 2
-  deck.draw3();        // mini quest มา 3
+  deck.drawGoals(2);
+  deck.draw3();
 
   const need = QUOTA[diff] || QUOTA.normal;      // โควตาใน "หนึ่งจาน"
   const totalNeed = need.reduce((a, b) => a + b, 0);
@@ -141,23 +152,39 @@ export async function boot(cfg = {}) {
 
   function mult() { return feverActive ? 2 : 1; }
 
-  // คำนวณ progress ปัจจุบันของ goal / mini
-  function calcProgress() {
-    const gList = deck.getProgress('goals') || [];
-    const mList = deck.getProgress('mini')  || [];
+  // สรุป progress ของ goal/mini ทุกครั้งที่ยิง stat
+  function buildQuestSummary() {
+    let goalsCleared = 0;
+    let goalsTotal   = 0;
+    let questsCleared= 0;
+    let questsTotal  = 0;
 
-    const goalsTotal  = accGoalDone + gList.length;
-    const goalsDone   = accGoalDone + gList.filter(x => x && x.done).length;
-    const miniTotal   = accMiniDone + mList.length;
-    const miniDone    = accMiniDone + mList.filter(x => x && x.done).length;
+    if (deck && typeof deck.getProgress === 'function') {
+      const g = deck.getProgress('goals') || [];
+      const m = deck.getProgress('mini')  || [];
 
-    return { goalsDone, goalsTotal, miniDone, miniTotal };
+      goalsTotal    = accGoalDone + g.length;
+      goalsCleared  = accGoalDone + g.filter(x => x && x.done).length;
+      questsTotal   = accMiniDone + m.length;
+      questsCleared = accMiniDone + m.filter(x => x && x.done).length;
+    }
+
+    const grade = computeGrade({
+      score,
+      platesDone,
+      misses,
+      goalsCleared,
+      goalsTotal,
+      questsCleared,
+      questsTotal,
+      diff
+    });
+
+    return { goalsCleared, goalsTotal, questsCleared, questsTotal, grade };
   }
 
   function emitStat(extra = {}) {
-    const { goalsDone, goalsTotal, miniDone, miniTotal } = calcProgress();
-    const { grade } =
-      computeGrade(score, misses, goalsDone, goalsTotal, miniDone, miniTotal, platesDone);
+    const summary = buildQuestSummary();
 
     try {
       window.dispatchEvent(new CustomEvent('hha:stat', {
@@ -172,11 +199,7 @@ export async function boot(cfg = {}) {
           platesDone,
           plateCounts: [...plateCounts],
           totalCounts: [...gCounts],
-          goalsCleared:  goalsDone,
-          goalsTotal:    goalsTotal,
-          questsCleared: miniDone,
-          questsTotal:   miniTotal,
-          grade,
+          ...summary,   // goalsCleared/goalsTotal/questsCleared/questsTotal/grade
           ...extra
         }
       }));
@@ -216,13 +239,14 @@ export async function boot(cfg = {}) {
   }
 
   function pushQuest(hint) {
-    const goals = deck.getProgress('goals') || [];
-    const minis = deck.getProgress('mini')  || [];
-    const gtxt = `โควตาใน 1 จาน: [${need.join(', ')}] | จานนี้ทำได้: [${plateCounts.join(', ')}]`;
+    const goals = deck.getProgress('goals');
+    const minis = deck.getProgress('mini');
+    const gtxt  = `โควตาใน 1 จาน: [${need.join(', ')}] | จานนี้ทำได้: [${plateCounts.join(', ')}]`;
+
     window.dispatchEvent(new CustomEvent('quest:update', {
       detail: {
-        goal: goals.find(g => g && !g.done) || goals[0] || null,
-        mini: minis.find(m => m && !m.done) || minis[0] || null,
+        goal: goals.find(g => !g.done) || goals[0] || null,
+        mini: minis.find(m => !m.done) || minis[0] || null,
         goalsAll: goals,
         minisAll: minis,
         hint: hint || gtxt
@@ -404,18 +428,18 @@ export async function boot(cfg = {}) {
     deck.second(); // ให้ MissionDeck นับ tick/time ภายใน
     syncDeck();
 
-    const gList = deck.getProgress('goals') || [];
-    const mList = deck.getProgress('mini')  || [];
+    const g = deck.getProgress('goals');
+    const m = deck.getProgress('mini');
 
-    if (gList.length > 0 && gList.every(x => x && x.done)) {
-      accGoalDone += gList.length;
-      deck.drawGoals(2);           // ดึง goal ชุดใหม่
+    if (g.length > 0 && g.every(x => x.done)) {
+      accGoalDone += g.length;
+      deck.drawGoals(2);
       pushQuest('Goal ใหม่ (รวมทั้งเกม)');
       coach('ภารกิจจานสมดุลรวมผ่านอีกชุดแล้ว 🎉', 4000);
     }
-    if (mList.length > 0 && mList.every(x => x && x.done)) {
-      accMiniDone += mList.length;
-      deck.draw3();                // ดึง mini quest ชุดใหม่
+    if (m.length > 0 && m.every(x => x.done)) {
+      accMiniDone += m.length;
+      deck.draw3();
       pushQuest('Mini ใหม่');
       coach('Mini quest จานข้าวสำเร็จแล้ว เก่งมาก! 🌟', 4000);
     }
@@ -427,13 +451,10 @@ export async function boot(cfg = {}) {
     if (ended) return;
     ended = true;
 
-    const { goalsDone, goalsTotal, miniDone, miniTotal } = calcProgress();
-    const goalCleared = goalsTotal > 0 && goalsDone === goalsTotal;
+    const summary = buildQuestSummary();
+    const { goalsCleared, goalsTotal, questsCleared, questsTotal, grade } = summary;
 
-    const { grade } =
-      computeGrade(score, misses, goalsDone, goalsTotal, miniDone, miniTotal, platesDone);
-
-    emitStat({ ended: true, final: true });
+    emitStat({ ended: true });
 
     window.dispatchEvent(new CustomEvent('hha:end', {
       detail: {
@@ -443,12 +464,13 @@ export async function boot(cfg = {}) {
         misses,
         comboMax,
         duration: dur,
-        goalCleared,
-        goalsCleared: goalsDone,
+        goalCleared: (goalsTotal > 0 && goalsCleared === goalsTotal),
+        goalsCleared,
         goalsTotal,
-        questsCleared: miniDone,
-        questsTotal: miniTotal,
+        questsCleared,
+        questsTotal,
         platesDone,
+        // รวมทั้งเกม (ใช้วิเคราะห์พฤติกรรมเลือกหมู่)
         groupCounts: [...gCounts],
         grade
       }
