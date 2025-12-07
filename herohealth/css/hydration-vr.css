@@ -2,8 +2,8 @@
 /* สไตล์เฉพาะโหมด Hydration VR (โหลดหลัง goodjunk-vr.css) */
 
 :root{
-  /* safe area สำหรับ HUD บน (water gauge + score + quest) */
-  --hha-hydration-safe-top: 120px;
+  /* safe area สำหรับ HUD บน (water gauge + HYDRATION card) */
+  --hha-hydration-safe-top: 96px;   /* เดิม ~120 → ยกขึ้น */
 }
 
 /* ปรับฉากรวมให้ต่อเนื่องกับธีม GoodJunk */
@@ -23,53 +23,51 @@ body{
 }
 
 /* ===== HUD หลัก (ใช้โดย quest-hud-vr.js) ===== */
-/* default: ซ้ายบนใต้ water bar (กัน style กลางจอจากโหมดอื่น) */
+/* default: ซ้ายบนใต้ water bar */
 .hha-hud-panel{
   position:fixed;
   left:10px;
-  top:calc(var(--hha-hydration-safe-top) + 8px);
+  top:calc(var(--hha-hydration-safe-top) + 0px);
   z-index:620;
 }
 
-/* โหมดอื่น ๆ ถ้ามี .center จะโดนลากไปซ้ายบน */
+/* กัน style กลางจอจากโหมดอื่น */
 .hha-hud-panel.center,
 .hha-hud-panel.is-center{
   left:10px !important;
-  top:calc(var(--hha-hydration-safe-top) + 8px) !important;
+  top:calc(var(--hha-hydration-safe-top) + 0px) !important;
   transform:none !important;
 }
 
 /* ====== ปรับเฉพาะโหมด Hydration ====== */
-/* ให้การ์ด HYDRATION ไปอยู่ขวาบน ใต้ water bar ไม่บังเป้ากลางจอ */
+/* ให้การ์ด HYDRATION ไปอยู่ขวาบน ใต้ water bar แบบชิดขึ้น */
 .hha-hud-panel[data-mode="hydration"]{
   right:10px;
   left:auto;
-  top:calc(var(--hha-hydration-safe-top) + 4px);
+  top:calc(var(--hha-hydration-safe-top) - 4px);  /* เดิม +4 → -4 ยกขึ้นอีก */
   max-width:340px;
   z-index:630;
 }
 
-/* กันกรณี quest-hud ใส่ class center/is-center มาให้ */
 .hha-hud-panel[data-mode="hydration"].center,
 .hha-hud-panel[data-mode="hydration"].is-center{
   right:10px !important;
   left:auto !important;
-  top:calc(var(--hha-hydration-safe-top) + 4px) !important;
+  top:calc(var(--hha-hydration-safe-top) - 4px) !important;
   transform:none !important;
 }
 
-/* การ์ดด้านใน */
 .hha-hud-panel[data-mode="hydration"] .hha-hud-card{
   width:100%;
   max-width:340px;
   pointer-events:auto;
 }
 
-/* ถ้า quest-hud สร้าง panel แยกสำหรับ list goal/mini */
+/* ถ้า quest-hud สร้าง panel แยกสำหรับ list goal/mini (รองรับอนาคต) */
 .hha-quest-panel--hydration{
   position:fixed;
   right:10px;
-  top:calc(var(--hha-hydration-safe-top, 120px) + 4px);
+  top:calc(var(--hha-hydration-safe-top, 96px) - 4px);
   z-index:630;
   max-width:320px;
   pointer-events:none;
@@ -80,7 +78,7 @@ body{
 .hha-quest-panel--hydration.is-center{
   right:10px !important;
   left:auto !important;
-  top:calc(var(--hha-hydration-safe-top, 120px) + 4px) !important;
+  top:calc(var(--hha-hydration-safe-top, 96px) - 4px) !important;
   transform:none !important;
 }
 
@@ -197,7 +195,7 @@ body{
   color:#9ca3af;
 }
 
-/* ===== Water gauge (ui-water.js) — ให้ลอยเหนือ HUD เล็กน้อย ===== */
+/* ===== Water gauge (ui-water.js) ===== */
 .hha-water-wrap{
   position:fixed;
   left:50%;
@@ -206,30 +204,27 @@ body{
   z-index:610;
 }
 
-/* ===== Coach bubble — ยกขึ้นเหนือ Fever gauge ===== */
+/* ===== Coach bubble — เหนือ Fever gauge ===== */
 .hha-coach-wrap,
 .hha-coach-bubble-wrap,
 .hha-coach-panel{
   position:fixed;
   left:50%;
-  bottom:120px;        /* เผื่อความสูงของ Fever gauge */
+  bottom:120px;
   transform:translateX(-50%);
   z-index:630;
 }
 
-/* กันไม่ให้ style อื่นลาก bubble ลงมาต่ำเกินไป */
 .hha-coach-wrap[data-mode="hydration"],
 .hha-coach-bubble-wrap[data-mode="hydration"]{
   bottom:120px !important;
 }
 
-/* ===== Crosshair กลางจอ ===== */
+/* Crosshair + FX */
 .hha-crosshair{
   z-index:400;
 }
 
-/* ===== ปรับเลเยอร์ FX เป้าแตก / คะแนนเด้ง ===== */
-/* ให้ลอยอยู่เหนือฉากแต่ใต้ HUD */
 .hha-fx-layer{
   z-index:500;
 }
@@ -290,19 +285,19 @@ body{
   background:rgba(250,204,21,0.08);
 }
 
-/* ========= Media query สำหรับหน้าจอเล็ก (มือถือแนวตั้ง) ========= */
+/* ========= มือถือแนวตั้ง ========= */
 @media (max-width: 768px){
   :root{
-    --hha-hydration-safe-top: 132px;
+    --hha-hydration-safe-top: 104px;  /* เดิม 132 → ยกขึ้นเยอะ */
   }
 
   .hha-hud-panel{
-    top:calc(var(--hha-hydration-safe-top) + 4px);
+    top:calc(var(--hha-hydration-safe-top) + 0px);
   }
 
   .hha-hud-panel[data-mode="hydration"],
   .hha-quest-panel--hydration{
-    top:calc(var(--hha-hydration-safe-top) + 4px);
+    top:calc(var(--hha-hydration-safe-top) - 4px);
     max-width:260px;
   }
 
