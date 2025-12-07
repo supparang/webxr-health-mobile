@@ -1,289 +1,528 @@
 // === /herohealth/vr/quest-hud-vr.js ===
-// HUD กลางสำหรับโหมด Hero Health (GoodJunk, Hydration ฯลฯ)
+// HUD มุมขวาบน + หน้าสรุปกลางจอ (เล่นอีกครั้ง / กลับ HUB)
+// ใช้ร่วม GoodJunk VR / Hydration VR / Food Groups VR
+// 2025-12-07
 
 'use strict';
 
-function formatTime(sec) {
-  sec = sec | 0;
-  if (sec < 0) sec = 0;
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
+(function (global) {
+  const doc = global.document;
 
-function createHud() {
-  if (document.getElementById('hhaQuestHud')) return null;
+  let styleInjected = false;
 
-  const wrap = document.createElement('div');
-  wrap.id = 'hhaQuestHud';
-  wrap.style.position = 'fixed';
-  wrap.style.top = '16px';
-  wrap.style.right = '16px';
-  wrap.style.zIndex = '50';
-  wrap.style.minWidth = '240px';
-  wrap.style.maxWidth = '280px';
-  wrap.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  wrap.style.fontSize = '13px';
-  wrap.style.color = '#e5e7eb';
+  // HUD (มุมขวาบน)
+  let hudRoot = null;
+  let hudScoreEl = null;
+  let hudComboEl = null;
+  let hudMissEl = null;
+  let hudGoalLabelEl = null;
+  let hudGoalProgEl = null;
+  let hudMiniLabelEl = null;
+  let hudMiniProgEl = null;
 
-  // กล่องหลัก
-  const card = document.createElement('div');
-  card.style.background = 'rgba(15,23,42,0.92)';
-  card.style.borderRadius = '16px';
-  card.style.padding = '10px 12px';
-  card.style.boxShadow = '0 12px 30px rgba(0,0,0,0.45)';
-  card.style.border = '1px solid rgba(148,163,184,0.4)';
-  card.style.backdropFilter = 'blur(12px)';
+  // End summary (กลางจอ)
+  let endRoot = null;
+  let endTitleEl = null;
+  let endDetailEl = null;
+  let endGoalEl = null;
+  let endMiniEl = null;
+  let endBtnReplay = null;
+  let endBtnHub = null;
 
-  // header: mode + diff
-  const header = document.createElement('div');
-  header.style.display = 'flex';
-  header.style.justifyContent = 'space-between';
-  header.style.alignItems = 'center';
-  header.style.marginBottom = '6px';
+  // เก็บค่า goal/mini ล่าสุดไว้ให้ summary ใช้
+  let lastGoal = null;
+  let lastMini = null;
+  let lastScore = 0;
+  let lastComboMax = 0;
+  let lastMiss = 0;
+  let lastModeLabel = '';
+  let lastDiff = '';
+  let lastGreenTick = 0;
 
-  const modeEl = document.createElement('div');
-  modeEl.id = 'hhaHudMode';
-  modeEl.textContent = 'Hero Health';
-  modeEl.style.fontSize = '12px';
-  modeEl.style.letterSpacing = '0.06em';
-  modeEl.style.textTransform = 'uppercase';
-  modeEl.style.opacity = '0.9';
+  // -----------------------
+  // CSS สำหรับ HUD + summary
+  // -----------------------
+  function ensureStyle() {
+    if (styleInjected) return;
+    styleInjected = true;
 
-  const diffEl = document.createElement('div');
-  diffEl.id = 'hhaHudDiff';
-  diffEl.textContent = '';
-  diffEl.style.fontSize = '11px';
-  diffEl.style.padding = '2px 8px';
-  diffEl.style.borderRadius = '999px';
-  diffEl.style.border = '1px solid rgba(56,189,248,0.75)';
-  diffEl.style.color = '#a5f3fc';
-  diffEl.style.background = 'rgba(15,23,42,0.9)';
+    const st = doc.createElement('style');
+    st.id = 'hha-quest-style';
+    st.textContent = `
+      /* === HUD มุมขวาบน === */
+      .hha-quest-panel{
+        position:fixed;
+        right:10px;
+        top:68px;
+        z-index:620;
+        max-width:260px;
+        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
+      }
+      .hha-quest-card{
+        background:radial-gradient(circle at top left,rgba(59,130,246,0.18),transparent 55%),
+                   rgba(15,23,42,0.96);
+        border-radius:14px;
+        padding:8px 10px;
+        border:1px solid rgba(148,163,184,0.45);
+        box-shadow:0 14px 32px rgba(15,23,42,0.9);
+        color:#e5e7eb;
+      }
+      .hha-quest-header{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        font-size:11px;
+        margin-bottom:4px;
+        gap:6px;
+      }
+      .hha-quest-title{
+        font-weight:600;
+        letter-spacing:.14em;
+        text-transform:uppercase;
+        color:#9ca3af;
+      }
+      .hha-quest-score {
+        text-align:right;
+        font-size:11px;
+        line-height:1.2;
+      }
+      .hha-quest-score span{
+        display:block;
+      }
+      .hha-quest-score-main{
+        font-size:13px;
+        font-weight:700;
+        color:#facc15;
+      }
+      .hha-quest-score-sub{
+        color:#a5b4fc;
+      }
 
-  header.appendChild(modeEl);
-  header.appendChild(diffEl);
+      .hha-quest-block{
+        margin-top:4px;
+        padding-top:4px;
+        border-top:1px dashed rgba(148,163,184,0.45);
+      }
+      .hha-quest-label{
+        font-size:11px;
+        font-weight:600;
+        color:#bae6fd;
+        margin-bottom:2px;
+      }
+      .hha-quest-text{
+        font-size:11px;
+        color:#e5e7eb;
+      }
+      .hha-quest-progress{
+        font-size:11px;
+        color:#cbd5f5;
+        margin-top:2px;
+      }
 
-  // แถวคะแนน
-  const rowScore = document.createElement('div');
-  rowScore.style.display = 'flex';
-  rowScore.style.justifyContent = 'space-between';
-  rowScore.style.marginBottom = '4px';
+      /* === หน้าสรุปกลางจอ === */
+      .hha-end-overlay{
+        position:fixed;
+        inset:0;
+        z-index:910;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        pointer-events:none;
+        opacity:0;
+        transition:opacity .25s ease-out;
+      }
+      .hha-end-overlay.on{
+        opacity:1;
+        pointer-events:auto;
+      }
+      .hha-end-backdrop{
+        position:absolute;
+        inset:0;
+        background:
+          radial-gradient(circle at top, rgba(15,23,42,0.15), transparent 60%),
+          rgba(15,23,42,0.92);
+        backdrop-filter:blur(10px);
+      }
+      .hha-end-card{
+        position:relative;
+        max-width:360px;
+        width:90%;
+        background:radial-gradient(circle at top left,rgba(56,189,248,0.25),transparent 60%),
+                   rgba(15,23,42,1);
+        border-radius:20px;
+        padding:16px 16px 14px;
+        border:1px solid rgba(148,163,184,0.55);
+        box-shadow:0 20px 55px rgba(15,23,42,0.95);
+        color:#e5e7eb;
+      }
+      .hha-end-title{
+        font-size:18px;
+        font-weight:700;
+        margin-bottom:4px;
+        display:flex;
+        align-items:center;
+        gap:8px;
+      }
+      .hha-end-title span.emoji{
+        font-size:20px;
+      }
+      .hha-end-sub{
+        font-size:12px;
+        color:#cbd5f5;
+        margin-bottom:10px;
+      }
+      .hha-end-row{
+        display:flex;
+        justify-content:space-between;
+        font-size:12px;
+        margin-bottom:4px;
+      }
+      .hha-end-row strong{
+        font-weight:600;
+      }
+      .hha-end-section{
+        margin-top:8px;
+        padding-top:8px;
+        border-top:1px dashed rgba(148,163,184,0.5);
+        font-size:12px;
+      }
+      .hha-end-section h4{
+        font-size:12px;
+        font-weight:600;
+        color:#bae6fd;
+        margin-bottom:3px;
+      }
+      .hha-end-section p{
+        margin:0;
+      }
+      .hha-end-buttons{
+        margin-top:12px;
+        display:flex;
+        gap:8px;
+        justify-content:flex-end;
+        flex-wrap:wrap;
+      }
+      .hha-end-btn{
+        border-radius:999px;
+        border:1px solid rgba(148,163,184,0.75);
+        background:rgba(15,23,42,0.95);
+        color:#e5e7eb;
+        padding:6px 12px;
+        font-size:12px;
+        cursor:pointer;
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        transition:background .15s ease, transform .12s ease, box-shadow .15s ease;
+      }
+      .hha-end-btn span.emoji{
+        font-size:14px;
+      }
+      .hha-end-btn-primary{
+        border-color:rgba(34,197,94,0.85);
+        background:linear-gradient(135deg,#16a34a,#22c55e);
+        color:#022c22;
+        box-shadow:0 12px 30px rgba(22,163,74,0.65);
+      }
+      .hha-end-btn-primary:hover{
+        transform:translateY(-1px);
+        box-shadow:0 14px 36px rgba(22,163,74,0.85);
+      }
+      .hha-end-btn-secondary:hover{
+        background:rgba(30,64,175,0.9);
+      }
 
-  const scoreEl = document.createElement('div');
-  scoreEl.id = 'hhaHudScore';
-  scoreEl.textContent = 'Score 0';
-  scoreEl.style.fontWeight = '600';
-
-  const comboEl = document.createElement('div');
-  comboEl.id = 'hhaHudCombo';
-  comboEl.textContent = 'Combo 0';
-  comboEl.style.opacity = '0.9';
-
-  rowScore.appendChild(scoreEl);
-  rowScore.appendChild(comboEl);
-
-  // แถวเวลา / miss
-  const rowTime = document.createElement('div');
-  rowTime.style.display = 'flex';
-  rowTime.style.justifyContent = 'space-between';
-  rowTime.style.marginBottom = '6px';
-
-  const timeEl = document.createElement('div');
-  timeEl.id = 'hhaHudTime';
-  timeEl.textContent = 'Time 0:00';
-  timeEl.style.opacity = '0.9';
-
-  const missEl = document.createElement('div');
-  missEl.id = 'hhaHudMiss';
-  missEl.textContent = 'Miss 0';
-  missEl.style.opacity = '0.9';
-
-  rowTime.appendChild(timeEl);
-  rowTime.appendChild(missEl);
-
-  // กล่อง goal / mini
-  const goalsWrap = document.createElement('div');
-  goalsWrap.style.display = 'flex';
-  goalsWrap.style.flexDirection = 'column';
-  goalsWrap.style.gap = '4px';
-
-  const goalBox = document.createElement('div');
-  goalBox.id = 'hhaHudGoal';
-  goalBox.style.fontSize = '12px';
-  goalBox.style.padding = '6px 8px';
-  goalBox.style.borderRadius = '10px';
-  goalBox.style.background = 'rgba(22,163,74,0.16)';
-  goalBox.style.border = '1px solid rgba(34,197,94,0.7)';
-  goalBox.textContent = 'Goal: -';
-
-  const miniBox = document.createElement('div');
-  miniBox.id = 'hhaHudMini';
-  miniBox.style.fontSize = '12px';
-  miniBox.style.padding = '6px 8px';
-  miniBox.style.borderRadius = '10px';
-  miniBox.style.background = 'rgba(59,130,246,0.16)';
-  miniBox.style.border = '1px solid rgba(59,130,246,0.7)';
-  miniBox.textContent = 'Mini quest: -';
-
-  goalsWrap.appendChild(goalBox);
-  goalsWrap.appendChild(miniBox);
-
-  card.appendChild(header);
-  card.appendChild(rowScore);
-  card.appendChild(rowTime);
-  card.appendChild(goalsWrap);
-
-  wrap.appendChild(card);
-  document.body.appendChild(wrap);
-
-  // แถบสรุปเมื่อจบเกม
-  const summary = document.createElement('div');
-  summary.id = 'hhaHudSummary';
-  summary.style.position = 'fixed';
-  summary.style.left = '50%';
-  summary.style.bottom = '32px';
-  summary.style.transform = 'translateX(-50%)';
-  summary.style.padding = '10px 16px';
-  summary.style.borderRadius = '16px';
-  summary.style.background = 'rgba(15,23,42,0.96)';
-  summary.style.border = '1px solid rgba(250,250,250,0.25)';
-  summary.style.color = '#e5e7eb';
-  summary.style.fontSize = '13px';
-  summary.style.boxShadow = '0 14px 40px rgba(0,0,0,0.55)';
-  summary.style.maxWidth = '420px';
-  summary.style.textAlign = 'center';
-  summary.style.display = 'none';
-  summary.style.zIndex = '60';
-
-  document.body.appendChild(summary);
-
-  return {
-    modeEl,
-    diffEl,
-    scoreEl,
-    comboEl,
-    timeEl,
-    missEl,
-    goalBox,
-    miniBox,
-    summary
-  };
-}
-
-(function init() {
-  let hud;
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { hud = createHud(); });
-  } else {
-    hud = createHud();
+      @media (max-width: 640px){
+        .hha-quest-panel{
+          right:8px;
+          top:64px;
+          max-width:230px;
+        }
+        .hha-end-card{
+          padding:14px 12px 12px;
+        }
+      }
+    `;
+    doc.head.appendChild(st);
   }
 
-  const state = {
-    mode: '',
-    diff: '',
-    score: 0,
-    combo: 0,
-    misses: 0,
-    timeSec: 0
-  };
-
+  // -----------------------
+  // สร้าง HUD มุมขวาบน
+  // -----------------------
   function ensureHud() {
-    if (!hud) {
-      hud = createHud();
-    }
-    return hud;
+    if (hudRoot && hudRoot.isConnected) return;
+
+    ensureStyle();
+
+    hudRoot = doc.createElement('div');
+    hudRoot.className = 'hha-quest-panel';
+    hudRoot.innerHTML = `
+      <div class="hha-quest-card">
+        <div class="hha-quest-header">
+          <div class="hha-quest-title">QUEST</div>
+          <div class="hha-quest-score">
+            <span class="hha-quest-score-main" id="hha-hud-score">0</span>
+            <span class="hha-quest-score-sub">
+              combo <span id="hha-hud-combo">0</span> • miss <span id="hha-hud-miss">0</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="hha-quest-block">
+          <div class="hha-quest-label">Goal</div>
+          <div class="hha-quest-text" id="hha-hud-goal-label">—</div>
+          <div class="hha-quest-progress" id="hha-hud-goal-prog">0 / 0</div>
+        </div>
+
+        <div class="hha-quest-block">
+          <div class="hha-quest-label">Mini quest</div>
+          <div class="hha-quest-text" id="hha-hud-mini-label">—</div>
+          <div class="hha-quest-progress" id="hha-hud-mini-prog">0 / 0</div>
+        </div>
+      </div>
+    `;
+    doc.body.appendChild(hudRoot);
+
+    hudScoreEl     = hudRoot.querySelector('#hha-hud-score');
+    hudComboEl     = hudRoot.querySelector('#hha-hud-combo');
+    hudMissEl      = hudRoot.querySelector('#hha-hud-miss');
+    hudGoalLabelEl = hudRoot.querySelector('#hha-hud-goal-label');
+    hudGoalProgEl  = hudRoot.querySelector('#hha-hud-goal-prog');
+    hudMiniLabelEl = hudRoot.querySelector('#hha-hud-mini-label');
+    hudMiniProgEl  = hudRoot.querySelector('#hha-hud-mini-prog');
   }
 
-  // hha:score → อัปเดตคะแนน/คอมโบ/มิส
-  window.addEventListener('hha:score', ev => {
-    const d = ev.detail || {};
-    const h = ensureHud();
-    state.mode   = d.mode   || d.modeLabel || state.mode || 'Hero Health';
-    state.diff   = d.difficulty || state.diff || '';
-    state.score  = d.score  ?? state.score;
-    state.combo  = d.combo  ?? state.combo;
-    state.misses = d.misses ?? state.misses;
-    if (typeof d.waterZone === 'string') {
-      // แสดงโซนน้ำต่อท้าย diff ถ้าเป็น Hydration
-      state.zone = d.waterZone;
+  // -----------------------
+  // สร้าง End Summary กลางจอ
+  // -----------------------
+  function ensureEndOverlay() {
+    if (endRoot && endRoot.isConnected) return;
+    ensureStyle();
+
+    endRoot = doc.createElement('div');
+    endRoot.className = 'hha-end-overlay';
+    endRoot.innerHTML = `
+      <div class="hha-end-backdrop"></div>
+      <div class="hha-end-card">
+        <div class="hha-end-title">
+          <span class="emoji">🎯</span>
+          <span id="hha-end-title-text">สรุปผลการเล่น</span>
+        </div>
+        <div class="hha-end-sub" id="hha-end-sub-text">
+          —
+        </div>
+
+        <div class="hha-end-row">
+          <span><strong>คะแนนรวม</strong></span>
+          <span id="hha-end-score">0</span>
+        </div>
+        <div class="hha-end-row">
+          <span>Combo สูงสุด</span>
+          <span id="hha-end-combo">0</span>
+        </div>
+        <div class="hha-end-row">
+          <span>จำนวน MISS</span>
+          <span id="hha-end-miss">0</span>
+        </div>
+        <div class="hha-end-row">
+          <span>เวลาในโซน GREEN</span>
+          <span id="hha-end-green">0 s</span>
+        </div>
+
+        <div class="hha-end-section">
+          <h4>Goal</h4>
+          <p id="hha-end-goal">—</p>
+        </div>
+
+        <div class="hha-end-section">
+          <h4>Mini quest</h4>
+          <p id="hha-end-mini">—</p>
+        </div>
+
+        <div class="hha-end-buttons">
+          <button class="hha-end-btn hha-end-btn-secondary" id="hha-end-btn-hub">
+            <span class="emoji">🏠</span><span>กลับหน้า HUB</span>
+          </button>
+          <button class="hha-end-btn hha-end-btn-primary" id="hha-end-btn-replay">
+            <span class="emoji">🔁</span><span>เล่นอีกครั้ง</span>
+          </button>
+        </div>
+      </div>
+    `;
+    doc.body.appendChild(endRoot);
+
+    endTitleEl   = endRoot.querySelector('#hha-end-title-text');
+    endDetailEl  = endRoot.querySelector('#hha-end-sub-text');
+    endGoalEl    = endRoot.querySelector('#hha-end-goal');
+    endMiniEl    = endRoot.querySelector('#hha-end-mini');
+    endBtnReplay = endRoot.querySelector('#hha-end-btn-replay');
+    endBtnHub    = endRoot.querySelector('#hha-end-btn-hub');
+
+    const scoreEl = endRoot.querySelector('#hha-end-score');
+    const comboEl = endRoot.querySelector('#hha-end-combo');
+    const missEl  = endRoot.querySelector('#hha-end-miss');
+    const greenEl = endRoot.querySelector('#hha-end-green');
+
+    // ปุ่ม "เล่นอีกครั้ง" = reload หน้าเดิม
+    if (endBtnReplay) {
+      endBtnReplay.addEventListener('click', () => {
+        global.location.reload();
+      });
     }
 
-    h.modeEl.textContent = state.mode;
-    h.diffEl.textContent = state.diff
-      ? state.zone ? `${state.diff.toUpperCase()} · ${state.zone}` : state.diff.toUpperCase()
-      : '';
-    h.scoreEl.textContent = `Score ${state.score}`;
-    h.comboEl.textContent = `Combo ${state.combo}`;
-    h.missEl.textContent  = `Miss ${state.misses}`;
-  });
-
-  // hha:time → อัปเดตเวลา
-  window.addEventListener('hha:time', ev => {
-    const d = ev.detail || {};
-    const h = ensureHud();
-    if (typeof d.sec === 'number') {
-      state.timeSec = d.sec;
-    }
-    h.timeEl.textContent = `Time ${formatTime(state.timeSec)}`;
-  });
-
-  // quest:update → แสดง Goal / Mini quest
-  window.addEventListener('quest:update', ev => {
-    const d = ev.detail || {};
-    const h = ensureHud();
-
-    if (d.mode || d.modeKey) {
-      state.mode = d.mode || state.mode;
-      h.modeEl.textContent = state.mode;
+    // ปุ่ม "กลับหน้า HUB"
+    if (endBtnHub) {
+      endBtnHub.addEventListener('click', () => {
+        // ให้ตั้ง data-hub-url ใน <body> ได้ ถ้าไม่มีก็เดาเป็น hub.html
+        const hubAttr =
+          doc.body.getAttribute('data-hub-url') ||
+          (doc.querySelector('[data-hha-hub]') &&
+           doc.querySelector('[data-hha-hub]').getAttribute('data-hha-hub'));
+        const url = hubAttr || './hub.html';
+        global.location.href = url;
+      });
     }
 
+    // เก็บไว้ใส่ค่าจาก event ภายนอก
+    endRoot._scoreEl = scoreEl;
+    endRoot._comboEl = comboEl;
+    endRoot._missEl  = missEl;
+    endRoot._greenEl = greenEl;
+  }
+
+  // -----------------------
+  // อัปเดต HUD จาก hha:score
+  // -----------------------
+  function onScore(ev) {
+    ensureHud();
+    const d = ev.detail || {};
+
+    lastScore     = d.score ?? lastScore;
+    lastComboMax  = Math.max(lastComboMax, d.comboMax ?? d.combo ?? 0);
+    lastMiss      = d.misses ?? d.miss ?? lastMiss;
+    lastModeLabel = d.modeLabel || d.mode || lastModeLabel;
+    lastDiff      = d.difficulty || lastDiff;
+
+    if (typeof d.greenTick === 'number') {
+      lastGreenTick = d.greenTick;
+    } else if (typeof d.timeSec === 'number' && d.waterZone === 'GREEN') {
+      lastGreenTick = d.timeSec;
+    }
+
+    if (hudScoreEl) hudScoreEl.textContent = String(lastScore);
+    if (hudComboEl) hudComboEl.textContent = String(d.combo ?? 0);
+    if (hudMissEl)  hudMissEl.textContent  = String(lastMiss);
+  }
+
+  // -----------------------
+  // อัปเดต HUD จาก quest:update
+  // -----------------------
+  function onQuest(ev) {
+    ensureHud();
+    const d = ev.detail || {};
     const goal = d.goal || null;
     const mini = d.mini || null;
 
-    if (goal) {
-      const done = goal.done ? '✓ ' : '';
-      h.goalBox.textContent = `Goal: ${done}${goal.label || goal.id || '-'}`;
-    } else {
-      h.goalBox.textContent = 'Goal: -';
+    lastGoal = goal;
+    lastMini = mini;
+
+    if (goal && hudGoalLabelEl && hudGoalProgEl) {
+      hudGoalLabelEl.textContent = goal.label || '—';
+      const p = goal.prog ?? 0;
+      const t = goal.target ?? 0;
+      hudGoalProgEl.textContent = `${p} / ${t}`;
     }
 
-    if (mini) {
-      const done = mini.done ? '✓ ' : '';
-      h.miniBox.textContent = `Mini quest: ${done}${mini.label || mini.id || '-'}`;
-    } else {
-      h.miniBox.textContent = 'Mini quest: -';
+    if (mini && hudMiniLabelEl && hudMiniProgEl) {
+      hudMiniLabelEl.textContent = mini.label || '—';
+      const p = mini.prog ?? 0;
+      const t = mini.target ?? 0;
+      hudMiniProgEl.textContent = `${p} / ${t}`;
     }
-  });
+  }
 
-  // hha:end → สรุปสั้น ๆ ตอนจบเกม
-  window.addEventListener('hha:end', ev => {
+  // -----------------------
+  // แสดงหน้าสรุปเมื่อ hha:end
+  // -----------------------
+  function onEnd(ev) {
+    ensureEndOverlay();
     const d = ev.detail || {};
-    const h = ensureHud();
 
-    const modeLabel = d.modeLabel || d.mode || state.mode || 'Hero Health';
-    const diff = d.difficulty ? d.difficulty.toUpperCase() : (state.diff || '').toUpperCase();
-    const score = d.score ?? state.score;
-    const miss  = d.misses ?? state.misses;
-    const dur   = d.duration ?? state.timeSec;
+    // อัปเดตค่าจาก end detail ด้วย (บางโหมดจะส่ง goalsCleared ฯลฯ มา)
+    if (typeof d.score === 'number') lastScore = d.score;
+    if (typeof d.comboMax === 'number') lastComboMax = d.comboMax;
+    if (typeof d.misses === 'number') lastMiss = d.misses;
+    if (typeof d.greenTick === 'number') lastGreenTick = d.greenTick;
+    if (d.modeLabel || d.mode) lastModeLabel = d.modeLabel || d.mode;
+    if (d.difficulty) lastDiff = d.difficulty;
 
-    let extra = '';
-    if (typeof d.goalsCleared === 'number' && typeof d.goalsTotal === 'number') {
-      extra += `Goals ${d.goalsCleared}/${d.goalsTotal}  ·  `;
+    const goalsCleared = d.goalsCleared ?? d.goalsDone ?? 0;
+    const goalsTotal   = d.goalsTotal   ?? 0;
+    const questsCleared= d.questsCleared?? 0;
+    const questsTotal  = d.questsTotal  ?? 0;
+
+    if (endTitleEl) {
+      endTitleEl.textContent = `สรุปผล – ${lastModeLabel || 'Hero Health VR'}`;
     }
-    if (typeof d.questsCleared === 'number' && typeof d.questsTotal === 'number') {
-      extra += `Mini ${d.questsCleared}/${d.questsTotal}  ·  `;
-    }
-    if (typeof d.greenTick === 'number') {
-      extra += `GREEN ${d.greenTick}s`;
+
+    if (endDetailEl) {
+      const diffLabel = lastDiff
+        ? (lastDiff === 'easy'
+          ? 'ง่าย'
+          : lastDiff === 'hard'
+            ? 'ยาก'
+            : 'ปกติ')
+        : '—';
+      endDetailEl.textContent =
+        `โหมด: ${diffLabel} • Goal ${goalsCleared}/${goalsTotal} • Mini ${questsCleared}/${questsTotal}`;
     }
 
-    h.summary.textContent =
-      `${modeLabel} (${diff}) — Score ${score} · Miss ${miss} · Time ${formatTime(dur)}${extra ? ' · ' + extra : ''}`;
-    h.summary.style.display = 'block';
+    if (endRoot && endRoot._scoreEl) {
+      endRoot._scoreEl.textContent = String(lastScore);
+    }
+    if (endRoot && endRoot._comboEl) {
+      endRoot._comboEl.textContent = String(lastComboMax);
+    }
+    if (endRoot && endRoot._missEl) {
+      endRoot._missEl.textContent = String(lastMiss);
+    }
+    if (endRoot && endRoot._greenEl) {
+      endRoot._greenEl.textContent = `${lastGreenTick | 0} s`;
+    }
 
-    // ซ่อนหลัง 6 วินาที
-    window.setTimeout(() => {
-      h.summary.style.display = 'none';
-    }, 6000);
-  });
-})();
+    // สรุปข้อความ Goal / Mini
+    if (endGoalEl) {
+      if (lastGoal) {
+        const p = lastGoal.prog ?? 0;
+        const t = lastGoal.target ?? 0;
+        const done = lastGoal.done ? '✅ สำเร็จแล้ว' : '⏳ กำลังทำอยู่';
+        endGoalEl.textContent = `${lastGoal.label || '—'} (${p}/${t}) • ${done}`;
+      } else {
+        endGoalEl.textContent = '—';
+      }
+    }
+    if (endMiniEl) {
+      if (lastMini) {
+        const p = lastMini.prog ?? 0;
+        const t = lastMini.target ?? 0;
+        const done = lastMini.done ? '✅ สำเร็จแล้ว' : '⏳ กำลังทำอยู่';
+        endMiniEl.textContent = `${lastMini.label || '—'} (${p}/${t}) • ${done}`;
+      } else {
+        endMiniEl.textContent = '—';
+      }
+    }
+
+    // แสดง overlay
+    if (endRoot) {
+      endRoot.classList.add('on');
+    }
+  }
+
+  // -----------------------
+  // ผูก Event global
+  // -----------------------
+  global.addEventListener('hha:score', onScore);
+  global.addEventListener('quest:update', onQuest);
+  global.addEventListener('hha:end', onEnd);
+
+})(window);
