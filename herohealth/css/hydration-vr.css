@@ -22,7 +22,8 @@ body{
   z-index:940;
 }
 
-/* ===== HUD คะแนนหลัก (ถ้าใช้คลาส hha-hud-panel เดิม) — มุมซ้ายบน ใต้ water bar ===== */
+/* ===== HUD หลัก (ใช้โดย quest-hud-vr.js) ===== */
+/* default: ซ้ายบนใต้ water bar (กัน style กลางจอจากโหมดอื่น) */
 .hha-hud-panel{
   position:fixed;
   left:10px;
@@ -30,7 +31,7 @@ body{
   z-index:620;
 }
 
-/* กันไม่ให้มี style เก่าแบบจอกลางจากไฟล์อื่นมาทับ */
+/* โหมดอื่น ๆ ถ้ามี .center จะโดนลากไปซ้ายบน */
 .hha-hud-panel.center,
 .hha-hud-panel.is-center{
   left:10px !important;
@@ -38,47 +39,33 @@ body{
   transform:none !important;
 }
 
-/* ===== Water gauge (ui-water.js) — ให้ลอยเหนือ HUD เล็กน้อย ===== */
-.hha-water-wrap{
-  position:fixed;
-  left:50%;
-  top:10px;
-  transform:translateX(-50%);
-  z-index:610;
-}
-
-/* ===== Coach bubble — ยกขึ้นเหนือ Fever gauge ===== */
-.hha-coach-wrap,
-.hha-coach-bubble-wrap,
-.hha-coach-panel{
-  position:fixed;
-  left:50%;
-  bottom:120px;        /* เผื่อความสูงของ Fever gauge */
-  transform:translateX(-50%);
+/* ====== ปรับเฉพาะโหมด Hydration ====== */
+/* ให้การ์ด HYDRATION ไปอยู่ขวาบน ใต้ water bar ไม่บังเป้ากลางจอ */
+.hha-hud-panel[data-mode="hydration"]{
+  right:10px;
+  left:auto;
+  top:calc(var(--hha-hydration-safe-top) + 4px);
+  max-width:340px;
   z-index:630;
 }
 
-/* กันไม่ให้ style อื่นลาก bubble ลงมาต่ำเกินไป */
-.hha-coach-wrap[data-mode="hydration"],
-.hha-coach-bubble-wrap[data-mode="hydration"]{
-  bottom:120px !important;
+/* กันกรณี quest-hud ใส่ class center/is-center มาให้ */
+.hha-hud-panel[data-mode="hydration"].center,
+.hha-hud-panel[data-mode="hydration"].is-center{
+  right:10px !important;
+  left:auto !important;
+  top:calc(var(--hha-hydration-safe-top) + 4px) !important;
+  transform:none !important;
 }
 
-/* ===== Crosshair กลางจอ ===== */
-.hha-crosshair{
-  z-index:400;
+/* การ์ดด้านใน */
+.hha-hud-panel[data-mode="hydration"] .hha-hud-card{
+  width:100%;
+  max-width:340px;
+  pointer-events:auto;
 }
 
-/* ===== ปรับเลเยอร์ FX เป้าแตก / คะแนนเด้ง ===== */
-/* ให้ลอยอยู่เหนือฉากแต่ใต้ HUD */
-.hha-fx-layer{
-  z-index:500;
-}
-
-/* =========================================================
-   HUD ใหม่แบบการ์ดขวาบนสำหรับ Hydration (quest-hud-vr.js)
-   ========================================================= */
-
+/* ถ้า quest-hud สร้าง panel แยกสำหรับ list goal/mini */
 .hha-quest-panel--hydration{
   position:fixed;
   right:10px;
@@ -89,7 +76,6 @@ body{
   padding:0;
 }
 
-/* กัน style กลางจอจากโหมดอื่น */
 .hha-quest-panel--hydration.center,
 .hha-quest-panel--hydration.is-center{
   right:10px !important;
@@ -211,8 +197,44 @@ body{
   color:#9ca3af;
 }
 
-/* ===== Summary overlay กลางจอตอนจบเกม ===== */
+/* ===== Water gauge (ui-water.js) — ให้ลอยเหนือ HUD เล็กน้อย ===== */
+.hha-water-wrap{
+  position:fixed;
+  left:50%;
+  top:10px;
+  transform:translateX(-50%);
+  z-index:610;
+}
 
+/* ===== Coach bubble — ยกขึ้นเหนือ Fever gauge ===== */
+.hha-coach-wrap,
+.hha-coach-bubble-wrap,
+.hha-coach-panel{
+  position:fixed;
+  left:50%;
+  bottom:120px;        /* เผื่อความสูงของ Fever gauge */
+  transform:translateX(-50%);
+  z-index:630;
+}
+
+/* กันไม่ให้ style อื่นลาก bubble ลงมาต่ำเกินไป */
+.hha-coach-wrap[data-mode="hydration"],
+.hha-coach-bubble-wrap[data-mode="hydration"]{
+  bottom:120px !important;
+}
+
+/* ===== Crosshair กลางจอ ===== */
+.hha-crosshair{
+  z-index:400;
+}
+
+/* ===== ปรับเลเยอร์ FX เป้าแตก / คะแนนเด้ง ===== */
+/* ให้ลอยอยู่เหนือฉากแต่ใต้ HUD */
+.hha-fx-layer{
+  z-index:500;
+}
+
+/* ===== Summary overlay กลางจอตอนจบเกม ===== */
 .hha-summary-overlay{
   position:fixed;
   inset:0;
@@ -278,6 +300,7 @@ body{
     top:calc(var(--hha-hydration-safe-top) + 4px);
   }
 
+  .hha-hud-panel[data-mode="hydration"],
   .hha-quest-panel--hydration{
     top:calc(var(--hha-hydration-safe-top) + 4px);
     max-width:260px;
