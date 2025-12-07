@@ -702,7 +702,7 @@
         mode: 'GoodJunkVR',
         diff,
         durationSec: dur,
-        debug: true   // ถ้าไม่อยากเห็น log ใน console ค่อยเปลี่ยนเป็น false ทีหลังได้
+        debug: false   // เปิดเป็น false สำหรับ production
       });
 
       const cam = document.querySelector('#gj-camera');
@@ -719,7 +719,7 @@
           window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
           if (timeLeft <= 0){
             clearInterval(timerId);
-            GameEngine.stop();
+            GameEngine.stop('time-up');
           }
         }
 
@@ -727,7 +727,7 @@
         const timerId = setInterval(tickTime, 1000);
       });
 
-      // ===== ปุ่มหน้าสรุป =====
+      // ปุ่มหน้าสรุป
       if (btnReplay) {
         btnReplay.addEventListener('click', () => {
           window.location.reload();
@@ -738,8 +738,16 @@
           window.location.href = './hub.html';
         });
       }
+
+      // ถ้าสลับแท็บหรือจอหาย → หยุดเกม
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          GameEngine.stop('tab-hidden');
+        }
+      });
     });
   </script>
+
 
 </body>
 </html>
