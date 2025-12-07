@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (HHA_PARTICLES)
-// 2025-12-07
+// 2025-12-07 (FX + Judge + Diff-size)
 
 'use strict';
 
@@ -41,6 +41,7 @@ export const GameEngine = (function () {
   let SPAWN_INTERVAL  = 900;
   let TARGET_LIFETIME = 1100;
   let MAX_ACTIVE      = 4;
+  let SIZE_FACTOR     = 1.0;   // ★ ขนาดเป้าตามระดับความยาก
 
   let TYPE_WEIGHTS = {
     good:    70,
@@ -137,6 +138,10 @@ export const GameEngine = (function () {
     emit('hha:miss', { misses });
   }
 
+  function emitJudge(label) {
+    emit('hha:judge', { label });
+  }
+
   function clamp(v, min, max){
     return v < min ? min : (v > max ? max : v);
   }
@@ -168,19 +173,16 @@ export const GameEngine = (function () {
     }
   }
 
+  // ตัดสิน Judge จาก reaction time
   function judgeFromRT(rtMs) {
     if (rtMs == null || rtMs < 0) return 'Good';
-    // แบ่งตาม TARGET_LIFETIME
+    // ใช้สัดส่วนของ TARGET_LIFETIME
     const tPerfect = TARGET_LIFETIME * 0.35;
     const tGood    = TARGET_LIFETIME * 0.70;
     if (rtMs <= tPerfect) return 'Perfect';
     if (rtMs <= tGood)    return 'Good';
     if (rtMs <= TARGET_LIFETIME + 120) return 'Late';
     return 'Miss';
-  }
-
-  function emitJudge(label) {
-    emit('hha:judge', { label });
   }
 
   // ---------- Fever ----------
@@ -332,7 +334,8 @@ export const GameEngine = (function () {
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
-    root.setAttribute('scale', { x: 1, y: 1, z: 1 });
+    // ★ ขนาดเป้าตามระดับความยาก
+    root.setAttribute('scale', { x: SIZE_FACTOR, y: SIZE_FACTOR, z: SIZE_FACTOR });
     root.classList.add('gj-target');
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
@@ -597,7 +600,9 @@ export const GameEngine = (function () {
         radius: goodFlag ? 60 : 50
       });
 
-      const text = scoreDelta ? (scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta)) : judgment;
+      const text = scoreDelta
+        ? (scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta))
+        : judgment;
       Particles.scorePop(screenPos.x, screenPos.y, text, {
         good: goodFlag && judgment !== 'Late'
       });
@@ -648,15 +653,17 @@ export const GameEngine = (function () {
       emitScore();
       updateGoalFromGoodHit();
       pushQuest('');
-      emitJudge('Miss');
+
+      const judgment = 'Late';
+      emitJudge(judgment);
 
       if (Particles && screenPos) {
         Particles.burstAt(screenPos.x, screenPos.y, {
-          color: '#f97316',
+          color: '#facc15',
           count: 10,
           radius: 45
         });
-        Particles.scorePop(screenPos.x, screenPos.y, 'Miss', { good: false });
+        Particles.scorePop(screenPos.x, screenPos.y, judgment, { good: false });
       }
 
       emit('hha:event', {
@@ -745,6 +752,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 1500;
       MAX_ACTIVE      = 3;
       GOOD_RATE       = 0.75;
+      SIZE_FACTOR     = 1.20;   // ★ เป้าใหญ่ขึ้น
 
       TYPE_WEIGHTS = {
         good:    78,
@@ -761,6 +769,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 950;
       MAX_ACTIVE      = 5;
       GOOD_RATE       = 0.60;
+      SIZE_FACTOR     = 0.85;   // ★ เป้าเล็กลง
 
       TYPE_WEIGHTS = {
         good:    65,
@@ -777,6 +786,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 1200;
       MAX_ACTIVE      = 4;
       GOOD_RATE       = 0.68;
+      SIZE_FACTOR     = 1.0;
 
       TYPE_WEIGHTS = {
         good:    70,
