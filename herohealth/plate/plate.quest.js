@@ -117,7 +117,6 @@ const GOAL_POOL = {
       target: 1,
       check(stats, base) {
         const missDiff = (stats.misses - (base.misses || 0));
-        // ให้ถือว่าสำเร็จเมื่อเล่นไปอย่างน้อย 1 จาน และ miss ไม่เกิน 2
         return missDiff <= 2 && (stats.platesDone - (base.platesDone || 0)) >= 1;
       }
     }
@@ -218,7 +217,7 @@ const MINI_POOL = {
     },
     {
       id: 'm_normal_mix',
-      text: 'เก็บอาหารอย่างน้อย 1 ชิ้นจากหมู่ 1, 2, 3, 4 ภายในภารกิจนี้',
+      text: 'เก็บอาหารอย่างน้อย 1 ชิ้นจากหมู่ 1–4 ภายในภารกิจนี้',
       target: 1,
       check(stats, base) {
         const cur = stats.gCounts || [];
