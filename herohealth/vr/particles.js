@@ -2,191 +2,179 @@
 // Simple DOM-based particle & score FX for HeroHealth VR
 // ใช้กับโหมด GoodJunk / Groups / Hydration ได้เหมือนกัน
 //
-// Particles.scorePop(x, y, "+50", { judgment:"good"  });
-// Particles.scorePop(x, y, "PERFECT", { judgment:"perfect" });
-// Particles.scorePop(x, y, "MISS", { judgment:"miss" });
-//
-// ยังรองรับแบบเก่าด้วย:
 // Particles.scorePop(x, y, "+50", { good:true });
-// Particles.scorePop(x, y, "-10", { good:false });
-
-'use strict';
+// Particles.burstAt(x, y, { good:true, bad:false });
 
 (function (global) {
+  'use strict';
+
   let layer = null;
+  let styleInjected = false;
 
   function ensureStyle() {
-    if (document.getElementById('hha-particles-style')) return;
-    const style = document.createElement('style');
+    if (styleInjected) return;
+    styleInjected = true;
+
+    const style = global.document.createElement('style');
     style.id = 'hha-particles-style';
     style.textContent = `
-    .hha-fx-layer{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:20;
-      overflow:hidden;
-    }
+      .hha-fx-layer{
+        position:fixed;
+        inset:0;
+        pointer-events:none;
+        /* ให้ลอยเหนือฉาก VR และไฟ fever แต่ต่ำกว่าบาง HUD ได้ */
+        z-index:645;
+        overflow:hidden;
+      }
 
-    .hha-score-pop{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-      font-size:14px;
-      font-weight:700;
-      padding:2px 8px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.95);
-      color:#e5e7eb;
-      border:1px solid rgba(148,163,184,0.9);
-      opacity:0;
-      transition:
-        transform .6s ease-out,
-        opacity .6s ease-out;
-      white-space:nowrap;
-      pointer-events:none;
-      box-shadow:0 10px 22px rgba(15,23,42,0.95);
-      text-shadow:0 1px 2px rgba(0,0,0,0.5);
-    }
+      .hha-fx-frag{
+        position:absolute;
+        width:10px;
+        height:10px;
+        border-radius:999px;
+        opacity:0.9;
+        transform:translate3d(0,0,0) scale(1);
+        animation:hhaFragPop 500ms ease-out forwards;
+      }
 
-    /* GOOD (เขียว) */
-    .hha-score-pop--good{
-      color:#bbf7d0;
-      border-color:rgba(34,197,94,0.95);
-      box-shadow:0 10px 24px rgba(22,163,74,0.85);
-    }
+      .hha-fx-frag.good   { background:#22c55e; }
+      .hha-fx-frag.bad    { background:#f97316; }
+      .hha-fx-frag.star   { background:#eab308; }
+      .hha-fx-frag.diamond{ background:#38bdf8; }
+      .hha-fx-frag.shield { background:#60a5fa; }
 
-    /* PERFECT (ทอง) */
-    .hha-score-pop--perfect{
-      color:#fef9c3;
-      border-color:rgba(250,204,21,0.95);
-      box-shadow:0 0 0 1px rgba(250,204,21,0.7),
-                 0 12px 26px rgba(234,179,8,0.9);
-      background:radial-gradient(circle at top,rgba(250,204,21,0.22),rgba(15,23,42,0.96));
-    }
+      .hha-fx-score{
+        position:absolute;
+        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
+        font-weight:700;
+        font-size:14px;
+        white-space:nowrap;
+        transform:translate3d(-50%, -50%, 0);
+        animation:hhaScoreFloat 700ms ease-out forwards;
+        text-shadow:0 0 8px rgba(0,0,0,0.6);
+      }
 
-    /* MISS (แดง/ส้ม) */
-    .hha-score-pop--miss,
-    .hha-score-pop.bad{
-      color:#fed7aa;
-      border-color:rgba(248,113,113,0.95);
-      box-shadow:0 10px 26px rgba(248,113,113,0.85);
-      background:radial-gradient(circle at top,rgba(248,113,113,0.18),rgba(15,23,42,0.96));
-    }
+      .hha-fx-score.good{
+        color:#bbf7d0;
+      }
+      .hha-fx-score.bad{
+        color:#fecaca;
+      }
+      .hha-fx-score.small{
+        font-size:11px;
+        font-weight:600;
+      }
 
-    .hha-frag{
-      position:absolute;
-      width:6px;
-      height:6px;
-      border-radius:999px;
-      background:#22c55e;
-      opacity:0.9;
-      pointer-events:none;
-      transform:translate(-50%,-50%);
-      transition:
-        transform .7s ease-out,
-        opacity .7s ease-out;
-    }
+      @keyframes hhaFragPop{
+        0%{
+          opacity:1;
+          transform:translate3d(0,0,0) scale(0.8);
+        }
+        70%{
+          opacity:1;
+        }
+        100%{
+          opacity:0;
+          transform:translate3d(var(--dx,0px), var(--dy,0px), 0) scale(0.3);
+        }
+      }
+
+      @keyframes hhaScoreFloat{
+        0%{
+          opacity:0;
+          transform:translate3d(-50%, -30%, 0) scale(0.9);
+        }
+        20%{
+          opacity:1;
+          transform:translate3d(-50%, -50%, 0) scale(1);
+        }
+        100%{
+          opacity:0;
+          transform:translate3d(-50%, -80%, 0) scale(0.9);
+        }
+      }
     `;
-    document.head.appendChild(style);
+    global.document.head.appendChild(style);
   }
 
   function ensureLayer() {
-    if (layer && layer.isConnected) return layer;
+    if (layer && layer.parentNode) return layer;
     ensureStyle();
-    layer = document.createElement('div');
+    layer = global.document.createElement('div');
     layer.className = 'hha-fx-layer';
-    document.body.appendChild(layer);
+    global.document.body.appendChild(layer);
     return layer;
   }
 
   /**
-   * แสดงคะแนนเด้งขึ้นจากจุดตีเป้า
-   * @param {number} x - screen X (px)
-   * @param {number} y - screen Y (px)
-   * @param {string} text - ข้อความคะแนน เช่น "+50" หรือ "GOOD" / "MISS" / "PERFECT"
-   * @param {object} opts - { good?: boolean, judgment?: "good"|"perfect"|"miss" }
+   * เอฟเฟกต์เป้าแตกกระจาย
+   * @param {number} x screenX
+   * @param {number} y screenY
+   * @param {object} opts {good,bad,star,diamond,shield}
    */
-  function scorePop(x, y, text, opts = {}) {
-    const host = ensureLayer();
+  function burstAt(x, y, opts) {
+    const root = ensureLayer();
+    const count = 14;
+    const kindClass =
+      (opts && opts.star)    ? 'star' :
+      (opts && opts.diamond) ? 'diamond' :
+      (opts && opts.shield)  ? 'shield' :
+      (opts && opts.bad)     ? 'bad' :
+      'good';
 
-    const jRaw = (opts.judgment || '').toString().toLowerCase();
-    let cls = 'hha-score-pop';
+    for (let i = 0; i < count; i++) {
+      const el = global.document.createElement('div');
+      el.className = `hha-fx-frag ${kindClass}`;
+      el.style.left = `${x}px`;
+      el.style.top  = `${y}px`;
 
-    if (jRaw === 'perfect') {
-      cls += ' hha-score-pop--perfect';
-    } else if (jRaw === 'good') {
-      cls += ' hha-score-pop--good';
-    } else if (jRaw === 'miss') {
-      cls += ' hha-score-pop--miss';
-    } else if (opts.good === true) {
-      cls += ' hha-score-pop--good';
-    } else if (opts.good === false) {
-      cls += ' hha-score-pop--miss bad';
+      // random direction
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 40 + Math.random() * 40;
+      const dx = Math.cos(ang) * dist;
+      const dy = Math.sin(ang) * dist * 0.8;
+
+      el.style.setProperty('--dx', dx + 'px');
+      el.style.setProperty('--dy', dy + 'px');
+
+      root.appendChild(el);
+      // cleanup
+      setTimeout(() => {
+        el.remove();
+      }, 520);
     }
-
-    const el = document.createElement('div');
-    el.className = cls;
-    el.textContent = text;
-
-    el.style.left = x + 'px';
-    el.style.top  = y + 'px';
-
-    host.appendChild(el);
-
-    // animate ขึ้นด้านบน + fade in/out
-    requestAnimationFrame(() => {
-      el.style.opacity = '1';
-      el.style.transform = 'translate(-50%,-120%)';
-    });
-
-    setTimeout(() => {
-      el.style.opacity = '0';
-      el.style.transform = 'translate(-50%,-180%)';
-      setTimeout(() => el.remove(), 260);
-    }, 420);
   }
 
   /**
-   * แตกกระจายอนุภาครอบจุดตีเป้า
-   * @param {number} x - screen X (px)
-   * @param {number} y - screen Y (px)
-   * @param {object} opts - { color, count, radius }
+   * ข้อความคะแนน / Miss / Perfect เด้งตรงตำแหน่งเป้า
+   * @param {number} x screenX
+   * @param {number} y screenY
+   * @param {string} text
+   * @param {object} opts {good,bad,small}
    */
-  function burstAt(x, y, opts = {}) {
-    const host   = ensureLayer();
-    const color  = opts.color  || '#22c55e';
-    const n      = opts.count  || 12;
-    const radius = opts.radius || 50;
+  function scorePop(x, y, text, opts) {
+    const root = ensureLayer();
+    const el = global.document.createElement('div');
+    el.className = 'hha-fx-score';
 
-    for (let i = 0; i < n; i++) {
-      const el = document.createElement('div');
-      el.className = 'hha-frag';
-      el.style.background = color;
-      el.style.left = x + 'px';
-      el.style.top  = y + 'px';
+    if (opts && opts.good) el.classList.add('good');
+    if (opts && opts.bad)  el.classList.add('bad');
+    if (opts && opts.small)el.classList.add('small');
 
-      host.appendChild(el);
+    el.textContent = text;
+    el.style.left = `${x}px`;
+    el.style.top  = `${y}px`;
 
-      const ang  = (i / n) * Math.PI * 2;
-      const dist = radius + Math.random() * radius * 0.7;
-      const dx   = Math.cos(ang) * dist;
-      const dy   = Math.sin(ang) * dist;
-
-      requestAnimationFrame(() => {
-        el.style.transform = `translate(${dx}px, ${dy}px)`;
-        el.style.opacity = '0';
-      });
-
-      setTimeout(() => el.remove(), 720);
-    }
+    root.appendChild(el);
+    setTimeout(() => {
+      el.remove();
+    }, 750);
   }
 
-  // ผูกเข้า global ให้โหมดอื่นเรียกใช้ได้
-  const Particles = { scorePop, burstAt };
+  const api = { burstAt, scorePop };
 
   global.GAME_MODULES = global.GAME_MODULES || {};
-  global.GAME_MODULES.Particles = Particles;
-  global.Particles = Particles;
+  global.GAME_MODULES.Particles = api;
+  global.Particles = api;
 
 })(window);
