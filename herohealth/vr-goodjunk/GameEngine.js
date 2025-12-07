@@ -1,6 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Multi-Quest (2/10 + 3/15) + Fever + Shield + Coach + FX
-// 2025-12-07 — เป้าเล็กตามระดับ, เป้าอยู่นานขึ้น, Perfect/Good กว้างขึ้น, effect แตกกระจาย + คะแนนเด้ง
+// 2025-12-07 — เป้าเล็กตามระดับ, กระจายตามจอแบบ responsive, เป้าอยู่นานขึ้น,
+// Perfect/Good กว้างขึ้น, effect แตกกระจาย + คะแนนเด้ง + Miss/Good/Late/Perfect
 
 'use strict';
 
@@ -76,7 +77,7 @@ export const GameEngine = (function () {
   let feverTimer = null;
 
   // ---------- Quest pool ----------
-  // มี goal 10 แบบ / mini quest 15 แบบ → สุ่มมา 2 + 3 ในแต่ละเกม
+  // goal 10 แบบ / mini quest 15 แบบ → สุ่มมา 2 + 3 ในแต่ละเกม
   const GOAL_TEMPLATES = [
     { id: 'g1',  label: 'เก็บอาหารดีให้ครบ 10 ชิ้น', target: 10 },
     { id: 'g2',  label: 'เก็บอาหารดีให้ครบ 12 ชิ้น', target: 12 },
@@ -174,7 +175,7 @@ export const GameEngine = (function () {
   // world → screen สำหรับ FX
   function worldToScreen(el) {
     try {
-      const THREE = window.THREE;
+      const THREE = window.THREE || (window.AFRAME && window.AFRAME.THREE);
       if (!THREE || !sceneEl || !sceneEl.camera || !el.object3D) {
         return {
           x: window.innerWidth / 2,
@@ -423,19 +424,72 @@ export const GameEngine = (function () {
     }
   }
 
+  // ---------- ช่วยคำนวณตำแหน่ง spawn แบบ responsive ----------
+  function pickSpawnPosition() {
+    // base กลางจอ
+    const z = -3.0;
+
+    const aspect = window.innerWidth / window.innerHeight;
+    // จอกว้าง → ขยายช่วง x ออกด้านข้าง
+    const halfX = 1.2 * Math.max(1, aspect);   // ex: mobile ~1.2, desktop wide ~2.0+
+    const minX = -halfX;
+    const maxX = halfX;
+
+    // y ให้อยู่กลาง ๆ ระหว่าง HUD บนกับ coach ล่าง
+    const minY = 1.4;
+    const maxY = 2.4;
+
+    let x = 0, y = 0;
+
+    // ลองสุ่มหลายครั้งเพื่อเลี่ยงโซนใกล้ขอบมาก ๆ
+    for (let i = 0; i < 10; i++) {
+      x = minX + Math.random() * (maxX - minX);
+      y = minY + Math.random() * (maxY - minY);
+
+      // ถ้ามี THREE + camera อยู่ ลอง project ดูว่าอยู่ใน safe area ของจอมั้ย
+      if (sceneEl && sceneEl.camera && window.THREE) {
+        const dummy = document.createElement('a-entity');
+        dummy.object3D = new (window.THREE || window.AFRAME.THREE).Object3D();
+        dummy.object3D.position.set(x, y, z);
+        const screen = worldToScreen(dummy);
+        const sx = screen.x;
+        const sy = screen.y;
+
+        const marginX = 72;  // เว้นจากขอบซ้ายขวา
+        const topHUD  = 100; // เว้นจาก HUD ด้านบน
+        const bottomHUD = 180; // เว้นจาก coach ด้านล่างประมาณนี้
+
+        if (
+          sx > marginX &&
+          sx < window.innerWidth - marginX &&
+          sy > topHUD &&
+          sy < window.innerHeight - bottomHUD
+        ) {
+          return { x, y, z };
+        }
+      } else {
+        // ถ้าไม่มี THREE ก็ใช้ค่า random นี้เลย
+        return { x, y, z };
+      }
+    }
+
+    // ถ้าสุ่มไม่ผ่านเงื่อนไขเลย ใช้จุดกลาง ๆ fallback
+    return {
+      x: clamp(x, -halfX, halfX),
+      y: clamp(y, minY, maxY),
+      z
+    };
+  }
+
   // ---------- สร้างเป้า (emoji pop) ----------
   function createTargetEntity(emoji, kind) {
     if (!sceneEl) return null;
 
     const root = document.createElement('a-entity');
 
-    // กล้องอยู่ประมาณ (0,1.6,0)
-    // → ให้สุ่มในกล่องกลางจอ: x [-1.2,1.2], y [1.8,2.6]
-    const x = -1.2 + Math.random() * 2.4;
-    const y = 1.8  + Math.random() * 0.8;
-    const z = -3.0;
-
-    root.setAttribute('position', { x, y, z });
+    // ใช้ตำแหน่ง spawn แบบ responsive
+    const pos = pickSpawnPosition();
+    root.setAttribute('position', pos);
     root.setAttribute('scale', { x: 1, y: 1, z: 1 });
     root.classList.add('gj-target');
     root.dataset.kind = kind;
@@ -598,7 +652,7 @@ export const GameEngine = (function () {
       pushQuest('');
     }
 
-    // FX + score emit
+    // FX + score emit (คะแนนเด้ง + Miss/Good/Late/Perfect ตรงเป้า)
     showHitFx(el, kind, judgment, score - scoreBefore);
     emitScore();
 
