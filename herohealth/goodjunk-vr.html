@@ -651,8 +651,14 @@
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
-        debug: false
+        mode: 'GoodJunkVR',
+        diff,
+        durationSec: dur,
+        // playerId: 'P001',       // ถ้าจะส่งรหัสนักเรียนก็ค่อยเพิ่ม
+        // gameVersion: 'gj-vr-1', // ถ้ามี version
+        debug: true               // ชั่วคราว เปิด debug เพื่อดู log ใน console
       });
+
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
