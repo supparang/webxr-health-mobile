@@ -1,6 +1,5 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration mode – น้ำสมดุล + Water Gauge + Fever + Quest (PC / Mobile / VR)
-// พร้อม countdown 3-2-1-GO ก่อนเริ่มเกม
 
 'use strict';
 
@@ -49,91 +48,6 @@ function safeBurstAt(x, y, opt) {
   }
 }
 
-// ---------- Countdown 3-2-1-GO ก่อนเริ่มเกม ----------
-function showCountdown() {
-  return new Promise((resolve) => {
-    const doc = window.document;
-
-    // ถ้ามีเลเยอร์เก่าอยู่แล้ว ลบก่อน
-    const old = doc.getElementById('hha-countdown-layer');
-    if (old && old.parentNode) old.parentNode.removeChild(old);
-
-    const layer = doc.createElement('div');
-    layer.id = 'hha-countdown-layer';
-    Object.assign(layer.style, {
-      position: 'fixed',
-      inset: '0',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 700,
-      background: 'rgba(15,23,42,0.55)',
-      backdropFilter: 'blur(2px)',
-      pointerEvents: 'none'
-    });
-
-    const label = doc.createElement('div');
-    label.id = 'hha-countdown-label';
-    Object.assign(label.style, {
-      fontFamily:
-        'system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif',
-      fontWeight: '800',
-      fontSize: '64px',
-      color: '#e5e7eb',
-      textShadow: '0 0 30px rgba(15,23,42,0.95)',
-      transition: 'transform .35s ease-out, opacity .35s ease-out',
-      transform: 'scale(1)',
-      opacity: '0'
-    });
-
-    layer.appendChild(label);
-    doc.body.appendChild(layer);
-
-    const seq = ['3', '2', '1', 'GO!'];
-    let idx = 0;
-
-    const coachSay = (msg) => {
-      window.dispatchEvent(new CustomEvent('hha:coach', {
-        detail: {
-          text: msg,
-          modeKey: 'hydration-vr'
-        }
-      }));
-    };
-
-    // โค้ชพูดก่อนเริ่มนับ
-    coachSay('พร้อมยัง? จะเริ่มเล็งน้ำดีแล้วนะ 💧');
-
-    const step = () => {
-      const text = seq[idx];
-      label.textContent = text;
-      label.style.opacity = '1';
-      label.style.transform = 'scale(1.0)';
-
-      // ให้โค้ชพูดตอน "GO!"
-      if (text === 'GO!') {
-        coachSay('ลุยยย! เล็งน้ำดี แล้วหลบพวกน้ำหวานนะ 💪');
-      }
-
-      setTimeout(() => {
-        label.style.opacity = '0';
-        label.style.transform = 'scale(0.7)';
-      }, 420);
-
-      idx += 1;
-      if (idx < seq.length) {
-        setTimeout(step, 800);
-      } else {
-        setTimeout(() => {
-          if (layer.parentNode) layer.parentNode.removeChild(layer);
-          resolve();
-        }, 650);
-      }
-    };
-
-    step();
-  });
-}
 // เลือก factory สำหรับ quest ไม่ว่าจะ export แบบไหน
 function getCreateHydrationQuest() {
   if (typeof HQ.createHydrationQuest === 'function') {
@@ -199,7 +113,7 @@ export async function boot(cfg = {}) {
   deck.stats.greenTick = 0;
   deck.stats.zone      = waterZone;
 
-  // ✅ สุ่มภารกิจชุดแรกออกมา (MissionDeck จะสุ่มจาก goal 2/10 + mini 3/15 ตามที่ตั้งไว้)
+  // ✅ สุ่มภารกิจชุดแรกออกมา (MissionDeck จะสุ่มจาก pool goal/mini ที่แบ่งระดับไว้แล้ว)
   if (typeof deck.drawGoals === 'function') deck.drawGoals(2);
   if (typeof deck.draw3 === 'function')     deck.draw3();
 
@@ -213,13 +127,23 @@ export async function boot(cfg = {}) {
     const minis = deck.getProgress('mini')  || [];
     const z     = zoneFrom(waterPct);
 
+    // 🔹 แถวที่ HUD ใช้แสดงจริง ๆ: goal 2 อัน + mini 3 อัน
+    const goalsRow = goals.slice(0, 2);
+    const minisRow = minis.slice(0, 3);
+
     window.dispatchEvent(new CustomEvent('quest:update', {
       detail: {
-        goal: goals.find(g => !g.done) || goals[0] || null,
-        mini: minis.find(m => !m.done) || minis[0] || null,
+        // current เป้าโฟกัส (ถ้าจะใช้)
+        currentGoal: goals.find(g => !g.done) || goals[0] || null,
+        currentMini: minis.find(m => !m.done) || minis[0] || null,
+        // แถวเต็มสำหรับ panel:
+        goalsRow,
+        minisRow,
+        // เก็บทั้งหมดเผื่อสรุปตอนจบ
         goalsAll: goals,
         minisAll: minis,
-        hint: hint || `โซนน้ำ: ${z}`
+        hint: hint || `โซนน้ำ: ${z}`,
+        diff
       }
     }));
   }
@@ -228,7 +152,7 @@ export async function boot(cfg = {}) {
   let score       = 0;
   let combo       = 0;
   let comboMax    = 0;
-  let misses      = 0;
+  let misses      = 0;   // miss รวมกรณียิงโดนน้ำไม่ดี (junk) จริง ๆ
   let star        = 0;
   let diamond     = 0;
   let shield      = 0;
@@ -295,11 +219,32 @@ export async function boot(cfg = {}) {
     }));
   }
 
+  // 🔥 ให้คำว่า GOOD / MISS / PERFECT + คะแนน เด้งตรงเป้า
   function scoreFX(x, y, val, judgment) {
-    const label = judgment || ((val > 0 ? '+' : '') + val);
-    const good  = val >= 0;
-    safeScorePop(x, y, label, { good });
-    safeBurstAt(x, y, { color: good ? '#22c55e' : '#f97316' });
+    const good = val >= 0;
+    const numLabel = (val === 0 && !judgment)
+      ? ''
+      : ((val > 0 ? '+' : '') + val);
+
+    const baseX = x || (window.innerWidth / 2);
+    const baseY = y || (window.innerHeight / 2);
+
+    // ขยับแยกนิดหน่อยให้ไม่ทับกัน
+    if (judgment) {
+      // คำว่า GOOD / MISS / PERFECT / BLOCK / FEVER
+      safeScorePop(baseX - 22, baseY, judgment, { good });
+    }
+    if (numLabel) {
+      // ตัวเลขคะแนน +20 / -10
+      safeScorePop(baseX + 22, baseY, numLabel, { good });
+    }
+
+    // เป้าแตกกระจาย
+    safeBurstAt(baseX, baseY, {
+      color: good ? '#22c55e' : '#f97316',
+      count: good ? 16 : 10,
+      radius: good ? 70 : 50
+    });
   }
 
   // ----- judge เมื่อยิง/แตะเป้า -----
@@ -398,13 +343,21 @@ export async function boot(cfg = {}) {
 
   // ----- เมื่อเป้าหายไปเอง (expire) -----
   function onExpire(ev) {
-    // ✅ ตอนนี้กำหนดว่า: ปล่อยเป้าหาย → ไม่เพิ่ม miss แต่ deck ยังรับ event ได้
+    // ✅ ปล่อยเป้าหาย → ไม่เพิ่ม miss แต่ถ้าเป็นน้ำดีให้ขึ้นว่า LATE
+    const x = ev?.clientX ?? ev?.cx ?? 0;
+    const y = ev?.clientY ?? ev?.cy ?? 0;
+
+    if (ev && ev.isGood) {
+      // น้ำดีหายไปเฉย ๆ → LATE 0 คะแนน
+      scoreFX(x, y, 0, 'LATE');
+    }
+
     if (ev && !ev.isGood) {
       deck.onJunk && deck.onJunk();
-      syncDeck();
-      pushQuest();
-      pushHudScore({ reason: 'expire' });
     }
+    syncDeck();
+    pushQuest();
+    pushHudScore({ reason: 'expire' });
   }
 
   // ----- tick รายวินาที -----
@@ -507,10 +460,7 @@ export async function boot(cfg = {}) {
   };
   window.addEventListener('hha:time', onTime);
 
-  // ---------- รอ countdown 3-2-1-GO ก่อนเริ่ม spawn เป้า ----------
-  await showCountdown();
-
-  // ----- เรียก factoryBoot หลัง countdown เสร็จ -----
+  // ----- เรียก factoryBoot -----
   const inst = await factoryBoot({
     difficulty: diff,
     duration:   dur,
