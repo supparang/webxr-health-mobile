@@ -1,5 +1,7 @@
 // === /herohealth/plate/plate.safe.js
+// Balanced Plate VR
 // MISS = กดของไม่ดีเท่านั้น + โค้ช ป.5 + multi-plate + cleanup hha:time listener
+// ยิงค่า goalsCleared / questsCleared + grade SSS/SS/S/A/B/C ผ่าน hha:stat
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { createPlateQuest, QUOTA } from './plate.quest.js';
@@ -63,6 +65,36 @@ function coach(text, minGap = 2200) {
   } catch {}
 }
 
+// ---- Grade helper ----
+function computeGrade(score, misses, goalsDone, goalsTotal, miniDone, miniTotal, platesDone) {
+  // นอร์มคะแนน (สมมติ 800 คือค่อนข้างสูงสำหรับ 60 วิ)
+  const scoreNorm = Math.min(1, (Number(score) || 0) / 800);
+
+  const missPenalty = Math.max(0, 1 - (Number(misses) || 0) * 0.08);
+
+  const gTot = Number(goalsTotal) || 0;
+  const mTot = Number(miniTotal) || 0;
+  const goalRatio = gTot > 0 ? (Number(goalsDone) || 0) / gTot : 0;
+  const miniRatio = mTot > 0 ? (Number(miniDone) || 0) / mTot : 0;
+
+  const plateBonus = Math.min(1, (Number(platesDone) || 0) / 4);
+
+  const perf =
+    (scoreNorm * 0.35 +
+     goalRatio  * 0.25 +
+     miniRatio  * 0.20 +
+     plateBonus * 0.20) * missPenalty;
+
+  let grade = 'C';
+  if (perf >= 0.92) grade = 'SSS';
+  else if (perf >= 0.80) grade = 'SS';
+  else if (perf >= 0.68) grade = 'S';
+  else if (perf >= 0.55) grade = 'A';
+  else if (perf >= 0.40) grade = 'B';
+
+  return { grade, perf };
+}
+
 export async function boot(cfg = {}) {
   const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
   const diff = (diffRaw === 'easy' || diffRaw === 'hard' || diffRaw === 'normal')
@@ -81,8 +113,8 @@ export async function boot(cfg = {}) {
 
   // Quest deck
   const deck = createPlateQuest(diff);
-  deck.drawGoals(2);
-  deck.draw3();
+  deck.drawGoals(2);   // เลือก goal มา 2
+  deck.draw3();        // mini quest มา 3
 
   const need = QUOTA[diff] || QUOTA.normal;      // โควตาใน "หนึ่งจาน"
   const totalNeed = need.reduce((a, b) => a + b, 0);
@@ -109,7 +141,24 @@ export async function boot(cfg = {}) {
 
   function mult() { return feverActive ? 2 : 1; }
 
+  // คำนวณ progress ปัจจุบันของ goal / mini
+  function calcProgress() {
+    const gList = deck.getProgress('goals') || [];
+    const mList = deck.getProgress('mini')  || [];
+
+    const goalsTotal  = accGoalDone + gList.length;
+    const goalsDone   = accGoalDone + gList.filter(x => x && x.done).length;
+    const miniTotal   = accMiniDone + mList.length;
+    const miniDone    = accMiniDone + mList.filter(x => x && x.done).length;
+
+    return { goalsDone, goalsTotal, miniDone, miniTotal };
+  }
+
   function emitStat(extra = {}) {
+    const { goalsDone, goalsTotal, miniDone, miniTotal } = calcProgress();
+    const { grade } =
+      computeGrade(score, misses, goalsDone, goalsTotal, miniDone, miniTotal, platesDone);
+
     try {
       window.dispatchEvent(new CustomEvent('hha:stat', {
         detail: {
@@ -123,6 +172,11 @@ export async function boot(cfg = {}) {
           platesDone,
           plateCounts: [...plateCounts],
           totalCounts: [...gCounts],
+          goalsCleared:  goalsDone,
+          goalsTotal:    goalsTotal,
+          questsCleared: miniDone,
+          questsTotal:   miniTotal,
+          grade,
           ...extra
         }
       }));
@@ -162,13 +216,13 @@ export async function boot(cfg = {}) {
   }
 
   function pushQuest(hint) {
-    const goals = deck.getProgress('goals');
-    const minis = deck.getProgress('mini');
+    const goals = deck.getProgress('goals') || [];
+    const minis = deck.getProgress('mini')  || [];
     const gtxt = `โควตาใน 1 จาน: [${need.join(', ')}] | จานนี้ทำได้: [${plateCounts.join(', ')}]`;
     window.dispatchEvent(new CustomEvent('quest:update', {
       detail: {
-        goal: goals.find(g => !g.done) || goals[0] || null,
-        mini: minis.find(m => !m.done) || minis[0] || null,
+        goal: goals.find(g => g && !g.done) || goals[0] || null,
+        mini: minis.find(m => m && !m.done) || minis[0] || null,
         goalsAll: goals,
         minisAll: minis,
         hint: hint || gtxt
@@ -350,18 +404,18 @@ export async function boot(cfg = {}) {
     deck.second(); // ให้ MissionDeck นับ tick/time ภายใน
     syncDeck();
 
-    const g = deck.getProgress('goals');
-    const m = deck.getProgress('mini');
+    const gList = deck.getProgress('goals') || [];
+    const mList = deck.getProgress('mini')  || [];
 
-    if (g.length > 0 && g.every(x => x.done)) {
-      accGoalDone += g.length;
-      deck.drawGoals(2);
+    if (gList.length > 0 && gList.every(x => x && x.done)) {
+      accGoalDone += gList.length;
+      deck.drawGoals(2);           // ดึง goal ชุดใหม่
       pushQuest('Goal ใหม่ (รวมทั้งเกม)');
       coach('ภารกิจจานสมดุลรวมผ่านอีกชุดแล้ว 🎉', 4000);
     }
-    if (m.length > 0 && m.every(x => x.done)) {
-      accMiniDone += m.length;
-      deck.draw3();
+    if (mList.length > 0 && mList.every(x => x && x.done)) {
+      accMiniDone += mList.length;
+      deck.draw3();                // ดึง mini quest ชุดใหม่
       pushQuest('Mini ใหม่');
       coach('Mini quest จานข้าวสำเร็จแล้ว เก่งมาก! 🌟', 4000);
     }
@@ -373,16 +427,13 @@ export async function boot(cfg = {}) {
     if (ended) return;
     ended = true;
 
-    const g = deck.getProgress('goals');
-    const m = deck.getProgress('mini');
+    const { goalsDone, goalsTotal, miniDone, miniTotal } = calcProgress();
+    const goalCleared = goalsTotal > 0 && goalsDone === goalsTotal;
 
-    const goalCleared = g.length > 0 && g.every(x => x.done);
-    const goalsTotal  = accGoalDone + g.length;
-    const goalsDone   = accGoalDone + g.filter(x => x.done).length;
-    const miniTotal   = accMiniDone + m.length;
-    const miniDone    = accMiniDone + m.filter(x => x.done).length;
+    const { grade } =
+      computeGrade(score, misses, goalsDone, goalsTotal, miniDone, miniTotal, platesDone);
 
-    emitStat({ ended: true });
+    emitStat({ ended: true, final: true });
 
     window.dispatchEvent(new CustomEvent('hha:end', {
       detail: {
@@ -398,8 +449,8 @@ export async function boot(cfg = {}) {
         questsCleared: miniDone,
         questsTotal: miniTotal,
         platesDone,
-        // รวมทั้งเกม (ใช้วิเคราะห์พฤติกรรมเลือกหมู่)
-        groupCounts: [...gCounts]
+        groupCounts: [...gCounts],
+        grade
       }
     }));
   }
