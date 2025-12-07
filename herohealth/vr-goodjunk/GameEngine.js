@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Multi-Quest (2/10 + 3/15) + Fever + Shield + Coach + FX
-// 2025-12-07 — เป้าเล็กลง, effect แตกกระจาย, คะแนนเด้ง, Miss/Good/Perfect ที่เป้า
+// 2025-12-07 — เป้าเล็กตามระดับ, เป้าอยู่นานขึ้น, Perfect/Good กว้างขึ้น, effect แตกกระจาย + คะแนนเด้ง
 
 'use strict';
 
@@ -195,15 +195,18 @@ export const GameEngine = (function () {
     }
   }
 
-  // judgment ตามอายุเป้า
+  // judgment ตามอายุเป้า (ปรับให้ Perfect/Good กว้างขึ้น)
   function getJudgment(el) {
     const born = Number(el.dataset.born || '0');
     if (!born || !TARGET_LIFETIME) return 'good';
+
     const age = performance.now() - born;
     const t = TARGET_LIFETIME;
-    if (age < t * 0.33) return 'perfect';
-    if (age < t * 0.66) return 'good';
-    return 'late';
+
+    // ★ ปรับให้ Perfect / Good กว้างขึ้น
+    if (age < t * 0.45) return 'perfect';  // ยิงเร็วหน่อยก็ Perfect
+    if (age < t * 0.90) return 'good';     // ช่วง Good ยาว ๆ
+    return 'late';                         // Late แค่ตอนท้าย ๆ
   }
 
   function showHitFx(el, kind, judgment, scoreDelta) {
@@ -688,11 +691,11 @@ export const GameEngine = (function () {
     const d = String(diffKey || 'normal').toLowerCase();
 
     if (d === 'easy') {
-      SPAWN_INTERVAL  = 1100;
-      TARGET_LIFETIME = 1100;
+      SPAWN_INTERVAL  = 1200;   // spawn ช้าหน่อย
+      TARGET_LIFETIME = 1700;   // ★ เป้าอยู่นาน
       MAX_ACTIVE      = 3;
       GOOD_RATE       = 0.72;
-      SIZE_FACTOR     = 0.80;  // ง่าย: ยังใหญ่สุด
+      SIZE_FACTOR     = 0.80;   // ง่าย: ใหญ่สุด
 
       TYPE_WEIGHTS = {
         good:    75,
@@ -702,11 +705,11 @@ export const GameEngine = (function () {
         shield:   3
       };
     } else if (d === 'hard') {
-      SPAWN_INTERVAL  = 750;
-      TARGET_LIFETIME = 850;
+      SPAWN_INTERVAL  = 800;
+      TARGET_LIFETIME = 1200;   // ยังเร็วแต่ไม่วูบเกินไป
       MAX_ACTIVE      = 5;
       GOOD_RATE       = 0.6;
-      SIZE_FACTOR     = 0.50;  // ยาก: เล็กสุด
+      SIZE_FACTOR     = 0.50;   // ยาก: เล็กสุด
 
       TYPE_WEIGHTS = {
         good:    65,
@@ -716,11 +719,11 @@ export const GameEngine = (function () {
         shield:   4
       };
     } else { // normal
-      SPAWN_INTERVAL  = 900;
-      TARGET_LIFETIME = 900;
+      SPAWN_INTERVAL  = 1000;
+      TARGET_LIFETIME = 1450;   // กลาง ๆ
       MAX_ACTIVE      = 4;
       GOOD_RATE       = 0.66;
-      SIZE_FACTOR     = 0.65;  // ปกติ: กลาง ๆ ระหว่าง easy / hard
+      SIZE_FACTOR     = 0.65;   // ปกติ: ขนาดกลาง
 
       TYPE_WEIGHTS = {
         good:    70,
