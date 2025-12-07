@@ -399,3 +399,45 @@ a-scene{
     0 0 10px rgba(248,113,113,0.9),
     0 0 20px rgba(248,113,113,0.7);
 }
+/* ===== Force single emoji target for Plate VR ===== */
+
+/* ใช้ emoji ข้างใน div เป็นหลัก */
+.hha-target{
+  position:fixed;
+  transform:translate(-50%, -50%);
+  width:68px;
+  height:68px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:auto;
+  cursor:pointer;
+  z-index:360;
+
+  /* แสดงเฉพาะตัวอักษร emoji ข้างใน */
+  font-size:42px;
+  line-height:1;
+  text-shadow:
+    0 0 8px rgba(0,0,0,0.65),
+    0 0 16px rgba(0,0,0,0.7);
+}
+
+/* ปิดการใช้ ::before ที่เคยวาด emoji ซ้ำ */
+.hha-target::before{
+  content:none !important;
+}
+
+/* glow เพิ่มสำหรับของดี/ของไม่ดี */
+.hha-target-good{
+  text-shadow:
+    0 0 10px rgba(34,197,94,0.9),
+    0 0 20px rgba(34,197,94,0.7),
+    0 0 28px rgba(34,197,94,0.55);
+}
+
+.hha-target-bad{
+  text-shadow:
+    0 0 10px rgba(248,113,113,0.9),
+    0 0 20px rgba(248,113,113,0.7),
+    0 0 28px rgba(248,113,113,0.55);
+}
