@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
-// ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles)
-// 2025-12-07 (FX: burst + score + judge ตรงเป้า)
+// ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
+// 2025-12-07 FX Version — burst + score + judge popup
 
 'use strict';
 
@@ -79,7 +79,7 @@ export const GameEngine = (function () {
   let sessionStart = null;
   let currentDiff = 'normal';
 
-  // ---------- Quest state (แบบง่าย เป้าเดียว + mini เดียว) ----------
+  // ---------- Quest state ----------
   const GOAL = {
     label: 'เก็บอาหารดีให้ครบ 25 ชิ้น',
     prog: 0,
@@ -137,10 +137,6 @@ export const GameEngine = (function () {
     emit('hha:miss', { misses });
   }
 
-  function emitJudge(label) {
-    emit('hha:judge', { label });
-  }
-
   function clamp(v, min, max){
     return v < min ? min : (v > max ? max : v);
   }
@@ -172,14 +168,32 @@ export const GameEngine = (function () {
     }
   }
 
+  // helper: หาจุดบนจอสำหรับ FX (มี fallback)
+  function fxScreenPos(el) {
+    const sp = worldToScreen(el);
+    if (sp && Number.isFinite(sp.x) && Number.isFinite(sp.y)) {
+      return sp;
+    }
+    // fallback: กลางจอหน่อย ๆ
+    return {
+      x: window.innerWidth / 2,
+      y: window.innerHeight * 0.55
+    };
+  }
+
   function judgeFromRT(rtMs) {
     if (rtMs == null || rtMs < 0) return 'Good';
+    // แบ่งตาม TARGET_LIFETIME
     const tPerfect = TARGET_LIFETIME * 0.35;
     const tGood    = TARGET_LIFETIME * 0.70;
     if (rtMs <= tPerfect) return 'Perfect';
     if (rtMs <= tGood)    return 'Good';
     if (rtMs <= TARGET_LIFETIME + 120) return 'Late';
     return 'Miss';
+  }
+
+  function emitJudge(label) {
+    emit('hha:judge', { label });
   }
 
   // ---------- Fever ----------
@@ -303,7 +317,7 @@ export const GameEngine = (function () {
         scoreFinal: score,
         comboMax,
         misses,
-        gameVersion: 'GoodJunkVR-2025-12-07',
+        gameVersion: 'GoodJunkVR-2025-12-07-FX',
         reason: reason || 'normal'
       });
     } catch (err) {
@@ -325,9 +339,9 @@ export const GameEngine = (function () {
 
     const root = document.createElement('a-entity');
 
-    // กระจายเป้าเต็มพื้นที่จอ (กว้าง/สูง)
-    const x = -1.4 + Math.random() * 2.8;   // [-1.4, 1.4]
-    const y = 1.7  + Math.random() * 1.3;   // [1.7, 3.0]
+    // กล่องกลางจอ (ยกขึ้นสูงหน่อย)
+    const x = -1.3 + Math.random() * 2.6;   // [-1.3, 1.3]
+    const y = 2.0  + Math.random() * 1.0;   // [2.0, 3.0]
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
@@ -367,7 +381,6 @@ export const GameEngine = (function () {
       alphaTest: 0.01
     });
 
-    // เป้าให้ raycaster จับ
     circle.setAttribute('data-hha-tgt', '1');
     sprite.setAttribute('data-hha-tgt', '1');
 
@@ -389,44 +402,6 @@ export const GameEngine = (function () {
     return root;
   }
 
-  // ---------- FX helper ----------
-  function playHitFx(screenPos, judgment, scoreDelta, kind) {
-    if (!Particles || !screenPos) return;
-
-    const j = String(judgment || '').toUpperCase();
-    let color = '#22c55e';
-    if (kind === 'junk') color = '#f97316';
-
-    if (j === 'PERFECT') color = '#4ade80';
-    else if (j === 'LATE') color = '#facc15';
-    else if (j === 'MISS') color = '#f97316';
-    else if (j === 'BONUS') color = '#facc15';
-    else if (j === 'BLOCK') color = '#60a5fa';
-
-    Particles.burstAt(screenPos.x, screenPos.y, {
-      color,
-      count: kind === 'good' ? 14 : 10,
-      radius: kind === 'good' ? 60 : 50
-    });
-
-    // เด้งคะแนน (ถ้ามีเปลี่ยน)
-    if (scoreDelta) {
-      const txt = scoreDelta > 0 ? `+${scoreDelta}` : String(scoreDelta);
-      Particles.scorePop(screenPos.x, screenPos.y, txt, {
-        kind: 'score'
-      });
-    }
-
-    // เด้งคำตัดสิน (GOOD / PERFECT / MISS / LATE / BONUS / BLOCK)
-    if (j) {
-      const label = j === 'BONUS' ? 'BONUS' : j;
-      Particles.scorePop(screenPos.x, screenPos.y, label, {
-        kind: 'judge',
-        judgment: label
-      });
-    }
-  }
-
   // ---------- ยิงโดน ----------
   function onHit(el) {
     if (!running || !el) return;
@@ -437,7 +412,9 @@ export const GameEngine = (function () {
     const spawnAt = Number(el.dataset.spawnAt || '0') || 0;
     const rtMs = spawnAt ? nowMs() - spawnAt : null;
 
-    const screenPos = worldToScreen(el);
+    const screenPos = fxScreenPos(el);
+    const sx = screenPos.x;
+    const sy = screenPos.y;
 
     removeTarget(el);
 
@@ -452,7 +429,17 @@ export const GameEngine = (function () {
       emitScore();
       emitJudge('Shield');
 
-      playHitFx(screenPos, 'BLOCK', 0, kind);
+      if (Particles) {
+        Particles.burstAt(sx, sy, {
+          color: '#60a5fa',
+          count: 10,
+          radius: 40
+        });
+        Particles.scorePop(sx, sy, 'Shield', {
+          kind: 'judge',
+          judgment: 'BLOCK'
+        });
+      }
 
       emit('hha:event', {
         sessionId,
@@ -477,7 +464,20 @@ export const GameEngine = (function () {
       emitJudge('Bonus');
       emitScore();
 
-      playHitFx(screenPos, 'BONUS', scoreDelta, kind);
+      if (Particles) {
+        Particles.burstAt(sx, sy, {
+          color: '#facc15',
+          count: 16,
+          radius: 70
+        });
+        Particles.scorePop(sx, sy, '+' + scoreDelta, {
+          kind: 'score'
+        });
+        Particles.scorePop(sx, sy, 'BONUS', {
+          kind: 'judge',
+          judgment: 'GOOD'
+        });
+      }
 
       emit('hha:event', {
         sessionId,
@@ -503,7 +503,20 @@ export const GameEngine = (function () {
       emitJudge('Bonus');
       emitScore();
 
-      playHitFx(screenPos, 'BONUS', scoreDelta, kind);
+      if (Particles) {
+        Particles.burstAt(sx, sy, {
+          color: '#38bdf8',
+          count: 16,
+          radius: 70
+        });
+        Particles.scorePop(sx, sy, '+' + scoreDelta, {
+          kind: 'score'
+        });
+        Particles.scorePop(sx, sy, 'BONUS', {
+          kind: 'judge',
+          judgment: 'GOOD'
+        });
+      }
 
       emit('hha:event', {
         sessionId,
@@ -551,7 +564,40 @@ export const GameEngine = (function () {
       updateGoalFromGoodHit();
       updateMiniFromCombo();
     } else {
-      // junk — treat as Miss (เว้นกรณีมี shield ซึ่ง return ไปแล้ว)
+      // junk — treat as Miss
+      if (shieldCount > 0) {
+        shieldCount -= 1;
+        if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
+        coach('โชคดีมีเกราะกันไว้ ของขยะไม่ทำร้ายคะแนนรอบนี้ 🛡️');
+        emitScore();
+        emitJudge('Guard');
+
+        if (Particles) {
+          Particles.burstAt(sx, sy, {
+            color: '#60a5fa',
+            count: 10,
+            radius: 40
+          });
+          Particles.scorePop(sx, sy, 'BLOCK', {
+            kind: 'judge',
+            judgment: 'BLOCK'
+          });
+        }
+
+        emit('hha:event', {
+          sessionId,
+          type: 'hit-junk-guard',
+          emoji,
+          lane: 0,
+          rtMs,
+          totalScore: score,
+          combo,
+          isGood: false,
+          itemType: 'junk'
+        });
+        return;
+      }
+
       junkHit++;
       const before = score;
       score = Math.max(0, score - 8);
@@ -578,8 +624,36 @@ export const GameEngine = (function () {
     emitScore();
     emitJudge(judgment);
 
-    // FX ตรงเป้า
-    playHitFx(screenPos, judgment, scoreDelta, kind);
+    // ---------- FX: เป้าแตก + คะแนน + คำตัดสิน ----------
+    if (Particles) {
+      const jUpper = String(judgment || '').toUpperCase();
+
+      let color = '#22c55e';
+      if (jUpper === 'PERFECT') color = '#4ade80';
+      else if (jUpper === 'LATE') color = '#facc15';
+      else if (jUpper === 'MISS') color = '#f97316';
+
+      const goodFlag = kind === 'good';
+
+      Particles.burstAt(sx, sy, {
+        color,
+        count: goodFlag ? 14 : 10,
+        radius: goodFlag ? 60 : 50
+      });
+
+      if (scoreDelta) {
+        const text =
+          scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
+        Particles.scorePop(sx, sy, text, {
+          kind: 'score'
+        });
+      }
+
+      Particles.scorePop(sx, sy, jUpper, {
+        kind: 'judge',
+        judgment: jUpper
+      });
+    }
 
     // event log
     emit('hha:event', {
@@ -605,7 +679,9 @@ export const GameEngine = (function () {
     const spawnAt = Number(el.dataset.spawnAt || '0') || 0;
     const rtMs = spawnAt ? nowMs() - spawnAt : null;
 
-    const screenPos = worldToScreen(el);
+    const screenPos = fxScreenPos(el);
+    const sx = screenPos.x;
+    const sy = screenPos.y;
 
     removeTarget(el);
 
@@ -628,7 +704,17 @@ export const GameEngine = (function () {
       pushQuest('');
       emitJudge('Miss');
 
-      playHitFx(screenPos, 'MISS', 0, kind);
+      if (Particles) {
+        Particles.burstAt(sx, sy, {
+          color: '#f97316',
+          count: 10,
+          radius: 45
+        });
+        Particles.scorePop(sx, sy, 'MISS', {
+          kind: 'judge',
+          judgment: 'MISS'
+        });
+      }
 
       emit('hha:event', {
         sessionId,
