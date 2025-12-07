@@ -1,181 +1,195 @@
 // === /herohealth/vr/quest-hud-vr.js ===
-// HUD กลาง: คะแนน + COMBO + MISS + Goal 2 อัน + Mini quest 3 อัน
-// ใช้ร่วม GoodJunk / Hydration / Groups
-//
-// ฟัง event:
-//   - hha:score  → score / combo / miss / timeSec
-//   - hha:time   → นับเวลาถอยหลัง (sec)
-//   - quest:update → goal + mini + hint
+// HUD + Quest panel สำหรับโหมด VR (ใช้กับ Hydration เป็นหลัก)
 
 'use strict';
 
-const ROOT = window;
+const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
-// สร้าง HUD ด้านขวาบน
-function createHud() {
-  if (document.getElementById('hha-quest-hud')) return;
+// ---------- สร้าง DOM พื้นฐาน ----------
+function createEl(tag, cls, parent) {
+  const el = ROOT.document.createElement(tag);
+  if (cls) el.className = cls;
+  if (parent) parent.appendChild(el);
+  return el;
+}
 
-  const hud = document.createElement('div');
-  hud.id = 'hha-quest-hud';
-  hud.className = 'hha-quest-hud';
+// การ์ดหลักด้านขวาบน (ใต้ water bar)
+const questPanel = createEl('div', 'hha-quest-panel hha-quest-panel--hydration');
+const card       = createEl('div', 'hha-quest-card', questPanel);
 
-  hud.innerHTML = `
-    <div class="hha-hud-top">
-      <div class="hha-hud-scoreblock">
-        <div class="hha-hud-score-row">
-          <span class="hha-hud-label">คะแนน</span>
-          <span class="hha-hud-score" id="hud-score-val">0</span>
-        </div>
-        <div class="hha-hud-subrow">
-          <span id="hud-combo-val">COMBO x0</span>
-          <span id="hud-miss-val">MISS 0</span>
-        </div>
-      </div>
-      <div class="hha-hud-time" id="hud-time-val">60s</div>
-    </div>
+// header
+const headerRow  = createEl('div', 'hha-quest-header', card);
+const titleEl    = createEl('div', 'hha-quest-title', headerRow);
+titleEl.textContent = 'HYDRATION';
 
-    <div class="hha-hud-quest-wrap">
-      <div class="hha-hud-quest-col">
-        <div class="hha-hud-quest-title">Goal</div>
-        <ul id="hud-goal-list" class="hha-hud-quest-list"></ul>
-      </div>
-      <div class="hha-hud-quest-col">
-        <div class="hha-hud-quest-title">Mini quest</div>
-        <ul id="hud-mini-list" class="hha-hud-quest-list"></ul>
-      </div>
-    </div>
+const modeEl     = createEl('div', 'hha-quest-mode', headerRow);
+modeEl.textContent = 'NORMAL · GREEN';
 
-    <div class="hha-hud-hint" id="hud-hint"></div>
+// score row
+const statRow    = createEl('div', 'hha-quest-stat-row', card);
+const leftStat   = createEl('div', 'hha-quest-stat-left', statRow);
+const rightStat  = createEl('div', 'hha-quest-stat-right', statRow);
+
+const scoreLine  = createEl('div', 'hha-quest-score', leftStat);
+const timeLine   = createEl('div', 'hha-quest-time', leftStat);
+const comboLine  = createEl('div', 'hha-quest-combo', rightStat);
+const missLine   = createEl('div', 'hha-quest-miss', rightStat);
+
+// goals
+const goalsWrap  = createEl('div', 'hha-quest-block', card);
+const goalsTitle = createEl('div', 'hha-quest-block-title', goalsWrap);
+goalsTitle.textContent = 'Goal';
+const goalsList  = createEl('ul', 'hha-quest-list', goalsWrap);
+
+// minis
+const minisWrap  = createEl('div', 'hha-quest-block', card);
+const minisTitle = createEl('div', 'hha-quest-block-title', minisWrap);
+minisTitle.textContent = 'Mini quest';
+const minisList  = createEl('ul', 'hha-quest-list', minisWrap);
+
+// โซนน้ำ (แสดงสั้น ๆ แค่บรรทัดเดียวด้านล่าง)
+const zoneLine   = createEl('div', 'hha-quest-zone', card);
+zoneLine.textContent = 'โซนน้ำ: -';
+
+// ติด panel เข้ากับ body
+ROOT.document.body.appendChild(questPanel);
+
+// ---------- ฟังก์ชันช่วยแสดงรายการ Goal / Mini ----------
+function renderQuestList(listEl, items, maxItems) {
+  listEl.innerHTML = '';
+
+  if (!items || !items.length) {
+    const li = createEl('li', 'hha-quest-item hha-quest-empty', listEl);
+    li.textContent = 'ยังไม่มีภารกิจในรอบนี้';
+    return;
+  }
+
+  const n = Math.min(items.length, maxItems);
+  for (let i = 0; i < n; i++) {
+    const q = items[i];
+    const li = createEl('li', 'hha-quest-item', listEl);
+
+    const dot = createEl('span', 'hha-quest-dot', li);
+    dot.textContent = q.done ? '✔' : '•';
+
+    const textWrap = createEl('span', 'hha-quest-text', li);
+    textWrap.textContent = q.label || q.id || '(ไม่ระบุ)';
+
+    if (typeof q.prog === 'number' && typeof q.target === 'number' && q.target > 0) {
+      const prog = createEl('span', 'hha-quest-prog', li);
+      prog.textContent = `${q.prog} / ${q.target}`;
+    }
+
+    if (q.done) {
+      li.classList.add('is-done');
+    } else if (q.isMiss) {
+      li.classList.add('is-miss-quest');
+    }
+  }
+}
+
+// ---------- Summary overlay ตอนจบเกม ----------
+let summaryWrap = null;
+
+function showSummary(detail) {
+  if (summaryWrap) summaryWrap.remove();
+
+  summaryWrap = createEl('div', 'hha-summary-overlay');
+  const box = createEl('div', 'hha-summary-box', summaryWrap);
+
+  const title = createEl('div', 'hha-summary-title', box);
+  title.textContent = `Hydration (${detail.difficulty?.toUpperCase?.() || 'NORMAL'})`;
+
+  const scoreRow = createEl('div', 'hha-summary-row', box);
+  scoreRow.innerHTML = `
+    <span>คะแนนรวม</span>
+    <span>${detail.score ?? 0}</span>
   `;
 
-  document.body.appendChild(hud);
-}
-
-// แปลง quest 1 อันเป็น <li> สวย ๆ
-function fmtQuestItem(q, index) {
-  if (!q) return '';
-  const done   = !!q.done;
-  const prog   = Number(q.prog || 0);
-  const target = Number(q.target || 0);
-
-  let progressText = '';
-  if (target > 0) {
-    progressText = `${Math.min(prog, target)} / ${target}`;
-  } else {
-    progressText = done ? '✓ สำเร็จแล้ว' : 'กำลังทำ...';
-  }
-
-  const statusClass = done ? 'done' : '';
-  const idxLabel    = (index != null ? (index + 1) + '.' : '');
-
-  return `
-    <li class="hha-quest-item ${statusClass}">
-      <div class="hha-quest-main">
-        <span class="hha-quest-index">${idxLabel}</span>
-        <span class="hha-quest-label">${q.label || ''}</span>
-      </div>
-      <div class="hha-quest-progress">${progressText}</div>
-    </li>
+  const comboRow = createEl('div', 'hha-summary-row', box);
+  comboRow.innerHTML = `
+    <span>คอมโบสูงสุด</span>
+    <span>${detail.comboMax ?? 0}</span>
   `;
+
+  const missRow = createEl('div', 'hha-summary-row', box);
+  missRow.innerHTML = `
+    <span>พลาด</span>
+    <span>${detail.misses ?? 0}</span>
+  `;
+
+  const questRow1 = createEl('div', 'hha-summary-row', box);
+  questRow1.innerHTML = `
+    <span>Goals</span>
+    <span>${detail.goalsCleared ?? 0} / ${detail.goalsTotal ?? 0}</span>
+  `;
+
+  const questRow2 = createEl('div', 'hha-summary-row', box);
+  questRow2.innerHTML = `
+    <span>Mini quests</span>
+    <span>${detail.questsCleared ?? 0} / ${detail.questsTotal ?? 0}</span>
+  `;
+
+  const zoneRow = createEl('div', 'hha-summary-row', box);
+  zoneRow.innerHTML = `
+    <span>โซนน้ำตอนจบ</span>
+    <span>${detail.waterZoneEnd || '-'} (${detail.waterEnd ?? 0}%)</span>
+  `;
+
+  const btnRow = createEl('div', 'hha-summary-btn-row', box);
+  const againBtn = createEl('button', 'hha-btn hha-btn-primary', btnRow);
+  againBtn.textContent = 'เล่นอีกครั้ง';
+  const hubBtn = createEl('button', 'hha-btn', btnRow);
+  hubBtn.textContent = 'กลับ Hub';
+
+  againBtn.addEventListener('click', () => {
+    // reload หน้านี้ พร้อมพารามิเตอร์เดิม
+    ROOT.location.reload();
+  });
+
+  hubBtn.addEventListener('click', () => {
+    // กลับหน้า hub (แก้ path ตามโปรเจ็กต์จริง)
+    ROOT.location.href = '../hub.html';
+  });
+
+  ROOT.document.body.appendChild(summaryWrap);
 }
 
-function setupListeners() {
-  let scoreEl, comboEl, missEl, timeEl, goalListEl, miniListEl, hintEl;
+// ---------- Listener จากเกม ----------
+function onScore(ev) {
+  const d = ev.detail || {};
+  // ใช้กับ Hydration เท่านั้น
+  if (d.modeKey && d.modeKey !== 'hydration-vr') return;
 
-  function ensureRefs() {
-    if (!scoreEl) {
-      scoreEl    = document.getElementById('hud-score-val');
-      comboEl    = document.getElementById('hud-combo-val');
-      missEl     = document.getElementById('hud-miss-val');
-      timeEl     = document.getElementById('hud-time-val');
-      goalListEl = document.getElementById('hud-goal-list');
-      miniListEl = document.getElementById('hud-mini-list');
-      hintEl     = document.getElementById('hud-hint');
-    }
-  }
+  // header
+  const diffLabel = (d.difficulty || 'normal').toUpperCase();
+  const zoneLabel = d.waterZone || 'UNKNOWN';
+  modeEl.textContent = `${diffLabel} · ${zoneLabel}`;
 
-  // -------- HUD คะแนน / COMBO / MISS / เวลา จาก hha:score --------
-  ROOT.addEventListener('hha:score', (ev) => {
-    ensureRefs();
-    const d = ev.detail || {};
-    if (!d) return;
+  // score/time/combo/miss
+  scoreLine.textContent = `Score ${d.score ?? 0}`;
+  const t = d.timeSec ?? 0;
+  const mm = Math.floor(t / 60);
+  const ss = t % 60;
+  const tLabel = mm > 0 ? `${mm}m ${ss}s` : `${ss}s`;
+  timeLine.textContent  = `Time ${tLabel}`;
 
-    if (scoreEl && typeof d.score === 'number') {
-      scoreEl.textContent = d.score.toString();
-    }
-    if (comboEl && typeof d.combo === 'number') {
-      comboEl.textContent = 'COMBO x' + d.combo;
-    }
-    if (missEl && (typeof d.misses === 'number' || typeof d.miss === 'number')) {
-      const m = (typeof d.misses === 'number') ? d.misses : d.miss;
-      missEl.textContent = 'MISS ' + m;
-    }
-    if (timeEl && typeof d.timeSec === 'number') {
-      const t = Math.max(0, Math.round(d.timeSec));
-      timeEl.textContent = t + 's';
-    }
-  });
+  comboLine.textContent = `Combo x${d.combo ?? 0}`;
+  missLine.textContent  = `Miss ${d.misses ?? d.miss ?? 0}`;
 
-  // -------- เวลา countdown จาก hha:time (sec) --------
-  ROOT.addEventListener('hha:time', (ev) => {
-    ensureRefs();
-    const sec = ev.detail && typeof ev.detail.sec === 'number'
-      ? ev.detail.sec
-      : (ev.detail?.sec | 0);
-    if (timeEl && sec >= 0) {
-      timeEl.textContent = sec + 's';
-    }
-  });
+  // zone
+  zoneLine.textContent = `โซนน้ำ: ${zoneLabel.toUpperCase()} (${d.waterPct ?? 0}%)`;
 
-  // -------- Goal + Mini จาก quest:update --------
-  ROOT.addEventListener('quest:update', (ev) => {
-    ensureRefs();
-    const d = ev.detail || {};
-
-    const goalsAll = d.goalsAll || (d.goal ? [d.goal] : []);
-    const minisAll = d.minisAll || (d.mini ? [d.mini] : []);
-
-    // Goal: แสดงทีละ 2 อัน
-    if (goalListEl) {
-      if (!goalsAll.length) {
-        goalListEl.innerHTML =
-          `<li class="hha-quest-empty">ยังไม่มี Goal ในรอบนี้</li>`;
-      } else {
-        goalListEl.innerHTML = goalsAll
-          .slice(0, 2)
-          .map((g, idx) => fmtQuestItem(g, idx))
-          .join('');
-      }
-    }
-
-    // Mini quest: แสดงทีละ 3 อัน
-    if (miniListEl) {
-      if (!minisAll.length) {
-        miniListEl.innerHTML =
-          `<li class="hha-quest-empty">ยังไม่มี Mini quest</li>`;
-      } else {
-        miniListEl.innerHTML = minisAll
-          .slice(0, 3)
-          .map((m, idx) => fmtQuestItem(m, idx))
-          .join('');
-      }
-    }
-
-    if (hintEl && typeof d.hint === 'string') {
-      hintEl.textContent = d.hint;
-    }
-  });
+  // goals / minis (รับมาจาก hydration.safe.js)
+  renderQuestList(goalsList, d.goals || [], 2);
+  renderQuestList(minisList, d.minis || [], 3);
 }
 
-// auto-init
-(function init() {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      createHud();
-      setupListeners();
-    });
-  } else {
-    createHud();
-    setupListeners();
-  }
-})();
+function onEnd(ev) {
+  const d = ev.detail || {};
+  if ((d.modeLabel || '').toLowerCase() !== 'hydration') return;
+  showSummary(d);
+}
+
+ROOT.addEventListener('hha:score', onScore);
+ROOT.addEventListener('hha:end', onEnd);
