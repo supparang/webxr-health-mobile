@@ -1,252 +1,378 @@
 // === /herohealth/plate/plate.quest.js ===
-// Mission / Quest Deck สำหรับ Balanced Plate VR
-// ใช้ร่วมกับ plate.safe.js
-//
-// API ที่ plate.safe.js เรียกใช้:
-//   - export const QUOTA = { easy: [...], normal: [...], hard: [...] }
-//   - export function createPlateQuest(diff) -> deck {
-//        deck.stats        (object)
-//        deck.updateScore(score)
-//        deck.updateCombo(combo)
-//        deck.getProgress(kind: 'goals' | 'mini')
-//        deck.drawGoals(n)
-//        deck.draw3()      // วาด mini quest 3 อัน
-//        deck.onGood()
-//        deck.onJunk()
-//        deck.second()
-//     }
+// Quest deck สำหรับ Balanced Plate VR
+// - เลือก Goal ครั้งละ 2 ภารกิจ
+// - เลือก Mini Quest ครั้งละ 3 ภารกิจ
+// - เงื่อนไขแตกต่างตามระดับความยาก (easy / normal / hard)
 
+'use strict';
+
+/**
+ * QUOTA = โควตาอาหารใน "หนึ่งจาน" ตามระดับความยาก
+ * plate.safe.js ใช้ค่านี้เพื่อตัดสินว่า จานนี้ครบหมู่รึยัง
+ */
 export const QUOTA = {
-  // [หมู่ 1, หมู่ 2, หมู่ 3, หมู่ 4, หมู่ 5]
-  // ปรับตามระดับความยาก: ยิ่งยาก ต้องเก็บผัก/โปรตีนมากขึ้นใน "หนึ่งจาน"
-  easy:   [1, 1, 1, 1, 1],  // จานพื้นฐานครบ 5 หมู่
-  normal: [1, 1, 2, 1, 1],  // ผักเพิ่มขึ้น
-  hard:   [1, 2, 2, 1, 1]   // โปรตีน + ผักมากขึ้น
+  easy:   [1, 1, 1, 1, 1],  // อย่างน้อยหมู่ละ 1 ชิ้น
+  normal: [1, 1, 2, 2, 1],  // ผัก/ผลไม้มากขึ้น
+  hard:   [2, 2, 2, 2, 1]   // ทุกหมู่ต้องเยอะขึ้น
 };
 
-// สร้าง deck สำหรับโหมด plate ตาม diff
-export function createPlateQuest(diff = 'normal') {
-  diff = String(diff || 'normal').toLowerCase();
-  if (!['easy', 'normal', 'hard'].includes(diff)) diff = 'normal';
+// ---------- Helper ----------
 
-  // ===== Stats กลางที่ engine จะมาอัปเดต =====
+function cloneStats(s = {}) {
+  return {
+    score:      s.score      || 0,
+    combo:      s.combo      || 0,
+    misses:     s.misses     || 0,
+    platesDone: s.platesDone || 0,
+    gCounts: Array.isArray(s.gCounts) ? [...s.gCounts] : [0, 0, 0, 0, 0],
+    star:   s.star   || 0,
+    diamond:s.diamond|| 0
+  };
+}
+
+function pickRandom(pool, n) {
+  const src = [...pool];
+  const out = [];
+  while (src.length && out.length < n) {
+    const idx = Math.floor(Math.random() * src.length);
+    out.push(src.splice(idx, 1)[0]);
+  }
+  if (!out.length && pool.length) {
+    out.push(pool[0]); // กันกรณี pool ว่างผิดปกติ
+  }
+  return out;
+}
+
+function wrapQuest(raw, type) {
+  return {
+    ...raw,
+    type,
+    done: false,
+    status: 'active',   // 'active' | 'done'
+    progress: 0,
+    target: raw.target || 1,
+    base: null          // baseline stats ตอนเริ่มภารกิจ
+  };
+}
+
+// ---------- Quest Pools ----------
+
+/**
+ * GOAL = ภารกิจระดับ "เป้าหมายใหญ่" ของเกม
+ * ใช้ตัวแปรรวม เช่น platesDone, misses
+ */
+const GOAL_POOL = {
+  easy: [
+    {
+      id: 'g_easy_plate1',
+      text: 'เสิร์ฟจานสมดุลให้ได้อย่างน้อย 1 จาน',
+      target: 1,
+      check(stats, base) {
+        return (stats.platesDone - (base.platesDone || 0)) >= 1;
+      }
+    },
+    {
+      id: 'g_easy_plate2',
+      text: 'เสิร์ฟจานสมดุลให้ได้อย่างน้อย 2 จาน',
+      target: 2,
+      check(stats, base) {
+        return (stats.platesDone - (base.platesDone || 0)) >= 2;
+      }
+    },
+    {
+      id: 'g_easy_allgroups',
+      text: 'เก็บอาหารให้ครบทั้ง 5 หมู่ อย่างน้อยหมู่ละ 1 ชิ้น',
+      target: 1,
+      check(stats, base) {
+        const cur = stats.gCounts || [];
+        const b   = base.gCounts || [];
+        for (let i = 0; i < 5; i++) {
+          const diff = (cur[i] || 0) - (b[i] || 0);
+          if (diff < 1) return false;
+        }
+        return true;
+      }
+    }
+  ],
+  normal: [
+    {
+      id: 'g_normal_plate2',
+      text: 'เสิร์ฟจานสมดุลให้ได้ 2 จาน',
+      target: 2,
+      check(stats, base) {
+        return (stats.platesDone - (base.platesDone || 0)) >= 2;
+      }
+    },
+    {
+      id: 'g_normal_plate3',
+      text: 'เสิร์ฟจานสมดุลให้ได้ 3 จาน',
+      target: 3,
+      check(stats, base) {
+        return (stats.platesDone - (base.platesDone || 0)) >= 3;
+      }
+    },
+    {
+      id: 'g_normal_lowmiss',
+      text: 'ในช่วงภารกิจนี้ แตะของไม่ดี (MISS) ได้ไม่เกิน 2 ครั้ง',
+      target: 1,
+      check(stats, base) {
+        const missDiff = (stats.misses - (base.misses || 0));
+        // ให้ถือว่าสำเร็จเมื่อเล่นไปอย่างน้อย 1 จาน และ miss ไม่เกิน 2
+        return missDiff <= 2 && (stats.platesDone - (base.platesDone || 0)) >= 1;
+      }
+    }
+  ],
+  hard: [
+    {
+      id: 'g_hard_plate3',
+      text: 'เสิร์ฟจานสมดุลให้ได้ 3 จาน',
+      target: 3,
+      check(stats, base) {
+        return (stats.platesDone - (base.platesDone || 0)) >= 3;
+      }
+    },
+    {
+      id: 'g_hard_plate4',
+      text: 'เสิร์ฟจานสมดุลให้ได้ 4 จาน',
+      target: 4,
+      check(stats, base) {
+        return (stats.platesDone - (base.platesDone || 0)) >= 4;
+      }
+    },
+    {
+      id: 'g_hard_combo',
+      text: 'ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 8 ครั้งในช่วงภารกิจ',
+      target: 1,
+      check(stats) {
+        return stats.combo >= 8;
+      }
+    }
+  ]
+};
+
+/**
+ * MINI QUEST = ภารกิจย่อย เน้นหมู่ใดหมู่หนึ่ง / พฤติกรรมเฉพาะ
+ */
+const MINI_POOL = {
+  easy: [
+    {
+      id: 'm_easy_g3_veg2',
+      text: 'เก็บผัก (หมู่ 3) ให้ครบ 2 ชิ้น',
+      target: 2,
+      check(stats, base) {
+        const cur = stats.gCounts?.[2] || 0;
+        const b   = base.gCounts?.[2] || 0;
+        return (cur - b) >= 2;
+      }
+    },
+    {
+      id: 'm_easy_g4_fruit2',
+      text: 'เก็บผลไม้ (หมู่ 4) ให้ครบ 2 ชิ้น',
+      target: 2,
+      check(stats, base) {
+        const cur = stats.gCounts?.[3] || 0;
+        const b   = base.gCounts?.[3] || 0;
+        return (cur - b) >= 2;
+      }
+    },
+    {
+      id: 'm_easy_g2_protein2',
+      text: 'เก็บโปรตีน (หมู่ 2) ให้ครบ 2 ชิ้น',
+      target: 2,
+      check(stats, base) {
+        const cur = stats.gCounts?.[1] || 0;
+        const b   = base.gCounts?.[1] || 0;
+        return (cur - b) >= 2;
+      }
+    },
+    {
+      id: 'm_easy_nosweet',
+      text: 'พยายามไม่แตะของหวาน/ของทอดเกิน 1 ครั้งในระหว่างภารกิจ',
+      target: 1,
+      check(stats, base) {
+        const missDiff = (stats.misses - (base.misses || 0));
+        return missDiff <= 1;
+      }
+    }
+  ],
+  normal: [
+    {
+      id: 'm_normal_g3_veg3',
+      text: 'เก็บผัก (หมู่ 3) ให้ครบ 3 ชิ้น',
+      target: 3,
+      check(stats, base) {
+        const cur = stats.gCounts?.[2] || 0;
+        const b   = base.gCounts?.[2] || 0;
+        return (cur - b) >= 3;
+      }
+    },
+    {
+      id: 'm_normal_g4_fruit3',
+      text: 'เก็บผลไม้ (หมู่ 4) ให้ครบ 3 ชิ้น',
+      target: 3,
+      check(stats, base) {
+        const cur = stats.gCounts?.[3] || 0;
+        const b   = base.gCounts?.[3] || 0;
+        return (cur - b) >= 3;
+      }
+    },
+    {
+      id: 'm_normal_mix',
+      text: 'เก็บอาหารอย่างน้อย 1 ชิ้นจากหมู่ 1, 2, 3, 4 ภายในภารกิจนี้',
+      target: 1,
+      check(stats, base) {
+        const cur = stats.gCounts || [];
+        const b   = base.gCounts || [];
+        for (let i = 0; i < 4; i++) {
+          const diff = (cur[i] || 0) - (b[i] || 0);
+          if (diff < 1) return false;
+        }
+        return true;
+      }
+    },
+    {
+      id: 'm_normal_combo5',
+      text: 'ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 5 ครั้ง',
+      target: 1,
+      check(stats) {
+        return stats.combo >= 5;
+      }
+    }
+  ],
+  hard: [
+    {
+      id: 'm_hard_g3_veg4',
+      text: 'เก็บผัก (หมู่ 3) ให้ครบ 4 ชิ้น',
+      target: 4,
+      check(stats, base) {
+        const cur = stats.gCounts?.[2] || 0;
+        const b   = base.gCounts?.[2] || 0;
+        return (cur - b) >= 4;
+      }
+    },
+    {
+      id: 'm_hard_g4_fruit4',
+      text: 'เก็บผลไม้ (หมู่ 4) ให้ครบ 4 ชิ้น',
+      target: 4,
+      check(stats, base) {
+        const cur = stats.gCounts?.[3] || 0;
+        const b   = base.gCounts?.[3] || 0;
+        return (cur - b) >= 4;
+      }
+    },
+    {
+      id: 'm_hard_lowmiss',
+      text: 'ระหว่างภารกิจนี้แตะของไม่ดี (MISS) ไม่เกิน 1 ครั้ง',
+      target: 1,
+      check(stats, base) {
+        const missDiff = (stats.misses - (base.misses || 0));
+        return missDiff <= 1;
+      }
+    },
+    {
+      id: 'm_hard_combo7',
+      text: 'ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 7 ครั้ง',
+      target: 1,
+      check(stats) {
+        return stats.combo >= 7;
+      }
+    }
+  ]
+};
+
+// ---------- Main factory ----------
+
+export function createPlateQuest(diffKey = 'normal') {
+  const key = (diffKey === 'easy' || diffKey === 'hard' || diffKey === 'normal')
+    ? diffKey
+    : 'normal';
+
   const stats = {
     score: 0,
     combo: 0,
-    gCounts: [0, 0, 0, 0, 0], // รวมทั้งเกม หมู่ 1–5
+    misses: 0,
+    platesDone: 0,
+    gCounts: [0, 0, 0, 0, 0],
     star: 0,
-    diamond: 0,
-    goodHits: 0,
-    junkHits: 0,
-    timeSec: 0
+    diamond: 0
   };
-
-  // ===== Template ของ Goal (เป้าหมายใหญ่) =====
-  // ใช้ check(stats) -> true แปลว่า quest นี้สำเร็จ
-  const goalPool = [
-    {
-      id: 'cover_all_groups',
-      type: 'goal',
-      level: 'all',
-      text: 'เก็บอาหารให้ครบทั้ง 5 หมู่ในเกมนี้',
-      check(s) {
-        return s.gCounts.filter(v => v > 0).length >= 5;
-      }
-    },
-    {
-      id: 'veg_focus',
-      type: 'goal',
-      level: 'normal+',
-      text: 'เก็บอาหารหมู่ผัก (หมู่ 3) อย่างน้อย 5 ชิ้นรวมทั้งเกม',
-      check(s) {
-        return (s.gCounts[2] || 0) >= 5;
-      }
-    },
-    {
-      id: 'fruit_focus',
-      type: 'goal',
-      level: 'normal+',
-      text: 'เก็บอาหารหมู่ผลไม้ (หมู่ 4) อย่างน้อย 4 ชิ้นรวมทั้งเกม',
-      check(s) {
-        return (s.gCounts[3] || 0) >= 4;
-      }
-    },
-    {
-      id: 'low_junk',
-      type: 'goal',
-      level: 'all',
-      text: 'รักษาจำนวนการแตะของไม่ดี (MISS) ไม่เกิน 3 ครั้งตลอดเกม',
-      check(s) {
-        return s.timeSec >= 20 && s.junkHits <= 3;
-      }
-    },
-    {
-      id: 'combo_goal',
-      type: 'goal',
-      level: 'hard',
-      text: 'ทำคอมโบให้ถึงอย่างน้อย 8 ครั้งในเกมนี้',
-      check(s) {
-        return s.combo >= 8;
-      }
-    }
-  ];
-
-  // ===== Template ของ Mini Quest (ภารกิจย่อย) =====
-  const miniPool = [
-    {
-      id: 'mini_veg2',
-      type: 'mini',
-      level: 'all',
-      text: 'เก็บผัก (หมู่ 3) ให้ครบ 2 ชิ้น',
-      check(s) {
-        return (s.gCounts[2] || 0) >= 2;
-      }
-    },
-    {
-      id: 'mini_fruit2',
-      type: 'mini',
-      level: 'all',
-      text: 'เก็บผลไม้ (หมู่ 4) ให้ครบ 2 ชิ้น',
-      check(s) {
-        return (s.gCounts[3] || 0) >= 2;
-      }
-    },
-    {
-      id: 'mini_protein2',
-      type: 'mini',
-      level: 'normal+',
-      text: 'เก็บอาหารหมู่โปรตีน (หมู่ 2) ให้ครบ 2 ชิ้น',
-      check(s) {
-        return (s.gCounts[1] || 0) >= 2;
-      }
-    },
-    {
-      id: 'mini_combo3',
-      type: 'mini',
-      level: 'all',
-      text: 'ทำคอมโบให้ถึงอย่างน้อย 3 ครั้ง',
-      check(s) {
-        return s.combo >= 3;
-      }
-    },
-    {
-      id: 'mini_low_junk1',
-      type: 'mini',
-      level: 'all',
-      text: 'ลองเล่นช่วงต้นเกมให้ MISS ไม่เกิน 1 ครั้งภายใน 20 วินาทีแรก',
-      check(s) {
-        return s.timeSec >= 20 && s.junkHits <= 1;
-      }
-    }
-  ];
-
-  // กรอง quest ตามระดับความยาก
-  function filterByDiff(pool) {
-    return pool.filter(q => {
-      if (q.level === 'all') return true;
-      if (q.level === 'normal+' && (diff === 'normal' || diff === 'hard')) return true;
-      if (q.level === 'hard' && diff === 'hard') return true;
-      return false;
-    });
-  }
-
-  const goalTemplates = filterByDiff(goalPool);
-  const miniTemplates = filterByDiff(miniPool);
-
-  // ===== ก้อนเก็บภารกิจที่ "ใช้งานอยู่" =====
-  let activeGoals = [];
-  let activeMinis = [];
-
-  function cloneQuest(tpl) {
-    return {
-      id: tpl.id,
-      type: tpl.type,
-      text: tpl.text,
-      level: tpl.level,
-      done: false,
-      check: tpl.check
-    };
-  }
-
-  function recomputeDone() {
-    for (const g of activeGoals) {
-      if (!g.done && typeof g.check === 'function') {
-        if (g.check(stats)) g.done = true;
-      }
-    }
-    for (const m of activeMinis) {
-      if (!m.done && typeof m.check === 'function') {
-        if (m.check(stats)) m.done = true;
-      }
-    }
-  }
-
-  // วาด Goal ใหม่ (แทนชุดเดิมทั้งหมด)
-  function drawGoals(n = 2) {
-    activeGoals = [];
-    if (!goalTemplates.length) return;
-    for (let i = 0; i < n; i++) {
-      const tpl = goalTemplates[i % goalTemplates.length];
-      activeGoals.push(cloneQuest(tpl));
-    }
-    recomputeDone();
-  }
-
-  // วาด Mini Quest 3 อัน
-  function draw3() {
-    const n = 3;
-    activeMinis = [];
-    if (!miniTemplates.length) return;
-    for (let i = 0; i < n; i++) {
-      const tpl = miniTemplates[i % miniTemplates.length];
-      activeMinis.push(cloneQuest(tpl));
-    }
-    recomputeDone();
-  }
 
   const deck = {
     stats,
+    goals: [],
+    minis: [],
 
-    updateScore(v) {
-      if (typeof v === 'number' && Number.isFinite(v)) {
-        stats.score = v;
-      }
-      recomputeDone();
+    // เลือก Goal ครั้งละ 2 ภารกิจ จาก pool ตามระดับ
+    drawGoals(n = 2) {
+      const pool = GOAL_POOL[key] || GOAL_POOL.normal;
+      this.goals = pickRandom(pool, n).map(q => wrapQuest(q, 'goal'));
+      return this.goals;
     },
 
-    updateCombo(v) {
-      if (typeof v === 'number' && Number.isFinite(v)) {
-        stats.combo = v;
-      }
-      recomputeDone();
+    // เลือก Mini Quest ครั้งละ 3 ภารกิจ จาก pool ตามระดับ
+    draw3() {
+      const pool = MINI_POOL[key] || MINI_POOL.normal;
+      this.minis = pickRandom(pool, 3).map(q => wrapQuest(q, 'mini'));
+      return this.minis;
     },
 
     getProgress(kind) {
-      if (kind === 'goals') return activeGoals;
-      if (kind === 'mini')  return activeMinis;
+      if (kind === 'goals') return this.goals;
+      if (kind === 'mini')  return this.minis;
       return [];
     },
 
-    drawGoals,
-    draw3,
+    updateScore(v) {
+      stats.score = Number(v) || 0;
+    },
+    updateCombo(v) {
+      stats.combo = Number(v) || 0;
+    },
 
+    // plate.safe.js จะอัปเดต stats.gCounts, stats.misses, stats.platesDone, star, diamond ให้เอง
     onGood() {
-      stats.goodHits++;
-      recomputeDone();
+      this._checkAll(false);
     },
-
     onJunk() {
-      stats.junkHits++;
-      recomputeDone();
+      this._checkAll(false);
+    },
+    second() {
+      this._checkAll(true);
     },
 
-    second() {
-      stats.timeSec++;
-      recomputeDone();
+    _checkAll(isTick) {
+      const all = [...this.goals, ...this.minis];
+      const cleared = [];
+
+      for (const q of all) {
+        if (q.done || typeof q.check !== 'function') continue;
+        if (!q.base) {
+          q.base = cloneStats(stats);  // เก็บ baseline ตอนเริ่มภารกิจ
+        }
+        if (q.check(stats, q.base, isTick)) {
+          q.done = true;
+          q.status = 'done';
+          q.progress = q.target || 1;
+          cleared.push(q);
+        }
+      }
+
+      // ถ้ามีภารกิจสำเร็จ แจ้ง HUD / coach ผ่าน event กลาง
+      if (cleared.length && typeof window !== 'undefined') {
+        try {
+          window.dispatchEvent(new CustomEvent('quest:cleared', {
+            detail: {
+              cleared,
+              goals: this.goals,
+              minis: this.minis
+            }
+          }));
+        } catch (err) {
+          console.warn('[PlateQuest] quest:cleared dispatch error', err);
+        }
+      }
     }
   };
 
   return deck;
 }
-
-export default { createPlateQuest, QUOTA };
