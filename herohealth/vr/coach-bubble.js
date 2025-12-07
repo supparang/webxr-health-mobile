@@ -1,193 +1,194 @@
 // === /herohealth/vr/coach-bubble.js ===
-// Coach bubble กลางล่างจอ – ฟัง hha:score / hha:quest / hha:end
-// รองรับโหมด Hydration (ใช้ hydration-coach-lines.js ถ้ามี)
+// โค้ชหยดน้ำ / โค้ชอาหาร นั่งมุมขวาล่าง + bubble ข้อความ
+// ฟัง event:  window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text:'...'}}))
+// ทุกครั้งที่พูด จะขยับซ้าย-ขวา (wiggle) มีอารมณ์ร่วม
 
 'use strict';
 
-import * as HydrationLines from '../hydration-vr/hydration-coach-lines.js';
+(function (global) {
+  const doc = global.document;
 
-const CoachBubble = (() => {
-  let wrap = null;
-  let emojiEl = null;
+  let root = null;
+  let avatarEl = null;
   let textEl = null;
+  let styleInjected = false;
+  let wiggleTimer = null;
 
-  let t = 0;
-  let baseX = 0.5;   // 0..1
-  let amp   = 0.18;  // ระยะส่ายซ้ายขวา
-  let fade  = 1;
+  function ensureStyle() {
+    if (styleInjected) return;
+    styleInjected = true;
 
-  let lastMode = '';
-  let lastQuest = null;
-  let lastScore = 0;
+    const st = doc.createElement('style');
+    st.id = 'hha-coach-style';
+    st.textContent = `
+      .hha-coach-wrap{
+        position:fixed;
+        right:12px;
+        bottom:86px;
+        z-index:650;
+        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
+        pointer-events:none;
+      }
+      .hha-coach-inner{
+        display:flex;
+        align-items:flex-end;
+        gap:8px;
+        transform-origin:50% 100%;
+        transition:transform .25s ease-out;
+      }
+      .hha-coach-avatar{
+        width:42px;
+        height:42px;
+        border-radius:999px;
+        background:radial-gradient(circle at 30% 20%,#e0f2fe,#0ea5e9);
+        box-shadow:0 10px 24px rgba(15,23,42,0.7);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:26px;
+      }
+      .hha-coach-bubble{
+        max-width:220px;
+        padding:10px 12px;
+        border-radius:26px;
+        background:rgba(15,23,42,0.95);
+        color:#e5e7eb;
+        font-size:13px;
+        line-height:1.4;
+        box-shadow:0 12px 32px rgba(15,23,42,0.85);
+      }
+      .hha-coach-bubble::before{
+        content:'';
+        position:absolute;
+        right:54px;
+        bottom:26px;
+        width:14px;
+        height:14px;
+        background:rgba(15,23,42,0.95);
+        transform:rotate(45deg);
+        border-radius:3px;
+      }
+      .hha-coach-text{
+        white-space:pre-line;
+      }
 
-  function ensureDom() {
-    if (wrap && emojiEl && textEl) return;
+      /* wiggle เวลาโค้ชพูด */
+      @keyframes hhaCoachWiggle {
+        0%   { transform:translateX(0)  rotate(0deg); }
+        20%  { transform:translateX(-6px) rotate(-3deg); }
+        40%  { transform:translateX(5px) rotate(2deg); }
+        60%  { transform:translateX(-4px) rotate(-2deg); }
+        80%  { transform:translateX(3px) rotate(1deg); }
+        100% { transform:translateX(0)  rotate(0deg); }
+      }
+      .hha-coach-inner.is-wiggle{
+        animation:hhaCoachWiggle .8s ease-out;
+      }
 
-    wrap = document.getElementById('hha-coach-wrap');
-    if (!wrap) {
-      wrap = document.createElement('div');
-      wrap.id = 'hha-coach-wrap';
-      wrap.style.position = 'fixed';
-      wrap.style.bottom = '10px';
-      wrap.style.left = '50%';
-      wrap.style.transform = 'translateX(-50%)';
-      wrap.style.background = 'rgba(15,23,42,0.82)';
-      wrap.style.backdropFilter = 'blur(8px)';
-      wrap.style.padding = '8px 16px';
-      wrap.style.borderRadius = '999px';
-      wrap.style.display = 'flex';
-      wrap.style.alignItems = 'center';
-      wrap.style.gap = '10px';
-      wrap.style.color = '#fff';
-      wrap.style.fontFamily = 'system-ui,Segoe UI,Inter,Roboto,sans-serif';
-      wrap.style.fontSize = '15px';
-      wrap.style.zIndex = '60';
-      wrap.style.pointerEvents = 'none';
-      wrap.style.opacity = '0';
-      document.body.appendChild(wrap);
-    }
-
-    emojiEl = document.getElementById('hha-coach-emoji');
-    if (!emojiEl) {
-      emojiEl = document.createElement('div');
-      emojiEl.id = 'hha-coach-emoji';
-      emojiEl.textContent = '💧';
-      emojiEl.style.fontSize = '24px';
-      wrap.appendChild(emojiEl);
-    }
-
-    textEl = document.getElementById('hha-coach-text');
-    if (!textEl) {
-      textEl = document.createElement('div');
-      textEl.id = 'hha-coach-text';
-      textEl.textContent = 'กำลังเริ่มโหมดน้ำสมดุล…';
-      wrap.appendChild(textEl);
-    }
+      @media (max-width:768px){
+        .hha-coach-wrap{
+          right:10px;
+          bottom:90px;
+        }
+        .hha-coach-bubble{
+          max-width:200px;
+          font-size:12px;
+        }
+      }
+    `;
+    doc.head.appendChild(st);
   }
 
-  // ----- เลือกประโยคจาก hydration-coach-lines (ถ้ามี) -----
-  function pickLine(kind, detail) {
-    const mode = (detail && (detail.mode || detail.modeLabel)) || lastMode || '';
+  function ensureRoot() {
+    if (root && root.isConnected) return root;
+    ensureStyle();
 
-    // ถ้ามีฟังก์ชันเฉพาะให้ใช้ก่อน
-    if (typeof HydrationLines.pickHydrationLine === 'function') {
-      return HydrationLines.pickHydrationLine(kind, detail);
-    }
-    if (HydrationLines.default && typeof HydrationLines.default === 'function') {
-      return HydrationLines.default(kind, detail);
-    }
+    root = doc.createElement('div');
+    root.className = 'hha-coach-wrap';
+    root.setAttribute('data-hha-ui','');
 
-    // fallback ง่าย ๆ แนวเด็ก ป.5
-    if (kind === 'start') {
-      return 'โค้ชหยดน้ำ: พร้อมยัง? เล็งน้ำดีให้แม่น ๆ นะ 👀';
-    }
-    if (kind === 'quest' && detail && detail.goal) {
-      return `ภารกิจใหญ่: ${detail.goal.label || detail.goal.text || 'ทำคะแนนให้ถึงเป้า!'}`;
-    }
-    if (kind === 'quest-mini' && detail && detail.mini) {
-      return `ภารกิจย่อย: ${detail.mini.label || detail.mini.text || 'เก็บเควสต์เพิ่มอีกหน่อย!'}`;
-    }
-    if (kind === 'good') {
-      return 'เยี่ยมเลย! ดื่มน้ำดีเพิ่มอีกนิด 💧';
-    }
-    if (kind === 'bad') {
-      return 'โอ๊ยย น้ำหวานนั่น! เลี่ยงหน่อยนะ 😝';
-    }
-    if (kind === 'end') {
-      const s = detail?.score ?? 0;
-      return `จบเกมแล้ว! คะแนน ${s} แต้ม เก่งมากเลย 🎉`;
-    }
-    return 'โค้ชหยดน้ำอยู่กับเธอนะ สู้ ๆ 💪';
+    root.innerHTML = `
+      <div class="hha-coach-inner">
+        <div class="hha-coach-avatar">💧</div>
+        <div class="hha-coach-bubble">
+          <div class="hha-coach-text">พร้อมเล่นยัง? เล็งให้แม่น ๆ นะ 👀</div>
+        </div>
+      </div>
+    `;
+
+    doc.body.appendChild(root);
+
+    const inner = root.querySelector('.hha-coach-inner');
+    avatarEl = root.querySelector('.hha-coach-avatar');
+    textEl   = root.querySelector('.hha-coach-text');
+
+    // เก็บ inner ไว้ที่ root เพื่อใช้ตอน wiggle
+    root._inner = inner;
+
+    return root;
   }
 
-  function setLine(kind, detail, force = false) {
-    ensureDom();
-    if (!wrap || !textEl) return;
-
-    const txt = pickLine(kind, detail);
-    if (!force && textEl.textContent === txt) return;
-
-    textEl.textContent = txt;
-    wrap.style.opacity = '1';
-    // bounce เล็กน้อย
-    wrap.style.transform = 'translateX(-50%) translateY(0) scale(1.05)';
-    setTimeout(() => {
-      wrap.style.transform = 'translateX(-50%) translateY(0) scale(1)';
-    }, 220);
+  function setText(msg) {
+    ensureRoot();
+    if (!textEl) return;
+    textEl.textContent = msg || '';
   }
 
-  // ----- animation ขยับซ้าย–ขวา -----
-  function animate() {
-    if (!wrap) return;
-    t += 0.016;
-    const w = window.innerWidth || 800;
-    const wave = Math.sin(t * 0.6) * amp; // -amp..amp
-    const xRatio = baseX + wave;          // ประมาณ 0.32–0.68
-    const x = w * xRatio;
+  function setEmojiFromMode(modeKey) {
+    ensureRoot();
+    if (!avatarEl) return;
 
-    wrap.style.left = `${x}px`;
-    wrap.style.opacity = String(fade);
-
-    requestAnimationFrame(animate);
-  }
-
-  // ================= Event handlers =================
-
-  function onQuest(ev) {
-    const d = ev.detail || {};
-    lastMode = d.mode || lastMode || 'Hydration';
-    lastQuest = d;
-
-    setLine('quest', d, true);
-  }
-
-  function onScore(ev) {
-    const d = ev.detail || {};
-    lastMode = d.mode || lastMode || 'Hydration';
-    const mode = lastMode.toLowerCase();
-
-    if (mode !== 'hydration') return;
-
-    const s = d.score ?? 0;
-    const miss = d.miss ?? d.misses ?? 0;
-
-    // เปลี่ยนข้อความเมื่อคะแนนเพิ่มขึ้นเยอะ ๆ หรือ miss เยอะ
-    if (s > lastScore + 200) {
-      lastScore = s;
-      setLine('good', d);
-    } else if (miss > 0 && miss % 3 === 0) {
-      setLine('bad', d);
+    // ปรับ emoji เบา ๆ ตามโหมด
+    if (!modeKey) {
+      avatarEl.textContent = '💧';
+      return;
     }
+    const k = String(modeKey).toLowerCase();
+    if (k.includes('hydration')) avatarEl.textContent = '💧';
+    else if (k.includes('goodjunk') || k.includes('nutrition')) avatarEl.textContent = '🍎';
+    else if (k.includes('group')) avatarEl.textContent = '🍱';
+    else avatarEl.textContent = '🧑‍🏫';
   }
 
-  function onEnd(ev) {
-    const d = ev.detail || {};
-    if ((d.mode || '').toLowerCase() !== 'hydration') return;
-    setLine('end', d, true);
-    fade = 1;
+  function wiggle() {
+    ensureRoot();
+    const inner = root && root._inner;
+    if (!inner) return;
+
+    inner.classList.remove('is-wiggle');
+    // รีสตาร์ต animation
+    void inner.offsetWidth; // force reflow
+    inner.classList.add('is-wiggle');
+
+    if (wiggleTimer) clearTimeout(wiggleTimer);
+    wiggleTimer = setTimeout(() => {
+      inner.classList.remove('is-wiggle');
+    }, 850);
   }
 
+  // ฟัง event hha:coach { text, modeKey }
+  function onCoach(ev) {
+    const detail = ev.detail || {};
+    if (detail.modeKey) setEmojiFromMode(detail.modeKey);
+    if (detail.text) setText(detail.text);
+    wiggle();
+  }
+
+  // กันเรียกซ้ำ
   function init() {
-    ensureDom();
-    if (!wrap) return;
-
-    // เริ่ม animation
-    requestAnimationFrame(animate);
-
-    // ตั้งค่าเริ่มต้น
-    setLine('start', { mode: 'Hydration' }, true);
-
-    window.addEventListener('hha:quest', onQuest);
-    window.addEventListener('hha:score', onScore);
-    window.addEventListener('hha:end', onEnd);
+    ensureRoot();
+    global.addEventListener('hha:coach', onCoach);
   }
 
-  return { init };
-})();
+  init();
 
-// เริ่มเมื่อ DOM พร้อม
-window.addEventListener('DOMContentLoaded', () => {
-  CoachBubble.init();
-});
+  // เผื่อโหมดอื่นอยากเรียกตรง ๆ
+  global.HHCoach = {
+    say(text, modeKey) {
+      setEmojiFromMode(modeKey || '');
+      setText(text || '');
+      wiggle();
+    }
+  };
 
-export default CoachBubble;
+})(window);
