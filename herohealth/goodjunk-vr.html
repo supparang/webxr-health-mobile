@@ -492,6 +492,9 @@
     const btnReplay   = document.getElementById('btn-replay');
     const btnBackHub  = document.getElementById('btn-back-hub');
 
+    // overlay 3–2–1 Go
+    const elCountdown = document.getElementById('start-countdown');
+
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
@@ -515,6 +518,31 @@
       lastCoachTimeout = setTimeout(()=> {
         elCoachBubble.classList.remove('show');
       }, 4200);
+    }
+
+    // ===== Start Countdown 3–2–1–Go =====
+    function runCountdown(onDone){
+      if (!elCountdown){
+        if (onDone) onDone();
+        return;
+      }
+      const steps = ['3','2','1','Go!'];
+      let idx = 0;
+
+      elCountdown.classList.remove('countdown-hidden');
+      elCountdown.textContent = steps[0];
+
+      const interval = 800; // ms ต่อ step
+      const t = setInterval(() => {
+        idx++;
+        if (idx >= steps.length){
+          clearInterval(t);
+          elCountdown.classList.add('countdown-hidden');
+          if (onDone) onDone();
+        } else {
+          elCountdown.textContent = steps[idx];
+        }
+      }, interval);
     }
 
     // HUD: เวลา
@@ -674,30 +702,30 @@
         mode: 'GoodJunkVR',
         diff,
         durationSec: dur,
-        // playerId: 'P001',       // ถ้าจะส่งรหัสนักเรียนก็ค่อยเพิ่ม
-        // gameVersion: 'gj-vr-1', // ถ้ามี version
-        debug: true               // ชั่วคราว เปิด debug เพื่อดู log ใน console
+        debug: true   // ถ้าไม่อยากเห็น log ใน console ค่อยเปลี่ยนเป็น false ทีหลังได้
       });
-
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
 
-      GameEngine.start(diff);
+      // 🔥 เริ่มนับ 3–2–1–Go ก่อน แล้วค่อยเริ่มเกม + นับเวลา
+      runCountdown(() => {
+        GameEngine.start(diff);
 
-      let timeLeft = dur;
-      function tickTime(){
-        timeLeft -= 1;
-        if (timeLeft < 0) return;
-        window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-        if (timeLeft <= 0){
-          clearInterval(timerId);
-          GameEngine.stop();
+        let timeLeft = dur;
+        function tickTime(){
+          timeLeft -= 1;
+          if (timeLeft < 0) return;
+          window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+          if (timeLeft <= 0){
+            clearInterval(timerId);
+            GameEngine.stop();
+          }
         }
-      }
 
-      window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-      const timerId = setInterval(tickTime, 1000);
+        window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+        const timerId = setInterval(tickTime, 1000);
+      });
 
       // ===== ปุ่มหน้าสรุป =====
       if (btnReplay) {
@@ -707,11 +735,11 @@
       }
       if (btnBackHub) {
         btnBackHub.addEventListener('click', () => {
-          // ★ ถ้า Hub อยู่ path อื่น เช่น ../game/hub.html แก้ตรงนี้ได้เลย
           window.location.href = './hub.html';
         });
       }
     });
   </script>
+
 </body>
 </html>
