@@ -66,7 +66,7 @@ function showCountdown() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 700, // เหนือฉาก แต่ใต้ HUD บางส่วนได้
+      zIndex: 700,
       background: 'rgba(15,23,42,0.55)',
       backdropFilter: 'blur(2px)',
       pointerEvents: 'none'
@@ -92,13 +92,29 @@ function showCountdown() {
     const seq = ['3', '2', '1', 'GO!'];
     let idx = 0;
 
+    const coachSay = (msg) => {
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail: {
+          text: msg,
+          modeKey: 'hydration-vr'
+        }
+      }));
+    };
+
+    // โค้ชพูดก่อนเริ่มนับ
+    coachSay('พร้อมยัง? จะเริ่มเล็งน้ำดีแล้วนะ 💧');
+
     const step = () => {
       const text = seq[idx];
       label.textContent = text;
       label.style.opacity = '1';
       label.style.transform = 'scale(1.0)';
 
-      // ยุบ/จางหาย
+      // ให้โค้ชพูดตอน "GO!"
+      if (text === 'GO!') {
+        coachSay('ลุยยย! เล็งน้ำดี แล้วหลบพวกน้ำหวานนะ 💪');
+      }
+
       setTimeout(() => {
         label.style.opacity = '0';
         label.style.transform = 'scale(0.7)';
@@ -108,7 +124,6 @@ function showCountdown() {
       if (idx < seq.length) {
         setTimeout(step, 800);
       } else {
-        // รอให้ "GO!" จางแล้วค่อยลบ overlay ออก
         setTimeout(() => {
           if (layer.parentNode) layer.parentNode.removeChild(layer);
           resolve();
@@ -119,7 +134,6 @@ function showCountdown() {
     step();
   });
 }
-
 // เลือก factory สำหรับ quest ไม่ว่าจะ export แบบไหน
 function getCreateHydrationQuest() {
   if (typeof HQ.createHydrationQuest === 'function') {
