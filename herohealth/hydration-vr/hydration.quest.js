@@ -1,59 +1,57 @@
 // === /herohealth/hydration-vr/hydration.quest.js ===
-// Quest system สำหรับโหมด Hydration (ใช้ร่วมกับ hydration.safe.js)
+// Quest system for Hydration VR
+// - goal 2 — mini 3
+// - Easy/Normal/Hard pools
+// - Miss-type quests come LAST
+// - Sorted from easy → hard
+// - Compatible with hydration.safe.js (deck API)
 //
-// คุณสมบัติ:
-// - แยก goal / mini ตาม diff: easy / normal / hard (จาก hydration.goals/minis)
-// - เลือก goal ทีละ 2 จาก pool 10 อัน
-// - เลือก mini ทีละ 3 จาก pool 15 อัน
-// - ภารกิจกลุ่ม "พลาดไม่เกิน ..." (nomiss / miss) จะถูกสุ่มใช้ทีหลังสุด
-// - ภายในแต่ละกลุ่ม (ปกติ / miss) จัดลำดับจากง่าย → ยาก ตาม target
-// - ส่งข้อมูลให้ HUD ผ่าน getProgress('goals'|'mini') เป็น {id,label,target,prog,done}
+// 2025-12-07 Fully Updated
 
 import { hydrationGoalsFor } from './hydration.goals.js';
 import { hydrationMinisFor } from './hydration.minis.js';
 import { mapHydrationState, normalizeHydrationDiff } from './hydration.state.js';
 
-/**
- * แบ่งประเภท goal/mini:
- * - isMiss: ภารกิจเกี่ยวกับ "พลาดไม่เกิน", "MISS" ฯลฯ
- * ใช้ทั้ง id และ label ในการเดา
- */
+/* ---------------------------------------------------
+ * Identify MISS-type quests
+ * --------------------------------------------------- */
 function isMissQuest(item) {
   const id = String(item.id || '').toLowerCase();
-  const label = String(item.label || '');
-  if (id.includes('nomiss') || id.includes('miss')) return true;
-  if (label.includes('พลาด')) return true;
-  return false;
+  const label = String(item.label || '').toLowerCase();
+  return (
+    id.includes('miss') ||
+    id.includes('nomiss') ||
+    label.includes('พลาด') ||
+    label.includes('miss')
+  );
 }
 
-/**
- * สร้าง meta ให้แต่ละ quest สำหรับจัดลำดับง่าย → ยาก
- * - ภารกิจทั่วไป: target น้อย → ง่าย
- * - ภารกิจ miss: target มาก → ง่าย (พลาดได้เยอะ = ง่าย)
- */
+/* ---------------------------------------------------
+ * Decorate quest for sorting: easy→hard
+ * --------------------------------------------------- */
 function decorateQuest(item) {
   const q = { ...item };
   q._isMiss = isMissQuest(item);
+
   const t = Number(item.target || 0);
 
   if (q._isMiss) {
-    // พลาดได้เยอะ → ง่ายกว่า → score สูง
-    q._difficultyScore = isNaN(t) ? 0 : t * 1; // target มาก = ง่าย
+    // MISS quest → higher target = easier
+    q._difficultyScore = isNaN(t) ? 0 : t;
   } else {
-    // ภารกิจทั่วไป → target น้อย = ง่าย
-    q._difficultyScore = isNaN(t) ? 0 : -t;    // target มาก = ยาก
+    // normal quest → lower target = easier
+    q._difficultyScore = isNaN(t) ? 0 : -t;
   }
 
-  // runtime state
   q._done = false;
   q._value = 0;
 
   return q;
 }
 
-/**
- * แยกเป็น 2 กลุ่ม: nonMiss / miss แล้วจัดเรียงตามความง่าย
- */
+/* ---------------------------------------------------
+ * Split into nonMiss / miss buckets + sort
+ * --------------------------------------------------- */
 function splitAndSort(pool) {
   const decorated = pool.map(decorateQuest);
 
@@ -68,143 +66,136 @@ function splitAndSort(pool) {
   return { nonMiss, miss };
 }
 
-/**
- * สุ่มหยิบ 1 ตัวจาก array แล้วเอาออก (ถ้า wantRandom = true)
- * ถ้าไม่อยาก random มากจะใช้แบบ "หยิบตัวแรก" ก็ได้
- */
-function takeOne(arr, random = true) {
+/* ---------------------------------------------------
+ * Pick 1 item from array
+ * --------------------------------------------------- */
+function take(arr) {
   if (!arr.length) return null;
-  if (!random) return arr.shift();
   const idx = Math.floor(Math.random() * arr.length);
-  const item = arr[idx];
+  const out = arr[idx];
   arr.splice(idx, 1);
-  return item;
+  return out;
 }
 
-/**
- * สร้าง Deck สำหรับ Hydration ที่ใช้กับ hydration.safe.js
- * คืน object ที่มี:
- *   stats, updateScore, updateCombo, onGood, onJunk, second,
- *   getProgress(kind), drawGoals(n), draw3()
- */
+/* ---------------------------------------------------
+ * createHydrationQuest(diff)
+ * --------------------------------------------------- */
 export function createHydrationQuest(diffRaw = 'normal') {
   const diff = normalizeHydrationDiff(diffRaw);
 
-  // ดึง pool ตาม diff (easy / normal / hard)
+  // 1) load pools
   const goalPool = hydrationGoalsFor(diff);
   const miniPool = hydrationMinisFor(diff);
 
-  // แยก nonMiss / miss + จัดง่าย → ยาก
+  // 2) split + sort
   const goalBuckets = splitAndSort(goalPool);
   const miniBuckets = splitAndSort(miniPool);
 
-  // เหลือให้สุ่ม
-  let goalsNonMissLeft = [...goalBuckets.nonMiss];
-  let goalsMissLeft    = [...goalBuckets.miss];
+  // backup pools for continuous play
+  let goalsNonMiss = [...goalBuckets.nonMiss];
+  let goalsMiss    = [...goalBuckets.miss];
 
-  let minisNonMissLeft = [...miniBuckets.nonMiss];
-  let minisMissLeft    = [...miniBuckets.miss];
+  let minisNonMiss = [...miniBuckets.nonMiss];
+  let minisMiss    = [...miniBuckets.miss];
 
-  // active ชุดปัจจุบัน
+  // active quests
   let activeGoals = [];
   let activeMinis = [];
 
-  // stats ที่ hydration.safe.js จะใช้ mapHydrationState()
+  // runtime stats
   const stats = {
     score: 0,
     combo: 0,
     comboMax: 0,
     goodCount: 0,
     junkMiss: 0,
-    tick: 0,        // เวลาเล่นสะสม (sec) — เพิ่มใน second()
-    greenTick: 0,   // อัปเดตจาก hydration.safe.js
+    tick: 0,
+    greenTick: 0,
     zone: 'GREEN'
   };
 
-  // ----- helper: refresh สถานะ done / prog ของทุก quest -----
-  function refreshProgress() {
-    const s = mapHydrationState(stats);
+  /* ---------------------------------------------------
+   * Update quest progress
+   * --------------------------------------------------- */
+  function refresh() {
+    const S = mapHydrationState(stats);
 
-    function updateItem(q) {
+    function update(q) {
       try {
-        const done = typeof q.check === 'function' ? !!q.check(s) : false;
-        const val  = typeof q.prog === 'function' ? q.prog(s) : 0;
-        q._done   = done;
-        q._value  = val;
-      } catch (e) {
-        q._done  = false;
+        q._done = typeof q.check === 'function' ? !!q.check(S) : false;
+        q._value = typeof q.prog === 'function' ? q.prog(S) : 0;
+      } catch {
+        q._done = false;
         q._value = 0;
       }
     }
 
-    activeGoals.forEach(updateItem);
-    activeMinis.forEach(updateItem);
+    activeGoals.forEach(update);
+    activeMinis.forEach(update);
   }
 
-  function viewItems(arr) {
-    // แปลงเป็น object แบบโปร่ง ๆ ให้ HUD ใช้ง่าย
+  function view(arr) {
     return arr.map(q => ({
       id: q.id,
       label: q.label,
       target: q.target,
       prog: q._value,
-      done: !!q._done,
-      isMiss: !!q._isMiss
+      done: q._done,
+      isMiss: q._isMiss
     }));
   }
 
-  // ----- API ที่ hydration.safe.js จะเรียก -----
-
+  /* ---------------------------------------------------
+   * Update functions (safe.js calls)
+   * --------------------------------------------------- */
   function updateScore(v) {
     stats.score = Number(v) || 0;
-    refreshProgress();
+    refresh();
   }
 
   function updateCombo(v) {
     const c = Number(v) || 0;
     stats.combo = c;
     if (c > stats.comboMax) stats.comboMax = c;
-    refreshProgress();
+    refresh();
   }
 
   function onGood() {
-    stats.goodCount += 1;
-    refreshProgress();
+    stats.goodCount++;
+    refresh();
   }
 
   function onJunk() {
-    stats.junkMiss += 1;
-    refreshProgress();
+    stats.junkMiss++;
+    refresh();
   }
 
   function second() {
-    stats.tick += 1;
-    refreshProgress();
+    stats.tick++;
+    refresh();
   }
 
-  /**
-   * คืน progress ตามประเภท
-   * - 'goals' → goal ปัจจุบัน 2 อัน
-   * - 'mini'  → mini ปัจจุบัน 3 อัน
-   */
+  /* ---------------------------------------------------
+   * getProgress(kind)
+   * --------------------------------------------------- */
   function getProgress(kind) {
-    if (kind === 'goals') return viewItems(activeGoals);
-    if (kind === 'mini')  return viewItems(activeMinis);
-    return viewItems(activeGoals).concat(viewItems(activeMinis));
+    if (kind === 'goals') return view(activeGoals);
+    if (kind === 'mini')  return view(activeMinis);
+    return [...view(activeGoals), ...view(activeMinis)];
   }
 
-  /**
-   * สุ่ม goal ชุดใหม่:
-   * - เลือกจาก nonMiss ก่อนจนหมด แล้วค่อยใช้ miss
-   * - n ปกติ = 2 (ตามที่ hydration.safe.js เรียก)
-   */
+  /* ---------------------------------------------------
+   * drawGoals(2)
+   * - always pick from nonMiss first
+   * - when empty → pick from miss bucket
+   * --------------------------------------------------- */
   function drawGoals(n = 2) {
     activeGoals = [];
 
     for (let i = 0; i < n; i++) {
-      const pool = goalsNonMissLeft.length ? goalsNonMissLeft : goalsMissLeft;
+      let pool = goalsNonMiss.length ? goalsNonMiss : goalsMiss;
       if (!pool.length) break;
-      const q = takeOne(pool, true);
+      const q = take(pool);
       if (q) {
         q._done = false;
         q._value = 0;
@@ -212,28 +203,25 @@ export function createHydrationQuest(diffRaw = 'normal') {
       }
     }
 
-    // ถ้าใช้หมดแล้วทั้งสอง bucket → reset loop ใหม่ (เผื่อเล่นนาน)
-    if (!goalsNonMissLeft.length && !goalsMissLeft.length) {
-      goalsNonMissLeft = [...goalBuckets.nonMiss];
-      goalsMissLeft    = [...goalBuckets.miss];
+    // refill when empty
+    if (!goalsNonMiss.length && !goalsMiss.length) {
+      goalsNonMiss = [...goalBuckets.nonMiss];
+      goalsMiss    = [...goalBuckets.miss];
     }
 
-    refreshProgress();
+    refresh();
   }
 
-  /**
-   * สุ่ม mini quest 3 อัน:
-   * - เลือก nonMiss ก่อน แล้วค่อย miss
-   * - hydration.safe.js เรียกผ่าน deck.draw3()
-   */
+  /* ---------------------------------------------------
+   * draw3() → select 3 mini quests
+   * --------------------------------------------------- */
   function draw3() {
-    const n = 3;
     activeMinis = [];
 
-    for (let i = 0; i < n; i++) {
-      const pool = minisNonMissLeft.length ? minisNonMissLeft : minisMissLeft;
+    for (let i = 0; i < 3; i++) {
+      let pool = minisNonMiss.length ? minisNonMiss : minisMiss;
       if (!pool.length) break;
-      const q = takeOne(pool, true);
+      const q = take(pool);
       if (q) {
         q._done = false;
         q._value = 0;
@@ -241,15 +229,16 @@ export function createHydrationQuest(diffRaw = 'normal') {
       }
     }
 
-    if (!minisNonMissLeft.length && !minisMissLeft.length) {
-      minisNonMissLeft = [...miniBuckets.nonMiss];
-      minisMissLeft    = [...miniBuckets.miss];
+    // refill
+    if (!minisNonMiss.length && !minisMiss.length) {
+      minisNonMiss = [...miniBuckets.nonMiss];
+      minisMiss    = [...miniBuckets.miss];
     }
 
-    refreshProgress();
+    refresh();
   }
 
-  // ----- เริ่มต้นครั้งแรก -----
+  // initial draw
   drawGoals(2);
   draw3();
 
