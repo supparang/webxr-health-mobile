@@ -23,6 +23,26 @@
       --text-soft:#9ca3af;
     }
     *{ box-sizing:border-box; }
+        /* ===== Start Countdown ===== */
+    .countdown-overlay{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:655;
+      font-size:clamp(3rem, 10vw, 5rem);
+      font-weight:800;
+      color:#fbbf24;
+      text-shadow:0 0 40px rgba(0,0,0,0.85);
+      pointer-events:none;
+      transition:opacity .25s ease-out, transform .25s ease-out;
+    }
+    .countdown-hidden{
+      opacity:0;
+      visibility:hidden;
+      transform:scale(0.8);
+    }
 
     body{
       margin:0;
@@ -423,12 +443,12 @@
       <button class="end-btn end-btn-ghost" id="btn-back-hub">กลับ Hub</button>
     </div>
   </div>
-
+    <!-- Start countdown -->
+  <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
   <!-- ★ เพิ่ม Fever UI แบบ global กลับมา -->
   <script src="./vr/ui-fever.js"></script>
   <!-- ★ เพิ่ม Effect เป้า -->
   <script src="./vr/particles.js"></script>
-
 
   <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
