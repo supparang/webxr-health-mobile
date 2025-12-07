@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Multi-Quest + Fever + Shield + Coach + FX
-// 2025-12-07 — เป้าเล็กตามระดับ, กระจายตามจอแบบ responsive, เป้าอยู่นานขึ้น,
-// Perfect/Good/Late/Miss เด้งตรงเป้า (ไม่ซ้อนกับคะแนน), ยกเป้าขึ้นด้านบน, รองรับ particles.js
+// 2025-12-07 — เป้าเล็กตามระดับ, spawn responsive, ยกเป้าสูงขึ้น,
+// goals / mini quests สุ่มจาก pool (10 / 15) และ scale ตามระดับ (Easy≈60%, Hard≈130%)
 
 'use strict';
 
@@ -41,7 +41,7 @@ export const GameEngine = (function () {
   let SPAWN_INTERVAL  = 900;
   let TARGET_LIFETIME = 900;
   let MAX_ACTIVE      = 4;
-  let SIZE_FACTOR     = 0.8; // baseline (จะเปลี่ยนใน applyDifficulty)
+  let SIZE_FACTOR     = 0.8; // scale ขนาดเป้า
 
   // type weights (จะปรับตาม diff)
   let TYPE_WEIGHTS = {
@@ -76,42 +76,55 @@ export const GameEngine = (function () {
   let feverActive = false;
   let feverTimer = null;
 
-  // ---------- Quest pool ----------
-  // goal 10 แบบ / mini quest 15 แบบ → สุ่มมา 2 + 3 ในแต่ละเกม
-  const GOAL_TEMPLATES = [
-    { id: 'g1',  label: 'เก็บอาหารดีให้ครบ 10 ชิ้น', target: 10 },
-    { id: 'g2',  label: 'เก็บอาหารดีให้ครบ 12 ชิ้น', target: 12 },
-    { id: 'g3',  label: 'เก็บอาหารดีให้ครบ 14 ชิ้น', target: 14 },
-    { id: 'g4',  label: 'เก็บอาหารดีให้ครบ 16 ชิ้น', target: 16 },
-    { id: 'g5',  label: 'เก็บอาหารดีให้ครบ 18 ชิ้น', target: 18 },
-    { id: 'g6',  label: 'เก็บอาหารดีให้ครบ 20 ชิ้น', target: 20 },
-    { id: 'g7',  label: 'เก็บอาหารดีให้ครบ 22 ชิ้น', target: 22 },
-    { id: 'g8',  label: 'เก็บอาหารดีให้ครบ 24 ชิ้น', target: 24 },
-    { id: 'g9',  label: 'เก็บอาหารดีให้ครบ 26 ชิ้น', target: 26 },
-    { id: 'g10', label: 'เก็บอาหารดีให้ครบ 28 ชิ้น', target: 28 }
-  ];
+  // ---------- Quest pool แยกตามระดับ + scale ตามโจทย์วิจัย ----------
+  // ใช้ Normal เป็น baseline วิจัย จากนั้น Easy≈60%, Hard≈130%
 
-  const MINI_TEMPLATES = [
-    { id:'m1',  label:'ทำคอมโบให้ถึง x3 อย่างน้อย 1 ครั้ง',  threshold:3 },
-    { id:'m2',  label:'ทำคอมโบให้ถึง x4 อย่างน้อย 1 ครั้ง',  threshold:4 },
-    { id:'m3',  label:'ทำคอมโบให้ถึง x5 อย่างน้อย 1 ครั้ง',  threshold:5 },
-    { id:'m4',  label:'ทำคอมโบให้ถึง x6 อย่างน้อย 1 ครั้ง',  threshold:6 },
-    { id:'m5',  label:'ทำคอมโบให้ถึง x7 อย่างน้อย 1 ครั้ง',  threshold:7 },
-    { id:'m6',  label:'ทำคอมโบให้ถึง x8 อย่างน้อย 1 ครั้ง',  threshold:8 },
-    { id:'m7',  label:'ทำคอมโบให้ถึง x9 อย่างน้อย 1 ครั้ง',  threshold:9 },
-    { id:'m8',  label:'ทำคอมโบให้ถึง x10 อย่างน้อย 1 ครั้ง', threshold:10 },
-    { id:'m9',  label:'ทำคอมโบยาว ๆ ไม่ให้หลุดจนถึง x5',      threshold:5 },
-    { id:'m10', label:'ทำคอมโบยาว ๆ ไม่ให้หลุดจนถึง x7',      threshold:7 },
-    { id:'m11', label:'ทำคอมโบยาว ๆ ไม่ให้หลุดจนถึง x9',      threshold:9 },
-    { id:'m12', label:'เป็นสายโปร! ทำคอมโบ x6 ขึ้นไป',        threshold:6 },
-    { id:'m13', label:'เป็นสายโปร! ทำคอมโบ x8 ขึ้นไป',        threshold:8 },
-    { id:'m14', label:'เป็นสายโปร! ทำคอมโบ x10 ขึ้นไป',       threshold:10 },
-    { id:'m15', label:'รักษาคอมโบสูงสุดให้ได้อย่างน้อย x4',   threshold:4 }
-  ];
+  // จำนวน good ที่อยากได้ใน Normal (10 ภารกิจ)
+  const GOAL_BASE_NORMAL = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
 
-  let activeGoals = []; // สุ่มมา 2 จาก 10
-  let activeMinis = []; // สุ่มมา 3 จาก 15
-  let miniComboNeed = 5; // ใช้สำหรับข้อความโค้ชบางจังหวะ
+  // ค่าคอมโบเป้าหมายใน Normal (15 ภารกิจ)
+  const MINI_BASE_NORMAL = [3,4,5,6,7,8,9,10,4,6,8,5,7,9,10];
+
+  function buildScaledGoals(baseArr, scale, prefix) {
+    return baseArr.map((base, idx) => {
+      const target = Math.max(1, Math.round(base * scale));
+      return {
+        id: `${prefix}${idx + 1}`,
+        label: `เก็บอาหารดีให้ครบ ${target} ชิ้น`,
+        target
+      };
+    });
+  }
+
+  function buildScaledMinis(baseArr, scale, prefix) {
+    return baseArr.map((base, idx) => {
+      const thr = Math.max(2, Math.round(base * scale));
+      return {
+        id: `${prefix}${idx + 1}`,
+        label: `ทำคอมโบให้ถึง x${thr} อย่างน้อย 1 ครั้ง`,
+        threshold: thr
+      };
+    });
+  }
+
+  // ★ scale ตามระดับ: Easy≈60%, Normal=100%, Hard≈130%
+  const GOAL_POOLS = {
+    easy:   buildScaledGoals(GOAL_BASE_NORMAL, 0.6, 'ge'),
+    normal: buildScaledGoals(GOAL_BASE_NORMAL, 1.0, 'gn'),
+    hard:   buildScaledGoals(GOAL_BASE_NORMAL, 1.3, 'gh')
+  };
+
+  const MINI_POOLS = {
+    easy:   buildScaledMinis(MINI_BASE_NORMAL, 0.6, 'me'),
+    normal: buildScaledMinis(MINI_BASE_NORMAL, 1.0, 'mn'),
+    hard:   buildScaledMinis(MINI_BASE_NORMAL, 1.3, 'mh')
+  };
+
+  let activeGoals = [];    // goal ที่ใช้ใน run นี้ (สุ่มมา 2 ภารกิจจาก 10)
+  let activeMinis = [];    // mini ที่ใช้ใน run นี้ (สุ่มมา 3 ภารกิจจาก 15)
+  let miniComboNeed = 5;   // ใช้กับข้อความโค้ช (xN แล้ว!)
+  let goalPool = GOAL_POOLS.normal;   // จะสลับใน applyDifficulty()
+  let miniPool = MINI_POOLS.normal;
 
   // ---------- Emoji → texture cache ----------
   const emojiTexCache = new Map();
@@ -215,7 +228,7 @@ export const GameEngine = (function () {
     const x = pos.x;
     const y = pos.y;
 
-    // จุดกลางใช้ทำ particle แตก
+    // particle แตกกลางเป้า
     if (Particles && typeof Particles.burstAt === 'function') {
       const opts = {};
       if (kind === 'good')    opts.good = true;
@@ -226,9 +239,8 @@ export const GameEngine = (function () {
       Particles.burstAt(x, y, opts);
     }
 
-    // แยกตำแหน่ง Y: คะแนน กับข้อความ Perfect/Good/Late/Miss ไม่ทับกัน
     const yScore = y;       // คะแนนอยู่กลางเป้า
-    const yLabel = y - 24;  // ข้อความตัดสินลอยขึ้นสูงกว่านิดหนึ่ง
+    const yLabel = y - 24;  // Miss / Late / Good / Perfect ลอยขึ้นหน่อย
 
     if (Particles && typeof Particles.scorePop === 'function') {
       // คะแนน + / -
@@ -240,7 +252,7 @@ export const GameEngine = (function () {
         });
       }
 
-      // ข้อความ Miss / Late / Good / Perfect
+      // ข้อความ judgment
       if (judgment) {
         let label = '';
         if (judgment === 'perfect') label = 'Perfect';
@@ -310,16 +322,22 @@ export const GameEngine = (function () {
     emit('hha:fever', { state:'end', value: fever, max: FEVER_MAX });
   }
 
-  // ---------- Quest ----------
+  // ---------- Quest logic ----------
   function setupQuestsForRun() {
-    activeGoals = pickSome(GOAL_TEMPLATES, 2).map(g => ({
+    const gPool = goalPool || GOAL_POOLS.normal;
+    const mPool = miniPool || MINI_POOLS.normal;
+
+    // goal 2 ภารกิจจาก pool 10
+    activeGoals = pickSome(gPool, 2).map(g => ({
       id: g.id,
       label: g.label,
       target: g.target,
       prog: 0,
       done: false
     }));
-    activeMinis = pickSome(MINI_TEMPLATES, 3).map(m => ({
+
+    // mini 3 ภารกิจจาก pool 15
+    activeMinis = pickSome(mPool, 3).map(m => ({
       id: m.id,
       label: m.label,
       threshold: m.threshold,
@@ -327,6 +345,7 @@ export const GameEngine = (function () {
       prog: 0,
       done: false
     }));
+
     miniComboNeed = activeMinis[0] ? activeMinis[0].threshold : 5;
   }
 
@@ -351,8 +370,7 @@ export const GameEngine = (function () {
     const minisCleared = minisUi.filter(m => m.done).length;
 
     const statusText =
-      `Goals ${goalsCleared}/${goalsUi.length} (สุ่มจาก 10) • ` +
-      `Mini ${minisCleared}/${minisUi.length} (สุ่มจาก 15)`;
+      `Goals ${goalsCleared}/2 (จาก 10) • Mini ${minisCleared}/3 (จาก 15)`;
 
     emit('quest:update', {
       goal: primaryGoal,
@@ -435,7 +453,7 @@ export const GameEngine = (function () {
     const minX = -halfX;
     const maxX = halfX;
 
-    // ★ ยกช่วง y ขึ้นไปด้านบน
+    // ยก y ขึ้นด้านบน
     const minY = 2.6;
     const maxY = 3.4;
 
@@ -455,7 +473,7 @@ export const GameEngine = (function () {
 
         const marginX   = 72;
         const topHUD    = 80;
-        const bottomHUD = 260; // เผื่อ coach + fever ล่างเยอะหน่อย
+        const bottomHUD = 260; // เผื่อ coach + fever ล่าง
 
         if (
           sx > marginX &&
@@ -610,6 +628,7 @@ export const GameEngine = (function () {
       updateGoalsFromGoodHit();
       updateMinisFromCombo();
     } else {
+      // junk
       if (shieldCount > 0) {
         shieldCount -= 1;
         if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
@@ -641,7 +660,6 @@ export const GameEngine = (function () {
 
     showHitFx(el, kind, judgment, score - scoreBefore);
     emitScore();
-
     removeTarget(el);
   }
 
@@ -658,7 +676,7 @@ export const GameEngine = (function () {
 
       misses++;
       combo = 0;
-      coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้มากขึ้น 😊');
+      coach('พลาดของดีไปนะ ลองเล็งให้ตรงเป้ามากขึ้น 😊');
 
       let nextFever = fever - FEVER_MISS_LOSS;
       if (feverActive && nextFever <= 0) {
@@ -677,7 +695,7 @@ export const GameEngine = (function () {
     }
   }
 
-  // ---------- สุ่ม spawn ----------
+  // ---------- สุ่มชนิดเป้า ----------
   function pickType() {
     const w = TYPE_WEIGHTS;
     const sum =
@@ -729,24 +747,30 @@ export const GameEngine = (function () {
     const d = String(diffKey || 'normal').toLowerCase();
 
     if (d === 'easy') {
+      // ง่าย: เป้าใหญ่ขึ้น อยู่นานขึ้น spawn ช้าลง
       SPAWN_INTERVAL  = 1200;
-      TARGET_LIFETIME = 1700;
+      TARGET_LIFETIME = 1800;
       MAX_ACTIVE      = 3;
-      GOOD_RATE       = 0.72;
-      SIZE_FACTOR     = 0.80;
+      GOOD_RATE       = 0.75;
+      SIZE_FACTOR     = 0.90;
 
       TYPE_WEIGHTS = {
-        good:    75,
-        junk:    15,
+        good:    78,
+        junk:    12,
         star:     4,
         diamond:  3,
         shield:   3
       };
+
+      goalPool = GOAL_POOLS.easy;
+      miniPool = MINI_POOLS.easy;
+
     } else if (d === 'hard') {
+      // ยาก: เป้าเล็กลง อยู่น้อยลง spawn ถี่ขึ้น
       SPAWN_INTERVAL  = 800;
       TARGET_LIFETIME = 1200;
       MAX_ACTIVE      = 5;
-      GOOD_RATE       = 0.6;
+      GOOD_RATE       = 0.60;
       SIZE_FACTOR     = 0.50;
 
       TYPE_WEIGHTS = {
@@ -756,12 +780,17 @@ export const GameEngine = (function () {
         diamond:  4,
         shield:   4
       };
+
+      goalPool = GOAL_POOLS.hard;
+      miniPool = MINI_POOLS.hard;
+
     } else {
+      // normal = baseline
       SPAWN_INTERVAL  = 1000;
-      TARGET_LIFETIME = 1450;
+      TARGET_LIFETIME = 1500;
       MAX_ACTIVE      = 4;
       GOOD_RATE       = 0.66;
-      SIZE_FACTOR     = 0.65;
+      SIZE_FACTOR     = 0.70;
 
       TYPE_WEIGHTS = {
         good:    70,
@@ -770,6 +799,9 @@ export const GameEngine = (function () {
         diamond:  4,
         shield:   4
       };
+
+      goalPool = GOAL_POOLS.normal;
+      miniPool = MINI_POOLS.normal;
     }
   }
 
@@ -787,6 +819,7 @@ export const GameEngine = (function () {
     applyDifficulty(diffKey);
     setupQuestsForRun();
 
+    // reset Fever UI
     if (FeverUI && FeverUI.ensureFeverBar) FeverUI.ensureFeverBar();
     if (FeverUI && FeverUI.setFever)      FeverUI.setFever(0);
     if (FeverUI && FeverUI.setShield)     FeverUI.setShield(shieldCount);
