@@ -40,31 +40,32 @@ a-scene {
   z-index:0;
 }
 
-/* ===== HUD Cards ===== */
+/* ===== HUD root ===== */
 
-.hud-root{
+.hud-root {
   position:fixed;
   inset:0;
   pointer-events:none;
-  z-index:100;
+  z-index:60;
 }
 
-.hud-top{
+.hud-top {
   position:absolute;
-  top:10px;
+  top:0;
   left:0;
   right:0;
+  padding:10px;
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
-  padding:0 10px;
-  gap:8px;
+  gap:10px;
   pointer-events:none;
 }
 
+/* ===== HUD Score (ซ้ายบน) ===== */
+
 .hud-card {
   pointer-events:auto;
-  z-index:110;
   background:radial-gradient(circle at top, #0f172a, #020617);
   border-radius:var(--radius-lg);
   padding:10px 14px;
@@ -73,60 +74,69 @@ a-scene {
     0 18px 40px rgba(15,23,42,0.9),
     0 0 0 1px rgba(15,23,42,1);
   color:var(--text-main);
-  min-width:240px;
+  min-width:260px;
   max-width:360px;
 }
 
-.hud-main-title{
+.hud-main-title {
   font-size:11px;
   letter-spacing:.18em;
   text-transform:uppercase;
   color:var(--text-soft);
-  margin-bottom:4px;
+  margin-bottom:2px;
 }
 
-.hud-main-mode{
-  font-size:20px;
+.hud-main-mode {
+  font-size:18px;
   font-weight:600;
-  margin-bottom:4px;
 }
 
-.hud-pill{
+.hud-pill {
+  border-radius:999px;
+  padding:2px 8px;
+  font-size:11px;
+  border:1px solid rgba(148,163,184,0.5);
+  color:var(--text-soft);
   display:inline-flex;
   align-items:center;
   gap:4px;
-  padding:2px 8px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,0.5);
-  font-size:11px;
-  color:var(--text-soft);
 }
 
-.hud-metrics{
+.hud-metrics {
+  margin-top:8px;
   display:flex;
-  gap:16px;
-  margin-top:6px;
+  gap:14px;
 }
 
-.metric-label{
+.metric {
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.metric-label {
   font-size:11px;
   color:var(--text-soft);
 }
 
-.metric-value{
+.metric-value {
   font-size:18px;
   font-weight:700;
 }
 
-.metric-value.accent{
+.metric-value.accent {
   color:#bbf7d0;
+}
+
+.metric-sub {
+  font-size:11px;
+  color:var(--text-soft);
 }
 
 /* ===== HUD Goal + Mini quest (ขวาบน) ===== */
 
 .fg-quest-panel {
   pointer-events:auto;
-  z-index:115;
   min-width:260px;
   max-width:320px;
   padding:10px 14px;
@@ -144,7 +154,7 @@ a-scene {
   letter-spacing:.16em;
   text-transform:uppercase;
   color:var(--text-soft);
-  margin-bottom:6px;
+  margin-bottom:4px;
 }
 
 .fg-quest-row {
@@ -180,11 +190,10 @@ a-scene {
 /* ===== Coach bubble กลางล่าง ===== */
 
 .hud-bottom {
-  position:fixed;
+  position:absolute;
   left:0;
   right:0;
-  bottom:64px;           /* ดันโค้ชขึ้น ไม่ให้ชน fever gauge */
-  z-index:920;           /* สูงกว่า fever gauge */
+  bottom:10px;
   display:flex;
   justify-content:center;
   align-items:center;
@@ -203,6 +212,10 @@ a-scene {
   align-items:center;
   gap:8px;
   pointer-events:auto;
+  transition:
+    transform .20s ease-out,
+    box-shadow .20s ease-out,
+    background .20s ease-out;
 }
 
 .coach-bubble.show {
@@ -217,6 +230,7 @@ a-scene {
   font-weight:600;
 }
 
+/* โค้ชการ์ตูน emoji */
 .coach-avatar {
   width:28px;
   height:28px;
@@ -235,12 +249,55 @@ a-scene {
   50%     { transform:scale(1.07); }
 }
 
+/* อารมณ์โค้ช + wiggle */
+.coach-bubble.coach-good {
+  background:rgba(22,163,74,0.96);
+  box-shadow:0 0 18px rgba(34,197,94,0.85);
+}
+.coach-bubble.coach-hype {
+  background:rgba(79,70,229,0.96);
+  box-shadow:0 0 24px rgba(129,140,248,0.95);
+}
+.coach-bubble.coach-bad {
+  background:rgba(127,29,29,0.96);
+  box-shadow:0 0 18px rgba(248,113,113,0.95);
+}
+
+.coach-avatar.coach-avatar-good,
+.coach-avatar.coach-avatar-bad,
+.coach-avatar.coach-avatar-hype {
+  animation: coach-wiggle 0.4s ease-in-out;
+}
+
+@keyframes coach-wiggle {
+  0%   { transform:translateX(0); }
+  20%  { transform:translateX(-4px); }
+  40%  { transform:translateX(4px); }
+  60%  { transform:translateX(-3px); }
+  80%  { transform:translateX(3px); }
+  100% { transform:translateX(0); }
+}
+
+@media (max-width:640px) {
+  .coach-bubble {
+    min-width:0;
+    width:calc(100% - 32px);
+    font-size:12px;
+  }
+
+  .fg-quest-panel{
+    min-width:0;
+    width:calc(50% - 12px);
+    padding:8px 10px;
+  }
+}
+
 /* ===== Target Layer ===== */
 
 #fg-layer {
   position:fixed;
   inset:0;
-  z-index:40;
+  z-index:40; /* ใต้ HUD แต่เหนือฉาก */
   pointer-events:none;
 }
 
@@ -272,7 +329,7 @@ a-scene {
   background:radial-gradient(circle at 30% 30%, #f97316, #c2410c);
 }
 
-/* emoji ในเป้า */
+/* Emoji บนเป้า */
 .fg-target::before {
   content:attr(data-emoji);
   font-size:52px;
@@ -284,93 +341,43 @@ a-scene {
   opacity:0;
 }
 
-/* ===== Result overlay ===== */
+/* ===== End summary (end-toast) ===== */
 
-.result-overlay {
+.end-toast {
   position:fixed;
-  inset:0;
-  background:rgba(15,23,42,0.92);
-  z-index:950;
+  right:10px;
+  bottom:12px;
+  z-index:70;
+  min-width:260px;
+  max-width:320px;
+  padding:10px 14px;
+  border-radius:var(--radius-lg);
+  background:rgba(15,23,42,0.98);
+  border:1px solid rgba(148,163,184,0.6);
+  box-shadow:0 20px 48px rgba(0,0,0,0.85);
+  font-size:13px;
   display:none;
-  align-items:center;
-  justify-content:center;
 }
 
-.result-overlay.show {
-  display:flex;
+.end-toast.show {
+  display:block;
 }
 
-.result-card {
-  background:rgba(15,23,42,1);
-  border-radius:24px;
-  padding:24px 26px 20px;
-  max-width:420px;
-  width:90%;
-  border:1px solid rgba(148,163,184,0.5);
-  box-shadow:0 24px 60px rgba(0,0,0,0.85);
-}
-
-.result-card h2 {
-  margin:0 0 12px;
-  font-size:20px;
-}
-
-.result-card p {
-  margin:4px 0;
-  font-size:14px;
-}
-
-.result-card hr {
-  border:0;
-  border-top:1px solid rgba(51,65,85,0.9);
-  margin:10px 0;
-}
-
-.result-card button {
-  margin-top:12px;
-  padding:8px 16px;
-  border-radius:999px;
-  border:none;
+.end-title {
   font-size:14px;
   font-weight:600;
-  cursor:pointer;
-  background:linear-gradient(90deg,#22c55e,#4ade80);
-  color:#022c22;
+  margin-bottom:6px;
 }
 
-/* ให้ Fever gauge อยู่ใต้โค้ชหน่อย */
+.end-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:2px 0;
+  font-size:13px;
+}
+
+/* ให้ Fever gauge จาก ui-fever.js อยู่ layer สูงกว่าฉาก */
 .hha-fever-wrap {
-  z-index:800 !important;
-}
-
-/* ===== Mobile tweaks ===== */
-@media (max-width:640px) {
-  .hud-top{
-    flex-direction:column;
-    align-items:stretch;
-    gap:8px;
-  }
-  .hud-card,
-  .fg-quest-panel{
-    width:calc(100% - 20px);
-    min-width:0;
-  }
-
-  .hud-bottom{
-    bottom:72px;   /* ดันขึ้นอีกนิดบนมือถือ */
-  }
-
-  .coach-bubble {
-    min-width:0;
-    width:calc(100% - 32px);
-    font-size:12px;
-  }
-
-  .fg-quest-panel{
-    padding:8px 10px;
-  }
-
-  .fg-quest-row{
-    flex-wrap:wrap;
-  }
+  z-index:80 !important;
 }
