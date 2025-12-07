@@ -16,7 +16,6 @@
   <!-- Particle FX (global: window.Particles / window.GAME_MODULES.Particles) -->
   <script src="./vr/particles.js"></script>    <!-- เป้าแตก + คะแนนเด้ง -->
   <script src="./vr/ui-fever.js"></script>     <!-- Fever กลาง -->
-
 </head>
 <body>
 <div class="app">
@@ -40,61 +39,36 @@
 
   <!-- ===== HUD / UI Overlay ===== -->
   <div id="hud">
-<div class="hud-top">
-  <div class="hud-left">
-    <div class="hud-title">
-      <span>🍽️ Balanced Plate VR</span>
-      <span class="hud-pill">
-        <span class="label">ระดับ</span>
-        <span id="hud-diff">-</span>
-      </span>
-    </div>
-
-    <div class="hud-info-row">
-      <div class="hud-badge">
-        <span>คะแนน</span>
-        <span class="value" id="hud-score">0</span>
-      </div>
-      <div class="hud-badge">
-        <span>คอมโบ</span>
-        <span class="value" id="hud-combo">0</span>
-      </div>
-      <div class="hud-badge">
-        <span>จานสมดุล</span>
-        <span class="value" id="hud-plates">0</span>
-      </div>
-      <div class="hud-badge">
-        <span>แตะของไม่ดี (MISS)</span>
-        <span class="value" id="hud-miss">0</span>
-      </div>
-    </div>
-
-    <!-- ✅ ย้าย legend มาอยู่ฝั่งซ้ายตรงนี้ -->
-    <div class="hud-groups-legend">
-      <span>1 ข้าว-แป้ง 🍚🍞</span>
-      <span>2 โปรตีน 🥩🍗</span>
-      <span>3 ผัก 🥦🥕</span>
-      <span>4 ผลไม้ 🍎🍌</span>
-      <span>5 นม/ผลิตภัณฑ์นม 🥛🧀</span>
-    </div>
-  </div>
-
-  <div class="hud-right">
-    <div class="hud-timer"> ... </div>
-    <div class="hud-groups" id="hud-groups"> ... </div>
-  </div>
-</div>
-
-        <!-- แถวจำนวนที่เก็บได้ในแต่ละหมู่ -->
-        <div class="hud-groups" id="hud-groups">
-          <span>หมู่ 1: <strong id="g1">0</strong></span>
-          <span>2: <strong id="g2">0</strong></span>
-          <span>3: <strong id="g3">0</strong></span>
-          <span>4: <strong id="g4">0</strong></span>
-          <span>5: <strong id="g5">0</strong></span>
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="hud-title">
+          <span>🍽️ Balanced Plate VR</span>
+          <span class="hud-pill">
+            <span class="label">ระดับ</span>
+            <span id="hud-diff">-</span>
+          </span>
         </div>
 
-        <!-- ✅ แผนที่หมู่อาหาร (จำง่าย) -->
+        <div class="hud-info-row">
+          <div class="hud-badge">
+            <span>คะแนน</span>
+            <span class="value" id="hud-score">0</span>
+          </div>
+          <div class="hud-badge">
+            <span>คอมโบ</span>
+            <span class="value" id="hud-combo">0</span>
+          </div>
+          <div class="hud-badge">
+            <span>จานสมดุล</span>
+            <span class="value" id="hud-plates">0</span>
+          </div>
+          <div class="hud-badge">
+            <span>แตะของไม่ดี (MISS)</span>
+            <span class="value" id="hud-miss">0</span>
+          </div>
+        </div>
+
+        <!-- แผนที่หมู่อาหาร (จำง่าย) -->
         <div class="hud-groups-legend">
           <span>1 ข้าว-แป้ง 🍚🍞</span>
           <span>2 โปรตีน 🥩🍗</span>
@@ -104,6 +78,25 @@
         </div>
       </div>
 
+      <div class="hud-right">
+        <div class="hud-timer">
+          <span class="icon">⏱️</span>
+          <span>เหลือเวลา</span>
+          <span class="value" id="hud-time">60</span>
+          <span>วิ</span>
+        </div>
+
+        <!-- แถวจำนวนที่เก็บได้ในแต่ละหมู่ -->
+        <div class="hud-groups" id="hud-groups">
+          <span>หมู่ 1: <strong id="g1">0</strong></span>
+          <span>2: <strong id="g2">0</strong></span>
+          <span>3: <strong id="g3">0</strong></span>
+          <span>4: <strong id="g4">0</strong></span>
+          <span>5: <strong id="g5">0</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== Quest Panel ===== -->
   <div id="quest-panel">
@@ -300,7 +293,7 @@
   window.addEventListener('quest:update', (e) => {
     const d = e.detail || {};
     const goal = d.goal || {};
-    const mini = d.mini || {};
+       const mini = d.mini || {};
 
     const goalText = goal.text || goal.title || goal.label || goal.name || 'จัดจานให้ครบ 5 หมู่';
     const miniText = mini.text || mini.title || mini.label || mini.name || 'เก็บผักและผลไม้ให้ครบโควตา';
