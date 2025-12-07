@@ -191,19 +191,6 @@
       pointer-events:auto;
     }
     .coach-bubble.show{ display:flex; }
-
-    /* wiggle animation เวลาโค้ชพูด */
-    .coach-bubble.wiggle{
-      animation: coachWiggle .45s ease-out;
-    }
-    @keyframes coachWiggle{
-      0%   { transform: translateX(0); }
-      25%  { transform: translateX(-6px); }
-      50%  { transform: translateX(6px); }
-      75%  { transform: translateX(-4px); }
-      100% { transform: translateX(0); }
-    }
-
     .coach-label{
       font-size:11px;
       text-transform:uppercase;
@@ -245,7 +232,7 @@
       transform:translateX(-50%);
       background:radial-gradient(circle at top left, rgba(250,204,21,0.26), transparent 55%),
                  rgba(15,23,42,0.96);
-      padding:12px 16px;
+      padding:12px 16px 14px;
       border-radius:20px;
       border:1px solid rgba(250,204,21,0.65);
       min-width:280px;
@@ -269,6 +256,48 @@
       margin-top:2px;
     }
     .end-row strong{ font-weight:600; }
+
+    .end-actions{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      gap:8px;
+      margin-top:10px;
+    }
+    .end-btn{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.6);
+      padding:6px 14px;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+      background:rgba(15,23,42,0.85);
+      color:var(--text-main);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
+    }
+    .end-btn:hover{
+      background:rgba(15,23,42,0.98);
+      box-shadow:0 10px 22px rgba(15,23,42,0.9);
+      transform:translateY(-1px);
+    }
+    .end-btn:active{
+      transform:translateY(0);
+      box-shadow:0 6px 14px rgba(15,23,42,0.7);
+    }
+    .end-btn-primary{
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      border-color:rgba(187,247,208,0.9);
+      color:#052e16;
+    }
+    .end-btn-primary:hover{
+      background:linear-gradient(135deg,#4ade80,#22c55e);
+    }
+    .end-btn-ghost{
+      background:rgba(15,23,42,0.7);
+    }
 
     /* ===== A-Frame canvas full ===== */
     a-scene{
@@ -389,11 +418,14 @@
     <div class="end-row"><span>พลาด</span><strong id="end-miss">0</strong></div>
     <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 0</strong></div>
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
+    <div class="end-actions">
+      <button class="end-btn end-btn-primary" id="btn-replay">เล่นอีกครั้ง</button>
+      <button class="end-btn end-btn-ghost" id="btn-back-hub">กลับ Hub</button>
+    </div>
   </div>
 
-  <!-- ★ Fever UI แบบ global + Particles (FX) -->
+  <!-- ★ เพิ่ม Fever UI แบบ global กลับมา -->
   <script src="./vr/ui-fever.js"></script>
-  <script src="./vr/particles.js"></script>
 
   <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
@@ -434,6 +466,9 @@
     const elEndGoal   = document.getElementById('end-goal');
     const elEndMini   = document.getElementById('end-mini');
 
+    const btnReplay   = document.getElementById('btn-replay');
+    const btnBackHub  = document.getElementById('btn-back-hub');
+
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
@@ -453,12 +488,6 @@
       if (!text) return;
       elCoachText.textContent = text;
       elCoachBubble.classList.add('show');
-
-      // ทำให้โค้ชขยับซ้ายขวาทุกครั้งที่พูด
-      elCoachBubble.classList.remove('wiggle');
-      void elCoachBubble.offsetWidth; // force reflow
-      elCoachBubble.classList.add('wiggle');
-
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(()=> {
         elCoachBubble.classList.remove('show');
@@ -472,7 +501,7 @@
       elTime.textContent = sec + 's';
     });
 
-    // HUD: Quest (main + mini + status รวม)
+    // HUD: Quest
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -502,17 +531,12 @@
         elQuestMiniCap.textContent = '';
       }
 
-      // แสดง status รวมของทุกภารกิจ
-      if (d.status){
-        elQuestHint.textContent = d.status;
-      } else if (d.hint){
+      if (d.hint){
         elQuestHint.textContent = d.hint;
-      } else {
-        elQuestHint.textContent = '';
       }
     });
 
-    // HUD: Coach (ข้อความ)
+    // HUD: Coach
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
       if (text) {
@@ -572,8 +596,8 @@
       const scoreFinal = d.scoreFinal ?? d.score ?? 0;
       const comboMax   = d.comboMax ?? 0;
       const misses     = d.misses ?? 0;
-      const goalsCleared  = d.goalsCleared ?? 0;
-      const goalsTotal    = d.goalsTotal ?? 0;
+      const goalsCleared  = d.goalsCleared ?? d.miniCleared ?? 0;
+      const goalsTotal    = d.goalsTotal ?? d.miniTotal ?? 0;
       const miniCleared   = d.miniCleared ?? 0;
       const miniTotal     = d.miniTotal ?? 0;
 
@@ -645,6 +669,19 @@
 
       window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
       const timerId = setInterval(tickTime, 1000);
+
+      // ===== ปุ่มหน้าสรุป =====
+      if (btnReplay) {
+        btnReplay.addEventListener('click', () => {
+          window.location.reload();
+        });
+      }
+      if (btnBackHub) {
+        btnBackHub.addEventListener('click', () => {
+          // ★ ถ้า Hub อยู่ path อื่น เช่น ../game/hub.html แก้ตรงนี้ได้เลย
+          window.location.href = './hub.html';
+        });
+      }
     });
   </script>
 </body>
