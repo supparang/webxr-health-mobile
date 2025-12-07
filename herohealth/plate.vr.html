@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Hero Health — Balanced Plate VR</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon">
+
+  <!-- A-Frame core -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg-main:#020617;
+      --panel:#020617;
+      --panel-soft:#0b1120;
+      --accent:#22c55e;
+      --accent-soft:rgba(34,197,94,0.18);
+      --bad:#f97316;
+      --text-main:#e5e7eb;
+      --text-soft:#9ca3af;
+      --radius-lg:18px;
+      --radius-pill:999px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #0f172a 0, #020617 45%, #000 100%);
+      color:var(--text-main);
+      height:100vh;
+      overflow:hidden;
+    }
+    #app{
+      position:relative;
+      width:100%;
+      height:100%;
+    }
+
+    /* HUD overlay */
+    .hud{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      padding:12px 16px 16px;
+      z-index:10;
+    }
+    .hud-row{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .hud-pill{
+      background:rgba(15,23,42,0.88);
+      backdrop-filter:blur(10px);
+      border-radius:var(--radius-pill);
+      padding:6px 12px;
+      font-size:13px;
+      color:var(--text-soft);
+      display:flex;
+      gap:10px;
+      align-items:center;
+      border:1px solid rgba(148,163,184,0.2);
+    }
+    .hud-pill strong{
+      color:var(--text-main);
+      font-weight:600;
+    }
+    #hud-coach{
+      margin-top:6px;
+      max-width:480px;
+      background:var(--panel-soft);
+      border-radius:var(--radius-lg);
+      padding:8px 12px;
+      font-size:13px;
+      color:var(--text-main);
+      border:1px solid rgba(148,163,184,0.35);
+      box-shadow:0 15px 35px rgba(0,0,0,0.45);
+    }
+    #hud-coach.hidden{opacity:0;transform:translateY(6px);}
+    #hud-coach span{opacity:0.9;}
+
+    /* Quest panel */
+    #hud-quest{
+      margin-left:auto;
+      max-width:380px;
+      background:var(--panel-soft);
+      border-radius:var(--radius-lg);
+      padding:8px 12px;
+      font-size:12px;
+      border:1px solid rgba(148,163,184,0.3);
+    }
+    #hud-quest-title{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      color:var(--text-soft);
+      margin-bottom:4px;
+    }
+    #hud-quest-goal strong,
+    #hud-quest-mini strong{
+      color:var(--accent);
+    }
+    #hud-quest-hint{
+      margin-top:4px;
+      color:var(--text-soft);
+      font-size:11px;
+    }
+
+    /* Fever bar container (ui-fever.js จะเติมภายในเอง) */
+    #fever-wrap{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:12px;
+      width:min(520px, 92vw);
+      pointer-events:none;
+    }
+
+    /* Summary screen */
+    #summary{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:radial-gradient(circle at top, rgba(15,23,42,0.9), rgba(15,23,42,0.96));
+      z-index:20;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .4s ease;
+    }
+    #summary.visible{
+      opacity:1;
+      pointer-events:auto;
+    }
+    .summary-card{
+      background:var(--panel-soft);
+      border-radius:24px;
+      padding:20px 22px 18px;
+      width:min(420px, 92vw);
+      border:1px solid rgba(148,163,184,0.35);
+      box-shadow:0 24px 60px rgba(0,0,0,0.7);
+    }
+    .summary-card h1{
+      font-size:18px;
+      margin-bottom:6px;
+    }
+    .summary-card p{
+      font-size:13px;
+      color:var(--text-soft);
+      margin-bottom:10px;
+    }
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:8px;
+      font-size:12px;
+      margin-bottom:10px;
+    }
+    .summary-item{
+      background:rgba(15,23,42,0.9);
+      border-radius:14px;
+      padding:8px 10px;
+      border:1px solid rgba(148,163,184,0.25);
+    }
+    .summary-item span{
+      display:block;
+      color:var(--text-soft);
+      font-size:11px;
+      margin-bottom:2px;
+    }
+    .summary-item strong{
+      font-size:13px;
+    }
+    .summary-actions{
+      margin-top:8px;
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+    }
+    .btn{
+      border-radius:var(--radius-pill);
+      padding:6px 14px;
+      font-size:13px;
+      border:none;
+      cursor:pointer;
+      font-weight:500;
+    }
+    .btn-primary{
+      background:var(--accent);
+      color:#022c22;
+    }
+    .btn-ghost{
+      background:transparent;
+      color:var(--text-soft);
+      border:1px solid rgba(148,163,184,0.4);
+    }
+
+    /* A-Frame scene full screen */
+    a-scene{
+      width:100%;
+      height:100%;
+      background:#000;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- HUD overlay -->
+  <div class="hud">
+    <div class="hud-row">
+      <div class="hud-pill">
+        <span>🧮 คะแนน <strong id="hud-score">0</strong></span>
+        <span>🔥 คอมโบ <strong id="hud-combo">0</strong></span>
+        <span>⏱️ เวลา <strong id="hud-time">60</strong>s</span>
+      </div>
+
+      <div id="hud-quest">
+        <div id="hud-quest-title">Balanced Plate Quest</div>
+        <div id="hud-quest-goal">Goal: -</div>
+        <div id="hud-quest-mini">Mini: -</div>
+        <div id="hud-quest-hint">Hint: -</div>
+      </div>
+    </div>
+
+    <div>
+      <div id="hud-coach" class="hidden">
+        👩‍🏫 <span id="hud-coach-text"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fever bar (ui-fever.js จะใช้ container นี้) -->
+  <div id="fever-wrap"></div>
+
+  <!-- Summary screen -->
+  <div id="summary">
+    <div class="summary-card">
+      <h1>สรุปจานอาหารสมดุล 🥗</h1>
+      <p id="summary-title"></p>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <span>คะแนนรวม</span>
+          <strong id="sum-score">0</strong>
+        </div>
+        <div class="summary-item">
+          <span>คอมโบสูงสุด</span>
+          <strong id="sum-combo">0</strong>
+        </div>
+        <div class="summary-item">
+          <span>แตะของไม่ดี (MISS)</span>
+          <strong id="sum-miss">0</strong>
+        </div>
+        <div class="summary-item">
+          <span>ภารกิจหลักที่ผ่าน</span>
+          <strong><span id="sum-goal-done">0</span>/<span id="sum-goal-total">0</span></strong>
+        </div>
+        <div class="summary-item">
+          <span>Mini quest ที่ผ่าน</span>
+          <strong><span id="sum-mini-done">0</span>/<span id="sum-mini-total">0</span></strong>
+        </div>
+        <div class="summary-item">
+          <span>จาน 5 หมู่</span>
+          <strong id="sum-groups">-</strong>
+        </div>
+      </div>
+
+      <div class="summary-actions">
+        <button class="btn btn-ghost" id="btn-back">กลับ Hub</button>
+        <button class="btn btn-primary" id="btn-retry">เล่นอีกครั้ง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- A-Frame Scene (factoryBoot จะจัดการภายใน) -->
+  <a-scene vr-mode-ui="enabled: true" cursor="rayOrigin: mouse">
+    <!-- mode-factory มักจะสร้าง entity เอง ถ้าอยากมีพื้นกับแสงก็เติมได้ -->
+    <a-entity light="type: ambient; intensity: 0.9"></a-entity>
+    <a-sky color="#020617"></a-sky>
+  </a-scene>
+</div>
+
+<script type="module">
+  import { boot as bootPlate } from './plate/plate.safe.js';
+
+  // ----- อ่านพารามิเตอร์จาก URL -----
+  const url = new URL(window.location.href);
+  const diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
+  let dur   = parseInt(url.searchParams.get('time') || '60', 10);
+  if (isNaN(dur) || dur <= 0) dur = 60;
+  if (dur < 20) dur = 20;
+  if (dur > 180) dur = 180;
+
+  // ----- DOM refs -----
+  const elScore      = document.getElementById('hud-score');
+  const elCombo      = document.getElementById('hud-combo');
+  const elTime       = document.getElementById('hud-time');
+  const elCoachWrap  = document.getElementById('hud-coach');
+  const elCoachText  = document.getElementById('hud-coach-text');
+  const elQuestGoal  = document.getElementById('hud-quest-goal');
+  const elQuestMini  = document.getElementById('hud-quest-mini');
+  const elQuestHint  = document.getElementById('hud-quest-hint');
+
+  const elSummary       = document.getElementById('summary');
+  const elSumTitle      = document.getElementById('summary-title');
+  const elSumScore      = document.getElementById('sum-score');
+  const elSumCombo      = document.getElementById('sum-combo');
+  const elSumMiss       = document.getElementById('sum-miss');
+  const elSumGoalDone   = document.getElementById('sum-goal-done');
+  const elSumGoalTotal  = document.getElementById('sum-goal-total');
+  const elSumMiniDone   = document.getElementById('sum-mini-done');
+  const elSumMiniTotal  = document.getElementById('sum-mini-total');
+  const elSumGroups     = document.getElementById('sum-groups');
+  const btnBack         = document.getElementById('btn-back');
+  const btnRetry        = document.getElementById('btn-retry');
+
+  // ให้ ui-fever.js หา container ได้ง่าย
+  window.HHA_FEVER_ROOT = document.getElementById('fever-wrap');
+
+  // ----- Coach text -----
+  let coachTimeout = null;
+  window.addEventListener('hha:coach', (e) => {
+    const text = e.detail?.text || '';
+    if (!text) return;
+    elCoachText.textContent = text;
+    elCoachWrap.classList.remove('hidden');
+    if (coachTimeout) clearTimeout(coachTimeout);
+    coachTimeout = setTimeout(() => {
+      elCoachWrap.classList.add('hidden');
+    }, 3200);
+  });
+
+  // ----- Quest HUD -----
+  window.addEventListener('quest:update', (e) => {
+    const d = e.detail || {};
+    const g = d.goal;
+    const m = d.mini;
+    elQuestGoal.textContent = g
+      ? `Goal: ${g.label || g.text || JSON.stringify(g)}`
+      : 'Goal: -';
+    elQuestMini.textContent = m
+      ? `Mini: ${m.label || m.text || JSON.stringify(m)}`
+      : 'Mini: -';
+    elQuestHint.textContent = `Hint: ${d.hint || '-'}`;
+  });
+
+  // ----- สรุปผลเมื่อจบเกม -----
+  window.addEventListener('hha:end', (e) => {
+    const d = e.detail || {};
+    elSumTitle.textContent = `โหมด ${d.mode || 'Balanced Plate'} | ระดับ ${d.difficulty || diff}`;
+    elSumScore.textContent = d.score ?? 0;
+    elSumCombo.textContent = d.comboMax ?? 0;
+    elSumMiss.textContent  = d.misses ?? 0;
+    elSumGoalDone.textContent  = d.goalsCleared ?? 0;
+    elSumGoalTotal.textContent = d.goalsTotal ?? 0;
+    elSumMiniDone.textContent  = d.questsCleared ?? 0;
+    elSumMiniTotal.textContent = d.questsTotal ?? 0;
+
+    // groupCounts: [หมู่1..หมู่5]
+    if (Array.isArray(d.groupCounts) && d.groupCounts.length >= 5) {
+      const [g1,g2,g3,g4,g5] = d.groupCounts;
+      elSumGroups.textContent = `1:${g1}  2:${g2}  3:${g3}  4:${g4}  5:${g5}`;
+    } else {
+      elSumGroups.textContent = '-';
+    }
+
+    elSummary.classList.add('visible');
+  });
+
+  // ปุ่มกลับ / เล่นอีก
+  btnBack.addEventListener('click', () => {
+    // ปรับตามจริง: เปลี่ยนเป็น hub.html ของโปรเจกต์
+    window.location.href = './hub.html';
+  });
+  btnRetry.addEventListener('click', () => {
+    window.location.reload();
+  });
+
+  // ----- Clock กลาง: ยิง hha:time -----
+  let secLeft = dur;
+  elTime.textContent = secLeft;
+
+  function tickTime() {
+    window.dispatchEvent(new CustomEvent('hha:time', { detail: { sec: secLeft } }));
+    elTime.textContent = secLeft;
+    if (secLeft <= 0) {
+      clearInterval(timerId);
+      return;
+    }
+    secLeft--;
+  }
+
+  // ยิงครั้งแรกทันที แล้วค่อยเริ่ม interval
+  tickTime();
+  const timerId = setInterval(tickTime, 1000);
+
+  // ----- อัปเดต HUD จากฝั่ง engine ถ้าต้องการ -----
+  // tip: ถ้าอยากให้ score/combo ขยับ realtime จาก engine
+  // สามารถให้ mode-factory ยิง custom event เช่น hha:stat แล้วมาฟังที่นี่
+  window.addEventListener('hha:stat', (e) => {
+    const d = e.detail || {};
+    if (typeof d.score === 'number') elScore.textContent = d.score;
+    if (typeof d.combo === 'number') elCombo.textContent = d.combo;
+  });
+
+  // ----- Boot เกม plate -----
+  // ส่ง difficulty & duration เข้า engine
+  bootPlate({ difficulty: diff, duration: dur });
+</script>
+</body>
+</html>
