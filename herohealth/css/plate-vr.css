@@ -369,12 +369,16 @@ a-scene{
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:0;           /* ซ่อนตัวอักษรพื้นฐาน */
+
+  /* ซ่อนตัวอักษร emoji ที่อยู่ข้างใน div */
+  font-size:0;
+
   pointer-events:auto;
   cursor:pointer;
   z-index:360;
 }
 
+/* วาด emoji จาก data-char แทน */
 .hha-target::before{
   content: attr(data-char);
   font-size:42px;
