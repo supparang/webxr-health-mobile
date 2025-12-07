@@ -458,3 +458,21 @@ a-scene{
     font-size:9px;
   }
 }
+.hud-groups-legend{
+  margin-top:4px;
+  font-size:10px;
+  color:var(--text-soft);
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px 10px;
+}
+
+.hud-groups-legend span{
+  white-space:nowrap;
+}
+
+@media (max-width:768px){
+  .hud-groups-legend{
+    font-size:9px;
+  }
+}
