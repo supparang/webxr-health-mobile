@@ -16,7 +16,6 @@
   <!-- Particle FX (global: window.Particles / window.GAME_MODULES.Particles) -->
   <script src="./vr/particles.js"></script>    <!-- เป้าแตก + คะแนนเด้ง -->
   <script src="./vr/ui-fever.js"></script>     <!-- Fever กลาง -->
-
 </head>
 <body>
 <div class="app">
@@ -30,8 +29,14 @@
       background="color: #020617"
     >
       <a-entity position="0 1.6 0">
-        <a-entity camera look-controls wasd-controls="enabled: false"></a-entity>
+        <!-- เปิด touch/mouse ชัด ๆ -->
+        <a-entity
+          camera
+          look-controls="touchEnabled: true; mouseEnabled: true; pointerLockEnabled: false"
+          wasd-controls="enabled: false">
+        </a-entity>
       </a-entity>
+
       <!-- ไฟจาง ๆ -->
       <a-entity light="type:ambient; color:#ffffff; intensity:0.6"></a-entity>
       <a-entity light="type:directional; color:#ffffff; intensity:0.7" position="0 2 -1"></a-entity>
@@ -187,6 +192,12 @@
     </div>
   </div>
 
+  <!-- ===== Gaze Reticle (VR เท่านั้น) ===== -->
+  <div id="gaze-reticle">
+    <div class="gaze-dot"></div>
+    <div class="gaze-ring"></div>
+  </div>
+
 </div>
 
 <!-- ===== Logic ฝั่งหน้า plate-vr ===== -->
@@ -244,6 +255,9 @@
   const btnRestart = document.getElementById('btn-restart');
   const btnToHub   = document.getElementById('btn-to-hub');
 
+  const sceneEl   = document.querySelector('a-scene');
+  const gazeEl    = document.getElementById('gaze-reticle');
+
   // แปลง diff เป็น label ภาษาไทย
   function diffLabel(d){
     if (d === 'easy') return 'ง่าย';
@@ -276,10 +290,8 @@
     }
   }
 
-  // เริ่ม timer หลังโหลด
   timerId = setInterval(tick, 1000);
-  // ยิงครั้งแรกทันที (sec = duration)
-  tick();
+  tick(); // ยิงครั้งแรกทันที
 
   // ------- HUD realtime จาก hha:stat -------
   window.addEventListener('hha:stat', (e) => {
@@ -378,15 +390,23 @@
   // ------- เริ่มเกม Plate Engine -------
   bootPlate({ difficulty: diffParam, duration });
 
-  // ------- Gaze fire: ใช้กับ VR trigger / แตะจอ / ปุ่มคีย์บอร์ด -------
+  // ================== Gaze & Fuse สำหรับ VR ==================
 
-  function hitTargetAtCenter() {
+  let isVrMode = false;
+
+  const GAZE_RADIUS = 70;     // ระยะจากจุดกลางที่ถือว่าเล็งโดน (px)
+  const FUSE_MS     = 1100;   // เวลาจ้องเพื่อยิงอัตโนมัติ (ms)
+
+  let gazeTimerId   = null;
+  let gazeTarget    = null;
+  let gazeStartTs   = 0;
+
+  function findTargetNearCenter() {
     const targets = document.querySelectorAll('.hha-target');
-    if (!targets.length) return false;
+    if (!targets.length) return { el: null, dist: Infinity };
 
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight / 2;
-
     let best = null;
     let bestDist = Infinity;
 
@@ -403,18 +423,81 @@
       }
     });
 
-    // ต้องอยู่ใกล้จุดกลางพอสมควร ถึงจะถือว่า "เล็งโดน"
-    const MAX_RADIUS = 70; // px
-
-    if (best && bestDist <= MAX_RADIUS) {
-      best.click();   // ใช้ click เดิมของเป้า
-      return true;
-    }
-    return false;
+    return { el: best, dist: bestDist };
   }
 
+  function hitTargetAtCenter() {
+    const { el, dist } = findTargetNearCenter();
+    if (!el || dist > GAZE_RADIUS) return false;
+    el.click();
+    return true;
+  }
+
+  function gazeTick() {
+    if (!isVrMode) return;
+
+    const { el, dist } = findTargetNearCenter();
+
+    if (!el || dist > GAZE_RADIUS) {
+      gazeTarget = null;
+      gazeStartTs = 0;
+      if (gazeEl) gazeEl.classList.remove('fuse-active');
+      return;
+    }
+
+    const now = performance.now();
+
+    if (el === gazeTarget) {
+      const elapsed = now - gazeStartTs;
+      if (elapsed >= FUSE_MS) {
+        if (gazeEl) gazeEl.classList.remove('fuse-active');
+        el.click();
+        gazeTarget = null;
+        gazeStartTs = 0;
+      }
+    } else {
+      gazeTarget = el;
+      gazeStartTs = now;
+      if (gazeEl) {
+        gazeEl.classList.remove('fuse-active');
+        // force reflow ให้ animation เล่นใหม่
+        void gazeEl.offsetWidth;
+        gazeEl.classList.add('fuse-active');
+      }
+    }
+  }
+
+  function startGazeLoop() {
+    if (gazeTimerId) return;
+    gazeTimerId = setInterval(gazeTick, 100);
+  }
+
+  function stopGazeLoop() {
+    if (!gazeTimerId) return;
+    clearInterval(gazeTimerId);
+    gazeTimerId = null;
+    gazeTarget = null;
+    gazeStartTs = 0;
+    if (gazeEl) gazeEl.classList.remove('fuse-active');
+  }
+
+  if (sceneEl) {
+    sceneEl.addEventListener('enter-vr', () => {
+      isVrMode = true;
+      document.body.classList.add('hha-vr-mode');
+      startGazeLoop();
+    });
+    sceneEl.addEventListener('exit-vr', () => {
+      isVrMode = false;
+      document.body.classList.remove('hha-vr-mode');
+      stopGazeLoop();
+    });
+  }
+
+  // pointer / key → ยิงเป้าที่จ้อง (เฉพาะตอนอยู่ใน VR)
   function handlePointerDownForGaze(ev) {
-    // 1) ถ้ากดตรง UI (HUD / summary / ปุ่ม) ให้ปล่อยผ่านไปเลย
+    if (!isVrMode) return;
+
     const path = ev.composedPath ? ev.composedPath() : [ev.target];
     const hitUI = path.some(node => {
       if (!node || !node.closest) return false;
@@ -424,23 +507,19 @@
     });
     if (hitUI) return;
 
-    // 2) ถ้ากดตรงเป้าอยู่แล้ว ให้ใช้ click ปกติ
-    const hitTargetDirect = path.some(node => {
-      return node && node.classList && node.classList.contains('hha-target');
-    });
+    const hitTargetDirect = path.some(node =>
+      node && node.classList && node.classList.contains('hha-target')
+    );
     if (hitTargetDirect) return;
 
-    // 3) กรณี VR trigger / แตะจอที่ไหนก็ได้ → ยิงเป้าตาม gaze
     hitTargetAtCenter();
   }
 
   function handleKeyDownForGaze(ev) {
-    // PC: Space / Enter = ยิงเป้ากลางจอ
+    if (!isVrMode) return;
     if (ev.code === 'Space' || ev.code === 'Enter') {
       const ok = hitTargetAtCenter();
-      if (ok) {
-        ev.preventDefault();
-      }
+      if (ok) ev.preventDefault();
     }
   }
 
