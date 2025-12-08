@@ -23,7 +23,7 @@
         position:fixed;
         inset:0;
         pointer-events:none;
-        z-index:652; /* เหนือ HUD (650) แต่ยังต่ำกว่า countdown (655) */
+        z-index:900; /* ให้ลอยเหนือ HUD ทั้งหมด */
         overflow:hidden;
       }
 
@@ -31,9 +31,9 @@
         position:absolute;
         transform:translate(-50%,-50%);
         font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-        font-size:14px;
-        font-weight:600;
-        padding:2px 8px;
+        font-size:16px;  /* ใหญ่ขึ้นชัด ๆ */
+        font-weight:700;
+        padding:3px 10px;
         border-radius:999px;
         background:rgba(15,23,42,0.96);
         color:#e5e7eb;
@@ -50,10 +50,10 @@
       /* คะแนนตัวเลข */
       .hha-score-pop--score{
         background:rgba(15,23,42,0.98);
-        font-size:13px;
+        font-size:15px;
       }
 
-      /* GOOD / BLOCK */
+      /* GOOD / BLOCK / BONUS */
       .hha-score-pop--good{
         color:#bbf7d0;
         border-color:rgba(34,197,94,0.95);
@@ -101,7 +101,7 @@
    * แสดง popup คะแนน / ข้อความบนจอ
    * opts:
    *   kind: "score" | "judge"
-   *   judgment: "GOOD" | "MISS" | "LATE" | "PERFECT" | "BLOCK"
+   *   judgment: "GOOD" | "MISS" | "LATE" | "PERFECT" | "BLOCK" | "BONUS"
    */
   function scorePop(x, y, text, opts = {}) {
     const host = ensureLayer();
