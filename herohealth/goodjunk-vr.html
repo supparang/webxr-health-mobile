@@ -329,33 +329,19 @@
       inset:0;
     }
 
-    /* ===== VR button: ล่างขวา ===== */
-    .hha-vr-btn{
-      position:fixed;
-      right:16px;
+    /* ===== VR button (A-Frame default) มุมขวาล่าง ===== */
+    .a-enter-vr-button,
+    .a-enter-ar-button{
+      position:fixed !important;
+      right:18px;
       bottom:18px;
-      z-index:900;
-      padding:8px 16px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.8);
-      background:linear-gradient(135deg,#22c55e,#16a34a);
-      color:#052e16;
-      font-size:13px;
-      font-weight:700;
-      letter-spacing:.04em;
-      text-transform:uppercase;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      cursor:pointer;
-      box-shadow:0 12px 26px rgba(15,23,42,0.85);
-    }
-    .hha-vr-btn span{
-      font-size:16px;
-    }
-    .hha-vr-btn:active{
-      transform:translateY(1px);
-      box-shadow:0 6px 14px rgba(15,23,42,0.7);
+      left:auto !important;
+      top:auto !important;
+      z-index:940 !important;
+      transform:none !important;
+      font-size:12px;
+      border-radius:999px !important;
+      padding:8px 14px !important;
     }
   </style>
 </head>
@@ -474,6 +460,7 @@
     <div class="end-row"><span>พลาด</span><strong id="end-miss">0</strong></div>
     <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 0</strong></div>
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
+    <div class="end-row"><span>เกรด</span><strong id="end-grade">-</strong></div>
     <div class="end-actions">
       <button class="end-btn end-btn-primary" id="btn-replay">เล่นอีกครั้ง</button>
       <button class="end-btn end-btn-ghost" id="btn-back-hub">กลับ Hub</button>
@@ -483,15 +470,17 @@
   <!-- Start countdown -->
   <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
 
-  <!-- ปุ่มเข้าโหมด VR -->
-  <button id="btn-vr" class="hha-vr-btn">
-    <span>🕶️</span> เข้าโหมด VR
-  </button>
-
   <!-- Fever UI (global, non-module) -->
   <script src="./vr/ui-fever.js"></script>
   <!-- Effect เป้า (particles FX) -->
   <script src="./vr/particles.js"></script>
+
+  <!-- SFX (optional; ถ้าไม่มีไฟล์จะเงียบเอง) -->
+  <audio id="sfx-hit-good" src="./sfx/hit-good.mp3" preload="auto"></audio>
+  <audio id="sfx-perfect"  src="./sfx/hit-perfect.mp3" preload="auto"></audio>
+  <audio id="sfx-miss"     src="./sfx/miss.mp3" preload="auto"></audio>
+  <audio id="sfx-fever"    src="./sfx/fever.mp3" preload="auto"></audio>
+  <audio id="sfx-bonus"    src="./sfx/bonus.mp3" preload="auto"></audio>
 
   <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
@@ -531,10 +520,10 @@
     const elEndMiss   = document.getElementById('end-miss');
     const elEndGoal   = document.getElementById('end-goal');
     const elEndMini   = document.getElementById('end-mini');
+    const elEndGrade  = document.getElementById('end-grade');
 
     const btnReplay   = document.getElementById('btn-replay');
     const btnBackHub  = document.getElementById('btn-back-hub');
-    const btnVr       = document.getElementById('btn-vr');
 
     // overlay 3–2–1 Go
     const elCountdown = document.getElementById('start-countdown');
@@ -696,16 +685,18 @@
       const scoreFinal = d.scoreFinal ?? d.score ?? 0;
       const comboMax   = d.comboMax ?? 0;
       const misses     = d.misses ?? 0;
-      const goalsCleared  = d.goalsCleared ?? d.miniCleared ?? 0;
-      const goalsTotal    = d.goalsTotal ?? d.miniTotal ?? 0;
+      const goalsCleared  = d.goalsCleared ?? 0;
+      const goalsTotal    = d.goalsTotal ?? 0;
       const miniCleared   = d.miniCleared ?? 0;
       const miniTotal     = d.miniTotal ?? 0;
+      const grade         = d.grade || '-';
 
       elEndScore.textContent = scoreFinal;
       elEndCombo.textContent = comboMax;
       elEndMiss.textContent  = misses;
       elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
       elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
+      if (elEndGrade) elEndGrade.textContent = grade;
       elEndToast.classList.add('show');
 
       setCoachFace(misses <= 3 ? 'happy' : 'neutral');
@@ -759,37 +750,15 @@
         mode: 'GoodJunkVR',
         diff,
         durationSec: dur,
-        debug: false   // production
+        debug: false   // เปิดเป็น false สำหรับ production
       });
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
 
-      // ปุ่มเข้า VR
-      const scene = document.querySelector('a-scene');
-      if (btnVr && scene) {
-        btnVr.addEventListener('click', () => {
-          if (scene.hasLoaded) {
-            scene.enterVR && scene.enterVR();
-          } else {
-            scene.addEventListener('loaded', () => {
-              scene.enterVR && scene.enterVR();
-            }, { once: true });
-          }
-        });
-
-        // ซ่อน/โชว์ปุ่มตามสถานะ VR
-        scene.addEventListener('enter-vr', () => {
-          btnVr.style.display = 'none';
-        });
-        scene.addEventListener('exit-vr', () => {
-          btnVr.style.display = 'inline-flex';
-        });
-      }
-
       // เริ่มนับ 3–2–1–Go ก่อน แล้วค่อยเริ่มเกม + นับเวลา
       runCountdown(() => {
-        GameEngine.start(diff);
+        GameEngine.start(diff, dur);
 
         let timeLeft = dur;
         function tickTime(){
