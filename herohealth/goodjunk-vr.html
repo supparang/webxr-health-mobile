@@ -193,8 +193,7 @@
       flex-direction:column;
       align-items:center;
       gap:8px;
-      /* เผื่อที่ให้ Fever Gauge ด้านล่างซ้าย */
-      padding-bottom:72px;
+      padding-bottom:72px; /* เผื่อพื้นที่ให้ Fever Gauge / ปุ่ม VR */
     }
     .coach-bubble{
       min-width:60%;
@@ -298,7 +297,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s.ease, box-shadow .15s ease, transform .1s ease;
+      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -321,33 +320,6 @@
       background:rgba(15,23,42,0.7);
     }
 
-    /* ===== ปุ่มเข้าโหมด VR ===== */
-    .vr-enter-btn{
-      position:fixed;
-      right:12px;
-      bottom:16px;
-      z-index:653;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.8);
-      padding:8px 16px;
-      font-size:12px;
-      font-weight:600;
-      cursor:pointer;
-      background:radial-gradient(circle at top left, rgba(56,189,248,0.24), transparent 55%),
-                 rgba(15,23,42,0.96);
-      color:#e5e7eb;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      box-shadow:0 14px 32px rgba(15,23,42,0.9);
-    }
-    .vr-enter-btn span{
-      font-size:14px;
-    }
-    .vr-enter-btn.hidden{
-      display:none;
-    }
-
     /* ===== A-Frame canvas full ===== */
     a-scene{
       width:100vw;
@@ -355,13 +327,56 @@
       position:fixed;
       inset:0;
     }
+
+    /* ===== Floating VR Button ===== */
+    .vr-fab{
+      position:fixed;
+      right:10px;
+      bottom:16px;
+      z-index:653;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.8);
+      background:radial-gradient(circle at top left, rgba(56,189,248,0.25), transparent 55%),
+                 rgba(15,23,42,0.96);
+      color:#e5e7eb;
+      padding:6px 12px;
+      font-size:12px;
+      font-weight:600;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      cursor:pointer;
+      box-shadow:0 16px 34px rgba(15,23,42,0.85);
+    }
+    .vr-fab span{
+      font-size:14px;
+    }
+    .vr-fab:hover{
+      background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%),
+                 rgba(15,23,42,0.98);
+      transform:translateY(-1px);
+    }
+    .vr-fab:active{
+      transform:translateY(0);
+      box-shadow:0 10px 22px rgba(15,23,42,0.9);
+    }
+
+    @media (max-width:640px){
+      .hud-card{
+        padding:7px 8px;
+      }
+      .hud-main-title{ font-size:13px; }
+      .hud-main-mode{ font-size:14px; }
+      .hud-bottom{
+        padding-bottom:84px;
+      }
+    }
   </style>
 </head>
 <body>
 
   <!-- ===== A-Frame Scene (พื้นหลัง VR) ===== -->
   <a-scene
-    id="gj-scene"
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
     background="color: #020617">
@@ -482,9 +497,9 @@
   <!-- Start countdown -->
   <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
 
-  <!-- ปุ่มเข้าโหมด VR -->
-  <button id="btn-enter-vr" class="vr-enter-btn">
-    <span>🎧</span><span>เข้าโหมด VR</span>
+  <!-- Floating VR Button -->
+  <button class="vr-fab" id="btn-enter-vr" type="button">
+    <span>🕶️</span><span>เข้าสู่โหมด VR</span>
   </button>
 
   <!-- Fever UI (global, non-module) -->
@@ -502,6 +517,18 @@
       const url = new URL(window.location.href);
       const v = url.searchParams.get(name);
       return v !== null && v !== '' ? v : fallback;
+    }
+
+    function loadPlayerProfile() {
+      try {
+        const raw = sessionStorage.getItem('HHA_PLAYER_PROFILE');
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        if (obj && typeof obj === 'object') return obj;
+      } catch (err) {
+        console.warn('[HHA] cannot parse HHA_PLAYER_PROFILE', err);
+      }
+      return null;
     }
 
     // HUD element refs
@@ -533,10 +560,10 @@
 
     const btnReplay   = document.getElementById('btn-replay');
     const btnBackHub  = document.getElementById('btn-back-hub');
-    const btnEnterVr  = document.getElementById('btn-enter-vr');
+    const btnEnterVR  = document.getElementById('btn-enter-vr');
+
     const elCountdown = document.getElementById('start-countdown');
-    const elJudge     = document.getElementById('hud-judge');
-    const scene       = document.getElementById('gj-scene');
+    const elJudge = document.getElementById('hud-judge');
 
     let lastCoachTimeout = null;
     let hudMissCount = 0;
@@ -734,32 +761,16 @@
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
 
-      // ===== กำหนดเวลาเล่นตามระดับความยาก (ไม่ต้องใส่ ?time= ก็ได้) =====
-      // easy   → 60s
-      // normal → 75s
-      // hard   → 90s
-      const defaultDurationByDiff = {
-        easy:   60,
-        normal: 75,
-        hard:   90
-      };
-
-      let dur;
-      const rawTime = getParam('time','');   // ถ้าไม่ส่งมา จะเป็นค่าว่าง
-
-      if (rawTime && rawTime !== 'auto') {
-        // กรณีครูอยากกำหนดเวลาเองผ่าน URL เช่น ?time=45
-        dur = parseInt(rawTime, 10);
-      } else {
-        // ใช้ค่า default ตาม diff
-        dur = defaultDurationByDiff[diff] || defaultDurationByDiff.normal;
-      }
-
-      // safety clamp
+      // ถ้าไม่ได้ส่ง time มา หรือเป็น 0/ไม่ถูกต้อง → กำหนดตามระดับยากง่าย
+      let durParam = parseInt(getParam('time','0'), 10);
+      let dur = durParam;
       if (isNaN(dur) || dur <= 0) {
-        dur = defaultDurationByDiff[diff] || 60;
+        if (diff === 'easy') dur = 50;
+        else if (diff === 'hard') dur = 70;
+        else dur = 60; // normal
       }
-      if (dur < 20)  dur = 20;
+
+      if (dur < 20) dur = 20;
       if (dur > 180) dur = 180;
 
       elDiff.textContent = diff.toUpperCase();
@@ -774,33 +785,30 @@
       setCoachFace('neutral');
       setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
 
+      const playerProfile = loadPlayerProfile();
+
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
         mode: 'GoodJunkVR',
         diff,
         durationSec: dur,
-        debug: false   // production
+        playerProfile,
+        debug: false   // เปิดเป็น true ถ้าต้องการดู log ใน console
       });
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
 
-      // ปุ่มเข้า VR (รองรับ headset / mobile VR box)
-      if (btnEnterVr && scene && scene.enterVR) {
-        btnEnterVr.addEventListener('click', () => {
+      // ปุ่มเข้า VR
+      const scene = document.querySelector('a-scene');
+      if (btnEnterVR && scene && scene.enterVR) {
+        btnEnterVR.addEventListener('click', () => {
           try {
             scene.enterVR();
           } catch (err) {
-            console.warn('enterVR failed', err);
+            console.warn('[GoodJunkVR] enterVR error', err);
           }
-        });
-
-        scene.addEventListener('enter-vr', () => {
-          btnEnterVr.classList.add('hidden');
-        });
-        scene.addEventListener('exit-vr', () => {
-          btnEnterVr.classList.remove('hidden');
         });
       }
 
