@@ -1,181 +1,261 @@
 // === /herohealth/vr/mode-factory.js ===
+// Generic emoji-target engine (DOM overlay) สำหรับโหมด VR แบบง่าย
+// ใช้กับ Hydration / Balanced Plate ที่เรียก factoryBoot({ judge, onExpire, ... })
+
 'use strict';
 
 import { HHA_DIFF_TABLE } from './hha-diff-table.js';
 
-// เลือก engine config จากตารางกลาง
-function pickEngineConfig (modeKey, diffKey) {
+const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+const DOC  = ROOT.document;
+
+// ------- helper -------
+function rand(min, max) {
+  return min + Math.random() * (max - min);
+}
+function pick(arr) {
+  if (!arr || !arr.length) return null;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// เลือก engine config จาก HHA_DIFF_TABLE
+function pickEngineConfig(modeKey, diffKey) {
   const table = HHA_DIFF_TABLE[modeKey] || {};
   const row =
     table[diffKey] ||
     table.normal ||
-    Object.values(table)[0] || {};   // fallback แถวแรกถ้าไม่เจอ
-
+    Object.values(table)[0] || {};
   return row.engine || {};
 }
 
 /**
- * factoryBoot สำหรับเกมตระกูล emoji target
- * safe.js แต่ละโหมดจะเรียกแบบ:
- *
- *   const ctrl = await factoryBoot({
- *     modeKey: 'hydration-vr',
- *     difficulty: diff,
- *     duration: 60,
- *     pools: { good: [...], bad: [...] },
- *     goodRate: 0.65,
- *     powerups: [...],
- *     powerRate: 0.1,
- *     powerEvery: 7,
- *     judge: (ch, ctx) => { ... },
- *     onExpire: (ev) => { ... }
- *   });
- *
- * factory นี้จะไม่ยุ่งกับ rendering โดยตรง
- * แต่จะจัด timing / random เป้า และเรียก callback ที่ส่งมา
+ * boot(opts)
+ * opts:
+ *  - modeKey: 'hydration-vr' | 'plate-vr' ฯลฯ
+ *  - difficulty: 'easy' | 'normal' | 'hard'
+ *  - duration: sec (เอาไปใช้แค่ส่งกลับใน controller)
+ *  - pools: { good:[], bad:[] }
+ *  - goodRate: 0–1 (อัตรา good vs bad)
+ *  - powerups: []
+ *  - powerRate: 0–1 (โอกาสออก power แทน good/bad)
+ *  - powerEvery: จำนวน hit ต่อ 1 power (ตอนนี้ยังไม่ใช้ ละไว้ก่อน)
+ *  - judge(ch, ctx) → { good, scoreDelta }   (required)
+ *  - onExpire(info)                          (optional)
  */
-export async function boot (opts = {}) {
+export async function boot(opts = {}) {
   const modeKey = String(opts.modeKey || 'goodjunk').toLowerCase();
   const diffKey = String(opts.difficulty || 'normal').toLowerCase();
 
   const engCfg = pickEngineConfig(modeKey, diffKey);
 
-  const SPAWN_INTERVAL = engCfg.SPAWN_INTERVAL ?? 1000;
-  const ITEM_LIFETIME  = engCfg.ITEM_LIFETIME  ?? 2200;
-  const MAX_ACTIVE     = engCfg.MAX_ACTIVE     ?? 4;
-  const SIZE_FACTOR    = engCfg.SIZE_FACTOR    ?? 1.0;
+  // ===== ค่าจาก HHA_DIFF_TABLE (มี default กันพลาด) =====
+  const SPAWN_INTERVAL = Number(engCfg.SPAWN_INTERVAL ?? 950);   // ms
+  const ITEM_LIFETIME  = Number(engCfg.ITEM_LIFETIME  ?? 2300);  // ms
+  const MAX_ACTIVE     = Number(engCfg.MAX_ACTIVE     ?? 4);
+  const SIZE_FACTOR    = Number(engCfg.SIZE_FACTOR    ?? 1.0);
 
-  const GOOD_RATIO     = engCfg.GOOD_RATIO     ?? (opts.goodRate ?? 0.65);
-  const POWER_RATIO    = engCfg.POWER_RATIO    ?? (opts.powerRate ?? 0.10);
-  const FEVER_GAIN_HIT = engCfg.FEVER_GAIN_HIT ?? 6;
-  const FEVER_DECAY_SEC= engCfg.FEVER_DECAY_SEC?? 5;
+  const GOOD_RATIO     = Number(engCfg.GOOD_RATIO     ?? opts.goodRate ?? 0.65);
+  const POWER_RATIO    = Number(engCfg.POWER_RATIO    ?? opts.powerRate ?? 0.10);
 
-  const durationSec = Number(opts.duration || 60) | 0;
+  const pools    = opts.pools    || {};
+  const GOOD     = pools.good    || [];
+  const BAD      = pools.bad     || [];
+  const POWERUPS = opts.powerups || [];
 
-  const pools = opts.pools || {};
-  const goodPool   = pools.good || [];
-  const badPool    = pools.bad  || [];
-  const powerups   = opts.powerups || [];
-  const powerEvery = opts.powerEvery ?? 7;
+  const judge    = typeof opts.judge   === 'function' ? opts.judge   : null;
+  const onExpire = typeof opts.onExpire === 'function' ? opts.onExpire : null;
 
-  const judge     = typeof opts.judge === 'function' ? opts.judge : () => ({});
-  const onExpire  = typeof opts.onExpire === 'function' ? opts.onExpire : () => {};
-
-  // ---------- state ภายใน engine ----------
-  let running = true;
-  let activeTargets = [];
-  let spawnTimer = 0;
-  let timeMs = 0;
-  let goodCount = 0;
-  let powerCount = 0;
-
-  // spawn target ใหม่ (ให้ renderer ฝั่ง safe.js/อื่น ๆ ดัก event เอง)
-  function spawnOne () {
-    if (activeTargets.length >= MAX_ACTIVE) return;
-
-    const usePower =
-      powerups.length &&
-      (powerCount % powerEvery === 0) &&
-      Math.random() < POWER_RATIO;
-
-    let ch;
-    if (usePower) {
-      ch = powerups[(Math.random() * powerups.length) | 0];
-      powerCount++;
-    } else if (Math.random() < GOOD_RATIO) {
-      ch = goodPool[(Math.random() * goodPool.length) | 0];
-    } else {
-      ch = badPool[(Math.random() * badPool.length) | 0];
-    }
-
-    if (!ch) return;
-
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    const target = {
-      id,
-      ch,
-      born: timeMs,
-      life: ITEM_LIFETIME,
-      size: SIZE_FACTOR,
-      isGood: goodPool.includes(ch),
-      isPower: powerups.includes(ch)
+  // ถ้าไม่มี judge หรือไม่มีเป้าให้ spawn เลย → ยังไงก็เล่นไม่ได้
+  if (!judge || (!GOOD.length && !BAD.length && !POWERUPS.length)) {
+    console.warn('[mode-factory] missing judge() or pools.good/bad/powerups – engine ไม่สร้างเป้า');
+    return {
+      stop () {}
     };
-
-    activeTargets.push(target);
-
-    // broadcast event ให้ renderer ถ้าอยากใช้
-    try {
-      window.dispatchEvent(
-        new CustomEvent('hha:spawn', {
-          detail: {
-            modeKey,
-            difficulty: diffKey,
-            target
-          }
-        })
-      );
-    } catch {}
   }
 
-  // ใช้เวลาจริงจาก requestAnimationFrame
-  let lastTime = performance.now();
+  // ===== สร้างเลเยอร์ DOM สำหรับเป้า =====
+  const layer = DOC.createElement('div');
+  layer.className = 'hha-target-layer';
+  Object.assign(layer.style, {
+    position: 'fixed',
+    left: '0',
+    top: '0',
+    width: '100%',
+    height: '100%',
+    pointerEvents: 'none',       // ให้ HUD อื่นยังรับอีเวนต์ได้
+    zIndex: '480'                // ใต้ HUD (500+) เหนือฉาก VR
+  });
+  DOC.body.appendChild(layer);
 
-  function tick () {
-    if (!running) return;
+  // ที่ว่างให้สุ่มตำแหน่งเป้า (กัน HUD บน / Fever / ปุ่ม VR)
+  const PAD_TOP    = 150;
+  const PAD_BOTTOM = 190;
+  const PAD_SIDE   = 40;
+
+  const targets = new Set();
+  let running = true;
+  let lastTs  = performance.now();
+  let spawnAcc = 0;
+
+  function removeTarget(obj, expired) {
+    targets.delete(obj);
+    if (obj.el && obj.el.parentNode) obj.el.parentNode.removeChild(obj.el);
+    if (expired && onExpire) {
+      try {
+        onExpire({
+          char: obj.char,
+          type: obj.type,
+          isGood: obj.type === 'good',
+          isBad: obj.type === 'bad',
+          isPower: obj.type === 'power'
+        });
+      } catch (e) {
+        console.error('[mode-factory] onExpire error', e);
+      }
+    }
+  }
+
+  function spawnOne() {
     const now = performance.now();
-    const dt = now - lastTime;
-    lastTime = now;
+    if (targets.size >= MAX_ACTIVE) return;
 
-    timeMs += dt;
-    spawnTimer += dt;
+    let type = 'good';
+    let ch   = '💧';
+
+    // power-up?
+    const hasPower = POWERUPS.length && POWER_RATIO > 0;
+    if (hasPower && Math.random() < POWER_RATIO) {
+      type = 'power';
+      ch   = pick(POWERUPS);
+    } else {
+      // good / bad
+      if (Math.random() < GOOD_RATIO && GOOD.length) {
+        type = 'good';
+        ch   = pick(GOOD);
+      } else if (BAD.length) {
+        type = 'bad';
+        ch   = pick(BAD);
+      } else if (GOOD.length) {
+        type = 'good';
+        ch   = pick(GOOD);
+      } else if (POWERUPS.length) {
+        type = 'power';
+        ch   = pick(POWERUPS);
+      }
+    }
+
+    const vw = ROOT.innerWidth  || 1280;
+    const vh = ROOT.innerHeight || 720;
+    const x  = rand(PAD_SIDE, vw - PAD_SIDE);
+    const y  = rand(PAD_TOP,  vh - PAD_BOTTOM);
+
+    const baseSize = 52; // px
+    const size = Math.max(32, baseSize * (SIZE_FACTOR || 1));
+
+    const el = DOC.createElement('button');
+    el.type = 'button';
+    el.className = 'hha-target';
+    el.textContent = ch;
+    Object.assign(el.style, {
+      position: 'absolute',
+      left: `${x}px`,
+      top: `${y}px`,
+      width: `${size}px`,
+      height: `${size}px`,
+      margin: '0',
+      padding: '0',
+      transform: 'translate(-50%,-50%)',
+      fontSize: `${size * 0.86}px`,
+      lineHeight: '1',
+      borderRadius: '999px',
+      border: 'none',
+      outline: 'none',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'radial-gradient(circle at 30% 20%, rgba(255,255,255,0.92), rgba(15,23,42,0.95))',
+      boxShadow: '0 12px 32px rgba(15,23,42,0.65)',
+      color: '#fff',
+      pointerEvents: 'auto',
+      cursor: 'pointer'
+    });
+
+    layer.appendChild(el);
+
+    const obj = {
+      el,
+      char: ch,
+      type,
+      bornAt: now,
+      dieAt: now + ITEM_LIFETIME,
+      hit: false
+    };
+    targets.add(obj);
+
+    function handleHit(ev) {
+      if (!running || obj.hit) return;
+      obj.hit = true;
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const ctx = {
+        clientX: ev.clientX,
+        clientY: ev.clientY,
+        target: el,
+        type
+      };
+
+      try {
+        judge(ch, ctx);
+      } catch (e) {
+        console.error('[mode-factory] judge() error', e);
+      }
+
+      removeTarget(obj, false);
+    }
+
+    el.addEventListener('pointerdown', handleHit, { passive: false });
+    el.addEventListener('click', handleHit, { passive: false });
+  }
+
+  function loop(ts) {
+    if (!running) return;
+
+    const dt = ts - lastTs;
+    lastTs = ts;
 
     // spawn
-    if (spawnTimer >= SPAWN_INTERVAL) {
-      spawnTimer -= SPAWN_INTERVAL;
+    spawnAcc += dt;
+    const interval = Math.max(250, SPAWN_INTERVAL); // กันพลาด
+    while (spawnAcc >= interval) {
+      spawnAcc -= interval;
       spawnOne();
     }
 
-    // expire
-    const nowMs = timeMs;
-    const keep = [];
-    for (const t of activeTargets) {
-      if (nowMs - t.born >= t.life) {
-        // หมดอายุ
-        onExpire(t);
-      } else {
-        keep.push(t);
+    // expiry
+    const now = ts;
+    for (const obj of Array.from(targets)) {
+      if (now >= obj.dieAt) {
+        removeTarget(obj, true);
       }
     }
-    activeTargets = keep;
 
-    // fever decay ต่อวินาที (เลือกใช้ตามต้องการ)
-    // ถ้าอยากใช้ FEVER_DECAY_SEC ให้ไปจัดการใน safe.js ผ่าน hha:time อยู่แล้ว
-
-    if (timeMs < durationSec * 1000) {
-      requestAnimationFrame(tick);
-    } else {
-      running = false;
-    }
+    ROOT.requestAnimationFrame(loop);
   }
 
-  requestAnimationFrame(tick);
+  ROOT.requestAnimationFrame(loop);
 
-  // controller สำหรับ safe.js
-  return {
-    stop () {
-      running = false;
-      activeTargets.length = 0;
-    },
-    hit (targetId, ctx) {
-      const idx = activeTargets.findIndex(t => t.id === targetId);
-      if (idx === -1) return null;
-      const t = activeTargets[idx];
-      activeTargets.splice(idx, 1);
-      if (t.isGood) goodCount++;
-      return judge(t.ch, { ...ctx, target: t });
+  // controller
+  function stop() {
+    running = false;
+    for (const obj of Array.from(targets)) {
+      removeTarget(obj, false);
     }
-  };
+    targets.clear();
+    if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
+  }
+
+  return { stop };
 }
 
 export default { boot };
