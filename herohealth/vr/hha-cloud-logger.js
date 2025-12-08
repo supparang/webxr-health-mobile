@@ -1,20 +1,17 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// Hero Health — Cloud Logger (VR)
-// เก็บ log แบบ Session + Event แล้วส่งไป Google Apps Script (เลี่ยง CORS)
-//
-// Apps Script คาดหวัง payload แบบ:
-//   {
-//     projectTag: 'HeroHealth-GoodJunkVR',
-//     sessions: [ { sessionId, playerId, mode, difficulty, ... } ],
-//     events:   [ { sessionId, type, emoji, lane, rtMs, totalScore, combo, isGood, itemType, ... } ]
-//   }
+// Hero Health — Cloud Logger (Sessions + Events) v4 Research
+// ใช้กับ GoodJunkVR / โหมดอื่น ๆ ที่ยิง hha:session / hha:event
 
 'use strict';
 
 let CONFIG = {
-  endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
+  endpoint: '',
   projectTag: 'HeroHealth-GoodJunkVR',
-  debug: false
+  mode: 'GoodJunkVR',
+  diff: 'normal',
+  durationSec: 0,
+  debug: false,
+  playerProfile: null
 };
 
 let sessionQueue = [];
@@ -22,248 +19,145 @@ let eventQueue   = [];
 let flushTimer   = null;
 const FLUSH_DELAY = 2000; // ms
 
-// ---------- state ของ session ปัจจุบัน (จาก GoodJunkVR / Hydration / Groups) ----------
-let currentSessionId   = null;
-let currentMeta        = null;
-let sessionStartedAt   = null;
-let sessionEnded       = false;
+export function initCloudLogger(opts = {}) {
+  CONFIG = {
+    endpoint: opts.endpoint || CONFIG.endpoint || '',
+    projectTag: opts.projectTag || CONFIG.projectTag || 'HeroHealth-GoodJunkVR',
+    mode: opts.mode || CONFIG.mode || 'GoodJunkVR',
+    diff: opts.diff || CONFIG.diff || 'normal',
+    durationSec: opts.durationSec || CONFIG.durationSec || 0,
+    debug: !!opts.debug,
+    playerProfile: opts.playerProfile || CONFIG.playerProfile || null
+  };
 
-/* ---------- debug helper ---------- */
-function logDebug(...args) {
-  if (!CONFIG.debug) return;
-  console.log('[HHA Logger]', ...args);
+  if (CONFIG.debug) {
+    console.log('[HHA CloudLogger] init', CONFIG);
+  }
+
+  // ฟัง session/event แค่ครั้งเดียว
+  window.removeEventListener('hha:session', handleSessionEvent);
+  window.removeEventListener('hha:event', handleGameEvent);
+
+  window.addEventListener('hha:session', handleSessionEvent);
+  window.addEventListener('hha:event', handleGameEvent);
 }
 
-/* ---------- payload + flush ---------- */
-function buildPayload() {
-  if (!sessionQueue.length && !eventQueue.length) return null;
+function flatProfile() {
+  const p = CONFIG.playerProfile || {};
   return {
-    projectTag: CONFIG.projectTag,
-    sessions:   sessionQueue.splice(0),
-    events:     eventQueue.splice(0)
+    playerId:   p.playerId   || p.studentId || '',
+    playerName: p.playerName || p.name      || '',
+    school:     p.school     || '',
+    classRoom:  p.classRoom  || p.class     || '',
+    group:      p.group      || '',
+    phase:      p.phase      || '',
+    profileJson: Object.keys(p).length ? JSON.stringify(p) : ''
   };
 }
 
-function scheduleFlush() {
-  if (!CONFIG.endpoint) {
-    sessionQueue.length = 0;
-    eventQueue.length   = 0;
-    return;
+function handleSessionEvent(e) {
+  const d = e.detail || {};
+  const nowIso = new Date().toISOString();
+  const pf = flatProfile();
+
+  const payload = Object.assign(
+    {},
+    {
+      projectTag: CONFIG.projectTag,
+      tsIso: nowIso,
+      mode: d.mode || CONFIG.mode,
+      difficulty: d.difficulty || CONFIG.diff,
+      durationSecPlanned: CONFIG.durationSec
+    },
+    pf,
+    d
+  );
+
+  sessionQueue.push(payload);
+
+  if (CONFIG.debug) {
+    console.log('[HHA CloudLogger] queue session', payload);
   }
-  if (flushTimer) clearTimeout(flushTimer);
-  flushTimer = setTimeout(flushNow, FLUSH_DELAY);
+
+  scheduleFlush();
+}
+
+function handleGameEvent(e) {
+  const d = e.detail || {};
+  const nowIso = new Date().toISOString();
+  const pf = flatProfile();
+
+  const payload = Object.assign(
+    {},
+    {
+      projectTag: CONFIG.projectTag,
+      tsIso: nowIso,
+      mode: d.mode || CONFIG.mode,
+      difficulty: d.difficulty || CONFIG.diff,
+      playerId: pf.playerId,
+      phase: pf.phase
+    },
+    d
+  );
+
+  eventQueue.push(payload);
+
+  if (CONFIG.debug) {
+    console.log('[HHA CloudLogger] queue event', payload);
+  }
+
+  scheduleFlush();
+}
+
+function scheduleFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flushNow();
+  }, FLUSH_DELAY);
 }
 
 function flushNow() {
-  flushTimer = null;
-  if (!CONFIG.endpoint) return;
-
-  const payload = buildPayload();
-  if (!payload) return;
-
-  const bodyStr = JSON.stringify(payload);
-  logDebug('flush payload', payload);
-
-  // 1) พยายามใช้ sendBeacon ก่อน (เหมาะกับตอนปิดแท็บ)
-  let sent = false;
-  try {
-    if (navigator.sendBeacon) {
-      const blob = new Blob([bodyStr], { type: 'text/plain;charset=utf-8' });
-      sent = navigator.sendBeacon(CONFIG.endpoint, blob);
+  if (!CONFIG.endpoint) {
+    if (CONFIG.debug) {
+      console.warn('[HHA CloudLogger] no endpoint, skip flush');
     }
-  } catch (err) {
-    logDebug('sendBeacon error', err);
+    sessionQueue = [];
+    eventQueue = [];
+    return;
   }
-  if (sent) return;
 
-  // 2) ถ้าใช้ sendBeacon ไม่ได้ → ใช้ fetch แบบ no-cors ไม่ใส่ headers เลี่ยง preflight
+  if (!sessionQueue.length && !eventQueue.length) return;
+
+  const payload = {
+    projectTag: CONFIG.projectTag,
+    sessions: sessionQueue.slice(),
+    events: eventQueue.slice()
+  };
+
+  sessionQueue = [];
+  eventQueue = [];
+
+  if (CONFIG.debug) {
+    console.log('[HHA CloudLogger] flushing', payload);
+  }
+
   try {
     fetch(CONFIG.endpoint, {
       method: 'POST',
       mode: 'no-cors',
-      body: bodyStr,
-      keepalive: true
-      // ไม่ใส่ headers เพื่อไม่ให้มี preflight
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
     }).catch(err => {
-      logDebug('fetch(no-cors) error', err);
+      if (CONFIG.debug) {
+        console.error('[HHA CloudLogger] fetch error', err);
+      }
     });
   } catch (err) {
-    logDebug('fetch exception', err);
+    if (CONFIG.debug) {
+      console.error('[HHA CloudLogger] flush error', err);
+    }
   }
 }
-
-/* ---------- API ที่หน้าเกมเรียก ---------- */
-export function initCloudLogger(opts = {}) {
-  CONFIG = {
-    endpoint:   opts.endpoint   || CONFIG.endpoint || '',
-    projectTag: opts.projectTag || CONFIG.projectTag,
-    debug:      !!opts.debug
-  };
-
-  if (!CONFIG.endpoint) {
-    console.warn('[HHA Logger] endpoint ยังว่างอยู่ จะไม่ส่งข้อมูลขึ้น Google Sheet');
-  }
-
-  // สร้าง session ใหม่สำหรับรอบนี้
-  currentSessionId = 'sess-' + Date.now().toString(36) + '-' +
-    Math.random().toString(36).slice(2, 7);
-  sessionStartedAt = new Date();
-  sessionEnded     = false;
-
-  currentMeta = {
-    playerId:   opts.playerId || '',
-    mode:       opts.mode || 'GoodJunkVR',
-    difficulty: (opts.diff || opts.difficulty || 'normal').toLowerCase(),
-    device:     navigator.userAgent || '',
-    durationSec: opts.durationSec || null,
-    gameVersion: opts.gameVersion || ''
-  };
-
-  logDebug('initCloudLogger', CONFIG, { currentSessionId, currentMeta });
-
-  // บันทึก event เปิด session
-  eventQueue.push({
-    sessionId:  currentSessionId,
-    type:       'session_start',
-    emoji:      '',
-    lane:       '',
-    rtMs:       '',
-    totalScore: '',
-    combo:      '',
-    isGood:     '',
-    itemType:   '',
-    meta:       currentMeta
-  });
-  scheduleFlush();
-}
-
-/**
- * เผื่ออยากจบ session เอง (โดยไม่รอ hha:end)
- */
-export function endCloudSession(reason = '') {
-  if (sessionEnded) return;
-  sessionEnded = true;
-
-  eventQueue.push({
-    sessionId:  currentSessionId,
-    type:       'session_end',
-    emoji:      '',
-    lane:       '',
-    rtMs:       '',
-    totalScore: '',
-    combo:      '',
-    isGood:     '',
-    itemType:   '',
-    reason
-  });
-  scheduleFlush();
-}
-
-/* ---------- ตัวแปลง event จากเกม → รูปแบบ EventLog ---------- */
-
-// hha:score → บันทึกคะแนนรวม + combo ปัจจุบัน
-function onScoreEvent(e) {
-  const d = e.detail || {};
-  const ev = {
-    sessionId:  currentSessionId,
-    type:       'score',
-    emoji:      '',
-    lane:       '',
-    rtMs:       '',
-    totalScore: d.score ?? '',
-    combo:      d.combo ?? '',
-    isGood:     '',
-    itemType:   ''
-  };
-  eventQueue.push(ev);
-  scheduleFlush();
-}
-
-// hha:miss → บันทึกว่า miss 1 ครั้ง
-function onMissEvent(/* e */) {
-  const ev = {
-    sessionId:  currentSessionId,
-    type:       'miss',
-    emoji:      '',
-    lane:       '',
-    rtMs:       '',
-    totalScore: '',
-    combo:      '',
-    isGood:     '',
-    itemType:   ''
-  };
-  eventQueue.push(ev);
-  scheduleFlush();
-}
-
-// hha:end → สรุป session ลง SessionLog + event "end"
-function onEndEvent(e) {
-  const d = e.detail || {};
-  if (!currentSessionId) return;
-
-  const endedAt = new Date();
-  sessionEnded  = true;
-
-  const durationPlayed =
-    d.durationSec ??
-    currentMeta.durationSec ??
-    '';
-
-  const sess = {
-    sessionId:        currentSessionId,
-    playerId:         currentMeta.playerId,
-    mode:             d.mode || currentMeta.mode || '',
-    difficulty:       (d.diff || currentMeta.difficulty || 'normal'),
-    device:           currentMeta.device,
-    startTimeIso:     sessionStartedAt ? sessionStartedAt.toISOString() : '',
-    endTimeIso:       endedAt.toISOString(),
-    durationSecPlayed: durationPlayed,
-    scoreFinal:       d.scoreFinal ?? d.score ?? 0,
-    comboMax:         d.comboMax ?? 0,
-    misses:           d.misses ?? 0,
-    gameVersion:      currentMeta.gameVersion,
-    reason:           d.reason || ''
-  };
-
-  sessionQueue.push(sess);
-
-  const ev = {
-    sessionId:  currentSessionId,
-    type:       'end',
-    emoji:      '',
-    lane:       '',
-    rtMs:       '',
-    totalScore: sess.scoreFinal,
-    combo:      sess.comboMax,
-    isGood:     '',
-    itemType:   ''
-  };
-  eventQueue.push(ev);
-
-  logDebug('session summary', sess);
-  scheduleFlush();
-}
-
-/* ---------- รองรับ event แบบเก่า: hha:session / hha:event ---------- */
-// ถ้าเกมอื่นยิง hha:session / hha:event มาโดยตรง จะยังทำงานได้
-function onLegacySession(e) {
-  const data = e.detail || {};
-  // ควรส่ง object ที่มี field ตาม Apps Script ต้องการ
-  sessionQueue.push(data);
-  scheduleFlush();
-}
-
-function onLegacyEvent(e) {
-  const data = e.detail || {};
-  eventQueue.push(data);
-  scheduleFlush();
-}
-
-/* ---------- ติด global listeners แค่ครั้งเดียว ---------- */
-window.addEventListener('hha:score',  onScoreEvent);
-window.addEventListener('hha:miss',   onMissEvent);
-window.addEventListener('hha:end',    onEndEvent);
-
-// legacy
-window.addEventListener('hha:session', onLegacySession);
-window.addEventListener('hha:event',   onLegacyEvent);
