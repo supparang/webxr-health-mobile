@@ -298,7 +298,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
+      transition:background .15s.ease, box-shadow .15s ease, transform .1s ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -321,6 +321,33 @@
       background:rgba(15,23,42,0.7);
     }
 
+    /* ===== ปุ่มเข้าโหมด VR ===== */
+    .vr-enter-btn{
+      position:fixed;
+      right:12px;
+      bottom:16px;
+      z-index:653;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.8);
+      padding:8px 16px;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+      background:radial-gradient(circle at top left, rgba(56,189,248,0.24), transparent 55%),
+                 rgba(15,23,42,0.96);
+      color:#e5e7eb;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      box-shadow:0 14px 32px rgba(15,23,42,0.9);
+    }
+    .vr-enter-btn span{
+      font-size:14px;
+    }
+    .vr-enter-btn.hidden{
+      display:none;
+    }
+
     /* ===== A-Frame canvas full ===== */
     a-scene{
       width:100vw;
@@ -328,27 +355,13 @@
       position:fixed;
       inset:0;
     }
-
-    /* ===== VR button (A-Frame default) มุมขวาล่าง ===== */
-    .a-enter-vr-button,
-    .a-enter-ar-button{
-      position:fixed !important;
-      right:18px;
-      bottom:18px;
-      left:auto !important;
-      top:auto !important;
-      z-index:940 !important;
-      transform:none !important;
-      font-size:12px;
-      border-radius:999px !important;
-      padding:8px 14px !important;
-    }
   </style>
 </head>
 <body>
 
   <!-- ===== A-Frame Scene (พื้นหลัง VR) ===== -->
   <a-scene
+    id="gj-scene"
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
     background="color: #020617">
@@ -460,7 +473,6 @@
     <div class="end-row"><span>พลาด</span><strong id="end-miss">0</strong></div>
     <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 0</strong></div>
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
-    <div class="end-row"><span>เกรด</span><strong id="end-grade">-</strong></div>
     <div class="end-actions">
       <button class="end-btn end-btn-primary" id="btn-replay">เล่นอีกครั้ง</button>
       <button class="end-btn end-btn-ghost" id="btn-back-hub">กลับ Hub</button>
@@ -470,17 +482,15 @@
   <!-- Start countdown -->
   <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
 
+  <!-- ปุ่มเข้าโหมด VR -->
+  <button id="btn-enter-vr" class="vr-enter-btn">
+    <span>🎧</span><span>เข้าโหมด VR</span>
+  </button>
+
   <!-- Fever UI (global, non-module) -->
   <script src="./vr/ui-fever.js"></script>
   <!-- Effect เป้า (particles FX) -->
   <script src="./vr/particles.js"></script>
-
-  <!-- SFX (optional; ถ้าไม่มีไฟล์จะเงียบเอง) -->
-  <audio id="sfx-hit-good" src="./sfx/hit-good.mp3" preload="auto"></audio>
-  <audio id="sfx-perfect"  src="./sfx/hit-perfect.mp3" preload="auto"></audio>
-  <audio id="sfx-miss"     src="./sfx/miss.mp3" preload="auto"></audio>
-  <audio id="sfx-fever"    src="./sfx/fever.mp3" preload="auto"></audio>
-  <audio id="sfx-bonus"    src="./sfx/bonus.mp3" preload="auto"></audio>
 
   <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
@@ -520,15 +530,13 @@
     const elEndMiss   = document.getElementById('end-miss');
     const elEndGoal   = document.getElementById('end-goal');
     const elEndMini   = document.getElementById('end-mini');
-    const elEndGrade  = document.getElementById('end-grade');
 
     const btnReplay   = document.getElementById('btn-replay');
     const btnBackHub  = document.getElementById('btn-back-hub');
-
-    // overlay 3–2–1 Go
+    const btnEnterVr  = document.getElementById('btn-enter-vr');
     const elCountdown = document.getElementById('start-countdown');
-
-    const elJudge = document.getElementById('hud-judge');
+    const elJudge     = document.getElementById('hud-judge');
+    const scene       = document.getElementById('gj-scene');
 
     let lastCoachTimeout = null;
     let hudMissCount = 0;
@@ -685,18 +693,16 @@
       const scoreFinal = d.scoreFinal ?? d.score ?? 0;
       const comboMax   = d.comboMax ?? 0;
       const misses     = d.misses ?? 0;
-      const goalsCleared  = d.goalsCleared ?? 0;
-      const goalsTotal    = d.goalsTotal ?? 0;
+      const goalsCleared  = d.goalsCleared ?? d.miniCleared ?? 0;
+      const goalsTotal    = d.goalsTotal ?? d.miniTotal ?? 0;
       const miniCleared   = d.miniCleared ?? 0;
       const miniTotal     = d.miniTotal ?? 0;
-      const grade         = d.grade || '-';
 
       elEndScore.textContent = scoreFinal;
       elEndCombo.textContent = comboMax;
       elEndMiss.textContent  = misses;
       elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
       elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
-      if (elEndGrade) elEndGrade.textContent = grade;
       elEndToast.classList.add('show');
 
       setCoachFace(misses <= 3 ? 'happy' : 'neutral');
@@ -727,9 +733,33 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
-      let   dur  = parseInt(getParam('time','60'), 10);
-      if (isNaN(dur) || dur <= 0) dur = 60;
-      if (dur < 20) dur = 20;
+
+      // ===== กำหนดเวลาเล่นตามระดับความยาก (ไม่ต้องใส่ ?time= ก็ได้) =====
+      // easy   → 60s
+      // normal → 75s
+      // hard   → 90s
+      const defaultDurationByDiff = {
+        easy:   60,
+        normal: 75,
+        hard:   90
+      };
+
+      let dur;
+      const rawTime = getParam('time','');   // ถ้าไม่ส่งมา จะเป็นค่าว่าง
+
+      if (rawTime && rawTime !== 'auto') {
+        // กรณีครูอยากกำหนดเวลาเองผ่าน URL เช่น ?time=45
+        dur = parseInt(rawTime, 10);
+      } else {
+        // ใช้ค่า default ตาม diff
+        dur = defaultDurationByDiff[diff] || defaultDurationByDiff.normal;
+      }
+
+      // safety clamp
+      if (isNaN(dur) || dur <= 0) {
+        dur = defaultDurationByDiff[diff] || 60;
+      }
+      if (dur < 20)  dur = 20;
       if (dur > 180) dur = 180;
 
       elDiff.textContent = diff.toUpperCase();
@@ -750,15 +780,33 @@
         mode: 'GoodJunkVR',
         diff,
         durationSec: dur,
-        debug: false   // เปิดเป็น false สำหรับ production
+        debug: false   // production
       });
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
 
+      // ปุ่มเข้า VR (รองรับ headset / mobile VR box)
+      if (btnEnterVr && scene && scene.enterVR) {
+        btnEnterVr.addEventListener('click', () => {
+          try {
+            scene.enterVR();
+          } catch (err) {
+            console.warn('enterVR failed', err);
+          }
+        });
+
+        scene.addEventListener('enter-vr', () => {
+          btnEnterVr.classList.add('hidden');
+        });
+        scene.addEventListener('exit-vr', () => {
+          btnEnterVr.classList.remove('hidden');
+        });
+      }
+
       // เริ่มนับ 3–2–1–Go ก่อน แล้วค่อยเริ่มเกม + นับเวลา
       runCountdown(() => {
-        GameEngine.start(diff, dur);
+        GameEngine.start(diff);
 
         let timeLeft = dur;
         function tickTime(){
