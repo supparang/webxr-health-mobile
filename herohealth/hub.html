@@ -3,319 +3,445 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Hero Health — VR Nutrition Hub</title>
+  <title>Hero Health — Nutrition VR Hub</title>
   <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon">
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
   <style>
     :root{
-      color-scheme: dark;
+      color-scheme: light dark;
       --bg-main:#020617;
       --panel:#020617;
       --panel-soft:#0b1120;
       --accent:#22c55e;
-      --accent-soft:rgba(34,197,94,0.18);
-      --accent-alt:#38bdf8;
+      --accent-soft:rgba(34,197,94,0.2);
+      --accent-blue:#38bdf8;
+      --accent-yellow:#facc15;
       --text-main:#e5e7eb;
       --text-soft:#9ca3af;
-      --radius-lg:20px;
+      --danger:#f97316;
+      --radius-lg:18px;
       --radius-pill:999px;
     }
-    *{box-sizing:border-box;margin:0;padding:0;}
+    *{ box-sizing:border-box; }
+
     body{
+      margin:0;
       min-height:100vh;
-      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
-        radial-gradient(circle at top, #0f172a 0, #020617 45%, #000 100%);
+        radial-gradient(circle at top left, rgba(34,197,94,0.25), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(56,189,248,0.22), transparent 55%),
+        var(--bg-main);
       color:var(--text-main);
-      padding:16px;
-    }
-    .app{
-      max-width:1120px;
-      margin:0 auto;
-    }
-    header{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:18px;
-    }
-    .title-wrap h1{
-      font-size:24px;
-      margin-bottom:4px;
-    }
-    .title-wrap p{
-      font-size:13px;
-      color:var(--text-soft);
-      max-width:520px;
-    }
-    .tagline{
-      font-size:12px;
-      padding:6px 12px;
-      border-radius:var(--radius-pill);
-      background:rgba(15,23,42,0.9);
-      border:1px solid rgba(148,163,184,0.35);
-      display:inline-flex;
-      gap:6px;
-      align-items:center;
-      margin-bottom:4px;
-    }
-    .tagline span{
-      opacity:0.9;
-    }
-    .badge{
-      font-size:11px;
-      padding:2px 8px;
-      border-radius:999px;
-      background:var(--accent-soft);
-      color:var(--accent);
     }
 
-    .game-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
-      gap:14px;
+    .page{
+      max-width:960px;
+      margin:0 auto;
+      padding:16px 14px 32px;
     }
-    .game-card{
-      background:var(--panel-soft);
-      border-radius:var(--radius-lg);
-      padding:14px 14px 12px;
+
+    .hero{
+      background:radial-gradient(circle at top left, rgba(34,197,94,0.3), transparent 60%),
+                 rgba(15,23,42,0.98);
+      border-radius:24px;
+      padding:16px 16px 18px;
       border:1px solid rgba(148,163,184,0.35);
-      box-shadow:0 18px 40px rgba(0,0,0,0.7);
+      box-shadow:0 22px 45px rgba(15,23,42,0.8);
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+      align-items:flex-start;
+    }
+    .hero-main{
+      flex:1 1 260px;
+    }
+    .hero-title{
+      font-size:22px;
+      font-weight:800;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+    .hero-sub{
+      margin-top:4px;
+      font-size:13px;
+      color:var(--text-soft);
+    }
+    .hero-badges{
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      font-size:11px;
+    }
+    .tag{
+      border-radius:var(--radius-pill);
+      padding:2px 8px;
+      border:1px solid rgba(148,163,184,0.6);
+      background:rgba(15,23,42,0.9);
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+    }
+
+    .hero-side{
+      flex:0 0 210px;
       display:flex;
       flex-direction:column;
       gap:8px;
-      position:relative;
-      overflow:hidden;
+      font-size:12px;
     }
-    .game-card::before{
-      content:'';
-      position:absolute;
-      inset:-40%;
-      opacity:0.06;
-      background:
-        radial-gradient(circle at top, var(--accent) 0, transparent 55%);
-      transform:translateY(40%);
-      pointer-events:none;
+    .hero-side-box{
+      background:rgba(15,23,42,0.96);
+      border-radius:16px;
+      padding:8px 10px;
+      border:1px dashed rgba(148,163,184,0.6);
     }
-    .game-header{
-      display:flex;
-      align-items:flex-start;
-      gap:10px;
-      position:relative;
-      z-index:1;
+    .hero-side-box strong{
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      color:var(--accent);
     }
-    .game-emoji{
-      font-size:26px;
-      line-height:1;
-      background:rgba(15,23,42,0.9);
-      border-radius:18px;
-      padding:6px 8px;
-      box-shadow:0 12px 26px rgba(0,0,0,0.6);
-    }
-    .game-text h2{
+
+    .section-title{
+      margin:18px 0 8px;
       font-size:15px;
-      margin-bottom:2px;
+      font-weight:700;
     }
-    .game-text p{
+
+    .card-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+      gap:12px;
+      margin-top:6px;
+    }
+
+    .mode-card{
+      background:rgba(15,23,42,0.96);
+      border-radius:var(--radius-lg);
+      padding:12px 12px 14px;
+      border:1px solid rgba(148,163,184,0.35);
+      box-shadow:0 18px 40px rgba(15,23,42,0.75);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .mode-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:8px;
+    }
+    .mode-title{
+      font-size:15px;
+      font-weight:700;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .mode-desc{
       font-size:12px;
       color:var(--text-soft);
+      margin:0;
     }
-    .game-meta{
+    .mode-badges{
       display:flex;
-      gap:8px;
       flex-wrap:wrap;
-      font-size:11px;
-      color:var(--text-soft);
-      position:relative;
-      z-index:1;
-    }
-    .meta-pill{
-      padding:2px 8px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.9);
-      border:1px solid rgba(148,163,184,0.3);
-    }
-    .game-actions{
+      gap:4px;
       margin-top:4px;
+    }
+    .mode-badge{
+      font-size:10px;
+      border-radius:999px;
+      padding:2px 7px;
+      border:1px solid rgba(148,163,184,0.6);
+      color:var(--text-soft);
+    }
+
+    .mode-buttons{
       display:flex;
       flex-wrap:wrap;
-      gap:6px;
-      position:relative;
-      z-index:1;
+      gap:8px;
+      margin-top:4px;
     }
     .btn{
-      border-radius:var(--radius-pill);
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.7);
+      background:rgba(15,23,42,0.93);
+      color:var(--text-main);
       padding:6px 12px;
-      border:none;
       font-size:12px;
-      cursor:pointer;
-      font-weight:500;
+      font-weight:600;
       display:inline-flex;
       align-items:center;
       gap:6px;
-      text-decoration:none;
+      cursor:pointer;
+      transition:background .15s ease, transform .08s ease, box-shadow .15s ease;
+    }
+    .btn span{
+      font-size:13px;
     }
     .btn-primary{
-      background:var(--accent);
-      color:#022c22;
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      border-color:rgba(187,247,208,0.95);
+      color:#052e16;
     }
-    .btn-ghost{
-      background:transparent;
-      color:var(--text-soft);
-      border:1px solid rgba(148,163,184,0.4);
+    .btn-primary:hover{
+      background:linear-gradient(135deg,#4ade80,#22c55e);
+      box-shadow:0 10px 22px rgba(22,163,74,0.65);
+      transform:translateY(-1px);
     }
-    .btn span.icon{
-      font-size:14px;
+    .btn-secondary{
+      background:rgba(15,23,42,0.95);
+    }
+    .btn-secondary:hover{
+      background:rgba(15,23,42,0.98);
+      box-shadow:0 10px 22px rgba(15,23,42,0.9);
+      transform:translateY(-1px);
+    }
+    .btn:active{
+      transform:translateY(0);
+      box-shadow:0 6px 14px rgba(15,23,42,0.7);
     }
 
-    footer{
-      margin-top:18px;
-      font-size:11px;
-      color:var(--text-soft);
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      flex-wrap:wrap;
+    /* ===== โปรไฟล์นักเรียน ===== */
+    .hha-profile-card{
+      margin-top:16px;
+      background:rgba(15,23,42,0.96);
+      border-radius:18px;
+      padding:12px 14px 14px;
+      border:1px solid rgba(148,163,184,0.35);
+      color:#e5e7eb;
+      box-shadow:0 16px 40px rgba(15,23,42,0.7);
     }
-    footer a{
-      color:var(--accent-alt);
-      text-decoration:none;
+    .hha-profile-title{
+      font-size:16px;
+      font-weight:700;
+      margin:0 0 4px;
+    }
+    .hha-profile-sub{
+      font-size:12px;
+      color:#9ca3af;
+      margin:0 0 10px;
+    }
+    .hha-profile-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:10px;
+    }
+    .hha-field{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      font-size:12px;
+    }
+    .hha-field span{
+      color:#9ca3af;
+    }
+    .hha-field input,
+    .hha-field select{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.5);
+      padding:6px 10px;
+      font-size:13px;
+      background:#020617;
+      color:#e5e7eb;
+      outline:none;
+    }
+    .hha-field input:focus,
+    .hha-field select:focus{
+      border-color:#22c55e;
+      box-shadow:0 0 0 1px rgba(34,197,94,0.6);
+    }
+
+    @media (max-width:640px){
+      .hero{
+        padding:12px 10px 14px;
+        border-radius:20px;
+      }
+      .page{
+        padding-inline:10px;
+      }
     }
   </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="title-wrap">
-      <div class="tagline">
-        <span>🥦 Hero Health — VR Nutrition Academy</span>
-        <span class="badge">Research-ready</span>
+  <div class="page">
+    <!-- HERO -->
+    <header class="hero">
+      <div class="hero-main">
+        <div class="hero-title">
+          Hero Health • Nutrition VR Hub
+        </div>
+        <p class="hero-sub">
+          ศูนย์รวมโหมดฝึกโภชนาการเสมือนจริง สำหรับการทดลองในห้องเรียนและงานวิจัย
+        </p>
+        <div class="hero-badges">
+          <span class="tag">🥦 Good vs Junk VR</span>
+          <span class="tag">💧 Hydration Quest (เร็ว ๆ นี้)</span>
+          <span class="tag">🍱 Food Groups / Plate</span>
+        </div>
       </div>
-      <h1>เลือกเกมโภชนาการแบบ VR</h1>
-      <p>
-        เด็ก ป.5–ป.6 สวมแว่น VR หรือมือถือใส่กล่อง แล้วเล่นเกมโภชนาการ 4 รูปแบบ:
-        เลือกอาหารดี vs แย่, ดื่มน้ำ, จัดหมู่ และจัด “จานอาหารสมดุล” ให้ครบ 5 หมู่
-        ข้อมูลทุกเกมเชื่อมกับระบบเก็บข้อมูลวิจัยแบบ realtime
+      <div class="hero-side">
+        <div class="hero-side-box">
+          <strong>สำหรับครูประจำชั้น</strong>
+          <div style="margin-top:4px;">
+            1) กรอกข้อมูลนักเรียนด้านล่าง<br/>
+            2) เลือกโหมดและระดับความยาก<br/>
+            3) ให้เด็กใส่แว่น / เปิดโหมด VR แล้วเริ่มเล่น
+          </div>
+        </div>
+        <div class="hero-side-box">
+          <strong>การเก็บข้อมูล</strong>
+          <div style="margin-top:4px;font-size:11px;color:var(--text-soft);">
+            ระบบจะส่งข้อมูล session + event ไปยัง Google Sheet
+            โดยแยกตามรหัสนักเรียน กลุ่มทดลอง และรอบการวัด (Pre / Post / Follow-up)
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- PROFiLE ผู้เล่นสำหรับการทดลอง -->
+    <section class="hha-profile-card">
+      <h2 class="hha-profile-title">โปรไฟล์ผู้เล่น (ใช้ในการวิจัย)</h2>
+      <p class="hha-profile-sub">
+        กรอกข้อมูลก่อนเริ่มเล่น เพื่อใช้วิเคราะห์ผลการทดลอง (ข้อมูลจะถูกส่งไปยัง Google Sheet พร้อมผลการเล่น)
       </p>
-    </div>
-  </header>
 
-  <main>
-    <section class="game-grid">
+      <div class="hha-profile-grid">
+        <label class="hha-field">
+          <span>รหัสนักเรียน / Student ID</span>
+          <input id="hha-prof-id" type="text" autocomplete="off" />
+        </label>
 
-      <!-- 1) Good vs Junk VR -->
-      <article class="game-card">
-        <div class="game-header">
-          <div class="game-emoji">🍏⚔️🍩</div>
-          <div class="game-text">
-            <h2>Good vs Junk VR</h2>
-            <p>เกมตีเป้าอาหารดี vs อาหารขยะ เก็บ FEVER, DIAMOND และ Shield พร้อม Boss หลายเฟส</p>
-          </div>
-        </div>
-        <div class="game-meta">
-          <div class="meta-pill">โหมด: Nutrition</div>
-          <div class="meta-pill">วิเคราะห์: Accuracy, RT, Mission</div>
-        </div>
-        <div class="game-actions">
-          <a class="btn btn-primary" href="./goodjunk-vr.html?diff=easy&time=60">
-            <span class="icon">▶️</span><span>เริ่มเล่น (ง่าย)</span>
-          </a>
-          <a class="btn btn-ghost" href="./goodjunk-vr.html?diff=normal&time=60">
-            ปกติ
-          </a>
-          <a class="btn btn-ghost" href="./goodjunk-vr.html?diff=hard&time=60">
-            ยาก
-          </a>
-        </div>
-      </article>
+        <label class="hha-field">
+          <span>ชื่อเล่น / ชื่อย่อ</span>
+          <input id="hha-prof-name" type="text" autocomplete="off" />
+        </label>
 
-      <!-- 2) Hydration Quest VR -->
-      <article class="game-card">
-        <div class="game-header">
-          <div class="game-emoji">💧🛡️</div>
-          <div class="game-text">
-            <h2>Hydration Quest VR</h2>
-            <p>ภารกิจดื่มน้ำให้พอใน 1 วัน เลี่ยงน้ำหวาน เก็บ power-ups และ mini quest แก้นิสัยดื่มน้ำน้อย</p>
-          </div>
-        </div>
-        <div class="game-meta">
-          <div class="meta-pill">โหมด: Hydration</div>
-          <div class="meta-pill">วิเคราะห์: Habit score, RT, Quest</div>
-        </div>
-        <div class="game-actions">
-          <a class="btn btn-primary" href="./hydration-vr.html?diff=easy&time=60">
-            <span class="icon">▶️</span><span>เริ่มเล่น (ง่าย)</span>
-          </a>
-          <a class="btn btn-ghost" href="./hydration-vr.html?diff=normal&time=60">
-            ปกติ
-          </a>
-          <a class="btn btn-ghost" href="./hydration-vr.html?diff=hard&time=60">
-            ยาก
-          </a>
-        </div>
-      </article>
+        <label class="hha-field">
+          <span>โรงเรียน</span>
+          <input id="hha-prof-school" type="text" autocomplete="off" />
+        </label>
 
-      <!-- 3) Food Groups VR -->
-      <article class="game-card">
-        <div class="game-header">
-          <div class="game-emoji">🥗📦</div>
-          <div class="game-text">
-            <h2>Food Groups VR</h2>
-            <p>เกมจัดอาหารลง “กล่องหมู่” ให้ถูกต้องทั้ง 5 หมู่ ผ่าน goal + mini quest แบบ step-by-step</p>
-          </div>
-        </div>
-        <div class="game-meta">
-          <div class="meta-pill">โหมด: 5 หมู่</div>
-          <div class="meta-pill">วิเคราะห์: การจำหมู่, Mission</div>
-        </div>
-        <div class="game-actions">
-          <a class="btn btn-primary" href="./groups-vr.html?diff=easy&time=60">
-            <span class="icon">▶️</span><span>เริ่มเล่น (ง่าย)</span>
-          </a>
-          <a class="btn btn-ghost" href="./groups-vr.html?diff=normal&time=60">
-            ปกติ
-          </a>
-          <a class="btn btn-ghost" href="./groups-vr.html?diff=hard&time=60">
-            ยาก
-          </a>
-        </div>
-      </article>
+        <label class="hha-field">
+          <span>ชั้น / ห้อง (เช่น ป.5/1)</span>
+          <input id="hha-prof-class" type="text" autocomplete="off" />
+        </label>
 
-      <!-- 4) Balanced Plate VR (เกมใหม่) -->
-      <article class="game-card">
-        <div class="game-header">
-          <div class="game-emoji">🍽️🥦🍊</div>
-          <div class="game-text">
-            <h2>Balanced Plate VR</h2>
-            <p>จัด “จานอาหารสมดุล” ให้ครบ 5 หมู่ เลี่ยงของทอด/ของหวาน มี FEVER, STAR, DIAMOND และ mission deck</p>
-          </div>
-        </div>
-        <div class="game-meta">
-          <div class="meta-pill">โหมด: Balanced Plate</div>
-          <div class="meta-pill">วิเคราะห์: สัดส่วนหมู่ 1–5, MISS junk, Quest</div>
-        </div>
-        <div class="game-actions">
-          <a class="btn btn-primary" href="./plate-vr.html?diff=easy&time=60">
-            <span class="icon">▶️</span><span>เริ่มเล่น (ง่าย)</span>
-          </a>
-          <a class="btn btn-ghost" href="./plate-vr.html?diff=normal&time=60">
-            ปกติ
-          </a>
-          <a class="btn btn-ghost" href="./plate-vr.html?diff=hard&time=60">
-            ยาก
-          </a>
-        </div>
-      </article>
+        <label class="hha-field">
+          <span>กลุ่มทดลอง</span>
+          <select id="hha-prof-group">
+            <option value="">- เลือก -</option>
+            <option value="exp">กลุ่มทดลอง (Experimental)</option>
+            <option value="control">กลุ่มควบคุม (Control)</option>
+            <option value="pilot">กลุ่มทดลองนำร่อง (Pilot)</option>
+          </select>
+        </label>
 
+        <label class="hha-field">
+          <span>รอบการวัด</span>
+          <select id="hha-prof-phase">
+            <option value="pre">Pre-test (ก่อนโปรแกรม)</option>
+            <option value="post">Post-test (หลังโปรแกรม)</option>
+            <option value="followup">Follow-up</option>
+          </select>
+        </label>
+      </div>
     </section>
-  </main>
 
-  <footer>
-    <div>👩‍🏫 Hero Health Academy — VR Nutrition World</div>
-    <div>ปรับใช้ในงานวิจัย: ส่งออกข้อมูลไป Google Sheets / CSV ได้</div>
-  </footer>
-</div>
+    <!-- MODE CARDS -->
+    <h2 class="section-title">เลือกโหมดฝึกโภชนาการ</h2>
+    <section class="card-grid">
+      <!-- Good vs Junk VR -->
+      <article class="mode-card">
+        <div class="mode-head">
+          <div>
+            <div class="mode-title">🥦 Good vs Junk VR</div>
+            <p class="mode-desc">
+              เกมแตะอาหารดี หลีกเลี่ยงอาหารขยะ พร้อมระบบ Fever, Shield, Quest และเก็บข้อมูลเชิงวิจัยละเอียด (event-level)
+            </p>
+            <div class="mode-badges">
+              <span class="mode-badge">VR / Desktop / Mobile</span>
+              <span class="mode-badge">Reaction Time</span>
+              <span class="mode-badge">Combo &amp; Fever</span>
+            </div>
+          </div>
+        </div>
+        <div class="mode-buttons">
+          <button class="btn btn-primary" type="button" onclick="startGoodJunkVR('easy')">
+            <span>เริ่มโหมดง่าย</span>
+            <span>🙂</span>
+          </button>
+          <button class="btn btn-secondary" type="button" onclick="startGoodJunkVR('normal')">
+            <span>โหมดปกติ</span>
+          </button>
+          <button class="btn btn-secondary" type="button" onclick="startGoodJunkVR('hard')">
+            <span>โหมดยาก</span>
+            <span>💪</span>
+          </button>
+        </div>
+      </article>
+
+      <!-- การ์ดอื่น (เผื่อเกม Hydration / Groups / Plate) -->
+      <article class="mode-card">
+        <div class="mode-head">
+          <div>
+            <div class="mode-title">💧 Hydration Quest (เร็ว ๆ นี้)</div>
+            <p class="mode-desc">
+              เกมเลือกน้ำดื่มให้เพียงพอในหนึ่งวัน เน้นความถี่และปริมาณการดื่มน้ำ (กำลังพัฒนา)
+            </p>
+          </div>
+        </div>
+        <div class="mode-buttons">
+          <button class="btn btn-secondary" type="button" disabled>
+            อยู่ระหว่างพัฒนา
+          </button>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    function readProfileFromForm() {
+      const playerId   = document.getElementById('hha-prof-id')?.value.trim() || '';
+      const playerName = document.getElementById('hha-prof-name')?.value.trim() || '';
+      const school     = document.getElementById('hha-prof-school')?.value.trim() || '';
+      const classRoom  = document.getElementById('hha-prof-class')?.value.trim() || '';
+      const group      = document.getElementById('hha-prof-group')?.value || '';
+      const phase      = document.getElementById('hha-prof-phase')?.value || 'pre';
+
+      return {
+        playerId,
+        playerName,
+        school,
+        classRoom,
+        group,
+        phase
+      };
+    }
+
+    function saveProfileToSession(profile) {
+      try {
+        sessionStorage.setItem('HHA_PLAYER_PROFILE', JSON.stringify(profile));
+      } catch (err) {
+        console.warn('[HHA] cannot save profile to sessionStorage', err);
+      }
+    }
+
+    // เรียกจากปุ่ม "เริ่ม Good vs Junk VR"
+    function startGoodJunkVR(diff) {
+      const profile = readProfileFromForm();
+      saveProfileToSession(profile);
+
+      const diffKey = (diff || 'normal').toLowerCase();
+
+      // ไม่ส่ง time ไป ปล่อยให้ goodjunk-vr.html กำหนดเวลาเองตามระดับ
+      const url = `./goodjunk-vr.html?diff=${encodeURIComponent(diffKey)}`;
+      window.location.href = url;
+    }
+  </script>
 </body>
 </html>
