@@ -13,14 +13,15 @@
   <!-- A-Frame core (ใช้ scene พื้นฐาน + เผื่อ mode-factory ใช้) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Particle FX + Fever UI (global IIFE) -->
-  <script src="./vr/particles.js"></script>
-  <script src="./vr/ui-fever.js"></script>
+  <!-- Particle FX (global: window.Particles / window.GAME_MODULES.Particles) -->
+  <script src="./vr/particles.js"></script>    <!-- เป้าแตก + คะแนนเด้ง -->
+  <script src="./vr/ui-fever.js"></script>     <!-- Fever กลาง -->
+
 </head>
 <body>
 <div class="app">
 
-  <!-- ===== VR Scene ===== -->
+  <!-- ===== VR Scene (พื้นหลัง, โมเดลให้ mode-factory ใส่ของ) ===== -->
   <div id="scene-wrap">
     <a-scene
       vr-mode-ui="enabled: true"
@@ -66,14 +67,13 @@
             <span>แตะของไม่ดี (MISS)</span>
             <span class="value" id="hud-miss">0</span>
           </div>
-          <!-- ✅ เกรด real-time -->
-          <div class="hud-badge hud-badge-grade">
-            <span>เกรด (real-time)</span>
-            <span class="value" id="hud-grade">-</span>
+          <div class="hud-badge">
+            <span>เกรด</span>
+            <span class="value" id="hud-grade">C</span>
           </div>
         </div>
 
-        <!-- ✅ แผนที่หมู่อาหาร (จำง่าย) -->
+        <!-- Legend แผนที่หมู่อาหาร -->
         <div class="hud-groups-legend">
           <span>1 ข้าว-แป้ง 🍚🍞</span>
           <span>2 โปรตีน 🥩🍗</span>
@@ -119,10 +119,6 @@
       </div>
       <div class="quest-hint" id="quest-hint">
         โควตาใน 1 จานจะแสดงที่นี่
-      </div>
-      <!-- ✅ สถานะ Goal / Mini รวมทั้งเกม -->
-      <div class="quest-hint" id="quest-status">
-        Goal: 0/0 • Mini: 0/0
       </div>
     </div>
   </div>
@@ -173,6 +169,10 @@
           <span>Mini Quest ที่สำเร็จ</span>
           <strong><span id="sum-mini-done">0</span>/<span id="sum-mini-total">0</span></strong>
         </div>
+        <div class="summary-item">
+          <span>เกรดรวม</span>
+          <strong id="sum-grade">-</strong>
+        </div>
       </div>
 
       <div class="summary-groups">
@@ -207,19 +207,18 @@
   const elCombo   = document.getElementById('hud-combo');
   const elPlates  = document.getElementById('hud-plates');
   const elMiss    = document.getElementById('hud-miss');
+  const elGrade   = document.getElementById('hud-grade');
   const elTime    = document.getElementById('hud-time');
   const elG1      = document.getElementById('g1');
   const elG2      = document.getElementById('g2');
   const elG3      = document.getElementById('g3');
   const elG4      = document.getElementById('g4');
   const elG5      = document.getElementById('g5');
-  const elGrade   = document.getElementById('hud-grade');
 
   // Quest
-  const elQuestGoal   = document.getElementById('quest-goal');
-  const elQuestMini   = document.getElementById('quest-mini');
-  const elQuestHint   = document.getElementById('quest-hint');
-  const elQuestStatus = document.getElementById('quest-status');
+  const elQuestGoal = document.getElementById('quest-goal');
+  const elQuestMini = document.getElementById('quest-mini');
+  const elQuestHint = document.getElementById('quest-hint');
 
   // Coach
   const elCoachBubble = document.getElementById('coach-bubble');
@@ -240,6 +239,7 @@
   const elSumMiniDone  = document.getElementById('sum-mini-done');
   const elSumMiniTotal = document.getElementById('sum-mini-total');
   const elSumGroups    = document.getElementById('sum-groups');
+  const elSumGrade     = document.getElementById('sum-grade');
 
   const btnRestart = document.getElementById('btn-restart');
   const btnToHub   = document.getElementById('btn-to-hub');
@@ -288,6 +288,7 @@
     if (typeof d.combo === 'number')   elCombo.textContent  = d.combo;
     if (typeof d.misses === 'number')  elMiss.textContent   = d.misses;
     if (typeof d.platesDone === 'number') elPlates.textContent = d.platesDone;
+    if (typeof d.grade === 'string')   elGrade.textContent  = d.grade;
 
     if (Array.isArray(d.totalCounts) && d.totalCounts.length >= 5) {
       const [g1,g2,g3,g4,g5] = d.totalCounts;
@@ -296,28 +297,6 @@
       elG3.textContent = g3;
       elG4.textContent = g4;
       elG5.textContent = g5;
-    }
-
-    // ✅ สถานะ Goal / Mini แบบ real-time
-    if (typeof d.goalsCleared === 'number' && typeof d.goalsTotal === 'number' &&
-        typeof d.questsCleared === 'number' && typeof d.questsTotal === 'number') {
-      elQuestStatus.textContent =
-        `Goal: ${d.goalsCleared}/${d.goalsTotal} • Mini: ${d.questsCleared}/${d.questsTotal}`;
-    }
-
-    // ✅ เกรด real-time + สี
-    if (d.grade) {
-      elGrade.textContent = d.grade;
-      const badge = elGrade.parentElement;
-      badge.classList.remove(
-        'hud-badge-grade-SSS',
-        'hud-badge-grade-SS',
-        'hud-badge-grade-S',
-        'hud-badge-grade-A',
-        'hud-badge-grade-B',
-        'hud-badge-grade-C'
-      );
-      badge.classList.add('hud-badge-grade-' + d.grade);
     }
   });
 
@@ -360,13 +339,9 @@
       timerId = null;
     }
 
-    const grade = d.grade || '-';
-
     elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
-    elSumSub.textContent   =
-      `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
-    elSumDiff.textContent  =
-      `ระดับ ${diffLabel(d.difficulty || diffParam)} • เกรด ${grade}`;
+    elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
+    elSumDiff.textContent  = `ระดับ ${diffLabel(d.difficulty || diffParam)}`;
 
     elSumScore.textContent  = d.score ?? 0;
     elSumCombo.textContent  = d.comboMax ?? 0;
@@ -377,6 +352,7 @@
     elSumGoalTotal.textContent = d.goalsTotal ?? 0;
     elSumMiniDone.textContent  = d.questsCleared ?? 0;
     elSumMiniTotal.textContent = d.questsTotal ?? 0;
+    elSumGrade.textContent     = d.grade || '-';
 
     if (Array.isArray(d.groupCounts) && d.groupCounts.length >= 5) {
       const [g1,g2,g3,g4,g5] = d.groupCounts;
@@ -401,6 +377,75 @@
 
   // ------- เริ่มเกม Plate Engine -------
   bootPlate({ difficulty: diffParam, duration });
+
+  // ------- Gaze fire: ใช้กับ VR trigger / แตะจอ / ปุ่มคีย์บอร์ด -------
+
+  function hitTargetAtCenter() {
+    const targets = document.querySelectorAll('.hha-target');
+    if (!targets.length) return false;
+
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    let best = null;
+    let bestDist = Infinity;
+
+    targets.forEach(el => {
+      const rect = el.getBoundingClientRect();
+      const tx = rect.left + rect.width / 2;
+      const ty = rect.top  + rect.height / 2;
+      const dx = tx - cx;
+      const dy = ty - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = el;
+      }
+    });
+
+    // ต้องอยู่ใกล้จุดกลางพอสมควร ถึงจะถือว่า "เล็งโดน"
+    const MAX_RADIUS = 70; // px
+
+    if (best && bestDist <= MAX_RADIUS) {
+      best.click();   // ใช้ click เดิมของเป้า
+      return true;
+    }
+    return false;
+  }
+
+  function handlePointerDownForGaze(ev) {
+    // 1) ถ้ากดตรง UI (HUD / summary / ปุ่ม) ให้ปล่อยผ่านไปเลย
+    const path = ev.composedPath ? ev.composedPath() : [ev.target];
+    const hitUI = path.some(node => {
+      if (!node || !node.closest) return false;
+      return node.closest('#summary') ||
+             node.closest('#hud')     ||
+             node.closest('button');
+    });
+    if (hitUI) return;
+
+    // 2) ถ้ากดตรงเป้าอยู่แล้ว ให้ใช้ click ปกติ
+    const hitTargetDirect = path.some(node => {
+      return node && node.classList && node.classList.contains('hha-target');
+    });
+    if (hitTargetDirect) return;
+
+    // 3) กรณี VR trigger / แตะจอที่ไหนก็ได้ → ยิงเป้าตาม gaze
+    hitTargetAtCenter();
+  }
+
+  function handleKeyDownForGaze(ev) {
+    // PC: Space / Enter = ยิงเป้ากลางจอ
+    if (ev.code === 'Space' || ev.code === 'Enter') {
+      const ok = hitTargetAtCenter();
+      if (ok) {
+        ev.preventDefault();
+      }
+    }
+  }
+
+  window.addEventListener('pointerdown', handlePointerDownForGaze, { passive:true });
+  window.addEventListener('keydown', handleKeyDownForGaze);
 </script>
 
 </body>
