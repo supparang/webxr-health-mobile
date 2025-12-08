@@ -440,3 +440,58 @@ a-scene{
     0 0 20px rgba(248,113,113,0.7),
     0 0 28px rgba(248,113,113,0.55);
 }
+/* ===== Gaze Reticle (VR only) ===== */
+
+#gaze-reticle{
+  position:fixed;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:26px;
+  height:26px;
+  pointer-events:none;
+  z-index:430;
+  opacity:0;
+  transition:opacity .25s ease;
+}
+
+body.hha-vr-mode #gaze-reticle{
+  opacity:1;
+}
+
+.gaze-dot{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:4px;
+  height:4px;
+  border-radius:999px;
+  background:rgba(248,250,252,0.96);
+  box-shadow:0 0 4px rgba(248,250,252,0.9);
+}
+
+.gaze-ring{
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  border:2px solid rgba(248,250,252,0.85);
+  box-shadow:0 0 10px rgba(248,250,252,0.7);
+  opacity:0.8;
+}
+
+/* animation ตอนกำลัง fuse */
+body.hha-vr-mode #gaze-reticle.fuse-active .gaze-ring{
+  animation:hhaFuse 1s linear forwards;
+}
+
+@keyframes hhaFuse{
+  0%{
+    transform:scale(1);
+    opacity:0.85;
+  }
+  100%{
+    transform:scale(0.25);
+    opacity:0;
+  }
+}
