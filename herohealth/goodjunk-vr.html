@@ -193,7 +193,8 @@
       flex-direction:column;
       align-items:center;
       gap:8px;
-      padding-bottom:72px; /* เผื่อพื้นที่ให้ Fever Gauge / ปุ่ม VR */
+      /* เผื่อที่ให้ Fever Gauge ด้านล่างซ้าย */
+      padding-bottom:72px;
     }
     .coach-bubble{
       min-width:60%;
@@ -320,56 +321,47 @@
       background:rgba(15,23,42,0.7);
     }
 
-    /* ===== A-Frame canvas full ===== */
-    a-scene{
-      width:100vw;
-      height:100vh;
+    /* ===== ปุ่มเข้า VR ===== */
+    .vr-btn{
       position:fixed;
-      inset:0;
-    }
-
-    /* ===== Floating VR Button ===== */
-    .vr-fab{
-      position:fixed;
-      right:10px;
+      right:12px;
       bottom:16px;
       z-index:653;
+      padding:8px 14px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,0.8);
-      background:radial-gradient(circle at top left, rgba(56,189,248,0.25), transparent 55%),
-                 rgba(15,23,42,0.96);
-      color:#e5e7eb;
-      padding:6px 12px;
+      border:1px solid rgba(148,163,184,0.7);
+      background:rgba(15,23,42,0.92);
+      color:var(--text-main);
       font-size:12px;
       font-weight:600;
       display:inline-flex;
       align-items:center;
       gap:6px;
       cursor:pointer;
-      box-shadow:0 16px 34px rgba(15,23,42,0.85);
+      pointer-events:auto;
+      box-shadow:0 12px 24px rgba(15,23,42,0.9);
+      backdrop-filter:blur(10px);
+      transition:background .15s ease, transform .1s ease, box-shadow .15s ease;
     }
-    .vr-fab span{
-      font-size:14px;
+    .vr-btn span{
+      font-size:16px;
     }
-    .vr-fab:hover{
-      background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%),
-                 rgba(15,23,42,0.98);
+    .vr-btn:hover{
+      background:rgba(15,23,42,1);
+      box-shadow:0 16px 32px rgba(15,23,42,0.95);
       transform:translateY(-1px);
     }
-    .vr-fab:active{
+    .vr-btn:active{
       transform:translateY(0);
-      box-shadow:0 10px 22px rgba(15,23,42,0.9);
+      box-shadow:0 10px 20px rgba(15,23,42,0.85);
     }
 
-    @media (max-width:640px){
-      .hud-card{
-        padding:7px 8px;
-      }
-      .hud-main-title{ font-size:13px; }
-      .hud-main-mode{ font-size:14px; }
-      .hud-bottom{
-        padding-bottom:84px;
-      }
+    /* ===== A-Frame canvas full ===== */
+    a-scene{
+      width:100vw;
+      height:100vh;
+      position:fixed;
+      inset:0;
     }
   </style>
 </head>
@@ -484,6 +476,7 @@
   <div class="end-toast" id="end-toast">
     <div class="end-title">สรุปผล • Good vs Junk</div>
     <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
+    <div class="end-row"><span>Grade</span><strong id="end-grade">-</strong></div>
     <div class="end-row"><span>คอมโบสูงสุด</span><strong id="end-combo">0</strong></div>
     <div class="end-row"><span>พลาด</span><strong id="end-miss">0</strong></div>
     <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 0</strong></div>
@@ -497,9 +490,10 @@
   <!-- Start countdown -->
   <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
 
-  <!-- Floating VR Button -->
-  <button class="vr-fab" id="btn-enter-vr" type="button">
-    <span>🕶️</span><span>เข้าสู่โหมด VR</span>
+  <!-- ปุ่มเข้า VR -->
+  <button class="vr-btn" id="btn-enter-vr" type="button">
+    <span>🕶️</span>
+    <span>เข้าโหมด VR</span>
   </button>
 
   <!-- Fever UI (global, non-module) -->
@@ -517,18 +511,6 @@
       const url = new URL(window.location.href);
       const v = url.searchParams.get(name);
       return v !== null && v !== '' ? v : fallback;
-    }
-
-    function loadPlayerProfile() {
-      try {
-        const raw = sessionStorage.getItem('HHA_PLAYER_PROFILE');
-        if (!raw) return null;
-        const obj = JSON.parse(raw);
-        if (obj && typeof obj === 'object') return obj;
-      } catch (err) {
-        console.warn('[HHA] cannot parse HHA_PLAYER_PROFILE', err);
-      }
-      return null;
     }
 
     // HUD element refs
@@ -557,12 +539,15 @@
     const elEndMiss   = document.getElementById('end-miss');
     const elEndGoal   = document.getElementById('end-goal');
     const elEndMini   = document.getElementById('end-mini');
+    const elEndGrade  = document.getElementById('end-grade');
 
     const btnReplay   = document.getElementById('btn-replay');
     const btnBackHub  = document.getElementById('btn-back-hub');
     const btnEnterVR  = document.getElementById('btn-enter-vr');
 
+    // overlay 3–2–1 Go
     const elCountdown = document.getElementById('start-countdown');
+
     const elJudge = document.getElementById('hud-judge');
 
     let lastCoachTimeout = null;
@@ -717,19 +702,22 @@
     // HUD: End summary
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
-      const scoreFinal = d.scoreFinal ?? d.score ?? 0;
-      const comboMax   = d.comboMax ?? 0;
-      const misses     = d.misses ?? 0;
-      const goalsCleared  = d.goalsCleared ?? d.miniCleared ?? 0;
-      const goalsTotal    = d.goalsTotal ?? d.miniTotal ?? 0;
-      const miniCleared   = d.miniCleared ?? 0;
-      const miniTotal     = d.miniTotal ?? 0;
+      const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
+      const comboMax     = d.comboMax ?? 0;
+      const misses       = d.misses ?? 0;
+      const goalsCleared = d.goalsCleared ?? d.miniCleared ?? 0;
+      const goalsTotal   = d.goalsTotal ?? d.miniTotal ?? 0;
+      const miniCleared  = d.miniCleared ?? 0;
+      const miniTotal    = d.miniTotal ?? 0;
+      const grade        = d.grade || '-';
 
       elEndScore.textContent = scoreFinal;
       elEndCombo.textContent = comboMax;
       elEndMiss.textContent  = misses;
       elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
       elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
+      if (elEndGrade) elEndGrade.textContent = grade;
+
       elEndToast.classList.add('show');
 
       setCoachFace(misses <= 3 ? 'happy' : 'neutral');
@@ -761,15 +749,17 @@
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
 
-      // ถ้าไม่ได้ส่ง time มา หรือเป็น 0/ไม่ถูกต้อง → กำหนดตามระดับยากง่าย
-      let durParam = parseInt(getParam('time','0'), 10);
-      let dur = durParam;
-      if (isNaN(dur) || dur <= 0) {
-        if (diff === 'easy') dur = 50;
-        else if (diff === 'hard') dur = 70;
-        else dur = 60; // normal
+      // เวลาเล่น: ถ้าไม่ส่ง ?time= มา ให้กำหนดตามระดับความยาก
+      let dur;
+      const rawTime = getParam('time','');
+      if (rawTime !== '') {
+        dur = parseInt(rawTime, 10);
+      } else {
+        if (diff === 'easy')      dur = 50;  // ง่าย: สั้นหน่อย
+        else if (diff === 'hard') dur = 70;  // ยาก: ยาวขึ้น
+        else                      dur = 60;  // ปกติ
       }
-
+      if (isNaN(dur) || dur <= 0) dur = 60;
       if (dur < 20) dur = 20;
       if (dur > 180) dur = 180;
 
@@ -785,29 +775,24 @@
       setCoachFace('neutral');
       setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
 
-      const playerProfile = loadPlayerProfile();
-
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
         mode: 'GoodJunkVR',
         diff,
         durationSec: dur,
-        playerProfile,
-        debug: false   // เปิดเป็น true ถ้าต้องการดู log ใน console
+        debug: false   // เปิดเป็น false สำหรับ production
       });
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
 
-      // ปุ่มเข้า VR
-      const scene = document.querySelector('a-scene');
-      if (btnEnterVR && scene && scene.enterVR) {
+      // ปุ่มเข้าโหมด VR
+      if (btnEnterVR) {
         btnEnterVR.addEventListener('click', () => {
-          try {
+          const scene = document.querySelector('a-scene');
+          if (scene && scene.enterVR) {
             scene.enterVR();
-          } catch (err) {
-            console.warn('[GoodJunkVR] enterVR error', err);
           }
         });
       }
