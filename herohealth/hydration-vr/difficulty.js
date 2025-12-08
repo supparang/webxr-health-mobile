@@ -1,27 +1,28 @@
 // === /herohealth/hydration-vr/difficulty.js ===
 // Central difficulty config for Hydration VR
-// ใช้ pattern เดียวกับ goodjunk/difficulty.js แต่ปรับค่าตามลักษณะเกมน้ำ
+// ใช้ pattern เดียวกับ vr-goodjunk/difficulty.js แต่จูนตามลักษณะเกมน้ำ
 
 export class HydrationDifficulty {
   constructor () {
     this.level = 'normal';
 
-    // size  = ขนาดเป้า (ยิ่งมาก ยิ่งใหญ่ / กดง่าย)
-    // rate  = ช่วงเวลา spawn (ms) ยิ่งน้อย = โผล่ถี่ขึ้น / ยากขึ้น
-    // life  = อายุของเป้า (ms) ยิ่งน้อย = หายไว / ยากขึ้น
-    // maxActive = เป้าบนจอพร้อมกันสูงสุด
+    // หมายเหตุ field หลัก:
+    // size  = ขนาดเป้า (ยิ่งมากยิ่งใหญ่ / กดง่าย)
+    // rate  = ช่วงเวลา spawn (ms) ยิ่งน้อย = โผล่ถี่ / ยากขึ้น
+    // life  = อายุของเป้า (ms) ยิ่งน้อย = หายเร็ว / ยากขึ้น
+    // maxActive = จำนวนเป้าบนจอพร้อมกันสูงสุด
     //
-    // typeWeights = สัดส่วนของประเภทเป้า
+    // typeWeights = สัดส่วนประเภทเป้า (ใช้คำนวณ GOOD_RATIO / POWER_RATIO)
     //   good    = น้ำดี / น้ำเปล่า
-    //   junk    = เครื่องดื่มหวาน / น้ำอัดลม
-    //   star    = +คะแนน / combo พิเศษ
+    //   junk    = น้ำหวาน / น้ำอัดลม
+    //   star    = คะแนนพิเศษ
     //   diamond = คะแนนเยอะ + fever
     //   shield  = เกราะกัน miss จาก junk
-    //   fire    = โหมดไฟ เก็บคะแนนเร็ว
+    //   fire    = โหมดไฟ (เก็บคะแนนได้เร็ว)
     //
-    // greenTarget = เปอร์เซ็นต์เวลาที่อยากให้อยู่โซน GREEN (ใช้ช่วยออกแบบ quest)
+    // greenTarget = เปอร์เซ็นต์เวลาที่อยากให้อยู่โซน GREEN (ใช้ design quest)
     // missLimit   = MISS โดยประมาณที่ "ยอมได้" ต่อเกมในระดับนั้น
-    // feverGainHit / feverDecaySec ใช้จูนความยากเรื่องเกจไฟ
+    // feverGainHit / feverDecaySec ใช้จูนความยากของเกจไฟ
 
     this.table = {
       easy: {
@@ -37,10 +38,11 @@ export class HydrationDifficulty {
           shield: 3,
           fire: 2
         },
-        greenTarget: 0.40,   // อยากให้เด็กอยู่ GREEN ≥ 40% ของเวลา
-        missLimit: 6,        // พลาดได้เยอะหน่อย
-        feverGainHit: 8,     // เกจไฟขึ้นไว
-        feverDecaySec: 4,    // ลดช้า = ง่าย
+        greenTarget: 0.40,
+        missLimit: 6,
+        feverGainHit: 8,
+        feverDecaySec: 4,
+        assist: true,
         adaptive: {
           intervalMin: 950,
           intervalMax: 1300,
@@ -48,8 +50,7 @@ export class HydrationDifficulty {
           lifeMax: 2800,
           maxActiveMin: 2,
           maxActiveMax: 4
-        },
-        assist: true          // เปิดระบบช่วย (โค้ชเตือนบ่อย ๆ ฯลฯ)
+        }
       },
 
       normal: {
@@ -69,6 +70,7 @@ export class HydrationDifficulty {
         missLimit: 4,
         feverGainHit: 6,
         feverDecaySec: 5,
+        assist: false,
         adaptive: {
           intervalMin: 800,
           intervalMax: 1150,
@@ -76,8 +78,7 @@ export class HydrationDifficulty {
           lifeMax: 2400,
           maxActiveMin: 3,
           maxActiveMax: 5
-        },
-        assist: false
+        }
       },
 
       hard: {
@@ -95,8 +96,9 @@ export class HydrationDifficulty {
         },
         greenTarget: 0.60,
         missLimit: 2,
-        feverGainHit: 5,     // เกจขึ้นช้าลง
-        feverDecaySec: 7,    // ลดเร็ว = ยาก
+        feverGainHit: 5,
+        feverDecaySec: 7,
+        assist: false,
         adaptive: {
           intervalMin: 650,
           intervalMax: 950,
@@ -104,8 +106,7 @@ export class HydrationDifficulty {
           lifeMax: 2100,
           maxActiveMin: 4,
           maxActiveMax: 6
-        },
-        assist: false
+        }
       }
     };
   }
