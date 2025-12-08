@@ -328,6 +328,35 @@
       position:fixed;
       inset:0;
     }
+
+    /* ===== VR button: ล่างขวา ===== */
+    .hha-vr-btn{
+      position:fixed;
+      right:16px;
+      bottom:18px;
+      z-index:900;
+      padding:8px 16px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.8);
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      color:#052e16;
+      font-size:13px;
+      font-weight:700;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      cursor:pointer;
+      box-shadow:0 12px 26px rgba(15,23,42,0.85);
+    }
+    .hha-vr-btn span{
+      font-size:16px;
+    }
+    .hha-vr-btn:active{
+      transform:translateY(1px);
+      box-shadow:0 6px 14px rgba(15,23,42,0.7);
+    }
   </style>
 </head>
 <body>
@@ -454,6 +483,11 @@
   <!-- Start countdown -->
   <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
 
+  <!-- ปุ่มเข้าโหมด VR -->
+  <button id="btn-vr" class="hha-vr-btn">
+    <span>🕶️</span> เข้าโหมด VR
+  </button>
+
   <!-- Fever UI (global, non-module) -->
   <script src="./vr/ui-fever.js"></script>
   <!-- Effect เป้า (particles FX) -->
@@ -500,6 +534,7 @@
 
     const btnReplay   = document.getElementById('btn-replay');
     const btnBackHub  = document.getElementById('btn-back-hub');
+    const btnVr       = document.getElementById('btn-vr');
 
     // overlay 3–2–1 Go
     const elCountdown = document.getElementById('start-countdown');
@@ -724,11 +759,33 @@
         mode: 'GoodJunkVR',
         diff,
         durationSec: dur,
-        debug: false   // เปิดเป็น false สำหรับ production
+        debug: false   // production
       });
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
+
+      // ปุ่มเข้า VR
+      const scene = document.querySelector('a-scene');
+      if (btnVr && scene) {
+        btnVr.addEventListener('click', () => {
+          if (scene.hasLoaded) {
+            scene.enterVR && scene.enterVR();
+          } else {
+            scene.addEventListener('loaded', () => {
+              scene.enterVR && scene.enterVR();
+            }, { once: true });
+          }
+        });
+
+        // ซ่อน/โชว์ปุ่มตามสถานะ VR
+        scene.addEventListener('enter-vr', () => {
+          btnVr.style.display = 'none';
+        });
+        scene.addEventListener('exit-vr', () => {
+          btnVr.style.display = 'inline-flex';
+        });
+      }
 
       // เริ่มนับ 3–2–1–Go ก่อน แล้วค่อยเริ่มเกม + นับเวลา
       runCountdown(() => {
