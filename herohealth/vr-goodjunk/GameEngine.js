@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-08 ResearchFX — เพิ่มตัวแปรวิจัย + event log ละเอียด
+// 2025-12-07 FX Version — burst + score + judge popup (with safe Particles resolve + grade + auto end on quest complete)
 
 'use strict';
 
@@ -20,6 +20,7 @@ export const GameEngine = (function () {
     };
 
   // ---------- Particles (global) ----------
+  // ดึงสดจาก window ทุกครั้ง (กันเคสโหลดไม่ทันบนมือถือ)
   function getParticles() {
     return (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
            window.Particles ||
@@ -71,17 +72,10 @@ export const GameEngine = (function () {
   let junkHit = 0;
   let shieldCount = 0;
 
-  // Fever state (นับเวลา/จำนวนครั้งเพื่อวิจัย)
+  // Fever state
   let fever = 0;
   let feverActive = false;
   let feverTimer = null;
-  let feverTimes = 0;
-  let feverTotalMs = 0;
-  let feverStartMs = null;
-
-  // shield stats
-  let shieldsPicked = 0;
-  let shieldsUsed   = 0;
 
   // session สำหรับ logger
   let sessionId = '';
@@ -98,7 +92,7 @@ export const GameEngine = (function () {
 
   const MINI = {
     label: 'รักษาคอมโบให้ถึง x5 อย่างน้อย 1 ครั้ง',
-    prog: 0,
+    prog: 0,      // 0 หรือ 1 (ผ่าน/ไม่ผ่าน)
     target: 1,
     done: false
   };
@@ -155,15 +149,10 @@ export const GameEngine = (function () {
   }
 
   function nowMs() {
-    return (performance && performance.now ? performance.now() : Date.now());
+    return performance && performance.now ? performance.now() : Date.now();
   }
 
-  function sessionElapsedMs() {
-    if (!sessionStart) return 0;
-    return Math.max(0, Math.round(Date.now() - sessionStart.getTime()));
-  }
-
-  // world → screen สำหรับ particle FX
+  // แปลง world → screen สำหรับใช้กับ particles
   function worldToScreen(el) {
     try {
       if (!THREE || !sceneEl || !sceneEl.camera || !el || !el.object3D) {
@@ -182,11 +171,13 @@ export const GameEngine = (function () {
     }
   }
 
+  // helper: หาจุดบนจอสำหรับ FX (มี fallback)
   function fxScreenPos(el) {
     const sp = worldToScreen(el);
     if (sp && Number.isFinite(sp.x) && Number.isFinite(sp.y)) {
       return sp;
     }
+    // fallback: กลางจอหน่อย ๆ
     return {
       x: window.innerWidth / 2,
       y: window.innerHeight * 0.55
@@ -195,6 +186,7 @@ export const GameEngine = (function () {
 
   function judgeFromRT(rtMs) {
     if (rtMs == null || rtMs < 0) return 'Good';
+    // แบ่งตาม TARGET_LIFETIME
     const tPerfect = TARGET_LIFETIME * 0.35;
     const tGood    = TARGET_LIFETIME * 0.70;
     if (rtMs <= tPerfect) return 'Perfect';
@@ -207,20 +199,42 @@ export const GameEngine = (function () {
     emit('hha:judge', { label });
   }
 
-  // helper รวม field พื้นฐานของ event ให้ logger
-  function logEvent(extra) {
-    const base = {
-      sessionId,
-      timeFromStartMs: sessionElapsedMs(),
-      difficulty: currentDiff,
-      feverActive: !!feverActive,
-      feverValue: fever,
-      goalProgress: GOAL.prog,
-      goalTarget: GOAL.target,
-      miniProgress: MINI.prog,
-      miniTarget: MINI.target
+  // ---------- Accuracy & Grade ----------
+  function calcAccuracyPct() {
+    const attempts = goodHit + junkHit + misses;
+    if (!attempts) return 0;
+    return Math.round((goodHit / attempts) * 100);
+  }
+
+  function evalGrade() {
+    const accuracyPct = calcAccuracyPct();
+    const goalsCleared = GOAL.done ? 1 : 0;
+    const miniCleared  = MINI.done ? 1 : 0;
+
+    let grade = 'C';
+
+    if (goalsCleared && miniCleared && accuracyPct >= 92 && misses <= 2) {
+      grade = 'SSS';
+    } else if (goalsCleared && accuracyPct >= 88 && misses <= 4) {
+      grade = 'SS';
+    } else if (goalsCleared && accuracyPct >= 80) {
+      grade = 'S';
+    } else if (accuracyPct >= 70) {
+      grade = 'A';
+    } else if (accuracyPct >= 50) {
+      grade = 'B';
+    } else {
+      grade = 'C';
+    }
+
+    return {
+      grade,
+      accuracyPct,
+      goalsCleared,
+      miniCleared,
+      goalsTotal: 1,
+      miniTotal: 1
     };
-    emit('hha:event', Object.assign(base, extra));
   }
 
   // ---------- Fever ----------
@@ -242,8 +256,6 @@ export const GameEngine = (function () {
     if (feverActive) return;
     feverActive = true;
     fever = FEVER_MAX;
-    feverTimes += 1;
-    feverStartMs = nowMs();
 
     if (FeverUI && FeverUI.setFeverActive) FeverUI.setFeverActive(true);
     if (FeverUI && FeverUI.setFever)       FeverUI.setFever(fever);
@@ -260,11 +272,6 @@ export const GameEngine = (function () {
     if (!feverActive) return;
     feverActive = false;
     fever = 0;
-
-    if (feverStartMs != null) {
-      feverTotalMs += Math.max(0, nowMs() - feverStartMs);
-      feverStartMs = null;
-    }
 
     if (FeverUI && FeverUI.setFeverActive) FeverUI.setFeverActive(false);
     if (FeverUI && FeverUI.setFever)       FeverUI.setFever(fever);
@@ -296,12 +303,22 @@ export const GameEngine = (function () {
     });
   }
 
+  // เช็คว่าทำ Goal + Mini ครบหรือยัง ถ้าครบให้จบเกมทันที
+  function maybeEndOnQuestComplete() {
+    if (!running) return;
+    if (GOAL.done && MINI.done) {
+      coach('เยี่ยมมาก! ทำภารกิจหลักและ Mini quest ครบทั้งหมดแล้ว 🎉');
+      stop('quest-complete');
+    }
+  }
+
   function updateGoalFromGoodHit() {
     GOAL.prog = goodHit;
     if (!GOAL.done && GOAL.prog >= GOAL.target) {
       GOAL.done = true;
       coach('ภารกิจหลักสำเร็จแล้ว! เก็บผัก ผลไม้ครบตามเป้าแล้ว 🎉');
       pushQuest('Goal สำเร็จแล้ว');
+      maybeEndOnQuestComplete();
     } else {
       pushQuest('');
     }
@@ -315,21 +332,33 @@ export const GameEngine = (function () {
         `สุดยอด! คอมโบถึง x${miniComboNeed} แล้ว Mini quest ผ่านเรียบร้อย 🎯`
       );
       pushQuest('Mini quest สำเร็จแล้ว');
+      maybeEndOnQuestComplete();
     } else {
       pushQuest('');
     }
   }
 
   function emitEnd(reason) {
+    const {
+      grade,
+      accuracyPct,
+      goalsCleared,
+      miniCleared,
+      goalsTotal,
+      miniTotal
+    } = evalGrade();
+
     emit('hha:end', {
       mode: 'Good vs Junk (VR)',
       score,
       comboMax,
       misses,
-      goalsCleared: GOAL.done ? 1 : 0,
-      goalsTotal: 1,
-      miniCleared: MINI.done ? 1 : 0,
-      miniTotal: 1,
+      goalsCleared,
+      goalsTotal,
+      miniCleared,
+      miniTotal,
+      accuracyPct,
+      grade,
       reason: reason || 'normal'
     });
 
@@ -351,20 +380,29 @@ export const GameEngine = (function () {
         scoreFinal: score,
         comboMax,
         misses,
-        goodHitTotal: goodHit,
-        junkHitTotal: junkHit,
-        goalTarget: GOAL.target,
-        goalsCleared: GOAL.done ? 1 : 0,
-        goalsTotal: 1,
-        miniComboNeed,
-        miniCleared: MINI.done ? 1 : 0,
-        miniTotal: 1,
-        feverTimes,
-        feverTotalMs: Math.round(feverTotalMs),
-        shieldsPicked,
-        shieldsUsed,
-        gameVersion: 'GoodJunkVR-2025-12-08-ResearchFX',
+        goodHit,
+        junkHit,
+        accuracyPct,
+        grade,
+        gameVersion: 'GoodJunkVR-2025-12-07-FX',
         reason: reason || 'normal'
+      });
+
+      emit('hha:stat', {
+        sessionId,
+        mode: 'GoodJunkVR',
+        difficulty: currentDiff,
+        scoreFinal: score,
+        comboMax,
+        misses,
+        goodHit,
+        junkHit,
+        accuracyPct,
+        grade,
+        goalsCleared,
+        goalsTotal,
+        miniCleared,
+        miniTotal
       });
     } catch (err) {
       // เงียบ ๆ ไม่ให้เกมล้ม
@@ -396,12 +434,6 @@ export const GameEngine = (function () {
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
     root.dataset.spawnAt = String(nowMs());
-
-    // lane: -1 (ซ้าย), 0 (กลาง), 1 (ขวา)
-    let lane = 0;
-    if (x < -0.4) lane = -1;
-    else if (x > 0.4) lane = 1;
-    root.dataset.lane = String(lane);
 
     // วงกลมพื้นหลัง
     const circle = document.createElement('a-circle');
@@ -461,7 +493,6 @@ export const GameEngine = (function () {
 
     const kind = el.dataset.kind || 'junk';
     const emoji = el.dataset.emoji || '';
-    const lane = parseInt(el.dataset.lane || '0', 10) || 0;
     const spawnAt = Number(el.dataset.spawnAt || '0') || 0;
     const rtMs = spawnAt ? nowMs() - spawnAt : null;
 
@@ -473,12 +504,10 @@ export const GameEngine = (function () {
 
     let judgment = 'Good';
     let scoreDelta = 0;
-    const comboBefore = combo;
 
     // ---------- shield / star / diamond ----------
     if (kind === 'shield') {
       shieldCount += 1;
-      shieldsPicked += 1;
       if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
       coach('ได้เกราะป้องกัน 1 ชิ้น! ถ้าเผลอแตะของขยะจะไม่เสียแต้มทันที 🛡️');
       emitScore();
@@ -497,15 +526,14 @@ export const GameEngine = (function () {
         });
       }
 
-      logEvent({
+      emit('hha:event', {
+        sessionId,
         type: 'bonus',
         emoji,
-        lane,
+        lane: 0,
         rtMs,
         totalScore: score,
         combo,
-        comboBefore,
-        comboAfter: combo,
         isGood: true,
         itemType: 'shield'
       });
@@ -537,15 +565,14 @@ export const GameEngine = (function () {
         });
       }
 
-      logEvent({
+      emit('hha:event', {
+        sessionId,
         type: 'bonus',
         emoji,
-        lane,
+        lane: 0,
         rtMs,
         totalScore: score,
         combo,
-        comboBefore,
-        comboAfter: combo,
         isGood: true,
         itemType: 'star'
       });
@@ -578,15 +605,14 @@ export const GameEngine = (function () {
         });
       }
 
-      logEvent({
+      emit('hha:event', {
+        sessionId,
         type: 'bonus',
         emoji,
-        lane,
+        lane: 0,
         rtMs,
         totalScore: score,
         combo,
-        comboBefore,
-        comboAfter: combo,
         isGood: true,
         itemType: 'diamond'
       });
@@ -628,7 +654,6 @@ export const GameEngine = (function () {
       // junk — treat as Miss
       if (shieldCount > 0) {
         shieldCount -= 1;
-        shieldsUsed += 1;
         if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
         coach('โชคดีมีเกราะกันไว้ ของขยะไม่ทำร้ายคะแนนรอบนี้ 🛡️');
         emitScore();
@@ -647,15 +672,14 @@ export const GameEngine = (function () {
           });
         }
 
-        logEvent({
+        emit('hha:event', {
+          sessionId,
           type: 'hit-junk-guard',
           emoji,
-          lane,
+          lane: 0,
           rtMs,
           totalScore: score,
           combo,
-          comboBefore,
-          comboAfter: combo,
           isGood: false,
           itemType: 'junk'
         });
@@ -688,7 +712,7 @@ export const GameEngine = (function () {
     emitScore();
     emitJudge(judgment);
 
-    // ---------- FX ----------
+    // ---------- FX: เป้าแตก + คะแนน + คำตัดสิน ----------
     const P = getParticles();
     if (P) {
       const jUpper = String(judgment || '').toUpperCase();
@@ -714,23 +738,21 @@ export const GameEngine = (function () {
         });
       }
 
-      P.scorePop(sx, sy, String(judgment || '').toUpperCase(), {
+      P.scorePop(sx, sy, jUpper, {
         kind: 'judge',
-        judgment: judgment
+        judgment: jUpper
       });
     }
 
-    const comboAfter = combo;
-
-    logEvent({
+    // event log
+    emit('hha:event', {
+      sessionId,
       type: kind === 'good' ? 'hit-good' : 'hit-junk',
       emoji,
-      lane,
+      lane: 0,
       rtMs,
       totalScore: score,
       combo,
-      comboBefore,
-      comboAfter,
       isGood: kind === 'good',
       itemType: kind
     });
@@ -743,7 +765,6 @@ export const GameEngine = (function () {
 
     const kind = el.dataset.kind || 'junk';
     const emoji = el.dataset.emoji || '';
-    const lane = parseInt(el.dataset.lane || '0', 10) || 0;
     const spawnAt = Number(el.dataset.spawnAt || '0') || 0;
     const rtMs = spawnAt ? nowMs() - spawnAt : null;
 
@@ -752,8 +773,6 @@ export const GameEngine = (function () {
     const sy = screenPos.y;
 
     removeTarget(el);
-
-    const comboBefore = combo;
 
     if (kind === 'good') {
       misses++;
@@ -787,29 +806,27 @@ export const GameEngine = (function () {
         });
       }
 
-      logEvent({
+      emit('hha:event', {
+        sessionId,
         type: 'expire-good',
         emoji,
-        lane,
+        lane: 0,
         rtMs,
         totalScore: score,
         combo,
-        comboBefore,
-        comboAfter: combo,
         isGood: false,
         itemType: 'good'
       });
     } else {
       // star / diamond / shield / junk หมดเวลา: ไม่ทำโทษ
-      logEvent({
+      emit('hha:event', {
+        sessionId,
         type: 'expire-' + kind,
         emoji,
-        lane,
+        lane: 0,
         rtMs,
         totalScore: score,
         combo,
-        comboBefore,
-        comboAfter: combo,
         isGood: false,
         itemType: kind
       });
@@ -945,16 +962,6 @@ export const GameEngine = (function () {
     junkHit = 0;
     shieldCount = 0;
 
-    fever = 0;
-    feverActive = false;
-    feverTimes = 0;
-    feverTotalMs = 0;
-    feverStartMs = null;
-    if (feverTimer) clearTimeout(feverTimer);
-
-    shieldsPicked = 0;
-    shieldsUsed   = 0;
-
     sessionId = 'gjvr-' + Date.now().toString(36) + '-' +
       Math.random().toString(16).slice(2, 8);
     sessionStart = new Date();
@@ -966,6 +973,9 @@ export const GameEngine = (function () {
     if (FeverUI && FeverUI.setShield)     FeverUI.setShield(shieldCount);
     if (FeverUI && FeverUI.setFeverActive)FeverUI.setFeverActive(false);
 
+    fever = 0;
+    feverActive = false;
+    if (feverTimer) clearTimeout(feverTimer);
     setFever(0, 'charge');
 
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
