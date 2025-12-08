@@ -147,6 +147,8 @@ a-scene {
     0 18px 40px rgba(15,23,42,0.9),
     0 0 0 1px rgba(15,23,42,1);
   color:var(--text-main);
+  max-height:40vh;          /* ไม่ให้สูงเกินจอ */
+  overflow-y:auto;          /* ถ้ายาวมากให้เลื่อนอ่านได้ */
 }
 
 .fg-quest-title {
@@ -193,7 +195,7 @@ a-scene {
   position:absolute;
   left:0;
   right:0;
-  bottom:64px;           /* ดันขึ้นเพื่อไม่ให้ทับ Fever bar */
+  bottom:64px;           /* ดันขึ้น ไม่ให้ทับ Fever bar */
   display:flex;
   justify-content:center;
   align-items:center;
@@ -278,17 +280,29 @@ a-scene {
   100% { transform:translateX(0); }
 }
 
+/* ===== Layout มือถือ ===== */
 @media (max-width:640px) {
+  .hud-top{
+    flex-direction:column;        /* ซ้อนแนวตั้ง: การ์ดคะแนนอยู่บน, Quest อยู่ล่าง */
+    align-items:stretch;
+  }
+
+  .hud-card,
+  .fg-quest-panel{
+    min-width:0;
+    width:100%;
+    max-width:none;
+  }
+
+  .fg-quest-panel{
+    margin-top:6px;
+    max-height:34vh;
+  }
+
   .coach-bubble {
     min-width:0;
     width:calc(100% - 32px);
     font-size:12px;
-  }
-
-  .fg-quest-panel{
-    min-width:0;
-    width:calc(50% - 12px);
-    padding:8px 10px;
   }
 }
 
@@ -487,7 +501,12 @@ a-scene {
   background:rgba(31,41,55,0.9);
 }
 
-/* ให้ Fever gauge จาก ui-fever.js อยู่ layer เหนือฉาก + ใต้ coach */
+/* ===== Fever gauge จาก ui-fever.js ===== */
 .hha-fever-wrap {
+  position:fixed !important;
+  left:10px;
+  bottom:10px;          /* มุมล่างซ้าย ชัดเจน */
+  right:auto;
+  transform:none;
   z-index:80 !important;
 }
