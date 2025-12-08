@@ -143,19 +143,17 @@ function showSummary(detail) {
   hubBtn.textContent = 'กลับ Hub';
 
   againBtn.addEventListener('click', () => {
-    // reload หน้านี้ พร้อมพารามิเตอร์เดิม
     ROOT.location.reload();
   });
 
   hubBtn.addEventListener('click', () => {
-    // กลับหน้า hub (แก้ path ตามโปรเจ็กต์จริง)
-    ROOT.location.href = '../hub.html';
+    ROOT.location.href = '../hub.html'; // แก้ path ตามโปรเจกต์จริงได้
   });
 
   ROOT.document.body.appendChild(summaryWrap);
 }
 
-// ---------- Listener จากเกม ----------
+// ---------- Listener: คะแนนหลักจากเกม ----------
 function onScore(ev) {
   const d = ev.detail || {};
   // ใช้กับ Hydration เท่านั้น
@@ -166,8 +164,9 @@ function onScore(ev) {
   const zoneLabel = d.waterZone || 'UNKNOWN';
   modeEl.textContent = `${diffLabel} · ${zoneLabel}`;
 
-  // score/time/combo/miss
+  // score / time / combo / miss
   scoreLine.textContent = `Score ${d.score ?? 0}`;
+
   const t = d.timeSec ?? 0;
   const mm = Math.floor(t / 60);
   const ss = t % 60;
@@ -179,10 +178,29 @@ function onScore(ev) {
 
   // zone
   zoneLine.textContent = `โซนน้ำ: ${zoneLabel.toUpperCase()} (${d.waterPct ?? 0}%)`;
+}
 
-  // goals / minis (รับมาจาก hydration.safe.js)
-  renderQuestList(goalsList, d.goals || [], 2);
-  renderQuestList(minisList, d.minis || [], 3);
+// ---------- Listener: ภารกิจจาก quest:update ----------
+function onQuest(ev) {
+  const d = ev.detail || {};
+
+  // ใช้ goalsAll/minisAll ถ้ามี, ถ้าไม่มีก็ fallback เป็น goal/mini เดี่ยว
+  const goalsAll = d.goalsAll || (d.goal ? [d.goal] : []);
+  const minisAll = d.minisAll || (d.mini ? [d.mini] : []);
+
+  // แสดงทีละอัน: เลือกอันที่ยังไม่ done ก่อน ถ้าไม่มีก็เอาอันแรก
+  let currentGoal = null;
+  if (goalsAll.length) {
+    currentGoal = goalsAll.find(g => !g.done) || goalsAll[0];
+  }
+
+  let currentMini = null;
+  if (minisAll.length) {
+    currentMini = minisAll.find(m => !m.done) || minisAll[0];
+  }
+
+  renderQuestList(goalsList, currentGoal ? [currentGoal] : [], 1);
+  renderQuestList(minisList, currentMini ? [currentMini] : [], 1);
 }
 
 function onEnd(ev) {
@@ -192,4 +210,5 @@ function onEnd(ev) {
 }
 
 ROOT.addEventListener('hha:score', onScore);
+ROOT.addEventListener('quest:update', onQuest);
 ROOT.addEventListener('hha:end', onEnd);
