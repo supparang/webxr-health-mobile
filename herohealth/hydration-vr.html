@@ -178,7 +178,7 @@
       width:0%;
       border-radius:999px;
       background:linear-gradient(90deg, var(--accent-soft), var(--accent));
-      transition:width .18s ease-out;
+      transition:width .18s.ease-out;
     }
     .quest-caption{
       font-size:10px;
@@ -297,7 +297,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
+      transition:background .15s ease, box-shadow .15s.ease, transform .1s.ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -555,7 +555,6 @@
 
     let lastCoachTimeout = null;
     let hudMissCount = 0;
-    let questAllDone = false;
 
     const coachFaces = {
       neutral: '🙂',
@@ -644,13 +643,6 @@
         elQuestHint.textContent = d.hint;
       } else {
         elQuestHint.textContent = '';
-      }
-
-      // ถ้าเคลียร์ทั้ง Goal + Mini แล้ว จบเกมเลย
-      if (!questAllDone && goal && mini && goal.done && mini.done) {
-        questAllDone = true;
-        setCoach('สุดยอด! ดื่มน้ำได้ครบทุกภารกิจแล้ว 🎉');
-        GameEngine.stop('quest-complete');
       }
     });
 
@@ -836,7 +828,8 @@
       initVRButton();
 
       runCountdown(() => {
-        GameEngine.start(diff);
+        // ★ ส่ง duration เข้า GameEngine ด้วย
+        GameEngine.start(diff, dur);
 
         let timeLeft = dur;
         let timerId = null;
