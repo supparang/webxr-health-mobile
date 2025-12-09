@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
-// 2025-12-09 Multi-Quest + Research Metrics + Full Event Fields + Quest Celebrate FX
+// 2025-12-09 Multi-Quest + Research Metrics + Full Event Fields + Quest Celebrate FX + All-Quest Celebration
 
 'use strict';
 
@@ -164,13 +164,13 @@ export const GameEngine = (function () {
 
   function average(arr) {
     if (!arr || !arr.length) return null;
-    const sum = arr.reduce((a, b) => a + b, 0);
+    const sum = arr.reduce(function (a, b) { return a + b; }, 0);
     return sum / arr.length;
   }
 
   function median(arr) {
     if (!arr || !arr.length) return null;
-    const sorted = [...arr].sort((a, b) => a - b);
+    const sorted = arr.slice().sort(function (a, b) { return a - b; });
     const n = sorted.length;
     const mid = Math.floor(n / 2);
     if (n % 2 === 1) return sorted[mid];
@@ -190,7 +190,7 @@ export const GameEngine = (function () {
 
       const x = (v.x * 0.5 + 0.5) * window.innerWidth;
       const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
-      return { x, y };
+      return { x: x, y: y };
     } catch (err) {
       return null;
     }
@@ -199,7 +199,7 @@ export const GameEngine = (function () {
   // helper: หาจุดบนจอสำหรับ FX (มี fallback)
   function fxScreenPos(el) {
     const sp = worldToScreen(el);
-    if (sp && Number.isFinite(sp.x) && Number.isFinite(sp.y)) {
+    if (sp && isFinite(sp.x) && isFinite(sp.y)) {
       return sp;
     }
     return {
@@ -219,7 +219,7 @@ export const GameEngine = (function () {
   }
 
   function emitJudge(label) {
-    emit('hha:judge', { label });
+    emit('hha:judge', { label: label });
   }
 
   // ---------- helpers: quest ----------
@@ -242,15 +242,7 @@ export const GameEngine = (function () {
     return goalsTotal > 0 && minisTotal > 0 && goalsDone && minisDone;
   }
 
-  function checkAllQuestsDone() {
-    if (!running) return;
-    if (allQuestsDone()) {
-      coach('สุดยอด! ทำภารกิจครบทั้ง Goals และ Mini quests แล้ว เกมจะจบเพื่อสรุปผลนะ 🎉');
-      stop('quest-complete');
-    }
-  }
-
-  // ---------- เอฟเฟกต์ฉลองภารกิจ (อลังการกลางจอ) ----------
+  // ---------- เอฟเฟกต์ฉลองภารกิจ (อลังการกลางจอสำหรับ Goal / Mini แต่ละข้อ) ----------
   function celebrateQuest(kind, index, total, label) {
     const P = getParticles();
     const cx = window.innerWidth / 2;
@@ -301,13 +293,91 @@ export const GameEngine = (function () {
       }
     }
 
-    // ส่ง event ให้ HUD ถ้าอยากทำ overlay เพิ่มเติมภายหลัง
     emit('quest:celebrate', {
       kind: kind,
       index: index,
       total: total,
       label: label || ''
     });
+  }
+
+  // ---------- เอฟเฟกต์ฉลอง "ครบทุกภารกิจ" ก่อนหน้าสรุป ----------
+  function celebrateAllQuestsAndStop() {
+    if (!running) return;
+
+    // หยุดกลไกเกม (ไม่ยิงเป้าเพิ่ม, ไม่คิด hit/miss เพิ่ม)
+    running = false;
+    clearInterval(spawnTimer);
+    if (feverTimer) clearTimeout(feverTimer);
+
+    // เคลียร์เป้าทั้งหมดออกจากฉาก (ให้จอโล่ง ๆ สำหรับฉลอง)
+    activeTargets.forEach(function (el) {
+      if (el && el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    });
+    activeTargets = [];
+
+    const P = getParticles();
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight * 0.30;
+
+    if (P) {
+      // ชั้นแรก: burst ใหญ่กลางจอ
+      P.burstAt(cx, cy, {
+        color: '#22c55e',
+        count: 40,
+        radius: 170
+      });
+
+      // ชั้นสอง: สีทอง / ม่วงด้านบน
+      P.burstAt(cx - 160, cy + 10, {
+        color: '#facc15',
+        count: 24,
+        radius: 120
+      });
+      P.burstAt(cx + 160, cy + 10, {
+        color: '#a855f7',
+        count: 24,
+        radius: 120
+      });
+
+      // ชั้นสาม: ฝนดาวรอบล่าง
+      P.burstAt(cx, cy + 80, {
+        color: '#ffffff',
+        count: 30,
+        radius: 180
+      });
+
+      // ข้อความกลางจอ
+      P.scorePop(cx, cy - 6, 'ALL QUESTS CLEARED!', {
+        kind: 'all-quest',
+        judgment: 'CLEAR'
+      });
+      P.scorePop(cx, cy + 26, 'ทำครบทุก Goal + Mini แล้ว! 🏅', {
+        kind: 'all-quest-sub',
+        judgment: 'CLEAR'
+      });
+    }
+
+    emit('quest:all-complete', {
+      goalsTotal: goals.length,
+      minisTotal: minis.length
+    });
+
+    coach('สุดยอด! ทำครบทุกภารกิจแล้ว! เตรียมดูสรุปคะแนนและเหรียญรางวัลเลย 🏅');
+
+    // หน่วงเวลานิดหนึ่งให้ฉลองเสร็จก่อน แล้วค่อยส่ง hha:end ให้หน้าสรุปโชว์
+    setTimeout(function () {
+      emitEnd('quest-complete');
+    }, 1900);
+  }
+
+  function checkAllQuestsDone() {
+    if (!running) return;
+    if (allQuestsDone()) {
+      celebrateAllQuestsAndStop();
+    }
   }
 
   // ---------- Fever ----------
@@ -357,7 +427,7 @@ export const GameEngine = (function () {
     const g = currentGoal();
     const m = currentMini();
 
-    let goalObj;
+    var goalObj;
     if (g) {
       goalObj = {
         label: g.label,
@@ -374,7 +444,7 @@ export const GameEngine = (function () {
       };
     }
 
-    let miniObj;
+    var miniObj;
     if (m) {
       miniObj = {
         label: m.label,
@@ -485,11 +555,11 @@ export const GameEngine = (function () {
     const totalGoodHit   = nHitGood;
     const totalHitsAll   = nHitGood + nHitJunk + nHitJunkGuard;
 
-    let accuracyGoodPct  = '';
-    let junkErrorPct     = '';
-    let avgRtGoodMs      = '';
-    let medianRtGoodMs   = '';
-    let fastHitRatePct   = '';
+    var accuracyGoodPct  = '';
+    var junkErrorPct     = '';
+    var avgRtGoodMs      = '';
+    var medianRtGoodMs   = '';
+    var fastHitRatePct   = '';
 
     if (totalGoodSpawn > 0) {
       accuracyGoodPct = Math.round((totalGoodHit / totalGoodSpawn) * 100);
@@ -511,20 +581,20 @@ export const GameEngine = (function () {
     }
 
     return {
-      nTargetGoodSpawned,
-      nTargetJunkSpawned,
-      nTargetStarSpawned,
-      nTargetDiamondSpawned,
-      nTargetShieldSpawned,
-      nHitGood,
-      nHitJunk,
-      nHitJunkGuard,
-      nExpireGood,
-      accuracyGoodPct,
-      junkErrorPct,
-      avgRtGoodMs,
-      medianRtGoodMs,
-      fastHitRatePct
+      nTargetGoodSpawned:    nTargetGoodSpawned,
+      nTargetJunkSpawned:    nTargetJunkSpawned,
+      nTargetStarSpawned:    nTargetStarSpawned,
+      nTargetDiamondSpawned: nTargetDiamondSpawned,
+      nTargetShieldSpawned:  nTargetShieldSpawned,
+      nHitGood:              nHitGood,
+      nHitJunk:              nHitJunk,
+      nHitJunkGuard:         nHitJunkGuard,
+      nExpireGood:           nExpireGood,
+      accuracyGoodPct:       accuracyGoodPct,
+      junkErrorPct:          junkErrorPct,
+      avgRtGoodMs:           avgRtGoodMs,
+      medianRtGoodMs:        medianRtGoodMs,
+      fastHitRatePct:        fastHitRatePct
     };
   }
 
@@ -536,12 +606,12 @@ export const GameEngine = (function () {
 
     emit('hha:end', {
       mode: 'Good vs Junk (VR)',
-      score,
-      comboMax,
-      misses,
-      goalsCleared,
-      goalsTotal,
-      miniCleared,
+      score: score,
+      comboMax: comboMax,
+      misses: misses,
+      goalsCleared: goalsCleared,
+      goalsTotal: goalsTotal,
+      miniCleared: miniCleared,
       miniTotal: minisTotal,
       reason: reason || 'normal'
     });
@@ -555,22 +625,22 @@ export const GameEngine = (function () {
       const metrics = buildSessionMetrics();
 
       emit('hha:session', {
-        sessionId,
+        sessionId: sessionId,
         mode: 'GoodJunkVR',
         difficulty: currentDiff,
-        device: typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '',
+        device: (typeof navigator !== 'undefined') ? (navigator.userAgent || '') : '',
         startTimeIso: sessionStart ? sessionStart.toISOString() : '',
         endTimeIso: endTime.toISOString(),
-        durationSecPlayed,
+        durationSecPlayed: durationSecPlayed,
         scoreFinal: score,
-        comboMax,
-        misses,
-        gameVersion: 'GoodJunkVR-2025-12-09-Stats-MQ-FullEvent-QuestFX',
+        comboMax: comboMax,
+        misses: misses,
+        gameVersion: 'GoodJunkVR-2025-12-09-Stats-MQ-FullEvent-QuestFX-AllQuest',
         reason: reason || 'normal',
 
-        goalsCleared,
-        goalsTotal,
-        miniCleared,
+        goalsCleared: goalsCleared,
+        goalsTotal: goalsTotal,
+        miniCleared: miniCleared,
         miniTotal: minisTotal,
 
         nTargetGoodSpawned:    metrics.nTargetGoodSpawned,
@@ -600,14 +670,14 @@ export const GameEngine = (function () {
     const g = currentGoal();
     const m = currentMini();
 
-    let goalProgress = '';
+    var goalProgress = '';
     if (g) {
       goalProgress = g.prog + '/' + g.target;
     } else if (goals.length) {
       goalProgress = countDone(goals) + '/' + goals.length;
     }
 
-    let miniProgress = '';
+    var miniProgress = '';
     if (m) {
       miniProgress = m.prog + '/' + m.target;
     } else if (minis.length) {
@@ -623,15 +693,15 @@ export const GameEngine = (function () {
         : (base.targetId || '');
 
     emit('hha:event', {
-      sessionId,
+      sessionId: sessionId,
       mode: 'GoodJunkVR',
       difficulty: currentDiff,
-      timeFromStartMs,
-      targetId,
-      feverState,
-      feverValue,
-      goalProgress,
-      miniProgress,
+      timeFromStartMs: timeFromStartMs,
+      targetId: targetId,
+      feverState: feverState,
+      feverValue: feverValue,
+      goalProgress: goalProgress,
+      miniProgress: miniProgress,
       ...base
     });
   }
@@ -660,7 +730,7 @@ export const GameEngine = (function () {
     const y = 2.0  + Math.random() * 1.0;   // [2.0, 3.0]
     const z = -3.0;
 
-    root.setAttribute('position', { x, y, z });
+    root.setAttribute('position', { x: x, y: y, z: z });
     root.setAttribute('scale', { x: 1, y: 1, z: 1 });
     root.classList.add('gj-target');
     root.dataset.kind = kind;
@@ -668,7 +738,7 @@ export const GameEngine = (function () {
     root.dataset.spawnAt = String(nowMs());
 
     const circle = document.createElement('a-circle');
-    let color = '#22c55e';
+    var color = '#22c55e';
     if (kind === 'junk')   color = '#f97316';
     if (kind === 'star')   color = '#fde047';
     if (kind === 'diamond')color = '#38bdf8';
@@ -742,14 +812,14 @@ export const GameEngine = (function () {
       emitScore();
       emitJudge('Shield');
 
-      const P = getParticles();
-      if (P) {
-        P.burstAt(sx, sy, {
+      const P1 = getParticles();
+      if (P1) {
+        P1.burstAt(sx, sy, {
           color: '#60a5fa',
           count: 10,
           radius: 40
         });
-        P.scorePop(sx, sy, 'Shield', {
+        P1.scorePop(sx, sy, 'Shield', {
           kind: 'judge',
           judgment: 'BLOCK'
         });
@@ -780,17 +850,17 @@ export const GameEngine = (function () {
       emitJudge('Bonus');
       emitScore();
 
-      const P = getParticles();
-      if (P) {
-        P.burstAt(sx, sy, {
+      const P2 = getParticles();
+      if (P2) {
+        P2.burstAt(sx, sy, {
           color: '#facc15',
           count: 16,
           radius: 70
         });
-        P.scorePop(sx, sy, '+' + scoreDelta, {
+        P2.scorePop(sx, sy, '+' + scoreDelta, {
           kind: 'score'
         });
-        P.scorePop(sx, sy, 'BONUS', {
+        P2.scorePop(sx, sy, 'BONUS', {
           kind: 'judge',
           judgment: 'GOOD'
         });
@@ -822,17 +892,17 @@ export const GameEngine = (function () {
       emitJudge('Bonus');
       emitScore();
 
-      const P = getParticles();
-      if (P) {
-        P.burstAt(sx, sy, {
+      const P3 = getParticles();
+      if (P3) {
+        P3.burstAt(sx, sy, {
           color: '#38bdf8',
           count: 16,
           radius: 70
         });
-        P.scorePop(sx, sy, '+' + scoreDelta, {
+        P3.scorePop(sx, sy, '+' + scoreDelta, {
           kind: 'score'
         });
-        P.scorePop(sx, sy, 'BONUS', {
+        P3.scorePop(sx, sy, 'BONUS', {
           kind: 'judge',
           judgment: 'GOOD'
         });
@@ -905,14 +975,14 @@ export const GameEngine = (function () {
         emitScore();
         emitJudge('Guard');
 
-        const P = getParticles();
-        if (P) {
-          P.burstAt(sx, sy, {
+        const P4 = getParticles();
+        if (P4) {
+          P4.burstAt(sx, sy, {
             color: '#60a5fa',
             count: 10,
             radius: 40
           });
-          P.scorePop(sx, sy, 'BLOCK', {
+          P4.scorePop(sx, sy, 'BLOCK', {
             kind: 'judge',
             judgment: 'BLOCK'
           });
@@ -944,12 +1014,12 @@ export const GameEngine = (function () {
       misses++;
       coach('โดนของขยะแล้ว ระวังพวก 🍔🍩 อีกนะ');
 
-      let nextFever = fever - FEVER_MISS_LOSS;
-      if (feverActive && nextFever <= 0) {
+      let nextFever2 = fever - FEVER_MISS_LOSS;
+      if (feverActive && nextFever2 <= 0) {
         endFever();
-        nextFever = 0;
+        nextFever2 = 0;
       } else {
-        setFever(nextFever, 'charge');
+        setFever(nextFever2, 'charge');
       }
 
       emitMiss();
@@ -1353,5 +1423,5 @@ export const GameEngine = (function () {
     emitEnd(reason);
   }
 
-  return { start, stop };
+  return { start: start, stop: stop };
 })();
