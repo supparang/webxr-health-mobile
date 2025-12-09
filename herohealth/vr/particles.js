@@ -1,182 +1,198 @@
 // === /herohealth/vr/particles.js ===
-// Simple DOM-based particle & score FX for HeroHealth VR
-// ใช้กับ GoodJunk / Groups / Hydration ได้เหมือนกัน
+// Global Particles FX สำหรับ VR (GoodJunk / Groups / Hydration / Plate)
+// รองรับ:
+//   - burstAt(x, y, { color, count, radius })
+//   - scorePop(x, y, text, { kind: 'score'|'judge', judgment: 'PERFECT'|'GOOD'|'MISS'|'BONUS'|'BLOCK' })
 //
-//   Particles.scorePop(x, y, "+50", { kind:"score" });
-//   Particles.scorePop(x, y, "GOOD", { kind:"judge", judgment:"GOOD" });
-//   Particles.burstAt(x, y, { color:"#22c55e", count:14, radius:60 });
+// ใช้ร่วมกับ GameEngine: จะทำให้ "เป้าแตกกระจาย + คะแนนเด้งตรงเป้า" ทำงานครบ
 
-'use strict';
+(function (win, doc) {
+  'use strict';
 
-(function (global) {
-  let layer = null;
-  let styleInjected = false;
+  // ----- inject CSS ถ้ายังไม่มี -----
+  const STYLE_ID = 'hha-particles-style';
 
   function ensureStyle() {
-    if (styleInjected) return;
-    styleInjected = true;
-
-    const style = document.createElement('style');
-    style.id = 'hha-particles-style';
+    if (doc.getElementById(STYLE_ID)) return;
+    const style = doc.createElement('style');
+    style.id = STYLE_ID;
     style.textContent = `
-      .hha-fx-layer{
+      #hha-particles-layer{
         position:fixed;
         inset:0;
         pointer-events:none;
-        z-index:900; /* ให้ลอยเหนือ HUD ทั้งหมด */
+        z-index:700; /* บนสุดกว่าฉาก VR แต่ไม่บัง HUD สำคัญ */
         overflow:hidden;
       }
-
-      .hha-score-pop{
-        position:absolute;
-        transform:translate(-50%,-50%);
-        font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-        font-size:16px;  /* ใหญ่ขึ้นชัด ๆ */
-        font-weight:700;
-        padding:3px 10px;
-        border-radius:999px;
-        background:rgba(15,23,42,0.96);
-        color:#e5e7eb;
-        border:1px solid rgba(148,163,184,0.7);
-        opacity:0;
-        transition:
-          transform .55s ease-out,
-          opacity .55s ease-out;
-        white-space:nowrap;
-        pointer-events:none;
-        box-shadow:0 10px 22px rgba(15,23,42,0.95);
-      }
-
-      /* คะแนนตัวเลข */
-      .hha-score-pop--score{
-        background:rgba(15,23,42,0.98);
-        font-size:15px;
-      }
-
-      /* GOOD / BLOCK / BONUS */
-      .hha-score-pop--good{
-        color:#bbf7d0;
-        border-color:rgba(34,197,94,0.95);
-      }
-
-      /* PERFECT */
-      .hha-score-pop--perfect{
-        color:#fef9c3;
-        border-color:rgba(245,158,11,0.98);
-      }
-
-      /* MISS / LATE */
-      .hha-score-pop--bad{
-        color:#fed7aa;
-        border-color:rgba(248,113,113,0.96);
-      }
-
       .hha-frag{
         position:absolute;
         width:6px;
         height:6px;
         border-radius:999px;
-        background:#22c55e;
-        opacity:0.9;
-        pointer-events:none;
-        transform:translate(-50%,-50%);
-        transition:
-          transform .7s ease-out,
-          opacity .7s ease-out;
+        opacity:0;
+        transform:translate3d(0,0,0) scale(1);
+        animation:hha-frag-fly .65s ease-out forwards;
+      }
+      @keyframes hha-frag-fly{
+        0%{ opacity:0; transform:translate3d(0,0,0) scale(.6); }
+        10%{ opacity:1; }
+        100%{ opacity:0; transform:translate3d(var(--tx,0),var(--ty,0),0) scale(.4); }
+      }
+
+      .hha-score-pop{
+        position:absolute;
+        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        font-size:14px;
+        font-weight:700;
+        color:#e5e7eb;
+        text-shadow:0 0 8px rgba(0,0,0,0.9);
+        opacity:0;
+        transform:translate3d(-50%,0,0) scale(1);
+        white-space:nowrap;
+        animation:hha-score-rise .9s ease-out forwards;
+      }
+      @keyframes hha-score-rise{
+        0%{
+          opacity:0;
+          transform:translate3d(-50%,4px,0) scale(.9);
+        }
+        15%{
+          opacity:1;
+          transform:translate3d(-50%,-2px,0) scale(1.02);
+        }
+        60%{
+          opacity:1;
+          transform:translate3d(-50%,-26px,0) scale(1);
+        }
+        100%{
+          opacity:0;
+          transform:translate3d(-50%,-36px,0) scale(.96);
+        }
+      }
+
+      /* โทนสีแตกต่างสำหรับ score กับ judge */
+      .hha-score-pop[data-kind="score"]{
+        color:#bbf7d0;
+      }
+      .hha-score-pop[data-kind="score"][data-sign="-"]{
+        color:#fed7aa;
+      }
+
+      .hha-score-pop[data-kind="judge"]{
+        font-size:13px;
+        letter-spacing:.12em;
+        text-transform:uppercase;
+      }
+
+      .hha-score-pop[data-judge="PERFECT"]{
+        color:#4ade80;
+      }
+      .hha-score-pop[data-judge="GOOD"]{
+        color:#a5f3fc;
+      }
+      .hha-score-pop[data-judge="LATE"]{
+        color:#fde68a;
+      }
+      .hha-score-pop[data-judge="MISS"]{
+        color:#fecaca;
+      }
+      .hha-score-pop[data-judge="BONUS"]{
+        color:#facc15;
+      }
+      .hha-score-pop[data-judge="BLOCK"]{
+        color:#bfdbfe;
       }
     `;
-    document.head.appendChild(style);
+    doc.head.appendChild(style);
   }
 
+  // ----- layer หลัก -----
+  let layer = null;
   function ensureLayer() {
-    if (layer && layer.isConnected) return layer;
-    ensureStyle();
-    layer = document.createElement('div');
-    layer.className = 'hha-fx-layer';
-    document.body.appendChild(layer);
+    if (layer && layer.parentNode) return layer;
+    layer = doc.createElement('div');
+    layer.id = 'hha-particles-layer';
+    doc.body.appendChild(layer);
     return layer;
   }
 
-  /**
-   * แสดง popup คะแนน / ข้อความบนจอ
-   * opts:
-   *   kind: "score" | "judge"
-   *   judgment: "GOOD" | "MISS" | "LATE" | "PERFECT" | "BLOCK" | "BONUS"
-   */
-  function scorePop(x, y, text, opts = {}) {
-    const host = ensureLayer();
-    const el = document.createElement('div');
+  // ----- fragment burst -----
+  function burstAt(x, y, opts) {
+    ensureStyle();
+    const root = ensureLayer();
+    if (!root) return;
 
-    const classes = ['hha-score-pop'];
-    if (opts.kind === 'score') {
-      classes.push('hha-score-pop--score');
-    } else if (opts.kind === 'judge') {
-      const j = String(opts.judgment || '').toUpperCase();
-      if (j === 'GOOD' || j === 'BLOCK' || j === 'BONUS') {
-        classes.push('hha-score-pop--good');
-      } else if (j === 'PERFECT') {
-        classes.push('hha-score-pop--perfect');
-      } else if (j === 'MISS' || j === 'LATE') {
-        classes.push('hha-score-pop--bad');
-      }
-    }
-    el.className = classes.join(' ');
-    el.textContent = text;
+    const color  = (opts && opts.color)  || '#22c55e';
+    const count  = (opts && opts.count)  || 12;
+    const radius = (opts && opts.radius) || 60;
 
-    el.style.left = x + 'px';
-    el.style.top  = y + 'px';
-
-    host.appendChild(el);
-
-    // animate ขึ้นด้านบน + fade
-    requestAnimationFrame(() => {
-      el.style.opacity = '1';
-      el.style.transform = 'translate(-50%,-130%)';
-    });
-
-    setTimeout(() => {
-      el.style.opacity = '0';
-      el.style.transform = 'translate(-50%,-190%)';
-      setTimeout(() => el.remove(), 260);
-    }, 430);
-  }
-
-  /**
-   * แตกกระจายอนุภาครอบจุดตีเป้า
-   */
-  function burstAt(x, y, opts = {}) {
-    const host   = ensureLayer();
-    const color  = opts.color  || '#22c55e';
-    const n      = opts.count  || 12;
-    const radius = opts.radius || 54;
-
-    for (let i = 0; i < n; i++) {
-      const el = document.createElement('div');
+    for (let i = 0; i < count; i++) {
+      const el = doc.createElement('div');
       el.className = 'hha-frag';
       el.style.background = color;
       el.style.left = x + 'px';
       el.style.top  = y + 'px';
 
-      host.appendChild(el);
+      const ang = (i / count) * Math.PI * 2;
+      const dist = radius * (0.4 + Math.random() * 0.6);
+      const tx = Math.cos(ang) * dist;
+      const ty = Math.sin(ang) * dist * 0.5; // ลอยไปด้านบนเล็กน้อย
+      el.style.setProperty('--tx', tx + 'px');
+      el.style.setProperty('--ty', ty + 'px');
 
-      const ang  = (i / n) * Math.PI * 2;
-      const dist = radius + Math.random() * radius * 0.7;
-      const dx   = Math.cos(ang) * dist;
-      const dy   = Math.sin(ang) * dist;
-
-      requestAnimationFrame(() => {
-        el.style.transform = `translate(${dx}px, ${dy}px)`;
-        el.style.opacity = '0';
+      el.addEventListener('animationend', () => {
+        el.remove();
       });
 
-      setTimeout(() => el.remove(), 720);
+      root.appendChild(el);
     }
   }
 
-  const Particles = { scorePop, burstAt };
+  // ----- floating score / judge -----
+  function scorePop(x, y, text, opts) {
+    ensureStyle();
+    const root = ensureLayer();
+    if (!root) return;
 
-  global.GAME_MODULES = global.GAME_MODULES || {};
-  global.GAME_MODULES.Particles = Particles;
-  global.Particles = Particles;
+    const kind = (opts && opts.kind) || 'score'; // 'score' หรือ 'judge'
+    const judgment = (opts && opts.judgment) || '';
 
-})(window);
+    const el = doc.createElement('div');
+    el.className = 'hha-score-pop';
+    el.dataset.kind = kind;
+
+    if (kind === 'score') {
+      const n = Number(text);
+      if (!isNaN(n)) {
+        el.dataset.sign = n < 0 ? '-' : '+';
+      }
+    } else if (kind === 'judge' && judgment) {
+      el.dataset.judge = String(judgment).toUpperCase();
+    }
+
+    el.textContent = text;
+
+    // ตำแหน่ง — ขยับขึ้นเล็กน้อยจากจุดเป้า
+    const offsetY = -8;
+    el.style.left = x + 'px';
+    el.style.top  = (y + offsetY) + 'px';
+
+    el.addEventListener('animationend', () => {
+      el.remove();
+    });
+
+    root.appendChild(el);
+  }
+
+  // ----- export ไปยัง window.GAME_MODULES / window.Particles -----
+  const api = { burstAt, scorePop };
+
+  win.GAME_MODULES = win.GAME_MODULES || {};
+  win.GAME_MODULES.Particles = api;
+
+  // เผื่อโค้ดเก่าบางที่เรียก window.Particles ตรง ๆ
+  if (!win.Particles) {
+    win.Particles = api;
+  }
+
+})(window, document);
