@@ -278,4 +278,212 @@
       el.setAttribute('data-hha-tgt', '1'); // ให้ raycaster ของ GoodJunk ยิงโดน
       el.classList.add('hh-target');
 
-      const targetData =
+      const targetData = {
+        el,
+        createdAt: now,
+        expireAt: now + this.config.lifetime,
+        foodGroup: choice.group,
+        emoji: choice.emoji
+      };
+
+      el.dataset.groupsTargetId = String(Math.random());
+
+      el.addEventListener('click', () => {
+        this.handleHit(targetData);
+      });
+
+      scene.appendChild(el);
+      this.targets.push(targetData);
+    },
+
+    handleHit: function (target) {
+      if (this.gameOver) return;
+
+      const idx = this.targets.indexOf(target);
+      if (idx === -1) return;
+
+      if (target.el && target.el.parentNode) {
+        target.el.parentNode.removeChild(target.el);
+      }
+      this.targets.splice(idx, 1);
+
+      this.stats.hits += 1;
+      this.stats.score += 10;
+      if (!this.stats.byGroup[target.foodGroup]) {
+        this.stats.byGroup[target.foodGroup] = 0;
+      }
+      this.stats.byGroup[target.foodGroup] += 1;
+
+      this.fever = clamp(this.fever + this.config.feverGainHit, 0, FEVER_MAX);
+
+      this.updateQuestProgress(target.foodGroup);
+
+      this.spawnScoreFx('+10', 'good');
+
+      const gInfo = FOOD_GROUP_INFO[target.foodGroup] || {};
+      this.logEvent('hit', {
+        emoji: target.emoji,
+        groupId: target.foodGroup,
+        groupName: gInfo.name || null
+      });
+    },
+
+    handleMiss: function (target) {
+      if (this.gameOver) return;
+
+      this.stats.misses += 1;
+      this.fever = clamp(this.fever - this.config.feverLossMiss, 0, FEVER_MAX);
+
+      this.spawnScoreFx('MISS', 'miss');
+
+      const gInfo = FOOD_GROUP_INFO[target.foodGroup] || {};
+      this.logEvent('miss', {
+        emoji: target.emoji,
+        groupId: target.foodGroup,
+        groupName: gInfo.name || null
+      });
+    },
+
+    pruneTargets: function (now) {
+      const remain = [];
+      for (const t of this.targets) {
+        if (now > t.expireAt) {
+          if (t.el && t.el.parentNode) {
+            t.el.parentNode.removeChild(t.el);
+          }
+          this.handleMiss(t);
+        } else {
+          remain.push(t);
+        }
+      }
+      this.targets = remain;
+    },
+
+    // ---------- Mini Quest ----------
+    updateQuestProgress: function (foodGroup) {
+      const q = QUEST_QUEUE[this.activeQuestIndex];
+      if (!q) return;
+
+      if (q.group === foodGroup) {
+        this.questProgress += 1;
+
+        const gInfo = FOOD_GROUP_INFO[q.group];
+        if (gInfo) {
+          this.setCoachText(`เยี่ยม! ตอนนี้กำลังเก็บ ${gInfo.name} อยู่ (${this.questProgress}/${this.config.questTarget})`);
+        }
+
+        if (this.questProgress >= this.config.questTarget) {
+          this.completedQuests += 1;
+          this.showQuestComplete(q);
+          this.activeQuestIndex += 1;
+          this.questProgress = 0;
+
+          if (this.activeQuestIndex >= QUEST_QUEUE.length) {
+            this.activeQuestIndex = QUEST_QUEUE.length - 1;
+            this.setCoachText('สุดยอด! ทำ Mini Quest ครบทุกหมู่แล้ว 🎉 ตอนนี้ตีต่อเพื่อเก็บคะแนนรวมได้เลย!');
+          } else {
+            const nextQ = QUEST_QUEUE[this.activeQuestIndex];
+            const ngInfo = FOOD_GROUP_INFO[nextQ.group];
+            if (ngInfo) {
+              this.setCoachText(`เยี่ยม! ต่อไปคือ ${ngInfo.name} — ${nextQ.label}`);
+            } else {
+              this.setCoachText(`เยี่ยม! ต่อไป: ${nextQ.label}`);
+            }
+          }
+        }
+      }
+    },
+
+    showQuestComplete: function (q) {
+      this.spawnScoreFx('QUEST ✓', 'quest');
+      this.logEvent('quest-complete', { questKey: q.key });
+      this.stats.score += 30;
+    },
+
+    // ---------- FX ----------
+    spawnScoreFx: function (text, kind) {
+      if (!this.fx.root) return;
+      const el = document.createElement('div');
+      el.className = 'fx-score ' + (kind || 'good');
+      el.textContent = text;
+      this.fx.root.appendChild(el);
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 600);
+    },
+
+    // ---------- Game finish ----------
+    endGame: function () {
+      if (this.gameOver) return;
+      this.gameOver = true;
+
+      this.updateHud();
+      this.endSessionLog();
+      this.showFinishOverlay();
+
+      console.log('[GroupsVR] Game over', this.stats);
+    },
+
+    showFinishOverlay: function () {
+      const ov = this.overlay;
+      if (!ov.root) return;
+
+      if (ov.score) ov.score.textContent = this.stats.score;
+      if (ov.hits)  ov.hits.textContent  = this.stats.hits;
+      if (ov.miss)  ov.miss.textContent  = this.stats.misses;
+
+      if (ov.groups) {
+        const parts = [];
+        for (let g = 1; g <= 5; g++) {
+          const n = this.stats.byGroup[g] || 0;
+          const info = FOOD_GROUP_INFO[g];
+          const label = info ? info.short : `หมู่ ${g}`;
+          parts.push(`${label}: ${n}`);
+        }
+        ov.groups.textContent = parts.join(' | ');
+      }
+
+      if (ov.quests) {
+        ov.quests.textContent = this.completedQuests + ' เควส';
+      }
+
+      if (ov.main) {
+        ov.main.textContent = 'เล่นจบแล้ว! ตีอาหารได้ ' +
+          this.stats.hits + ' ชิ้น (' + this.stats.score + ' คะแนน)';
+      }
+
+      ov.root.classList.add('active');
+    },
+
+    // ---------- Logger ----------
+    startSessionLog: function () {
+      if (!ns.hhaSessionLogger) return;
+      this.sessionId = ns.hhaSessionLogger.start({
+        mode: 'groups',
+        diff: this.diffKey,
+        durationSec: this.timerMs / 1000
+      });
+    },
+
+    logEvent: function (type, payload) {
+      if (!ns.hhaEventLogger) return;
+      ns.hhaEventLogger.push({
+        t: Date.now(),
+        mode: 'groups',
+        type: type,
+        sessionId: this.sessionId || null,
+        payload: payload || {}
+      });
+    },
+
+    endSessionLog: function () {
+      if (!ns.hhaSessionLogger) return;
+      ns.hhaSessionLogger.end(this.sessionId, {
+        stats: this.stats,
+        feverMax: FEVER_MAX,
+        completedQuests: this.completedQuests
+      });
+    }
+  });
+
+})(window.HeroHealth = window.HeroHealth || {});
