@@ -1,86 +1,120 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hydration VR — Hero Health</title>
-  <meta name="color-scheme" content="dark"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Hero Health — Hydration Quest VR</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon">
 
-  <link rel="icon" href="./favicon.ico"/>
+  <!-- A-Frame core -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ใช้สไตล์เดียวกับ Good vs Junk VR ก่อน แล้วค่อย override ด้วย hydration-vr.css -->
-  <link rel="stylesheet" href="./css/goodjunk-vr.css"/>
-  <link rel="stylesheet" href="./css/hydration-vr.css"/>
+  <style>
+    /* ใช้ชุดตัวแปรและสไตล์เดียวกับ GoodJunk / Groups */
+    :root{
+      color-scheme: light dark;
+      --bg-main:#020617;
+      --panel:#020617;
+      --panel-soft:#0b1120;
+      --accent:#22c55e;
+      --accent-soft:rgba(34,197,94,0.18);
+      --danger:#f97316;
+      --text-main:#e5e7eb;
+      --text-soft:#9ca3af;
+    }
+    *{ box-sizing:border-box; }
+
+    /* (คัดลอก block CSS ทั้งชุดจากไฟล์ด้านบนได้เลย)
+       countdown-overlay, hud-root, hud-top, hud-card, hud-main, hud-metrics,
+       hud-quest, coach-bubble, hint-center, end-toast, hud-mode-badge, vr-btn, a-scene ฯลฯ
+       เพื่อให้ธีมเหมือนกันทุกเกม */
+    /* ... เพื่อไม่ให้ยาวเกิน สามารถ paste CSS ทั้งก้อนจาก groups-vr.html มาใช้ซ้ำได้เลย ... */
+  </style>
 </head>
-<body data-hub-url="./hub.html">
+<body>
 
-  <!-- ===== SCENE WRAP / LOADING ===== -->
-  <div class="hha-scene-wrap">
-    <div class="hha-loading-msg">
-      💧 กำลังโหลดโหมด Hydration VR...
-    </div>
-  </div>
+  <!-- ===== A-Frame Scene ===== -->
+  <a-scene
+    vr-mode-ui="enabled: true"
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+    background="color: #020617">
 
-  <!-- วงกลมเล็งกลางจอ -->
-  <div class="hha-crosshair"></div>
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="hydration-camera"
+                wasd-controls-enabled="false"
+                look-controls="pointerLockEnabled: false">
+        <a-entity id="cursor"
+                  cursor="fuse: false; rayOrigin: mouse"
+                  raycaster="objects: [data-hha-tgt]"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+                  material="shader: flat; color: #ffffff"
+                  position="0 0 -0.9">
+        </a-entity>
+      </a-camera>
+    </a-entity>
 
-  <!-- ปุ่ม VR (จะถูกจัดตำแหน่งด้วย hydration-vr.css) -->
-  <button class="hha-vr-btn" id="hha-vr-btn">VR</button>
+    <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
+    <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
+             material="color: #020617; metalness: 0; roughness: 1"></a-plane>
+    <a-sky color="#020617"></a-sky>
+  </a-scene>
 
-  <!-- ===== SCRIPT ZONE ===== -->
+  <!-- ===== HUD เหมือนเดิม เปลี่ยนชื่อเกมเป็น Hydration Quest ===== -->
+  <!-- สามารถ copy ชุด HUD จาก groups-vr.html มา แล้วเปลี่ยนชื่อเฉพาะส่วน:
+       - hud-main-mode -> "Hydration Quest VR"
+       - end-title -> "สรุปผล • Hydration Quest VR"
+     ที่เหลือใช้เหมือนกันได้ทั้งหมด -->
 
-  <!-- 🎇 เอฟเฟกต์แตกกระจาย + GOOD / MISS / PERFECT -->
+  <!-- Fever UI + Particles -->
+  <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
 
-  <!-- 🌟 Fever gauge + Shield (ล่างซ้าย ใช้ร่วมทุกโหมด) -->
-  <script src="./vr/ui-fever.js"></script>
-
-  <!-- HUD เควสต์ / สกอร์ / Goal + Mini quest (มุมขวาบน) -->
-  <script type="module" src="./vr/quest-hud-vr.js"></script>
-
-  <!-- โค้ชหยดน้ำ (bubble ล่างกลาง) -->
-  <script type="module" src="./vr/coach-bubble.js"></script>
-
-  <!-- โหมด Hydration VR -->
+  <!-- Boot script -->
   <script type="module">
-    import { boot as bootHydration } from './hydration-vr/hydration.safe.js';
+    import { GameEngine } from './vr-hydration/GameEngine.js';
+    import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
+    import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-    // อ่าน URL param: ?diff=easy|normal|hard&time=60
-    const url = new URL(window.location.href);
-    let diff = (url.searchParams.get('diff') || 'normal').toLowerCase();
-    if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
+    function getParam(name, fallback){
+      const url = new URL(window.location.href);
+      const v = url.searchParams.get(name);
+      return v !== null && v !== '' ? v : fallback;
+    }
 
-    let dur = parseInt(url.searchParams.get('time'), 10);
-    if (Number.isNaN(dur) || dur <= 0) dur = 60;
-    if (dur < 20)  dur = 20;
-    if (dur > 180) dur = 180;
+    // (อ้างอิง element ต่าง ๆ แบบเดียวกับ groups-vr.html:
+    // elScore, elCombo, elMiss, elDiff, elTime, elRunHUD, elQuest*, elCoach*, elEnd*, btnReplay, btnBackHub, btnVR ฯลฯ)
 
-    // เริ่มโหมด Hydration
-    bootHydration({
-      difficulty: diff,
-      duration:   dur
-    }).then(inst => {
-      // ซ่อนข้อความโหลด
-      const wrap = document.querySelector('.hha-scene-wrap');
-      if (wrap) wrap.style.display = 'none';
+    // ... คัดลอก logic ทั้งก้อนจาก groups-vr.html มาได้เลย ...
+    // จุดที่ต้องเปลี่ยนเฉพาะ Hydration:
 
-      // กัน memory leak ตอนออกหน้า
-      window.addEventListener('beforeunload', () => {
-        try {
-          if (inst && typeof inst.destroy === 'function') {
-            inst.destroy();
-          }
-        } catch (e) {
-          console.warn('[HydrationVR] destroy error on unload', e);
-        }
-      });
-    }).catch(err => {
-      console.error('[HydrationVR] boot error', err);
-      const msg = document.querySelector('.hha-loading-msg');
-      if (msg) {
-        msg.textContent = 'เกิดข้อผิดพลาดในการเริ่มโหมด Hydration';
-      }
-    });
+    // 1) ข้อความโค้ชเริ่มต้น:
+    //   setCoach('จิบน้ำให้ครบตามภารกิจ เลี่ยงน้ำหวานเยอะ ๆ นะ 💧');
+
+    // 2) logger config:
+    //   initCloudLogger({
+    //     endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
+    //     projectTag: 'HeroHealth-HydrationVR',
+    //     mode: 'HydrationVR',
+    //     runMode,
+    //     diff,
+    //     durationSec: dur,
+    //     studentKey,
+    //     profile: studentProfile,
+    //     debug: false
+    //   });
+
+    // 3) log prefix (console / warning):
+    //   console.warn('[HydrationVR] ...');
+
+    // 4) ข้อความ coach สำหรับ miss / fever ปรับให้เข้ากับน้ำ:
+    //   - miss: 'พลาดแก้วน้ำนิดนึง ลองจิบน้ำให้ครบตามเป้านะ 💧'
+    //   - fever: 'FEVER น้ำ! จิบน้ำดี ๆ ให้ครบเลย! 🔥'
+
+    // ที่เหลือ: computeGrade, questAllDone → GameEngine.stop('quest-complete')
+    // เวลาเล่น: easy 80 / normal 60 / hard 45 ใช้ logic เดียวกับ groups-vr.html ได้เลย
   </script>
+
 </body>
 </html>
