@@ -102,7 +102,8 @@ function makeEmojiTexture(ch, sizePx = 256) {
 }
 
 // --------------------------------------------------
-//  สร้างเป้า VR (emoji ชัด ๆ) — ดัดแปลงจาก mode-factory ให้คืน object.kill()
+//  สร้างเป้า VR (emoji ชัด ๆ) — เวอร์ชันให้คลิกได้จริง
+//  (ตัวที่มี geometry = a-plane คือ target ที่มี data-hha-tgt)
 // --------------------------------------------------
 function createVrTarget(root, targetCfg, handlers = {}) {
   const {
@@ -114,13 +115,14 @@ function createVrTarget(root, targetCfg, handlers = {}) {
   const { onHit, onExpire } = handlers;
   if (!root || !ch) return null;
 
+  // === entity หลัก (แค่เป็น container) ===
   const holder = document.createElement('a-entity');
   holder.classList.add('hha-target-vr');
-  holder.setAttribute('data-hha-tgt', '1');
 
-  // ===== แผ่นพื้นหลังเบา ๆ =====
+  // ===== พื้นหลัง + hit area (a-plane) =====
   const baseSize = 0.9 * sizeFactor;
   const bg = document.createElement('a-plane');
+
   bg.setAttribute('width', baseSize);
   bg.setAttribute('height', baseSize);
   bg.setAttribute(
@@ -132,9 +134,13 @@ function createVrTarget(root, targetCfg, handlers = {}) {
       'side: double'
     ].join('; ')
   );
+
+  // 🔴 จุดสำคัญ: target ที่ raycaster จะยิง คือ a-plane ตัวนี้
+  bg.setAttribute('data-hha-tgt', '1');
+
   holder.appendChild(bg);
 
-  // ===== emoji เป็น texture =====
+  // ===== emoji เป็น texture (a-image ลูก) =====
   const texUrl = makeEmojiTexture(ch, 256);
   if (texUrl) {
     const img = document.createElement('a-image');
@@ -153,7 +159,7 @@ function createVrTarget(root, targetCfg, handlers = {}) {
     holder.appendChild(img);
   }
 
-  // ===== ตำแหน่งหน้า player (สัมพัทธ์กล้อง) =====
+  // ===== ตำแหน่งหน้า player =====
   const x = -0.8 + Math.random() * 1.6;
   const y = -0.25 + Math.random() * 0.9;
   const z = -1.6;
@@ -185,6 +191,7 @@ function createVrTarget(root, targetCfg, handlers = {}) {
     cleanup('expire');
   }, ttl);
 
+  // === hit (คลิก / tap / raycaster) ให้ยิงที่ bg (a-plane ที่มี geometry) ===
   const handleHit = () => {
     if (killed) return;
 
@@ -203,7 +210,8 @@ function createVrTarget(root, targetCfg, handlers = {}) {
     }
   };
 
-  holder.addEventListener('click', handleHit);
+  // 👈 สำคัญ: register click บน bg (ที่มี geometry + data-hha-tgt)
+  bg.addEventListener('click', handleHit);
 
   return {
     el: holder,
