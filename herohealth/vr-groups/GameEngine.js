@@ -13,33 +13,53 @@
 
   const FEVER_MAX = 100;
 
-  // emoji + mapping หมู่อาหาร
-  const FOOD_EMOJIS = [
-    // หมู่ 1 ธัญพืช
-    { emoji: '🍞', group: 1 },
-    { emoji: '🥖', group: 1 },
-    { emoji: '🍚', group: 1 },
+// emoji + mapping หมู่อาหาร (หมู่ละ 7 อย่าง)
+const FOOD_EMOJIS = [
+  // ===== หมู่ที่ 1 ธัญพืช / แป้ง =====
+  { emoji: '🍚', group: 1 }, // ข้าวสวย
+  { emoji: '🍙', group: 1 }, // ข้าวปั้น
+  { emoji: '🍞', group: 1 }, // ขนมปัง
+  { emoji: '🥖', group: 1 }, // ขนมปังฝรั่งเศส
+  { emoji: '🥐', group: 1 }, // ครัวซองต์
+  { emoji: '🍜', group: 1 }, // ก๋วยเตี๋ยว
+  { emoji: '🍝', group: 1 }, // พาสต้า
 
-    // หมู่ 2 โปรตีน
-    { emoji: '🍗', group: 2 },
-    { emoji: '🥩', group: 2 },
-    { emoji: '🥚', group: 2 },
+  // ===== หมู่ที่ 2 โปรตีน (เนื้อ/ถั่ว/ไข่) =====
+  { emoji: '🍗', group: 2 }, // น่องไก่
+  { emoji: '🥩', group: 2 }, // สเต็ก
+  { emoji: '🍖', group: 2 }, // ซี่โครง
+  { emoji: '🥚', group: 2 }, // ไข่
+  { emoji: '🫘', group: 2 }, // ถั่วเมล็ดแห้ง
+  { emoji: '🥜', group: 2 }, // ถั่วลิสง
+  { emoji: '🍤', group: 2 }, // กุ้ง
 
-    // หมู่ 3 ผัก
-    { emoji: '🥦', group: 3 },
-    { emoji: '🥕', group: 3 },
-    { emoji: '🥬', group: 3 },
+  // ===== หมู่ที่ 3 ผัก =====
+  { emoji: '🥦', group: 3 }, // บร็อกโคลี
+  { emoji: '🥕', group: 3 }, // แครอท
+  { emoji: '🥬', group: 3 }, // ผักใบเขียว
+  { emoji: '🌽', group: 3 }, // ข้าวโพด
+  { emoji: '🍅', group: 3 }, // มะเขือเทศ
+  { emoji: '🧅', group: 3 }, // หัวหอม
+  { emoji: '🫛', group: 3 }, // ถั่วฝัก
 
-    // หมู่ 4 ผลไม้
-    { emoji: '🍎', group: 4 },
-    { emoji: '🍌', group: 4 },
-    { emoji: '🍇', group: 4 },
+  // ===== หมู่ที่ 4 ผลไม้ =====
+  { emoji: '🍎', group: 4 }, // แอปเปิล
+  { emoji: '🍌', group: 4 }, // กล้วย
+  { emoji: '🍇', group: 4 }, // องุ่น
+  { emoji: '🍉', group: 4 }, // แตงโม
+  { emoji: '🍓', group: 4 }, // สตรอว์เบอร์รี
+  { emoji: '🍊', group: 4 }, // ส้ม
+  { emoji: '🍍', group: 4 }, // สับปะรด
 
-    // หมู่ 5 นม
-    { emoji: '🥛', group: 5 },
-    { emoji: '🧀', group: 5 },
-    { emoji: '🍦', group: 5 }
-  ];
+  // ===== หมู่ที่ 5 นมและผลิตภัณฑ์นม =====
+  { emoji: '🥛', group: 5 }, // นม
+  { emoji: '🧀', group: 5 }, // ชีส
+  { emoji: '🧈', group: 5 }, // เนย
+  { emoji: '🍦', group: 5 }, // ไอศกรีมโคน
+  { emoji: '🍨', group: 5 }, // ไอศกรีมถ้วย
+  { emoji: '🥞', group: 5 }, // แพนเค้ก (มีนม/ไข่เป็นส่วนผสม)
+  { emoji: '🧇', group: 5 }  // วาฟเฟิล (มีนม/ไข่เป็นส่วนผสม)
+];
 
   // mini quest (ต่อเนื่อง)
   const QUEST_QUEUE = [
