@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-09 Multi-Quest + Research Metrics Version
+// 2025-12-09 Multi-Quest + Research Metrics + Full Event Fields Version
 
 'use strict';
 
@@ -79,11 +79,10 @@ export const GameEngine = (function () {
   // session สำหรับ logger
   let sessionId = '';
   let sessionStart = null;
+  let sessionStartMs = 0;   // ใช้คำนวณ timeFromStartMs
   let currentDiff = 'normal';
 
   // ---------- Quest state: หลาย goal / หลาย mini ----------
-  // goals = [{ id, label, target, prog, done }, ...]
-  // minis = [{ id, label, target, prog, done, comboNeed }, ...]
   let goals = [];
   let minis = [];
   let currentGoalIndex = 0;
@@ -91,22 +90,19 @@ export const GameEngine = (function () {
   let miniComboNeed = 5; // combo ที่ต้องการของ mini ปัจจุบัน
 
   // ---------- Metrics สำหรับงานวิจัย ----------
-  // จำนวนเป้าที่ถูก spawn ตามชนิด
   let nTargetGoodSpawned    = 0;
   let nTargetJunkSpawned    = 0;
   let nTargetStarSpawned    = 0;
   let nTargetDiamondSpawned = 0;
   let nTargetShieldSpawned  = 0;
 
-  // จำนวนที่ตีโดน/พลาด
   let nHitGood       = 0;
   let nHitJunk       = 0;
-  let nHitJunkGuard  = 0; // ตี junk แต่มี shield กัน
-  let nExpireGood    = 0; // ของดีหมดเวลา ไม่กด
+  let nHitJunkGuard  = 0;
+  let nExpireGood    = 0;
 
-  // Reaction time ของการตีเป้าดี
   let rtGoodList       = [];
-  let nHitGoodPerfect  = 0; // จำนวน good hit ที่ได้ judgment PERFECT
+  let nHitGoodPerfect  = 0;
 
   // ---------- Emoji → texture cache ----------
   const emojiTexCache = new Map();
@@ -162,6 +158,11 @@ export const GameEngine = (function () {
       : Date.now();
   }
 
+  function elapsedFromStartMs() {
+    if (!sessionStartMs) return '';
+    return Math.round(nowMs() - sessionStartMs);
+  }
+
   function average(arr) {
     if (!arr || !arr.length) return null;
     const sum = arr.reduce((a, b) => a + b, 0);
@@ -202,7 +203,6 @@ export const GameEngine = (function () {
     if (sp && Number.isFinite(sp.x) && Number.isFinite(sp.y)) {
       return sp;
     }
-    // fallback: กลางจอหน่อย ๆ
     return {
       x: window.innerWidth / 2,
       y: window.innerHeight * 0.55
@@ -211,7 +211,6 @@ export const GameEngine = (function () {
 
   function judgeFromRT(rtMs) {
     if (rtMs == null || rtMs < 0) return 'Good';
-    // แบ่งตาม TARGET_LIFETIME
     const tPerfect = TARGET_LIFETIME * 0.35;
     const tGood    = TARGET_LIFETIME * 0.70;
     if (rtMs <= tPerfect) return 'Perfect';
@@ -248,7 +247,6 @@ export const GameEngine = (function () {
     if (!running) return;
     if (allQuestsDone()) {
       coach('สุดยอด! ทำภารกิจครบทั้ง Goals และ Mini quests แล้ว เกมจะจบเพื่อสรุปผลนะ 🎉');
-      // ให้ stop เป็นคน emitEnd / session
       stop('quest-complete');
     }
   }
@@ -309,7 +307,6 @@ export const GameEngine = (function () {
         done: g.done
       };
     } else {
-      // ไม่มี goal ต่อแล้ว
       goalObj = {
         label: 'ภารกิจหลักครบแล้ว 🎉',
         prog: 1,
@@ -356,10 +353,7 @@ export const GameEngine = (function () {
 
   function updateGoalFromGoodHit() {
     const g = currentGoal();
-    if (!g || g.done) {
-      // ถ้า goal ปัจจุบันจบแล้ว แต่ยังมี goal ถัดไปที่ยังไม่ done → จะสลับ index ตอน set up แล้วค่อย pushQuest
-      return;
-    }
+    if (!g || g.done) return;
 
     g.prog += 1;
 
@@ -371,8 +365,7 @@ export const GameEngine = (function () {
       const total = goals.length;
 
       if (doneCount < total) {
-        // ขยับไป goal ถัดไป
-        currentGoalIndex = doneCount; // เพราะ index เริ่ม 0
+        currentGoalIndex = doneCount;
         coach(`ภารกิจหลักข้อที่ ${doneCount} สำเร็จแล้ว! ไปต่อข้อที่ ${doneCount + 1} 🎯`);
         pushQuest('Goal ถัดไปเริ่มแล้ว');
       } else {
@@ -483,7 +476,6 @@ export const GameEngine = (function () {
       reason: reason || 'normal'
     });
 
-    // ยิง session log ให้ logger ไป Google Sheet + metrics ครบชุด
     try {
       const endTime = new Date();
       const durationSecPlayed = sessionStart
@@ -503,7 +495,7 @@ export const GameEngine = (function () {
         scoreFinal: score,
         comboMax,
         misses,
-        gameVersion: 'GoodJunkVR-2025-12-09-Stats-MQ',
+        gameVersion: 'GoodJunkVR-2025-12-09-Stats-MQ-FullEvent',
         reason: reason || 'normal',
 
         goalsCleared,
@@ -531,6 +523,49 @@ export const GameEngine = (function () {
     }
   }
 
+  // ---------- helper: ยิง event พร้อม field วิจัย ----------
+  function emitGameEvent(base, el) {
+    const timeFromStartMs = elapsedFromStartMs();
+
+    const g = currentGoal();
+    const m = currentMini();
+
+    let goalProgress = '';
+    if (g) {
+      goalProgress = `${g.prog}/${g.target}`;
+    } else if (goals.length) {
+      goalProgress = `${countDone(goals)}/${goals.length}`;
+    }
+
+    let miniProgress = '';
+    if (m) {
+      miniProgress = `${m.prog}/${m.target}`;
+    } else if (minis.length) {
+      miniProgress = `${countDone(minis)}/${minis.length}`;
+    }
+
+    const feverState = feverActive ? 'active' : 'charge';
+    const feverValue = fever;
+
+    const targetId =
+      el && el.dataset
+        ? (el.dataset.tid || '')
+        : (base.targetId || '');
+
+    emit('hha:event', {
+      sessionId,
+      mode: 'GoodJunkVR',
+      difficulty: currentDiff,
+      timeFromStartMs,
+      targetId,
+      feverState,
+      feverValue,
+      goalProgress,
+      miniProgress,
+      ...base
+    });
+  }
+
   // ---------- ลบเป้า ----------
   function removeTarget(el) {
     activeTargets = activeTargets.filter(t => t !== el);
@@ -545,6 +580,12 @@ export const GameEngine = (function () {
 
     const root = document.createElement('a-entity');
 
+    // id สำหรับ target นี้ (ไว้ log)
+    const targetId =
+      't-' + Date.now().toString(36) + '-' +
+      Math.random().toString(16).slice(2, 6);
+    root.dataset.tid = targetId;
+
     const x = -1.3 + Math.random() * 2.6;   // [-1.3, 1.3]
     const y = 2.0  + Math.random() * 1.0;   // [2.0, 3.0]
     const z = -3.0;
@@ -556,7 +597,6 @@ export const GameEngine = (function () {
     root.dataset.emoji = emoji;
     root.dataset.spawnAt = String(nowMs());
 
-    // วงกลมพื้นหลัง
     const circle = document.createElement('a-circle');
     let color = '#22c55e';
     if (kind === 'junk')   color = '#f97316';
@@ -575,7 +615,6 @@ export const GameEngine = (function () {
       roughness: 1
     });
 
-    // emoji sprite
     const sprite = document.createElement('a-plane');
     sprite.setAttribute('width', 0.7);
     sprite.setAttribute('height', 0.7);
@@ -597,7 +636,6 @@ export const GameEngine = (function () {
     root.appendChild(sprite);
     sceneEl.appendChild(root);
 
-    // เป้าอยู่ตาม TARGET_LIFETIME แล้วหาย
     setTimeout(() => {
       if (!running) return;
       if (!root.parentNode) return;
@@ -647,17 +685,19 @@ export const GameEngine = (function () {
         });
       }
 
-      emit('hha:event', {
-        sessionId,
+      emitGameEvent({
         type: 'bonus',
+        eventType: 'bonus',
         emoji,
+        itemType: 'shield',
         lane: 0,
         rtMs,
+        judgment: 'Shield',
         totalScore: score,
         combo,
         isGood: true,
-        itemType: 'shield'
-      });
+        extra: ''
+      }, el);
       return;
     }
 
@@ -686,17 +726,19 @@ export const GameEngine = (function () {
         });
       }
 
-      emit('hha:event', {
-        sessionId,
+      emitGameEvent({
         type: 'bonus',
+        eventType: 'bonus',
         emoji,
+        itemType: 'star',
         lane: 0,
         rtMs,
+        judgment: 'Bonus',
         totalScore: score,
         combo,
         isGood: true,
-        itemType: 'star'
-      });
+        extra: ''
+      }, el);
       return;
     }
 
@@ -726,17 +768,19 @@ export const GameEngine = (function () {
         });
       }
 
-      emit('hha:event', {
-        sessionId,
+      emitGameEvent({
         type: 'bonus',
+        eventType: 'bonus',
         emoji,
+        itemType: 'diamond',
         lane: 0,
         rtMs,
+        judgment: 'Bonus',
         totalScore: score,
         combo,
         isGood: true,
-        itemType: 'diamond'
-      });
+        extra: ''
+      }, el);
       return;
     }
 
@@ -777,7 +821,6 @@ export const GameEngine = (function () {
       else if (combo === 10)
         coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
 
-      // อัปเดต goal / mini จาก good hit นี้
       updateGoalFromGoodHit();
       updateMiniFromCombo();
     } else {
@@ -804,17 +847,19 @@ export const GameEngine = (function () {
           });
         }
 
-        emit('hha:event', {
-          sessionId,
+        emitGameEvent({
           type: 'hit-junk-guard',
+          eventType: 'hit-junk-guard',
           emoji,
+          itemType: 'junk',
           lane: 0,
           rtMs,
+          judgment: 'BLOCK',
           totalScore: score,
           combo,
           isGood: false,
-          itemType: 'junk'
-        });
+          extra: ''
+        }, el);
         return;
       }
 
@@ -837,16 +882,13 @@ export const GameEngine = (function () {
       }
 
       emitMiss();
-      // goal / mini ไม่ต้องขยับจากการโดน junk
       pushQuest('');
-
       judgment = 'Miss';
     }
 
     emitScore();
     emitJudge(judgment);
 
-    // ---------- FX: เป้าแตก + คะแนน + คำตัดสิน ----------
     const P = getParticles();
     if (P) {
       const jUpper = String(judgment || '').toUpperCase();
@@ -878,18 +920,20 @@ export const GameEngine = (function () {
       });
     }
 
-    // event log
-    emit('hha:event', {
-      sessionId,
+    // event log (good / junk ปกติ)
+    emitGameEvent({
       type: kind === 'good' ? 'hit-good' : 'hit-junk',
+      eventType: kind === 'good' ? 'hit-good' : 'hit-junk',
       emoji,
+      itemType: kind,
       lane: 0,
       rtMs,
+      judgment,
       totalScore: score,
       combo,
       isGood: kind === 'good',
-      itemType: kind
-    });
+      extra: ''
+    }, el);
   }
 
   // ---------- เป้าหายเพราะหมดเวลา ----------
@@ -925,7 +969,6 @@ export const GameEngine = (function () {
 
       emitMiss();
       emitScore();
-      // goal / mini ไม่ได้เพิ่มจากการหมดเวลา
       pushQuest('');
       emitJudge('Miss');
 
@@ -942,30 +985,33 @@ export const GameEngine = (function () {
         });
       }
 
-      emit('hha:event', {
-        sessionId,
+      emitGameEvent({
         type: 'expire-good',
+        eventType: 'expire-good',
         emoji,
+        itemType: kind,
         lane: 0,
         rtMs,
+        judgment: 'Miss',
         totalScore: score,
         combo,
         isGood: false,
-        itemType: kind
-      });
+        extra: ''
+      }, el);
     } else {
-      // star / diamond / shield / junk หมดเวลา: ไม่ทำโทษ
-      emit('hha:event', {
-        sessionId,
+      emitGameEvent({
         type: 'expire-' + kind,
+        eventType: 'expire-' + kind,
         emoji,
+        itemType: kind,
         lane: 0,
         rtMs,
+        judgment: '',
         totalScore: score,
         combo,
         isGood: false,
-        itemType: kind
-      });
+        extra: ''
+      }, el);
     }
   }
 
@@ -1144,7 +1190,6 @@ export const GameEngine = (function () {
       };
     }
 
-    // ตั้ง quests 2 goal + 3 mini ตามระดับยากง่าย
     setupQuestsForDifficulty(d);
   }
 
@@ -1159,7 +1204,6 @@ export const GameEngine = (function () {
     junkHit = 0;
     shieldCount = 0;
 
-    // reset metrics
     nTargetGoodSpawned    = 0;
     nTargetJunkSpawned    = 0;
     nTargetStarSpawned    = 0;
@@ -1177,6 +1221,7 @@ export const GameEngine = (function () {
     sessionId = 'gjvr-' + Date.now().toString(36) + '-' +
       Math.random().toString(16).slice(2, 8);
     sessionStart = new Date();
+    sessionStartMs = nowMs();
 
     applyDifficulty(diffKey);
 
