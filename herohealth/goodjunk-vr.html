@@ -193,7 +193,6 @@
       flex-direction:column;
       align-items:center;
       gap:8px;
-      /* เผื่อที่ให้ Fever Gauge ด้านล่างซ้าย */
       padding-bottom:72px;
     }
     .coach-bubble{
@@ -321,39 +320,44 @@
       background:rgba(15,23,42,0.7);
     }
 
+    /* ===== ป้ายโหมด (Play / Research) ===== */
+    .hud-mode-badge{
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:999px;
+      background:rgba(30,64,175,0.18);
+      border:1px solid rgba(59,130,246,0.6);
+      color:#bfdbfe;
+      font-weight:500;
+      margin-left:6px;
+    }
+
     /* ===== ปุ่มเข้า VR ===== */
     .vr-btn{
       position:fixed;
       right:12px;
       bottom:16px;
       z-index:653;
-      padding:8px 14px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,0.7);
-      background:rgba(15,23,42,0.92);
-      color:var(--text-main);
+      border:1px solid rgba(56,189,248,0.7);
+      padding:8px 14px;
       font-size:12px;
       font-weight:600;
+      cursor:pointer;
+      background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%),
+                 rgba(15,23,42,0.96);
+      color:#e0f2fe;
       display:inline-flex;
       align-items:center;
       gap:6px;
-      cursor:pointer;
-      pointer-events:auto;
-      box-shadow:0 12px 24px rgba(15,23,42,0.9);
-      backdrop-filter:blur(10px);
-      transition:background .15s ease, transform .1s ease, box-shadow .15s ease;
+      box-shadow:0 14px 30px rgba(15,23,42,0.9);
     }
     .vr-btn span{
       font-size:16px;
     }
     .vr-btn:hover{
-      background:rgba(15,23,42,1);
-      box-shadow:0 16px 32px rgba(15,23,42,0.95);
-      transform:translateY(-1px);
-    }
-    .vr-btn:active{
-      transform:translateY(0);
-      box-shadow:0 10px 20px rgba(15,23,42,0.85);
+      background:radial-gradient(circle at top left, rgba(56,189,248,0.5), transparent 55%),
+                 rgba(15,23,42,1);
     }
 
     /* ===== A-Frame canvas full ===== */
@@ -400,10 +404,13 @@
   <div class="hud-root">
     <div class="hud-top">
       <!-- Left: mode + metrics -->
-      <div class="hud-card" style="flex:1;max-width:360px;">
+      <div class="hud-card" style="flex:1;max-width:380px;">
         <div class="hud-main">
           <div>
-            <div class="hud-main-title">Hero Health • Nutrition VR</div>
+            <div class="hud-main-title">
+              Hero Health • Nutrition VR
+              <span id="hud-runmode" class="hud-mode-badge">Play Mode</span>
+            </div>
             <div class="hud-main-mode">Good vs Junk</div>
           </div>
           <div class="hud-pill">
@@ -475,8 +482,9 @@
   <!-- End summary -->
   <div class="end-toast" id="end-toast">
     <div class="end-title">สรุปผล • Good vs Junk</div>
+    <div class="end-row"><span>โหมด</span><strong id="end-runmode">Play</strong></div>
+    <div class="end-row"><span>เกรด</span><strong id="end-grade">-</strong></div>
     <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
-    <div class="end-row"><span>Grade</span><strong id="end-grade">-</strong></div>
     <div class="end-row"><span>คอมโบสูงสุด</span><strong id="end-combo">0</strong></div>
     <div class="end-row"><span>พลาด</span><strong id="end-miss">0</strong></div>
     <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 0</strong></div>
@@ -491,10 +499,7 @@
   <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
 
   <!-- ปุ่มเข้า VR -->
-  <button class="vr-btn" id="btn-enter-vr" type="button">
-    <span>🕶️</span>
-    <span>เข้าโหมด VR</span>
-  </button>
+  <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
 
   <!-- Fever UI (global, non-module) -->
   <script src="./vr/ui-fever.js"></script>
@@ -519,6 +524,7 @@
     const elMiss    = document.getElementById('hud-miss');
     const elDiff    = document.getElementById('hud-diff-label');
     const elTime    = document.getElementById('hud-time-label');
+    const elRunHUD  = document.getElementById('hud-runmode');
 
     const elQuestMain      = document.getElementById('hud-quest-main');
     const elQuestMini      = document.getElementById('hud-quest-mini');
@@ -540,18 +546,19 @@
     const elEndGoal   = document.getElementById('end-goal');
     const elEndMini   = document.getElementById('end-mini');
     const elEndGrade  = document.getElementById('end-grade');
+    const elEndRun    = document.getElementById('end-runmode');
 
     const btnReplay   = document.getElementById('btn-replay');
     const btnBackHub  = document.getElementById('btn-back-hub');
-    const btnEnterVR  = document.getElementById('btn-enter-vr');
+    const btnVR       = document.getElementById('btn-vr');
 
     // overlay 3–2–1 Go
     const elCountdown = document.getElementById('start-countdown');
-
-    const elJudge = document.getElementById('hud-judge');
+    const elJudge     = document.getElementById('hud-judge');
 
     let lastCoachTimeout = null;
     let hudMissCount = 0;
+    let questAllDone = false;
 
     const coachFaces = {
       neutral: '🙂',
@@ -642,9 +649,16 @@
       } else {
         elQuestHint.textContent = '';
       }
+
+      // จบเกมทันทีเมื่อ goal + mini ผ่านทั้งหมด
+      if (!questAllDone && goal && mini && goal.done && mini.done) {
+        questAllDone = true;
+        setCoach('สุดยอด! ทำครบทั้งภารกิจหลักและ Mini quest แล้ว 🎉');
+        GameEngine.stop('quest-complete');
+      }
     });
 
-    // HUD: Coach (ข้อความอย่างเดียว ส่วนอารมณ์ไปตาม score / fever / miss)
+    // HUD: Coach (ข้อความอย่างเดียว)
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
       if (text) {
@@ -679,7 +693,7 @@
       }
     });
 
-    // HUD: Miss event แยก (โดน junk / พลาดของดี)
+    // HUD: Miss event
     window.addEventListener('hha:miss', ()=>{
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
@@ -699,32 +713,46 @@
       }
     });
 
+    // คำนวณเกรด SSS / SS / S / A / B / C
+    function computeGrade(score, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
+      const allGoalDone = goalsTotal > 0 && goalsCleared >= goalsTotal;
+      const allMiniDone = miniTotal > 0 && miniCleared >= miniTotal;
+      const allQuest    = allGoalDone && allMiniDone;
+
+      if (allQuest && score >= 1200 && comboMax >= 15 && misses <= 1) return 'SSS';
+      if (allQuest && score >= 900  && comboMax >= 10 && misses <= 3) return 'SS';
+      if (score >= 700) return 'S';
+      if (score >= 500) return 'A';
+      if (score >= 300) return 'B';
+      return 'C';
+    }
+
     // HUD: End summary
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
       const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
       const comboMax     = d.comboMax ?? 0;
       const misses       = d.misses ?? 0;
-      const goalsCleared = d.goalsCleared ?? d.miniCleared ?? 0;
-      const goalsTotal   = d.goalsTotal ?? d.miniTotal ?? 0;
+      const goalsCleared = d.goalsCleared ?? 0;
+      const goalsTotal   = d.goalsTotal ?? 0;
       const miniCleared  = d.miniCleared ?? 0;
       const miniTotal    = d.miniTotal ?? 0;
-      const grade        = d.grade || '-';
+
+      const grade = computeGrade(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
 
       elEndScore.textContent = scoreFinal;
       elEndCombo.textContent = comboMax;
       elEndMiss.textContent  = misses;
       elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
       elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
-      if (elEndGrade) elEndGrade.textContent = grade;
-
+      elEndGrade.textContent = grade;
       elEndToast.classList.add('show');
 
       setCoachFace(misses <= 3 ? 'happy' : 'neutral');
       setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
     });
 
-    // HUD: Judge text (Miss / Late / Good / Perfect / Bonus / Block)
+    // HUD: Judge text
     window.addEventListener('hha:judge', (e) => {
       const label = (e.detail && e.detail.label) || '';
       if (!elJudge) return;
@@ -746,24 +774,43 @@
       });
     }
 
+    // ปุ่มเข้า VR
+    function initVRButton(){
+      if (!btnVR) return;
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+
+      btnVR.addEventListener('click', () => {
+        try{
+          scene.enterVR();
+        }catch(err){
+          console.warn('[GoodJunkVR] enterVR error:', err);
+        }
+      });
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
+      const runParam = String(getParam('run','play')).toLowerCase();
+      const runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // เวลาเล่น: ถ้าไม่ส่ง ?time= มา ให้กำหนดตามระดับความยาก
-      let dur;
-      const rawTime = getParam('time','');
-      if (rawTime !== '') {
-        dur = parseInt(rawTime, 10);
-      } else {
-        if (diff === 'easy')      dur = 50;  // ง่าย: สั้นหน่อย
-        else if (diff === 'hard') dur = 70;  // ยาก: ยาวขึ้น
-        else                      dur = 60;  // ปกติ
+      // เวลาเล่นตามระดับยากง่าย (override time param)
+      let baseDur = 60;
+      if (diff === 'easy') baseDur = 80;
+      else if (diff === 'hard') baseDur = 45;
+
+      let dur = baseDur;
+      const timeParam = getParam('time','');
+      if (timeParam){
+        const parsed = parseInt(timeParam,10);
+        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180){
+          dur = parsed;
+        }
       }
-      if (isNaN(dur) || dur <= 0) dur = 60;
-      if (dur < 20) dur = 20;
-      if (dur > 180) dur = 180;
 
+      // HUD update
       elDiff.textContent = diff.toUpperCase();
+      elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
 
       elScore.textContent = '0';
       elCombo.textContent = '0';
@@ -775,33 +822,43 @@
       setCoachFace('neutral');
       setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
 
+      // อ่าน studentProfile จาก sessionStorage (ตั้งจาก Hub)
+      let studentProfile = null;
+      let studentKey = null;
+      try{
+        const raw = sessionStorage.getItem('hhaStudentProfile');
+        if (raw){
+          studentProfile = JSON.parse(raw);
+          studentKey = studentProfile.studentKey || null;
+        }
+      }catch(err){
+        console.warn('[GoodJunkVR] cannot parse student profile:', err);
+      }
+
+      // cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
         mode: 'GoodJunkVR',
+        runMode,
         diff,
         durationSec: dur,
-        debug: false   // เปิดเป็น false สำหรับ production
+        studentKey,
+        profile: studentProfile,
+        debug: false  // production
       });
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
+      initVRButton();
 
-      // ปุ่มเข้าโหมด VR
-      if (btnEnterVR) {
-        btnEnterVR.addEventListener('click', () => {
-          const scene = document.querySelector('a-scene');
-          if (scene && scene.enterVR) {
-            scene.enterVR();
-          }
-        });
-      }
-
-      // เริ่มนับ 3–2–1–Go ก่อน แล้วค่อยเริ่มเกม + นับเวลา
+      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา
       runCountdown(() => {
         GameEngine.start(diff);
 
         let timeLeft = dur;
+        let timerId = null;
+
         function tickTime(){
           timeLeft -= 1;
           if (timeLeft < 0) return;
@@ -813,7 +870,7 @@
         }
 
         window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-        const timerId = setInterval(tickTime, 1000);
+        timerId = setInterval(tickTime, 1000);
       });
 
       // ปุ่มหน้าสรุป
@@ -826,6 +883,11 @@
         btnBackHub.addEventListener('click', () => {
           window.location.href = './hub.html';
         });
+      }
+
+      // แสดงโหมดใน summary
+      if (elEndRun){
+        elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
       }
 
       // ถ้าสลับแท็บหรือจอหาย → หยุดเกม
