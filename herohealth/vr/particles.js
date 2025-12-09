@@ -1,19 +1,26 @@
 // === /herohealth/vr/particles.js ===
 // Global Particles FX สำหรับ VR (GoodJunk / Groups / Hydration / Plate)
+//
 // รองรับ:
 //   - burstAt(x, y, { color, count, radius })
+//       → เศษเป้าแตกกระจายรอบ ๆ ตำแหน่งตีเป้า
 //   - scorePop(x, y, text, { kind: 'score'|'judge', judgment: 'PERFECT'|'GOOD'|'MISS'|'BONUS'|'BLOCK' })
+//       → ตัวเลขคะแนนเด้ง + ป้ายคำตัดสิน (แยกจังหวะ / แยกตำแหน่ง)
 //
-// ใช้ร่วมกับ GameEngine: จะทำให้ "เป้าแตกกระจาย + คะแนนเด้งตรงเป้า" ทำงานครบ
+// ใช้ร่วมกับ GameEngine:
+//   const P = getParticles();
+//   P.burstAt(...);
+//   P.scorePop(...);
 
 (function (win, doc) {
   'use strict';
 
-  // ----- inject CSS ถ้ายังไม่มี -----
   const STYLE_ID = 'hha-particles-style';
 
+  // ===== ใส่ CSS ให้ effect ถ้ายังไม่มี =====
   function ensureStyle() {
     if (doc.getElementById(STYLE_ID)) return;
+
     const style = doc.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
@@ -21,9 +28,11 @@
         position:fixed;
         inset:0;
         pointer-events:none;
-        z-index:700; /* บนสุดกว่าฉาก VR แต่ไม่บัง HUD สำคัญ */
+        z-index:654; /* อยู่เหนือฉาก VR + HUD แต่ต่ำกว่า countdown overlay */
         overflow:hidden;
       }
+
+      /* เศษเป้าแตกกระจาย */
       .hha-frag{
         position:absolute;
         width:6px;
@@ -34,11 +43,20 @@
         animation:hha-frag-fly .65s ease-out forwards;
       }
       @keyframes hha-frag-fly{
-        0%{ opacity:0; transform:translate3d(0,0,0) scale(.6); }
-        10%{ opacity:1; }
-        100%{ opacity:0; transform:translate3d(var(--tx,0),var(--ty,0),0) scale(.4); }
+        0%{
+          opacity:0;
+          transform:translate3d(0,0,0) scale(.6);
+        }
+        10%{
+          opacity:1;
+        }
+        100%{
+          opacity:0;
+          transform:translate3d(var(--tx,0),var(--ty,0),0) scale(.4);
+        }
       }
 
+      /* ตัวเลขคะแนน / ป้ายคำตัดสินลอยขึ้น */
       .hha-score-pop{
         position:absolute;
         font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -70,14 +88,15 @@
         }
       }
 
-      /* โทนสีแตกต่างสำหรับ score กับ judge */
+      /* โทนสีสำหรับคะแนน */
       .hha-score-pop[data-kind="score"]{
-        color:#bbf7d0;
+        color:#bbf7d0; /* เขียวอ่อน */
       }
       .hha-score-pop[data-kind="score"][data-sign="-"]{
-        color:#fed7aa;
+        color:#fed7aa; /* ส้มอ่อนสำหรับคะแนนลบ */
       }
 
+      /* โทนสำหรับป้ายคำตัดสิน */
       .hha-score-pop[data-kind="judge"]{
         font-size:13px;
         letter-spacing:.12em;
@@ -106,7 +125,7 @@
     doc.head.appendChild(style);
   }
 
-  // ----- layer หลัก -----
+  // ===== layer วาง effect =====
   let layer = null;
   function ensureLayer() {
     if (layer && layer.parentNode) return layer;
@@ -116,7 +135,7 @@
     return layer;
   }
 
-  // ----- fragment burst -----
+  // ===== เศษเป้าแตกกระจายรอบจุดที่ตีโดน =====
   function burstAt(x, y, opts) {
     ensureStyle();
     const root = ensureLayer();
@@ -136,7 +155,8 @@
       const ang = (i / count) * Math.PI * 2;
       const dist = radius * (0.4 + Math.random() * 0.6);
       const tx = Math.cos(ang) * dist;
-      const ty = Math.sin(ang) * dist * 0.5; // ลอยไปด้านบนเล็กน้อย
+      const ty = Math.sin(ang) * dist * 0.5; // ให้กระเด็นออก + ลอยขึ้นนิดหน่อย
+
       el.style.setProperty('--tx', tx + 'px');
       el.style.setProperty('--ty', ty + 'px');
 
@@ -148,19 +168,20 @@
     }
   }
 
-  // ----- floating score / judge -----
+  // ===== คะแนนเด้ง + ป้ายตัดสินลอย =====
   function scorePop(x, y, text, opts) {
     ensureStyle();
     const root = ensureLayer();
     if (!root) return;
 
-    const kind = (opts && opts.kind) || 'score'; // 'score' หรือ 'judge'
-    const judgment = (opts && opts.judgment) || '';
+    const kind      = (opts && opts.kind)      || 'score';   // 'score' หรือ 'judge'
+    const judgment  = (opts && opts.judgment)  || '';        // PERFECT / GOOD / MISS ฯลฯ
 
     const el = doc.createElement('div');
     el.className = 'hha-score-pop';
     el.dataset.kind = kind;
 
+    // แยกสีสำหรับคะแนนลบ / บวก
     if (kind === 'score') {
       const n = Number(text);
       if (!isNaN(n)) {
@@ -172,10 +193,23 @@
 
     el.textContent = text;
 
-    // ตำแหน่ง — ขยับขึ้นเล็กน้อยจากจุดเป้า
-    const offsetY = -8;
+    // === แยกตำแหน่ง + timing ===
+    // score: ใกล้จุดเป้า + ไม่มี delay
+    // judge: สูงขึ้นอีกนิด + delay เพื่อไม่ให้โผล่พร้อมกันเป๊ะ
+    let offsetY = -8;
+    let delayMs = 0;
+
+    if (kind === 'judge') {
+      offsetY = -30;    // สูงกว่า score
+      delayMs = 90;     // ดีเลย์ ~0.09 วินาที
+    }
+
     el.style.left = x + 'px';
     el.style.top  = (y + offsetY) + 'px';
+
+    if (delayMs > 0) {
+      el.style.animationDelay = (delayMs / 1000) + 's';
+    }
 
     el.addEventListener('animationend', () => {
       el.remove();
@@ -184,13 +218,13 @@
     root.appendChild(el);
   }
 
-  // ----- export ไปยัง window.GAME_MODULES / window.Particles -----
+  // ===== export ออกไปให้ GameEngine ใช้ =====
   const api = { burstAt, scorePop };
 
   win.GAME_MODULES = win.GAME_MODULES || {};
   win.GAME_MODULES.Particles = api;
 
-  // เผื่อโค้ดเก่าบางที่เรียก window.Particles ตรง ๆ
+  // เผื่อโค้ดเก่าเรียก window.Particles
   if (!win.Particles) {
     win.Particles = api;
   }
