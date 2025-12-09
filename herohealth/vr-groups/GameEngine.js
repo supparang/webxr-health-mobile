@@ -1,82 +1,283 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (emoji sprite + basic quest + score events)
-// ES module version (export GameEngine)
+// Food Groups VR — Game Engine (Hydration-style emoji VR targets)
+// ใช้ logic สร้างเป้าแบบเดียวกับ mode-factory แต่ให้ interface แบบ GameEngine.start/stop()
+// เพื่อให้ groups-vr.html ใช้งานได้เหมือน GoodJunkVR
 
 'use strict';
 
-// ----- Difficulty presets -----
-const DIFF_PRESET = {
-  easy: {
-    spawnInterval: 1500,
-    lifetime: 2600,
-    maxActive: 3,
-    scale: 1.3
-  },
-  normal: {
-    spawnInterval: 1100,
-    lifetime: 2200,
-    maxActive: 4,
-    scale: 1.0
-  },
-  hard: {
-    spawnInterval: 800,
-    lifetime: 1900,
-    maxActive: 5,
-    scale: 0.9
-  }
-};
+const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
-// ----- State -----
+// --------------------------------------------------
+//  Helper: อ่าน config จาก HHA_DIFF_TABLE (ถ้ามี)
+//  modeKey = 'groups'
+// --------------------------------------------------
+function pickEngineConfig(modeKey, diffKey) {
+  const safe = {
+    SPAWN_INTERVAL: 900,
+    ITEM_LIFETIME: 2200,
+    MAX_ACTIVE: 4,
+    SIZE_FACTOR: 1.0
+  };
+
+  try {
+    const table = ROOT.HHA_DIFF_TABLE;
+    if (!table) return safe;
+
+    const mode = table[modeKey];
+    if (!mode) return safe;
+
+    const diff = mode[diffKey];
+    if (!diff || !diff.engine) return safe;
+
+    const eng = diff.engine;
+    return {
+      SPAWN_INTERVAL: Number(eng.SPAWN_INTERVAL) || safe.SPAWN_INTERVAL,
+      ITEM_LIFETIME: Number(eng.ITEM_LIFETIME) || safe.ITEM_LIFETIME,
+      MAX_ACTIVE: Number(eng.MAX_ACTIVE) || safe.MAX_ACTIVE,
+      SIZE_FACTOR: Number(eng.SIZE_FACTOR) || safe.SIZE_FACTOR
+    };
+  } catch (err) {
+    console.warn('[GroupsVR] pickEngineConfig error:', err);
+    return safe;
+  }
+}
+
+// --------------------------------------------------
+//  หา root สำหรับวางเป้า (ผูกกับกล้อง) — copy จาก mode-factory
+// --------------------------------------------------
+function ensureVrRoot() {
+  const scene = document.querySelector('a-scene');
+  if (!scene) {
+    console.warn('[GroupsVR] No <a-scene> found');
+    return null;
+  }
+
+  let cam =
+    scene.querySelector('[camera]') ||
+    scene.querySelector('#cameraRig') ||
+    scene.querySelector('a-entity[camera]');
+
+  if (!cam) {
+    console.warn('[GroupsVR] No camera found in scene');
+    return null;
+  }
+
+  let root = cam.querySelector('.hha-vr-root');
+  if (!root) {
+    root = document.createElement('a-entity');
+    root.classList.add('hha-vr-root');
+    root.setAttribute('position', '0 0 0');
+    cam.appendChild(root);
+  }
+  return root;
+}
+
+// --------------------------------------------------
+//  วาด emoji ลง canvas → dataURL — copy จาก mode-factory
+// --------------------------------------------------
+function makeEmojiTexture(ch, sizePx = 256) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = sizePx;
+    canvas.height = sizePx;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, sizePx, sizePx);
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.fillRect(0, 0, sizePx, sizePx);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${sizePx * 0.72}px system-ui, "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(ch, sizePx / 2, sizePx / 2);
+
+    return canvas.toDataURL('image/png');
+  } catch (err) {
+    console.warn('[GroupsVR] makeEmojiTexture error:', err);
+    return null;
+  }
+}
+
+// --------------------------------------------------
+//  สร้างเป้า VR (emoji ชัด ๆ) — ดัดแปลงจาก mode-factory ให้คืน object.kill()
+// --------------------------------------------------
+function createVrTarget(root, targetCfg, handlers = {}) {
+  const {
+    ch,
+    lifeMs,
+    sizeFactor = 1.0
+  } = targetCfg;
+
+  const { onHit, onExpire } = handlers;
+  if (!root || !ch) return null;
+
+  const holder = document.createElement('a-entity');
+  holder.classList.add('hha-target-vr');
+  holder.setAttribute('data-hha-tgt', '1');
+
+  // ===== แผ่นพื้นหลังเบา ๆ =====
+  const baseSize = 0.9 * sizeFactor;
+  const bg = document.createElement('a-plane');
+  bg.setAttribute('width', baseSize);
+  bg.setAttribute('height', baseSize);
+  bg.setAttribute(
+    'material',
+    [
+      'color: #020617',
+      'transparent: true',
+      'opacity: 0.28',
+      'side: double'
+    ].join('; ')
+  );
+  holder.appendChild(bg);
+
+  // ===== emoji เป็น texture =====
+  const texUrl = makeEmojiTexture(ch, 256);
+  if (texUrl) {
+    const img = document.createElement('a-image');
+    img.setAttribute('src', texUrl);
+    img.setAttribute('width', baseSize * 0.92);
+    img.setAttribute('height', baseSize * 0.92);
+    img.setAttribute('position', '0 0 0.01');
+    img.setAttribute(
+      'material',
+      [
+        'transparent: true',
+        'alphaTest: 0.01',
+        'side: double'
+      ].join('; ')
+    );
+    holder.appendChild(img);
+  }
+
+  // ===== ตำแหน่งหน้า player (สัมพัทธ์กล้อง) =====
+  const x = -0.8 + Math.random() * 1.6;
+  const y = -0.25 + Math.random() * 0.9;
+  const z = -1.6;
+
+  holder.setAttribute('position', `${x} ${y} ${z}`);
+
+  root.appendChild(holder);
+
+  let killed = false;
+
+  const cleanup = (reason) => {
+    if (killed) return;
+    killed = true;
+    try {
+      if (holder.parentNode) holder.parentNode.removeChild(holder);
+    } catch (_) {}
+
+    if (reason === 'expire' && typeof onExpire === 'function') {
+      try {
+        onExpire({ ch });
+      } catch (err) {
+        console.warn('[GroupsVR] onExpire error:', err);
+      }
+    }
+  };
+
+  const ttl = Number(lifeMs) > 0 ? Number(lifeMs) : 2200;
+  const timeoutId = setTimeout(() => {
+    cleanup('expire');
+  }, ttl);
+
+  const handleHit = () => {
+    if (killed) return;
+
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const ctx = { clientX: cx, clientY: cy, cx, cy };
+
+    if (typeof onHit === 'function') {
+      try {
+        onHit({ ch, ctx, kill: () => cleanup('hit') });
+      } catch (err) {
+        console.warn('[GroupsVR] onHit error:', err);
+      }
+    } else {
+      cleanup('hit');
+    }
+  };
+
+  holder.addEventListener('click', handleHit);
+
+  return {
+    el: holder,
+    ch,
+    kill: () => {
+      clearTimeout(timeoutId);
+      cleanup('manual');
+    }
+  };
+}
+
+// --------------------------------------------------
+//  Emoji 5 หมู่ (หมู่ละ ~7 อย่าง รวมเป็น pool เดียวให้สุ่มขึ้นเป้า)
+// --------------------------------------------------
+const GROUP_EMOJI = [
+  // หมู่ 1: ข้าว-แป้ง-ธัญพืช
+  '🍚', '🍙', '🍞', '🥐', '🥖', '🥨', '🥯',
+  // หมู่ 2: เนื้อ-โปรตีน
+  '🍗', '🍖', '🍤', '🍣', '🥩', '🥚', '🧀',
+  // หมู่ 3: ผัก
+  '🥦', '🥕', '🥬', '🍅', '🌽', '🧅', '🫑',
+  // หมู่ 4: ผลไม้
+  '🍎', '🍌', '🍇', '🍓', '🍍', '🍊', '🍉',
+  // หมู่ 5: นม / เสริมแคลเซียม
+  '🥛', '🧈', '🍨', '🍦', '🥛', '🧋', '🍮'
+];
+
+// --------------------------------------------------
+//  State + helper
+// --------------------------------------------------
 const state = {
-  sceneEl: null,
+  root: null,
   running: false,
   ended: false,
   diffKey: 'normal',
-  config: null,
+  config: {
+    SPAWN_INTERVAL: 900,
+    ITEM_LIFETIME: 2200,
+    MAX_ACTIVE: 4,
+    SIZE_FACTOR: 1.0
+  },
+  spawnTimer: null,
   targets: [],
-  lastTime: 0,
-  nextSpawnAt: 0,
-  rafId: null,
+  spawnCount: 0,
 
-  // stats
   score: 0,
   combo: 0,
   maxCombo: 0,
   misses: 0,
 
-  // quest
-  goalTotalHits: 25,   // ภารกิจหลัก: ตีให้ครบ 25 ชิ้น
+  goalTotalHits: 25,
   goalHits: 0,
-  miniStreakTarget: 6, // Mini quest: ตีติดกันไม่พลาด 6 ชิ้น
-  miniBestStreak: 0,
-  miniCurrentStreak: 0
+
+  miniStreakTarget: 6,
+  miniCurrentStreak: 0,
+  miniBestStreak: 0
 };
 
-// helper
-function nowMs() {
-  return performance.now();
-}
-
-// เลือก config จาก diff
-function chooseConfig(diffKey) {
-  const k = String(diffKey || 'normal').toLowerCase();
-  return DIFF_PRESET[k] || DIFF_PRESET.normal;
-}
-
-// เลือก emoji sprite สำหรับอาหาร 5 หมู่ (อ้างจาก <a-assets> ใน groups-vr.html)
-function pickGroupSprite() {
-  const groupId = 1 + Math.floor(Math.random() * 5); // 1..5
-  const idx = 1 + Math.floor(Math.random() * 7);     // 1..7
-  const assetId = `#fg-g${groupId}-${idx}`;
-  return { groupId, assetId };
-}
-
-// ส่ง event ไป HUD / logger
 function emit(name, detail) {
-  window.dispatchEvent(new CustomEvent(name, { detail }));
+  try {
+    ROOT.dispatchEvent(new CustomEvent(name, { detail }));
+  } catch (err) {
+    console.warn('[GroupsVR] emit error:', name, err);
+  }
 }
 
-// อัปเดต quest HUD
+function updateScoreHUD() {
+  emit('hha:score', {
+    score: state.score,
+    combo: state.combo,
+    misses: state.misses
+  });
+}
+
 function updateQuestHUD() {
   const goalsAll = [
     {
@@ -104,33 +305,11 @@ function updateQuestHUD() {
     },
     goalsAll,
     minisAll,
-    hint: 'สลับตีให้ครบทุกหมู่ทั้ง 5 หมู่ 🍚🥩🥦🍎🥛'
+    hint: 'ลองเก็บให้ครบทั้ง 5 หมู่ — ข้าว แป้ง, โปรตีน, ผัก, ผลไม้, นม 🥗🍛'
   });
 }
 
-// อัปเดตคะแนน HUD
-function updateScoreHUD() {
-  emit('hha:score', {
-    score: state.score,
-    combo: state.combo,
-    misses: state.misses
-  });
-}
-
-// เมื่อพลาดเป้า (หมดเวลา)
-function registerMiss() {
-  state.misses += 1;
-  state.combo = 0;
-  state.miniCurrentStreak = 0;
-
-  emit('hha:miss', {});
-  updateScoreHUD();
-  emit('hha:judge', { label: 'MISS' });
-}
-
-// เมื่อโดนเป้า
-function registerHit(groupId) {
-  // คะแนนแบบง่าย ๆ
+function registerHit() {
   state.combo += 1;
   state.score += 100;
   if (state.combo > state.maxCombo) state.maxCombo = state.combo;
@@ -141,187 +320,155 @@ function registerHit(groupId) {
     state.miniBestStreak = state.miniCurrentStreak;
   }
 
-  // FEVER เล็ก ๆ (แค่แจ้ง event ถ้า combo สูง)
   if (state.combo === 5) {
     emit('hha:fever', { state: 'start' });
-  } else if (state.combo === 0 && state.misses > 0) {
-    emit('hha:fever', { state: 'end' });
   }
 
-  const judgeLabel = state.combo >= 8 ? 'PERFECT!' : (state.combo >= 3 ? 'GOOD' : 'OK');
-  emit('hha:judge', { label: judgeLabel });
+  const judgeLabel =
+    state.combo >= 8 ? 'PERFECT!' :
+    state.combo >= 3 ? 'GOOD' :
+    'OK';
 
+  emit('hha:judge', { label: judgeLabel });
   updateScoreHUD();
   updateQuestHUD();
 }
 
-// ลบเป้าออกจาก scene + list
-function removeTarget(t) {
-  try {
-    if (t && t.el && t.el.parentNode) {
-      t.el.parentNode.removeChild(t.el);
-    }
-  } catch (_) {}
+function registerMiss() {
+  state.misses += 1;
+  state.combo = 0;
+  state.miniCurrentStreak = 0;
+
+  emit('hha:miss', {});
+  emit('hha:fever', { state: 'end' });
+  emit('hha:judge', { label: 'MISS' });
+  updateScoreHUD();
 }
 
-// spawn เป้าใหม่
-function spawnTarget(now) {
-  if (!state.sceneEl) return;
-  if (!state.config) return;
+function clearAllTargets() {
+  state.targets.forEach(t => {
+    try {
+      t.kill && t.kill();
+    } catch (_) {}
+  });
+  state.targets = [];
+}
 
-  // จำกัดจำนวนเป้าพร้อมกัน
-  if (state.targets.length >= state.config.maxActive) return;
+// สุ่ม emoji จากทุกหมู่
+function pickEmoji() {
+  if (!GROUP_EMOJI.length) {
+    return '❓';
+  }
+  const idx = Math.floor(Math.random() * GROUP_EMOJI.length);
+  return GROUP_EMOJI[idx];
+}
 
-  const { groupId, assetId } = pickGroupSprite();
+function spawnOne() {
+  if (!state.running) return;
+  if (!state.root) return;
 
-  const el = document.createElement('a-image');
-  el.setAttribute('src', assetId);
-  el.setAttribute('width', 1.2 * state.config.scale);
-  el.setAttribute('height', 1.2 * state.config.scale);
-  el.setAttribute('data-hha-tgt', '1');
+  if (state.targets.length >= state.config.MAX_ACTIVE) return;
 
-  // random position ด้านหน้า
-  const x = -2.2 + Math.random() * 4.4;   // -2.2..2.2
-  const y = 1.0 + Math.random() * 1.4;    // 1.0..2.4
-  const z = -3.0 - Math.random() * 1.0;   // -3..-4
-  el.setAttribute('position', `${x} ${y} ${z}`);
+  const ch = pickEmoji();
+  state.spawnCount += 1;
 
-  // ให้หันหน้าหากล้อง (ถ้ามี component look-at โหลดไว้)
-  // el.setAttribute('look-at', '#gj-camera');
-
-  const targetData = {
-    el,
-    createdAt: now,
-    expireAt: now + state.config.lifetime,
-    groupId
-  };
-
-  el.classList.add('hh-target');
-
-  // คลิกเพื่อเก็บเป้า
-  el.addEventListener('click', () => {
-    if (!state.running) return;
-    // ลบออกจาก list + scene
-    state.targets = state.targets.filter(tt => tt !== targetData);
-    removeTarget(targetData);
-    registerHit(groupId);
+  const target = createVrTarget(state.root, {
+    ch,
+    lifeMs: state.config.ITEM_LIFETIME,
+    sizeFactor: state.config.SIZE_FACTOR
+  }, {
+    onHit: ({ kill }) => {
+      // ลบจาก list ก่อน
+      state.targets = state.targets.filter(t => t !== target);
+      if (typeof kill === 'function') kill();
+      registerHit();
+    },
+    onExpire: () => {
+      state.targets = state.targets.filter(t => t !== target);
+      registerMiss();
+    }
   });
 
-  state.sceneEl.appendChild(el);
-  state.targets.push(targetData);
+  if (target) {
+    state.targets.push(target);
+  }
 }
 
-// main loop
-function tickLoop(ts) {
-  if (!state.running) return;
-
-  if (!state.lastTime) state.lastTime = ts;
-  const now = ts;
-  // spawn ตามเวลา
-  if (now >= state.nextSpawnAt) {
-    spawnTarget(now);
-    state.nextSpawnAt = now + state.config.spawnInterval;
-  }
-
-  // เช็คหมดอายุ
-  const stillAlive = [];
-  for (const t of state.targets) {
-    if (now >= t.expireAt) {
-      // หมดเวลา = MISS
-      removeTarget(t);
-      registerMiss();
-    } else {
-      // อนิเมชันเล็ก ๆ (เด้งขึ้นลง)
-      const lifeT = (now - t.createdAt) / 1000;
-      const posStr = t.el.getAttribute('position');
-      if (posStr) {
-        const parts = String(posStr).split(' ').map(Number);
-        if (parts.length === 3 && !Number.isNaN(parts[0])) {
-          const amp = 0.06;
-          const ny = parts[1] + Math.sin(lifeT * 6.0) * amp * 0.02; // ripple เบา ๆ
-          t.el.setAttribute('position', `${parts[0]} ${ny} ${parts[2]}`);
-        }
-      }
-      stillAlive.push(t);
-    }
-  }
-  state.targets = stillAlive;
-
-  state.rafId = window.requestAnimationFrame(tickLoop);
-}
-
-// ----- Public API -----
+// --------------------------------------------------
+//  GameEngine.start/stop
+// --------------------------------------------------
 function start(diffKey) {
-  // ถ้ากำลังเล่นอยู่ให้หยุดก่อน
+  // หยุดของเก่า (ถ้ามี)
   if (state.running) {
     stop('restart');
   }
 
-  state.sceneEl = document.querySelector('a-scene');
-  if (!state.sceneEl) {
-    console.error('[GroupsVR] no <a-scene> found');
+  const root = ensureVrRoot();
+  if (!root) {
+    console.error('[GroupsVR] Cannot start — no VR root');
     return;
   }
 
+  state.root = root;
   state.diffKey = String(diffKey || 'normal').toLowerCase();
-  state.config = chooseConfig(state.diffKey);
+  state.config = pickEngineConfig('groups', state.diffKey);
 
-  // reset state
   state.running = true;
   state.ended = false;
-  state.targets.forEach(removeTarget);
-  state.targets = [];
-  state.lastTime = 0;
-  state.nextSpawnAt = nowMs() + 400; // รอแพล็บหนึ่งก่อน spawn แรก
+  state.spawnCount = 0;
 
+  // reset stats
   state.score = 0;
   state.combo = 0;
   state.maxCombo = 0;
   state.misses = 0;
-
   state.goalHits = 0;
   state.miniCurrentStreak = 0;
   state.miniBestStreak = 0;
 
+  clearAllTargets();
   updateScoreHUD();
   updateQuestHUD();
   emit('hha:judge', { label: '' });
+  emit('hha:coach', {
+    text: 'คลิกหรือแตะอาหารให้ตรงตามหมู่ ดูให้ครบทั้ง 5 หมู่ ข้าว-โปรตีน-ผัก-ผลไม้-นม 🍚🥩🥦🍎🥛'
+  });
 
-  if (state.rafId) {
-    window.cancelAnimationFrame(state.rafId);
-    state.rafId = null;
-  }
-  state.rafId = window.requestAnimationFrame(tickLoop);
+  // spawn loop
+  const interval = Math.max(300, state.config.SPAWN_INTERVAL || 900);
+  state.spawnTimer = setInterval(spawnOne, interval);
+  // spawn แรกเร็วหน่อย
+  setTimeout(spawnOne, 400);
 
   console.log('[GroupsVR] GameEngine.start()', state.diffKey, state.config);
 }
 
-function stop(reason) {
+function stop(reason = 'manual') {
   if (!state.running && state.ended) return;
 
   state.running = false;
 
-  if (state.rafId) {
-    window.cancelAnimationFrame(state.rafId);
-    state.rafId = null;
+  if (state.spawnTimer) {
+    clearInterval(state.spawnTimer);
+    state.spawnTimer = null;
   }
 
-  // ลบเป้าที่เหลือ
-  state.targets.forEach(removeTarget);
-  state.targets = [];
+  clearAllTargets();
 
   if (!state.ended) {
     state.ended = true;
-    // summary event
+
+    const miniCleared = state.miniBestStreak >= state.miniStreakTarget ? 1 : 0;
+
     emit('hha:end', {
-      reason: reason || 'stop',
+      reason,
       scoreFinal: state.score,
       score: state.score,
       comboMax: state.maxCombo,
       misses: state.misses,
       goalsCleared: state.goalHits,
       goalsTotal: state.goalTotalHits,
-      miniCleared: (state.miniBestStreak >= state.miniStreakTarget ? 1 : 0),
+      miniCleared,
       miniTotal: 1
     });
   }
@@ -330,7 +477,6 @@ function stop(reason) {
   console.log('[GroupsVR] GameEngine.stop()', reason);
 }
 
-// ----- Export -----
 export const GameEngine = {
   start,
   stop
