@@ -1,6 +1,4 @@
 // === /herohealth/hydration-vr/GameEngine.js ===
-// Bridge ระหว่าง hydration-vr.html <-> hydration.safe.js + mode-factory
-
 'use strict';
 
 import { boot as bootHydration } from './hydration.safe.js';
