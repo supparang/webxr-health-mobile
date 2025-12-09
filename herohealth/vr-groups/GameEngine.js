@@ -1,418 +1,322 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — DOM targets + Goal / Mini quest + Fever + FX
-// ใช้ร่วมกับ groups-vr.html (เรียกผ่าน GameEngine.start/stop)
+// Food Groups VR — DOM Target Engine (good vs junk)
+// ใช้ร่วมกับ groups-vr.html, vr/ui-fever.js, vr/particles.js
+// สร้าง global: window.GameEngine.start(diff, durationSec), stop(reason)
 
-'use strict';
+(function (global) {
+  'use strict';
 
-// -------- Global helpers (มาจาก script src ก่อนหน้า) --------
-const Particles =
-  (window.HHA_PARTICLES) ||
-  (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
-  { scorePop () {}, burstAt () {} };
+  const FX = global.HHA_PARTICLES || null;
 
-const FeverUI =
-  (window.GAME_MODULES && window.GAME_MODULES.FeverUI) ||
-  window.FeverUI ||
-  { ensureFeverBar () {}, setFever () {}, setFeverActive () {}, setShield () {} };
+  // ตัวอย่าง icon อาหาร (จะไม่ไปยุ่งไฟล์ emoji-image.js เดิม)
+  const GOOD_FOODS = ['🥦', '🥕', '🍎', '🍇', '🍚', '🥛', '🍌', '🥬'];
+  const JUNK_FOODS = ['🍩', '🍟', '🍫', '🧃', '🍬', '🍕'];
 
-function emit (name, detail) {
-  window.dispatchEvent(new CustomEvent(name, { detail }));
-}
-
-// -------- Difficulty / Quest config --------
-const DIFF_TABLE = {
-  easy: {
-    spawnInterval: 1100,
-    targetLifetime: 2800,
-    maxActive: 3,
-    sizeFactor: 1.18,
-    goalScore: 260,
-    miniGood: 24,
-    labelGoal: 'จำแนกอาหารดีจากหมู่ที่กำหนดให้ได้ตามเป้า',
-    labelMini: 'เก็บอาหารดีให้ครบจำนวน เลี่ยงของขยะให้ได้มากที่สุด',
-    hint: 'โฟกัสอาหารดีจากทุกหมู่ก่อน แล้วค่อยเลี่ยงของขยะ'
-  },
-  normal: {
-    spawnInterval: 900,
-    targetLifetime: 2500,
-    maxActive: 4,
-    sizeFactor: 1.0,
-    goalScore: 320,
-    miniGood: 28,
-    labelGoal: 'จัดหมู่อาหารดีให้ครบทุกหมู่ตามเป้าคะแนน',
-    labelMini: 'เก็บอาหารดีต่อเนื่องให้ได้มากที่สุด',
-    hint: 'พยายามยิงคอมโบยาว ๆ ด้วยอาหารดีหลาย ๆ ชิ้นติดกัน'
-  },
-  hard: {
-    spawnInterval: 750,
-    targetLifetime: 2300,
-    maxActive: 5,
-    sizeFactor: 0.92,
-    goalScore: 380,
-    miniGood: 32,
-    labelGoal: 'จัดหมู่อาหารดีให้ครบทุกหมู่ในเวลาจำกัด',
-    labelMini: 'รักษาคอมโบสูง ๆ โดยไม่พลาดของขยะ',
-    hint: 'ใช้ FEVER เก็บอาหารดีรวดเดียวให้ได้มากที่สุด'
-  }
-};
-
-const GOOD_EMOJI = ['🍚', '🍞', '🍎', '🥦', '🥕', '🍌', '🥛', '🍇', '🥚'];
-const JUNK_EMOJI = ['🍩', '🍕', '🍟', '🥤', '🍰', '🍫', '🍭', '🧃'];
-
-function pickEmoji (isGood) {
-  if (window.emojiImage && typeof window.emojiImage.pick === 'function') {
-    return window.emojiImage.pick(isGood ? 'good' : 'junk');
-  }
-  const src = isGood ? GOOD_EMOJI : JUNK_EMOJI;
-  return src[Math.floor(Math.random() * src.length)];
-}
-
-// เป้าอยู่โซนกลางจอ ไม่ทับ HUD/โค้ช
-function randomScreenPos () {
-  const w = window.innerWidth || 1280;
-  const h = window.innerHeight || 720;
-
-  const topSafe = 130;
-  const bottomSafe = 170;
-  const left = w * 0.14;
-  const right = w * 0.86;
-
-  const x = left + Math.random() * (right - left);
-  const y = topSafe + Math.random() * (h - topSafe - bottomSafe);
-  return { x, y };
-}
-
-// -------- Engine state --------
-let running = false;
-let diffKey = 'normal';
-let diffCfg = DIFF_TABLE.normal;
-
-let layer = null;
-let targets = [];
-let lastTs = 0;
-let elapsed = 0;
-let spawnTimer = 0;
-
-let score = 0;
-let combo = 0;
-let comboMax = 0;
-let misses = 0;
-let goodHits = 0;
-
-let goalTargetScore = 0;
-let miniTargetGood = 0;
-let goalLabel = '';
-let miniLabel = '';
-let questHint = '';
-let goalDone = false;
-let miniDone = false;
-
-// Fever
-const FEVER_MAX = 100;
-const FEVER_HIT_GAIN = 10;
-const FEVER_MISS_LOSS = 25;
-let fever = 0;
-let feverActive = false;
-
-// -------- DOM helpers --------
-function ensureLayer () {
-  if (layer && layer.isConnected) return layer;
-  layer = document.getElementById('fg-layer');
-  if (!layer) {
-    layer = document.createElement('div');
-    layer.id = 'fg-layer';
-    document.body.appendChild(layer);
-  }
-  return layer;
-}
-
-function clearTargets () {
-  targets.forEach(t => {
-    if (t && t.el && t.el.parentNode) t.el.parentNode.removeChild(t.el);
-  });
-  targets = [];
-}
-
-// -------- Fever --------
-function updateFever (delta) {
-  fever = (fever || 0) + delta;
-  if (fever < 0) fever = 0;
-  if (fever > FEVER_MAX) fever = FEVER_MAX;
-
-  FeverUI.ensureFeverBar();
-  FeverUI.setFever(fever);
-
-  const nowActive = fever >= FEVER_MAX;
-  if (nowActive && !feverActive) {
-    feverActive = true;
-    FeverUI.setFeverActive(true);
-    emit('hha:fever', { state: 'start' });
-  } else if (!nowActive && feverActive && fever <= FEVER_MAX * 0.4) {
-    feverActive = false;
-    FeverUI.setFeverActive(false);
-    emit('hha:fever', { state: 'end' });
-  }
-}
-
-// -------- Quest / HUD events --------
-function emitScore () {
-  emit('hha:score', { score, combo, misses });
-}
-function emitJudge (label) {
-  emit('hha:judge', { label });
-}
-function emitQuestUpdate () {
-  const goal = {
-    label: goalLabel,
-    prog: score,
-    target: goalTargetScore,
-    done: goalDone
-  };
-  const mini = {
-    label: miniLabel,
-    prog: goodHits,
-    target: miniTargetGood,
-    done: miniDone
-  };
-  emit('quest:update', { goal, mini, hint: questHint });
-}
-
-// -------- Target spawn / life --------
-function spawnTarget () {
-  const host = ensureLayer();
-  if (!host) return;
-  if (targets.length >= diffCfg.maxActive) return;
-
-  const isGood = Math.random() < 0.65;
-  const emoji = pickEmoji(isGood);
-  const pos = randomScreenPos();
-  const lifeMs = diffCfg.targetLifetime || 2500;
-
-  const el = document.createElement('div');
-  el.className = 'fg-target ' + (isGood ? 'fg-good' : 'fg-junk');
-  el.setAttribute('data-emoji', emoji);
-  el.style.left = pos.x + 'px';
-  el.style.top = pos.y + 'px';
-
-  const baseScale = diffCfg.sizeFactor || 1.0;
-  el.style.transform = 'translate(-50%, -50%) scale(' + baseScale + ')';
-
-  const target = {
-    el,
-    isGood,
-    spawnAt: elapsed,
-    lifeMs,
-    consumed: false
-  };
-  targets.push(target);
-
-  const onHit = (ev) => {
-    ev.stopPropagation();
-    ev.preventDefault();
-    handleHit(target);
-  };
-  el.addEventListener('click', onHit);
-  el.addEventListener('pointerdown', onHit);
-
-  host.appendChild(el);
-}
-
-function handleTimeout (target) {
-  if (!running || !target || target.consumed) return;
-
-  target.consumed = true;
-  misses += 1;
-  combo = 0;
-  updateFever(-FEVER_MISS_LOSS);
-  emit('hha:miss', { reason: 'timeout', isGood: target.isGood });
-  emitScore();
-
-  try {
-    const el = target.el;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      const x = rect.left + rect.width / 2;
-      const y = rect.top + rect.height / 2;
-      Particles.scorePop(x, y, 'MISS 0', { good: false });
-      Particles.burstAt(x, y, { color: '#f97316', count: 10, radius: 50 });
+  // ตารางความยาก
+  const DIFF_TABLE = {
+    easy: {
+      spawnInterval: 1100,
+      lifetime: 2600,
+      maxActive: 3,
+      goodRatio: 0.75
+    },
+    normal: {
+      spawnInterval: 900,
+      lifetime: 2200,
+      maxActive: 4,
+      goodRatio: 0.65
+    },
+    hard: {
+      spawnInterval: 750,
+      lifetime: 1900,
+      maxActive: 5,
+      goodRatio: 0.55
     }
-  } catch (_) {}
+  };
 
-  if (target.el && target.el.parentNode) {
-    target.el.classList.add('hit');
-    setTimeout(() => {
-      if (target.el && target.el.parentNode) target.el.parentNode.removeChild(target.el);
-    }, 120);
+  let state = null;
+
+  function rand(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  targets = targets.filter(t => t !== target);
-  emitJudge('');
-}
+  function clamp(v, min, max) {
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
+  }
 
-// -------- Hit logic --------
-function handleHit (target) {
-  if (!running || !target || target.consumed) return;
-
-  const el = target.el;
-  if (!el || !el.parentNode) return;
-
-  target.consumed = true;
-
-  const life = target.lifeMs || diffCfg.targetLifetime || 2500;
-  const age = Math.max(0, elapsed - target.spawnAt);
-  const ratio = Math.min(1, age / life);
-
-  let judgment = 'MISS';
-  let delta = 0;
-
-  if (target.isGood) {
-    if (ratio <= 0.35) {
-      judgment = 'PERFECT';
-      delta = 20;
-    } else if (ratio <= 0.8) {
-      judgment = 'GOOD';
-      delta = 12;
-    } else {
-      judgment = 'LATE';
-      delta = 6;
+  function dispatch(name, detail) {
+    try {
+      global.dispatchEvent(new CustomEvent(name, { detail }));
+    } catch (err) {
+      console.warn('[GroupsVR] dispatch error', name, err);
     }
-    goodHits += 1;
-    combo += 1;
-    comboMax = Math.max(comboMax, combo);
-    updateFever(FEVER_HIT_GAIN + (judgment === 'PERFECT' ? 5 : 0));
-  } else {
-    judgment = 'MISS';
-    delta = -10;
-    misses += 1;
-    combo = 0;
-    updateFever(-FEVER_MISS_LOSS);
-    emit('hha:miss', { reason: 'hit-junk', isGood: false });
   }
 
-  score = Math.max(0, score + delta);
-  goalDone = score >= goalTargetScore;
-  miniDone = goodHits >= miniTargetGood;
-
-  emitQuestUpdate();
-  emitScore();
-  emitJudge(`${judgment} ${delta > 0 ? '+' + delta : delta}`);
-
-  try {
-    const rect = el.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
-    const label = `${judgment} ${delta > 0 ? '+' + delta : delta}`;
-    Particles.scorePop(x, y, label, { good: delta > 0 });
-    Particles.burstAt(x, y, {
-      color: delta > 0 ? '#22c55e' : '#f97316',
-      count: delta > 0 ? 16 : 12,
-      radius: 60
+  function updateScoreHUD() {
+    if (!state) return;
+    dispatch('hha:score', {
+      score: state.score,
+      combo: state.combo,
+      misses: state.misses
     });
-  } catch (_) {}
-
-  el.classList.add('hit');
-  setTimeout(() => {
-    if (el.parentNode) el.parentNode.removeChild(el);
-  }, 140);
-
-  targets = targets.filter(t => t !== target);
-
-  if (goalDone && miniDone) {
-    stop('quest-complete');
-  }
-}
-
-// -------- Main loop --------
-function loop (ts) {
-  if (!running) return;
-  if (!lastTs) lastTs = ts;
-  const dt = ts - lastTs;
-  lastTs = ts;
-  elapsed += dt;
-  spawnTimer += dt;
-
-  if (spawnTimer >= diffCfg.spawnInterval) {
-    spawnTimer = 0;
-    spawnTarget();
   }
 
-  const lifeMs = diffCfg.targetLifetime || 2500;
-  for (let i = targets.length - 1; i >= 0; i--) {
-    const t = targets[i];
-    if (!t || t.consumed) continue;
-    if (elapsed - t.spawnAt >= (t.lifeMs || lifeMs)) {
-      handleTimeout(t);
+  function updateJudge(label) {
+    dispatch('hha:judge', { label });
+  }
+
+  function updateQuestHUD() {
+    if (!state) return;
+
+    const good = state.goodHits;
+    const miss = state.misses;
+    const goalTarget = state.goalTarget;
+    const miniTarget = state.miniTarget;
+
+    const goal = {
+      label: 'จัดหมู่อาหารดีจากหมู่ที่กำหนดให้ได้ตามเป้า',
+      prog: good,
+      target: goalTarget,
+      done: good >= goalTarget
+    };
+
+    const mini = {
+      label: 'เก็บอาหารดีให้ครบจำนวน เลี่ยงของขยะให้ได้มากที่สุด',
+      prog: good,
+      target: miniTarget,
+      done: good >= miniTarget && miss <= state.miniMaxMiss
+    };
+
+    const remain = Math.max(0, goalTarget - good);
+    const hint =
+      remain > 0
+        ? `เก็บอาหารดีอีก ${remain} ชิ้น จะครบเป้าหมายหลัก`
+        : 'ตอนนี้เก็บอาหารดีได้ครบตามเป้าแล้ว 🎉';
+
+    dispatch('quest:update', {
+      goal,
+      mini,
+      hint
+    });
+  }
+
+  function registerGoodHit(x, y) {
+    if (!state) return;
+    state.goodHits += 1;
+    state.combo += 1;
+    if (state.combo > state.comboMax) state.comboMax = state.comboMax = state.combo;
+    state.score += 50;
+
+    if (FX) {
+      FX.scorePop(x, y, '+50', { good: true });
+      FX.burstAt(x, y, { color: '#22c55e', count: 14, radius: 60 });
     }
+
+    updateJudge('GOOD ✓');
+    updateScoreHUD();
+    updateQuestHUD();
   }
 
-  requestAnimationFrame(loop);
-}
+  function registerMiss(reason, x, y) {
+    if (!state) return;
+    state.misses += 1;
+    state.combo = 0;
 
-// -------- Public API --------
-function start (diff = 'normal') {
-  diffKey = String(diff || 'normal').toLowerCase();
-  diffCfg = DIFF_TABLE[diffKey] || DIFF_TABLE.normal;
+    if (FX && typeof x === 'number' && typeof y === 'number') {
+      FX.scorePop(x, y, 'MISS', { good: false });
+      FX.burstAt(x, y, { color: '#f97316', count: 12, radius: 50 });
+    }
 
-  ensureLayer();
-  clearTargets();
+    dispatch('hha:miss', { reason });
+    updateJudge('MISS');
+    updateScoreHUD();
+    updateQuestHUD();
+  }
 
-  running = true;
-  lastTs = 0;
-  elapsed = 0;
-  spawnTimer = 0;
+  function spawnTarget() {
+    if (!state || !state.running) return;
 
-  score = 0;
-  combo = 0;
-  comboMax = 0;
-  misses = 0;
-  goodHits = 0;
+    const layer = document.getElementById('fg-layer') || document.body;
+    const activeCount = state.targets.size;
+    if (activeCount >= state.cfg.maxActive) return;
 
-  goalTargetScore = diffCfg.goalScore;
-  miniTargetGood = diffCfg.miniGood;
-  goalLabel = diffCfg.labelGoal;
-  miniLabel = diffCfg.labelMini;
-  questHint = diffCfg.hint;
-  goalDone = false;
-  miniDone = false;
+    const isGood = Math.random() < state.cfg.goodRatio;
+    const type = isGood ? 'good' : 'junk';
 
-  fever = 0;
-  feverActive = false;
-  FeverUI.ensureFeverBar();
-  FeverUI.setFever(0);
-  FeverUI.setFeverActive(false);
-  FeverUI.setShield(0);
+    const vw = global.innerWidth || 360;
+    const vh = global.innerHeight || 640;
 
-  emitScore();
-  emitQuestUpdate();
-  emitJudge('');
+    // หลีกเลี่ยง HUD บนและโค้ชล่าง
+    const marginX = 60;
+    const marginTop = 120;
+    const marginBottom = 140;
 
-  requestAnimationFrame(loop);
-}
+    const x = clamp(
+      marginX + Math.random() * (vw - marginX * 2),
+      marginX,
+      vw - marginX
+    );
+    const y = clamp(
+      marginTop + Math.random() * (vh - marginTop - marginBottom),
+      marginTop,
+      vh - marginBottom
+    );
 
-function stop (reason = 'stop') {
-  if (!running) return;
-  running = false;
-  clearTargets();
+    const el = document.createElement('div');
+    el.className = 'fg-target ' + (isGood ? 'fg-good' : 'fg-junk');
+    el.dataset.emoji = isGood ? rand(GOOD_FOODS) : rand(JUNK_FOODS);
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
 
-  emit('hha:end', {
-    mode: 'FoodGroupsVR',
-    diff: diffKey,
-    scoreFinal: score,
-    score,
-    comboMax,
-    misses,
-    goalsCleared: goalDone ? 1 : 0,
-    goalsTotal: 1,
-    miniCleared: miniDone ? 1 : 0,
-    miniTotal: 1,
-    reason
-  });
-}
+    const id = state.nextId++;
+    const target = {
+      id,
+      type,
+      x,
+      y,
+      el,
+      timeoutId: null,
+      alive: true
+    };
 
-// **export สำหรับ groups-vr.html**
-export const GameEngine = { start, stop };
+    function clearTarget() {
+      target.alive = false;
+      state.targets.delete(id);
+      try {
+        el.remove();
+      } catch (_) {}
+    }
 
-// เผื่ออยากเรียกจาก global ด้วย
-window.GAME_MODULES = window.GAME_MODULES || {};
-window.GAME_MODULES.FoodGroupsVR = { GameEngine };
-window.GameEngine = GameEngine;
+    function onClick(ev) {
+      if (!state || !state.running || !target.alive) return;
+      target.alive = false;
+      el.classList.add('hit');
+      if (target.timeoutId) clearTimeout(target.timeoutId);
+      const cx = ev.clientX || x;
+      const cy = ev.clientY || y;
+
+      if (type === 'good') {
+        registerGoodHit(cx, cy);
+      } else {
+        registerMiss('hit-junk', cx, cy);
+      }
+
+      setTimeout(clearTarget, 140);
+    }
+
+    el.addEventListener('click', onClick);
+    el.addEventListener('touchstart', function (ev) {
+      if (!ev.touches || !ev.touches[0]) return;
+      const t = ev.touches[0];
+      onClick(t);
+    });
+
+    layer.appendChild(el);
+
+    target.timeoutId = setTimeout(function () {
+      if (!state || !state.running || !target.alive) return;
+      target.alive = false;
+      // ถ้าเป็นอาหารดี แล้วยังไม่ได้ตี -> ถือว่าพลาด
+      if (type === 'good') {
+        registerMiss('timeout-good', x, y);
+      }
+      el.classList.add('hit');
+      setTimeout(clearTarget, 140);
+    }, state.cfg.lifetime);
+
+    state.targets.set(id, target);
+  }
+
+  function clearAllTargets() {
+    if (!state) return;
+    state.targets.forEach(function (t) {
+      if (t.timeoutId) clearTimeout(t.timeoutId);
+      try {
+        t.el.remove();
+      } catch (_) {}
+    });
+    state.targets.clear();
+  }
+
+  function start(diffKey, durationSec) {
+    stop('restart');
+
+    diffKey = String(diffKey || 'normal').toLowerCase();
+    const cfg = DIFF_TABLE[diffKey] || DIFF_TABLE.normal;
+
+    const goalTarget = 18;
+    const miniTarget = 24;
+    const miniMaxMiss = 4;
+
+    state = {
+      running: true,
+      diff: diffKey,
+      cfg,
+      score: 0,
+      combo: 0,
+      comboMax: 0,
+      misses: 0,
+      goodHits: 0,
+      spawnTimer: null,
+      targets: new Map(),
+      nextId: 1,
+      goalTarget,
+      miniTarget,
+      miniMaxMiss,
+      durationSec: durationSec || 60
+    };
+
+    updateScoreHUD();
+    updateQuestHUD();
+    updateJudge('');
+
+    // เริ่ม spawn เป้า
+    state.spawnTimer = setInterval(spawnTarget, cfg.spawnInterval);
+
+    dispatch('hha:coach', {
+      text: 'ภารกิจวันนี้: เลือกอาหารดีจากหมู่ที่กำหนด และหลบของขยะให้ได้มากที่สุดนะ 🥦🍚'
+    });
+
+    console.log('[GroupsVR] GameEngine started', diffKey, cfg);
+  }
+
+  function stop(reason) {
+    if (!state) return;
+
+    if (state.spawnTimer) clearInterval(state.spawnTimer);
+    state.spawnTimer = null;
+
+    clearAllTargets();
+
+    const summary = {
+      reason: reason || 'manual',
+      scoreFinal: state.score,
+      comboMax: state.comboMax,
+      misses: state.misses,
+      goalsCleared: state.goodHits >= state.goalTarget ? 1 : 0,
+      goalsTotal: 1,
+      miniCleared:
+        state.goodHits >= state.miniTarget && state.misses <= state.miniMaxMiss
+          ? 1
+          : 0,
+      miniTotal: 1
+    };
+
+    dispatch('hha:end', summary);
+
+    console.log('[GroupsVR] GameEngine stopped:', summary);
+    state.running = false;
+    state = null;
+  }
+
+  // ผูก global
+  global.GameEngine = {
+    start,
+    stop
+  };
+  global.GAME_MODULES = global.GAME_MODULES || {};
+  global.GAME_MODULES.FoodGroupsGame = global.GameEngine;
+
+})(window);
