@@ -260,41 +260,39 @@
     },
 
     // ---------- เป้า ----------
-    spawnTarget: function (now) {
-      const scene = this.sceneEl;
-      if (!scene) return;
+spawnTarget: function (now) {
+  const scene = this.sceneEl;
+  if (!scene) return;
 
-      const choice = randomFoodBalanced(); // {group, emoji, asset}
-      const el = document.createElement('a-image');
+  // สุ่มหมู่และ emoji (หมู่ละ 7 แบบ)
+  const groupId = 1 + Math.floor(Math.random() * 5);
+  const idx = 1 + Math.floor(Math.random() * 7);
+  const assetId = `#fg-g${groupId}-${idx}`;
 
-      if (choice.asset) {
-        el.setAttribute('src', choice.asset);
-      }
+  const el = document.createElement('a-image');
+  el.setAttribute('src', assetId);
+  el.setAttribute('width', 1.2 * this.config.scale);
+  el.setAttribute('height', 1.2 * this.config.scale);
+  el.setAttribute('position', `0 1.6 -2.0`);
+  el.setAttribute('data-hha-tgt', '1'); // สำคัญ: ให้ raycaster ยิงโดน
+  el.classList.add('hh-target');
 
-      const size = 0.9 * this.config.scale;
-      el.setAttribute('width', size);
-      el.setAttribute('height', size);
-      el.setAttribute('position', '0 1.6 -2.1');
-      el.setAttribute('data-hha-tgt', '1'); // ให้ raycaster ของ GoodJunk ยิงโดน
-      el.classList.add('hh-target');
+  const targetData = {
+    el,
+    createdAt: now,
+    expireAt: now + this.config.lifetime,
+    group: groupId,
+    asset: assetId
+  };
 
-      const targetData = {
-        el,
-        createdAt: now,
-        expireAt: now + this.config.lifetime,
-        foodGroup: choice.group,
-        emoji: choice.emoji
-      };
+  el.addEventListener('click', () => {
+    this.handleHit(targetData);
+  });
 
-      el.dataset.groupsTargetId = String(Math.random());
+  scene.appendChild(el);
+  this.targets.push(targetData);
+},
 
-      el.addEventListener('click', () => {
-        this.handleHit(targetData);
-      });
-
-      scene.appendChild(el);
-      this.targets.push(targetData);
-    },
 
     handleHit: function (target) {
       if (this.gameOver) return;
