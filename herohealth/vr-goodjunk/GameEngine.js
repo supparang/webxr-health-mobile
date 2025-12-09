@@ -2,6 +2,7 @@
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
 // 2025-12-09 Multi-Quest + Research Metrics + Full Event Fields Version
+// + 2025-12-09B: Staggered Score Pop FX (ไม่เด้งพร้อมกัน)
 
 'use strict';
 
@@ -495,7 +496,7 @@ export const GameEngine = (function () {
         scoreFinal: score,
         comboMax,
         misses,
-        gameVersion: 'GoodJunkVR-2025-12-09-Stats-MQ-FullEvent',
+        gameVersion: 'GoodJunkVR-2025-12-09-Stats-MQ-FullEvent-B',
         reason: reason || 'normal',
 
         goalsCleared,
@@ -572,6 +573,15 @@ export const GameEngine = (function () {
     if (el && el.parentNode) {
       el.parentNode.removeChild(el);
     }
+  }
+
+  // ---------- random jitter + delay สำหรับ score pop ----------
+  function jitter() {
+    // ระยะสั่นเล็กน้อยรอบ ๆ เป้า
+    return (Math.random() - 0.5) * 40; // -20 ถึง +20 px
+  }
+  function smallDelay() {
+    return 60 + Math.random() * 80; // 60–140 ms
   }
 
   // ---------- สร้างเป้า (emoji pop) ----------
@@ -674,15 +684,19 @@ export const GameEngine = (function () {
 
       const P = getParticles();
       if (P) {
-        P.burstAt(sx, sy, {
+        const jx = sx + jitter();
+        const jy = sy + jitter();
+        P.burstAt(jx, jy, {
           color: '#60a5fa',
           count: 10,
           radius: 40
         });
-        P.scorePop(sx, sy, 'Shield', {
-          kind: 'judge',
-          judgment: 'BLOCK'
-        });
+        setTimeout(() => {
+          P.scorePop(jx, jy, 'Shield', {
+            kind: 'judge',
+            judgment: 'BLOCK'
+          });
+        }, smallDelay());
       }
 
       emitGameEvent({
@@ -712,18 +726,22 @@ export const GameEngine = (function () {
 
       const P = getParticles();
       if (P) {
-        P.burstAt(sx, sy, {
+        const jx = sx + jitter();
+        const jy = sy + jitter();
+        P.burstAt(jx, jy, {
           color: '#facc15',
           count: 16,
           radius: 70
         });
-        P.scorePop(sx, sy, '+' + scoreDelta, {
-          kind: 'score'
-        });
-        P.scorePop(sx, sy, 'BONUS', {
-          kind: 'judge',
-          judgment: 'GOOD'
-        });
+        if (scoreDelta) {
+          P.scorePop(jx, jy, '+' + scoreDelta, { kind: 'score' });
+        }
+        setTimeout(() => {
+          P.scorePop(jx, jy, 'BONUS', {
+            kind: 'judge',
+            judgment: 'GOOD'
+          });
+        }, smallDelay());
       }
 
       emitGameEvent({
@@ -754,18 +772,22 @@ export const GameEngine = (function () {
 
       const P = getParticles();
       if (P) {
-        P.burstAt(sx, sy, {
+        const jx = sx + jitter();
+        const jy = sy + jitter();
+        P.burstAt(jx, jy, {
           color: '#38bdf8',
           count: 16,
           radius: 70
         });
-        P.scorePop(sx, sy, '+' + scoreDelta, {
-          kind: 'score'
-        });
-        P.scorePop(sx, sy, 'BONUS', {
-          kind: 'judge',
-          judgment: 'GOOD'
-        });
+        if (scoreDelta) {
+          P.scorePop(jx, jy, '+' + scoreDelta, { kind: 'score' });
+        }
+        setTimeout(() => {
+          P.scorePop(jx, jy, 'BONUS', {
+            kind: 'judge',
+            judgment: 'GOOD'
+          });
+        }, smallDelay());
       }
 
       emitGameEvent({
@@ -836,15 +858,19 @@ export const GameEngine = (function () {
 
         const P = getParticles();
         if (P) {
-          P.burstAt(sx, sy, {
+          const jx = sx + jitter();
+          const jy = sy + jitter();
+          P.burstAt(jx, jy, {
             color: '#60a5fa',
             count: 10,
             radius: 40
           });
-          P.scorePop(sx, sy, 'BLOCK', {
-            kind: 'judge',
-            judgment: 'BLOCK'
-          });
+          setTimeout(() => {
+            P.scorePop(jx, jy, 'BLOCK', {
+              kind: 'judge',
+              judgment: 'BLOCK'
+            });
+          }, smallDelay());
         }
 
         emitGameEvent({
@@ -900,24 +926,27 @@ export const GameEngine = (function () {
 
       const goodFlag = kind === 'good';
 
-      P.burstAt(sx, sy, {
+      const jx = sx + jitter();
+      const jy = sy + jitter();
+
+      P.burstAt(jx, jy, {
         color,
         count: goodFlag ? 14 : 10,
         radius: goodFlag ? 60 : 50
       });
 
+      // เด้งคะแนนก่อน แล้วค่อยเด้งคำตัดสินตามหลังนิดหน่อย
       if (scoreDelta) {
-        const text =
-          scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
-        P.scorePop(sx, sy, text, {
-          kind: 'score'
-        });
+        const text = scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
+        P.scorePop(jx, jy, text, { kind: 'score' });
       }
 
-      P.scorePop(sx, sy, jUpper, {
-        kind: 'judge',
-        judgment: jUpper
-      });
+      setTimeout(() => {
+        P.scorePop(jx, jy, jUpper, {
+          kind: 'judge',
+          judgment: jUpper
+        });
+      }, smallDelay());
     }
 
     // event log (good / junk ปกติ)
@@ -974,15 +1003,19 @@ export const GameEngine = (function () {
 
       const P = getParticles();
       if (P) {
-        P.burstAt(sx, sy, {
+        const jx = sx + jitter();
+        const jy = sy + jitter();
+        P.burstAt(jx, jy, {
           color: '#f97316',
           count: 10,
           radius: 45
         });
-        P.scorePop(sx, sy, 'MISS', {
-          kind: 'judge',
-          judgment: 'MISS'
-        });
+        setTimeout(() => {
+          P.scorePop(jx, jy, 'MISS', {
+            kind: 'judge',
+            judgment: 'MISS'
+          });
+        }, smallDelay());
       }
 
       emitGameEvent({
@@ -1266,6 +1299,7 @@ export const GameEngine = (function () {
     running = false;
 
     clearInterval(spawnTimer);
+    spawnTimer = null;
     if (feverTimer) clearTimeout(feverTimer);
     endFever();
 
@@ -1278,3 +1312,8 @@ export const GameEngine = (function () {
 
   return { start, stop };
 })();
+
+// เผื่อในอนาคตมีการเรียกแบบ window.GameEngine จากสคริปต์ non-module
+if (typeof window !== 'undefined') {
+  window.GameEngine = GameEngine;
+}
