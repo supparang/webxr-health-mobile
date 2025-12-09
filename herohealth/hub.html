@@ -681,230 +681,249 @@
     </footer>
   </div>
 
-  <script>
-    // ===== Helper: BMI =====
-    function computeBmi(hCm, wKg){
-      const h = Number(hCm) / 100;
-      const w = Number(wKg);
-      if (!h || !w || h <= 0) return null;
-      const bmi = w / (h*h);
-      if (!Number.isFinite(bmi)) return null;
-      return Math.round(bmi*10)/10;
+<script>
+  // ===== Storage key ให้ตรงกับทุกเกม (VR Fitness / VR Nutrition) =====
+  const KEY_PROFILE_NEW = 'hhaStudentProfile';     // ที่ goodjunk-vr ใช้อ่าน
+  const KEY_KEY_NEW     = 'hhaStudentKey';
+
+  const KEY_PROFILE_OLD = 'HHA_STUDENT_PROFILE';   // เผื่อไฟล์เก่า
+  const KEY_KEY_OLD     = 'HHA_STUDENT_KEY';
+
+  // ===== Helper: BMI =====
+  function computeBmi(hCm, wKg){
+    const h = Number(hCm) / 100;
+    const w = Number(wKg);
+    if (!h || !w || h <= 0) return null;
+    const bmi = w / (h*h);
+    if (!Number.isFinite(bmi)) return null;
+    return Math.round(bmi*10)/10;
+  }
+
+  function bmiGroup(bmi){
+    if (bmi == null) return '';
+    if (bmi < 18.5) return 'underweight';
+    if (bmi < 23)   return 'normal';
+    if (bmi < 25)   return 'overweight';
+    return 'obese';
+  }
+
+  function makeStudentKey(p){
+    const schoolCode = (p.schoolCode || 'SC').replace(/\s+/g,'');
+    const classRoom  = (p.classRoom  || 'C').replace(/\s+/g,'');
+    const studentNo  = (p.studentNo  || '00').replace(/\s+/g,'');
+    return `${schoolCode}-${classRoom}-${studentNo}`;
+  }
+
+  // ===== Storage helpers (รองรับทั้ง key ใหม่ + เก่า) =====
+  function loadProfileFromStorage(){
+    try{
+      let raw = sessionStorage.getItem(KEY_PROFILE_NEW);
+      if (!raw) raw = sessionStorage.getItem(KEY_PROFILE_OLD);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    }catch(e){
+      return null;
+    }
+  }
+
+  function saveProfileToStorage(profile){
+    try{
+      const json = JSON.stringify(profile);
+      // เซ็ตทั้งคู่ เพื่อให้ทุกหน้าอ่านได้
+      sessionStorage.setItem(KEY_PROFILE_NEW, json);
+      sessionStorage.setItem(KEY_KEY_NEW, profile.studentKey || '');
+
+      sessionStorage.setItem(KEY_PROFILE_OLD, json);
+      sessionStorage.setItem(KEY_KEY_OLD, profile.studentKey || '');
+    }catch(e){
+      console.warn('Cannot save profile to storage', e);
+    }
+  }
+
+  function clearProfileStorage(){
+    try{
+      sessionStorage.removeItem(KEY_PROFILE_NEW);
+      sessionStorage.removeItem(KEY_KEY_NEW);
+      sessionStorage.removeItem(KEY_PROFILE_OLD);
+      sessionStorage.removeItem(KEY_KEY_OLD);
+    }catch(e){}
+  }
+
+  function fillProfileForm(profile){
+    if (!profile) return;
+    document.getElementById('pf-schoolCode').value = profile.schoolCode || '';
+    document.getElementById('pf-schoolName').value = profile.schoolName || '';
+    document.getElementById('pf-classRoom').value  = profile.classRoom || '';
+    document.getElementById('pf-studentNo').value  = profile.studentNo || '';
+    document.getElementById('pf-nickName').value   = profile.nickName || '';
+    document.getElementById('pf-gender').value     = profile.gender || '';
+    document.getElementById('pf-age').value        = profile.age || '';
+    document.getElementById('pf-gradeLevel').value = profile.gradeLevel || '';
+    document.getElementById('pf-heightCm').value   = profile.heightCm || '';
+    document.getElementById('pf-weightKg').value   = profile.weightKg || '';
+    document.getElementById('pf-vrExperience').value = profile.vrExperience || '';
+    document.getElementById('pf-gameFrequency').value = profile.gameFrequency || '';
+    document.getElementById('pf-handedness').value = profile.handedness || '';
+    document.getElementById('pf-visionIssue').value = profile.visionIssue || '';
+    document.getElementById('pf-healthDetail').value = profile.healthDetail || '';
+    document.getElementById('pf-consentParent').value = profile.consentParent || '';
+    document.getElementById('pf-consentTeacher').value = profile.consentTeacher || '';
+
+    const bmi = profile.bmi;
+    document.getElementById('pf-bmi').value = bmi || '';
+    const group = profile.bmiGroup || '';
+    const hint = document.getElementById('pf-bmiGroup-hint');
+    hint.textContent = group ? ('กลุ่ม BMI: ' + group) : 'กลุ่ม BMI: -';
+
+    const status = document.getElementById('profile-status');
+    if (profile.studentKey){
+      status.textContent = 'โหลดโปรไฟล์แล้ว • studentKey = ' + profile.studentKey;
+      status.classList.remove('warn');
+      status.classList.add('ok');
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const statusEl = document.getElementById('profile-status');
+
+    // auto load profile if exists
+    let loaded = loadProfileFromStorage();
+    if (loaded){
+      fillProfileForm(loaded);
     }
 
-    function bmiGroup(bmi){
-      if (bmi == null) return '';
-      if (bmi < 18.5) return 'underweight';
-      if (bmi < 23)   return 'normal';
-      if (bmi < 25)   return 'overweight';
-      return 'obese';
-    }
-
-    function makeStudentKey(p){
-      const schoolCode = (p.schoolCode || 'SC').replace(/\s+/g,'');
-      const classRoom  = (p.classRoom  || 'C').replace(/\s+/g,'');
-      const studentNo  = (p.studentNo  || '00').replace(/\s+/g,'');
-      return `${schoolCode}-${classRoom}-${studentNo}`;
-    }
-
-    function loadProfileFromStorage(){
-      try{
-        const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
-        if (!raw) return null;
-        return JSON.parse(raw);
-      }catch(e){
-        return null;
-      }
-    }
-
-    function saveProfileToStorage(profile){
-      try{
-        sessionStorage.setItem('HHA_STUDENT_KEY', profile.studentKey || '');
-        sessionStorage.setItem('HHA_STUDENT_PROFILE', JSON.stringify(profile));
-      }catch(e){
-        console.warn('Cannot save profile to storage', e);
-      }
-    }
-
-    function clearProfileStorage(){
-      try{
-        sessionStorage.removeItem('HHA_STUDENT_KEY');
-        sessionStorage.removeItem('HHA_STUDENT_PROFILE');
-      }catch(e){}
-    }
-
-    function fillProfileForm(profile){
-      if (!profile) return;
-      document.getElementById('pf-schoolCode').value = profile.schoolCode || '';
-      document.getElementById('pf-schoolName').value = profile.schoolName || '';
-      document.getElementById('pf-classRoom').value  = profile.classRoom || '';
-      document.getElementById('pf-studentNo').value  = profile.studentNo || '';
-      document.getElementById('pf-nickName').value   = profile.nickName || '';
-      document.getElementById('pf-gender').value     = profile.gender || '';
-      document.getElementById('pf-age').value        = profile.age || '';
-      document.getElementById('pf-gradeLevel').value = profile.gradeLevel || '';
-      document.getElementById('pf-heightCm').value   = profile.heightCm || '';
-      document.getElementById('pf-weightKg').value   = profile.weightKg || '';
-      document.getElementById('pf-vrExperience').value = profile.vrExperience || '';
-      document.getElementById('pf-gameFrequency').value = profile.gameFrequency || '';
-      document.getElementById('pf-handedness').value = profile.handedness || '';
-      document.getElementById('pf-visionIssue').value = profile.visionIssue || '';
-      document.getElementById('pf-healthDetail').value = profile.healthDetail || '';
-      document.getElementById('pf-consentParent').value = profile.consentParent || '';
-      document.getElementById('pf-consentTeacher').value = profile.consentTeacher || '';
-
-      const bmi = profile.bmi;
-      document.getElementById('pf-bmi').value = bmi || '';
-      const group = profile.bmiGroup || '';
+    function recomputeBmiFromInputs(){
+      const h = document.getElementById('pf-heightCm').value;
+      const w = document.getElementById('pf-weightKg').value;
+      const bmi = computeBmi(h, w);
+      const bmiField = document.getElementById('pf-bmi');
       const hint = document.getElementById('pf-bmiGroup-hint');
-      hint.textContent = group ? ('กลุ่ม BMI: ' + group) : 'กลุ่ม BMI: -';
-
-      const status = document.getElementById('profile-status');
-      if (profile.studentKey){
-        status.textContent = 'โหลดโปรไฟล์แล้ว • studentKey = ' + profile.studentKey;
-        status.classList.remove('warn');
-        status.classList.add('ok');
+      if (bmi == null){
+        bmiField.value = '';
+        hint.textContent = 'กลุ่ม BMI: -';
+      }else{
+        bmiField.value = bmi;
+        const g = bmiGroup(bmi);
+        hint.textContent = 'กลุ่ม BMI: ' + (g || '-');
       }
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      const statusEl = document.getElementById('profile-status');
+    document.getElementById('pf-heightCm').addEventListener('input', recomputeBmiFromInputs);
+    document.getElementById('pf-weightKg').addEventListener('input', recomputeBmiFromInputs);
 
-      // auto load profile if exists
-      const loaded = loadProfileFromStorage();
-      if (loaded){
-        fillProfileForm(loaded);
+    // Save profile
+    document.getElementById('btn-save-profile').addEventListener('click', () => {
+      const profile = {
+        schoolCode: document.getElementById('pf-schoolCode').value.trim(),
+        schoolName: document.getElementById('pf-schoolName').value.trim(),
+        classRoom:  document.getElementById('pf-classRoom').value.trim(),
+        studentNo:  document.getElementById('pf-studentNo').value.trim(),
+        nickName:   document.getElementById('pf-nickName').value.trim(),
+        gender:     document.getElementById('pf-gender').value,
+        age:        document.getElementById('pf-age').value,
+        gradeLevel: document.getElementById('pf-gradeLevel').value.trim(),
+        heightCm:   document.getElementById('pf-heightCm').value,
+        weightKg:   document.getElementById('pf-weightKg').value,
+        vrExperience: document.getElementById('pf-vrExperience').value,
+        gameFrequency: document.getElementById('pf-gameFrequency').value,
+        handedness: document.getElementById('pf-handedness').value,
+        visionIssue: document.getElementById('pf-visionIssue').value,
+        healthDetail: document.getElementById('pf-healthDetail').value.trim(),
+        consentParent: document.getElementById('pf-consentParent').value,
+        consentTeacher: document.getElementById('pf-consentTeacher').value,
+        source: 'VR-Nutrition-Hub'
+      };
+
+      // require minimal fields
+      if (!profile.schoolCode || !profile.classRoom || !profile.studentNo || !profile.nickName){
+        alert('กรุณากรอก รหัสโรงเรียน / ชั้นห้อง / เลขที่ / ชื่อเล่น ให้ครบก่อน');
+        statusEl.textContent = 'ข้อมูลยังไม่ครบ กรุณากรอกที่มี * ให้ครบแล้วกดบันทึกอีกครั้ง';
+        statusEl.classList.remove('ok');
+        statusEl.classList.add('warn');
+        return;
       }
 
-      function recomputeBmiFromInputs(){
-        const h = document.getElementById('pf-heightCm').value;
-        const w = document.getElementById('pf-weightKg').value;
-        const bmi = computeBmi(h, w);
-        const bmiField = document.getElementById('pf-bmi');
-        const hint = document.getElementById('pf-bmiGroup-hint');
-        if (bmi == null){
-          bmiField.value = '';
-          hint.textContent = 'กลุ่ม BMI: -';
-        }else{
-          bmiField.value = bmi;
-          const g = bmiGroup(bmi);
-          hint.textContent = 'กลุ่ม BMI: ' + (g || '-');
-        }
+      const h = profile.heightCm;
+      const w = profile.weightKg;
+      const bmi = computeBmi(h, w);
+      if (bmi != null){
+        profile.bmi = bmi;
+        profile.bmiGroup = bmiGroup(bmi);
       }
 
-      document.getElementById('pf-heightCm').addEventListener('input', recomputeBmiFromInputs);
-      document.getElementById('pf-weightKg').addEventListener('input', recomputeBmiFromInputs);
+      const studentKey = makeStudentKey(profile);
+      profile.studentKey = studentKey;
 
-      // Save profile
-      document.getElementById('btn-save-profile').addEventListener('click', () => {
-        const profile = {
-          schoolCode: document.getElementById('pf-schoolCode').value.trim(),
-          schoolName: document.getElementById('pf-schoolName').value.trim(),
-          classRoom:  document.getElementById('pf-classRoom').value.trim(),
-          studentNo:  document.getElementById('pf-studentNo').value.trim(),
-          nickName:   document.getElementById('pf-nickName').value.trim(),
-          gender:     document.getElementById('pf-gender').value,
-          age:        document.getElementById('pf-age').value,
-          gradeLevel: document.getElementById('pf-gradeLevel').value.trim(),
-          heightCm:   document.getElementById('pf-heightCm').value,
-          weightKg:   document.getElementById('pf-weightKg').value,
-          vrExperience: document.getElementById('pf-vrExperience').value,
-          gameFrequency: document.getElementById('pf-gameFrequency').value,
-          handedness: document.getElementById('pf-handedness').value,
-          visionIssue: document.getElementById('pf-visionIssue').value,
-          healthDetail: document.getElementById('pf-healthDetail').value.trim(),
-          consentParent: document.getElementById('pf-consentParent').value,
-          consentTeacher: document.getElementById('pf-consentTeacher').value,
-          source: 'VR-Nutrition-Hub'
-        };
+      // เวลา client
+      const nowIso = new Date().toISOString();
+      profile.updatedAt = nowIso;
+      if (!loaded || !loaded.createdAt){
+        profile.createdAt = nowIso;
+      }else{
+        profile.createdAt = loaded.createdAt;
+      }
 
-        // require minimal fields
-        if (!profile.schoolCode || !profile.classRoom || !profile.studentNo || !profile.nickName){
-          alert('กรุณากรอก รหัสโรงเรียน / ชั้นห้อง / เลขที่ / ชื่อเล่น ให้ครบก่อน');
-          statusEl.textContent = 'ข้อมูลยังไม่ครบ กรุณากรอกที่มี * ให้ครบแล้วกดบันทึกอีกครั้ง';
+      saveProfileToStorage(profile);
+      loaded = profile; // อัปเดตตัวแปร loaded ให้เป็นค่าใหม่
+      fillProfileForm(profile);
+
+      statusEl.textContent = 'บันทึกโปรไฟล์แล้ว • studentKey = ' + studentKey;
+      statusEl.classList.remove('ok'); // reset ก่อน
+      statusEl.classList.add('ok');
+    });
+
+    // Clear profile
+    document.getElementById('btn-clear-profile').addEventListener('click', () => {
+      if (!confirm('ต้องการล้างข้อมูลโปรไฟล์บนเครื่องนี้ทั้งหมดหรือไม่?')) return;
+      clearProfileStorage();
+      document.getElementById('profile-form').reset();
+      document.getElementById('pf-bmi').value = '';
+      document.getElementById('pf-bmiGroup-hint').textContent = 'กลุ่ม BMI: -';
+      loaded = null;
+      statusEl.textContent = 'ล้างข้อมูลแล้ว • กรุณากรอกใหม่ก่อนเริ่มเล่นเกม';
+      statusEl.classList.remove('ok');
+      statusEl.classList.add('warn');
+    });
+
+    // Start game buttons (4 games) — ส่ง diff + time + run=research
+    document.querySelectorAll('.game-start').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const profile = loadProfileFromStorage();
+        if (!profile || !profile.studentKey){
+          alert('กรุณากด "บันทึกโปรไฟล์นักเรียน" ก่อนเริ่มเล่นเกม');
+          statusEl.textContent = 'ยังไม่พบ studentKey • กรุณาบันทึกโปรไฟล์ก่อน';
           statusEl.classList.remove('ok');
           statusEl.classList.add('warn');
           return;
         }
 
-        const h = profile.heightCm;
-        const w = profile.weightKg;
-        const bmi = computeBmi(h, w);
-        if (bmi != null){
-          profile.bmi = bmi;
-          profile.bmiGroup = bmiGroup(bmi);
+        const card = btn.closest('.game-card');
+        if (!card) return;
+
+        const diffSel = card.querySelector('.game-diff');
+        const diff = diffSel ? diffSel.value : 'normal';
+
+        const ds = card.dataset;
+        let dur = 60;
+        if (diff === 'easy'  && ds.timeEasy)   dur = parseInt(ds.timeEasy,10);
+        if (diff === 'normal'&& ds.timeNormal) dur = parseInt(ds.timeNormal,10);
+        if (diff === 'hard'  && ds.timeHard)   dur = parseInt(ds.timeHard,10);
+        if (!Number.isFinite(dur) || dur <= 0) dur = 60;
+
+        const gamePath = card.dataset.game || '';
+        if (!gamePath){
+          alert('ไม่พบพาธไฟล์เกม กรุณาตรวจสอบ data-game ใน hub.html');
+          return;
         }
 
-        const studentKey = makeStudentKey(profile);
-        profile.studentKey = studentKey;
+        const runMode = 'research'; // Hub นี้ตั้งใจใช้โหมดวิจัย
 
-        // เวลา client
-        const nowIso = new Date().toISOString();
-        profile.updatedAt = nowIso;
-        if (!loaded || !loaded.createdAt){
-          profile.createdAt = nowIso;
-        }else{
-          profile.createdAt = loaded.createdAt;
-        }
-
-        saveProfileToStorage(profile);
-        fillProfileForm(profile);
-
-        statusEl.textContent = 'บันทึกโปรไฟล์แล้ว • studentKey = ' + studentKey;
-        statusEl.classList.remove('warn');
-        statusEl.classList.add('ok');
-      });
-
-      // Clear profile
-      document.getElementById('btn-clear-profile').addEventListener('click', () => {
-        if (!confirm('ต้องการล้างข้อมูลโปรไฟล์บนเครื่องนี้ทั้งหมดหรือไม่?')) return;
-        clearProfileStorage();
-        document.getElementById('profile-form').reset();
-        document.getElementById('pf-bmi').value = '';
-        document.getElementById('pf-bmiGroup-hint').textContent = 'กลุ่ม BMI: -';
-        statusEl.textContent = 'ล้างข้อมูลแล้ว • กรุณากรอกใหม่ก่อนเริ่มเล่นเกม';
-        statusEl.classList.remove('ok');
-        statusEl.classList.add('warn');
-      });
-
-      // Start game buttons (4 games)
-      document.querySelectorAll('.game-start').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const profile = loadProfileFromStorage();
-          if (!profile || !profile.studentKey){
-            alert('กรุณากด "บันทึกโปรไฟล์นักเรียน" ก่อนเริ่มเล่นเกม');
-            statusEl.textContent = 'ยังไม่พบ studentKey • กรุณาบันทึกโปรไฟล์ก่อน';
-            statusEl.classList.remove('ok');
-            statusEl.classList.add('warn');
-            return;
-          }
-
-          const card = btn.closest('.game-card');
-          if (!card) return;
-
-          const diffSel = card.querySelector('.game-diff');
-          const diff = diffSel ? diffSel.value : 'normal';
-
-          const timeKey = 'time' + diff.charAt(0).toUpperCase() + diff.slice(1); // timeEasy / timeNormal / timeHard
-          const ds = card.dataset;
-          let dur = 60;
-          if (diff === 'easy'  && ds.timeEasy)   dur = parseInt(ds.timeEasy,10);
-          if (diff === 'normal'&& ds.timeNormal) dur = parseInt(ds.timeNormal,10);
-          if (diff === 'hard'  && ds.timeHard)   dur = parseInt(ds.timeHard,10);
-          if (!Number.isFinite(dur) || dur <= 0) dur = 60;
-
-          const gamePath = card.dataset.game || '';
-          if (!gamePath){
-            alert('ไม่พบพาธไฟล์เกม กรุณาตรวจสอบ data-game ใน hub.html');
-            return;
-          }
-
-          // forward ไปหน้าเกม พร้อม diff + time; หน้าเกมจะไปเรียก initCloudLogger() ต่อ
-          const url = `${gamePath}?diff=${encodeURIComponent(diff)}&time=${dur}`;
-          window.location.href = url;
-        });
+        // forward ไปหน้าเกม พร้อม diff + time + run; หน้าเกมจะไปเรียก initCloudLogger() ต่อ
+        const url = `${gamePath}?diff=${encodeURIComponent(diff)}&time=${dur}&run=${encodeURIComponent(runMode)}`;
+        window.location.href = url;
       });
     });
-  </script>
+  });
+</script>
 </body>
 </html>
