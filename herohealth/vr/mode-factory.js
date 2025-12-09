@@ -1,410 +1,286 @@
 // === /herohealth/vr/mode-factory.js ===
-// Generic VR target spawner + shared timer (hha:time)
+// Generic target spawner for Hero Health VR (Hydration VR ฯลฯ)
+// - ใช้กับ A-Frame (VR) ได้ และ fallback เป็น DOM ได้
+// - อ่านค่าความยากจาก HHA_DIFF_TABLE ถ้ามี
+// - เรียก cfg.judge(ch, ctx) ทุกครั้งที่ผู้เล่นตีเป้าโดน
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+const A = ROOT.AFRAME || null;
 
-// --------------------------------------------------
-//  Helper: อ่าน config จาก HHA_DIFF_TABLE (ถ้ามี)
-// --------------------------------------------------
-function pickEngineConfig(modeKey, diffKey) {
-  const safe = {
-    SPAWN_INTERVAL: 900,
-    ITEM_LIFETIME: 2200,
+// -------------------------------------------------------
+// 1) เลือก config ด้าน engine ตาม diff + modeKey
+// -------------------------------------------------------
+function pickEngineConfig(cfg) {
+  const diff = String(cfg.difficulty || 'normal').toLowerCase();
+  const modeKey = cfg.modeKey || 'hydration';
+
+  const base = {
+    SPAWN_INTERVAL: 900,   // ms
+    ITEM_LIFETIME: 2400,   // ms
     MAX_ACTIVE: 4,
-    SIZE_FACTOR: 1.0
+    SIZE_FACTOR: 1.0,
+    TYPE_WEIGHTS: { good: 70, bad: 30 }
   };
 
   try {
-    const table = ROOT.HHA_DIFF_TABLE;
-    if (!table) return safe;
+    const table = ROOT.HHA_DIFF_TABLE && ROOT.HHA_DIFF_TABLE[modeKey];
+    const row   = table && table[diff];
+    const eng   = row && row.engine;
+    if (!eng) return base;
 
-    const mode = table[modeKey];
-    if (!mode) return safe;
-
-    const diff = mode[diffKey];
-    if (!diff || !diff.engine) return safe;
-
-    const eng = diff.engine;
     return {
-      SPAWN_INTERVAL: Number(eng.SPAWN_INTERVAL) || safe.SPAWN_INTERVAL,
-      ITEM_LIFETIME: Number(eng.ITEM_LIFETIME) || safe.ITEM_LIFETIME,
-      MAX_ACTIVE: Number(eng.MAX_ACTIVE) || safe.MAX_ACTIVE,
-      SIZE_FACTOR: Number(eng.SIZE_FACTOR) || safe.SIZE_FACTOR
+      SPAWN_INTERVAL: eng.SPAWN_INTERVAL ?? base.SPAWN_INTERVAL,
+      ITEM_LIFETIME:  eng.ITEM_LIFETIME  ?? base.ITEM_LIFETIME,
+      MAX_ACTIVE:     eng.MAX_ACTIVE     ?? base.MAX_ACTIVE,
+      SIZE_FACTOR:    eng.SIZE_FACTOR    ?? base.SIZE_FACTOR,
+      TYPE_WEIGHTS:   eng.TYPE_WEIGHTS   || base.TYPE_WEIGHTS
     };
   } catch (err) {
-    console.warn('[HHA] pickEngineConfig error:', err);
-    return safe;
+    console.warn('[HHA mode-factory] pickEngineConfig error', err);
+    return base;
   }
 }
 
-// --------------------------------------------------
-//  หา root สำหรับวางเป้า (ผูกกับกล้อง)
-// --------------------------------------------------
-function ensureVrRoot() {
-  const scene = document.querySelector('a-scene');
-  if (!scene) {
-    console.warn('[HHA] No <a-scene> found');
-    return null;
+// -------------------------------------------------------
+// 2) random ตาม weight + เลือก emoji จริง
+// -------------------------------------------------------
+function pickFromWeights(weights, fallbackList, rnd = Math.random) {
+  if (!weights) {
+    const list = fallbackList || [];
+    if (!list.length) return null;
+    return list[Math.floor(rnd() * list.length)];
   }
+  let total = 0;
+  for (const k in weights) total += Math.max(0, Number(weights[k]) || 0);
+  if (total <= 0) return null;
 
-  let cam =
-    scene.querySelector('[camera]') ||
-    scene.querySelector('#cameraRig') ||
-    scene.querySelector('a-entity[camera]');
-
-  if (!cam) {
-    console.warn('[HHA] No camera found in scene');
-    return null;
+  let r = rnd() * total;
+  for (const k in weights) {
+    const w = Math.max(0, Number(weights[k]) || 0);
+    if (!w) continue;
+    if (r < w) return k;
+    r -= w;
   }
-
-  let root = cam.querySelector('.hha-vr-root');
-  if (!root) {
-    root = document.createElement('a-entity');
-    root.classList.add('hha-vr-root');
-    root.setAttribute('position', '0 0 0');
-    cam.appendChild(root);
-  }
-  return root;
+  return null;
 }
 
-// --------------------------------------------------
-//  วาด emoji ลง canvas → dataURL
-// --------------------------------------------------
-function makeEmojiTexture(ch, sizePx = 256) {
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = sizePx;
-    canvas.height = sizePx;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    ctx.clearRect(0, 0, sizePx, sizePx);
-    ctx.fillStyle = 'rgba(0,0,0,0)';
-    ctx.fillRect(0, 0, sizePx, sizePx);
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = `${sizePx * 0.72}px system-ui, "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(ch, sizePx / 2, sizePx / 2);
-
-    return canvas.toDataURL('image/png');
-  } catch (err) {
-    console.warn('[HHA] makeEmojiTexture error:', err);
-    return null;
+// type key -> actual char (ใช้ pools จาก cfg)
+function pickCharForType(type, cfg) {
+  const pools = cfg.pools || {};
+  if (type === 'good') {
+    const arr = pools.good || [];
+    if (!arr.length) return null;
+    return arr[Math.floor(Math.random() * arr.length)];
   }
-}
-
-// --------------------------------------------------
-//  สร้างเป้า VR (emoji ชัด ๆ)
-// --------------------------------------------------
-function createVrTarget(root, targetCfg, handlers = {}) {
-  const {
-    ch,
-    lifeMs,
-    isGood,
-    sizeFactor = 1.0
-  } = targetCfg;
-
-  const { onHit, onExpire } = handlers;
-  if (!root || !ch) return null;
-
-  const holder = document.createElement('a-entity');
-  holder.classList.add('hha-target-vr');
-
-  // ===== แผ่นพื้นหลังเบา ๆ =====
-  const baseSize = 0.9 * sizeFactor;
-  const bg = document.createElement('a-plane');
-  bg.setAttribute('width', baseSize);
-  bg.setAttribute('height', baseSize);
-  bg.setAttribute(
-    'material',
-    [
-      'color: #020617',
-      'transparent: true',
-      'opacity: 0.28',
-      'side: double'
-    ].join('; ')
-  );
-  holder.appendChild(bg);
-
-  // ===== emoji เป็น texture =====
-  const texUrl = makeEmojiTexture(ch, 256);
-  if (texUrl) {
-    const img = document.createElement('a-image');
-    img.setAttribute('src', texUrl);
-    img.setAttribute('width', baseSize * 0.92);
-    img.setAttribute('height', baseSize * 0.92);
-    img.setAttribute('position', '0 0 0.01');
-    img.setAttribute(
-      'material',
-      [
-        'transparent: true',
-        'alphaTest: 0.01',
-        'side: double'
-      ].join('; ')
-    );
-    holder.appendChild(img);
+  if (type === 'bad' || type === 'junk') {
+    const arr = pools.bad || [];
+    if (!arr.length) return null;
+    return arr[Math.floor(Math.random() * arr.length)];
   }
-
-  // ===== ตำแหน่งหน้า player =====
-  const x = -0.8 + Math.random() * 1.6;  // กึ่งกลางหน้ากล้อง
-  const y = -0.25 + Math.random() * 0.9;
-  const z = -1.6;                         // ใกล้ขึ้นให้เห็นชัด
-
-  holder.setAttribute('position', `${x} ${y} ${z}`);
-  // ❌ ไม่ต้องหัน 180 แล้ว เดี๋ยวหันหลังให้กล้อง
-  // holder.setAttribute('rotation', '0 180 0');
-
-  root.appendChild(holder);
-
-  let killed = false;
-  const bornAt = performance.now();
-
-  const cleanup = (reason) => {
-    if (killed) return;
-    killed = true;
-    if (holder.parentNode) holder.parentNode.removeChild(holder);
-
-    if (reason === 'expire' && typeof onExpire === 'function') {
-      try {
-        onExpire({ ch, isGood, bornAt, lifeMs });
-      } catch (err) {
-        console.warn('[HHA] onExpire error:', err);
-      }
-    }
-  };
-
-  // === hit (คลิก / tap / raycaster) ===
-  const handleHit = () => {
-    if (killed) return;
-
-    const cx = window.innerWidth / 2;
-    const cy = window.innerHeight / 2;
-    const ctx = { clientX: cx, clientY: cy, cx, cy };
-
-    if (typeof onHit === 'function') {
-      try {
-        onHit({ ch, isGood, ctx, kill: () => cleanup('hit') });
-      } catch (err) {
-        console.warn('[HHA] onHit error:', err);
-      }
-    } else {
-      cleanup('hit');
-    }
-  };
-
-  holder.addEventListener('click', handleHit);
-
-  const ttl = Number(lifeMs) > 0 ? Number(lifeMs) : 2200;
-  const timeoutId = setTimeout(() => {
-    cleanup('expire');
-  }, ttl);
-
-  return {
-    el: holder,
-    ch,
-    isGood,
-    kill: () => {
-      clearTimeout(timeoutId);
-      cleanup('manual');
-    }
-  };
-}
-
-// --------------------------------------------------
-//  random เลือก emoji ตาม good / bad / power-ups
-// --------------------------------------------------
-function pickChar(pools, goodRate, powerups, powerRate, powerEvery, spawnCount) {
-  const good = pools.good || [];
-  const bad  = pools.bad  || [];
-
-  const hasPower = Array.isArray(powerups) && powerups.length > 0;
-
-  if (
-    hasPower &&
-    powerEvery > 0 &&
-    spawnCount > 0 &&
-    spawnCount % powerEvery === 0 &&
-    Math.random() < powerRate
-  ) {
-    const idx = Math.floor(Math.random() * powerups.length);
-    return { ch: powerups[idx], isGood: true, isPower: true };
-  }
-
-  const r = Math.random();
-  if (r < goodRate && good.length > 0) {
-    const idx = Math.floor(Math.random() * good.length);
-    return { ch: good[idx], isGood: true, isPower: false };
-  }
-
-  if (bad.length > 0) {
-    const idx = Math.floor(Math.random() * bad.length);
-    return { ch: bad[idx], isGood: false, isPower: false };
-  }
-
-  if (good.length > 0) {
-    const idx = Math.floor(Math.random() * good.length);
-    return { ch: good[idx], isGood: true, isPower: false };
-  }
-
-  return { ch: '❓', isGood: false, isPower: false };
-}
-
-// --------------------------------------------------
-//  boot(cfg) — entry หลัก
-// --------------------------------------------------
-export async function boot(cfg = {}) {
-  const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
-  const diff =
-    diffRaw === 'easy' || diffRaw === 'hard' || diffRaw === 'normal'
-      ? diffRaw
-      : 'normal';
-
-  let dur = Number(cfg.duration || 60);
-  if (!Number.isFinite(dur) || dur <= 0) dur = 60;
-  if (dur < 20) dur = 20;
-  if (dur > 180) dur = 180;
-
-  const modeKey = String(cfg.modeKey || 'generic').toLowerCase();
-
-  const pools = cfg.pools || { good: [], bad: [] };
-  const goodRate = Number(cfg.goodRate ?? 0.7);
   const powerups = cfg.powerups || [];
-  const powerRate = Number(cfg.powerRate ?? 0.12);
-  const powerEvery = Number(cfg.powerEvery ?? 6);
+  if (!powerups.length) return null;
+  return powerups[Math.floor(Math.random() * powerups.length)];
+}
 
-  const judgeFn = typeof cfg.judge === 'function' ? cfg.judge : null;
-  const onExpireFn =
-    typeof cfg.onExpire === 'function' ? cfg.onExpire : () => {};
+// -------------------------------------------------------
+// 3) สร้างเป้าแบบ VR (A-Frame entity)
+// -------------------------------------------------------
+function createVrTarget(sceneEl, ch, cfg, engineCfg) {
+  const goodPool = cfg.pools?.good || [];
+  const badPool  = cfg.pools?.bad  || [];
 
-  const vrRoot = ensureVrRoot();
-  if (!vrRoot) {
-    console.error('[HHA] VR root not found — abort boot');
-    return { stop() {} };
+  const sizeBase = 0.9; // หน่วยเป็นเมตร
+  const size = sizeBase * (engineCfg.SIZE_FACTOR || 1.0);
+
+  const el = document.createElement('a-entity');
+  el.classList.add('hha-target-vr');
+  el.setAttribute('data-hha-tgt', '1');
+  el.setAttribute('data-char', ch);
+
+  // ตำแหน่งสุ่มด้านหน้า player
+  const x = (Math.random() * 2 - 1) * 1.4;   // -1.4..1.4
+  const y = 1.4 + (Math.random() * 0.8 - 0.4);
+  const z = -3.0;
+  el.setAttribute('position', `${x} ${y} ${z}`);
+
+  // ทำ plane + emoji text ให้เห็นใน VR ชัด ๆ
+  el.setAttribute('geometry',
+    `primitive: plane; width: ${size}; height: ${size}`);
+  el.setAttribute(
+    'material',
+    'shader: flat; color: #ffffff; transparent: true; opacity: 0.0'
+  );
+  el.setAttribute('text', {
+    value: ch,
+    align: 'center',
+    color: '#ffffff',
+    width: 4,
+    baseline: 'center',
+  });
+
+  // เงาด้านหลังนิดหน่อย (optional)
+  const plate = document.createElement('a-plane');
+  plate.setAttribute('width', size * 1.08);
+  plate.setAttribute('height', size * 1.08);
+  plate.setAttribute('position', '0 0 -0.01');
+  plate.setAttribute(
+    'material',
+    'color: #020617; opacity: 0.0; shader: flat'
+  );
+  el.appendChild(plate);
+
+  // === คลิกแล้วเรียก judge() ===
+  const judgeFn = cfg.judge || (() => {});
+  el.addEventListener('click', (ev) => {
+    const intersection = ev.detail && ev.detail.intersection;
+    const p = intersection && intersection.point;
+    const ctx = {
+      char: ch,
+      isGood: goodPool.includes(ch),
+      isBad:  badPool.includes(ch),
+      // พิกัดสำหรับ effect 2D (ถ้า Particles ใช้ clientX/clientY)
+      clientX: ROOT.innerWidth  / 2,
+      clientY: ROOT.innerHeight / 2,
+      cx: ROOT.innerWidth  / 2,
+      cy: ROOT.innerHeight / 2,
+      worldX: p?.x,
+      worldY: p?.y,
+      worldZ: p?.z
+    };
+    judgeFn(ch, ctx);
+  });
+
+  sceneEl.appendChild(el);
+  return el;
+}
+
+// -------------------------------------------------------
+// 4) Fallback DOM target (เผื่อใช้ในหน้า non-VR)
+// -------------------------------------------------------
+function createDomTarget(ch, cfg, engineCfg) {
+  const goodPool = cfg.pools?.good || [];
+  const badPool  = cfg.pools?.bad  || [];
+
+  const wrap = document.body;
+  const size = 96 * (engineCfg.SIZE_FACTOR || 1.0);
+
+  const el = document.createElement('div');
+  el.className = 'hha-target-dom';
+  el.dataset.char = ch;
+
+  el.style.position = 'fixed';
+  el.style.width = el.style.height = size + 'px';
+  el.style.fontSize = size * 0.75 + 'px';
+  el.style.display = 'flex';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'center';
+  el.style.borderRadius = '999px';
+  el.style.background = 'rgba(15,23,42,0.9)';
+  el.style.boxShadow = '0 18px 35px rgba(0,0,0,0.55)';
+  el.style.zIndex = 400;
+
+  const x = 0.5 + (Math.random() * 0.6 - 0.3);
+  const y = 0.4 + (Math.random() * 0.4 - 0.2);
+  el.style.left = (x * 100) + '%';
+  el.style.top  = (y * 100) + '%';
+  el.style.transform = 'translate(-50%, -50%)';
+
+  el.textContent = ch;
+
+  const judgeFn = cfg.judge || (() => {});
+  el.addEventListener('click', (ev) => {
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width  / 2;
+    const cy = rect.top  + rect.height / 2;
+    const ctx = {
+      char: ch,
+      isGood: goodPool.includes(ch),
+      isBad:  badPool.includes(ch),
+      clientX: ev.clientX,
+      clientY: ev.clientY,
+      cx,
+      cy
+    };
+    judgeFn(ch, ctx);
+  });
+
+  wrap.appendChild(el);
+  return el;
+}
+
+// -------------------------------------------------------
+// 5) main boot()
+// -------------------------------------------------------
+export async function boot(cfg = {}) {
+  const engineCfg = pickEngineConfig(cfg);
+  const onExpire  = cfg.onExpire || (() => {});
+
+  const isVr   = !!(A && document.querySelector('a-scene'));
+  const sceneEl = isVr ? document.querySelector('a-scene') : null;
+
+  const active = new Set();
+  let stopped  = false;
+
+  function destroyTarget(el, reason) {
+    if (!el) return;
+    active.delete(el);
+
+    if (el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
+
+    if (reason === 'expire') {
+      const ch = el.getAttribute
+        ? (el.getAttribute('data-char') || el.dataset?.char)
+        : (el.dataset && el.dataset.char);
+      const pools = cfg.pools || {};
+      const isGood = (pools.good || []).includes(ch);
+      onExpire({ char: ch, isGood });
+    }
   }
-
-  const eng = pickEngineConfig(modeKey, diff);
-  const SPAWN_INTERVAL = eng.SPAWN_INTERVAL;
-  const ITEM_LIFETIME = eng.ITEM_LIFETIME;
-  const MAX_ACTIVE = eng.MAX_ACTIVE;
-
-  const baseSize =
-    eng.SIZE_FACTOR ||
-    (diff === 'easy' ? 1.25 : diff === 'hard' ? 0.9 : 1.05);
-
-  let spawnCount = 0;
-  let stopped = false;
-  let spawnTimer = null;
-  let secTimer = null;
-  let secLeft = dur;
-
-  let activeTargets = [];
-
-  // แจ้งเวลาเริ่ม
-  try {
-    ROOT.dispatchEvent(
-      new CustomEvent('hha:time', { detail: { sec: secLeft } })
-    );
-  } catch {}
 
   function spawnOne() {
     if (stopped) return;
-    if (activeTargets.length >= MAX_ACTIVE) return;
+    if (active.size >= (engineCfg.MAX_ACTIVE || 4)) return;
 
-    const pick = pickChar(
-      pools,
-      goodRate,
-      powerups,
-      powerRate,
-      powerEvery,
-      spawnCount
-    );
-    spawnCount++;
+    // เลือกประเภทเป้า
+    let typeKey = pickFromWeights(engineCfg.TYPE_WEIGHTS, null);
+    if (!typeKey) typeKey = 'good';
+    if (typeKey === 'junk') typeKey = 'bad';
 
-    const tCfg = {
-      ch: pick.ch,
-      isGood: pick.isGood,
-      lifeMs: ITEM_LIFETIME,
-      sizeFactor: baseSize
-    };
+    const ch = pickCharForType(typeKey, cfg);
+    if (!ch) return;
 
-    const target = createVrTarget(vrRoot, tCfg, {
-      onHit: ({ ch, isGood, ctx, kill }) => {
-        if (judgeFn) {
-          try {
-            judgeFn(ch, ctx);
-          } catch (err) {
-            console.warn('[HHA] judgeFn error:', err);
-          }
-        }
-        kill();
-        activeTargets = activeTargets.filter((t) => t !== target);
-      },
-      onExpire: (ev) => {
-        activeTargets = activeTargets.filter((t) => t !== target);
-        onExpireFn && onExpireFn(ev);
+    const el = isVr
+      ? createVrTarget(sceneEl, ch, cfg, engineCfg)
+      : createDomTarget(ch, cfg, engineCfg);
+
+    active.add(el);
+
+    // อายุของเป้า
+    const life = engineCfg.ITEM_LIFETIME || 2400;
+    setTimeout(() => {
+      if (!stopped && active.has(el)) {
+        destroyTarget(el, 'expire');
       }
-    });
-
-    if (target) activeTargets.push(target);
+    }, life);
   }
 
-  secTimer = setInterval(() => {
-    if (stopped) return;
-    secLeft -= 1;
-    if (secLeft < 0) secLeft = 0;
-
-    try {
-      ROOT.dispatchEvent(
-        new CustomEvent('hha:time', { detail: { sec: secLeft } })
-      );
-    } catch {}
-
-    if (secLeft <= 0) {
-      stop('timeout');
-    }
-  }, 1000);
-
-  spawnTimer = setInterval(() => {
-    if (stopped) return;
-    spawnOne();
-  }, SPAWN_INTERVAL);
-
-  setTimeout(() => {
-    if (!stopped) spawnOne();
-  }, 400);
+  const interval = engineCfg.SPAWN_INTERVAL || 900;
+  const timerId = setInterval(spawnOne, interval);
 
   function stop(reason = 'manual') {
     if (stopped) return;
     stopped = true;
 
-    if (spawnTimer) {
-      clearInterval(spawnTimer);
-      spawnTimer = null;
-    }
-    if (secTimer) {
-      clearInterval(secTimer);
-      secTimer = null;
-    }
-
-    activeTargets.forEach((t) => {
-      try {
-        t.kill && t.kill();
-      } catch {}
-    });
-    activeTargets = [];
-
-    try {
-      ROOT.dispatchEvent(
-        new CustomEvent('hha:time', { detail: { sec: 0, reason } })
-      );
-    } catch {}
+    clearInterval(timerId);
+    active.forEach(el => destroyTarget(el, 'cleanup'));
+    active.clear();
   }
 
+  // คืน object ให้ GameEngine เก็บไว้เรียก stop()
   return { stop };
 }
 
