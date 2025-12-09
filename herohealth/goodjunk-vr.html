@@ -845,13 +845,16 @@
     // HUD: End summary
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
-      const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
-      let comboMax = d.comboMax;
+      const scoreFinal = d.scoreFinal ?? d.score ?? 0;
 
-      if (comboMax == null || isNaN(comboMax)) {
-      comboMax = parseInt(elCombo.dataset.max || '0', 10) || 0;
+      // comboMax: เอาจาก d.comboMax ถ้าเป็นตัวเลข, ถ้าไม่ใช่ให้อ่านจาก dataset, ถ้าเพี้ยนให้เป็น 0
+      let comboMax;
+        if (typeof d.comboMax === 'number' && !Number.isNaN(d.comboMax)) {
+          comboMax = d.comboMax;
+          } else {
+          const parsed = parseInt(elCombo.dataset.max || '0', 10);
+      comboMax = Number.isNaN(parsed) ? 0 : parsed;
       }
-
       const misses       = d.misses ?? hudMissCount;
       const goalsCleared = d.goalsCleared ?? hudGoalsCleared;
       const goalsTotal   = d.goalsTotal   ?? hudGoalsTotal;
