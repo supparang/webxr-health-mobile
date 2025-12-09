@@ -1,13 +1,10 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — DOM targets + Goal / Mini quest + Fever + FX
-// ใช้ร่วมกับ groups-vr.html (Boot script เรียก GameEngine.start/stop())
+// ใช้ร่วมกับ groups-vr.html (เรียกผ่าน GameEngine.start/stop)
 
 'use strict';
 
-import '../vr/particles.js';   // ให้แน่ใจว่า HHA_PARTICLES ถูกผูก global แล้ว
-import '../vr/ui-fever.js';   // FeverUI global
-
-// ----------------- Helper global -----------------
+// -------- Global helpers (มาจาก script src ก่อนหน้า) --------
 const Particles =
   (window.HHA_PARTICLES) ||
   (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
@@ -18,12 +15,11 @@ const FeverUI =
   window.FeverUI ||
   { ensureFeverBar () {}, setFever () {}, setFeverActive () {}, setShield () {} };
 
-// safe customEvent
 function emit (name, detail) {
   window.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-// ------------- Difficulty & Quest config -------------
+// -------- Difficulty / Quest config --------
 const DIFF_TABLE = {
   easy: {
     spawnInterval: 1100,
@@ -64,7 +60,6 @@ const GOOD_EMOJI = ['🍚', '🍞', '🍎', '🥦', '🥕', '🍌', '🥛', '�
 const JUNK_EMOJI = ['🍩', '🍕', '🍟', '🥤', '🍰', '🍫', '🍭', '🧃'];
 
 function pickEmoji (isGood) {
-  // ถ้ามี emoji-image ของโครงการก็ใช้แทน
   if (window.emojiImage && typeof window.emojiImage.pick === 'function') {
     return window.emojiImage.pick(isGood ? 'good' : 'junk');
   }
@@ -72,14 +67,13 @@ function pickEmoji (isGood) {
   return src[Math.floor(Math.random() * src.length)];
 }
 
-// ให้เป้าเกิดในโซนที่ไม่ทับ HUD บน / โค้ชล่าง
+// เป้าอยู่โซนกลางจอ ไม่ทับ HUD/โค้ช
 function randomScreenPos () {
   const w = window.innerWidth || 1280;
   const h = window.innerHeight || 720;
 
   const topSafe = 130;
   const bottomSafe = 170;
-
   const left = w * 0.14;
   const right = w * 0.86;
 
@@ -88,7 +82,7 @@ function randomScreenPos () {
   return { x, y };
 }
 
-// ----------------- Engine state -----------------
+// -------- Engine state --------
 let running = false;
 let diffKey = 'normal';
 let diffCfg = DIFF_TABLE.normal;
@@ -99,7 +93,6 @@ let lastTs = 0;
 let elapsed = 0;
 let spawnTimer = 0;
 
-// score / quest
 let score = 0;
 let combo = 0;
 let comboMax = 0;
@@ -111,18 +104,17 @@ let miniTargetGood = 0;
 let goalLabel = '';
 let miniLabel = '';
 let questHint = '';
-
 let goalDone = false;
 let miniDone = false;
 
-// fever
+// Fever
 const FEVER_MAX = 100;
 const FEVER_HIT_GAIN = 10;
 const FEVER_MISS_LOSS = 25;
 let fever = 0;
 let feverActive = false;
 
-// ----------------- DOM helpers -----------------
+// -------- DOM helpers --------
 function ensureLayer () {
   if (layer && layer.isConnected) return layer;
   layer = document.getElementById('fg-layer');
@@ -141,7 +133,7 @@ function clearTargets () {
   targets = [];
 }
 
-// ----------------- Fever -----------------
+// -------- Fever --------
 function updateFever (delta) {
   fever = (fever || 0) + delta;
   if (fever < 0) fever = 0;
@@ -162,15 +154,13 @@ function updateFever (delta) {
   }
 }
 
-// ----------------- Quest / HUD event -----------------
+// -------- Quest / HUD events --------
 function emitScore () {
   emit('hha:score', { score, combo, misses });
 }
-
 function emitJudge (label) {
   emit('hha:judge', { label });
 }
-
 function emitQuestUpdate () {
   const goal = {
     label: goalLabel,
@@ -187,13 +177,13 @@ function emitQuestUpdate () {
   emit('quest:update', { goal, mini, hint: questHint });
 }
 
-// ----------------- Target spawn / life -----------------
+// -------- Target spawn / life --------
 function spawnTarget () {
   const host = ensureLayer();
   if (!host) return;
   if (targets.length >= diffCfg.maxActive) return;
 
-  const isGood = Math.random() < 0.65; // 65% อาหารดี
+  const isGood = Math.random() < 0.65;
   const emoji = pickEmoji(isGood);
   const pos = randomScreenPos();
   const lifeMs = diffCfg.targetLifetime || 2500;
@@ -221,7 +211,6 @@ function spawnTarget () {
     ev.preventDefault();
     handleHit(target);
   };
-
   el.addEventListener('click', onHit);
   el.addEventListener('pointerdown', onHit);
 
@@ -238,7 +227,6 @@ function handleTimeout (target) {
   emit('hha:miss', { reason: 'timeout', isGood: target.isGood });
   emitScore();
 
-  // FX
   try {
     const el = target.el;
     if (el) {
@@ -261,7 +249,7 @@ function handleTimeout (target) {
   emitJudge('');
 }
 
-// ----------------- Hit logic -----------------
+// -------- Hit logic --------
 function handleHit (target) {
   if (!running || !target || target.consumed) return;
 
@@ -288,13 +276,11 @@ function handleHit (target) {
       judgment = 'LATE';
       delta = 6;
     }
-
     goodHits += 1;
     combo += 1;
     comboMax = Math.max(comboMax, combo);
     updateFever(FEVER_HIT_GAIN + (judgment === 'PERFECT' ? 5 : 0));
   } else {
-    // ตีโดนขยะ = MISS
     judgment = 'MISS';
     delta = -10;
     misses += 1;
@@ -304,17 +290,13 @@ function handleHit (target) {
   }
 
   score = Math.max(0, score + delta);
-
-  // Quest progress + check done
   goalDone = score >= goalTargetScore;
   miniDone = goodHits >= miniTargetGood;
-  emitQuestUpdate();
 
-  // HUD
+  emitQuestUpdate();
   emitScore();
   emitJudge(`${judgment} ${delta > 0 ? '+' + delta : delta}`);
 
-  // FX
   try {
     const rect = el.getBoundingClientRect();
     const x = rect.left + rect.width / 2;
@@ -328,7 +310,6 @@ function handleHit (target) {
     });
   } catch (_) {}
 
-  // remove DOM
   el.classList.add('hit');
   setTimeout(() => {
     if (el.parentNode) el.parentNode.removeChild(el);
@@ -336,29 +317,25 @@ function handleHit (target) {
 
   targets = targets.filter(t => t !== target);
 
-  // ถ้าเคลียร์ทั้ง Goal + Mini ให้จบเกมเลย (boot script จะมองจาก hha:end ด้วย)
   if (goalDone && miniDone) {
     stop('quest-complete');
   }
 }
 
-// ----------------- Main loop -----------------
+// -------- Main loop --------
 function loop (ts) {
   if (!running) return;
-
   if (!lastTs) lastTs = ts;
   const dt = ts - lastTs;
   lastTs = ts;
   elapsed += dt;
   spawnTimer += dt;
 
-  // spawn
   if (spawnTimer >= diffCfg.spawnInterval) {
     spawnTimer = 0;
     spawnTarget();
   }
 
-  // timeout check
   const lifeMs = diffCfg.targetLifetime || 2500;
   for (let i = targets.length - 1; i >= 0; i--) {
     const t = targets[i];
@@ -371,7 +348,7 @@ function loop (ts) {
   requestAnimationFrame(loop);
 }
 
-// ----------------- Public API -----------------
+// -------- Public API --------
 function start (diff = 'normal') {
   diffKey = String(diff || 'normal').toLowerCase();
   diffCfg = DIFF_TABLE[diffKey] || DIFF_TABLE.normal;
@@ -432,9 +409,10 @@ function stop (reason = 'stop') {
   });
 }
 
-// export object ให้ groups-vr.html import { GameEngine } ใช้ได้
+// **export สำหรับ groups-vr.html**
 export const GameEngine = { start, stop };
 
 // เผื่ออยากเรียกจาก global ด้วย
 window.GAME_MODULES = window.GAME_MODULES || {};
 window.GAME_MODULES.FoodGroupsVR = { GameEngine };
+window.GameEngine = GameEngine;
