@@ -103,9 +103,12 @@ export async function boot(cfg = {}) {
 
   // ----- Fever + Water gauge initial HUD -----
   ensureFeverBar();
-  setFever(0);
-  setFeverActive(false);
-  setShield(0);
+  let fever = 0;
+  let feverActive = false;
+  let shield = 0;
+  setFever(fever);
+  setFeverActive(feverActive);
+  setShield(shield);
 
   ensureWaterGauge();
   let waterPct = 50;
@@ -149,12 +152,21 @@ export async function boot(cfg = {}) {
   let misses      = 0;
   let star        = 0;
   let diamond     = 0;
-  let shield      = 0;
-  let fever       = 0;
-  let feverActive = false;
   let elapsedSec  = 0;   // เวลาเล่นสะสม (นับขึ้น)
 
   function mult() { return feverActive ? 2 : 1; }
+
+  function pushFeverEvent(state) {
+    try {
+      ROOT.dispatchEvent(new CustomEvent('hha:fever', {
+        detail: {
+          state,
+          fever,
+          active: feverActive
+        }
+      }));
+    } catch {}
+  }
 
   function applyFeverUI() {
     setFever(fever);
@@ -163,19 +175,29 @@ export async function boot(cfg = {}) {
   }
 
   function gainFever(n) {
+    const wasActive = feverActive;
     fever = Math.max(0, Math.min(100, fever + n));
     if (!feverActive && fever >= 100) {
       feverActive = true;
       coach('เข้าโหมดไฟแล้ว! เลือกน้ำดีรัว ๆ เลย 🔥');
+      pushFeverEvent('start');
+    } else {
+      pushFeverEvent('change');
     }
     applyFeverUI();
   }
 
   function decayFever(n) {
+    const wasActive = feverActive;
     const d = feverActive ? 10 : n;
     fever = Math.max(0, fever - d);
     if (feverActive && fever <= 0) {
       feverActive = false;
+    }
+    if (wasActive && !feverActive) {
+      pushFeverEvent('end');
+    } else {
+      pushFeverEvent('change');
     }
     applyFeverUI();
   }
@@ -241,6 +263,14 @@ export async function boot(cfg = {}) {
     safeBurstAt(x, y, isGood);
   }
 
+  function sendJudge(label) {
+    try {
+      ROOT.dispatchEvent(new CustomEvent('hha:judge', {
+        detail: { label }
+      }));
+    } catch {}
+  }
+
   // ======================================================
   //  JUDGE — เรียกจาก mode-factory เมื่อผู้เล่นแตะเป้า
   // ======================================================
@@ -258,6 +288,7 @@ export async function boot(cfg = {}) {
       combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'GOOD', true);
+      sendJudge('GOOD');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
@@ -271,6 +302,7 @@ export async function boot(cfg = {}) {
       combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'PERFECT', true);
+      sendJudge('PERFECT');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
@@ -284,20 +316,29 @@ export async function boot(cfg = {}) {
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'GOOD', true);
       coach('ได้เกราะกันน้ำหวานแล้ว 🛡️ ถ้าเผลอแตะจะไม่ถือว่าพลาดหนึ่งครั้ง', 3500);
+      sendJudge('GOOD');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
 
     if (ch === FIRE) {
+      const wasActive = feverActive;
       feverActive = true;
       fever = Math.max(fever, 60);
       applyFeverUI();
+      if (!wasActive) {
+        pushFeverEvent('start');
+      } else {
+        pushFeverEvent('change');
+      }
+
       const d = 25;
       score += d;
       deck.onGood && deck.onGood();
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'FEVER', true);
       coach('โหมดไฟ 🔥 เลือกน้ำดีให้ไว แล้วหลบพวกน้ำหวาน!', 3500);
+      sendJudge('FEVER');
       pushHudScore();
       return { good: true, scoreDelta: d };
     }
@@ -316,6 +357,7 @@ export async function boot(cfg = {}) {
 
       const label = combo >= 8 ? 'PERFECT' : 'GOOD';
       scoreFX(x, y, d, label, true);
+      sendJudge(label);
 
       if (combo === 1) {
         coach('ดีมาก เริ่มสะสมน้ำดีแล้ว 💧 เลือกพวกน้ำเปล่า นม ผลไม้ต่อเลย');
@@ -340,6 +382,7 @@ export async function boot(cfg = {}) {
         syncDeck(); pushQuest();
         scoreFX(x, y, 0, 'BLOCK', false);
         coach('เกราะช่วยกันน้ำหวานให้แล้วนะ 🛡️ ระวังอย่าเผลอบ่อยเกินไป', 3500);
+        sendJudge('BLOCK');
         pushHudScore();
         return { good: false, scoreDelta: 0 };
       }
@@ -356,12 +399,20 @@ export async function boot(cfg = {}) {
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'MISS', false);
 
+      // แจ้ง HUD ว่ามี miss
+      try {
+        ROOT.dispatchEvent(new CustomEvent('hha:miss', {
+          detail: { misses }
+        }));
+      } catch {}
+
       if (misses === 1) {
         coach('ลองสังเกตดูว่าน้ำไหนหวานจัด 🥤 ลองเปลี่ยนเป็นน้ำเปล่าหรือนมแทนนะ', 4000);
       } else if (misses === 3) {
         coach('น้ำหวานเริ่มเยอะแล้ว ลองตั้งเป้าเลือกแต่ 💧 กับ 🥛 สักพักนะ', 4000);
       }
 
+      sendJudge('MISS');
       pushHudScore();
       return { good: false, scoreDelta: d };
     }
@@ -467,8 +518,13 @@ export async function boot(cfg = {}) {
           goalCleared,
           goalsCleared: goalsDone,
           goalsTotal,
+
+          // ★ เพิ่ม field สำหรับ mini quest ให้ HUD ใช้
+          miniCleared: miniDone,
+          miniTotal,
           questsCleared: miniDone,
           questsTotal: miniTotal,
+
           waterStart,
           waterEnd,
           waterZoneEnd
