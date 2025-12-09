@@ -6,8 +6,8 @@
 
   const table = {
     easy: {
-      spawnInterval: 1300,   // ms: มาช้า
-      lifetime:      2800,   // ms: อยู่จอนาน
+      spawnInterval: 1300,
+      lifetime:      2800,
       maxActive:     3,
       scale:         1.25,
       feverGainHit:  8,
