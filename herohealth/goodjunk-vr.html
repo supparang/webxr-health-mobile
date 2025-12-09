@@ -270,13 +270,25 @@
       color:#6ee7b7;
       font-weight:600;
     }
-    .coach-emoji{
-      font-size:26px;
-      line-height:1;
-      width:32px;
-      text-align:center;
-      flex-shrink:0;
-    }
+    .coach-avatar{
+  width:44px;
+  height:44px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.9);
+  overflow:hidden;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 0 0 2px rgba(52,211,153,0.65);
+}
+.coach-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
 
     /* ===== Center hint ===== */
     .hint-center{
@@ -606,7 +618,7 @@
 
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
-    const elCoachEmoji  = document.getElementById('coach-emoji');
+    const elCoachAvatar = document.getElementById('coach-avatar');
     const elTouchHint   = document.getElementById('touch-hint');
 
     const elEndToast  = document.getElementById('end-toast');
@@ -641,16 +653,19 @@
     let hudMiniCleared  = 0;
 
     const coachFaces = {
-      neutral: '🙂',
-      happy:   '😄',
-      sad:     '😢',
-      fever:   '🔥'
-    };
+  neutral: './img/coach-neutral.png',
+  happy:   './img/coach-happy.png',
+  sad:     './img/coach-sad.png',
+  fever:   './img/coach-fever.png'
+};
 
-    function setCoachFace(mood){
-      if (!elCoachEmoji) return;
-      elCoachEmoji.textContent = coachFaces[mood] || coachFaces.neutral;
-    }
+function setCoachFace(mood){
+  if (!elCoachAvatar) return;
+  const src = coachFaces[mood] || coachFaces.neutral;
+  if (elCoachAvatar.getAttribute('src') !== src) {
+    elCoachAvatar.setAttribute('src', src);
+  }
+}
 
     function setCoach(text){
       if (!text) return;
