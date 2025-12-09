@@ -846,7 +846,7 @@
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
       const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
-      const comboMax     = d.comboMax ?? parseInt(elCombo.dataset.max || '0',10) || 0;
+      const comboMax = (d.comboMax ?? parseInt(elCombo.dataset.max || '0', 10)) || 0;
       const misses       = d.misses ?? hudMissCount;
       const goalsCleared = d.goalsCleared ?? hudGoalsCleared;
       const goalsTotal   = d.goalsTotal   ?? hudGoalsTotal;
