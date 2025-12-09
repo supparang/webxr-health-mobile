@@ -839,33 +839,42 @@
       }
     });
 
-    // HUD: End summary
-    window.addEventListener('hha:end', (e)=>{
-      const d = e.detail || {};
-      const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
-      const comboMax     = d.comboMax ?? parseInt(elCombo.dataset.max || '0',10) || 0;
-      const misses       = d.misses ?? hudMissCount;
-      const goalsCleared = d.goalsCleared ?? hudGoalsCleared;
-      const goalsTotal   = d.goalsTotal   ?? hudGoalsTotal;
-      const miniCleared  = d.miniCleared  ?? hudMiniCleared;
-      const miniTotal    = d.miniTotal    ?? hudMiniTotal;
+// HUD: End summary
+window.addEventListener('hha:end', (e)=>{
+  const d = e.detail || {};
+  const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
+  const comboMax     = (d.comboMax ?? parseInt(elCombo.dataset.max || '0',10)) || 0;
+  const misses       = d.misses ?? hudMissCount;
+  const goalsCleared = d.goalsCleared ?? hudGoalsCleared;
+  const goalsTotal   = d.goalsTotal   ?? hudGoalsTotal;
+  const miniCleared  = d.miniCleared  ?? hudMiniCleared;
+  const miniTotal    = d.miniTotal    ?? hudMiniTotal;
 
-      const grade = computeGrade(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+  const grade = computeGrade(
+    scoreFinal,
+    comboMax,
+    misses,
+    goalsCleared,
+    goalsTotal,
+    miniCleared,
+    miniTotal
+  );
 
-      elEndScore.textContent = scoreFinal;
-      elEndCombo.textContent = comboMax;
-      elEndMiss.textContent  = misses;
-      elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
-      elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
-      elEndGrade.textContent = grade;
-      elEndToast.classList.add('show');
+  elEndScore.textContent = scoreFinal;
+  elEndCombo.textContent = comboMax;
+  elEndMiss.textContent  = misses;
+  elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
+  elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
+  elEndGrade.textContent = grade;
+  elEndToast.classList.add('show');
 
-      // sync HUD เกรด real-time ให้ตรงกับผลสรุปสุดท้าย
-      updateRealtimeGrade(scoreFinal);
+  // sync HUD เกรด real-time ให้ตรงกับผลสรุปสุดท้าย
+  updateRealtimeGrade(scoreFinal);
 
-      setCoachFace(misses <= 3 ? 'happy' : 'neutral');
-      setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
-    });
+  setCoachFace(misses <= 3 ? 'happy' : 'neutral');
+  setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
+});
+
 
     // HUD: Judge text
     window.addEventListener('hha:judge', (e) => {
