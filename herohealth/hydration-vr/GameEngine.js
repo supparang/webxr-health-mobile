@@ -1,5 +1,5 @@
 // === /herohealth/hydration-vr/GameEngine.js ===
-// Bridge ระหว่าง hydration-vr.html กับ hydration.safe.js
+// Bridge ระหว่าง hydration-vr.html <-> hydration.safe.js + mode-factory
 
 'use strict';
 
