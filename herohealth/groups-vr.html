@@ -476,8 +476,9 @@
     <img id="fg-g5-7" src="https://twemoji.maxcdn.com/v/latest/72x72/1f382.png">
   </a-assets>
 
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="gj-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
+<a-camera id="gj-camera"
+          wasd-controls-enabled="false"
+          look-controls="pointerLockEnabled: false">
   <a-entity id="cursor"
             cursor="fuse: false; rayOrigin: mouse"
             raycaster="objects: [data-hha-tgt]"
@@ -486,8 +487,6 @@
             position="0 0 -0.9">
   </a-entity>
 </a-camera>
-
-    </a-entity>
 
     <!-- พื้น + แสง -->
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
