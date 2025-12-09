@@ -836,15 +836,18 @@
       }
 
       // cloud logger
-      initCloudLogger({
-        endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
-        projectTag: 'HeroHealth-GoodJunkVR',
-        mode: 'GoodJunkVR',
-        runMode,
-        diff,
-        durationSec: dur,
-        debug: false
-      });
+    initCloudLogger({
+      endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
+      projectTag: 'HeroHealth-GoodJunkVR',
+      mode: 'GoodJunkVR',
+      runMode,
+      diff,
+      durationSec: dur,
+      studentKey,
+      profile: studentProfile,
+      debug: false  // production
+    });
+
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
