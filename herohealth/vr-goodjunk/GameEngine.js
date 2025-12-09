@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-09 Multi-Quest + Research Metrics + Full Event Fields Version (+Rewards + GAME_VERSION)
+// 2025-12-09 Multi-Quest + Research Metrics + Full Event Fields Version
 
 'use strict';
 
@@ -366,20 +366,6 @@ export const GameEngine = (function () {
       const doneCount = countDone(goals);
       const total = goals.length;
 
-      // รางวัล: particle + coach เมื่อจบ goal
-      const P = getParticles();
-      if (P) {
-        P.burstAt(window.innerWidth / 2, window.innerHeight * 0.3, {
-          color: '#4ade80',
-          count: 24,
-          radius: 90
-        });
-        P.scorePop(window.innerWidth / 2, window.innerHeight * 0.3, 'Goal Clear!', {
-          kind: 'judge',
-          judgment: 'GOAL'
-        });
-      }
-
       if (doneCount < total) {
         currentGoalIndex = doneCount;
         coach(`ภารกิจหลักข้อที่ ${doneCount} สำเร็จแล้ว! ไปต่อข้อที่ ${doneCount + 1} 🎯`);
@@ -405,20 +391,6 @@ export const GameEngine = (function () {
 
       const doneCount = countDone(minis);
       const total = minis.length;
-
-      // รางวัล Mini quest: แสดง "Mini Clear!"
-      const P = getParticles();
-      if (P) {
-        P.burstAt(window.innerWidth * 0.5, window.innerHeight * 0.4, {
-          color: '#f97316',
-          count: 20,
-          radius: 80
-        });
-        P.scorePop(window.innerWidth * 0.5, window.innerHeight * 0.4, 'Mini Clear!', {
-          kind: 'judge',
-          judgment: 'MINI'
-        });
-      }
 
       if (doneCount < total) {
         currentMiniIndex = doneCount;
