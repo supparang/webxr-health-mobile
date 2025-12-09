@@ -1,7 +1,5 @@
 // === /herohealth/vr/mode-factory.js ===
 // ศูนย์กลางการ spawn เป้า (DOM / VR) + clock กลาง (hha:time)
-// รองรับ goodjunk / plate / hydration / groups
-// ปรับเป้า VR ให้เห็นชัด + sizeFactor ตามระดับความยาก
 
 'use strict';
 
@@ -45,7 +43,7 @@ function ensureDomLayer() {
   return layer;
 }
 
-// ---------- VR Target Root (ผูกกับกล้องให้เป้าหมุนตามมุมมอง) ----------
+// ---------- VR Target Root (ผูกกับกล้องให้เป้าหมุนตาม) ----------
 function ensureVrRoot() {
   const scene = document.querySelector('a-scene');
   if (!scene) return null;
@@ -68,20 +66,17 @@ function ensureVrRoot() {
 function pickChar(cfg, spawnCount) {
   const { pools, goodRate, powerups, powerRate, powerEvery } = cfg;
 
-  // fixed power-up every N ตัว
   if (powerups?.length && powerEvery > 0 &&
       spawnCount > 0 && spawnCount % powerEvery === 0) {
     const idx = Math.floor(Math.random() * powerups.length);
     return { ch: powerups[idx], type: 'power' };
   }
 
-  // random power-up ด้วยโอกาส
   if (powerups?.length && powerRate > 0 && Math.random() < powerRate) {
     const idx = Math.floor(Math.random() * powerups.length);
     return { ch: powerups[idx], type: 'power' };
   }
 
-  // good / bad ปกติ
   const useGood = Math.random() < goodRate;
   const pool = useGood ? (pools.good || []) : (pools.bad || []);
   if (!pool.length) {
@@ -150,7 +145,7 @@ function createDomTarget(layer, targetCfg, onHit, onExpire) {
   };
 
   el.addEventListener('click', hit);
-  const expireTimer = setTimeout(() => cleanup('expire'), lifeMs);
+  setTimeout(() => cleanup('expire'), lifeMs);
 
   return {
     el,
@@ -160,37 +155,42 @@ function createDomTarget(layer, targetCfg, onHit, onExpire) {
   };
 }
 
-// ---------- VR Target (emoji ลอยอยู่หน้ากล้อง) ----------
+// ---------- VR Target (emoji ชัด ๆ หน้าแค่กล้อง) ----------
 function createVrTarget(root, targetCfg, onHit, onExpire) {
   const { ch, lifeMs, isGood, sizeFactor = 1 } = targetCfg;
   if (!root) return null;
 
-  const el = document.createElement('a-entity');
-  el.classList.add('hha-target-vr');
+  const holder = document.createElement('a-entity');
+  holder.classList.add('hha-target-vr');
 
-  const w = 0.6 * sizeFactor;
-  const h = 0.6 * sizeFactor;
-  const textW = 4 * sizeFactor;
+  const plane = document.createElement('a-entity');
+  const w = 0.7 * sizeFactor;
+  const h = 0.7 * sizeFactor;
 
-  // ★ สำคัญ: opacity ต้องไม่เป็น 0 ไม่งั้นมองไม่เห็น
-  el.setAttribute('geometry', `primitive: plane; width: ${w}; height: ${h}`);
-  el.setAttribute(
+  plane.setAttribute('geometry', `primitive: plane; width: ${w}; height: ${h}`);
+  // ให้เห็นเป็นกรอบบาง ๆ โปร่งใส ไม่บัง emoji
+  plane.setAttribute(
     'material',
-    'color: #020617; transparent: true; opacity: 0.9; side: double'
+    'color: #020617; transparent: true; opacity: 0.18; side: double'
   );
-  el.setAttribute(
-    'text',
-    `value: ${ch}; align: center; width: ${textW}; color: #ffffff`
-  );
-  el.setAttribute('visible', 'true');
 
-  // ให้ลอยอยู่หน้ากล้องเล็กน้อย และสุ่มซ้าย-ขวา-บน-ล่าง
+  const text = document.createElement('a-entity');
+  const textW = 4 * sizeFactor;
+  text.setAttribute(
+    'text',
+    `value: ${ch}; align: center; width: ${textW}; color: #ffffff; anchor: center; baseline: center`
+  );
+  text.setAttribute('position', '0 0 0.01'); // ลอยเลย plane นิดเดียว
+
+  plane.appendChild(text);
+  holder.appendChild(plane);
+
   const x = -0.9 + Math.random() * 1.8;
   const y = -0.3 + Math.random() * 0.9;
   const z = -2.4;
-  el.setAttribute('position', `${x} ${y} ${z}`);
+  holder.setAttribute('position', `${x} ${y} ${z}`);
 
-  root.appendChild(el);
+  root.appendChild(holder);
 
   let killed = false;
   const bornAt = performance.now();
@@ -198,7 +198,7 @@ function createVrTarget(root, targetCfg, onHit, onExpire) {
   const cleanup = (reason) => {
     if (killed) return;
     killed = true;
-    el.parentNode && el.parentNode.removeChild(el);
+    holder.parentNode && holder.parentNode.removeChild(holder);
     if (reason === 'expire') {
       onExpire?.({ ch, isGood, bornAt, lifeMs });
     }
@@ -212,13 +212,11 @@ function createVrTarget(root, targetCfg, onHit, onExpire) {
     onHit?.(ctx, cleanup);
   };
 
-  // กดที่ plane ด้วย mouse/touch ได้ (เล่นบนจอ)
-  el.addEventListener('click', hit);
-
-  const expireTimer = setTimeout(() => cleanup('expire'), lifeMs);
+  holder.addEventListener('click', hit);
+  setTimeout(() => cleanup('expire'), lifeMs);
 
   return {
-    el,
+    el: holder,
     ch,
     isGood,
     kill: () => cleanup('manual')
@@ -295,7 +293,6 @@ export async function boot(cfg = {}) {
     bad: Array.isArray(cfg.pools?.bad) ? cfg.pools.bad.slice() : []
   };
 
-  // ---- VR / DOM mode ----
   const scene = document.querySelector('a-scene');
   const isVR = !!scene;
   const domLayer = !isVR ? ensureDomLayer() : null;
@@ -371,7 +368,6 @@ export async function boot(cfg = {}) {
   const spawnTimer = setInterval(spawnOne, SPAWN_INTERVAL);
   spawnOne();
 
-  // ---- global clock (hha:time) ----
   let timeRemain = durationSec;
   dispatch('hha:time', { sec: timeRemain });
 
