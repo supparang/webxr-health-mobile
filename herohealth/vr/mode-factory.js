@@ -64,7 +64,6 @@ function ensureVrRoot() {
   if (!root) {
     root = document.createElement('a-entity');
     root.classList.add('hha-vr-root');
-    // ให้ root อยู่หน้าเล็กน้อย (เป้าแต่ละอันจะ offset เพิ่มเอง)
     root.setAttribute('position', '0 0 0');
     cam.appendChild(root);
   }
@@ -72,7 +71,37 @@ function ensureVrRoot() {
 }
 
 // --------------------------------------------------
-//  Helper: สร้างเป้า VR (emoji ชัด ๆ หันเข้าหากล้อง)
+//  Helper: วาด emoji ลง canvas → dataURL
+//  (ไม่ต้องใช้ไฟล์ emoji-image.js แยกแล้ว)
+// --------------------------------------------------
+function makeEmojiTexture(ch, sizePx = 256) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = sizePx;
+    canvas.height = sizePx;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, sizePx, sizePx);
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.fillRect(0, 0, sizePx, sizePx);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${sizePx * 0.7}px system-ui, "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(ch, sizePx / 2, sizePx / 2);
+
+    return canvas.toDataURL('image/png');
+  } catch (err) {
+    console.warn('[HHA] makeEmojiTexture error:', err);
+    return null;
+  }
+}
+
+// --------------------------------------------------
+//  Helper: สร้างเป้า VR (emoji ชัด ๆ แบบ GoodJunk)
 // --------------------------------------------------
 function createVrTarget(root, targetCfg, handlers = {}) {
   const {
@@ -89,36 +118,36 @@ function createVrTarget(root, targetCfg, handlers = {}) {
   const holder = document.createElement('a-entity');
   holder.classList.add('hha-target-vr');
 
-  // แผ่นรองโปร่งใส (ช่วยให้ emoji อ่านง่ายขึ้น)
-  const plane = document.createElement('a-entity');
-  const w = 0.7 * sizeFactor;
-  const h = 0.7 * sizeFactor;
-
-  plane.setAttribute('geometry', `primitive: plane; width: ${w}; height: ${h}`);
-  plane.setAttribute(
+  // แผ่นรองเบลอ ๆ ด้านหลัง
+  const bg = document.createElement('a-plane');
+  const w = 0.8 * sizeFactor;
+  const h = 0.8 * sizeFactor;
+  bg.setAttribute('width', w);
+  bg.setAttribute('height', h);
+  bg.setAttribute(
     'material',
-    'color: #020617; transparent: true; opacity: 0.15; side: double'
+    'color: #020617; transparent: true; opacity: 0.25; side: double'
   );
+  holder.appendChild(bg);
 
-  // emoji ขนาดใหญ่ตรงกลาง
-  const text = document.createElement('a-entity');
-  const textW = 4 * sizeFactor;
-  text.setAttribute(
-    'text',
-    `value: ${ch}; align: center; width: ${textW}; color: #ffffff; anchor: center; baseline: center`
-  );
-  text.setAttribute('position', '0 0 0.01');
+  // emoji เป็น texture จริง ๆ
+  const texUrl = makeEmojiTexture(ch, 256);
+  if (texUrl) {
+    const img = document.createElement('a-image');
+    img.setAttribute('src', texUrl);
+    img.setAttribute('width', w * 0.9);
+    img.setAttribute('height', h * 0.9);
+    img.setAttribute('position', '0 0 0.01');
+    holder.appendChild(img);
+  }
 
-  plane.appendChild(text);
-  holder.appendChild(plane);
-
-  // ตำแหน่งด้านหน้าในมุมมองกล้อง (ระนาบ Z ติดลบ)
-  const x = -0.9 + Math.random() * 1.8; // กระจายซ้าย-ขวา
-  const y = -0.3 + Math.random() * 0.9; // กระจายบน-ล่าง
-  const z = -2.4;                       // ระยะห่างจากกล้อง
+  // ตำแหน่งหน้า player (ผูกกับกล้อง)
+  const x = -0.9 + Math.random() * 1.8;
+  const y = -0.3 + Math.random() * 0.9;
+  const z = -2.4;
   holder.setAttribute('position', `${x} ${y} ${z}`);
 
-  // ⭐ จุดสำคัญ: หมุน 180° ให้เป้าหันหน้ามาหากล้อง
+  // ⭐ หันหน้าเข้าหาผู้เล่นเสมอ
   holder.setAttribute('rotation', '0 180 0');
 
   root.appendChild(holder);
@@ -140,7 +169,7 @@ function createVrTarget(root, targetCfg, handlers = {}) {
     }
   };
 
-  // คลิก/จิ้มในโหมด PC/Mobile หรือยิง raycaster ใน VR
+  // hit (คลิก/จิ้ม หรือ raycaster)
   const handleHit = () => {
     if (killed) return;
 
@@ -161,7 +190,6 @@ function createVrTarget(root, targetCfg, handlers = {}) {
 
   holder.addEventListener('click', handleHit);
 
-  // หมดเวลา → หายไปเอง
   const ttl = Number(lifeMs) > 0 ? Number(lifeMs) : 2200;
   const timeoutId = setTimeout(() => {
     cleanup('expire');
@@ -242,8 +270,6 @@ export async function boot(cfg = {}) {
   const powerRate = Number(cfg.powerRate ?? 0.12);
   const powerEvery = Number(cfg.powerEvery ?? 6);
 
-  const spawnStyle = cfg.spawnStyle || 'pop'; // ตอนนี้ใช้ pop เป็นหลัก
-
   const judgeFn = typeof cfg.judge === 'function' ? cfg.judge : null;
   const onExpireFn =
     typeof cfg.onExpire === 'function' ? cfg.onExpire : () => {};
@@ -304,9 +330,7 @@ export async function boot(cfg = {}) {
       sizeFactor: baseSize
     };
 
-    let target = null;
-
-    target = createVrTarget(vrRoot, tCfg, {
+    const target = createVrTarget(vrRoot, tCfg, {
       onHit: ({ ch, isGood, ctx, kill }) => {
         if (judgeFn) {
           try {
@@ -343,7 +367,6 @@ export async function boot(cfg = {}) {
     } catch {}
 
     if (secLeft <= 0) {
-      // หมดเวลา → หยุดเอง
       stop('timeout');
     }
   }, 1000);
@@ -354,7 +377,7 @@ export async function boot(cfg = {}) {
     spawnOne();
   }, SPAWN_INTERVAL);
 
-  // spawn รอบแรกไวหน่อย
+  // spawn รอบแรกเร็วหน่อย
   setTimeout(() => {
     if (!stopped) spawnOne();
   }, 400);
