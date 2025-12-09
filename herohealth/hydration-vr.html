@@ -377,21 +377,20 @@
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
     background="color: #020617">
 
-    <a-entity id="rig" position="0 1.6 0">
-      <!-- ★ ใช้ cursor + raycaster ที่กล้อง เหมือน GoodJunk -->
-      <a-camera id="hydration-camera"
-                wasd-controls-enabled="false"
-                look-controls="pointerLockEnabled: false"
-                cursor="rayOrigin: mouse; fuse: false"
-                raycaster="objects: .hha-target-vr, [data-hha-tgt]; far: 10">
-        <!-- วงแหวนตรงกลางจอ แค่ visual -->
-        <a-entity id="cursor-visual"
-                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-                  material="shader: flat; color: #ffffff"
-                  position="0 0 -0.9">
-        </a-entity>
-      </a-camera>
+<a-entity id="rig" position="0 1.6 0">
+  <a-camera id="hydration-camera"
+            wasd-controls-enabled="false"
+            look-controls="pointerLockEnabled: false">
+    <a-entity id="cursor"
+              cursor="fuse: false; rayOrigin: mouse"
+              raycaster="objects: .hha-target-vr, [data-hha-tgt]; interval: 50; far: 10"
+              geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+              material="shader: flat; color: #ffffff"
+              position="0 0 -0.9">
     </a-entity>
+  </a-camera>
+</a-entity>
+
 
     <!-- พื้น + แสง + sky -->
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
