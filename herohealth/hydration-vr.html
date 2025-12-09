@@ -178,7 +178,7 @@
       width:0%;
       border-radius:999px;
       background:linear-gradient(90deg, var(--accent-soft), var(--accent));
-      transition:width .18s.ease-out;
+      transition: width .18s ease-out;
     }
     .quest-caption{
       font-size:10px;
@@ -297,7 +297,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s ease, box-shadow .15s.ease, transform .1s.ease;
+      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -378,12 +378,14 @@
     background="color: #020617">
 
     <a-entity id="rig" position="0 1.6 0">
+      <!-- ★ ใช้ cursor + raycaster ที่กล้อง เหมือน GoodJunk -->
       <a-camera id="hydration-camera"
                 wasd-controls-enabled="false"
-                look-controls="pointerLockEnabled: false">
-        <a-entity id="cursor"
-                  cursor="fuse: false; rayOrigin: mouse"
-                  raycaster="objects: [data-hha-tgt]"
+                look-controls="pointerLockEnabled: false"
+                cursor="rayOrigin: mouse; fuse: false"
+                raycaster="objects: .hha-target-vr, [data-hha-tgt]; far: 10">
+        <!-- วงแหวนตรงกลางจอ แค่ visual -->
+        <a-entity id="cursor-visual"
                   geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
                   material="shader: flat; color: #ffffff"
                   position="0 0 -0.9">
@@ -771,7 +773,7 @@
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // เวลา: easy 80, normal 60, hard 45 (แก้ได้)
+      // เวลา: easy 80, normal 60, hard 45
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
       else if (diff === 'hard') baseDur = 45;
