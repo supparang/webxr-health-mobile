@@ -478,6 +478,10 @@
             <div class="metric-label" id="hud-judge" style="margin-top:2px;font-size:11px;color:#e5e7eb;">
               &nbsp;
             </div>
+            <!-- Hint วิธีเล่น: PC / Mobile -->
+            <div class="metric-label" style="margin-top:2px;font-size:10px;color:#9ca3af;">
+              คลิก/แตะอาหารดีเพื่อเก็บคะแนน
+            </div>
           </div>
 
           <div class="metric">
@@ -627,7 +631,6 @@
 
     let lastCoachTimeout = null;
     let hudMissCount = 0;
-    let questAllDone = false;
 
     // จำสถานะ quest ทั้งหมดไว้เพื่อคิดเกรดแบบ real-time
     let hudGoalsTotal   = 0;
@@ -839,42 +842,33 @@
       }
     });
 
-// HUD: End summary
-window.addEventListener('hha:end', (e)=>{
-  const d = e.detail || {};
-  const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
-  const comboMax     = (d.comboMax ?? parseInt(elCombo.dataset.max || '0',10)) || 0;
-  const misses       = d.misses ?? hudMissCount;
-  const goalsCleared = d.goalsCleared ?? hudGoalsCleared;
-  const goalsTotal   = d.goalsTotal   ?? hudGoalsTotal;
-  const miniCleared  = d.miniCleared  ?? hudMiniCleared;
-  const miniTotal    = d.miniTotal    ?? hudMiniTotal;
+    // HUD: End summary
+    window.addEventListener('hha:end', (e)=>{
+      const d = e.detail || {};
+      const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
+      const comboMax     = d.comboMax ?? parseInt(elCombo.dataset.max || '0',10) || 0;
+      const misses       = d.misses ?? hudMissCount;
+      const goalsCleared = d.goalsCleared ?? hudGoalsCleared;
+      const goalsTotal   = d.goalsTotal   ?? hudGoalsTotal;
+      const miniCleared  = d.miniCleared  ?? hudMiniCleared;
+      const miniTotal    = d.miniTotal    ?? hudMiniTotal;
 
-  const grade = computeGrade(
-    scoreFinal,
-    comboMax,
-    misses,
-    goalsCleared,
-    goalsTotal,
-    miniCleared,
-    miniTotal
-  );
+      const grade = computeGrade(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
 
-  elEndScore.textContent = scoreFinal;
-  elEndCombo.textContent = comboMax;
-  elEndMiss.textContent  = misses;
-  elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
-  elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
-  elEndGrade.textContent = grade;
-  elEndToast.classList.add('show');
+      elEndScore.textContent = scoreFinal;
+      elEndCombo.textContent = comboMax;
+      elEndMiss.textContent  = misses;
+      elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
+      elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
+      elEndGrade.textContent = grade;
+      elEndToast.classList.add('show');
 
-  // sync HUD เกรด real-time ให้ตรงกับผลสรุปสุดท้าย
-  updateRealtimeGrade(scoreFinal);
+      // sync HUD เกรด real-time ให้ตรงกับผลสรุปสุดท้าย
+      updateRealtimeGrade(scoreFinal);
 
-  setCoachFace(misses <= 3 ? 'happy' : 'neutral');
-  setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
-});
-
+      setCoachFace(misses <= 3 ? 'happy' : 'neutral');
+      setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
+    });
 
     // HUD: Judge text
     window.addEventListener('hha:judge', (e) => {
@@ -953,7 +947,7 @@ window.addEventListener('hha:end', (e)=>{
       elGradeBar.dataset.grade = 'C';
 
       setCoachFace('neutral');
-      setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
+      setCoach('คลิกหรือแตะอาหารดี (ผัก ผลไม้ นม) เพื่อเก็บคะแนน ลากนิ้ว/เมาส์เพื่อหมุนมุมมองได้ 👆');
 
       // อ่าน studentProfile จาก sessionStorage (ตั้งจาก Hub)
       let studentProfile = null;
@@ -985,9 +979,17 @@ window.addEventListener('hha:end', (e)=>{
       initTouchLook(cam);
       initVRButton();
 
-      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา
+      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา (มี try/catch กันจอดำ)
       runCountdown(() => {
-        GameEngine.start(diff);
+        try {
+          GameEngine.start(diff);
+        } catch (err) {
+          console.error('[GoodJunkVR] start error:', err);
+          try {
+            alert('มีปัญหาในการเริ่มเกม Good vs Junk VR\nกรุณารีเฟรชหน้าจอหรือใช้อุปกรณ์/เบราว์เซอร์อื่น');
+          } catch(e){}
+          return;
+        }
 
         let timeLeft = dur;
         let timerId = null;
@@ -1023,10 +1025,13 @@ window.addEventListener('hha:end', (e)=>{
         elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
       }
 
-      // ถ้าสลับแท็บหรือจอหาย → หยุดเกม
+      // ถ้าสลับแท็บหรือจอหาย → หยุดเกม + แจ้งเตือน
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           GameEngine.stop('tab-hidden');
+          try {
+            alert('เกมหยุดเพราะสลับจอ / ล็อกหน้าจอ\nถ้าจะเล่นใหม่ให้กด “เล่นอีกครั้ง”');
+          } catch(e){}
         }
       });
     });
