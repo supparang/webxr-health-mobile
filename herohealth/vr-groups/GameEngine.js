@@ -1,15 +1,12 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (Hydration-style emoji VR targets)
-// ใช้ logic สร้างเป้าแบบเดียวกับ mode-factory แต่ให้ interface แบบ GameEngine.start/stop()
-// เพื่อให้ groups-vr.html ใช้งานได้เหมือน GoodJunkVR
+// Food Groups VR — Game Engine (Hydration-style + Score FX + Diff size)
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
 // --------------------------------------------------
-//  Helper: อ่าน config จาก HHA_DIFF_TABLE (ถ้ามี)
-//  modeKey = 'groups'
+//  Helper: อ่าน config จาก HHA_DIFF_TABLE (modeKey = 'groups')
 // --------------------------------------------------
 function pickEngineConfig(modeKey, diffKey) {
   const safe = {
@@ -31,7 +28,7 @@ function pickEngineConfig(modeKey, diffKey) {
 
     const eng = diff.engine;
     return {
-      SPAWN_INTERVAL: Number(eng.SPAWN_INTERVAL) || safe.SPAWN_INTERVAL,
+      SPAWN_INTERVAL: Number(eng.SPAWN_INTERVAL) || safe.SAWN_INTERVAL,
       ITEM_LIFETIME: Number(eng.ITEM_LIFETIME) || safe.ITEM_LIFETIME,
       MAX_ACTIVE: Number(eng.MAX_ACTIVE) || safe.MAX_ACTIVE,
       SIZE_FACTOR: Number(eng.SIZE_FACTOR) || safe.SIZE_FACTOR
@@ -43,7 +40,7 @@ function pickEngineConfig(modeKey, diffKey) {
 }
 
 // --------------------------------------------------
-//  หา root สำหรับวางเป้า (ผูกกับกล้อง) — copy จาก mode-factory
+//  หา root สำหรับวางเป้า (ผูกกับกล้อง) — เหมือน hydration
 // --------------------------------------------------
 function ensureVrRoot() {
   const scene = document.querySelector('a-scene');
@@ -73,7 +70,70 @@ function ensureVrRoot() {
 }
 
 // --------------------------------------------------
-//  วาด emoji ลง canvas → dataURL — copy จาก mode-factory
+//  FX: หาตำแหน่ง world + แสดงคะแนนเด้ง / MISS / GOOD / PERFECT
+// --------------------------------------------------
+function getWorldPosition(el) {
+  try {
+    if (!el || !el.object3D) return null;
+    const THREE = ROOT.THREE || window.THREE;
+    if (!THREE || !THREE.Vector3) return null;
+    const v = new THREE.Vector3();
+    el.object3D.getWorldPosition(v);
+    return v;
+  } catch (err) {
+    console.warn('[GroupsVR] getWorldPosition error:', err);
+    return null;
+  }
+}
+
+function spawnScoreFx(el, text, color) {
+  const scene = document.querySelector('a-scene');
+  if (!scene || !text) return;
+
+  const pos = getWorldPosition(el);
+  const x = pos ? pos.x : 0;
+  const y = pos ? pos.y + 0.4 : 1.8;
+  const z = pos ? pos.z : -1.6;
+
+  const fx = document.createElement('a-entity');
+  fx.setAttribute('position', `${x} ${y} ${z}`);
+
+  const txt = document.createElement('a-text');
+  txt.setAttribute('value', text);
+  txt.setAttribute('align', 'center');
+  txt.setAttribute('color', color || '#fbbf24');
+  txt.setAttribute('side', 'double');
+  txt.setAttribute('width', 2.5);
+  fx.appendChild(txt);
+
+  scene.appendChild(fx);
+
+  // ลอยขึ้น + จางหาย
+  let t = 0;
+  const dur = 600;
+  const step = 16;
+  const startY = y;
+
+  const timer = setInterval(() => {
+    t += step;
+    const p = t / dur;
+    if (p >= 1) {
+      clearInterval(timer);
+      try {
+        scene.removeChild(fx);
+      } catch (_) {}
+      return;
+    }
+    const ny = startY + 0.3 * p;
+    fx.setAttribute('position', `${x} ${ny} ${z}`);
+    try {
+      txt.setAttribute('opacity', String(1 - p));
+    } catch (_) {}
+  }, step);
+}
+
+// --------------------------------------------------
+//  วาด emoji ลง canvas → dataURL (เหมือน mode-factory/hydration)
 // --------------------------------------------------
 function makeEmojiTexture(ch, sizePx = 256) {
   try {
@@ -102,8 +162,7 @@ function makeEmojiTexture(ch, sizePx = 256) {
 }
 
 // --------------------------------------------------
-//  สร้างเป้า VR (emoji ชัด ๆ) — เวอร์ชันให้คลิกได้จริง
-//  (ตัวที่มี geometry = a-plane คือ target ที่มี data-hha-tgt)
+//  สร้างเป้า VR (emoji ชัด ๆ) — ให้ทุกชั้นเป็น target + ส่ง el ออกไปให้ทำ FX
 // --------------------------------------------------
 function createVrTarget(root, targetCfg, handlers = {}) {
   const {
@@ -115,14 +174,16 @@ function createVrTarget(root, targetCfg, handlers = {}) {
   const { onHit, onExpire } = handlers;
   if (!root || !ch) return null;
 
-  // === entity หลัก (แค่เป็น container) ===
+  // === entity หลัก (container) ===
   const holder = document.createElement('a-entity');
   holder.classList.add('hha-target-vr');
+  holder.setAttribute('data-hha-tgt', '1');
 
   // ===== พื้นหลัง + hit area (a-plane) =====
-  const baseSize = 0.9 * sizeFactor;
-  const bg = document.createElement('a-plane');
+  // ทำให้เล็กลงหน่อย base ~0.6 แล้วคูณ sizeFactor ตาม easy/normal/hard
+  const baseSize = 0.6 * sizeFactor;
 
+  const bg = document.createElement('a-plane');
   bg.setAttribute('width', baseSize);
   bg.setAttribute('height', baseSize);
   bg.setAttribute(
@@ -134,16 +195,14 @@ function createVrTarget(root, targetCfg, handlers = {}) {
       'side: double'
     ].join('; ')
   );
-
-  // 🔴 จุดสำคัญ: target ที่ raycaster จะยิง คือ a-plane ตัวนี้
   bg.setAttribute('data-hha-tgt', '1');
-
   holder.appendChild(bg);
 
   // ===== emoji เป็น texture (a-image ลูก) =====
   const texUrl = makeEmojiTexture(ch, 256);
+  let img = null;
   if (texUrl) {
-    const img = document.createElement('a-image');
+    img = document.createElement('a-image');
     img.setAttribute('src', texUrl);
     img.setAttribute('width', baseSize * 0.92);
     img.setAttribute('height', baseSize * 0.92);
@@ -156,6 +215,7 @@ function createVrTarget(root, targetCfg, handlers = {}) {
         'side: double'
       ].join('; ')
     );
+    img.setAttribute('data-hha-tgt', '1');
     holder.appendChild(img);
   }
 
@@ -163,7 +223,6 @@ function createVrTarget(root, targetCfg, handlers = {}) {
   const x = -0.8 + Math.random() * 1.6;
   const y = -0.25 + Math.random() * 0.9;
   const z = -1.6;
-
   holder.setAttribute('position', `${x} ${y} ${z}`);
 
   root.appendChild(holder);
@@ -179,7 +238,7 @@ function createVrTarget(root, targetCfg, handlers = {}) {
 
     if (reason === 'expire' && typeof onExpire === 'function') {
       try {
-        onExpire({ ch });
+        onExpire({ ch, el: holder });
       } catch (err) {
         console.warn('[GroupsVR] onExpire error:', err);
       }
@@ -191,8 +250,8 @@ function createVrTarget(root, targetCfg, handlers = {}) {
     cleanup('expire');
   }, ttl);
 
-  // === hit (คลิก / tap / raycaster) ให้ยิงที่ bg (a-plane ที่มี geometry) ===
-  const handleHit = () => {
+  const handleHit = (evt) => {
+    if (evt && evt.stopPropagation) evt.stopPropagation();
     if (killed) return;
 
     const cx = window.innerWidth / 2;
@@ -201,7 +260,7 @@ function createVrTarget(root, targetCfg, handlers = {}) {
 
     if (typeof onHit === 'function') {
       try {
-        onHit({ ch, ctx, kill: () => cleanup('hit') });
+        onHit({ ch, ctx, kill: () => cleanup('hit'), el: holder });
       } catch (err) {
         console.warn('[GroupsVR] onHit error:', err);
       }
@@ -210,8 +269,9 @@ function createVrTarget(root, targetCfg, handlers = {}) {
     }
   };
 
-  // 👈 สำคัญ: register click บน bg (ที่มี geometry + data-hha-tgt)
+  holder.addEventListener('click', handleHit);
   bg.addEventListener('click', handleHit);
+  if (img) img.addEventListener('click', handleHit);
 
   return {
     el: holder,
@@ -224,23 +284,23 @@ function createVrTarget(root, targetCfg, handlers = {}) {
 }
 
 // --------------------------------------------------
-//  Emoji 5 หมู่ (หมู่ละ ~7 อย่าง รวมเป็น pool เดียวให้สุ่มขึ้นเป้า)
+//  Emoji 5 หมู่ (รวมเป็น pool เดียว)
 // --------------------------------------------------
 const GROUP_EMOJI = [
-  // หมู่ 1: ข้าว-แป้ง-ธัญพืช
+  // หมู่ 1
   '🍚', '🍙', '🍞', '🥐', '🥖', '🥨', '🥯',
-  // หมู่ 2: เนื้อ-โปรตีน
+  // หมู่ 2
   '🍗', '🍖', '🍤', '🍣', '🥩', '🥚', '🧀',
-  // หมู่ 3: ผัก
+  // หมู่ 3
   '🥦', '🥕', '🥬', '🍅', '🌽', '🧅', '🫑',
-  // หมู่ 4: ผลไม้
+  // หมู่ 4
   '🍎', '🍌', '🍇', '🍓', '🍍', '🍊', '🍉',
-  // หมู่ 5: นม / เสริมแคลเซียม
-  '🥛', '🧈', '🍨', '🍦', '🥛', '🧋', '🍮'
+  // หมู่ 5
+  '🥛', '🧈', '🍨', '🍦', '🧋', '🍮', '🧊'
 ];
 
 // --------------------------------------------------
-//  State + helper
+//  State
 // --------------------------------------------------
 const state = {
   root: null,
@@ -317,7 +377,7 @@ function updateQuestHUD() {
   });
 }
 
-function registerHit() {
+function registerHit(el) {
   state.combo += 1;
   state.score += 100;
   if (state.combo > state.maxCombo) state.maxCombo = state.combo;
@@ -328,29 +388,33 @@ function registerHit() {
     state.miniBestStreak = state.miniCurrentStreak;
   }
 
-  if (state.combo === 5) {
-    emit('hha:fever', { state: 'start' });
-  }
-
   const judgeLabel =
-    state.combo >= 8 ? 'PERFECT!' :
+    state.combo >= 8 ? 'PERFECT' :
     state.combo >= 3 ? 'GOOD' :
     'OK';
 
   emit('hha:judge', { label: judgeLabel });
   updateScoreHUD();
   updateQuestHUD();
+
+  // FX: คะแนนเด้ง + คำว่า GOOD/PERFECT
+  spawnScoreFx(el, `+100 ${judgeLabel}`, '#22c55e');
 }
 
-function registerMiss() {
+function registerMiss(el, reason) {
   state.misses += 1;
   state.combo = 0;
   state.miniCurrentStreak = 0;
 
+  const label = reason === 'late' ? 'LATE' : 'MISS';
   emit('hha:miss', {});
-  emit('hha:fever', { state: 'end' });
-  emit('hha:judge', { label: 'MISS' });
+  emit('hha:judge', { label });
   updateScoreHUD();
+
+  // FX: ข้อความ MISS / LATE สีส้ม
+  if (el) {
+    spawnScoreFx(el, label, '#f97316');
+  }
 }
 
 function clearAllTargets() {
@@ -364,9 +428,7 @@ function clearAllTargets() {
 
 // สุ่ม emoji จากทุกหมู่
 function pickEmoji() {
-  if (!GROUP_EMOJI.length) {
-    return '❓';
-  }
+  if (!GROUP_EMOJI.length) return '❓';
   const idx = Math.floor(Math.random() * GROUP_EMOJI.length);
   return GROUP_EMOJI[idx];
 }
@@ -374,7 +436,6 @@ function pickEmoji() {
 function spawnOne() {
   if (!state.running) return;
   if (!state.root) return;
-
   if (state.targets.length >= state.config.MAX_ACTIVE) return;
 
   const ch = pickEmoji();
@@ -385,15 +446,14 @@ function spawnOne() {
     lifeMs: state.config.ITEM_LIFETIME,
     sizeFactor: state.config.SIZE_FACTOR
   }, {
-    onHit: ({ kill }) => {
-      // ลบจาก list ก่อน
+    onHit: ({ kill, el }) => {
       state.targets = state.targets.filter(t => t !== target);
+      registerHit(el);
       if (typeof kill === 'function') kill();
-      registerHit();
     },
-    onExpire: () => {
+    onExpire: ({ el }) => {
       state.targets = state.targets.filter(t => t !== target);
-      registerMiss();
+      registerMiss(el, 'late');
     }
   });
 
@@ -403,10 +463,9 @@ function spawnOne() {
 }
 
 // --------------------------------------------------
-//  GameEngine.start/stop
+//  GameEngine.start / stop
 // --------------------------------------------------
 function start(diffKey) {
-  // หยุดของเก่า (ถ้ามี)
   if (state.running) {
     stop('restart');
   }
@@ -420,6 +479,13 @@ function start(diffKey) {
   state.root = root;
   state.diffKey = String(diffKey || 'normal').toLowerCase();
   state.config = pickEngineConfig('groups', state.diffKey);
+
+  // ปรับขนาดตามระดับ easy / normal / hard
+  let diffSize = 1.0;
+  if (state.diffKey === 'easy') diffSize = 1.15;    // ใหญ่ขึ้นนิดหน่อย
+  else if (state.diffKey === 'hard') diffSize = 0.85; // เล็กลง
+  state.config.SIZE_FACTOR =
+    (state.config.SIZE_FACTOR || 1.0) * diffSize;
 
   state.running = true;
   state.ended = false;
@@ -439,13 +505,11 @@ function start(diffKey) {
   updateQuestHUD();
   emit('hha:judge', { label: '' });
   emit('hha:coach', {
-    text: 'คลิกหรือแตะอาหารให้ตรงตามหมู่ ดูให้ครบทั้ง 5 หมู่ ข้าว-โปรตีน-ผัก-ผลไม้-นม 🍚🥩🥦🍎🥛'
+    text: 'คลิกหรือแตะอาหารให้ตรงกลางเป้า ลองสังเกตว่าเป็นอาหารหมู่ไหนบ้างนะ 🍚🥩🥦🍎🥛'
   });
 
-  // spawn loop
   const interval = Math.max(300, state.config.SPAWN_INTERVAL || 900);
   state.spawnTimer = setInterval(spawnOne, interval);
-  // spawn แรกเร็วหน่อย
   setTimeout(spawnOne, 400);
 
   console.log('[GroupsVR] GameEngine.start()', state.diffKey, state.config);
