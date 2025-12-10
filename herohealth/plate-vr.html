@@ -72,7 +72,8 @@
             <span>แตะของไม่ดี (MISS)</span>
             <span class="value" id="hud-miss">0</span>
           </div>
-          <div class="hud-badge">
+          <!-- แก้ให้ badge เกรดมี id/class สำหรับเปลี่ยนสี -->
+          <div class="hud-badge hud-badge-grade" id="hud-grade-badge">
             <span>เกรด</span>
             <span class="value" id="hud-grade">C</span>
           </div>
@@ -219,6 +220,7 @@
   const elPlates  = document.getElementById('hud-plates');
   const elMiss    = document.getElementById('hud-miss');
   const elGrade   = document.getElementById('hud-grade');
+  const elGradeBadge = document.getElementById('hud-grade-badge');
   const elTime    = document.getElementById('hud-time');
   const elG1      = document.getElementById('g1');
   const elG2      = document.getElementById('g2');
@@ -300,7 +302,24 @@
     if (typeof d.combo === 'number')   elCombo.textContent  = d.combo;
     if (typeof d.misses === 'number')  elMiss.textContent   = d.misses;
     if (typeof d.platesDone === 'number') elPlates.textContent = d.platesDone;
-    if (typeof d.grade === 'string')   elGrade.textContent  = d.grade;
+
+    if (typeof d.grade === 'string') {
+      elGrade.textContent  = d.grade;
+      if (elGradeBadge) {
+        elGradeBadge.classList.remove(
+          'hud-badge-grade-SSS',
+          'hud-badge-grade-SS',
+          'hud-badge-grade-S',
+          'hud-badge-grade-A',
+          'hud-badge-grade-B',
+          'hud-badge-grade-C'
+        );
+        const g = d.grade.toUpperCase();
+        const known = ['SSS','SS','S','A','B','C'];
+        const key = known.includes(g) ? g : 'C';
+        elGradeBadge.classList.add(`hud-badge-grade-${key}`);
+      }
+    }
 
     if (Array.isArray(d.totalCounts) && d.totalCounts.length >= 5) {
       const [g1,g2,g3,g4,g5] = d.totalCounts;
