@@ -1,8 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-09 Multi-Quest + Research Metrics + Full Event Fields Version
-// + 2025-12-09 spawnX + goalIdActive + miniIdActive (สำหรับวิเคราะห์ RT/Quest)
+// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate
 
 'use strict';
 
@@ -247,8 +246,18 @@ export const GameEngine = (function () {
   function checkAllQuestsDone() {
     if (!running) return;
     if (allQuestsDone()) {
-      coach('สุดยอด! ทำภารกิจครบทั้ง Goals และ Mini quests แล้ว เกมจะจบเพื่อสรุปผลนะ 🎉');
-      stop('quest-complete');
+      coach('สุดยอด! ทำภารกิจหลักและ Mini quests ครบหมดแล้ว! 🎉');
+      emit('quest:all-complete', {
+        goalsTotal: goals.length,
+        minisTotal: minis.length
+      });
+
+      // หน่วงเวลาให้ฉลองใหญ่ ก่อนค่อยจบเกม + สรุปผล
+      setTimeout(() => {
+        if (running) {
+          stop('quest-complete');
+        }
+      }, 1800);
     }
   }
 
@@ -302,7 +311,7 @@ export const GameEngine = (function () {
     let goalObj;
     if (g) {
       goalObj = {
-        id: g.id || '',
+        id: g.id,
         label: g.label,
         prog: Math.min(g.prog, g.target),
         target: g.target,
@@ -310,7 +319,7 @@ export const GameEngine = (function () {
       };
     } else {
       goalObj = {
-        id: '',
+        id: 'ALL',
         label: 'ภารกิจหลักครบแล้ว 🎉',
         prog: 1,
         target: 1,
@@ -321,7 +330,7 @@ export const GameEngine = (function () {
     let miniObj;
     if (m) {
       miniObj = {
-        id: m.id || '',
+        id: m.id,
         label: m.label,
         prog: Math.min(m.prog, m.target),
         target: m.target,
@@ -329,7 +338,7 @@ export const GameEngine = (function () {
       };
     } else {
       miniObj = {
-        id: '',
+        id: 'ALL',
         label: 'Mini quest ครบแล้ว ✅',
         prog: 1,
         target: 1,
@@ -341,14 +350,14 @@ export const GameEngine = (function () {
       goal: goalObj,
       mini: miniObj,
       goalsAll: goals.map(x => ({
-        id: x.id || '',
+        id: x.id,
         label: x.label,
         prog: x.prog,
         target: x.target,
         done: x.done
       })),
       minisAll: minis.map(x => ({
-        id: x.id || '',
+        id: x.id,
         label: x.label,
         prog: x.prog,
         target: x.target,
@@ -370,6 +379,15 @@ export const GameEngine = (function () {
 
       const doneCount = countDone(goals);
       const total = goals.length;
+
+      // ปล่อย event ฉลองจบ Goal
+      emit('quest:celebrate', {
+        kind: 'goal',
+        id: g.id,
+        label: g.label,
+        index: doneCount,
+        total
+      });
 
       if (doneCount < total) {
         currentGoalIndex = doneCount;
@@ -396,6 +414,15 @@ export const GameEngine = (function () {
 
       const doneCount = countDone(minis);
       const total = minis.length;
+
+      // ปล่อย event ฉลองจบ Mini quest
+      emit('quest:celebrate', {
+        kind: 'mini',
+        id: m.id,
+        label: m.label,
+        index: doneCount,
+        total
+      });
 
       if (doneCount < total) {
         currentMiniIndex = doneCount;
@@ -502,7 +529,7 @@ export const GameEngine = (function () {
         scoreFinal: score,
         comboMax,
         misses,
-        gameVersion: 'GoodJunkVR-2025-12-09-Stats-MQ-FullEvent-spawnX',
+        gameVersion: 'GoodJunkVR-2025-12-10-Stats-MQ-FullEvent',
         reason: reason || 'normal',
 
         goalsCleared,
@@ -559,24 +586,19 @@ export const GameEngine = (function () {
         ? (el.dataset.tid || '')
         : (base.targetId || '');
 
-    // --- spawnX สำหรับวิเคราะห์ RT ซ้าย/ขวา ---
-    let spawnX = '';
-    if (el && el.dataset && el.dataset.spawnX != null) {
-      spawnX = el.dataset.spawnX;
-    } else if (el && el.object3D && el.object3D.position) {
-      try {
-        const x = el.object3D.position.x;
-        spawnX = (typeof x === 'number' && isFinite(x))
-          ? String(x.toFixed(4))
-          : String(x);
-      } catch (err) {
-        spawnX = '';
+    // spawnX / side สำหรับเปรียบเทียบ RT zone ซ้าย/ขวา
+    let spawnX = null;
+    let spawnSide = '';
+    if (el && el.dataset && el.dataset.spawnX !== undefined) {
+      const x = parseFloat(el.dataset.spawnX);
+      if (!Number.isNaN(x)) {
+        spawnX = x;
+        spawnSide = (x < 0 ? 'L' : (x > 0 ? 'R' : 'C'));
       }
     }
 
-    // --- Goal / Mini ที่ active ปัจจุบัน (ใช้ตัดกราฟตามภารกิจย่อย) ---
-    const goalIdActive = g ? (g.id || '') : '';
-    const miniIdActive = m ? (m.id || '') : '';
+    const goalIdActive = g ? g.id : '';
+    const miniIdActive = m ? m.id : '';
 
     emit('hha:event', {
       sessionId,
@@ -584,13 +606,14 @@ export const GameEngine = (function () {
       difficulty: currentDiff,
       timeFromStartMs,
       targetId,
-      spawnX,
       feverState,
       feverValue,
-      goalIdActive,
-      miniIdActive,
       goalProgress,
       miniProgress,
+      goalIdActive,
+      miniIdActive,
+      spawnX,
+      spawnSide,
       ...base
     });
   }
@@ -625,8 +648,8 @@ export const GameEngine = (function () {
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
     root.dataset.spawnAt = String(nowMs());
-    // เก็บตำแหน่งแกน X ตอน spawn สำหรับงานวิจัย RT ซ้าย/ขวา
-    root.dataset.spawnX = String(x.toFixed(4));
+    // เก็บตำแหน่ง X ไว้ใช้วิเคราะห์ (ซ้าย/ขวา/กลาง)
+    root.dataset.spawnX = String(x);
 
     const circle = document.createElement('a-circle');
     let color = '#22c55e';
