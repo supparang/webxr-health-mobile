@@ -38,12 +38,12 @@
       inset:0;
     }
 
-    /* ===== ให้ Water gauge ลอยอยู่ด้านบนสุด ไม่โดน HUD บัง ===== */
+    /* ===== ให้ Water gauge อยู่ชั้นบนสุด ไม่ถูกบัง ===== */
     .hha-water-root,
     [data-hha-water],
     .water-gauge-root{
-      position:fixed;
-      z-index:700;
+      position:fixed !important;
+      z-index:700 !important;
     }
 
     /* ===== HUD หลัก ===== */
@@ -55,14 +55,17 @@
       display:flex;
       flex-direction:column;
       justify-content:space-between;
-      padding:70px 10px 14px; /* เลื่อนลง ให้พ้นเกจน้ำ */
+      padding:82px 10px 14px; /* ขยับลงหลบเกจน้ำ */
     }
+
     .hud-top{
       display:flex;
       justify-content:space-between;
       gap:8px;
       align-items:flex-start;
+      flex-wrap:wrap;          /* ★ ให้พับลงเมื่อจอแคบ */
     }
+
     .hud-card{
       background:rgba(15,23,42,0.9);
       border-radius:16px;
@@ -71,7 +74,18 @@
       pointer-events:auto;
       font-size:13px;
       min-width:150px;
+      flex:1 1 0;              /* ★ แบ่งพื้นที่ตามความกว้างจอ */
+      max-width:100%;
     }
+
+    /* ★ การ์ด QUEST ให้กินเต็มแถวบนจอแคบ จะไม่ตกขอบ */
+    .hud-card-quest{
+      flex:1 1 100%;
+      max-width:100%;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+    }
+
     .hud-title{
       font-size:11px;
       text-transform:uppercase;
@@ -224,6 +238,17 @@
       gap:6px;
       box-shadow:0 14px 30px rgba(15,23,42,0.9);
     }
+
+    /* ปรับเล็กน้อยสำหรับจอเล็กมาก ๆ */
+    @media (max-width:480px){
+      .hud-card{
+        font-size:12px;
+        padding:6px 10px;
+      }
+      .hud-title{
+        font-size:10px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -256,6 +281,7 @@
   <!-- ===== HUD Overlay ===== -->
   <div class="hud-root">
     <div class="hud-top">
+      <!-- MODE -->
       <div class="hud-card">
         <div class="hud-title">Hydration VR • Mode</div>
         <div class="hud-body">
@@ -264,6 +290,8 @@
           เวลา: <span id="hud-time">60s</span>
         </div>
       </div>
+
+      <!-- SCORE -->
       <div class="hud-card">
         <div class="hud-title">Score</div>
         <div class="hud-body">
@@ -272,7 +300,9 @@
           พลาด: <span id="hud-miss">0</span>
         </div>
       </div>
-      <div class="hud-card">
+
+      <!-- QUEST -->
+      <div class="hud-card hud-card-quest">
         <div class="hud-title">Quest</div>
         <div class="hud-body">
           Quest: <span id="hud-quest-main">ภารกิจหลักจะโผล่ตรงนี้</span><br>
@@ -281,6 +311,7 @@
       </div>
     </div>
 
+    <!-- Bottom: coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <div>
@@ -316,6 +347,7 @@
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
 
+  <!-- Boot script (เหมือนเวอร์ชันก่อนหน้า) -->
   <script type="module">
     import { GameEngine } from './hydration-vr/GameEngine.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
@@ -384,7 +416,6 @@
       setTimeout(()=> elQuestHint.classList.remove('show'), 1400);
     }
 
-    // ===== HUD score =====
     window.addEventListener('hha:score',(e)=>{
       const d = e.detail || {};
       if (typeof d.score === 'number') {
@@ -407,17 +438,13 @@
       setCoach('พลาดแก้วน้ำนิดนึง ลองจิบน้ำดีต่ออีกหน่อยนะ 💧');
     });
 
-    // เวลา
     window.addEventListener('hha:time',(e)=>{
       const sec = (e.detail && typeof e.detail.sec === 'number')
         ? e.detail.sec
         : (e.detail?.sec | 0);
-      if (sec >= 0) {
-        elTime.textContent = sec + 's';
-      }
+      if (sec >= 0) elTime.textContent = sec + 's';
     });
 
-    // Quest HUD + เก็บ progress ไว้ใช้สรุป
     window.addEventListener('quest:update',(e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -449,7 +476,6 @@
       lastStats.miniCleared  = minisAll.filter(m => m && m.done).length;
     });
 
-    // ฉลองย่อย
     window.addEventListener('quest:step',(e)=>{
       const d = e.detail || {};
       if (d.type === 'goal') {
@@ -468,7 +494,6 @@
       }
     });
 
-    // ฉลองใหญ่ + ยิง hha:end เอง แล้วค่อย stop เกม
     window.addEventListener('quest:all-cleared',()=>{
       if (gameStopped) return;
       showQuestToast('🎉 สุดยอด! ทำครบทุกภารกิจแล้ว!');
@@ -479,7 +504,6 @@
         gameStopped = true;
         if (timerId) clearInterval(timerId);
 
-        // ยิง hha:end ด้วย stats ล่าสุด
         const detail = {
           mode: 'Hydration',
           modeLabel: 'Hydration',
@@ -493,13 +517,10 @@
           miniTotal: lastStats.miniTotal
         };
         window.dispatchEvent(new CustomEvent('hha:end',{ detail }));
-
-        // แล้วค่อยสั่ง stop engine
         GameEngine.stop('all-cleared');
       }, 1500);
     });
 
-    // สรุปผล (ทั้งกรณีหมดเวลา และเคลียร์ทุกภารกิจ)
     window.addEventListener('hha:end',(e)=>{
       const d = e.detail || {};
 
@@ -523,27 +544,22 @@
       }, 400);
     });
 
-    // ===== VR button =====
     function initVRButton(){
       const scene = document.querySelector('a-scene');
       if (!btnVR || !scene) return;
       btnVR.addEventListener('click', () => {
-        try{
-          scene.enterVR();
-        }catch(err){
+        try{ scene.enterVR(); }catch(err){
           console.warn('[HydrationVR] enterVR error:', err);
         }
       });
     }
 
-    // ===== Boot =====
     window.addEventListener('DOMContentLoaded',()=>{
       const diffParam = String(getParam('diff','normal')).toLowerCase();
       const runParam  = String(getParam('run','play')).toLowerCase();
       currentDiff     = (diffParam === 'easy' || diffParam === 'hard') ? diffParam : 'normal';
       currentRunMode  = (runParam === 'research') ? 'research' : 'play';
 
-      // เวลาเริ่มต้น
       let baseDur = 60;
       if (currentDiff === 'easy') baseDur = 80;
       else if (currentDiff === 'hard') baseDur = 45;
@@ -561,7 +577,6 @@
       elRunHUD.textContent = (currentRunMode === 'research') ? 'Research Mode' : 'Play Mode';
       elTime.textContent   = timeLeft + 's';
 
-      // profile จาก Hub
       let studentProfile = null;
       let studentKey = null;
       try{
@@ -594,7 +609,6 @@
 
       GameEngine.start(currentDiff, timeLeft);
 
-      // clock กลาง
       window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
       timerId = setInterval(() => {
         if (gameStopped) return;
