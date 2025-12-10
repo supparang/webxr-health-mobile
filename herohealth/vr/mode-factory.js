@@ -6,16 +6,21 @@
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 const A = ROOT.AFRAME || null;
 
-// ---------- เลือก config จาก HHA_DIFF_TABLE ----------
+// ---------- เลือก config จาก HHA_DIFF_TABLE + fallback ----------
 function pickEngineConfig(cfg) {
   const diff = String(cfg.difficulty || 'normal').toLowerCase();
   const modeKey = cfg.modeKey || 'hydration';
+
+  // fallback factor ตามระดับ (ถ้าไม่มี HHA_DIFF_TABLE.hydration)
+  let diffSizeFactor = 1.0;
+  if (diff === 'easy') diffSizeFactor = 1.15;
+  else if (diff === 'hard') diffSizeFactor = 0.9;
 
   const base = {
     SPAWN_INTERVAL: 900,
     ITEM_LIFETIME: 2400,
     MAX_ACTIVE: 4,
-    SIZE_FACTOR: 1.0,
+    SIZE_FACTOR: diffSizeFactor,
     TYPE_WEIGHTS: { good: 70, bad: 30 }
   };
 
@@ -76,12 +81,12 @@ function pickCharForType(type, cfg) {
   return powerups[Math.floor(Math.random() * powerups.length)];
 }
 
-// ---------- เป้าแบบ VR (ใช้เฉพาะ desktop / non-mobile) ----------
+// ================= VR TARGET =================
 function createVrTarget(sceneEl, ch, cfg, engineCfg) {
   const goodPool = cfg.pools?.good || [];
   const badPool  = cfg.pools?.bad  || [];
 
-  const sizeBase = 0.9;
+  const sizeBase = 0.85;
   const size = sizeBase * (engineCfg.SIZE_FACTOR || 1.0);
 
   const el = document.createElement('a-entity');
@@ -90,10 +95,11 @@ function createVrTarget(sceneEl, ch, cfg, engineCfg) {
   el.setAttribute('data-char', ch);
 
   const x = (Math.random() * 2 - 1) * 1.4;
-  const y = 1.4 + (Math.random() * 0.8 - 0.4);
+  const y = 1.5 + (Math.random() * 0.8 - 0.4);
   const z = -3.0;
   el.setAttribute('position', `${x} ${y} ${z}`);
 
+  // emoji plane
   el.setAttribute('geometry',
     `primitive: plane; width: ${size}; height: ${size}`);
   el.setAttribute(
@@ -108,13 +114,14 @@ function createVrTarget(sceneEl, ch, cfg, engineCfg) {
     baseline: 'center'
   });
 
+  // ใส่ plate ด้านหลังให้เห็นชัด
   const plate = document.createElement('a-plane');
   plate.setAttribute('width',  size * 1.08);
   plate.setAttribute('height', size * 1.08);
   plate.setAttribute('position', '0 0 -0.01');
   plate.setAttribute(
     'material',
-    'color: #020617; opacity: 0.0; shader: flat'
+    'color: #020617; opacity: 0.88; shader: flat'
   );
   el.appendChild(plate);
 
@@ -122,15 +129,17 @@ function createVrTarget(sceneEl, ch, cfg, engineCfg) {
   el.addEventListener('click', (ev) => {
     const intersection = ev.detail && ev.detail.intersection;
     const p = intersection && intersection.point;
+    const cx = ROOT.innerWidth / 2;
+    const cy = ROOT.innerHeight / 2;
 
     const ctx = {
       char: ch,
       isGood: goodPool.includes(ch),
       isBad:  badPool.includes(ch),
-      clientX: ROOT.innerWidth  / 2,
-      clientY: ROOT.innerHeight / 2,
-      cx: ROOT.innerWidth  / 2,
-      cy: ROOT.innerHeight / 2,
+      clientX: cx,
+      clientY: cy,
+      cx,
+      cy,
       worldX: p?.x,
       worldY: p?.y,
       worldZ: p?.z
@@ -142,13 +151,15 @@ function createVrTarget(sceneEl, ch, cfg, engineCfg) {
   return el;
 }
 
-// ---------- เป้าแบบ DOM (ใช้บน mobile / fallback) ----------
+// ================= DOM TARGET (MOBILE / FALLBACK) =================
 function createDomTarget(ch, cfg, engineCfg) {
   const goodPool = cfg.pools?.good || [];
   const badPool  = cfg.pools?.bad  || [];
 
   const wrap = document.body;
-  const size = 96 * (engineCfg.SIZE_FACTOR || 1.0);
+
+  // base size 78px แล้วคูณ factor ตาม diff
+  const size = 78 * (engineCfg.SIZE_FACTOR || 1.0);
 
   const el = document.createElement('div');
   el.className = 'hha-target-dom';
@@ -156,17 +167,18 @@ function createDomTarget(ch, cfg, engineCfg) {
 
   el.style.position = 'fixed';
   el.style.width = el.style.height = size + 'px';
-  el.style.fontSize = size * 0.75 + 'px';
+  el.style.fontSize = size * 0.78 + 'px';
   el.style.display = 'flex';
   el.style.alignItems = 'center';
   el.style.justifyContent = 'center';
   el.style.borderRadius = '999px';
-  el.style.background = 'rgba(15,23,42,0.9)';
+  el.style.background = 'rgba(15,23,42,0.95)';
   el.style.boxShadow = '0 18px 35px rgba(0,0,0,0.55)';
   el.style.zIndex = 400;
+  el.style.userSelect = 'none';
 
   const x = 0.5 + (Math.random() * 0.6 - 0.3);
-  const y = 0.45 + (Math.random() * 0.3 - 0.15);
+  const y = 0.52 + (Math.random() * 0.28 - 0.14);
   el.style.left = (x * 100) + '%';
   el.style.top  = (y * 100) + '%';
   el.style.transform = 'translate(-50%, -50%)';
@@ -178,12 +190,14 @@ function createDomTarget(ch, cfg, engineCfg) {
     const rect = el.getBoundingClientRect();
     const cx = rect.left + rect.width  / 2;
     const cy = rect.top  + rect.height / 2;
+
+    // ใช้จุดกลางเป้าเป็นพิกัด effect (จะได้แตกตรง emoji)
     const ctx = {
       char: ch,
       isGood: goodPool.includes(ch),
       isBad:  badPool.includes(ch),
-      clientX: ev.clientX,
-      clientY: ev.clientY,
+      clientX: cx,
+      clientY: cy,
       cx,
       cy
     };
@@ -194,14 +208,14 @@ function createDomTarget(ch, cfg, engineCfg) {
   return el;
 }
 
-// ---------- boot ----------
+// ================= BOOT =================
 export async function boot(cfg = {}) {
   const engineCfg = pickEngineConfig(cfg);
   const onExpire  = cfg.onExpire || (() => {});
 
   const sceneEl = (A && document.querySelector('a-scene')) || null;
 
-  // desktop = ใช้ VR entity, mobile = ใช้ DOM overlay
+  // desktop = VR target, mobile = DOM target
   let useVrTargets = !!(A && sceneEl);
   try {
     if (A && A.utils && A.utils.device && A.utils.device.isMobile()) {
@@ -216,14 +230,21 @@ export async function boot(cfg = {}) {
 
   function destroyTarget(el, reason) {
     if (!el) return;
+    if (!active.has(el)) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+      return;
+    }
     active.delete(el);
 
     if (el.parentNode) el.parentNode.removeChild(el);
 
     if (reason === 'expire') {
-      const ch = el.getAttribute
-        ? (el.getAttribute('data-char') || el.dataset?.char)
-        : (el.dataset && el.dataset.char);
+      let ch = null;
+      if (el.getAttribute) {
+        ch = el.getAttribute('data-char') || el.dataset?.char;
+      } else if (el.dataset) {
+        ch = el.dataset.char;
+      }
       const pools = cfg.pools || {};
       const isGood = (pools.good || []).includes(ch);
       onExpire({ char: ch, isGood });
@@ -247,6 +268,11 @@ export async function boot(cfg = {}) {
 
     active.add(el);
 
+    // ตีแล้วให้หายทันที (hit) เพื่อให้รู้สึก responsive แบบ GoodJunk
+    const hitHandler = () => destroyTarget(el, 'hit');
+    el.addEventListener('click', hitHandler, { once: true });
+
+    // หมดอายุเอง (ไม่โดนตี) → expire
     const life = engineCfg.ITEM_LIFETIME || 2400;
     setTimeout(() => {
       if (!stopped && active.has(el)) {
