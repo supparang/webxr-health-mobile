@@ -6,88 +6,249 @@
   <title>Hero Health — Hydration Quest VR</title>
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon">
+
+  <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
   <style>
-    :root {
+    :root{
       color-scheme: dark;
-      --bg-main: #020617;
-      --accent: #22c55e;
-      --accent-soft: rgba(34,197,94,0.25);
-      --text-main: #e5e7eb;
-      --text-soft: #9ca3af;
-      --danger: #f97316;
+      --bg-main:#020617;
+      --accent:#22c55e;
+      --accent-soft:rgba(34,197,94,0.25);
+      --text-main:#e5e7eb;
+      --text-soft:#9ca3af;
+      --danger:#f97316;
     }
-    body {
-      margin: 0; background: var(--bg-main);
-      font-family: system-ui, sans-serif; color: var(--text-main);
-      overflow: hidden;
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:var(--bg-main);
+      color:var(--text-main);
+      overflow:hidden;
     }
-    a-scene {
-      width: 100vw; height: 100vh; position: fixed; inset: 0;
+
+    a-scene{
+      width:100vw;
+      height:100vh;
+      position:fixed;
+      inset:0;
     }
-    .hud-root { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 10px; pointer-events: none; z-index: 650; }
-    .hud-card { background: rgba(15,23,42,0.8); border-radius: 16px; padding: 8px 12px; border: 1px solid rgba(255,255,255,0.1); }
-    .hud-top { display: flex; justify-content: space-between; gap: 8px; }
-    .hud-bottom { display: flex; justify-content: center; padding-bottom: 60px; }
-    .coach-bubble { display: none; background: rgba(15,23,42,0.9); border-radius: 999px; padding: 10px 18px; border: 1px solid rgba(52,211,153,0.45); }
-    .coach-bubble.show { display: flex; }
-    .hint-center { position: fixed; left:50%; top:40%; transform:translate(-50%,-50%); background: rgba(15,23,42,0.9); padding:10px 18px; border-radius:999px; font-size:14px; color:#fff; border:1px solid rgba(255,255,255,0.2); display:none; z-index:652; }
-    .hint-center.show { display:block; animation: fadeHint 2s ease-out forwards; }
-    @keyframes fadeHint { 0%{opacity:1;transform:translate(-50%,-50%) scale(1);} 90%{opacity:1;} 100%{opacity:0;transform:translate(-50%,-40%) scale(0.8);} }
-    .end-toast { display:none; position:fixed; left:50%; top:15%; transform:translateX(-50%); background:rgba(15,23,42,0.96); border:1px solid rgba(250,204,21,0.6); border-radius:16px; padding:14px 18px; z-index:653; }
-    .end-toast.show { display:block; animation: fadeIn .6s ease-out; }
-    @keyframes fadeIn { from{opacity:0;transform:translate(-50%,-20px);} to{opacity:1;transform:translate(-50%,0);} }
+
+    /* ===== HUD หลักแบบง่าย (ซ้ายคะแนน / ขวา Quest) ===== */
+    .hud-root{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:650;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      padding:10px 10px 14px;
+    }
+    .hud-top{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+    }
+    .hud-card{
+      background:rgba(15,23,42,0.9);
+      border-radius:16px;
+      padding:8px 12px;
+      border:1px solid rgba(148,163,184,0.22);
+      pointer-events:auto;
+      font-size:13px;
+    }
+    .hud-card h4{
+      margin:0 0 4px;
+      font-size:12px;
+      font-weight:600;
+      color:var(--text-soft);
+    }
+    .hud-card p{
+      margin:0;
+      font-size:13px;
+      line-height:1.4;
+    }
+
+    /* ===== Coach bubble (ล่างกลาง) ===== */
+    .hud-bottom{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      padding-bottom:64px;
+    }
+    .coach-bubble{
+      min-width:60%;
+      max-width:680px;
+      text-align:left;
+      background:rgba(15,23,42,0.96);
+      border-radius:999px;
+      padding:8px 14px;
+      border:1px solid rgba(52,211,153,0.45);
+      font-size:13px;
+      display:none;
+      align-items:center;
+      gap:8px;
+      pointer-events:auto;
+    }
+    .coach-bubble.show{ display:flex; }
+    .coach-label{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.16em;
+      color:#6ee7b7;
+      font-weight:600;
+    }
+
+    /* ===== Toast ฉลอง Quest / Mini ===== */
+    .hint-center{
+      position:fixed;
+      left:50%;
+      top:32%;
+      transform:translate(-50%,-50%);
+      font-size:14px;
+      color:#fefce8;
+      background:radial-gradient(circle at top left, rgba(250,204,21,0.35), transparent 55%),
+                 rgba(15,23,42,0.98);
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid rgba(250,204,21,0.7);
+      display:none;
+      pointer-events:none;
+      z-index:652;
+    }
+    .hint-center.show{
+      display:block;
+      animation:questToast .6s ease-out;
+    }
+    @keyframes questToast{
+      from{opacity:0;transform:translate(-50%,-40%) scale(.9);}
+      to{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    }
+
+    /* ===== End Summary Toast ===== */
+    .end-toast{
+      position:fixed;
+      left:50%;
+      top:18%;
+      transform:translateX(-50%);
+      background:radial-gradient(circle at top left, rgba(250,204,21,0.26), transparent 55%),
+                 rgba(15,23,42,0.96);
+      padding:12px 16px 14px;
+      border-radius:20px;
+      border:1px solid rgba(250,204,21,0.65);
+      min-width:280px;
+      max-width:420px;
+      font-size:13px;
+      box-shadow:0 20px 40px rgba(15,23,42,0.85);
+      display:none;
+      z-index:653;
+      pointer-events:auto;
+    }
+    .end-toast.show{
+      display:block;
+      animation:fadeIn .6s ease-out;
+    }
+    .end-title{
+      font-size:14px;
+      font-weight:700;
+      margin-bottom:4px;
+    }
+    .end-row{
+      display:flex;
+      justify-content:space-between;
+      font-size:12px;
+      margin-top:2px;
+    }
+    .end-row strong{ font-weight:600; }
+
+    @keyframes fadeIn{
+      from{opacity:0;transform:translate(-50%,-18px);}
+      to{opacity:1;transform:translate(-50%,0);}
+    }
   </style>
 </head>
 <body>
 
-  <!-- VR Scene -->
-  <a-scene renderer="antialias: true; colorManagement: true" background="color:#020617">
+  <!-- ===== A-Frame Scene (VR Hydration) ===== -->
+  <a-scene
+    vr-mode-ui="enabled: true"
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+    background="color: #020617">
+
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="hydration-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
+      <a-camera id="hydration-camera"
+                wasd-controls-enabled="false"
+                look-controls="pointerLockEnabled: false">
         <a-entity id="cursor"
-          cursor="fuse:false; rayOrigin:mouse"
-          raycaster="objects: .hha-target-vr, [data-hha-tgt]; interval: 50; far: 10"
-          geometry="primitive:ring; radiusInner:0.01; radiusOuter:0.016"
-          material="shader:flat; color:#fff"
-          position="0 0 -0.9"></a-entity>
+                  cursor="fuse: false; rayOrigin: mouse"
+                  raycaster="objects: .hha-target-vr, [data-hha-tgt]; interval: 50; far: 10"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+                  material="shader: flat; color: #ffffff"
+                  position="0 0 -0.9">
+        </a-entity>
       </a-camera>
     </a-entity>
-    <a-light type="directional" intensity="0.7" position="1 2 0.5"></a-light>
+
+    <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- HUD -->
+  <!-- ===== HUD Overlay ===== -->
   <div class="hud-root">
     <div class="hud-top">
+      <!-- Left: score -->
       <div class="hud-card">
-        <div>คะแนน: <span id="hud-score">0</span></div>
-        <div>คอมโบสูงสุด: <span id="hud-combo">0</span></div>
-        <div>พลาด: <span id="hud-miss">0</span></div>
+        <h4>คะแนน</h4>
+        <p>
+          คะแนน: <span id="hud-score">0</span><br/>
+          คอมโบสูงสุด: <span id="hud-combo">0</span><br/>
+          พลาด: <span id="hud-miss">0</span>
+        </p>
       </div>
+
+      <!-- Right: Quest / Mini -->
       <div class="hud-card">
-        <div>Quest: <span id="hud-quest-main">-</span></div>
-        <div>Mini: <span id="hud-quest-mini">-</span></div>
+        <h4>QUEST</h4>
+        <p>
+          Quest: <span id="hud-quest-main">-</span><br/>
+          Mini: <span id="hud-quest-mini">-</span>
+        </p>
       </div>
     </div>
+
+    <!-- Bottom: coach -->
     <div class="hud-bottom">
-      <div class="coach-bubble" id="coach-bubble"><span id="coach-text">โค้ชจะพูดที่นี่</span></div>
+      <div class="coach-bubble" id="coach-bubble">
+        <div>
+          <div class="coach-label">โค้ช</div>
+          <div id="coach-text">จิบน้ำให้ครบตามเป้า เลี่ยงน้ำหวานจัด ๆ นะ 💧</div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Toast for quest reward -->
+  <!-- Toast ฉลอง Quest / Mini / All -->
   <div class="hint-center" id="quest-hint"></div>
 
-  <!-- End Summary -->
+  <!-- End summary -->
   <div class="end-toast" id="end-toast">
-    <div>สรุปผล • Hydration Quest VR</div>
-    <div>คะแนนรวม: <strong id="end-score">0</strong></div>
-    <div>คอมโบสูงสุด: <strong id="end-combo">0</strong></div>
-    <div>พลาด: <strong id="end-miss">0</strong></div>
-    <div>Goals: <strong id="end-goal">0 / 0</strong></div>
-    <div>Mini quests: <strong id="end-mini">0 / 0</strong></div>
+    <div class="end-title">สรุปผล • Hydration Quest VR</div>
+    <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
+    <div class="end-row"><span>คอมโบสูงสุด</span><strong id="end-combo">0</strong></div>
+    <div class="end-row"><span>พลาด</span><strong id="end-miss">0</strong></div>
+    <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 0</strong></div>
+    <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
   </div>
 
+  <!-- Fever + Particles -->
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
 
@@ -96,12 +257,22 @@
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
 
-    const elScore = document.getElementById('hud-score');
-    const elCombo = document.getElementById('hud-combo');
-    const elMiss  = document.getElementById('hud-miss');
-    const elCoach = document.getElementById('coach-bubble');
-    const elCoachText = document.getElementById('coach-text');
-    const elQuestHint = document.getElementById('quest-hint');
+    function getParam(name, fallback){
+      const url = new URL(window.location.href);
+      const v = url.searchParams.get(name);
+      return v !== null && v !== '' ? v : fallback;
+    }
+
+    const elScore   = document.getElementById('hud-score');
+    const elCombo   = document.getElementById('hud-combo');
+    const elMiss    = document.getElementById('hud-miss');
+    const elQuestMain = document.getElementById('hud-quest-main');
+    const elQuestMini = document.getElementById('hud-quest-mini');
+
+    const elCoachBubble = document.getElementById('coach-bubble');
+    const elCoachText   = document.getElementById('coach-text');
+    const elQuestHint   = document.getElementById('quest-hint');
+
     const elEndToast  = document.getElementById('end-toast');
     const elEndScore  = document.getElementById('end-score');
     const elEndCombo  = document.getElementById('end-combo');
@@ -109,72 +280,189 @@
     const elEndGoal   = document.getElementById('end-goal');
     const elEndMini   = document.getElementById('end-mini');
 
-    let hudMiss = 0;
-    function setCoach(text) {
+    let hudMissCount = 0;
+    let gameStopped = false;
+
+    function setCoach(text){
+      if (!text) return;
       elCoachText.textContent = text;
-      elCoach.classList.add('show');
-      setTimeout(()=> elCoach.classList.remove('show'), 3500);
+      elCoachBubble.classList.add('show');
+      setTimeout(()=> elCoachBubble.classList.remove('show'), 4200);
     }
-    function showQuestReward(msg){
+
+    function showQuestToast(msg){
+      if (!msg) return;
       elQuestHint.textContent = msg;
       elQuestHint.classList.add('show');
-      setTimeout(()=> elQuestHint.classList.remove('show'), 2200);
+      setTimeout(()=> elQuestHint.classList.remove('show'), 1200);
     }
 
-    window.addEventListener('hha:coach',(e)=>{
-      const t=e.detail?.text||''; if(t) setCoach(t);
-    });
+    // === HUD: คะแนน / คอมโบ / พลาด ===
     window.addEventListener('hha:score',(e)=>{
-      const d=e.detail||{}; elScore.textContent=d.score||0; elCombo.textContent=d.comboMax||0;
-      hudMiss=d.misses||0; elMiss.textContent=hudMiss;
-    });
-    window.addEventListener('hha:miss',(e)=>{
-      hudMiss++; elMiss.textContent=hudMiss;
-      setCoach('พลาดแก้วน้ำนิดนึง ลองใหม่อีกหน่อย 💧');
+      const d = e.detail || {};
+      if (typeof d.score === 'number') elScore.textContent = d.score;
+      if (typeof d.comboMax === 'number') elCombo.textContent = d.comboMax;
+      if (typeof d.misses === 'number') {
+        hudMissCount = d.misses|0;
+        elMiss.textContent = hudMissCount;
+      }
     });
 
-    // --- ฉลองเมื่อทำสำเร็จแต่ละภารกิจ ---
+    window.addEventListener('hha:miss',()=>{
+      hudMissCount += 1;
+      elMiss.textContent = hudMissCount;
+      setCoach('พลาดแก้วน้ำนิดนึง ลองจิบน้ำดีต่ออีกหน่อยนะ 💧');
+    });
+
+    // === HUD: Quest / Mini จาก hydration.safe.js (pushQuest) ===
+    window.addEventListener('quest:update',(e)=>{
+      const d = e.detail || {};
+      const g = d.goal || null;
+      const m = d.mini || null;
+
+      if (g) {
+        const prog = g.prog|0, tgt = g.target|0;
+        elQuestMain.textContent = g.label
+          ? `${g.label} (${prog}/${tgt})`
+          : `Goal: ${prog}/${tgt}`;
+      } else {
+        elQuestMain.textContent = 'Goal: ครบแล้ว 🎯';
+      }
+
+      if (m) {
+        const progM = m.prog|0, tgtM = m.target|0;
+        elQuestMini.textContent = m.label
+          ? `${m.label} (${progM}/${tgtM})`
+          : `Mini: ${progM}/${tgtM}`;
+      } else {
+        elQuestMini.textContent = 'Mini quest: ครบแล้ว ✅';
+      }
+    });
+
+    // ฉลองย่อยเมื่อผ่านแต่ละ goal / mini
     window.addEventListener('quest:step',(e)=>{
-      const d=e.detail||{};
-      if(d.type==='goal') showQuestReward(`Goal ${d.done}/${d.total} สำเร็จ! +${d.bonus}`);
-      if(d.type==='mini') showQuestReward(`Mini quest ${d.done}/${d.total} สำเร็จ! +${d.bonus}`);
+      const d = e.detail || {};
+      if (d.type === 'goal') {
+        showQuestToast(`🎯 Goal ${d.done}/${d.total} สำเร็จ! +${d.bonus} คะแนน`);
+      } else if (d.type === 'mini') {
+        showQuestToast(`⭐ Mini quest ${d.done}/${d.total} สำเร็จ! +${d.bonus} คะแนน`);
+      }
     });
 
-    // --- ฉลองเมื่อครบเซ็ต ---
+    // ฉลองเมื่อผ่านครบชุด goals / minis
     window.addEventListener('quest:reward',(e)=>{
-      const t=e.detail?.type||'';
-      if(t==='goal-all') showQuestReward('Goal ครบทั้ง 2 ภารกิจ! 🎯');
-      if(t==='mini-all') showQuestReward('Mini quest ครบทั้ง 3 ภารกิจ! ⭐⭐⭐');
+      const t = e.detail?.type || '';
+      if (t === 'goal-all') {
+        showQuestToast('🎯 Goal ครบทั้ง 2 ภารกิจแล้ว!');
+      } else if (t === 'mini-all') {
+        showQuestToast('⭐ Mini quest ครบทั้ง 3 ภารกิจแล้ว!');
+      }
     });
 
-    // --- ฉลองใหญ่เมื่อครบทุกภารกิจ ---
-    window.addEventListener('quest:all-cleared',(e)=>{
-      showQuestReward('สุดยอด! ทำครบทุกภารกิจแล้ว 🎉🎉🎉');
-      setCoach('สุดยอดมาก! รักษาน้ำในร่างกายได้ครบทุกภารกิจ 💧🎉');
-      setTimeout(()=>{ GameEngine.stop('all-cleared'); }, 1800);
+    // ฉลองใหญ่เมื่อครบทุกภารกิจ (2 goal + 3 mini)
+    window.addEventListener('quest:all-cleared',()=>{
+      if (gameStopped) return;
+      showQuestToast('🎉 สุดยอด! ทำครบทุกภารกิจแล้ว!');
+      setCoach('สุดยอดมาก! รักษาน้ำในร่างกายได้ครบทุกภารกิจเลย 💧🎉');
+      setTimeout(()=> {
+        if (!gameStopped) {
+          GameEngine.stop('all-cleared');
+          gameStopped = true;
+        }
+      }, 1500);
     });
 
-    // --- สรุปผลเมื่อจบเกม ---
+    // === สรุปตอนจบเกม ===
     window.addEventListener('hha:end',(e)=>{
-      const d=e.detail||{};
-      elEndScore.textContent=d.score||0;
-      elEndCombo.textContent=d.comboMax||0;
-      elEndMiss.textContent=d.misses||0;
-      elEndGoal.textContent=`${d.goalsCleared||0} / ${d.goalsTotal||0}`;
-      elEndMini.textContent=`${d.miniCleared||0} / ${d.miniTotal||0}`;
-      elEndToast.classList.add('show');
+      const d = e.detail || {};
+      const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
+      const comboMax     = d.comboMax ?? 0;
+      const misses       = d.misses ?? 0;
+      const goalsCleared = d.goalsCleared ?? 0;
+      const goalsTotal   = d.goalsTotal ?? 0;
+      const miniCleared  = d.miniCleared ?? 0;
+      const miniTotal    = d.miniTotal ?? 0;
+
+      elEndScore.textContent = scoreFinal;
+      elEndCombo.textContent = comboMax;
+      elEndMiss.textContent  = misses;
+      elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
+      elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
+
+      setTimeout(()=> {
+        elEndToast.classList.add('show');
+      }, 400); // หน่วงนิดหน่อยหลังฉลองใหญ่
     });
 
-    // --- เริ่มเกม ---
+    // ===== Boot =====
     window.addEventListener('DOMContentLoaded',()=>{
-      attachTouchLook(document.querySelector('#hydration-camera'));
+      const diffParam = String(getParam('diff','normal')).toLowerCase();
+      const runParam  = String(getParam('run','play')).toLowerCase();
+      const runMode   = (runParam === 'research') ? 'research' : 'play';
+
+      let dur = 60;
+      const tParam = getParam('time','');
+      if (tParam){
+        const n = parseInt(tParam,10);
+        if (!isNaN(n) && n >= 20 && n <= 180) dur = n;
+      }
+
+      // profile จาก Hub
+      let studentProfile = null;
+      let studentKey = null;
+      try{
+        const raw = sessionStorage.getItem('hhaStudentProfile');
+        if (raw){
+          studentProfile = JSON.parse(raw);
+          studentKey = studentProfile.studentKey || null;
+        }
+      }catch(err){
+        console.warn('[HydrationVR] cannot parse student profile:', err);
+      }
+
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
-        projectTag: 'HeroHealth-HydrationVR'
+        projectTag: 'HeroHealth-HydrationVR',
+        mode: 'HydrationVR',
+        runMode,
+        diff: diffParam,
+        durationSec: dur,
+        studentKey,
+        profile: studentProfile,
+        debug: false
       });
-      setCoach('เริ่มเกม จิบน้ำให้ครบทุกภารกิจนะ 💧');
-      GameEngine.start('normal',60);
+
+      const cam = document.querySelector('#hydration-camera');
+      attachTouchLook(cam);
+
+      setCoach('ภารกิจคือรักษาน้ำให้อยู่โซนสีเขียว เลือกน้ำดี เลี่ยงน้ำหวานนะ 💧');
+
+      GameEngine.start(diffParam, dur);
+
+      // clock กลาง
+      let timeLeft = dur;
+      window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+      const timerId = setInterval(() => {
+        timeLeft -= 1;
+        if (timeLeft < 0) {
+          clearInterval(timerId);
+          if (!gameStopped) {
+            GameEngine.stop('time-up');
+            gameStopped = true;
+          }
+          return;
+        }
+        window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+      }, 1000);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && !gameStopped) {
+          GameEngine.stop('tab-hidden');
+          gameStopped = true;
+        }
+      });
     });
   </script>
+
 </body>
 </html>
