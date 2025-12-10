@@ -123,7 +123,7 @@
         <div class="quest-text" id="quest-mini">เก็บผักและผลไม้ให้ครบโควตา</div>
       </div>
       <div class="quest-hint" id="quest-hint">
-        โควตาใน 1 จานจะแสดงที่นี่
+        <!-- จะถูกเขียนใหม่จากสคริปต์: progress + quota ทีละบรรทัด -->
       </div>
     </div>
   </div>
@@ -138,21 +138,23 @@
     </div>
   </div>
 
-  <!-- ===== Toast ฉลองจบแต่ละภารกิจ ===== -->
+  <!-- ===== Toast ฉลองจบ Goal/Mini ===== -->
   <div id="quest-toast">
     <div class="quest-toast-inner">
-      <div class="quest-toast-title" id="quest-toast-title">Goal สำเร็จ!</div>
-      <div class="quest-toast-text" id="quest-toast-text">ตัวอย่างข้อความภารกิจ</div>
-      <div class="quest-toast-tag" id="quest-toast-tag">GOAL 1/2</div>
+      <div class="quest-toast-title" id="qt-title">ภารกิจสำเร็จ!</div>
+      <div class="quest-toast-text" id="qt-text">คุณทำเป้าหมายสำเร็จแล้ว</div>
+      <div class="quest-toast-tag" id="qt-tag">Goal 1/2 • Mini 2/3</div>
     </div>
   </div>
 
-  <!-- ===== Mega Celebration เมื่อทำครบทุกภารกิจ ===== -->
+  <!-- ===== Mega Celebration ตอนจบทุกภารกิจ ===== -->
   <div id="mega-celebrate">
     <div class="mega-card">
-      <div class="mega-emoji">🌈🍽️🎉</div>
-      <div class="mega-title">Balanced Plate Master!</div>
-      <div class="mega-text">คุณทำ Goal และ Mini Quest ครบทั้งหมดแล้ว</div>
+      <div class="mega-emoji">🏅🍽️</div>
+      <div class="mega-title">เคลียร์ทุกภารกิจแล้ว!</div>
+      <div class="mega-text">
+        คุณจัดจานสมดุลครบทุก Goal และ Mini Quest เยี่ยมมาก 🎉
+      </div>
     </div>
   </div>
 
@@ -210,7 +212,7 @@
     </div>
   </div>
 
-  <!-- ===== Gaze Reticle (VR เท่านั้น แต่ให้เห็นเกือบตลอด) ===== -->
+  <!-- ===== Gaze Reticle (VR เท่านั้น แต่ให้เห็นตลอด) ===== -->
   <div id="gaze-reticle">
     <div class="gaze-dot"></div>
     <div class="gaze-ring"></div>
@@ -254,18 +256,24 @@
   const elCoachText   = document.getElementById('coach-text');
   let coachTimer = null;
 
-  // Toast celebrate
-  const toastEl       = document.getElementById('quest-toast');
-  const toastTitleEl  = document.getElementById('quest-toast-title');
-  const toastTextEl   = document.getElementById('quest-toast-text');
-  const toastTagEl    = document.getElementById('quest-toast-tag');
-  let toastTimer      = null;
-  let lastGoalDone    = 0;
-  let lastMiniDone    = 0;
+  // Toast / celebration
+  const toastEl      = document.getElementById('quest-toast');
+  const toastTitleEl = document.getElementById('qt-title');
+  const toastTextEl  = document.getElementById('qt-text');
+  const toastTagEl   = document.getElementById('qt-tag');
+  const megaEl       = document.getElementById('mega-celebrate');
 
-  // Mega celebrate
-  const megaEl   = document.getElementById('mega-celebrate');
-  let megaShown  = false;
+  let toastTimer = null;
+  let lastStat   = null;
+  let lastHintHeader = '';
+  let allClearedShown = false;
+
+  const GROUP_ICONS = ['🍚','🥩','🥦','🍎','🥛'];
+  const QUOTA_MAP = {
+    easy:   [1,1,1,1,1],
+    normal: [1,1,2,2,1],
+    hard:   [2,2,2,2,1]
+  };
 
   // Summary
   const elSummary      = document.getElementById('summary');
@@ -299,6 +307,72 @@
   elDiff.textContent = diffLabel(diffParam);
   elTime.textContent = duration;
 
+  // ------- ฟังก์ชัน Hint quota / progress ทีละบรรทัด -------
+  function updateQuestHint(prefixHtml = '') {
+    if (!elQuestHint) return;
+
+    const quota = QUOTA_MAP[diffParam] || QUOTA_MAP.normal;
+    const plate = (lastStat && Array.isArray(lastStat.plateCounts))
+      ? lastStat.plateCounts
+      : [0,0,0,0,0];
+
+    let html = '';
+    if (prefixHtml) {
+      html += prefixHtml;
+    }
+
+    html += '<div class="quest-hint-title">โควตาจานนี้</div>';
+
+    for (let i = 0; i < quota.length && i < 5; i++) {
+      const need = quota[i] ?? 0;
+      if (!need) continue;
+      const have = plate[i] ?? 0;
+      const missing = Math.max(0, need - have);
+      const cls = missing > 0 ? 'missing' : 'ok';
+      const txt = missing > 0
+        ? `${have}/${need} (ขาด ${missing})`
+        : `${have}/${need} ✔`;
+
+      html += `
+        <div class="quest-hint-line ${cls}">
+          <span class="quest-hint-icon">${GROUP_ICONS[i]}</span>
+          <span class="quest-hint-label">หมู่ ${i + 1}</span>
+          <span class="quest-hint-text">${txt}</span>
+        </div>
+      `;
+    }
+
+    elQuestHint.innerHTML = html;
+  }
+
+  function showQuestToast(kind, text, progressText) {
+    if (!toastEl) return;
+    toastEl.classList.remove('goal', 'mini', 'show');
+    toastEl.classList.add(kind === 'goal' ? 'goal' : 'mini');
+
+    if (toastTitleEl) {
+      toastTitleEl.textContent = kind === 'goal'
+        ? 'Goal สำเร็จแล้ว! 🎯'
+        : 'Mini Quest สำเร็จแล้ว! ⭐';
+    }
+    if (toastTextEl) toastTextEl.textContent = text || '';
+    if (toastTagEl)  toastTagEl.textContent  = progressText || '';
+
+    void toastEl.offsetWidth; // reflow สำหรับ animation
+    toastEl.classList.add('show');
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastEl.classList.remove('show');
+    }, 2600);
+  }
+
+  function showMegaCelebration() {
+    if (allClearedShown) return;
+    allClearedShown = true;
+    if (megaEl) megaEl.classList.add('show');
+  }
+
   // ------- Clock กลาง ส่ง hha:time -------
   let secLeft = duration;
   let timerId = null;
@@ -327,6 +401,8 @@
   // ------- HUD realtime จาก hha:stat -------
   window.addEventListener('hha:stat', (e) => {
     const d = e.detail || {};
+    lastStat = d;
+
     if (typeof d.score === 'number')   elScore.textContent  = d.score;
     if (typeof d.combo === 'number')   elCombo.textContent  = d.combo;
     if (typeof d.misses === 'number')  elMiss.textContent   = d.misses;
@@ -341,115 +417,65 @@
       elG4.textContent = g4;
       elG5.textContent = g5;
     }
+
+    // ปรับ hint quota ตาม plateCounts ปัจจุบัน
+    updateQuestHint(lastHintHeader);
+
+    // ถ้า engine แจ้ง allCleared ผ่าน stat (กันกรณี event ตกหล่น)
+    if (d.allCleared && !allClearedShown) {
+      showMegaCelebration();
+    }
   });
 
-  // ------- ฟังก์ชัน Toast ฉลองภารกิจ -------
-  function showQuestToast({ kind, title, text, index, total }) {
-    if (!toastEl) return;
-    toastTitleEl.textContent = title || (kind === 'goal' ? 'Goal สำเร็จ!' : 'Mini Quest สำเร็จ!');
-    toastTextEl.textContent  = text  || '';
-    toastTagEl.textContent   = (kind === 'goal'
-      ? `GOAL ${index}/${total || '-'}`
-      : `MINI ${index}/${total || '-'}`);
-
-    toastEl.classList.remove('goal','mini');
-    toastEl.classList.add(kind === 'goal' ? 'goal' : 'mini');
-    toastEl.classList.add('show');
-
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toastEl.classList.remove('show');
-    }, 2200);
-  }
-
-  // ------- Quest realtime (quota ทีละบรรทัด + emoji + เช็ค progress) -------
+  // ------- Quest realtime / progress per batch -------
   window.addEventListener('quest:update', (e) => {
     const d = e.detail || {};
     const goal = d.goal || {};
     const mini = d.mini || {};
+    const goals = d.goalsAll || d.goals || [];
+    const minis = d.minisAll || d.minis || [];
 
     const goalText = goal.text || goal.title || goal.label || goal.name || 'จัดจานให้ครบ 5 หมู่';
     const miniText = mini.text || mini.title || mini.label || mini.name || 'เก็บผักและผลไม้ให้ครบโควตา';
 
-    elQuestGoal.textContent = goalText;
-    elQuestMini.textContent = miniText;
+    if (elQuestGoal) elQuestGoal.textContent = goalText;
+    if (elQuestMini) elQuestMini.textContent = miniText;
 
-    // 1) แสดง quota แต่ละหมู่
-    if (elQuestHint) {
-      elQuestHint.innerHTML = '';
+    const gDone  = goals.filter(q => q && q.done).length;
+    const gTotal = goals.length || 0;
+    const mDone  = minis.filter(q => q && q.done).length;
+    const mTotal = minis.length || 0;
 
-      const need = d.quotaNeed;
-      const have = d.quotaHave;
+    lastHintHeader =
+      `<div class="quest-hint-title">Goal ${gDone}/${gTotal} • Mini ${mDone}/${mTotal}</div>`;
 
-      if (Array.isArray(need) && Array.isArray(have)) {
-        const icons = ['🍚', '🥩', '🥦', '🍎', '🥛'];
-        const names = ['ข้าว-แป้ง', 'โปรตีน', 'ผัก', 'ผลไม้', 'นม'];
+    updateQuestHint(lastHintHeader);
+  });
 
-        const title = document.createElement('div');
-        title.className = 'quest-hint-title';
-        title.textContent = 'โควตาใน 1 จาน (ต่อหมู่):';
-        elQuestHint.appendChild(title);
+  // ------- Toast ฉลองภารกิจจาก quest:cleared -------
+  window.addEventListener('quest:cleared', (e) => {
+    const d = e.detail || {};
+    const cleared = d.cleared || [];
+    if (!cleared.length) return;
+    const q = cleared[0];
 
-        need.forEach((quota, i) => {
-          const haveVal = have[i] ?? 0;
-          const line = document.createElement('div');
-          line.className = 'quest-hint-line';
-          if (haveVal < quota) line.classList.add('missing');
-          else line.classList.add('ok');
+    const goals = d.goals || [];
+    const minis = d.minis || [];
+    const gDone  = goals.filter(x => x && x.done).length;
+    const gTotal = goals.length || 0;
+    const mDone  = minis.filter(x => x && x.done).length;
+    const mTotal = minis.length || 0;
 
-          const icon = document.createElement('span');
-          icon.className = 'quest-hint-icon';
-          icon.textContent = icons[i];
+    const progressText = `Goal ${gDone}/${gTotal} • Mini ${mDone}/${mTotal}`;
+    showQuestToast(q.type === 'goal' ? 'goal' : 'mini',
+      q.text || q.title || q.label || '',
+      progressText
+    );
+  });
 
-          const label = document.createElement('span');
-          label.className = 'quest-hint-label';
-          label.textContent = names[i];
-
-          const textSpan = document.createElement('span');
-          textSpan.className = 'quest-hint-text';
-          textSpan.textContent = `${haveVal} / ${quota}`;
-
-          line.append(icon, label, textSpan);
-          elQuestHint.appendChild(line);
-        });
-      } else if (d.hint) {
-        elQuestHint.textContent = d.hint;
-      }
-    }
-
-    // 2) เช็คจำนวนภารกิจที่ done เพื่อ trigger toast
-    const goalsAll = Array.isArray(d.goalsAll) ? d.goalsAll : [];
-    const minisAll = Array.isArray(d.minisAll) ? d.minisAll : [];
-
-    const goalDone = goalsAll.filter(x => x && x.done).length;
-    const miniDone = minisAll.filter(x => x && x.done).length;
-
-    if (goalDone > lastGoalDone) {
-      const idx = goalDone;
-      const q = goalsAll.find(x => x && x.done && !x._toastShown);
-      if (q) q._toastShown = true;
-      showQuestToast({
-        kind: 'goal',
-        title: 'Goal สำเร็จ!',
-        text:  (q && (q.text || q.label || q.title)) || goalText,
-        index: idx,
-        total: goalsAll.length || 2
-      });
-    } else if (miniDone > lastMiniDone) {
-      const idx = miniDone;
-      const q = minisAll.find(x => x && x.done && !x._toastShown);
-      if (q) q._toastShown = true;
-      showQuestToast({
-        kind: 'mini',
-        title: 'Mini Quest สำเร็จ!',
-        text:  (q && (q.text || q.label || q.title)) || miniText,
-        index: idx,
-        total: minisAll.length || 3
-      });
-    }
-
-    lastGoalDone = goalDone;
-    lastMiniDone = miniDone;
+  // ------- Mega celebration จาก engine -------
+  window.addEventListener('hha:all-cleared', () => {
+    showMegaCelebration();
   });
 
   // ------- Coach Bubble -------
@@ -468,7 +494,7 @@
     if (d.text) showCoach(d.text);
   });
 
-  // ------- Summary + Mega Celebration จาก hha:end -------
+  // ------- Summary จาก hha:end -------
   window.addEventListener('hha:end', (e) => {
     const d = e.detail || {};
     endedByEvent = true;
@@ -477,7 +503,7 @@
       timerId = null;
     }
 
-    // ซ่อนเป้าทั้งหมดหลังเกมจบ
+    // จบเกมแล้วไม่ให้เป้าโผล่อีก
     document.body.classList.add('hha-game-ended');
 
     elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
@@ -502,21 +528,7 @@
       elSumGroups.textContent = '-';
     }
 
-    const allCleared =
-      (d.goalsTotal  > 0 && d.goalsCleared  >= d.goalsTotal) &&
-      (d.questsTotal > 0 && d.questsCleared >= d.questsTotal);
-
-    if (allCleared && megaEl && !megaShown) {
-      megaShown = true;
-      megaEl.classList.add('show');
-      // แสดงฉลองใหญ่สักพักแล้วค่อยเปิดหน้าสรุป
-      setTimeout(() => {
-        megaEl.classList.remove('show');
-        elSummary.classList.add('visible');
-      }, 1700);
-    } else {
-      elSummary.classList.add('visible');
-    }
+    elSummary.classList.add('visible');
   });
 
   // ------- ปุ่มเล่นอีกรอบ / กลับ Hub -------
@@ -577,6 +589,8 @@
   }
 
   function gazeTick() {
+    if (!isVrMode) return;
+
     const { el, dist } = findTargetNearCenter();
 
     if (!el || dist > GAZE_RADIUS) {
@@ -601,7 +615,6 @@
       gazeStartTs = now;
       if (gazeEl) {
         gazeEl.classList.remove('fuse-active');
-        // force reflow ให้ animation เล่นใหม่
         void gazeEl.offsetWidth;
         gazeEl.classList.add('fuse-active');
       }
