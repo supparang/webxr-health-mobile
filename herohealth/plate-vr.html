@@ -72,8 +72,7 @@
             <span>แตะของไม่ดี (MISS)</span>
             <span class="value" id="hud-miss">0</span>
           </div>
-          <!-- แก้ให้ badge เกรดมี id/class สำหรับเปลี่ยนสี -->
-          <div class="hud-badge hud-badge-grade" id="hud-grade-badge">
+          <div class="hud-badge hud-badge-grade">
             <span>เกรด</span>
             <span class="value" id="hud-grade">C</span>
           </div>
@@ -123,6 +122,13 @@
         <div class="quest-label">Mini Quest</div>
         <div class="quest-text" id="quest-mini">เก็บผักและผลไม้ให้ครบโควตา</div>
       </div>
+
+      <!-- 🆕 แสดง progress ว่าผ่านไปกี่ภารกิจแล้ว -->
+      <div class="quest-progress-row">
+        <span id="quest-goal-progress">Goal: 0/0</span>
+        <span id="quest-mini-progress">Mini: 0/0</span>
+      </div>
+
       <div class="quest-hint" id="quest-hint">
         โควตาใน 1 จานจะแสดงที่นี่
       </div>
@@ -139,9 +145,12 @@
     </div>
   </div>
 
+  <!-- 🆕 Toast ฉลองเมื่อจบแต่ละภารกิจ -->
+  <div id="quest-toast" class="quest-toast"></div>
+
   <!-- ===== Summary Overlay ===== -->
   <div id="summary">
-    <div class="summary-card">
+    <div class="summary-card" id="summary-card">
       <div class="summary-header">
         <div>
           <h2 id="sum-title">ผลลัพธ์ Balanced Plate</h2>
@@ -220,7 +229,6 @@
   const elPlates  = document.getElementById('hud-plates');
   const elMiss    = document.getElementById('hud-miss');
   const elGrade   = document.getElementById('hud-grade');
-  const elGradeBadge = document.getElementById('hud-grade-badge');
   const elTime    = document.getElementById('hud-time');
   const elG1      = document.getElementById('g1');
   const elG2      = document.getElementById('g2');
@@ -233,6 +241,10 @@
   const elQuestMini = document.getElementById('quest-mini');
   const elQuestHint = document.getElementById('quest-hint');
 
+  // 🆕 progress ภารกิจ
+  const elQuestGoalProg = document.getElementById('quest-goal-progress');
+  const elQuestMiniProg = document.getElementById('quest-mini-progress');
+
   // Coach
   const elCoachBubble = document.getElementById('coach-bubble');
   const elCoachText   = document.getElementById('coach-text');
@@ -240,6 +252,7 @@
 
   // Summary
   const elSummary      = document.getElementById('summary');
+  const elSummaryCard  = document.getElementById('summary-card');
   const elSumTitle     = document.getElementById('sum-title');
   const elSumSub       = document.getElementById('sum-sub');
   const elSumDiff      = document.getElementById('sum-diff');
@@ -259,6 +272,31 @@
 
   const sceneEl   = document.querySelector('a-scene');
   const gazeEl    = document.getElementById('gaze-reticle');
+
+  // 🆕 Toast ฉลองภารกิจ
+  const elQuestToast = document.getElementById('quest-toast');
+  let questToastTimer = null;
+
+  function showQuestToast(title, sub) {
+    if (!elQuestToast) return;
+    elQuestToast.innerHTML = '';
+    const h = document.createElement('div');
+    h.className = 'quest-toast-title';
+    h.textContent = title;
+    elQuestToast.appendChild(h);
+    if (sub) {
+      const p = document.createElement('div');
+      p.className = 'quest-toast-sub';
+      p.textContent = sub;
+      elQuestToast.appendChild(p);
+    }
+    elQuestToast.classList.add('visible');
+
+    if (questToastTimer) clearTimeout(questToastTimer);
+    questToastTimer = setTimeout(() => {
+      elQuestToast.classList.remove('visible');
+    }, 1500);
+  }
 
   // แปลง diff เป็น label ภาษาไทย
   function diffLabel(d){
@@ -302,22 +340,21 @@
     if (typeof d.combo === 'number')   elCombo.textContent  = d.combo;
     if (typeof d.misses === 'number')  elMiss.textContent   = d.misses;
     if (typeof d.platesDone === 'number') elPlates.textContent = d.platesDone;
+    if (typeof d.grade === 'string')   elGrade.textContent  = d.grade;
 
-    if (typeof d.grade === 'string') {
-      elGrade.textContent  = d.grade;
-      if (elGradeBadge) {
-        elGradeBadge.classList.remove(
-          'hud-badge-grade-SSS',
-          'hud-badge-grade-SS',
-          'hud-badge-grade-S',
-          'hud-badge-grade-A',
-          'hud-badge-grade-B',
-          'hud-badge-grade-C'
-        );
-        const g = d.grade.toUpperCase();
-        const known = ['SSS','SS','S','A','B','C'];
-        const key = known.includes(g) ? g : 'C';
-        elGradeBadge.classList.add(`hud-badge-grade-${key}`);
+    // สีเกรดคร่าว ๆ ตามตัวอักษร
+    const gradeWrap = elGrade?.parentElement;
+    if (gradeWrap) {
+      gradeWrap.classList.remove(
+        'hud-badge-grade-SSS',
+        'hud-badge-grade-SS',
+        'hud-badge-grade-S',
+        'hud-badge-grade-A',
+        'hud-badge-grade-B',
+        'hud-badge-grade-C'
+      );
+      if (d.grade) {
+        gradeWrap.classList.add('hud-badge-grade-' + d.grade);
       }
     }
 
@@ -328,6 +365,14 @@
       elG3.textContent = g3;
       elG4.textContent = g4;
       elG5.textContent = g5;
+    }
+
+    // 🆕 Progress ภารกิจรวม (ใช้ค่าจาก plate.safe.js)
+    if (typeof d.goalsCleared === 'number' && typeof d.goalsTotal === 'number') {
+      elQuestGoalProg.textContent = `Goal: ${d.goalsCleared}/${d.goalsTotal}`;
+    }
+    if (typeof d.questsCleared === 'number' && typeof d.questsTotal === 'number') {
+      elQuestMiniProg.textContent = `Mini: ${d.questsCleared}/${d.questsTotal}`;
     }
   });
 
@@ -343,6 +388,16 @@
     elQuestGoal.textContent = goalText;
     elQuestMini.textContent = miniText;
     elQuestHint.textContent = d.hint || elQuestHint.textContent;
+  });
+
+  // 🆕 Toast เมื่อภารกิจใด ๆ สำเร็จ (event มาจาก plate.quest.js / plate.safe.js)
+  window.addEventListener('quest:cleared', (e) => {
+    const cleared = e.detail?.cleared || [];
+    if (!cleared.length) return;
+    const anyGoal = cleared.some(q => q.type === 'goal');
+    const title = anyGoal ? 'Goal สำเร็จแล้ว 🎯' : 'Mini Quest สำเร็จแล้ว 🌟';
+    const sub   = anyGoal ? 'จานสมดุลก้าวหน้าไปอีกขั้น!' : 'เก่งมาก! ทำภารกิจย่อยได้สำเร็จ';
+    showQuestToast(title, sub);
   });
 
   // ------- Coach Bubble -------
@@ -370,8 +425,29 @@
       timerId = null;
     }
 
-    elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
-    elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
+    const fullClear =
+      d &&
+      typeof d.goalsCleared === 'number' &&
+      typeof d.goalsTotal === 'number' &&
+      typeof d.questsCleared === 'number' &&
+      typeof d.questsTotal === 'number' &&
+      d.goalsTotal > 0 &&
+      d.questsTotal > 0 &&
+      d.goalsCleared === d.goalsTotal &&
+      d.questsCleared === d.questsTotal;
+
+    if (fullClear) {
+      elSumTitle.textContent = 'เคลียร์ทุกภารกิจแล้ว! 🎉';
+      elSumSub.textContent   =
+        `สุดยอดเลย เคลียร์ทั้ง Goal และ Mini Quest ครบหมดในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
+      elSummaryCard.classList.add('summary-epic');
+    } else {
+      elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
+      elSumSub.textContent   =
+        `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
+      elSummaryCard.classList.remove('summary-epic');
+    }
+
     elSumDiff.textContent  = `ระดับ ${diffLabel(d.difficulty || diffParam)}`;
 
     elSumScore.textContent  = d.score ?? 0;
