@@ -367,34 +367,6 @@
       position:fixed;
       inset:0;
     }
-
-    /* ===== Toast เมื่อเคลียร์ Goal / Mini / All ===== */
-    .quest-toast{
-      position:fixed;
-      left:50%;
-      top:24%;
-      transform:translateX(-50%);
-      padding:8px 16px;
-      border-radius:999px;
-      font-size:13px;
-      font-weight:600;
-      color:#0f172a;
-      background:linear-gradient(135deg,#facc15,#f97316);
-      box-shadow:0 18px 40px rgba(15,23,42,0.85);
-      border:1px solid rgba(250,250,250,0.9);
-      z-index:652;
-      display:none;
-      pointer-events:none;
-    }
-    .quest-toast.show{
-      display:block;
-      animation:quest-pop .45s ease-out;
-    }
-    @keyframes quest-pop{
-      0%{ transform:translateX(-50%) scale(0.8); opacity:0; }
-      60%{ transform:translateX(-50%) scale(1.05); opacity:1; }
-      100%{ transform:translateX(-50%) scale(1); opacity:1; }
-    }
   </style>
 </head>
 <body>
@@ -504,9 +476,6 @@
     </div>
   </div>
 
-  <!-- Toast ภารกิจ -->
-  <div id="quest-toast" class="quest-toast"></div>
-
   <!-- Touch hint -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
 
@@ -584,9 +553,6 @@
     const elCountdown = document.getElementById('start-countdown');
     const elJudge     = document.getElementById('hud-judge');
 
-    const elQuestToast = document.getElementById('quest-toast');
-    let questToastTimer = null;
-
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
@@ -610,16 +576,6 @@
       lastCoachTimeout = setTimeout(()=> {
         elCoachBubble.classList.remove('show');
       }, 4200);
-    }
-
-    function showQuestToast(text){
-      if (!elQuestToast) return;
-      elQuestToast.textContent = text;
-      elQuestToast.classList.add('show');
-      if (questToastTimer) clearTimeout(questToastTimer);
-      questToastTimer = setTimeout(() => {
-        elQuestToast.classList.remove('show');
-      }, 2200);
     }
 
     function runCountdown(onDone){
@@ -653,7 +609,7 @@
       elTime.textContent = sec + 's';
     });
 
-    // Quest progress (แถบด้านขวา)
+    // Quest
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -666,7 +622,7 @@
         elQuestMainBar.style.width = pct + '%';
         elQuestMainCap.textContent = `${prog} / ${tgt}`;
       }else{
-        elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
+        elQuestMain.textContent = 'Goal: สำเร็จครบแล้ว 🎉';
         elQuestMainBar.style.width = '100%';
         elQuestMainCap.textContent = '';
       }
@@ -678,7 +634,7 @@
         elQuestMiniBar.style.width = pctM + '%';
         elQuestMiniCap.textContent = `${progM} / ${tgtM}`;
       }else{
-        elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
+        elQuestMini.textContent = 'Mini quest: สำเร็จครบแล้ว ✅';
         elQuestMiniBar.style.width = '100%';
         elQuestMiniCap.textContent = '';
       }
@@ -687,25 +643,6 @@
         elQuestHint.textContent = d.hint;
       } else {
         elQuestHint.textContent = '';
-      }
-    });
-
-    // Toast รางวัล quest
-    window.addEventListener('hha:questReward', (e) => {
-      const d = e.detail || {};
-      const kind = d.kind || '';
-      let msg = '';
-
-      if (kind === 'goal') {
-        msg = `Goal สำเร็จแล้ว! (${d.setsDone}/${d.setsTarget}) 🎯`;
-      } else if (kind === 'mini') {
-        msg = `Mini quest สำเร็จแล้ว! (${d.setsDone}/${d.setsTarget}) ⭐`;
-      } else if (kind === 'all-done') {
-        msg = 'เยี่ยมมาก! เคลียร์ทุกภารกิจแล้ว 🎉';
-      }
-
-      if (msg) {
-        showQuestToast(msg);
       }
     });
 
@@ -771,15 +708,17 @@
       return 'C';
     }
 
+    // ★ ใช้จำนวน "เซ็ต" จาก hydration.safe.js ถ้ามี
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
       const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
       const comboMax     = d.comboMax ?? 0;
       const misses       = d.misses ?? 0;
-      const goalsCleared = d.goalsCleared ?? 0;
-      const goalsTotal   = d.goalsTotal ?? 0;
-      const miniCleared  = d.miniCleared ?? 0;
-      const miniTotal    = d.miniTotal ?? 0;
+
+      const goalsCleared = d.goalSetsDone  ?? d.goalsCleared ?? 0;
+      const goalsTotal   = d.goalSetsTotal ?? d.goalsTotal   ?? 0;
+      const miniCleared  = d.miniSetsDone  ?? d.miniCleared  ?? 0;
+      const miniTotal    = d.miniSetsTotal ?? d.miniTotal    ?? 0;
 
       const grade = computeGrade(scoreFinal, comboMax, misses,
                                  goalsCleared, goalsTotal,
@@ -834,7 +773,7 @@
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // เวลา: easy 80, normal 60, hard 45 (แก้ได้)
+      // เวลา: easy 80, normal 60, hard 45
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
       else if (diff === 'hard') baseDur = 45;
@@ -849,7 +788,7 @@
       }
 
       elDiff.textContent = diff.toUpperCase();
-      elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
+      elRunHUD.textContent = (runMode === 'research') ? 'RESEARCH MODE' : 'PLAY MODE';
 
       elScore.textContent = '0';
       elCombo.textContent = '0';
@@ -891,7 +830,7 @@
       initVRButton();
 
       runCountdown(() => {
-        // ★ ส่ง duration เข้า GameEngine ด้วย
+        // เริ่มเกม: ส่ง diff + duration เข้า GameEngine
         GameEngine.start(diff, dur);
 
         let timeLeft = dur;
