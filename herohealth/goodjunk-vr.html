@@ -247,7 +247,6 @@
       padding-bottom:72px;
     }
     .coach-bubble{
-      position:relative;
       min-width:60%;
       max-width:680px;
       text-align:left;
@@ -262,9 +261,7 @@
       justify-content:flex-start;
       gap:8px;
       pointer-events:auto;
-      overflow:visible;
     }
-
     .coach-bubble.show{ display:flex; }
     .coach-label{
       font-size:11px;
@@ -274,101 +271,36 @@
       font-weight:600;
     }
 
-    .coach-emoji-wrap{
-      position:relative;
-      width:56px;
-      height:56px;
-      flex-shrink:0;
-    }
-
     .coach-emoji{
-      position:relative;
-      width:56px;
-      height:56px;
-      border-radius:999px;
-      background-position:center;
-      background-repeat:no-repeat;
-      background-size:contain;
+      font-size:26px;
+      line-height:1;
+      width:36px;
+      height:36px;
+      text-align:center;
       flex-shrink:0;
-      animation:coach-idle 1.8s ease-in-out infinite;
-      transform-origin:center bottom;
-      box-shadow:0 0 0 0 rgba(34,197,94,0.45);
-    }
-    .coach-emoji.coach-neutral{
-      background-image:url('./img/coach-neutral.png');
-      animation:coach-idle 1.8s ease-in-out infinite;
-    }
-    .coach-emoji.coach-happy{
-      background-image:url('./img/coach-happy.png');
-      animation:coach-bounce 0.8s ease-in-out infinite;
-    }
-    .coach-emoji.coach-sad{
-      background-image:url('./img/coach-sad.png');
-      animation:coach-idle-sad 1.8s ease-in-out infinite;
-    }
-    .coach-emoji.coach-fever{
-      background-image:url('./img/coach-fever.png');
-      animation:coach-bounce 0.6s ease-in-out infinite;
+      border-radius:999px;
+      /* ถ้าใช้รูปใน /herohealth/img ให้ใช้ background-image แทน emoji ได้เลย */
+      /* ตัวอย่าง: background:url('./img/Chibi Coach Green.png') center/contain no-repeat; */
+      animation:coach-idle 1.4s ease-in-out infinite;
+      transform-origin:center center;
     }
 
-    /* idle ขยับเยอะขึ้นนิดหน่อย */
     @keyframes coach-idle{
-      0%,100%{ transform:translateY(0) scale(1) rotate(0deg); box-shadow:0 0 0 0 rgba(34,197,94,0.0); }
-      30%{    transform:translateY(-4px) scale(1.03) rotate(-2deg); box-shadow:0 0 12px 0 rgba(34,197,94,0.4); }
-      60%{    transform:translateY(-2px) scale(1.01) rotate(2deg); }
+      0%   { transform:translateY(0) scale(1); }
+      50%  { transform:translateY(-3px) scale(1.06); }
+      100% { transform:translateY(0) scale(1); }
     }
 
-    /* bounce แรง ๆ สำหรับ happy / fever */
-    @keyframes coach-bounce{
-      0%{   transform:translateY(0)    scale(1)    rotate(0deg); box-shadow:0 0 0 0 rgba(250,204,21,0.0); }
-      20%{  transform:translateY(-12px) scale(1.08) rotate(-6deg); box-shadow:0 0 18px 0 rgba(250,204,21,0.65); }
-      40%{  transform:translateY(4px)   scale(0.96) rotate(4deg); }
-      60%{  transform:translateY(-8px)  scale(1.04) rotate(3deg); }
-      100%{ transform:translateY(0)    scale(1)    rotate(0deg); box-shadow:0 0 0 0 rgba(250,204,21,0.0); }
+    /* ดุ๊กดิกแรง ๆ ตอนฉลอง */
+    .coach-emoji.coach-celebrate{
+      animation:coach-celebrate 0.28s ease-in-out infinite;
     }
-
-    /* sad โคลงหัวนิดหน่อย */
-    @keyframes coach-idle-sad{
-      0%,100%{ transform:translateY(0) rotate(0deg); }
-      30%{    transform:translateY(3px) rotate(-4deg); }
-      70%{    transform:translateY(2px) rotate(4deg); }
-    }
-
-    /* FX รอบโค้ช (ใบไม้ / ดาว) */
-    .coach-fx-layer{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      overflow:visible;
-    }
-    .coach-fx{
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      font-size:18px;
-      filter:drop-shadow(0 0 4px rgba(15,23,42,0.9));
-      animation:coach-fx-float .8s ease-out forwards;
-      opacity:0;
-    }
-    .coach-fx[data-type="fever"]{
-      font-size:20px;
-    }
-    @keyframes coach-fx-float{
-      0%{
-        opacity:0;
-        transform:translate(-50%,-50%) scale(0.2);
-      }
-      20%{
-        opacity:1;
-      }
-      100%{
-        opacity:0;
-        transform:translate(
-          calc(-50% + var(--dx)),
-          calc(-50% + var(--dy))
-        ) scale(1);
-      }
+    @keyframes coach-celebrate{
+      0%   { transform:translateY(0) rotate(0deg)   scale(1.0);  }
+      25%  { transform:translateY(-6px) rotate(-10deg) scale(1.18); }
+      50%  { transform:translateY(0) rotate(0deg)   scale(1.0);  }
+      75%  { transform:translateY(-6px) rotate(10deg)  scale(1.18); }
+      100% { transform:translateY(0) rotate(0deg)   scale(1.0);  }
     }
 
     /* ===== Center hint ===== */
@@ -388,6 +320,60 @@
       z-index:651;
     }
     .hint-center.show{ display:block; }
+
+    /* ===== Quest Celebrate Overlay ===== */
+    .quest-celebrate{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:652;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at top, rgba(250,204,21,0.16), transparent 55%),
+        radial-gradient(circle at bottom, rgba(52,211,153,0.2), transparent 55%);
+    }
+    .quest-celebrate.show{
+      display:flex;
+      animation:qc-fade .9s ease-out;
+    }
+    .quest-celebrate-inner{
+      background:rgba(15,23,42,0.96);
+      border-radius:24px;
+      padding:14px 18px 16px;
+      border:1px solid rgba(250,204,21,0.7);
+      box-shadow:0 20px 40px rgba(15,23,42,0.9);
+      text-align:center;
+      min-width:260px;
+      max-width:420px;
+      transform:scale(0.9);
+      animation:qc-pop .4s ease-out forwards;
+    }
+    .quest-celebrate-title{
+      font-size:16px;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      margin-bottom:4px;
+    }
+    .quest-celebrate-sub{
+      font-size:13px;
+      color:#e5e7eb;
+    }
+    .quest-celebrate-inner.big{
+      border-color:rgba(96,165,250,0.9);
+      box-shadow:0 0 40px rgba(96,165,250,0.7);
+    }
+    @keyframes qc-fade{
+      from{ opacity:0; }
+      to  { opacity:1; }
+    }
+    @keyframes qc-pop{
+      0%{ transform:scale(0.7); opacity:0; }
+      60%{ transform:scale(1.08); opacity:1; }
+      100%{ transform:scale(1); opacity:1; }
+    }
 
     /* ===== End Summary Toast ===== */
     .end-toast{
@@ -624,10 +610,7 @@
     <!-- Bottom: coach (emoji + text) -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <div class="coach-emoji-wrap">
-          <span id="coach-emoji" class="coach-emoji coach-neutral"></span>
-          <div id="coach-fx-layer" class="coach-fx-layer"></div>
-        </div>
+        <span id="coach-emoji" class="coach-emoji">🙂</span>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="coach-label">โค้ช</span>
           <span id="coach-text">แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ</span>
@@ -638,6 +621,14 @@
 
   <!-- Center hint for touch-look -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
+
+  <!-- Quest celebrate overlay -->
+  <div class="quest-celebrate" id="quest-celebrate">
+    <div class="quest-celebrate-inner" id="quest-celebrate-box">
+      <div id="quest-celebrate-title" class="quest-celebrate-title">ภารกิจสำเร็จ!</div>
+      <div id="quest-celebrate-sub" class="quest-celebrate-sub">Goal 1 เสร็จเรียบร้อย 🎯</div>
+    </div>
+  </div>
 
   <!-- End summary -->
   <div class="end-toast" id="end-toast">
@@ -697,7 +688,6 @@
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
     const elCoachEmoji  = document.getElementById('coach-emoji');
-    const elCoachFxLayer = document.getElementById('coach-fx-layer');
     const elTouchHint   = document.getElementById('touch-hint');
 
     const elEndToast  = document.getElementById('end-toast');
@@ -722,6 +712,12 @@
     const elCountdown = document.getElementById('start-countdown');
     const elJudge     = document.getElementById('hud-judge');
 
+    // Quest celebrate overlay elements
+    const elQuestCelebrate      = document.getElementById('quest-celebrate');
+    const elQuestCelebrateBox   = document.getElementById('quest-celebrate-box');
+    const elQuestCelebrateTitle = document.getElementById('quest-celebrate-title');
+    const elQuestCelebrateSub   = document.getElementById('quest-celebrate-sub');
+
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
@@ -731,56 +727,18 @@
     let hudMiniTotal    = 0;
     let hudMiniCleared  = 0;
 
-    // ==== Coach FX รอบหัว ====
-    function spawnCoachFx(type){
-      if (!elCoachFxLayer) return;
-
-      const icons = (type === 'fever')
-        ? ['✨','⭐','🌟','⚡']
-        : ['🥦','🍎','🍊','🥕','🥬','🍇'];
-
-      const count = (type === 'fever') ? 10 : 6;
-
-      for (let i = 0; i < count; i++){
-        const span = document.createElement('span');
-        span.className = 'coach-fx';
-        span.dataset.type = type;
-        span.textContent = icons[Math.floor(Math.random() * icons.length)];
-
-        // random direction
-        const ang = Math.random() * Math.PI * 2;
-        const radius = 24 + Math.random() * 26;
-        const dx = Math.cos(ang) * radius;
-        const dy = Math.sin(ang) * radius - 6;
-
-        span.style.setProperty('--dx', dx + 'px');
-        span.style.setProperty('--dy', dy + 'px');
-
-        elCoachFxLayer.appendChild(span);
-        setTimeout(() => {
-          if (span && span.parentNode) span.parentNode.removeChild(span);
-        }, 900);
-      }
-    }
-
-    function applyCoachFaceClass(mood){
-      if (!elCoachEmoji) return;
-      elCoachEmoji.classList.remove('coach-neutral','coach-happy','coach-sad','coach-fever');
-      if (mood === 'happy'){
-        elCoachEmoji.classList.add('coach-happy');
-      } else if (mood === 'sad'){
-        elCoachEmoji.classList.add('coach-sad');
-      } else if (mood === 'fever'){
-        elCoachEmoji.classList.add('coach-fever');
-      } else {
-        elCoachEmoji.classList.add('coach-neutral');
-      }
-    }
+    const coachFaces = {
+      neutral: '🙂',
+      happy:   '😄',
+      sad:     '😢',
+      fever:   '🔥'
+    };
 
     function setCoachFace(mood){
-      applyCoachFaceClass(mood);
-      if (mood === 'happy' || mood === 'fever'){
-        spawnCoachFx(mood);
+      if (!elCoachEmoji) return;
+      // ถ้าใช้รูปเป็น coach ผัก ให้คงภาพไว้ เปลี่ยน mood ด้วย animation แทนได้
+      if (!elCoachEmoji.style.backgroundImage) {
+        elCoachEmoji.textContent = coachFaces[mood] || coachFaces.neutral;
       }
     }
 
@@ -792,6 +750,14 @@
       lastCoachTimeout = setTimeout(()=> {
         elCoachBubble.classList.remove('show');
       }, 4200);
+    }
+
+    function pulseCoachCelebrate(duration = 1200){
+      if (!elCoachEmoji) return;
+      elCoachEmoji.classList.add('coach-celebrate');
+      setTimeout(()=> {
+        elCoachEmoji.classList.remove('coach-celebrate');
+      }, duration);
     }
 
     // ===== Start Countdown 3–2–1–Go =====
@@ -847,8 +813,7 @@
 
       const scoreNow = (typeof latestScore === 'number'
         ? latestScore
-        : (parseInt(elScore.textContent || '0',10) || 0));
-
+        : parseInt(elScore.textContent || '0',10)) || 0;
       const comboMax = parseInt(elCombo.dataset.max || '0',10) || 0;
 
       const grade = computeGrade(
@@ -883,7 +848,7 @@
         const prog = goal.prog|0, tgt = goal.target|0;
         const pct  = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
         elQuestMainBar.style.width = pct + '%';
-        elQuestMainCap.textContent = prog + ' / ' + tgt;
+        elQuestMainCap.textContent = `${prog} / ${tgt}`;
       }else{
         elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
         elQuestMainBar.style.width = '100%';
@@ -895,7 +860,7 @@
         const progM = mini.prog|0, tgtM = mini.target|0;
         const pctM  = tgtM>0 ? Math.max(0, Math.min(100, (progM/tgtM)*100)) : 0;
         elQuestMiniBar.style.width = pctM + '%';
-        elQuestMiniCap.textContent = progM + ' / ' + tgtM;
+        elQuestMiniCap.textContent = `${progM} / ${tgtM}`;
       }else{
         elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
         elQuestMiniBar.style.width = '100%';
@@ -919,7 +884,55 @@
       // อัปเดตเกรด real-time ด้วย
       updateRealtimeGrade();
 
-      // NOTE: การจบเกมเมื่อ goal + mini ผ่านทั้งหมดให้ GameEngine เป็นคนตัดสินแล้ว
+      // NOTE: การจบเกมเมื่อ goal + mini ผ่านทั้งหมด ให้ GameEngine เป็นคนตัดสินแล้ว
+    });
+
+    // ===== Quest celebrate events (Goal / Mini / All complete) =====
+    function showQuestCelebrate(title, sub, big = false, duration = 1200){
+      if (!elQuestCelebrate || !elQuestCelebrateBox) return;
+
+      elQuestCelebrateBox.classList.remove('big');
+      if (big) elQuestCelebrateBox.classList.add('big');
+
+      if (elQuestCelebrateTitle) elQuestCelebrateTitle.textContent = title || 'ภารกิจสำเร็จ!';
+      if (elQuestCelebrateSub)   elQuestCelebrateSub.textContent   = sub || '';
+
+      elQuestCelebrate.classList.add('show');
+      pulseCoachCelebrate(duration);
+
+      setTimeout(()=> {
+        elQuestCelebrate.classList.remove('show');
+      }, duration);
+    }
+
+    window.addEventListener('quest:celebrate', (e)=>{
+      const d = e.detail || {};
+      const kind  = d.kind || 'goal';
+      const index = (typeof d.index === 'number' ? d.index : 0);
+      const total = (typeof d.total === 'number' ? d.total : 0);
+
+      if (kind === 'goal'){
+        const t = 'Goal สำเร็จ! 🎯';
+        const sub = total
+          ? `ภารกิจหลักข้อที่ ${index} จาก ${total} เสร็จแล้ว`
+          : 'ภารกิจหลักเสร็จเรียบร้อย';
+        showQuestCelebrate(t, sub, false, 1300);
+      }else{
+        const t = 'Mini quest สำเร็จ! ✨';
+        const sub = total
+          ? `Mini quest ข้อที่ ${index} จาก ${total} เสร็จแล้ว`
+          : 'Mini quest เสร็จเรียบร้อย';
+        showQuestCelebrate(t, sub, false, 1300);
+      }
+    });
+
+    window.addEventListener('quest:all-complete', (e)=>{
+      const d = e.detail || {};
+      const gTotal = d.goalsTotal || 0;
+      const mTotal = d.minisTotal || 0;
+      const title  = 'ทุกภารกิจสำเร็จครบแล้ว! 🏆';
+      const sub    = `Goals ${gTotal} ข้อ + Mini quests ${mTotal} ข้อ — เยี่ยมมาก!`;
+      showQuestCelebrate(title, sub, true, 1600);
     });
 
     // HUD: Coach (ข้อความอย่างเดียว)
@@ -975,6 +988,7 @@
       if (st === 'start') {
         setCoachFace('fever');
         setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
+        pulseCoachCelebrate(1400);
       }
       if (st === 'end') {
         setCoachFace('neutral');
@@ -983,32 +997,40 @@
 
     // HUD: End summary
     window.addEventListener('hha:end', (e)=>{
-      const d = e.detail || {};
+      // ปิด overlay ฉลอง ถ้ายังค้างอยู่
+      if (elQuestCelebrate) {
+        elQuestCelebrate.classList.remove('show');
+      }
 
-      const scoreFinal = (typeof d.scoreFinal === 'number')
-        ? d.scoreFinal
-        : (typeof d.score === 'number' ? d.score : 0);
+      const d = e.detail || {};
+      let scoreFinal = 0;
+      if (typeof d.scoreFinal === 'number') {
+        scoreFinal = d.scoreFinal;
+      } else if (typeof d.score === 'number') {
+        scoreFinal = d.score;
+      }
 
       let comboMax = 0;
       if (typeof d.comboMax === 'number') {
         comboMax = d.comboMax;
       } else {
-        comboMax = parseInt(elCombo.dataset.max || '0',10) || 0;
+        const parsed = parseInt(elCombo.dataset.max || '0',10);
+        comboMax = isNaN(parsed) ? 0 : parsed;
       }
 
-      const misses       = (typeof d.misses === 'number')       ? d.misses       : hudMissCount;
+      const misses       = (typeof d.misses === 'number') ? d.misses : hudMissCount;
       const goalsCleared = (typeof d.goalsCleared === 'number') ? d.goalsCleared : hudGoalsCleared;
-      const goalsTotal   = (typeof d.goalsTotal === 'number')   ? d.goalsTotal   : hudGoalsTotal;
-      const miniCleared  = (typeof d.miniCleared === 'number')  ? d.miniCleared  : hudMiniCleared;
-      const miniTotal    = (typeof d.miniTotal === 'number')    ? d.miniTotal    : hudMiniTotal;
+      const goalsTotal   = (typeof d.goalsTotal   === 'number') ? d.goalsTotal   : hudGoalsTotal;
+      const miniCleared  = (typeof d.miniCleared  === 'number') ? d.miniCleared  : hudMiniCleared;
+      const miniTotal    = (typeof d.miniTotal    === 'number') ? d.miniTotal    : hudMiniTotal;
 
       const grade = computeGrade(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
 
       elEndScore.textContent = scoreFinal;
       elEndCombo.textContent = comboMax;
       elEndMiss.textContent  = misses;
-      elEndGoal.textContent  = goalsCleared + ' / ' + goalsTotal;
-      elEndMini.textContent  = miniCleared + ' / ' + miniTotal;
+      elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
+      elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
       elEndGrade.textContent = grade;
       elEndToast.classList.add('show');
 
@@ -1097,6 +1119,11 @@
 
       setCoachFace('neutral');
       setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
+
+      // ถ้าโค้ชใช้รูปใน /herohealth/img ให้เซ็ต background-image ตรงนี้
+      // ตัวอย่าง:
+      // elCoachEmoji.style.backgroundImage = "url('./img/Chibi Coach Green.png')";
+      // elCoachEmoji.textContent = '';  // ไม่ต้องใช้ emoji ซ้อน
 
       // อ่าน studentProfile จาก sessionStorage (ตั้งจาก Hub)
       let studentProfile = null;
