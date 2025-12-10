@@ -589,3 +589,47 @@ body.hha-vr-mode #gaze-reticle{
     opacity:1;
   }
 }
+/* ===== Quest Hint: แสดงหมู่แบบภาพ + ทีละบรรทัด ===== */
+.quest-hint-title {
+  font-size: 10px;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.quest-hint-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  margin-bottom: 3px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: background .2s;
+}
+.quest-hint-icon {
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.quest-hint-label {
+  flex-grow: 1;
+  text-align: left;
+  color: var(--text-soft);
+}
+.quest-hint-text {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.quest-hint-line.missing {
+  background: rgba(248, 113, 113, 0.1);
+}
+.quest-hint-line.missing .quest-hint-text {
+  color: #f87171;
+}
+.quest-hint-line.ok {
+  background: rgba(34, 197, 94, 0.08);
+  opacity: 0.85;
+}
+.quest-hint-line.ok .quest-hint-text {
+  color: #86efac;
+}
