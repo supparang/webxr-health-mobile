@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (Hydration-style + Score FX + Diff size)
+// Food Groups VR — Game Engine (Hydration-style targets + Score FX + Diff size)
 
 'use strict';
 
@@ -28,7 +28,7 @@ function pickEngineConfig(modeKey, diffKey) {
 
     const eng = diff.engine;
     return {
-      SPAWN_INTERVAL: Number(eng.SPAWN_INTERVAL) || safe.SAWN_INTERVAL,
+      SPAWN_INTERVAL: Number(eng.SPAWN_INTERVAL) || safe.SPAWN_INTERVAL,
       ITEM_LIFETIME: Number(eng.ITEM_LIFETIME) || safe.ITEM_LIFETIME,
       MAX_ACTIVE: Number(eng.MAX_ACTIVE) || safe.MAX_ACTIVE,
       SIZE_FACTOR: Number(eng.SIZE_FACTOR) || safe.SIZE_FACTOR
@@ -70,12 +70,12 @@ function ensureVrRoot() {
 }
 
 // --------------------------------------------------
-//  FX: หาตำแหน่ง world + แสดงคะแนนเด้ง / MISS / GOOD / PERFECT
+//  FX: หาตำแหน่ง world + แสดงคะแนนเด้ง / MISS / LATE / GOOD / PERFECT
 // --------------------------------------------------
 function getWorldPosition(el) {
   try {
     if (!el || !el.object3D) return null;
-    const THREE = ROOT.THREE || window.THREE;
+    const THREE = (ROOT.AFRAME && ROOT.AFRAME.THREE) || ROOT.THREE || window.THREE;
     if (!THREE || !THREE.Vector3) return null;
     const v = new THREE.Vector3();
     el.object3D.getWorldPosition(v);
@@ -180,8 +180,8 @@ function createVrTarget(root, targetCfg, handlers = {}) {
   holder.setAttribute('data-hha-tgt', '1');
 
   // ===== พื้นหลัง + hit area (a-plane) =====
-  // ทำให้เล็กลงหน่อย base ~0.6 แล้วคูณ sizeFactor ตาม easy/normal/hard
-  const baseSize = 0.6 * sizeFactor;
+  // ย่อให้เล็กลงทุกระดับ: base ~0.4 แล้วคูณ sizeFactor
+  const baseSize = 0.4 * sizeFactor;
 
   const bg = document.createElement('a-plane');
   bg.setAttribute('width', baseSize);
@@ -480,10 +480,10 @@ function start(diffKey) {
   state.diffKey = String(diffKey || 'normal').toLowerCase();
   state.config = pickEngineConfig('groups', state.diffKey);
 
-  // ปรับขนาดตามระดับ easy / normal / hard
-  let diffSize = 1.0;
-  if (state.diffKey === 'easy') diffSize = 1.15;    // ใหญ่ขึ้นนิดหน่อย
-  else if (state.diffKey === 'hard') diffSize = 0.85; // เล็กลง
+  // ปรับขนาดตามระดับ easy / normal / hard (ทุกระดับเล็กลง)
+  let diffSize = 0.85;                 // normal เล็กลงจากเดิม
+  if (state.diffKey === 'easy') diffSize = 0.95;   // easy ยังเล็กกว่าของเดิม
+  else if (state.diffKey === 'hard') diffSize = 0.70; // hard เล็กสุด
   state.config.SIZE_FACTOR =
     (state.config.SIZE_FACTOR || 1.0) * diffSize;
 
