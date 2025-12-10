@@ -1,3 +1,5 @@
+/* === /herohealth/css/plate-vr.css === */
+
 :root{
   color-scheme: dark;
   --bg-main:#020617;
@@ -246,13 +248,13 @@ a-scene{
   margin-top:4px;
 }
 
-/* ======= Coach Bubble ======= */
+/* ======= Coach Bubble (ย้ายขึ้นเหนือ Fever) ======= */
 #coach-wrap{
   position:absolute;
   left:0;
   right:0;
-  bottom:12px;
-  z-index:420;
+  bottom:72px;              /* ยกขึ้นจากขอบล่าง ไม่ทับ Fever bar */
+  z-index:950;              /* สูงกว่า Fever (ที่ใช้ ~900) */
   pointer-events:none;
   display:flex;
   justify-content:center;
@@ -399,7 +401,7 @@ a-scene{
   }
 }
 
-/* ====== TARGETS (เป้า emoji แบบเดียว ไม่ซ้อน) ====== */
+/* ====== TARGETS (เป้า emoji) ====== */
 
 .hha-target{
   position:fixed;
@@ -413,7 +415,6 @@ a-scene{
   cursor:pointer;
   z-index:360;
 
-  /* ใช้ emoji ข้างใน div เป็นหลัก */
   font-size:42px;
   line-height:1;
   text-shadow:
@@ -421,7 +422,7 @@ a-scene{
     0 0 16px rgba(0,0,0,0.7);
 }
 
-/* ปิดการใช้ ::before ที่เคยวาด emoji ซ้ำ */
+/* ไม่ใช้ ::before ซ้ำ emoji */
 .hha-target::before{
   content:none !important;
 }
@@ -440,7 +441,8 @@ a-scene{
     0 0 20px rgba(248,113,113,0.7),
     0 0 28px rgba(248,113,113,0.55);
 }
-/* ===== Gaze Reticle (VR only) ===== */
+
+/* ===== Gaze Reticle (ให้เห็นทุกโหมด, เด่นขึ้นตอน VR) ===== */
 
 #gaze-reticle{
   position:fixed;
@@ -451,8 +453,7 @@ a-scene{
   height:26px;
   pointer-events:none;
   z-index:430;
-  opacity:0;
-  transition:opacity .25s ease;
+  opacity:0.8;
 }
 
 body.hha-vr-mode #gaze-reticle{
@@ -478,94 +479,6 @@ body.hha-vr-mode #gaze-reticle{
   border:2px solid rgba(248,250,252,0.85);
   box-shadow:0 0 10px rgba(248,250,252,0.7);
   opacity:0.8;
-}
-
-/* animation ตอนกำลัง fuse */
-body.hha-vr-mode #gaze-reticle.fuse-active .gaze-ring{
-  animation:hhaFuse 1s linear forwards;
-}
-
-@keyframes hhaFuse{
-  0%{
-    transform:scale(1);
-    opacity:0.85;
-  }
-  100%{
-    transform:scale(0.25);
-    opacity:0;
-  }
-}
-/* ===== Coach Bubble (ย้ายขึ้นเหนือ Fever) ===== */
-#coach-wrap{
-  position:absolute;
-  left:0;
-  right:0;
-  bottom:72px;              /* เดิม 12px → ขยับขึ้น */
-  z-index:950;              /* สูงกว่า Fever (900) */
-  pointer-events:none;
-  display:flex;
-  justify-content:center;
-}
-
-.coach-bubble{
-  max-width:420px;
-  padding:8px 11px;
-  border-radius:16px;
-  background:rgba(15,23,42,0.96);
-  border:1px solid rgba(148,163,184,0.6);
-  box-shadow:0 18px 40px rgba(0,0,0,0.85);
-  font-size:12px;
-  display:flex;
-  align-items:flex-start;
-  gap:8px;
-  opacity:0;
-  transform:translateY(8px);
-  transition:opacity .25s ease, transform .25s ease;
-}
-
-.coach-bubble.show{
-  opacity:1;
-  transform:translateY(0);
-}
-
-/* ===== Gaze Reticle (ให้เห็นตลอด) ===== */
-
-#gaze-reticle{
-  position:fixed;
-  left:50%;
-  top:50%;
-  transform:translate(-50%, -50%);
-  width:26px;
-  height:26px;
-  pointer-events:none;
-  z-index:430;
-  opacity:0.8;              /* เห็นทุกโหมด */
-}
-
-.gaze-dot{
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%, -50%);
-  width:4px;
-  height:4px;
-  border-radius:999px;
-  background:rgba(248,250,252,0.96);
-  box-shadow:0 0 4px rgba(248,250,252,0.9);
-}
-
-.gaze-ring{
-  position:absolute;
-  inset:0;
-  border-radius:999px;
-  border:2px solid rgba(248,250,252,0.85);
-  box-shadow:0 0 10px rgba(248,250,252,0.7);
-  opacity:0.8;
-}
-
-/* ตอนอยู่ใน VR ให้เป้าเด่นขึ้นนิดหนึ่ง */
-body.hha-vr-mode #gaze-reticle{
-  opacity:1;
 }
 
 /* animation ตอนกำลัง fuse */
