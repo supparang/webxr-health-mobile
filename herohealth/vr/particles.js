@@ -1,15 +1,12 @@
 // === /herohealth/vr/particles.js ===
-// Shared FX layer — ใช้กับทุกเกม Hero Health
-// - scorePop(x, y, value, opts)
-// - burstAt(x, y, opts)
-// รองรับทั้ง DOM / VR games (GoodJunk, Hydration, Plate, Fitness ฯลฯ)
+// Simple FX layer: score pop + judgment text + burst (upgraded, reusable for all games)
 
 (function (root) {
   'use strict';
   const doc = root.document;
   if (!doc) return;
 
-  // ---------- สร้างเลเยอร์ FX กลาง ----------
+  // ---------- FX Layer ----------
   function ensureLayer() {
     let layer = doc.querySelector('.hha-fx-layer');
     if (!layer) {
@@ -27,50 +24,46 @@
     return layer;
   }
 
-  // ---------- helper: เลือกสีตาม judgment / good ----------
-  function resolveColor(opts) {
-    const { color, good, judgment } = opts;
-    if (color) return color;
-
-    const j = String(judgment || '').toUpperCase();
-
-    if (j === 'PERFECT') return '#4ade80';
-    if (j === 'GOOD')    return '#22c55e';
-    if (j === 'FEVER')   return '#facc15';
-    if (j === 'BONUS')   return '#facc15';
-    if (j === 'BLOCK')   return '#60a5fa';
-    if (j === 'MISS' || j === 'LATE') return '#f97316';
-
-    return good ? '#4ade80' : '#e5e7eb';
+  function clamp(v, min, max) {
+    v = Number(v);
+    if (isNaN(v)) v = min;
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
   }
 
-  // ---------- ข้อความคะแนน + judgment ----------
-  // ใช้ได้ 3 โหมด (ผ่าน opts.kind):
-  //  - kind: 'score' (default)  → แสดงคะแนน และถ้ามี judgment จะเป็นบรรทัดล่าง
-  //  - kind: 'judge'           → แสดงคำตัดสินคำเดียว (PERFECT, MISS ฯลฯ) ตัวใหญ่
-  //  - kind: 'both'            → บรรทัดบน = value, บรรทัดล่าง = judgment
-  function scorePop(x, y, value, opts = {}) {
+  // ---------- Score Pop (คะแนน + ข้อความตัดสิน) ----------
+  /**
+   * scorePop(x, y, value, opts)
+   *  - value: ข้อความหลัก (เช่น "+50", "MISS", "Goal 1 สำเร็จ!")
+   *  - opts.good (bool): true = เขียว, false = ส้ม/แดง
+   *  - opts.judgment: ข้อความด้านล่าง เช่น "PERFECT", "GOOD", "MISS"
+   *  - opts.kind: 'score' | 'judge' | 'both'
+   *  - opts.duration: ms (ดีฟอลต์ 500)
+   */
+  function scorePop(x, y, value, opts) {
     const layer = ensureLayer();
-    const good = !!opts.good;
-    const kind = opts.kind || 'score'; // 'score' | 'judge' | 'both'
-    let judgment = String(opts.judgment || '').toUpperCase();
+    opts = opts || {};
 
-    const duration = (typeof opts.duration === 'number' ? opts.duration : 500);
-    const offsetY  = (typeof opts.offsetY  === 'number' ? opts.offsetY  : 0);
-    const color    = resolveColor({ color: opts.color, good, judgment });
+    const good = !!opts.good;
+    const judgment = (opts.judgment || '').toString();
+    const kind = (opts.kind || 'both').toLowerCase();
+    const duration = clamp(opts.duration != null ? opts.duration : 500, 300, 1500);
 
     const wrap = doc.createElement('div');
     wrap.className = 'hha-fx-score';
+
+    const mainColor = good ? '#4ade80' : '#f97316';
 
     Object.assign(wrap.style, {
       position: 'absolute',
       left: x + 'px',
       top: y + 'px',
-      transform: `translate(-50%, calc(-50% + ${offsetY}px))`,
+      transform: 'translate(-50%, -50%) scale(0.9)',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       fontSize: '18px',
       fontWeight: '700',
-      color,
+      color: mainColor,
       textShadow: '0 0 14px rgba(0,0,0,0.85)',
       padding: '4px 8px',
       borderRadius: '999px',
@@ -78,32 +71,18 @@
       border: '1px solid rgba(148,163,184,0.35)',
       whiteSpace: 'nowrap',
       opacity: '1',
-      transition: `transform ${duration}ms ease-out, opacity ${duration}ms ease-out`
+      transition:
+        'transform ' + (duration / 1000) + 's ease-out,' +
+        'opacity ' + (duration / 1000) + 's ease-out'
     });
 
-    const hasValue = value !== undefined && value !== null && String(value) !== '';
-    let showMain   = hasValue;
-    let showJudge  = !!judgment;
-
-    // ถ้าเป็นโหมด judge และ value ว่าง หรือ value == judgment → แสดงคำเดียวตัวใหญ่
-    if (kind === 'judge' && showJudge && (!hasValue || String(value).toUpperCase() === judgment)) {
-      showMain = true;
-      showJudge = false;
-      value = judgment;
-      // ตัวเดียว แต่ขยายฟอนต์หน่อย
-      wrap.style.fontSize = '20px';
-      wrap.style.fontWeight = '800';
-    }
-
-    // บรรทัดบน
-    if (showMain) {
+    if (kind === 'score' || kind === 'both') {
       const lineMain = doc.createElement('div');
-      lineMain.textContent = String(value);
+      lineMain.textContent = String(value || '');
       wrap.appendChild(lineMain);
     }
 
-    // บรรทัดล่าง = GOOD / PERFECT / MISS / FEVER ฯลฯ
-    if (showJudge && (kind === 'score' || kind === 'both')) {
+    if (judgment && (kind === 'judge' || kind === 'both')) {
       const lineJudge = doc.createElement('div');
       lineJudge.textContent = judgment;
       lineJudge.style.fontSize = '11px';
@@ -117,34 +96,40 @@
     layer.appendChild(wrap);
 
     // trigger animation
-    requestAnimationFrame(() => {
-      // ลอยขึ้นเล็กน้อยแล้วหาย
-      wrap.style.transform = `translate(-50%, calc(-90% + ${offsetY}px))`;
+    requestAnimationFrame(function () {
+      wrap.style.transform = 'translate(-50%, -90%) scale(1.0)';
       wrap.style.opacity = '0';
     });
 
-    setTimeout(() => {
+    setTimeout(function () {
       if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-    }, duration + 40);
+    }, duration + 80);
   }
 
-  // ---------- Burst เม็ด ๆ รอบเป้า ----------
-  // opts:
-  //  - color  : สี (default เขียว)
-  //  - count  : จำนวนเม็ด (default 10)
-  //  - radius : รัศมี (default 40)
-  //  - duration: ms (default 520)
-  function burstAt(x, y, opts = {}) {
-    const layer   = ensureLayer();
-    const color   = opts.color || '#22c55e';
-    const n       = Number.isFinite(opts.count)   ? opts.count   : 10;
-    const radius  = Number.isFinite(opts.radius)  ? opts.radius  : 40;
-    const dur     = Number.isFinite(opts.duration)? opts.duration: 520;
+  // ---------- Burst (อนุภาคแตกกระจาย) ----------
+  /**
+   * burstAt(x, y, opts)
+   *  - opts.color: สีเม็ดอนุภาค
+   *  - opts.count: จำนวนอนุภาค (ดีฟอลต์ 10)
+   *  - opts.radius: ระยะกระจาย (ดีฟอลต์ 60)
+   *  - opts.duration: ms (ดีฟอลต์ 500)
+   *  - opts.sizeMin, opts.sizeMax: ขนาด pixel
+   */
+  function burstAt(x, y, opts) {
+    const layer = ensureLayer();
+    opts = opts || {};
+
+    const color = opts.color || '#22c55e';
+    const n = clamp(opts.count != null ? opts.count : 10, 4, 40);
+    const radius = clamp(opts.radius != null ? opts.radius : 60, 20, 160);
+    const duration = clamp(opts.duration != null ? opts.duration : 500, 250, 1500);
+    const sizeMin = clamp(opts.sizeMin != null ? opts.sizeMin : 4, 2, 20);
+    const sizeMax = clamp(opts.sizeMax != null ? opts.sizeMax : 8, sizeMin, 26);
 
     for (let i = 0; i < n; i++) {
       const dot = doc.createElement('div');
       dot.className = 'hha-fx-dot';
-      const size = 4 + Math.random() * 4;
+      const size = sizeMin + Math.random() * (sizeMax - sizeMin);
 
       Object.assign(dot.style, {
         position: 'absolute',
@@ -157,28 +142,32 @@
         boxShadow: '0 0 10px rgba(0,0,0,0.9)',
         opacity: '1',
         pointerEvents: 'none',
-        transition: `transform ${dur}ms ease-out, opacity ${dur}ms ease-out`
+        transform: 'translate(0,0)',
+        transition:
+          'transform ' + (duration / 1000) + 's ease-out,' +
+          'opacity ' + (duration / 1000) + 's ease-out'
       });
 
       layer.appendChild(dot);
 
       const ang = Math.random() * Math.PI * 2;
-      const dist = radius + Math.random() * radius;
+      const dist = radius * (0.6 + Math.random() * 0.6);
       const dx = Math.cos(ang) * dist;
       const dy = Math.sin(ang) * dist;
 
-      requestAnimationFrame(() => {
-        dot.style.transform = `translate(${dx}px, ${dy}px)`;
+      requestAnimationFrame(function () {
+        dot.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
         dot.style.opacity = '0';
       });
 
-      setTimeout(() => {
+      setTimeout(function () {
         if (dot.parentNode) dot.parentNode.removeChild(dot);
-      }, dur + 20);
+      }, duration + 50);
     }
   }
 
-  const api = { scorePop, burstAt };
+  // ---------- Export ----------
+  const api = { scorePop: scorePop, burstAt: burstAt };
   root.Particles = api;
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = api;
