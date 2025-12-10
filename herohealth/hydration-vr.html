@@ -381,6 +381,7 @@
       <a-camera id="hydration-camera"
                 wasd-controls-enabled="false"
                 look-controls="pointerLockEnabled: false">
+        <!-- cursor: ใช้ mouse / touch raycast หาเป้า [data-hha-tgt] -->
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
                   raycaster="objects: [data-hha-tgt]"
@@ -609,7 +610,7 @@
       elTime.textContent = sec + 's';
     });
 
-    // Quest
+    // Quest HUD
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -634,7 +635,7 @@
         elQuestMiniBar.style.width = pctM + '%';
         elQuestMiniCap.textContent = `${progM} / ${tgtM}`;
       }else{
-        elQuestMini.textContent = 'Mini quest: สำเร็จครบแล้ว ✅';
+        elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
         elQuestMiniBar.style.width = '100%';
         elQuestMiniCap.textContent = '';
       }
@@ -708,17 +709,16 @@
       return 'C';
     }
 
-    // ★ ใช้จำนวน "เซ็ต" จาก hydration.safe.js ถ้ามี
+    // จบเกม
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
       const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
       const comboMax     = d.comboMax ?? 0;
       const misses       = d.misses ?? 0;
-
-      const goalsCleared = d.goalSetsDone  ?? d.goalsCleared ?? 0;
-      const goalsTotal   = d.goalSetsTotal ?? d.goalsTotal   ?? 0;
-      const miniCleared  = d.miniSetsDone  ?? d.miniCleared  ?? 0;
-      const miniTotal    = d.miniSetsTotal ?? d.miniTotal    ?? 0;
+      const goalsCleared = d.goalsCleared ?? 0;
+      const goalsTotal   = d.goalsTotal ?? 0;
+      const miniCleared  = d.miniCleared ?? 0;
+      const miniTotal    = d.miniTotal ?? 0;
 
       const grade = computeGrade(scoreFinal, comboMax, misses,
                                  goalsCleared, goalsTotal,
@@ -736,12 +736,14 @@
       setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
     });
 
+    // label GOOD / MISS / PERFECT
     window.addEventListener('hha:judge', (e) => {
       const label = (e.detail && e.detail.label) || '';
       if (!elJudge) return;
       elJudge.textContent = label || '';
     });
 
+    // touch look หมุนมุมกล้อง
     function initTouchLook(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
@@ -788,7 +790,7 @@
       }
 
       elDiff.textContent = diff.toUpperCase();
-      elRunHUD.textContent = (runMode === 'research') ? 'RESEARCH MODE' : 'PLAY MODE';
+      elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
 
       elScore.textContent = '0';
       elCombo.textContent = '0';
@@ -813,6 +815,7 @@
         console.warn('[HydrationVR] cannot parse student profile:', err);
       }
 
+      // Cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-HydrationVR',
@@ -829,8 +832,8 @@
       initTouchLook(cam);
       initVRButton();
 
+      // เริ่มเกมหลัง countdown
       runCountdown(() => {
-        // เริ่มเกม: ส่ง diff + duration เข้า GameEngine
         GameEngine.start(diff, dur);
 
         let timeLeft = dur;
