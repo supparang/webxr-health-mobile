@@ -37,7 +37,7 @@
       color:#fbbf24;
       text-shadow:0 0 40px rgba(0,0,0,0.85);
       pointer-events:none;
-      transition:opacity .25s ease-out, transform .25s ease-out;
+      transition:opacity .25s ease-out, transform .25s.ease-out;
     }
     .countdown-hidden{
       opacity:0;
@@ -178,7 +178,7 @@
       width:0%;
       border-radius:999px;
       background:linear-gradient(90deg, var(--accent-soft), var(--accent));
-      transition:width .18s ease-out;
+      transition:width .18s.ease-out;
     }
     .quest-caption{
       font-size:10px;
@@ -251,7 +251,7 @@
       left:50%;
       top:18%;
       transform:translateX(-50%);
-      background:radial-gradient(circle at top left, rgba(250,204,21,0.26), transparent 55%),
+      background:radial-gradient(circle at top.left, rgba(250,204,21,0.26), transparent 55%),
                  rgba(15,23,42,0.96);
       padding:12px 16px 14px;
       border-radius:20px;
@@ -297,7 +297,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
+      transition:background .15s ease, box-shadow .15s ease, transform .1s.ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -380,7 +380,7 @@
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="hydration-camera"
                 wasd-controls-enabled="false"
-                look-controls="pointerLockEnabled: false">
+                look-controls="enabled: true; touchEnabled: true; mouseEnabled: true; pointerLockEnabled: false">
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
                   raycaster="objects: [data-hha-tgt]"
@@ -508,7 +508,6 @@
   <!-- Boot script -->
   <script type="module">
     import { GameEngine } from './hydration-vr/GameEngine.js';
-    import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
     function getParam(name, fallback){
@@ -555,6 +554,7 @@
 
     let lastCoachTimeout = null;
     let hudMissCount = 0;
+    let touchHintShown = false;
 
     const coachFaces = {
       neutral: '🙂',
@@ -602,6 +602,20 @@
       }, interval);
     }
 
+    // แสดง hint ลากหน้าจอครั้งแรก
+    function initTouchHintOnce(){
+      if (!elTouchHint || touchHintShown) return;
+      touchHintShown = true;
+      elTouchHint.classList.add('show');
+      setTimeout(()=> elTouchHint.classList.remove('show'), 3200);
+
+      window.removeEventListener('touchstart', initTouchHintOnce);
+      window.removeEventListener('mousedown', initTouchHintOnce);
+    }
+
+    window.addEventListener('touchstart', initTouchHintOnce, { passive:true });
+    window.addEventListener('mousedown', initTouchHintOnce);
+
     // เวลา
     window.addEventListener('hha:time', (e)=>{
       const sec = (e.detail?.sec | 0);
@@ -609,7 +623,7 @@
       elTime.textContent = sec + 's';
     });
 
-    // Quest + สถานะว่าจบกี่ภารกิจแล้ว
+    // Quest + status
     window.addEventListener('quest:update', (e)=> {
       const d = e.detail || {};
       const goal     = d.goal || null;
@@ -622,12 +636,9 @@
       const minisDone  = minisAll.filter(m => m && m.done).length;
       const minisTotal = minisAll.length;
 
-      // ----- Goal ปัจจุบัน -----
       if (goal) {
         let label = goal.label || 'ภารกิจหลัก';
-        if (goal.done) {
-          label = '✅ ' + label;
-        }
+        if (goal.done) label = '✅ ' + label;
         elQuestMain.textContent = label;
 
         const prog = goal.prog | 0;
@@ -641,12 +652,9 @@
         elQuestMainCap.textContent = '';
       }
 
-      // ----- Mini quest ปัจจุบัน -----
       if (mini) {
         let miniLabel = mini.label || '';
-        if (mini.done) {
-          miniLabel = '✅ ' + miniLabel;
-        }
+        if (mini.done) miniLabel = '✅ ' + miniLabel;
         elQuestMini.textContent = 'Mini: ' + miniLabel;
 
         const progM = mini.prog | 0;
@@ -660,7 +668,6 @@
         elQuestMiniCap.textContent = '';
       }
 
-      // ----- Hint + สถานะสรุปทุกภารกิจ -----
       const baseHint = d.hint || '';
       let statusText = '';
       if (goalsTotal > 0 || minisTotal > 0) {
@@ -770,20 +777,6 @@
       elJudge.textContent = label || '';
     });
 
-    function initTouchLook(cameraEl){
-      if (!cameraEl) return;
-      attachTouchLook(cameraEl, {
-        sensitivity: 0.25,
-        areaEl: document.body,
-        onActiveChange: (active)=>{
-          if (active){
-            elTouchHint.classList.add('show');
-            setTimeout(()=> elTouchHint.classList.remove('show'), 3200);
-          }
-        }
-      });
-    }
-
     function initVRButton(){
       const scene = document.querySelector('a-scene');
       if (!btnVR || !scene) return;
@@ -853,12 +846,9 @@
         debug: false
       });
 
-      const cam = document.querySelector('#hydration-camera');
-      initTouchLook(cam);
       initVRButton();
 
       runCountdown(() => {
-        // ส่ง duration เข้า GameEngine ด้วย
         GameEngine.start(diff, dur);
 
         let timeLeft = dur;
