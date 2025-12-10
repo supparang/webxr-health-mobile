@@ -41,7 +41,6 @@ function pickEngineConfig(modeKey, diffKey) {
 
 // --------------------------------------------------
 //  หา root สำหรับวางเป้า — ผูกกับ scene (ไม่ติดกล้อง)
-//  เวลาเลื่อนหน้าจอ/หมุนกล้อง เป้าจะเลื่อนในมุมมองตามที่ต้องการ
 // --------------------------------------------------
 function ensureVrRoot() {
   const scene = document.querySelector('a-scene');
@@ -50,20 +49,18 @@ function ensureVrRoot() {
     return null;
   }
 
-  // ถ้ามี root เดิมแล้วก็ใช้เลย
   let root = scene.querySelector('.hha-vr-root');
   if (!root) {
     root = document.createElement('a-entity');
     root.classList.add('hha-vr-root');
-    // ให้อยู่ประมาณด้านหน้าผู้เล่น
-    root.setAttribute('position', '0 1.6 -1.6');
+    root.setAttribute('position', '0 1.6 -1.6'); // ด้านหน้า player
     scene.appendChild(root);
   }
   return root;
 }
 
 // --------------------------------------------------
-//  FX: หาตำแหน่ง world + แสดงคะแนนเด้ง / MISS / LATE / GOOD / PERFECT
+//  FX: world position + คะแนนเด้ง / MISS / LATE / GOOD / PERFECT
 // --------------------------------------------------
 function getWorldPosition(el) {
   try {
@@ -129,7 +126,7 @@ function spawnScoreFx(el, text, color) {
 }
 
 // --------------------------------------------------
-//  วาด emoji ลง canvas → dataURL (เหมือน mode-factory/hydration)
+//  วาด emoji ลง canvas → dataURL
 // --------------------------------------------------
 function makeEmojiTexture(ch, sizePx = 256) {
   try {
@@ -158,7 +155,7 @@ function makeEmojiTexture(ch, sizePx = 256) {
 }
 
 // --------------------------------------------------
-//  สร้างเป้า VR (emoji ชัด ๆ) — ให้ทุกชั้นเป็น target + ส่ง el ออกไปให้ทำ FX
+//  สร้างเป้า VR — ให้ทุกชั้นเป็น target + ส่ง el ออกไปให้ทำ FX
 // --------------------------------------------------
 function createVrTarget(root, targetCfg, handlers = {}) {
   const {
@@ -170,14 +167,14 @@ function createVrTarget(root, targetCfg, handlers = {}) {
   const { onHit, onExpire } = handlers;
   if (!root || !ch) return null;
 
-  // === entity หลัก (container) ===
+  // entity หลัก
   const holder = document.createElement('a-entity');
   holder.classList.add('hha-target-vr');
   holder.setAttribute('data-hha-tgt', '1');
 
-  // ===== พื้นหลัง + hit area (a-plane) =====
-  // ย่อให้เล็กลงทุกระดับ: base ~0.4 แล้วคูณ sizeFactor
-  const baseSize = 0.4 * sizeFactor;
+  // ===== พื้นหลัง + hit area =====
+  // ★ เป้าใหญ่ขึ้นทุกระดับ: base ~0.5
+  const baseSize = 0.5 * sizeFactor;
 
   const bg = document.createElement('a-plane');
   bg.setAttribute('width', baseSize);
@@ -194,7 +191,7 @@ function createVrTarget(root, targetCfg, handlers = {}) {
   bg.setAttribute('data-hha-tgt', '1');
   holder.appendChild(bg);
 
-  // ===== emoji เป็น texture (a-image ลูก) =====
+  // ===== emoji texture =====
   const texUrl = makeEmojiTexture(ch, 256);
   let img = null;
   if (texUrl) {
@@ -215,9 +212,9 @@ function createVrTarget(root, targetCfg, handlers = {}) {
     holder.appendChild(img);
   }
 
-  // ===== ตำแหน่งในโลก (world) ด้านหน้า player ประมาณหนึ่ง =====
+  // ===== ตำแหน่งใน world =====
   const x = -0.8 + Math.random() * 1.6;
-  const y = 1.2 + Math.random() * 0.8;   // สูงประมาณระดับสายตา
+  const y = 1.2 + Math.random() * 0.8;
   const z = -1.6 + (Math.random() * 0.6 - 0.3);
 
   holder.setAttribute('position', `${x} ${y} ${z}`);
@@ -281,7 +278,7 @@ function createVrTarget(root, targetCfg, handlers = {}) {
 }
 
 // --------------------------------------------------
-//  Emoji 5 หมู่ (รวมเป็น pool เดียว)
+//  Emoji 5 หมู่
 // --------------------------------------------------
 const GROUP_EMOJI = [
   // หมู่ 1
@@ -394,7 +391,6 @@ function registerHit(el) {
   updateScoreHUD();
   updateQuestHUD();
 
-  // FX: คะแนนเด้ง + คำว่า GOOD/PERFECT
   spawnScoreFx(el, `+100 ${judgeLabel}`, '#22c55e');
 }
 
@@ -408,7 +404,6 @@ function registerMiss(el, reason) {
   emit('hha:judge', { label });
   updateScoreHUD();
 
-  // FX: ข้อความ MISS / LATE สีส้ม
   if (el) {
     spawnScoreFx(el, label, '#f97316');
   }
@@ -423,7 +418,6 @@ function clearAllTargets() {
   state.targets = [];
 }
 
-// สุ่ม emoji จากทุกหมู่
 function pickEmoji() {
   if (!GROUP_EMOJI.length) return '❓';
   const idx = Math.floor(Math.random() * GROUP_EMOJI.length);
@@ -477,10 +471,10 @@ function start(diffKey) {
   state.diffKey = String(diffKey || 'normal').toLowerCase();
   state.config = pickEngineConfig('groups', state.diffKey);
 
-  // ปรับขนาดตามระดับ easy / normal / hard (ทุกระดับเล็กลง)
-  let diffSize = 0.85;                  // normal เล็กลงจากเดิม
-  if (state.diffKey === 'easy') diffSize = 0.95;    // easy ใหญ่กว่านิดหน่อย
-  else if (state.diffKey === 'hard') diffSize = 0.70; // hard เล็กสุด
+  // ★ ปรับขนาดตามระดับ easy / normal / hard — ใหญ่ขึ้นทุกระดับ
+  let diffSize = 1.0;                // normal
+  if (state.diffKey === 'easy') diffSize = 1.15;   // easy ใหญ่สุด
+  else if (state.diffKey === 'hard') diffSize = 0.9; // hard ยังเล็กกว่าแต่ใหญ่กว่ารอบก่อน
   state.config.SIZE_FACTOR =
     (state.config.SIZE_FACTOR || 1.0) * diffSize;
 
@@ -488,7 +482,6 @@ function start(diffKey) {
   state.ended = false;
   state.spawnCount = 0;
 
-  // reset stats
   state.score = 0;
   state.combo = 0;
   state.maxCombo = 0;
