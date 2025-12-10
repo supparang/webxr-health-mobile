@@ -1,15 +1,14 @@
 // === /herohealth/plate/plate.quest.js ===
 // Quest deck สำหรับ Balanced Plate VR
 // - เลือก Goal ครั้งละ 2 ภารกิจ
-// - เลือก Mini Quest ครั้งละ 3 ภารกิจ
-// - เงื่อนไขแตกต่างตามระดับความยาก (easy / normal / hard)
+// - เลือก Mini Quest ครั้งละ 2 ภารกิจ (ตามคำขอ)
+// - มี measure() สำหรับคำนวณ progress ของแต่ละภารกิจ
 
 'use strict';
 
 /**
  * QUOTA = โควตาอาหารใน "หนึ่งจาน" ตามระดับความยาก
  * plate.safe.js ใช้ค่านี้เพื่อตัดสินว่า จานนี้ครบหมู่รึยัง
- * index: [หมู่1, หมู่2, หมู่3, หมู่4, หมู่5]
  */
 export const QUOTA = {
   easy:   [1, 1, 1, 1, 1],  // อย่างน้อยหมู่ละ 1 ชิ้น
@@ -52,8 +51,23 @@ function wrapQuest(raw, type) {
     status: 'active',   // 'active' | 'done'
     progress: 0,
     target: raw.target || 1,
-    base: null          // baseline stats ตอนเริ่มภารกิจ
+    base: null,         // baseline stats ตอนเริ่มภารกิจ
+    measure: raw.measure || null
   };
+}
+
+function platesDiff(stats, base) {
+  return (stats.platesDone || 0) - (base.platesDone || 0);
+}
+
+function missDiff(stats, base) {
+  return (stats.misses || 0) - (base.misses || 0);
+}
+
+function groupDiff(stats, base, idx) {
+  const cur = stats.gCounts?.[idx] || 0;
+  const b   = base.gCounts?.[idx] || 0;
+  return cur - b;
 }
 
 // ---------- Quest Pools ----------
@@ -69,7 +83,10 @@ const GOAL_POOL = {
       text: 'เสิร์ฟจานสมดุลให้ได้อย่างน้อย 1 จาน',
       target: 1,
       check(stats, base) {
-        return (stats.platesDone - (base.platesDone || 0)) >= 1;
+        return platesDiff(stats, base) >= 1;
+      },
+      measure(stats, base) {
+        return platesDiff(stats, base);
       }
     },
     {
@@ -77,21 +94,29 @@ const GOAL_POOL = {
       text: 'เสิร์ฟจานสมดุลให้ได้อย่างน้อย 2 จาน',
       target: 2,
       check(stats, base) {
-        return (stats.platesDone - (base.platesDone || 0)) >= 2;
+        return platesDiff(stats, base) >= 2;
+      },
+      measure(stats, base) {
+        return platesDiff(stats, base);
       }
     },
     {
       id: 'g_easy_allgroups',
       text: 'เก็บอาหารให้ครบทั้ง 5 หมู่ อย่างน้อยหมู่ละ 1 ชิ้น',
-      target: 1,
+      target: 5, // ใช้ 5 กลุ่มเป็น target เพื่อโชว์ progress 0–5
       check(stats, base) {
-        const cur = stats.gCounts || [];
-        const b   = base.gCounts || [];
+        let done = 0;
         for (let i = 0; i < 5; i++) {
-          const diff = (cur[i] || 0) - (b[i] || 0);
-          if (diff < 1) return false;
+          if (groupDiff(stats, base, i) >= 1) done++;
         }
-        return true;
+        return done >= 5;
+      },
+      measure(stats, base) {
+        let done = 0;
+        for (let i = 0; i < 5; i++) {
+          if (groupDiff(stats, base, i) >= 1) done++;
+        }
+        return done;
       }
     }
   ],
@@ -101,7 +126,10 @@ const GOAL_POOL = {
       text: 'เสิร์ฟจานสมดุลให้ได้ 2 จาน',
       target: 2,
       check(stats, base) {
-        return (stats.platesDone - (base.platesDone || 0)) >= 2;
+        return platesDiff(stats, base) >= 2;
+      },
+      measure(stats, base) {
+        return platesDiff(stats, base);
       }
     },
     {
@@ -109,7 +137,10 @@ const GOAL_POOL = {
       text: 'เสิร์ฟจานสมดุลให้ได้ 3 จาน',
       target: 3,
       check(stats, base) {
-        return (stats.platesDone - (base.platesDone || 0)) >= 3;
+        return platesDiff(stats, base) >= 3;
+      },
+      measure(stats, base) {
+        return platesDiff(stats, base);
       }
     },
     {
@@ -117,8 +148,13 @@ const GOAL_POOL = {
       text: 'ในช่วงภารกิจนี้ แตะของไม่ดี (MISS) ได้ไม่เกิน 2 ครั้ง',
       target: 1,
       check(stats, base) {
-        const missDiff = (stats.misses - (base.misses || 0));
-        return missDiff <= 2 && (stats.platesDone - (base.platesDone || 0)) >= 1;
+        const diff = missDiff(stats, base);
+        return diff <= 2 && platesDiff(stats, base) >= 1;
+      },
+      measure(stats, base) {
+        const diff = missDiff(stats, base);
+        // 0 = ยังไม่ผ่าน, 1 = ผ่าน (ยังไม่เกิน 2 ครั้ง)
+        return diff <= 2 ? 1 : 0;
       }
     }
   ],
@@ -128,7 +164,10 @@ const GOAL_POOL = {
       text: 'เสิร์ฟจานสมดุลให้ได้ 3 จาน',
       target: 3,
       check(stats, base) {
-        return (stats.platesDone - (base.platesDone || 0)) >= 3;
+        return platesDiff(stats, base) >= 3;
+      },
+      measure(stats, base) {
+        return platesDiff(stats, base);
       }
     },
     {
@@ -136,7 +175,10 @@ const GOAL_POOL = {
       text: 'เสิร์ฟจานสมดุลให้ได้ 4 จาน',
       target: 4,
       check(stats, base) {
-        return (stats.platesDone - (base.platesDone || 0)) >= 4;
+        return platesDiff(stats, base) >= 4;
+      },
+      measure(stats, base) {
+        return platesDiff(stats, base);
       }
     },
     {
@@ -145,6 +187,9 @@ const GOAL_POOL = {
       target: 1,
       check(stats) {
         return stats.combo >= 8;
+      },
+      measure(stats) {
+        return stats.combo >= 8 ? 1 : 0;
       }
     }
   ]
@@ -160,9 +205,10 @@ const MINI_POOL = {
       text: 'เก็บผัก (หมู่ 3) ให้ครบ 2 ชิ้น',
       target: 2,
       check(stats, base) {
-        const cur = stats.gCounts?.[2] || 0;
-        const b   = base.gCounts?.[2] || 0;
-        return (cur - b) >= 2;
+        return groupDiff(stats, base, 2) >= 2;
+      },
+      measure(stats, base) {
+        return groupDiff(stats, base, 2);
       }
     },
     {
@@ -170,9 +216,10 @@ const MINI_POOL = {
       text: 'เก็บผลไม้ (หมู่ 4) ให้ครบ 2 ชิ้น',
       target: 2,
       check(stats, base) {
-        const cur = stats.gCounts?.[3] || 0;
-        const b   = base.gCounts?.[3] || 0;
-        return (cur - b) >= 2;
+        return groupDiff(stats, base, 3) >= 2;
+      },
+      measure(stats, base) {
+        return groupDiff(stats, base, 3);
       }
     },
     {
@@ -180,9 +227,10 @@ const MINI_POOL = {
       text: 'เก็บโปรตีน (หมู่ 2) ให้ครบ 2 ชิ้น',
       target: 2,
       check(stats, base) {
-        const cur = stats.gCounts?.[1] || 0;
-        const b   = base.gCounts?.[1] || 0;
-        return (cur - b) >= 2;
+        return groupDiff(stats, base, 1) >= 2;
+      },
+      measure(stats, base) {
+        return groupDiff(stats, base, 1);
       }
     },
     {
@@ -190,8 +238,10 @@ const MINI_POOL = {
       text: 'พยายามไม่แตะของหวาน/ของทอดเกิน 1 ครั้งในระหว่างภารกิจ',
       target: 1,
       check(stats, base) {
-        const missDiff = (stats.misses - (base.misses || 0));
-        return missDiff <= 1;
+        return missDiff(stats, base) <= 1;
+      },
+      measure(stats, base) {
+        return missDiff(stats, base) <= 1 ? 1 : 0;
       }
     }
   ],
@@ -201,9 +251,10 @@ const MINI_POOL = {
       text: 'เก็บผัก (หมู่ 3) ให้ครบ 3 ชิ้น',
       target: 3,
       check(stats, base) {
-        const cur = stats.gCounts?.[2] || 0;
-        const b   = base.gCounts?.[2] || 0;
-        return (cur - b) >= 3;
+        return groupDiff(stats, base, 2) >= 3;
+      },
+      measure(stats, base) {
+        return groupDiff(stats, base, 2);
       }
     },
     {
@@ -211,23 +262,35 @@ const MINI_POOL = {
       text: 'เก็บผลไม้ (หมู่ 4) ให้ครบ 3 ชิ้น',
       target: 3,
       check(stats, base) {
-        const cur = stats.gCounts?.[3] || 0;
-        const b   = base.gCounts?.[3] || 0;
-        return (cur - b) >= 3;
+        return groupDiff(stats, base, 3) >= 3;
+      },
+      measure(stats, base) {
+        return groupDiff(stats, base, 3);
       }
     },
     {
       id: 'm_normal_mix',
       text: 'เก็บอาหารอย่างน้อย 1 ชิ้นจากหมู่ 1–4 ภายในภารกิจนี้',
-      target: 1,
+      target: 4, // 4 หมู่
       check(stats, base) {
         const cur = stats.gCounts || [];
         const b   = base.gCounts || [];
+        let done = 0;
         for (let i = 0; i < 4; i++) {
           const diff = (cur[i] || 0) - (b[i] || 0);
-          if (diff < 1) return false;
+          if (diff >= 1) done++;
         }
-        return true;
+        return done >= 4;
+      },
+      measure(stats, base) {
+        const cur = stats.gCounts || [];
+        const b   = base.gCounts || [];
+        let done = 0;
+        for (let i = 0; i < 4; i++) {
+          const diff = (cur[i] || 0) - (b[i] || 0);
+          if (diff >= 1) done++;
+        }
+        return done;
       }
     },
     {
@@ -236,6 +299,9 @@ const MINI_POOL = {
       target: 1,
       check(stats) {
         return stats.combo >= 5;
+      },
+      measure(stats) {
+        return stats.combo >= 5 ? 1 : 0;
       }
     }
   ],
@@ -245,9 +311,10 @@ const MINI_POOL = {
       text: 'เก็บผัก (หมู่ 3) ให้ครบ 4 ชิ้น',
       target: 4,
       check(stats, base) {
-        const cur = stats.gCounts?.[2] || 0;
-        const b   = base.gCounts?.[2] || 0;
-        return (cur - b) >= 4;
+        return groupDiff(stats, base, 2) >= 4;
+      },
+      measure(stats, base) {
+        return groupDiff(stats, base, 2);
       }
     },
     {
@@ -255,9 +322,10 @@ const MINI_POOL = {
       text: 'เก็บผลไม้ (หมู่ 4) ให้ครบ 4 ชิ้น',
       target: 4,
       check(stats, base) {
-        const cur = stats.gCounts?.[3] || 0;
-        const b   = base.gCounts?.[3] || 0;
-        return (cur - b) >= 4;
+        return groupDiff(stats, base, 3) >= 4;
+      },
+      measure(stats, base) {
+        return groupDiff(stats, base, 3);
       }
     },
     {
@@ -265,8 +333,10 @@ const MINI_POOL = {
       text: 'ระหว่างภารกิจนี้แตะของไม่ดี (MISS) ไม่เกิน 1 ครั้ง',
       target: 1,
       check(stats, base) {
-        const missDiff = (stats.misses - (base.misses || 0));
-        return missDiff <= 1;
+        return missDiff(stats, base) <= 1;
+      },
+      measure(stats, base) {
+        return missDiff(stats, base) <= 1 ? 1 : 0;
       }
     },
     {
@@ -275,6 +345,9 @@ const MINI_POOL = {
       target: 1,
       check(stats) {
         return stats.combo >= 7;
+      },
+      measure(stats) {
+        return stats.combo >= 7 ? 1 : 0;
       }
     }
   ]
@@ -309,11 +382,16 @@ export function createPlateQuest(diffKey = 'normal') {
       return this.goals;
     },
 
-    // เลือก Mini Quest ครั้งละ 3 ภารกิจ จาก pool ตามระดับ
-    draw3() {
+    // เลือก Mini Quest ครั้งละ n ภารกิจ (ปกติใช้ 2)
+    drawMinis(n = 3) {
       const pool = MINI_POOL[key] || MINI_POOL.normal;
-      this.minis = pickRandom(pool, 3).map(q => wrapQuest(q, 'mini'));
+      this.minis = pickRandom(pool, n).map(q => wrapQuest(q, 'mini'));
       return this.minis;
+    },
+
+    // legacy (ถ้ามีไฟล์เก่าเรียก draw3)
+    draw3() {
+      return this.drawMinis(3);
     },
 
     getProgress(kind) {
@@ -345,10 +423,21 @@ export function createPlateQuest(diffKey = 'normal') {
       const cleared = [];
 
       for (const q of all) {
-        if (q.done || typeof q.check !== 'function') continue;
+        if (!q || !q.check) continue;
+        if (q.done) continue;
+
         if (!q.base) {
           q.base = cloneStats(stats);  // เก็บ baseline ตอนเริ่มภารกิจ
         }
+
+        // อัปเดต progress ถ้ามี measure()
+        if (typeof q.measure === 'function') {
+          const rawP = q.measure(stats, q.base, isTick);
+          const tgt  = q.target || 1;
+          const p    = Math.max(0, Math.min(rawP ?? 0, tgt));
+          q.progress = p;
+        }
+
         if (q.check(stats, q.base, isTick)) {
           q.done = true;
           q.status = 'done';
