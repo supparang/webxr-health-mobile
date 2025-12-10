@@ -1,4 +1,4 @@
-<!doctype html> 
+<!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -429,64 +429,19 @@
     background="color: #020617">
 
     <!-- กล้องกลาง + crosshair + raycaster -->
-      <a-assets>
-    <!-- หมู่ 1: ธัญพืช / แป้ง -->
-    <img id="fg-g1-1" src="https://twemoji.maxcdn.com/v/latest/72x72/1f35a.png">
-    <img id="fg-g1-2" src="https://twemoji.maxcdn.com/v/latest/72x72/1f35e.png">
-    <img id="fg-g1-3" src="https://twemoji.maxcdn.com/v/latest/72x72/1f35c.png">
-    <img id="fg-g1-4" src="https://twemoji.maxcdn.com/v/latest/72x72/1f35d.png">
-    <img id="fg-g1-5" src="https://twemoji.maxcdn.com/v/latest/72x72/1f956.png">
-    <img id="fg-g1-6" src="https://twemoji.maxcdn.com/v/latest/72x72/1f950.png">
-    <img id="fg-g1-7" src="https://twemoji.maxcdn.com/v/latest/72x72/1f35f.png">
-
-    <!-- หมู่ 2: โปรตีน -->
-    <img id="fg-g2-1" src="https://twemoji.maxcdn.com/v/latest/72x72/1f357.png">
-    <img id="fg-g2-2" src="https://twemoji.maxcdn.com/v/latest/72x72/1f356.png">
-    <img id="fg-g2-3" src="https://twemoji.maxcdn.com/v/latest/72x72/1f373.png">
-    <img id="fg-g2-4" src="https://twemoji.maxcdn.com/v/latest/72x72/1f364.png">
-    <img id="fg-g2-5" src="https://twemoji.maxcdn.com/v/latest/72x72/1f363.png">
-    <img id="fg-g2-6" src="https://twemoji.maxcdn.com/v/latest/72x72/1f95a.png">
-    <img id="fg-g2-7" src="https://twemoji.maxcdn.com/v/latest/72x72/1f9c0.png">
-
-    <!-- หมู่ 3: ผัก -->
-    <img id="fg-g3-1" src="https://twemoji.maxcdn.com/v/latest/72x72/1f966.png">
-    <img id="fg-g3-2" src="https://twemoji.maxcdn.com/v/latest/72x72/1f955.png">
-    <img id="fg-g3-3" src="https://twemoji.maxcdn.com/v/latest/72x72/1f33d.png">
-    <img id="fg-g3-4" src="https://twemoji.maxcdn.com/v/latest/72x72/1f345.png">
-    <img id="fg-g3-5" src="https://twemoji.maxcdn.com/v/latest/72x72/1f952.png">
-    <img id="fg-g3-6" src="https://twemoji.maxcdn.com/v/latest/72x72/1f96c.png">
-    <img id="fg-g3-7" src="https://twemoji.maxcdn.com/v/latest/72x72/1f346.png">
-
-    <!-- หมู่ 4: ผลไม้ -->
-    <img id="fg-g4-1" src="https://twemoji.maxcdn.com/v/latest/72x72/1f34e.png">
-    <img id="fg-g4-2" src="https://twemoji.maxcdn.com/v/latest/72x72/1f34c.png">
-    <img id="fg-g4-3" src="https://twemoji.maxcdn.com/v/latest/72x72/1f347.png">
-    <img id="fg-g4-4" src="https://twemoji.maxcdn.com/v/latest/72x72/1f349.png">
-    <img id="fg-g4-5" src="https://twemoji.maxcdn.com/v/latest/72x72/1f353.png">
-    <img id="fg-g4-6" src="https://twemoji.maxcdn.com/v/latest/72x72/1f34a.png">
-    <img id="fg-g4-7" src="https://twemoji.maxcdn.com/v/latest/72x72/1f34d.png">
-
-    <!-- หมู่ 5: นม -->
-    <img id="fg-g5-1" src="https://twemoji.maxcdn.com/v/latest/72x72/1f95b.png">
-    <img id="fg-g5-2" src="https://twemoji.maxcdn.com/v/latest/72x72/1f36b.png">
-    <img id="fg-g5-3" src="https://twemoji.maxcdn.com/v/latest/72x72/1f36a.png">
-    <img id="fg-g5-4" src="https://twemoji.maxcdn.com/v/latest/72x72/1f36e.png">
-    <img id="fg-g5-5" src="https://twemoji.maxcdn.com/v/latest/72x72/1f9c7.png">
-    <img id="fg-g5-6" src="https://twemoji.maxcdn.com/v/latest/72x72/1f95e.png">
-    <img id="fg-g5-7" src="https://twemoji.maxcdn.com/v/latest/72x72/1f382.png">
-  </a-assets>
-
-<a-camera id="gj-camera"
-          wasd-controls-enabled="false"
-          look-controls="pointerLockEnabled: false">
-  <a-entity id="cursor"
-            cursor="fuse: false; rayOrigin: mouse"
-            raycaster="objects: [data-hha-tgt]"
-            geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-            material="shader: flat; color: #ffffff"
-            position="0 0 -0.9">
-  </a-entity>
-</a-camera>
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="gj-camera"
+                wasd-controls-enabled="false"
+                look-controls="pointerLockEnabled: false">
+        <a-entity id="cursor"
+                  cursor="fuse: false; rayOrigin: mouse"
+                  raycaster="objects: [data-hha-tgt]"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+                  material="shader: flat; color: #ffffff"
+                  position="0 0 -0.9">
+        </a-entity>
+      </a-camera>
+    </a-entity>
 
     <!-- พื้น + แสง -->
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
@@ -523,9 +478,8 @@
             <div class="metric-label" id="hud-judge" style="margin-top:2px;font-size:11px;color:#e5e7eb;">
               &nbsp;
             </div>
-            <!-- Hint วิธีเล่น: PC / Mobile -->
             <div class="metric-label" style="margin-top:2px;font-size:10px;color:#9ca3af;">
-              คลิก/แตะอาหารให้ตรงหมู่ตามภารกิจ
+              คลิก/แตะอาหารทั้ง 5 หมู่เพื่อเก็บคะแนน
             </div>
           </div>
 
@@ -541,7 +495,7 @@
 
           <!-- Grade (real-time) + bar -->
           <div class="metric metric-grade">
-            <div class="metric-label">เกรด (real-time)</div>
+            <div class="metric-label">เกรด (REAL-TIME)</div>
             <div class="grade-text">
               <span class="metric-value" id="hud-grade">-</span>
               <span class="grade-badge" id="hud-grade-badge">C–SSS</span>
@@ -583,7 +537,7 @@
         <span id="coach-emoji" class="coach-emoji">🙂</span>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="coach-label">โค้ช</span>
-          <span id="coach-text">โฟกัสอาหารหมู่ที่โค้ชบอก แล้วตีให้ทันก่อนหายไปนะ 🥗🍎</span>
+          <span id="coach-text">หมุนมุมมองแล้วลองดูให้ครบทุกหมู่ ข้าว แป้ง โปรตีน ผัก ผลไม้ และนม 🥗</span>
         </div>
       </div>
     </div>
@@ -614,9 +568,9 @@
   <!-- ปุ่มเข้า VR -->
   <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
 
-  <!-- Fever UI (global, non-module) -->
+  <!-- Fever gauge (shared UI) -->
   <script src="./vr/ui-fever.js"></script>
-  <!-- Effect เป้า (particles FX) -->
+  <!-- Effect particles (เผื่อใช้) -->
   <script src="./vr/particles.js"></script>
 
   <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
@@ -660,6 +614,10 @@
     const elEndMini   = document.getElementById('end-mini');
     const elEndGrade  = document.getElementById('end-grade');
     const elEndRun    = document.getElementById('end-runmode');
+
+    const btnReplay   = document.getElementById('btn-replay');
+    const btnBackHub  = document.getElementById('btn-back-hub');
+    const btnVR       = document.getElementById('btn-vr');
 
     // Grade HUD
     const elGrade      = document.getElementById('hud-grade');
@@ -726,7 +684,7 @@
       }, interval);
     }
 
-    // HUD: เวลา
+    // HUD: เวลา (รับจาก GameEngine หรือ mode-factory ก็ได้)
     window.addEventListener('hha:time', (e)=>{
       const sec = (e.detail?.sec | 0);
       if (sec < 0) return;
@@ -810,7 +768,6 @@
         elQuestHint.textContent = '';
       }
 
-      // เก็บสถานะ goals/minis ทั้งหมดไว้สำหรับคิดเกรด real-time
       const goalsAll = d.goalsAll || [];
       const minisAll = d.minisAll || [];
       hudGoalsTotal   = goalsAll.length;
@@ -818,11 +775,10 @@
       hudMiniTotal    = minisAll.length;
       hudMiniCleared  = minisAll.filter(m => m && m.done).length;
 
-      // อัปเดตเกรด real-time ด้วย
       updateRealtimeGrade();
     });
 
-    // HUD: Coach (ข้อความอย่างเดียว)
+    // HUD: Coach (ข้อความ)
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
       if (text) {
@@ -855,8 +811,6 @@
         hudMissCount = d.misses;
         elMiss.textContent = hudMissCount;
       }
-
-      // อัปเดตเกรด real-time ทุกครั้งที่คะแนน/คอมโบเปลี่ยน
       updateRealtimeGrade(d.score);
     });
 
@@ -865,16 +819,16 @@
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
       setCoachFace('sad');
-      setCoach('พลาดไปหนึ่งเป้า ลองโฟกัสหมู่ที่ภารกิจบอกอีกรอบนะ 😌');
+      setCoach('พลาดไปหนึ่งหมู่ ลองโฟกัสดูให้ครบทั้ง 5 หมู่ใหม่นะ 😌');
       updateRealtimeGrade();
     });
 
-    // HUD: Fever state
+    // HUD: Fever state (จาก GameEngine + ui-fever.js)
     window.addEventListener('hha:fever', (e)=>{
       const st = e.detail?.state || 'change';
       if (st === 'start') {
         setCoachFace('fever');
-        setCoach('FEVER มาแล้ว! ตีให้ทัน เก็บคะแนนให้เต็มเลย! 🔥');
+        setCoach('FEVER มาแล้ว! เก็บอาหารให้ครบหมู่รัว ๆ เลย! 🔥');
       }
       if (st === 'end') {
         setCoachFace('neutral');
@@ -909,11 +863,10 @@
       elEndGrade.textContent = grade;
       elEndToast.classList.add('show');
 
-      // sync HUD เกรด real-time ให้ตรงกับผลสรุปสุดท้าย
       updateRealtimeGrade(scoreFinal);
 
       setCoachFace(misses <= 3 ? 'happy' : 'neutral');
-      setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
+      setCoach('จบเกมแล้ว! ดูสรุปผลการเก็บอาหาร 5 หมู่ด้านบนได้เลย 🎉');
     });
 
     // HUD: Judge text
@@ -952,10 +905,6 @@
         }
       });
     }
-
-    const btnReplay   = document.getElementById('btn-replay');
-    const btnBackHub  = document.getElementById('btn-back-hub');
-    const btnVR       = document.getElementById('btn-vr');
 
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
@@ -997,7 +946,7 @@
       elGradeBar.dataset.grade = 'C';
 
       setCoachFace('neutral');
-      setCoach('คลิกหรือแตะอาหารให้ตรงหมู่ที่ภารกิจบอก ลากนิ้ว/เมาส์เพื่อหมุนมุมมองได้ 👆');
+      setCoach('หมุนมุมมองแล้วคลิกอาหารในทั้ง 5 หมู่ให้ได้มากที่สุดภายในเวลาที่กำหนด 👆');
 
       // อ่าน studentProfile จาก sessionStorage (ตั้งจาก Hub)
       let studentProfile = null;
@@ -1015,8 +964,8 @@
       // cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
-        projectTag: 'HeroHealth-GroupsVR',
-        mode: 'GroupsVR',
+        projectTag: 'HeroHealth-FoodGroupsVR',
+        mode: 'FoodGroupsVR',
         runMode,
         diff,
         durationSec: dur,
