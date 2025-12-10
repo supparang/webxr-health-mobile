@@ -521,3 +521,71 @@ body.hha-vr-mode #gaze-reticle{
     opacity:0;
   }
 }
+/* 🆕 แถว progress ภารกิจในแผง Quest */
+.quest-progress-row{
+  margin:4px 0 2px;
+  font-size:10px;
+  color:var(--text-soft);
+  display:flex;
+  justify-content:space-between;
+  gap:6px;
+}
+.quest-progress-row span{
+  font-variant-numeric:tabular-nums;
+}
+
+/* 🆕 Toast ฉลองเมื่อจบแต่ละภารกิจ */
+.quest-toast{
+  position:absolute;
+  left:50%;
+  top:16%;
+  transform:translate(-50%, -30px);
+  z-index:480;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .2s ease, transform .2s ease;
+  text-align:center;
+}
+.quest-toast.visible{
+  opacity:1;
+  transform:translate(-50%, 0);
+}
+.quest-toast-title{
+  display:inline-block;
+  padding:6px 14px;
+  border-radius:999px;
+  background:rgba(34,197,94,0.18);
+  border:1px solid rgba(74,222,128,0.9);
+  color:#bbf7d0;
+  font-size:13px;
+  font-weight:600;
+  box-shadow:0 14px 30px rgba(0,0,0,0.75);
+}
+.quest-toast-sub{
+  margin-top:4px;
+  font-size:11px;
+  color:var(--text-soft);
+}
+
+/* 🆕 ฉลองใหญ่ตอนเคลียร์ทุกภารกิจ (summary card เรืองแสง + เด้งเบา ๆ) */
+.summary-card.summary-epic{
+  border-color:rgba(74,222,128,0.95);
+  box-shadow:
+    0 0 32px rgba(34,197,94,0.7),
+    0 0 80px rgba(34,197,94,0.5);
+  animation:summaryEpicPulse 0.9s ease-out 1;
+}
+@keyframes summaryEpicPulse{
+  0%{
+    transform:scale(.9);
+    opacity:.0;
+  }
+  40%{
+    transform:scale(1.03);
+    opacity:1;
+  }
+  100%{
+    transform:scale(1);
+    opacity:1;
+  }
+}
