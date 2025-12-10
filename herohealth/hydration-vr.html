@@ -38,12 +38,12 @@
       inset:0;
     }
 
-    /* ===== ให้ Water gauge ลอยอยู่ด้านบนสุด ===== */
+    /* ===== ให้ Water gauge ลอยอยู่ด้านบนสุด ไม่โดน HUD บัง ===== */
     .hha-water-root,
     [data-hha-water],
     .water-gauge-root{
       position:fixed;
-      z-index:700;         /* สูงกว่า HUD (650) */
+      z-index:700;
     }
 
     /* ===== HUD หลัก ===== */
@@ -55,7 +55,7 @@
       display:flex;
       flex-direction:column;
       justify-content:space-between;
-      padding:70px 10px 14px;  /* เลื่อน HUD ลง ไม่ให้ทับเกจน้ำ */
+      padding:70px 10px 14px; /* เลื่อนลง ให้พ้นเกจน้ำ */
     }
     .hud-top{
       display:flex;
@@ -70,15 +70,16 @@
       border:1px solid rgba(148,163,184,0.22);
       pointer-events:auto;
       font-size:13px;
+      min-width:150px;
     }
-    .hud-card h4{
-      margin:0 0 4px;
-      font-size:12px;
-      font-weight:600;
+    .hud-title{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.16em;
       color:var(--text-soft);
+      margin-bottom:2px;
     }
-    .hud-card p{
-      margin:0;
+    .hud-body{
       font-size:13px;
       line-height:1.4;
     }
@@ -89,7 +90,7 @@
       flex-direction:column;
       align-items:center;
       gap:8px;
-      padding-bottom:64px;
+      padding-bottom:72px;
     }
     .coach-bubble{
       min-width:60%;
@@ -112,9 +113,10 @@
       letter-spacing:.16em;
       color:#6ee7b7;
       font-weight:600;
+      margin-bottom:2px;
     }
 
-    /* ===== Toast ฉลอง Quest / Mini / All ===== */
+    /* ===== Toast ฉลอง Goal / Mini / All ===== */
     .hint-center{
       position:fixed;
       left:50%;
@@ -175,10 +177,52 @@
       margin-top:2px;
     }
     .end-row strong{ font-weight:600; }
+    .end-actions{
+      display:flex;
+      justify-content:flex-end;
+      margin-top:10px;
+      gap:8px;
+    }
+    .end-btn{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.6);
+      padding:6px 14px;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+      background:rgba(15,23,42,0.85);
+      color:var(--text-main);
+    }
+    .end-btn-primary{
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      border-color:rgba(187,247,208,0.9);
+      color:#022c22;
+    }
 
     @keyframes fadeIn{
       from{opacity:0;transform:translate(-50%,-18px);}
       to{opacity:1;transform:translate(-50%,0);}
+    }
+
+    /* ปุ่ม VR */
+    .vr-btn{
+      position:fixed;
+      right:12px;
+      bottom:16px;
+      z-index:654;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,0.7);
+      padding:8px 14px;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+      background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%),
+                 rgba(15,23,42,0.96);
+      color:#e0f2fe;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      box-shadow:0 14px 30px rgba(15,23,42,0.9);
     }
   </style>
 </head>
@@ -212,27 +256,31 @@
   <!-- ===== HUD Overlay ===== -->
   <div class="hud-root">
     <div class="hud-top">
-      <!-- Left: score -->
       <div class="hud-card">
-        <h4>คะแนน</h4>
-        <p>
-          คะแนน: <span id="hud-score">0</span><br/>
-          คอมโบสูงสุด: <span id="hud-combo">0</span><br/>
-          พลาด: <span id="hud-miss">0</span>
-        </p>
+        <div class="hud-title">Hydration VR • Mode</div>
+        <div class="hud-body">
+          โหมด: <span id="hud-runmode">Play</span><br>
+          ระดับ: <span id="hud-diff">NORMAL</span><br>
+          เวลา: <span id="hud-time">60s</span>
+        </div>
       </div>
-
-      <!-- Right: Quest / Mini -->
       <div class="hud-card">
-        <h4>QUEST</h4>
-        <p>
-          Quest: <span id="hud-quest-main">-</span><br/>
-          Mini: <span id="hud-quest-mini">-</span>
-        </p>
+        <div class="hud-title">Score</div>
+        <div class="hud-body">
+          คะแนน: <span id="hud-score">0</span><br>
+          คอมโบสูงสุด: <span id="hud-combo">0</span><br>
+          พลาด: <span id="hud-miss">0</span>
+        </div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-title">Quest</div>
+        <div class="hud-body">
+          Quest: <span id="hud-quest-main">ภารกิจหลักจะโผล่ตรงนี้</span><br>
+          Mini: <span id="hud-quest-mini">Mini quest จะโผล่ตรงนี้</span>
+        </div>
       </div>
     </div>
 
-    <!-- Bottom: coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <div>
@@ -243,18 +291,26 @@
     </div>
   </div>
 
-  <!-- Toast ฉลอง Quest / Mini / All -->
+  <!-- Toast ฉลอง -->
   <div class="hint-center" id="quest-hint"></div>
 
-  <!-- End summary -->
+  <!-- สรุปผล -->
   <div class="end-toast" id="end-toast">
     <div class="end-title">สรุปผล • Hydration Quest VR</div>
+    <div class="end-row"><span>โหมด</span><strong id="end-runmode">Play</strong></div>
     <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
     <div class="end-row"><span>คอมโบสูงสุด</span><strong id="end-combo">0</strong></div>
     <div class="end-row"><span>พลาด</span><strong id="end-miss">0</strong></div>
     <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 0</strong></div>
     <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
+    <div class="end-actions">
+      <button class="end-btn end-btn-primary" id="btn-replay">เล่นอีกครั้ง</button>
+      <button class="end-btn" id="btn-back-hub">กลับ Hub</button>
+    </div>
   </div>
+
+  <!-- ปุ่ม VR -->
+  <button class="vr-btn" id="btn-vr">🕶️ เข้าสู่โหมด VR</button>
 
   <!-- Fever + Particles -->
   <script src="./vr/ui-fever.js"></script>
@@ -274,12 +330,17 @@
     const elScore   = document.getElementById('hud-score');
     const elCombo   = document.getElementById('hud-combo');
     const elMiss    = document.getElementById('hud-miss');
+    const elDiff    = document.getElementById('hud-diff');
+    const elTime    = document.getElementById('hud-time');
+    const elRunHUD  = document.getElementById('hud-runmode');
+
     const elQuestMain = document.getElementById('hud-quest-main');
     const elQuestMini = document.getElementById('hud-quest-mini');
 
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
-    const elQuestHint   = document.getElementById('quest-hint');
+
+    const elQuestHint  = document.getElementById('quest-hint');
 
     const elEndToast  = document.getElementById('end-toast');
     const elEndScore  = document.getElementById('end-score');
@@ -287,9 +348,27 @@
     const elEndMiss   = document.getElementById('end-miss');
     const elEndGoal   = document.getElementById('end-goal');
     const elEndMini   = document.getElementById('end-mini');
+    const elEndRun    = document.getElementById('end-runmode');
 
-    let hudMissCount = 0;
+    const btnReplay   = document.getElementById('btn-replay');
+    const btnBackHub  = document.getElementById('btn-back-hub');
+    const btnVR       = document.getElementById('btn-vr');
+
+    let lastStats = {
+      score: 0,
+      comboMax: 0,
+      misses: 0,
+      goalsCleared: 0,
+      goalsTotal: 0,
+      miniCleared: 0,
+      miniTotal: 0
+    };
+
+    let currentDiff = 'normal';
+    let currentRunMode = 'play';
     let gameStopped = false;
+    let timeLeft = 0;
+    let timerId = null;
 
     function setCoach(text){
       if (!text) return;
@@ -302,62 +381,84 @@
       if (!msg) return;
       elQuestHint.textContent = msg;
       elQuestHint.classList.add('show');
-      setTimeout(()=> elQuestHint.classList.remove('show'), 1200);
+      setTimeout(()=> elQuestHint.classList.remove('show'), 1400);
     }
 
-    // === HUD: คะแนน / คอมโบ / พลาด ===
+    // ===== HUD score =====
     window.addEventListener('hha:score',(e)=>{
       const d = e.detail || {};
-      if (typeof d.score === 'number') elScore.textContent = d.score;
-      if (typeof d.comboMax === 'number') elCombo.textContent = d.comboMax;
+      if (typeof d.score === 'number') {
+        elScore.textContent = d.score;
+        lastStats.score = d.score;
+      }
+      if (typeof d.comboMax === 'number') {
+        elCombo.textContent = d.comboMax;
+        lastStats.comboMax = d.comboMax;
+      }
       if (typeof d.misses === 'number') {
-        hudMissCount = d.misses|0;
-        elMiss.textContent = hudMissCount;
+        elMiss.textContent = d.misses;
+        lastStats.misses = d.misses;
       }
     });
 
     window.addEventListener('hha:miss',()=>{
-      hudMissCount += 1;
-      elMiss.textContent = hudMissCount;
+      lastStats.misses += 1;
+      elMiss.textContent = lastStats.misses;
       setCoach('พลาดแก้วน้ำนิดนึง ลองจิบน้ำดีต่ออีกหน่อยนะ 💧');
     });
 
-    // === HUD: Quest / Mini จาก hydration.safe.js (pushQuest) ===
+    // เวลา
+    window.addEventListener('hha:time',(e)=>{
+      const sec = (e.detail && typeof e.detail.sec === 'number')
+        ? e.detail.sec
+        : (e.detail?.sec | 0);
+      if (sec >= 0) {
+        elTime.textContent = sec + 's';
+      }
+    });
+
+    // Quest HUD + เก็บ progress ไว้ใช้สรุป
     window.addEventListener('quest:update',(e)=>{
       const d = e.detail || {};
-      const g = d.goal || null;
-      const m = d.mini || null;
+      const goal = d.goal || null;
+      const mini = d.mini || null;
+      const goalsAll = d.goalsAll || [];
+      const minisAll = d.minisAll || [];
 
-      if (g) {
-        const prog = g.prog|0, tgt = g.target|0;
-        elQuestMain.textContent = g.label
-          ? `${g.label} (${prog}/${tgt})`
+      if (goal){
+        const prog = goal.prog|0, tgt = goal.target|0;
+        elQuestMain.textContent = goal.label
+          ? `${goal.label} (${prog}/${tgt})`
           : `Goal: ${prog}/${tgt}`;
       } else {
         elQuestMain.textContent = 'Goal: ครบแล้ว 🎯';
       }
 
-      if (m) {
-        const progM = m.prog|0, tgtM = m.target|0;
-        elQuestMini.textContent = m.label
-          ? `${m.label} (${progM}/${tgtM})`
+      if (mini){
+        const progM = mini.prog|0, tgtM = mini.target|0;
+        elQuestMini.textContent = mini.label
+          ? `${mini.label} (${progM}/${tgtM})`
           : `Mini: ${progM}/${tgtM}`;
       } else {
         elQuestMini.textContent = 'Mini quest: ครบแล้ว ✅';
       }
+
+      lastStats.goalsTotal  = goalsAll.length;
+      lastStats.miniTotal   = minisAll.length;
+      lastStats.goalsCleared = goalsAll.filter(g => g && g.done).length;
+      lastStats.miniCleared  = minisAll.filter(m => m && m.done).length;
     });
 
-    // ฉลองย่อยเมื่อผ่านแต่ละ goal / mini
+    // ฉลองย่อย
     window.addEventListener('quest:step',(e)=>{
       const d = e.detail || {};
       if (d.type === 'goal') {
-        showQuestToast(`🎯 Goal ${d.done}/${d.total} สำเร็จ! +${d.bonus} คะแนน`);
+        showQuestToast(`🎯 Goal ${d.done}/${d.total} สำเร็จ! +${d.bonus||0} คะแนน`);
       } else if (d.type === 'mini') {
-        showQuestToast(`⭐ Mini quest ${d.done}/${d.total} สำเร็จ! +${d.bonus} คะแนน`);
+        showQuestToast(`⭐ Mini quest ${d.done}/${d.total} สำเร็จ! +${d.bonus||0} คะแนน`);
       }
     });
 
-    // ฉลองเมื่อผ่านครบชุด goals / minis
     window.addEventListener('quest:reward',(e)=>{
       const t = e.detail?.type || '';
       if (t === 'goal-all') {
@@ -367,53 +468,98 @@
       }
     });
 
-    // ฉลองใหญ่เมื่อครบทุกภารกิจ (2 goal + 3 mini)
+    // ฉลองใหญ่ + ยิง hha:end เอง แล้วค่อย stop เกม
     window.addEventListener('quest:all-cleared',()=>{
       if (gameStopped) return;
       showQuestToast('🎉 สุดยอด! ทำครบทุกภารกิจแล้ว!');
-      setCoach('สุดยอดมาก! รักษาน้ำในร่างกายได้ครบทุกภารกิจเลย 💧🎉');
+      setCoach('เยี่ยมมาก! รักษาน้ำในร่างกายได้ครบทุกภารกิจเลย 💧🎉');
+
       setTimeout(()=> {
-        if (!gameStopped) {
-          GameEngine.stop('all-cleared');
-          gameStopped = true;
-        }
+        if (gameStopped) return;
+        gameStopped = true;
+        if (timerId) clearInterval(timerId);
+
+        // ยิง hha:end ด้วย stats ล่าสุด
+        const detail = {
+          mode: 'Hydration',
+          modeLabel: 'Hydration',
+          difficulty: currentDiff,
+          score: lastStats.score,
+          misses: lastStats.misses,
+          comboMax: lastStats.comboMax,
+          goalsCleared: lastStats.goalsCleared,
+          goalsTotal: lastStats.goalsTotal,
+          miniCleared: lastStats.miniCleared,
+          miniTotal: lastStats.miniTotal
+        };
+        window.dispatchEvent(new CustomEvent('hha:end',{ detail }));
+
+        // แล้วค่อยสั่ง stop engine
+        GameEngine.stop('all-cleared');
       }, 1500);
     });
 
-    // === สรุปตอนจบเกม ===
+    // สรุปผล (ทั้งกรณีหมดเวลา และเคลียร์ทุกภารกิจ)
     window.addEventListener('hha:end',(e)=>{
       const d = e.detail || {};
-      const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
-      const comboMax     = d.comboMax ?? 0;
-      const misses       = d.misses ?? 0;
-      const goalsCleared = d.goalsCleared ?? 0;
-      const goalsTotal   = d.goalsTotal ?? 0;
-      const miniCleared  = d.miniCleared ?? 0;
-      const miniTotal    = d.miniTotal ?? 0;
+
+      const scoreFinal   = d.scoreFinal ?? d.score ?? lastStats.score;
+      const comboMax     = d.comboMax  ?? lastStats.comboMax;
+      const misses       = d.misses    ?? lastStats.misses;
+      const goalsCleared = d.goalsCleared ?? lastStats.goalsCleared;
+      const goalsTotal   = d.goalsTotal   ?? lastStats.goalsTotal;
+      const miniCleared  = d.miniCleared  ?? lastStats.miniCleared;
+      const miniTotal    = d.miniTotal    ?? lastStats.miniTotal;
 
       elEndScore.textContent = scoreFinal;
       elEndCombo.textContent = comboMax;
       elEndMiss.textContent  = misses;
       elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
       elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
+      elEndRun.textContent   = (currentRunMode === 'research') ? 'Research' : 'Play';
 
       setTimeout(()=> {
         elEndToast.classList.add('show');
-      }, 400); // หน่วงนิดหน่อยหลังฉลองใหญ่
+      }, 400);
     });
+
+    // ===== VR button =====
+    function initVRButton(){
+      const scene = document.querySelector('a-scene');
+      if (!btnVR || !scene) return;
+      btnVR.addEventListener('click', () => {
+        try{
+          scene.enterVR();
+        }catch(err){
+          console.warn('[HydrationVR] enterVR error:', err);
+        }
+      });
+    }
 
     // ===== Boot =====
     window.addEventListener('DOMContentLoaded',()=>{
       const diffParam = String(getParam('diff','normal')).toLowerCase();
       const runParam  = String(getParam('run','play')).toLowerCase();
-      const runMode   = (runParam === 'research') ? 'research' : 'play';
+      currentDiff     = (diffParam === 'easy' || diffParam === 'hard') ? diffParam : 'normal';
+      currentRunMode  = (runParam === 'research') ? 'research' : 'play';
 
-      let dur = 60;
-      const tParam = getParam('time','');
-      if (tParam){
-        const n = parseInt(tParam,10);
-        if (!isNaN(n) && n >= 20 && n <= 180) dur = n;
+      // เวลาเริ่มต้น
+      let baseDur = 60;
+      if (currentDiff === 'easy') baseDur = 80;
+      else if (currentDiff === 'hard') baseDur = 45;
+
+      timeLeft = baseDur;
+      const timeParam = getParam('time','');
+      if (timeParam){
+        const parsed = parseInt(timeParam,10);
+        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180){
+          timeLeft = parsed;
+        }
       }
+
+      elDiff.textContent   = currentDiff.toUpperCase();
+      elRunHUD.textContent = (currentRunMode === 'research') ? 'Research Mode' : 'Play Mode';
+      elTime.textContent   = timeLeft + 's';
 
       // profile จาก Hub
       let studentProfile = null;
@@ -432,9 +578,9 @@
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-HydrationVR',
         mode: 'HydrationVR',
-        runMode,
-        diff: diffParam,
-        durationSec: dur,
+        runMode: currentRunMode,
+        diff: currentDiff,
+        durationSec: timeLeft,
         studentKey,
         profile: studentProfile,
         debug: false
@@ -442,31 +588,44 @@
 
       const cam = document.querySelector('#hydration-camera');
       attachTouchLook(cam);
+      initVRButton();
 
       setCoach('ภารกิจคือรักษาน้ำให้อยู่โซนสีเขียว เลือกน้ำดี เลี่ยงน้ำหวานนะ 💧');
 
-      GameEngine.start(diffParam, dur);
+      GameEngine.start(currentDiff, timeLeft);
 
       // clock กลาง
-      let timeLeft = dur;
       window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-      const timerId = setInterval(() => {
+      timerId = setInterval(() => {
+        if (gameStopped) return;
         timeLeft -= 1;
-        if (timeLeft < 0) {
+        if (timeLeft < 0){
           clearInterval(timerId);
-          if (!gameStopped) {
-            GameEngine.stop('time-up');
+          if (!gameStopped){
             gameStopped = true;
+            GameEngine.stop('time-up');
           }
           return;
         }
         window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
       }, 1000);
 
+      if (btnReplay) {
+        btnReplay.addEventListener('click', () => {
+          window.location.reload();
+        });
+      }
+      if (btnBackHub) {
+        btnBackHub.addEventListener('click', () => {
+          window.location.href = './hub.html';
+        });
+      }
+
       document.addEventListener('visibilitychange', () => {
         if (document.hidden && !gameStopped) {
-          GameEngine.stop('tab-hidden');
           gameStopped = true;
+          if (timerId) clearInterval(timerId);
+          GameEngine.stop('tab-hidden');
         }
       });
     });
