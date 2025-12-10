@@ -138,6 +138,24 @@
     </div>
   </div>
 
+  <!-- ===== Toast ฉลองจบแต่ละภารกิจ ===== -->
+  <div id="quest-toast">
+    <div class="quest-toast-inner">
+      <div class="quest-toast-title" id="quest-toast-title">Goal สำเร็จ!</div>
+      <div class="quest-toast-text" id="quest-toast-text">ตัวอย่างข้อความภารกิจ</div>
+      <div class="quest-toast-tag" id="quest-toast-tag">GOAL 1/2</div>
+    </div>
+  </div>
+
+  <!-- ===== Mega Celebration เมื่อทำครบทุกภารกิจ ===== -->
+  <div id="mega-celebrate">
+    <div class="mega-card">
+      <div class="mega-emoji">🌈🍽️🎉</div>
+      <div class="mega-title">Balanced Plate Master!</div>
+      <div class="mega-text">คุณทำ Goal และ Mini Quest ครบทั้งหมดแล้ว</div>
+    </div>
+  </div>
+
   <!-- ===== Summary Overlay ===== -->
   <div id="summary">
     <div class="summary-card">
@@ -236,6 +254,19 @@
   const elCoachText   = document.getElementById('coach-text');
   let coachTimer = null;
 
+  // Toast celebrate
+  const toastEl       = document.getElementById('quest-toast');
+  const toastTitleEl  = document.getElementById('quest-toast-title');
+  const toastTextEl   = document.getElementById('quest-toast-text');
+  const toastTagEl    = document.getElementById('quest-toast-tag');
+  let toastTimer      = null;
+  let lastGoalDone    = 0;
+  let lastMiniDone    = 0;
+
+  // Mega celebrate
+  const megaEl   = document.getElementById('mega-celebrate');
+  let megaShown  = false;
+
   // Summary
   const elSummary      = document.getElementById('summary');
   const elSumTitle     = document.getElementById('sum-title');
@@ -312,7 +343,26 @@
     }
   });
 
-  // ------- Quest realtime (quota ทีละบรรทัด + emoji) -------
+  // ------- ฟังก์ชัน Toast ฉลองภารกิจ -------
+  function showQuestToast({ kind, title, text, index, total }) {
+    if (!toastEl) return;
+    toastTitleEl.textContent = title || (kind === 'goal' ? 'Goal สำเร็จ!' : 'Mini Quest สำเร็จ!');
+    toastTextEl.textContent  = text  || '';
+    toastTagEl.textContent   = (kind === 'goal'
+      ? `GOAL ${index}/${total || '-'}`
+      : `MINI ${index}/${total || '-'}`);
+
+    toastEl.classList.remove('goal','mini');
+    toastEl.classList.add(kind === 'goal' ? 'goal' : 'mini');
+    toastEl.classList.add('show');
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastEl.classList.remove('show');
+    }, 2200);
+  }
+
+  // ------- Quest realtime (quota ทีละบรรทัด + emoji + เช็ค progress) -------
   window.addEventListener('quest:update', (e) => {
     const d = e.detail || {};
     const goal = d.goal || {};
@@ -324,6 +374,7 @@
     elQuestGoal.textContent = goalText;
     elQuestMini.textContent = miniText;
 
+    // 1) แสดง quota แต่ละหมู่
     if (elQuestHint) {
       elQuestHint.innerHTML = '';
 
@@ -354,17 +405,51 @@
           label.className = 'quest-hint-label';
           label.textContent = names[i];
 
-          const text = document.createElement('span');
-          text.className = 'quest-hint-text';
-          text.textContent = `${haveVal} / ${quota}`;
+          const textSpan = document.createElement('span');
+          textSpan.className = 'quest-hint-text';
+          textSpan.textContent = `${haveVal} / ${quota}`;
 
-          line.append(icon, label, text);
+          line.append(icon, label, textSpan);
           elQuestHint.appendChild(line);
         });
       } else if (d.hint) {
         elQuestHint.textContent = d.hint;
       }
     }
+
+    // 2) เช็คจำนวนภารกิจที่ done เพื่อ trigger toast
+    const goalsAll = Array.isArray(d.goalsAll) ? d.goalsAll : [];
+    const minisAll = Array.isArray(d.minisAll) ? d.minisAll : [];
+
+    const goalDone = goalsAll.filter(x => x && x.done).length;
+    const miniDone = minisAll.filter(x => x && x.done).length;
+
+    if (goalDone > lastGoalDone) {
+      const idx = goalDone;
+      const q = goalsAll.find(x => x && x.done && !x._toastShown);
+      if (q) q._toastShown = true;
+      showQuestToast({
+        kind: 'goal',
+        title: 'Goal สำเร็จ!',
+        text:  (q && (q.text || q.label || q.title)) || goalText,
+        index: idx,
+        total: goalsAll.length || 2
+      });
+    } else if (miniDone > lastMiniDone) {
+      const idx = miniDone;
+      const q = minisAll.find(x => x && x.done && !x._toastShown);
+      if (q) q._toastShown = true;
+      showQuestToast({
+        kind: 'mini',
+        title: 'Mini Quest สำเร็จ!',
+        text:  (q && (q.text || q.label || q.title)) || miniText,
+        index: idx,
+        total: minisAll.length || 3
+      });
+    }
+
+    lastGoalDone = goalDone;
+    lastMiniDone = miniDone;
   });
 
   // ------- Coach Bubble -------
@@ -383,7 +468,7 @@
     if (d.text) showCoach(d.text);
   });
 
-  // ------- Summary จาก hha:end -------
+  // ------- Summary + Mega Celebration จาก hha:end -------
   window.addEventListener('hha:end', (e) => {
     const d = e.detail || {};
     endedByEvent = true;
@@ -391,6 +476,9 @@
       clearInterval(timerId);
       timerId = null;
     }
+
+    // ซ่อนเป้าทั้งหมดหลังเกมจบ
+    document.body.classList.add('hha-game-ended');
 
     elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
     elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
@@ -414,7 +502,21 @@
       elSumGroups.textContent = '-';
     }
 
-    elSummary.classList.add('visible');
+    const allCleared =
+      (d.goalsTotal  > 0 && d.goalsCleared  >= d.goalsTotal) &&
+      (d.questsTotal > 0 && d.questsCleared >= d.questsTotal);
+
+    if (allCleared && megaEl && !megaShown) {
+      megaShown = true;
+      megaEl.classList.add('show');
+      // แสดงฉลองใหญ่สักพักแล้วค่อยเปิดหน้าสรุป
+      setTimeout(() => {
+        megaEl.classList.remove('show');
+        elSummary.classList.add('visible');
+      }, 1700);
+    } else {
+      elSummary.classList.add('visible');
+    }
   });
 
   // ------- ปุ่มเล่นอีกรอบ / กลับ Hub -------
