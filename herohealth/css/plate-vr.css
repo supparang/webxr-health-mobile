@@ -1,5 +1,3 @@
-/* === /herohealth/css/plate-vr.css === */
-
 :root{
   color-scheme: dark;
   --bg-main:#020617;
@@ -253,8 +251,8 @@ a-scene{
   position:absolute;
   left:0;
   right:0;
-  bottom:72px;              /* ยกขึ้นจากขอบล่าง ไม่ทับ Fever bar */
-  z-index:950;              /* สูงกว่า Fever (ที่ใช้ ~900) */
+  bottom:72px;
+  z-index:950;
   pointer-events:none;
   display:flex;
   justify-content:center;
@@ -401,7 +399,7 @@ a-scene{
   }
 }
 
-/* ====== TARGETS (เป้า emoji) ====== */
+/* ====== TARGETS (emoji เดียว ไม่ซ้อน) ====== */
 
 .hha-target{
   position:fixed;
@@ -421,20 +419,15 @@ a-scene{
     0 0 8px rgba(0,0,0,0.65),
     0 0 16px rgba(0,0,0,0.7);
 }
-
-/* ไม่ใช้ ::before ซ้ำ emoji */
 .hha-target::before{
   content:none !important;
 }
-
-/* glow เพิ่มสำหรับของดี/ของไม่ดี */
 .hha-target-good{
   text-shadow:
     0 0 10px rgba(34,197,94,0.9),
     0 0 20px rgba(34,197,94,0.7),
     0 0 28px rgba(34,197,94,0.55);
 }
-
 .hha-target-bad{
   text-shadow:
     0 0 10px rgba(248,113,113,0.9),
@@ -442,7 +435,7 @@ a-scene{
     0 0 28px rgba(248,113,113,0.55);
 }
 
-/* ===== Gaze Reticle (ให้เห็นทุกโหมด, เด่นขึ้นตอน VR) ===== */
+/* ===== Gaze Reticle (ให้เห็นตลอด, VR เด่นขึ้น) ===== */
 
 #gaze-reticle{
   position:fixed;
@@ -455,11 +448,6 @@ a-scene{
   z-index:430;
   opacity:0.8;
 }
-
-body.hha-vr-mode #gaze-reticle{
-  opacity:1;
-}
-
 .gaze-dot{
   position:absolute;
   left:50%;
@@ -471,7 +459,6 @@ body.hha-vr-mode #gaze-reticle{
   background:rgba(248,250,252,0.96);
   box-shadow:0 0 4px rgba(248,250,252,0.9);
 }
-
 .gaze-ring{
   position:absolute;
   inset:0;
@@ -480,12 +467,15 @@ body.hha-vr-mode #gaze-reticle{
   box-shadow:0 0 10px rgba(248,250,252,0.7);
   opacity:0.8;
 }
+/* ตอนอยู่ใน VR ให้เด่นขึ้น */
+body.hha-vr-mode #gaze-reticle{
+  opacity:1;
+}
 
 /* animation ตอนกำลัง fuse */
 #gaze-reticle.fuse-active .gaze-ring{
   animation:hhaFuse 1s linear forwards;
 }
-
 @keyframes hhaFuse{
   0%{
     transform:scale(1);
@@ -493,6 +483,41 @@ body.hha-vr-mode #gaze-reticle{
   }
   100%{
     transform:scale(0.25);
+    opacity:0;
+  }
+}
+
+/* ===== Judgment FX (MISS / LATE / GOOD / PERFECT) ===== */
+
+.plate-judge{
+  position:fixed;
+  left:0;
+  top:0;
+  transform:translate(-50%, -50%);
+  pointer-events:none;
+  z-index:470;
+  font-size:18px;
+  font-weight:700;
+  letter-spacing:0.04em;
+  text-shadow:0 0 6px rgba(0,0,0,0.85);
+  opacity:0;
+  animation:plateJudgePop .6s ease-out forwards;
+}
+.plate-judge-perfect{ color:#facc15; } /* ทอง = PERFECT */
+.plate-judge-good   { color:#22c55e; } /* เขียว = GOOD   */
+.plate-judge-late   { color:#38bdf8; } /* ฟ้า = LATE     */
+.plate-judge-miss   { color:#fb7185; } /* แดง = MISS     */
+
+@keyframes plateJudgePop{
+  0%{
+    transform:translate(-50%, -50%) scale(0.8);
+    opacity:0;
+  }
+  20%{
+    opacity:1;
+  }
+  100%{
+    transform:translate(-50%, calc(-50% - 26px)) scale(1.05);
     opacity:0;
   }
 }
