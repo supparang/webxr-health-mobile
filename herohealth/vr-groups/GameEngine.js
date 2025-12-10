@@ -40,7 +40,8 @@ function pickEngineConfig(modeKey, diffKey) {
 }
 
 // --------------------------------------------------
-//  หา root สำหรับวางเป้า (ผูกกับกล้อง) — เหมือน hydration
+//  หา root สำหรับวางเป้า — ผูกกับ scene (ไม่ติดกล้อง)
+//  เวลาเลื่อนหน้าจอ/หมุนกล้อง เป้าจะเลื่อนในมุมมองตามที่ต้องการ
 // --------------------------------------------------
 function ensureVrRoot() {
   const scene = document.querySelector('a-scene');
@@ -49,22 +50,14 @@ function ensureVrRoot() {
     return null;
   }
 
-  let cam =
-    scene.querySelector('[camera]') ||
-    scene.querySelector('#cameraRig') ||
-    scene.querySelector('a-entity[camera]');
-
-  if (!cam) {
-    console.warn('[GroupsVR] No camera found in scene');
-    return null;
-  }
-
-  let root = cam.querySelector('.hha-vr-root');
+  // ถ้ามี root เดิมแล้วก็ใช้เลย
+  let root = scene.querySelector('.hha-vr-root');
   if (!root) {
     root = document.createElement('a-entity');
     root.classList.add('hha-vr-root');
-    root.setAttribute('position', '0 0 0');
-    cam.appendChild(root);
+    // ให้อยู่ประมาณด้านหน้าผู้เล่น
+    root.setAttribute('position', '0 1.6 -1.6');
+    scene.appendChild(root);
   }
   return root;
 }
@@ -75,7 +68,10 @@ function ensureVrRoot() {
 function getWorldPosition(el) {
   try {
     if (!el || !el.object3D) return null;
-    const THREE = (ROOT.AFRAME && ROOT.AFRAME.THREE) || ROOT.THREE || window.THREE;
+    const THREE =
+      (ROOT.AFRAME && ROOT.AFRAME.THREE) ||
+      ROOT.THREE ||
+      (typeof window !== 'undefined' ? window.THREE : null);
     if (!THREE || !THREE.Vector3) return null;
     const v = new THREE.Vector3();
     el.object3D.getWorldPosition(v);
@@ -219,10 +215,11 @@ function createVrTarget(root, targetCfg, handlers = {}) {
     holder.appendChild(img);
   }
 
-  // ===== ตำแหน่งหน้า player =====
+  // ===== ตำแหน่งในโลก (world) ด้านหน้า player ประมาณหนึ่ง =====
   const x = -0.8 + Math.random() * 1.6;
-  const y = -0.25 + Math.random() * 0.9;
-  const z = -1.6;
+  const y = 1.2 + Math.random() * 0.8;   // สูงประมาณระดับสายตา
+  const z = -1.6 + (Math.random() * 0.6 - 0.3);
+
   holder.setAttribute('position', `${x} ${y} ${z}`);
 
   root.appendChild(holder);
@@ -481,8 +478,8 @@ function start(diffKey) {
   state.config = pickEngineConfig('groups', state.diffKey);
 
   // ปรับขนาดตามระดับ easy / normal / hard (ทุกระดับเล็กลง)
-  let diffSize = 0.85;                 // normal เล็กลงจากเดิม
-  if (state.diffKey === 'easy') diffSize = 0.95;   // easy ยังเล็กกว่าของเดิม
+  let diffSize = 0.85;                  // normal เล็กลงจากเดิม
+  if (state.diffKey === 'easy') diffSize = 0.95;    // easy ใหญ่กว่านิดหน่อย
   else if (state.diffKey === 'hard') diffSize = 0.70; // hard เล็กสุด
   state.config.SIZE_FACTOR =
     (state.config.SIZE_FACTOR || 1.0) * diffSize;
@@ -505,7 +502,7 @@ function start(diffKey) {
   updateQuestHUD();
   emit('hha:judge', { label: '' });
   emit('hha:coach', {
-    text: 'คลิกหรือแตะอาหารให้ตรงกลางเป้า ลองสังเกตว่าเป็นอาหารหมู่ไหนบ้างนะ 🍚🥩🥦🍎🥛'
+    text: 'ลากนิ้ว/เมาส์หมุนมุมมอง แล้วคลิกอาหารให้ตรงหมู่ ดูให้ครบ 5 หมู่เลยนะ 🍚🥩🥦🍎🥛'
   });
 
   const interval = Math.max(300, state.config.SPAWN_INTERVAL || 900);
