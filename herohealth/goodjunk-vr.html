@@ -271,7 +271,7 @@
       font-weight:600;
     }
 
-    /* ===== Coach emoji → ใช้ภาพ + ดุ๊กดิ๊ก ===== */
+    /* ===== Coach avatar: ใช้ภาพ + ดุ๊กดิ๊ก ===== */
     .coach-emoji{
       width:56px;
       height:56px;
@@ -283,33 +283,35 @@
       animation:coach-idle 2.2s ease-in-out infinite;
     }
     .coach-emoji.coach-neutral{
-      background-image:url('../img/coach-neutral.png');
+      background-image:url('./img/coach-neutral.png');
+      animation:coach-idle 2.2s ease-in-out infinite;
     }
     .coach-emoji.coach-happy{
-      background-image:url('../img/coach-happy.png');
+      background-image:url('./img/coach-happy.png');
       animation:coach-bounce 1.2s ease-in-out infinite;
     }
     .coach-emoji.coach-sad{
-      background-image:url('../img/coach-sad.png');
+      background-image:url('./img/coach-sad.png');
       animation:coach-idle-sad 2.4s ease-in-out infinite;
     }
     .coach-emoji.coach-fever{
-      background-image:url('../img/coach-fever.png');
+      background-image:url('./img/coach-fever.png');
       animation:coach-bounce 1s ease-in-out infinite;
     }
 
     @keyframes coach-idle{
-      0%,100%{ transform:translateY(0); }
-      50%    { transform:translateY(-4px); }
+      0%,100%{ transform:translateY(0) scale(1); }
+      50%{ transform:translateY(-3px) scale(1.02); }
+    }
+    @keyframes coach-bounce{
+      0%{ transform:translateY(0) scale(1); }
+      30%{ transform:translateY(-6px) scale(1.05); }
+      60%{ transform:translateY(0) scale(0.98); }
+      100%{ transform:translateY(0) scale(1); }
     }
     @keyframes coach-idle-sad{
       0%,100%{ transform:translateY(0); }
-      50%    { transform:translateY(-2px); }
-    }
-    @keyframes coach-bounce{
-      0%,100%{ transform:translateY(0) scale(1); }
-      40%    { transform:translateY(-6px) scale(1.05); }
-      70%    { transform:translateY(1px)  scale(0.98); }
+      50%{ transform:translateY(2px); }
     }
 
     /* ===== Center hint ===== */
@@ -565,7 +567,7 @@
     <!-- Bottom: coach (emoji + text) -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <span id="coach-emoji" class="coach-emoji coach-neutral">🙂</span>
+        <span id="coach-emoji" class="coach-emoji coach-neutral"></span>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="coach-label">โค้ช</span>
           <span id="coach-text">แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ</span>
@@ -668,18 +670,12 @@
     let hudMiniTotal    = 0;
     let hudMiniCleared  = 0;
 
-    // mapping mood → class
-    const coachStates = {
-      neutral: 'coach-neutral',
-      happy:   'coach-happy',
-      sad:     'coach-sad',
-      fever:   'coach-fever'
-    };
-
     function setCoachFace(mood){
       if (!elCoachEmoji) return;
-      const cls = coachStates[mood] || coachStates.neutral;
-      elCoachEmoji.className = 'coach-emoji ' + cls;
+      const moods = ['neutral','happy','sad','fever'];
+      moods.forEach(m => elCoachEmoji.classList.remove('coach-' + m));
+      if (!mood || !moods.includes(mood)) mood = 'neutral';
+      elCoachEmoji.classList.add('coach-' + mood);
     }
 
     function setCoach(text){
@@ -719,7 +715,9 @@
 
     // HUD: เวลา
     window.addEventListener('hha:time', (e)=>{
-      const sec = (e.detail?.sec | 0);
+      const sec = (e.detail && typeof e.detail.sec === 'number')
+        ? (e.detail.sec | 0)
+        : 0;
       if (sec < 0) return;
       elTime.textContent = sec + 's';
     });
@@ -741,7 +739,10 @@
     function updateRealtimeGrade(latestScore){
       if (!elGrade || !elGradeBar) return;
 
-      const scoreNow = (typeof latestScore === 'number' ? latestScore : parseInt(elScore.textContent || '0',10)) || 0;
+      const scoreNow = (typeof latestScore === 'number'
+        ? latestScore
+        : parseInt(elScore.textContent || '0',10)) || 0;
+
       const comboMax = parseInt(elCombo.dataset.max || '0',10) || 0;
 
       const grade = computeGrade(
@@ -776,7 +777,7 @@
         const prog = goal.prog|0, tgt = goal.target|0;
         const pct  = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
         elQuestMainBar.style.width = pct + '%';
-        elQuestMainCap.textContent = `${prog} / ${tgt}`;
+        elQuestMainCap.textContent = prog + ' / ' + tgt;
       }else{
         elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
         elQuestMainBar.style.width = '100%';
@@ -788,7 +789,7 @@
         const progM = mini.prog|0, tgtM = mini.target|0;
         const pctM  = tgtM>0 ? Math.max(0, Math.min(100, (progM/tgtM)*100)) : 0;
         elQuestMiniBar.style.width = pctM + '%';
-        elQuestMiniCap.textContent = `${progM} / ${tgtM}`;
+        elQuestMiniCap.textContent = progM + ' / ' + tgtM;
       }else{
         elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
         elQuestMiniBar.style.width = '100%';
@@ -815,7 +816,7 @@
 
     // HUD: Coach (ข้อความอย่างเดียว)
     window.addEventListener('hha:coach', (e)=>{
-      const text = e.detail?.text;
+      const text = e.detail && e.detail.text;
       if (text) {
         setCoach(text);
       }
@@ -825,14 +826,14 @@
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
       if (typeof d.score === 'number') {
-        elScore.textContent = d.score;
+        elScore.textContent = String(d.score);
       }
       if (typeof d.combo === 'number') {
         const c = d.combo | 0;
         const prevMax = parseInt(elCombo.dataset.max || '0', 10);
         const max = Math.max(prevMax, c);
         elCombo.dataset.max = String(max);
-        elCombo.textContent = max;
+        elCombo.textContent = String(max);
 
         if (c >= 10) {
           setCoachFace('fever');
@@ -844,7 +845,7 @@
       }
       if (typeof d.misses === 'number') {
         hudMissCount = d.misses;
-        elMiss.textContent = hudMissCount;
+        elMiss.textContent = String(hudMissCount);
       }
 
       // อัปเดตเกรด real-time ทุกครั้งที่คะแนน/คอมโบเปลี่ยน
@@ -854,7 +855,7 @@
     // HUD: Miss event
     window.addEventListener('hha:miss', ()=>{
       hudMissCount += 1;
-      elMiss.textContent = hudMissCount;
+      elMiss.textContent = String(hudMissCount);
       setCoachFace('sad');
       setCoach('พลาดของดีไปนะ ลองโฟกัสผัก ผลไม้ และนมอีกครั้งนะ 😌');
       updateRealtimeGrade();
@@ -862,7 +863,7 @@
 
     // HUD: Fever state
     window.addEventListener('hha:fever', (e)=>{
-      const st = e.detail?.state || 'change';
+      const st = (e.detail && e.detail.state) || 'change';
       if (st === 'start') {
         setCoachFace('fever');
         setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
@@ -875,28 +876,32 @@
     // HUD: End summary
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
-      const scoreFinal   = (typeof d.scoreFinal === 'number') ? d.scoreFinal : (d.score ?? 0);
-
-      let comboMax;
-      if (typeof d.comboMax === 'number') {
-        comboMax = d.comboMax;
-      } else {
-        comboMax = parseInt(elCombo.dataset.max || '0',10) || 0;
-      }
-
+      const scoreFinal   = (typeof d.scoreFinal === 'number') ? d.scoreFinal
+                            : (typeof d.score === 'number' ? d.score : 0);
+      const comboMax     = (typeof d.comboMax === 'number')
+                            ? d.comboMax
+                            : (parseInt(elCombo.dataset.max || '0',10) || 0);
       const misses       = (typeof d.misses === 'number') ? d.misses : hudMissCount;
       const goalsCleared = (typeof d.goalsCleared === 'number') ? d.goalsCleared : hudGoalsCleared;
       const goalsTotal   = (typeof d.goalsTotal   === 'number') ? d.goalsTotal   : hudGoalsTotal;
       const miniCleared  = (typeof d.miniCleared  === 'number') ? d.miniCleared  : hudMiniCleared;
       const miniTotal    = (typeof d.miniTotal    === 'number') ? d.miniTotal    : hudMiniTotal;
 
-      const grade = computeGrade(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+      const grade = computeGrade(
+        scoreFinal,
+        comboMax,
+        misses,
+        goalsCleared,
+        goalsTotal,
+        miniCleared,
+        miniTotal
+      );
 
-      elEndScore.textContent = scoreFinal;
-      elEndCombo.textContent = comboMax;
-      elEndMiss.textContent  = misses;
-      elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
-      elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
+      elEndScore.textContent = String(scoreFinal);
+      elEndCombo.textContent = String(comboMax);
+      elEndMiss.textContent  = String(misses);
+      elEndGoal.textContent  = goalsCleared + ' / ' + goalsTotal;
+      elEndMini.textContent  = miniCleared + ' / ' + miniTotal;
       elEndGrade.textContent = grade;
       elEndToast.classList.add('show');
 
