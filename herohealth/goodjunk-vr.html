@@ -270,25 +270,47 @@
       color:#6ee7b7;
       font-weight:600;
     }
-    .coach-avatar{
-  width:44px;
-  height:44px;
-  border-radius:999px;
-  background:rgba(15,23,42,0.9);
-  overflow:hidden;
-  flex-shrink:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 0 0 2px rgba(52,211,153,0.65);
-}
-.coach-avatar img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  display:block;
-}
 
+    /* ===== Coach emoji → ใช้ภาพ + ดุ๊กดิ๊ก ===== */
+    .coach-emoji{
+      width:56px;
+      height:56px;
+      border-radius:999px;
+      background-position:center;
+      background-repeat:no-repeat;
+      background-size:contain;
+      flex-shrink:0;
+      animation:coach-idle 2.2s ease-in-out infinite;
+    }
+    .coach-emoji.coach-neutral{
+      background-image:url('../img/coach-neutral.png');
+    }
+    .coach-emoji.coach-happy{
+      background-image:url('../img/coach-happy.png');
+      animation:coach-bounce 1.2s ease-in-out infinite;
+    }
+    .coach-emoji.coach-sad{
+      background-image:url('../img/coach-sad.png');
+      animation:coach-idle-sad 2.4s ease-in-out infinite;
+    }
+    .coach-emoji.coach-fever{
+      background-image:url('../img/coach-fever.png');
+      animation:coach-bounce 1s ease-in-out infinite;
+    }
+
+    @keyframes coach-idle{
+      0%,100%{ transform:translateY(0); }
+      50%    { transform:translateY(-4px); }
+    }
+    @keyframes coach-idle-sad{
+      0%,100%{ transform:translateY(0); }
+      50%    { transform:translateY(-2px); }
+    }
+    @keyframes coach-bounce{
+      0%,100%{ transform:translateY(0) scale(1); }
+      40%    { transform:translateY(-6px) scale(1.05); }
+      70%    { transform:translateY(1px)  scale(0.98); }
+    }
 
     /* ===== Center hint ===== */
     .hint-center{
@@ -490,10 +512,6 @@
             <div class="metric-label" id="hud-judge" style="margin-top:2px;font-size:11px;color:#e5e7eb;">
               &nbsp;
             </div>
-            <!-- Hint วิธีเล่น: PC / Mobile -->
-            <div class="metric-label" style="margin-top:2px;font-size:10px;color:#9ca3af;">
-              คลิก/แตะอาหารดีเพื่อเก็บคะแนน
-            </div>
           </div>
 
           <div class="metric">
@@ -547,15 +565,13 @@
     <!-- Bottom: coach (emoji + text) -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-  <div class="coach-avatar">
-    <img id="coach-avatar" src="./img/coach-neutral.png" alt="โค้ชผัก">
-  </div>
-  <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
-    <span class="coach-label">โค้ช</span>
-    <span id="coach-text">แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ</span>
-  </div>
-</div>
-
+        <span id="coach-emoji" class="coach-emoji coach-neutral">🙂</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
+          <span class="coach-label">โค้ช</span>
+          <span id="coach-text">แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Center hint for touch-look -->
@@ -618,7 +634,7 @@
 
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
-    const elCoachAvatar = document.getElementById('coach-avatar');
+    const elCoachEmoji  = document.getElementById('coach-emoji');
     const elTouchHint   = document.getElementById('touch-hint');
 
     const elEndToast  = document.getElementById('end-toast');
@@ -652,20 +668,19 @@
     let hudMiniTotal    = 0;
     let hudMiniCleared  = 0;
 
-    const coachFaces = {
-  neutral: './img/coach-neutral.png',
-  happy:   './img/coach-happy.png',
-  sad:     './img/coach-sad.png',
-  fever:   './img/coach-fever.png'
-};
+    // mapping mood → class
+    const coachStates = {
+      neutral: 'coach-neutral',
+      happy:   'coach-happy',
+      sad:     'coach-sad',
+      fever:   'coach-fever'
+    };
 
-function setCoachFace(mood){
-  if (!elCoachAvatar) return;
-  const src = coachFaces[mood] || coachFaces.neutral;
-  if (elCoachAvatar.getAttribute('src') !== src) {
-    elCoachAvatar.setAttribute('src', src);
-  }
-}
+    function setCoachFace(mood){
+      if (!elCoachEmoji) return;
+      const cls = coachStates[mood] || coachStates.neutral;
+      elCoachEmoji.className = 'coach-emoji ' + cls;
+    }
 
     function setCoach(text){
       if (!text) return;
@@ -796,8 +811,6 @@ function setCoachFace(mood){
 
       // อัปเดตเกรด real-time ด้วย
       updateRealtimeGrade();
-
-      // NOTE: การจบเกมเมื่อ goal + mini ผ่านทั้งหมดให้ GameEngine เป็นคนตัดสินแล้ว
     });
 
     // HUD: Coach (ข้อความอย่างเดียว)
@@ -862,21 +875,20 @@ function setCoachFace(mood){
     // HUD: End summary
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
-      const scoreFinal = d.scoreFinal ?? d.score ?? 0;
+      const scoreFinal   = (typeof d.scoreFinal === 'number') ? d.scoreFinal : (d.score ?? 0);
 
-      // comboMax: เอาจาก d.comboMax ถ้าเป็นตัวเลข, ถ้าไม่ใช่ให้อ่านจาก dataset, ถ้าเพี้ยนให้เป็น 0
       let comboMax;
-        if (typeof d.comboMax === 'number' && !Number.isNaN(d.comboMax)) {
-          comboMax = d.comboMax;
-          } else {
-          const parsed = parseInt(elCombo.dataset.max || '0', 10);
-      comboMax = Number.isNaN(parsed) ? 0 : parsed;
+      if (typeof d.comboMax === 'number') {
+        comboMax = d.comboMax;
+      } else {
+        comboMax = parseInt(elCombo.dataset.max || '0',10) || 0;
       }
-      const misses       = d.misses ?? hudMissCount;
-      const goalsCleared = d.goalsCleared ?? hudGoalsCleared;
-      const goalsTotal   = d.goalsTotal   ?? hudGoalsTotal;
-      const miniCleared  = d.miniCleared  ?? hudMiniCleared;
-      const miniTotal    = d.miniTotal    ?? hudMiniTotal;
+
+      const misses       = (typeof d.misses === 'number') ? d.misses : hudMissCount;
+      const goalsCleared = (typeof d.goalsCleared === 'number') ? d.goalsCleared : hudGoalsCleared;
+      const goalsTotal   = (typeof d.goalsTotal   === 'number') ? d.goalsTotal   : hudGoalsTotal;
+      const miniCleared  = (typeof d.miniCleared  === 'number') ? d.miniCleared  : hudMiniCleared;
+      const miniTotal    = (typeof d.miniTotal    === 'number') ? d.miniTotal    : hudMiniTotal;
 
       const grade = computeGrade(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
 
@@ -972,7 +984,7 @@ function setCoachFace(mood){
       elGradeBar.dataset.grade = 'C';
 
       setCoachFace('neutral');
-      setCoach('คลิกหรือแตะอาหารดี (ผัก ผลไม้ นม) เพื่อเก็บคะแนน ลากนิ้ว/เมาส์เพื่อหมุนมุมมองได้ 👆');
+      setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
 
       // อ่าน studentProfile จาก sessionStorage (ตั้งจาก Hub)
       let studentProfile = null;
@@ -1004,17 +1016,9 @@ function setCoachFace(mood){
       initTouchLook(cam);
       initVRButton();
 
-      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา (มี try/catch กันจอดำ)
+      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา
       runCountdown(() => {
-        try {
-          GameEngine.start(diff);
-        } catch (err) {
-          console.error('[GoodJunkVR] start error:', err);
-          try {
-            alert('มีปัญหาในการเริ่มเกม Good vs Junk VR\nกรุณารีเฟรชหน้าจอหรือใช้อุปกรณ์/เบราว์เซอร์อื่น');
-          } catch(e){}
-          return;
-        }
+        GameEngine.start(diff);
 
         let timeLeft = dur;
         let timerId = null;
@@ -1050,13 +1054,10 @@ function setCoachFace(mood){
         elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
       }
 
-      // ถ้าสลับแท็บหรือจอหาย → หยุดเกม + แจ้งเตือน
+      // ถ้าสลับแท็บหรือจอหาย → หยุดเกม
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           GameEngine.stop('tab-hidden');
-          try {
-            alert('เกมหยุดเพราะสลับจอ / ล็อกหน้าจอ\nถ้าจะเล่นใหม่ให้กด “เล่นอีกครั้ง”');
-          } catch(e){}
         }
       });
     });
