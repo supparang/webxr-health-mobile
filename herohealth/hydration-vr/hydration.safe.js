@@ -29,6 +29,10 @@ const FeverUI =
 
 const { ensureFeverBar, setFever, setFeverActive, setShield } = FeverUI;
 
+// ---------- Config: จำนวนเซ็ต Goal / Mini ต่อเกม ----------
+const GOAL_SETS_PER_RUN = 2;   // มี goal 2 ชุดต่อเกม
+const MINI_SETS_PER_RUN = 3;   // มี mini quest 3 ชุดต่อเกม
+
 // ---------- Coach helper ----------
 let lastCoachAt = 0;
 function coach(text, minGap = 2200) {
@@ -86,6 +90,15 @@ function safeBurstAt(x, y, isGood) {
   } catch {}
 }
 
+// ---------- HUD helper ----------
+function pushQuestReward(kind, extra = {}) {
+  try {
+    ROOT.dispatchEvent(new CustomEvent('hha:questReward', {
+      detail: { kind, ...extra }
+    }));
+  } catch {}
+}
+
 // ======================================================
 //  boot(cfg) — entry หลักที่ hydration-vr.html เรียก
 // ======================================================
@@ -116,7 +129,7 @@ export async function boot(cfg = {}) {
   let waterZone = waterRes.zone || 'GREEN';
   const waterStart = waterPct;
 
-  // ----- Quest Deck (Goal 2, Mini 3 ต่อ "เกม") -----
+  // ----- Quest Deck (Goal 2/10, Mini 3/15; ง่าย→ยาก + miss group ทีหลัง) -----
   let deck;
   try {
     const factory = getCreateHydrationQuest();
@@ -141,13 +154,13 @@ export async function boot(cfg = {}) {
   deck.stats.greenTick = 0;
   deck.stats.zone      = waterZone;
 
-  // ★★ สำคัญ: สุ่ม goal/mini แค่ครั้งเดียวต่อเกม ★★
-  try {
-    deck.drawGoals && deck.drawGoals(2); // goal = 2
-    deck.draw3 && deck.draw3();          // mini quest = 3
-  } catch (err) {
-    console.warn('[Hydration] drawGoals/draw3 error', err);
-  }
+  // สะสมจำนวนภารกิจย่อยทั้งหมด (ไม่ใช่จำนวนเซ็ต)
+  let accMiniDone   = 0;
+  let accGoalDone   = 0;
+
+  // นับจำนวน "เซ็ต" goal / mini ที่เคลียร์แล้ว
+  let goalSetsDone  = 0;
+  let miniSetsDone  = 0;
 
   // ---------- state หลักของเกม ----------
   let score       = 0;
@@ -463,32 +476,103 @@ export async function boot(cfg = {}) {
     }
     syncDeck();
 
-    // ★ ไม่สุ่ม goal/mini ชุดใหม่แล้ว → ทั้งเกมมีแค่ชุดเดียว
-    // push HUD score ทุกวินาที
+    const g = (deck.getProgress && deck.getProgress('goals')) || [];
+    const m = (deck.getProgress && deck.getProgress('mini'))  || [];
+
+    // ---------- เคลียร์ GOAL (1 ชุด) ----------
+    if (g.length > 0 && g.every(x => x.done)) {
+      goalSetsDone++;
+      accGoalDone += g.length;   // เก็บไว้เป็นสถิติละเอียด (ไม่ใช้ใน HUD)
+
+      // รางวัลเมื่อเคลียร์ goal 1 ชุด
+      const bonus = 250;
+      score += bonus;
+      gainFever(25);
+      addWater(+6);
+      pushHudScore({ questBonus: bonus });
+
+      pushQuestReward('goal', {
+        setsDone:   goalSetsDone,
+        setsTarget: GOAL_SETS_PER_RUN
+      });
+
+      coach(`เยี่ยมมาก! เคลียร์ Goal ชุดที่ ${goalSetsDone} แล้ว 🎯`, 3500);
+
+      if (goalSetsDone < GOAL_SETS_PER_RUN) {
+        // ยังมีชุดถัดไป → จั่ว goal ชุดใหม่
+        deck.drawGoals && deck.drawGoals(1);
+        pushQuest('Goal ใหม่ (ชุดถัดไป)');
+      } else {
+        // ครบทุก Goal แล้ว
+        pushQuest('Goals ครบแล้ว ✅');
+      }
+    }
+
+    // ---------- เคลียร์ MINI QUEST (1 ชุด) ----------
+    if (m.length > 0 && m.every(x => x.done)) {
+      miniSetsDone++;
+      accMiniDone += m.length;   // เก็บไว้เป็นสถิติละเอียด
+
+      // รางวัลเมื่อเคลียร์ mini 1 ชุด
+      const bonus = 150;
+      score += bonus;
+      gainFever(18);
+      pushHudScore({ questBonus: bonus });
+
+      pushQuestReward('mini', {
+        setsDone:   miniSetsDone,
+        setsTarget: MINI_SETS_PER_RUN
+      });
+
+      coach(`สุดยอด! เคลียร์ Mini quest ชุดที่ ${miniSetsDone} แล้ว ⭐`, 3500);
+
+      if (miniSetsDone < MINI_SETS_PER_RUN) {
+        deck.draw3 && deck.draw3();
+        pushQuest('Mini quest ชุดใหม่');
+      } else {
+        pushQuest('Mini quest ครบแล้ว ✅');
+      }
+    }
+
+    // ---------- ถ้าเคลียร์ครบทุก Goal + Mini → จบเกมทันที ----------
+    if (goalSetsDone >= GOAL_SETS_PER_RUN &&
+        miniSetsDone >= MINI_SETS_PER_RUN &&
+        !ended) {
+      coach('สุดยอด! ทำครบทุกภารกิจแล้ว ฉลองใหญ่ได้เลย 🎉', 2500);
+      pushQuestReward('all-done', {
+        goalSetsDone,
+        miniSetsDone
+      });
+
+      // จบเกมก่อนเวลา ใช้เวลาเล่นจริง elapsedSec
+      finish(elapsedSec);
+      ROOT.removeEventListener('hha:time', onTime);
+      return;
+    }
+
+    // อัปเดต HUD ทุกวินาที
     pushHudScore();
   }
 
   // ======================================================
-  //  จบเกม (เรียกเมื่อ sec = 0)
+  //  จบเกม (เรียกเมื่อ sec = 0 หรือเคลียร์หมดก่อนเวลา)
   // ======================================================
   let ended = false;
   function finish(durationSec) {
     if (ended) return;
     ended = true;
 
-    const g = (deck.getProgress && deck.getProgress('goals')) || [];
-    const m = (deck.getProgress && deck.getProgress('mini'))  || [];
-
-    const goalsTotal = g.length;
-    const goalsDone  = g.filter(x => x.done).length;
-    const miniTotal  = m.length;
-    const miniDone   = m.filter(x => x.done).length;
-
-    const goalCleared = goalsTotal > 0 && goalsDone >= goalsTotal;
-
     const greenTick    = deck.stats.greenTick | 0;
     const waterEnd     = waterPct;
     const waterZoneEnd = zoneFrom(waterPct);
+
+    // สรุปแบบนับ "เซ็ต" ที่เคลียร์
+    const goalsCleared = goalSetsDone;
+    const goalsTotal   = GOAL_SETS_PER_RUN;
+    const miniCleared  = miniSetsDone;
+    const miniTotal    = MINI_SETS_PER_RUN;
+
+    const goalClearedAll = goalsCleared >= goalsTotal;
 
     try {
       ROOT.dispatchEvent(new CustomEvent('hha:end', {
@@ -501,13 +585,14 @@ export async function boot(cfg = {}) {
           comboMax,
           duration: durationSec,
           greenTick,
-          goalCleared,
-          goalsCleared: goalsDone,
+          goalCleared: goalClearedAll,
+          goalsCleared,
           goalsTotal,
 
-          miniCleared: miniDone,
+          // ใช้ pair เดิมสำหรับ mini/quest ด้วย
+          miniCleared,
           miniTotal,
-          questsCleared: miniDone,
+          questsCleared: miniCleared,
           questsTotal: miniTotal,
 
           waterStart,
@@ -544,7 +629,7 @@ export async function boot(cfg = {}) {
     difficulty: diff,
     duration:   dur,
 
-    // ใช้ร่วมกับ HHA_DIFF_TABLE.hydration (ถ้ามี)
+    // สำคัญ: ใช้ร่วมกับ HHA_DIFF_TABLE.hydration (ถ้ามี)
     modeKey:    'hydration',
 
     pools:      { good: [...GOOD, ...BONUS], bad: [...BAD] },
