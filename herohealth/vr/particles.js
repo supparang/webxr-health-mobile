@@ -1,6 +1,6 @@
 // === /herohealth/vr/particles.js ===
-// Simple FX layer: score pop + judgment text + burst (ใช้ได้ทุกเกม HeroHealth)
-// รองรับทั้งเรียกตรงผ่าน window.Particles และยิง event 'hha:hit-ui' / 'hha:miss-ui'
+// FX layer กลางจอ: score pop + judgment + เป้าแตกกระจายอลังการ
+// ใช้ได้กับทุกเกม HeroHealth (GoodJunkVR, Hydration, Plate, Groups ฯลฯ)
 
 (function (root) {
   'use strict';
@@ -88,52 +88,113 @@
     }, 520);
   }
 
-  // ----- เป้าแตกกระจาย -----
-  function burstAt(x, y, opts) {
+  // ----- วงแหวนช็อคเวฟ -----
+  function spawnRing(x, y, color) {
+    const layer = ensureLayer();
+    const ring = doc.createElement('div');
+    ring.className = 'hha-fx-ring';
+
+    const size = 40;
+    Object.assign(ring.style, {
+      position: 'absolute',
+      left: x + 'px',
+      top: y + 'px',
+      width: size + 'px',
+      height: size + 'px',
+      marginLeft: -(size / 2) + 'px',
+      marginTop: -(size / 2) + 'px',
+      borderRadius: '999px',
+      border: '2px solid ' + (color || '#22c55e'),
+      boxShadow: '0 0 16px rgba(0,0,0,0.8)',
+      opacity: '0.9',
+      transform: 'scale(0.2)',
+      transition: 'transform 0.45s ease-out, opacity 0.45s ease-out'
+    });
+
+    layer.appendChild(ring);
+
+    requestAnimationFrame(function () {
+      ring.style.transform = 'scale(1.6)';
+      ring.style.opacity = '0';
+    });
+
+    setTimeout(function () {
+      if (ring.parentNode) ring.parentNode.removeChild(ring);
+    }, 480);
+  }
+
+  // ----- เศษชิ้นส่วนเป้าแตก (shards) -----
+  function spawnShards(x, y, opts) {
     opts = opts || {};
     const layer = ensureLayer();
-    const color = opts.color || '#22c55e';
-    const count = (typeof opts.count === 'number' && opts.count > 0) ? opts.count : 14;
+    const baseColor = opts.color || '#22c55e';
+    const n = (typeof opts.count === 'number' && opts.count > 0) ? opts.count : 16;
+    const radiusBase = opts.radiusBase || 50;
+    const radiusJitter = opts.radiusJitter || 40;
 
-    for (let i = 0; i < count; i++) {
-      const dot = doc.createElement('div');
-      dot.className = 'hha-fx-dot';
-      const size = 4 + Math.random() * 4;
-      Object.assign(dot.style, {
+    for (let i = 0; i < n; i++) {
+      const shard = doc.createElement('div');
+      shard.className = 'hha-fx-shard';
+
+      const w = 4 + Math.random() * 6;
+      const h = 8 + Math.random() * 10;
+      const ang = Math.random() * Math.PI * 2;
+      const dist = radiusBase + Math.random() * radiusJitter;
+      const dx = Math.cos(ang) * dist;
+      const dy = Math.sin(ang) * dist;
+      const rot = (Math.random() * 140) - 70;
+
+      const col = baseColor;
+
+      Object.assign(shard.style, {
         position: 'absolute',
         left: x + 'px',
         top: y + 'px',
-        width: size + 'px',
-        height: size + 'px',
+        width: w + 'px',
+        height: h + 'px',
         borderRadius: '999px',
-        background: color,
-        boxShadow: '0 0 12px rgba(0,0,0,0.9)',
+        background: col,
+        boxShadow: '0 0 10px rgba(0,0,0,0.85)',
         opacity: '1',
+        transformOrigin: 'center center',
+        transform: 'translate(-50%, -50%) scale(0.6) rotate(0deg)',
         pointerEvents: 'none',
-        transform: 'translate(0,0) scale(1)',
         transition: 'transform 0.5s ease-out, opacity 0.5s ease-out'
       });
 
-      layer.appendChild(dot);
-
-      const ang = Math.random() * Math.PI * 2;
-      const dist = 40 + Math.random() * 40;
-      const dx = Math.cos(ang) * dist;
-      const dy = Math.sin(ang) * dist;
+      layer.appendChild(shard);
 
       requestAnimationFrame(function () {
-        const scale = 0.6 + Math.random() * 0.4;
-        dot.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + scale + ')';
-        dot.style.opacity = '0';
+        shard.style.transform =
+          'translate(' + dx + 'px,' + dy + 'px) scale(1) rotate(' + rot + 'deg)';
+        shard.style.opacity = '0';
       });
 
       setTimeout(function () {
-        if (dot.parentNode) dot.parentNode.removeChild(dot);
+        if (shard.parentNode) shard.parentNode.removeChild(shard);
       }, 520);
     }
   }
 
-  // ===== ฟัง event จาก GameEngine (เอา effect เป้ากลับมา) =====
+  // ----- เป้าแตกกระจายหลัก (ใช้ในทุกเกม) -----
+  function burstAt(x, y, opts) {
+    opts = opts || {};
+    const good = !!opts.good;
+    const color = opts.color || (good ? '#22c55e' : '#f97316');
+
+    // 1) วงแหวนกลาง
+    spawnRing(x, y, color);
+
+    // 2) Shards รอบ ๆ
+    spawnShards(x, y, {
+      color: color,
+      count: (typeof opts.count === 'number' && opts.count > 0) ? opts.count : (good ? 20 : 14),
+      radiusBase: good ? 55 : 45,
+      radiusJitter: good ? 45 : 35
+    });
+  }
+
+  // ===== ฟัง event จาก GameEngine (hit / miss UI) =====
   function onHitUi(e) {
     const d = e.detail || {};
     const x = d.x;
@@ -147,11 +208,14 @@
     const judgment = d.judgment || '';
     const good = !!d.good;
 
+    // เป้าแตกกระจาย
     burstAt(x, y, {
       color: good ? '#22c55e' : '#f97316',
-      count: good ? 18 : 12
+      count: good ? 22 : 16,
+      good: good
     });
 
+    // คะแนนเด้ง + label
     scorePop(x, y, scoreDelta, {
       judgment: judgment,
       good: good
@@ -166,7 +230,8 @@
 
     burstAt(x, y, {
       color: '#f97316',
-      count: 10
+      count: 14,
+      good: false
     });
 
     scorePop(x, y, 'MISS', {
@@ -175,12 +240,15 @@
     });
   }
 
-  // ลงทะเบียน listener (ถ้า GameEngine ยิง event เดิมอยู่ จะเห็น effect ทันที)
+  // ลงทะเบียน listener
   root.addEventListener('hha:hit-ui', onHitUi);
   root.addEventListener('hha:miss-ui', onMissUi);
 
   // ===== Export API แบบ global =====
-  const api = { scorePop: scorePop, burstAt: burstAt };
+  const api = {
+    scorePop: scorePop,
+    burstAt: burstAt
+  };
   root.Particles = api;
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = api;
