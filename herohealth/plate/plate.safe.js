@@ -1,6 +1,6 @@
 // === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — MISS = แตะของไม่ดีเท่านั้น + โค้ช ป.5
-// multi-plate + grade SSS/SS/S/A/B/C + goals/quests เข้า hha:stat
+// multi-plate + grade SSS/SS/S/A/B/C + goals/quests เข้า hha:stat/hha:end
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { createPlateQuest, QUOTA } from './plate.quest.js';
@@ -152,7 +152,7 @@ export async function boot(cfg = {}) {
 
   function mult() { return feverActive ? 2 : 1; }
 
-  // สรุป progress ของ goal/mini ทุกครั้งที่ยิง stat
+  // ===== Quest summary + HUD =====
   function buildQuestSummary() {
     let goalsCleared = 0;
     let goalsTotal   = 0;
@@ -197,9 +197,9 @@ export async function boot(cfg = {}) {
           fever,
           feverActive,
           platesDone,
-          plateCounts: [...plateCounts],
-          totalCounts: [...gCounts],
-          ...summary,   // goalsCleared/goalsTotal/questsCleared/questsTotal/grade
+          plateCounts: [...plateCounts],  // จานปัจจุบัน
+          totalCounts: [...gCounts],      // รวมทั้งเกม
+          ...summary,                     // goalsCleared/goalsTotal/questsCleared/questsTotal/grade
           ...extra
         }
       }));
@@ -231,10 +231,14 @@ export async function boot(cfg = {}) {
   function syncDeck() {
     deck.updateScore(score);
     deck.updateCombo(combo);
-    // ส่งสถิติรวม (ทั้งเกม) ให้ deck
-    deck.stats.gCounts = [...gCounts];
-    deck.stats.star    = star;
-    deck.stats.diamond = diamond;
+
+    // 🟢 ให้ Quest เห็นข้อมูล "รวมทั้งเกม" ครบ
+    deck.stats.gCounts     = [...gCounts];
+    deck.stats.star        = star;
+    deck.stats.diamond     = diamond;
+    deck.stats.misses      = misses;
+    deck.stats.platesDone  = platesDone;
+
     emitStat();
   }
 
@@ -243,15 +247,17 @@ export async function boot(cfg = {}) {
     const minis = deck.getProgress('mini');
     const gtxt  = `โควตาใน 1 จาน: [${need.join(', ')}] | จานนี้ทำได้: [${plateCounts.join(', ')}]`;
 
-    window.dispatchEvent(new CustomEvent('quest:update', {
-      detail: {
-        goal: goals.find(g => !g.done) || goals[0] || null,
-        mini: minis.find(m => !m.done) || minis[0] || null,
-        goalsAll: goals,
-        minisAll: minis,
-        hint: hint || gtxt
-      }
-    }));
+    try {
+      window.dispatchEvent(new CustomEvent('quest:update', {
+        detail: {
+          goal: goals.find(g => !g.done) || goals[0] || null,
+          mini: minis.find(m => !m.done) || minis[0] || null,
+          goalsAll: goals,
+          minisAll: minis,
+          hint: hint || gtxt
+        }
+      }));
+    } catch {}
   }
 
   function scoreFX(x, y, val, good) {
@@ -456,25 +462,27 @@ export async function boot(cfg = {}) {
 
     emitStat({ ended: true });
 
-    window.dispatchEvent(new CustomEvent('hha:end', {
-      detail: {
-        mode: 'Balanced Plate',
-        difficulty: diff,
-        score,
-        misses,
-        comboMax,
-        duration: dur,
-        goalCleared: (goalsTotal > 0 && goalsCleared === goalsTotal),
-        goalsCleared,
-        goalsTotal,
-        questsCleared,
-        questsTotal,
-        platesDone,
-        // รวมทั้งเกม (ใช้วิเคราะห์พฤติกรรมเลือกหมู่)
-        groupCounts: [...gCounts],
-        grade
-      }
-    }));
+    try {
+      window.dispatchEvent(new CustomEvent('hha:end', {
+        detail: {
+          mode: 'Balanced Plate',
+          difficulty: diff,
+          score,
+          misses,
+          comboMax,
+          duration: dur,
+          goalCleared: (goalsTotal > 0 && goalsCleared === goalsTotal),
+          goalsCleared,
+          goalsTotal,
+          questsCleared,
+          questsTotal,
+          platesDone,
+          // รวมทั้งเกม (ใช้วิเคราะห์พฤติกรรมเลือกหมู่)
+          groupCounts: [...gCounts],
+          grade
+        }
+      }));
+    } catch {}
   }
 
   // ใช้ clock กลาง hha:time พร้อม cleanup
