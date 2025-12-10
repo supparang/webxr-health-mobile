@@ -1,6 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (Fever + 2 Goals + 3 Mini Quests)
-// ใช้ร่วมกับ /herohealth/vr/mode-factory.js และ ui-fever.js
+// Food Groups VR — Game Engine (Fever + 2 Goals + 3 Mini Quests + Celebration)
 
 'use strict';
 
@@ -8,7 +7,7 @@ import { boot as factoryBoot } from '../vr/mode-factory.js';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
-// ---------- helper: dispatch event ----------
+// ---------- helper: dispatch ----------
 function dispatch(name, detail) {
   try {
     ROOT.dispatchEvent(new CustomEvent(name, { detail }));
@@ -17,8 +16,8 @@ function dispatch(name, detail) {
   }
 }
 
-// ---------- emoji ตามหมวดอาหาร ----------
-const GRAIN = ['🍚','🍙','🍘','🍞','🥐','🥖','🥯'];
+// ---------- emoji groups ----------
+const GRAIN   = ['🍚','🍙','🍘','🍞','🥐','🥖','🥯'];
 const PROTEIN = ['🍗','🍖','🥩','🍤','🍣','🥚','🫘'];
 const VEGGIE  = ['🥦','🥕','🌽','🍅','🥬','🧅','🫑'];
 const FRUIT   = ['🍎','🍌','🍉','🍇','🍍','🍓','🍑'];
@@ -38,7 +37,6 @@ function groupOf(ch) {
 // ---------- engine state ----------
 let engine = null;
 
-// อ่านเวลาเล่นให้ตรงกับ groups-vr.html
 function getDurationFromUrl(diffKey) {
   const url = new URL(window.location.href);
   let base = 60;
@@ -106,7 +104,7 @@ function updateQuests() {
   m1.prog = Math.min(st.comboMax, m1.target);
   if (!m1.done && m1.prog >= m1.target) m1.done = true;
 
-  // Mini 2: ตีติดกันไม่พลาด 6 ชิ้น (ใช้ comboMax เช่นกัน)
+  // Mini 2: ตีติดกันไม่พลาด 6 ชิ้น
   const m2 = st.minisAll[1];
   m2.prog = Math.min(st.comboMax, m2.target);
   if (!m2.done && m2.prog >= m2.target) m2.done = true;
@@ -116,7 +114,7 @@ function updateQuests() {
   m3.prog = Math.min(gHit.protein || 0, m3.target);
   if (!m3.done && m3.prog >= m3.target) m3.done = true;
 
-  // เช็คว่าอะไรเพิ่งสำเร็จ → ฉลอง
+  // อะไรเพิ่งสำเร็จบ้าง → ยิง event ฉลองย่อย
   const newlyDone = [];
   st.goalsAll.concat(st.minisAll).forEach(q => {
     if (q.done && !prevDoneKeys.has(q.key)) newlyDone.push(q);
@@ -124,10 +122,19 @@ function updateQuests() {
 
   newlyDone.forEach(q => {
     const isMain = q.key.startsWith('g');
-    const typeLabel = isMain ? 'ภารกิจหลัก' : 'Mini quest';
+    const type = isMain ? 'goal' : 'mini';
     const short = q.short || q.label;
+
+    // coach บอก
     dispatch('hha:coach', {
-      text: `เยี่ยม! ${typeLabel} "${short}" สำเร็จแล้ว 🎉`
+      text: `เยี่ยม! ${isMain ? 'ภารกิจหลัก' : 'Mini quest'} "${short}" สำเร็จแล้ว 🎉`
+    });
+
+    // toast ฉลองบนจอ
+    dispatch('hha:quest-clear', {
+      type,
+      label: q.label,
+      short
     });
   });
 
@@ -157,13 +164,10 @@ function updateQuests() {
     hint
   });
 
-  // ถ้าทำครบทุก Goal & Mini แล้ว → จบเกมเลย
+  // ถ้าทำครบทุก Goal & Mini แล้ว → จบเกม (เดี๋ยวมีฉลองใหญ่ใน stop)
   const allGoalsDone = st.goalsAll.every(q => q.done);
   const allMinisDone = st.minisAll.every(q => q.done);
   if (st.running && allGoalsDone && allMinisDone) {
-    dispatch('hha:coach', {
-      text: 'สุดยอด! ทำภารกิจหลักและ Mini ครบทั้งหมดแล้ว 🎉'
-    });
     GameEngine.stop('all-quests-done');
   }
 }
@@ -186,7 +190,7 @@ function _internalStop(reason = 'manual') {
   const miniCleared  = st.minisAll.filter(q => q.done).length;
   const miniTotal    = st.minisAll.length;
 
-  dispatch('hha:end', {
+  const endPayload = {
     scoreFinal: st.score,
     comboMax: st.comboMax,
     misses: st.misses,
@@ -195,7 +199,24 @@ function _internalStop(reason = 'manual') {
     miniCleared,
     miniTotal,
     reason
-  });
+  };
+
+  if (reason === 'all-quests-done') {
+    // ฉลองใหญ่ก่อนขึ้นหน้าสรุป
+    dispatch('hha:grand-clear', {
+      text: 'สุดยอด! ทำภารกิจทุกอย่างสำเร็จแล้ว 🎉',
+      goalsCleared,
+      goalsTotal,
+      miniCleared,
+      miniTotal
+    });
+
+    setTimeout(() => {
+      dispatch('hha:end', endPayload);
+    }, 1800);  // ดีเลย์ก่อน popup สรุป
+  } else {
+    dispatch('hha:end', endPayload);
+  }
 }
 
 // ---------- start ----------
@@ -203,12 +224,10 @@ async function _internalStart(diffKey = 'normal') {
   diffKey = String(diffKey || 'normal').toLowerCase();
   if (!['easy','normal','hard'].includes(diffKey)) diffKey = 'normal';
 
-  // ถ้ามีเกมเก่าอยู่ให้หยุดก่อน
   if (engine && engine.running) {
     _internalStop('restart');
   }
 
-  // Fever UI
   const FeverUI =
     (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
     ROOT.FeverUI ||
@@ -233,7 +252,6 @@ async function _internalStart(diffKey = 'normal') {
     feverGauge: 0,
     feverOn: false,
     stopHandle: null,
-    // ภารกิจหลัก 2 ภารกิจ
     goalsAll: [
       {
         key: 'g1',
@@ -252,7 +270,6 @@ async function _internalStart(diffKey = 'normal') {
         done: false
       }
     ],
-    // mini quest 3 ภารกิจ
     minisAll: [
       {
         key: 'm1',
@@ -285,7 +302,6 @@ async function _internalStart(diffKey = 'normal') {
 
   engine = st;
 
-  // แจ้ง coach เริ่มเกม
   dispatch('hha:coach', {
     text: 'หมุนมุมมองแล้วลองเก็บอาหารให้ครบทั้ง 5 หมู่ภายในเวลาที่กำหนดนะ 🥗'
   });
@@ -294,7 +310,6 @@ async function _internalStart(diffKey = 'normal') {
 
   const duration = getDurationFromUrl(diffKey);
 
-  // ตัว spawn เป้า (ใช้ร่วมกับ Hydration)
   const bootResult = await factoryBoot({
     modeKey: 'groups',
     difficulty: diffKey,
@@ -303,8 +318,8 @@ async function _internalStart(diffKey = 'normal') {
     goodRate: 1.0,
     powerups: [],
     powerRate: 0,
-    powerEvery: 999, // ไม่ใช้ powerup ในภาคนี้
-    judge: (ch /* emoji */, ctx) => {
+    powerEvery: 999,
+    judge: (ch, ctx) => {
       if (!engine || !engine.running) return;
 
       const g = groupOf(ch);
@@ -323,7 +338,6 @@ async function _internalStart(diffKey = 'normal') {
         misses: engine.misses
       });
 
-      // label บอกคุณภาพการตี
       let label = 'GOOD';
       if (engine.combo >= 15) label = 'PERFECT!!';
       else if (engine.combo >= 8) label = 'PERFECT';
@@ -336,7 +350,6 @@ async function _internalStart(diffKey = 'normal') {
     onExpire: (ev) => {
       if (!engine || !engine.running) return;
 
-      // นับ MISS เฉพาะที่เป็นอาหารดี
       if (ev && ev.isGood) {
         engine.misses += 1;
         engine.combo = 0;
