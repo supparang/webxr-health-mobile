@@ -1,6 +1,6 @@
 // === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — MISS = แตะของไม่ดีเท่านั้น + โค้ช ป.5
-// multi-plate + grade SSS/SS/S/A/B/C + goals/quests เข้า hha:stat/hha:end
+// multi-plate + grade SSS/SS/S/A/B/C + goals/quests เข้า hha:stat
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { createPlateQuest, QUOTA } from './plate.quest.js';
@@ -152,7 +152,7 @@ export async function boot(cfg = {}) {
 
   function mult() { return feverActive ? 2 : 1; }
 
-  // ===== Quest summary + HUD =====
+  // สรุป progress ของ goal/mini ทุกครั้งที่ยิง stat
   function buildQuestSummary() {
     let goalsCleared = 0;
     let goalsTotal   = 0;
@@ -197,9 +197,9 @@ export async function boot(cfg = {}) {
           fever,
           feverActive,
           platesDone,
-          plateCounts: [...plateCounts],  // จานปัจจุบัน
-          totalCounts: [...gCounts],      // รวมทั้งเกม
-          ...summary,                     // goalsCleared/goalsTotal/questsCleared/questsTotal/grade
+          plateCounts: [...plateCounts],
+          totalCounts: [...gCounts],
+          ...summary,   // goalsCleared/goalsTotal/questsCleared/questsTotal/grade
           ...extra
         }
       }));
@@ -231,14 +231,10 @@ export async function boot(cfg = {}) {
   function syncDeck() {
     deck.updateScore(score);
     deck.updateCombo(combo);
-
-    // 🟢 ให้ Quest เห็นข้อมูล "รวมทั้งเกม" ครบ
-    deck.stats.gCounts     = [...gCounts];
-    deck.stats.star        = star;
-    deck.stats.diamond     = diamond;
-    deck.stats.misses      = misses;
-    deck.stats.platesDone  = platesDone;
-
+    // ส่งสถิติรวม (ทั้งเกม) ให้ deck
+    deck.stats.gCounts = [...gCounts];
+    deck.stats.star    = star;
+    deck.stats.diamond = diamond;
     emitStat();
   }
 
@@ -247,17 +243,15 @@ export async function boot(cfg = {}) {
     const minis = deck.getProgress('mini');
     const gtxt  = `โควตาใน 1 จาน: [${need.join(', ')}] | จานนี้ทำได้: [${plateCounts.join(', ')}]`;
 
-    try {
-      window.dispatchEvent(new CustomEvent('quest:update', {
-        detail: {
-          goal: goals.find(g => !g.done) || goals[0] || null,
-          mini: minis.find(m => !m.done) || minis[0] || null,
-          goalsAll: goals,
-          minisAll: minis,
-          hint: hint || gtxt
-        }
-      }));
-    } catch {}
+    window.dispatchEvent(new CustomEvent('quest:update', {
+      detail: {
+        goal: goals.find(g => !g.done) || goals[0] || null,
+        mini: minis.find(m => !m.done) || minis[0] || null,
+        goalsAll: goals,
+        minisAll: minis,
+        hint: hint || gtxt
+      }
+    }));
   }
 
   function scoreFX(x, y, val, good) {
@@ -387,7 +381,7 @@ export async function boot(cfg = {}) {
         platesDone += 1;
         coach(`จานสมดุลแล้ว ครบ 5 หมู่เลย 🎉 เสิร์ฟจานที่ ${platesDone} แล้ว!`, 3000);
         resetCurrentPlate();
-        pushQuest(`เริ่มจัดจานที่ ${platesDone + 1}`);
+        pushQuest(`กำลังจัดจานที่ ${platesDone + 1} (โควตาใน 1 จาน: [${need.join(', ')}])`);
       }
 
       return { good: true, scoreDelta: d };
@@ -462,27 +456,28 @@ export async function boot(cfg = {}) {
 
     emitStat({ ended: true });
 
-    try {
-      window.dispatchEvent(new CustomEvent('hha:end', {
-        detail: {
-          mode: 'Balanced Plate',
-          difficulty: diff,
-          score,
-          misses,
-          comboMax,
-          duration: dur,
-          goalCleared: (goalsTotal > 0 && goalsCleared === goalsTotal),
-          goalsCleared,
-          goalsTotal,
-          questsCleared,
-          questsTotal,
-          platesDone,
-          // รวมทั้งเกม (ใช้วิเคราะห์พฤติกรรมเลือกหมู่)
-          groupCounts: [...gCounts],
-          grade
-        }
-      }));
-    } catch {}
+    window.dispatchEvent(new CustomEvent('hha:end', {
+      detail: {
+        mode: 'Balanced Plate',
+        difficulty: diff,
+        score,
+        misses,
+        comboMax,
+        duration: dur,
+        goalCleared: (goalsTotal > 0 && goalsCleared === goalsTotal),
+        goalsCleared,
+        goalsTotal,
+        questsCleared,
+        questsTotal,
+        platesDone,
+        // รวมทั้งเกม (ใช้วิเคราะห์พฤติกรรมเลือกหมู่)
+        groupCounts: [...gCounts],
+        grade,
+        // extra สำหรับวิจัย power-ups
+        starCount:    star,
+        diamondCount: diamond
+      }
+    }));
   }
 
   // ใช้ clock กลาง hha:time พร้อม cleanup
@@ -522,7 +517,7 @@ export async function boot(cfg = {}) {
 
   // แสดงเควสต์ + โค้ชตั้งแต่เริ่ม
   resetCurrentPlate();
-  pushQuest('เริ่มจัดจานที่ 1');
+  pushQuest(`กำลังจัดจานที่ 1 (โควตาใน 1 จาน: [${need.join(', ')}])`);
   coach('จัดจานให้ครบ 5 หมู่ 🍚🥩🥦🍎🥛 แล้วพยายามเสิร์ฟให้ได้หลายจานที่สุด เลี่ยงของทอดกับของหวานนะ');
 
   // ยิง stat เริ่มต้นให้ HUD
