@@ -1,24 +1,19 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic target spawner for Hero Health VR (Hydration VR ฯลฯ)
-// - ใช้กับ A-Frame (VR) ได้ และ fallback เป็น DOM ได้
-// - อ่านค่าความยากจาก HHA_DIFF_TABLE ถ้ามี
-// - เรียก cfg.judge(ch, ctx) ทุกครั้งที่ผู้เล่นตีเป้าโดน
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 const A = ROOT.AFRAME || null;
 
-// -------------------------------------------------------
-// 1) เลือก config ด้าน engine ตาม diff + modeKey
-// -------------------------------------------------------
+// ---------- เลือก config จาก HHA_DIFF_TABLE ----------
 function pickEngineConfig(cfg) {
   const diff = String(cfg.difficulty || 'normal').toLowerCase();
   const modeKey = cfg.modeKey || 'hydration';
 
   const base = {
-    SPAWN_INTERVAL: 900,   // ms
-    ITEM_LIFETIME: 2400,   // ms
+    SPAWN_INTERVAL: 900,
+    ITEM_LIFETIME: 2400,
     MAX_ACTIVE: 4,
     SIZE_FACTOR: 1.0,
     TYPE_WEIGHTS: { good: 70, bad: 30 }
@@ -43,9 +38,7 @@ function pickEngineConfig(cfg) {
   }
 }
 
-// -------------------------------------------------------
-// 2) random ตาม weight + เลือก emoji จริง
-// -------------------------------------------------------
+// ---------- random ตาม weight ----------
 function pickFromWeights(weights, fallbackList, rnd = Math.random) {
   if (!weights) {
     const list = fallbackList || [];
@@ -66,7 +59,6 @@ function pickFromWeights(weights, fallbackList, rnd = Math.random) {
   return null;
 }
 
-// type key -> actual char (ใช้ pools จาก cfg)
 function pickCharForType(type, cfg) {
   const pools = cfg.pools || {};
   if (type === 'good') {
@@ -84,28 +76,24 @@ function pickCharForType(type, cfg) {
   return powerups[Math.floor(Math.random() * powerups.length)];
 }
 
-// -------------------------------------------------------
-// 3) สร้างเป้าแบบ VR (A-Frame entity)
-// -------------------------------------------------------
+// ---------- เป้าแบบ VR (ใช้เฉพาะ desktop / non-mobile) ----------
 function createVrTarget(sceneEl, ch, cfg, engineCfg) {
   const goodPool = cfg.pools?.good || [];
   const badPool  = cfg.pools?.bad  || [];
 
-  const sizeBase = 0.9; // หน่วยเป็นเมตร
+  const sizeBase = 0.9;
   const size = sizeBase * (engineCfg.SIZE_FACTOR || 1.0);
 
   const el = document.createElement('a-entity');
-  el.classList.add('hha-target-vr');
+  el.classList.add('hha-target-vr', 'clickable');
   el.setAttribute('data-hha-tgt', '1');
   el.setAttribute('data-char', ch);
 
-  // ตำแหน่งสุ่มด้านหน้า player
-  const x = (Math.random() * 2 - 1) * 1.4;   // -1.4..1.4
+  const x = (Math.random() * 2 - 1) * 1.4;
   const y = 1.4 + (Math.random() * 0.8 - 0.4);
   const z = -3.0;
   el.setAttribute('position', `${x} ${y} ${z}`);
 
-  // ทำ plane + emoji text ให้เห็นใน VR ชัด ๆ
   el.setAttribute('geometry',
     `primitive: plane; width: ${size}; height: ${size}`);
   el.setAttribute(
@@ -117,12 +105,11 @@ function createVrTarget(sceneEl, ch, cfg, engineCfg) {
     align: 'center',
     color: '#ffffff',
     width: 4,
-    baseline: 'center',
+    baseline: 'center'
   });
 
-  // เงาด้านหลังนิดหน่อย (optional)
   const plate = document.createElement('a-plane');
-  plate.setAttribute('width', size * 1.08);
+  plate.setAttribute('width',  size * 1.08);
   plate.setAttribute('height', size * 1.08);
   plate.setAttribute('position', '0 0 -0.01');
   plate.setAttribute(
@@ -131,16 +118,15 @@ function createVrTarget(sceneEl, ch, cfg, engineCfg) {
   );
   el.appendChild(plate);
 
-  // === คลิกแล้วเรียก judge() ===
   const judgeFn = cfg.judge || (() => {});
   el.addEventListener('click', (ev) => {
     const intersection = ev.detail && ev.detail.intersection;
     const p = intersection && intersection.point;
+
     const ctx = {
       char: ch,
       isGood: goodPool.includes(ch),
       isBad:  badPool.includes(ch),
-      // พิกัดสำหรับ effect 2D (ถ้า Particles ใช้ clientX/clientY)
       clientX: ROOT.innerWidth  / 2,
       clientY: ROOT.innerHeight / 2,
       cx: ROOT.innerWidth  / 2,
@@ -156,9 +142,7 @@ function createVrTarget(sceneEl, ch, cfg, engineCfg) {
   return el;
 }
 
-// -------------------------------------------------------
-// 4) Fallback DOM target (เผื่อใช้ในหน้า non-VR)
-// -------------------------------------------------------
+// ---------- เป้าแบบ DOM (ใช้บน mobile / fallback) ----------
 function createDomTarget(ch, cfg, engineCfg) {
   const goodPool = cfg.pools?.good || [];
   const badPool  = cfg.pools?.bad  || [];
@@ -182,7 +166,7 @@ function createDomTarget(ch, cfg, engineCfg) {
   el.style.zIndex = 400;
 
   const x = 0.5 + (Math.random() * 0.6 - 0.3);
-  const y = 0.4 + (Math.random() * 0.4 - 0.2);
+  const y = 0.45 + (Math.random() * 0.3 - 0.15);
   el.style.left = (x * 100) + '%';
   el.style.top  = (y * 100) + '%';
   el.style.transform = 'translate(-50%, -50%)';
@@ -210,15 +194,22 @@ function createDomTarget(ch, cfg, engineCfg) {
   return el;
 }
 
-// -------------------------------------------------------
-// 5) main boot()
-// -------------------------------------------------------
+// ---------- boot ----------
 export async function boot(cfg = {}) {
   const engineCfg = pickEngineConfig(cfg);
   const onExpire  = cfg.onExpire || (() => {});
 
-  const isVr   = !!(A && document.querySelector('a-scene'));
-  const sceneEl = isVr ? document.querySelector('a-scene') : null;
+  const sceneEl = (A && document.querySelector('a-scene')) || null;
+
+  // desktop = ใช้ VR entity, mobile = ใช้ DOM overlay
+  let useVrTargets = !!(A && sceneEl);
+  try {
+    if (A && A.utils && A.utils.device && A.utils.device.isMobile()) {
+      useVrTargets = false;
+    }
+  } catch (err) {
+    // ignore
+  }
 
   const active = new Set();
   let stopped  = false;
@@ -227,9 +218,7 @@ export async function boot(cfg = {}) {
     if (!el) return;
     active.delete(el);
 
-    if (el.parentNode) {
-      el.parentNode.removeChild(el);
-    }
+    if (el.parentNode) el.parentNode.removeChild(el);
 
     if (reason === 'expire') {
       const ch = el.getAttribute
@@ -245,7 +234,6 @@ export async function boot(cfg = {}) {
     if (stopped) return;
     if (active.size >= (engineCfg.MAX_ACTIVE || 4)) return;
 
-    // เลือกประเภทเป้า
     let typeKey = pickFromWeights(engineCfg.TYPE_WEIGHTS, null);
     if (!typeKey) typeKey = 'good';
     if (typeKey === 'junk') typeKey = 'bad';
@@ -253,13 +241,12 @@ export async function boot(cfg = {}) {
     const ch = pickCharForType(typeKey, cfg);
     if (!ch) return;
 
-    const el = isVr
+    const el = useVrTargets && sceneEl
       ? createVrTarget(sceneEl, ch, cfg, engineCfg)
       : createDomTarget(ch, cfg, engineCfg);
 
     active.add(el);
 
-    // อายุของเป้า
     const life = engineCfg.ITEM_LIFETIME || 2400;
     setTimeout(() => {
       if (!stopped && active.has(el)) {
@@ -274,13 +261,11 @@ export async function boot(cfg = {}) {
   function stop(reason = 'manual') {
     if (stopped) return;
     stopped = true;
-
     clearInterval(timerId);
     active.forEach(el => destroyTarget(el, 'cleanup'));
     active.clear();
   }
 
-  // คืน object ให้ GameEngine เก็บไว้เรียก stop()
   return { stop };
 }
 
