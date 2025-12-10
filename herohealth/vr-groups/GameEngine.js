@@ -1,12 +1,22 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (Hydration-style targets + Score FX + Diff size)
+// Food Groups VR — Emoji Targets + Quest + Fever Gauge (shared UI)
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
+// FeverUI (จาก ui-fever.js — non-module)
+const FeverUI =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
+  ROOT.FeverUI || {
+    ensureFeverBar () {},
+    setFever () {},
+    setFeverActive () {},
+    setShield () {}
+  };
+
 // --------------------------------------------------
-//  Helper: อ่าน config จาก HHA_DIFF_TABLE (modeKey = 'groups')
+//  อ่าน config จาก HHA_DIFF_TABLE (modeKey = 'groups')
 // --------------------------------------------------
 function pickEngineConfig(modeKey, diffKey) {
   const safe = {
@@ -101,7 +111,6 @@ function spawnScoreFx(el, text, color) {
 
   scene.appendChild(fx);
 
-  // ลอยขึ้น + จางหาย
   let t = 0;
   const dur = 600;
   const step = 16;
@@ -155,7 +164,7 @@ function makeEmojiTexture(ch, sizePx = 256) {
 }
 
 // --------------------------------------------------
-//  สร้างเป้า VR — ให้ทุกชั้นเป็น target + ส่ง el ออกไปให้ทำ FX
+//  สร้างเป้า VR — ทุกชั้นเป็น target + ส่ง el ออกไปให้ทำ FX
 // --------------------------------------------------
 function createVrTarget(root, targetCfg, handlers = {}) {
   const {
@@ -167,12 +176,10 @@ function createVrTarget(root, targetCfg, handlers = {}) {
   const { onHit, onExpire } = handlers;
   if (!root || !ch) return null;
 
-  // entity หลัก
   const holder = document.createElement('a-entity');
   holder.classList.add('hha-target-vr');
   holder.setAttribute('data-hha-tgt', '1');
 
-  // ===== พื้นหลัง + hit area =====
   // ★ เป้าใหญ่ขึ้นทุกระดับ: base ~0.5
   const baseSize = 0.5 * sizeFactor;
 
@@ -191,7 +198,6 @@ function createVrTarget(root, targetCfg, handlers = {}) {
   bg.setAttribute('data-hha-tgt', '1');
   holder.appendChild(bg);
 
-  // ===== emoji texture =====
   const texUrl = makeEmojiTexture(ch, 256);
   let img = null;
   if (texUrl) {
@@ -212,13 +218,11 @@ function createVrTarget(root, targetCfg, handlers = {}) {
     holder.appendChild(img);
   }
 
-  // ===== ตำแหน่งใน world =====
   const x = -0.8 + Math.random() * 1.6;
   const y = 1.2 + Math.random() * 0.8;
   const z = -1.6 + (Math.random() * 0.6 - 0.3);
 
   holder.setAttribute('position', `${x} ${y} ${z}`);
-
   root.appendChild(holder);
 
   let killed = false;
@@ -321,7 +325,12 @@ const state = {
 
   miniStreakTarget: 6,
   miniCurrentStreak: 0,
-  miniBestStreak: 0
+  miniBestStreak: 0,
+
+  // Fever gauge
+  feverValue: 0,      // 0–100
+  feverActive: false,
+  shieldCount: 0
 };
 
 function emit(name, detail) {
@@ -371,9 +380,55 @@ function updateQuestHUD() {
   });
 }
 
+// ===== Fever helper =====
+function updateFeverUI() {
+  FeverUI.ensureFeverBar();
+  FeverUI.setFever(state.feverValue);
+  FeverUI.setFeverActive(state.feverActive);
+  FeverUI.setShield(state.shieldCount);
+}
+
+function addFever(delta) {
+  state.feverValue = Math.max(0, Math.min(100, (state.feverValue || 0) + delta));
+  const wasActive = state.feverActive;
+
+  if (!state.feverActive && state.feverValue >= 100) {
+    state.feverActive = true;
+  }
+  if (state.feverActive && state.feverValue <= 0) {
+    state.feverActive = false;
+  }
+
+  updateFeverUI();
+
+  if (!wasActive && state.feverActive) {
+    emit('hha:fever', { state: 'start', value: state.feverValue });
+  } else if (wasActive && !state.feverActive) {
+    emit('hha:fever', { state: 'end', value: state.feverValue });
+  } else {
+    emit('hha:fever', { state: 'change', value: state.feverValue });
+  }
+}
+
+function clearAllTargets() {
+  state.targets.forEach(t => {
+    try {
+      t.kill && t.kill();
+    } catch (_) {}
+  });
+  state.targets = [];
+}
+
+// ===== Score / Judge =====
 function registerHit(el) {
+  const inFever = !!state.feverActive;
+
   state.combo += 1;
-  state.score += 100;
+
+  let gain = 100;
+  if (inFever) gain = 150; // Fever ได้คะแนนเพิ่ม
+  state.score += gain;
+
   if (state.combo > state.maxCombo) state.maxCombo = state.combo;
 
   state.goalHits += 1;
@@ -391,13 +446,22 @@ function registerHit(el) {
   updateScoreHUD();
   updateQuestHUD();
 
-  spawnScoreFx(el, `+100 ${judgeLabel}`, '#22c55e');
+  // Fever ขึ้นตาม combo
+  const feverGain =
+    state.combo >= 8 ? 10 :
+    state.combo >= 3 ? 6  : 4;
+  addFever(inFever ? 2 : feverGain); // ระหว่าง fever ยังขยับขึ้นนิดหน่อย
+
+  spawnScoreFx(el, `+${gain} ${judgeLabel}`, '#22c55e');
 }
 
 function registerMiss(el, reason) {
   state.misses += 1;
   state.combo = 0;
   state.miniCurrentStreak = 0;
+
+  // miss แล้วลด fever หนักหน่อย
+  addFever(-18);
 
   const label = reason === 'late' ? 'LATE' : 'MISS';
   emit('hha:miss', {});
@@ -407,15 +471,6 @@ function registerMiss(el, reason) {
   if (el) {
     spawnScoreFx(el, label, '#f97316');
   }
-}
-
-function clearAllTargets() {
-  state.targets.forEach(t => {
-    try {
-      t.kill && t.kill();
-    } catch (_) {}
-  });
-  state.targets = [];
 }
 
 function pickEmoji() {
@@ -471,10 +526,11 @@ function start(diffKey) {
   state.diffKey = String(diffKey || 'normal').toLowerCase();
   state.config = pickEngineConfig('groups', state.diffKey);
 
-  // ★ ปรับขนาดตามระดับ easy / normal / hard — ใหญ่ขึ้นทุกระดับ
-  let diffSize = 1.0;                // normal
+  // ปรับขนาดตามระดับ easy / normal / hard
+  let diffSize = 1.0;                 // normal
   if (state.diffKey === 'easy') diffSize = 1.15;   // easy ใหญ่สุด
-  else if (state.diffKey === 'hard') diffSize = 0.9; // hard ยังเล็กกว่าแต่ใหญ่กว่ารอบก่อน
+  else if (state.diffKey === 'hard') diffSize = 0.9; // hard เล็กหน่อย
+
   state.config.SIZE_FACTOR =
     (state.config.SIZE_FACTOR || 1.0) * diffSize;
 
@@ -489,6 +545,12 @@ function start(diffKey) {
   state.goalHits = 0;
   state.miniCurrentStreak = 0;
   state.miniBestStreak = 0;
+
+  state.feverValue = 0;
+  state.feverActive = false;
+  state.shieldCount = 0;
+  updateFeverUI();
+  emit('hha:fever', { state: 'reset', value: 0 });
 
   clearAllTargets();
   updateScoreHUD();
@@ -535,7 +597,10 @@ function stop(reason = 'manual') {
     });
   }
 
-  emit('hha:fever', { state: 'end' });
+  state.feverActive = false;
+  updateFeverUI();
+  emit('hha:fever', { state: 'end', value: state.feverValue });
+
   console.log('[GroupsVR] GameEngine.stop()', reason);
 }
 
