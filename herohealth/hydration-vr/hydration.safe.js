@@ -116,7 +116,7 @@ export async function boot(cfg = {}) {
   let waterZone = waterRes.zone || 'GREEN';
   const waterStart = waterPct;
 
-  // ----- Quest Deck (Goal 2/10, Mini 3/15; ง่าย→ยาก + miss group ทีหลัง) -----
+  // ----- Quest Deck (Goal 2, Mini 3 ต่อ "เกม") -----
   let deck;
   try {
     const factory = getCreateHydrationQuest();
@@ -141,9 +141,13 @@ export async function boot(cfg = {}) {
   deck.stats.greenTick = 0;
   deck.stats.zone      = waterZone;
 
-  // สะสมจำนวนภารกิจที่ผ่านไปแล้ว (ข้ามเซ็ตก่อนหน้า)
-  let accMiniDone = 0;
-  let accGoalDone = 0;
+  // ★★ สำคัญ: สุ่ม goal/mini แค่ครั้งเดียวต่อเกม ★★
+  try {
+    deck.drawGoals && deck.drawGoals(2); // goal = 2
+    deck.draw3 && deck.draw3();          // mini quest = 3
+  } catch (err) {
+    console.warn('[Hydration] drawGoals/draw3 error', err);
+  }
 
   // ---------- state หลักของเกม ----------
   let score       = 0;
@@ -459,26 +463,8 @@ export async function boot(cfg = {}) {
     }
     syncDeck();
 
-    const g = (deck.getProgress && deck.getProgress('goals')) || [];
-    const m = (deck.getProgress && deck.getProgress('mini'))  || [];
-
-    // ถ้า goal ปัจจุบันทั้ง 2 อันทำครบ → สุ่มชุดใหม่ (goal 2/10) และสะสมสถิติ
-    if (g.length > 0 && g.every(x => x.done)) {
-      accGoalDone += g.length;
-      deck.drawGoals && deck.drawGoals(2);
-      pushQuest('Goal ใหม่ (ชุดถัดไป)');
-      coach('ผ่านภารกิจหลักชุดนี้แล้ว เยี่ยมมาก! 🎯', 3500);
-    }
-
-    // ถ้า mini quest ปัจจุบันทั้ง 3 อันทำครบ → สุ่มชุดใหม่ (mini 3/15)
-    if (m.length > 0 && m.every(x => x.done)) {
-      accMiniDone += m.length;
-      deck.draw3 && deck.draw3();
-      pushQuest('Mini quest ชุดใหม่');
-      coach('Mini quest น้ำสมดุลผ่านอีกชุดแล้ว เก่งมาก! ⭐', 3500);
-    }
-
-    // อัปเดต HUD ทุกวินาที
+    // ★ ไม่สุ่ม goal/mini ชุดใหม่แล้ว → ทั้งเกมมีแค่ชุดเดียว
+    // push HUD score ทุกวินาที
     pushHudScore();
   }
 
@@ -493,12 +479,12 @@ export async function boot(cfg = {}) {
     const g = (deck.getProgress && deck.getProgress('goals')) || [];
     const m = (deck.getProgress && deck.getProgress('mini'))  || [];
 
-    const goalCleared = g.length > 0 && g.every(x => x.done);
+    const goalsTotal = g.length;
+    const goalsDone  = g.filter(x => x.done).length;
+    const miniTotal  = m.length;
+    const miniDone   = m.filter(x => x.done).length;
 
-    const goalsTotal = accGoalDone + g.length;
-    const goalsDone  = accGoalDone + g.filter(x => x.done).length;
-    const miniTotal  = accMiniDone + m.length;
-    const miniDone   = accMiniDone + m.filter(x => x.done).length;
+    const goalCleared = goalsTotal > 0 && goalsDone >= goalsTotal;
 
     const greenTick    = deck.stats.greenTick | 0;
     const waterEnd     = waterPct;
@@ -519,7 +505,6 @@ export async function boot(cfg = {}) {
           goalsCleared: goalsDone,
           goalsTotal,
 
-          // ★ เพิ่ม field สำหรับ mini quest ให้ HUD ใช้
           miniCleared: miniDone,
           miniTotal,
           questsCleared: miniDone,
@@ -559,7 +544,7 @@ export async function boot(cfg = {}) {
     difficulty: diff,
     duration:   dur,
 
-    // สำคัญ: ใช้ร่วมกับ HHA_DIFF_TABLE.hydration (ถ้ามี)
+    // ใช้ร่วมกับ HHA_DIFF_TABLE.hydration (ถ้ามี)
     modeKey:    'hydration',
 
     pools:      { good: [...GOOD, ...BONUS], bad: [...BAD] },
