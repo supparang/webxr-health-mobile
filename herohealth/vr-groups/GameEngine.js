@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (VR emoji targets + Fever + Quest + Cloud logger hook)
+// Food Groups VR — Game Engine (VR emoji targets + Fever + Quest + FX + Cloud logger)
 
 'use strict';
 
@@ -7,19 +7,16 @@ import { boot as factoryBoot } from '../vr/mode-factory.js';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
-// emoji แต่ละหมู่
-const pools = {
-  good: ['🍚','🍞','🥦','🥕','🍅','🍎','🍌','🥛','🍗','🐟'],
-  bad:  ['🍩','🍟','🍫','🥤','🍬','🍕','🧂']
-};
-
-// power-ups เหมือน GoodJunk / Hydration
-const powerups = ['⭐','💎','🛡️','🔥'];
+// Particles: /vr/particles.js (IIFE)
+const Particles =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+  ROOT.Particles ||
+  null;
 
 let state = {};
 resetState();
 
-// ------ helper ------
+// ---------- State ----------
 function resetState () {
   state = {
     running: false,
@@ -39,6 +36,15 @@ function resetState () {
   };
 }
 
+const pools = {
+  // 5 หมู่คร่าว ๆ
+  good: ['🍚', '🍞', '🥦', '🥕', '🍅', '🍎', '🍌', '🥛', '🍗', '🐟'],
+  bad:  ['🍩', '🍟', '🍫', '🥤', '🍬', '🍕', '🧂']
+};
+
+const powerups = ['⭐', '💎', '🛡️', '🔥'];
+
+// ---------- Helpers ----------
 function emit (name, detail) {
   try {
     ROOT.dispatchEvent(new CustomEvent(name, { detail }));
@@ -52,20 +58,87 @@ function getFeverUI () {
 function setFeverVal (v) {
   const FeverUI = getFeverUI();
   state.fever = Math.max(0, Math.min(100, Number(v) || 0));
+
   if (FeverUI && FeverUI.setFever) {
     FeverUI.setFever(state.fever);
   }
+
   const active = state.fever >= 100;
   if (active !== state.feverActive) {
     state.feverActive = active;
-    if (FeverUI && FeverUI.setFeverActive) FeverUI.setFeverActive(active);
+    if (FeverUI && FeverUI.setFeverActive) {
+      FeverUI.setFeverActive(active);
+    }
     emit('hha:fever', { state: active ? 'start' : 'end' });
   }
 }
 
-function addScore (base, label) {
+function centerFromCtx (ctx) {
+  if (!ctx) {
+    return {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2
+    };
+  }
+  const x = (ctx.clientX ?? ctx.cx ?? (window.innerWidth / 2));
+  const y = (ctx.clientY ?? ctx.cy ?? (window.innerHeight / 2));
+  return { x, y };
+}
+
+// เอฟเฟกต์ตอนตีโดนเป้า
+function spawnHitFx (judgment, scoreDelta, ctx) {
+  if (!Particles) return;
+  const { x, y } = centerFromCtx(ctx);
+
+  try {
+    if (typeof Particles.burstAt === 'function') {
+      Particles.burstAt(x, y, judgment);
+    } else if (typeof Particles.showHitFx === 'function') {
+      Particles.showHitFx({ x, y, judgment, scoreDelta });
+    }
+  } catch (err) {
+    console.warn('[GroupsVR] hitFx error:', err);
+  }
+
+  try {
+    if (typeof Particles.floatScore === 'function') {
+      // floatScore(x, y, scoreDelta, label)
+      Particles.floatScore(x, y, scoreDelta, judgment);
+    }
+  } catch (err) {
+    console.warn('[GroupsVR] floatScore error:', err);
+  }
+}
+
+// เอฟเฟกต์ตอนพลาด / หมดเวลา
+function spawnMissFx (judgment, ctx) {
+  if (!Particles) return;
+  const { x, y } = centerFromCtx(ctx);
+
+  try {
+    if (typeof Particles.showMissFx === 'function') {
+      Particles.showMissFx({ x, y, judgment });
+    } else if (typeof Particles.burstMiss === 'function') {
+      Particles.burstMiss(x, y, judgment);
+    }
+  } catch (err) {
+    console.warn('[GroupsVR] missFx error:', err);
+  }
+
+  try {
+    if (typeof Particles.floatScore === 'function') {
+      Particles.floatScore(x, y, 0, judgment);
+    }
+  } catch (err) {
+    console.warn('[GroupsVR] floatScore(miss) error:', err);
+  }
+}
+
+function addScore (base, label, ctx) {
   let delta = base;
-  if (state.feverActive) delta = Math.round(delta * 1.5);
+  if (state.feverActive) {
+    delta = Math.round(delta * 1.5);
+  }
 
   state.score += delta;
   state.combo++;
@@ -79,9 +152,11 @@ function addScore (base, label) {
     misses: state.misses
   });
   emit('hha:judge', { label: label || '' });
+
+  spawnHitFx(label || 'Good', delta, ctx);
 }
 
-function registerMiss (reason) {
+function registerMiss (reason, ctx) {
   state.misses++;
   state.combo = 0;
   state.goodHitNoMiss = 0;
@@ -94,9 +169,12 @@ function registerMiss (reason) {
   });
   emit('hha:miss', { reason });
   emit('hha:judge', { label: 'Miss' });
+
+  const label = reason === 'expire' ? 'Late' : 'Miss';
+  spawnMissFx(label, ctx);
 }
 
-// ---- Quest / Progress ----
+// ---------- Quest / Progress ----------
 function computeQuests () {
   const goalsAll = [
     {
@@ -159,44 +237,46 @@ function maybeQuestCelebrate () {
   }
 }
 
-// ---- judge จาก emoji ที่ถูกคลิก ----
-function judgeEmoji (ch /*, ctx */) {
+// ---------- Judge จาก emoji ที่ถูกคลิก ----------
+function judgeEmoji (ch, ctx) {
   if (!state.running) return;
 
   if (pools.good.includes(ch)) {
     state.goodHit++;
     state.goodHitNoMiss++;
-    addScore(150, 'Perfect');
+    addScore(150, 'Perfect', ctx);
   } else if (pools.bad.includes(ch)) {
-    registerMiss('bad');
+    registerMiss('bad', ctx);
   } else if (ch === '⭐') {
-    addScore(200, 'Bonus');
+    addScore(200, 'Bonus', ctx);
   } else if (ch === '💎') {
-    addScore(250, 'Diamond');
+    addScore(250, 'Diamond', ctx);
   } else if (ch === '🛡️') {
     setFeverVal(state.fever + 20);
     emit('hha:judge', { label: 'Shield' });
+    spawnHitFx('Shield', 0, ctx);
   } else if (ch === '🔥') {
     setFeverVal(100);
     emit('hha:judge', { label: 'Fever!' });
+    spawnHitFx('Fever', 0, ctx);
   } else {
-    addScore(100, 'Good');
+    addScore(100, 'Good', ctx);
   }
 
   pushQuestUpdate();
   maybeQuestCelebrate();
 }
 
-// หมดเวลา/หมดอายุของเป้า
+// ถูกนับเป็น “Late” ถ้าของดีหายไปเอง
 function handleExpire (ev) {
   if (!state.running) return;
   if (ev && ev.isGood) {
-    registerMiss('expire');
+    registerMiss('expire', null);
     pushQuestUpdate();
   }
 }
 
-// ---- start / stop ----
+// ---------- start / stop ----------
 async function start (diff = 'normal') {
   if (state.running) stop('restart');
   resetState();
@@ -215,11 +295,11 @@ async function start (diff = 'normal') {
 
   pushQuestUpdate();
 
-  // ใช้ mode-factory สร้าง emoji เป้า VR
+  // ใช้ mode-factory สร้าง emoji เป้า VR (เหมือน Hydration)
   state.spawner = await factoryBoot({
     modeKey: 'groups',
     difficulty: diff,
-    duration: 9999,          // เวลาเกมคุมจาก HTML (hha:time)
+    duration: 9999,          // เวลาจริงคุมจาก hha:time ใน HTML
     pools,
     goodRate: 0.7,
     powerups,
@@ -244,7 +324,6 @@ function stop (reason = 'manual') {
     FeverUI.setFeverActive(false);
   }
 
-  // สรุปผลส่งให้ HUD / Summary
   const { goalsAll, minisAll } = computeQuests();
 
   emit('hha:end', {
