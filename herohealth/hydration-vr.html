@@ -381,7 +381,6 @@
       <a-camera id="hydration-camera"
                 wasd-controls-enabled="false"
                 look-controls="pointerLockEnabled: false">
-        <!-- cursor: ใช้ mouse / touch raycast หาเป้า [data-hha-tgt] -->
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
                   raycaster="objects: [data-hha-tgt]"
@@ -408,7 +407,7 @@
         <div class="hud-main">
           <div>
             <div class="hud-main-title">
-              Hero Health • Hydration VR
+              HERO HEALTH • HYDRATION VR
               <span id="hud-runmode" class="hud-mode-badge">Play Mode</span>
             </div>
             <div class="hud-main-mode">Hydration Quest</div>
@@ -443,7 +442,7 @@
 
       <!-- Right: quest panel -->
       <div class="hud-card hud-quest">
-        <div class="quest-title">Quest</div>
+        <div class="quest-title">QUEST</div>
         <div id="hud-quest-main" class="quest-main-label">ภารกิจหลักจะโผล่ตรงนี้</div>
         <div id="hud-quest-mini" class="quest-mini-label">Mini quest จะโผล่ตรงนี้</div>
         <div class="quest-progress-wrap">
@@ -479,6 +478,9 @@
 
   <!-- Touch hint -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
+
+  <!-- ใช้ตัวนี้สำหรับแสดง reward ของ quest -->
+  <div class="hint-center" id="quest-hint" style="top:30%;font-size:14px;"></div>
 
   <!-- End summary -->
   <div class="end-toast" id="end-toast">
@@ -537,6 +539,7 @@
     const elCoachText   = document.getElementById('coach-text');
     const elCoachEmoji  = document.getElementById('coach-emoji');
     const elTouchHint   = document.getElementById('touch-hint');
+    const elQuestReward = document.getElementById('quest-hint');
 
     const elEndToast  = document.getElementById('end-toast');
     const elEndScore  = document.getElementById('end-score');
@@ -579,6 +582,13 @@
       }, 4200);
     }
 
+    function showQuestReward(message){
+      if (!elQuestReward) return;
+      elQuestReward.textContent = message;
+      elQuestReward.classList.add('show');
+      setTimeout(()=> elQuestReward.classList.remove('show'), 2200);
+    }
+
     function runCountdown(onDone){
       if (!elCountdown){
         if (onDone) onDone();
@@ -615,35 +625,61 @@
       const d = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
+      const goalsAll = d.goalsAll || [];
+      const minisAll = d.minisAll || [];
 
-      if (goal){
+      const allGoalDone = d.allGoalDone === true;
+      const allMiniDone = d.allMiniDone === true;
+
+      if (allGoalDone && goalsAll.length){
+        elQuestMain.textContent = 'Goal: สำเร็จครบแล้ว ✅';
+        elQuestMainBar.style.width = '100%';
+        elQuestMainCap.textContent =
+          goalsAll.length + ' / ' + goalsAll.length;
+      } else if (goal){
         elQuestMain.textContent = goal.label || 'ภารกิจหลัก';
         const prog = goal.prog|0, tgt = goal.target|0;
         const pct  = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
         elQuestMainBar.style.width = pct + '%';
         elQuestMainCap.textContent = `${prog} / ${tgt}`;
       }else{
-        elQuestMain.textContent = 'Goal: สำเร็จครบแล้ว 🎉';
-        elQuestMainBar.style.width = '100%';
-        elQuestMainCap.textContent = '';
+        elQuestMain.textContent = 'ภารกิจหลักจะโผล่ตรงนี้';
+        elQuestMainBar.style.width = '0%';
+        elQuestMainCap.textContent = '0 / 0';
       }
 
-      if (mini){
+      if (allMiniDone && minisAll.length){
+        elQuestMini.textContent = 'Mini quest: ครบทุกข้อแล้ว ✅';
+        elQuestMiniBar.style.width = '100%';
+        elQuestMiniCap.textContent =
+          minisAll.length + ' / ' + minisAll.length;
+      } else if (mini){
         elQuestMini.textContent = 'Mini: ' + (mini.label || '');
         const progM = mini.prog|0, tgtM = mini.target|0;
         const pctM  = tgtM>0 ? Math.max(0, Math.min(100, (progM/tgtM)*100)) : 0;
         elQuestMiniBar.style.width = pctM + '%';
         elQuestMiniCap.textContent = `${progM} / ${tgtM}`;
       }else{
-        elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
-        elQuestMiniBar.style.width = '100%';
-        elQuestMiniCap.textContent = '';
+        elQuestMini.textContent = 'Mini quest จะโผล่ตรงนี้';
+        elQuestMiniBar.style.width = '0%';
+        elQuestMiniCap.textContent = '0 / 0';
       }
 
       if (d.hint){
         elQuestHint.textContent = d.hint;
       } else {
         elQuestHint.textContent = '';
+      }
+    });
+
+    // Reward effect เมื่อเคลียร์ Goal / Mini ครบชุด
+    window.addEventListener('quest:reward', (e)=>{
+      const type = e.detail?.type || '';
+      const bonus = e.detail?.bonus || 0;
+      if (type === 'goal'){
+        showQuestReward(`Goal ครบทุกข้อ! +${bonus} คะแนน 🎯`);
+      } else if (type === 'mini') {
+        showQuestReward(`Mini quests ครบทุกข้อ! +${bonus} คะแนน ⭐`);
       }
     });
 
@@ -709,10 +745,9 @@
       return 'C';
     }
 
-    // จบเกม
     window.addEventListener('hha:end', (e)=>{
       const d = e.detail || {};
-      const scoreFinal   = d.scoreFinal ?? d.score ?? 0;
+      const scoreFinal   = d.score ?? 0;
       const comboMax     = d.comboMax ?? 0;
       const misses       = d.misses ?? 0;
       const goalsCleared = d.goalsCleared ?? 0;
@@ -736,14 +771,12 @@
       setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
     });
 
-    // label GOOD / MISS / PERFECT
     window.addEventListener('hha:judge', (e) => {
       const label = (e.detail && e.detail.label) || '';
       if (!elJudge) return;
       elJudge.textContent = label || '';
     });
 
-    // touch look หมุนมุมกล้อง
     function initTouchLook(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
@@ -790,7 +823,7 @@
       }
 
       elDiff.textContent = diff.toUpperCase();
-      elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
+      elRunHUD.textContent = (runMode === 'research') ? 'RESEARCH MODE' : 'PLAY MODE';
 
       elScore.textContent = '0';
       elCombo.textContent = '0';
@@ -815,7 +848,6 @@
         console.warn('[HydrationVR] cannot parse student profile:', err);
       }
 
-      // Cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycbxunS2aJ3NlznqAtn2iTln0JsMJ2OdsYx6pVvfVDVn-CkQzDiSDh1tep3yJHnKa0VIH/exec',
         projectTag: 'HeroHealth-HydrationVR',
@@ -832,7 +864,6 @@
       initTouchLook(cam);
       initVRButton();
 
-      // เริ่มเกมหลัง countdown
       runCountdown(() => {
         GameEngine.start(diff, dur);
 
