@@ -418,6 +418,82 @@
       position:fixed;
       inset:0;
     }
+
+    /* ===== Toast ฉลองภารกิจ ===== */
+    .quest-toast{
+      position:fixed;
+      left:50%;
+      top:18%;
+      transform:translateX(-50%);
+      z-index:652;
+      min-width:240px;
+      max-width:360px;
+      padding:10px 14px;
+      border-radius:18px;
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,0.32), transparent 55%),
+        rgba(15,23,42,0.96);
+      border:1px solid rgba(74,222,128,0.85);
+      color:#ecfdf5;
+      font-size:13px;
+      box-shadow:0 18px 40px rgba(15,23,42,0.9);
+      display:none;
+    }
+    .quest-toast.show{
+      display:block;
+      animation:hhaQuestPop .5s ease-out;
+    }
+    .quest-toast-title{
+      font-size:14px;
+      font-weight:700;
+      margin-bottom:2px;
+    }
+    .quest-toast-body{
+      font-size:12px;
+    }
+
+    /* ===== ฉลองใหญ่ก่อนสรุป ===== */
+    .grand-toast{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:653;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .35s ease-out;
+    }
+    .grand-toast.show{
+      opacity:1;
+    }
+    .grand-inner{
+      pointer-events:auto;
+      padding:16px 20px;
+      border-radius:24px;
+      background:
+        radial-gradient(circle at top left, rgba(250,204,21,0.45), transparent 60%),
+        radial-gradient(circle at bottom right, rgba(56,189,248,0.4), transparent 60%),
+        rgba(15,23,42,0.96);
+      border:1px solid rgba(250,250,250,0.75);
+      box-shadow:0 24px 50px rgba(15,23,42,0.95);
+      text-align:center;
+      color:#f9fafb;
+      max-width:420px;
+    }
+    .grand-title{
+      font-size:18px;
+      font-weight:800;
+      margin-bottom:6px;
+    }
+    .grand-body{
+      font-size:13px;
+    }
+
+    @keyframes hhaQuestPop{
+      0%{ transform:translateX(-50%) translateY(-8px) scale(.9); opacity:0; }
+      100%{ transform:translateX(-50%) translateY(0) scale(1); opacity:1; }
+    }
   </style>
 </head>
 <body>
@@ -430,12 +506,12 @@
 
     <!-- กล้องกลาง + crosshair + raycaster -->
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="gj-camera"
+      <a-camera id="groups-camera"
                 wasd-controls-enabled="false"
                 look-controls="pointerLockEnabled: false">
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
-                  raycaster="objects: [data-hha-tgt]"
+                  raycaster="objects: .hha-target-vr"
                   geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
                   material="shader: flat; color: #ffffff"
                   position="0 0 -0.9">
@@ -479,7 +555,7 @@
               &nbsp;
             </div>
             <div class="metric-label" style="margin-top:2px;font-size:10px;color:#9ca3af;">
-              คลิก/แตะอาหารทั้ง 5 หมู่เพื่อเก็บคะแนน
+              คลิก/แตะอาหารจากทั้ง 5 หมู่เพื่อเก็บคะแนน
             </div>
           </div>
 
@@ -495,7 +571,7 @@
 
           <!-- Grade (real-time) + bar -->
           <div class="metric metric-grade">
-            <div class="metric-label">เกรด (REAL-TIME)</div>
+            <div class="metric-label">เกรด (real-time)</div>
             <div class="grade-text">
               <span class="metric-value" id="hud-grade">-</span>
               <span class="grade-badge" id="hud-grade-badge">C–SSS</span>
@@ -537,7 +613,7 @@
         <span id="coach-emoji" class="coach-emoji">🙂</span>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="coach-label">โค้ช</span>
-          <span id="coach-text">หมุนมุมมองแล้วลองดูให้ครบทุกหมู่ ข้าว แป้ง โปรตีน ผัก ผลไม้ และนม 🥗</span>
+          <span id="coach-text">หมุนมุมมอง แล้วลองเลือกอาหารจากทั้ง 5 หมู่แบบสมดุลนะ 🥗</span>
         </div>
       </div>
     </div>
@@ -545,6 +621,24 @@
 
   <!-- Center hint for touch-look -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
+
+  <!-- Toast ฉลอง Goal / Mini -->
+  <div id="quest-toast" class="quest-toast">
+    <div id="quest-toast-title" class="quest-toast-title">ภารกิจสำเร็จแล้ว 🎉</div>
+    <div id="quest-toast-body" class="quest-toast-body">
+      เก็บอาหารครบตามภารกิจแล้ว
+    </div>
+  </div>
+
+  <!-- ฉลองใหญ่ก่อนขึ้นหน้าสรุป -->
+  <div id="grand-toast" class="grand-toast">
+    <div class="grand-inner">
+      <div class="grand-title">สุดยอด! ภารกิจครบทุกอย่างแล้ว 🎉</div>
+      <div class="grand-body">
+        เตรียมดูสรุปคะแนนและเกรดของคุณกันเลยนะ
+      </div>
+    </div>
+  </div>
 
   <!-- End summary -->
   <div class="end-toast" id="end-toast">
@@ -568,9 +662,9 @@
   <!-- ปุ่มเข้า VR -->
   <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
 
-  <!-- Fever gauge (shared UI) -->
+  <!-- Fever UI (global, non-module) -->
   <script src="./vr/ui-fever.js"></script>
-  <!-- Effect particles (เผื่อใช้) -->
+  <!-- Effect เป้า (particles FX, เผื่อใช้ภายหลัง) -->
   <script src="./vr/particles.js"></script>
 
   <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
@@ -618,6 +712,11 @@
     const btnReplay   = document.getElementById('btn-replay');
     const btnBackHub  = document.getElementById('btn-back-hub');
     const btnVR       = document.getElementById('btn-vr');
+
+    const questToast      = document.getElementById('quest-toast');
+    const questToastTitle = document.getElementById('quest-toast-title');
+    const questToastBody  = document.getElementById('quest-toast-body');
+    const grandToast      = document.getElementById('grand-toast');
 
     // Grade HUD
     const elGrade      = document.getElementById('hud-grade');
@@ -684,13 +783,6 @@
       }, interval);
     }
 
-    // HUD: เวลา (รับจาก GameEngine หรือ mode-factory ก็ได้)
-    window.addEventListener('hha:time', (e)=>{
-      const sec = (e.detail?.sec | 0);
-      if (sec < 0) return;
-      elTime.textContent = sec + 's';
-    });
-
     // === ฟังก์ชันคำนวณเกรด (ใช้ทั้ง HUD real-time + summary) ===
     function computeGrade(score, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
       const allGoalDone = goalsTotal > 0 && goalsCleared >= goalsTotal;
@@ -732,6 +824,26 @@
       elGradeBar.dataset.grade = grade;
     }
 
+    // HUD: เวลา (จาก mode-factory) + จบเกมเมื่อเวลาเป็น 0
+    let timeStopRequested = false;
+    window.addEventListener('hha:time', (e)=>{
+      const sec = (e.detail && typeof e.detail.sec === 'number')
+        ? (e.detail.sec | 0)
+        : null;
+      if (sec === null) return;
+      if (sec < 0) return;
+      elTime.textContent = sec + 's';
+
+      if (!timeStopRequested && sec <= 0){
+        timeStopRequested = true;
+        try{
+          GameEngine.stop('time-up');
+        }catch(err){
+          console.warn('[GroupsVR] stop on time-up error:', err);
+        }
+      }
+    });
+
     // HUD: Quest
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
@@ -768,6 +880,7 @@
         elQuestHint.textContent = '';
       }
 
+      // เก็บสถานะ goals/minis ทั้งหมดไว้สำหรับคิดเกรด real-time
       const goalsAll = d.goalsAll || [];
       const minisAll = d.minisAll || [];
       hudGoalsTotal   = goalsAll.length;
@@ -775,10 +888,13 @@
       hudMiniTotal    = minisAll.length;
       hudMiniCleared  = minisAll.filter(m => m && m.done).length;
 
+      // อัปเดตเกรด real-time ด้วย
       updateRealtimeGrade();
+
+      // การจบเกมเมื่อ goal + mini ผ่านทั้งหมด ให้ GameEngine เป็นคนตัดสินแล้ว
     });
 
-    // HUD: Coach (ข้อความ)
+    // HUD: Coach (ข้อความอย่างเดียว)
     window.addEventListener('hha:coach', (e)=>{
       const text = e.detail?.text;
       if (text) {
@@ -811,6 +927,8 @@
         hudMissCount = d.misses;
         elMiss.textContent = hudMissCount;
       }
+
+      // อัปเดตเกรด real-time ทุกครั้งที่คะแนน/คอมโบเปลี่ยน
       updateRealtimeGrade(d.score);
     });
 
@@ -819,16 +937,16 @@
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
       setCoachFace('sad');
-      setCoach('พลาดไปหนึ่งหมู่ ลองโฟกัสดูให้ครบทั้ง 5 หมู่ใหม่นะ 😌');
+      setCoach('พลาดของดีไปนะ ลองโฟกัสทั้ง 5 หมู่ให้ครบอีกครั้งนะ 😌');
       updateRealtimeGrade();
     });
 
-    // HUD: Fever state (จาก GameEngine + ui-fever.js)
+    // HUD: Fever state
     window.addEventListener('hha:fever', (e)=>{
       const st = e.detail?.state || 'change';
       if (st === 'start') {
         setCoachFace('fever');
-        setCoach('FEVER มาแล้ว! เก็บอาหารให้ครบหมู่รัว ๆ เลย! 🔥');
+        setCoach('FEVER มาแล้ว! เก็บอาหารดีรัว ๆ จากทั้ง 5 หมู่เลย! 🔥');
       }
       if (st === 'end') {
         setCoachFace('neutral');
@@ -863,10 +981,11 @@
       elEndGrade.textContent = grade;
       elEndToast.classList.add('show');
 
+      // sync HUD เกรด real-time ให้ตรงกับผลสรุปสุดท้าย
       updateRealtimeGrade(scoreFinal);
 
       setCoachFace(misses <= 3 ? 'happy' : 'neutral');
-      setCoach('จบเกมแล้ว! ดูสรุปผลการเก็บอาหาร 5 หมู่ด้านบนได้เลย 🎉');
+      setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
     });
 
     // HUD: Judge text
@@ -874,6 +993,34 @@
       const label = (e.detail && e.detail.label) || '';
       if (!elJudge) return;
       elJudge.textContent = label || '';
+    });
+
+    // Toast ฉลองตอนจบ Goal / Mini แต่ละอัน
+    window.addEventListener('hha:quest-clear', (e) => {
+      const d = e.detail || {};
+      if (!questToast) return;
+
+      const typeLabel = d.type === 'goal' ? 'ภารกิจหลัก' : 'Mini quest';
+      if (questToastTitle) {
+        questToastTitle.textContent = `${typeLabel} สำเร็จแล้ว 🎉`;
+      }
+      if (questToastBody) {
+        questToastBody.textContent = d.label || d.short || '';
+      }
+
+      questToast.classList.add('show');
+      setTimeout(() => {
+        questToast.classList.remove('show');
+      }, 1600);
+    });
+
+    // ฉลองใหญ่ก่อนขึ้นหน้าสรุป
+    window.addEventListener('hha:grand-clear', () => {
+      if (!grandToast) return;
+      grandToast.classList.add('show');
+      setTimeout(() => {
+        grandToast.classList.remove('show');
+      }, 1700);
     });
 
     // Touch-look (มือถือหมุนมุมมอง)
@@ -906,12 +1053,13 @@
       });
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
+    // bootstrap ทั้งหมด
+    (function bootstrap(){
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // เวลาเล่นตามระดับยากง่าย (override time param)
+      // เวลาเล่นตามระดับยากง่าย (ใช้ให้ตรงกับ GameEngine)
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
       else if (diff === 'hard') baseDur = 45;
@@ -946,7 +1094,7 @@
       elGradeBar.dataset.grade = 'C';
 
       setCoachFace('neutral');
-      setCoach('หมุนมุมมองแล้วคลิกอาหารในทั้ง 5 หมู่ให้ได้มากที่สุดภายในเวลาที่กำหนด 👆');
+      setCoach('คลิกหรือแตะอาหารจากทั้ง 5 หมู่ให้ครบภารกิจ หมุนมุมมองได้ด้วยการลากนิ้ว/เมาส์ 👆');
 
       // อ่าน studentProfile จาก sessionStorage (ตั้งจาก Hub)
       let studentProfile = null;
@@ -964,7 +1112,7 @@
       // cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
-        projectTag: 'HeroHealth-FoodGroupsVR',
+        projectTag: 'HeroHealth-GroupsVR',
         mode: 'FoodGroupsVR',
         runMode,
         diff,
@@ -974,11 +1122,11 @@
         debug: false  // production
       });
 
-      const cam = document.querySelector('#gj-camera');
+      const cam = document.querySelector('#groups-camera');
       initTouchLook(cam);
       initVRButton();
 
-      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา
+      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม (mode-factory จะจัดการเวลาเอง)
       runCountdown(() => {
         try {
           GameEngine.start(diff);
@@ -989,22 +1137,6 @@
           } catch(e){}
           return;
         }
-
-        let timeLeft = dur;
-        let timerId = null;
-
-        function tickTime(){
-          timeLeft -= 1;
-          if (timeLeft < 0) return;
-          window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-          if (timeLeft <= 0){
-            clearInterval(timerId);
-            GameEngine.stop('time-up');
-          }
-        }
-
-        window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-        timerId = setInterval(tickTime, 1000);
       });
 
       // ปุ่มหน้าสรุป
@@ -1033,7 +1165,7 @@
           } catch(e){}
         }
       });
-    });
+    })();
   </script>
 
 </body>
