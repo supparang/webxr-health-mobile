@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate (+FX tune)
+// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate + FX MAX
 
 'use strict';
 
@@ -730,10 +730,13 @@ export const GameEngine = (function () {
       if (P) {
         P.burstAt(sx, sy, {
           color: '#60a5fa',
-          count: 12,
-          radius: 50
+          count: 22,
+          radius: 90
         });
-        // ไม่ยิงข้อความ judge ซ้ำใน FX
+        P.scorePop(sx, sy - 26, 'Shield', {
+          kind: 'judge',
+          judgment: 'BLOCK'
+        });
       }
 
       emitGameEvent({
@@ -765,12 +768,21 @@ export const GameEngine = (function () {
       if (P) {
         P.burstAt(sx, sy, {
           color: '#facc15',
-          count: 20,
-          radius: 90
+          count: 28,
+          radius: 120
+        });
+        P.burstAt(sx, sy, {
+          color: '#fde68a',
+          count: 16,
+          radius: 170
         });
         if (scoreDelta) {
-          P.scorePop(sx, sy - 32, '+' + scoreDelta, { kind: 'score' });
+          P.scorePop(sx, sy - 30, '+' + scoreDelta, { kind: 'score' });
         }
+        P.scorePop(sx, sy + 4, 'BONUS', {
+          kind: 'judge',
+          judgment: 'BONUS'
+        });
       }
 
       emitGameEvent({
@@ -803,12 +815,21 @@ export const GameEngine = (function () {
       if (P) {
         P.burstAt(sx, sy, {
           color: '#38bdf8',
-          count: 20,
-          radius: 90
+          count: 28,
+          radius: 120
+        });
+        P.burstAt(sx, sy, {
+          color: '#e0f2fe',
+          count: 16,
+          radius: 170
         });
         if (scoreDelta) {
-          P.scorePop(sx, sy - 32, '+' + scoreDelta, { kind: 'score' });
+          P.scorePop(sx, sy - 30, '+' + scoreDelta, { kind: 'score' });
         }
+        P.scorePop(sx, sy + 4, 'BONUS', {
+          kind: 'judge',
+          judgment: 'BONUS'
+        });
       }
 
       emitGameEvent({
@@ -881,8 +902,12 @@ export const GameEngine = (function () {
         if (P) {
           P.burstAt(sx, sy, {
             color: '#60a5fa',
-            count: 12,
-            radius: 50
+            count: 20,
+            radius: 90
+          });
+          P.scorePop(sx, sy - 24, 'BLOCK', {
+            kind: 'judge',
+            judgment: 'BLOCK'
           });
         }
 
@@ -928,12 +953,11 @@ export const GameEngine = (function () {
     emitScore();
     emitJudge(judgment);
 
-    // ==== FX ตอนตีเป้า: ระเบิดสองชั้น + คะแนนเด้ง (ไม่มีข้อความตัดสินซ้ำใน FX) ====
+    // ===== FX ตอนตีเป้า: คะแนนเด้ง + คำตัดสิน + แตกกระจายสองชั้น =====
     const P = getParticles();
     if (P) {
       const jUpper = String(judgment || '').toUpperCase();
 
-      // สีตามคำตัดสิน
       let color = '#22c55e';
       if (jUpper === 'PERFECT') color = '#4ade80';
       else if (jUpper === 'LATE') color = '#facc15';
@@ -946,30 +970,37 @@ export const GameEngine = (function () {
       // ระเบิดหลัก
       P.burstAt(hitX, hitY, {
         color,
-        count: goodFlag ? 26 : 20,
-        radius: goodFlag ? 110 : 85
+        count: goodFlag ? 32 : 24,
+        radius: goodFlag ? 130 : 100
       });
 
-      // ระเบิดรองรอบนอก (ดีเลย์นิดหน่อย)
+      // ระเบิดรอง (ดีเลย์นิดหน่อยให้รู้สึก “แตกซ้อน”)
       setTimeout(() => {
         if (!running) return;
         const P2 = getParticles();
         if (!P2) return;
         P2.burstAt(hitX, hitY, {
           color,
-          count: goodFlag ? 14 : 10,
-          radius: goodFlag ? 150 : 115
+          count: goodFlag ? 18 : 12,
+          radius: goodFlag ? 180 : 130
         });
       }, 70);
 
-      // คะแนนเด้งอย่างเดียว (ย้ายขึ้นเล็กน้อย)
+      // คะแนนเด้ง
       if (scoreDelta) {
         const scoreText = scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
-        P.scorePop(hitX, hitY - 32, scoreText, {
+        P.scorePop(hitX, hitY - 30, scoreText, {
           kind: 'score'
         });
       }
-      // ❌ ไม่เรียก P.scorePop สำหรับข้อความตัดสินอีกแล้ว
+
+      // คำตัดสิน (GOOD / PERFECT / LATE / MISS) แยกบรรทัด
+      if (jUpper) {
+        P.scorePop(hitX, hitY + 6, jUpper, {
+          kind: 'judge',
+          judgment: jUpper
+        });
+      }
     }
 
     // event log (good / junk ปกติ)
@@ -1026,13 +1057,21 @@ export const GameEngine = (function () {
 
       const P = getParticles();
       if (P) {
-        // เป้าแตกแรงขึ้นตอนพลาดของดี
+        // เป้าแตกแรง ๆ ตอนพลาดของดี
         P.burstAt(sx, sy, {
           color: '#f97316',
-          count: 22,
-          radius: 90
+          count: 28,
+          radius: 120
         });
-        // ไม่ยิงข้อความ MISS ซ้ำใน FX (มีใน HUD แล้ว)
+        P.burstAt(sx, sy, {
+          color: '#fed7aa',
+          count: 16,
+          radius: 170
+        });
+        P.scorePop(sx, sy + 4, 'MISS', {
+          kind: 'judge',
+          judgment: 'MISS'
+        });
       }
 
       emitGameEvent({
