@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (big sphere + emoji texture + quest + fever)
-// 2025-12-10e
+// Food Groups VR — big sphere + emoji text + quest + fever
+// 2025-12-10f
 
 'use strict';
 
@@ -9,7 +9,7 @@ if (!A) {
   console.error('[GroupsVR] AFRAME not found');
 }
 
-// ---------- Util ----------
+// ---------- Utils ----------
 function clamp(v, min, max) {
   v = Number(v) || 0;
   if (v < min) return min;
@@ -35,7 +35,7 @@ function pickDifficulty(diffKey) {
   };
 }
 
-// ---------- Food pools ----------
+// ---------- food pools ----------
 const FOOD_GROUPS = {
   grains:  ['🍚', '🍞', '🥖', '🥯', '🥐', '🥨'],
   veg:     ['🥦', '🥕', '🌽', '🥒', '🫑', '🥬'],
@@ -46,7 +46,7 @@ const FOOD_GROUPS = {
 };
 const GROUP_KEYS = ['grains', 'veg', 'fruit', 'protein', 'dairy'];
 
-// ---------- world → screen ----------
+// ---------- world → screen (ใช้กับ FX 2D) ----------
 function worldToScreen(worldPos, cameraEl) {
   if (!worldPos || !cameraEl) return null;
   const THREE = window.THREE || (A && A.THREE);
@@ -83,7 +83,7 @@ function emitMissUi(worldPos, label, cameraEl) {
   }));
 }
 
-// ---------- Quest ----------
+// ---------- Quest model ----------
 function createQuestModel() {
   const goalsAll = [
     {
@@ -238,35 +238,7 @@ function getFeverUI() {
   return (window.GAME_MODULES && window.GAME_MODULES.FeverUI) || window.FeverUI || null;
 }
 
-// ---------- Emoji texture helper ----------
-const emojiTexCache = {};
-
-function getEmojiTexture(emojiChar) {
-  if (!emojiChar) return null;
-  if (emojiTexCache[emojiChar]) return emojiTexCache[emojiChar];
-
-  const size = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-
-  ctx.clearRect(0, 0, size, size);
-  ctx.fillStyle = 'rgba(0,0,0,0)';
-  ctx.fillRect(0, 0, size, size);
-
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = '200px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-  ctx.fillText(emojiChar, size / 2, size / 2 + 8);
-
-  const url = canvas.toDataURL('image/png');
-  emojiTexCache[emojiChar] = url;
-  return url;
-}
-
-// ---------- Target spawn ----------
+// ---------- Target spawning ----------
 let TARGET_ID = 0;
 
 function pickFood(diffCfg) {
@@ -297,7 +269,7 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
   holder.setAttribute('data-group', pick.groupKey);
   holder.classList.add('groups-target');
 
-  // ลูกบอลพื้นหลัง
+  // ลูกบอล
   const sphere = document.createElement('a-sphere');
   const baseColor = pick.isGood ? '#16a34a' : '#f97316';
   const radius = 0.35 * sizeFactor;
@@ -309,23 +281,15 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
   sphere.setAttribute('data-hha-tgt', '1');
   holder.appendChild(sphere);
 
-  // emoji plane ด้านหน้า เป้า
-  const texUrl = getEmojiTexture(pick.ch);
-  if (texUrl) {
-    const img = document.createElement('a-plane');
-    img.setAttribute('width', radius * 1.4);
-    img.setAttribute('height', radius * 1.4);
-    img.setAttribute('position', `0 0 ${radius + 0.02}`);
-    img.setAttribute(
-      'material',
-      `shader: flat; src: ${texUrl}; transparent: true; side: double`
-    );
-    img.setAttribute('data-hha-tgt', '1');
-    holder.appendChild(img);
-
-    // รองรับคลิกทั้ง plane ด้วย
-    img.addEventListener('click', handleClickWrapper);
-  }
+  // --- emoji ด้วย A-Frame text ---
+  const label = document.createElement('a-entity');
+  label.setAttribute('data-hha-tgt', '1');
+  label.setAttribute('position', `0 0 ${radius + 0.02}`);
+  label.setAttribute(
+    'text',
+    `value: ${pick.ch}; align: center; color: #ffffff; width: 2.5`
+  );
+  holder.appendChild(label);
 
   // ตำแหน่งด้านหน้า player
   const x = -0.9 + Math.random() * 1.8;
@@ -335,7 +299,7 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
 
   sceneEl.appendChild(holder);
 
-  // ทำให้ raycaster รู้จักเป้าชุดใหม่
+  // ให้ raycaster รู้จัก
   const cursor = document.querySelector('#cursor');
   if (cursor && cursor.components && cursor.components.raycaster) {
     try {
@@ -394,14 +358,13 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
     cleanup('hit');
   }
 
-  // wrapper ใช้กับ plane ด้วย (ประกาศก่อน append ข้างบน)
   function handleClickWrapper() {
     handleClick();
   }
 
-  // ผูก click ทั้ง holder + sphere
   holder.addEventListener('click', handleClick);
-  sphere.addEventListener('click', handleClick);
+  sphere.addEventListener('click', handleClickWrapper);
+  label.addEventListener('click', handleClickWrapper);
 
   console.log('[GroupsVR] spawn target', pick.ch, pick.groupKey, 'good=', pick.isGood);
 
@@ -417,7 +380,7 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
   };
 }
 
-// ---------- GameEngine core ----------
+// ---------- GameEngine ----------
 const GameEngine = (function () {
   let state = null;
 
@@ -570,6 +533,19 @@ const GameEngine = (function () {
     if (t) state.activeTargets.push(t);
   }
 
+  function computeGrade(score, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal) {
+    const allGoalDone = goalsTotal > 0 && goalsCleared >= goalsTotal;
+    const allMiniDone = miniTotal > 0 && miniCleared >= miniTotal;
+    const allQuest = allGoalDone && allMiniDone;
+
+    if (allQuest && score >= 1200 && comboMax >= 15 && misses <= 1) return 'SSS';
+    if (allQuest && score >= 900 && comboMax >= 10 && misses <= 3) return 'SS';
+    if (score >= 700) return 'S';
+    if (score >= 500) return 'A';
+    if (score >= 300) return 'B';
+    return 'C';
+  }
+
   function start(diffKey) {
     if (!A) {
       console.error('[GroupsVR] AFRAME missing');
@@ -614,19 +590,6 @@ const GameEngine = (function () {
 
     const interval = state.diffCfg.spawnInterval || 900;
     state.spawnTimer = window.setInterval(spawnLoop, interval);
-  }
-
-  function computeGrade(score, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal) {
-    const allGoalDone = goalsTotal > 0 && goalsCleared >= goalsTotal;
-    const allMiniDone = miniTotal > 0 && miniCleared >= miniTotal;
-    const allQuest = allGoalDone && allMiniDone;
-
-    if (allQuest && score >= 1200 && comboMax >= 15 && misses <= 1) return 'SSS';
-    if (allQuest && score >= 900 && comboMax >= 10 && misses <= 3) return 'SS';
-    if (score >= 700) return 'S';
-    if (score >= 500) return 'A';
-    if (score >= 300) return 'B';
-    return 'C';
   }
 
   function stop(reason) {
