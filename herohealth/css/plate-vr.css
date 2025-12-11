@@ -73,7 +73,6 @@ a-scene{
   flex-direction:column;
   gap:6px;
 }
-
 .hud-title{
   font-size:14px;
   font-weight:600;
@@ -81,7 +80,6 @@ a-scene{
   align-items:center;
   gap:6px;
 }
-
 .hud-pill{
   display:inline-flex;
   align-items:center;
@@ -111,33 +109,14 @@ a-scene{
   align-items:center;
   gap:6px;
 }
-.hud-badge span.value{
-  font-variant-numeric:tabular-nums;
-}
 .hud-badge strong{
   font-weight:600;
   color:var(--accent);
 }
-
-/* เกรดบน HUD แยกสีได้ในอนาคต */
-.hud-badge-grade .value{
-  font-weight:700;
+.hud-badge span.value{
+  font-variant-numeric:tabular-nums;
 }
 
-/* ===== แผนที่หมู่อาหาร ===== */
-.hud-groups-legend{
-  margin-top:4px;
-  font-size:10px;
-  color:var(--text-soft);
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px 10px;
-}
-.hud-groups-legend span{
-  white-space:nowrap;
-}
-
-/* ===== HUD ด้านขวา ===== */
 .hud-right{
   display:flex;
   flex-direction:column;
@@ -179,13 +158,50 @@ a-scene{
   font-variant-numeric:tabular-nums;
 }
 
+/* ===== แผนที่หมู่อาหาร ===== */
+.hud-groups-legend{
+  margin-top:4px;
+  font-size:10px;
+  color:var(--text-soft);
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 10px;
+}
+.hud-groups-legend span{
+  white-space:nowrap;
+}
+
+/* ===== เกรดบน HUD ให้สีต่างกัน ===== */
+.hud-badge-grade .value{
+  font-weight:700;
+}
+
+.hud-badge-grade-SSS .value{
+  color:#22c55e;
+}
+.hud-badge-grade-SS .value{
+  color:#4ade80;
+}
+.hud-badge-grade-S .value{
+  color:#38bdf8;
+}
+.hud-badge-grade-A .value{
+  color:#60a5fa;
+}
+.hud-badge-grade-B .value{
+  color:#eab308;
+}
+.hud-badge-grade-C .value{
+  color:#9ca3af;
+}
+
 /* ======= Quest Panel ======= */
 #quest-panel{
   position:absolute;
   right:10px;
   top:72px;
-  width:240px;
-  max-width:55vw;
+  width:260px;
+  max-width:60vw;
   z-index:410;
   pointer-events:none;
 }
@@ -224,43 +240,62 @@ a-scene{
   font-size:11px;
   line-height:1.4;
 }
-
-/* Hint quota ทีละบรรทัด + icon หมู่ */
 .quest-hint{
+  font-size:10px;
+  color:var(--accent-alt);
   margin-top:4px;
-  font-size:10px;
-  color:var(--accent-alt);
 }
-.quest-hint-title{
+
+/* progress list (Goal / Mini / จานนี้) */
+.quest-progress-list{
+  margin-top:4px;
+  border-top:1px dashed rgba(148,163,184,0.5);
+  padding-top:4px;
   font-size:10px;
-  margin-bottom:2px;
-  color:var(--accent-alt);
 }
-.quest-hint-line{
+.quest-progress-row{
   display:flex;
+  justify-content:space-between;
   align-items:center;
-  gap:4px;
-  font-size:10px;
-  margin-bottom:1px;
+  margin-bottom:2px;
 }
-.quest-hint-line.missing .quest-hint-text{
-  color:#f97316;
-}
-.quest-hint-line.ok .quest-hint-text{
-  color:#4ade80;
-}
-.quest-hint-icon{
-  width:16px;
-  text-align:center;
-}
-.quest-hint-label{
-  flex:0 0 auto;
+.quest-progress-label{
   color:var(--text-soft);
 }
-.quest-hint-text{
-  flex:1 1 auto;
-  text-align:right;
+.quest-progress-value{
   font-variant-numeric:tabular-nums;
+}
+.quest-progress-value.success{
+  color:#4ade80;
+}
+.quest-progress-value.warn{
+  color:#fde047;
+}
+.quest-progress-value.danger{
+  color:#fb7185;
+}
+
+/* แสดงหมู่ที่ยังขาดเป็น emoji แยกบรรทัด */
+.quest-groups-line{
+  margin-top:2px;
+  font-size:10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+}
+.quest-group-pill{
+  padding:1px 6px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.4);
+  background:rgba(15,23,42,0.9);
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.quest-group-pill.missing{
+  border-color:rgba(251,113,133,0.8);
+  background:rgba(127,29,29,0.9);
+  color:#fee2e2;
 }
 
 /* ======= Coach Bubble (ย้ายขึ้นเหนือ Fever) ======= */
@@ -268,8 +303,8 @@ a-scene{
   position:absolute;
   left:0;
   right:0;
-  bottom:72px;
-  z-index:950;              /* สูงกว่า Fever HUD */
+  bottom:72px;              /* เหนือ Fever */
+  z-index:950;              /* สูงกว่า Fever (900) */
   pointer-events:none;
   display:flex;
   justify-content:center;
@@ -304,7 +339,7 @@ a-scene{
 #summary{
   position:absolute;
   inset:0;
-  z-index:500;
+  z-index:1000;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -397,6 +432,109 @@ a-scene{
   border:1px solid rgba(148,163,184,0.5);
 }
 
+/* ===== Toast ฉลองจบแต่ละภารกิจ ===== */
+#quest-toast{
+  position:absolute;
+  left:50%;
+  top:18%;
+  transform:translateX(-50%);
+  z-index:960;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .25s ease, transform .25s ease;
+}
+#quest-toast.show{
+  opacity:1;
+  transform:translate(-50%, 0);
+}
+.quest-toast-inner{
+  background:radial-gradient(circle at top, rgba(34,197,94,0.18) 0, #020617 55%);
+  border-radius:18px;
+  border:1px solid rgba(74,222,128,0.8);
+  box-shadow:0 24px 50px rgba(0,0,0,0.85);
+  padding:8px 12px;
+  font-size:11px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.quest-toast-title{
+  font-size:12px;
+  font-weight:600;
+}
+.quest-toast-body{
+  font-size:11px;
+}
+.quest-toast-tags{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-top:2px;
+}
+.quest-toast-tag{
+  padding:1px 8px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.9);
+  border:1px solid rgba(74,222,128,0.8);
+  font-size:10px;
+}
+
+/* ===== Mega celebration (ครบทุกภารกิจ) ===== */
+#mega-celebration{
+  position:absolute;
+  inset:0;
+  z-index:980;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .3s ease;
+}
+#mega-celebration.show{
+  opacity:1;
+  pointer-events:auto;
+}
+.mega-inner{
+  width:min(460px, 92vw);
+  border-radius:24px;
+  border:1px solid rgba(251,191,36,0.9);
+  background:
+    radial-gradient(circle at top, rgba(250,204,21,0.25) 0, rgba(15,23,42,0.98) 55%);
+  box-shadow:0 32px 70px rgba(0,0,0,0.95);
+  padding:18px 18px 14px;
+  text-align:center;
+}
+.mega-title{
+  font-size:20px;
+  font-weight:700;
+  margin-bottom:4px;
+}
+.mega-sub{
+  font-size:12px;
+  color:var(--text-soft);
+  margin-bottom:10px;
+}
+.mega-badges{
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:10px;
+}
+.mega-badge{
+  padding:3px 10px;
+  border-radius:999px;
+  font-size:11px;
+  background:rgba(15,23,42,0.95);
+  border:1px solid rgba(251,191,36,0.8);
+}
+.mega-close{
+  margin-top:4px;
+  font-size:11px;
+  color:var(--text-soft);
+}
+
 /* เล็กลงบนจอมือถือแนวตั้ง */
 @media (max-width:768px){
   .hud-groups{
@@ -414,9 +552,12 @@ a-scene{
   .hud-groups-legend{
     font-size:9px;
   }
+  #quest-toast{
+    top:16%;
+  }
 }
 
-/* ====== TARGETS (เป้า emoji แบบเดียว ไม่ซ้อน) ====== */
+/* ====== TARGETS (เป้า emoji) ====== */
 
 .hha-target{
   position:fixed;
@@ -429,7 +570,12 @@ a-scene{
   pointer-events:auto;
   cursor:pointer;
   z-index:360;
+}
 
+/* แสดง emoji จาก data-char */
+.hha-target::before{
+  content: attr(data-char);
+  display:block;
   font-size:42px;
   line-height:1;
   text-shadow:
@@ -437,26 +583,22 @@ a-scene{
     0 0 16px rgba(0,0,0,0.7);
 }
 
-/* ปิดการใช้ ::before ที่เคยวาด emoji ซ้ำ */
-.hha-target::before{
-  content:none !important;
-}
-
 /* glow เพิ่มสำหรับของดี/ของไม่ดี */
-.hha-target-good{
+.hha-target-good::before{
   text-shadow:
     0 0 10px rgba(34,197,94,0.9),
     0 0 20px rgba(34,197,94,0.7),
     0 0 28px rgba(34,197,94,0.55);
 }
-.hha-target-bad{
+
+.hha-target-bad::before{
   text-shadow:
     0 0 10px rgba(248,113,113,0.9),
     0 0 20px rgba(248,113,113,0.7),
     0 0 28px rgba(248,113,113,0.55);
 }
 
-/* ===== Gaze Reticle (ให้เห็นเกือบตลอด) ===== */
+/* ===== Gaze Reticle ===== */
 
 #gaze-reticle{
   position:fixed;
@@ -467,7 +609,7 @@ a-scene{
   height:26px;
   pointer-events:none;
   z-index:430;
-  opacity:0.8;
+  opacity:0.8;              /* เห็นทุกโหมด */
 }
 
 .gaze-dot{
@@ -491,7 +633,7 @@ a-scene{
   opacity:0.8;
 }
 
-/* ตอนอยู่ใน VR ให้เป้าเด่นขึ้น */
+/* ตอนอยู่ใน VR ให้เป้าเด่นขึ้นนิดหนึ่ง */
 body.hha-vr-mode #gaze-reticle{
   opacity:1;
 }
@@ -510,91 +652,4 @@ body.hha-vr-mode #gaze-reticle{
     transform:scale(0.25);
     opacity:0;
   }
-}
-
-/* ===== Toast ฉลองภารกิจ ===== */
-#quest-toast{
-  position:absolute;
-  left:10px;
-  bottom:120px;
-  z-index:460;
-  pointer-events:none;
-  opacity:0;
-  transform:translateY(8px);
-  transition:opacity .25s ease, transform .25s ease;
-}
-#quest-toast.show{
-  opacity:1;
-  transform:translateY(0);
-}
-.quest-toast-inner{
-  background:rgba(15,23,42,0.98);
-  border-radius:14px;
-  border:1px solid rgba(248,250,252,0.18);
-  box-shadow:0 18px 40px rgba(0,0,0,0.9);
-  padding:8px 12px;
-  font-size:11px;
-}
-.quest-toast-title{
-  font-size:11px;
-  font-weight:600;
-  margin-bottom:2px;
-}
-.quest-toast-text{
-  font-size:11px;
-  margin-bottom:3px;
-}
-.quest-toast-tag{
-  font-size:10px;
-  opacity:0.85;
-}
-#quest-toast.goal .quest-toast-inner{
-  border-color:rgba(34,197,94,0.8);
-}
-#quest-toast.mini .quest-toast-inner{
-  border-color:rgba(56,189,248,0.8);
-}
-
-/* ===== Mega Celebration ตอนเคลียร์ทุกภารกิจ ===== */
-#mega-celebrate{
-  position:absolute;
-  inset:0;
-  z-index:520;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:radial-gradient(circle at top, rgba(34,197,94,0.3), rgba(15,23,42,0.95));
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .35s ease;
-}
-#mega-celebrate.show{
-  opacity:1;
-  pointer-events:auto;
-}
-.mega-card{
-  text-align:center;
-  padding:18px 22px;
-  border-radius:24px;
-  background:rgba(15,23,42,0.96);
-  border:1px solid rgba(248,250,252,0.6);
-  box-shadow:0 30px 65px rgba(0,0,0,0.9);
-}
-.mega-emoji{
-  font-size:32px;
-  margin-bottom:6px;
-}
-.mega-title{
-  font-size:18px;
-  font-weight:700;
-  margin-bottom:4px;
-}
-.mega-text{
-  font-size:12px;
-  color:var(--text-soft);
-}
-
-/* ===== หลังจบเกม ซ่อนเป้าทั้งหมด ===== */
-body.hha-game-ended .hha-target{
-  display:none !important;
 }
