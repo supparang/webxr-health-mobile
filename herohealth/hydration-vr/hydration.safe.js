@@ -167,6 +167,7 @@ export async function boot (cfg = {}) {
   let star = 0;
   let diamond = 0;
   let elapsedSec = 0; // เวลาเล่นสะสม (นับขึ้น)
+  let inst = null;    // instance จาก mode-factory (เอาไว้ stop ตอนเคลียร์ทุกภารกิจ)
 
   function mult () {
     return feverActive ? 2 : 1;
@@ -473,28 +474,91 @@ export async function boot (cfg = {}) {
     goalCleared = Math.min(GOAL_TARGET, rawGoalDone);
     miniCleared = Math.min(MINI_TARGET, rawMiniDone);
 
-    // เคลียร์ goal ใหม่
-    if (goalCleared > prevGoal) {
+    // ----- เคลียร์ Goal ใหม่ → ฉลอง + รางวัล -----
+    const newlyGoal = goalCleared - prevGoal;
+    if (newlyGoal > 0) {
+      const bonus = 150 * newlyGoal;
+      score += bonus;
+      gainFever(12 * newlyGoal);
+
+      const gx = (ROOT.innerWidth || 0) * 0.50;
+      const gy = (ROOT.innerHeight || 0) * 0.18;
+      safeScorePop(gx, gy, `+${bonus}`, 'GOAL', true);
+      safeBurstAt(gx, gy, true);
+
+      syncDeck();
+      pushHudScore({ questBonus: bonus });
+
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:goal-cleared', {
-          detail: { count: goalCleared, total: GOAL_TARGET }
+          detail: {
+            count: goalCleared,
+            total: GOAL_TARGET,
+            newly: newlyGoal,
+            bonus
+          }
+        }));
+        ROOT.dispatchEvent(new CustomEvent('quest:reward', {
+          detail: {
+            kind: 'goal',
+            count: goalCleared,
+            total: GOAL_TARGET,
+            newly: newlyGoal,
+            bonus
+          }
         }));
       } catch {}
+
       coach(`Goal สำเร็จแล้ว ${goalCleared}/${GOAL_TARGET} 🎯`, 3500);
     }
 
-    // เคลียร์ mini quest ใหม่
-    if (miniCleared > prevMini) {
+    // ----- เคลียร์ Mini quest ใหม่ → ฉลอง + รางวัล -----
+    const newlyMini = miniCleared - prevMini;
+    if (newlyMini > 0) {
+      const bonus = 80 * newlyMini;
+      score += bonus;
+      gainFever(8 * newlyMini);
+
+      const mx = (ROOT.innerWidth || 0) * 0.50;
+      const my = (ROOT.innerHeight || 0) * 0.24;
+      safeScorePop(mx, my, `+${bonus}`, 'MINI', true);
+      safeBurstAt(mx, my, true);
+
+      syncDeck();
+      pushHudScore({ questBonus: bonus });
+
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:mini-cleared', {
-          detail: { count: miniCleared, total: MINI_TARGET }
+          detail: {
+            count: miniCleared,
+            total: MINI_TARGET,
+            newly: newlyMini,
+            bonus
+          }
+        }));
+        ROOT.dispatchEvent(new CustomEvent('quest:reward', {
+          detail: {
+            kind: 'mini',
+            count: miniCleared,
+            total: MINI_TARGET,
+            newly: newlyMini,
+            bonus
+          }
         }));
       } catch {}
+
       coach(`Mini quest สำเร็จแล้ว ${miniCleared}/${MINI_TARGET} ⭐`, 3500);
     }
 
-    // ทำครบทุกภารกิจ → จบเกมได้เลย
+    // ----- ทำครบทุกภารกิจ → ฉลองใหญ่ + จบเกม -----
     if (!ended && goalCleared >= GOAL_TARGET && miniCleared >= MINI_TARGET) {
+      const cx = (ROOT.innerWidth || 0) * 0.50;
+      const cy = (ROOT.innerHeight || 0) * 0.45;
+
+      // เอฟเฟกต์ฉลองใหญ่กลางจอ
+      safeScorePop(cx, cy - 30, 'ALL CLEAR!', 'ALL', true);
+      safeBurstAt(cx, cy, true);
+
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:all-cleared', {
           detail: {
@@ -503,7 +567,20 @@ export async function boot (cfg = {}) {
           }
         }));
       } catch {}
-      finish(elapsedSec, 'quests-complete');
+
+      coach('สุดยอด! เคลียร์ทุกภารกิจครบแล้ว 🎉 เกมจบพร้อมฉลองใหญ่!', 4000);
+
+      // หยุด spawn เพิ่ม แต่ยังไม่ขึ้นหน้าสรุป
+      try {
+        if (inst && typeof inst.stop === 'function') {
+          inst.stop('quests-complete');
+        }
+      } catch {}
+
+      // หน่วงเวลานิดเดียวให้เห็นฉลอง ก่อนขึ้นหน้าสรุป
+      ROOT.setTimeout(() => {
+        finish(elapsedSec, 'quests-complete');
+      }, 1600);
     }
   }
 
@@ -551,6 +628,9 @@ export async function boot (cfg = {}) {
     const goalsDone = Math.min(goalCleared, GOAL_TARGET);
     const minisDone = Math.min(miniCleared, MINI_TARGET);
 
+    const questsDone = goalsDone + minisDone;
+    const questsTotal = GOAL_TARGET + MINI_TARGET;
+
     try {
       ROOT.dispatchEvent(new CustomEvent('hha:end', {
         detail: {
@@ -568,8 +648,8 @@ export async function boot (cfg = {}) {
           goalsTotal: GOAL_TARGET,
           miniCleared: minisDone,
           miniTotal: MINI_TARGET,
-          questsCleared: minisDone,
-          questsTotal: MINI_TARGET,
+          questsCleared: questsDone,
+          questsTotal,
           waterStart,
           waterEnd,
           waterZoneEnd,
@@ -601,7 +681,7 @@ export async function boot (cfg = {}) {
   // ======================================================
   //  เรียก factoryBoot เพื่อจัดการ spawn / timer / hit detection
   // ======================================================
-  const inst = await factoryBoot({
+  inst = await factoryBoot({
     difficulty: diff,
     duration: dur,
 
