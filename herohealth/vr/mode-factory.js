@@ -1,6 +1,8 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner สำหรับ Hydration / Plate ฯลฯ
-// ใช้ emoji เป้าแบบป๊อปอัพ (โผล่แล้วหายเอง) รองรับ PC / Mobile / VR-Cardboard
+// - เป้า emoji โผล่แล้วหายเอง (spawnStyle: "pop")
+// - รองรับ PC / Mobile / VR-Cardboard
+// - สามารถ "ลากหน้าจอให้ world เลื่อน" เป้าเลื่อนตามได้
 
 'use strict';
 
@@ -12,7 +14,7 @@ if (!DOC) {
 }
 
 /**
- * สร้างเลเยอร์สำหรับเป้า (ทับบนฉากเกม)
+ * สร้างเลเยอร์สำหรับเป้า (fixed ทับบนฉากเกม)
  */
 function ensureLayer () {
   if (!DOC) return null;
@@ -76,7 +78,16 @@ export async function boot (opts = {}) {
     active: []
   };
 
-  // ---------- helpers ----------
+  // ---------- world offset สำหรับ effect "เลื่อนจอ" ----------
+  let worldOffsetX = 0;
+  let worldOffsetY = 0;
+
+  // สำหรับลากจอ
+  let dragActive = false;
+  let dragLastX = 0;
+  let dragLastY = 0;
+  let dragAccum = 0; // เอาไว้กันกรณีแค่แตะเบา ๆ
+
   function randItem (arr) {
     if (!arr || !arr.length) return null;
     return arr[Math.floor(Math.random() * arr.length)];
@@ -103,6 +114,14 @@ export async function boot (opts = {}) {
     }
     const ch = randItem(badPool);
     return { ch, isGood: false, isPower: false };
+  }
+
+  function applyPosition (rec) {
+    if (!rec || !rec.el) return;
+    const sx = rec.worldX + worldOffsetX;
+    const sy = rec.worldY + worldOffsetY;
+    rec.el.style.left = sx + 'px';
+    rec.el.style.top  = sy + 'px';
   }
 
   function removeTarget (rec, reason) {
@@ -173,14 +192,14 @@ export async function boot (opts = {}) {
     const vw = ROOT.innerWidth || 360;
     const vh = ROOT.innerHeight || 640;
 
-    // ตำแหน่งรอบ ๆ กลางจอส่วนล่าง (ไม่ไปทับ HUD บน/ล่าง)
+    // world position: รอบ ๆ กลางจอส่วนล่าง (ไม่ทับ HUD)
     const cx = vw / 2;
     const cy = vh * 0.58;
     const dx = (Math.random() - 0.5) * (vw * 0.45);
     const dy = (Math.random() - 0.5) * (vh * 0.20);
 
-    const x = cx + dx;
-    const y = cy + dy;
+    const worldX = cx + dx;
+    const worldY = cy + dy;
 
     const size = conf.size;
 
@@ -194,8 +213,7 @@ export async function boot (opts = {}) {
 
     Object.assign(el.style, {
       position: 'absolute',
-      left: x + 'px',
-      top: y + 'px',
+      // left/top ใช้จาก applyPosition()
       transform: 'translate(-50%, -50%)',
       width: dpx + 'px',
       height: dpx + 'px',
@@ -215,17 +233,9 @@ export async function boot (opts = {}) {
       pointerEvents: 'auto',
       cursor: 'pointer',
       outline: 'none',
-      // กันไม่ให้ไปทับ HUD ล่างมากเกิน
       maxWidth: '24vw',
       maxHeight: '24vw'
     });
-
-    // กด = โดนเป้า
-    el.addEventListener('click', (ev) => handleHit(rec, ev));
-    // รองรับ mousedown เผื่ออุปกรณ์ VR ส่ง event แบบนี้
-    el.addEventListener('mousedown', (ev) => handleHit(rec, ev));
-
-    layer.appendChild(el);
 
     const rec = {
       el,
@@ -233,8 +243,17 @@ export async function boot (opts = {}) {
       isGood: pick.isGood,
       isPower: pick.isPower,
       hit: false,
-      expireId: null
+      expireId: null,
+      worldX,
+      worldY
     };
+
+    // คลิก/แตะ = ตีเป้า
+    el.addEventListener('click', (ev) => handleHit(rec, ev));
+    el.addEventListener('mousedown', (ev) => handleHit(rec, ev));
+
+    layer.appendChild(el);
+    applyPosition(rec);
 
     if (spawnStyle === 'pop') {
       rec.expireId = ROOT.setTimeout(() => {
@@ -245,6 +264,54 @@ export async function boot (opts = {}) {
 
     state.active.push(rec);
   }
+
+  // ---------------- Drag-to-pan world -----------------
+  function onPointerDown (ev) {
+    dragActive = true;
+    dragLastX = ev.clientX ?? 0;
+    dragLastY = ev.clientY ?? 0;
+    dragAccum = 0;
+  }
+
+  function onPointerMove (ev) {
+    if (!dragActive) return;
+    const x = ev.clientX ?? 0;
+    const y = ev.clientY ?? 0;
+    let dx = x - dragLastX;
+    let dy = y - dragLastY;
+    dragLastX = x;
+    dragLastY = y;
+
+    dragAccum += Math.abs(dx) + Math.abs(dy);
+
+    // ขยับ world – เน้นแนวนอน, แนวตั้งลดลงหน่อย
+    worldOffsetX += dx;
+    worldOffsetY += dy * 0.4;
+
+    // จำกัดไม่ให้เลื่อนไกลเกินไป (กันหลุดจอสุด ๆ)
+    const limitX = (ROOT.innerWidth || 360) * 0.8;
+    const limitY = (ROOT.innerHeight || 640) * 0.4;
+    if (worldOffsetX >  limitX) worldOffsetX =  limitX;
+    if (worldOffsetX < -limitX) worldOffsetX = -limitX;
+    if (worldOffsetY >  limitY) worldOffsetY =  limitY;
+    if (worldOffsetY < -limitY) worldOffsetY = -limitY;
+
+    state.active.forEach(applyPosition);
+
+    // กันไม่ให้ browser scroll เวลาลากเยอะ ๆ
+    if (dragAccum > 6 && typeof ev.preventDefault === 'function') {
+      ev.preventDefault();
+    }
+  }
+
+  function onPointerUpCancel () {
+    dragActive = false;
+  }
+
+  ROOT.addEventListener('pointerdown', onPointerDown, { passive: true });
+  ROOT.addEventListener('pointermove', onPointerMove, { passive: false });
+  ROOT.addEventListener('pointerup', onPointerUpCancel, { passive: true });
+  ROOT.addEventListener('pointercancel', onPointerUpCancel, { passive: true });
 
   // เริ่ม loop spawn
   state.timerId = ROOT.setInterval(spawnOne, conf.rateMs);
@@ -271,6 +338,11 @@ export async function boot (opts = {}) {
         try { removeTarget(rec, 'stop'); } catch {}
       });
       state.active.length = 0;
+
+      ROOT.removeEventListener('pointerdown', onPointerDown);
+      ROOT.removeEventListener('pointermove', onPointerMove);
+      ROOT.removeEventListener('pointerup', onPointerUpCancel);
+      ROOT.removeEventListener('pointercancel', onPointerUpCancel);
 
       console.log('[HHA-Factory] stop()', reason);
     }
