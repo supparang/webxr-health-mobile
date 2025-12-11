@@ -6,6 +6,39 @@
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
+/** cache texture emoji ต่อ 1 ตัว */
+const EMOJI_CACHE = new Map();
+
+function makeEmojiDataURL (ch) {
+  const canvas = document.createElement('canvas');
+  const size = 256;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+
+  // background โปร่งใส
+  ctx.clearRect(0, 0, size, size);
+
+  // วาด emoji ใหญ่ ๆ กลางรูป
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // font stack ให้รองรับ emoji ส่วนใหญ่
+  ctx.font =
+    '200px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(ch, size / 2, size / 2 + 10);
+
+  return canvas.toDataURL('image/png');
+}
+
+function getEmojiTex (ch) {
+  if (!EMOJI_CACHE.has(ch)) {
+    EMOJI_CACHE.set(ch, makeEmojiDataURL(ch));
+  }
+  return EMOJI_CACHE.get(ch);
+}
+
 /**
  * boot(opts)
  *  opts:
@@ -138,15 +171,27 @@ export function boot (opts = {}) {
     bg.setAttribute('opacity', '0.95');
     el.appendChild(bg);
 
-    // emoji text
-    const txt = document.createElement('a-text');
-    txt.setAttribute('value', info.ch);
-    txt.setAttribute('align', 'center');
-    txt.setAttribute('anchor', 'center');
-    txt.setAttribute('width', 2);
-    txt.setAttribute('color', '#ffffff');
-    txt.setAttribute('position', '0 0 0.02');
-    el.appendChild(txt);
+    // emoji เป็น texture บน plane
+    const icon = document.createElement('a-plane');
+    icon.setAttribute('width', '0.7');
+    icon.setAttribute('height', '0.7');
+    icon.setAttribute('position', '0 0 0.02');
+    icon.setAttribute('transparent', 'true');
+
+    const tex = getEmojiTex(info.ch);
+    if (tex) {
+      icon.setAttribute(
+        'material',
+        `shader: flat; src: ${tex}; transparent: true; alphaTest: 0.01`
+      );
+    } else {
+      // fallback เผื่อสร้าง texture ไม่สำเร็จ
+      icon.setAttribute(
+        'material',
+        'shader: flat; color: #ffffff; transparent: true; opacity: 0.0'
+      );
+    }
+    el.appendChild(icon);
 
     // hit-area ใส่ geometry circle โปร่งใสไว้รับ click
     el.setAttribute(
