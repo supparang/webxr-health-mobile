@@ -943,32 +943,38 @@ export const GameEngine = (function () {
     emitScore();
     emitJudge(judgment);
 
+    // ==== FX ตอนตีเป้า: ระเบิดแรง + แยก "คะแนน" กับ "คำตัดสิน" ไม่ให้ซ้อนกัน ====
     const P = getParticles();
     if (P) {
       const jUpper = String(judgment || '').toUpperCase();
 
+      // สีตามคำตัดสิน
       let color = '#22c55e';
       if (jUpper === 'PERFECT') color = '#4ade80';
       else if (jUpper === 'LATE') color = '#facc15';
       else if (jUpper === 'MISS') color = '#f97316';
 
       const goodFlag = kind === 'good';
+      const hitX = sx;
+      const hitY = sy;
 
-      P.burstAt(sx, sy, {
+      // เป้าแตกกระจายแรงขึ้น
+      P.burstAt(hitX, hitY, {
         color,
-        count: goodFlag ? 14 : 10,
-        radius: goodFlag ? 60 : 50
+        count: goodFlag ? 20 : 14,   // เดิม 14 / 10
+        radius: goodFlag ? 80 : 60   // เดิม 60 / 50
       });
 
+      // คะแนน: เด้งขึ้นด้านบนเล็กน้อย
       if (scoreDelta) {
-        const text =
-          scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
-        P.scorePop(sx, sy, text, {
+        const scoreText = scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
+        P.scorePop(hitX, hitY - 32, scoreText, {
           kind: 'score'
         });
       }
 
-      P.scorePop(sx, sy, jUpper, {
+      // ข้อความ GOOD / PERFECT / LATE / MISS: อยู่ใกล้จุดเป้า ไม่ทับกับคะแนน
+      P.scorePop(hitX, hitY + 4, jUpper, {
         kind: 'judge',
         judgment: jUpper
       });
@@ -1028,12 +1034,14 @@ export const GameEngine = (function () {
 
       const P = getParticles();
       if (P) {
+        // เป้าแตกแรงขึ้นตอนพลาดของดี
         P.burstAt(sx, sy, {
           color: '#f97316',
-          count: 10,
-          radius: 45
+          count: 18,   // เดิม 10
+          radius: 75   // เดิม 45
         });
-        P.scorePop(sx, sy, 'MISS', {
+        // ขยับ MISS ลงมานิดหนึ่ง กันทับ FX อื่น
+        P.scorePop(sx, sy + 6, 'MISS', {
           kind: 'judge',
           judgment: 'MISS'
         });
