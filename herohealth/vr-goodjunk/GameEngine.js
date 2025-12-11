@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate
+// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate (+FX tune)
 
 'use strict';
 
@@ -730,13 +730,10 @@ export const GameEngine = (function () {
       if (P) {
         P.burstAt(sx, sy, {
           color: '#60a5fa',
-          count: 10,
-          radius: 40
+          count: 12,
+          radius: 50
         });
-        P.scorePop(sx, sy, 'Shield', {
-          kind: 'judge',
-          judgment: 'BLOCK'
-        });
+        // ไม่ยิงข้อความ judge ซ้ำใน FX
       }
 
       emitGameEvent({
@@ -768,16 +765,12 @@ export const GameEngine = (function () {
       if (P) {
         P.burstAt(sx, sy, {
           color: '#facc15',
-          count: 16,
-          radius: 70
+          count: 20,
+          radius: 90
         });
-        P.scorePop(sx, sy, '+' + scoreDelta, {
-          kind: 'score'
-        });
-        P.scorePop(sx, sy, 'BONUS', {
-          kind: 'judge',
-          judgment: 'GOOD'
-        });
+        if (scoreDelta) {
+          P.scorePop(sx, sy - 32, '+' + scoreDelta, { kind: 'score' });
+        }
       }
 
       emitGameEvent({
@@ -810,16 +803,12 @@ export const GameEngine = (function () {
       if (P) {
         P.burstAt(sx, sy, {
           color: '#38bdf8',
-          count: 16,
-          radius: 70
+          count: 20,
+          radius: 90
         });
-        P.scorePop(sx, sy, '+' + scoreDelta, {
-          kind: 'score'
-        });
-        P.scorePop(sx, sy, 'BONUS', {
-          kind: 'judge',
-          judgment: 'GOOD'
-        });
+        if (scoreDelta) {
+          P.scorePop(sx, sy - 32, '+' + scoreDelta, { kind: 'score' });
+        }
       }
 
       emitGameEvent({
@@ -892,12 +881,8 @@ export const GameEngine = (function () {
         if (P) {
           P.burstAt(sx, sy, {
             color: '#60a5fa',
-            count: 10,
-            radius: 40
-          });
-          P.scorePop(sx, sy, 'BLOCK', {
-            kind: 'judge',
-            judgment: 'BLOCK'
+            count: 12,
+            radius: 50
           });
         }
 
@@ -943,7 +928,7 @@ export const GameEngine = (function () {
     emitScore();
     emitJudge(judgment);
 
-    // ==== FX ตอนตีเป้า: ระเบิดแรง + แยก "คะแนน" กับ "คำตัดสิน" ไม่ให้ซ้อนกัน ====
+    // ==== FX ตอนตีเป้า: ระเบิดสองชั้น + คะแนนเด้ง (ไม่มีข้อความตัดสินซ้ำใน FX) ====
     const P = getParticles();
     if (P) {
       const jUpper = String(judgment || '').toUpperCase();
@@ -958,26 +943,33 @@ export const GameEngine = (function () {
       const hitX = sx;
       const hitY = sy;
 
-      // เป้าแตกกระจายแรงขึ้น
+      // ระเบิดหลัก
       P.burstAt(hitX, hitY, {
         color,
-        count: goodFlag ? 20 : 14,   // เดิม 14 / 10
-        radius: goodFlag ? 80 : 60   // เดิม 60 / 50
+        count: goodFlag ? 26 : 20,
+        radius: goodFlag ? 110 : 85
       });
 
-      // คะแนน: เด้งขึ้นด้านบนเล็กน้อย
+      // ระเบิดรองรอบนอก (ดีเลย์นิดหน่อย)
+      setTimeout(() => {
+        if (!running) return;
+        const P2 = getParticles();
+        if (!P2) return;
+        P2.burstAt(hitX, hitY, {
+          color,
+          count: goodFlag ? 14 : 10,
+          radius: goodFlag ? 150 : 115
+        });
+      }, 70);
+
+      // คะแนนเด้งอย่างเดียว (ย้ายขึ้นเล็กน้อย)
       if (scoreDelta) {
         const scoreText = scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
         P.scorePop(hitX, hitY - 32, scoreText, {
           kind: 'score'
         });
       }
-
-      // ข้อความ GOOD / PERFECT / LATE / MISS: อยู่ใกล้จุดเป้า ไม่ทับกับคะแนน
-      P.scorePop(hitX, hitY + 4, jUpper, {
-        kind: 'judge',
-        judgment: jUpper
-      });
+      // ❌ ไม่เรียก P.scorePop สำหรับข้อความตัดสินอีกแล้ว
     }
 
     // event log (good / junk ปกติ)
@@ -1037,14 +1029,10 @@ export const GameEngine = (function () {
         // เป้าแตกแรงขึ้นตอนพลาดของดี
         P.burstAt(sx, sy, {
           color: '#f97316',
-          count: 18,   // เดิม 10
-          radius: 75   // เดิม 45
+          count: 22,
+          radius: 90
         });
-        // ขยับ MISS ลงมานิดหนึ่ง กันทับ FX อื่น
-        P.scorePop(sx, sy + 6, 'MISS', {
-          kind: 'judge',
-          judgment: 'MISS'
-        });
+        // ไม่ยิงข้อความ MISS ซ้ำใน FX (มีใน HUD แล้ว)
       }
 
       emitGameEvent({
