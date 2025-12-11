@@ -142,6 +142,38 @@
     }
   }
 
+  // ----- auto ผูกกับ hha:judge ให้ทุกเกมใช้ได้เลย -----
+  if (root && root.addEventListener) {
+    root.addEventListener('hha:judge', function (e) {
+      try {
+        const d = e.detail || {};
+        const label = String(d.label || '').toUpperCase();
+        if (!label) return;
+
+        const cx = root.innerWidth / 2;
+        const cy = root.innerHeight * 0.5;
+
+        let good = false;
+        let color = '#f97316';
+
+        if (label === 'GOOD' || label === 'PERFECT' || label === 'HIT') {
+          good = true;
+          color = '#22c55e';
+        } else if (label === 'FEVER') {
+          good = true;
+          color = '#facc15';
+        }
+
+        burstAt(cx, cy, { color: color, good: good });
+      } catch (err) {
+        // กัน error เล็ก ๆ ไม่ให้พังเกม
+        if (root.console && console.warn) {
+          console.warn('[Particles] hha:judge handler error', err);
+        }
+      }
+    });
+  }
+
   // ----- Export API แบบ global -----
   const api = { scorePop, burstAt };
   root.Particles = api;
