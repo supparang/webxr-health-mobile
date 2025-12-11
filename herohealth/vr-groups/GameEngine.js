@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Emoji Target (a-text) + Quest + Fever + HUD Events
-// ใช้กับ groups-vr.html  → import { GameEngine } from './vr-groups/GameEngine.js'
+// Food Groups VR — Emoji Canvas Targets + Quest + Fever + HUD Events
+// ใช้กับ groups-vr.html → import { GameEngine } from './vr-groups/GameEngine.js'
 
 'use strict';
 
@@ -17,9 +17,10 @@ function clamp(v, min, max) {
   return v;
 }
 
-// world → screen (สำหรับ FX 2D)
+// world → screen (สำหรับ FX 2D กลางจอ)
 function worldToScreen(worldVec, sceneEl) {
   if (!A || !THREE || !sceneEl || !sceneEl.renderer || !sceneEl.camera) return null;
+
   const renderer = sceneEl.renderer;
   const camera = sceneEl.camera;
 
@@ -36,8 +37,8 @@ function worldToScreen(worldVec, sceneEl) {
 
 // ---------- Difficulty ----------
 const DIFF_TABLE = {
-  easy:   { spawnInterval: 1400, lifeTime: 1700, maxActive: 4, scale: 1.0 },
-  normal: { spawnInterval: 1100, lifeTime: 1500, maxActive: 5, scale: 1.0 },
+  easy:   { spawnInterval: 1400, lifeTime: 1700, maxActive: 4, scale: 1.05 },
+  normal: { spawnInterval: 1100, lifeTime: 1500, maxActive: 5, scale: 1.0  },
   hard:   { spawnInterval: 900,  lifeTime: 1400, maxActive: 6, scale: 0.95 }
 };
 
@@ -80,6 +81,70 @@ function pickFood() {
   const i = Math.floor(Math.random() * FOODS.length);
   return FOODS[i];
 }
+
+// ---------- Emoji Canvas Atlas ----------
+const EmojiCanvas = {
+  map: new Map(), // key = emoji|group  →  id (เช่น fgEmoji_0)
+  assetsEl: null,
+
+  ensureAssets(sceneEl) {
+    if (this.assetsEl && this.assetsEl.isConnected) return this.assetsEl;
+
+    let assets = sceneEl.querySelector('a-assets');
+    if (!assets) {
+      assets = document.createElement('a-assets');
+      sceneEl.appendChild(assets);
+    }
+    this.assetsEl = assets;
+    return assets;
+  },
+
+  groupColor(group) {
+    switch (group) {
+      case 'rice':    return '#22c55e';
+      case 'veg':     return '#16a34a';
+      case 'fruit':   return '#f97316';
+      case 'protein': return '#0ea5e9';
+      case 'dairy':   return '#a855f7';
+      default:        return '#6b7280';
+    }
+  },
+
+  getId(sceneEl, food) {
+    const key = `${food.emoji}|${food.group}`;
+    if (this.map.has(key)) return this.map.get(key);
+
+    const assets = this.ensureAssets(sceneEl);
+    const id = 'fgEmoji_' + this.map.size;
+
+    const canvas = document.createElement('canvas');
+    canvas.id = id;
+    canvas.width = 256;
+    canvas.height = 256;
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 256, 256);
+
+    // พื้นหลังวงกลมสีตามหมู่
+    const bg = this.groupColor(food.group);
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.arc(128, 128, 118, 0, Math.PI * 2);
+    ctx.fill();
+
+    // emoji ตรงกลาง
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font =
+      '200px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(food.emoji, 128, 138); // ขยับลงนิดนึงให้พอดี
+
+    assets.appendChild(canvas);
+    this.map.set(key, id);
+    return id;
+  }
+};
 
 // ---------- Quest config ----------
 const QUEST_CONFIG = {
@@ -365,20 +430,9 @@ function pushJudgeHUD(label) {
 // ---------- Target spawn / hit ----------
 function randomSpawnPos() {
   const x = (Math.random() - 0.5) * 3.0;    // -1.5 .. 1.5
-  const y = 1.1 + Math.random() * 1.4;      // 1.1 .. ~2.5
+  const y = 1.1 + Math.random() * 1.4;      // 1.1 .. 2.5
   const z = -2.4 - Math.random();           // -2.4 .. -3.4
   return { x, y, z };
-}
-
-function groupColor(group) {
-  switch (group) {
-    case 'rice':    return '#22c55e';
-    case 'veg':     return '#16a34a';
-    case 'fruit':   return '#f97316';
-    case 'protein': return '#0ea5e9';
-    case 'dairy':   return '#a855f7';
-    default:        return '#6b7280';
-  }
 }
 
 function spawnTarget() {
@@ -387,43 +441,27 @@ function spawnTarget() {
 
   const food = pickFood();
   const pos = randomSpawnPos();
+  const texId = EmojiCanvas.getId(STATE.scene, food);
 
-  const wrapper = document.createElement('a-entity');
-  wrapper.className = 'fg-target';
-  wrapper.setAttribute('data-hha-tgt', '1');
-  wrapper.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+  const radius = 0.5 * STATE.diff.scale;
 
-  const radius = 0.45 * STATE.diff.scale;
-
-  // วงกลมพื้นหลัง
-  const bg = document.createElement('a-circle');
-  bg.setAttribute('radius', radius.toString());
-  bg.setAttribute(
+  const el = document.createElement('a-circle');
+  el.className = 'fg-target';
+  el.setAttribute('data-hha-tgt', '1');
+  el.setAttribute('radius', radius.toString());
+  el.setAttribute(
     'material',
-    `shader: flat; color: ${groupColor(food.group)}; opacity: 0.9; side: double`
+    `shader: flat; src: #${texId}; transparent: true; side: double`
   );
+  el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
 
-  // emoji กลางเป้า (ใช้ text component)
-  const txt = document.createElement('a-entity');
-  txt.setAttribute('position', '0 0 0.01');
-  txt.setAttribute('text', {
-    value: food.emoji,
-    align: 'center',
-    color: '#ffffff',
-    width: 1.5
-  });
-
-  wrapper.appendChild(bg);
-  wrapper.appendChild(txt);
-
-  // hover animation
-  wrapper.setAttribute(
+  el.setAttribute(
     'animation__hover',
     `property: position; dir: alternate; dur: 900; easing: easeInOutSine; loop: true; to: ${pos.x} ${pos.y + 0.18} ${pos.z}`
   );
 
   const target = {
-    el: wrapper,
+    el,
     food,
     hit: false,
     lifeTimer: null
@@ -434,12 +472,12 @@ function spawnTarget() {
     onTargetLate(target);
   }, STATE.diff.lifeTime);
 
-  wrapper.addEventListener('click', () => {
+  el.addEventListener('click', () => {
     if (!STATE.running) return;
     onTargetHit(target);
   });
 
-  STATE.scene.appendChild(wrapper);
+  STATE.scene.appendChild(el);
   STATE.targets.push(target);
 }
 
@@ -554,6 +592,7 @@ function start(diffKey) {
   STATE.scene = scene;
   resetState(diffKey);
 
+  // fx 3D รอบเป้า
   if (window.GAME_MODULES && window.GAME_MODULES.foodGroupsFx && scene) {
     window.GAME_MODULES.foodGroupsFx.init(scene);
   }
