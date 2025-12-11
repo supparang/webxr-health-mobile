@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate + Strong FX (Single Judge Line)
+// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate
 
 'use strict';
 
@@ -219,7 +219,6 @@ export const GameEngine = (function () {
     return 'Miss';
   }
 
-  // เคยใช้ emitJudge อัปเดต HUD; ตอนนี้ให้ HUD เป็นแค่สรุปหลัก → ใช้เคลียร์เท่านั้น
   function emitJudge(label) {
     emit('hha:judge', { label });
   }
@@ -599,7 +598,7 @@ export const GameEngine = (function () {
     }
 
     const goalIdActive = g ? g.id : '';
-       const miniIdActive = m ? m.id : '';
+    const miniIdActive = m ? m.id : '';
 
     emit('hha:event', {
       sessionId,
@@ -725,17 +724,17 @@ export const GameEngine = (function () {
       if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
       coach('ได้เกราะป้องกัน 1 ชิ้น! ถ้าเผลอแตะของขยะจะไม่เสียแต้มทันที 🛡️');
       emitScore();
-      emitJudge(''); // ไม่ให้ HUD แสดงคำตัดสินซ้ำ
+      emitJudge('Shield');
 
       const P = getParticles();
       if (P) {
         P.burstAt(sx, sy, {
           color: '#60a5fa',
-          count: 22,
-          radius: 90
+          count: 10,
+          radius: 40
         });
-        P.scorePop(sx, sy - 26, 'Shield', {
-          kind: 'score-judge',
+        P.scorePop(sx, sy, 'Shield', {
+          kind: 'judge',
           judgment: 'BLOCK'
         });
       }
@@ -762,25 +761,22 @@ export const GameEngine = (function () {
       score += 80 * mult;
       scoreDelta = score - before;
       coach('ดวงดาวโบนัส! ได้แต้มพิเศษเพิ่มขึ้น ⭐');
-      emitJudge('');
+      emitJudge('Bonus');
       emitScore();
 
       const P = getParticles();
       if (P) {
         P.burstAt(sx, sy, {
           color: '#facc15',
-          count: 28,
-          radius: 120
-        });
-        P.burstAt(sx, sy, {
-          color: '#fde68a',
           count: 16,
-          radius: 170
+          radius: 70
         });
-        const txt = scoreDelta ? ('+' + scoreDelta + ' BONUS') : 'BONUS';
-        P.scorePop(sx, sy - 30, txt, {
-          kind: 'score-judge',
-          judgment: 'BONUS'
+        P.scorePop(sx, sy, '+' + scoreDelta, {
+          kind: 'score'
+        });
+        P.scorePop(sx, sy, 'BONUS', {
+          kind: 'judge',
+          judgment: 'GOOD'
         });
       }
 
@@ -807,25 +803,22 @@ export const GameEngine = (function () {
       scoreDelta = score - before;
       setFever(fever + 30, 'charge');
       coach('ได้เพชรพลังงาน! Fever ขึ้นไวขึ้น 💎');
-      emitJudge('');
+      emitJudge('Bonus');
       emitScore();
 
       const P = getParticles();
       if (P) {
         P.burstAt(sx, sy, {
           color: '#38bdf8',
-          count: 28,
-          radius: 120
-        });
-        P.burstAt(sx, sy, {
-          color: '#e0f2fe',
           count: 16,
-          radius: 170
+          radius: 70
         });
-        const txt = scoreDelta ? ('+' + scoreDelta + ' BONUS') : 'BONUS';
-        P.scorePop(sx, sy - 30, txt, {
-          kind: 'score-judge',
-          judgment: 'BONUS'
+        P.scorePop(sx, sy, '+' + scoreDelta, {
+          kind: 'score'
+        });
+        P.scorePop(sx, sy, 'BONUS', {
+          kind: 'judge',
+          judgment: 'GOOD'
         });
       }
 
@@ -893,17 +886,17 @@ export const GameEngine = (function () {
         if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
         coach('โชคดีมีเกราะกันไว้ ของขยะไม่ทำร้ายคะแนนรอบนี้ 🛡️');
         emitScore();
-        emitJudge('');
+        emitJudge('Guard');
 
         const P = getParticles();
         if (P) {
           P.burstAt(sx, sy, {
             color: '#60a5fa',
-            count: 20,
-            radius: 90
+            count: 10,
+            radius: 40
           });
-          P.scorePop(sx, sy - 24, 'BLOCK', {
-            kind: 'score-judge',
+          P.scorePop(sx, sy, 'BLOCK', {
+            kind: 'judge',
             judgment: 'BLOCK'
           });
         }
@@ -948,9 +941,8 @@ export const GameEngine = (function () {
     }
 
     emitScore();
-    emitJudge(''); // เคลียร์ HUD ให้ไม่แสดงคำตัดสินซ้ำ
+    emitJudge(judgment);
 
-    // ===== FX ตอนตีเป้า: **บรรทัดเดียว** คะแนน + คำตัดสิน + เป้าแตกสองชั้น =====
     const P = getParticles();
     if (P) {
       const jUpper = String(judgment || '').toUpperCase();
@@ -961,43 +953,25 @@ export const GameEngine = (function () {
       else if (jUpper === 'MISS') color = '#f97316';
 
       const goodFlag = kind === 'good';
-      const hitX = sx;
-      const hitY = sy;
 
-      // ระเบิดหลัก
-      P.burstAt(hitX, hitY, {
+      P.burstAt(sx, sy, {
         color,
-        count: goodFlag ? 32 : 24,
-        radius: goodFlag ? 130 : 100
+        count: goodFlag ? 14 : 10,
+        radius: goodFlag ? 60 : 50
       });
 
-      // ระเบิดรอง ดีเลย์นิดหน่อย
-      setTimeout(() => {
-        if (!running) return;
-        const P2 = getParticles();
-        if (!P2) return;
-        P2.burstAt(hitX, hitY, {
-          color,
-          count: goodFlag ? 18 : 12,
-          radius: goodFlag ? 180 : 130
-        });
-      }, 70);
-
-      // ข้อความเดียว: "+120 PERFECT" หรือ "-8 MISS" หรือถ้าไม่มีคะแนนก็แค่ "MISS"
-      let mainText = '';
+      // ★★★ ให้มีข้อความบรรทัดเดียว: คะแนน + คำตัดสิน ★★★
+      let label = jUpper;
       if (scoreDelta) {
-        const deltaTxt = scoreDelta > 0 ? ('+' + scoreDelta) : String(scoreDelta);
-        mainText = jUpper ? (deltaTxt + ' ' + jUpper) : deltaTxt;
-      } else {
-        mainText = jUpper || '';
+        const textScore = scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
+        label = textScore + ' ' + jUpper;   // ตัวอย่าง "+80 PERFECT"
       }
 
-      if (mainText) {
-        P.scorePop(hitX, hitY - 26, mainText, {
-          kind: 'score-judge',
-          judgment: jUpper
-        });
-      }
+      P.scorePop(sx, sy, label, {
+        kind: 'judge',
+        judgment: jUpper,
+        scoreDelta
+      });
     }
 
     // event log (good / junk ปกติ)
@@ -1050,7 +1024,7 @@ export const GameEngine = (function () {
       emitMiss();
       emitScore();
       pushQuest('');
-      emitJudge(''); // ไม่ให้ HUD มีข้อความ Miss ซ้ำกับ FX
+      emitJudge('Miss');
 
       const P = getParticles();
       if (P) {
@@ -1060,7 +1034,7 @@ export const GameEngine = (function () {
           radius: 45
         });
         P.scorePop(sx, sy, 'MISS', {
-          kind: 'score-judge',
+          kind: 'judge',
           judgment: 'MISS'
         });
       }
@@ -1319,8 +1293,8 @@ export const GameEngine = (function () {
     activeTargets = [];
 
     emitScore();
-    emitJudge(''); // เคลียร์ HUD ตอนเริ่มเกม
     coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
+    emitJudge('');
     pushQuest('เริ่มเกม');
 
     tickSpawn();
@@ -1353,7 +1327,6 @@ export const GameEngine = (function () {
     activeTargets = [];
 
     coach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
-    emitJudge('');
     emitEnd(reason);
   }
 
