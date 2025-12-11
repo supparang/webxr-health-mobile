@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate + FX MAX
+// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate + Strong FX
 
 'use strict';
 
@@ -734,7 +734,7 @@ export const GameEngine = (function () {
           radius: 90
         });
         P.scorePop(sx, sy - 26, 'Shield', {
-          kind: 'judge',
+          kind: 'score-judge',
           judgment: 'BLOCK'
         });
       }
@@ -776,11 +776,9 @@ export const GameEngine = (function () {
           count: 16,
           radius: 170
         });
-        if (scoreDelta) {
-          P.scorePop(sx, sy - 30, '+' + scoreDelta, { kind: 'score' });
-        }
-        P.scorePop(sx, sy + 4, 'BONUS', {
-          kind: 'judge',
+        const txt = scoreDelta ? ('+' + scoreDelta + ' BONUS') : 'BONUS';
+        P.scorePop(sx, sy - 30, txt, {
+          kind: 'score-judge',
           judgment: 'BONUS'
         });
       }
@@ -823,11 +821,9 @@ export const GameEngine = (function () {
           count: 16,
           radius: 170
         });
-        if (scoreDelta) {
-          P.scorePop(sx, sy - 30, '+' + scoreDelta, { kind: 'score' });
-        }
-        P.scorePop(sx, sy + 4, 'BONUS', {
-          kind: 'judge',
+        const txt = scoreDelta ? ('+' + scoreDelta + ' BONUS') : 'BONUS';
+        P.scorePop(sx, sy - 30, txt, {
+          kind: 'score-judge',
           judgment: 'BONUS'
         });
       }
@@ -906,7 +902,7 @@ export const GameEngine = (function () {
             radius: 90
           });
           P.scorePop(sx, sy - 24, 'BLOCK', {
-            kind: 'judge',
+            kind: 'score-judge',
             judgment: 'BLOCK'
           });
         }
@@ -953,7 +949,7 @@ export const GameEngine = (function () {
     emitScore();
     emitJudge(judgment);
 
-    // ===== FX ตอนตีเป้า: คะแนนเด้ง + คำตัดสิน + แตกกระจายสองชั้น =====
+    // ===== FX ตอนตีเป้า: **บรรทัดเดียว** คะแนน + คำตัดสิน + เป้าแตกสองชั้น =====
     const P = getParticles();
     if (P) {
       const jUpper = String(judgment || '').toUpperCase();
@@ -974,7 +970,7 @@ export const GameEngine = (function () {
         radius: goodFlag ? 130 : 100
       });
 
-      // ระเบิดรอง (ดีเลย์นิดหน่อยให้รู้สึก “แตกซ้อน”)
+      // ระเบิดรอง ดีเลย์นิดหน่อย
       setTimeout(() => {
         if (!running) return;
         const P2 = getParticles();
@@ -986,18 +982,18 @@ export const GameEngine = (function () {
         });
       }, 70);
 
-      // คะแนนเด้ง
+      // ข้อความเดียว: "+120 PERFECT" หรือ "-8 MISS" หรือถ้าไม่มีคะแนนก็แค่ "MISS"
+      let mainText = '';
       if (scoreDelta) {
-        const scoreText = scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
-        P.scorePop(hitX, hitY - 30, scoreText, {
-          kind: 'score'
-        });
+        const deltaTxt = scoreDelta > 0 ? ('+' + scoreDelta) : String(scoreDelta);
+        mainText = jUpper ? (deltaTxt + ' ' + jUpper) : deltaTxt;
+      } else {
+        mainText = jUpper || '';
       }
 
-      // คำตัดสิน (GOOD / PERFECT / LATE / MISS) แยกบรรทัด
-      if (jUpper) {
-        P.scorePop(hitX, hitY + 6, jUpper, {
-          kind: 'judge',
+      if (mainText) {
+        P.scorePop(hitX, hitY - 26, mainText, {
+          kind: 'score-judge',
           judgment: jUpper
         });
       }
@@ -1057,18 +1053,12 @@ export const GameEngine = (function () {
 
       const P = getParticles();
       if (P) {
-        // เป้าแตกแรง ๆ ตอนพลาดของดี
         P.burstAt(sx, sy, {
           color: '#f97316',
-          count: 28,
-          radius: 120
+          count: 10,
+          radius: 45
         });
-        P.burstAt(sx, sy, {
-          color: '#fed7aa',
-          count: 16,
-          radius: 170
-        });
-        P.scorePop(sx, sy + 4, 'MISS', {
+        P.scorePop(sx, sy, 'MISS', {
           kind: 'judge',
           judgment: 'MISS'
         });
