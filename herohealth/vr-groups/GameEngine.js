@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (emoji target + bright circle + FX)
-// 2025-12-10
+// Food Groups VR — Game Engine (BIG box target + emoji text + FX)
+// 2025-12-10b
 
 'use strict';
 
@@ -17,7 +17,6 @@ function clamp(v, min, max) {
   return v;
 }
 
-// ใช้ diff table ถ้ามี ไม่งั้น fallback
 function pickDifficulty(diffKey) {
   diffKey = String(diffKey || 'normal').toLowerCase();
 
@@ -26,30 +25,13 @@ function pickDifficulty(diffKey) {
   }
 
   if (diffKey === 'easy') {
-    return {
-      spawnInterval: 1200,
-      lifeMs: 2600,
-      scale: 1.2,
-      maxActive: 3,
-      goodRatio: 0.85
-    };
+    return { spawnInterval: 1200, lifeMs: 2600, scale: 1.2, maxActive: 3, goodRatio: 0.85 };
   }
   if (diffKey === 'hard') {
-    return {
-      spawnInterval: 700,
-      lifeMs: 1900,
-      scale: 0.9,
-      maxActive: 5,
-      goodRatio: 0.7
-    };
+    return { spawnInterval: 700, lifeMs: 1900, scale: 0.9, maxActive: 5, goodRatio: 0.7 };
   }
-  // normal
-  return {
-    spawnInterval: 900,
-    lifeMs: 2200,
-    scale: 1.05,
-    maxActive: 4,
-    goodRatio: 0.8
+  return { // normal
+    spawnInterval: 900, lifeMs: 2200, scale: 1.05, maxActive: 4, goodRatio: 0.8
   };
 }
 
@@ -62,10 +44,9 @@ const FOOD_GROUPS = {
   dairy:   ['🥛', '🧀', '🍨', '🍦'],
   junk:    ['🍩', '🍫', '🥤', '🍟', '🍕', '🧁']
 };
-
 const GROUP_KEYS = ['grains', 'veg', 'fruit', 'protein', 'dairy'];
 
-// ---------- World → Screen helper ----------
+// ---------- world → screen ----------
 function worldToScreen(worldPos, cameraEl) {
   if (!worldPos || !cameraEl) return null;
   const THREE = window.THREE || (A && A.THREE);
@@ -88,13 +69,7 @@ function emitHitUi(worldPos, scoreDelta, judgment, good, cameraEl) {
     y: window.innerHeight / 2
   };
   window.dispatchEvent(new CustomEvent('hha:hit-ui', {
-    detail: {
-      x: scr.x,
-      y: scr.y,
-      scoreDelta,
-      judgment,
-      good: !!good
-    }
+    detail: { x: scr.x, y: scr.y, scoreDelta, judgment, good: !!good }
   }));
 }
 
@@ -104,15 +79,11 @@ function emitMissUi(worldPos, label, cameraEl) {
     y: window.innerHeight / 2
   };
   window.dispatchEvent(new CustomEvent('hha:miss-ui', {
-    detail: {
-      x: scr.x,
-      y: scr.y,
-      judgment: label || 'MISS'
-    }
+    detail: { x: scr.x, y: scr.y, judgment: label || 'MISS' }
   }));
 }
 
-// ---------- Quest (2 goals + 3 mini) ----------
+// ---------- Quest ----------
 function createQuestModel() {
   const goalsAll = [
     {
@@ -156,11 +127,7 @@ function createQuestModel() {
     }
   ];
 
-  return {
-    goalsAll,
-    minisAll,
-    allCompleteFired: false
-  };
+  return { goalsAll, minisAll, allCompleteFired: false };
 }
 
 function emitQuestUpdate(model) {
@@ -180,16 +147,10 @@ function emitQuestUpdate(model) {
         target: currentMini.target
       } : null,
       goalsAll: model.goalsAll.map(g => ({
-        label: g.label,
-        target: g.target,
-        prog: g.prog,
-        done: g.done
+        label: g.label, target: g.target, prog: g.prog, done: g.done
       })),
       minisAll: model.minisAll.map(m => ({
-        label: m.label,
-        target: m.target,
-        prog: m.prog,
-        done: m.done
+        label: m.label, target: m.target, prog: m.prog, done: m.done
       })),
       hint: currentGoal
         ? 'โฟกัสภารกิจหลักให้ครบ แล้วเก็บ mini quest ไปด้วยนะ'
@@ -214,7 +175,6 @@ function emitQuestAllComplete(model) {
 }
 
 function updateQuestOnHit(model, groupKey) {
-  // Goal 1: balanced5
   const g1 = model.goalsAll[0];
   if (g1 && !g1.done && groupKey && GROUP_KEYS.includes(groupKey)) {
     if (!g1.hitSet.has(groupKey)) {
@@ -227,7 +187,6 @@ function updateQuestOnHit(model, groupKey) {
     }
   }
 
-  // Goal 2: goodHits
   const g2 = model.goalsAll[1];
   if (g2 && !g2.done) {
     g2.prog += 1;
@@ -237,7 +196,6 @@ function updateQuestOnHit(model, groupKey) {
     }
   }
 
-  // Mini 1: grains5
   const m1 = model.minisAll[0];
   if (m1 && !m1.done && groupKey === 'grains') {
     m1.prog += 1;
@@ -247,7 +205,6 @@ function updateQuestOnHit(model, groupKey) {
     }
   }
 
-  // Mini 2: vegFruit6
   const m2 = model.minisAll[1];
   if (m2 && !m2.done && (groupKey === 'veg' || groupKey === 'fruit')) {
     m2.prog += 1;
@@ -257,7 +214,6 @@ function updateQuestOnHit(model, groupKey) {
     }
   }
 
-  // Mini 3: proteinDairy4
   const m3 = model.minisAll[2];
   if (m3 && !m3.done && (groupKey === 'protein' || groupKey === 'dairy')) {
     m3.prog += 1;
@@ -300,27 +256,6 @@ function pickFood(diffCfg) {
   return { ch, groupKey, isGood: true };
 }
 
-function createEmojiTexture(ch, sizePx) {
-  const canvas = document.createElement('canvas');
-  canvas.width = sizePx;
-  canvas.height = sizePx;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-
-  ctx.clearRect(0, 0, sizePx, sizePx);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `${sizePx * 0.7}px system-ui, "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-  ctx.fillText(ch, sizePx / 2, sizePx / 2);
-
-  try {
-    return canvas.toDataURL('image/png');
-  } catch (err) {
-    console.warn('[GroupsVR] emoji texture fail:', err);
-    return null;
-  }
-}
-
 function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
   if (!sceneEl || !cameraEl || !A) return null;
 
@@ -334,36 +269,36 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
   holder.setAttribute('data-group', pick.groupKey);
   holder.classList.add('groups-target');
 
-  // วงกลมสีชัด ๆ (มองเห็นแน่นอน)
-  const radius = 0.38 * sizeFactor;
+  // ให้เป้า "หันหน้าหากล้องตลอด" จะได้ไม่หาย
+  holder.setAttribute('look-at', '#gj-camera');
+
+  // กล่องใหญ่สีชัด (เห็นแน่นอน)
+  const box = document.createElement('a-box');
   const baseColor = pick.isGood ? '#22c55e' : '#f97316';
+  const w = 0.6 * sizeFactor;
+  const h = 0.6 * sizeFactor;
+  box.setAttribute('width', w);
+  box.setAttribute('height', h);
+  box.setAttribute('depth', 0.05);
+  box.setAttribute('material', `color: ${baseColor}; shader: flat; opacity: 0.95; side: double`);
+  holder.appendChild(box);
 
-  const circle = document.createElement('a-circle');
-  circle.setAttribute('radius', radius);
-  circle.setAttribute(
-    'material',
-    `color: ${baseColor}; shader: flat; opacity: 0.94; side: double`
-  );
-  holder.appendChild(circle);
+  // Emoji text ตรงกลาง
+  const textEnt = document.createElement('a-entity');
+  textEnt.setAttribute('position', '0 0 0.028');
+  textEnt.setAttribute('text', {
+    value: pick.ch,
+    align: 'center',
+    color: '#020617',
+    width: 2.5,
+    wrapCount: 4
+  });
+  holder.appendChild(textEnt);
 
-  // ลองวาด emoji ทับด้านบน (ถ้าไม่ได้ วงกลมก็ยังอยู่)
-  const texUrl = createEmojiTexture(pick.ch, 256);
-  if (texUrl) {
-    const imgPlane = document.createElement('a-plane');
-    imgPlane.setAttribute('width', radius * 1.6);
-    imgPlane.setAttribute('height', radius * 1.6);
-    imgPlane.setAttribute('position', '0 0 0.01');
-    imgPlane.setAttribute(
-      'material',
-      `shader: flat; src: ${texUrl}; transparent: true; alphaTest: 0.01; side: double`
-    );
-    holder.appendChild(imgPlane);
-  }
-
-  // ตำแหน่งหน้า player
+  // ตำแหน่งด้านหน้า player
   const x = -0.9 + Math.random() * 1.8;
-  const y = -0.1 + Math.random() * 0.8;
-  const z = -2.0;
+  const y = 0.2 + Math.random() * 0.8; // ยกขึ้นมาหน่อยให้พ้นพื้น
+  const z = -2.2;
   holder.setAttribute('position', `${x} ${y} ${z}`);
 
   sceneEl.appendChild(holder);
@@ -451,23 +386,16 @@ const GameEngine = (function () {
       questModel: createQuestModel()
     };
   }
-
   resetState();
 
   function updateHUDScore() {
     window.dispatchEvent(new CustomEvent('hha:score', {
-      detail: {
-        score: state.score,
-        combo: state.combo,
-        misses: state.misses
-      }
+      detail: { score: state.score, combo: state.combo, misses: state.misses }
     }));
   }
 
   function pushJudge(label) {
-    window.dispatchEvent(new CustomEvent('hha:judge', {
-      detail: { label }
-    }));
+    window.dispatchEvent(new CustomEvent('hha:judge', { detail: { label } }));
   }
 
   function updateFever(delta) {
@@ -482,15 +410,11 @@ const GameEngine = (function () {
     if (!wasActive && nowActive) {
       state.feverActive = true;
       FeverUI.setFeverActive(true);
-      window.dispatchEvent(new CustomEvent('hha:fever', {
-        detail: { state: 'start' }
-      }));
+      window.dispatchEvent(new CustomEvent('hha:fever', { detail: { state: 'start' } }));
     } else if (wasActive && !nowActive) {
       state.feverActive = false;
       FeverUI.setFeverActive(false);
-      window.dispatchEvent(new CustomEvent('hha:fever', {
-        detail: { state: 'end' }
-      }));
+      window.dispatchEvent(new CustomEvent('hha:fever', { detail: { state: 'end' } }));
     }
   }
 
@@ -523,7 +447,6 @@ const GameEngine = (function () {
 
     updateQuestOnHit(state.questModel, groupKey);
 
-    // FX 3D + 2D
     if (worldPos) {
       const Fx3D = (window.GAME_MODULES && window.GAME_MODULES.foodGroupsFx) || null;
       if (Fx3D && Fx3D.burst) Fx3D.burst(worldPos);
@@ -537,7 +460,6 @@ const GameEngine = (function () {
 
   function handleBadHit(worldPos) {
     state.combo = 0;
-    updateHUDScore();
     state.misses += 1;
     updateHUDScore();
     pushJudge('MISS');
@@ -614,12 +536,10 @@ const GameEngine = (function () {
     state.sceneEl = sceneEl;
     state.cameraEl = cameraEl;
 
-    // init 3D FX layer
     if (window.GAME_MODULES && window.GAME_MODULES.foodGroupsFx) {
       window.GAME_MODULES.foodGroupsFx.init(sceneEl);
     }
 
-    // Fever UI
     const FeverUI = getFeverUI();
     if (FeverUI) {
       FeverUI.ensureFeverBar();
@@ -630,7 +550,6 @@ const GameEngine = (function () {
 
     state.running = true;
 
-    // เริ่ม Quest HUD + Coach
     emitQuestUpdate(state.questModel);
     window.dispatchEvent(new CustomEvent('hha:coach', {
       detail: {
