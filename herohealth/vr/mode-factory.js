@@ -1,12 +1,12 @@
 // === /herohealth/vr/mode-factory.js ===
-// Generic VR target factory (Hydration / etc.)
-// สปอนเป้าแบบ pop (โผล่แล้วหายเอง) ใช้ได้กับ PC / Mobile / VR
+// Generic VR target spawner (Hydration / อื่น ๆ)
+// แบบ pop-up (โผล่แล้วหายเอง) ใช้กับ PC / Mobile / VR
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
-/** cache texture emoji ต่อ 1 ตัว */
+// ---------- emoji → texture (canvas) cache ----------
 const EMOJI_CACHE = new Map();
 
 function makeEmojiDataURL (ch) {
@@ -17,17 +17,14 @@ function makeEmojiDataURL (ch) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
-  // background โปร่งใส
   ctx.clearRect(0, 0, size, size);
 
-  // วาด emoji ใหญ่ ๆ กลางรูป
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  // font stack ให้รองรับ emoji ส่วนใหญ่
   ctx.font =
     '200px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(ch, size / 2, size / 2 + 10);
+  ctx.fillText(ch, size / 2, size / 2 + 8);
 
   return canvas.toDataURL('image/png');
 }
@@ -39,27 +36,9 @@ function getEmojiTex (ch) {
   return EMOJI_CACHE.get(ch);
 }
 
-/**
- * boot(opts)
- *  opts:
- *    difficulty: 'easy' | 'normal' | 'hard'
- *    duration: sec (ไม่จำเป็น)
- *    modeKey: 'hydration' ฯลฯ (ไม่บังคับ)
- *
- *    pools: {
- *      good: ['💧', '🥛', ...],
- *      bad:  ['🥤', '🧋', ...]
- *    }
- *    goodRate: 0.6         // โอกาสเป้าน้ำดี
- *    powerups: ['⭐','💎','🛡️','🔥']
- *    powerRate: 0.1        // โอกาสเป้า power-up
- *    powerEvery: 7         // ทุก ๆ n ลูก ให้มี power-up อย่างน้อย 1 ครั้ง
- *
- *    spawnStyle: 'pop'     // ตอนนี้รองรับแบบเดียว
- *
- *    judge(ch, ctx)        // เรียกตอนตีโดนเป้า
- *    onExpire({ ch, isGood }) // เรียกตอนเป้าหายเอง
- */
+// ======================================================
+//  boot(opts)
+// ======================================================
 export function boot (opts = {}) {
   const A = ROOT.AFRAME;
   if (!A) {
@@ -73,7 +52,25 @@ export function boot (opts = {}) {
     return { stop () {} };
   }
 
-  // ----- Difficulty config (ง่าย / ปกติ / ยาก) -----
+  // ----- หา camera / rig แล้วผูกเป้าไว้กับ rig -----
+  const camEl =
+    sceneEl.querySelector('[camera]') ||
+    sceneEl.querySelector('a-camera');
+
+  const rootParent = (camEl && camEl.parentEl) ? camEl.parentEl : sceneEl;
+
+  let rootEl = rootParent.querySelector('#hha-target-root');
+  if (!rootEl) {
+    rootEl = document.createElement('a-entity');
+    rootEl.setAttribute('id', 'hha-target-root');
+    // วาง root ห่างจากกล้องไปข้างหน้า ~3 เมตร
+    if (!rootEl.getAttribute('position')) {
+      rootEl.setAttribute('position', '0 0 -3');
+    }
+    rootParent.appendChild(rootEl);
+  }
+
+  // ----- Difficulty config -----
   const diffRaw = String(opts.difficulty || opts.diffKey || 'normal').toLowerCase();
   const DIFF = {
     easy:   { size: 1.25, lifeMs: 2600, rateMs: 1100, maxActive: 3 },
@@ -107,23 +104,16 @@ export function boot (opts = {}) {
     active: []
   };
 
-  // รากเก็บเป้า
-  let rootEl = sceneEl.querySelector('#hha-target-root');
-  if (!rootEl) {
-    rootEl = document.createElement('a-entity');
-    rootEl.setAttribute('id', 'hha-target-root');
-    sceneEl.appendChild(rootEl);
-  }
-
-  // ---------------- Random helpers ----------------
+  // ---------- helpers ----------
   function randItem (arr) {
     if (!arr || !arr.length) return null;
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
   function pickChar () {
-    // บังคับให้มี power-up ทุก ๆ powerEvery ลูก
-    if (powerPool.length && powerEvery > 0 && state.spawned > 0 &&
+    // บังคับให้มี power-up ทุก ๆ n ลูก
+    if (powerPool.length && powerEvery > 0 &&
+        state.spawned > 0 &&
         state.spawned % powerEvery === powerEvery - 1) {
       const ch = randItem(powerPool);
       return { ch, isGood: true, isPower: true };
@@ -138,22 +128,19 @@ export function boot (opts = {}) {
     if (Math.random() < goodRate) {
       const ch = randItem(goodPool);
       return { ch, isGood: true, isPower: false };
-    } else {
-      const ch = randItem(badPool);
-      return { ch, isGood: false, isPower: false };
     }
+    const ch = randItem(badPool);
+    return { ch, isGood: false, isPower: false };
   }
 
-  // ---------------- Position helper ----------------
+  // ตำแหน่งใน local space ของ root (ซึ่งอยู่หน้าเด็กแล้ว)
   function spawnPos () {
-    // สุ่มหน้าเด็กแถว ๆ กลางจอ
-    const x = (Math.random() - 0.5) * 2.6;   // -1.3 .. 1.3
-    const y = 1.4 + Math.random() * 0.7;     // 1.4 .. 2.1
-    const z = -3.2;                          // หน้า camera
+    const x = (Math.random() - 0.5) * 2.4;   // ซ้าย–ขวา
+    const y = -0.3 + Math.random() * 1.1;    // -0.3 .. 0.8 (กลางจอ)
+    const z = 0;                             // บนระนาบเดียวกับ root
     return { x, y, z };
   }
 
-  // ---------------- Create target entity ----------------
   function createTarget (info) {
     const pos = spawnPos();
     const size = conf.size;
@@ -161,10 +148,10 @@ export function boot (opts = {}) {
     const el = document.createElement('a-entity');
     el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
     el.setAttribute('scale', `${size} ${size} ${size}`);
-    el.setAttribute('data-hha-tgt', '1');   // ให้ raycaster เลือกได้
     el.setAttribute('class', 'hha-target');
+    el.setAttribute('data-hha-tgt', '1');
 
-    // พื้นหลังวงกลม
+    // พื้นหลังวงกลมสีเขียว/ส้ม
     const bg = document.createElement('a-circle');
     bg.setAttribute('radius', 0.45);
     bg.setAttribute('color', info.isGood ? '#22c55e' : '#f97316');
@@ -185,7 +172,6 @@ export function boot (opts = {}) {
         `shader: flat; src: ${tex}; transparent: true; alphaTest: 0.01`
       );
     } else {
-      // fallback เผื่อสร้าง texture ไม่สำเร็จ
       icon.setAttribute(
         'material',
         'shader: flat; color: #ffffff; transparent: true; opacity: 0.0'
@@ -193,10 +179,10 @@ export function boot (opts = {}) {
     }
     el.appendChild(icon);
 
-    // hit-area ใส่ geometry circle โปร่งใสไว้รับ click
+    // hit area โปร่งใสครอบ emoji
     el.setAttribute(
       'geometry',
-      'primitive: circle; radius: 0.50'
+      'primitive: circle; radius: 0.55'
     );
     el.setAttribute(
       'material',
@@ -232,6 +218,16 @@ export function boot (opts = {}) {
     }
   }
 
+  function ctxFromEvent (ev) {
+    const oe = ev && ev.detail && ev.detail.originalEvent;
+    if (oe && typeof oe.clientX === 'number' && typeof oe.clientY === 'number') {
+      return { clientX: oe.clientX, clientY: oe.clientY };
+    }
+    const cx = (ROOT.innerWidth || 0) / 2;
+    const cy = (ROOT.innerHeight || 0) / 2;
+    return { clientX: cx, clientY: cy };
+  }
+
   function handleHit (rec, ctx) {
     if (!state.running || !rec || rec.hit) return;
     rec.hit = true;
@@ -244,17 +240,6 @@ export function boot (opts = {}) {
         console.warn('[HHA-Factory] judge error', err);
       }
     }
-  }
-
-  function ctxFromEvent (ev) {
-    const oe = ev && ev.detail && ev.detail.originalEvent;
-    if (oe && typeof oe.clientX === 'number' && typeof oe.clientY === 'number') {
-      return { clientX: oe.clientX, clientY: oe.clientY };
-    }
-    // fallback กลางจอ
-    const cx = (ROOT.innerWidth || 0) / 2;
-    const cy = (ROOT.innerHeight || 0) / 2;
-    return { clientX: cx, clientY: cy };
   }
 
   function spawnOne () {
@@ -277,13 +262,11 @@ export function boot (opts = {}) {
       expireId: null
     };
 
-    // click (mouse / touch) – ใช้กับ cursor rayOrigin: mouse
     el.addEventListener('click', (ev) => {
       const ctx = ctxFromEvent(ev);
       handleHit(rec, ctx);
     });
 
-    // กันบาง device ใช้ mousedown แทน
     el.addEventListener('mousedown', (ev) => {
       const ctx = ctxFromEvent(ev);
       handleHit(rec, ctx);
@@ -292,7 +275,6 @@ export function boot (opts = {}) {
     rootEl.appendChild(el);
     state.active.push(rec);
 
-    // ตั้งเวลาให้เป้าหายเอง
     if (spawnStyle === 'pop') {
       rec.expireId = ROOT.setTimeout(() => {
         if (!state.running || rec.hit) return;
@@ -301,12 +283,11 @@ export function boot (opts = {}) {
     }
   }
 
-  // เริ่ม loop spawn
+  // เริ่ม loop
   state.timerId = ROOT.setInterval(spawnOne, conf.rateMs);
-  // spawn ลูกแรกทันที
   spawnOne();
 
-  console.log('[HHA-Factory] booted', {
+  console.log('[HHA-Factory] booted (hydration)', {
     diff: diffRaw,
     size: conf.size,
     lifeMs: conf.lifeMs,
@@ -322,11 +303,9 @@ export function boot (opts = {}) {
         ROOT.clearInterval(state.timerId);
         state.timerId = null;
       }
-      // ลบเป้าทั้งหมด
+
       state.active.forEach((rec) => {
-        try {
-          removeTarget(rec, 'stop');
-        } catch {}
+        try { removeTarget(rec, 'stop'); } catch {}
       });
       state.active.length = 0;
 
