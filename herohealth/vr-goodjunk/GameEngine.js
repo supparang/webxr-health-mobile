@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate + Strong FX
+// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate + Strong FX (Single Judge Line)
 
 'use strict';
 
@@ -219,6 +219,7 @@ export const GameEngine = (function () {
     return 'Miss';
   }
 
+  // เคยใช้ emitJudge อัปเดต HUD; ตอนนี้ให้ HUD เป็นแค่สรุปหลัก → ใช้เคลียร์เท่านั้น
   function emitJudge(label) {
     emit('hha:judge', { label });
   }
@@ -598,7 +599,7 @@ export const GameEngine = (function () {
     }
 
     const goalIdActive = g ? g.id : '';
-    const miniIdActive = m ? m.id : '';
+       const miniIdActive = m ? m.id : '';
 
     emit('hha:event', {
       sessionId,
@@ -724,7 +725,7 @@ export const GameEngine = (function () {
       if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
       coach('ได้เกราะป้องกัน 1 ชิ้น! ถ้าเผลอแตะของขยะจะไม่เสียแต้มทันที 🛡️');
       emitScore();
-      emitJudge('Shield');
+      emitJudge(''); // ไม่ให้ HUD แสดงคำตัดสินซ้ำ
 
       const P = getParticles();
       if (P) {
@@ -761,7 +762,7 @@ export const GameEngine = (function () {
       score += 80 * mult;
       scoreDelta = score - before;
       coach('ดวงดาวโบนัส! ได้แต้มพิเศษเพิ่มขึ้น ⭐');
-      emitJudge('Bonus');
+      emitJudge('');
       emitScore();
 
       const P = getParticles();
@@ -806,7 +807,7 @@ export const GameEngine = (function () {
       scoreDelta = score - before;
       setFever(fever + 30, 'charge');
       coach('ได้เพชรพลังงาน! Fever ขึ้นไวขึ้น 💎');
-      emitJudge('Bonus');
+      emitJudge('');
       emitScore();
 
       const P = getParticles();
@@ -892,7 +893,7 @@ export const GameEngine = (function () {
         if (FeverUI && FeverUI.setShield) FeverUI.setShield(shieldCount);
         coach('โชคดีมีเกราะกันไว้ ของขยะไม่ทำร้ายคะแนนรอบนี้ 🛡️');
         emitScore();
-        emitJudge('Guard');
+        emitJudge('');
 
         const P = getParticles();
         if (P) {
@@ -947,7 +948,7 @@ export const GameEngine = (function () {
     }
 
     emitScore();
-    emitJudge(judgment);
+    emitJudge(''); // เคลียร์ HUD ให้ไม่แสดงคำตัดสินซ้ำ
 
     // ===== FX ตอนตีเป้า: **บรรทัดเดียว** คะแนน + คำตัดสิน + เป้าแตกสองชั้น =====
     const P = getParticles();
@@ -1049,7 +1050,7 @@ export const GameEngine = (function () {
       emitMiss();
       emitScore();
       pushQuest('');
-      emitJudge('Miss');
+      emitJudge(''); // ไม่ให้ HUD มีข้อความ Miss ซ้ำกับ FX
 
       const P = getParticles();
       if (P) {
@@ -1059,7 +1060,7 @@ export const GameEngine = (function () {
           radius: 45
         });
         P.scorePop(sx, sy, 'MISS', {
-          kind: 'judge',
+          kind: 'score-judge',
           judgment: 'MISS'
         });
       }
@@ -1318,8 +1319,8 @@ export const GameEngine = (function () {
     activeTargets = [];
 
     emitScore();
+    emitJudge(''); // เคลียร์ HUD ตอนเริ่มเกม
     coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
-    emitJudge('');
     pushQuest('เริ่มเกม');
 
     tickSpawn();
@@ -1352,6 +1353,7 @@ export const GameEngine = (function () {
     activeTargets = [];
 
     coach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
+    emitJudge('');
     emitEnd(reason);
   }
 
