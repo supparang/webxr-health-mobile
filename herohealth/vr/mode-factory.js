@@ -1,54 +1,56 @@
 // === /herohealth/vr/mode-factory.js ===
-// Generic VR target spawner (Hydration / Plate ฯลฯ)
-// เป้าแบบ pop-up (โผล่แล้วหายเอง) ใช้กับ PC / Mobile / VR
+// Generic DOM target spawner สำหรับ Hydration / Plate ฯลฯ
+// ใช้ emoji เป้าแบบป๊อปอัพ (โผล่แล้วหายเอง) รองรับ PC / Mobile / VR-Cardboard
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+const DOC  = ROOT.document || null;
 
-// ======================================================
-//  boot(opts)
-// ======================================================
-export function boot (opts = {}) {
-  const A = ROOT.AFRAME;
-  if (!A) {
-    console.warn('[HHA-Factory] AFRAME not found');
+if (!DOC) {
+  console.warn('[HHA-Factory] document not found – running in non-DOM env');
+}
+
+/**
+ * สร้างเลเยอร์สำหรับเป้า (ทับบนฉากเกม)
+ */
+function ensureLayer () {
+  if (!DOC) return null;
+  let layer = DOC.querySelector('.hha-target-layer');
+  if (!layer) {
+    layer = DOC.createElement('div');
+    layer.className = 'hha-target-layer';
+    Object.assign(layer.style, {
+      position: 'fixed',
+      inset: '0',
+      pointerEvents: 'none',
+      zIndex: '500',          // อยู่ใต้ HUD ด้านบน (ซึ่งใช้ zIndex สูงกว่า)
+      overflow: 'hidden'
+    });
+    DOC.body.appendChild(layer);
+  }
+  return layer;
+}
+
+// ===========================
+//   boot(opts)
+// ===========================
+export async function boot (opts = {}) {
+  const layer = ensureLayer();
+  if (!layer) {
     return { stop () {} };
   }
 
-  const sceneEl = document.querySelector('a-scene');
-  if (!sceneEl) {
-    console.warn('[HHA-Factory] <a-scene> not found');
-    return { stop () {} };
-  }
-
-  // ----- ใช้ parent ของ camera เป็น root ของเป้า -----
-  const camEl =
-    sceneEl.querySelector('[camera]') ||
-    sceneEl.querySelector('a-camera');
-
-  const rootParent = (camEl && camEl.parentEl) ? camEl.parentEl : sceneEl;
-
-  let rootEl = rootParent.querySelector('#hha-target-root');
-  if (!rootEl) {
-    rootEl = document.createElement('a-entity');
-    rootEl.setAttribute('id', 'hha-target-root');
-    // วาง root ห่างจากกล้องไปข้างหน้า ~3 เมตร
-    if (!rootEl.getAttribute('position')) {
-      rootEl.setAttribute('position', '0 0 -3');
-    }
-    rootParent.appendChild(rootEl);
-  }
-
-  // ----- Difficulty config -----
+  // ----- Difficulty -----
   const diffRaw = String(opts.difficulty || opts.diffKey || 'normal').toLowerCase();
   const DIFF = {
-    easy:   { size: 2.2, lifeMs: 2600, rateMs: 1100, maxActive: 3 },
-    normal: { size: 1.8, lifeMs: 2200, rateMs: 950,  maxActive: 4 },
-    hard:   { size: 1.4, lifeMs: 2000, rateMs: 820,  maxActive: 5 }
+    easy:   { size: 1.3, lifeMs: 2600, rateMs: 1100, maxActive: 3 },
+    normal: { size: 1.1, lifeMs: 2300, rateMs: 950,  maxActive: 4 },
+    hard:   { size: 0.95, lifeMs: 2100, rateMs: 820,  maxActive: 5 }
   };
   const conf = DIFF[diffRaw] || DIFF.normal;
 
+  // ----- Emoji pool -----
   const goodPool = (opts.pools && opts.pools.good && opts.pools.good.length)
     ? opts.pools.good.slice()
     : ['💧'];
@@ -103,49 +105,6 @@ export function boot (opts = {}) {
     return { ch, isGood: false, isPower: false };
   }
 
-  // ตำแหน่งใน local space ของ root (ซึ่งอยู่หน้าเด็กแล้ว)
-  function spawnPos () {
-    const x = (Math.random() - 0.5) * 2.4;   // ซ้าย–ขวา
-    const y = -0.2 + Math.random() * 1.0;    // กลางจอ
-    const z = 0;                             // ระนาบเดียวกับ root
-    return { x, y, z };
-  }
-
-  function createTarget (info) {
-    const pos = spawnPos();
-    const size = conf.size;
-
-    const el = document.createElement('a-entity');
-    el.setAttribute('class', 'hha-target clickable');
-    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-    el.setAttribute('scale', `${size} ${size} ${size}`);
-
-    // พื้นหลังวงกลม (ใหญ่และเห็นชัด)
-    const bg = document.createElement('a-circle');
-    bg.setAttribute('radius', 0.35);
-    bg.setAttribute('color', info.isGood ? '#22c55e' : '#f97316');
-    bg.setAttribute('opacity', '0.95');
-    bg.setAttribute('side', 'double');
-    el.appendChild(bg);
-
-    // emoji ตรงกลาง ใช้ a-text
-    const txt = document.createElement('a-text');
-    txt.setAttribute('value', info.ch);
-    txt.setAttribute('color', '#ffffff');
-    txt.setAttribute('align', 'center');
-    txt.setAttribute('anchor', 'center');
-    txt.setAttribute('baseline', 'center');
-    txt.setAttribute('width', '1.4');
-    txt.setAttribute('position', '0 0 0.02');
-    el.appendChild(txt);
-
-    // hit area = วงกลมพื้นหลังนี่แหละ (raycaster ยิงใส่)
-    el.setAttribute('geometry', 'primitive: circle; radius: 0.35');
-    el.setAttribute('material', 'color: #ffffff; opacity: 0.0; transparent: true');
-
-    return { el, pos };
-  }
-
   function removeTarget (rec, reason) {
     if (!rec) return;
     const idx = state.active.indexOf(rec);
@@ -173,23 +132,29 @@ export function boot (opts = {}) {
   }
 
   function ctxFromEvent (ev) {
-    const oe = ev && ev.detail && ev.detail.originalEvent;
-    if (oe && typeof oe.clientX === 'number' && typeof oe.clientY === 'number') {
+    const e = ev || {};
+    if (e.clientX != null && e.clientY != null) {
+      return { clientX: e.clientX, clientY: e.clientY };
+    }
+    const oe = e.detail && e.detail.originalEvent;
+    if (oe && oe.clientX != null && oe.clientY != null) {
       return { clientX: oe.clientX, clientY: oe.clientY };
     }
+    // fallback = กลางจอ
     const cx = (ROOT.innerWidth || 0) / 2;
     const cy = (ROOT.innerHeight || 0) / 2;
     return { clientX: cx, clientY: cy };
   }
 
-  function handleHit (rec, ctx) {
+  function handleHit (rec, ev) {
     if (!state.running || !rec || rec.hit) return;
     rec.hit = true;
+    const ctx = ctxFromEvent(ev);
     removeTarget(rec, 'hit');
 
     if (typeof opts.judge === 'function') {
       try {
-        opts.judge(rec.ch, ctx || {});
+        opts.judge(rec.ch, ctx);
       } catch (err) {
         console.warn('[HHA-Factory] judge error', err);
       }
@@ -205,30 +170,71 @@ export function boot (opts = {}) {
 
     state.spawned += 1;
 
-    const { el } = createTarget(pick);
+    const vw = ROOT.innerWidth || 360;
+    const vh = ROOT.innerHeight || 640;
+
+    // ตำแหน่งรอบ ๆ กลางจอส่วนล่าง (ไม่ไปทับ HUD บน/ล่าง)
+    const cx = vw / 2;
+    const cy = vh * 0.58;
+    const dx = (Math.random() - 0.5) * (vw * 0.45);
+    const dy = (Math.random() - 0.5) * (vh * 0.20);
+
+    const x = cx + dx;
+    const y = cy + dy;
+
+    const size = conf.size;
+
+    const el = DOC.createElement('button');
+    el.type = 'button';
+    el.className = 'hha-target';
+    el.textContent = pick.ch;
+
+    const base = 80;  // เส้นผ่านศูนย์กลางพื้นฐาน
+    const dpx = base * size;
+
+    Object.assign(el.style, {
+      position: 'absolute',
+      left: x + 'px',
+      top: y + 'px',
+      transform: 'translate(-50%, -50%)',
+      width: dpx + 'px',
+      height: dpx + 'px',
+      borderRadius: '999px',
+      border: 'none',
+      padding: '0',
+      fontSize: (44 * size) + 'px',
+      lineHeight: '1',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 0 18px rgba(0,0,0,0.45)',
+      background: pick.isGood
+        ? 'radial-gradient(circle at 30% 30%, #bbf7d0, #22c55e)'
+        : 'radial-gradient(circle at 30% 30%, #fed7aa, #f97316)',
+      color: '#ffffff',
+      pointerEvents: 'auto',
+      cursor: 'pointer',
+      outline: 'none',
+      // กันไม่ให้ไปทับ HUD ล่างมากเกิน
+      maxWidth: '24vw',
+      maxHeight: '24vw'
+    });
+
+    // กด = โดนเป้า
+    el.addEventListener('click', (ev) => handleHit(rec, ev));
+    // รองรับ mousedown เผื่ออุปกรณ์ VR ส่ง event แบบนี้
+    el.addEventListener('mousedown', (ev) => handleHit(rec, ev));
+
+    layer.appendChild(el);
+
     const rec = {
       el,
       ch: pick.ch,
       isGood: pick.isGood,
       isPower: pick.isPower,
-      bornAt: performance.now(),
       hit: false,
       expireId: null
     };
-
-    // รองรับทั้ง click บน cursor (raycaster) และ mouse/touch
-    el.addEventListener('click', (ev) => {
-      const ctx = ctxFromEvent(ev);
-      handleHit(rec, ctx);
-    });
-
-    el.addEventListener('mousedown', (ev) => {
-      const ctx = ctxFromEvent(ev);
-      handleHit(rec, ctx);
-    });
-
-    rootEl.appendChild(el);
-    state.active.push(rec);
 
     if (spawnStyle === 'pop') {
       rec.expireId = ROOT.setTimeout(() => {
@@ -236,13 +242,15 @@ export function boot (opts = {}) {
         removeTarget(rec, 'expire');
       }, conf.lifeMs);
     }
+
+    state.active.push(rec);
   }
 
-  // เริ่ม loop
+  // เริ่ม loop spawn
   state.timerId = ROOT.setInterval(spawnOne, conf.rateMs);
   spawnOne();
 
-  console.log('[HHA-Factory] booted', {
+  console.log('[HHA-Factory] DOM spawner booted', {
     diff: diffRaw,
     size: conf.size,
     lifeMs: conf.lifeMs,
