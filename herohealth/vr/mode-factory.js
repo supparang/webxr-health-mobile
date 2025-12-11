@@ -1,298 +1,323 @@
 // === /herohealth/vr/mode-factory.js ===
-// Generic target spawner for Hero Health VR (Hydration VR ฯลฯ)
+// Generic VR target spawner (Hydration VR / others)
+// ใช้กับ A-Frame + cursor raycaster
+// รับ config จาก *.safe.js เช่น hydration.safe.js
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
-const A = ROOT.AFRAME || null;
 
-// ---------- เลือก config จาก HHA_DIFF_TABLE + fallback ----------
-function pickEngineConfig(cfg) {
-  const diff = String(cfg.difficulty || 'normal').toLowerCase();
-  const modeKey = cfg.modeKey || 'hydration';
+/**
+ * opts:
+ *  - difficulty: 'easy' | 'normal' | 'hard'
+ *  - duration: seconds (ไม่ได้ใช้โดยตรง แค่เผื่อไว้)
+ *  - modeKey: 'hydration' ฯลฯ (ไว้ดึงค่าจาก HHA_DIFF_TABLE ถ้ามี)
+ *  - pools: { good:[], bad:[] }
+ *  - goodRate: 0..1   (สัดส่วนเป้าน้ำดี)
+ *  - powerups: []     (⭐ 💎 🛡️ 🔥)
+ *  - powerRate: 0..1  (โอกาสเป้า power-up)
+ *  - powerEvery: n    (ทุก n ลูกอย่างน้อยมี power 1 ครั้ง ประมาณ ๆ)
+ *  - spawnStyle: 'pop' | 'fall' (ตอนนี้รองรับ pop เป็นหลัก)
+ *  - judge(ch, ctx)   (เรียกจาก safe.js เวลาโดนตี)
+ *  - onExpire(ev)     (เรียกเมื่อเป้าหายเอง)
+ */
+export async function boot (opts = {}) {
+  const A = ROOT.AFRAME;
+  if (!A) {
+    console.error('[HHA-Factory] AFRAME not found');
+    return dummyInstance();
+  }
 
-  // fallback factor ตามระดับ (ถ้าไม่มี HHA_DIFF_TABLE.hydration)
-  let diffSizeFactor = 1.0;
-  if (diff === 'easy') diffSizeFactor = 1.15;
-  else if (diff === 'hard') diffSizeFactor = 0.9;
+  const sceneEl = document.querySelector('a-scene');
+  if (!sceneEl) {
+    console.error('[HHA-Factory] <a-scene> not found in DOM');
+    return dummyInstance();
+  }
 
-  const base = {
-    SPAWN_INTERVAL: 900,
-    ITEM_LIFETIME: 2400,
-    MAX_ACTIVE: 4,
-    SIZE_FACTOR: diffSizeFactor,
-    TYPE_WEIGHTS: { good: 70, bad: 30 }
+  const cameraEl =
+    sceneEl.querySelector('#hydration-camera') ||
+    sceneEl.querySelector('a-camera');
+
+  if (!cameraEl) {
+    console.warn('[HHA-Factory] camera element not found, use scene.camera');
+  }
+
+  const THREE = A.THREE;
+
+  // ---------- Difficulty config (อ่านจาก HHA_DIFF_TABLE ถ้ามี) ----------
+  const diffKey = String(opts.difficulty || 'normal').toLowerCase();
+  const modeKey = String(opts.modeKey || 'default').toLowerCase();
+
+  const tableRoot = ROOT.HHA_DIFF_TABLE || {};
+  const modeTable = tableRoot[modeKey] || tableRoot.default || null;
+  const row = modeTable ? (modeTable[diffKey] || modeTable.normal) : null;
+
+  // ค่า default กันเหนียว
+  const cfg = {
+    spawnInterval: row?.spawnInterval || 950,   // ms
+    lifeTime:      row?.lifeTime      || 2600,  // ms
+    maxActive:     row?.maxActive     || 4,
+    scale:         row?.scale         || 1.0,
+    // เพิ่มจาก opts
+    goodRate:      clamp01(opts.goodRate, 0.65),
+    powerRate:     clamp01(opts.powerRate, 0.12),
+    powerEvery:    Number.isFinite(opts.powerEvery) ? opts.powerEvery : 7,
+    spawnStyle:    opts.spawnStyle || 'pop'
   };
 
+  // ---------- Pools ----------
+  const goodPool   = (opts.pools && opts.pools.good) || [];
+  const badPool    = (opts.pools && opts.pools.bad)  || [];
+  const powerPool  = Array.isArray(opts.powerups) ? opts.powerups.slice() : [];
+
+  if (!goodPool.length && !badPool.length) {
+    console.warn('[HHA-Factory] pools.good / pools.bad ว่างหมด – ใช้ fallback 💧 / 🥤');
+    goodPool.push('💧');
+    badPool.push('🥤');
+  }
+
+  const judgeFn   = typeof opts.judge === 'function' ? opts.judge : null;
+  const expireFn  = typeof opts.onExpire === 'function' ? opts.onExpire : null;
+
+  // ---------- Root entity ----------
+  let rootEl = sceneEl.querySelector('#hha-target-root');
+  if (!rootEl) {
+    rootEl = document.createElement('a-entity');
+    rootEl.setAttribute('id', 'hha-target-root');
+    sceneEl.appendChild(rootEl);
+  }
+
+  // ---------- Emoji -> material helper ----------
+  // ถ้ามี emojiImage แบบ global ก็ใช้ texture, ถ้าไม่มีก็ใช้ text component แทน
+  let emojiImageFn = null;
   try {
-    const table = ROOT.HHA_DIFF_TABLE && ROOT.HHA_DIFF_TABLE[modeKey];
-    const row   = table && table[diff];
-    const eng   = row && row.engine;
-    if (!eng) return base;
+    if (ROOT.GAME_MODULES && ROOT.GAME_MODULES.emojiImage) {
+      emojiImageFn = ROOT.GAME_MODULES.emojiImage;
+    } else if (typeof ROOT.emojiImage === 'function') {
+      emojiImageFn = ROOT.emojiImage;
+    }
+  } catch (e) { /* ignore */ }
 
+  function setEmojiVisual(entity, ch) {
+    if (emojiImageFn) {
+      const url = emojiImageFn(ch);
+      if (url) {
+        entity.setAttribute(
+          'material',
+          `shader: flat; src: url(${url}); transparent: true; alphaTest: 0.01`
+        );
+        entity.setAttribute(
+          'geometry',
+          `primitive: plane; height: ${0.72 * cfg.scale}; width: ${0.72 * cfg.scale}`
+        );
+        return;
+      }
+    }
+    // fallback เป็น text
+    entity.setAttribute('geometry',
+      `primitive: circle; radius: ${0.32 * cfg.scale}`);
+    entity.setAttribute('material',
+      'color: #0f172a; opacity: 0.9; shader: flat;');
+    entity.setAttribute('text',
+      `value: ${ch}; align: center; color: #e5e7eb; width: 3;`);
+  }
+
+  // ---------- State ----------
+  let running = true;
+  let spawnTimer = null;
+  let shotCount = 0;
+
+  const active = []; // { el, ch, kind, bornAt, lifeTimer, hit }
+
+  function dummyInstance () {
     return {
-      SPAWN_INTERVAL: eng.SPAWN_INTERVAL ?? base.SPAWN_INTERVAL,
-      ITEM_LIFETIME:  eng.ITEM_LIFETIME  ?? base.ITEM_LIFETIME,
-      MAX_ACTIVE:     eng.MAX_ACTIVE     ?? base.MAX_ACTIVE,
-      SIZE_FACTOR:    eng.SIZE_FACTOR    ?? base.SIZE_FACTOR,
-      TYPE_WEIGHTS:   eng.TYPE_WEIGHTS   || base.TYPE_WEIGHTS
+      stop () {}
     };
-  } catch (err) {
-    console.warn('[HHA mode-factory] pickEngineConfig error', err);
-    return base;
   }
-}
 
-// ---------- random ตาม weight ----------
-function pickFromWeights(weights, fallbackList, rnd = Math.random) {
-  if (!weights) {
-    const list = fallbackList || [];
-    if (!list.length) return null;
-    return list[Math.floor(rnd() * list.length)];
+  function clamp01 (v, fallback) {
+    v = Number(v);
+    if (!Number.isFinite(v)) return fallback;
+    if (v < 0) return 0;
+    if (v > 1) return 1;
+    return v;
   }
-  let total = 0;
-  for (const k in weights) total += Math.max(0, Number(weights[k]) || 0);
-  if (total <= 0) return null;
 
-  let r = rnd() * total;
-  for (const k in weights) {
-    const w = Math.max(0, Number(weights[k]) || 0);
-    if (!w) continue;
-    if (r < w) return k;
-    r -= w;
+  function pick (arr) {
+    if (!arr || !arr.length) return null;
+    return arr[(Math.random() * arr.length) | 0];
   }
-  return null;
-}
 
-function pickCharForType(type, cfg) {
-  const pools = cfg.pools || {};
-  if (type === 'good') {
-    const arr = pools.good || [];
-    if (!arr.length) return null;
-    return arr[Math.floor(Math.random() * arr.length)];
+  // ---------- Spawn position ----------
+  function getSpawnPosition () {
+    const baseDist = 3.0;
+    let origin = new THREE.Vector3(0, 1.6, 0);
+    let dir = new THREE.Vector3(0, 0, -1);
+
+    const cam = cameraEl || (sceneEl.camera && sceneEl.camera.el);
+    if (cam && cam.object3D) {
+      cam.object3D.getWorldPosition(origin);
+      cam.object3D.getWorldDirection(dir);
+    }
+
+    const center = origin.clone().add(dir.multiplyScalar(baseDist));
+
+    // กระจายซ้าย-ขวา / บน-ล่าง นิดหน่อย
+    const side = (Math.random() - 0.5) * 1.8;  // -0.9..0.9
+    const up   = (Math.random() - 0.2) * 1.2;  // ประมาณ 0.4..1.0 เหนือระดับตา
+
+    center.x += side;
+    center.y += up;
+
+    return center;
   }
-  if (type === 'bad' || type === 'junk') {
-    const arr = pools.bad || [];
-    if (!arr.length) return null;
-    return arr[Math.floor(Math.random() * arr.length)];
+
+  // ---------- สร้างเป้า ----------
+  function spawnOne () {
+    if (!running) return;
+
+    cleanupDead();
+    if (active.length >= cfg.maxActive) return;
+
+    // เลือกชนิด: power / good / bad
+    let kind = 'good';
+    const r = Math.random();
+    if (powerPool.length && (r < cfg.powerRate || (shotCount + 1) % cfg.powerEvery === 0)) {
+      kind = 'power';
+    } else if (r < cfg.powerRate + cfg.goodRate) {
+      kind = 'good';
+    } else {
+      kind = 'bad';
+    }
+
+    let ch = null;
+    if (kind === 'power') {
+      ch = pick(powerPool) || pick(goodPool) || pick(badPool);
+    } else if (kind === 'good') {
+      ch = pick(goodPool) || pick(powerPool) || pick(badPool);
+    } else {
+      ch = pick(badPool) || pick(goodPool) || pick(powerPool);
+    }
+    if (!ch) return;
+
+    const pos = getSpawnPosition();
+
+    const el = document.createElement('a-entity');
+    el.setAttribute('data-hha-tgt', '1');
+    el.setAttribute('data-hha-ch', ch);
+
+    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+    el.setAttribute('rotation', '0 0 0');
+
+    setEmojiVisual(el, ch);
+
+    rootEl.appendChild(el);
+
+    const bornAt = performance.now();
+    const rec = { el, ch, kind, bornAt, hit: false, lifeTimer: null };
+    active.push(rec);
+
+    // อายุของเป้า
+    rec.lifeTimer = ROOT.setTimeout(() => {
+      if (!running || rec.hit) return;
+      destroyTarget(rec, /* byExpire */ true);
+    }, cfg.lifeTime);
+
+    // รับ click จาก cursor raycaster
+    el.addEventListener('click', (ev) => {
+      if (!running || rec.hit) return;
+      rec.hit = true;
+      handleHit(rec, ev);
+    });
+
+    shotCount++;
   }
-  const powerups = cfg.powerups || [];
-  if (!powerups.length) return null;
-  return powerups[Math.floor(Math.random() * powerups.length)];
-}
 
-// ================= VR TARGET =================
-function createVrTarget(sceneEl, ch, cfg, engineCfg) {
-  const goodPool = cfg.pools?.good || [];
-  const badPool  = cfg.pools?.bad  || [];
+  function destroyTarget (rec, byExpire) {
+    if (!rec) return;
+    if (rec.lifeTimer) {
+      ROOT.clearTimeout(rec.lifeTimer);
+      rec.lifeTimer = null;
+    }
+    const idx = active.indexOf(rec);
+    if (idx >= 0) active.splice(idx, 1);
+    if (rec.el && rec.el.parentNode) {
+      rec.el.parentNode.removeChild(rec.el);
+    }
 
-  const sizeBase = 0.85;
-  const size = sizeBase * (engineCfg.SIZE_FACTOR || 1.0);
+    if (byExpire && expireFn) {
+      const isGood = rec.kind === 'good';
+      try {
+        expireFn({ ch: rec.ch, isGood });
+      } catch (e) {
+        console.warn('[HHA-Factory] onExpire error', e);
+      }
+    }
+  }
 
-  const el = document.createElement('a-entity');
-  el.classList.add('hha-target-vr', 'clickable');
-  el.setAttribute('data-hha-tgt', '1');
-  el.setAttribute('data-char', ch);
+  function cleanupDead () {
+    for (let i = active.length - 1; i >= 0; i--) {
+      const rec = active[i];
+      if (!rec.el || !rec.el.parentNode) {
+        if (rec.lifeTimer) ROOT.clearTimeout(rec.lifeTimer);
+        active.splice(i, 1);
+      }
+    }
+  }
 
-  const x = (Math.random() * 2 - 1) * 1.4;
-  const y = 1.5 + (Math.random() * 0.8 - 0.4);
-  const z = -3.0;
-  el.setAttribute('position', `${x} ${y} ${z}`);
+  // ---------- เมื่อโดนตี ----------
+  function handleHit (rec, ev) {
+    // หา screen coord คร่าว ๆ (ใช้กลางจอถ้าหา MouseEvent ไม่ได้)
+    let cx = ROOT.innerWidth / 2;
+    let cy = ROOT.innerHeight / 2;
 
-  // emoji plane
-  el.setAttribute('geometry',
-    `primitive: plane; width: ${size}; height: ${size}`);
-  el.setAttribute(
-    'material',
-    'shader: flat; color: #ffffff; transparent: true; opacity: 0.0'
-  );
-  el.setAttribute('text', {
-    value: ch,
-    align: 'center',
-    color: '#ffffff',
-    width: 4,
-    baseline: 'center'
-  });
-
-  // ใส่ plate ด้านหลังให้เห็นชัด
-  const plate = document.createElement('a-plane');
-  plate.setAttribute('width',  size * 1.08);
-  plate.setAttribute('height', size * 1.08);
-  plate.setAttribute('position', '0 0 -0.01');
-  plate.setAttribute(
-    'material',
-    'color: #020617; opacity: 0.88; shader: flat'
-  );
-  el.appendChild(plate);
-
-  const judgeFn = cfg.judge || (() => {});
-  el.addEventListener('click', (ev) => {
-    const intersection = ev.detail && ev.detail.intersection;
-    const p = intersection && intersection.point;
-    const cx = ROOT.innerWidth / 2;
-    const cy = ROOT.innerHeight / 2;
+    const srcEvt = ev?.detail?.srcEvent || ev?.detail?.originalEvent || ev?.detail?.intersection?.event?.srcEvent;
+    if (srcEvt && typeof srcEvt.clientX === 'number') {
+      cx = srcEvt.clientX;
+      cy = srcEvt.clientY;
+    }
 
     const ctx = {
-      char: ch,
-      isGood: goodPool.includes(ch),
-      isBad:  badPool.includes(ch),
-      clientX: cx,
-      clientY: cy,
-      cx,
-      cy,
-      worldX: p?.x,
-      worldY: p?.y,
-      worldZ: p?.z
-    };
-    judgeFn(ch, ctx);
-  });
-
-  sceneEl.appendChild(el);
-  return el;
-}
-
-// ================= DOM TARGET (MOBILE / FALLBACK) =================
-function createDomTarget(ch, cfg, engineCfg) {
-  const goodPool = cfg.pools?.good || [];
-  const badPool  = cfg.pools?.bad  || [];
-
-  const wrap = document.body;
-
-  // base size 78px แล้วคูณ factor ตาม diff
-  const size = 78 * (engineCfg.SIZE_FACTOR || 1.0);
-
-  const el = document.createElement('div');
-  el.className = 'hha-target-dom';
-  el.dataset.char = ch;
-
-  el.style.position = 'fixed';
-  el.style.width = el.style.height = size + 'px';
-  el.style.fontSize = size * 0.78 + 'px';
-  el.style.display = 'flex';
-  el.style.alignItems = 'center';
-  el.style.justifyContent = 'center';
-  el.style.borderRadius = '999px';
-  el.style.background = 'rgba(15,23,42,0.95)';
-  el.style.boxShadow = '0 18px 35px rgba(0,0,0,0.55)';
-  el.style.zIndex = 400;
-  el.style.userSelect = 'none';
-
-  const x = 0.5 + (Math.random() * 0.6 - 0.3);
-  const y = 0.52 + (Math.random() * 0.28 - 0.14);
-  el.style.left = (x * 100) + '%';
-  el.style.top  = (y * 100) + '%';
-  el.style.transform = 'translate(-50%, -50%)';
-
-  el.textContent = ch;
-
-  const judgeFn = cfg.judge || (() => {});
-  el.addEventListener('click', (ev) => {
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width  / 2;
-    const cy = rect.top  + rect.height / 2;
-
-    // ใช้จุดกลางเป้าเป็นพิกัด effect (จะได้แตกตรง emoji)
-    const ctx = {
-      char: ch,
-      isGood: goodPool.includes(ch),
-      isBad:  badPool.includes(ch),
+      entity: rec.el,
+      ch: rec.ch,
+      kind: rec.kind,
       clientX: cx,
       clientY: cy,
       cx,
       cy
     };
-    judgeFn(ch, ctx);
-  });
 
-  wrap.appendChild(el);
-  return el;
-}
-
-// ================= BOOT =================
-export async function boot(cfg = {}) {
-  const engineCfg = pickEngineConfig(cfg);
-  const onExpire  = cfg.onExpire || (() => {});
-
-  const sceneEl = (A && document.querySelector('a-scene')) || null;
-
-  // desktop = VR target, mobile = DOM target
-  let useVrTargets = !!(A && sceneEl);
-  try {
-    if (A && A.utils && A.utils.device && A.utils.device.isMobile()) {
-      useVrTargets = false;
-    }
-  } catch (err) {
-    // ignore
-  }
-
-  const active = new Set();
-  let stopped  = false;
-
-  function destroyTarget(el, reason) {
-    if (!el) return;
-    if (!active.has(el)) {
-      if (el.parentNode) el.parentNode.removeChild(el);
-      return;
-    }
-    active.delete(el);
-
-    if (el.parentNode) el.parentNode.removeChild(el);
-
-    if (reason === 'expire') {
-      let ch = null;
-      if (el.getAttribute) {
-        ch = el.getAttribute('data-char') || el.dataset?.char;
-      } else if (el.dataset) {
-        ch = el.dataset.char;
+    if (judgeFn) {
+      try {
+        judgeFn(rec.ch, ctx);
+      } catch (e) {
+        console.warn('[HHA-Factory] judge error', e);
       }
-      const pools = cfg.pools || {};
-      const isGood = (pools.good || []).includes(ch);
-      onExpire({ char: ch, isGood });
     }
+
+    destroyTarget(rec, /* byExpire */ false);
   }
 
-  function spawnOne() {
-    if (stopped) return;
-    if (active.size >= (engineCfg.MAX_ACTIVE || 4)) return;
+  // ---------- Start / Stop ----------
+  function startLoop () {
+    if (spawnTimer) ROOT.clearInterval(spawnTimer);
+    spawnTimer = ROOT.setInterval(spawnOne, cfg.spawnInterval);
+  }
 
-    let typeKey = pickFromWeights(engineCfg.TYPE_WEIGHTS, null);
-    if (!typeKey) typeKey = 'good';
-    if (typeKey === 'junk') typeKey = 'bad';
+  startLoop();
 
-    const ch = pickCharForType(typeKey, cfg);
-    if (!ch) return;
-
-    const el = useVrTargets && sceneEl
-      ? createVrTarget(sceneEl, ch, cfg, engineCfg)
-      : createDomTarget(ch, cfg, engineCfg);
-
-    active.add(el);
-
-    // ตีแล้วให้หายทันที (hit) เพื่อให้รู้สึก responsive แบบ GoodJunk
-    const hitHandler = () => destroyTarget(el, 'hit');
-    el.addEventListener('click', hitHandler, { once: true });
-
-    // หมดอายุเอง (ไม่โดนตี) → expire
-    const life = engineCfg.ITEM_LIFETIME || 2400;
-    setTimeout(() => {
-      if (!stopped && active.has(el)) {
-        destroyTarget(el, 'expire');
+  return {
+    stop (reason = 'manual') {
+      running = false;
+      if (spawnTimer) {
+        ROOT.clearInterval(spawnTimer);
+        spawnTimer = null;
       }
-    }, life);
-  }
-
-  const interval = engineCfg.SPAWN_INTERVAL || 900;
-  const timerId = setInterval(spawnOne, interval);
-
-  function stop(reason = 'manual') {
-    if (stopped) return;
-    stopped = true;
-    clearInterval(timerId);
-    active.forEach(el => destroyTarget(el, 'cleanup'));
-    active.clear();
-  }
-
-  return { stop };
+      while (active.length) {
+        destroyTarget(active.pop(), false);
+      }
+    }
+  };
 }
 
 export default { boot };
