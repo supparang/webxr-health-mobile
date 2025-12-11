@@ -18,14 +18,15 @@
         inset: '0',
         pointerEvents: 'none',
         zIndex: 700,
-        overflow: 'hidden'
+        // ให้ dot / bubble หลุดขอบจอได้ ไม่โดนตัด
+        overflow: 'visible'
       });
       doc.body.appendChild(layer);
     }
     return layer;
   }
 
-  // ----- คะแนนเด้ง +ข้อความตัดสิน -----
+  // ----- คะแนนเด้ง + ข้อความตัดสิน -----
   function scorePop(x, y, value, opts) {
     opts = opts || {};
     const layer = ensureLayer();
@@ -164,6 +165,7 @@
           color = '#facc15';
         }
 
+        // ระเบิดกลางจอเมื่อเกมยิง hha:judge
         burstAt(cx, cy, { color: color, good: good });
       } catch (err) {
         // กัน error เล็ก ๆ ไม่ให้พังเกม
