@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Emoji Target + Quest + Fever + HUD Events
-// ใช้กับ groups-vr.html (import { GameEngine } from './vr-groups/GameEngine.js')
+// Food Groups VR — Emoji Target (a-text) + Quest + Fever + HUD Events
+// ใช้กับ groups-vr.html  → import { GameEngine } from './vr-groups/GameEngine.js'
 
 'use strict';
 
@@ -10,41 +10,15 @@ const THREE = A && A.THREE ? A.THREE : null;
 const FEVER_MAX = 100;
 
 // ---------- Helper ----------
-function clamp (v, min, max) {
+function clamp(v, min, max) {
   v = Number(v) || 0;
   if (v < min) return min;
   if (v > max) return max;
   return v;
 }
 
-// สร้าง texture emoji จาก canvas แล้ว cache ไว้
-const emojiCache = {};
-function makeEmojiTexture(char) {
-  if (emojiCache[char]) return emojiCache[char];
-
-  const canvas = document.createElement('canvas');
-  const size = 256;
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, size, size);
-
-  ctx.fillStyle = 'rgba(0,0,0,0)';
-  ctx.fillRect(0, 0, size, size);
-
-  ctx.font = '220px system-ui, -apple-system, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(char, size / 2, size / 2 + 10);
-
-  const url = canvas.toDataURL('image/png');
-  emojiCache[char] = url;
-  return url;
-}
-
-// world -> screen (px) สำหรับเอาไปยิง effect 2D
-function worldToScreen (worldVec, sceneEl) {
+// world → screen (สำหรับ FX 2D)
+function worldToScreen(worldVec, sceneEl) {
   if (!A || !THREE || !sceneEl || !sceneEl.renderer || !sceneEl.camera) return null;
   const renderer = sceneEl.renderer;
   const camera = sceneEl.camera;
@@ -95,14 +69,14 @@ const FOODS = [
   { emoji: '🧀', group: 'dairy',   good: true },
   { emoji: '🍦', group: 'dairy',   good: true },
 
-  // junk = กดแล้ว miss
+  // junk = กดแล้วถือว่า miss
   { emoji: '🍟', group: 'junk',    good: false },
   { emoji: '🍕', group: 'junk',    good: false },
   { emoji: '🧋', group: 'junk',    good: false },
   { emoji: '🍩', group: 'junk',    good: false }
 ];
 
-function pickFood () {
+function pickFood() {
   const i = Math.floor(Math.random() * FOODS.length);
   return FOODS[i];
 }
@@ -196,7 +170,7 @@ function resetState(diffKey) {
   STATE.feverActive = false;
 
   STATE.totalGoodHits = 0;
-  STATE.groupHits = { rice:0, veg:0, fruit:0, protein:0, dairy:0 };
+  STATE.groupHits = { rice: 0, veg: 0, fruit: 0, protein: 0, dairy: 0 };
 
   STATE.quests.goals = QUEST_CONFIG.goals.map(g => ({
     id: g.id,
@@ -224,7 +198,6 @@ function updateFever(delta) {
   const nowActive = STATE.fever >= 80;
   STATE.feverActive = nowActive;
 
-  // ยิง event ไป ui-fever.js
   window.dispatchEvent(new CustomEvent('hha:fever', {
     detail: {
       value: STATE.fever,
@@ -255,18 +228,15 @@ function recalcGoals() {
     goal.done = !!done;
   };
 
-  // goal: มีครบ 5 หมู่ อย่างน้อยหมู่ละ 1
   const groupsDone = ['rice','veg','fruit','protein','dairy']
     .reduce((acc, key) => acc + (STATE.groupHits[key] > 0 ? 1 : 0), 0);
   setGoal('all-groups', groupsDone, groupsDone >= 5);
 
-  // goal: good hits >= 20
   setGoal('good-20', STATE.totalGoodHits, STATE.totalGoodHits >= 20);
 }
 
-function recalcMini () {
+function recalcMini() {
   const minis = STATE.quests.minis;
-
   const activeIdx = STATE.quests.activeMiniIndex;
   const mini = minis[activeIdx];
   if (!mini || mini.done) return;
@@ -353,13 +323,12 @@ function broadcastQuest() {
       goalsAll,
       minisAll,
       hint: currentGoal && !currentGoal.done
-        ? 'ไฟล์สะภารกิจหลักให้ครบ แล้วเก็บ mini quest ไปด้วยนะ'
+        ? 'ไฟล์ภารกิจหลักให้ครบ แล้วเก็บ mini quest ไปด้วยนะ'
         : ''
     }
   }));
 }
 
-// เรียกตอนตีโดนอาหารดี
 function onGoodHitForQuests(food) {
   if (!food || !food.good) return;
 
@@ -377,7 +346,7 @@ function onGoodHitForQuests(food) {
 }
 
 // ---------- HUD score helpers ----------
-function pushScoreHUD () {
+function pushScoreHUD() {
   window.dispatchEvent(new CustomEvent('hha:score', {
     detail: {
       score: STATE.score,
@@ -401,6 +370,17 @@ function randomSpawnPos() {
   return { x, y, z };
 }
 
+function groupColor(group) {
+  switch (group) {
+    case 'rice':    return '#22c55e';
+    case 'veg':     return '#16a34a';
+    case 'fruit':   return '#f97316';
+    case 'protein': return '#0ea5e9';
+    case 'dairy':   return '#a855f7';
+    default:        return '#6b7280';
+  }
+}
+
 function spawnTarget() {
   if (!STATE.scene || !STATE.running || !A) return;
   if (STATE.targets.length >= STATE.diff.maxActive) return;
@@ -408,49 +388,58 @@ function spawnTarget() {
   const food = pickFood();
   const pos = randomSpawnPos();
 
-  const el = document.createElement('a-entity');
-  el.className = 'fg-target';
-  el.setAttribute('data-hha-tgt', '1');
+  const wrapper = document.createElement('a-entity');
+  wrapper.className = 'fg-target';
+  wrapper.setAttribute('data-hha-tgt', '1');
+  wrapper.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
 
   const radius = 0.45 * STATE.diff.scale;
 
-  // แผ่นกลม + emoji texture
-  const tex = makeEmojiTexture(food.emoji);
-
-  el.setAttribute('geometry', `primitive: circle; radius: ${radius}`);
-  el.setAttribute(
+  // วงกลมพื้นหลัง
+  const bg = document.createElement('a-circle');
+  bg.setAttribute('radius', radius.toString());
+  bg.setAttribute(
     'material',
-    `shader: flat; src: ${tex}; transparent: true; alphaTest: 0.05; side: double`
+    `shader: flat; color: ${groupColor(food.group)}; opacity: 0.9; side: double`
   );
-  el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
 
-  // ลอยขึ้นลงนิดหน่อย
-  el.setAttribute(
+  // emoji กลางเป้า (ใช้ text component)
+  const txt = document.createElement('a-entity');
+  txt.setAttribute('position', '0 0 0.01');
+  txt.setAttribute('text', {
+    value: food.emoji,
+    align: 'center',
+    color: '#ffffff',
+    width: 1.5
+  });
+
+  wrapper.appendChild(bg);
+  wrapper.appendChild(txt);
+
+  // hover animation
+  wrapper.setAttribute(
     'animation__hover',
     `property: position; dir: alternate; dur: 900; easing: easeInOutSine; loop: true; to: ${pos.x} ${pos.y + 0.18} ${pos.z}`
   );
 
-  // เก็บ state ของ target
   const target = {
-    el,
+    el: wrapper,
     food,
     hit: false,
     lifeTimer: null
   };
 
-  // อายุเป้า (หมดเวลา = late)
   target.lifeTimer = setTimeout(() => {
     if (!STATE.running || target.hit) return;
     onTargetLate(target);
   }, STATE.diff.lifeTime);
 
-  // handle click
-  el.addEventListener('click', () => {
+  wrapper.addEventListener('click', () => {
     if (!STATE.running) return;
     onTargetHit(target);
   });
 
-  STATE.scene.appendChild(el);
+  STATE.scene.appendChild(wrapper);
   STATE.targets.push(target);
 }
 
@@ -489,7 +478,6 @@ function sendHitFx(target, judgment, isGood) {
     window.dispatchEvent(new CustomEvent('hha:miss-ui', { detail }));
   }
 
-  // 3D burst (ถ้ามี foodGroupsFx)
   if (window.GAME_MODULES && window.GAME_MODULES.foodGroupsFx) {
     window.GAME_MODULES.foodGroupsFx.burst(world);
   }
@@ -515,7 +503,6 @@ function onTargetHit(target) {
     pushJudgeHUD(STATE.combo >= 10 ? 'PERFECT' : 'GOOD');
     sendHitFx(target, STATE.combo >= 10 ? 'PERFECT' : 'GOOD', true);
   } else {
-    // click junk = miss
     STATE.combo = 0;
     STATE.misses += 1;
     updateFever(-18);
@@ -533,7 +520,6 @@ function onTargetLate(target) {
   removeTarget(target);
 
   if (food.good) {
-    // เป้าดีหลุด = LATE + miss
     STATE.combo = 0;
     STATE.misses += 1;
     updateFever(-12);
@@ -568,14 +554,12 @@ function start(diffKey) {
   STATE.scene = scene;
   resetState(diffKey);
 
-  // init 3D FX layer ถ้ามี
   if (window.GAME_MODULES && window.GAME_MODULES.foodGroupsFx && scene) {
     window.GAME_MODULES.foodGroupsFx.init(scene);
   }
 
   STATE.running = true;
 
-  // HUD เริ่มต้น
   pushScoreHUD();
   pushJudgeHUD('');
   broadcastQuest();
@@ -595,7 +579,6 @@ function stop(reason) {
   });
   STATE.targets = [];
 
-  // ส่งสรุปให้ HUD + logger
   window.dispatchEvent(new CustomEvent('hha:end', {
     detail: {
       reason: reason || 'stopped',
