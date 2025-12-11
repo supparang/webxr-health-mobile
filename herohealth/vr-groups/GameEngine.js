@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (simple big sphere target + emoji)
-// 2025-12-10c
+// Food Groups VR — Game Engine (big sphere target + emoji + click fix)
+// 2025-12-10d
 
 'use strict';
 
@@ -274,28 +274,40 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
   const baseColor = pick.isGood ? '#22c55e' : '#f97316';
   const radius = 0.35 * sizeFactor;
   sphere.setAttribute('radius', radius);
-  sphere.setAttribute('material', `color: ${baseColor}; opacity: 0.95; metalness: 0; roughness: 1`);
+  sphere.setAttribute(
+    'material',
+    `color: ${baseColor}; opacity: 0.95; metalness: 0; roughness: 1`
+  );
+  sphere.setAttribute('data-hha-tgt', '1');
   holder.appendChild(sphere);
 
-  // emoji text ตรงกลาง (ใช้ text component)
+  // emoji text ด้านหน้าเป้า (สีขาวให้เด่น)
   const textEnt = document.createElement('a-entity');
-  textEnt.setAttribute('position', '0 0 ' + (radius + 0.01));
-  textEnt.setAttribute('text', {
-    value: pick.ch,
-    align: 'center',
-    color: '#020617',
-    width: 2.5,
-    wrapCount: 4
-  });
+  textEnt.setAttribute('position', `0 0 ${radius + 0.02}`);
+  textEnt.setAttribute(
+    'text',
+    `value: ${pick.ch}; align: center; color: #ffffff; width: 3; wrapCount: 4; side: double`
+  );
+  textEnt.setAttribute('data-hha-tgt', '1');
   holder.appendChild(textEnt);
 
   // ตำแหน่งด้านหน้า player
   const x = -0.9 + Math.random() * 1.8;
-  const y = 0.8 + Math.random() * 0.6; // กลางจอพอดี ๆ
+  const y = 0.9 + Math.random() * 0.5; // กลางจอ
   const z = -2.2;
   holder.setAttribute('position', `${x} ${y} ${z}`);
 
   sceneEl.appendChild(holder);
+
+  // ให้ raycaster รู้จักเป้าใหม่ทุกครั้ง
+  const cursor = document.querySelector('#cursor');
+  if (cursor && cursor.components && cursor.components.raycaster) {
+    try {
+      cursor.components.raycaster.refreshObjects();
+    } catch (err) {
+      console.warn('[GroupsVR] raycaster.refreshObjects error:', err);
+    }
+  }
 
   const THREE = window.THREE || (A && A.THREE);
   function getWorldPosSafe() {
@@ -314,10 +326,10 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
     if (killed) return;
     killed = true;
 
-    const wp = getWorldPosSafe();
     if (holder.parentNode) holder.parentNode.removeChild(holder);
 
     if (reason === 'expire' && typeof onExpireCb === 'function') {
+      const wp = getWorldPosSafe();
       onExpireCb({
         id: targetId,
         groupKey: pick.groupKey,
@@ -331,7 +343,7 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
 
   const timerId = setTimeout(() => cleanup('expire'), lifeMs);
 
-  holder.addEventListener('click', () => {
+  function handleClick() {
     if (killed) return;
     clearTimeout(timerId);
     const wp = getWorldPosSafe();
@@ -344,7 +356,12 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
       });
     }
     cleanup('hit');
-  });
+  }
+
+  // ผูก click ทั้ง holder + sphere + text เผื่อ raycaster ชนแค่ลูก/ตัวหนังสือ
+  holder.addEventListener('click', handleClick);
+  sphere.addEventListener('click', handleClick);
+  textEnt.addEventListener('click', handleClick);
 
   console.log('[GroupsVR] spawn target', pick.ch, pick.groupKey, 'good=', pick.isGood);
 
