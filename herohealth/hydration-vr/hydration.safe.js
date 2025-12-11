@@ -149,7 +149,6 @@ export async function boot (cfg = {}) {
   let goalCleared = 0; // 0–2
   let miniCleared = 0; // 0–3
 
-  // ใช้ให้ HUD รู้ว่าทำถึงไหนแล้ว
   function questMeta () {
     return {
       goalsCleared: goalCleared,
@@ -167,7 +166,9 @@ export async function boot (cfg = {}) {
   let star = 0;
   let diamond = 0;
   let elapsedSec = 0; // เวลาเล่นสะสม (นับขึ้น)
-  let inst = null;    // instance จาก mode-factory (เอาไว้ stop ตอนเคลียร์ทุกภารกิจ)
+  let inst = null;    // instance จาก mode-factory
+  let ended = false;
+  let allClearTriggered = false;
 
   function mult () {
     return feverActive ? 2 : 1;
@@ -288,6 +289,44 @@ export async function boot (cfg = {}) {
         detail: { label }
       }));
     } catch {}
+  }
+
+  // ======================================================
+  //  ฟังก์ชันฉลองใหญ่เมื่อทำครบทุกภารกิจ
+  // ======================================================
+  function triggerAllClear (reason = 'quests-complete') {
+    if (ended || allClearTriggered) return;
+    allClearTriggered = true;
+
+    const cx = (ROOT.innerWidth || 0) * 0.50;
+    const cy = (ROOT.innerHeight || 0) * 0.45;
+
+    // เอฟเฟกต์ฉลองใหญ่กลางจอ
+    safeScorePop(cx, cy - 30, 'ALL CLEAR!', 'ALL', true);
+    safeBurstAt(cx, cy, true);
+
+    try {
+      ROOT.dispatchEvent(new CustomEvent('quest:all-cleared', {
+        detail: {
+          goals: goalCleared,
+          minis: miniCleared
+        }
+      }));
+    } catch {}
+
+    coach('สุดยอด! เคลียร์ทุกภารกิจครบแล้ว 🎉 เกมจบพร้อมฉลองใหญ่!', 4000);
+
+    // หยุด spawn เป้า
+    try {
+      if (inst && typeof inst.stop === 'function') {
+        inst.stop(reason);
+      }
+    } catch {}
+
+    // ดีเลย์สั้น ๆ ให้เห็นฉลอง ก่อนขึ้นหน้าสรุป
+    ROOT.setTimeout(() => {
+      finish(elapsedSec, reason);
+    }, 1600);
   }
 
   // ======================================================
@@ -418,7 +457,6 @@ export async function boot (cfg = {}) {
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'MISS', false);
 
-      // แจ้ง HUD ว่ามี miss
       try {
         ROOT.dispatchEvent(new CustomEvent('hha:miss', {
           detail: { misses }
@@ -436,7 +474,7 @@ export async function boot (cfg = {}) {
       return { good: false, scoreDelta: d };
     }
 
-    // ถ้า emoji ไม่อยู่ใน GOOD/BAD/BONUS → ไม่ทำอะไร
+    // emoji อื่น ๆ ไม่ทำอะไร
     return { good: false, scoreDelta: 0 };
   }
 
@@ -444,8 +482,6 @@ export async function boot (cfg = {}) {
   //  เมื่อเป้าหายไปเอง (expire) — ไม่ถือว่า miss
   // ======================================================
   function onExpire (ev) {
-    // ปล่อยเป้าหาย → ไม่เพิ่ม misses
-    // แต่แจ้ง deck ว่ามี junk หลุดถ้าเป็นเป้าน้ำไม่ดี
     if (ev && ev.isGood === false) {
       deck.onJunk && deck.onJunk();
       syncDeck();
@@ -457,7 +493,6 @@ export async function boot (cfg = {}) {
   // ======================================================
   //  Tick รายวินาที (เรียกจาก hha:time)
   // ======================================================
-  let ended = false;
 
   function checkQuestCompletion () {
     if (!deck || typeof deck.getProgress !== 'function') return;
@@ -551,36 +586,10 @@ export async function boot (cfg = {}) {
     }
 
     // ----- ทำครบทุกภารกิจ → ฉลองใหญ่ + จบเกม -----
-    if (!ended && goalCleared >= GOAL_TARGET && miniCleared >= MINI_TARGET) {
-      const cx = (ROOT.innerWidth || 0) * 0.50;
-      const cy = (ROOT.innerHeight || 0) * 0.45;
-
-      // เอฟเฟกต์ฉลองใหญ่กลางจอ
-      safeScorePop(cx, cy - 30, 'ALL CLEAR!', 'ALL', true);
-      safeBurstAt(cx, cy, true);
-
-      try {
-        ROOT.dispatchEvent(new CustomEvent('quest:all-cleared', {
-          detail: {
-            goals: goalCleared,
-            minis: miniCleared
-          }
-        }));
-      } catch {}
-
-      coach('สุดยอด! เคลียร์ทุกภารกิจครบแล้ว 🎉 เกมจบพร้อมฉลองใหญ่!', 4000);
-
-      // หยุด spawn เพิ่ม แต่ยังไม่ขึ้นหน้าสรุป
-      try {
-        if (inst && typeof inst.stop === 'function') {
-          inst.stop('quests-complete');
-        }
-      } catch {}
-
-      // หน่วงเวลานิดเดียวให้เห็นฉลอง ก่อนขึ้นหน้าสรุป
-      ROOT.setTimeout(() => {
-        finish(elapsedSec, 'quests-complete');
-      }, 1600);
+    if (!ended &&
+        goalCleared >= GOAL_TARGET &&
+        miniCleared >= MINI_TARGET) {
+      triggerAllClear('quests-complete');
     }
   }
 
@@ -642,7 +651,6 @@ export async function boot (cfg = {}) {
           comboMax,
           duration: durationSec,
           greenTick,
-          // สรุปภารกิจหลัก / mini quest ตามดีไซน์
           goalCleared: goalsDone >= GOAL_TARGET,
           goalsCleared: goalsDone,
           goalsTotal: GOAL_TARGET,
@@ -658,7 +666,6 @@ export async function boot (cfg = {}) {
       }));
     } catch {}
 
-    // ปิดท้ายด้วย status ended ให้ HUD / logger
     pushHudScore({ ended: true });
   }
 
@@ -672,7 +679,10 @@ export async function boot (cfg = {}) {
 
     if (sec > 0) onSec();
     if (sec === 0) {
-      finish(dur, 'time-up');
+      // ถ้ายังไม่ได้ trigger ALL CLEAR ให้จบแบบ time-up
+      if (!allClearTriggered) {
+        finish(dur, 'time-up');
+      }
       ROOT.removeEventListener('hha:time', onTime);
     }
   };
@@ -684,8 +694,6 @@ export async function boot (cfg = {}) {
   inst = await factoryBoot({
     difficulty: diff,
     duration: dur,
-
-    // สำคัญ: ใช้ร่วมกับ HHA_DIFF_TABLE.hydration (ถ้ามี)
     modeKey: 'hydration',
 
     pools: { good: [...GOOD, ...BONUS], bad: [...BAD] },
@@ -693,12 +701,11 @@ export async function boot (cfg = {}) {
     powerups: BONUS,
     powerRate: 0.10,
     powerEvery: 7,
-    spawnStyle: 'pop', // เป้าโผล่แล้วหายเอง (ไม่ตกลงมา)
+    spawnStyle: 'pop', // เป้าโผล่แล้วหายเอง
     judge: (ch, ctx) => judge(ch, ctx),
     onExpire
   });
 
-  // cleanup เพิ่มใน stop() เผื่อผู้เล่นออกกลางคัน
   if (inst && typeof inst.stop === 'function') {
     const origStop = inst.stop.bind(inst);
     inst.stop = (...args) => {
