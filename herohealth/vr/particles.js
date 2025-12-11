@@ -1,5 +1,5 @@
 // === /herohealth/vr/particles.js ===
-// Simple FX layer: score pop + judgment text + target burst (แรงขึ้น)
+// FX layer กลางจอ: score pop + judgment + เป้าแตกกระจายอลังการ
 // ใช้ได้กับทุกเกม HeroHealth (GoodJunkVR, Hydration, Plate, Groups ฯลฯ)
 
 (function (root) {
@@ -18,15 +18,14 @@
         inset: '0',
         pointerEvents: 'none',
         zIndex: 700,
-        // ให้ dot / bubble หลุดขอบจอได้ ไม่โดนตัด
-        overflow: 'visible'
+        overflow: 'hidden'
       });
       doc.body.appendChild(layer);
     }
     return layer;
   }
 
-  // ----- คะแนนเด้ง + ข้อความตัดสิน -----
+  // ----- คะแนนเด้ง +ข้อความตัดสิน -----
   function scorePop(x, y, value, opts) {
     opts = opts || {};
     const layer = ensureLayer();
@@ -40,33 +39,31 @@
       position: 'absolute',
       left: x + 'px',
       top: y + 'px',
-      transform: 'translate(-50%, -50%) scale(0.9)',
+      transform: 'translate(-50%, -40%) scale(0.9)',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: '18px',
-      fontWeight: '700',
+      fontSize: '20px',
+      fontWeight: '800',
       color: good ? '#4ade80' : '#f97316',
-      textShadow: '0 0 14px rgba(0,0,0,0.85)',
-      padding: '4px 10px',
+      textShadow: '0 0 18px rgba(0,0,0,0.9)',
+      padding: '6px 14px',
       borderRadius: '999px',
-      background: 'rgba(15,23,42,0.95)',
-      border: '1px solid rgba(148,163,184,0.35)',
+      background: 'rgba(15,23,42,0.96)',
+      border: '1px solid rgba(148,163,184,0.45)',
       whiteSpace: 'nowrap',
       opacity: '0',
-      transition: 'transform 0.45s ease-out, opacity 0.45s ease-out'
+      transition: 'transform 0.6s ease-out, opacity 0.6s ease-out'
     });
 
-    // บรรทัดบน = คะแนน
     const lineMain = doc.createElement('div');
     lineMain.textContent = String(value || '');
     wrap.appendChild(lineMain);
 
-    // บรรทัดล่าง = GOOD / PERFECT / MISS ฯลฯ
     if (judgment) {
       const lineJudge = doc.createElement('div');
       lineJudge.textContent = judgment;
-      lineJudge.style.fontSize = '11px';
-      lineJudge.style.marginTop = '1px';
-      lineJudge.style.letterSpacing = '.12em';
+      lineJudge.style.fontSize = '12px';
+      lineJudge.style.marginTop = '2px';
+      lineJudge.style.letterSpacing = '.14em';
       lineJudge.style.textTransform = 'uppercase';
       lineJudge.style.opacity = '0.9';
       wrap.appendChild(lineJudge);
@@ -74,110 +71,175 @@
 
     layer.appendChild(wrap);
 
-    // trigger animation
     requestAnimationFrame(function () {
       wrap.style.transform = 'translate(-50%, -90%) scale(1.05)';
       wrap.style.opacity = '1';
     });
     setTimeout(function () {
-      wrap.style.transform = 'translate(-50%, -120%) scale(0.96)';
+      wrap.style.transform = 'translate(-50%, -130%) scale(0.9)';
       wrap.style.opacity = '0';
-    }, 260);
+    }, 520);
 
     setTimeout(function () {
       if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-    }, 520);
+    }, 900);
   }
 
-  // ----- เป้าแตกกระจาย (จุดกลม ๆ หลายจุดพุ่งออกไป) -----
-  function burstAt(x, y, opts) {
+  // ----- วงแหวนช็อคเวฟ -----
+  function spawnRing(x, y, color) {
+    const layer = ensureLayer();
+    const ring = doc.createElement('div');
+    ring.className = 'hha-fx-ring';
+
+    const size = 46;
+    Object.assign(ring.style, {
+      position: 'absolute',
+      left: x + 'px',
+      top: y + 'px',
+      width: size + 'px',
+      height: size + 'px',
+      marginLeft: -(size / 2) + 'px',
+      marginTop: -(size / 2) + 'px',
+      borderRadius: '999px',
+      border: '3px solid ' + (color || '#22c55e'),
+      boxShadow: '0 0 20px rgba(0,0,0,0.9)',
+      opacity: '0.95',
+      transform: 'scale(0.2)',
+      transition: 'transform 0.55s ease-out, opacity 0.55s ease-out'
+    });
+
+    layer.appendChild(ring);
+
+    requestAnimationFrame(function () {
+      ring.style.transform = 'scale(1.9)';
+      ring.style.opacity = '0';
+    });
+
+    setTimeout(function () {
+      if (ring.parentNode) ring.parentNode.removeChild(ring);
+    }, 650);
+  }
+
+  // ----- เศษชิ้นส่วนเป้าแตก (shards) -----
+  function spawnShards(x, y, opts) {
     opts = opts || {};
     const layer = ensureLayer();
-    const color = opts.color || '#22c55e';
-    const good = !!opts.good;
-
-    // เพิ่มจำนวนเยอะขึ้น ให้รู้สึก “แตกกระจาย”
-    const n = (typeof opts.count === 'number' && opts.count > 0)
-      ? opts.count
-      : (good ? 24 : 16);
+    const baseColor = opts.color || '#22c55e';
+    const n = (typeof opts.count === 'number' && opts.count > 0) ? opts.count : 18;
+    const radiusBase = opts.radiusBase || 55;
+    const radiusJitter = opts.radiusJitter || 45;
 
     for (let i = 0; i < n; i++) {
-      const dot = doc.createElement('div');
-      dot.className = 'hha-fx-dot';
-      const size = good
-        ? 6 + Math.random() * 6   // โดนดี → ใหญ่หน่อย
-        : 4 + Math.random() * 4;  // พลาด → เล็กลงนิดนึง
+      const shard = doc.createElement('div');
+      shard.className = 'hha-fx-shard';
 
-      Object.assign(dot.style, {
+      const w = 4 + Math.random() * 7;
+      const h = 8 + Math.random() * 12;
+      const ang = Math.random() * Math.PI * 2;
+      const dist = radiusBase + Math.random() * radiusJitter;
+      const dx = Math.cos(ang) * dist;
+      const dy = Math.sin(ang) * dist;
+      const rot = (Math.random() * 160) - 80;
+
+      const col = baseColor;
+
+      Object.assign(shard.style, {
         position: 'absolute',
         left: x + 'px',
         top: y + 'px',
-        width: size + 'px',
-        height: size + 'px',
+        width: w + 'px',
+        height: h + 'px',
         borderRadius: '999px',
-        background: color,
-        boxShadow: '0 0 10px rgba(0,0,0,0.9)',
+        background: col,
+        boxShadow: '0 0 14px rgba(0,0,0,0.9)',
         opacity: '1',
+        transformOrigin: 'center center',
+        transform: 'translate(-50%, -50%) scale(0.6) rotate(0deg)',
         pointerEvents: 'none',
-        transform: 'translate(-50%, -50%) scale(0.7)',
-        transition: 'transform 0.5s ease-out, opacity 0.5s ease-out'
+        transition: 'transform 0.6s ease-out, opacity 0.6s ease-out'
       });
 
-      layer.appendChild(dot);
-
-      const ang = Math.random() * Math.PI * 2;
-      const distBase = good ? 70 : 50;
-      const dist = distBase + Math.random() * 40;
-      const dx = Math.cos(ang) * dist;
-      const dy = Math.sin(ang) * dist;
+      layer.appendChild(shard);
 
       requestAnimationFrame(function () {
-        dot.style.transform =
-          'translate(' + dx + 'px,' + dy + 'px) scale(0.9)';
-        dot.style.opacity = '0';
+        shard.style.transform =
+          'translate(' + dx + 'px,' + dy + 'px) scale(1) rotate(' + rot + 'deg)';
+        shard.style.opacity = '0';
       });
 
       setTimeout(function () {
-        if (dot.parentNode) dot.parentNode.removeChild(dot);
-      }, 520);
+        if (shard.parentNode) shard.parentNode.removeChild(shard);
+      }, 850);
     }
   }
 
-  // ----- auto ผูกกับ hha:judge ให้ทุกเกมใช้ได้เลย -----
-  if (root && root.addEventListener) {
-    root.addEventListener('hha:judge', function (e) {
-      try {
-        const d = e.detail || {};
-        const label = String(d.label || '').toUpperCase();
-        if (!label) return;
+  // ----- เป้าแตกกระจายหลัก (ใช้ในทุกเกม) -----
+  function burstAt(x, y, opts) {
+    opts = opts || {};
+    const good = !!opts.good;
+    const color = opts.color || (good ? '#22c55e' : '#f97316');
 
-        const cx = root.innerWidth / 2;
-        const cy = root.innerHeight * 0.5;
+    spawnRing(x, y, color);
 
-        let good = false;
-        let color = '#f97316';
-
-        if (label === 'GOOD' || label === 'PERFECT' || label === 'HIT') {
-          good = true;
-          color = '#22c55e';
-        } else if (label === 'FEVER') {
-          good = true;
-          color = '#facc15';
-        }
-
-        // ระเบิดกลางจอเมื่อเกมยิง hha:judge
-        burstAt(cx, cy, { color: color, good: good });
-      } catch (err) {
-        // กัน error เล็ก ๆ ไม่ให้พังเกม
-        if (root.console && console.warn) {
-          console.warn('[Particles] hha:judge handler error', err);
-        }
-      }
+    spawnShards(x, y, {
+      color: color,
+      count: (typeof opts.count === 'number' && opts.count > 0) ? opts.count : (good ? 24 : 18),
+      radiusBase: good ? 60 : 50,
+      radiusJitter: good ? 50 : 40
     });
   }
 
-  // ----- Export API แบบ global -----
-  const api = { scorePop, burstAt };
+  // ===== ฟัง event จาก GameEngine (hit / miss UI) =====
+  function onHitUi(e) {
+    const d = e.detail || {};
+    const x = d.x;
+    const y = d.y;
+    if (typeof x !== 'number' || typeof y !== 'number') return;
+
+    const scoreDelta = (typeof d.scoreDelta === 'number' || typeof d.scoreDelta === 'string')
+      ? d.scoreDelta
+      : '';
+
+    const judgment = d.judgment || '';
+    const good = !!d.good;
+
+    burstAt(x, y, {
+      color: good ? '#22c55e' : '#f97316',
+      count: good ? 26 : 18,
+      good: good
+    });
+
+    scorePop(x, y, scoreDelta, {
+      judgment: judgment,
+      good: good
+    });
+  }
+
+  function onMissUi(e) {
+    const d = e.detail || {};
+    const x = d.x;
+    const y = d.y;
+    if (typeof x !== 'number' || typeof y !== 'number') return;
+
+    burstAt(x, y, {
+      color: '#f97316',
+      count: 18,
+      good: false
+    });
+
+    scorePop(x, y, 'MISS', {
+      judgment: d.judgment || '',
+      good: false
+    });
+  }
+
+  root.addEventListener('hha:hit-ui', onHitUi);
+  root.addEventListener('hha:miss-ui', onMissUi);
+
+  const api = {
+    scorePop: scorePop,
+    burstAt: burstAt
+  };
   root.Particles = api;
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = api;
