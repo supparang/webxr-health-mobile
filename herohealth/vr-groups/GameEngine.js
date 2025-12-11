@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (big sphere target + emoji + click fix)
-// 2025-12-10d
+// Food Groups VR — Game Engine (big sphere + emoji texture + quest + fever)
+// 2025-12-10e
 
 'use strict';
 
@@ -238,7 +238,35 @@ function getFeverUI() {
   return (window.GAME_MODULES && window.GAME_MODULES.FeverUI) || window.FeverUI || null;
 }
 
-// ---------- Target spawn (simple sphere) ----------
+// ---------- Emoji texture helper ----------
+const emojiTexCache = {};
+
+function getEmojiTexture(emojiChar) {
+  if (!emojiChar) return null;
+  if (emojiTexCache[emojiChar]) return emojiTexCache[emojiChar];
+
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '200px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+  ctx.fillText(emojiChar, size / 2, size / 2 + 8);
+
+  const url = canvas.toDataURL('image/png');
+  emojiTexCache[emojiChar] = url;
+  return url;
+}
+
+// ---------- Target spawn ----------
 let TARGET_ID = 0;
 
 function pickFood(diffCfg) {
@@ -269,37 +297,45 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
   holder.setAttribute('data-group', pick.groupKey);
   holder.classList.add('groups-target');
 
-  // กลมใหญ่สีชัด
+  // ลูกบอลพื้นหลัง
   const sphere = document.createElement('a-sphere');
-  const baseColor = pick.isGood ? '#22c55e' : '#f97316';
+  const baseColor = pick.isGood ? '#16a34a' : '#f97316';
   const radius = 0.35 * sizeFactor;
   sphere.setAttribute('radius', radius);
   sphere.setAttribute(
     'material',
-    `color: ${baseColor}; opacity: 0.95; metalness: 0; roughness: 1`
+    `color: ${baseColor}; opacity: 0.9; metalness: 0; roughness: 1`
   );
   sphere.setAttribute('data-hha-tgt', '1');
   holder.appendChild(sphere);
 
-  // emoji text ด้านหน้าเป้า (สีขาวให้เด่น)
-  const textEnt = document.createElement('a-entity');
-  textEnt.setAttribute('position', `0 0 ${radius + 0.02}`);
-  textEnt.setAttribute(
-    'text',
-    `value: ${pick.ch}; align: center; color: #ffffff; width: 3; wrapCount: 4; side: double`
-  );
-  textEnt.setAttribute('data-hha-tgt', '1');
-  holder.appendChild(textEnt);
+  // emoji plane ด้านหน้า เป้า
+  const texUrl = getEmojiTexture(pick.ch);
+  if (texUrl) {
+    const img = document.createElement('a-plane');
+    img.setAttribute('width', radius * 1.4);
+    img.setAttribute('height', radius * 1.4);
+    img.setAttribute('position', `0 0 ${radius + 0.02}`);
+    img.setAttribute(
+      'material',
+      `shader: flat; src: ${texUrl}; transparent: true; side: double`
+    );
+    img.setAttribute('data-hha-tgt', '1');
+    holder.appendChild(img);
+
+    // รองรับคลิกทั้ง plane ด้วย
+    img.addEventListener('click', handleClickWrapper);
+  }
 
   // ตำแหน่งด้านหน้า player
   const x = -0.9 + Math.random() * 1.8;
-  const y = 0.9 + Math.random() * 0.5; // กลางจอ
+  const y = 1.0 + Math.random() * 0.4;
   const z = -2.2;
   holder.setAttribute('position', `${x} ${y} ${z}`);
 
   sceneEl.appendChild(holder);
 
-  // ให้ raycaster รู้จักเป้าใหม่ทุกครั้ง
+  // ทำให้ raycaster รู้จักเป้าชุดใหม่
   const cursor = document.querySelector('#cursor');
   if (cursor && cursor.components && cursor.components.raycaster) {
     try {
@@ -358,10 +394,14 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
     cleanup('hit');
   }
 
-  // ผูก click ทั้ง holder + sphere + text เผื่อ raycaster ชนแค่ลูก/ตัวหนังสือ
+  // wrapper ใช้กับ plane ด้วย (ประกาศก่อน append ข้างบน)
+  function handleClickWrapper() {
+    handleClick();
+  }
+
+  // ผูก click ทั้ง holder + sphere
   holder.addEventListener('click', handleClick);
   sphere.addEventListener('click', handleClick);
-  textEnt.addEventListener('click', handleClick);
 
   console.log('[GroupsVR] spawn target', pick.ch, pick.groupKey, 'good=', pick.isGood);
 
