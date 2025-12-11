@@ -23,7 +23,7 @@
 body{
   min-height:100vh;
   margin:0;
-  font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
   background:#020617;
   color:var(--text-main);
   overflow:hidden;
@@ -171,29 +171,14 @@ a-scene{
   white-space:nowrap;
 }
 
-/* ===== เกรดบน HUD ให้สีต่างกัน ===== */
-.hud-badge-grade .value{
-  font-weight:700;
-}
-
-.hud-badge-grade-SSS .value{
-  color:#22c55e;
-}
-.hud-badge-grade-SS .value{
-  color:#4ade80;
-}
-.hud-badge-grade-S .value{
-  color:#38bdf8;
-}
-.hud-badge-grade-A .value{
-  color:#60a5fa;
-}
-.hud-badge-grade-B .value{
-  color:#eab308;
-}
-.hud-badge-grade-C .value{
-  color:#9ca3af;
-}
+/* ===== เกรดบน HUD ให้สีต่างกัน (ถ้าใช้ class เพิ่ม) ===== */
+.hud-badge-grade .value{font-weight:700;}
+.hud-badge-grade-SSS .value{color:#22c55e;}
+.hud-badge-grade-SS  .value{color:#4ade80;}
+.hud-badge-grade-S   .value{color:#38bdf8;}
+.hud-badge-grade-A   .value{color:#60a5fa;}
+.hud-badge-grade-B   .value{color:#eab308;}
+.hud-badge-grade-C   .value{color:#9ca3af;}
 
 /* ======= Quest Panel ======= */
 #quest-panel{
@@ -239,6 +224,7 @@ a-scene{
 .quest-text{
   font-size:11px;
   line-height:1.4;
+  white-space:pre-line;
 }
 .quest-hint{
   font-size:10px;
@@ -246,65 +232,41 @@ a-scene{
   margin-top:4px;
 }
 
-/* progress list (Goal / Mini / จานนี้) */
+/* แถว progress รายหมู่ (ถ้า JS ใส่ class ให้) */
 .quest-progress-list{
   margin-top:4px;
-  border-top:1px dashed rgba(148,163,184,0.5);
+  border-top:1px dashed rgba(148,163,184,0.4);
   padding-top:4px;
-  font-size:10px;
 }
-.quest-progress-row{
+.quest-row{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  margin-bottom:2px;
-}
-.quest-progress-label{
-  color:var(--text-soft);
-}
-.quest-progress-value{
-  font-variant-numeric:tabular-nums;
-}
-.quest-progress-value.success{
-  color:#4ade80;
-}
-.quest-progress-value.warn{
-  color:#fde047;
-}
-.quest-progress-value.danger{
-  color:#fb7185;
-}
-
-/* แสดงหมู่ที่ยังขาดเป็น emoji แยกบรรทัด */
-.quest-groups-line{
-  margin-top:2px;
   font-size:10px;
-  display:flex;
-  flex-wrap:wrap;
-  gap:4px;
+  margin-top:2px;
 }
-.quest-group-pill{
-  padding:1px 6px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,0.4);
-  background:rgba(15,23,42,0.9);
-  display:inline-flex;
+.quest-row .q-label{
+  display:flex;
   align-items:center;
   gap:4px;
 }
-.quest-group-pill.missing{
-  border-color:rgba(251,113,133,0.8);
-  background:rgba(127,29,29,0.9);
-  color:#fee2e2;
+.quest-row .q-qty{
+  font-variant-numeric:tabular-nums;
+}
+.quest-row.ok .q-qty{
+  color:var(--accent);
+}
+.quest-row.missing .q-qty{
+  color:#fb923c;
 }
 
-/* ======= Coach Bubble (ย้ายขึ้นเหนือ Fever) ======= */
+/* ======= Coach Bubble ======= */
 #coach-wrap{
   position:absolute;
   left:0;
   right:0;
-  bottom:72px;              /* เหนือ Fever */
-  z-index:950;              /* สูงกว่า Fever (900) */
+  bottom:72px;              /* เลื่อนขึ้นเหนือ Fever bar */
+  z-index:950;              /* สูงกว่า Fever (ประมาณ 900) */
   pointer-events:none;
   display:flex;
   justify-content:center;
@@ -339,7 +301,7 @@ a-scene{
 #summary{
   position:absolute;
   inset:0;
-  z-index:1000;
+  z-index:500;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -352,7 +314,7 @@ a-scene{
   pointer-events:auto;
 }
 .summary-card{
-  width: min(420px, 90vw);
+  width:min(420px, 90vw);
   background:radial-gradient(circle at top, rgba(34,197,94,0.1) 0, #020617 45%, #000 100%);
   border-radius:22px;
   border:1px solid rgba(148,163,184,0.75);
@@ -432,135 +394,12 @@ a-scene{
   border:1px solid rgba(148,163,184,0.5);
 }
 
-/* ===== Toast ฉลองจบแต่ละภารกิจ ===== */
-#quest-toast{
-  position:absolute;
-  left:50%;
-  top:18%;
-  transform:translateX(-50%);
-  z-index:960;
-  pointer-events:none;
-  opacity:0;
-  transition:opacity .25s ease, transform .25s ease;
-}
-#quest-toast.show{
-  opacity:1;
-  transform:translate(-50%, 0);
-}
-.quest-toast-inner{
-  background:radial-gradient(circle at top, rgba(34,197,94,0.18) 0, #020617 55%);
-  border-radius:18px;
-  border:1px solid rgba(74,222,128,0.8);
-  box-shadow:0 24px 50px rgba(0,0,0,0.85);
-  padding:8px 12px;
-  font-size:11px;
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-}
-.quest-toast-title{
-  font-size:12px;
-  font-weight:600;
-}
-.quest-toast-body{
-  font-size:11px;
-}
-.quest-toast-tags{
-  display:flex;
-  gap:6px;
-  flex-wrap:wrap;
-  margin-top:2px;
-}
-.quest-toast-tag{
-  padding:1px 8px;
-  border-radius:999px;
-  background:rgba(15,23,42,0.9);
-  border:1px solid rgba(74,222,128,0.8);
-  font-size:10px;
-}
-
-/* ===== Mega celebration (ครบทุกภารกิจ) ===== */
-#mega-celebration{
-  position:absolute;
-  inset:0;
-  z-index:980;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  pointer-events:none;
-  opacity:0;
-  transition:opacity .3s ease;
-}
-#mega-celebration.show{
-  opacity:1;
-  pointer-events:auto;
-}
-.mega-inner{
-  width:min(460px, 92vw);
-  border-radius:24px;
-  border:1px solid rgba(251,191,36,0.9);
-  background:
-    radial-gradient(circle at top, rgba(250,204,21,0.25) 0, rgba(15,23,42,0.98) 55%);
-  box-shadow:0 32px 70px rgba(0,0,0,0.95);
-  padding:18px 18px 14px;
-  text-align:center;
-}
-.mega-title{
-  font-size:20px;
-  font-weight:700;
-  margin-bottom:4px;
-}
-.mega-sub{
-  font-size:12px;
-  color:var(--text-soft);
-  margin-bottom:10px;
-}
-.mega-badges{
-  display:flex;
-  justify-content:center;
-  flex-wrap:wrap;
-  gap:6px;
-  margin-bottom:10px;
-}
-.mega-badge{
-  padding:3px 10px;
-  border-radius:999px;
-  font-size:11px;
-  background:rgba(15,23,42,0.95);
-  border:1px solid rgba(251,191,36,0.8);
-}
-.mega-close{
-  margin-top:4px;
-  font-size:11px;
-  color:var(--text-soft);
-}
-
-/* เล็กลงบนจอมือถือแนวตั้ง */
-@media (max-width:768px){
-  .hud-groups{
-    display:none;
-  }
-  #quest-panel{
-    top:auto;
-    bottom:72px;
-    right:6px;
-  }
-  .summary-card{
-    border-radius:18px;
-    padding:12px 12px 10px;
-  }
-  .hud-groups-legend{
-    font-size:9px;
-  }
-  #quest-toast{
-    top:16%;
-  }
-}
-
-/* ====== TARGETS (เป้า emoji) ====== */
+/* ====== TARGETS: emoji เป้าเดียว, ไม่มีวงกลมทึบ ====== */
 
 .hha-target{
   position:fixed;
+  left:0;
+  top:0;
   transform:translate(-50%, -50%);
   width:68px;
   height:68px;
@@ -570,28 +409,35 @@ a-scene{
   pointer-events:auto;
   cursor:pointer;
   z-index:360;
-}
 
-/* แสดง emoji จาก data-char */
-.hha-target::before{
-  content: attr(data-char);
-  display:block;
+  /* ใช้ emoji เป็นตัวเป้า */
+  background:none !important;
+  border:none !important;
+  box-shadow:none !important;
+
   font-size:42px;
   line-height:1;
+  color:#f9fafb;
   text-shadow:
     0 0 8px rgba(0,0,0,0.65),
     0 0 16px rgba(0,0,0,0.7);
 }
 
+/* ตัดวงกลมเดิมทิ้งให้หมด */
+.hha-target::before,
+.hha-target::after{
+  content:none !important;
+}
+
 /* glow เพิ่มสำหรับของดี/ของไม่ดี */
-.hha-target-good::before{
+.hha-target-good{
   text-shadow:
     0 0 10px rgba(34,197,94,0.9),
     0 0 20px rgba(34,197,94,0.7),
     0 0 28px rgba(34,197,94,0.55);
 }
 
-.hha-target-bad::before{
+.hha-target-bad{
   text-shadow:
     0 0 10px rgba(248,113,113,0.9),
     0 0 20px rgba(248,113,113,0.7),
@@ -610,6 +456,10 @@ a-scene{
   pointer-events:none;
   z-index:430;
   opacity:0.8;              /* เห็นทุกโหมด */
+}
+
+body.hha-vr-mode #gaze-reticle{
+  opacity:1;
 }
 
 .gaze-dot{
@@ -633,11 +483,6 @@ a-scene{
   opacity:0.8;
 }
 
-/* ตอนอยู่ใน VR ให้เป้าเด่นขึ้นนิดหนึ่ง */
-body.hha-vr-mode #gaze-reticle{
-  opacity:1;
-}
-
 /* animation ตอนกำลัง fuse */
 #gaze-reticle.fuse-active .gaze-ring{
   animation:hhaFuse 1s linear forwards;
@@ -651,5 +496,24 @@ body.hha-vr-mode #gaze-reticle{
   100%{
     transform:scale(0.25);
     opacity:0;
+  }
+}
+
+/* ===== มือถือ ===== */
+@media (max-width:768px){
+  .hud-groups{
+    display:none;
+  }
+  #quest-panel{
+    top:auto;
+    bottom:72px;
+    right:6px;
+  }
+  .summary-card{
+    border-radius:18px;
+    padding:12px 12px 10px;
+  }
+  .hud-groups-legend{
+    font-size:9px;
   }
 }
