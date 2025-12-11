@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (BIG box target + emoji text + FX)
-// 2025-12-10b
+// Food Groups VR — Game Engine (simple big sphere target + emoji)
+// 2025-12-10c
 
 'use strict';
 
@@ -31,7 +31,7 @@ function pickDifficulty(diffKey) {
     return { spawnInterval: 700, lifeMs: 1900, scale: 0.9, maxActive: 5, goodRatio: 0.7 };
   }
   return { // normal
-    spawnInterval: 900, lifeMs: 2200, scale: 1.05, maxActive: 4, goodRatio: 0.8
+    spawnInterval: 900, lifeMs: 2200, scale: 1.0, maxActive: 4, goodRatio: 0.8
   };
 }
 
@@ -238,7 +238,7 @@ function getFeverUI() {
   return (window.GAME_MODULES && window.GAME_MODULES.FeverUI) || window.FeverUI || null;
 }
 
-// ---------- Target spawn ----------
+// ---------- Target spawn (simple sphere) ----------
 let TARGET_ID = 0;
 
 function pickFood(diffCfg) {
@@ -269,23 +269,17 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
   holder.setAttribute('data-group', pick.groupKey);
   holder.classList.add('groups-target');
 
-  // ให้เป้า "หันหน้าหากล้องตลอด" จะได้ไม่หาย
-  holder.setAttribute('look-at', '#gj-camera');
-
-  // กล่องใหญ่สีชัด (เห็นแน่นอน)
-  const box = document.createElement('a-box');
+  // กลมใหญ่สีชัด
+  const sphere = document.createElement('a-sphere');
   const baseColor = pick.isGood ? '#22c55e' : '#f97316';
-  const w = 0.6 * sizeFactor;
-  const h = 0.6 * sizeFactor;
-  box.setAttribute('width', w);
-  box.setAttribute('height', h);
-  box.setAttribute('depth', 0.05);
-  box.setAttribute('material', `color: ${baseColor}; shader: flat; opacity: 0.95; side: double`);
-  holder.appendChild(box);
+  const radius = 0.35 * sizeFactor;
+  sphere.setAttribute('radius', radius);
+  sphere.setAttribute('material', `color: ${baseColor}; opacity: 0.95; metalness: 0; roughness: 1`);
+  holder.appendChild(sphere);
 
-  // Emoji text ตรงกลาง
+  // emoji text ตรงกลาง (ใช้ text component)
   const textEnt = document.createElement('a-entity');
-  textEnt.setAttribute('position', '0 0 0.028');
+  textEnt.setAttribute('position', '0 0 ' + (radius + 0.01));
   textEnt.setAttribute('text', {
     value: pick.ch,
     align: 'center',
@@ -297,7 +291,7 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
 
   // ตำแหน่งด้านหน้า player
   const x = -0.9 + Math.random() * 1.8;
-  const y = 0.2 + Math.random() * 0.8; // ยกขึ้นมาหน่อยให้พ้นพื้น
+  const y = 0.8 + Math.random() * 0.6; // กลางจอพอดี ๆ
   const z = -2.2;
   holder.setAttribute('position', `${x} ${y} ${z}`);
 
@@ -351,6 +345,8 @@ function spawnTarget(sceneEl, cameraEl, diffCfg, onHitCb, onExpireCb) {
     }
     cleanup('hit');
   });
+
+  console.log('[GroupsVR] spawn target', pick.ch, pick.groupKey, 'good=', pick.isGood);
 
   return {
     id: targetId,
@@ -593,7 +589,7 @@ const GameEngine = (function () {
     const goalsCleared = state.questModel.goalsAll.filter(g => g.done).length;
     const goalsTotal = state.questModel.goalsAll.length;
     const miniCleared = state.questModel.minisAll.filter(m => m.done).length;
-    const miniTotal = state.questModel.minisAll.length;
+    const miniTotal   = state.questModel.minisAll.length;
 
     const grade = computeGrade(
       state.score,
