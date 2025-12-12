@@ -243,52 +243,39 @@
       display:flex;
       flex-direction:column;
       align-items:center;
-      gap:8px;
+      gap:10px;
       padding-bottom:72px;
     }
+
     .coach-bubble{
       min-width:60%;
       max-width:680px;
       text-align:left;
-      background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%),
-                 rgba(15,23,42,0.96);
+      background:
+        radial-gradient(circle at top left, rgba(52,211,153,0.22), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(56,189,248,0.18), transparent 55%),
+        rgba(15,23,42,0.96);
       border-radius:999px;
-      padding:8px 14px;
-      border:1px solid rgba(52,211,153,0.45);
+      padding:10px 16px;
+      border:1px solid rgba(52,211,153,0.55);
       font-size:13px;
       display:none;
       align-items:center;
       justify-content:flex-start;
-      gap:8px;
+      gap:10px;
       pointer-events:auto;
-      box-shadow:0 18px 40px rgba(15,23,42,0.65);
+      box-shadow:
+        0 18px 40px rgba(15,23,42,0.85),
+        0 0 26px rgba(16,185,129,0.45);
       position:relative;
       overflow:hidden;
-      opacity:0;
-      transform:translateY(6px) scale(.97);
-      transition:opacity .22s ease-out, transform .22s ease-out;
-    }
-    .coach-bubble.show{
-      display:flex;
-      opacity:1;
-      transform:translateY(0) scale(1);
     }
 
-    .coach-bubble::before{
-      content:'';
-      position:absolute;
-      inset:-40%;
-      background:
-        radial-gradient(circle at 0% 0%, rgba(16,185,129,0.18), transparent 55%),
-        radial-gradient(circle at 100% 100%, rgba(45,212,191,0.15), transparent 55%);
-      opacity:0;
-      transform:scale(0.8);
-      transition:opacity .3s ease-out, transform .3s ease-out;
-      pointer-events:none;
-    }
-    .coach-bubble.show::before{
-      opacity:1;
-      transform:scale(1);
+    .coach-bubble.show{
+      display:flex;
+      animation:
+        coach-bubble-pop 0.45s ease-out,
+        coach-bubble-glow 1.2s ease-out;
     }
 
     .coach-label{
@@ -299,149 +286,160 @@
       font-weight:600;
     }
 
-    /* โค้ชเป็นภาพบร็อคโคลี่ + ดุ๊กดิ๊ก */
+    #coach-text{
+      font-size:13px;
+      color:#e5e7eb;
+      position:relative;
+    }
+
+    .coach-text-anim{
+      animation:
+        coach-text-slide 0.45s ease-out,
+        coach-text-glow 0.9s ease-out;
+    }
+
+    .coach-bubble::before{
+      content:'';
+      position:absolute;
+      inset:0;
+      background:
+        radial-gradient(circle at 0% 50%, rgba(52,211,153,0.18), transparent 55%),
+        radial-gradient(circle at 100% 50%, rgba(56,189,248,0.16), transparent 55%);
+      opacity:0;
+      pointer-events:none;
+    }
+    .coach-bubble.show::before{
+      animation:coach-ribbon 1.1s ease-out;
+    }
+
+    /* โค้ชเป็นภาพบร็อคโคลี่ + เต้นมันส์ ๆ */
     .coach-emoji{
-      width:40px;
-      height:40px;
+      width:46px;
+      height:46px;
       border-radius:999px;
+      background-image:url('./img/coach-happy-01.png'); /* แก้ชื่อไฟล์ให้ตรงกับใน /herohealth/img */
       background-size:cover;
       background-position:center;
       flex-shrink:0;
-      box-shadow:0 0 12px rgba(16,185,129,0.8);
+      box-shadow:0 0 18px rgba(16,185,129,0.9);
       animation:coach-idle 1.4s ease-in-out infinite;
-    }
-    .coach-emoji.coach-neutral{
-      background-image:url('./img/coach-neutral.png');
-      filter:none;
-    }
-    .coach-emoji.coach-happy{
-      background-image:url('./img/coach-happy.png');
-      box-shadow:0 0 18px rgba(34,197,94,0.95);
-    }
-    .coach-emoji.coach-sad{
-      background-image:url('./img/coach-sad.png');
-      filter:grayscale(0.2) brightness(0.9);
-      box-shadow:0 0 10px rgba(148,163,184,0.8);
-    }
-    .coach-emoji.coach-fever{
-      background-image:url('./img/coach-fever.png');
-      box-shadow:0 0 18px rgba(248,113,113,0.9);
+      transform-origin:center bottom;
+      position:relative;
     }
 
+    .coach-emoji.coach-neutral{
+      filter:none;
+    }
+
+    .coach-emoji.coach-happy{
+      box-shadow:0 0 24px rgba(34,197,94,1);
+      animation:coach-dance 0.85s ease-in-out infinite;
+    }
+
+    .coach-emoji.coach-sad{
+      filter:grayscale(0.2) brightness(0.9);
+      box-shadow:0 0 12px rgba(148,163,184,0.9);
+      animation:coach-sad-bob 1.4s ease-in-out infinite;
+    }
+
+    .coach-emoji.coach-fever{
+      box-shadow:0 0 26px rgba(248,113,113,1);
+      animation:coach-fever-dance 0.75s ease-in-out infinite;
+    }
+
+    .coach-emoji.coach-celebrate{
+      animation:coach-celebrate-bounce 0.7s ease-out;
+    }
+
+    /* ===== Keyframes โค้ชเต้น ===== */
     @keyframes coach-idle{
-      0%{ transform:translateY(0) scale(1);}
-      30%{ transform:translateY(-2px) scale(1.03);}
-      60%{ transform:translateY(1px) scale(0.99);}
+      0%{   transform:translateY(0) scale(1);}
+      40%{  transform:translateY(-2px) scale(1.02);}
       100%{ transform:translateY(0) scale(1);}
     }
 
-    /* ฉลองแรง ๆ เวลาเคลียร์ภารกิจ */
-    @keyframes coach-celebrate-bounce{
-      0%{ transform:translateY(0) scale(1) rotate(0);}
-      20%{ transform:translateY(-8px) scale(1.08) rotate(-6deg);}
-      40%{ transform:translateY(-4px) scale(1.04) rotate(5deg);}
-      60%{ transform:translateY(-10px) scale(1.1) rotate(-4deg);}
+    @keyframes coach-dance{
+      0%{   transform:translateY(0) scale(1) rotate(0);}
+      20%{  transform:translateY(-6px) scale(1.05) rotate(-6deg);}
+      40%{  transform:translateY(-3px) scale(1.03) rotate(5deg);}
+      60%{  transform:translateY(-7px) scale(1.06) rotate(-4deg);}
+      80%{  transform:translateY(-2px) scale(1.02) rotate(3deg);}
       100%{ transform:translateY(0) scale(1) rotate(0);}
     }
-    .coach-emoji.coach-celebrate{
-      animation:coach-celebrate-bounce 0.75s ease-out;
+
+    @keyframes coach-fever-dance{
+      0%{   transform:translateY(0) scale(1) rotate(0);}
+      15%{  transform:translateY(-10px) scale(1.08) rotate(-8deg);}
+      30%{  transform:translateY(-4px) scale(1.04) rotate(6deg);}
+      45%{  transform:translateY(-12px) scale(1.1) rotate(-6deg);}
+      60%{  transform:translateY(-5px) scale(1.05) rotate(4deg);}
+      100%{ transform:translateY(0) scale(1) rotate(0);}
     }
 
-    /* ===== เอฟเฟกต์ข้อความโค้ชแบบสุด ๆ ===== */
-    .coach-text-wrap{
-      display:flex;
-      flex-direction:column;
-      align-items:flex-start;
-      gap:2px;
-      position:relative;
+    @keyframes coach-sad-bob{
+      0%{   transform:translateY(0) scale(1);}
+      50%{  transform:translateY(3px) scale(0.98);}
+      100%{ transform:translateY(0) scale(1);}
     }
-    .coach-text-wrap::after{
-      content:'';
-      position:absolute;
-      inset:-4px -6px;
-      border-radius:999px;
-      border:1px solid rgba(52,211,153,0.35);
-      opacity:0;
-      transform:scale(0.9);
-      transition:opacity .3s ease-out, transform .3s ease-out;
+
+    @keyframes coach-celebrate-bounce{
+      0%{   transform:translateY(0) scale(1) rotate(0);}
+      25%{  transform:translateY(-14px) scale(1.1) rotate(-8deg);}
+      50%{  transform:translateY(-8px) scale(1.06) rotate(6deg);}
+      75%{  transform:translateY(-10px) scale(1.08) rotate(-4deg);}
+      100%{ transform:translateY(0) scale(1) rotate(0);}
     }
-    .coach-bubble.show .coach-text-wrap::after{
-      opacity:1;
-      transform:scale(1);
-      animation:coach-text-glow 1.6s ease-in-out infinite;
+
+    /* ===== Keyframes คำพูดโค้ช ===== */
+    @keyframes coach-text-slide{
+      0%{   opacity:0; transform:translateY(10px);}
+      60%{  opacity:1; transform:translateY(0);}
+      100%{ opacity:1; transform:translateY(0);}
     }
+
     @keyframes coach-text-glow{
-      0%{ box-shadow:0 0 0 rgba(52,211,153,0);}
-      50%{ box-shadow:0 0 18px rgba(52,211,153,0.55);}
-      100%{ box-shadow:0 0 0 rgba(52,211,153,0);}
-    }
-
-    #coach-text{
-      position:relative;
-      z-index:1;
-      display:inline-block;
-      /* gradient text แบบชัด ๆ */
-      color:transparent;
-      background-image:linear-gradient(120deg,#bbf7d0,#6ee7b7,#22c55e,#a5f3fc);
-      background-size:200% 200%;
-      -webkit-background-clip:text;
-      background-clip:text;
-      text-shadow:0 0 0 rgba(52,211,153,0.0);
-    }
-
-    /* วิ่งทุกครั้งที่มีข้อความใหม่ */
-    .coach-text-anim{
-      animation:coach-text-pop 0.55s cubic-bezier(0.18,0.89,0.32,1.28);
-    }
-    @keyframes coach-text-pop{
       0%{
-        transform:translateY(6px) scale(0.9);
-        opacity:0;
-        letter-spacing:0.02em;
         text-shadow:0 0 0 rgba(52,211,153,0);
       }
-      35%{
-        transform:translateY(-2px) scale(1.08);
-        opacity:1;
-        letter-spacing:0.08em;
-        text-shadow:0 0 20px rgba(52,211,153,0.85);
-      }
-      70%{
-        transform:translateY(0) scale(1.0);
-        letter-spacing:0.04em;
-        text-shadow:0 0 10px rgba(45,212,191,0.75);
+      40%{
+        text-shadow:
+          0 0 10px rgba(52,211,153,0.9),
+          0 0 18px rgba(56,189,248,0.7);
       }
       100%{
-        transform:translateY(0) scale(1);
-        opacity:1;
-        letter-spacing:0.02em;
-        text-shadow:0 0 6px rgba(45,212,191,0.4);
+        text-shadow:0 0 4px rgba(15,23,42,0.9);
       }
     }
 
-    /* spark รอบข้อความโค้ช */
-    .coach-spark{
-      position:absolute;
-      font-size:11px;
-      color:#a7f3d0;
-      opacity:0;
-      transform:translateY(0) scale(.8);
-      pointer-events:none;
-      text-shadow:0 0 10px rgba(34,197,94,0.8);
-      animation:coach-spark-fly 0.7s ease-out forwards;
+    @keyframes coach-ribbon{
+      0%{   opacity:0; transform:translateX(-20%);}
+      20%{  opacity:1; transform:translateX(0);}
+      80%{  opacity:1; transform:translateX(6%);}
+      100%{ opacity:0; transform:translateX(12%);}
     }
-    @keyframes coach-spark-fly{
+
+    @keyframes coach-bubble-pop{
+      0%{   transform:scale(0.9) translateY(6px);}
+      60%{  transform:scale(1.03) translateY(0);}
+      100%{ transform:scale(1) translateY(0);}
+    }
+
+    @keyframes coach-bubble-glow{
       0%{
-        opacity:0;
-        transform:translateY(4px) scale(.7);
+        box-shadow:
+          0 0 0 rgba(16,185,129,0),
+          0 0 0 rgba(56,189,248,0);
       }
-      20%{
-        opacity:1;
-        transform:translateY(-2px) scale(1);
+      40%{
+        box-shadow:
+          0 18px 40px rgba(15,23,42,0.9),
+          0 0 26px rgba(16,185,129,0.85),
+          0 0 40px rgba(56,189,248,0.6);
       }
       100%{
-        opacity:0;
-        transform:translateY(-14px) translateX(6px) scale(0.9);
+        box-shadow:
+          0 18px 40px rgba(15,23,42,0.85),
+          0 0 20px rgba(16,185,129,0.5);
       }
     }
 
@@ -733,7 +731,7 @@
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <div id="coach-emoji" class="coach-emoji coach-neutral"></div>
-        <div class="coach-text-wrap">
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="coach-label">โค้ช</span>
           <span id="coach-text">แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ</span>
         </div>
@@ -807,7 +805,6 @@
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
     const elCoachEmoji  = document.getElementById('coach-emoji');
-    const elCoachTextWrap = document.querySelector('.coach-text-wrap');
     const elTouchHint   = document.getElementById('touch-hint');
 
     const elEndToast  = document.getElementById('end-toast');
@@ -865,44 +862,18 @@
       }, 800);
     }
 
-    // สร้าง spark รอบข้อความโค้ชทุกครั้งที่พูด
-    function spawnCoachSparkles(){
-      if (!elCoachTextWrap) return;
-      const rect = elCoachTextWrap.getBoundingClientRect();
-      const width = rect.width || 200;
-      const count = 6;
-
-      for (let i = 0; i < count; i++){
-        const sp = document.createElement('span');
-        sp.className = 'coach-spark';
-        sp.textContent = (i % 2 === 0) ? '✦' : '✨';
-
-        const offsetX = 6 + Math.random() * (width - 20);
-        const offsetY = 14 + Math.random() * 6;
-
-        sp.style.left = offsetX + 'px';
-        sp.style.top  = offsetY + 'px';
-
-        elCoachTextWrap.appendChild(sp);
-
-        setTimeout(function(){
-          if (sp.parentNode) sp.parentNode.removeChild(sp);
-        }, 800);
-      }
-    }
-
     function setCoach(text){
       if (!text) return;
+
       elCoachText.textContent = text;
       elCoachBubble.classList.add('show');
 
-      // reset animation text ทุกครั้ง
-      elCoachText.classList.remove('coach-text-anim');
-      void elCoachText.offsetWidth; // force reflow
-      elCoachText.classList.add('coach-text-anim');
-
-      // spark effect รอบข้อความ
-      spawnCoachSparkles();
+      // restart animation every time coach speaks
+      if (elCoachText) {
+        elCoachText.classList.remove('coach-text-anim');
+        void elCoachText.offsetWidth;
+        elCoachText.classList.add('coach-text-anim');
+      }
 
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(function(){
@@ -922,7 +893,7 @@
       elCountdown.classList.remove('countdown-hidden');
       elCountdown.textContent = steps[0];
 
-      const interval = 800; // ms ต่อ step
+      const interval = 800;
       const t = setInterval(function(){
         idx++;
         if (idx >= steps.length){
@@ -1005,7 +976,7 @@
         });
       }
       if (P && P.scorePop){
-        var label = (kind === 'goal')
+        const label = (kind === 'goal')
           ? ('Goal ' + cleared + '/' + total)
           : ('Mini ' + cleared + '/' + total);
         P.scorePop(cx, y, 'MISSION CLEAR!', {
@@ -1152,20 +1123,13 @@
       updateRealtimeGrade(d.score);
     });
 
-    // HUD: Miss event (เศร้าชั่วคราวแล้วกลับ neutral)
+    // HUD: Miss event
     window.addEventListener('hha:miss', function(){
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
-
       setCoachFace('sad');
       setCoach('พลาดของดีไปนะ ลองโฟกัสผัก ผลไม้ และนมอีกครั้งนะ 😌');
       updateRealtimeGrade();
-
-      setTimeout(function () {
-        if (elCoachEmoji.classList.contains('coach-sad')) {
-          setCoachFace('neutral');
-        }
-      }, 2500);
     });
 
     // HUD: Fever state
@@ -1177,11 +1141,7 @@
         setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
       }
       if (st === 'end') {
-        setTimeout(function () {
-          if (elCoachEmoji.classList.contains('coach-fever')) {
-            setCoachFace('neutral');
-          }
-        }, 800);
+        setCoachFace('neutral');
       }
     });
 
@@ -1288,7 +1248,6 @@
         }
       }
 
-      // HUD update
       elDiff.textContent = diff.toUpperCase();
       elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
 
@@ -1312,7 +1271,7 @@
       setCoachFace('neutral');
       setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
 
-      // อ่าน studentProfile จาก sessionStorage (ตั้งจาก Hub)
+      // อ่าน studentProfile จาก sessionStorage
       let studentProfile = null;
       let studentKey = null;
       try{
@@ -1342,7 +1301,7 @@
       initTouchLook(cam);
       initVRButton();
 
-      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา
+      // 3–2–1 แล้วค่อยเริ่มเกม
       runCountdown(function(){
         GameEngine.start(diff);
 
