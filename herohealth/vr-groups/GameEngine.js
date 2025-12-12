@@ -1,10 +1,12 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine
-// เป้าเป็นวงกลม + emoji text, ขนาดตาม easy/normal/hard
-// มี Fever, Quest, 2D FX (คะแนนเด้ง + เป้าแตก) เหมือนเกมอื่น
+// เป้าเป็นวงกลม + emoji (จาก emoji-image.js) ขนาดตาม easy/normal/hard
+// มี Fever, Quest, 2D FX (คะแนนเด้ง + เป้าแตก) เหมือน GoodJunk / Plate / Hydration
 // 2025-12-12
 
 'use strict';
+
+import { emojiImage } from '../vr/emoji-image.js';
 
 const A = window.AFRAME;
 if (!A) {
@@ -14,7 +16,7 @@ if (!A) {
 const GM = window.GAME_MODULES || {};
 const GroupsFx = GM.foodGroupsFx || null;
 
-// Fever UI (จาก ui-fever.js)
+// Fever UI (จาก ui-fever.js / ส่วนรวม)
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar = FeverGlobal.ensureFeverBar || window.ensureFeverBar || (()=>{});
 const _setFever       = FeverGlobal.setFever       || window.setFever       || (()=>{});
@@ -375,18 +377,18 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // ***** เป้าเป็น emoji (Text component) *****
-    const txt = document.createElement('a-entity');
-    txt.setAttribute('text', {
-      value:  food.emoji || '🍎',
-      align:  'center',
-      color:  '#ffffff',
-      width:  2.4 * scale,
-      baseline: 'center'
-    });
-    txt.setAttribute('position', '0 0 0.02');
-    txt.setAttribute('data-hha-tgt', '1');
-    wrap.appendChild(txt);
+    // ***** emoji sprite (เหมือนโหมดอื่น ๆ) *****
+    const icon = document.createElement('a-plane');
+    const iconSize = radius * 1.7;
+    icon.setAttribute('width',  iconSize.toString());
+    icon.setAttribute('height', iconSize.toString());
+    icon.setAttribute(
+      'material',
+      `shader: flat; src: ${emojiImage(food.emoji)}; transparent: true; alphaTest: 0.01`
+    );
+    icon.setAttribute('position', '0 0 0.02');
+    icon.setAttribute('data-hha-tgt', '1');
+    wrap.appendChild(icon);
 
     const onHit = (evt)=> {
       if (!this.running) return;
@@ -394,7 +396,7 @@ class GroupsGameEngine {
     };
     wrap.addEventListener('click', onHit);
     bg.addEventListener('click', onHit);
-    txt.addEventListener('click', onHit);
+    icon.addEventListener('click', onHit);
 
     wrap.setAttribute(
       'animation__pop',
