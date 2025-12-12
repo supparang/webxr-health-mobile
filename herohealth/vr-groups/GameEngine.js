@@ -331,4 +331,243 @@ class GroupsGameEngine {
 
   _clearTargets(){
     this.targets.forEach(t=>{
-      if (t.timeoutId) clear
+      if (t.timeoutId) clearTimeout(t.timeoutId);
+      if (t.el && t.el.parentNode){
+        t.el.parentNode.removeChild(t.el);
+      }
+    });
+    this.targets.length = 0;
+  }
+
+  // ===== spawn เป้า: วงกลม + emoji เหมือน GoodJunk =====
+  _spawnOne(){
+    if (!this.scene || !this.running) return;
+
+    const maxActive = this.diff.maxActive || 5;
+    if (this.targets.length >= maxActive) return;
+
+    const food   = randomFood(this.diff);
+    const isGood = !!food.good;
+
+    // พิกัด: ให้โผล่ในมุมมองแน่ ๆ (คล้ายที่เคยเห็นวงกลมเขียว)
+    const x = randRange(-1.6, 1.6);   // ซ้ายขวา
+    const y = randRange(1.2, 2.0);    // สูงแถว ๆ ระดับสายตา
+    const z = -4.0;                   // อยู่หน้ากล้อง
+
+    const scale  = this.diff.scale || 1.0;
+    const radius = 0.5 * scale;
+
+    const wrap = document.createElement('a-entity');
+    wrap.setAttribute('class', 'fg-target');
+    wrap.setAttribute('data-hha-tgt', '1');
+    wrap.setAttribute('position', `${x} ${y} ${z}`);
+    wrap.setAttribute('rotation', '0 0 0');
+    wrap.setAttribute('visible', 'true');
+
+    // วงกลมพื้นหลัง
+    const bg = document.createElement('a-circle');
+    bg.setAttribute('radius', radius.toString());
+    bg.setAttribute(
+      'material',
+      `shader: flat; side: double; color: ${isGood ? '#22c55e' : '#f97316'}; opacity: 0.92; transparent: true`
+    );
+    bg.setAttribute('rotation', '0 0 0');
+    bg.setAttribute('data-hha-tgt', '1');
+    bg.setAttribute('visible', 'true');
+    wrap.appendChild(bg);
+
+    // emoji image (ใช้ไฟล์ sprite จาก emoji-image.js)
+    const imgUrl = (typeof emojiImage === 'function') ? emojiImage(food.emoji) : null;
+    const img = document.createElement('a-image');
+    if (imgUrl) {
+      img.setAttribute('src', imgUrl);
+    }
+    img.setAttribute('width',  (radius*1.6).toString());
+    img.setAttribute('height', (radius*1.6).toString());
+    img.setAttribute('position', '0 0 0.02');
+    img.setAttribute(
+      'material',
+      'shader: flat; transparent: true; side: double; alphaTest: 0.01'
+    );
+    img.setAttribute('data-hha-tgt', '1');
+    img.setAttribute('visible', 'true');
+    wrap.appendChild(img);
+
+    const onHit = (evt)=> {
+      if (!this.running) return;
+      this._onTargetHit(wrap, food, isGood, evt);
+    };
+    wrap.addEventListener('click', onHit);
+    bg.addEventListener('click', onHit);
+    img.addEventListener('click', onHit);
+
+    // pop ตอนเกิด
+    wrap.setAttribute(
+      'animation__pop',
+      'property: scale; from: 0.4 0.4 0.4; to: 1 1 1; dur: 260; easing: easeOutBack'
+    );
+
+    this.scene.appendChild(wrap);
+
+    const life = this.diff.lifeTime || 3600;
+    const timeoutId = setTimeout(()=>{
+      this._onTargetTimeout(wrap, food, isGood);
+    }, life);
+
+    this.targets.push({ el: wrap, food, good:isGood, timeoutId });
+  }
+
+  _removeTarget(el){
+    const idx = this.targets.findIndex(t => t.el === el);
+    if (idx >= 0){
+      const t = this.targets[idx];
+      if (t.timeoutId) clearTimeout(t.timeoutId);
+      this.targets.splice(idx, 1);
+    }
+    if (el && el.parentNode){
+      el.parentNode.removeChild(el);
+    }
+  }
+
+  _applyFever(onGood){
+    const delta = onGood ? 12 : -18;
+    this.fever = clamp(this.fever + delta, 0, FEVER_MAX);
+    _setFever(this.fever / FEVER_MAX);
+
+    if (!this.feverActive && this.fever >= FEVER_MAX){
+      this.feverActive = true;
+      this.fever = FEVER_MAX;
+      _setFeverActive(true);
+      window.dispatchEvent(new CustomEvent('hha:fever', {
+        detail:{ state:'start' }
+      }));
+    } else if (this.feverActive && this.fever <= 0){
+      this.feverActive = false;
+      _setFeverActive(false);
+      window.dispatchEvent(new CustomEvent('hha:fever', {
+        detail:{ state:'end' }
+      }));
+    }
+  }
+
+  _judgeLabel(isGood, actuallyGood){
+    if (isGood && actuallyGood) return 'PERFECT';
+    if (isGood && !actuallyGood) return 'MISS';
+    if (!isGood && actuallyGood) return 'MISS';
+    return 'GOOD';
+  }
+
+  _onTargetHit(el, food, isGood, evt){
+    this._removeTarget(el);
+
+    const actuallyGood = isGood;
+    const correct = actuallyGood;
+
+    try {
+      if (GroupsFx && typeof GroupsFx.burst === 'function'){
+        let worldPos = null;
+        if (evt && evt.detail && evt.detail.intersection && evt.detail.intersection.point){
+          worldPos = evt.detail.intersection.point;
+        } else if (el.object3D && el.object3D.getWorldPosition){
+          const v = new A.THREE.Vector3();
+          el.object3D.getWorldPosition(v);
+          worldPos = v;
+        }
+        if (worldPos){
+          GroupsFx.burst(worldPos);
+        }
+      }
+    } catch(err){
+      console.warn('[GroupsVR] burst error:', err);
+    }
+
+    let scoreDelta = 0;
+    let judgment = '';
+
+    if (correct){
+      this.combo += 1;
+      if (this.combo > this.bestCombo) this.bestCombo = this.combo;
+
+      scoreDelta = 50 + Math.floor(this.combo * 2);
+      if (this.feverActive){
+        scoreDelta = Math.floor(scoreDelta * 1.5);
+      }
+      this.score += scoreDelta;
+      judgment = this._judgeLabel(true, actuallyGood);
+
+      this._applyFever(true);
+
+      checkQuestProgress(this.questState, {
+        food,
+        isGood:true,
+        combo:this.combo
+      });
+
+      fireHitUi('+'+scoreDelta, judgment, true);
+      window.dispatchEvent(new CustomEvent('hha:judge', {
+        detail:{ label: judgment }
+      }));
+    } else {
+      this.combo = 0;
+      this.misses += 1;
+      judgment = 'MISS';
+
+      this._applyFever(false);
+      fireMissUi(judgment);
+
+      window.dispatchEvent(new CustomEvent('hha:judge', {
+        detail:{ label:'MISS' }
+      }));
+      window.dispatchEvent(new CustomEvent('hha:miss', { detail:{} }));
+    }
+
+    window.dispatchEvent(new CustomEvent('hha:score', {
+      detail:{ score:this.score, combo:this.combo, misses:this.misses }
+    }));
+  }
+
+  _onTargetTimeout(el, food, isGood){
+    this._removeTarget(el);
+
+    if (isGood && this.running){
+      this.combo = 0;
+      this.misses += 1;
+
+      this._applyFever(false);
+      fireMissUi('MISS');
+
+      window.dispatchEvent(new CustomEvent('hha:judge', {
+        detail:{ label:'MISS' }
+      }));
+      window.dispatchEvent(new CustomEvent('hha:miss', { detail:{} }));
+      window.dispatchEvent(new CustomEvent('hha:score', {
+        detail:{ score:this.score, combo:this.combo, misses:this.misses }
+      }));
+    }
+  }
+}
+
+// ---------- export ----------
+export const GameEngine = {
+  _inst: null,
+  start(diffKey){
+    if (!this._inst){
+      this._inst = new GroupsGameEngine();
+    }
+    if (typeof diffKey === 'string'){
+      this._inst.start(diffKey);
+    } else if (Array.isArray(arguments) && arguments.length >= 2){
+      this._inst.start(arguments[1]);
+    } else {
+      this._inst.start('normal');
+    }
+  },
+  stop(reason){
+    if (this._inst){
+      this._inst.stop(reason);
+    }
+  }
+};
+
+GM.GroupsGameEngine = GameEngine;
+window.GAME_MODULES = GM;
