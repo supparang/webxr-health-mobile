@@ -1,214 +1,602 @@
-/* ===== Hydration VR – Coach + Judge FX (2025-12-12) ===== */
+/* === Hero Health — Hydration VR CSS (2025-12-13 full) === */
 
-/* ---------- ชั้นโค้ชเต้น + กล่องคำพูด ---------- */
-.hydr-coach-layer {
-  position: fixed;
-  left: 50%;
-  bottom: 68px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  z-index: 40;
-  pointer-events: none;
+:root{
+  color-scheme: light dark;
+  --bg-main:#020617;
+  --panel:#020617;
+  --panel-soft:#0b1120;
+  --accent:#22c55e;
+  --accent-soft:rgba(34,197,94,0.18);
+  --danger:#f97316;
+  --text-main:#e5e7eb;
+  --text-soft:#9ca3af;
 }
 
+*{
+  box-sizing:border-box;
+}
+
+/* ===== Start Countdown ===== */
+.countdown-overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:655;
+  font-size:clamp(3rem, 10vw, 5rem);
+  font-weight:800;
+  color:#fbbf24;
+  text-shadow:0 0 40px rgba(0,0,0,0.85);
+  pointer-events:none;
+  transition:opacity .25s ease-out, transform .25s ease-out;
+}
+.countdown-hidden{
+  opacity:0;
+  visibility:hidden;
+  transform:scale(0.8);
+}
+
+/* ===== Body ===== */
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
+    var(--bg-main);
+  color:var(--text-main);
+  overflow:hidden;
+}
+
+/* ===== HUD Root ===== */
+.hud-root{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:650;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:10px 10px 14px;
+}
+
+.hud-top{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:flex-start;
+}
+
+/* ===== HUD Card ===== */
+.hud-card{
+  background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
+  border-radius:18px;
+  padding:8px 10px;
+  box-shadow:0 18px 40px rgba(15,23,42,0.65);
+  border:1px solid rgba(148,163,184,0.18);
+  pointer-events:auto;
+}
+
+/* Left block */
+.hud-main{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-bottom:4px;
+}
+.hud-main-title{
+  font-size:14px;
+  font-weight:600;
+  letter-spacing:.03em;
+  text-transform:uppercase;
+  color:var(--text-soft);
+}
+.hud-main-mode{
+  font-size:15px;
+  font-weight:700;
+}
+.hud-pill{
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:999px;
+  background:rgba(15,118,110,0.2);
+  border:1px solid rgba(45,212,191,0.4);
+  color:#a5f3fc;
+  font-weight:500;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+
+/* Metrics */
+.hud-metrics{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.metric{
+  min-width:90px;
+}
+.metric-label{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  color:var(--text-soft);
+}
+.metric-value{
+  font-size:15px;
+  font-weight:700;
+  margin-top:2px;
+}
+.metric-value.accent{
+  color:var(--accent);
+}
+.metric-value.danger{
+  color:var(--danger);
+}
+
+/* ===== Quest panel (บนขวา) ===== */
+.hud-quest{
+  max-width:300px;
+  width:100%;
+  font-size:12px;
+}
+.quest-title{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  color:var(--text-soft);
+  margin-bottom:2px;
+}
+.quest-main-label{
+  font-size:13px;
+  font-weight:600;
+}
+.quest-mini-label{
+  font-size:12px;
+  color:var(--text-soft);
+  margin-top:4px;
+}
+.quest-progress-wrap{
+  margin-top:5px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.quest-bar{
+  position:relative;
+  width:100%;
+  height:4px;
+  border-radius:999px;
+  background:rgba(15,23,42,0.9);
+  overflow:hidden;
+}
+.quest-bar-fill{
+  position:absolute;
+  inset:0;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg, var(--accent-soft), var(--accent));
+  transition:width .18s ease-out;
+}
+.quest-caption{
+  font-size:10px;
+  color:var(--text-soft);
+  display:flex;
+  justify-content:space-between;
+}
+
+/* ===== Coach bubble ของ HUD เดิม (ล่างกลาง) ===== */
+.hud-bottom{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  padding-bottom:72px;
+}
+.coach-bubble{
+  min-width:60%;
+  max-width:680px;
+  text-align:left;
+  background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%),
+             rgba(15,23,42,0.96);
+  border-radius:999px;
+  padding:8px 14px;
+  border:1px solid rgba(52,211,153,0.45);
+  font-size:13px;
+  display:none;
+  align-items:center;
+  justify-content:flex-start;
+  gap:8px;
+  pointer-events:auto;
+}
+.coach-bubble.show{
+  display:flex;
+}
+.coach-label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  color:#6ee7b7;
+  font-weight:600;
+}
+.coach-emoji{
+  font-size:26px;
+  line-height:1;
+  width:32px;
+  text-align:center;
+  flex-shrink:0;
+}
+
+/* ===== Center hint ===== */
+.hint-center{
+  position:fixed;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  font-size:12px;
+  color:var(--text-soft);
+  background:rgba(15,23,42,0.8);
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.35);
+  display:none;
+  pointer-events:none;
+  z-index:651;
+}
+.hint-center.show{
+  display:block;
+}
+
+/* ===== End Summary Toast ===== */
+.end-toast{
+  position:fixed;
+  left:50%;
+  top:18%;
+  transform:translateX(-50%);
+  background:radial-gradient(circle at top left, rgba(250,204,21,0.26), transparent 55%),
+             rgba(15,23,42,0.96);
+  padding:12px 16px 14px;
+  border-radius:20px;
+  border:1px solid rgba(250,204,21,0.65);
+  min-width:280px;
+  max-width:420px;
+  font-size:13px;
+  box-shadow:0 20px 40px rgba(15,23,42,0.85);
+  display:none;
+  z-index:652;
+  pointer-events:auto;
+}
+.end-toast.show{
+  display:block;
+}
+.end-title{
+  font-size:14px;
+  font-weight:700;
+  margin-bottom:4px;
+}
+.end-row{
+  display:flex;
+  justify-content:space-between;
+  font-size:12px;
+  margin-top:2px;
+}
+.end-row strong{
+  font-weight:600;
+}
+
+.end-actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:10px;
+}
+.end-btn{
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.6);
+  padding:6px 14px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  background:rgba(15,23,42,0.85);
+  color:var(--text-main);
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
+}
+.end-btn:hover{
+  background:rgba(15,23,42,0.98);
+  box-shadow:0 10px 22px rgba(15,23,42,0.9);
+  transform:translateY(-1px);
+}
+.end-btn:active{
+  transform:translateY(0);
+  box-shadow:0 6px 14px rgba(15,23,42,0.7);
+}
+.end-btn-primary{
+  background:linear-gradient(135deg,#22c55e,#16a34a);
+  border-color:rgba(187,247,208,0.9);
+  color:#052e16;
+}
+.end-btn-primary:hover{
+  background:linear-gradient(135deg,#4ade80,#22c55e);
+}
+.end-btn-ghost{
+  background:rgba(15,23,42,0.7);
+}
+
+/* ===== ป้ายโหมด (Play / Research) ===== */
+.hud-mode-badge{
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:999px;
+  background:rgba(30,64,175,0.18);
+  border:1px solid rgba(59,130,246,0.6);
+  color:#bfdbfe;
+  font-weight:500;
+  margin-left:6px;
+}
+
+/* ===== ปุ่มเข้า VR ===== */
+.vr-btn{
+  position:fixed;
+  right:12px;
+  bottom:16px;
+  z-index:653;
+  border-radius:999px;
+  border:1px solid rgba(56,189,248,0.7);
+  padding:8px 14px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%),
+             rgba(15,23,42,0.96);
+  color:#e0f2fe;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  box-shadow:0 14px 30px rgba(15,23,42,0.9);
+}
+.vr-btn span{
+  font-size:16px;
+}
+.vr-btn:hover{
+  background:radial-gradient(circle at top left, rgba(56,189,248,0.5), transparent 55%),
+             rgba(15,23,42,1);
+}
+
+/* ===== A-Frame canvas full ===== */
+a-scene{
+  width:100vw;
+  height:100vh;
+  position:fixed;
+  inset:0;
+}
+
+/* ---------- Mobile layout tweaks ---------- */
 @media (max-width: 768px) {
-  .hydr-coach-layer {
-    bottom: 100px;
-    max-width: 92vw;
+  .hud-root{
+    padding:8px 8px 12px;
+  }
+  .hud-card{
+    padding:8px 9px;
+  }
+  .hud-quest{
+    max-width:220px;
   }
 }
 
-.hydr-coach-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 999px;
-  background: radial-gradient(circle at 30% 20%, #a7f3d0, #22c55e 40%, #166534 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36px;
+/* =======================================================
+   Hydration VR – Coach FX + Judge FX + Quest Toasts
+   (เพิ่มโค้ชเต้น, คำตัดสินเด้ง, ฉลอง goal/mini/all)
+   ======================================================= */
+
+/* ---------- ชั้นโค้ชเต้น + กล่องคำพูดแยก ---------- */
+.hydr-coach-layer{
+  position:fixed;
+  left:50%;
+  bottom:68px;
+  transform:translateX(-50%);
+  display:flex;
+  align-items:flex-end;
+  gap:12px;
+  z-index:640;
+  pointer-events:none;
+}
+
+@media (max-width: 768px){
+  .hydr-coach-layer{
+    bottom:96px;
+    max-width:92vw;
+  }
+}
+
+.hydr-coach-avatar{
+  width:64px;
+  height:64px;
+  border-radius:999px;
+  background:radial-gradient(circle at 30% 20%, #a7f3d0, #22c55e 40%, #166534 100%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:36px;
   box-shadow:
     0 0 0 2px rgba(15, 23, 42, .9),
     0 18px 30px rgba(15, 23, 42, .85);
-  animation: hydrCoachIdle 1.8s ease-in-out infinite;
+  animation:hydrCoachIdle 1.8s ease-in-out infinite;
 }
 
-.hydr-coach-avatar--celebrate {
-  animation: hydrCoachDance .6s ease-in-out infinite;
+.hydr-coach-avatar--celebrate{
+  animation:hydrCoachDance .6s ease-in-out infinite;
 }
 
-.hydr-coach-speech {
-  max-width: min(420px, 72vw);
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, .96);
-  border: 1px solid rgba(56, 189, 248, .65);
-  color: #e5e7eb;
-  font-size: 14px;
-  line-height: 1.4;
-  box-shadow: 0 14px 32px rgba(15, 23, 42, .8);
-  transform-origin: left bottom;
-  animation: hydrCoachBubbleIn .22s ease-out;
-  white-space: pre-line;
+.hydr-coach-speech{
+  max-width:min(420px, 72vw);
+  padding:10px 14px;
+  border-radius:999px;
+  background:rgba(15, 23, 42, .96);
+  border:1px solid rgba(56, 189, 248, .65);
+  color:#e5e7eb;
+  font-size:14px;
+  line-height:1.4;
+  box-shadow:0 14px 32px rgba(15, 23, 42, .8);
+  transform-origin:left bottom;
+  animation:hydrCoachBubbleIn .22s ease-out;
+  white-space:pre-line;
 }
 
 /* ---------- ชั้น FX คำตัดสิน + คะแนน ---------- */
-.hydr-judge-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 45;
+.hydr-judge-layer{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:645;
 }
 
-.hydr-judge-pop {
-  position: absolute;
-  min-width: 80px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 14px 30px rgba(15, 23, 42, .9);
-  transform: translate(-50%, -50%);
-  animation: hydrJudgePop .55s ease-out forwards;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+.hydr-judge-pop{
+  position:absolute;
+  min-width:80px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:14px;
+  font-weight:600;
+  display:inline-flex;
+  gap:6px;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 14px 30px rgba(15, 23, 42, .9);
+  transform:translate(-50%, -50%);
+  animation:hydrJudgePop .55s ease-out forwards;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
 }
 
-.hydr-judge-pop__label {
-  text-transform: uppercase;
-  letter-spacing: .04em;
+.hydr-judge-pop__label{
+  text-transform:uppercase;
+  letter-spacing:.04em;
 }
-
-.hydr-judge-pop__score {
-  font-variant-numeric: tabular-nums;
+.hydr-judge-pop__score{
+  font-variant-numeric:tabular-nums;
 }
 
 /* สีของคำตัดสินแต่ละแบบ */
-.hydr-judge-pop--bad {
-  background: rgba(248, 113, 113, .9);
-  color: #111827;
+.hydr-judge-pop--bad{
+  background:rgba(248, 113, 113, .9);
+  color:#111827;
 }
-
-.hydr-judge-pop--good {
-  background: rgba(52, 211, 153, .95);
-  color: #022c22;
+.hydr-judge-pop--good{
+  background:rgba(52, 211, 153, .95);
+  color:#022c22;
 }
-
-.hydr-judge-pop--perfect {
-  background: linear-gradient(90deg, #22c55e, #38bdf8);
-  color: #0b1120;
+.hydr-judge-pop--perfect{
+  background:linear-gradient(90deg, #22c55e, #38bdf8);
+  color:#0b1120;
 }
-
-.hydr-judge-pop--fever {
-  background: radial-gradient(circle at 0 0, #fee2e2, #fb923c 55%, #ea580c 100%);
-  color: #111827;
+.hydr-judge-pop--fever{
+  background:radial-gradient(circle at 0 0, #fee2e2, #fb923c 55%, #ea580c 100%);
+  color:#111827;
   box-shadow:
     0 0 0 2px rgba(248, 250, 252, .6),
     0 0 32px rgba(249, 115, 22, .85);
 }
 
 /* ---------- Toast ฉลอง Goal / Mini / All ---------- */
-.hydr-quest-toast-wrap {
-  position: fixed;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
+.hydr-quest-toast-wrap{
+  position:fixed;
+  top:18px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:650;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  pointer-events:none;
 }
 
-.hydr-quest-toast {
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 16px 35px rgba(15, 23, 42, .85);
-  background: rgba(15, 23, 42, .96);
-  border: 1px solid rgba(56, 189, 248, .7);
-  color: #e5e7eb;
+.hydr-quest-toast{
+  padding:8px 14px;
+  border-radius:999px;
+  font-size:13px;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  box-shadow:0 16px 35px rgba(15, 23, 42, .85);
+  background:rgba(15, 23, 42, .96);
+  border:1px solid rgba(56, 189, 248, .7);
+  color:#e5e7eb;
   animation:
     hydrQuestToastIn .25s ease-out,
     hydrQuestToastOut .35s ease-in 2.4s forwards;
 }
 
-.hydr-quest-toast__badge {
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
+.hydr-quest-toast__badge{
+  width:26px;
+  height:26px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:16px;
 }
 
 /* โทนสีตามประเภทภารกิจ */
-.hydr-quest-toast--goal .hydr-quest-toast__badge {
-  background: rgba(34, 197, 94, .1);
+.hydr-quest-toast--goal .hydr-quest-toast__badge{
+  background:rgba(34, 197, 94, .1);
 }
-
-.hydr-quest-toast--mini .hydr-quest-toast__badge {
-  background: rgba(129, 140, 248, .16);
+.hydr-quest-toast--mini .hydr-quest-toast__badge{
+  background:rgba(129, 140, 248, .16);
 }
-
-.hydr-quest-toast--all {
-  background: linear-gradient(90deg, rgba(56, 189, 248,.95), rgba(45, 212, 191,.98));
-  color: #0b1120;
+.hydr-quest-toast--all{
+  background:linear-gradient(90deg, rgba(56, 189, 248,.95), rgba(45, 212, 191,.98));
+  color:#0b1120;
 }
 
 /* ---------- Animations ---------- */
 
-@keyframes hydrCoachIdle {
-  0%,100% { transform: translateY(0) scale(1); }
-  50%     { transform: translateY(-4px) scale(1.03); }
+@keyframes hydrCoachIdle{
+  0%,100%{ transform:translateY(0) scale(1); }
+  50%    { transform:translateY(-4px) scale(1.03); }
 }
 
-@keyframes hydrCoachDance {
-  0%   { transform: translateY(0)   rotate(-4deg) scale(1.04); }
-  25%  { transform: translateY(-4px) rotate(4deg)  scale(1.12); }
-  50%  { transform: translateY(-2px) rotate(-3deg) scale(1.06); }
-  75%  { transform: translateY(-5px) rotate(5deg)  scale(1.16); }
-  100% { transform: translateY(0)   rotate(-2deg) scale(1.05); }
+@keyframes hydrCoachDance{
+  0%   { transform:translateY(0)    rotate(-4deg) scale(1.04); }
+  25%  { transform:translateY(-4px) rotate(4deg)  scale(1.12); }
+  50%  { transform:translateY(-2px) rotate(-3deg) scale(1.06); }
+  75%  { transform:translateY(-5px) rotate(5deg)  scale(1.16); }
+  100% { transform:translateY(0)    rotate(-2deg) scale(1.05); }
 }
 
-@keyframes hydrCoachBubbleIn {
-  0%   { opacity: 0; transform: scale(.85) translateY(10px); }
-  100% { opacity: 1; transform: scale(1)   translateY(0); }
+@keyframes hydrCoachBubbleIn{
+  0%   { opacity:0; transform:scale(.85) translateY(10px); }
+  100% { opacity:1; transform:scale(1)   translateY(0); }
 }
 
-@keyframes hydrJudgePop {
-  0%   { opacity: 0; transform: translate(-50%, -60%) scale(.6); }
-  35%  { opacity: 1; transform: translate(-50%, -52%) scale(1.05); }
-  65%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -40%) scale(.85); }
+@keyframes hydrJudgePop{
+  0%   { opacity:0; transform:translate(-50%, -60%) scale(.6); }
+  35%  { opacity:1; transform:translate(-50%, -52%) scale(1.05); }
+  65%  { opacity:1; transform:translate(-50%, -50%) scale(1); }
+  100% { opacity:0; transform:translate(-50%, -40%) scale(.85); }
 }
 
-@keyframes hydrQuestToastIn {
-  0%   { opacity: 0; transform: translateY(-10px) scale(.92); }
-  100% { opacity: 1; transform: translateY(0)     scale(1); }
+@keyframes hydrQuestToastIn{
+  0%   { opacity:0; transform:translateY(-10px) scale(.92); }
+  100% { opacity:1; transform:translateY(0)     scale(1); }
 }
 
-@keyframes hydrQuestToastOut {
-  0%   { opacity: 1; transform: translateY(0)     scale(1); }
-  100% { opacity: 0; transform: translateY(-10px) scale(.94); }
+@keyframes hydrQuestToastOut{
+  0%   { opacity:1; transform:translateY(0)     scale(1); }
+  100% { opacity:0; transform:translateY(-10px) scale(.94); }
 }
 
 /* ---------- Fix layout กล่องสรุปไม่ตกขอบมือถือ ---------- */
-@media (max-width: 768px) {
-  .hh-summary-dialog,
-  .hydr-summary-dialog {
-    max-width: 88vw;
-    left: 50%;
-    transform: translateX(-50%);
+@media (max-width: 768px){
+  .end-toast{
+    max-width:88vw;
+    left:50%;
+    transform:translateX(-50%);
   }
 }
