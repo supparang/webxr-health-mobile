@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (วงกลม + emoji-image + Fever + Quest)
-// 2025-12-12: ใช้ a-image แสดง emoji ตามไฟล์ PNG + เอฟเฟกต์คะแนน/เป้าแตก + quest + fever
+// Food Groups VR — Game Engine (วงกลม + emoji จาก canvas + Fever + Quest)
+// 2025-12-12
 
 'use strict';
 
@@ -12,14 +12,14 @@ if (!A) {
 const GM = window.GAME_MODULES || (window.GAME_MODULES = {});
 const GroupsFx = GM.foodGroupsFx || null;
 
-// Fever UI (ใช้ของกลาง HeroHealth)
+// Fever UI (ของกลาง HeroHealth)
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar = FeverGlobal.ensureFeverBar || window.ensureFeverBar || (() => {});
 const _setFever       = FeverGlobal.setFever       || window.setFever       || (() => {});
 const _setFeverActive = FeverGlobal.setFeverActive || window.setFeverActive || (() => {});
 const _setShield      = FeverGlobal.setShield      || window.setShield      || (() => {});
 
-// FX layer กลางจอ (Particles DOM)
+// FX layer DOM กลางจอ
 const Particles = window.Particles || (GM.Particles || null);
 
 const FEVER_MAX = 100;
@@ -33,6 +33,36 @@ function clamp(v, min, max) {
 }
 function randRange(min, max) {
   return min + Math.random() * (max - min);
+}
+
+// ---------- Emoji texture ผ่าน canvas ----------
+const EMOJI_TEX_CACHE = {};
+
+function emojiTexture(emoji) {
+  emoji = String(emoji || '').trim();
+  if (!emoji) return '';
+  if (EMOJI_TEX_CACHE[emoji]) return EMOJI_TEX_CACHE[emoji];
+
+  const canvas = document.createElement('canvas');
+  const size = 256;
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+
+  ctx.clearRect(0, 0, size, size);
+  // พื้นหลังโปร่งใส
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.font = '200px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(emoji, size / 2, size * 0.60);
+
+  const url = canvas.toDataURL('image/png');
+  EMOJI_TEX_CACHE[emoji] = url;
+  return url;
 }
 
 // ---------- Difficulty ----------
@@ -70,30 +100,29 @@ function pickDifficulty(diffKey) {
   };
 }
 
-// ---------- Data: foods ----------
-// sprite: ให้แก้ path ให้ตรงกับไฟล์ PNG ของอาจารย์เอง
+// ---------- Data: foods (ใช้ emoji ตรง ๆ) ----------
 const FOODS = [
-  { emoji:'🍚', group:'grain',   good:true, sprite:'./img/fg-grain-rice.png' },
-  { emoji:'🍞', group:'grain',   good:true, sprite:'./img/fg-grain-bread.png' },
+  { emoji:'🍚', group:'grain',   good:true },
+  { emoji:'🍞', group:'grain',   good:true },
 
-  { emoji:'🥦', group:'veg',     good:true, sprite:'./img/fg-veg-broccoli.png' },
-  { emoji:'🥕', group:'veg',     good:true, sprite:'./img/fg-veg-carrot.png' },
+  { emoji:'🥦', group:'veg',     good:true },
+  { emoji:'🥕', group:'veg',     good:true },
 
-  { emoji:'🍎', group:'fruit',   good:true, sprite:'./img/fg-fruit-apple.png' },
-  { emoji:'🍌', group:'fruit',   good:true, sprite:'./img/fg-fruit-banana.png' },
-  { emoji:'🍇', group:'fruit',   good:true, sprite:'./img/fg-fruit-grape.png' },
+  { emoji:'🍎', group:'fruit',   good:true },
+  { emoji:'🍌', group:'fruit',   good:true },
+  { emoji:'🍇', group:'fruit',   good:true },
 
-  { emoji:'🥛', group:'milk',    good:true, sprite:'./img/fg-milk-milk.png' },
-  { emoji:'🧀', group:'milk',    good:true, sprite:'./img/fg-milk-cheese.png' },
+  { emoji:'🥛', group:'milk',    good:true },
+  { emoji:'🧀', group:'milk',    good:true },
 
-  { emoji:'🍗', group:'protein', good:true, sprite:'./img/fg-protein-chicken.png' },
-  { emoji:'🥚', group:'protein', good:true, sprite:'./img/fg-protein-egg.png' },
+  { emoji:'🍗', group:'protein', good:true },
+  { emoji:'🥚', group:'protein', good:true },
 
-  { emoji:'🍩', group:'junk',    good:false, sprite:'./img/fg-junk-donut.png' },
-  { emoji:'🍰', group:'junk',    good:false, sprite:'./img/fg-junk-cake.png' },
-  { emoji:'🥤', group:'junk',    good:false, sprite:'./img/fg-junk-soda.png' },
-  { emoji:'🍟', group:'junk',    good:false, sprite:'./img/fg-junk-fries.png' },
-  { emoji:'🍕', group:'junk',    good:false, sprite:'./img/fg-junk-pizza.png' }
+  { emoji:'🍩', group:'junk',    good:false },
+  { emoji:'🍰', group:'junk',    good:false },
+  { emoji:'🥤', group:'junk',    good:false },
+  { emoji:'🍟', group:'junk',    good:false },
+  { emoji:'🍕', group:'junk',    good:false }
 ];
 
 function randomFood(diff) {
@@ -129,9 +158,9 @@ function fireQuestUpdate(qState) {
   window.dispatchEvent(new CustomEvent('quest:update', {
     detail: {
       goal: activeGoal ? {
-        label: activeGoal.label,
-        prog:  activeGoal.prog,
-        target:activeGoal.target
+        label:  activeGoal.label,
+        prog:   activeGoal.prog,
+        target: activeGoal.target
       } : null,
       mini: activeMini ? {
         label:  activeMini.label,
@@ -217,6 +246,7 @@ function fireHitUi(scoreDelta, judgment, good) {
     Particles.scorePop(x, y, scoreDelta, { judgment, good });
   }
 }
+
 function fireMissUi(judgment) {
   const x = window.innerWidth / 2;
   const y = window.innerHeight / 2;
@@ -351,7 +381,7 @@ class GroupsGameEngine {
     this.targets.length = 0;
   }
 
-  // ===== spawn เป้า: วงกลม + emoji-image (a-image) =====
+  // ===== spawn เป้า: วงกลม + emoji-plane =====
   _spawnOne() {
     if (!this.scene || !this.running) return;
 
@@ -380,37 +410,38 @@ class GroupsGameEngine {
     bg.setAttribute('radius', radius.toString());
     bg.setAttribute(
       'material',
-      `shader: flat; side: double; color: ${isGood ? '#22c55e' : '#f97316'}; opacity: 0.92; transparent: true`
+      `shader: flat; side: double; color: ${isGood ? '#22c55e' : '#f97316'}; opacity: 0.9; transparent: true`
     );
     bg.setAttribute('rotation', '0 0 0');
     bg.setAttribute('data-hha-tgt', '1');
     bg.setAttribute('visible', 'true');
     wrap.appendChild(bg);
 
-    // ไอคอน emoji จาก PNG (a-image)
-    if (food.sprite) {
-      const icon = document.createElement('a-image');
-      icon.setAttribute('src', food.sprite);
-      const w = radius * 1.5;
-      const h = radius * 1.5;
-      icon.setAttribute('width',  w.toString());
-      icon.setAttribute('height', h.toString());
-      icon.setAttribute('position', '0 0 0.01');
-      icon.setAttribute('data-hha-tgt', '1');
-      icon.setAttribute('visible', 'true');
-      wrap.appendChild(icon);
-    } else {
-      // fallback: ใช้ text emoji (ถ้าไม่มีไฟล์ PNG)
-      const label = document.createElement('a-entity');
-      label.setAttribute(
-        'text',
-        `value: ${food.emoji}; align: center; color: #ffffff; width: ${radius * 2.4};`
+    // emoji-plane ข้างบน
+    const icon = document.createElement('a-plane');
+    const tex  = emojiTexture(food.emoji);
+
+    if (tex) {
+      icon.setAttribute('src', tex);
+      icon.setAttribute(
+        'material',
+        'shader: flat; transparent: true; alphaTest: 0.01; side: double'
       );
-      label.setAttribute('position', '0 0 0.02');
-      label.setAttribute('data-hha-tgt', '1');
-      label.setAttribute('visible', 'true');
-      wrap.appendChild(label);
+    } else {
+      // fallback ถ้า canvas ทำงานไม่ได้
+      icon.setAttribute(
+        'material',
+        'shader: flat; color: #ffffff; transparent: true; opacity: 0.9'
+      );
     }
+
+    const s = radius * 1.6;
+    icon.setAttribute('width',  s.toString());
+    icon.setAttribute('height', s.toString());
+    icon.setAttribute('position', '0 0 0.02');
+    icon.setAttribute('data-hha-tgt', '1');
+    icon.setAttribute('visible', 'true');
+    wrap.appendChild(icon);
 
     const onHit = (evt) => {
       if (!this.running) return;
@@ -418,6 +449,7 @@ class GroupsGameEngine {
     };
     wrap.addEventListener('click', onHit);
     bg.addEventListener('click', onHit);
+    icon.addEventListener('click', onHit);
 
     wrap.setAttribute(
       'animation__pop',
