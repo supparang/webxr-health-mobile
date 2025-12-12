@@ -377,7 +377,6 @@ class GroupsGameEngine {
     wrap.setAttribute('class', 'fg-target');
     wrap.setAttribute('data-hha-tgt', '1');
     wrap.setAttribute('position', `${x} ${y} ${z}`);
-    // หันเข้ากล้องหน่อย
     wrap.setAttribute('look-at', '#gj-camera');
 
     // พื้นหลังวงกลม
@@ -388,23 +387,30 @@ class GroupsGameEngine {
       `shader: flat; color: ${isGood ? '#0f172a' : '#7f1d1d'}; opacity: 0.95; transparent: true`
     );
     bg.setAttribute('rotation', '0 0 0');
+    bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // emoji เป็น image (ใช้ emojiImage สร้าง texture)
-    const texUrl = typeof emojiImage === 'function'
+    // emoji เป็น image (ใช้ emojiImage สร้าง texture → material)
+    const texUrl = (typeof emojiImage === 'function')
       ? emojiImage(food.emoji || '🍎')
       : '';
-    const img = document.createElement('a-image');
-    if (texUrl) {
-      img.setAttribute('src', texUrl);
-    }
+    const img = document.createElement('a-entity');
     const w = radius * 1.6;
     const h = radius * 1.6;
-    img.setAttribute('width', w.toString());
-    img.setAttribute('height', h.toString());
-    img.setAttribute('transparent', 'true');
-    img.setAttribute('alpha-test', '0.01');
+    img.setAttribute('geometry', `primitive: plane; width: ${w}; height: ${h}`);
+    if (texUrl) {
+      img.setAttribute(
+        'material',
+        `shader: flat; src: ${texUrl}; transparent: true; alphaTest: 0.01`
+      );
+    } else {
+      img.setAttribute(
+        'material',
+        'shader: flat; color: #ffffff; transparent: true; opacity: 0.9'
+      );
+    }
     img.setAttribute('position', '0 0 0.02');
+    img.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(img);
 
     // เด้งเข้ามา
@@ -413,11 +419,14 @@ class GroupsGameEngine {
       'property: scale; from: 0.6 0.6 0.6; to: 1 1 1; dur: 220; easing: easeOutBack'
     );
 
-    // คลิกเป้า
-    wrap.addEventListener('click', (evt) => {
+    // คลิกเป้า: ผูกทั้ง wrap + bg + img ให้ชัวร์
+    const onHit = (evt) => {
       if (!this.running) return;
       this._onTargetHit(wrap, food, isGood, evt);
-    });
+    };
+    wrap.addEventListener('click', onHit);
+    bg.addEventListener('click', onHit);
+    img.addEventListener('click', onHit);
 
     this.scene.appendChild(wrap);
 
@@ -529,7 +538,7 @@ class GroupsGameEngine {
       fireMissUi(judgment);
 
       window.dispatchEvent(new CustomEvent('hha:judge', {
-        detail: { label: judgment }
+        detail: { label: 'MISS' }
       }));
       window.dispatchEvent(new CustomEvent('hha:miss', {
         detail: {}
