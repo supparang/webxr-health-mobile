@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Hero Health — VR Nutrition Hub</title>
   <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon">
 
   <style>
     :root{
-      color-scheme: light dark;
+      color-scheme: dark;
       --bg-main:#020617;
       --panel:#020617;
       --panel-soft:#0b1120;
       --accent:#22c55e;
-      --accent-soft:rgba(34,197,94,0.22);
+      --accent-soft:rgba(34,197,94,0.18);
+      --accent-blue:#38bdf8;
       --danger:#f97316;
       --text-main:#e5e7eb;
       --text-soft:#9ca3af;
@@ -26,904 +27,892 @@
     body{
       margin:0;
       min-height:100vh;
-      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.28), transparent 55%),
+        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
         var(--bg-main);
       color:var(--text-main);
+      padding:16px 10px 24px;
     }
 
-    .page-wrap{
+    .shell{
       max-width:1120px;
       margin:0 auto;
-      padding:16px 12px 24px;
     }
 
     header{
       display:flex;
       flex-wrap:wrap;
+      align-items:flex-start;
       justify-content:space-between;
       gap:12px;
-      align-items:flex-start;
-      margin-bottom:14px;
+      margin-bottom:16px;
     }
-    .brand{
+    .title-wrap{
       display:flex;
       flex-direction:column;
       gap:4px;
     }
-    .brand-title{
-      font-size:clamp(1.4rem, 2.2vw, 1.8rem);
+    .title{
+      font-size:clamp(1.5rem, 3vw, 1.9rem);
       font-weight:800;
-      letter-spacing:.02em;
-    }
-    .brand-sub{
-      font-size:13px;
-      color:var(--text-soft);
-    }
-    .tag-pill{
-      align-self:flex-start;
-      padding:4px 10px;
-      border-radius:16px;
-      font-size:11px;
-      text-transform:uppercase;
-      letter-spacing:.14em;
-      border:1px solid rgba(148,163,184,0.6);
-      color:#e5e7eb;
-      background:rgba(15,23,42,0.9);
-    }
-
-    /* ===== Layout: 2 column on desktop ===== */
-    .layout-main{
-      display:grid;
-      grid-template-columns:minmax(0, 1.1fr) minmax(0, 1.1fr);
-      gap:14px;
-    }
-    @media (max-width:900px){
-      .layout-main{
-        grid-template-columns:minmax(0,1fr);
-      }
-    }
-
-    .card{
-      background:linear-gradient(135deg, rgba(15,23,42,0.97), rgba(15,23,42,0.9));
-      border-radius:var(--radius-lg);
-      padding:12px 14px;
-      border:1px solid rgba(148,163,184,0.22);
-      box-shadow:0 18px 36px rgba(15,23,42,0.75);
-    }
-
-    /* ===== Profile form ===== */
-    .card-title{
-      font-size:14px;
-      font-weight:700;
       letter-spacing:.04em;
       text-transform:uppercase;
-      color:var(--text-soft);
-      margin-bottom:6px;
     }
-    .card-sub{
-      font-size:12px;
+    .subtitle{
+      font-size:13px;
       color:var(--text-soft);
-      margin-bottom:10px;
     }
 
-    .grid-2{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
+    .badge-strip{
+      display:flex;
+      flex-wrap:wrap;
       gap:8px;
+      align-items:center;
     }
-    .grid-3{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
+    .pill{
+      font-size:11px;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.45);
+      background:rgba(15,23,42,0.9);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      color:var(--text-soft);
     }
-    @media (max-width:700px){
-      .grid-2, .grid-3{
-        grid-template-columns:minmax(0,1fr);
-      }
+    .pill span.emoji{
+      font-size:16px;
     }
 
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:3px;
-      font-size:12px;
+    /* Profile card */
+    .card{
+      background:linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.9));
+      border-radius:var(--radius-lg);
+      border:1px solid rgba(148,163,184,0.26);
+      box-shadow:0 20px 40px rgba(15,23,42,0.9);
+      padding:14px 16px;
     }
-    .field-row{
-      display:flex;
-      gap:8px;
+
+    .profile-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      gap:10px 14px;
+      margin-top:10px;
     }
     label{
+      display:block;
       font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.12em;
       color:var(--text-soft);
+      margin-bottom:2px;
     }
-    .badge-required{
-      color:#f97316;
-      margin-left:2px;
-    }
-    input[type="text"],
-    input[type="number"],
-    select,
-    textarea{
-      font-family:inherit;
-      font-size:13px;
-      padding:6px 8px;
-      border-radius:10px;
-      border:1px solid rgba(55,65,81,0.9);
-      background:rgba(15,23,42,0.96);
+    input, select{
+      width:100%;
+      border-radius:12px;
+      border:1px solid rgba(30,64,175,0.6);
+      background:rgba(15,23,42,0.9);
+      padding:6px 9px;
       color:var(--text-main);
+      font-size:13px;
       outline:none;
-      transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
     }
-    input:focus,
-    select:focus,
-    textarea:focus{
-      border-color:rgba(34,197,94,0.9);
-      box-shadow:0 0 0 1px rgba(34,197,94,0.7);
-      background:#020617;
-    }
-    textarea{
-      min-height:56px;
-      resize:vertical;
+    input:focus, select:focus{
+      border-color:var(--accent);
+      box-shadow:0 0 0 1px rgba(34,197,94,0.35);
     }
 
-    .hint{
-      font-size:11px;
+    .profile-footer{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:10px;
+      gap:10px;
+      flex-wrap:wrap;
+      font-size:12px;
       color:var(--text-soft);
     }
 
     .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      padding:6px 14px;
-      border-radius:var(--radius-pill);
-      border:1px solid rgba(148,163,184,0.7);
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.6);
+      padding:7px 14px;
       font-size:12px;
       font-weight:600;
       cursor:pointer;
-      background:rgba(15,23,42,0.92);
+      background:rgba(15,23,42,0.9);
       color:var(--text-main);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
       transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
+    }
+    .btn span.emoji{
+      font-size:15px;
     }
     .btn:hover{
       background:rgba(15,23,42,1);
-      box-shadow:0 10px 22px rgba(15,23,42,0.9);
+      box-shadow:0 12px 26px rgba(15,23,42,0.9);
       transform:translateY(-1px);
     }
     .btn:active{
       transform:translateY(0);
-      box-shadow:0 5px 14px rgba(15,23,42,0.75);
+      box-shadow:0 8px 18px rgba(15,23,42,0.8);
     }
 
-    .btn-primary{
-      background:linear-gradient(135deg,#22c55e,#16a34a);
-      border-color:rgba(187,247,208,0.9);
-      color:#022c22;
-    }
-    .btn-primary:hover{
-      background:linear-gradient(135deg,#4ade80,#22c55e);
-    }
-
-    .btn-sm{
-      padding:5px 11px;
-      font-size:11px;
-    }
-
-    .profile-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:10px;
-      justify-content:flex-end;
-      align-items:center;
-    }
-
-    .status-pill{
-      font-size:11px;
-      padding:4px 8px;
-      border-radius:var(--radius-pill);
-      border:1px solid rgba(148,163,184,0.7);
-      background:rgba(15,23,42,0.9);
+    .btn-outline{
+      border-style:dashed;
+      border-color:rgba(148,163,184,0.7);
+      background:rgba(15,23,42,0.7);
       color:var(--text-soft);
     }
-    .status-pill.ok{
-      border-color:rgba(34,197,94,0.9);
-      color:#bbf7d0;
-    }
-    .status-pill.warn{
-      border-color:rgba(248,113,113,0.9);
-      color:#fed7aa;
+
+    /* โซนเกม: Play vs Research */
+    .zones{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      gap:14px;
+      margin-top:16px;
     }
 
-    /* ===== Game list ===== */
-    .games-header{
+    .zone-header{
       display:flex;
       justify-content:space-between;
       align-items:center;
       gap:8px;
-      margin-bottom:8px;
+      margin-bottom:10px;
     }
-    .games-header h2{
+    .zone-title{
       font-size:13px;
       text-transform:uppercase;
-      letter-spacing:.14em;
+      letter-spacing:.16em;
       color:var(--text-soft);
-      margin:0;
     }
-    .games-header small{
+    .zone-tag{
       font-size:11px;
-      color:var(--text-soft);
+      padding:3px 9px;
+      border-radius:999px;
+      border:1px solid rgba(34,197,94,0.7);
+      background:rgba(22,163,74,0.16);
+      color:#bbf7d0;
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+    }
+    .zone-tag.research{
+      border-color:rgba(59,130,246,0.8);
+      background:rgba(37,99,235,0.18);
+      color:#bfdbfe;
     }
 
-    .games-grid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
+    .game-list{
+      display:flex;
+      flex-direction:column;
       gap:10px;
-    }
-    @media (max-width:700px){
-      .games-grid{
-        grid-template-columns:minmax(0,1fr);
-      }
     }
 
     .game-card{
-      background:radial-gradient(circle at top left, rgba(34,197,94,0.14), transparent 50%),
-                 rgba(15,23,42,0.96);
       border-radius:16px;
-      padding:10px 12px 11px;
-      border:1px solid rgba(55,65,81,0.9);
-      display:flex;
-      flex-direction:column;
-      gap:6px;
+      border:1px solid rgba(148,163,184,0.3);
+      background:radial-gradient(circle at top left, rgba(34,197,94,0.16), transparent 55%),
+                 rgba(15,23,42,0.95);
+      padding:8px 10px;
+      display:grid;
+      grid-template-columns:minmax(0,1.4fr) minmax(0,1.2fr);
+      gap:6px 10px;
+      align-items:center;
+    }
+    .game-card.research{
+      background:radial-gradient(circle at top left, rgba(59,130,246,0.2), transparent 55%),
+                 rgba(15,23,42,0.95);
     }
 
-    .game-head{
+    .game-main{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .game-name{
+      font-size:13px;
+      font-weight:600;
       display:flex;
       align-items:center;
-      justify-content:space-between;
-      gap:8px;
+      gap:6px;
     }
-    .game-title{
-      font-size:13px;
-      font-weight:700;
-    }
-    .game-tag{
-      font-size:11px;
-      padding:2px 8px;
-      border-radius:999px;
-      border:1px solid rgba(52,211,153,0.7);
-      background:rgba(6,78,59,0.5);
-      color:#a7f3d0;
+    .game-name span.emoji{
+      font-size:18px;
     }
     .game-desc{
       font-size:11px;
       color:var(--text-soft);
     }
 
-    .game-ctrl-row{
+    .game-controls{
       display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-      justify-content:space-between;
-      margin-top:4px;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:4px;
+      font-size:11px;
     }
-    .game-select{
+    .game-row{
       display:flex;
-      flex-wrap:wrap;
       gap:6px;
       align-items:center;
-      font-size:11px;
-      color:var(--text-soft);
-    }
-    .game-select select{
-      min-width:90px;
-    }
-
-    .game-meta{
-      display:flex;
+      justify-content:flex-end;
       flex-wrap:wrap;
-      gap:6px;
-      font-size:11px;
-      color:var(--text-soft);
-      margin-top:2px;
     }
-
-    .pill{
+    .pill-small{
+      font-size:10px;
+      padding:2px 7px;
       border-radius:999px;
-      padding:2px 8px;
-      border:1px solid rgba(75,85,99,0.9);
+      border:1px solid rgba(148,163,184,0.45);
+      color:var(--text-soft);
       background:rgba(15,23,42,0.9);
     }
 
-    footer{
-      margin-top:16px;
+    .select-small{
+      width:auto;
+      min-width:90px;
+      max-width:120px;
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+    }
+
+    .btn-xs{
+      padding:5px 10px;
+      font-size:11px;
+      border-radius:999px;
+    }
+    .btn-primary{
+      border-color:rgba(34,197,94,0.9);
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      color:#022c22;
+    }
+    .btn-primary:hover{
+      background:linear-gradient(135deg,#4ade80,#22c55e);
+    }
+    .btn-research{
+      border-color:rgba(59,130,246,0.9);
+      background:linear-gradient(135deg,#38bdf8,#2563eb);
+      color:#011627;
+    }
+    .btn-research:hover{
+      background:linear-gradient(135deg,#7dd3fc,#38bdf8);
+    }
+
+    .hint-text{
       font-size:11px;
       color:var(--text-soft);
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      flex-wrap:wrap;
+      margin-top:4px;
+    }
+
+    .footer-note{
+      margin-top:14px;
+      font-size:10px;
+      color:var(--text-soft);
+      text-align:right;
+    }
+
+    @media (max-width:640px){
+      .game-card{
+        grid-template-columns:1fr;
+        align-items:flex-start;
+      }
+      .game-controls{
+        align-items:flex-start;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="page-wrap">
-    <header>
-      <div class="brand">
-        <div class="brand-title">Hero Health • VR Nutrition Hub</div>
-        <div class="brand-sub">
-          ศูนย์รวม 4 เกม VR สำหรับฝึกโภชนาการ — ใช้กับแว่น VR / จอมือถือ / คอมพิวเตอร์<br/>
-          บันทึกข้อมูลเพื่อใช้วิเคราะห์ผลการทดลองใน Google Sheet อัตโนมัติ
-        </div>
+<div class="shell">
+
+  <!-- HEADER -->
+  <header>
+    <div class="title-wrap">
+      <div class="title">Hero Health — VR Nutrition Hub</div>
+      <div class="subtitle">
+        เลือกเกม • ตั้งค่าความยาก • บันทึกโปรไฟล์นักเรียน แล้วเริ่มเล่นแบบ VR หรือโหมดวิจัย
       </div>
-      <div class="tag-pill">Research Mode</div>
-    </header>
+    </div>
+    <div class="badge-strip">
+      <div class="pill">
+        <span class="emoji">🥦</span>
+        <span>Good vs Junk • Hydration • Plate • Groups</span>
+      </div>
+      <div class="pill">
+        <span class="emoji">🧪</span>
+        <span>Research-ready (ส่งข้อมูลไป Google Sheet)</span>
+      </div>
+    </div>
+  </header>
 
-    <div class="layout-main">
-      <!-- ===== Card: Student Profile ===== -->
-      <section class="card">
-        <div class="card-title">ข้อมูลนักเรียน (สำหรับงานวิจัย)</div>
-        <div class="card-sub">
-          กรอกข้อมูลนักเรียน 1 คน/เครื่อง เพื่อสร้าง <strong>studentKey</strong> สำหรับเชื่อมกับข้อมูลการเล่นทุกเกม
-        </div>
-
-        <form id="profile-form" autocomplete="off">
-          <div class="grid-2" style="margin-bottom:8px;">
-            <div class="field">
-              <label>รหัสโรงเรียน <span class="badge-required">*</span></label>
-              <input type="text" id="pf-schoolCode" placeholder="เช่น CHN001" />
-            </div>
-            <div class="field">
-              <label>ชื่อโรงเรียน</label>
-              <input type="text" id="pf-schoolName" placeholder="เช่น รร.บ้านตัวอย่าง" />
-            </div>
-          </div>
-
-          <div class="grid-3" style="margin-bottom:8px;">
-            <div class="field">
-              <label>ชั้น / ห้อง <span class="badge-required">*</span></label>
-              <input type="text" id="pf-classRoom" placeholder="เช่น ป.5/1" />
-            </div>
-            <div class="field">
-              <label>เลขที่ <span class="badge-required">*</span></label>
-              <input type="text" id="pf-studentNo" placeholder="เช่น 05" />
-            </div>
-            <div class="field">
-              <label>ชื่อเล่น <span class="badge-required">*</span></label>
-              <input type="text" id="pf-nickName" placeholder="เช่น น้ำตาล" />
-            </div>
-          </div>
-
-          <div class="grid-3" style="margin-bottom:8px;">
-            <div class="field">
-              <label>เพศ</label>
-              <select id="pf-gender">
-                <option value="">- เลือก -</option>
-                <option value="M">ชาย</option>
-                <option value="F">หญิง</option>
-                <option value="O">อื่น ๆ / ไม่ระบุ</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>อายุ (ปี)</label>
-              <input type="number" id="pf-age" min="5" max="18" />
-            </div>
-            <div class="field">
-              <label>ระดับชั้น</label>
-              <input type="text" id="pf-gradeLevel" placeholder="เช่น ป.5" />
-            </div>
-          </div>
-
-          <div class="grid-3" style="margin-bottom:8px;">
-            <div class="field">
-              <label>ส่วนสูง (ซม.)</label>
-              <input type="number" id="pf-heightCm" min="80" max="200" step="0.1" />
-            </div>
-            <div class="field">
-              <label>น้ำหนัก (กก.)</label>
-              <input type="number" id="pf-weightKg" min="15" max="120" step="0.1" />
-            </div>
-            <div class="field">
-              <label>BMI (คำนวณอัตโนมัติ)</label>
-              <input type="text" id="pf-bmi" readonly />
-              <div class="hint" id="pf-bmiGroup-hint">กลุ่ม BMI: -</div>
-            </div>
-          </div>
-
-          <div class="grid-2" style="margin-bottom:8px;">
-            <div class="field">
-              <label>เคยใช้ VR มาก่อนหรือไม่</label>
-              <select id="pf-vrExperience">
-                <option value="">- เลือก -</option>
-                <option value="never">ไม่เคย</option>
-                <option value="rarely">เคยเล็กน้อย</option>
-                <option value="often">บ่อย</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>เล่นเกมต่อสัปดาห์ (โดยประมาณ)</label>
-              <select id="pf-gameFrequency">
-                <option value="">- เลือก -</option>
-                <option value="lt1">น้อยกว่า 1 ชม.</option>
-                <option value="1-3">1–3 ชม.</option>
-                <option value="3-7">3–7 ชม.</option>
-                <option value="gt7">มากกว่า 7 ชม.</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid-2" style="margin-bottom:8px;">
-            <div class="field">
-              <label>ถนัดมือ</label>
-              <select id="pf-handedness">
-                <option value="">- เลือก -</option>
-                <option value="right">ถนัดขวา</option>
-                <option value="left">ถนัดซ้าย</option>
-                <option value="both">ใช้ได้ทั้งสองมือ</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>ปัญหาการมองเห็น</label>
-              <select id="pf-visionIssue">
-                <option value="">ไม่มี / ปกติ</option>
-                <option value="glasses">สายตาสั้น/ยาว (ใส่แว่น)</option>
-                <option value="color">ตาบอดสี</option>
-                <option value="other">อื่น ๆ</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="field" style="margin-bottom:6px;">
-            <label>ข้อจำกัดด้านสุขภาพ (ถ้ามี)</label>
-            <textarea id="pf-healthDetail" placeholder="เช่น โรคหอบหืด อาการเวียนศีรษะง่าย ฯลฯ"></textarea>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label>ความยินยอมผู้ปกครอง</label>
-              <select id="pf-consentParent">
-                <option value="">- เลือก -</option>
-                <option value="Y">ได้รับความยินยอม</option>
-                <option value="N">ยังไม่ได้รับ / ไม่แน่ใจ</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>ความยินยอมครูประจำชั้น</label>
-              <select id="pf-consentTeacher">
-                <option value="">- เลือก -</option>
-                <option value="Y">ได้รับความยินยอม</option>
-                <option value="N">ยังไม่ได้รับ / ไม่แน่ใจ</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="profile-actions">
-            <div id="profile-status" class="status-pill warn">
-              กรุณากรอกข้อมูลที่มี * ให้ครบก่อนเริ่มเล่น
-            </div>
-            <button type="button" class="btn btn-primary" id="btn-save-profile">
-              บันทึกโปรไฟล์นักเรียน
-            </button>
-            <button type="button" class="btn btn-sm" id="btn-clear-profile">
-              ล้างข้อมูลบนเครื่องนี้
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <!-- ===== Card: Game List (4 VR Games) ===== -->
-      <section class="card">
-        <div class="games-header">
-          <h2>เลือกเกม VR</h2>
-          <small>ต้องบันทึกโปรไฟล์ก่อน ระบบจึงจะผูกข้อมูลนักเรียนกับผลการเล่นได้</small>
-        </div>
-
-        <div class="games-grid" id="games-grid">
-          <!-- Game 1: Good vs Junk VR -->
-          <article class="game-card"
-                   data-game="goodjunk-vr.html"
-                   data-time-easy="80"
-                   data-time-normal="60"
-                   data-time-hard="45">
-            <div class="game-head">
-              <div>
-                <div class="game-title">Good vs Junk VR</div>
-                <div class="game-desc">
-                  เล็งเป้าอาหารดี (ผัก ผลไม้ นม) ในอวกาศสุขภาพ เลี่ยงของขยะ ✨
-                </div>
-              </div>
-              <div class="game-tag">โฟกัสอาหารดี</div>
-            </div>
-
-            <div class="game-meta">
-              <span class="pill">Easy ≈ 80s</span>
-              <span class="pill">Normal ≈ 60s</span>
-              <span class="pill">Hard ≈ 45s</span>
-            </div>
-
-            <div class="game-ctrl-row">
-              <div class="game-select">
-                <span>ระดับความยาก:</span>
-                <select class="game-diff">
-                  <option value="easy">ง่าย</option>
-                  <option value="normal" selected>ปกติ</option>
-                  <option value="hard">ยาก</option>
-                </select>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm game-start">
-                เริ่มเล่น VR
-              </button>
-            </div>
-          </article>
-
-          <!-- Game 2: Food Groups VR -->
-          <article class="game-card"
-                   data-game="groups-vr.html"
-                   data-time-easy="90"
-                   data-time-normal="70"
-                   data-time-hard="50">
-            <div class="game-head">
-              <div>
-                <div class="game-title">Food Groups VR</div>
-                <div class="game-desc">
-                  แยกหมู่เสาหลักอาหารไทยให้ถูกหมู่ ฝึกจำอาหารแต่ละกลุ่ม 🥦🍚🐟
-                </div>
-              </div>
-              <div class="game-tag">จำหมู่อาหาร</div>
-            </div>
-
-            <div class="game-meta">
-              <span class="pill">Easy ≈ 90s</span>
-              <span class="pill">Normal ≈ 70s</span>
-              <span class="pill">Hard ≈ 50s</span>
-            </div>
-
-            <div class="game-ctrl-row">
-              <div class="game-select">
-                <span>ระดับความยาก:</span>
-                <select class="game-diff">
-                  <option value="easy">ง่าย</option>
-                  <option value="normal" selected>ปกติ</option>
-                  <option value="hard">ยาก</option>
-                </select>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm game-start">
-                เริ่มเล่น VR
-              </button>
-            </div>
-          </article>
-
-          <!-- Game 3: Hydration VR -->
-          <article class="game-card"
-                   data-game="hydration-vr.html"
-                   data-time-easy="80"
-                   data-time-normal="60"
-                   data-time-hard="45">
-            <div class="game-head">
-              <div>
-                <div class="game-title">Hydration VR</div>
-                <div class="game-desc">
-                  เลือกเฉพาะน้ำดีต่อสุขภาพ เลี่ยงน้ำหวาน น้ำอัดลม ฝึกนิสัยดื่มน้ำเปล่า 💧
-                </div>
-              </div>
-              <div class="game-tag">ฝึกดื่มน้ำ</div>
-            </div>
-
-            <div class="game-meta">
-              <span class="pill">Easy ≈ 80s</span>
-              <span class="pill">Normal ≈ 60s</span>
-              <span class="pill">Hard ≈ 45s</span>
-            </div>
-
-            <div class="game-ctrl-row">
-              <div class="game-select">
-                <span>ระดับความยาก:</span>
-                <select class="game-diff">
-                  <option value="easy">ง่าย</option>
-                  <option value="normal" selected>ปกติ</option>
-                  <option value="hard">ยาก</option>
-                </select>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm game-start">
-                เริ่มเล่น VR
-              </button>
-            </div>
-          </article>
-
-          <!-- Game 4: Balanced Plate VR -->
-          <article class="game-card"
-                   data-game="plate-vr.html"
-                   data-time-easy="90"
-                   data-time-normal="70"
-                   data-time-hard="55">
-            <div class="game-head">
-              <div>
-                <div class="game-title">Balanced Plate VR</div>
-                <div class="game-desc">
-                  จัดจานอาหารให้สมดุลตามสัดส่วน ข้าว–กับข้าว–ผัก–ผลไม้ เน้นการวางแผนมื้ออาหาร 🍽️
-                </div>
-              </div>
-              <div class="game-tag">จัดจานสมดุล</div>
-            </div>
-
-            <div class="game-meta">
-              <span class="pill">Easy ≈ 90s</span>
-              <span class="pill">Normal ≈ 70s</span>
-              <span class="pill">Hard ≈ 55s</span>
-            </div>
-
-            <div class="game-ctrl-row">
-              <div class="game-select">
-                <span>ระดับความยาก:</span>
-                <select class="game-diff">
-                  <option value="easy">ง่าย</option>
-                  <option value="normal" selected>ปกติ</option>
-                  <option value="hard">ยาก</option>
-                </select>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm game-start">
-                เริ่มเล่น VR
-              </button>
-            </div>
-          </article>
-        </div>
-      </section>
+  <!-- PROFILE CARD -->
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">
+        <span>📋 โปรไฟล์นักเรียน</span>
+      </div>
+      <button type="button" class="btn btn-outline" id="btn-load-profile">
+        <span class="emoji">🔄</span> โหลดจากรอบก่อน
+      </button>
     </div>
 
-    <footer>
-      <span>studentKey บันทึกไว้ในเบราว์เซอร์ (sessionStorage) • 1 เครื่อง = 1 นักเรียน</span>
-      <span>เมื่อเข้าเกม ระบบจะส่ง studentKey + profile ไปยัง Google Sheet ผ่าน hha-cloud-logger.js</span>
-    </footer>
+    <div class="profile-grid">
+      <div>
+        <label for="p-student-id">รหัสนักเรียน / Student ID</label>
+        <input id="p-student-id" autocomplete="off" />
+      </div>
+      <div>
+        <label for="p-name">ชื่อเล่น / Nickname</label>
+        <input id="p-name" autocomplete="off" />
+      </div>
+      <div>
+        <label for="p-grade">ชั้น / Grade</label>
+        <input id="p-grade" placeholder="ป.5 / Grade 5" autocomplete="off" />
+      </div>
+      <div>
+        <label for="p-class">ห้อง / Room</label>
+        <input id="p-class" placeholder="เช่น 5/1" autocomplete="off" />
+      </div>
+      <div>
+        <label for="p-school">โรงเรียน / School</label>
+        <input id="p-school" autocomplete="off" />
+      </div>
+      <div>
+        <label for="p-group">กลุ่ม / Group (ถ้ามี)</label>
+        <input id="p-group" placeholder="เช่น กลุ่ม A / ทีม 1" autocomplete="off" />
+      </div>
+    </div>
+
+    <div class="profile-footer">
+      <div>
+        ระบบจะบันทึกข้อมูลนี้ใน <code>sessionStorage.HHA_STUDENT_PROFILE</code> เพื่อใช้ในทุกเกม VR
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-save-profile">
+        <span class="emoji">💾</span> บันทึกโปรไฟล์
+      </button>
+    </div>
+  </section>
+
+  <!-- GAME ZONES: PLAY vs RESEARCH -->
+  <div class="zones">
+
+    <!-- PLAY MODE -->
+    <section class="card">
+      <div class="zone-header">
+        <div class="zone-title">Play Mode</div>
+        <div class="zone-tag">
+          <span class="emoji">🎮</span>
+          เล่นปกติ / สำหรับฝึกซ้อม
+        </div>
+      </div>
+
+      <div class="game-list">
+
+        <!-- Good vs Junk -->
+        <div class="game-card">
+          <div class="game-main">
+            <div class="game-name">
+              <span class="emoji">🥦</span>
+              <span>Good vs Junk VR</span>
+            </div>
+            <div class="game-desc">
+              แตะเลือกอาหารดี เลี่ยงของขยะ + มี Fever, Shield, Quest, เกรดเรียลไทม์
+            </div>
+          </div>
+          <div class="game-controls">
+            <div class="game-row">
+              <span class="pill-small">ระดับ</span>
+              <select class="select-small" data-game="goodjunk" data-role="diff">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
+            </div>
+            <div class="game-row">
+              <span class="pill-small" id="time-label-goodjunk">เวลาโดยประมาณ: 60 วินาที</span>
+            </div>
+            <div class="game-row">
+              <button type="button"
+                      class="btn btn-xs btn-primary"
+                      data-game="goodjunk"
+                      data-run="play">
+                <span class="emoji">▶️</span> เริ่มเล่น
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hydration -->
+        <div class="game-card">
+          <div class="game-main">
+            <div class="game-name">
+              <span class="emoji">💧</span>
+              <span>Hydration VR</span>
+            </div>
+            <div class="game-desc">
+              เลือกน้ำและเครื่องดื่มที่เหมาะสม รักษา Water Gauge ให้สมดุล
+            </div>
+          </div>
+          <div class="game-controls">
+            <div class="game-row">
+              <span class="pill-small">ระดับ</span>
+              <select class="select-small" data-game="hydration" data-role="diff">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
+            </div>
+            <div class="game-row">
+              <span class="pill-small" id="time-label-hydration">เวลาโดยประมาณ: 70 วินาที</span>
+            </div>
+            <div class="game-row">
+              <button type="button"
+                      class="btn btn-xs btn-primary"
+                      data-game="hydration"
+                      data-run="play">
+                <span class="emoji">▶️</span> เริ่มเล่น
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plate -->
+        <div class="game-card">
+          <div class="game-main">
+            <div class="game-name">
+              <span class="emoji">🍽️</span>
+              <span>Healthy Plate VR</span>
+            </div>
+            <div class="game-desc">
+              จัดจานอาหารให้สมดุลตามสัดส่วนที่กำหนด มี multi-plate + เกรด
+            </div>
+          </div>
+          <div class="game-controls">
+            <div class="game-row">
+              <span class="pill-small">ระดับ</span>
+              <select class="select-small" data-game="plate" data-role="diff">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
+            </div>
+            <div class="game-row">
+              <span class="pill-small" id="time-label-plate">เวลาโดยประมาณ: 70 วินาที</span>
+            </div>
+            <div class="game-row">
+              <button type="button"
+                      class="btn btn-xs btn-primary"
+                      data-game="plate"
+                      data-run="play">
+                <span class="emoji">▶️</span> เริ่มเล่น
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Food Groups -->
+        <div class="game-card">
+          <div class="game-main">
+            <div class="game-name">
+              <span class="emoji">🧩</span>
+              <span>Food Groups VR</span>
+            </div>
+            <div class="game-desc">
+              จัดกลุ่มอาหารให้ถูกหมวด (ข้าว-แป้ง, ผัก, ผลไม้, โปรตีน, นม ฯลฯ)
+            </div>
+          </div>
+          <div class="game-controls">
+            <div class="game-row">
+              <span class="pill-small">ระดับ</span>
+              <select class="select-small" data-game="groups" data-role="diff">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
+            </div>
+            <div class="game-row">
+              <span class="pill-small" id="time-label-groups">เวลาโดยประมาณ: 70 วินาที</span>
+            </div>
+            <div class="game-row">
+              <button type="button"
+                      class="btn btn-xs btn-primary"
+                      data-game="groups"
+                      data-run="play">
+                <span class="emoji">▶️</span> เริ่มเล่น
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="hint-text">
+        * โหมด Play ไม่จำเป็นต้องเก็บข้อมูลวิจัย แต่ยังใช้โปรไฟล์นักเรียนจากด้านบนได้เหมือนเดิม
+      </div>
+    </section>
+
+    <!-- RESEARCH MODE -->
+    <section class="card">
+      <div class="zone-header">
+        <div class="zone-title">Research Mode</div>
+        <div class="zone-tag research">
+          <span class="emoji">📊</span>
+          เก็บข้อมูล Session & Events ลง Google Sheet
+        </div>
+      </div>
+
+      <div class="game-list">
+
+        <!-- Good vs Junk (research) -->
+        <div class="game-card research">
+          <div class="game-main">
+            <div class="game-name">
+              <span class="emoji">🥦</span>
+              <span>Good vs Junk VR — Research</span>
+            </div>
+            <div class="game-desc">
+              โหมดวิจัย: บันทึก Session + Event (RT, Quest, Fever, spawnX, goal/mini ฯลฯ)
+            </div>
+          </div>
+          <div class="game-controls">
+            <div class="game-row">
+              <span class="pill-small">ระดับ</span>
+              <select class="select-small" data-game="goodjunk" data-role="diff-r">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
+            </div>
+            <div class="game-row">
+              <span class="pill-small" id="time-label-goodjunk-r">เวลาโดยประมาณ: 60 วินาที</span>
+            </div>
+            <div class="game-row">
+              <button type="button"
+                      class="btn btn-xs btn-research"
+                      data-game="goodjunk"
+                      data-run="research">
+                <span class="emoji">🧪</span> เริ่มโหมดวิจัย
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hydration (research) -->
+        <div class="game-card research">
+          <div class="game-main">
+            <div class="game-name">
+              <span class="emoji">💧</span>
+              <span>Hydration VR — Research</span>
+            </div>
+            <div class="game-desc">
+              โหมดวิจัย: ตรวจพฤติกรรมดื่มน้ำ, Water Gauge, Fever, Quest ตามเวลา
+            </div>
+          </div>
+          <div class="game-controls">
+            <div class="game-row">
+              <span class="pill-small">ระดับ</span>
+              <select class="select-small" data-game="hydration" data-role="diff-r">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
+            </div>
+            <div class="game-row">
+              <span class="pill-small" id="time-label-hydration-r">เวลาโดยประมาณ: 70 วินาที</span>
+            </div>
+            <div class="game-row">
+              <button type="button"
+                      class="btn btn-xs btn-research"
+                      data-game="hydration"
+                      data-run="research">
+                <span class="emoji">🧪</span> เริ่มโหมดวิจัย
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plate (research) -->
+        <div class="game-card research">
+          <div class="game-main">
+            <div class="game-name">
+              <span class="emoji">🍽️</span>
+              <span>Healthy Plate VR — Research</span>
+            </div>
+            <div class="game-desc">
+              โหมดวิจัย: วิเคราะห์การจัดจาน, Goal/Mini, เกรด, RT ในแต่ละจาน
+            </div>
+          </div>
+          <div class="game-controls">
+            <div class="game-row">
+              <span class="pill-small">ระดับ</span>
+              <select class="select-small" data-game="plate" data-role="diff-r">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
+            </div>
+            <div class="game-row">
+              <span class="pill-small" id="time-label-plate-r">เวลาโดยประมาณ: 70 วินาที</span>
+            </div>
+            <div class="game-row">
+              <button type="button"
+                      class="btn btn-xs btn-research"
+                      data-game="plate"
+                      data-run="research">
+                <span class="emoji">🧪</span> เริ่มโหมดวิจัย
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Food Groups (research) -->
+        <div class="game-card research">
+          <div class="game-main">
+            <div class="game-name">
+              <span class="emoji">🧩</span>
+              <span>Food Groups VR — Research</span>
+            </div>
+            <div class="game-desc">
+              โหมดวิจัย: ตรวจการจัดกลุ่ม, Quest, พื้นที่เป้า (ซ้าย/ขวา) ตาม spawnX
+            </div>
+          </div>
+          <div class="game-controls">
+            <div class="game-row">
+              <span class="pill-small">ระดับ</span>
+              <select class="select-small" data-game="groups" data-role="diff-r">
+                <option value="easy">ง่าย</option>
+                <option value="normal" selected>ปกติ</option>
+                <option value="hard">ยาก</option>
+              </select>
+            </div>
+            <div class="game-row">
+              <span class="pill-small" id="time-label-groups-r">เวลาโดยประมาณ: 70 วินาที</span>
+            </div>
+            <div class="game-row">
+              <button type="button"
+                      class="btn btn-xs btn-research"
+                      data-game="groups"
+                      data-run="research">
+                <span class="emoji">🧪</span> เริ่มโหมดวิจัย
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="hint-text">
+        * โหมดวิจัยจะส่งค่า <code>run=research</code> ไปยังแต่ละเกม เพื่อใช้ใน Cloud Logger / Google Sheet
+      </div>
+    </section>
+
   </div>
 
+  <div class="footer-note">
+    Hero Health VR Hub • เวอร์ชัน Hub-2025-12-12 • รองรับ GoodJunkVR + Hydration + Plate + Groups
+  </div>
+
+</div>
+
 <script>
-  // ===== Storage key ให้ตรงกับทุกเกม (VR Fitness / VR Nutrition) =====
-  const KEY_PROFILE_NEW = 'hhaStudentProfile';     // ที่ goodjunk-vr ใช้อ่าน
-  const KEY_KEY_NEW     = 'hhaStudentKey';
+  // แผนที่เวลา default ตาม diff สำหรับแต่ละเกม (ใช้ทั้ง play และ research)
+  const DIFF_TIME = {
+    goodjunk:  { easy: 80, normal: 60, hard: 45 },
+    hydration: { easy: 90, normal: 70, hard: 50 },
+    plate:     { easy: 90, normal: 70, hard: 50 },
+    groups:    { easy: 90, normal: 70, hard: 50 }
+  };
 
-  const KEY_PROFILE_OLD = 'HHA_STUDENT_PROFILE';   // เผื่อไฟล์เก่า
-  const KEY_KEY_OLD     = 'HHA_STUDENT_KEY';
+  function $(sel){ return document.querySelector(sel); }
+  function $all(sel){ return document.querySelectorAll(sel); }
 
-  // ===== Helper: BMI =====
-  function computeBmi(hCm, wKg){
-    const h = Number(hCm) / 100;
-    const w = Number(wKg);
-    if (!h || !w || h <= 0) return null;
-    const bmi = w / (h*h);
-    if (!Number.isFinite(bmi)) return null;
-    return Math.round(bmi*10)/10;
+  // ----- โปรไฟล์นักเรียน -----
+  function readProfileFromForm(){
+    const id     = $('#p-student-id')?.value.trim() || '';
+    const name   = $('#p-name')?.value.trim() || '';
+    const grade  = $('#p-grade')?.value.trim() || '';
+    const room   = $('#p-class')?.value.trim() || '';
+    const school = $('#p-school')?.value.trim() || '';
+    const group  = $('#p-group')?.value.trim() || '';
+
+    const studentKey = [school, grade, room, id || name].filter(Boolean).join('-') || null;
+
+    return {
+      studentId: id,
+      name,
+      grade,
+      classRoom: room,
+      school,
+      group,
+      studentKey
+    };
   }
 
-  function bmiGroup(bmi){
-    if (bmi == null) return '';
-    if (bmi < 18.5) return 'underweight';
-    if (bmi < 23)   return 'normal';
-    if (bmi < 25)   return 'overweight';
-    return 'obese';
-  }
-
-  function makeStudentKey(p){
-    const schoolCode = (p.schoolCode || 'SC').replace(/\s+/g,'');
-    const classRoom  = (p.classRoom  || 'C').replace(/\s+/g,'');
-    const studentNo  = (p.studentNo  || '00').replace(/\s+/g,'');
-    return `${schoolCode}-${classRoom}-${studentNo}`;
-  }
-
-  // ===== Storage helpers (รองรับทั้ง key ใหม่ + เก่า) =====
-  function loadProfileFromStorage(){
-    try{
-      let raw = sessionStorage.getItem(KEY_PROFILE_NEW);
-      if (!raw) raw = sessionStorage.getItem(KEY_PROFILE_OLD);
-      if (!raw) return null;
-      return JSON.parse(raw);
-    }catch(e){
-      return null;
-    }
-  }
-
-  function saveProfileToStorage(profile){
-    try{
-      const json = JSON.stringify(profile);
-      // เซ็ตทั้งคู่ เพื่อให้ทุกหน้าอ่านได้
-      sessionStorage.setItem(KEY_PROFILE_NEW, json);
-      sessionStorage.setItem(KEY_KEY_NEW, profile.studentKey || '');
-
-      sessionStorage.setItem(KEY_PROFILE_OLD, json);
-      sessionStorage.setItem(KEY_KEY_OLD, profile.studentKey || '');
-    }catch(e){
-      console.warn('Cannot save profile to storage', e);
-    }
-  }
-
-  function clearProfileStorage(){
-    try{
-      sessionStorage.removeItem(KEY_PROFILE_NEW);
-      sessionStorage.removeItem(KEY_KEY_NEW);
-      sessionStorage.removeItem(KEY_PROFILE_OLD);
-      sessionStorage.removeItem(KEY_KEY_OLD);
-    }catch(e){}
-  }
-
-  function fillProfileForm(profile){
+  function applyProfileToForm(profile){
     if (!profile) return;
-    document.getElementById('pf-schoolCode').value = profile.schoolCode || '';
-    document.getElementById('pf-schoolName').value = profile.schoolName || '';
-    document.getElementById('pf-classRoom').value  = profile.classRoom || '';
-    document.getElementById('pf-studentNo').value  = profile.studentNo || '';
-    document.getElementById('pf-nickName').value   = profile.nickName || '';
-    document.getElementById('pf-gender').value     = profile.gender || '';
-    document.getElementById('pf-age').value        = profile.age || '';
-    document.getElementById('pf-gradeLevel').value = profile.gradeLevel || '';
-    document.getElementById('pf-heightCm').value   = profile.heightCm || '';
-    document.getElementById('pf-weightKg').value   = profile.weightKg || '';
-    document.getElementById('pf-vrExperience').value = profile.vrExperience || '';
-    document.getElementById('pf-gameFrequency').value = profile.gameFrequency || '';
-    document.getElementById('pf-handedness').value = profile.handedness || '';
-    document.getElementById('pf-visionIssue').value = profile.visionIssue || '';
-    document.getElementById('pf-healthDetail').value = profile.healthDetail || '';
-    document.getElementById('pf-consentParent').value = profile.consentParent || '';
-    document.getElementById('pf-consentTeacher').value = profile.consentTeacher || '';
+    if ($('#p-student-id')) $('#p-student-id').value = profile.studentId || '';
+    if ($('#p-name'))       $('#p-name').value       = profile.name || '';
+    if ($('#p-grade'))      $('#p-grade').value      = profile.grade || '';
+    if ($('#p-class'))      $('#p-class').value      = profile.classRoom || '';
+    if ($('#p-school'))     $('#p-school').value     = profile.school || '';
+    if ($('#p-group'))      $('#p-group').value      = profile.group || '';
+  }
 
-    const bmi = profile.bmi;
-    document.getElementById('pf-bmi').value = bmi || '';
-    const group = profile.bmiGroup || '';
-    const hint = document.getElementById('pf-bmiGroup-hint');
-    hint.textContent = group ? ('กลุ่ม BMI: ' + group) : 'กลุ่ม BMI: -';
-
-    const status = document.getElementById('profile-status');
-    if (profile.studentKey){
-      status.textContent = 'โหลดโปรไฟล์แล้ว • studentKey = ' + profile.studentKey;
-      status.classList.remove('warn');
-      status.classList.add('ok');
+  function saveProfileToSession(){
+    const profile = readProfileFromForm();
+    try{
+      sessionStorage.setItem('HHA_STUDENT_PROFILE', JSON.stringify(profile));
+      alert('บันทึกโปรไฟล์นักเรียนเรียบร้อย ✅');
+    }catch(err){
+      console.warn('[HHA Hub] cannot save profile:', err);
+      alert('บันทึกโปรไฟล์ไม่สำเร็จ กรุณาลองอีกครั้ง');
     }
   }
 
-  window.addEventListener('DOMContentLoaded', () => {
-    const statusEl = document.getElementById('profile-status');
-
-    // auto load profile if exists
-    let loaded = loadProfileFromStorage();
-    if (loaded){
-      fillProfileForm(loaded);
-    }
-
-    function recomputeBmiFromInputs(){
-      const h = document.getElementById('pf-heightCm').value;
-      const w = document.getElementById('pf-weightKg').value;
-      const bmi = computeBmi(h, w);
-      const bmiField = document.getElementById('pf-bmi');
-      const hint = document.getElementById('pf-bmiGroup-hint');
-      if (bmi == null){
-        bmiField.value = '';
-        hint.textContent = 'กลุ่ม BMI: -';
-      }else{
-        bmiField.value = bmi;
-        const g = bmiGroup(bmi);
-        hint.textContent = 'กลุ่ม BMI: ' + (g || '-');
-      }
-    }
-
-    document.getElementById('pf-heightCm').addEventListener('input', recomputeBmiFromInputs);
-    document.getElementById('pf-weightKg').addEventListener('input', recomputeBmiFromInputs);
-
-    // Save profile
-    document.getElementById('btn-save-profile').addEventListener('click', () => {
-      const profile = {
-        schoolCode: document.getElementById('pf-schoolCode').value.trim(),
-        schoolName: document.getElementById('pf-schoolName').value.trim(),
-        classRoom:  document.getElementById('pf-classRoom').value.trim(),
-        studentNo:  document.getElementById('pf-studentNo').value.trim(),
-        nickName:   document.getElementById('pf-nickName').value.trim(),
-        gender:     document.getElementById('pf-gender').value,
-        age:        document.getElementById('pf-age').value,
-        gradeLevel: document.getElementById('pf-gradeLevel').value.trim(),
-        heightCm:   document.getElementById('pf-heightCm').value,
-        weightKg:   document.getElementById('pf-weightKg').value,
-        vrExperience: document.getElementById('pf-vrExperience').value,
-        gameFrequency: document.getElementById('pf-gameFrequency').value,
-        handedness: document.getElementById('pf-handedness').value,
-        visionIssue: document.getElementById('pf-visionIssue').value,
-        healthDetail: document.getElementById('pf-healthDetail').value.trim(),
-        consentParent: document.getElementById('pf-consentParent').value,
-        consentTeacher: document.getElementById('pf-consentTeacher').value,
-        source: 'VR-Nutrition-Hub'
-      };
-
-      // require minimal fields
-      if (!profile.schoolCode || !profile.classRoom || !profile.studentNo || !profile.nickName){
-        alert('กรุณากรอก รหัสโรงเรียน / ชั้นห้อง / เลขที่ / ชื่อเล่น ให้ครบก่อน');
-        statusEl.textContent = 'ข้อมูลยังไม่ครบ กรุณากรอกที่มี * ให้ครบแล้วกดบันทึกอีกครั้ง';
-        statusEl.classList.remove('ok');
-        statusEl.classList.add('warn');
+  function loadProfileFromSession(){
+    try{
+      const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
+      if (!raw){
+        alert('ยังไม่พบโปรไฟล์ที่บันทึกไว้จากรอบก่อน');
         return;
       }
+      const profile = JSON.parse(raw);
+      applyProfileToForm(profile);
+      alert('โหลดโปรไฟล์จากรอบก่อนเรียบร้อย ✅');
+    }catch(err){
+      console.warn('[HHA Hub] cannot load profile:', err);
+      alert('โหลดโปรไฟล์ไม่สำเร็จ');
+    }
+  }
 
-      const h = profile.heightCm;
-      const w = profile.weightKg;
-      const bmi = computeBmi(h, w);
-      if (bmi != null){
-        profile.bmi = bmi;
-        profile.bmiGroup = bmiGroup(bmi);
-      }
+  // ----- อัปเดต label เวลา เมื่อเปลี่ยน diff -----
+  function updateTimeLabel(gameKey, mode){
+    // mode: 'play' หรือ 'research'
+    const map = DIFF_TIME[gameKey] || DIFF_TIME.goodjunk;
+    const diffSel = document.querySelector(
+      mode === 'research'
+        ? 'select[data-game="' + gameKey + '"][data-role="diff-r"]'
+        : 'select[data-game="' + gameKey + '"][data-role="diff"]'
+    );
+    if (!diffSel) return;
+    const diff = diffSel.value || 'normal';
+    const t = map[diff] || map.normal || 60;
 
-      const studentKey = makeStudentKey(profile);
-      profile.studentKey = studentKey;
+    const idSuffix = (mode === 'research') ? '-r' : '';
+    const labelEl = document.getElementById('time-label-' + gameKey + idSuffix);
+    if (labelEl){
+      labelEl.textContent = 'เวลาโดยประมาณ: ' + t + ' วินาที';
+    }
+    return t;
+  }
 
-      // เวลา client
-      const nowIso = new Date().toISOString();
-      profile.updatedAt = nowIso;
-      if (!loaded || !loaded.createdAt){
-        profile.createdAt = nowIso;
-      }else{
-        profile.createdAt = loaded.createdAt;
-      }
-
-      saveProfileToStorage(profile);
-      loaded = profile; // อัปเดตตัวแปร loaded ให้เป็นค่าใหม่
-      fillProfileForm(profile);
-
-      statusEl.textContent = 'บันทึกโปรไฟล์แล้ว • studentKey = ' + studentKey;
-      statusEl.classList.remove('ok'); // reset ก่อน
-      statusEl.classList.add('ok');
+  function initDiffListeners(){
+    const games = ['goodjunk','hydration','plate','groups'];
+    games.forEach(function(g){
+      updateTimeLabel(g,'play');
+      updateTimeLabel(g,'research');
     });
 
-    // Clear profile
-    document.getElementById('btn-clear-profile').addEventListener('click', () => {
-      if (!confirm('ต้องการล้างข้อมูลโปรไฟล์บนเครื่องนี้ทั้งหมดหรือไม่?')) return;
-      clearProfileStorage();
-      document.getElementById('profile-form').reset();
-      document.getElementById('pf-bmi').value = '';
-      document.getElementById('pf-bmiGroup-hint').textContent = 'กลุ่ม BMI: -';
-      loaded = null;
-      statusEl.textContent = 'ล้างข้อมูลแล้ว • กรุณากรอกใหม่ก่อนเริ่มเล่นเกม';
-      statusEl.classList.remove('ok');
-      statusEl.classList.add('warn');
-    });
-
-    // Start game buttons (4 games) — ส่ง diff + time + run=research
-    document.querySelectorAll('.game-start').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const profile = loadProfileFromStorage();
-        if (!profile || !profile.studentKey){
-          alert('กรุณากด "บันทึกโปรไฟล์นักเรียน" ก่อนเริ่มเล่นเกม');
-          statusEl.textContent = 'ยังไม่พบ studentKey • กรุณาบันทึกโปรไฟล์ก่อน';
-          statusEl.classList.remove('ok');
-          statusEl.classList.add('warn');
-          return;
-        }
-
-        const card = btn.closest('.game-card');
-        if (!card) return;
-
-        const diffSel = card.querySelector('.game-diff');
-        const diff = diffSel ? diffSel.value : 'normal';
-
-        const ds = card.dataset;
-        let dur = 60;
-        if (diff === 'easy'  && ds.timeEasy)   dur = parseInt(ds.timeEasy,10);
-        if (diff === 'normal'&& ds.timeNormal) dur = parseInt(ds.timeNormal,10);
-        if (diff === 'hard'  && ds.timeHard)   dur = parseInt(ds.timeHard,10);
-        if (!Number.isFinite(dur) || dur <= 0) dur = 60;
-
-        const gamePath = card.dataset.game || '';
-        if (!gamePath){
-          alert('ไม่พบพาธไฟล์เกม กรุณาตรวจสอบ data-game ใน hub.html');
-          return;
-        }
-
-        const runMode = 'research'; // Hub นี้ตั้งใจใช้โหมดวิจัย
-
-        // forward ไปหน้าเกม พร้อม diff + time + run; หน้าเกมจะไปเรียก initCloudLogger() ต่อ
-        const url = `${gamePath}?diff=${encodeURIComponent(diff)}&time=${dur}&run=${encodeURIComponent(runMode)}`;
-        window.location.href = url;
+    $all('select[data-role="diff"]').forEach(function(sel){
+      sel.addEventListener('change', function(){
+        const gameKey = sel.getAttribute('data-game');
+        updateTimeLabel(gameKey,'play');
       });
     });
+    $all('select[data-role="diff-r"]').forEach(function(sel){
+      sel.addEventListener('change', function(){
+        const gameKey = sel.getAttribute('data-game');
+        updateTimeLabel(gameKey,'research');
+      });
+    });
+  }
+
+  // ----- เลือก URL ของแต่ละเกม -----
+  function getGameUrl(gameKey){
+    switch(gameKey){
+      case 'goodjunk':  return './goodjunk-vr.html';
+      case 'hydration': return './hydration-vr.html';
+      case 'plate':     return './plate-vr.html';
+      case 'groups':    return './groups-vr.html';
+      default:          return './goodjunk-vr.html';
+    }
+  }
+
+  // ----- เปิดเกม -----
+  function launchGame(gameKey, runMode){
+    // บันทึกโปรไฟล์ก่อน (ถ้าอยากให้กดทุกครั้งคอมเมนต์บรรทัดนี้)
+    const profile = readProfileFromForm();
+    try{
+      sessionStorage.setItem('HHA_STUDENT_PROFILE', JSON.stringify(profile));
+    }catch(err){
+      console.warn('[HHA Hub] cannot autosave profile before launch:', err);
+    }
+
+    const isResearch = (runMode === 'research');
+
+    // อ่าน diff จาก select ตามโหมด
+    const diffSel = document.querySelector(
+      isResearch
+        ? 'select[data-game="' + gameKey + '"][data-role="diff-r"]'
+        : 'select[data-game="' + gameKey + '"][data-role="diff"]'
+    );
+    const diff = diffSel ? diffSel.value : 'normal';
+
+    // เวลาอิงจาก DIFF_TIME mapping
+    const map = DIFF_TIME[gameKey] || DIFF_TIME.goodjunk;
+    let time = map[diff] || map.normal || 60;
+
+    // กันค่าผิดปกติ
+    if (time < 20) time = 20;
+    if (time > 180) time = 180;
+
+    const base = getGameUrl(gameKey);
+    const url =
+      base +
+      '?diff=' + encodeURIComponent(diff) +
+      '&time=' + encodeURIComponent(String(time)) +
+      '&run=' + encodeURIComponent(runMode);
+
+    window.location.href = url;
+  }
+
+  // ----- Init -----
+  window.addEventListener('DOMContentLoaded', function(){
+    // ปุ่ม profile
+    const btnSave = document.getElementById('btn-save-profile');
+    const btnLoad = document.getElementById('btn-load-profile');
+    if (btnSave) btnSave.addEventListener('click', saveProfileToSession);
+    if (btnLoad) btnLoad.addEventListener('click', loadProfileFromSession);
+
+    // init diff / time labels
+    initDiffListeners();
+
+    // ปุ่มทุกเกม ทั้ง play + research
+    $all('button[data-game][data-run]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const gameKey = btn.getAttribute('data-game');
+        const runMode = btn.getAttribute('data-run') || 'play';
+        launchGame(gameKey, runMode);
+      });
+    });
+
+    // ถ้ามี profile อยู่แล้ว เติมให้ด้วย (แต่ไม่ pop-up)
+    try{
+      const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
+      if (raw){
+        const profile = JSON.parse(raw);
+        applyProfileToForm(profile);
+      }
+    }catch(err){
+      console.warn('[HHA Hub] cannot prefill profile:', err);
+    }
   });
 </script>
+
 </body>
 </html>
