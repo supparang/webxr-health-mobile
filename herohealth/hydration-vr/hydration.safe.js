@@ -458,7 +458,7 @@ export async function boot (cfg = {}) {
   // ======================================================
   let ended = false;
 
-  function checkQuestCompletion () {
+  function recomputeQuestFromDeck () {
     if (!deck || typeof deck.getProgress !== 'function') return;
 
     const goals = deck.getProgress('goals') || [];
@@ -467,11 +467,15 @@ export async function boot (cfg = {}) {
     const rawGoalDone = goals.filter(g => g && g.done).length;
     const rawMiniDone = minis.filter(m => m && m.done).length;
 
-    const prevGoal = goalCleared;
-    const prevMini = miniCleared;
-
     goalCleared = Math.min(GOAL_TARGET, rawGoalDone);
     miniCleared = Math.min(MINI_TARGET, rawMiniDone);
+  }
+
+  function checkQuestCompletion () {
+    recomputeQuestFromDeck();
+
+    const prevGoal = goalCleared;
+    const prevMini = miniCleared;
 
     // เคลียร์ goal ใหม่
     if (goalCleared > prevGoal) {
@@ -542,25 +546,21 @@ export async function boot (cfg = {}) {
   // ======================================================
   function finish (durationSec, reason = 'time-up') {
     if (ended) return;
+
+    // ✅ ดึงผลภารกิจล่าสุดจาก deck อีกครั้งก่อนสรุป
+    recomputeQuestFromDeck();
+
     ended = true;
 
     const greenTick    = deck.stats.greenTick | 0;
     const waterEnd     = waterPct;
     const waterZoneEnd = zoneFrom(waterPct);
 
-    // ตามดีไซน์: goal 2, mini 3 เสมอ
     const goalsTotal = GOAL_TARGET;
     const minisTotal = MINI_TARGET;
 
-    const allCleared = (reason === 'quests-complete');
-
-    const goalsDone = allCleared
-      ? goalsTotal
-      : Math.max(0, Math.min(goalCleared, goalsTotal));
-
-    const minisDone = allCleared
-      ? minisTotal
-      : Math.max(0, Math.min(miniCleared, minisTotal));
+    const goalsDone = goalCleared;
+    const minisDone = miniCleared;
 
     try {
       ROOT.dispatchEvent(new CustomEvent('hha:end', {
@@ -574,7 +574,7 @@ export async function boot (cfg = {}) {
           duration: durationSec,
           greenTick,
 
-          // สรุปภารกิจหลัก / mini quest ให้ตรงดีไซน์
+          // สรุปภารกิจหลัก / mini quest ให้ตรงดีไซน์ 2 + 3
           goalCleared: goalsDone >= goalsTotal,
           goalsCleared: goalsDone,
           goalsTotal: goalsTotal,
