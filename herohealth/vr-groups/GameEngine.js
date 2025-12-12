@@ -1,12 +1,11 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine
-// เป้าเป็นวงกลม + emoji (จาก emoji-image.js) ขนาดตาม easy/normal/hard
-// มี Fever, Quest, 2D FX (คะแนนเด้ง + เป้าแตก) เหมือน GoodJunk / Plate / Hydration
+// Food Groups VR — Game Engine (reset version)
+// - เป้าเป็นวงกลม + emoji (ใช้ a-text แสดงตัวอีโมจิ)
+// - ขนาดเป้าตาม easy / normal / hard
+// - มี Fever, Quest, 2D FX (คะแนนเด้ง + เป้าแตก)
 // 2025-12-12
 
 'use strict';
-
-import { emojiImage } from '../vr/emoji-image.js';
 
 const A = window.AFRAME;
 if (!A) {
@@ -16,7 +15,7 @@ if (!A) {
 const GM = window.GAME_MODULES || {};
 const GroupsFx = GM.foodGroupsFx || null;
 
-// Fever UI (จาก ui-fever.js / ส่วนรวม)
+// Fever UI (จากระบบกลาง ถ้าไม่มีจะเป็น no-op)
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar = FeverGlobal.ensureFeverBar || window.ensureFeverBar || (()=>{});
 const _setFever       = FeverGlobal.setFever       || window.setFever       || (()=>{});
@@ -39,9 +38,11 @@ function randRange(min, max){
   return min + Math.random() * (max - min);
 }
 
-// ---------- Difficulty (ขนาดเป้า + speed) ----------
+// ---------- Difficulty ----------
 function pickDifficulty(diffKey){
   diffKey = String(diffKey || 'normal').toLowerCase();
+
+  // ถ้ามีตาราง diff กลางของโปรเจกต์ ใช้อันนั้นก่อน
   if (GM.foodGroupsDifficulty && typeof GM.foodGroupsDifficulty.get === 'function'){
     return GM.foodGroupsDifficulty.get(diffKey);
   }
@@ -59,7 +60,7 @@ function pickDifficulty(diffKey){
     return {
       spawnInterval: 900,
       lifeTime:      2800,
-      scale:         0.9,    // เป้าเล็กสุด
+      scale:         0.90,   // เป้าเล็กสุด
       maxActive:     6,
       goodRatio:     0.65
     };
@@ -228,7 +229,7 @@ function fireMissUi(judgment){
   }
 }
 
-// ---------- GameEngine ----------
+// ---------- GameEngine คลาสหลัก ----------
 class GroupsGameEngine {
   constructor(){
     this.scene   = null;
@@ -252,7 +253,6 @@ class GroupsGameEngine {
   }
 
   start(diffKey){
-    if (!A) return;
     this.scene = document.querySelector('a-scene');
     if (!this.scene){
       console.error('[GroupsVR] scene not found');
@@ -377,18 +377,17 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // ***** emoji sprite (เหมือนโหมดอื่น ๆ) *****
-    const icon = document.createElement('a-plane');
-    const iconSize = radius * 1.7;
-    icon.setAttribute('width',  iconSize.toString());
-    icon.setAttribute('height', iconSize.toString());
-    icon.setAttribute(
-      'material',
-      `shader: flat; src: ${emojiImage(food.emoji)}; transparent: true; alphaTest: 0.01`
-    );
-    icon.setAttribute('position', '0 0 0.02');
-    icon.setAttribute('data-hha-tgt', '1');
-    wrap.appendChild(icon);
+    // emoji ตรงกลาง (ใช้ a-text)
+    const txt = document.createElement('a-text');
+    txt.setAttribute('value', food.emoji);
+    txt.setAttribute('align', 'center');
+    txt.setAttribute('anchor', 'center');
+    txt.setAttribute('width', (radius * 4).toString());
+    txt.setAttribute('color', '#ffffff');
+    txt.setAttribute('side', 'double');
+    txt.setAttribute('position', '0 0 0.01');
+    txt.setAttribute('data-hha-tgt', '1');
+    wrap.appendChild(txt);
 
     const onHit = (evt)=> {
       if (!this.running) return;
@@ -396,7 +395,7 @@ class GroupsGameEngine {
     };
     wrap.addEventListener('click', onHit);
     bg.addEventListener('click', onHit);
-    icon.addEventListener('click', onHit);
+    txt.addEventListener('click', onHit);
 
     wrap.setAttribute(
       'animation__pop',
@@ -550,7 +549,15 @@ export const GameEngine = {
     if (!this._inst){
       this._inst = new GroupsGameEngine();
     }
-    this._inst.start(diffKey);
+    // groups-vr.html อาจจะเรียก start(scene, diff)
+    // รับเฉพาะตัวท้ายเป็น diffKey
+    if (typeof diffKey === 'string'){
+      this._inst.start(diffKey);
+    } else if (Array.isArray(arguments) && arguments.length >= 2){
+      this._inst.start(arguments[1]);
+    } else {
+      this._inst.start('normal');
+    }
   },
   stop(reason){
     if (this._inst){
@@ -559,5 +566,6 @@ export const GameEngine = {
   }
 };
 
+// เผื่อโค้ชตัวอื่นใช้ผ่าน window.GAME_MODULES
 GM.GroupsGameEngine = GameEngine;
 window.GAME_MODULES = GM;
