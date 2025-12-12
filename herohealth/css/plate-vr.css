@@ -23,7 +23,7 @@
 body{
   min-height:100vh;
   margin:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
+  font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
   background:#020617;
   color:var(--text-main);
   overflow:hidden;
@@ -141,6 +141,7 @@ a-scene{
   color:#fee2e2;
 }
 
+/* นับจำนวนอาหารแต่ละหมู่ (รวมทั้งเกม) */
 .hud-groups{
   font-size:11px;
   padding:4px 10px;
@@ -158,7 +159,7 @@ a-scene{
   font-variant-numeric:tabular-nums;
 }
 
-/* ===== แผนที่หมู่อาหาร ===== */
+/* แผนที่หมู่อาหาร */
 .hud-groups-legend{
   margin-top:4px;
   font-size:10px;
@@ -171,25 +172,28 @@ a-scene{
   white-space:nowrap;
 }
 
-/* ===== เกรดบน HUD ให้สีต่างกัน (ถ้าใช้ class เพิ่ม) ===== */
-.hud-badge-grade .value{font-weight:700;}
-.hud-badge-grade-SSS .value{color:#22c55e;}
-.hud-badge-grade-SS  .value{color:#4ade80;}
-.hud-badge-grade-S   .value{color:#38bdf8;}
-.hud-badge-grade-A   .value{color:#60a5fa;}
-.hud-badge-grade-B   .value{color:#eab308;}
-.hud-badge-grade-C   .value{color:#9ca3af;}
+/* เกรดบน HUD ให้สีต่างกัน */
+.hud-badge-grade .value{
+  font-weight:700;
+}
+.hud-badge-grade-SSS .value{ color:#22c55e; }
+.hud-badge-grade-SS  .value{ color:#4ade80; }
+.hud-badge-grade-S   .value{ color:#38bdf8; }
+.hud-badge-grade-A   .value{ color:#60a5fa; }
+.hud-badge-grade-B   .value{ color:#eab308; }
+.hud-badge-grade-C   .value{ color:#9ca3af; }
 
-/* ======= Quest Panel ======= */
+/* ======= Quest Panel — ใต้กล่องเวลา ======= */
 #quest-panel{
   position:absolute;
   right:10px;
-  top:72px;
+  top:60px;                 /* อยู่ใต้กล่องเวลา */
   width:260px;
-  max-width:60vw;
+  max-width:70vw;
   z-index:410;
   pointer-events:none;
 }
+
 .quest-card{
   background:rgba(15,23,42,0.96);
   border-radius:var(--radius-lg);
@@ -198,6 +202,7 @@ a-scene{
   padding:10px 12px;
   font-size:11px;
 }
+
 .quest-header{
   display:flex;
   justify-content:space-between;
@@ -213,6 +218,7 @@ a-scene{
 .quest-header span.icon{
   font-size:14px;
 }
+
 .quest-section{
   margin-bottom:6px;
 }
@@ -224,7 +230,6 @@ a-scene{
 .quest-text{
   font-size:11px;
   line-height:1.4;
-  white-space:pre-line;
 }
 .quest-hint{
   font-size:10px;
@@ -232,45 +237,27 @@ a-scene{
   margin-top:4px;
 }
 
-/* แถว progress รายหมู่ (ถ้า JS ใส่ class ให้) */
-.quest-progress-list{
-  margin-top:4px;
-  border-top:1px dashed rgba(148,163,184,0.4);
-  padding-top:4px;
-}
-.quest-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  font-size:10px;
-  margin-top:2px;
-}
-.quest-row .q-label{
-  display:flex;
-  align-items:center;
-  gap:4px;
-}
-.quest-row .q-qty{
-  font-variant-numeric:tabular-nums;
-}
-.quest-row.ok .q-qty{
-  color:var(--accent);
-}
-.quest-row.missing .q-qty{
-  color:#fb923c;
+@media (max-width:768px){
+  #quest-panel{
+    top:64px;
+    right:6px;
+    width:230px;
+    max-width:80vw;
+  }
 }
 
-/* ======= Coach Bubble ======= */
+/* ======= Coach Bubble — เหนือ Fever Gauge ======= */
 #coach-wrap{
   position:absolute;
   left:0;
   right:0;
-  bottom:72px;              /* เลื่อนขึ้นเหนือ Fever bar */
-  z-index:950;              /* สูงกว่า Fever (ประมาณ 900) */
+  bottom:70px;              /* ให้ลอยเหนือ Fever */
+  z-index:950;
   pointer-events:none;
   display:flex;
   justify-content:center;
 }
+
 .coach-bubble{
   max-width:420px;
   padding:8px 11px;
@@ -286,15 +273,128 @@ a-scene{
   transform:translateY(8px);
   transition:opacity .25s ease, transform .25s ease;
 }
+
 .coach-bubble.show{
   opacity:1;
   transform:translateY(0);
 }
-.coach-avatar{
-  font-size:20px;
+
+.coach-avatar{ font-size:20px; }
+.coach-text{ line-height:1.4; }
+
+/* ===== Gaze Reticle (ให้เห็นตลอด) ===== */
+#gaze-reticle{
+  position:fixed;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:26px;
+  height:26px;
+  pointer-events:none;
+  z-index:430;
+  opacity:0.8;
 }
-.coach-text{
-  line-height:1.4;
+
+.gaze-dot{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:4px;
+  height:4px;
+  border-radius:999px;
+  background:rgba(248,250,252,0.96);
+  box-shadow:0 0 4px rgba(248,250,252,0.9);
+}
+
+.gaze-ring{
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  border:2px solid rgba(248,250,252,0.85);
+  box-shadow:0 0 10px rgba(248,250,252,0.7);
+  opacity:0.8;
+}
+
+/* ตอนอยู่ใน VR ให้เป้าเด่นขึ้นนิดหนึ่ง */
+body.hha-vr-mode #gaze-reticle{
+  opacity:1;
+}
+
+/* animation ตอนกำลัง fuse */
+#gaze-reticle.fuse-active .gaze-ring{
+  animation:hhaFuse 1s linear forwards;
+}
+
+@keyframes hhaFuse{
+  0%{
+    transform:scale(1);
+    opacity:0.85;
+  }
+  100%{
+    transform:scale(0.25);
+    opacity:0;
+  }
+}
+
+/* ====== TARGETS (Emoji เป้าเดียว ไม่ซ้อน) ====== */
+
+.hha-target{
+  position:fixed;
+  transform:translate(-50%, -50%);
+  width:68px;
+  height:68px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:auto;
+  cursor:pointer;
+  z-index:360;
+
+  font-size:42px;
+  line-height:1;
+  text-shadow:
+    0 0 8px rgba(0,0,0,0.65),
+    0 0 16px rgba(0,0,0,0.7);
+}
+
+/* ปิดการใช้ ::before ที่เคยวาด emoji ซ้ำ */
+.hha-target::before{
+  content:none !important;
+}
+
+/* glow เพิ่มสำหรับของดี/ของไม่ดี */
+.hha-target-good{
+  text-shadow:
+    0 0 10px rgba(34,197,94,0.9),
+    0 0 20px rgba(34,197,94,0.7),
+    0 0 28px rgba(34,197,94,0.55);
+}
+
+.hha-target-bad{
+  text-shadow:
+    0 0 10px rgba(248,113,113,0.9),
+    0 0 20px rgba(248,113,113,0.7),
+    0 0 28px rgba(248,113,113,0.55);
+}
+
+/* ===== Particles FX (จาก particles.js) ===== */
+.hha-fx-layer{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:700;
+  overflow:hidden;
+}
+
+.hha-fx-score{
+  /* ส่วนใหญ่ใช้ inline style จาก JS แล้ว
+     ใส่แค่กัน font แปลก ๆ */
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
+}
+
+.hha-fx-dot{
+  /* base style ส่วนใหญ่จะถูก override ด้วย inline style */
 }
 
 /* ======= Summary Overlay ======= */
@@ -394,120 +494,10 @@ a-scene{
   border:1px solid rgba(148,163,184,0.5);
 }
 
-/* ====== TARGETS: emoji เป้าเดียว, ไม่มีวงกลมทึบ ====== */
-
-.hha-target{
-  position:fixed;
-  left:0;
-  top:0;
-  transform:translate(-50%, -50%);
-  width:68px;
-  height:68px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  pointer-events:auto;
-  cursor:pointer;
-  z-index:360;
-
-  /* ใช้ emoji เป็นตัวเป้า */
-  background:none !important;
-  border:none !important;
-  box-shadow:none !important;
-
-  font-size:42px;
-  line-height:1;
-  color:#f9fafb;
-  text-shadow:
-    0 0 8px rgba(0,0,0,0.65),
-    0 0 16px rgba(0,0,0,0.7);
-}
-
-/* ตัดวงกลมเดิมทิ้งให้หมด */
-.hha-target::before,
-.hha-target::after{
-  content:none !important;
-}
-
-/* glow เพิ่มสำหรับของดี/ของไม่ดี */
-.hha-target-good{
-  text-shadow:
-    0 0 10px rgba(34,197,94,0.9),
-    0 0 20px rgba(34,197,94,0.7),
-    0 0 28px rgba(34,197,94,0.55);
-}
-
-.hha-target-bad{
-  text-shadow:
-    0 0 10px rgba(248,113,113,0.9),
-    0 0 20px rgba(248,113,113,0.7),
-    0 0 28px rgba(248,113,113,0.55);
-}
-
-/* ===== Gaze Reticle ===== */
-
-#gaze-reticle{
-  position:fixed;
-  left:50%;
-  top:50%;
-  transform:translate(-50%, -50%);
-  width:26px;
-  height:26px;
-  pointer-events:none;
-  z-index:430;
-  opacity:0.8;              /* เห็นทุกโหมด */
-}
-
-body.hha-vr-mode #gaze-reticle{
-  opacity:1;
-}
-
-.gaze-dot{
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%, -50%);
-  width:4px;
-  height:4px;
-  border-radius:999px;
-  background:rgba(248,250,252,0.96);
-  box-shadow:0 0 4px rgba(248,250,252,0.9);
-}
-
-.gaze-ring{
-  position:absolute;
-  inset:0;
-  border-radius:999px;
-  border:2px solid rgba(248,250,252,0.85);
-  box-shadow:0 0 10px rgba(248,250,252,0.7);
-  opacity:0.8;
-}
-
-/* animation ตอนกำลัง fuse */
-#gaze-reticle.fuse-active .gaze-ring{
-  animation:hhaFuse 1s linear forwards;
-}
-
-@keyframes hhaFuse{
-  0%{
-    transform:scale(1);
-    opacity:0.85;
-  }
-  100%{
-    transform:scale(0.25);
-    opacity:0;
-  }
-}
-
-/* ===== มือถือ ===== */
+/* เล็กลงบนจอมือถือแนวตั้ง */
 @media (max-width:768px){
   .hud-groups{
     display:none;
-  }
-  #quest-panel{
-    top:auto;
-    bottom:72px;
-    right:6px;
   }
   .summary-card{
     border-radius:18px;
