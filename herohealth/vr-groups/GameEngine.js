@@ -1,7 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine
-// ใช้ emojiImage แบบเดียวกับ GoodJunk / Plate / Hydration
-// + Fever + Quest + 2D FX (คะแนนเด้ง + เป้าแตก)
+// Food Groups VR — Game Engine (emoji target + Fever + Quest + 2D FX)
+// ใช้ emojiImage เหมือน GoodJunk/Plate/Hydration
 // 2025-12-12
 
 'use strict';
@@ -37,6 +36,24 @@ function clamp(v, min, max){
 }
 function randRange(min, max){
   return min + Math.random() * (max - min);
+}
+
+// แปลงผลจาก emojiImage ให้เหลือเฉพาะ path จริง (ตัด url(...) ออก)
+function emojiSrc(emo) {
+  let raw = '';
+  try {
+    raw = emojiImage(emo) || '';
+  } catch (e) {
+    raw = '';
+  }
+  if (!raw) return '';
+
+  // ถ้าเป็นรูปแบบ url("path") หรือ url(path)
+  const m = String(raw).match(/url\((['"]?)(.+?)\1\)/i);
+  if (m && m[2]) return m[2];
+
+  // กรณีเป็น path ตรง ๆ อยู่แล้ว
+  return raw;
 }
 
 // ---------- Difficulty ----------
@@ -286,7 +303,6 @@ class GroupsGameEngine {
     }));
 
     this._startSpawnLoop();
-    console.log('[GroupsVR] GameEngine started diff=', this.diffKey);
   }
 
   stop(reason){
@@ -318,8 +334,6 @@ class GroupsGameEngine {
         miniTotal
       }
     }));
-
-    console.log('[GroupsVR] GameEngine stopped:', reason);
   }
 
   _startSpawnLoop(){
@@ -369,7 +383,7 @@ class GroupsGameEngine {
     wrap.setAttribute('position', `${x} ${y} ${z}`);
     wrap.setAttribute('look-at', '#gj-camera');
 
-    // วงกลมพื้นหลัง
+    // พื้นหลังวงกลม
     const bg = document.createElement('a-circle');
     bg.setAttribute('radius', radius.toString());
     bg.setAttribute(
@@ -380,18 +394,21 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // emoji จาก emojiImage (เหมือน GoodJunk)
+    // emoji (ใช้ path ที่แก้ url() แล้ว)
     const img = document.createElement('a-image');
     const size = radius * 2.0;
-    const srcUrl = emojiImage(food.emoji || '🍎') || '';
+    const srcUrl = emojiSrc(food.emoji || '🍎');
     img.setAttribute('src', srcUrl);
     img.setAttribute('width', size.toString());
     img.setAttribute('height', size.toString());
+    img.setAttribute(
+      'material',
+      'shader: flat; transparent: true; alphaTest: 0.01'
+    );
     img.setAttribute('position', '0 0 0.02');
     img.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(img);
 
-    // raycast hit ทั้งก้อน
     const onHit = (evt)=> {
       if (!this.running) return;
       this._onTargetHit(wrap, food, isGood, evt);
@@ -400,7 +417,6 @@ class GroupsGameEngine {
     bg.addEventListener('click', onHit);
     img.addEventListener('click', onHit);
 
-    // pop animation
     wrap.setAttribute(
       'animation__pop',
       'property: scale; from: 0.4 0.4 0.4; to: 1 1 1; dur: 260; easing: easeOutBack'
