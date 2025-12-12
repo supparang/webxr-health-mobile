@@ -1,23 +1,624 @@
-/* ชั้นเล่นเกม (ที่ mode-factory ยิง emoji / เป้า) ให้เป็น overlay เต็มจอ */
-.hha-play-wrap {
-  position: fixed;       /* เคยเป็น relative หรือ static อยู่ ให้เปลี่ยนเป็น fixed */
-  inset: 0;              /* top:0; right:0; bottom:0; left:0 */
-  pointer-events: none;  /* ให้ HUD ด้านหน้าโดนคลิกได้ */
-  z-index: 5;            /* อยู่เหนือพื้นหลัง แต่ต่ำกว่า HUD/เมนู */
+/* === Hero Health — Hydration Quest VR (DOM/VR) CSS === */
+/* เวอร์ชันนี้แก้:
+   - ชั้นเล่นเกมเป็น overlay เต็มจอ (เป้าไม่หนีไปมุมบนซ้าย)
+   - จุดเล็งกลางจอ .hha-aim
+   - โค้ชเต้น/พูด, คำตัดสิน, ฉลอง goal / mini / all-cleared
+*/
+
+:root {
+  color-scheme: dark;
+  --bg-main: #020617;
+  --bg-soft: #020617;
+  --bg-softer: #0b1120;
+  --accent: #22c55e;
+  --accent-soft: rgba(34, 197, 94, 0.16);
+  --accent-2: #38bdf8;
+  --danger: #f97316;
+  --text-main: #e5e7eb;
+  --text-soft: #9ca3af;
+  --border-soft: rgba(148, 163, 184, 0.5);
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 10px 30px rgba(15, 23, 42, 0.65);
+  --shadow-lg: 0 32px 80px rgba(15, 23, 42, 0.9);
 }
 
-/* ชั้นที่วาดเป้า / emoji (ถ้าคุณใช้ชื่ออื่นเช่น .hha-target-layer แก้ให้ตรง) */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: radial-gradient(circle at top, #0b1120 0, #020617 45%, #000 100%);
+  color: var(--text-main);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+/* ---------- Shell / Layout ---------- */
+
+.hha-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.hha-shell-inner {
+  flex: 1 1 auto;
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 12px 12px 96px;
+}
+
+/* ---------- HUD Top Cards ---------- */
+
+.hha-top-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.hha-card {
+  position: relative;
+  background: radial-gradient(circle at top left, #0f172a 0, #020617 70%);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(15, 23, 42, 0.8);
+  overflow: hidden;
+}
+
+.hha-card h2,
+.hha-card h3,
+.hha-card h4 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.hha-card-main {
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.hha-card-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+/* Mode card */
+.hha-card-mode .hha-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+/* Score card */
+.hha-score-main {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.hha-score-sub {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+/* Quest card */
+.hha-card-quest {
+  grid-column: 1 / -1;
+}
+
+/* Quest text lines */
+.hha-quest-line-main {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.hha-quest-line-sub {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+
+/* Quest progress bar (ใต้ Goal / Mini) */
+.hha-quest-progress {
+  margin-top: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+}
+
+.hha-quest-progress-inner {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  transition: width 0.22s ease-out;
+}
+
+/* ไอคอนเล็ก */
+.hha-quest-icon {
+  margin-right: 4px;
+}
+
+/* ---------- Water Gauge (ถูกสร้างจาก ui-water.js) ---------- */
+
+.hha-water-gauge {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-width: 360px;
+  padding: 6px 12px 8px;
+  border-radius: 999px;
+  background: radial-gradient(circle at top, #0f172a 0, #020617 70%);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 30;
+}
+
+.hha-water-gauge-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hha-water-gauge-zone {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hha-water-gauge-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+}
+
+.hha-water-gauge-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  transition: width 0.2s ease-out;
+}
+
+/* ---------- Fever Gauge Bottom ---------- */
+
+.hha-fever-bar-wrap {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 25;
+}
+
+.hha-fever-bar {
+  flex: 0 0 auto;
+  min-width: 260px;
+  max-width: 380px;
+  padding: 6px 12px 8px;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(circle at top, #0f172a 0, #020617 70%);
+  border: 1px solid rgba(234, 179, 8, 0.65);
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.hha-fever-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.hha-fever-bar-core {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.hha-fever-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f97316, #fb923c, #fde047);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.18s ease-out;
+}
+
+.hha-fever-extra {
+  font-size: 12px;
+}
+
+/* Fever active glow */
+.hha-fever-active .hha-fever-bar {
+  box-shadow: 0 0 24px rgba(249, 115, 22, 0.7);
+  border-color: rgba(251, 146, 60, 0.9);
+}
+
+/* ---------- PLAY LAYER & TARGETS ---------- */
+
+/* ชั้น overlay เล่นเกม: เต็มจอ ไม่โดน layout ดัน */
+.hha-play-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none; /* ให้เลเยอร์อื่นกำหนด pointer-events เอง */
+}
+
+/* ชั้นที่ mode-factory ใช้ spawn emoji / เป้า */
 .hha-play-layer {
   position: absolute;
   inset: 0;
+  pointer-events: auto; /* เป้าคลิก/แตะได้ */
 }
 
-/* จุดเล็งกลางจอ (white ring) */
+/* เป้า/emoji ที่ spawn จาก mode-factory (ถ้าตั้ง className ให้) */
+.hha-target {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+  user-select: none;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.9));
+  transition: transform 0.08s ease-out;
+}
+
+.hha-target:active {
+  transform: translate(-50%, -50%) scale(0.92);
+}
+
+/* จุดเล็งกลางจอ */
 .hha-aim {
   position: fixed;
   left: 50%;
   top: 50%;
+  width: 22px;
+  height: 22px;
   transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 2px solid rgba(148, 163, 184, 0.85);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.9);
   pointer-events: none;
   z-index: 20;
+}
+
+/* ---------- Coach Bubble ---------- */
+
+.hha-coach {
+  position: fixed;
+  left: 50%;
+  bottom: 74px;
+  transform: translateX(-50%);
+  max-width: 480px;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(circle at top left, #16a34a 0, #16a34a 40%, #166534 100%);
+  color: #f9fafb;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: center;
+}
+
+/* coach face emoji */
+.hha-coach-face {
+  font-size: 20px;
+}
+
+/* แอนิเมชันโค้ชดีด ๆ */
+.hha-coach--show {
+  animation: hhaCoachPop 0.4s ease-out forwards;
+}
+
+.hha-coach--hide {
+  animation: hhaCoachFade 0.25s ease-in forwards;
+}
+
+@keyframes hhaCoachPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -4px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@keyframes hhaCoachFade {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.9);
+  }
+}
+
+/* ---------- Judge + Score Pop ---------- */
+
+.hha-judge-pop {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-main);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.hha-judge-pop--good {
+  border-color: rgba(34, 197, 94, 0.9);
+  color: #bbf7d0;
+}
+
+.hha-judge-pop--bad {
+  border-color: rgba(248, 113, 113, 0.9);
+  color: #fecaca;
+}
+
+.hha-judge-pop--show {
+  animation: hhaJudgeFlash 0.55s ease-out forwards;
+}
+
+@keyframes hhaJudgeFlash {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.9);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(0) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+}
+
+/* ถ้า Particles.js ยิงคะแนนขึ้นมา ให้ style ง่าย ๆ เผื่อไว้ */
+.hha-score-fx {
+  position: fixed;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fef9c3;
+  text-shadow: 0 0 18px rgba(250, 204, 21, 0.9);
+  pointer-events: none;
+}
+
+/* ---------- Celebration Overlays ---------- */
+
+/* ฉลอง goal / mini แต่ละอัน */
+.hha-celebrate {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.6);
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  background: radial-gradient(circle at top, #22c55e 0, #15803d 45%, #052e16 100%);
+  box-shadow: 0 30px 80px rgba(22, 163, 74, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f9fafb;
+  font-size: 42px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.hha-celebrate-label {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* ระเบิด confetti (ใช้ pseudo-element เฉย ๆ เป็นพื้นหลัง) */
+.hha-celebrate::before {
+  content: "";
+  position: absolute;
+  inset: -30px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0, transparent 55%);
+  opacity: 0.4;
+  mix-blend-mode: screen;
+}
+
+/* all-cleared celebration (ใหญ่กว่า) */
+.hha-celebrate--grand {
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle at top, #f97316 0, #ea580c 45%, #7c2d12 100%);
+  box-shadow: 0 32px 90px rgba(248, 113, 22, 0.95);
+}
+
+/* แอนิเมชัน */
+.hha-celebrate--show {
+  animation: hhaCelebratePop 0.65s ease-out forwards;
+}
+
+@keyframes hhaCelebratePop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* ---------- Summary Modal (กล่องสรุปคะแนน) ---------- */
+
+.hha-summary-backdrop {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.98));
+  backdrop-filter: blur(10px);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hha-summary-card {
+  width: min(480px, 100% - 32px);
+  border-radius: 24px;
+  padding: 18px 18px 16px;
+  background: radial-gradient(circle at top left, #0f172a 0, #020617 70%);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  box-shadow: 0 40px 120px rgba(15, 23, 42, 1);
+}
+
+.hha-summary-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.hha-summary-mode {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+
+.hha-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.hha-summary-label {
+  color: var(--text-soft);
+}
+
+.hha-summary-value {
+  font-weight: 600;
+}
+
+/* แถวเปรียบเทียบ Goal / Mini */
+.hha-summary-quests {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+/* ปุ่มในสรุป */
+.hha-summary-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hha-btn {
+  min-width: 110px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.08s ease-out, box-shadow 0.08s ease-out,
+    background-color 0.12s ease-out;
+}
+
+.hha-btn-primary {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  color: #022c22;
+  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.6);
+}
+
+.hha-btn-secondary {
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+}
+
+.hha-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 768px) {
+  .hha-shell-inner {
+    padding: 10px 10px 96px;
+  }
+
+  .hha-top-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hha-water-gauge {
+    top: 6px;
+    min-width: 210px;
+  }
+
+  .hha-fever-bar-wrap {
+    bottom: 8px;
+  }
+
+  .hha-coach {
+    bottom: 68px;
+    max-width: 90vw;
+  }
 }
