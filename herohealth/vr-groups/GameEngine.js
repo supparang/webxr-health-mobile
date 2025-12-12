@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine
-// emoji เป้า + ขนาดตาม diff + 3D burst + 2D FX + Fever + Quest
+// emoji เป้าแบบ canvas texture + diff size + Fever + Quest + 2D FX
 // 2025-12-12
 
 'use strict';
@@ -13,18 +13,19 @@ if (!A) {
 const GM = window.GAME_MODULES || {};
 const GroupsFx = GM.foodGroupsFx || null;
 
-// Fever UI จาก ui-fever.js
+// Fever UI (global จาก ui-fever.js)
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar = FeverGlobal.ensureFeverBar || window.ensureFeverBar || (()=>{});
 const _setFever       = FeverGlobal.setFever       || window.setFever       || (()=>{});
 const _setFeverActive = FeverGlobal.setFeverActive || window.setFeverActive || (()=>{});
 const _setShield      = FeverGlobal.setShield      || window.setShield      || (()=>{});
 
-// FX 2D กลางจอ
+// 2D FX กลางจอ
 const Particles = window.Particles || (GM.Particles || null);
 
 const FEVER_MAX = 100;
 
+// ---------- Utils ----------
 function clamp(v, min, max){
   v = Number(v) || 0;
   if (v < min) return min;
@@ -35,17 +36,18 @@ function randRange(min, max){
   return min + Math.random() * (max - min);
 }
 
-// ===== difficulty (ขนาด/เวลา ตาม easy/normal/hard) =====
+// ---------- Difficulty (ขนาด/เวลาตาม easy-normal-hard) ----------
 function pickDifficulty(diffKey){
   diffKey = String(diffKey || 'normal').toLowerCase();
   if (GM.foodGroupsDifficulty && typeof GM.foodGroupsDifficulty.get === 'function'){
     return GM.foodGroupsDifficulty.get(diffKey);
   }
+
   if (diffKey === 'easy'){
     return {
       spawnInterval: 1400,
-      lifeTime: 4200,   // อยู่ 4.2s
-      scale: 1.3,       // ใหญ่สุด
+      lifeTime: 4200,
+      scale: 1.3,
       maxActive: 4,
       goodRatio: 0.8
     };
@@ -53,7 +55,7 @@ function pickDifficulty(diffKey){
   if (diffKey === 'hard'){
     return {
       spawnInterval: 900,
-      lifeTime: 2600,   // เร็วสุด
+      lifeTime: 2600,
       scale: 0.9,
       maxActive: 6,
       goodRatio: 0.65
@@ -62,14 +64,14 @@ function pickDifficulty(diffKey){
   // normal
   return {
     spawnInterval: 1100,
-    lifeTime: 3400,     // กลาง ๆ
+    lifeTime: 3400,
     scale: 1.05,
     maxActive: 5,
     goodRatio: 0.7
   };
 }
 
-// ===== dataset emoji อาหาร =====
+// ---------- Data emoji อาหาร ----------
 const FOODS = [
   { emoji:'🍚', group:'grain',   good:true },
   { emoji:'🍞', group:'grain',   good:true },
@@ -98,16 +100,45 @@ function randomFood(diff){
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// ===== Quest state =====
+// ---------- emoji → canvas texture ----------
+const EmojiTextureCache = {};
+
+function emojiToDataUrl(ch){
+  if (EmojiTextureCache[ch]) return EmojiTextureCache[ch];
+
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx){
+    EmojiTextureCache[ch] = '';
+    return '';
+  }
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.font = '200px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(ch, size/2, size/2);
+
+  const url = canvas.toDataURL('image/png');
+  EmojiTextureCache[ch] = url;
+  return url;
+}
+
+// ---------- Quest ----------
 function createQuestState(){
   const goals = [
     { label:'เลือกอาหารให้ครบทั้ง 5 หมู่', target:15, prog:0, done:false },
     { label:'รักษาคอมโบยาว ๆ ให้ได้',       target:25, prog:0, done:false }
   ];
   const minis = [
-    { label:'ผัก 5 ครั้ง',      target:5, prog:0, done:false, group:'veg' },
-    { label:'ผลไม้ 5 ครั้ง',    target:5, prog:0, done:false, group:'fruit' },
-    { label:'โปรตีน 5 ครั้ง',   target:5, prog:0, done:false, group:'protein' }
+    { label:'ผัก 5 ครั้ง',    target:5, prog:0, done:false, group:'veg' },
+    { label:'ผลไม้ 5 ครั้ง',  target:5, prog:0, done:false, group:'fruit' },
+    { label:'โปรตีน 5 ครั้ง', target:5, prog:0, done:false, group:'protein' }
   ];
   return { goals, minis };
 }
@@ -143,7 +174,7 @@ function fireQuestUpdate(qState){
 
 function checkQuestProgress(qState, ctx){
   if (!qState || !ctx) return;
-  const { food, isGood, combo, totalHits } = ctx;
+  const { food, isGood, combo } = ctx;
   const goals = qState.goals || [];
   const minis = qState.minis || [];
 
@@ -195,7 +226,7 @@ function checkQuestProgress(qState, ctx){
   fireQuestUpdate(qState);
 }
 
-// ===== helper ยิง FX 2D =====
+// ---------- ยิง FX 2D ----------
 function fireHitUi(scoreDelta, judgment, good){
   const x = window.innerWidth / 2;
   const y = window.innerHeight / 2;
@@ -221,7 +252,7 @@ function fireMissUi(judgment){
   }
 }
 
-// ===== GameEngine =====
+// ---------- GameEngine ----------
 class GroupsGameEngine {
   constructor(){
     this.scene   = null;
@@ -233,7 +264,7 @@ class GroupsGameEngine {
     this.score  = 0;
     this.combo  = 0;
     this.misses = 0;
-    this.totalHits = 0;
+    this.bestCombo = 0;
 
     this.fever = 0;
     this.feverActive = false;
@@ -259,7 +290,7 @@ class GroupsGameEngine {
     this.score   = 0;
     this.combo   = 0;
     this.misses  = 0;
-    this.totalHits = 0;
+    this.bestCombo = 0;
     this.fever   = 0;
     this.feverActive = false;
     this.questState  = createQuestState();
@@ -303,7 +334,7 @@ class GroupsGameEngine {
       detail:{
         reason: reason || 'manual',
         scoreFinal: this.score,
-        comboMax: this.combo,
+        comboMax: this.bestCombo,
         misses: this.misses,
         goalsCleared,
         goalsTotal,
@@ -316,7 +347,7 @@ class GroupsGameEngine {
   }
 
   _startSpawnLoop(){
-    const interval  = this.diff.spawnInterval || 1200;
+    const interval   = this.diff.spawnInterval || 1200;
     const firstDelay = 600;
 
     setTimeout(()=>{
@@ -360,8 +391,10 @@ class GroupsGameEngine {
     wrap.setAttribute('class', 'fg-target');
     wrap.setAttribute('data-hha-tgt', '1');
     wrap.setAttribute('position', `${x} ${y} ${z}`);
+    // ถ้าไม่มี look-at component ก็ไม่เป็นไร
     wrap.setAttribute('look-at', '#gj-camera');
 
+    // พื้นหลังวงกลม
     const bg = document.createElement('a-circle');
     bg.setAttribute('radius', radius.toString());
     bg.setAttribute(
@@ -372,19 +405,22 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // ===== emoji บนเป้า (ใช้ a-text) =====
-    const txt = document.createElement('a-text');
-    txt.setAttribute('value', food.emoji || '🍎');
-    txt.setAttribute('align', 'center');
-    txt.setAttribute('color', '#ffffff');
-    txt.setAttribute('width', '2.2');  // ให้ตัวใหญ่หน่อย
-    txt.setAttribute('anchor', 'center');
-    txt.setAttribute('baseline', 'center');
-    txt.setAttribute('position', '0 0 0.02');
-    txt.setAttribute('scale', `${scale * 1.1} ${scale * 1.1} ${scale * 1.1}`);
-    txt.setAttribute('data-hha-tgt', '1');
-    wrap.appendChild(txt);
+    // emoji image (จาก canvas)
+    const img = document.createElement('a-image');
+    const texUrl = emojiToDataUrl(food.emoji || '🍎');
+    if (texUrl){
+      const size = radius * 2.1;
+      img.setAttribute('src', texUrl);
+      img.setAttribute('width', size.toString());
+      img.setAttribute('height', size.toString());
+      img.setAttribute('position', '0 0 0.02');
+      img.setAttribute('transparent', 'true');
+      img.setAttribute('alphaTest', '0.01');
+      img.setAttribute('data-hha-tgt', '1');
+      wrap.appendChild(img);
+    }
 
+    // ป๊อปเข้ามา
     wrap.setAttribute(
       'animation__pop',
       'property: scale; from: 0.4 0.4 0.4; to: 1 1 1; dur: 260; easing: easeOutBack'
@@ -396,7 +432,7 @@ class GroupsGameEngine {
     };
     wrap.addEventListener('click', onHit);
     bg.addEventListener('click', onHit);
-    txt.addEventListener('click', onHit);
+    if (img) img.addEventListener('click', onHit);
 
     this.scene.appendChild(wrap);
 
@@ -476,8 +512,9 @@ class GroupsGameEngine {
     let judgment = '';
 
     if (correct){
-      this.totalHits += 1;
       this.combo += 1;
+      if (this.combo > this.bestCombo) this.bestCombo = this.combo;
+
       scoreDelta = 50 + Math.floor(this.combo * 2);
       if (this.feverActive){
         scoreDelta = Math.floor(scoreDelta * 1.5);
@@ -490,8 +527,7 @@ class GroupsGameEngine {
       checkQuestProgress(this.questState, {
         food,
         isGood:true,
-        combo:this.combo,
-        totalHits:this.totalHits
+        combo:this.combo
       });
 
       fireHitUi('+'+scoreDelta, judgment, true);
@@ -538,7 +574,7 @@ class GroupsGameEngine {
   }
 }
 
-// ===== export =====
+// ---------- export ----------
 export const GameEngine = {
   _inst: null,
   start(diffKey){
