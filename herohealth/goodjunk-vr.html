@@ -252,9 +252,9 @@
       max-width:680px;
       text-align:left;
       background:
-        radial-gradient(circle at top left, rgba(52,211,153,0.22), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(56,189,248,0.20), transparent 55%),
-        rgba(15,23,42,0.96);
+        radial-gradient(circle at top left, rgba(52,211,153,0.26), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(45,212,191,0.18), transparent 55%),
+        rgba(15,23,42,0.98);
       border-radius:999px;
       padding:10px 16px;
       border:1px solid rgba(52,211,153,0.65);
@@ -264,63 +264,33 @@
       justify-content:flex-start;
       gap:10px;
       pointer-events:auto;
-      box-shadow:
-        0 18px 40px rgba(15,23,42,0.85),
-        0 0 0 0 rgba(45,212,191,0.5);
       position:relative;
       overflow:hidden;
-    }
-    .coach-bubble.show{
-      display:flex;
-      animation:coach-bubble-pop .45s ease-out,
-               coach-bubble-glow 2.4s ease-in-out infinite;
+      box-shadow:
+        0 0 0 1px rgba(15,23,42,1),
+        0 16px 38px rgba(15,23,42,0.9);
     }
 
-    .coach-bubble::before{
-      content:"";
-      position:absolute;
-      inset:-40%;
-      background:
-        conic-gradient(from 0deg,
-          rgba(45,212,191,0.05),
-          transparent 35%,
-          rgba(56,189,248,0.12),
-          transparent 70%,
-          rgba(45,212,191,0.05));
-      opacity:0.9;
-      mix-blend-mode:screen;
-      animation:coach-lines-spin 8s linear infinite;
+    .coach-bubble.show{
+      display:flex;
+      animation:coach-bubble-pop 0.45s ease-out;
     }
+
+    .coach-bubble::before,
     .coach-bubble::after{
       content:"";
       position:absolute;
-      inset:1px;
-      border-radius:inherit;
-      background:radial-gradient(circle at top left,
-                  rgba(15,23,42,0.0),rgba(15,23,42,0.75));
+      inset:-20%;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(52,211,153,0.20), transparent 55%),
+        radial-gradient(circle at 100% 100%, rgba(56,189,248,0.16), transparent 55%);
+      opacity:0;
       pointer-events:none;
+      mix-blend-mode:screen;
+      animation:coach-sparkle 2.6s ease-in-out infinite;
     }
-
-    @keyframes coach-bubble-pop{
-      0%{ transform:translateY(12px) scale(0.9); opacity:0; }
-      60%{ transform:translateY(0) scale(1.02); opacity:1; }
-      100%{ transform:translateY(0) scale(1); opacity:1; }
-    }
-    @keyframes coach-bubble-glow{
-      0%,100%{
-        box-shadow:
-          0 18px 40px rgba(15,23,42,0.85),
-          0 0 0 0 rgba(45,212,191,0.35);
-      }
-      50%{
-        box-shadow:
-          0 20px 50px rgba(15,23,42,0.95),
-          0 0 0 6px rgba(45,212,191,0.22);
-      }
-    }
-    @keyframes coach-lines-spin{
-      0%{ transform:rotate(0deg);}
-      100%{ transform:rotate(360deg);}
+    .coach-bubble::after{
+      animation-delay:1.3s;
     }
 
     .coach-label{
@@ -329,76 +299,151 @@
       letter-spacing:.16em;
       color:#6ee7b7;
       font-weight:600;
-      position:relative;
-      z-index:1;
-    }
-
-    /* ===== โค้ชเป็นภาพ PNG 4 อารมณ์ ===== */
-    .coach-emoji{
-      width:44px;
-      height:44px;
-      border-radius:999px;
-      background-size:cover;
-      background-position:center;
-      flex-shrink:0;
-      box-shadow:0 0 14px rgba(16,185,129,0.9);
-      animation:coach-idle 1.4s ease-in-out infinite;
-      border:2px solid rgba(34,197,94,0.9);
-      position:relative;
-      z-index:1;
-    }
-
-    .coach-emoji,
-    .coach-emoji.coach-neutral{
-      background-image:url('./img/coach-neutral.png');
-    }
-    .coach-emoji.coach-happy{
-      background-image:url('./img/coach-happy.png');
-      box-shadow:0 0 20px rgba(34,197,94,1);
-      border-color:rgba(190,242,100,0.95);
-    }
-    .coach-emoji.coach-sad{
-      background-image:url('./img/coach-sad.png');
-      filter:saturate(0.85);
-      box-shadow:0 0 14px rgba(148,163,184,1);
-      border-color:rgba(148,163,184,0.9);
-    }
-    .coach-emoji.coach-fever{
-      background-image:url('./img/coach-fever.png');
-      box-shadow:0 0 22px rgba(248,113,113,1);
-      border-color:rgba(248,250,109,0.95);
-    }
-
-    @keyframes coach-idle{
-      0%{   transform:translateY(0)   scale(1);}
-      25%{  transform:translateY(-3px) scale(1.04);}
-      50%{  transform:translateY(1px)  scale(0.98);}
-      75%{  transform:translateY(-2px) scale(1.02);}
-      100%{ transform:translateY(0)   scale(1);}
-    }
-    @keyframes coach-celebrate-bounce{
-      0%{   transform:translateY(0) scale(1) rotate(0);}
-      20%{  transform:translateY(-10px) scale(1.14) rotate(-8deg);}
-      40%{  transform:translateY(-6px)  scale(1.10) rotate(7deg);}
-      60%{  transform:translateY(-12px) scale(1.16) rotate(-5deg);}
-      100%{ transform:translateY(0)  scale(1) rotate(0);}
-    }
-    .coach-emoji.coach-celebrate{
-      animation:coach-celebrate-bounce 0.8s ease-out;
     }
 
     #coach-text{
+      font-size:13px;
+      line-height:1.4;
+      animation:coach-text-wave 0.9s ease-out;
+    }
+
+    .coach-emoji{
+      width:46px;
+      height:46px;
+      border-radius:999px;
+      background-image:url('./img/coach-neutral.png');
+      background-size:cover;
+      background-position:center;
+      flex-shrink:0;
+      box-shadow:0 0 14px rgba(16,185,129,0.85);
       position:relative;
-      z-index:1;
-      animation:coach-text-pop .5s ease-out, coach-text-glow 2.2s ease-in-out infinite;
+      animation:coach-idle 1.3s ease-in-out infinite;
     }
-    @keyframes coach-text-pop{
-      0%{ transform:translateY(4px); opacity:0;}
-      100%{ transform:translateY(0); opacity:1;}
+
+    .coach-emoji::before{
+      content:"";
+      position:absolute;
+      inset:-5px;
+      border-radius:inherit;
+      border:1px solid rgba(52,211,153,0.45);
+      box-shadow:0 0 22px rgba(34,197,94,0.65);
+      opacity:.7;
+      mix-blend-mode:screen;
+      pointer-events:none;
     }
-    @keyframes coach-text-glow{
-      0%,100%{ text-shadow:0 0 0 rgba(52,211,153,0.0);}
-      50%{ text-shadow:0 0 14px rgba(45,212,191,0.7);}
+
+    .coach-emoji.coach-neutral{
+      background-image:url('./img/coach-neutral.png');
+      filter:none;
+    }
+    .coach-emoji.coach-happy{
+      background-image:url('./img/coach-happy.png');
+      box-shadow:0 0 20px rgba(34,197,94,0.95);
+      animation:coach-dance 0.8s ease-in-out infinite;
+    }
+    .coach-emoji.coach-sad{
+      background-image:url('./img/coach-sad.png');
+      filter:grayscale(0.2) brightness(0.9);
+      box-shadow:0 0 12px rgba(148,163,184,0.85);
+    }
+    .coach-emoji.coach-fever{
+      background-image:url('./img/coach-fever.png');
+      box-shadow:0 0 24px rgba(248,113,113,0.95);
+      animation:coach-fever-pulse 0.55s ease-in-out infinite;
+    }
+
+    .coach-emoji.coach-celebrate{
+      animation:coach-celebrate-bounce 0.75s ease-out;
+    }
+
+    /* ===== Animations (coach) ===== */
+    @keyframes coach-idle{
+      0%{   transform:translateY(0) scale(1);}
+      25%{  transform:translateY(-2px) scale(1.03);}
+      50%{  transform:translateY(1px) scale(0.99);}
+      75%{  transform:translateY(-1px) scale(1.02);}
+      100%{ transform:translateY(0) scale(1);}
+    }
+
+    @keyframes coach-dance{
+      0%{   transform:translateY(0) rotate(0deg) scale(1);}
+      20%{  transform:translateY(-4px) rotate(-6deg) scale(1.06);}
+      40%{  transform:translateY(-2px) rotate(5deg) scale(1.03);}
+      60%{  transform:translateY(-6px) rotate(-4deg) scale(1.07);}
+      80%{  transform:translateY(-3px) rotate(4deg) scale(1.04);}
+      100%{ transform:translateY(0) rotate(0deg) scale(1);}
+    }
+
+    @keyframes coach-fever-pulse{
+      0%{
+        transform:translateY(-1px) scale(1.05);
+        box-shadow:0 0 16px rgba(248,113,113,0.9);
+      }
+      50%{
+        transform:translateY(-3px) scale(1.11);
+        box-shadow:0 0 26px rgba(248,113,113,1);
+      }
+      100%{
+        transform:translateY(-1px) scale(1.05);
+        box-shadow:0 0 16px rgba(248,113,113,0.9);
+      }
+    }
+
+    @keyframes coach-celebrate-bounce{
+      0%{   transform:translateY(0) scale(1) rotate(0);}
+      20%{  transform:translateY(-10px) scale(1.15) rotate(-8deg);}
+      40%{  transform:translateY(-6px) scale(1.08) rotate(6deg);}
+      60%{  transform:translateY(-12px) scale(1.18) rotate(-4deg);}
+      100%{ transform:translateY(0) scale(1) rotate(0);}
+    }
+
+    @keyframes coach-bubble-pop{
+      0%{
+        opacity:0;
+        transform:translateY(8px) scale(.92);
+      }
+      60%{
+        opacity:1;
+        transform:translateY(0) scale(1.02);
+      }
+      100%{
+        opacity:1;
+        transform:translateY(0) scale(1);
+      }
+    }
+
+    @keyframes coach-text-wave{
+      0%{
+        opacity:0;
+        transform:translateY(4px);
+      }
+      40%{
+        opacity:1;
+        transform:translateY(0);
+      }
+      100%{
+        opacity:1;
+        transform:translateY(0);
+      }
+    }
+
+    @keyframes coach-sparkle{
+      0%{
+        opacity:0;
+        transform:translate3d(-6px,4px,0) scale(1);
+      }
+      40%{
+        opacity:.7;
+        transform:translate3d(2px,-4px,0) scale(1.03);
+      }
+      80%{
+        opacity:.4;
+        transform:translate3d(6px,2px,0) scale(1.02);
+      }
+      100%{
+        opacity:0;
+        transform:translate3d(0,0,0) scale(1);
+      }
     }
 
     /* ===== Center hint ===== */
@@ -855,7 +900,6 @@
       }, interval);
     }
 
-    // HUD: เวลา
     window.addEventListener('hha:time', function(e){
       const d = e.detail || {};
       const sec = (d.sec | 0);
@@ -863,7 +907,6 @@
       elTime.textContent = sec + 's';
     });
 
-    // === ฟังก์ชันคำนวณเกรด ===
     function computeGrade(score, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
       const allGoalDone = (goalsTotal > 0 && goalsCleared >= goalsTotal);
       const allMiniDone = (miniTotal > 0 && miniCleared >= miniTotal);
@@ -884,11 +927,11 @@
         ? latestScore
         : (parseInt(elScore.textContent || '0',10) || 0));
 
-      const comboMaxVal = parseInt(elCombo.dataset.max || '0',10) || 0;
+      const comboMax = parseInt(elCombo.dataset.max || '0',10) || 0;
 
       const grade = computeGrade(
         scoreNow,
-        comboMaxVal,
+        comboMax,
         hudMissCount,
         hudGoalsCleared,
         hudGoalsTotal,
@@ -912,7 +955,69 @@
       return gm.Particles || window.Particles || null;
     }
 
-    // HUD: Quest
+    function celebrateQuest(kind, cleared, total){
+      const P = getParticlesAPI();
+      const cx = window.innerWidth / 2;
+      const y  = window.innerHeight * 0.22;
+
+      if (P && P.burstAt){
+        P.burstAt(cx, y, {
+          color: (kind === 'goal') ? '#22c55e' : '#38bdf8',
+          count: 16
+        });
+      }
+      if (P && P.scorePop){
+        const label = (kind === 'goal')
+          ? ('Goal ' + cleared + '/' + total)
+          : ('Mini ' + cleared + '/' + total);
+        P.scorePop(cx, y, 'MISSION CLEAR!', {
+          judgment: label,
+          good: true
+        });
+      }
+      pulseCoachCelebrate();
+    }
+
+    function bigCelebrateAllQuests(callback){
+      if (!elBigCelebrate){
+        if (typeof callback === 'function') callback();
+        return;
+      }
+
+      const P = getParticlesAPI();
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight * 0.35;
+
+      if (P && P.burstAt){
+        for (let i = 0; i < 3; i++){
+          (function(i2){
+            setTimeout(function(){
+              P.burstAt(cx, cy, {
+                color: i2 === 1 ? '#facc15' : '#22c55e',
+                count: 22
+              });
+            }, i2 * 260);
+          })(i);
+        }
+      }
+      if (P && P.scorePop){
+        P.scorePop(cx, cy, 'ALL QUESTS CLEAR!', {
+          judgment: 'GREAT JOB',
+          good: true
+        });
+      }
+
+      setCoachFace('happy');
+      setCoach('สุดยอด! ทำครบทุกภารกิจแล้ว เตรียมดูสรุปผลงานกันเลย 🌟');
+      pulseCoachCelebrate();
+
+      elBigCelebrate.classList.add('show');
+      setTimeout(function(){
+        elBigCelebrate.classList.remove('show');
+        if (typeof callback === 'function') callback();
+      }, 1400);
+    }
+
     window.addEventListener('quest:update', function(e){
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -958,34 +1063,10 @@
       hudMiniCleared  = minisAll.filter(function(m){ return m && m.done; }).length;
 
       if (hudGoalsCleared > prevGoalsCleared){
-        const P = getParticlesAPI();
-        const cx = window.innerWidth / 2;
-        const y  = window.innerHeight * 0.22;
-        if (P && P.burstAt){
-          P.burstAt(cx, y, { color:'#22c55e', good:true, count:22 });
-        }
-        if (P && P.scorePop){
-          P.scorePop(cx, y, 'Goal ' + hudGoalsCleared + '/' + hudGoalsTotal, {
-            good:true,
-            judgment:'MISSION CLEAR!'
-          });
-        }
-        pulseCoachCelebrate();
+        celebrateQuest('goal', hudGoalsCleared, hudGoalsTotal);
       }
       if (hudMiniCleared > prevMiniCleared){
-        const P = getParticlesAPI();
-        const cx = window.innerWidth / 2;
-        const y  = window.innerHeight * 0.22;
-        if (P && P.burstAt){
-          P.burstAt(cx, y, { color:'#38bdf8', good:true, count:22 });
-        }
-        if (P && P.scorePop){
-          P.scorePop(cx, y, 'Mini ' + hudMiniCleared + '/' + hudMiniTotal, {
-            good:true,
-            judgment:'MISSION CLEAR!'
-          });
-        }
-        pulseCoachCelebrate();
+        celebrateQuest('mini', hudMiniCleared, hudMiniTotal);
       }
       prevGoalsCleared = hudGoalsCleared;
       prevMiniCleared  = hudMiniCleared;
@@ -1001,7 +1082,6 @@
       }
     });
 
-    // HUD: คะแนน / คอมโบ / miss
     window.addEventListener('hha:score', function(e){
       const d = e.detail || {};
       if (typeof d.score === 'number') {
@@ -1072,9 +1152,9 @@
       const rawScore  = (typeof d.scoreFinal === 'number') ? d.scoreFinal : d.score;
       const scoreFinal   = (typeof rawScore === 'number') ? rawScore : 0;
 
-      let comboMaxVal = 0;
-      if (typeof d.comboMax === 'number') comboMaxVal = d.comboMax;
-      else comboMaxVal = parseInt(elCombo.dataset.max || '0',10) || 0;
+      let comboMax = 0;
+      if (typeof d.comboMax === 'number') comboMax = d.comboMax;
+      else comboMax = parseInt(elCombo.dataset.max || '0',10) || 0;
 
       const misses       = (typeof d.misses === 'number') ? d.misses : hudMissCount;
       const goalsCleared = (typeof d.goalsCleared === 'number') ? d.goalsCleared : hudGoalsCleared;
@@ -1087,41 +1167,11 @@
       const allQuest    = allGoalDone && allMiniDone;
 
       if (allQuest){
-        const P = getParticlesAPI();
-        const cx = window.innerWidth / 2;
-        const cy = window.innerHeight * 0.35;
-
-        if (P && P.burstAt){
-          for (let i = 0; i < 3; i++){
-            (function(i2){
-              setTimeout(function(){
-                P.burstAt(cx, cy, {
-                  color: i2 === 1 ? '#facc15' : '#22c55e',
-                  good:true,
-                  count:24
-                });
-              }, i2 * 260);
-            })(i);
-          }
-        }
-        if (P && P.scorePop){
-          P.scorePop(cx, cy, 'ALL QUESTS CLEAR!', {
-            good:true,
-            judgment:'GREAT JOB'
-          });
-        }
-
-        setCoachFace('happy');
-        setCoach('สุดยอด! ทำครบทุกภารกิจแล้ว เตรียมดูสรุปผลงานกันเลย 🌟');
-        pulseCoachCelebrate();
-
-        elBigCelebrate.classList.add('show');
-        setTimeout(function(){
-          elBigCelebrate.classList.remove('show');
-          showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
-        }, 1400);
+        bigCelebrateAllQuests(function(){
+          showEndSummary(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+        });
       } else {
-        showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+        showEndSummary(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
       }
     });
 
@@ -1132,7 +1182,6 @@
       elJudge.textContent = label || '';
     });
 
-    // Touch-look (มือถือหมุนมุมมอง)
     function initTouchLook(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
@@ -1147,7 +1196,6 @@
       });
     }
 
-    // ปุ่มเข้า VR
     function initVRButton(){
       if (!btnVR) return;
       const scene = document.querySelector('a-scene');
