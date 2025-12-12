@@ -1,27 +1,28 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (วงกลม + emoji + Fever + Quest)
-// ใช้ emoji-image เดียวกับ GoodJunk VR
-// 2025-12-12 fix: เป้าโผล่แน่ ๆ + emoji
+// 2025-12-12: ตัด import emoji-image.js ออก ใช้ a-text แทน
+// เป้าโผล่แน่ ๆ + เป็น emoji + ผูกคะแนน/quest เหมือน GoodJunk
 
 'use strict';
-
-import { emojiImage } from '../vr/vr-goodjunk/emoji-image.js';
 
 const A = window.AFRAME;
 if (!A) {
   console.error('[GroupsVR] AFRAME not found');
 }
 
-const GM = window.GAME_MODULES || {};
+const GM = window.GAME_MODULES || (window.GAME_MODULES = {});
 const GroupsFx = GM.foodGroupsFx || null;
 
+// Fever UI (ใช้ของกลาง HeroHealth)
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar = FeverGlobal.ensureFeverBar || window.ensureFeverBar || (()=>{});
 const _setFever       = FeverGlobal.setFever       || window.setFever       || (()=>{});
 const _setFeverActive = FeverGlobal.setFeverActive || window.setFeverActive || (()=>{});
 const _setShield      = FeverGlobal.setShield      || window.setShield      || (()=>{});
 
+// FX layer กลางจอ (Particles DOM)
 const Particles = window.Particles || (GM.Particles || null);
+
 const FEVER_MAX = 100;
 
 // ---------- Utils ----------
@@ -56,7 +57,7 @@ function pickDifficulty(diffKey){
     return {
       spawnInterval: 900,
       lifeTime:      2800,
-      scale:         0.90,
+      scale:         0.9,
       maxActive:     6,
       goodRatio:     0.65
     };
@@ -196,7 +197,7 @@ function checkQuestProgress(qState, ctx){
   fireQuestUpdate(qState);
 }
 
-// ---------- FX UI (ใช้ layer กลางจอจาก /vr/particles.js) ----------
+// ---------- FX UI (DOM) ----------
 function fireHitUi(scoreDelta, judgment, good){
   const x = window.innerWidth / 2;
   const y = window.innerHeight / 2;
@@ -248,12 +249,21 @@ class GroupsGameEngine {
   }
 
   start(diffKey){
-    this.scene = document.querySelector('a-scene');
-    if (!this.scene){
-      console.error('[GroupsVR] scene not found');
-      return;
-    }
+    // รอจนกว่าจะมี a-scene (กันเคสเรียกเร็วไป)
+    const tryStart = () => {
+      this.scene = document.querySelector('a-scene');
+      if (!this.scene){
+        console.warn('[GroupsVR] scene not ready, retry...');
+        setTimeout(tryStart, 200);
+        return;
+      }
 
+      this._reallyStart(diffKey);
+    };
+    tryStart();
+  }
+
+  _reallyStart(diffKey){
     this.diffKey = String(diffKey || 'normal').toLowerCase();
     this.diff    = pickDifficulty(this.diffKey);
 
@@ -339,7 +349,7 @@ class GroupsGameEngine {
     this.targets.length = 0;
   }
 
-  // ===== spawn เป้า: วงกลม + emoji เหมือน GoodJunk =====
+  // ===== spawn เป้า: วงกลม + emoji (a-text) =====
   _spawnOne(){
     if (!this.scene || !this.running) return;
 
@@ -349,10 +359,10 @@ class GroupsGameEngine {
     const food   = randomFood(this.diff);
     const isGood = !!food.good;
 
-    // พิกัด: ให้โผล่ในมุมมองแน่ ๆ (คล้ายที่เคยเห็นวงกลมเขียว)
-    const x = randRange(-1.6, 1.6);   // ซ้ายขวา
-    const y = randRange(1.2, 2.0);    // สูงแถว ๆ ระดับสายตา
-    const z = -4.0;                   // อยู่หน้ากล้อง
+    // โผล่ในมุมมองตรง ๆ
+    const x = randRange(-1.6, 1.6);
+    const y = randRange(1.2, 2.0);
+    const z = -4.0;
 
     const scale  = this.diff.scale || 1.0;
     const radius = 0.5 * scale;
@@ -376,22 +386,16 @@ class GroupsGameEngine {
     bg.setAttribute('visible', 'true');
     wrap.appendChild(bg);
 
-    // emoji image (ใช้ไฟล์ sprite จาก emoji-image.js)
-    const imgUrl = (typeof emojiImage === 'function') ? emojiImage(food.emoji) : null;
-    const img = document.createElement('a-image');
-    if (imgUrl) {
-      img.setAttribute('src', imgUrl);
-    }
-    img.setAttribute('width',  (radius*1.6).toString());
-    img.setAttribute('height', (radius*1.6).toString());
-    img.setAttribute('position', '0 0 0.02');
-    img.setAttribute(
-      'material',
-      'shader: flat; transparent: true; side: double; alphaTest: 0.01'
+    // emoji ด้วย a-text (ไม่ต้อง import รูป)
+    const label = document.createElement('a-entity');
+    label.setAttribute(
+      'text',
+      `value: ${food.emoji}; align: center; color: #ffffff; width: ${radius*2.4};`
     );
-    img.setAttribute('data-hha-tgt', '1');
-    img.setAttribute('visible', 'true');
-    wrap.appendChild(img);
+    label.setAttribute('position', '0 0 0.02');
+    label.setAttribute('data-hha-tgt', '1');
+    label.setAttribute('visible', 'true');
+    wrap.appendChild(label);
 
     const onHit = (evt)=> {
       if (!this.running) return;
@@ -399,7 +403,7 @@ class GroupsGameEngine {
     };
     wrap.addEventListener('click', onHit);
     bg.addEventListener('click', onHit);
-    img.addEventListener('click', onHit);
+    label.addEventListener('click', onHit);
 
     // pop ตอนเกิด
     wrap.setAttribute(
@@ -554,13 +558,7 @@ export const GameEngine = {
     if (!this._inst){
       this._inst = new GroupsGameEngine();
     }
-    if (typeof diffKey === 'string'){
-      this._inst.start(diffKey);
-    } else if (Array.isArray(arguments) && arguments.length >= 2){
-      this._inst.start(arguments[1]);
-    } else {
-      this._inst.start('normal');
-    }
+    this._inst.start(diffKey || 'normal');
   },
   stop(reason){
     if (this._inst){
