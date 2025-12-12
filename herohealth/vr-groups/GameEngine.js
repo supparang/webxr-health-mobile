@@ -4,6 +4,8 @@
 
 'use strict';
 
+import { emojiImage } from '../vr-goodjunk/emoji-image.js';
+
 const A = window.AFRAME;
 if (!A) {
   console.error('[GroupsVR] AFRAME not found');
@@ -13,7 +15,7 @@ if (!A) {
 const GM = window.GAME_MODULES || {};
 const GroupsFx = GM.foodGroupsFx || null;
 
-// helper fever UI (รองรับหลายแบบ เผื่อไฟล์ ui-fever เขียนต่างกัน)
+// helper fever UI
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar =
   FeverGlobal.ensureFeverBar || window.ensureFeverBar || (() => {});
@@ -43,7 +45,7 @@ function pickDifficulty(diffKey) {
   if (GM.foodGroupsDifficulty && typeof GM.foodGroupsDifficulty.get === 'function') {
     return GM.foodGroupsDifficulty.get(diffKey);
   }
-  // fallback เผื่อยังไม่ได้ผูก diff table
+  // fallback
   if (diffKey === 'easy') {
     return {
       spawnInterval: 1400,
@@ -112,9 +114,9 @@ function createQuestState() {
     { label: 'รักษาคอมโบให้ยาว ๆ', target: 25, prog: 0, done: false }
   ];
   const minis = [
-    { label: 'ผัก 5 ครั้ง', target: 5, prog: 0, done: false, group: 'veg' },
-    { label: 'ผลไม้ 5 ครั้ง', target: 5, prog: 0, done: false, group: 'fruit' },
-    { label: 'โปรตีน 5 ครั้ง', target: 5, prog: 0, done: false, group: 'protein' }
+    { label: 'ผัก 5 ครั้ง',      target: 5, prog: 0, done: false, group: 'veg' },
+    { label: 'ผลไม้ 5 ครั้ง',    target: 5, prog: 0, done: false, group: 'fruit' },
+    { label: 'โปรตีน 5 ครั้ง',   target: 5, prog: 0, done: false, group: 'protein' }
   ];
   return { goals, minis };
 }
@@ -138,7 +140,7 @@ function fireQuestUpdate(qState) {
       goalsAll: goals.map(g => ({ done: g.done })),
       minisAll: minis.map(m => ({ done: m.done })),
       hint: activeGoal
-        ? 'ทำภารกิจตามด้านบนให้ครบ แล้วจะมีฉลองพิเศษให้เลย 🎁'
+        ? 'ทำภารกิจตามด้านบนให้ครบ 15 แล้วจะมีฉลองพิเศษให้เลย 🎁'
         : ''
     }
   }));
@@ -151,7 +153,6 @@ function checkQuestProgress(qState, ctx) {
   const goals = qState.goals || [];
   const minis = qState.minis || [];
 
-  // goals แบบง่าย ๆ — นับเฉพาะตีถูก
   if (isGood) {
     if (goals[0] && !goals[0].done) {
       goals[0].prog += 1;
@@ -173,7 +174,6 @@ function checkQuestProgress(qState, ctx) {
     }
   }
 
-  // minis ผูกกับ group
   if (isGood && food && food.group) {
     minis.forEach((m, idx) => {
       if (!m.done && m.group === food.group) {
@@ -320,7 +320,7 @@ class GroupsGameEngine {
       detail: {
         reason: reason || 'manual',
         scoreFinal: this.score,
-        comboMax: this.combo, // NOTE: ถ้าอยากได้ max จริง ๆ ให้เก็บเพิ่มเอง
+        comboMax: this.combo,
         misses: this.misses,
         goalsCleared,
         goalsTotal,
@@ -377,6 +377,8 @@ class GroupsGameEngine {
     wrap.setAttribute('class', 'fg-target');
     wrap.setAttribute('data-hha-tgt', '1');
     wrap.setAttribute('position', `${x} ${y} ${z}`);
+    // หันเข้ากล้องหน่อย
+    wrap.setAttribute('look-at', '#gj-camera');
 
     // พื้นหลังวงกลม
     const bg = document.createElement('a-circle');
@@ -388,22 +390,28 @@ class GroupsGameEngine {
     bg.setAttribute('rotation', '0 0 0');
     wrap.appendChild(bg);
 
-    // emoji กลางวง
-    const label = document.createElement('a-entity');
-    label.setAttribute('position', '0 0 0.01');
-    label.setAttribute('text', [
-      `value: ${food.emoji}`,
-      'align: center',
-      'anchor: center',
-      'color: #ffffff',
-      'width: 1.5',
-      'baseline: center',
-      'font: mozillavr'
-    ].join('; '));
-    wrap.appendChild(label);
+    // emoji เป็น image (ใช้ emojiImage สร้าง texture)
+    const texUrl = typeof emojiImage === 'function'
+      ? emojiImage(food.emoji || '🍎')
+      : '';
+    const img = document.createElement('a-image');
+    if (texUrl) {
+      img.setAttribute('src', texUrl);
+    }
+    const w = radius * 1.6;
+    const h = radius * 1.6;
+    img.setAttribute('width', w.toString());
+    img.setAttribute('height', h.toString());
+    img.setAttribute('transparent', 'true');
+    img.setAttribute('alpha-test', '0.01');
+    img.setAttribute('position', '0 0 0.02');
+    wrap.appendChild(img);
 
-    // เล็กน้อยให้เด้ง
-    wrap.setAttribute('animation__pop', 'property: scale; from: 0.6 0.6 0.6; to: 1 1 1; dur: 220; easing: easeOutBack');
+    // เด้งเข้ามา
+    wrap.setAttribute(
+      'animation__pop',
+      'property: scale; from: 0.6 0.6 0.6; to: 1 1 1; dur: 220; easing: easeOutBack'
+    );
 
     // คลิกเป้า
     wrap.addEventListener('click', (evt) => {
@@ -466,7 +474,7 @@ class GroupsGameEngine {
     this._removeTarget(el);
 
     const actuallyGood = isGood;
-    const correct = actuallyGood; // โหมดนี้ถือว่าต้องเลือกอาหารดีเป็นหลัก
+    const correct = actuallyGood;
 
     // world position สำหรับ 3D burst
     try {
@@ -501,7 +509,6 @@ class GroupsGameEngine {
 
       this._applyFever(true);
 
-      // quest
       checkQuestProgress(this.questState, {
         food,
         isGood: true,
@@ -514,7 +521,6 @@ class GroupsGameEngine {
         detail: { label: judgment }
       }));
     } else {
-      // ตีของไม่ดี หรือเลือกผิด
       this.combo = 0;
       this.misses += 1;
       judgment = 'MISS';
@@ -540,7 +546,6 @@ class GroupsGameEngine {
   }
 
   _onTargetTimeout(el, food, isGood) {
-    // หมดเวลา: ถ้าเป็นอาหารดีถือว่าพลาด 1 ครั้ง, ถ้าเป็น junk ก็แค่หายไป
     this._removeTarget(el);
 
     if (isGood && this.running) {
@@ -583,6 +588,5 @@ export const GameEngine = {
   }
 };
 
-// ผูกเข้ากับ namespace เดิม (เผื่อ code อื่นเรียก)
 GM.GroupsGameEngine = GameEngine;
 window.GAME_MODULES = GM;
