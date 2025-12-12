@@ -1,11 +1,10 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (emoji target + Fever + Quest + 2D FX)
-// ใช้ emojiImage เหมือน GoodJunk/Plate/Hydration
+// Food Groups VR — Game Engine
+// เป้าเป็นวงกลม + emoji text, ขนาดตาม easy/normal/hard
+// มี Fever, Quest, 2D FX (คะแนนเด้ง + เป้าแตก) เหมือนเกมอื่น
 // 2025-12-12
 
 'use strict';
-
-import { emojiImage } from '../vr-goodjunk/emoji-image.js';
 
 const A = window.AFRAME;
 if (!A) {
@@ -38,25 +37,7 @@ function randRange(min, max){
   return min + Math.random() * (max - min);
 }
 
-// แปลงผลจาก emojiImage ให้เหลือเฉพาะ path จริง (ตัด url(...) ออก)
-function emojiSrc(emo) {
-  let raw = '';
-  try {
-    raw = emojiImage(emo) || '';
-  } catch (e) {
-    raw = '';
-  }
-  if (!raw) return '';
-
-  // ถ้าเป็นรูปแบบ url("path") หรือ url(path)
-  const m = String(raw).match(/url\((['"]?)(.+?)\1\)/i);
-  if (m && m[2]) return m[2];
-
-  // กรณีเป็น path ตรง ๆ อยู่แล้ว
-  return raw;
-}
-
-// ---------- Difficulty ----------
+// ---------- Difficulty (ขนาดเป้า + speed) ----------
 function pickDifficulty(diffKey){
   diffKey = String(diffKey || 'normal').toLowerCase();
   if (GM.foodGroupsDifficulty && typeof GM.foodGroupsDifficulty.get === 'function'){
@@ -67,7 +48,7 @@ function pickDifficulty(diffKey){
     return {
       spawnInterval: 1400,
       lifeTime:      4600,
-      scale:         1.3,
+      scale:         1.35,   // เป้าใหญ่สุด
       maxActive:     4,
       goodRatio:     0.8
     };
@@ -76,7 +57,7 @@ function pickDifficulty(diffKey){
     return {
       spawnInterval: 900,
       lifeTime:      2800,
-      scale:         0.9,
+      scale:         0.9,    // เป้าเล็กสุด
       maxActive:     6,
       goodRatio:     0.65
     };
@@ -85,7 +66,7 @@ function pickDifficulty(diffKey){
   return {
     spawnInterval: 1150,
     lifeTime:      3600,
-    scale:         1.05,
+    scale:         1.05,    // กลาง ๆ
     maxActive:     5,
     goodRatio:     0.7
   };
@@ -394,20 +375,18 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // emoji (ใช้ path ที่แก้ url() แล้ว)
-    const img = document.createElement('a-image');
-    const size = radius * 2.0;
-    const srcUrl = emojiSrc(food.emoji || '🍎');
-    img.setAttribute('src', srcUrl);
-    img.setAttribute('width', size.toString());
-    img.setAttribute('height', size.toString());
-    img.setAttribute(
-      'material',
-      'shader: flat; transparent: true; alphaTest: 0.01'
-    );
-    img.setAttribute('position', '0 0 0.02');
-    img.setAttribute('data-hha-tgt', '1');
-    wrap.appendChild(img);
+    // ***** เป้าเป็น emoji (Text component) *****
+    const txt = document.createElement('a-entity');
+    txt.setAttribute('text', {
+      value:  food.emoji || '🍎',
+      align:  'center',
+      color:  '#ffffff',
+      width:  2.4 * scale,
+      baseline: 'center'
+    });
+    txt.setAttribute('position', '0 0 0.02');
+    txt.setAttribute('data-hha-tgt', '1');
+    wrap.appendChild(txt);
 
     const onHit = (evt)=> {
       if (!this.running) return;
@@ -415,7 +394,7 @@ class GroupsGameEngine {
     };
     wrap.addEventListener('click', onHit);
     bg.addEventListener('click', onHit);
-    img.addEventListener('click', onHit);
+    txt.addEventListener('click', onHit);
 
     wrap.setAttribute(
       'animation__pop',
