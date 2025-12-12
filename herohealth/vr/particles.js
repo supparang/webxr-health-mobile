@@ -1,311 +1,310 @@
 // === /herohealth/vr/particles.js ===
-// FX layer กลางจอ: คะแนนเด้ง + คำตัดสิน + เป้าแตกกระจาย "หนักมาก"
-// ใช้ร่วมกับทุกเกม HeroHealth (GoodJunkVR / Hydration / Plate / Groups ฯลฯ)
+// Simple FX layer: score pop + judgment text + target burst (โคตรแตกกระจาย)
+// ใช้ได้กับทุกเกม HeroHealth (GoodJunkVR, Hydration, Plate, Groups ฯลฯ)
 
 (function (root) {
   'use strict';
   const doc = root.document;
   if (!doc) return;
 
-  let fxLayer = null;
-  let cssInjected = false;
-
-  // ---------- inject CSS (ครั้งเดียว) ----------
-  function injectCSS() {
-    if (cssInjected) return;
-    cssInjected = true;
-    const style = doc.createElement('style');
-    style.textContent = `
-      .hha-fx-layer{
-        position:fixed;
-        inset:0;
-        pointer-events:none;
-        z-index:9999;
-        overflow:hidden;
-      }
-
-      .hha-frag{
-        position:fixed;
-        border-radius:999px;
-        pointer-events:none;
-        will-change:transform,opacity;
-        mix-blend-mode:screen;
-      }
-
-      .hha-fx-text{
-        position:fixed;
-        pointer-events:none;
-        will-change:transform,opacity;
-        white-space:nowrap;
-        text-shadow:0 0 14px rgba(15,23,42,0.95);
-      }
-
-      .hha-fx-text-score{
-        font-size:18px;
-        font-weight:700;
-        color:#bbf7d0;
-      }
-
-      .hha-fx-text-judge{
-        font-size:20px;
-        font-weight:900;
-        letter-spacing:.14em;
-        text-transform:uppercase;
-      }
-
-      .hha-fx-text-judge.good{    color:#4ade80; }
-      .hha-fx-text-judge.perfect{ color:#a855f7; }
-      .hha-fx-text-judge.late{    color:#fde047; }
-      .hha-fx-text-judge.miss{    color:#fb923c; }
-      .hha-fx-text-judge.block{   color:#60a5fa; }
-    `;
-    doc.head.appendChild(style);
-  }
-
+  // ----- สร้างเลเยอร์ FX กลางจอ -----
   function ensureLayer() {
-    if (fxLayer && fxLayer.parentNode) return fxLayer;
-    injectCSS();
-    fxLayer = doc.createElement('div');
-    fxLayer.className = 'hha-fx-layer';
-    doc.body.appendChild(fxLayer);
-    return fxLayer;
+    let layer = doc.querySelector('.hha-fx-layer');
+    if (!layer) {
+      layer = doc.createElement('div');
+      layer.className = 'hha-fx-layer';
+      Object.assign(layer.style, {
+        position: 'fixed',
+        inset: '0',
+        pointerEvents: 'none',
+        zIndex: 700,
+        overflow: 'hidden'
+      });
+      doc.body.appendChild(layer);
+    }
+    return layer;
   }
 
-  // ---------- helpers ----------
+  // ----- คะแนนเด้ง + ข้อความตัดสิน (อยู่บรรทัดเดียวกัน) -----
+  function scorePop(x, y, value, opts) {
+    opts = opts || {};
+    const layer = ensureLayer();
+    const good = !!opts.good;
+    const judgment = String(opts.judgment || '').toUpperCase();
+
+    const wrap = doc.createElement('div');
+    wrap.className = 'hha-fx-score';
+
+    // ข้อความหลัก: "คะแนน คำตัดสิน" เช่น "+150 PERFECT"
+    const parts = [];
+    if (value !== undefined && value !== null && value !== '') {
+      parts.push(String(value));
+    }
+    if (judgment) {
+      parts.push(judgment);
+    }
+    wrap.textContent = parts.join(' ');
+
+    Object.assign(wrap.style, {
+      position: 'absolute',
+      left: x + 'px',
+      top: y + 'px',
+      transform: 'translate(-50%, -50%) scale(0.9)',
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontSize: '18px',
+      fontWeight: '700',
+      color: good ? '#4ade80' : '#f97316',
+      textShadow: '0 0 14px rgba(0,0,0,0.85)',
+      padding: '4px 10px',
+      borderRadius: '999px',
+      background: 'rgba(15,23,42,0.95)',
+      border: '1px solid rgba(148,163,184,0.35)',
+      whiteSpace: 'nowrap',
+      opacity: '0',
+      transition: 'transform 0.45s ease-out, opacity 0.45s ease-out',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      letterSpacing: '.04em'
+    });
+
+    layer.appendChild(wrap);
+
+    // trigger animation
+    requestAnimationFrame(function () {
+      wrap.style.transform = 'translate(-50%, -90%) scale(1.08)';
+      wrap.style.opacity = '1';
+    });
+    setTimeout(function () {
+      wrap.style.transform = 'translate(-50%, -120%) scale(0.96)';
+      wrap.style.opacity = '0';
+    }, 260);
+
+    setTimeout(function () {
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    }, 520);
+  }
+
+  // ----- helper เล็ก ๆ -----
   function rand(min, max) {
     return min + Math.random() * (max - min);
   }
 
-  // ---------- เป้าแตกกระจาย (burstAt) ----------
-  // opts: { color, count, radius }
+  // ----- เป้าแตกกระจาย (หนักมาก) -----
+  // opts: { color, good, count, radius }
   function burstAt(x, y, opts) {
+    opts = opts || {};
     const layer = ensureLayer();
-    const baseColor = (opts && opts.color) || '#22c55e';
+    const baseColor = opts.color || '#22c55e';
+    const good = !!opts.good;
 
-    // ดันค่าให้ “หนัก” ขึ้นกว่าที่ GameEngine ส่งมา
-    const baseCount  = (opts && opts.count)  || 18;
-    const baseRadius = (opts && opts.radius) || 80;
+    // เพิ่มจำนวน/ระยะ ให้รู้สึกแตกแรงกว่าเดิม
+    const baseCount  = (typeof opts.count === 'number' && opts.count > 0)
+      ? opts.count
+      : (good ? 26 : 18);
+    const baseRadius = (typeof opts.radius === 'number' && opts.radius > 0)
+      ? opts.radius
+      : (good ? 90 : 70);
 
-    const count  = Math.floor(baseCount * 1.8);   // ชิ้นเยอะขึ้น
-    const radius = baseRadius * 1.4;              // กระจายกว้างขึ้น
+    // เศษหลัก + shard ยาวพุ่งออกไป
+    for (let i = 0; i < baseCount; i++) {
+      const ang = (i / baseCount) * Math.PI * 2 + rand(-0.3, 0.3);
+      const distCore  = baseRadius * rand(0.45, 1.0);
+      const distShard = baseRadius * rand(0.8, 1.4);
 
-    // ชิ้นแตก 2 ชั้นต่อ 1 ทิศ
-    for (let i = 0; i < count; i++) {
-      const baseAng = (i / count) * Math.PI * 2;
-      const jitter  = rand(-0.4, 0.4);
-      const ang     = baseAng + jitter;
-      const dist    = radius * rand(0.45, 1.05);
-
-      // ชั้น 1: กลมใหญ่สว่าง ๆ
-      spawnFrag(layer, x, y, ang, dist, {
+      // วงกลมสว่าง (core fragment)
+      spawnFrag(layer, x, y, ang, distCore, {
         color: baseColor,
-        sizeMin: 12,
-        sizeMax: 20,
-        lifeMin: 480,
-        lifeMax: 700,
-        blur: 12,
-        stretch: false
+        sizeMin: 8,
+        sizeMax: good ? 16 : 10,
+        lifeMin: 520,
+        lifeMax: 720,
+        blur: 10,
+        asShard: false
       });
 
-      // ชั้น 2: shard ยาวพุ่งแรง ๆ
-      spawnFrag(layer, x, y, ang, dist * rand(0.9, 1.2), {
+      // shard ยาวแบบเส้นสปีด
+      spawnFrag(layer, x, y, ang, distShard, {
         color: baseColor,
         sizeMin: 4,
         sizeMax: 7,
-        lifeMin: 550,
-        lifeMax: 780,
-        blur: 5,
-        stretch: true
+        lifeMin: 540,
+        lifeMax: 760,
+        blur: 4,
+        asShard: true
       });
     }
 
     // วงแหวนกระแทก 2 ชั้น
-    spawnRing(layer, x, y, baseColor, 52, 600);
-    spawnRing(layer, x, y, baseColor, 76, 700, true);
+    spawnRing(layer, x, y, baseColor, 52, 620, false);
+    spawnRing(layer, x, y, baseColor, 80, 720, true);
 
-    // Flash ตรงกลางนิดหนึ่ง ให้รู้สึก “ตูม!”
+    // flash ตรงกลาง “ตูม!” สั้น ๆ
     spawnFlash(layer, x, y, baseColor);
   }
 
   function spawnFrag(layer, x, y, ang, dist, cfg) {
     const el = doc.createElement('div');
-    el.className = 'hha-frag';
+    el.className = 'hha-fx-dot';
 
     const size = rand(cfg.sizeMin, cfg.sizeMax);
     const life = rand(cfg.lifeMin, cfg.lifeMax);
 
-    const cos = Math.cos(ang);
-    const sin = Math.sin(ang);
-    const tx  = x + cos * dist;
-    const ty  = y + sin * dist;
-
-    const blur = cfg.blur || 0;
-    el.style.width  = size + 'px';
+    const startLeft = x - size / 2;
+    const startTop  = y - size / 2;
+    el.style.position = 'absolute';
+    el.style.left = startLeft + 'px';
+    el.style.top  = startTop + 'px';
+    el.style.width = size + 'px';
     el.style.height = size + 'px';
-    el.style.left   = (x - size / 2) + 'px';
-    el.style.top    = (y - size / 2) + 'px';
-    el.style.opacity = '0.98';
-    el.style.background = cfg.stretch
-      ? `linear-gradient(90deg, ${cfg.color}, rgba(15,23,42,0))`
-      : `radial-gradient(circle, ${cfg.color}, rgba(15,23,42,0))`;
-    el.style.filter = blur ? `blur(${blur}px)` : 'none';
+    el.style.borderRadius = '999px';
+    el.style.opacity = '1';
+    el.style.pointerEvents = 'none';
+    el.style.boxShadow = '0 0 14px rgba(0,0,0,0.9)';
+    el.style.filter = cfg.blur ? ('blur(' + cfg.blur + 'px)') : 'none';
 
-    const baseScale = cfg.stretch ? rand(1.4, 1.9) : rand(1.0, 1.4);
-    const angleDeg  = ang * 180 / Math.PI;
-    const rot       = cfg.stretch ? angleDeg + rand(-16, 16) : rand(-40, 40);
+    if (cfg.asShard) {
+      el.style.background =
+        'linear-gradient(90deg,' + cfg.color + ', rgba(15,23,42,0))';
+    } else {
+      el.style.background =
+        'radial-gradient(circle,' + cfg.color + ', rgba(15,23,42,0))';
+    }
+
+    const baseScale = cfg.asShard ? rand(1.4, 1.9) : rand(1.0, 1.4);
+    const angleDeg  = ang * 180 / Math.PI + (cfg.asShard ? rand(-18, 18) : rand(-35, 35));
 
     el.style.transform =
-      `translate3d(0,0,0) scale(${baseScale * 0.6}) rotate(${rot}deg)`;
+      'translate3d(0,0,0) scale(' + (baseScale * 0.5) + ') rotate(' + angleDeg + 'deg)';
     el.style.transition =
-      `transform ${life}ms cubic-bezier(0.18,0.88,0.3,1.2),` +
-      `opacity ${life}ms ease-out`;
+      'transform ' + life + 'ms cubic-bezier(0.18,0.88,0.3,1.2), ' +
+      'opacity ' + life + 'ms ease-out';
 
     layer.appendChild(el);
 
-    requestAnimationFrame(() => {
+    const dx = Math.cos(ang) * dist;
+    const dy = Math.sin(ang) * dist;
+
+    requestAnimationFrame(function () {
       el.style.transform =
-        `translate3d(${tx - x}px, ${ty - y}px,0) ` +
-        `scale(${cfg.stretch ? baseScale * 1.9 : baseScale * 1.4}) ` +
-        `rotate(${rot}deg)`;
+        'translate3d(' + dx + 'px,' + dy + 'px,0) ' +
+        'scale(' + (cfg.asShard ? baseScale * 1.9 : baseScale * 1.4) + ') ' +
+        'rotate(' + angleDeg + 'deg)';
       el.style.opacity = '0';
     });
 
-    setTimeout(() => {
+    setTimeout(function () {
       if (el.parentNode) el.parentNode.removeChild(el);
-    }, life + 60);
+    }, life + 80);
   }
 
   function spawnRing(layer, x, y, color, size, life, dashed) {
     const el = doc.createElement('div');
-    el.className = 'hha-frag';
+    el.className = 'hha-fx-ring';
 
     const s = size || 56;
-    const L = life || 580;
+    const L = life || 600;
 
+    el.style.position = 'absolute';
+    el.style.left = (x - s / 2) + 'px';
+    el.style.top  = (y - s / 2) + 'px';
     el.style.width  = s + 'px';
     el.style.height = s + 'px';
-    el.style.left   = (x - s / 2) + 'px';
-    el.style.top    = (y - s / 2) + 'px';
     el.style.borderRadius = '999px';
-    el.style.border = dashed
-      ? `2px dashed ${color}`
-      : `2px solid ${color}`;
-    el.style.boxShadow = `0 0 22px ${color}`;
-    el.style.opacity = '0.9';
+    el.style.border = (dashed ? '2px dashed ' : '2px solid ') + color;
+    el.style.boxShadow = '0 0 22px ' + color;
     el.style.background = 'transparent';
-    el.style.transform = 'translate3d(0,0,0) scale(0.4)';
+    el.style.opacity = '0.9';
+    el.style.pointerEvents = 'none';
+    el.style.transform = 'scale(0.4)';
     el.style.transition =
-      `transform ${L}ms ease-out, opacity ${L}ms ease-out`;
+      'transform ' + L + 'ms ease-out, opacity ' + L + 'ms ease-out';
 
     layer.appendChild(el);
 
-    requestAnimationFrame(() => {
-      el.style.transform = 'translate3d(0,0,0) scale(1.8)';
+    requestAnimationFrame(function () {
+      el.style.transform = 'scale(1.8)';
       el.style.opacity = '0';
     });
 
-    setTimeout(() => {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, L + 60);
-  }
-
-  function spawnFlash(layer, x, y, color) {
-    const el = doc.createElement('div');
-    el.className = 'hha-frag';
-
-    const s = 140;
-    const L = 260;
-    el.style.width  = s + 'px';
-    el.style.height = s + 'px';
-    el.style.left   = (x - s / 2) + 'px';
-    el.style.top    = (y - s / 2) + 'px';
-    el.style.background =
-      `radial-gradient(circle, rgba(248,250,252,0.85), rgba(15,23,42,0))`;
-    el.style.boxShadow = `0 0 40px ${color}`;
-    el.style.opacity = '0.0';
-    el.style.transform = 'translate3d(0,0,0) scale(0.4)';
-    el.style.transition =
-      `transform ${L}ms ease-out, opacity ${L}ms ease-out`;
-
-    layer.appendChild(el);
-
-    requestAnimationFrame(() => {
-      el.style.opacity = '1';
-      el.style.transform = 'translate3d(0,0,0) scale(1.1)';
-    });
-
-    setTimeout(() => {
-      el.style.opacity = '0';
-      el.style.transform = 'translate3d(0,0,0) scale(1.4)';
-    }, L - 80);
-
-    setTimeout(() => {
+    setTimeout(function () {
       if (el.parentNode) el.parentNode.removeChild(el);
     }, L + 80);
   }
 
-  // ---------- คะแนน + คำตัดสิน (scorePop) ----------
-  // opts: { kind: 'score' | 'judge', judgment: 'PERFECT'|'GOOD'|'LATE'|'MISS'|'BLOCK' }
-  function scorePop(x, y, text, opts) {
-    const layer = ensureLayer();
-    const kind = (opts && opts.kind) || 'score';
-    const judgment = (opts && opts.judgment) || '';
-
+  function spawnFlash(layer, x, y, color) {
     const el = doc.createElement('div');
-    el.className =
-      'hha-fx-text ' + (kind === 'judge'
-        ? 'hha-fx-text-judge'
-        : 'hha-fx-text-score');
+    el.className = 'hha-fx-flash';
 
-    el.textContent = text;
+    const s = 140;
+    const L = 260;
 
-    if (kind === 'judge') {
-      const j = String(judgment || text || '').toUpperCase();
-      if (j === 'PERFECT') el.classList.add('perfect');
-      else if (j === 'GOOD') el.classList.add('good');
-      else if (j === 'LATE') el.classList.add('late');
-      else if (j === 'MISS') el.classList.add('miss');
-      else if (j === 'BLOCK') el.classList.add('block');
-    }
-
-    const offsetX = kind === 'score' ? rand(-10, 10) : rand(-18, 18);
-    const offsetY = kind === 'score' ? rand(-4, 4)  : rand(-14, 0);
-
-    const baseScale = kind === 'judge' ? 1.0 : 0.95;
-    const floatY    = kind === 'judge' ? -40 : -26;
-    const life      = kind === 'judge' ? 650 : 580;
-
-    el.style.left = (x + offsetX) + 'px';
-    el.style.top  = (y + offsetY) + 'px';
+    el.style.position = 'absolute';
+    el.style.left = (x - s / 2) + 'px';
+    el.style.top  = (y - s / 2) + 'px';
+    el.style.width  = s + 'px';
+    el.style.height = s + 'px';
+    el.style.pointerEvents = 'none';
+    el.style.borderRadius = '999px';
+    el.style.background =
+      'radial-gradient(circle, rgba(248,250,252,0.9), rgba(15,23,42,0))';
+    el.style.boxShadow = '0 0 40px ' + color;
     el.style.opacity = '0';
-    el.style.transform =
-      `translate3d(0,0,0) scale(${baseScale * 0.6})`;
+    el.style.transform = 'scale(0.4)';
     el.style.transition =
-      `transform ${life}ms cubic-bezier(0.17,0.89,0.32,1.28),` +
-      `opacity ${life}ms ease-out`;
+      'transform ' + L + 'ms ease-out, opacity ' + L + 'ms ease-out';
 
     layer.appendChild(el);
 
-    requestAnimationFrame(() => {
+    requestAnimationFrame(function () {
       el.style.opacity = '1';
-      el.style.transform =
-        `translate3d(0,${floatY}px,0) scale(${baseScale})`;
+      el.style.transform = 'scale(1.1)';
     });
 
-    setTimeout(() => {
+    setTimeout(function () {
       el.style.opacity = '0';
-      el.style.transform =
-        `translate3d(0,${floatY - 10}px,0) scale(${baseScale * 0.9})`;
-    }, life - 120);
+      el.style.transform = 'scale(1.4)';
+    }, L - 80);
 
-    setTimeout(() => {
+    setTimeout(function () {
       if (el.parentNode) el.parentNode.removeChild(el);
-    }, life + 100);
+    }, L + 100);
   }
 
-  const api = { burstAt, scorePop, ensureLayer };
+  // ----- auto ผูกกับ hha:judge ให้ทุกเกมใช้ได้เลย -----
+  if (root && root.addEventListener) {
+    root.addEventListener('hha:judge', function (e) {
+      try {
+        const d = e.detail || {};
+        const label = String(d.label || '').toUpperCase();
+        if (!label) return;
+
+        const cx = root.innerWidth / 2;
+        const cy = root.innerHeight * 0.5;
+
+        let good = false;
+        let color = '#f97316';
+
+        if (label === 'GOOD' || label === 'PERFECT' || label === 'HIT') {
+          good = true;
+          color = '#22c55e';
+        } else if (label === 'FEVER') {
+          good = true;
+          color = '#facc15';
+        }
+
+        burstAt(cx, cy, { color: color, good: good });
+      } catch (err) {
+        if (root.console && console.warn) {
+          console.warn('[Particles] hha:judge handler error', err);
+        }
+      }
+    });
+  }
+
+  // ----- Export API แบบ global -----
+  const api = { scorePop, burstAt };
   root.Particles = api;
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = api;
-
 })(window);
