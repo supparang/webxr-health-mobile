@@ -146,10 +146,11 @@
 
   // ===== Celebration helpers =====
 
+  // --- ฉลองจบแต่ละภารกิจ (Goal / Mini) แสดง “กลางจอ” ---
   function celebrateQuestFX(kind, index, total, label) {
     const layer = ensureLayer();
     const cx = root.innerWidth / 2;
-    const cy = root.innerHeight * 0.22;
+    const cy = root.innerHeight * 0.5; // กลางจอ
 
     const color = kind === 'goal' ? '#22c55e' : '#38bdf8';
     const title =
@@ -157,23 +158,23 @@
         ? 'GOAL ' + index + '/' + total
         : 'MINI ' + index + '/' + total;
 
-    // แตกกระจายรอบ ๆ
-    burstAt(cx, cy, { color: color, good: true, count: 26 });
+    // แตกกระจายรอบ ๆ กลางจอ
+    burstAt(cx, cy, { color: color, good: true, count: 28 });
 
-    // ข้อความฉลอง
+    // ข้อความฉลองกลางจอ
     scorePop(cx, cy, 'MISSION CLEAR!', {
       judgment: title,
       good: true
     });
 
-    // แถบแสงด้านบนเล็ก ๆ (optional visual strip)
+    // แบนด์แสงเล็ก ๆ ใต้ข้อความ (ยังอยู่กลางจอ)
     const bar = doc.createElement('div');
     Object.assign(bar.style, {
       position: 'absolute',
       left: '50%',
-      top: '14%',
+      top: '56%',
       transform: 'translateX(-50%)',
-      width: '220px',
+      width: '260px',
       height: '3px',
       borderRadius: '999px',
       background:
@@ -182,22 +183,23 @@
           : 'linear-gradient(90deg,#22d3ee,#a5b4fc)',
       boxShadow: '0 0 18px rgba(34,197,94,0.8)',
       opacity: '0',
-      transition: 'opacity .3s ease-out, transform .3s ease-out'
+      transition: 'opacity .25s ease-out, transform .25s ease-out'
     });
     layer.appendChild(bar);
     requestAnimationFrame(function () {
       bar.style.opacity = '1';
-      bar.style.transform = 'translateX(-50%) translateY(-4px)';
+      bar.style.transform = 'translateX(-50%) translateY(-3px)';
     });
     setTimeout(function () {
       bar.style.opacity = '0';
       bar.style.transform = 'translateX(-50%) translateY(-8px)';
-    }, 400);
+    }, 380);
     setTimeout(function () {
       if (bar.parentNode) bar.parentNode.removeChild(bar);
     }, 700);
   }
 
+  // --- ฉลองใหญ่เมื่อทำครบทุกภารกิจ ---
   function celebrateAllQuestsFX(detail) {
     const layer = ensureLayer();
     const cx = root.innerWidth / 2;
@@ -253,19 +255,21 @@
 
   // ----- auto ผูกกับ events ให้ทุกเกมใช้ได้เลย -----
   if (root && root.addEventListener) {
-    // ตีเป้า: แตกกระจายกลางจอ (ตามคำตัดสิน)
+    // ❗ เปลี่ยนพฤติกรรม hha:judge:
+    // - ถ้า event ส่ง x,y มา → แตก “ที่พิกัดนั้น”
+    // - ถ้าไม่ส่ง → ไม่ทำอะไร ปล่อยให้เกมเรียก burstAt เอง (เช่น GoodJunkVR)
     root.addEventListener('hha:judge', function (e) {
       try {
         const d = e.detail || {};
         const label = String(d.label || '').toUpperCase();
         if (!label) return;
 
-        const cx = root.innerWidth / 2;
-        const cy = root.innerHeight * 0.5;
+        const hasPos =
+          typeof d.x === 'number' && typeof d.y === 'number';
 
+        // คำนวณสี / good flag
         let good = false;
         let color = '#f97316';
-
         if (label === 'GOOD' || label === 'PERFECT' || label === 'HIT') {
           good = true;
           color = '#22c55e';
@@ -274,7 +278,11 @@
           color = '#facc15';
         }
 
-        burstAt(cx, cy, { color: color, good: good });
+        if (hasPos) {
+          // เกมบางเกมอาจส่งพิกัดมา → แตกที่ "เป้าจริง"
+          burstAt(d.x, d.y, { color: color, good: good });
+        }
+        // ถ้าไม่มีพิกัด → ไม่แตกกลางจออีกแล้ว
       } catch (err) {
         if (root.console && console.warn) {
           console.warn('[Particles] hha:judge handler error', err);
@@ -282,7 +290,7 @@
       }
     });
 
-    // ฉลองเคลียร์ Goal / Mini quest จาก GameEngine (เช่น GoodJunkVR)
+    // ฉลองเคลียร์ Goal / Mini quest
     root.addEventListener('quest:celebrate', function (e) {
       try {
         const d = e.detail || {};
@@ -298,7 +306,7 @@
       }
     });
 
-    // ฉลองใหญ่เมื่อทำครบทุกภารกิจ (GameEngine ส่ง quest:all-complete)
+    // ฉลองใหญ่เมื่อทำครบทุกภารกิจ
     root.addEventListener('quest:all-complete', function (e) {
       try {
         const d = e.detail || {};
