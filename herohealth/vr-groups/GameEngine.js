@@ -1,8 +1,7 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (emoji target + diff size + 3D burst + 2D FX + Fever + Quest)
+// Food Groups VR — Game Engine
+// emoji เป้า + ขนาดตาม diff + 3D burst + 2D FX + Fever + Quest
 // 2025-12-12
-
-import { emojiImage } from '../vr-goodjunk/emoji-image.js';
 
 'use strict';
 
@@ -36,7 +35,7 @@ function randRange(min, max){
   return min + Math.random() * (max - min);
 }
 
-// ===== difficulty =====
+// ===== difficulty (ขนาด/เวลา ตาม easy/normal/hard) =====
 function pickDifficulty(diffKey){
   diffKey = String(diffKey || 'normal').toLowerCase();
   if (GM.foodGroupsDifficulty && typeof GM.foodGroupsDifficulty.get === 'function'){
@@ -45,8 +44,8 @@ function pickDifficulty(diffKey){
   if (diffKey === 'easy'){
     return {
       spawnInterval: 1400,
-      lifeTime: 3200,
-      scale: 1.25,
+      lifeTime: 4200,   // อยู่ 4.2s
+      scale: 1.3,       // ใหญ่สุด
       maxActive: 4,
       goodRatio: 0.8
     };
@@ -54,15 +53,16 @@ function pickDifficulty(diffKey){
   if (diffKey === 'hard'){
     return {
       spawnInterval: 900,
-      lifeTime: 2200,
+      lifeTime: 2600,   // เร็วสุด
       scale: 0.9,
       maxActive: 6,
       goodRatio: 0.65
     };
   }
+  // normal
   return {
-    spawnInterval: 1200,
-    lifeTime: 2600,
+    spawnInterval: 1100,
+    lifeTime: 3400,     // กลาง ๆ
     scale: 1.05,
     maxActive: 5,
     goodRatio: 0.7
@@ -317,7 +317,7 @@ class GroupsGameEngine {
 
   _startSpawnLoop(){
     const interval  = this.diff.spawnInterval || 1200;
-    const firstDelay = 400;
+    const firstDelay = 600;
 
     setTimeout(()=>{
       if (!this.running) return;
@@ -366,28 +366,28 @@ class GroupsGameEngine {
     bg.setAttribute('radius', radius.toString());
     bg.setAttribute(
       'material',
-      `shader: flat; color: ${isGood ? '#065f46' : '#7f1d1d'}; opacity: 0.94; transparent: true`
+      `shader: flat; color: ${isGood ? '#065f46' : '#7f1d1d'}; opacity: 0.96; transparent: true`
     );
     bg.setAttribute('rotation', '0 0 0');
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // === emoji เป็นรูปภาพ ===
-    const img = document.createElement('a-image');
-    const srcUrl = emojiImage(food.emoji || '🍎') || '';
-    if (srcUrl) {
-      img.setAttribute('src', srcUrl);
-    }
-    img.setAttribute('width',  (radius * 2.0).toString());
-    img.setAttribute('height', (radius * 2.0).toString());
-    img.setAttribute('position', '0 0 0.03');
-    img.setAttribute('data-hha-tgt', '1');
-    img.setAttribute('material', 'transparent:true; alphaTest:0.01');
-    wrap.appendChild(img);
+    // ===== emoji บนเป้า (ใช้ a-text) =====
+    const txt = document.createElement('a-text');
+    txt.setAttribute('value', food.emoji || '🍎');
+    txt.setAttribute('align', 'center');
+    txt.setAttribute('color', '#ffffff');
+    txt.setAttribute('width', '2.2');  // ให้ตัวใหญ่หน่อย
+    txt.setAttribute('anchor', 'center');
+    txt.setAttribute('baseline', 'center');
+    txt.setAttribute('position', '0 0 0.02');
+    txt.setAttribute('scale', `${scale * 1.1} ${scale * 1.1} ${scale * 1.1}`);
+    txt.setAttribute('data-hha-tgt', '1');
+    wrap.appendChild(txt);
 
     wrap.setAttribute(
       'animation__pop',
-      'property: scale; from: 0.4 0.4 0.4; to: 1 1 1; dur: 220; easing: easeOutBack'
+      'property: scale; from: 0.4 0.4 0.4; to: 1 1 1; dur: 260; easing: easeOutBack'
     );
 
     const onHit = (evt)=>{
@@ -396,11 +396,11 @@ class GroupsGameEngine {
     };
     wrap.addEventListener('click', onHit);
     bg.addEventListener('click', onHit);
-    img.addEventListener('click', onHit);
+    txt.addEventListener('click', onHit);
 
     this.scene.appendChild(wrap);
 
-    const life = this.diff.lifeTime || 2600;
+    const life = this.diff.lifeTime || 3400;
     const timeoutId = setTimeout(()=>{
       this._onTargetTimeout(wrap, food, isGood);
     }, life);
