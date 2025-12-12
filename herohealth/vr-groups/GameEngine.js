@@ -1,9 +1,7 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (emoji plane + FX + quest)
-// - เป้าเป็นวงกลม + แผ่น emoji ตรงกลาง
-// - ขนาดเป้าแปรตาม easy / normal / hard
-// - มี Fever, Quest, 2D FX (เป้าแตก + คะแนนเด้ง)
-// 2025-12-12
+// เป้าเป็นวงกลม + emoji, มี Fever + FX + Quest
+// 2025-12-12 (fix: target face camera / side: double)
 
 'use strict';
 
@@ -15,14 +13,12 @@ if (!A) {
 const GM = window.GAME_MODULES || {};
 const GroupsFx = GM.foodGroupsFx || null;
 
-// Fever UI (ถ้าไม่มีจะ no-op)
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar = FeverGlobal.ensureFeverBar || window.ensureFeverBar || (()=>{});
 const _setFever       = FeverGlobal.setFever       || window.setFever       || (()=>{});
 const _setFeverActive = FeverGlobal.setFeverActive || window.setFeverActive || (()=>{});
 const _setShield      = FeverGlobal.setShield      || window.setShield      || (()=>{});
 
-// FX 2D กลางจอ
 const Particles = window.Particles || (GM.Particles || null);
 
 const FEVER_MAX = 100;
@@ -73,7 +69,7 @@ function pickDifficulty(diffKey){
   };
 }
 
-// ---------- Data: emoji อาหาร ----------
+// ---------- Data: emoji ----------
 const FOODS = [
   { emoji:'🍚', group:'grain',   good:true },
   { emoji:'🍞', group:'grain',   good:true },
@@ -219,7 +215,7 @@ function checkQuestProgress(qState, ctx){
   if (allGoalsDone && allMinisDone && !qState._allDoneFired){
     qState._allDoneFired = true;
     window.dispatchEvent(new CustomEvent('quest:all-complete', {
-      detail:{ goalsTotal:goals.length, minisTotal:minis.length }
+      detail:{ goalsTotal:goals.length, minisTotal:mins.length }
     }));
   }
 
@@ -389,27 +385,28 @@ class GroupsGameEngine {
     wrap.setAttribute('class', 'fg-target');
     wrap.setAttribute('data-hha-tgt', '1');
     wrap.setAttribute('position', `${x} ${y} ${z}`);
-    wrap.setAttribute('look-at', '#gj-camera');
+    // หมุนให้หันหน้าเข้ากล้อง
+    wrap.setAttribute('rotation', '0 0 0');
 
-    // พื้นหลังวงกลม
+    // วงกลมพื้นหลัง (side: double)
     const bg = document.createElement('a-circle');
     bg.setAttribute('radius', radius.toString());
     bg.setAttribute(
       'material',
-      `shader: flat; color: ${isGood ? '#065f46' : '#7f1d1d'}; opacity: 0.96; transparent: true`
+      `shader: flat; side: double; color: ${isGood ? '#065f46' : '#7f1d1d'}; opacity: 0.96; transparent: true`
     );
     bg.setAttribute('rotation', '0 0 0');
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // emoji plane จาก canvas texture
+    // emoji plane (side: double)
     const emojiUrl = emojiTextureUrl(food.emoji);
     const plane = document.createElement('a-plane');
     plane.setAttribute('width',  (radius * 1.6).toString());
     plane.setAttribute('height', (radius * 1.6).toString());
     plane.setAttribute(
       'material',
-      `shader: flat; src: ${emojiUrl}; transparent: true; alphaTest: 0.01`
+      `shader: flat; side: double; src: ${emojiUrl}; transparent: true; alphaTest: 0.01`
     );
     plane.setAttribute('position', '0 0 0.02');
     plane.setAttribute('data-hha-tgt', '1');
