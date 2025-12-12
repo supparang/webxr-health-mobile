@@ -37,7 +37,7 @@
       color:#fbbf24;
       text-shadow:0 0 40px rgba(0,0,0,0.85);
       pointer-events:none;
-      transition:opacity .25s ease-out, transform .25s ease-out;
+      transition:opacity .25s.ease-out, transform .25s ease-out;
     }
     .countdown-hidden{
       opacity:0;
@@ -261,8 +261,49 @@
       justify-content:flex-start;
       gap:8px;
       pointer-events:auto;
+      position:relative;
+      overflow:hidden;
     }
     .coach-bubble.show{ display:flex; }
+
+    /* เส้นขอบนีออนหมุนรอบ ๆ bubble */
+    .coach-bubble::before{
+      content:'';
+      position:absolute;
+      inset:-2px;
+      background:conic-gradient(
+        from 0deg,
+        #22c55e,
+        #38bdf8,
+        #a855f7,
+        #f97316,
+        #22c55e
+      );
+      opacity:0;
+      filter:blur(6px);
+      z-index:-1;
+      transform:translate3d(0,0,0);
+    }
+    .coach-bubble.bubble-glow::before{
+      opacity:0.8;
+      animation:bubble-border-spin 1.2s linear infinite;
+    }
+    @keyframes bubble-border-spin{
+      0%  { transform:rotate(0deg); }
+      100%{ transform:rotate(360deg); }
+    }
+
+    /* bubble pop-in / sway ทุกครั้งที่โค้ชพูด */
+    .coach-bubble.bubble-anim{
+      animation:bubble-pop 0.4s cubic-bezier(0.18,0.89,0.32,1.28);
+    }
+    @keyframes bubble-pop{
+      0%{ transform:translateY(8px) scale(0.94); opacity:0.0;}
+      40%{ transform:translateY(-2px) scale(1.04); opacity:1;}
+      70%{ transform:translateY(0px) scale(1.02);}
+      100%{ transform:translateY(0) scale(1);}
+    }
+
     .coach-label{
       font-size:11px;
       text-transform:uppercase;
@@ -288,6 +329,19 @@
       0%{ transform:translateY(0) scale(1);}
       50%{ transform:translateY(-3px) scale(1.04);}
       100%{ transform:translateY(0) scale(1);}
+    }
+
+    /* เต้นมันส์ ๆ ต่อเนื่อง (ใช้ตอน fever / คอมโบสูง) */
+    .coach-emoji.coach-groove{
+      animation:coach-groove 0.8s ease-in-out infinite;
+    }
+    @keyframes coach-groove{
+      0%  { transform:translateY(0) scale(1) rotate(0deg);}
+      15% { transform:translateY(-6px) scale(1.12) rotate(-8deg);}
+      35% { transform:translateY(0) scale(1.05) rotate(6deg);}
+      55% { transform:translateY(-4px) scale(1.12) rotate(-6deg);}
+      75% { transform:translateY(0) scale(1.06) rotate(5deg);}
+      100%{ transform:translateY(0) scale(1) rotate(0deg);}
     }
 
     .coach-emoji.coach-neutral{
@@ -389,7 +443,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
+      transition:background .15s ease, box-shadow .15s.ease, transform .1s ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -697,6 +751,8 @@
     const elBigCelebrate = document.getElementById('big-celebrate');
 
     let lastCoachTimeout = null;
+    let lastBubbleAnimTimeout = null;
+
     let hudMissCount = 0;
 
     let hudGoalsTotal   = 0;
@@ -708,6 +764,7 @@
     let prevMiniCleared  = 0;
 
     const coachMoodKeys = ['neutral','happy','sad','fever'];
+    let coachGrooveOn = false;
 
     function setCoachFace(mood){
       if (!elCoachEmoji) return;
@@ -725,6 +782,16 @@
       elCoachEmoji.style.backgroundImage = "url('" + img + "')";
     }
 
+    function setCoachGroove(on){
+      if (!elCoachEmoji) return;
+      coachGrooveOn = !!on;
+      if (coachGrooveOn){
+        elCoachEmoji.classList.add('coach-groove');
+      }else{
+        elCoachEmoji.classList.remove('coach-groove');
+      }
+    }
+
     function pulseCoachCelebrate(){
       if (!elCoachEmoji) return;
       elCoachEmoji.classList.add('coach-celebrate');
@@ -736,10 +803,20 @@
     function setCoach(text){
       if (!text) return;
       elCoachText.textContent = text;
-      elCoachBubble.classList.add('show');
+      elCoachBubble.classList.add('show','bubble-glow');
+
+      if (lastBubbleAnimTimeout) clearTimeout(lastBubbleAnimTimeout);
+      // รีสตาร์ท animation bubble-pop
+      elCoachBubble.classList.remove('bubble-anim');
+      void elCoachBubble.offsetWidth;
+      elCoachBubble.classList.add('bubble-anim');
+      lastBubbleAnimTimeout = setTimeout(() => {
+        elCoachBubble.classList.remove('bubble-anim');
+      }, 450);
+
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(() => {
-        elCoachBubble.classList.remove('show');
+        elCoachBubble.classList.remove('show','bubble-glow');
       }, 4200);
     }
 
@@ -842,6 +919,8 @@
         });
       }
       pulseCoachCelebrate();
+      setCoachGroove(true);
+      setTimeout(() => setCoachGroove(false), 2200);
     }
 
     function bigCelebrateAllQuests(callback){
@@ -874,6 +953,8 @@
       setCoachFace('happy');
       setCoach('สุดยอด! ทำครบทุกภารกิจแล้ว เตรียมดูสรุปผลงานกันเลย 🌟');
       pulseCoachCelebrate();
+      setCoachGroove(true);
+      setTimeout(() => setCoachGroove(false), 2600);
 
       elBigCelebrate.classList.add('show');
       setTimeout(() => {
@@ -960,10 +1041,13 @@
 
         if (c >= 10) {
           setCoachFace('fever');
+          setCoachGroove(true);
         } else if (c >= 5) {
           setCoachFace('happy');
-        } else if (c === 0 && hudMissCount === 0) {
+          setCoachGroove(true);
+        } else if (c <= 1 && hudMissCount === 0) {
           setCoachFace('neutral');
+          setCoachGroove(false);
         }
       }
       if (typeof d.misses === 'number') {
@@ -978,6 +1062,7 @@
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
       setCoachFace('sad');
+      setCoachGroove(false);
       setCoach('พลาดของดีไปนะ ลองโฟกัสผัก ผลไม้ และนมอีกครั้งนะ 😌');
       updateRealtimeGrade();
     });
@@ -987,10 +1072,12 @@
       const st = d.state ? d.state : 'change';
       if (st === 'start') {
         setCoachFace('fever');
+        setCoachGroove(true);
         setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
       }
       if (st === 'end') {
         setCoachFace('neutral');
+        setCoachGroove(false);
       }
     });
 
@@ -1008,6 +1095,7 @@
       updateRealtimeGrade(scoreFinal);
 
       setCoachFace(misses <= 3 ? 'happy' : 'neutral');
+      setCoachGroove(false);
       setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
     }
 
@@ -1113,6 +1201,7 @@
       elGradeBar.dataset.grade = 'C';
 
       setCoachFace('neutral');
+      setCoachGroove(false);
       setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
 
       let studentProfile = null;
