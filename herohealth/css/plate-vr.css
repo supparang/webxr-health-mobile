@@ -246,12 +246,12 @@ a-scene{
   }
 }
 
-/* ===== Coach Bubble — ยกขึ้นเหนือ Fever + เต้นแรง ๆ ===== */
+/* ===== Coach Bubble — ยกสูงขึ้นให้ไม่บัง Fever ===== */
 #coach-wrap{
   position:absolute;
   left:0;
   right:0;
-  bottom:110px;          /* ยกให้พ้น Fever Gauge */
+  bottom:170px;          /* ★ สูงกว่าเดิมเยอะ ไม่ทับ Fever gauge แล้ว */
   z-index:950;
   pointer-events:none;
   display:flex;
@@ -307,7 +307,7 @@ a-scene{
 
 @media (max-width:768px){
   #coach-wrap{
-    bottom:118px;        /* มือถือให้สูงอีกนิด */
+    bottom:190px;        /* ★ มือถือยกสูงเพิ่มอีก */
     padding:0 12px;
   }
   .coach-bubble{
