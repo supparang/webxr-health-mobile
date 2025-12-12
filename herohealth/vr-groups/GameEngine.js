@@ -1,51 +1,355 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (emoji + Fever + DOM FX)
+// Food Groups VR — Game Engine (emoji target + score/combo/miss + quest event basic)
 
-(function (ns) {
-  'use strict';
+'use strict';
 
-  const A = window.AFRAME;
-  if (!A) {
-    console.error('[GroupsVR] AFRAME not found');
+const A = window.AFRAME;
+if (!A) {
+  console.error('[GroupsVR] AFRAME not found, GameEngine will not run');
+}
+
+// ---------- Config ----------
+const FEVER_MAX = 100;
+const TARGET_LIFETIME = 2500;   // ms ก่อนนับว่า MISS
+const SPAWN_INTERVAL_NORMAL = 1000; // ms ระหว่าง spawn
+const MAX_ACTIVE = 6;
+
+// กลุ่มอาหารพื้นฐานสำหรับ quest ง่าย ๆ
+const FOODS = [
+  { emoji: '🍚', group: 'grain',  good: true },
+  { emoji: '🍞', group: 'grain',  good: true },
+  { emoji: '🥦', group: 'veg',    good: true },
+  { emoji: '🥕', group: 'veg',    good: true },
+  { emoji: '🍎', group: 'fruit',  good: true },
+  { emoji: '🍌', group: 'fruit',  good: true },
+  { emoji: '🍗', group: 'protein',good: true },
+  { emoji: '🥚', group: 'protein',good: true },
+  { emoji: '🥛', group: 'dairy',  good: true },
+  { emoji: '🧀', group: 'dairy',  good: true },
+  // ของหวาน / ของทอด ไว้เป็น distractor
+  { emoji: '🍩', group: 'junk',   good: false },
+  { emoji: '🍰', group: 'junk',   good: false },
+  { emoji: '🍟', group: 'junk',   good: false },
+  { emoji: '🥤', group: 'junk',   good: false }
+];
+
+// ---------- State ----------
+let sceneEl = null;
+let rootEl  = null;
+
+let running = false;
+let spawnTimer = null;
+
+let score = 0;
+let combo = 0;
+let misses = 0;
+let fever = 0;
+
+// quest นับง่าย ๆ : goal = เลือกอาหารดีให้ครบ X ชิ้น, mini = ผัก Y ชิ้น
+let goodCount = 0;
+let vegCount  = 0;
+const GOAL_TARGET = 15;
+const MINI_TARGET = 5;
+
+// ---------- Helper ----------
+function $(sel) { return document.querySelector(sel); }
+
+function dispatch(name, detail) {
+  window.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
+function clamp(v, min, max){
+  v = Number(v) || 0;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+
+// สุ่มตำแหน่งเป้าในครึ่งล่างจอ (ใกล้ผู้เล่น)
+function randomTargetPosition() {
+  const x = -2 + Math.random() * 4; // -2 .. 2
+  const y = 0.8 + Math.random() * 1.2; // 0.8 .. 2.0
+  const z = -3.2;
+  return { x, y, z };
+}
+
+function isGoodFood(food) { return !!food.good; }
+function isVeg(food)      { return food.group === 'veg'; }
+
+// ---------- Target spawn / remove ----------
+function ensureRoot() {
+  if (rootEl && rootEl.parentEl) return rootEl;
+  if (!sceneEl) sceneEl = document.querySelector('a-scene');
+  if (!sceneEl) return null;
+
+  let r = sceneEl.querySelector('#fg-target-root');
+  if (!r) {
+    r = document.createElement('a-entity');
+    r.setAttribute('id', 'fg-target-root');
+    sceneEl.appendChild(r);
+  }
+  rootEl = r;
+  return r;
+}
+
+function removeTarget(el) {
+  if (!el || !el.parentEl) return;
+  el.parentEl.removeChild(el);
+}
+
+function spawnOne() {
+  if (!running) return;
+  const root = ensureRoot();
+  if (!root) return;
+
+  const active = root.querySelectorAll('[data-hha-tgt]').length;
+  if (active >= MAX_ACTIVE) return;
+
+  const food = FOODS[Math.floor(Math.random() * FOODS.length)];
+  const pos  = randomTargetPosition();
+
+  const el = document.createElement('a-entity');
+  el.setAttribute('data-hha-tgt', '1');
+  el.setAttribute('geometry', 'primitive: circle; radius: 0.45');
+  el.setAttribute('material', 'shader: flat; color: #22c55e; opacity: 0.97; side: double');
+  el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+
+  // ใช้ text component แปะ emoji ตรงกลาง
+  el.setAttribute('text', {
+    value: food.emoji,
+    align: 'center',
+    color: '#111827',
+    width: 4,
+    zOffset: 0.01
+  });
+
+  // สีแบ่งตาม good / junk
+  if (!food.good) {
+    el.setAttribute('material', 'shader: flat; color: #f97316; opacity: 0.97; side: double');
+  }
+
+  el.dataset.group = food.group;
+  el.dataset.good  = food.good ? '1' : '0';
+
+  let resolved = false;
+
+  function hit(ev) {
+    if (!running || resolved) return;
+    resolved = true;
+
+    const isGood = el.dataset.good === '1';
+    const isVegFood = el.dataset.group === 'veg';
+
+    // basic score logic
+    if (isGood) {
+      combo += 1;
+      score += 50;
+      if (combo >= 5) score += 10;
+      if (combo >= 10) score += 20;
+
+      goodCount += 1;
+      if (isVegFood) vegCount += 1;
+
+      fever = clamp(fever + 8, 0, FEVER_MAX);
+
+      const label = combo >= 10 ? 'PERFECT'
+                  : combo >= 5  ? 'GREAT'
+                  : 'GOOD';
+
+      dispatch('hha:score', {
+        score,
+        combo,
+        misses,
+        fever,
+        label
+      });
+
+      dispatch('hha:judge', { label });
+
+      updateQuestProgress();
+
+    } else {
+      // กดของไม่ดี นับเป็น MISS
+      combo = 0;
+      misses += 1;
+      fever = clamp(fever - 10, 0, FEVER_MAX);
+
+      dispatch('hha:score', {
+        score,
+        combo,
+        misses,
+        fever,
+        label: 'MISS'
+      });
+      dispatch('hha:miss', {});
+      dispatch('hha:judge', { label: 'MISS' });
+    }
+
+    // effect เป้าแตก / คะแนนเด้งถ้ามี HHAFX
+    try {
+      if (window.HHAFX && typeof window.HHAFX.burstAt === 'function') {
+        window.HHAFX.burstAt(ev);
+      }
+      if (window.HHAFX && typeof window.HHAFX.floatScore === 'function') {
+        const bonus = isGood ? (combo >= 10 ? '+80' : combo >= 5 ? '+60' : '+50') : '-';
+        window.HHAFX.floatScore(ev, bonus, isGood ? 'good' : 'bad');
+      }
+    } catch (err) {
+      // ไม่ต้องทำอะไร ปล่อยผ่าน
+    }
+
+    removeTarget(el);
+  }
+
+  function miss() {
+    if (!running || resolved) return;
+    resolved = true;
+
+    combo = 0;
+    misses += 1;
+    fever = clamp(fever - 5, 0, FEVER_MAX);
+
+    dispatch('hha:score', {
+      score,
+      combo,
+      misses,
+      fever,
+      label: 'MISS'
+    });
+    dispatch('hha:miss', {});
+    dispatch('hha:judge', { label: 'MISS' });
+
+    removeTarget(el);
+  }
+
+  // รองรับทั้ง click จาก mouse และจาก VR controller
+  el.addEventListener('click', hit);
+  el.addEventListener('mousedown', hit);
+
+  root.appendChild(el);
+
+  setTimeout(miss, TARGET_LIFETIME);
+}
+
+// ---------- Quest / Grade helper ----------
+function updateQuestProgress() {
+  const goal = {
+    label: 'เลือกอาหารให้ครบทั้ง 5 หมู่',
+    prog:  goodCount,
+    target: GOAL_TARGET
+  };
+
+  const mini = {
+    label: 'ผัก 5 ครั้ง',
+    prog:  vegCount,
+    target: MINI_TARGET
+  };
+
+  dispatch('quest:update', {
+    goal,
+    mini,
+    goalsAll: [
+      { label: goal.label, done: goal.prog >= goal.target }
+    ],
+    minisAll: [
+      { label: mini.label, done: mini.prog >= mini.target }
+    ],
+    hint: 'โฟกัสอาหารดีจากทุกหมู่ เลี่ยงของหวาน/ของทอด'
+  });
+
+  if (goal.prog === goal.target) {
+    dispatch('quest:celebrate', {
+      kind: 'goal',
+      index: 1,
+      total: 1
+    });
+  }
+
+  if (mini.prog === MINI_TARGET) {
+    dispatch('quest:celebrate', {
+      kind: 'mini',
+      index: 1,
+      total: 1
+    });
+  }
+
+  if (goal.prog >= GOAL_TARGET && mini.prog >= MINI_TARGET) {
+    dispatch('quest:all-complete', {
+      goalsTotal: 1,
+      minisTotal: 1
+    });
+  }
+}
+
+// ---------- Public API ----------
+function start(diff = 'normal') {
+  if (!A) return;
+  if (running) stop('restart');
+  sceneEl = document.querySelector('a-scene');
+  if (!sceneEl) {
+    console.error('[GroupsVR] a-scene not found');
     return;
   }
 
-  const FEVER_MAX = 100;
+  running = true;
+  score = 0;
+  combo = 0;
+  misses = 0;
+  fever = 0;
+  goodCount = 0;
+  vegCount = 0;
 
-  function clamp(v, min, max) {
-    v = Number(v) || 0;
-    if (v < min) return min;
-    if (v > max) return max;
-    return v;
+  // reset HUD via event
+  dispatch('hha:score', { score, combo, misses, fever, label: '' });
+  dispatch('hha:judge', { label: '' });
+  updateQuestProgress();
+
+  // ตั้งโค้ชเริ่มเกม
+  dispatch('hha:coach', {
+    text: 'เลือกอาหารจากทุกหมู่ให้สมดุล อย่าลืมผัก ผลไม้ และนมด้วยนะ 🥦🍎🥛'
+  });
+
+  const root = ensureRoot();
+  if (root) {
+    // เคลียร์เป้าเก่า
+    root.querySelectorAll('[data-hha-tgt]').forEach(el => el.parentEl && el.parentEl.removeChild(el));
   }
 
-  // แปลง world position → screen 2D
-  function worldToScreen(sceneEl, worldPos) {
-    if (!sceneEl || !sceneEl.camera || !worldPos) return null;
-    const cam = sceneEl.camera;
-    const width  = window.innerWidth  || 1;
-    const height = window.innerHeight || 1;
+  const interval = SPAWN_INTERVAL_NORMAL; // ตอนนี้ยังไม่แยก diff
+  spawnTimer = setInterval(spawnOne, interval);
+}
 
-    const v = new A.THREE.Vector3(worldPos.x, worldPos.y, worldPos.z);
-    v.project(cam);
-
-    return {
-      x: (v.x * 0.5 + 0.5) * width,
-      y: (-v.y * 0.5 + 0.5) * height
-    };
+function stop(reason = 'manual') {
+  running = false;
+  if (spawnTimer) {
+    clearInterval(spawnTimer);
+    spawnTimer = null;
   }
 
-  function pickDifficulty(diffKey) {
-    diffKey = String(diffKey || 'normal').toLowerCase();
-    if (ns.foodGroupsDifficulty && ns.foodGroupsDifficulty.get) {
-      return ns.foodGroupsDifficulty.get(diffKey);
-    }
-    // fallback
-    return {
-      spawnInterval: 1200,
-      fallSpeed: 0.011,
-      scale: 1.0,
-      maxActive: 4,
-      goodRatio: 0.7
-    };
+  const root = ensureRoot();
+  if (root) {
+    root.querySelectorAll('[data-hha-tgt]').forEach(el => el.parentEl && el.parentEl.removeChild(el));
   }
+
+  // ยิง hha:end ให้ HUD สรุปผล
+  dispatch('hha:end', {
+    reason,
+    scoreFinal: score,
+    comboMax: combo, // เราไม่ได้เก็บ max แยก ไว้ก่อนใช้ค่าปัจจุบัน
+    misses,
+    goalsCleared: (goodCount >= GOAL_TARGET) ? 1 : 0,
+    goalsTotal: 1,
+    miniCleared: (vegCount >= MINI_TARGET) ? 1 : 0,
+    miniTotal: 1
+  });
+}
+
+// ---------- Export ----------
+export const GameEngine = {
+  start,
+  stop
+};
+
+// แนบเข้า global เผื่อใช้จากที่อื่น
+window.HeroHealthGroupsVR = window.HeroHealthGroupsVR || {};
+window.HeroHealthGroupsVR.GameEngine = GameEngine;
