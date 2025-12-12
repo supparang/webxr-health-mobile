@@ -1,7 +1,7 @@
 // === /herohealth/plate/plate.quest.js ===
 // Quest deck สำหรับ Balanced Plate VR
-// - เลือก Goal ครั้งละ 2 ภารกิจ
-// - เลือก Mini Quest ครั้งละ 2 ภารกิจ (ตามคำขอ)
+// - เลือก Goal ครั้งละ 2 ภารกิจ (ต่อเกมมี 2 เควสต์หลัก)
+// - เลือก Mini Quest ครั้งละ 3 ภารกิจ (ต่อเกมมี 3 เควสต์ย่อย)
 // - มี measure() สำหรับคำนวณ progress ของแต่ละภารกิจ
 
 'use strict';
@@ -375,21 +375,21 @@ export function createPlateQuest(diffKey = 'normal') {
     goals: [],
     minis: [],
 
-    // เลือก Goal ครั้งละ 2 ภารกิจ จาก pool ตามระดับ
+    // เลือก Goal ครั้งละ 2 ภารกิจ จาก pool ตามระดับ (ต่อเกม)
     drawGoals(n = 2) {
       const pool = GOAL_POOL[key] || GOAL_POOL.normal;
       this.goals = pickRandom(pool, n).map(q => wrapQuest(q, 'goal'));
       return this.goals;
     },
 
-    // เลือก Mini Quest ครั้งละ n ภารกิจ (ปกติใช้ 2)
+    // เลือก Mini Quest ครั้งละ n ภารกิจ (ต่อเกม, ปกติใช้ 3)
     drawMinis(n = 3) {
       const pool = MINI_POOL[key] || MINI_POOL.normal;
       this.minis = pickRandom(pool, n).map(q => wrapQuest(q, 'mini'));
       return this.minis;
     },
 
-    // legacy (ถ้ามีไฟล์เก่าเรียก draw3)
+    // legacy (ไฟล์เก่าเรียก draw3 ยังใช้ได้)
     draw3() {
       return this.drawMinis(3);
     },
