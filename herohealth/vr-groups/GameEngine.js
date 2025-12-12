@@ -1,9 +1,12 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine
-// Emoji เป้าแบบ canvas texture + FX + Fever + Quest
+// ใช้ emojiImage แบบเดียวกับ GoodJunk / Plate / Hydration
+// + Fever + Quest + 2D FX (คะแนนเด้ง + เป้าแตก)
 // 2025-12-12
 
 'use strict';
+
+import { emojiImage } from '../vr-goodjunk/emoji-image.js';
 
 const A = window.AFRAME;
 if (!A) {
@@ -13,7 +16,7 @@ if (!A) {
 const GM = window.GAME_MODULES || {};
 const GroupsFx = GM.foodGroupsFx || null;
 
-// Fever UI (global จาก ui-fever.js)
+// Fever UI (จาก ui-fever.js)
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar = FeverGlobal.ensureFeverBar || window.ensureFeverBar || (()=>{});
 const _setFever       = FeverGlobal.setFever       || window.setFever       || (()=>{});
@@ -98,40 +101,6 @@ function randomFood(diff){
   const pool = FOODS.filter(f => f.good === wantGood);
   if (!pool.length) return FOODS[0];
   return pool[Math.floor(Math.random() * pool.length)];
-}
-
-// ---------- emoji → canvas texture (dataURL) ----------
-const EmojiTexCache = Object.create(null);
-
-function emojiToTextureDataUrl(ch){
-  if (!ch) ch = '🍎';
-  if (EmojiTexCache[ch]) return EmojiTexCache[ch];
-
-  const size = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx){
-    EmojiTexCache[ch] = '';
-    return '';
-  }
-
-  ctx.clearRect(0, 0, size, size);
-
-  // background โปร่งใส (ให้ a-circle เป็น background อยู่แล้ว)
-  ctx.fillStyle = 'rgba(0,0,0,0)';
-  ctx.fillRect(0, 0, size, size);
-
-  // วาด emoji กลางรูป
-  const fontSize = size * 0.64;
-  ctx.font = `${fontSize}px "Noto Color Emoji", "Segoe UI Emoji", system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(ch, size / 2, size / 2 + size * 0.02);
-
-  const url = canvas.toDataURL('image/png');
-  EmojiTexCache[ch] = url;
-  return url;
 }
 
 // ---------- Quest ----------
@@ -411,27 +380,25 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // emoji จาก canvas texture
-    const texUrl = emojiToTextureDataUrl(food.emoji || '🍎');
-    if (texUrl){
-      const img = document.createElement('a-image');
-      const size = radius * 2.0;
-      img.setAttribute('src', texUrl);
-      img.setAttribute('width', size.toString());
-      img.setAttribute('height', size.toString());
-      img.setAttribute('position', '0 0 0.02');
-      img.setAttribute('data-hha-tgt', '1');
-      wrap.appendChild(img);
+    // emoji จาก emojiImage (เหมือน GoodJunk)
+    const img = document.createElement('a-image');
+    const size = radius * 2.0;
+    const srcUrl = emojiImage(food.emoji || '🍎') || '';
+    img.setAttribute('src', srcUrl);
+    img.setAttribute('width', size.toString());
+    img.setAttribute('height', size.toString());
+    img.setAttribute('position', '0 0 0.02');
+    img.setAttribute('data-hha-tgt', '1');
+    wrap.appendChild(img);
 
-      // raycast ให้โดนทั้งวงกลม + emoji
-      const onHit = (evt)=> {
-        if (!this.running) return;
-        this._onTargetHit(wrap, food, isGood, evt);
-      };
-      wrap.addEventListener('click', onHit);
-      bg.addEventListener('click', onHit);
-      img.addEventListener('click', onHit);
-    }
+    // raycast hit ทั้งก้อน
+    const onHit = (evt)=> {
+      if (!this.running) return;
+      this._onTargetHit(wrap, food, isGood, evt);
+    };
+    wrap.addEventListener('click', onHit);
+    bg.addEventListener('click', onHit);
+    img.addEventListener('click', onHit);
 
     // pop animation
     wrap.setAttribute(
