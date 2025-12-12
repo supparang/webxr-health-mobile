@@ -264,8 +264,15 @@
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       position:relative;
       overflow:hidden;
+      opacity:0;
+      transform:translateY(6px) scale(.97);
+      transition:opacity .22s ease-out, transform .22s ease-out;
     }
-    .coach-bubble.show{ display:flex; }
+    .coach-bubble.show{
+      display:flex;
+      opacity:1;
+      transform:translateY(0) scale(1);
+    }
 
     .coach-bubble::before{
       content:'';
@@ -340,7 +347,7 @@
       animation:coach-celebrate-bounce 0.75s ease-out;
     }
 
-    /* Pulse รอบข้อความโค้ช */
+    /* ===== เอฟเฟกต์ข้อความโค้ชแบบสุด ๆ ===== */
     .coach-text-wrap{
       display:flex;
       flex-direction:column;
@@ -367,6 +374,43 @@
       0%{ box-shadow:0 0 0 rgba(52,211,153,0);}
       50%{ box-shadow:0 0 18px rgba(52,211,153,0.55);}
       100%{ box-shadow:0 0 0 rgba(52,211,153,0);}
+    }
+
+    #coach-text{
+      position:relative;
+      z-index:1;
+      display:inline-block;
+      text-shadow:0 0 0 rgba(52,211,153,0.0);
+    }
+
+    /* วิ่งทุกครั้งที่มีข้อความใหม่ */
+    .coach-text-anim{
+      animation:coach-text-pop 0.55s cubic-bezier(0.18,0.89,0.32,1.28);
+    }
+    @keyframes coach-text-pop{
+      0%{
+        transform:translateY(6px) scale(0.9);
+        opacity:0;
+        letter-spacing:0.02em;
+        text-shadow:0 0 0 rgba(52,211,153,0);
+      }
+      35%{
+        transform:translateY(-2px) scale(1.08);
+        opacity:1;
+        letter-spacing:0.08em;
+        text-shadow:0 0 20px rgba(52,211,153,0.85);
+      }
+      70%{
+        transform:translateY(0) scale(1.0);
+        letter-spacing:0.04em;
+        text-shadow:0 0 10px rgba(45,212,191,0.75);
+      }
+      100%{
+        transform:translateY(0) scale(1);
+        opacity:1;
+        letter-spacing:0.02em;
+        text-shadow:0 0 6px rgba(45,212,191,0.4);
+      }
     }
 
     /* ===== Center hint ===== */
@@ -792,6 +836,12 @@
       if (!text) return;
       elCoachText.textContent = text;
       elCoachBubble.classList.add('show');
+
+      // reset animation text ทุกครั้ง
+      elCoachText.classList.remove('coach-text-anim');
+      void elCoachText.offsetWidth; // force reflow
+      elCoachText.classList.add('coach-text-anim');
+
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(function(){
         elCoachBubble.classList.remove('show');
@@ -1040,7 +1090,7 @@
       updateRealtimeGrade(d.score);
     });
 
-    // HUD: Miss event (ปรับให้เศร้าชั่วคราวแล้วกลับ neutral)
+    // HUD: Miss event (เศร้าชั่วคราวแล้วกลับ neutral)
     window.addEventListener('hha:miss', function(){
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
@@ -1049,7 +1099,6 @@
       setCoach('พลาดของดีไปนะ ลองโฟกัสผัก ผลไม้ และนมอีกครั้งนะ 😌');
       updateRealtimeGrade();
 
-      // ให้หน้าเศร้าอยู่แค่แป๊บเดียว แล้วถ้ายังเป็น sad อยู่ค่อยกลับ neutral
       setTimeout(function () {
         if (elCoachEmoji.classList.contains('coach-sad')) {
           setCoachFace('neutral');
@@ -1057,7 +1106,7 @@
       }, 2500);
     });
 
-    // HUD: Fever state (ปรับให้ตอน end ค่อย ๆ กลับ neutral)
+    // HUD: Fever state
     window.addEventListener('hha:fever', function(e){
       const d  = e.detail || {};
       const st = d.state ? d.state : 'change';
