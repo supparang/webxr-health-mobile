@@ -14,6 +14,17 @@
   --radius-pill:999px;
 }
 
+/* ===== Global lock: ไม่ให้หน้าเลื่อน / ไม่ให้ pan ด้วยนิ้ว ===== */
+html,
+body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;        /* ❗ กัน scroll ทั้งหน้า */
+  touch-action:none;      /* ❗ กัน gesture เลื่อน/pinch จาก browser */
+}
+
 *{
   box-sizing:border-box;
   margin:0;
@@ -22,7 +33,6 @@
 
 body{
   min-height:100vh;
-  margin:0;
   font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
   background:#020617;
   color:var(--text-main);
@@ -141,7 +151,6 @@ a-scene{
   color:#fee2e2;
 }
 
-/* นับจำนวนอาหารแต่ละหมู่ (รวมทั้งเกม) */
 .hud-groups{
   font-size:11px;
   padding:4px 10px;
@@ -159,7 +168,7 @@ a-scene{
   font-variant-numeric:tabular-nums;
 }
 
-/* แผนที่หมู่อาหาร */
+/* ===== แผนที่หมู่อาหาร ===== */
 .hud-groups-legend{
   margin-top:4px;
   font-size:10px;
@@ -172,28 +181,40 @@ a-scene{
   white-space:nowrap;
 }
 
-/* เกรดบน HUD ให้สีต่างกัน */
+/* ===== เกรดบน HUD ให้สีต่างกัน ===== */
 .hud-badge-grade .value{
   font-weight:700;
 }
-.hud-badge-grade-SSS .value{ color:#22c55e; }
-.hud-badge-grade-SS  .value{ color:#4ade80; }
-.hud-badge-grade-S   .value{ color:#38bdf8; }
-.hud-badge-grade-A   .value{ color:#60a5fa; }
-.hud-badge-grade-B   .value{ color:#eab308; }
-.hud-badge-grade-C   .value{ color:#9ca3af; }
 
-/* ======= Quest Panel — ใต้กล่องเวลา ======= */
+.hud-badge-grade-SSS .value{
+  color:#22c55e;
+}
+.hud-badge-grade-SS .value{
+  color:#4ade80;
+}
+.hud-badge-grade-S .value{
+  color:#38bdf8;
+}
+.hud-badge-grade-A .value{
+  color:#60a5fa;
+}
+.hud-badge-grade-B .value{
+  color:#eab308;
+}
+.hud-badge-grade-C .value{
+  color:#9ca3af;
+}
+
+/* ======= Quest Panel ======= */
 #quest-panel{
   position:absolute;
   right:10px;
-  top:60px;                 /* อยู่ใต้กล่องเวลา */
-  width:260px;
-  max-width:70vw;
+  top:72px;
+  width:240px;
+  max-width:55vw;
   z-index:410;
   pointer-events:none;
 }
-
 .quest-card{
   background:rgba(15,23,42,0.96);
   border-radius:var(--radius-lg);
@@ -202,7 +223,6 @@ a-scene{
   padding:10px 12px;
   font-size:11px;
 }
-
 .quest-header{
   display:flex;
   justify-content:space-between;
@@ -218,7 +238,6 @@ a-scene{
 .quest-header span.icon{
   font-size:14px;
 }
-
 .quest-section{
   margin-bottom:6px;
 }
@@ -237,192 +256,44 @@ a-scene{
   margin-top:4px;
 }
 
-@media (max-width:768px){
-  #quest-panel{
-    top:64px;
-    right:6px;
-    width:230px;
-    max-width:80vw;
-  }
-}
-
-/* ===== Coach Bubble — ยกสูงขึ้นให้ไม่บัง Fever ===== */
+/* ======= Coach Bubble (ขยับขึ้นเหนือ Fever) ======= */
 #coach-wrap{
   position:absolute;
   left:0;
   right:0;
-  bottom:170px;          /* ★ สูงกว่าเดิมเยอะ ไม่ทับ Fever gauge แล้ว */
-  z-index:950;
+  bottom:72px;              /* ยกขึ้น ไม่ทับแถบ Fever */
+  z-index:950;              /* สูงกว่า Fever (เช่น 900) */
   pointer-events:none;
   display:flex;
   justify-content:center;
-  padding:0 24px;
 }
-
 .coach-bubble{
   max-width:420px;
   padding:8px 11px;
   border-radius:16px;
   background:rgba(15,23,42,0.96);
-  border:1px solid rgba(148,163,184,0.7);
-  box-shadow:0 18px 40px rgba(0,0,0,0.9);
+  border:1px solid rgba(148,163,184,0.6);
+  box-shadow:0 18px 40px rgba(0,0,0,0.85);
   font-size:12px;
   display:flex;
   align-items:flex-start;
   gap:8px;
   opacity:0;
-  transform:translateY(16px) scale(.9);
-  transition:opacity .2s ease-out;
-  pointer-events:none;
-  will-change:transform,opacity;
+  transform:translateY(8px);
+  transition:opacity .25s ease, transform .25s ease;
 }
-
 .coach-bubble.show{
   opacity:1;
-  pointer-events:auto;
-  animation:coachBounce .9s cubic-bezier(.18,.89,.32,1.28);
+  transform:translateY(0);
+}
+.coach-avatar{
+  font-size:20px;
+}
+.coach-text{
+  line-height:1.4;
 }
 
-/* โค้ชเต้นแรง ๆ ตอนโผล่ */
-@keyframes coachBounce{
-  0%{
-    transform:translateY(18px) scale(.85);
-  }
-  40%{
-    transform:translateY(-6px) scale(1.06);
-  }
-  70%{
-    transform:translateY(0) scale(1);
-  }
-  85%{
-    transform:translateY(-3px) scale(1.02);
-  }
-  100%{
-    transform:translateY(0) scale(1);
-  }
-}
-
-.coach-avatar{ font-size:20px; }
-.coach-text{ line-height:1.4; }
-
-@media (max-width:768px){
-  #coach-wrap{
-    bottom:190px;        /* ★ มือถือยกสูงเพิ่มอีก */
-    padding:0 12px;
-  }
-  .coach-bubble{
-    max-width:100%;
-    font-size:11px;
-  }
-}
-
-/* ===== Gaze Reticle ===== */
-#gaze-reticle{
-  position:fixed;
-  left:50%;
-  top:50%;
-  transform:translate(-50%, -50%);
-  width:26px;
-  height:26px;
-  pointer-events:none;
-  z-index:430;
-  opacity:0.8;
-}
-
-.gaze-dot{
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%, -50%);
-  width:4px;
-  height:4px;
-  border-radius:999px;
-  background:rgba(248,250,252,0.96);
-  box-shadow:0 0 4px rgba(248,250,252,0.9);
-}
-
-.gaze-ring{
-  position:absolute;
-  inset:0;
-  border-radius:999px;
-  border:2px solid rgba(248,250,252,0.85);
-  box-shadow:0 0 10px rgba(248,250,252,0.7);
-  opacity:0.8;
-}
-
-body.hha-vr-mode #gaze-reticle{
-  opacity:1;
-}
-
-#gaze-reticle.fuse-active .gaze-ring{
-  animation:hhaFuse 1s linear forwards;
-}
-
-@keyframes hhaFuse{
-  0%{
-    transform:scale(1);
-    opacity:0.85;
-  }
-  100%{
-    transform:scale(0.25);
-    opacity:0;
-  }
-}
-
-/* ===== Targets (emoji) ===== */
-.hha-target{
-  position:fixed;
-  transform:translate(-50%, -50%);
-  width:68px;
-  height:68px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  pointer-events:auto;
-  cursor:pointer;
-  z-index:360;
-
-  font-size:42px;
-  line-height:1;
-  text-shadow:
-    0 0 8px rgba(0,0,0,0.65),
-    0 0 16px rgba(0,0,0,0.7);
-}
-
-.hha-target::before{
-  content:none !important;
-}
-
-.hha-target-good{
-  text-shadow:
-    0 0 10px rgba(34,197,94,0.9),
-    0 0 20px rgba(34,197,94,0.7),
-    0 0 28px rgba(34,197,94,0.55);
-}
-
-.hha-target-bad{
-  text-shadow:
-    0 0 10px rgba(248,113,113,0.9),
-    0 0 20px rgba(248,113,113,0.7),
-    0 0 28px rgba(248,113,113,0.55);
-}
-
-/* ===== Particles FX (จาก particles.js) ===== */
-.hha-fx-layer{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:700;
-  overflow:hidden;
-}
-
-.hha-fx-score{
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
-}
-
-.hha-fx-dot{}
-
-/* ===== Summary Overlay ===== */
+/* ======= Summary Overlay ======= */
 #summary{
   position:absolute;
   inset:0;
@@ -439,7 +310,7 @@ body.hha-vr-mode #gaze-reticle{
   pointer-events:auto;
 }
 .summary-card{
-  width:min(420px, 90vw);
+  width: min(420px, 90vw);
   background:radial-gradient(circle at top, rgba(34,197,94,0.1) 0, #020617 45%, #000 100%);
   border-radius:22px;
   border:1px solid rgba(148,163,184,0.75);
@@ -519,9 +390,15 @@ body.hha-vr-mode #gaze-reticle{
   border:1px solid rgba(148,163,184,0.5);
 }
 
+/* เล็กลงบนจอมือถือแนวตั้ง */
 @media (max-width:768px){
   .hud-groups{
     display:none;
+  }
+  #quest-panel{
+    top:auto;
+    bottom:72px;
+    right:6px;
   }
   .summary-card{
     border-radius:18px;
@@ -529,5 +406,111 @@ body.hha-vr-mode #gaze-reticle{
   }
   .hud-groups-legend{
     font-size:9px;
+  }
+}
+
+/* ====== TARGET LAYER & TARGETS ====== */
+
+/* Layer กลางไว้แปะเป้า emoji ทั้งหมด (fixed overlay) */
+.hha-target-layer{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:360;
+  overflow:hidden;
+}
+
+/* เป้า emoji แบบเดียว ไม่ซ้อนซ้ำ */
+.hha-target{
+  position:fixed;
+  transform:translate(-50%, -50%);
+  width:68px;
+  height:68px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:auto;
+  cursor:pointer;
+  z-index:365;
+
+  font-size:42px;
+  line-height:1;
+  text-shadow:
+    0 0 8px rgba(0,0,0,0.65),
+    0 0 16px rgba(0,0,0,0.7);
+}
+
+/* ปิดการใช้ ::before ที่เคยวาด emoji ซ้ำ */
+.hha-target::before{
+  content:none !important;
+}
+
+/* glow เพิ่มสำหรับของดี/ของไม่ดี */
+.hha-target-good{
+  text-shadow:
+    0 0 10px rgba(34,197,94,0.9),
+    0 0 20px rgba(34,197,94,0.7),
+    0 0 28px rgba(34,197,94,0.55);
+}
+
+.hha-target-bad{
+  text-shadow:
+    0 0 10px rgba(248,113,113,0.9),
+    0 0 20px rgba(248,113,113,0.7),
+    0 0 28px rgba(248,113,113,0.55);
+}
+
+/* ===== Gaze Reticle (ให้เห็นตลอด, ใช้กับ VR) ===== */
+#gaze-reticle{
+  position:fixed;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:26px;
+  height:26px;
+  pointer-events:none;
+  z-index:430;
+  opacity:0.8;              /* เห็นทุกโหมด */
+}
+
+.gaze-dot{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:4px;
+  height:4px;
+  border-radius:999px;
+  background:rgba(248,250,252,0.96);
+  box-shadow:0 0 4px rgba(248,250,252,0.9);
+}
+
+.gaze-ring{
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  border:2px solid rgba(248,250,252,0.85);
+  box-shadow:0 0 10px rgba(248,250,252,0.7);
+  opacity:0.8;
+}
+
+/* ตอนอยู่ใน VR ให้เป้าเด่นขึ้นนิดหนึ่ง */
+body.hha-vr-mode #gaze-reticle{
+  opacity:1;
+}
+
+/* animation ตอนกำลัง fuse */
+#gaze-reticle.fuse-active .gaze-ring{
+  animation:hhaFuse 1s linear forwards;
+}
+
+@keyframes hhaFuse{
+  0%{
+    transform:scale(1);
+    opacity:0.85;
+  }
+  100%{
+    transform:scale(0.25);
+    opacity:0;
   }
 }
