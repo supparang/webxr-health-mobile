@@ -1,5 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (Twemoji targets + FX + Fever + Quest)
+// Food Groups VR — Game Engine
+// Emoji เป้าแบบ canvas texture + FX + Fever + Quest
 // 2025-12-12
 
 'use strict';
@@ -19,7 +20,7 @@ const _setFever       = FeverGlobal.setFever       || window.setFever       || (
 const _setFeverActive = FeverGlobal.setFeverActive || window.setFeverActive || (()=>{});
 const _setShield      = FeverGlobal.setShield      || window.setShield      || (()=>{});
 
-// 2D FX กลางจอ
+// FX 2D กลางจอ
 const Particles = window.Particles || (GM.Particles || null);
 
 const FEVER_MAX = 100;
@@ -35,7 +36,7 @@ function randRange(min, max){
   return min + Math.random() * (max - min);
 }
 
-// ---------- Difficulty (ขนาด/เวลาตาม easy-normal-hard) ----------
+// ---------- Difficulty ----------
 function pickDifficulty(diffKey){
   diffKey = String(diffKey || 'normal').toLowerCase();
   if (GM.foodGroupsDifficulty && typeof GM.foodGroupsDifficulty.get === 'function'){
@@ -45,32 +46,32 @@ function pickDifficulty(diffKey){
   if (diffKey === 'easy'){
     return {
       spawnInterval: 1400,
-      lifeTime: 4600,
-      scale: 1.3,
-      maxActive: 4,
-      goodRatio: 0.8
+      lifeTime:      4600,
+      scale:         1.3,
+      maxActive:     4,
+      goodRatio:     0.8
     };
   }
   if (diffKey === 'hard'){
     return {
       spawnInterval: 900,
-      lifeTime: 2800,
-      scale: 0.9,
-      maxActive: 6,
-      goodRatio: 0.65
+      lifeTime:      2800,
+      scale:         0.9,
+      maxActive:     6,
+      goodRatio:     0.65
     };
   }
   // normal
   return {
     spawnInterval: 1150,
-    lifeTime: 3600,
-    scale: 1.05,
-    maxActive: 5,
-    goodRatio: 0.7
+    lifeTime:      3600,
+    scale:         1.05,
+    maxActive:     5,
+    goodRatio:     0.7
   };
 }
 
-// ---------- Data emoji อาหาร ----------
+// ---------- Data: emoji อาหาร ----------
 const FOODS = [
   { emoji:'🍚', group:'grain',   good:true },
   { emoji:'🍞', group:'grain',   good:true },
@@ -99,23 +100,37 @@ function randomFood(diff){
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// ---------- emoji → Twemoji PNG URL ----------
-const EmojiUrlCache = Object.create(null);
+// ---------- emoji → canvas texture (dataURL) ----------
+const EmojiTexCache = Object.create(null);
 
-function emojiToUrl(ch){
+function emojiToTextureDataUrl(ch){
   if (!ch) ch = '🍎';
-  if (EmojiUrlCache[ch]) return EmojiUrlCache[ch];
+  if (EmojiTexCache[ch]) return EmojiTexCache[ch];
 
-  // รองรับ 1 codepoint (พวก emoji อาหาร)
-  const code = ch.codePointAt(0);
-  if (!code){
-    EmojiUrlCache[ch] = '';
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx){
+    EmojiTexCache[ch] = '';
     return '';
   }
-  const hex = code.toString(16);
-  // Twemoji CDN
-  const url = `https://twemoji.maxcdn.com/v/latest/72x72/${hex}.png`;
-  EmojiUrlCache[ch] = url;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // background โปร่งใส (ให้ a-circle เป็น background อยู่แล้ว)
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, size, size);
+
+  // วาด emoji กลางรูป
+  const fontSize = size * 0.64;
+  ctx.font = `${fontSize}px "Noto Color Emoji", "Segoe UI Emoji", system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(ch, size / 2, size / 2 + size * 0.02);
+
+  const url = canvas.toDataURL('image/png');
+  EmojiTexCache[ch] = url;
   return url;
 }
 
@@ -153,8 +168,8 @@ function fireQuestUpdate(qState){
         prog:   activeMini.prog,
         target: activeMini.target
       } : null,
-      goalsAll: goals.map(g => ({ done:g.done })),
-      minisAll: minis.map(m => ({ done:m.done })),
+      goalsAll: goals.map(g=>({ done:g.done })),
+      minisAll: minis.map(m=>({ done:m.done })),
       hint: activeGoal
         ? 'ทำภารกิจตามด้านบนให้ครบ 15 แล้วจะมีฉลองพิเศษให้เลย 🎁'
         : ''
@@ -216,12 +231,13 @@ function checkQuestProgress(qState, ctx){
   fireQuestUpdate(qState);
 }
 
-// ---------- ยิง FX 2D ----------
+// ---------- FX 2D ----------
 function fireHitUi(scoreDelta, judgment, good){
   const x = window.innerWidth / 2;
   const y = window.innerHeight / 2;
+
   window.dispatchEvent(new CustomEvent('hha:hit-ui', {
-    detail:{ x, y, scoreDelta, judgment, good: !!good }
+    detail:{ x, y, scoreDelta, judgment, good:!!good }
   }));
 
   if (Particles && typeof Particles.burstAt === 'function'){
@@ -234,6 +250,7 @@ function fireHitUi(scoreDelta, judgment, good){
 function fireMissUi(judgment){
   const x = window.innerWidth / 2;
   const y = window.innerHeight / 2;
+
   window.dispatchEvent(new CustomEvent('hha:miss-ui', {
     detail:{ x, y, judgment: judgment || '' }
   }));
@@ -367,7 +384,7 @@ class GroupsGameEngine {
     const maxActive = this.diff.maxActive || 5;
     if (this.targets.length >= maxActive) return;
 
-    const food  = randomFood(this.diff);
+    const food = randomFood(this.diff);
     const isGood = !!food.good;
 
     const x = randRange(-2.0, 2.0);
@@ -383,7 +400,7 @@ class GroupsGameEngine {
     wrap.setAttribute('position', `${x} ${y} ${z}`);
     wrap.setAttribute('look-at', '#gj-camera');
 
-    // พื้นหลังวงกลม
+    // วงกลมพื้นหลัง
     const bg = document.createElement('a-circle');
     bg.setAttribute('radius', radius.toString());
     bg.setAttribute(
@@ -394,34 +411,33 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // emoji image (Twemoji PNG)
-    const img = document.createElement('a-image');
-    const texUrl = emojiToUrl(food.emoji || '🍎');
+    // emoji จาก canvas texture
+    const texUrl = emojiToTextureDataUrl(food.emoji || '🍎');
     if (texUrl){
-      const size = radius * 2.1;
+      const img = document.createElement('a-image');
+      const size = radius * 2.0;
       img.setAttribute('src', texUrl);
       img.setAttribute('width', size.toString());
       img.setAttribute('height', size.toString());
       img.setAttribute('position', '0 0 0.02');
-      img.setAttribute('transparent', 'true');
-      img.setAttribute('alphaTest', '0.01');
       img.setAttribute('data-hha-tgt', '1');
       wrap.appendChild(img);
+
+      // raycast ให้โดนทั้งวงกลม + emoji
+      const onHit = (evt)=> {
+        if (!this.running) return;
+        this._onTargetHit(wrap, food, isGood, evt);
+      };
+      wrap.addEventListener('click', onHit);
+      bg.addEventListener('click', onHit);
+      img.addEventListener('click', onHit);
     }
 
-    // ป๊อปเข้ามา
+    // pop animation
     wrap.setAttribute(
       'animation__pop',
       'property: scale; from: 0.4 0.4 0.4; to: 1 1 1; dur: 260; easing: easeOutBack'
     );
-
-    const onHit = (evt)=>{
-      if (!this.running) return;
-      this._onTargetHit(wrap, food, isGood, evt);
-    };
-    wrap.addEventListener('click', onHit);
-    bg.addEventListener('click', onHit);
-    if (img) img.addEventListener('click', onHit);
 
     this.scene.appendChild(wrap);
 
