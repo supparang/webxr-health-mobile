@@ -1,8 +1,8 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (reset version)
-// - เป้าเป็นวงกลม + emoji (ใช้ a-text แสดงตัวอีโมจิ)
-// - ขนาดเป้าตาม easy / normal / hard
-// - มี Fever, Quest, 2D FX (คะแนนเด้ง + เป้าแตก)
+// Food Groups VR — Game Engine (emoji plane + FX + quest)
+// - เป้าเป็นวงกลม + แผ่น emoji ตรงกลาง
+// - ขนาดเป้าแปรตาม easy / normal / hard
+// - มี Fever, Quest, 2D FX (เป้าแตก + คะแนนเด้ง)
 // 2025-12-12
 
 'use strict';
@@ -15,7 +15,7 @@ if (!A) {
 const GM = window.GAME_MODULES || {};
 const GroupsFx = GM.foodGroupsFx || null;
 
-// Fever UI (จากระบบกลาง ถ้าไม่มีจะเป็น no-op)
+// Fever UI (ถ้าไม่มีจะ no-op)
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar = FeverGlobal.ensureFeverBar || window.ensureFeverBar || (()=>{});
 const _setFever       = FeverGlobal.setFever       || window.setFever       || (()=>{});
@@ -42,7 +42,6 @@ function randRange(min, max){
 function pickDifficulty(diffKey){
   diffKey = String(diffKey || 'normal').toLowerCase();
 
-  // ถ้ามีตาราง diff กลางของโปรเจกต์ ใช้อันนั้นก่อน
   if (GM.foodGroupsDifficulty && typeof GM.foodGroupsDifficulty.get === 'function'){
     return GM.foodGroupsDifficulty.get(diffKey);
   }
@@ -51,7 +50,7 @@ function pickDifficulty(diffKey){
     return {
       spawnInterval: 1400,
       lifeTime:      4600,
-      scale:         1.35,   // เป้าใหญ่สุด
+      scale:         1.35,
       maxActive:     4,
       goodRatio:     0.8
     };
@@ -60,16 +59,15 @@ function pickDifficulty(diffKey){
     return {
       spawnInterval: 900,
       lifeTime:      2800,
-      scale:         0.90,   // เป้าเล็กสุด
+      scale:         0.90,
       maxActive:     6,
       goodRatio:     0.65
     };
   }
-  // normal
   return {
     spawnInterval: 1150,
     lifeTime:      3600,
-    scale:         1.05,    // กลาง ๆ
+    scale:         1.05,
     maxActive:     5,
     goodRatio:     0.7
   };
@@ -102,6 +100,33 @@ function randomFood(diff){
   const pool = FOODS.filter(f => f.good === wantGood);
   if (!pool.length) return FOODS[0];
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ---------- Emoji texture generator ----------
+const EMOJI_CACHE = {};
+
+function emojiTextureUrl(char){
+  if (EMOJI_CACHE[char]) return EMOJI_CACHE[char];
+
+  const canvas = document.createElement('canvas');
+  const size = 256;
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.font = '200px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+
+  ctx.fillText(char, size / 2, size * 0.56);
+
+  const url = canvas.toDataURL('image/png');
+  EMOJI_CACHE[char] = url;
+  return url;
 }
 
 // ---------- Quest ----------
@@ -229,7 +254,7 @@ function fireMissUi(judgment){
   }
 }
 
-// ---------- GameEngine คลาสหลัก ----------
+// ---------- GameEngine ----------
 class GroupsGameEngine {
   constructor(){
     this.scene   = null;
@@ -377,17 +402,18 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // emoji ตรงกลาง (ใช้ a-text)
-    const txt = document.createElement('a-text');
-    txt.setAttribute('value', food.emoji);
-    txt.setAttribute('align', 'center');
-    txt.setAttribute('anchor', 'center');
-    txt.setAttribute('width', (radius * 4).toString());
-    txt.setAttribute('color', '#ffffff');
-    txt.setAttribute('side', 'double');
-    txt.setAttribute('position', '0 0 0.01');
-    txt.setAttribute('data-hha-tgt', '1');
-    wrap.appendChild(txt);
+    // emoji plane จาก canvas texture
+    const emojiUrl = emojiTextureUrl(food.emoji);
+    const plane = document.createElement('a-plane');
+    plane.setAttribute('width',  (radius * 1.6).toString());
+    plane.setAttribute('height', (radius * 1.6).toString());
+    plane.setAttribute(
+      'material',
+      `shader: flat; src: ${emojiUrl}; transparent: true; alphaTest: 0.01`
+    );
+    plane.setAttribute('position', '0 0 0.02');
+    plane.setAttribute('data-hha-tgt', '1');
+    wrap.appendChild(plane);
 
     const onHit = (evt)=> {
       if (!this.running) return;
@@ -395,7 +421,7 @@ class GroupsGameEngine {
     };
     wrap.addEventListener('click', onHit);
     bg.addEventListener('click', onHit);
-    txt.addEventListener('click', onHit);
+    plane.addEventListener('click', onHit);
 
     wrap.setAttribute(
       'animation__pop',
@@ -549,8 +575,6 @@ export const GameEngine = {
     if (!this._inst){
       this._inst = new GroupsGameEngine();
     }
-    // groups-vr.html อาจจะเรียก start(scene, diff)
-    // รับเฉพาะตัวท้ายเป็น diffKey
     if (typeof diffKey === 'string'){
       this._inst.start(diffKey);
     } else if (Array.isArray(arguments) && arguments.length >= 2){
@@ -566,6 +590,5 @@ export const GameEngine = {
   }
 };
 
-// เผื่อโค้ชตัวอื่นใช้ผ่าน window.GAME_MODULES
 GM.GroupsGameEngine = GameEngine;
 window.GAME_MODULES = GM;
