@@ -763,6 +763,15 @@
     if ($('#p-group'))      $('#p-group').value      = profile.group || '';
   }
 
+  // ✅ ฟังก์ชันเช็กว่า "มีโปรไฟล์พอใช้โหมดวิจัยไหม"
+  function hasProfile(profile){
+    if (!profile || typeof profile !== 'object') return false;
+    // อย่างน้อยต้องมี Student ID หรือชื่อเล่น
+    if (!profile.studentId && !profile.name) return false;
+    // ถ้าอยากบังคับ school/grade ด้วย เพิ่มเช็กตรงนี้ได้
+    return true;
+  }
+
   function saveProfileToSession(){
     const profile = readProfileFromForm();
     try{
@@ -845,15 +854,26 @@
 
   // ----- เปิดเกม -----
   function launchGame(gameKey, runMode){
-    // บันทึกโปรไฟล์ก่อน (ถ้าอยากให้กดทุกครั้งคอมเมนต์บรรทัดนี้)
+    const isResearch = (runMode === 'research');
+
+    // อ่านโปรไฟล์จากฟอร์ม
     const profile = readProfileFromForm();
+
+    // ✅ ถ้าเป็นโหมดวิจัย แต่ยังไม่มีโปรไฟล์ → ไม่ให้เข้าเกม
+    if (isResearch && !hasProfile(profile)){
+      alert(
+        'โหมดวิจัย: ยังไม่มีข้อมูลโปรไฟล์นักเรียน\n' +
+        'กรุณากรอกอย่างน้อย "รหัสนักเรียน" หรือ "ชื่อเล่น" ก่อนเข้าโหมดวิจัย'
+      );
+      return;
+    }
+
+    // บันทึกโปรไฟล์ลง sessionStorage (ใช้ได้ทั้ง play + research)
     try{
       sessionStorage.setItem('HHA_STUDENT_PROFILE', JSON.stringify(profile));
     }catch(err){
       console.warn('[HHA Hub] cannot autosave profile before launch:', err);
     }
-
-    const isResearch = (runMode === 'research');
 
     // อ่าน diff จาก select ตามโหมด
     const diffSel = document.querySelector(
