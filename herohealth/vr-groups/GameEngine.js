@@ -1,6 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine
-// emoji เป้าแบบ canvas texture + diff size + Fever + Quest + 2D FX
+// Food Groups VR — Game Engine (Twemoji targets + FX + Fever + Quest)
 // 2025-12-12
 
 'use strict';
@@ -46,7 +45,7 @@ function pickDifficulty(diffKey){
   if (diffKey === 'easy'){
     return {
       spawnInterval: 1400,
-      lifeTime: 4200,
+      lifeTime: 4600,
       scale: 1.3,
       maxActive: 4,
       goodRatio: 0.8
@@ -55,7 +54,7 @@ function pickDifficulty(diffKey){
   if (diffKey === 'hard'){
     return {
       spawnInterval: 900,
-      lifeTime: 2600,
+      lifeTime: 2800,
       scale: 0.9,
       maxActive: 6,
       goodRatio: 0.65
@@ -63,8 +62,8 @@ function pickDifficulty(diffKey){
   }
   // normal
   return {
-    spawnInterval: 1100,
-    lifeTime: 3400,
+    spawnInterval: 1150,
+    lifeTime: 3600,
     scale: 1.05,
     maxActive: 5,
     goodRatio: 0.7
@@ -100,32 +99,23 @@ function randomFood(diff){
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// ---------- emoji → canvas texture ----------
-const EmojiTextureCache = {};
+// ---------- emoji → Twemoji PNG URL ----------
+const EmojiUrlCache = Object.create(null);
 
-function emojiToDataUrl(ch){
-  if (EmojiTextureCache[ch]) return EmojiTextureCache[ch];
+function emojiToUrl(ch){
+  if (!ch) ch = '🍎';
+  if (EmojiUrlCache[ch]) return EmojiUrlCache[ch];
 
-  const size = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx){
-    EmojiTextureCache[ch] = '';
+  // รองรับ 1 codepoint (พวก emoji อาหาร)
+  const code = ch.codePointAt(0);
+  if (!code){
+    EmojiUrlCache[ch] = '';
     return '';
   }
-
-  ctx.clearRect(0, 0, size, size);
-  ctx.fillStyle = 'rgba(0,0,0,0)';
-  ctx.fillRect(0, 0, size, size);
-
-  ctx.font = '200px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(ch, size/2, size/2);
-
-  const url = canvas.toDataURL('image/png');
-  EmojiTextureCache[ch] = url;
+  const hex = code.toString(16);
+  // Twemoji CDN
+  const url = `https://twemoji.maxcdn.com/v/latest/72x72/${hex}.png`;
+  EmojiUrlCache[ch] = url;
   return url;
 }
 
@@ -391,7 +381,6 @@ class GroupsGameEngine {
     wrap.setAttribute('class', 'fg-target');
     wrap.setAttribute('data-hha-tgt', '1');
     wrap.setAttribute('position', `${x} ${y} ${z}`);
-    // ถ้าไม่มี look-at component ก็ไม่เป็นไร
     wrap.setAttribute('look-at', '#gj-camera');
 
     // พื้นหลังวงกลม
@@ -405,9 +394,9 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // emoji image (จาก canvas)
+    // emoji image (Twemoji PNG)
     const img = document.createElement('a-image');
-    const texUrl = emojiToDataUrl(food.emoji || '🍎');
+    const texUrl = emojiToUrl(food.emoji || '🍎');
     if (texUrl){
       const size = radius * 2.1;
       img.setAttribute('src', texUrl);
@@ -436,7 +425,7 @@ class GroupsGameEngine {
 
     this.scene.appendChild(wrap);
 
-    const life = this.diff.lifeTime || 3400;
+    const life = this.diff.lifeTime || 3600;
     const timeoutId = setTimeout(()=>{
       this._onTargetTimeout(wrap, food, isGood);
     }, life);
