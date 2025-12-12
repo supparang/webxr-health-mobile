@@ -261,28 +261,8 @@
       justify-content:flex-start;
       gap:8px;
       pointer-events:auto;
-
-      /* motion ตอนโผล่ */
-      transform:translateY(8px) scale(0.95);
-      opacity:0;
-      transition:
-        transform .25s ease-out,
-        opacity   .25s ease-out,
-        box-shadow .25s ease-out;
     }
-    .coach-bubble.show{
-      display:flex;
-      opacity:1;
-      transform:translateY(0) scale(1);
-    }
-
-    /* กล่องคำพูดเด้ง + pulse เวลาโค้ชพูด/ฉลอง */
-    .coach-bubble.animate-pop{
-      animation:
-        coach-bubble-pop .32s ease-out,
-        coach-bubble-pulse 1.1s ease-in-out .32s 2;
-    }
-
+    .coach-bubble.show{ display:flex; }
     .coach-label{
       font-size:11px;
       text-transform:uppercase;
@@ -291,53 +271,23 @@
       font-weight:600;
     }
 
-    @keyframes coach-bubble-pop{
-      0%{
-        transform:translateY(12px) scale(0.8);
-        opacity:0;
-      }
-      60%{
-        transform:translateY(-2px) scale(1.05);
-        opacity:1;
-      }
-      100%{
-        transform:translateY(0) scale(1);
-        opacity:1;
-      }
-    }
-
-    @keyframes coach-bubble-pulse{
-      0%{
-        box-shadow:0 0 0 0 rgba(52,211,153,0.0);
-      }
-      50%{
-        box-shadow:0 0 26px 0 rgba(52,211,153,0.9);
-      }
-      100%{
-        box-shadow:0 0 0 0 rgba(52,211,153,0.0);
-      }
-    }
-
     /* โค้ชเป็นภาพบร็อคโคลี่ + ดุ๊กดิ๊ก */
     .coach-emoji{
       width:40px;
       height:40px;
       border-radius:999px;
-      background-image:url('./img/Chibi Coach Green.png'); /* แก้ชื่อไฟล์ให้ตรงกับใน /herohealth/img */
+      background-image:url('./img/Chibi Coach Green.png'); /* ใช้ไฟล์ใน /herohealth/img */
       background-size:cover;
       background-position:center;
       flex-shrink:0;
       box-shadow:0 0 12px rgba(16,185,129,0.8);
-      /* idle เบา ๆ */
       animation:coach-idle 1.4s ease-in-out infinite;
     }
 
-    /* idle ปกติ */
     @keyframes coach-idle{
-      0%{   transform:translateY(0) scale(1); }
-      30%{  transform:translateY(-2px) scale(1.03); }
-      60%{  transform:translateY(1px) scale(0.99); }
-      100%{ transform:translateY(0) scale(1); }
+      0%{ transform:translateY(0) scale(1);}
+      50%{ transform:translateY(-3px) scale(1.04);}
+      100%{ transform:translateY(0) scale(1);}
     }
 
     .coach-emoji.coach-neutral{
@@ -354,19 +304,19 @@
       box-shadow:0 0 18px rgba(248,113,113,0.9);
     }
 
-    /* เต้นแรง ๆ เวลา celebrate */
-    @keyframes coach-celebrate-dance{
-      0%   { transform:translateY(0)    scale(1.0)  rotate(0deg); }
-      15%  { transform:translateY(-6px) scale(1.12) rotate(-8deg); }
-      30%  { transform:translateY(-10px) scale(1.18) rotate(6deg); }
-      45%  { transform:translateY(-6px) scale(1.15) rotate(-6deg); }
-      60%  { transform:translateY(-10px) scale(1.20) rotate(4deg); }
-      80%  { transform:translateY(-4px) scale(1.10) rotate(-3deg); }
-      100% { transform:translateY(0)    scale(1.0)  rotate(0deg); }
+    /* ฉลองแรง ๆ เวลาเคลียร์ภารกิจ — เต้นมัน ๆ 3 รอบ */
+    @keyframes coach-celebrate-bounce{
+      0%   { transform:translateY(0)     scale(1.0)  rotate(0deg); }
+      10%  { transform:translateY(-10px) scale(1.18) rotate(-10deg); }
+      25%  { transform:translateY(-18px) scale(1.25) rotate(10deg); }
+      40%  { transform:translateY(-12px) scale(1.22) rotate(-12deg); }
+      55%  { transform:translateY(-20px) scale(1.30) rotate(8deg); }
+      70%  { transform:translateY(-8px)  scale(1.20) rotate(-6deg); }
+      85%  { transform:translateY(-14px) scale(1.26) rotate(6deg); }
+      100% { transform:translateY(0)     scale(1.0)  rotate(0deg); }
     }
-
     .coach-emoji.coach-celebrate{
-      animation:coach-celebrate-dance 0.9s ease-out;
+      animation:coach-celebrate-bounce 0.75s ease-out 0s 3;
     }
 
     /* ===== Center hint ===== */
@@ -782,38 +732,20 @@
     }
 
     function pulseCoachCelebrate(){
-      if (elCoachEmoji){
-        // รีสตาร์ทท่าเต้นแรง ๆ
+      if (!elCoachEmoji) return;
+      elCoachEmoji.classList.add('coach-celebrate');
+      setTimeout(function(){
         elCoachEmoji.classList.remove('coach-celebrate');
-        void elCoachEmoji.offsetWidth;
-        elCoachEmoji.classList.add('coach-celebrate');
-      }
-
-      if (elCoachBubble){
-        // กล่องคำพูดเด้งแรงตามตอนฉลอง
-        elCoachBubble.classList.add('show');
-        elCoachBubble.classList.remove('animate-pop');
-        void elCoachBubble.offsetWidth;
-        elCoachBubble.classList.add('animate-pop');
-      }
+      }, 900);
     }
 
     function setCoach(text){
       if (!text) return;
       elCoachText.textContent = text;
-      if (!elCoachBubble) return;
-
       elCoachBubble.classList.add('show');
-
-      // รีสตาร์ท animation ทุกครั้งที่มีข้อความใหม่
-      elCoachBubble.classList.remove('animate-pop');
-      void elCoachBubble.offsetWidth;
-      elCoachBubble.classList.add('animate-pop');
-
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(function(){
         elCoachBubble.classList.remove('show');
-        elCoachBubble.classList.remove('animate-pop');
       }, 4200);
     }
 
@@ -908,7 +840,7 @@
       if (P && P.burstAt){
         P.burstAt(cx, y, {
           color: (kind === 'goal') ? '#22c55e' : '#38bdf8',
-          count: 16
+          count: 24
         });
       }
       if (P && P.scorePop){
@@ -940,7 +872,7 @@
             setTimeout(function(){
               P.burstAt(cx, cy, {
                 color: i2 === 1 ? '#facc15' : '#22c55e',
-                count: 22
+                count: 28
               });
             }, i2 * 260);
           })(i);
