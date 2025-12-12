@@ -80,14 +80,13 @@ function computeGrade(metrics) {
   const missPenalty = Math.min(0.4, (miss || 0) * 0.04);    // MISS เยอะโดนหักเยอะสุด 0.4
 
   // น้ำหนักรวม (เน้นภารกิจ)
-  // ถ้าไม่ผ่าน Goal/Mini เลย → questScore = 0 → index สูงสุด ~0.5 (ได้แค่ B)
   let index = 0;
   index += questScore * 0.5;
   index += plateScore * 0.2;
   index += hitScore   * 0.3;
   index -= missPenalty;
 
-  // ปรับตามระดับความยากเล็กน้อย (เล่น hard ได้ index บวกเพิ่ม)
+  // ปรับตามระดับความยากเล็กน้อย
   const d = String(diff || 'normal').toLowerCase();
   if (d === 'hard')   index += 0.05;
   if (d === 'easy')   index -= 0.03;
@@ -120,7 +119,7 @@ function coach(text, minGap = 2200) {
 // เก็บ reference ของ controller เพื่อ stop spawn ตอนจบเกมจริง ๆ
 let ctrlRef = null;
 
-// helper: สรุป progress จาก deck ให้ตรงกับ HUD
+// helper: สรุป progress จาก deck (นับเป็นจำนวนภารกิจ)
 function summarizeDeck(deck) {
   const out = {
     goalsCleared: 0,
@@ -133,34 +132,11 @@ function summarizeDeck(deck) {
   const goals = deck.getProgress('goals') || [];
   const minis = deck.getProgress('mini')  || [];
 
-  function accum(list, isMini) {
-    for (const q of list) {
-      if (!q) continue;
+  out.goalsTotal   = goals.length;
+  out.goalsCleared = goals.filter(q => q && q.done).length;
 
-      // >>> ปรับชื่อ field ตรงนี้ให้ตรง plate.quest.js ถ้าใช้ชื่ออื่น
-      const targetRaw  = (q.target ?? q.total ?? q.max ?? 1);
-      const currentRaw = (q.current ?? q.doneCount ?? q.count ?? (q.done ? targetRaw : 0));
-      // <<<
-
-      let tgt = Number(targetRaw);
-      if (!Number.isFinite(tgt) || tgt <= 0) tgt = 1;
-
-      let cur = Number(currentRaw);
-      if (!Number.isFinite(cur) || cur < 0) cur = 0;
-      if (cur > tgt) cur = tgt;
-
-      if (isMini) {
-        out.questsTotal   += tgt;
-        out.questsCleared += cur;
-      } else {
-        out.goalsTotal    += tgt;
-        out.goalsCleared  += cur;
-      }
-    }
-  }
-
-  accum(goals, false);
-  accum(minis, true);
+  out.questsTotal   = minis.length;
+  out.questsCleared = minis.filter(q => q && q.done).length;
 
   return out;
 }
@@ -183,8 +159,8 @@ export async function boot(cfg = {}) {
 
   // Quest deck
   const deck = createPlateQuest(diff);
-  deck.drawGoals(2);   // เป้า Goal รวมทั้งเกม
-  deck.draw3();        // Mini 3 ภารกิจ รวมทั้งเกม
+  deck.drawGoals(2);   // Goal 2 ภารกิจต่อเกม
+  deck.draw3();        // Mini 3 ภารกิจต่อเกม
 
   const need = QUOTA[diff] || QUOTA.normal;      // โควตาใน "หนึ่งจาน"
   const totalNeed = need.reduce((a, b) => a + b, 0);
@@ -276,8 +252,8 @@ export async function boot(cfg = {}) {
     deck.stats.gCounts    = [...gCounts];
     deck.stats.star       = star;
     deck.stats.diamond    = diamond;
-    deck.stats.misses     = misses;      // ✅ สำคัญสำหรับ goal แบบ low-miss
-    deck.stats.platesDone = platesDone;  // ✅ สำคัญสำหรับ goal นับจำนวนจาน
+    deck.stats.misses     = misses;      // สำหรับ quest miss
+    deck.stats.platesDone = platesDone;  // สำหรับ quest นับจาน
     emitStat();
   }
 
@@ -393,6 +369,7 @@ export async function boot(cfg = {}) {
       const d = 25;
       score += d;
       deck.onGood();
+      combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'FEVER', true);
       coach('โหมดไฟ 🍽️ เก็บอาหารดีให้ครบทุกหมู่เลย!');
@@ -505,31 +482,32 @@ export async function boot(cfg = {}) {
         questsCleared,
         questsTotal,
         platesDone,
-        // รวมทั้งเกม (ใช้วิเคราะห์พฤติกรรมเลือกหมู่)
         groupCounts: [...gCounts],
         grade
       }
     }));
   }
 
-  // ใช้ clock กลาง hha:time พร้อม cleanup
+  // ใช้ clock กลาง hha:time พร้อมเช็กจบเกม & cleanup
   const onTime = (e) => {
     const sec = (e.detail?.sec | 0);
+
     if (sec >= 0) {
       if (combo <= 0) decayFever(6);
       else            decayFever(2);
 
-      deck.second(); // ให้ MissionDeck นับ tick/time ภายใน
+      deck.second();
       syncDeck();
       pushQuest();
 
-      // ถ้าภารกิจครบทั้งหมดแล้ว สามารถจบเกมก่อนหมดเวลาก็ได้
+      // จบเกมทันทีถ้าทำครบทุกภารกิจ (Goal 2 + Mini 3)
       const sum = summarizeDeck(deck);
-      if (sum.goalsTotal > 0 && sum.questsTotal > 0 &&
+      if (!ended &&
+          sum.goalsTotal > 0 &&
+          sum.questsTotal > 0 &&
           sum.goalsCleared >= sum.goalsTotal &&
-          sum.questsCleared >= sum.questsTotal &&
-          !ended) {
-        coach('เยี่ยมมาก! ทำครบทุกภารกิจแล้ว 🎉', 2000);
+          sum.questsCleared >= sum.questsTotal) {
+        coach('สุดยอด! ทำครบทุกภารกิจแล้ว 🎉', 2000);
         finish();
         return;
       }
@@ -559,7 +537,7 @@ export async function boot(cfg = {}) {
 
   ctrlRef = ctrl;
 
-  // เพิ่ม cleanup ตอน stop() เผื่อออกกลางคัน
+  // cleanup ตอน stop() เผื่อออกกลางคัน
   if (ctrl && typeof ctrl.stop === 'function') {
     const origStop = ctrl.stop.bind(ctrl);
     ctrl.stop = (...args) => {
