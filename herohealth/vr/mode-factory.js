@@ -1,358 +1,277 @@
 // === /herohealth/vr/mode-factory.js ===
-// Hero Health — DOM Target Factory (Adaptive)
-// ใช้กับ GoodJunk / Hydration / Plate / Groups ฯลฯ แบบ DOM
-//
-// คุณสมบัติ:
-// - spawn เป้า emoji ตาม pools ที่ส่งเข้ามา
-// - ขนาดเป้าผูกกับระดับความยาก easy / normal / hard
-// - Adaptive: แม่นต่อเนื่อง → เป้าเล็กลง & จำนวนเป้าในจอเพิ่ม
-//              พลาดติด ๆ → เป้าใหญ่ขึ้น & จำนวนเป้าลดลง
-//
-// เรียกใช้งานจากเกมด้วย:
-//   import { boot as factoryBoot } from '../vr/mode-factory.js';
-//   const ctrl = await factoryBoot({ ... });
-//
-// options หลัก:
-//   difficulty: 'easy' | 'normal' | 'hard'
-//   pools: { good: [...], bad: [...] }
-//   goodRate: 0–1   // โอกาสได้ good เมื่อไม่ใช่ powerup
-//   powerups: [emoji...]
-//   powerRate: 0–1  // โอกาสสุ่ม powerup
-//   powerEvery: n   // บังคับให้มี powerup ทุก ๆ n เป้า (กันดวงกุด)
-//   judge(ch, ctx)  // ฟังก์ชันของเกม (ต้อง return { good: true/false, ... })
-//   onExpire(ev)    // เรียกเมื่อเป้าหมดเวลา ev = { ch, isGood }
+// โรงงานสปอนเป้า DOM สำหรับ Hero Health (GoodJunk / Hydration / Plate ฯลฯ)
+// - สร้างเป้า emoji (.hha-target) แบบ position:absolute → เลื่อนจอแล้วเป้าเลื่อนตาม
+// - รองรับ good/bad/powerups
+// - ผูกกับ judge() + onExpire()
+// - คืน ctrl.stop() เพื่อหยุดเกม/หยุดสปอน
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 const DOC  = ROOT.document;
 
-// ถ้าไม่มี DOM ก็ไม่ทำอะไร
 if (!DOC) {
-  console.warn('[mode-factory] document not found (non-browser env)');
+  console.warn('[mode-factory] document not found');
 }
 
-/**
- * พรีเซ็ตความยากสำหรับ DOM target
- * - baseScale: ขนาดเป้าเริ่มต้น (1 = ขนาดปกติจาก CSS)
- * - spawnInterval: ช่วงเวลาระหว่าง spawn เป้า (ms)
- * - baseMaxActive: จำนวนเป้าในจอเริ่มต้น
- * - min/maxActive: ขอบเขต adaptive สำหรับจำนวนเป้า
- * - min/maxScale: ขอบเขต adaptive สำหรับขนาดเป้า
- */
-const DIFF_PRESET = {
-  easy: {
-    spawnInterval: 950,
-    baseScale: 1.15, // เป้าใหญ่กว่า
-    minScale: 0.85,
-    maxScale: 1.4,
-    baseMaxActive: 3,
-    minActive: 2,
-    maxActive: 5
-  },
-  normal: {
-    spawnInterval: 820,
-    baseScale: 1.0,
-    minScale: 0.8,
-    maxScale: 1.25,
-    baseMaxActive: 4,
-    minActive: 2,
-    maxActive: 6
-  },
-  hard: {
-    spawnInterval: 720,
-    baseScale: 0.9, // เป้าเล็กลง
-    minScale: 0.75,
-    maxScale: 1.1,
-    baseMaxActive: 5,
-    minActive: 3,
-    maxActive: 7
-  }
-};
+// helper เล็ก ๆ
+function clamp(v, min, max) {
+  v = Number(v) || 0;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
 
-function pickRandom(arr) {
-  if (!Array.isArray(arr) || !arr.length) return null;
+// สุ่มจาก array
+function pickOne(arr) {
+  if (!arr || !arr.length) return null;
   const idx = Math.floor(Math.random() * arr.length);
   return arr[idx];
 }
 
-// สร้างเลเยอร์สำหรับ target ถ้ายังไม่มี
-function ensureTargetLayer() {
-  let layer = DOC.querySelector('.hha-target-layer');
-  if (!layer) {
-    layer = DOC.createElement('div');
-    layer.className = 'hha-target-layer';
-    Object.assign(layer.style, {
-      position: 'fixed',
-      inset: '0',
-      pointerEvents: 'none',
-      zIndex: 360,
-      overflow: 'hidden'
-    });
-    DOC.body.appendChild(layer);
+// ---------- DOM Target Manager ----------
+
+function createTargetElement(char, kind) {
+  const el = DOC.createElement('div');
+  el.className = 'hha-target';
+  el.textContent = char || '●';
+
+  // ไม่ใช้ fixed แล้ว → absolute เพื่อให้เลื่อนตาม scroll ได้
+  el.style.position = 'absolute';
+  el.style.left = '50%';
+  el.style.top  = '50%';
+
+  if (kind === 'good') {
+    el.classList.add('hha-target-good');
+  } else if (kind === 'bad') {
+    el.classList.add('hha-target-bad');
   }
-  return layer;
+
+  // วางใน body ให้สัมพันธ์กับ scroll ทั้งหน้า
+  DOC.body.appendChild(el);
+  return el;
 }
 
-/**
- * boot(config)
- * คืนค่า controller:
- *   { stop() }
- */
+// วางจุด (x,y) โดยคิด scroll แล้ว
+function positionTarget(el, x, y) {
+  // x,y = พิกัดใน viewport (0–innerWidth/Height)
+  // แต่เราใช้ absolute ผูกกับทั้ง document → บวก scroll เข้าไป
+  const sx = ROOT.scrollX || ROOT.pageXOffset || 0;
+  const sy = ROOT.scrollY || ROOT.pageYOffset || 0;
+
+  el.style.left = (sx + x) + 'px';
+  el.style.top  = (sy + y) + 'px';
+}
+
+// สุ่มตำแหน่งในหน้าจอ โดยเผื่อ margin รอบ ๆ
+function randomScreenPos() {
+  const w = ROOT.innerWidth  || 800;
+  const h = ROOT.innerHeight || 600;
+  const marginX = 60;
+  const marginY = 80;
+  const x = marginX + Math.random() * Math.max(40, (w - marginX * 2));
+  const y = marginY + Math.random() * Math.max(40, (h - marginY * 2));
+  return { x, y };
+}
+
+// ลบเป้า
+function destroyTarget(el) {
+  if (!el) return;
+  try {
+    el.remove();
+  } catch {
+    if (el.parentNode) el.parentNode.removeChild(el);
+  }
+}
+
+// ---------- main boot ----------
+
 export async function boot(config = {}) {
-  if (!DOC) return { stop() {} };
+  const pools     = config.pools || {};
+  const goodPool  = pools.good || [];
+  const badPool   = pools.bad  || [];
+  const judge     = typeof config.judge === 'function' ? config.judge : null;
+  const onExpire  = typeof config.onExpire === 'function' ? config.onExpire : null;
 
-  const diffKeyRaw = String(config.difficulty || 'normal').toLowerCase();
-  const diffKey = (diffKeyRaw === 'easy' || diffKeyRaw === 'hard' || diffKeyRaw === 'normal')
-    ? diffKeyRaw
-    : 'normal';
+  const diffKey   = String(config.difficulty || 'normal').toLowerCase();
+  let durationSec = Number(config.duration || 60);
+  if (!Number.isFinite(durationSec) || durationSec <= 0) durationSec = 60;
+  durationSec = clamp(durationSec, 20, 180);
 
-  const preset = DIFF_PRESET[diffKey] || DIFF_PRESET.normal;
+  // rate/ความถี่ spawn พื้นฐาน
+  let baseSpawnMs = 900;
+  if (diffKey === 'easy')   baseSpawnMs = 1100;
+  if (diffKey === 'hard')   baseSpawnMs = 750;
 
-  const goodPool = (config.pools && config.pools.good) || ['🍎'];
-  const badPool  = (config.pools && config.pools.bad)  || ['🍔'];
-
-  const goodRate   = typeof config.goodRate === 'number' ? config.goodRate : 0.7;
+  const goodRate   = (typeof config.goodRate === 'number') ? config.goodRate : 0.65;
   const powerups   = Array.isArray(config.powerups) ? config.powerups : [];
-  const powerRate  = typeof config.powerRate === 'number' ? config.powerRate : 0.1;
-  const powerEvery = Number.isFinite(config.powerEvery) ? Math.max(1, config.powerEvery) : 7;
+  const powerRate  = (typeof config.powerRate === 'number') ? config.powerRate : 0.12;
+  const powerEvery = (typeof config.powerEvery === 'number') ? config.powerEvery : 7;
 
-  const judgeFn   = (typeof config.judge === 'function') ? config.judge : () => ({ good: false });
-  const onExpire  = (typeof config.onExpire === 'function') ? config.onExpire : null;
-
-  const layer = ensureTargetLayer();
-
-  // ===== Adaptive state =====
-  let targetScale      = preset.baseScale;
-  let maxActiveCurrent = preset.baseMaxActive;
-  const minScale       = preset.minScale;
-  const maxScale       = preset.maxScale;
-  const minActive      = preset.minActive;
-  const maxActive      = preset.maxActive;
-
-  let hitStreak  = 0;
-  let missStreak = 0;
-  let totalSpawn = 0;
-
-  // active targets ในจอ
-  const activeTargets = new Set();
-
+  let alive = true;
   let spawnTimer = null;
-  let stopped    = false;
+  let liveTargets = new Set();
+  let spawnCount  = 0;
 
-  function applyAdaptiveHit() {
-    hitStreak += 1;
-    missStreak = 0;
+  const startTime = Date.now();
+  const endTime   = startTime + durationSec * 1000;
 
-    // ทุก ๆ 5 hit ต่อเนื่อง → เพิ่มความท้าทาย
-    if (hitStreak > 0 && hitStreak % 5 === 0) {
-      // เป้าเล็กลง
-      targetScale = Math.max(minScale, targetScale * 0.92);
-      // จำนวนเป้าในจอเพิ่ม
-      maxActiveCurrent = Math.min(maxActive, maxActiveCurrent + 1);
-
-      // debug log (ถ้าต้องการดูใน console)
-      if (ROOT.console && console.debug) {
-        console.debug('[mode-factory] adaptive harder', {
-          targetScale,
-          maxActiveCurrent
-        });
-      }
+  // ---------- สร้าง 1 เป้า ----------
+  function spawnOne() {
+    if (!alive) return;
+    if (Date.now() >= endTime) {
+      return; // ปล่อยให้ตัวจับเวลา stop() ด้านนอกจัดการ
     }
-  }
 
-  function applyAdaptiveMiss() {
-    missStreak += 1;
-    hitStreak = 0;
-
-    // ถ้าพลาดติดกัน 2 ครั้ง → ผ่อนให้หน่อย
-    if (missStreak >= 2) {
-      targetScale = Math.min(maxScale, targetScale * 1.1);
-      maxActiveCurrent = Math.max(minActive, maxActiveCurrent - 1);
-      missStreak = 0;
-
-      if (ROOT.console && console.debug) {
-        console.debug('[mode-factory] adaptive easier', {
-          targetScale,
-          maxActiveCurrent
-        });
-      }
-    }
-  }
-
-  function removeTarget(targetObj) {
-    if (!targetObj) return;
-    activeTargets.delete(targetObj);
-    if (targetObj.el && targetObj.el.parentNode) {
-      targetObj.el.parentNode.removeChild(targetObj.el);
-    }
-    if (targetObj.expireTimer != null) {
-      clearTimeout(targetObj.expireTimer);
-    }
-  }
-
-  function spawnTarget() {
-    if (stopped) return;
-    if (activeTargets.size >= maxActiveCurrent) return;
-
-    totalSpawn += 1;
-
-    // ตัดสินว่าจะเป็น powerup, good, หรือ bad
+    // ตัดสินชนิด good/bad/power
     let ch = null;
-    let isGood = true;
-    let isPower = false;
+    let kind = 'good';
 
-    // powerup priority: ทุก ๆ powerEvery ครั้ง หรือ random จาก powerRate
-    if (powerups.length &&
-        ((totalSpawn % powerEvery) === 0 || Math.random() < powerRate)) {
-      ch = pickRandom(powerups);
-      isGood = true;
-      isPower = true;
-    } else {
-      const pickGood = Math.random() < goodRate;
-      isGood = pickGood;
-      const pool = pickGood ? goodPool : badPool;
-      ch = pickRandom(pool);
+    // powerups แบบทุกๆ powerEvery ลูก มีโอกาส drop
+    let isPower = false;
+    if (powerups.length && ((spawnCount + 1) % powerEvery === 0)) {
+      if (Math.random() < powerRate) {
+        ch = pickOne(powerups);
+        isPower = true;
+      }
+    }
+
+    if (!ch) {
+      if (Math.random() < goodRate) {
+        ch = pickOne(goodPool);
+        kind = 'good';
+      } else {
+        ch = pickOne(badPool);
+        kind = 'bad';
+      }
     }
 
     if (!ch) return;
 
-    const el = DOC.createElement('div');
-    el.className = 'hha-target ' + (isGood ? 'hha-target-good' : 'hha-target-bad');
-    el.textContent = ch;
+    const { x, y } = randomScreenPos();
+    const el = createTargetElement(ch, kind);
+    positionTarget(el, x, y);
 
-    // ตำแหน่งสุ่ม (หลบ HUD ด้านบน/ล่างนิดหน่อย)
-    const vw = ROOT.innerWidth  || 1280;
-    const vh = ROOT.innerHeight || 720;
-
-    const marginTop    = vh * 0.18;
-    const marginBottom = vh * 0.16;
-    const marginSide   = vw * 0.08;
-
-    const x = marginSide + Math.random() * (vw - marginSide * 2);
-    const y = marginTop  + Math.random() * (vh - marginTop - marginBottom);
-
-    const baseSize = 68; // อ้างอิงจาก CSS เดิม
-    const size = baseSize * targetScale;
-
-    Object.assign(el.style, {
-      left: x + 'px',
-      top: y + 'px',
-      width: size + 'px',
-      height: size + 'px',
-      fontSize: (size * 0.62) + 'px'
-    });
-
-    // ทำให้คลิกได้
-    el.style.pointerEvents = 'auto';
-    el.style.cursor = 'pointer';
+    const bornAt = Date.now();
+    const lifeMs = isPower ? 1400 : 1100; // power อยู่บนจอนานกว่าเล็กน้อย
 
     const targetObj = {
       el,
       ch,
-      isGood,
-      isPower,
-      expireTimer: null
+      kind,
+      bornAt,
+      lifeMs,
+      dead: false
     };
+    liveTargets.add(targetObj);
 
-    // อายุของเป้า (ms) — ยากขึ้น = มีเวลาให้น้อยลงนิดหน่อย
-    const lifeBase = 1350;
-    const life =
-      diffKey === 'easy'   ? lifeBase + 250 :
-      diffKey === 'hard'   ? lifeBase - 150 :
-                             lifeBase;
-
-    targetObj.expireTimer = ROOT.setTimeout(() => {
-      // หมดเวลา
-      removeTarget(targetObj);
-      if (onExpire) {
-        try {
-          onExpire({ ch, isGood });
-        } catch (err) {
-          console.warn('[mode-factory] onExpire error', err);
-        }
-      }
-    }, life);
-
-    // handler ตอนโดนตี
-    function handleHit(ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      removeTarget(targetObj);
+    // คลิก / แตะ
+    el.addEventListener('click', (ev) => {
+      if (!alive || targetObj.dead) return;
+      targetObj.dead = true;
+      liveTargets.delete(targetObj);
 
       const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top  + rect.height / 2;
+      const cx = rect.left + rect.width  / 2 + (ROOT.scrollX || ROOT.pageXOffset || 0);
+      const cy = rect.top  + rect.height / 2 + (ROOT.scrollY || ROOT.pageYOffset || 0);
 
-      let result = null;
-      try {
-        result = judgeFn(ch, {
-          event: ev,
-          clientX: ev.clientX,
-          clientY: ev.clientY,
-          cx,
-          cy,
-          isGood,
-          isPower
-        });
-      } catch (err) {
-        console.error('[mode-factory] judge error', err);
+      let res = null;
+      if (judge) {
+        try {
+          res = judge(ch, {
+            clientX: cx,
+            clientY: cy,
+            cx,
+            cy,
+            kind
+          });
+        } catch (err) {
+          console.warn('[mode-factory] judge error', err);
+        }
       }
 
-      const good = !!(result && result.good);
+      destroyTarget(el);
+    });
+  }
 
-      if (good) {
-        applyAdaptiveHit();
-      } else {
-        applyAdaptiveMiss();
+  // ---------- loop ตรวจหมดอายุ ----------
+  function tickExpire() {
+    const now = Date.now();
+    for (const t of Array.from(liveTargets)) {
+      if (t.dead) continue;
+      if (now - t.bornAt > t.lifeMs) {
+        t.dead = true;
+        liveTargets.delete(t);
+
+        if (onExpire) {
+          try {
+            onExpire({
+              char: t.ch,
+              isGood: (t.kind === 'good')
+            });
+          } catch (err) {
+            console.warn('[mode-factory] onExpire error', err);
+          }
+        }
+
+        destroyTarget(t.el);
       }
     }
-
-    el.addEventListener('click', handleHit);
-    el.addEventListener('pointerdown', handleHit);
-
-    activeTargets.add(targetObj);
-    layer.appendChild(el);
   }
 
+  // ---------- main spawn loop ----------
   function startSpawnLoop() {
-    const interval = preset.spawnInterval;
-    spawnTimer = ROOT.setInterval(spawnTarget, interval);
+    function loop() {
+      if (!alive) return;
+
+      const now = Date.now();
+      if (now >= endTime) {
+        // หมดเวลาเกม → หยุดสปอน แต่ยังให้ plate.safe ตัดสินเองผ่าน hha:time
+        stopSpawnTimer();
+        return;
+      }
+
+      spawnCount++;
+      spawnOne();
+      tickExpire();
+
+      // adaptive ความถี่เล็ก ๆ: นานขึ้นถ้าเป้าสะสมเยอะ
+      const loadFactor = clamp(liveTargets.size / 7, 0, 1); // 0–1
+      const nextMs = baseSpawnMs + loadFactor * 300;
+
+      spawnTimer = ROOT.setTimeout(loop, nextMs);
+    }
+
+    spawnTimer = ROOT.setTimeout(loop, baseSpawnMs);
   }
 
-  function stop() {
-    if (stopped) return;
-    stopped = true;
+  function stopSpawnTimer() {
     if (spawnTimer != null) {
-      clearInterval(spawnTimer);
+      ROOT.clearTimeout(spawnTimer);
       spawnTimer = null;
     }
-    // ลบเป้าค้างทั้งหมด
-    for (const t of activeTargets) {
-      if (t.expireTimer != null) clearTimeout(t.expireTimer);
-      if (t.el && t.el.parentNode) t.el.parentNode.removeChild(t.el);
-    }
-    activeTargets.clear();
   }
 
+  function cleanupAllTargets() {
+    for (const t of Array.from(liveTargets)) {
+      destroyTarget(t.el);
+    }
+    liveTargets.clear();
+  }
+
+  // เริ่มทำงาน
   startSpawnLoop();
 
-  // controller ที่เกมฝั่งบนจะใช้
   const ctrl = {
-    stop,
-    // debug optional: ใช้จาก console ได้
-    _debugAdaptive() {
-      return {
-        diffKey,
-        targetScale,
-        maxActiveCurrent,
-        hitStreak,
-        missStreak
-      };
+    stop() {
+      alive = false;
+      stopSpawnTimer();
+      cleanupAllTargets();
     }
   };
 
   return ctrl;
 }
 
+export { boot as factoryBoot };
 export default { boot };
