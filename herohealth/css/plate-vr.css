@@ -246,16 +246,17 @@ a-scene{
   }
 }
 
-/* ======= Coach Bubble — เหนือ Fever Gauge ======= */
+/* ===== Coach Bubble — ยกขึ้นเหนือ Fever + เต้นแรง ๆ ===== */
 #coach-wrap{
   position:absolute;
   left:0;
   right:0;
-  bottom:70px;              /* ให้ลอยเหนือ Fever */
+  bottom:110px;          /* ยกให้พ้น Fever Gauge */
   z-index:950;
   pointer-events:none;
   display:flex;
   justify-content:center;
+  padding:0 24px;
 }
 
 .coach-bubble{
@@ -263,26 +264,59 @@ a-scene{
   padding:8px 11px;
   border-radius:16px;
   background:rgba(15,23,42,0.96);
-  border:1px solid rgba(148,163,184,0.6);
-  box-shadow:0 18px 40px rgba(0,0,0,0.85);
+  border:1px solid rgba(148,163,184,0.7);
+  box-shadow:0 18px 40px rgba(0,0,0,0.9);
   font-size:12px;
   display:flex;
   align-items:flex-start;
   gap:8px;
   opacity:0;
-  transform:translateY(8px);
-  transition:opacity .25s ease, transform .25s ease;
+  transform:translateY(16px) scale(.9);
+  transition:opacity .2s ease-out;
+  pointer-events:none;
+  will-change:transform,opacity;
 }
 
 .coach-bubble.show{
   opacity:1;
-  transform:translateY(0);
+  pointer-events:auto;
+  animation:coachBounce .9s cubic-bezier(.18,.89,.32,1.28);
+}
+
+/* โค้ชเต้นแรง ๆ ตอนโผล่ */
+@keyframes coachBounce{
+  0%{
+    transform:translateY(18px) scale(.85);
+  }
+  40%{
+    transform:translateY(-6px) scale(1.06);
+  }
+  70%{
+    transform:translateY(0) scale(1);
+  }
+  85%{
+    transform:translateY(-3px) scale(1.02);
+  }
+  100%{
+    transform:translateY(0) scale(1);
+  }
 }
 
 .coach-avatar{ font-size:20px; }
 .coach-text{ line-height:1.4; }
 
-/* ===== Gaze Reticle (ให้เห็นตลอด) ===== */
+@media (max-width:768px){
+  #coach-wrap{
+    bottom:118px;        /* มือถือให้สูงอีกนิด */
+    padding:0 12px;
+  }
+  .coach-bubble{
+    max-width:100%;
+    font-size:11px;
+  }
+}
+
+/* ===== Gaze Reticle ===== */
 #gaze-reticle{
   position:fixed;
   left:50%;
@@ -316,12 +350,10 @@ a-scene{
   opacity:0.8;
 }
 
-/* ตอนอยู่ใน VR ให้เป้าเด่นขึ้นนิดหนึ่ง */
 body.hha-vr-mode #gaze-reticle{
   opacity:1;
 }
 
-/* animation ตอนกำลัง fuse */
 #gaze-reticle.fuse-active .gaze-ring{
   animation:hhaFuse 1s linear forwards;
 }
@@ -337,8 +369,7 @@ body.hha-vr-mode #gaze-reticle{
   }
 }
 
-/* ====== TARGETS (Emoji เป้าเดียว ไม่ซ้อน) ====== */
-
+/* ===== Targets (emoji) ===== */
 .hha-target{
   position:fixed;
   transform:translate(-50%, -50%);
@@ -358,12 +389,10 @@ body.hha-vr-mode #gaze-reticle{
     0 0 16px rgba(0,0,0,0.7);
 }
 
-/* ปิดการใช้ ::before ที่เคยวาด emoji ซ้ำ */
 .hha-target::before{
   content:none !important;
 }
 
-/* glow เพิ่มสำหรับของดี/ของไม่ดี */
 .hha-target-good{
   text-shadow:
     0 0 10px rgba(34,197,94,0.9),
@@ -388,16 +417,12 @@ body.hha-vr-mode #gaze-reticle{
 }
 
 .hha-fx-score{
-  /* ส่วนใหญ่ใช้ inline style จาก JS แล้ว
-     ใส่แค่กัน font แปลก ๆ */
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Thonburi",sans-serif;
 }
 
-.hha-fx-dot{
-  /* base style ส่วนใหญ่จะถูก override ด้วย inline style */
-}
+.hha-fx-dot{}
 
-/* ======= Summary Overlay ======= */
+/* ===== Summary Overlay ===== */
 #summary{
   position:absolute;
   inset:0;
@@ -494,7 +519,6 @@ body.hha-vr-mode #gaze-reticle{
   border:1px solid rgba(148,163,184,0.5);
 }
 
-/* เล็กลงบนจอมือถือแนวตั้ง */
 @media (max-width:768px){
   .hud-groups{
     display:none;
