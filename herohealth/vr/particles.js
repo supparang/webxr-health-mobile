@@ -1,314 +1,115 @@
-// === /herohealth/vr/particles.js ===
-// Simple FX layer: score pop + judgment text + target burst (โคตรแตกกระจาย + ตัวหนังสือเด่นชัด)
-// ใช้ได้กับทุกเกม HeroHealth (GoodJunkVR, Hydration, Plate, Groups ฯลฯ)
+// === /herohealth/vr-groups/aframe-particles.js ===
+// FX สำหรับ Food Groups VR
+// - แตกกระจายใน A-Frame รอบ emoji เป้า
+// - ยิง DOM FX ตรงตำแหน่งเป้า (คะแนนเด้ง + คำตัดสิน)
 
-(function (root) {
+(function (ns, root) {
   'use strict';
-  const doc = root.document;
-  if (!doc) return;
 
-  // ----- สร้างเลเยอร์ FX กลางจอ -----
-  function ensureLayer() {
-    let layer = doc.querySelector('.hha-fx-layer');
-    if (!layer) {
-      layer = doc.createElement('div');
-      layer.className = 'hha-fx-layer';
-      Object.assign(layer.style, {
-        position: 'fixed',
-        inset: '0',
-        pointerEvents: 'none',
-        zIndex: 700,
-        overflow: 'hidden'
-      });
-      doc.body.appendChild(layer);
-    }
-    return layer;
+  const A = root.AFRAME;
+
+  // แปลง world position -> screen 2D (px)
+  function worldToScreen(sceneEl, worldPos) {
+    if (!sceneEl || !sceneEl.camera || !A || !A.THREE || !worldPos) return null;
+
+    const width  = root.innerWidth  || 1;
+    const height = root.innerHeight || 1;
+
+    const v = new A.THREE.Vector3(worldPos.x, worldPos.y, worldPos.z);
+    v.project(sceneEl.camera);
+
+    return {
+      x: (v.x * 0.5 + 0.5) * width,
+      y: (-v.y * 0.5 + 0.5) * height
+    };
   }
 
-  // ----- คะแนนเด้ง + ข้อความตัดสิน (อยู่บรรทัดเดียวกัน เน้นใหญ่มาก) -----
-  function scorePop(x, y, value, opts) {
-    opts = opts || {};
-    const layer = ensureLayer();
-    const good = !!opts.good;
-    const judgment = String(opts.judgment || '').toUpperCase();
+  const Fx = {
+    scene: null,
 
-    const wrap = doc.createElement('div');
-    wrap.className = 'hha-fx-score';
+    // เรียกจาก GameEngine ตอนเริ่มเกม
+    init(sceneEl) {
+      this.scene = sceneEl;
+    },
 
-    // ข้อความหลัก: "คะแนน คำตัดสิน" เช่น "+150 PERFECT"
-    const parts = [];
-    if (value !== undefined && value !== null && value !== '') {
-      parts.push(String(value));
-    }
-    if (judgment) {
-      parts.push(judgment);
-    }
-    wrap.textContent = parts.join(' ');
+    /**
+     * ทำ FX แตกกระจายรอบ emoji เป้า
+     * @param {Object} worldPos {x,y,z} ใน world space
+     * @param {Object} [opts]   { good, scoreDelta, judgment }
+     *   - good: true = ของดี / perfect, false = ของไม่ดี
+     *   - scoreDelta: คะแนนที่อยากให้เด้งโชว์ เช่น "+40"
+     *   - judgment: ข้อความตัดสิน เช่น "GOOD" "PERFECT" "MISS"
+     */
+    burst(worldPos, opts) {
+      opts = opts || {};
+      if (!this.scene || !worldPos || !A) return;
 
-    Object.assign(wrap.style, {
-      position: 'absolute',
-      left: x + 'px',
-      top: y + 'px',
-      transform: 'translate(-50%, -50%) scale(0.85)',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: '24px',             // ใหญ่ขึ้นชัด ๆ
-      fontWeight: '800',
-      color: good ? '#bbf7d0' : '#fed7aa', // สีสว่างอ่านง่าย
-      textShadow: '0 0 30px rgba(0,0,0,0.95)',
-      padding: '6px 18px',
-      borderRadius: '999px',
-      background: good
-        ? 'linear-gradient(135deg, rgba(22,163,74,0.98), rgba(21,128,61,0.9))'
-        : 'linear-gradient(135deg, rgba(248,113,113,0.98), rgba(185,28,28,0.9))',
-      border: '2px solid rgba(248,250,252,0.85)',
-      boxShadow: '0 14px 40px rgba(15,23,42,0.95)',
-      whiteSpace: 'nowrap',
-      opacity: '0',
-      transition: 'transform 0.35s ease-out, opacity 0.35s ease-out',
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '8px',
-      letterSpacing: '.12em',
-      textTransform: 'uppercase'
-    });
+      const sceneEl = this.scene;
+      const good = (opts.good !== false); // ถ้าไม่ส่งมา ถือว่า good
 
-    layer.appendChild(wrap);
+      // ---------- 1) 3D shards รอบ emoji เป้า ----------
+      for (let i = 0; i < 12; i++) {
+        const p = document.createElement('a-sphere');
+        p.setAttribute('radius', '0.03');
+        p.setAttribute('color', good ? '#bbf7d0' : '#fed7aa'); // เขียวอ่อน / ส้มอ่อน
+        p.setAttribute('material', 'opacity: 1; transparent: true');
 
-    // trigger animation
-    requestAnimationFrame(function () {
-      wrap.style.transform = 'translate(-50%, -95%) scale(1.08)';
-      wrap.style.opacity = '1';
-    });
-    setTimeout(function () {
-      wrap.style.transform = 'translate(-50%, -130%) scale(0.98)';
-      wrap.style.opacity = '0';
-    }, 260);
+        const jx = (Math.random() - 0.5) * 0.4;
+        const jy = (Math.random() - 0.5) * 0.4;
+        const jz = (Math.random() - 0.5) * 0.4;
 
-    setTimeout(function () {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-    }, 520);
-  }
+        p.setAttribute(
+          'position',
+          `${worldPos.x} ${worldPos.y} ${worldPos.z}`
+        );
 
-  // ----- helper เล็ก ๆ -----
-  function rand(min, max) {
-    return min + Math.random() * (max - min);
-  }
+        p.setAttribute(
+          'animation__move',
+          `property: position; to: ${worldPos.x + jx} ${worldPos.y + jy} ${worldPos.z + jz}; dur: 420; easing: easeOutQuad`
+        );
+        p.setAttribute(
+          'animation__fade',
+          'property: material.opacity; to: 0; dur: 420; easing: linear'
+        );
 
-  // ----- เป้าแตกกระจาย (หนักมาก) -----
-  // opts: { color, good, count, radius }
-  function burstAt(x, y, opts) {
-    opts = opts || {};
-    const layer = ensureLayer();
-    const baseColor = opts.color || '#22c55e';
-    const good = !!opts.good;
+        sceneEl.appendChild(p);
 
-    // เพิ่มจำนวน/ระยะ ให้รู้สึกแตกแรงกว่าเดิม
-    const baseCount  = (typeof opts.count === 'number' && opts.count > 0)
-      ? opts.count
-      : (good ? 26 : 18);
-    const baseRadius = (typeof opts.radius === 'number' && opts.radius > 0)
-      ? opts.radius
-      : (good ? 90 : 70);
-
-    // เศษหลัก + shard ยาวพุ่งออกไป
-    for (let i = 0; i < baseCount; i++) {
-      const ang = (i / baseCount) * Math.PI * 2 + rand(-0.3, 0.3);
-      const distCore  = baseRadius * rand(0.45, 1.0);
-      const distShard = baseRadius * rand(0.8, 1.4);
-
-      // วงกลมสว่าง (core fragment)
-      spawnFrag(layer, x, y, ang, distCore, {
-        color: baseColor,
-        sizeMin: 8,
-        sizeMax: good ? 16 : 10,
-        lifeMin: 520,
-        lifeMax: 720,
-        blur: 10,
-        asShard: false
-      });
-
-      // shard ยาวแบบเส้นสปีด
-      spawnFrag(layer, x, y, ang, distShard, {
-        color: baseColor,
-        sizeMin: 4,
-        sizeMax: 7,
-        lifeMin: 540,
-        lifeMax: 760,
-        blur: 4,
-        asShard: true
-      });
-    }
-
-    // วงแหวนกระแทก 2 ชั้น
-    spawnRing(layer, x, y, baseColor, 52, 620, false);
-    spawnRing(layer, x, y, baseColor, 80, 720, true);
-
-    // flash ตรงกลาง “ตูม!” สั้น ๆ
-    spawnFlash(layer, x, y, baseColor);
-  }
-
-  function spawnFrag(layer, x, y, ang, dist, cfg) {
-    const el = doc.createElement('div');
-    el.className = 'hha-fx-dot';
-
-    const size = rand(cfg.sizeMin, cfg.sizeMax);
-    const life = rand(cfg.lifeMin, cfg.lifeMax);
-
-    const startLeft = x - size / 2;
-    const startTop  = y - size / 2;
-    el.style.position = 'absolute';
-    el.style.left = startLeft + 'px';
-    el.style.top  = startTop + 'px';
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
-    el.style.borderRadius = '999px';
-    el.style.opacity = '1';
-    el.style.pointerEvents = 'none';
-    el.style.boxShadow = '0 0 14px rgba(0,0,0,0.9)';
-    el.style.filter = cfg.blur ? ('blur(' + cfg.blur + 'px)') : 'none';
-
-    if (cfg.asShard) {
-      el.style.background =
-        'linear-gradient(90deg,' + cfg.color + ', rgba(15,23,42,0))';
-    } else {
-      el.style.background =
-        'radial-gradient(circle,' + cfg.color + ', rgba(15,23,42,0))';
-    }
-
-    const baseScale = cfg.asShard ? rand(1.4, 1.9) : rand(1.0, 1.4);
-    const angleDeg  = ang * 180 / Math.PI + (cfg.asShard ? rand(-18, 18) : rand(-35, 35));
-
-    el.style.transform =
-      'translate3d(0,0,0) scale(' + (baseScale * 0.5) + ') rotate(' + angleDeg + 'deg)';
-    el.style.transition =
-      'transform ' + life + 'ms cubic-bezier(0.18,0.88,0.3,1.2), ' +
-      'opacity ' + life + 'ms ease-out';
-
-    layer.appendChild(el);
-
-    const dx = Math.cos(ang) * dist;
-    const dy = Math.sin(ang) * dist;
-
-    requestAnimationFrame(function () {
-      el.style.transform =
-        'translate3d(' + dx + 'px,' + dy + 'px,0) ' +
-        'scale(' + (cfg.asShard ? baseScale * 1.9 : baseScale * 1.4) + ') ' +
-        'rotate(' + angleDeg + 'deg)';
-      el.style.opacity = '0';
-    });
-
-    setTimeout(function () {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, life + 80);
-  }
-
-  function spawnRing(layer, x, y, color, size, life, dashed) {
-    const el = doc.createElement('div');
-    el.className = 'hha-fx-ring';
-
-    const s = size || 56;
-    const L = life || 600;
-
-    el.style.position = 'absolute';
-    el.style.left = (x - s / 2) + 'px';
-    el.style.top  = (y - s / 2) + 'px';
-    el.style.width  = s + 'px';
-    el.style.height = s + 'px';
-    el.style.borderRadius = '999px';
-    el.style.border = (dashed ? '2px dashed ' : '2px solid ') + color;
-    el.style.boxShadow = '0 0 22px ' + color;
-    el.style.background = 'transparent';
-    el.style.opacity = '0.9';
-    el.style.pointerEvents = 'none';
-    el.style.transform = 'scale(0.4)';
-    el.style.transition =
-      'transform ' + L + 'ms ease-out, opacity ' + L + 'ms ease-out';
-
-    layer.appendChild(el);
-
-    requestAnimationFrame(function () {
-      el.style.transform = 'scale(1.8)';
-      el.style.opacity = '0';
-    });
-
-    setTimeout(function () {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, L + 80);
-  }
-
-  function spawnFlash(layer, x, y, color) {
-    const el = doc.createElement('div');
-    el.className = 'hha-fx-flash';
-
-    const s = 140;
-    const L = 260;
-
-    el.style.position = 'absolute';
-    el.style.left = (x - s / 2) + 'px';
-    el.style.top  = (y - s / 2) + 'px';
-    el.style.width  = s + 'px';
-    el.style.height = s + 'px';
-    el.style.pointerEvents = 'none';
-    el.style.borderRadius = '999px';
-    el.style.background =
-      'radial-gradient(circle, rgba(248,250,252,0.9), rgba(15,23,42,0))';
-    el.style.boxShadow = '0 0 40px ' + color;
-    el.style.opacity = '0';
-    el.style.transform = 'scale(0.4)';
-    el.style.transition =
-      'transform ' + L + 'ms ease-out, opacity ' + L + 'ms ease-out';
-
-    layer.appendChild(el);
-
-    requestAnimationFrame(function () {
-      el.style.opacity = '1';
-      el.style.transform = 'scale(1.1)';
-    });
-
-    setTimeout(function () {
-      el.style.opacity = '0';
-      el.style.transform = 'scale(1.4)';
-    }, L - 80);
-
-    setTimeout(function () {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, L + 100);
-  }
-
-  // ----- auto ผูกกับ hha:judge ให้ทุกเกมใช้ได้เลย -----
-  if (root && root.addEventListener) {
-    root.addEventListener('hha:judge', function (e) {
-      try {
-        const d = e.detail || {};
-        const label = String(d.label || '').toUpperCase();
-        if (!label) return;
-
-        const cx = root.innerWidth / 2;
-        const cy = root.innerHeight * 0.5;
-
-        let good = false;
-        let color = '#f97316';
-
-        if (label === 'GOOD' || label === 'PERFECT' || label === 'HIT') {
-          good = true;
-          color = '#22c55e';
-        } else if (label === 'FEVER') {
-          good = true;
-          color = '#facc15';
-        }
-
-        burstAt(cx, cy, { color: color, good: good });
-      } catch (err) {
-        if (root.console && console.warn) {
-          console.warn('[Particles] hha:judge handler error', err);
-        }
+        setTimeout(() => {
+          if (p.parentNode) p.parentNode.removeChild(p);
+        }, 500);
       }
-    });
-  }
 
-  // ----- Export API แบบ global -----
-  const api = { scorePop, burstAt };
-  root.Particles = api;
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = api;
-})(window);
+      // ---------- 2) DOM FX (คะแนนเด้ง + คำตัดสินตรง emoji) ----------
+      const screen = worldToScreen(sceneEl, worldPos);
+      if (!screen || !root.Particles) return;
+
+      const P = root.Particles;
+
+      // เป้าแตกแบบ 2D รอบ ๆ จุดที่ตี
+      if (typeof P.burstAt === 'function') {
+        P.burstAt(screen.x, screen.y, {
+          good: good
+        });
+      }
+
+      // คะแนนเด้ง + label ตัดสิน (GOOD / PERFECT / MISS ฯลฯ)
+      if (typeof P.scorePop === 'function') {
+        const scoreVal =
+          (opts.scoreDelta !== undefined && opts.scoreDelta !== null)
+            ? String(opts.scoreDelta)
+            : (good ? '+10' : ''); // default ถ้าไม่ได้ส่งมา
+
+        const judgment =
+          (opts.judgment && String(opts.judgment)) ||
+          (good ? 'GOOD' : 'MISS');
+
+        P.scorePop(screen.x, screen.y, scoreVal, {
+          judgment: judgment,
+          good: good
+        });
+      }
+    }
+  };
+
+  ns.foodGroupsFx = Fx;
+})(window.GAME_MODULES || (window.GAME_MODULES = {}), window);
