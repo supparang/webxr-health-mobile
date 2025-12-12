@@ -1,7 +1,8 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine
-// emoji-target + ขนาดตาม diff + 3D burst + 2D score FX + Fever + Quest
+// Food Groups VR — Game Engine (emoji target + diff size + 3D burst + 2D FX + Fever + Quest)
 // 2025-12-12
+
+import { emojiImage } from '../vr-goodjunk/emoji-image.js';
 
 'use strict';
 
@@ -10,18 +11,17 @@ if (!A) {
   console.error('[GroupsVR] AFRAME not found');
 }
 
-// 3D burst FX จาก aframe-particles.js (ลูกกลมพุ่งกระจาย)
 const GM = window.GAME_MODULES || {};
 const GroupsFx = GM.foodGroupsFx || null;
 
-// Fever UI จาก ui-fever.js (เหมือน GoodJunk / Hydration / Plate)
+// Fever UI จาก ui-fever.js
 const FeverGlobal = (window.HHA_FeverUI || window.FEVER_UI || {});
 const _ensureFeverBar = FeverGlobal.ensureFeverBar || window.ensureFeverBar || (()=>{});
 const _setFever       = FeverGlobal.setFever       || window.setFever       || (()=>{});
 const _setFeverActive = FeverGlobal.setFeverActive || window.setFeverActive || (()=>{});
 const _setShield      = FeverGlobal.setShield      || window.setShield      || (()=>{});
 
-// FX 2D กลางจอ (คะแนนเด้ง + เป้าแตก)
+// FX 2D กลางจอ
 const Particles = window.Particles || (GM.Particles || null);
 
 const FEVER_MAX = 100;
@@ -36,7 +36,7 @@ function randRange(min, max){
   return min + Math.random() * (max - min);
 }
 
-// ===== difficulty จาก hha-diff-table (ถ้ามี) =====
+// ===== difficulty =====
 function pickDifficulty(diffKey){
   diffKey = String(diffKey || 'normal').toLowerCase();
   if (GM.foodGroupsDifficulty && typeof GM.foodGroupsDifficulty.get === 'function'){
@@ -46,7 +46,7 @@ function pickDifficulty(diffKey){
     return {
       spawnInterval: 1400,
       lifeTime: 3200,
-      scale: 1.25,   // เป้าใหญ่สุด
+      scale: 1.25,
       maxActive: 4,
       goodRatio: 0.8
     };
@@ -55,12 +55,11 @@ function pickDifficulty(diffKey){
     return {
       spawnInterval: 900,
       lifeTime: 2200,
-      scale: 0.9,    // เป้าเล็กสุด
+      scale: 0.9,
       maxActive: 6,
       goodRatio: 0.65
     };
   }
-  // normal
   return {
     spawnInterval: 1200,
     lifeTime: 2600,
@@ -99,7 +98,7 @@ function randomFood(diff){
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// ===== Quest state ง่าย ๆ (2 goal + 3 mini) =====
+// ===== Quest state =====
 function createQuestState(){
   const goals = [
     { label:'เลือกอาหารให้ครบทั้ง 5 หมู่', target:15, prog:0, done:false },
@@ -201,15 +200,9 @@ function fireHitUi(scoreDelta, judgment, good){
   const x = window.innerWidth / 2;
   const y = window.innerHeight / 2;
   window.dispatchEvent(new CustomEvent('hha:hit-ui', {
-    detail:{
-      x, y,
-      scoreDelta,
-      judgment,
-      good: !!good
-    }
+    detail:{ x, y, scoreDelta, judgment, good: !!good }
   }));
 
-  // สำรอง: ถ้า listener ไม่ทำงาน เรียก API โดยตรง
   if (Particles && typeof Particles.burstAt === 'function'){
     Particles.burstAt(x, y, { good });
   }
@@ -228,7 +221,7 @@ function fireMissUi(judgment){
   }
 }
 
-// ===== GameEngine หลัก =====
+// ===== GameEngine =====
 class GroupsGameEngine {
   constructor(){
     this.scene   = null;
@@ -246,7 +239,7 @@ class GroupsGameEngine {
     this.feverActive = false;
 
     this.spawnTimer = null;
-    this.targets    = [];   // { el, food, good, timeoutId }
+    this.targets    = [];
 
     this.questState = createQuestState();
   }
@@ -361,7 +354,7 @@ class GroupsGameEngine {
     const z = randRange(-3.5, -2.0);
 
     const scale  = this.diff.scale || 1.0;
-    const radius = 0.28 * scale;   // easy > normal > hard
+    const radius = 0.28 * scale;
 
     const wrap = document.createElement('a-entity');
     wrap.setAttribute('class', 'fg-target');
@@ -369,7 +362,6 @@ class GroupsGameEngine {
     wrap.setAttribute('position', `${x} ${y} ${z}`);
     wrap.setAttribute('look-at', '#gj-camera');
 
-    // พื้นหลังวงกลม
     const bg = document.createElement('a-circle');
     bg.setAttribute('radius', radius.toString());
     bg.setAttribute(
@@ -380,31 +372,31 @@ class GroupsGameEngine {
     bg.setAttribute('data-hha-tgt', '1');
     wrap.appendChild(bg);
 
-    // emoji ตรงกลาง (ใช้ a-text แท้ ๆ เลย ไม่ต้องมี texture)
-    const txt = document.createElement('a-text');
-    txt.setAttribute('value', food.emoji || '🍎');
-    txt.setAttribute('align', 'center');
-    txt.setAttribute('color', '#ffffff');
-    txt.setAttribute('anchor', 'center');
-    txt.setAttribute('width', (1.8 * scale).toString());
-    txt.setAttribute('position', '0 0 0.03');
-    txt.setAttribute('data-hha-tgt', '1');
-    wrap.appendChild(txt);
+    // === emoji เป็นรูปภาพ ===
+    const img = document.createElement('a-image');
+    const srcUrl = emojiImage(food.emoji || '🍎') || '';
+    if (srcUrl) {
+      img.setAttribute('src', srcUrl);
+    }
+    img.setAttribute('width',  (radius * 2.0).toString());
+    img.setAttribute('height', (radius * 2.0).toString());
+    img.setAttribute('position', '0 0 0.03');
+    img.setAttribute('data-hha-tgt', '1');
+    img.setAttribute('material', 'transparent:true; alphaTest:0.01');
+    wrap.appendChild(img);
 
-    // effect เด้งเข้ามา
     wrap.setAttribute(
       'animation__pop',
       'property: scale; from: 0.4 0.4 0.4; to: 1 1 1; dur: 220; easing: easeOutBack'
     );
 
-    // click เป้า – ผูกทั้ง wrap / bg / txt ให้ยิงแน่ ๆ
     const onHit = (evt)=>{
       if (!this.running) return;
       this._onTargetHit(wrap, food, isGood, evt);
     };
     wrap.addEventListener('click', onHit);
     bg.addEventListener('click', onHit);
-    txt.addEventListener('click', onHit);
+    img.addEventListener('click', onHit);
 
     this.scene.appendChild(wrap);
 
@@ -462,7 +454,6 @@ class GroupsGameEngine {
     const actuallyGood = isGood;
     const correct = actuallyGood;
 
-    // ตำแหน่งในโลก สำหรับ 3D burst
     try {
       if (GroupsFx && typeof GroupsFx.burst === 'function'){
         let worldPos = null;
@@ -518,17 +509,11 @@ class GroupsGameEngine {
       window.dispatchEvent(new CustomEvent('hha:judge', {
         detail:{ label:'MISS' }
       }));
-      window.dispatchEvent(new CustomEvent('hha:miss', {
-        detail:{} }
-      ));
+      window.dispatchEvent(new CustomEvent('hha:miss', { detail:{} }));
     }
 
     window.dispatchEvent(new CustomEvent('hha:score', {
-      detail:{
-        score:  this.score,
-        combo:  this.combo,
-        misses: this.misses
-      }
+      detail:{ score:this.score, combo:this.combo, misses:this.misses }
     }));
   }
 
@@ -545,21 +530,15 @@ class GroupsGameEngine {
       window.dispatchEvent(new CustomEvent('hha:judge', {
         detail:{ label:'MISS' }
       }));
-      window.dispatchEvent(new CustomEvent('hha:miss', {
-        detail:{} }
-      ));
+      window.dispatchEvent(new CustomEvent('hha:miss', { detail:{} }));
       window.dispatchEvent(new CustomEvent('hha:score', {
-        detail:{
-          score:this.score,
-          combo:this.combo,
-          misses:this.misses
-        }
+        detail:{ score:this.score, combo:this.combo, misses:this.misses }
       }));
     }
   }
 }
 
-// ===== export ให้ groups-vr.html ใช้ =====
+// ===== export =====
 export const GameEngine = {
   _inst: null,
   start(diffKey){
