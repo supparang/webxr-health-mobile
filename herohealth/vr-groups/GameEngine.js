@@ -1,7 +1,7 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Game Engine (emoji plane + FX + quest)
 // เป้าเป็นวงกลม + emoji, มี Fever + FX + Quest
-// 2025-12-12 (fix: target face camera / side: double)
+// 2025-12-12 (fix: target always in front of camera)
 
 'use strict';
 
@@ -20,7 +20,6 @@ const _setFeverActive = FeverGlobal.setFeverActive || window.setFeverActive || (
 const _setShield      = FeverGlobal.setShield      || window.setShield      || (()=>{});
 
 const Particles = window.Particles || (GM.Particles || null);
-
 const FEVER_MAX = 100;
 
 // ---------- Utils ----------
@@ -98,7 +97,7 @@ function randomFood(diff){
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// ---------- Emoji texture generator ----------
+// ---------- Emoji texture ----------
 const EMOJI_CACHE = {};
 
 function emojiTextureUrl(char){
@@ -117,7 +116,6 @@ function emojiTextureUrl(char){
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffffff';
-
   ctx.fillText(char, size / 2, size * 0.56);
 
   const url = canvas.toDataURL('image/png');
@@ -215,14 +213,14 @@ function checkQuestProgress(qState, ctx){
   if (allGoalsDone && allMinisDone && !qState._allDoneFired){
     qState._allDoneFired = true;
     window.dispatchEvent(new CustomEvent('quest:all-complete', {
-      detail:{ goalsTotal:goals.length, minisTotal:mins.length }
+      detail:{ goalsTotal:goals.length, minisTotal:minis.length }
     }));
   }
 
   fireQuestUpdate(qState);
 }
 
-// ---------- FX 2D ----------
+// ---------- FX UI ----------
 function fireHitUi(scoreDelta, judgment, good){
   const x = window.innerWidth / 2;
   const y = window.innerHeight / 2;
@@ -250,7 +248,7 @@ function fireMissUi(judgment){
   }
 }
 
-// ---------- GameEngine ----------
+// ---------- Engine ----------
 class GroupsGameEngine {
   constructor(){
     this.scene   = null;
@@ -365,41 +363,44 @@ class GroupsGameEngine {
     this.targets.length = 0;
   }
 
+  // ===== จุด spawn เป้า (ปรับให้โผล่แน่ ๆ หน้าเด็ก) =====
   _spawnOne(){
     if (!this.scene || !this.running) return;
 
     const maxActive = this.diff.maxActive || 5;
     if (this.targets.length >= maxActive) return;
 
-    const food = randomFood(this.diff);
+    const food   = randomFood(this.diff);
     const isGood = !!food.good;
 
-    const x = randRange(-2.0, 2.0);
-    const y = randRange(1.2, 2.4);
-    const z = randRange(-3.5, -2.0);
+    // ตำแหน่งใหม่: อยู่ใน field of view เสมอ
+    const x = randRange(-0.9, 0.9);      // ซ้ายขวาเล็กน้อย
+    const y = randRange(1.3, 1.9);       // สูงประมาณระดับสายตา
+    const z = -3.0;                      // ตรงหน้ากล้อง
 
     const scale  = this.diff.scale || 1.0;
-    const radius = 0.28 * scale;
+    const radius = 0.35 * scale;
 
     const wrap = document.createElement('a-entity');
     wrap.setAttribute('class', 'fg-target');
     wrap.setAttribute('data-hha-tgt', '1');
     wrap.setAttribute('position', `${x} ${y} ${z}`);
-    // หมุนให้หันหน้าเข้ากล้อง
     wrap.setAttribute('rotation', '0 0 0');
+    wrap.setAttribute('visible', 'true');
 
-    // วงกลมพื้นหลัง (side: double)
+    // วงกลมพื้นหลัง (ดี = เขียว, ไม่ดี = ส้ม)
     const bg = document.createElement('a-circle');
     bg.setAttribute('radius', radius.toString());
     bg.setAttribute(
       'material',
-      `shader: flat; side: double; color: ${isGood ? '#065f46' : '#7f1d1d'}; opacity: 0.96; transparent: true`
+      `shader: flat; side: double; color: ${isGood ? '#22c55e' : '#f97316'}; opacity: 0.95; transparent: true`
     );
     bg.setAttribute('rotation', '0 0 0');
     bg.setAttribute('data-hha-tgt', '1');
+    bg.setAttribute('visible', 'true');
     wrap.appendChild(bg);
 
-    // emoji plane (side: double)
+    // emoji plane
     const emojiUrl = emojiTextureUrl(food.emoji);
     const plane = document.createElement('a-plane');
     plane.setAttribute('width',  (radius * 1.6).toString());
@@ -410,6 +411,7 @@ class GroupsGameEngine {
     );
     plane.setAttribute('position', '0 0 0.02');
     plane.setAttribute('data-hha-tgt', '1');
+    plane.setAttribute('visible', 'true');
     wrap.appendChild(plane);
 
     const onHit = (evt)=> {
