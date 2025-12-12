@@ -149,14 +149,23 @@ export async function boot (cfg = {}) {
   let goalCleared = 0; // 0–2
   let miniCleared = 0; // 0–3
 
-  // ใช้ให้ HUD รู้ว่าทำถึงไหนแล้ว
+  // meta ล่าสุดที่ HUD ใช้อยู่ (ให้ finish() ใช้อันเดียวกัน)
+  let lastMeta = {
+    goalsCleared: 0,
+    goalsTarget: GOAL_TARGET,
+    minisCleared: 0,
+    minisTarget: MINI_TARGET
+  };
+
+  // ใช้ให้ HUD รู้ว่าทำถึงไหนแล้ว + เก็บลง lastMeta
   function questMeta () {
-    return {
+    lastMeta = {
       goalsCleared: goalCleared,
       goalsTarget: GOAL_TARGET,
       minisCleared: miniCleared,
       minisTarget: MINI_TARGET
     };
+    return lastMeta;
   }
 
   // ---------- state หลักของเกม ----------
@@ -247,7 +256,7 @@ export async function boot (cfg = {}) {
           timeSec: elapsedSec,
           waterPct,
           waterZone,
-          ...questMeta(),
+          ...questMeta(),   // ← ใช้และอัปเดต lastMeta ทุกครั้ง
           ...extra
         }
       }));
@@ -458,7 +467,7 @@ export async function boot (cfg = {}) {
   // ======================================================
   let ended = false;
 
-  function recomputeQuestFromDeck () {
+  function checkQuestCompletion () {
     if (!deck || typeof deck.getProgress !== 'function') return;
 
     const goals = deck.getProgress('goals') || [];
@@ -467,15 +476,11 @@ export async function boot (cfg = {}) {
     const rawGoalDone = goals.filter(g => g && g.done).length;
     const rawMiniDone = minis.filter(m => m && m.done).length;
 
-    goalCleared = Math.min(GOAL_TARGET, rawGoalDone);
-    miniCleared = Math.min(MINI_TARGET, rawMiniDone);
-  }
-
-  function checkQuestCompletion () {
-    recomputeQuestFromDeck();
-
     const prevGoal = goalCleared;
     const prevMini = miniCleared;
+
+    goalCleared = Math.min(GOAL_TARGET, rawGoalDone);
+    miniCleared = Math.min(MINI_TARGET, rawMiniDone);
 
     // เคลียร์ goal ใหม่
     if (goalCleared > prevGoal) {
@@ -495,6 +500,12 @@ export async function boot (cfg = {}) {
         }));
       } catch {}
       coach(`Mini quest สำเร็จแล้ว ${miniCleared}/${MINI_TARGET} ⭐`, 3500);
+    }
+
+    // รีเฟรช HUD ถ้ามีความคืบหน้า
+    if (goalCleared !== prevGoal || miniCleared !== prevMini) {
+      pushQuest();
+      pushHudScore();
     }
 
     // ทำครบทุกภารกิจ → จบเกมได้เลย
@@ -546,21 +557,17 @@ export async function boot (cfg = {}) {
   // ======================================================
   function finish (durationSec, reason = 'time-up') {
     if (ended) return;
-
-    // ✅ ดึงผลภารกิจล่าสุดจาก deck อีกครั้งก่อนสรุป
-    recomputeQuestFromDeck();
-
     ended = true;
 
     const greenTick    = deck.stats.greenTick | 0;
     const waterEnd     = waterPct;
     const waterZoneEnd = zoneFrom(waterPct);
 
-    const goalsTotal = GOAL_TARGET;
-    const minisTotal = MINI_TARGET;
-
-    const goalsDone = goalCleared;
-    const minisDone = miniCleared;
+    // ใช้ค่าล่าสุดจาก meta ที่ HUD ใช้อยู่
+    const goalsDone  = Math.min(lastMeta.goalsCleared, GOAL_TARGET);
+    const minisDone  = Math.min(lastMeta.minisCleared, MINI_TARGET);
+    const goalsTotal = lastMeta.goalsTarget || GOAL_TARGET;
+    const minisTotal = lastMeta.minisTarget || MINI_TARGET;
 
     try {
       ROOT.dispatchEvent(new CustomEvent('hha:end', {
@@ -574,7 +581,7 @@ export async function boot (cfg = {}) {
           duration: durationSec,
           greenTick,
 
-          // สรุปภารกิจหลัก / mini quest ให้ตรงดีไซน์ 2 + 3
+          // สรุปภารกิจหลัก / mini quest ให้ตรงกับ HUD เสมอ
           goalCleared: goalsDone >= goalsTotal,
           goalsCleared: goalsDone,
           goalsTotal: goalsTotal,
