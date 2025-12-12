@@ -1,5 +1,5 @@
 // === /herohealth/vr/particles.js ===
-// Simple FX layer: score pop + judgment text + target burst (โคตรแตกกระจาย)
+// Simple FX layer: score pop + judgment text + target burst (โคตรแตกกระจาย + ตัวหนังสือเด่นชัด)
 // ใช้ได้กับทุกเกม HeroHealth (GoodJunkVR, Hydration, Plate, Groups ฯลฯ)
 
 (function (root) {
@@ -25,7 +25,7 @@
     return layer;
   }
 
-  // ----- คะแนนเด้ง + ข้อความตัดสิน (อยู่บรรทัดเดียวกัน) -----
+  // ----- คะแนนเด้ง + ข้อความตัดสิน (อยู่บรรทัดเดียวกัน เน้นใหญ่มาก) -----
   function scorePop(x, y, value, opts) {
     opts = opts || {};
     const layer = ensureLayer();
@@ -49,34 +49,38 @@
       position: 'absolute',
       left: x + 'px',
       top: y + 'px',
-      transform: 'translate(-50%, -50%) scale(0.9)',
+      transform: 'translate(-50%, -50%) scale(0.85)',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: '18px',
-      fontWeight: '700',
-      color: good ? '#4ade80' : '#f97316',
-      textShadow: '0 0 14px rgba(0,0,0,0.85)',
-      padding: '4px 10px',
+      fontSize: '24px',             // ใหญ่ขึ้นชัด ๆ
+      fontWeight: '800',
+      color: good ? '#bbf7d0' : '#fed7aa', // สีสว่างอ่านง่าย
+      textShadow: '0 0 30px rgba(0,0,0,0.95)',
+      padding: '6px 18px',
       borderRadius: '999px',
-      background: 'rgba(15,23,42,0.95)',
-      border: '1px solid rgba(148,163,184,0.35)',
+      background: good
+        ? 'linear-gradient(135deg, rgba(22,163,74,0.98), rgba(21,128,61,0.9))'
+        : 'linear-gradient(135deg, rgba(248,113,113,0.98), rgba(185,28,28,0.9))',
+      border: '2px solid rgba(248,250,252,0.85)',
+      boxShadow: '0 14px 40px rgba(15,23,42,0.95)',
       whiteSpace: 'nowrap',
       opacity: '0',
-      transition: 'transform 0.45s ease-out, opacity 0.45s ease-out',
+      transition: 'transform 0.35s ease-out, opacity 0.35s ease-out',
       display: 'inline-flex',
       alignItems: 'center',
-      gap: '6px',
-      letterSpacing: '.04em'
+      gap: '8px',
+      letterSpacing: '.12em',
+      textTransform: 'uppercase'
     });
 
     layer.appendChild(wrap);
 
     // trigger animation
     requestAnimationFrame(function () {
-      wrap.style.transform = 'translate(-50%, -90%) scale(1.08)';
+      wrap.style.transform = 'translate(-50%, -95%) scale(1.08)';
       wrap.style.opacity = '1';
     });
     setTimeout(function () {
-      wrap.style.transform = 'translate(-50%, -120%) scale(0.96)';
+      wrap.style.transform = 'translate(-50%, -130%) scale(0.98)';
       wrap.style.opacity = '0';
     }, 260);
 
