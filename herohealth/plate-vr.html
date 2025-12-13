@@ -122,9 +122,7 @@
         <div class="quest-label">Mini Quest</div>
         <div class="quest-text" id="quest-mini">เก็บผักและผลไม้ให้ครบโควตา</div>
       </div>
-      <div class="quest-hint" id="quest-hint">
-        <!-- จะถูกเขียนใหม่จากสคริปต์: progress + quota ทีละบรรทัด -->
-      </div>
+      <div class="quest-hint" id="quest-hint"></div>
     </div>
   </div>
 
@@ -223,41 +221,37 @@
 <!-- ===== Logic ฝั่งหน้า plate-vr ===== -->
 <script type="module">
   import { boot as bootPlate } from './plate/plate.safe.js';
+  import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
   // ------- อ่านค่าจาก URL -------
   const url = new URL(window.location.href);
   const diffParam = (url.searchParams.get('diff') || 'easy').toLowerCase();
-  const runParam  = (url.searchParams.get('run')  || 'play').toLowerCase();
-
   let duration = parseInt(url.searchParams.get('time') || '60', 10);
   if (!Number.isFinite(duration) || duration <= 0) duration = 60;
   if (duration < 20) duration = 20;
   if (duration > 180) duration = 180;
 
-  // เก็บ run mode ไว้ให้ logger / เกมอื่นใช้ร่วมกัน
+  const runParam = (url.searchParams.get('run') || 'play').toLowerCase();
+
+  // เก็บ runMode ลง sessionStorage เผื่อ logger หรือเกมอื่นใช้ร่วม
   try {
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem('HHA_RUN_MODE', runParam); // 'play' | 'research'
-    }
-  } catch (err) {
-    console.warn('[PlateVR] cannot save HHA_RUN_MODE:', err);
-  }
+    sessionStorage.setItem('HHA_RUN_MODE', runParam);
+  } catch {}
 
-  // ------- ถ้าเป็นโหมดวิจัย บังคับให้ต้องมีโปรไฟล์จาก Hub ก่อน -------
-  function ensureProfileForResearch() {
-    if (runParam !== 'research') return;
-    try {
-      const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
-      if (!raw) {
-        alert('โหมดวิจัยต้องกรอกโปรไฟล์นักเรียนจาก Hub ก่อนนะ ✏️\nระบบจะพากลับไปหน้า Hub');
-        window.location.href = './hub.html';
-      }
-    } catch (err) {
-      console.warn('[PlateVR] profile check error:', err);
-    }
-  }
+  // ===== Init Cloud Logger สำหรับ Plate VR =====
+  // ★ เปลี่ยน LOGGER_ENDPOINT ให้ตรงกับ WebApp ของคุณ
+  const LOGGER_ENDPOINT =
+    'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
 
-  ensureProfileForResearch();
+  initCloudLogger({
+    endpoint: LOGGER_ENDPOINT,
+    projectTag: 'HeroHealth-PlateVR',
+    mode: 'Balanced Plate VR',
+    runMode: runParam,     // play | research
+    diff: diffParam,
+    durationSec: duration,
+    debug: false
+  });
 
   // ------- DOM refs HUD -------
   const elDiff    = document.getElementById('hud-diff');
@@ -324,7 +318,6 @@
   const sceneEl   = document.querySelector('a-scene');
   const gazeEl    = document.getElementById('gaze-reticle');
 
-  // แปลง diff เป็น label ภาษาไทย
   function diffLabel(d){
     if (d === 'easy') return 'ง่าย';
     if (d === 'hard') return 'ยาก';
@@ -385,7 +378,7 @@
     if (toastTextEl) toastTextEl.textContent = text || '';
     if (toastTagEl)  toastTagEl.textContent  = progressText || '';
 
-    void toastEl.offsetWidth; // reflow สำหรับ animation
+    void toastEl.offsetWidth;
     toastEl.classList.add('show');
 
     if (toastTimer) clearTimeout(toastTimer);
@@ -407,12 +400,10 @@
 
   function tick(){
     if (endedByEvent) return;
-    // ส่ง event ให้ engine
     window.dispatchEvent(new CustomEvent('hha:time', {
       detail:{ sec: secLeft }
     }));
 
-    // อัปเดต HUD
     elTime.textContent = Math.max(secLeft, 0);
 
     secLeft -= 1;
@@ -423,7 +414,7 @@
   }
 
   timerId = setInterval(tick, 1000);
-  tick(); // ยิงครั้งแรกทันที
+  tick();
 
   // ------- HUD realtime จาก hha:stat -------
   window.addEventListener('hha:stat', (e) => {
@@ -445,16 +436,14 @@
       elG5.textContent = g5;
     }
 
-    // ปรับ hint quota ตาม plateCounts ปัจจุบัน
     updateQuestHint(lastHintHeader);
 
-    // ถ้า engine แจ้ง allCleared ผ่าน stat (กันกรณี event ตกหล่น)
     if (d.allCleared && !allClearedShown) {
       showMegaCelebration();
     }
   });
 
-  // ------- Quest realtime / progress per batch -------
+  // ------- Quest realtime -------
   window.addEventListener('quest:update', (e) => {
     const d = e.detail || {};
     const goal = d.goal || {};
@@ -479,7 +468,7 @@
     updateQuestHint(lastHintHeader);
   });
 
-  // ------- Toast ฉลองภารกิจจาก quest:cleared -------
+  // ------- Toast จาก quest:cleared -------
   window.addEventListener('quest:cleared', (e) => {
     const d = e.detail || {};
     const cleared = d.cleared || [];
@@ -500,7 +489,6 @@
     );
   });
 
-  // ------- Mega celebration จาก engine -------
   window.addEventListener('hha:all-cleared', () => {
     showMegaCelebration();
   });
@@ -530,11 +518,11 @@
       timerId = null;
     }
 
-    // จบเกมแล้วไม่ให้เป้าโผล่อีก
     document.body.classList.add('hha-game-ended');
 
     elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
-    elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
+    elSumSub.textContent   =
+      `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
     elSumDiff.textContent  = `ระดับ ${diffLabel(d.difficulty || diffParam)}`;
 
     elSumScore.textContent  = d.score ?? 0;
@@ -561,12 +549,9 @@
   // ------- ปุ่มเล่นอีกรอบ / กลับ Hub -------
   btnRestart.addEventListener('click', () => {
     const base = window.location.pathname.split('/').pop() || 'plate-vr.html';
-    const params = new URLSearchParams();
-    params.set('diff', diffParam);
-    params.set('time', String(duration));
-    params.set('run',  runParam);   // คง run เดิม (play / research)
-
-    window.location.href = `${base}?${params.toString()}`;
+    const search =
+      `?diff=${encodeURIComponent(diffParam)}&time=${encodeURIComponent(duration)}&run=${encodeURIComponent(runParam)}`;
+    window.location.href = base + search;
   });
 
   btnToHub.addEventListener('click', () => {
@@ -580,8 +565,8 @@
 
   let isVrMode = false;
 
-  const GAZE_RADIUS = 70;     // ระยะจากจุดกลางที่ถือว่าเล็งโดน (px)
-  const FUSE_MS     = 1100;   // เวลาจ้องเพื่อยิงอัตโนมัติ (ms)
+  const GAZE_RADIUS = 70;
+  const FUSE_MS     = 1100;
 
   let gazeTimerId   = null;
   let gazeTarget    = null;
@@ -679,7 +664,6 @@
     });
   }
 
-  // pointer / key → ยิงเป้าที่จ้อง (เฉพาะตอนอยู่ใน VR)
   function handlePointerDownForGaze(ev) {
     if (!isVrMode) return;
 
