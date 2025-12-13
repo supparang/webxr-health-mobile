@@ -108,7 +108,7 @@ function emitStat (state, extra = {}) {
   } catch {}
 }
 
-// ===== Target creation (เพิ่ม clickable + multi-input) =====
+// ===== Target creation (★ ใส่ data-hha-tgt ให้ตรงกับ raycaster) =====
 function createTargetEntity (scene, spawn, onHit, onExpire) {
   if (!scene || !spawn) return null;
 
@@ -119,7 +119,8 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
 
   // 2) ใช้ <a-image> ธรรมดา (ไม่ใช้ shader แปลก ๆ)
   const el = document.createElement('a-image');
-  el.classList.add('groups-target', 'clickable');  // ★ สำคัญ: ให้ raycaster เห็น
+  el.classList.add('groups-target');       // class ไว้เผื่อ stylé
+  el.setAttribute('data-hha-tgt', '1');    // ★ สำคัญ: ให้ raycaster "objects: [data-hha-tgt]" มองเห็น
 
   const x = spawn.pos.x;
   const y = spawn.pos.y;
@@ -132,7 +133,7 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
   el.setAttribute('transparent', 'true');
   el.setAttribute('side', 'double');
 
-  // ให้ raycaster เล็งได้
+  // ข้อมูลประกอบ
   el.dataset.emoji   = spawn.emoji;
   el.dataset.isGood  = spawn.isGood ? '1' : '0';
   el.dataset.groupId = String(spawn.gId || 0);
@@ -141,10 +142,9 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
   el.__groupsHit = false;
 
   const triggerHit = (ev) => {
-    // กัน tap ซ้ำจาก click + touchstart
-    if (el.__groupsHit) return;
+    if (el.__groupsHit) return;       // กันคลิกซ้ำ
     el.__groupsHit = true;
-    // ไม่ต้องให้ event ฟองขึ้นไปชน UI อื่น
+
     if (ev && ev.stopPropagation) ev.stopPropagation();
     if (ev && ev.preventDefault) ev.preventDefault();
 
@@ -153,14 +153,13 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
   };
 
   // รองรับทั้ง mouse / touch / VR cursor
-  el.addEventListener('click', triggerHit);
-  el.addEventListener('mousedown', triggerHit);
+  el.addEventListener('click',      triggerHit);
+  el.addEventListener('mousedown',  triggerHit);
   el.addEventListener('touchstart', triggerHit, { passive: false });
 
   // ตั้งเวลาให้หมดอายุเอง ถ้าไม่ได้ยิง
   const life = spawn.lifetime || 2200;
   const timeout = setTimeout(() => {
-    // ถ้ายิงไปแล้ว ไม่ต้อง expire ซ้ำ
     if (!el.__groupsHit) {
       onExpire && onExpire(spawn, el);
     }
@@ -249,7 +248,7 @@ export async function startEngine (opts = {}) {
     if (delta > 0) {
       state.score += delta;
       state.combo += 1;
-      state.comboMax = Math.max(state.comboMax, state.combo); // ✅ ใช้ combo จริง
+      state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(diffCfg.feverGainHit || 7);
     } else {
       state.score = Math.max(0, state.score + delta);
