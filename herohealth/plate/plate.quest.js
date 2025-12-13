@@ -2,6 +2,7 @@
 // Quest deck สำหรับ Balanced Plate VR
 // - เลือก Goal ครั้งละ 2 ภารกิจ (ต่อเกมมี 2 เควสต์หลัก)
 // - เลือก Mini Quest ครั้งละ 3 ภารกิจ (ต่อเกมมี 3 เควสต์ย่อย)
+// - ไม่มีการ re-draw ภารกิจชุดใหม่อีก
 // - มี measure() สำหรับคำนวณ progress ของแต่ละภารกิจ
 
 'use strict';
@@ -374,6 +375,9 @@ export function createPlateQuest(diffKey = 'normal') {
     stats,
     goals: [],
     minis: [],
+    _allClearedFired: false,
+    // engine สามารถตั้ง callback นี้ได้: deck.onAllCleared = () => {...}
+    onAllCleared: null,
 
     // เลือก Goal ครั้งละ 2 ภารกิจ จาก pool ตามระดับ (ต่อเกม)
     drawGoals(n = 2) {
@@ -446,18 +450,59 @@ export function createPlateQuest(diffKey = 'normal') {
         }
       }
 
+      const goals = this.goals;
+      const minis = this.minis;
+
+      const gDone  = goals.filter(q => q && q.done).length;
+      const gTotal = goals.length || 0;
+      const mDone  = minis.filter(q => q && q.done).length;
+      const mTotal = minis.length || 0;
+
       // ถ้ามีภารกิจสำเร็จ แจ้ง HUD / coach ผ่าน event กลาง
       if (cleared.length && typeof window !== 'undefined') {
         try {
           window.dispatchEvent(new CustomEvent('quest:cleared', {
             detail: {
               cleared,
-              goals: this.goals,
-              minis: this.minis
+              goals,
+              minis
             }
           }));
         } catch (err) {
           console.warn('[PlateQuest] quest:cleared dispatch error', err);
+        }
+      }
+
+      // เคลียร์ครบทุก Goal + Mini → ยิง hha:all-cleared + callback ไป engine
+      const allCleared =
+        gTotal > 0 &&
+        mTotal > 0 &&
+        gDone === gTotal &&
+        mDone === mTotal;
+
+      if (allCleared && !this._allClearedFired) {
+        this._allClearedFired = true;
+
+        if (typeof window !== 'undefined') {
+          try {
+            window.dispatchEvent(new CustomEvent('hha:all-cleared', {
+              detail: {
+                mode: 'Balanced Plate',
+                goals,
+                minis
+              }
+            }));
+          } catch (err) {
+            console.warn('[PlateQuest] hha:all-cleared dispatch error', err);
+          }
+        }
+
+        if (typeof this.onAllCleared === 'function') {
+          try {
+            this.onAllCleared({ goals, minis });
+          } catch (err) {
+            console.warn('[PlateQuest] onAllCleared callback error', err);
+          }
         }
       }
     }
