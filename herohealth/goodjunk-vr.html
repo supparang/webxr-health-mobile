@@ -887,7 +887,7 @@
       elCountdown.classList.remove('countdown-hidden');
       elCountdown.textContent = steps[0];
 
-      const interval = 800;
+      const interval = 800; // ms ต่อ step
       const t = setInterval(function(){
         idx++;
         if (idx >= steps.length){
@@ -900,6 +900,7 @@
       }, interval);
     }
 
+    // HUD: เวลา
     window.addEventListener('hha:time', function(e){
       const d = e.detail || {};
       const sec = (d.sec | 0);
@@ -907,6 +908,7 @@
       elTime.textContent = sec + 's';
     });
 
+    // === ฟังก์ชันคำนวณเกรด (ใช้ทั้ง HUD real-time + summary) ===
     function computeGrade(score, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
       const allGoalDone = (goalsTotal > 0 && goalsCleared >= goalsTotal);
       const allMiniDone = (miniTotal > 0 && miniCleared >= miniTotal);
@@ -950,6 +952,7 @@
       elGradeBar.dataset.grade = grade;
     }
 
+    // ===== ฉลองแต่ละภารกิจ (เล็ก) =====
     function getParticlesAPI(){
       const gm = window.GAME_MODULES || {};
       return gm.Particles || window.Particles || null;
@@ -967,7 +970,7 @@
         });
       }
       if (P && P.scorePop){
-        const label = (kind === 'goal')
+        var label = (kind === 'goal')
           ? ('Goal ' + cleared + '/' + total)
           : ('Mini ' + cleared + '/' + total);
         P.scorePop(cx, y, 'MISSION CLEAR!', {
@@ -978,6 +981,7 @@
       pulseCoachCelebrate();
     }
 
+    // ===== ฉลองใหญ่ทั้งหมดก่อนหน้าสรุป =====
     function bigCelebrateAllQuests(callback){
       if (!elBigCelebrate){
         if (typeof callback === 'function') callback();
@@ -1018,6 +1022,7 @@
       }, 1400);
     }
 
+    // HUD: Quest
     window.addEventListener('quest:update', function(e){
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -1074,6 +1079,7 @@
       updateRealtimeGrade();
     });
 
+    // HUD: Coach (ข้อความอย่างเดียว)
     window.addEventListener('hha:coach', function(e){
       const d = e.detail || {};
       const text = d.text || '';
@@ -1082,6 +1088,7 @@
       }
     });
 
+    // HUD: คะแนน / คอมโบ / miss
     window.addEventListener('hha:score', function(e){
       const d = e.detail || {};
       if (typeof d.score === 'number') {
@@ -1110,6 +1117,7 @@
       updateRealtimeGrade(d.score);
     });
 
+    // HUD: Miss event
     window.addEventListener('hha:miss', function(){
       hudMissCount += 1;
       elMiss.textContent = hudMissCount;
@@ -1118,6 +1126,7 @@
       updateRealtimeGrade();
     });
 
+    // HUD: Fever state
     window.addEventListener('hha:fever', function(e){
       const d  = e.detail || {};
       const st = d.state ? d.state : 'change';
@@ -1147,6 +1156,7 @@
       setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
     }
 
+    // HUD: End summary + big celebration
     window.addEventListener('hha:end', function(e){
       const d = e.detail || {};
       const rawScore  = (typeof d.scoreFinal === 'number') ? d.scoreFinal : d.score;
@@ -1175,6 +1185,7 @@
       }
     });
 
+    // HUD: Judge text
     window.addEventListener('hha:judge', function(e) {
       const d = e.detail || {};
       const label = d.label || '';
@@ -1182,6 +1193,7 @@
       elJudge.textContent = label || '';
     });
 
+    // Touch-look (มือถือหมุนมุมมอง)
     function initTouchLook(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
@@ -1196,6 +1208,7 @@
       });
     }
 
+    // ปุ่มเข้า VR
     function initVRButton(){
       if (!btnVR) return;
       const scene = document.querySelector('a-scene');
@@ -1214,9 +1227,11 @@
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
-      // แชร์โหมดการเล่นให้ GameEngine / logger
-    window.HHA_RUNMODE = runMode;
 
+      // ★ บอก GameEngine ว่าโหมดไหน (play / research)
+      window.HHA_RUNMODE = runMode;
+
+      // เวลาเล่นตามระดับยากง่าย (override time param)
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
       else if (diff === 'hard') baseDur = 45;
@@ -1230,6 +1245,7 @@
         }
       }
 
+      // HUD update
       elDiff.textContent = diff.toUpperCase();
       elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
 
@@ -1240,6 +1256,7 @@
       elTime.textContent  = dur + 's';
       hudMissCount = 0;
 
+      // init grade hud
       hudGoalsTotal   = 0;
       hudGoalsCleared = 0;
       hudMiniTotal    = 0;
@@ -1253,6 +1270,7 @@
       setCoachFace('neutral');
       setCoach('แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ');
 
+      // อ่าน studentProfile จาก sessionStorage (ตั้งจาก Hub)
       let studentProfile = null;
       let studentKey = null;
       try{
@@ -1265,6 +1283,7 @@
         console.warn('[GoodJunkVR] cannot parse student profile:', err);
       }
 
+      // cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
@@ -1274,13 +1293,14 @@
         durationSec: dur,
         studentKey: studentKey,
         profile: studentProfile,
-        debug: false
+        debug: false  // production
       });
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
       initVRButton();
 
+      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา
       runCountdown(function(){
         GameEngine.start(diff);
 
@@ -1301,6 +1321,7 @@
         timerId = setInterval(tickTime, 1000);
       });
 
+      // ปุ่มหน้าสรุป
       if (btnReplay) {
         btnReplay.addEventListener('click', function(){
           window.location.reload();
@@ -1323,6 +1344,5 @@
       });
     });
   </script>
-
 </body>
 </html>
