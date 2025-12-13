@@ -98,17 +98,17 @@ function emitStat (state, extra = {}) {
         fever: state.fever,
         feverActive: state.feverActive,
         // Quest
-        goalsCleared: q.clearedGoals || 0,
-        goalsTotal:   q.totalGoals   || 0,
-        questsCleared: q.clearedMinis || 0,
-        questsTotal:   q.totalMinis   || 0,
+        goalsCleared:  q.clearedGoals  || 0,
+        goalsTotal:    q.totalGoals    || 0,
+        questsCleared: q.clearedMinis  || 0,
+        questsTotal:   q.totalMinis    || 0,
         ...extra
       }
     }));
   } catch {}
 }
 
-// ===== Target creation (จุดสำคัญ: ไม่ใช้ shader แปลก ๆ แล้ว) =====
+// ===== Target creation (ไม่ใช้ shader แปลก ๆ แล้ว) =====
 function createTargetEntity (scene, spawn, onHit, onExpire) {
   if (!scene || !spawn) return null;
 
@@ -117,7 +117,7 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
   // 1) สร้าง texture จาก emoji เป็น data URL
   const texUrl = emojiImage(spawn.emoji, { size: 256 });
 
-  // 2) ใช้ <a-image> ธรรมดา ไม่ระบุ shader → A-Frame จะใช้ 'flat' ให้อัตโนมัติ
+  // 2) ใช้ <a-image> ธรรมดา (shader จะเป็น 'flat' ให้เอง)
   const el = document.createElement('a-image');
   el.classList.add('groups-target');
 
@@ -132,10 +132,9 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
   el.setAttribute('transparent', 'true');
   el.setAttribute('side', 'double');
 
-  // ให้ cursor / raycaster ยิงโดนเฉพาะ class นี้
-  // (ใน groups-vr.html ควรมี raycaster="objects: .groups-target")
-  el.dataset.emoji  = spawn.emoji;
-  el.dataset.isGood = spawn.isGood ? '1' : '0';
+  // ให้ raycaster เล็งได้
+  el.dataset.emoji   = spawn.emoji;
+  el.dataset.isGood  = spawn.isGood ? '1' : '0';
   el.dataset.groupId = String(spawn.gId || 0);
 
   // เอฟเฟกต์ลอยเบา ๆ
@@ -159,9 +158,7 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
     } catch {}
   }, life);
 
-  // cleanup helper
   el.__groupsTimeout = timeout;
-
   scene.appendChild(el);
   return el;
 }
@@ -231,7 +228,6 @@ export async function startEngine (opts = {}) {
   }
 
   function loseFever (delta) {
-    // เวลาพลาด / ปล่อยเป้าหลุด
     const d = state.feverActive ? delta * 1.5 : delta;
     setFeverValue(state.fever - d);
   }
@@ -245,7 +241,7 @@ export async function startEngine (opts = {}) {
     if (delta > 0) {
       state.score += delta;
       state.combo += 1;
-      state.comboMax = Math.max(state.comboMax, state.combo);
+      state.comboMax = Math.max(state.comboMax, state.comboMax);
       addFever(diffCfg.feverGainHit || 7);
     } else {
       state.score = Math.max(0, state.score + delta);
@@ -262,23 +258,20 @@ export async function startEngine (opts = {}) {
       refreshQuestSummary();
     }
 
-    // HUD / logger
     emitStat(state);
   }
 
   function handleHit (spawn, el) {
-    // ลบ object ออกจากฉาก
     if (el && el.parentNode) {
       if (el.__groupsTimeout) clearTimeout(el.__groupsTimeout);
       try { el.parentNode.removeChild(el); } catch {}
     }
 
-    const grp = spawn.gId || 0;
     const perfect = state.feverActive || state.combo >= 8;
 
     if (spawn.isGood) {
       scoreHit(spawn, perfect);
-      if (perfect) coach('สุดยอด! เก็บอาหารดีแบบต่อเนื่องเลย 🎯', 2500);
+      if (perfect) coach('สุดยอด! เก็บอาหารดีต่อเนื่องเลย 🎯', 2500);
     } else {
       scoreHit(spawn, false);
       coach('ลองเลี่ยงของทอดและของหวาน ดูที่อาหารหลัก 5 หมู่แทน 🍚🥦🍎🥛', 3500);
@@ -289,16 +282,15 @@ export async function startEngine (opts = {}) {
     if (el && el.parentNode) {
       try { el.parentNode.removeChild(el); } catch {}
     }
-    // ปล่อยหลุด: ไม่ถือว่าพลาด แต่ลด fever เล็กน้อย
+    // ปล่อยหลุด: ลด fever เล็กน้อย
     loseFever(6);
     emitStat(state);
   }
 
-  // lane ตำแหน่ง x ให้เป้าเกิด
   const LANES = [-1.2, -0.4, 0.4, 1.2];
 
   function makeSpawn () {
-    const isGood = Math.random() < 0.7; // 70% เป็นอาหารดี
+    const isGood = Math.random() < 0.7;
     const emoji = isGood ? randomOf(GOOD) : randomOf(BAD);
     const gId   = isGood ? foodGroup(emoji) : 0;
 
@@ -320,7 +312,6 @@ export async function startEngine (opts = {}) {
 
   function spawnLoop () {
     if (ended) return;
-    // จำกัดจำนวนเป้าในฉาก ไม่ให้เยอะเกิน
     if (active.size >= (diffCfg.maxActive || 4)) return;
 
     const spawn = makeSpawn();
@@ -350,7 +341,6 @@ export async function startEngine (opts = {}) {
   const interval = diffCfg.spawnInterval || 1100;
   const spawnTimer = setInterval(spawnLoop, interval);
 
-  // countdown ภายใน engine เผื่อกรณีไม่มี hha:time กลาง
   const finishTimer = setTimeout(() => {
     finish();
   }, duration * 1000);
@@ -388,7 +378,6 @@ export async function startEngine (opts = {}) {
     } catch {}
   }
 
-  // ถ้ามี clock กลาง hha:time (จาก groups-vr.html) ก็ใช้ร่วมด้วย
   const onTime = (e) => {
     const sec = e.detail && (e.detail.sec | 0);
     if (sec === 0) {
@@ -398,13 +387,10 @@ export async function startEngine (opts = {}) {
   };
   window.addEventListener('hha:time', onTime);
 
-  // ยิง stat เริ่มต้นให้ HUD
   refreshQuestSummary();
   emitStat(state);
-
   coach('ภารกิจวันนี้: ยิงอาหารดีให้ครบ แล้วเลี่ยงอาหารควรลดนะ 💪', 0);
 
-  // controller object สำหรับภายนอก
   return {
     stop () {
       finish();
@@ -412,4 +398,11 @@ export async function startEngine (opts = {}) {
   };
 }
 
-export default { startEngine };
+// ----- ทำให้ groups-vr.html ใช้แบบ GameEngine.start(...) ได้ -----
+export const GameEngine = {
+  start (opts) {
+    return startEngine(opts);
+  }
+};
+
+export default GameEngine;
