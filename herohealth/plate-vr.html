@@ -122,7 +122,9 @@
         <div class="quest-label">Mini Quest</div>
         <div class="quest-text" id="quest-mini">เก็บผักและผลไม้ให้ครบโควตา</div>
       </div>
-      <div class="quest-hint" id="quest-hint"></div>
+      <div class="quest-hint" id="quest-hint">
+        <!-- จะถูกเขียนใหม่จากสคริปต์: progress + quota ทีละบรรทัด -->
+      </div>
     </div>
   </div>
 
@@ -221,7 +223,6 @@
 <!-- ===== Logic ฝั่งหน้า plate-vr ===== -->
 <script type="module">
   import { boot as bootPlate } from './plate/plate.safe.js';
-  import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
   // ------- อ่านค่าจาก URL -------
   const url = new URL(window.location.href);
@@ -230,28 +231,6 @@
   if (!Number.isFinite(duration) || duration <= 0) duration = 60;
   if (duration < 20) duration = 20;
   if (duration > 180) duration = 180;
-
-  const runParam = (url.searchParams.get('run') || 'play').toLowerCase();
-
-  // เก็บ runMode ลง sessionStorage เผื่อ logger หรือเกมอื่นใช้ร่วม
-  try {
-    sessionStorage.setItem('HHA_RUN_MODE', runParam);
-  } catch {}
-
-  // ===== Init Cloud Logger สำหรับ Plate VR =====
-  // ★ เปลี่ยน LOGGER_ENDPOINT ให้ตรงกับ WebApp ของคุณ
-  const LOGGER_ENDPOINT =
-    'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
-
-  initCloudLogger({
-    endpoint: LOGGER_ENDPOINT,
-    projectTag: 'HeroHealth-PlateVR',
-    mode: 'Balanced Plate VR',
-    runMode: runParam,     // play | research
-    diff: diffParam,
-    durationSec: duration,
-    debug: false
-  });
 
   // ------- DOM refs HUD -------
   const elDiff    = document.getElementById('hud-diff');
@@ -318,6 +297,7 @@
   const sceneEl   = document.querySelector('a-scene');
   const gazeEl    = document.getElementById('gaze-reticle');
 
+  // แปลง diff เป็น label ภาษาไทย
   function diffLabel(d){
     if (d === 'easy') return 'ง่าย';
     if (d === 'hard') return 'ยาก';
@@ -378,7 +358,7 @@
     if (toastTextEl) toastTextEl.textContent = text || '';
     if (toastTagEl)  toastTagEl.textContent  = progressText || '';
 
-    void toastEl.offsetWidth;
+    void toastEl.offsetWidth; // reflow สำหรับ animation
     toastEl.classList.add('show');
 
     if (toastTimer) clearTimeout(toastTimer);
@@ -414,7 +394,7 @@
   }
 
   timerId = setInterval(tick, 1000);
-  tick();
+  tick(); // ยิงครั้งแรกทันที
 
   // ------- HUD realtime จาก hha:stat -------
   window.addEventListener('hha:stat', (e) => {
@@ -443,13 +423,26 @@
     }
   });
 
-  // ------- Quest realtime -------
+  // ------- Quest realtime / progress per batch -------
   window.addEventListener('quest:update', (e) => {
     const d = e.detail || {};
-    const goal = d.goal || {};
-    const mini = d.mini || {};
+    const goal  = d.goal || {};
+    const mini  = d.mini || {};
+
     const goals = d.goalsAll || d.goals || [];
     const minis = d.minisAll || d.minis || [];
+
+    // default: นับจาก array quest ปัจจุบัน
+    let gDone  = goals.filter(q => q && q.done).length;
+    let gTotal = goals.length || 0;
+    let mDone  = minis.filter(q => q && q.done).length;
+    let mTotal = minis.length || 0;
+
+    // ถ้ามีค่าจาก engine (ตอนจบเกม) ให้ override
+    if (typeof d.goalsCleared === 'number')  gDone  = d.goalsCleared;
+    if (typeof d.goalsTotal === 'number')    gTotal = d.goalsTotal;
+    if (typeof d.questsCleared === 'number') mDone  = d.questsCleared;
+    if (typeof d.questsTotal === 'number')   mTotal = d.questsTotal;
 
     const goalText = goal.text || goal.title || goal.label || goal.name || 'จัดจานให้ครบ 5 หมู่';
     const miniText = mini.text || mini.title || mini.label || mini.name || 'เก็บผักและผลไม้ให้ครบโควตา';
@@ -457,18 +450,13 @@
     if (elQuestGoal) elQuestGoal.textContent = goalText;
     if (elQuestMini) elQuestMini.textContent = miniText;
 
-    const gDone  = goals.filter(q => q && q.done).length;
-    const gTotal = goals.length || 0;
-    const mDone  = minis.filter(q => q && q.done).length;
-    const mTotal = minis.length || 0;
-
     lastHintHeader =
       `<div class="quest-hint-title">Goal ${gDone}/${gTotal} • Mini ${mDone}/${mTotal}</div>`;
 
     updateQuestHint(lastHintHeader);
   });
 
-  // ------- Toast จาก quest:cleared -------
+  // ------- Toast ฉลองภารกิจจาก quest:cleared -------
   window.addEventListener('quest:cleared', (e) => {
     const d = e.detail || {};
     const cleared = d.cleared || [];
@@ -489,6 +477,7 @@
     );
   });
 
+  // ------- Mega celebration จาก engine -------
   window.addEventListener('hha:all-cleared', () => {
     showMegaCelebration();
   });
@@ -521,8 +510,7 @@
     document.body.classList.add('hha-game-ended');
 
     elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
-    elSumSub.textContent   =
-      `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
+    elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
     elSumDiff.textContent  = `ระดับ ${diffLabel(d.difficulty || diffParam)}`;
 
     elSumScore.textContent  = d.score ?? 0;
@@ -549,8 +537,7 @@
   // ------- ปุ่มเล่นอีกรอบ / กลับ Hub -------
   btnRestart.addEventListener('click', () => {
     const base = window.location.pathname.split('/').pop() || 'plate-vr.html';
-    const search =
-      `?diff=${encodeURIComponent(diffParam)}&time=${encodeURIComponent(duration)}&run=${encodeURIComponent(runParam)}`;
+    const search = `?diff=${encodeURIComponent(diffParam)}&time=${encodeURIComponent(duration)}`;
     window.location.href = base + search;
   });
 
@@ -565,8 +552,8 @@
 
   let isVrMode = false;
 
-  const GAZE_RADIUS = 70;
-  const FUSE_MS     = 1100;
+  const GAZE_RADIUS = 70;     // ระยะจากจุดกลางที่ถือว่าเล็งโดน (px)
+  const FUSE_MS     = 1100;   // เวลาจ้องเพื่อยิงอัตโนมัติ (ms)
 
   let gazeTimerId   = null;
   let gazeTarget    = null;
@@ -664,6 +651,7 @@
     });
   }
 
+  // pointer / key → ยิงเป้าที่จ้อง (เฉพาะตอนอยู่ใน VR)
   function handlePointerDownForGaze(ev) {
     if (!isVrMode) return;
 
