@@ -1,19 +1,10 @@
 // === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — MISS = แตะของไม่ดีเท่านั้น + โค้ช ป.5
 // multi-plate + grade SSS/SS/S/A/B/C + goals/quests เข้า hha:stat
-//
-// ★ ดีไซน์เกม:
-//   - ต่อเกมมี Goal 2 ภารกิจ + Mini Quest 3 ภารกิจ (จาก plate.quest.js)
-//   - ไม่มีการสุ่มภารกิจชุดใหม่อีก (เล่นครบชุดเดียวต่อเกม)
-//   - เคลียร์ครบทุก Goal + Mini → ฉลองใหญ่ (hha:all-cleared) + จบเกม + สรุปผล
-//
 // ★ เป้า adaptive เฉพาะโหมดเล่นปกติ (run=play)
 //   - โหมดวิจัย (run=research) ใช้ขนาดตามระดับ easy/normal/hard อย่างเดียว
-//
-// ★ Logging:
-//   - hha:stat → HUD + ใช้ทำ dashboard ได้
-//   - hha:end → สรุปผลฝั่ง HTML
-//   - hha:session → ให้ hha-cloud-logger ส่งขึ้น Google Sheet (sheet sessions)
+// ★ ภารกิจต่อ 1 เกม: Goal = 2, Mini = 3
+//   - เคลียร์ครบ Goal 2 + Mini 3 → ส่ง hha:all-cleared แล้วจบเกมทันที
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { createPlateQuest, QUOTA } from './plate.quest.js';
@@ -79,6 +70,10 @@ const BASE_TARGET_SCALE = {
   normal: 1.0,
   hard:   0.85
 };
+
+// จำนวนภารกิจต่อเกมตามที่ตกลง
+const GOAL_LIMIT = 2;
+const MINI_LIMIT = 3;
 
 function foodGroup(emo) {
   for (const [g, arr] of Object.entries(GROUPS)) {
@@ -151,8 +146,12 @@ function coach(text, minGap = 2200) {
   } catch {}
 }
 
-// เก็บ reference controller เพื่อ stop spawn ตอนจบเกมจริง ๆ
+// เก็บ reference ของ controller เพื่อ stop spawn ตอนจบเกมจริง ๆ
 let ctrlRef = null;
+
+// ===== State ระดับเกม / Quest summary =====
+let ended = false;
+let allCleared = false;  // เคลียร์ครบ Goal 2 + Mini 3 หรือยัง
 
 export async function boot(cfg = {}) {
   const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
@@ -163,14 +162,6 @@ export async function boot(cfg = {}) {
   if (!Number.isFinite(dur) || dur <= 0) dur = 60;
   if (dur < 20) dur = 20;
   if (dur > 180) dur = 180;
-
-  // ===== Session info สำหรับ logger =====
-  const sessionId = `plate-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-  const gameVersion = 'PlateVR-2025-12-13';
-  const startTimeIso = new Date().toISOString();
-  const startPerf = (typeof performance !== 'undefined' && performance.now)
-    ? performance.now()
-    : 0;
 
   // ===== Target Adaptive (เฉพาะโหมดเล่นปกติ) =====
   let adaptiveScale = 1.0;
@@ -191,12 +182,13 @@ export async function boot(cfg = {}) {
 
   function updateAdaptiveScale(hitGood) {
     // 🔒 โหมดวิจัย: ไม่ใช้ adaptive → scale = base ตามระดับเท่านั้น
-    if (IS_RESEARCH || RUN_MODE !== 'play') {
+    if (IS_RESEARCH) {
       adaptiveScale = 1.0;
       applyTargetScale();
       return;
     }
 
+    // โหมดเล่นปกติ (run=play) เท่านั้นที่ปรับ adaptive
     if (hitGood === true) {
       // ตีดี → เป้าเล็กลงหน่อย
       adaptiveScale -= 0.03;
@@ -217,12 +209,14 @@ export async function boot(cfg = {}) {
   setFever(0);
   setFeverActive(false);
   setShield(0);
-  applyTargetScale();   // เซ็ตขนาดเป้าเริ่มต้นตามระดับ
+  // เซ็ตขนาดเป้าเริ่มต้นตามระดับ (และ adaptive = 1)
+  applyTargetScale();
 
-  // ===== Quest deck (ต่อเกมมี Goal 2 + Mini 3 เท่านั้น) =====
+  // Quest deck
   const deck = createPlateQuest(diff);
-  deck.drawGoals(2);
-  deck.draw3(); // mini quest 3 ภารกิจ
+  // ★ ภารกิจประจำเกม = Goal 2, Mini 3 เท่านั้น
+  deck.drawGoals(GOAL_LIMIT);
+  deck.draw3(); // drawMinis(3)
 
   const need = QUOTA[diff] || QUOTA.normal;      // โควตาใน "หนึ่งจาน"
   const totalNeed = need.reduce((a, b) => a + b, 0);
@@ -232,6 +226,8 @@ export async function boot(cfg = {}) {
   // plateCounts = นับเฉพาะ “จานปัจจุบัน”
   const plateCounts = [0, 0, 0, 0, 0];
   let platesDone = 0;
+
+  // goal / mini ทั้งเกมนับจาก deck โดยตรง → ไม่ต้องมี accGoalDone/accMiniDone แล้ว
 
   // State หลัก
   let score = 0;
@@ -244,29 +240,24 @@ export async function boot(cfg = {}) {
   let fever = 0;
   let feverActive = false;
 
-  let allClearedFlag = false;
-
   function mult() { return feverActive ? 2 : 1; }
 
-  // สรุป progress ของ goal/mini ทุกครั้งที่ยิง stat
+  // ========= Quest summary & จบทุกภารกิจ =========
   function buildQuestSummary() {
-    const goals = (deck && typeof deck.getProgress === 'function')
-      ? (deck.getProgress('goals') || [])
-      : [];
-    const minis = (deck && typeof deck.getProgress === 'function')
-      ? (deck.getProgress('mini') || [])
-      : [];
+    let goalsCleared = 0;
+    let goalsTotal   = 0;
+    let questsCleared= 0;
+    let questsTotal  = 0;
 
-    const goalsTotal    = goals.length;
-    const goalsCleared  = goals.filter(x => x && x.done).length;
-    const questsTotal   = minis.length;
-    const questsCleared = minis.filter(x => x && x.done).length;
+    if (deck && typeof deck.getProgress === 'function') {
+      const g = deck.getProgress('goals') || [];
+      const m = deck.getProgress('mini')  || [];
 
-    const allCleared =
-      goalsTotal > 0 &&
-      questsTotal > 0 &&
-      goalsCleared === goalsTotal &&
-      questsCleared === questsTotal;
+      goalsTotal    = Math.max(GOAL_LIMIT, g.length || 0);
+      questsTotal   = Math.max(MINI_LIMIT, m.length || 0);
+      goalsCleared  = g.filter(x => x && x.done).length;
+      questsCleared = m.filter(x => x && x.done).length;
+    }
 
     const grade = computeGrade({
       score,
@@ -279,14 +270,7 @@ export async function boot(cfg = {}) {
       diff
     });
 
-    return {
-      goalsCleared,
-      goalsTotal,
-      questsCleared,
-      questsTotal,
-      allCleared,
-      grade
-    };
+    return { goalsCleared, goalsTotal, questsCleared, questsTotal, grade };
   }
 
   function emitStat(extra = {}) {
@@ -296,7 +280,6 @@ export async function boot(cfg = {}) {
     try {
       window.dispatchEvent(new CustomEvent('hha:stat', {
         detail: {
-          sessionId,
           mode: 'Balanced Plate',
           difficulty: diff,
           runMode: RUN_MODE,
@@ -310,11 +293,37 @@ export async function boot(cfg = {}) {
           platesDone,
           plateCounts: [...plateCounts],
           totalCounts: [...gCounts],
-          ...summary,   // goalsCleared/goalsTotal/questsCleared/questsTotal/allCleared/grade
+          allCleared, // สำหรับ HUD / logger รู้ว่าภารกิจครบหรือยัง
+          ...summary, // goalsCleared/goalsTotal/questsCleared/questsTotal/grade
           ...extra
         }
       }));
     } catch {}
+  }
+
+  function checkAllClearedAndMaybeFinish() {
+    if (ended || allCleared) return;
+    const summary = buildQuestSummary();
+    if (
+      summary.goalsCleared >= GOAL_LIMIT &&
+      summary.questsCleared >= MINI_LIMIT
+    ) {
+      allCleared = true;
+      // ฉลองใหญ่
+      try {
+        window.dispatchEvent(new CustomEvent('hha:all-cleared', {
+          detail: {
+            mode: 'Balanced Plate',
+            difficulty: diff,
+            runMode: RUN_MODE
+          }
+        }));
+      } catch {}
+      // ยิง stat อัปเดต flag allCleared ก่อน
+      emitStat();
+      // จบเกมทันทีหลังเคลียร์ทุกภารกิจ
+      finish();
+    }
   }
 
   function gainFever(n) {
@@ -326,6 +335,7 @@ export async function boot(cfg = {}) {
       coach('จานพลังพิเศษ ✨ เก็บให้ครบ 5 หมู่เลย!');
     }
     emitStat();
+    checkAllClearedAndMaybeFinish();
   }
 
   function decayFever(n) {
@@ -337,6 +347,7 @@ export async function boot(cfg = {}) {
       setFeverActive(false);
     }
     emitStat();
+    checkAllClearedAndMaybeFinish();
   }
 
   function syncDeck() {
@@ -349,11 +360,12 @@ export async function boot(cfg = {}) {
     deck.stats.misses     = misses;      // สำคัญสำหรับ goal แบบ low-miss
     deck.stats.platesDone = platesDone;  // สำคัญสำหรับ goal นับจำนวนจาน
     emitStat();
+    checkAllClearedAndMaybeFinish();
   }
 
   function pushQuest(hint) {
-    const goals = deck.getProgress('goals') || [];
-    const minis = deck.getProgress('mini')  || [];
+    const goals = deck.getProgress('goals');
+    const minis = deck.getProgress('mini');
     const gtxt  = `โควตาใน 1 จาน: [${need.join(', ')}] | จานนี้ทำได้: [${plateCounts.join(', ')}]`;
 
     window.dispatchEvent(new CustomEvent('quest:update', {
@@ -379,6 +391,11 @@ export async function boot(cfg = {}) {
         good: !!good
       });
     } catch {}
+  }
+
+  function maybeCoachCombo() {
+    if (combo === 3) coach('จานเริ่มสวยแล้ว 🍽️ เก็บให้ครบทุกหมู่เลย!');
+    if (combo === 7) coach('คอมโบยาวสุด ๆ ⭐ ใกล้ครบโควตาแล้ว');
   }
 
   // ===== Logic สำหรับ "จานปัจจุบัน" =====
@@ -411,38 +428,6 @@ export async function boot(cfg = {}) {
     emitStat();
   }
 
-  function maybeCoachCombo() {
-    if (combo === 3) coach('จานเริ่มสวยแล้ว 🍽️ เก็บให้ครบทุกหมู่เลย!');
-    if (combo === 7) coach('คอมโบยาวสุด ๆ ⭐ ใกล้ครบโควตาแล้ว');
-  }
-
-  // ===== Helper ยิง hha:event (option สำหรับ logger) =====
-  function emitHitEvent({ type, ch, isGood, lane = '', rtMs = '', judgment = '', totalScore = 0 }) {
-    try {
-      const nowPerf = (typeof performance !== 'undefined' && performance.now)
-        ? performance.now()
-        : 0;
-      const tMs = startPerf ? Math.max(0, nowPerf - startPerf) : '';
-
-      window.dispatchEvent(new CustomEvent('hha:event', {
-        detail: {
-          sessionId,
-          type: type || 'HIT',
-          mode: 'Balanced Plate',
-          difficulty: diff,
-          emoji: ch || '',
-          itemType: isGood ? 'good' : 'bad',
-          isGood: typeof isGood === 'boolean' ? isGood : '',
-          lane,
-          rtMs,
-          judgment,
-          totalScore,
-          timeFromStartMs: tMs
-        }
-      }));
-    } catch {}
-  }
-
   // ===== Judge =====
   function judge(ch, ctx) {
     const x = ctx?.clientX ?? ctx?.cx ?? 0;
@@ -459,15 +444,6 @@ export async function boot(cfg = {}) {
       scoreFX(x, y, d, 'STAR', true);
       maybeCoachCombo();
       updateAdaptiveScale(true);  // power-up ถือว่าโดนดี
-
-      emitHitEvent({
-        type: 'POWER',
-        ch,
-        isGood: true,
-        judgment: 'STAR',
-        totalScore: score
-      });
-
       return { good: true, scoreDelta: d };
     }
     if (ch === DIA) {
@@ -480,15 +456,6 @@ export async function boot(cfg = {}) {
       scoreFX(x, y, d, 'DIAMOND', true);
       maybeCoachCombo();
       updateAdaptiveScale(true);
-
-      emitHitEvent({
-        type: 'POWER',
-        ch,
-        isGood: true,
-        judgment: 'DIAMOND',
-        totalScore: score
-      });
-
       return { good: true, scoreDelta: d };
     }
     if (ch === SHIELD) {
@@ -501,15 +468,6 @@ export async function boot(cfg = {}) {
       scoreFX(x, y, d, 'SHIELD', true);
       coach('ได้เกราะจาน 🛡️ เผื่อเผลอแตะของทอด');
       updateAdaptiveScale(true);
-
-      emitHitEvent({
-        type: 'POWER',
-        ch,
-        isGood: true,
-        judgment: 'SHIELD',
-        totalScore: score
-      });
-
       return { good: true, scoreDelta: d };
     }
     if (ch === FIRE) {
@@ -524,15 +482,6 @@ export async function boot(cfg = {}) {
       scoreFX(x, y, d, 'FEVER', true);
       coach('โหมดไฟ 🍽️ เก็บอาหารดีให้ครบทุกหมู่เลย!');
       updateAdaptiveScale(true);
-
-      emitHitEvent({
-        type: 'POWER',
-        ch,
-        isGood: true,
-        judgment: 'FEVER',
-        totalScore: score
-      });
-
       return { good: true, scoreDelta: d };
     }
 
@@ -558,14 +507,6 @@ export async function boot(cfg = {}) {
       scoreFX(x, y, d, label, true);
       maybeCoachCombo();
       updateAdaptiveScale(true);
-
-      emitHitEvent({
-        type: 'HIT',
-        ch,
-        isGood: true,
-        judgment: label,
-        totalScore: score
-      });
 
       const prog = plateProgress();
       if (prog >= Math.ceil(totalNeed * 0.5) && prog < totalNeed) {
@@ -596,15 +537,6 @@ export async function boot(cfg = {}) {
       scoreFX(x, y, 0, 'MISS', false);
       coach('เกราะช่วยกันของทอด/ของหวานให้แล้ว 🍟➡️🛡️', 3500);
       updateAdaptiveScale(false);
-
-      emitHitEvent({
-        type: 'MISS',
-        ch,
-        isGood: false,
-        judgment: 'GUARDED',
-        totalScore: score
-      });
-
       return { good: false, scoreDelta: 0 };
     }
 
@@ -622,15 +554,6 @@ export async function boot(cfg = {}) {
     } else if (misses === 3) {
       coach('ของทอด/หวานเยอะแล้วนะ ลองกลับมาเก็บอาหารหลัก 5 หมู่แทน 🍚🥩🥦🍎🥛', 4000);
     }
-
-    emitHitEvent({
-      type: 'MISS',
-      ch,
-      isGood: false,
-      judgment: 'MISS',
-      totalScore: score
-    });
-
     return { good: false, scoreDelta: d };
   }
 
@@ -638,28 +561,19 @@ export async function boot(cfg = {}) {
   function onExpire(ev) {
     if (!ev || ev.isGood) return;
     decayFever(4);
+    deck.onJunk();  // ให้ mission ที่นับตามเวลา/หลุดจอรับรู้ว่าเป้าหลุดไป
     syncDeck();
     pushQuest();
-
-    emitHitEvent({
-      type: 'EXPIRE',
-      ch: ev.emoji || '',
-      isGood: false,
-      judgment: 'EXPIRE',
-      totalScore: score
-    });
   }
 
-  // ---- สรุปเมื่อจบเกม + ส่ง hha:session ----
-  let ended = false;
-  function finish(reason = '') {
+  // ---- สรุปเมื่อจบเกม ----
+  function finish() {
     if (ended) return;
     ended = true;
 
     const summary = buildQuestSummary();
     const { goalsCleared, goalsTotal, questsCleared, questsTotal, grade } = summary;
     const baseScale = BASE_TARGET_SCALE[diff] || 1.0;
-    const endTimeIso = new Date().toISOString();
 
     emitStat({ ended: true });
 
@@ -668,84 +582,53 @@ export async function boot(cfg = {}) {
       try { ctrlRef.stop(); } catch {}
     }
 
-    // ยิง event สรุปสำหรับ HUD/summary overlay
-    try {
-      window.dispatchEvent(new CustomEvent('hha:end', {
-        detail: {
-          sessionId,
-          mode: 'Balanced Plate',
-          difficulty: diff,
-          runMode: RUN_MODE,
-          isResearch: IS_RESEARCH,
-          targetScale: baseScale * adaptiveScale,
-          score,
-          misses,
-          comboMax,
-          duration: dur,
-          goalsCleared,
-          goalsTotal,
-          questsCleared,
-          questsTotal,
-          platesDone,
-          // รวมทั้งเกม (ใช้วิเคราะห์พฤติกรรมเลือกหมู่)
-          groupCounts: [...gCounts],
-          grade
-        }
-      }));
-    } catch {}
-
-    // ยิง hha:session สำหรับ Cloud Logger → Google Sheet
-    try {
-      window.dispatchEvent(new CustomEvent('hha:session', {
-        detail: {
-          sessionId,
-          mode: 'Balanced Plate',
-          difficulty: diff,
-          durationSecPlayed: dur,
-          scoreFinal: score,
-          comboMax,
-          misses,
-          goalsCleared,
-          goalsTotal,
-          miniCleared: questsCleared,
-          miniTotal: questsTotal,
-          gameVersion,
-          reason: reason || (allClearedFlag ? 'all-cleared' : 'timeout'),
-          startTimeIso,
-          endTimeIso
-        }
-      }));
-    } catch {}
+    window.dispatchEvent(new CustomEvent('hha:end', {
+      detail: {
+        mode: 'Balanced Plate',
+        difficulty: diff,
+        runMode: RUN_MODE,
+        isResearch: IS_RESEARCH,
+        targetScale: baseScale * adaptiveScale,
+        score,
+        misses,
+        comboMax,
+        duration: dur,
+        goalCleared: (goalsTotal > 0 && goalsCleared === goalsTotal),
+        goalsCleared,
+        goalsTotal,
+        questsCleared,
+        questsTotal,
+        platesDone,
+        // รวมทั้งเกม (ใช้วิเคราะห์พฤติกรรมเลือกหมู่)
+        groupCounts: [...gCounts],
+        grade
+      }
+    }));
   }
-
-  // deck แจ้งเมื่อเคลียร์ทุก Goal + Mini → ฉลองใหญ่ + จบเกมเลย
-  deck.onAllCleared = () => {
-    allClearedFlag = true;
-    coach('เคลียร์ทุกภารกิจแล้ว! จัดจานสมดุลสุดยอดมาก 🏅', 2000);
-    // ให้ mega celebration / summary ทำงานที่ฝั่ง HTML ผ่าน hha:all-cleared + hha:end
-    // รอแป๊บเดียวให้เห็นฉลอง แล้วค่อย finish
-    setTimeout(() => {
-      finish('all-cleared');
-    }, 800);
-  };
 
   // ใช้ clock กลาง hha:time พร้อม cleanup
   const onTime = (e) => {
     const sec = (e.detail?.sec | 0);
 
     if (sec >= 0) {
-      // tick แต่ละวินาที
+      // decay fever ตามเวลา + อัปเดต mission แบบ time-based
       if (combo <= 0) decayFever(6);
-      else            decayFever(2);
+      else           decayFever(2);
 
       deck.second(); // ให้ MissionDeck นับ tick/time ภายใน
       syncDeck();
+      pushQuest();
+
+      // หลังอัปเดต quest ให้เช็กว่าครบทุกภารกิจหรือยัง
+      checkAllClearedAndMaybeFinish();
     }
 
     if (sec === 20) coach('เหลือ 20 วิ ลองดูว่าจานนี้ยังขาดหมู่ไหน 🌈');
     if (sec === 10) coach('10 วิ สุดท้าย เสิร์ฟให้ครบอีก 1 จานนะ ✨');
+
     if (sec === 0) {
-      finish('timeout');
+      // ถ้ายังไม่เคลียร์ครบทุกภารกิจ แต่เวลา 0 ก็จบเกมตามปกติ
+      finish();
       window.removeEventListener('hha:time', onTime);
     }
   };
