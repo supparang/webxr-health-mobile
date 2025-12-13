@@ -6,12 +6,24 @@
 
 // ----------------------------------------------------
 // 1) ฟังก์ชันที่ hydration.quest.js เรียกใช้
-//    (เอาไว้คงความเข้ากันได้ ไม่ให้ error import)
+//    เพื่อป้องกัน error import
 // ----------------------------------------------------
+
+/**
+ * normalizeHydrationDiff(raw):
+ *   คืนค่า diff แบบมาตรฐาน: 'easy' | 'normal' | 'hard'
+ *   ถ้าส่งอะไรแปลก ๆ มา → บังคับเป็น 'normal'
+ */
+export function normalizeHydrationDiff(raw) {
+  const s = String(raw || 'normal').toLowerCase();
+  if (s === 'easy' || s === 'normal' || s === 'hard') return s;
+  return 'normal';
+}
+
 /**
  * mapHydrationState(deck):
- *   คืนค่า deck กลับไปเฉย ๆ (ตอนนี้เรา sync state ผ่าน event hha:end แทน)
- *   ฟังก์ชันนี้มีไว้กัน error `does not provide an export named "mapHydrationState"`
+ *   ตอนนี้เราไม่ได้แปลงอะไรพิเศษ → คืน deck กลับไปตรง ๆ
+ *   มีไว้ให้ `import { mapHydrationState }` ใช้งานได้ไม่ error
  */
 export function mapHydrationState(deck) {
   return deck || null;
@@ -80,7 +92,7 @@ function showResultModal(summary) {
 
 // ----------------------------------------------------
 // 4) ฟัง event hha:end จาก hydration.safe.js
-//    (ตัวนี้ถือเป็น truth หลักตอนจบเกม)
+//    (ถือว่าเป็น truth หลักตอนจบเกม)
 // ----------------------------------------------------
 window.addEventListener('hha:end', (ev) => {
   const d = ev.detail || {};
@@ -128,7 +140,7 @@ window.addEventListener('hha:end', (ev) => {
 });
 
 // ----------------------------------------------------
-// 5) เผื่อบางเวอร์ชันยิง event 'hydration:finish' แทน
+// 5) รองรับกรณีบางเวอร์ชันยิง event 'hydration:finish'
 // ----------------------------------------------------
 window.addEventListener('hydration:finish', (ev) => {
   const s = ev.detail || {};
