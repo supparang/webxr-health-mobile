@@ -37,12 +37,12 @@ function pickDifficulty (diffKey) {
   }
   return {
     spawnInterval: 1100,
-    lifetime: 2200,
-    maxActive: 4,
-    scale: 1.0,
-    feverGainHit: 7,
+    lifetime:      2200,
+    maxActive:     4,
+    scale:         1.0,
+    feverGainHit:  7,
     feverLossMiss: 16,
-    questTarget: 5
+    questTarget:   5
   };
 }
 
@@ -108,7 +108,7 @@ function emitStat (state, extra = {}) {
   } catch {}
 }
 
-// ===== Target creation (ไม่ใช้ shader แปลก ๆ แล้ว) =====
+// ===== Target creation (ตัด animation__float ทิ้งเพื่อกัน error animation.js) =====
 function createTargetEntity (scene, spawn, onHit, onExpire) {
   if (!scene || !spawn) return null;
 
@@ -117,7 +117,7 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
   // 1) สร้าง texture จาก emoji เป็น data URL
   const texUrl = emojiImage(spawn.emoji, { size: 256 });
 
-  // 2) ใช้ <a-image> ธรรมดา (shader จะเป็น 'flat' ให้เอง)
+  // 2) ใช้ <a-image> ธรรมดา (ไม่ใช้ shader แปลก ๆ)
   const el = document.createElement('a-image');
   el.classList.add('groups-target');
 
@@ -137,11 +137,8 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
   el.dataset.isGood  = spawn.isGood ? '1' : '0';
   el.dataset.groupId = String(spawn.gId || 0);
 
-  // เอฟเฟกต์ลอยเบา ๆ
-  el.setAttribute(
-    'animation__float',
-    `property=position; dir=alternate; dur=700; easing=easeInOutSine; loop=true; to=${x} ${y + 0.12} ${z}`
-  );
+  // ⛔ ตัด animation__float ออก (ตัวนี้ทำให้ A-Frame animation.js crash ตอนลบ entity)
+  // ถ้าอยากกลับมาใช้ทีหลัง ค่อยเพิ่มใหม่ด้วย component custom
 
   // คลิก = ยิงเป้า
   el.addEventListener('click', () => {
@@ -151,14 +148,10 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
   // ตั้งเวลาให้หมดอายุเอง ถ้าไม่ได้ยิง
   const life = spawn.lifetime || 2200;
   const timeout = setTimeout(() => {
-    if (!el.parentNode) return;
     onExpire && onExpire(spawn, el);
-    try {
-      el.parentNode.removeChild(el);
-    } catch {}
   }, life);
-
   el.__groupsTimeout = timeout;
+
   scene.appendChild(el);
   return el;
 }
@@ -241,7 +234,8 @@ export async function startEngine (opts = {}) {
     if (delta > 0) {
       state.score += delta;
       state.combo += 1;
-      state.comboMax = Math.max(state.comboMax, state.comboMax);
+      // 🔧 แก้จาก comboMax = max(comboMax, comboMax) → ใช้ combo จริง
+      state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(diffCfg.feverGainHit || 7);
     } else {
       state.score = Math.max(0, state.score + delta);
@@ -262,9 +256,14 @@ export async function startEngine (opts = {}) {
   }
 
   function handleHit (spawn, el) {
-    if (el && el.parentNode) {
-      if (el.__groupsTimeout) clearTimeout(el.__groupsTimeout);
-      try { el.parentNode.removeChild(el); } catch {}
+    if (el) {
+      if (el.__groupsTimeout) {
+        clearTimeout(el.__groupsTimeout);
+        el.__groupsTimeout = null;
+      }
+      if (el.parentNode) {
+        try { el.parentNode.removeChild(el); } catch {}
+      }
     }
 
     const perfect = state.feverActive || state.combo >= 8;
@@ -279,8 +278,14 @@ export async function startEngine (opts = {}) {
   }
 
   function handleExpire (spawn, el) {
-    if (el && el.parentNode) {
-      try { el.parentNode.removeChild(el); } catch {}
+    if (el) {
+      if (el.__groupsTimeout) {
+        clearTimeout(el.__groupsTimeout);
+        el.__groupsTimeout = null;
+      }
+      if (el.parentNode) {
+        try { el.parentNode.removeChild(el); } catch {}
+      }
     }
     // ปล่อยหลุด: ลด fever เล็กน้อย
     loseFever(6);
@@ -353,9 +358,11 @@ export async function startEngine (opts = {}) {
     clearTimeout(finishTimer);
 
     active.forEach((el) => {
-      if (el && el.parentNode) {
+      if (el) {
         if (el.__groupsTimeout) clearTimeout(el.__groupsTimeout);
-        try { el.parentNode.removeChild(el); } catch {}
+        if (el.parentNode) {
+          try { el.parentNode.removeChild(el); } catch {}
+        }
       }
     });
     active.clear();
