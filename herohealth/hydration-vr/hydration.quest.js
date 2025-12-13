@@ -18,7 +18,7 @@ import { mapHydrationState, normalizeHydrationDiff } from './hydration.state.js'
  * - isMiss: ภารกิจเกี่ยวกับ "พลาดไม่เกิน", "MISS" ฯลฯ
  * ใช้ทั้ง id และ label ในการเดา
  */
-function isMissQuest(item) {
+function isMissQuest (item) {
   const id = String(item.id || '').toLowerCase();
   const label = String(item.label || '');
   if (id.includes('nomiss') || id.includes('miss')) return true;
@@ -31,7 +31,7 @@ function isMissQuest(item) {
  * - ภารกิจทั่วไป: target น้อย → ง่าย
  * - ภารกิจ miss: target มาก → ง่าย (พลาดได้เยอะ = ง่าย)
  */
-function decorateQuest(item) {
+function decorateQuest (item) {
   const q = { ...item };
   q._isMiss = isMissQuest(item);
   const t = Number(item.target || 0);
@@ -54,7 +54,7 @@ function decorateQuest(item) {
 /**
  * แยกเป็น 2 กลุ่ม: nonMiss / miss แล้วจัดเรียงตามความง่าย
  */
-function splitAndSort(pool) {
+function splitAndSort (pool) {
   const decorated = pool.map(decorateQuest);
 
   const nonMiss = decorated
@@ -71,7 +71,7 @@ function splitAndSort(pool) {
 /**
  * สุ่มหยิบ 1 ตัวจาก array แล้วเอาออก (ถ้า random = true)
  */
-function takeOne(arr, random = true) {
+function takeOne (arr, random = true) {
   if (!arr.length) return null;
   if (!random) return arr.shift();
   const idx = Math.floor(Math.random() * arr.length);
@@ -86,7 +86,7 @@ function takeOne(arr, random = true) {
  * - ถ้าทำครบทุกอันแล้ว → แสดงบรรทัดสรุปว่าเคลียร์ครบแล้ว (x/x)
  * - ถ้า list ว่าง → คืนข้อความว่า "ยังไม่มีภารกิจในรอบนี้"
  */
-function singleActiveView(arr, labelPrefix) {
+function singleActiveView (arr, labelPrefix) {
   if (!arr || !arr.length) {
     return [{
       id: `${labelPrefix.toLowerCase()}-none`,
@@ -129,7 +129,7 @@ function singleActiveView(arr, labelPrefix) {
  *   stats, updateScore, updateCombo, onGood, onJunk, second,
  *   getProgress(kind), drawGoals(n), draw3()
  */
-export function createHydrationQuest(diffRaw = 'normal') {
+export function createHydrationQuest (diffRaw = 'normal') {
   const diff = normalizeHydrationDiff(diffRaw);
 
   // ดึง pool ตาม diff (easy / normal / hard)
@@ -151,7 +151,7 @@ export function createHydrationQuest(diffRaw = 'normal') {
   let activeGoals = [];
   let activeMinis = [];
 
-  // stats ที่ hydration.safe.js จะใช้ mapHydrationState()
+  // stats ที่ hydration.safe.js + quest จะใช้ mapHydrationState()
   const stats = {
     score: 0,
     combo: 0,
@@ -160,19 +160,20 @@ export function createHydrationQuest(diffRaw = 'normal') {
     junkMiss: 0,
     tick: 0,        // เวลาเล่นสะสม (sec) — เพิ่มใน second()
     greenTick: 0,   // อัปเดตจาก hydration.safe.js
-    zone: 'GREEN'
+    zone: 'GREEN',
+    diff
   };
 
   // ----- helper: refresh สถานะ done / prog ของทุก quest -----
-  function refreshProgress() {
+  function refreshProgress () {
     const s = mapHydrationState(stats);
 
-    function updateItem(q) {
+    function updateItem (q) {
       try {
         const done = typeof q.check === 'function' ? !!q.check(s) : false;
         const val  = typeof q.prog === 'function' ? q.prog(s) : 0;
-        q._done   = done;
-        q._value  = val;
+        q._done  = done;
+        q._value = val;
       } catch (e) {
         q._done  = false;
         q._value = 0;
@@ -185,29 +186,29 @@ export function createHydrationQuest(diffRaw = 'normal') {
 
   // ----- API ที่ hydration.safe.js จะเรียก -----
 
-  function updateScore(v) {
+  function updateScore (v) {
     stats.score = Number(v) || 0;
     refreshProgress();
   }
 
-  function updateCombo(v) {
+  function updateCombo (v) {
     const c = Number(v) || 0;
     stats.combo = c;
     if (c > stats.comboMax) stats.comboMax = c;
     refreshProgress();
   }
 
-  function onGood() {
+  function onGood () {
     stats.goodCount += 1;
     refreshProgress();
   }
 
-  function onJunk() {
+  function onJunk () {
     stats.junkMiss += 1;
     refreshProgress();
   }
 
-  function second() {
+  function second () {
     stats.tick += 1;
     refreshProgress();
   }
@@ -217,7 +218,7 @@ export function createHydrationQuest(diffRaw = 'normal') {
    * - เลือกจาก nonMiss ก่อนจนหมด แล้วค่อยใช้ miss
    * - n ปกติ = 2 (ตามที่ hydration.safe.js เรียก)
    */
-  function drawGoals(n = 2) {
+  function drawGoals (n = 2) {
     activeGoals = [];
 
     for (let i = 0; i < n; i++) {
@@ -245,7 +246,7 @@ export function createHydrationQuest(diffRaw = 'normal') {
    * - เลือก nonMiss ก่อน แล้วค่อย miss
    * - hydration.safe.js เรียกผ่าน deck.draw3()
    */
-  function draw3() {
+  function draw3 () {
     const n = 3;
     activeMinis = [];
 
@@ -274,7 +275,7 @@ export function createHydrationQuest(diffRaw = 'normal') {
    * - 'mini'  → mini ปัจจุบันทีละ 1 อัน (จากชุด 3)
    * ถ้า list ว่าง จะสุ่มชุดใหม่ก่อนเสมอ
    */
-  function getProgress(kind) {
+  function getProgress (kind) {
     if (kind === 'goals') {
       if (!activeGoals.length) {
         drawGoals(2);
@@ -307,6 +308,7 @@ export function createHydrationQuest(diffRaw = 'normal') {
   drawGoals(2);
   draw3();
 
+  // deck object ที่ส่งกลับให้ hydration.safe.js ใช้
   return {
     stats,
     updateScore,
@@ -316,7 +318,10 @@ export function createHydrationQuest(diffRaw = 'normal') {
     second,
     getProgress,
     drawGoals,
-    draw3
+    draw3,
+    // ให้ safe.js อ่าน goals/minis ตรง ๆ เพื่อทำ snapshot ที่ถูกต้อง
+    get goals () { return activeGoals; },
+    get minis () { return activeMinis; }
   };
 }
 
