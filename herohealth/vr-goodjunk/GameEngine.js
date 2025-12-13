@@ -316,6 +316,9 @@ export const GameEngine = (function () {
 
   // ---------- Adaptive difficulty (size + จำนวนเป้า) ----------
   function adaptDifficulty(delta) {
+    // โหมดวิจัย: ไม่ใช้ adaptive เป้า ให้คงค่าตาม diff อย่างเดียว
+    if (currentRunMode === 'research') return;
+
     adaptiveScore += delta;
     const THRESH = 4; // สะสมดี/พลาด 4 ครั้งค่อยปรับที
 
