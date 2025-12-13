@@ -253,19 +253,25 @@ function createTarget() {
   const el = document.createElement('a-entity');
 
   const scale = state.cfg.scale || 1.0;
-  const radius = 0.32 * scale;
+  const radius = 0.38 * scale;
 
+  // วัสดุให้ตัดกับพื้นชัด ๆ
   el.setAttribute('geometry', `primitive: circle; radius: ${radius}`);
   el.setAttribute(
     'material',
-    'shader: flat; color: #020617; opacity: 0.82; transparent: true; side: double'
+    'shader: flat; color: #020617; opacity: 0.95; transparent: true; side: double'
   );
-  el.setAttribute('text', `value: ${emoji}; align: center; color: #ffffff; width: 2.2; zOffset: 0.01`);
+  el.setAttribute(
+    'text',
+    'value: ' + emoji +
+      '; align: center; color: #ffffff; width: 2.5; zOffset: 0.01'
+  );
   el.setAttribute('data-hha-tgt', '1');
 
-  const x = (Math.random() * 4.0) - 2.0;
-  const y = 1.1 + Math.random() * 1.4;
-  const z = -4.0 - Math.random() * 1.5;
+  // ★ ปรับตำแหน่งให้ลอย "หน้า" พื้นเอียง ตรงกลางจอ
+  const x = (Math.random() * 3.0) - 1.5;   // ซ้าย-ขวา
+  const y = 1.3 + Math.random() * 0.7;     // สูงจากพื้น
+  const z = -2.4;                          // ใกล้กล้อง (หน้า platform)
   el.setAttribute('position', `${x} ${y} ${z}`);
 
   el.setAttribute('animation__pop',
@@ -290,6 +296,11 @@ function createTarget() {
 
   state.targets.add(targetObj);
   state.sceneEl.appendChild(el);
+
+  // debug log
+  try {
+    console.log('[GroupsVR] spawn target', { emoji, isGood, gId, pos: { x, y, z } });
+  } catch {}
 }
 
 function removeTarget(targetObj) {
@@ -439,6 +450,7 @@ async function startEngine(diffKey = 'normal') {
     createTarget();
   }, state.cfg.spawnInterval || 1000);
 
+  // spawn ตัวแรกทันที
   createTarget();
 }
 
