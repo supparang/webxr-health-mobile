@@ -20,7 +20,7 @@
 <body>
 <div class="app">
 
-  <!-- ===== VR Scene (พื้นหลัง, โมเดลให้ mode-factory ใส่ของ) ===== -->
+  <!-- ===== VR Scene ===== -->
   <div id="scene-wrap">
     <a-scene
       vr-mode-ui="enabled: true"
@@ -29,7 +29,6 @@
       background="color: #020617"
     >
       <a-entity position="0 1.6 0">
-        <!-- เปิด touch/mouse ชัด ๆ -->
         <a-entity
           camera
           look-controls="touchEnabled: true; mouseEnabled: true; pointerLockEnabled: false"
@@ -37,13 +36,12 @@
         </a-entity>
       </a-entity>
 
-      <!-- ไฟจาง ๆ -->
       <a-entity light="type:ambient; color:#ffffff; intensity:0.6"></a-entity>
       <a-entity light="type:directional; color:#ffffff; intensity:0.7" position="0 2 -1"></a-entity>
     </a-scene>
   </div>
 
-  <!-- ===== HUD / UI Overlay ===== -->
+  <!-- ===== HUD ===== -->
   <div id="hud">
     <div class="hud-top">
       <div class="hud-left">
@@ -78,7 +76,6 @@
           </div>
         </div>
 
-        <!-- Legend แผนที่หมู่อาหาร -->
         <div class="hud-groups-legend">
           <span>1 ข้าว-แป้ง 🍚🍞</span>
           <span>2 โปรตีน 🥩🍗</span>
@@ -95,7 +92,6 @@
           <span class="value" id="hud-time">60</span>
           <span>วิ</span>
         </div>
-        <!-- แถวจำนวนที่เก็บได้ในแต่ละหมู่ -->
         <div class="hud-groups" id="hud-groups">
           <span>หมู่ 1: <strong id="g1">0</strong></span>
           <span>2: <strong id="g2">0</strong></span>
@@ -122,9 +118,7 @@
         <div class="quest-label">Mini Quest</div>
         <div class="quest-text" id="quest-mini">เก็บผักและผลไม้ให้ครบโควตา</div>
       </div>
-      <div class="quest-hint" id="quest-hint">
-        <!-- จะถูกเขียนใหม่จากสคริปต์: progress + quota ทีละบรรทัด -->
-      </div>
+      <div class="quest-hint" id="quest-hint"></div>
     </div>
   </div>
 
@@ -147,7 +141,7 @@
     </div>
   </div>
 
-  <!-- ===== Mega Celebration ตอนจบทุกภารกิจ ===== -->
+  <!-- ===== Mega Celebration ===== -->
   <div id="mega-celebrate">
     <div class="mega-card">
       <div class="mega-emoji">🏅🍽️</div>
@@ -212,7 +206,7 @@
     </div>
   </div>
 
-  <!-- ===== Gaze Reticle (VR เท่านั้น แต่ให้เห็นตลอด) ===== -->
+  <!-- ===== Gaze Reticle ===== -->
   <div id="gaze-reticle">
     <div class="gaze-dot"></div>
     <div class="gaze-ring"></div>
@@ -220,12 +214,11 @@
 
 </div>
 
-<!-- ===== Logic ฝั่งหน้า plate-vr ===== -->
 <script type="module">
   import { boot as bootPlate } from './plate/plate.safe.js';
   import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-  // ------- อ่านค่าจาก URL -------
+  // ------- URL params -------
   const url = new URL(window.location.href);
   const diffParam = (url.searchParams.get('diff') || 'easy').toLowerCase();
   let duration = parseInt(url.searchParams.get('time') || '60', 10);
@@ -239,7 +232,7 @@
       : 'play')
   ).toLowerCase();
 
-  // ======= เริ่ม Cloud Logger (ส่งขึ้น Google Sheet) =======
+  // ------- Cloud Logger (Google Sheet) -------
   initCloudLogger({
     endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
     projectTag: 'HeroHealth-BalancedPlateVR',
@@ -250,7 +243,7 @@
     debug: false
   });
 
-  // ------- DOM refs HUD -------
+  // ------- HUD refs -------
   const elDiff    = document.getElementById('hud-diff');
   const elScore   = document.getElementById('hud-score');
   const elCombo   = document.getElementById('hud-combo');
@@ -264,37 +257,20 @@
   const elG4      = document.getElementById('g4');
   const elG5      = document.getElementById('g5');
 
-  // Quest
   const elQuestGoal = document.getElementById('quest-goal');
   const elQuestMini = document.getElementById('quest-mini');
   const elQuestHint = document.getElementById('quest-hint');
   const questCardEl = document.querySelector('#quest-panel .quest-card');
 
-  // Coach
   const elCoachBubble = document.getElementById('coach-bubble');
   const elCoachText   = document.getElementById('coach-text');
-  let coachTimer = null;
 
-  // Toast / celebration
   const toastEl      = document.getElementById('quest-toast');
   const toastTitleEl = document.getElementById('qt-title');
   const toastTextEl  = document.getElementById('qt-text');
   const toastTagEl   = document.getElementById('qt-tag');
   const megaEl       = document.getElementById('mega-celebrate');
 
-  let toastTimer = null;
-  let lastStat   = null;
-  let lastHintHeader = '';
-  let allClearedShown = false;
-
-  const GROUP_ICONS = ['🍚','🥩','🥦','🍎','🥛'];
-  const QUOTA_MAP = {
-    easy:   [1,1,1,1,1],
-    normal: [1,1,2,2,1],
-    hard:   [2,2,2,2,1]
-  };
-
-  // Summary
   const elSummary      = document.getElementById('summary');
   const elSumTitle     = document.getElementById('sum-title');
   const elSumSub       = document.getElementById('sum-sub');
@@ -313,10 +289,32 @@
   const btnRestart = document.getElementById('btn-restart');
   const btnToHub   = document.getElementById('btn-to-hub');
 
-  const sceneEl   = document.querySelector('a-scene');
-  const gazeEl    = document.getElementById('gaze-reticle');
+  const sceneEl = document.querySelector('a-scene');
+  const gazeEl  = document.getElementById('gaze-reticle');
 
-  // แปลง diff เป็น label ภาษาไทย
+  let coachTimer = null;
+  let toastTimer = null;
+  let lastStat   = null;
+  let lastHintHeader = '';
+  let allClearedShown = false;
+
+  // เก็บ title Quest ปัจจุบันสำหรับใช้ใน toast
+  let currentGoalTitle = 'จัดจานให้ครบ 5 หมู่';
+  let currentMiniTitle = 'เก็บผักและผลไม้ให้ครบโควตา';
+
+  // เก็บค่า Goal/Mini ก่อนหน้า เพื่อดูว่าเพิ่มหรือยัง
+  let prevGoalDone = 0;
+  let prevGoalTotal = 0;
+  let prevMiniDone = 0;
+  let prevMiniTotal = 0;
+
+  const GROUP_ICONS = ['🍚','🥩','🥦','🍎','🥛'];
+  const QUOTA_MAP = {
+    easy:   [1,1,1,1,1],
+    normal: [1,1,2,2,1],
+    hard:   [2,2,2,2,1]
+  };
+
   function diffLabel(d){
     if (d === 'easy') return 'ง่าย';
     if (d === 'hard') return 'ยาก';
@@ -326,16 +324,49 @@
   elDiff.textContent = diffLabel(diffParam);
   elTime.textContent = duration;
 
-  // ------- การ์ด QUEST เด้งตอนจบภารกิจ -------
+  function showCoach(text){
+    if (!text) return;
+    elCoachText.textContent = text;
+    elCoachBubble.classList.add('show');
+    if (coachTimer) clearTimeout(coachTimer);
+    coachTimer = setTimeout(() => {
+      elCoachBubble.classList.remove('show');
+    }, 3500);
+  }
+
   function pulseQuestCard() {
     if (!questCardEl) return;
     questCardEl.classList.remove('celebrate');
-    void questCardEl.offsetWidth; // reflow
+    void questCardEl.offsetWidth;
     questCardEl.classList.add('celebrate');
     setTimeout(() => questCardEl.classList.remove('celebrate'), 800);
   }
 
-  // ------- ฟังก์ชัน Hint quota / progress ทีละบรรทัด -------
+  function showQuestToast(kind, text, progressText) {
+    if (!toastEl) return;
+    toastEl.classList.remove('goal', 'mini', 'show');
+    toastEl.classList.add(kind === 'goal' ? 'goal' : 'mini');
+
+    toastTitleEl.textContent =
+      kind === 'goal' ? 'Goal สำเร็จแล้ว! 🎯' : 'Mini Quest สำเร็จแล้ว! ⭐';
+    toastTextEl.textContent = text || '';
+    toastTagEl.textContent  = progressText || '';
+
+    void toastEl.offsetWidth;
+    toastEl.classList.add('show');
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastEl.classList.remove('show');
+    }, 2600);
+  }
+
+  function showMegaCelebration() {
+    if (allClearedShown) return;
+    allClearedShown = true;
+    if (megaEl) megaEl.classList.add('show');
+  }
+
   function updateQuestHint(prefixHtml = '') {
     if (!elQuestHint) return;
 
@@ -345,10 +376,7 @@
       : [0,0,0,0,0];
 
     let html = '';
-    if (prefixHtml) {
-      html += prefixHtml;
-    }
-
+    if (prefixHtml) html += prefixHtml;
     html += '<div class="quest-hint-title">โควตาจานนี้</div>';
 
     for (let i = 0; i < quota.length && i < 5; i++) {
@@ -372,48 +400,19 @@
 
     elQuestHint.innerHTML = html;
   }
-https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.html
-  function showQuestToast(kind, text, progressText) {
-    if (!toastEl) return;
-    toastEl.classList.remove('goal', 'mini', 'show');
-    toastEl.classList.add(kind === 'goal' ? 'goal' : 'mini');
 
-    if (toastTitleEl) {
-      toastTitleEl.textContent = kind === 'goal'
-        ? 'Goal สำเร็จแล้ว! 🎯'
-        : 'Mini Quest สำเร็จแล้ว! ⭐';
-    }
-    if (toastTextEl) toastTextEl.textContent = text || '';
-    if (toastTagEl)  toastTagEl.textContent  = progressText || '';
-
-    void toastEl.offsetWidth; // reflow สำหรับ animation
-    toastEl.classList.add('show');
-
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toastEl.classList.remove('show');
-    }, 2600);
-  }
-
-  function showMegaCelebration() {
-    if (allClearedShown) return;
-    allClearedShown = true;
-    if (megaEl) megaEl.classList.add('show');
-  }
-
-  // ------- Clock กลาง ส่ง hha:time -------
+  // ------- Clock (hha:time) -------
   let secLeft = duration;
   let timerId = null;
   let endedByEvent = false;
 
   function tick(){
     if (endedByEvent) return;
-    // ส่ง event ให้ engine
+
     window.dispatchEvent(new CustomEvent('hha:time', {
       detail:{ sec: secLeft }
     }));
 
-    // อัปเดต HUD
     elTime.textContent = Math.max(secLeft, 0);
 
     secLeft -= 1;
@@ -424,9 +423,9 @@ https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.h
   }
 
   timerId = setInterval(tick, 1000);
-  tick(); // ยิงครั้งแรกทันที
+  tick();
 
-  // ------- HUD realtime จาก hha:stat -------
+  // ------- HUD + Celebration จาก hha:stat -------
   window.addEventListener('hha:stat', (e) => {
     const d = e.detail || {};
     lastStat = d;
@@ -446,16 +445,43 @@ https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.h
       elG5.textContent = g5;
     }
 
-    // ปรับ hint quota ตาม plateCounts ปัจจุบัน
+    // ----- อัปเดต Hint โควตา -----
     updateQuestHint(lastHintHeader);
 
-    // ถ้า engine แจ้ง allCleared ผ่าน stat (กันกรณี event ตกหล่น)
+    // ----- ตรวจว่ามี Goal / Mini เพิ่มหรือไม่ → ฉลอง -----
+    const gDone  = Number(d.goalsCleared ?? 0);
+    const gTotal = Number(d.goalsTotal ?? 0);
+    const mDone  = Number(d.questsCleared ?? 0);
+    const mTotal = Number(d.questsTotal ?? 0);
+
+    const ended = !!d.ended;
+
+    if (!ended) {
+      if (gTotal > 0 && gDone > prevGoalDone) {
+        const tag = `Goal ${gDone}/${gTotal} • Mini ${mDone}/${mTotal}`;
+        showQuestToast('goal', currentGoalTitle, tag);
+        pulseQuestCard();
+        showCoach(`เยี่ยมมาก! เคลียร์ Goal แล้ว (${gDone}/${gTotal}) 🎯`);
+      }
+      if (mTotal > 0 && mDone > prevMiniDone) {
+        const tag = `Goal ${gDone}/${gTotal} • Mini ${mDone}/${mTotal}`;
+        showQuestToast('mini', currentMiniTitle, tag);
+        pulseQuestCard();
+        showCoach(`Mini Quest สำเร็จแล้ว (${mDone}/${mTotal}) ⭐`);
+      }
+    }
+
+    prevGoalDone  = gDone;
+    prevGoalTotal = gTotal;
+    prevMiniDone  = mDone;
+    prevMiniTotal = mTotal;
+
     if (d.allCleared && !allClearedShown) {
       showMegaCelebration();
     }
   });
 
-  // ------- Quest realtime / progress per batch -------
+  // ------- Quest text / header จาก quest:update -------
   window.addEventListener('quest:update', (e) => {
     const d = e.detail || {};
     const goal = d.goal || {};
@@ -465,6 +491,9 @@ https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.h
 
     const goalText = goal.text || goal.title || goal.label || goal.name || 'จัดจานให้ครบ 5 หมู่';
     const miniText = mini.text || mini.title || mini.label || mini.name || 'เก็บผักและผลไม้ให้ครบโควตา';
+
+    currentGoalTitle = goalText;
+    currentMiniTitle = miniText;
 
     if (elQuestGoal) elQuestGoal.textContent = goalText;
     if (elQuestMini) elQuestMini.textContent = miniText;
@@ -480,61 +509,17 @@ https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.h
     updateQuestHint(lastHintHeader);
   });
 
-  // ------- Toast + ฉลองจบแต่ละภารกิจจาก quest:cleared -------
-  window.addEventListener('quest:cleared', (e) => {
-    const d = e.detail || {};
-    const cleared = d.cleared || [];
-    if (!cleared.length) return;
-    const q = cleared[0];
-
-    const goals = d.goals || [];
-    const minis = d.minis || [];
-    const gDone  = goals.filter(x => x && x.done).length;
-    const gTotal = goals.length || 0;
-    const mDone  = minis.filter(x => x && x.done).length;
-    const mTotal = minis.length || 0;
-
-    const isGoal = (q.type === 'goal');
-    const titleText = q.text || q.title || q.label || '';
-
-    const progressText = `Goal ${gDone}/${gTotal} • Mini ${mDone}/${mTotal}`;
-
-    showQuestToast(
-      isGoal ? 'goal' : 'mini',
-      titleText,
-      progressText
-    );
-
+  // quest:cleared ตอนนี้ใช้แค่เด้งการ์ด/โค้ชเพิ่มนิดหน่อย (celebration หลักทำใน hha:stat แล้ว)
+  window.addEventListener('quest:cleared', () => {
     pulseQuestCard();
-
-    const coachMsg = isGoal
-      ? `เยี่ยมมาก! เคลียร์ Goal แล้ว (${gDone}/${gTotal}) 🎯`
-      : `Mini Quest สำเร็จแล้ว (${mDone}/${mTotal}) ⭐ เก็บจานต่อเลย!`;
-    showCoach(coachMsg);
   });
 
-  // ------- Mega celebration จาก engine -------
+  // Mega celebration จาก engine
   window.addEventListener('hha:all-cleared', () => {
     showMegaCelebration();
   });
 
-  // ------- Coach Bubble -------
-  function showCoach(text){
-    if (!text) return;
-    elCoachText.textContent = text;
-    elCoachBubble.classList.add('show');
-    if (coachTimer) clearTimeout(coachTimer);
-    coachTimer = setTimeout(() => {
-      elCoachBubble.classList.remove('show');
-    }, 3500);
-  }
-
-  window.addEventListener('hha:coach', (e) => {
-    const d = e.detail || {};
-    if (d.text) showCoach(d.text);
-  });
-
-  // ------- Summary + ยิง hha:session ไป Google Sheet จาก hha:end -------
+  // ------- Summary + ส่ง hha:session ไป Google Sheet -------
   window.addEventListener('hha:end', (e) => {
     const d = e.detail || {};
     endedByEvent = true;
@@ -543,7 +528,6 @@ https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.h
       timerId = null;
     }
 
-    // จบเกมแล้วไม่ให้เป้าโผล่อีก
     document.body.classList.add('hha-game-ended');
 
     elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
@@ -570,7 +554,6 @@ https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.h
 
     elSummary.classList.add('visible');
 
-    // ===== ส่ง session log ไป hha-cloud-logger (Google Sheet) =====
     const sessionId = d.sessionId || `BPVR-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
     window.dispatchEvent(new CustomEvent('hha:session', {
@@ -593,7 +576,7 @@ https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.h
     }));
   });
 
-  // ------- ปุ่มเล่นอีกรอบ / กลับ Hub -------
+  // ------- ปุ่ม -------
   btnRestart.addEventListener('click', () => {
     const base = window.location.pathname.split('/').pop() || 'plate-vr.html';
     const search = `?diff=${encodeURIComponent(diffParam)}&time=${encodeURIComponent(duration)}`;
@@ -604,15 +587,13 @@ https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.h
     window.location.href = './hub.html';
   });
 
-  // ------- เริ่มเกม Plate Engine -------
+  // ------- เริ่มเกม -------
   bootPlate({ difficulty: diffParam, duration });
 
-  // ================== Gaze & Fuse สำหรับ VR ==================
-
+  // ================== Gaze / Fuse ==================
   let isVrMode = false;
-
-  const GAZE_RADIUS = 70;     // ระยะจากจุดกลางที่ถือว่าเล็งโดน (px)
-  const FUSE_MS     = 1100;   // เวลาจ้องเพื่อยิงอัตโนมัติ (ms)
+  const GAZE_RADIUS = 70;
+  const FUSE_MS     = 1100;
 
   let gazeTimerId   = null;
   let gazeTarget    = null;
@@ -710,7 +691,6 @@ https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.h
     });
   }
 
-  // pointer / key → ยิงเป้าที่จ้อง (เฉพาะตอนอยู่ใน VR)
   function handlePointerDownForGaze(ev) {
     if (!isVrMode) return;
 
