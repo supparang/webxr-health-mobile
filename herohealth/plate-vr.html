@@ -138,7 +138,7 @@
     </div>
   </div>
 
-  <!-- ===== Toast ฉลองจบ Goal/Mini ===== -->
+  <!-- ===== Toast ฉลองจบ Goal / Mini ===== -->
   <div id="quest-toast">
     <div class="quest-toast-inner">
       <div class="quest-toast-title" id="qt-title">ภารกิจสำเร็จ!</div>
@@ -223,6 +223,7 @@
 <!-- ===== Logic ฝั่งหน้า plate-vr ===== -->
 <script type="module">
   import { boot as bootPlate } from './plate/plate.safe.js';
+  import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
   // ------- อ่านค่าจาก URL -------
   const url = new URL(window.location.href);
@@ -231,6 +232,22 @@
   if (!Number.isFinite(duration) || duration <= 0) duration = 60;
   if (duration < 20) duration = 20;
   if (duration > 180) duration = 180;
+
+  // ------- ตั้งค่า Cloud Logger (ส่งขึ้น Google Sheet) -------
+  const LOGGER_ENDPOINT =
+    'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+
+  initCloudLogger({
+    endpoint:   LOGGER_ENDPOINT,
+    mode:       'BalancedPlateVR',
+    diff:       diffParam,
+    durationSec: duration,
+    debug:      false
+    // runMode จะอ่านจาก sessionStorage: HHA_RUN_MODE (play/research)
+  });
+
+  const SESSION_ID   = `PlateVR-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
+  const GAME_START_ISO = new Date().toISOString();
 
   // ------- DOM refs HUD -------
   const elDiff    = document.getElementById('hud-diff');
@@ -250,6 +267,7 @@
   const elQuestGoal = document.getElementById('quest-goal');
   const elQuestMini = document.getElementById('quest-mini');
   const elQuestHint = document.getElementById('quest-hint');
+  const questCardEl = document.querySelector('#quest-panel .quest-card');
 
   // Coach
   const elCoachBubble = document.getElementById('coach-bubble');
@@ -373,6 +391,17 @@
     if (megaEl) megaEl.classList.add('show');
   }
 
+  // การ์ด QUEST เด้งตอนจบภารกิจ
+  function pulseQuestCard() {
+    if (!questCardEl) return;
+    questCardEl.classList.remove('celebrate');
+    void questCardEl.offsetWidth;
+    questCardEl.classList.add('celebrate');
+    setTimeout(() => {
+      questCardEl.classList.remove('celebrate');
+    }, 800);
+  }
+
   // ------- Clock กลาง ส่ง hha:time -------
   let secLeft = duration;
   let timerId = null;
@@ -380,10 +409,12 @@
 
   function tick(){
     if (endedByEvent) return;
+    // ส่ง event ให้ engine
     window.dispatchEvent(new CustomEvent('hha:time', {
       detail:{ sec: secLeft }
     }));
 
+    // อัปเดต HUD
     elTime.textContent = Math.max(secLeft, 0);
 
     secLeft -= 1;
@@ -416,8 +447,10 @@
       elG5.textContent = g5;
     }
 
+    // ปรับ hint quota ตาม plateCounts ปัจจุบัน
     updateQuestHint(lastHintHeader);
 
+    // ถ้า engine แจ้ง allCleared ผ่าน stat (กันกรณี event ตกหล่น)
     if (d.allCleared && !allClearedShown) {
       showMegaCelebration();
     }
@@ -426,23 +459,10 @@
   // ------- Quest realtime / progress per batch -------
   window.addEventListener('quest:update', (e) => {
     const d = e.detail || {};
-    const goal  = d.goal || {};
-    const mini  = d.mini || {};
-
+    const goal = d.goal || {};
+    const mini = d.mini || {};
     const goals = d.goalsAll || d.goals || [];
     const minis = d.minisAll || d.minis || [];
-
-    // default: นับจาก array quest ปัจจุบัน
-    let gDone  = goals.filter(q => q && q.done).length;
-    let gTotal = goals.length || 0;
-    let mDone  = minis.filter(q => q && q.done).length;
-    let mTotal = minis.length || 0;
-
-    // ถ้ามีค่าจาก engine (ตอนจบเกม) ให้ override
-    if (typeof d.goalsCleared === 'number')  gDone  = d.goalsCleared;
-    if (typeof d.goalsTotal === 'number')    gTotal = d.goalsTotal;
-    if (typeof d.questsCleared === 'number') mDone  = d.questsCleared;
-    if (typeof d.questsTotal === 'number')   mTotal = d.questsTotal;
 
     const goalText = goal.text || goal.title || goal.label || goal.name || 'จัดจานให้ครบ 5 หมู่';
     const miniText = mini.text || mini.title || mini.label || mini.name || 'เก็บผักและผลไม้ให้ครบโควตา';
@@ -450,13 +470,18 @@
     if (elQuestGoal) elQuestGoal.textContent = goalText;
     if (elQuestMini) elQuestMini.textContent = miniText;
 
+    const gDone  = goals.filter(q => q && q.done).length;
+    const gTotal = goals.length || 0;
+    const mDone  = minis.filter(q => q && q.done).length;
+    const mTotal = minis.length || 0;
+
     lastHintHeader =
       `<div class="quest-hint-title">Goal ${gDone}/${gTotal} • Mini ${mDone}/${mTotal}</div>`;
 
     updateQuestHint(lastHintHeader);
   });
 
-  // ------- Toast ฉลองภารกิจจาก quest:cleared -------
+  // ------- Toast + ฉลองจบแต่ละภารกิจจาก quest:cleared -------
   window.addEventListener('quest:cleared', (e) => {
     const d = e.detail || {};
     const cleared = d.cleared || [];
@@ -470,11 +495,26 @@
     const mDone  = minis.filter(x => x && x.done).length;
     const mTotal = minis.length || 0;
 
+    const isGoal = (q.type === 'goal');
+    const titleText = q.text || q.title || q.label || '';
+
     const progressText = `Goal ${gDone}/${gTotal} • Mini ${mDone}/${mTotal}`;
-    showQuestToast(q.type === 'goal' ? 'goal' : 'mini',
-      q.text || q.title || q.label || '',
+
+    // Toast กลางจอ
+    showQuestToast(
+      isGoal ? 'goal' : 'mini',
+      titleText,
       progressText
     );
+
+    // การ์ด QUEST เด้งฉลอง
+    pulseQuestCard();
+
+    // ให้โค้ชพูดชมทุกครั้งที่จบภารกิจ
+    const coachMsg = isGoal
+      ? `เยี่ยมมาก! เคลียร์ Goal แล้ว (${gDone}/${gTotal}) 🎯`
+      : `Mini Quest สำเร็จแล้ว (${mDone}/${mTotal}) ⭐ เก็บจานต่อเลย!`;
+    showCoach(coachMsg);
   });
 
   // ------- Mega celebration จาก engine -------
@@ -498,7 +538,7 @@
     if (d.text) showCoach(d.text);
   });
 
-  // ------- Summary จาก hha:end -------
+  // ------- Summary จาก hha:end + ยิง hha:session ไป logger -------
   window.addEventListener('hha:end', (e) => {
     const d = e.detail || {};
     endedByEvent = true;
@@ -507,11 +547,16 @@
       timerId = null;
     }
 
+    // จบเกมแล้วไม่ให้เป้าโผล่อีก
     document.body.classList.add('hha-game-ended');
 
-    elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
-    elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
-    elSumDiff.textContent  = `ระดับ ${diffLabel(d.difficulty || diffParam)}`;
+    const modeLabel = d.mode || 'Balanced Plate';
+    const diffKey   = d.difficulty || diffParam;
+    const durationPlayed = d.duration || duration;
+
+    elSumTitle.textContent = `ผลลัพธ์: ${modeLabel}`;
+    elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(diffKey)} ภายในเวลา ${durationPlayed} วินาที`;
+    elSumDiff.textContent  = `ระดับ ${diffLabel(diffKey)}`;
 
     elSumScore.textContent  = d.score ?? 0;
     elSumCombo.textContent  = d.comboMax ?? 0;
@@ -532,6 +577,37 @@
     }
 
     elSummary.classList.add('visible');
+
+    // ===== ยิง session summary ไปให้ hha-cloud-logger (เขียนลง Google Sheet) =====
+    const endIso = d.endTimeIso || new Date().toISOString();
+
+    window.dispatchEvent(new CustomEvent('hha:session', {
+      detail: {
+        sessionId:           d.sessionId || SESSION_ID,
+        mode:                modeLabel,
+        difficulty:          diffKey,
+        durationSecPlayed:   durationPlayed,
+        durationPlayedSec:   durationPlayed,
+        scoreFinal:          d.score ?? 0,
+        score:               d.score ?? 0,
+        comboMax:            d.comboMax ?? 0,
+        misses:              d.misses ?? 0,
+        goalsCleared:        d.goalsCleared ?? 0,
+        goalsTotal:          d.goalsTotal ?? 0,
+        miniCleared:         d.questsCleared ?? 0,
+        miniTotal:           d.questsTotal ?? 0,
+        gameVersion:         'PlateVR-2025-12-13',
+        startTimeIso:        d.startTimeIso || GAME_START_ISO,
+        endTimeIso:          endIso,
+        reason:              'finished',
+        // เก็บเพิ่มสำหรับวิเคราะห์ภายหลัง
+        extra: JSON.stringify({
+          groupCounts: d.groupCounts || [],
+          grade:       d.grade || '-',
+          targetScale: d.targetScale || null
+        })
+      }
+    }));
   });
 
   // ------- ปุ่มเล่นอีกรอบ / กลับ Hub -------
