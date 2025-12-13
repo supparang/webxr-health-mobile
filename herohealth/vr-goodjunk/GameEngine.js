@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate (+ questPlan + runMode)
+// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate (+ questPlan + runMode + instant quest-end)
 
 'use strict';
 
@@ -82,6 +82,8 @@ export const GameEngine = (function () {
   let sessionStartMs = 0;   // ใช้คำนวณ timeFromStartMs
   let currentDiff = 'normal';
   let currentRunMode = 'play'; // play / research
+  let hasEnded = false;
+  let questsFinished = false;
 
   // ---------- Quest state: หลาย goal / หลาย mini ----------
   let goals = [];
@@ -258,22 +260,34 @@ export const GameEngine = (function () {
     return goalsTotal > 0 && minisTotal > 0 && goalsDone && minisDone;
   }
 
+  // จบทุกภารกิจ → หยุดเกมทันที + เคลียร์เป้า แล้วค่อยยิง end
   function checkAllQuestsDone() {
     if (!running) return;
-    if (allQuestsDone()) {
-      coach('สุดยอด! ทำภารกิจหลักและ Mini quests ครบหมดแล้ว! 🎉');
-      emit('quest:all-complete', {
-        goalsTotal: goals.length,
-        minisTotal: minis.length
-      });
+    if (questsFinished) return;
+    if (!allQuestsDone()) return;
 
-      // หน่วงเวลาให้ฉลองใหญ่ ก่อนค่อยจบเกม + สรุปผล
-      setTimeout(() => {
-        if (running) {
-          stop('quest-complete');
-        }
-      }, 1800);
-    }
+    questsFinished = true;
+
+    // freeze เกมทันที
+    running = false;
+    clearInterval(spawnTimer);
+    if (feverTimer) clearTimeout(feverTimer);
+    endFever();
+
+    activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
+    activeTargets = [];
+
+    coach('สุดยอด! ทำภารกิจหลักและ Mini quests ครบหมดแล้ว! 🎉');
+    emit('quest:all-complete', {
+      goalsTotal: goals.length,
+      minisTotal: minis.length
+    });
+
+    // ให้เวลา FX ฉลองนิดหน่อย แล้วสรุปผล
+    setTimeout(() => {
+      coach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
+      emitEnd('quest-complete');
+    }, 800);
   }
 
   // ---------- Fever ----------
@@ -509,6 +523,9 @@ export const GameEngine = (function () {
   }
 
   function emitEnd(reason) {
+    if (hasEnded) return;
+    hasEnded = true;
+
     const goalsTotal = goals.length;
     const minisTotal = minis.length;
     const goalsCleared = countDone(goals);
@@ -620,7 +637,7 @@ export const GameEngine = (function () {
     }
 
     const goalIdActive = g ? g.id : '';
-    const miniIdActive = m ? m.id : '';
+       const miniIdActive = m ? m.id : '';
 
     emit('hha:event', {
       sessionId,
@@ -1309,6 +1326,8 @@ export const GameEngine = (function () {
     nHitGoodPerfect = 0;
 
     lastQuestPlan = null;
+    hasEnded = false;
+    questsFinished = false;
 
     sessionId = 'gjvr-' + Date.now().toString(36) + '-' +
       Math.random().toString(16).slice(2, 8);
@@ -1358,7 +1377,9 @@ export const GameEngine = (function () {
   }
 
   function stop(reason) {
-    if (!running) return;
+    // ถ้าจบไปแล้วจาก quest-complete ก็ไม่ต้องทำอะไรเพิ่ม
+    if (hasEnded && !running) return;
+
     running = false;
 
     clearInterval(spawnTimer);
