@@ -702,11 +702,16 @@
   <!-- VR button -->
   <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
 
-  <!-- Fever UI & FX -->
+  <!-- Fever UI (global, non-module) -->
   <script src="./vr/ui-fever.js"></script>
+  <!-- Effect เป้า (particles FX) -->
   <script src="./vr/particles.js"></script>
 
-  <!-- ===== Logic ===== -->
+  <!-- ★ NEW: Difficulty + Quest สำหรับ Food Groups VR -->
+  <script src="./vr-groups/difficulty.foodgroups.js"></script>
+  <script src="./vr-groups/quest-manager.js"></script>
+
+  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
     import { GameEngine } from './vr-groups/GameEngine.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
