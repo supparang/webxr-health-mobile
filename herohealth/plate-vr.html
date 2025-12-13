@@ -227,10 +227,37 @@
   // ------- อ่านค่าจาก URL -------
   const url = new URL(window.location.href);
   const diffParam = (url.searchParams.get('diff') || 'easy').toLowerCase();
+  const runParam  = (url.searchParams.get('run')  || 'play').toLowerCase();
+
   let duration = parseInt(url.searchParams.get('time') || '60', 10);
   if (!Number.isFinite(duration) || duration <= 0) duration = 60;
   if (duration < 20) duration = 20;
   if (duration > 180) duration = 180;
+
+  // เก็บ run mode ไว้ให้ logger / เกมอื่นใช้ร่วมกัน
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('HHA_RUN_MODE', runParam); // 'play' | 'research'
+    }
+  } catch (err) {
+    console.warn('[PlateVR] cannot save HHA_RUN_MODE:', err);
+  }
+
+  // ------- ถ้าเป็นโหมดวิจัย บังคับให้ต้องมีโปรไฟล์จาก Hub ก่อน -------
+  function ensureProfileForResearch() {
+    if (runParam !== 'research') return;
+    try {
+      const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
+      if (!raw) {
+        alert('โหมดวิจัยต้องกรอกโปรไฟล์นักเรียนจาก Hub ก่อนนะ ✏️\nระบบจะพากลับไปหน้า Hub');
+        window.location.href = './hub.html';
+      }
+    } catch (err) {
+      console.warn('[PlateVR] profile check error:', err);
+    }
+  }
+
+  ensureProfileForResearch();
 
   // ------- DOM refs HUD -------
   const elDiff    = document.getElementById('hud-diff');
@@ -534,8 +561,12 @@
   // ------- ปุ่มเล่นอีกรอบ / กลับ Hub -------
   btnRestart.addEventListener('click', () => {
     const base = window.location.pathname.split('/').pop() || 'plate-vr.html';
-    const search = `?diff=${encodeURIComponent(diffParam)}&time=${encodeURIComponent(duration)}`;
-    window.location.href = base + search;
+    const params = new URLSearchParams();
+    params.set('diff', diffParam);
+    params.set('time', String(duration));
+    params.set('run',  runParam);   // คง run เดิม (play / research)
+
+    window.location.href = `${base}?${params.toString()}`;
   });
 
   btnToHub.addEventListener('click', () => {
