@@ -4,561 +4,441 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Hero Health — Food Groups VR</title>
-  <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon">
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
     :root{
-      color-scheme: light dark;
+      color-scheme: dark;
       --bg-main:#020617;
       --panel:#020617;
       --panel-soft:#0b1120;
       --accent:#22c55e;
       --accent-soft:rgba(34,197,94,0.18);
-      --danger:#f97316;
       --text-main:#e5e7eb;
       --text-soft:#9ca3af;
+      --danger:#f97316;
+      --radius-lg:18px;
+      --radius-pill:999px;
     }
-    *{ box-sizing:border-box; }
 
-    /* ===== Start Countdown ===== */
-    .countdown-overlay{
-      position:fixed;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      z-index:655;
-      font-size:clamp(3rem, 10vw, 5rem);
-      font-weight:800;
-      color:#fbbf24;
-      text-shadow:0 0 40px rgba(0,0,0,0.85);
-      pointer-events:none;
-      transition:opacity .25s ease-out, transform .25s ease-out;
-    }
-    .countdown-hidden{
-      opacity:0;
-      visibility:hidden;
-      transform:scale(0.8);
-    }
+    *{box-sizing:border-box;}
 
     body{
       margin:0;
-      min-height:100vh;
-      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
-        var(--bg-main);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Prompt", sans-serif;
+      background:#000;
       color:var(--text-main);
       overflow:hidden;
     }
 
-    /* ===== HUD หลัก ===== */
+    /* ===== Layout overlay ===== */
     .hud-root{
       position:fixed;
       inset:0;
       pointer-events:none;
-      z-index:650;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      padding:10px 10px 14px;
-    }
-
-    .hud-top{
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      align-items:flex-start;
+      font-size:14px;
     }
 
     .hud-card{
-      background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
-      border-radius:18px;
-      padding:8px 10px;
-      box-shadow:0 18px 40px rgba(15,23,42,0.65);
-      border:1px solid rgba(148,163,184,0.18);
-      pointer-events:auto;
+      background:linear-gradient(135deg,rgba(15,23,42,0.96),rgba(17,24,39,0.96));
+      border-radius:var(--radius-lg);
+      border:1px solid rgba(148,163,184,0.25);
+      box-shadow:0 18px 45px rgba(15,23,42,0.85);
+      padding:14px 18px;
     }
 
-    .hud-main{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      margin-bottom:4px;
+    .hud-title{
+      font-size:11px;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      color:var(--text-soft);
+      margin:0 0 4px;
     }
-    .hud-main-title{
+    .hud-game{
+      font-weight:600;
+      font-size:16px;
+      margin:0 0 8px;
+    }
+
+    .hud-top-left{
+      position:absolute;
+      top:14px;
+      left:14px;
+      width:260px;
+    }
+
+    .hud-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:4px;
+    }
+    .hud-label{
+      font-size:11px;
+      color:var(--text-soft);
+    }
+    .hud-value{
       font-size:14px;
       font-weight:600;
-      letter-spacing:.03em;
-      text-transform:uppercase;
-      color:var(--text-soft);
     }
-    .hud-main-mode{
-      font-size:15px;
-      font-weight:700;
-    }
-    .hud-pill{
-      font-size:11px;
-      padding:2px 8px;
-      border-radius:999px;
-      background:rgba(15,118,110,0.2);
-      border:1px solid rgba(45,212,191,0.4);
-      color:#a5f3fc;
-      font-weight:500;
+    .hud-value--bad{ color:var(--danger); }
+
+    .hud-mode-pill{
       display:inline-flex;
       align-items:center;
-      gap:4px;
+      gap:6px;
+      padding:4px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.95);
+      border:1px solid rgba(148,163,184,0.25);
+      font-size:11px;
+      margin-left:auto;
+    }
+    .hud-mode-dot{
+      width:6px;
+      height:6px;
+      border-radius:999px;
+      background:var(--accent);
     }
 
-    .hud-metrics{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .metric{
-      min-width:90px;
-    }
-    .metric-label{
-      font-size:10px;
-      text-transform:uppercase;
-      letter-spacing:.06em;
-      color:var(--text-soft);
-    }
-    .metric-value{
-      font-size:15px;
-      font-weight:700;
-      margin-top:2px;
-    }
-    .metric-value.accent{ color:var(--accent); }
-    .metric-value.danger{ color:var(--danger); }
-
-    /* ===== Grade bar (real-time) ===== */
-    .metric-grade{
-      min-width:120px;
-      max-width:150px;
-    }
-    .grade-text{
+    .hud-grade-pill{
       display:inline-flex;
       align-items:center;
-      gap:4px;
-      font-size:14px;
-    }
-    .grade-badge{
+      gap:6px;
+      padding:3px 8px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.95);
+      border:1px solid rgba(148,163,184,0.25);
       font-size:11px;
-      padding:2px 6px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.7);
-      background:rgba(15,23,42,0.9);
-      color:#e5e7eb;
-    }
-    .grade-bar{
-      margin-top:2px;
-      width:100%;
-      height:4px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.9);
-      overflow:hidden;
-    }
-    .grade-bar-fill{
-      width:10%;
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#22c55e,#4ade80);
-      transition:width .25s ease-out, background .25s ease-out, box-shadow .25s ease-out;
-      box-shadow:0 0 0 0 rgba(34,197,94,0.6);
-    }
-    .grade-bar-fill[data-grade="C"]{
-      background:linear-gradient(90deg,#6b7280,#9ca3af);
-    }
-    .grade-bar-fill[data-grade="B"]{
-      background:linear-gradient(90deg,#22c55e,#16a34a);
-    }
-    .grade-bar-fill[data-grade="A"]{
-      background:linear-gradient(90deg,#22c55e,#4ade80);
-    }
-    .grade-bar-fill[data-grade="S"],
-    .grade-bar-fill[data-grade="SS"],
-    .grade-bar-fill[data-grade="SSS"]{
-      background:linear-gradient(90deg,#22c55e,#a855f7);
-      box-shadow:0 0 12px 0 rgba(168,85,247,0.6);
+      margin-left:4px;
     }
 
-    /* ===== Quest panel (บนขวา) ===== */
-    .hud-quest{
-      max-width:280px;
-      font-size:12px;
+    /* Quest panel */
+    .hud-top-right{
+      position:absolute;
+      top:14px;
+      right:14px;
+      width:280px;
     }
     .quest-title{
-      font-size:11px;
-      text-transform:uppercase;
-      letter-spacing:.12em;
-      color:var(--text-soft);
-      margin-bottom:2px;
-    }
-    .quest-main-label{
       font-size:13px;
       font-weight:600;
+      margin:0 0 4px;
     }
-    .quest-mini-label{
+    .quest-mini{
       font-size:12px;
+      color:var(--text-soft);
+      margin:0 0 6px;
+    }
+    .quest-progress{
+      font-size:11px;
       color:var(--text-soft);
       margin-top:4px;
     }
-    .quest-progress-wrap{
-      margin-top:5px;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
     .quest-bar{
-      position:relative;
+      margin-top:4px;
       width:100%;
       height:4px;
       border-radius:999px;
-      background:rgba(15,23,42,0.9);
+      background:rgba(15,23,42,0.85);
       overflow:hidden;
     }
-    .quest-bar-fill{
+    .quest-bar-inner{
+      height:100%;
+      width:0;
+      border-radius:inherit;
+      background:var(--accent);
+      transition:width .25s ease-out;
+    }
+
+    /* Fever gauge bottom-left */
+    .hud-bottom-left{
       position:absolute;
-      inset:0;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg, var(--accent-soft), var(--accent));
-      transition:width .18s ease-out;
+      left:14px;
+      bottom:14px;
+      width:230px;
     }
-    .quest-caption{
-      font-size:10px;
-      color:var(--text-soft);
+    .fever-root{
       display:flex;
-      justify-content:space-between;
-    }
-
-    /* ===== Coach bubble (ล่างกลาง) ===== */
-    .hud-bottom{
-      display:flex;
-      flex-direction:column;
       align-items:center;
-      gap:8px;
-      padding-bottom:72px;
+      gap:10px;
+      padding:8px 12px;
+      border-radius:var(--radius-pill);
+      background:rgba(15,23,42,0.96);
+      border:1px solid rgba(148,163,184,0.35);
     }
-    .coach-bubble{
-      min-width:60%;
-      max-width:680px;
-      text-align:left;
-      background:radial-gradient(circle at top left, rgba(52,211,153,0.22), transparent 55%),
-                 rgba(15,23,42,0.98);
-      border-radius:999px;
-      padding:8px 14px;
-      border:1px solid rgba(52,211,153,0.55);
-      font-size:13px;
-      display:none;
-      align-items:center;
-      justify-content:flex-start;
-      gap:8px;
-      pointer-events:auto;
-      opacity:0;
-      transform:translateY(8px) scale(0.96);
-      transition:
-        opacity .25s ease-out,
-        transform .25s ease-out,
-        box-shadow .25s ease-out;
-      box-shadow:0 0 0 rgba(16,185,129,0);
-    }
-    .coach-bubble.show{
-      display:flex;
-      opacity:1;
-      transform:translateY(0) scale(1);
-      box-shadow:0 18px 40px rgba(15,23,42,0.85);
-    }
-    .coach-bubble.bubble-pop{
-      animation:coach-bubble-pop .28s ease-out;
-    }
-    @keyframes coach-bubble-pop{
-      0%{
-        transform:translateY(6px) scale(0.92);
-        opacity:0;
-      }
-      60%{
-        transform:translateY(0) scale(1.03);
-        opacity:1;
-      }
-      100%{
-        transform:translateY(0) scale(1);
-        opacity:1;
-      }
-    }
-
-    .coach-label{
+    .fever-label{
       font-size:11px;
       text-transform:uppercase;
       letter-spacing:.16em;
-      color:#6ee7b7;
-      font-weight:600;
-    }
-
-    .coach-emoji{
-      font-size:28px;
-      line-height:1;
-      width:40px;
-      height:40px;
-      text-align:center;
-      flex-shrink:0;
-      border-radius:999px;
-      background:radial-gradient(circle at 30% 20%, rgba(255,255,255,0.18), transparent 55%),
-                  rgba(6,78,59,0.95);
-      box-shadow:0 0 18px rgba(34,197,94,0.55);
-      transform-origin:center center;
-      animation:coach-idle 1.4s ease-in-out infinite;
-    }
-
-    @keyframes coach-idle{
-      0%   { transform:translateY(0) scale(1); }
-      50%  { transform:translateY(-3px) scale(1.06); }
-      100% { transform:translateY(0) scale(1); }
-    }
-
-    .coach-emoji.coach-celebrate{
-      animation:coach-celebrate 0.22s ease-in-out infinite;
-    }
-    @keyframes coach-celebrate{
-      0%   { transform:translateY(0) rotate(0deg)    scale(1.0);  }
-      25%  { transform:translateY(-10px) rotate(-16deg) scale(1.28); }
-      50%  { transform:translateY(-2px) rotate(0deg)    scale(1.1);  }
-      75%  { transform:translateY(-10px) rotate(16deg)  scale(1.28); }
-      100% { transform:translateY(0) rotate(0deg)    scale(1.0);  }
-    }
-
-    #coach-text{
-      display:inline-block;
-    }
-    .coach-text-anim{
-      animation:coach-text-pop .26s.ease-out;
-    }
-    @keyframes coach-text-pop{
-      0%{
-        transform:translateY(4px);
-        opacity:0;
-      }
-      60%{
-        transform:translateY(-1px);
-        opacity:1;
-      }
-      100%{
-        transform:translateY(0);
-        opacity:1;
-      }
-    }
-
-    /* ===== Center hint ===== */
-    .hint-center{
-      position:fixed;
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      font-size:12px;
       color:var(--text-soft);
-      background:rgba(15,23,42,0.8);
-      padding:6px 10px;
+    }
+    .fever-bar-wrap{
+      flex:1;
+      height:6px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,0.35);
-      display:none;
-      pointer-events:none;
-      z-index:651;
+      background:#020617;
+      overflow:hidden;
     }
-    .hint-center.show{ display:block; }
+    .fever-bar{
+      height:100%;
+      width:0;
+      border-radius:inherit;
+      background:var(--accent);
+      transition:width .2s ease-out;
+    }
+    .fever-percent{
+      font-size:12px;
+      min-width:32px;
+      text-align:right;
+    }
 
-    /* ===== Quest Celebrate Overlay ===== */
-    .quest-celebrate{
-      position:fixed;
-      inset:0;
-      display:none;
+    /* VR button */
+    .hud-bottom-right{
+      position:absolute;
+      right:14px;
+      bottom:14px;
+    }
+    .vr-btn{
+      pointer-events:auto;
+      padding:10px 20px;
+      border-radius:999px;
+      border:none;
+      background:linear-gradient(135deg,#0ea5e9,#22c55e);
+      color:#0b1120;
+      font-weight:600;
+      font-size:14px;
+      cursor:pointer;
+      display:inline-flex;
       align-items:center;
-      justify-content:center;
-      z-index:652;
-      pointer-events:none;
-      background:
-        radial-gradient(circle at top, rgba(250,204,21,0.16), transparent 55%),
-        radial-gradient(circle at bottom, rgba(52,211,153,0.2), transparent 55%);
-    }
-    .quest-celebrate.show{
-      display:flex;
-      animation:qc-fade .9s ease-out;
-    }
-    .quest-celebrate-inner{
-      background:rgba(15,23,42,0.96);
-      border-radius:24px;
-      padding:14px 18px 16px;
-      border:1px solid rgba(250,204,21,0.7);
-      box-shadow:0 20px 40px rgba(15,23,42,0.9);
-      text-align:center;
-      min-width:260px;
-      max-width:420px;
-      transform:scale(0.9);
-      animation:qc-pop .4s ease-out forwards;
-    }
-    .quest-celebrate-title{
-      font-size:16px;
-      font-weight:800;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      margin-bottom:4px;
-    }
-    .quest-celebrate-sub{
-      font-size:13px;
-      color:#e5e7eb;
-    }
-    .quest-celebrate-inner.big{
-      border-color:rgba(96,165,250,0.9);
-      box-shadow:0 0 40px rgba(96,165,250,0.7);
-    }
-    @keyframes qc-fade{
-      from{ opacity:0; }
-      to  { opacity:1; }
-    }
-    @keyframes qc-pop{
-      0%{ transform:scale(0.7); opacity:0; }
-      60%{ transform:scale(1.08); opacity:1; }
-      100%{ transform:scale(1); opacity:1; }
+      gap:8px;
+      box-shadow:0 12px 35px rgba(15,23,42,0.9);
     }
 
-    /* ===== End Summary Toast ===== */
-    .end-toast{
-      position:fixed;
+    /* Crosshair */
+    .crosshair{
+      position:absolute;
+      top:50%;
       left:50%;
-      top:18%;
-      transform:translateX(-50%);
-      background:radial-gradient(circle at top left, rgba(250,204,21,0.26), transparent 55%),
-                 rgba(15,23,42,0.96);
-      padding:12px 16px 14px;
-      border-radius:20px;
-      border:1px solid rgba(250,204,21,0.65);
-      min-width:280px;
-      max-width:420px;
-      font-size:13px;
-      box-shadow:0 20px 40px rgba(15,23,42,0.85);
-      display:none;
-      z-index:652;
+      width:16px;
+      height:16px;
+      border-radius:999px;
+      border:2px solid rgba(226,232,240,0.9);
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+    }
+
+    /* Result modal */
+    .result-wrap{
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%) scale(.96);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .25s ease, transform .25s ease;
+    }
+    .result-wrap.active{
+      opacity:1;
+      transform:translate(-50%,-50%) scale(1);
       pointer-events:auto;
     }
-    .end-toast.show{ display:block; }
-    .end-title{
-      font-size:14px;
-      font-weight:700;
-      margin-bottom:4px;
+    .result-card{
+      width:340px;
+      background:linear-gradient(145deg,rgba(15,23,42,0.98),rgba(15,23,42,0.96));
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,0.4);
+      box-shadow:0 24px 60px rgba(15,23,42,0.95);
+      padding:20px 22px 18px;
     }
-    .end-row{
+    .result-title{
+      font-size:16px;
+      font-weight:600;
+      margin:0 0 12px;
+    }
+    .result-row{
       display:flex;
       justify-content:space-between;
-      font-size:12px;
-      margin-top:2px;
+      margin:2px 0;
+      font-size:13px;
     }
-    .end-row strong{ font-weight:600; }
-
-    .end-actions{
+    .result-actions{
+      margin-top:16px;
       display:flex;
-      flex-wrap:wrap;
       justify-content:flex-end;
-      gap:8px;
-      margin-top:10px;
+      gap:10px;
     }
-    .end-btn{
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.6);
-      padding:6px 14px;
-      font-size:12px;
-      font-weight:600;
+    .btn-ghost,
+    .btn-primary{
+      pointer-events:auto;
       cursor:pointer;
-      background:rgba(15,23,42,0.85);
+      border-radius:999px;
+      padding:8px 16px;
+      font-size:13px;
+      border:1px solid transparent;
+      background:transparent;
       color:var(--text-main);
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      transition:background .15s ease, box-shadow .15s.ease, transform .1s ease;
     }
-    .end-btn:hover{
-      background:rgba(15,23,42,0.98);
-      box-shadow:0 10px 22px rgba(15,23,42,0.9);
-      transform:translateY(-1px);
+    .btn-ghost{
+      border-color:rgba(148,163,184,0.6);
     }
-    .end-btn:active{
-      transform:translateY(0);
-      box-shadow:0 6px 14px rgba(15,23,42,0.7);
-    }
-    .end-btn-primary{
-      background:linear-gradient(135deg,#22c55e,#16a34a);
-      border-color:rgba(187,247,208,0.9);
-      color:#052e16;
-    }
-    .end-btn-primary:hover{
-      background:linear-gradient(135deg,#4ade80,#22c55e);
-    }
-    .end-btn-ghost{
-      background:rgba(15,23,42,0.7);
-    }
-
-    /* ===== ป้ายโหมด (Play / Research) ===== */
-    .hud-mode-badge{
-      font-size:11px;
-      padding:2px 8px;
-      border-radius:999px;
-      background:rgba(30,64,175,0.18);
-      border:1px solid rgba(59,130,246,0.6);
-      color:#bfdbfe;
-      font-weight:500;
-      margin-left:6px;
-    }
-
-    /* ===== ปุ่มเข้า VR ===== */
-    .vr-btn{
-      position:fixed;
-      right:12px;
-      bottom:16px;
-      z-index:653;
-      border-radius:999px;
-      border:1px solid rgba(56,189,248,0.7);
-      padding:8px 14px;
-      font-size:12px;
+    .btn-primary{
+      background:var(--accent);
+      border-color:var(--accent);
+      color:#022c22;
       font-weight:600;
-      cursor:pointer;
-      background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%),
-                 rgba(15,23,42,0.96);
-      color:#e0f2fe;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      box-shadow:0 14px 30px rgba(15,23,42,0.9);
-    }
-    .vr-btn span{
-      font-size:16px;
-    }
-    .vr-btn:hover{
-      background:radial-gradient(circle at top left, rgba(56,189,248,0.5), transparent 55%),
-                 rgba(15,23,42,1);
     }
 
-    /* ===== A-Frame canvas full ===== */
+    /* A-Frame canvas fill screen */
     a-scene{
       width:100vw;
       height:100vh;
-      position:fixed;
-      inset:0;
     }
   </style>
 </head>
 <body>
 
-  <!-- ===== A-Frame Scene ===== -->
-  <a-scene
-    vr-mode-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-    background="color: #020617">
+  <!-- ======== HUD Overlay ======== -->
+  <div class="hud-root">
+    <!-- Top-left: Score -->
+    <div class="hud-top-left hud-card">
+      <div class="hud-row" style="align-items:flex-start;">
+        <div>
+          <p class="hud-title">HERO HEALTH • NUTRITION VR</p>
+          <p class="hud-game">Food Groups</p>
+        </div>
+        <div class="hud-mode-pill">
+          <span class="hud-mode-dot"></span>
+          <span id="hud-mode-text">EASY • 80s</span>
+        </div>
+      </div>
 
-    <!-- กล้องกลาง + crosshair -->
+      <div class="hud-row">
+        <span class="hud-label">คะแนน</span>
+        <span id="hud-score" class="hud-value">0</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">คอมโบสูงสุด</span>
+        <span id="hud-combo" class="hud-value">0</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">พลาด</span>
+        <span id="hud-miss" class="hud-value hud-value--bad">0</span>
+      </div>
+      <div class="hud-row" style="margin-top:6px;">
+        <span class="hud-label">เกรด (REAL-TIME)</span>
+        <span class="hud-grade-pill">
+          <span id="hud-grade">C</span>
+          <span style="font-size:11px;color:var(--text-soft);">C–SSS</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Top-right: Quest -->
+    <div class="hud-top-right hud-card">
+      <p class="hud-title">QUEST</p>
+      <p id="quest-main" class="quest-title">ภารกิจจะปรากฏที่นี่</p>
+      <p id="quest-mini" class="quest-mini">Mini: —</p>
+      <div class="quest-progress" id="quest-progress-text">0 / 0</div>
+      <div class="quest-progress" id="quest-mini-progress-text">Mini 0 / 0</div>
+      <div class="quest-progress" id="quest-hint">ลองเล็งเป้าให้แม่นขึ้นทีละนิด</div>
+      <div class="quest-bar">
+        <div id="quest-bar-main" class="quest-bar-inner"></div>
+      </div>
+      <div class="quest-bar" style="margin-top:3px;">
+        <div id="quest-bar-mini" class="quest-bar-inner"></div>
+      </div>
+    </div>
+
+    <!-- Bottom-left: Fever gauge -->
+    <div class="hud-bottom-left">
+      <div class="fever-root">
+        <div style="font-size:18px;">🔥</div>
+        <div>
+          <div class="fever-label">Fever Gauge</div>
+          <div class="fever-bar-wrap">
+            <div id="fever-bar" class="fever-bar"></div>
+          </div>
+        </div>
+        <div id="fever-percent" class="fever-percent">0%</div>
+      </div>
+    </div>
+
+    <!-- Bottom-right: VR button -->
+    <div class="hud-bottom-right">
+      <button class="vr-btn" id="btn-enter-vr">
+        <span>🕶️</span>
+        <span>เข้าสู่โหมด VR</span>
+      </button>
+    </div>
+
+    <!-- Center crosshair -->
+    <div class="crosshair"></div>
+
+    <!-- Result modal -->
+    <div class="result-wrap" id="result-wrap">
+      <div class="result-card">
+        <p class="result-title">สรุปผล • Food Groups</p>
+        <div class="result-row">
+          <span>โหมด</span>
+          <span id="res-mode">Easy</span>
+        </div>
+        <div class="result-row">
+          <span>เกรด</span>
+          <span id="res-grade">C</span>
+        </div>
+        <div class="result-row">
+          <span>คะแนนรวม</span>
+          <span id="res-score">0</span>
+        </div>
+        <div class="result-row">
+          <span>คอมโบสูงสุด</span>
+          <span id="res-combo">0</span>
+        </div>
+        <div class="result-row">
+          <span>พลาด</span>
+          <span id="res-miss">0</span>
+        </div>
+        <div class="result-row">
+          <span>Goals</span>
+          <span id="res-goals">0 / 0</span>
+        </div>
+        <div class="result-row">
+          <span>Mini quests</span>
+          <span id="res-minis">0 / 0</span>
+        </div>
+
+        <div class="result-actions">
+          <button class="btn-ghost" id="btn-retry">เล่นอีกครั้ง</button>
+          <button class="btn-primary" id="btn-back-hub">กลับ Hub</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== A-Frame Scene ======== -->
+  <a-scene background="color: #020617" renderer="antialias: true">
+    <a-assets>
+      <!-- ถ้ามี skybox / floor texture ใส่เพิ่มได้ที่นี่ -->
+    </a-assets>
+
+    <!-- พื้น -->
+    <a-entity geometry="primitive: plane; width: 16; height: 16"
+              rotation="-90 0 0"
+              position="0 0 -4"
+              material="color: #020617; roughness: 1; metalness: 0">
+    </a-entity>
+
+    <!-- แสง -->
+    <a-entity light="type: ambient; intensity: 0.45; color: #ffffff"></a-entity>
+    <a-entity light="type: directional; intensity: 0.8; color: #ffffff"
+              position="0 4 -2"></a-entity>
+
+    <!-- กล้อง + cursor mouse -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="gj-camera"
                 wasd-controls-enabled="false"
@@ -572,647 +452,202 @@
         </a-entity>
       </a-camera>
     </a-entity>
-
-    <!-- พื้น + แสง -->
-    <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
-    <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
-    <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
-             material="color: #020617; metalness: 0; roughness: 1"></a-plane>
-    <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- ===== HUD Overlay ===== -->
-  <div class="hud-root">
-    <div class="hud-top">
-      <!-- Left -->
-      <div class="hud-card" style="flex:1;max-width:420px;">
-        <div class="hud-main">
-          <div>
-            <div class="hud-main-title">
-              Hero Health • Nutrition VR
-              <span id="hud-runmode" class="hud-mode-badge">Play Mode</span>
-            </div>
-            <div class="hud-main-mode">Food Groups</div>
-          </div>
-          <div class="hud-pill">
-            <span id="hud-diff-label">NORMAL</span>
-            <span>•</span>
-            <span id="hud-time-label">60s</span>
-          </div>
-        </div>
-
-        <div class="hud-metrics">
-          <div class="metric">
-            <div class="metric-label">คะแนน</div>
-            <div class="metric-value accent" id="hud-score">0</div>
-            <div class="metric-label" id="hud-judge" style="margin-top:2px;font-size:11px;color:#e5e7eb;">
-              &nbsp;
-            </div>
-          </div>
-
-          <div class="metric">
-            <div class="metric-label">คอมโบสูงสุด</div>
-            <div class="metric-value" id="hud-combo" data-max="0">0</div>
-          </div>
-
-          <div class="metric">
-            <div class="metric-label">พลาด</div>
-            <div class="metric-value danger" id="hud-miss">0</div>
-          </div>
-
-          <div class="metric metric-grade">
-            <div class="metric-label">เกรด (real-time)</div>
-            <div class="grade-text">
-              <span class="metric-value" id="hud-grade">-</span>
-              <span class="grade-badge" id="hud-grade-badge">C–SSS</span>
-            </div>
-            <div class="grade-bar">
-              <div id="hud-grade-bar" class="grade-bar-fill" data-grade="C"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right: Quest -->
-      <div class="hud-card hud-quest">
-        <div class="quest-title">Quest</div>
-        <div id="hud-quest-main" class="quest-main-label">ภารกิจหลักจะโผล่ตรงนี้</div>
-        <div id="hud-quest-mini" class="quest-mini-label">Mini quest จะโผล่ตรงนี้</div>
-        <div class="quest-progress-wrap">
-          <div class="quest-bar">
-            <div id="hud-quest-main-bar" class="quest-bar-fill"></div>
-          </div>
-          <div class="quest-caption">
-            <span id="hud-quest-main-caption">0 / 0</span>
-            <span id="hud-quest-hint"></span>
-          </div>
-          <div class="quest-bar">
-            <div id="hud-quest-mini-bar" class="quest-bar-fill"></div>
-          </div>
-          <div class="quest-caption">
-            <span id="hud-quest-mini-caption">0 / 0</span>
-            <span></span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bottom: Coach -->
-    <div class="hud-bottom">
-      <div class="coach-bubble" id="coach-bubble">
-        <span id="coach-emoji" class="coach-emoji">🙂</span>
-        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
-          <span class="coach-label">โค้ช</span>
-          <span id="coach-text">เลือกอาหารให้ครบ 5 หมู่ ในแต่ละภารกิจเลยนะ 🍚🥦🥛🍗🍎</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Hint -->
-  <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
-
-  <!-- Quest celebrate -->
-  <div class="quest-celebrate" id="quest-celebrate">
-    <div class="quest-celebrate-inner" id="quest-celebrate-box">
-      <div id="quest-celebrate-title" class="quest-celebrate-title">ภารกิจสำเร็จ!</div>
-      <div id="quest-celebrate-sub" class="quest-celebrate-sub">Goal 1 เสร็จเรียบร้อย 🎯</div>
-    </div>
-  </div>
-
-  <!-- End summary -->
-  <div class="end-toast" id="end-toast">
-    <div class="end-title">สรุปผล • Food Groups</div>
-    <div class="end-row"><span>โหมด</span><strong id="end-runmode">Play</strong></div>
-    <div class="end-row"><span>เกรด</span><strong id="end-grade">-</strong></div>
-    <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
-    <div class="end-row"><span>คอมโบสูงสุด</span><strong id="end-combo">0</strong></div>
-    <div class="end-row"><span>พลาด</span><strong id="end-miss">0</strong></div>
-    <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 0</strong></div>
-    <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 0</strong></div>
-    <div class="end-actions">
-      <button class="end-btn end-btn-primary" id="btn-replay">เล่นอีกครั้ง</button>
-      <button class="end-btn end-btn-ghost" id="btn-back-hub">กลับ Hub</button>
-    </div>
-  </div>
-
-  <!-- 3–2–1 -->
-  <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
-
-  <!-- VR button -->
-  <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
-
-  <!-- Fever UI (global, non-module) -->
+  <!-- ======== Game scripts (non-module) ======== -->
   <script src="./vr/ui-fever.js"></script>
-  <!-- Effect เป้า (particles FX) -->
   <script src="./vr/particles.js"></script>
+  <script src="./vr/hha-cloud-logger.js"></script>
+  <script src="./vr/emoji-image.js"></script>
 
-  <!-- ★ NEW: Difficulty + Quest สำหรับ Food Groups VR -->
   <script src="./vr-groups/difficulty.foodgroups.js"></script>
   <script src="./vr-groups/quest-manager.js"></script>
 
-  <!-- ===== Logic: Boot GameEngine + HUD + Touch Look + Cloud Logger ===== -->
+  <!-- ======== Main module: start engine + HUD bindings ======== -->
   <script type="module">
     import { GameEngine } from './vr-groups/GameEngine.js';
-    import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
-    import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-    function getParam(name, fallback){
-      const url = new URL(window.location.href);
-      const v = url.searchParams.get(name);
-      return v !== null && v !== '' ? v : fallback;
+    const ROOT = window;
+
+    // ---------- อ่านค่าจาก URL ----------
+    const url = new URL(window.location.href);
+    let diff = (url.searchParams.get('diff') || 'easy').toLowerCase();
+    if (!['easy','normal','hard'].includes(diff)) diff = 'easy';
+
+    let timeParam = parseInt(url.searchParams.get('time'), 10);
+    if (!Number.isFinite(timeParam) || timeParam <= 0) timeParam = 80;
+    if (timeParam < 20) timeParam = 20;
+    if (timeParam > 180) timeParam = 180;
+
+    let remain = timeParam;
+
+    const hudMode    = document.getElementById('hud-mode-text');
+    const hudScore   = document.getElementById('hud-score');
+    const hudCombo   = document.getElementById('hud-combo');
+    const hudMiss    = document.getElementById('hud-miss');
+    const hudGrade   = document.getElementById('hud-grade');
+
+    const feverBar      = document.getElementById('fever-bar');
+    const feverPercent  = document.getElementById('fever-percent');
+
+    const questMain  = document.getElementById('quest-main');
+    const questMini  = document.getElementById('quest-mini');
+    const questProg  = document.getElementById('quest-progress-text');
+    const questMiniProg = document.getElementById('quest-mini-progress-text');
+    const questHint  = document.getElementById('quest-hint');
+    const questBarMain = document.getElementById('quest-bar-main');
+    const questBarMini = document.getElementById('quest-bar-mini');
+
+    const resWrap   = document.getElementById('result-wrap');
+    const resMode   = document.getElementById('res-mode');
+    const resGrade  = document.getElementById('res-grade');
+    const resScore  = document.getElementById('res-score');
+    const resCombo  = document.getElementById('res-combo');
+    const resMiss   = document.getElementById('res-miss');
+    const resGoals  = document.getElementById('res-goals');
+    const resMinis  = document.getElementById('res-minis');
+
+    const btnEnterVR = document.getElementById('btn-enter-vr');
+    const btnRetry   = document.getElementById('btn-retry');
+    const btnBackHub = document.getElementById('btn-back-hub');
+
+    function updateModeLabel () {
+      hudMode.textContent = diff.toUpperCase() + ' • ' + remain + 's';
     }
 
-    const elScore   = document.getElementById('hud-score');
-    const elCombo   = document.getElementById('hud-combo');
-    const elMiss    = document.getElementById('hud-miss');
-    const elDiff    = document.getElementById('hud-diff-label');
-    const elTime    = document.getElementById('hud-time-label');
-    const elRunHUD  = document.getElementById('hud-runmode');
-
-    const elQuestMain      = document.getElementById('hud-quest-main');
-    const elQuestMini      = document.getElementById('hud-quest-mini');
-    const elQuestMainBar   = document.getElementById('hud-quest-main-bar');
-    const elQuestMiniBar   = document.getElementById('hud-quest-mini-bar');
-    const elQuestMainCap   = document.getElementById('hud-quest-main-caption');
-    const elQuestMiniCap   = document.getElementById('hud-quest-mini-caption');
-    const elQuestHint      = document.getElementById('hud-quest-hint');
-
-    const elCoachBubble = document.getElementById('coach-bubble');
-    const elCoachText   = document.getElementById('coach-text');
-    const elCoachEmoji  = document.getElementById('coach-emoji');
-    const elTouchHint   = document.getElementById('touch-hint');
-
-    const elEndToast  = document.getElementById('end-toast');
-    const elEndScore  = document.getElementById('end-score');
-    const elEndCombo  = document.getElementById('end-combo');
-    const elEndMiss   = document.getElementById('end-miss');
-    const elEndGoal   = document.getElementById('end-goal');
-    const elEndMini   = document.getElementById('end-mini');
-    const elEndGrade  = document.getElementById('end-grade');
-    const elEndRun    = document.getElementById('end-runmode');
-
-    const elGrade      = document.getElementById('hud-grade');
-    const elGradeBadge = document.getElementById('hud-grade-badge');
-    const elGradeBar   = document.getElementById('hud-grade-bar');
-
-    const elCountdown = document.getElementById('start-countdown');
-    const elJudge     = document.getElementById('hud-judge');
-
-    const elQuestCelebrate      = document.getElementById('quest-celebrate');
-    const elQuestCelebrateBox   = document.getElementById('quest-celebrate-box');
-    const elQuestCelebrateTitle = document.getElementById('quest-celebrate-title');
-    const elQuestCelebrateSub   = document.getElementById('quest-celebrate-sub');
-
-    const btnReplay   = document.getElementById('btn-replay');
-    const btnBackHub  = document.getElementById('btn-back-hub');
-    const btnVR       = document.getElementById('btn-vr');
-
-    let lastCoachTimeout = null;
-    let hudMissCount = 0;
-
-    let hudGoalsTotal   = 0;
-    let hudGoalsCleared = 0;
-    let hudMiniTotal    = 0;
-    let hudMiniCleared  = 0;
-
-    const coachFaces = {
-      neutral: '🙂',
-      happy:   '😄',
-      sad:     '😢',
-      fever:   '🔥'
-    };
-
-    function setCoachFace(mood){
-      if (!elCoachEmoji) return;
-      elCoachEmoji.textContent = coachFaces[mood] || coachFaces.neutral;
+    function setFeverHUD (percent) {
+      const p = Math.max(0, Math.min(100, percent || 0));
+      feverBar.style.width = p + '%';
+      feverPercent.textContent = Math.round(p) + '%';
     }
 
-    function setCoach(text){
-      if (!text) return;
-      elCoachText.textContent = text;
-      elCoachText.classList.remove('coach-text-anim');
-      void elCoachText.offsetWidth;
-      elCoachText.classList.add('coach-text-anim');
-
-      elCoachBubble.classList.add('show');
-      elCoachBubble.classList.remove('bubble-pop');
-      void elCoachBubble.offsetWidth;
-      elCoachBubble.classList.add('bubble-pop');
-
-      if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
-      lastCoachTimeout = setTimeout(()=> {
-        elCoachBubble.classList.remove('show');
-      }, 4200);
-    }
-
-    function pulseCoachCelebrate(duration = 1200){
-      if (!elCoachEmoji) return;
-      elCoachEmoji.classList.add('coach-celebrate');
-      setTimeout(()=> {
-        elCoachEmoji.classList.remove('coach-celebrate');
-      }, duration);
-    }
-
-    function runCountdown(onDone){
-      if (!elCountdown){
-        if (onDone) onDone();
-        return;
+    // ---------- HUD event bindings ----------
+    window.addEventListener('hha:stat', (ev) => {
+      const d = ev.detail || {};
+      if (typeof d.score === 'number') {
+        hudScore.textContent = d.score.toString();
       }
-      const steps = ['3','2','1','Go!'];
-      let idx = 0;
-      elCountdown.classList.remove('countdown-hidden');
-      elCountdown.textContent = steps[0];
-
-      const interval = 800;
-      const t = setInterval(() => {
-        idx++;
-        if (idx >= steps.length){
-          clearInterval(t);
-          elCountdown.classList.add('countdown-hidden');
-          if (onDone) onDone();
-        } else {
-          elCountdown.textContent = steps[idx];
-        }
-      }, interval);
-    }
-
-    window.addEventListener('hha:time', (e)=>{
-      const sec = (e.detail && typeof e.detail.sec === 'number')
-        ? (e.detail.sec | 0)
-        : 0;
-      if (sec < 0) return;
-      elTime.textContent = sec + 's';
+      if (typeof d.comboMax === 'number') {
+        hudCombo.textContent = d.comboMax.toString();
+      }
+      if (typeof d.misses === 'number') {
+        hudMiss.textContent = d.misses.toString();
+      }
+      if (typeof d.grade === 'string') {
+        hudGrade.textContent = d.grade;
+      }
+      if (typeof d.fever === 'number') {
+        setFeverHUD(d.fever);
+      }
     });
 
-    function computeGrade(score, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
-      const allGoalDone = goalsTotal > 0 && goalsCleared >= goalsTotal;
-      const allMiniDone = miniTotal > 0 && miniCleared >= miniTotal;
-      const allQuest    = allGoalDone && allMiniDone;
-
-      if (allQuest && score >= 1200 && comboMax >= 15 && misses <= 1) return 'SSS';
-      if (allQuest && score >= 900  && comboMax >= 10 && misses <= 3) return 'SS';
-      if (score >= 700) return 'S';
-      if (score >= 500) return 'A';
-      if (score >= 300) return 'B';
-      return 'C';
-    }
-
-    function updateRealtimeGrade(latestScore){
-      if (!elGrade || !elGradeBar) return;
-
-      const scoreNow = (typeof latestScore === 'number'
-        ? latestScore
-        : parseInt(elScore.textContent || '0',10)) || 0;
-      const comboMax = parseInt(elCombo.dataset.max || '0',10) || 0;
-
-      const grade = computeGrade(
-        scoreNow,
-        comboMax,
-        hudMissCount,
-        hudGoalsCleared,
-        hudGoalsTotal,
-        hudMiniCleared,
-        hudMiniTotal
-      );
-
-      elGrade.textContent = grade;
-      if (elGradeBadge) elGradeBadge.textContent = 'C–SSS';
-
-      const pctMap = { C:20, B:40, A:60, S:75, SS:90, SSS:100 };
-      const pct = pctMap[grade] || 15;
-      elGradeBar.style.width = pct + '%';
-      elGradeBar.dataset.grade = grade;
-    }
-
-    window.addEventListener('quest:update', (e)=>{
-      const d = e.detail || {};
+    // Quest update จาก quest-manager.js
+    window.addEventListener('quest:update', (ev) => {
+      const d = ev.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
 
-      if (goal){
-        elQuestMain.textContent = goal.label || 'ภารกิจหลัก';
-        const prog = goal.prog|0, tgt = goal.target|0;
-        const pct  = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
-        elQuestMainBar.style.width = pct + '%';
-        elQuestMainCap.textContent = `${prog} / ${tgt}`;
-      }else{
-        elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
-        elQuestMainBar.style.width = '100%';
-        elQuestMainCap.textContent = '';
-      }
-
-      if (mini){
-        elQuestMini.textContent = 'Mini: ' + (mini.label || '');
-        const progM = mini.prog|0, tgtM = mini.target|0;
-        const pctM  = tgtM>0 ? Math.max(0, Math.min(100, (progM/tgtM)*100)) : 0;
-        elQuestMiniBar.style.width = pctM + '%';
-        elQuestMiniCap.textContent = `${progM} / ${tgtM}`;
-      }else{
-        elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
-        elQuestMiniBar.style.width = '100%';
-        elQuestMiniCap.textContent = '';
-      }
-
-      if (d.hint){
-        elQuestHint.textContent = d.hint;
+      if (goal) {
+        questMain.textContent = goal.label || 'ภารกิจหลัก';
+        const gp = goal.prog || 0;
+        const gt = goal.target || 0;
+        questProg.textContent = `${gp} / ${gt}`;
+        const ratio = gt > 0 ? (gp / gt) * 100 : 0;
+        questBarMain.style.width = Math.max(0, Math.min(100, ratio)) + '%';
       } else {
-        elQuestHint.textContent = '';
+        questMain.textContent = 'ภารกิจจะปรากฏที่นี่';
+        questProg.textContent = '0 / 0';
+        questBarMain.style.width = '0%';
       }
 
-      const goalsAll = d.goalsAll || [];
-      const minisAll = d.minisAll || [];
-      hudGoalsTotal   = goalsAll.length;
-      hudGoalsCleared = goalsAll.filter(g => g && g.done).length;
-      hudMiniTotal    = minisAll.length;
-      hudMiniCleared  = minisAll.filter(m => m && m.done).length;
-
-      updateRealtimeGrade();
-    });
-
-    function showQuestCelebrate(title, sub, big = false, duration = 1200){
-      if (!elQuestCelebrate || !elQuestCelebrateBox) return;
-
-      elQuestCelebrateBox.classList.remove('big');
-      if (big) elQuestCelebrateBox.classList.add('big');
-
-      if (elQuestCelebrateTitle) elQuestCelebrateTitle.textContent = title || 'ภารกิจสำเร็จ!';
-      if (elQuestCelebrateSub)   elQuestCelebrateSub.textContent   = sub || '';
-
-      elQuestCelebrate.classList.add('show');
-      pulseCoachCelebrate(duration);
-
-      setTimeout(()=> {
-        elQuestCelebrate.classList.remove('show');
-      }, duration);
-    }
-
-    window.addEventListener('quest:celebrate', (e)=>{
-      const d = e.detail || {};
-      const kind  = d.kind || 'goal';
-      const index = (typeof d.index === 'number' ? d.index : 0);
-      const total = (typeof d.total === 'number' ? d.total : 0);
-
-      if (kind === 'goal'){
-        const t = 'Goal สำเร็จ! 🎯';
-        const sub = total
-          ? `ภารกิจหลักข้อที่ ${index} จาก ${total} เสร็จแล้ว`
-          : 'ภารกิจหลักเสร็จเรียบร้อย';
-        showQuestCelebrate(t, sub, false, 1300);
-      }else{
-        const t = 'Mini quest สำเร็จ! ✨';
-        const sub = total
-          ? `Mini quest ข้อที่ ${index} จาก ${total} เสร็จแล้ว`
-          : 'Mini quest เสร็จเรียบร้อย';
-        showQuestCelebrate(t, sub, false, 1300);
+      if (mini) {
+        questMini.textContent = 'Mini: ' + (mini.label || '');
+        const mp = mini.prog || 0;
+        const mt = mini.target || 0;
+        questMiniProg.textContent = `Mini ${mp} / ${mt}`;
+        const mratio = mt > 0 ? (mp / mt) * 100 : 0;
+        questBarMini.style.width = Math.max(0, Math.min(100, mratio)) + '%';
+      } else {
+        questMini.textContent = 'Mini: —';
+        questMiniProg.textContent = 'Mini 0 / 0';
+        questBarMini.style.width = '0%';
       }
+
+      questHint.textContent = d.hint || '';
     });
 
-    window.addEventListener('quest:all-complete', (e)=>{
-      const d = e.detail || {};
-      const gTotal = d.goalsTotal || 0;
-      const mTotal = d.minisTotal || 0;
-      const title  = 'ทุกภารกิจสำเร็จครบแล้ว! 🏆';
-      const sub    = `Goals ${gTotal} ข้อ + Mini quests ${mTotal} ข้อ — เยี่ยมมาก!`;
-      showQuestCelebrate(title, sub, true, 1600);
+    // ---------- END event ----------
+    window.addEventListener('hha:end', (ev) => {
+      const d = ev.detail || {};
+      resMode.textContent  = d.difficulty ? d.difficulty.toUpperCase() : diff.toUpperCase();
+      resGrade.textContent = d.grade || 'C';
+      resScore.textContent = (d.score || 0).toString();
+      resCombo.textContent = (d.comboMax || 0).toString();
+      resMiss.textContent  = (d.misses || 0).toString();
+      const gCleared = d.goalsCleared || d.goalCleared || 0;
+      const gTotal   = d.goalsTotal || 0;
+      const mCleared = d.questsCleared || 0;
+      const mTotal   = d.questsTotal || 0;
+      resGoals.textContent = `${gCleared} / ${gTotal}`;
+      resMinis.textContent = `${mCleared} / ${mTotal}`;
+
+      resWrap.classList.add('active');
     });
 
-    window.addEventListener('hha:coach', (e)=>{
-      const text = e.detail && e.detail.text;
-      if (text){
-        setCoach(text);
-        pulseCoachCelebrate(700);
-      }
-    });
-
-    window.addEventListener('hha:score', (e)=>{
-      const d = e.detail || {};
-      if (typeof d.score === 'number') {
-        elScore.textContent = d.score;
-      }
-      if (typeof d.combo === 'number') {
-        const c = d.combo | 0;
-        const prevMax = parseInt(elCombo.dataset.max || '0', 10);
-        const max = Math.max(prevMax, c);
-        elCombo.dataset.max = String(max);
-        elCombo.textContent = max;
-
-        if (c >= 10) {
-          setCoachFace('fever');
-        } else if (c >= 5) {
-          setCoachFace('happy');
-        } else if (c === 0 && hudMissCount === 0) {
-          setCoachFace('neutral');
+    // ---------- Countdown -> hha:time ----------
+    let countdownTimer = null;
+    function runCountdown () {
+      const start = Date.now();
+      function tick () {
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        const left = Math.max(0, timeParam - elapsed);
+        if (left !== remain) {
+          remain = left;
+          updateModeLabel();
+          window.dispatchEvent(new CustomEvent('hha:time', {
+            detail: { sec: left }
+          }));
+        }
+        if (left <= 0 && countdownTimer) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
         }
       }
-      if (typeof d.misses === 'number') {
-        hudMissCount = d.misses;
-        elMiss.textContent = hudMissCount;
-      }
-
-      updateRealtimeGrade(d.score);
-    });
-
-    window.addEventListener('hha:miss', ()=>{
-      hudMissCount += 1;
-      elMiss.textContent = hudMissCount;
-      setCoachFace('sad');
-      setCoach('ลองจัดให้ครบทุกหมู่อาหาร แล้วเลี่ยงของหวาน/ของทอดดูนะ 😌');
-      updateRealtimeGrade();
-    });
-
-    window.addEventListener('hha:fever', (e)=>{
-      const st = (e.detail && e.detail.state) || 'change';
-      if (st === 'start') {
-        setCoachFace('fever');
-        setCoach('FEVER มาแล้ว! เลือกอาหารดีจากหมู่ต่าง ๆ ให้ไวเลย! 🔥');
-        pulseCoachCelebrate(1400);
-      }
-      if (st === 'end') {
-        setCoachFace('neutral');
-      }
-    });
-
-    window.addEventListener('hha:end', (e)=>{
-      if (elQuestCelebrate) elQuestCelebrate.classList.remove('show');
-
-      const d = e.detail || {};
-      let scoreFinal = 0;
-      if (typeof d.scoreFinal === 'number') scoreFinal = d.scoreFinal;
-      else if (typeof d.score === 'number') scoreFinal = d.score;
-
-      let comboMax = 0;
-      if (typeof d.comboMax === 'number') comboMax = d.comboMax;
-      else {
-        const parsed = parseInt(elCombo.dataset.max || '0',10);
-        comboMax = isNaN(parsed) ? 0 : parsed;
-      }
-
-      const misses       = (typeof d.misses === 'number') ? d.misses : hudMissCount;
-      const goalsCleared = (typeof d.goalsCleared === 'number') ? d.goalsCleared : hudGoalsCleared;
-      const goalsTotal   = (typeof d.goalsTotal   === 'number') ? d.goalsTotal   : hudGoalsTotal;
-      const miniCleared  = (typeof d.miniCleared  === 'number') ? d.miniCleared  : hudMiniCleared;
-      const miniTotal    = (typeof d.miniTotal    === 'number') ? d.miniTotal    : hudMiniTotal;
-
-      const grade = computeGrade(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
-
-      elEndScore.textContent = scoreFinal;
-      elEndCombo.textContent = comboMax;
-      elEndMiss.textContent  = misses;
-      elEndGoal.textContent  = `${goalsCleared} / ${goalsTotal}`;
-      elEndMini.textContent  = `${miniCleared} / ${miniTotal}`;
-      elEndGrade.textContent = grade;
-      elEndToast.classList.add('show');
-
-      updateRealtimeGrade(scoreFinal);
-
-      setCoachFace(misses <= 3 ? 'happy' : 'neutral');
-      setCoach('จบเกมแล้ว! ดูสรุปว่าได้ครบทั้ง 5 หมู่แค่ไหนเลย 🎉');
-    });
-
-    window.addEventListener('hha:judge', (e) => {
-      const label = (e.detail && e.detail.label) || '';
-      if (!elJudge) return;
-      elJudge.textContent = label || '';
-    });
-
-    function initTouchLook(cameraEl){
-      if (!cameraEl) return;
-      attachTouchLook(cameraEl, {
-        sensitivity: 0.25,
-        areaEl: document.body,
-        onActiveChange: (active)=>{
-          if (active){
-            elTouchHint.classList.add('show');
-            setTimeout(()=> elTouchHint.classList.remove('show'), 3200);
-          }
-        }
-      });
+      tick();
+      countdownTimer = setInterval(tick, 1000);
     }
 
-    function initVRButton(){
-      if (!btnVR) return;
+    // ---------- VR button ----------
+    btnEnterVR?.addEventListener('click', () => {
       const scene = document.querySelector('a-scene');
-      if (!scene) return;
+      if (scene && scene.enterVR) {
+        scene.enterVR();
+      }
+    });
 
-      btnVR.addEventListener('click', () => {
-        try{
-          scene.enterVR();
-        }catch(err){
-          console.warn('[GroupsVR] enterVR error:', err);
-        }
+    btnRetry?.addEventListener('click', () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('run', 'play');
+      window.location.href = url.toString();
+    });
+
+    btnBackHub?.addEventListener('click', () => {
+      window.location.href = './hub.html';
+    });
+
+    // ---------- Boot engine ----------
+    window.addEventListener('load', () => {
+      updateModeLabel();
+      setFeverHUD(0);
+
+      const engine = new GameEngine({
+        difficulty: diff,
+        duration: timeParam
       });
-    }
+      engine.start();
 
-    window.addEventListener('DOMContentLoaded', () => {
-      const diff = String(getParam('diff','normal')).toLowerCase();
-      const runParam = String(getParam('run','play')).toLowerCase();
-      const runMode = (runParam === 'research') ? 'research' : 'play';
-
-      let baseDur = 60;
-      if (diff === 'easy') baseDur = 80;
-      else if (diff === 'hard') baseDur = 45;
-
-      let dur = baseDur;
-      const timeParam = getParam('time','');
-      if (timeParam){
-        const parsed = parseInt(timeParam,10);
-        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180){
-          dur = parsed;
-        }
-      }
-
-      elDiff.textContent = diff.toUpperCase();
-      elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
-
-      elScore.textContent = '0';
-      elCombo.textContent = '0';
-      elCombo.dataset.max = '0';
-      elMiss.textContent  = '0';
-      elTime.textContent  = dur + 's';
-      hudMissCount = 0;
-
-      hudGoalsTotal   = 0;
-      hudGoalsCleared = 0;
-      hudMiniTotal    = 0;
-      hudMiniCleared  = 0;
-      elGrade.textContent = '-';
-      elGradeBar.style.width = '10%';
-      elGradeBar.dataset.grade = 'C';
-
-      setCoachFace('neutral');
-      setCoach('เลือกอาหารจากทุกหมู่ให้สมดุล อย่าลืมผัก ผลไม้ และนมด้วยนะ 🥦🍎🥛');
-
-      let studentProfile = null;
-      let studentKey = null;
-      try{
-        const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
-        if (raw){
-          studentProfile = JSON.parse(raw);
-          studentKey = studentProfile.studentKey || null;
-        }
-      }catch(err){
-        console.warn('[GroupsVR] cannot parse student profile:', err);
-      }
-
-      initCloudLogger({
-        endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
-        projectTag: 'HeroHealth-GroupsVR',
-        mode: 'GroupsVR',
-        runMode,
-        diff,
-        durationSec: dur,
-        studentKey,
-        profile: studentProfile,
-        debug: false
-      });
-
-      const cam = document.querySelector('#gj-camera');
-      initTouchLook(cam);
-      initVRButton();
-
-      runCountdown(() => {
-        GameEngine.start(diff);
-
-        let timeLeft = dur;
-        let timerId = null;
-
-        function tickTime(){
-          timeLeft -= 1;
-          if (timeLeft < 0) return;
-          window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-          if (timeLeft <= 0){
-            clearInterval(timerId);
-            GameEngine.stop('time-up');
-          }
-        }
-
-        window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-        timerId = setInterval(tickTime, 1000);
-      });
-
-      if (btnReplay) {
-        btnReplay.addEventListener('click', () => {
-          window.location.reload();
-        });
-      }
-      if (btnBackHub) {
-        btnBackHub.addEventListener('click', () => {
-          window.location.href = './hub.html';
-        });
-      }
-
-      if (elEndRun){
-        elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
-      }
-
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          GameEngine.stop('tab-hidden');
-        }
-      });
+      runCountdown();
     });
   </script>
-
 </body>
 </html>
