@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/quest-manager.js ===
-// Food Groups VR — Quest Manager (10 Goals + 15 Mini Quests)
-// 2025-12-05
+// Food Groups VR — Quest Manager (Goals + Mini Quests + Celebrate + All-Complete)
+// 2025-12-13
 
 (function (ns) {
   'use strict';
@@ -21,21 +21,42 @@
 
   function coach(text) {
     if (!text) return;
-    window.dispatchEvent(new CustomEvent('hha:coach', {
-      detail: { text }
-    }));
+    try {
+      window.dispatchEvent(new CustomEvent('hha:coach', {
+        detail: { text }
+      }));
+    } catch (_) {}
   }
 
   function emitQuestUpdate(payload) {
-    window.dispatchEvent(new CustomEvent('quest:update', {
-      detail: payload
-    }));
+    try {
+      window.dispatchEvent(new CustomEvent('quest:update', {
+        detail: payload
+      }));
+    } catch (_) {}
+  }
+
+  function emitQuestCelebrate(kind, index, total) {
+    try {
+      window.dispatchEvent(new CustomEvent('quest:celebrate', {
+        detail: { kind, index, total }
+      }));
+    } catch (_) {}
+  }
+
+  function emitQuestAllComplete(summary) {
+    try {
+      window.dispatchEvent(new CustomEvent('quest:all-complete', {
+        detail: summary
+      }));
+    } catch (_) {}
   }
 
   // ------------------------------------------------------------
   // Goal / Mini quest templates
   // level: 'easy' | 'normal' | 'hard'
   // type : 'any' | 'good' | 'group' | 'uniqueGroups'
+  // groupId: 1..5 ตามหมู่อาหาร
   // ------------------------------------------------------------
 
   const GOALS = [
@@ -254,6 +275,9 @@
   // GroupsQuestManager
   // ------------------------------------------------------------
 
+  const DEFAULT_GOAL_LIMIT = 2;  // จำกัดจำนวน Goal ทั้งเกม
+  const DEFAULT_MINI_LIMIT = 3;  // จำกัดจำนวน Mini ทั้งเกม
+
   function cloneQuestTemplate(tpl) {
     const q = {
       id: tpl.id,
@@ -263,7 +287,8 @@
       target: tpl.target,
       label: tpl.label,
       hint: tpl.hint || '',
-      prog: 0
+      prog: 0,
+      done: false
     };
     if (tpl.type === 'uniqueGroups') {
       q._groupsHit = {}; // {groupId: true}
@@ -272,7 +297,7 @@
   }
 
   function applyHitToQuest(q, hit) {
-    if (!q || !hit) return false;
+    if (!q || !hit || q.done) return false;
 
     const g = hit.groupId;
     const isGood = !!hit.isGood;
@@ -311,8 +336,27 @@
     }
 
     if (q.prog < 0) q.prog = 0;
-    if (q.target && q.prog > q.target) q.prog = q.target;
+    if (q.target && q.prog >= q.target) {
+      q.prog = q.target;
+      q.done = true;
+      changed = true;
+    }
+
     return changed;
+  }
+
+  function serializeQuest(q) {
+    if (!q) return null;
+    return {
+      id: q.id,
+      label: q.label,
+      prog: q.prog,
+      target: q.target,
+      done: !!q.done,
+      level: q.level,
+      type: q.type,
+      groupId: q.groupId || 0
+    };
   }
 
   function GroupsQuestManager() {
@@ -321,8 +365,14 @@
     this.goalsPick = 2;
     this.minisPick = 3;
 
+    this.goalLimit = DEFAULT_GOAL_LIMIT;
+    this.miniLimit = DEFAULT_MINI_LIMIT;
+
     this._goalPool = [];
     this._miniPool = [];
+
+    this._goalsAll = [];
+    this._minisAll = [];
 
     this.goalIndex = 0;
     this.miniIndex = 0;
@@ -334,6 +384,8 @@
     this.clearedMinis = 0;
     this.totalGoals = 0;
     this.totalMinis = 0;
+
+    this._allCompleteEmitted = false;
   }
 
   GroupsQuestManager.prototype.start = function (diffKey, cfg) {
@@ -343,6 +395,14 @@
     this.goalsPick = qc.goalsPick || 2;
     this.minisPick = qc.miniPick || 3;
 
+    this.goalLimit = Number.isFinite(qc.goalLimit)
+      ? qc.goalLimit
+      : DEFAULT_GOAL_LIMIT;
+    this.miniLimit = Number.isFinite(qc.miniLimit)
+      ? qc.miniLimit
+      : DEFAULT_MINI_LIMIT;
+
+    // สุ่ม pool ตามระดับความยาก
     this._goalPool = shuffle(
       GOALS.filter(q => q.level === this.diff)
     );
@@ -350,86 +410,48 @@
       MINIS.filter(q => q.level === this.diff)
     );
 
-    this.totalGoals = Math.min(this.goalsPick, this._goalPool.length);
-    this.totalMinis = Math.min(this.minisPick, this._miniPool.length);
+    // เลือกชุดที่จะใช้จริงในเกม (จำกัดตาม goalLimit/miniLimit)
+    this.totalGoals = Math.min(this.goalsPick, this.goalLimit, this._goalPool.length);
+    this.totalMinis = Math.min(this.minisPick, this.miniLimit, this._miniPool.length);
+
+    this._goalsAll = [];
+    this._minisAll = [];
+
+    for (let i = 0; i < this.totalGoals; i++) {
+      const tpl = this._goalPool[i];
+      if (tpl) this._goalsAll.push(cloneQuestTemplate(tpl));
+    }
+    for (let i = 0; i < this.totalMinis; i++) {
+      const tpl = this._miniPool[i];
+      if (tpl) this._minisAll.push(cloneQuestTemplate(tpl));
+    }
 
     this.goalIndex = 0;
     this.miniIndex = 0;
     this.clearedGoals = 0;
     this.clearedMinis = 0;
+    this._allCompleteEmitted = false;
 
-    this.currentGoal = this._nextGoal();
-    this.currentMini = this._nextMini();
+    this.currentGoal = this._goalsAll[0] || null;
+    this.currentMini = this._minisAll[0] || null;
 
     let intro = 'ภารกิจวันนี้: ';
-    if (this.currentGoal) intro += this.currentGoal.label;
+    if (this.currentGoal) {
+      intro += this.currentGoal.label;
+    } else if (this.currentMini) {
+      intro += this.currentMini.label;
+    }
     coach(intro);
 
     this._emitUpdate();
   };
 
-  GroupsQuestManager.prototype._nextGoal = function () {
-    if (this.goalIndex >= this.totalGoals) return null;
-    const tpl = this._goalPool[this.goalIndex++];
-    return tpl ? cloneQuestTemplate(tpl) : null;
-  };
-
-  GroupsQuestManager.prototype._nextMini = function () {
-    if (this.miniIndex >= this.totalMinis) return null;
-    const tpl = this._miniPool[this.miniIndex++];
-    return tpl ? cloneQuestTemplate(tpl) : null;
-  };
-
-  GroupsQuestManager.prototype.onHit = function (hit) {
-    let needUpdate = false;
-
-    // goal
-    if (this.currentGoal) {
-      const changed = applyHitToQuest(this.currentGoal, hit);
-      if (changed) needUpdate = true;
-
-      if (this.currentGoal.prog >= this.currentGoal.target) {
-        coach('🎉 Goal สำเร็จแล้ว! ' + this.currentGoal.label);
-        this.clearedGoals++;
-        this.currentGoal = this._nextGoal();
-        needUpdate = true;
-      }
-    }
-
-    // mini quest
-    if (this.currentMini) {
-      const changed = applyHitToQuest(this.currentMini, hit);
-      if (changed) needUpdate = true;
-
-      if (this.currentMini.prog >= this.currentMini.target) {
-        coach('✅ Mini quest สำเร็จ: ' + this.currentMini.label);
-        this.clearedMinis++;
-        this.currentMini = this._nextMini();
-        needUpdate = true;
-      }
-    }
-
-    if (needUpdate) {
-      this._emitUpdate();
-    }
-  };
-
   GroupsQuestManager.prototype._emitUpdate = function () {
     const payload = {
-      goal: this.currentGoal
-        ? {
-            label: this.currentGoal.label,
-            prog: this.currentGoal.prog,
-            target: this.currentGoal.target
-          }
-        : null,
-      mini: this.currentMini
-        ? {
-            label: this.currentMini.label,
-            prog: this.currentMini.prog,
-            target: this.currentMini.target
-          }
-        : null,
+      goal: serializeQuest(this.currentGoal),
+      mini: serializeQuest(this.currentMini),
+      goalsAll: this._goalsAll.map(serializeQuest),
+      minisAll: this._minisAll.map(serializeQuest),
       hint:
         (this.currentGoal && this.currentGoal.hint) ||
         (this.currentMini && this.currentMini.hint) ||
@@ -437,6 +459,66 @@
     };
 
     emitQuestUpdate(payload);
+  };
+
+  GroupsQuestManager.prototype._checkAllComplete = function () {
+    if (this._allCompleteEmitted) return;
+    if (this.totalGoals === 0 && this.totalMinis === 0) return;
+
+    if (this.clearedGoals >= this.totalGoals &&
+        this.clearedMinis >= this.totalMinis) {
+      this._allCompleteEmitted = true;
+
+      const summary = this.getSummary();
+      emitQuestAllComplete({
+        goalsTotal: this.totalGoals,
+        minisTotal: this.totalMinis,
+        goalsCleared: this.clearedGoals,
+        minisCleared: this.clearedMinis,
+        ...summary
+      });
+    }
+  };
+
+  GroupsQuestManager.prototype.onHit = function (hit) {
+    let needUpdate = false;
+
+    // ----- Goal -----
+    if (this.currentGoal) {
+      const changed = applyHitToQuest(this.currentGoal, hit);
+      if (changed) needUpdate = true;
+
+      if (this.currentGoal.done) {
+        this.clearedGoals++;
+        const idx = this.clearedGoals; // 1-based
+        emitQuestCelebrate('goal', idx, this.totalGoals);
+
+        this.goalIndex++;
+        this.currentGoal = this._goalsAll[this.goalIndex] || null;
+        needUpdate = true;
+      }
+    }
+
+    // ----- Mini quest -----
+    if (this.currentMini) {
+      const changedM = applyHitToQuest(this.currentMini, hit);
+      if (changedM) needUpdate = true;
+
+      if (this.currentMini.done) {
+        this.clearedMinis++;
+        const idxM = this.clearedMinis; // 1-based
+        emitQuestCelebrate('mini', idxM, this.totalMinis);
+
+        this.miniIndex++;
+        this.currentMini = this._minisAll[this.miniIndex] || null;
+        needUpdate = true;
+      }
+    }
+
+    if (needUpdate) {
+      this._emitUpdate();
+      this._checkAllComplete();
+    }
   };
 
   GroupsQuestManager.prototype.getSummary = function () {
