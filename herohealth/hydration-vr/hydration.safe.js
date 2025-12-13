@@ -1,6 +1,5 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — น้ำสมดุล + Water Gauge + Fever + Goal / Mini quest
-// ใช้ร่วมกับ: mode-factory.js, ui-water.js, hydration.quest.js
+// Hydration Quest VR — น้ำสมดุล + Water Gauge + Fever + Goal / Mini quest (2 + 3)
 
 'use strict';
 
@@ -31,8 +30,8 @@ const FeverUI =
 const { ensureFeverBar, setFever, setFeverActive, setShield } = FeverUI;
 
 // ---------- Quest targets (ดีไซน์ต่อเกม) ----------
-const GOAL_TARGET = 2;   // จำนวน goal สูงสุดต่อเกม (แต่จริง ๆ ใช้ตาม deck มากกว่า)
-const MINI_TARGET = 3;   // จำนวน mini สูงสุดต่อเกม
+const GOAL_TARGET = 2;   // ภารกิจหลัก 2 อันต่อเกม
+const MINI_TARGET = 3;   // mini quest 3 อันต่อเกม
 
 // ---------- Coach helper ----------
 let lastCoachAt = 0;
@@ -45,15 +44,6 @@ function coach (text, minGap = 2200) {
     ROOT.dispatchEvent(new CustomEvent('hha:coach', { detail: { text } }));
   } catch {}
 }
-
-// ---------- Emoji pools ----------
-const GOOD = ['💧', '🥛', '🍉'];                 // น้ำดี
-const BAD  = ['🥤', '🧋', '🍺', '☕️'];           // น้ำหวาน / คาเฟอีน
-const STAR   = '⭐';
-const DIA    = '💎';
-const SHIELD = '🛡️';
-const FIRE   = '🔥';
-const BONUS  = [STAR, DIA, SHIELD, FIRE];
 
 // ---------- Safe wrappers ----------
 function safeScorePop (x, y, value, judgment, isGood) {
@@ -73,6 +63,15 @@ function safeBurstAt (x, y, isGood) {
   } catch {}
 }
 
+// ---------- Emoji pools ----------
+const GOOD = ['💧', '🥛', '🍉'];                 // น้ำดี
+const BAD  = ['🥤', '🧋', '🍺', '☕️'];           // น้ำหวาน / คาเฟอีน
+const STAR   = '⭐';
+const DIA    = '💎';
+const SHIELD = '🛡️';
+const FIRE   = '🔥';
+const BONUS  = [STAR, DIA, SHIELD, FIRE];
+
 // ======================================================
 //  boot(cfg) — entry หลักที่ hydration-vr.html เรียก
 // ======================================================
@@ -80,7 +79,7 @@ function safeBurstAt (x, y, isGood) {
 export async function boot (cfg = {}) {
   // ----- Difficulty + Duration -----
   const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
-  const diff = (diffRaw === 'easy' || diffRaw === 'hard' || diffRaw === 'normal')
+  const diff = (diffRaw === 'easy' || diffRaw === 'normal' || diffRaw === 'hard')
     ? diffRaw
     : 'normal';
 
@@ -104,15 +103,18 @@ export async function boot (cfg = {}) {
   let waterZone = waterRes.zone || 'GREEN';
   const waterStart = waterPct;
 
-  // ----- Quest Deck (สร้างจาก factory) -----
+  // ----- Quest Deck (2 Goals + 3 Minis) -----
   let deck;
   try {
     deck = createHydrationQuest(diff);
   } catch (err) {
     console.error('[Hydration] createHydrationQuest error', err);
-    // fallback ปลอดภัย: deck เปล่าที่ไม่ล้มเกม
+  }
+
+  if (!deck || typeof deck.getProgress !== 'function') {
+    // fallback ปลอดภัย
     deck = {
-      stats: { greenTick: 0, zone: waterZone },
+      stats: { score: 0, combo: 0, comboMax: 0, goodCount: 0, junkMiss: 0, tick: 0, greenTick: 0, zone: waterZone },
       updateScore () {},
       updateCombo () {},
       onGood () {},
@@ -126,19 +128,9 @@ export async function boot (cfg = {}) {
   deck.stats.greenTick = 0;
   deck.stats.zone = waterZone;
 
-  // ---------- state หลักของเกม ----------
-  let score = 0;
-  let combo = 0;
-  let comboMax = 0;
-  let misses = 0;
-  let star = 0;
-  let diamond = 0;
-  let elapsedSec = 0;
-  let ended = false;
-
-  // นับจำนวนภารกิจตาม deck (จะ sync จาก snapshot ทุกครั้ง)
-  let goalCleared = 0;
-  let miniCleared = 0;
+  // ---------- นับจำนวนภารกิจตามดีไซน์ต่อเกม ----------
+  let goalCleared = 0; // 0–2
+  let miniCleared = 0; // 0–3
 
   function questMeta () {
     return {
@@ -151,24 +143,11 @@ export async function boot (cfg = {}) {
 
   // snapshot รวม goals / minis + จำนวนที่ทำเสร็จ (ใช้ deck เป็น truth)
   function getQuestSnapshot () {
-    if (!deck || typeof deck.getProgress !== 'function') {
-      return {
-        goals: [],
-        minis: [],
-        goalsDone: goalCleared,
-        goalsTotal: GOAL_TARGET,
-        minisDone: miniCleared,
-        minisTotal: MINI_TARGET
-      };
-    }
+    let goals = [];
+    let minis = [];
 
-    const goalsAll = deck.getProgress('goals') || [];
-    const minisAll = deck.getProgress('mini')  || [];
-
-    // singleActiveView ใน deck จะคืนมาแค่ 1 ตัวใน list
-    // แต่เราควรดึง "all" จาก deck ด้วยถ้ามีฟิลด์ ._all
-    const goals = goalsAll._all || goalsAll;
-    const minis = minisAll._all || minisAll;
+    try { goals = deck.getProgress('goals') || []; } catch {}
+    try { minis = deck.getProgress('mini') || []; } catch {}
 
     const goalsDone = goals.filter(g => g && g.done).length;
     const minisDone = minis.filter(m => m && m.done).length;
@@ -188,6 +167,16 @@ export async function boot (cfg = {}) {
       minisTotal: snap.minisTotal
     };
   }
+
+  // ---------- state หลักของเกม ----------
+  let score = 0;
+  let combo = 0;
+  let comboMax = 0;
+  let misses = 0;
+  let star = 0;
+  let diamond = 0;
+  let elapsedSec = 0;
+  let ended = false;
 
   function mult () {
     return feverActive ? 2 : 1;
@@ -243,15 +232,13 @@ export async function boot (cfg = {}) {
     if (typeof deck.updateCombo === 'function') deck.updateCombo(combo);
   }
 
-  // ส่งขึ้น HUD กลาง / ซ้ายผ่าน event เดียวกับเกมอื่น
   function pushHudScore (extra = {}) {
-    const quest = readQuestStats();
     try {
       ROOT.dispatchEvent(new CustomEvent('hha:score', {
         detail: {
           mode: 'Hydration',
           modeKey: 'hydration-vr',
-          modeLabel: 'Hydration Quest VR',
+          modeLabel: 'Hydration Quest',
           difficulty: diff,
           score,
           combo,
@@ -261,10 +248,7 @@ export async function boot (cfg = {}) {
           timeSec: elapsedSec,
           waterPct,
           waterZone,
-          goalsCleared: quest.goalsDone,
-          goalsTotal: quest.goalsTotal,
-          minisCleared: quest.minisDone,
-          minisTotal: quest.minisTotal,
+          ...questMeta(),
           ...extra
         }
       }));
@@ -276,8 +260,8 @@ export async function boot (cfg = {}) {
     const snap = getQuestSnapshot();
     const { goals, minis, goalsTotal, minisTotal } = snap;
 
-    const currentGoal = goals.find(g => !g.done) || goals[0] || null;
-    const currentMini = minis.find(m => !m.done) || minis[0] || null;
+    const currentGoal = goals.find(g => !g.done) || goals[goals.length - 1] || null;
+    const currentMini = minis.find(m => !m.done) || minis[minis.length - 1] || null;
 
     let goalIndex = 0;
     if (currentGoal) {
@@ -291,21 +275,11 @@ export async function boot (cfg = {}) {
       miniIndex = (idx >= 0 ? idx + 1 : 0);
     }
 
-    const goalText = currentGoal
-      ? (currentGoal.title || currentGoal.label || currentGoal.text || '')
-      : '';
+    const goalText = currentGoal ? (currentGoal.label || currentGoal.text || '') : '';
+    const miniText = currentMini ? (currentMini.label || currentMini.text || '') : '';
 
-    const miniText = currentMini
-      ? (currentMini.title || currentMini.label || currentMini.text || '')
-      : '';
-
-    const goalHeading = goalIndex
-      ? `Goal ${goalIndex}: ${goalText}`
-      : '';
-
-    const miniHeading = miniIndex
-      ? `Mini quest ${miniIndex}: ${miniText}`
-      : '';
+    const goalHeading = goalIndex ? `Goal ${goalIndex}: ${goalText}` : '';
+    const miniHeading = miniIndex ? `Mini quest ${miniIndex}: ${miniText}` : '';
 
     try {
       ROOT.dispatchEvent(new CustomEvent('quest:update', {
@@ -357,7 +331,7 @@ export async function boot (cfg = {}) {
       score += d;
       star++;
       gainFever(10);
-      deck.onGood && deck.onGood();
+      if (deck.onGood) deck.onGood();
       combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'GOOD', true);
@@ -371,7 +345,7 @@ export async function boot (cfg = {}) {
       score += d;
       diamond++;
       gainFever(30);
-      deck.onGood && deck.onGood();
+      if (deck.onGood) deck.onGood();
       combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'PERFECT', true);
@@ -385,7 +359,7 @@ export async function boot (cfg = {}) {
       setShield(shield);
       const d = 20;
       score += d;
-      deck.onGood && deck.onGood();
+      if (deck.onGood) deck.onGood();
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'GOOD', true);
       coach('ได้เกราะกันน้ำหวานแล้วนะ 🛡️ ถ้าเผลอแตะจะไม่ถือว่าพลาดหนึ่งครั้ง', 3500);
@@ -404,7 +378,7 @@ export async function boot (cfg = {}) {
 
       const d = 25;
       score += d;
-      deck.onGood && deck.onGood();
+      if (deck.onGood) deck.onGood();
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'FEVER', true);
       coach('โหมดไฟ 🔥 เลือกน้ำดีให้ไว แล้วหลบพวกน้ำหวาน!', 3500);
@@ -422,7 +396,7 @@ export async function boot (cfg = {}) {
       comboMax = Math.max(comboMax, combo);
 
       gainFever(6 + combo * 0.4);
-      deck.onGood && deck.onGood();
+      if (deck.onGood) deck.onGood();
       syncDeck(); pushQuest();
 
       const label = combo >= 8 ? 'PERFECT' : 'GOOD';
@@ -448,6 +422,7 @@ export async function boot (cfg = {}) {
         setShield(shield);
         addWater(-4);
         decayFever(6);
+        if (deck.onJunk) deck.onJunk();
         syncDeck(); pushQuest();
         scoreFX(x, y, 0, 'BLOCK', false);
         coach('เกราะช่วยกันน้ำหวานให้แล้วนะ 🛡️ ระวังอย่าเผลอบ่อยเกินไป', 3500);
@@ -463,7 +438,7 @@ export async function boot (cfg = {}) {
       misses++;
 
       decayFever(14);
-      deck.onJunk && deck.onJunk();
+      if (deck.onJunk) deck.onJunk();
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'MISS', false);
 
@@ -493,7 +468,7 @@ export async function boot (cfg = {}) {
   function onExpire (ev) {
     if (ended) return;
     if (ev && ev.isGood === false) {
-      deck.onJunk && deck.onJunk();
+      if (deck.onJunk) deck.onJunk();
       syncDeck(); pushQuest();
       pushHudScore({ reason: 'expire' });
     }
@@ -509,14 +484,14 @@ export async function boot (cfg = {}) {
     const prevGoal = goalCleared;
     const prevMini = miniCleared;
 
-    goalCleared = goalsDone;
-    miniCleared = minisDone;
+    goalCleared = Math.min(GOAL_TARGET, goalsDone);
+    miniCleared = Math.min(MINI_TARGET, minisDone);
 
     // เพิ่งจบ Goal ใหม่
     if (goalCleared > prevGoal) {
       const justIndex = goalCleared;
       const g = goals[justIndex - 1] || null;
-      const text = g ? (g.title || g.label || g.text || '') : '';
+      const text = g ? (g.label || g.text || '') : '';
 
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:goal-cleared', {
@@ -538,7 +513,7 @@ export async function boot (cfg = {}) {
     if (miniCleared > prevMini) {
       const justIndex = miniCleared;
       const m = minis[justIndex - 1] || null;
-      const text = m ? (m.title || m.label || m.text || '') : '';
+      const text = m ? (m.label || m.text || '') : '';
 
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:mini-cleared', {
@@ -558,10 +533,8 @@ export async function boot (cfg = {}) {
 
     // ถ้าจบทุก Goal + Mini → ฉลองใหญ่ + จบเกม
     if (!ended &&
-        goalCleared >= goalsTotal &&
-        miniCleared >= minisTotal &&
-        goalsTotal > 0 &&
-        minisTotal > 0) {
+        goalCleared >= GOAL_TARGET &&
+        miniCleared >= MINI_TARGET) {
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:all-cleared', {
           detail: {
@@ -621,8 +594,8 @@ export async function boot (cfg = {}) {
     const snap = snapOpt || getQuestSnapshot();
     const { goalsDone, goalsTotal, minisDone, minisTotal } = snap;
 
-    const goalsNum = goalsDone;
-    const minisNum = minisDone;
+    const goalsOk = Math.min(goalsDone, GOAL_TARGET);
+    const minisOk = Math.min(minisDone, MINI_TARGET);
 
     const greenTick    = deck.stats.greenTick | 0;
     const waterEnd     = waterPct;
@@ -638,7 +611,6 @@ export async function boot (cfg = {}) {
       console.warn('[Hydration] inst.stop error', err);
     }
 
-    // event summary ตัวเดียวกับ GoodJunk / Plate
     try {
       ROOT.dispatchEvent(new CustomEvent('hha:end', {
         detail: {
@@ -650,15 +622,12 @@ export async function boot (cfg = {}) {
           comboMax,
           duration: durationSec,
           greenTick,
-          goals: goalsNum,
+          goals: goalsOk,
           goalsTotal,
-          quests: minisNum,
+          quests: minisOk,
           questsTotal: minisTotal,
-          // alias ให้โค้ดเก่า ๆ ที่อาจใช้ชื่ออื่น
-          goalsCleared: goalsNum,
-          minisCleared: minisNum,
-          miniCleared: minisNum,
-          questsCleared: minisNum,
+          goalCleared: goalsOk >= goalsTotal,
+          miniCleared: minisOk >= minisTotal,
           waterStart,
           waterEnd,
           waterZoneEnd,
@@ -668,7 +637,11 @@ export async function boot (cfg = {}) {
     } catch {}
 
     pushHudScore({
-      ended: true
+      ended: true,
+      goalsCleared: goalsOk,
+      goalsTarget: goalsTotal,
+      minisCleared: minisOk,
+      minisTarget: minisTotal
     });
   }
 
