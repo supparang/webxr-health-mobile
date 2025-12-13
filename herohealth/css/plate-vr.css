@@ -172,7 +172,7 @@ a-scene{
   white-space:nowrap;
 }
 
-/* ===== เกรดบน HUD (ถ้าโชว์) ===== */
+/* ===== เกรดบน HUD ===== */
 .hud-badge-grade .value{
   font-weight:700;
 }
@@ -195,7 +195,7 @@ a-scene{
   color:#9ca3af;
 }
 
-/* ======= Quest Panel (ใต้เวลา) ======= */
+/* ======= Quest Panel ======= */
 #quest-panel{
   position:absolute;
   right:10px;
@@ -240,10 +240,54 @@ a-scene{
   font-size:11px;
   line-height:1.4;
 }
+
+/* Hint quota + progress */
 .quest-hint{
   font-size:10px;
-  color:var(--accent-alt);
   margin-top:4px;
+}
+.quest-hint-title{
+  font-size:10px;
+  font-weight:600;
+  color:var(--accent-alt);
+  margin-bottom:2px;
+}
+.quest-hint-line{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:6px;
+  padding:2px 0;
+}
+.quest-hint-icon{
+  width:18px;
+}
+.quest-hint-label{
+  flex:0 0 auto;
+  color:var(--text-soft);
+}
+.quest-hint-text{
+  flex:1;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.quest-hint-line.missing .quest-hint-text{
+  color:#f97316;
+}
+.quest-hint-line.ok .quest-hint-text{
+  color:var(--accent);
+}
+
+/* การ์ด QUEST เด้งเมื่อฉลอง */
+.quest-card.celebrate{
+  animation:quest-pulse 0.45s ease-out;
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(34,197,94,0.4), 0 18px 40px rgba(0,0,0,0.9);
+}
+@keyframes quest-pulse{
+  0%{ transform:scale(1); }
+  40%{ transform:scale(1.03); }
+  100%{ transform:scale(1); }
 }
 
 /* ======= Coach Bubble (เหนือ Fever) ======= */
@@ -303,7 +347,96 @@ a-scene{
   100%{ transform:scale(1); opacity:1; }
 }
 
-/* ===== Summary Overlay (ถ้าใช้ #summary) ===== */
+/* ===== Toast ฉลองจบแต่ละภารกิจ ===== */
+#quest-toast{
+  position:absolute;
+  right:12px;
+  bottom:96px;
+  z-index:960;
+  pointer-events:none;
+  opacity:0;
+  transform:translateY(12px);
+  transition:opacity .25s ease, transform .25s ease;
+}
+#quest-toast.show{
+  opacity:1;
+  transform:translateY(0);
+}
+.quest-toast-inner{
+  min-width:220px;
+  max-width:260px;
+  padding:8px 11px;
+  border-radius:14px;
+  background:rgba(15,23,42,0.98);
+  border:1px solid rgba(148,163,184,0.7);
+  box-shadow:0 18px 40px rgba(0,0,0,0.9);
+  font-size:11px;
+}
+.quest-toast-title{
+  font-weight:600;
+  margin-bottom:2px;
+}
+.quest-toast-text{
+  color:var(--text-soft);
+  margin-bottom:2px;
+}
+.quest-toast-tag{
+  font-size:10px;
+  color:var(--accent-alt);
+}
+
+/* สีแยก Goal / Mini */
+#quest-toast.goal .quest-toast-inner{
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(34,197,94,0.4), 0 18px 40px rgba(0,0,0,0.95);
+}
+#quest-toast.mini .quest-toast-inner{
+  border-color:var(--accent-alt);
+  box-shadow:0 0 0 1px rgba(56,189,248,0.35), 0 18px 40px rgba(0,0,0,0.95);
+}
+
+/* ===== Mega Celebration ตอนจบทุกภารกิจ ===== */
+#mega-celebrate{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:480;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .3s ease;
+}
+#mega-celebrate.show{
+  opacity:1;
+  pointer-events:auto;
+}
+.mega-card{
+  width:min(360px, 90vw);
+  padding:16px 18px 14px;
+  border-radius:24px;
+  background:
+    radial-gradient(circle at top, rgba(250,204,21,0.18) 0, rgba(34,197,94,0.08) 38%, #020617 100%);
+  border:1px solid rgba(250,250,250,0.75);
+  box-shadow:0 34px 80px rgba(0,0,0,0.95);
+  text-align:center;
+  font-size:13px;
+}
+.mega-emoji{
+  font-size:26px;
+  margin-bottom:4px;
+}
+.mega-title{
+  font-size:16px;
+  font-weight:700;
+  margin-bottom:4px;
+}
+.mega-text{
+  font-size:12px;
+  color:var(--text-soft);
+}
+
+/* ===== Summary Overlay ===== */
 #summary{
   position:absolute;
   inset:0;
@@ -410,6 +543,10 @@ a-scene{
     bottom:72px;
     right:6px;
   }
+  #quest-toast{
+    right:6px;
+    bottom:120px;
+  }
   .summary-card{
     border-radius:18px;
     padding:12px 12px 10px;
@@ -420,10 +557,8 @@ a-scene{
 }
 
 /* ====== TARGETS (เป้า emoji แบบเดียว ไม่ซ้อน) ====== */
-/* ใช้กับระบบ DOM target กลางจอ (ดี/ไม่ดี) */
-
 .hha-target{
-  position:absolute;              /* เป้าเลื่อนตามหน้า (ไม่ fixed แล้ว) */
+  position:absolute;              /* เป้าเลื่อนตามหน้า */
   transform:translate(-50%, -50%);
   width:68px;
   height:68px;
