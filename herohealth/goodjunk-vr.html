@@ -1214,6 +1214,8 @@
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
+      // แชร์โหมดการเล่นให้ GameEngine / logger
+    window.HHA_RUNMODE = runMode;
 
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
