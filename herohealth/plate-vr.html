@@ -138,7 +138,7 @@
     </div>
   </div>
 
-  <!-- ===== Toast ฉลองจบ Goal / Mini ===== -->
+  <!-- ===== Toast ฉลองจบ Goal/Mini ===== -->
   <div id="quest-toast">
     <div class="quest-toast-inner">
       <div class="quest-toast-title" id="qt-title">ภารกิจสำเร็จ!</div>
@@ -233,21 +233,22 @@
   if (duration < 20) duration = 20;
   if (duration > 180) duration = 180;
 
-  // ------- ตั้งค่า Cloud Logger (ส่งขึ้น Google Sheet) -------
-  const LOGGER_ENDPOINT =
-    'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+  const runMode = (url.searchParams.get('run') ||
+    (typeof sessionStorage !== 'undefined'
+      ? (sessionStorage.getItem('HHA_RUN_MODE') || 'play')
+      : 'play')
+  ).toLowerCase();
 
+  // ======= เริ่ม Cloud Logger (ส่งขึ้น Google Sheet) =======
   initCloudLogger({
-    endpoint:   LOGGER_ENDPOINT,
-    mode:       'BalancedPlateVR',
-    diff:       diffParam,
+    endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
+    projectTag: 'HeroHealth-BalancedPlateVR',
+    mode: 'BalancedPlateVR',
+    runMode,
+    diff: diffParam,
     durationSec: duration,
-    debug:      false
-    // runMode จะอ่านจาก sessionStorage: HHA_RUN_MODE (play/research)
+    debug: false
   });
-
-  const SESSION_ID   = `PlateVR-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
-  const GAME_START_ISO = new Date().toISOString();
 
   // ------- DOM refs HUD -------
   const elDiff    = document.getElementById('hud-diff');
@@ -325,6 +326,15 @@
   elDiff.textContent = diffLabel(diffParam);
   elTime.textContent = duration;
 
+  // ------- การ์ด QUEST เด้งตอนจบภารกิจ -------
+  function pulseQuestCard() {
+    if (!questCardEl) return;
+    questCardEl.classList.remove('celebrate');
+    void questCardEl.offsetWidth; // reflow
+    questCardEl.classList.add('celebrate');
+    setTimeout(() => questCardEl.classList.remove('celebrate'), 800);
+  }
+
   // ------- ฟังก์ชัน Hint quota / progress ทีละบรรทัด -------
   function updateQuestHint(prefixHtml = '') {
     if (!elQuestHint) return;
@@ -362,7 +372,7 @@
 
     elQuestHint.innerHTML = html;
   }
-
+https://github.com/supparang/webxr-health-mobile/blob/main/herohealth/plate-vr.html
   function showQuestToast(kind, text, progressText) {
     if (!toastEl) return;
     toastEl.classList.remove('goal', 'mini', 'show');
@@ -389,17 +399,6 @@
     if (allClearedShown) return;
     allClearedShown = true;
     if (megaEl) megaEl.classList.add('show');
-  }
-
-  // การ์ด QUEST เด้งตอนจบภารกิจ
-  function pulseQuestCard() {
-    if (!questCardEl) return;
-    questCardEl.classList.remove('celebrate');
-    void questCardEl.offsetWidth;
-    questCardEl.classList.add('celebrate');
-    setTimeout(() => {
-      questCardEl.classList.remove('celebrate');
-    }, 800);
   }
 
   // ------- Clock กลาง ส่ง hha:time -------
@@ -500,17 +499,14 @@
 
     const progressText = `Goal ${gDone}/${gTotal} • Mini ${mDone}/${mTotal}`;
 
-    // Toast กลางจอ
     showQuestToast(
       isGoal ? 'goal' : 'mini',
       titleText,
       progressText
     );
 
-    // การ์ด QUEST เด้งฉลอง
     pulseQuestCard();
 
-    // ให้โค้ชพูดชมทุกครั้งที่จบภารกิจ
     const coachMsg = isGoal
       ? `เยี่ยมมาก! เคลียร์ Goal แล้ว (${gDone}/${gTotal}) 🎯`
       : `Mini Quest สำเร็จแล้ว (${mDone}/${mTotal}) ⭐ เก็บจานต่อเลย!`;
@@ -538,7 +534,7 @@
     if (d.text) showCoach(d.text);
   });
 
-  // ------- Summary จาก hha:end + ยิง hha:session ไป logger -------
+  // ------- Summary + ยิง hha:session ไป Google Sheet จาก hha:end -------
   window.addEventListener('hha:end', (e) => {
     const d = e.detail || {};
     endedByEvent = true;
@@ -550,13 +546,9 @@
     // จบเกมแล้วไม่ให้เป้าโผล่อีก
     document.body.classList.add('hha-game-ended');
 
-    const modeLabel = d.mode || 'Balanced Plate';
-    const diffKey   = d.difficulty || diffParam;
-    const durationPlayed = d.duration || duration;
-
-    elSumTitle.textContent = `ผลลัพธ์: ${modeLabel}`;
-    elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(diffKey)} ภายในเวลา ${durationPlayed} วินาที`;
-    elSumDiff.textContent  = `ระดับ ${diffLabel(diffKey)}`;
+    elSumTitle.textContent = `ผลลัพธ์: ${d.mode || 'Balanced Plate'}`;
+    elSumSub.textContent   = `สรุปการจัดจานอาหารสมดุลในระดับ ${diffLabel(d.difficulty || diffParam)} ภายในเวลา ${d.duration || duration} วินาที`;
+    elSumDiff.textContent  = `ระดับ ${diffLabel(d.difficulty || diffParam)}`;
 
     elSumScore.textContent  = d.score ?? 0;
     elSumCombo.textContent  = d.comboMax ?? 0;
@@ -578,34 +570,25 @@
 
     elSummary.classList.add('visible');
 
-    // ===== ยิง session summary ไปให้ hha-cloud-logger (เขียนลง Google Sheet) =====
-    const endIso = d.endTimeIso || new Date().toISOString();
+    // ===== ส่ง session log ไป hha-cloud-logger (Google Sheet) =====
+    const sessionId = d.sessionId || `BPVR-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
     window.dispatchEvent(new CustomEvent('hha:session', {
       detail: {
-        sessionId:           d.sessionId || SESSION_ID,
-        mode:                modeLabel,
-        difficulty:          diffKey,
-        durationSecPlayed:   durationPlayed,
-        durationPlayedSec:   durationPlayed,
-        scoreFinal:          d.score ?? 0,
-        score:               d.score ?? 0,
-        comboMax:            d.comboMax ?? 0,
-        misses:              d.misses ?? 0,
-        goalsCleared:        d.goalsCleared ?? 0,
-        goalsTotal:          d.goalsTotal ?? 0,
-        miniCleared:         d.questsCleared ?? 0,
-        miniTotal:           d.questsTotal ?? 0,
-        gameVersion:         'PlateVR-2025-12-13',
-        startTimeIso:        d.startTimeIso || GAME_START_ISO,
-        endTimeIso:          endIso,
-        reason:              'finished',
-        // เก็บเพิ่มสำหรับวิเคราะห์ภายหลัง
-        extra: JSON.stringify({
-          groupCounts: d.groupCounts || [],
-          grade:       d.grade || '-',
-          targetScale: d.targetScale || null
-        })
+        sessionId,
+        mode: d.mode || 'BalancedPlateVR',
+        difficulty: d.difficulty || diffParam,
+        durationSecPlayed: d.duration || duration,
+        scoreFinal: d.score ?? 0,
+        comboMax: d.comboMax ?? 0,
+        misses: d.misses ?? 0,
+        goalsCleared: d.goalsCleared ?? 0,
+        goalsTotal: d.goalsTotal ?? 0,
+        miniCleared: d.questsCleared ?? 0,
+        miniTotal: d.questsTotal ?? 0,
+        platesDone: d.platesDone ?? 0,
+        gameVersion: 'BalancedPlateVR-2025-12-13',
+        reason: d.goalCleared ? 'allGoalsCleared' : 'timeUp'
       }
     }));
   });
