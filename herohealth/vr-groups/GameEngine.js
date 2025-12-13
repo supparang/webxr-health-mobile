@@ -1,7 +1,9 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (bright emoji targets)
+// Food Groups VR — Game Engine (emoji circle targets)
 
 'use strict';
+
+import { emojiImage } from './emoji-image.js';   // ★ ใช้แปลง emoji → texture URL
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
@@ -26,28 +28,28 @@ function foodGroup(emo) {
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function clamp(v,min,max){ if(v<min)return min; if(v>max)return max; return v; }
 
-// world → screen (สำหรับ effect คะแนน)
+// world → screen สำหรับ effect คะแนน
 function worldToScreen(el){
   try{
     const A = ROOT.AFRAME;
     const sceneEl = document.querySelector('a-scene');
-    if(!A || !sceneEl || !sceneEl.object3D){
-      return {x: window.innerWidth/2, y: window.innerHeight/2};
+    if (!A || !sceneEl || !sceneEl.object3D) {
+      return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     }
-    const camera = sceneEl.camera;
+    const camera   = sceneEl.camera;
     const renderer = sceneEl.renderer;
-    if(!camera || !renderer){
-      return {x: window.innerWidth/2, y: window.innerHeight/2};
+    if (!camera || !renderer) {
+      return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     }
     const THREE = A.THREE;
     const v = new THREE.Vector3();
     el.object3D.getWorldPosition(v);
     v.project(camera);
-    const x = (v.x*0.5+0.5)*renderer.domElement.width;
-    const y = (-v.y*0.5+0.5)*renderer.domElement.height;
-    return {x,y};
-  }catch{
-    return {x: window.innerWidth/2, y: window.innerHeight/2};
+    const x = (v.x * 0.5 + 0.5) * renderer.domElement.width;
+    const y = (-v.y * 0.5 + 0.5) * renderer.domElement.height;
+    return { x, y };
+  } catch {
+    return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   }
 }
 
@@ -70,7 +72,7 @@ const { ensureFeverBar, setFever, setFeverActive } = FeverUI;
 // difficulty.foodgroups.js
 function pickDifficulty(key){
   const HH = ROOT.HeroHealth || {};
-  if(HH.foodGroupsDifficulty && HH.foodGroupsDifficulty.get){
+  if (HH.foodGroupsDifficulty && HH.foodGroupsDifficulty.get) {
     return HH.foodGroupsDifficulty.get(key);
   }
   const table = {
@@ -119,7 +121,7 @@ function emitScoreAndJudge(label){
     window.dispatchEvent(new CustomEvent('hha:score',{
       detail:{score:state.score,combo:state.combo,misses:state.misses}
     }));
-    if(label){
+    if (label) {
       window.dispatchEvent(new CustomEvent('hha:judge',{detail:{label}}));
     }
   }catch{}
@@ -132,13 +134,13 @@ function emitFeverEvent(kind){
 }
 function updateFever(delta){
   const prev = state.fever;
-  state.fever = clamp(prev+delta,0,FEVER_MAX);
+  state.fever = clamp(prev + delta, 0, FEVER_MAX);
   setFever(state.fever);
-  if(!state.feverActive && state.fever>=FEVER_MAX){
+  if (!state.feverActive && state.fever >= FEVER_MAX) {
     state.feverActive = true;
     setFeverActive(true);
     emitFeverEvent('start');
-  }else if(state.feverActive && state.fever<=0){
+  } else if (state.feverActive && state.fever <= 0) {
     state.feverActive = false;
     setFeverActive(false);
     emitFeverEvent('end');
@@ -149,14 +151,14 @@ function mult(){ return state.feverActive ? 2 : 1; }
 // ---------- Quest / Stat ----------
 
 function ensureQuestManager(){
-  if(!QuestManagerCtor){ state.questMgr=null; return; }
+  if (!QuestManagerCtor){ state.questMgr = null; return; }
   const qm = new QuestManagerCtor();
   qm.start(state.diffKey,{quest:{goalsPick:2,minisPick:3}});
   state.questMgr = qm;
   state.allQuestsFinished = false;
 }
 function getQuestSummary(){
-  if(!state.questMgr || !state.questMgr.getSummary){
+  if (!state.questMgr || !state.questMgr.getSummary) {
     return {cleared:0,total:0,clearedGoals:0,clearedMinis:0,totalGoals:0,totalMinis:0};
   }
   return state.questMgr.getSummary() || {cleared:0,total:0,clearedGoals:0,clearedMinis:0,totalGoals:0,totalMinis:0};
@@ -183,9 +185,9 @@ function emitStat(extra={}){
   }catch{}
 }
 function maybeCheckAllQuestsDone(){
-  if(!state.questMgr || state.allQuestsFinished) return;
+  if (!state.questMgr || state.allQuestsFinished) return;
   const s = getQuestSummary();
-  if(s.total>0 && s.cleared>=s.total){
+  if (s.total > 0 && s.cleared >= s.total) {
     state.allQuestsFinished = true;
     try{
       window.dispatchEvent(new CustomEvent('quest:all-complete',{
@@ -198,41 +200,39 @@ function maybeCheckAllQuestsDone(){
 // ---------- Targets ----------
 
 function createTarget(){
-  if(!state.sceneEl || !state.cfg) return;
-  if(state.targets.size >= state.cfg.maxActive) return;
+  if (!state.sceneEl || !state.cfg) return;
+  if (state.targets.size >= state.cfg.maxActive) return;
 
   const isGood = Math.random() < GOOD_RATE;
-  const emoji = isGood ? pick(GOOD_EMOJIS) : pick(JUNK_EMOJIS);
-  const gId   = isGood ? foodGroup(emoji) : 0;
+  const emoji  = isGood ? pick(GOOD_EMOJIS) : pick(JUNK_EMOJIS);
+  const gId    = isGood ? foodGroup(emoji) : 0;
 
   const el = document.createElement('a-entity');
 
-  // ★ เป้า: แผ่นสี่เหลี่ยมใหญ่ สีเขียวสว่าง เห็นชัดมาก
   const scale = state.cfg.scale || 1.0;
-  const size  = 0.9 * scale;
+  const radius = 0.45 * scale;
 
-  el.setAttribute('geometry', `primitive: plane; width: ${size}; height: ${size}`);
-  el.setAttribute('material',
-    'color: #22c55e; shader: flat; opacity: 0.96; side: double');
-  // หันเข้าหากล้องแน่ ๆ
-  el.setAttribute('rotation', '0 0 0');
+  // ★ ใช้ texture emoji เป็นวงกลม
+  const tex = emojiImage(emoji);
+  if (tex) {
+    el.setAttribute('geometry',
+      `primitive: circle; radius: ${radius}; segments: 40`);
+    el.setAttribute('material',
+      `shader: flat; src: ${tex}; transparent: true; alphaTest: 0.05; side: double`);
+  } else {
+    // fallback ถ้าไม่มีรูป
+    el.setAttribute('geometry',
+      `primitive: circle; radius: ${radius}; segments: 40`);
+    el.setAttribute('material',
+      'color: #22c55e; shader: flat; side: double');
+  }
 
   // วางหน้า platform กลางจอ
-  const x = (Math.random()*2.4) - 1.2;   // -1.2 .. 1.2
-  const y = 1.4 + Math.random()*0.6;     // 1.4 .. 2.0
-  const z = -2.6;                        // หน้า platform
+  const x = (Math.random() * 2.4) - 1.2;   // -1.2..1.2
+  const y = 1.4 + Math.random() * 0.6;     // 1.4..2.0
+  const z = -2.6;
   el.setAttribute('position', `${x} ${y} ${z}`);
-
-  // ★ ลูก emoji ข้างบน
-  const emojiText = document.createElement('a-text');
-  emojiText.setAttribute('value', emoji);
-  emojiText.setAttribute('align','center');
-  emojiText.setAttribute('color','#ffffff');
-  emojiText.setAttribute('width','1.8');
-  emojiText.setAttribute('anchor','center');
-  emojiText.setAttribute('position','0 0 0.02');
-  el.appendChild(emojiText);
-
+  el.setAttribute('rotation', '0 0 0');
   el.setAttribute('data-hha-tgt','1');
 
   el.setAttribute('animation__pop',
@@ -248,7 +248,7 @@ function createTarget(){
     _onClick:null
   };
 
-  const onClick = (evt)=>handleHit(targetObj,evt);
+  const onClick = (evt)=>handleHit(targetObj, evt);
   targetObj._onClick = onClick;
   el.addEventListener('click', onClick);
 
@@ -264,10 +264,10 @@ function createTarget(){
 }
 
 function removeTarget(t){
-  if(!t || !state.targets.has(t)) return;
+  if (!t || !state.targets.has(t)) return;
   const { el, timeoutId, _onClick } = t;
-  if(timeoutId) clearTimeout(timeoutId);
-  if(el && el.parentNode){
+  if (timeoutId) clearTimeout(timeoutId);
+  if (el && el.parentNode){
     try{ el.removeEventListener('click', _onClick); }catch{}
     el.parentNode.removeChild(el);
   }
@@ -277,10 +277,10 @@ function removeTarget(t){
 // ---------- Judge ----------
 
 function handleHit(targetObj){
-  if(!state.running || !targetObj || targetObj.hit) return;
+  if (!state.running || !targetObj || targetObj.hit) return;
   targetObj.hit = true;
 
-  const el = targetObj.el;
+  const el   = targetObj.el;
   const pos2d = worldToScreen(el);
 
   removeTarget(targetObj);
@@ -289,25 +289,25 @@ function handleHit(targetObj){
   const emoji  = targetObj.emoji;
   const gId    = targetObj.groupId || 0;
 
-  if(state.questMgr && state.questMgr.onHit){
+  if (state.questMgr && state.questMgr.onHit) {
     state.questMgr.onHit({emoji,isGood,groupId:gId});
   }
 
   let judgment = '';
   let delta = 0;
 
-  if(isGood){
+  if (isGood) {
     state.combo += 1;
     state.comboMax = Math.max(state.comboMax, state.combo);
     const base = 18;
-    delta = Math.round((base + state.combo*2) * mult());
+    delta = Math.round((base + state.combo * 2) * mult());
     state.score += delta;
 
     updateFever(state.cfg.feverGainHit || 7);
 
-    if(state.combo >= 12)      judgment = 'PERFECT';
-    else if(state.combo >= 6)  judgment = 'GREAT';
-    else                       judgment = 'GOOD';
+    if (state.combo >= 12)      judgment = 'PERFECT';
+    else if (state.combo >= 6)  judgment = 'GREAT';
+    else                        judgment = 'GOOD';
 
     try{
       Particles.scorePop(pos2d.x,pos2d.y,'+'+delta,{good:true,judgment});
@@ -316,7 +316,7 @@ function handleHit(targetObj){
 
     emitScoreAndJudge(judgment);
     emitStat({ lastHitGood:true, lastGroup:gId });
-  }else{
+  } else {
     state.misses += 1;
     state.combo = 0;
     delta = -14;
@@ -341,12 +341,12 @@ function handleHit(targetObj){
 // ---------- Time tick ----------
 
 function onTimeTick(e){
-  if(!state.running) return;
+  if (!state.running) return;
   const sec = e && e.detail && typeof e.detail.sec === 'number'
     ? (e.detail.sec | 0) : 0;
-  if(sec <= 0) return;
+  if (sec <= 0) return;
 
-  if(state.combo <= 0 && state.fever > 0){
+  if (state.combo <= 0 && state.fever > 0) {
     updateFever(-2);
     emitStat();
   }
@@ -356,15 +356,15 @@ function onTimeTick(e){
 
 async function startEngine(diffKey='normal'){
   const sceneEl = document.querySelector('a-scene');
-  if(!sceneEl){
+  if (!sceneEl){
     console.error('[GroupsVR] <a-scene> not found');
     return;
   }
-  if(!sceneEl.hasLoaded){
-    await new Promise(res=>sceneEl.addEventListener('loaded',res,{once:true}));
+  if (!sceneEl.hasLoaded){
+    await new Promise(res => sceneEl.addEventListener('loaded', res, { once:true }));
   }
 
-  if(state.running) stopEngine('restart');
+  if (state.running) stopEngine('restart');
 
   state.running = true;
   state.ended = false;
@@ -394,7 +394,7 @@ async function startEngine(diffKey='normal'){
   window.addEventListener('hha:time', state.timeListener);
 
   state.spawnTimer = setInterval(()=>{
-    if(!state.running) return;
+    if (!state.running) return;
     createTarget();
   }, state.cfg.spawnInterval || 1000);
 
@@ -403,22 +403,22 @@ async function startEngine(diffKey='normal'){
 }
 
 function stopEngine(reason='manual'){
-  if(!state.running && state.ended) return;
+  if (!state.running && state.ended) return;
 
   state.running = false;
 
-  if(state.spawnTimer){
+  if (state.spawnTimer){
     clearInterval(state.spawnTimer);
     state.spawnTimer = null;
   }
-  if(state.timeListener){
+  if (state.timeListener){
     window.removeEventListener('hha:time', state.timeListener);
     state.timeListener = null;
   }
   state.targets.forEach(t=>removeTarget(t));
   state.targets.clear();
 
-  if(!state.ended){
+  if (!state.ended){
     state.ended = true;
     const s = getQuestSummary();
     try{
