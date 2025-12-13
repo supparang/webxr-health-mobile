@@ -1,58 +1,47 @@
 // === /herohealth/hydration-vr/hydration.state.js ===
-// จัดการ HUD + หน้าสรุป สำหรับ Hydration Quest VR
-// และ export mapHydrationState ให้ hydration.quest.js ใช้ได้
+// HUD + Result summary สำหรับ Hydration Quest VR
+// ทำให้จำนวน Goals / Mini quests ใน "สรุปผล" ตรงกับแถบ QUEST ขวาบน
 
 'use strict';
 
-// --------------------------------------------------
-// 1) สำหรับ hydration.quest.js — ให้มี export ชื่อนี้จริง ๆ
-//    ตอนนี้ทำเป็น no-op / normalizer เฉย ๆ ก็พอ
-// --------------------------------------------------
-export function mapHydrationState(raw = {}) {
-  // ปรับค่าพื้นฐานให้เป็นตัวเลขกันพลาด
-  const goalsDone =
-    Number(raw.goalsDone ?? raw.goalsCleared ?? raw.goals ?? 0) || 0;
-  const goalsTotal =
-    Number(raw.goalsTotal ?? raw.goalsTarget ?? goalsDone || 0) || (goalsDone || 1);
-
-  const minisDone =
-    Number(raw.minisDone ?? raw.minisCleared ?? raw.quests ?? 0) || 0;
-  const minisTotal =
-    Number(raw.minisTotal ?? raw.questsTotal ?? minisDone || 0) || (minisDone || 1);
-
-  return {
-    ...raw,
-    goalsDone,
-    goalsTotal,
-    minisDone,
-    minisTotal
-  };
+// ----------------------------------------------------
+// 1) ฟังก์ชันที่ hydration.quest.js เรียกใช้
+//    (เอาไว้คงความเข้ากันได้ ไม่ให้ error import)
+// ----------------------------------------------------
+/**
+ * mapHydrationState(deck):
+ *   คืนค่า deck กลับไปเฉย ๆ (ตอนนี้เรา sync state ผ่าน event hha:end แทน)
+ *   ฟังก์ชันนี้มีไว้กัน error `does not provide an export named "mapHydrationState"`
+ */
+export function mapHydrationState(deck) {
+  return deck || null;
 }
 
-// --------------------------------------------------
-// 2) ส่วนจัดการ “หน้าสรุป” ให้ Goals / Mini quests ตรงกับ QUEST
-// --------------------------------------------------
-const ROOT = window;
-
+// ----------------------------------------------------
+// 2) ตัวช่วยคำนวณเกรด + แสดงเศษส่วนภารกิจ
+// ----------------------------------------------------
 function calcGrade(score, miss) {
   score = Number(score) || 0;
-  miss = Number(miss) || 0;
+  miss  = Number(miss)  || 0;
 
   if (score >= 6000 && miss === 0) return 'SSS';
   if (score >= 4000 && miss <= 2) return 'SS';
   if (score >= 2500 && miss <= 4) return 'S';
   if (score >= 1500) return 'A';
-  if (score >= 800) return 'B';
+  if (score >= 800)  return 'B';
   return 'C';
 }
 
 function formatFraction(done, total) {
-  done = Number(done) || 0;
+  done  = Number(done)  || 0;
   total = Number(total) || 0;
   if (total <= 0) total = done || 1;
   return `${done} / ${total}`;
 }
 
+// ----------------------------------------------------
+// 3) ฟังก์ชันแสดงหน้าสรุปผล
+// ----------------------------------------------------
 function showResultModal(summary) {
   const modal = document.querySelector('[data-hh-modal="result"]');
   if (!modal) return;
@@ -67,7 +56,7 @@ function showResultModal(summary) {
   const elGoals  = q('[data-hh-res-goals]');
   const elMinis  = q('[data-hh-res-minis]');
 
-  if (elMode)  elMode.textContent  = summary.mode || 'Hydration';
+  if (elMode)  elMode.textContent  = summary.mode || 'Hydration Quest VR';
   if (elGrade) elGrade.textContent = summary.grade || 'S';
   if (elScore) elScore.textContent = String(summary.totalScore || 0);
   if (elCombo) elCombo.textContent = String(summary.bestCombo || 0);
@@ -89,10 +78,11 @@ function showResultModal(summary) {
   modal.classList.add('is-open');
 }
 
-// =====================================================
-// A) ฟัง event หลักจาก hydration.safe.js → hha:end
-// =====================================================
-ROOT.addEventListener('hha:end', (ev) => {
+// ----------------------------------------------------
+// 4) ฟัง event hha:end จาก hydration.safe.js
+//    (ตัวนี้ถือเป็น truth หลักตอนจบเกม)
+// ----------------------------------------------------
+window.addEventListener('hha:end', (ev) => {
   const d = ev.detail || {};
 
   const modeLabel = d.modeLabel || 'Hydration Quest VR';
@@ -101,7 +91,7 @@ ROOT.addEventListener('hha:end', (ev) => {
     ? d.grade
     : calcGrade(d.score || 0, d.misses || 0);
 
-  // อ่านตัวเลข Goals / Mini แบบ “ตามจริง” ให้มากที่สุด
+  // ----- จำนวนภารกิจหลัก / mini จาก detail -----
   const goalsDone =
     (typeof d.goalsCleared === 'number') ? d.goalsCleared :
     (typeof d.goals === 'number')        ? d.goals :
@@ -137,17 +127,17 @@ ROOT.addEventListener('hha:end', (ev) => {
   showResultModal(summary);
 });
 
-// =====================================================
-// B) เผื่อบางเวอร์ชันยิง event 'hydration:finish' แทน
-// =====================================================
-ROOT.addEventListener('hydration:finish', (ev) => {
+// ----------------------------------------------------
+// 5) เผื่อบางเวอร์ชันยิง event 'hydration:finish' แทน
+// ----------------------------------------------------
+window.addEventListener('hydration:finish', (ev) => {
   const s = ev.detail || {};
   if (!s) return;
 
   const summary = {
     mode: s.mode || 'Hydration Quest VR',
     grade: s.grade || calcGrade(s.totalScore || s.score || 0,
-                               s.miss || s.misses || 0),
+                                s.miss || s.misses || 0),
     totalScore: s.totalScore || s.score || 0,
     bestCombo: s.bestCombo || s.comboMax || 0,
     miss: s.miss || s.misses || 0,
