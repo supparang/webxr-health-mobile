@@ -1,616 +1,499 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Game Engine (emoji targets + Fever + Quest + Stats)
-// 2025-12-13
+// Food Groups VR — Game Engine (emoji targets + quest + HUD events)
 
 'use strict';
 
-const ROOT = (typeof window !== 'undefined' ? window : globalThis);
-const A = ROOT.AFRAME;
+(function (ns) {
+  const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+  const A = ROOT.AFRAME;
 
-if (!A) {
-  console.error('[GroupsVR] AFRAME not found');
-}
-
-// ----- Global helpers from other modules -----
-const Particles =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-  ROOT.Particles ||
-  {
-    burstAt () {},
-    scorePop () {}
-  };
-
-const FeverUI =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
-  ROOT.FeverUI ||
-  {
-    ensureFeverBar () {},
-    setFever () {},
-    setFeverActive () {},
-    setShield () {}
-  };
-
-const { ensureFeverBar, setFever, setFeverActive } = FeverUI;
-
-const EmojiImage =
-  (ROOT.GAME_MODULES && (ROOT.GAME_MODULES.EmojiImage || ROOT.GAME_MODULES.emojiImage)) ||
-  ROOT.EmojiImage ||
-  ROOT.emojiImage ||
-  null;
-
-const GroupsQuestManager =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.GroupsQuestManager) ||
-  null;
-
-const DiffAPI =
-  (ROOT.HeroHealth && ROOT.HeroHealth.foodGroupsDifficulty) ||
-  null;
-
-// ---------- ข้อมูลอาหาร 5 หมู่ ----------
-const GROUPS = {
-  1: ['🍚','🍙','🍞','🥯','🥐'],                  // ข้าว-แป้ง
-  2: ['🥩','🍗','🍖','🥚','🧀'],                  // โปรตีน
-  3: ['🥦','🥕','🥬','🌽','🥗','🍅'],             // ผัก
-  4: ['🍎','🍌','🍇','🍉','🍊','🍓','🍍'],         // ผลไม้
-  5: ['🥛','🧈','🧀','🍨']                        // นม/ผลิตภัณฑ์นม
-};
-
-const GOOD_EMOJI = Object.values(GROUPS).flat();
-const BAD_EMOJI  = ['🍔','🍟','🍕','🍩','🍪','🧋','🥤','🍫','🍬','🥓'];
-
-function foodGroup (emo) {
-  for (const [g, arr] of Object.entries(GROUPS)) {
-    if (arr.indexOf(emo) !== -1) return parseInt(g, 10);
-  }
-  return 0;
-}
-
-// ---- Grade helper ----
-function computeGrade (metrics) {
-  const {
-    score = 0,
-    misses = 0,
-    goalsCleared = 0,
-    goalsTotal = 0,
-    questsCleared = 0,
-    questsTotal = 0,
-    diff = 'normal'
-  } = metrics || {};
-
-  const sNorm       = Math.min(1, (Number(score) || 0) / 400);
-  const goalRate    = goalsTotal  > 0 ? goalsCleared  / goalsTotal  : 0;
-  const questRate   = questsTotal > 0 ? questsCleared / questsTotal : 0;
-  const missPenalty = Math.min(0.4, (Number(misses) || 0) * 0.03);
-
-  let index = 0;
-  index += questRate * 0.55;
-  index += goalRate  * 0.25;
-  index += sNorm     * 0.20;
-  index -= missPenalty;
-
-  const d = String(diff || 'normal').toLowerCase();
-  if (d === 'hard')  index += 0.05;
-  if (d === 'easy')  index -= 0.03;
-
-  if (index < 0) index = 0;
-  if (index > 1) index = 1;
-
-  if (index >= 0.88) return 'SSS';
-  if (index >= 0.78) return 'SS';
-  if (index >= 0.68) return 'S';
-  if (index >= 0.58) return 'A';
-  if (index >= 0.42) return 'B';
-  return 'C';
-}
-
-function coach (text) {
-  if (!text) return;
-  try {
-    ROOT.window.dispatchEvent(new CustomEvent('hha:coach', {
-      detail: { text }
-    }));
-  } catch (err) {
-    console.warn('[GroupsVR] coach event error', err);
-  }
-}
-
-function randItem (arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-// ------------------------------------------------------------
-// GameEngine class
-// ------------------------------------------------------------
-
-class GameEngine {
-  constructor (opts = {}) {
-    this.diffKey = String(opts.difficulty || 'normal').toLowerCase();
-    if (this.diffKey !== 'easy' && this.diffKey !== 'hard' && this.diffKey !== 'normal') {
-      this.diffKey = 'normal';
-    }
-
-    let dur = Number(opts.duration || 60);
-    if (!Number.isFinite(dur) || dur <= 0) dur = 60;
-    if (dur < 20) dur = 20;
-    if (dur > 180) dur = 180;
-    this.duration = dur;
-
-    this.sceneEl  = null;
-    this.cameraEl = null;
-
-    this.diffCfg = (DiffAPI && DiffAPI.get && DiffAPI.get(this.diffKey)) || {
-      spawnInterval: 1100,
-      lifetime:      2300,
-      maxActive:     4,
-      scale:         1.0,
-      feverGainHit:  7,
-      feverLossMiss: 16
-    };
-
-    // stats
-    this.score     = 0;
-    this.combo     = 0;
-    this.comboMax  = 0;
-    this.misses    = 0;
-    this.fever     = 0;
-    this.feverActive = false;
-
-    this.goodHits  = 0;
-    this.badHits   = 0;
-    this.groupCounts = [0, 0, 0, 0, 0];
-
-    this.targets = new Set();
-    this.spawnTimer = null;
-    this.ended = false;
-
-    // quest
-    this.questMgr = GroupsQuestManager ? new GroupsQuestManager() : null;
-    this.goalsCleared = 0;
-    this.goalsTotal   = 0;
-    this.questsCleared = 0;
-    this.questsTotal   = 0;
-
-    this._onTime = this._onTime.bind(this);
-
-    if (!EmojiImage) {
-      console.warn('[GroupsVR] EmojiImage helper not found – targets will be white circles');
-    }
+  if (!A) {
+    console.error('[GroupsVR] AFRAME not found');
+    return;
   }
 
-  initScene () {
-    this.sceneEl = ROOT.document.querySelector('a-scene');
-    if (!this.sceneEl) {
-      console.error('[GroupsVR] <a-scene> not found');
-      return;
+  // ---------- Difficulty ----------
+  function pickDifficulty(diffKey) {
+    diffKey = String(diffKey || 'normal').toLowerCase();
+    if (ns.HeroHealth &&
+        ns.HeroHealth.foodGroupsDifficulty &&
+        typeof ns.HeroHealth.foodGroupsDifficulty.get === 'function') {
+      return ns.HeroHealth.foodGroupsDifficulty.get(diffKey);
     }
-    this.cameraEl = this.sceneEl.querySelector('#gj-camera') ||
-                    this.sceneEl.querySelector('[camera]');
-  }
-
-  start () {
-    this.initScene();
-    if (!this.sceneEl) return;
-
-    ensureFeverBar();
-    setFever(0);
-    setFeverActive(false);
-    this.fever = 0;
-    this.feverActive = false;
-
-    if (this.questMgr) {
-      this.questMgr.start(this.diffKey, {
-        quest: { goalsPick: 2, miniPick: 3 }
-      });
-      const s = this.questMgr.getSummary();
-      if (s) {
-        this.goalsTotal    = s.totalGoals   || 0;
-        this.questsTotal   = s.totalMinis   || 0;
-        this.goalsCleared  = s.clearedGoals || 0;
-        this.questsCleared = s.clearedMinis || 0;
-      }
-    }
-
-    this.emitStat(); // ส่งค่าสถานะเริ่มต้น
-
-    // เริ่มยิงเป้า
-    const self = this;
-    this.spawnTimer = ROOT.setInterval(function () {
-      self.spawnLoop();
-    }, this.diffCfg.spawnInterval || 1100);
-
-    // ฟัง clock กลาง
-    ROOT.window.addEventListener('hha:time', this._onTime);
-
-    console.log('[GroupsVR] GameEngine started', this.diffKey, this.duration);
-  }
-
-  stop () {
-    if (this.spawnTimer) {
-      ROOT.clearInterval(this.spawnTimer);
-      this.spawnTimer = null;
-    }
-    ROOT.window.removeEventListener('hha:time', this._onTime);
-    this.ended = true;
-  }
-
-  // --------------------------------------------------------
-  // Fever & stat
-  // --------------------------------------------------------
-  gainFever (n) {
-    this.fever = Math.max(0, Math.min(100, this.fever + n));
-    setFever(this.fever);
-    if (!this.feverActive && this.fever >= 100) {
-      this.feverActive = true;
-      setFeverActive(true);
-      coach('โหมดพลังพิเศษ ✨ เก็บอาหารดีให้เยอะที่สุดเลย!');
-    }
-  }
-
-  decayFever (n) {
-    const d = this.feverActive ? 10 : n;
-    this.fever = Math.max(0, this.fever - d);
-    setFever(this.fever);
-    if (this.feverActive && this.fever <= 0) {
-      this.feverActive = false;
-      setFeverActive(false);
-    }
-  }
-
-  questSummary () {
-    if (!this.questMgr || typeof this.questMgr.getSummary !== 'function') {
-      return {
-        goalsCleared: this.goalsCleared,
-        goalsTotal:   this.goalsTotal,
-        questsCleared: this.questsCleared,
-        questsTotal:   this.questsTotal
-      };
-    }
-    const s = this.questMgr.getSummary() || {};
-    this.goalsCleared  = s.clearedGoals || 0;
-    this.goalsTotal    = s.totalGoals   || 0;
-    this.questsCleared = s.clearedMinis || 0;
-    this.questsTotal   = s.totalMinis   || 0;
+    // fallback
     return {
-      goalsCleared: this.goalsCleared,
-      goalsTotal:   this.goalsTotal,
-      questsCleared: this.questsCleared,
-      questsTotal:   this.questsTotal
+      spawnInterval: 1100,
+      lifetime: 2300,
+      maxActive: 4,
+      scale: 1.0,
+      feverGainHit: 7,
+      feverLossMiss: 15,
+      questTarget: 5
     };
   }
 
-  emitStat (extra) {
-    const qs = this.questSummary();
-    const grade = computeGrade({
-      score: this.score,
-      misses: this.misses,
-      goalsCleared: qs.goalsCleared,
-      goalsTotal: qs.goalsTotal,
-      questsCleared: qs.questsCleared,
-      questsTotal: qs.questsTotal,
-      diff: this.diffKey
-    });
+  // ---------- Food groups + emoji sets ----------
+  const GROUPS = {
+    1: ['🍚','🍙','🍞','🥯','🥐'],                  // ข้าว-แป้ง
+    2: ['🥩','🍗','🍖','🥚','🧀'],                  // โปรตีน
+    3: ['🥦','🥕','🥬','🌽','🥗','🍅'],             // ผัก
+    4: ['🍎','🍌','🍇','🍉','🍊','🍓','🍍'],         // ผลไม้
+    5: ['🥛','🧈','🧀','🍨']                        // นม/ผลิตภัณฑ์นม
+  };
 
-    const detail = Object.assign({
-      mode: 'Food Groups',
-      difficulty: this.diffKey,
-      score: this.score,
-      combo: this.combo,
-      comboMax: this.comboMax,
-      misses: this.misses,
-      fever: this.fever,
-      feverActive: this.feverActive,
-      groups: this.groupCounts.slice(),
-      goalsCleared: qs.goalsCleared,
-      goalsTotal: qs.goalsTotal,
-      questsCleared: qs.questsCleared,
-      questsTotal: qs.questsTotal,
-      grade: grade
-    }, extra || {});
+  const GOOD = Object.values(GROUPS).flat();
+  const BAD  = ['🍔','🍟','🍕','🍩','🍪','🧋','🥤','🍫','🍬','🥓'];
 
-    try {
-      ROOT.window.dispatchEvent(new CustomEvent('hha:stat', { detail }));
-    } catch (err) {
-      console.warn('[GroupsVR] hha:stat error', err);
+  function foodGroup(emo) {
+    for (const [g, arr] of Object.entries(GROUPS)) {
+      if (arr.includes(emo)) return +g;
     }
-
-    // ถ้าภารกิจครบแล้วให้จบเกม
-    if (!this.ended &&
-        qs.goalsTotal > 0 && qs.questsTotal > 0 &&
-        qs.goalsCleared >= qs.goalsTotal &&
-        qs.questsCleared >= qs.questsTotal) {
-      this.finish(true);
-    }
+    return 0;
   }
 
-  // --------------------------------------------------------
-  // Spawn & entities
-  // --------------------------------------------------------
-  spawnLoop () {
-    if (this.ended || !this.sceneEl) return;
-
-    if (this.targets.size >= (this.diffCfg.maxActive || 4)) {
-      return;
-    }
-
-    const isGood = Math.random() < 0.7;
-    const emoji = isGood ? randItem(GOOD_EMOJI) : randItem(BAD_EMOJI);
-    const gId = isGood ? foodGroup(emoji) : 0;
-
-    const pos = {
-      x: (Math.random() * 2.4) - 1.2,
-      y: 1.2 + Math.random() * 0.9,
-      z: -3.2
+  // ---------- Fever UI (ถ้าโหลดไว้จาก ui-fever.js) ----------
+  const FeverUI =
+    (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
+    ROOT.FeverUI ||
+    {
+      ensureFeverBar () {},
+      setFever () {},
+      setFeverActive () {}
     };
+  const { ensureFeverBar, setFever, setFeverActive } = FeverUI;
 
-    const target = {
-      emoji,
-      isGood,
-      groupId: gId,
-      pos,
-      el: null,
-      expireTimer: null
-    };
+  // ---------- Emoji texture ด้วย canvas (ไม่ใช้ emoji-image.js แล้ว) ----------
+  const emojiCache = new Map();
 
-    this.createTargetEntity(target);
-    this.targets.add(target);
+  function emojiToDataUrl(ch) {
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
 
-    console.log('[GroupsVR] spawn target', {
-      emoji: target.emoji,
-      isGood: target.isGood,
-      gId: target.groupId,
-      pos: target.pos
-    });
+    ctx.clearRect(0, 0, size, size);
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '200px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(ch, size / 2, size / 2 + 10);
+
+    return canvas.toDataURL('image/png');
   }
 
-  createTargetEntity (target) {
-    const el = ROOT.document.createElement('a-entity');
+  function getEmojiTexture(ch) {
+    if (!emojiCache.has(ch)) {
+      emojiCache.set(ch, emojiToDataUrl(ch));
+    }
+    return emojiCache.get(ch);
+  }
 
-    const scale = this.diffCfg.scale || 1.0;
-    const radius = 0.28 * scale;
+  // ---------- Utils ----------
+  function clamp(v, min, max) {
+    v = Number(v) || 0;
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
+  }
 
-    el.setAttribute('geometry', 'primitive: circle; radius: ' + radius);
+  function randRange(min, max) {
+    return min + Math.random() * (max - min);
+  }
 
-    const mat = {
-      shader: 'flat',
-      side: 'double',
-      transparent: true,
-      alphaTest: 0.01
-    };
+  function pick(array) {
+    return array[(Math.random() * array.length) | 0];
+  }
 
-    let texInfo = null;
+  // ---------- GameEngine ----------
+  const GameEngine = (function () {
+    let sceneEl = null;
+    let diffKey = 'normal';
+    let diffCfg = pickDifficulty('normal');
 
-    if (EmojiImage) {
+    let running = false;
+    let spawnTimer = null;
+    let nextId = 1;
+    const activeTargets = new Map();
+
+    // state
+    let score = 0;
+    let combo = 0;
+    let comboMax = 0;
+    let misses = 0;
+    let fever = 0;
+    let feverActive = false;
+
+    // group hit count ใช้ทำ quest / วิเคราะห์
+    const groupCounts = [0, 0, 0, 0, 0];
+    let goodHits = 0;
+    let badHits = 0;
+
+    // quest summary (ง่าย ๆ)
+    const GOAL_TOTAL  = 2;
+    const MINI_TOTAL  = 3;
+    let goalsCleared  = 0;
+    let minisCleared  = 0;
+
+    // ----- Event helpers -----
+    function emitScore(label) {
       try {
-        texInfo = EmojiImage(target.emoji);
-      } catch (err) {
-        console.warn('[GroupsVR] EmojiImage error', err);
-      }
-    }
-
-    if (texInfo) {
-      if (typeof texInfo === 'string') {
-        mat.src = texInfo;
-      } else if (typeof texInfo === 'object') {
-        if (texInfo.src) mat.src = texInfo.src;
-        if (texInfo.color) mat.color = texInfo.color;
-        if (typeof texInfo.transparent === 'boolean') {
-          mat.transparent = texInfo.transparent;
+        ROOT.dispatchEvent(new CustomEvent('hha:score', {
+          detail: {
+            mode: 'Food Groups',
+            score,
+            combo,
+            misses
+          }
+        }));
+        if (label) {
+          ROOT.dispatchEvent(new CustomEvent('hha:judge', {
+            detail: { label }
+          }));
         }
-      }
-    } else {
-      mat.color = '#ffffff';
+      } catch (e) {}
     }
 
-    el.setAttribute('material', mat);
-    el.setAttribute(
-      'position',
-      target.pos.x + ' ' + target.pos.y + ' ' + target.pos.z
-    );
-    el.setAttribute('data-hha-tgt', '1');
-    el.classList.add('hha-target');
-
-    const toY = target.pos.y + 0.35;
-    const life = this.diffCfg.lifetime || 2200;
-    el.setAttribute('animation__move', {
-      property: 'position',
-      to: target.pos.x + ' ' + toY + ' ' + target.pos.z,
-      dur: life,
-      dir: 'alternate',
-      loop: 1,
-      easing: 'easeOutQuad'
-    });
-
-    const engine = this;
-    el.addEventListener('click', function (ev) {
-      engine.handleHit(target, ev);
-    });
-
-    this.sceneEl.appendChild(el);
-    target.el = el;
-
-    target.expireTimer = ROOT.setTimeout(function () {
-      engine.handleExpire(target);
-    }, life);
-  }
-
-  handleHit (target, ev) {
-    if (this.ended) return;
-    if (!target || !this.targets.has(target)) return;
-
-    if (target.expireTimer) {
-      ROOT.clearTimeout(target.expireTimer);
-      target.expireTimer = null;
-    }
-
-    if (target.el && target.el.parentNode) {
-      target.el.parentNode.removeChild(target.el);
-    }
-    this.targets.delete(target);
-
-    const pt = ev && ev.detail && ev.detail.intersection && ev.detail.intersection.point;
-    const x = pt ? pt.x : 0;
-    const y = pt ? pt.y : 1.6;
-
-    if (target.isGood) {
-      this.goodHits++;
-      const base = 16 + this.combo * 2;
-      const mult = this.feverActive ? 2 : 1;
-      const delta = base * mult;
-
-      this.score += delta;
-      this.combo++;
-      if (this.combo > this.comboMax) this.comboMax = this.combo;
-
-      this.gainFever(this.diffCfg.feverGainHit || 7);
-      const g = target.groupId;
-      if (g > 0 && g <= 5) {
-        this.groupCounts[g - 1] = (this.groupCounts[g - 1] || 0) + 1;
-      }
-
-      if (this.questMgr) {
-        this.questMgr.onHit({
-          groupId: target.groupId,
-          isGood: true,
-          isBad: false
-        });
-      }
-
-      const label = (this.feverActive || this.combo >= 10)
-        ? 'PERFECT'
-        : 'GOOD';
-
+    function emitMiss() {
       try {
-        Particles.scorePop(x, y, '+' + delta, {
-          good: true,
-          judgment: label
-        });
-        Particles.burstAt(x, y, { good: true });
-      } catch (err) {}
+        ROOT.dispatchEvent(new CustomEvent('hha:miss', {
+          detail: { mode: 'Food Groups' }
+        }));
+      } catch (e) {}
+    }
 
-    } else {
-      this.badHits++;
-      const delta = -12;
-      this.score = Math.max(0, this.score + delta);
-      this.combo = 0;
-      this.misses++;
-      this.decayFever(this.diffCfg.feverLossMiss || 16);
+    function emitEnd(reason) {
+      try {
+        ROOT.dispatchEvent(new CustomEvent('hha:end', {
+          detail: {
+            mode: 'Food Groups',
+            reason: reason || 'end',
+            score,
+            misses,
+            comboMax,
+            goalsCleared,
+            goalsTotal: GOAL_TOTAL,
+            miniCleared: minisCleared,
+            miniTotal: MINI_TOTAL,
+            groupCounts: [...groupCounts]
+          }
+        }));
+      } catch (e) {}
+    }
 
-      if (this.questMgr) {
-        this.questMgr.onHit({
-          groupId: 0,
-          isGood: false,
-          isBad: true
-        });
+    function updateFever(delta) {
+      fever = clamp(fever + delta, 0, 100);
+      setFever(fever);
+
+      if (!feverActive && fever >= 100) {
+        feverActive = true;
+        setFeverActive(true);
+        try {
+          ROOT.dispatchEvent(new CustomEvent('hha:fever', {
+            detail: { mode: 'Food Groups', state: 'start' }
+          }));
+        } catch (e) {}
       }
 
-      try {
-        Particles.scorePop(x, y, String(delta), {
-          good: false,
-          judgment: 'MISS'
-        });
-        Particles.burstAt(x, y, { good: false });
-      } catch (err) {}
+      if (feverActive && fever <= 0) {
+        feverActive = false;
+        setFeverActive(false);
+        try {
+          ROOT.dispatchEvent(new CustomEvent('hha:fever', {
+            detail: { mode: 'Food Groups', state: 'end' }
+          }));
+        } catch (e) {}
+      }
     }
 
-    this.emitStat();
-  }
+    // ----- Quest (เวอร์ชันย่อ) -----
+    function buildQuestObjects() {
+      const g1Target = diffCfg.questTarget || 8;  // เก็บอาหารดีทั้งหมด
+      const g2Target = 4;                         // เก็บให้ครบ 4 หมู่
 
-  handleExpire (target) {
-    if (!target || !this.targets.has(target)) return;
+      const groupsHitKinds = groupCounts.filter(c => c > 0).length;
 
-    if (target.expireTimer) {
-      ROOT.clearTimeout(target.expireTimer);
-      target.expireTimer = null;
-    }
-    if (target.el && target.el.parentNode) {
-      target.el.parentNode.removeChild(target.el);
-    }
-    this.targets.delete(target);
-
-    // ปล่อยหลุด = ลด fever นิดหน่อย
-    this.decayFever(4);
-    this.emitStat();
-  }
-
-  // --------------------------------------------------------
-  // Clock central
-  // --------------------------------------------------------
-  _onTime (ev) {
-    if (this.ended) return;
-    const sec = ev && ev.detail && typeof ev.detail.sec === 'number'
-      ? ev.detail.sec
-      : null;
-
-    if (sec === null) return;
-
-    if (sec > 0) {
-      if (this.combo <= 0) this.decayFever(4);
-      else                 this.decayFever(2);
-      this.emitStat();
-    }
-
-    if (sec === 20) {
-      coach('เหลือ 20 วิ ลองเก็บให้ครบหลายหมู่ 🥦🍎🍚');
-    }
-    if (sec === 10) {
-      coach('10 วิ สุดท้าย ลองเก็บคอมโบให้ยาวที่สุด ✨');
-    }
-
-    if (sec === 0) {
-      this.finish(false);
-    }
-  }
-
-  finish (allCleared) {
-    if (this.ended) return;
-    this.ended = true;
-
-    this.stop();
-
-    const qs = this.questSummary();
-    const grade = computeGrade({
-      score: this.score,
-      misses: this.misses,
-      goalsCleared: qs.goalsCleared,
-      goalsTotal: qs.goalsTotal,
-      questsCleared: qs.questsCleared,
-      questsTotal: qs.questsTotal,
-      diff: this.diffKey
-    });
-
-    this.emitStat({ ended: true });
-
-    try {
-      ROOT.window.dispatchEvent(new CustomEvent('hha:end', {
-        detail: {
-          mode: 'Food Groups',
-          difficulty: this.diffKey,
-          score: this.score,
-          comboMax: this.comboMax,
-          misses: this.misses,
-          duration: this.duration,
-          goalsCleared: qs.goalsCleared,
-          goalsTotal: qs.goalsTotal,
-          questsCleared: qs.questsCleared,
-          questsTotal: qs.questsTotal,
-          groups: this.groupCounts.slice(),
-          allCleared: !!allCleared,
-          grade: grade
+      const goalsAll = [
+        {
+          id: 'g1',
+          label: `เก็บอาหารดีให้ครบ ${g1Target} ชิ้น`,
+          prog: goodHits,
+          target: g1Target,
+          done: goodHits >= g1Target
+        },
+        {
+          id: 'g2',
+          label: 'เก็บให้ครบ 4 หมู่ที่แตกต่างกัน',
+          prog: groupsHitKinds,
+          target: 4,
+          done: groupsHitKinds >= 4
         }
-      }));
-    } catch (err) {
-      console.warn('[GroupsVR] hha:end error', err);
+      ];
+
+      const minisAll = [
+        {
+          id: 'm1',
+          label: 'เก็บผัก (หมู่ 3) ให้ครบ 3 ชิ้น',
+          prog: groupCounts[2],
+          target: 3,
+          done: groupCounts[2] >= 3
+        },
+        {
+          id: 'm2',
+          label: 'เก็บผลไม้ (หมู่ 4) ให้ครบ 3 ชิ้น',
+          prog: groupCounts[3],
+          target: 3,
+          done: groupCounts[3] >= 3
+        },
+        {
+          id: 'm3',
+          label: 'เลี่ยงของขยะให้พลาดไม่เกิน 3 ครั้ง',
+          prog: Math.max(0, 3 - misses),
+          target: 3,
+          done: misses <= 3 && goodHits >= 3   // ต้องมีเก็บของดีด้วย
+        }
+      ];
+
+      goalsCleared = goalsAll.filter(g => g.done).length;
+      minisCleared = minisAll.filter(m => m.done).length;
+
+      const goalCurrent = goalsAll.find(g => !g.done) || goalsAll[goalsAll.length - 1];
+      const miniCurrent = minisAll.find(m => !m.done) || minisAll[minisAll.length - 1];
+
+      return { goalCurrent, miniCurrent, goalsAll, minisAll };
     }
+
+    function emitQuestUpdate(hint) {
+      const q = buildQuestObjects();
+      try {
+        ROOT.dispatchEvent(new CustomEvent('quest:update', {
+          detail: {
+            goal: q.goalCurrent,
+            mini: q.miniCurrent,
+            goalsAll: q.goalsAll,
+            minisAll: q.minisAll,
+            hint: hint || ''
+          }
+        }));
+      } catch (e) {}
+    }
+
+    // ----- Target creation -----
+    function createTargetEntity(target) {
+      const el = document.createElement('a-entity');
+
+      const x = target.pos.x;
+      const y = target.pos.y;
+      const z = target.pos.z;
+
+      const scale = diffCfg.scale || 1.0;
+      const size = 0.7 * scale;
+
+      const texUrl = getEmojiTexture(target.emoji);
+
+      el.setAttribute('position', `${x} ${y} ${z}`);
+      el.setAttribute('data-hha-tgt', '1');
+      el.setAttribute('geometry', `primitive: plane; width: ${size}; height: ${size}`);
+      el.setAttribute('material',
+        `shader: flat; src: ${texUrl}; transparent: true; alphaTest: 0.05; side: double`);
+      el.setAttribute('rotation', `0 0 0`);
+
+      // ลอยเบา ๆ
+      el.setAttribute('animation__float', {
+        property: 'position',
+        dir: 'alternate',
+        easing: 'easeInOutSine',
+        dur: 900,
+        loop: true,
+        to: `${x} ${y + 0.2} ${z}`
+      });
+      // fade in
+      el.setAttribute('animation__fadein', {
+        property: 'material.opacity',
+        from: 0,
+        to: 1,
+        dur: 220,
+        easing: 'easeOutQuad'
+      });
+
+      // hit
+      el.addEventListener('click', function (ev) {
+        handleHit(target.id, ev);
+      });
+
+      // expire timer
+      target.expireTimer = ROOT.setTimeout(function () {
+        handleExpire(target.id);
+      }, diffCfg.lifetime || 2200);
+
+      sceneEl.appendChild(el);
+      target.el = el;
+    }
+
+    function destroyTarget(target) {
+      if (!target) return;
+      if (target.expireTimer) {
+        ROOT.clearTimeout(target.expireTimer);
+        target.expireTimer = null;
+      }
+      if (target.el && target.el.parentNode) {
+        try {
+          target.el.parentNode.removeChild(target.el);
+        } catch (e) {}
+      }
+      target.el = null;
+    }
+
+    // ----- Spawn / hit / expire -----
+    function spawnOne() {
+      if (!running || !sceneEl) return;
+      if (activeTargets.size >= (diffCfg.maxActive || 4)) return;
+
+      const isGood = Math.random() < 0.7;
+      const emoji = isGood ? pick(GOOD) : pick(BAD);
+      const gId = isGood ? foodGroup(emoji) : 0;
+
+      const pos = {
+        x: randRange(-2.2, 2.2),
+        y: randRange(1.2, 2.2),
+        z: randRange(-3.2, -2.2)
+      };
+
+      const id = nextId++;
+      const target = {
+        id,
+        emoji,
+        isGood,
+        gId,
+        pos,
+        el: null,
+        expireTimer: null
+      };
+
+      activeTargets.set(id, target);
+      console.log('[GroupsVR] spawn target', { emoji, isGood, gId, pos });
+
+      createTargetEntity(target);
+    }
+
+    function spawnLoop() {
+      if (!running) return;
+      spawnOne();
+      const iv = diffCfg.spawnInterval || 1000;
+      spawnTimer = ROOT.setTimeout(spawnLoop, iv);
+    }
+
+    function handleHit(id /*, ev */) {
+      if (!running) return;
+      const target = activeTargets.get(id);
+      if (!target) return;
+
+      destroyTarget(target);
+      activeTargets.delete(id);
+
+      if (target.isGood) {
+        goodHits++;
+        const base = 20;
+        const multi = feverActive ? 2 : 1;
+        const delta = (base + combo * 2) * multi;
+        score += delta;
+        combo++;
+        if (combo > comboMax) comboMax = combo;
+        const idx = (target.gId || 0) - 1;
+        if (idx >= 0 && idx < groupCounts.length) {
+          groupCounts[idx] = (groupCounts[idx] | 0) + 1;
+        }
+        updateFever(diffCfg.feverGainHit || 8);
+        emitScore(combo >= 8 || feverActive ? 'PERFECT' : 'GOOD');
+      } else {
+        badHits++;
+        misses++;
+        combo = 0;
+        score = Math.max(0, score - 15);
+        updateFever(- (diffCfg.feverLossMiss || 16));
+        emitMiss();
+        emitScore('MISS');
+      }
+
+      emitQuestUpdate();
+    }
+
+    function handleExpire(id) {
+      const target = activeTargets.get(id);
+      if (!target) return;
+      destroyTarget(target);
+      activeTargets.delete(id);
+      // ปล่อยให้หลุดจอ ไม่ถือว่าพลาด แค่ลด fever นิดหน่อย
+      updateFever(-4);
+      emitQuestUpdate();
+    }
+
+    // ----- Public API -----
+    function start(diff) {
+      if (running) stop('restart');
+      sceneEl = document.querySelector('a-scene');
+      if (!sceneEl) {
+        console.error('[GroupsVR] <a-scene> not found');
+        return;
+      }
+
+      diffKey = String(diff || 'normal').toLowerCase();
+      diffCfg = pickDifficulty(diffKey);
+
+      running = true;
+      score = 0;
+      combo = 0;
+      comboMax = 0;
+      misses = 0;
+      fever = 0;
+      feverActive = false;
+      goodHits = 0;
+      badHits = 0;
+      for (let i = 0; i < groupCounts.length; i++) groupCounts[i] = 0;
+      goalsCleared = 0;
+      minisCleared = 0;
+
+      ensureFeverBar();
+      setFever(0);
+      setFeverActive(false);
+
+      emitScore('');
+      emitQuestUpdate('โฟกัสเก็บอาหารดีจากหลาย ๆ หมู่ให้ครบก่อน');
+
+      spawnLoop();
+      console.log('[GroupsVR] start', diffKey);
+    }
+
+    function stop(reason) {
+      if (!running) return;
+      running = false;
+
+      if (spawnTimer) {
+        ROOT.clearTimeout(spawnTimer);
+        spawnTimer = null;
+      }
+
+      activeTargets.forEach(t => destroyTarget(t));
+      activeTargets.clear();
+
+      emitEnd(reason || 'stop');
+      console.log('[GroupsVR] stop', reason);
+    }
+
+    return { start, stop };
+  })();
+
+  // export ไป global + ES module style
+  ns.GameEngineGroups = GameEngine;
+  if (typeof exports === 'object' && typeof module !== 'undefined') {
+    module.exports = { GameEngine };
+  } else if (typeof define === 'function' && define.amd) {
+    define([], function () { return { GameEngine }; });
+  } else {
+    ns.GameEngine = GameEngine; // ใช้กับ import type="module" ใน groups-vr.html
   }
-}
 
-// attach to namespace for non-module access
-ROOT.GAME_MODULES = ROOT.GAME_MODULES || {};
-ROOT.GAME_MODULES.GameEngine = GameEngine;
-
-if (!ROOT.HeroHealth) ROOT.HeroHealth = {};
-if (!ROOT.HeroHealth.GroupsVR) ROOT.HeroHealth.GroupsVR = {};
-ROOT.HeroHealth.GroupsVR.GameEngine = GameEngine;
-
-export { GameEngine };
-export default GameEngine;
+})(window.HeroHealth = window.HeroHealth || {});
