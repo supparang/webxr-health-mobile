@@ -108,7 +108,7 @@ function emitStat (state, extra = {}) {
   } catch {}
 }
 
-// ===== Target creation (ตัด animation__float ทิ้งเพื่อกัน error animation.js) =====
+// ===== Target creation (เพิ่ม clickable + multi-input) =====
 function createTargetEntity (scene, spawn, onHit, onExpire) {
   if (!scene || !spawn) return null;
 
@@ -119,7 +119,7 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
 
   // 2) ใช้ <a-image> ธรรมดา (ไม่ใช้ shader แปลก ๆ)
   const el = document.createElement('a-image');
-  el.classList.add('groups-target');
+  el.classList.add('groups-target', 'clickable');  // ★ สำคัญ: ให้ raycaster เห็น
 
   const x = spawn.pos.x;
   const y = spawn.pos.y;
@@ -137,18 +137,33 @@ function createTargetEntity (scene, spawn, onHit, onExpire) {
   el.dataset.isGood  = spawn.isGood ? '1' : '0';
   el.dataset.groupId = String(spawn.gId || 0);
 
-  // ⛔ ตัด animation__float ออก (ตัวนี้ทำให้ A-Frame animation.js crash ตอนลบ entity)
-  // ถ้าอยากกลับมาใช้ทีหลัง ค่อยเพิ่มใหม่ด้วย component custom
+  // กันยิงซ้ำ
+  el.__groupsHit = false;
 
-  // คลิก = ยิงเป้า
-  el.addEventListener('click', () => {
+  const triggerHit = (ev) => {
+    // กัน tap ซ้ำจาก click + touchstart
+    if (el.__groupsHit) return;
+    el.__groupsHit = true;
+    // ไม่ต้องให้ event ฟองขึ้นไปชน UI อื่น
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    if (ev && ev.preventDefault) ev.preventDefault();
+
+    console.log('[GroupsVR] HIT target', spawn.emoji, spawn.isGood ? 'GOOD' : 'BAD');
     onHit && onHit(spawn, el);
-  });
+  };
+
+  // รองรับทั้ง mouse / touch / VR cursor
+  el.addEventListener('click', triggerHit);
+  el.addEventListener('mousedown', triggerHit);
+  el.addEventListener('touchstart', triggerHit, { passive: false });
 
   // ตั้งเวลาให้หมดอายุเอง ถ้าไม่ได้ยิง
   const life = spawn.lifetime || 2200;
   const timeout = setTimeout(() => {
-    onExpire && onExpire(spawn, el);
+    // ถ้ายิงไปแล้ว ไม่ต้อง expire ซ้ำ
+    if (!el.__groupsHit) {
+      onExpire && onExpire(spawn, el);
+    }
   }, life);
   el.__groupsTimeout = timeout;
 
@@ -234,8 +249,7 @@ export async function startEngine (opts = {}) {
     if (delta > 0) {
       state.score += delta;
       state.combo += 1;
-      // 🔧 แก้จาก comboMax = max(comboMax, comboMax) → ใช้ combo จริง
-      state.comboMax = Math.max(state.comboMax, state.combo);
+      state.comboMax = Math.max(state.comboMax, state.combo); // ✅ ใช้ combo จริง
       addFever(diffCfg.feverGainHit || 7);
     } else {
       state.score = Math.max(0, state.score + delta);
