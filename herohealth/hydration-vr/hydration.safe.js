@@ -63,13 +63,13 @@ function getCreateHydrationQuest () {
 
 // ---------- Emoji pools ----------
 const GOOD = ['💧', '🥛', '🍉']; // น้ำดี
-const BAD = ['🥤', '🧋', '🍺', '☕️']; // น้ำหวาน / คาเฟอีน ฯลฯ
+const BAD  = ['🥤', '🧋', '🍺', '☕️']; // น้ำหวาน / คาเฟอีน ฯลฯ
 
-const STAR = '⭐';
-const DIA = '💎';
+const STAR   = '⭐';
+const DIA    = '💎';
 const SHIELD = '🛡️';
-const FIRE = '🔥';
-const BONUS = [STAR, DIA, SHIELD, FIRE];
+const FIRE   = '🔥';
+const BONUS  = [STAR, DIA, SHIELD, FIRE];
 
 // ---------- Safe wrappers ----------
 function safeScorePop (x, y, value, judgment, isGood) {
@@ -149,7 +149,6 @@ export async function boot (cfg = {}) {
   let goalCleared = 0; // 0–2
   let miniCleared = 0; // 0–3
 
-  // ใช้ให้ HUD รู้ว่าทำถึงไหนแล้ว (ตาม target ดีไซน์)
   function questMeta () {
     return {
       goalsCleared: goalCleared,
@@ -159,7 +158,6 @@ export async function boot (cfg = {}) {
     };
   }
 
-  // อ่าน progress จริงจาก deck (เพื่อใช้ตอนสรุป)
   function readQuestStats () {
     if (!deck || typeof deck.getProgress !== 'function') {
       return {
@@ -189,7 +187,7 @@ export async function boot (cfg = {}) {
   let misses = 0;
   let star = 0;
   let diamond = 0;
-  let elapsedSec = 0; // เวลาเล่นสะสม (นับขึ้น)
+  let elapsedSec = 0;
   let ended = false;
 
   function mult () {
@@ -278,13 +276,46 @@ export async function boot (cfg = {}) {
     } catch {}
   }
 
+  // ---------- NEW: ส่งเลขลำดับ Goal / Mini ไปให้ HUD ----------
   function pushQuest (hint) {
     if (!deck || typeof deck.getProgress !== 'function') return;
+
     const goals = deck.getProgress('goals') || [];
     const minis = deck.getProgress('mini') || [];
 
     const currentGoal = goals.find(g => !g.done) || goals[0] || null;
     const currentMini = minis.find(m => !m.done) || minis[0] || null;
+
+    const goalTotal = goals.length || GOAL_TARGET;
+    const miniTotal = minis.length || MINI_TARGET;
+
+    let goalIndex = 0;
+    if (currentGoal) {
+      const idx = goals.indexOf(currentGoal);
+      goalIndex = (idx >= 0 ? idx + 1 : 0);
+    }
+
+    let miniIndex = 0;
+    if (currentMini) {
+      const idx = minis.indexOf(currentMini);
+      miniIndex = (idx >= 0 ? idx + 1 : 0);
+    }
+
+    const goalText = currentGoal
+      ? (currentGoal.title || currentGoal.label || currentGoal.text || '')
+      : '';
+
+    const miniText = currentMini
+      ? (currentMini.title || currentMini.label || currentMini.text || '')
+      : '';
+
+    const goalLabel = goalIndex
+      ? `Goal ${goalIndex}/${goalTotal}: ${goalText}`
+      : '';
+
+    const miniLabel = miniIndex
+      ? `Mini ${miniIndex}/${miniTotal}: ${miniText}`
+      : '';
 
     try {
       ROOT.dispatchEvent(new CustomEvent('quest:update', {
@@ -293,6 +324,17 @@ export async function boot (cfg = {}) {
           mini: currentMini,
           goalsAll: goals,
           minisAll: minis,
+
+          // ลำดับ + จำนวนทั้งหมด
+          goalIndex,
+          goalTotal,
+          miniIndex,
+          miniTotal,
+
+          // ข้อความพร้อมตัวเลข ใช้แสดงตรง ๆ ได้เลย
+          goalLabel,
+          miniLabel,
+
           hint: hint || `โซนน้ำ: ${waterZone}`,
           meta: questMeta()
         }
@@ -362,7 +404,7 @@ export async function boot (cfg = {}) {
       deck.onGood && deck.onGood();
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'GOOD', true);
-      coach('ได้เกราะกันน้ำหวานแล้ว 🛡️ ถ้าเผลอแตะจะไม่ถือว่าพลาดหนึ่งครั้ง', 3500);
+      coach('ได้เกราะกันน้ำหวานแล้วนะ 🛡️ ถ้าเผลอแตะจะไม่ถือว่าพลาดหนึ่งครั้ง', 3500);
       sendJudge('GOOD');
       pushHudScore();
       return { good: true, scoreDelta: d };
@@ -420,7 +462,6 @@ export async function boot (cfg = {}) {
 
     // ----- น้ำไม่ดี / junk -----
     if (BAD.includes(ch)) {
-      // มี shield → BLOCK (ไม่ถือว่า miss)
       if (shield > 0) {
         shield--;
         setShield(shield);
@@ -434,7 +475,6 @@ export async function boot (cfg = {}) {
         return { good: false, scoreDelta: 0 };
       }
 
-      // ❗ ไม่มี shield → นับเป็น MISS จริง
       addWater(-8);
       const d = -10;
       score = Math.max(0, score + d);
@@ -446,7 +486,6 @@ export async function boot (cfg = {}) {
       syncDeck(); pushQuest();
       scoreFX(x, y, d, 'MISS', false);
 
-      // แจ้ง HUD ว่ามี miss
       try {
         ROOT.dispatchEvent(new CustomEvent('hha:miss', {
           detail: { misses }
@@ -464,7 +503,6 @@ export async function boot (cfg = {}) {
       return { good: false, scoreDelta: d };
     }
 
-    // ถ้า emoji ไม่อยู่ใน GOOD/BAD/BONUS → ไม่ทำอะไร
     return { good: false, scoreDelta: 0 };
   }
 
@@ -474,8 +512,6 @@ export async function boot (cfg = {}) {
   function onExpire (ev) {
     if (ended) return;
 
-    // ปล่อยเป้าหาย → ไม่เพิ่ม misses
-    // แต่แจ้ง deck ว่ามี junk หลุดถ้าเป็นเป้าน้ำไม่ดี
     if (ev && ev.isGood === false) {
       deck.onJunk && deck.onJunk();
       syncDeck();
@@ -487,7 +523,6 @@ export async function boot (cfg = {}) {
   // ======================================================
   //  Tick รายวินาที (เรียกจาก hha:time)
   // ======================================================
-
   function checkQuestCompletion () {
     const qs = readQuestStats();
 
@@ -497,7 +532,6 @@ export async function boot (cfg = {}) {
     goalCleared = Math.min(GOAL_TARGET, qs.goalsDone);
     miniCleared = Math.min(MINI_TARGET, qs.minisDone);
 
-    // เคลียร์ goal ใหม่
     if (goalCleared > prevGoal) {
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:goal-cleared', {
@@ -507,7 +541,6 @@ export async function boot (cfg = {}) {
       coach(`Goal สำเร็จแล้ว ${goalCleared}/${GOAL_TARGET} 🎯`, 3500);
     }
 
-    // เคลียร์ mini quest ใหม่
     if (miniCleared > prevMini) {
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:mini-cleared', {
@@ -517,17 +550,12 @@ export async function boot (cfg = {}) {
       coach(`Mini quest สำเร็จแล้ว ${miniCleared}/${MINI_TARGET} ⭐`, 3500);
     }
 
-    // ทำครบทุกภารกิจ → จบเกมได้เลย
     if (!ended && goalCleared >= GOAL_TARGET && miniCleared >= MINI_TARGET) {
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:all-cleared', {
-          detail: {
-            goals: goalCleared,
-            minis: miniCleared
-          }
+          detail: { goals: goalCleared, minis: miniCleared }
         }));
       } catch {}
-      // จบเกมทันที (ไม่ต้องรอเวลา 0)
       finish(elapsedSec, 'quests-complete', qs);
     }
   }
@@ -555,17 +583,13 @@ export async function boot (cfg = {}) {
     }
     syncDeck();
 
-    // อัปเดตสถานะภารกิจจากเด็ค
     checkQuestCompletion();
-
-    // อัปเดต HUD ทุกวินาที
     pushHudScore();
   }
 
   // ======================================================
-  //  จบเกม (เรียกเมื่อ sec = 0 หรือเคลียร์ทุกภารกิจ)
+  //  จบเกม
   // ======================================================
-
   function finish (durationSec, reason = 'time-up', qsOpt) {
     if (ended) return;
     ended = true;
@@ -580,14 +604,10 @@ export async function boot (cfg = {}) {
     const waterEnd     = waterPct;
     const waterZoneEnd = zoneFrom(waterPct);
 
-    // หยุด clock / spawn จาก mode-factory
-    try {
-      ROOT.removeEventListener('hha:time', onTime);
-    } catch {}
+    try { ROOT.removeEventListener('hha:time', onTime); } catch {}
 
     try {
       if (inst && typeof inst.stop === 'function') {
-        // ให้ factory เก็บกวาด timer / เป้าเก่าทั้งหมด
         inst.stop(reason);
       }
     } catch (err) {
@@ -605,14 +625,10 @@ export async function boot (cfg = {}) {
           comboMax,
           duration: durationSec,
           greenTick,
-
-          // ฟิลด์สำหรับ popup สรุป (Play mode)
           goals: goalsDone,
           goalsTotal,
           quests: minisDone,
           questsTotal: minisTotal,
-
-          // เผื่อใช้ต่อที่อื่น
           goalCleared: goalsDone >= goalsTotal,
           miniCleared: minisDone >= minisTotal,
           waterStart,
@@ -623,7 +639,6 @@ export async function boot (cfg = {}) {
       }));
     } catch {}
 
-    // ปิดท้ายด้วย status ended ให้ HUD / logger
     pushHudScore({
       ended: true,
       goalsCleared: goalsDone,
@@ -633,9 +648,6 @@ export async function boot (cfg = {}) {
     });
   }
 
-  // ======================================================
-  //  ฟัง clock กลางจาก mode-factory (hha:time)
-  // ======================================================
   const onTime = (e) => {
     const sec = (e.detail && typeof e.detail.sec === 'number')
       ? e.detail.sec
@@ -654,35 +666,28 @@ export async function boot (cfg = {}) {
   const inst = await factoryBoot({
     difficulty: diff,
     duration: dur,
-
-    // สำคัญ: ใช้ร่วมกับ HHA_DIFF_TABLE.hydration (ถ้ามี)
     modeKey: 'hydration',
-
     pools: { good: [...GOOD, ...BONUS], bad: [...BAD] },
     goodRate: 0.60,
     powerups: BONUS,
     powerRate: 0.10,
     powerEvery: 7,
-    spawnStyle: 'pop', // เป้าโผล่แล้วหายเอง (ไม่ตกลงมา)
+    spawnStyle: 'pop',
     judge: (ch, ctx) => judge(ch, ctx),
     onExpire
   });
 
-  // cleanup เพิ่มใน stop() เผื่อผู้เล่นออกกลางคัน
   if (inst && typeof inst.stop === 'function') {
     const origStop = inst.stop.bind(inst);
     inst.stop = (...args) => {
-      try {
-        ROOT.removeEventListener('hha:time', onTime);
-      } catch {}
+      try { ROOT.removeEventListener('hha:time', onTime); } catch {}
       return origStop(...args);
     };
   }
 
-  // ---------- เริ่มเกม: ส่งเควสต์ + HUD แรก ----------
+  // ---------- START ----------
   pushQuest('เริ่มโหมดน้ำสมดุล');
   coach('ภารกิจคือรักษาน้ำในร่างกายให้อยู่โซนสีเขียว 💧 เลือกน้ำดี เลี่ยงน้ำหวานนะ');
-
   pushHudScore();
 
   return inst;
