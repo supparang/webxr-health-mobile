@@ -154,7 +154,6 @@ const GOAL_POOL = {
       },
       measure(stats, base) {
         const diff = missDiff(stats, base);
-        // 0 = ยังไม่ผ่าน, 1 = ผ่าน (ยังไม่เกิน 2 ครั้ง)
         return diff <= 2 ? 1 : 0;
       }
     }
@@ -239,10 +238,18 @@ const MINI_POOL = {
       text: 'พยายามไม่แตะของหวาน/ของทอดเกิน 1 ครั้งในระหว่างภารกิจ',
       target: 1,
       check(stats, base) {
-        return missDiff(stats, base) <= 1;
+        // ต้องมีความคืบหน้าอย่างน้อย 1 จาน และ MISS ไม่เกิน 1
+        const miss = missDiff(stats, base);
+        const plate = platesDiff(stats, base);
+        return plate >= 1 && miss <= 1;
       },
       measure(stats, base) {
-        return missDiff(stats, base) <= 1 ? 1 : 0;
+        const miss = missDiff(stats, base);
+        const plate = platesDiff(stats, base);
+        // ถ้า MISS เกินแล้ว ถือว่า 0 ไปเลย
+        if (miss > 1) return 0;
+        // ผ่านเมื่อมีจานเพิ่มขึ้นอย่างน้อย 1 จาน
+        return plate >= 1 ? 1 : 0;
       }
     }
   ],
@@ -334,10 +341,16 @@ const MINI_POOL = {
       text: 'ระหว่างภารกิจนี้แตะของไม่ดี (MISS) ไม่เกิน 1 ครั้ง',
       target: 1,
       check(stats, base) {
-        return missDiff(stats, base) <= 1;
+        // เหมือน m_easy_nosweet แต่โหมด hard
+        const miss = missDiff(stats, base);
+        const plate = platesDiff(stats, base);
+        return plate >= 1 && miss <= 1;
       },
       measure(stats, base) {
-        return missDiff(stats, base) <= 1 ? 1 : 0;
+        const miss = missDiff(stats, base);
+        const plate = platesDiff(stats, base);
+        if (miss > 1) return 0;
+        return plate >= 1 ? 1 : 0;
       }
     },
     {
