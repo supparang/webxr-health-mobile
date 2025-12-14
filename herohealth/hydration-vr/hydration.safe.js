@@ -745,6 +745,28 @@ export async function boot (cfg = {}) {
   }
 
   // ======================================================
+  //  ฟังก์ชันคำนวณเกรด (ใช้สำหรับ hha:stat ตอนจบเกม)
+// ======================================================
+  function computeGrade (scoreVal, comboMaxVal, missVal,
+                         goalsClearedVal, goalsTotalVal,
+                         minisClearedVal, minisTotalVal) {
+
+    const goalsTotalSafe = goalsTotalVal || 0;
+    const minisTotalSafe = minisTotalVal || 0;
+
+    const allGoalDone = (goalsTotalSafe > 0 && goalsClearedVal >= goalsTotalSafe);
+    const allMiniDone = (minisTotalSafe > 0 && minisClearedVal >= minisTotalSafe);
+    const allQuest    = allGoalDone && allMiniDone;
+
+    if (allQuest && scoreVal >= 3000 && comboMaxVal >= 20 && missVal <= 1) return 'SSS';
+    if (allQuest && scoreVal >= 2200 && comboMaxVal >= 15 && missVal <= 3) return 'SS';
+    if (scoreVal >= 1800) return 'S';
+    if (scoreVal >= 1300) return 'A';
+    if (scoreVal >= 800)  return 'B';
+    return 'C';
+  }
+
+  // ======================================================
   //  Tick รายวินาที (เรียกจาก hha:time)
   // ======================================================
   function onSec () {
@@ -848,6 +870,7 @@ export async function boot (cfg = {}) {
       endWave('finish');
     }
 
+    // ---- ยิง hha:end (summary สำหรับ HUD / logger) ----
     try {
       ROOT.dispatchEvent(new CustomEvent('hha:end', {
         detail: {
@@ -871,6 +894,41 @@ export async function boot (cfg = {}) {
           goalCleared: goalsOk >= goalsTotal,
           questsClearedAll: minisOk >= minisTotal,
 
+          waterStart,
+          waterEnd,
+          waterZoneEnd,
+          endReason: reason
+        }
+      }));
+    } catch {}
+
+    // ---- ยิง hha:stat สำหรับงานวิจัย (เกรด + ตัวเลขรวม) ----
+    try {
+      const grade = computeGrade(
+        score,
+        comboMax,
+        misses,
+        goalsOk,
+        goalsTotal,
+        minisOk,
+        minisTotal
+      );
+
+      ROOT.dispatchEvent(new CustomEvent('hha:stat', {
+        detail: {
+          mode: 'Hydration',
+          modeLabel: 'Hydration Quest VR',
+          difficulty: diff,
+          score,
+          comboMax,
+          misses,
+          goalsCleared: goalsOk,
+          goalsTotal,
+          questsCleared: minisOk,
+          questsTotal: minisTotal,
+          grade,
+          duration: durationSec,
+          greenTick,
           waterStart,
           waterEnd,
           waterZoneEnd,
