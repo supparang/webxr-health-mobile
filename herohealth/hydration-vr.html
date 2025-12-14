@@ -10,26 +10,31 @@
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- หมุนเป้า Hydration รอบตัวเอง (แกน Z) + ติดให้ทุก node ที่มี data-hha-tgt -->
+  <!-- หมุนเป้า Hydration รอบแกน Y (object3D) + ผูกกับทุก node ที่มี data-hha-tgt -->
   <script>
     (function () {
-      function registerSpinComponent() {
+      function registerSpinComponent () {
         const A = window.AFRAME;
         if (!A) return;
 
         A.registerComponent('hha-spin-target', {
-          schema: { speed: { type: 'number', default: 80 } }, // องศาต่อวินาที
+          schema: {
+            speed: { type: 'number', default: 90 } // องศาต่อวินาที
+          },
+          init: function () {
+            this._angle = 0;
+          },
           tick: function (time, dt) {
             if (!dt) return;
-            const rot = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
-            const delta = (this.data.speed * dt) / 1000;
-            let z = (rot.z || 0) + delta;
-            if (z > 360) z -= 360;
-            this.el.setAttribute('rotation', {
-              x: rot.x || 0,
-              y: rot.y || 0,
-              z
-            });
+            const obj = this.el.object3D;
+            if (!obj) return;
+
+            const delta = (this.data.speed * dt) / 1000; // degree/s → degree
+            this._angle = (this._angle + delta) % 360;
+
+            // หมุนรอบแกน Y ให้เห็นชัด ๆ (เหมือนเหรียญหมุนหันซ้าย-ขวา)
+            const rad = this._angle * Math.PI / 180;
+            obj.rotation.set(0, rad, 0);
           }
         });
       }
@@ -38,29 +43,28 @@
         if (!root || !root.querySelectorAll) return;
         root.querySelectorAll('[data-hha-tgt]').forEach(el => {
           if (!el.hasAttribute('hha-spin-target')) {
-            el.setAttribute('hha-spin-target', 'speed: 80');
+            el.setAttribute('hha-spin-target', 'speed: 90');
           }
         });
       }
 
-      function initSpin() {
+      function initSpinObserver () {
         const scene = document.querySelector('a-scene');
         if (!scene) return;
 
-        // ติดให้เป้าที่มีอยู่แล้วใน scene
+        // ผูกให้เป้าที่มีอยู่แล้วใน scene
         attachSpinToTargets(scene);
 
-        // เฝ้าดูทั้ง node ใหม่ + attribute data-hha-tgt ที่ถูกเปลี่ยนทีหลัง
+        // เฝ้าดู node ใหม่ + attribute data-hha-tgt ที่ถูกเปลี่ยนทีหลัง
         const obs = new MutationObserver(mutations => {
           mutations.forEach(m => {
-            // 1) node ใหม่ถูกเพิ่มเข้า DOM
             if (m.type === 'childList') {
               m.addedNodes.forEach(node => {
                 if (node.nodeType !== 1) return;
 
                 if (node.matches && node.matches('[data-hha-tgt]')) {
                   if (!node.hasAttribute('hha-spin-target')) {
-                    node.setAttribute('hha-spin-target', 'speed: 80');
+                    node.setAttribute('hha-spin-target', 'speed: 90');
                   }
                 }
                 if (node.querySelectorAll) {
@@ -69,12 +73,11 @@
               });
             }
 
-            // 2) เปลี่ยน attribute data-hha-tgt บน node เดิม
             if (m.type === 'attributes' && m.attributeName === 'data-hha-tgt') {
               const target = m.target;
               if (target && target.matches && target.matches('[data-hha-tgt]')) {
                 if (!target.hasAttribute('hha-spin-target')) {
-                  target.setAttribute('hha-spin-target', 'speed: 80');
+                  target.setAttribute('hha-spin-target', 'speed: 90');
                 }
               }
             }
@@ -89,14 +92,20 @@
         });
       }
 
-      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      function bootSpin () {
         registerSpinComponent();
-        initSpin();
+        // รอให้ A-Frame สร้าง <a-scene> เสร็จก่อนค่อยผูก observer
+        if (document.readyState === 'complete') {
+          initSpinObserver();
+        } else {
+          window.addEventListener('load', initSpinObserver, { once: true });
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootSpin, { once: true });
       } else {
-        document.addEventListener('DOMContentLoaded', () => {
-          registerSpinComponent();
-          initSpin();
-        });
+        bootSpin();
       }
     })();
   </script>
@@ -128,7 +137,7 @@
       color:#fbbf24;
       text-shadow:0 0 40px rgba(0,0,0,0.85);
       pointer-events:none;
-      transition:opacity .25s ease-out, transform .25s ease-out;
+      transition:opacity .25s ease-out, transform .25s.ease-out;
     }
     .countdown-hidden{
       opacity:0;
@@ -260,7 +269,7 @@
       height:100%;
       border-radius:999px;
       background:linear-gradient(90deg,#22c55e,#4ade80);
-      transition:width .25s.ease-out, background .25s.ease-out, box-shadow .25s.ease-out;
+      transition:width .25s ease-out, background .25s.ease-out, box-shadow .25s.ease-out;
       box-shadow:0 0 0 0 rgba(34,197,94,0.6);
     }
     .grade-bar-fill[data-grade="C"]{
@@ -449,20 +458,20 @@
 
     /* ===== Animations (coach) ===== */
     @keyframes coach-idle{
-      0%{   transform:translateY(0) scale(1); }
-      25%{  transform:translateY(-2px) scale(1.03); }
-      50%{  transform:translateY(1px) scale(0.99); }
-      75%{  transform:translateY(-1px) scale(1.02); }
-      100%{ transform:translateY(0) scale(1); }
+      0%{   transform:translateY(0) scale(1);}
+      25%{  transform:translateY(-2px) scale(1.03);}
+      50%{  transform:translateY(1px) scale(0.99);}
+      75%{  transform:translateY(-1px) scale(1.02);}
+      100%{ transform:translateY(0) scale(1);}
     }
 
     @keyframes coach-dance{
-      0%{   transform:translateY(0) rotate(0deg) scale(1); }
-      20%{  transform:translateY(-4px) rotate(-6deg) scale(1.06); }
-      40%{  transform:translateY(-2px) rotate(5deg) scale(1.03); }
-      60%{  transform:translateY(-6px) rotate(-4deg) scale(1.07); }
-      80%{  transform:translateY(-3px) rotate(4deg) scale(1.04); }
-      100%{ transform:translateY(0) rotate(0deg) scale(1); }
+      0%{   transform:translateY(0) rotate(0deg) scale(1);}
+      20%{  transform:translateY(-4px) rotate(-6deg) scale(1.06);}
+      40%{  transform:translateY(-2px) rotate(5deg) scale(1.03);}
+      60%{  transform:translateY(-6px) rotate(-4deg) scale(1.07);}
+      80%{  transform:translateY(-3px) rotate(4deg) scale(1.04);}
+      100%{ transform:translateY(0) rotate(0deg) scale(1);}
     }
 
     @keyframes coach-fever-pulse{
@@ -481,11 +490,11 @@
     }
 
     @keyframes coach-celebrate-bounce{
-      0%{   transform:translateY(0) scale(1) rotate(0); }
-      20%{  transform:translateY(-10px) scale(1.15) rotate(-8deg); }
-      40%{  transform:translateY(-6px) scale(1.08) rotate(6deg); }
-      60%{  transform:translateY(-12px) scale(1.18) rotate(-4deg); }
-      100%{ transform:translateY(0) scale(1) rotate(0); }
+      0%{   transform:translateY(0) scale(1) rotate(0);}
+      20%{  transform:translateY(-10px) scale(1.15) rotate(-8deg);}
+      40%{  transform:translateY(-6px) scale(1.08) rotate(6deg);}
+      60%{  transform:translateY(-12px) scale(1.18) rotate(-4deg);}
+      100%{ transform:translateY(0) scale(1) rotate(0);}
     }
 
     @keyframes coach-bubble-pop{
@@ -706,10 +715,10 @@
       box-shadow:0 24px 60px rgba(15,23,42,0.95);
     }
     @keyframes big-celebrate-fade{
-      0%{ opacity:0; transform:scale(0.85); }
-      20%{ opacity:1; transform:scale(1); }
-      80%{ opacity:1; transform:scale(1); }
-      100%{ opacity:0; transform:scale(0.9); }
+      0%{ opacity:0; transform:scale(0.85);}
+      20%{ opacity:1; transform:scale(1);}
+      80%{ opacity:1; transform:scale(1);}
+      100%{ opacity:0; transform:scale(0.9);}
     }
   </style>
 </head>
@@ -1398,10 +1407,8 @@
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // เก็บ runMode ใส่ sessionStorage ให้ logger ใช้ซ้ำได้
-      try {
-        sessionStorage.setItem('HHA_RUN_MODE', runMode);
-      } catch (_) {}
+      // ★ บอกระบบ logger / เกมว่าโหมดไหน (play / research)
+      window.HHA_RUNMODE = runMode;
 
       // เวลาเล่นตามระดับยากง่าย (base)
       let baseDur = 60;
@@ -1454,7 +1461,7 @@
         console.warn('[HydrationVR] cannot parse student profile:', err);
       }
 
-      // cloud logger (ส่งไป Google Sheet)
+      // cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
         projectTag: 'HeroHealth-HydrationVR',
