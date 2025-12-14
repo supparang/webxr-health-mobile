@@ -1,10 +1,7 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — Emoji Pop Targets + 5 หมู่โภชนาการไทย (เดินตามเพลงทีละหมู่)
-// - เป้า Emoji โผล่ใน A-Frame เหมือน GoodJunk VR
-// - Quest: 5 Goals ตามหมู่ 1–5 + Mini quest คอมโบ
-// - Coach script พูดตามเพลง: หมู่ 1..5
-//
-// NOTE: ไม่ใช้ import/export, ผูกเป็น window.GroupsVR.GameEngine
+// Food Groups VR — Emoji Pop Targets + 2 Goals + 3 Mini Quests
+// เดินตามเพลง 5 หมู่ + ใช้ร่วม HUD + Fever เดิม (GoodJunkVR Style)
+// ไม่ใช้ import/export — ผูกเป็น window.GroupsVR.GameEngine
 
 'use strict';
 
@@ -17,6 +14,7 @@ window.GroupsVR.GameEngine = (function () {
     return { start () {}, stop () {} };
   }
 
+  // ---------- Fever UI (shared) ----------
   const FeverUI =
     (window.GAME_MODULES && window.GAME_MODULES.FeverUI) ||
     window.FeverUI || {
@@ -26,72 +24,18 @@ window.GroupsVR.GameEngine = (function () {
       setShield () {}
     };
 
-  // --------------------------------------------------
-  //    กลุ่มอาหาร 5 หมู่ (อิงเพลงโภชนาการไทย)
-  // --------------------------------------------------
-  const GROUP_SONG_LINES = {
-    1: 'หมู่ 1 มีเนื้อ นม ไข่ ถั่วเมล็ด ช่วยให้เติบโตแข็งแรง 💪',
-    2: 'หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล เพิ่มพลังให้ร่างกาย ⚡',
-    3: 'หมู่ 3 ผักต่าง ๆ สีเขียวเหลือง มีวิตามินและใยอาหาร 🥦',
-    4: 'หมู่ 4 ผลไม้หลากสี สดชื่นและดีต่อสุขภาพ 🍎🍌🍊',
-    5: 'หมู่ 5 ไขมันและน้ำมัน ช่วยให้อบอุ่น แต่กินแต่พอดีนะ 🥑🧈'
+  // ---------- 5 หมู่หลัก + JUNK ----------
+  const FOOD_GROUPS = {
+    1: ['🍗','🥩','🍖','🍳','🥛','🧀','🥜'],        // หมู่ 1 เนื้อ นม ไข่ ถั่ว
+    2: ['🍚','🍞','🥖','🥐','🥯','🥔'],            // หมู่ 2 ข้าว แป้ง เผือก มัน
+    3: ['🥦','🥕','🥬','🍅'],                      // หมู่ 3 ผัก
+    4: ['🍎','🍌','🍊','🍇','🍓','🍉','🍍'],        // หมู่ 4 ผลไม้
+    5: ['🧈','🥓','🥞','🥐','🥑','🌰']             // หมู่ 5 ไขมัน/น้ำมัน (แทนสัญลักษณ์)
   };
 
-  // goodEmojis แบ่งตามหมู่ 1–5
-  const FOOD_GROUPS = [
-    {
-      id: 1,
-      labelShort: 'หมู่ 1 โปรตีน',
-      goodEmojis: [
-        '🍗','🥩','🍖','🐟','🍤','🍳',
-        '🥛','🧀','🥜'
-      ]
-    },
-    {
-      id: 2,
-      labelShort: 'หมู่ 2 พลังงาน',
-      goodEmojis: [
-        '🍚','🍞','🥖','🥐','🥯','🧇',
-        '🥨','🥟','🍙','🍘'
-      ]
-    },
-    {
-      id: 3,
-      labelShort: 'หมู่ 3 ผัก',
-      goodEmojis: [
-        '🥦','🥕','🍅','🥬','🫑','🧅',
-        '🍄'
-      ]
-    },
-    {
-      id: 4,
-      labelShort: 'หมู่ 4 ผลไม้',
-      goodEmojis: [
-        '🍎','🍌','🍊','🍇','🍓','🍉',
-        '🍍','🥭','🍐','🍑'
-      ]
-    },
-    {
-      id: 5,
-      labelShort: 'หมู่ 5 ไขมัน',
-      goodEmojis: [
-        '🥑','🥓','🧈','🫒','🌰'
-      ]
-    }
-  ];
+  const JUNK = ['🍔','🍟','🍕','🌭','🍩','🍪','🍰','🧋','🥤','🍫'];
 
-  // ของขยะรวม (ใช้ร่วมทุกหมู่)
-  const JUNK = [
-    '🍔','🍟','🍕','🌭','🍩','🍪','🍰','🧋','🥤','🍫','🍬'
-  ];
-
-  function findGroupConfig (groupId) {
-    return FOOD_GROUPS.find(g => g.id === groupId) || FOOD_GROUPS[0];
-  }
-
-  // --------------------------------------------------
-  // state หลัก
-  // --------------------------------------------------
+  // ---------- state หลัก ----------
   let sceneEl = null;
   let running = false;
   let spawnTimer = null;
@@ -102,12 +46,21 @@ window.GroupsVR.GameEngine = (function () {
   let comboMax = 0;
   let misses = 0;
 
-  // ----- Quest: 5 Goals ตามหมู่ + 1 Mini (คอมโบ) -----
-  let goals = [];
-  let currentGoalIndex = 0;
+  // metrics เบื้องต้นสำหรับวิจัย
+  let nTargetGoodSpawned = 0;
+  let nTargetJunkSpawned = 0;
+  let nHitGood = 0;
+  let nHitJunk = 0;
+  let nExpireGood = 0;
 
-  let miniNeedCombo = 0;
-  let miniDone = false;
+  // Fever
+  const FEVER_MAX       = 100;
+  const FEVER_HIT_GAIN  = 16;
+  const FEVER_MISS_LOSS = 30;
+  const FEVER_DURATION  = 5000; // ms
+  let fever = 0;
+  let feverActive = false;
+  let feverTimer = null;
 
   // difficulty
   let SPAWN_INTERVAL  = 1000;
@@ -115,22 +68,22 @@ window.GroupsVR.GameEngine = (function () {
   let MAX_ACTIVE      = 4;
   let currentDiff     = 'normal';
 
-  // fever ง่าย ๆ
-  const FEVER_MAX        = 100;
-  const FEVER_HIT_GAIN   = 16;
-  const FEVER_MISS_LOSS  = 30;
-  const FEVER_DURATION   = 5000; // ms
-  let fever = 0;
-  let feverActive = false;
-  let feverTimer = null;
-
-  // session id สำหรับ logger
+  // session / runMode
   let sessionId = '';
   let sessionStart = null;
+  let sessionStartMs = 0;
+  let currentRunMode = 'play';
+  let hasEnded = false;
 
-  // --------------------------------------------------
-  // emoji → texture (ใช้ canvas ในไฟล์นี้เลย)
-  // --------------------------------------------------
+  // ---------- Quest: 2 Goals + 3 Minis ----------
+  let goals = [];
+  let minis = [];
+  let currentGoalIndex = 0;
+  let currentMiniIndex = 0;
+  let miniComboNeed = 5;
+  let questsFinished = false;
+
+  // ---------- emoji → texture ----------
   const emojiTexCache = new Map();
 
   function getEmojiTexture (ch) {
@@ -152,9 +105,7 @@ window.GroupsVR.GameEngine = (function () {
     return url;
   }
 
-  // --------------------------------------------------
-  // helpers + HUD events
-  // --------------------------------------------------
+  // ---------- helpers ----------
   function emit (type, detail) {
     window.dispatchEvent(new CustomEvent(type, { detail }));
   }
@@ -180,6 +131,18 @@ window.GroupsVR.GameEngine = (function () {
     return v < min ? min : (v > max ? max : v);
   }
 
+  function nowMs () {
+    return (typeof performance !== 'undefined' && performance.now)
+      ? performance.now()
+      : Date.now();
+  }
+
+  function elapsedFromStartMs () {
+    if (!sessionStartMs) return '';
+    return Math.round(nowMs() - sessionStartMs);
+  }
+
+  // ---------- Fever ----------
   function setFeverValue (value, stateHint) {
     fever = clamp(value, 0, FEVER_MAX);
     if (FeverUI.setFever) FeverUI.setFever(fever);
@@ -211,197 +174,68 @@ window.GroupsVR.GameEngine = (function () {
     emit('hha:fever', { state: 'end', value: 0, max: FEVER_MAX });
   }
 
-  // --------------------------------------------------
-  // Quest utils (5 หมู่ + Mini)
-  // --------------------------------------------------
+  // ---------- Quest helpers ----------
   function currentGoal () {
     return goals[currentGoalIndex] || null;
   }
 
-  function allGoalsDone () {
-    return goals.length > 0 && goals.every(g => g.done);
+  function currentMini () {
+    return minis[currentMiniIndex] || null;
   }
 
-  function countGoalsCleared () {
-    return goals.filter(g => g && g.done).length;
+  function countDone (list) {
+    return list.filter(q => q && q.done).length;
   }
 
-  function setupGoalsForDifficulty (diffKey) {
-    const d = String(diffKey || 'normal').toLowerCase();
-    currentDiff = d;
-    goals = [];
-    currentGoalIndex = 0;
-
-    let g1, g2, g3, g4, g5;
-    if (d === 'easy') {
-      g1 = 6; g2 = 6; g3 = 5; g4 = 5; g5 = 3;
-      SPAWN_INTERVAL  = 1300;
-      TARGET_LIFETIME = 1600;
-      MAX_ACTIVE      = 3;
-      miniNeedCombo   = 3;
-    } else if (d === 'hard') {
-      g1 = 12; g2 = 12; g3 = 10; g4 = 10; g5 = 5;
-      SPAWN_INTERVAL  = 800;
-      TARGET_LIFETIME = 1100;
-      MAX_ACTIVE      = 5;
-      miniNeedCombo   = 6;
-    } else {
-      // normal
-      g1 = 9; g2 = 9; g3 = 8; g4 = 8; g5 = 4;
-      SPAWN_INTERVAL  = 1000;
-      TARGET_LIFETIME = 1300;
-      MAX_ACTIVE      = 4;
-      miniNeedCombo   = 4;
-    }
-
-    goals.push(
-      {
-        id: 'G1',
-        groupId: 1,
-        label: `Goal 1 • หมู่ 1 โปรตีน — เก็บอาหารหมู่ 1 ให้ครบ ${g1} ชิ้น`,
-        target: g1,
-        prog: 0,
-        done: false
-      },
-      {
-        id: 'G2',
-        groupId: 2,
-        label: `Goal 2 • หมู่ 2 พลังงาน — เก็บหมู่ 2 ให้ครบ ${g2} ชิ้น`,
-        target: g2,
-        prog: 0,
-        done: false
-      },
-      {
-        id: 'G3',
-        groupId: 3,
-        label: `Goal 3 • หมู่ 3 ผัก — เก็บผักสีเขียวเหลืองให้ครบ ${g3} ชิ้น`,
-        target: g3,
-        prog: 0,
-        done: false
-      },
-      {
-        id: 'G4',
-        groupId: 4,
-        label: `Goal 4 • หมู่ 4 ผลไม้ — เก็บผลไม้หลากสีให้ครบ ${g4} ชิ้น`,
-        target: g4,
-        prog: 0,
-        done: false
-      },
-      {
-        id: 'G5',
-        groupId: 5,
-        label: `Goal 5 • หมู่ 5 ไขมัน — รู้จักหมู่ 5 ให้ครบ ${g5} ชิ้น (กินแต่พอดี)`,
-        target: g5,
-        prog: 0,
-        done: false
-      }
-    );
+  function allQuestsDone () {
+    const goalsTotal = goals.length;
+    const minisTotal = minis.length;
+    const goalsDone = goalsTotal > 0 && goals.every(g => g.done);
+    const minisDone = minisTotal > 0 && minis.every(m => m.done);
+    return goalsTotal > 0 && minisTotal > 0 && goalsDone && minisDone;
   }
 
-  function coachIntro () {
-    coach('วันนี้เราจะมาเดินตามเพลงโภชนาการไทยทีละหมู่กันนะ 🎵');
-    setTimeout(() => {
-      coach('ฟังโค้ชดี ๆ แล้วแตะอาหารให้ถูกหมู่ไปทีละขั้น หมู่ 1 ถึงหมู่ 5 เลย!');
-    }, 2600);
-  }
-
-  function coachGoalStart (g) {
-    if (!g) return;
-    const groupId = g.groupId || 0;
-    const line = GROUP_SONG_LINES[groupId] || '';
-
-    if (groupId === 1) {
-      coach(`เริ่มหมู่ 1 เนื้อ นม ไข่ ถั่วเมล็ด ช่วยให้เติบโตแข็งแรง 💪 \nลองเก็บหมู่ 1 ให้ครบตามเป้านะ`);
-    } else if (groupId === 2) {
-      coach(`ต่อไปหมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล เพิ่มพลังให้ร่างกาย ⚡ \nเลือกแบบไม่หวานจัดเกินไป`);
-    } else if (groupId === 3) {
-      coach('หมู่ 3 ผักต่าง ๆ สีเขียว เหลือง ช่วยให้ได้วิตามินและใยอาหาร 🥦 ลองเก็บผักให้เยอะ ๆ เลย');
-    } else if (groupId === 4) {
-      coach('หมู่ 4 ผลไม้หลากสี สดชื่นและดีต่อสุขภาพ 🍎🍌🍊');
-    } else if (groupId === 5) {
-      coach('หมู่ 5 ไขมันและน้ำมัน ช่วยให้อบอุ่น แต่ต้องกินแต่นิดเดียวพอ 🥑🧈');
-    } else if (line) {
-      coach(line);
-    } else {
-      coach('เริ่มภารกิจใหม่แล้ว ลองเก็บอาหารให้ครบตามหมู่ดูนะ!');
-    }
-  }
-
-  function coachGoalProgress (g) {
-    if (!g) return;
-    const remain = (g.target | 0) - (g.prog | 0);
-    if (remain <= 0) return;
-    if (remain === 1) {
-      coach(`หมู่ ${g.groupId} เหลืออีกแค่ 1 ชิ้นสุดท้ายแล้ว สุดยอดเลย ✨`);
-    } else if (remain <= 3) {
-      coach(`อีกแค่ ${remain} ชิ้นก็ครบหมู่ ${g.groupId} แล้ว สู้ ๆ 🔥`);
-    }
-  }
-
-  function coachGoalComplete (g, cleared, total) {
-    if (!g) return;
-    const groupId = g.groupId || 0;
-    if (groupId === 1) {
-      coach('เยี่ยมมาก! หมู่ 1 โปรตีนครบแล้ว ร่างกายแข็งแรง เติบโตดี 💪🎉');
-    } else if (groupId === 2) {
-      coach('เก่งมาก! หมู่ 2 พลังงานครบแล้ว ⚡ พร้อมไปต่อหมู่ถัดไป');
-    } else if (groupId === 3) {
-      coach('ภารกิจหมู่ 3 ผักสำเร็จแล้ว ได้วิตามินและใยอาหารเพียบ 🥦✨');
-    } else if (groupId === 4) {
-      coach('หมู่ 4 ผลไม้ครบแล้ว สดชื่นและได้วิตามินเต็ม ๆ 🍎🍌🍊');
-    } else if (groupId === 5) {
-      coach('หมู่ 5 ไขมันรู้จักครบแล้ว จำไว้ว่ากินนิดเดียวก็พอนะ 🥑🧈');
-    } else {
-      coach(`ภารกิจหมู่ ${groupId} สำเร็จแล้ว เยี่ยมมาก 🎉`);
-    }
-
-    if (cleared < total) {
-      const next = cleared + 1;
-      if (next <= 5) {
-        setTimeout(() => {
-          coach(`พร้อมไปหมู่ ${next} ต่อเลยไหม? ลองนึกคำในเพลงแล้วหาอาหารให้ตรงหมู่ดูนะ 🎵`);
-        }, 2600);
-      }
-    } else {
-      // ครบทั้ง 5 หมู่
-      setTimeout(() => {
-        coach('สุดยอด! ตอนนี้เก็บครบทั้ง 5 หมู่ตามเพลงแล้ว 🎵 ลองจำให้ได้ว่าในจานนึงควรมีอะไรบ้างบ้างนะ');
-      }, 2600);
-    }
-  }
-
-  // push ข้อมูล quest → HUD
   function pushQuest (hint) {
     const g = currentGoal();
-    const goalDoneAll = allGoalsDone();
-    const miniProg = miniDone ? 1 : 0;
+    const m = currentMini();
 
     let goalObj;
     if (g) {
       goalObj = {
         id: g.id,
         label: g.label,
-        prog: g.prog,
+        prog: Math.min(g.prog, g.target),
         target: g.target,
-        done: !!g.done
+        done: g.done
       };
     } else {
       goalObj = {
         id: 'ALL',
-        label: 'ครบทั้ง 5 หมู่แล้ว 🎉',
+        label: 'ภารกิจหลักครบแล้ว 🎉',
         prog: 1,
         target: 1,
         done: true
       };
     }
 
-    const miniObj = {
-      id: 'M1',
-      label: `Mini • รักษาคอมโบให้ถึง x${miniNeedCombo} อย่างน้อย 1 ครั้ง`,
-      prog: miniProg,
-      target: 1,
-      done: miniDone
-    };
+    let miniObj;
+    if (m) {
+      miniObj = {
+        id: m.id,
+        label: m.label,
+        prog: Math.min(m.prog, m.target),
+        target: m.target,
+        done: m.done
+      };
+    } else {
+      miniObj = {
+        id: 'ALL',
+        label: 'Mini quest ครบแล้ว ✅',
+        prog: 1,
+        target: 1,
+        done: true
+      };
+    }
 
     emit('quest:update', {
       goal: goalObj,
@@ -413,59 +247,252 @@ window.GroupsVR.GameEngine = (function () {
         target: x.target,
         done: x.done
       })),
-      minisAll: [miniObj],
+      minisAll: minis.map(x => ({
+        id: x.id,
+        label: x.label,
+        prog: x.prog,
+        target: x.target,
+        done: x.done
+      })),
       hint: hint || ''
     });
 
-    if (goalDoneAll && miniDone && running) {
+    // จบทุกภารกิจ → ฉลองใหญ่ก่อนจบเกม
+    if (allQuestsDone() && running && !questsFinished) {
+      questsFinished = true;
       emit('quest:all-complete', {
         goalsTotal: goals.length,
-        minisTotal: 1
+        minisTotal: minis.length
       });
-      coach('สุดยอด! ทำภารกิจ 5 หมู่และ Mini quest ครบหมดแล้ว 🎉');
-      stop('quest-complete');
+
+      coach('สุดยอด! ทำภารกิจทั้ง 5 หมู่ครบทุกข้อแล้ว 🎉');
+      running = false;
+      clearInterval(spawnTimer);
+      if (feverTimer) clearTimeout(feverTimer);
+      activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
+      activeTargets = [];
+
+      // หน่วงให้ effect ฉลองทำงานก่อน แล้วค่อยยิง end → เปิดหน้าสรุป
+      setTimeout(() => {
+        emitEnd('quest-complete');
+      }, 900);
     }
   }
 
-  // --------------------------------------------------
-  // ลบเป้า
-  // --------------------------------------------------
+  function updateGoalFromGoodHit () {
+    const g = currentGoal();
+    if (!g || g.done) return;
+
+    g.prog += 1;
+    if (g.prog >= g.target) {
+      g.prog = g.target;
+      g.done = true;
+      const doneCount = countDone(goals);
+      const total = goals.length;
+
+      // ฉลองจบ goal
+      emit('quest:celebrate', {
+        kind: 'goal',
+        id: g.id,
+        label: g.label,
+        index: doneCount,
+        total
+      });
+
+      if (doneCount < total) {
+        currentGoalIndex = doneCount;
+
+        // เดินตามเพลง 5 หมู่
+        const verse = (doneCount === 1)
+          ? 'หมู่ 3 มีผักต่าง ๆ สีเขียวเหลืองบ้างมีวิตามิน 🥦🥕'
+          : 'หมู่ 4 มีผลไม้มากมาย กินประจำให้ร่างกายสดชื่น 🍎🍇';
+
+        coach(`Goal ${doneCount} สำเร็จแล้ว! ${verse}`);
+        pushQuest('Goal ถัดไปเริ่มแล้ว');
+      } else {
+        coach('Goal ครบทั้ง 2 ภารกิจแล้ว 🎉');
+        pushQuest('Goals ครบแล้ว');
+      }
+    } else {
+      pushQuest('');
+    }
+  }
+
+  function updateMiniFromCombo () {
+    const m = currentMini();
+    if (!m || m.done) return;
+
+    const need = m.comboNeed || miniComboNeed || 5;
+    if (combo >= need) {
+      m.prog = 1;
+      m.done = true;
+
+      const doneCount = countDone(minis);
+      const total = minis.length;
+
+      emit('quest:celebrate', {
+        kind: 'mini',
+        id: m.id,
+        label: m.label,
+        index: doneCount,
+        total
+      });
+
+      // โค้ชพูดตามหมู่
+      let verse = '';
+      if (m.id === 'M1') {
+        verse = 'หมู่ 2 ข้าวแป้งเผือกมันและน้ำตาลเพิ่มพลัง 🍚🍞🥔';
+      } else if (m.id === 'M2') {
+        verse = 'หมู่ 4 มีผลไม้ทั้งอาหารมากมายกินเป็นอาจิณ 🍊🍎🍇';
+      } else if (m.id === 'M3') {
+        verse = 'หมู่ 5 อย่าได้ลืมกินไขมันทั้งสิ้นอบอุ่นร่างกาย 🧈🥑';
+      }
+      coach(`Mini quest สำเร็จ! ${verse}`);
+
+      if (doneCount < total) {
+        currentMiniIndex = doneCount;
+        const next = currentMini();
+        miniComboNeed = (next && next.comboNeed) ? next.comboNeed : miniComboNeed;
+        pushQuest('Mini quest ถัดไปเริ่มแล้ว');
+      } else {
+        pushQuest('Mini quests ครบแล้ว');
+      }
+    } else {
+      pushQuest('');
+    }
+  }
+
+  function buildSessionMetrics () {
+    return {
+      nTargetGoodSpawned,
+      nTargetJunkSpawned,
+      nHitGood,
+      nHitJunk,
+      nExpireGood
+    };
+  }
+
+  // ---------- logger event ----------
+  function emitGameEvent (base) {
+    const timeFromStartMs = elapsedFromStartMs();
+    const g = currentGoal();
+    const m = currentMini();
+
+    let goalProgress = '';
+    if (g) {
+      goalProgress = `${g.prog}/${g.target}`;
+    } else if (goals.length) {
+      goalProgress = `${countDone(goals)}/${goals.length}`;
+    }
+
+    let miniProgress = '';
+    if (m) {
+      miniProgress = `${m.prog}/${m.target}`;
+    } else if (minis.length) {
+      miniProgress = `${countDone(minis)}/${minis.length}`;
+    }
+
+    emit('hha:event', {
+      sessionId,
+      mode: 'FoodGroupsVR',
+      runMode: currentRunMode,
+      difficulty: currentDiff,
+      timeFromStartMs,
+      goalProgress,
+      miniProgress,
+      ...base
+    });
+  }
+
+  function emitEnd (reason) {
+    if (hasEnded) return;
+    hasEnded = true;
+
+    const goalsTotal = goals.length;
+    const minisTotal = minis.length;
+    const goalsCleared = countDone(goals);
+    const miniCleared  = countDone(minis);
+
+    const metrics = buildSessionMetrics();
+
+    emit('hha:end', {
+      mode: 'FoodGroupsVR',
+      runMode: currentRunMode,
+      score,
+      comboMax,
+      misses,
+      goalsCleared,
+      goalsTotal,
+      miniCleared,
+      miniTotal: minisTotal,
+      reason: reason || 'normal'
+    });
+
+    try {
+      const endTime = new Date();
+      const durationSecPlayed = sessionStart
+        ? Math.round((endTime - sessionStart) / 1000)
+        : 0;
+
+      emit('hha:session', {
+        sessionId,
+        mode: 'FoodGroupsVR',
+        runMode: currentRunMode,
+        difficulty: currentDiff,
+        startTimeIso: sessionStart ? sessionStart.toISOString() : '',
+        endTimeIso: endTime.toISOString(),
+        durationSecPlayed,
+        scoreFinal: score,
+        comboMax,
+        misses,
+        goalsCleared,
+        goalsTotal,
+        miniCleared,
+        miniTotal: minisTotal,
+        reason: reason || 'normal',
+        ...metrics
+      });
+    } catch (err) {
+      console.warn('[FoodGroupsVR] emit session error', err);
+    }
+  }
+
+  // ---------- ลบเป้า ----------
   function removeTarget (el) {
     activeTargets = activeTargets.filter(t => t !== el);
     if (el && el.parentNode) el.parentNode.removeChild(el);
   }
 
-  // --------------------------------------------------
-  // สร้างเป้าใน A-Frame
-  // --------------------------------------------------
-  function createTargetEntity (emoji, kind, groupId) {
+  // ---------- สร้าง emoji target ใน A-Frame ----------
+  function createTargetEntity (emoji, kind, foodGroup) {
     if (!sceneEl) return null;
 
     const root = document.createElement('a-entity');
 
-    const x = -1.2 + Math.random() * 2.4;  // [-1.2, 1.2]
-    const y = 1.8  + Math.random() * 1.2;  // [1.8, 3.0]
-    const z = -3.2;
+    const x = -1.3 + Math.random() * 2.6;  // [-1.3, 1.3]
+    const y = 2.0  + Math.random() * 1.0;  // [2.0, 3.0]
+    const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
     root.setAttribute('scale', { x: 1, y: 1, z: 1 });
+    root.classList.add('fg-target');
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
-    root.dataset.groupId = groupId ? String(groupId) : '';
-    root.dataset.spawnAt = String(performance.now() || Date.now());
+    root.dataset.group = foodGroup != null ? String(foodGroup) : '';
+    root.dataset.spawnAt = String(nowMs());
 
     const circle = document.createElement('a-circle');
-    circle.setAttribute('radius', kind === 'good' ? 0.45 : 0.40);
+    circle.setAttribute('radius', kind === 'good' ? 0.42 : 0.38);
     circle.setAttribute('material', {
       color: kind === 'good' ? '#22c55e' : '#f97316',
-      opacity: 0.32,
+      opacity: 0.30,
       metalness: 0,
       roughness: 1
     });
 
     const sprite = document.createElement('a-plane');
-    sprite.setAttribute('width', 0.75);
-    sprite.setAttribute('height', 0.75);
+    sprite.setAttribute('width', 0.72);
+    sprite.setAttribute('height', 0.72);
     sprite.setAttribute('position', { x: 0, y: 0, z: 0.01 });
     sprite.setAttribute('material', {
       src: getEmojiTexture(emoji),
@@ -493,59 +520,33 @@ window.GroupsVR.GameEngine = (function () {
     return root;
   }
 
-  // --------------------------------------------------
-  // เมื่อโดนเป้า
-  // --------------------------------------------------
+  function getParticles () {
+    return (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
+           window.Particles ||
+           null;
+  }
+
+  // ---------- ยิงโดน ----------
   function onHit (el) {
     if (!running || !el || !el.parentNode) return;
 
     const kind = el.dataset.kind || 'good';
     const emoji = el.dataset.emoji || '';
-    const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
     removeTarget(el);
 
     if (kind === 'good') {
-      // ----- อัปเดต goal ตามหมู่ปัจจุบัน -----
-      const g = currentGoal();
-      if (g && !g.done) {
-        g.prog += 1;
-        if (g.prog >= g.target) {
-          g.prog = g.target;
-          g.done = true;
-          const cleared = countGoalsCleared();
-          const total = goals.length;
-          coachGoalComplete(g, cleared, total);
+      nHitGood++;
 
-          if (cleared < total) {
-            currentGoalIndex = cleared; // ไปหมู่ถัดไป
-            const nextGoal = currentGoal();
-            setTimeout(() => {
-              coachGoalStart(nextGoal);
-            }, 2600);
-          }
-        } else {
-          coachGoalProgress(g);
-        }
-      }
+      const beforeScore = score;
 
-      // ----- คะแนน / คอมโบ / Fever -----
       combo += 1;
       comboMax = Math.max(comboMax, combo);
 
       const base = 10 + combo * 2;
       const mult = feverActive ? 2 : 1;
-      const before = score;
       score += base * mult;
-      const gain = score - before;
-
-      // Mini quest: คอมโบถึงเป้า
-      if (!miniDone && combo >= miniNeedCombo) {
-        miniDone = true;
-        coach(`สุดยอด! ทำคอมโบถึง x${miniNeedCombo} แล้ว 🎯`);
-      } else if (combo === 1) {
-        coach('เริ่มคอมโบแล้ว เลือกอาหารดีต่อไปเรื่อย ๆ เลย 🥦🍎');
-      }
+      const gain = score - beforeScore;
 
       const nextFever = fever + FEVER_HIT_GAIN;
       if (!feverActive && nextFever >= FEVER_MAX) {
@@ -554,20 +555,53 @@ window.GroupsVR.GameEngine = (function () {
         setFeverValue(nextFever, 'charge');
       }
 
+      if (combo === 1) {
+        coach('เริ่มคอมโบแล้ว ลองเก็บอาหารดีต่อเนื่องให้ได้หลายชิ้นเลย 🥦🍎');
+      }
+
+      updateGoalFromGoodHit();
+      updateMiniFromCombo();
+
       emitScore();
       emitJudge('Good +' + gain);
-      pushQuest('');
+
+      emitGameEvent({
+        type: 'hit-good',
+        eventType: 'hit-good',
+        emoji,
+        itemType: 'good',
+        totalScore: score,
+        combo,
+        misses
+      });
+
+      const P = getParticles();
+      if (P) {
+        const pos = { x: window.innerWidth / 2, y: window.innerHeight * 0.45 };
+        P.burstAt(pos.x, pos.y, {
+          color: '#22c55e',
+          count: 20,
+          radius: 70
+        });
+        P.scorePop(pos.x, pos.y, '+' + gain, {
+          kind: 'score',
+          judgment: 'GOOD',
+          good: true
+        });
+      }
     } else {
-      // ----- junk -----
+      nHitJunk++;
+
+      const beforeScore = score;
       misses += 1;
       combo = 0;
-      const before = score;
       score = Math.max(0, score - 8);
-      const loss = score - before;
+      const loss = score - beforeScore;
 
-      const nextFever = fever - FEVER_MISS_LOSS;
+      let nextFever = fever - FEVER_MISS_LOSS;
       if (feverActive && nextFever <= 0) {
         endFever();
+        nextFever = 0;
       } else {
         setFeverValue(nextFever, 'charge');
       }
@@ -577,42 +611,52 @@ window.GroupsVR.GameEngine = (function () {
       emitScore();
       emitJudge('Miss ' + loss);
       pushQuest('');
-    }
 
-    // event สำหรับ logger (แบบย่อ + groupId)
-    emit('hha:event', {
-      sessionId,
-      mode: 'FoodGroupsVR',
-      difficulty: currentDiff,
-      type: kind === 'good' ? 'hit-good' : 'hit-junk',
-      emoji,
-      itemType: kind,
-      groupId,
-      totalScore: score,
-      combo,
-      misses
-    });
+      emitGameEvent({
+        type: 'hit-junk',
+        eventType: 'hit-junk',
+        emoji,
+        itemType: 'junk',
+        totalScore: score,
+        combo,
+        misses
+      });
+
+      const P = getParticles();
+      if (P) {
+        const pos = { x: window.innerWidth / 2, y: window.innerHeight * 0.45 };
+        P.burstAt(pos.x, pos.y, {
+          color: '#f97316',
+          count: 16,
+          radius: 50
+        });
+        P.scorePop(pos.x, pos.y, 'MISS', {
+          kind: 'judge',
+          judgment: 'MISS',
+          good: false
+        });
+      }
+    }
   }
 
-  // --------------------------------------------------
-  // เป้าหมดเวลา
-  // --------------------------------------------------
+  // ---------- เป้าหมดเวลา ----------
   function onExpire (el) {
     if (!running || !el || !el.parentNode) return;
 
     const kind = el.dataset.kind || 'good';
     const emoji = el.dataset.emoji || '';
-    const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
     removeTarget(el);
 
     if (kind === 'good') {
+      nExpireGood++;
       misses += 1;
       combo = 0;
 
-      const nextFever = fever - FEVER_MISS_LOSS;
+      let nextFever = fever - FEVER_MISS_LOSS;
       if (feverActive && nextFever <= 0) {
         endFever();
+        nextFever = 0;
       } else {
         setFeverValue(nextFever, 'charge');
       }
@@ -622,27 +666,41 @@ window.GroupsVR.GameEngine = (function () {
       emitScore();
       emitJudge('Miss');
       pushQuest('');
-    }
 
-    emit('hha:event', {
-      sessionId,
-      mode: 'FoodGroupsVR',
-      difficulty: currentDiff,
-      type: 'expire-' + kind,
-      emoji,
-      itemType: kind,
-      groupId,
-      totalScore: score,
-      combo,
-      misses
-    });
+      emitGameEvent({
+        type: 'expire-good',
+        eventType: 'expire-good',
+        emoji,
+        itemType: 'good',
+        totalScore: score,
+        combo,
+        misses
+      });
+    } else {
+      emitGameEvent({
+        type: 'expire-' + kind,
+        eventType: 'expire-' + kind,
+        emoji,
+        itemType: kind,
+        totalScore: score,
+        combo,
+        misses
+      });
+    }
   }
 
-  // --------------------------------------------------
-  // สุ่มชนิดเป้า + spawn
-  // --------------------------------------------------
+  // ---------- สุ่ม emoji ----------
+  function pickGoodEmoji () {
+    const groupKeys = Object.keys(FOOD_GROUPS);
+    const idxGroup = Math.floor(Math.random() * groupKeys.length);
+    const gKey = parseInt(groupKeys[idxGroup], 10);
+    const pool = FOOD_GROUPS[gKey] || FOOD_GROUPS[1];
+    const emoji = pool[Math.floor(Math.random() * pool.length)];
+    return { emoji, group: gKey };
+  }
+
   function pickType () {
-    // ของดีเยอะหน่อย
+    // ของดีเยอะกว่า
     return Math.random() < 0.78 ? 'good' : 'junk';
   }
 
@@ -651,27 +709,131 @@ window.GroupsVR.GameEngine = (function () {
     if (activeTargets.length >= MAX_ACTIVE) return;
 
     const type = pickType();
-    let emoji;
-    let groupId = 0;
-
     if (type === 'good') {
-      const g = currentGoal();
-      const groupCfg = g ? findGroupConfig(g.groupId) : findGroupConfig(1);
-      const arr = groupCfg.goodEmojis;
-      emoji = arr[Math.floor(Math.random() * arr.length)];
-      groupId = groupCfg.id;
+      const info = pickGoodEmoji();
+      const el = createTargetEntity(info.emoji, 'good', info.group);
+      if (el) {
+        activeTargets.push(el);
+        nTargetGoodSpawned++;
+      }
     } else {
-      emoji = JUNK[Math.floor(Math.random() * JUNK.length)];
-      groupId = 0;
+      const emoji = JUNK[Math.floor(Math.random() * JUNK.length)];
+      const el = createTargetEntity(emoji, 'junk', 0);
+      if (el) {
+        activeTargets.push(el);
+        nTargetJunkSpawned++;
+      }
     }
-
-    const el = createTargetEntity(emoji, type, groupId);
-    if (el) activeTargets.push(el);
   }
 
-  // --------------------------------------------------
-  // start / stop
-  // --------------------------------------------------
+  // ---------- สร้าง 2 Goals + 3 Minis ตาม diff ----------
+  function setupQuestsForDifficulty (d) {
+    goals = [];
+    minis = [];
+    currentGoalIndex = 0;
+    currentMiniIndex = 0;
+
+    let g1, g2, c1, c2, c3;
+    if (d === 'easy') {
+      g1 = 12;
+      g2 = 16;
+      c1 = 3;
+      c2 = 4;
+      c3 = 5;
+    } else if (d === 'hard') {
+      g1 = 22;
+      g2 = 26;
+      c1 = 5;
+      c2 = 7;
+      c3 = 8;
+    } else {
+      g1 = 18;
+      g2 = 22;
+      c1 = 4;
+      c2 = 6;
+      c3 = 7;
+    }
+
+    goals.push(
+      {
+        id: 'G1',
+        label: `Goal 1: เก็บอาหารดีจากทุกหมู่ให้ครบ ${g1} ชิ้น`,
+        target: g1,
+        prog: 0,
+        done: false
+      },
+      {
+        id: 'G2',
+        label: `Goal 2: เก็บอาหารดีเพิ่มรวมให้ครบ ${g2} ชิ้น`,
+        target: g2,
+        prog: 0,
+        done: false
+      }
+    );
+
+    minis.push(
+      {
+        id: 'M1',
+        label: `Mini 1: คอมโบให้ถึง x${c1} อย่างน้อย 1 ครั้ง (หมู่ 1–2)`,
+        target: 1,
+        prog: 0,
+        done: false,
+        comboNeed: c1
+      },
+      {
+        id: 'M2',
+        label: `Mini 2: คอมโบให้ถึง x${c2} อย่างน้อย 1 ครั้ง (หมู่ 3–4)`,
+        target: 1,
+        prog: 0,
+        done: false,
+        comboNeed: c2
+      },
+      {
+        id: 'M3',
+        label: `Mini 3: คอมโบให้ถึง x${c3} อย่างน้อย 1 ครั้ง (หมู่ 5 + รวม)`,
+        target: 1,
+        prog: 0,
+        done: false,
+        comboNeed: c3
+      }
+    );
+
+    const firstMini = minis[0] || null;
+    miniComboNeed = firstMini ? firstMini.comboNeed : 5;
+  }
+
+  function applyDifficulty (diffKey) {
+    const d = String(diffKey || 'normal').toLowerCase();
+    currentDiff = d;
+
+    if (d === 'easy') {
+      SPAWN_INTERVAL  = 1300;
+      TARGET_LIFETIME = 1600;
+      MAX_ACTIVE      = 3;
+    } else if (d === 'hard') {
+      SPAWN_INTERVAL  = 800;
+      TARGET_LIFETIME = 1100;
+      MAX_ACTIVE      = 5;
+    } else {
+      SPAWN_INTERVAL  = 1000;
+      TARGET_LIFETIME = 1300;
+      MAX_ACTIVE      = 4;
+    }
+
+    setupQuestsForDifficulty(d);
+  }
+
+  function detectRunMode () {
+    try {
+      const url = new URL(window.location.href);
+      const raw = (url.searchParams.get('run') || 'play').toLowerCase();
+      return raw === 'research' ? 'research' : 'play';
+    } catch (err) {
+      return 'play';
+    }
+  }
+
+  // ---------- start / stop ----------
   function start (diffKey) {
     if (running) return;
 
@@ -682,6 +844,7 @@ window.GroupsVR.GameEngine = (function () {
     }
 
     running = true;
+    hasEnded = false;
     score = 0;
     combo = 0;
     comboMax = 0;
@@ -690,15 +853,23 @@ window.GroupsVR.GameEngine = (function () {
     feverActive = false;
     if (feverTimer) clearTimeout(feverTimer);
 
-    miniDone = false;
+    nTargetGoodSpawned = 0;
+    nTargetJunkSpawned = 0;
+    nHitGood = 0;
+    nHitJunk = 0;
+    nExpireGood = 0;
+
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
     activeTargets = [];
 
     sessionId = 'fgvr-' + Date.now().toString(36) + '-' +
       Math.random().toString(16).slice(2, 8);
     sessionStart = new Date();
+    sessionStartMs = nowMs();
+    currentRunMode = detectRunMode();
+    questsFinished = false;
 
-    setupGoalsForDifficulty(diffKey);
+    applyDifficulty(diffKey);
 
     if (FeverUI.ensureFeverBar) FeverUI.ensureFeverBar();
     if (FeverUI.setFever)       FeverUI.setFever(0);
@@ -706,23 +877,21 @@ window.GroupsVR.GameEngine = (function () {
 
     emitScore();
     emitJudge('');
-    coachIntro();
 
-    const firstGoal = currentGoal();
-    setTimeout(() => {
-      coachGoalStart(firstGoal);
-    }, 2600);
+    // เปิดด้วยเพลงหมู่ 1
+    coach('หมู่ 1 มีเนื้อนมไข่ถั่วเมล็ดช่วยให้เติบโตแข็งแรง 🥩🥚🥛 ลองเก็บอาหารดีทีละหมู่ไปพร้อมเพลงกันเลย 🎵');
 
-    pushQuest('เริ่มเกม');
+    pushQuest('เริ่มภารกิจ 5 หมู่');
 
     tickSpawn();
     spawnTimer = setInterval(tickSpawn, SPAWN_INTERVAL);
   }
 
   function stop (reason) {
-    if (!running) return;
-    running = false;
+    // ถ้า engine ยิง end ไปแล้วจาก quest-complete ก็ไม่ต้องทำซ้ำ
+    if (!running && hasEnded) return;
 
+    running = false;
     clearInterval(spawnTimer);
     spawnTimer = null;
 
@@ -733,47 +902,7 @@ window.GroupsVR.GameEngine = (function () {
     activeTargets = [];
 
     coach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
-
-    const goalsTotal = goals.length;
-    const goalsCleared = countGoalsCleared();
-
-    emit('hha:end', {
-      mode: 'FoodGroupsVR',
-      score,
-      comboMax,
-      misses,
-      goalsCleared,
-      goalsTotal,
-      miniCleared: miniDone ? 1 : 0,
-      miniTotal: 1,
-      reason: reason || 'normal'
-    });
-
-    try {
-      const endTime = new Date();
-      const durationSecPlayed = sessionStart
-        ? Math.round((endTime - sessionStart) / 1000)
-        : 0;
-
-      emit('hha:session', {
-        sessionId,
-        mode: 'FoodGroupsVR',
-        difficulty: currentDiff,
-        startTimeIso: sessionStart ? sessionStart.toISOString() : '',
-        endTimeIso: endTime.toISOString(),
-        durationSecPlayed,
-        scoreFinal: score,
-        comboMax,
-        misses,
-        goalsCleared,
-        goalsTotal,
-        miniCleared: miniDone ? 1 : 0,
-        miniTotal: 1,
-        reason: reason || 'normal'
-      });
-    } catch (err) {
-      console.warn('[FoodGroupsVR] emit session error', err);
-    }
+    emitEnd(reason || 'manual-stop');
   }
 
   return { start, stop };
