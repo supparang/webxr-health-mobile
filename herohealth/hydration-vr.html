@@ -104,7 +104,7 @@
       color:#fbbf24;
       text-shadow:0 0 40px rgba(0,0,0,0.85);
       pointer-events:none;
-      transition:opacity .25s ease-out, transform .25s ease-out;
+      transition:opacity .25s ease-out, transform .25s.ease-out;
     }
     .countdown-hidden{
       opacity:0;
@@ -583,7 +583,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
+      transition:background .15s ease, box-shadow .15s.ease, transform .1s.ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -1358,19 +1358,6 @@
         }
       });
     }
-    import { initCloudLogger } from './vr/hha-cloud-logger.js';
-
-initCloudLogger({
-  endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
-  projectTag: 'HeroHealth-HydrationVR',
-  mode: 'HydrationVR',
-  runMode: runMode,
-  diff: diff,
-  durationSec: dur,
-  studentKey: studentKey,
-  profile: studentProfile,
-  debug: false  // production
-});
 
     // ===== Block touch-drag บนเป้า ไม่ให้ไปหมุนกล้อง =====
     ['touchstart','touchmove','touchend','pointerdown','pointermove','pointerup'].forEach(type => {
