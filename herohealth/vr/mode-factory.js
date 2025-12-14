@@ -58,6 +58,9 @@ function pickDiffConfig (modeKey, diffKey) {
   return cfg;
 }
 
+// ความเร็วหมุนเป้า (องศาต่อวินาที)
+const SPIN_SPEED_DEG_PER_SEC = 80;
+
 // หา host กลางจอ
 function findHostElement () {
   return (
@@ -240,7 +243,6 @@ export async function boot (rawCfg = {}) {
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
     el.style.transform = 'translate(-50%, -50%)';
-
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     el.style.borderRadius = '999px';
@@ -268,11 +270,28 @@ export async function boot (rawCfg = {}) {
       isGood,
       isPower,
       bornAt: performance.now(),
-      life: baseDiff.life
+      life: baseDiff.life,
+      angle: 0
     };
 
     activeTargets.add(data);
     host.appendChild(el);
+
+    // ----- SPIN: หมุนเป้ารอบตัวเอง -----
+    (function startSpin () {
+      let lastSpinTs = performance.now();
+      function spinLoop (now) {
+        if (stopped || !activeTargets.has(data)) return;
+        const dt = now - lastSpinTs;
+        lastSpinTs = now;
+
+        data.angle = (data.angle + SPIN_SPEED_DEG_PER_SEC * dt / 1000) % 360;
+        el.style.transform = `translate(-50%, -50%) rotate(${data.angle}deg)`;
+
+        ROOT.requestAnimationFrame(spinLoop);
+      }
+      ROOT.requestAnimationFrame(spinLoop);
+    })();
 
     const handleHit = (ev) => {
       if (stopped) return;
