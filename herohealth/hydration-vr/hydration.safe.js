@@ -1,6 +1,6 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — น้ำสมดุล + Water Gauge + Fever + Goal / Mini quest
-// ใช้ร่วมกับ: mode-factory.js, ui-water.js, hydration.quest.js
+// ใช้ร่วมกับ: mode-factory.js, ui-water.js, hydration.quest.js, hydration.state.js
 
 'use strict';
 
@@ -147,26 +147,19 @@ export async function boot (cfg = {}) {
   let goalCleared = 0; // 0–2
   let miniCleared = 0; // 0–3
 
-  // meta พื้นฐานสำหรับ HUD / overlay
+  // *** จุดสำคัญ: meta ต้องใช้ชื่อเดียวกับ HUD เดิม ***
   function questMeta () {
     return {
       goalsCleared: goalCleared,
       goalsTarget: GOAL_TARGET,
-      goalsTotal: GOAL_TARGET,
-      minisCleared: miniCleared,
-      minisTarget: MINI_TARGET,
-      minisTotal: MINI_TARGET
-    };
-  }
 
-  function questMetaFromSnap (snap) {
-    return {
-      goalsCleared: snap.goalsDone,
-      goalsTarget: snap.goalsTotal,
-      goalsTotal: snap.goalsTotal,
-      minisCleared: snap.minisDone,
-      minisTarget: snap.minisTotal,
-      minisTotal: snap.minisTotal
+      // ชื่อที่ HUD ใช้อยู่เดิม (GoodJunk / Plate)
+      quests: miniCleared,
+      questsTotal: MINI_TARGET,
+
+      // เผื่อใช้ชื่อใหม่ในอนาคต
+      questsCleared: miniCleared,
+      questsTarget: MINI_TARGET
     };
   }
 
@@ -183,15 +176,11 @@ export async function boot (cfg = {}) {
       };
     }
 
-    // view จาก HUD (single-active) + _all จาก deck
-    const goalsView = deck.getProgress('goals') || [];
-    const minisView = deck.getProgress('mini') || [];
+    const goals = deck.getProgress('goals') || deck.goals || [];
+    const minis = deck.getProgress('mini')  || deck.minis || [];
 
-    const goals = goalsView._all || deck.goals || goalsView;
-    const minis = minisView._all || deck.minis || minisView;
-
-    const goalsDone = goals.filter(g => g && g._done).length;
-    const minisDone = minis.filter(m => m && m._done).length;
+    const goalsDone = goals.filter(g => g && g.done).length;
+    const minisDone = minis.filter(m => m && m.done).length;
 
     const goalsTotal = goals.length || GOAL_TARGET;
     const minisTotal = minis.length || MINI_TARGET;
@@ -301,8 +290,8 @@ export async function boot (cfg = {}) {
     const snap = getQuestSnapshot();
     const { goals, minis, goalsTotal, minisTotal } = snap;
 
-    const currentGoal = goals.find(g => !g._done) || goals[0] || null;
-    const currentMini = minis.find(m => !m._done) || minis[0] || null;
+    const currentGoal = goals.find(g => !g.done) || goals[0] || null;
+    const currentMini = minis.find(m => !m.done) || minis[0] || null;
 
     let goalIndex = 0;
     if (currentGoal) {
@@ -317,11 +306,11 @@ export async function boot (cfg = {}) {
     }
 
     const goalText = currentGoal
-      ? (currentGoal.title || currentGoal.label || currentGoal.text || '')
+      ? (currentGoal.label || currentGoal.title || currentGoal.text || '')
       : '';
 
     const miniText = currentMini
-      ? (currentMini.title || currentMini.label || currentMini.text || '')
+      ? (currentMini.label || currentMini.title || currentMini.text || '')
       : '';
 
     const goalHeading = goalIndex
@@ -329,7 +318,7 @@ export async function boot (cfg = {}) {
       : '';
 
     const miniHeading = miniIndex
-      ? `Mini quest ${miniIndex}: ${miniText}`
+      ? `Mini: ${miniText}`
       : '';
 
     try {
@@ -346,7 +335,7 @@ export async function boot (cfg = {}) {
           goalHeading,
           miniHeading,
           hint: hint || `โซนน้ำ: ${waterZone}`,
-          meta: questMetaFromSnap(snap)
+          meta: questMeta()
         }
       }));
     } catch {}
@@ -537,26 +526,21 @@ export async function boot (cfg = {}) {
     goalCleared = Math.min(GOAL_TARGET, goalsDone);
     miniCleared = Math.min(MINI_TARGET, minisDone);
 
-    const meta = questMetaFromSnap(snap);
-
     // เพิ่งจบ Goal ใหม่
     if (goalCleared > prevGoal) {
       const justIndex = goalCleared;
-      const g = goals[justIndex - 1] || goals[goals.length - 1] || null;
-      const text = g ? (g.title || g.label || g.text || '') : '';
+      const g = goals[justIndex - 1] || null;
+      const text = g ? (g.label || g.title || g.text || '') : '';
 
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:goal-cleared', {
           detail: {
             index: justIndex,
             total: goalsTotal,
-            goalsCleared: goalCleared,
-            goalsTotal,
             title: text,
-            heading: `Goal ${justIndex}/${goalsTotal}: ${text}`,
+            heading: `Goal ${justIndex}: ${text}`,
             reward: 'shield',
-            bonusScore: 0,
-            meta
+            meta: questMeta()
           }
         }));
       } catch {}
@@ -567,21 +551,18 @@ export async function boot (cfg = {}) {
     // เพิ่งจบ Mini quest ใหม่
     if (miniCleared > prevMini) {
       const justIndex = miniCleared;
-      const m = minis[justIndex - 1] || minis[minis.length - 1] || null;
-      const text = m ? (m.title || m.label || m.text || '') : '';
+      const m = minis[justIndex - 1] || null;
+      const text = m ? (m.label || m.title || m.text || '') : '';
 
       try {
         ROOT.dispatchEvent(new CustomEvent('quest:mini-cleared', {
           detail: {
             index: justIndex,
             total: minisTotal,
-            questsCleared: miniCleared,
-            questsTotal: minisTotal,
             title: text,
-            heading: `Mini quest ${justIndex}/${minisTotal}: ${text}`,
+            heading: `Mini quest ${justIndex}: ${text}`,
             reward: 'star',
-            bonusScore: 0,
-            meta
+            meta: questMeta()
           }
         }));
       } catch {}
@@ -600,7 +581,7 @@ export async function boot (cfg = {}) {
             minis: miniCleared,
             goalsTotal,
             minisTotal,
-            meta
+            meta: questMeta()
           }
         }));
       } catch {}
@@ -652,8 +633,8 @@ export async function boot (cfg = {}) {
     const snap = snapOpt || getQuestSnapshot();
     const { goalsDone, goalsTotal, minisDone, minisTotal } = snap;
 
-    const goalsOk = Math.min(GOAL_TARGET, goalsDone);
-    const minisOk = Math.min(MINI_TARGET, minisDone);
+    const goalsOk = Math.min(goalsDone, GOAL_TARGET);
+    const minisOk = Math.min(minisDone, MINI_TARGET);
 
     const greenTick    = deck.stats.greenTick | 0;
     const waterEnd     = waterPct;
@@ -681,11 +662,17 @@ export async function boot (cfg = {}) {
           duration: durationSec,
           greenTick,
           goalsCleared: goalsOk,
-          goalsTotal,
+          goalsTarget: goalsTotal,
+
+          // compatibility: ทั้งชื่อเก่าและชื่อใหม่
           quests: minisOk,
           questsTotal: minisTotal,
+          questsCleared: minisOk,
+          questsTarget: minisTotal,
+
           goalCleared: goalsOk >= goalsTotal,
-          miniCleared: minisOk >= minisTotal,
+          questsClearedAll: minisOk >= minisTotal,
+
           waterStart,
           waterEnd,
           waterZoneEnd,
@@ -696,12 +683,7 @@ export async function boot (cfg = {}) {
 
     pushHudScore({
       ended: true,
-      goalsCleared: goalsOk,
-      goalsTarget: goalsTotal,
-      goalsTotal,
-      minisCleared: minisOk,
-      minisTarget: minisTotal,
-      minisTotal
+      ...questMeta()
     });
   }
 
