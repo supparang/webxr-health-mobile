@@ -1,8 +1,8 @@
 // === /herohealth/hydration-vr/hydration.goals.js ===
 // Goal หลักสำหรับ Hydration Quest VR
 // ใช้ร่วมกับ hydration.quest.js (ผ่าน hydrationGoalsFor(diff))
-// ทุก quest ใช้ state จาก mapHydrationState:
-//   score, combo, comboMax, goodCount, junkMiss, timeSec, tick,
+// ใช้ state จาก mapHydrationState:
+//   score, comboMax, goodCount, junkMiss, timeSec, tick,
 //   greenTick, greenRatio, zone
 
 function clampProg (value, target) {
@@ -67,23 +67,27 @@ const GOALS_EASY = [
     id: 'easy-miss-max-3',
     label: 'พลาดได้ไม่เกิน 3 ครั้ง ตลอดเกม 🚫',
     target: 3,
-    // miss ยิ่งน้อยยิ่งดี → สำเร็จถ้า miss <= 3
-    check: s => s.junkMiss <= 3,
-    prog: s => clampProg(Math.max(0, 3 - s.junkMiss), 3)
+    // ต้องเล่นอย่างน้อย 40 วินาทีด้วย ไม่งั้นจะผ่านตั้งแต่เริ่มเกม
+    check: s => s.timeSec >= 40 && s.junkMiss <= 3,
+    prog: s => (s.timeSec < 40
+      ? clampProg(s.timeSec, 40)   // ช่วงแรกให้ progress ตามเวลา
+      : clampProg(Math.max(0, 3 - s.junkMiss), 3))
   },
   {
     id: 'easy-miss-max-1',
     label: 'พลาดได้ไม่เกิน 1 ครั้ง ตลอดเกม 🚫',
     target: 1,
-    check: s => s.junkMiss <= 1,
-    prog: s => clampProg(Math.max(0, 1 - s.junkMiss), 1)
+    check: s => s.timeSec >= 40 && s.junkMiss <= 1,
+    prog: s => (s.timeSec < 40
+      ? clampProg(s.timeSec, 40)
+      : clampProg(Math.max(0, 1 - s.junkMiss), 1))
   },
   {
     id: 'easy-green-ratio-50',
-    label: 'ให้เวลาอยู่ในโซน GREEN ไม่น้อยกว่า 50% ของเวลาที่เล่นทั้งหมด 💚',
-    target: 1, // ใช้เป็น boolean
-    check: s => s.greenRatio >= 0.5 && s.timeSec >= 20,
-    prog: s => (s.greenRatio >= 0.5 && s.timeSec >= 20 ? 1 : 0)
+    label: 'ให้เวลาอยู่ในโซน GREEN ≥ 50% ของเวลาที่เล่นทั้งหมด 💚',
+    target: 1,
+    check: s => s.timeSec >= 30 && s.greenRatio >= 0.5,
+    prog: s => (s.timeSec >= 30 && s.greenRatio >= 0.5 ? 1 : 0)
   }
 ];
 
@@ -142,21 +146,22 @@ const GOALS_NORMAL = [
     id: 'normal-miss-max-2',
     label: 'พลาดได้ไม่เกิน 2 ครั้ง ตลอดเกม 🚫',
     target: 2,
-    check: s => s.junkMiss <= 2,
-    prog: s => clampProg(Math.max(0, 2 - s.junkMiss), 2)
+    check: s => s.timeSec >= 50 && s.junkMiss <= 2,
+    prog: s => (s.timeSec < 50
+      ? clampProg(s.timeSec, 50)
+      : clampProg(Math.max(0, 2 - s.junkMiss), 2))
   },
   {
     id: 'normal-green-ratio-60',
-    label: 'ให้เวลาอยู่ในโซน GREEN ไม่น้อยกว่า 60% ของเวลาที่เล่นทั้งหมด 💚',
+    label: 'ให้เวลาอยู่ในโซน GREEN ≥ 60% ของเวลาที่เล่นทั้งหมด 💚',
     target: 1,
-    check: s => s.greenRatio >= 0.6 && s.timeSec >= 30,
-    prog: s => (s.greenRatio >= 0.6 && s.timeSec >= 30 ? 1 : 0)
+    check: s => s.timeSec >= 35 && s.greenRatio >= 0.6,
+    prog: s => (s.timeSec >= 35 && s.greenRatio >= 0.6 ? 1 : 0)
   },
   {
     id: 'normal-green-end',
     label: 'จบเกมในโซน GREEN 💚',
     target: 1,
-    // ต้องเล่นไปอย่างน้อย 40s แล้วจบด้วย zone GREEN
     check: s => s.timeSec >= 40 && s.zone === 'GREEN',
     prog: s => (s.timeSec >= 40 && s.zone === 'GREEN' ? 1 : 0)
   }
@@ -217,22 +222,24 @@ const GOALS_HARD = [
     id: 'hard-miss-max-1',
     label: 'พลาดได้ไม่เกิน 1 ครั้ง ตลอดเกม 🚫',
     target: 1,
-    check: s => s.junkMiss <= 1,
-    prog: s => clampProg(Math.max(0, 1 - s.junkMiss), 1)
+    check: s => s.timeSec >= 60 && s.junkMiss <= 1,
+    prog: s => (s.timeSec < 60
+      ? clampProg(s.timeSec, 60)
+      : clampProg(Math.max(0, 1 - s.junkMiss), 1))
   },
   {
     id: 'hard-green-ratio-70',
-    label: 'ให้เวลาอยู่ในโซน GREEN ไม่น้อยกว่า 70% ของเวลาที่เล่นทั้งหมด 💚',
+    label: 'ให้เวลาอยู่ในโซน GREEN ≥ 70% ของเวลาที่เล่นทั้งหมด 💚',
     target: 1,
-    check: s => s.greenRatio >= 0.7 && s.timeSec >= 40,
-    prog: s => (s.greenRatio >= 0.7 && s.timeSec >= 40 ? 1 : 0)
+    check: s => s.timeSec >= 45 && s.greenRatio >= 0.7,
+    prog: s => (s.timeSec >= 45 && s.greenRatio >= 0.7 ? 1 : 0)
   },
   {
     id: 'hard-green-end-perfect',
-    label: 'จบเกมแบบโซน GREEN และไม่พลาดเกิน 1 ครั้ง 💚',
+    label: 'จบเกมโซน GREEN และพลาดไม่เกิน 1 ครั้ง 💚',
     target: 1,
-    check: s => s.timeSec >= 40 && s.zone === 'GREEN' && s.junkMiss <= 1,
-    prog: s => (s.timeSec >= 40 && s.zone === 'GREEN' && s.junkMiss <= 1 ? 1 : 0)
+    check: s => s.timeSec >= 50 && s.zone === 'GREEN' && s.junkMiss <= 1,
+    prog: s => (s.timeSec >= 50 && s.zone === 'GREEN' && s.junkMiss <= 1 ? 1 : 0)
   }
 ];
 
