@@ -764,11 +764,33 @@ export async function boot (cfg = {}) {
       return origStop(...args);
     };
   }
+  ROOT.dispatchEvent(new CustomEvent('hha:end', {
+  detail: {
+    mode: 'Hydration',
+    modeLabel: 'Hydration Quest VR',
+    difficulty: diff,
+    score,
+    misses,
+    comboMax,
+    duration: durationSec,
+    greenTick,
+    goalsCleared: goalsOk,
+    goalsTarget: goalsTotal,
+    quests: minisOk,
+    questsTotal: minisTotal,
+    questsCleared: minisOk,
+    questsTarget: minisTotal,
+    waterStart,
+    waterEnd,
+    waterZoneEnd,
+    endReason: reason
+  }
+}));
 
   // ---------- START ----------
   pushQuest('เริ่มโหมดน้ำสมดุล');
   coach('ภารกิจคือรักษาน้ำในร่างกายให้อยู่โซนสีเขียว 💧 เลือกน้ำดี เลี่ยงน้ำหวานนะ');
   pushHudScore();
-
+  
   return inst;
 }
