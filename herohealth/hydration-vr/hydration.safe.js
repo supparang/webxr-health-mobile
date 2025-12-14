@@ -147,23 +147,23 @@ export async function boot (cfg = {}) {
   let goalCleared = 0; // 0–2
   let miniCleared = 0; // 0–3
 
-  // *** จุดสำคัญ: meta ต้องใช้ชื่อเดียวกับ HUD เดิม ***
+  // *** meta ส่งให้ HUD / logger ***
   function questMeta () {
     return {
       goalsCleared: goalCleared,
       goalsTarget: GOAL_TARGET,
 
-      // ชื่อที่ HUD ใช้อยู่เดิม (GoodJunk / Plate)
+      // ใช้ชื่อเก่า (Plate / GoodJunk) ให้ยังทำงานได้
       quests: miniCleared,
       questsTotal: MINI_TARGET,
 
-      // เผื่อใช้ชื่อใหม่ในอนาคต
+      // alias เพิ่มเติม
       questsCleared: miniCleared,
       questsTarget: MINI_TARGET
     };
   }
 
-  // snapshot รวม goals / minis + จำนวนที่ทำเสร็จ (ใช้ deck เป็น truth)
+  // ---------- snapshot รวม goals / minis จาก deck ----------
   function getQuestSnapshot () {
     if (!deck || typeof deck.getProgress !== 'function') {
       return {
@@ -176,16 +176,28 @@ export async function boot (cfg = {}) {
       };
     }
 
-    const goals = deck.getProgress('goals') || deck.goals || [];
-    const minis = deck.getProgress('mini')  || deck.minis || [];
+    // view ที่ HUD ใช้ (single-active)
+    const goalsView = deck.getProgress('goals') || [];
+    const minisView = deck.getProgress('mini')  || [];
 
-    const goalsDone = goals.filter(g => g && g.done).length;
-    const minisDone = minis.filter(m => m && m.done).length;
+    // ถ้ามีแนบ _all = รายการเต็ม ให้ใช้ตัวนั้นเป็น truth
+    const goalsAll = goalsView._all || goalsView;
+    const minisAll = minisView._all || minisView;
 
-    const goalsTotal = goals.length || GOAL_TARGET;
-    const minisTotal = minis.length || MINI_TARGET;
+    const goalsDone = goalsAll.filter(g => g && (g.done || g._done)).length;
+    const minisDone = minisAll.filter(m => m && (m.done || m._done)).length;
 
-    return { goals, minis, goalsDone, goalsTotal, minisDone, minisTotal };
+    const goalsTotal = goalsAll.length || GOAL_TARGET;
+    const minisTotal = minisAll.length || MINI_TARGET;
+
+    return {
+      goals: goalsAll,
+      minis: minisAll,
+      goalsDone,
+      goalsTotal,
+      minisDone,
+      minisTotal
+    };
   }
 
   function readQuestStats () {
@@ -290,8 +302,8 @@ export async function boot (cfg = {}) {
     const snap = getQuestSnapshot();
     const { goals, minis, goalsTotal, minisTotal } = snap;
 
-    const currentGoal = goals.find(g => !g.done) || goals[0] || null;
-    const currentMini = minis.find(m => !m.done) || minis[0] || null;
+    const currentGoal = goals.find(g => !g.done && !g._done) || goals[0] || null;
+    const currentMini = minis.find(m => !m.done && !m._done) || minis[0] || null;
 
     let goalIndex = 0;
     if (currentGoal) {
@@ -318,7 +330,7 @@ export async function boot (cfg = {}) {
       : '';
 
     const miniHeading = miniIndex
-      ? `Mini: ${miniText}`
+      ? `Mini quest ${miniIndex}: ${miniText}`
       : '';
 
     try {
