@@ -1,33 +1,41 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — Safe Game Engine (Goal 2 + Mini 3 per game)
-// พร้อมระบบหมุนเป้าตามมุมกล้อง (เหมือน GoodJunk-style)
+// Balanced Plate VR — Safe Game Engine
+// - Goal 2 + Mini 3 (fix ตายตัวทุกเกม)
+// - เป้าตามระดับ Easy / Normal / Hard
+// - Adaptive เฉพาะโหมดเล่นธรรมดา (play mode)
+// - โหมดวิจัย (research) ใช้ค่าตามระดับ คงที่ไม่ปรับ
+// - เป้า emoji หมุนตามมุมกล้อง (เหมือน GoodJunk-style)
 // 2025-12-14
 
 'use strict';
 
 // ---------- Config พื้นฐาน ----------
+
+// quota ต่อ "จาน" [หมู่1,2,3,4,5]
 const QUOTA_MAP = {
-  // quota ต่อ "จาน" [หมู่1,2,3,4,5]
   easy:   [1, 1, 1, 1, 1],
   normal: [1, 1, 2, 2, 1],
   hard:   [2, 2, 2, 2, 1]
 };
 
+// ค่าพื้นฐานของ "เป้า" ตามระดับ
+// (โหมดวิจัยใช้ตามนี้ไม่ปรับ, โหมดเล่นใช้เป็นจุดเริ่มต้นก่อน Adaptive)
 const DIFF_CONFIG = {
   easy: {
-    spawnIntervalMs: 1200,
+    // เริ่มเป้าน้อย เกิดช้าหน่อย
+    spawnIntervalMs: 1100,
     maxActive: 4,
-    junkRatio: 0.30
+    junkRatio: 0.28
   },
   normal: {
-    spawnIntervalMs: 950,
+    spawnIntervalMs: 900,
     maxActive: 5,
     junkRatio: 0.40
   },
   hard: {
-    spawnIntervalMs: 800,
+    spawnIntervalMs: 780,
     maxActive: 6,
-    junkRatio: 0.45
+    junkRatio: 0.48
   }
 };
 
@@ -95,9 +103,9 @@ function logEvent(kind, payload) {
   }, payload || {}));
 }
 
-// ---------- Quest builder: Goal 2 + Mini 3 ----------
+// ---------- Quest builder: Goal 2 + Mini 3 (fix ตายตัวทุกเกม) ----------
 function buildQuests(diffKey) {
-  // จำนวนจานเป้าตามระดับ
+  // จำนวนจานเป้าตามระดับ (fix แบบง่าย/ปกติ/ยาก)
   let g1Target = 1;
   let g2Target = 2;
   if (diffKey === 'normal') {
@@ -129,7 +137,7 @@ function buildQuests(diffKey) {
     }
   ];
 
-  // Mini: ผัก / ผลไม้ / นม ตาม diff
+  // Mini: ผัก / ผลไม้ / นม ตาม diff (ค่าตายตัว)
   const vegTarget   = diffKey === 'easy'   ? 3 : (diffKey === 'hard' ? 6 : 4);
   const fruitTarget = diffKey === 'easy'   ? 2 : (diffKey === 'hard' ? 5 : 3);
   const dairyTarget = diffKey === 'easy'   ? 1 : (diffKey === 'hard' ? 3 : 2);
@@ -176,6 +184,10 @@ function createEngine(opts) {
   const diffCfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
   const quota = QUOTA_MAP[diffKey] || QUOTA_MAP.normal;
 
+  // โหมด run: play / research (อ่านจาก global ถ้ามี)
+  const runModeRaw = (window.HHA_RUNMODE || 'play');
+  const runMode = String(runModeRaw).toLowerCase() === 'research' ? 'research' : 'play';
+
   const questPack = buildQuests(diffKey);
   const goals = questPack.goals;
   const minis = questPack.minis;
@@ -187,6 +199,19 @@ function createEngine(opts) {
     diffKey,
     duration,
     timeLeft: duration,
+
+    runMode,
+    adaptEnabled: runMode === 'play',   // Adaptive เฉพาะโหมดเล่นธรรมดา
+
+    // ค่าพื้นฐาน + ค่าปัจจุบันของเป้า
+    baseSpawnInterval: diffCfg.spawnIntervalMs,
+    baseMaxActive: diffCfg.maxActive,
+    baseJunkRatio: diffCfg.junkRatio,
+
+    curSpawnInterval: diffCfg.spawnIntervalMs,  // (ยังไม่ได้ใช้เปลี่ยน interval, แต่เก็บไว้เผื่อ)
+    curMaxActive: diffCfg.maxActive,
+    curJunkRatio: diffCfg.junkRatio,
+    curLifeMs: 1700, // อายุเป้าเริ่มต้น (จะปรับสั้นลงเล็กน้อยตาม Adaptive)
 
     score: 0,
     combo: 0,
@@ -238,7 +263,8 @@ function createEngine(opts) {
       const r = parseFloat(el.dataset.radius || '0');
       if (!r) return;
       let ang = parseFloat(el.dataset.angle || '0');
-      ang += dyaw;                 // ใช้ rad ต่อ rad ไปเลย
+      ang += dyaw;                 // update angle ตาม dyaw (rad)
+
       el.dataset.angle = String(ang);
 
       const x = cx + r * Math.cos(ang);
@@ -251,12 +277,11 @@ function createEngine(opts) {
   function startYawLoop() {
     if (yawRafId) return;
 
-    // หา camera entity ของ A-Frame
     camEl = document.querySelector('a-entity[camera]') ||
             document.querySelector('a-camera');
 
     if (!camEl || !camEl.object3D) {
-      // ถ้ายังไม่เจอ ลองใหม่อีกนิดหน่อย
+      // ถ้ายังไม่เจอ ลองใหม่อีกเฟรม
       yawRafId = window.requestAnimationFrame(() => {
         yawRafId = null;
         startYawLoop();
@@ -293,6 +318,37 @@ function createEngine(opts) {
     }
   }
 
+  // ---------- Adaptive tuning (เฉพาะ runMode = play) ----------
+  function applyAdaptiveTuning() {
+    // โหมดวิจัย: ล็อกค่าตามระดับอย่างเดียว
+    if (!state.adaptEnabled || state.runMode !== 'play') {
+      state.curMaxActive  = state.baseMaxActive;
+      state.curJunkRatio  = state.baseJunkRatio;
+      state.curLifeMs     = 1700;
+      return;
+    }
+
+    // progress ตาม plates + score, มีหัก miss นิดหน่อย
+    const pPlate = clamp(state.platesDone / 3, 0, 1);   // ทำ 3 จานขึ้น = 1
+    const pScore = clamp(state.score / 900, 0, 1);      // 900 คะแนนขึ้น = 1
+    const baseProg = (pPlate + pScore) / 2;
+
+    const missPen = clamp(state.misses / 10, 0, 0.5);   // พลาดเยอะ ลดความโหด
+    const prog = clamp(baseProg - missPen, 0, 1);
+
+    // maxActive: เพิ่มได้อีกประมาณ +2 เมื่อเก่งขึ้น
+    const baseMax = state.baseMaxActive;
+    state.curMaxActive = baseMax + Math.round(prog * 2); // 0..+2
+
+    // junkRatio: เพิ่ม junk อีกนิดให้ท้าทาย
+    const baseJunk = state.baseJunkRatio;
+    state.curJunkRatio = clamp(baseJunk + prog * 0.12, 0.22, 0.65);
+
+    // อายุเป้า: เริ่ม 1700ms → 1300ms เมื่อเก่งมาก
+    const baseLife = 1700;
+    state.curLifeMs = baseLife - prog * 400;
+  }
+
   // ---------- Target DOM ----------
   function removeTarget(el) {
     if (!el) return;
@@ -313,7 +369,9 @@ function createEngine(opts) {
 
   function spawnTarget() {
     if (!state.running || state.ended) return;
-    if (activeTargets.size >= diffCfg.maxActive) return;
+
+    // ใช้ค่า maxActive ที่ถูกปรับ (หรือคงที่ในโหมดวิจัย)
+    if (activeTargets.size >= state.curMaxActive) return;
 
     const app = document.querySelector('.app') || document.body;
     const w = window.innerWidth || 800;
@@ -322,7 +380,8 @@ function createEngine(opts) {
     const el = document.createElement('div');
     el.className = 'hha-target';
 
-    const isJunk = Math.random() < diffCfg.junkRatio;
+    // ใช้ junkRatio ปัจจุบัน (adaptive เฉพาะ play)
+    const isJunk = Math.random() < state.curJunkRatio;
     let meta;
 
     if (!isJunk) {
@@ -345,7 +404,7 @@ function createEngine(opts) {
     const baseR = Math.min(w, h) * 0.34;
     const r = baseR * (0.7 + Math.random() * 0.45);  // กระจายเล็กน้อย
 
-    // angle เริ่มต้นสุ่มทั่ววง + ออฟเซ็ตด้วย yaw ปัจจุบัน (ถ้ามี)
+    // angle เริ่มต้นสุ่ม + ออฟเซ็ตด้วย yaw ปัจจุบันถ้ามี
     let yawNow = 0;
     if (camEl && camEl.object3D) {
       yawNow = camEl.object3D.rotation.y || 0;
@@ -383,7 +442,7 @@ function createEngine(opts) {
     });
 
     // timeout auto-miss เฉพาะ good
-    const lifeMs = 1600;
+    const lifeMs = state.curLifeMs || 1600;
     const timeoutId = setTimeout(() => {
       if (!state.running || state.ended) return;
       if (el.dataset.hit === '1') return;
@@ -431,7 +490,9 @@ function createEngine(opts) {
       logEvent('hit-good', {
         group: g + 1,
         score: state.score,
-        combo: state.combo
+        combo: state.combo,
+        runMode: state.runMode,
+        diff: state.diffKey
       });
 
       checkPlateComplete();
@@ -443,13 +504,14 @@ function createEngine(opts) {
 
       logEvent('hit-junk', {
         score: state.score,
-        misses: state.misses
+        misses: state.misses,
+        runMode: state.runMode,
+        diff: state.diffKey
       });
     }
 
     updateStatsAndQuests();
 
-    // ถ้าพลาดบ่อย ๆ ให้โค้ชเตือนหน่อย
     if (!meta.good) {
       if (state.misses === 1) {
         coach('ระวังของขยะนะ เลือกเก็บของดี ผัก ผลไม้ และนม แทนของทอดหวาน ๆ 💪');
@@ -472,7 +534,9 @@ function createEngine(opts) {
       state.misses += 1;
       logEvent('auto-miss', {
         good: true,
-        misses: state.misses
+        misses: state.misses,
+        runMode: state.runMode,
+        diff: state.diffKey
       });
       updateStatsAndQuests();
     }
@@ -495,7 +559,9 @@ function createEngine(opts) {
 
     state.platesDone += 1;
     logEvent('plate-done', {
-      platesDone: state.platesDone
+      platesDone: state.platesDone,
+      runMode: state.runMode,
+      diff: state.diffKey
     });
 
     const P = getParticlesAPI();
@@ -576,14 +642,16 @@ function createEngine(opts) {
     if (newlyCleared.length > 0) {
       dispatch('quest:cleared', {
         cleared: newlyCleared.map(shallowQuestView),
-        goals: goalsAll,
-        minis: minisAll
+        goals,
+        minis
       });
 
       newlyCleared.forEach(q => {
         logEvent('quest-cleared', {
           questId: q.id,
-          questType: q.type
+          questType: q.type,
+          runMode: state.runMode,
+          diff: state.diffKey
         });
       });
     }
@@ -597,7 +665,7 @@ function createEngine(opts) {
       state.allCleared = true;
       // ให้ overlay Mega celebration ทำงาน
       dispatch('hha:all-cleared', {});
-      // เกมนี้: ทำครบทุกภารกิจแล้ว "จบเกมเลย"
+      // Balanced Plate: ทำครบทุก Goal+Mini แล้ว "จบเกมเลย"
       endGame('all-quests-cleared');
     }
   }
@@ -633,6 +701,8 @@ function createEngine(opts) {
   }
 
   function updateStatsAndQuests() {
+    // ปรับค่าเป้าตาม Adaptive (เฉพาะโหมดเล่น)
+    applyAdaptiveTuning();
     emitStat();
     updateQuests();
   }
@@ -672,6 +742,7 @@ function createEngine(opts) {
 
     const payload = {
       mode: 'Balanced Plate',
+      runMode: state.runMode,
       difficulty: state.diffKey,
       duration: state.duration,
       reason: state.reason,
@@ -715,19 +786,21 @@ function createEngine(opts) {
     state.running = true;
     logEvent('start', {
       diff: state.diffKey,
-      duration: state.duration
+      duration: state.duration,
+      runMode: state.runMode
     });
 
     coach('จัดจานให้ครบ 2 Goal และทำ Mini Quest ให้ครบ 3 ภารกิจ แล้วมาดูสรุปผลงานกันนะ! 🎯');
 
-    // initial stat + quest
+    // init stat + quest + tuning รอบแรก
+    applyAdaptiveTuning();
     emitStat();
     updateQuests();
 
     attachTimeListener();
     startYawLoop();  // เริ่ม loop หมุนเป้าตาม yaw กล้อง
 
-    spawnTimerId = setInterval(spawnTarget, diffCfg.spawnIntervalMs);
+    spawnTimerId = setInterval(spawnTarget, state.baseSpawnInterval);
   }
 
   function stop(reason) {
