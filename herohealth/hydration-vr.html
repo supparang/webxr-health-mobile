@@ -1,4 +1,4 @@
-<!doctype html> 
+<!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -37,7 +37,7 @@
       color:#fbbf24;
       text-shadow:0 0 40px rgba(0,0,0,0.85);
       pointer-events:none;
-      transition:opacity .25s ease-out, transform .25s.ease-out;
+      transition:opacity .25s ease-out, transform .25s ease-out;
     }
     .countdown-hidden{
       opacity:0;
@@ -169,7 +169,7 @@
       height:100%;
       border-radius:999px;
       background:linear-gradient(90deg,#22c55e,#4ade80);
-      transition:width .25s ease-out, background .25s ease-out, box-shadow .25s ease-out;
+      transition:width .25s ease-out, background .25s ease-out, box-shadow .25s.ease-out;
       box-shadow:0 0 0 0 rgba(34,197,94,0.6);
     }
     .grade-bar-fill[data-grade="C"]{
@@ -287,7 +287,7 @@
       opacity:0;
       pointer-events:none;
       mix-blend-mode:screen;
-      animation:coach-sparkle 2.6s.ease-in-out infinite;
+      animation:coach-sparkle 2.6s ease-in-out infinite;
     }
     .coach-bubble::after{
       animation-delay:1.3s;
@@ -304,7 +304,7 @@
     #coach-text{
       font-size:13px;
       line-height:1.4;
-      animation:coach-text-wave 0.9s ease-out;
+      animation:coach-text-wave 0.9s.ease-out;
     }
 
     .coach-emoji{
@@ -317,7 +317,7 @@
       flex-shrink:0;
       box-shadow:0 0 14px rgba(16,185,129,0.85);
       position:relative;
-      animation:coach-idle 1.3s.ease-in-out infinite;
+      animation:coach-idle 1.3s ease-in-out infinite;
     }
 
     .coach-emoji::before{
@@ -339,7 +339,7 @@
     .coach-emoji.coach-happy{
       background-image:url('./img/coach-happy.png');
       box-shadow:0 0 20px rgba(34,197,94,0.95);
-      animation:coach-dance 0.8s.ease-in-out infinite;
+      animation:coach-dance 0.8s ease-in-out infinite;
     }
     .coach-emoji.coach-sad{
       background-image:url('./img/coach-sad.png');
@@ -349,11 +349,11 @@
     .coach-emoji.coach-fever{
       background-image:url('./img/coach-fever.png');
       box-shadow:0 0 24px rgba(248,113,113,0.95);
-      animation:coach-fever-pulse 0.55s.ease-in-out infinite;
+      animation:coach-fever-pulse 0.55s ease-in-out.infinite;
     }
 
     .coach-emoji.coach-celebrate{
-      animation:coach-celebrate-bounce 0.75s.ease-out;
+      animation:coach-celebrate-bounce 0.75s ease-out;
     }
 
     /* ===== Animations (coach) ===== */
@@ -575,7 +575,7 @@
       font-size:16px;
     }
     .vr-btn:hover{
-      background:radial-gradient(circle at top left, rgba(56,189,248,0.5), transparent 55%),
+      background:radial-gradient(circle at top.left, rgba(56,189,248,0.5), transparent 55%),
                  rgba(15,23,42,1);
     }
 
@@ -952,6 +952,70 @@
       elGradeBar.dataset.grade = grade;
     }
 
+    // ===== Helper: sync Quest HUD จาก meta =====
+    function syncQuestHUDFromMeta(meta = {}, headings = {}) {
+      const gCleared = Number(
+        meta.goalsCleared ??
+        meta.goals ??
+        hudGoalsCleared ??
+        0
+      );
+      const gTotal = Number(
+        meta.goalsTarget ??
+        meta.goalsTotal ??
+        hudGoalsTotal ??
+        0
+      );
+      const mCleared = Number(
+        meta.questsCleared ??
+        meta.quests ??
+        hudMiniCleared ??
+        0
+      );
+      const mTotal = Number(
+        meta.questsTarget ??
+        meta.questsTotal ??
+        hudMiniTotal ??
+        0
+      );
+
+      hudGoalsCleared = gCleared;
+      hudGoalsTotal   = gTotal;
+      hudMiniCleared  = mCleared;
+      hudMiniTotal    = mTotal;
+
+      const pctG = gTotal > 0 ? Math.max(0, Math.min(100, (gCleared / gTotal) * 100)) : 0;
+      const pctM = mTotal > 0 ? Math.max(0, Math.min(100, (mCleared / mTotal) * 100)) : 0;
+
+      // heading text
+      if (headings.goalHeading) {
+        elQuestMain.textContent = headings.goalHeading;
+      } else if (gTotal > 0 && gCleared >= gTotal) {
+        elQuestMain.textContent = `Goal: สำเร็จครบแล้ว (${gCleared}/${gTotal}) 🎉`;
+      }
+
+      if (headings.miniHeading) {
+        elQuestMini.textContent = headings.miniHeading;
+      } else if (mTotal > 0 && mCleared >= mTotal) {
+        elQuestMini.textContent = `Mini quest: สำเร็จครบแล้ว (${mCleared}/${mTotal}) 🎉`;
+      }
+
+      // bars
+      elQuestMainBar.style.width = (gTotal ? pctG : 0) + '%';
+      elQuestMiniBar.style.width = (mTotal ? pctM : 0) + '%';
+
+      // captions
+      elQuestMainCap.textContent = gTotal ? `${gCleared} / ${gTotal}` : '';
+      elQuestMiniCap.textContent = mTotal ? `${mCleared} / ${mTotal}` : '';
+
+      return {
+        goalsCleared: gCleared,
+        goalsTotal: gTotal,
+        minisCleared: mCleared,
+        minisTotal: mTotal
+      };
+    }
+
     // ===== FX helper =====
     function getParticlesAPI(){
       const gm = window.GAME_MODULES || {};
@@ -1022,35 +1086,26 @@
 
     // HUD: Quest
     window.addEventListener('quest:update', (e) => {
-      const d = e.detail || {};
+      const d    = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
+      const meta = d.meta || {};
 
-      if (goal){
-        const prog = goal.prog | 0;
-        const tgt  = goal.target | 0;
-        const pct  = tgt > 0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
-        elQuestMain.textContent = goal.label || 'ภารกิจหลัก';
-        elQuestMainBar.style.width = pct + '%';
-        elQuestMainCap.textContent = prog + ' / ' + tgt;
-      }else{
-        elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
-        elQuestMainBar.style.width = '100%';
-        elQuestMainCap.textContent = '';
-      }
+      const headings = {
+        goalHeading: d.goalHeading ||
+          (goal ? (goal.label || goal.title || goal.text || 'ภารกิจหลัก') : ''),
+        miniHeading: d.miniHeading ||
+          (mini ? ('Mini: ' + (mini.label || mini.title || mini.text || '')) : '')
+      };
 
-      if (mini){
-        const progM = mini.prog | 0;
-        const tgtM  = mini.target | 0;
-        const pctM  = tgtM > 0 ? Math.max(0, Math.min(100, (progM/tgtM)*100)) : 0;
-        elQuestMini.textContent = 'Mini: ' + (mini.label || '');
-        elQuestMiniBar.style.width = pctM + '%';
-        elQuestMiniCap.textContent = progM + ' / ' + tgtM;
-      }else{
-        elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
-        elQuestMiniBar.style.width = '100%';
-        elQuestMiniCap.textContent = '';
-      }
+      const prevGoal = hudGoalsCleared;
+      const prevMini = hudMiniCleared;
+
+      const synced = syncQuestHUDFromMeta(meta, headings);
+      const gCleared = synced.goalsCleared;
+      const gTotal   = synced.goalsTotal;
+      const mCleared = synced.minisCleared;
+      const mTotal   = synced.minisTotal;
 
       if (d.hint){
         elQuestHint.textContent = d.hint;
@@ -1058,22 +1113,15 @@
         elQuestHint.textContent = '';
       }
 
-      const goalsAll = d.goalsAll || [];
-      const minisAll = d.minisAll || [];
-
-      hudGoalsTotal   = goalsAll.length;
-      hudGoalsCleared = goalsAll.filter(g => g && (g.done || g._done)).length;
-      hudMiniTotal    = minisAll.length;
-      hudMiniCleared  = minisAll.filter(m => m && (m.done || m._done)).length;
-
-      if (hudGoalsCleared > prevGoalsCleared){
-        celebrateQuest('goal', hudGoalsCleared, hudGoalsTotal);
+      if (gCleared > prevGoal){
+        celebrateQuest('goal', gCleared, gTotal);
       }
-      if (hudMiniCleared > prevMiniCleared){
-        celebrateQuest('mini', hudMiniCleared, hudMiniTotal);
+      if (mCleared > prevMini){
+        celebrateQuest('mini', mCleared, mTotal);
       }
-      prevGoalsCleared = hudGoalsCleared;
-      prevMiniCleared  = hudMiniCleared;
+
+      prevGoalsCleared = gCleared;
+      prevMiniCleared  = mCleared;
 
       updateRealtimeGrade();
     });
@@ -1109,6 +1157,11 @@
       if (typeof d.misses === 'number') {
         hudMissCount = d.misses;
         elMiss.textContent = hudMissCount;
+      }
+
+      // sync quest meta ที่ส่งมาพร้อม score (ถ้ามี)
+      if (d.goalsTarget || d.questsTarget || d.goalsCleared || d.questsCleared) {
+        syncQuestHUDFromMeta(d);
       }
 
       updateRealtimeGrade(d.score);
@@ -1181,6 +1234,14 @@
         ? d.questsTarget
         : (typeof d.questsTotal === 'number' ? d.questsTotal : hudMiniTotal);
 
+      // sync HUD quest จากค่า summary meta ตอนจบเกมอีกรอบ
+      syncQuestHUDFromMeta({
+        goalsCleared,
+        goalsTarget: goalsTotal,
+        questsCleared: miniCleared,
+        questsTarget: miniTotal
+      });
+
       const allGoalDone = (goalsTotal > 0 && goalsCleared >= goalsTotal);
       const allMiniDone = (miniTotal > 0 && miniCleared >= miniTotal);
       const allQuest    = allGoalDone && allMiniDone;
@@ -1237,7 +1298,10 @@
       document.addEventListener(type, (ev) => {
         const t = ev.target;
         if (t && t.closest && t.closest('.hha-target')) {
+          // ถ้าแตะ / ลากบนเป้า: ให้เป็นแค่ tap/click เป้า
+          // ไม่ให้ event เด้งไปถึง touch-look ที่ผูกไว้กับ body
           ev.stopPropagation();
+          // ไม่ใช้ preventDefault() เพื่อให้ click ยังทำงานตามปกติ
         }
       }, { capture: true });
     });
@@ -1311,7 +1375,7 @@
         durationSec: dur,
         studentKey: studentKey,
         profile: studentProfile,
-        debug: false
+        debug: false  // production
       });
 
       const cam = document.querySelector('#h2o-camera');
@@ -1376,58 +1440,24 @@
     });
   </script>
 
-  <!-- === Auto spin targets in Hydration VR (แบบ GoodJunk — หมุนหน้า emoji) === -->
+  <!-- === Auto spin targets in Hydration VR (เหมือน GoodJunk) === -->
   <script>
     (function () {
       if (!window.AFRAME) return;
 
       AFRAME.registerComponent('hha-spin-target', {
         schema: {
-          speed: { type: 'number', default: 40 } // deg/sec
-        },
-        init: function () {
-          this.angle = 0;
-          this.visual = null;
-          this.baseRot = { x: 0, y: 0, z: 0 };
-
-          const self = this;
-          function pickVisual () {
-            let v =
-              self.el.querySelector('[hha-face]') ||
-              self.el.querySelector('.hha-face') ||
-              self.el.querySelector('a-image') ||
-              self.el.querySelector('a-circle') ||
-              self.el.querySelector('a-plane');
-
-            // ถ้าไม่เจออะไรเลย ให้หมุนทั้งเป้า
-            if (!v) v = self.el;
-
-            self.visual = v;
-            const r = v.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
-            self.baseRot = {
-              x: r.x || 0,
-              y: r.y || 0,
-              z: r.z || 0
-            };
-          }
-
-          if (this.el.hasLoaded) {
-            pickVisual();
-          } else {
-            this.el.addEventListener('loaded', pickVisual);
-          }
+          speed: { type: 'number', default: 80 } // องศาต่อวินาที
         },
         tick: function (time, dt) {
-          if (!this.visual || !dt) return;
+          if (!dt) return;
+          const el = this.el;
+          const rot = el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+          const delta = (this.data.speed * dt) / 1000;
 
-          this.angle += (this.data.speed * dt) / 1000;
-          if (this.angle > 360) this.angle -= 360;
-
-          this.visual.setAttribute('rotation', {
-            x: this.baseRot.x,
-            y: this.baseRot.y,          // ปล่อยให้ระบบอื่นจัดการทิศทาง
-            z: this.baseRot.z + this.angle
-          });
+          let y = (rot.y || 0) + delta;
+          if (y > 360) y -= 360;
+          el.setAttribute('rotation', { x: rot.x || 0, y, z: rot.z || 0 });
         }
       });
 
@@ -1436,18 +1466,17 @@
         const nodes = root.querySelectorAll('[data-hha-tgt]');
         nodes.forEach(function (el) {
           if (!el.hasAttribute('hha-spin-target')) {
-            el.setAttribute('hha-spin-target', 'speed: 40');
+            el.setAttribute('hha-spin-target', 'speed: 80');
           }
         });
       }
 
       document.addEventListener('DOMContentLoaded', function () {
-        const scene = document.querySelector('a-scene') || document;
+        const scene = document.querySelector('a-scene');
+        if (!scene) return;
 
-        // ติดให้เป้าที่มีอยู่แล้ว
         attachSpinToTargets(scene);
 
-        // เฝ้าดูเป้าใหม่ที่ spawn จากเกม
         const obs = new MutationObserver(function (mutations) {
           mutations.forEach(function (m) {
             m.addedNodes.forEach(function (node) {
@@ -1455,7 +1484,7 @@
 
               if (node.matches && node.matches('[data-hha-tgt]')) {
                 if (!node.hasAttribute('hha-spin-target')) {
-                  node.setAttribute('hha-spin-target', 'speed: 40');
+                  node.setAttribute('hha-spin-target', 'speed: 80');
                 }
               }
 
