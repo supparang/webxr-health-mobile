@@ -10,102 +10,70 @@
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- หมุนเป้า Hydration รอบแกน Y (object3D) + ผูกกับทุก node ที่มี data-hha-tgt -->
+  <!-- หมุนเป้า Hydration รอบตัวเอง (แกน Z) + ติดให้ทุก node ที่มี data-hha-tgt หรือ class .hha-target -->
   <script>
     (function () {
-      function registerSpinComponent () {
-        const A = window.AFRAME;
-        if (!A) return;
+      const A = window.AFRAME;
+      if (!A) return;
 
-        A.registerComponent('hha-spin-target', {
-          schema: {
-            speed: { type: 'number', default: 90 } // องศาต่อวินาที
-          },
-          init: function () {
-            this._angle = 0;
-          },
-          tick: function (time, dt) {
-            if (!dt) return;
-            const obj = this.el.object3D;
-            if (!obj) return;
-
-            const delta = (this.data.speed * dt) / 1000; // degree/s → degree
-            this._angle = (this._angle + delta) % 360;
-
-            // หมุนรอบแกน Y ให้เห็นชัด ๆ (เหมือนเหรียญหมุนหันซ้าย-ขวา)
-            const rad = this._angle * Math.PI / 180;
-            obj.rotation.set(0, rad, 0);
-          }
-        });
-      }
+      A.registerComponent('hha-spin-target', {
+        schema: { speed: { type: 'number', default: 80 } }, // องศาต่อวินาที
+        tick: function (time, dt) {
+          if (!dt) return;
+          const rot = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+          const delta = (this.data.speed * dt) / 1000;
+          let z = (rot.z || 0) + delta;
+          if (z > 360) z -= 360;
+          this.el.setAttribute('rotation', {
+            x: rot.x || 0,
+            y: rot.y || 0,
+            z
+          });
+        }
+      });
 
       function attachSpinToTargets(root) {
         if (!root || !root.querySelectorAll) return;
-        root.querySelectorAll('[data-hha-tgt]').forEach(el => {
+        const nodes = root.querySelectorAll('[data-hha-tgt], .hha-target');
+        nodes.forEach(el => {
           if (!el.hasAttribute('hha-spin-target')) {
-            el.setAttribute('hha-spin-target', 'speed: 90');
+            el.setAttribute('hha-spin-target', 'speed: 80');
           }
         });
       }
 
-      function initSpinObserver () {
+      function initSpin() {
         const scene = document.querySelector('a-scene');
         if (!scene) return;
 
-        // ผูกให้เป้าที่มีอยู่แล้วใน scene
+        // ติดให้เป้าที่มีอยู่แล้ว
         attachSpinToTargets(scene);
 
-        // เฝ้าดู node ใหม่ + attribute data-hha-tgt ที่ถูกเปลี่ยนทีหลัง
+        // เฝ้าดู node ใหม่ใน scene แล้วติด spin ให้ด้วย
         const obs = new MutationObserver(mutations => {
           mutations.forEach(m => {
-            if (m.type === 'childList') {
-              m.addedNodes.forEach(node => {
-                if (node.nodeType !== 1) return;
+            m.addedNodes.forEach(node => {
+              if (node.nodeType !== 1) return;
 
-                if (node.matches && node.matches('[data-hha-tgt]')) {
-                  if (!node.hasAttribute('hha-spin-target')) {
-                    node.setAttribute('hha-spin-target', 'speed: 90');
-                  }
-                }
-                if (node.querySelectorAll) {
-                  attachSpinToTargets(node);
-                }
-              });
-            }
-
-            if (m.type === 'attributes' && m.attributeName === 'data-hha-tgt') {
-              const target = m.target;
-              if (target && target.matches && target.matches('[data-hha-tgt]')) {
-                if (!target.hasAttribute('hha-spin-target')) {
-                  target.setAttribute('hha-spin-target', 'speed: 90');
+              if (node.matches && (node.matches('[data-hha-tgt]') || node.matches('.hha-target'))) {
+                if (!node.hasAttribute('hha-spin-target')) {
+                  node.setAttribute('hha-spin-target', 'speed: 80');
                 }
               }
-            }
+              if (node.querySelectorAll) {
+                attachSpinToTargets(node);
+              }
+            });
           });
         });
 
-        obs.observe(scene, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ['data-hha-tgt']
-        });
+        obs.observe(scene, { childList: true, subtree: true });
       }
 
-      function bootSpin () {
-        registerSpinComponent();
-        // รอให้ A-Frame สร้าง <a-scene> เสร็จก่อนค่อยผูก observer
-        if (document.readyState === 'complete') {
-          initSpinObserver();
-        } else {
-          window.addEventListener('load', initSpinObserver, { once: true });
-        }
-      }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bootSpin, { once: true });
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        initSpin();
       } else {
-        bootSpin();
+        document.addEventListener('DOMContentLoaded', initSpin);
       }
     })();
   </script>
@@ -137,7 +105,7 @@
       color:#fbbf24;
       text-shadow:0 0 40px rgba(0,0,0,0.85);
       pointer-events:none;
-      transition:opacity .25s ease-out, transform .25s.ease-out;
+      transition:opacity .25s ease-out, transform .25s ease-out;
     }
     .countdown-hidden{
       opacity:0;
@@ -197,6 +165,10 @@
       letter-spacing:.03em;
       text-transform:uppercase;
       color:var(--text-soft);
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:4px;
     }
     .hud-main-mode{
       font-size:15px;
@@ -269,7 +241,7 @@
       height:100%;
       border-radius:999px;
       background:linear-gradient(90deg,#22c55e,#4ade80);
-      transition:width .25s ease-out, background .25s.ease-out, box-shadow .25s.ease-out;
+      transition:width .25s.ease-out, background .25s.ease-out, box-shadow .25s.ease-out;
       box-shadow:0 0 0 0 rgba(34,197,94,0.6);
     }
     .grade-bar-fill[data-grade="C"]{
@@ -616,7 +588,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
+      transition:background .15s ease, box-shadow .15s.ease, transform .1s.ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -649,6 +621,28 @@
       color:#bfdbfe;
       font-weight:500;
       margin-left:6px;
+    }
+
+    /* ===== ป้าย Wave ===== */
+    .hud-wave-badge{
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:999px;
+      background:rgba(147,51,234,0.18);
+      border:1px solid rgba(196,181,253,0.8);
+      color:#ede9fe;
+      font-weight:600;
+      margin-left:6px;
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      opacity:0;
+      transform:translateY(-4px);
+      transition:opacity .22s ease-out, transform .22s ease-out;
+    }
+    .hud-wave-badge.show{
+      opacity:1;
+      transform:translateY(0);
     }
 
     /* ===== ปุ่มเข้า VR ===== */
@@ -761,8 +755,9 @@
         <div class="hud-main">
           <div>
             <div class="hud-main-title">
-              Hero Health • Hydration VR
+              <span>Hero Health • Hydration VR</span>
               <span id="hud-runmode" class="hud-mode-badge">Play Mode</span>
+              <span id="hud-wave" class="hud-wave-badge"></span>
             </div>
             <div class="hud-main-mode">Hydration Quest</div>
           </div>
@@ -877,7 +872,7 @@
   <!-- Effect เป้า (particles FX) -->
   <script src="./vr/particles.js"></script>
 
-  <!-- ===== Logic: Boot Hydration + HUD + Touch Look + Cloud Logger ===== -->
+  <!-- ===== Logic: Boot Hydration + HUD + Touch Look + Cloud Logger + Wave HUD ===== -->
   <script type="module">
     import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
@@ -896,6 +891,7 @@
     const elDiff    = document.getElementById('hud-diff-label');
     const elTime    = document.getElementById('hud-time-label');
     const elRunHUD  = document.getElementById('hud-runmode');
+    const elWaveHUD = document.getElementById('hud-wave');
 
     const elQuestMain      = document.getElementById('hud-quest-main');
     const elQuestMini      = document.getElementById('hud-quest-mini');
@@ -1232,6 +1228,36 @@
       if (text) setCoach(text);
     });
 
+    // HUD: Wave (Hydration Storm / Sugar Rush)
+    let waveHideTimer = null;
+    window.addEventListener('hha:wave', (e) => {
+      if (!elWaveHUD) return;
+      const d = e.detail || {};
+      const kind = (d.kind || '').toLowerCase();
+      const phase = d.phase || 'change';
+
+      if (phase === 'start') {
+        let label = '';
+        if (kind === 'storm') label = 'Hydration Storm 🌧️';
+        else if (kind === 'sugar') label = 'Sugar Rush ⚠️';
+        else label = kind || 'Wave';
+
+        elWaveHUD.textContent = label;
+        elWaveHUD.classList.add('show');
+
+        if (waveHideTimer) clearTimeout(waveHideTimer);
+        const dur = d.durationSec || 5;
+        waveHideTimer = setTimeout(() => {
+          elWaveHUD.classList.remove('show');
+        }, (dur + 1) * 1000);
+      } else if (phase === 'end') {
+        if (waveHideTimer) clearTimeout(waveHideTimer);
+        waveHideTimer = setTimeout(() => {
+          elWaveHUD.classList.remove('show');
+        }, 400);
+      }
+    });
+
     // HUD: คะแนน / คอมโบ / miss
     window.addEventListener('hha:score', (e) => {
       const d = e.detail || {};
@@ -1445,6 +1471,11 @@
       elGradeBar.style.width = '10%';
       elGradeBar.dataset.grade = 'C';
 
+      if (elWaveHUD){
+        elWaveHUD.textContent = '';
+        elWaveHUD.classList.remove('show');
+      }
+
       setCoachFace('neutral');
       setCoach('ภารกิจคือรักษาน้ำในร่างกายให้อยู่โซนสีเขียว 💧 เลือกน้ำดี เลี่ยงน้ำหวานนะ');
 
@@ -1461,7 +1492,7 @@
         console.warn('[HydrationVR] cannot parse student profile:', err);
       }
 
-      // cloud logger
+      // cloud logger (ไม่ซ้ำ import แล้ว)
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
         projectTag: 'HeroHealth-HydrationVR',
