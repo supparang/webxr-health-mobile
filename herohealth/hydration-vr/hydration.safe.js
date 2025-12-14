@@ -1,5 +1,5 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — น้ำสมดุล + Water Gauge + Fever + Goal / Mini quest
+// Hydration Quest VR — น้ำสมดุล + Water Gauge + Fever + Goal / Mini quest + Wave (Storm / Sugar)
 // ใช้ร่วมกับ: mode-factory.js, ui-water.js, hydration.quest.js, hydration.state.js
 
 'use strict';
@@ -222,8 +222,82 @@ export async function boot (cfg = {}) {
   let elapsedSec = 0;
   let ended = false;
 
+  // ---------- Wave state (Hydration Storm / Sugar Rush) ----------
+  // kind: 'storm' = น้ำดีรัว ๆ, 'sugar' = น้ำหวานบุก
+  let waveKind = null;
+  let waveRemainSec = 0;
+  let lastWaveEndSec = -999;
+  let greenStreakSec = 0;
+  let highStreakSec = 0;
+
+  function getWaveLabel () {
+    if (!waveKind) return '';
+    return waveKind === 'storm' ? 'Hydration Storm' : (waveKind === 'sugar' ? 'Sugar Rush' : waveKind);
+  }
+
+  function dispatchWaveEvent (kind, phase, durationSec) {
+    try {
+      ROOT.dispatchEvent(new CustomEvent('hha:wave', {
+        detail: {
+          kind,
+          phase,
+          durationSec: durationSec || waveRemainSec || 0
+        }
+      }));
+    } catch {}
+
+    // log ลง Google Sheet ผ่าน hha-cloud-logger (events)
+    try {
+      ROOT.dispatchEvent(new CustomEvent('hha:event', {
+        detail: {
+          type: 'wave',
+          mode: 'Hydration',
+          difficulty: diff,
+          waveKind: kind,
+          phase,
+          timeFromStartMs: elapsedSec * 1000,
+          extra: getWaveLabel()
+        }
+      }));
+    } catch {}
+  }
+
+  function startWave (kind, durationSec) {
+    if (!kind || durationSec <= 0 || ended) return;
+    // กันไม่ให้ wave ซ้อนกัน
+    if (waveKind) return;
+
+    waveKind = kind;
+    waveRemainSec = durationSec;
+
+    dispatchWaveEvent(kind, 'start', durationSec);
+
+    if (kind === 'storm') {
+      coach('Hydration Storm! น้ำดีมาเต็ม เก็บให้ได้เยอะที่สุด 💧🌧️', 2000);
+    } else if (kind === 'sugar') {
+      coach('Sugar Rush! น้ำหวานบุก ระวังเลือกผิดนะ ⚠️ เล็งแต่ 💧 กับ 🥛 ให้ดี', 2000);
+    }
+  }
+
+  function endWave (reason = 'time') {
+    if (!waveKind) return;
+    const kind = waveKind;
+    waveKind = null;
+    waveRemainSec = 0;
+    lastWaveEndSec = elapsedSec;
+    dispatchWaveEvent(kind, 'end', 0);
+
+    // จบ wave แล้วคืนหน้าโค้ชเป็นกลาง ถ้าไม่อยู่ใน FEVER
+    if (!feverActive) {
+      coach('กลับมาจังหวะปกติแล้ว ลองรักษาโซนเขียวต่อให้ได้นานที่สุด 💧', 2600);
+    }
+  }
+
   function mult () {
-    return feverActive ? 2 : 1;
+    // wave 'storm' เพิ่มความคูณเล็กน้อยให้รู้สึก boost
+    const base = feverActive ? 2 : 1;
+    if (waveKind === 'storm') return base * 1.2;
+    return base;
   }
 
   function pushFeverEvent (state) {
@@ -242,7 +316,9 @@ export async function boot (cfg = {}) {
 
   function gainFever (n) {
     const wasActive = feverActive;
-    fever = Math.max(0, Math.min(100, fever + n));
+    // wave storm → สะสม fever เร็วขึ้นเล็กน้อย
+    const bonus = (waveKind === 'storm') ? 1.2 : 1.0;
+    fever = Math.max(0, Math.min(100, fever + n * bonus));
     if (!feverActive && fever >= 100) {
       feverActive = true;
       coach('เข้าโหมดไฟแล้ว! เลือกน้ำดีรัว ๆ เลย 🔥');
@@ -255,7 +331,11 @@ export async function boot (cfg = {}) {
 
   function decayFever (n) {
     const wasActive = feverActive;
-    const d = feverActive ? 10 : n;
+    let d = feverActive ? 10 : n;
+    // ช่วง Sugar Rush รู้สึกว่าคุมยากขึ้น → fever ลดไวขึ้นเล็กน้อย
+    if (waveKind === 'sugar') {
+      d *= 1.2;
+    }
     fever = Math.max(0, fever - d);
     if (feverActive && fever <= 0) feverActive = false;
     if (wasActive && !feverActive) pushFeverEvent('end');
@@ -264,7 +344,17 @@ export async function boot (cfg = {}) {
   }
 
   function addWater (n) {
-    waterPct = Math.max(0, Math.min(100, waterPct + n));
+    // ปรับตาม wave
+    let delta = n;
+    if (waveKind === 'storm' && n > 0) {
+      // storm: เพิ่มน้ำดีแรงขึ้น แต่ไม่เกิน 100
+      delta = Math.round(n * 1.3);
+    }
+    if (waveKind === 'sugar' && n < 0) {
+      // sugar: น้ำหวานแรงกว่าปกติ
+      delta = Math.round(n * 1.3);
+    }
+    waterPct = Math.max(0, Math.min(100, waterPct + delta));
     waterRes = setWaterGauge(waterPct);
     waterZone = waterRes.zone;
     deck.stats.zone = waterZone;
@@ -292,6 +382,8 @@ export async function boot (cfg = {}) {
           timeSec: elapsedSec,
           waterPct,
           waterZone,
+          wave: waveKind || '',
+          waveRemainSec,
           ...questMeta(),
           ...extra
         }
@@ -349,6 +441,12 @@ export async function boot (cfg = {}) {
           ? `Mini quest: สำเร็จครบแล้ว (${miniCleared}/${minisTotal}) 🎉`
           : '');
 
+    const waveHint = waveKind === 'storm'
+      ? 'Hydration Storm: น้ำดีมาเยอะเป็นพิเศษ 🌧️'
+      : waveKind === 'sugar'
+        ? 'Sugar Rush: น้ำหวานบุก ระวังแตะผิด ⚠️'
+        : `โซนน้ำ: ${waterZone}`;
+
     try {
       ROOT.dispatchEvent(new CustomEvent('quest:update', {
         detail: {
@@ -362,7 +460,7 @@ export async function boot (cfg = {}) {
           miniTotal: minisTotal,
           goalHeading,
           miniHeading,
-          hint: hint || `โซนน้ำ: ${waterZone}`,
+          hint: hint || waveHint,
           meta: questMeta()
         }
       }));
@@ -393,9 +491,13 @@ export async function boot (cfg = {}) {
     const x = ctx?.clientX ?? ctx?.cx ?? 0;
     const y = ctx?.clientY ?? ctx?.cy ?? 0;
 
+    const isStorm = (waveKind === 'storm');
+    const isSugar = (waveKind === 'sugar');
+
     // ----- Power-ups -----
     if (ch === STAR) {
-      const d = 40 * mult();
+      let d = 40 * mult();
+      if (isStorm) d = Math.round(d * 1.2);
       score += d;
       star++;
       gainFever(10);
@@ -409,7 +511,8 @@ export async function boot (cfg = {}) {
     }
 
     if (ch === DIA) {
-      const d = 80 * mult();
+      let d = 80 * mult();
+      if (isStorm) d = Math.round(d * 1.2);
       score += d;
       diamond++;
       gainFever(30);
@@ -458,7 +561,7 @@ export async function boot (cfg = {}) {
     // ----- ปกติ: น้ำดี / น้ำไม่ดี -----
     if (GOOD.includes(ch)) {
       addWater(+8);
-      const d = (14 + combo * 2) * mult();
+      let d = (14 + combo * 2) * mult();
       score += d;
       combo++;
       comboMax = Math.max(comboMax, combo);
@@ -498,8 +601,15 @@ export async function boot (cfg = {}) {
         return { good: false, scoreDelta: 0 };
       }
 
-      addWater(-8);
-      const d = -10;
+      // ปรับโทษตาม wave
+      let waterDrop = -8;
+      let d = -10;
+      if (isSugar) {
+        waterDrop = -10;
+        d = -14;
+      }
+
+      addWater(waterDrop);
       score = Math.max(0, score + d);
       combo = 0;
       misses++;
@@ -644,6 +754,20 @@ export async function boot (cfg = {}) {
 
     const z = zoneFrom(waterPct);
 
+    // streak สำหรับ wave
+    if (z === 'GREEN') {
+      greenStreakSec++;
+    } else {
+      greenStreakSec = 0;
+    }
+
+    if (z === 'HIGH') {
+      highStreakSec++;
+    } else {
+      highStreakSec = 0;
+    }
+
+    // decay fever ตามโซน
     if (z === 'GREEN') {
       deck.stats.greenTick = (deck.stats.greenTick | 0) + 1;
       decayFever(2);
@@ -651,14 +775,42 @@ export async function boot (cfg = {}) {
       decayFever(6);
     }
 
+    // ปรับน้ำตามโซน (ฐาน)
     if (z === 'HIGH') addWater(-4);
     else if (z === 'LOW') addWater(+4);
     else addWater(-1);
 
+    // เรียก deck.second
     if (deck && typeof deck.second === 'function') {
       deck.second();
     }
     syncDeck();
+
+    // จัดการ Wave timer
+    if (waveKind) {
+      waveRemainSec = Math.max(0, waveRemainSec - 1);
+      if (waveRemainSec <= 0) {
+        endWave('time');
+      } else {
+        // อัปเดต HUD score ให้รู้ว่า wave ยังอยู่
+        pushHudScore();
+      }
+    } else {
+      // trigger Wave ใหม่ (มี cooldown ตาม lastWaveEndSec)
+      const coolEnough = (elapsedSec - lastWaveEndSec) >= 8;
+
+      // Hydration Storm: อยู่โซน GREEN ต่อเนื่อง ≥ 10 วิ
+      if (coolEnough && greenStreakSec >= 10) {
+        startWave('storm', 6);
+        greenStreakSec = 0;
+      }
+
+      // Sugar Rush: โซน HIGH ต่อเนื่อง ≥ 6 วิ หรือ miss ≥ 3
+      if (!waveKind && coolEnough && (highStreakSec >= 6 || misses >= 3)) {
+        startWave('sugar', 5);
+        highStreakSec = 0;
+      }
+    }
 
     checkQuestCompletion();
     pushHudScore();
@@ -689,6 +841,11 @@ export async function boot (cfg = {}) {
       }
     } catch (err) {
       console.warn('[Hydration] inst.stop error', err);
+    }
+
+    // ปิด Wave ถ้ายังค้างอยู่
+    if (waveKind) {
+      endWave('finish');
     }
 
     try {
@@ -755,6 +912,7 @@ export async function boot (cfg = {}) {
     spawnStyle: 'pop',
     judge: (ch, ctx) => judge(ch, ctx),
     onExpire
+    // หมายเหตุ: ถ้าในอนาคตอยากให้ mode-factory รู้เรื่อง wave สามารถต่อ API เพิ่ม เช่น waveState: () => ({ kind: waveKind, remain: waveRemainSec })
   });
 
   if (inst && typeof inst.stop === 'function') {
