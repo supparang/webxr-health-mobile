@@ -9,6 +9,43 @@
 
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script>
+  // ให้เป้า Hydration หมุนรอบตัวเอง (แกน Z)
+  (function () {
+    const A = window.AFRAME;
+    if (!A) return;
+
+    A.registerComponent('hha-spin-target', {
+      schema: { speed: { default: 80 } }, // องศาต่อวินาที
+      tick: function (time, delta) {
+        const d = (delta / 1000) * this.data.speed;
+        const r = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+        this.el.setAttribute('rotation', {
+          x: r.x,
+          y: r.y,
+          z: (r.z || 0) + d     // หมุนแกน Z มองเห็นชัด
+        });
+      }
+    });
+
+    function attachSpinToTargets () {
+      document.querySelectorAll('[data-hha-tgt]').forEach(el => {
+        if (!el.hasAttribute('hha-spin-target')) {
+          el.setAttribute('hha-spin-target', 'speed: 120');
+        }
+      });
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      attachSpinToTargets();
+    } else {
+      document.addEventListener('DOMContentLoaded', attachSpinToTargets);
+    }
+
+    const mo = new MutationObserver(attachSpinToTargets);
+    mo.observe(document.body, { childList: true, subtree: true });
+  })();
+</script>
 
   <style>
     :root{
