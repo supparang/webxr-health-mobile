@@ -1378,5 +1378,68 @@
       });
     });
   </script>
+  <script>
+  // === Auto spin targets in Hydration VR (แบบ GoodJunk) ===
+  (function () {
+    if (!window.AFRAME) return;
+
+    // component หมุนเป้า
+    AFRAME.registerComponent('hha-spin-target', {
+      schema: {
+        speed: { type: 'number', default: 40 }  // องศาต่อวินาที ปรับได้
+      },
+      tick: function (time, dt) {
+        if (!dt) return;
+        const el = this.el;
+        const rot = el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+        const delta = (this.data.speed * dt) / 1000; // deg
+
+        let y = (rot.y || 0) + delta;
+        if (y > 360) y -= 360;
+        el.setAttribute('rotation', { x: rot.x || 0, y, z: rot.z || 0 });
+      }
+    });
+
+    function attachSpinToTargets(root) {
+      if (!root || !root.querySelectorAll) return;
+      const nodes = root.querySelectorAll('[data-hha-tgt]');
+      nodes.forEach(function (el) {
+        if (!el.hasAttribute('hha-spin-target')) {
+          // ใช้ความเร็วเดียวกันทุกเป้า (เหมือน GoodJunk)
+          el.setAttribute('hha-spin-target', 'speed: 40');
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+
+      // ติดให้เป้าที่สร้างอยู่แล้ว (เผื่อมี)
+      attachSpinToTargets(scene);
+
+      // ดูว่ามีเป้าใหม่โผล่มาไหม แล้วติด spin ให้ด้วย
+      const obs = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          m.addedNodes.forEach(function (node) {
+            if (node.nodeType !== 1) return;
+
+            if (node.matches && node.matches('[data-hha-tgt]')) {
+              if (!node.hasAttribute('hha-spin-target')) {
+                node.setAttribute('hha-spin-target', 'speed: 40');
+              }
+            }
+
+            if (node.querySelectorAll) {
+              attachSpinToTargets(node);
+            }
+          });
+        });
+      });
+
+      obs.observe(scene, { childList: true, subtree: true });
+    });
+  })();
+</script>
 </body>
 </html>
