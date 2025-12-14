@@ -1360,6 +1360,19 @@
       gazeStartTs = 0;
     }
 
+    // ===== Block touch-drag บนเป้า ไม่ให้ไปหมุนกล้อง =====
+['touchstart','touchmove','touchend','pointerdown','pointermove','pointerup'].forEach(type => {
+  document.addEventListener(type, (ev) => {
+    const t = ev.target;
+    if (t && t.closest && t.closest('.hha-target')) {
+      // ถ้าแตะ / ลากบนเป้า: ให้เป็นแค่ tap/click เป้า
+      // ไม่ให้ event เด้งไปถึง touch-look ที่ผูกไว้กับ body
+      ev.stopPropagation();
+      // ไม่ใช้ preventDefault() เพื่อให้ click ยังทำงานตามปกติ
+    }
+  }, { capture: true });
+});
+
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
