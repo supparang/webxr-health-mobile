@@ -1358,6 +1358,19 @@
         }
       });
     }
+    import { initCloudLogger } from './vr/hha-cloud-logger.js';
+
+initCloudLogger({
+  endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
+  projectTag: 'HeroHealth-HydrationVR',
+  mode: 'HydrationVR',
+  runMode: runMode,
+  diff: diff,
+  durationSec: dur,
+  studentKey: studentKey,
+  profile: studentProfile,
+  debug: false  // production
+});
 
     // ===== Block touch-drag บนเป้า ไม่ให้ไปหมุนกล้อง =====
     ['touchstart','touchmove','touchend','pointerdown','pointermove','pointerup'].forEach(type => {
