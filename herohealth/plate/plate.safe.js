@@ -1,17 +1,15 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — Safe Engine (DOM targets + fixed quests + adaptive size in Play)
-//
+// Balanced Plate VR — Safe Engine (DOM targets projected from 3D world)
 // คุณสมบัติ:
-// - อ่านโหมดจาก window.HHA_RUNMODE  -> 'play' หรือ 'research'
-//   - play: ขนาดเป้า = base ตาม diff แล้ว adaptive ตามฝีมือ
-//   - research: ขนาดเป้า = base ตาม diff แบบคงที่ (no adaptive)
-// - diff = easy / normal / hard มีผลต่อ spawn rate, maxActive, baseScale
-// - Goal = 2 ภารกิจหลัก, Mini = 3 ภารกิจย่อย ใช้ชุดเดียวกันทุกเกม (fixed)
-// - ยิง event ให้ HUD:
-//   - hha:stat    -> { score, combo, misses, platesDone, totalCounts }
-//   - quest:update-> { goalsAll, minisAll, goal, mini, hint }
-//   - hha:end     -> summary เมื่อจบเกม
-// - ใช้ .hha-target (DOM emoji) ให้คลิก / gaze ยิงได้
+// - เป้าแต่ละอันมีตำแหน่ง 3D รอบตัวผู้เล่น (radius ~ 4m)
+// - ใช้ THREE + A-Frame camera project 3D → 2D ให้ .hha-target ขยับตามมุมกล้อง
+// - โหมด play: ขนาดเป้า base ตาม diff + adaptive ตามฝีมือ
+// - โหมด research: ขนาดเป้า base ตาม diff (ไม่ adaptive)
+// - Fixed Quest: Goal 2 + Mini quest 3 ใช้ชุดเดียวกันทุกเกม
+// - ยิง event:
+//   - hha:stat       -> HUD คะแนน ฯลฯ
+//   - quest:update   -> HUD quest bar
+//   - hha:end        -> summary ตอนจบเกม
 
 'use strict';
 
@@ -40,40 +38,35 @@ const ADAPT_MIN = 0.7;
 const ADAPT_MAX = 1.4;
 
 // ---------- ชุดอาหาร (ตัวอย่าง) ----------
-//
-// ถ้าเดิมคุณมี data แยกไฟล์อยู่ สามารถเปลี่ยนมาใช้ชุดนั้นแทนได้
-// ตอนนี้ใช้ emoji ง่าย ๆ ให้ขั้นต่ำเล่นได้จริง
 
 const FOODS = [
-  // group 1 ข้าว-แป้ง (ส่วนใหญ่ good)
+  // group 1 ข้าว-แป้ง
   { emoji: '🍚', group: 1, good: true },
   { emoji: '🍞', group: 1, good: true },
-  { emoji: '🍜', group: 1, good: false }, // บะหมี่น้ำมันเยิ้ม
+  { emoji: '🍜', group: 1, good: false },
 
   // group 2 โปรตีน
   { emoji: '🍗', group: 2, good: true },
   { emoji: '🥚', group: 2, good: true },
-  { emoji: '🍖', group: 2, good: false }, // มันเยอะ
+  { emoji: '🍖', group: 2, good: false },
 
   // group 3 ผัก
   { emoji: '🥦', group: 3, good: true },
   { emoji: '🥕', group: 3, good: true },
-  { emoji: '🍟', group: 3, good: false }, // เฟรนช์ฟรายส์
+  { emoji: '🍟', group: 3, good: false },
 
   // group 4 ผลไม้
   { emoji: '🍎', group: 4, good: true },
   { emoji: '🍌', group: 4, good: true },
-  { emoji: '🍩', group: 4, good: false }, // ของหวานจัด
+  { emoji: '🍩', group: 4, good: false },
 
   // group 5 นม
   { emoji: '🥛', group: 5, good: true },
   { emoji: '🧀', group: 5, good: true },
-  { emoji: '🧋', group: 5, good: false }  // ชานมหวานมาก
+  { emoji: '🧋', group: 5, good: false }
 ];
 
 // ---------- Fixed Quests: Goal 2 + Mini 3 ----------
-//
-// ใช้ชุดเดียวกันทุกเกม (ไม่สุ่ม)
 
 function makeFixedQuests() {
   const goals = [
@@ -100,7 +93,7 @@ function makeFixedQuests() {
       id: 'plate-mini-miss-5',
       label: 'MISS ไม่เกิน 5 ครั้ง',
       target: 5,
-      prog: 0,     // ใช้สะสมจำนวน MISS
+      prog: 0,
       done: false,
       kind: 'miss-max'
     },
@@ -108,7 +101,7 @@ function makeFixedQuests() {
       id: 'plate-mini-combo-8',
       label: 'ทำคอมโบให้ถึง 8',
       target: 8,
-      prog: 0,     // comboMax
+      prog: 0,
       done: false,
       kind: 'combo-max'
     },
@@ -125,7 +118,7 @@ function makeFixedQuests() {
   return { goals, minis };
 }
 
-// ---------- Helper ทั่วไป ----------
+// ---------- Helper ----------
 
 function clamp(v, min, max) {
   v = Number(v) || 0;
@@ -144,6 +137,13 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
+// ---------- Particles (optional) ----------
+
+function getParticlesAPI() {
+  const gm = window.GAME_MODULES || {};
+  return gm.Particles || window.Particles || null;
+}
+
 // ---------- Engine หลัก ----------
 
 export function boot(opts = {}) {
@@ -153,16 +153,28 @@ export function boot(opts = {}) {
   const cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG.normal;
 
   const runMode = String(window.HHA_RUNMODE || 'play').toLowerCase();
-  const adaptiveEnabled = (runMode === 'play'); // โหมดวิจัย = ปิด adaptive
+  const adaptiveEnabled = (runMode === 'play'); // research = no adaptive
 
-  // scale ปัจจุบัน = baseScale * adaptFactor
   let adaptFactor = 1.0;
-
   function getCurrentScale() {
     return cfg.baseScale * adaptFactor;
   }
 
-  // state หลักของเกม
+  const sceneEl = document.querySelector('a-scene');
+  const cameraEl = document.querySelector('#plate-camera');
+  const THREE = window.THREE;
+
+  if (!sceneEl || !cameraEl || !THREE) {
+    console.error('[PlateVR] scene/camera/THREE not ready');
+  }
+
+  let cameraObj = null;
+  if (cameraEl && THREE) {
+    cameraObj = cameraEl.getObject3D('camera') || cameraEl.object3D;
+  }
+
+  // --------- state หลัก ----------
+
   let gameOver = false;
   let spawnTimer = null;
 
@@ -175,22 +187,20 @@ export function boot(opts = {}) {
   let totalShots = 0;
 
   let platesDone = 0;
-  const groupCounts = [0, 0, 0, 0, 0]; // 1..5
+  const groupCounts = [0, 0, 0, 0, 0];
 
-  let vegFruitCount = 0; // group 3+4
-  let proteinCount = 0;  // group 2
+  let vegFruitCount = 0;
+  let proteinCount = 0;
 
-  // ใช้ตัดสิน adaptive
   let missStreak = 0;
 
-  // Quest
   const { goals, minis } = makeFixedQuests();
 
-  // จัดการ active targets
-  const activeTargets = new Map(); // id -> { el, food }
+  // DOM target list (แต่อิงตำแหน่ง 3D)
+  const activeTargets = new Map(); // id -> { el, food, pos:{x,y,z} }
   let nextTargetId = 1;
 
-  // --------- HUD / Event helper ----------
+  // --------- HUD / Events ----------
 
   function emitStat() {
     window.dispatchEvent(new CustomEvent('hha:stat', {
@@ -212,7 +222,7 @@ export function boot(opts = {}) {
   }
 
   function emitQuestUpdate() {
-    // ผูก prog กับ state ปัจจุบัน
+    // sync prog จาก state
     goals.forEach(g => {
       if (g.kind === 'plates') {
         g.prog = platesDone;
@@ -227,7 +237,6 @@ export function boot(opts = {}) {
       if (m.kind === 'miss-max') {
         m.prog = misses;
         m.done = (misses <= m.target && gameOver) ? true : false;
-        // ระหว่างเกมยังไม่รู้ว่าจะจบต่ำกว่าหรือเปล่า จึงถือว่าทำไม่เสร็จไปก่อน
         if (!gameOver) m.done = false;
       } else if (m.kind === 'combo-max') {
         m.prog = comboMax;
@@ -238,7 +247,6 @@ export function boot(opts = {}) {
       }
     });
 
-    // เลือก goal / mini ปัจจุบัน (อันที่ยังไม่ done)
     const currentGoal = goals.find(g => !g.done) || goals[goals.length - 1];
     const currentMini = minis.find(m => !m.done) || minis[minis.length - 1];
 
@@ -269,7 +277,7 @@ export function boot(opts = {}) {
       spawnTimer = null;
     }
 
-    // เคลียร์เป้าที่เหลือ
+    // ลบเป้าทั้งหมด
     activeTargets.forEach(t => {
       if (t.el && t.el.parentNode) {
         t.el.parentNode.removeChild(t.el);
@@ -277,7 +285,7 @@ export function boot(opts = {}) {
     });
     activeTargets.clear();
 
-    emitQuestUpdate(); // อัปเดตสถานะ mini miss-max ตอนจบเกมด้วย
+    emitQuestUpdate();
 
     const goalsCleared = goals.filter(g => g.done).length;
     const minisCleared = minis.filter(m => m.done).length;
@@ -306,34 +314,73 @@ export function boot(opts = {}) {
     }
   }
 
-  // ---------- Adaptive target size (เฉพาะ Play mode) ----------
+  // ---------- Adaptive size (เฉพาะ Play) ----------
 
   function maybeUpdateAdaptiveSize() {
-    if (!adaptiveEnabled) return; // โหมดวิจัยไม่ adaptive
+    if (!adaptiveEnabled) return;
 
-    if (totalShots < 8) return; // ยังน้อยไป ไม่ต้องขยับ
+    if (totalShots < 8) return;
     const accuracy = hitsGood / totalShots;
-
-    // เงื่อนไขคร่าว ๆ:
-    // - แม่นมาก (accuracy > 0.85 และ comboMax >= 10) → ทำให้ยากขึ้น (เป้าเล็กลง)
-    // - พลาดบ่อย (accuracy < 0.6 หรือ missStreak >= 3) → ทำให้ง่ายขึ้น (เป้าใหญ่ขึ้น)
 
     if (accuracy > 0.85 && comboMax >= 10 && missStreak <= 1) {
       adaptFactor = clamp(adaptFactor - 0.08, ADAPT_MIN, ADAPT_MAX);
     } else if (accuracy < 0.6 || missStreak >= 3) {
       adaptFactor = clamp(adaptFactor + 0.08, ADAPT_MIN, ADAPT_MAX);
-      missStreak = 0; // ผ่อนให้แล้ว reset streak
+      missStreak = 0;
     }
-
-    // ไม่ต้อง emit อะไรเป็นพิเศษ เป้าถัดไปจะใช้ scale ใหม่อัตโนมัติ
   }
 
-  // ---------- สร้าง / ลบเป้า ----------
+  // ---------- 3D → 2D projection ----------
+
+  function projectWorldToScreen(pos3) {
+    if (!cameraObj || !THREE) return null;
+
+    const v = new THREE.Vector3(pos3.x, pos3.y, pos3.z);
+    v.project(cameraObj); // NDC
+
+    // ถ้าอยู่ข้างหลังกล้อง หรือไกลเกิน
+    if (v.z > 1 || v.z < -1) {
+      return null;
+    }
+
+    const sx = (v.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-v.y * 0.5 + 0.5) * window.innerHeight;
+
+    return { x: sx, y: sy };
+  }
 
   function applyTargetStyle(el) {
     const scale = getCurrentScale();
     el.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(2)})`;
   }
+
+  function updateTargetScreenPositions() {
+    if (gameOver) return;
+
+    activeTargets.forEach(t => {
+      if (!t.el || !t.pos) return;
+      const screen = projectWorldToScreen(t.pos);
+      if (!screen) {
+        t.el.style.display = 'none';
+        return;
+      }
+      t.el.style.display = 'flex';
+      t.el.style.left = screen.x + 'px';
+      t.el.style.top = screen.y + 'px';
+      applyTargetStyle(t.el);
+    });
+  }
+
+  function startDomUpdateLoop() {
+    function loop() {
+      if (gameOver) return;
+      updateTargetScreenPositions();
+      window.requestAnimationFrame(loop);
+    }
+    window.requestAnimationFrame(loop);
+  }
+
+  // ---------- สร้าง / ลบเป้า ----------
 
   function spawnTarget() {
     if (gameOver) return;
@@ -343,45 +390,46 @@ export function boot(opts = {}) {
     if (!food) return;
 
     const id = nextTargetId++;
+
+    // ตำแหน่งในโลก 3D (วงรอบตัวผู้เล่น)
+    const radius = 4.0;
+    const yawDeg = randomBetween(-80, 80); // กระจายด้านหน้า
+    const yawRad = yawDeg * Math.PI / 180;
+    const height = randomBetween(1.1, 2.0);
+
+    const pos = {
+      x: Math.sin(yawRad) * radius,
+      y: height,
+      z: -Math.cos(yawRad) * radius
+    };
+
     const el = document.createElement('div');
     el.className = 'hha-target ' + (food.good ? 'hha-target-good' : 'hha-target-bad');
     el.textContent = food.emoji;
 
-    // หาตำแหน่งแบบสุ่ม (เลี่ยง HUD บน/ล่าง)
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    el.style.position = 'absolute';
+    el.style.pointerEvents = 'auto';
+    el.style.zIndex = '360';
 
-    const marginX = 70;
-    const topSafe = 90;
-    const bottomSafe = 220;
-
-    const x = randomBetween(marginX, vw - marginX);
-    const y = randomBetween(topSafe, vh - bottomSafe);
-
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    applyTargetStyle(el);
-
-    const targetObj = { id, el, food };
-    activeTargets.set(id, targetObj);
-
-    // handler ยิงเป้า
+    // click ยิงเป้า
     el.addEventListener('click', () => {
-      handleHit(targetObj);
+      handleHit(id);
     });
 
     document.body.appendChild(el);
 
-    // ให้เป้าอยู่สักพักแล้วหายไปเอง
+    activeTargets.set(id, { id, el, food, pos });
+
+    // อายุของเป้า (ไม่ถือเป็น MISS ถ้าหายไปเอง)
     const lifeMs = 3500;
     setTimeout(() => {
-      if (!activeTargets.has(id) || gameOver) return;
-      // ไม่ถือว่าเป็น MISS เพื่อไม่ให้ดุเกินไป
-      removeTarget(id);
+      if (gameOver) return;
+      if (!activeTargets.has(id)) return;
+      removeTarget(id, /*byTimeout*/true);
     }, lifeMs);
   }
 
-  function removeTarget(id) {
+  function removeTarget(id, byTimeout) {
     const t = activeTargets.get(id);
     if (!t) return;
     if (t.el && t.el.parentNode) {
@@ -392,18 +440,16 @@ export function boot(opts = {}) {
 
   // ---------- ยิงเป้า ----------
 
-  function handleHit(targetObj) {
-    if (!targetObj || gameOver) return;
+  function handleHit(id) {
+    if (gameOver) return;
+    const t = activeTargets.get(id);
+    if (!t) return;
 
-    const { id, el, food } = targetObj;
-
-    // ป้องกันยิงซ้ำ
-    if (!activeTargets.has(id)) return;
+    const { food, el } = t;
 
     totalShots++;
 
     if (food.good) {
-      // โดนของดี
       hitsGood++;
       combo++;
       missStreak = 0;
@@ -423,10 +469,29 @@ export function boot(opts = {}) {
         proteinCount++;
       }
 
-      // ทุก ๆ 5 hit นับเป็น 1 "จานสมดุล" แบบง่าย ๆ
       if (hitsGood % 5 === 0) {
         platesDone++;
         emitCoach(`เยี่ยมมาก! ตอนนี้จัดจานสมดุลได้ ${platesDone} จานแล้ว 🍽️`);
+      }
+
+      // effect ตีเป้าแตก
+      const P = getParticlesAPI();
+      if (P && el) {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        if (P.burstAt) {
+          P.burstAt(cx, cy, {
+            color: '#22c55e',
+            count: 18
+          });
+        }
+        if (P.scorePop) {
+          P.scorePop(cx, cy, '+100', {
+            judgment: 'GOOD',
+            good: true
+          });
+        }
       }
     } else {
       // โดนของไม่ดี = MISS
@@ -434,18 +499,39 @@ export function boot(opts = {}) {
       combo = 0;
       missStreak++;
 
-      emitCoach('มีของไม่ดีหลุดเข้ามาในจาน ลองเน้นผัก ผลไม้ และนมเพิ่มอีกหน่อยนะ 😌');
+      emitCoach('มีของไม่ดีหลุดเข้าจาน ลองเน้นผัก ผลไม้ และนมเพิ่มอีกหน่อยนะ 😌');
+
+      const P = getParticlesAPI();
+      if (P && el) {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        if (P.burstAt) {
+          P.burstAt(cx, cy, {
+            color: '#f97316',
+            count: 14
+          });
+        }
+        if (P.scorePop) {
+          P.scorePop(cx, cy, 'MISS', {
+            judgment: 'MISS',
+            good: false
+          });
+        }
+      }
+
+      // แจ้ง HUD miss แบบกลางให้ด้วย (ถ้า HTML ฟัง event นี้อยู่)
+      window.dispatchEvent(new CustomEvent('hha:miss', { detail: {} }));
     }
 
     emitStat();
     emitQuestUpdate();
     maybeUpdateAdaptiveSize();
 
-    // ลบเป้า
-    removeTarget(id);
+    removeTarget(id, /*byTimeout*/false);
   }
 
-  // ---------- ผูกกับตัวจับเวลา hha:time ----------
+  // ---------- ฟัง hha:time ----------
 
   function onTimeTick(e) {
     if (!e || !e.detail) return;
@@ -457,10 +543,9 @@ export function boot(opts = {}) {
 
   window.addEventListener('hha:time', onTimeTick);
 
-  // ---------- Boot ตอนเริ่มเกม ----------
+  // ---------- Init ----------
 
   (function init() {
-    // เริ่มด้วยสถานะเริ่มต้น
     score = 0;
     combo = 0;
     comboMax = 0;
@@ -476,21 +561,30 @@ export function boot(opts = {}) {
     emitStat();
     emitQuestUpdate();
 
-    // ข้อความโค้ชเปิดเกม
     if (runMode === 'research') {
       emitCoach('โหมดวิจัย: ขนาดเป้าคงที่ตามระดับความยาก เพื่อให้เงื่อนไขการทดลองเหมือนกันทุกคน 🎓');
     } else {
-      emitCoach('โหมดเล่นธรรมดา: เริ่มจากระดับ ' + diffKey.toUpperCase() +
-        ' ถ้าเล่นเก่งเป้าจะค่อย ๆ เล็กลงให้ท้าทายขึ้น ✨');
+      emitCoach('โหมดเล่นธรรมดา: เริ่มจากระดับ ' +
+        diffKey.toUpperCase() +
+        ' ถ้าเล่นเก่ง เป้าจะค่อย ๆ เล็กลงให้ท้าทายขึ้น ✨');
     }
 
     // เริ่ม spawn เป้า
     spawnTimer = setInterval(spawnTarget, cfg.spawnMs);
 
-    // กันกรณีแท็บหาย / unload แล้วไม่เคลียร์
+    // loop อัปเดตตำแหน่งเป้าให้หมุนตามกล้อง
+    startDomUpdateLoop();
+
     window.addEventListener('beforeunload', () => {
       endGame('unload');
       window.removeEventListener('hha:time', onTimeTick);
     });
+
+    // เผื่อกล้อง reload / เปลี่ยน object
+    setTimeout(() => {
+      if (cameraEl) {
+        cameraObj = cameraEl.getObject3D('camera') || cameraEl.object3D;
+      }
+    }, 500);
   })();
 }
