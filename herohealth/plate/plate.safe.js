@@ -1,5 +1,6 @@
 // === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — Safe Game Engine (Goal 2 + Mini 3 per game)
+// พร้อมระบบหมุนเป้าตามมุมกล้อง (เหมือน GoodJunk-style)
 // 2025-12-14
 
 'use strict';
@@ -85,7 +86,7 @@ function computeGrade(score, plates, misses, goalsCleared, goalsTotal, minisClea
   return 'C';
 }
 
-// ---------- Logger (สำหรับ Google Sheet ผ่าน hha-cloud-logger) ----------
+// ---------- Logger (ให้ hha-cloud-logger จับไปเขียน Google Sheet) ----------
 function logEvent(kind, payload) {
   dispatch('hha:event', Object.assign({
     game: 'BalancedPlateVR',
@@ -206,6 +207,11 @@ function createEngine(opts) {
   let spawnTimerId = null;
   let timeListener = null;
 
+  // สำหรับซิงค์กับมุมกล้อง
+  let camEl = null;
+  let lastYaw = 0;
+  let yawRafId = null;
+
   // particles.js (optional)
   function getParticlesAPI() {
     const gm = window.GAME_MODULES || {};
@@ -215,6 +221,76 @@ function createEngine(opts) {
   function coach(text) {
     if (!text) return;
     dispatch('hha:coach', { text });
+  }
+
+  // ---------- Camera / Yaw sync เพื่อหมุนเป้าตาม ----------
+  function rotateTargetsByYaw(dyaw) {
+    if (!dyaw) return;
+    const targets = document.querySelectorAll('.hha-target');
+    if (!targets.length) return;
+
+    const w = window.innerWidth || 800;
+    const h = window.innerHeight || 600;
+    const cx = w / 2;
+    const cy = h / 2;
+
+    targets.forEach(el => {
+      const r = parseFloat(el.dataset.radius || '0');
+      if (!r) return;
+      let ang = parseFloat(el.dataset.angle || '0');
+      ang += dyaw;                 // ใช้ rad ต่อ rad ไปเลย
+      el.dataset.angle = String(ang);
+
+      const x = cx + r * Math.cos(ang);
+      const y = cy + r * Math.sin(ang);
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+    });
+  }
+
+  function startYawLoop() {
+    if (yawRafId) return;
+
+    // หา camera entity ของ A-Frame
+    camEl = document.querySelector('a-entity[camera]') ||
+            document.querySelector('a-camera');
+
+    if (!camEl || !camEl.object3D) {
+      // ถ้ายังไม่เจอ ลองใหม่อีกนิดหน่อย
+      yawRafId = window.requestAnimationFrame(() => {
+        yawRafId = null;
+        startYawLoop();
+      });
+      return;
+    }
+
+    lastYaw = camEl.object3D.rotation.y || 0;
+
+    function tickYaw() {
+      if (!state.running || state.ended) {
+        yawRafId = null;
+        return;
+      }
+      if (camEl && camEl.object3D) {
+        const rot = camEl.object3D.rotation;
+        const y = rot.y || 0;
+        const dy = y - lastYaw;
+        if (Math.abs(dy) > 0.0001) {
+          rotateTargetsByYaw(dy);
+          lastYaw = y;
+        }
+      }
+      yawRafId = window.requestAnimationFrame(tickYaw);
+    }
+
+    yawRafId = window.requestAnimationFrame(tickYaw);
+  }
+
+  function stopYawLoop() {
+    if (yawRafId) {
+      window.cancelAnimationFrame(yawRafId);
+      yawRafId = null;
+    }
   }
 
   // ---------- Target DOM ----------
@@ -263,9 +339,24 @@ function createEngine(opts) {
       meta = { good: false, groupIndex: -1 };
     }
 
-    // ตำแหน่ง random (เลี่ยงมุมบน HUD & ล่างเกินไป)
-    const x = w * (0.15 + Math.random() * 0.70);        // 15%–85%
-    const y = h * (0.23 + Math.random() * 0.55);        // 23%–78%
+    // === ตำแหน่งแบบวงรอบจุดกลางจอ (ให้หมุนตาม yaw ได้) ===
+    const cx = w / 2;
+    const cy = h / 2;
+    const baseR = Math.min(w, h) * 0.34;
+    const r = baseR * (0.7 + Math.random() * 0.45);  // กระจายเล็กน้อย
+
+    // angle เริ่มต้นสุ่มทั่ววง + ออฟเซ็ตด้วย yaw ปัจจุบัน (ถ้ามี)
+    let yawNow = 0;
+    if (camEl && camEl.object3D) {
+      yawNow = camEl.object3D.rotation.y || 0;
+    }
+    let ang = Math.random() * Math.PI * 2 + yawNow;
+
+    el.dataset.radius = String(r);
+    el.dataset.angle  = String(ang);
+
+    const x = cx + r * Math.cos(ang);
+    const y = cy + r * Math.sin(ang);
 
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
@@ -280,11 +371,11 @@ function createEngine(opts) {
       el.dataset.hit = '1';
 
       const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
+      const cx2 = rect.left + rect.width / 2;
+      const cy2 = rect.top + rect.height / 2;
 
       removeTarget(el);
-      handleHit(meta, cx, cy, userTriggered);
+      handleHit(meta, cx2, cy2, userTriggered);
     }
 
     el.addEventListener('click', () => {
@@ -300,10 +391,10 @@ function createEngine(opts) {
       if (meta.good) {
         // พลาดของดี
         const rect = el.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
+        const cx2 = rect.left + rect.width / 2;
+        const cy2 = rect.top + rect.height / 2;
         removeTarget(el);
-        handleMissAuto(meta, cx, cy);
+        handleMissAuto(meta, cx2, cy2);
       } else {
         removeTarget(el);
       }
@@ -560,6 +651,7 @@ function createEngine(opts) {
       window.removeEventListener('hha:time', timeListener);
       timeListener = null;
     }
+    stopYawLoop();
     clearAllTargets();
 
     const goalsAll = state.goals.map(shallowQuestView);
@@ -626,14 +718,14 @@ function createEngine(opts) {
       duration: state.duration
     });
 
-    // coach เปิดเกม
     coach('จัดจานให้ครบ 2 Goal และทำ Mini Quest ให้ครบ 3 ภารกิจ แล้วมาดูสรุปผลงานกันนะ! 🎯');
 
-    // initial stat + quest (prog = 0, ไม่เคลียร์อะไรเองแน่นอน)
+    // initial stat + quest
     emitStat();
     updateQuests();
 
     attachTimeListener();
+    startYawLoop();  // เริ่ม loop หมุนเป้าตาม yaw กล้อง
 
     spawnTimerId = setInterval(spawnTarget, diffCfg.spawnIntervalMs);
   }
