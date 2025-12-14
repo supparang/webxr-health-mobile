@@ -41,10 +41,10 @@ const MINIS_EASY = [
   },
   {
     id: 'mini-easy-green-ratio-40',
-    label: 'ให้เวลาอยู่ในโซน GREEN ไม่น้อยกว่า 40% ของเวลาที่เล่นทั้งหมด 💚',
+    label: 'ให้เวลาอยู่ในโซน GREEN ≥ 40% ของเวลาที่เล่นทั้งหมด 💚',
     target: 1,
-    check: s => s.greenRatio >= 0.4 && s.timeSec >= 15,
-    prog: s => (s.greenRatio >= 0.4 && s.timeSec >= 15 ? 1 : 0)
+    check: s => s.timeSec >= 20 && s.greenRatio >= 0.4,
+    prog: s => (s.timeSec >= 20 && s.greenRatio >= 0.4 ? 1 : 0)
   },
   {
     id: 'mini-easy-nomiss-15s',
@@ -64,8 +64,10 @@ const MINIS_EASY = [
     id: 'mini-easy-miss-max-2',
     label: 'พลาดได้ไม่เกิน 2 ครั้ง ตลอดเกม 🚫',
     target: 2,
-    check: s => s.junkMiss <= 2,
-    prog: s => clampProg(Math.max(0, 2 - s.junkMiss), 2)
+    check: s => s.timeSec >= 40 && s.junkMiss <= 2,
+    prog: s => (s.timeSec < 40
+      ? clampProg(s.timeSec, 40)
+      : clampProg(Math.max(0, 2 - s.junkMiss), 2))
   },
   {
     id: 'mini-easy-green-end',
@@ -115,10 +117,10 @@ const MINIS_NORMAL = [
   },
   {
     id: 'mini-normal-green-ratio-55',
-    label: 'ให้เวลาอยู่ในโซน GREEN ไม่น้อยกว่า 55% ของเวลาที่เล่นทั้งหมด 💚',
+    label: 'ให้เวลาอยู่ในโซน GREEN ≥ 55% ของเวลาที่เล่นทั้งหมด 💚',
     target: 1,
-    check: s => s.greenRatio >= 0.55 && s.timeSec >= 25,
-    prog: s => (s.greenRatio >= 0.55 && s.timeSec >= 25 ? 1 : 0)
+    check: s => s.timeSec >= 30 && s.greenRatio >= 0.55,
+    prog: s => (s.timeSec >= 30 && s.greenRatio >= 0.55 ? 1 : 0)
   },
   {
     id: 'mini-normal-nomiss-25s',
@@ -138,8 +140,10 @@ const MINIS_NORMAL = [
     id: 'mini-normal-miss-max-1',
     label: 'พลาดได้ไม่เกิน 1 ครั้ง ตลอดเกม 🚫',
     target: 1,
-    check: s => s.junkMiss <= 1,
-    prog: s => clampProg(Math.max(0, 1 - s.junkMiss), 1)
+    check: s => s.timeSec >= 50 && s.junkMiss <= 1,
+    prog: s => (s.timeSec < 50
+      ? clampProg(s.timeSec, 50)
+      : clampProg(Math.max(0, 1 - s.junkMiss), 1))
   },
   {
     id: 'mini-normal-green-end-safe',
@@ -189,10 +193,10 @@ const MINIS_HARD = [
   },
   {
     id: 'mini-hard-green-ratio-70',
-    label: 'ให้เวลาอยู่ในโซน GREEN ไม่น้อยกว่า 70% ของเวลาที่เล่นทั้งหมด 💚',
+    label: 'ให้เวลาอยู่ในโซน GREEN ≥ 70% ของเวลาที่เล่นทั้งหมด 💚',
     target: 1,
-    check: s => s.greenRatio >= 0.7 && s.timeSec >= 35,
-    prog: s => (s.greenRatio >= 0.7 && s.timeSec >= 35 ? 1 : 0)
+    check: s => s.timeSec >= 40 && s.greenRatio >= 0.7,
+    prog: s => (s.timeSec >= 40 && s.greenRatio >= 0.7 ? 1 : 0)
   },
   {
     id: 'mini-hard-nomiss-30s',
@@ -212,15 +216,15 @@ const MINIS_HARD = [
     id: 'mini-hard-miss-max-0',
     label: 'ห้ามพลาดเลยตลอดเกม (MISS = 0) 🚫',
     target: 1,
-    check: s => s.junkMiss === 0 && s.timeSec >= 40,
-    prog: s => (s.junkMiss === 0 && s.timeSec >= 40 ? 1 : 0)
+    check: s => s.timeSec >= 50 && s.junkMiss === 0,
+    prog: s => (s.timeSec >= 50 && s.junkMiss === 0 ? 1 : 0)
   },
   {
     id: 'mini-hard-green-end-perfect',
     label: 'จบเกมโซน GREEN และไม่พลาดเลย 💚',
     target: 1,
-    check: s => s.timeSec >= 40 && s.zone === 'GREEN' && s.junkMiss === 0,
-    prog: s => (s.timeSec >= 40 && s.zone === 'GREEN' && s.junkMiss === 0 ? 1 : 0)
+    check: s => s.timeSec >= 50 && s.zone === 'GREEN' && s.junkMiss === 0,
+    prog: s => (s.timeSec >= 50 && s.zone === 'GREEN' && s.junkMiss === 0 ? 1 : 0)
   },
   {
     id: 'mini-hard-play-75s',
