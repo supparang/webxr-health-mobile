@@ -305,7 +305,7 @@
 
     .coach-bubble.show{
       display:flex;
-      animation:coach-bubble-pop 0.45s.ease-out;
+      animation:coach-bubble-pop 0.45s ease-out;
     }
 
     .coach-bubble::before,
@@ -381,7 +381,7 @@
     .coach-emoji.coach-fever{
       background-image:url('./img/coach-fever.png');
       box-shadow:0 0 24px rgba(248,113,113,0.95);
-      animation:coach-fever-pulse 0.55s.ease-in-out infinite;
+      animation:coach-fever-pulse 0.55s ease-in-out infinite;
     }
 
     .coach-emoji.coach-celebrate{
@@ -390,20 +390,20 @@
 
     /* ===== Animations (coach) ===== */
     @keyframes coach-idle{
-      0%{   transform:translateY(0) scale(1);}
-      25%{  transform:translateY(-2px) scale(1.03);}
-      50%{  transform:translateY(1px) scale(0.99);}
-      75%{  transform:translateY(-1px) scale(1.02);}
-      100%{ transform:translateY(0) scale(1);}
+      0%{   transform:translateY(0) scale(1); }
+      25%{  transform:translateY(-2px) scale(1.03); }
+      50%{  transform:translateY(1px) scale(0.99); }
+      75%{  transform:translateY(-1px) scale(1.02); }
+      100%{ transform:translateY(0) scale(1); }
     }
 
     @keyframes coach-dance{
-      0%{   transform:translateY(0) rotate(0deg) scale(1);}
-      20%{  transform:translateY(-4px) rotate(-6deg) scale(1.06);}
-      40%{  transform:translateY(-2px) rotate(5deg) scale(1.03);}
-      60%{  transform:translateY(-6px) rotate(-4deg) scale(1.07);}
-      80%{  transform:translateY(-3px) rotate(4deg) scale(1.04);}
-      100%{ transform:translateY(0) rotate(0deg) scale(1);}
+      0%{   transform:translateY(0) rotate(0deg) scale(1); }
+      20%{  transform:translateY(-4px) rotate(-6deg) scale(1.06); }
+      40%{  transform:translateY(-2px) rotate(5deg) scale(1.03); }
+      60%{  transform:translateY(-6px) rotate(-4deg) scale(1.07); }
+      80%{  transform:translateY(-3px) rotate(4deg) scale(1.04); }
+      100%{ transform:translateY(0) rotate(0deg) scale(1); }
     }
 
     @keyframes coach-fever-pulse{
@@ -422,11 +422,11 @@
     }
 
     @keyframes coach-celebrate-bounce{
-      0%{   transform:translateY(0) scale(1) rotate(0);}
-      20%{  transform:translateY(-10px) scale(1.15) rotate(-8deg);}
-      40%{  transform:translateY(-6px) scale(1.08) rotate(6deg);}
-      60%{  transform:translateY(-12px) scale(1.18) rotate(-4deg);}
-      100%{ transform:translateY(0) scale(1) rotate(0);}
+      0%{   transform:translateY(0) scale(1) rotate(0); }
+      20%{  transform:translateY(-10px) scale(1.15) rotate(-8deg); }
+      40%{  transform:translateY(-6px) scale(1.08) rotate(6deg); }
+      60%{  transform:translateY(-12px) scale(1.18) rotate(-4deg); }
+      100%{ transform:translateY(0) scale(1) rotate(0); }
     }
 
     @keyframes coach-bubble-pop{
@@ -548,7 +548,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s ease, box-shadow .15s.ease, transform .1s ease;
+      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -647,10 +647,10 @@
       box-shadow:0 24px 60px rgba(15,23,42,0.95);
     }
     @keyframes big-celebrate-fade{
-      0%{ opacity:0; transform:scale(0.85);}
-      20%{ opacity:1; transform:scale(1);}
-      80%{ opacity:1; transform:scale(1);}
-      100%{ opacity:0; transform:scale(0.9);}
+      0%{ opacity:0; transform:scale(0.85); }
+      20%{ opacity:1; transform:scale(1); }
+      80%{ opacity:1; transform:scale(1); }
+      100%{ opacity:0; transform:scale(0.9); }
     }
 
     /* ===== เป้า DOM (emoji) ===== */
@@ -686,6 +686,75 @@
         0 0 10px rgba(248,113,113,0.9),
         0 0 20px rgba(248,113,113,0.7),
         0 0 28px rgba(248,113,113,0.55);
+    }
+
+    /* ===== Fever Gauge & Shield (มุมล่างซ้าย) ===== */
+    #hha-fever-root{
+      position:fixed;
+      left:10px;
+      bottom:10px;
+      z-index:450;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      pointer-events:none;
+      font-size:11px;
+      color:var(--text-soft);
+    }
+
+    #hha-fever-root .hha-fever-row{
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    #hha-fever-root .hha-fever-label{
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      color:var(--text-soft);
+    }
+
+    #hha-fever-root .hha-fever-bar{
+      width:130px;
+      height:6px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.92);
+      border:1px solid rgba(148,163,184,0.55);
+      overflow:hidden;
+    }
+
+    #hha-fever-root .hha-fever-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#f97316,#facc15);
+      box-shadow:0 0 8px rgba(251,191,36,0.8);
+      transition:width .18s ease-out, opacity .18s ease-out;
+    }
+
+    #hha-fever-root .hha-fever-fill.inactive{
+      opacity:.25;
+      box-shadow:none;
+    }
+
+    #hha-fever-root .hha-shield-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      padding:2px 8px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.96);
+      border:1px solid rgba(148,163,184,0.55);
+      font-size:10px;
+      font-variant-numeric:tabular-nums;
+    }
+
+    #hha-fever-root .hha-shield-label{
+      color:var(--text-soft);
+    }
+
+    #hha-fever-root .hha-shield-value{
+      font-weight:600;
     }
 
     @media (max-width:768px){
@@ -1361,17 +1430,14 @@
     }
 
     // ===== Block touch-drag บนเป้า ไม่ให้ไปหมุนกล้อง =====
-['touchstart','touchmove','touchend','pointerdown','pointermove','pointerup'].forEach(type => {
-  document.addEventListener(type, (ev) => {
-    const t = ev.target;
-    if (t && t.closest && t.closest('.hha-target')) {
-      // ถ้าแตะ / ลากบนเป้า: ให้เป็นแค่ tap/click เป้า
-      // ไม่ให้ event เด้งไปถึง touch-look ที่ผูกไว้กับ body
-      ev.stopPropagation();
-      // ไม่ใช้ preventDefault() เพื่อให้ click ยังทำงานตามปกติ
-    }
-  }, { capture: true });
-});
+    ['touchstart','touchmove','touchend','pointerdown','pointermove','pointerup'].forEach(type => {
+      document.addEventListener(type, (ev) => {
+        const t = ev.target;
+        if (t && t.closest && t.closest('.hha-target')) {
+          ev.stopPropagation();
+        }
+      }, { capture: true });
+    });
 
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
@@ -1423,7 +1489,7 @@
         console.warn('[PlateVR] cannot parse student profile:', err);
       }
 
-      // Cloud logger (ใช้ endpoint เดียวกับ GoodJunk แต่คนละ projectTag/mode)
+      // Cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
         projectTag: 'HeroHealth-PlateVR',
@@ -1500,7 +1566,7 @@
         }
       });
 
-      // ยิง event miss ภายนอกถ้า engine ใช้ hha:miss เพิ่ม
+      // miss เพิ่ม (ถ้า engine ยิง hha:miss)
       window.addEventListener('hha:miss', () => {
         hudMissCount += 1;
         elMiss.textContent = hudMissCount;
