@@ -1,307 +1,242 @@
 // === /herohealth/hydration-vr/hydration.minis.js ===
-// Mini quest สำหรับโหมด Hydration (ใช้ร่วมกับ hydration.quest.js)
-//
-// โครงสร้างเหมือน goals:
-// { id, label, target, check(s), prog(s) }
+// Mini quest สำหรับ Hydration Quest VR
+// ใช้ state จาก mapHydrationState เช่นเดียวกับ goals
 
-'use strict';
+function clampProg (value, target) {
+  const v = Number(value || 0);
+  const t = Number(target || 0);
+  if (!isFinite(v) || !isFinite(t) || t <= 0) return 0;
+  return Math.max(0, Math.min(v, t));
+}
 
-const MINIS = {
-  // -------------------------------------------------
-  // EASY : 10 mini quests
-  // -------------------------------------------------
-  easy: [
-    // M1: เก็บน้ำดี 10 แก้ว
-    {
-      id: 'easy-m1-good-10',
-      label: 'Mini: เก็บน้ำดีให้ได้อย่างน้อย 10 แก้ว 💧',
-      target: 10,
-      check: s => s.timeSec > 0 && (s.goodCount || 0) >= 10,
-      prog:  s => Math.min(s.goodCount || 0, 10)
-    },
+// ---------- EASY (10 minis) ----------
+const MINIS_EASY = [
+  {
+    id: 'mini-easy-good-10',
+    label: 'เก็บน้ำดีให้ได้อย่างน้อย 10 แก้ว 💧',
+    target: 10,
+    check: s => s.goodCount >= 10,
+    prog: s => clampProg(s.goodCount, 10)
+  },
+  {
+    id: 'mini-easy-good-18',
+    label: 'เก็บน้ำดีให้ได้อย่างน้อย 18 แก้ว 💧',
+    target: 18,
+    check: s => s.goodCount >= 18,
+    prog: s => clampProg(s.goodCount, 18)
+  },
+  {
+    id: 'mini-easy-combo-10',
+    label: 'ทำคอมโบต่อเนื่อง 10 ครั้ง 🔗',
+    target: 10,
+    check: s => s.comboMax >= 10,
+    prog: s => clampProg(s.comboMax, 10)
+  },
+  {
+    id: 'mini-easy-green-time-20',
+    label: 'อยู่ในโซน GREEN รวม 20 วินาที 💚',
+    target: 20,
+    check: s => s.greenTick >= 20,
+    prog: s => clampProg(s.greenTick, 20)
+  },
+  {
+    id: 'mini-easy-green-ratio-40',
+    label: 'ให้เวลาอยู่ในโซน GREEN ไม่น้อยกว่า 40% ของเวลาที่เล่นทั้งหมด 💚',
+    target: 1,
+    check: s => s.greenRatio >= 0.4 && s.timeSec >= 15,
+    prog: s => (s.greenRatio >= 0.4 && s.timeSec >= 15 ? 1 : 0)
+  },
+  {
+    id: 'mini-easy-nomiss-15s',
+    label: 'เล่น 15 วินาทีแรกโดยไม่พลาดเลย 🚫',
+    target: 1,
+    check: s => s.timeSec >= 15 && s.junkMiss === 0,
+    prog: s => (s.timeSec >= 15 && s.junkMiss === 0 ? 1 : 0)
+  },
+  {
+    id: 'mini-easy-score-2000',
+    label: 'ทำคะแนนให้ถึง 2,000 คะแนน ⭐',
+    target: 2000,
+    check: s => s.score >= 2000,
+    prog: s => clampProg(s.score, 2000)
+  },
+  {
+    id: 'mini-easy-miss-max-2',
+    label: 'พลาดได้ไม่เกิน 2 ครั้ง ตลอดเกม 🚫',
+    target: 2,
+    check: s => s.junkMiss <= 2,
+    prog: s => clampProg(Math.max(0, 2 - s.junkMiss), 2)
+  },
+  {
+    id: 'mini-easy-green-end',
+    label: 'จบเกมในโซน GREEN 💚',
+    target: 1,
+    check: s => s.timeSec >= 30 && s.zone === 'GREEN',
+    prog: s => (s.timeSec >= 30 && s.zone === 'GREEN' ? 1 : 0)
+  },
+  {
+    id: 'mini-easy-play-45s',
+    label: 'เล่นจนครบอย่างน้อย 45 วินาที ⏱️',
+    target: 1,
+    check: s => s.timeSec >= 45,
+    prog: s => (s.timeSec >= 45 ? 1 : 0)
+  }
+];
 
-    // M2: เก็บน้ำดี 18 แก้ว
-    {
-      id: 'easy-m2-good-18',
-      label: 'Mini: เก็บน้ำดีให้ได้อย่างน้อย 18 แก้ว 💧',
-      target: 18,
-      check: s => s.timeSec > 0 && (s.goodCount || 0) >= 18,
-      prog:  s => Math.min(s.goodCount || 0, 18)
-    },
+// ---------- NORMAL (10 minis) ----------
+const MINIS_NORMAL = [
+  {
+    id: 'mini-normal-good-20',
+    label: 'เก็บน้ำดีให้ได้อย่างน้อย 20 แก้ว 💧',
+    target: 20,
+    check: s => s.goodCount >= 20,
+    prog: s => clampProg(s.goodCount, 20)
+  },
+  {
+    id: 'mini-normal-good-30',
+    label: 'เก็บน้ำดีให้ได้อย่างน้อย 30 แก้ว 💧',
+    target: 30,
+    check: s => s.goodCount >= 30,
+    prog: s => clampProg(s.goodCount, 30)
+  },
+  {
+    id: 'mini-normal-combo-18',
+    label: 'ทำคอมโบต่อเนื่อง 18 ครั้ง 🔗',
+    target: 18,
+    check: s => s.comboMax >= 18,
+    prog: s => clampProg(s.comboMax, 18)
+  },
+  {
+    id: 'mini-normal-green-time-35',
+    label: 'อยู่ในโซน GREEN รวม 35 วินาที 💚',
+    target: 35,
+    check: s => s.greenTick >= 35,
+    prog: s => clampProg(s.greenTick, 35)
+  },
+  {
+    id: 'mini-normal-green-ratio-55',
+    label: 'ให้เวลาอยู่ในโซน GREEN ไม่น้อยกว่า 55% ของเวลาที่เล่นทั้งหมด 💚',
+    target: 1,
+    check: s => s.greenRatio >= 0.55 && s.timeSec >= 25,
+    prog: s => (s.greenRatio >= 0.55 && s.timeSec >= 25 ? 1 : 0)
+  },
+  {
+    id: 'mini-normal-nomiss-25s',
+    label: 'เล่น 25 วินาทีแรกโดยไม่พลาดเลย 🚫',
+    target: 1,
+    check: s => s.timeSec >= 25 && s.junkMiss === 0,
+    prog: s => (s.timeSec >= 25 && s.junkMiss === 0 ? 1 : 0)
+  },
+  {
+    id: 'mini-normal-score-4000',
+    label: 'ทำคะแนนให้ถึง 4,000 คะแนน ⭐',
+    target: 4000,
+    check: s => s.score >= 4000,
+    prog: s => clampProg(s.score, 4000)
+  },
+  {
+    id: 'mini-normal-miss-max-1',
+    label: 'พลาดได้ไม่เกิน 1 ครั้ง ตลอดเกม 🚫',
+    target: 1,
+    check: s => s.junkMiss <= 1,
+    prog: s => clampProg(Math.max(0, 1 - s.junkMiss), 1)
+  },
+  {
+    id: 'mini-normal-green-end-safe',
+    label: 'จบเกมในโซน GREEN และพลาดไม่เกิน 1 ครั้ง 💚',
+    target: 1,
+    check: s => s.timeSec >= 40 && s.zone === 'GREEN' && s.junkMiss <= 1,
+    prog: s => (s.timeSec >= 40 && s.zone === 'GREEN' && s.junkMiss <= 1 ? 1 : 0)
+  },
+  {
+    id: 'mini-normal-play-60s',
+    label: 'เล่นจนครบอย่างน้อย 60 วินาที ⏱️',
+    target: 1,
+    check: s => s.timeSec >= 60,
+    prog: s => (s.timeSec >= 60 ? 1 : 0)
+  }
+];
 
-    // M3: คะแนนรวม 1,000 แต้ม
-    {
-      id: 'easy-m3-score-1000',
-      label: 'Mini: ทำคะแนนรวมให้ถึง 1,000 แต้ม ⭐',
-      target: 1000,
-      check: s => s.timeSec > 0 && (s.score || 0) >= 1000,
-      prog:  s => Math.min(s.score || 0, 1000)
-    },
+// ---------- HARD (10 minis) ----------
+const MINIS_HARD = [
+  {
+    id: 'mini-hard-good-35',
+    label: 'เก็บน้ำดีให้ได้อย่างน้อย 35 แก้ว 💧',
+    target: 35,
+    check: s => s.goodCount >= 35,
+    prog: s => clampProg(s.goodCount, 35)
+  },
+  {
+    id: 'mini-hard-good-45',
+    label: 'เก็บน้ำดีให้ได้อย่างน้อย 45 แก้ว 💧',
+    target: 45,
+    check: s => s.goodCount >= 45,
+    prog: s => clampProg(s.goodCount, 45)
+  },
+  {
+    id: 'mini-hard-combo-25',
+    label: 'ทำคอมโบต่อเนื่อง 25 ครั้ง 🔗',
+    target: 25,
+    check: s => s.comboMax >= 25,
+    prog: s => clampProg(s.comboMax, 25)
+  },
+  {
+    id: 'mini-hard-green-time-60',
+    label: 'อยู่ในโซน GREEN รวม 60 วินาที 💚',
+    target: 60,
+    check: s => s.greenTick >= 60,
+    prog: s => clampProg(s.greenTick, 60)
+  },
+  {
+    id: 'mini-hard-green-ratio-70',
+    label: 'ให้เวลาอยู่ในโซน GREEN ไม่น้อยกว่า 70% ของเวลาที่เล่นทั้งหมด 💚',
+    target: 1,
+    check: s => s.greenRatio >= 0.7 && s.timeSec >= 35,
+    prog: s => (s.greenRatio >= 0.7 && s.timeSec >= 35 ? 1 : 0)
+  },
+  {
+    id: 'mini-hard-nomiss-30s',
+    label: 'เล่น 30 วินาทีแรกโดยไม่พลาดเลย 🚫',
+    target: 1,
+    check: s => s.timeSec >= 30 && s.junkMiss === 0,
+    prog: s => (s.timeSec >= 30 && s.junkMiss === 0 ? 1 : 0)
+  },
+  {
+    id: 'mini-hard-score-7000',
+    label: 'ทำคะแนนให้ถึง 7,000 คะแนน ⭐',
+    target: 7000,
+    check: s => s.score >= 7000,
+    prog: s => clampProg(s.score, 7000)
+  },
+  {
+    id: 'mini-hard-miss-max-0',
+    label: 'ห้ามพลาดเลยตลอดเกม (MISS = 0) 🚫',
+    target: 1,
+    check: s => s.junkMiss === 0 && s.timeSec >= 40,
+    prog: s => (s.junkMiss === 0 && s.timeSec >= 40 ? 1 : 0)
+  },
+  {
+    id: 'mini-hard-green-end-perfect',
+    label: 'จบเกมโซน GREEN และไม่พลาดเลย 💚',
+    target: 1,
+    check: s => s.timeSec >= 40 && s.zone === 'GREEN' && s.junkMiss === 0,
+    prog: s => (s.timeSec >= 40 && s.zone === 'GREEN' && s.junkMiss === 0 ? 1 : 0)
+  },
+  {
+    id: 'mini-hard-play-75s',
+    label: 'เล่นจนครบอย่างน้อย 75 วินาที ⏱️',
+    target: 1,
+    check: s => s.timeSec >= 75,
+    prog: s => (s.timeSec >= 75 ? 1 : 0)
+  }
+];
 
-    // M4: คะแนนรวม 1,800 แต้ม
-    {
-      id: 'easy-m4-score-1800',
-      label: 'Mini: ทำคะแนนรวมให้ถึง 1,800 แต้ม ⭐⭐',
-      target: 1800,
-      check: s => s.timeSec > 0 && (s.score || 0) >= 1800,
-      prog:  s => Math.min(s.score || 0, 1800)
-    },
-
-    // M5: GREEN รวม 15 วินาที
-    {
-      id: 'easy-m5-green-15s',
-      label: 'Mini: รักษาโซน GREEN รวมอย่างน้อย 15 วินาที 💚',
-      target: 15,
-      check: s => s.timeSec >= 10 && (s.greenTick || 0) >= 15,
-      prog:  s => Math.min(s.greenTick || 0, 15)
-    },
-
-    // M6: GREEN ≥ 50% หลังเล่นไปอย่างน้อย 25s
-    {
-      id: 'easy-m6-green-50pct-short',
-      label: 'Mini: ให้เวลา GREEN ≥ 50% หลังเล่นไปอย่างน้อย 25 วินาที 💚',
-      target: 100,
-      check: s => s.timeSec >= 25 && (s.greenRatio || 0) >= 0.5,
-      prog:  s => Math.min(100, Math.round((s.greenRatio || 0) * 100))
-    },
-
-    // M7: คอมโบสูงสุดอย่างน้อย 12 ครั้ง
-    {
-      id: 'easy-m7-combo-12',
-      label: 'Mini: ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 12 ครั้ง 🔁',
-      target: 12,
-      check: s => s.timeSec > 0 && (s.comboMax || 0) >= 12,
-      prog:  s => Math.min(s.comboMax || 0, 12)
-    },
-
-    // M8: พลาดได้ไม่เกิน 1 ครั้งใน 30 วินาทีแรก
-    {
-      id: 'easy-m8-nomiss-30s-1',
-      label: 'Mini: ใน 30 วินาทีแรก พลาดได้ไม่เกิน 1 ครั้ง 🚫',
-      target: 30,
-      check: s => s.timeSec >= 30 && (s.junkMiss || 0) <= 1,
-      prog:  s => Math.min(s.timeSec || 0, 30)
-    },
-
-    // M9: เล่นครบ 40 วินาที
-    {
-      id: 'easy-m9-time-40',
-      label: 'Mini: เล่นต่อเนื่องให้ครบอย่างน้อย 40 วินาที ⏱️',
-      target: 40,
-      check: s => s.timeSec >= 40,
-      prog:  s => Math.min(s.timeSec || 0, 40)
-    },
-
-    // M10: จบเกมด้วยโซน GREEN
-    {
-      id: 'easy-m10-end-green',
-      label: 'Mini: จบเกมในโซน GREEN 💚',
-      target: 1,
-      check: s => s.timeSec >= 20 && s.zone === 'GREEN',
-      prog:  s => (s.zone === 'GREEN' ? 1 : 0)
-    }
-  ],
-
-  // -------------------------------------------------
-  // NORMAL : 10 mini quests
-  // -------------------------------------------------
-  normal: [
-    // N1: เก็บน้ำดี 18 แก้ว
-    {
-      id: 'normal-m1-good-18',
-      label: 'Mini: เก็บน้ำดีให้ได้อย่างน้อย 18 แก้ว 💧',
-      target: 18,
-      check: s => s.timeSec > 0 && (s.goodCount || 0) >= 18,
-      prog:  s => Math.min(s.goodCount || 0, 18)
-    },
-
-    // N2: เก็บน้ำดี 28 แก้ว
-    {
-      id: 'normal-m2-good-28',
-      label: 'Mini: เก็บน้ำดีให้ได้อย่างน้อย 28 แก้ว 💧',
-      target: 28,
-      check: s => s.timeSec > 0 && (s.goodCount || 0) >= 28,
-      prog:  s => Math.min(s.goodCount || 0, 28)
-    },
-
-    // N3: คะแนนรวม 2,500 แต้ม
-    {
-      id: 'normal-m3-score-2500',
-      label: 'Mini: ทำคะแนนรวมให้ถึง 2,500 แต้ม ⭐⭐',
-      target: 2500,
-      check: s => s.timeSec > 0 && (s.score || 0) >= 2500,
-      prog:  s => Math.min(s.score || 0, 2500)
-    },
-
-    // N4: คะแนนรวม 3,500 แต้ม
-    {
-      id: 'normal-m4-score-3500',
-      label: 'Mini: ทำคะแนนรวมให้ถึง 3,500 แต้ม ⭐⭐⭐',
-      target: 3500,
-      check: s => s.timeSec > 0 && (s.score || 0) >= 3500,
-      prog:  s => Math.min(s.score || 0, 3500)
-    },
-
-    // N5: GREEN รวม 25 วินาที
-    {
-      id: 'normal-m5-green-25s',
-      label: 'Mini: รักษาโซน GREEN รวมอย่างน้อย 25 วินาที 💚',
-      target: 25,
-      check: s => s.timeSec >= 15 && (s.greenTick || 0) >= 25,
-      prog:  s => Math.min(s.greenTick || 0, 25)
-    },
-
-    // N6: GREEN ≥ 55% หลังเล่นไปอย่างน้อย 35s
-    {
-      id: 'normal-m6-green-55pct-short',
-      label: 'Mini: ให้เวลา GREEN ≥ 55% หลังเล่นไปอย่างน้อย 35 วินาที 💚',
-      target: 100,
-      check: s => s.timeSec >= 35 && (s.greenRatio || 0) >= 0.55,
-      prog:  s => Math.min(100, Math.round((s.greenRatio || 0) * 100))
-    },
-
-    // N7: คอมโบสูงสุดอย่างน้อย 20 ครั้ง
-    {
-      id: 'normal-m7-combo-20',
-      label: 'Mini: ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 20 ครั้ง 🔁',
-      target: 20,
-      check: s => s.timeSec > 0 && (s.comboMax || 0) >= 20,
-      prog:  s => Math.min(s.comboMax || 0, 20)
-    },
-
-    // N8: พลาดได้ไม่เกิน 2 ครั้งใน 40 วินาทีแรก
-    {
-      id: 'normal-m8-nomiss-40s-2',
-      label: 'Mini: ใน 40 วินาทีแรก พลาดได้ไม่เกิน 2 ครั้ง 🚫',
-      target: 40,
-      check: s => s.timeSec >= 40 && (s.junkMiss || 0) <= 2,
-      prog:  s => Math.min(s.timeSec || 0, 40)
-    },
-
-    // N9: เล่นครบ 60 วินาที
-    {
-      id: 'normal-m9-time-60',
-      label: 'Mini: เล่นต่อเนื่องให้ครบอย่างน้อย 60 วินาที ⏱️',
-      target: 60,
-      check: s => s.timeSec >= 60,
-      prog:  s => Math.min(s.timeSec || 0, 60)
-    },
-
-    // N10: จบเกมด้วย GREEN + miss ≤ 2
-    {
-      id: 'normal-m10-end-green-miss-2',
-      label: 'Mini: จบเกมในโซน GREEN และพลาดไม่เกิน 2 ครั้ง 💚🚫',
-      target: 2,
-      check: s => s.timeSec >= 30 &&
-        s.zone === 'GREEN' &&
-        (s.junkMiss || 0) <= 2,
-      prog:  s => Math.min(s.junkMiss || 0, 2)
-    }
-  ],
-
-  // -------------------------------------------------
-  // HARD : 10 mini quests
-  // -------------------------------------------------
-  hard: [
-    // H1: เก็บน้ำดี 28 แก้ว
-    {
-      id: 'hard-m1-good-28',
-      label: 'Mini: เก็บน้ำดีให้ได้อย่างน้อย 28 แก้ว 💧',
-      target: 28,
-      check: s => s.timeSec > 0 && (s.goodCount || 0) >= 28,
-      prog:  s => Math.min(s.goodCount || 0, 28)
-    },
-
-    // H2: เก็บน้ำดี 38 แก้ว
-    {
-      id: 'hard-m2-good-38',
-      label: 'Mini: เก็บน้ำดีให้ได้อย่างน้อย 38 แก้ว 💧',
-      target: 38,
-      check: s => s.timeSec > 0 && (s.goodCount || 0) >= 38,
-      prog:  s => Math.min(s.goodCount || 0, 38)
-    },
-
-    // H3: คะแนนรวม 3,500 แต้ม
-    {
-      id: 'hard-m3-score-3500',
-      label: 'Mini: ทำคะแนนรวมให้ถึง 3,500 แต้ม ⭐⭐',
-      target: 3500,
-      check: s => s.timeSec > 0 && (s.score || 0) >= 3500,
-      prog:  s => Math.min(s.score || 0, 3500)
-    },
-
-    // H4: คะแนนรวม 4,500 แต้ม
-    {
-      id: 'hard-m4-score-4500',
-      label: 'Mini: ทำคะแนนรวมให้ถึง 4,500 แต้ม ⭐⭐⭐',
-      target: 4500,
-      check: s => s.timeSec > 0 && (s.score || 0) >= 4500,
-      prog:  s => Math.min(s.score || 0, 4500)
-    },
-
-    // H5: GREEN รวม 35 วินาที
-    {
-      id: 'hard-m5-green-35s',
-      label: 'Mini: รักษาโซน GREEN รวมอย่างน้อย 35 วินาที 💚',
-      target: 35,
-      check: s => s.timeSec >= 20 && (s.greenTick || 0) >= 35,
-      prog:  s => Math.min(s.greenTick || 0, 35)
-    },
-
-    // H6: GREEN ≥ 65% หลังเล่นไปอย่างน้อย 45s
-    {
-      id: 'hard-m6-green-65pct-short',
-      label: 'Mini: ให้เวลา GREEN ≥ 65% หลังเล่นไปอย่างน้อย 45 วินาที 💚',
-      target: 100,
-      check: s => s.timeSec >= 45 && (s.greenRatio || 0) >= 0.65,
-      prog:  s => Math.min(100, Math.round((s.greenRatio || 0) * 100))
-    },
-
-    // H7: คอมโบสูงสุดอย่างน้อย 28 ครั้ง
-    {
-      id: 'hard-m7-combo-28',
-      label: 'Mini: ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 28 ครั้ง 🔁',
-      target: 28,
-      check: s => s.timeSec > 0 && (s.comboMax || 0) >= 28,
-      prog:  s => Math.min(s.comboMax || 0, 28)
-    },
-
-    // H8: พลาดได้ไม่เกิน 1 ครั้งใน 50 วินาทีแรก
-    {
-      id: 'hard-m8-nomiss-50s-1',
-      label: 'Mini: ใน 50 วินาทีแรก พลาดได้ไม่เกิน 1 ครั้ง 🚫',
-      target: 50,
-      check: s => s.timeSec >= 50 && (s.junkMiss || 0) <= 1,
-      prog:  s => Math.min(s.timeSec || 0, 50)
-    },
-
-    // H9: เล่นครบ 70 วินาที
-    {
-      id: 'hard-m9-time-70',
-      label: 'Mini: เล่นต่อเนื่องให้ครบอย่างน้อย 70 วินาที ⏱️',
-      target: 70,
-      check: s => s.timeSec >= 70,
-      prog:  s => Math.min(s.timeSec || 0, 70)
-    },
-
-    // H10: จบเกมด้วย GREEN + miss ≤ 1
-    {
-      id: 'hard-m10-end-green-miss-1',
-      label: 'Mini: จบเกมในโซน GREEN และพลาดไม่เกิน 1 ครั้ง 💚🚫',
-      target: 1,
-      check: s => s.timeSec >= 40 &&
-        s.zone === 'GREEN' &&
-        (s.junkMiss || 0) <= 1,
-      prog:  s => (s.zone === 'GREEN' && (s.junkMiss || 0) <= 1) ? 1 : 0
-    }
-  ]
-};
-
-// ---------- API ที่ hydration.quest.js เรียก ----------
+// ---------- API ----------
 export function hydrationMinisFor (diff = 'normal') {
-  const key = String(diff || 'normal').toLowerCase();
-  const list = MINIS[key] || MINIS.normal;
-  return list.map(q => ({ ...q }));
+  const d = String(diff || 'normal').toLowerCase();
+  if (d === 'easy') return MINIS_EASY.slice();
+  if (d === 'hard') return MINIS_HARD.slice();
+  return MINIS_NORMAL.slice();
 }
 
 export default { hydrationMinisFor };
