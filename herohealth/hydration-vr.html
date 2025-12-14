@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html> 
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -9,43 +9,6 @@
 
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script>
-  // ให้เป้า Hydration หมุนรอบตัวเอง (แกน Z)
-  (function () {
-    const A = window.AFRAME;
-    if (!A) return;
-
-    A.registerComponent('hha-spin-target', {
-      schema: { speed: { default: 80 } }, // องศาต่อวินาที
-      tick: function (time, delta) {
-        const d = (delta / 1000) * this.data.speed;
-        const r = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
-        this.el.setAttribute('rotation', {
-          x: r.x,
-          y: r.y,
-          z: (r.z || 0) + d     // หมุนแกน Z มองเห็นชัด
-        });
-      }
-    });
-
-    function attachSpinToTargets () {
-      document.querySelectorAll('[data-hha-tgt]').forEach(el => {
-        if (!el.hasAttribute('hha-spin-target')) {
-          el.setAttribute('hha-spin-target', 'speed: 120');
-        }
-      });
-    }
-
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      attachSpinToTargets();
-    } else {
-      document.addEventListener('DOMContentLoaded', attachSpinToTargets);
-    }
-
-    const mo = new MutationObserver(attachSpinToTargets);
-    mo.observe(document.body, { childList: true, subtree: true });
-  })();
-</script>
 
   <style>
     :root{
@@ -74,7 +37,7 @@
       color:#fbbf24;
       text-shadow:0 0 40px rgba(0,0,0,0.85);
       pointer-events:none;
-      transition:opacity .25s ease-out, transform .25s ease-out;
+      transition:opacity .25s ease-out, transform .25s.ease-out;
     }
     .countdown-hidden{
       opacity:0;
@@ -324,7 +287,7 @@
       opacity:0;
       pointer-events:none;
       mix-blend-mode:screen;
-      animation:coach-sparkle 2.6s ease-in-out infinite;
+      animation:coach-sparkle 2.6s.ease-in-out infinite;
     }
     .coach-bubble::after{
       animation-delay:1.3s;
@@ -354,7 +317,7 @@
       flex-shrink:0;
       box-shadow:0 0 14px rgba(16,185,129,0.85);
       position:relative;
-      animation:coach-idle 1.3s ease-in-out infinite;
+      animation:coach-idle 1.3s.ease-in-out infinite;
     }
 
     .coach-emoji::before{
@@ -376,7 +339,7 @@
     .coach-emoji.coach-happy{
       background-image:url('./img/coach-happy.png');
       box-shadow:0 0 20px rgba(34,197,94,0.95);
-      animation:coach-dance 0.8s ease-in-out infinite;
+      animation:coach-dance 0.8s.ease-in-out infinite;
     }
     .coach-emoji.coach-sad{
       background-image:url('./img/coach-sad.png');
@@ -386,11 +349,11 @@
     .coach-emoji.coach-fever{
       background-image:url('./img/coach-fever.png');
       box-shadow:0 0 24px rgba(248,113,113,0.95);
-      animation:coach-fever-pulse 0.55s ease-in-out infinite;
+      animation:coach-fever-pulse 0.55s.ease-in-out infinite;
     }
 
     .coach-emoji.coach-celebrate{
-      animation:coach-celebrate-bounce 0.75s ease-out;
+      animation:coach-celebrate-bounce 0.75s.ease-out;
     }
 
     /* ===== Animations (coach) ===== */
@@ -553,7 +516,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      transition:background .15s.ease, box-shadow .15s ease, transform .1s ease;
+      transition:background .15s ease, box-shadow .15s ease, transform .1s ease;
     }
     .end-btn:hover{
       background:rgba(15,23,42,0.98);
@@ -1270,17 +1233,14 @@
     }
 
     // ===== Block touch-drag บนเป้า ไม่ให้ไปหมุนกล้อง =====
-['touchstart','touchmove','touchend','pointerdown','pointermove','pointerup'].forEach(type => {
-  document.addEventListener(type, (ev) => {
-    const t = ev.target;
-    if (t && t.closest && t.closest('.hha-target')) {
-      // ถ้าแตะ / ลากบนเป้า: ให้เป็นแค่ tap/click เป้า
-      // ไม่ให้ event เด้งไปถึง touch-look ที่ผูกไว้กับ body
-      ev.stopPropagation();
-      // ไม่ใช้ preventDefault() เพื่อให้ click ยังทำงานตามปกติ
-    }
-  }, { capture: true });
-});
+    ['touchstart','touchmove','touchend','pointerdown','pointermove','pointerup'].forEach(type => {
+      document.addEventListener(type, (ev) => {
+        const t = ev.target;
+        if (t && t.closest && t.closest('.hha-target')) {
+          ev.stopPropagation();
+        }
+      }, { capture: true });
+    });
 
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
@@ -1341,7 +1301,7 @@
         console.warn('[HydrationVR] cannot parse student profile:', err);
       }
 
-      // cloud logger (ใช้ endpoint เดียวกับชุด HeroHealth ถ้ามี)
+      // cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
         projectTag: 'HeroHealth-HydrationVR',
@@ -1351,7 +1311,7 @@
         durationSec: dur,
         studentKey: studentKey,
         profile: studentProfile,
-        debug: false  // production
+        debug: false
       });
 
       const cam = document.querySelector('#h2o-camera');
@@ -1415,68 +1375,100 @@
       });
     });
   </script>
+
+  <!-- === Auto spin targets in Hydration VR (แบบ GoodJunk — หมุนหน้า emoji) === -->
   <script>
-  // === Auto spin targets in Hydration VR (แบบ GoodJunk) ===
-  (function () {
-    if (!window.AFRAME) return;
+    (function () {
+      if (!window.AFRAME) return;
 
-    // component หมุนเป้า
-    AFRAME.registerComponent('hha-spin-target', {
-      schema: {
-        speed: { type: 'number', default: 40 }  // องศาต่อวินาที ปรับได้
-      },
-      tick: function (time, dt) {
-        if (!dt) return;
-        const el = this.el;
-        const rot = el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
-        const delta = (this.data.speed * dt) / 1000; // deg
+      AFRAME.registerComponent('hha-spin-target', {
+        schema: {
+          speed: { type: 'number', default: 40 } // deg/sec
+        },
+        init: function () {
+          this.angle = 0;
+          this.visual = null;
+          this.baseRot = { x: 0, y: 0, z: 0 };
 
-        let y = (rot.y || 0) + delta;
-        if (y > 360) y -= 360;
-        el.setAttribute('rotation', { x: rot.x || 0, y, z: rot.z || 0 });
-      }
-    });
+          const self = this;
+          function pickVisual () {
+            let v =
+              self.el.querySelector('[hha-face]') ||
+              self.el.querySelector('.hha-face') ||
+              self.el.querySelector('a-image') ||
+              self.el.querySelector('a-circle') ||
+              self.el.querySelector('a-plane');
 
-    function attachSpinToTargets(root) {
-      if (!root || !root.querySelectorAll) return;
-      const nodes = root.querySelectorAll('[data-hha-tgt]');
-      nodes.forEach(function (el) {
-        if (!el.hasAttribute('hha-spin-target')) {
-          // ใช้ความเร็วเดียวกันทุกเป้า (เหมือน GoodJunk)
-          el.setAttribute('hha-spin-target', 'speed: 40');
+            // ถ้าไม่เจออะไรเลย ให้หมุนทั้งเป้า
+            if (!v) v = self.el;
+
+            self.visual = v;
+            const r = v.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+            self.baseRot = {
+              x: r.x || 0,
+              y: r.y || 0,
+              z: r.z || 0
+            };
+          }
+
+          if (this.el.hasLoaded) {
+            pickVisual();
+          } else {
+            this.el.addEventListener('loaded', pickVisual);
+          }
+        },
+        tick: function (time, dt) {
+          if (!this.visual || !dt) return;
+
+          this.angle += (this.data.speed * dt) / 1000;
+          if (this.angle > 360) this.angle -= 360;
+
+          this.visual.setAttribute('rotation', {
+            x: this.baseRot.x,
+            y: this.baseRot.y,          // ปล่อยให้ระบบอื่นจัดการทิศทาง
+            z: this.baseRot.z + this.angle
+          });
         }
       });
-    }
 
-    document.addEventListener('DOMContentLoaded', function () {
-      const scene = document.querySelector('a-scene');
-      if (!scene) return;
+      function attachSpinToTargets(root) {
+        if (!root || !root.querySelectorAll) return;
+        const nodes = root.querySelectorAll('[data-hha-tgt]');
+        nodes.forEach(function (el) {
+          if (!el.hasAttribute('hha-spin-target')) {
+            el.setAttribute('hha-spin-target', 'speed: 40');
+          }
+        });
+      }
 
-      // ติดให้เป้าที่สร้างอยู่แล้ว (เผื่อมี)
-      attachSpinToTargets(scene);
+      document.addEventListener('DOMContentLoaded', function () {
+        const scene = document.querySelector('a-scene') || document;
 
-      // ดูว่ามีเป้าใหม่โผล่มาไหม แล้วติด spin ให้ด้วย
-      const obs = new MutationObserver(function (mutations) {
-        mutations.forEach(function (m) {
-          m.addedNodes.forEach(function (node) {
-            if (node.nodeType !== 1) return;
+        // ติดให้เป้าที่มีอยู่แล้ว
+        attachSpinToTargets(scene);
 
-            if (node.matches && node.matches('[data-hha-tgt]')) {
-              if (!node.hasAttribute('hha-spin-target')) {
-                node.setAttribute('hha-spin-target', 'speed: 40');
+        // เฝ้าดูเป้าใหม่ที่ spawn จากเกม
+        const obs = new MutationObserver(function (mutations) {
+          mutations.forEach(function (m) {
+            m.addedNodes.forEach(function (node) {
+              if (node.nodeType !== 1) return;
+
+              if (node.matches && node.matches('[data-hha-tgt]')) {
+                if (!node.hasAttribute('hha-spin-target')) {
+                  node.setAttribute('hha-spin-target', 'speed: 40');
+                }
               }
-            }
 
-            if (node.querySelectorAll) {
-              attachSpinToTargets(node);
-            }
+              if (node.querySelectorAll) {
+                attachSpinToTargets(node);
+              }
+            });
           });
         });
-      });
 
-      obs.observe(scene, { childList: true, subtree: true });
-    });
-  })();
-</script>
+        obs.observe(scene, { childList: true, subtree: true });
+      });
+    })();
+  </script>
 </body>
 </html>
