@@ -3,11 +3,11 @@
 //
 // คุณสมบัติ:
 // - แยก goal / mini ตาม diff: easy / normal / hard (จาก hydration.goals/minis)
-// - เล่นทีละ 1 goal ต่อครั้ง แต่ทั้งเกมมี 2 goal
-// - เล่น mini quest ทีละ 1 แต่ทั้งเกมมี 3 mini (hydration.safe.js เป็นคนกำหนดจำนวน)
+// - ทั้งเกมมี 2 goals และ 3 mini quests (จำนวนจริงต่อเกมไปกำหนดที่ safe.js)
 // - ภารกิจกลุ่ม "พลาดไม่เกิน ..." (nomiss / miss) จะถูกสุ่มใช้ทีหลังสุด
 // - ภายในแต่ละกลุ่ม (ปกติ / miss) จัดลำดับจากง่าย → ยาก ตาม target
-// - ส่งข้อมูลให้ HUD ผ่าน getProgress('goals'|'mini') เป็น {id,label,target,prog,done}
+// - ส่งข้อมูลให้ HUD ผ่าน getProgress('goals'|'mini') เป็น "รายการทั้งหมด"
+//   แล้วให้ safe.js เป็นคนเลือกว่าจะโชว์อันไหนเป็นปัจจุบัน
 
 import { hydrationGoalsFor } from './hydration.goals.js';
 import { hydrationMinisFor } from './hydration.minis.js';
@@ -116,57 +116,9 @@ function takeOne (arr, random = true) {
   return item;
 }
 
-/**
- * single-active view สำหรับ HUD:
- * - ถ้ามี quest ที่ยังไม่ done → แสดงอันแรกนั้น
- * - ถ้าทำครบทุกอันแล้ว → แสดงบรรทัดสรุปว่าเคลียร์ครบแล้ว (x/x)
- */
-function singleActiveView (arr, labelPrefix) {
-  if (!arr || !arr.length) {
-    return [{
-      id: `${labelPrefix.toLowerCase()}-none`,
-      label: `ยังไม่มี ${labelPrefix} ในรอบนี้`,
-      target: 0,
-      prog: 0,
-      done: false,
-      isMiss: false,
-      _all: arr || []
-    }];
-  }
-
-  const active = arr.find(q => !q._done);
-  if (active) {
-    return [{
-      id: active.id,
-      label: active.label,
-      target: active.target,
-      prog: active._value,
-      done: !!active._done,
-      isMiss: !!active._isMiss,
-      _all: arr
-    }];
-  }
-
-  const total   = arr.length;
-  const cleared = arr.filter(q => q._done).length;
-
-  return [{
-    id: `${labelPrefix.toLowerCase()}-summary`,
-    label: `${labelPrefix}: สำเร็จครบแล้ว (${cleared}/${total}) 🎉`,
-    target: total,
-    prog: cleared,
-    done: true,
-    isMiss: false,
-    _all: arr
-  }];
-}
-
-/**
- * สร้าง Deck สำหรับ Hydration ที่ใช้กับ hydration.safe.js
- * คืน object ที่มี:
- *   stats, updateScore, updateCombo, onGood, onJunk, second,
- *   getProgress(kind), drawGoals(n), draw3(), nextGoal(), nextMini()
- */
+// ======================================================
+//  สร้าง Deck สำหรับ Hydration ที่ใช้กับ hydration.safe.js
+// ======================================================
 export function createHydrationQuest (diffRaw = 'normal') {
   const diff = normalizeHydrationDiff(diffRaw);
 
@@ -185,7 +137,9 @@ export function createHydrationQuest (diffRaw = 'normal') {
   let minisNonMissLeft = [...miniBuckets.nonMiss];
   let minisMissLeft    = [...miniBuckets.miss];
 
-  // active ชุดปัจจุบัน (เราใช้ทีละ 1)
+  // active ชุดปัจจุบัน
+  //   - goal: 2 อันต่อเกม
+  //   - mini: 3 อันต่อเกม
   let activeGoals = [];
   let activeMinis = [];
 
@@ -258,10 +212,9 @@ export function createHydrationQuest (diffRaw = 'normal') {
   }
 
   /**
-   * สุ่ม goal ชุดใหม่ (ใช้ตอนเริ่มเกม หรือ reset ทั้งเซต)
-   * safe.js จะเรียกด้วย n=1 ปกติ
+   * สุ่ม goal 2 อันสำหรับเกมนี้
    */
-  function drawGoals (n = 1) {
+  function drawGoals (n = 2) {
     activeGoals = [];
 
     for (let i = 0; i < n; i++) {
@@ -275,7 +228,7 @@ export function createHydrationQuest (diffRaw = 'normal') {
       }
     }
 
-    // ถ้าใช้หมดแล้วทั้งสอง bucket → reset loop ใหม่ (เผื่อเกมยาว)
+    // ถ้าใช้หมดแล้วทั้งสอง bucket → reset loop ใหม่ (เผื่อเล่นนาน / เล่นหลายเกม)
     if (!goalsNonMissLeft.length && !goalsMissLeft.length) {
       goalsNonMissLeft = [...goalBuckets.nonMiss];
       goalsMissLeft    = [...goalBuckets.miss];
@@ -285,8 +238,7 @@ export function createHydrationQuest (diffRaw = 'normal') {
   }
 
   /**
-   * สุ่ม mini quest ชุดแรก 3 อัน
-   * (แต่ HUD จะแสดงทีละ 1 ผ่าน singleActiveView)
+   * สุ่ม mini quest 3 อันสำหรับเกมนี้
    */
   function draw3 () {
     const n = 3;
@@ -312,89 +264,35 @@ export function createHydrationQuest (diffRaw = 'normal') {
   }
 
   /**
-   * เลือก goal ใหม่ 1 อัน แทนที่ goal ปัจจุบัน (ใช้เมื่อเคลียร์ goal เดิม)
-   */
-  function nextGoal () {
-    activeGoals = [];
-
-    let pool = goalsNonMissLeft.length ? goalsNonMissLeft : goalsMissLeft;
-    if (!pool.length) {
-      goalsNonMissLeft = [...goalBuckets.nonMiss];
-      goalsMissLeft    = [...goalBuckets.miss];
-      pool = goalsNonMissLeft.length ? goalsNonMissLeft : goalsMissLeft;
-    }
-
-    const q = takeOne(pool, true);
-    if (q) {
-      q._done  = false;
-      q._value = 0;
-      activeGoals.push(q);
-    }
-
-    refreshProgress();
-  }
-
-  /**
-   * เลือก mini quest ใหม่ 1 อัน (ใช้เมื่อเคลียร์ mini เดิม)
-   */
-  function nextMini () {
-    activeMinis = [];
-
-    let pool = minisNonMissLeft.length ? minisNonMissLeft : minisMissLeft;
-    if (!pool.length) {
-      minisNonMissLeft = [...miniBuckets.nonMiss];
-      minisMissLeft    = [...miniBuckets.miss];
-      pool = minisNonMissLeft.length ? minisNonMissLeft : minisMissLeft;
-    }
-
-    const q = takeOne(pool, true);
-    if (q) {
-      q._done  = false;
-      q._value = 0;
-      activeMinis.push(q);
-    }
-
-    refreshProgress();
-  }
-
-  /**
-   * คืน progress ตามประเภท (ใช้ single-active view)
-   * - 'goals' → goal ปัจจุบันทีละ 1 อัน
-   * - 'mini'  → mini ปัจจุบันทีละ 1 อัน
+   * คืน progress ตามประเภท
+   *   - 'goals' → goal ทั้ง 2 อัน (พร้อม field done/prog)
+   *   - 'mini'  → mini ทั้ง 3 อัน
+   * safe.js จะเป็นคนเลือกเองว่าอันไหนคือ current
    */
   function getProgress (kind) {
     if (kind === 'goals') {
       if (!activeGoals.length) {
-        drawGoals(1);
+        drawGoals(2);
       }
-      const view = singleActiveView(activeGoals, 'Goal');
-      view._all = activeGoals;
-      return view;
+      return activeGoals;
     }
 
     if (kind === 'mini') {
       if (!activeMinis.length) {
         draw3();
       }
-      const view = singleActiveView(activeMinis, 'Mini quest');
-      view._all = activeMinis;
-      return view;
+      return activeMinis;
     }
 
     // กรณีขอรวม (ถ้าอนาคตอยากใช้)
-    if (!activeGoals.length) drawGoals(1);
+    if (!activeGoals.length) drawGoals(2);
     if (!activeMinis.length) draw3();
 
-    const gView = singleActiveView(activeGoals, 'Goal');
-    const mView = singleActiveView(activeMinis, 'Mini quest');
-    const res = [...gView, ...mView];
-    res._allGoals = activeGoals;
-    res._allMinis = activeMinis;
-    return res;
+    return [...activeGoals, ...activeMinis];
   }
 
   // ----- เริ่มต้นครั้งแรก -----
-  drawGoals(1); // started with 1 goal
+  drawGoals(2); // เตรียม goal 2 อัน
   draw3();      // เตรียม mini 3 อัน
   refreshProgress();
 
@@ -407,9 +305,7 @@ export function createHydrationQuest (diffRaw = 'normal') {
     second,
     getProgress,
     drawGoals,
-    draw3,
-    nextGoal,
-    nextMini
+    draw3
   };
 }
 
