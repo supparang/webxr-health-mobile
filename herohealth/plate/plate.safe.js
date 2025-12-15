@@ -1,872 +1,1047 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — Game Engine (DOM emoji targets + Quest + Fever + Cloud Logger + World-follow Target)
-//
-// ใช้ร่วมกับ:
-//   - plate-vr.html
-//   - /herohealth/vr/ui-fever.js   (IIFE → FeverUI global)
-//   - /herohealth/vr/particles.js  (IIFE → Particles global)
-//   - /herohealth/vr/hha-cloud-logger.js (ฟัง hha:session / hha:event)
-//
-// Event ที่ยิงออกไป:
-//   - 'hha:stat'  { score, combo, misses, platesDone, totalCounts:[g1..g5] }
-//   - 'quest:update' { goal, mini, goalsAll, minisAll, hint }
-//   - 'hha:end'   { score, platesDone, misses, goalsCleared, goalsTotal, miniCleared, miniTotal, groupCounts, reason }
-//   - 'hha:session' สรุปผลสำหรับ Cloud Logger
-//
-// โหมด:
-//   - runMode = 'play'      → diff ตามง่าย/ปกติ/ยาก + Adaptive (spawn/scale ตามฝีมือ)
-//   - runMode = 'research'  → diff ตามง่าย/ปกติ/ยาก คงที่ ไม่ Adaptive
-//
-// Quest:
-//   - Goals: 2 อัน  (G1 = จานสมดุล, G2 = ผัก+ผลไม้)
-//   - Minis: 3 อัน (M1 = จานที่มี ≥4 หมู่, M2 = ผัก, M3 = good streak ไม่โดน junk)
-//   - research → target fix; play → target สุ่มในช่วงเดิม
-//
-// ใหม่: เป้า DOM ผูกกับมุมกล้อง (yaw/pitch) → เวลาหมุนจอ เป้าจะเลื่อนตามเหมือนอยู่รอบตัว
+// Balanced Plate VR — Game Engine (Play + Research)
+// - โหมดธรรมดา: เป้าขนาดตาม diff + adaptive ตามฝีมือ + Goal/Mini สุ่ม
+// - โหมดวิจัย: เป้าขนาด fix ตาม diff (ไม่ adaptive) + Goal 2 / Mini 3 fixed ทุกเกม
+// - ส่ง hha:stat, quest:update, hha:end, hha:event, hha:session ให้ logger + HUD
+// - มี Fever gauge + Shield + FX ตีเป้าแตก + quest celebrate ครบ
 
 'use strict';
 
-// ---------- Root & Global modules ----------
-const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
 
-// Particles: /vr/particles.js (IIFE)
+// ---------- Modules จาก IIFE (ui-fever.js / particles.js) ----------
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  { burstAt () {}, scorePop () {}, floatScore () {}, setShardMode () {} };
+  { burstAt () {}, scorePop () {}, floatScore () {} };
 
-// FeverUI: /vr/ui-fever.js (IIFE)
 const FeverUI =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
   ROOT.FeverUI ||
-  {
-    ensureFeverBar () {},
-    setFever () {},
-    setFeverActive () {},
-    setShield () {}
-  };
+  { ensureBar () {}, setFever () {}, setFeverActive () {}, setShield () {} };
 
-// ---------- Helpers ----------
+// ---------- Utils ----------
 function clamp (v, min, max) {
   v = Number(v) || 0;
   if (v < min) return min;
   if (v > max) return max;
   return v;
 }
-
-function pickOne (arr, fallback = null) {
-  if (!Array.isArray(arr) || !arr.length) return fallback;
-  const i = Math.floor(Math.random() * arr.length);
-  return arr[i];
-}
-
-function rand (min, max) {
+function randRange (min, max) {
   return min + Math.random() * (max - min);
 }
+function pickOne (arr, fallback = null) {
+  if (!Array.isArray(arr) || !arr.length) return fallback;
+  const i = (Math.random() * arr.length) | 0;
+  return arr[i];
+}
+function uid () {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
 
-// ---------- Difficulty config ----------
-const DIFF_TABLE = {
+// ---------- Diff / Difficulty ----------
+const BASE_DIFF = {
   easy: {
-    spawnInterval: 1100,
-    life: 2100,
-    scale: 1.25,
-    goodRatio: 0.7
+    spawnInterval: 950,   // ms
+    maxActive: 3,
+    sizeScale: 1.2,       // ขนาดเป้าใหญ่สุด
+    goodRatio: 0.80,
+    baseLife: 2100        // อายุเป้า
   },
   normal: {
-    spawnInterval: 950,
-    life: 1900,
-    scale: 1.0,
-    goodRatio: 0.6
+    spawnInterval: 800,
+    maxActive: 4,
+    sizeScale: 1.0,
+    goodRatio: 0.70,
+    baseLife: 1900
   },
   hard: {
-    spawnInterval: 800,
-    life: 1700,
-    scale: 0.85,
-    goodRatio: 0.5
+    spawnInterval: 650,
+    maxActive: 5,
+    sizeScale: 0.85,
+    goodRatio: 0.60,
+    baseLife: 1700
   }
 };
 
-// ---------- Food library ----------
-const FOOD_GROUPS = {
-  1: ['🍚', '🍞', '🍙', '🥖'],
-  2: ['🥩', '🍗', '🍖', '🥚'],
-  3: ['🥦', '🥕', '🥒', '🥗'],
-  4: ['🍎', '🍌', '🍉', '🍊'],
-  5: ['🥛', '🧀', '🍨', '🍦']
-};
+// ---------- Food Pools ----------
+const GROUPS = [
+  { id: 1, label: 'ข้าว-แป้ง',   emojis: ['🍚', '🍞', '🥖', '🍜', '🥐'] },
+  { id: 2, label: 'โปรตีน',      emojis: ['🍗', '🥩', '🍤', '🥚', '🫘'] },
+  { id: 3, label: 'ผัก',         emojis: ['🥦', '🥕', '🥬', '🍅', '🌽'] },
+  { id: 4, label: 'ผลไม้',       emojis: ['🍎', '🍌', '🍊', '🍇', '🍉'] },
+  { id: 5, label: 'นม/ผลิตภัณฑ์', emojis: ['🥛', '🧀', '🍨', '🍦'] }
+];
 
-const FOOD_JUNK = ['🍟', '🍔', '🍕', '🧁', '🍩', '🥤'];
-const FOOD_STAR = ['⭐', '✨'];
+const JUNK_POOL = [
+  '🍩','🧁','🍫','🍟','🍕','🧋','🥤','🍬'
+];
 
-// ---------- State ----------
-let runMode = 'play';          // play | research
-let diffKey = 'normal';
+const STAR_POOL   = ['⭐','🌟'];
+const SHIELD_POOL = ['🛡️'];
 
-let baseConf = DIFF_TABLE.normal;
-let currentScale = 1.0;
-let currentInterval = 1000;
-let targetLifeMs = 2000;
+// ---------- Quest Pools ----------
+// metric:
+//   'plates'          → จานสมดุลเสิร์ฟสำเร็จ
+//   'vegFruitTotal'   → ผัก+ผลไม้รวม
+//   'group3'          → ผัก
+//   'group4'          → ผลไม้
+//   'group5'          → นม
+//   'comboMax'        → combo สูงสุด
 
-let durationSec = 60;
-let startTimeMs = 0;
-let endTimeMs = 0;
-let ended = false;
+const FIXED_GOALS_RESEARCH = [
+  {
+    key: 'G1',
+    kind: 'goal',
+    metric: 'plates',
+    target: 3,
+    label: 'จัดจานสมดุลให้ครบ 3 จาน'
+  },
+  {
+    key: 'G2',
+    kind: 'goal',
+    metric: 'vegFruitTotal',
+    target: 14,
+    label: 'เก็บผัก+ผลไม้รวม 14 ชิ้น'
+  }
+];
+
+const FIXED_MINIS_RESEARCH = [
+  {
+    key: 'M1',
+    kind: 'mini',
+    metric: 'group3',
+    target: 8,
+    label: 'สะสมหมู่ผัก (หมู่ 3) ให้ครบ 8 ชิ้น'
+  },
+  {
+    key: 'M2',
+    kind: 'mini',
+    metric: 'group4',
+    target: 6,
+    label: 'สะสมหมู่ผลไม้ (หมู่ 4) ให้ครบ 6 ชิ้น'
+  },
+  {
+    key: 'M3',
+    kind: 'mini',
+    metric: 'group5',
+    target: 4,
+    label: 'สะสมนม/ผลิตภัณฑ์ (หมู่ 5) ให้ครบ 4 ชิ้น'
+  }
+];
+
+// สำหรับโหมดเล่นธรรมดา: สุ่ม 2 goal + 3 mini จาก pool นี้
+const GOAL_POOL_PLAY = [
+  {
+    key: 'PG1',
+    kind: 'goal',
+    metric: 'plates',
+    target: 3,
+    label: 'จัดจานสมดุลให้ครบ 3 จาน'
+  },
+  {
+    key: 'PG2',
+    kind: 'goal',
+    metric: 'plates',
+    target: 4,
+    label: 'จัดจานสมดุลให้ครบ 4 จาน'
+  },
+  {
+    key: 'PG3',
+    kind: 'goal',
+    metric: 'vegFruitTotal',
+    target: 16,
+    label: 'เก็บผัก+ผลไม้รวม 16 ชิ้น'
+  }
+];
+
+const MINI_POOL_PLAY = [
+  {
+    key: 'PM1',
+    kind: 'mini',
+    metric: 'group3',
+    target: 8,
+    label: 'สะสมผักอย่างน้อย 8 ชิ้น'
+  },
+  {
+    key: 'PM2',
+    kind: 'mini',
+    metric: 'group4',
+    target: 6,
+    label: 'สะสมผลไม้อย่างน้อย 6 ชิ้น'
+  },
+  {
+    key: 'PM3',
+    kind: 'mini',
+    metric: 'group5',
+    target: 4,
+    label: 'ส่วนนม/ผลิตภัณฑ์นมอย่างน้อย 4 ชิ้น'
+  },
+  {
+    key: 'PM4',
+    kind: 'mini',
+    metric: 'comboMax',
+    target: 10,
+    label: 'ทำคอมโบให้ได้อย่างน้อย 10 ครั้งติดกัน'
+  }
+];
+
+// ---------- Global state ----------
+let RUN_MODE = 'play'; // play | research
+let DIFF_KEY = 'normal';
 
 let sessionId = '';
-let gameVersion = 'PlateVR-2025-12-15';
+let startTimeMs = 0;
+let startTimeIso = '';
+let endTimeIso   = '';
+let plannedDurationSec = 60;
 
-// Stats หลัก
-let score = 0;
-let combo = 0;
+let running = false;
+let ended   = false;
+
+let score   = 0;
+let combo   = 0;
 let comboMax = 0;
-let misses = 0;
+let misses  = 0;
+
 let platesDone = 0;
+let curPlateCounts = [0,0,0,0,0];  // ต่อจานปัจจุบัน
+let totalCounts    = [0,0,0,0,0];  // รวมทั้งเกม
 
-// นับหมู่รวมทั้งเกม [1..5]
-let totalCounts = [0, 0, 0, 0, 0];
+let junkHits = 0;
 
-// จานปัจจุบัน
-let currPlateGroups = [0, 0, 0, 0, 0];
-let currPlateItems = 0;
-
-// Quest
-let goalsAll = [];
-let minisAll = [];
-
-let streakGoodNoJunk = 0;
-let vegFruitCount = 0;
-
-// Fever / Shield
-let fever = 0;
+let feverValue  = 0;
 let feverActive = false;
-let feverTimerId = null;
 let shieldCount = 0;
 
-// Spawn / Targets
-let spawnTimerId = null;
-let targetIdCounter = 0;
-const activeTargets = new Map(); // id → { el, kind, group, createdAt, azimuthDeg, elevDeg, scale }
+let activeTargets = new Map(); // id → meta
+let spawnTimer = null;
 
-// --- World-follow (camera) ---
-let camEl = null;
-let worldLook = { yaw: 0, pitch: 0 };
-let worldLoopRunning = false;
+let spawnBaseConf = BASE_DIFF.normal;
+let spawnIntervalMs = 800;
+let spawnSizeScale  = 1.0;
+let spawnGoodRatio  = 0.7;
+let spawnLifeMs     = 1900;
+let maxActiveTargets = 4;
 
-// ---------- Quest: reset + random/fix ----------
-function resetQuests () {
-  goalsAll = [];
-  minisAll = [];
+// adaptive (ใช้เฉพาะ play)
+let adaptiveEnabled = true;
 
-  if (runMode === 'research') {
-    // FIX ทุกเกม (วิจัย)
-    const g1Target = 3;   // จานสมดุล 3 จาน
-    const g2Target = 15;  // ผัก+ผลไม้ 15 ชิ้น
+// quests
+let goalsAll = [];
+let minisAll = [];
+let currentGoal = null;
+let currentMini = null;
 
-    const m1Target = 1;   // ≥4 หมู่ 1 จาน
-    const m2Target = 8;   // ผักหมู่ 3 = 8 ชิ้น
-    const m3Target = 1;   // streak >=10 (1 ครั้ง)
+// summary stats สำหรับ logger
+let nSpawnGood = 0;
+let nSpawnJunk = 0;
+let nSpawnStar = 0;
+let nSpawnShield = 0;
 
-    goalsAll.push({
-      id: 'G1',
-      label: `จัดจานสมดุลให้ได้ ${g1Target} จาน`,
-      target: g1Target,
-      prog: 0,
-      done: false
-    });
-    goalsAll.push({
-      id: 'G2',
-      label: `เก็บผัก+ผลไม้ให้ได้ ${g2Target} ชิ้น`,
-      target: g2Target,
-      prog: 0,
-      done: false
-    });
+let nHitGood = 0;
+let nHitJunk = 0;
+let nExpireGood = 0;
 
-    minisAll.push({
-      id: 'M1',
-      label: 'ทำจานที่มีอย่างน้อย 4 หมู่ ให้ครบ 1 จาน',
-      target: m1Target,
-      prog: 0,
-      done: false
-    });
-    minisAll.push({
-      id: 'M2',
-      label: `เก็บผักหมู่ 3 ให้ได้ ${m2Target} ชิ้น`,
-      target: m2Target,
-      prog: 0,
-      done: false
-    });
-    minisAll.push({
-      id: 'M3',
-      label: 'กดของดีต่อเนื่องโดยไม่โดนของขยะ',
-      target: m3Target,
-      prog: 0,
-      done: false
-    });
+// ---------- Quest helpers ----------
+function shuffleArray (arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
+  }
+  return a;
+}
+
+function buildQuests () {
+  if (RUN_MODE === 'research') {
+    goalsAll = FIXED_GOALS_RESEARCH.map(q => Object.assign({ prog:0, done:false }, q));
+    minisAll = FIXED_MINIS_RESEARCH.map(q => Object.assign({ prog:0, done:false }, q));
   } else {
-    // เล่นธรรมดา → สุ่มในช่วงเดิม
-    const g1Target = 2 + Math.floor(Math.random() * 3);   // 2–4 จาน
-    const g2Target = 10 + Math.floor(Math.random() * 9);  // 10–18 ชิ้น
+    const gShuffled = shuffleArray(GOAL_POOL_PLAY);
+    const mShuffled = shuffleArray(MINI_POOL_PLAY);
+    goalsAll = gShuffled.slice(0, 2).map(q => Object.assign({ prog:0, done:false }, q));
+    minisAll = mShuffled.slice(0, 3).map(q => Object.assign({ prog:0, done:false }, q));
+  }
+  currentGoal = goalsAll[0] || null;
+  currentMini = minisAll[0] || null;
+  recalcQuestProgress(true);
+}
 
-    const m1Target = 1;                                   // ≥4 หมู่ 1 จาน
-    const m2Target = 5 + Math.floor(Math.random() * 6);   // 5–10 ชิ้น
-    const m3Target = 1;                                   // streak >=10 1 ครั้ง
-
-    goalsAll.push({
-      id: 'G1',
-      label: `จัดจานสมดุลให้ได้ ${g1Target} จาน`,
-      target: g1Target,
-      prog: 0,
-      done: false
-    });
-    goalsAll.push({
-      id: 'G2',
-      label: `เก็บผัก+ผลไม้ให้ได้ ${g2Target} ชิ้น`,
-      target: g2Target,
-      prog: 0,
-      done: false
-    });
-
-    minisAll.push({
-      id: 'M1',
-      label: 'ทำจานที่มีอย่างน้อย 4 หมู่ ให้ครบ 1 จาน',
-      target: m1Target,
-      prog: 0,
-      done: false
-    });
-    minisAll.push({
-      id: 'M2',
-      label: `เก็บผักหมู่ 3 ให้ได้ ${m2Target} ชิ้น`,
-      target: m2Target,
-      prog: 0,
-      done: false
-    });
-    minisAll.push({
-      id: 'M3',
-      label: 'กดของดีต่อเนื่องโดยไม่โดนของขยะ',
-      target: m3Target,
-      prog: 0,
-      done: false
-    });
+function computeMetric (metric) {
+  switch (metric) {
+    case 'plates':
+      return platesDone;
+    case 'vegFruitTotal':
+      return (totalCounts[2] || 0) + (totalCounts[3] || 0);
+    case 'group3':
+      return totalCounts[2] || 0;
+    case 'group4':
+      return totalCounts[3] || 0;
+    case 'group5':
+      return totalCounts[4] || 0;
+    case 'comboMax':
+      return comboMax;
+    default:
+      return 0;
   }
 }
 
-// ---------- Quest helper ----------
-function findQuest (id) {
-  if (!id) return null;
-  if (id.startsWith('G')) return goalsAll.find(q => q.id === id) || null;
-  if (id.startsWith('M')) return minisAll.find(q => q.id === id) || null;
-  return null;
-}
-
-function incQuest (id, amount) {
-  const q = findQuest(id);
-  if (!q || q.done) return;
-  q.prog += (amount || 1);
-  if (q.prog >= q.target) {
-    q.prog = q.target;
-    q.done = true;
+function buildQuestHint (goal, mini) {
+  if (!goal && !mini) return '';
+  if (goal && goal.metric === 'plates') {
+    const left = clamp(goal.target - platesDone, 0, goal.target);
+    if (left > 0) return `เหลืออีก ${left} จานสมดุล ✨`;
   }
-}
-
-function emitQuestUpdate (hintText) {
-  const goal =
-    goalsAll.find(q => !q.done) ||
-    goalsAll[goalsAll.length - 1] ||
-    null;
-
-  const mini =
-    minisAll.find(q => !q.done) ||
-    minisAll[minisAll.length - 1] ||
-    null;
-
-  const detail = {
-    goal,
-    mini,
-    goalsAll: goalsAll.slice(),
-    minisAll: minisAll.slice(),
-    hint: hintText || ''
-  };
-
-  window.dispatchEvent(new CustomEvent('quest:update', { detail }));
-}
-
-// ---------- Fever / Shield ----------
-function updateFeverUI () {
-  const ratio = clamp(fever, 0, 100) / 100;
-  if (FeverUI.setFever) {
-    FeverUI.setFever(ratio);
+  if (goal && goal.metric === 'vegFruitTotal') {
+    const cur = computeMetric('vegFruitTotal');
+    const left = clamp(goal.target - cur, 0, goal.target);
+    if (left > 0) return `เก็บผัก+ผลไม้เพิ่มอีก ${left} ชิ้น 🥦🍎`;
   }
-  if (FeverUI.setShield) {
-    FeverUI.setShield(shieldCount | 0);
+  if (mini && mini.metric === 'comboMax') {
+    if (comboMax < mini.target) {
+      return `ลองไล่คอมโบให้ถึง ${mini.target} ดูนะ 🔥`;
+    }
   }
+  return '';
 }
 
-function enterFever () {
-  if (feverActive) return;
-  feverActive = true;
-  if (FeverUI.setFeverActive) FeverUI.setFeverActive(true);
+function recalcQuestProgress (initial = false) {
+  const all = goalsAll.concat(minisAll);
+  all.forEach(q => {
+    const v = computeMetric(q.metric);
+    q.prog = clamp(v, 0, q.target);
+    if (q.prog >= q.target) q.done = true;
+  });
 
-  window.dispatchEvent(new CustomEvent('hha:fever', {
-    detail: { state: 'start', mode: 'BalancedPlateVR' }
+  const prevGoal = currentGoal;
+  const prevMini = currentMini;
+
+  currentGoal = goalsAll.find(q => !q.done) || null;
+  currentMini = minisAll.find(q => !q.done) || null;
+
+  const hint = buildQuestHint(currentGoal, currentMini);
+
+  // ส่งให้ HUD
+  ROOT.dispatchEvent(new CustomEvent('quest:update', {
+    detail: {
+      goal: currentGoal ? {
+        key: currentGoal.key,
+        label: currentGoal.label,
+        prog: currentGoal.prog,
+        target: currentGoal.target
+      } : null,
+      mini: currentMini ? {
+        key: currentMini.key,
+        label: currentMini.label,
+        prog: currentMini.prog,
+        target: currentMini.target
+      } : null,
+      goalsAll: goalsAll.map(q => ({
+        key: q.key, label: q.label, prog: q.prog, target: q.target, done: q.done
+      })),
+      minisAll: minisAll.map(q => ({
+        key: q.key, label: q.label, prog: q.prog, target: q.target, done: q.done
+      })),
+      hint
+    }
   }));
 
-  if (feverTimerId) clearTimeout(feverTimerId);
-  feverTimerId = setTimeout(() => {
-    feverActive = false;
-    fever = 40;
-    if (FeverUI.setFeverActive) FeverUI.setFeverActive(false);
-    updateFeverUI();
-    window.dispatchEvent(new CustomEvent('hha:fever', {
-      detail: { state: 'end', mode: 'BalancedPlateVR' }
+  // celebrate ต่อ goal/mini (HUD ฝั่ง plate-vr จะยิง FX เองตาม quest:update)
+  if (!initial) {
+    const goalsCleared = goalsAll.filter(q => q.done).length;
+    const minisCleared = minisAll.filter(q => q.done).length;
+    ROOT.dispatchEvent(new CustomEvent('hha:stat', {
+      detail: {
+        score,
+        combo,
+        misses,
+        platesDone,
+        totalCounts: totalCounts.slice(),
+        goalsCleared,
+        goalsTotal: goalsAll.length,
+        miniCleared: minisCleared,
+        miniTotal: minisAll.length
+      }
     }));
-  }, 8000);
+  }
 }
 
-function gainFever (amount) {
-  fever = clamp(fever + amount, 0, 100);
-  if (!feverActive && fever >= 100) {
-    enterFever();
+// ---------- Fever ----------
+function setFeverValue (v) {
+  feverValue = clamp(v, 0, 100);
+  FeverUI.setFever(feverValue);
+}
+function addFever (delta) {
+  if (!delta) return;
+  setFeverValue(feverValue + delta);
+  if (!feverActive && feverValue >= 100) {
+    feverActive = true;
+    FeverUI.setFeverActive(true);
+    ROOT.dispatchEvent(new CustomEvent('hha:fever', { detail: { state: 'start' }}));
+  }
+}
+function decayFeverLoop () {
+  if (!running) return;
+  if (!feverActive) {
+    // ก็ค่อย ๆ ลดลงนิด ๆ
+    if (feverValue > 0) setFeverValue(feverValue - 0.3);
   } else {
-    updateFeverUI();
-  }
-}
-
-function loseFever (amount) {
-  fever = clamp(fever - amount, 0, 100);
-  updateFeverUI();
-}
-
-// ---------- Difficulty Adaptive (เฉพาะ play mode) ----------
-function applyAdaptiveTuning () {
-  if (runMode === 'research') {
-    currentInterval = baseConf.spawnInterval;
-    currentScale = baseConf.scale;
-    targetLifeMs = baseConf.life;
-    return;
-  }
-
-  const comboFactor = clamp(comboMax, 0, 20) / 20;
-  const missFactor = clamp(misses, 0, 10) / 10;
-
-  let interval = baseConf.spawnInterval *
-    (1 - 0.35 * comboFactor + 0.3 * missFactor);
-  interval = clamp(interval,
-    baseConf.spawnInterval * 0.7,
-    baseConf.spawnInterval * 1.4);
-
-  let scale = baseConf.scale *
-    (1 - 0.28 * comboFactor + 0.25 * missFactor);
-  scale = clamp(scale,
-    baseConf.scale * 0.7,
-    baseConf.scale * 1.3);
-
-  currentInterval = interval;
-  currentScale = scale;
-  targetLifeMs = baseConf.life;
-}
-
-// ---------- Stat & Event ----------
-function emitStat () {
-  const detail = {
-    mode: 'BalancedPlateVR',
-    score,
-    combo,
-    misses,
-    platesDone,
-    totalCounts: totalCounts.slice()
-  };
-
-  window.dispatchEvent(new CustomEvent('hha:stat', { detail }));
-}
-
-// ---------- World-follow mapping ----------
-function updateTargetScreen (obj) {
-  if (!obj || !obj.el) return;
-
-  const el = obj.el;
-  const vw = window.innerWidth || 800;
-  const vh = window.innerHeight || 600;
-  const cx = vw / 2;
-  const cy = vh / 2;
-
-  const yawDeg = worldLook.yaw * (180 / Math.PI);
-  const pitchDeg = worldLook.pitch * (180 / Math.PI);
-
-  const maxYawView = 60;   // มุมมองครึ่งซ้าย-ขวา
-  const maxPitchView = 40; // มุมมองครึ่งบน-ล่าง
-
-  const diffYaw = obj.azimuthDeg - yawDeg;
-  const diffPitch = obj.elevDeg - pitchDeg;
-
-  let nx = diffYaw / maxYawView;     // ประมาณ -1..1
-  let ny = diffPitch / maxPitchView;
-
-  nx = clamp(nx, -1.2, 1.2);
-  ny = clamp(ny, -1.0, 1.0);
-
-  const radiusX = vw * 0.4;
-  const radiusY = vh * 0.35;
-
-  const x = cx + nx * radiusX;
-  const y = cy + ny * radiusY;
-
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-
-  // ถ้าเลย FOV มากไปหน่อย → ซ่อน เพื่อไม่ให้เห็นหลุดขอบ
-  const visible = (Math.abs(nx) <= 1.05 && Math.abs(ny) <= 1.0);
-  el.style.visibility = visible ? 'visible' : 'hidden';
-
-  const scale = obj.scale || currentScale || 1.0;
-  el.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(2)})`;
-}
-
-function startWorldLoop () {
-  if (worldLoopRunning) return;
-  worldLoopRunning = true;
-
-  const step = () => {
-    if (!worldLoopRunning) return;
-
-    // หา camera ซ้ำ ๆ เผื่อแรก ๆ ยังไม่พร้อม
-    if (!camEl && ROOT.document) {
-      camEl = ROOT.document.querySelector('#plate-camera');
+    setFeverValue(feverValue - 1.2);
+    if (feverValue <= 0) {
+      feverActive = false;
+      FeverUI.setFeverActive(false);
+      ROOT.dispatchEvent(new CustomEvent('hha:fever', { detail: { state: 'end' }}));
     }
+  }
+  ROOT.requestAnimationFrame(decayFeverLoop);
+}
 
-    if (!ended && camEl && camEl.object3D) {
-      const rot = camEl.object3D.rotation;
-      worldLook.yaw = rot.y || 0;
-      worldLook.pitch = rot.x || 0;
+// ---------- Stat dispatch ----------
+function dispatchStat () {
+  const goalsCleared = goalsAll.filter(q => q.done).length;
+  const minisCleared = minisAll.filter(q => q.done).length;
+
+  ROOT.dispatchEvent(new CustomEvent('hha:stat', {
+    detail: {
+      score,
+      combo,
+      misses,
+      platesDone,
+      totalCounts: totalCounts.slice(),
+      goalsCleared,
+      goalsTotal: goalsAll.length,
+      miniCleared: minisCleared,
+      miniTotal: minisAll.length
     }
-
-    // update ตำแหน่งเป้าทั้งหมดตามมุมกล้อง
-    activeTargets.forEach((obj) => updateTargetScreen(obj));
-
-    ROOT.requestAnimationFrame(step);
-  };
-
-  ROOT.requestAnimationFrame(step);
+  }));
 }
 
-function stopWorldLoop () {
-  worldLoopRunning = false;
+// ---------- Adaptive difficulty (เฉพาะ play) ----------
+function getElapsedSec () {
+  if (!startTimeMs) return 0;
+  return (performance.now() - startTimeMs) / 1000;
 }
 
-// ---------- Target management ----------
-function removeTarget (id, withDom = true) {
-  const obj = activeTargets.get(id);
-  if (!obj) return;
-  if (withDom && obj.el && obj.el.parentNode) {
-    obj.el.parentNode.removeChild(obj.el);
+function applyAdaptive () {
+  if (!adaptiveEnabled) return;
+  const elapsed = getElapsedSec();
+  const total   = plannedDurationSec || 60;
+  const t = clamp(elapsed / total, 0, 1);
+
+  // base
+  let interval = spawnBaseConf.spawnInterval;
+  let goodRatio = spawnBaseConf.goodRatio;
+  let sizeScale = spawnBaseConf.sizeScale;
+
+  // phase: warmup (0–0.2), main (0.2–0.75), clutch (0.75–1)
+  if (t < 0.2) {
+    interval *= 1.08; // ช่วงวอร์มอัปช้าหน่อย
+    goodRatio += 0.05;
+  } else if (t > 0.75) {
+    interval *= 0.9;  // ท้ายเกมเร่งความถี่
+    // ถ้า grade ดูเหมือนต่ำ (ประมาณจากคะแนน)
+    if (score < 400) {
+      goodRatio += 0.05;
+    }
+  }
+
+  // ปรับตาม performance
+  if (comboMax >= 12 && misses <= 2) {
+    interval *= 0.9;
+    sizeScale *= 0.93;
+  } else if (misses >= 8) {
+    interval *= 1.1;
+    sizeScale *= 1.05;
+    goodRatio += 0.05;
+  }
+
+  // clamp
+  interval = clamp(interval, spawnBaseConf.spawnInterval * 0.7, spawnBaseConf.spawnInterval * 1.3);
+  sizeScale = clamp(sizeScale, spawnBaseConf.sizeScale * 0.8, spawnBaseConf.sizeScale * 1.25);
+  goodRatio = clamp(goodRatio, 0.45, 0.9);
+
+  spawnIntervalMs = interval;
+  spawnSizeScale  = sizeScale;
+  spawnGoodRatio  = goodRatio;
+}
+
+// ---------- Targets ----------
+let targetIdSeq = 1;
+
+function createTargetElement (meta) {
+  const el = DOC.createElement('button');
+  el.type = 'button';
+  el.className = 'hha-target ' + (meta.kind === 'good' ? 'hha-target-good' : 'hha-target-bad');
+  el.textContent = meta.emoji;
+  el.dataset.id   = String(meta.id);
+  el.dataset.kind = meta.kind;
+  el.dataset.group = meta.groupId != null ? String(meta.groupId) : '';
+
+  // ขนาดตาม diff + adaptive (เฉพาะ play)
+  const baseSize = 68;
+  const size = baseSize * spawnSizeScale;
+  el.style.width  = size + 'px';
+  el.style.height = size + 'px';
+  el.style.fontSize = (size * 0.62) + 'px';
+
+  // random position (ให้เน้นช่วงกลางจอ)
+  const vw = ROOT.innerWidth || 800;
+  const vh = ROOT.innerHeight || 600;
+  const x = randRange(0.16, 0.84);
+  const y = randRange(0.24, 0.78);
+
+  el.style.position = 'absolute';
+  el.style.left = (x * 100) + '%';
+  el.style.top  = (y * 100) + '%';
+  el.style.transform = 'translate(-50%, -50%)';
+
+  el.addEventListener('click', onTargetClick, { passive: true });
+
+  DOC.body.appendChild(el);
+  return el;
+}
+
+function removeTarget (id) {
+  const meta = activeTargets.get(id);
+  if (!meta) return;
+  if (meta.lifeTimer) {
+    clearTimeout(meta.lifeTimer);
+    meta.lifeTimer = null;
+  }
+  if (meta.el && meta.el.parentNode) {
+    meta.el.parentNode.removeChild(meta.el);
   }
   activeTargets.delete(id);
 }
 
-function clearAllTargets () {
-  for (const id of activeTargets.keys()) {
-    removeTarget(id, true);
-  }
-}
+function onTargetClick (ev) {
+  if (!running) return;
+  const el = ev.currentTarget || ev.target;
+  const id = parseInt(el.dataset.id || '0', 10) || 0;
+  const meta = activeTargets.get(id);
+  if (!meta || meta.hit) return;
 
-// สร้าง DOM เป้า (anchored by azimuth/elevation)
-function createTarget () {
-  const id = 't' + (++targetIdCounter);
+  meta.hit = true;
+  removeTarget(id);
 
-  // ตัดสินประเภท
-  let kind = 'good';
-  let group = 1;
-  let emoji = '🍚';
-
-  const r = Math.random();
-
-  if (r < 0.06) {
-    kind = 'star';
-    emoji = pickOne(FOOD_STAR, '⭐');
-    group = 0;
-  } else {
-    const isGood = (Math.random() < baseConf.goodRatio);
-    if (!isGood) {
-      kind = 'junk';
-      emoji = pickOne(FOOD_JUNK, '🍩');
-      group = 0;
-    } else {
-      kind = 'good';
-      const gIndex = 1 + Math.floor(Math.random() * 5);
-      group = gIndex;
-      emoji = pickOne(FOOD_GROUPS[gIndex], '🍚');
-    }
-  }
-
-  const el = document.createElement('div');
-  el.className = 'hha-target ' + (kind === 'junk' ? 'hha-target-bad' : 'hha-target-good');
-  el.textContent = emoji;
-  el.dataset.id = id;
-  el.dataset.kind = kind;
-  el.dataset.group = String(group);
-
-  // world anchor: มุมรอบตัว + มุมสูงต่ำ (deg)
-  const azimuthDeg = rand(-50, 50);  // ซ้าย-ขวา
-  const elevDeg = rand(-15, 15);     // บน-ล่าง
-  const scale = currentScale || baseConf.scale || 1.0;
-
-  // click เท่านั้น (touch-look จัดการหมุนจอเอง)
-  el.addEventListener('click', (ev) => {
-    if (ended) return;
-    handleHit(id, ev);
-  });
-
-  document.body.appendChild(el);
-
-  const obj = {
-    id,
-    el,
-    kind,
-    group,
-    createdAt: performance.now(),
-    azimuthDeg,
-    elevDeg,
-    scale
-  };
-  activeTargets.set(id, obj);
-
-  // วางครั้งแรกตามมุมกล้องตอนนี้
-  updateTargetScreen(obj);
-
-  // ตั้งหมดอายุ
-  setTimeout(() => {
-    if (!activeTargets.has(id)) return;
-    if (obj.kind === 'good') {
-      registerMiss('expire-good', obj);
-    }
-    removeTarget(id, true);
-  }, targetLifeMs);
-}
-
-function scheduleNextSpawn () {
-  if (ended) return;
-  const now = performance.now();
-  if (now >= endTimeMs) {
-    endGame('time-up');
-    return;
-  }
-
-  applyAdaptiveTuning();
-
-  const delay = currentInterval;
-  spawnTimerId = setTimeout(() => {
-    if (ended) return;
-    createTarget();
-    scheduleNextSpawn();
-  }, delay);
-}
-
-// ---------- Hit / Miss ----------
-function registerMiss (reason, targetObj) {
-  if (shieldCount > 0 && reason === 'hit-junk') {
-    shieldCount -= 1;
-    updateFeverUI();
-
-    const rect = targetObj && targetObj.el
-      ? targetObj.el.getBoundingClientRect()
-      : { left: window.innerWidth / 2, top: window.innerHeight / 2 };
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-
-    Particles.burstAt(cx, cy, {
-      color: '#38bdf8',
-      count: 14
-    });
-    Particles.scorePop(cx, cy, 'GUARD!', { judgment: 'Shield', good: true });
-
-    return;
-  }
-
-  misses += 1;
-  combo = 0;
-  streakGoodNoJunk = 0;
-  loseFever(10);
-
-  emitStat();
-
-  const rect = targetObj && targetObj.el
-    ? targetObj.el.getBoundingClientRect()
-    : { left: window.innerWidth / 2, top: window.innerHeight / 2 };
+  const rect = el.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-
-  Particles.burstAt(cx, cy, { color: '#f97316', count: 14 });
-  Particles.scorePop(cx, cy, 'MISS', { judgment: 'MISS', good: false });
-
-  window.dispatchEvent(new CustomEvent('hha:miss', {
-    detail: { reason, mode: 'BalancedPlateVR' }
-  }));
-}
-
-function handleHit (id, ev) {
-  const obj = activeTargets.get(id);
-  if (!obj) return;
-  const kind = obj.kind;
-  const group = obj.group | 0;
-
-  const rect = obj.el.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-
-  removeTarget(id, true);
+  const cy = rect.top  + rect.height / 2;
 
   const now = performance.now();
-  const timeFromStartMs = now - startTimeMs;
+  const rtMs = now - meta.spawnTimeMs;
 
-  if (kind === 'star') {
-    gainFever(25);
-    shieldCount = clamp(shieldCount + 1, 0, 3);
-    updateFeverUI();
-
-    Particles.burstAt(cx, cy, { color: '#eab308', count: 18 });
-    Particles.scorePop(cx, cy, '+BONUS', { judgment: 'STAR', good: true });
-
-    window.dispatchEvent(new CustomEvent('hha:event', {
-      detail: {
-        type: 'hit-star',
-        mode: 'BalancedPlateVR',
-        difficulty: diffKey,
-        sessionId,
-        timeFromStartMs,
-        emoji: obj.el.textContent || '⭐',
-        itemType: 'star',
-        totalScore: score,
-        combo
-      }
-    }));
-
-    return;
+  if (meta.kind === 'good' || meta.kind === 'special-good') {
+    handleGoodHit(meta, cx, cy, rtMs);
+  } else if (meta.kind === 'junk') {
+    handleJunkHit(meta, cx, cy, rtMs);
+  } else if (meta.kind === 'star') {
+    handleStarHit(meta, cx, cy, rtMs);
+  } else if (meta.kind === 'shield') {
+    handleShieldHit(meta, cx, cy, rtMs);
   }
+}
 
-  if (kind === 'junk') {
-    score = Math.max(0, score - 15);
-    registerMiss('hit-junk', obj);
-
-    Particles.burstAt(cx, cy, { color: '#f97316', count: 16 });
-    Particles.scorePop(cx, cy, '-15', { judgment: 'JUNK', good: false });
-
-    window.dispatchEvent(new CustomEvent('hha:event', {
-      detail: {
-        type: 'hit-junk',
-        mode: 'BalancedPlateVR',
-        difficulty: diffKey,
-        sessionId,
-        timeFromStartMs,
-        emoji: obj.el.textContent || '',
-        itemType: 'junk',
-        totalScore: score,
-        combo
-      }
-    }));
-
-    emitStat();
-    return;
-  }
-
-  // good
-  let baseScore = 20;
-  if (feverActive) baseScore = 35;
-
+function handleGoodHit (meta, cx, cy, rtMs) {
+  nHitGood++;
   combo += 1;
   if (combo > comboMax) comboMax = combo;
 
-  streakGoodNoJunk += 1;
-  gainFever(6);
-
-  score += baseScore;
-
-  if (group >= 1 && group <= 5) {
-    totalCounts[group - 1] += 1;
+  let gain = feverActive ? 40 : 30;
+  if (meta.groupId === 3 || meta.groupId === 4) {
+    gain += 5; // ผัก/ผลไม้ให้คะแนนดี
   }
 
-  if (group === 3 || group === 4) {
-    vegFruitCount += 1;
-    incQuest('G2', 1);
-    incQuest('M2', 1);
+  score += gain;
+
+  // update plate counts
+  if (meta.groupId != null && meta.groupId >= 1 && meta.groupId <= 5) {
+    const idx = meta.groupId - 1;
+    curPlateCounts[idx]  = (curPlateCounts[idx] || 0) + 1;
+    totalCounts[idx]     = (totalCounts[idx] || 0) + 1;
   }
 
-  if (group >= 1 && group <= 5) {
-    currPlateGroups[group - 1] += 1;
-    currPlateItems += 1;
+  // FX
+  if (Particles.burstAt) {
+    Particles.burstAt(cx, cy, {
+      color: meta.groupId >= 3 ? '#22c55e' : '#38bdf8',
+      count: feverActive ? 20 : 12
+    });
+  }
+  if (Particles.scorePop) {
+    const label = (combo >= 12)
+      ? 'PERFECT!'
+      : (combo >= 6 ? 'GREAT!' : 'GOOD!');
+    Particles.scorePop(cx, cy, '+' + gain, {
+      judgment: label,
+      good: true
+    });
   }
 
-  const distinctGroupsOnPlate =
-    currPlateGroups.filter(x => x > 0).length;
+  // Fever gain
+  addFever(feverActive ? 6 : 9);
 
-  let plateJustCompleted = false;
-  if (distinctGroupsOnPlate >= 4) {
+  // check plate completed (ครบ 5 หมู่ในจานปัจจุบัน)
+  const plateDoneNow = curPlateCounts.every(c => c > 0);
+  if (plateDoneNow) {
     platesDone += 1;
-    plateJustCompleted = true;
+    curPlateCounts = [0,0,0,0,0];
 
-    incQuest('G1', 1);
-    incQuest('M1', 1);
-
-    currPlateGroups = [0, 0, 0, 0, 0];
-    currPlateItems = 0;
-
-    Particles.burstAt(cx, cy, { color: '#22c55e', count: 24 });
-    Particles.scorePop(cx, cy, 'BALANCED!', { judgment: '+PLATE', good: true });
-  } else {
-    Particles.burstAt(cx, cy, { color: '#4ade80', count: 14 });
-    Particles.scorePop(cx, cy, '+' + baseScore, { judgment: 'GOOD', good: true });
-  }
-
-  if (streakGoodNoJunk >= 10) {
-    incQuest('M3', 1);
-    streakGoodNoJunk = 0;
-  }
-
-  emitStat();
-  emitQuestUpdate(plateJustCompleted ? 'เยี่ยม! ได้จานสมดุลเพิ่มแล้ว 🎯' : '');
-
-  window.dispatchEvent(new CustomEvent('hha:event', {
-    detail: {
-      type: 'hit-good',
-      mode: 'BalancedPlateVR',
-      difficulty: diffKey,
-      sessionId,
-      timeFromStartMs,
-      emoji: obj.el.textContent || '',
-      itemType: 'good',
-      lane: group,
-      totalScore: score,
-      combo,
-      isGood: true
+    // celebrate plate
+    if (Particles.burstAt) {
+      Particles.burstAt(cx, cy * 0.7, {
+        color: '#facc15',
+        count: 24
+      });
     }
-  }));
+    if (Particles.scorePop) {
+      Particles.scorePop(cx, cy * 0.7, 'BALANCED PLATE!', {
+        judgment: 'จานสมดุล +' + 60,
+        good: true
+      });
+    }
+    score += 60;
+
+    ROOT.dispatchEvent(new CustomEvent('hha:coach', {
+      detail: { text: 'เยี่ยมมาก! ได้จานสมดุลเพิ่มอีก 1 จานแล้ว 🍽️' }
+    }));
+  }
+
+  // adaptive (play only)
+  applyAdaptive();
+
+  // quest progress + stat
+  recalcQuestProgress();
+  dispatchStat();
+
+  // log event
+  logGameEvent({
+    type: 'hit-good',
+    itemType: 'good',
+    groupId: meta.groupId,
+    emoji: meta.emoji,
+    rtMs,
+    totalScore: score,
+    combo
+  });
 }
 
-// ---------- End Game ----------
+function handleJunkHit (meta, cx, cy, rtMs) {
+  junkHits++;
+  misses += 1;
+  combo = 0;
+
+  score -= 10;
+  if (score < 0) score = 0;
+
+  if (Particles.burstAt) {
+    Particles.burstAt(cx, cy, {
+      color: '#f97316',
+      count: 16
+    });
+  }
+  if (Particles.scorePop) {
+    Particles.scorePop(cx, cy, '-10', {
+      judgment: 'JUNK!',
+      good: false
+    });
+  }
+
+  ROOT.dispatchEvent(new CustomEvent('hha:miss', {
+    detail: { reason: 'hit-junk' }
+  }));
+
+  applyAdaptive();
+  recalcQuestProgress();
+  dispatchStat();
+
+  ROOT.dispatchEvent(new CustomEvent('hha:coach', {
+    detail: {
+      text: 'ของหวาน/ของทอดมาแทรกแล้ว ลองเลี่ยงให้ได้ในจานถัดไปนะ ⚠️'
+    }
+  }));
+
+  logGameEvent({
+    type: 'hit-junk',
+    itemType: 'junk',
+    emoji: meta.emoji,
+    rtMs,
+    totalScore: score,
+    combo
+  });
+}
+
+function handleStarHit (meta, cx, cy, rtMs) {
+  // treat as good super bonus
+  nHitGood++;
+  combo += 1;
+  if (combo > comboMax) comboMax = combo;
+
+  const gain = 80;
+  score += gain;
+
+  if (Particles.burstAt) {
+    Particles.burstAt(cx, cy, { color: '#facc15', count: 28 });
+  }
+  if (Particles.scorePop) {
+    Particles.scorePop(cx, cy, '+'+gain, {
+      judgment: 'BONUS STAR!',
+      good: true
+    });
+  }
+
+  addFever(20);
+  applyAdaptive();
+  recalcQuestProgress();
+  dispatchStat();
+
+  ROOT.dispatchEvent(new CustomEvent('hha:coach', {
+    detail: { text: 'เก็บดาวโบนัสได้แล้ว! คะแนนพุ่งเลย ⭐' }
+  }));
+
+  logGameEvent({
+    type: 'hit-star',
+    itemType: 'star',
+    emoji: meta.emoji,
+    rtMs,
+    totalScore: score,
+    combo
+  });
+}
+
+function handleShieldHit (meta, cx, cy, rtMs) {
+  if (shieldCount < 3) {
+    shieldCount += 1;
+    FeverUI.setShield(shieldCount);
+  }
+
+  if (Particles.burstAt) {
+    Particles.burstAt(cx, cy, { color: '#38bdf8', count: 18 });
+  }
+  if (Particles.scorePop) {
+    Particles.scorePop(cx, cy, 'SHIELD', {
+      judgment: 'GUARD READY',
+      good: true
+    });
+  }
+
+  dispatchStat();
+
+  ROOT.dispatchEvent(new CustomEvent('hha:coach', {
+    detail: { text: 'ได้โล่เพิ่มแล้ว! ถ้าเผลอกด junk โล่จะช่วยกันไว้ 🛡️' }
+  }));
+
+  logGameEvent({
+    type: 'hit-shield',
+    itemType: 'shield',
+    emoji: meta.emoji,
+    rtMs,
+    totalScore: score,
+    combo
+  });
+}
+
+function expireTarget (id) {
+  const meta = activeTargets.get(id);
+  if (!meta || meta.hit) {
+    removeTarget(id);
+    return;
+  }
+  removeTarget(id);
+
+  if (meta.kind === 'good' || meta.kind === 'special-good' || meta.kind === 'star') {
+    nExpireGood++;
+    misses += 1;
+    combo = 0;
+
+    ROOT.dispatchEvent(new CustomEvent('hha:miss', {
+      detail: { reason: 'expire-good' }
+    }));
+
+    applyAdaptive();
+    recalcQuestProgress();
+    dispatchStat();
+
+    logGameEvent({
+      type: 'expire-good',
+      itemType: meta.kind,
+      emoji: meta.emoji,
+      totalScore: score,
+      combo
+    });
+  } else {
+    // junk expire → ไม่ถือว่าพลาด (ถือว่าหลบได้)
+    logGameEvent({
+      type: 'expire-junk',
+      itemType: 'junk',
+      emoji: meta.emoji,
+      totalScore: score,
+      combo
+    });
+  }
+}
+
+// ---------- Spawn scheduler ----------
+function pickSpawnType () {
+  // special ระหว่างเกม
+  const elapsed = getElapsedSec();
+  const total = plannedDurationSec || 60;
+  const t = clamp(elapsed / total, 0, 1);
+
+  // star/shield chance
+  const starChance   = (RUN_MODE === 'research') ? 0.05 : 0.07;
+  const shieldChance = (RUN_MODE === 'research') ? 0.04 : 0.06;
+
+  const r = Math.random();
+  if (r < starChance) return 'star';
+  if (r < starChance + shieldChance) return 'shield';
+
+  // phase-based wave
+  let goodRatio = spawnGoodRatio;
+  if (t > 0.15 && t < 0.32) {
+    // Veggie storm
+    goodRatio = 0.96;
+  } else if (t > 0.45 && t < 0.6) {
+    // Junk alert
+    goodRatio = 0.45;
+  }
+
+  return (Math.random() < goodRatio) ? 'good' : 'junk';
+}
+
+function spawnOne () {
+  if (!running) return;
+  if (activeTargets.size >= maxActiveTargets) {
+    scheduleNextSpawn();
+    return;
+  }
+
+  const kind = pickSpawnType();
+  let meta = {
+    id: targetIdSeq++,
+    kind,
+    groupId: null,
+    emoji: '🍽️',
+    spawnTimeMs: performance.now(),
+    lifeMs: spawnLifeMs,
+    hit: false,
+    lifeTimer: null,
+    el: null
+  };
+
+  if (kind === 'good') {
+    const g = pickOne(GROUPS, GROUPS[0]);
+    meta.groupId = g.id;
+    meta.emoji   = pickOne(g.emojis, '🍚');
+    nSpawnGood++;
+  } else if (kind === 'junk') {
+    meta.groupId = null;
+    meta.emoji   = pickOne(JUNK_POOL, '🍩');
+    nSpawnJunk++;
+  } else if (kind === 'star') {
+    meta.groupId = null;
+    meta.emoji   = pickOne(STAR_POOL, '⭐');
+    nSpawnStar++;
+  } else if (kind === 'shield') {
+    meta.groupId = null;
+    meta.emoji   = pickOne(SHIELD_POOL, '🛡️');
+    nSpawnShield++;
+  }
+
+  const el = createTargetElement(meta);
+  meta.el = el;
+
+  meta.lifeTimer = ROOT.setTimeout(() => expireTarget(meta.id), meta.lifeMs);
+  activeTargets.set(meta.id, meta);
+
+  scheduleNextSpawn();
+}
+
+function scheduleNextSpawn () {
+  if (!running || ended) return;
+
+  // randomize interval
+  let interval = spawnIntervalMs * randRange(0.85, 1.15);
+
+  // ช่วงท้ายเกมเล็ก ๆ ถ้า grade ต่ำให้ spawn ง่ายขึ้น (good เยอะขึ้น)
+  const elapsed = getElapsedSec();
+  if (elapsed > plannedDurationSec * 0.8 && score < 350) {
+    interval *= 1.05;
+  }
+
+  spawnTimer = ROOT.setTimeout(spawnOne, interval);
+}
+
+// ---------- Logger ----------
+function logGameEvent (payload) {
+  const detail = Object.assign({}, payload, {
+    sessionId,
+    mode: 'BalancedPlateVR',
+    difficulty: DIFF_KEY
+  });
+  ROOT.dispatchEvent(new CustomEvent('hha:event', { detail }));
+}
+
+// ---------- Game start / end ----------
 function endGame (reason) {
   if (ended) return;
   ended = true;
+  running = false;
 
-  if (spawnTimerId) {
-    clearTimeout(spawnTimerId);
-    spawnTimerId = null;
+  if (spawnTimer) {
+    ROOT.clearTimeout(spawnTimer);
+    spawnTimer = null;
   }
+  // ลบเป้าทั้งหมด
+  activeTargets.forEach((m, id) => removeTarget(id));
+  activeTargets.clear();
 
-  stopWorldLoop();
-  clearAllTargets();
-
-  const now = performance.now();
-  const elapsedSec = (now - startTimeMs) / 1000;
+  endTimeIso = new Date().toISOString();
 
   const goalsCleared = goalsAll.filter(q => q.done).length;
-  const goalsTotal = goalsAll.length;
-  const miniCleared = minisAll.filter(q => q.done).length;
-  const miniTotal = minisAll.length;
+  const goalsTotal   = goalsAll.length;
+  const minisCleared = minisAll.filter(q => q.done).length;
+  const minisTotal   = minisAll.length;
 
-  const groupCounts = totalCounts.slice();
-
-  const detailEnd = {
-    mode: 'BalancedPlateVR',
-    difficulty: diffKey,
+  const payloadEnd = {
     sessionId,
-    score,
+    mode: 'BalancedPlateVR',
+    difficulty: DIFF_KEY,
     scoreFinal: score,
     comboMax,
     misses,
     platesDone,
     goalsCleared,
     goalsTotal,
-    miniCleared,
-    miniTotal,
-    groupCounts,
-    reason: reason || 'ended',
-    durationSecPlayed: elapsedSec
+    miniCleared: minisCleared,
+    miniTotal:   minisTotal,
+    groupCounts: totalCounts.slice(),
+    nTargetGoodSpawned: nSpawnGood,
+    nTargetJunkSpawned: nSpawnJunk,
+    nTargetStarSpawned: nSpawnStar,
+    nTargetShieldSpawned: nSpawnShield,
+    nHitGood,
+    nHitJunk,
+    nExpireGood,
+    startTimeIso,
+    endTimeIso,
+    reason
   };
 
-  window.dispatchEvent(new CustomEvent('hha:end', {
-    detail: detailEnd
-  }));
+  // ให้ HUD สรุป + big celebrate
+  ROOT.dispatchEvent(new CustomEvent('hha:end', { detail: payloadEnd }));
 
-  window.dispatchEvent(new CustomEvent('hha:session', {
-    detail: {
-      sessionId,
-      mode: 'BalancedPlateVR',
-      difficulty: diffKey,
-      durationSecPlayed: elapsedSec,
-      scoreFinal: score,
-      comboMax,
-      misses,
-      goalsCleared,
-      goalsTotal,
-      miniCleared,
-      miniTotal,
-      nTargetGoodSpawned: null,
-      nTargetJunkSpawned: null,
-      device: (typeof navigator !== 'undefined' ? navigator.userAgent : ''),
-      gameVersion,
-      reason,
-      startTimeIso: new Date(startTimeMs + (new Date().getTimezoneOffset() * -60000)).toISOString(),
-      endTimeIso: new Date().toISOString()
-    }
+  // ให้ logger เขียน session sheet
+  ROOT.dispatchEvent(new CustomEvent('hha:session', {
+    detail: Object.assign({}, payloadEnd, {
+      durationSecPlayed: Math.round(getElapsedSec())
+    })
   }));
+}
+
+function bindTimeUpListener () {
+  // ให้ html ฝั่ง plate-vr เป็นคนสั่ง end จาก timer กลาง
+  ROOT.addEventListener('hha:time', function (e) {
+    if (!running || ended) return;
+    const d = e.detail || {};
+    if (typeof d.sec === 'number' && d.sec <= 0) {
+      endGame('time-up');
+    }
+  });
 }
 
 // ---------- Public boot ----------
 export function boot (opts = {}) {
-  runMode =
-    (ROOT.HHA_RUNMODE === 'research' || opts.runMode === 'research')
-      ? 'research'
-      : 'play';
+  if (!DOC) return;
 
-  diffKey = String(opts.difficulty || 'normal').toLowerCase();
-  if (!DIFF_TABLE[diffKey]) diffKey = 'normal';
+  RUN_MODE = (String(ROOT.HHA_RUNMODE || '').toLowerCase() === 'research')
+    ? 'research'
+    : 'play';
 
-  baseConf = DIFF_TABLE[diffKey];
-  currentScale = baseConf.scale;
-  currentInterval = baseConf.spawnInterval;
-  targetLifeMs = baseConf.life;
+  DIFF_KEY = String(opts.difficulty || 'normal').toLowerCase();
+  if (!BASE_DIFF[DIFF_KEY]) DIFF_KEY = 'normal';
+  spawnBaseConf = BASE_DIFF[DIFF_KEY];
 
-  durationSec = Number(opts.duration || 60) || 60;
-  if (durationSec < 20) durationSec = 20;
-  if (durationSec > 180) durationSec = 180;
+  plannedDurationSec = clamp(parseInt(opts.duration,10) || 60, 20, 180);
 
-  startTimeMs = performance.now();
-  endTimeMs = startTimeMs + durationSec * 1000;
-  sessionId = 'PlateVR-' + Math.floor(startTimeMs);
+  adaptiveEnabled = (RUN_MODE === 'play'); // วิจัยไม่ adaptive
 
-  ended = false;
+  spawnIntervalMs   = spawnBaseConf.spawnInterval;
+  spawnSizeScale    = spawnBaseConf.sizeScale;
+  spawnGoodRatio    = spawnBaseConf.goodRatio;
+  spawnLifeMs       = spawnBaseConf.baseLife;
+  maxActiveTargets  = spawnBaseConf.maxActive;
+
+  // reset state
+  running  = true;
+  ended    = false;
+  sessionId = uid();
+  startTimeMs  = performance.now();
+  startTimeIso = new Date().toISOString();
 
   score = 0;
   combo = 0;
   comboMax = 0;
   misses = 0;
   platesDone = 0;
-  totalCounts = [0, 0, 0, 0, 0];
-  currPlateGroups = [0, 0, 0, 0, 0];
-  currPlateItems = 0;
-  streakGoodNoJunk = 0;
-  vegFruitCount = 0;
+  curPlateCounts = [0,0,0,0,0];
+  totalCounts    = [0,0,0,0,0];
+  junkHits = 0;
 
-  fever = 0;
-  feverActive = false;
+  nSpawnGood = nSpawnJunk = nSpawnStar = nSpawnShield = 0;
+  nHitGood = nHitJunk = nExpireGood = 0;
+
   shieldCount = 0;
-  if (feverTimerId) {
-    clearTimeout(feverTimerId);
-    feverTimerId = null;
+  FeverUI.ensureBar();
+  FeverUI.setShield(0);
+  FeverUI.setFeverActive(false);
+  setFeverValue(0);
+  ROOT.requestAnimationFrame(decayFeverLoop);
+
+  // quests
+  buildQuests();
+
+  // แจ้ง logger ว่าเริ่ม session
+  ROOT.dispatchEvent(new CustomEvent('hha:session', {
+    detail: {
+      sessionId,
+      mode: 'BalancedPlateVR',
+      difficulty: DIFF_KEY,
+      durationSec: plannedDurationSec,
+      reason: 'start',
+      startTimeIso
+    }
+  }));
+
+  // ผูก time listener ถ้ายังไม่เคย
+  if (!ROOT.__PLATE_TIME_BOUND__) {
+    ROOT.__PLATE_TIME_BOUND__ = true;
+    bindTimeUpListener();
   }
 
-  clearAllTargets();
+  // กันกรณีปิดแท็บ
+  ROOT.addEventListener('visibilitychange', () => {
+    if (ROOT.document && ROOT.document.hidden && running && !ended) {
+      endGame('tab-hidden');
+    }
+  }, { once: true });
 
-  if (FeverUI.ensureFeverBar) {
-    FeverUI.ensureFeverBar();
-  }
-  updateFeverUI();
-
-  resetQuests();
-  emitQuestUpdate('จัดจานให้ครบ 5 หมู่ เลี่ยงของไม่ดี แล้วลุยเลย!');
-
-  emitStat();
-
-  // world-follow loop (อ่านมุมกล้อง และเลื่อนเป้าตาม)
-  startWorldLoop();
-
+  // เริ่ม spawn ชุดแรก
   scheduleNextSpawn();
+
+  // coach intro
+  ROOT.dispatchEvent(new CustomEvent('hha:coach', {
+    detail: {
+      text: RUN_MODE === 'research'
+        ? 'โหมดวิจัย: จัดจานให้ครบหมู่และเล่นให้เต็มเวลาเลยนะ 🍽️'
+        : 'เริ่มจัดจานให้สนุกเลย! ลองดูว่ารอบนี้จะได้เกรดอะไร 💪'
+    }
+  }));
+
+  // init stat เพื่อให้ HUD sync
+  dispatchStat();
 }
