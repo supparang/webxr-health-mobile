@@ -188,6 +188,38 @@
       box-shadow:0 0 12px 0 rgba(168,85,247,0.6);
     }
 
+    /* ===== Lives (หัวใจ) — โผล่เฉพาะโหมด HARD ===== */
+    .metric-lives{
+      min-width:90px;
+    }
+    .lives-wrap{
+      display:flex;
+      gap:4px;
+      margin-top:4px;
+    }
+    .life-heart{
+      width:16px;
+      height:16px;
+      border-radius:999px;
+      background:radial-gradient(circle at 30% 30%, #facc15, #ef4444);
+      box-shadow:0 0 10px rgba(248,113,113,0.9);
+      transform:scale(1);
+      transition:transform .15s ease-out, filter .15s ease-out, opacity .15s ease-out;
+    }
+    .life-heart.empty{
+      filter:grayscale(1) brightness(0.5);
+      opacity:.3;
+      box-shadow:none;
+    }
+    .life-heart.hit{
+      animation:life-pop .4s ease-out;
+    }
+    @keyframes life-pop{
+      0%{ transform:scale(1);}
+      35%{ transform:scale(1.45);}
+      100%{ transform:scale(0.9);}
+    }
+
     /* ===== Quest panel (บนขวา) ===== */
     .hud-quest{
       max-width:280px;
@@ -243,56 +275,40 @@
       display:flex;
       flex-direction:column;
       align-items:center;
-      gap:10px;
+      gap:8px;
       padding-bottom:72px;
     }
-
     .coach-bubble{
       min-width:60%;
       max-width:680px;
       text-align:left;
-      background:
-        radial-gradient(circle at top left, rgba(52,211,153,0.26), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(45,212,191,0.18), transparent 55%),
-        rgba(15,23,42,0.98);
+      background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%),
+                 rgba(15,23,42,0.96);
       border-radius:999px;
-      padding:10px 16px;
-      border:1px solid rgba(52,211,153,0.65);
+      padding:8px 14px;
+      border:1px solid rgba(52,211,153,0.45);
       font-size:13px;
       display:none;
       align-items:center;
       justify-content:flex-start;
-      gap:10px;
+      gap:8px;
       pointer-events:auto;
-      position:relative;
-      overflow:hidden;
-      box-shadow:
-        0 0 0 1px rgba(15,23,42,1),
-        0 16px 38px rgba(15,23,42,0.9);
+      box-shadow:0 16px 40px rgba(15,23,42,0.95);
+      transform:translateY(10px) scale(0.96);
+      opacity:0;
+      transition:opacity .25s ease-out, transform .25s ease-out;
     }
-
     .coach-bubble.show{
       display:flex;
-      animation:coach-bubble-pop 0.45s ease-out;
+      opacity:1;
+      transform:translateY(0) scale(1);
+      animation:coach-pulse-glow 1.2s ease-in-out;
     }
-
-    .coach-bubble::before,
-    .coach-bubble::after{
-      content:"";
-      position:absolute;
-      inset:-20%;
-      background:
-        radial-gradient(circle at 0% 0%, rgba(52,211,153,0.20), transparent 55%),
-        radial-gradient(circle at 100% 100%, rgba(56,189,248,0.16), transparent 55%);
-      opacity:0;
-      pointer-events:none;
-      mix-blend-mode:screen;
-      animation:coach-sparkle 2.6s ease-in-out infinite;
+    @keyframes coach-pulse-glow{
+      0%{ box-shadow:0 12px 32px rgba(16,185,129,0.45);}
+      50%{ box-shadow:0 18px 46px rgba(45,212,191,0.85);}
+      100%{ box-shadow:0 16px 40px rgba(15,23,42,0.95);}
     }
-    .coach-bubble::after{
-      animation-delay:1.3s;
-    }
-
     .coach-label{
       font-size:11px;
       text-transform:uppercase;
@@ -301,149 +317,66 @@
       font-weight:600;
     }
 
-    #coach-text{
-      font-size:13px;
-      line-height:1.4;
-      animation:coach-text-wave 0.9s ease-out;
-    }
-
+    /* โค้ชเป็นภาพบร็อคโคลี่ + ดุ๊กดิ๊กมันส์ ๆ */
     .coach-emoji{
-      width:46px;
-      height:46px;
+      width:44px;
+      height:44px;
       border-radius:999px;
       background-image:url('./img/coach-neutral.png');
       background-size:cover;
       background-position:center;
       flex-shrink:0;
-      box-shadow:0 0 14px rgba(16,185,129,0.85);
-      position:relative;
-      animation:coach-idle 1.3s ease-in-out infinite;
+      box-shadow:0 0 14px rgba(16,185,129,0.9);
+      animation:coach-idle 1.6s ease-in-out infinite;
     }
 
-    .coach-emoji::before{
-      content:"";
-      position:absolute;
-      inset:-5px;
-      border-radius:inherit;
-      border:1px solid rgba(52,211,153,0.45);
-      box-shadow:0 0 22px rgba(34,197,94,0.65);
-      opacity:.7;
-      mix-blend-mode:screen;
-      pointer-events:none;
+    @keyframes coach-idle{
+      0%{   transform:translateY(0) scale(1) rotate(0);}
+      20%{  transform:translateY(-3px) scale(1.04) rotate(-2deg);}
+      40%{  transform:translateY(1px) scale(0.98) rotate(1deg);}
+      60%{  transform:translateY(-2px) scale(1.03) rotate(-1deg);}
+      100%{ transform:translateY(0) scale(1) rotate(0);}
     }
 
     .coach-emoji.coach-neutral{
       background-image:url('./img/coach-neutral.png');
-      filter:none;
     }
     .coach-emoji.coach-happy{
       background-image:url('./img/coach-happy.png');
-      box-shadow:0 0 20px rgba(34,197,94,0.95);
-      animation:coach-dance 0.8s ease-in-out infinite;
+      box-shadow:0 0 20px rgba(34,197,94,0.98);
     }
     .coach-emoji.coach-sad{
       background-image:url('./img/coach-sad.png');
-      filter:grayscale(0.2) brightness(0.9);
+      filter:grayscale(0.25) brightness(0.9);
       box-shadow:0 0 12px rgba(148,163,184,0.85);
     }
     .coach-emoji.coach-fever{
       background-image:url('./img/coach-fever.png');
-      box-shadow:0 0 24px rgba(248,113,113,0.95);
-      animation:coach-fever-pulse 0.55s ease-in-out infinite;
+      box-shadow:0 0 22px rgba(248,113,113,0.95);
     }
 
-    .coach-emoji.coach-celebrate{
-      animation:coach-celebrate-bounce 0.75s ease-out;
-    }
-
-    /* ===== Animations (coach) ===== */
-    @keyframes coach-idle{
-      0%{   transform:translateY(0) scale(1);}
-      25%{  transform:translateY(-2px) scale(1.03);}
-      50%{  transform:translateY(1px) scale(0.99);}
-      75%{  transform:translateY(-1px) scale(1.02);}
-      100%{ transform:translateY(0) scale(1);}
-    }
-
-    @keyframes coach-dance{
-      0%{   transform:translateY(0) rotate(0deg) scale(1);}
-      20%{  transform:translateY(-4px) rotate(-6deg) scale(1.06);}
-      40%{  transform:translateY(-2px) rotate(5deg) scale(1.03);}
-      60%{  transform:translateY(-6px) rotate(-4deg) scale(1.07);}
-      80%{  transform:translateY(-3px) rotate(4deg) scale(1.04);}
-      100%{ transform:translateY(0) rotate(0deg) scale(1);}
-    }
-
-    @keyframes coach-fever-pulse{
-      0%{
-        transform:translateY(-1px) scale(1.05);
-        box-shadow:0 0 16px rgba(248,113,113,0.9);
-      }
-      50%{
-        transform:translateY(-3px) scale(1.11);
-        box-shadow:0 0 26px rgba(248,113,113,1);
-      }
-      100%{
-        transform:translateY(-1px) scale(1.05);
-        box-shadow:0 0 16px rgba(248,113,113,0.9);
-      }
-    }
-
+    /* ฉลองแรง ๆ เวลาเคลียร์ภารกิจ */
     @keyframes coach-celebrate-bounce{
-      0%{   transform:translateY(0) scale(1) rotate(0);}
-      20%{  transform:translateY(-10px) scale(1.15) rotate(-8deg);}
-      40%{  transform:translateY(-6px) scale(1.08) rotate(6deg);}
-      60%{  transform:translateY(-12px) scale(1.18) rotate(-4deg);}
+      0%{ transform:translateY(0) scale(1) rotate(0);}
+      15%{ transform:translateY(-10px) scale(1.15) rotate(-6deg);}
+      35%{ transform:translateY(-6px) scale(1.08) rotate(4deg);}
+      55%{ transform:translateY(-12px) scale(1.18) rotate(-4deg);}
       100%{ transform:translateY(0) scale(1) rotate(0);}
     }
-
-    @keyframes coach-bubble-pop{
-      0%{
-        opacity:0;
-        transform:translateY(8px) scale(.92);
-      }
-      60%{
-        opacity:1;
-        transform:translateY(0) scale(1.02);
-      }
-      100%{
-        opacity:1;
-        transform:translateY(0) scale(1);
-      }
+    .coach-emoji.coach-celebrate{
+      animation:coach-celebrate-bounce 0.8s ease-out;
     }
 
-    @keyframes coach-text-wave{
-      0%{
-        opacity:0;
-        transform:translateY(4px);
-      }
-      40%{
-        opacity:1;
-        transform:translateY(0);
-      }
-      100%{
-        opacity:1;
-        transform:translateY(0);
-      }
+    /* effect ข้อความโค้ช – glitch + glow */
+    .coach-text-anim{
+      position:relative;
+      display:inline-block;
+      animation:coach-text-glow 1.4s ease-in-out infinite;
     }
-
-    @keyframes coach-sparkle{
-      0%{
-        opacity:0;
-        transform:translate3d(-6px,4px,0) scale(1);
-      }
-      40%{
-        opacity:.7;
-        transform:translate3d(2px,-4px,0) scale(1.03);
-      }
-      80%{
-        opacity:.4;
-        transform:translate3d(6px,2px,0) scale(1.02);
-      }
-      100%{
-        opacity:0;
-        transform:translate3d(0,0,0) scale(1);
-      }
+    @keyframes coach-text-glow{
+      0%{ text-shadow:0 0 0 rgba(45,212,191,0.0);}
+      40%{ text-shadow:0 0 12px rgba(34,197,94,0.9);}
+      100%{ text-shadow:0 0 4px rgba(15,23,42,0.9);}
     }
 
     /* ===== Center hint ===== */
@@ -512,7 +445,7 @@
       font-weight:600;
       cursor:pointer;
       background:rgba(15,23,42,0.85);
-      color:var(--text-main);
+      color:#e5e7eb;
       display:inline-flex;
       align-items:center;
       gap:6px;
@@ -657,7 +590,7 @@
   <div class="hud-root">
     <div class="hud-top">
       <!-- Left: mode + metrics -->
-      <div class="hud-card" style="flex:1;max-width:420px;">
+      <div class="hud-card" style="flex:1;max-width:480px;">
         <div class="hud-main">
           <div>
             <div class="hud-main-title">
@@ -690,6 +623,12 @@
           <div class="metric">
             <div class="metric-label">พลาด</div>
             <div class="metric-value danger" id="hud-miss">0</div>
+          </div>
+
+          <!-- Lives: โหมด HARD เท่านั้น -->
+          <div class="metric metric-lives" id="metric-lives" style="display:none;">
+            <div class="metric-label">หัวใจ</div>
+            <div class="lives-wrap" id="hud-lives" data-prev="3"></div>
           </div>
 
           <!-- Grade (real-time) + bar -->
@@ -736,7 +675,9 @@
         <div id="coach-emoji" class="coach-emoji coach-neutral"></div>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="coach-label">โค้ช</span>
-          <span id="coach-text">แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ</span>
+          <span id="coach-text" class="coach-text-anim">
+            แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ
+          </span>
         </div>
       </div>
     </div>
@@ -828,6 +769,12 @@
     const elGradeBadge = document.getElementById('hud-grade-badge');
     const elGradeBar   = document.getElementById('hud-grade-bar');
 
+    // Lives HUD (เฉพาะโหมด HARD)
+    const elLivesWrap = document.getElementById('metric-lives');
+    const elLives     = document.getElementById('hud-lives');
+    const MAX_LIVES   = 3;
+    let HUD_ENABLE_LIVES = false;
+
     // overlay 3–2–1 Go
     const elCountdown = document.getElementById('start-countdown');
     const elJudge     = document.getElementById('hud-judge');
@@ -875,6 +822,43 @@
       }, 4200);
     }
 
+    // ===== Lives HUD helpers =====
+    function renderLives(lives, maxLives){
+      if (!elLives) return;
+      elLives.innerHTML = '';
+      lives = Math.max(0, Math.min(maxLives, lives));
+      for (let i = 0; i < maxLives; i++){
+        const h = document.createElement('div');
+        h.className = 'life-heart' + (i < lives ? '' : ' empty');
+        elLives.appendChild(h);
+      }
+    }
+
+    window.addEventListener('hha:lives', function(e){
+      if (!HUD_ENABLE_LIVES) return;
+      if (!elLives) return;
+
+      const d = e.detail || {};
+      const max = (typeof d.maxLives === 'number' && d.maxLives > 0)
+        ? d.maxLives
+        : MAX_LIVES;
+      const lives = (typeof d.lives === 'number') ? d.lives : max;
+
+      const prev = parseInt(elLives.dataset.prev || String(max), 10);
+      renderLives(lives, max);
+
+      if (lives < prev){
+        const hearts = elLives.querySelectorAll('.life-heart');
+        if (hearts[lives]) {
+          hearts[lives].classList.add('hit');
+          setTimeout(() => {
+            hearts[lives] && hearts[lives].classList.remove('hit');
+          }, 500);
+        }
+      }
+      elLives.dataset.prev = String(lives);
+    });
+
     // ===== Start Countdown 3–2–1–Go =====
     function runCountdown(onDone){
       if (!elCountdown){
@@ -887,7 +871,7 @@
       elCountdown.classList.remove('countdown-hidden');
       elCountdown.textContent = steps[0];
 
-      const interval = 800; // ms ต่อ step
+      const interval = 800;
       const t = setInterval(function(){
         idx++;
         if (idx >= steps.length){
@@ -966,15 +950,15 @@
       if (P && P.burstAt){
         P.burstAt(cx, y, {
           color: (kind === 'goal') ? '#22c55e' : '#38bdf8',
-          count: 16
+          count: 18
         });
       }
       if (P && P.scorePop){
-        var label = (kind === 'goal')
+        const label = (kind === 'goal')
           ? ('Goal ' + cleared + '/' + total)
           : ('Mini ' + cleared + '/' + total);
-        P.scorePop(cx, y, 'MISSION CLEAR!', {
-          judgment: label,
+        P.scorePop(cx, y, label, {
+          judgment: 'CLEAR',
           good: true
         });
       }
@@ -998,7 +982,7 @@
             setTimeout(function(){
               P.burstAt(cx, cy, {
                 color: i2 === 1 ? '#facc15' : '#22c55e',
-                count: 22
+                count: 24
               });
             }, i2 * 260);
           })(i);
@@ -1113,7 +1097,6 @@
         hudMissCount = d.misses;
         elMiss.textContent = hudMissCount;
       }
-
       updateRealtimeGrade(d.score);
     });
 
@@ -1228,9 +1211,6 @@
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // ★ บอก GameEngine ว่าโหมดไหน (play / research)
-      window.HHA_RUNMODE = runMode;
-
       // เวลาเล่นตามระดับยากง่าย (override time param)
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
@@ -1245,7 +1225,17 @@
         }
       }
 
-      // HUD update
+      // ---- lives เฉพาะโหมด HARD ----
+      HUD_ENABLE_LIVES = (diff === 'hard');
+      if (HUD_ENABLE_LIVES && elLivesWrap) {
+        elLivesWrap.style.display = '';
+        renderLives(MAX_LIVES, MAX_LIVES);
+        if (elLives) elLives.dataset.prev = String(MAX_LIVES);
+      } else if (elLivesWrap) {
+        elLivesWrap.style.display = 'none';
+      }
+
+      // HUD core
       elDiff.textContent = diff.toUpperCase();
       elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
 
@@ -1256,7 +1246,6 @@
       elTime.textContent  = dur + 's';
       hudMissCount = 0;
 
-      // init grade hud
       hudGoalsTotal   = 0;
       hudGoalsCleared = 0;
       hudMiniTotal    = 0;
@@ -1293,7 +1282,7 @@
         durationSec: dur,
         studentKey: studentKey,
         profile: studentProfile,
-        debug: false  // production
+        debug: false
       });
 
       const cam = document.querySelector('#gj-camera');
@@ -1344,5 +1333,6 @@
       });
     });
   </script>
+
 </body>
 </html>
