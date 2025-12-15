@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-10 Multi-Quest + Research Metrics + Full Event Fields + Celebrate (+ questPlan + runMode + instant quest-end)
+// 2025-12-15 Multi-Quest + Research Metrics + Full Event Fields + Adaptive (Play only)
 
 'use strict';
 
@@ -52,6 +52,13 @@ export const GameEngine = (function () {
     shield:   3
   };
 
+  // base difficulty backup สำหรับ adaptive
+  let BASE_SPAWN_INTERVAL  = SPAWN_INTERVAL;
+  let BASE_TARGET_LIFETIME = TARGET_LIFETIME;
+  let BASE_MAX_ACTIVE      = MAX_ACTIVE;
+  let BASE_TARGET_SCALE    = 1;
+  let targetScale          = 1;
+
   // Fever
   const FEVER_MAX       = 100;
   const FEVER_HIT_GAIN  = 18;
@@ -81,9 +88,7 @@ export const GameEngine = (function () {
   let sessionStart = null;
   let sessionStartMs = 0;   // ใช้คำนวณ timeFromStartMs
   let currentDiff = 'normal';
-  let currentRunMode = 'play'; // play / research
-  let hasEnded = false;
-  let questsFinished = false;
+  let currentRunMode = 'play'; // 'play' | 'research'
 
   // ---------- Quest state: หลาย goal / หลาย mini ----------
   let goals = [];
@@ -106,9 +111,6 @@ export const GameEngine = (function () {
 
   let rtGoodList       = [];
   let nHitGoodPerfect  = 0;
-
-  // เก็บแผนภารกิจของ session นี้ (ไว้ log)
-  let lastQuestPlan = null;
 
   // ---------- Emoji → texture cache ----------
   const emojiTexCache = new Map();
@@ -184,17 +186,6 @@ export const GameEngine = (function () {
     return (sorted[mid - 1] + sorted[mid]) / 2;
   }
 
-  // อ่าน runMode จาก URL (?run=play / research)
-  function detectRunMode() {
-    try {
-      const url = new URL(window.location.href);
-      const raw = (url.searchParams.get('run') || 'play').toLowerCase();
-      return raw === 'research' ? 'research' : 'play';
-    } catch (err) {
-      return 'play';
-    }
-  }
-
   // แปลง world → screen สำหรับใช้กับ particles
   function worldToScreen(el) {
     try {
@@ -260,34 +251,22 @@ export const GameEngine = (function () {
     return goalsTotal > 0 && minisTotal > 0 && goalsDone && minisDone;
   }
 
-  // จบทุกภารกิจ → หยุดเกมทันที + เคลียร์เป้า แล้วค่อยยิง end
   function checkAllQuestsDone() {
     if (!running) return;
-    if (questsFinished) return;
-    if (!allQuestsDone()) return;
+    if (allQuestsDone()) {
+      coach('สุดยอด! ทำภารกิจหลักและ Mini quests ครบหมดแล้ว! 🎉');
+      emit('quest:all-complete', {
+        goalsTotal: goals.length,
+        minisTotal: minis.length
+      });
 
-    questsFinished = true;
-
-    // freeze เกมทันที
-    running = false;
-    clearInterval(spawnTimer);
-    if (feverTimer) clearTimeout(feverTimer);
-    endFever();
-
-    activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
-    activeTargets = [];
-
-    coach('สุดยอด! ทำภารกิจหลักและ Mini quests ครบหมดแล้ว! 🎉');
-    emit('quest:all-complete', {
-      goalsTotal: goals.length,
-      minisTotal: minis.length
-    });
-
-    // ให้เวลา FX ฉลองนิดหน่อย แล้วสรุปผล
-    setTimeout(() => {
-      coach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
-      emitEnd('quest-complete');
-    }, 800);
+      // หน่วงเวลาให้ฉลองใหญ่ ก่อนค่อยจบเกม + สรุปผล
+      setTimeout(() => {
+        if (running) {
+          stop('quest-complete');
+        }
+      }, 1800);
+    }
   }
 
   // ---------- Fever ----------
@@ -517,15 +496,11 @@ export const GameEngine = (function () {
       junkErrorPct,
       avgRtGoodMs,
       medianRtGoodMs,
-      fastHitRatePct,
-      nHitGoodPerfect
+      fastHitRatePct
     };
   }
 
   function emitEnd(reason) {
-    if (hasEnded) return;
-    hasEnded = true;
-
     const goalsTotal = goals.length;
     const minisTotal = minis.length;
     const goalsCleared = countDone(goals);
@@ -533,7 +508,6 @@ export const GameEngine = (function () {
 
     emit('hha:end', {
       mode: 'Good vs Junk (VR)',
-      runMode: currentRunMode,
       score,
       comboMax,
       misses,
@@ -555,8 +529,8 @@ export const GameEngine = (function () {
       emit('hha:session', {
         sessionId,
         mode: 'GoodJunkVR',
-        runMode: currentRunMode,
         difficulty: currentDiff,
+        runMode: currentRunMode,
         device: typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '',
         startTimeIso: sessionStart ? sessionStart.toISOString() : '',
         endTimeIso: endTime.toISOString(),
@@ -564,7 +538,7 @@ export const GameEngine = (function () {
         scoreFinal: score,
         comboMax,
         misses,
-        gameVersion: 'GoodJunkVR-2025-12-10-Stats-MQ-FullEvent',
+        gameVersion: 'GoodJunkVR-2025-12-15-Stats-MQ-Adaptive',
         reason: reason || 'normal',
 
         goalsCleared,
@@ -585,11 +559,7 @@ export const GameEngine = (function () {
         junkErrorPct:          metrics.junkErrorPct,
         avgRtGoodMs:           metrics.avgRtGoodMs,
         medianRtGoodMs:        metrics.medianRtGoodMs,
-        fastHitRatePct:        metrics.fastHitRatePct,
-        nHitGoodPerfect:       metrics.nHitGoodPerfect,
-
-        // แผนภารกิจของ session นี้
-        questPlan: lastQuestPlan
+        fastHitRatePct:        metrics.fastHitRatePct
       });
     } catch (err) {
       console.warn('[GoodJunkVR] emitEnd metrics error', err);
@@ -637,13 +607,13 @@ export const GameEngine = (function () {
     }
 
     const goalIdActive = g ? g.id : '';
-       const miniIdActive = m ? m.id : '';
+    const miniIdActive = m ? m.id : '';
 
     emit('hha:event', {
       sessionId,
       mode: 'GoodJunkVR',
-      runMode: currentRunMode,
       difficulty: currentDiff,
+      runMode: currentRunMode,
       timeFromStartMs,
       targetId,
       feverState,
@@ -683,7 +653,11 @@ export const GameEngine = (function () {
     const z = -3.0;
 
     root.setAttribute('position', { x, y, z });
-    root.setAttribute('scale', { x: 1, y: 1, z: 1 });
+    root.setAttribute('scale', {
+      x: targetScale,
+      y: targetScale,
+      z: targetScale
+    });
     root.classList.add('gj-target');
     root.dataset.kind = kind;
     root.dataset.emoji = emoji;
@@ -739,6 +713,31 @@ export const GameEngine = (function () {
     return root;
   }
 
+  // ---------- Adaptive difficulty (ใช้เฉพาะ runMode = play) ----------
+  function adjustAdaptiveDifficulty() {
+    if (currentRunMode !== 'play') return;
+    if (!running) return;
+
+    // perf จากคอมโบและ miss (ดีมาก → ค่าบวก, พลาดเยอะ → ค่าลบ)
+    const perfRaw = combo - misses;
+    const perf = clamp(perfRaw, -6, 10); // กันหลุดโหด/ง่ายเกินไป
+
+    // เล่นดีขึ้น → spawn เร็วขึ้น, lifetime สั้นลง
+    const speedFactor = 1 + perf * 0.04;  // ~0.76 - 1.4
+    const lifeFactor  = 1 + perf * 0.03;  // ~0.82 - 1.3
+
+    SPAWN_INTERVAL  = Math.round(BASE_SPAWN_INTERVAL  / speedFactor);
+    TARGET_LIFETIME = Math.round(BASE_TARGET_LIFETIME / lifeFactor);
+
+    // scale เป้า: เล่นดี → เป้าเล็กลง, พลาดบ่อย → เป้าใหญ่ขึ้น
+    let scaleFactor = 1 - perf * 0.03;
+    targetScale = clamp(
+      BASE_TARGET_SCALE * scaleFactor,
+      BASE_TARGET_SCALE * 0.75,
+      BASE_TARGET_SCALE * 1.35
+    );
+  }
+
   // ---------- ยิงโดน ----------
   function onHit(el) {
     if (!running || !el) return;
@@ -774,7 +773,6 @@ export const GameEngine = (function () {
           radius: 40
         });
         P.scorePop(sx, sy, 'Shield', {
-          kind: 'judge',
           judgment: 'BLOCK'
         });
       }
@@ -812,11 +810,7 @@ export const GameEngine = (function () {
           radius: 70
         });
         P.scorePop(sx, sy, '+' + scoreDelta, {
-          kind: 'score'
-        });
-        P.scorePop(sx, sy, 'BONUS', {
-          kind: 'judge',
-          judgment: 'GOOD'
+          judgment: 'BONUS'
         });
       }
 
@@ -854,11 +848,7 @@ export const GameEngine = (function () {
           radius: 70
         });
         P.scorePop(sx, sy, '+' + scoreDelta, {
-          kind: 'score'
-        });
-        P.scorePop(sx, sy, 'BONUS', {
-          kind: 'judge',
-          judgment: 'GOOD'
+          judgment: 'BONUS'
         });
       }
 
@@ -917,6 +907,9 @@ export const GameEngine = (function () {
 
       updateGoalFromGoodHit();
       updateMiniFromCombo();
+
+      // ปรับความยากแบบ adaptive (เฉพาะโหมด play)
+      adjustAdaptiveDifficulty();
     } else {
       // junk — treat as Miss
       if (shieldCount > 0) {
@@ -936,7 +929,6 @@ export const GameEngine = (function () {
             radius: 40
           });
           P.scorePop(sx, sy, 'BLOCK', {
-            kind: 'judge',
             judgment: 'BLOCK'
           });
         }
@@ -978,6 +970,9 @@ export const GameEngine = (function () {
       emitMiss();
       pushQuest('');
       judgment = 'Miss';
+
+      // ปรับ adaptive เมื่อโดนของขยะ
+      adjustAdaptiveDifficulty();
     }
 
     emitScore();
@@ -996,21 +991,18 @@ export const GameEngine = (function () {
 
       P.burstAt(sx, sy, {
         color,
-        count: goodFlag ? 24 : 16,
-        radius: goodFlag ? 70 : 50
+        count: goodFlag ? 18 : 12,
+        radius: goodFlag ? 70 : 55
       });
 
       if (scoreDelta) {
-        const text =
-          scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
+        const text = scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
         P.scorePop(sx, sy, text, {
-          kind: 'score',
           judgment: jUpper,
           good: goodFlag
         });
       } else {
-        P.scorePop(sx, sy, jUpper, {
-          kind: 'judge',
+        P.scorePop(sx, sy, '', {
           judgment: jUpper,
           good: goodFlag
         });
@@ -1064,6 +1056,9 @@ export const GameEngine = (function () {
         setFever(nextFever, 'charge');
       }
 
+      // ปรับ adaptive เมื่อปล่อยของดีหลุด
+      adjustAdaptiveDifficulty();
+
       emitMiss();
       emitScore();
       pushQuest('');
@@ -1073,11 +1068,10 @@ export const GameEngine = (function () {
       if (P) {
         P.burstAt(sx, sy, {
           color: '#f97316',
-          count: 16,
-          radius: 45
+          count: 12,
+          radius: 50
         });
-        P.scorePop(sx, sy, 'MISS', {
-          kind: 'judge',
+        P.scorePop(sx, sy, '', {
           judgment: 'MISS',
           good: false
         });
@@ -1194,15 +1188,6 @@ export const GameEngine = (function () {
       c3 = randInt(6, 8);
     }
 
-    // เก็บแผนภารกิจไว้ใน session
-    lastQuestPlan = {
-      difficulty: d,
-      runMode: currentRunMode,
-      goal1Target: g1,
-      goal2Target: g2,
-      miniComboTargets: [c1, c2, c3]
-    };
-
     goals.push(
       {
         id: 'G1',
@@ -1261,6 +1246,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 1500;
       MAX_ACTIVE      = 3;
       GOOD_RATE       = 0.75;
+      targetScale     = 1.15;
 
       TYPE_WEIGHTS = {
         good:    78,
@@ -1274,6 +1260,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 950;
       MAX_ACTIVE      = 5;
       GOOD_RATE       = 0.60;
+      targetScale     = 0.95;
 
       TYPE_WEIGHTS = {
         good:    65,
@@ -1287,6 +1274,7 @@ export const GameEngine = (function () {
       TARGET_LIFETIME = 1200;
       MAX_ACTIVE      = 4;
       GOOD_RATE       = 0.68;
+      targetScale     = 1.05;
 
       TYPE_WEIGHTS = {
         good:    70,
@@ -1297,12 +1285,20 @@ export const GameEngine = (function () {
       };
     }
 
+    // เก็บ base สำหรับ adaptive (ใช้เฉพาะ runMode = play)
+    BASE_SPAWN_INTERVAL  = SPAWN_INTERVAL;
+    BASE_TARGET_LIFETIME = TARGET_LIFETIME;
+    BASE_MAX_ACTIVE      = MAX_ACTIVE;
+    BASE_TARGET_SCALE    = targetScale;
+
     setupQuestsForDifficulty(d);
   }
 
   // ---------- start / stop ----------
-  function _startCore(diffKey) {
+  function _startCore(diffKey, runMode) {
     running = true;
+    currentRunMode = (runMode === 'research') ? 'research' : 'play';
+
     score = 0;
     combo = 0;
     comboMax = 0;
@@ -1324,10 +1320,6 @@ export const GameEngine = (function () {
 
     rtGoodList      = [];
     nHitGoodPerfect = 0;
-
-    lastQuestPlan = null;
-    hasEnded = false;
-    questsFinished = false;
 
     sessionId = 'gjvr-' + Date.now().toString(36) + '-' +
       Math.random().toString(16).slice(2, 8);
@@ -1358,32 +1350,30 @@ export const GameEngine = (function () {
     spawnTimer = setInterval(tickSpawn, SPAWN_INTERVAL);
   }
 
-  function start(diffKey) {
+  function start(diffKey, runMode) {
     if (running) return;
     sceneEl = document.querySelector('a-scene');
     if (!sceneEl) {
       console.error('[GoodJunkVR] ไม่พบ <a-scene>');
       return;
     }
-
-    // อ่าน runMode จาก URL ทุกครั้งที่ start
-    currentRunMode = detectRunMode();
-
     if (sceneEl.hasLoaded) {
-      _startCore(diffKey);
+      _startCore(diffKey, runMode);
     } else {
-      sceneEl.addEventListener('loaded', () => _startCore(diffKey), { once: true });
+      sceneEl.addEventListener('loaded', () => _startCore(diffKey, runMode), { once: true });
     }
   }
 
   function stop(reason) {
-    // ถ้าจบไปแล้วจาก quest-complete ก็ไม่ต้องทำอะไรเพิ่ม
-    if (hasEnded && !running) return;
-
+    if (!running) return;
     running = false;
 
     clearInterval(spawnTimer);
-    if (feverTimer) clearTimeout(feverTimer);
+    spawnTimer = null;
+    if (feverTimer) {
+      clearTimeout(feverTimer);
+      feverTimer = null;
+    }
     endFever();
 
     activeTargets.forEach(el => el.parentNode && el.parentNode.removeChild(el));
