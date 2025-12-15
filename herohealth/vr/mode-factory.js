@@ -177,24 +177,6 @@ export async function boot (rawCfg = {}) {
     }
   }
 
-  // ---------- CLUTCH TIME ----------
-  // เหลือเวลาน้อยมาก → ส่ง event ให้ HUD รู้ (ใช้แต่งสี / เอฟเฟกต์)
-  const clutchThreshold = Math.max(10, Math.floor(totalDuration * 0.2)); // อย่างน้อย 10 วินาที หรือ 20% ท้ายเกม
-  let clutchFired = false;
-
-  function dispatchClutch () {
-    try {
-      ROOT.dispatchEvent(new CustomEvent('hha:clutch', {
-        detail: {
-          modeKey,
-          difficulty: diffKey,
-          totalDuration,
-          threshold: clutchThreshold
-        }
-      }));
-    } catch {}
-  }
-
   // ---------- ตำแหน่ง spawn (ภายใน host) ----------
   function computePlayRect () {
     const w = host.clientWidth;
@@ -213,6 +195,7 @@ export async function boot (rawCfg = {}) {
     };
   }
 
+  // ---------- SPAWN TARGET (POP-IN + HIT / FADE-OUT) ----------
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
@@ -257,7 +240,9 @@ export async function boot (rawCfg = {}) {
     el.style.position = 'absolute';
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
-    el.style.transform = 'translate(-50%, -50%)';
+    // เริ่มจากเล็ก+โปร่ง → ค่อย pop-in
+    el.style.transform = 'translate(-50%, -50%) scale(0.4)';
+    el.style.opacity = '0';
 
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
@@ -272,6 +257,10 @@ export async function boot (rawCfg = {}) {
     el.style.userSelect = 'none';
     el.style.cursor = 'pointer';
     el.style.zIndex = '30';
+
+    // transition สำหรับ pop-in / hit / fade-out
+    el.style.transition =
+      'transform 0.18s ease-out, opacity 0.18s ease-out, box-shadow 0.18s ease-out';
 
     if (isGood) {
       el.style.background = 'radial-gradient(circle at 30% 30%, #4ade80, #16a34a)';
@@ -292,6 +281,14 @@ export async function boot (rawCfg = {}) {
     activeTargets.add(data);
     host.appendChild(el);
 
+    // POP-IN animation
+    ROOT.requestAnimationFrame(() => {
+      ROOT.requestAnimationFrame(() => {
+        el.style.opacity = '1';
+        el.style.transform = 'translate(-50%, -50%) scale(1)';
+      });
+    });
+
     const handleHit = (ev) => {
       if (stopped) return;
       ev.preventDefault();
@@ -300,7 +297,16 @@ export async function boot (rawCfg = {}) {
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
-      try { host.removeChild(el); } catch {}
+
+      // เอฟเฟกต์ตอนโดน: ขยาย + glow + fade-out
+      el.style.transform = 'translate(-50%, -50%) scale(1.18)';
+      el.style.boxShadow =
+        '0 0 0 3px rgba(250,250,250,0.9), 0 16px 36px rgba(0,0,0,0.8)';
+      el.style.opacity = '0';
+
+      ROOT.setTimeout(() => {
+        try { host.removeChild(el); } catch {}
+      }, 120);
 
       let res = null;
       if (typeof judge === 'function') {
@@ -341,7 +347,14 @@ export async function boot (rawCfg = {}) {
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
-      try { host.removeChild(el); } catch {}
+
+      // ละลายหายไปเบา ๆ
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%, -50%) scale(0.7)';
+
+      ROOT.setTimeout(() => {
+        try { host.removeChild(el); } catch {}
+      }, 140);
 
       try {
         if (typeof onExpire === 'function') {
@@ -367,6 +380,27 @@ export async function boot (rawCfg = {}) {
     } catch {}
   }
 
+  // ---------- CLUTCH TIME (ท้ายเกมเร้าใจ) ----------
+  let clutchFired = false;
+  function fireClutchIfNeeded () {
+    if (clutchFired) return;
+    // เข้าช่วงท้ายเกม ~25% สุดท้าย แต่ไม่ต่ำกว่า 10 วินาที
+    const threshold = Math.max(10, Math.floor(totalDuration * 0.25));
+    if (secLeft <= threshold && secLeft > 0) {
+      clutchFired = true;
+      try {
+        ROOT.dispatchEvent(new CustomEvent('hha:clutch', {
+          detail: {
+            modeKey,
+            difficulty: diffKey,
+            secLeft,
+            totalDuration
+          }
+        }));
+      } catch {}
+    }
+  }
+
   let rafId = null;
 
   function loop (ts) {
@@ -379,17 +413,8 @@ export async function boot (rawCfg = {}) {
       const steps = Math.floor(dt / 1000);
       for (let i = 0; i < steps; i++) {
         secLeft--;
-
-        // เมื่อเข้าเขต Clutch ครั้งแรก → ส่ง event
-        if (!clutchFired && secLeft <= clutchThreshold && secLeft > 0) {
-          clutchFired = true;
-          dispatchClutch();
-
-          // ช่วงท้ายเกม เร่งจังหวะขึ้นอีกนิด (แต่ไม่ให้โหดเกินไป)
-          curInterval = clamp(curInterval * 0.85, baseDiff.spawnInterval * 0.4, baseDiff.spawnInterval * 1.2);
-        }
-
         dispatchTime(secLeft);
+        fireClutchIfNeeded();
         if (secLeft <= 0) break;
       }
       lastClockTs += steps * 1000;
@@ -399,24 +424,7 @@ export async function boot (rawCfg = {}) {
       if (!lastSpawnTs) lastSpawnTs = ts;
       const dtSpawn = ts - lastSpawnTs;
       if (dtSpawn >= curInterval) {
-        // ===== Burst wave logic =====
-        let count = 1;
-
-        // ถ้าเล่นเก่งมาก (adaptLevel ≥ 2) → มีโอกาส burst เพิ่ม
-        if (adaptLevel >= 2 && Math.random() < 0.35) {
-          count += 1;
-        }
-        // ถ้าอยู่ในโหมด Clutch → มีโอกาส burst อีก (เร้าใจช่วงท้าย)
-        if (clutchFired && Math.random() < 0.40) {
-          count += 1;
-        }
-
-        // เคารพ maxActive เสมอ
-        for (let i = 0; i < count; i++) {
-          if (activeTargets.size >= curMaxActive) break;
-          spawnTarget();
-        }
-
+        spawnTarget();
         lastSpawnTs = ts;
       }
     } else {
