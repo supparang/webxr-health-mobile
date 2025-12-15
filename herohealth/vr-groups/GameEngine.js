@@ -1,7 +1,6 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — Emoji Targets in A-Frame (3D) + Fever + Goal(2) + Mini(3)
-// เป้าเป็นวัตถุ 3D ในฉาก A-Frame ไม่เลื่อนตามจอเวลาหมุนกล้อง
-// ใช้ร่วมกับ groups-vr.html (เรียก window.GroupsVR.GameEngine.start(diff, { layerEl }))
+// เป้า emoji เป็นวัตถุ 3D ในฉาก A-Frame ไม่เลื่อนตามจอ
 
 (function (ROOT) {
   'use strict';
@@ -9,7 +8,7 @@
   ROOT = ROOT || (typeof window !== 'undefined' ? window : globalThis);
   const doc = ROOT.document;
 
-  // ----- Fever UI / Particles (ถ้ามี) -----
+  // ----- Fever UI / Particles -----
   const FeverUI =
     (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
     ROOT.FeverUI ||
@@ -62,7 +61,31 @@
     emit('hha:coach', { text });
   }
 
-  // ----- กลุ่มอาหาร 5 หมู่ (ไทย) -----
+  // ----- Emoji → texture (canvas) -----
+  const emojiTexCache = new Map();
+  function getEmojiTexture (ch) {
+    if (emojiTexCache.has(ch)) return emojiTexCache.get(ch);
+
+    const size = 256;
+    const cv = doc.createElement('canvas');
+    cv.width = cv.height = size;
+    const ctx = cv.getContext('2d');
+
+    ctx.clearRect(0, 0, size, size);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font =
+      '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif';
+
+    // ขยับลงมานิดให้ emoji ไม่โดนตัด
+    ctx.fillText(ch, size / 2, size * 0.60);
+
+    const url = cv.toDataURL('image/png');
+    emojiTexCache.set(ch, url);
+    return url;
+  }
+
+  // ----- กลุ่มอาหาร 5 หมู่ -----
   const GROUPS = [
     {
       id: 1,
@@ -100,7 +123,7 @@
     running: false,
     diff: 'normal',
     sceneEl: null,
-    targetRoot: null,     // <a-entity id="fg-targets-root">
+    targetRoot: null,
     spawnTimer: null,
     spawnInterval: 1000,
     targetLifetime: 1200,
@@ -355,7 +378,7 @@
   function gainFever (n) {
     const prev = state.fever;
     let v = clamp(prev + n, 0, FEVER_MAX);
-    let changed = v !== prev;
+    const changed = v !== prev;
 
     if (!state.feverActive && v >= FEVER_MAX) {
       state.feverActive = true;
@@ -373,7 +396,7 @@
   function loseFever (n) {
     const prev = state.fever;
     let v = clamp(prev - n, 0, FEVER_MAX);
-    let changed = v !== prev;
+    const changed = v !== prev;
 
     if (state.feverActive && v <= 0) {
       state.feverActive = false;
@@ -404,7 +427,7 @@
   }
 
   // ---------------------------------------------------
-  //  Targets (A-Frame 3D)
+  //  Targets (A-Frame 3D emoji)
   // ---------------------------------------------------
   function ensureTargetRoot () {
     if (state.targetRoot && state.targetRoot.parentNode) return state.targetRoot;
@@ -440,7 +463,7 @@
 
     const target = doc.createElement('a-entity');
 
-    // สุ่มตำแหน่งลอยอยู่ "ข้างหน้า" ผู้เล่น
+    // ตำแหน่งลอยอยู่ข้างหน้า
     const x = -1.6 + Math.random() * 3.2;  // [-1.6, 1.6]
     const y = 1.2 + Math.random() * 1.6;   // [1.2, 2.8]
     const z = -3.2 - Math.random() * 1.4;  // [-3.2, -4.6]
@@ -473,18 +496,21 @@
     circle.setAttribute('radius', kind === 'good' ? 0.45 : 0.40);
     circle.setAttribute('material', {
       color: kind === 'good' ? '#22c55e' : '#f97316',
-      opacity: 0.4,
+      opacity: 0.38,
       metalness: 0,
       roughness: 1
     });
 
-    // emoji text (ใช้ a-text ให้เห็น emoji ใน 3D)
-    const text = doc.createElement('a-text');
-    text.setAttribute('value', emoji);
-    text.setAttribute('align', 'center');
-    text.setAttribute('width', 2);
-    text.setAttribute('color', '#ffffff');
-    text.setAttribute('position', { x: 0, y: 0, z: 0.01 });
+    // emoji sprite จาก canvas
+    const sprite = doc.createElement('a-plane');
+    sprite.setAttribute('width', 0.75);
+    sprite.setAttribute('height', 0.75);
+    sprite.setAttribute('position', { x: 0, y: 0, z: 0.01 });
+    sprite.setAttribute('material', {
+      src: getEmojiTexture(emoji),
+      transparent: true,
+      alphaTest: 0.01
+    });
 
     const hitHandler = (evt) => {
       evt.preventDefault();
@@ -493,10 +519,10 @@
     };
 
     circle.addEventListener('click', hitHandler);
-    text.addEventListener('click', hitHandler);
+    sprite.addEventListener('click', hitHandler);
 
     target.appendChild(circle);
-    target.appendChild(text);
+    target.appendChild(sprite);
     root.appendChild(target);
 
     state.targets.push(target);
@@ -524,11 +550,7 @@
 
     removeTarget(target);
 
-    let pt = getScreenCenter();
-    if (evt && evt.detail && evt.detail.cursorEl) {
-      // A-Frame click จาก cursor → ใช้กลางจอพอ
-      pt = getScreenCenter();
-    }
+    const pt = getScreenCenter();
 
     if (kind === 'good') {
       state.streakNoJunk += 1;
@@ -662,7 +684,6 @@
 
     let burst = 1;
 
-    // wave เล็ก ๆ บางครั้งให้ 2–3 เป้าโผล่พร้อมกัน
     if (state.spawnCount % state.waveEvery === 0) {
       burst = Math.min(state.maxActive - state.targets.length, 2 + Math.round(Math.random()));
     }
@@ -672,7 +693,6 @@
 
       let kind;
       if (state.spawnCount % state.junkBurstEvery === 0 && Math.random() < 0.7) {
-        // wave เน้น junk
         kind = Math.random() < 0.6 ? 'junk' : 'good';
       } else {
         kind = Math.random() < state.goodRate ? 'good' : 'junk';
@@ -680,7 +700,6 @@
 
       let groupOverride = null;
       if (kind === 'good') {
-        // ดันหมู่ 1–3 ช่วยเคลียร์ Goal 1
         if (state.goals[0] && !state.goals[0].done && Math.random() < 0.4) {
           groupOverride = 1 + Math.floor(Math.random() * 3);
         } else if (state.goals[1] && !state.goals[1].done && Math.random() < 0.3) {
@@ -739,7 +758,6 @@
     pushScoreHud();
     judgeLabel('');
 
-    // เริ่ม spawn
     tickSpawn();
     state.spawnTimer = ROOT.setInterval(tickSpawn, state.spawnInterval);
   }
