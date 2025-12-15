@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — DOM Emoji Targets + Fever + Quest (2 Goals, 3 Minis)
+// Food Groups VR — DOM Emoji Targets + Fever + Quest (2 Goals, 3 Minis) + Celebration
 // ใช้กับ groups-vr.html (HUD ซ้าย/ขวา + fever bar + coach + summary)
 
 (function (ns) {
@@ -28,14 +28,13 @@
 
   const { ensureFeverBar, setFever, setFeverActive, setShield } = FeverUI;
 
-  // ---------- Emoji pools ----------
-  // จัดหมู่โภชนาการไทยแบบง่าย ๆ สำหรับ quest
+  // ---------- Emoji pools (5 หมู่โภชนาการไทยแบบง่าย ๆ) ----------
   const GROUPS = {
-    1: ['🍗', '🥩', '🍖', '🐟', '🍳', '🥚', '🫘', '🥜', '🧀', '🥛'],               // เนื้อ นม ไข่ ถั่วเมล็ด
-    2: ['🍚', '🍞', '🥖', '🥐', '🥯', '🥨', '🥔', '🍠', '🥣'],                    // ข้าว แป้ง เผือก มัน
-    3: ['🥦', '🥕', '🍅', '🥬', '🥒', '🌽'],                                    // ผัก
-    4: ['🍎', '🍌', '🍊', '🍇', '🍉', '🍓', '🍍'],                              // ผลไม้
-    5: ['🧈', '🥓', '🧇']                                                       // ไขมัน น้ำมัน
+    1: ['🍗', '🥩', '🍖', '🐟', '🍳', '🥚', '🫘', '🥜', '🧀', '🥛'], // เนื้อ นม ไข่ ถั่วเมล็ด
+    2: ['🍚', '🍞', '🥖', '🥐', '🥯', '🥨', '🥔', '🍠', '🥣'],      // ข้าว แป้ง เผือก มัน
+    3: ['🥦', '🥕', '🍅', '🥬', '🥒', '🌽'],                      // ผัก
+    4: ['🍎', '🍌', '🍊', '🍇', '🍉', '🍓', '🍍'],                // ผลไม้
+    5: ['🧈', '🥓', '🧇']                                       // ไขมัน/น้ำมัน
   };
 
   const GOOD = [
@@ -43,7 +42,7 @@
     ...GROUPS[2],
     ...GROUPS[3],
     ...GROUPS[4]
-    // หมู่ 5 จะให้โผล่น้อยลงในอนาคต
+    // กลุ่ม 5 จะเอามาเล่นใน quest บางอัน
   ];
 
   const JUNK = [
@@ -51,10 +50,9 @@
     '🍪', '🍰', '🧋', '🥤', '🍫'
   ];
 
-  const POWER_STAR = '⭐';
-  const POWER_FIRE = '🔥';
+  const POWER_STAR   = '⭐';
+  const POWER_FIRE   = '🔥';
   const POWER_SHIELD = '🛡️';
-
   const POWERUPS = [POWER_STAR, POWER_FIRE, POWER_SHIELD];
 
   function emojiGroup (ch) {
@@ -133,6 +131,34 @@
     if (minGapMs && now - coach._last < minGapMs) return;
     coach._last = now;
     emit('hha:coach', { text });
+  }
+
+  // ---------- Celebration FX ----------
+  function celebrate (type, payload) {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const count =
+      type === 'all' ? 32 :
+      type === 'goal' ? 20 :
+      16;
+
+    const color =
+      type === 'goal' ? '#22c55e' :
+      type === 'mini' ? '#facc15' :
+      '#38bdf8';
+
+    try {
+      for (let i = 0; i < count; i++) {
+        const dx = (Math.random() - 0.5) * 220;
+        const dy = (Math.random() - 0.5) * 140;
+        Particles.burstAt(cx + dx, cy + dy, { color });
+      }
+    } catch {}
+
+    emit('hha:celebrate', {
+      type,
+      ...(payload || {})
+    });
   }
 
   // ---------- Particles helper ----------
@@ -253,7 +279,7 @@
         id: m.id,
         label: m.label,
         target: 1,
-        prog: done ? 1 : (idx === currentMiniIdx ? 0 : 0),
+        prog: done ? 1 : 0,
         done
       };
     });
@@ -281,7 +307,13 @@
       mini,
       goalsAll,
       minisAll,
-      hint: hintText || ''
+      hint: hintText || '',
+      meta: {
+        goalsCleared: meta.goalsCleared,
+        goalsTotal: GOALS.length,
+        minisCleared: meta.minisCleared,
+        minisTotal: MINIS.length
+      }
     });
   }
 
@@ -292,7 +324,7 @@
     const gp = emojiGroup(ch);
 
     if (currentGoalIdx === 0) {
-      // Goal 1: นับแต่หมู่ 1–3
+      // Goal 1: นับหมู่ 1–3
       if (gp >= 1 && gp <= 3) {
         goalProg += 1;
       }
@@ -304,18 +336,26 @@
     }
 
     if (goalProg >= g.target) {
-      // เคลียร์ goal นี้
       goalProg = g.target;
       const idxNow = currentGoalIdx;
       const total = GOALS.length;
-      emit('quest:goal-cleared', {
+
+      // ★ ฉลอง Goal แต่ละอัน
+      celebrate('goal', {
         index: idxNow + 1,
         total,
         title: g.label
       });
+
+      emit('quest:goal-cleared', {
+        index: idxNow + 1,
+        total,
+        title: g.label,
+        reward: 'shield' // pattern เดียวกับ hydration/plate
+      });
+
       coach(`Goal ${idxNow + 1}/${total} สำเร็จแล้ว! ${g.label} 🎯`, 3500);
 
-      // ไป goal ถัดไปถ้ามี
       if (currentGoalIdx < GOALS.length - 1) {
         currentGoalIdx++;
         goalProg = 0;
@@ -331,7 +371,7 @@
       seenGroups.add(gp);
     }
 
-    // Combo/ streak
+    // streak สำหรับ Mini 2
     if (isGood) {
       goodStreak += 1;
     } else {
@@ -341,11 +381,20 @@
     // Mini 1: combo >= 3
     if (!miniFlags.comboDone && combo >= MINIS[0].needCombo) {
       miniFlags.comboDone = true;
-      emit('quest:mini-cleared', {
+
+      celebrate('mini', {
         index: 1,
         total: MINIS.length,
         title: MINIS[0].label
       });
+
+      emit('quest:mini-cleared', {
+        index: 1,
+        total: MINIS.length,
+        title: MINIS[0].label,
+        reward: 'star'
+      });
+
       coach(`Mini quest 1 สำเร็จแล้ว! ${MINIS[0].label} ⭐`, 3500);
       if (currentMiniIdx === 0) currentMiniIdx = 1;
     }
@@ -353,11 +402,20 @@
     // Mini 2: streak good 8 ชิ้นติด
     if (!miniFlags.streakDone && goodStreak >= MINIS[1].needStreak) {
       miniFlags.streakDone = true;
-      emit('quest:mini-cleared', {
+
+      celebrate('mini', {
         index: 2,
         total: MINIS.length,
         title: MINIS[1].label
       });
+
+      emit('quest:mini-cleared', {
+        index: 2,
+        total: MINIS.length,
+        title: MINIS[1].label,
+        reward: 'star'
+      });
+
       coach(`สุดยอด! Mini quest 2 ผ่านแล้ว 🎉`, 3500);
       if (currentMiniIdx === 1) currentMiniIdx = 2;
     }
@@ -365,24 +423,42 @@
     // Mini 3: ครบ 5 หมู่
     if (!miniFlags.groupsDone && seenGroups.size >= MINIS[2].needGroups) {
       miniFlags.groupsDone = true;
-      emit('quest:mini-cleared', {
+
+      celebrate('mini', {
         index: 3,
         total: MINIS.length,
         title: MINIS[2].label
       });
+
+      emit('quest:mini-cleared', {
+        index: 3,
+        total: MINIS.length,
+        title: MINIS[2].label,
+        reward: 'star'
+      });
+
       coach(`เยี่ยมมาก! เก็บอาหารดีครบทั้ง 5 หมู่แล้ว 🥦🍚🍎`, 3500);
     }
 
     const meta = questMeta();
     if (meta.goalsCleared >= GOALS.length &&
         meta.minisCleared >= MINIS.length) {
+      // ★ ฉลองใหญ่ เคลียร์ทุกภารกิจ
+      celebrate('all', {
+        goals: meta.goalsCleared,
+        minis: meta.minisCleared,
+        goalsTotal: GOALS.length,
+        minisTotal: MINIS.length
+      });
+
       emit('quest:all-cleared', {
         goals: meta.goalsCleared,
         minis: meta.minisCleared,
         goalsTotal: GOALS.length,
         minisTotal: MINIS.length
       });
-      coach('เคลียร์ทุกภารกิจแล้ว! ฉลองใหญ่เลย 🎉', 4000);
+
+      coach('สุดยอด! เคลียร์ทุกภารกิจแล้ว 🎉 ฉลองใหญ่แล้วมาดูสรุปคะแนนกัน!', 4000);
       stop('quest-complete');
       return;
     }
@@ -421,7 +497,6 @@
 
     let emoji;
     if (type === 'good') {
-      // มีโอกาสเล็กน้อยเป็น power-up
       if (Math.random() < 0.08) {
         emoji = POWERUPS[Math.floor(Math.random() * POWERUPS.length)];
         type = 'power';
@@ -449,15 +524,13 @@
       handleHit(tObj, cx, cy);
     };
 
-    el.addEventListener('click', onClick);
     el.addEventListener('pointerdown', onClick);
+    el.addEventListener('click', onClick);
 
-    // อายุเป้า ~1.4–1.8s
     const life = 1400 + Math.random() * 400;
     tObj.timeout = setTimeout(() => {
       if (!running) return;
       destroyTarget(tObj, false);
-      // หมดเวลา: นับเป็นพลาดเฉพาะของดี
       if (type === 'good') {
         misses += 1;
         combo = 0;
@@ -555,7 +628,6 @@
     }
 
     if (type === 'junk') {
-      // ถ้ามีเกราะ กันได้ครั้งหนึ่ง
       if (shield > 0) {
         shield -= 1;
         setShield(shield);
@@ -612,7 +684,7 @@
     if (running) return;
 
     layerEl = opts.layerEl || document.getElementById('fg-layer') || document.body;
-    layerEl.style.pointerEvents = 'none'; // ตัวเป้าเองเปิด pointer events อยู่แล้ว
+    // ปล่อย pointer-events ตาม CSS (.fg-target เป็น auto อยู่แล้ว)
 
     // reset state
     running = true;
