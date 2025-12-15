@@ -31,17 +31,12 @@ function pickDiffConfig (modeKey, diffKey) {
   diffKey = String(diffKey || 'normal').toLowerCase();
   let base = null;
 
-  // ถ้ามี HHA_DIFF_TABLE ใช้ก่อน
   if (ROOT.HHA_DIFF_TABLE && modeKey && ROOT.HHA_DIFF_TABLE[modeKey]) {
     const table = ROOT.HHA_DIFF_TABLE[modeKey];
-    if (table && table[diffKey]) {
-      base = table[diffKey];
-    }
+    if (table && table[diffKey]) base = table[diffKey];
   }
 
-  if (!base) {
-    base = DEFAULT_DIFF[diffKey] || DEFAULT_DIFF.normal;
-  }
+  if (!base) base = DEFAULT_DIFF[diffKey] || DEFAULT_DIFF.normal;
 
   const cfg = {
     spawnInterval: Number(base.spawnInterval ?? base.interval ?? 800),
@@ -58,7 +53,7 @@ function pickDiffConfig (modeKey, diffKey) {
   return cfg;
 }
 
-// ---------- DOM host (ใช้กับ GoodJunk / Plate) ----------
+// ---------- DOM host (GoodJunk / Plate) ----------
 function findHostElement () {
   if (!DOC) return null;
   return (
@@ -69,7 +64,7 @@ function findHostElement () {
   );
 }
 
-// ---------- A-Frame root (ใช้กับ Hydration) ----------
+// ---------- A-Frame root (Hydration) ----------
 function findAframeTargetRoot () {
   if (!DOC || !ROOT.AFRAME) return null;
   const scene = DOC.querySelector('a-scene');
@@ -86,19 +81,19 @@ function findAframeTargetRoot () {
 }
 
 // ======================================================
-//  boot(cfg) — main entry
+//  boot(cfg)
 // ======================================================
 export async function boot (rawCfg = {}) {
   const {
     difficulty = 'normal',
     duration   = 60,
-    modeKey    = 'hydration',   // 'hydration', 'goodjunk', 'plate', etc.
+    modeKey    = 'hydration',
     pools      = {},
     goodRate   = 0.6,
     powerups   = [],
     powerRate  = 0.10,
     powerEvery = 7,
-    spawnStyle = 'pop',         // ตอนนี้รองรับ pop เป็นหลัก
+    spawnStyle = 'pop',
     judge,
     onExpire
   } = rawCfg || {};
@@ -106,7 +101,6 @@ export async function boot (rawCfg = {}) {
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
-  // ใช้ 3D A-Frame target เฉพาะ Hydration
   const useAframeTargets = (modeKey === 'hydration' || modeKey === 'hydration-vr');
 
   const hostDom = useAframeTargets ? null : findHostElement();
@@ -116,12 +110,9 @@ export async function boot (rawCfg = {}) {
   }
 
   if (!useAframeTargets) {
-    // ให้ host เป็น relative เพื่อใช้ absolute ภายใน (DOM renderer)
     try {
       const cs = ROOT.getComputedStyle(hostDom);
-      if (cs && cs.position === 'static') {
-        hostDom.style.position = 'relative';
-      }
+      if (cs && cs.position === 'static') hostDom.style.position = 'relative';
     } catch {}
     hostDom.classList.add('hvr-host-ready');
   }
@@ -155,9 +146,9 @@ export async function boot (rawCfg = {}) {
     let next = adaptLevel;
 
     if (hitRate >= 0.85 && sampleMisses <= 2) {
-      next += 1; // เก่ง → ยากขึ้น
+      next += 1;
     } else if (hitRate <= 0.55 || sampleMisses >= 6) {
-      next -= 1; // พลาดเยอะ → ง่ายลง
+      next -= 1;
     }
 
     adaptLevel = clamp(next, -1, 3);
@@ -194,18 +185,16 @@ export async function boot (rawCfg = {}) {
     if (isHit) sampleHits++;
     else sampleMisses++;
     sampleTotal++;
-    if (sampleTotal >= ADAPT_WINDOW) {
-      recalcAdaptive();
-    }
+    if (sampleTotal >= ADAPT_WINDOW) recalcAdaptive();
   }
 
-  // ---------- ตำแหน่ง spawn DOM (GoodJunk / Plate) ----------
+  // ---------- DOM play rect ----------
   function computePlayRect () {
     const w = hostDom.clientWidth;
     const h = hostDom.clientHeight;
 
-    const top    = h * 0.25;  // ตัด HUD ด้านบน
-    const bottom = h * 0.80;  // เหลือที่ให้ fever bar ด้านล่าง
+    const top    = h * 0.25;
+    const bottom = h * 0.80;
     const left   = w * 0.10;
     const right  = w * 0.90;
 
@@ -217,14 +206,16 @@ export async function boot (rawCfg = {}) {
     };
   }
 
-  // ---------- Spawn target: A-Frame (Hydration) ----------
+  // ======================================================
+  //  Spawn target: A-Frame (Hydration)
+  // ======================================================
   function spawnTargetAframe () {
     if (activeTargets.size >= curMaxActive) return;
 
     const root = findAframeTargetRoot();
     if (!root) return;
 
-    // แจกจ่ายเป้าในกรอบด้านหน้า (x: -1.4..1.4, y: 0.8..2.2, z คงที่ -3)
+    // ตำแหน่งเป้าในกรอบด้านหน้า
     const px = (Math.random() * 2.8 - 1.4).toFixed(2);
     const py = (Math.random() * 1.4 + 0.8).toFixed(2);
     const pz = -3;
@@ -251,28 +242,32 @@ export async function boot (rawCfg = {}) {
         isGood = false;
       }
     }
-
     spawnCounter++;
 
+    // วงกลมพื้นหลัง
     const el = DOC.createElement('a-entity');
     el.classList.add('hha-target');
     el.setAttribute('data-hha-tgt', '');
     el.setAttribute('position', `${px} ${py} ${pz}`);
-
-    // พื้นหลังวงกลม
-    el.setAttribute('geometry', `primitive: circle; radius: ${0.35 * curScale}`);
-    el.setAttribute('material',
+    el.setAttribute('geometry', `primitive: circle; radius: ${(0.35 * curScale).toFixed(2)}`);
+    el.setAttribute(
+      'material',
       isGood
         ? 'shader: flat; color: #22c55e; opacity: 0.98'
         : 'shader: flat; color: #f97316; opacity: 0.98'
     );
 
-    // Emoji ตรงกลางด้วย a-text
-    const emojiEl = DOC.createElement('a-entity');
-    emojiEl.setAttribute('text', `value: ${ch}; align: center; color: #0f172a; width: 2;`);
-    emojiEl.setAttribute('position', '0 0 0.01');
-    root.appendChild(el);
+    // Emoji ตรงกลาง (ใช้ a-text ให้เรนเดอร์แน่ ๆ)
+    const emojiEl = DOC.createElement('a-text');
+    emojiEl.setAttribute('value', ch);
+    emojiEl.setAttribute('align', 'center');
+    emojiEl.setAttribute('color', '#0f172a');
+    emojiEl.setAttribute('width', '2.2');
+    emojiEl.setAttribute('position', '0 0 0.02');
+    emojiEl.setAttribute('side', 'double');
+
     el.appendChild(emojiEl);
+    root.appendChild(el);
 
     const data = {
       el,
@@ -282,7 +277,6 @@ export async function boot (rawCfg = {}) {
       bornAt: performance.now(),
       life: baseDiff.life
     };
-
     activeTargets.add(data);
 
     const handleHit = (ev) => {
@@ -295,10 +289,10 @@ export async function boot (rawCfg = {}) {
 
       let res = null;
       if (typeof judge === 'function') {
-        const intersection = ev.detail && ev.detail.intersection;
+        const inter = ev.detail && ev.detail.intersection;
         const ctx = {
-          clientX: intersection ? intersection.point.x : 0,
-          clientY: intersection ? intersection.point.y : 0,
+          clientX: inter ? inter.point.x : 0,
+          clientY: inter ? inter.point.y : 0,
           cx: 0,
           cy: 0,
           isGood,
@@ -343,13 +337,13 @@ export async function boot (rawCfg = {}) {
         console.error('[mode-factory] onExpire error (aframe)', err);
       }
 
-      if (!isGood && !isPower) {
-        addSample(true);
-      }
+      if (!isGood && !isPower) addSample(true);
     }, baseDiff.life);
   }
 
-  // ---------- Spawn target: DOM (GoodJunk / Plate) ----------
+  // ======================================================
+  //  Spawn target: DOM (GoodJunk / Plate)
+  // ======================================================
   function spawnTargetDom () {
     if (activeTargets.size >= curMaxActive) return;
 
@@ -386,7 +380,7 @@ export async function boot (rawCfg = {}) {
     el.className = 'hvr-target hha-target';
     el.setAttribute('data-hha-tgt', '');
 
-    const baseSize = 74; // px
+    const baseSize = 74;
     const size = baseSize * curScale;
 
     el.textContent = ch;
@@ -394,17 +388,13 @@ export async function boot (rawCfg = {}) {
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
     el.style.transform = 'translate(-50%, -50%)';
-
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     el.style.borderRadius = '999px';
-    el.style.border = '0';
-    el.style.padding = '0';
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
     el.style.fontSize = (size * 0.55) + 'px';
-    el.style.lineHeight = '1';
     el.style.userSelect = 'none';
     el.style.cursor = 'pointer';
     el.style.zIndex = '30';
@@ -486,18 +476,14 @@ export async function boot (rawCfg = {}) {
         console.error('[mode-factory] onExpire error (dom)', err);
       }
 
-      if (!isGood && !isPower) {
-        addSample(true);
-      }
+      if (!isGood && !isPower) addSample(true);
     }, baseDiff.life);
   }
 
-  // ---------- clock (hha:time) ----------
+  // ---------- clock ----------
   function dispatchTime (sec) {
     try {
-      ROOT.dispatchEvent(new CustomEvent('hha:time', {
-        detail: { sec }
-      }));
+      ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } }));
     } catch {}
   }
 
@@ -523,11 +509,8 @@ export async function boot (rawCfg = {}) {
       if (!lastSpawnTs) lastSpawnTs = ts;
       const dtSpawn = ts - lastSpawnTs;
       if (dtSpawn >= curInterval) {
-        if (useAframeTargets) {
-          spawnTargetAframe();
-        } else {
-          spawnTargetDom();
-        }
+        if (useAframeTargets) spawnTargetAframe();
+        else spawnTargetDom();
         lastSpawnTs = ts;
       }
     } else {
@@ -550,9 +533,7 @@ export async function boot (rawCfg = {}) {
     });
     activeTargets.clear();
 
-    try {
-      dispatchTime(0);
-    } catch {}
+    try { dispatchTime(0); } catch {}
   }
 
   const onStopEvent = () => stop();
