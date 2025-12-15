@@ -1,7 +1,10 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-15 Multi-Quest + Research Metrics + Full Event Fields + Adaptive (Play only)
+// 2025-12-15 Fun+Challenge: Multi-Quest + Research Metrics + Adaptive (Play only)
+//   - Adaptive difficulty เฉพาะ runMode = 'play'
+//   - Combo celebration x5/x10/x15
+//   - Fever mode: star/diamond ออกเยอะขึ้น
 
 'use strict';
 
@@ -607,7 +610,7 @@ export const GameEngine = (function () {
     }
 
     const goalIdActive = g ? g.id : '';
-    const miniIdActive = m ? m.id : '';
+       const miniIdActive = m ? m.id : '';
 
     emit('hha:event', {
       sessionId,
@@ -720,7 +723,7 @@ export const GameEngine = (function () {
 
     // perf จากคอมโบและ miss (ดีมาก → ค่าบวก, พลาดเยอะ → ค่าลบ)
     const perfRaw = combo - misses;
-    const perf = clamp(perfRaw, -6, 10); // กันหลุดโหด/ง่ายเกินไป
+    const perf = clamp(perfRaw, -6, 10); // กันไม่ให้สุดโต่งเกิน
 
     // เล่นดีขึ้น → spawn เร็วขึ้น, lifetime สั้นลง
     const speedFactor = 1 + perf * 0.04;  // ~0.76 - 1.4
@@ -736,6 +739,21 @@ export const GameEngine = (function () {
       BASE_TARGET_SCALE * 0.75,
       BASE_TARGET_SCALE * 1.35
     );
+
+    // จำนวนเป้าบนจอ: ฟอร์มดี → มีเป้าเยอะขึ้น เล่นมันส์ขึ้น
+    const maxExtra = 2;
+    const delta = Math.floor(perf / 3); // ทุก ๆ +3 perf เพิ่ม 1 เป้า
+    MAX_ACTIVE = clamp(
+      BASE_MAX_ACTIVE + delta,
+      Math.max(2, BASE_MAX_ACTIVE - 1),
+      BASE_MAX_ACTIVE + maxExtra
+    );
+
+    // ปรับ interval จริง ๆ (setInterval ใหม่)
+    if (spawnTimer) {
+      clearInterval(spawnTimer);
+      spawnTimer = setInterval(tickSpawn, SPAWN_INTERVAL);
+    }
   }
 
   // ---------- ยิงโดน ----------
@@ -904,6 +922,27 @@ export const GameEngine = (function () {
         coach(`คอมโบ x${miniComboNeed} แล้ว เยี่ยมมาก! 🔥`);
       else if (combo === 10)
         coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
+
+      // Combo celebration x5/x10/x15
+      if (combo === 5 || combo === 10 || combo === 15) {
+        const Pcombo = getParticles();
+        if (Pcombo) {
+          const cx = window.innerWidth / 2;
+          const cy = window.innerHeight * 0.33;
+          Pcombo.burstAt(cx, cy, {
+            color: '#22c55e',
+            count: 26,
+            radius: 90,
+            good: true
+          });
+          Pcombo.scorePop(cx, cy, 'COMBO x' + combo, {
+            judgment: 'FEVER',
+            good: true
+          });
+        }
+        // เติม Fever เพิ่มอีกนิดให้รู้สึก "ติดลม"
+        setFever(fever + 10, 'charge');
+      }
 
       updateGoalFromGoodHit();
       updateMiniFromCombo();
@@ -1107,9 +1146,24 @@ export const GameEngine = (function () {
     }
   }
 
-  // ---------- สุ่ม spawn ----------
+  // ---------- สุ่ม spawn (มี Fever tuning) ----------
   function pickType() {
-    const w = TYPE_WEIGHTS;
+    const base = TYPE_WEIGHTS;
+
+    const w = {
+      good:    base.good    || 0,
+      junk:    base.junk    || 0,
+      star:    base.star    || 0,
+      diamond: base.diamond || 0,
+      shield:  base.shield  || 0
+    };
+
+    // ระหว่าง Fever: เพิ่มโอกาสเจอ star / diamond ให้เกมมันขึ้น
+    if (feverActive) {
+      w.star    = w.star * 1.8 + 1;
+      w.diamond = w.diamond * 1.6 + 1;
+    }
+
     const sum =
       (w.good   || 0) +
       (w.junk   || 0) +
@@ -1368,8 +1422,10 @@ export const GameEngine = (function () {
     if (!running) return;
     running = false;
 
-    clearInterval(spawnTimer);
-    spawnTimer = null;
+    if (spawnTimer) {
+      clearInterval(spawnTimer);
+      spawnTimer = null;
+    }
     if (feverTimer) {
       clearTimeout(feverTimer);
       feverTimer = null;
