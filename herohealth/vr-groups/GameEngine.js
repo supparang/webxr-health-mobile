@@ -389,6 +389,8 @@
     root.setAttribute('data-kind', kind);
     root.setAttribute('data-emoji', emoji);
     root.setAttribute('data-group', String(groupId || 0));
+    // ล็อกกันโดนซ้ำหลาย event (touchstart + click)
+    root.setAttribute('data-hit-done', '0');
 
     const circle = document.createElement('a-circle');
     circle.setAttribute('radius', kind === 'good' ? 0.45 : 0.4);
@@ -411,9 +413,18 @@
     });
     sprite.setAttribute('data-raycastable', 'true');
 
-    const hitHandler = (evt) => onHit(root, evt);
-    circle.addEventListener('click', hitHandler);
-    sprite.addEventListener('click', hitHandler);
+    // ★ แก้ปัญหาต้องกด 2 ที: ใช้ mousedown/touchstart และล็อกให้ยิงครั้งเดียว
+    const hitOnce = (evt) => {
+      if (root.getAttribute('data-hit-done') === '1') return;
+      root.setAttribute('data-hit-done', '1');
+      if (evt && evt.stopPropagation) evt.stopPropagation();
+      onHit(root, evt);
+    };
+
+    ['mousedown', 'touchstart', 'click'].forEach(evName => {
+      circle.addEventListener(evName, hitOnce);
+      sprite.addEventListener(evName, hitOnce);
+    });
 
     root.appendChild(circle);
     root.appendChild(sprite);
