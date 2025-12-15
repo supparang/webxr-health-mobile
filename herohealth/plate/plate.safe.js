@@ -1,17 +1,33 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — DOM Emoji Targets + Quest + FEVER + Logger (no ugly squares)
-// - เป้า emoji DOM
-// - FX แตกกระจาย + คะแนนเด้ง (เขียนใหม่ ไม่ใช้สี่เหลี่ยมจาก particles เดิม)
-// - เป้าหมุนตามมุมมอง (อ่าน rotation จาก a-camera #plate-camera)
-// - โหมด play = diff ตาม easy/normal/hard + adaptive
-// - โหมด research = diff คงที่ ไม่ adaptive
-// - Goal 2 + Mini quest 3 (play = สุ่ม, research = fix set)
-// - ยิง event ให้ HUD + Cloud Logger ครบ
+// Balanced Plate VR — DOM Emoji Targets + Quest + FEVER + Logger
+// - ตัด FX สี่เหลี่ยมจาก Particles เดิม (ทำให้ burstAt/scorePop เป็น no-op)
+// - ใช้ FX วงกลมแตก + ข้อความเด้ง (ไม่ใช่สี่เหลี่ยม)
+// - เป้า DOM emoji หมุนตามมุมมอง (อ่าน yaw จาก #rig / #plate-camera)
+// - โหมด play: diff ตาม easy/normal/hard + adaptive ขนาดเป้า/ความถี่
+// - โหมด research: diff คงที่ ไม่ adaptive
+// - Goal 2 + Mini quest 3
+//   - play mode: สุ่ม goal/mini
+//   - research mode: ชุด fix เหมือนกันทุกเกม
+// - ยิง hha:stat, quest:update, hha:event, hha:session, hha:end ให้ HUD + Cloud Logger
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document || null;
+
+// ---------- ปิด FX สี่เหลี่ยมจาก Particles เดิม ----------
+(function disableOldParticles () {
+  try {
+    if (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) {
+      ROOT.GAME_MODULES.Particles.burstAt  = function () {};
+      ROOT.GAME_MODULES.Particles.scorePop = function () {};
+    }
+    if (ROOT.Particles) {
+      ROOT.Particles.burstAt  = function () {};
+      ROOT.Particles.scorePop = function () {};
+    }
+  } catch (_) {}
+})();
 
 // ---------- Helpers ----------
 function clamp (v, min, max) {
@@ -47,7 +63,7 @@ function makeSessionId () {
   return 'plate-' + t + '-' + r;
 }
 
-// ---------- Simple FX (แทนสี่เหลี่ยมเดิม) ----------
+// ---------- FX ใหม่ (ไม่ใช้สี่เหลี่ยม) ----------
 function spawnCircleBurst (x, y, isGood) {
   if (!DOC) return;
   const n = isGood ? 14 : 10;
@@ -70,16 +86,15 @@ function spawnCircleBurst (x, y, isGood) {
     el.style.opacity = '0.95';
     el.style.transform = 'translate(-50%, -50%) translate(0px,0px)';
     el.style.background = isGood
-      ? 'rgba(34,197,94,0.95)'
-      : 'rgba(248,113,113,0.95)';
+      ? 'radial-gradient(circle at 30% 30%, rgba(187,247,208,1), rgba(34,197,94,0.1))'
+      : 'radial-gradient(circle at 30% 30%, rgba(254,202,202,1), rgba(248,113,113,0.1))';
     el.style.boxShadow = isGood
-      ? '0 0 12px rgba(34,197,94,0.9)'
-      : '0 0 12px rgba(248,113,113,0.9)';
+      ? '0 0 10px rgba(34,197,94,0.9)'
+      : '0 0 10px rgba(248,113,113,0.9)';
     el.style.transition = 'transform 0.38s ease-out, opacity 0.38s ease-out';
 
     DOC.body.appendChild(el);
 
-    // trigger
     setTimeout(() => {
       el.style.transform =
         'translate(-50%, -50%) translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px)';
@@ -132,7 +147,7 @@ const BASE_DIFF = {
   hard:   { spawnInterval: 750,  life: 1500, scale: 0.88, maxActive: 5 }
 };
 
-// ---------- Emoji pools ----------
+// ---------- Emoji ----------
 const GOOD_GROUP_EMOJI = {
   1: ['🍚', '🍞', '🥖', '🥐'],
   2: ['🍗', '🥩', '🍳', '🫘'],
@@ -184,15 +199,20 @@ let activeTargets = [];
 let rafId = null;
 let stopTimerId = null;
 
-// ---------- A-Frame camera yaw ----------
+// ---------- อ่าน yaw จาก #rig (ถ้าไม่มีค่อยใช้ #plate-camera) ----------
 function getCameraYawDeg () {
-  if (!state || !state.camEl || !state.camEl.object3D) return 0;
-  const rot = state.camEl.object3D.rotation;
+  if (!state) return 0;
+  const rig = state.rigEl;
+  const cam = state.camEl;
+  const target = (rig && rig.object3D) ? rig : cam;
+
+  if (!target || !target.object3D) return 0;
+  const rot = target.object3D.rotation;
   const y = rot && typeof rot.y === 'number' ? rot.y : 0;
   return y * 180 / Math.PI;
 }
 
-// ---------- DOM target layout (หมุนตามมุมมอง) ----------
+// ---------- วางเป้าให้หมุนตามมุมมอง ----------
 function applyTargetTransform (el) {
   if (!el) return;
   const vw = ROOT.innerWidth || 800;
@@ -202,21 +222,23 @@ function applyTargetTransform (el) {
 
   const worldAngle = parseFloat(el.dataset.worldAngle || '0') || 0;
   const yawDeg = state ? (state.cameraYawDeg || 0) : 0;
-  // หมุนตามมุมมอง: worldAngle + yaw
-  const angleDeg = worldAngle + yawDeg;
-  const rad = angleDeg * Math.PI / 180;
+
+  // กล้องหันขวา (yaw เพิ่ม) → ของในโลกควรเลื่อนไปทางซ้าย ⇒ ใช้ worldAngle - yaw
+  const screenAngleDeg = worldAngle - yawDeg;
+  const rad = screenAngleDeg * Math.PI / 180;
 
   const radius = parseFloat(el.dataset.radius || '180') || 180;
   const x = cx + Math.cos(rad) * radius;
   const y = cy + Math.sin(rad) * radius * 0.65;
   const scale = parseFloat(el.dataset.scale || '1') || 1;
 
+  el.style.position = 'fixed';
   el.style.left = x + 'px';
   el.style.top  = y + 'px';
   el.style.transform = 'translate(-50%, -50%) scale(' + scale.toFixed(3) + ')';
 }
 
-// ---------- Spawn / remove target ----------
+// ---------- สร้าง / ลบเป้า ----------
 function spawnTarget () {
   if (!DOC || !state) return;
 
@@ -277,7 +299,7 @@ function removeTargetNow (t) {
   }
 }
 
-// ---------- Fever & shield ----------
+// ---------- FEVER + Shield ----------
 function emitFeverEvent (stateStr) {
   ROOT.dispatchEvent(new CustomEvent('hha:fever', {
     detail: {
@@ -499,11 +521,10 @@ function handleHit (el) {
 
   const center = centerOfEl(t.el);
 
-  // FX ใหม่ (ไม่มีสี่เหลี่ยม)
+  // FX ใหม่ (วงกลม + ข้อความ) — ไม่มีสี่เหลี่ยม
   spawnCircleBurst(center.x, center.y, isGood);
   spawnScorePop(center.x, center.y, isGood ? '+ HIT' : 'MISS', isGood);
 
-  // scale pop + fade
   const baseScale = parseFloat(t.el.dataset.scale || '1') || 1;
   t.el.dataset.scale = String(baseScale * (isGood ? 1.3 : 1.15));
   applyTargetTransform(t.el);
@@ -535,7 +556,6 @@ function handleHit (el) {
 
     applyFeverDelta(+8);
   } else {
-    // junk
     state.junkHits += 1;
 
     if (state.shieldCount > 0 && state.runMode === 'play') {
@@ -581,7 +601,7 @@ function handleHit (el) {
   });
 }
 
-// ---------- Expire target ----------
+// ---------- Expire ----------
 function expireTarget (t) {
   if (!t || t.removed) return;
   const wasGood = !!t.isGood;
@@ -603,7 +623,7 @@ function expireTarget (t) {
   });
 }
 
-// ---------- Adaptive (เฉพาะ play) ----------
+// ---------- Adaptive (เฉพาะ play mode) ----------
 function maybeAdaptiveTuning () {
   if (!state) return;
   if (state.runMode !== 'play') return;
@@ -640,7 +660,7 @@ function tick () {
   if (!state || !state.running) return;
   const now = nowMs();
 
-  // อัปเดต yaw กล้อง
+  // อัปเดตมุมกล้องจาก #rig / #plate-camera
   state.cameraYawDeg = getCameraYawDeg();
 
   // spawn
@@ -652,13 +672,12 @@ function tick () {
     state.nextSpawnAt = now + interval;
   }
 
-  // life
+  // life + update pos ตาม yaw
   const lifeMs = state.diffConf.life;
   activeTargets.slice().forEach(t => {
     if (now - t.bornAt > lifeMs) {
       expireTarget(t);
     } else {
-      // ปรับตำแหน่งตามมุมกล้องทุกเฟรม
       applyTargetTransform(t.el);
     }
   });
@@ -710,6 +729,9 @@ export function boot (opts = {}) {
   const diffConf = BASE_DIFF[diffKey] || BASE_DIFF.normal;
   const durationSec = clamp(opts.duration || 60, 20, 180);
 
+  const camEl = DOC.querySelector('#plate-camera') || null;
+  const rigEl = DOC.querySelector('#rig') || null;
+
   state = {
     running: true,
     runMode,
@@ -748,7 +770,8 @@ export function boot (opts = {}) {
     currSpawnInterval: diffConf.spawnInterval,
     nextSpawnAt: nowMs() + 900,
 
-    camEl: DOC.querySelector('#plate-camera') || null,
+    camEl,
+    rigEl,
     cameraYawDeg: 0
   };
 
@@ -777,7 +800,7 @@ export function boot (opts = {}) {
   rafId = ROOT.requestAnimationFrame(tick);
 }
 
-// ---------- Resize: reposition targets ----------
+// ---------- Reposition on resize ----------
 if (ROOT && ROOT.addEventListener) {
   ROOT.addEventListener('resize', () => {
     if (!activeTargets || !activeTargets.length) return;
