@@ -37,12 +37,14 @@
     5: ['🧈', '🥓', '🧇']                                       // ไขมัน/น้ำมัน
   };
 
-  const GOOD = [
-    ...GROUPS[1],
-    ...GROUPS[2],
-    ...GROUPS[3],
-    ...GROUPS[4]
-    // กลุ่ม 5 จะเอามาเล่นใน quest บางอัน
+  // ★ Pool สำหรับสุ่ม "หมู่ดี" แบบถ่วงน้ำหนัก
+  //   หมู่ 1–4 โผล่บ่อย, หมู่ 5 โผล่บ้างแต่ไม่เยอะ เพื่อให้ Mini 3 ทำได้จริง
+  const GOOD_GROUP_POOL = [
+    { id: 1, weight: 1.2 }, // โปรตีน
+    { id: 2, weight: 1.2 }, // พลังงาน
+    { id: 3, weight: 1.0 }, // ผัก
+    { id: 4, weight: 1.0 }, // ผลไม้
+    { id: 5, weight: 0.4 }  // ไขมัน (โอกาสน้อยหน่อย แต่มีแน่นอน)
   ];
 
   const JUNK = [
@@ -60,6 +62,26 @@
       if (GROUPS[k].includes(ch)) return parseInt(k, 10);
     }
     return 0;
+  }
+
+  // ★ เลือก emoji "ดี" โดยสุ่มกลุ่มอาหารตามน้ำหนัก จากนั้นสุ่ม emoji ในหมู่นั้น
+  function pickGoodEmoji () {
+    let total = 0;
+    for (const g of GOOD_GROUP_POOL) total += g.weight;
+
+    let r = Math.random() * total;
+    let chosenId = GOOD_GROUP_POOL[0].id;
+
+    for (const g of GOOD_GROUP_POOL) {
+      r -= g.weight;
+      if (r <= 0) {
+        chosenId = g.id;
+        break;
+      }
+    }
+
+    const arr = GROUPS[chosenId] || GROUPS[1];
+    return arr[Math.floor(Math.random() * arr.length)];
   }
 
   // ---------- Quest design ----------
@@ -416,7 +438,7 @@
         reward: 'star'
       });
 
-      coach(`สุดยอด! Mini quest 2 ผ่านแล้ว 🎉`, 3500);
+      coach('สุดยอด! Mini quest 2 ผ่านแล้ว 🎉', 3500);
       if (currentMiniIdx === 1) currentMiniIdx = 2;
     }
 
@@ -437,7 +459,7 @@
         reward: 'star'
       });
 
-      coach(`เยี่ยมมาก! เก็บอาหารดีครบทั้ง 5 หมู่แล้ว 🥦🍚🍎`, 3500);
+      coach('เยี่ยมมาก! เก็บอาหารดีครบทั้ง 5 หมู่แล้ว 🥦🍚🍎', 3500);
     }
 
     const meta = questMeta();
@@ -501,7 +523,8 @@
         emoji = POWERUPS[Math.floor(Math.random() * POWERUPS.length)];
         type = 'power';
       } else {
-        emoji = GOOD[Math.floor(Math.random() * GOOD.length)];
+        // ★ เดิมใช้ GOOD[...] ตอนนี้เปลี่ยนเป็น pickGoodEmoji()
+        emoji = pickGoodEmoji();
       }
     } else {
       emoji = JUNK[Math.floor(Math.random() * JUNK.length)];
@@ -684,7 +707,6 @@
     if (running) return;
 
     layerEl = opts.layerEl || document.getElementById('fg-layer') || document.body;
-    // ปล่อย pointer-events ตาม CSS (.fg-target เป็น auto อยู่แล้ว)
 
     // reset state
     running = true;
