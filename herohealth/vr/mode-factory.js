@@ -20,6 +20,22 @@ function pickOne (arr, fallback = null) {
   return arr[i];
 }
 
+// ใช้ดึงตำแหน่งจาก pointer / touch
+function getEventXY (ev) {
+  let x = ev.clientX;
+  let y = ev.clientY;
+
+  if ((x == null || y == null || (x === 0 && y === 0)) && ev.touches && ev.touches[0]) {
+    x = ev.touches[0].clientX;
+    y = ev.touches[0].clientY;
+  }
+  if ((x == null || y == null) && ev.changedTouches && ev.changedTouches[0]) {
+    x = ev.changedTouches[0].clientX;
+    y = ev.changedTouches[0].clientY;
+  }
+  return { x: x || 0, y: y || 0 };
+}
+
 // ---------- Base difficulty ----------
 const DEFAULT_DIFF = {
   easy:   { spawnInterval: 900, maxActive: 3, life: 1900, scale: 1.15 },
@@ -250,6 +266,7 @@ export async function boot (rawCfg = {}) {
     el.style.justifyContent = 'center';
     el.style.userSelect = 'none';
     el.style.cursor = 'pointer';
+    el.style.touchAction = 'manipulation';
     el.style.zIndex = '30';
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.85)';
     el.style.transition = 'transform 0.15s ease-out, box-shadow 0.15s ease-out, opacity 0.12s ease-out';
@@ -259,15 +276,12 @@ export async function boot (rawCfg = {}) {
     let ringGlow = '';
 
     if (isPower) {
-      // Power-up เด่นสุด
       bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
       ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
     } else if (isGood) {
-      // น้ำดี
       bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
       ringGlow = '0 0 0 2px rgba(74,222,128,0.75), 0 0 18px rgba(16,185,129,0.85)';
     } else {
-      // น้ำหวาน / คาเฟอีน
       bgGrad = 'radial-gradient(circle at 30% 25%, #fb923c, #ea580c)';
       ringGlow = '0 0 0 2px rgba(248,113,113,0.75), 0 0 18px rgba(248,113,113,0.9)';
     }
@@ -320,15 +334,18 @@ export async function boot (rawCfg = {}) {
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
       try { host.removeChild(el); } catch {}
 
       let res = null;
       if (typeof judge === 'function') {
+        const xy = getEventXY(ev);
         const ctx = {
-          clientX: ev.clientX,
-          clientY: ev.clientY,
-          cx: ev.clientX,
-          cy: ev.clientY,
+          clientX: xy.x,
+          clientY: xy.y,
+          cx: xy.x,
+          cy: xy.y,
           isGood,
           isPower
         };
@@ -352,7 +369,10 @@ export async function boot (rawCfg = {}) {
       addSample(isHit);
     };
 
-    el.addEventListener('pointerdown', handleHit);
+    // รองรับทั้ง pointer, click, touch บนทุกแพลตฟอร์ม
+    el.addEventListener('pointerdown', handleHit, { passive: false });
+    el.addEventListener('click', handleHit, { passive: false });
+    el.addEventListener('touchstart', handleHit, { passive: false });
 
     // expire
     ROOT.setTimeout(() => {
@@ -361,6 +381,8 @@ export async function boot (rawCfg = {}) {
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
       try { host.removeChild(el); } catch {}
 
       try {
