@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach + Hearts (Hard only)
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-15 Heart/Life System (Hard) + Multi-Quest + Research Metrics + Full Event Fields + Celebrate
+// 2025-12-15 Multi-Quest + Research Metrics + Full Event Fields + Celebrate + Hearts
 
 'use strict';
 
@@ -82,18 +82,19 @@ export const GameEngine = (function () {
   let sessionStartMs = 0;   // ใช้คำนวณ timeFromStartMs
   let currentDiff = 'normal';
 
+  // ---------- Hearts (ใช้ในโหมด hard เท่านั้น) ----------
+  const HEART_LOSE_EVERY_MISS = 3; // 1 หัวใจ = พลาด 3 ครั้ง
+  let heartsTotal = 0;
+  let heartsLeft  = 0;
+  // lifeMode: 'off' | 'hard-hearts'
+  let lifeMode = 'off';
+
   // ---------- Quest state: หลาย goal / หลาย mini ----------
   let goals = [];
   let minis = [];
   let currentGoalIndex = 0;
   let currentMiniIndex = 0;
   let miniComboNeed = 5; // combo ที่ต้องการของ mini ปัจจุบัน
-
-  // ---------- Hearts / Life (Hard only) ----------
-  const MISSES_PER_HEART = 3;   // 1 หัวใจ = miss 3 ครั้ง
-  let heartsTotal = 0;
-  let heartsLeft  = 0;
-  let lifeMode    = 'off';      // 'off' | 'hard'
 
   // ---------- Metrics สำหรับงานวิจัย ----------
   let nTargetGoodSpawned    = 0;
@@ -148,17 +149,6 @@ export const GameEngine = (function () {
 
   function emitMiss() {
     emit('hha:miss', { misses });
-  }
-
-  // hearts HUD/event
-  function emitLife() {
-    emit('hha:life', {
-      heartsTotal,
-      heartsLeft,
-      misses,
-      missesPerHeart: MISSES_PER_HEART,
-      lifeMode
-    });
   }
 
   function clamp(v, min, max){
@@ -460,6 +450,81 @@ export const GameEngine = (function () {
     }
   }
 
+  // ---------- Hearts logic ----------
+  function initHeartsForDiff(d) {
+    if (d === 'hard') {
+      lifeMode   = 'hard-hearts';
+      heartsTotal = 3;
+      heartsLeft  = heartsTotal;
+    } else {
+      lifeMode   = 'off';
+      heartsTotal = 0;
+      heartsLeft  = 0;
+    }
+
+    // แจ้ง HUD (ถ้ามี) ว่าจำนวนหัวใจเริ่มเท่าไหร่
+    emit('hha:life', {
+      lifeMode,
+      heartsLeft,
+      heartsTotal
+    });
+  }
+
+  function handleLifeAfterMiss() {
+    // ใช้ระบบหัวใจเฉพาะโหมด hard เท่านั้น
+    if (currentDiff !== 'hard') return;
+    if (heartsTotal <= 0) return;
+
+    const prevHearts = heartsLeft;
+
+    // ตีเป็น "ทุก ๆ HEART_LOSE_EVERY_MISS ครั้ง หัวใจหาย 1 ดวง"
+    const heartsUsed = Math.floor(misses / HEART_LOSE_EVERY_MISS);
+    const newHearts  = Math.max(0, heartsTotal - heartsUsed);
+
+    if (newHearts === prevHearts) return; // ยังไม่เปลี่ยนดวง
+
+    heartsLeft = newHearts;
+
+    // ส่ง event ให้ HUD / Logger
+    emit('hha:life', {
+      lifeMode,
+      heartsLeft,
+      heartsTotal
+    });
+
+    // ถ้าหัวใจลด (แต่ยังไม่ศูนย์) → เขย่าจอ + coach เตือน
+    if (heartsLeft < prevHearts && heartsLeft > 0) {
+      coach(`หัวใจเหลือ ${heartsLeft}/${heartsTotal} แล้ว ระวังของขยะหน่อยนะ ❤️`);
+
+      // เขย่าจอเบา ๆ
+      try {
+        document.body.classList.add('hha-life-hit');
+        setTimeout(() => {
+          document.body.classList.remove('hha-life-hit');
+        }, 260);
+      } catch (err) {
+        // เงียบไว้ ถ้ารันนอก DOM
+      }
+    }
+
+    // เหลือดวงสุดท้าย → เตือนแรง + FX กลางจอ
+    if (heartsLeft === 1 && prevHearts > 1) {
+      coach('เหลือหัวใจดวงสุดท้ายแล้ว! โฟกัสผัก ผลไม้ นมให้สุดเลย 💪');
+      const P = getParticles();
+      if (P) {
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight * 0.3;
+        P.scorePop(cx, cy, 'LAST HEART!', { good: false });
+      }
+    }
+
+    // หัวใจหมด → จบเกมด้วยเหตุผล life-out
+    if (heartsLeft <= 0) {
+      coach('หัวใจหมดแล้ว… ไว้ลองใหม่รอบหน้าเก็บผักให้แม่นกว่านี้นะ ❤️');
+      stop('life-out');
+    }
+  }
+
   // ---------- สร้าง summary metrics สำหรับ session ----------
   function buildSessionMetrics() {
     const totalGoodSpawn = nTargetGoodSpawned;
@@ -546,7 +611,7 @@ export const GameEngine = (function () {
         scoreFinal: score,
         comboMax,
         misses,
-        gameVersion: 'GoodJunkVR-2025-12-15-Heart-MQ-FullEvent',
+        gameVersion: 'GoodJunkVR-2025-12-15-Hearts',
         reason: reason || 'normal',
 
         goalsCleared,
@@ -554,13 +619,6 @@ export const GameEngine = (function () {
         miniCleared,
         miniTotal: minisTotal,
 
-        // hearts / life
-        heartsTotal,
-        heartsLeftFinal: heartsLeft,
-        lifeMode,
-        missesPerHeart: MISSES_PER_HEART,
-
-        // targets metrics
         nTargetGoodSpawned:    metrics.nTargetGoodSpawned,
         nTargetJunkSpawned:    metrics.nTargetJunkSpawned,
         nTargetStarSpawned:    metrics.nTargetStarSpawned,
@@ -574,7 +632,12 @@ export const GameEngine = (function () {
         junkErrorPct:          metrics.junkErrorPct,
         avgRtGoodMs:           metrics.avgRtGoodMs,
         medianRtGoodMs:        metrics.medianRtGoodMs,
-        fastHitRatePct:        metrics.fastHitRatePct
+        fastHitRatePct:        metrics.fastHitRatePct,
+
+        heartsTotal,
+        heartsLeft,
+        lifeMode,
+        heartLoseEveryMiss: HEART_LOSE_EVERY_MISS
       });
     } catch (err) {
       console.warn('[GoodJunkVR] emitEnd metrics error', err);
@@ -638,6 +701,9 @@ export const GameEngine = (function () {
       miniIdActive,
       spawnX,
       spawnSide,
+      heartsLeft,
+      heartsTotal,
+      lifeMode,
       ...base
     });
   }
@@ -723,35 +789,6 @@ export const GameEngine = (function () {
     return root;
   }
 
-  // ---------- จัดการหัวใจเมื่อ miss ----------
-  function handleLifeAfterMiss() {
-    if (lifeMode !== 'hard') return;
-
-    const prevHearts = heartsLeft;
-
-    // นับ miss สะสม: ครบ 3 miss → หัวใจ -1
-    const heartsLost = Math.floor(misses / MISSES_PER_HEART);
-    heartsLeft = Math.max(0, heartsTotal - heartsLost);
-
-    // อัปเดต HUD
-    emitLife();
-
-    if (heartsLeft < prevHearts && heartsLeft > 0) {
-      // หัวใจหายไปดวงนึง
-      coach(`หัวใจเหลือ ${heartsLeft}/${heartsTotal} แล้ว ระวังของขยะหน่อยนะ ❤️`);
-    }
-
-    if (heartsLeft === 1 && prevHearts > 1) {
-      coach('เหลือหัวใจดวงสุดท้ายแล้ว! โฟกัสผัก ผลไม้ นมให้สุดเลย 💪');
-    }
-
-    if (heartsLeft <= 0) {
-      // เกมจบจากชีวิตหมด
-      coach('หัวใจหมดแล้ว! เราไปดูสรุปผลงานกันนะ ❤️');
-      stop('life-out');
-    }
-  }
-
   // ---------- ยิงโดน ----------
   function onHit(el) {
     if (!running || !el) return;
@@ -786,8 +823,8 @@ export const GameEngine = (function () {
           count: 10,
           radius: 40
         });
-        P.scorePop(sx, sy, 'Shield BLOCK', {
-          judgment: '',
+        P.scorePop(sx, sy, 'Shield', {
+          judgment: 'BLOCK',
           good: true
         });
       }
@@ -824,8 +861,8 @@ export const GameEngine = (function () {
           count: 16,
           radius: 70
         });
-        P.scorePop(sx, sy, '+' + scoreDelta + ' BONUS', {
-          judgment: '',
+        P.scorePop(sx, sy, '+' + scoreDelta, {
+          judgment: 'BONUS',
           good: true
         });
       }
@@ -863,8 +900,8 @@ export const GameEngine = (function () {
           count: 16,
           radius: 70
         });
-        P.scorePop(sx, sy, '+' + scoreDelta + ' BONUS', {
-          judgment: '',
+        P.scorePop(sx, sy, '+' + scoreDelta, {
+          judgment: 'BONUS',
           good: true
         });
       }
@@ -943,7 +980,7 @@ export const GameEngine = (function () {
             radius: 40
           });
           P.scorePop(sx, sy, 'BLOCK', {
-            judgment: '',
+            judgment: 'BLOCK',
             good: true
           });
         }
@@ -986,19 +1023,15 @@ export const GameEngine = (function () {
       pushQuest('');
       judgment = 'Miss';
 
-      // จัดการหัวใจหลัง Miss
+      // อัปเดตหัวใจหลัง miss
       handleLifeAfterMiss();
-      if (!running) {
-        // stop แล้วจาก life-out
-        return;
-      }
     }
 
     emitScore();
     emitJudge(judgment);
 
-    const P = getParticles();
-    if (P) {
+    const P2 = getParticles();
+    if (P2) {
       const jUpper = String(judgment || '').toUpperCase();
 
       let color = '#22c55e';
@@ -1008,21 +1041,22 @@ export const GameEngine = (function () {
 
       const goodFlag = kind === 'good';
 
-      P.burstAt(sx, sy, {
+      P2.burstAt(sx, sy, {
         color,
-        count: goodFlag ? 24 : 16,
+        count: goodFlag ? 14 : 10,
+        radius: goodFlag ? 60 : 50,
         good: goodFlag
       });
 
       if (scoreDelta) {
         const text =
           scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
-        P.scorePop(sx, sy, text, {
+        P2.scorePop(sx, sy, text, {
           judgment: jUpper,
           good: goodFlag
         });
       } else {
-        P.scorePop(sx, sy, '', {
+        P2.scorePop(sx, sy, '', {
           judgment: jUpper,
           good: goodFlag
         });
@@ -1081,15 +1115,19 @@ export const GameEngine = (function () {
       pushQuest('');
       emitJudge('Miss');
 
+      // อัปเดตหัวใจหลังพลาดของดี
+      handleLifeAfterMiss();
+
       const P = getParticles();
       if (P) {
         P.burstAt(sx, sy, {
           color: '#f97316',
-          count: 16,
+          count: 10,
+          radius: 45,
           good: false
         });
         P.scorePop(sx, sy, 'MISS', {
-          judgment: '',
+          judgment: 'MISS',
           good: false
         });
       }
@@ -1107,12 +1145,6 @@ export const GameEngine = (function () {
         isGood: false,
         extra: ''
       }, el);
-
-      // จัดการหัวใจหลัง Miss จาก expire
-      handleLifeAfterMiss();
-      if (!running) {
-        return;
-      }
     } else {
       emitGameEvent({
         type: 'expire-' + kind,
@@ -1264,11 +1296,6 @@ export const GameEngine = (function () {
     const d = String(diffKey || 'normal').toLowerCase();
     currentDiff = d;
 
-    // reset hearts
-    heartsTotal = 0;
-    heartsLeft  = 0;
-    lifeMode    = 'off';
-
     if (d === 'easy') {
       SPAWN_INTERVAL  = 1200;
       TARGET_LIFETIME = 1500;
@@ -1295,11 +1322,6 @@ export const GameEngine = (function () {
         diamond:  4,
         shield:   4
       };
-
-      // เปิดโหมดหัวใจเฉพาะ hard
-      heartsTotal = 3;          // 3 ดวง
-      heartsLeft  = heartsTotal;
-      lifeMode    = 'hard';
     } else { // normal
       SPAWN_INTERVAL  = 950;
       TARGET_LIFETIME = 1200;
@@ -1316,20 +1338,6 @@ export const GameEngine = (function () {
     }
 
     setupQuestsForDifficulty(d);
-
-    // ถ้าอยู่โหมด hard → ให้ HUD รู้ทันทีว่ามีหัวใจกี่ดวง
-    if (lifeMode === 'hard') {
-      emitLife();
-    } else {
-      // บอก HUD ให้ซ่อนหัวใจ (ใช้ heartsTotal = 0)
-      emit('hha:life', {
-        heartsTotal: 0,
-        heartsLeft: 0,
-        misses,
-        missesPerHeart: MISSES_PER_HEART,
-        lifeMode
-      });
-    }
   }
 
   // ---------- start / stop ----------
@@ -1363,6 +1371,7 @@ export const GameEngine = (function () {
     sessionStartMs = nowMs();
 
     applyDifficulty(diffKey);
+    initHeartsForDiff(currentDiff);
 
     if (FeverUI && FeverUI.ensureFeverBar) FeverUI.ensureFeverBar();
     if (FeverUI && FeverUI.setFever)      FeverUI.setFever(0);
@@ -1378,13 +1387,14 @@ export const GameEngine = (function () {
     activeTargets = [];
 
     emitScore();
-    coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
     emitJudge('');
     pushQuest('เริ่มเกม');
 
-    // ให้ HUD หัวใจ sync อีกรอบตอนเริ่ม
-    if (lifeMode === 'hard') {
-      emitLife();
+    // coach ขึ้นต้นแยกตามโหมด
+    if (currentDiff === 'hard') {
+      coach('โหมดฮาร์ด! มีหัวใจ 3 ดวง พลาดครบ 3 ครั้ง หัวใจหาย 1 ดวง ระวังของขยะให้ดีนะ ❤️');
+    } else {
+      coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
     }
 
     tickSpawn();
