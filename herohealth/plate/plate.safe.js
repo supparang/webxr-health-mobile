@@ -1,5 +1,5 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — Game Engine (DOM emoji targets + Quest + Fever + Cloud Logger)
+// Balanced Plate VR — Game Engine (DOM emoji targets + Quest + Fever + Cloud Logger + World-follow Target)
 //
 // ใช้ร่วมกับ:
 //   - plate-vr.html
@@ -19,8 +19,10 @@
 //
 // Quest:
 //   - Goals: 2 อัน  (G1 = จานสมดุล, G2 = ผัก+ผลไม้)
-//   - Minis: 3 อัน (M1 = จานที่มี ≥4 หมู่, M2 = เก็บผัก, M3 = ชุดกดของดีต่อเนื่องไม่โดน junk)
-//   - research → target fix; play → target สุ่มในช่วงเดียวกัน
+//   - Minis: 3 อัน (M1 = จานที่มี ≥4 หมู่, M2 = ผัก, M3 = good streak ไม่โดน junk)
+//   - research → target fix; play → target สุ่มในช่วงเดิม
+//
+// ใหม่: เป้า DOM ผูกกับมุมกล้อง (yaw/pitch) → เวลาหมุนจอ เป้าจะเลื่อนตามเหมือนอยู่รอบตัว
 
 'use strict';
 
@@ -63,13 +65,12 @@ function rand (min, max) {
 }
 
 // ---------- Difficulty config ----------
-// ขนาดเป้า + ช่วง spawn + อายุเป้า (ms) ตามระดับ
 const DIFF_TABLE = {
   easy: {
     spawnInterval: 1100,
     life: 2100,
     scale: 1.25,
-    goodRatio: 0.7   // สัดส่วน good : junk
+    goodRatio: 0.7
   },
   normal: {
     spawnInterval: 950,
@@ -95,8 +96,7 @@ const FOOD_GROUPS = {
 };
 
 const FOOD_JUNK = ['🍟', '🍔', '🍕', '🧁', '🍩', '🥤'];
-
-const FOOD_STAR  = ['⭐', '✨'];   // เพิ่มเกจ + shield เล็กน้อย
+const FOOD_STAR = ['⭐', '✨'];
 
 // ---------- State ----------
 let runMode = 'play';          // play | research
@@ -123,30 +123,34 @@ let misses = 0;
 let platesDone = 0;
 
 // นับหมู่รวมทั้งเกม [1..5]
-let totalCounts = [0, 0, 0, 0, 0]; // index0 = หมู่1, index4 = หมู่5
+let totalCounts = [0, 0, 0, 0, 0];
 
-// สถานะจานปัจจุบัน → สำหรับเช็คจานสมดุล
-let currPlateGroups = [0, 0, 0, 0, 0];  // ต่อจาน
+// จานปัจจุบัน
+let currPlateGroups = [0, 0, 0, 0, 0];
 let currPlateItems = 0;
 
 // Quest
 let goalsAll = [];
 let minisAll = [];
 
-// mini quest ภายใน
-let streakGoodNoJunk = 0;   // สำหรับ M3: good ต่อเนื่องไม่โดน junk
-let vegFruitCount = 0;      // สำหรับ G2/M2
+let streakGoodNoJunk = 0;
+let vegFruitCount = 0;
 
 // Fever / Shield
-let fever = 0;              // 0..100
+let fever = 0;
 let feverActive = false;
 let feverTimerId = null;
 let shieldCount = 0;
 
-// Spawn
+// Spawn / Targets
 let spawnTimerId = null;
 let targetIdCounter = 0;
-const activeTargets = new Map(); // id → { el, type, group, createdAt }
+const activeTargets = new Map(); // id → { el, kind, group, createdAt, azimuthDeg, elevDeg, scale }
+
+// --- World-follow (camera) ---
+let camEl = null;
+let worldLook = { yaw: 0, pitch: 0 };
+let worldLoopRunning = false;
 
 // ---------- Quest: reset + random/fix ----------
 function resetQuests () {
@@ -154,13 +158,13 @@ function resetQuests () {
   minisAll = [];
 
   if (runMode === 'research') {
-    // ───── โหมดวิจัย: FIX เป๊ะทุกเกม ─────
+    // FIX ทุกเกม (วิจัย)
     const g1Target = 3;   // จานสมดุล 3 จาน
     const g2Target = 15;  // ผัก+ผลไม้ 15 ชิ้น
 
-    const m1Target = 1;   // จานที่มี ≥4 หมู่ อย่างน้อย 1 จาน
-    const m2Target = 8;   // ผักหมู่ 3 อย่างน้อย 8 ชิ้น
-    const m3Target = 1;   // ชุดกดของดีต่อเนื่อง >=10 ครั้ง โดยไม่โดน junk 1 ครั้ง
+    const m1Target = 1;   // ≥4 หมู่ 1 จาน
+    const m2Target = 8;   // ผักหมู่ 3 = 8 ชิ้น
+    const m3Target = 1;   // streak >=10 (1 ครั้ง)
 
     goalsAll.push({
       id: 'G1',
@@ -199,13 +203,13 @@ function resetQuests () {
       done: false
     });
   } else {
-    // ───── โหมดธรรมดา (play): target สุ่มในช่วงเดิม ─────
+    // เล่นธรรมดา → สุ่มในช่วงเดิม
     const g1Target = 2 + Math.floor(Math.random() * 3);   // 2–4 จาน
     const g2Target = 10 + Math.floor(Math.random() * 9);  // 10–18 ชิ้น
 
-    const m1Target = 1;                                   // จาน ≥4 หมู่ 1 จาน
-    const m2Target = 5 + Math.floor(Math.random() * 6);   // 5–10 ผัก
-    const m3Target = 1;                                   // ชุด good ต่อเนื่อง >=10 ไม่โดน junk 1 ครั้ง
+    const m1Target = 1;                                   // ≥4 หมู่ 1 จาน
+    const m2Target = 5 + Math.floor(Math.random() * 6);   // 5–10 ชิ้น
+    const m3Target = 1;                                   // streak >=10 1 ครั้ง
 
     goalsAll.push({
       id: 'G1',
@@ -309,7 +313,7 @@ function enterFever () {
   if (feverTimerId) clearTimeout(feverTimerId);
   feverTimerId = setTimeout(() => {
     feverActive = false;
-    fever = 40; // ลดลงมาระดับหนึ่ง
+    fever = 40;
     if (FeverUI.setFeverActive) FeverUI.setFeverActive(false);
     updateFeverUI();
     window.dispatchEvent(new CustomEvent('hha:fever', {
@@ -334,7 +338,6 @@ function loseFever (amount) {
 
 // ---------- Difficulty Adaptive (เฉพาะ play mode) ----------
 function applyAdaptiveTuning () {
-  // research → ใช้ค่าคงที่ตาม diff เท่านั้น
   if (runMode === 'research') {
     currentInterval = baseConf.spawnInterval;
     currentScale = baseConf.scale;
@@ -342,18 +345,15 @@ function applyAdaptiveTuning () {
     return;
   }
 
-  // เทียบตาม comboMax และ misses
-  const comboFactor = clamp(comboMax, 0, 20) / 20; // 0..1
-  const missFactor = clamp(misses, 0, 10) / 10;    // 0..1
+  const comboFactor = clamp(comboMax, 0, 20) / 20;
+  const missFactor = clamp(misses, 0, 10) / 10;
 
-  // เปลี่ยน interval: combo สูง → เร็วขึ้น, Miss เยอะ → ช้าลง
   let interval = baseConf.spawnInterval *
     (1 - 0.35 * comboFactor + 0.3 * missFactor);
   interval = clamp(interval,
     baseConf.spawnInterval * 0.7,
     baseConf.spawnInterval * 1.4);
 
-  // เปลี่ยน scale: combo สูง → เล็กลง, Miss เยอะ → ใหญ่ขึ้น
   let scale = baseConf.scale *
     (1 - 0.28 * comboFactor + 0.25 * missFactor);
   scale = clamp(scale,
@@ -379,6 +379,79 @@ function emitStat () {
   window.dispatchEvent(new CustomEvent('hha:stat', { detail }));
 }
 
+// ---------- World-follow mapping ----------
+function updateTargetScreen (obj) {
+  if (!obj || !obj.el) return;
+
+  const el = obj.el;
+  const vw = window.innerWidth || 800;
+  const vh = window.innerHeight || 600;
+  const cx = vw / 2;
+  const cy = vh / 2;
+
+  const yawDeg = worldLook.yaw * (180 / Math.PI);
+  const pitchDeg = worldLook.pitch * (180 / Math.PI);
+
+  const maxYawView = 60;   // มุมมองครึ่งซ้าย-ขวา
+  const maxPitchView = 40; // มุมมองครึ่งบน-ล่าง
+
+  const diffYaw = obj.azimuthDeg - yawDeg;
+  const diffPitch = obj.elevDeg - pitchDeg;
+
+  let nx = diffYaw / maxYawView;     // ประมาณ -1..1
+  let ny = diffPitch / maxPitchView;
+
+  nx = clamp(nx, -1.2, 1.2);
+  ny = clamp(ny, -1.0, 1.0);
+
+  const radiusX = vw * 0.4;
+  const radiusY = vh * 0.35;
+
+  const x = cx + nx * radiusX;
+  const y = cy + ny * radiusY;
+
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+
+  // ถ้าเลย FOV มากไปหน่อย → ซ่อน เพื่อไม่ให้เห็นหลุดขอบ
+  const visible = (Math.abs(nx) <= 1.05 && Math.abs(ny) <= 1.0);
+  el.style.visibility = visible ? 'visible' : 'hidden';
+
+  const scale = obj.scale || currentScale || 1.0;
+  el.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(2)})`;
+}
+
+function startWorldLoop () {
+  if (worldLoopRunning) return;
+  worldLoopRunning = true;
+
+  const step = () => {
+    if (!worldLoopRunning) return;
+
+    // หา camera ซ้ำ ๆ เผื่อแรก ๆ ยังไม่พร้อม
+    if (!camEl && ROOT.document) {
+      camEl = ROOT.document.querySelector('#plate-camera');
+    }
+
+    if (!ended && camEl && camEl.object3D) {
+      const rot = camEl.object3D.rotation;
+      worldLook.yaw = rot.y || 0;
+      worldLook.pitch = rot.x || 0;
+    }
+
+    // update ตำแหน่งเป้าทั้งหมดตามมุมกล้อง
+    activeTargets.forEach((obj) => updateTargetScreen(obj));
+
+    ROOT.requestAnimationFrame(step);
+  };
+
+  ROOT.requestAnimationFrame(step);
+}
+
+function stopWorldLoop () {
+  worldLoopRunning = false;
+}
+
 // ---------- Target management ----------
 function removeTarget (id, withDom = true) {
   const obj = activeTargets.get(id);
@@ -395,18 +468,17 @@ function clearAllTargets () {
   }
 }
 
-// สร้าง DOM เป้า
+// สร้าง DOM เป้า (anchored by azimuth/elevation)
 function createTarget () {
   const id = 't' + (++targetIdCounter);
 
-  // ตัดสินว่า spawn good / junk / star
+  // ตัดสินประเภท
   let kind = 'good';
   let group = 1;
   let emoji = '🍚';
 
   const r = Math.random();
 
-  // โอกาส star เล็กน้อย
   if (r < 0.06) {
     kind = 'star';
     emoji = pickOne(FOOD_STAR, '⭐');
@@ -419,7 +491,7 @@ function createTarget () {
       group = 0;
     } else {
       kind = 'good';
-      const gIndex = 1 + Math.floor(Math.random() * 5); // 1..5
+      const gIndex = 1 + Math.floor(Math.random() * 5);
       group = gIndex;
       emoji = pickOne(FOOD_GROUPS[gIndex], '🍚');
     }
@@ -432,20 +504,12 @@ function createTarget () {
   el.dataset.kind = kind;
   el.dataset.group = String(group);
 
-  const vw = window.innerWidth || 800;
-  const vh = window.innerHeight || 600;
-  const margin = 70;
+  // world anchor: มุมรอบตัว + มุมสูงต่ำ (deg)
+  const azimuthDeg = rand(-50, 50);  // ซ้าย-ขวา
+  const elevDeg = rand(-15, 15);     // บน-ล่าง
+  const scale = currentScale || baseConf.scale || 1.0;
 
-  const x = rand(margin, vw - margin);
-  const y = rand(vh * 0.18, vh * 0.78);
-
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-
-  const scale = currentScale || 1.0;
-  el.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(2)})`;
-
-  // listener: click เท่านั้น ไม่ยุ่ง touchmove (ให้ touch-look จัดการหมุนจอ)
+  // click เท่านั้น (touch-look จัดการหมุนจอเอง)
   el.addEventListener('click', (ev) => {
     if (ended) return;
     handleHit(id, ev);
@@ -458,14 +522,19 @@ function createTarget () {
     el,
     kind,
     group,
-    createdAt: performance.now()
+    createdAt: performance.now(),
+    azimuthDeg,
+    elevDeg,
+    scale
   };
   activeTargets.set(id, obj);
 
-  // ตั้ง timer ลบตาม life
+  // วางครั้งแรกตามมุมกล้องตอนนี้
+  updateTargetScreen(obj);
+
+  // ตั้งหมดอายุ
   setTimeout(() => {
     if (!activeTargets.has(id)) return;
-    // หมดอายุ → นับเป็น miss ถ้าเป็น good
     if (obj.kind === 'good') {
       registerMiss('expire-good', obj);
     }
@@ -491,13 +560,12 @@ function scheduleNextSpawn () {
   }, delay);
 }
 
-// ---------- Hit / Miss Logic ----------
+// ---------- Hit / Miss ----------
 function registerMiss (reason, targetObj) {
-  // ถ้ามี shield → ใช้ shield ก่อน ไม่ถือว่าพลาด
   if (shieldCount > 0 && reason === 'hit-junk') {
     shieldCount -= 1;
     updateFeverUI();
-    // ปล่อย effect เล็กน้อย
+
     const rect = targetObj && targetObj.el
       ? targetObj.el.getBoundingClientRect()
       : { left: window.innerWidth / 2, top: window.innerHeight / 2 };
@@ -520,7 +588,6 @@ function registerMiss (reason, targetObj) {
 
   emitStat();
 
-  // coach / effect
   const rect = targetObj && targetObj.el
     ? targetObj.el.getBoundingClientRect()
     : { left: window.innerWidth / 2, top: window.innerHeight / 2 };
@@ -551,7 +618,6 @@ function handleHit (id, ev) {
   const timeFromStartMs = now - startTimeMs;
 
   if (kind === 'star') {
-    // เพิ่ม fever + shield เล็กน้อย
     gainFever(25);
     shieldCount = clamp(shieldCount + 1, 0, 3);
     updateFeverUI();
@@ -559,7 +625,6 @@ function handleHit (id, ev) {
     Particles.burstAt(cx, cy, { color: '#eab308', count: 18 });
     Particles.scorePop(cx, cy, '+BONUS', { judgment: 'STAR', good: true });
 
-    // log event
     window.dispatchEvent(new CustomEvent('hha:event', {
       detail: {
         type: 'hit-star',
@@ -578,7 +643,6 @@ function handleHit (id, ev) {
   }
 
   if (kind === 'junk') {
-    // hit junk
     score = Math.max(0, score - 15);
     registerMiss('hit-junk', obj);
 
@@ -603,7 +667,7 @@ function handleHit (id, ev) {
     return;
   }
 
-  // good food (group 1..5)
+  // good
   let baseScore = 20;
   if (feverActive) baseScore = 35;
 
@@ -619,14 +683,12 @@ function handleHit (id, ev) {
     totalCounts[group - 1] += 1;
   }
 
-  // veg+fruit (G2) → group 3 & 4
   if (group === 3 || group === 4) {
     vegFruitCount += 1;
     incQuest('G2', 1);
     incQuest('M2', 1);
   }
 
-  // นับบนจานปัจจุบัน
   if (group >= 1 && group <= 5) {
     currPlateGroups[group - 1] += 1;
     currPlateItems += 1;
@@ -635,40 +697,32 @@ function handleHit (id, ev) {
   const distinctGroupsOnPlate =
     currPlateGroups.filter(x => x > 0).length;
 
-  // ถ้าจานนี้มี ≥4 หมู่ → นับเป็น "จานสมดุล"
   let plateJustCompleted = false;
   if (distinctGroupsOnPlate >= 4) {
     platesDone += 1;
     plateJustCompleted = true;
 
-    // Quest G1 / M1
     incQuest('G1', 1);
     incQuest('M1', 1);
 
-    // reset จานใหม่
     currPlateGroups = [0, 0, 0, 0, 0];
     currPlateItems = 0;
 
-    // effect จานสมดุล
     Particles.burstAt(cx, cy, { color: '#22c55e', count: 24 });
     Particles.scorePop(cx, cy, 'BALANCED!', { judgment: '+PLATE', good: true });
   } else {
-    // effect ทั่วไป
     Particles.burstAt(cx, cy, { color: '#4ade80', count: 14 });
     Particles.scorePop(cx, cy, '+' + baseScore, { judgment: 'GOOD', good: true });
   }
 
-  // Mini M3: good streak ไม่โดน junk
-  // กำหนดว่า streak >= 10 → นับ 1 ครั้ง
   if (streakGoodNoJunk >= 10) {
     incQuest('M3', 1);
-    streakGoodNoJunk = 0; // รีเซ็ตให้ลุ้นรอบใหม่
+    streakGoodNoJunk = 0;
   }
 
   emitStat();
   emitQuestUpdate(plateJustCompleted ? 'เยี่ยม! ได้จานสมดุลเพิ่มแล้ว 🎯' : '');
 
-  // log event hit-good
   window.dispatchEvent(new CustomEvent('hha:event', {
     detail: {
       type: 'hit-good',
@@ -696,6 +750,7 @@ function endGame (reason) {
     spawnTimerId = null;
   }
 
+  stopWorldLoop();
   clearAllTargets();
 
   const now = performance.now();
@@ -726,12 +781,10 @@ function endGame (reason) {
     durationSecPlayed: elapsedSec
   };
 
-  // ยิง event ให้ HUD + summary
   window.dispatchEvent(new CustomEvent('hha:end', {
     detail: detailEnd
   }));
 
-  // ยิง session summary ให้ Cloud Logger
   window.dispatchEvent(new CustomEvent('hha:session', {
     detail: {
       sessionId,
@@ -758,7 +811,6 @@ function endGame (reason) {
 
 // ---------- Public boot ----------
 export function boot (opts = {}) {
-  // อ่านโหมดจาก window.HHA_RUNMODE หรือ opts.runMode
   runMode =
     (ROOT.HHA_RUNMODE === 'research' || opts.runMode === 'research')
       ? 'research'
@@ -776,14 +828,12 @@ export function boot (opts = {}) {
   if (durationSec < 20) durationSec = 20;
   if (durationSec > 180) durationSec = 180;
 
-  // สร้าง session id
   startTimeMs = performance.now();
   endTimeMs = startTimeMs + durationSec * 1000;
   sessionId = 'PlateVR-' + Math.floor(startTimeMs);
 
   ended = false;
 
-  // Reset stats
   score = 0;
   combo = 0;
   comboMax = 0;
@@ -805,19 +855,18 @@ export function boot (opts = {}) {
 
   clearAllTargets();
 
-  // Fever UI setup
   if (FeverUI.ensureFeverBar) {
     FeverUI.ensureFeverBar();
   }
   updateFeverUI();
 
-  // Quest reset (fixed vs random)
   resetQuests();
   emitQuestUpdate('จัดจานให้ครบ 5 หมู่ เลี่ยงของไม่ดี แล้วลุยเลย!');
 
-  // ยิง stat รอบแรก (ให้ HUD รีเฟรช)
   emitStat();
 
-  // เริ่ม spawn loop
+  // world-follow loop (อ่านมุมกล้อง และเลื่อนเป้าตาม)
+  startWorldLoop();
+
   scheduleNextSpawn();
 }
