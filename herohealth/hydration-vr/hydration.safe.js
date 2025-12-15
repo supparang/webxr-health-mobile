@@ -96,9 +96,7 @@ function safeBurstAt (x, y, isGood) {
 export async function boot (cfg = {}) {
   // ----- Difficulty + Duration -----
   const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
-  const diff = (diffRaw === 'easy' || diffRaw === 'hard' || diffRaw === 'normal')
-    ? diffRaw
-    : 'normal';
+  const diff = (['easy', 'normal', 'hard'].includes(diffRaw)) ? diffRaw : 'normal';
 
   let dur = Number(cfg.duration || 60);
   if (!Number.isFinite(dur) || dur <= 0) dur = 60;
@@ -119,28 +117,6 @@ export async function boot (cfg = {}) {
   let waterRes = setWaterGauge(waterPct);
   let waterZone = waterRes.zone || 'GREEN';
   const waterStart = waterPct;
-
-  // ===== Hydration Zone Event (ใหม่สำหรับ Danger Wave & Recovery) =====
-  let lastZoneBroadcast = waterZone;
-
-  function pushZoneEvent (reason = 'change') {
-    try {
-      ROOT.dispatchEvent(new CustomEvent('hha:water-zone', {
-        detail: {
-          pct: waterPct,
-          zone: waterZone,
-          reason
-        }
-      }));
-    } catch {}
-  }
-
-  function ensureZoneBroadcast (reason) {
-    if (waterZone !== lastZoneBroadcast || reason === 'force') {
-      lastZoneBroadcast = waterZone;
-      pushZoneEvent(reason || 'change');
-    }
-  }
 
   // ----- Quest Deck (สร้างจาก factory) -----
   let deck;
@@ -244,8 +220,15 @@ export async function boot (cfg = {}) {
   let elapsedSec = 0;
   let ended = false;
 
+  // CLUTCH TIME: ช่วงท้ายเกมเร้าใจ (เปิดเมื่อรับ hha:clutch)
+  let inClutch = false;
+
   function mult () {
-    return feverActive ? 2 : 1;
+    // base multiplier
+    let m = feverActive ? 2 : 1;
+    // ช่วงท้ายเกมให้ bonus นิดหน่อยให้รู้สึกเร่งเครื่อง
+    if (inClutch) m += 0.5;
+    return m;
   }
 
   function pushFeverEvent (state) {
@@ -263,6 +246,9 @@ export async function boot (cfg = {}) {
   }
 
   function gainFever (n) {
+    // ช่วง CLUTCH → เก็บน้ำดีแล้วไฟขึ้นไวขึ้น
+    if (inClutch) n *= 1.2;
+
     const wasActive = feverActive;
     fever = Math.max(0, Math.min(100, fever + n));
     if (!feverActive && fever >= 100) {
@@ -276,6 +262,9 @@ export async function boot (cfg = {}) {
   }
 
   function decayFever (n) {
+    // ช่วง CLUTCH → ถ้าเผลอจะร่วงไวขึ้นนิดนึง
+    if (inClutch) n *= 1.15;
+
     const wasActive = feverActive;
     const d = feverActive ? 10 : n;
     fever = Math.max(0, fever - d);
@@ -290,7 +279,6 @@ export async function boot (cfg = {}) {
     waterRes = setWaterGauge(waterPct);
     waterZone = waterRes.zone;
     deck.stats.zone = waterZone;
-    ensureZoneBroadcast('water-change');
   }
 
   function syncDeck () {
@@ -688,6 +676,25 @@ export async function boot (cfg = {}) {
   }
 
   // ======================================================
+  //  CLUTCH TIME handler — เรียกเมื่อ mode-factory ยิง hha:clutch
+  // ======================================================
+  const onClutch = (e) => {
+    if (ended) return;
+    inClutch = true;
+    const d = (e && e.detail) || {};
+    const secLeft = (typeof d.secLeft === 'number') ? d.secLeft : null;
+
+    if (secLeft && secLeft > 0) {
+      coach(
+        `ช่วงท้ายเกมแล้ว เหลือประมาณ ${secLeft} วินาที! เก็บน้ำดีรัว ๆ ให้โซนยังสีเขียว 💧🔥`,
+        1500
+      );
+    } else {
+      coach('ช่วงท้ายเกมแล้ว! เก็บน้ำดีให้สุดกำลังก่อนหมดเวลา 💧🔥', 1500);
+    }
+  };
+
+  // ======================================================
   //  จบเกม
   // ======================================================
   function finish (durationSec, reason = 'time-up', snapOpt) {
@@ -705,6 +712,7 @@ export async function boot (cfg = {}) {
     const waterZoneEnd = zoneFrom(waterPct);
 
     try { ROOT.removeEventListener('hha:time', onTime); } catch {}
+    try { ROOT.removeEventListener('hha:clutch', onClutch); } catch {}
 
     try {
       if (inst && typeof inst.stop === 'function') {
@@ -762,9 +770,7 @@ export async function boot (cfg = {}) {
     }
   };
   ROOT.addEventListener('hha:time', onTime);
-
-  // ครั้งแรก broadcast zone ให้ HUD รู้สถานะตั้งต้น
-  ensureZoneBroadcast('force');
+  ROOT.addEventListener('hha:clutch', onClutch);
 
   // ======================================================
   //  เรียก factoryBoot เพื่อจัดการ spawn / timer / hit detection
@@ -787,6 +793,7 @@ export async function boot (cfg = {}) {
     const origStop = inst.stop.bind(inst);
     inst.stop = (...args) => {
       try { ROOT.removeEventListener('hha:time', onTime); } catch {}
+      try { ROOT.removeEventListener('hha:clutch', onClutch); } catch {}
       return origStop(...args);
     };
   }
