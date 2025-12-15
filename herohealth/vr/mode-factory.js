@@ -68,6 +68,15 @@ function findHostElement () {
   );
 }
 
+// ---------- event helper ----------
+function dispatchCustom (type, detail) {
+  try {
+    ROOT.dispatchEvent(new CustomEvent(type, { detail }));
+  } catch (err) {
+    // เงียบ ๆ ไม่ให้เกมพัง
+  }
+}
+
 // ======================================================
 //  boot(cfg) — main entry
 // ======================================================
@@ -95,12 +104,13 @@ export async function boot (rawCfg = {}) {
     return { stop () {} };
   }
 
-  // ให้ host เป็น relative เพื่อใช้ absolute ภายใน
+  // ให้ host เป็น relative เพื่อใช้ absolute ภายใน + กัน gesture แปลก ๆ
   try {
     const cs = ROOT.getComputedStyle(host);
     if (cs && cs.position === 'static') {
       host.style.position = 'relative';
     }
+    host.style.touchAction = 'none';
   } catch {}
   host.classList.add('hvr-host-ready');
 
@@ -154,18 +164,14 @@ export async function boot (rawCfg = {}) {
 
     sampleHits = sampleMisses = sampleTotal = 0;
 
-    try {
-      ROOT.dispatchEvent(new CustomEvent('hha:adaptive', {
-        detail: {
-          modeKey,
-          difficulty: diffKey,
-          level: adaptLevel,
-          spawnInterval: curInterval,
-          maxActive: curMaxActive,
-          scale: curScale
-        }
-      }));
-    } catch {}
+    dispatchCustom('hha:adaptive', {
+      modeKey,
+      difficulty: diffKey,
+      level: adaptLevel,
+      spawnInterval: curInterval,
+      maxActive: curMaxActive,
+      scale: curScale
+    });
   }
 
   function addSample (isHit) {
@@ -195,7 +201,6 @@ export async function boot (rawCfg = {}) {
     };
   }
 
-  // ---------- SPAWN TARGET (POP-IN + HIT / FADE-OUT) ----------
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
@@ -240,9 +245,7 @@ export async function boot (rawCfg = {}) {
     el.style.position = 'absolute';
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
-    // เริ่มจากเล็ก+โปร่ง → ค่อย pop-in
-    el.style.transform = 'translate(-50%, -50%) scale(0.4)';
-    el.style.opacity = '0';
+    el.style.transform = 'translate(-50%, -50%)';
 
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
@@ -257,10 +260,6 @@ export async function boot (rawCfg = {}) {
     el.style.userSelect = 'none';
     el.style.cursor = 'pointer';
     el.style.zIndex = '30';
-
-    // transition สำหรับ pop-in / hit / fade-out
-    el.style.transition =
-      'transform 0.18s ease-out, opacity 0.18s ease-out, box-shadow 0.18s ease-out';
 
     if (isGood) {
       el.style.background = 'radial-gradient(circle at 30% 30%, #4ade80, #16a34a)';
@@ -281,14 +280,6 @@ export async function boot (rawCfg = {}) {
     activeTargets.add(data);
     host.appendChild(el);
 
-    // POP-IN animation
-    ROOT.requestAnimationFrame(() => {
-      ROOT.requestAnimationFrame(() => {
-        el.style.opacity = '1';
-        el.style.transform = 'translate(-50%, -50%) scale(1)';
-      });
-    });
-
     const handleHit = (ev) => {
       if (stopped) return;
       ev.preventDefault();
@@ -297,16 +288,7 @@ export async function boot (rawCfg = {}) {
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
-
-      // เอฟเฟกต์ตอนโดน: ขยาย + glow + fade-out
-      el.style.transform = 'translate(-50%, -50%) scale(1.18)';
-      el.style.boxShadow =
-        '0 0 0 3px rgba(250,250,250,0.9), 0 16px 36px rgba(0,0,0,0.8)';
-      el.style.opacity = '0';
-
-      ROOT.setTimeout(() => {
-        try { host.removeChild(el); } catch {}
-      }, 120);
+      try { host.removeChild(el); } catch {}
 
       let res = null;
       if (typeof judge === 'function') {
@@ -347,14 +329,7 @@ export async function boot (rawCfg = {}) {
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
-
-      // ละลายหายไปเบา ๆ
-      el.style.opacity = '0';
-      el.style.transform = 'translate(-50%, -50%) scale(0.7)';
-
-      ROOT.setTimeout(() => {
-        try { host.removeChild(el); } catch {}
-      }, 140);
+      try { host.removeChild(el); } catch {}
 
       try {
         if (typeof onExpire === 'function') {
@@ -373,35 +348,14 @@ export async function boot (rawCfg = {}) {
 
   // ---------- clock (hha:time) ----------
   function dispatchTime (sec) {
-    try {
-      ROOT.dispatchEvent(new CustomEvent('hha:time', {
-        detail: { sec }
-      }));
-    } catch {}
-  }
-
-  // ---------- CLUTCH TIME (ท้ายเกมเร้าใจ) ----------
-  let clutchFired = false;
-  function fireClutchIfNeeded () {
-    if (clutchFired) return;
-    // เข้าช่วงท้ายเกม ~25% สุดท้าย แต่ไม่ต่ำกว่า 10 วินาที
-    const threshold = Math.max(10, Math.floor(totalDuration * 0.25));
-    if (secLeft <= threshold && secLeft > 0) {
-      clutchFired = true;
-      try {
-        ROOT.dispatchEvent(new CustomEvent('hha:clutch', {
-          detail: {
-            modeKey,
-            difficulty: diffKey,
-            secLeft,
-            totalDuration
-          }
-        }));
-      } catch {}
-    }
+    dispatchCustom('hha:time', { sec });
   }
 
   let rafId = null;
+
+  // CLUTCH TIME: ปลายเกมเร้าใจ
+  const clutchThreshold = Math.max(8, Math.floor(totalDuration * 0.25));
+  let clutchFired = false;
 
   function loop (ts) {
     if (stopped) return;
@@ -414,10 +368,20 @@ export async function boot (rawCfg = {}) {
       for (let i = 0; i < steps; i++) {
         secLeft--;
         dispatchTime(secLeft);
-        fireClutchIfNeeded();
         if (secLeft <= 0) break;
       }
       lastClockTs += steps * 1000;
+    }
+
+    // ยิง CLUTCH TIME event เมื่อเข้าโซนท้ายเกมครั้งแรก
+    if (!clutchFired && secLeft > 0 && secLeft <= clutchThreshold) {
+      clutchFired = true;
+      dispatchCustom('hha:clutch', {
+        modeKey,
+        difficulty: diffKey,
+        secLeft,
+        totalDuration
+      });
     }
 
     if (secLeft > 0) {
