@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach + Hearts (Hard only)
+// Good vs Junk VR — Emoji Pop Targets + Difficulty Quest + Fever + Shield + Coach
 // ใช้ร่วม FeverUI (shared) + particles.js (GAME_MODULES.Particles / window.Particles)
-// 2025-12-15 Multi-Quest + Research Metrics + Full Event Fields + Celebrate + Hearts
+// 2025-12-15 RunMode + Adaptive Target + Hearts (Hard only) + Multi-Quest + Research Metrics
 
 'use strict';
 
@@ -58,6 +58,108 @@ export const GameEngine = (function () {
   const FEVER_MISS_LOSS = 30;
   const FEVER_DURATION  = 5000;   // ms
 
+  // ---------- Run mode + Adaptive target size ----------
+  let runMode = 'play';        // 'play' | 'research'
+  let targetScaleFactor = 1;   // ตัวคูณขนาดเป้า (base = 1)
+  let scaleMin = 0.8;
+  let scaleMax = 1.2;
+  let scaleStepHit  = -0.03;   // โดนดี → เป้าเล็กลง
+  let scaleStepMiss =  0.04;   // พลาดเยอะ → เป้าใหญ่ขึ้น
+
+  function detectRunMode () {
+    try {
+      if (window.HHA_RUN_MODE) {
+        runMode = String(window.HHA_RUN_MODE).toLowerCase();
+        return;
+      }
+      const url = new URL(window.location.href);
+      const r = (url.searchParams.get('run') || '').toLowerCase();
+      if (r === 'research' || r === 'play') {
+        runMode = r;
+      }
+    } catch (e) {
+      // ใช้ค่า default 'play'
+    }
+  }
+
+  function configAdaptiveForDiff(d) {
+    if (d === 'easy') {
+      scaleMin = 0.9;
+      scaleMax = 1.25;
+      scaleStepHit  = -0.02;
+      scaleStepMiss =  0.04;
+    } else if (d === 'hard') {
+      scaleMin = 0.7;
+      scaleMax = 1.10;
+      scaleStepHit  = -0.035;
+      scaleStepMiss =  0.05;
+    } else { // normal
+      scaleMin = 0.8;
+      scaleMax = 1.20;
+      scaleStepHit  = -0.03;
+      scaleStepMiss =  0.045;
+    }
+  }
+
+  function bumpTargetScale(isGoodHit) {
+    // โหมดวิจัย = ห้าม adaptive → ขนาดเป้าคงที่ (1.0)
+    if (runMode === 'research') {
+      targetScaleFactor = 1;
+      return;
+    }
+    // โหมดธรรมดา = adaptive
+    if (isGoodHit) {
+      targetScaleFactor += scaleStepHit;   // โดนของดี → เล็กลง
+    } else {
+      targetScaleFactor += scaleStepMiss;  // พลาด / ปล่อยหลุด → ใหญ่ขึ้น
+    }
+    targetScaleFactor = clamp(targetScaleFactor, scaleMin, scaleMax);
+  }
+
+  // ---------- Hearts (ใช้ใน hard เท่านั้น) ----------
+  const HEARTS_HARD      = 3;  // จำนวนหัวใจเริ่มต้นในโหมด hard
+  const MISSES_PER_HEART = 3;  // 1 หัวใจ = miss ได้กี่ครั้ง
+
+  let heartsMax  = 0;
+  let heartsLeft = 0;
+
+  function emitLife() {
+    emit('hha:life', {
+      heartsLeft,
+      heartsMax,
+      misses,
+      perHeart: MISSES_PER_HEART,
+      diff: currentDiff,
+      runMode
+    });
+  }
+
+  function initHeartsForDiff(diffKey) {
+    if (diffKey === 'hard') {
+      heartsMax  = HEARTS_HARD;
+      heartsLeft = HEARTS_HARD;
+    } else {
+      heartsMax  = 0;
+      heartsLeft = 0;
+    }
+    emitLife();
+  }
+
+  function updateHeartsFromMisses() {
+    if (!heartsMax) return; // ใช้เฉพาะ hard
+    const usedHearts = Math.floor(misses / MISSES_PER_HEART);
+    const newLeft = clamp(heartsMax - usedHearts, 0, heartsMax);
+    if (newLeft !== heartsLeft) {
+      heartsLeft = newLeft;
+      emitLife();
+    }
+    if (heartsLeft <= 0 && running) {
+      coach('หัวใจหมดแล้ว ไว้ลองใหม่อีกครั้งนะ ❤️');
+      stop('no-life');
+    }
+  }
+
+  // ---------- Scene / state ----------
   let sceneEl = null;
   let running = false;
   let spawnTimer = null;
@@ -81,13 +183,6 @@ export const GameEngine = (function () {
   let sessionStart = null;
   let sessionStartMs = 0;   // ใช้คำนวณ timeFromStartMs
   let currentDiff = 'normal';
-
-  // ---------- Hearts (ใช้ในโหมด hard เท่านั้น) ----------
-  const HEART_LOSE_EVERY_MISS = 3; // 1 หัวใจ = พลาด 3 ครั้ง
-  let heartsTotal = 0;
-  let heartsLeft  = 0;
-  // lifeMode: 'off' | 'hard-hearts'
-  let lifeMode = 'off';
 
   // ---------- Quest state: หลาย goal / หลาย mini ----------
   let goals = [];
@@ -450,81 +545,6 @@ export const GameEngine = (function () {
     }
   }
 
-  // ---------- Hearts logic ----------
-  function initHeartsForDiff(d) {
-    if (d === 'hard') {
-      lifeMode   = 'hard-hearts';
-      heartsTotal = 3;
-      heartsLeft  = heartsTotal;
-    } else {
-      lifeMode   = 'off';
-      heartsTotal = 0;
-      heartsLeft  = 0;
-    }
-
-    // แจ้ง HUD (ถ้ามี) ว่าจำนวนหัวใจเริ่มเท่าไหร่
-    emit('hha:life', {
-      lifeMode,
-      heartsLeft,
-      heartsTotal
-    });
-  }
-
-  function handleLifeAfterMiss() {
-    // ใช้ระบบหัวใจเฉพาะโหมด hard เท่านั้น
-    if (currentDiff !== 'hard') return;
-    if (heartsTotal <= 0) return;
-
-    const prevHearts = heartsLeft;
-
-    // ตีเป็น "ทุก ๆ HEART_LOSE_EVERY_MISS ครั้ง หัวใจหาย 1 ดวง"
-    const heartsUsed = Math.floor(misses / HEART_LOSE_EVERY_MISS);
-    const newHearts  = Math.max(0, heartsTotal - heartsUsed);
-
-    if (newHearts === prevHearts) return; // ยังไม่เปลี่ยนดวง
-
-    heartsLeft = newHearts;
-
-    // ส่ง event ให้ HUD / Logger
-    emit('hha:life', {
-      lifeMode,
-      heartsLeft,
-      heartsTotal
-    });
-
-    // ถ้าหัวใจลด (แต่ยังไม่ศูนย์) → เขย่าจอ + coach เตือน
-    if (heartsLeft < prevHearts && heartsLeft > 0) {
-      coach(`หัวใจเหลือ ${heartsLeft}/${heartsTotal} แล้ว ระวังของขยะหน่อยนะ ❤️`);
-
-      // เขย่าจอเบา ๆ
-      try {
-        document.body.classList.add('hha-life-hit');
-        setTimeout(() => {
-          document.body.classList.remove('hha-life-hit');
-        }, 260);
-      } catch (err) {
-        // เงียบไว้ ถ้ารันนอก DOM
-      }
-    }
-
-    // เหลือดวงสุดท้าย → เตือนแรง + FX กลางจอ
-    if (heartsLeft === 1 && prevHearts > 1) {
-      coach('เหลือหัวใจดวงสุดท้ายแล้ว! โฟกัสผัก ผลไม้ นมให้สุดเลย 💪');
-      const P = getParticles();
-      if (P) {
-        const cx = window.innerWidth / 2;
-        const cy = window.innerHeight * 0.3;
-        P.scorePop(cx, cy, 'LAST HEART!', { good: false });
-      }
-    }
-
-    // หัวใจหมด → จบเกมด้วยเหตุผล life-out
-    if (heartsLeft <= 0) {
-      coach('หัวใจหมดแล้ว… ไว้ลองใหม่รอบหน้าเก็บผักให้แม่นกว่านี้นะ ❤️');
-      stop('life-out');
-    }
-  }
-
   // ---------- สร้าง summary metrics สำหรับ session ----------
   function buildSessionMetrics() {
     const totalGoodSpawn = nTargetGoodSpawned;
@@ -611,7 +631,7 @@ export const GameEngine = (function () {
         scoreFinal: score,
         comboMax,
         misses,
-        gameVersion: 'GoodJunkVR-2025-12-15-Hearts',
+        gameVersion: 'GoodJunkVR-2025-12-15-RunMode-Adapt-Hearts',
         reason: reason || 'normal',
 
         goalsCleared,
@@ -632,12 +652,7 @@ export const GameEngine = (function () {
         junkErrorPct:          metrics.junkErrorPct,
         avgRtGoodMs:           metrics.avgRtGoodMs,
         medianRtGoodMs:        metrics.medianRtGoodMs,
-        fastHitRatePct:        metrics.fastHitRatePct,
-
-        heartsTotal,
-        heartsLeft,
-        lifeMode,
-        heartLoseEveryMiss: HEART_LOSE_EVERY_MISS
+        fastHitRatePct:        metrics.fastHitRatePct
       });
     } catch (err) {
       console.warn('[GoodJunkVR] emitEnd metrics error', err);
@@ -701,9 +716,6 @@ export const GameEngine = (function () {
       miniIdActive,
       spawnX,
       spawnSide,
-      heartsLeft,
-      heartsTotal,
-      lifeMode,
       ...base
     });
   }
@@ -748,10 +760,11 @@ export const GameEngine = (function () {
     if (kind === 'diamond')color = '#38bdf8';
     if (kind === 'shield') color = '#60a5fa';
 
-    circle.setAttribute('radius',
+    const baseRadius =
       kind === 'good' ? 0.40 :
-      kind === 'junk' ? 0.38 : 0.36
-    );
+      kind === 'junk' ? 0.38 : 0.36;
+
+    circle.setAttribute('radius', baseRadius * targetScaleFactor);
     circle.setAttribute('material', {
       color,
       opacity: 0.30,
@@ -760,8 +773,8 @@ export const GameEngine = (function () {
     });
 
     const sprite = document.createElement('a-plane');
-    sprite.setAttribute('width', 0.7);
-    sprite.setAttribute('height', 0.7);
+    sprite.setAttribute('width', 0.7 * targetScaleFactor);
+    sprite.setAttribute('height', 0.7 * targetScaleFactor);
     sprite.setAttribute('position', { x: 0, y: 0, z: 0.01 });
     sprite.setAttribute('material', {
       src: getEmojiTexture(emoji),
@@ -821,7 +834,7 @@ export const GameEngine = (function () {
         P.burstAt(sx, sy, {
           color: '#60a5fa',
           count: 10,
-          radius: 40
+          good: true
         });
         P.scorePop(sx, sy, 'Shield', {
           judgment: 'BLOCK',
@@ -858,8 +871,8 @@ export const GameEngine = (function () {
       if (P) {
         P.burstAt(sx, sy, {
           color: '#facc15',
-          count: 16,
-          radius: 70
+          count: 20,
+          good: true
         });
         P.scorePop(sx, sy, '+' + scoreDelta, {
           judgment: 'BONUS',
@@ -897,8 +910,8 @@ export const GameEngine = (function () {
       if (P) {
         P.burstAt(sx, sy, {
           color: '#38bdf8',
-          count: 16,
-          radius: 70
+          count: 20,
+          good: true
         });
         P.scorePop(sx, sy, '+' + scoreDelta, {
           judgment: 'BONUS',
@@ -959,6 +972,7 @@ export const GameEngine = (function () {
       else if (combo === 10)
         coach('สุดยอด! โปรโหมดแล้ว x10 เลย! 💪');
 
+      bumpTargetScale(true);        // adaptive ขนาดเป้า (เฉพาะโหมดธรรมดา)
       updateGoalFromGoodHit();
       updateMiniFromCombo();
     } else {
@@ -976,8 +990,8 @@ export const GameEngine = (function () {
         if (P) {
           P.burstAt(sx, sy, {
             color: '#60a5fa',
-            count: 10,
-            radius: 40
+            count: 12,
+            good: true
           });
           P.scorePop(sx, sy, 'BLOCK', {
             judgment: 'BLOCK',
@@ -1019,19 +1033,18 @@ export const GameEngine = (function () {
         setFever(nextFever, 'charge');
       }
 
+      bumpTargetScale(false);   // miss → ขยายเป้า (เฉพาะโหมดธรรมดา)
+      updateHeartsFromMisses();
       emitMiss();
       pushQuest('');
       judgment = 'Miss';
-
-      // อัปเดตหัวใจหลัง miss
-      handleLifeAfterMiss();
     }
 
     emitScore();
     emitJudge(judgment);
 
-    const P2 = getParticles();
-    if (P2) {
+    const P = getParticles();
+    if (P) {
       const jUpper = String(judgment || '').toUpperCase();
 
       let color = '#22c55e';
@@ -1041,26 +1054,25 @@ export const GameEngine = (function () {
 
       const goodFlag = kind === 'good';
 
-      P2.burstAt(sx, sy, {
+      P.burstAt(sx, sy, {
         color,
-        count: goodFlag ? 14 : 10,
-        radius: goodFlag ? 60 : 50,
+        count: goodFlag ? 24 : 16,
         good: goodFlag
       });
 
       if (scoreDelta) {
         const text =
           scoreDelta > 0 ? '+' + scoreDelta : String(scoreDelta);
-        P2.scorePop(sx, sy, text, {
-          judgment: jUpper,
-          good: goodFlag
-        });
-      } else {
-        P2.scorePop(sx, sy, '', {
-          judgment: jUpper,
-          good: goodFlag
+        P.scorePop(sx, sy, text, {
+          good: scoreDelta > 0,
+          judgment: ''
         });
       }
+
+      P.scorePop(sx, sy, jUpper, {
+        good: kind === 'good' && judgment !== 'Miss',
+        judgment: jUpper
+      });
     }
 
     // event log (good / junk ปกติ)
@@ -1110,25 +1122,23 @@ export const GameEngine = (function () {
         setFever(nextFever, 'charge');
       }
 
+      bumpTargetScale(false);    // ปล่อยของดีหลุด → ขยายเป้า (เฉพาะโหมดธรรมดา)
+      updateHeartsFromMisses();
       emitMiss();
       emitScore();
       pushQuest('');
       emitJudge('Miss');
 
-      // อัปเดตหัวใจหลังพลาดของดี
-      handleLifeAfterMiss();
-
       const P = getParticles();
       if (P) {
         P.burstAt(sx, sy, {
           color: '#f97316',
-          count: 10,
-          radius: 45,
+          count: 16,
           good: false
         });
         P.scorePop(sx, sy, 'MISS', {
-          judgment: 'MISS',
-          good: false
+          good: false,
+          judgment: 'MISS'
         });
       }
 
@@ -1338,6 +1348,7 @@ export const GameEngine = (function () {
     }
 
     setupQuestsForDifficulty(d);
+    configAdaptiveForDiff(d);
   }
 
   // ---------- start / stop ----------
@@ -1365,6 +1376,9 @@ export const GameEngine = (function () {
     rtGoodList      = [];
     nHitGoodPerfect = 0;
 
+    detectRunMode();
+    targetScaleFactor = 1; // reset ทุกเกมใหม่
+
     sessionId = 'gjvr-' + Date.now().toString(36) + '-' +
       Math.random().toString(16).slice(2, 8);
     sessionStart = new Date();
@@ -1387,15 +1401,9 @@ export const GameEngine = (function () {
     activeTargets = [];
 
     emitScore();
+    coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
     emitJudge('');
     pushQuest('เริ่มเกม');
-
-    // coach ขึ้นต้นแยกตามโหมด
-    if (currentDiff === 'hard') {
-      coach('โหมดฮาร์ด! มีหัวใจ 3 ดวง พลาดครบ 3 ครั้ง หัวใจหาย 1 ดวง ระวังของขยะให้ดีนะ ❤️');
-    } else {
-      coach('แตะเฉพาะอาหารดี เช่น ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛');
-    }
 
     tickSpawn();
     spawnTimer = setInterval(tickSpawn, SPAWN_INTERVAL);
