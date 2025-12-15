@@ -10,7 +10,7 @@
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- หมุนเป้า Hydration รอบตัวเอง (แกน Z) + ติดให้ทุก node ที่มี data-hha-tgt หรือ class .hha-target -->
+  <!-- หมุนเป้า Hydration รอบตัวเอง (สำหรับ A-Frame เป้าที่มี data-hha-tgt ถ้าใช้) -->
   <script>
     (function () {
       const A = window.AFRAME;
@@ -34,8 +34,7 @@
 
       function attachSpinToTargets(root) {
         if (!root || !root.querySelectorAll) return;
-        const nodes = root.querySelectorAll('[data-hha-tgt], .hha-target');
-        nodes.forEach(el => {
+        root.querySelectorAll('[data-hha-tgt]').forEach(el => {
           if (!el.hasAttribute('hha-spin-target')) {
             el.setAttribute('hha-spin-target', 'speed: 80');
           }
@@ -55,7 +54,7 @@
             m.addedNodes.forEach(node => {
               if (node.nodeType !== 1) return;
 
-              if (node.matches && (node.matches('[data-hha-tgt]') || node.matches('.hha-target'))) {
+              if (node.matches && node.matches('[data-hha-tgt]')) {
                 if (!node.hasAttribute('hha-spin-target')) {
                   node.setAttribute('hha-spin-target', 'speed: 80');
                 }
@@ -123,6 +122,7 @@
         var(--bg-main);
       color:var(--text-main);
       overflow:hidden;
+      transition:background 0.4s ease-out, box-shadow 0.3s ease-out;
     }
 
     /* ===== HUD หลัก ===== */
@@ -165,10 +165,6 @@
       letter-spacing:.03em;
       text-transform:uppercase;
       color:var(--text-soft);
-      display:flex;
-      align-items:center;
-      flex-wrap:wrap;
-      gap:4px;
     }
     .hud-main-mode{
       font-size:15px;
@@ -623,28 +619,6 @@
       margin-left:6px;
     }
 
-    /* ===== ป้าย Wave ===== */
-    .hud-wave-badge{
-      font-size:11px;
-      padding:2px 8px;
-      border-radius:999px;
-      background:rgba(147,51,234,0.18);
-      border:1px solid rgba(196,181,253,0.8);
-      color:#ede9fe;
-      font-weight:600;
-      margin-left:6px;
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-      opacity:0;
-      transform:translateY(-4px);
-      transition:opacity .22s ease-out, transform .22s ease-out;
-    }
-    .hud-wave-badge.show{
-      opacity:1;
-      transform:translateY(0);
-    }
-
     /* ===== ปุ่มเข้า VR ===== */
     .vr-btn{
       position:fixed;
@@ -714,6 +688,68 @@
       80%{ opacity:1; transform:scale(1);}
       100%{ opacity:0; transform:scale(0.9);}
     }
+
+    /* ===== CLUTCH TIME FX ===== */
+    body.clutch-mode{
+      background:
+        radial-gradient(circle at top left, rgba(248,113,113,0.30), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.30), transparent 55%),
+        #020617;
+      box-shadow:inset 0 0 80px rgba(0,0,0,0.7);
+    }
+
+    .hud-root.hud-clutch .hud-card{
+      box-shadow:
+        0 0 0 1px rgba(248,113,113,0.55),
+        0 22px 50px rgba(8,47,73,0.95);
+      border-color:rgba(248,113,113,0.45);
+    }
+
+    .hud-root.hud-clutch .coach-bubble{
+      border-color:rgba(248,113,113,0.85);
+    }
+
+    #hud-time-label.clutch-time{
+      color:#fed7aa;
+      text-shadow:0 0 10px rgba(248,113,113,0.85);
+      animation:clutch-time-pulse .8s ease-in-out infinite;
+    }
+
+    @keyframes clutch-time-pulse{
+      0%{   transform:scale(1);   opacity:1;}
+      40%{  transform:scale(1.12);opacity:1;}
+      70%{  transform:scale(0.96);opacity:0.85;}
+      100%{ transform:scale(1);   opacity:1;}
+    }
+
+    .clutch-banner{
+      position:fixed;
+      top:8px;
+      left:50%;
+      transform:translateX(-50%) translateY(-20px);
+      background:linear-gradient(135deg,rgba(248,113,113,0.95),rgba(249,115,22,0.95));
+      color:#fefce8;
+      padding:6px 14px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      box-shadow:0 14px 30px rgba(15,23,42,0.9);
+      z-index:653;
+      opacity:0;
+      pointer-events:none;
+    }
+    .clutch-banner.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+      animation:clutch-banner-pop 0.35s ease-out;
+    }
+    @keyframes clutch-banner-pop{
+      0%{ transform:translateX(-50%) translateY(-18px) scale(0.92); opacity:0;}
+      60%{transform:translateX(-50%) translateY(0) scale(1.04); opacity:1;}
+      100%{transform:translateX(-50%) translateY(0) scale(1); opacity:1;}
+    }
   </style>
 </head>
 <body>
@@ -755,9 +791,8 @@
         <div class="hud-main">
           <div>
             <div class="hud-main-title">
-              <span>Hero Health • Hydration VR</span>
+              Hero Health • Hydration VR
               <span id="hud-runmode" class="hud-mode-badge">Play Mode</span>
-              <span id="hud-wave" class="hud-wave-badge"></span>
             </div>
             <div class="hud-main-mode">Hydration Quest</div>
           </div>
@@ -837,6 +872,11 @@
     </div>
   </div>
 
+  <!-- Banner ขึ้นตอน Clutch Time -->
+  <div id="clutch-banner" class="clutch-banner">
+    ⏱️ ช่วงท้ายแล้ว! เก็บน้ำดีรัว ๆ เลี่ยงน้ำหวานให้หมด!
+  </div>
+
   <!-- Center hint for touch-look -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
 
@@ -872,7 +912,7 @@
   <!-- Effect เป้า (particles FX) -->
   <script src="./vr/particles.js"></script>
 
-  <!-- ===== Logic: Boot Hydration + HUD + Touch Look + Cloud Logger + Wave HUD ===== -->
+  <!-- ===== Logic: Boot Hydration + HUD + Touch Look + Cloud Logger ===== -->
   <script type="module">
     import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
@@ -885,13 +925,14 @@
     }
 
     // HUD element refs
+    const elHudRoot = document.querySelector('.hud-root');
+
     const elScore   = document.getElementById('hud-score');
     const elCombo   = document.getElementById('hud-combo');
     const elMiss    = document.getElementById('hud-miss');
     const elDiff    = document.getElementById('hud-diff-label');
     const elTime    = document.getElementById('hud-time-label');
     const elRunHUD  = document.getElementById('hud-runmode');
-    const elWaveHUD = document.getElementById('hud-wave');
 
     const elQuestMain      = document.getElementById('hud-quest-main');
     const elQuestMini      = document.getElementById('hud-quest-mini');
@@ -929,6 +970,7 @@
     const elJudge     = document.getElementById('hud-judge');
 
     const elBigCelebrate = document.getElementById('big-celebrate');
+    const elClutchBanner = document.getElementById('clutch-banner');
 
     let lastCoachTimeout = null;
     let hudMissCount = 0;
@@ -1228,36 +1270,6 @@
       if (text) setCoach(text);
     });
 
-    // HUD: Wave (Hydration Storm / Sugar Rush)
-    let waveHideTimer = null;
-    window.addEventListener('hha:wave', (e) => {
-      if (!elWaveHUD) return;
-      const d = e.detail || {};
-      const kind = (d.kind || '').toLowerCase();
-      const phase = d.phase || 'change';
-
-      if (phase === 'start') {
-        let label = '';
-        if (kind === 'storm') label = 'Hydration Storm 🌧️';
-        else if (kind === 'sugar') label = 'Sugar Rush ⚠️';
-        else label = kind || 'Wave';
-
-        elWaveHUD.textContent = label;
-        elWaveHUD.classList.add('show');
-
-        if (waveHideTimer) clearTimeout(waveHideTimer);
-        const dur = d.durationSec || 5;
-        waveHideTimer = setTimeout(() => {
-          elWaveHUD.classList.remove('show');
-        }, (dur + 1) * 1000);
-      } else if (phase === 'end') {
-        if (waveHideTimer) clearTimeout(waveHideTimer);
-        waveHideTimer = setTimeout(() => {
-          elWaveHUD.classList.remove('show');
-        }, 400);
-      }
-    });
-
     // HUD: คะแนน / คอมโบ / miss
     window.addEventListener('hha:score', (e) => {
       const d = e.detail || {};
@@ -1312,6 +1324,27 @@
       if (st === 'end') {
         setCoachFace('neutral');
       }
+    });
+
+    // HUD: CLUTCH TIME (จาก mode-factory)
+    window.addEventListener('hha:clutch', (e) => {
+      // ใส่ state ให้ HUD + พื้นหลังรู้ว่าตอนนี้เข้าสู่โหมดท้ายเกม
+      document.body.classList.add('clutch-mode');
+      if (elHudRoot) {
+        elHudRoot.classList.add('hud-clutch');
+      }
+      if (elTime) {
+        elTime.classList.add('clutch-time');
+      }
+      if (elClutchBanner) {
+        elClutchBanner.classList.add('show');
+        setTimeout(() => {
+          elClutchBanner.classList.remove('show');
+        }, 3600);
+      }
+
+      setCoachFace('fever');
+      setCoach('ช่วงท้ายเกมแล้ว! รักษาโซนน้ำสีเขียวให้ได้นานที่สุด ⏱️💧');
     });
 
     function showEndSummary(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
@@ -1471,11 +1504,6 @@
       elGradeBar.style.width = '10%';
       elGradeBar.dataset.grade = 'C';
 
-      if (elWaveHUD){
-        elWaveHUD.textContent = '';
-        elWaveHUD.classList.remove('show');
-      }
-
       setCoachFace('neutral');
       setCoach('ภารกิจคือรักษาน้ำในร่างกายให้อยู่โซนสีเขียว 💧 เลือกน้ำดี เลี่ยงน้ำหวานนะ');
 
@@ -1492,7 +1520,7 @@
         console.warn('[HydrationVR] cannot parse student profile:', err);
       }
 
-      // cloud logger (ไม่ซ้ำ import แล้ว)
+      // cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
         projectTag: 'HeroHealth-HydrationVR',
