@@ -20,6 +20,25 @@ function pickOne (arr, fallback = null) {
   return arr[i];
 }
 
+// อ่านตำแหน่ง x,y จาก event (รองรับ mouse, pointer, touch)
+function getEventXY (ev, fallbackX, fallbackY) {
+  if (!ev) return { x: fallbackX, y: fallbackY };
+
+  // touch
+  const t = (ev.touches && ev.touches[0]) ||
+            (ev.changedTouches && ev.changedTouches[0]);
+  if (t) {
+    return { x: t.clientX, y: t.clientY };
+  }
+
+  // pointer / mouse
+  if (typeof ev.clientX === 'number' && typeof ev.clientY === 'number') {
+    return { x: ev.clientX, y: ev.clientY };
+  }
+
+  return { x: fallbackX, y: fallbackY };
+}
+
 // ---------- Base difficulty ----------
 const DEFAULT_DIFF = {
   easy:   { spawnInterval: 900, maxActive: 3, life: 1900, scale: 1.15 },
@@ -68,15 +87,6 @@ function findHostElement () {
   );
 }
 
-// ---------- event helper ----------
-function dispatchCustom (type, detail) {
-  try {
-    ROOT.dispatchEvent(new CustomEvent(type, { detail }));
-  } catch (err) {
-    // เงียบ ๆ ไม่ให้เกมพัง
-  }
-}
-
 // ======================================================
 //  boot(cfg) — main entry
 // ======================================================
@@ -104,13 +114,12 @@ export async function boot (rawCfg = {}) {
     return { stop () {} };
   }
 
-  // ให้ host เป็น relative เพื่อใช้ absolute ภายใน + กัน gesture แปลก ๆ
+  // ให้ host เป็น relative เพื่อใช้ absolute ภายใน
   try {
     const cs = ROOT.getComputedStyle(host);
     if (cs && cs.position === 'static') {
       host.style.position = 'relative';
     }
-    host.style.touchAction = 'none';
   } catch {}
   host.classList.add('hvr-host-ready');
 
@@ -164,14 +173,18 @@ export async function boot (rawCfg = {}) {
 
     sampleHits = sampleMisses = sampleTotal = 0;
 
-    dispatchCustom('hha:adaptive', {
-      modeKey,
-      difficulty: diffKey,
-      level: adaptLevel,
-      spawnInterval: curInterval,
-      maxActive: curMaxActive,
-      scale: curScale
-    });
+    try {
+      ROOT.dispatchEvent(new CustomEvent('hha:adaptive', {
+        detail: {
+          modeKey,
+          difficulty: diffKey,
+          level: adaptLevel,
+          spawnInterval: curInterval,
+          maxActive: curMaxActive,
+          scale: curScale
+        }
+      }));
+    } catch {}
   }
 
   function addSample (isHit) {
@@ -280,23 +293,30 @@ export async function boot (rawCfg = {}) {
     activeTargets.add(data);
     host.appendChild(el);
 
-    const handleHit = (ev) => {
+    // ----- ฟังก์ชันจัดการ "โดนตีเป้า" ใช้ร่วมทุก event -----
+    function handleHitCore (ev) {
       if (stopped) return;
-      ev.preventDefault();
-      ev.stopPropagation();
       if (!activeTargets.has(data)) return;
 
+      const xy = getEventXY(ev, x, y);
+
+      // ไม่ให้ event นี้ไปกระตุ้น touch-look ต่อ
+      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+
       activeTargets.delete(data);
-      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('pointerdown', onPointerDown); } catch {}
+      try { el.removeEventListener('click', onClick); } catch {}
+      try { el.removeEventListener('touchstart', onTouchStart); } catch {}
       try { host.removeChild(el); } catch {}
 
       let res = null;
       if (typeof judge === 'function') {
         const ctx = {
-          clientX: ev.clientX,
-          clientY: ev.clientY,
-          cx: ev.clientX,
-          cy: ev.clientY,
+          clientX: xy.x,
+          clientY: xy.y,
+          cx: xy.x,
+          cy: xy.y,
           isGood,
           isPower
         };
@@ -318,9 +338,16 @@ export async function boot (rawCfg = {}) {
         isHit = isGood;
       }
       addSample(isHit);
-    };
+    }
 
-    el.addEventListener('pointerdown', handleHit);
+    function onPointerDown (ev) { handleHitCore(ev); }
+    function onClick       (ev) { handleHitCore(ev); }
+    function onTouchStart  (ev) { handleHitCore(ev); }
+
+    // รองรับทั้ง pointer, click, touch
+    el.addEventListener('pointerdown', onPointerDown, { passive: false });
+    el.addEventListener('click',       onClick);
+    el.addEventListener('touchstart',  onTouchStart, { passive: false });
 
     // expire
     ROOT.setTimeout(() => {
@@ -328,7 +355,9 @@ export async function boot (rawCfg = {}) {
       if (!activeTargets.has(data)) return;
 
       activeTargets.delete(data);
-      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('pointerdown', onPointerDown); } catch {}
+      try { el.removeEventListener('click', onClick); } catch {}
+      try { el.removeEventListener('touchstart', onTouchStart); } catch {}
       try { host.removeChild(el); } catch {}
 
       try {
@@ -348,14 +377,14 @@ export async function boot (rawCfg = {}) {
 
   // ---------- clock (hha:time) ----------
   function dispatchTime (sec) {
-    dispatchCustom('hha:time', { sec });
+    try {
+      ROOT.dispatchEvent(new CustomEvent('hha:time', {
+        detail: { sec }
+      }));
+    } catch {}
   }
 
   let rafId = null;
-
-  // CLUTCH TIME: ปลายเกมเร้าใจ
-  const clutchThreshold = Math.max(8, Math.floor(totalDuration * 0.25));
-  let clutchFired = false;
 
   function loop (ts) {
     if (stopped) return;
@@ -371,17 +400,6 @@ export async function boot (rawCfg = {}) {
         if (secLeft <= 0) break;
       }
       lastClockTs += steps * 1000;
-    }
-
-    // ยิง CLUTCH TIME event เมื่อเข้าโซนท้ายเกมครั้งแรก
-    if (!clutchFired && secLeft > 0 && secLeft <= clutchThreshold) {
-      clutchFired = true;
-      dispatchCustom('hha:clutch', {
-        modeKey,
-        difficulty: diffKey,
-        secLeft,
-        totalDuration
-      });
     }
 
     if (secLeft > 0) {
