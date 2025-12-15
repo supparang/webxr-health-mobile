@@ -1,6 +1,5 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// เพิ่ม: Drag-pan + pop-in animation + burst wave + clutch time
 
 'use strict';
 
@@ -178,74 +177,19 @@ export async function boot (rawCfg = {}) {
     }
   }
 
-  // ---------- Drag / Pan: เลื่อนจอแล้วเป้าเลื่อนตาม ----------
-  let dragActive = false;
-  let dragLastX  = 0;
-  let dragLastY  = 0;
+  // ---------- CLUTCH TIME ----------
+  // เหลือเวลาน้อยมาก → ส่ง event ให้ HUD รู้ (ใช้แต่งสี / เอฟเฟกต์)
+  const clutchThreshold = Math.max(10, Math.floor(totalDuration * 0.2)); // อย่างน้อย 10 วินาที หรือ 20% ท้ายเกม
+  let clutchFired = false;
 
-  function onPanStart (ev) {
-    if (stopped) return;
-    // mouse: ซ้ายเท่านั้น, touch/pointer ไม่มี button
-    if (typeof ev.button === 'number' && ev.button !== 0) return;
-
-    // ถ้าเริ่มลากบนเป้า ไม่ถือว่าเป็นการแพน (กันไปชนกับการตีเป้า)
-    if (ev.target && ev.target.closest && ev.target.closest('.hvr-target')) {
-      return;
-    }
-
-    dragActive = true;
-    dragLastX  = ev.clientX;
-    dragLastY  = ev.clientY;
-  }
-
-  function onPanMove (ev) {
-    if (!dragActive || stopped) return;
-
-    const dx = ev.clientX - dragLastX;
-    const dy = ev.clientY - dragLastY;
-    dragLastX = ev.clientX;
-    dragLastY = ev.clientY;
-
-    // เลื่อนโลกของเป้าในทิศทาง "ตรงข้าม" กับนิ้ว
-    // (นิ้วลากไปทางไหน เหมือนหันกล้องไปทางนั้น)
-    activeTargets.forEach((t) => {
-      if (!t || !t.el) return;
-      t.x = (t.x || 0) - dx;
-      t.y = (t.y || 0) - dy;
-      t.el.style.left = t.x + 'px';
-      t.el.style.top  = t.y + 'px';
-    });
-  }
-
-  function onPanEnd () {
-    dragActive = false;
-  }
-
-  host.addEventListener('pointerdown', onPanStart);
-  ROOT.addEventListener('pointermove', onPanMove);
-  ROOT.addEventListener('pointerup', onPanEnd);
-  ROOT.addEventListener('pointercancel', onPanEnd);
-
-  // ---------- Clutch time (ช่วงท้ายเกม) ----------
-  const clutchThresholdSec = Math.max(10, Math.floor(totalDuration * 0.18)); // ~18% สุดท้าย
-  let clutchMode = false;
-
-  function enterClutchIfNeeded () {
-    if (clutchMode) return;
-    if (secLeft > clutchThresholdSec) return;
-    clutchMode = true;
-
-    // เร่งเกมขึ้นหน่อย + เป้าหดลง
-    curInterval = clamp(curInterval * 0.75, baseDiff.spawnInterval * 0.45, baseDiff.spawnInterval);
-    curScale    = clamp(curScale * 0.88, baseDiff.scale * 0.7, baseDiff.scale);
-
-    host.classList.add('hvr-clutch');
+  function dispatchClutch () {
     try {
       ROOT.dispatchEvent(new CustomEvent('hha:clutch', {
         detail: {
           modeKey,
           difficulty: diffKey,
-          remainingSec: secLeft
+          totalDuration,
+          threshold: clutchThreshold
         }
       }));
     } catch {}
@@ -269,8 +213,7 @@ export async function boot (rawCfg = {}) {
     };
   }
 
-  // ---------- สร้างเป้าเดี่ยว (ใช้ pop-in + เก็บตำแหน่งไว้แพน) ----------
-  function spawnSingleTarget () {
+  function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
     const rect = computePlayRect();
@@ -310,12 +253,12 @@ export async function boot (rawCfg = {}) {
     const baseSize = 74; // px
     const size = baseSize * curScale;
 
-    // pop-in เริ่มจาก scale เล็กหน่อย
     el.textContent = ch;
     el.style.position = 'absolute';
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
-    el.style.transform = 'translate(-50%, -50%) scale(0.72)';
+    el.style.transform = 'translate(-50%, -50%)';
+
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     el.style.borderRadius = '999px';
@@ -329,16 +272,13 @@ export async function boot (rawCfg = {}) {
     el.style.userSelect = 'none';
     el.style.cursor = 'pointer';
     el.style.zIndex = '30';
-    el.style.transition = 'transform .18s ease-out, box-shadow .18s ease-out';
 
     if (isGood) {
       el.style.background = 'radial-gradient(circle at 30% 30%, #4ade80, #16a34a)';
     } else {
       el.style.background = 'radial-gradient(circle at 30% 30%, #fb923c, #ea580c)';
     }
-    el.style.boxShadow = clutchMode
-      ? '0 0 16px rgba(248,113,113,0.9), 0 10px 25px rgba(0,0,0,0.45)'
-      : '0 10px 25px rgba(0,0,0,0.45)';
+    el.style.boxShadow = '0 10px 25px rgba(0,0,0,0.45)';
 
     const data = {
       el,
@@ -346,18 +286,11 @@ export async function boot (rawCfg = {}) {
       isGood,
       isPower,
       bornAt: performance.now(),
-      life: baseDiff.life,
-      x,
-      y
+      life: baseDiff.life
     };
 
     activeTargets.add(data);
     host.appendChild(el);
-
-    // pop-in animation จริง ๆ
-    requestAnimationFrame(() => {
-      el.style.transform = 'translate(-50%, -50%) scale(1)';
-    });
 
     const handleHit = (ev) => {
       if (stopped) return;
@@ -425,29 +358,6 @@ export async function boot (rawCfg = {}) {
     }, baseDiff.life);
   }
 
-  // ---------- Burst wave: มีโอกาสเกิดคลื่นเป้ารัว ๆ ----------
-  function spawnTargetsWithBurst () {
-    if (activeTargets.size >= curMaxActive) return;
-
-    // ปกติ spawn อย่างน้อย 1
-    let toSpawn = 1;
-
-    // มีโอกาสเกิด burst wave ถ้าไม่เกิน maxActive
-    const canBurst = activeTargets.size < (curMaxActive - 1);
-    const burstChance = clutchMode ? 0.45 : 0.22; // ช่วงท้ายเกมเร้าใจกว่า
-
-    if (canBurst && Math.random() < burstChance) {
-      // spawn 2–3 เป้าในทีเดียว แต่ไม่เกิน maxActive
-      const extra = (Math.random() < 0.5) ? 1 : 2;
-      toSpawn = clamp(1 + extra, 1, curMaxActive - activeTargets.size);
-    }
-
-    for (let i = 0; i < toSpawn; i++) {
-      spawnSingleTarget();
-      if (activeTargets.size >= curMaxActive) break;
-    }
-  }
-
   // ---------- clock (hha:time) ----------
   function dispatchTime (sec) {
     try {
@@ -469,22 +379,44 @@ export async function boot (rawCfg = {}) {
       const steps = Math.floor(dt / 1000);
       for (let i = 0; i < steps; i++) {
         secLeft--;
+
+        // เมื่อเข้าเขต Clutch ครั้งแรก → ส่ง event
+        if (!clutchFired && secLeft <= clutchThreshold && secLeft > 0) {
+          clutchFired = true;
+          dispatchClutch();
+
+          // ช่วงท้ายเกม เร่งจังหวะขึ้นอีกนิด (แต่ไม่ให้โหดเกินไป)
+          curInterval = clamp(curInterval * 0.85, baseDiff.spawnInterval * 0.4, baseDiff.spawnInterval * 1.2);
+        }
+
         dispatchTime(secLeft);
         if (secLeft <= 0) break;
       }
       lastClockTs += steps * 1000;
-
-      // เช็ก clutch time ทุก ๆ รอบที่เวลาเดิน
-      if (secLeft > 0) {
-        enterClutchIfNeeded();
-      }
     }
 
     if (secLeft > 0) {
       if (!lastSpawnTs) lastSpawnTs = ts;
       const dtSpawn = ts - lastSpawnTs;
       if (dtSpawn >= curInterval) {
-        spawnTargetsWithBurst();
+        // ===== Burst wave logic =====
+        let count = 1;
+
+        // ถ้าเล่นเก่งมาก (adaptLevel ≥ 2) → มีโอกาส burst เพิ่ม
+        if (adaptLevel >= 2 && Math.random() < 0.35) {
+          count += 1;
+        }
+        // ถ้าอยู่ในโหมด Clutch → มีโอกาส burst อีก (เร้าใจช่วงท้าย)
+        if (clutchFired && Math.random() < 0.40) {
+          count += 1;
+        }
+
+        // เคารพ maxActive เสมอ
+        for (let i = 0; i < count; i++) {
+          if (activeTargets.size >= curMaxActive) break;
+          spawnTarget();
+        }
+
         lastSpawnTs = ts;
       }
     } else {
@@ -510,13 +442,6 @@ export async function boot (rawCfg = {}) {
     try {
       dispatchTime(0);
     } catch {}
-
-    // cleanup drag + clutch
-    host.removeEventListener('pointerdown', onPanStart);
-    ROOT.removeEventListener('pointermove', onPanMove);
-    ROOT.removeEventListener('pointerup', onPanEnd);
-    ROOT.removeEventListener('pointercancel', onPanEnd);
-    host.classList.remove('hvr-clutch');
   }
 
   const onStopEvent = () => stop();
