@@ -10,73 +10,6 @@
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- หมุนเป้า Hydration รอบตัวเอง (แกน Z) + ติดให้ทุก node ที่มี data-hha-tgt -->
-  <script>
-    (function () {
-      const A = window.AFRAME;
-      if (!A) return;
-
-      A.registerComponent('hha-spin-target', {
-        schema: { speed: { type: 'number', default: 80 } }, // องศาต่อวินาที
-        tick: function (time, dt) {
-          if (!dt) return;
-          const rot = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
-          const delta = (this.data.speed * dt) / 1000;
-          let z = (rot.z || 0) + delta;
-          if (z > 360) z -= 360;
-          this.el.setAttribute('rotation', {
-            x: rot.x || 0,
-            y: rot.y || 0,
-            z
-          });
-        }
-      });
-
-      function attachSpinToTargets(root) {
-        if (!root || !root.querySelectorAll) return;
-        root.querySelectorAll('[data-hha-tgt]').forEach(el => {
-          if (!el.hasAttribute('hha-spin-target')) {
-            el.setAttribute('hha-spin-target', 'speed: 80');
-          }
-        });
-      }
-
-      function initSpin() {
-        const scene = document.querySelector('a-scene');
-        if (!scene) return;
-
-        // ติดให้เป้าที่มีอยู่แล้ว
-        attachSpinToTargets(scene);
-
-        // เฝ้าดู node ใหม่ใน scene แล้วติด spin ให้ด้วย
-        const obs = new MutationObserver(mutations => {
-          mutations.forEach(m => {
-            m.addedNodes.forEach(node => {
-              if (node.nodeType !== 1) return;
-
-              if (node.matches && node.matches('[data-hha-tgt]')) {
-                if (!node.hasAttribute('hha-spin-target')) {
-                  node.setAttribute('hha-spin-target', 'speed: 80');
-                }
-              }
-              if (node.querySelectorAll) {
-                attachSpinToTargets(node);
-              }
-            });
-          });
-        });
-
-        obs.observe(scene, { childList: true, subtree: true });
-      }
-
-      if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        initSpin();
-      } else {
-        document.addEventListener('DOMContentLoaded', initSpin);
-      }
-    })();
-  </script>
-
   <style>
     :root{
       color-scheme: light dark;
@@ -133,8 +66,7 @@
       display:flex;
       flex-direction:column;
       justify-content:space-between;
-      /* ขยับ HUD ลงมาไม่ให้บัง water gauge */
-      padding:56px 10px 14px;
+      padding:10px 10px 14px;
     }
 
     .hud-top{
@@ -142,6 +74,7 @@
       justify-content:space-between;
       gap:8px;
       align-items:flex-start;
+      margin-top:70px; /* เว้นที่ให้ Water gauge ด้านบน */
     }
 
     .hud-card{
@@ -237,7 +170,7 @@
       height:100%;
       border-radius:999px;
       background:linear-gradient(90deg,#22c55e,#4ade80);
-      transition:width .25s.ease-out, background .25s.ease-out, box-shadow .25s.ease-out;
+      transition:width .25s ease-out, background .25s ease-out, box-shadow .25s ease-out;
       box-shadow:0 0 0 0 rgba(34,197,94,0.6);
     }
     .grade-bar-fill[data-grade="C"]{
@@ -407,7 +340,7 @@
     .coach-emoji.coach-happy{
       background-image:url('./img/coach-happy.png');
       box-shadow:0 0 20px rgba(34,197,94,0.95);
-      animation:coach-dance 0.8s.ease-in-out infinite;
+      animation:coach-dance 0.8s ease-in-out infinite;
     }
     .coach-emoji.coach-sad{
       background-image:url('./img/coach-sad.png');
@@ -1364,7 +1297,7 @@
     ['touchstart','touchmove','touchend','pointerdown','pointermove','pointerup'].forEach(type => {
       document.addEventListener(type, (ev) => {
         const t = ev.target;
-        if (t && t.closest && t.closest('.hha-target')) {
+        if (t && t.closest && t.closest('.hvr-target')) {
           ev.stopPropagation();
         }
       }, { capture: true });
