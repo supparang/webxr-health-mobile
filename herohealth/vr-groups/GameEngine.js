@@ -1,5 +1,7 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — DOM Emoji Pop Targets + 2 Goals + 3 Mini Quests
+// Food Groups VR — DOM Emoji Pop Targets
+// 5 หมู่ • 2 Goals • 3 Mini Quests + Fever + Burst Waves
+// ใช้กับ groups-vr.html (HUD + Countdown เดิม)
 
 (function (ROOT) {
   'use strict';
@@ -64,7 +66,7 @@
     '🍔','🍟','🍕','🌭','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🍿'
   ];
 
-  // ---------- Goal / Mini config ----------
+  // ---------- Quest config 2 Goal + 3 Mini ----------
   function randInt (min, max) {
     return Math.floor(min + Math.random() * (max - min + 1));
   }
@@ -139,6 +141,7 @@
     return { goals, minis };
   }
 
+  // ---------- helpers ----------
   function clamp (v, min, max) {
     return v < min ? min : (v > max ? max : v);
   }
@@ -171,7 +174,7 @@
     }
   }
 
-  // =============== CORE ENGINE STATE ===============
+  // =============== CORE STATE ===============
   let layerEl = null;
   let running = false;
   let spawnTimer = null;
@@ -198,7 +201,7 @@
   let minisTotal = 0;
   let questsFinished = false;
 
-  let currentStageIndex = 0;
+  let currentStageIndex = 0;   // 0–4 = หมู่ 1–5
   let durationSec = null;
   let elapsedSec = 0;
   let lastTimeSec = null;
@@ -217,9 +220,40 @@
   let timeListenerBound = null;
   let typeWeights = { good: 75, junk: 25 };
 
-  // ---------- Stage ----------
+  // ใช้ดู reaction time ให้ PERFECT / GOOD / LATE
+  let lastHitTimestamp = 0;
+
+  // ---------- Stage / Wave system ----------
   function currentGroup () {
     return GROUPS[currentStageIndex] || GROUPS[0];
+  }
+
+  function applyStageTuning () {
+    // ปรับความเร็ว / จำนวนเป้า / สัดส่วน junk ตามหมู่
+    if (currentStageIndex === 0) {
+      spawnInterval = clamp(spawnInterval, 950, 1200);
+      maxActive = clamp(maxActive, 3, 4);
+      typeWeights = { good: 82, junk: 18 };
+    } else if (currentStageIndex === 1) {
+      spawnInterval = clamp(spawnInterval - 60, 850, 1100);
+      maxActive = clamp(maxActive, 4, 5);
+      typeWeights = { good: 78, junk: 22 };
+    } else if (currentStageIndex === 2) {
+      spawnInterval = clamp(spawnInterval - 80, 750, 1000);
+      maxActive = clamp(maxActive, 4, 5);
+      typeWeights = { good: 74, junk: 26 };
+    } else if (currentStageIndex === 3) {
+      spawnInterval = clamp(spawnInterval - 80, 680, 950);
+      maxActive = clamp(maxActive, 5, 6);
+      typeWeights = { good: 70, junk: 30 };
+    } else {
+      // Final wave หมู่ 5 = boss wave
+      spawnInterval = clamp(spawnInterval - 60, 620, 900);
+      maxActive = clamp(maxActive, 5, 7);
+      typeWeights = { good: 66, junk: 34 };
+    }
+
+    rescheduleSpawn();
   }
 
   function advanceStageIfNeeded () {
@@ -232,23 +266,8 @@
     if (stageByTime !== currentStageIndex && stageByTime < GROUPS.length) {
       currentStageIndex = stageByTime;
       const g = currentGroup();
-      coach(g.rhyme || g.title, 3000);
-
-      if (stageByTime === 1) {
-        spawnInterval = Math.max(700, spawnInterval - 80);
-        typeWeights = { good: 72, junk: 28 };
-      } else if (stageByTime === 2) {
-        spawnInterval = Math.max(650, spawnInterval - 60);
-        typeWeights = { good: 70, junk: 30 };
-      } else if (stageByTime === 3) {
-        spawnInterval = Math.max(600, spawnInterval - 50);
-        typeWeights = { good: 68, junk: 32 };
-      } else if (stageByTime === 4) {
-        spawnInterval = Math.max(550, spawnInterval - 40);
-        typeWeights = { good: 65, junk: 35 };
-      }
-
-      rescheduleSpawn();
+      coach(g.rhyme || g.title, 3200);
+      applyStageTuning();
     }
   }
 
@@ -261,7 +280,6 @@
       lastTimeSec = secLeft;
       return;
     }
-
     if (secLeft < lastTimeSec) {
       elapsedSec++;
       advanceStageIfNeeded();
@@ -280,8 +298,13 @@
     fever = clamp(fever + delta, 0, FEVER_MAX);
     if (!feverActive && fever >= FEVER_MAX) {
       feverActive = true;
-      coach('เข้าโหมดไฟแล้ว! เลือกอาหารดีรัว ๆ เลย 🔥', 3000);
+      coach('เข้าสู่ FEVER WAVE! เลือกอาหารดีให้ไวขึ้น 🔥', 3200);
       emit('hha:fever', { state: 'start', value: fever, max: FEVER_MAX });
+
+      // FEVER wave: spawn ถี่ขึ้น + junk ลดลง
+      spawnInterval = clamp(spawnInterval - 120, 520, 900);
+      typeWeights = { good: 84, junk: 16 };
+      rescheduleSpawn();
     } else {
       emit('hha:fever', { state: 'charge', value: fever, max: FEVER_MAX });
     }
@@ -297,6 +320,9 @@
     if (feverActive && fever <= 0) {
       feverActive = false;
       emit('hha:fever', { state: 'end', value: fever, max: FEVER_MAX });
+
+      // กลับเป็น config ตาม stage
+      applyStageTuning();
     } else {
       emit('hha:fever', { state: 'charge', value: fever, max: FEVER_MAX });
     }
@@ -315,9 +341,11 @@
       misses
     });
   }
+
   function pushMissHUD () {
     emit('hha:miss', { misses });
   }
+
   function pushJudgeHUD (label) {
     emit('hha:judge', { label: label || '' });
   }
@@ -369,7 +397,7 @@
         total
       });
 
-      coach(`Goal ${idx}/${total} สำเร็จแล้ว! 🎯`, 3200);
+      coach(`Goal ${idx}/${total} สำเร็จแล้ว! 🎯`, 3400);
 
       if (doneCount < total) {
         currentGoalIndex = doneCount;
@@ -404,7 +432,7 @@
         total
       });
 
-      coach(`Mini quest ${idx}/${total} สำเร็จแล้ว! ⭐`, 3200);
+      coach(`Mini quest ${idx}/${total} สำเร็จแล้ว! ⭐`, 3400);
 
       if (doneCount < total) {
         currentMiniIndex = doneCount;
@@ -471,7 +499,7 @@
     el.dataset.group = groupKey || '';
     el.dataset.spawnAt = String(performance.now ? performance.now() : Date.now());
 
-    const marginX = 12;
+    const marginX = 10;
     const marginYTop = 18;
     const marginYBottom = 26;
     const left = marginX + Math.random() * (100 - marginX * 2);
@@ -492,7 +520,14 @@
 
     layerEl.appendChild(el);
 
-    const life = clamp(spawnInterval * 1.3, 650, 1900);
+    // life time เร็วขึ้นตาม stage
+    const lifeBase = spawnInterval * 1.25;
+    const life = clamp(
+      lifeBase - currentStageIndex * 80,
+      650,
+      1900
+    );
+
     setTimeout(function () {
       if (!running) return;
       if (!el.parentNode) return;
@@ -504,20 +539,39 @@
     return el;
   }
 
+  function spawnBurstOnce () {
+    if (!running) return;
+
+    // burst 1–3 เป้าตาม stage
+    let maxBurst = 1;
+    if (currentStageIndex >= 1) maxBurst = 2;
+    if (currentStageIndex >= 3) maxBurst = 3;
+
+    let count = 1;
+    if (Math.random() < 0.25) count = 2;
+    if (Math.random() < 0.12 && maxBurst >= 3) count = 3;
+
+    for (let i = 0; i < count; i++) {
+      if (activeTargets.length >= maxActive) break;
+
+      const type = pickType();
+      const emoji = pickEmojiForCurrentStage(type);
+      const g = currentGroup();
+
+      const el = createDOMTarget(type, emoji, g.key);
+      if (el) {
+        activeTargets.push(el);
+        if (type === 'good') nTargetGood++;
+        else nTargetJunk++;
+      }
+    }
+  }
+
   function tickSpawn () {
     if (!running) return;
     if (activeTargets.length >= maxActive) return;
 
-    const type = pickType();
-    const emoji = pickEmojiForCurrentStage(type);
-    const g = currentGroup();
-
-    const el = createDOMTarget(type, emoji, g.key);
-    if (el) {
-      activeTargets.push(el);
-      if (type === 'good') nTargetGood++;
-      else nTargetJunk++;
-    }
+    spawnBurstOnce();
   }
 
   function rescheduleSpawn () {
@@ -533,7 +587,8 @@
     const kind = el.dataset.kind || 'junk';
     const emoji = el.dataset.emoji || '';
     const spawnAt = Number(el.dataset.spawnAt || '0') || 0;
-    const rtMs = spawnAt ? (performance.now ? performance.now() : Date.now()) - spawnAt : null;
+    const nowTs = performance.now ? performance.now() : Date.now();
+    const rtMs = spawnAt ? nowTs - spawnAt : null;
 
     removeTarget(el);
 
@@ -546,38 +601,61 @@
       combo++;
       comboMax = Math.max(comboMax, combo);
 
+      // ★ Reaction-based judgment
+      let judgeLabel = 'GOOD';
+      if (rtMs != null && rtMs <= 320) judgeLabel = 'PERFECT';
+      else if (rtMs != null && rtMs >= 900) judgeLabel = 'LATE';
+
       const base = 10 + combo * 2;
-      delta = base * mult();
+      const bonusPerfect = judgeLabel === 'PERFECT' ? 6 : 0;
+      const penaltyLate = judgeLabel === 'LATE' ? -3 : 0;
+      delta = (base + bonusPerfect + penaltyLate) * mult();
       score += delta;
+
+      // Adaptive ความมันส์: combo สูง spawn ถี่ขึ้น
+      if (combo === 4 || combo === 7 || combo === 10) {
+        spawnInterval = clamp(spawnInterval - 40, 540, 1000);
+        rescheduleSpawn();
+        coach(`คอมโบ x${combo}! ความเร็วเพิ่มขึ้นแล้ว ระวัง junk wave ให้ดี 🔥`, 3200);
+      }
 
       addFever(FEVER_HIT_GAIN);
 
+      // Coach ไดนามิก
       if (combo === 1) {
         coach('เปิดคอมโบแล้ว! เลือกอาหารดีจากหมู่ ' + (currentStageIndex + 1) + ' ต่อเลย 🥦🍎', 2600);
       } else if (combo === 5) {
         coach('คอมโบ x5 แล้ว! ลองดันไปให้ถึง Mini quest ดูนะ 🔥', 2800);
       } else if (combo === 10) {
-        coach('สุดยอด! โปรโหมดแล้ว คอมโบ x10 เลย! 💪', 3200);
+        coach('โหดมาก! คอมโบสิบเลย โปรโหมดแล้ว 🎉', 3200);
       }
 
       updateGoalFromGoodHit();
       updateMiniFromCombo();
 
-      label = (rtMs != null && rtMs < 450) ? 'PERFECT' : 'GOOD';
+      label = judgeLabel;
       pushJudgeHUD(label);
       pushScoreHUD();
+
+      lastHitTimestamp = nowTs;
     } else {
+      // junk
       nHitJunk++;
       misses++;
       combo = 0;
 
-      const lost = 8;
+      const lost = 10;
       delta = -lost;
       score = Math.max(0, score - lost);
 
       loseFever(FEVER_MISS_LOSS);
 
-      coach('โดนของขยะแล้ว ระวังพวก 🍔🍟🍩 ให้มากขึ้นนะ', 3200);
+      if (misses === 1) {
+        coach('โดนของขยะแล้ว ลองสังเกตพวก 🍔🍟🍩 ให้ดี ๆ แล้วหลบให้ทันนะ', 3600);
+      } else if (misses === 5) {
+        coach('Miss เยอะไปนิด ลองโฟกัสเฉพาะอาหารดีจากแต่ละหมู่สักพักนะ 🥦🍎', 3800);
+      }
+
       pushMissHUD();
       pushScoreHUD();
       label = 'MISS';
@@ -589,8 +667,8 @@
     try {
       Particles.burstAt(pos.x, pos.y, {
         color: kind === 'good' ? '#22c55e' : '#f97316',
-        count: kind === 'good' ? 24 : 16,
-        radius: kind === 'good' ? 70 : 50
+        count: kind === 'good' ? 26 : 18,
+        radius: kind === 'good' ? 74 : 56
       });
       Particles.scorePop(pos.x, pos.y, text || label, {
         kind: text ? 'score' : 'judge',
@@ -610,7 +688,8 @@
       rtMs,
       totalScore: score,
       combo,
-      misses
+      misses,
+      stage: currentStageIndex + 1
     });
 
     checkAllQuestsDone();
@@ -627,7 +706,7 @@
       combo = 0;
       loseFever(FEVER_MISS_LOSS * 0.7);
 
-      coach('พลาด ' + emoji + ' ไปนิด ลองเล็งให้ตรงขึ้นอีกหน่อยนะ 😊', 2600);
+      coach(`พลาด ${emoji} ไปนิด ลองเล็งให้ตรงขึ้นอีกหน่อยนะ 😊`, 2600);
       pushMissHUD();
       pushScoreHUD();
       pushJudgeHUD('MISS');
@@ -644,7 +723,8 @@
       itemType: kind,
       totalScore: score,
       combo,
-      misses
+      misses,
+      stage: currentStageIndex + 1
     });
   }
 
@@ -709,17 +789,17 @@
     currentDiff = d;
 
     if (d === 'easy') {
-      spawnInterval = 1100;
-      maxActive = 3;
-      typeWeights = { good: 80, junk: 20 };
+      spawnInterval = 1050;
+      maxActive = 4;
+      typeWeights = { good: 82, junk: 18 };
     } else if (d === 'hard') {
-      spawnInterval = 800;
-      maxActive = 5;
-      typeWeights = { good: 68, junk: 32 };
+      spawnInterval = 880;
+      maxActive = 6;
+      typeWeights = { good: 70, junk: 30 };
     } else {
       spawnInterval = 950;
-      maxActive = 4;
-      typeWeights = { good: 72, junk: 28 };
+      maxActive = 5;
+      typeWeights = { good: 76, junk: 24 };
     }
 
     const q = setupQuestsForDiff(d);
@@ -745,14 +825,13 @@
   function setLayerEl (el) {
     layerEl = el || document.getElementById('fg-layer');
     if (layerEl) {
-      // บังคับให้เลเยอร์เป้าอยู่บนสุด และรับคลิกได้ (ตัวเป้าเอง auto)
       layerEl.style.position = 'fixed';
       layerEl.style.left = '0';
       layerEl.style.top = '0';
       layerEl.style.right = '0';
       layerEl.style.bottom = '0';
-      layerEl.style.zIndex = '80';     // สูงกว่า HUD (60) ให้เห็นชัด ๆ ก่อน
-      layerEl.style.pointerEvents = 'none';
+      layerEl.style.zIndex = '80';      // สูงกว่า HUD
+      layerEl.style.pointerEvents = 'none'; // ตัวเป้าเอง pointerEvents:auto
     }
   }
 
@@ -807,6 +886,8 @@
     if (FeverUI.ensureFeverBar) FeverUI.ensureFeverBar();
 
     currentStageIndex = 0;
+    applyStageTuning();
+
     coach('เริ่มจากหมู่ 1 โปรตีนก่อน เลือกเนื้อ นม ไข่ให้ถูกหมู่เลย! 🥛🍗', 3200);
     pushScoreHUD();
     pushJudgeHUD('');
