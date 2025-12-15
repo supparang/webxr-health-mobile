@@ -20,6 +20,32 @@ function pickOne (arr, fallback = null) {
   return arr[i];
 }
 
+// ---------- Emoji texture cache (ใช้กับ Hydration 3D) ----------
+const EMOJI_TEX_CACHE = ROOT.HHA_EMOJI_TEX || (ROOT.HHA_EMOJI_TEX = {});
+
+function getEmojiTexture (ch) {
+  if (EMOJI_TEX_CACHE[ch]) return EMOJI_TEX_CACHE[ch];
+
+  if (!DOC) return null;
+  const canvas = DOC.createElement('canvas');
+  const size = 256;
+  canvas.width = canvas.height = size;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // วาด emoji ใหญ่ ๆ กลางรูป
+  ctx.font = '200px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+  ctx.fillText(ch, size / 2, size * 0.60);
+
+  const url = canvas.toDataURL('image/png');
+  EMOJI_TEX_CACHE[ch] = url;
+  return url;
+}
+
 // ---------- Base difficulty ----------
 const DEFAULT_DIFF = {
   easy:   { spawnInterval: 900, maxActive: 3, life: 1900, scale: 1.15 },
@@ -74,7 +100,8 @@ function findAframeTargetRoot () {
   if (!root) {
     root = DOC.createElement('a-entity');
     root.setAttribute('id', 'hvr-target-root');
-    root.setAttribute('position', '0 1.6 -3');
+    // ตำแหน่งประมาณกลางหน้าผู้เล่น
+    root.setAttribute('position', '0 0 0');
     scene.appendChild(root);
   }
   return root;
@@ -101,6 +128,7 @@ export async function boot (rawCfg = {}) {
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
+  // Hydration ใช้ A-Frame เป้า 3D + emoji texture
   const useAframeTargets = (modeKey === 'hydration' || modeKey === 'hydration-vr');
 
   const hostDom = useAframeTargets ? null : findHostElement();
@@ -215,9 +243,9 @@ export async function boot (rawCfg = {}) {
     const root = findAframeTargetRoot();
     if (!root) return;
 
-    // ตำแหน่งเป้าในกรอบด้านหน้า
-    const px = (Math.random() * 2.8 - 1.4).toFixed(2);
-    const py = (Math.random() * 1.4 + 0.8).toFixed(2);
+    // กระจายเป้าในกรอบด้านหน้า
+    const px = (Math.random() * 2.8 - 1.4).toFixed(2);   // -1.4 .. 1.4
+    const py = (Math.random() * 1.3 + 0.9).toFixed(2);   // 0.9 .. 2.2
     const pz = -3;
 
     const poolsGood = Array.isArray(pools.good) ? pools.good : [];
@@ -244,7 +272,6 @@ export async function boot (rawCfg = {}) {
     }
     spawnCounter++;
 
-    // วงกลมพื้นหลัง
     const el = DOC.createElement('a-entity');
     el.classList.add('hha-target');
     el.setAttribute('data-hha-tgt', '');
@@ -253,20 +280,22 @@ export async function boot (rawCfg = {}) {
     el.setAttribute(
       'material',
       isGood
-        ? 'shader: flat; color: #22c55e; opacity: 0.98'
-        : 'shader: flat; color: #f97316; opacity: 0.98'
+        ? 'shader: flat; color: #22c55e; opacity: 0.96'
+        : 'shader: flat; color: #f97316; opacity: 0.96'
     );
 
-    // Emoji ตรงกลาง (ใช้ a-text ให้เรนเดอร์แน่ ๆ)
-    const emojiEl = DOC.createElement('a-text');
-    emojiEl.setAttribute('value', ch);
-    emojiEl.setAttribute('align', 'center');
-    emojiEl.setAttribute('color', '#0f172a');
-    emojiEl.setAttribute('width', '2.2');
-    emojiEl.setAttribute('position', '0 0 0.02');
-    emojiEl.setAttribute('side', 'double');
+    // emoji texture plane
+    const tex = getEmojiTexture(ch);
+    if (tex) {
+      const emojiPlane = DOC.createElement('a-image');
+      emojiPlane.setAttribute('src', tex);
+      emojiPlane.setAttribute('width', (0.55 * curScale).toFixed(2));
+      emojiPlane.setAttribute('height', (0.55 * curScale).toFixed(2));
+      emojiPlane.setAttribute('position', '0 0 0.03');
+      emojiPlane.setAttribute('transparent', 'true');
+      el.appendChild(emojiPlane);
+    }
 
-    el.appendChild(emojiEl);
     root.appendChild(el);
 
     const data = {
@@ -320,7 +349,6 @@ export async function boot (rawCfg = {}) {
 
     el.addEventListener('click', handleHit);
 
-    // expire
     ROOT.setTimeout(() => {
       if (stopped) return;
       if (!activeTargets.has(data)) return;
