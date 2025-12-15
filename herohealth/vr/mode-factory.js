@@ -1,5 +1,5 @@
 // === /herohealth/vr/mode-factory.js ===
-// Generic target spawner (DOM + A-Frame) สำหรับ HeroHealth VR/Quest
+// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
 
 'use strict';
 
@@ -20,32 +20,6 @@ function pickOne (arr, fallback = null) {
   return arr[i];
 }
 
-// ---------- Emoji texture cache (ใช้กับ Hydration 3D) ----------
-const EMOJI_TEX_CACHE = ROOT.HHA_EMOJI_TEX || (ROOT.HHA_EMOJI_TEX = {});
-
-function getEmojiTexture (ch) {
-  if (EMOJI_TEX_CACHE[ch]) return EMOJI_TEX_CACHE[ch];
-
-  if (!DOC) return null;
-  const canvas = DOC.createElement('canvas');
-  const size = 256;
-  canvas.width = canvas.height = size;
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-
-  ctx.clearRect(0, 0, size, size);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  // วาด emoji ใหญ่ ๆ กลางรูป
-  ctx.font = '200px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-  ctx.fillText(ch, size / 2, size * 0.60);
-
-  const url = canvas.toDataURL('image/png');
-  EMOJI_TEX_CACHE[ch] = url;
-  return url;
-}
-
 // ---------- Base difficulty ----------
 const DEFAULT_DIFF = {
   easy:   { spawnInterval: 900, maxActive: 3, life: 1900, scale: 1.15 },
@@ -57,12 +31,17 @@ function pickDiffConfig (modeKey, diffKey) {
   diffKey = String(diffKey || 'normal').toLowerCase();
   let base = null;
 
+  // ถ้ามี HHA_DIFF_TABLE ใช้ก่อน
   if (ROOT.HHA_DIFF_TABLE && modeKey && ROOT.HHA_DIFF_TABLE[modeKey]) {
     const table = ROOT.HHA_DIFF_TABLE[modeKey];
-    if (table && table[diffKey]) base = table[diffKey];
+    if (table && table[diffKey]) {
+      base = table[diffKey];
+    }
   }
 
-  if (!base) base = DEFAULT_DIFF[diffKey] || DEFAULT_DIFF.normal;
+  if (!base) {
+    base = DEFAULT_DIFF[diffKey] || DEFAULT_DIFF.normal;
+  }
 
   const cfg = {
     spawnInterval: Number(base.spawnInterval ?? base.interval ?? 800),
@@ -79,9 +58,8 @@ function pickDiffConfig (modeKey, diffKey) {
   return cfg;
 }
 
-// ---------- DOM host (GoodJunk / Plate) ----------
+// หา host กลางจอ
 function findHostElement () {
-  if (!DOC) return null;
   return (
     DOC.getElementById('hvr-playfield') ||
     DOC.getElementById('hvr-scene') ||
@@ -90,25 +68,8 @@ function findHostElement () {
   );
 }
 
-// ---------- A-Frame root (Hydration) ----------
-function findAframeTargetRoot () {
-  if (!DOC || !ROOT.AFRAME) return null;
-  const scene = DOC.querySelector('a-scene');
-  if (!scene) return null;
-
-  let root = scene.querySelector('#hvr-target-root');
-  if (!root) {
-    root = DOC.createElement('a-entity');
-    root.setAttribute('id', 'hvr-target-root');
-    // ตำแหน่งประมาณกลางหน้าผู้เล่น
-    root.setAttribute('position', '0 0 0');
-    scene.appendChild(root);
-  }
-  return root;
-}
-
 // ======================================================
-//  boot(cfg)
+//  boot(cfg) — main entry
 // ======================================================
 export async function boot (rawCfg = {}) {
   const {
@@ -120,7 +81,7 @@ export async function boot (rawCfg = {}) {
     powerups   = [],
     powerRate  = 0.10,
     powerEvery = 7,
-    spawnStyle = 'pop',
+    spawnStyle = 'pop',       // ตอนนี้รองรับ pop เป็นหลัก
     judge,
     onExpire
   } = rawCfg || {};
@@ -128,22 +89,20 @@ export async function boot (rawCfg = {}) {
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
-  // Hydration ใช้ A-Frame เป้า 3D + emoji texture
-  const useAframeTargets = (modeKey === 'hydration' || modeKey === 'hydration-vr');
-
-  const hostDom = useAframeTargets ? null : findHostElement();
-  if (!useAframeTargets && (!hostDom || !DOC)) {
+  const host = findHostElement();
+  if (!host || !DOC) {
     console.error('[mode-factory] host element not found');
     return { stop () {} };
   }
 
-  if (!useAframeTargets) {
-    try {
-      const cs = ROOT.getComputedStyle(hostDom);
-      if (cs && cs.position === 'static') hostDom.style.position = 'relative';
-    } catch {}
-    hostDom.classList.add('hvr-host-ready');
-  }
+  // ให้ host เป็น relative เพื่อใช้ absolute ภายใน
+  try {
+    const cs = ROOT.getComputedStyle(host);
+    if (cs && cs.position === 'static') {
+      host.style.position = 'relative';
+    }
+  } catch {}
+  host.classList.add('hvr-host-ready');
 
   // ---------- Game state ----------
   let stopped = false;
@@ -174,9 +133,9 @@ export async function boot (rawCfg = {}) {
     let next = adaptLevel;
 
     if (hitRate >= 0.85 && sampleMisses <= 2) {
-      next += 1;
+      next += 1; // เก่ง → ยากขึ้น
     } else if (hitRate <= 0.55 || sampleMisses >= 6) {
-      next -= 1;
+      next -= 1; // พลาดเยอะ → ง่ายลง
     }
 
     adaptLevel = clamp(next, -1, 3);
@@ -213,16 +172,18 @@ export async function boot (rawCfg = {}) {
     if (isHit) sampleHits++;
     else sampleMisses++;
     sampleTotal++;
-    if (sampleTotal >= ADAPT_WINDOW) recalcAdaptive();
+    if (sampleTotal >= ADAPT_WINDOW) {
+      recalcAdaptive();
+    }
   }
 
-  // ---------- DOM play rect ----------
+  // ---------- ตำแหน่ง spawn (ภายใน host) ----------
   function computePlayRect () {
-    const w = hostDom.clientWidth;
-    const h = hostDom.clientHeight;
+    const w = host.clientWidth;
+    const h = host.clientHeight;
 
-    const top    = h * 0.25;
-    const bottom = h * 0.80;
+    const top    = h * 0.25;  // ตัด HUD ด้านบน
+    const bottom = h * 0.80;  // เหลือที่ให้ fever bar ด้านล่าง
     const left   = w * 0.10;
     const right  = w * 0.90;
 
@@ -234,151 +195,14 @@ export async function boot (rawCfg = {}) {
     };
   }
 
-  // ======================================================
-  //  Spawn target: A-Frame (Hydration)
-  // ======================================================
-  function spawnTargetAframe () {
-    if (activeTargets.size >= curMaxActive) return;
-
-    const root = findAframeTargetRoot();
-    if (!root) return;
-
-    // กระจายเป้าในกรอบด้านหน้า
-    const px = (Math.random() * 2.8 - 1.4).toFixed(2);   // -1.4 .. 1.4
-    const py = (Math.random() * 1.3 + 0.9).toFixed(2);   // 0.9 .. 2.2
-    const pz = -3;
-
-    const poolsGood = Array.isArray(pools.good) ? pools.good : [];
-    const poolsBad  = Array.isArray(pools.bad) ? pools.bad  : [];
-
-    let ch = '💧';
-    let isGood = true;
-    let isPower = false;
-
-    const canPower = Array.isArray(powerups) && powerups.length > 0;
-    if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
-      ch = pickOne(powerups, '⭐');
-      isGood = true;
-      isPower = true;
-    } else {
-      const r = Math.random();
-      if (r < goodRate || !poolsBad.length) {
-        ch = pickOne(poolsGood, '💧');
-        isGood = true;
-      } else {
-        ch = pickOne(poolsBad, '🥤');
-        isGood = false;
-      }
-    }
-    spawnCounter++;
-
-    const el = DOC.createElement('a-entity');
-    el.classList.add('hha-target');
-    el.setAttribute('data-hha-tgt', '');
-    el.setAttribute('position', `${px} ${py} ${pz}`);
-    el.setAttribute('geometry', `primitive: circle; radius: ${(0.35 * curScale).toFixed(2)}`);
-    el.setAttribute(
-      'material',
-      isGood
-        ? 'shader: flat; color: #22c55e; opacity: 0.96'
-        : 'shader: flat; color: #f97316; opacity: 0.96'
-    );
-
-    // emoji texture plane
-    const tex = getEmojiTexture(ch);
-    if (tex) {
-      const emojiPlane = DOC.createElement('a-image');
-      emojiPlane.setAttribute('src', tex);
-      emojiPlane.setAttribute('width', (0.55 * curScale).toFixed(2));
-      emojiPlane.setAttribute('height', (0.55 * curScale).toFixed(2));
-      emojiPlane.setAttribute('position', '0 0 0.03');
-      emojiPlane.setAttribute('transparent', 'true');
-      el.appendChild(emojiPlane);
-    }
-
-    root.appendChild(el);
-
-    const data = {
-      el,
-      ch,
-      isGood,
-      isPower,
-      bornAt: performance.now(),
-      life: baseDiff.life
-    };
-    activeTargets.add(data);
-
-    const handleHit = (ev) => {
-      if (stopped) return;
-      if (!activeTargets.has(data)) return;
-
-      activeTargets.delete(data);
-      try { el.removeEventListener('click', handleHit); } catch {}
-      try { root.removeChild(el); } catch {}
-
-      let res = null;
-      if (typeof judge === 'function') {
-        const inter = ev.detail && ev.detail.intersection;
-        const ctx = {
-          clientX: inter ? inter.point.x : 0,
-          clientY: inter ? inter.point.y : 0,
-          cx: 0,
-          cy: 0,
-          isGood,
-          isPower
-        };
-        try {
-          res = judge(ch, ctx);
-        } catch (err) {
-          console.error('[mode-factory] judge error (aframe)', err);
-        }
-      }
-
-      let isHit = false;
-      if (res && typeof res.scoreDelta === 'number') {
-        if (res.scoreDelta > 0) isHit = true;
-        else if (res.scoreDelta < 0) isHit = false;
-        else isHit = isGood;
-      } else if (res && typeof res.good === 'boolean') {
-        isHit = !!res.good;
-      } else {
-        isHit = isGood;
-      }
-      addSample(isHit);
-    };
-
-    el.addEventListener('click', handleHit);
-
-    ROOT.setTimeout(() => {
-      if (stopped) return;
-      if (!activeTargets.has(data)) return;
-
-      activeTargets.delete(data);
-      try { el.removeEventListener('click', handleHit); } catch {}
-      try { root.removeChild(el); } catch {}
-
-      try {
-        if (typeof onExpire === 'function') {
-          onExpire({ ch, isGood, isPower });
-        }
-      } catch (err) {
-        console.error('[mode-factory] onExpire error (aframe)', err);
-      }
-
-      if (!isGood && !isPower) addSample(true);
-    }, baseDiff.life);
-  }
-
-  // ======================================================
-  //  Spawn target: DOM (GoodJunk / Plate)
-  // ======================================================
-  function spawnTargetDom () {
+  function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
     const rect = computePlayRect();
     const x = rect.left + rect.width  * (0.15 + Math.random() * 0.70);
     const y = rect.top  + rect.height * (0.10 + Math.random() * 0.80);
 
+    // เลือก emoji
     const poolsGood = Array.isArray(pools.good) ? pools.good : [];
     const poolsBad  = Array.isArray(pools.bad) ? pools.bad  : [];
 
@@ -404,35 +228,77 @@ export async function boot (rawCfg = {}) {
 
     spawnCounter++;
 
+    // ===== สร้างเป้าแบบ emoji + วงกลมสวย ๆ =====
     const el = DOC.createElement('div');
-    el.className = 'hvr-target hha-target';
-    el.setAttribute('data-hha-tgt', '');
+    el.className = 'hvr-target';
+    el.setAttribute('data-hha-tgt', '1');
 
-    const baseSize = 74;
+    const baseSize = 78; // px
     const size = baseSize * curScale;
 
-    el.textContent = ch;
     el.style.position = 'absolute';
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
-    el.style.transform = 'translate(-50%, -50%)';
+    el.style.transform = 'translate(-50%, -50%) scale(0.9)';
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     el.style.borderRadius = '999px';
+    el.style.border = '2px solid rgba(15,23,42,0.85)';
+    el.style.padding = '0';
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
-    el.style.fontSize = (size * 0.55) + 'px';
     el.style.userSelect = 'none';
     el.style.cursor = 'pointer';
     el.style.zIndex = '30';
+    el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.85)';
+    el.style.transition = 'transform 0.15s ease-out, box-shadow 0.15s ease-out, opacity 0.12s ease-out';
 
-    if (isGood) {
-      el.style.background = 'radial-gradient(circle at 30% 30%, #4ade80, #16a34a)';
+    // สีพื้นหลังตามประเภท
+    let bgGrad = '';
+    let ringGlow = '';
+
+    if (isPower) {
+      // Power-up เด่นสุด
+      bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
+      ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
+    } else if (isGood) {
+      // น้ำดี
+      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
+      ringGlow = '0 0 0 2px rgba(74,222,128,0.75), 0 0 18px rgba(16,185,129,0.85)';
     } else {
-      el.style.background = 'radial-gradient(circle at 30% 30%, #fb923c, #ea580c)';
+      // น้ำหวาน / คาเฟอีน
+      bgGrad = 'radial-gradient(circle at 30% 25%, #fb923c, #ea580c)';
+      ringGlow = '0 0 0 2px rgba(248,113,113,0.75), 0 0 18px rgba(248,113,113,0.9)';
     }
-    el.style.boxShadow = '0 10px 25px rgba(0,0,0,0.45)';
+
+    el.style.background = bgGrad;
+    el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
+
+    // วงในสำหรับ emoji ให้ชัดขึ้น
+    const inner = DOC.createElement('div');
+    inner.style.width = (size * 0.82) + 'px';
+    inner.style.height = (size * 0.82) + 'px';
+    inner.style.borderRadius = '999px';
+    inner.style.display = 'flex';
+    inner.style.alignItems = 'center';
+    inner.style.justifyContent = 'center';
+    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,0.12), rgba(15,23,42,0.36))';
+    inner.style.boxShadow = 'inset 0 4px 10px rgba(15,23,42,0.9)';
+
+    const icon = DOC.createElement('span');
+    icon.textContent = ch;
+    icon.style.fontSize = (size * 0.60) + 'px';
+    icon.style.lineHeight = '1';
+    icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+
+    inner.appendChild(icon);
+    el.appendChild(inner);
+
+    // pop-in เล็กน้อย
+    ROOT.requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%, -50%) scale(1)';
+    });
 
     const data = {
       el,
@@ -444,7 +310,7 @@ export async function boot (rawCfg = {}) {
     };
 
     activeTargets.add(data);
-    hostDom.appendChild(el);
+    host.appendChild(el);
 
     const handleHit = (ev) => {
       if (stopped) return;
@@ -454,7 +320,7 @@ export async function boot (rawCfg = {}) {
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
-      try { hostDom.removeChild(el); } catch {}
+      try { host.removeChild(el); } catch {}
 
       let res = null;
       if (typeof judge === 'function') {
@@ -469,7 +335,7 @@ export async function boot (rawCfg = {}) {
         try {
           res = judge(ch, ctx);
         } catch (err) {
-          console.error('[mode-factory] judge error (dom)', err);
+          console.error('[mode-factory] judge error', err);
         }
       }
 
@@ -488,30 +354,36 @@ export async function boot (rawCfg = {}) {
 
     el.addEventListener('pointerdown', handleHit);
 
+    // expire
     ROOT.setTimeout(() => {
       if (stopped) return;
       if (!activeTargets.has(data)) return;
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
-      try { hostDom.removeChild(el); } catch {}
+      try { host.removeChild(el); } catch {}
 
       try {
         if (typeof onExpire === 'function') {
           onExpire({ ch, isGood, isPower });
         }
       } catch (err) {
-        console.error('[mode-factory] onExpire error (dom)', err);
+        console.error('[mode-factory] onExpire error', err);
       }
 
-      if (!isGood && !isPower) addSample(true);
+      // ปล่อย junk หายไปเอง → ถือว่าเป็นผลดีเล็กน้อย
+      if (!isGood && !isPower) {
+        addSample(true);
+      }
     }, baseDiff.life);
   }
 
-  // ---------- clock ----------
+  // ---------- clock (hha:time) ----------
   function dispatchTime (sec) {
     try {
-      ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } }));
+      ROOT.dispatchEvent(new CustomEvent('hha:time', {
+        detail: { sec }
+      }));
     } catch {}
   }
 
@@ -537,8 +409,7 @@ export async function boot (rawCfg = {}) {
       if (!lastSpawnTs) lastSpawnTs = ts;
       const dtSpawn = ts - lastSpawnTs;
       if (dtSpawn >= curInterval) {
-        if (useAframeTargets) spawnTargetAframe();
-        else spawnTargetDom();
+        spawnTarget();
         lastSpawnTs = ts;
       }
     } else {
@@ -561,7 +432,9 @@ export async function boot (rawCfg = {}) {
     });
     activeTargets.clear();
 
-    try { dispatchTime(0); } catch {}
+    try {
+      dispatchTime(0);
+    } catch {}
   }
 
   const onStopEvent = () => stop();
