@@ -58,9 +58,6 @@ function pickDiffConfig (modeKey, diffKey) {
   return cfg;
 }
 
-// ความเร็วหมุนเป้า (องศาต่อวินาที)
-const SPIN_SPEED_DEG_PER_SEC = 80;
-
 // หา host กลางจอ
 function findHostElement () {
   return (
@@ -180,6 +177,54 @@ export async function boot (rawCfg = {}) {
     }
   }
 
+  // ---------- Drag / Pan: เลื่อนจอแล้วเป้าเลื่อนตาม ----------
+  let dragActive = false;
+  let dragLastX  = 0;
+  let dragLastY  = 0;
+
+  function onPanStart (ev) {
+    if (stopped) return;
+    // mouse: ซ้ายเท่านั้น, touch/pointer ไม่มี button
+    if (typeof ev.button === 'number' && ev.button !== 0) return;
+
+    // ถ้าเริ่มลากบนเป้า ไม่ถือว่าเป็นการแพน (กันไปชนกับการตีเป้า)
+    if (ev.target && ev.target.closest && ev.target.closest('.hvr-target')) {
+      return;
+    }
+
+    dragActive = true;
+    dragLastX  = ev.clientX;
+    dragLastY  = ev.clientY;
+  }
+
+  function onPanMove (ev) {
+    if (!dragActive || stopped) return;
+
+    const dx = ev.clientX - dragLastX;
+    const dy = ev.clientY - dragLastY;
+    dragLastX = ev.clientX;
+    dragLastY = ev.clientY;
+
+    // เลื่อนโลกของเป้าในทิศทาง "ตรงข้าม" กับนิ้ว
+    // (นิ้วลากไปทางไหน เหมือนหันกล้องไปทางนั้น)
+    activeTargets.forEach((t) => {
+      if (!t || !t.el) return;
+      t.x = (t.x || 0) - dx;
+      t.y = (t.y || 0) - dy;
+      t.el.style.left = t.x + 'px';
+      t.el.style.top  = t.y + 'px';
+    });
+  }
+
+  function onPanEnd () {
+    dragActive = false;
+  }
+
+  host.addEventListener('pointerdown', onPanStart);
+  ROOT.addEventListener('pointermove', onPanMove);
+  ROOT.addEventListener('pointerup', onPanEnd);
+  ROOT.addEventListener('pointercancel', onPanEnd);
+
   // ---------- ตำแหน่ง spawn (ภายใน host) ----------
   function computePlayRect () {
     const w = host.clientWidth;
@@ -271,27 +316,12 @@ export async function boot (rawCfg = {}) {
       isPower,
       bornAt: performance.now(),
       life: baseDiff.life,
-      angle: 0
+      x,
+      y
     };
 
     activeTargets.add(data);
     host.appendChild(el);
-
-    // ----- SPIN: หมุนเป้ารอบตัวเอง -----
-    (function startSpin () {
-      let lastSpinTs = performance.now();
-      function spinLoop (now) {
-        if (stopped || !activeTargets.has(data)) return;
-        const dt = now - lastSpinTs;
-        lastSpinTs = now;
-
-        data.angle = (data.angle + SPIN_SPEED_DEG_PER_SEC * dt / 1000) % 360;
-        el.style.transform = `translate(-50%, -50%) rotate(${data.angle}deg)`;
-
-        ROOT.requestAnimationFrame(spinLoop);
-      }
-      ROOT.requestAnimationFrame(spinLoop);
-    })();
 
     const handleHit = (ev) => {
       if (stopped) return;
@@ -416,6 +446,12 @@ export async function boot (rawCfg = {}) {
     try {
       dispatchTime(0);
     } catch {}
+
+    // cleanup drag listener
+    host.removeEventListener('pointerdown', onPanStart);
+    ROOT.removeEventListener('pointermove', onPanMove);
+    ROOT.removeEventListener('pointerup', onPanEnd);
+    ROOT.removeEventListener('pointercancel', onPanEnd);
   }
 
   const onStopEvent = () => stop();
