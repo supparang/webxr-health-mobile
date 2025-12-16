@@ -1,10 +1,10 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — FIX v5 (emoji ALWAYS visible)
-// ✅ เป้าไม่เป็นแผ่นขาวอีกแล้ว: ใช้ a-text เป็น emoji เป้าหลัก (ไม่พึ่ง texture)
-// ✅ plane (พื้น) ทำโปร่งใส/ไม่โชว์ เพื่อไม่ให้เป็นบล็อคขาว
-// ✅ spawn หน้าเลนส์ตามทิศกล้องจริง
-// ✅ goal + mini quest progress + quest:update
-// ✅ timeout นับ miss เฉพาะ good/bonus (junk หลุดไม่โดนไม่ลงโทษ)
+// Good vs Junk VR — FIX v5.1 (stable build)
+// ✅ แก้ไฟล์ขาดท้าย / SyntaxError
+// ✅ Spawn หน้าเลนส์ตามทิศกล้องจริง
+// ✅ Goal + Mini quest ส่ง quest:update
+// ✅ timeout ลงโทษเฉพาะ good/bonus (junk หลุดไม่ลงโทษ)
+// ✅ ส่ง hha:hover enter/leave เพื่อ reticle progress ทำงานชัวร์
 
 'use strict';
 
@@ -119,27 +119,27 @@ function faceCamera(targetEl, camEl) {
   } catch (_) {}
 }
 
-// ---------- target factory (collider + a-text emoji) ----------
+// ---------- target factory ----------
 function makeTargetEntity() {
   const root = document.createElement('a-entity');
   root.className = 'gj-target';
   root.setAttribute('data-hha-tgt', '1');
 
-  // collider (invisible)
+  // collider invisible
   root.setAttribute('geometry', 'primitive: circle; radius: 0.28');
   root.setAttribute('material', 'shader: flat; opacity: 0; transparent: true; side: double');
 
-  // ✅ plane ไม่โชว์ (กันบล็อคขาว) — เอาไว้แค่เป็น “ฐาน depth”
+  // base plane (almost invisible) กัน “แผ่นขาว”
   const face = document.createElement('a-plane');
   face.className = 'gj-face';
   face.setAttribute('width', '0.85');
   face.setAttribute('height', '0.85');
   face.setAttribute('position', '0 0 0.015');
-  // ทำให้โปร่งใสสุด ๆ (แทบไม่เห็น)
   face.setAttribute('material', 'shader: flat; transparent: true; opacity: 0.001; side: double; color: #ffffff');
   root.appendChild(face);
 
-  // ✅ emoji = a-text (ชัวร์สุด ไม่พึ่ง texture)
+  // NOTE: a-text emoji อาจไม่แสดงบนบางเครื่องถ้าฟอนต์ไม่รองรับ
+  // (ถ้าคุณเจอ “ไม่เห็น emoji” บอกฉัน เดี๋ยวทำเวอร์ชัน canvas-texture ที่ชัวร์ 100%)
   const txt = document.createElement('a-entity');
   txt.className = 'gj-emoji';
   txt.setAttribute('text', [
@@ -153,7 +153,6 @@ function makeTargetEntity() {
   txt.setAttribute('position', '0 0 0.03');
   root.appendChild(txt);
 
-  // ring
   const ring = document.createElement('a-entity');
   ring.className = 'gj-ring';
   ring.setAttribute('geometry', 'primitive: ring; radiusInner: 0.32; radiusOuter: 0.36');
@@ -290,18 +289,13 @@ export const GameEngine = (function () {
 
   let qs = null;
 
-  function emitScore() {
-    dispatch('hha:score', { score, combo, misses });
-  }
-  function setJudge(label) {
-    dispatch('hha:judge', { label: String(label || '') });
-  }
+  function emitScore() { dispatch('hha:score', { score, combo, misses }); }
+  function setJudge(label) { dispatch('hha:judge', { label: String(label || '') }); }
 
   function resetStats() {
     score = 0; combo = 0; comboMax = 0; misses = 0;
     emitScore();
     setJudge('');
-
     qs = makeQuestState(cfg);
     emitQuestUpdate(qs);
   }
@@ -366,7 +360,6 @@ export const GameEngine = (function () {
     const t = makeTargetEntity();
     t.dataset.kind = kindRoll();
 
-    // set emoji text (ชัวร์)
     const e = t.querySelector('.gj-emoji');
     if (e) {
       e.setAttribute('text', [
@@ -387,15 +380,20 @@ export const GameEngine = (function () {
 
     faceCamera(t, cam);
 
+    // hover events -> reticle
+    t.addEventListener('mouseenter', () => dispatch('hha:hover', { state:'enter', kind: String(t.dataset.kind || '') }));
+    t.addEventListener('mouseleave', () => dispatch('hha:hover', { state:'leave', kind: String(t.dataset.kind || '') }));
+
     const onHit = (ev) => {
       ev && ev.stopPropagation && ev.stopPropagation();
       if (!active.has(t)) return;
 
       const kind = String(t.dataset.kind || '');
-
       const P = getParticles();
-      if (P && P.burstAt) P.burstAt(window.innerWidth / 2, window.innerHeight * 0.34, { count: 16, good: (kind !== 'junk') });
-      if (P && P.scorePop) P.scorePop(window.innerWidth / 2, window.innerHeight * 0.32, (kind === 'junk' ? 'OOPS!' : 'NICE!'), { judgment: kind.toUpperCase(), good: (kind !== 'junk') });
+      const ok = (kind !== 'junk');
+
+      if (P && P.burstAt) P.burstAt(window.innerWidth / 2, window.innerHeight * 0.34, { count: 16, good: ok });
+      if (P && P.scorePop) P.scorePop(window.innerWidth / 2, window.innerHeight * 0.32, (ok ? 'NICE!' : 'OOPS!'), { judgment: kind.toUpperCase(), good: ok });
 
       if (kind === 'junk') {
         addMiss('MISS');
@@ -427,9 +425,7 @@ export const GameEngine = (function () {
       if (!active.has(t)) return;
 
       const kind = String(t.dataset.kind || '');
-      // ✅ timeout ลงโทษเฉพาะ good/bonus (กัน miss วิ่งมั่วแบบไม่เห็นเป้า)
-      if (kind !== 'junk') addMiss('MISS');
-
+      if (kind !== 'junk') addMiss('MISS'); // ลงโทษเฉพาะ good/bonus
       removeTarget(t);
     }, ttl);
   }
@@ -453,6 +449,8 @@ export const GameEngine = (function () {
   }
 
   function start(diffKey) {
+    if (running) stop('restart');
+
     try {
       scene = ensureScene();
       cam = ensureCam();
@@ -469,7 +467,7 @@ export const GameEngine = (function () {
       running = true;
       resetStats();
 
-      // ให้เห็นทันที
+      // โผล่ทันที
       spawnOne();
       spawnOne();
       loopSpawn();
@@ -498,9 +496,11 @@ export const GameEngine = (function () {
       miniTotal:    qsum.miniTotal
     });
 
+    // ✅ ล้างเป้าให้หมด
     clearAllTargets();
-    console.log('[GoodJunkVR] stopped reason=', reason);
   }
 
-  return { start, stop };
+  function isRunning(){ return !!running; }
+
+  return { start, stop, isRunning };
 })();
