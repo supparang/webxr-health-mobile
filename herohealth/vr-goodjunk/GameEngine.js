@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Production-safe spawn engine (emoji targets + Goal/MiniQuest progress)
-// FIX: เป้าไม่โผล่เพราะ animation__bob ไปเขียนทับ position ของ root -> ย้ายไปไว้ที่ child (visual holder)
+// FIX v2: spawn “in front of camera” using camera local vectors (works on mobile touch-look + VR gaze)
 
 'use strict';
 
@@ -10,13 +10,11 @@ function clamp(v, a, b) { v = +v || 0; return Math.max(a, Math.min(b, v)); }
 function r(min, max) { return min + Math.random() * (max - min); }
 function dispatch(name, detail) { ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }
 
-// --- Particles helper (optional, from /vr/particles.js IIFE) ---
 function getParticles() {
   const gm = ROOT.GAME_MODULES || {};
   return gm.Particles || ROOT.Particles || null;
 }
 
-// ---------- Emoji pools ----------
 const EMOJI = {
   good:    ['🥦','🍎','🥛','🥗','🍌','🥕','🍇','🍊'],
   junk:    ['🍟','🍔','🍕','🍩','🍿','🧋','🥤','🍪'],
@@ -26,7 +24,6 @@ const EMOJI = {
 };
 function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
 
-// ---------- Difficulty ----------
 function diffCfg(diffKey) {
   const d = String(diffKey || 'normal').toLowerCase();
   if (d === 'easy') return { spawnMs: 980, ttlMs: 1750, maxActive: 4, scale: 1.25, goodRatio: 0.72, bonusRatio: 0.10, missPerHeart: 3 };
@@ -34,7 +31,6 @@ function diffCfg(diffKey) {
   return { spawnMs: 820, ttlMs: 1450, maxActive: 5, scale: 1.15, goodRatio: 0.66, bonusRatio: 0.11, missPerHeart: 3 };
 }
 
-// ---------- A-Frame refs ----------
 function ensureScene() {
   const scene = document.querySelector('a-scene');
   if (!scene) throw new Error('a-scene not found');
@@ -68,8 +64,6 @@ function emojiDataURL(emoji, sizePx) {
   const ctx = c.getContext('2d');
 
   ctx.clearRect(0, 0, s, s);
-
-  // shadow
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.45)';
   ctx.shadowBlur = Math.round(s * 0.08);
@@ -89,11 +83,9 @@ function emojiDataURL(emoji, sizePx) {
 function setPlaneEmoji(planeEl, emoji) {
   if (!planeEl) return;
   const url = emojiDataURL(emoji, 256);
-  // dataURL ใช้ได้กับ material src
   planeEl.setAttribute('material', `shader: flat; transparent: true; opacity: 1; side: double; src: ${url}`);
 }
 
-// ---------- Target visuals ----------
 function kindColors(kind) {
   const k = String(kind || '').toLowerCase();
   if (k === 'good') return { rim: '#22c55e', glow: '#22c55e' };
@@ -104,27 +96,21 @@ function kindColors(kind) {
   return { rim: '#e5e7eb', glow: '#94a3b8' };
 }
 
-// FIX: root = collider + placement only (ห้ามใส่ animation position ที่ root)
-//      visualHolder = ลูกที่ bob ได้
+// root = collider + placement only; visual child can bob
 function makeTargetEntity() {
   const root = document.createElement('a-entity');
   root.className = 'gj-target';
   root.setAttribute('data-hha-tgt', '1');
-
-  // collider (raycaster hits this)
   root.setAttribute('geometry', 'primitive: circle; radius: 0.30');
   root.setAttribute('material', 'shader: flat; opacity: 0; transparent: true; side: double');
 
-  // visual holder (bob เฉพาะลูก)
   const vis = document.createElement('a-entity');
   vis.className = 'gj-vis';
   vis.setAttribute('position', '0 0 0');
   vis.setAttribute('animation__bob', 'property: position; dir: alternate; dur: 650; loop: true; easing: easeInOutSine; from: 0 0 0; to: 0 0.05 0');
   root.appendChild(vis);
 
-  // base disc
   const base = document.createElement('a-cylinder');
-  base.className = 'gj-base';
   base.setAttribute('radius', '0.34');
   base.setAttribute('height', '0.055');
   base.setAttribute('position', '0 0 -0.02');
@@ -132,17 +118,15 @@ function makeTargetEntity() {
   base.setAttribute('material', 'shader: standard; color: #0b1220; roughness: 0.82; metalness: 0.05; opacity: 0.94; transparent: true');
   vis.appendChild(base);
 
-  // rim
   const rim = document.createElement('a-torus');
   rim.className = 'gj-rim';
   rim.setAttribute('radius', '0.35');
   rim.setAttribute('radius-tubular', '0.012');
   rim.setAttribute('rotation', '90 0 0');
   rim.setAttribute('position', '0 0 -0.01');
-  rim.setAttribute('material', 'shader: standard; color: #ffffff; emissive: #22c55e; emissiveIntensity: 0.55; opacity: 0.42; transparent: true');
+  rim.setAttribute('material', 'shader: standard; color: #ffffff; emissive: #22c55e; emissiveIntensity: 0.62; opacity: 0.42; transparent: true');
   vis.appendChild(rim);
 
-  // glow
   const glow = document.createElement('a-plane');
   glow.className = 'gj-glow';
   glow.setAttribute('width', '0.88');
@@ -151,7 +135,6 @@ function makeTargetEntity() {
   glow.setAttribute('material', 'shader: flat; color: #22c55e; opacity: 0.10; transparent: true; side: double');
   vis.appendChild(glow);
 
-  // emoji plane
   const face = document.createElement('a-plane');
   face.className = 'gj-emoji-plane';
   face.setAttribute('width', '0.66');
@@ -163,7 +146,6 @@ function makeTargetEntity() {
   return root;
 }
 
-// ---------- Pop in/out ----------
 function popIn(el) {
   if (!el || !el.object3D) return;
   el.object3D.scale.set(0.001, 0.001, 0.001);
@@ -192,7 +174,6 @@ function popOutAndRemove(el, removeFn) {
   requestAnimationFrame(step);
 }
 
-// ---------- Main Engine ----------
 export const GameEngine = (function () {
   let scene, cam, layer;
   let running = false;
@@ -217,18 +198,6 @@ export const GameEngine = (function () {
   // quest counters
   let goodHits = 0, junkHits = 0, starHits = 0, diamondHits = 0, shieldHits = 0;
   let miniIndex = 0, minisClearedCount = 0, noMissSec = 0;
-
-  function resetStats() {
-    score = 0; combo = 0; comboMax = 0; misses = 0; heartsLeft = HEARTS_MAX;
-    goodHits = junkHits = starHits = diamondHits = shieldHits = 0;
-    miniIndex = 0; minisClearedCount = 0; noMissSec = 0;
-
-    dispatch('hha:score', { score, combo, misses });
-    dispatch('hha:judge', { label: '' });
-    dispatch('hha:life', { diff, heartsLeft, heartsMax: HEARTS_MAX, perHeart: cfg.missPerHeart });
-
-    emitQuestUpdate();
-  }
 
   function setJudge(label) { dispatch('hha:judge', { label: String(label || '') }); }
   function addScore(delta, label) {
@@ -334,7 +303,6 @@ export const GameEngine = (function () {
     }
   }
 
-  // ----- remove/spawn -----
   function removeTarget(t) {
     if (!t || !active.has(t)) return;
     active.delete(t);
@@ -342,23 +310,54 @@ export const GameEngine = (function () {
     popOutAndRemove(t, removeNow);
   }
 
+  // ✅ FIX: spawn in front of camera (camera local vectors)
   function spawnOne() {
     if (!running) return;
     if (active.size >= (cfg.maxActive | 0)) return;
 
-    const z = -r(2.6, 4.3);
-    const x = r(-1.15, 1.15);
-    const y = r(0.95, 2.25);
+    const THREE = ROOT.THREE;
+    if (!THREE || !cam || !cam.object3D) {
+      // fallback (should rarely happen)
+      const z = -r(2.6, 4.3);
+      const x = r(-1.15, 1.15);
+      const y = r(0.95, 2.25);
+      spawnAtWorld(x, y, z);
+      return;
+    }
 
+    const dist = r(2.2, 3.6);        // ระยะหน้า
+    const offX = r(-0.55, 0.55);     // ซ้าย-ขวา (แคบลงให้โผล่แน่นอน)
+    const offY = r(-0.15, 0.55);     // สูง-ต่ำ (เน้นกลางจอ)
+
+    const camPos = cam.object3D.getWorldPosition(new THREE.Vector3());
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.object3D.quaternion).normalize();
+    const right   = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.object3D.quaternion).normalize();
+    const up      = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.object3D.quaternion).normalize();
+
+    const worldPos = camPos
+      .clone()
+      .add(forward.multiplyScalar(dist))
+      .add(right.multiplyScalar(offX))
+      .add(up.multiplyScalar(offY));
+
+    spawnEntityAt(worldPos, camPos);
+  }
+
+  function spawnAtWorld(x, y, z) {
+    const THREE = ROOT.THREE;
+    const camPos = (THREE && cam && cam.object3D) ? cam.object3D.getWorldPosition(new THREE.Vector3()) : null;
+    const worldPos = camPos ? new THREE.Vector3(x, y, z) : { x, y, z };
+    spawnEntityAt(worldPos, camPos);
+  }
+
+  function spawnEntityAt(worldPos, camPosVec3) {
     const t = makeTargetEntity();
     const kind = kindRoll();
     t.dataset.kind = kind;
 
-    // emoji plane
     const plane = t.querySelector('.gj-emoji-plane');
     setPlaneEmoji(plane, emojiFor(kind));
 
-    // color accents
     const col = kindColors(kind);
     const rim = t.querySelector('.gj-rim');
     const glow = t.querySelector('.gj-glow');
@@ -367,15 +366,14 @@ export const GameEngine = (function () {
 
     const s = cfg.scale || 1.15;
     t.object3D.scale.set(s, s, s);
-    t.setAttribute('position', `${x} ${y} ${z}`);
 
-    // face camera (best-effort)
+    // A-Frame expects position in world coordinates (we place at computed worldPos)
+    t.setAttribute('position', `${worldPos.x} ${worldPos.y} ${worldPos.z}`);
+
+    // face camera
     try {
       const THREE = ROOT.THREE;
-      if (THREE && cam && cam.object3D) {
-        const p = cam.object3D.getWorldPosition(new THREE.Vector3());
-        t.object3D.lookAt(p);
-      }
+      if (THREE && camPosVec3) t.object3D.lookAt(camPosVec3);
     } catch (_) {}
 
     const onHit = (ev) => {
@@ -384,7 +382,6 @@ export const GameEngine = (function () {
 
       const k = String(t.dataset.kind || '');
       const P = getParticles();
-
       if (P && P.burstAt) P.burstAt(window.innerWidth / 2, window.innerHeight * 0.34, { count: 16, good: (k !== 'junk') });
       if (P && P.scorePop) P.scorePop(window.innerWidth / 2, window.innerHeight * 0.32, (k === 'junk' ? 'OOPS!' : 'NICE!'), { judgment: k.toUpperCase(), good: (k !== 'junk') });
 
@@ -420,9 +417,6 @@ export const GameEngine = (function () {
     active.add(t);
     popIn(t);
 
-    // timeout rule:
-    // - ถ้าเป็นของดี/โบนัสแล้วไม่กด -> MISS
-    // - ถ้าเป็น junk แล้วไม่กด -> ไม่ MISS
     setTimeout(() => {
       if (!running) return;
       if (!active.has(t)) return;
@@ -447,6 +441,17 @@ export const GameEngine = (function () {
   function clearAllTargets() {
     active.forEach(t => { try { t.parentNode && t.parentNode.removeChild(t); } catch (_) {} });
     active.clear();
+  }
+
+  function resetStats() {
+    score = 0; combo = 0; comboMax = 0; misses = 0; heartsLeft = HEARTS_MAX;
+    goodHits = junkHits = starHits = diamondHits = shieldHits = 0;
+    miniIndex = 0; minisClearedCount = 0; noMissSec = 0;
+
+    dispatch('hha:score', { score, combo, misses });
+    dispatch('hha:judge', { label: '' });
+    dispatch('hha:life', { diff, heartsLeft, heartsMax: HEARTS_MAX, perHeart: cfg.missPerHeart });
+    emitQuestUpdate();
   }
 
   function start(diffKey) {
