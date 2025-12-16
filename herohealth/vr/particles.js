@@ -1,12 +1,21 @@
 // === /herohealth/vr/particles.js ===
 // Simple FX layer: score pop + judgment text + target burst (แรงขึ้น)
 // + Celebration FX สำหรับ Quest (Goal / Mini / All Complete)
-// ใช้ได้กับทุกเกม HeroHealth (GoodJunkVR, Hydration, Plate, Groups ฯลฯ)
+// ✅ PATCH: รองรับ hha:celebrate + กัน bind ซ้ำ
 
 (function (root) {
   'use strict';
   const doc = root.document;
   if (!doc) return;
+
+  // ✅ กัน bind ซ้ำ (สำคัญมากตอน hot reload/โหลดหลายหน้า)
+  if (root.__HHA_PARTICLES_BOUND__) {
+    // ยัง export api ให้แน่ใจว่ามี
+    root.GAME_MODULES = root.GAME_MODULES || {};
+    root.GAME_MODULES.Particles = root.GAME_MODULES.Particles || root.Particles || {};
+    return;
+  }
+  root.__HHA_PARTICLES_BOUND__ = true;
 
   // ----- สร้างเลเยอร์ FX กลางจอ -----
   function ensureLayer() {
@@ -33,7 +42,6 @@
     const color = opts.color || '#22c55e';
     const good = !!opts.good;
 
-    // ให้รู้สึก “แตกกระจายแรง ๆ”
     const n =
       typeof opts.count === 'number' && opts.count > 0
         ? opts.count
@@ -44,9 +52,7 @@
     for (let i = 0; i < n; i++) {
       const dot = doc.createElement('div');
       dot.className = 'hha-fx-dot';
-      const size = good
-        ? 7 + Math.random() * 7 // โดนดี → ใหญ่หน่อย
-        : 5 + Math.random() * 5; // พลาด → เล็กลงนิดนึง
+      const size = good ? 7 + Math.random() * 7 : 5 + Math.random() * 5;
 
       Object.assign(dot.style, {
         position: 'absolute',
@@ -72,8 +78,7 @@
       const dy = Math.sin(ang) * dist;
 
       requestAnimationFrame(function () {
-        dot.style.transform =
-          'translate(' + dx + 'px,' + dy + 'px) scale(0.98)';
+        dot.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(0.98)';
         dot.style.opacity = '0';
       });
 
@@ -83,7 +88,7 @@
     }
   }
 
-  // ----- คะแนนเด้ง + ข้อความตัดสิน (อยู่บรรทัดเดียวกัน + แตกตรงเป้า) -----
+  // ----- คะแนนเด้ง + ข้อความตัดสิน -----
   function scorePop(x, y, value, opts) {
     opts = opts || {};
     const layer = ensureLayer();
@@ -93,14 +98,9 @@
     const wrap = doc.createElement('div');
     wrap.className = 'hha-fx-score';
 
-    // ข้อความหลัก: "คะแนน คำตัดสิน" เช่น "+150 PERFECT"
     const parts = [];
-    if (value !== undefined && value !== null && value !== '') {
-      parts.push(String(value));
-    }
-    if (judgment) {
-      parts.push(judgment);
-    }
+    if (value !== undefined && value !== null && value !== '') parts.push(String(value));
+    if (judgment) parts.push(judgment);
     wrap.textContent = parts.join(' ');
 
     Object.assign(wrap.style, {
@@ -108,8 +108,7 @@
       left: x + 'px',
       top: y + 'px',
       transform: 'translate(-50%, -50%) scale(0.9)',
-      fontFamily:
-        'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       fontSize: '20px',
       fontWeight: '800',
       color: good ? '#bbf7d0' : '#fed7aa',
@@ -130,11 +129,10 @@
 
     layer.appendChild(wrap);
 
-    // 🔥 ให้เป้าแตกกระจาย “ตรงตำแหน่งที่ตี” ทุกครั้งที่เรียก scorePop
+    // แตกตรงจุด
     const burstColor = good ? '#22c55e' : '#f97316';
     burstAt(x, y, { color: burstColor, good: good });
 
-    // trigger animation
     requestAnimationFrame(function () {
       wrap.style.transform = 'translate(-50%, -90%) scale(1.06)';
       wrap.style.opacity = '1';
@@ -149,30 +147,62 @@
     }, 520);
   }
 
-  // ===== Celebration helpers =====
-
-  // --- ฉลองจบแต่ละภารกิจ (Goal / Mini) แสดง “กลางจอ” ---
+  // --- ฉลองจบแต่ละภารกิจ (Goal / Mini) ---
   function celebrateQuestFX(kind, index, total, label) {
-    const layer = ensureLayer();
+    ensureLayer();
     const cx = root.innerWidth / 2;
-    const cy = root.innerHeight * 0.5; // กลางจอ
+    const cy = root.innerHeight * 0.5;
 
-    const color = kind === 'goal' ? '#22c55e' : '#38bdf8';
-    const title =
-      kind === 'goal'
-        ? 'GOAL ' + index + '/' + total
-        : 'MINI ' + index + '/' + total;
+    const k = String(kind || 'goal').toLowerCase();
+    const color = k === 'goal' ? '#22c55e' : '#38bdf8';
+    const title = (k === 'goal')
+      ? ('GOAL ' + index + '/' + total)
+      : ('MINI ' + index + '/' + total);
 
-    // แตกกระจายรอบ ๆ กลางจอ
     burstAt(cx, cy, { color: color, good: true, count: 32 });
+    scorePop(cx, cy, 'MISSION CLEAR!', { judgment: title, good: true });
 
-    // ข้อความฉลองกลางจอ
-    scorePop(cx, cy, 'MISSION CLEAR!', {
-      judgment: title,
-      good: true
-    });
+    if (label) {
+      // บรรทัด label เล็ก ๆ ใต้แบนด์
+      const layer = ensureLayer();
+      const sub = doc.createElement('div');
+      sub.textContent = String(label);
+      Object.assign(sub.style, {
+        position: 'absolute',
+        left: '50%',
+        top: '60%',
+        transform: 'translate(-50%, -50%)',
+        padding: '6px 12px',
+        borderRadius: '999px',
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontSize: '13px',
+        fontWeight: '700',
+        color: '#e5e7eb',
+        background: 'rgba(2,6,23,0.88)',
+        border: '1px solid rgba(148,163,184,0.35)',
+        textShadow: '0 0 18px rgba(0,0,0,0.9)',
+        opacity: '0',
+        transition: 'opacity .25s ease-out, transform .25s ease-out',
+        maxWidth: '78vw',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      });
+      layer.appendChild(sub);
+      requestAnimationFrame(function () {
+        sub.style.opacity = '1';
+        sub.style.transform = 'translate(-50%, -50%) translateY(-2px)';
+      });
+      setTimeout(function () {
+        sub.style.opacity = '0';
+        sub.style.transform = 'translate(-50%, -50%) translateY(-10px)';
+      }, 520);
+      setTimeout(function () {
+        if (sub.parentNode) sub.parentNode.removeChild(sub);
+      }, 820);
+    }
 
-    // แบนด์แสงเล็ก ๆ ใต้ข้อความ (ยังอยู่กลางจอ)
+    const layer = ensureLayer();
     const bar = doc.createElement('div');
     Object.assign(bar.style, {
       position: 'absolute',
@@ -183,7 +213,7 @@
       height: '3px',
       borderRadius: '999px',
       background:
-        kind === 'goal'
+        k === 'goal'
           ? 'linear-gradient(90deg,#22c55e,#bbf7d0)'
           : 'linear-gradient(90deg,#22d3ee,#a5b4fc)',
       boxShadow: '0 0 18px rgba(34,197,94,0.8)',
@@ -191,6 +221,7 @@
       transition: 'opacity .25s ease-out, transform .25s ease-out'
     });
     layer.appendChild(bar);
+
     requestAnimationFrame(function () {
       bar.style.opacity = '1';
       bar.style.transform = 'translateX(-50%) translateY(-3px)';
@@ -206,11 +237,10 @@
 
   // --- ฉลองใหญ่เมื่อทำครบทุกภารกิจ ---
   function celebrateAllQuestsFX(detail) {
-    const layer = ensureLayer();
+    ensureLayer();
     const cx = root.innerWidth / 2;
     const cy = root.innerHeight * 0.32;
 
-    // 3 wave แตกกระจาย
     const colors = ['#facc15', '#22c55e', '#38bdf8'];
     colors.forEach(function (c, idx) {
       setTimeout(function () {
@@ -218,7 +248,7 @@
       }, idx * 220);
     });
 
-    // ป้าย ALL QUESTS CLEAR!
+    const layer = ensureLayer();
     const banner = doc.createElement('div');
     banner.textContent = 'ALL QUESTS CLEAR! 🌟';
     Object.assign(banner.style, {
@@ -228,8 +258,7 @@
       transform: 'translate(-50%, -50%) scale(0.88)',
       padding: '10px 18px',
       borderRadius: '999px',
-      fontFamily:
-        'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       fontSize: '18px',
       fontWeight: '800',
       letterSpacing: '.1em',
@@ -258,72 +287,79 @@
     }, 1500);
   }
 
-  // ----- auto ผูกกับ events ให้ทุกเกมใช้ได้เลย -----
+  // ----- auto ผูกกับ events -----
   if (root && root.addEventListener) {
-    // hha:judge:
-    // - ถ้า event ส่ง x,y มา → แตก “ที่พิกัดนั้น”
-    // - ถ้าไม่ส่ง → ไม่ทำอะไร ปล่อยให้เกมเรียก scorePop/burstAt เอง
+    // hha:judge → burst at x,y (ถ้ามี)
     root.addEventListener('hha:judge', function (e) {
       try {
         const d = e.detail || {};
         const label = String(d.label || '').toUpperCase();
         if (!label) return;
 
-        const hasPos =
-          typeof d.x === 'number' && typeof d.y === 'number';
+        const hasPos = (typeof d.x === 'number' && typeof d.y === 'number');
+        if (!hasPos) return;
 
         let good = false;
         let color = '#f97316';
         if (label === 'GOOD' || label === 'PERFECT' || label === 'HIT') {
-          good = true;
-          color = '#22c55e';
+          good = true; color = '#22c55e';
         } else if (label === 'FEVER') {
-          good = true;
-          color = '#facc15';
+          good = true; color = '#facc15';
         }
 
-        if (hasPos) {
-          burstAt(d.x, d.y, { color: color, good: good });
-        }
+        burstAt(d.x, d.y, { color: color, good: good });
       } catch (err) {
-        if (root.console && console.warn) {
-          console.warn('[Particles] hha:judge handler error', err);
-        }
+        if (root.console && console.warn) console.warn('[Particles] hha:judge handler error', err);
       }
     });
 
-    // ฉลองเคลียร์ Goal / Mini quest
+    // ✅ รองรับของเดิม
     root.addEventListener('quest:celebrate', function (e) {
       try {
         const d = e.detail || {};
-        const kind = d.kind || 'goal'; // 'goal' หรือ 'mini'
-        const idx = (d.index || 0) | 0;
-        const total = (d.total || 0) | 0;
-        const label = d.label || '';
-        celebrateQuestFX(kind, idx, total, label);
+        celebrateQuestFX(d.kind || 'goal', (d.index || 0) | 0, (d.total || 0) | 0, d.label || '');
       } catch (err) {
-        if (root.console && console.warn) {
-          console.warn('[Particles] quest:celebrate handler error', err);
-        }
+        if (root.console && console.warn) console.warn('[Particles] quest:celebrate handler error', err);
       }
     });
 
-    // ฉลองใหญ่เมื่อทำครบทุกภารกิจ
     root.addEventListener('quest:all-complete', function (e) {
+      try { celebrateAllQuestsFX((e && e.detail) || {}); }
+      catch (err) {
+        if (root.console && console.warn) console.warn('[Particles] quest:all-complete handler error', err);
+      }
+    });
+
+    // ✅ NEW: รองรับ event ใหม่ของเรา
+    root.addEventListener('hha:celebrate', function (e) {
       try {
         const d = e.detail || {};
-        celebrateAllQuestsFX(d || {});
-      } catch (err) {
-        if (root.console && console.warn) {
-          console.warn('[Particles] quest:all-complete handler error', err);
+        const kind = String(d.kind || '').toLowerCase();
+
+        if (kind === 'all') {
+          celebrateAllQuestsFX(d);
+          return;
         }
+        // goal / mini
+        celebrateQuestFX(d.kind || 'goal', (d.index || 0) | 0, (d.total || 0) | 0, d.label || '');
+      } catch (err) {
+        if (root.console && console.warn) console.warn('[Particles] hha:celebrate handler error', err);
+      }
+    });
+
+    // เผื่อในอนาคตอยากยิง “all” แบบ event แยก
+    root.addEventListener('hha:all-complete', function (e) {
+      try { celebrateAllQuestsFX((e && e.detail) || {}); }
+      catch (err) {
+        if (root.console && console.warn) console.warn('[Particles] hha:all-complete handler error', err);
       }
     });
   }
 
   // ----- Export API แบบ global -----
-  const api = { scorePop, burstAt };
+  const api = { scorePop, burstAt, celebrateQuestFX, celebrateAllQuestsFX };
   root.Particles = api;
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = api;
+
 })(window);
