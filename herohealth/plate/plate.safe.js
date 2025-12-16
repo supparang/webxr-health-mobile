@@ -1,12 +1,16 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — Fixed 5 slots + Plate graphic + Slot glow/lock + Perfect celebration + Research events
-// - Targets appear in 5 fixed slots (no flying)
-// - Each group has a dedicated slot; junk appears random slot
-// - Slot fills/glows when collected; locked slots won't spawn duplicates
-// - PERFECT triggers confetti + sound + big banner
-// - Emits hha:event with slotId + plateIndex (GoodJunk-style tracking)
-// - Emits hha:session + (play only) hha:stat for adaptive telemetry
-
+// Balanced Plate VR — Production-ready core (A-Frame 1.5.0)
+// FIX 2025-12-16c:
+// - ✅ Spawn coords adapt when #targetRoot is attached to camera (local space)
+// - ✅ Add invisible collider plane for reliable raycaster hit
+// - ✅ Prevent "targets out of view" => blank screen but MISS ticking
+// - Emits hha:event + hha:session + hha:stat (play-only) for /vr/hha-cloud-logger.js
+//
+// URL params:
+//   ?diff=easy|normal|hard
+//   ?time=60..180
+//   ?run=play|research
+//
 'use strict';
 
 const URLX = new URL(location.href);
@@ -29,13 +33,15 @@ function setBarPct(id, pct) { const el = $(id); if (el) el.style.width = `${Math
 const A = window.AFRAME;
 if (!A) console.error('[PlateVR] AFRAME not found');
 
-// billboard component (no external deps)
+// billboard component (ไม่พึ่ง aframe-look-at)
 if (A && !A.components.billboard) {
   A.registerComponent('billboard', {
     schema: { target: { type: 'selector' } },
     tick: function () {
       const t = this.data.target;
-      if (!t || !window.THREE) return;
+      if (!t) return;
+      const THREE = window.THREE;
+      if (!THREE) return;
       this.el.object3D.lookAt(t.object3D.getWorldPosition(new THREE.Vector3()));
     }
   });
@@ -43,9 +49,9 @@ if (A && !A.components.billboard) {
 
 // ---------- Difficulty tuning ----------
 const DIFF_TABLE = {
-  easy:   { spawnInterval: 980, maxActive: 3, scale: 0.70, lifeMs: 1850, junkRate: 0.12 },
-  normal: { spawnInterval: 820, maxActive: 4, scale: 0.62, lifeMs: 1650, junkRate: 0.18 },
-  hard:   { spawnInterval: 690, maxActive: 5, scale: 0.56, lifeMs: 1450, junkRate: 0.24 }
+  easy:   { spawnInterval: 980, maxActive: 4, scale: 0.78, lifeMs: 1850, junkRate: 0.12 },
+  normal: { spawnInterval: 820, maxActive: 5, scale: 0.66, lifeMs: 1650, junkRate: 0.18 },
+  hard:   { spawnInterval: 690, maxActive: 6, scale: 0.56, lifeMs: 1450, junkRate: 0.24 }
 };
 const DCFG = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
 
@@ -60,28 +66,10 @@ const POOL = {
 };
 const GROUP_KEYS = ['g1','g2','g3','g4','g5'];
 
-// ---------- Plate fixed slots (ข้อ 3) ----------
-const PLATE_SLOTS = [
-  { slot: 1, groupId: 1, x:  0.00, y:  0.22 },
-  { slot: 2, groupId: 2, x: -0.46, y:  0.10 },
-  { slot: 3, groupId: 3, x: -0.46, y: -0.16 },
-  { slot: 4, groupId: 4, x:  0.46, y:  0.10 },
-  { slot: 5, groupId: 5, x:  0.46, y: -0.16 }
-];
-const PLATE_Z = 0.01; // inside HUD targetRoot
-
-function slotForGroup(groupId){
-  return PLATE_SLOTS[groupId - 1];
-}
-function randSlot(){
-  return PLATE_SLOTS[(Math.random() * PLATE_SLOTS.length) | 0];
-}
-
-// ---------- Game state ----------
+// ---------- Scene refs ----------
 const scene = document.querySelector('a-scene');
 const cam = document.getElementById('cam');
 const targetRoot = document.getElementById('targetRoot');
-const cursor = document.getElementById('cursor');
 
 const sessionId = `PLATE-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
 
@@ -102,40 +90,32 @@ let feverUntilMs = 0;
 
 let perfectPlates = 0;
 
-// ✅ plateIndex (ข้อ 4) — นับ “จานที่กำลังทำอยู่”
-let plateIndex = 1;
-
-// per-plate flags
 let plateHave = { 1:false,2:false,3:false,4:false,5:false };
 let plateCounts = { 1:0,2:0,3:0,4:0,5:0 };
-let plateTotalHits = 0;
-
-// totals
 let totalsByGroup = { 1:0,2:0,3:0,4:0,5:0 };
 
 let goalTotal = 2;
 let goalCleared = 0;
 
-// Mini quest
 let miniTotal = 3;
 let miniCleared = 0;
+let miniIndex = 1;
 let miniDeadlineMs = 0;
 const MINI_WINDOW_MS = 15000;
 
-// spawn control
-let spawnTimer = null;            // setTimeout loop
-let activeTargets = new Map();    // id -> { el, spawnMs, groupId, type, emoji, slotId, expireTimer }
+let spawnTimer = null;
+let activeTargets = new Map(); // id -> { el, spawnMs, groupId, type, emoji, expireTimer }
 
-// time origin
 const t0 = performance.now();
 const sessionStartIso = new Date().toISOString();
 
 // ---------- Utils ----------
 function clamp(v, a, b) { v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+function rnd(a, b) { return a + Math.random() * (b - a); }
 function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
 function nowIso() { return new Date().toISOString(); }
 function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0)); }
-function isAdaptiveOn() { return MODE === 'play'; }
+function isAdaptiveOn() { return MODE === 'play'; } // research = lock
 
 // ---------- Adaptive (PLAY only) ----------
 let adaptiveScale = 1.0;
@@ -148,7 +128,9 @@ let aMaxMin = -1, aMaxMax = +2;
 
 function initAdaptiveForDiff() {
   if (!isAdaptiveOn()) {
-    adaptiveScale = 1.0; adaptiveSpawn = 1.0; adaptiveMaxActive = 0;
+    adaptiveScale = 1.0;
+    adaptiveSpawn = 1.0;
+    adaptiveMaxActive = 0;
     return;
   }
   if (DIFF === 'easy') {
@@ -171,11 +153,11 @@ function initAdaptiveForDiff() {
 
 function currentSpawnIntervalMs() {
   const ms = Math.round(DCFG.spawnInterval * clamp(adaptiveSpawn, aSpawnMin, aSpawnMax));
-  return clamp(ms, 260, 2200);
+  return clamp(ms, 240, 2200);
 }
 function currentMaxActive() {
   const v = DCFG.maxActive + clamp(adaptiveMaxActive, aMaxMin, aMaxMax);
-  return clamp(v, 2, 8);
+  return clamp(v, 2, 10);
 }
 
 function bumpAdaptive(onGood) {
@@ -200,23 +182,20 @@ function emit(type, detail) {
 }
 
 function emitGameEvent(payload) {
-  // ✅ ข้อ 4: ส่ง slotId + plateIndex ให้เหมือน GoodJunk-style event enrichment
   emit('hha:event', Object.assign({
     sessionId,
     type: payload.type || '',
     mode: 'PlateVR',
-    runMode: MODE,
     difficulty: DIFF,
+    runMode: MODE,
     timeFromStartMs: fromStartMs(),
     feverState: feverActive ? 'ON' : 'OFF',
     feverValue: Math.round(fever),
     totalScore: score,
-    combo,
-    plateIndex
+    combo
   }, payload));
 }
 
-// play-only stat telemetry
 let statTimer = null;
 function emitStat(reason) {
   if (!isAdaptiveOn()) return;
@@ -234,7 +213,6 @@ function emitStat(reason) {
     score,
     combo,
     misses: miss,
-    plateIndex,
     reason: reason || 'tick'
   });
 }
@@ -269,16 +247,22 @@ function emitSessionEnd(reason) {
     miniTotal: miniTotal,
 
     nHitGood: gTotal,
-    reason: reason || '',
 
+    reason: reason || '',
     extra: JSON.stringify({
       totalsByGroup,
       plateCounts,
       perfectPlates,
-      plateIndexEnd: plateIndex,
+      miniIndex,
       miniCleared,
       adaptive: isAdaptiveOn()
-        ? { adaptiveScale, adaptiveSpawn, adaptiveMaxActive, spawnIntervalMs: currentSpawnIntervalMs(), maxActive: currentMaxActive() }
+        ? {
+            adaptiveScale,
+            adaptiveSpawn,
+            adaptiveMaxActive,
+            spawnIntervalMs: currentSpawnIntervalMs(),
+            maxActive: currentMaxActive()
+          }
         : { locked: true }
     }),
 
@@ -288,8 +272,12 @@ function emitSessionEnd(reason) {
   });
 }
 
-// ---------- HUD ----------
-function diffLabel(d) { return d === 'easy' ? 'Easy' : (d === 'hard' ? 'Hard' : 'Normal'); }
+// ---------- HUD / UI ----------
+function diffLabel(d) {
+  if (d === 'easy') return 'Easy';
+  if (d === 'hard') return 'Hard';
+  return 'Normal';
+}
 function modeLabel(m) { return (m === 'research') ? 'Research' : 'Play'; }
 
 function updateHUD() {
@@ -310,13 +298,17 @@ function updateHUD() {
   setText('hudPerfectCount', perfectPlates);
 
   goalCleared = Math.min(goalTotal, perfectPlates);
+  const goalLine = `ทำ <b>PERFECT PLATE</b> ให้ได้อย่างน้อย ${goalTotal} จาน (ตอนนี้ ${goalCleared}/${goalTotal})`;
   const goalEl = $('hudGoalLine');
-  if (goalEl) goalEl.innerHTML = `ทำ <b>PERFECT PLATE</b> ให้ได้อย่างน้อย ${goalTotal} จาน (ตอนนี้ ${goalCleared}/${goalTotal})`;
+  if (goalEl) goalEl.innerHTML = goalLine;
 
   const msLeft = Math.max(0, miniDeadlineMs - performance.now());
   const sLeft = Math.ceil(msLeft / 1000);
   const miniEl = $('hudMiniLine');
-  if (miniEl) miniEl.textContent = `Mini: Plate Rush ${miniCleared}/${miniTotal} — ทำ Perfect ภายใน ${Math.max(0, sLeft)}s`;
+  if (miniEl) {
+    miniEl.textContent =
+      `Mini: Plate Rush ${miniCleared}/${miniTotal} — ทำ Perfect ภายใน ${Math.max(0, sLeft)}s`;
+  }
 }
 
 function calcGrade() {
@@ -343,6 +335,7 @@ function showResult() {
   setText('rMaxCombo', maxCombo);
   setText('rMiss', miss);
   setText('rPerfect', perfectPlates);
+
   setText('rGoals', `${goalCleared}/${goalTotal}`);
   setText('rMinis', `${miniCleared}/${miniTotal}`);
 
@@ -361,12 +354,6 @@ function showResult() {
 function hideResult() {
   const bd = $('resultBackdrop');
   if (bd) bd.style.display = 'none';
-}
-
-// ---------- Look-controls ----------
-function ensureTouchLookControls() {
-  if (!cam) return;
-  try { cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true'); } catch (_) {}
 }
 
 // ---------- Fever ----------
@@ -390,245 +377,74 @@ function endFever() {
   emitGameEvent({ type: 'fever_off' });
 }
 
-// ---------- 3D Plate UI (ข้อ 1) + Slot glow/lock (ข้อ 2) ----------
-const slotUI = new Map(); // slotId -> { ring, glow, label }
-let plateDisk = null;
-
-function makeEntity(tag, attrs = {}) {
-  const el = document.createElement(tag);
-  Object.keys(attrs).forEach(k => el.setAttribute(k, attrs[k]));
-  return el;
-}
-
-function ensurePlateVisual() {
-  if (!targetRoot) return;
-
-  // Plate disk (พื้นจาน)
-  if (!plateDisk) {
-    plateDisk = makeEntity('a-circle', {
-      radius: 0.78,
-      position: `0 0 ${PLATE_Z - 0.02}`,
-      rotation: `-90 0 0`,
-      material: 'color:#0b1220; opacity:0.28; shader:flat; side:double'
-    });
-    targetRoot.appendChild(plateDisk);
-
-    // เส้น cross เบา ๆ ให้รู้สึกเป็นจาน
-    const line1 = makeEntity('a-plane', {
-      width: 1.35, height: 0.02,
-      position: `0 0 ${PLATE_Z - 0.015}`,
-      material: 'color:#94a3b8; opacity:0.18; shader:flat; side:double'
-    });
-    const line2 = makeEntity('a-plane', {
-      width: 0.02, height: 1.05,
-      position: `0 0 ${PLATE_Z - 0.015}`,
-      material: 'color:#94a3b8; opacity:0.12; shader:flat; side:double'
-    });
-    targetRoot.appendChild(line1);
-    targetRoot.appendChild(line2);
-  }
-
-  // Slots UI
-  if (slotUI.size === 0) {
-    for (const s of PLATE_SLOTS) {
-      const ring = makeEntity('a-ring', {
-        radiusInner: 0.10,
-        radiusOuter: 0.12,
-        position: `${s.x} ${s.y} ${PLATE_Z}`,
-        material: 'color:#94a3b8; opacity:0.35; shader:flat; side:double'
-      });
-
-      // glow ring (ซ้อน)
-      const glow = makeEntity('a-ring', {
-        radiusInner: 0.105,
-        radiusOuter: 0.145,
-        position: `${s.x} ${s.y} ${PLATE_Z - 0.001}`,
-        material: 'color:#22c55e; opacity:0.00; shader:flat; side:double'
-      });
-
-      // slot number hint (เล็กมาก)
-      const label = makeEntity('a-entity', {});
-      label.setAttribute('text', {
-        value: String(s.slot),
-        align: 'center',
-        color: '#9ca3af',
-        width: 2.4
-      });
-      label.setAttribute('position', `${s.x} ${s.y - 0.17} ${PLATE_Z}`);
-
-      targetRoot.appendChild(ring);
-      targetRoot.appendChild(glow);
-      targetRoot.appendChild(label);
-
-      slotUI.set(s.slot, { ring, glow, label });
-    }
-  }
-}
-
-function setSlotFilled(groupId, filled) {
-  const slot = slotForGroup(groupId);
-  if (!slot) return;
-  const ui = slotUI.get(slot.slot);
-  if (!ui) return;
-
-  // filled -> ring muted + glow ON
-  try {
-    ui.ring.setAttribute('material', filled
-      ? 'color:#94a3b8; opacity:0.12; shader:flat; side:double'
-      : 'color:#94a3b8; opacity:0.35; shader:flat; side:double'
-    );
-    ui.glow.setAttribute('material', filled
-      ? 'color:#22c55e; opacity:0.55; shader:flat; side:double'
-      : 'color:#22c55e; opacity:0.00; shader:flat; side:double'
-    );
-  } catch (_) {}
-}
-
-// ---------- DOM celebration FX (ข้อ 3) ----------
-let fxLayer = null;
-function ensureFxLayer() {
-  if (fxLayer) return fxLayer;
-  fxLayer = document.createElement('div');
-  fxLayer.className = 'plate-fx-layer';
-  Object.assign(fxLayer.style, {
-    position: 'fixed',
-    inset: '0',
-    pointerEvents: 'none',
-    overflow: 'hidden',
-    zIndex: 80
-  });
-  document.body.appendChild(fxLayer);
-  return fxLayer;
-}
-
-function playSfx(id){
-  const a = document.getElementById(id);
-  if (!a) return;
-  try { a.currentTime = 0; a.play(); } catch (_) {}
-}
-
-function banner(text){
-  const layer = ensureFxLayer();
-  const el = document.createElement('div');
-  el.textContent = text;
-  Object.assign(el.style, {
-    position: 'absolute',
-    left: '50%',
-    top: '18%',
-    transform: 'translate(-50%, -50%)',
-    fontWeight: '900',
-    fontSize: '26px',
-    letterSpacing: '0.8px',
-    color: '#e5e7eb',
-    padding: '10px 16px',
-    borderRadius: '999px',
-    border: '1px solid rgba(34,197,94,.45)',
-    background: 'rgba(2,6,23,.55)',
-    boxShadow: '0 18px 50px rgba(0,0,0,.45)'
-  });
-  layer.appendChild(el);
-  setTimeout(() => { try { el.remove(); } catch(_){} }, 900);
-}
-
-function confettiBurst(){
-  const layer = ensureFxLayer();
-  const emojis = ['🥦','🍎','🥕','🍚','🥛','✨','💚','⭐'];
-  for (let i=0;i<26;i++){
-    const p = document.createElement('div');
-    p.textContent = emojis[(Math.random()*emojis.length)|0];
-    const x = Math.random()*100;
-    const y = 55 + Math.random()*35;
-    const s = 16 + Math.random()*14;
-    const dx = (Math.random()*2-1)*18;
-    const dy = - (18 + Math.random()*26);
-
-    Object.assign(p.style, {
-      position:'absolute',
-      left: x + '%',
-      top: y + '%',
-      fontSize: s + 'px',
-      transform:'translate(-50%,-50%)',
-      opacity:'1',
-      willChange:'transform,opacity'
-    });
-
-    layer.appendChild(p);
-
-    requestAnimationFrame(() => {
-      p.style.transition = 'transform 900ms ease-out, opacity 900ms ease-out';
-      p.style.transform = `translate(calc(-50% + ${dx}vw), calc(-50% + ${dy}vh)) rotate(${(Math.random()*260-130)|0}deg)`;
-      p.style.opacity = '0';
-    });
-
-    setTimeout(() => { try { p.remove(); } catch(_){} }, 950);
-  }
-}
-
 // ---------- Plate logic ----------
 function resetPlate() {
   plateHave = { 1:false,2:false,3:false,4:false,5:false };
   plateCounts = { 1:0,2:0,3:0,4:0,5:0 };
-  plateTotalHits = 0;
-
-  // reset slot visuals
-  for (let g=1; g<=5; g++) setSlotFilled(g, false);
-
   miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
-
-  emitGameEvent({ type:'plate_start', judgment:'OK', plateIndex });
 }
 
 function completePerfectPlate() {
   perfectPlates += 1;
 
-  // ✅ celebration (ข้อ 3)
-  playSfx('sfx-perfect');
-  banner('🎉 PERFECT PLATE!');
-  confettiBurst();
-
   emitGameEvent({
     type: 'plate_perfect',
     judgment: 'PERFECT',
-    perfectPlates,
-    extra: JSON.stringify({ perfectPlates, plateIndex })
+    extra: JSON.stringify({ perfectPlates })
   });
 
   if (miniCleared < miniTotal && performance.now() <= miniDeadlineMs) {
     miniCleared += 1;
-    emitGameEvent({ type: 'mini_clear', judgment: 'OK', miniCleared, extra: `PlateRush ${miniCleared}/${miniTotal}` });
-    if (miniCleared < miniTotal) miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
+    emitGameEvent({ type: 'mini_clear', judgment: 'OK', extra: `PlateRush ${miniCleared}/${miniTotal}` });
+
+    if (miniCleared < miniTotal) {
+      miniIndex = miniCleared + 1;
+      miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
+    }
   } else {
     miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
   }
 
-  // ไปจานถัดไป
-  plateIndex += 1;
   resetPlate();
   emitStat('perfect');
 }
 
-// ---------- Pick item ----------
 function pickItem() {
   if (Math.random() < DCFG.junkRate) {
     const emoji = pick(POOL.junk.emojis);
     return { groupId: 0, key: 'junk', type: 'junk', emoji };
   }
   const missing = GROUP_KEYS.filter(k => !plateHave[POOL[k].id]);
-  const key = (missing.length && Math.random() < 0.80) ? pick(missing) : pick(GROUP_KEYS);
+  const key = (missing.length && Math.random() < 0.72) ? pick(missing) : pick(GROUP_KEYS);
   const g = POOL[key];
   const emoji = pick(g.emojis);
   return { groupId: g.id, key, type: 'good', emoji };
 }
 
-// ---------- Spawn helpers (fixed slots) ----------
-let targetSeq = 0;
-
-function slotIsOccupied(slotId){
-  for (const t of activeTargets.values()) {
-    if (t.slotId === slotId) return true;
-  }
-  return false;
+// ---------- Spawn space detection ----------
+function isRootAttachedToCamera() {
+  if (!targetRoot || !cam) return false;
+  return targetRoot.closest('a-camera') === cam || targetRoot.parentElement === cam;
 }
+function spawnPos() {
+  // ✅ If attached to camera, use LOCAL small ranges so always in view.
+  if (isRootAttachedToCamera()) {
+    return {
+      x: rnd(-0.75, 0.75),
+      y: rnd(-0.45, 0.35),
+      z: rnd(-1.55, -0.95)
+    };
+  }
+  // Scene/world style (fallback)
+  return {
+    x: rnd(-1.15, 1.15),
+    y: rnd(1.05, 2.10),
+    z: rnd(-3.3, -2.3)
+  };
+}
+
+// ---------- Spawn ----------
+let targetSeq = 0;
 
 function spawnTarget() {
   if (ended || !started) return;
@@ -636,40 +452,45 @@ function spawnTarget() {
   if (activeTargets.size >= currentMaxActive()) return;
 
   const item = pickItem();
-
-  // ✅ fixed slot: good -> dedicated slot, junk -> random slot
-  const slot = (item.type === 'good') ? slotForGroup(item.groupId) : randSlot();
-  if (!slot) return;
-
-  // ✅ lock: ถ้า slot นี้ filled แล้ว (เฉพาะ good) ไม่ spawn
-  if (item.type === 'good' && plateHave[item.groupId]) return;
-
-  // ✅ no overlap in same slot
-  if (slotIsOccupied(slot.slot)) return;
-
   const id = `t${++targetSeq}`;
+
+  const p = spawnPos();
 
   const el = document.createElement('a-entity');
   el.setAttribute('id', id);
-  el.setAttribute('position', `${slot.x} ${slot.y} ${PLATE_Z}`);
+  el.setAttribute('position', `${p.x.toFixed(2)} ${p.y.toFixed(2)} ${p.z.toFixed(2)}`);
 
   const s = DCFG.scale * (isAdaptiveOn() ? adaptiveScale : 1.0);
   el.setAttribute('scale', `${s} ${s} ${s}`);
 
+  // ✅ collider for raycaster
+  el.setAttribute('geometry', 'primitive:plane; width:0.85; height:0.85');
+  el.setAttribute('material', 'transparent:true; opacity:0.001; shader:flat; side:double');
+
   el.classList.add('plateTarget');
 
-  el.setAttribute('text', {
+  // emoji text layer
+  const txt = document.createElement('a-entity');
+  txt.setAttribute('position', '0 0 0.01');
+  txt.setAttribute('text', {
     value: item.emoji,
     align: 'center',
     color: '#ffffff',
     width: 4.0,
     baseline: 'center'
   });
+  el.appendChild(txt);
 
-  el.setAttribute('billboard', 'target:#cam');
+  // optional billboard when NOT attached to camera
+  if (!isRootAttachedToCamera()) {
+    el.setAttribute('billboard', 'target:#cam');
+  }
+
   el.setAttribute('animation__pop', `property:scale; from:0.01 0.01 0.01; to:${s} ${s} ${s}; dur:120; easing:easeOutBack`);
 
   const spawnMs = performance.now();
+
+  // cursor click
   el.addEventListener('click', () => onHitTarget(id, 'CLICK'));
 
   targetRoot.appendChild(el);
@@ -677,27 +498,21 @@ function spawnTarget() {
   const expireTimer = setTimeout(() => {
     if (activeTargets.has(id)) {
       removeTarget(id);
-      onTargetExpired(item, slot.slot);
+      onTargetExpired(item);
     }
   }, DCFG.lifeMs);
 
-  activeTargets.set(id, {
-    el, spawnMs,
-    groupId: item.groupId,
-    type: item.type,
-    emoji: item.emoji,
-    slotId: slot.slot,
-    expireTimer
-  });
+  activeTargets.set(id, { el, spawnMs, groupId: item.groupId, type: item.type, emoji: item.emoji, expireTimer });
 
-  // ✅ event spawn with slotId + plateIndex (ข้อ 4)
   emitGameEvent({
     type: 'spawn',
     targetId: id,
     emoji: item.emoji,
-    itemType: item.type === 'junk' ? 'junk' : `g${item.groupId}`,
+    itemType: item.type,
     isGood: item.type === 'good',
-    slotId: slot.slot
+    spawnX: Number(p.x.toFixed(3)),
+    spawnY: Number(p.y.toFixed(3)),
+    spawnZ: Number(p.z.toFixed(3))
   });
 }
 
@@ -725,7 +540,6 @@ function onHitTarget(id, why) {
   removeTarget(id);
 
   if (t.type === 'junk') {
-    playSfx('sfx-bad');
     miss += 1;
     combo = 0;
     addFever(-18);
@@ -738,7 +552,6 @@ function onHitTarget(id, why) {
       rtMs: rt,
       judgment: 'BAD',
       isGood: false,
-      slotId: t.slotId,
       extra: why
     });
 
@@ -747,22 +560,16 @@ function onHitTarget(id, why) {
     return;
   }
 
-  playSfx('sfx-hit');
   combo += 1;
   maxCombo = Math.max(maxCombo, combo);
 
   addScore(12);
   addFever(11);
 
-  plateTotalHits += 1;
   totalsByGroup[t.groupId] = (totalsByGroup[t.groupId] || 0) + 1;
 
   plateCounts[t.groupId] = (plateCounts[t.groupId] || 0) + 1;
-  if (!plateHave[t.groupId]) {
-    plateHave[t.groupId] = true;
-    // ✅ slot glow/lock (ข้อ 2)
-    setSlotFilled(t.groupId, true);
-  }
+  if (!plateHave[t.groupId]) plateHave[t.groupId] = true;
 
   emitGameEvent({
     type: 'hit',
@@ -772,7 +579,6 @@ function onHitTarget(id, why) {
     rtMs: rt,
     judgment: 'GOOD',
     isGood: true,
-    slotId: t.slotId,
     extra: why
   });
 
@@ -784,7 +590,7 @@ function onHitTarget(id, why) {
   updateHUD();
 }
 
-function onTargetExpired(item, slotId) {
+function onTargetExpired(item) {
   if (ended) return;
 
   miss += 1;
@@ -796,8 +602,7 @@ function onTargetExpired(item, slotId) {
     emoji: item.emoji,
     itemType: item.type === 'junk' ? 'junk' : `g${item.groupId}`,
     judgment: 'MISS',
-    isGood: item.type !== 'junk',
-    slotId
+    isGood: item.type !== 'junk'
   });
 
   bumpAdaptive(false);
@@ -823,6 +628,7 @@ function startTimer() {
     if (!started || ended) return;
 
     if (feverActive && performance.now() >= feverUntilMs) endFever();
+
     tickMini();
 
     tLeft -= 1;
@@ -832,18 +638,26 @@ function startTimer() {
       endGame('time_up');
       return;
     }
+
     updateHUD();
   }, 1000);
 }
 
-// spawn loop (1 spawn only; no double during fever — ลดวุ่น)
+// ---------- Dynamic spawn loop ----------
 function scheduleNextSpawn() {
   if (ended || !started) return;
 
   const ms = isAdaptiveOn() ? currentSpawnIntervalMs() : DCFG.spawnInterval;
   spawnTimer = setTimeout(() => {
     if (!started || ended) return;
-    spawnTarget();
+
+    if (feverActive) {
+      spawnTarget();
+      if (Math.random() < 0.45) spawnTarget();
+    } else {
+      spawnTarget();
+    }
+
     scheduleNextSpawn();
   }, ms);
 }
@@ -853,6 +667,11 @@ function stopSpawning() {
   spawnTimer = null;
 }
 
+function clearAllTargets() {
+  for (const id of Array.from(activeTargets.keys())) removeTarget(id);
+  activeTargets.clear();
+}
+
 // ---------- Start / End ----------
 function startGame() {
   if (started) return;
@@ -860,9 +679,6 @@ function startGame() {
   ended = false;
 
   initAdaptiveForDiff();
-  ensurePlateVisual();
-
-  plateIndex = 1;
   resetPlate();
   miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
 
@@ -872,11 +688,6 @@ function startGame() {
   startStatTicker();
   startTimer();
   scheduleNextSpawn();
-}
-
-function clearAllTargets() {
-  for (const id of Array.from(activeTargets.keys())) removeTarget(id);
-  activeTargets.clear();
 }
 
 function endGame(reason) {
@@ -919,12 +730,12 @@ function bindUI() {
   const bd = $('resultBackdrop');
   if (bd) {
     bd.addEventListener('click', (e) => {
-      if (e.target === bd) bd.style.display = 'none';
+      if (e.target === bd) hideResult();
     });
   }
 }
 
-// ---------- Cloud logger init ----------
+// ---------- Logger init ----------
 function initLoggerIfAvailable() {
   const init = window.initCloudLogger;
   if (typeof init !== 'function') return;
@@ -951,17 +762,15 @@ function initLoggerIfAvailable() {
 
 // ---------- Boot ----------
 function boot() {
-  ensureTouchLookControls();
   bindUI();
 
   setText('hudMode', modeLabel(MODE));
   setText('hudDiff', diffLabel(DIFF));
   setText('hudTime', tLeft);
 
-  ensurePlateVisual();
   initLoggerIfAvailable();
 
-  // retry init logger if module loads later
+  // retry attach logger if it loads late
   let tries = 0;
   const retry = setInterval(() => {
     if (typeof window.initCloudLogger === 'function') {
