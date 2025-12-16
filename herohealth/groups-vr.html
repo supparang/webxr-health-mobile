@@ -7,7 +7,6 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon">
 
-  <!-- A-Frame สำหรับฉากพื้นหลัง -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
@@ -25,15 +24,10 @@
       --radius-pill:999px;
     }
 
-    *,
-    *::before,
-    *::after { box-sizing:border-box; }
-
-    html, body {
-      margin:0;
-      padding:0;
-      width:100%;
-      height:100%;
+    *,:before,:after{ box-sizing:border-box; }
+    html, body{
+      margin:0; padding:0;
+      width:100%; height:100%;
       overflow:hidden;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
@@ -41,346 +35,162 @@
         radial-gradient(circle at bottom right, rgba(34,197,94,0.24), transparent 55%),
         #020617;
       color:var(--text-main);
-      touch-action: none;
     }
 
-    /* A-Frame เต็มหน้าจอ */
-    a-scene {
-      position:fixed;
-      inset:0;
-      z-index:0;
-    }
+    a-scene{ position:fixed; inset:0; z-index:0; }
 
     /* ===== HUD root ===== */
-    .hud-root {
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:60;
-    }
-
-    .hud-top {
-      position:absolute;
-      top:0;
-      left:0;
-      right:0;
+    .hud-root{ position:fixed; inset:0; pointer-events:none; z-index:60; }
+    .hud-top{
+      position:absolute; top:0; left:0; right:0;
       padding:10px;
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:10px;
-      pointer-events:none;
+      display:flex; justify-content:space-between; align-items:flex-start;
+      gap:10px; pointer-events:none;
     }
 
-    /* ===== HUD Score (ซ้ายบน) ===== */
-    .hud-card {
+    .hud-card{
       pointer-events:auto;
       background:radial-gradient(circle at top, #0f172a, #020617);
       border-radius:var(--radius-lg);
       padding:10px 14px;
       border:1px solid rgba(148,163,184,0.25);
-      box-shadow:
-        0 18px 40px rgba(15,23,42,0.9),
-        0 0 0 1px rgba(15,23,42,1);
-      color:var(--text-main);
-      min-width:260px;
-      max-width:360px;
+      box-shadow: 0 18px 40px rgba(15,23,42,0.9), 0 0 0 1px rgba(15,23,42,1);
+      min-width:260px; max-width:360px;
     }
-
-    .hud-main-title {
-      font-size:11px;
-      letter-spacing:.18em;
-      text-transform:uppercase;
-      color:var(--text-soft);
-      margin-bottom:2px;
-    }
-
-    .hud-main-mode {
-      font-size:18px;
-      font-weight:600;
-    }
-
-    .hud-pill {
+    .hud-main-title{ font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--text-soft); margin-bottom:2px; }
+    .hud-main-mode{ font-size:18px; font-weight:600; }
+    .hud-pill{
       margin-top:4px;
       border-radius:999px;
       padding:2px 8px;
       font-size:11px;
       border:1px solid rgba(148,163,184,0.5);
       color:var(--text-soft);
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
+      display:inline-flex; align-items:center; gap:6px;
     }
+    .hud-metrics{ margin-top:8px; display:flex; gap:14px; flex-wrap:wrap; }
+    .metric{ display:flex; flex-direction:column; gap:2px; }
+    .metric-label{ font-size:11px; color:var(--text-soft); }
+    .metric-value{ font-size:18px; font-weight:700; }
+    .metric-value.accent{ color:#bbf7d0; }
+    .metric-sub{ font-size:11px; color:var(--text-soft); min-height:14px; }
 
-    .hud-metrics {
-      margin-top:8px;
-      display:flex;
-      gap:14px;
-      flex-wrap:wrap;
-    }
-
-    .metric {
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-    }
-
-    .metric-label {
-      font-size:11px;
-      color:var(--text-soft);
-    }
-
-    .metric-value {
-      font-size:18px;
-      font-weight:700;
-    }
-
-    .metric-value.accent { color:#bbf7d0; }
-
-    .metric-sub {
-      font-size:11px;
-      color:var(--text-soft);
-      min-height:14px;
-    }
-
-    /* ===== HUD Goal + Mini quest (ขวาบน) ===== */
-    .fg-quest-panel {
+    .fg-quest-panel{
       pointer-events:auto;
-      min-width:260px;
-      max-width:320px;
+      min-width:260px; max-width:320px;
       padding:10px 14px;
       border-radius:var(--radius-lg);
       background:radial-gradient(circle at top, #0f172a, #020617);
       border:1px solid rgba(148,163,184,0.25);
-      box-shadow:
-        0 18px 40px rgba(15,23,42,0.9),
-        0 0 0 1px rgba(15,23,42,1);
-      color:var(--text-main);
-      max-height:40vh;
-      overflow-y:auto;
+      box-shadow: 0 18px 40px rgba(15,23,42,0.9), 0 0 0 1px rgba(15,23,42,1);
+      max-height:40vh; overflow-y:auto;
     }
+    .fg-quest-title{ font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-soft); margin-bottom:4px; }
+    .fg-quest-row{ display:flex; align-items:flex-start; gap:6px; font-size:13px; padding:2px 0; }
+    .fg-quest-label{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-top:2px; white-space:nowrap; }
+    .fg-quest-main{ flex:1; opacity:.92; }
+    .fg-quest-progress{ font-variant-numeric:tabular-nums; font-size:12px; color:#bbf7d0; white-space:nowrap; }
 
-    .fg-quest-title {
-      font-size:11px;
-      letter-spacing:.16em;
-      text-transform:uppercase;
-      color:var(--text-soft);
-      margin-bottom:4px;
-    }
-
-    .fg-quest-row {
-      display:flex;
-      align-items:flex-start;
-      gap:6px;
-      font-size:13px;
-      padding:2px 0;
-    }
-
-    .fg-quest-label {
-      font-size:11px;
-      text-transform:uppercase;
-      letter-spacing:.12em;
-      color:var(--text-soft);
-      margin-top:2px;
-      white-space:nowrap;
-    }
-
-    .fg-quest-main {
-      flex:1;
-      color:var(--text-main);
-      opacity:.9;
-    }
-
-    .fg-quest-progress {
-      font-variant-numeric:tabular-nums;
-      font-size:12px;
-      color:#bbf7d0;
-      white-space:nowrap;
-    }
-
-    /* ===== Coach bubble กลางล่าง ===== */
-    .hud-bottom {
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:64px;
-      display:flex;
-      justify-content:center;
-      align-items:center;
+    .hud-bottom{
+      position:absolute; left:0; right:0; bottom:64px;
+      display:flex; justify-content:center; align-items:center;
       pointer-events:none;
     }
-
-    .coach-bubble {
-      min-width:60%;
-      max-width:640px;
+    .coach-bubble{
+      min-width:60%; max-width:640px;
       background:rgba(15,23,42,0.95);
       border-radius:var(--radius-pill);
       padding:8px 14px;
       border:1px solid rgba(52,211,153,0.5);
       font-size:13px;
       display:none;
-      align-items:center;
-      gap:8px;
+      align-items:center; gap:8px;
       pointer-events:auto;
-      transition:
-        transform .20s ease-out,
-        box-shadow .20s ease-out,
-        background .20s ease-out;
     }
-
-    .coach-bubble.show { display:flex; }
-
-    .coach-label {
-      font-size:11px;
-      text-transform:uppercase;
-      letter-spacing:.16em;
-      color:#6ee7b7;
-      font-weight:600;
-    }
-
-    .coach-avatar {
-      width:28px;
-      height:28px;
-      border-radius:50%;
+    .coach-bubble.show{ display:flex; }
+    .coach-label{ font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:#6ee7b7; font-weight:600; }
+    .coach-avatar{
+      width:28px; height:28px; border-radius:50%;
       background:radial-gradient(circle at 30% 30%, #fef3c7, #f97316);
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
+      display:inline-flex; align-items:center; justify-content:center;
       font-size:18px;
       box-shadow:0 0 0 2px rgba(15,23,42,0.9);
       animation:coach-breathe 2.4s ease-in-out infinite;
     }
+    @keyframes coach-breathe{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
 
-    @keyframes coach-breathe {
-      0%,100% { transform:scale(1); }
-      50%     { transform:scale(1.07); }
+    @media (max-width:640px){
+      .hud-top{ flex-direction:column; align-items:stretch; }
+      .hud-card,.fg-quest-panel{ min-width:0; width:100%; max-width:none; }
+      .fg-quest-panel{ margin-top:6px; max-height:34vh; }
+      .coach-bubble{ min-width:0; width:calc(100% - 32px); font-size:12px; }
     }
 
-    @media (max-width:640px) {
-      .hud-top{
-        flex-direction:column;
-        align-items:stretch;
-      }
-      .hud-card,
-      .fg-quest-panel{
-        min-width:0;
-        width:100%;
-        max-width:none;
-      }
-      .fg-quest-panel{
-        margin-top:6px;
-        max-height:34vh;
-      }
-      .coach-bubble {
-        min-width:0;
-        width:calc(100% - 32px);
-        font-size:12px;
-      }
-    }
+    /* ===== Target Layer ===== */
+    #fg-layer{ position:fixed; inset:0; z-index:40; pointer-events:none; }
 
-    /* ===== Target Layer (DOM) ===== */
-    #fg-layer {
-      position:fixed;
-      inset:0;
-      z-index:40; /* ใต้ HUD แต่เหนือฉาก */
-      pointer-events:none;
-    }
-
-    .fg-target {
+    .fg-target{
       position:absolute;
-      width:132px;
-      height:132px;
+      width:132px; height:132px;
       border-radius:50%;
-      background:radial-gradient(circle at 30% 30%, #f97316, #c2410c);
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      display:flex; align-items:center; justify-content:center;
       pointer-events:auto;
       cursor:pointer;
-      box-shadow:
-        0 12px 32px rgba(15,23,42,0.85),
-        0 0 0 4px rgba(15,23,42,0.9);
+      user-select:none; -webkit-user-select:none;
+      touch-action:manipulation;
+      box-shadow: 0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
       transform:translate(-50%, -50%) scale(1);
-      transition:
-        transform .12s ease-out,
-        opacity .12s ease-out,
-        box-shadow .12s ease-out;
-      touch-action: manipulation;
+      transition: transform .12s ease-out, opacity .12s ease-out, box-shadow .12s ease-out;
+      opacity:1;
+      will-change: transform, left, top, opacity;
+      backdrop-filter: blur(2px);
     }
+    .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
+    .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
 
-    .fg-good { background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
-    .fg-junk { background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
-
-    .fg-target::before {
+    .fg-target::before{
       content:attr(data-emoji);
       display:block;
       font-size:clamp(40px, 7vmin, 64px);
       line-height:1;
       color:#fefce8;
-      text-shadow:
-        0 2px 4px rgba(15,23,42,0.9),
-        0 0 10px rgba(15,23,42,0.9);
+      text-shadow: 0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
     }
-
-    .fg-target.hit {
+    .fg-target.hit{
       transform:translate(-50%, -50%) scale(0.6);
       opacity:0;
     }
 
     /* ===== Summary overlay ===== */
-    .result-overlay {
-      position:fixed;
-      inset:0;
-      z-index:120;
-      display:none;
-      align-items:center;
-      justify-content:center;
+    .result-overlay{
+      position:fixed; inset:0; z-index:120;
+      display:none; align-items:center; justify-content:center;
       background:radial-gradient(circle at top,#020617ee,#020617f5);
       backdrop-filter:blur(10px);
     }
-    .result-overlay.show { display:flex; }
-
-    .result-card {
-      width:90%;
-      max-width:420px;
+    .result-overlay.show{ display:flex; }
+    .result-card{
+      width:90%; max-width:420px;
       padding:18px 18px 14px;
       border-radius:18px;
       background:radial-gradient(circle at top,#0f172a,#020617);
       border:1px solid rgba(148,163,184,0.7);
-      box-shadow:
-        0 22px 55px rgba(0,0,0,0.85),
-        0 0 0 1px rgba(15,23,42,1);
-      color:var(--text-main);
+      box-shadow: 0 22px 55px rgba(0,0,0,0.85), 0 0 0 1px rgba(15,23,42,1);
       font-size:14px;
     }
-
-    .result-card h2 { margin:0 0 8px; font-size:16px; }
-    .result-card p { margin:4px 0; font-size:13px; }
-
-    .result-card hr {
-      border:none;
-      border-top:1px solid rgba(148,163,184,0.5);
-      margin:10px 0;
-    }
-
-    .result-actions {
-      margin-top:10px;
-      display:flex;
-      justify-content:flex-end;
-      gap:8px;
-    }
-
-    .result-btn {
+    .result-card h2{ margin:0 0 8px; font-size:16px; }
+    .result-card p{ margin:4px 0; font-size:13px; }
+    .result-card hr{ border:none; border-top:1px solid rgba(148,163,184,0.5); margin:10px 0; }
+    .result-actions{ margin-top:10px; display:flex; justify-content:flex-end; gap:8px; }
+    .result-btn{
       border-radius:999px;
       border:1px solid rgba(148,163,184,0.7);
       padding:6px 12px;
-      font-size:13px;
-      font-weight:600;
+      font-size:13px; font-weight:600;
       cursor:pointer;
       background:rgba(15,23,42,0.9);
       color:#e5e7eb;
     }
-
     .result-btn.primary{
       background:linear-gradient(90deg,#22c55e,#4ade80);
       color:#022c22;
@@ -399,11 +209,8 @@
 
     /* ===== Countdown ===== */
     .countdown-overlay{
-      position:fixed;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      position:fixed; inset:0;
+      display:flex; align-items:center; justify-content:center;
       z-index:200;
       font-size:clamp(3rem, 10vw, 5rem);
       font-weight:800;
@@ -414,10 +221,7 @@
       transform:scale(0.8);
       transition:opacity .2s ease-out, transform .2s ease-out;
     }
-    .countdown-overlay.show{
-      opacity:1;
-      transform:scale(1);
-    }
+    .countdown-overlay.show{ opacity:1; transform:scale(1); }
 
     /* ปุ่มเข้า VR */
     .vr-btn{
@@ -441,25 +245,18 @@
     }
     .vr-btn span{ font-size:16px; }
 
-    /* ===== Celebrate Overlay ===== */
-    .celebrate-overlay {
-      position:fixed;
-      inset:0;
-      z-index:190;
-      display:none;
-      align-items:center;
-      justify-content:center;
+    /* ===== Celebrate overlay ===== */
+    .celebrate-overlay{
+      position:fixed; inset:0; z-index:190;
+      display:none; align-items:center; justify-content:center;
       pointer-events:none;
     }
-    .celebrate-overlay.show { display:flex; }
-
-    .celebrate-content {
+    .celebrate-overlay.show{ display:flex; }
+    .celebrate-content{
       padding:12px 22px;
       border-radius:999px;
       background:radial-gradient(circle at top, rgba(34,197,94,0.9), rgba(21,128,61,0.95));
-      box-shadow:
-        0 20px 60px rgba(0,0,0,0.9),
-        0 0 0 1px rgba(15,23,42,1);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.9), 0 0 0 1px rgba(15,23,42,1);
       font-size:clamp(18px,4vw,24px);
       font-weight:800;
       letter-spacing:0.06em;
@@ -468,39 +265,30 @@
       text-align:center;
       transform:scale(0.86) translateY(10px);
       opacity:0;
-      transition:
-        opacity .18s ease-out,
-        transform .18s ease-out,
-        background .18s ease-out;
+      transition: opacity .18s ease-out, transform .18s ease-out, background .18s ease-out;
     }
-
-    .celebrate-overlay.show .celebrate-content {
+    .celebrate-overlay.show .celebrate-content{
       opacity:1;
       transform:scale(1) translateY(0);
     }
-
-    .celebrate-sub {
+    .celebrate-sub{
       display:block;
       margin-top:4px;
       font-size:clamp(11px,2.5vw,13px);
       letter-spacing:0.18em;
       opacity:0.9;
     }
-
-    .celebrate--mini .celebrate-content {
+    .celebrate--mini .celebrate-content{
       background:radial-gradient(circle at top, rgba(250,204,21,0.95), rgba(217,119,6,0.98));
       color:#022c22;
     }
-
-    .celebrate--all .celebrate-content {
+    .celebrate--all .celebrate-content{
       background:radial-gradient(circle at top, rgba(56,189,248,0.98), rgba(30,64,175,0.98));
     }
   </style>
 </head>
-
 <body>
 
-  <!-- ฉาก VR พื้นหลัง -->
   <a-scene
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
@@ -510,17 +298,14 @@
       <a-camera id="fg-camera"
                 wasd-controls-enabled="false"
                 look-controls="pointerLockEnabled: false">
-        <!-- crosshair กลางจอ -->
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
                   geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
                   material="shader: flat; color: #ffffff"
-                  position="0 0 -0.9">
-        </a-entity>
+                  position="0 0 -0.9"></a-entity>
       </a-camera>
     </a-entity>
 
-    <!-- ไฟ + พื้น -->
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
     <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
@@ -528,13 +313,10 @@
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- เลเยอร์ DOM เป้า -->
   <div id="fg-layer"></div>
 
-  <!-- HUD -->
   <div class="hud-root">
     <div class="hud-top">
-      <!-- ซ้าย: คะแนน -->
       <div class="hud-card">
         <div class="hud-main-title">HERO HEALTH • NUTRITION VR</div>
         <div class="hud-main-mode">Food Groups</div>
@@ -543,6 +325,7 @@
           <span>•</span>
           <span id="hud-time-label">60s</span>
         </div>
+
         <div class="hud-metrics">
           <div class="metric">
             <div class="metric-label">คะแนน</div>
@@ -560,7 +343,6 @@
         </div>
       </div>
 
-      <!-- ขวา: Quest -->
       <div class="fg-quest-panel">
         <div class="fg-quest-title">Quest</div>
         <div class="fg-quest-row">
@@ -576,7 +358,6 @@
       </div>
     </div>
 
-    <!-- ล่าง: โค้ช -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <div class="coach-avatar" id="coach-avatar">🥦</div>
@@ -588,13 +369,9 @@
     </div>
   </div>
 
-  <!-- ปุ่มเข้า VR -->
   <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
-
-  <!-- Countdown -->
   <div id="start-countdown" class="countdown-overlay">3</div>
 
-  <!-- Celebrate overlay -->
   <div id="celebrate-overlay" class="celebrate-overlay">
     <div class="celebrate-content" id="celebrate-content">
       <span id="celebrate-main">GOAL COMPLETE!</span>
@@ -602,7 +379,6 @@
     </div>
   </div>
 
-  <!-- Summary overlay -->
   <div class="result-overlay" id="result-overlay">
     <div class="result-card">
       <h2>สรุปผล • Food Groups</h2>
@@ -623,7 +399,7 @@
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
 
-  <!-- Difficulty + GameEngine -->
+  <!-- difficulty + engine -->
   <script src="./vr-groups/difficulty.foodgroups.js"></script>
   <script src="./vr-groups/GameEngine.js"></script>
 
@@ -641,10 +417,10 @@
     const elDiff    = document.getElementById('hud-diff-label');
     const elTime    = document.getElementById('hud-time-label');
 
-    const elQuestMain   = document.getElementById('fg-quest-main');
-    const elQuestMini   = document.getElementById('fg-quest-mini');
-    const elQuestMainP  = document.getElementById('fg-quest-main-progress');
-    const elQuestMiniP  = document.getElementById('fg-quest-mini-progress');
+    const elQuestMain  = document.getElementById('fg-quest-main');
+    const elQuestMini  = document.getElementById('fg-quest-mini');
+    const elQuestMainP = document.getElementById('fg-quest-main-progress');
+    const elQuestMiniP = document.getElementById('fg-quest-mini-progress');
 
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
@@ -658,10 +434,9 @@
     const btnResReplay  = document.getElementById('res-replay');
     const btnResBack    = document.getElementById('res-back');
 
-    const btnVR         = document.getElementById('btn-vr');
-    const elCountdown   = document.getElementById('start-countdown');
+    const btnVR       = document.getElementById('btn-vr');
+    const elCountdown = document.getElementById('start-countdown');
 
-    // Celebrate overlay
     const elCelebrateOverlay = document.getElementById('celebrate-overlay');
     const elCelebrateMain    = document.getElementById('celebrate-main');
     const elCelebrateSub     = document.getElementById('celebrate-sub');
@@ -669,10 +444,8 @@
 
     let hudMissCount = 0;
     let hudComboMax  = 0;
-    let hudGoalsTotal = 0;
-    let hudGoalsCleared = 0;
-    let hudMiniTotal = 0;
-    let hudMiniCleared = 0;
+    let hudGoalsTotal = 0, hudGoalsCleared = 0;
+    let hudMiniTotal  = 0, hudMiniCleared  = 0;
 
     function getParam(name, fallback){
       const url = new URL(window.location.href);
@@ -688,42 +461,28 @@
     }
 
     function showCelebrate(type, detail){
-      if (!elCelebrateOverlay || !elCelebrateMain) return;
-
       const t = type || 'goal';
       const d = detail || {};
-      let title = '';
-      let sub   = '';
+
+      if (celebrateTimer) { clearTimeout(celebrateTimer); celebrateTimer = null; }
+
+      elCelebrateOverlay.classList.remove('celebrate--mini','celebrate--all');
 
       if (t === 'goal') {
-        const idx = d.index || 1;
-        const total = d.total || 2;
-        title = `GOAL ${idx}/${total} COMPLETE 🎯`;
-        sub   = 'เก็บอาหารดีตามเป้าหมายสำเร็จแล้ว';
-        elCelebrateOverlay.classList.remove('celebrate--mini','celebrate--all');
+        elCelebrateMain.textContent = `GOAL ${d.index||1}/${d.total||2} COMPLETE 🎯`;
+        elCelebrateSub.textContent  = 'เก็บอาหารดีตามเป้าหมายสำเร็จแล้ว';
       } else if (t === 'mini') {
-        const idx = d.index || 1;
-        const total = d.total || 3;
-        title = `MINI QUEST ${idx}/${total} CLEAR ⭐`;
-        sub   = 'ภารกิจเสริมผ่านแล้ว เยี่ยมมาก!';
         elCelebrateOverlay.classList.add('celebrate--mini');
-        elCelebrateOverlay.classList.remove('celebrate--all');
+        elCelebrateMain.textContent = `MINI QUEST ${d.index||1}/${d.total||3} CLEAR ⭐`;
+        elCelebrateSub.textContent  = 'ภารกิจเสริมผ่านแล้ว เยี่ยมมาก!';
       } else {
-        title = 'ALL QUESTS CLEARED 🎉';
-        sub   = 'เคลียร์ทั้ง Goal และ Mini ครบทุกอันแล้ว!';
         elCelebrateOverlay.classList.add('celebrate--all');
-        elCelebrateOverlay.classList.remove('celebrate--mini');
+        elCelebrateMain.textContent = 'ALL QUESTS CLEARED 🎉';
+        elCelebrateSub.textContent  = 'เคลียร์ทั้ง Goal และ Mini ครบทุกอันแล้ว!';
       }
 
-      elCelebrateMain.textContent = title;
-      elCelebrateSub.textContent  = sub;
-
-      if (celebrateTimer) clearTimeout(celebrateTimer);
       elCelebrateOverlay.classList.add('show');
-
-      celebrateTimer = setTimeout(() => {
-        elCelebrateOverlay.classList.remove('show');
-      }, t === 'all' ? 2600 : 2000);
+      celebrateTimer = setTimeout(() => elCelebrateOverlay.classList.remove('show'), t === 'all' ? 2600 : 2000);
     }
 
     window.addEventListener('hha:celebrate', (e) => {
@@ -741,21 +500,14 @@
     window.addEventListener('hha:score', e => {
       const d = e.detail || {};
       if (typeof d.score === 'number') elScore.textContent = d.score;
-
       if (typeof d.combo === 'number') {
         hudComboMax = Math.max(hudComboMax, d.combo|0);
         elCombo.textContent = hudComboMax;
       }
-
       if (typeof d.misses === 'number') {
         hudMissCount = d.misses|0;
         elMiss.textContent = hudMissCount;
       }
-    });
-
-    // ✅ ไม่เพิ่ม miss ซ้ำอีก (ปล่อยให้ hha:score เป็นแหล่งเดียว)
-    window.addEventListener('hha:miss', () => {
-      setCoach('พลาดไปนิด ลองโฟกัสอาหารดีให้มากขึ้นนะ 😌');
     });
 
     window.addEventListener('hha:judge', e => {
@@ -777,7 +529,7 @@
       }
 
       if (mini){
-        elQuestMini.textContent = 'Mini: ' + (mini.label || '');
+        elQuestMini.textContent = (mini.label || 'Mini quest');
         elQuestMiniP.textContent = (mini.prog|0) + ' / ' + (mini.target|0);
       } else {
         elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
@@ -804,6 +556,7 @@
       elResScore.textContent = scoreFinal;
       elResCombo.textContent = hudComboMax;
       elResMiss.textContent  = hudMissCount;
+
       elResGoal.textContent  = (d.goalsCleared != null ? d.goalsCleared : hudGoalsCleared) +
         ' / ' + (d.goalsTotal || hudGoalsTotal || 0);
       elResMini.textContent  = (d.miniCleared != null ? d.miniCleared : hudMiniCleared) +
@@ -817,18 +570,14 @@
 
     btnVR.addEventListener('click', () => {
       const scene = document.querySelector('a-scene');
-      if (scene && scene.enterVR) {
-        try { scene.enterVR(); } catch(e) { console.warn(e); }
-      }
+      if (scene && scene.enterVR) { try { scene.enterVR(); } catch(e) {} }
     });
 
-    // Touch look
     const cam = document.querySelector('#fg-camera');
     if (cam) {
       attachTouchLook(cam, { sensitivity: 0.25, areaEl: document.body });
     }
 
-    // Cloud logger
     function initLogger(diff, dur, runMode){
       let studentProfile = null;
       let studentKey = null;
@@ -838,9 +587,7 @@
           studentProfile = JSON.parse(raw);
           studentKey = studentProfile.studentKey || null;
         }
-      }catch(err){
-        console.warn('[FoodGroupsVR] cannot parse student profile:', err);
-      }
+      }catch(err){}
 
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
@@ -856,7 +603,6 @@
     }
 
     function runCountdown(onDone){
-      if (!elCountdown) { onDone && onDone(); return; }
       const steps = ['3','2','1','Go!'];
       let idx = 0;
       elCountdown.textContent = steps[0];
@@ -874,27 +620,6 @@
       }, 800);
     }
 
-    // ✅ รอ A-Frame scene + camera พร้อมจริงก่อน start (กันเป้าไม่โผล่)
-    async function waitAFrameReady(){
-      const scene = document.querySelector('a-scene');
-      const camEl = document.querySelector('#fg-camera') || document.querySelector('a-camera');
-      if (!scene) return;
-
-      if (!scene.hasLoaded) {
-        await new Promise(res => scene.addEventListener('loaded', res, { once:true }));
-      }
-
-      const t0 = performance.now();
-      while (performance.now() - t0 < 4500) {
-        const cam =
-          (camEl && camEl.getObject3D && camEl.getObject3D('camera')) ||
-          (scene && scene.camera) ||
-          null;
-        if (cam) return;
-        await new Promise(r => setTimeout(r, 50));
-      }
-    }
-
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
@@ -903,16 +628,14 @@
       elDiff.textContent = diff.toUpperCase();
 
       let baseDur = 60;
-      if (diff === 'easy') baseDur = 80;
-      else if (diff === 'hard') baseDur = 45;
+      if (diff === 'easy') baseDur = 88;
+      else if (diff === 'hard') baseDur = 55;
 
       let dur = baseDur;
       const timeParam = getParam('time','');
       if (timeParam){
         const parsed = parseInt(timeParam,10);
-        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180){
-          dur = parsed;
-        }
+        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
       }
       elTime.textContent = dur + 's';
 
@@ -925,33 +648,23 @@
         console.error('[FoodGroupsVR] GameEngine ไม่พบ (window.GroupsVR.GameEngine)');
         return;
       }
-
       if (Engine.setLayerEl) Engine.setLayerEl(fgLayer);
 
-      runCountdown(async () => {
-        await waitAFrameReady();
-
+      runCountdown(() => {
         let timeLeft = dur;
         window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
 
         const timerId = setInterval(() => {
           timeLeft -= 1;
-          if (timeLeft < 0) {
-            clearInterval(timerId);
-            Engine.stop && Engine.stop('time-up');
-            return;
-          }
+          if (timeLeft < 0) return;
           window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
           if (timeLeft === 0){
             clearInterval(timerId);
             Engine.stop && Engine.stop('time-up');
           }
-        },1000);
+        }, 1000);
 
-        Engine.start(diff, {
-          layerEl: fgLayer,
-          runMode
-        });
+        Engine.start(diff, { layerEl: fgLayer, runMode });
       });
     });
   </script>
