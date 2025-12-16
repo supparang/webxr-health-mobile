@@ -776,4 +776,495 @@
     }
 
     window.addEventListener('hha:time', (e) => {
-      const sec = ((e.detail || {}).sec
+      const sec = ((e.detail || {}).sec | 0);
+      if (sec < 0) return;
+      elTime.textContent = sec + 's';
+    });
+
+    function computeGrade(score, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
+      const allGoalDone = (goalsTotal > 0 && goalsCleared >= goalsTotal);
+      const allMiniDone = (miniTotal > 0 && miniCleared >= miniTotal);
+      const allQuest    = allGoalDone && allMiniDone;
+
+      if (allQuest && score >= 1200 && comboMax >= 15 && misses <= 1) return 'SSS';
+      if (allQuest && score >= 900  && comboMax >= 10 && misses <= 3) return 'SS';
+      if (score >= 700) return 'S';
+      if (score >= 500) return 'A';
+      if (score >= 300) return 'B';
+      return 'C';
+    }
+
+    function updateRealtimeGrade(latestScore){
+      const scoreNow = (typeof latestScore === 'number')
+        ? latestScore
+        : (parseInt(elScore.textContent || '0',10) || 0);
+
+      const comboMaxVal = parseInt(elCombo.dataset.max || '0',10) || 0;
+
+      const grade = computeGrade(scoreNow, comboMaxVal, hudMissCount,
+        hudGoalsCleared, hudGoalsTotal, hudMiniCleared, hudMiniTotal);
+
+      elGrade.textContent = grade;
+      if (elGradeBadge) elGradeBadge.textContent = 'C–SSS';
+
+      const pctMap = { C:20, B:40, A:60, S:75, SS:90, SSS:100 };
+      const pct = pctMap[grade] || 15;
+      elGradeBar.style.width = pct + '%';
+      elGradeBar.dataset.grade = grade;
+    }
+
+    function getParticlesAPI(){
+      const gm = window.GAME_MODULES || {};
+      return gm.Particles || window.Particles || null;
+    }
+
+    function celebrateQuest(kind, cleared, total){
+      const P = getParticlesAPI();
+      const cx = window.innerWidth / 2;
+      const y  = window.innerHeight * 0.22;
+
+      if (P && P.burstAt){
+        P.burstAt(cx, y, { color: (kind === 'goal') ? '#22c55e' : '#38bdf8', count: 16, good: true });
+      }
+      if (P && P.scorePop){
+        const label = (kind === 'goal') ? (`Goal ${cleared}/${total}`) : (`Mini ${cleared}/${total}`);
+        P.scorePop(cx, y, 'MISSION CLEAR!', { judgment: label, good: true });
+      }
+      pulseCoachCelebrate();
+    }
+
+    function bigCelebrateAllQuests(callback){
+      const P = getParticlesAPI();
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight * 0.35;
+
+      if (P && P.burstAt){
+        for (let i = 0; i < 3; i++){
+          setTimeout(() => P.burstAt(cx, cy, {
+            color: (i === 1 ? '#facc15' : '#22c55e'),
+            count: 22,
+            good: true
+          }), i * 260);
+        }
+      }
+      if (P && P.scorePop){
+        P.scorePop(cx, cy, 'ALL QUESTS CLEAR!', { judgment: 'GREAT JOB', good: true });
+      }
+
+      setCoachFace('happy');
+      setCoach('สุดยอด! ทำครบทุกภารกิจแล้ว เตรียมดูสรุปผลงานกันเลย 🌟');
+      pulseCoachCelebrate();
+
+      if (elBigCelebrate){
+        elBigCelebrate.classList.add('show');
+        setTimeout(() => {
+          elBigCelebrate.classList.remove('show');
+          callback && callback();
+        }, 1400);
+      } else {
+        callback && callback();
+      }
+    }
+
+    window.addEventListener('quest:update', (e) => {
+      const d = e.detail || {};
+      const goal = d.goal || null;
+      const mini = d.mini || null;
+
+      if (goal){
+        const prog = goal.prog | 0;
+        const tgt  = goal.target | 0;
+        const pct  = tgt > 0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
+        elQuestMain.textContent = goal.label || 'ภารกิจหลัก';
+        elQuestMainBar.style.width = pct + '%';
+        elQuestMainCap.textContent = prog + ' / ' + tgt;
+      } else {
+        elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
+        elQuestMainBar.style.width = '100%';
+        elQuestMainCap.textContent = '';
+      }
+
+      if (mini){
+        const progM = mini.prog | 0;
+        const tgtM  = mini.target | 0;
+        const pctM  = tgtM > 0 ? Math.max(0, Math.min(100, (progM/tgtM)*100)) : 0;
+        elQuestMini.textContent = 'Mini: ' + (mini.label || '');
+        elQuestMiniBar.style.width = pctM + '%';
+        elQuestMiniCap.textContent = progM + ' / ' + tgtM;
+      } else {
+        elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
+        elQuestMiniBar.style.width = '100%';
+        elQuestMiniCap.textContent = '';
+      }
+
+      elQuestHint.textContent = d.hint ? d.hint : '';
+
+      const goalsAll = d.goalsAll || [];
+      const minisAll = d.minisAll || [];
+      hudGoalsTotal   = goalsAll.length;
+      hudGoalsCleared = goalsAll.filter(g => g && g.done).length;
+      hudMiniTotal    = minisAll.length;
+      hudMiniCleared  = minisAll.filter(m => m && m.done).length;
+
+      if (hudGoalsCleared > prevGoalsCleared) celebrateQuest('goal', hudGoalsCleared, hudGoalsTotal);
+      if (hudMiniCleared > prevMiniCleared)  celebrateQuest('mini', hudMiniCleared, hudMiniTotal);
+
+      prevGoalsCleared = hudGoalsCleared;
+      prevMiniCleared  = hudMiniCleared;
+
+      updateRealtimeGrade();
+    });
+
+    window.addEventListener('hha:coach', (e) => {
+      const text = ((e.detail || {}).text || '');
+      if (text) setCoach(text);
+    });
+
+    window.addEventListener('hha:score', (e) => {
+      const d = e.detail || {};
+      if (typeof d.score === 'number') elScore.textContent = d.score;
+
+      if (typeof d.combo === 'number') {
+        const c = d.combo | 0;
+        const prevMax = parseInt(elCombo.dataset.max || '0', 10);
+        const max = Math.max(prevMax, c);
+        elCombo.dataset.max = String(max);
+        elCombo.textContent = max;
+        if (c >= 10) setCoachFace('fever');
+        else if (c >= 5) setCoachFace('happy');
+        else if (c === 0 && hudMissCount === 0) setCoachFace('neutral');
+      }
+
+      if (typeof d.misses === 'number') {
+        hudMissCount = d.misses;
+        elMiss.textContent = hudMissCount;
+        updateLivesFromMisses();
+      }
+
+      updateRealtimeGrade(d.score);
+    });
+
+    window.addEventListener('hha:miss', (e) => {
+      const d = (e && e.detail) || {};
+      if (typeof d.misses === 'number') {
+        hudMissCount = d.misses;
+        elMiss.textContent = hudMissCount;
+      }
+      setCoachFace('sad');
+      setCoach('พลาดของดีไปนะ ลองโฟกัสผัก ผลไม้ และนมอีกครั้งนะ 😌');
+      updateRealtimeGrade();
+      updateLivesFromMisses();
+    });
+
+    window.addEventListener('hha:fever', (e) => {
+      const st = ((e.detail || {}).state || 'change');
+      if (st === 'start') { setCoachFace('fever'); setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥'); }
+      if (st === 'end') setCoachFace('neutral');
+    });
+
+    function showEndSummary(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
+      const grade = computeGrade(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+
+      elEndScore.textContent = scoreFinal;
+      elEndCombo.textContent = comboMax;
+      elEndMiss.textContent  = misses;
+      elEndGoal.textContent  = goalsCleared + ' / ' + goalsTotal;
+      elEndMini.textContent  = miniCleared + ' / ' + miniTotal;
+      elEndGrade.textContent = grade;
+      elEndToast.classList.add('show');
+
+      updateRealtimeGrade(scoreFinal);
+
+      setCoachFace(misses <= 3 ? 'happy' : 'neutral');
+      setCoach(runMode === 'research'
+        ? 'จบรอบวิจัยแล้ว ลองพักสั้น ๆ แล้วเล่นอีกรอบได้เลย 📊'
+        : 'จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
+    }
+
+    window.addEventListener('hha:end', (e) => {
+      const d = e.detail || {};
+      const scoreFinal = (typeof d.scoreFinal === 'number') ? d.scoreFinal : ((typeof d.score === 'number') ? d.score : 0);
+
+      const comboMaxVal = (typeof d.comboMax === 'number')
+        ? d.comboMax
+        : (parseInt(elCombo.dataset.max || '0',10) || 0);
+
+      const misses       = (typeof d.misses === 'number') ? d.misses : hudMissCount;
+      const goalsCleared = (typeof d.goalsCleared === 'number') ? d.goalsCleared : hudGoalsCleared;
+      const goalsTotal   = (typeof d.goalsTotal   === 'number') ? d.goalsTotal   : hudGoalsTotal;
+      const miniCleared  = (typeof d.miniCleared  === 'number') ? d.miniCleared  : hudMiniCleared;
+      const miniTotal    = (typeof d.miniTotal    === 'number') ? d.miniTotal    : hudMiniTotal;
+
+      const allQuest = (goalsTotal > 0 && goalsCleared >= goalsTotal) && (miniTotal > 0 && miniCleared >= miniTotal);
+
+      if (allQuest){
+        bigCelebrateAllQuests(() => showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal));
+      } else {
+        showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+      }
+    });
+
+    window.addEventListener('hha:judge', (e) => {
+      const label = ((e.detail || {}).label || '');
+      elJudge.textContent = label || '';
+    });
+
+    function initTouchLook(cameraEl){
+      if (!cameraEl) return;
+      attachTouchLook(cameraEl, {
+        sensitivity: 0.25,
+        areaEl: document.body,
+        onActiveChange: function(active){
+          if (active){
+            elTouchHint.classList.add('show');
+            setTimeout(() => elTouchHint.classList.remove('show'), 3200);
+          }
+        }
+      });
+    }
+
+    function initVRButton(){
+      if (!btnVR) return;
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+      btnVR.addEventListener('click', () => {
+        try { scene.enterVR(); } catch (err) { console.warn('[GoodJunkVR] enterVR error:', err); }
+      });
+    }
+
+    // ===== Cursor mode auto switch =====
+    let reticleFuseMs = 650;
+
+    function setCursorMode(mode){
+      const cursorEl = document.getElementById('cursor');
+      if (!cursorEl) return;
+
+      if (mode === 'gaze'){
+        reticleFuseMs = 650;
+        cursorEl.setAttribute('cursor', `fuse: true; fuseTimeout: ${reticleFuseMs}; rayOrigin: entity`);
+        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.006; radiusOuter: 0.018');
+      } else {
+        cursorEl.setAttribute('cursor', 'fuse: false; rayOrigin: mouse');
+        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.01; radiusOuter: 0.016');
+      }
+    }
+
+    function hookVrModeAutoSwitch(){
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+
+      setCursorMode('mouse');
+
+      scene.addEventListener('enter-vr', () => {
+        setCursorMode('gaze');
+        setCoachFace('happy');
+        setCoach('เข้าโหมด VR แล้ว! จ้องค้างที่เป้าเพื่อยิง 🎯');
+      });
+
+      scene.addEventListener('exit-vr', () => {
+        setCursorMode('mouse');
+        stopReticleProgress();
+        showReticle(false);
+        setCoachFace('neutral');
+        setCoach('กลับสู่โหมดปกติแล้ว คลิก/แตะเป้าได้เลย 👆');
+      });
+    }
+
+    // ===== Reticle progress =====
+    let reticleRAF = null;
+    let reticleStartMs = 0;
+    let reticleActive = false;
+    let reticleColor = '#38bdf8';
+
+    function ensureReticleEls(){
+      return {
+        wrap: document.getElementById('reticle-progress'),
+        ring: document.getElementById('reticle-ring')
+      };
+    }
+    function showReticle(show){
+      const { wrap } = ensureReticleEls();
+      if (!wrap) return;
+      wrap.classList.toggle('show', !!show);
+    }
+    function setReticleColor(color){
+      reticleColor = color || '#38bdf8';
+      const { wrap } = ensureReticleEls();
+      if (!wrap) return;
+      wrap.style.setProperty('--rp-color', reticleColor);
+    }
+    function setReticleProgress01(p01){
+      const { ring } = ensureReticleEls();
+      if (!ring) return;
+      const deg = Math.max(0, Math.min(360, Math.round(p01 * 360)));
+      ring.style.background = `conic-gradient(${reticleColor} ${deg}deg, rgba(255,255,255,0.12) 0deg)`;
+    }
+    function stopReticleProgress(){
+      reticleActive = false;
+      reticleStartMs = 0;
+      setReticleProgress01(0);
+      if (reticleRAF) cancelAnimationFrame(reticleRAF);
+      reticleRAF = null;
+    }
+    function startReticleProgress(){
+      reticleActive = true;
+      reticleStartMs = performance.now();
+      setReticleProgress01(0);
+      function loop(){
+        if (!reticleActive) return;
+        const t = performance.now() - reticleStartMs;
+        const p = reticleFuseMs > 0 ? (t / reticleFuseMs) : 0;
+        setReticleProgress01(Math.min(1, p));
+        if (p < 1) reticleRAF = requestAnimationFrame(loop);
+      }
+      reticleRAF = requestAnimationFrame(loop);
+    }
+
+    function kindToColor(kind){
+      const k = String(kind || '').toLowerCase();
+      if (k === 'good') return '#22c55e';
+      if (k === 'junk') return '#f97316';
+      if (k === 'star') return '#facc15';
+      if (k === 'diamond') return '#38bdf8';
+      if (k === 'shield') return '#60a5fa';
+      return '#e5e7eb';
+    }
+
+    // ✅ ใช้ event จาก GameEngine แทน document mouseenter (ชัวร์กว่า)
+    window.addEventListener('hha:hover', (e) => {
+      const d = e.detail || {};
+      const state = d.state || '';
+      const kind  = d.kind || '';
+      const cursorEl = document.getElementById('cursor');
+      const cur = cursorEl ? (cursorEl.getAttribute('cursor') || {}) : {};
+      const usingGaze = !!cur.fuse;
+
+      if (!usingGaze) return;
+
+      if (state === 'enter'){
+        setReticleColor(kindToColor(kind));
+        showReticle(true);
+        startReticleProgress();
+      } else if (state === 'leave'){
+        stopReticleProgress();
+        showReticle(false);
+      }
+    });
+
+    // เมื่อยิงสำเร็จ (click) รีเซ็ต reticle
+    document.addEventListener('click', () => {
+      const cursorEl = document.getElementById('cursor');
+      const cur = cursorEl ? (cursorEl.getAttribute('cursor') || {}) : {};
+      if (!cur.fuse) return;
+      stopReticleProgress();
+      showReticle(false);
+    }, true);
+
+    window.addEventListener('DOMContentLoaded', function() {
+      diff = String(getParam('diff','normal')).toLowerCase();
+      const runParam = String(getParam('run','play')).toLowerCase();
+      runMode = (runParam === 'research') ? 'research' : 'play';
+
+      let baseDur = 60;
+      if (diff === 'easy') baseDur = 80;
+      else if (diff === 'hard') baseDur = 45;
+
+      let dur = baseDur;
+      const timeParam = getParam('time','');
+      if (timeParam){
+        const parsed = parseInt(timeParam,10);
+        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
+      }
+
+      elDiff.textContent = diff.toUpperCase();
+      elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
+
+      elScore.textContent = '0';
+      elCombo.textContent = '0';
+      elCombo.dataset.max = '0';
+      elMiss.textContent  = '0';
+      elTime.textContent  = dur + 's';
+      hudMissCount = 0;
+
+      hudGoalsTotal = hudGoalsCleared = hudMiniTotal = hudMiniCleared = 0;
+      prevGoalsCleared = prevMiniCleared = 0;
+      elGrade.textContent = '-';
+      elGradeBar.style.width = '10%';
+      elGradeBar.dataset.grade = 'C';
+
+      currentLives = MAX_LIVES;
+      warnedLowLife = false;
+      renderLives(currentLives);
+
+      setCoachFace('neutral');
+      let introMsg = '';
+      if (runMode === 'research'){
+        introMsg = 'โหมดวิจัย: เล่นให้เป็นธรรมชาติ แต่พยายามพลาดให้น้อยที่สุดนะ เราจะเก็บข้อมูลการตอบสนองของเธอ 📊';
+      } else {
+        if (diff === 'easy') introMsg = 'โหมดง่าย ลองเก็บผัก ผลไม้ นมให้ได้เยอะ ๆ ก่อน อุ่นเครื่องให้พร้อมนะ 🥦🍎🥛';
+        else if (diff === 'hard') introMsg = 'โหมด HARD พร้อมลุย! หัวใจมีจำกัด พลาดบ่อยหัวใจหาย ระวังให้ดีนะ 💥';
+        else introMsg = 'แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะให้ได้มากที่สุดเลยนะ 🥦🍎🥛';
+      }
+      setCoach(introMsg);
+
+      let studentProfile = null;
+      let studentKey = null;
+      try{
+        const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
+        if (raw){
+          studentProfile = JSON.parse(raw);
+          studentKey = studentProfile.studentKey || null;
+        }
+      }catch(err){
+        console.warn('[GoodJunkVR] cannot parse student profile:', err);
+      }
+
+      initCloudLogger({
+        endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
+        projectTag: 'HeroHealth-GoodJunkVR',
+        mode: 'GoodJunkVR',
+        runMode: runMode,
+        diff: diff,
+        durationSec: dur,
+        studentKey: studentKey,
+        profile: studentProfile,
+        debug: false
+      });
+
+      initTouchLook(document.querySelector('#gj-camera'));
+      initVRButton();
+      hookVrModeAutoSwitch();
+
+      runCountdown(function(){
+        GameEngine.start(diff);
+
+        let timeLeft = dur;
+        let timerId = null;
+
+        function tickTime(){
+          timeLeft -= 1;
+          if (timeLeft < 0) return;
+          window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+          if (timeLeft <= 0){
+            clearInterval(timerId);
+            GameEngine.stop('time-up');
+          }
+        }
+
+        window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+        timerId = setInterval(tickTime, 1000);
+      });
+
+      if (btnReplay) btnReplay.addEventListener('click', () => window.location.reload());
+      if (btnBackHub) btnBackHub.addEventListener('click', () => window.location.href = './hub.html');
+      if (elEndRun) elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
+
+      document.addEventListener('visibilitychange', function(){
+        if (document.hidden) GameEngine.stop('tab-hidden');
+      });
+    });
+  </script>
+</body>
+</html>
