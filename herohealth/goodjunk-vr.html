@@ -556,6 +556,43 @@
       80%{ opacity:1; transform:scale(1);}
       100%{ opacity:0; transform:scale(0.9);}
     }
+
+    /* ===== VR Gaze Progress Reticle (HUD overlay) ===== */
+    .reticle-progress{
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%,-50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      z-index: 652; /* เหนือ scene, ต่ำกว่า countdown */
+      pointer-events: none;
+      display: none;
+      filter: drop-shadow(0 0 10px rgba(0,0,0,0.55));
+    }
+    .reticle-progress.show{ display:block; }
+    .reticle-progress .rp-ring{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      background: conic-gradient(var(--rp-color, #38bdf8) 0deg, rgba(255,255,255,0.12) 0deg);
+      mask: radial-gradient(circle, transparent 58%, #000 59%);
+      -webkit-mask: radial-gradient(circle, transparent 58%, #000 59%);
+      border:1px solid rgba(255,255,255,0.22);
+    }
+    .reticle-progress .rp-dot{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform: translate(-50%,-50%);
+      width: 6px;
+      height: 6px;
+      border-radius:999px;
+      background: rgba(255,255,255,0.95);
+      box-shadow: 0 0 10px rgba(255,255,255,0.45);
+      opacity: 0.95;
+    }
   </style>
 </head>
 <body>
@@ -631,9 +668,7 @@
           <!-- Lives — hard only -->
           <div class="metric metric-lives" id="hud-lives-wrap">
             <div class="metric-label">หัวใจ (HARD)</div>
-            <div class="metric-value" id="hud-lives">
-              <!-- เติมด้วย JS -->
-            </div>
+            <div class="metric-value" id="hud-lives"></div>
           </div>
 
           <!-- Grade (real-time) + bar -->
@@ -684,6 +719,12 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- VR Gaze Progress Reticle -->
+  <div id="reticle-progress" class="reticle-progress" aria-hidden="true">
+    <div class="rp-ring" id="reticle-ring"></div>
+    <div class="rp-dot"></div>
   </div>
 
   <!-- Center hint for touch-look -->
@@ -825,12 +866,10 @@
 
     function setCoach(text){
       if (!text) return;
-      // effect bubble
       if (elCoachBubble){
         elCoachBubble.classList.add('show');
         elCoachBubble.classList.remove('fx-pop');
       }
-      // text with small animation (wrap ทั้งข้อความเป็น span เดียว)
       if (elCoachText){
         elCoachText.innerHTML = '';
         const span = document.createElement('span');
@@ -910,7 +949,7 @@
       elCountdown.classList.remove('countdown-hidden');
       elCountdown.textContent = steps[0];
 
-      const interval = 800; // ms ต่อ step
+      const interval = 800;
       const t = setInterval(function(){
         idx++;
         if (idx >= steps.length){
@@ -965,9 +1004,7 @@
       );
 
       elGrade.textContent = grade;
-      if (elGradeBadge) {
-        elGradeBadge.textContent = 'C–SSS';
-      }
+      if (elGradeBadge) elGradeBadge.textContent = 'C–SSS';
 
       const pctMap = { C:20, B:40, A:60, S:75, SS:90, SSS:100 };
       const pct = pctMap[grade] || 15;
@@ -1080,11 +1117,7 @@
         elQuestMiniCap.textContent = '';
       }
 
-      if (d.hint){
-        elQuestHint.textContent = d.hint;
-      } else {
-        elQuestHint.textContent = '';
-      }
+      elQuestHint.textContent = d.hint ? d.hint : '';
 
       // เก็บสถานะ goals/minis ทั้งหมดไว้สำหรับคิดเกรด real-time
       const goalsAll = d.goalsAll || [];
@@ -1094,36 +1127,27 @@
       hudMiniTotal    = minisAll.length;
       hudMiniCleared  = minisAll.filter(function(m){ return m && m.done; }).length;
 
-      // เช็คว่าเพิ่งเคลียร์ goal / mini เพิ่มหรือไม่ → ฉลอง
-      if (hudGoalsCleared > prevGoalsCleared){
-        celebrateQuest('goal', hudGoalsCleared, hudGoalsTotal);
-      }
-      if (hudMiniCleared > prevMiniCleared){
-        celebrateQuest('mini', hudMiniCleared, hudMiniTotal);
-      }
+      if (hudGoalsCleared > prevGoalsCleared) celebrateQuest('goal', hudGoalsCleared, hudGoalsTotal);
+      if (hudMiniCleared > prevMiniCleared)  celebrateQuest('mini', hudMiniCleared, hudMiniTotal);
+
       prevGoalsCleared = hudGoalsCleared;
       prevMiniCleared  = hudMiniCleared;
 
-      // อัปเดตเกรด real-time ด้วย
       updateRealtimeGrade();
-      // NOTE: การจบเกมเมื่อ goal + mini ผ่านทั้งหมดให้ GameEngine เป็นคนตัดสินแล้ว
     });
 
     // HUD: Coach (ข้อความอย่างเดียว)
     window.addEventListener('hha:coach', function(e){
       const d = e.detail || {};
       const text = d.text || '';
-      if (text) {
-        setCoach(text);
-      }
+      if (text) setCoach(text);
     });
 
-    // HUD: คะแนน / คอมโบ / miss
+    // HUD: คะแนน / คอมโบ / miss (ตัวเลขทั้งหมดให้ยึดที่นี่)
     window.addEventListener('hha:score', function(e){
       const d = e.detail || {};
-      if (typeof d.score === 'number') {
-        elScore.textContent = d.score;
-      }
+      if (typeof d.score === 'number') elScore.textContent = d.score;
+
       if (typeof d.combo === 'number') {
         const c = d.combo | 0;
         const prevMax = parseInt(elCombo.dataset.max || '0', 10);
@@ -1131,28 +1155,28 @@
         elCombo.dataset.max = String(max);
         elCombo.textContent = max;
 
-        if (c >= 10) {
-          setCoachFace('fever');
-        } else if (c >= 5) {
-          setCoachFace('happy');
-        } else if (c === 0 && hudMissCount === 0) {
-          setCoachFace('neutral');
-        }
+        if (c >= 10) setCoachFace('fever');
+        else if (c >= 5) setCoachFace('happy');
+        else if (c === 0 && hudMissCount === 0) setCoachFace('neutral');
       }
+
       if (typeof d.misses === 'number') {
         hudMissCount = d.misses;
         elMiss.textContent = hudMissCount;
         updateLivesFromMisses();
       }
 
-      // อัปเดตเกรด real-time ทุกครั้งที่คะแนน/คอมโบเปลี่ยน
       updateRealtimeGrade(d.score);
     });
 
-    // HUD: Miss event
-    window.addEventListener('hha:miss', function(){
-      hudMissCount += 1;
-      elMiss.textContent = hudMissCount;
+    // ✅ สำคัญ: แก้ “นับ miss ซ้ำ”
+    // hha:miss ใช้เพื่อ “อารมณ์/ข้อความ” เท่านั้น ไม่บวกเลขเอง
+    window.addEventListener('hha:miss', function(e){
+      const d = (e && e.detail) || {};
+      if (typeof d.misses === 'number') {
+        hudMissCount = d.misses;
+        elMiss.textContent = hudMissCount;
+      }
       setCoachFace('sad');
       setCoach('พลาดของดีไปนะ ลองโฟกัสผัก ผลไม้ และนมอีกครั้งนะ 😌');
       updateRealtimeGrade();
@@ -1167,9 +1191,7 @@
         setCoachFace('fever');
         setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
       }
-      if (st === 'end') {
-        setCoachFace('neutral');
-      }
+      if (st === 'end') setCoachFace('neutral');
     });
 
     function showEndSummary(scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
@@ -1183,7 +1205,6 @@
       elEndGrade.textContent = grade;
       elEndToast.classList.add('show');
 
-      // sync HUD เกรด real-time ให้ตรงกับผลสรุปสุดท้าย
       updateRealtimeGrade(scoreFinal);
 
       if (runMode === 'research'){
@@ -1201,9 +1222,9 @@
       const rawScore  = (typeof d.scoreFinal === 'number') ? d.scoreFinal : d.score;
       const scoreFinal   = (typeof rawScore === 'number') ? rawScore : 0;
 
-      let comboMaxVal = 0;
-      if (typeof d.comboMax === 'number') comboMaxVal = d.comboMax;
-      else comboMaxVal = parseInt(elCombo.dataset.max || '0',10) || 0;
+      let comboMaxVal = (typeof d.comboMax === 'number')
+        ? d.comboMax
+        : (parseInt(elCombo.dataset.max || '0',10) || 0);
 
       const misses       = (typeof d.misses === 'number') ? d.misses : hudMissCount;
       const goalsCleared = (typeof d.goalsCleared === 'number') ? d.goalsCleared : hudGoalsCleared;
@@ -1216,7 +1237,6 @@
       const allQuest    = allGoalDone && allMiniDone;
 
       if (allQuest){
-        // ฉลองใหญ่ก่อน แล้วค่อยโชว์ summary
         bigCelebrateAllQuests(function(){
           showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
         });
@@ -1255,12 +1275,169 @@
       if (!scene) return;
 
       btnVR.addEventListener('click', function(){
-        try{
-          scene.enterVR();
-        }catch(err){
-          console.warn('[GoodJunkVR] enterVR error:', err);
-        }
+        try{ scene.enterVR(); }
+        catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
       });
+    }
+
+    // ===== Cursor mode: mouse ↔ gaze =====
+    let reticleFuseMs = 650;
+
+    function setCursorMode(mode){
+      const cursorEl = document.getElementById('cursor');
+      if (!cursorEl) return;
+
+      if (mode === 'gaze'){
+        const fuseTimeout = 650;
+        reticleFuseMs = fuseTimeout;
+
+        cursorEl.setAttribute('cursor', `fuse: true; fuseTimeout: ${fuseTimeout}; rayOrigin: entity`);
+        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.006; radiusOuter: 0.018');
+      } else {
+        cursorEl.setAttribute('cursor', 'fuse: false; rayOrigin: mouse');
+        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.01; radiusOuter: 0.016');
+      }
+    }
+
+    function hookVrModeAutoSwitch(){
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+
+      setCursorMode('mouse');
+
+      scene.addEventListener('enter-vr', function(){
+        setCursorMode('gaze');
+        setCoachFace('happy');
+        setCoach('เข้าโหมด VR แล้ว! จ้องค้างที่เป้าเพื่อยิง 🎯');
+      });
+
+      scene.addEventListener('exit-vr', function(){
+        setCursorMode('mouse');
+        stopReticleProgress();
+        showReticle(false);
+        setCoachFace('neutral');
+        setCoach('กลับสู่โหมดปกติแล้ว คลิก/แตะเป้าได้เลย 👆');
+      });
+    }
+
+    // ===== Progress Reticle (เปลี่ยนสีตามชนิดเป้า) =====
+    let reticleRAF = null;
+    let reticleStartMs = 0;
+    let reticleActive = false;
+    let reticleColor = '#38bdf8';
+
+    function ensureReticleEls(){
+      return {
+        wrap: document.getElementById('reticle-progress'),
+        ring: document.getElementById('reticle-ring')
+      };
+    }
+
+    function showReticle(show){
+      const { wrap } = ensureReticleEls();
+      if (!wrap) return;
+      wrap.classList.toggle('show', !!show);
+    }
+
+    function setReticleColor(color){
+      reticleColor = color || '#38bdf8';
+      const { wrap } = ensureReticleEls();
+      if (!wrap) return;
+      wrap.style.setProperty('--rp-color', reticleColor);
+    }
+
+    function setReticleProgress01(p01){
+      const { ring } = ensureReticleEls();
+      if (!ring) return;
+      const deg = Math.max(0, Math.min(360, Math.round(p01 * 360)));
+      ring.style.background = `conic-gradient(${reticleColor} ${deg}deg, rgba(255,255,255,0.12) 0deg)`;
+    }
+
+    function stopReticleProgress(){
+      reticleActive = false;
+      reticleStartMs = 0;
+      setReticleProgress01(0);
+      if (reticleRAF) cancelAnimationFrame(reticleRAF);
+      reticleRAF = null;
+    }
+
+    function startReticleProgress(){
+      reticleActive = true;
+      reticleStartMs = performance.now();
+      setReticleProgress01(0);
+
+      function loop(){
+        if (!reticleActive) return;
+        const t = performance.now() - reticleStartMs;
+        const p = reticleFuseMs > 0 ? (t / reticleFuseMs) : 0;
+        setReticleProgress01(Math.min(1, p));
+        if (p < 1) reticleRAF = requestAnimationFrame(loop);
+      }
+      reticleRAF = requestAnimationFrame(loop);
+    }
+
+    function kindToColor(kind){
+      const k = String(kind || '').toLowerCase();
+      if (k === 'good') return '#22c55e';
+      if (k === 'junk') return '#f97316';
+      if (k === 'star') return '#facc15';
+      if (k === 'diamond') return '#38bdf8';
+      if (k === 'shield') return '#60a5fa';
+      return '#e5e7eb';
+    }
+
+    function findKindFromTargetEl(el){
+      if (!el) return '';
+      // โครงเป้าจริงอยู่ที่ root (.gj-target) มี dataset.kind
+      const root = (typeof el.closest === 'function')
+        ? el.closest('.gj-target')
+        : null;
+      if (root && root.dataset && root.dataset.kind) return root.dataset.kind;
+
+      // fallback: บางที event โดน root เอง
+      if (el.dataset && el.dataset.kind) return el.dataset.kind;
+      return '';
+    }
+
+    // ใช้ event capture ที่ document เพื่อจับ mouseenter/leave จาก entity ที่ถูก ray
+    function hookGazeReticleColorEvents(){
+      function shouldUseGaze(){
+        const cursorEl = document.getElementById('cursor');
+        if (!cursorEl) return false;
+        const cur = cursorEl.getAttribute('cursor') || {};
+        return !!cur.fuse;
+      }
+
+      document.addEventListener('mouseenter', function(e){
+        if (!shouldUseGaze()) return;
+        const t = e.target;
+        if (!t || !t.getAttribute) return;
+        if (!t.getAttribute('data-hha-tgt')) return;
+
+        const kind = findKindFromTargetEl(t);
+        setReticleColor(kindToColor(kind));
+        showReticle(true);
+        startReticleProgress();
+      }, true);
+
+      document.addEventListener('mouseleave', function(e){
+        if (!shouldUseGaze()) return;
+        const t = e.target;
+        if (!t || !t.getAttribute) return;
+        if (!t.getAttribute('data-hha-tgt')) return;
+
+        stopReticleProgress();
+        showReticle(false);
+      }, true);
+
+      // เมื่อยิงสำเร็จ (click) รีเซ็ต reticle
+      document.addEventListener('click', function(){
+        if (!shouldUseGaze()) return;
+        stopReticleProgress();
+        showReticle(false);
+      }, true);
     }
 
     window.addEventListener('DOMContentLoaded', function() {
@@ -1348,12 +1525,16 @@
         durationSec: dur,
         studentKey: studentKey,
         profile: studentProfile,
-        debug: false  // production
+        debug: false
       });
 
       const cam = document.querySelector('#gj-camera');
       initTouchLook(cam);
       initVRButton();
+
+      // ✅ auto switch mouse↔gaze + ✅ reticle color by target
+      hookVrModeAutoSwitch();
+      hookGazeReticleColorEvents();
 
       // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา
       runCountdown(function(){
@@ -1377,30 +1558,15 @@
       });
 
       // ปุ่มหน้าสรุป
-      if (btnReplay) {
-        btnReplay.addEventListener('click', function(){
-          window.location.reload();
-        });
-      }
-      if (btnBackHub) {
-        btnBackHub.addEventListener('click', function(){
-          window.location.href = './hub.html';
-        });
-      }
+      if (btnReplay) btnReplay.addEventListener('click', () => window.location.reload());
+      if (btnBackHub) btnBackHub.addEventListener('click', () => window.location.href = './hub.html');
 
-      // แสดงโหมดใน summary
-      if (elEndRun){
-        elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
-      }
+      if (elEndRun) elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
 
-      // ถ้าสลับแท็บหรือจอหาย → หยุดเกม
       document.addEventListener('visibilitychange', function(){
-        if (document.hidden) {
-          GameEngine.stop('tab-hidden');
-        }
+        if (document.hidden) GameEngine.stop('tab-hidden');
       });
     });
   </script>
-
 </body>
 </html>
