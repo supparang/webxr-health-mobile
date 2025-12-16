@@ -1,12 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — Production-safe spawn engine (emoji targets + Goal/MiniQuest progress)
-// - Emoji targets = canvas texture on 3D plate (เห็นชัวร์บนมือถือ/VR)
-// - Clickable by mouse/touch + VR gaze/fuse (root has data-hha-tgt + geometry collider)
-// - Dispatch events:
-//    hha:score, hha:miss, hha:judge, hha:end, hha:life
-//    quest:update  (Goal + Mini quest progress สำหรับ HUD ขวา)
-//
-// NOTE: Intentionally NO imports to avoid module path issues.
+// FIX: เป้าไม่โผล่เพราะ animation__bob ไปเขียนทับ position ของ root -> ย้ายไปไว้ที่ child (visual holder)
 
 'use strict';
 
@@ -14,10 +8,7 @@ const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
 function clamp(v, a, b) { v = +v || 0; return Math.max(a, Math.min(b, v)); }
 function r(min, max) { return min + Math.random() * (max - min); }
-
-function dispatch(name, detail) {
-  ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
-}
+function dispatch(name, detail) { ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }
 
 // --- Particles helper (optional, from /vr/particles.js IIFE) ---
 function getParticles() {
@@ -38,12 +29,8 @@ function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
 // ---------- Difficulty ----------
 function diffCfg(diffKey) {
   const d = String(diffKey || 'normal').toLowerCase();
-  if (d === 'easy') {
-    return { spawnMs: 980, ttlMs: 1750, maxActive: 4, scale: 1.25, goodRatio: 0.72, bonusRatio: 0.10, missPerHeart: 3 };
-  }
-  if (d === 'hard') {
-    return { spawnMs: 680, ttlMs: 1200, maxActive: 5, scale: 1.05, goodRatio: 0.60, bonusRatio: 0.12, missPerHeart: 3 };
-  }
+  if (d === 'easy') return { spawnMs: 980, ttlMs: 1750, maxActive: 4, scale: 1.25, goodRatio: 0.72, bonusRatio: 0.10, missPerHeart: 3 };
+  if (d === 'hard') return { spawnMs: 680, ttlMs: 1200, maxActive: 5, scale: 1.05, goodRatio: 0.60, bonusRatio: 0.12, missPerHeart: 3 };
   return { spawnMs: 820, ttlMs: 1450, maxActive: 5, scale: 1.15, goodRatio: 0.66, bonusRatio: 0.11, missPerHeart: 3 };
 }
 
@@ -82,18 +69,15 @@ function emojiDataURL(emoji, sizePx) {
 
   ctx.clearRect(0, 0, s, s);
 
-  // soft shadow
+  // shadow
   ctx.save();
-  ctx.translate(0, 0);
   ctx.shadowColor = 'rgba(0,0,0,0.45)';
   ctx.shadowBlur = Math.round(s * 0.08);
   ctx.shadowOffsetY = Math.round(s * 0.03);
 
-  // emoji
   ctx.font = `${Math.floor(s * 0.78)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffffff';
   ctx.fillText(String(emoji || '❓'), s / 2, s / 2 + Math.round(s * 0.02));
   ctx.restore();
 
@@ -105,10 +89,11 @@ function emojiDataURL(emoji, sizePx) {
 function setPlaneEmoji(planeEl, emoji) {
   if (!planeEl) return;
   const url = emojiDataURL(emoji, 256);
+  // dataURL ใช้ได้กับ material src
   planeEl.setAttribute('material', `shader: flat; transparent: true; opacity: 1; side: double; src: ${url}`);
 }
 
-// ---------- Target factory (3D plate + emoji) ----------
+// ---------- Target visuals ----------
 function kindColors(kind) {
   const k = String(kind || '').toLowerCase();
   if (k === 'good') return { rim: '#22c55e', glow: '#22c55e' };
@@ -119,6 +104,8 @@ function kindColors(kind) {
   return { rim: '#e5e7eb', glow: '#94a3b8' };
 }
 
+// FIX: root = collider + placement only (ห้ามใส่ animation position ที่ root)
+//      visualHolder = ลูกที่ bob ได้
 function makeTargetEntity() {
   const root = document.createElement('a-entity');
   root.className = 'gj-target';
@@ -128,7 +115,14 @@ function makeTargetEntity() {
   root.setAttribute('geometry', 'primitive: circle; radius: 0.30');
   root.setAttribute('material', 'shader: flat; opacity: 0; transparent: true; side: double');
 
-  // base disc (depth)
+  // visual holder (bob เฉพาะลูก)
+  const vis = document.createElement('a-entity');
+  vis.className = 'gj-vis';
+  vis.setAttribute('position', '0 0 0');
+  vis.setAttribute('animation__bob', 'property: position; dir: alternate; dur: 650; loop: true; easing: easeInOutSine; from: 0 0 0; to: 0 0.05 0');
+  root.appendChild(vis);
+
+  // base disc
   const base = document.createElement('a-cylinder');
   base.className = 'gj-base';
   base.setAttribute('radius', '0.34');
@@ -136,9 +130,9 @@ function makeTargetEntity() {
   base.setAttribute('position', '0 0 -0.02');
   base.setAttribute('rotation', '90 0 0');
   base.setAttribute('material', 'shader: standard; color: #0b1220; roughness: 0.82; metalness: 0.05; opacity: 0.94; transparent: true');
-  root.appendChild(base);
+  vis.appendChild(base);
 
-  // rim highlight
+  // rim
   const rim = document.createElement('a-torus');
   rim.className = 'gj-rim';
   rim.setAttribute('radius', '0.35');
@@ -146,33 +140,30 @@ function makeTargetEntity() {
   rim.setAttribute('rotation', '90 0 0');
   rim.setAttribute('position', '0 0 -0.01');
   rim.setAttribute('material', 'shader: standard; color: #ffffff; emissive: #22c55e; emissiveIntensity: 0.55; opacity: 0.42; transparent: true');
-  root.appendChild(rim);
+  vis.appendChild(rim);
 
-  // emoji plane (front)
+  // glow
+  const glow = document.createElement('a-plane');
+  glow.className = 'gj-glow';
+  glow.setAttribute('width', '0.88');
+  glow.setAttribute('height', '0.88');
+  glow.setAttribute('position', '0 0 0.02');
+  glow.setAttribute('material', 'shader: flat; color: #22c55e; opacity: 0.10; transparent: true; side: double');
+  vis.appendChild(glow);
+
+  // emoji plane
   const face = document.createElement('a-plane');
   face.className = 'gj-emoji-plane';
   face.setAttribute('width', '0.66');
   face.setAttribute('height', '0.66');
   face.setAttribute('position', '0 0 0.035');
   face.setAttribute('material', 'shader: flat; transparent: true; opacity: 1; side: double');
-  root.appendChild(face);
-
-  // glow behind emoji
-  const glow = document.createElement('a-plane');
-  glow.className = 'gj-glow';
-  glow.setAttribute('width', '0.88');
-  glow.setAttribute('height', '0.88');
-  glow.setAttribute('position', '0 0 0.02');
-  glow.setAttribute('material', 'shader: flat; color: #22c55e; opacity: 0.09; transparent: true; side: double');
-  root.appendChild(glow);
-
-  // subtle bob (world position changes via animation component)
-  root.setAttribute('animation__bob', 'property: position; dir: alternate; dur: 650; loop: true; easing: easeInOutSine; to: 0 0.05 0');
+  vis.appendChild(face);
 
   return root;
 }
 
-// ---------- Pop in/out (no deps) ----------
+// ---------- Pop in/out ----------
 function popIn(el) {
   if (!el || !el.object3D) return;
   el.object3D.scale.set(0.001, 0.001, 0.001);
@@ -186,7 +177,6 @@ function popIn(el) {
   }
   requestAnimationFrame(step);
 }
-
 function popOutAndRemove(el, removeFn) {
   if (!el || !el.object3D) { removeFn && removeFn(); return; }
   const t0 = performance.now();
@@ -220,55 +210,32 @@ export const GameEngine = (function () {
   let comboMax = 0;
   let misses = 0;
 
-  // hearts (hard only)
+  // hearts
   const HEARTS_MAX = 3;
   let heartsLeft = HEARTS_MAX;
 
-  // ===== Quest System counters =====
-  let goodHits = 0;
-  let junkHits = 0;
-  let starHits = 0;
-  let diamondHits = 0;
-  let shieldHits = 0;
-
-  let miniIndex = 0;          // mini quest current
-  let minisClearedCount = 0;  // cleared minis (accumulated)
-  let noMissSec = 0;          // streak seconds without miss
+  // quest counters
+  let goodHits = 0, junkHits = 0, starHits = 0, diamondHits = 0, shieldHits = 0;
+  let miniIndex = 0, minisClearedCount = 0, noMissSec = 0;
 
   function resetStats() {
-    score = 0;
-    combo = 0;
-    comboMax = 0;
-    misses = 0;
-    heartsLeft = HEARTS_MAX;
-
+    score = 0; combo = 0; comboMax = 0; misses = 0; heartsLeft = HEARTS_MAX;
     goodHits = junkHits = starHits = diamondHits = shieldHits = 0;
-    miniIndex = 0;
-    minisClearedCount = 0;
-    noMissSec = 0;
+    miniIndex = 0; minisClearedCount = 0; noMissSec = 0;
 
     dispatch('hha:score', { score, combo, misses });
     dispatch('hha:judge', { label: '' });
-    dispatch('hha:life', {
-      diff,
-      heartsLeft,
-      heartsMax: HEARTS_MAX,
-      perHeart: cfg.missPerHeart
-    });
+    dispatch('hha:life', { diff, heartsLeft, heartsMax: HEARTS_MAX, perHeart: cfg.missPerHeart });
 
     emitQuestUpdate();
   }
 
-  function setJudge(label) {
-    dispatch('hha:judge', { label: String(label || '') });
-  }
-
+  function setJudge(label) { dispatch('hha:judge', { label: String(label || '') }); }
   function addScore(delta, label) {
     score = (score + (delta | 0)) | 0;
     dispatch('hha:score', { score, combo, misses });
     if (label) setJudge(label);
   }
-
   function setCombo(c) {
     combo = c | 0;
     comboMax = Math.max(comboMax, combo);
@@ -284,36 +251,24 @@ export const GameEngine = (function () {
     noMissSec = 0;
     emitQuestUpdate();
 
-    // hearts only for hard
     if (diff === 'hard') {
       const lost = Math.floor(misses / (cfg.missPerHeart || 3));
       heartsLeft = Math.max(0, HEARTS_MAX - lost);
-
-      dispatch('hha:life', {
-        diff,
-        heartsLeft,
-        heartsMax: HEARTS_MAX,
-        perHeart: cfg.missPerHeart
-      });
-
+      dispatch('hha:life', { diff, heartsLeft, heartsMax: HEARTS_MAX, perHeart: cfg.missPerHeart });
       if (heartsLeft <= 0) stop('no-hearts');
     }
   }
 
   function kindRoll() {
     const p = Math.random();
-
-    // bonus sometimes
     if (p < (cfg.bonusRatio || 0.1)) {
       const q = Math.random();
       if (q < 0.45) return 'star';
       if (q < 0.85) return 'diamond';
       return 'shield';
     }
-    // normal good/junk
     return (Math.random() < (cfg.goodRatio || 0.66)) ? 'good' : 'junk';
   }
-
   function emojiFor(kind) {
     if (kind === 'good') return pick(EMOJI.good);
     if (kind === 'junk') return pick(EMOJI.junk);
@@ -323,13 +278,12 @@ export const GameEngine = (function () {
     return '❓';
   }
 
-  // ===== Quest System =====
+  // ===== Quest system =====
   function questTargetsByDiff() {
     if (diff === 'easy') return { goalGood: 10, goalMaxJunk: 3 };
     if (diff === 'hard') return { goalGood: 14, goalMaxJunk: 2 };
     return { goalGood: 12, goalMaxJunk: 3 };
   }
-
   function currentMiniDef() {
     const list = [
       { key: 'combo8',   label: 'ทำคอมโบให้ถึง 8',           target: 8,  get: () => comboMax },
@@ -340,27 +294,12 @@ export const GameEngine = (function () {
     ];
     return list[miniIndex % list.length];
   }
-
   function buildQuestPayload() {
     const T = questTargetsByDiff();
-
     const goalsAll = [
-      {
-        key: 'G1',
-        label: `เก็บของดีให้ครบ ${T.goalGood} ครั้ง`,
-        prog: goodHits,
-        target: T.goalGood,
-        done: goodHits >= T.goalGood
-      },
-      {
-        key: 'G2',
-        label: `พลาดของขยะไม่เกิน ${T.goalMaxJunk} ครั้ง`,
-        prog: junkHits,
-        target: T.goalMaxJunk,
-        done: junkHits <= T.goalMaxJunk
-      }
+      { key: 'G1', label: `เก็บของดีให้ครบ ${T.goalGood} ครั้ง`, prog: goodHits, target: T.goalGood, done: goodHits >= T.goalGood },
+      { key: 'G2', label: `พลาดของขยะไม่เกิน ${T.goalMaxJunk} ครั้ง`, prog: junkHits, target: T.goalMaxJunk, done: junkHits <= T.goalMaxJunk }
     ];
-
     const goalShow = goalsAll.find(g => !g.done) || null;
 
     const m = currentMiniDef();
@@ -368,17 +307,9 @@ export const GameEngine = (function () {
     const mDone = (mProg >= m.target);
 
     const minisAll = [
-      ...Array.from({ length: minisClearedCount }).map((_, i) => ({
-        key: 'M' + (i + 1),
-        label: 'ผ่านแล้ว',
-        prog: 1,
-        target: 1,
-        done: true
-      })),
+      ...Array.from({ length: minisClearedCount }).map((_, i) => ({ key: 'M' + (i + 1), label: 'ผ่านแล้ว', prog: 1, target: 1, done: true })),
       { key: 'M_NOW', label: m.label, prog: mProg, target: m.target, done: mDone }
     ];
-
-    const miniShow = { label: m.label, prog: mProg, target: m.target };
 
     let hint = '';
     if (goalShow && goalShow.key === 'G1') hint = 'โฟกัสผัก/ผลไม้/นม 🥦🍎🥛';
@@ -386,37 +317,28 @@ export const GameEngine = (function () {
 
     return {
       goal: goalShow ? { label: goalShow.label, prog: goalShow.prog, target: goalShow.target } : null,
-      mini: miniShow,
+      mini: { label: m.label, prog: mProg, target: m.target },
       hint,
       goalsAll,
       minisAll
     };
   }
-
-  function emitQuestUpdate() {
-    dispatch('quest:update', buildQuestPayload());
-  }
-
+  function emitQuestUpdate() { dispatch('quest:update', buildQuestPayload()); }
   function checkMiniAdvance() {
     const m = currentMiniDef();
     if (m.get() >= m.target) {
       minisClearedCount++;
       miniIndex++;
-      noMissSec = 0; // reset streak fairness
+      noMissSec = 0;
       emitQuestUpdate();
     }
   }
 
-  // ---------- Spawn / Remove ----------
+  // ----- remove/spawn -----
   function removeTarget(t) {
-    if (!t) return;
-    if (!active.has(t)) return;
-
+    if (!t || !active.has(t)) return;
     active.delete(t);
-
-    const removeNow = () => {
-      try { t.parentNode && t.parentNode.removeChild(t); } catch (_) {}
-    };
+    const removeNow = () => { try { t.parentNode && t.parentNode.removeChild(t); } catch (_) {} };
     popOutAndRemove(t, removeNow);
   }
 
@@ -424,7 +346,6 @@ export const GameEngine = (function () {
     if (!running) return;
     if (active.size >= (cfg.maxActive | 0)) return;
 
-    // place in front of camera (spread)
     const z = -r(2.6, 4.3);
     const x = r(-1.15, 1.15);
     const y = r(0.95, 2.25);
@@ -433,23 +354,19 @@ export const GameEngine = (function () {
     const kind = kindRoll();
     t.dataset.kind = kind;
 
-    // set emoji texture (plane)
-    const emoji = emojiFor(kind);
+    // emoji plane
     const plane = t.querySelector('.gj-emoji-plane');
-    setPlaneEmoji(plane, emoji);
+    setPlaneEmoji(plane, emojiFor(kind));
 
-    // color accents per kind
+    // color accents
     const col = kindColors(kind);
     const rim = t.querySelector('.gj-rim');
     const glow = t.querySelector('.gj-glow');
     if (rim) rim.setAttribute('material', `shader: standard; color: #ffffff; emissive: ${col.rim}; emissiveIntensity: 0.62; opacity: 0.42; transparent: true`);
     if (glow) glow.setAttribute('material', `shader: flat; color: ${col.glow}; opacity: 0.10; transparent: true; side: double`);
 
-    // scale per diff
     const s = cfg.scale || 1.15;
     t.object3D.scale.set(s, s, s);
-
-    // position
     t.setAttribute('position', `${x} ${y} ${z}`);
 
     // face camera (best-effort)
@@ -461,7 +378,6 @@ export const GameEngine = (function () {
       }
     } catch (_) {}
 
-    // click handler
     const onHit = (ev) => {
       ev && ev.stopPropagation && ev.stopPropagation();
       if (!active.has(t)) return;
@@ -469,18 +385,8 @@ export const GameEngine = (function () {
       const k = String(t.dataset.kind || '');
       const P = getParticles();
 
-      if (P && P.burstAt) {
-        P.burstAt(window.innerWidth / 2, window.innerHeight * 0.34, {
-          count: 16,
-          good: (k !== 'junk')
-        });
-      }
-      if (P && P.scorePop) {
-        P.scorePop(window.innerWidth / 2, window.innerHeight * 0.32, (k === 'junk' ? 'OOPS!' : 'NICE!'), {
-          judgment: k.toUpperCase(),
-          good: (k !== 'junk')
-        });
-      }
+      if (P && P.burstAt) P.burstAt(window.innerWidth / 2, window.innerHeight * 0.34, { count: 16, good: (k !== 'junk') });
+      if (P && P.scorePop) P.scorePop(window.innerWidth / 2, window.innerHeight * 0.32, (k === 'junk' ? 'OOPS!' : 'NICE!'), { judgment: k.toUpperCase(), good: (k !== 'junk') });
 
       if (k === 'junk') {
         junkHits++;
@@ -504,23 +410,19 @@ export const GameEngine = (function () {
 
       emitQuestUpdate();
       checkMiniAdvance();
-
       removeTarget(t);
     };
 
     t.addEventListener('click', onHit);
 
-    // TTL timeout
     const ttl = cfg.ttlMs | 0;
-    t.__gj = { ttl, onHit };
-
     layer.appendChild(t);
     active.add(t);
     popIn(t);
 
     // timeout rule:
-    // - ถ้าเป็นของดี/โบนัสแล้วไม่กด -> ถือว่า "พลาด" (miss)
-    // - ถ้าเป็น junk แล้วไม่กด -> ไม่ลงโทษ (กัน miss พุ่งตอนมองไม่เห็น)
+    // - ถ้าเป็นของดี/โบนัสแล้วไม่กด -> MISS
+    // - ถ้าเป็น junk แล้วไม่กด -> ไม่ MISS
     setTimeout(() => {
       if (!running) return;
       if (!active.has(t)) return;
@@ -543,13 +445,10 @@ export const GameEngine = (function () {
   }
 
   function clearAllTargets() {
-    active.forEach(t => {
-      try { t.parentNode && t.parentNode.removeChild(t); } catch (_) {}
-    });
+    active.forEach(t => { try { t.parentNode && t.parentNode.removeChild(t); } catch (_) {} });
     active.clear();
   }
 
-  // ---------- Public API ----------
   function start(diffKey) {
     try {
       scene = ensureScene();
@@ -566,7 +465,6 @@ export const GameEngine = (function () {
     running = true;
     resetStats();
 
-    // tick streak seconds (mini quest no-miss)
     clearInterval(secTimer);
     secTimer = setInterval(() => {
       if (!running) return;
@@ -575,7 +473,6 @@ export const GameEngine = (function () {
       checkMiniAdvance();
     }, 1000);
 
-    // spawn immediately (เห็นทันที)
     spawnOne();
     spawnOne();
     loopSpawn();
@@ -587,17 +484,12 @@ export const GameEngine = (function () {
     if (!running) return;
     running = false;
 
-    clearInterval(spawnTimer);
-    spawnTimer = null;
+    clearInterval(spawnTimer); spawnTimer = null;
+    clearInterval(secTimer); secTimer = null;
 
-    clearInterval(secTimer);
-    secTimer = null;
-
-    // finalize quest summary (จริง)
     const q = buildQuestPayload();
     const goalsTotal = (q.goalsAll || []).length;
     const goalsCleared = (q.goalsAll || []).filter(g => g && g.done).length;
-
     const miniTotal = (q.minisAll || []).length;
     const miniCleared = (q.minisAll || []).filter(m => m && m.done).length;
 
@@ -606,10 +498,8 @@ export const GameEngine = (function () {
       scoreFinal: score,
       comboMax: comboMax,
       misses: misses,
-      goalsCleared,
-      goalsTotal,
-      miniCleared,
-      miniTotal
+      goalsCleared, goalsTotal,
+      miniCleared, miniTotal
     });
 
     clearAllTargets();
