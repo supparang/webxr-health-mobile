@@ -2,7 +2,10 @@
 // Hydration Quest VR — น้ำสมดุล + Water Gauge + Fever + Goal / Mini quest
 // ใช้ร่วมกับ: mode-factory.js, ui-water.js, hydration.quest.js, hydration.state.js
 //
-// 2025-12-16b:
+// 2025-12-16c (FIX targets + CELEBRATE):
+// ✅ FIX: ถ้าไม่มี host/target-layer → สร้าง fallback ให้อัตโนมัติ (เป้าไม่หายหลังฉาก)
+// ✅ FIX: ถ้า factoryBoot ไม่ auto-start → เรียก inst.start()/inst.run() ถ้ามี
+// ✅ NEW: ยิง hha:celebrate (mini/goal/all) ให้ hha-hud.js โชว์ฉลองทันที
 // - ส่ง hha:event + hha:session (ให้ /vr/hha-cloud-logger.js)
 // - เก็บ metrics พื้นฐาน (hit/expire/rt/accuracy ฯลฯ)
 // - hha:judge ยิงครั้งเดียว (label + points/x/y/kind) ให้ HUD/FX รวมเป็นอันเดียว
@@ -16,12 +19,13 @@ import * as HQ from './hydration.quest.js';
 
 // ---------- Root & Global modules ----------
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+const DOC  = ROOT.document;
 
 // Particles: /vr/particles.js (IIFE)
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  { scorePop () {}, burstAt () {} };
+  { scorePop () {}, burstAt () {}, celebrate () {} };
 
 // FeverUI: /vr/ui-fever.js (IIFE)
 const FeverUI =
@@ -71,6 +75,60 @@ const SHIELD = '🛡️';
 const FIRE   = '🔥';
 const BONUS  = [STAR, DIA, SHIELD, FIRE];
 
+// ---------- FIX: ensure playfield/target-layer exists ----------
+function ensurePlayfieldAndLayer () {
+  if (!DOC) return { playfield: null, layer: null };
+
+  // style (ครั้งเดียว)
+  if (!DOC.getElementById('hha-hydration-fallback-style')) {
+    const st = DOC.createElement('style');
+    st.id = 'hha-hydration-fallback-style';
+    st.textContent = `
+      #hvr-playfield{
+        position:fixed;
+        inset:0;
+        z-index:100;   /* ใต้ HUD (900) แต่เหนือฉาก */
+        pointer-events:none;
+      }
+      #target-layer{
+        position:absolute;
+        inset:0;
+        pointer-events:auto; /* ต้องรับ tap/click */
+        touch-action:manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+    `;
+    DOC.head.appendChild(st);
+  }
+
+  // playfield
+  let playfield = DOC.getElementById('hvr-playfield');
+  if (!playfield) {
+    playfield = DOC.createElement('div');
+    playfield.id = 'hvr-playfield';
+    DOC.body.appendChild(playfield);
+  }
+
+  // target layer
+  let layer = DOC.getElementById('target-layer');
+  if (!layer) {
+    layer = DOC.createElement('div');
+    layer.id = 'target-layer';
+    playfield.appendChild(layer);
+  } else {
+    // ถ้า layer อยู่ที่อื่น ให้ย้ายเข้า playfield เพื่อให้ z-index ถูก
+    if (layer.parentElement !== playfield) {
+      try { playfield.appendChild(layer); } catch {}
+    }
+  }
+
+  // บังคับไม่ให้โดนซ่อน
+  playfield.style.display = 'block';
+  layer.style.display = 'block';
+
+  return { playfield, layer };
+}
+
 // ---------- FX wrappers ----------
 function safeScorePop (x, y, value, judgment, isGood) {
   try {
@@ -79,7 +137,14 @@ function safeScorePop (x, y, value, judgment, isGood) {
 }
 function safeBurstAt (x, y, isGood, colorHint) {
   try {
-    Particles.burstAt(x, y, { color: colorHint || (isGood ? '#22c55e' : '#f97316') });
+    // รองรับทั้ง burstAt(x,y,{...}) และ burstAt(x,y,count)
+    if (Particles && typeof Particles.burstAt === 'function') {
+      try {
+        Particles.burstAt(x, y, { color: colorHint || (isGood ? '#22c55e' : '#f97316') });
+      } catch {
+        Particles.burstAt(x, y, isGood ? 18 : 14);
+      }
+    }
   } catch {}
 }
 
@@ -99,6 +164,9 @@ function fromStartMs() {
 // ======================================================
 
 export async function boot (cfg = {}) {
+  // ✅ FIX: สร้าง host/layer กัน “เป้าไม่โผล่”
+  const { playfield, layer } = ensurePlayfieldAndLayer();
+
   // ----- Difficulty + Duration -----
   const diffRaw = String(cfg.difficulty || 'normal').toLowerCase();
   const diff = (['easy', 'normal', 'hard'].includes(diffRaw)) ? diffRaw : 'normal';
@@ -224,7 +292,7 @@ export async function boot (cfg = {}) {
   }
 
   function pushFeverEvent (state) {
-    emit('hha:fever', { state, fever, active: feverActive });
+    emit('hha:fever', { state, fever, active: feverActive, shield });
   }
 
   function applyFeverUI () {
@@ -282,6 +350,7 @@ export async function boot (cfg = {}) {
       mode: 'Hydration',
       modeKey: 'hydration-vr',
       modeLabel: 'Hydration Quest',
+      runMode: cfg.runMode || '',
       difficulty: diff,
       score,
       combo,
@@ -296,7 +365,6 @@ export async function boot (cfg = {}) {
     });
   }
 
-  // ---------- Progress helper for logger ----------
   function progressForLogger() {
     const snap = getQuestSnapshot();
     const goalsTotal = snap.goalsTotal || GOAL_TARGET;
@@ -339,7 +407,6 @@ export async function boot (cfg = {}) {
     });
   }
 
-  // ---------- ส่งหัวข้อ Goal / Mini ให้ HUD ----------
   function pushQuest (hint) {
     const snap = getQuestSnapshot();
     const { goalsView, minisView, goalsAll, minisAll, goalsTotal, minisTotal } = snap;
@@ -402,7 +469,6 @@ export async function boot (cfg = {}) {
     safeBurstAt(x, y, isGood, colorHint);
   }
 
-  // ✅ judge event ให้ HUD/FX รวมเป็น “อันเดียว”
   function sendJudge (label, extra = {}) {
     emit('hha:judge', { label, ...extra });
   }
@@ -677,8 +743,10 @@ export async function boot (cfg = {}) {
         meta: questMeta()
       });
 
-      coach(`Goal ${justIndex}/${goalsTotal} สำเร็จแล้ว! ${text || ''} 🎯`, 3500);
+      // ✅ NEW: HUD celebration
+      emit('hha:celebrate', { kind: 'goal', id: g?.id || '', label: text || `Goal ${justIndex} cleared` });
 
+      coach(`Goal ${justIndex}/${goalsTotal} สำเร็จแล้ว! ${text || ''} 🎯`, 3500);
       if (typeof deck.nextGoal === 'function' && goalCleared < GOAL_TARGET) deck.nextGoal();
     }
 
@@ -696,8 +764,10 @@ export async function boot (cfg = {}) {
         meta: questMeta()
       });
 
-      coach(`Mini quest ${justIndex}/${minisTotal} สำเร็จแล้ว! ${text || ''} ⭐`, 3500);
+      // ✅ NEW: HUD celebration
+      emit('hha:celebrate', { kind: 'mini', id: m?.id || '', label: text || `Mini ${justIndex} cleared` });
 
+      coach(`Mini quest ${justIndex}/${minisTotal} สำเร็จแล้ว! ${text || ''} ⭐`, 3500);
       if (typeof deck.nextMini === 'function' && miniCleared < MINI_TARGET) deck.nextMini();
     }
 
@@ -709,6 +779,9 @@ export async function boot (cfg = {}) {
         minisTotal,
         meta: questMeta()
       });
+
+      // ✅ NEW: HUD celebration
+      emit('hha:celebrate', { kind: 'all', id: 'all', label: 'เคลียร์ครบทุกภารกิจ' });
 
       coach('สุดยอด! เคลียร์ทุกภารกิจแล้ว 🎉 ฉลองใหญ่แล้วมาดูสรุปคะแนนกัน!', 4000);
       finish(elapsedSec, 'quests-complete', snap);
@@ -784,7 +857,6 @@ export async function boot (cfg = {}) {
       console.warn('[Hydration] inst.stop error', err);
     }
 
-    // end HUD event
     emit('hha:end', {
       mode: 'Hydration',
       modeLabel: 'Hydration Quest VR',
@@ -804,7 +876,6 @@ export async function boot (cfg = {}) {
       endReason: reason
     });
 
-    // ✅ session for cloud logger
     const metrics = buildSessionMetrics();
     emit('hha:session', {
       sessionId,
@@ -826,7 +897,6 @@ export async function boot (cfg = {}) {
       nHitGood: metrics.nHitGood,
       nHitJunk: metrics.nHitBad,
 
-      // Extras packed
       reason: reason || '',
       extra: JSON.stringify({
         waterStart,
@@ -846,7 +916,7 @@ export async function boot (cfg = {}) {
 
       startTimeIso: sessionStartIso,
       endTimeIso: nowIso(),
-      gameVersion: 'HydrationVR-2025-12-16b-LoggerJudge'
+      gameVersion: 'HydrationVR-2025-12-16c-TargetsFix-Celebrate'
     });
 
     pushHudScore({ ended: true, ...questMeta() });
@@ -871,6 +941,11 @@ export async function boot (cfg = {}) {
     difficulty: diff,
     duration: dur,
     modeKey: 'hydration',
+
+    // ✅ FIX: ส่ง host/layer ให้ชัวร์ (กัน mode-factory หา element ไม่เจอ)
+    hostEl: playfield || undefined,
+    layerEl: layer || undefined,
+
     pools: { good: [...GOOD, ...BONUS], bad: [...BAD] },
     goodRate: 0.60,
     powerups: BONUS,
@@ -880,6 +955,14 @@ export async function boot (cfg = {}) {
     judge: (ch, ctx) => judge(ch, ctx),
     onExpire
   });
+
+  // ✅ FIX: บางเวอร์ชันไม่ auto-start
+  try {
+    if (inst && typeof inst.start === 'function') inst.start();
+    else if (inst && typeof inst.run === 'function') inst.run();
+  } catch (err) {
+    console.warn('[Hydration] inst.start/run error', err);
+  }
 
   if (inst && typeof inst.stop === 'function') {
     const origStop = inst.stop.bind(inst);
