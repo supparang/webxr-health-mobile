@@ -27,9 +27,7 @@
 
     *,
     *::before,
-    *::after {
-      box-sizing:border-box;
-    }
+    *::after { box-sizing:border-box; }
 
     html, body {
       margin:0;
@@ -43,6 +41,7 @@
         radial-gradient(circle at bottom right, rgba(34,197,94,0.24), transparent 55%),
         #020617;
       color:var(--text-main);
+      touch-action: none;
     }
 
     /* A-Frame เต็มหน้าจอ */
@@ -53,7 +52,6 @@
     }
 
     /* ===== HUD root ===== */
-
     .hud-root {
       position:fixed;
       inset:0;
@@ -75,7 +73,6 @@
     }
 
     /* ===== HUD Score (ซ้ายบน) ===== */
-
     .hud-card {
       pointer-events:auto;
       background:radial-gradient(circle at top, #0f172a, #020617);
@@ -138,9 +135,7 @@
       font-weight:700;
     }
 
-    .metric-value.accent {
-      color:#bbf7d0;
-    }
+    .metric-value.accent { color:#bbf7d0; }
 
     .metric-sub {
       font-size:11px;
@@ -149,7 +144,6 @@
     }
 
     /* ===== HUD Goal + Mini quest (ขวาบน) ===== */
-
     .fg-quest-panel {
       pointer-events:auto;
       min-width:260px;
@@ -205,7 +199,6 @@
     }
 
     /* ===== Coach bubble กลางล่าง ===== */
-
     .hud-bottom {
       position:absolute;
       left:0;
@@ -235,9 +228,7 @@
         background .20s ease-out;
     }
 
-    .coach-bubble.show {
-      display:flex;
-    }
+    .coach-bubble.show { display:flex; }
 
     .coach-label {
       font-size:11px;
@@ -265,7 +256,6 @@
       50%     { transform:scale(1.07); }
     }
 
-    /* ===== Layout มือถือ ===== */
     @media (max-width:640px) {
       .hud-top{
         flex-direction:column;
@@ -289,7 +279,6 @@
     }
 
     /* ===== Target Layer (DOM) ===== */
-
     #fg-layer {
       position:fixed;
       inset:0;
@@ -316,15 +305,11 @@
         transform .12s ease-out,
         opacity .12s ease-out,
         box-shadow .12s ease-out;
+      touch-action: manipulation;
     }
 
-    .fg-good {
-      background:radial-gradient(circle at 30% 30%, #22c55e, #15803d);
-    }
-
-    .fg-junk {
-      background:radial-gradient(circle at 30% 30%, #f97316, #c2410c);
-    }
+    .fg-good { background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
+    .fg-junk { background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
 
     .fg-target::before {
       content:attr(data-emoji);
@@ -343,7 +328,6 @@
     }
 
     /* ===== Summary overlay ===== */
-
     .result-overlay {
       position:fixed;
       inset:0;
@@ -354,10 +338,7 @@
       background:radial-gradient(circle at top,#020617ee,#020617f5);
       backdrop-filter:blur(10px);
     }
-
-    .result-overlay.show {
-      display:flex;
-    }
+    .result-overlay.show { display:flex; }
 
     .result-card {
       width:90%;
@@ -373,15 +354,8 @@
       font-size:14px;
     }
 
-    .result-card h2 {
-      margin:0 0 8px;
-      font-size:16px;
-    }
-
-    .result-card p {
-      margin:4px 0;
-      font-size:13px;
-    }
+    .result-card h2 { margin:0 0 8px; font-size:16px; }
+    .result-card p { margin:4px 0; font-size:13px; }
 
     .result-card hr {
       border:none;
@@ -408,73 +382,6 @@
     }
 
     .result-btn.primary{
-      background:linear-gradient(90deg,#22c55e,#4ade80);
-      color:#022c22;
-      border:none;
-    }
-
-    /* ===== End toast (ไว้ใช้เพิ่มเติมได้) ===== */
-
-    .end-toast {
-      position:fixed;
-      right:12px;
-      bottom:12px;
-      z-index:120;
-      max-width:280px;
-      width:calc(100% - 32px);
-      padding:12px 14px 10px;
-      border-radius:18px;
-      background:radial-gradient(circle at top,#0f172a,#020617);
-      border:1px solid rgba(148,163,184,0.5);
-      box-shadow:
-        0 18px 40px rgba(15,23,42,0.95),
-        0 0 0 1px rgba(15,23,42,1);
-      font-size:13px;
-      color:var(--text-main);
-      display:none;
-    }
-
-    .end-toast.show{
-      display:block;
-    }
-
-    .end-title{
-      font-size:14px;
-      font-weight:600;
-      margin-bottom:6px;
-    }
-
-    .end-row{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:8px;
-      margin:2px 0;
-    }
-
-    .end-row strong{
-      font-variant-numeric:tabular-nums;
-    }
-
-    .end-actions{
-      margin-top:10px;
-      display:flex;
-      justify-content:flex-end;
-      gap:8px;
-    }
-
-    .end-btn{
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.7);
-      padding:4px 10px;
-      font-size:12px;
-      font-weight:600;
-      cursor:pointer;
-      background:rgba(15,23,42,0.9);
-      color:#e5e7eb;
-    }
-
-    .end-btn.primary{
       background:linear-gradient(90deg,#22c55e,#4ade80);
       color:#022c22;
       border:none;
@@ -532,11 +439,9 @@
       gap:6px;
       box-shadow:0 14px 30px rgba(15,23,42,0.9);
     }
-    .vr-btn span{
-      font-size:16px;
-    }
+    .vr-btn span{ font-size:16px; }
 
-    /* ===== Celebrate Overlay (Goal / Mini / All clear) ===== */
+    /* ===== Celebrate Overlay ===== */
     .celebrate-overlay {
       position:fixed;
       inset:0;
@@ -546,9 +451,8 @@
       justify-content:center;
       pointer-events:none;
     }
-    .celebrate-overlay.show {
-      display:flex;
-    }
+    .celebrate-overlay.show { display:flex; }
+
     .celebrate-content {
       padding:12px 22px;
       border-radius:999px;
@@ -569,10 +473,12 @@
         transform .18s ease-out,
         background .18s ease-out;
     }
+
     .celebrate-overlay.show .celebrate-content {
       opacity:1;
       transform:scale(1) translateY(0);
     }
+
     .celebrate-sub {
       display:block;
       margin-top:4px;
@@ -580,15 +486,18 @@
       letter-spacing:0.18em;
       opacity:0.9;
     }
+
     .celebrate--mini .celebrate-content {
       background:radial-gradient(circle at top, rgba(250,204,21,0.95), rgba(217,119,6,0.98));
       color:#022c22;
     }
+
     .celebrate--all .celebrate-content {
       background:radial-gradient(circle at top, rgba(56,189,248,0.98), rgba(30,64,175,0.98));
     }
   </style>
 </head>
+
 <body>
 
   <!-- ฉาก VR พื้นหลัง -->
@@ -714,12 +623,11 @@
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
 
-  <!-- Game engine (แนบตัวเองไว้ใน window.GroupsVR) -->
+  <!-- Difficulty + GameEngine -->
   <script src="./vr-groups/difficulty.foodgroups.js"></script>
-  <script src="./vr-groups/quest-manager.js"></script>
   <script src="./vr-groups/GameEngine.js"></script>
 
-  <!-- Boot logic (ES module แยก) -->
+  <!-- Boot logic -->
   <script type="module">
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
@@ -757,7 +665,6 @@
     const elCelebrateOverlay = document.getElementById('celebrate-overlay');
     const elCelebrateMain    = document.getElementById('celebrate-main');
     const elCelebrateSub     = document.getElementById('celebrate-sub');
-    const elCelebrateContent = document.getElementById('celebrate-content');
     let celebrateTimer = null;
 
     let hudMissCount = 0;
@@ -780,7 +687,6 @@
       setTimeout(() => elCoachBubble.classList.remove('show'), 3800);
     }
 
-    // ===== Celebrate banner handler =====
     function showCelebrate(type, detail){
       if (!elCelebrateOverlay || !elCelebrateMain) return;
 
@@ -812,11 +718,7 @@
       elCelebrateMain.textContent = title;
       elCelebrateSub.textContent  = sub;
 
-      if (celebrateTimer) {
-        clearTimeout(celebrateTimer);
-        celebrateTimer = null;
-      }
-
+      if (celebrateTimer) clearTimeout(celebrateTimer);
       elCelebrateOverlay.classList.add('show');
 
       celebrateTimer = setTimeout(() => {
@@ -829,7 +731,6 @@
       showCelebrate(d.type || 'goal', d);
     });
 
-    // HUD events from Engine
     window.addEventListener('hha:time', e => {
       const d = e.detail || {};
       const sec = (d.sec | 0);
@@ -840,20 +741,20 @@
     window.addEventListener('hha:score', e => {
       const d = e.detail || {};
       if (typeof d.score === 'number') elScore.textContent = d.score;
+
       if (typeof d.combo === 'number') {
         hudComboMax = Math.max(hudComboMax, d.combo|0);
         elCombo.textContent = hudComboMax;
       }
+
       if (typeof d.misses === 'number') {
         hudMissCount = d.misses|0;
         elMiss.textContent = hudMissCount;
       }
     });
 
-    window.addEventListener('hha:miss', (e) => {
-      const d = e.detail || {};
-      hudMissCount = (typeof d.misses === 'number') ? (d.misses|0) : hudMissCount;
-      elMiss.textContent = hudMissCount;
+    // ✅ ไม่เพิ่ม miss ซ้ำอีก (ปล่อยให้ hha:score เป็นแหล่งเดียว)
+    window.addEventListener('hha:miss', () => {
       setCoach('พลาดไปนิด ลองโฟกัสอาหารดีให้มากขึ้นนะ 😌');
     });
 
@@ -911,14 +812,9 @@
       elResult.classList.add('show');
     });
 
-    btnResReplay.addEventListener('click', () => {
-      window.location.reload();
-    });
-    btnResBack.addEventListener('click', () => {
-      window.location.href = './hub.html';
-    });
+    btnResReplay.addEventListener('click', () => window.location.reload());
+    btnResBack.addEventListener('click', () => window.location.href = './hub.html');
 
-    // ปุ่ม VR
     btnVR.addEventListener('click', () => {
       const scene = document.querySelector('a-scene');
       if (scene && scene.enterVR) {
@@ -929,10 +825,7 @@
     // Touch look
     const cam = document.querySelector('#fg-camera');
     if (cam) {
-      attachTouchLook(cam, {
-        sensitivity: 0.25,
-        areaEl: document.body
-      });
+      attachTouchLook(cam, { sensitivity: 0.25, areaEl: document.body });
     }
 
     // Cloud logger
@@ -962,12 +855,8 @@
       });
     }
 
-    // Countdown 3-2-1-Go
     function runCountdown(onDone){
-      if (!elCountdown) {
-        onDone && onDone();
-        return;
-      }
+      if (!elCountdown) { onDone && onDone(); return; }
       const steps = ['3','2','1','Go!'];
       let idx = 0;
       elCountdown.textContent = steps[0];
@@ -985,7 +874,27 @@
       }, 800);
     }
 
-    // ===== Boot =====
+    // ✅ รอ A-Frame scene + camera พร้อมจริงก่อน start (กันเป้าไม่โผล่)
+    async function waitAFrameReady(){
+      const scene = document.querySelector('a-scene');
+      const camEl = document.querySelector('#fg-camera') || document.querySelector('a-camera');
+      if (!scene) return;
+
+      if (!scene.hasLoaded) {
+        await new Promise(res => scene.addEventListener('loaded', res, { once:true }));
+      }
+
+      const t0 = performance.now();
+      while (performance.now() - t0 < 4500) {
+        const cam =
+          (camEl && camEl.getObject3D && camEl.getObject3D('camera')) ||
+          (scene && scene.camera) ||
+          null;
+        if (cam) return;
+        await new Promise(r => setTimeout(r, 50));
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
@@ -1017,29 +926,31 @@
         return;
       }
 
-      if (Engine.setLayerEl) {
-        Engine.setLayerEl(fgLayer);
-      }
+      if (Engine.setLayerEl) Engine.setLayerEl(fgLayer);
 
-      runCountdown(() => {
+      runCountdown(async () => {
+        await waitAFrameReady();
+
         let timeLeft = dur;
         window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+
         const timerId = setInterval(() => {
           timeLeft -= 1;
           if (timeLeft < 0) {
             clearInterval(timerId);
-            if (Engine.stop) Engine.stop('time-up');
+            Engine.stop && Engine.stop('time-up');
             return;
           }
           window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
           if (timeLeft === 0){
             clearInterval(timerId);
-            if (Engine.stop) Engine.stop('time-up');
+            Engine.stop && Engine.stop('time-up');
           }
         },1000);
 
         Engine.start(diff, {
-          layerEl: fgLayer
+          layerEl: fgLayer,
+          runMode
         });
       });
     });
