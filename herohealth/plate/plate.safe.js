@@ -1,11 +1,11 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — A + B (camera-follow targets + group stats + Rush + Combo + Boss)
-// 2025-12-15
+// Balanced Plate VR — A+B + Cloud Logger + AdaptiveStats
+// 2025-12-16
 'use strict';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
-// FX (ถ้ามี /herohealth/vr/particles.js)
+// FX layer (optional)
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
@@ -14,14 +14,35 @@ const Particles =
 // -------- URL params --------
 const url = new URL(location.href);
 const DIFF = (url.searchParams.get('diff') || 'normal').toLowerCase();
-const MODE = (url.searchParams.get('mode') || 'play').toLowerCase();      // play / research
+const MODE = (url.searchParams.get('mode') || 'play').toLowerCase(); // play / research
 const TIME = clampInt(url.searchParams.get('time'), 60, 20, 180);
-const RUSH = (url.searchParams.get('rush') || '1') !== '0';              // Plate Rush mini quest
-const BOSS = (url.searchParams.get('boss') || '1') !== '0';              // Boss plate at end
+const RUSH = (url.searchParams.get('rush') || '1') !== '0';
+const BOSS = (url.searchParams.get('boss') || '1') !== '0';
+
+// -------- Logger meta --------
+const GAME_MODE = 'PlateVR';
+const GAME_VERSION = 'PlateVR-2025.12.16';
+
+// endpoint: อ่านจาก sessionStorage (แนะนำให้ hub set ไว้) หรือใส่เอง
+const LOG_ENDPOINT = safeSS('HHA_LOG_ENDPOINT', '');
+
+// ✅ INIT LOGGER (ข้อ 1)
+if (typeof window !== 'undefined' && typeof window.initCloudLogger === 'function') {
+  window.initCloudLogger({
+    endpoint: LOG_ENDPOINT,
+    projectTag: 'HeroHealth-PlateVR',
+    mode: GAME_MODE,
+    runMode: MODE,      // play | research
+    diff: DIFF,
+    durationSec: TIME,
+    debug: false
+  });
+}
 
 // -------- Difficulty tuning --------
+// (adaptive fields are emitted via hha:stat in play mode only)
 const DIFF_TABLE = {
-  easy:   { spawnMs: 1050, maxActive: 4, targetScale: 1.15, badRate: 0.14, baseScore: 80, feverGain: 10 },
+  easy:   { spawnMs: 1050, maxActive: 4, targetScale: 1.15, badRate: 0.14, baseScore: 80,  feverGain: 10 },
   normal: { spawnMs: 820,  maxActive: 5, targetScale: 1.00, badRate: 0.18, baseScore: 100, feverGain: 12 },
   hard:   { spawnMs: 620,  maxActive: 6, targetScale: 0.92, badRate: 0.24, baseScore: 120, feverGain: 14 }
 };
@@ -29,20 +50,16 @@ const DI = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
 
 // -------- Food pool (ครบ 5 หมู่ + junk) --------
 const GROUPS = [
-  { g:1, label:'หมู่ 1', emoji:['🥚','🥛','🐟','🍗','🫘'], w:1.00 },
-  { g:2, label:'หมู่ 2', emoji:['🍚','🍞','🥔','🌽','🍜'], w:1.00 },
-  { g:3, label:'หมู่ 3', emoji:['🥦','🥬','🥒','🥕','🫑'], w:1.00 },
-  { g:4, label:'หมู่ 4', emoji:['🍎','🍌','🍊','🍉','🍇'], w:1.00 },
-  { g:5, label:'หมู่ 5', emoji:['🥑','🧈','🫒','🥜','🧀'], w:0.95 }
+  { g:1, emoji:['🥚','🥛','🐟','🍗','🫘'], w:1.00 },
+  { g:2, emoji:['🍚','🍞','🥔','🌽','🍜'], w:1.00 },
+  { g:3, emoji:['🥦','🥬','🥒','🥕','🫑'], w:1.00 },
+  { g:4, emoji:['🍎','🍌','🍊','🍉','🍇'], w:1.00 },
+  { g:5, emoji:['🥑','🧈','🫒','🥜','🧀'], w:0.95 }
 ];
-
-const JUNK = [
-  { kind:'junk', emoji:['🍟','🍔','🍩','🥤','🍫','🧁','🍕'], w:1.00 }
-];
+const JUNK = { emoji:['🍟','🍔','🍩','🥤','🍫','🧁','🍕'] };
 
 // -------- Scene refs --------
 const scene = document.querySelector('a-scene');
-const rig = document.getElementById('rig');
 const cam = document.getElementById('cam');
 const targetRoot = document.getElementById('targetRoot');
 
@@ -79,6 +96,7 @@ const rG1 = $('rG1'); const rG2 = $('rG2'); const rG3 = $('rG3'); const rG4 = $(
 
 // -------- Game state --------
 let running = false;
+
 let tLeft = TIME;
 let timer = null;
 let spawnTimer = null;
@@ -101,8 +119,15 @@ let perfectPlates = 0;
 // group counters (ทั้งเกม)
 let groupCount = { 1:0, 2:0, 3:0, 4:0, 5:0 };
 
+// spawn/hit counters (sessions sheet summary fields)
+let nTargetGoodSpawned = 0;
+let nTargetJunkSpawned = 0;
+let nHitGood = 0;
+let nHitJunk = 0;
+let nExpireGood = 0;
+
 // goals & minis
-const GOAL_TARGET_PERFECT = 2;      // เหมือนที่โชว์ใน hub
+const GOAL_TARGET_PERFECT = 2;
 let goalsCleared = 0;
 
 const MINI_TOTAL = 3;
@@ -114,6 +139,13 @@ let currentMini = null;
 let bossActive = false;
 let bossHP = 0;
 let bossMaxHP = 0;
+
+// session identity
+const sessionId = safeUUID();
+const sessionStartIso = new Date().toISOString();
+
+// anti-starve cycle
+let antiStarve = shuffle([1,2,3,4,5]);
 
 // -------- Init HUD --------
 hudTime.textContent = String(tLeft);
@@ -127,27 +159,21 @@ btnRestart?.addEventListener('click', ()=>location.reload());
 btnPlayAgain?.addEventListener('click', ()=>location.reload());
 
 btnEnterVR?.addEventListener('click', async ()=>{
-  try {
-    if (scene && scene.enterVR) scene.enterVR();
-  } catch (e) {}
+  try { scene && scene.enterVR && scene.enterVR(); } catch (_) {}
 });
 
 // Start when scene loaded
-if (scene) {
-  scene.addEventListener('loaded', () => start());
-} else {
-  start();
-}
+if (scene) scene.addEventListener('loaded', () => start());
+else start();
 
 // -------- Core loop --------
 function start(){
   if (running) return;
   running = true;
 
-  // Make sure we can “click” targets on mobile (tap)
   ensureTouchClickBridge();
 
-  // init minis
+  // MINI init
   if (RUSH) {
     currentMini = nextMini();
     renderMiniLine();
@@ -156,19 +182,32 @@ function start(){
     renderMiniLine();
   }
 
+  // ✅ EVENT: SESSION_START
+  emitEvent('SESSION_START', {
+    startTimeIso: sessionStartIso
+  });
+
+  // ✅ Adaptive stat snapshot at start (play only)
+  emitAdaptiveStat('START');
+
   timer = setInterval(()=>{
     if (!running) return;
     tLeft -= 1;
     if (tLeft < 0) tLeft = 0;
     hudTime.textContent = String(tLeft);
-    if (tLeft <= 0) endGame();
-    // Boss trigger near end
+
+    // boss trigger near end
     if (BOSS && !bossActive && tLeft === 10) startBoss();
+
+    // adaptive snapshot every 5 sec (play only)
+    if (MODE === 'play' && (tLeft % 5 === 0)) emitAdaptiveStat('TICK');
+
+    if (tLeft <= 0) endGame('timeout');
   }, 1000);
 
   spawnTimer = setInterval(()=>{
     if (!running) return;
-    if (bossActive) return; // boss phase uses own spawn style
+    if (bossActive) return;
     if (activeTargets.size >= DI.maxActive) return;
     spawnTarget();
   }, DI.spawnMs);
@@ -176,86 +215,145 @@ function start(){
   updateHUD();
 }
 
-function endGame(){
+function endGame(reason='end'){
+  if (!running) return;
   running = false;
+
   clearInterval(timer); timer = null;
   clearInterval(spawnTimer); spawnTimer = null;
 
-  // cleanup active
+  // cleanup active targets
   for (const el of activeTargets) {
-    try { el.parentNode && el.parentNode.removeChild(el); } catch(e){}
+    try { el.parentNode && el.parentNode.removeChild(el); } catch(_){}
   }
   activeTargets.clear();
 
-  // grading
+  // grade
   const grade = calcGrade(score, miss, perfectPlates, maxCombo);
+
+  // ✅ SESSION summary → hha:session
+  const sessionEndIso = new Date().toISOString();
+  const goodHitsTotal = sumCounts(groupCount);
+  const totalActions = goodHitsTotal + nHitJunk;
+  const accuracyGoodPct = totalActions ? Math.round((goodHitsTotal / totalActions) * 100) : '';
+  const junkErrorPct = totalActions ? Math.round((nHitJunk / totalActions) * 100) : '';
+
+  window.dispatchEvent(new CustomEvent('hha:session', {
+    detail: {
+      sessionId,
+      mode: GAME_MODE,
+      difficulty: DIFF,
+
+      durationSecPlayed: TIME - tLeft,
+      scoreFinal: score,
+      comboMax: maxCombo,
+      misses: miss,
+
+      goalsCleared,
+      goalsTotal: GOAL_TARGET_PERFECT,
+      miniCleared: miniDone,
+      miniTotal: MINI_TOTAL,
+
+      nTargetGoodSpawned,
+      nTargetJunkSpawned,
+
+      nHitGood: goodHitsTotal,
+      nHitJunk: nHitJunk,
+      nExpireGood: nExpireGood,
+
+      accuracyGoodPct,
+      junkErrorPct,
+
+      startTimeIso: sessionStartIso,
+      endTimeIso: sessionEndIso,
+      gameVersion: GAME_VERSION,
+      reason,
+
+      // ใส่ breakdown ไว้ใน extra (sheet sessions ไม่ต้องเพิ่มคอลัมน์ก็ join ได้)
+      extra: JSON.stringify({
+        group1: groupCount[1]||0,
+        group2: groupCount[2]||0,
+        group3: groupCount[3]||0,
+        group4: groupCount[4]||0,
+        group5: groupCount[5]||0,
+        groupTotal: goodHitsTotal,
+        perfectPlates
+      })
+    }
+  }));
+
+  // adaptive stat at end (play only)
+  emitAdaptiveStat('END', { score, misses: miss });
+
   showResult(grade);
 }
 
 // -------- Spawn: camera-relative (เลื่อนจอแล้วเป้าเลื่อนตาม) --------
 function spawnTarget(opts = {}){
   const isJunk = (Math.random() < DI.badRate) && !opts.forceGood;
-  let item;
+  let kind = 'good';
+  let g = 0;
+  let emoji = '🍽️';
 
   if (opts.forceBossHit) {
-    item = { kind:'boss', emoji:'🍽️', g:0 };
+    kind = 'boss';
+    emoji = '🍽️';
   } else if (isJunk && !opts.forceGood) {
-    item = pickJunk();
+    kind = 'junk';
+    emoji = JUNK.emoji[(Math.random() * JUNK.emoji.length) | 0];
   } else {
-    item = pickGroup();
+    const it = pickGroup();
+    kind = 'good';
+    g = it.g;
+    emoji = it.emoji[(Math.random() * it.emoji.length) | 0];
   }
 
-  const emoji = Array.isArray(item.emoji)
-    ? item.emoji[(Math.random() * item.emoji.length) | 0]
-    : item.emoji;
+  if (kind === 'good') nTargetGoodSpawned += 1;
+  if (kind === 'junk') nTargetJunkSpawned += 1;
 
   const el = document.createElement('a-entity');
   el.classList.add('plateTarget');
 
-  // geometry as billboard plane with text (emoji)
   el.setAttribute('geometry', `primitive:plane; height:${0.35 * DI.targetScale}; width:${0.35 * DI.targetScale}`);
   el.setAttribute('material', 'shader:flat; transparent:true; opacity:0.98; color:#111827');
   el.setAttribute('text', `value:${emoji}; align:center; width:2.5; color:#ffffff; font:https://cdn.aframe.io/fonts/DejaVu-sdf.fnt`);
 
-  // data
-  el.dataset.kind = item.kind || 'good';
-  el.dataset.group = String(item.g || 0);
+  el.dataset.kind = kind;
+  el.dataset.group = String(g);
+  el.dataset.emoji = emoji;
 
-  // position in front of camera, with slight random offset
-  placeInFrontOfCamera(el, opts.distance ?? rand(1.6, 2.35), rand(-0.65, 0.65), rand(-0.35, 0.35));
+  // position in front of camera (store offsets)
+  el._dist = opts.distance ?? rand(1.6, 2.35);
+  el._sx = rand(-0.65, 0.65);
+  el._sy = rand(-0.35, 0.35);
 
-  // face camera (billboard)
+  placeInFrontOfCamera(el, el._dist, el._sx, el._sy);
   el.setAttribute('look-at', '#cam');
 
-  // interaction
   el.addEventListener('click', (ev)=> onHit(el, ev));
 
   // auto vanish
   const lifeMs = bossActive ? 1200 : 1400;
   const born = performance.now();
 
-  // tick follow: keep relative to camera yaw so “เลื่อนจอ เป้าเลื่อนตาม”
   const follow = () => {
     if (!activeTargets.has(el)) return;
     if (!running) return;
 
-    // keep it in front; small drift for “alive feeling”
-    placeInFrontOfCamera(el, opts.distance ?? 2.0, el._sx || 0, el._sy || 0);
+    placeInFrontOfCamera(el, el._dist, el._sx, el._sy);
 
-    // vanish by time
     const age = performance.now() - born;
     if (age > lifeMs) {
-      // miss only if good target (junk disappearing ไม่ต้องนับ miss)
-      if (el.dataset.kind === 'good' && !bossActive) addMiss();
+      // expire good = nExpireGood, และนับ miss เฉพาะ good
+      if (el.dataset.kind === 'good' && !bossActive) {
+        nExpireGood += 1;
+        addMiss('EXPIRE_GOOD');
+      }
       destroyTarget(el);
       return;
     }
     requestAnimationFrame(follow);
   };
-
-  // store offsets so follow uses same spot
-  el._sx = rand(-0.65, 0.65);
-  el._sy = rand(-0.35, 0.35);
 
   activeTargets.add(el);
   targetRoot.appendChild(el);
@@ -265,99 +363,162 @@ function spawnTarget(opts = {}){
 function destroyTarget(el){
   if (!el) return;
   activeTargets.delete(el);
-  try { el.parentNode && el.parentNode.removeChild(el); } catch(e){}
+  try { el.parentNode && el.parentNode.removeChild(el); } catch(_){}
 }
 
-// Put entity at camera-forward + right*side + up*up
 function placeInFrontOfCamera(el, dist, side, up){
-  if (!cam || !cam.object3D) return;
+  if (!cam || !cam.object3D || !ROOT.THREE) return;
 
   const camObj = cam.object3D;
-  const pos = new THREE.Vector3();
+  const pos = new ROOT.THREE.Vector3();
   camObj.getWorldPosition(pos);
 
-  const forward = new THREE.Vector3();
-  camObj.getWorldDirection(forward); // points forward
+  const forward = new ROOT.THREE.Vector3();
+  camObj.getWorldDirection(forward);
 
-  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize().multiplyScalar(side);
-  const upV = new THREE.Vector3(0,1,0).multiplyScalar(up);
+  const right = new ROOT.THREE.Vector3().crossVectors(forward, new ROOT.THREE.Vector3(0,1,0)).normalize().multiplyScalar(side);
+  const upV = new ROOT.THREE.Vector3(0,1,0).multiplyScalar(up);
 
   const p = pos.clone().add(forward.multiplyScalar(dist)).add(right).add(upV);
   el.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
 }
 
-// -------- Hit logic (A + B) --------
+// -------- Hit logic --------
 function onHit(el, ev){
-  if (!running) return;
-  if (!el) return;
+  if (!running || !el) return;
 
   const kind = el.dataset.kind || 'good';
   const g = parseInt(el.dataset.group || '0', 10);
+  const emoji = el.dataset.emoji || '';
+  const pos = el.getAttribute('position') || { x:0, y:0, z:0 };
 
-  // burst FX
-  const p = el.getAttribute('position');
-  try { Particles.burstAt(p?.x || 0, p?.y || 1.6, p?.z || -2, { strong:true }); } catch(e){}
+  try { Particles.burstAt(pos.x, pos.y, pos.z, { strong:true }); } catch(_){}
 
   if (kind === 'junk') {
-    // MISS เฉพาะ "กดของไม่ดี"
-    addMiss();
+    nHitJunk += 1;
+    addMiss('HIT_JUNK');
     combo = 0;
     plateBadHit += 1;
     score = Math.max(0, score - 120);
-    Particles.floatScore && Particles.floatScore('MISS', p, { kind:'miss' });
+
+    emitEvent('HIT', {
+      emoji,
+      itemType: 'junk',
+      isGood: false,
+      judgment: 'MISS',
+      totalScore: score,
+      combo,
+      feverState: feverActive ? 'ON' : 'OFF',
+      feverValue: fever,
+      extra: JSON.stringify({ group:0, plateHave: Array.from(plateHave), plateBadHit })
+    });
+
+    Particles.floatScore && Particles.floatScore('MISS', pos, { kind:'miss' });
     destroyTarget(el);
     updateHUD();
     return;
   }
 
   if (kind === 'boss') {
-    // boss hit
     const delta = feverActive ? 220 : 160;
     score += delta;
     combo += 1; maxCombo = Math.max(maxCombo, combo);
+
     bossHP -= 1;
-    Particles.floatScore && Particles.floatScore('HIT +' + delta, p, { kind:'good' });
+
+    emitEvent('BOSS_HIT', {
+      emoji,
+      itemType: 'boss',
+      isGood: true,
+      judgment: 'HIT',
+      totalScore: score,
+      combo,
+      feverState: feverActive ? 'ON' : 'OFF',
+      feverValue: fever,
+      extra: JSON.stringify({ bossHP, bossMaxHP })
+    });
+
+    Particles.floatScore && Particles.floatScore('HIT +' + delta, pos, { kind:'good' });
     destroyTarget(el);
     if (bossHP <= 0) endBossWin();
     updateHUD();
     return;
   }
 
-  // good group
+  // good group hit
+  nHitGood += 1;
   groupCount[g] = (groupCount[g] || 0) + 1;
   plateHave.add(g);
 
-  // combo system
   combo += 1;
   maxCombo = Math.max(maxCombo, combo);
 
-  // score: base + combo + fever
   const base = DI.baseScore;
   const comboBonus = Math.min(220, combo * 6);
   const feverMul = feverActive ? 1.6 : 1.0;
   const gain = Math.round((base + comboBonus) * feverMul);
   score += gain;
 
-  // fever
   addFever(DI.feverGain);
 
-  Particles.floatScore && Particles.floatScore('+' + gain, p, { kind:'good' });
+  emitEvent('HIT', {
+    emoji,
+    itemType: 'good',
+    isGood: true,
+    judgment: 'HIT',
+    totalScore: score,
+    combo,
+    feverState: feverActive ? 'ON' : 'OFF',
+    feverValue: fever,
+    extra: JSON.stringify({ group: g, plateHave: Array.from(plateHave), plateBadHit })
+  });
+
+  Particles.floatScore && Particles.floatScore('+' + gain, pos, { kind:'good' });
   destroyTarget(el);
 
-  // check Perfect Plate (ครบ 5 หมู่ + ไม่มี junk hit ใน plate นี้)
+  // check plate completion
   if (plateHave.size === 5) {
     if (plateBadHit === 0) {
       perfectPlates += 1;
       goalsCleared = Math.min(GOAL_TARGET_PERFECT, perfectPlates);
-      // celebration
+
+      emitEvent('PERFECT_PLATE', {
+        emoji: '🥗',
+        itemType: 'plate',
+        isGood: true,
+        judgment: 'PERFECT',
+        totalScore: score,
+        combo,
+        feverState: feverActive ? 'ON' : 'OFF',
+        feverValue: fever,
+        extra: JSON.stringify({
+          groups: Array.from(plateHave),
+          perfectPlates,
+          miniIndex,
+          diff: DIFF
+        })
+      });
+
       Particles.scorePop && Particles.scorePop('PERFECT PLATE! 🎉');
-      // mini quest
+
       if (RUSH && currentMini) handleMiniOnPerfect();
     } else {
+      emitEvent('PLATE_COMPLETE_NOT_PERFECT', {
+        emoji: '🍽️',
+        itemType: 'plate',
+        isGood: true,
+        judgment: 'COMPLETE',
+        totalScore: score,
+        combo,
+        feverState: feverActive ? 'ON' : 'OFF',
+        feverValue: fever,
+        extra: JSON.stringify({ reason:'HAS_JUNK', plateBadHit })
+      });
+
       Particles.scorePop && Particles.scorePop('เกือบได้! (มีของไม่ดี) 😅');
     }
 
-    // reset “จานนี้”
+    // reset plate
     plateHave.clear();
     plateBadHit = 0;
   }
@@ -365,15 +526,13 @@ function onHit(el, ev){
   updateHUD();
 }
 
-// -------- Mini quests (Plate Rush) --------
+// -------- Mini quests --------
 function nextMini(){
   miniIndex += 1;
   const round = Math.min(MINI_TOTAL, miniIndex);
-  // Mini design: ต้องทำ perfect ในเวลาจำกัด (window)
   const windowSec = (DIFF === 'hard') ? 12 : (DIFF === 'easy' ? 18 : 15);
   return {
     title: `Plate Rush ${round}/${MINI_TOTAL}`,
-    needPerfect: 1,
     windowSec,
     startedAt: performance.now(),
     done: false
@@ -381,42 +540,70 @@ function nextMini(){
 }
 
 function renderMiniLine(){
-  if (!RUSH) {
-    hudMiniLine.textContent = 'Mini: (ปิด)';
-    return;
-  }
-  if (!currentMini) {
-    hudMiniLine.textContent = 'Mini: จบทั้งหมดแล้ว ✅';
-    return;
-  }
+  if (!RUSH) { hudMiniLine.textContent = 'Mini: (ปิด)'; return; }
+  if (!currentMini) { hudMiniLine.textContent = 'Mini: จบทั้งหมดแล้ว ✅'; return; }
   hudMiniLine.textContent = `Mini: ${currentMini.title} — ทำ Perfect ภายใน ${currentMini.windowSec}s`;
 }
 
 function handleMiniOnPerfect(){
   if (!currentMini || currentMini.done) return;
   const ageSec = (performance.now() - currentMini.startedAt) / 1000;
+
   if (ageSec <= currentMini.windowSec) {
     currentMini.done = true;
     miniDone += 1;
+
+    emitEvent('MINI_CLEAR', {
+      emoji: '✨',
+      itemType: 'mini',
+      isGood: true,
+      judgment: 'CLEAR',
+      miniProgress: `${miniDone}/${MINI_TOTAL}`,
+      totalScore: score,
+      combo,
+      extra: JSON.stringify({ title: currentMini.title, ageSec: Math.round(ageSec*100)/100 })
+    });
+
     Particles.scorePop && Particles.scorePop(`Mini Clear! ✨ (${miniDone}/${MINI_TOTAL})`);
-    // chain next mini
+
     currentMini = (miniDone < MINI_TOTAL) ? nextMini() : null;
     renderMiniLine();
   } else {
-    // fail -> restart same mini window
+    emitEvent('MINI_FAIL', {
+      emoji: '💨',
+      itemType: 'mini',
+      isGood: false,
+      judgment: 'FAIL',
+      miniProgress: `${miniDone}/${MINI_TOTAL}`,
+      totalScore: score,
+      combo,
+      extra: JSON.stringify({ title: currentMini.title, ageSec: Math.round(ageSec*100)/100 })
+    });
+
     currentMini.startedAt = performance.now();
     Particles.scorePop && Particles.scorePop('Mini รีเซ็ต! ลองใหม่ 💨');
     renderMiniLine();
   }
 }
 
-// -------- Boss phase (B) --------
+// -------- Boss --------
 function startBoss(){
   bossActive = true;
   bossMaxHP = (DIFF === 'hard') ? 16 : (DIFF === 'easy' ? 10 : 13);
   bossHP = bossMaxHP;
+
+  emitEvent('BOSS_START', {
+    emoji: '🍽️',
+    itemType: 'boss',
+    isGood: true,
+    judgment: 'START',
+    totalScore: score,
+    combo,
+    extra: JSON.stringify({ bossHP, bossMaxHP })
+  });
+
   Particles.scorePop && Particles.scorePop('BOSS PLATE 등장! 🍽️⚡');
-  // spam boss targets
+
   const bossInterval = setInterval(()=>{
     if (!running) { clearInterval(bossInterval); return; }
     if (!bossActive) { clearInterval(bossInterval); return; }
@@ -427,8 +614,19 @@ function startBoss(){
 
 function endBossWin(){
   bossActive = false;
+
+  emitEvent('BOSS_CLEAR', {
+    emoji: '🏆',
+    itemType: 'boss',
+    isGood: true,
+    judgment: 'CLEAR',
+    totalScore: score,
+    combo,
+    extra: JSON.stringify({ bossHP:0, bossMaxHP })
+  });
+
   Particles.scorePop && Particles.scorePop('BOSS CLEAR! 🏆');
-  // fever reward
+
   fever = 100;
   feverActive = true;
   setTimeout(()=>{ feverActive = false; }, 3500);
@@ -437,23 +635,59 @@ function endBossWin(){
 // -------- Fever --------
 function addFever(v){
   fever = clamp(fever + v, 0, 100);
+
   if (fever >= 100 && !feverActive) {
     feverActive = true;
+
+    emitEvent('FEVER_ON', {
+      emoji: '🔥',
+      itemType: 'fever',
+      isGood: true,
+      judgment: 'ON',
+      totalScore: score,
+      combo,
+      feverState: 'ON',
+      feverValue: fever
+    });
+
     Particles.scorePop && Particles.scorePop('FEVER! 🔥');
-    // auto drop after duration
+
     setTimeout(()=>{
       feverActive = false;
       fever = 0;
+
+      emitEvent('FEVER_OFF', {
+        emoji: '🧊',
+        itemType: 'fever',
+        isGood: true,
+        judgment: 'OFF',
+        totalScore: score,
+        combo,
+        feverState: 'OFF',
+        feverValue: 0
+      });
+
       updateHUD();
     }, 5200);
   }
+
   updateHUD();
 }
 
 // -------- Miss rules --------
-function addMiss(){
+function addMiss(reason='MISS'){
   miss += 1;
   hudMiss.textContent = String(miss);
+
+  emitEvent('MISS', {
+    emoji: '❌',
+    itemType: 'miss',
+    isGood: false,
+    judgment: 'MISS',
+    totalScore: score,
+    combo,
+    extra: JSON.stringify({ reason })
+  });
 }
 
 // -------- HUD + Result --------
@@ -469,15 +703,13 @@ function updateHUD(){
   hudGroupsHave.textContent = `${plateHave.size}/5`;
   hudPerfectCount.textContent = String(perfectPlates);
 
-  // goals/mini progress in quest panel
-  const goalText = `ทำ PERFECT PLATE ให้ได้อย่างน้อย ${GOAL_TARGET_PERFECT} จาน (ตอนนี้ ${perfectPlates}/${GOAL_TARGET_PERFECT})`;
-  hudGoalLine.innerHTML = `ทำ <b>PERFECT PLATE</b> ให้ได้อย่างน้อย ${GOAL_TARGET_PERFECT} จาน <span class="muted">(ตอนนี้ ${perfectPlates}/${GOAL_TARGET_PERFECT})</span>`;
+  hudGoalLine.innerHTML =
+    `ทำ <b>PERFECT PLATE</b> ให้ได้อย่างน้อย ${GOAL_TARGET_PERFECT} จาน <span class="muted">(ตอนนี้ ${perfectPlates}/${GOAL_TARGET_PERFECT})</span>`;
 
-  if (RUSH && currentMini) renderMiniLine();
+  if (RUSH) renderMiniLine();
 }
 
 function showResult(grade){
-  // fill modal
   rMode.textContent = (MODE === 'research') ? 'Research' : 'Play';
   rGrade.textContent = grade;
   rScore.textContent = String(score | 0);
@@ -493,36 +725,65 @@ function showResult(grade){
   rG3.textContent = String(groupCount[3] || 0);
   rG4.textContent = String(groupCount[4] || 0);
   rG5.textContent = String(groupCount[5] || 0);
-  rGTotal.textContent = String(
-    (groupCount[1]||0)+(groupCount[2]||0)+(groupCount[3]||0)+(groupCount[4]||0)+(groupCount[5]||0)
-  );
+
+  rGTotal.textContent = String(sumCounts(groupCount));
 
   resultBackdrop.style.display = 'flex';
 }
 
-// -------- Picks (ensure 5 groups appear) --------
-let antiStarve = [1,2,3,4,5]; // force cycle
+// -------- Picks (anti-starve) --------
 function pickGroup(){
-  // prevent starvation: keep cycling until all groups show, then random
   let g;
   if (antiStarve.length) {
     g = antiStarve.shift();
   } else {
     g = weightedPick(GROUPS).g;
-    // sometimes re-prime cycle for balanced learning
     if (Math.random() < 0.06) antiStarve = shuffle([1,2,3,4,5]);
   }
-  const pool = GROUPS.find(x=>x.g===g) || GROUPS[0];
-  return { kind:'good', g: pool.g, emoji: pool.emoji };
+  return GROUPS.find(x=>x.g===g) || GROUPS[0];
 }
-function pickJunk(){
-  return { kind:'junk', g:0, emoji: JUNK[0].emoji };
+
+// -------- Emit helpers (logger contract) --------
+function emitEvent(type, detail = {}){
+  // hha:event is for EVENTS sheet
+  window.dispatchEvent(new CustomEvent('hha:event', {
+    detail: {
+      type,
+      mode: GAME_MODE,
+      difficulty: DIFF,
+      sessionId,
+      timeFromStartMs: Math.round(performance.now()),
+      ...detail
+    }
+  }));
+}
+
+function emitAdaptiveStat(tag='TICK', extra = {}){
+  // logger ใหม่ของคุณรับ hha:stat → adaptiveStats sheet (play only)
+  if (MODE !== 'play') return;
+
+  const adaptiveScale = DI.targetScale;
+  const adaptiveSpawn = DI.spawnMs;
+  const adaptiveMaxActive = DI.maxActive;
+
+  window.dispatchEvent(new CustomEvent('hha:stat', {
+    detail: {
+      mode: GAME_MODE,
+      difficulty: DIFF,
+      sessionId,
+      adaptiveScale,
+      adaptiveSpawn,
+      adaptiveMaxActive,
+      combo,
+      misses: miss,
+      score,
+      extra: JSON.stringify({ tag, ...extra })
+    }
+  }));
 }
 
 // -------- Mobile tap reliability --------
 function ensureTouchClickBridge(){
-  // A-Frame sometimes needs pointer events on mobile; cursor will emit click when raycaster intersects.
-  // This bridge helps if the browser delays taps.
   document.body.addEventListener('touchstart', ()=>{}, { passive:true });
 }
 
@@ -542,7 +803,7 @@ function weightedPick(arr){
     r -= (it.w || 1);
     if (r <= 0) return it;
   }
-  return arr[arr.length-1];
+  return arr[arr.length - 1];
 }
 function shuffle(a){
   const arr = a.slice();
@@ -553,22 +814,23 @@ function shuffle(a){
   return arr;
 }
 function calcGrade(score, miss, perfect, maxCombo){
-  // ปรับตามสไตล์เดิมได้ แต่ให้ “รู้สึกยุติธรรม”
-  const s = score;
-  const p = perfect;
-  const m = miss;
-
-  // SSS / SS / S / A / B / C
-  if (p >= 3 && m <= 2 && maxCombo >= 18) return 'SSS';
-  if (p >= 2 && m <= 4 && maxCombo >= 14) return 'SS';
-  if (p >= 2 && m <= 6) return 'S';
-  if (p >= 1 && m <= 8) return 'A';
-  if (p >= 1) return 'B';
+  if (perfect >= 3 && miss <= 2 && maxCombo >= 18) return 'SSS';
+  if (perfect >= 2 && miss <= 4 && maxCombo >= 14) return 'SS';
+  if (perfect >= 2 && miss <= 6) return 'S';
+  if (perfect >= 1 && miss <= 8) return 'A';
+  if (perfect >= 1) return 'B';
   return 'C';
 }
-
-// THREE should exist via A-Frame
-function ensureThree(){
-  if (!ROOT.THREE) throw new Error('THREE not found (A-Frame not loaded?)');
+function sumCounts(gc){
+  return (gc[1]||0)+(gc[2]||0)+(gc[3]||0)+(gc[4]||0)+(gc[5]||0);
 }
-ensureThree();
+function safeUUID(){
+  try { return crypto.randomUUID(); } catch (_) { return 'sess_' + Math.random().toString(16).slice(2) + '_' + Date.now(); }
+}
+function safeSS(key, fallback=''){
+  try {
+    if (typeof sessionStorage === 'undefined') return fallback;
+    const v = sessionStorage.getItem(key);
+    return v != null ? v : fallback;
+  } catch (_) { return fallback; }
+}
