@@ -57,6 +57,50 @@
       overflow:hidden;
     }
 
+    /* ===== A-Frame canvas full ===== */
+    a-scene{
+      width:100vw;
+      height:100vh;
+      position:fixed;
+      inset:0;
+      z-index:0; /* ✅ ชัดเจนว่า scene อยู่ล่างสุด */
+    }
+
+    /* ================================
+       ✅ Targets Layer + Targets CSS
+       (แก้ “เป้าไม่โผล่ / คลิกไม่ได้”)
+       ================================ */
+    #gj-layer{
+      position:fixed;
+      inset:0;
+      z-index:649;          /* ต่ำกว่า HUD (650) */
+      pointer-events:none;  /* ให้ HUD คลิกได้ตามปกติ */
+    }
+    .gj-target{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%) scale(1);
+      font-size:48px;
+      line-height:1;
+      user-select:none;
+      pointer-events:auto;  /* ✅ เป้ารับคลิก/แตะได้ */
+      cursor:pointer;
+      filter:drop-shadow(0 6px 12px rgba(0,0,0,0.45));
+      transition:transform .12s ease, opacity .12s ease;
+      will-change: transform, opacity, left, top;
+    }
+    .gj-target.gj-good{
+      text-shadow:0 0 14px rgba(34,197,94,.9);
+    }
+    .gj-target.gj-junk{
+      text-shadow:0 0 14px rgba(249,115,22,.9);
+    }
+    .gj-target.hit{
+      transform:translate(-50%,-50%) scale(1.4);
+      opacity:0;
+    }
+
     /* ===== HUD หลัก ===== */
     .hud-root{
       position:fixed;
@@ -120,7 +164,9 @@
       gap:10px;
       flex-wrap:wrap;
     }
-    .metric{ min-width:90px; }
+    .metric{
+      min-width:90px;
+    }
     .metric-label{
       font-size:10px;
       text-transform:uppercase;
@@ -170,9 +216,15 @@
       transition:width .25s ease-out, background .25s ease-out, box-shadow .25s ease-out;
       box-shadow:0 0 0 0 rgba(34,197,94,0.6);
     }
-    .grade-bar-fill[data-grade="C"]{ background:linear-gradient(90deg,#6b7280,#9ca3af); }
-    .grade-bar-fill[data-grade="B"]{ background:linear-gradient(90deg,#22c55e,#16a34a); }
-    .grade-bar-fill[data-grade="A"]{ background:linear-gradient(90deg,#22c55e,#4ade80); }
+    .grade-bar-fill[data-grade="C"]{
+      background:linear-gradient(90deg,#6b7280,#9ca3af);
+    }
+    .grade-bar-fill[data-grade="B"]{
+      background:linear-gradient(90deg,#22c55e,#16a34a);
+    }
+    .grade-bar-fill[data-grade="A"]{
+      background:linear-gradient(90deg,#22c55e,#4ade80);
+    }
     .grade-bar-fill[data-grade="S"],
     .grade-bar-fill[data-grade="SS"],
     .grade-bar-fill[data-grade="SSS"]{
@@ -181,8 +233,12 @@
     }
 
     /* ===== Lives (หัวใจ — hard only) ===== */
-    .metric-lives{ min-width:110px; }
-    #hud-lives-wrap{ display:none; }
+    .metric-lives{
+      min-width:110px;
+    }
+    #hud-lives-wrap{
+      display:none; /* โชว์เฉพาะ diff = hard */
+    }
     #hud-lives .lives-row{
       display:flex;
       gap:4px;
@@ -194,8 +250,13 @@
       text-shadow:0 0 10px rgba(248,113,113,0.9);
       transition:transform .18s ease, opacity .18s ease, text-shadow .18s ease;
     }
-    .lives-heart.off{ opacity:0.28; text-shadow:none; }
-    .lives-heart.low{ animation:lives-low-pulse .6s ease-in-out infinite; }
+    .lives-heart.off{
+      opacity:0.28;
+      text-shadow:none;
+    }
+    .lives-heart.low{
+      animation:lives-low-pulse .6s ease-in-out infinite;
+    }
     @keyframes lives-low-pulse{
       0%{ transform:scale(1); }
       40%{ transform:scale(1.25); }
@@ -279,6 +340,7 @@
       overflow:hidden;
     }
     .coach-bubble.show{ display:flex; }
+
     .coach-bubble::before{
       content:'';
       position:absolute;
@@ -295,6 +357,7 @@
       opacity:1;
       transform:scale(1.02);
     }
+
     .coach-label{
       font-size:11px;
       text-transform:uppercase;
@@ -303,7 +366,6 @@
       font-weight:600;
     }
 
-    /* โค้ชเป็นภาพบร็อคโคลี่ + ดุ๊กดิ๊ก */
     .coach-emoji{
       width:40px;
       height:40px;
@@ -315,12 +377,14 @@
       box-shadow:0 0 12px rgba(16,185,129,0.8);
       animation:coach-idle 1.4s ease-in-out infinite;
     }
+
     @keyframes coach-idle{
       0%{ transform:translateY(0) scale(1);}
       30%{ transform:translateY(-2px) scale(1.03);}
       60%{ transform:translateY(1px) scale(0.99);}
       100%{ transform:translateY(0) scale(1);}
     }
+
     .coach-emoji.coach-neutral{ filter:none; }
     .coach-emoji.coach-happy{ box-shadow:0 0 18px rgba(34,197,94,0.95); }
     .coach-emoji.coach-sad{
@@ -388,13 +452,9 @@
     }
     .end-toast.show{ display:block; }
     .end-title{ font-size:14px; font-weight:700; margin-bottom:4px; }
-    .end-row{
-      display:flex;
-      justify-content:space-between;
-      font-size:12px;
-      margin-top:2px;
-    }
+    .end-row{ display:flex; justify-content:space-between; font-size:12px; margin-top:2px; }
     .end-row strong{ font-weight:600; }
+
     .end-actions{
       display:flex;
       flex-wrap:wrap;
@@ -430,7 +490,9 @@
       border-color:rgba(187,247,208,0.9);
       color:#052e16;
     }
-    .end-btn-primary:hover{ background:linear-gradient(135deg,#4ade80,#22c55e); }
+    .end-btn-primary:hover{
+      background:linear-gradient(135deg,#4ade80,#22c55e);
+    }
     .end-btn-ghost{ background:rgba(15,23,42,0.7); }
 
     /* ===== ป้ายโหมด (Play / Research) ===== */
@@ -469,14 +531,6 @@
     .vr-btn:hover{
       background:radial-gradient(circle at top left, rgba(56,189,248,0.5), transparent 55%),
                  rgba(15,23,42,1);
-    }
-
-    /* ===== A-Frame canvas full ===== */
-    a-scene{
-      width:100vw;
-      height:100vh;
-      position:fixed;
-      inset:0;
     }
 
     /* ===== ฉลองใหญ่เต็มจอ (overlay) ===== */
@@ -549,37 +603,8 @@
       box-shadow: 0 0 10px rgba(255,255,255,0.45);
       opacity: 0.95;
     }
-
-    /* ===== Target Layer & Targets (สำคัญ: ให้เป้าโผล่แน่) ===== */
-    #gj-layer{
-      position: fixed;
-      inset: 0;
-      z-index: 649;         /* ต่ำกว่า HUD (650) แต่สูงกว่า scene */
-      pointer-events: none; /* เปิดเฉพาะตัวเป้า */
-    }
-    .gj-target{
-      position: absolute;
-      left: -9999px;
-      top: -9999px;
-      transform: translate(-50%,-50%);
-      font-size: clamp(44px, 7.2vw, 84px);
-      line-height: 1;
-      filter: drop-shadow(0 10px 16px rgba(0,0,0,.55));
-      user-select: none;
-      -webkit-user-select: none;
-      pointer-events: auto;     /* สำคัญ */
-      touch-action: manipulation;
-    }
-    .gj-target.gj-good{ text-shadow: 0 0 18px rgba(34,197,94,.35); }
-    .gj-target.gj-junk{ text-shadow: 0 0 18px rgba(249,115,22,.35); }
-    .gj-target.hit{
-      transform: translate(-50%,-50%) scale(1.25);
-      opacity: 0;
-      transition: transform .12s ease-out, opacity .12s ease-out;
-    }
   </style>
 </head>
-
 <body>
 
   <!-- ===== A-Frame Scene (พื้นหลัง VR) ===== -->
@@ -588,7 +613,6 @@
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
     background="color: #020617">
 
-    <!-- กล้องกลาง + crosshair + raycaster -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="gj-camera"
                 wasd-controls-enabled="false"
@@ -603,7 +627,6 @@
       </a-camera>
     </a-entity>
 
-    <!-- พื้น + แสง -->
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
     <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
@@ -611,13 +634,12 @@
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- ===== Target Layer (ต้องมีเพื่อให้เป้าโผล่) ===== -->
+  <!-- ✅ เลเยอร์เป้า (DOM Emoji Targets) -->
   <div id="gj-layer" aria-hidden="true"></div>
 
   <!-- ===== HUD Overlay (2D) ===== -->
   <div class="hud-root">
     <div class="hud-top">
-      <!-- Left: mode + metrics -->
       <div class="hud-card" style="flex:1;max-width:460px;">
         <div class="hud-main">
           <div>
@@ -653,13 +675,11 @@
             <div class="metric-value danger" id="hud-miss">0</div>
           </div>
 
-          <!-- Lives — hard only -->
           <div class="metric metric-lives" id="hud-lives-wrap">
             <div class="metric-label">หัวใจ (HARD)</div>
             <div class="metric-value" id="hud-lives"></div>
           </div>
 
-          <!-- Grade (real-time) + bar -->
           <div class="metric metric-grade">
             <div class="metric-label">เกรด (real-time)</div>
             <div class="grade-text">
@@ -673,7 +693,6 @@
         </div>
       </div>
 
-      <!-- Right: quest panel (ภารกิจ) -->
       <div class="hud-card hud-quest">
         <div class="quest-title">Quest</div>
         <div id="hud-quest-main" class="quest-main-label">ภารกิจหลักจะโผล่ตรงนี้</div>
@@ -697,7 +716,6 @@
       </div>
     </div>
 
-    <!-- Bottom: coach (emoji + text) -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <div id="coach-emoji" class="coach-emoji coach-neutral"></div>
@@ -709,16 +727,13 @@
     </div>
   </div>
 
-  <!-- VR Gaze Progress Reticle -->
   <div id="reticle-progress" class="reticle-progress" aria-hidden="true">
     <div class="rp-ring" id="reticle-ring"></div>
     <div class="rp-dot"></div>
   </div>
 
-  <!-- Center hint for touch-look -->
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
 
-  <!-- End summary -->
   <div class="end-toast" id="end-toast">
     <div class="end-title">สรุปผล • Good vs Junk</div>
     <div class="end-row"><span>โหมด</span><strong id="end-runmode">Play</strong></div>
@@ -734,13 +749,9 @@
     </div>
   </div>
 
-  <!-- Start countdown -->
   <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
-
-  <!-- ปุ่มเข้า VR -->
   <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
 
-  <!-- ฉลองใหญ่เมื่อทำครบทุกภารกิจ -->
   <div class="big-celebrate" id="big-celebrate">
     <div class="big-celebrate-inner">ALL QUESTS CLEAR! 🌟</div>
   </div>
@@ -762,7 +773,6 @@
       return v !== null && v !== '' ? v : fallback;
     }
 
-    // HUD element refs
     const elScore   = document.getElementById('hud-score');
     const elCombo   = document.getElementById('hud-combo');
     const elMiss    = document.getElementById('hud-miss');
@@ -796,16 +806,13 @@
     const btnBackHub  = document.getElementById('btn-back-hub');
     const btnVR       = document.getElementById('btn-vr');
 
-    // Grade HUD
     const elGrade      = document.getElementById('hud-grade');
     const elGradeBadge = document.getElementById('hud-grade-badge');
     const elGradeBar   = document.getElementById('hud-grade-bar');
 
-    // Lives HUD
     const elLivesWrap  = document.getElementById('hud-lives-wrap');
     const elLives      = document.getElementById('hud-lives');
 
-    // overlay 3–2–1 Go
     const elCountdown = document.getElementById('start-countdown');
     const elJudge     = document.getElementById('hud-judge');
 
@@ -814,7 +821,6 @@
     let lastCoachTimeout = null;
     let hudMissCount = 0;
 
-    // จำสถานะ quest ทั้งหมดไว้เพื่อคิดเกรดแบบ real-time
     let hudGoalsTotal   = 0;
     let hudGoalsCleared = 0;
     let hudMiniTotal    = 0;
@@ -825,13 +831,11 @@
 
     const coachMoodKeys = ['neutral','happy','sad','fever'];
 
-    // Lives logic
     const MAX_LIVES = 3;
     const MISS_PER_LIFE = 3;
     let currentLives = MAX_LIVES;
     let warnedLowLife = false;
 
-    // diff / runMode (จะตั้งใน DOMContentLoaded)
     let diff = 'normal';
     let runMode = 'play';
 
@@ -864,13 +868,11 @@
         span.textContent = text;
         elCoachText.appendChild(span);
       }
-
       if (elCoachBubble){
         requestAnimationFrame(function(){
           elCoachBubble.classList.add('fx-pop');
         });
       }
-
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(function(){
         if (elCoachBubble){
@@ -880,7 +882,6 @@
       }, 4200);
     }
 
-    // lives helper
     function renderLives(lives){
       if (!elLivesWrap || !elLives) return;
 
@@ -921,7 +922,6 @@
       }
     }
 
-    // ===== Start Countdown 3–2–1–Go =====
     function runCountdown(onDone){
       if (!elCountdown){
         if (onDone) onDone();
@@ -946,7 +946,6 @@
       }, interval);
     }
 
-    // HUD: เวลา
     window.addEventListener('hha:time', function(e){
       const d = e.detail || {};
       const sec = (d.sec | 0);
@@ -1065,7 +1064,6 @@
       }, 1400);
     }
 
-    // HUD: Quest
     window.addEventListener('quest:update', function(e){
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -1115,14 +1113,12 @@
       updateRealtimeGrade();
     });
 
-    // HUD: Coach (ข้อความอย่างเดียว)
     window.addEventListener('hha:coach', function(e){
       const d = e.detail || {};
       const text = d.text || '';
       if (text) setCoach(text);
     });
 
-    // HUD: คะแนน / คอมโบ / miss
     window.addEventListener('hha:score', function(e){
       const d = e.detail || {};
       if (typeof d.score === 'number') elScore.textContent = d.score;
@@ -1148,7 +1144,6 @@
       updateRealtimeGrade(d.score);
     });
 
-    // ✅ สำคัญ: hha:miss ไม่บวกเลขเอง
     window.addEventListener('hha:miss', function(e){
       const d = (e && e.detail) || {};
       if (typeof d.misses === 'number') {
@@ -1161,7 +1156,6 @@
       updateLivesFromMisses();
     });
 
-    // HUD: Fever state
     window.addEventListener('hha:fever', function(e){
       const d  = e.detail || {};
       const st = d.state ? d.state : 'change';
@@ -1194,7 +1188,6 @@
       }
     }
 
-    // HUD: End summary + big celebration
     window.addEventListener('hha:end', function(e){
       const d = e.detail || {};
       const rawScore  = (typeof d.scoreFinal === 'number') ? d.scoreFinal : d.score;
@@ -1223,7 +1216,6 @@
       }
     });
 
-    // HUD: Judge text
     window.addEventListener('hha:judge', function(e) {
       const d = e.detail || {};
       const label = d.label || '';
@@ -1231,7 +1223,6 @@
       elJudge.textContent = label || '';
     });
 
-    // Touch-look (มือถือหมุนมุมมอง)
     function initTouchLook(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
@@ -1246,7 +1237,6 @@
       });
     }
 
-    // ปุ่มเข้า VR
     function initVRButton(){
       if (!btnVR) return;
       const scene = document.querySelector('a-scene');
@@ -1258,165 +1248,11 @@
       });
     }
 
-    // ===== Cursor mode: mouse ↔ gaze =====
-    let reticleFuseMs = 650;
-
-    function setCursorMode(mode){
-      const cursorEl = document.getElementById('cursor');
-      if (!cursorEl) return;
-
-      if (mode === 'gaze'){
-        const fuseTimeout = 650;
-        reticleFuseMs = fuseTimeout;
-
-        cursorEl.setAttribute('cursor', `fuse: true; fuseTimeout: ${fuseTimeout}; rayOrigin: entity`);
-        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
-        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.006; radiusOuter: 0.018');
-      } else {
-        cursorEl.setAttribute('cursor', 'fuse: false; rayOrigin: mouse');
-        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
-        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.01; radiusOuter: 0.016');
-      }
-    }
-
-    function hookVrModeAutoSwitch(){
-      const scene = document.querySelector('a-scene');
-      if (!scene) return;
-
-      setCursorMode('mouse');
-
-      scene.addEventListener('enter-vr', function(){
-        setCursorMode('gaze');
-        setCoachFace('happy');
-        setCoach('เข้าโหมด VR แล้ว! จ้องค้างที่เป้าเพื่อยิง 🎯');
-      });
-
-      scene.addEventListener('exit-vr', function(){
-        setCursorMode('mouse');
-        stopReticleProgress();
-        showReticle(false);
-        setCoachFace('neutral');
-        setCoach('กลับสู่โหมดปกติแล้ว คลิก/แตะเป้าได้เลย 👆');
-      });
-    }
-
-    // ===== Progress Reticle =====
-    let reticleRAF = null;
-    let reticleStartMs = 0;
-    let reticleActive = false;
-    let reticleColor = '#38bdf8';
-
-    function ensureReticleEls(){
-      return {
-        wrap: document.getElementById('reticle-progress'),
-        ring: document.getElementById('reticle-ring')
-      };
-    }
-
-    function showReticle(show){
-      const { wrap } = ensureReticleEls();
-      if (!wrap) return;
-      wrap.classList.toggle('show', !!show);
-    }
-
-    function setReticleColor(color){
-      reticleColor = color || '#38bdf8';
-      const { wrap } = ensureReticleEls();
-      if (!wrap) return;
-      wrap.style.setProperty('--rp-color', reticleColor);
-    }
-
-    function setReticleProgress01(p01){
-      const { ring } = ensureReticleEls();
-      if (!ring) return;
-      const deg = Math.max(0, Math.min(360, Math.round(p01 * 360)));
-      ring.style.background = `conic-gradient(${reticleColor} ${deg}deg, rgba(255,255,255,0.12) 0deg)`;
-    }
-
-    function stopReticleProgress(){
-      reticleActive = false;
-      reticleStartMs = 0;
-      setReticleProgress01(0);
-      if (reticleRAF) cancelAnimationFrame(reticleRAF);
-      reticleRAF = null;
-    }
-
-    function startReticleProgress(){
-      reticleActive = true;
-      reticleStartMs = performance.now();
-      setReticleProgress01(0);
-
-      function loop(){
-        if (!reticleActive) return;
-        const t = performance.now() - reticleStartMs;
-        const p = reticleFuseMs > 0 ? (t / reticleFuseMs) : 0;
-        setReticleProgress01(Math.min(1, p));
-        if (p < 1) reticleRAF = requestAnimationFrame(loop);
-      }
-      reticleRAF = requestAnimationFrame(loop);
-    }
-
-    function kindToColor(kind){
-      const k = String(kind || '').toLowerCase();
-      if (k === 'good') return '#22c55e';
-      if (k === 'junk') return '#f97316';
-      if (k === 'star') return '#facc15';
-      if (k === 'diamond') return '#38bdf8';
-      if (k === 'shield') return '#60a5fa';
-      return '#e5e7eb';
-    }
-
-    function findKindFromTargetEl(el){
-      if (!el) return '';
-      const root = (typeof el.closest === 'function') ? el.closest('.gj-target') : null;
-      if (root && root.dataset && root.dataset.kind) return root.dataset.kind;
-      if (el.dataset && el.dataset.kind) return el.dataset.kind;
-      return '';
-    }
-
-    function hookGazeReticleColorEvents(){
-      function shouldUseGaze(){
-        const cursorEl = document.getElementById('cursor');
-        if (!cursorEl) return false;
-        const cur = cursorEl.getAttribute('cursor') || {};
-        return !!cur.fuse;
-      }
-
-      document.addEventListener('mouseenter', function(e){
-        if (!shouldUseGaze()) return;
-        const t = e.target;
-        if (!t || !t.getAttribute) return;
-        if (!t.getAttribute('data-hha-tgt')) return;
-
-        const kind = findKindFromTargetEl(t);
-        setReticleColor(kindToColor(kind));
-        showReticle(true);
-        startReticleProgress();
-      }, true);
-
-      document.addEventListener('mouseleave', function(e){
-        if (!shouldUseGaze()) return;
-        const t = e.target;
-        if (!t || !t.getAttribute) return;
-        if (!t.getAttribute('data-hha-tgt')) return;
-
-        stopReticleProgress();
-        showReticle(false);
-      }, true);
-
-      document.addEventListener('click', function(){
-        if (!shouldUseGaze()) return;
-        stopReticleProgress();
-        showReticle(false);
-      }, true);
-    }
-
     window.addEventListener('DOMContentLoaded', function() {
       diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
       runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // เวลาเล่นตามระดับยากง่าย (override time param)
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
       else if (diff === 'hard') baseDur = 45;
@@ -1425,10 +1261,11 @@
       const timeParam = getParam('time','');
       if (timeParam){
         const parsed = parseInt(timeParam,10);
-        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
+        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180){
+          dur = parsed;
+        }
       }
 
-      // HUD update
       elDiff.textContent = diff.toUpperCase();
       elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
 
@@ -1439,23 +1276,21 @@
       elTime.textContent  = dur + 's';
       hudMissCount = 0;
 
-      // init grade hud
       hudGoalsTotal   = 0;
       hudGoalsCleared = 0;
       hudMiniTotal    = 0;
       hudMiniCleared  = 0;
       prevGoalsCleared = 0;
       prevMiniCleared  = 0;
+
       elGrade.textContent = '-';
       elGradeBar.style.width = '10%';
       elGradeBar.dataset.grade = 'C';
 
-      // lives reset
       currentLives = MAX_LIVES;
       warnedLowLife = false;
       renderLives(currentLives);
 
-      // โค้ช intro
       setCoachFace('neutral');
       let introMsg = '';
       if (runMode === 'research'){
@@ -1471,7 +1306,6 @@
       }
       setCoach(introMsg);
 
-      // อ่าน studentProfile จาก sessionStorage (ตั้งจาก Hub)
       let studentProfile = null;
       let studentKey = null;
       try{
@@ -1484,7 +1318,6 @@
         console.warn('[GoodJunkVR] cannot parse student profile:', err);
       }
 
-      // cloud logger
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
         projectTag: 'HeroHealth-GoodJunkVR',
@@ -1501,17 +1334,10 @@
       initTouchLook(cam);
       initVRButton();
 
-      // auto switch mouse↔gaze + reticle color by target
-      hookVrModeAutoSwitch();
-      hookGazeReticleColorEvents();
-
-      // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา
       runCountdown(function(){
-        // ✅ ส่ง layerEl ให้เอนจินวางเป้าที่ #gj-layer ชัวร์
-        GameEngine.start(diff, {
-          layerEl: document.getElementById('gj-layer'),
-          runMode: runMode
-        });
+        // ✅ ผูกเลเยอร์เป้าให้ชัวร์
+        const layerEl = document.getElementById('gj-layer');
+        GameEngine.start(diff, { layerEl, runMode });
 
         let timeLeft = dur;
         let timerId = null;
@@ -1530,7 +1356,6 @@
         timerId = setInterval(tickTime, 1000);
       });
 
-      // ปุ่มหน้าสรุป
       if (btnReplay) btnReplay.addEventListener('click', () => window.location.reload());
       if (btnBackHub) btnBackHub.addEventListener('click', () => window.location.href = './hub.html');
 
