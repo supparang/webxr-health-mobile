@@ -13,13 +13,6 @@
 //   ?time=60..180
 //   ?run=play|research
 //
-// Works with plate-vr.html you posted (IDs must exist):
-//   hudTime,hudScore,hudCombo,hudMiss,hudFever,hudFeverPct,hudMode,hudDiff
-//   hudGroupsHave,hudPerfectCount,hudGoalLine,hudMiniLine
-//   resultBackdrop + rMode,rGrade,rScore,rMaxCombo,rMiss,rPerfect,rGoals,rMinis,rG1..rG5,rGTotal
-//   btnRestart,btnPlayAgain,btnEnterVR
-//   #targetRoot, #cam, #cursor
-//
 'use strict';
 
 const URLX = new URL(location.href);
@@ -50,6 +43,8 @@ if (A && !A.components.billboard) {
     tick: function () {
       const t = this.data.target;
       if (!t) return;
+      const THREE = (window.AFRAME && window.AFRAME.THREE) || window.THREE;
+      if (!THREE) return;
       this.el.object3D.lookAt(t.object3D.getWorldPosition(new THREE.Vector3()));
     }
   });
@@ -125,6 +120,61 @@ let activeTargets = new Map();    // id -> { el, spawnMs, groupId, type, emoji, 
 const t0 = performance.now();
 const sessionStartIso = new Date().toISOString();
 
+// ---------- GoodJunk parity stats ----------
+const STATS = {
+  // spawn
+  nTargetGoodSpawned: 0,
+  nTargetJunkSpawned: 0,
+  nTargetStarSpawned: 0,
+  nTargetDiamondSpawned: 0,
+  nTargetShieldSpawned: 0,
+
+  // hit/expire
+  nHitGood: 0,
+  nHitJunk: 0,
+  nHitJunkGuard: 0,
+  nExpireGood: 0,
+
+  // RT
+  rtGoodList: [],
+
+  // derived
+  accuracyGoodPct: '',
+  junkErrorPct: '',
+  avgRtGoodMs: '',
+  medianRtGoodMs: '',
+  fastHitRatePct: ''
+};
+
+function median(arr){
+  if (!arr || !arr.length) return '';
+  const s = arr.slice().sort((a,b)=>a-b);
+  const m = Math.floor(s.length/2);
+  return (s.length%2) ? s[m] : Math.round((s[m-1]+s[m])/2);
+}
+function avg(arr){
+  if (!arr || !arr.length) return '';
+  const sum = arr.reduce((a,b)=>a+b,0);
+  return Math.round(sum/arr.length);
+}
+function computeDerivedStats(){
+  if (STATS.nTargetGoodSpawned > 0) {
+    STATS.accuracyGoodPct = Math.round((STATS.nHitGood / STATS.nTargetGoodSpawned) * 100);
+  } else STATS.accuracyGoodPct = '';
+
+  if (STATS.nTargetJunkSpawned > 0) {
+    STATS.junkErrorPct = Math.round((STATS.nHitJunk / STATS.nTargetJunkSpawned) * 100);
+  } else STATS.junkErrorPct = '';
+
+  STATS.avgRtGoodMs    = avg(STATS.rtGoodList);
+  STATS.medianRtGoodMs = median(STATS.rtGoodList);
+
+  if (STATS.rtGoodList.length) {
+    const fast = STATS.rtGoodList.filter(v => v <= 450).length;
+    STATS.fastHitRatePct = Math.round((fast / STATS.rtGoodList.length) * 100);
+  } else STATS.fastHitRatePct = '';
+}
+
 // ---------- Utils ----------
 function clamp(v, a, b) { v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 function rnd(a, b) { return a + Math.random() * (b - a); }
@@ -197,17 +247,39 @@ function emit(type, detail) {
   window.dispatchEvent(new CustomEvent(type, { detail }));
 }
 
+// ✅ GoodJunk-parity hha:event payload
 function emitGameEvent(payload) {
+  // goal/mini progress string ที่ sheet อ่านง่าย
+  goalCleared = Math.min(goalTotal, perfectPlates);
+  const goalProgress = `${goalCleared}/${goalTotal}`;
+  const miniProgress = `${miniCleared}/${miniTotal}`;
+
   emit('hha:event', Object.assign({
     sessionId,
     type: payload.type || '',
     mode: 'PlateVR',
     difficulty: DIFF,
+
     timeFromStartMs: fromStartMs(),
+    targetId: payload.targetId ?? '',
+    emoji: payload.emoji || '',
+    itemType: payload.itemType || '',
+    lane: payload.lane ?? '',
+
+    rtMs: payload.rtMs ?? '',
+    judgment: (payload.judgment || '').toString().toUpperCase() || '',
+
+    totalScore: (payload.totalScore ?? score),
+    combo: (payload.combo ?? combo),
+    isGood: (typeof payload.isGood === 'boolean') ? payload.isGood : '',
+
     feverState: feverActive ? 'ON' : 'OFF',
     feverValue: Math.round(fever),
-    totalScore: score,
-    combo
+
+    goalProgress,
+    miniProgress,
+
+    extra: payload.extra || ''
   }, payload));
 }
 
@@ -224,8 +296,15 @@ function emitStat(reason) {
     adaptiveScale: Number(adaptiveScale.toFixed(3)),
     adaptiveSpawn: Number(adaptiveSpawn.toFixed(3)),
     adaptiveMaxActive: Number(adaptiveMaxActive),
-    spawnIntervalMs: currentSpawnIntervalMs(),
-    maxActive: currentMaxActive(),
+
+    // ให้ dashboard ใช้งานง่าย
+    adaptiveScaleValue: Number(adaptiveScale.toFixed(3)),
+    adaptiveSpawnValue: Number(adaptiveSpawn.toFixed(3)),
+    adaptiveMaxActiveValue: Number(adaptiveMaxActive),
+
+    adaptiveSpawnIntervalMs: currentSpawnIntervalMs(),
+    adaptiveMaxActiveLimit: currentMaxActive(),
+
     score,
     combo,
     misses: miss,
@@ -244,8 +323,7 @@ function stopStatTicker() {
 }
 
 function emitSessionEnd(reason) {
-  const groupsHaveCount = Object.values(plateHave).filter(Boolean).length;
-  const gTotal = totalsByGroup[1]+totalsByGroup[2]+totalsByGroup[3]+totalsByGroup[4]+totalsByGroup[5];
+  computeDerivedStats();
 
   emit('hha:session', {
     sessionId,
@@ -262,17 +340,29 @@ function emitSessionEnd(reason) {
     miniCleared: miniCleared,
     miniTotal: miniTotal,
 
-    nTargetGoodSpawned: '',
-    nTargetJunkSpawned: '',
-    nHitGood: gTotal,
-    nHitJunk: '',
+    // ✅ parity fields (สำคัญมากสำหรับ Sheet)
+    nTargetGoodSpawned:    STATS.nTargetGoodSpawned,
+    nTargetJunkSpawned:    STATS.nTargetJunkSpawned,
+    nTargetStarSpawned:    STATS.nTargetStarSpawned,
+    nTargetDiamondSpawned: STATS.nTargetDiamondSpawned,
+    nTargetShieldSpawned:  STATS.nTargetShieldSpawned,
+
+    nHitGood:       STATS.nHitGood,
+    nHitJunk:       STATS.nHitJunk,
+    nHitJunkGuard:  STATS.nHitJunkGuard,
+    nExpireGood:    STATS.nExpireGood,
+
+    accuracyGoodPct: STATS.accuracyGoodPct,
+    junkErrorPct:    STATS.junkErrorPct,
+    avgRtGoodMs:     STATS.avgRtGoodMs,
+    medianRtGoodMs:  STATS.medianRtGoodMs,
+    fastHitRatePct:  STATS.fastHitRatePct,
 
     reason: reason || '',
 
     extra: JSON.stringify({
       totalsByGroup,
       plateCounts,
-      groupsHaveCount,
       perfectPlates,
       miniIndex,
       miniCleared,
@@ -289,7 +379,7 @@ function emitSessionEnd(reason) {
 
     startTimeIso: sessionStartIso,
     endTimeIso: nowIso(),
-    gameVersion: 'PlateVR-2025-12-16b'
+    gameVersion: 'PlateVR-2025-12-16c'
   });
 }
 
@@ -394,13 +484,13 @@ function addFever(delta) {
 function startFever() {
   feverActive = true;
   feverUntilMs = performance.now() + 8000;
-  emitGameEvent({ type: 'fever_on' });
+  emitGameEvent({ type: 'fever_on', judgment: 'OK' });
 }
 function endFever() {
   feverActive = false;
   feverUntilMs = 0;
   fever = 0;
-  emitGameEvent({ type: 'fever_off' });
+  emitGameEvent({ type: 'fever_off', judgment: 'OK' });
 }
 
 // ---------- Plate logic ----------
@@ -418,6 +508,13 @@ function completePerfectPlate() {
     type: 'plate_perfect',
     judgment: 'PERFECT',
     extra: JSON.stringify({ perfectPlates })
+  });
+
+  // ยิง progress ด้วย (sheet จะเห็น step)
+  emitGameEvent({
+    type: 'goal_progress',
+    judgment: 'OK',
+    extra: `perfect=${perfectPlates}`
   });
 
   if (miniCleared < miniTotal && performance.now() <= miniDeadlineMs) {
@@ -471,7 +568,12 @@ function spawnTarget() {
   const s = DCFG.scale * (isAdaptiveOn() ? adaptiveScale : 1.0);
   el.setAttribute('scale', `${s} ${s} ${s}`);
 
+  // ✅ สำคัญ: ให้ raycaster เจอแน่นอน
   el.classList.add('plateTarget');
+
+  // ✅ ให้เห็นแน่นอนทุกเครื่อง: ใส่ plane + text ซ้อน
+  el.setAttribute('geometry', 'primitive: plane; height: 0.65; width: 0.65');
+  el.setAttribute('material', 'color: #000000; opacity: 0.10; transparent: true; shader: flat; side: double');
 
   el.setAttribute('text', {
     value: item.emoji,
@@ -485,14 +587,25 @@ function spawnTarget() {
   el.setAttribute('animation__pop', `property:scale; from:0.01 0.01 0.01; to:${s} ${s} ${s}; dur:120; easing:easeOutBack`);
 
   const spawnMs = performance.now();
+
+  // click (pc/mobile)
   el.addEventListener('click', () => onHitTarget(id, 'CLICK'));
 
+  // fuse (cursor)
+  if (cursor) {
+    cursor.addEventListener('click', () => {}); // keep cursor active
+  }
+
   targetRoot.appendChild(el);
+
+  // STATS spawn count
+  if (item.type === 'junk') STATS.nTargetJunkSpawned += 1;
+  else STATS.nTargetGoodSpawned += 1;
 
   const expireTimer = setTimeout(() => {
     if (activeTargets.has(id)) {
       removeTarget(id);
-      onTargetExpired(item);
+      onTargetExpired(item, id);
     }
   }, DCFG.lifeMs);
 
@@ -502,8 +615,9 @@ function spawnTarget() {
     type: 'spawn',
     targetId: id,
     emoji: item.emoji,
-    itemType: item.type,
-    isGood: item.type === 'good'
+    itemType: item.type === 'junk' ? 'junk' : `g${item.groupId}`,
+    isGood: item.type === 'good',
+    extra: JSON.stringify({ x, y, z })
   });
 }
 
@@ -535,6 +649,8 @@ function onHitTarget(id, why) {
     combo = 0;
     addFever(-18);
 
+    STATS.nHitJunk += 1;
+
     emitGameEvent({
       type: 'hit',
       targetId: id,
@@ -563,13 +679,19 @@ function onHitTarget(id, why) {
   plateCounts[t.groupId] = (plateCounts[t.groupId] || 0) + 1;
   if (!plateHave[t.groupId]) plateHave[t.groupId] = true;
 
+  STATS.nHitGood += 1;
+  STATS.rtGoodList.push(rt);
+
+  // แยก PERFECT/GOOD ตาม RT เพื่อ parity
+  const judge = (rt <= 450) ? 'PERFECT' : 'GOOD';
+
   emitGameEvent({
     type: 'hit',
     targetId: id,
     emoji: t.emoji,
     itemType: `g${t.groupId}`,
     rtMs: rt,
-    judgment: 'GOOD',
+    judgment: judge,
     isGood: true,
     extra: why
   });
@@ -582,15 +704,19 @@ function onHitTarget(id, why) {
   updateHUD();
 }
 
-function onTargetExpired(item) {
+function onTargetExpired(item, targetId) {
   if (ended) return;
 
   miss += 1;
   combo = 0;
   addFever(-10);
 
+  // expireGood parity
+  if (item.type !== 'junk') STATS.nExpireGood += 1;
+
   emitGameEvent({
     type: 'expire',
+    targetId: targetId || '',
     emoji: item.emoji,
     itemType: item.type === 'junk' ? 'junk' : `g${item.groupId}`,
     judgment: 'MISS',
@@ -762,6 +888,11 @@ function boot() {
   setText('hudMode', modeLabel(MODE));
   setText('hudDiff', diffLabel(DIFF));
   setText('hudTime', tLeft);
+
+  // ทำให้ cursor ยิงโดนเป้าชัวร์ (กัน config mismatch)
+  if (cursor) {
+    try { cursor.setAttribute('raycaster', 'objects:.plateTarget'); } catch (_) {}
+  }
 
   initLoggerIfAvailable();
 
