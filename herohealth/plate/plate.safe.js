@@ -6,7 +6,7 @@
 // - Mini quest: Plate Rush (3) — make a PERFECT within 15s
 // - Fever mode (100% -> 8s boost)
 // - HUD + Result modal update
-// - Emits hha:event + hha:session + hha:stat (adaptive telemetry) for /vr/hha-cloud-logger.js
+// - Emits hha:event + hha:session + hha:stat (play-only) for /vr/hha-cloud-logger.js
 //
 // URL params:
 //   ?diff=easy|normal|hard
@@ -55,7 +55,7 @@ if (A && !A.components.billboard) {
   });
 }
 
-// ---------- Difficulty tuning (BASE) ----------
+// ---------- Difficulty tuning ----------
 const DIFF_TABLE = {
   easy:   { spawnInterval: 980, maxActive: 4, scale: 0.78, lifeMs: 1850, junkRate: 0.12 },
   normal: { spawnInterval: 820, maxActive: 5, scale: 0.66, lifeMs: 1650, junkRate: 0.18 },
@@ -70,7 +70,7 @@ const POOL = {
   g3: { id: 3, label: 'หมู่ 3', type: 'good', emojis: ['🥦','🥬','🥕','🍅','🥒'] },
   g4: { id: 4, label: 'หมู่ 4', type: 'good', emojis: ['🍎','🍌','🍇','🍊','🍉'] },
   g5: { id: 5, label: 'หมู่ 5', type: 'good', emojis: ['🥑','🫒','🥜','🧈','🍯'] },
-  junk: { id: 0, label: 'junk', type: 'junk', emojis: ['🍟','🍔','🍩','🧋','🍭','🥤'] }
+  junk:{ id: 0, label: 'junk',  type: 'junk', emojis: ['🍟','🍔','🍩','🧋','🍭','🥤'] }
 };
 const GROUP_KEYS = ['g1','g2','g3','g4','g5'];
 
@@ -118,33 +118,37 @@ let miniDeadlineMs = 0;
 const MINI_WINDOW_MS = 15000;
 
 // spawn control
-let spawnTimer = null; // (setTimeout loop)
-let activeTargets = new Map(); // id -> { el, spawnMs, groupId, type, emoji, expireTimer }
+let spawnTimer = null;            // ✅ dynamic setTimeout loop
+let activeTargets = new Map();    // id -> { el, spawnMs, groupId, type, emoji, expireTimer }
 
 // time origin
 const t0 = performance.now();
 const sessionStartIso = new Date().toISOString();
 
+// ---------- Utils ----------
+function clamp(v, a, b) { v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
+function nowIso() { return new Date().toISOString(); }
+function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0)); }
+function isAdaptiveOn() { return MODE === 'play'; } // ✅ research = lock
+
 // ---------- Adaptive (PLAY only) ----------
-let adaptiveScale = 1.0;     // multiply with base DCFG.scale
-let adaptiveSpawn = 1.0;     // multiply with base DCFG.spawnInterval (lower = faster)
-let adaptiveMaxActive = 0;   // additive delta to base maxActive
-let aScaleMin = 0.75, aScaleMax = 1.25;
-let aSpawnMin = 0.72, aSpawnMax = 1.35;
+let adaptiveScale = 1.0;      // multiply with base DCFG.scale
+let adaptiveSpawn = 1.0;      // multiply with base DCFG.spawnInterval (lower=faster)
+let adaptiveMaxActive = 0;    // add to base maxActive
+
+let aScaleMin = 0.78, aScaleMax = 1.24;
+let aSpawnMin = 0.75, aSpawnMax = 1.30;
 let aMaxMin = -1, aMaxMax = +2;
 
-function clamp(v, a, b) { v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-function isAdaptiveOn() { return MODE === 'play'; }
-
 function initAdaptiveForDiff() {
-  // ปรับกรอบตาม diff (เล่นจริง)
   if (!isAdaptiveOn()) {
     adaptiveScale = 1.0;
     adaptiveSpawn = 1.0;
     adaptiveMaxActive = 0;
     return;
   }
-
   if (DIFF === 'easy') {
     aScaleMin = 0.85; aScaleMax = 1.30;
     aSpawnMin = 0.80; aSpawnMax = 1.35;
@@ -153,33 +157,28 @@ function initAdaptiveForDiff() {
     aScaleMin = 0.70; aScaleMax = 1.18;
     aSpawnMin = 0.72; aSpawnMax = 1.25;
     aMaxMin = -1; aMaxMax = 1;
-  } else { // normal
+  } else {
     aScaleMin = 0.78; aScaleMax = 1.24;
     aSpawnMin = 0.75; aSpawnMax = 1.30;
     aMaxMin = -1; aMaxMax = 2;
   }
-
   adaptiveScale = 1.0;
   adaptiveSpawn = 1.0;
   adaptiveMaxActive = 0;
 }
 
 function currentSpawnIntervalMs() {
-  // interval ยิ่งน้อย = spawn เร็วขึ้น
   const ms = Math.round(DCFG.spawnInterval * clamp(adaptiveSpawn, aSpawnMin, aSpawnMax));
   return clamp(ms, 240, 2200);
 }
-
 function currentMaxActive() {
-  const v = (DCFG.maxActive + clamp(adaptiveMaxActive, aMaxMin, aMaxMax));
+  const v = DCFG.maxActive + clamp(adaptiveMaxActive, aMaxMin, aMaxMax);
   return clamp(v, 2, 10);
 }
 
 function bumpAdaptive(onGood) {
   if (!isAdaptiveOn()) return;
 
-  // good hit: ยากขึ้นนิด (เป้าเล็กลง / spawn เร็วขึ้นเล็กน้อย)
-  // miss/junk/expire: ง่ายขึ้นนิด
   if (onGood) {
     adaptiveScale = clamp(adaptiveScale - 0.025, aScaleMin, aScaleMax);
     adaptiveSpawn = clamp(adaptiveSpawn - 0.020, aSpawnMin, aSpawnMax);
@@ -190,7 +189,6 @@ function bumpAdaptive(onGood) {
     if (miss % 3 === 0 && adaptiveMaxActive > aMaxMin) adaptiveMaxActive -= 1;
   }
 
-  // ยิง stat ทันทีตอนมีการปรับ
   emitStat('adapt');
 }
 
@@ -198,8 +196,6 @@ function bumpAdaptive(onGood) {
 function emit(type, detail) {
   window.dispatchEvent(new CustomEvent(type, { detail }));
 }
-function nowIso() { return new Date().toISOString(); }
-function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0)); }
 
 function emitGameEvent(payload) {
   emit('hha:event', Object.assign({
@@ -218,7 +214,7 @@ function emitGameEvent(payload) {
 // ✅ NEW: hha:stat (adaptive telemetry) — play only
 let statTimer = null;
 function emitStat(reason) {
-  if (!isAdaptiveOn()) return; // research => ไม่ส่ง
+  if (!isAdaptiveOn()) return;
   emit('hha:stat', {
     sessionId,
     runMode: 'play',
@@ -228,27 +224,27 @@ function emitStat(reason) {
     adaptiveScale: Number(adaptiveScale.toFixed(3)),
     adaptiveSpawn: Number(adaptiveSpawn.toFixed(3)),
     adaptiveMaxActive: Number(adaptiveMaxActive),
+    spawnIntervalMs: currentSpawnIntervalMs(),
+    maxActive: currentMaxActive(),
     score,
     combo,
     misses: miss,
     reason: reason || 'tick'
   });
 }
-
 function startStatTicker() {
   if (!isAdaptiveOn()) return;
   if (statTimer) clearInterval(statTimer);
   statTimer = setInterval(() => emitStat('tick'), 1500);
   emitStat('start');
 }
-
 function stopStatTicker() {
   if (statTimer) clearInterval(statTimer);
   statTimer = null;
 }
 
-// ---------- Session end ----------
 function emitSessionEnd(reason) {
+  const groupsHaveCount = Object.values(plateHave).filter(Boolean).length;
   const gTotal = totalsByGroup[1]+totalsByGroup[2]+totalsByGroup[3]+totalsByGroup[4]+totalsByGroup[5];
 
   emit('hha:session', {
@@ -266,7 +262,6 @@ function emitSessionEnd(reason) {
     miniCleared: miniCleared,
     miniTotal: miniTotal,
 
-    // keep columns stable
     nTargetGoodSpawned: '',
     nTargetJunkSpawned: '',
     nHitGood: gTotal,
@@ -277,17 +272,19 @@ function emitSessionEnd(reason) {
     extra: JSON.stringify({
       totalsByGroup,
       plateCounts,
+      groupsHaveCount,
       perfectPlates,
       miniIndex,
       miniCleared,
-      // ✅ ช่วยดีบัก/วิเคราะห์
-      adaptive: isAdaptiveOn() ? {
-        adaptiveScale,
-        adaptiveSpawn,
-        adaptiveMaxActive,
-        spawnIntervalMs: currentSpawnIntervalMs(),
-        maxActive: currentMaxActive()
-      } : { locked:true }
+      adaptive: isAdaptiveOn()
+        ? {
+            adaptiveScale,
+            adaptiveSpawn,
+            adaptiveMaxActive,
+            spawnIntervalMs: currentSpawnIntervalMs(),
+            maxActive: currentMaxActive()
+          }
+        : { locked: true }
     }),
 
     startTimeIso: sessionStartIso,
@@ -364,7 +361,6 @@ function hideResult() {
   if (bd) bd.style.display = 'none';
 }
 
-// Grade heuristic
 function calcGrade() {
   const dur = Math.max(1, TIME);
   const sps = score / dur;
@@ -383,9 +379,7 @@ function calcGrade() {
 // ---------- Camera swipe fix ----------
 function ensureTouchLookControls() {
   if (!cam) return;
-  try {
-    cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true');
-  } catch (_) {}
+  try { cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true'); } catch (_) {}
 }
 
 // ---------- Fever ----------
@@ -443,9 +437,6 @@ function completePerfectPlate() {
 }
 
 // ---------- Spawn helpers ----------
-function rnd(a, b) { return a + Math.random() * (b - a); }
-function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
-
 function pickItem() {
   if (Math.random() < DCFG.junkRate) {
     const emoji = pick(POOL.junk.emojis);
@@ -476,7 +467,7 @@ function spawnTarget() {
   el.setAttribute('id', id);
   el.setAttribute('position', `${x.toFixed(2)} ${y.toFixed(2)} ${z.toFixed(2)}`);
 
-  // ✅ adaptive scale in play only
+  // ✅ adaptive scale (play only)
   const s = DCFG.scale * (isAdaptiveOn() ? adaptiveScale : 1.0);
   el.setAttribute('scale', `${s} ${s} ${s}`);
 
@@ -555,14 +546,11 @@ function onHitTarget(id, why) {
       extra: why
     });
 
-    // ✅ adaptive bump (miss-ish)
     bumpAdaptive(false);
-
     updateHUD();
     return;
   }
 
-  // good hit
   combo += 1;
   maxCombo = Math.max(maxCombo, combo);
 
@@ -586,7 +574,6 @@ function onHitTarget(id, why) {
     extra: why
   });
 
-  // ✅ adaptive bump (good)
   bumpAdaptive(true);
 
   const haveCount = Object.values(plateHave).filter(Boolean).length;
@@ -610,9 +597,7 @@ function onTargetExpired(item) {
     isGood: item.type !== 'junk'
   });
 
-  // ✅ adaptive bump (miss)
   bumpAdaptive(false);
-
   updateHUD();
 }
 
@@ -626,30 +611,6 @@ function tickMini() {
     miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
     emitStat('mini_fail');
   }
-}
-
-// ---------- Spawn loop (setTimeout เพื่อปรับ interval ได้จริง) ----------
-function scheduleNextSpawn() {
-  if (ended || !started) return;
-  const ms = currentSpawnIntervalMs();
-
-  spawnTimer = setTimeout(() => {
-    if (!started || ended) return;
-
-    if (feverActive) {
-      spawnTarget();
-      if (Math.random() < 0.45) spawnTarget();
-    } else {
-      spawnTarget();
-    }
-
-    scheduleNextSpawn();
-  }, ms);
-}
-
-function stopSpawning() {
-  if (spawnTimer) clearTimeout(spawnTimer);
-  spawnTimer = null;
 }
 
 // ---------- Main timer ----------
@@ -674,12 +635,31 @@ function startTimer() {
   }, 1000);
 }
 
-// ---------- Start / End ----------
-function clearAllTargets() {
-  for (const id of Array.from(activeTargets.keys())) removeTarget(id);
-  activeTargets.clear();
+// ✅ Dynamic spawn loop
+function scheduleNextSpawn() {
+  if (ended || !started) return;
+
+  const ms = isAdaptiveOn() ? currentSpawnIntervalMs() : DCFG.spawnInterval;
+  spawnTimer = setTimeout(() => {
+    if (!started || ended) return;
+
+    if (feverActive) {
+      spawnTarget();
+      if (Math.random() < 0.45) spawnTarget();
+    } else {
+      spawnTarget();
+    }
+
+    scheduleNextSpawn();
+  }, ms);
 }
 
+function stopSpawning() {
+  if (spawnTimer) clearTimeout(spawnTimer);
+  spawnTimer = null;
+}
+
+// ---------- Start / End ----------
 function startGame() {
   if (started) return;
   started = true;
@@ -692,11 +672,16 @@ function startGame() {
   updateHUD();
   emitGameEvent({ type: 'start', judgment: 'OK', extra: `run=${MODE}` });
 
-  // ✅ start stat ticker (play only)
+  // ✅ play-only stat ticker
   startStatTicker();
 
   startTimer();
   scheduleNextSpawn();
+}
+
+function clearAllTargets() {
+  for (const id of Array.from(activeTargets.keys())) removeTarget(id);
+  activeTargets.clear();
 }
 
 function endGame(reason) {
@@ -708,7 +693,6 @@ function endGame(reason) {
   if (timerTick) clearInterval(timerTick);
   timerTick = null;
 
-  // ✅ stop stat ticker
   emitStat('end');
   stopStatTicker();
 
@@ -738,7 +722,11 @@ function bindUI() {
   }
 
   const bd = $('resultBackdrop');
-  if (bd) bd.addEventListener('click', (e) => { if (e.target === bd) hideResult(); });
+  if (bd) {
+    bd.addEventListener('click', (e) => {
+      if (e.target === bd) hideResult();
+    });
+  }
 }
 
 // ---------- Cloud logger init (optional) ----------
@@ -777,7 +765,6 @@ function boot() {
 
   initLoggerIfAvailable();
 
-  // if logger is loaded after, retry a few times
   let tries = 0;
   const retry = setInterval(() => {
     if (typeof window.initCloudLogger === 'function') {
