@@ -1,8 +1,8 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — Minimal but production-safe spawn engine
-// - emoji targets (3D) pop-in/out
-// - clickable by mouse/touch + VR gaze/fuse (entity has data-hha-tgt + geometry)
-// - dispatch events: hha:score, hha:miss, hha:judge, hha:time (handled in HTML), hha:end, hha:life
+// Good vs Junk VR — Production-safe spawn engine (emoji always visible)
+// - emoji targets rendered via CanvasTexture (no A-Frame text/msdf dependency)
+// - clickable by mouse/touch + VR gaze/fuse
+// - dispatch events: hha:score, hha:miss, hha:judge, hha:end, hha:life
 //
 // NOTE: This file intentionally has NO imports to avoid module path issues.
 
@@ -23,6 +23,7 @@ function getParticles() {
   return gm.Particles || ROOT.Particles || null;
 }
 
+// ===== Emoji sets =====
 const EMOJI = {
   good:    ['🥦','🍎','🥛','🥗','🍌','🥕','🍇'],
   junk:    ['🍟','🍔','🍕','🍩','🍿','🧋','🥤'],
@@ -44,7 +45,7 @@ function diffCfg(diffKey) {
   return { spawnMs: 780, ttlMs: 1350, maxActive: 5, scale: 1.15, goodRatio: 0.66, bonusRatio: 0.11, missPerHeart: 3 };
 }
 
-// --- Target factory (A-Frame entities) ---
+// --- A-Frame refs ---
 function ensureScene() {
   const scene = document.querySelector('a-scene');
   if (!scene) throw new Error('a-scene not found');
@@ -67,25 +68,82 @@ function ensureLayer(scene) {
   return layer;
 }
 
-// Create a clickable target root with an invisible collider (geometry) + emoji text child.
+// ===== Emoji as CanvasTexture (works on mobile reliably) =====
+function makeEmojiTexture(emoji, px = 256) {
+  const c = document.createElement('canvas');
+  c.width = px; c.height = px;
+  const g = c.getContext('2d');
+  if (!g) return null;
+
+  g.clearRect(0, 0, px, px);
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+
+  // shadow
+  g.font = `900 ${Math.floor(px * 0.70)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"`;
+  g.fillStyle = 'rgba(0,0,0,0.35)';
+  g.fillText(String(emoji || '❓'), px / 2 + 4, px / 2 + 6);
+
+  // emoji
+  g.fillStyle = '#ffffff';
+  g.fillText(String(emoji || '❓'), px / 2, px / 2);
+
+  // THREE may not be ready yet (rare) -> guard
+  if (!ROOT.THREE) return null;
+  const tex = new ROOT.THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  tex.minFilter = ROOT.THREE.LinearFilter;
+  tex.magFilter = ROOT.THREE.LinearFilter;
+  return tex;
+}
+
+function setPlaneEmoji(planeEl, emoji) {
+  if (!planeEl) return;
+
+  // when THREE not ready, fallback: hide nothing (but keep ring)
+  if (!ROOT.THREE) return;
+
+  const tex = makeEmojiTexture(emoji, 256);
+  if (!tex) return;
+
+  const apply = () => {
+    const mesh = planeEl.getObject3D && planeEl.getObject3D('mesh');
+    if (mesh && mesh.material) {
+      // dispose old map (best-effort)
+      try { mesh.material.map && mesh.material.map.dispose && mesh.material.map.dispose(); } catch (_) {}
+      mesh.material.map = tex;
+      mesh.material.transparent = true;
+      mesh.material.opacity = 1;
+      mesh.material.needsUpdate = true;
+    }
+  };
+
+  // mesh may exist already; if not, wait until loaded
+  try { apply(); } catch (_) {}
+  planeEl.addEventListener('loaded', apply, { once: true });
+}
+
+// --- Target factory ---
+// clickable root with invisible collider + emoji plane (texture) + ring
 function makeTargetEntity() {
   const root = document.createElement('a-entity');
   root.className = 'gj-target';
-  // IMPORTANT: raycaster in HTML uses objects: [data-hha-tgt]
   root.setAttribute('data-hha-tgt', '1');
 
-  // collider (invisible, but MUST have geometry)
+  // collider (raycaster will hit this)
   root.setAttribute('geometry', 'primitive: circle; radius: 0.28');
   root.setAttribute('material', 'shader: flat; opacity: 0; transparent: true; side: double');
 
-  // emoji text (visible)
-  const txt = document.createElement('a-entity');
-  txt.className = 'gj-emoji';
-  txt.setAttribute('text', 'value: 🥦; align: center; baseline: center; width: 2.8; color: #ffffff; shader: msdf');
-  txt.setAttribute('position', '0 0 0.02');
-  root.appendChild(txt);
+  // emoji plane
+  const face = document.createElement('a-plane');
+  face.className = 'gj-emoji-plane';
+  face.setAttribute('width', '0.62');
+  face.setAttribute('height', '0.62');
+  face.setAttribute('position', '0 0 0.02');
+  face.setAttribute('material', 'shader: flat; transparent: true; opacity: 1; side: double');
+  root.appendChild(face);
 
-  // subtle ring (optional) to help see aim
+  // subtle ring to help aim
   const ring = document.createElement('a-entity');
   ring.className = 'gj-ring';
   ring.setAttribute('geometry', 'primitive: ring; radiusInner: 0.32; radiusOuter: 0.36');
@@ -96,7 +154,7 @@ function makeTargetEntity() {
   return root;
 }
 
-// Safe animation helpers (no dependency on animation component being present)
+// Safe animation helpers
 function popIn(el) {
   el.object3D.scale.set(0.001, 0.001, 0.001);
   const t0 = performance.now();
@@ -124,7 +182,7 @@ function popOutAndRemove(el, removeFn) {
   requestAnimationFrame(step);
 }
 
-// --- Main Engine ---
+// ===== Main Engine =====
 export const GameEngine = (function () {
   let scene, cam, layer;
   let running = false;
@@ -184,7 +242,6 @@ export const GameEngine = (function () {
     dispatch('hha:miss', { misses });
     setCombo(0);
 
-    // hearts only for hard
     if (diff === 'hard') {
       const lost = Math.floor(misses / (cfg.missPerHeart || 3));
       heartsLeft = Math.max(0, HEARTS_MAX - lost);
@@ -196,23 +253,19 @@ export const GameEngine = (function () {
         perHeart: cfg.missPerHeart
       });
 
-      if (heartsLeft <= 0) {
-        stop('no-hearts');
-      }
+      if (heartsLeft <= 0) stop('no-hearts');
     }
   }
 
   function kindRoll() {
     const p = Math.random();
 
-    // bonus targets sometimes
     if (p < (cfg.bonusRatio || 0.1)) {
       const q = Math.random();
       if (q < 0.45) return 'star';
       if (q < 0.85) return 'diamond';
       return 'shield';
     }
-    // normal good/junk
     return (Math.random() < (cfg.goodRatio || 0.66)) ? 'good' : 'junk';
   }
 
@@ -225,23 +278,35 @@ export const GameEngine = (function () {
     return '❓';
   }
 
+  function removeTarget(t) {
+    if (!t) return;
+    if (!active.has(t)) return;
+
+    active.delete(t);
+
+    const removeNow = () => {
+      try { t.parentNode && t.parentNode.removeChild(t); } catch (_) {}
+    };
+
+    popOutAndRemove(t, removeNow);
+  }
+
   function spawnOne() {
     if (!running) return;
     if (active.size >= (cfg.maxActive | 0)) return;
 
-    // place in front of camera with small spread
+    // place in front
     const z = -r(2.6, 4.2);
     const x = r(-1.15, 1.15);
     const y = r(0.9, 2.2);
 
     const t = makeTargetEntity();
-    t.dataset.kind = kindRoll();
+    const kind = kindRoll();
+    t.dataset.kind = kind;
 
-    // set emoji text
-    const txt = t.querySelector('.gj-emoji');
-    if (txt) {
-      txt.setAttribute('text', `value: ${emojiFor(t.dataset.kind)}; align: center; baseline: center; width: 2.8; color: #ffffff; shader: msdf`);
-    }
+    // set emoji texture
+    const face = t.querySelector('.gj-emoji-plane');
+    if (face) setPlaneEmoji(face, emojiFor(kind));
 
     // scale per diff
     const s = cfg.scale || 1.15;
@@ -250,88 +315,59 @@ export const GameEngine = (function () {
     t.setAttribute('position', `${x} ${y} ${z}`);
 
     // face camera
-    t.object3D.lookAt(cam.object3D.getWorldPosition(new THREE.Vector3()));
+    try {
+      const v = new ROOT.THREE.Vector3();
+      cam.object3D.getWorldPosition(v);
+      t.object3D.lookAt(v);
+    } catch (_) {}
 
     // click handler
     const onHit = (ev) => {
       ev && ev.stopPropagation && ev.stopPropagation();
-
-      // already removed?
       if (!active.has(t)) return;
 
-      const kind = String(t.dataset.kind || '');
-
-      // FX
+      const k = String(t.dataset.kind || '');
       const P = getParticles();
-      if (P && P.burstAt) {
-        // best-effort screen coords (center-ish)
-        P.burstAt(window.innerWidth / 2, window.innerHeight * 0.34, { count: 14, good: (kind !== 'junk') });
-      }
-      if (P && P.scorePop) {
-        P.scorePop(window.innerWidth / 2, window.innerHeight * 0.32, (kind === 'junk' ? 'OOPS!' : 'NICE!'), {
-          judgment: kind.toUpperCase(),
-          good: (kind !== 'junk')
-        });
-      }
 
-      if (kind === 'junk') {
+      // FX (best-effort)
+      if (P && P.burstAt) P.burstAt(window.innerWidth / 2, window.innerHeight * 0.34, { count: 14, good: (k !== 'junk') });
+      if (P && P.scorePop) P.scorePop(window.innerWidth / 2, window.innerHeight * 0.32, (k === 'junk' ? 'OOPS!' : 'NICE!'), {
+        judgment: k.toUpperCase(),
+        good: (k !== 'junk')
+      });
+
+      if (k === 'junk') {
         addMiss();
         setJudge('MISS');
       } else {
-        // score rules
         let gain = 50;
-        if (kind === 'good') gain = 60;
-        if (kind === 'star') gain = 120;
-        if (kind === 'diamond') gain = 150;
-        if (kind === 'shield') gain = 90;
+        if (k === 'good') gain = 60;
+        if (k === 'star') gain = 120;
+        if (k === 'diamond') gain = 150;
+        if (k === 'shield') gain = 90;
 
         setCombo(combo + 1);
         addScore(gain, (combo >= 8 ? 'PERFECT' : 'GOOD'));
       }
 
-      // remove target immediately
-      removeTarget(t, true);
+      removeTarget(t);
     };
 
     t.addEventListener('click', onHit);
 
-    // life timer (ttl)
-    const born = performance.now();
+    // TTL timeout
     const ttl = cfg.ttlMs | 0;
-
-    t.__gj = { born, ttl, onHit };
-
     layer.appendChild(t);
     active.add(t);
-
-    // pop-in
     popIn(t);
 
-    // if times out -> counts as miss only for GOOD targets (optional),
-    // but to keep simple: timeout = miss (like "you missed chance")
-    // If you want "MISS only when hit junk", change below to only addMiss() on GOOD.
     setTimeout(() => {
       if (!running) return;
       if (!active.has(t)) return;
-      // timeout
       addMiss();
       setJudge('MISS');
-      removeTarget(t, false);
+      removeTarget(t);
     }, ttl);
-  }
-
-  function removeTarget(t, hit) {
-    if (!t) return;
-    if (!active.has(t)) return;
-
-    active.delete(t);
-
-    const removeNow = () => {
-      try { t.parentNode && t.parentNode.removeChild(t); } catch(_) {}
-    };
-
-    // animate out a bit
-    popOutAndRemove(t, removeNow);
   }
 
   function loopSpawn() {
@@ -344,7 +380,7 @@ export const GameEngine = (function () {
 
   function clearAllTargets() {
     active.forEach(t => {
-      try { t.parentNode && t.parentNode.removeChild(t); } catch(_) {}
+      try { t.parentNode && t.parentNode.removeChild(t); } catch (_) {}
     });
     active.clear();
   }
@@ -365,7 +401,7 @@ export const GameEngine = (function () {
     running = true;
     resetStats();
 
-    // IMPORTANT: spawn at least 1 immediately so user sees it
+    // spawn immediately so user sees targets
     spawnOne();
     spawnOne();
     loopSpawn();
@@ -380,8 +416,8 @@ export const GameEngine = (function () {
     clearInterval(spawnTimer);
     spawnTimer = null;
 
-    // finalize
-    const goalsTotal = 2, miniTotal = 3; // HUD expects numbers; keep stable
+    // finalize (HUD expects totals)
+    const goalsTotal = 2, miniTotal = 3;
     const goalsCleared = 0, miniCleared = 0;
 
     dispatch('hha:end', {
@@ -395,9 +431,7 @@ export const GameEngine = (function () {
       miniTotal
     });
 
-    // clean
     clearAllTargets();
-
     console.log('[GoodJunkVR] stopped reason=', reason);
   }
 
