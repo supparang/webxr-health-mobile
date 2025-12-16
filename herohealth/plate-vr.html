@@ -101,6 +101,7 @@
     .kv .k{ color:var(--muted); font-weight:900; }
     .kv .v{ font-weight:950; }
     .modal .actions{ display:flex; gap:10px; justify-content:center; padding: 10px 6px 4px; }
+
     @media (max-width: 620px){
       .quest{ max-width: 68vw; }
       .grid{ grid-template-columns: 1fr; }
@@ -197,7 +198,7 @@
           geometry="primitive:ring; radiusInner:0.008; radiusOuter:0.012">
         </a-cursor>
 
-        <!-- ✅ เป้ายึดกับกล้อง → หมุนจอแล้ว “เป้าเลื่อนตาม” -->
+        <!-- ✅ ยึดเป้าไว้กับกล้อง: หมุนจอแล้วเป้า “เลื่อนตาม” -->
         <a-entity id="targetRoot" position="0 0 -2.2"></a-entity>
       </a-camera>
     </a-entity>
@@ -206,21 +207,21 @@
     <a-entity light="type:ambient; intensity:0.9"></a-entity>
     <a-entity light="type:directional; intensity:0.9" position="1 3 2"></a-entity>
 
-    <!-- ✅ แชร์ endpoint ให้เกมอ่านได้ (plate.safe.js จะอ่านเอง) -->
-    <script>
-      try{
-        window.HHA_LOG_ENDPOINT = sessionStorage.getItem('HHA_LOG_ENDPOINT') || '';
-      }catch(e){}
-    </script>
-
-    <!-- ✅ Logger: expose to window -->
+    <!-- ✅ Logger: ให้เกมเรียกใช้ได้ -->
     <script type="module">
       import { initCloudLogger } from './vr/hha-cloud-logger.js';
       window.initCloudLogger = initCloudLogger;
+      // เก็บ endpoint ให้เกมหยิบได้ (เผื่อเปิด plate ตรงๆ ไม่ผ่าน hub)
+      if (!sessionStorage.getItem('HHA_LOG_ENDPOINT')) {
+        sessionStorage.setItem('HHA_LOG_ENDPOINT',
+          'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec'
+        );
+      }
     </script>
 
     <!-- ✅ Plate game -->
-    <script type="module" src="./plate/plate.safe.js"></script>
+    <script type="module" src="./vr-plate/plate.safe.js"></script>
+    <!-- ถ้าคุณเก็บไฟล์ไว้คนละที่ ให้แก้ path บรรทัดนี้เท่านั้น -->
   </a-scene>
 </body>
 </html>
