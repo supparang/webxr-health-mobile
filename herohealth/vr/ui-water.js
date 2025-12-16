@@ -1,12 +1,17 @@
-// === /herohealth/vr/ui-water.js
+// === /herohealth/vr/ui-water.js ===
 // Water gauge + zone helper (LOW / GREEN / HIGH)
+//
+// ✅ Update: ถ้าหน้ามี Water HUD อยู่แล้ว (#hha-water-fill/#hha-water-status)
+// จะ "bind" เข้ากับของหน้า และไม่สร้าง widget ซ้ำ
+//
+// ใช้แบบ module (มี export) เพราะ hydration.safe.js import มาใช้
 
 'use strict';
 
-let gaugeWrap = null;
-let gaugeBar  = null;
-let gaugeText = null;
-let zoneText  = null;
+let gaugeWrap = null;     // root ที่สร้างเอง (ถ้ามี)
+let gaugeBar  = null;     // fill element
+let gaugeText = null;     // text % element (อาจเป็น status ของหน้า)
+let zoneText  = null;     // text zone element (อาจเป็น status ของหน้า)
 
 function ensureStyle() {
   if (document.getElementById('hha-water-style')) return;
@@ -83,8 +88,31 @@ export function zoneFrom(pct) {
   return 'GREEN';
 }
 
+// ----- bind เข้ากับ HUD ของหน้า (ถ้ามี) -----
+function bindExistingHudIfPresent() {
+  const fill = document.getElementById('hha-water-fill');
+  const status = document.getElementById('hha-water-status');
+
+  if (fill && status) {
+    // เราจะไม่ไปสร้าง widget ลอย
+    gaugeWrap = null;
+    gaugeBar = fill;
+    gaugeText = status; // ใช้ status เป็นที่โชว์ "ZONE xx%"
+    zoneText = status;
+
+    return true;
+  }
+  return false;
+}
+
 export function ensureWaterGauge() {
+  // ถ้าหน้ามีอยู่แล้ว → bind และจบ
+  if (bindExistingHudIfPresent()) return document.getElementById('hha-water-header') || null;
+
+  // ถ้าสร้างไว้แล้วและยังอยู่ → return
   if (gaugeWrap && gaugeWrap.isConnected) return gaugeWrap;
+
+  // fallback: สร้าง widget ลอย (สำหรับหน้าอื่น)
   ensureStyle();
 
   gaugeWrap = document.createElement('div');
@@ -139,11 +167,35 @@ export function ensureWaterGauge() {
 
 // setWaterGauge(pct) → { pct, zone }
 export function setWaterGauge(pct) {
-  if (!gaugeWrap || !gaugeWrap.isConnected) ensureWaterGauge();
+  ensureWaterGauge();
+
   const v = clamp(Number(pct), 0, 100);
   const zone = zoneFrom(v);
 
-  gaugeWrap.dataset.zone = zone;
+  // ----- กรณี bind กับหน้า (sticky header) -----
+  if (gaugeBar && gaugeBar.id === 'hha-water-fill') {
+    gaugeBar.style.width = v + '%';
+
+    // อัปเดต status: "ZONE xx%"
+    const statusEl = document.getElementById('hha-water-status');
+    if (statusEl) statusEl.textContent = `${zone} ${v.toFixed(0)}%`;
+
+    // อัปเดตโซนใน card ซ้าย (ถ้ามี)
+    const ztxt = document.getElementById('hha-water-zone-text');
+    if (ztxt) ztxt.textContent = zone;
+
+    // (optional) เปลี่ยนสี fill ให้เข้ากับโซน
+    if (zone === 'GREEN') {
+      gaugeBar.style.background = 'linear-gradient(90deg,#22c55e,#4ade80)';
+    } else {
+      gaugeBar.style.background = 'linear-gradient(90deg,#f97316,#fb923c)';
+    }
+
+    return { pct: v, zone };
+  }
+
+  // ----- กรณี widget ลอย (fallback) -----
+  if (gaugeWrap) gaugeWrap.dataset.zone = zone;
   if (gaugeBar) gaugeBar.style.width = v + '%';
   if (gaugeText) gaugeText.textContent = v.toFixed(0) + '%';
   if (zoneText) zoneText.textContent = zone;
@@ -152,6 +204,7 @@ export function setWaterGauge(pct) {
 }
 
 function clamp(v, min, max) {
+  v = Number(v) || 0;
   return v < min ? min : (v > max ? max : v);
 }
 
