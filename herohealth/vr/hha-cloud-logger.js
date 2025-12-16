@@ -1,14 +1,15 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
 // Cloud Logger (Sessions + Events + Profile + AdaptiveStats) for Hero Health VR
 // รองรับ 2 โหมด: play / research (runMode)
+//
 // payload ไป Google Apps Script:
 //  {
-//    projectTag,
-//    runMode,
-//    sessions: [ ... ],
-//    events:   [ ... ],
-//    profiles: [ ... ],
-//    adaptiveStats: [ ... ]
+//    projectTag: 'HeroHealth-<Game>',
+//    runMode: 'play' | 'research',
+//    sessions: [ { ... } ],
+//    events:   [ { ... } ],
+//    profiles: [ { ... } ],
+//    adaptiveStats: [ { ... } ]   // ✅ เพิ่มแล้ว
 //  }
 
 'use strict';
@@ -16,7 +17,7 @@
 let CONFIG = {
   endpoint: '',
   projectTag: 'HeroHealth',
-  mode: '',          // GoodJunkVR / HydrationVR / FoodGroupsVR
+  mode: '',          // gameMode เช่น GoodJunkVR / HydrationVR / PlateVR / FoodGroupsVR
   runMode: 'play',   // play | research
   diff: '',
   durationSec: 60,
@@ -24,54 +25,51 @@ let CONFIG = {
 
   // ===== meta งานวิจัย / site =====
   studyId: '',
-  phase: '',
-  conditionGroup: '',
-  sessionOrder: '',
-  blockLabel: '',
-  siteCode: '',
-  schoolYear: '',
-  semester: ''
+  phase: '',             // pre / post / followup ฯลฯ
+  conditionGroup: '',    // control / VR-only / VR+Coach ...
+  sessionOrder: '',      // ลำดับที่เล่นในวันนั้น 1,2,3,...
+  blockLabel: '',        // label block (ถ้ามี)
+  siteCode: '',          // รหัสโรงเรียน/ศูนย์
+  schoolYear: '',        // ปีการศึกษา
+  semester: ''           // ภาคเรียน
 };
 
-let sessionQueue  = [];
-let eventQueue    = [];
-let profileQueue  = [];
-let adaptiveQueue = [];   // ✅ NEW
+let sessionQueue   = [];
+let eventQueue     = [];
+let profileQueue   = [];
+let adaptiveQueue  = [];   // ✅ NEW
 
-let profileQueued = false;
+let profileQueued  = false;
+let flushTimer     = null;
+const FLUSH_DELAY  = 2500; // ms
 
-let flushTimer    = null;
-const FLUSH_DELAY = 2500;
-
-// --------------------------------------------------
-// Helpers
-// --------------------------------------------------
+// ===== Helper: อ่านจาก sessionStorage แบบ safe =====
 function ssGet(key, fallback = '') {
   try {
     if (typeof sessionStorage === 'undefined') return fallback;
     const v = sessionStorage.getItem(key);
     return v != null ? v : fallback;
-  } catch {
+  } catch (_) {
     return fallback;
   }
 }
 
+// ===== Helper: อ่าน profile จาก sessionStorage =====
 function readProfileFromStorage() {
   try {
     const rawProf    = ssGet('HHA_STUDENT_PROFILE', '');
     const studentKey = ssGet('HHA_STUDENT_KEY', '');
     if (!rawProf) return null;
+
     const prof = JSON.parse(rawProf);
     return Object.assign({}, prof, { studentKey });
   } catch (err) {
-    console.warn('[HHA-Logger] readProfile error', err);
+    console.warn('[HHA-Logger] readProfileFromStorage error', err);
     return null;
   }
 }
 
-// --------------------------------------------------
-// Profile (research only)
-// --------------------------------------------------
+// push profile เข้า queue แค่ครั้งเดียวต่อ page load (เฉพาะ research mode)
 function queueProfileIfNeeded() {
   if (profileQueued) return;
   if (CONFIG.runMode !== 'research') return;
@@ -82,26 +80,26 @@ function queueProfileIfNeeded() {
   const nowIso = new Date().toISOString();
 
   profileQueue.push({
-    projectTag:  CONFIG.projectTag,
-    runMode:     CONFIG.runMode,
-    studyId:     prof.studyId || CONFIG.studyId || '',
-    siteCode:    prof.siteCode || CONFIG.siteCode || '',
-    schoolYear:  prof.schoolYear || CONFIG.schoolYear || '',
-    semester:    prof.semester || CONFIG.semester || '',
+    projectTag:   CONFIG.projectTag,
+    runMode:      CONFIG.runMode,
+    studyId:      prof.studyId || CONFIG.studyId || '',
+    siteCode:     prof.siteCode || CONFIG.siteCode || '',
+    schoolYear:   prof.schoolYear || CONFIG.schoolYear || '',
+    semester:     prof.semester || CONFIG.semester || '',
 
-    studentKey:  prof.studentKey || '',
-    schoolCode:  prof.schoolCode || '',
-    schoolName:  prof.schoolName || '',
-    classRoom:   prof.classRoom || '',
-    studentNo:   prof.studentNo || '',
-    nickName:    prof.nickName || '',
-    gender:      prof.gender || '',
-    age:         prof.age || '',
-    gradeLevel:  prof.gradeLevel || '',
-    heightCm:    prof.heightCm || '',
-    weightKg:    prof.weightKg || '',
-    bmi:         prof.bmi ?? '',
-    bmiGroup:    prof.bmiGroup || '',
+    studentKey:   prof.studentKey || '',
+    schoolCode:   prof.schoolCode || '',
+    schoolName:   prof.schoolName || '',
+    classRoom:    prof.classRoom || '',
+    studentNo:    prof.studentNo || '',
+    nickName:     prof.nickName || '',
+    gender:       prof.gender || '',
+    age:          prof.age || '',
+    gradeLevel:   prof.gradeLevel || '',
+    heightCm:     prof.heightCm || '',
+    weightKg:     prof.weightKg || '',
+    bmi:          prof.bmi ?? '',
+    bmiGroup:     prof.bmiGroup || '',
 
     vrExperience:  prof.vrExperience || '',
     gameFrequency: prof.gameFrequency || '',
@@ -124,12 +122,10 @@ function queueProfileIfNeeded() {
   profileQueued = true;
 }
 
-// --------------------------------------------------
-// Flush
-// --------------------------------------------------
+// ===== Queue + Flush =====
 function scheduleFlush(delay) {
   if (!CONFIG.endpoint) {
-    if (CONFIG.debug) console.warn('[HHA-Logger] endpoint not set');
+    if (CONFIG.debug) console.warn('[HHA-Logger] endpoint not set, skip flush');
     return;
   }
   if (flushTimer) clearTimeout(flushTimer);
@@ -139,27 +135,30 @@ function scheduleFlush(delay) {
 async function doFlush() {
   flushTimer = null;
   if (!CONFIG.endpoint) return;
+
   if (!sessionQueue.length && !eventQueue.length && !profileQueue.length && !adaptiveQueue.length) return;
 
   const payload = {
-    projectTag: CONFIG.projectTag,
-    runMode:    CONFIG.runMode,
-    sessions:   sessionQueue,
-    events:     eventQueue,
-    profiles:   profileQueue,
-    adaptiveStats: adaptiveQueue
+    projectTag:     CONFIG.projectTag,
+    runMode:        CONFIG.runMode,
+    sessions:       sessionQueue,
+    events:         eventQueue,
+    profiles:       profileQueue,
+    adaptiveStats:  adaptiveQueue   // ✅ NEW
   };
 
   if (CONFIG.debug) console.log('[HHA-Logger] FLUSH →', payload);
 
-  const bSessions = sessionQueue.slice();
-  const bEvents   = eventQueue.slice();
-  const bProfiles = profileQueue.slice();
-  const bAdaptive = adaptiveQueue.slice();
+  // backup
+  const backupSessions  = sessionQueue.slice();
+  const backupEvents    = eventQueue.slice();
+  const backupProfiles  = profileQueue.slice();
+  const backupAdaptive  = adaptiveQueue.slice();
 
-  sessionQueue = [];
-  eventQueue   = [];
-  profileQueue = [];
+  // clear first (fail -> restore)
+  sessionQueue  = [];
+  eventQueue    = [];
+  profileQueue  = []; // profileQueued ยัง true ไม่ต้อง push ซ้ำ
   adaptiveQueue = [];
 
   try {
@@ -169,180 +168,248 @@ async function doFlush() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+
+    if (CONFIG.debug) console.log('[HHA-Logger] flush sent');
   } catch (err) {
     console.error('[HHA-Logger] flush error', err);
-    sessionQueue  = bSessions.concat(sessionQueue);
-    eventQueue    = bEvents.concat(eventQueue);
-    profileQueue  = bProfiles.concat(profileQueue);
-    adaptiveQueue = bAdaptive.concat(adaptiveQueue);
+    // restore
+    sessionQueue  = backupSessions.concat(sessionQueue);
+    eventQueue    = backupEvents.concat(eventQueue);
+    profileQueue  = backupProfiles.concat(profileQueue);
+    adaptiveQueue = backupAdaptive.concat(adaptiveQueue);
   }
 }
 
-// --------------------------------------------------
-// Session events
-// --------------------------------------------------
+// ===== Event Handlers =====
 function onSessionEvent(ev) {
   const d = ev.detail || {};
   const nowIso = new Date().toISOString();
   const prof = readProfileFromStorage() || {};
 
-  sessionQueue.push({
-    timestampIso: nowIso,
-    projectTag: CONFIG.projectTag,
-    runMode: CONFIG.runMode,
+  const studyId        = d.studyId || CONFIG.studyId || prof.studyId || '';
+  const phase          = d.phase || CONFIG.phase || '';
+  const conditionGroup = d.conditionGroup || CONFIG.conditionGroup || '';
+  const sessionOrder   = d.sessionOrder ?? CONFIG.sessionOrder ?? '';
+  const blockLabel     = d.blockLabel || CONFIG.blockLabel || '';
+  const siteCode       = prof.siteCode || CONFIG.siteCode || '';
 
-    studyId: d.studyId || CONFIG.studyId || prof.studyId || '',
-    phase: d.phase || CONFIG.phase || '',
-    conditionGroup: d.conditionGroup || CONFIG.conditionGroup || '',
-    sessionOrder: d.sessionOrder ?? CONFIG.sessionOrder ?? '',
-    blockLabel: d.blockLabel || CONFIG.blockLabel || '',
-    siteCode: prof.siteCode || CONFIG.siteCode || '',
-    schoolYear: prof.schoolYear || CONFIG.schoolYear || '',
-    semester: prof.semester || CONFIG.semester || '',
+  const schoolYear     = prof.schoolYear || CONFIG.schoolYear || '';
+  const semester       = prof.semester || CONFIG.semester || '';
+
+  const row = {
+    timestampIso: nowIso,
+    projectTag:   CONFIG.projectTag,
+    runMode:      CONFIG.runMode,
+
+    studyId,
+    phase,
+    conditionGroup,
+    sessionOrder,
+    blockLabel,
+    siteCode,
+    schoolYear,
+    semester,
 
     sessionId: d.sessionId || '',
-    gameMode: d.mode || CONFIG.mode || '',
-    diff: d.difficulty || CONFIG.diff || '',
+    gameMode:  d.mode || CONFIG.mode || '',
+    diff:      d.difficulty || d.diff || CONFIG.diff || '',
     durationPlannedSec: CONFIG.durationSec,
 
     durationPlayedSec: d.durationSecPlayed ?? '',
     scoreFinal: d.scoreFinal ?? d.score ?? '',
-    comboMax: d.comboMax ?? '',
-    misses: d.misses ?? '',
+    comboMax:   d.comboMax ?? '',
+    misses:     d.misses ?? '',
     goalsCleared: d.goalsCleared ?? '',
-    goalsTotal: d.goalsTotal ?? '',
-    miniCleared: d.miniCleared ?? '',
-    miniTotal: d.miniTotal ?? '',
+    goalsTotal:   d.goalsTotal ?? '',
+    miniCleared:  d.miniCleared ?? '',
+    miniTotal:    d.miniTotal ?? '',
 
-    nTargetGoodSpawned: d.nTargetGoodSpawned ?? '',
-    nTargetJunkSpawned: d.nTargetJunkSpawned ?? '',
-    nTargetStarSpawned: d.nTargetStarSpawned ?? '',
+    nTargetGoodSpawned:    d.nTargetGoodSpawned ?? '',
+    nTargetJunkSpawned:    d.nTargetJunkSpawned ?? '',
+    nTargetStarSpawned:    d.nTargetStarSpawned ?? '',
     nTargetDiamondSpawned: d.nTargetDiamondSpawned ?? '',
-    nTargetShieldSpawned: d.nTargetShieldSpawned ?? '',
+    nTargetShieldSpawned:  d.nTargetShieldSpawned ?? '',
 
-    nHitGood: d.nHitGood ?? '',
-    nHitJunk: d.nHitJunk ?? '',
-    nHitJunkGuard: d.nHitJunkGuard ?? '',
-    nExpireGood: d.nExpireGood ?? '',
+    nHitGood:       d.nHitGood ?? '',
+    nHitJunk:       d.nHitJunk ?? '',
+    nHitJunkGuard:  d.nHitJunkGuard ?? '',
+    nExpireGood:    d.nExpireGood ?? '',
 
     accuracyGoodPct: d.accuracyGoodPct ?? '',
-    junkErrorPct: d.junkErrorPct ?? '',
-    avgRtGoodMs: d.avgRtGoodMs ?? '',
-    medianRtGoodMs: d.medianRtGoodMs ?? '',
+    junkErrorPct:    d.junkErrorPct ?? '',
 
-    device: d.device || navigator.userAgent || '',
+    avgRtGoodMs:     d.avgRtGoodMs ?? '',
+    medianRtGoodMs:  d.medianRtGoodMs ?? '',
+    fastHitRatePct:  d.fastHitRatePct ?? '',
+
+    device:      d.device || (typeof navigator !== 'undefined' ? navigator.userAgent : ''),
     gameVersion: d.gameVersion || '',
-    reason: d.reason || '',
-    startTimeIso: d.startTimeIso || '',
-    endTimeIso: d.endTimeIso || '',
+    reason:      d.reason || '',
+    startTimeIso: d.startTimeIso || d.startTime || '',
+    endTimeIso:   d.endTimeIso   || d.endTime   || '',
 
-    studentKey: prof.studentKey || ''
-  });
+    // join profile
+    studentKey: prof.studentKey || '',
+    schoolCode: prof.schoolCode || '',
+    schoolName: prof.schoolName || '',
+    classRoom:  prof.classRoom  || '',
+    studentNo:  prof.studentNo  || '',
+    nickName:   prof.nickName   || '',
 
+    gender:     prof.gender     || '',
+    age:        prof.age        || '',
+    gradeLevel: prof.gradeLevel || '',
+    heightCm:   prof.heightCm   || '',
+    weightKg:   prof.weightKg   || '',
+    bmi:        prof.bmi ?? '',
+    bmiGroup:   prof.bmiGroup || '',
+
+    vrExperience:  prof.vrExperience || '',
+    gameFrequency: prof.gameFrequency || '',
+    handedness:    prof.handedness || '',
+    visionIssue:   prof.visionIssue || '',
+    healthDetail:  prof.healthDetail || '',
+    consentParent: prof.consentParent || '',
+    consentTeacher: prof.consentTeacher || '',
+    profileSource: prof.source || 'VR-Nutrition-Hub',
+
+    surveyKey:      prof.surveyKey || '',
+    excludeFlag:    prof.excludeFlag || '',
+    noteResearcher: prof.noteResearcher || ''
+  };
+
+  sessionQueue.push(row);
   scheduleFlush();
 }
 
-// --------------------------------------------------
-// Game events (hit / miss / expire)
-// --------------------------------------------------
 function onGameEvent(ev) {
   const d = ev.detail || {};
   const nowIso = new Date().toISOString();
   const prof = readProfileFromStorage() || {};
 
-  eventQueue.push({
+  const row = {
     timestampIso: nowIso,
-    projectTag: CONFIG.projectTag,
-    runMode: CONFIG.runMode,
+    projectTag:   CONFIG.projectTag,
+    runMode:      CONFIG.runMode,
 
     studyId: d.studyId || CONFIG.studyId || prof.studyId || '',
-    phase: d.phase || CONFIG.phase || '',
+    phase:   d.phase   || CONFIG.phase || '',
     conditionGroup: d.conditionGroup || CONFIG.conditionGroup || '',
 
     sessionId: d.sessionId || '',
-    eventType: d.type || '',
-    gameMode: d.mode || CONFIG.mode || '',
-    diff: d.difficulty || CONFIG.diff || '',
+    eventType: d.type || d.eventType || '',
+    gameMode:  d.mode || CONFIG.mode || '',
+    diff:      d.difficulty || d.diff || CONFIG.diff || '',
 
     timeFromStartMs: d.timeFromStartMs ?? '',
-    emoji: d.emoji || '',
-    judgment: (d.judgment || '').toUpperCase() || '',
-    rtMs: d.rtMs ?? '',
+    targetId:        d.targetId ?? '',
+
+    emoji:    d.emoji || '',
+    itemType: d.itemType || '',
+    lane:     d.lane ?? '',
+    rtMs:     d.rtMs ?? '',
+
+    judgment: (d.judgment || '').toString().toUpperCase() || '',
+
     totalScore: d.totalScore ?? '',
-    combo: d.combo ?? '',
-    isGood: typeof d.isGood === 'boolean' ? d.isGood : '',
+    combo:      d.combo ?? '',
+    isGood: (typeof d.isGood === 'boolean') ? d.isGood : '',
 
-    studentKey: prof.studentKey || ''
-  });
+    feverState: d.feverState || '',
+    feverValue: d.feverValue ?? '',
+    goalProgress: d.goalProgress ?? '',
+    miniProgress: d.miniProgress ?? '',
 
+    extra: d.extra || '',
+
+    studentKey: prof.studentKey || '',
+    schoolCode: prof.schoolCode || '',
+    classRoom:  prof.classRoom || '',
+    studentNo:  prof.studentNo || '',
+    nickName:   prof.nickName || ''
+  };
+
+  eventQueue.push(row);
   scheduleFlush();
 }
 
-// --------------------------------------------------
-// Adaptive stats  ✅ ฟัง hha:adaptive
-// --------------------------------------------------
+// ✅ NEW: Adaptive stats (play only)
 function onAdaptiveStat(ev) {
-  if (CONFIG.runMode !== 'play') return;
-
   const d = ev.detail || {};
   const nowIso = new Date().toISOString();
   const prof = readProfileFromStorage() || {};
 
-  adaptiveQueue.push({
+  // กรองให้ชัวร์: play เท่านั้น
+  const rm = String(d.runMode || CONFIG.runMode || 'play').toLowerCase();
+  if (rm !== 'play') return;
+
+  const row = {
     timestampIso: nowIso,
-    projectTag: CONFIG.projectTag,
-    runMode: CONFIG.runMode,
+    projectTag:   CONFIG.projectTag,
+    runMode:      'play',
 
     studyId: d.studyId || CONFIG.studyId || prof.studyId || '',
-    phase: d.phase || CONFIG.phase || '',
+    phase:   d.phase   || CONFIG.phase || '',
     conditionGroup: d.conditionGroup || CONFIG.conditionGroup || '',
 
     sessionId: d.sessionId || '',
-    gameMode: d.mode || CONFIG.mode || '',
-    diff: d.difficulty || CONFIG.diff || '',
+    mode:      d.mode || CONFIG.mode || '',
+    diff:      d.difficulty || d.diff || CONFIG.diff || '',
 
-    adaptiveScale: d.adaptiveScale ?? d.scale ?? '',
-    adaptiveSpawn: d.adaptiveSpawn ?? d.spawnInterval ?? '',
-    adaptiveMaxActive: d.adaptiveMaxActive ?? d.maxActive ?? '',
-    level: d.level ?? '',
+    adaptiveScale:    d.adaptiveScale ?? '',
+    adaptiveSpawn:    d.adaptiveSpawn ?? '',
+    adaptiveMaxActive:d.adaptiveMaxActive ?? '',
 
-    studentKey: prof.studentKey || ''
-  });
+    score:  d.score ?? '',
+    combo:  d.combo ?? '',
+    misses: d.misses ?? '',
+    timeFromStartMs: d.timeFromStartMs ?? '',
+    reason: d.reason || '',
 
+    // join profile
+    studentKey: prof.studentKey || '',
+    schoolCode: prof.schoolCode || '',
+    classRoom:  prof.classRoom || '',
+    studentNo:  prof.studentNo || '',
+    nickName:   prof.nickName || ''
+  };
+
+  adaptiveQueue.push(row);
   scheduleFlush();
 }
 
-// --------------------------------------------------
-// Public API
-// --------------------------------------------------
+// ===== Public API =====
 export function initCloudLogger(opts = {}) {
   CONFIG.endpoint    = opts.endpoint || CONFIG.endpoint || '';
   CONFIG.projectTag  = opts.projectTag || CONFIG.projectTag || 'HeroHealth';
-  CONFIG.mode        = opts.mode || CONFIG.mode || '';
-  CONFIG.runMode     = opts.runMode || ssGet('HHA_RUN_MODE', 'play');
+  CONFIG.mode        = opts.mode      || CONFIG.mode || '';
+  CONFIG.runMode     = (opts.runMode || ssGet('HHA_RUN_MODE', 'play')).toLowerCase() === 'research'
+    ? 'research' : 'play';
   CONFIG.diff        = opts.diff || CONFIG.diff || '';
   CONFIG.durationSec = Number(opts.durationSec || CONFIG.durationSec || 60);
   CONFIG.debug       = !!opts.debug;
 
-  CONFIG.studyId        = opts.studyId || CONFIG.studyId || ssGet('HHA_STUDY_ID', '');
-  CONFIG.phase          = opts.phase || CONFIG.phase || ssGet('HHA_PHASE', '');
+  // meta งานวิจัย
+  CONFIG.studyId        = opts.studyId        || CONFIG.studyId        || ssGet('HHA_STUDY_ID', '');
+  CONFIG.phase          = opts.phase          || CONFIG.phase          || ssGet('HHA_PHASE', '');
   CONFIG.conditionGroup = opts.conditionGroup || CONFIG.conditionGroup || ssGet('HHA_CONDITION', '');
-  CONFIG.sessionOrder   = opts.sessionOrder || CONFIG.sessionOrder || ssGet('HHA_SESSION_ORDER', '');
-  CONFIG.blockLabel     = opts.blockLabel || CONFIG.blockLabel || ssGet('HHA_BLOCK_LABEL', '');
-  CONFIG.siteCode       = opts.siteCode || CONFIG.siteCode || ssGet('HHA_SITE_CODE', '');
-  CONFIG.schoolYear     = opts.schoolYear || CONFIG.schoolYear || ssGet('HHA_SCHOOL_YEAR', '');
-  CONFIG.semester       = opts.semester || CONFIG.semester || ssGet('HHA_SEMESTER', '');
+  CONFIG.sessionOrder   = opts.sessionOrder   || CONFIG.sessionOrder   || ssGet('HHA_SESSION_ORDER', '');
+  CONFIG.blockLabel     = opts.blockLabel     || CONFIG.blockLabel     || ssGet('HHA_BLOCK_LABEL', '');
+  CONFIG.siteCode       = opts.siteCode       || CONFIG.siteCode       || ssGet('HHA_SITE_CODE', '');
+  CONFIG.schoolYear     = opts.schoolYear     || CONFIG.schoolYear     || ssGet('HHA_SCHOOL_YEAR', '');
+  CONFIG.semester       = opts.semester       || CONFIG.semester       || ssGet('HHA_SEMESTER', '');
 
   if (CONFIG.debug) console.log('[HHA-Logger] init', CONFIG);
 
+  // bind event listener แค่ครั้งเดียว
   if (!window.__HHA_LOGGER_BOUND__) {
     window.__HHA_LOGGER_BOUND__ = true;
     window.addEventListener('hha:session', onSessionEvent);
-    window.addEventListener('hha:event', onGameEvent);
-    window.addEventListener('hha:adaptive', onAdaptiveStat); // ✅ สำคัญ
-    window.addEventListener('hha:stat', onAdaptiveStat);     // เผื่อใช้ในอนาคต
+    window.addEventListener('hha:event',   onGameEvent);
+    window.addEventListener('hha:stat',    onAdaptiveStat); // ✅ NEW
   }
 
+  // research mode → queue โปรไฟล์ + flush
   queueProfileIfNeeded();
   if (profileQueued) scheduleFlush(800);
 }
