@@ -120,9 +120,7 @@
       gap:10px;
       flex-wrap:wrap;
     }
-    .metric{
-      min-width:90px;
-    }
+    .metric{ min-width:90px; }
     .metric-label{
       font-size:10px;
       text-transform:uppercase;
@@ -172,15 +170,9 @@
       transition:width .25s ease-out, background .25s ease-out, box-shadow .25s ease-out;
       box-shadow:0 0 0 0 rgba(34,197,94,0.6);
     }
-    .grade-bar-fill[data-grade="C"]{
-      background:linear-gradient(90deg,#6b7280,#9ca3af);
-    }
-    .grade-bar-fill[data-grade="B"]{
-      background:linear-gradient(90deg,#22c55e,#16a34a);
-    }
-    .grade-bar-fill[data-grade="A"]{
-      background:linear-gradient(90deg,#22c55e,#4ade80);
-    }
+    .grade-bar-fill[data-grade="C"]{ background:linear-gradient(90deg,#6b7280,#9ca3af); }
+    .grade-bar-fill[data-grade="B"]{ background:linear-gradient(90deg,#22c55e,#16a34a); }
+    .grade-bar-fill[data-grade="A"]{ background:linear-gradient(90deg,#22c55e,#4ade80); }
     .grade-bar-fill[data-grade="S"],
     .grade-bar-fill[data-grade="SS"],
     .grade-bar-fill[data-grade="SSS"]{
@@ -189,12 +181,8 @@
     }
 
     /* ===== Lives (หัวใจ — hard only) ===== */
-    .metric-lives{
-      min-width:110px;
-    }
-    #hud-lives-wrap{
-      display:none; /* โชว์เฉพาะ diff = hard */
-    }
+    .metric-lives{ min-width:110px; }
+    #hud-lives-wrap{ display:none; }
     #hud-lives .lives-row{
       display:flex;
       gap:4px;
@@ -206,13 +194,8 @@
       text-shadow:0 0 10px rgba(248,113,113,0.9);
       transition:transform .18s ease, opacity .18s ease, text-shadow .18s ease;
     }
-    .lives-heart.off{
-      opacity:0.28;
-      text-shadow:none;
-    }
-    .lives-heart.low{
-      animation:lives-low-pulse .6s ease-in-out infinite;
-    }
+    .lives-heart.off{ opacity:0.28; text-shadow:none; }
+    .lives-heart.low{ animation:lives-low-pulse .6s ease-in-out infinite; }
     @keyframes lives-low-pulse{
       0%{ transform:scale(1); }
       40%{ transform:scale(1.25); }
@@ -296,7 +279,6 @@
       overflow:hidden;
     }
     .coach-bubble.show{ display:flex; }
-
     .coach-bubble::before{
       content:'';
       position:absolute;
@@ -313,7 +295,6 @@
       opacity:1;
       transform:scale(1.02);
     }
-
     .coach-label{
       font-size:11px;
       text-transform:uppercase;
@@ -334,29 +315,20 @@
       box-shadow:0 0 12px rgba(16,185,129,0.8);
       animation:coach-idle 1.4s ease-in-out infinite;
     }
-
     @keyframes coach-idle{
       0%{ transform:translateY(0) scale(1);}
       30%{ transform:translateY(-2px) scale(1.03);}
       60%{ transform:translateY(1px) scale(0.99);}
       100%{ transform:translateY(0) scale(1);}
     }
-
-    .coach-emoji.coach-neutral{
-      filter:none;
-    }
-    .coach-emoji.coach-happy{
-      box-shadow:0 0 18px rgba(34,197,94,0.95);
-    }
+    .coach-emoji.coach-neutral{ filter:none; }
+    .coach-emoji.coach-happy{ box-shadow:0 0 18px rgba(34,197,94,0.95); }
     .coach-emoji.coach-sad{
       filter:grayscale(0.2) brightness(0.9);
       box-shadow:0 0 10px rgba(148,163,184,0.8);
     }
-    .coach-emoji.coach-fever{
-      box-shadow:0 0 18px rgba(248,113,113,0.9);
-    }
+    .coach-emoji.coach-fever{ box-shadow:0 0 18px rgba(248,113,113,0.9); }
 
-    /* ฉลองแรง ๆ เวลาเคลียร์ภารกิจ */
     @keyframes coach-celebrate-bounce{
       0%{ transform:translateY(0) scale(1) rotate(0);}
       20%{ transform:translateY(-8px) scale(1.08) rotate(-6deg);}
@@ -364,14 +336,9 @@
       60%{ transform:translateY(-10px) scale(1.1) rotate(-4deg);}
       100%{ transform:translateY(0) scale(1) rotate(0);}
     }
-    .coach-emoji.coach-celebrate{
-      animation:coach-celebrate-bounce 0.75s ease-out;
-    }
+    .coach-emoji.coach-celebrate{ animation:coach-celebrate-bounce 0.75s ease-out; }
 
-    .coach-text-main{
-      position:relative;
-      z-index:1;
-    }
+    .coach-text-main{ position:relative; z-index:1; }
     .coach-text-main span{
       display:inline-block;
       animation:coach-text-pop 0.45s ease-out;
@@ -420,11 +387,7 @@
       pointer-events:auto;
     }
     .end-toast.show{ display:block; }
-    .end-title{
-      font-size:14px;
-      font-weight:700;
-      margin-bottom:4px;
-    }
+    .end-title{ font-size:14px; font-weight:700; margin-bottom:4px; }
     .end-row{
       display:flex;
       justify-content:space-between;
@@ -432,7 +395,6 @@
       margin-top:2px;
     }
     .end-row strong{ font-weight:600; }
-
     .end-actions{
       display:flex;
       flex-wrap:wrap;
@@ -468,12 +430,8 @@
       border-color:rgba(187,247,208,0.9);
       color:#052e16;
     }
-    .end-btn-primary:hover{
-      background:linear-gradient(135deg,#4ade80,#22c55e);
-    }
-    .end-btn-ghost{
-      background:rgba(15,23,42,0.7);
-    }
+    .end-btn-primary:hover{ background:linear-gradient(135deg,#4ade80,#22c55e); }
+    .end-btn-ghost{ background:rgba(15,23,42,0.7); }
 
     /* ===== ป้ายโหมด (Play / Research) ===== */
     .hud-mode-badge{
@@ -507,9 +465,7 @@
       gap:6px;
       box-shadow:0 14px 30px rgba(15,23,42,0.9);
     }
-    .vr-btn span{
-      font-size:16px;
-    }
+    .vr-btn span{ font-size:16px; }
     .vr-btn:hover{
       background:radial-gradient(circle at top left, rgba(56,189,248,0.5), transparent 55%),
                  rgba(15,23,42,1);
@@ -566,7 +522,7 @@
       width: 44px;
       height: 44px;
       border-radius: 999px;
-      z-index: 652; /* เหนือ scene, ต่ำกว่า countdown */
+      z-index: 652;
       pointer-events: none;
       display: none;
       filter: drop-shadow(0 0 10px rgba(0,0,0,0.55));
@@ -593,8 +549,37 @@
       box-shadow: 0 0 10px rgba(255,255,255,0.45);
       opacity: 0.95;
     }
+
+    /* ===== Target Layer & Targets (สำคัญ: ให้เป้าโผล่แน่) ===== */
+    #gj-layer{
+      position: fixed;
+      inset: 0;
+      z-index: 649;         /* ต่ำกว่า HUD (650) แต่สูงกว่า scene */
+      pointer-events: none; /* เปิดเฉพาะตัวเป้า */
+    }
+    .gj-target{
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      transform: translate(-50%,-50%);
+      font-size: clamp(44px, 7.2vw, 84px);
+      line-height: 1;
+      filter: drop-shadow(0 10px 16px rgba(0,0,0,.55));
+      user-select: none;
+      -webkit-user-select: none;
+      pointer-events: auto;     /* สำคัญ */
+      touch-action: manipulation;
+    }
+    .gj-target.gj-good{ text-shadow: 0 0 18px rgba(34,197,94,.35); }
+    .gj-target.gj-junk{ text-shadow: 0 0 18px rgba(249,115,22,.35); }
+    .gj-target.hit{
+      transform: translate(-50%,-50%) scale(1.25);
+      opacity: 0;
+      transition: transform .12s ease-out, opacity .12s ease-out;
+    }
   </style>
 </head>
+
 <body>
 
   <!-- ===== A-Frame Scene (พื้นหลัง VR) ===== -->
@@ -625,6 +610,9 @@
              material="color: #020617; metalness: 0; roughness: 1"></a-plane>
     <a-sky color="#020617"></a-sky>
   </a-scene>
+
+  <!-- ===== Target Layer (ต้องมีเพื่อให้เป้าโผล่) ===== -->
+  <div id="gj-layer" aria-hidden="true"></div>
 
   <!-- ===== HUD Overlay (2D) ===== -->
   <div class="hud-root">
@@ -910,12 +898,8 @@
         const s = document.createElement('span');
         s.className = 'lives-heart';
         s.textContent = '❤';
-        if (i >= lives){
-          s.classList.add('off');
-        }
-        if (lives === 1 && i === 0){
-          s.classList.add('low');
-        }
+        if (i >= lives) s.classList.add('off');
+        if (lives === 1 && i === 0) s.classList.add('low');
         row.appendChild(s);
       }
       elLives.appendChild(row);
@@ -970,7 +954,6 @@
       elTime.textContent = sec + 's';
     });
 
-    // === ฟังก์ชันคำนวณเกรด (ใช้ทั้ง HUD real-time + summary) ===
     function computeGrade(score, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal){
       const allGoalDone = (goalsTotal > 0 && goalsCleared >= goalsTotal);
       const allMiniDone = (miniTotal > 0 && miniCleared >= miniTotal);
@@ -1012,13 +995,11 @@
       elGradeBar.dataset.grade = grade;
     }
 
-    // ----- FX ช่วยใช้ particles (central helper) -----
     function getParticlesAPI(){
       const gm = window.GAME_MODULES || {};
       return gm.Particles || window.Particles || null;
     }
 
-    // ===== ฉลองแต่ละภารกิจ (เล็ก) =====
     function celebrateQuest(kind, cleared, total){
       const P = getParticlesAPI();
       const cx = window.innerWidth / 2;
@@ -1043,7 +1024,6 @@
       pulseCoachCelebrate();
     }
 
-    // ===== ฉลองใหญ่ทั้งหมดก่อนหน้าสรุป =====
     function bigCelebrateAllQuests(callback){
       if (!elBigCelebrate){
         if (typeof callback === 'function') callback();
@@ -1119,7 +1099,6 @@
 
       elQuestHint.textContent = d.hint ? d.hint : '';
 
-      // เก็บสถานะ goals/minis ทั้งหมดไว้สำหรับคิดเกรด real-time
       const goalsAll = d.goalsAll || [];
       const minisAll = d.minisAll || [];
       hudGoalsTotal   = goalsAll.length;
@@ -1143,7 +1122,7 @@
       if (text) setCoach(text);
     });
 
-    // HUD: คะแนน / คอมโบ / miss (ตัวเลขทั้งหมดให้ยึดที่นี่)
+    // HUD: คะแนน / คอมโบ / miss
     window.addEventListener('hha:score', function(e){
       const d = e.detail || {};
       if (typeof d.score === 'number') elScore.textContent = d.score;
@@ -1169,8 +1148,7 @@
       updateRealtimeGrade(d.score);
     });
 
-    // ✅ สำคัญ: แก้ “นับ miss ซ้ำ”
-    // hha:miss ใช้เพื่อ “อารมณ์/ข้อความ” เท่านั้น ไม่บวกเลขเอง
+    // ✅ สำคัญ: hha:miss ไม่บวกเลขเอง
     window.addEventListener('hha:miss', function(e){
       const d = (e && e.detail) || {};
       if (typeof d.misses === 'number') {
@@ -1322,7 +1300,7 @@
       });
     }
 
-    // ===== Progress Reticle (เปลี่ยนสีตามชนิดเป้า) =====
+    // ===== Progress Reticle =====
     let reticleRAF = null;
     let reticleStartMs = 0;
     let reticleActive = false;
@@ -1390,18 +1368,12 @@
 
     function findKindFromTargetEl(el){
       if (!el) return '';
-      // โครงเป้าจริงอยู่ที่ root (.gj-target) มี dataset.kind
-      const root = (typeof el.closest === 'function')
-        ? el.closest('.gj-target')
-        : null;
+      const root = (typeof el.closest === 'function') ? el.closest('.gj-target') : null;
       if (root && root.dataset && root.dataset.kind) return root.dataset.kind;
-
-      // fallback: บางที event โดน root เอง
       if (el.dataset && el.dataset.kind) return el.dataset.kind;
       return '';
     }
 
-    // ใช้ event capture ที่ document เพื่อจับ mouseenter/leave จาก entity ที่ถูก ray
     function hookGazeReticleColorEvents(){
       function shouldUseGaze(){
         const cursorEl = document.getElementById('cursor');
@@ -1432,7 +1404,6 @@
         showReticle(false);
       }, true);
 
-      // เมื่อยิงสำเร็จ (click) รีเซ็ต reticle
       document.addEventListener('click', function(){
         if (!shouldUseGaze()) return;
         stopReticleProgress();
@@ -1454,9 +1425,7 @@
       const timeParam = getParam('time','');
       if (timeParam){
         const parsed = parseInt(timeParam,10);
-        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180){
-          dur = parsed;
-        }
+        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
       }
 
       // HUD update
@@ -1486,7 +1455,7 @@
       warnedLowLife = false;
       renderLives(currentLives);
 
-      // โค้ช intro ตามโหมด + diff
+      // โค้ช intro
       setCoachFace('neutral');
       let introMsg = '';
       if (runMode === 'research'){
@@ -1532,13 +1501,17 @@
       initTouchLook(cam);
       initVRButton();
 
-      // ✅ auto switch mouse↔gaze + ✅ reticle color by target
+      // auto switch mouse↔gaze + reticle color by target
       hookVrModeAutoSwitch();
       hookGazeReticleColorEvents();
 
       // เริ่มนับ 3–2–1–Go แล้วค่อยเริ่มเกม + นับเวลา
       runCountdown(function(){
-        GameEngine.start(diff);
+        // ✅ ส่ง layerEl ให้เอนจินวางเป้าที่ #gj-layer ชัวร์
+        GameEngine.start(diff, {
+          layerEl: document.getElementById('gj-layer'),
+          runMode: runMode
+        });
 
         let timeLeft = dur;
         let timerId = null;
