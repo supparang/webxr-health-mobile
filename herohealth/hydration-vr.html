@@ -530,13 +530,13 @@
 </div>
 
 <!-- ===== Scripts (global HUD / FX) ===== -->
-<script src="../vr/particles.js"></script>
-<script src="../vr/ui-fever.js"></script>
-<script src="../vr/hha-hud.js"></script>
+<script src="./vr/particles.js"></script>
+<script src="./vr/ui-fever.js"></script>
+<script src="./vr/hha-hud.js"></script>
 
 <!-- ===== Boot Hydration VR (module) ===== -->
 <script type="module">
-  import { boot as hydrationBoot } from './hydration.safe.js';
+  import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
 
   function parseQuery() {
     const url = new URL(window.location.href);
