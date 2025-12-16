@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — DOM Emoji Engine (Production Ready)
-// 2025-12 FULL
+// 2025-12 FULL (patched: layer + css-safe + data-hha-tgt + ES export)
 
 (function (ns) {
   'use strict';
@@ -35,19 +35,24 @@
 
   // ===== Camera helpers =====
   function getCam(){
+    // prefer a-camera object3D camera
     const camEl=document.querySelector('a-camera');
-    if(camEl&&camEl.getObject3D) return camEl.getObject3D('camera');
+    if(camEl && camEl.getObject3D){
+      const c = camEl.getObject3D('camera');
+      if (c) return c;
+    }
+    // fallback: scene.camera
     const scene=document.querySelector('a-scene');
-    return scene&&scene.camera;
+    return scene && scene.camera ? scene.camera : null;
   }
 
   const tmpV = THREE && new THREE.Vector3();
 
   function project(pos){
     const cam=getCam();
-    if(!cam||!tmpV) return null;
+    if(!cam || !tmpV || !pos) return null;
     tmpV.copy(pos).project(cam);
-    if(tmpV.z<-1||tmpV.z>1) return null;
+    if(tmpV.z<-1 || tmpV.z>1) return null;
     return {
       x:(tmpV.x*0.5+0.5)*innerWidth,
       y:(-tmpV.y*0.5+0.5)*innerHeight
@@ -57,36 +62,49 @@
   function spawnWorld(){
     if(!THREE) return null;
     const camEl=document.querySelector('a-camera');
-    if(!camEl||!camEl.object3D) return null;
+    if(!camEl || !camEl.object3D) return null;
     const pos=new THREE.Vector3();
     camEl.object3D.getWorldPosition(pos);
     const dir=new THREE.Vector3();
     camEl.object3D.getWorldDirection(dir);
+
+    // 2m in front + random offset
     pos.add(dir.multiplyScalar(2));
-    pos.x+=(Math.random()-0.5)*1.6;
-    pos.y+=(Math.random()-0.5)*1.2;
+    pos.x += (Math.random()-0.5)*1.6;
+    pos.y += (Math.random()-0.5)*1.2;
     return pos;
   }
 
   // ===== Target =====
   function createTarget(kind){
+    if (!layerEl) return;
+
     const el=document.createElement('div');
     el.className='gj-target '+(kind==='good'?'gj-good':'gj-junk');
+
     let emoji=kind==='good'
-      ? (Math.random()<0.1?POWER[Math.floor(Math.random()*3)]:GOOD[Math.floor(Math.random()*GOOD.length)])
+      ? (Math.random()<0.1 ? POWER[Math.floor(Math.random()*3)] : GOOD[Math.floor(Math.random()*GOOD.length)])
       : JUNK[Math.floor(Math.random()*JUNK.length)];
 
     el.textContent=emoji;
+
+    // ✅ ให้ระบบ gaze/reticle ที่คุณ hook ไว้จับได้
+    el.setAttribute('data-hha-tgt','1');
+    el.dataset.kind = (emoji===STAR) ? 'star'
+                  : (emoji===FIRE) ? 'diamond'
+                  : (emoji===SHIELD) ? 'shield'
+                  : kind;
+
     const t={ el, kind, emoji, pos:spawnWorld(), born:performance.now() };
     active.push(t);
     layerEl.appendChild(el);
 
-    el.addEventListener('pointerdown',e=>{
+    el.addEventListener('pointerdown', e=>{
       e.preventDefault();
-      hit(t,e.clientX,e.clientY);
-    });
+      hit(t, e.clientX, e.clientY);
+    }, {passive:false});
 
-    setTimeout(()=>expire(t),2000+Math.random()*400);
+    setTimeout(()=>expire(t), 2000 + Math.random()*400);
   }
 
   function expire(t){
@@ -98,14 +116,16 @@
     }
   }
 
-  function destroy(t,hit){
+  function destroy(t,wasHit){
     const i=active.indexOf(t);
     if(i>=0) active.splice(i,1);
     if(t.el){
-      if(hit){
+      if(wasHit){
         t.el.classList.add('hit');
-        setTimeout(()=>t.el.remove(),120);
-      }else t.el.remove();
+        setTimeout(()=>{ try{ t.el.remove(); }catch(_){} },120);
+      }else{
+        try{ t.el.remove(); }catch(_){}
+      }
     }
   }
 
@@ -114,7 +134,7 @@
 
     // power
     if(t.emoji===STAR){ score+=40; combo++; }
-    if(t.emoji===FIRE){ feverActive=true; setFeverActive(true); }
+    if(t.emoji===FIRE){ feverActive=true; setFeverActive(true); emit('hha:fever',{state:'start'}); }
     if(t.emoji===SHIELD){ shield=Math.min(3,shield+1); setShield(shield); }
 
     if(t.kind==='junk'){
@@ -149,7 +169,7 @@
   function spawn(){
     if(!running) return;
     if(active.length<4) createTarget(Math.random()<0.7?'good':'junk');
-    spawnTimer=setTimeout(spawn,900);
+    spawnTimer=setTimeout(spawn, 900);
   }
 
   function emit(type,detail){
@@ -159,10 +179,17 @@
   // ===== API =====
   function start(d,opts={}){
     if(running) return;
-    running=true;
     diff=d||'normal';
     runMode=opts.runMode||'play';
-    layerEl=opts.layerEl||document.getElementById('gj-layer')||document.body;
+
+    // ✅ ใช้เลเยอร์ที่ html สร้างไว้ (ถ้าไม่เจอให้สร้างเอง)
+    layerEl = opts.layerEl || document.getElementById('gj-layer');
+    if (!layerEl){
+      layerEl = document.createElement('div');
+      layerEl.id = 'gj-layer';
+      Object.assign(layerEl.style, { position:'fixed', inset:'0', zIndex:'649', pointerEvents:'none' });
+      document.body.appendChild(layerEl);
+    }
 
     score=combo=comboMax=misses=0;
     fever=0; feverActive=false; shield=0;
@@ -170,9 +197,10 @@
     ensureFeverBar();
     setFever(0); setFeverActive(false); setShield(0);
 
+    running=true;
+
     emit('hha:score',{score,combo,misses});
     emit('quest:update',{});
-
     loop();
     spawn();
   }
@@ -189,3 +217,6 @@
   ns.GameEngine={ start, stop };
 
 })(window.GoodJunkVR=window.GoodJunkVR||{});
+
+// ✅ ES module export (แก้ error import)
+export const GameEngine = window.GoodJunkVR.GameEngine;
