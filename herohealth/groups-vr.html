@@ -850,8 +850,9 @@
       }
     });
 
-    window.addEventListener('hha:miss', () => {
-      hudMissCount += 1;
+    window.addEventListener('hha:miss', (e) => {
+      const d = e.detail || {};
+      hudMissCount = (typeof d.misses === 'number') ? (d.misses|0) : hudMissCount;
       elMiss.textContent = hudMissCount;
       setCoach('พลาดไปนิด ลองโฟกัสอาหารดีให้มากขึ้นนะ 😌');
     });
