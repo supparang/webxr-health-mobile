@@ -30,16 +30,13 @@
       color:var(--text-main);
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
       height:100%;
-      overflow-y:auto; /* ต้องให้ scroll ได้ */
+      overflow-y:auto;
     }
 
-    body{
-      -webkit-font-smoothing:antialiased;
-    }
+    body{ -webkit-font-smoothing:antialiased; }
 
-    /* ===== WRAP หลักของ Hydration VR ===== */
     #hvr-wrap{
-      min-height:180vh;         /* สูงกว่าหน้าจอ เพื่อให้เลื่อนขึ้นลงได้ */
+      min-height:180vh;
       padding:12px 10px 64px;
       position:relative;
       display:flex;
@@ -47,7 +44,6 @@
       gap:10px;
     }
 
-    /* แถบ water gauge ด้านบนสุด */
     .hha-water-bar{
       background:linear-gradient(135deg,#020617,#020617);
       border-radius:999px;
@@ -71,9 +67,7 @@
       white-space:nowrap;
     }
 
-    .hha-water-bar-label span.emoji{
-      font-size:17px;
-    }
+    .hha-water-bar-label span.emoji{ font-size:17px; }
 
     .hha-water-bar-status{
       margin-left:auto;
@@ -95,7 +89,6 @@
       transition:width .3s ease;
     }
 
-    /* ===== HUD: ซ้าย/ขวา ===== */
     .hha-main-row{
       display:flex;
       gap:10px;
@@ -109,14 +102,8 @@
       box-shadow:0 18px 40px rgba(15,23,42,0.85);
     }
 
-    .hha-card-left{
-      flex:1.1 1 0;
-      min-width:0;
-    }
-    .hha-card-right{
-      flex:1 1 0;
-      min-width:0;
-    }
+    .hha-card-left{ flex:1.1 1 0; min-width:0; }
+    .hha-card-right{ flex:1 1 0; min-width:0; }
 
     .hha-title{
       font-size:15px;
@@ -162,9 +149,7 @@
       margin-top:6px;
       gap:10px;
     }
-    .hha-score-block{
-      font-size:13px;
-    }
+    .hha-score-block{ font-size:13px; }
     .hha-score-block strong{
       display:block;
       font-size:26px;
@@ -194,7 +179,6 @@
       margin-left:4px;
     }
 
-    /* ===== CARD QUEST ขวา ===== */
     .hha-quest-title{
       font-size:14px;
       letter-spacing:.08em;
@@ -217,20 +201,20 @@
       color:var(--text-soft);
       margin-top:4px;
     }
-    .hha-quest-progress strong{
-      color:var(--accent);
-    }
+    .hha-quest-progress strong{ color:var(--accent); }
 
-    /* ===== PLAYFIELD: เป้า + พื้นที่เล่น ===== */
+    /* ===== PLAYFIELD ===== */
     #hvr-playfield{
       position:relative;
-      height:60vh;          /* โซนเล่นหลัก */
-      margin-top:14vh;      /* เว้นไว้ให้เลื่อนขึ้นไปหาเป้า */
-      margin-bottom:38vh;   /* เว้นล่างให้เลื่อนลงได้ */
+      height:60vh;
+      margin-top:14vh;
+      margin-bottom:38vh;
       overflow:visible;
+
+      /* ✅ สำคัญ: กันโดนทับ */
+      z-index:30;
     }
 
-    /* เป้า emoji สร้างจาก mode-factory.js (ปรับแค่ presentational ตรงนี้) */
     .hvr-target{
       position:absolute;
       transform:translate(-50%,-50%);
@@ -248,6 +232,9 @@
       user-select:none;
       cursor:pointer;
       transition:transform .08s ease-out, box-shadow .12s ease-out;
+
+      /* ✅ กันโดนทับ */
+      z-index:35;
     }
     .hvr-target.bad{
       background:radial-gradient(circle at 30% 30%,#fb923c,#ea580c);
@@ -263,11 +250,10 @@
         0 10px 24px rgba(0,0,0,0.85);
     }
 
-    /* วงเล็งกลางจอ (fixed ไม่เลื่อน) */
     .hvr-crosshair{
       position:fixed;
       left:50%;
-      top:58%;                 /* ปรับตามจุดที่มือแตะถนัด */
+      top:58%;
       transform:translate(-50%,-50%);
       width:48px;
       height:48px;
@@ -285,10 +271,7 @@
       background:radial-gradient(circle at 30% 30%,rgba(15,23,42,0.9),rgba(15,23,42,0.4));
     }
 
-    /* ===== COACH BUBBLE ===== */
-    .hha-coach-wrap{
-      margin-top:6px;
-    }
+    .hha-coach-wrap{ margin-top:6px; }
     .hha-coach-bubble{
       display:flex;
       gap:10px;
@@ -307,21 +290,10 @@
       background:#064e3b;
       flex-shrink:0;
     }
-    .hha-coach-avatar img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-    }
-    .hha-coach-text{
-      font-size:14px;
-      line-height:1.45;
-    }
-    .hha-coach-name{
-      font-weight:600;
-      margin-bottom:2px;
-    }
+    .hha-coach-avatar img{ width:100%; height:100%; object-fit:cover; }
+    .hha-coach-text{ font-size:14px; line-height:1.45; }
+    .hha-coach-name{ font-weight:600; margin-bottom:2px; }
 
-    /* ===== FEVER GAUGE + ปุ่ม VR ล่างสุด ===== */
     .hha-bottom-row{
       position:fixed;
       left:0;
@@ -334,9 +306,7 @@
       z-index:45;
       pointer-events:none;
     }
-    .hha-bottom-row > *{
-      pointer-events:auto;
-    }
+    .hha-bottom-row > *{ pointer-events:auto; }
 
     .hha-fever-card{
       flex:1 1 auto;
@@ -354,9 +324,7 @@
       gap:6px;
       margin-bottom:4px;
     }
-    .hha-fever-label span.emoji{
-      font-size:16px;
-    }
+    .hha-fever-label span.emoji{ font-size:16px; }
     .hha-fever-bar{
       height:8px;
       border-radius:999px;
@@ -397,15 +365,10 @@
       box-shadow:0 14px 32px rgba(15,23,42,0.95);
     }
 
-    .hha-btn-vr span.emoji{
-      font-size:18px;
-    }
+    .hha-btn-vr span.emoji{ font-size:18px; }
 
     @media (min-width:900px){
-      #hvr-wrap{
-        max-width:960px;
-        margin:0 auto;
-      }
+      #hvr-wrap{ max-width:960px; margin:0 auto; }
       .hha-bottom-row{
         left:50%;
         transform:translateX(-50%);
@@ -418,7 +381,6 @@
 
 <div id="hvr-wrap">
 
-  <!-- ===== WATER GAUGE ด้านบน ===== -->
   <header class="hha-water-bar" id="hha-water-header">
     <div class="hha-water-bar-label">
       <span class="emoji">💧</span>
@@ -430,10 +392,7 @@
     <div class="hha-water-bar-status" id="hha-water-status">GREEN 50%</div>
   </header>
 
-  <!-- ===== HUD ซ้าย / ขวา ===== -->
   <section class="hha-main-row">
-
-    <!-- LEFT CARD: SCORE / STATS -->
     <article class="hha-card hha-card-left" id="hha-card-left">
       <div class="hha-title">HERO HEALTH • HYDRATION VR</div>
       <div class="hha-mode" id="hha-mode-label">Hydration Quest</div>
@@ -467,7 +426,6 @@
       </div>
     </article>
 
-    <!-- RIGHT CARD: QUEST -->
     <article class="hha-card hha-card-right" id="hha-card-right">
       <div class="hha-quest-title">QUEST</div>
       <div class="hha-quest-main" id="hha-quest-goal">Goal: รักษาโซนน้ำสีเขียว</div>
@@ -484,19 +442,13 @@
     </article>
   </section>
 
-  <!-- ===== พื้นที่เล่น: เป้า emoji อยู่ในนี้ (เลื่อนตามจอ) ===== -->
   <main id="hvr-playfield"></main>
 
-  <!-- วงเล็งกลางจอ (fixed ไม่เลื่อนตาม) -->
   <div id="hvr-crosshair" class="hvr-crosshair">○</div>
 
-  <!-- ===== โค้ช ===== -->
   <section class="hha-coach-wrap">
     <div class="hha-coach-bubble" id="hha-coach-bubble">
-      <div class="hha-coach-avatar">
-        <!-- ใส่รูปโค้ชของคุณเองได้ -->
-        <!-- <img src="../img/coach-hydration.png" alt="โค้ช"> -->
-      </div>
+      <div class="hha-coach-avatar"></div>
       <div class="hha-coach-text">
         <div class="hha-coach-name">โค้ช</div>
         <div id="hha-coach-text">
@@ -508,7 +460,6 @@
 
 </div>
 
-<!-- FEVER + VR BUTTON -->
 <div class="hha-bottom-row">
   <div class="hha-fever-card">
     <div class="hha-fever-label">
@@ -530,12 +481,10 @@
   </a>
 </div>
 
-<!-- ===== Scripts (global HUD / FX) ===== -->
 <script src="./vr/particles.js"></script>
 <script src="./vr/ui-fever.js"></script>
 <script src="./vr/hha-hud.js"></script>
 
-<!-- ===== Boot Hydration VR (module) ===== -->
 <script type="module">
   import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
 
@@ -552,7 +501,6 @@
   window.addEventListener('DOMContentLoaded', async () => {
     const { diff, time } = parseQuery();
 
-    // อัปเดต pill บน HUD ให้ตรงกับค่าจริง
     const diffText = diff.toUpperCase();
     const diffPill = document.getElementById('hha-diff-pill');
     if (diffPill) diffPill.textContent = diffText + ' • ' + time + 's';
@@ -562,6 +510,24 @@
         difficulty: diff,
         duration: time
       });
+
+      // ✅ watchdog: บอกทันทีว่า spawn หรือไม่ spawn
+      setTimeout(() => {
+        const pf = document.getElementById('hvr-playfield');
+        const n = pf ? pf.querySelectorAll('.hvr-target').length : 0;
+        console.log('[HydrationVR] targets in playfield =', n);
+
+        if (n === 0) {
+          console.warn('[HydrationVR] No targets spawned. -> mode-factory.js ยังไม่เอา container/spawnLayer ไปใช้ หรือยังไม่เริ่ม spawn');
+        } else {
+          const t = pf.querySelector('.hvr-target');
+          if (t) console.log('[HydrationVR] first target opacity/transform =',
+            getComputedStyle(t).opacity,
+            getComputedStyle(t).transform
+          );
+        }
+      }, 2500);
+
     } catch (err) {
       console.error('[HydrationVR] boot error', err);
       alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้');
