@@ -12,26 +12,16 @@
       color-scheme: dark;
       --bg:#020617;
       --panel:#0b1220cc;
-      --panel2:#0b1220;
       --text:#e5e7eb;
       --muted:#9ca3af;
       --accent:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
       --radius:18px;
       --pill:999px;
     }
     body{ margin:0; background:var(--bg); font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif; overflow:hidden; }
-    .hud{
-      position:fixed; inset:0; pointer-events:none;
-      display:flex; flex-direction:column; justify-content:space-between;
-      padding:12px;
-    }
-    .top{
-      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
-    }
+    .hud{ position:fixed; inset:0; pointer-events:none; display:flex; flex-direction:column; justify-content:space-between; padding:12px; }
+    .top{ display:flex; gap:10px; align-items:flex-start; justify-content:space-between; }
     .card{
-      pointer-events:none;
       background:var(--panel);
       border:1px solid rgba(148,163,184,.22);
       border-radius:var(--radius);
@@ -39,18 +29,18 @@
       backdrop-filter: blur(10px);
       box-shadow: 0 10px 30px rgba(0,0,0,.35);
     }
-    .title{ font-weight:800; letter-spacing:.2px; }
+    .title{ font-weight:900; letter-spacing:.2px; }
     .muted{ color:var(--muted); font-size:12px; }
-    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
     .chip{
       display:inline-flex; align-items:center; gap:6px;
       padding:6px 10px; border-radius:var(--pill);
       border:1px solid rgba(148,163,184,.22);
       background: rgba(2,6,23,.35);
-      font-weight:700; font-size:13px;
+      font-weight:800; font-size:13px;
     }
-    .chip .k{ color:var(--muted); font-weight:700; }
-    .chip .v{ font-weight:900; }
+    .chip .k{ color:var(--muted); font-weight:800; }
+    .chip .v{ font-weight:950; }
     .bar{
       width:220px; height:10px; border-radius:999px;
       border:1px solid rgba(148,163,184,.22);
@@ -58,38 +48,29 @@
       overflow:hidden;
     }
     .bar > i{ display:block; height:100%; width:0%; background: var(--accent); }
-    .quest{
-      max-width: 52vw;
-    }
+    .quest{ max-width:52vw; }
     .quest .qline{ margin-top:6px; font-size:13px; color:var(--text); line-height:1.25; }
-    .quest .qline b{ font-weight:900; }
-    .bottom{
-      display:flex; gap:10px; align-items:flex-end; justify-content:space-between;
-    }
+    .quest .qline b{ font-weight:950; }
+    .bottom{ display:flex; gap:10px; align-items:flex-end; justify-content:space-between; }
     .btn{
       pointer-events:auto;
       display:inline-flex; align-items:center; justify-content:center;
       padding:12px 14px; border-radius:var(--pill);
       border:1px solid rgba(148,163,184,.25);
       background: rgba(2,6,23,.45);
-      color:var(--text); font-weight:900;
+      color:var(--text); font-weight:950;
       box-shadow: 0 10px 30px rgba(0,0,0,.35);
       user-select:none;
     }
-    .btn.primary{
-      background: rgba(34,197,94,.22);
-      border-color: rgba(34,197,94,.45);
-    }
+    .btn.primary{ background: rgba(34,197,94,.22); border-color: rgba(34,197,94,.45); }
     .centerDot{
-      position:fixed; left:50%; top:50%;
-      transform:translate(-50%,-50%);
+      position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
       width:10px; height:10px; border-radius:999px;
       border:2px solid rgba(255,255,255,.85);
       box-shadow: 0 0 0 4px rgba(0,0,0,.35);
       pointer-events:none;
     }
 
-    /* Result modal */
     .modal-backdrop{
       position:fixed; inset:0; background: rgba(0,0,0,.55);
       display:none; align-items:center; justify-content:center;
@@ -116,12 +97,9 @@
       padding: 10px 12px;
       display:flex; justify-content:space-between; gap:10px;
     }
-    .kv .k{ color:var(--muted); font-weight:800; }
-    .kv .v{ font-weight:900; }
-    .modal .actions{
-      display:flex; gap:10px; justify-content:center;
-      padding: 10px 6px 4px;
-    }
+    .kv .k{ color:var(--muted); font-weight:900; }
+    .kv .v{ font-weight:950; }
+    .modal .actions{ display:flex; gap:10px; justify-content:center; padding: 10px 6px 4px; }
     @media (max-width: 620px){
       .quest{ max-width: 68vw; }
       .grid{ grid-template-columns: 1fr; }
@@ -130,23 +108,25 @@
 </head>
 
 <body>
-  <!-- HUD -->
   <div class="hud">
     <div class="top">
       <div class="card">
         <div class="title">HERO HEALTH • PLATE VR</div>
-        <div class="row" style="margin-top:8px;">
+
+        <div class="row">
           <span class="chip"><span class="k">TIME</span><span id="hudTime" class="v">60</span></span>
           <span class="chip"><span class="k">SCORE</span><span id="hudScore" class="v">0</span></span>
           <span class="chip"><span class="k">COMBO</span><span id="hudCombo" class="v">0</span></span>
           <span class="chip"><span class="k">MISS</span><span id="hudMiss" class="v">0</span></span>
         </div>
-        <div class="row" style="margin-top:8px;">
-          <span class="chip"><span class="k">FEVER</span>
+
+        <div class="row">
+          <span class="chip">
+            <span class="k">FEVER</span>
             <span class="bar"><i id="hudFever"></i></span>
             <span id="hudFeverPct" class="v" style="min-width:44px; text-align:right;">0%</span>
           </span>
-          <span class="chip"><span class="k">MODE</span><span id="hudMode" class="v">Normal</span></span>
+          <span class="chip"><span class="k">MODE</span><span id="hudMode" class="v">Play</span></span>
           <span class="chip"><span class="k">DIFF</span><span id="hudDiff" class="v">Normal</span></span>
         </div>
       </div>
@@ -173,7 +153,6 @@
 
   <div class="centerDot"></div>
 
-  <!-- Result Modal -->
   <div id="resultBackdrop" class="modal-backdrop">
     <div class="modal">
       <h2>สรุปผล • Balanced Plate</h2>
@@ -203,22 +182,11 @@
     </div>
   </div>
 
-  <!-- A-Frame scene -->
-  <a-scene
-    renderer="antialias:true; colorManagement:true"
-    vr-mode-ui="enabled:false"
-    embedded>
-
+  <a-scene renderer="antialias:true; colorManagement:true" vr-mode-ui="enabled:false" embedded>
     <a-assets></a-assets>
 
-    <!-- Rig + Camera -->
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera
-        id="cam"
-        look-controls="touchEnabled:true; mouseEnabled:true"
-        wasd-controls-enabled="false">
-
-        <!-- Cursor: desktop/mobile click + VR fuse -->
+      <a-camera id="cam" look-controls="touchEnabled:true; mouseEnabled:true" wasd-controls-enabled="false">
         <a-cursor
           id="cursor"
           raycaster="objects:.plateTarget"
@@ -230,15 +198,19 @@
       </a-camera>
     </a-entity>
 
-    <!-- Simple environment -->
     <a-sky color="#020617"></a-sky>
     <a-entity light="type:ambient; intensity:0.9"></a-entity>
     <a-entity light="type:directional; intensity:0.9" position="1 3 2"></a-entity>
 
-    <!-- Target container -->
     <a-entity id="targetRoot"></a-entity>
 
-    <!-- Script -->
+    <!-- ✅ Logger: import module then expose to window -->
+    <script type="module">
+      import { initCloudLogger } from '../vr/hha-cloud-logger.js';
+      window.initCloudLogger = initCloudLogger;
+    </script>
+
+    <!-- ✅ Plate game -->
     <script type="module" src="./plate.safe.js"></script>
   </a-scene>
 </body>
