@@ -1,16 +1,9 @@
-// === /herohealth/vr-plate/plate.safe.js ===
+// === /herohealth/plate/plate.safe.js ===
 // Balanced Plate VR — Production-ready core (A-Frame 1.5.0)
-// - Emoji targets (5 groups + junk)
-// - Perfect Plate: collect groups 1–5 within a plate
-// - Goal: PERFECT >= 2
-// - Mini quest: Plate Rush (3) — make PERFECT within 15s
-// - Fever (100% -> 8s boost)
-// - Emits hha:event + hha:session (+ hha:stat in play) for /vr/hha-cloud-logger.js
-//
-// URL params:
-//   ?diff=easy|normal|hard
-//   ?time=60..180
-//   ?run=play|research
+// FIX: targetRoot is inside camera => spawn in camera-local coordinates (HUD space)
+// + Use plane hitbox + a-text emoji to guarantee visibility on mobile.
+// Emits hha:event + hha:session + hha:stat for /vr/hha-cloud-logger.js
+
 'use strict';
 
 const URLX = new URL(location.href);
@@ -20,7 +13,6 @@ if (Number.isNaN(TIME) || TIME <= 0) TIME = 70;
 TIME = Math.max(20, Math.min(180, TIME));
 const MODE = (URLX.searchParams.get('run') || 'play').toLowerCase() === 'research' ? 'research' : 'play';
 
-// expose
 window.DIFF = DIFF;
 window.TIME = TIME;
 window.MODE = MODE;
@@ -34,7 +26,7 @@ function setBarPct(id, pct) { const el = $(id); if (el) el.style.width = `${Math
 const A = window.AFRAME;
 if (!A) console.error('[PlateVR] AFRAME not found');
 
-// billboard (ไม่พึ่ง aframe-look-at)
+// billboard component (ไม่พึ่ง aframe-look-at)
 if (A && !A.components.billboard) {
   A.registerComponent('billboard', {
     schema: { target: { type: 'selector' } },
@@ -68,8 +60,7 @@ const GROUP_KEYS = ['g1','g2','g3','g4','g5'];
 // ---------- Scene refs ----------
 const scene = document.querySelector('a-scene');
 const cam = document.getElementById('cam');
-const targetRoot = document.getElementById('targetRoot'); // อยู่ใต้กล้องตาม plate-vr.html
-const cursor = document.getElementById('cursor');
+const targetRoot = document.getElementById('targetRoot');
 
 const sessionId = `PLATE-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
 
@@ -116,7 +107,7 @@ function nowIso() { return new Date().toISOString(); }
 function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0)); }
 function isAdaptiveOn() { return MODE === 'play'; }
 
-// ---------- Adaptive (PLAY only) ----------
+// ---------- Adaptive ----------
 let adaptiveScale = 1.0;
 let adaptiveSpawn = 1.0;
 let adaptiveMaxActive = 0;
@@ -126,15 +117,26 @@ let aSpawnMin = 0.75, aSpawnMax = 1.30;
 let aMaxMin = -1, aMaxMax = +2;
 
 function initAdaptiveForDiff() {
-  if (!isAdaptiveOn()) { adaptiveScale = 1.0; adaptiveSpawn = 1.0; adaptiveMaxActive = 0; return; }
-  if (DIFF === 'easy') {
-    aScaleMin = 0.85; aScaleMax = 1.30; aSpawnMin = 0.80; aSpawnMax = 1.35; aMaxMin = 0; aMaxMax = 2;
-  } else if (DIFF === 'hard') {
-    aScaleMin = 0.70; aScaleMax = 1.18; aSpawnMin = 0.72; aSpawnMax = 1.25; aMaxMin = -1; aMaxMax = 1;
-  } else {
-    aScaleMin = 0.78; aScaleMax = 1.24; aSpawnMin = 0.75; aSpawnMax = 1.30; aMaxMin = -1; aMaxMax = 2;
+  if (!isAdaptiveOn()) {
+    adaptiveScale = 1.0; adaptiveSpawn = 1.0; adaptiveMaxActive = 0;
+    return;
   }
-  adaptiveScale = 1.0; adaptiveSpawn = 1.0; adaptiveMaxActive = 0;
+  if (DIFF === 'easy') {
+    aScaleMin = 0.85; aScaleMax = 1.30;
+    aSpawnMin = 0.80; aSpawnMax = 1.35;
+    aMaxMin = 0; aMaxMax = 2;
+  } else if (DIFF === 'hard') {
+    aScaleMin = 0.70; aScaleMax = 1.18;
+    aSpawnMin = 0.72; aSpawnMax = 1.25;
+    aMaxMin = -1; aMaxMax = 1;
+  } else {
+    aScaleMin = 0.78; aScaleMax = 1.24;
+    aSpawnMin = 0.75; aSpawnMax = 1.30;
+    aMaxMin = -1; aMaxMax = 2;
+  }
+  adaptiveScale = 1.0;
+  adaptiveSpawn = 1.0;
+  adaptiveMaxActive = 0;
 }
 
 function currentSpawnIntervalMs() {
@@ -145,11 +147,24 @@ function currentMaxActive() {
   const v = DCFG.maxActive + clamp(adaptiveMaxActive, aMaxMin, aMaxMax);
   return clamp(v, 2, 10);
 }
+function bumpAdaptive(onGood) {
+  if (!isAdaptiveOn()) return;
+  if (onGood) {
+    adaptiveScale = clamp(adaptiveScale - 0.025, aScaleMin, aScaleMax);
+    adaptiveSpawn = clamp(adaptiveSpawn - 0.020, aSpawnMin, aSpawnMax);
+    if (combo > 8 && adaptiveMaxActive < aMaxMax) adaptiveMaxActive += 1;
+  } else {
+    adaptiveScale = clamp(adaptiveScale + 0.040, aScaleMin, aScaleMax);
+    adaptiveSpawn = clamp(adaptiveSpawn + 0.030, aSpawnMin, aSpawnMax);
+    if (miss % 3 === 0 && adaptiveMaxActive > aMaxMin) adaptiveMaxActive -= 1;
+  }
+  emitStat('adapt');
+}
 
+// ---------- Logger emitters ----------
 function emit(type, detail) {
   window.dispatchEvent(new CustomEvent(type, { detail }));
 }
-
 function emitGameEvent(payload) {
   emit('hha:event', Object.assign({
     sessionId,
@@ -165,7 +180,6 @@ function emitGameEvent(payload) {
   }, payload));
 }
 
-// hha:stat (play only)
 let statTimer = null;
 function emitStat(reason) {
   if (!isAdaptiveOn()) return;
@@ -197,24 +211,8 @@ function stopStatTicker() {
   statTimer = null;
 }
 
-function bumpAdaptive(onGood) {
-  if (!isAdaptiveOn()) return;
-
-  if (onGood) {
-    adaptiveScale = clamp(adaptiveScale - 0.025, aScaleMin, aScaleMax);
-    adaptiveSpawn = clamp(adaptiveSpawn - 0.020, aSpawnMin, aSpawnMax);
-    if (combo > 8 && adaptiveMaxActive < aMaxMax) adaptiveMaxActive += 1;
-  } else {
-    adaptiveScale = clamp(adaptiveScale + 0.040, aScaleMin, aScaleMax);
-    adaptiveSpawn = clamp(adaptiveSpawn + 0.030, aSpawnMin, aSpawnMax);
-    if (miss % 3 === 0 && adaptiveMaxActive > aMaxMin) adaptiveMaxActive -= 1;
-  }
-  emitStat('adapt');
-}
-
 function emitSessionEnd(reason) {
   const gTotal = totalsByGroup[1]+totalsByGroup[2]+totalsByGroup[3]+totalsByGroup[4]+totalsByGroup[5];
-
   emit('hha:session', {
     sessionId,
     mode: 'PlateVR',
@@ -234,22 +232,25 @@ function emitSessionEnd(reason) {
     nHitGood: gTotal,
 
     reason: reason || '',
+
     extra: JSON.stringify({
       totalsByGroup,
       plateCounts,
       perfectPlates,
+      miniCleared,
       adaptive: isAdaptiveOn()
         ? { adaptiveScale, adaptiveSpawn, adaptiveMaxActive, spawnIntervalMs: currentSpawnIntervalMs(), maxActive: currentMaxActive() }
         : { locked: true }
     }),
+
     startTimeIso: sessionStartIso,
     endTimeIso: nowIso(),
     gameVersion: 'PlateVR-2025-12-16c'
   });
 }
 
-// ---------- HUD ----------
-function diffLabel(d) { return d === 'easy' ? 'Easy' : d === 'hard' ? 'Hard' : 'Normal'; }
+// ---------- HUD / UI ----------
+function diffLabel(d) { return d === 'easy' ? 'Easy' : (d === 'hard' ? 'Hard' : 'Normal'); }
 function modeLabel(m) { return (m === 'research') ? 'Research' : 'Play'; }
 
 function updateHUD() {
@@ -271,12 +272,14 @@ function updateHUD() {
 
   goalCleared = Math.min(goalTotal, perfectPlates);
   const goalEl = $('hudGoalLine');
-  if (goalEl) goalEl.innerHTML = `ทำ <b>PERFECT PLATE</b> ให้ได้อย่างน้อย ${goalTotal} จาน (ตอนนี้ ${goalCleared}/${goalTotal})`;
+  if (goalEl) goalEl.innerHTML =
+    `ทำ <b>PERFECT PLATE</b> ให้ได้อย่างน้อย ${goalTotal} จาน (ตอนนี้ ${goalCleared}/${goalTotal})`;
 
   const msLeft = Math.max(0, miniDeadlineMs - performance.now());
   const sLeft = Math.ceil(msLeft / 1000);
   const miniEl = $('hudMiniLine');
-  if (miniEl) miniEl.textContent = `Mini: Plate Rush ${miniCleared}/${miniTotal} — ทำ Perfect ภายใน ${Math.max(0, sLeft)}s`;
+  if (miniEl) miniEl.textContent =
+    `Mini: Plate Rush ${miniCleared}/${miniTotal} — ทำ Perfect ภายใน ${Math.max(0, sLeft)}s`;
 }
 
 function calcGrade() {
@@ -285,7 +288,6 @@ function calcGrade() {
   const penalty = miss * 6 + Math.max(0, 8 - maxCombo) * 2;
   const perfBonus = perfectPlates * 40 + miniCleared * 25;
   const v = (sps * 100) + perfBonus - penalty;
-
   if (v >= 260) return 'SSS';
   if (v >= 220) return 'SS';
   if (v >= 185) return 'S';
@@ -311,10 +313,7 @@ function showResult() {
   setText('rG3', totalsByGroup[3]);
   setText('rG4', totalsByGroup[4]);
   setText('rG5', totalsByGroup[5]);
-
-  const gTotal = totalsByGroup[1]+totalsByGroup[2]+totalsByGroup[3]+totalsByGroup[4]+totalsByGroup[5];
-  setText('rGTotal', gTotal);
-
+  setText('rGTotal', totalsByGroup[1]+totalsByGroup[2]+totalsByGroup[3]+totalsByGroup[4]+totalsByGroup[5]);
   setText('rGrade', calcGrade());
 }
 
@@ -327,13 +326,13 @@ function addFever(delta) {
 function startFever() {
   feverActive = true;
   feverUntilMs = performance.now() + 8000;
-  emitGameEvent({ type: 'fever_on', judgment: 'OK' });
+  emitGameEvent({ type: 'fever_on' });
 }
 function endFever() {
   feverActive = false;
   feverUntilMs = 0;
   fever = 0;
-  emitGameEvent({ type: 'fever_off', judgment: 'OK' });
+  emitGameEvent({ type: 'fever_off' });
 }
 
 // ---------- Plate logic ----------
@@ -344,61 +343,38 @@ function resetPlate() {
 }
 function completePerfectPlate() {
   perfectPlates += 1;
-
   emitGameEvent({ type: 'plate_perfect', judgment: 'PERFECT', extra: JSON.stringify({ perfectPlates }) });
 
   if (miniCleared < miniTotal && performance.now() <= miniDeadlineMs) {
     miniCleared += 1;
     emitGameEvent({ type: 'mini_clear', judgment: 'OK', extra: `PlateRush ${miniCleared}/${miniTotal}` });
+    if (miniCleared < miniTotal) miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
   } else {
-    emitGameEvent({ type: 'mini_progress', judgment: 'OK', extra: `Perfect=${perfectPlates}` });
+    miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
   }
 
   resetPlate();
   emitStat('perfect');
 }
 
-// ---------- Spawn helpers ----------
+// ---------- Pick item ----------
 function pickItem() {
   if (Math.random() < DCFG.junkRate) {
-    return { groupId: 0, type: 'junk', emoji: pick(POOL.junk.emojis) };
+    return { groupId: 0, key: 'junk', type: 'junk', emoji: pick(POOL.junk.emojis) };
   }
   const missing = GROUP_KEYS.filter(k => !plateHave[POOL[k].id]);
   const key = (missing.length && Math.random() < 0.72) ? pick(missing) : pick(GROUP_KEYS);
   const g = POOL[key];
-  return { groupId: g.id, type: 'good', emoji: pick(g.emojis) };
+  return { groupId: g.id, key, type: 'good', emoji: pick(g.emojis) };
+}
+
+// ---------- Spawn coord fix ----------
+function isRootInCamera() {
+  if (!cam || !targetRoot) return false;
+  return cam.contains(targetRoot); // ✅ key fix
 }
 
 let targetSeq = 0;
-
-function makeTargetEntity(id, emoji, scale) {
-  const el = document.createElement('a-entity');
-  el.setAttribute('id', id);
-  el.classList.add('plateTarget');
-
-  // ✅ ใส่ hitbox โปร่งใส: ให้ raycaster จับง่ายขึ้น
-  const hit = document.createElement('a-entity');
-  hit.setAttribute('geometry', 'primitive:sphere; radius:0.22');
-  hit.setAttribute('material', 'color:#ffffff; opacity:0.0; transparent:true; shader:flat; depthTest:false');
-  el.appendChild(hit);
-
-  // ✅ a-text (โผล่ชัวร์)
-  const txt = document.createElement('a-text');
-  txt.setAttribute('value', emoji);
-  txt.setAttribute('align', 'center');
-  txt.setAttribute('baseline', 'center');
-  txt.setAttribute('color', '#ffffff');
-  txt.setAttribute('width', '2.4');
-  txt.setAttribute('position', '0 0 0.01');
-  txt.setAttribute('negate', 'false');
-  el.appendChild(txt);
-
-  el.setAttribute('billboard', 'target:#cam');
-  el.setAttribute('scale', `${scale} ${scale} ${scale}`);
-  el.setAttribute('animation__pop', `property:scale; from:0.01 0.01 0.01; to:${scale} ${scale} ${scale}; dur:140; easing:easeOutBack`);
-
-  return el;
-}
 
 function spawnTarget() {
   if (ended || !started) return;
@@ -408,14 +384,58 @@ function spawnTarget() {
   const item = pickItem();
   const id = `t${++targetSeq}`;
 
-  // ✅ spawn รอบหน้า “ยึดกับกล้อง” แค่วาง offset ใน targetRoot
-  const x = rnd(-0.95, 0.95);
-  const y = rnd(-0.20, 0.65);
-  const z = rnd(-0.25, 0.00);
+  const rootInCam = isRootInCamera();
 
-  const s = DCFG.scale * (isAdaptiveOn() ? adaptiveScale : 1.0);
-  const el = makeTargetEntity(id, item.emoji, s);
+  // ✅ ถ้า root อยู่ในกล้อง: ใช้พิกัดแบบ HUD (y ใกล้ 0)
+  // ✅ ถ้า root อยู่โลก: ใช้พิกัดแบบ world (y 1..2)
+  let x, y, z;
+  if (rootInCam) {
+    x = rnd(-1.05, 1.05);
+    y = rnd(-0.55, 0.55);     // <<< FIX: เดิม 1.05..2.25 ทำให้หลุด FOV
+    z = rnd(-0.25, 0.25);     // ใกล้ root เพื่อไม่หลุดฉาก
+  } else {
+    x = rnd(-1.15, 1.15);
+    y = rnd(1.05, 2.25);
+    z = rnd(-3.3, -2.3);
+  }
+
+  const el = document.createElement('a-entity');
+  el.setAttribute('id', id);
   el.setAttribute('position', `${x.toFixed(2)} ${y.toFixed(2)} ${z.toFixed(2)}`);
+
+  // ✅ adaptive scale
+  const s = DCFG.scale * (isAdaptiveOn() ? adaptiveScale : 1.0);
+  el.setAttribute('scale', `${s} ${s} ${s}`);
+
+  // ✅ hitbox plane (เห็น + ยิง raycast ชัวร์)
+  el.classList.add('plateTarget');
+  el.setAttribute('geometry', `primitive:plane; width:0.72; height:0.72`);
+  el.setAttribute('material', `
+    shader:flat;
+    transparent:true;
+    opacity:0.16;
+    side:double;
+    color:${item.type === 'junk' ? '#fb7185' : '#a7f3d0'}
+  `);
+
+  // emoji text (เห็นชัวร์)
+  const txt = document.createElement('a-entity');
+  txt.setAttribute('text', `
+    value:${item.emoji};
+    align:center;
+    color:#ffffff;
+    width:3.2;
+    baseline:center;
+    wrapCount:6;
+  `);
+  txt.setAttribute('position', `0 0 0.01`);
+  el.appendChild(txt);
+
+  // billboard ให้หันเข้าหากล้อง
+  el.setAttribute('billboard', 'target:#cam');
+
+  // pop
+  el.setAttribute('animation__pop', `property:scale; from:0.01 0.01 0.01; to:${s} ${s} ${s}; dur:140; easing:easeOutBack`);
 
   const spawnMs = performance.now();
   el.addEventListener('click', () => onHitTarget(id, 'CLICK'));
@@ -425,7 +445,7 @@ function spawnTarget() {
   const expireTimer = setTimeout(() => {
     if (activeTargets.has(id)) {
       removeTarget(id);
-      onTargetExpired(item, id);
+      onTargetExpired(item);
     }
   }, DCFG.lifeMs);
 
@@ -436,7 +456,11 @@ function spawnTarget() {
     targetId: id,
     emoji: item.emoji,
     itemType: item.type === 'junk' ? 'junk' : `g${item.groupId}`,
-    isGood: item.type === 'good'
+    isGood: item.type === 'good',
+    spawnX: Number(x.toFixed(3)),
+    spawnY: Number(y.toFixed(3)),
+    spawnZ: Number(z.toFixed(3)),
+    rootInCamera: rootInCam ? 1 : 0
   });
 }
 
@@ -513,7 +537,7 @@ function onHitTarget(id, why) {
   updateHUD();
 }
 
-function onTargetExpired(item, targetId) {
+function onTargetExpired(item) {
   if (ended) return;
 
   miss += 1;
@@ -522,7 +546,6 @@ function onTargetExpired(item, targetId) {
 
   emitGameEvent({
     type: 'expire',
-    targetId: targetId || '',
     emoji: item.emoji,
     itemType: item.type === 'junk' ? 'junk' : `g${item.groupId}`,
     judgment: 'MISS',
@@ -565,10 +588,11 @@ function startTimer() {
   }, 1000);
 }
 
+// ---------- Spawn loop ----------
 function scheduleNextSpawn() {
   if (ended || !started) return;
-  const ms = isAdaptiveOn() ? currentSpawnIntervalMs() : DCFG.spawnInterval;
 
+  const ms = isAdaptiveOn() ? currentSpawnIntervalMs() : DCFG.spawnInterval;
   spawnTimer = setTimeout(() => {
     if (!started || ended) return;
 
@@ -578,13 +602,31 @@ function scheduleNextSpawn() {
     } else {
       spawnTarget();
     }
+
     scheduleNextSpawn();
   }, ms);
 }
-
 function stopSpawning() {
   if (spawnTimer) clearTimeout(spawnTimer);
   spawnTimer = null;
+}
+
+// ---------- Start / End ----------
+function startGame() {
+  if (started) return;
+  started = true;
+  ended = false;
+
+  initAdaptiveForDiff();
+  resetPlate();
+  miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
+
+  updateHUD();
+  emitGameEvent({ type: 'start', judgment: 'OK', extra: `run=${MODE}` });
+
+  startStatTicker();
+  startTimer();
+  scheduleNextSpawn();
 }
 
 function clearAllTargets() {
@@ -592,7 +634,6 @@ function clearAllTargets() {
   activeTargets.clear();
 }
 
-// ---------- End ----------
 function endGame(reason) {
   if (ended) return;
   ended = true;
@@ -615,18 +656,27 @@ function endGame(reason) {
   showResult();
 }
 
-// ---------- UI ----------
+// ---------- Buttons ----------
 function bindUI() {
-  $('btnRestart')?.addEventListener('click', () => location.reload());
-  $('btnPlayAgain')?.addEventListener('click', () => location.reload());
+  const btnRestart = $('btnRestart');
+  if (btnRestart) btnRestart.addEventListener('click', () => location.reload());
 
-  $('btnEnterVR')?.addEventListener('click', async () => {
-    try { await scene.enterVR(); } catch (e) { console.warn('[PlateVR] enterVR failed', e); }
-  });
+  const btnPlayAgain = $('btnPlayAgain');
+  if (btnPlayAgain) btnPlayAgain.addEventListener('click', () => location.reload());
 
-  $('resultBackdrop')?.addEventListener('click', (e) => {
-    if (e.target === $('resultBackdrop')) $('resultBackdrop').style.display = 'none';
-  });
+  const btnEnterVR = $('btnEnterVR');
+  if (btnEnterVR && scene) {
+    btnEnterVR.addEventListener('click', async () => {
+      try { await scene.enterVR(); } catch (e) { console.warn('[PlateVR] enterVR failed', e); }
+    });
+  }
+
+  const bd = $('resultBackdrop');
+  if (bd) {
+    bd.addEventListener('click', (e) => {
+      if (e.target === bd) bd.style.display = 'none';
+    });
+  }
 }
 
 // ---------- Logger init ----------
@@ -655,31 +705,16 @@ function initLoggerIfAvailable() {
 }
 
 // ---------- Boot ----------
-function startGame() {
-  if (started) return;
-  started = true;
-  ended = false;
-
-  initAdaptiveForDiff();
-  resetPlate();
-
-  updateHUD();
-  emitGameEvent({ type: 'start', judgment: 'OK', extra: `run=${MODE}` });
-
-  startStatTicker();
-  startTimer();
-  scheduleNextSpawn();
-}
-
 function boot() {
   bindUI();
+
   setText('hudMode', modeLabel(MODE));
   setText('hudDiff', diffLabel(DIFF));
   setText('hudTime', tLeft);
 
   initLoggerIfAvailable();
 
-  // กัน race import logger (บางเครื่อง)
+  // retry init logger (module timing)
   let tries = 0;
   const retry = setInterval(() => {
     if (typeof window.initCloudLogger === 'function') {
