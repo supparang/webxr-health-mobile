@@ -165,7 +165,6 @@ export function createHydrationQuest (diffKey = 'normal') {
   // ---------- API ที่ hydration.safe.js เรียก ----------
   function updateScore (score) {
     stats.score = Number(score) || 0;
-    // ในอนาคตถ้าจะเพิ่ม Goal/mini ที่อิงคะแนน สามารถเช็คที่นี่เพิ่มได้
   }
 
   function updateCombo (combo) {
@@ -182,31 +181,19 @@ export function createHydrationQuest (diffKey = 'normal') {
 
   function onJunk () {
     stats.junkHits += 1;
-    stats.secSinceJunk = 0;
-    // โดนน้ำหวานบ่อย ๆ → ทำให้ Goal 2 / Mini 3 สำเร็จยากขึ้น
+    stats.secSinceJunk = 0; // ✅ รีเซ็ตเฉพาะ “โดนจริง”
     evalAll();
   }
 
   // เรียกทุกวินาทีจาก hydration.safe.js (หลังจาก greenTick / zone ถูกอัปเดตแล้ว)
   function second () {
     stats.timeSec += 1;
-
-    // ถ้าไม่มี onJunk ล่าสุด → นับ secSinceJunk ขึ้น
     stats.secSinceJunk += 1;
-
-    // zone ถูกอัปเดตจากด้านนอกผ่าน deck.stats.zone / greenTick ใน hydration.safe.js
     evalAll();
   }
 
-  // ให้ safe.js เรียกเพื่อดันภารกิจใหม่ เมื่อเพิ่งเคลียร์ goal/mini
-  function nextGoal () {
-    // ดีไซน์ปัจจุบันใช้ flag _done + filter อยู่แล้ว
-    // ตรงนี้เลยเป็น no-op แต่เผื่อในอนาคตจะ random / rotate objectives
-  }
-
-  function nextMini () {
-    // เช่นเดียวกับ nextGoal ตอนนี้ยังไม่ต้องทำอะไรเพิ่มเติม
-  }
+  function nextGoal () {}
+  function nextMini () {}
 
   function getProgress (kind) {
     if (kind === 'goals') return makeView(goals);
@@ -214,14 +201,14 @@ export function createHydrationQuest (diffKey = 'normal') {
     return [];
   }
 
-  // ---------- Debug helper (optional, ไม่บังคับใช้) ----------
+  // ✅ NEW: progress สำหรับ mini “เลี่ยงน้ำหวาน”
+  function getMiniNoJunkProgress () {
+    return { now: stats.secSinceJunk, target: cfg.miniNoJunkSec };
+  }
+
+  // ---------- Debug helper ----------
   try {
-    ROOT.HHA_HYDRATION_QUEST_DEBUG = {
-      cfg,
-      stats,
-      goals,
-      minis
-    };
+    ROOT.HHA_HYDRATION_QUEST_DEBUG = { cfg, stats, goals, minis };
   } catch {}
 
   return {
@@ -235,11 +222,11 @@ export function createHydrationQuest (diffKey = 'normal') {
     second,
     getProgress,
     nextGoal,
-    nextMini
+    nextMini,
+    getMiniNoJunkProgress // ✅ NEW
   };
 }
 
-// default export เผื่อมีการ import แบบ default ที่อื่น
 export default {
   createHydrationQuest
 };
