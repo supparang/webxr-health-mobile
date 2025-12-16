@@ -618,4 +618,84 @@ function endGame(reason) {
 // ---------- UI ----------
 function bindUI() {
   $('btnRestart')?.addEventListener('click', () => location.reload());
-  $('btnPlayAgain')?.addEventListener('click
+  $('btnPlayAgain')?.addEventListener('click', () => location.reload());
+
+  $('btnEnterVR')?.addEventListener('click', async () => {
+    try { await scene.enterVR(); } catch (e) { console.warn('[PlateVR] enterVR failed', e); }
+  });
+
+  $('resultBackdrop')?.addEventListener('click', (e) => {
+    if (e.target === $('resultBackdrop')) $('resultBackdrop').style.display = 'none';
+  });
+}
+
+// ---------- Logger init ----------
+function initLoggerIfAvailable() {
+  const init = window.initCloudLogger;
+  if (typeof init !== 'function') return;
+
+  const endpoint =
+    (window.HHA_LOG_ENDPOINT) ||
+    (sessionStorage && sessionStorage.getItem('HHA_LOG_ENDPOINT')) ||
+    '';
+
+  try {
+    init({
+      endpoint,
+      projectTag: 'HeroHealth-PlateVR',
+      mode: 'PlateVR',
+      runMode: MODE,
+      diff: DIFF,
+      durationSec: TIME,
+      debug: true
+    });
+  } catch (e) {
+    console.warn('[PlateVR] initCloudLogger error', e);
+  }
+}
+
+// ---------- Boot ----------
+function startGame() {
+  if (started) return;
+  started = true;
+  ended = false;
+
+  initAdaptiveForDiff();
+  resetPlate();
+
+  updateHUD();
+  emitGameEvent({ type: 'start', judgment: 'OK', extra: `run=${MODE}` });
+
+  startStatTicker();
+  startTimer();
+  scheduleNextSpawn();
+}
+
+function boot() {
+  bindUI();
+  setText('hudMode', modeLabel(MODE));
+  setText('hudDiff', diffLabel(DIFF));
+  setText('hudTime', tLeft);
+
+  initLoggerIfAvailable();
+
+  // กัน race import logger (บางเครื่อง)
+  let tries = 0;
+  const retry = setInterval(() => {
+    if (typeof window.initCloudLogger === 'function') {
+      initLoggerIfAvailable();
+      clearInterval(retry);
+    }
+    tries += 1;
+    if (tries > 12) clearInterval(retry);
+  }, 250);
+
+  if (scene) {
+    if (scene.hasLoaded) startGame();
+    else scene.addEventListener('loaded', startGame);
+  } else {
+    setTimeout(startGame, 350);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', boot);
