@@ -1,576 +1,737 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR (A-Frame) — Production-ready mini loop + Cloud Logger
-// - เป้ายึดกับกล้อง (หมุน/เลื่อนจอแล้วเป้าเลื่อนตาม)
-// - นับหมู่ 1–5 ต่อรอบ + แสดงในสรุป
+// Balanced Plate VR — Production-ready core (A-Frame 1.5.0)
+// - Spawn emoji targets (5 food groups + junk)
+// - Plate mechanic: collect groups 1–5 within a plate to earn PERFECT PLATE
 // - Goal: PERFECT >= 2
-// - Mini: Plate Rush 3 ด่าน (ทำ PERFECT ให้ทัน 15s ต่อด่าน)
-// - ส่ง session + events ไป Google Sheet ผ่าน hha-cloud-logger.js
-
+// - Mini quest: Plate Rush (3) — make a PERFECT within 15s
+// - Fever mode (100% -> 8s boost)
+// - HUD + Result modal update
+// - Emits hha:event + hha:session for /vr/hha-cloud-logger.js
+//
+// URL params:
+//   ?diff=easy|normal|hard
+//   ?time=60..180
+//   ?run=play|research
+//
+// Works with plate-vr.html you posted (IDs must exist):
+//   hudTime,hudScore,hudCombo,hudMiss,hudFever,hudFeverPct,hudMode,hudDiff
+//   hudGroupsHave,hudPerfectCount,hudGoalLine,hudMiniLine
+//   resultBackdrop + rMode,rGrade,rScore,rMaxCombo,rMiss,rPerfect,rGoals,rMinis,rG1..rG5,rGTotal
+//   btnRestart,btnPlayAgain,btnEnterVR
+//   #targetRoot, #cam, #cursor
+//
 'use strict';
 
-// ---------- URL params ----------
-const url = new URL(window.location.href);
-const DIFF = (url.searchParams.get('diff') || 'normal').toLowerCase();
-const RUN  = (url.searchParams.get('run')  || sessionStorage.getItem('HHA_RUN_MODE') || 'play').toLowerCase();
+const URLX = new URL(location.href);
+const DIFF = (URLX.searchParams.get('diff') || 'normal').toLowerCase();
+let TIME = parseInt(URLX.searchParams.get('time') || '70', 10);
+if (Number.isNaN(TIME) || TIME <= 0) TIME = 70;
+TIME = Math.max(20, Math.min(180, TIME));
+const MODE = (URLX.searchParams.get('run') || 'play').toLowerCase() === 'research' ? 'research' : 'play';
 
-let timeParam = parseInt(url.searchParams.get('time') || '70', 10);
-if (isNaN(timeParam) || timeParam <= 0) timeParam = 70;
-if (timeParam < 20) timeParam = 20;
-if (timeParam > 180) timeParam = 180;
-const GAME_DURATION = timeParam;
-
-// ---------- Logger endpoint (จาก Hub เป็นหลัก) ----------
-const DEFAULT_ENDPOINT =
-  'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
-
-const LOG_ENDPOINT = sessionStorage.getItem('HHA_LOG_ENDPOINT') || DEFAULT_ENDPOINT;
+// expose (เผื่อ HTML อยากใช้)
+window.DIFF = DIFF;
+window.TIME = TIME;
+window.MODE = MODE;
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
+function setText(id, v) { const el = $(id); if (el) el.textContent = String(v); }
+function setBarPct(id, pct) { const el = $(id); if (el) el.style.width = `${Math.max(0, Math.min(100, pct))}%`; }
 
-// HUD
-const hud = {
-  time:  $('hudTime'),
-  score: $('hudScore'),
-  combo: $('hudCombo'),
-  miss:  $('hudMiss'),
-  feverFill: $('hudFever'),
-  feverPct:  $('hudFeverPct'),
-  mode:  $('hudMode'),
-  diff:  $('hudDiff'),
+// ---------- A-Frame guards ----------
+const A = window.AFRAME;
+if (!A) {
+  console.error('[PlateVR] AFRAME not found');
+}
 
-  goalLine: $('hudGoalLine'),
-  miniLine: $('hudMiniLine'),
-
-  groupsHave: $('hudGroupsHave'),
-  perfectCount: $('hudPerfectCount')
-};
-
-// Result modal
-const result = {
-  backdrop: $('resultBackdrop'),
-  rMode: $('rMode'),
-  rGrade: $('rGrade'),
-  rScore: $('rScore'),
-  rMaxCombo: $('rMaxCombo'),
-  rMiss: $('rMiss'),
-  rPerfect: $('rPerfect'),
-  rGoals: $('rGoals'),
-  rMinis: $('rMinis'),
-  g1: $('rG1'),
-  g2: $('rG2'),
-  g3: $('rG3'),
-  g4: $('rG4'),
-  g5: $('rG5'),
-  gT: $('rGTotal'),
-
-  btnPlayAgain: $('btnPlayAgain')
-};
-
-const btnEnterVR = $('btnEnterVR');
-const btnRestart = $('btnRestart');
-
-// A-Frame entities
-const scene = document.querySelector('a-scene');
-const cam   = document.getElementById('cam');
-const targetRoot = document.getElementById('targetRoot');
+// billboard component (ไม่พึ่ง aframe-look-at)
+if (A && !A.components.billboard) {
+  A.registerComponent('billboard', {
+    schema: { target: { type: 'selector' } },
+    tick: function () {
+      const t = this.data.target;
+      if (!t) return;
+      this.el.object3D.lookAt(t.object3D.getWorldPosition(new THREE.Vector3()));
+    }
+  });
+}
 
 // ---------- Difficulty tuning ----------
 const DIFF_TABLE = {
-  easy:   { spawnMs: 900,  maxActive: 4, junkRate: 0.12, scale: 1.05 },
-  normal: { spawnMs: 750,  maxActive: 5, junkRate: 0.18, scale: 1.00 },
-  hard:   { spawnMs: 620,  maxActive: 6, junkRate: 0.26, scale: 0.92 }
+  easy:   { spawnInterval: 980, maxActive: 4, scale: 0.78, lifeMs: 1850, junkRate: 0.12 },
+  normal: { spawnInterval: 820, maxActive: 5, scale: 0.66, lifeMs: 1650, junkRate: 0.18 },
+  hard:   { spawnInterval: 690, maxActive: 6, scale: 0.56, lifeMs: 1450, junkRate: 0.24 }
 };
 const DCFG = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
 
-// ---------- Session state ----------
-const sessionId = 'PLATE-' + Math.random().toString(16).slice(2) + '-' + Date.now().toString(16);
+// ---------- Food pools (ครบ 5 หมู่ + junk) ----------
+const POOL = {
+  g1: { id: 1, label: 'หมู่ 1', type: 'good', emojis: ['🥚','🥛','🐟','🍗','🫘'] },  // โปรตีน/นม
+  g2: { id: 2, label: 'หมู่ 2', type: 'good', emojis: ['🍚','🍞','🍜','🥔','🌽'] },  // ข้าว-แป้ง
+  g3: { id: 3, label: 'หมู่ 3', type: 'good', emojis: ['🥦','🥬','🥕','🍅','🥒'] },  // ผัก
+  g4: { id: 4, label: 'หมู่ 4', type: 'good', emojis: ['🍎','🍌','🍇','🍊','🍉'] },  // ผลไม้
+  g5: { id: 5, label: 'หมู่ 5', type: 'good', emojis: ['🥑','🫒','🥜','🧈','🍯'] },  // ไขมัน/น้ำมัน
+  junk: { id: 0, label: 'junk', type: 'junk', emojis: ['🍟','🍔','🍩','🧋','🍭','🥤'] }
+};
+const GROUP_KEYS = ['g1','g2','g3','g4','g5'];
 
-let tLeft = GAME_DURATION;
-let ticker = null;
-let spawner = null;
-let startedAt = null;
+// ---------- Game state ----------
+const scene = document.querySelector('a-scene');
+const cam = document.getElementById('cam');
+const targetRoot = document.getElementById('targetRoot');
+const cursor = document.getElementById('cursor');
+
+const sessionId = `PLATE-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+
+let started = false;
+let ended = false;
+
+let tLeft = TIME;
+let timerTick = null;
 
 let score = 0;
 let combo = 0;
-let comboMax = 0;
-let misses = 0;
+let maxCombo = 0;
+let miss = 0;
 
-let fever = 0;              // 0..100
+let fever = 0;           // 0..100
 let feverActive = false;
+let feverUntilMs = 0;
 
 let perfectPlates = 0;
 
-// counts by group (ตลอดรอบ)
-const groupCount = { 1:0, 2:0, 3:0, 4:0, 5:0 };
+// per-plate group hit flags
+let plateHave = { 1:false,2:false,3:false,4:false,5:false };
+let plateCounts = { 1:0,2:0,3:0,4:0,5:0 };
+let plateTotalHits = 0;
 
-// current plate tracking
-let plateHave = new Set();      // 1..5
-let plateHadJunk = false;       // ถ้าโดน junk ระหว่างจานนี้ -> ไม่ perfect
-let plateStartMs = 0;
+// totals (for result summary)
+let totalsByGroup = { 1:0,2:0,3:0,4:0,5:0 };
 
-// Goal / mini
-const GOAL_TOTAL = 2; // perfect >= 2
-let goalsCleared = 0;
+let goalTotal = 2;
+let goalCleared = 0;
 
-const MINI_TOTAL = 3;
+// Mini quest: Plate Rush (3)
+let miniTotal = 3;
 let miniCleared = 0;
 let miniIndex = 1;
+let miniDeadlineMs = 0;
 const MINI_WINDOW_MS = 15000;
-let miniStartMs = 0;
 
-// Spawn stats
-let nTargetGoodSpawned = 0;
-let nTargetJunkSpawned = 0;
-let nHitGood = 0;
-let nHitJunk = 0;
+// spawn control
+let spawnInt = null;
+let activeTargets = new Map(); // id -> { el, spawnMs, groupId, type, emoji, expireTimer }
 
-// ---------- Logger wiring ----------
-function initLoggerIfAny() {
-  if (typeof window !== 'undefined' && typeof window.initCloudLogger === 'function') {
-    window.initCloudLogger({
-      endpoint: LOG_ENDPOINT,
-      projectTag: 'HeroHealth-PlateVR',
-      mode: 'PlateVR',
-      runMode: RUN,
-      diff: DIFF,
-      durationSec: GAME_DURATION,
-      debug: true
-    });
+// time origin
+const t0 = performance.now();
+
+// ---------- Logger emitters ----------
+function emit(type, detail) {
+  window.dispatchEvent(new CustomEvent(type, { detail }));
+}
+
+function nowIso() { return new Date().toISOString(); }
+function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0)); }
+
+function emitGameEvent(payload) {
+  // normalize
+  emit('hha:event', Object.assign({
+    sessionId,
+    type: payload.type || '',
+    mode: 'PlateVR',
+    difficulty: DIFF,
+    timeFromStartMs: fromStartMs(),
+    feverState: feverActive ? 'ON' : 'OFF',
+    feverValue: Math.round(fever),
+    totalScore: score,
+    combo
+  }, payload));
+}
+
+function emitSessionEnd(reason) {
+  const groupsHaveCount = Object.values(plateHave).filter(Boolean).length;
+  const gTotal = totalsByGroup[1]+totalsByGroup[2]+totalsByGroup[3]+totalsByGroup[4]+totalsByGroup[5];
+
+  emit('hha:session', {
+    sessionId,
+    mode: 'PlateVR',
+    difficulty: DIFF,
+
+    durationSecPlayed: TIME - tLeft,
+    scoreFinal: score,
+    comboMax: maxCombo,
+    misses: miss,
+
+    // goal/mini
+    goalsCleared: goalCleared,
+    goalsTotal: goalTotal,
+    miniCleared: miniCleared,
+    miniTotal: miniTotal,
+
+    // "spawn/hit" summary fields (reuse Good/Junk fields to keep sheet columns stable)
+    nTargetGoodSpawned: '', // (optional) you can fill later
+    nTargetJunkSpawned: '',
+    nHitGood: gTotal,
+    nHitJunk: '',
+
+    // Plate-specific extras packed into "reason" or extra
+    reason: reason || '',
+
+    // For your result modal: per-group totals (kept local; you can also put into reason/extra if needed)
+    extra: JSON.stringify({
+      totalsByGroup,
+      plateCounts,
+      groupsHaveCount,
+      perfectPlates,
+      miniIndex,
+      miniCleared
+    }),
+
+    startTimeIso: sessionStartIso,
+    endTimeIso: nowIso(),
+    gameVersion: 'PlateVR-2025-12-16a'
+  });
+}
+
+// ---------- HUD / UI ----------
+const sessionStartIso = nowIso();
+
+function diffLabel(d) {
+  if (d === 'easy') return 'Easy';
+  if (d === 'hard') return 'Hard';
+  return 'Normal';
+}
+function modeLabel(m) { return (m === 'research') ? 'Research' : 'Play'; }
+
+function updateHUD() {
+  setText('hudTime', tLeft);
+  setText('hudScore', score);
+  setText('hudCombo', combo);
+  setText('hudMiss', miss);
+
+  const pct = Math.round(fever);
+  setBarPct('hudFever', pct);
+  setText('hudFeverPct', `${pct}%`);
+
+  setText('hudMode', modeLabel(MODE));
+  setText('hudDiff', diffLabel(DIFF));
+
+  const haveCount = Object.values(plateHave).filter(Boolean).length;
+  setText('hudGroupsHave', `${haveCount}/5`);
+  setText('hudPerfectCount', perfectPlates);
+
+  goalCleared = Math.min(goalTotal, perfectPlates);
+  const goalLine = `ทำ <b>PERFECT PLATE</b> ให้ได้อย่างน้อย ${goalTotal} จาน (ตอนนี้ ${goalCleared}/${goalTotal})`;
+  const goalEl = $('hudGoalLine');
+  if (goalEl) goalEl.innerHTML = goalLine;
+
+  // mini line
+  const msLeft = Math.max(0, miniDeadlineMs - performance.now());
+  const sLeft = Math.ceil(msLeft / 1000);
+  const miniEl = $('hudMiniLine');
+  if (miniEl) {
+    miniEl.textContent =
+      `Mini: Plate Rush ${miniCleared}/${miniTotal} — ทำ Perfect ภายใน ${Math.max(0, sLeft)}s`;
   }
 }
 
-function emitSession(reason='completed') {
-  const now = Date.now();
-  const startIso = startedAt ? new Date(startedAt).toISOString() : '';
-  const endIso = new Date().toISOString();
+function showResult() {
+  const bd = $('resultBackdrop');
+  if (bd) bd.style.display = 'flex';
 
-  const totalGroups = groupCount[1] + groupCount[2] + groupCount[3] + groupCount[4] + groupCount[5];
+  setText('rMode', modeLabel(MODE));
+  setText('rScore', score);
+  setText('rMaxCombo', maxCombo);
+  setText('rMiss', miss);
+  setText('rPerfect', perfectPlates);
+  setText('rGoals', `${goalCleared}/${goalTotal}`);
+  setText('rMinis', `${miniCleared}/${miniTotal}`);
 
-  window.dispatchEvent(new CustomEvent('hha:session', {
-    detail: {
-      sessionId,
-      mode: 'PlateVR',
-      difficulty: DIFF,
-      durationSecPlayed: startedAt ? Math.round((now - startedAt)/1000) : '',
-      scoreFinal: score,
-      comboMax,
-      misses,
+  setText('rG1', totalsByGroup[1]);
+  setText('rG2', totalsByGroup[2]);
+  setText('rG3', totalsByGroup[3]);
+  setText('rG4', totalsByGroup[4]);
+  setText('rG5', totalsByGroup[5]);
 
-      goalsCleared,
-      goalsTotal: GOAL_TOTAL,
-      miniCleared,
-      miniTotal: MINI_TOTAL,
+  const gTotal = totalsByGroup[1]+totalsByGroup[2]+totalsByGroup[3]+totalsByGroup[4]+totalsByGroup[5];
+  setText('rGTotal', gTotal);
 
-      nTargetGoodSpawned,
-      nTargetJunkSpawned,
-      nHitGood,
-      nHitJunk,
-
-      // (ช่อง star/diamond/shield ไม่ใช้ -> ปล่อยว่างได้)
-      nTargetStarSpawned: '',
-      nTargetDiamondSpawned: '',
-      nTargetShieldSpawned: '',
-
-      accuracyGoodPct: '',
-      junkErrorPct: '',
-      avgRtGoodMs: '',
-      medianRtGoodMs: '',
-      fastHitRatePct: '',
-
-      gameVersion: 'PlateVR-2025-12-16',
-      reason,
-      startTimeIso: startIso,
-      endTimeIso: endIso,
-
-      // ใส่ extra summary ให้ดูง่าย (จะไปอยู่ field "extra" ถ้าคุณอยาก)
-      extra: JSON.stringify({
-        perfectPlates,
-        groupCount,
-        totalGroups
-      })
-    }
-  }));
+  setText('rGrade', calcGrade());
 }
 
-function emitEvent(type, detail = {}) {
-  const msFromStart = startedAt ? (Date.now() - startedAt) : '';
-  window.dispatchEvent(new CustomEvent('hha:event', {
-    detail: Object.assign({
-      sessionId,
-      type,
-      mode: 'PlateVR',
-      difficulty: DIFF,
-      timeFromStartMs: msFromStart
-    }, detail)
-  }));
+function hideResult() {
+  const bd = $('resultBackdrop');
+  if (bd) bd.style.display = 'none';
 }
 
-// ---------- UI helpers ----------
-function setText(el, v) { if (el) el.textContent = String(v); }
-function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+// Grade heuristic (ปรับได้)
+function calcGrade() {
+  // score per sec + penalties
+  const dur = Math.max(1, TIME);
+  const sps = score / dur;
+  const penalty = miss * 6 + Math.max(0, 8 - maxCombo) * 2;
+  const perfBonus = perfectPlates * 40 + miniCleared * 25;
+  const v = (sps * 100) + perfBonus - penalty;
 
-function updateHUD() {
-  setText(hud.time, tLeft);
-  setText(hud.score, score);
-  setText(hud.combo, combo);
-  setText(hud.miss, misses);
-  setText(hud.mode, RUN === 'research' ? 'Research' : 'Play');
-  setText(hud.diff, DIFF.charAt(0).toUpperCase() + DIFF.slice(1));
-
-  const f = clamp(fever, 0, 100);
-  if (hud.feverFill) hud.feverFill.style.width = f + '%';
-  setText(hud.feverPct, Math.round(f) + '%');
-
-  setText(hud.groupsHave, `${plateHave.size}/5`);
-  setText(hud.perfectCount, perfectPlates);
-
-  goalsCleared = (perfectPlates >= GOAL_TOTAL) ? GOAL_TOTAL : perfectPlates;
-  setText(hud.goalLine, `ทำ ` + (perfectPlates >= GOAL_TOTAL ? '✅ ' : '') + `PERFECT PLATE ให้ได้อย่างน้อย ${GOAL_TOTAL} จาน (ตอนนี้ ${perfectPlates}/${GOAL_TOTAL})`);
-
-  const remainMini = Math.max(0, MINI_TOTAL - miniCleared);
-  const miniStatus = (miniIndex <= MINI_TOTAL)
-    ? `Mini: Plate Rush ${miniIndex}/${MINI_TOTAL} — ทำ Perfect ภายใน 15s`
-    : `Mini: จบแล้ว ✅ (${MINI_TOTAL}/${MINI_TOTAL})`;
-  setText(hud.miniLine, miniStatus + (remainMini === 0 ? '' : ''));
-}
-
-// ---------- Grade ----------
-function gradeFrom(score, misses) {
-  // ง่าย ๆ แบบใช้จริง: เน้น miss ต่ำ + score สูง
-  const s = Number(score)||0;
-  const m = Number(misses)||0;
-
-  if (m <= 1 && s >= 4500) return 'SSS';
-  if (m <= 2 && s >= 3800) return 'SS';
-  if (m <= 3 && s >= 3200) return 'S';
-  if (m <= 5 && s >= 2600) return 'A';
-  if (m <= 7 && s >= 2000) return 'B';
+  if (v >= 260) return 'SSS';
+  if (v >= 220) return 'SS';
+  if (v >= 185) return 'S';
+  if (v >= 150) return 'A';
+  if (v >= 115) return 'B';
   return 'C';
 }
 
-// ---------- Target spawn ----------
-const FOOD_POOL = {
-  1: ['🍗','🥚','🐟','🥜','🍖'],     // โปรตีน
-  2: ['🍚','🍞','🥔','🍝','🥯'],     // คาร์บ/แป้ง
-  3: ['🥦','🥬','🥒','🥕','🌽'],     // ผัก
-  4: ['🍎','🍌','🍊','🍇','🍉'],     // ผลไม้
-  5: ['🥛','🧀','🍶','🧈','🍼']      // นม/ไขมันดี
-};
-
-const JUNK_POOL = ['🍟','🍩','🍭','🧁','🥤','🍕'];
-
-function pickEmoji(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+// ---------- Camera swipe fix (กันบางมือถือหมุนไม่ติด) ----------
+function ensureTouchLookControls() {
+  // A-Frame look-controls มี touchEnabled แล้วใน HTML แต่บางทีต้อง force
+  if (!cam) return;
+  try {
+    cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true');
+  } catch (_) {}
 }
 
-function activeTargets() {
-  return targetRoot ? targetRoot.querySelectorAll('.plateTarget') : [];
+// ---------- Fever ----------
+function clamp(v, a, b) { v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+
+function addFever(delta) {
+  if (feverActive) return; // ระหว่าง fever ไม่สะสม (ปรับได้)
+  fever = clamp(fever + delta, 0, 100);
+  if (fever >= 100) {
+    fever = 100;
+    startFever();
+  }
 }
+
+function startFever() {
+  feverActive = true;
+  feverUntilMs = performance.now() + 8000;
+  emitGameEvent({ type: 'fever_on' });
+}
+
+function endFever() {
+  feverActive = false;
+  feverUntilMs = 0;
+  fever = 0;
+  emitGameEvent({ type: 'fever_off' });
+}
+
+// ---------- Plate logic ----------
+function resetPlate() {
+  plateHave = { 1:false,2:false,3:false,4:false,5:false };
+  plateCounts = { 1:0,2:0,3:0,4:0,5:0 };
+  plateTotalHits = 0;
+
+  // reset mini window on new plate attempt (for Plate Rush)
+  miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
+}
+
+function completePerfectPlate() {
+  perfectPlates += 1;
+
+  emitGameEvent({
+    type: 'plate_perfect',
+    judgment: 'PERFECT',
+    extra: JSON.stringify({ perfectPlates })
+  });
+
+  // mini quest success (if within window)
+  if (miniCleared < miniTotal && performance.now() <= miniDeadlineMs) {
+    miniCleared += 1;
+    emitGameEvent({ type: 'mini_clear', judgment: 'OK', extra: `PlateRush ${miniCleared}/${miniTotal}` });
+
+    // advance / finish
+    if (miniCleared < miniTotal) {
+      miniIndex = miniCleared + 1;
+      miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
+    }
+  } else {
+    // even if late, restart window for next attempt
+    miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
+  }
+
+  resetPlate();
+}
+
+// ---------- Spawn helpers ----------
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
+
+function pickItem() {
+  // junk chance
+  if (Math.random() < DCFG.junkRate) {
+    const emoji = pick(POOL.junk.emojis);
+    return { groupId: 0, key: 'junk', type: 'junk', emoji };
+  }
+  // choose a group we still "need" more often (adaptive)
+  const missing = GROUP_KEYS.filter(k => !plateHave[POOL[k].id]);
+  const key = (missing.length && Math.random() < 0.72) ? pick(missing) : pick(GROUP_KEYS);
+  const g = POOL[key];
+  const emoji = pick(g.emojis);
+  return { groupId: g.id, key, type: 'good', emoji };
+}
+
+let targetSeq = 0;
 
 function spawnTarget() {
-  if (!targetRoot) return;
-  if (activeTargets().length >= DCFG.maxActive) return;
+  if (ended || !started) return;
+  if (!targetRoot || !cam) return;
+  if (activeTargets.size >= DCFG.maxActive) return;
 
-  // เลือก group: ถ้ายังไม่ครบ 5 ให้ bias ไปที่กลุ่มที่ขาด
-  let group = 1 + Math.floor(Math.random()*5);
-  const missing = [1,2,3,4,5].filter(g => !plateHave.has(g));
-  if (missing.length && Math.random() < 0.72) {
-    group = missing[Math.floor(Math.random()*missing.length)];
-  }
+  const item = pickItem();
+  const id = `t${++targetSeq}`;
 
-  const isJunk = (Math.random() < DCFG.junkRate);
-  const emoji = isJunk ? pickEmoji(JUNK_POOL) : pickEmoji(FOOD_POOL[group]);
+  // spawn in front-ish of camera with slight spread
+  // (so when "เลื่อนจอ" / look around, targets move naturally in view)
+  const x = rnd(-1.15, 1.15);
+  const y = rnd(1.05, 2.25);
+  const z = rnd(-3.3, -2.3);
 
   const el = document.createElement('a-entity');
+  el.setAttribute('id', id);
+  el.setAttribute('position', `${x.toFixed(2)} ${y.toFixed(2)} ${z.toFixed(2)}`);
+  el.setAttribute('scale', `${DCFG.scale} ${DCFG.scale} ${DCFG.scale}`);
+
+  // IMPORTANT for cursor raycaster
   el.classList.add('plateTarget');
 
-  // random position ในกรอบหน้ากล้อง (เพราะ targetRoot ผูกกับกล้องแล้ว)
-  const x = (Math.random()*1.2 - 0.6);
-  const y = (Math.random()*0.7 - 0.35);
-  const z = (Math.random()*-0.2); // เล็กน้อยให้มีมิติ
-  el.setAttribute('position', `${x} ${y} ${z}`);
+  // emoji text
+  el.setAttribute('text', {
+    value: item.emoji,
+    align: 'center',
+    color: '#ffffff',
+    width: 4.0,
+    baseline: 'center'
+  });
 
-  const s = (0.35 * DCFG.scale) + (Math.random()*0.10);
-  el.setAttribute('scale', `${s} ${s} ${s}`);
+  // billboard
+  el.setAttribute('billboard', 'target:#cam');
 
-  // ตัวพื้น (hitbox) ใส ๆ
-  el.setAttribute('geometry', 'primitive: plane; height: 0.55; width: 0.55');
-  el.setAttribute('material', 'color:#ffffff; opacity:0.06; shader:flat; transparent:true');
-  el.setAttribute('look-at', '#cam'); // ให้หันเข้ากล้อง
-
-  // แสดง emoji
-  const text = document.createElement('a-text');
-  text.setAttribute('value', emoji);
-  text.setAttribute('align', 'center');
-  text.setAttribute('width', 2.8);
-  text.setAttribute('color', '#ffffff');
-  text.setAttribute('position', '0 0 0.01');
-  text.setAttribute('baseline', 'center');
-  el.appendChild(text);
-
-  // metadata
-  const targetId = 'T' + Math.random().toString(16).slice(2) + Date.now().toString(16);
-  el.dataset.targetId = targetId;
-  el.dataset.group = String(group);
-  el.dataset.isJunk = isJunk ? '1' : '0';
-  el.dataset.emoji = emoji;
-  el.dataset.spawnAt = String(Date.now());
-
-  // auto expire (ไม่กด = miss เล็ก ๆ)
-  const ttl = (DIFF === 'hard') ? 1100 : (DIFF === 'easy' ? 1700 : 1400);
-  el.__ttlTimer = setTimeout(() => {
-    if (!el.parentNode) return;
-    // expire = นับเป็น miss เฉพาะเป้าดี (junk ปล่อยผ่านไม่ลงโทษ)
-    if (el.dataset.isJunk !== '1') {
-      misses += 1;
-      combo = 0;
-      fever = Math.max(0, fever - 9);
-      emitEvent('expire', {
-        targetId,
-        emoji,
-        itemType: 'good',
-        isGood: true,
-        judgment: 'MISS',
-        rtMs: '',
-        totalScore: score,
-        combo
-      });
-    }
-    el.parentNode.removeChild(el);
-    updateHUD();
-  }, ttl);
+  // subtle "pop" animation
+  el.setAttribute('animation__pop', `property:scale; from:0.01 0.01 0.01; to:${DCFG.scale} ${DCFG.scale} ${DCFG.scale}; dur:120; easing:easeOutBack`);
 
   // click/fuse hit
-  el.addEventListener('click', () => onHit(el));
-  el.addEventListener('fusing', () => {
-    // optional: สามารถทำ reticle progress ได้ต่อ (เอาไว้รอบถัดไป)
-  });
+  const spawnMs = performance.now();
+  el.addEventListener('click', () => onHitTarget(id, 'CLICK'));
 
+  // append
   targetRoot.appendChild(el);
 
-  if (isJunk) nTargetJunkSpawned += 1;
-  else nTargetGoodSpawned += 1;
+  // expire
+  const expireTimer = setTimeout(() => {
+    // if still active -> miss
+    if (activeTargets.has(id)) {
+      removeTarget(id);
+      onTargetExpired(item);
+    }
+  }, DCFG.lifeMs);
 
-  emitEvent('spawn', {
-    targetId,
-    emoji,
-    itemType: isJunk ? 'junk' : 'good',
-    isGood: !isJunk
+  activeTargets.set(id, {
+    el, spawnMs,
+    groupId: item.groupId,
+    type: item.type,
+    emoji: item.emoji,
+    expireTimer
+  });
+
+  emitGameEvent({
+    type: 'spawn',
+    targetId: id,
+    emoji: item.emoji,
+    itemType: item.type,
+    isGood: item.type === 'good'
   });
 }
 
-function onHit(el) {
-  if (!el || !el.parentNode) return;
+function removeTarget(id) {
+  const t = activeTargets.get(id);
+  if (!t) return;
+  activeTargets.delete(id);
+  try { clearTimeout(t.expireTimer); } catch (_) {}
+  try { t.el && t.el.parentNode && t.el.parentNode.removeChild(t.el); } catch (_) {}
+}
 
-  const now = Date.now();
-  const targetId = el.dataset.targetId || '';
-  const emoji = el.dataset.emoji || '';
-  const group = parseInt(el.dataset.group || '0', 10);
-  const isJunk = (el.dataset.isJunk === '1');
-  const spawnAt = parseInt(el.dataset.spawnAt || '0', 10);
-  const rtMs = spawnAt ? (now - spawnAt) : '';
+// ---------- Scoring rules ----------
+function addScore(base) {
+  const mult = feverActive ? 2 : 1;
+  const cMult = Math.min(4, 1 + combo * 0.06);
+  score += Math.round(base * mult * cMult);
+}
 
-  clearTimeout(el.__ttlTimer);
+function onHitTarget(id, why) {
+  if (ended) return;
+  const t = activeTargets.get(id);
+  if (!t) return;
 
-  if (isJunk) {
-    // กด junk = โทษ
-    misses += 1;
+  const rt = Math.max(0, Math.round(performance.now() - t.spawnMs));
+  removeTarget(id);
+
+  if (t.type === 'junk') {
+    // junk hit = miss + combo break
+    miss += 1;
     combo = 0;
-    fever = Math.max(0, fever - 15);
-    plateHadJunk = true;
-    nHitJunk += 1;
+    addFever(-18);
 
-    emitEvent('hit', {
-      targetId, emoji, itemType:'junk',
-      isGood:false,
-      judgment:'MISS',
-      rtMs,
-      totalScore: score,
-      combo
-    });
-  } else {
-    // กดของดี
-    combo += 1;
-    comboMax = Math.max(comboMax, combo);
-
-    const add = 120 + Math.min(220, combo * 8);
-    score += add;
-
-    fever = clamp(fever + 6, 0, 100);
-    feverActive = (fever >= 100);
-
-    if (group >= 1 && group <= 5) {
-      groupCount[group] += 1;
-      plateHave.add(group);
-    }
-    nHitGood += 1;
-
-    emitEvent('hit', {
-      targetId, emoji, itemType:'good',
-      isGood:true,
-      judgment:'GOOD',
-      lane:'',
-      rtMs,
-      totalScore: score,
-      combo,
-      extra: JSON.stringify({ group })
+    emitGameEvent({
+      type: 'hit',
+      targetId: id,
+      emoji: t.emoji,
+      itemType: 'junk',
+      rtMs: rt,
+      judgment: 'BAD',
+      isGood: false,
+      extra: why
     });
 
-    // plate complete?
-    if (plateHave.size >= 5) {
-      finishPlate();
-    }
+    updateHUD();
+    return;
   }
 
-  el.parentNode.removeChild(el);
-  updateHUD();
-}
+  // good hit
+  combo += 1;
+  maxCombo = Math.max(maxCombo, combo);
 
-function startNewPlate() {
-  plateHave = new Set();
-  plateHadJunk = false;
-  plateStartMs = Date.now();
-  updateHUD();
-}
+  addScore(12);
+  addFever(11);
 
-function finishPlate() {
-  const now = Date.now();
-  const plateMs = plateStartMs ? (now - plateStartMs) : 999999;
+  // group count
+  plateTotalHits += 1;
+  totalsByGroup[t.groupId] = (totalsByGroup[t.groupId] || 0) + 1;
 
-  const isPerfect = (!plateHadJunk && plateHave.size >= 5);
-  if (isPerfect) {
-    perfectPlates += 1;
+  // per-plate
+  plateCounts[t.groupId] = (plateCounts[t.groupId] || 0) + 1;
+  if (!plateHave[t.groupId]) plateHave[t.groupId] = true;
 
-    // mini quest: ภายใน 15s นับผ่าน
-    if (miniIndex <= MINI_TOTAL) {
-      const inWindow = (now - miniStartMs) <= MINI_WINDOW_MS;
-      if (inWindow) {
-        miniCleared += 1;
-      }
-      miniIndex += 1;
-      miniStartMs = now; // เริ่มด่านถัดไป
-    }
+  emitGameEvent({
+    type: 'hit',
+    targetId: id,
+    emoji: t.emoji,
+    itemType: `g${t.groupId}`,
+    rtMs: rt,
+    judgment: 'GOOD',
+    isGood: true,
+    extra: why
+  });
 
-    emitEvent('plate', {
-      eventType: 'plate',
-      judgment: 'PERFECT',
-      totalScore: score,
-      combo,
-      extra: JSON.stringify({ plateMs })
-    });
-  } else {
-    emitEvent('plate', {
-      eventType: 'plate',
-      judgment: 'CLEAR',
-      totalScore: score,
-      combo,
-      extra: JSON.stringify({ plateMs, hadJunk: plateHadJunk })
-    });
+  // check plate complete
+  const haveCount = Object.values(plateHave).filter(Boolean).length;
+  if (haveCount >= 5) {
+    completePerfectPlate();
   }
 
-  // reset for next plate
-  startNewPlate();
+  updateHUD();
 }
 
-// ---------- Game loop ----------
-function startGame() {
-  initLoggerIfAny();
+function onTargetExpired(item) {
+  if (ended) return;
 
-  startedAt = Date.now();
-  miniStartMs = startedAt;
-  startNewPlate();
+  // expire good = miss (เหมือนเกมอื่น ๆ)
+  miss += 1;
+  combo = 0;
+  addFever(-10);
 
-  hud.mode.textContent = (RUN === 'research') ? 'Research' : 'Play';
-  hud.diff.textContent = DIFF.charAt(0).toUpperCase() + DIFF.slice(1);
+  emitGameEvent({
+    type: 'expire',
+    emoji: item.emoji,
+    itemType: item.type === 'junk' ? 'junk' : `g${item.groupId}`,
+    judgment: 'MISS',
+    isGood: item.type !== 'junk'
+  });
 
-  // start countdown
-  tLeft = GAME_DURATION;
   updateHUD();
+}
 
-  ticker = setInterval(() => {
+// ---------- Mini quest ticking ----------
+function tickMini() {
+  if (ended) return;
+  if (miniCleared >= miniTotal) return;
+
+  if (performance.now() > miniDeadlineMs) {
+    // fail window -> restart same mini index
+    emitGameEvent({ type: 'mini_fail', judgment: 'FAIL', extra: `PlateRush ${miniCleared}/${miniTotal}` });
+    miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
+  }
+}
+
+// ---------- Main timer ----------
+function startTimer() {
+  if (timerTick) clearInterval(timerTick);
+  timerTick = setInterval(() => {
+    if (!started || ended) return;
+
+    // fever timeout
+    if (feverActive && performance.now() >= feverUntilMs) {
+      endFever();
+    }
+
+    tickMini();
+
+    // time countdown
     tLeft -= 1;
     if (tLeft <= 0) {
       tLeft = 0;
       updateHUD();
-      endGame('completed');
+      endGame('time_up');
       return;
     }
+
     updateHUD();
   }, 1000);
-
-  spawner = setInterval(() => spawnTarget(), DCFG.spawnMs);
-
-  emitEvent('start', { totalScore: 0, combo: 0, extra: JSON.stringify({ duration: GAME_DURATION }) });
 }
 
-function stopGameTimers() {
-  if (ticker) { clearInterval(ticker); ticker = null; }
-  if (spawner) { clearInterval(spawner); spawner = null; }
+function startSpawning() {
+  if (spawnInt) clearInterval(spawnInt);
+  spawnInt = setInterval(() => {
+    // during fever spawn faster (optional)
+    if (feverActive) {
+      spawnTarget();
+      if (Math.random() < 0.45) spawnTarget();
+    } else {
+      spawnTarget();
+    }
+  }, DCFG.spawnInterval);
 }
 
-function endGame(reason='completed') {
-  stopGameTimers();
+function stopSpawning() {
+  if (spawnInt) clearInterval(spawnInt);
+  spawnInt = null;
+}
 
-  // เคลียร์ targets
-  activeTargets().forEach(el => {
-    try { clearTimeout(el.__ttlTimer); } catch (_) {}
-    try { el.parentNode && el.parentNode.removeChild(el); } catch (_) {}
-  });
+// ---------- Start / End ----------
+function startGame() {
+  if (started) return;
+  started = true;
+  ended = false;
 
-  // อัปเดตผลลัพธ์
-  const gTotal = groupCount[1]+groupCount[2]+groupCount[3]+groupCount[4]+groupCount[5];
+  resetPlate();
+  miniDeadlineMs = performance.now() + MINI_WINDOW_MS;
 
-  result.rMode.textContent = (RUN === 'research') ? 'Research' : 'Play';
-  result.rScore.textContent = String(score);
-  result.rMaxCombo.textContent = String(comboMax);
-  result.rMiss.textContent = String(misses);
-  result.rPerfect.textContent = String(perfectPlates);
+  // init HUD base
+  updateHUD();
 
-  result.rGoals.textContent = `${Math.min(GOAL_TOTAL, perfectPlates)}/${GOAL_TOTAL}`;
-  result.rMinis.textContent = `${miniCleared}/${MINI_TOTAL}`;
+  emitGameEvent({ type: 'start', judgment: 'OK', extra: `run=${MODE}` });
 
-  result.g1.textContent = String(groupCount[1]);
-  result.g2.textContent = String(groupCount[2]);
-  result.g3.textContent = String(groupCount[3]);
-  result.g4.textContent = String(groupCount[4]);
-  result.g5.textContent = String(groupCount[5]);
-  result.gT.textContent = String(gTotal);
+  startTimer();
+  startSpawning();
+}
 
-  result.rGrade.textContent = gradeFrom(score, misses);
+function clearAllTargets() {
+  for (const id of Array.from(activeTargets.keys())) removeTarget(id);
+  activeTargets.clear();
+}
 
-  // show modal
-  if (result.backdrop) result.backdrop.style.display = 'flex';
+function endGame(reason) {
+  if (ended) return;
+  ended = true;
+  started = false;
 
-  // ส่ง session log
-  emitSession(reason);
+  stopSpawning();
+  if (timerTick) clearInterval(timerTick);
+  timerTick = null;
+
+  // fever off
+  if (feverActive) endFever();
+
+  clearAllTargets();
+
+  emitGameEvent({ type: 'end', judgment: 'OK', extra: reason || '' });
+  emitSessionEnd(reason || 'end');
+
+  showResult();
 }
 
 // ---------- Buttons ----------
-btnEnterVR?.addEventListener('click', () => {
-  try { scene?.enterVR(); } catch (_) {}
-});
-
-btnRestart?.addEventListener('click', () => {
-  window.location.reload();
-});
-
-result.btnPlayAgain?.addEventListener('click', () => {
-  window.location.reload();
-});
-
-// ---------- Start ----------
-window.addEventListener('DOMContentLoaded', () => {
-  // ป้องกัน null
-  if (!scene || !cam || !targetRoot) {
-    console.error('[PlateVR] missing scene/cam/targetRoot');
-    return;
+function bindUI() {
+  const btnRestart = $('btnRestart');
+  if (btnRestart) {
+    btnRestart.addEventListener('click', () => location.reload());
   }
 
-  // เติมค่า HUD เบื้องต้น
-  setText(hud.time, GAME_DURATION);
-  setText(hud.mode, RUN === 'research' ? 'Research' : 'Play');
-  setText(hud.diff, DIFF.charAt(0).toUpperCase() + DIFF.slice(1));
+  const btnPlayAgain = $('btnPlayAgain');
+  if (btnPlayAgain) {
+    btnPlayAgain.addEventListener('click', () => location.reload());
+  }
 
-  startGame();
-});
+  const btnEnterVR = $('btnEnterVR');
+  if (btnEnterVR && scene) {
+    btnEnterVR.addEventListener('click', async () => {
+      try {
+        await scene.enterVR();
+      } catch (e) {
+        console.warn('[PlateVR] enterVR failed', e);
+      }
+    });
+  }
+
+  // hide result when clicking backdrop (optional)
+  const bd = $('resultBackdrop');
+  if (bd) {
+    bd.addEventListener('click', (e) => {
+      if (e.target === bd) hideResult();
+    });
+  }
+}
+
+// ---------- Cloud logger init (optional) ----------
+function initLoggerIfAvailable() {
+  // You already import logger in HTML; here we just call it safely if present
+  const init = window.initCloudLogger;
+  if (typeof init !== 'function') return;
+
+  // endpoint should be set by HTML (recommended) OR sessionStorage
+  // If you prefer hardcode: set sessionStorage.HHA_LOG_ENDPOINT from hub
+  const endpoint =
+    (window.HHA_LOG_ENDPOINT) ||
+    (sessionStorage && sessionStorage.getItem('HHA_LOG_ENDPOINT')) ||
+    ''; // allow empty (logger will skip)
+
+  try {
+    init({
+      endpoint,
+      projectTag: 'HeroHealth-PlateVR',
+      mode: 'PlateVR',
+      runMode: MODE,
+      diff: DIFF,
+      durationSec: TIME,
+      debug: true
+    });
+  } catch (e) {
+    console.warn('[PlateVR] initCloudLogger error', e);
+  }
+}
+
+// ---------- Boot ----------
+function boot() {
+  ensureTouchLookControls();
+  bindUI();
+
+  // set labels
+  setText('hudMode', modeLabel(MODE));
+  setText('hudDiff', diffLabel(DIFF));
+  setText('hudTime', tLeft);
+
+  // attempt logger init (safe)
+  initLoggerIfAvailable();
+
+  // if logger is loaded after, retry a few times
+  let tries = 0;
+  const retry = setInterval(() => {
+    if (typeof window.initCloudLogger === 'function') {
+      initLoggerIfAvailable();
+      clearInterval(retry);
+    }
+    tries += 1;
+    if (tries > 12) clearInterval(retry);
+  }, 250);
+
+  // start game after scene ready
+  if (scene) {
+    if (scene.hasLoaded) startGame();
+    else scene.addEventListener('loaded', startGame);
+  } else {
+    // fallback
+    setTimeout(startGame, 350);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', boot);
