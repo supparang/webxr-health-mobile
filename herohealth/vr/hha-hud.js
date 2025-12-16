@@ -1,16 +1,21 @@
 // === /herohealth/vr/hha-hud.js ===
 // Hero Health Academy — Global HUD Binder (DOM/VR)
-// ✅ PATCH: กัน bind ซ้ำ + รองรับ event "hha:celebrate" (Goal/Mini/All)
+// รองรับทุกเกม (GoodJunkVR / HydrationVR / PlateVR / GroupsVR ฯลฯ)
+// ฟัง event กลางจาก GameEngine / mode-factory แล้วอัปเดต UI:
+// - hha:score      (อัปเดตคะแนน/คอมโบ/miss/โซนน้ำ/ฯลฯ)
+// - quest:update   (หัวข้อ Goal/Mini + progress + highlight)
+// - hha:coach      (ข้อความโค้ช + mood → เปลี่ยนรูปโค้ช)
+// - hha:fever      (สถานะ fever — เผื่อเกมอยาก sync เพิ่ม)
+// - hha:judge      (ข้อความ judgement — เผื่ออยากโชว์เพิ่มในอนาคต)
+// - hha:end        (สรุปตอนจบ + ตรึงผล)
+// - hha:adaptive   (โชว์ debug เล็ก ๆ ได้ถ้าต้องการ)
+// * ทำงานแบบ "ปลอดภัย" ถ้า element ไม่อยู่ก็ข้าม
 
 (function (root) {
   'use strict';
 
   const doc = root.document;
   if (!doc) return;
-
-  // ✅ กัน bind ซ้ำ (สำคัญมากตอน reload/สลับหน้า)
-  if (root.__HHA_HUD_BOUND__) return;
-  root.__HHA_HUD_BOUND__ = true;
 
   // ---------------------------
   // Helpers
@@ -27,50 +32,73 @@
     if (!el) return;
     el.textContent = (txt == null) ? '' : String(txt);
   }
+
   function fmtInt(v) {
     v = Number(v) || 0;
     return String(Math.round(v));
   }
+
   function upper(s) {
     return String(s || '').toUpperCase();
+  }
+
+  // เพิ่มคลาสสถานะให้บรรทัด progress (active/done/dim)
+  function setQuestLineState(el, { active=false, done=false, dim=false } = {}) {
+    if (!el) return;
+    el.classList.toggle('is-active', !!active);
+    el.classList.toggle('is-done', !!done);
+    el.classList.toggle('is-dim', !!dim);
   }
 
   // ---------------------------
   // DOM refs (optional)
   // ---------------------------
   const refs = {
-    waterFill: null,
+    // top water gauge
+    waterFill:   null,
     waterStatus: null,
 
-    modeLabel: null,
-    modePill: null,
-    diffPill: null,
-    score: null,
-    comboMax: null,
-    miss: null,
+    // main stats
+    modeLabel:   null,
+    modePill:    null,
+    diffPill:    null,
+    score:       null,
+    comboMax:    null,
+    miss:        null,
     waterZoneText: null,
 
-    gradeBadge: null,
+    // grade badge
+    gradeBadge:  null,
 
-    questGoal: null,
-    questMini: null,
-    goalDone: null,
-    goalTotal: null,
-    miniDone: null,
-    miniTotal: null,
+    // quest card
+    questGoal:   null,
+    questMini:   null,
+    goalDone:    null,
+    goalTotal:   null,
+    miniDone:    null,
+    miniTotal:   null,
 
+    // ✅ progress lines (ใหม่)
+    goalProgress: null,
+    miniProgress: null,
+
+    // coach
     coachBubble: null,
-    coachText: null,
-    coachName: null,
+    coachText:   null,
+    coachName:   null,
     coachAvatarWrap: null,
-    coachAvatarImg: null,
+    coachAvatarImg:  null,
 
-    feverFill: null,
-    feverPct: null,
-    shield: null,
+    // fever (ส่วนใหญ่ให้ ui-fever.js ดูแล แต่เราช่วยอัปเดต text บางจุดได้)
+    feverFill:   null,
+    feverPct:    null,
+    shield:      null,
 
-    btnVr: null,
-    crosshair: null,
+    // vr button
+    btnVr:       null,
+
+    // crosshair (ถ้ามี)
+    crosshair:   null,
   };
 
   function bindRefs() {
@@ -95,6 +123,10 @@
     refs.miniDone    = $('#hha-mini-done');
     refs.miniTotal   = $('#hha-mini-total');
 
+    // ✅ ต้องมี element id เหล่านี้ใน HTML (ถ้าไม่มีก็ไม่พัง)
+    refs.goalProgress = $('#hha-goal-progress');
+    refs.miniProgress = $('#hha-mini-progress');
+
     refs.coachBubble = $('#hha-coach-bubble');
     refs.coachText   = $('#hha-coach-text');
     refs.coachName   = doc.querySelector('.hha-coach-name');
@@ -107,10 +139,52 @@
 
     refs.btnVr       = $('#hha-btn-vr');
     refs.crosshair   = $('#hvr-crosshair');
+
+    // ✅ inject CSS highlight ถ้าในหน้าไม่ได้มีเอง
+    ensureQuestStyle();
   }
 
   // ---------------------------
-  // Grade logic
+  // inject CSS สำหรับ highlight (ครั้งเดียว)
+  // ---------------------------
+  let questStyleInjected = false;
+  function ensureQuestStyle(){
+    if (questStyleInjected) return;
+    questStyleInjected = true;
+    if (doc.getElementById('hha-quest-highlight-style')) return;
+
+    const st = doc.createElement('style');
+    st.id = 'hha-quest-highlight-style';
+    st.textContent = `
+      .hha-quest-line{
+        font-size:12px;
+        color:rgba(226,232,240,.92);
+        margin-top:6px;
+        padding:6px 10px;
+        border-radius:12px;
+        border:1px solid rgba(148,163,184,.22);
+        background:rgba(2,6,23,.35);
+        transition:transform .15s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease, opacity .2s ease;
+        line-height:1.35;
+      }
+      .hha-quest-line.is-active{
+        border-color:rgba(56,189,248,.75);
+        box-shadow:0 0 0 2px rgba(56,189,248,.18), 0 18px 40px rgba(15,23,42,.75);
+        background:rgba(2,6,23,.55);
+        transform:translateY(-1px);
+      }
+      .hha-quest-line.is-done{
+        border-color:rgba(34,197,94,.70);
+        background:rgba(34,197,94,.10);
+        color:rgba(187,247,208,.98);
+      }
+      .hha-quest-line.is-dim{ opacity:.45; }
+    `;
+    doc.head.appendChild(st);
+  }
+
+  // ---------------------------
+  // Grade logic (simple + stable)
   // ---------------------------
   function computeGrade(d) {
     const score = Number(d?.score ?? d?.scoreFinal ?? 0) || 0;
@@ -125,9 +199,10 @@
     const questRatio = questsTarget > 0 ? (questsCleared / questsTarget) : 0;
 
     const taskBonus = (goalRatio >= 1 ? 0.10 : 0) + (questRatio >= 1 ? 0.08 : 0);
-    const missPenalty = clamp(misses * 0.04, 0, 0.40);
-    const sNorm = clamp(Math.log10(1 + score) / 3.2, 0, 1);
 
+    const missPenalty = clamp(misses * 0.04, 0, 0.40);
+
+    const sNorm = clamp(Math.log10(1 + score) / 3.2, 0, 1);
     const raw = clamp(sNorm + taskBonus - missPenalty, 0, 1);
 
     if (raw >= 0.92) return 'SSS';
@@ -139,7 +214,7 @@
   }
 
   // ---------------------------
-  // Coach avatar
+  // Coach avatar (optional)
   // ---------------------------
   const COACH_IMG = {
     neutral: '../img/coach-neutral.png',
@@ -175,7 +250,7 @@
   }
 
   // ---------------------------
-  // Water gauge UI
+  // Water gauge UI (top header)
   // ---------------------------
   function setWaterUI(pct, zone) {
     const p = clamp(pct, 0, 100);
@@ -195,11 +270,12 @@
   }
 
   // ---------------------------
-  // Quest UI
+  // Quest UI (✅ เพิ่มรายละเอียด + progress + highlight)
   // ---------------------------
   function updateQuestUI(detail) {
     if (!detail) return;
 
+    // Headings (preferred)
     if (detail.goalHeading != null) safeText(refs.questGoal, detail.goalHeading);
     else if (detail.goal && (detail.goal.label || detail.goal.title || detail.goal.text)) {
       safeText(refs.questGoal, 'Goal: ' + (detail.goal.label || detail.goal.title || detail.goal.text));
@@ -210,6 +286,7 @@
       safeText(refs.questMini, 'Mini: ' + (detail.mini.label || detail.mini.title || detail.mini.text));
     }
 
+    // Counters
     const gd = Number(detail.meta?.goalsCleared ?? detail.goalsCleared ?? detail.goalIndex ?? 0) || 0;
     const gt = Number(detail.meta?.goalsTarget  ?? detail.goalTotal   ?? 0) || 0;
 
@@ -231,8 +308,30 @@
 
     if (refs.goalDone)  safeText(refs.goalDone, fmtInt(gd));
     if (refs.goalTotal) safeText(refs.goalTotal, fmtInt(gt || 0));
+
     if (refs.miniDone)  safeText(refs.miniDone, fmtInt(md));
     if (refs.miniTotal) safeText(refs.miniTotal, fmtInt(mt || 0));
+
+    // ✅ progress text + highlight states
+    const goalProgText = detail.goalProgressText || '';
+    const miniProgText = detail.miniProgressText || '';
+
+    if (refs.goalProgress) {
+      safeText(refs.goalProgress, goalProgText ? `Progress: ${goalProgText}` : '');
+      setQuestLineState(refs.goalProgress, {
+        active: !!detail.goalActive,
+        done: !!detail.goalDone,
+        dim: !goalProgText
+      });
+    }
+    if (refs.miniProgress) {
+      safeText(refs.miniProgress, miniProgText ? `Progress: ${miniProgText}` : '');
+      setQuestLineState(refs.miniProgress, {
+        active: !!detail.miniActive,
+        done: !!detail.miniDone,
+        dim: !miniProgText
+      });
+    }
   }
 
   // ---------------------------
@@ -245,7 +344,6 @@
     lastScorePayload = d;
 
     if (refs.modeLabel && d.modeLabel) safeText(refs.modeLabel, d.modeLabel);
-
     if (refs.modePill) {
       const rm = String(d.runMode || '').toUpperCase();
       if (rm) safeText(refs.modePill, rm + ' MODE');
@@ -283,12 +381,13 @@
     }
 
     if (refs.gradeBadge) {
-      safeText(refs.gradeBadge, computeGrade(d));
+      const g = computeGrade(d);
+      safeText(refs.gradeBadge, g);
     }
   }
 
   // ---------------------------
-  // Fever UI (ช่วยเสริม)
+  // Fever UI (ถ้ามี element แต่ ui-fever.js จะเป็นตัวหลัก)
   // ---------------------------
   function updateFeverUI(d) {
     if (!d) return;
@@ -300,6 +399,7 @@
       refs.feverFill.style.opacity = active ? '1' : '0.9';
     }
     if (refs.feverPct) safeText(refs.feverPct, fever.toFixed(0) + '%');
+
     if (active) setCoachMood('fever');
   }
 
@@ -325,54 +425,6 @@
         if (!refs.coachBubble) return;
         refs.coachBubble.style.transform = 'scale(1)';
       }, 220);
-    }
-  }
-
-  // ---------------------------
-  // ✅ Celebrate (Goal/Mini/All) from hydration.quest.js
-  // ---------------------------
-  function onCelebrate(ev) {
-    const d = ev?.detail || {};
-    const kind = String(d.kind || '').toLowerCase(); // 'goal'|'mini'|'all'
-    const label = d.label || '';
-
-    // โค้ชพูด
-    if (refs.coachText) {
-      if (kind === 'all') {
-        safeText(refs.coachText, `สุดยอด! เคลียร์ครบทุกภารกิจแล้ว 🌟`);
-        setCoachMood('happy');
-      } else if (kind === 'goal') {
-        safeText(refs.coachText, `ผ่าน GOAL! ✅ ${label}`);
-        setCoachMood('happy');
-      } else if (kind === 'mini') {
-        safeText(refs.coachText, `ผ่าน MINI! ✨ ${label}`);
-        setCoachMood('happy');
-      }
-    }
-
-    // เรียก FX ถ้ามี particles.js โหลดอยู่
-    const P = (root.GAME_MODULES && root.GAME_MODULES.Particles) || root.Particles;
-    if (!P) return;
-
-    // ยิงแตก+ป้ายกลางจอแบบง่าย ๆ ด้วย scorePop/burstAt (ปลอดภัยสุด)
-    const cx = root.innerWidth / 2;
-    const cy = root.innerHeight * (kind === 'all' ? 0.32 : 0.5);
-
-    const title =
-      kind === 'all' ? 'ALL CLEAR!' :
-      kind === 'goal' ? 'GOAL CLEAR!' :
-      'MINI CLEAR!';
-
-    const color =
-      kind === 'all' ? '#facc15' :
-      kind === 'goal' ? '#22c55e' :
-      '#38bdf8';
-
-    if (typeof P.burstAt === 'function') {
-      P.burstAt(cx, cy, { color, good: true, count: (kind === 'all' ? 40 : 28) });
-    }
-    if (typeof P.scorePop === 'function') {
-      P.scorePop(cx, cy, 'MISSION CLEAR!', { judgment: title, good: true });
     }
   }
 
@@ -418,6 +470,13 @@
     }, { passive: false });
   }
 
+  function onAdaptive(ev) {
+    // reserved
+  }
+
+  // ---------------------------
+  // Bind all
+  // ---------------------------
   function init() {
     bindRefs();
     ensureCoachImg();
@@ -432,12 +491,11 @@
     root.addEventListener('quest:update', (ev) => updateQuestUI(ev.detail));
     root.addEventListener('hha:coach', onCoach);
     root.addEventListener('hha:fever', (ev) => updateFeverUI(ev.detail));
+    root.addEventListener('hha:judge', () => {});
     root.addEventListener('hha:end', onEnd);
 
-    // ✅ NEW: รับฉลองจาก hydration.quest.js
-    root.addEventListener('hha:celebrate', onCelebrate);
+    root.addEventListener('hha:adaptive', onAdaptive);
 
-    // rebind
     root.addEventListener('hha:rebind-hud', () => {
       bindRefs();
       ensureCoachImg();
@@ -445,8 +503,11 @@
     });
   }
 
-  if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init);
-  else init();
+  if (doc.readyState === 'loading') {
+    doc.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.HUD = {
