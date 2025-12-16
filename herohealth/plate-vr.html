@@ -197,7 +197,7 @@
           geometry="primitive:ring; radiusInner:0.008; radiusOuter:0.012">
         </a-cursor>
 
-        <!-- ✅ เป้ายึดกับกล้อง → หมุนจอแล้ว “เป้าเลื่อนตาม” แบบ hydration -->
+        <!-- ✅ เป้ายึดกับกล้อง → หมุนจอแล้ว “เป้าเลื่อนตาม” -->
         <a-entity id="targetRoot" position="0 0 -2.2"></a-entity>
       </a-camera>
     </a-entity>
@@ -205,6 +205,13 @@
     <a-sky color="#020617"></a-sky>
     <a-entity light="type:ambient; intensity:0.9"></a-entity>
     <a-entity light="type:directional; intensity:0.9" position="1 3 2"></a-entity>
+
+    <!-- ✅ แชร์ endpoint ให้เกมอ่านได้ (plate.safe.js จะอ่านเอง) -->
+    <script>
+      try{
+        window.HHA_LOG_ENDPOINT = sessionStorage.getItem('HHA_LOG_ENDPOINT') || '';
+      }catch(e){}
+    </script>
 
     <!-- ✅ Logger: expose to window -->
     <script type="module">
