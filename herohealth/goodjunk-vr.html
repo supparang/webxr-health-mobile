@@ -596,11 +596,11 @@
       <a-camera id="gj-camera"
                 wasd-controls-enabled="false"
                 look-controls="pointerLockEnabled: false">
+        <!-- cursor ใช้เป็น visuals เฉย ๆ (DOM gaze ยิงด้วย JS) -->
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
-                  raycaster="objects: [data-hha-tgt]"
                   geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-                  material="shader: flat; color: #ffffff"
+                  material="shader: flat; color: #ffffff; opacity: 0.95"
                   position="0 0 -0.9">
         </a-entity>
       </a-camera>
@@ -668,7 +668,6 @@
             </div>
           </div>
 
-          <!-- ✅ FEVER UI -->
           <div class="metric fever-wrap">
             <div class="metric-label">FEVER</div>
             <div class="fever-bar">
@@ -838,6 +837,10 @@
 
     const elFeverText  = document.getElementById('hud-fever-text');
     const elFeverBadge = document.getElementById('hud-fever-badge');
+
+    // reticle UI
+    const elReticleWrap = document.getElementById('reticle-progress');
+    const elReticleRing = document.getElementById('reticle-ring');
 
     const coachMoodKeys = ['neutral','happy','sad','fever'];
     let lastCoachTimeout = null;
@@ -1009,32 +1012,6 @@
       }
     }
 
-    // ===== Quest progress helpers (support limit/invert) =====
-    function clamp01(x){
-      x = Number(x) || 0;
-      if (x < 0) return 0;
-      if (x > 1) return 1;
-      return x;
-    }
-    function pctNormal(prog, tgt){
-      prog = prog|0; tgt = tgt|0;
-      if (tgt <= 0) return 0;
-      return Math.round(clamp01(prog / tgt) * 100);
-    }
-    function pctLimit(prog, tgt){
-      prog = prog|0; tgt = tgt|0;
-      if (tgt <= 0) return 0;
-      return Math.round(clamp01((tgt - prog) / tgt) * 100);
-    }
-    function isLimitGoal(goal){
-      if (!goal) return false;
-      const id = String(goal.id || '').toLowerCase();
-      if (id.includes('miss') || id.includes('limit')) return true;
-      const label = String(goal.label || '');
-      if (label.includes('อย่าพลาด') || label.includes('ไม่เกิน')) return true;
-      return false;
-    }
-
     // ===== FX helpers =====
     function getParticlesAPI(){
       const gm = window.GAME_MODULES || {};
@@ -1083,24 +1060,14 @@
       }, 1400);
     }
 
-    // ===== VR / cursor =====
-    function initVRButton(){
-      if (!btnVR) return;
-      const scene = document.querySelector('a-scene');
-      if (!scene) return;
-      btnVR.addEventListener('click', ()=>{
-        try{ scene.enterVR(); }
-        catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
-      });
-    }
-
+    // ===== Touch look =====
     function attachTouch(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
         sensitivity: 0.25,
         areaEl: document.body,
         onActiveChange(active){
-          if (active){
+          if (active && elTouchHint){
             elTouchHint.classList.add('show');
             setTimeout(()=> elTouchHint.classList.remove('show'), 3200);
           }
@@ -1108,87 +1075,37 @@
       });
     }
 
-    // mouse ↔ gaze
-    let reticleFuseMs = 650;
-    function setCursorMode(mode){
-      const cursorEl = document.getElementById('cursor');
-      if (!cursorEl) return;
-      if (mode === 'gaze'){
-        const fuseTimeout = 650;
-        reticleFuseMs = fuseTimeout;
-        cursorEl.setAttribute('cursor', `fuse: true; fuseTimeout: ${fuseTimeout}; rayOrigin: entity`);
-        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
-        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.006; radiusOuter: 0.018');
-      }else{
-        cursorEl.setAttribute('cursor', 'fuse: false; rayOrigin: mouse');
-        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
-        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.01; radiusOuter: 0.016');
-      }
-    }
-
-    function hookVrModeAutoSwitch(){
+    // ===== VR button =====
+    function initVRButton(){
+      if (!btnVR) return;
       const scene = document.querySelector('a-scene');
       if (!scene) return;
-      setCursorMode('mouse');
-      scene.addEventListener('enter-vr', ()=>{
-        setCursorMode('gaze');
-        setCoachFace('happy');
-        setCoach('เข้าโหมด VR แล้ว! จ้องค้างที่เป้าเพื่อยิง 🎯');
+
+      btnVR.addEventListener('click', ()=>{
+        try{ scene.enterVR(); }
+        catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
       });
-      scene.addEventListener('exit-vr', ()=>{
-        setCursorMode('mouse');
-        stopReticleProgress();
-        showReticle(false);
-        setCoachFace('neutral');
-        setCoach('กลับสู่โหมดปกติแล้ว คลิก/แตะเป้าได้เลย 👆');
-      });
+
+      // hide button if VR not available
+      const hasEnter = (typeof scene.enterVR === 'function');
+      if (!hasEnter) btnVR.style.display = 'none';
     }
 
-    // ===== Reticle progress color =====
-    let reticleRAF = null;
-    let reticleStartMs = 0;
-    let reticleActive = false;
+    // ===== Reticle UI helpers =====
     let reticleColor = '#38bdf8';
-
-    function ensureReticleEls(){
-      return { wrap: document.getElementById('reticle-progress'), ring: document.getElementById('reticle-ring') };
-    }
     function showReticle(show){
-      const { wrap } = ensureReticleEls();
-      if (!wrap) return;
-      wrap.classList.toggle('show', !!show);
+      if (!elReticleWrap) return;
+      elReticleWrap.classList.toggle('show', !!show);
     }
     function setReticleColor(color){
       reticleColor = color || '#38bdf8';
-      const { wrap } = ensureReticleEls();
-      if (!wrap) return;
-      wrap.style.setProperty('--rp-color', reticleColor);
+      if (!elReticleWrap) return;
+      elReticleWrap.style.setProperty('--rp-color', reticleColor);
     }
     function setReticleProgress01(p01){
-      const { ring } = ensureReticleEls();
-      if (!ring) return;
+      if (!elReticleRing) return;
       const deg = Math.max(0, Math.min(360, Math.round(p01 * 360)));
-      ring.style.background = `conic-gradient(${reticleColor} ${deg}deg, rgba(255,255,255,0.12) 0deg)`;
-    }
-    function stopReticleProgress(){
-      reticleActive = false;
-      reticleStartMs = 0;
-      setReticleProgress01(0);
-      if (reticleRAF) cancelAnimationFrame(reticleRAF);
-      reticleRAF = null;
-    }
-    function startReticleProgress(){
-      reticleActive = true;
-      reticleStartMs = performance.now();
-      setReticleProgress01(0);
-      function loop(){
-        if (!reticleActive) return;
-        const t = performance.now() - reticleStartMs;
-        const p = reticleFuseMs > 0 ? (t / reticleFuseMs) : 0;
-        setReticleProgress01(Math.min(1, p));
-        if (p < 1) reticleRAF = requestAnimationFrame(loop);
-      }
-      reticleRAF = requestAnimationFrame(loop);
+      elReticleRing.style.background = `conic-gradient(${reticleColor} ${deg}deg, rgba(255,255,255,0.12) 0deg)`;
     }
     function kindToColor(kind){
       const k = String(kind || '').toLowerCase();
@@ -1199,45 +1116,157 @@
       if (k === 'shield') return '#60a5fa';
       return '#e5e7eb';
     }
-    function findKindFromTargetEl(el){
-      if (!el) return '';
-      const root = (typeof el.closest === 'function') ? el.closest('.gj-target') : null;
-      if (root && root.dataset && root.dataset.kind) return root.dataset.kind;
-      if (el.dataset && el.dataset.kind) return el.dataset.kind;
-      return '';
+
+    // ===== VR AUTO-TUNE: gaze ยิง DOM (เฉพาะใน VR) =====
+    let isVR = false;
+    let gazeRAF = null;
+    let gazeFuseMs = 650;
+    let gazeRadiusPx = 70;
+    let gazeStartMs = 0;
+    let gazeTargetEl = null;
+
+    function stopGaze(){
+      if (gazeRAF) cancelAnimationFrame(gazeRAF);
+      gazeRAF = null;
+      gazeStartMs = 0;
+      gazeTargetEl = null;
+      setReticleProgress01(0);
+      showReticle(false);
     }
-    function hookGazeReticleColorEvents(){
-      function shouldUseGaze(){
-        const cursorEl = document.getElementById('cursor');
-        if (!cursorEl) return false;
-        const cur = cursorEl.getAttribute('cursor') || {};
-        return !!cur.fuse;
+
+    function dispatchPointerDown(el){
+      try{
+        const cx = window.innerWidth/2;
+        const cy = window.innerHeight/2;
+        const ev = new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+          clientX: cx,
+          clientY: cy,
+          pointerType: 'mouse'
+        });
+        el.dispatchEvent(ev);
+      }catch(_){}
+    }
+
+    function bestTargetNearCenter(){
+      const list = document.querySelectorAll('.gj-target[data-hha-tgt="1"]');
+      if (!list || !list.length) return null;
+
+      const cx = window.innerWidth/2;
+      const cy = window.innerHeight/2;
+
+      let best = null;
+      let bestD2 = Infinity;
+
+      for (const el of list){
+        const r = el.getBoundingClientRect();
+        if (!r || !isFinite(r.left)) continue;
+        const tx = r.left + r.width/2;
+        const ty = r.top  + r.height/2;
+        const dx = tx - cx;
+        const dy = ty - cy;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < bestD2){
+          bestD2 = d2;
+          best = el;
+        }
       }
-      document.addEventListener('mouseenter', (e)=>{
-        if (!shouldUseGaze()) return;
-        const t = e.target;
-        if (!t || !t.getAttribute) return;
-        if (!t.getAttribute('data-hha-tgt')) return;
-        const kind = findKindFromTargetEl(t);
-        setReticleColor(kindToColor(kind));
+      return { el: best, dist: Math.sqrt(bestD2) };
+    }
+
+    function loopGaze(){
+      if (!isVR){
+        stopGaze();
+        return;
+      }
+
+      const found = bestTargetNearCenter();
+      if (!found || !found.el){
+        gazeTargetEl = null;
+        gazeStartMs = 0;
+        setReticleProgress01(0);
+        showReticle(true); // ยังโชว์ dot/วงให้เล็ง
+        gazeRAF = requestAnimationFrame(loopGaze);
+        return;
+      }
+
+      const { el, dist } = found;
+
+      if (dist > gazeRadiusPx){
+        gazeTargetEl = null;
+        gazeStartMs = 0;
+        setReticleProgress01(0);
         showReticle(true);
-        startReticleProgress();
-      }, true);
+        gazeRAF = requestAnimationFrame(loopGaze);
+        return;
+      }
 
-      document.addEventListener('mouseleave', (e)=>{
-        if (!shouldUseGaze()) return;
-        const t = e.target;
-        if (!t || !t.getAttribute) return;
-        if (!t.getAttribute('data-hha-tgt')) return;
-        stopReticleProgress();
-        showReticle(false);
-      }, true);
+      // within radius
+      const kind = (el.dataset && el.dataset.kind) ? el.dataset.kind : '';
+      setReticleColor(kindToColor(kind));
+      showReticle(true);
 
-      document.addEventListener('click', ()=>{
-        if (!shouldUseGaze()) return;
-        stopReticleProgress();
-        showReticle(false);
-      }, true);
+      if (gazeTargetEl !== el){
+        gazeTargetEl = el;
+        gazeStartMs = performance.now();
+        setReticleProgress01(0);
+        gazeRAF = requestAnimationFrame(loopGaze);
+        return;
+      }
+
+      const held = performance.now() - gazeStartMs;
+      const p01 = Math.max(0, Math.min(1, held / gazeFuseMs));
+      setReticleProgress01(p01);
+
+      if (held >= gazeFuseMs && gazeTargetEl){
+        const hit = gazeTargetEl;
+        gazeTargetEl = null;
+        gazeStartMs = 0;
+        setReticleProgress01(0);
+        dispatchPointerDown(hit); // ยิง DOM target
+      }
+
+      gazeRAF = requestAnimationFrame(loopGaze);
+    }
+
+    function tuneCursorVisualForVR(on){
+      const cursorEl = document.getElementById('cursor');
+      if (!cursorEl) return;
+      if (on){
+        cursorEl.setAttribute('cursor', `fuse: true; fuseTimeout: ${gazeFuseMs}; rayOrigin: entity`);
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.006; radiusOuter: 0.018');
+      }else{
+        cursorEl.setAttribute('cursor', 'fuse: false; rayOrigin: mouse');
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.01; radiusOuter: 0.016');
+      }
+    }
+
+    function hookVrAutoTune(){
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+
+      scene.addEventListener('enter-vr', ()=>{
+        isVR = true;
+
+        // auto tune visuals + coach
+        tuneCursorVisualForVR(true);
+        setCoachFace('happy');
+        setCoach('เข้าโหมด VR แล้ว! จ้องค้างที่เป้าใกล้กลางจอเพื่อยิง 🎯');
+
+        // start gaze loop
+        stopGaze();
+        showReticle(true);
+        gazeRAF = requestAnimationFrame(loopGaze);
+      });
+
+      scene.addEventListener('exit-vr', ()=>{
+        isVR = false;
+        tuneCursorVisualForVR(false);
+        stopGaze();
+        setCoachFace('neutral');
+        setCoach('กลับสู่โหมดปกติแล้ว คลิก/แตะเป้าได้เลย 👆');
+      });
     }
 
     // ===== HUD listeners =====
@@ -1261,7 +1290,6 @@
       if (elJudge) elJudge.textContent = d.label || '';
     });
 
-    // ✅ คะแนน/คอมโบ/miss อิง event นี้เป็นหลัก
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
 
@@ -1269,10 +1297,8 @@
       if (typeof d.goodHits === 'number'){ state.goodHits = d.goodHits|0; }
       if (typeof d.misses === 'number'){ state.miss = d.misses|0; elMiss.textContent = String(state.miss); updateLivesFromMisses(); }
 
-      // ✅ ให้ Quest เห็น FEVER
       if (typeof d.feverActive === 'boolean'){ state.feverActive = d.feverActive; }
 
-      // comboMax ใช้จาก engine ถ้ามี
       if (typeof d.comboMax === 'number'){
         state.comboMax = d.comboMax|0;
         elCombo.dataset.max = String(state.comboMax);
@@ -1291,7 +1317,6 @@
       updateRealtimeGrade(state.score);
     });
 
-    // hha:miss ใช้เพื่อ “อารมณ์/ข้อความ” เท่านั้น
     window.addEventListener('hha:miss', ()=>{
       setCoachFace('sad');
       setCoach('พลาดของดีไปนะ ลองโฟกัสผัก ผลไม้ และนมอีกครั้งนะ 😌');
@@ -1311,7 +1336,7 @@
       }
     });
 
-    // Quest update (จาก QuestDirector)
+    // Quest update
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -1340,20 +1365,10 @@
       if (goal){
         const prog = goal.prog | 0;
         const tgt  = goal.target | 0;
-
-        // ✅ รองรับ goal แบบ limit (miss <= target) ให้แถบ "เต็มเมื่อพลาดน้อย"
-        const limit = isLimitGoal(goal);
-        const pct   = limit ? pctLimit(prog, tgt) : pctNormal(prog, tgt);
-
+        const pct  = tgt > 0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
         elQuestMain.textContent = goal.label || 'ภารกิจหลัก';
         elQuestMainBar.style.width = pct + '%';
-
-        if (limit){
-          elQuestMainCap.textContent = `MISS: ${prog} / ${tgt}`;
-        }else{
-          elQuestMainCap.textContent = `${prog} / ${tgt}`;
-        }
-
+        elQuestMainCap.textContent = prog + ' / ' + tgt;
       }else{
         elQuestMain.textContent = 'ภารกิจหลัก (หมด/ครบ) ✅';
         elQuestMainBar.style.width = '100%';
@@ -1544,10 +1559,10 @@
       attachTouch(cam);
       initVRButton();
 
-      hookVrModeAutoSwitch();
-      hookGazeReticleColorEvents();
+      // ✅ VR auto tune: enter-vr => start gaze loop & reticle progress auto
+      hookVrAutoTune();
 
-      // ✅ QuestDirector
+      // ✅ QuestDirector (กัน error ไม่ให้ทำให้เกมไม่ start)
       try{
         Q = makeQuestDirector({
           diff,
@@ -1569,6 +1584,7 @@
 
           updateFeverHUD();
 
+          // 🔥 Start engine (ปกติไม่เปิด gaze ใน engine; VR gaze ใช้ loopGaze แทน)
           GameEngine.start(diff, {
             runMode,
             layerEl: document.getElementById('gj-layer'),
