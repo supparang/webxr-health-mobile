@@ -1,167 +1,252 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
-// Quest Director (Goals + Mini quests)
-// Emits: window.dispatchEvent(new CustomEvent('quest:update',{detail:{...}}))
+// Quest Director (Goals + Mini Quests) — HeroHealth
+// FIX: ROOT is defined (no more "ROOT is not defined")
+// Design:
+// - เลือก Goals ตาม maxGoals และ Mini ตาม maxMini (ไม่ซ้ำ)
+// - Mini ทำ “ต่อเนื่อง” : ทำอันแรกจบแล้วค่อยเลื่อนอันถัดไป
+// - emit event: window.dispatchEvent(new CustomEvent('quest:update',{detail:{...}}))
+//
+// รองรับ def ได้หลายแบบ:
+// 1) def.getProgress(state) => number   (แนะนำที่สุด)
+// 2) def.metric / def.key เป็นชื่อ field ใน state เช่น 'score','goodHits','miss','comboMax','timeLeft'
+// 3) def.isDone(state, prog) => boolean (optional) ไม่งั้นใช้ prog >= target
+//
+// state ที่แนะนำส่งเข้า update:
+// { score, goodHits, miss, comboMax, timeLeft }
+//
+// ใช้กับ goodjunk-vr.html: makeQuestDirector({goalDefs, miniDefs, maxGoals:2, maxMini:3}).start(state)
 
 'use strict';
 
-const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
-function pickUnique(list, n){
-  const src = Array.isArray(list) ? list.slice() : [];
-  // shuffle
-  for (let i = src.length - 1; i > 0; i--){
+function clamp(n, a, b){
+  n = Number(n) || 0;
+  if (n < a) return a;
+  if (n > b) return b;
+  return n;
+}
+
+function safeArr(x){
+  return Array.isArray(x) ? x : (x ? [x] : []);
+}
+
+function pickUnique(list, count){
+  const arr = safeArr(list).slice();
+  // Fisher–Yates shuffle
+  for (let i = arr.length - 1; i > 0; i--){
     const j = Math.floor(Math.random() * (i + 1));
-    [src[i], src[j]] = [src[j], src[i]];
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
   }
-  return src.slice(0, Math.max(0, Math.min(n, src.length)));
+  return arr.slice(0, Math.max(0, Math.min(count, arr.length)));
 }
 
-function getTarget(def, ctx){
-  if (!def) return 1;
-  if (typeof def.target === 'function') return (def.target(ctx) | 0) || 1;
-  const t = (def.target | 0);
-  return t > 0 ? t : 1;
+function normalizeDef(def, fallbackId){
+  const d = def || {};
+  return {
+    id: d.id || d.key || d.metric || fallbackId || ('q_' + Math.random().toString(16).slice(2)),
+    label: d.label || d.title || d.name || 'ภารกิจ',
+    hint: d.hint || d.desc || d.description || '',
+    target: Number(d.target ?? d.goal ?? d.threshold ?? 1) || 1,
+
+    // progress resolver
+    getProgress: (typeof d.getProgress === 'function') ? d.getProgress : null,
+    metric: (typeof d.metric === 'string' && d.metric) ? d.metric : null,
+    key: (typeof d.key === 'string' && d.key) ? d.key : null,
+
+    // done resolver (optional)
+    isDone: (typeof d.isDone === 'function') ? d.isDone : null
+  };
 }
 
-function getProgress(def, state, ctx){
-  if (!def) return 0;
-  if (typeof def.progress === 'function') return (def.progress(state, ctx) | 0) || 0;
-  if (typeof def.getProgress === 'function') return (def.getProgress(state, ctx) | 0) || 0;
+function resolveProgress(def, state){
+  try{
+    if (def.getProgress) return Number(def.getProgress(state)) || 0;
+    const k = def.metric || def.key;
+    if (k && state && Object.prototype.hasOwnProperty.call(state, k)){
+      return Number(state[k]) || 0;
+    }
+  }catch(_){}
   return 0;
 }
 
-function isDone(def, state, prog, target, ctx){
-  if (!def) return true;
-  if (typeof def.done === 'function') return !!def.done(state, prog, target, ctx);
-  return prog >= target;
+function resolveDone(def, state, prog){
+  try{
+    if (def.isDone) return !!def.isDone(state, prog);
+  }catch(_){}
+  return (Number(prog) || 0) >= (Number(def.target) || 1);
+}
+
+function makeItem(def, index){
+  const d = normalizeDef(def, 'def_' + index);
+  return {
+    id: d.id,
+    label: d.label,
+    hint: d.hint,
+    target: d.target,
+    _def: d,
+    prog: 0,
+    done: false
+  };
 }
 
 function emitUpdate(payload){
-  ROOT.dispatchEvent(new CustomEvent('quest:update', { detail: payload }));
+  // ✅ FIX: use ROOT
+  try{
+    ROOT.dispatchEvent(new CustomEvent('quest:update', { detail: payload }));
+  }catch(err){
+    // กันพังเงียบ ๆ
+    console.warn('[QuestDirector] emitUpdate failed:', err);
+  }
 }
 
 export function makeQuestDirector(opts = {}){
   const diff = String(opts.diff || 'normal').toLowerCase();
+  const maxGoals = Number(opts.maxGoals ?? 2) || 2;
+  const maxMini  = Number(opts.maxMini  ?? 3) || 3;
 
-  const goalDefsAll = Array.isArray(opts.goalDefs) ? opts.goalDefs : [];
-  const miniDefsAll = Array.isArray(opts.miniDefs) ? opts.miniDefs : [];
+  const goalDefs = safeArr(opts.goalDefs);
+  const miniDefs = safeArr(opts.miniDefs);
 
-  const maxGoals = Math.max(1, (opts.maxGoals | 0) || 2);
-  const maxMini  = Math.max(1, (opts.maxMini  | 0) || 3);
-
-  const ctx = { diff };
-
-  let goals = [];
-  let minis = [];
+  // สุ่มชุดภารกิจ (ไม่ซ้ำ)
+  const pickedGoals = pickUnique(goalDefs, maxGoals).map(makeItem);
+  const pickedMinis = pickUnique(miniDefs, maxMini).map(makeItem);
 
   let started = false;
+  let goalIdx = 0;
+  let miniIdx = 0;
 
-  function buildDeck(){
-    goals = pickUnique(goalDefsAll, maxGoals).map(d => ({
-      ...d,
-      done:false,
-      prog:0,
-      target: getTarget(d, ctx)
-    }));
+  function currentGoal(){ return pickedGoals[goalIdx] || null; }
+  function currentMini(){ return pickedMinis[miniIdx] || null; }
 
-    minis = pickUnique(miniDefsAll, maxMini).map(d => ({
-      ...d,
-      done:false,
-      prog:0,
-      target: getTarget(d, ctx)
-    }));
+  function updateOne(item, state){
+    if (!item || item.done) return item;
+    const prog = resolveProgress(item._def, state);
+    item.prog = Math.max(0, Math.floor(prog));
+    item.done = resolveDone(item._def, state, item.prog);
+    return item;
   }
 
-  function currentGoal(){
-    return goals.find(g => !g.done) || null;
+  function advanceIfDone(){
+    // goal: ถ้าจบให้เลื่อนไป goal ถัดไป
+    while (goalIdx < pickedGoals.length && pickedGoals[goalIdx]?.done) goalIdx++;
+
+    // mini: ทำต่อเนื่องทีละอัน
+    while (miniIdx < pickedMinis.length && pickedMinis[miniIdx]?.done) miniIdx++;
   }
 
-  function currentMini(){
-    return minis.find(m => !m.done) || null;
-  }
-
-  function updateAll(state){
-    // goals
-    for (const g of goals){
-      if (g.done) continue;
-      g.prog = getProgress(g, state, ctx);
-      g.target = getTarget(g, ctx);
-      if (isDone(g, state, g.prog, g.target, ctx)){
-        g.done = true;
-      }
-    }
-
-    // minis (ทำแบบ sequential: จบตัวแรกก่อนค่อยไปตัวถัดไป)
-    const cur = currentMini();
-    if (cur){
-      cur.prog = getProgress(cur, state, ctx);
-      cur.target = getTarget(cur, ctx);
-      if (isDone(cur, state, cur.prog, cur.target, ctx)){
-        cur.done = true;
-      }
-    }
-  }
-
-  function publish(state, hintText=''){
+  function buildPayload(){
     const g = currentGoal();
     const m = currentMini();
 
-    emitUpdate({
-      goal: g ? { id:g.id, label:g.label, prog:g.prog|0, target:g.target|0, done:!!g.done } : null,
-      mini: m ? { id:m.id, label:m.label, prog:m.prog|0, target:m.target|0, done:!!m.done } : null,
-      hint: hintText || (g && g.hint) || '',
-      goalsAll: goals.map(x => ({ id:x.id, label:x.label, prog:x.prog|0, target:x.target|0, done:!!x.done })),
-      minisAll: minis.map(x => ({ id:x.id, label:x.label, prog:x.prog|0, target:x.target|0, done:!!x.done }))
-    });
-  }
+    const goalsCleared = pickedGoals.filter(x => x.done).length;
+    const miniCleared  = pickedMinis.filter(x => x.done).length;
 
-  function start(state){
-    started = true;
-    buildDeck();
-    updateAll(state || {});
-    publish(state || {}, 'ทำภารกิจหลัก + mini quest ให้ครบเพื่อเก็บเกรดสูงสุด! ✨');
-  }
+    const goalPayload = g ? {
+      id: g.id, label: g.label, hint: g.hint,
+      prog: g.prog|0, target: g.target|0,
+      done: !!g.done
+    } : null;
 
-  function update(state){
-    if (!started) return;
-    updateAll(state || {});
-    const g = currentGoal();
-    const hint = g && g.hint ? g.hint : '';
-    publish(state || {}, hint);
-  }
-
-  function finalize(state){
-    if (!started) {
-      return { goalsCleared:0, goalsTotal:0, miniCleared:0, miniTotal:0 };
-    }
-    // force update everything at end (รวม mini ทั้งหมดให้ประเมินด้วย)
-    for (const g of goals){
-      if (!g.done){
-        g.prog = getProgress(g, state || {}, ctx);
-        g.target = getTarget(g, ctx);
-        g.done = isDone(g, state || {}, g.prog, g.target, ctx);
-      }
-    }
-    for (const m of minis){
-      if (!m.done){
-        m.prog = getProgress(m, state || {}, ctx);
-        m.target = getTarget(m, ctx);
-        m.done = isDone(m, state || {}, m.prog, m.target, ctx);
-      }
-    }
-
-    publish(state || {}, 'สรุปผลภารกิจเรียบร้อย ✅');
-
-    const goalsCleared = goals.filter(x => x.done).length;
-    const miniCleared  = minis.filter(x => x.done).length;
+    const miniPayload = m ? {
+      id: m.id, label: m.label, hint: m.hint,
+      prog: m.prog|0, target: m.target|0,
+      done: !!m.done
+    } : null;
 
     return {
+      diff,
+      goal: goalPayload,
+      mini: miniPayload,
+
+      // สำหรับ HUD/สรุปผล
+      goalsAll: pickedGoals.map(x => ({
+        id: x.id, label: x.label,
+        prog: x.prog|0, target: x.target|0, done: !!x.done
+      })),
+      minisAll: pickedMinis.map(x => ({
+        id: x.id, label: x.label,
+        prog: x.prog|0, target: x.target|0, done: !!x.done
+      })),
+
       goalsCleared,
-      goalsTotal: goals.length,
+      goalsTotal: pickedGoals.length,
       miniCleared,
-      miniTotal: minis.length
+      miniTotal: pickedMinis.length,
+
+      // hint โชว์เพิ่มได้ (เลือก hint ของ goal ก่อน)
+      hint: (goalPayload && goalPayload.hint) ? goalPayload.hint
+          : (miniPayload && miniPayload.hint) ? miniPayload.hint
+          : ''
     };
   }
 
-  return { start, update, finalize };
+  function start(initialState = {}){
+    started = true;
+
+    // init progress
+    for (const g of pickedGoals) updateOne(g, initialState);
+    // mini ทำทีละอัน: อัปเดตเฉพาะตัวแรกเพื่อไม่ให้ “ข้าม” จากค่า state บางตัว
+    if (pickedMinis[0]) updateOne(pickedMinis[0], initialState);
+
+    advanceIfDone();
+    emitUpdate(buildPayload());
+  }
+
+  function update(state = {}){
+    if (!started) return;
+
+    // update goal ปัจจุบัน
+    const g = currentGoal();
+    if (g) updateOne(g, state);
+
+    // update mini ปัจจุบัน (ต่อเนื่อง)
+    const m = currentMini();
+    if (m) updateOne(m, state);
+
+    const beforeGoalIdx = goalIdx;
+    const beforeMiniIdx = miniIdx;
+
+    advanceIfDone();
+
+    // ถ้าเพิ่งเลื่อนไปเป้าหมายใหม่ ให้คำนวณ progress ของตัวใหม่ทันที
+    if (goalIdx !== beforeGoalIdx){
+      const g2 = currentGoal();
+      if (g2) updateOne(g2, state);
+    }
+    if (miniIdx !== beforeMiniIdx){
+      const m2 = currentMini();
+      if (m2) updateOne(m2, state);
+    }
+
+    emitUpdate(buildPayload());
+  }
+
+  function finalize(finalState = {}){
+    // อัปเดตทุกอันครั้งสุดท้าย
+    for (const g of pickedGoals) updateOne(g, finalState);
+    for (const m of pickedMinis) updateOne(m, finalState);
+    advanceIfDone();
+    const p = buildPayload();
+    return {
+      goalsCleared: p.goalsCleared|0,
+      goalsTotal: p.goalsTotal|0,
+      miniCleared: p.miniCleared|0,
+      miniTotal: p.miniTotal|0
+    };
+  }
+
+  function debugSnapshot(){
+    return {
+      diff,
+      goalIdx,
+      miniIdx,
+      goals: pickedGoals,
+      minis: pickedMinis
+    };
+  }
+
+  return { start, update, finalize, debugSnapshot };
 }
+
+export default { makeQuestDirector };
