@@ -1,64 +1,164 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — QUEST + NO-FLASH + 100% HIT (production-ready)
-// - DOM targets (fg-layer) ไม่แว๊บ: minVisible lock + lifetime ยาว
-// - ตีได้ 100%: pointerdown + touchstart + mousedown + click
-// - ผูก Quest จริง: window.GroupsQuest.createFoodGroupsQuest(diff)
-// events:
-//   - groups:hit / groups:expire
-//   - hha:score  {score, combo, misses}
-//   - hha:judge  {label}
-//   - quest:update {goal, mini, goalsAll, minisAll, groupId, groupLabel}
-//   - hha:coach  {text}
-//   - hha:celebrate {type:'goal'|'mini'|'all', index,total}
-//   - hha:end    {scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal}
+// Food Groups VR — PRODUCTION SAFE ENGINE (NO-FLASH + HIT 100% + QUEST + FX + FEVER)
+// DOM target layer (ไม่ใช่ A-Frame target) — เล่นได้ทั้งมือถือ/PC
+//
+// API:
+//   window.GroupsVR.GameEngine.start(diff, { layerEl?, runMode?, config? })
+//   window.GroupsVR.GameEngine.stop(reason?)
+//   window.GroupsVR.GameEngine.setLayerEl(el)
+//
+// Events ที่ยิงออก:
+//   - hha:score   { score, combo, misses, shield, fever }
+//   - hha:judge   { label, x, y, good, emoji }
+//   - quest:update{ goal, mini, goalsAll, minisAll }
+//   - hha:coach   { text }
+//   - hha:celebrate { type:'goal'|'mini'|'all', index, total, label }
+//   - hha:end     { reason, scoreFinal, comboMax, misses, goalsTotal, goalsCleared, miniTotal, miniCleared }
+//
+// Miss policy (เหมือนที่คุยไว้ใน GoodJunk แนวเดียวกัน):
+//   miss = good expired (ปล่อยของดีหลุด) + junk hit (โดนขยะ)
+//   * ถ้าโดนขยะตอนมี Shield แล้วกันไว้ → ไม่ถือเป็น miss
 
 (function () {
   'use strict';
 
   const ns = (window.GroupsVR = window.GroupsVR || {});
-  const active = [];
+  const ROOT = window;
 
+  // ---------- deps (optional) ----------
+  const Particles =
+    (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+    ROOT.Particles ||
+    { scorePop() {}, burstAt() {}, celebrateQuestFX() {}, celebrateAllQuestsFX() {} };
+
+  const FeverUI =
+    (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
+    ROOT.FeverUI ||
+    { ensureFeverBar() {}, setFever() {}, setFeverActive() {}, setShield() {} };
+
+  // Quest factory (non-module)
+  const QuestFactory =
+    (ROOT.GroupsQuest && ROOT.GroupsQuest.createFoodGroupsQuest)
+      ? ROOT.GroupsQuest
+      : null;
+
+  // ---------- helpers ----------
+  function now() { return (performance && performance.now) ? performance.now() : Date.now(); }
+  function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
+
+  function centerXY(el) {
+    try {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    } catch {
+      return { x: window.innerWidth / 2, y: window.innerHeight * 0.52 };
+    }
+  }
+
+  function dispatch(name, detail) {
+    try { window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch {}
+  }
+
+  function coach(text) {
+    if (!text) return;
+    dispatch('hha:coach', { text: String(text) });
+  }
+
+  // ---------- engine state ----------
+  const active = [];
   let layerEl = null;
   let running = false;
-
   let spawnTimer = null;
   let secondTimer = null;
 
-  let quest = null;
-
-  // ===== GAME STATS =====
+  // gameplay stats
   let score = 0;
   let combo = 0;
   let comboMax = 0;
   let misses = 0;
 
-  // ===== GOAL/MINI cursor =====
-  let lastGoalCleared = 0;
-  let lastMiniCleared = 0;
+  // fever / shield
+  const FEVER_MAX = 100;
+  let fever = 0;
+  let feverOn = false;
+  let feverEndsAt = 0;
+  let shield = 0;
 
-  // ===== CONFIG =====
+  // quest
+  let quest = null;
+  let goalIndexShown = -1;
+  let miniIndexShown = -1;
+  let allClearedShown = false;
+
+  // ---------- config ----------
   const CFG = {
+    // spawn
     spawnInterval: 900,
     maxActive: 4,
+
+    // visibility policy
     minVisible: 2000,
     lifeTime: [3800, 5200],
-    goodRatio: 0.75,
 
-    // junk pool (ใช้ทุกหมู่)
-    emojisJunk: ['🧋','🍟','🍩','🍔','🍕','🍗🍟'.includes('x') ? '🍟' : '🍟'] // กัน build tools บางตัวแปลก ๆ
+    // emoji pools (fallback; quest จะใช้ mapping เอง)
+    emojisGood: ['🍗','🥩','🐟','🍳','🥛','🧀','🥦','🥕','🍎','🍌','🍚','🍞','🥔','🍊'],
+    emojisJunk: ['🧋','🍟','🍩','🍔','🍕'],
+
+    // scoring
+    pointsGood: 10,
+    pointsGoodFever: 14,
+    pointsJunkHit: -8,          // ถ้าโดนขยะ (ไม่มี shield) หักคะแนน
+    pointsGoodExpire: -4,       // ถ้าปล่อยของดีหลุด (expire)
+    pointsJunkExpire: 0,
+
+    // fever
+    feverGainGood: 14,
+    feverLossMiss: 18,
+    feverDurationMs: 8000,      // ระยะเวลา fever active
+    shieldPerFever: 1           // ได้เกราะเพิ่มเมื่อเข้า fever (ต่อครั้ง)
   };
 
-  function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
-  function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function applyDifficulty(diff) {
+    diff = String(diff || 'normal').toLowerCase();
 
-  function dispatch(name, detail) {
-    try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch {}
+    if (diff === 'easy') {
+      CFG.spawnInterval = 1200;
+      CFG.maxActive = 3;
+      CFG.minVisible = 2600;
+      CFG.lifeTime = [4800, 6500];
+      CFG.feverGainGood = 16;
+      CFG.feverLossMiss = 16;
+    } else if (diff === 'hard') {
+      CFG.spawnInterval = 750;
+      CFG.maxActive = 5;
+      CFG.minVisible = 1600;
+      CFG.lifeTime = [3200, 4600];
+      CFG.feverGainGood = 13;
+      CFG.feverLossMiss = 20;
+    } else { // normal
+      CFG.spawnInterval = 900;
+      CFG.maxActive = 4;
+      CFG.minVisible = 2000;
+      CFG.lifeTime = [3800, 5200];
+      CFG.feverGainGood = 14;
+      CFG.feverLossMiss = 18;
+    }
   }
 
-  function removeFromActive(t) {
-    const i = active.indexOf(t);
-    if (i >= 0) active.splice(i, 1);
+  function pickScreenPos() {
+    const w = Math.max(320, window.innerWidth || 320);
+    const h = Math.max(480, window.innerHeight || 480);
+
+    // กันขอบ + กัน HUD บน/ล่าง (เข้ากับ layout ที่คุณใช้)
+    const marginX = Math.min(170, Math.round(w * 0.16));
+    const marginYTop = Math.min(240, Math.round(h * 0.24));
+    const marginYBot = Math.min(180, Math.round(h * 0.20));
+
+    const x = randInt(marginX, w - marginX);
+    const y = randInt(marginYTop, h - marginYBot);
+
+    return { x, y };
   }
 
   function bindHit(el, handler) {
@@ -74,24 +174,15 @@
     el.addEventListener('click',       on);
   }
 
-  function pickScreenPos() {
-    const w = Math.max(320, window.innerWidth || 320);
-    const h = Math.max(480, window.innerHeight || 480);
-
-    const marginX = Math.min(160, Math.round(w * 0.16));
-    const marginYTop = Math.min(220, Math.round(h * 0.22)); // กัน HUD
-    const marginYBot = Math.min(160, Math.round(h * 0.18)); // กันล่าง
-
-    const x = randInt(marginX, w - marginX);
-    const y = randInt(marginYTop, h - marginYBot);
-
-    return { x, y };
+  function removeFromActive(t) {
+    const i = active.indexOf(t);
+    if (i >= 0) active.splice(i, 1);
   }
 
   function destroyTarget(t, isHit) {
     if (!t || !t.alive) return;
 
-    // ห้าม expire ก่อน minVisible (ยกเว้น hit)
+    // ❗ห้ามลบก่อนเวลา (ยกเว้น hit)
     if (!isHit && !t.canExpire) return;
 
     t.alive = false;
@@ -103,116 +194,153 @@
     if (t.el) {
       t.el.classList.add('hit');
       setTimeout(() => {
-        try { t.el && t.el.parentNode && t.el.remove(); } catch {}
+        if (t.el && t.el.parentNode) t.el.remove();
       }, 180);
     }
   }
 
-  function emitQuestUpdate(forceCoach) {
-    if (!quest) return;
+  function setFeverValue(v) {
+    fever = clamp(v, 0, FEVER_MAX);
+    FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
+    FeverUI.setFever && FeverUI.setFever(fever);
+    dispatch('hha:score', { score, combo, misses, shield, fever });
+  }
 
-    const goalsAll = quest.goals || [];
-    const minisAll = quest.minis || [];
+  function setShieldValue(v) {
+    shield = Math.max(0, Number(v) || 0);
+    FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
+    FeverUI.setShield && FeverUI.setShield(shield);
+    dispatch('hha:score', { score, combo, misses, shield, fever });
+  }
 
-    const goal = goalsAll.find(g => g && !g.done) || null;
-    const mini = minisAll.find(m => m && !m.done) || null;
+  function setFeverActive(on) {
+    feverOn = !!on;
+    FeverUI.setFeverActive && FeverUI.setFeverActive(feverOn);
+  }
 
-    const g = quest.getActiveGroup ? quest.getActiveGroup() : null;
-    const groupId = g ? (g.key || 1) : 1;
-    const groupLabel = g ? (g.label || '') : '';
+  function maybeEnterFever() {
+    if (feverOn) return;
+    if (fever < FEVER_MAX) return;
 
-    dispatch('quest:update', {
-      goal,
-      mini,
-      goalsAll,
-      minisAll,
-      groupId,
-      groupLabel
+    setFeverActive(true);
+    feverEndsAt = now() + CFG.feverDurationMs;
+
+    // ได้เกราะเมื่อเข้า fever
+    setShieldValue(shield + (CFG.shieldPerFever | 0));
+
+    dispatch('hha:judge', {
+      label: 'FEVER',
+      x: window.innerWidth / 2,
+      y: window.innerHeight * 0.52,
+      good: true
     });
 
-    if (forceCoach && groupLabel) {
-      dispatch('hha:coach', { text: `🎵 ตอนนี้: ${groupLabel}` });
+    // reset fever bar ให้ไต่ใหม่ (เล่นสนุกกว่า)
+    setFeverValue(0);
+  }
+
+  function tickFever() {
+    if (!feverOn) return;
+    if (now() >= feverEndsAt) {
+      setFeverActive(false);
     }
   }
 
-  function celebrateIfNeeded() {
+  function addScore(delta) {
+    score = (score + (delta | 0)) | 0;
+    dispatch('hha:score', { score, combo, misses, shield, fever });
+  }
+
+  function setCombo(v) {
+    combo = Math.max(0, v | 0);
+    comboMax = Math.max(comboMax, combo);
+    dispatch('hha:score', { score, combo, misses, shield, fever });
+  }
+
+  function addMiss() {
+    misses = (misses + 1) | 0;
+    dispatch('hha:score', { score, combo, misses, shield, fever });
+  }
+
+  function emitQuestUpdate() {
     if (!quest) return;
 
     const goalsAll = quest.goals || [];
     const minisAll = quest.minis || [];
 
+    // active goal = goal ที่ยังไม่ done ตัวแรก
+    const goal = goalsAll.find(g => g && !g.done) || null;
+    // active mini = mini ที่ยังไม่ done ตัวแรก
+    const mini = minisAll.find(m => m && !m.done) || null;
+
+    dispatch('quest:update', {
+      goal: goal ? { label: goal.label, prog: goal.prog, target: goal.target } : null,
+      mini: mini ? { label: mini.label, prog: mini.prog, target: mini.target } : null,
+      goalsAll,
+      minisAll
+    });
+
+    // celebrate goal เมื่อมี goal เสร็จใหม่
     const goalsCleared = goalsAll.filter(g => g && g.done).length;
+    if (goalsCleared !== goalIndexShown && goalsCleared > 0) {
+      goalIndexShown = goalsCleared;
+      dispatch('hha:celebrate', {
+        type: 'goal',
+        index: goalsCleared,
+        total: goalsAll.length,
+        label: 'GOAL CLEAR!'
+      });
+    }
+
+    // celebrate mini เมื่อมี mini เสร็จใหม่
     const minisCleared = minisAll.filter(m => m && m.done).length;
-
-    // goal celebrate
-    if (goalsCleared > lastGoalCleared) {
-      lastGoalCleared = goalsCleared;
-      dispatch('hha:celebrate', { type:'goal', index: goalsCleared, total: goalsAll.length });
+    if (minisCleared !== miniIndexShown && minisCleared > 0) {
+      miniIndexShown = minisCleared;
+      dispatch('hha:celebrate', {
+        type: 'mini',
+        index: minisCleared,
+        total: minisAll.length,
+        label: 'MINI CLEAR!'
+      });
     }
 
-    // mini celebrate
-    if (minisCleared > lastMiniCleared) {
-      lastMiniCleared = minisCleared;
-      dispatch('hha:celebrate', { type:'mini', index: minisCleared, total: minisAll.length });
-    }
-
-    // all celebrate
-    if (goalsAll.length && minisAll.length &&
-        goalsCleared === goalsAll.length &&
-        minisCleared === minisAll.length) {
-      dispatch('hha:celebrate', { type:'all' });
+    // all complete
+    if (!allClearedShown && goalsCleared === goalsAll.length && minisCleared === minisAll.length) {
+      allClearedShown = true;
+      dispatch('hha:celebrate', { type: 'all' });
+      coach('เคลียร์ทุกภารกิจแล้ว! เก่งมากกก 🎉');
     }
   }
 
-  function judge(label) {
-    dispatch('hha:judge', { label: label || '' });
-  }
-
-  function emitScore() {
-    dispatch('hha:score', { score, combo, misses });
-  }
-
-  function applyDifficulty(diff) {
-    diff = String(diff || 'normal').toLowerCase();
-    if (diff === 'easy') {
-      CFG.spawnInterval = 1200;
-      CFG.maxActive = 3;
-      CFG.minVisible = 2600;
-      CFG.lifeTime = [5200, 7200];
-      CFG.goodRatio = 0.78;
-    } else if (diff === 'hard') {
-      CFG.spawnInterval = 750;
-      CFG.maxActive = 5;
-      CFG.minVisible = 1600;
-      CFG.lifeTime = [3400, 4800];
-      CFG.goodRatio = 0.72;
-    } else {
-      CFG.spawnInterval = 900;
-      CFG.maxActive = 4;
-      CFG.minVisible = 2000;
-      CFG.lifeTime = [4200, 6000];
-      CFG.goodRatio = 0.75;
+  function emojiToGroupId(emoji) {
+    // ใช้ mapping จาก quest active group เป็นหลัก (แม่นที่สุด)
+    if (quest && typeof quest.getActiveGroup === 'function') {
+      const g = quest.getActiveGroup();
+      if (g && Array.isArray(g.emojis) && g.emojis.includes(emoji)) return g.key || 1;
     }
-  }
-
-  function currentGroupData() {
-    const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
-    const groupId = g ? (g.key || 1) : 1;
-    const groupLabel = g ? (g.label || '') : '';
-    const emojis = g && g.emojis ? g.emojis : ['🥦','🍚','🍎'];
-    return { groupId, groupLabel, emojis };
+    // fallback: เดาง่าย ๆ (ไม่ critical)
+    return 1;
   }
 
   function createTarget() {
     if (!running || !layerEl) return;
     if (active.length >= CFG.maxActive) return;
 
-    const { groupId, emojis } = currentGroupData();
-    const good = Math.random() < CFG.goodRatio;
+    // active food group (จาก quest)
+    const g = (quest && quest.getActiveGroup) ? quest.getActiveGroup() : null;
 
-    const emoji = good
-      ? emojis[randInt(0, emojis.length - 1)]
-      : CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
+    // เลือก emoji
+    const good = Math.random() < 0.75;
+    let emoji = '';
+    if (good) {
+      if (g && Array.isArray(g.emojis) && g.emojis.length) {
+        emoji = g.emojis[randInt(0, g.emojis.length - 1)];
+      } else {
+        emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
+      }
+    } else {
+      emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
+    }
 
     const el = document.createElement('div');
     el.className = 'fg-target ' + (good ? 'fg-good' : 'fg-junk');
@@ -228,84 +356,127 @@
       el,
       good,
       emoji,
-      groupId,
       alive: true,
       canExpire: false,
       bornAt: now(),
       minTimer: null,
       lifeTimer: null
     };
-
     active.push(t);
 
-    // lock min visible
+    // ===== MIN VISIBLE LOCK =====
     t.minTimer = setTimeout(() => { t.canExpire = true; }, CFG.minVisible);
 
-    // hard expire
+    // ===== HARD EXPIRE =====
     const life = randInt(CFG.lifeTime[0], CFG.lifeTime[1]);
     t.lifeTimer = setTimeout(() => {
-      // expire เมื่อพ้น minVisible เท่านั้น
-      if (t.canExpire) {
-        destroyTarget(t, false);
-        dispatch('groups:expire', { emoji: t.emoji, good: t.good, groupId: t.groupId });
-        // GOOD หลุด = miss
-        if (t.good) {
-          combo = 0;
-          misses += 1;
-          judge('MISS');
-          emitScore();
-        }
-        // JUNK expire ไม่คิดอะไร
-      } else {
-        // กันเคส timer มาก่อน lock
+      // expire ได้เมื่อพ้น minVisible เท่านั้น
+      if (!t.canExpire) {
         const wait = Math.max(0, CFG.minVisible - (now() - t.bornAt));
-        setTimeout(() => {
-          if (!t.alive) return;
-          t.canExpire = true;
-          destroyTarget(t, false);
-          dispatch('groups:expire', { emoji: t.emoji, good: t.good, groupId: t.groupId });
-          if (t.good) {
-            combo = 0;
-            misses += 1;
-            judge('MISS');
-            emitScore();
-          }
-        }, wait);
+        setTimeout(() => expireTarget(t), wait);
+      } else {
+        expireTarget(t);
       }
     }, life);
 
-    // hit
-    bindHit(el, () => {
-      if (!t.alive) return;
+    // ===== HIT =====
+    bindHit(el, () => hitTarget(t));
+  }
 
+  function hitTarget(t) {
+    if (!running || !t || !t.alive) return;
+
+    const pos = centerXY(t.el);
+
+    if (t.good) {
+      // good hit: คะแนน + คอมโบ
       destroyTarget(t, true);
-      dispatch('groups:hit', { emoji: t.emoji, good: t.good, groupId: t.groupId });
 
-      if (t.good) {
-        combo += 1;
-        comboMax = Math.max(comboMax, combo);
-        score += 10 + Math.min(15, combo); // คอมโบช่วยหน่อย
-        judge(combo >= 3 ? 'PERFECT!' : 'GOOD');
-        // quest hook
-        if (quest && quest.onGoodHit) quest.onGoodHit(t.groupId, combo);
-      } else {
-        // junk hit = miss
-        combo = 0;
-        misses += 1;
-        score = Math.max(0, score - 5);
-        judge('OOPS!');
-        if (quest && quest.onJunkHit) quest.onJunkHit(t.groupId);
+      const pts = feverOn ? CFG.pointsGoodFever : CFG.pointsGood;
+      addScore(pts);
+      setCombo(combo + 1);
+
+      // fever gain
+      setFeverValue(fever + CFG.feverGainGood);
+      maybeEnterFever();
+
+      // quest update
+      if (quest && typeof quest.onGoodHit === 'function') {
+        const gid = emojiToGroupId(t.emoji);
+        quest.onGoodHit(gid, combo);
       }
 
-      emitScore();
-      celebrateIfNeeded();
-      emitQuestUpdate(false);
-    });
+      dispatch('hha:judge', { label: feverOn ? 'PERFECT' : 'GOOD', x: pos.x, y: pos.y, good: true, emoji: t.emoji });
+      Particles.scorePop && Particles.scorePop(pos.x, pos.y, '+' + pts, { judgment: feverOn ? 'PERFECT' : 'GOOD', good: true });
+
+    } else {
+      // junk hit: ถ้ามี shield → กัน (ไม่เป็น miss)
+      destroyTarget(t, true);
+
+      if (shield > 0) {
+        setShieldValue(shield - 1);
+        // ไม่ตัดคอมโบ (เล่นลื่น)
+        dispatch('hha:judge', { label: 'BLOCK', x: pos.x, y: pos.y, good: true, emoji: t.emoji });
+        Particles.scorePop && Particles.scorePop(pos.x, pos.y, '🛡️', { judgment: 'BLOCK', good: true });
+        coach('โล่กันไว้แล้ว! ระวังขยะนะ 🛡️');
+      } else {
+        // นับเป็น miss
+        addMiss();
+        addScore(CFG.pointsJunkHit);
+        setCombo(0);
+
+        setFeverValue(fever - CFG.feverLossMiss);
+
+        // quest update
+        if (quest && typeof quest.onJunkHit === 'function') {
+          const gid = emojiToGroupId(t.emoji);
+          quest.onJunkHit(gid);
+        }
+
+        dispatch('hha:judge', { label: 'MISS', x: pos.x, y: pos.y, good: false, emoji: t.emoji });
+        Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(CFG.pointsJunkHit), { judgment: 'MISS', good: false });
+        coach('โอ๊ะ! โดนขยะแล้ว 😵 เล็งอาหารดีก่อนนะ');
+      }
+    }
+
+    // log-friendly hooks
+    dispatch('groups:hit', { emoji: t.emoji, good: t.good, x: pos.x, y: pos.y });
+
+    emitQuestUpdate();
+  }
+
+  function expireTarget(t) {
+    if (!running || !t || !t.alive) return;
+
+    // ถ้ายังไม่ถึง minVisible ห้ามลบ
+    if (!t.canExpire) return;
+
+    const pos = centerXY(t.el);
+    destroyTarget(t, false);
+
+    // expire = นับ miss เฉพาะ "good หลุด"
+    if (t.good) {
+      addMiss();
+      addScore(CFG.pointsGoodExpire);
+      setCombo(0);
+      setFeverValue(fever - CFG.feverLossMiss);
+
+      dispatch('hha:judge', { label: 'MISS', x: pos.x, y: pos.y, good: false, emoji: t.emoji });
+      Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(CFG.pointsGoodExpire), { judgment: 'MISS', good: false });
+    } else {
+      // junk expire ไม่เป็น miss
+      addScore(CFG.pointsJunkExpire);
+    }
+
+    dispatch('groups:expire', { emoji: t.emoji, good: t.good, x: pos.x, y: pos.y });
+
+    emitQuestUpdate();
   }
 
   function scheduleNextSpawn() {
     if (!running) return;
     clearTimeout(spawnTimer);
+
     spawnTimer = setTimeout(() => {
       createTarget();
       scheduleNextSpawn();
@@ -315,47 +486,41 @@
   function startSecondLoop() {
     clearInterval(secondTimer);
     secondTimer = setInterval(() => {
-      if (!running || !quest) return;
+      if (!running) return;
+      tickFever();
 
-      const before = quest.getActiveGroup ? quest.getActiveGroup() : null;
-      const beforeKey = before ? before.key : 1;
-
-      // quest tick (เปลี่ยนหมู่ทุก 15s ตาม quest-manager)
-      quest.second && quest.second();
-
-      const after = quest.getActiveGroup ? quest.getActiveGroup() : null;
-      const afterKey = after ? after.key : 1;
-
-      // ถ้าเปลี่ยนหมู่ → โค้ช + อัปเดต quest panel
-      if (afterKey !== beforeKey) {
-        emitQuestUpdate(true);
-      } else {
-        emitQuestUpdate(false);
+      if (quest && typeof quest.second === 'function') {
+        quest.second();
       }
 
-      // mini-3 ตัดสินเมื่อจบหมู่ 5 (เมื่อเปลี่ยนออกจาก 5 หรือหมดเกม)
-      // (quest-manager เวอร์ชันคุณยังไม่ตัดสินเอง เราจัดให้ใน engine)
-      const minis = quest.minis || [];
-      const m3 = minis.find(m => m && m.id === 'MINI-3');
-      if (m3 && !m3.done) {
-        // ถ้า "เคยเข้า 5 แล้ว" และตอนนี้พ้น 5 แล้ว → ตัดสินผ่าน/ไม่ผ่าน
-        // เราใช้เงื่อนไข: เมื่อ groupId > 5 ไม่มี, แต่ quest เปลี่ยนสูงสุดถึง 5
-        // ดังนั้นตัดสินเมื่อ "อยู่หมู่ 5" ครบช่วงแล้ว แล้ว quest พยายาม nextGroup (ไป 5 ต่อ)
-        // วิธีชัวร์: ตัดสินทันทีที่ state.currentGroupIndex เป็น 4 (หมู่5) และ groupTimeSec >= 15
-        // เราอ่านไม่ได้จาก quest (เวอร์ชันนี้ไม่ expose) → เลยตัดสินเมื่อ afterKey === 5 และ quest.nextGroup ถูกเรียกไม่ได้
-        // ทางเลือกที่เสถียร: ตัดสินเมื่อ "เวลาจบเกม" (stop) เท่านั้น
-      }
-
-      celebrateIfNeeded();
+      // อัปเดต quest panel/celebrate
+      emitQuestUpdate();
     }, 1000);
+  }
+
+  function resetState() {
+    active.slice().forEach(t => destroyTarget(t, true));
+    active.length = 0;
+
+    score = 0;
+    combo = 0;
+    comboMax = 0;
+    misses = 0;
+
+    fever = 0;
+    feverOn = false;
+    feverEndsAt = 0;
+    shield = 0;
+
+    goalIndexShown = -1;
+    miniIndexShown = -1;
+    allClearedShown = false;
   }
 
   function stopAll(reason) {
     running = false;
-
     clearTimeout(spawnTimer);
     spawnTimer = null;
-
     clearInterval(secondTimer);
     secondTimer = null;
 
@@ -363,30 +528,8 @@
     active.slice().forEach(t => destroyTarget(t, true));
     active.length = 0;
 
-    // ตัดสิน mini-3 ตอนจบเกมแบบชัวร์
-    if (quest) {
-      const minis = quest.minis || [];
-      const m3 = minis.find(m => m && m.id === 'MINI-3');
-      const g = quest.getActiveGroup ? quest.getActiveGroup() : null;
-      const groupKey = g ? g.key : 1;
-
-      if (m3 && !m3.done) {
-        // ผ่านถ้า junkHit <= maxJunk (และต้อง “เคยเข้าหมู่ 5” ไหม? ในเกมสั้นอาจไม่ถึง 5)
-        // เราให้ผ่านเมื่อ: ถ้าเคยเล่นจนถึงหมู่ 5 (groupKey === 5 หรือ goal2 มี prog > 0) แล้วค่อยตัดสิน
-        const goal2 = (quest.goals || [])[1];
-        const reached5 = (groupKey === 5) || (goal2 && goal2.prog > 0);
-
-        if (reached5 && (m3.junkHit <= m3.maxJunk)) {
-          m3.done = true;
-          m3.prog = 1;
-        }
-      }
-    }
-
-    // สรุป
     const goalsAll = quest ? (quest.goals || []) : [];
     const minisAll = quest ? (quest.minis || []) : [];
-
     const goalsCleared = goalsAll.filter(g => g && g.done).length;
     const minisCleared = minisAll.filter(m => m && m.done).length;
 
@@ -395,18 +538,16 @@
       scoreFinal: score,
       comboMax,
       misses,
-      goalsCleared,
       goalsTotal: goalsAll.length,
-      miniCleared: minisCleared,
-      miniTotal: minisAll.length
+      goalsCleared,
+      miniTotal: minisAll.length,
+      miniCleared: minisCleared
     });
   }
 
-  // ===== PUBLIC API =====
+  // ---------- PUBLIC API ----------
   ns.GameEngine = {
-    setLayerEl(el) {
-      layerEl = el;
-    },
+    setLayerEl(el) { layerEl = el; },
 
     start(diff = 'normal', opts = {}) {
       layerEl = (opts && opts.layerEl) ? opts.layerEl : layerEl;
@@ -415,34 +556,48 @@
         return;
       }
 
-      // reset stats
-      score = 0; combo = 0; comboMax = 0; misses = 0;
-      lastGoalCleared = 0;
-      lastMiniCleared = 0;
+      // optional override
+      if (opts && opts.config) Object.assign(CFG, opts.config);
 
       applyDifficulty(diff);
+      resetState();
 
-      // init quest (must exist)
-      if (!window.GroupsQuest || typeof window.GroupsQuest.createFoodGroupsQuest !== 'function') {
-        console.error('[FoodGroupsVR] quest-manager missing (window.GroupsQuest.createFoodGroupsQuest)');
-        return;
+      // fever HUD init
+      FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
+      FeverUI.setFever && FeverUI.setFever(0);
+      FeverUI.setFeverActive && FeverUI.setFeverActive(false);
+      FeverUI.setShield && FeverUI.setShield(0);
+
+      // quest init
+      if (QuestFactory && typeof QuestFactory.createFoodGroupsQuest === 'function') {
+        quest = QuestFactory.createFoodGroupsQuest(diff);
+      } else {
+        quest = null;
+        console.warn('[FoodGroupsVR] quest-manager not found: window.GroupsQuest.createFoodGroupsQuest');
       }
-      quest = window.GroupsQuest.createFoodGroupsQuest(diff);
 
-      // kick HUD
-      emitScore();
-      emitQuestUpdate(true);
+      // first coach
+      const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
+      coach(g ? `เริ่มเลย! เก็บอาหารดี: ${g.label} ✨` : 'เริ่มเลย! แตะอาหารดีให้ได้เยอะ ๆ ✨');
+
+      // show initial quest panel
+      emitQuestUpdate();
 
       running = true;
       startSecondLoop();
       scheduleNextSpawn();
 
-      // spawn แรกทันที
+      // spawn แรกทันที 1–2 ตัวเพื่อไม่ให้โล่ง
       createTarget();
+      setTimeout(() => createTarget(), Math.min(260, CFG.spawnInterval * 0.35));
+
+      // push initial score
+      dispatch('hha:score', { score, combo, misses, shield, fever });
     },
 
     stop(reason) {
-      stopAll(reason);
+      stopAll(reason || 'stop');
     }
   };
+
 })();
