@@ -1,206 +1,31 @@
 <!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-  <title>Hero Health - Fixed Version</title>
-  
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.5.0/aframe.min.js"></script>
+<html>
+  <head>
+    <title>Test VR</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <style>
+      body { margin: 0; background: white; }
+      #status { position: fixed; top: 10px; left: 10px; z-index: 999; font-size: 20px; background: yellow; padding: 10px; }
+    </style>
+  </head>
+  <body>
+    <div id="status">กำลังโหลด... ถ้าข้อความนี้ไม่หาย แสดงว่าเน็ตมีปัญหา</div>
 
-  <style>
-    /* GAME THEME & UI */
-    :root { --accent: #22c55e; --accent-2: #38bdf8; --danger: #f97316; }
-    body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif; user-select: none; }
-    
-    /* UI Layer stays on top */
-    #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; pointer-events: none; }
-    .pointer-auto { pointer-events: auto; }
-
-    /* Crosshair (เป้าเล็งกลางจอ) */
-    #crosshair {
-      position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
-      transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.8);
-      border-radius: 50%; background: rgba(255,255,255,0.2); z-index: 10000;
-    }
-
-    /* HUD */
-    .hha-top-bar { position: fixed; top: 10px; width: 100%; text-align: center; }
-    .hha-bar-bg { display: inline-block; background: rgba(0,0,0,0.8); padding: 5px 15px; border-radius: 20px; border: 1px solid #444; }
-    .hha-water-fill { width: 100px; height: 6px; background: #333; margin: 5px auto; border-radius: 3px; overflow: hidden; }
-    .hha-water-val { height: 100%; background: #38bdf8; width: 50%; transition: width 0.5s; }
-    
-    .hha-score { position: fixed; top: 60px; left: 20px; color: #fff; font-size: 20px; font-weight: bold; text-shadow: 0 2px 4px #000; }
-    .hha-coach { position: fixed; bottom: 30px; left: 20px; right: 20px; background: rgba(0,0,0,0.8); color: #fff; padding: 12px; border-radius: 12px; text-align: center; border: 1px solid #38bdf8; }
-
-    /* Summary Screen */
-    #ui-summary { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 20000; align-items: center; justify-content: center; flex-direction: column; color: white; }
-    .btn-restart { padding: 15px 30px; background: #22c55e; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; margin-top: 20px; }
-  </style>
-</head>
-<body>
-
-  <a-scene background="color: #333">
-    
-    <a-sky color="#222"></a-sky>
-
-    <a-box position="0 1.5 -3" color="red" scale="0.5 0.5 0.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 3000"></a-box>
-
-    <a-entity id="rig" position="0 0 0">
-      <a-camera id="gj-camera" position="0 1.6 0" look-controls="enabled: true">
-        <a-entity cursor="fuse: false" raycaster="objects: .clickable; far: 30; interval: 100"
-                  position="0 0 -1" geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-                  material="color: white; shader: flat; opacity: 0.5"></a-entity>
-      </a-camera>
-    </a-entity>
-
-    <a-entity id="hvr-playfield"></a-entity>
-  </a-scene>
-
-  <div id="ui-layer">
-    <div id="crosshair"></div> <div class="hha-top-bar">
-      <div class="hha-bar-bg pointer-auto">
-        <div style="font-size:12px; color:#aaa;">HYDRATION</div>
-        <div class="hha-water-fill"><div id="ui-water-bar" class="hha-water-val"></div></div>
-        <div id="ui-water-txt" style="color:#fff; font-size:14px;">50%</div>
-      </div>
-    </div>
-
-    <div class="hha-score">
-      SCORE: <span id="ui-score">0</span>
-      <div style="font-size:14px; color:#38bdf8; margin-top:4px;" id="ui-combo">Combo: 0</div>
-    </div>
-
-    <div class="hha-coach pointer-auto" id="ui-coach">
-      Target Locked! Look around to find Water Orbs.
-    </div>
-  </div>
-
-  <div id="ui-summary">
-    <h1>GAME OVER</h1>
-    <h2 id="sum-reason">TIME UP</h2>
-    <p>Score: <span id="sum-score">0</span></p>
-    <button class="btn-restart pointer-auto" onclick="window.location.reload()">PLAY AGAIN</button>
-  </div>
-
-  <script>
-    // Config
-    const CFG = { spawnTime: 1200, decay: 0.5 };
-    let state = { score: 0, combo: 0, water: 50, playing: true, time: 180 };
-
-    // Elements
-    const el = {
-      score: document.getElementById('ui-score'),
-      combo: document.getElementById('ui-combo'),
-      waterBar: document.getElementById('ui-water-bar'),
-      waterTxt: document.getElementById('ui-water-txt'),
-      coach: document.getElementById('ui-coach'),
-      scene: document.getElementById('hvr-playfield'),
-      summary: document.getElementById('ui-summary'),
-      sumScore: document.getElementById('sum-score'),
-      sumReason: document.getElementById('sum-reason')
-    };
-
-    // Update UI
-    function updateUI() {
-      el.score.innerText = state.score;
-      el.combo.innerText = 'Combo: ' + state.combo;
-      el.waterBar.style.width = state.water + '%';
-      el.waterTxt.innerText = Math.floor(state.water) + '%';
-      if(state.water <= 20) el.waterBar.style.backgroundColor = '#f97316'; // Warning color
-      else el.waterBar.style.backgroundColor = '#38bdf8';
-    }
-
-    // Spawn Ball
-    function spawn() {
-      if(!state.playing) return;
+    <a-scene>
+      <a-box position="0 1.5 -3" rotation="0 45 0" color="#EF2D5E" animation="property: rotation; to: 0 405 0; loop: true; dur: 2000"></a-box>
       
-      const ball = document.createElement('a-entity');
-      
-      // Random position (Sphere surface)
-      // ปรับให้เกิดง่ายขึ้น: อยู่ระดับสายตามากขึ้น
-      const angle = Math.random() * Math.PI * 2;
-      const height = (Math.random() * 2) - 0.5; // -0.5 to 1.5
-      const dist = 3.5;
-      
-      const x = Math.cos(angle) * dist;
-      const y = 1.6 + height; // ระดับสายตา (1.6m)
-      const z = Math.sin(angle) * dist;
+      <a-sky color="#ECECEC"></a-sky>
 
-      ball.setAttribute('position', {x, y, z});
-      
-      // สร้างลูกบอลให้ใหญ่ขึ้น จะได้ยิงง่าย
-      ball.setAttribute('geometry', 'primitive: sphere; radius: 0.5');
-      ball.setAttribute('material', 'color: #38bdf8; opacity: 0.9');
-      ball.setAttribute('class', 'clickable'); // สำคัญ! ต้องมี class นี้ถึงจะยิงได้
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4"></a-plane>
+    </a-scene>
 
-      // Animation เด้งดึ๋ง
-      ball.setAttribute('animation', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 500; easing: easeOutElastic');
-
-      // Click Event
-      ball.addEventListener('click', () => {
-        if(!state.playing) return;
-        // Hit!
-        state.score += 100 + (state.combo * 10);
-        state.combo++;
-        state.water = Math.min(100, state.water + 8);
-        updateUI();
-        
-        // Effect
-        ball.setAttribute('material', 'color: white');
-        ball.setAttribute('animation__die', 'property: scale; to: 0 0 0; dur: 200');
-        setTimeout(() => { if(ball.parentNode) ball.parentNode.removeChild(ball); }, 200);
+    <script>
+      // ถ้า A-Frame โหลดสำเร็จ มันจะซ่อนข้อความสีเหลือง
+      document.querySelector('a-scene').addEventListener('loaded', function () {
+        document.getElementById('status').innerText = "✅ โหลดสำเร็จ! คุณต้องเห็นกล่องแดงหมุนๆ";
+        document.getElementById('status').style.background = "#22c55e";
+        document.getElementById('status').style.color = "white";
       });
-
-      // Auto remove after 3 sec
-      setTimeout(() => {
-        if(ball.parentNode) {
-          ball.setAttribute('animation__miss', 'property: scale; to: 0 0 0; dur: 300');
-          setTimeout(() => {
-             if(ball.parentNode) {
-               ball.parentNode.removeChild(ball);
-               if(state.playing) { state.combo = 0; updateUI(); } // Miss = Combo reset
-             }
-          }, 300);
-        }
-      }, 3000);
-
-      el.scene.appendChild(ball);
-    }
-
-    // Game Loop
-    function start() {
-      // Spawn loop
-      setInterval(spawn, CFG.spawnTime);
-      
-      // Timer loop
-      setInterval(() => {
-        if(!state.playing) return;
-        state.time--;
-        state.water -= CFG.decay;
-        
-        if(state.water <= 0) endGame("DEHYDRATED!");
-        if(state.time <= 0) endGame("TIME UP!");
-        
-        updateUI();
-      }, 1000);
-
-      el.coach.innerText = "Game Started! Look around (Drag Screen)";
-    }
-
-    function endGame(reason) {
-      state.playing = false;
-      el.scene.innerHTML = ''; // Clear balls
-      el.summary.style.display = 'flex';
-      el.sumScore.innerText = state.score;
-      el.sumReason.innerText = reason;
-    }
-
-    // Start on Load
-    window.addEventListener('load', () => {
-      // รอ 1 วินาทีเพื่อให้ชัวร์ว่า A-Frame พร้อม
-      setTimeout(start, 1000);
-    });
-
-  </script>
-</body>
+    </script>
+  </body>
 </html>
