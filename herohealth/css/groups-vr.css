@@ -14,11 +14,15 @@
 
 *,
 *::before,
-*::after { box-sizing:border-box; }
+*::after {
+  box-sizing:border-box;
+}
 
 html, body {
-  margin:0; padding:0;
-  width:100%; height:100%;
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
   overflow:hidden;
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:
@@ -46,7 +50,9 @@ a-scene {
 
 .hud-top {
   position:absolute;
-  top:0; left:0; right:0;
+  top:0;
+  left:0;
+  right:0;
   padding:10px;
   display:flex;
   justify-content:space-between;
@@ -62,7 +68,9 @@ a-scene {
   border-radius:var(--radius-lg);
   padding:10px 14px;
   border:1px solid rgba(148,163,184,0.25);
-  box-shadow: 0 18px 40px rgba(15,23,42,0.9), 0 0 0 1px rgba(15,23,42,1);
+  box-shadow:
+    0 18px 40px rgba(15,23,42,0.9),
+    0 0 0 1px rgba(15,23,42,1);
   color:var(--text-main);
   min-width:260px;
   max-width:360px;
@@ -76,7 +84,10 @@ a-scene {
   margin-bottom:2px;
 }
 
-.hud-main-mode { font-size:18px; font-weight:600; }
+.hud-main-mode {
+  font-size:18px;
+  font-weight:600;
+}
 
 .hud-pill {
   border-radius:999px;
@@ -95,13 +106,32 @@ a-scene {
   gap:14px;
 }
 
-.metric { display:flex; flex-direction:column; gap:2px; }
-.metric-label { font-size:11px; color:var(--text-soft); }
-.metric-value { font-size:18px; font-weight:700; }
-.metric-value.accent { color:#bbf7d0; }
-.metric-sub { font-size:11px; color:var(--text-soft); }
+.metric {
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
 
-/* ===== HUD Quest (ขวาบน) ===== */
+.metric-label {
+  font-size:11px;
+  color:var(--text-soft);
+}
+
+.metric-value {
+  font-size:18px;
+  font-weight:700;
+}
+
+.metric-value.accent {
+  color:#bbf7d0;
+}
+
+.metric-sub {
+  font-size:11px;
+  color:var(--text-soft);
+}
+
+/* ===== HUD Goal + Mini quest (ขวาบน) ===== */
 .fg-quest-panel {
   pointer-events:auto;
   min-width:260px;
@@ -110,7 +140,9 @@ a-scene {
   border-radius:var(--radius-lg);
   background:radial-gradient(circle at top, #0f172a, #020617);
   border:1px solid rgba(148,163,184,0.25);
-  box-shadow: 0 18px 40px rgba(15,23,42,0.9), 0 0 0 1px rgba(15,23,42,1);
+  box-shadow:
+    0 18px 40px rgba(15,23,42,0.9),
+    0 0 0 1px rgba(15,23,42,1);
   color:var(--text-main);
   max-height:40vh;
   overflow-y:auto;
@@ -141,7 +173,11 @@ a-scene {
   white-space:nowrap;
 }
 
-.fg-quest-main { flex:1; color:var(--text-main); opacity:.92; }
+.fg-quest-main {
+  flex:1;
+  color:var(--text-main);
+  opacity:.9;
+}
 
 .fg-quest-progress {
   font-variant-numeric:tabular-nums;
@@ -150,10 +186,34 @@ a-scene {
   white-space:nowrap;
 }
 
+/* ✅ MINI countdown highlight */
+.fg-quest-row.mini-timed .fg-quest-progress{
+  color:#fde68a;
+}
+
+.fg-quest-row.mini-urgent{
+  background:rgba(248,113,113,0.10);
+  border-radius:12px;
+  padding:6px 8px;
+  box-shadow:0 0 0 1px rgba(248,113,113,0.35), 0 0 18px rgba(248,113,113,0.22);
+}
+
+.fg-quest-row.mini-urgent .fg-quest-progress{
+  color:#fecaca;
+  font-weight:800;
+  animation: miniUrgentPulse .35s ease-in-out infinite alternate;
+}
+
+@keyframes miniUrgentPulse{
+  from{ transform:translateY(0); }
+  to  { transform:translateY(-1px); }
+}
+
 /* ===== Coach bubble กลางล่าง ===== */
 .hud-bottom {
   position:absolute;
-  left:0; right:0;
+  left:0;
+  right:0;
   bottom:64px;
   display:flex;
   justify-content:center;
@@ -173,7 +233,10 @@ a-scene {
   align-items:center;
   gap:8px;
   pointer-events:auto;
-  transition: transform .20s ease-out, box-shadow .20s ease-out, background .20s ease-out;
+  transition:
+    transform .20s ease-out,
+    box-shadow .20s ease-out,
+    background .20s ease-out;
 }
 
 .coach-bubble.show { display:flex; }
@@ -187,7 +250,8 @@ a-scene {
 }
 
 .coach-avatar {
-  width:28px; height:28px;
+  width:28px;
+  height:28px;
   border-radius:50%;
   background:radial-gradient(circle at 30% 30%, #fef3c7, #f97316);
   display:inline-flex;
@@ -198,31 +262,35 @@ a-scene {
   animation:coach-breathe 2.4s ease-in-out infinite;
 }
 
-@keyframes coach-breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
-
-.coach-bubble.coach-good { background:rgba(22,163,74,0.96); box-shadow:0 0 18px rgba(34,197,94,0.85); }
-.coach-bubble.coach-hype { background:rgba(79,70,229,0.96); box-shadow:0 0 24px rgba(129,140,248,0.95); }
-.coach-bubble.coach-bad  { background:rgba(127,29,29,0.96); box-shadow:0 0 18px rgba(248,113,113,0.95); }
-
-.coach-avatar.coach-avatar-good,
-.coach-avatar.coach-avatar-bad,
-.coach-avatar.coach-avatar-hype { animation: coach-wiggle 0.4s ease-in-out; }
-
-@keyframes coach-wiggle {
-  0%{transform:translateX(0)}
-  20%{transform:translateX(-4px)}
-  40%{transform:translateX(4px)}
-  60%{transform:translateX(-3px)}
-  80%{transform:translateX(3px)}
-  100%{transform:translateX(0)}
+@keyframes coach-breathe {
+  0%,100% { transform:scale(1); }
+  50%     { transform:scale(1.07); }
 }
 
 /* ===== Layout มือถือ ===== */
-@media (max-width:640px){
-  .hud-top{ flex-direction:column; align-items:stretch; }
-  .hud-card,.fg-quest-panel{ min-width:0; width:100%; max-width:none; }
-  .fg-quest-panel{ margin-top:6px; max-height:34vh; }
-  .coach-bubble{ min-width:0; width:calc(100% - 32px); font-size:12px; }
+@media (max-width:640px) {
+  .hud-top{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .hud-card,
+  .fg-quest-panel{
+    min-width:0;
+    width:100%;
+    max-width:none;
+  }
+
+  .fg-quest-panel{
+    margin-top:6px;
+    max-height:34vh;
+  }
+
+  .coach-bubble {
+    min-width:0;
+    width:calc(100% - 32px);
+    font-size:12px;
+  }
 }
 
 /* ===== Target Layer ===== */
@@ -233,128 +301,58 @@ a-scene {
   pointer-events:none;
 }
 
-/* ===== Targets ===== */
-.fg-target{
+/* เป้าอาหาร */
+.fg-target {
   position:absolute;
   width:132px;
   height:132px;
   border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, #f97316, #c2410c);
   display:flex;
   align-items:center;
   justify-content:center;
   pointer-events:auto;
   cursor:pointer;
-  user-select:none;
-  -webkit-user-select:none;
-  touch-action:none; /* สำคัญ: กันเลื่อน/ซูมแล้วตีไม่ติด */
-  box-shadow: 0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
-  transform:translate(-50%,-50%) scale(1);
-  transition: transform .12s ease-out, opacity .12s ease-out, box-shadow .12s ease-out, filter .12s ease-out;
-  opacity:1;
-  will-change: transform,left,top,opacity;
-  backdrop-filter: blur(2px);
+  box-shadow:
+    0 12px 32px rgba(15,23,42,0.85),
+    0 0 0 4px rgba(15,23,42,0.9);
+
+  /* ✅ เปลี่ยนเป็น scale จากตัวแปร เพื่อให้ adaptive/research คุมขนาดได้ */
+  transform:translate(-50%, -50%) scale(var(--fg-scale, 1));
+  transition:
+    transform .12s ease-out,
+    opacity .12s ease-out,
+    box-shadow .12s ease-out;
 }
 
-/* ขนาด emoji ปรับตาม engine ผ่าน --emojiSize */
-.fg-target::before{
+/* สีพื้นแบ่ง Good / Junk */
+.fg-good {
+  background:radial-gradient(circle at 30% 30%, #22c55e, #15803d);
+}
+.fg-junk {
+  background:radial-gradient(circle at 30% 30%, #f97316, #c2410c);
+}
+
+/* Emoji บนเป้า */
+.fg-target::before {
   content:attr(data-emoji);
   display:block;
-  font-size: var(--emojiSize, 60px);
+  font-size:clamp(40px, 7vmin, 64px);
   line-height:1;
   color:#fefce8;
-  text-shadow: 0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
+  text-shadow:
+    0 2px 4px rgba(15,23,42,0.9),
+    0 0 10px rgba(15,23,42,0.9);
 }
 
-.fg-target.press{
-  transform:translate(-50%,-50%) scale(0.94);
-  filter:brightness(1.12);
-}
-
-.fg-target.hit{
-  transform:translate(-50%,-50%) scale(0.62);
+/* ตอนโดนตี */
+.fg-target.hit {
+  transform:translate(-50%, -50%) scale(calc(var(--fg-scale, 1) * 0.65));
   opacity:0;
 }
 
-/* Good / Junk */
-.fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
-.fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
-
-/* Bonus */
-.fg-bonus{
-  background:
-    radial-gradient(circle at 30% 30%, rgba(250,204,21,0.98), rgba(217,119,6,0.98));
-  box-shadow:
-    0 14px 36px rgba(0,0,0,0.85),
-    0 0 0 4px rgba(15,23,42,0.92),
-    0 0 18px rgba(250,204,21,0.65);
-  animation: bonusPulse .85s ease-in-out infinite alternate;
-}
-@keyframes bonusPulse{
-  from { transform:translate(-50%,-50%) scale(1); }
-  to   { transform:translate(-50%,-50%) scale(1.06); }
-}
-
-/* Boss */
-.fg-boss{
-  background:
-    radial-gradient(circle at 30% 30%, rgba(56,189,248,0.98), rgba(30,64,175,0.98));
-  box-shadow:
-    0 16px 44px rgba(0,0,0,0.9),
-    0 0 0 4px rgba(15,23,42,0.92),
-    0 0 20px rgba(56,189,248,0.65);
-  border:1px solid rgba(191,219,254,0.55);
-  animation: bossThrob .55s ease-in-out infinite alternate;
-}
-@keyframes bossThrob{
-  from { filter:saturate(1.0); }
-  to   { filter:saturate(1.25) brightness(1.08); }
-}
-.fg-boss.boss-phase2{
-  animation: bossThrob2 .35s ease-in-out infinite alternate;
-}
-@keyframes bossThrob2{
-  from { transform:translate(-50%,-50%) scale(1.02); }
-  to   { transform:translate(-50%,-50%) scale(1.10); }
-}
-
-/* ===== Turbo / Final / Brave screen vibes ===== */
-body.turbo-on::before,
-body.final-on::before,
-body.brave-on::before{
-  content:'';
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:30;
-  opacity:0;
-  transition:opacity .25s ease-out;
-}
-
-body.turbo-on::before{
-  opacity:.24;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(56,189,248,0.35), transparent 55%),
-    radial-gradient(circle at 80% 30%, rgba(34,197,94,0.26), transparent 60%);
-  mix-blend-mode:screen;
-}
-
-body.final-on::before{
-  opacity:.32;
-  background:
-    radial-gradient(circle at 50% 10%, rgba(250,204,21,0.28), transparent 60%),
-    radial-gradient(circle at 50% 120%, rgba(248,113,113,0.30), transparent 60%);
-  mix-blend-mode:screen;
-}
-
-body.brave-on::before{
-  opacity:.18;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(244,63,94,0.25), transparent 62%);
-  mix-blend-mode:screen;
-}
-
-/* ===== Result overlay ===== */
-.result-overlay{
+/* ===== Summary overlay ===== */
+.result-overlay {
   position:fixed;
   inset:0;
   z-index:120;
@@ -364,22 +362,31 @@ body.brave-on::before{
   background:radial-gradient(circle at top,#020617ee,#020617f5);
   backdrop-filter:blur(10px);
 }
-.result-overlay.show{ display:flex; }
-.result-card{
+.result-overlay.show { display:flex; }
+
+.result-card {
   width:90%;
   max-width:420px;
   padding:18px 18px 14px;
   border-radius:18px;
   background:radial-gradient(circle at top,#0f172a,#020617);
   border:1px solid rgba(148,163,184,0.7);
-  box-shadow: 0 22px 55px rgba(0,0,0,0.85), 0 0 0 1px rgba(15,23,42,1);
+  box-shadow:
+    0 22px 55px rgba(0,0,0,0.85),
+    0 0 0 1px rgba(15,23,42,1);
   color:var(--text-main);
   font-size:14px;
 }
-.result-card h2{ margin:0 0 8px; font-size:16px; }
-.result-card p{ margin:4px 0; font-size:13px; }
-.result-card hr{ border:none; border-top:1px solid rgba(148,163,184,0.5); margin:10px 0; }
-.result-card button{
+
+.result-card h2 { margin:0 0 8px; font-size:16px; }
+.result-card p { margin:4px 0; font-size:13px; }
+.result-card hr {
+  border:none;
+  border-top:1px solid rgba(148,163,184,0.5);
+  margin:10px 0;
+}
+
+.result-card button {
   border-radius:999px;
   border:1px solid rgba(148,163,184,0.7);
   padding:6px 12px;
@@ -389,10 +396,10 @@ body.brave-on::before{
   background:rgba(15,23,42,0.9);
   color:#e5e7eb;
 }
-.result-card button + button{ margin-left:8px; }
+.result-card button + button { margin-left:8px; }
 
 /* ===== Fever gauge จาก ui-fever.js ===== */
-.hha-fever-wrap{
+.hha-fever-wrap {
   position:fixed !important;
   left:10px;
   bottom:10px;
