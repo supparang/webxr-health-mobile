@@ -1,28 +1,10 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — PRODUCTION SAFE ENGINE (NO-FLASH + HIT 100% + QUEST + FX + FEVER + ADAPTIVE SIZE)
-// DOM target layer (ไม่ใช่ A-Frame target) — เล่นได้ทั้งมือถือ/PC
-//
-// ✅ Research mode: size “ล็อกตาม diff เท่านั้น” (no adaptive)
-// ✅ Play mode: size “เริ่มตาม diff แล้ว adaptive ตามความสามารถ”
-// ✅ Adaptive อิง: combo, fever, miss, hit-rate, reaction-time, timeLeft
-//
-// API:
-//   window.GroupsVR.GameEngine.start(diff, { layerEl?, runMode?, config? })
-//   window.GroupsVR.GameEngine.stop(reason?)
-//   window.GroupsVR.GameEngine.setLayerEl(el)
-//
-// Events ที่ยิงออก:
-//   - hha:score   { score, combo, misses, shield, fever }
-//   - hha:judge   { label, x, y, good, emoji }
-//   - quest:update{ goal, mini, goalsAll, minisAll }
-//   - hha:coach   { text }
-//   - hha:celebrate { type:'goal'|'mini'|'all', index, total, label }
-//   - hha:adaptive { runMode, diff, tier, sizePx, spawnInterval, maxActive, minVisible, lifeMin, lifeMax }
-//   - hha:end     { reason, scoreFinal, comboMax, misses, goalsTotal, goalsCleared, miniTotal, miniCleared }
-//
-// Miss policy:
-//   miss = good expired (ปล่อยของดีหลุด) + junk hit (โดนขยะ)
-//   * ถ้าโดนขยะตอนมี Shield แล้วกันไว้ → ไม่ถือเป็น miss
+// Food Groups VR — PRODUCTION SAFE ENGINE
+// ✅ NO-FLASH + HIT 100% + QUEST + FX + FEVER
+// ✅ NEW: BOSS TARGET (3 hits) + STREAK REWARD (combo every 8)
+// ✅ Adaptive size:
+//    - research: lock by diff only
+//    - play: start by diff then adaptive by skill (combo/fever/miss/rt/hitRate/timeLeft)
 
 (function () {
   'use strict';
@@ -41,7 +23,6 @@
     ROOT.FeverUI ||
     { ensureFeverBar() {}, setFever() {}, setFeverActive() {}, setShield() {} };
 
-  // Quest factory (non-module)
   const QuestFactory =
     (ROOT.GroupsQuest && ROOT.GroupsQuest.createFoodGroupsQuest)
       ? ROOT.GroupsQuest
@@ -113,23 +94,27 @@
   let junkHits = 0;
   let goodExpires = 0;
 
+  // streak reward
+  let lastStreakRewardCombo = 0;
+
+  // boss state
+  let bossNextAt = 0;
+  let bossActive = false;
+
   // rolling performance window
-  const perf = {
-    window: [], // {good, hit, rtMs, ts}
-    max: 14
-  };
+  const perf = { window: [], max: 14 };
 
   // ---------- config ----------
   const CFG = {
     // spawn base
-    spawnInterval: 900,
+    spawnInterval: 920,
     maxActive: 4,
 
     // visibility policy
     minVisible: 2000,
-    lifeTime: [3800, 5200],
+    lifeTime: [3900, 5600],
 
-    // size (base by diff) — research lock uses these only
+    // size base by diff (research lock uses these)
     sizeByDiff: { easy: 150, normal: 132, hard: 118 },
 
     // adaptive bounds (play)
@@ -137,7 +122,7 @@
     sizeMax: 168,
 
     // anti-overlap
-    minDistFactor: 0.85, // * sizePx
+    minDistFactor: 0.85,
 
     // emoji pools (fallback)
     emojisGood: ['🍗','🥩','🐟','🍳','🥛','🧀','🥦','🥕','🍎','🍌','🍚','🍞','🥔','🍊'],
@@ -156,9 +141,30 @@
     feverDurationMs: 8000,
     shieldPerFever: 1,
 
-    // adaptive tuning cadence
+    // adaptive cadence
     adaptiveEveryHits: 6,
-    adaptiveMinHitsBefore: 8
+    adaptiveMinHitsBefore: 8,
+
+    // ===== STREAK REWARD =====
+    streakEveryCombo: 8,          // ทุก 8 คอมโบ
+    streakShieldGain: 1,          // ได้โล่
+    streakBonusPoints: 25,        // โบนัสคะแนน
+    streakFeverBonus: 10,         // เพิ่ม fever นิด ๆ (เร้าใจ)
+
+    // ===== BOSS TARGET =====
+    bossEnabled: true,
+    bossEmoji: '🍱',              // อาหารชุดใหญ่
+    bossHp: 3,                    // ต้องตี 3 ครั้ง
+    bossSizeBoost: 1.25,          // ใหญ่กว่าเป้าปกติ
+    bossMinVisible: 2200,         // ไม่แว๊บ
+    bossLifeMs: [7000, 9500],     // เวลาที่ให้ตีให้ทัน
+    bossCooldownMsPlay: [12000, 17000],
+    bossCooldownMsResearch: [16000, 22000],
+
+    bossClearPoints: 90,
+    bossClearShield: 1,
+    bossClearFever: 28,
+    bossExpirePenalty: -10        // ถ้าปล่อยบอสหลุด (ไม่แรงเกินไป)
   };
 
   function applyDifficulty(diff) {
@@ -179,7 +185,7 @@
       CFG.lifeTime = [3200, 4700];
       CFG.feverGainGood = 13;
       CFG.feverLossMiss = 20;
-    } else { // normal
+    } else {
       CFG.spawnInterval = 920;
       CFG.maxActive = 4;
       CFG.minVisible = 2000;
@@ -188,21 +194,20 @@
       CFG.feverLossMiss = 18;
     }
 
-    // base size by diff
     sizePx = CFG.sizeByDiff[diff] || 132;
     tier = 0;
   }
 
-  function pickScreenPosAvoidOverlap() {
+  function pickScreenPosAvoidOverlap(localSizePx) {
     const w = Math.max(320, window.innerWidth || 320);
     const h = Math.max(480, window.innerHeight || 480);
 
-    // กัน HUD บน/ล่าง
     const marginX = Math.min(170, Math.round(w * 0.16));
     const marginYTop = Math.min(240, Math.round(h * 0.24));
     const marginYBot = Math.min(180, Math.round(h * 0.20));
 
-    const minDist = Math.max(70, (sizePx * CFG.minDistFactor) | 0);
+    const s = Math.max(70, (localSizePx || sizePx) | 0);
+    const minDist = Math.max(70, (s * CFG.minDistFactor) | 0);
 
     for (let tries = 0; tries < 10; tries++) {
       const x = randInt(marginX, w - marginX);
@@ -219,7 +224,6 @@
       if (ok) return { x, y };
     }
 
-    // fallback
     return {
       x: randInt(marginX, w - marginX),
       y: randInt(marginYTop, h - marginYBot)
@@ -246,8 +250,6 @@
 
   function destroyTarget(t, isHit) {
     if (!t || !t.alive) return;
-
-    // ❗ห้ามลบก่อนเวลา (ยกเว้น hit)
     if (!isHit && !t.canExpire) return;
 
     t.alive = false;
@@ -255,6 +257,8 @@
     clearTimeout(t.lifeTimer);
 
     removeFromActive(t);
+
+    if (t.type === 'boss') bossActive = false;
 
     if (t.el) {
       t.el.classList.add('hit');
@@ -290,7 +294,6 @@
     setFeverActive(true);
     feverEndsAt = now() + CFG.feverDurationMs;
 
-    // ได้เกราะเมื่อเข้า fever
     setShieldValue(shield + (CFG.shieldPerFever | 0));
 
     dispatch('hha:judge', {
@@ -300,7 +303,6 @@
       good: true
     });
 
-    // reset fever bar ให้ไต่ใหม่
     setFeverValue(0);
     coach('เข้า FEVER แล้ววว! รีบเก็บอาหารดีรัว ๆ 🔥');
   }
@@ -322,6 +324,7 @@
     combo = Math.max(0, v | 0);
     comboMax = Math.max(comboMax, combo);
     dispatch('hha:score', { score, combo, misses, shield, fever });
+    maybeStreakReward();
   }
 
   function addMiss() {
@@ -329,6 +332,41 @@
     dispatch('hha:score', { score, combo, misses, shield, fever });
   }
 
+  // ---------- STREAK REWARD ----------
+  function maybeStreakReward() {
+    if (!running) return;
+    if (combo <= 0) return;
+    const every = Math.max(2, CFG.streakEveryCombo | 0);
+
+    if (combo % every !== 0) return;
+    if (lastStreakRewardCombo === combo) return;
+
+    lastStreakRewardCombo = combo;
+
+    // reward
+    setShieldValue(shield + (CFG.streakShieldGain | 0));
+    addScore(CFG.streakBonusPoints | 0);
+    setFeverValue(fever + (CFG.streakFeverBonus | 0));
+    maybeEnterFever();
+
+    dispatch('hha:judge', {
+      label: 'BONUS',
+      x: window.innerWidth / 2,
+      y: window.innerHeight * 0.48,
+      good: true
+    });
+
+    Particles.scorePop && Particles.scorePop(
+      window.innerWidth / 2,
+      window.innerHeight * 0.52,
+      '+' + (CFG.streakBonusPoints | 0),
+      { judgment: 'BONUS 🛡️', good: true }
+    );
+
+    coach(`คอมโบ x${combo}! รับโบนัส +โล่ 🛡️✨`);
+  }
+
+  // ---------- QUEST UI / celebrate ----------
   function emitQuestUpdate() {
     if (!quest) return;
 
@@ -349,7 +387,7 @@
     if (goalsCleared !== goalIndexShown && goalsCleared > 0) {
       goalIndexShown = goalsCleared;
       dispatch('hha:celebrate', {
-        type: 'goal',
+        kind: 'goal',
         index: goalsCleared,
         total: goalsAll.length,
         label: 'GOAL CLEAR!'
@@ -360,7 +398,7 @@
     if (minisCleared !== miniIndexShown && minisCleared > 0) {
       miniIndexShown = minisCleared;
       dispatch('hha:celebrate', {
-        type: 'mini',
+        kind: 'mini',
         index: minisCleared,
         total: minisAll.length,
         label: 'MINI CLEAR!'
@@ -369,7 +407,7 @@
 
     if (!allClearedShown && goalsCleared === goalsAll.length && minisCleared === minisAll.length) {
       allClearedShown = true;
-      dispatch('hha:celebrate', { type: 'all' });
+      dispatch('hha:celebrate', { kind: 'all' });
       coach('เคลียร์ทุกภารกิจแล้ว! โหดมากกก 🎉');
     }
   }
@@ -404,31 +442,24 @@
     const acc = hits ? (correct / hits) : 0;
     const rt = rtN ? (rtSum / rtN) : 9999;
     const dt = Math.max(0.5, (lastTs - firstTs) / 1000);
-    const hitRate = hits / dt; // hits/sec ใน window ล่าสุด
+    const hitRate = hits / dt;
 
     return { acc, rt, n: w.length, hitRate };
   }
 
   function applyTierToDifficulty() {
-    // tier: -2..+2
-    // เด็ก ป.5: ทำให้ “เก่งขึ้น = เล็กลง/เร็วขึ้น/มากขึ้น” แบบค่อยเป็นค่อยไป
     const t = clamp(tier, -2, 2);
 
-    // size: 1 step ~ 10px
     const base = (CFG.sizeByDiff[DIFF] || 132);
-    const target = base + (t * -10); // tier + => ยากขึ้น => size ลด
+    const target = base + (t * -10);
     sizePx = clamp(target, CFG.sizeMin, CFG.sizeMax);
 
-    // spawn pace: ยากขึ้นลด interval
     const baseInterval = (DIFF === 'easy') ? 1200 : (DIFF === 'hard') ? 760 : 920;
-    const interval = clamp(baseInterval + (t * -70), 620, 1400);
-    CFG.spawnInterval = interval;
+    CFG.spawnInterval = clamp(baseInterval + (t * -70), 620, 1400);
 
-    // maxActive: ยากขึ้นเพิ่มจำนวน
     const baseMax = (DIFF === 'easy') ? 3 : (DIFF === 'hard') ? 5 : 4;
     CFG.maxActive = clamp(baseMax + (t >= 1 ? 1 : 0) + (t >= 2 ? 1 : 0), 3, 7);
 
-    // life/minVisible: ยากขึ้นทำให้หายไวขึ้นเล็กน้อย แต่ยังไม่แว๊บ
     const baseMinVis = (DIFF === 'easy') ? 2600 : (DIFF === 'hard') ? 1600 : 2000;
     CFG.minVisible = clamp(baseMinVis + (t * -120), 1200, 3200);
 
@@ -460,7 +491,6 @@
 
     const s = perfStats();
 
-    // signals
     const doingGreat =
       (combo >= 5) ||
       (s.acc >= 0.78 && s.rt <= 950) ||
@@ -472,18 +502,11 @@
       (s.rt >= 1350 && s.n >= 8) ||
       (misses >= 3 && goodHits < 10);
 
-    // time pressure: ช่วงท้าย “เร้าใจ” เพิ่มนิด แต่ไม่ทำให้ยากเกิน
     const clutch = (timeLeft > 0 && timeLeft <= 12);
 
-    if (doingGreat && !struggling) {
-      tier = clamp(tier + 1, -2, 2);
-    } else if (struggling && !doingGreat) {
-      tier = clamp(tier - 1, -2, 2);
-    } else {
-      // คงที่
-    }
+    if (doingGreat && !struggling) tier = clamp(tier + 1, -2, 2);
+    else if (struggling && !doingGreat) tier = clamp(tier - 1, -2, 2);
 
-    // clutch: เพิ่มความเร็วเล็กน้อย (แต่ไม่ลด size เพิ่ม)
     if (clutch) {
       CFG.spawnInterval = clamp(CFG.spawnInterval - 60, 560, 1400);
       CFG.maxActive = clamp(CFG.maxActive + 1, 3, 7);
@@ -491,32 +514,20 @@
 
     applyTierToDifficulty();
 
-    // โค้ชช่วยกระตุ้นแบบเด็ก ป.5
     if (tier >= 2) coach('โหดมาก! รอบนี้ “โปร” แล้วนะ 😎✨');
-    else if (tier <= -2) coach('ไม่เป็นไร ค่อย ๆ เอาใหม่! ลองโฟกัสอาหารดี 🥦');
+    else if (tier <= -2) coach('ไม่เป็นไร ค่อย ๆ เอาใหม่! โฟกัสอาหารดี 🥦');
     else if (clutch) coach('เหลือเวลาน้อยแล้วว! รีบเก็บให้ทัน! ⏱️🔥');
   }
 
   function lockResearchSizeOnly() {
-    // research = ล็อกตาม diff เท่านั้น (ไม่ปรับตามความสามารถ)
     sizePx = CFG.sizeByDiff[DIFF] || 132;
 
-    // research pace: ให้เทียบได้ในการทดลอง
     if (DIFF === 'easy') {
-      CFG.spawnInterval = 1200;
-      CFG.maxActive = 3;
-      CFG.minVisible = 2600;
-      CFG.lifeTime = [5200, 7200];
+      CFG.spawnInterval = 1200; CFG.maxActive = 3; CFG.minVisible = 2600; CFG.lifeTime = [5200, 7200];
     } else if (DIFF === 'hard') {
-      CFG.spawnInterval = 760;
-      CFG.maxActive = 5;
-      CFG.minVisible = 1600;
-      CFG.lifeTime = [3200, 4700];
+      CFG.spawnInterval = 760;  CFG.maxActive = 5; CFG.minVisible = 1600; CFG.lifeTime = [3200, 4700];
     } else {
-      CFG.spawnInterval = 920;
-      CFG.maxActive = 4;
-      CFG.minVisible = 2000;
-      CFG.lifeTime = [3900, 5600];
+      CFG.spawnInterval = 920;  CFG.maxActive = 4; CFG.minVisible = 2000; CFG.lifeTime = [3900, 5600];
     }
 
     dispatch('hha:adaptive', {
@@ -532,7 +543,170 @@
     });
   }
 
-  // ---------- spawn / targets ----------
+  // ---------- BOSS ----------
+  function scheduleNextBoss() {
+    if (!CFG.bossEnabled) return;
+    const cd = (RUN_MODE === 'research') ? CFG.bossCooldownMsResearch : CFG.bossCooldownMsPlay;
+    const wait = randInt(cd[0], cd[1]);
+    bossNextAt = now() + wait;
+  }
+
+  function maybeSpawnBoss() {
+    if (!CFG.bossEnabled) return;
+    if (bossActive) return;
+    if (!running) return;
+    if (active.length >= CFG.maxActive) return;
+
+    // ช่วงท้ายเกมเพิ่มโอกาสบอสเพื่อเร้าใจ
+    const clutch = (timeLeft > 0 && timeLeft <= 16);
+    const okTime = now() >= bossNextAt;
+    if (!okTime && !clutch) return;
+
+    // clutch: มีโอกาสสุ่ม spawn ก่อนเวลา
+    if (!okTime && clutch && Math.random() > 0.35) return;
+
+    createBossTarget();
+    scheduleNextBoss();
+  }
+
+  function createBossTarget() {
+    if (!running || !layerEl) return;
+    if (bossActive) return;
+
+    bossActive = true;
+
+    const bossSize = clamp(Math.round(sizePx * CFG.bossSizeBoost), 110, 220);
+    const p = pickScreenPosAvoidOverlap(bossSize);
+
+    const el = document.createElement('div');
+    el.className = 'fg-target fg-good';
+    el.setAttribute('data-emoji', CFG.bossEmoji);
+    el.setAttribute('data-boss', '1');
+
+    // size + style ให้ดู “บอส”
+    el.style.setProperty('--fg-size', bossSize + 'px');
+    el.style.left = p.x + 'px';
+    el.style.top  = p.y + 'px';
+    el.style.boxShadow =
+      '0 16px 42px rgba(15,23,42,0.92), 0 0 0 4px rgba(250,204,21,0.65), 0 0 28px rgba(250,204,21,0.35)';
+    el.style.border = '2px solid rgba(250,204,21,0.85)';
+
+    layerEl.appendChild(el);
+
+    const t = {
+      type: 'boss',
+      el,
+      good: true,
+      emoji: CFG.bossEmoji,
+      hp: Math.max(1, CFG.bossHp | 0),
+      alive: true,
+      canExpire: false,
+      bornAt: now(),
+      minTimer: null,
+      lifeTimer: null,
+      x: p.x,
+      y: p.y
+    };
+    active.push(t);
+
+    // min visible lock (ใช้ของบอส)
+    t.minTimer = setTimeout(() => { t.canExpire = true; }, CFG.bossMinVisible);
+
+    // boss expire
+    const life = randInt(CFG.bossLifeMs[0], CFG.bossLifeMs[1]);
+    t.lifeTimer = setTimeout(() => {
+      if (!t.canExpire) {
+        const wait = Math.max(0, CFG.bossMinVisible - (now() - t.bornAt));
+        setTimeout(() => expireBoss(t), wait);
+      } else {
+        expireBoss(t);
+      }
+    }, life);
+
+    // boss hit
+    bindHit(el, () => hitBoss(t));
+
+    // hype!
+    dispatch('hha:judge', {
+      label: 'BOSS',
+      x: window.innerWidth / 2,
+      y: window.innerHeight * 0.36,
+      good: true,
+      emoji: CFG.bossEmoji
+    });
+    Particles.scorePop && Particles.scorePop(window.innerWidth / 2, window.innerHeight * 0.40, 'BOSS!', { judgment: 'INCOMING', good: true });
+    coach('บอสมาแล้วว! ตีให้ครบ 3 ครั้ง! 🍱⚡');
+  }
+
+  function hitBoss(t) {
+    if (!running || !t || !t.alive) return;
+
+    const pos = centerXY(t.el);
+    const rt = Math.max(0, now() - (t.bornAt || now()));
+    hitCount++;
+
+    // ลด HP
+    t.hp = Math.max(0, (t.hp | 0) - 1);
+
+    // เอฟเฟกต์ตีบอส
+    try {
+      t.el.style.transform = 'translate(-50%, -50%) scale(0.92)';
+      setTimeout(() => {
+        if (t.el) t.el.style.transform = 'translate(-50%, -50%) scale(1)';
+      }, 90);
+    } catch {}
+
+    dispatch('hha:judge', { label: 'HIT', x: pos.x, y: pos.y, good: true, emoji: t.emoji });
+    Particles.scorePop && Particles.scorePop(pos.x, pos.y, 'HIT!', { judgment: 'BOSS', good: true });
+
+    pushPerfSample({ hit: true, good: true, rtMs: rt, ts: now() });
+
+    if (t.hp > 0) {
+      coach(`บอสเหลืออีก ${t.hp} ที! เร็ว ๆ ⚡`);
+      return;
+    }
+
+    // เคลียร์บอส!
+    destroyTarget(t, true);
+
+    addScore(CFG.bossClearPoints | 0);
+    setCombo(combo + 2); // ช่วยให้มันส์ (บอสเคลียร์แล้วคอมโบเด้ง)
+    setShieldValue(shield + (CFG.bossClearShield | 0));
+    setFeverValue(fever + (CFG.bossClearFever | 0));
+    maybeEnterFever();
+
+    dispatch('hha:celebrate', { kind: 'boss', index: 1, total: 1, label: 'BOSS CLEAR!' });
+    Particles.scorePop && Particles.scorePop(pos.x, pos.y, '+' + (CFG.bossClearPoints | 0), { judgment: 'BOSS CLEAR!', good: true });
+
+    coach('เย้! เคลียร์บอสแล้ววว! เก่งมากกก 🌟');
+
+    maybeAdaptiveTune();
+  }
+
+  function expireBoss(t) {
+    if (!running || !t || !t.alive) return;
+    if (!t.canExpire) return;
+
+    const pos = centerXY(t.el);
+
+    // ปล่อยบอสหลุด = ถือเป็น good expired (เป็น miss ตาม policy) แต่ไม่ลงโทษแรงเกิน
+    destroyTarget(t, false);
+
+    addMiss();
+    addScore(CFG.bossExpirePenalty | 0);
+    setCombo(0);
+    setFeverValue(fever - Math.max(10, CFG.feverLossMiss | 0));
+
+    dispatch('hha:judge', { label: 'MISS', x: pos.x, y: pos.y, good: false, emoji: t.emoji });
+    Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(CFG.bossExpirePenalty | 0), { judgment: 'BOSS MISSED', good: false });
+    coach('บอสหนีไปแล้วว 😵 ไม่เป็นไร รอบหน้าเอาใหม่!');
+
+    pushPerfSample({ hit: false, good: true, rtMs: null, ts: now() });
+
+    maybeAdaptiveTune();
+  }
+
+  // ---------- core targets ----------
   function createTarget() {
     if (!running || !layerEl) return;
     if (active.length >= CFG.maxActive) return;
@@ -540,15 +714,11 @@
     // active food group (จาก quest)
     const g = (quest && quest.getActiveGroup) ? quest.getActiveGroup() : null;
 
-    // เลือก emoji
     const good = Math.random() < 0.75;
     let emoji = '';
     if (good) {
-      if (g && Array.isArray(g.emojis) && g.emojis.length) {
-        emoji = g.emojis[randInt(0, g.emojis.length - 1)];
-      } else {
-        emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
-      }
+      if (g && Array.isArray(g.emojis) && g.emojis.length) emoji = g.emojis[randInt(0, g.emojis.length - 1)];
+      else emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
     } else {
       emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
     }
@@ -556,17 +726,15 @@
     const el = document.createElement('div');
     el.className = 'fg-target ' + (good ? 'fg-good' : 'fg-junk');
     el.setAttribute('data-emoji', emoji);
-
-    // ✅ size via CSS var
     el.style.setProperty('--fg-size', (sizePx | 0) + 'px');
 
-    const p = pickScreenPosAvoidOverlap();
+    const p = pickScreenPosAvoidOverlap(sizePx);
     el.style.left = p.x + 'px';
     el.style.top  = p.y + 'px';
-
     layerEl.appendChild(el);
 
     const t = {
+      type: 'normal',
       el,
       good,
       emoji,
@@ -580,10 +748,8 @@
     };
     active.push(t);
 
-    // MIN VISIBLE LOCK
     t.minTimer = setTimeout(() => { t.canExpire = true; }, CFG.minVisible);
 
-    // HARD EXPIRE
     const life = randInt(CFG.lifeTime[0], CFG.lifeTime[1]);
     t.lifeTimer = setTimeout(() => {
       if (!t.canExpire) {
@@ -594,7 +760,6 @@
       }
     }, life);
 
-    // HIT
     bindHit(el, () => hitTarget(t));
   }
 
@@ -603,7 +768,6 @@
 
     const pos = centerXY(t.el);
     const rt = Math.max(0, now() - (t.bornAt || now()));
-
     hitCount++;
 
     if (t.good) {
@@ -614,11 +778,9 @@
       addScore(pts);
       setCombo(combo + 1);
 
-      // fever gain
       setFeverValue(fever + CFG.feverGainGood);
       maybeEnterFever();
 
-      // quest update
       if (quest && typeof quest.onGoodHit === 'function') {
         const gid = emojiToGroupId(t.emoji);
         quest.onGoodHit(gid, combo);
@@ -640,11 +802,9 @@
         Particles.scorePop && Particles.scorePop(pos.x, pos.y, '🛡️', { judgment: 'BLOCK', good: true });
         coach('โล่กันไว้แล้ว! เล็งอาหารดีต่อเลย 🛡️');
 
-        // ถือว่า hit แต่ไม่ใช่ good
         pushPerfSample({ hit: true, good: false, rtMs: rt, ts: now() });
 
       } else {
-        // miss: junk hit
         addMiss();
         addScore(CFG.pointsJunkHit);
         setCombo(0);
@@ -676,7 +836,6 @@
     const pos = centerXY(t.el);
     destroyTarget(t, false);
 
-    // expire = miss เฉพาะ good หลุด
     if (t.good) {
       goodExpires++;
       addMiss();
@@ -699,6 +858,7 @@
     maybeAdaptiveTune();
   }
 
+  // ---------- loops ----------
   function scheduleNextSpawn() {
     if (!running) return;
     clearTimeout(spawnTimer);
@@ -706,11 +866,13 @@
     spawnTimer = setTimeout(() => {
       createTarget();
 
-      // ✅ ช่วงเร้าใจ: ถ้า fever หรือ clutch ให้มีโอกาส “เติมอีก 1”
       const clutch = (timeLeft > 0 && timeLeft <= 12);
       if ((feverOn || clutch) && active.length < CFG.maxActive && Math.random() < 0.35) {
         setTimeout(() => createTarget(), 90);
       }
+
+      // ✅ boss check หลัง spawn (ไม่แย่งช่องตอนจอแน่น)
+      maybeSpawnBoss();
 
       scheduleNextSpawn();
     }, CFG.spawnInterval);
@@ -723,12 +885,20 @@
 
       tickFever();
 
-      if (quest && typeof quest.second === 'function') {
-        quest.second();
-      }
+      if (quest && typeof quest.second === 'function') quest.second();
 
       emitQuestUpdate();
+
+      // ✅ boss check (เผื่อ spawn ไม่ตรงจังหวะ spawn loop)
+      maybeSpawnBoss();
     }, 1000);
+  }
+
+  function unbindTimeListener() {
+    if (onTimeHandler) {
+      try { window.removeEventListener('hha:time', onTimeHandler); } catch {}
+      onTimeHandler = null;
+    }
   }
 
   function resetState() {
@@ -759,14 +929,12 @@
     junkHits = 0;
     goodExpires = 0;
 
-    perf.window.length = 0;
-  }
+    lastStreakRewardCombo = 0;
 
-  function unbindTimeListener() {
-    if (onTimeHandler) {
-      try { window.removeEventListener('hha:time', onTimeHandler); } catch {}
-      onTimeHandler = null;
-    }
+    bossNextAt = 0;
+    bossActive = false;
+
+    perf.window.length = 0;
   }
 
   function stopAll(reason) {
@@ -811,7 +979,6 @@
         return;
       }
 
-      // optional override
       if (opts && opts.config) Object.assign(CFG, opts.config);
 
       resetState();
@@ -820,7 +987,7 @@
       RUN_MODE = String((opts && opts.runMode) ? opts.runMode : 'play').toLowerCase();
       if (RUN_MODE !== 'research') RUN_MODE = 'play';
 
-      // listen to time left from page
+      // time listener
       unbindTimeListener();
       onTimeHandler = (e) => {
         const d = (e && e.detail) || {};
@@ -843,31 +1010,31 @@
         console.warn('[FoodGroupsVR] quest-manager not found: window.GroupsQuest.createFoodGroupsQuest');
       }
 
-      // ✅ MODE RULES
+      // mode rules
       if (RUN_MODE === 'research') {
-        lockResearchSizeOnly(); // size+pace lock by diff
+        lockResearchSizeOnly();
         coach('โหมดวิจัย: ขนาดเป้าล็อกตามระดับเท่านั้น 🧪');
       } else {
-        applyTierToDifficulty(); // initialize tier 0
-        coach('โหมดเล่น: เก็บดีให้รัว! เกมจะปรับความยากตามฝีมือ 😄🔥');
+        applyTierToDifficulty();
+        coach('โหมดเล่น: เกมจะปรับความยากตามฝีมือ! 😄🔥');
       }
 
-      // first coach (group)
+      // schedule boss
+      scheduleNextBoss();
+
+      // first coach
       const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
       if (g) coach(`เริ่มเลย! โฟกัส ${g.label} ✨`);
 
-      // show initial quest panel
       emitQuestUpdate();
 
       running = true;
       startSecondLoop();
       scheduleNextSpawn();
 
-      // spawn แรกทันที 1–2 ตัว (ให้รู้สึก “เริ่มแล้ว!”)
       createTarget();
       setTimeout(() => createTarget(), Math.min(260, CFG.spawnInterval * 0.35));
 
-      // push initial score
       dispatch('hha:score', { score, combo, misses, shield, fever });
     },
 
