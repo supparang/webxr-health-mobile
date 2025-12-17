@@ -1,10 +1,14 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL v2)
+// Good vs Junk VR — DOM Emoji Engine (FINAL v2.1)
 // MISS = good expired + junk hit (shield block = NO miss)
-// FIX v2:
-// - DO NOT cache THREE at module-load time (sometimes null)
-// - If cannot project 3D->2D, fallback to 2D random positions (so targets always visible)
-// - Prevent miss drift: count good-expire only if ever visible (seen=true)
+//
+// FIX v2.1:
+// - FEVER edge start/end dispatch works (previous logic never fired)
+// - seen=true when actually rendered on screen (project OR fallback2D)
+// - VR gaze support for DOM targets: aim-at-center + fuse → auto hit
+//
+// Notes:
+// - A-Frame raycaster cannot hit DOM targets, so gaze must be implemented in DOM layer.
 
 'use strict';
 
@@ -37,8 +41,16 @@
   let misses=0;
   let shield=0;
 
-  let feverActive=false;
+  // fever edge
+  let feverActive=false; // last-known
   let feverPrev=false;
+
+  // gaze (for VR headset)
+  let gazeEnabled=false;
+  let gazeFuseMs=650;
+  let gazeRadiusPx=70;
+  let gazeStartMs=0;
+  let gazeTarget=null;
 
   // ===== Dynamic THREE getter (สำคัญมาก) =====
   function getTHREE(){
@@ -99,37 +111,45 @@
 
   // ===== Emit helpers =====
   function emitJudge(label){
-    ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label }}));
+    try{
+      ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label }}));
+    }catch(_){}
   }
   function emitMiss(){
-    ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses }}));
+    try{
+      ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses }}));
+    }catch(_){}
   }
 
-  function emitFeverEdgeIfNeeded(){
-    if (!FeverUI || typeof FeverUI.isActive !== 'function') return;
-
-    feverPrev = feverActive;
-    feverActive = !!FeverUI.isActive();
-
-    if (feverActive && !feverPrev){
-      ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'start' }}));
-    } else if (!feverActive && feverPrev){
-      ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'end' }}));
+  // FIX: fever edge dispatch must compare "now" vs "previous stored"
+  function syncFeverEdge(){
+    if (!FeverUI || typeof FeverUI.isActive !== 'function'){
+      feverPrev = false;
+      feverActive = false;
+      return;
     }
+
+    const now = !!FeverUI.isActive();
+    const prev = !!feverActive; // stored previous
+
+    if (now && !prev){
+      try{ ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'start' }})); }catch(_){}
+    } else if (!now && prev){
+      try{ ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'end' }})); }catch(_){}
+    }
+
+    feverPrev = prev;
+    feverActive = now;
   }
 
   function emitScore(){
-    if (FeverUI && typeof FeverUI.isActive === 'function'){
-      feverActive = !!FeverUI.isActive();
-      emitFeverEdgeIfNeeded();
-    }else{
-      feverActive = false;
-      feverPrev = false;
-    }
+    syncFeverEdge();
 
-    ROOT.dispatchEvent(new CustomEvent('hha:score',{
-      detail:{ score, combo, comboMax, goodHits, misses, feverActive, shield }
-    }));
+    try{
+      ROOT.dispatchEvent(new CustomEvent('hha:score',{
+        detail:{ score, combo, comboMax, goodHits, misses, feverActive, shield }
+      }));
+    }catch(_){}
   }
 
   // ===== Target =====
@@ -152,7 +172,7 @@
       emoji === FIRE   ? 'diamond':
       emoji === SHIELD ? 'shield' : kind;
 
-    // fallback 2D (กันจอดำ)
+    // fallback 2D (กันจอดำ/กันไปรวมมุมซ้ายบน)
     const fallback2D = {
       x: Math.round(window.innerWidth  * (0.2 + Math.random()*0.6)),
       y: Math.round(window.innerHeight * (0.25 + Math.random()*0.55))
@@ -173,8 +193,9 @@
 
     el.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
-      hitTarget(t, e.clientX || 0, e.clientY || 0);
-    });
+      e.stopPropagation();
+      hitTarget(t, e.clientX || (window.innerWidth/2), e.clientY || (window.innerHeight/2));
+    }, { passive:false });
 
     setTimeout(()=>expireTarget(t), 2200);
   }
@@ -182,20 +203,24 @@
   function removeTarget(t){
     const i = active.indexOf(t);
     if (i >= 0) active.splice(i,1);
-    if (t.el) t.el.remove();
+    if (t && t.el) t.el.remove();
+    if (gazeTarget === t){
+      gazeTarget = null;
+      gazeStartMs = 0;
+    }
   }
 
   function expireTarget(t){
     if (!running) return;
     removeTarget(t);
 
-    // ✅ MISS เฉพาะ "ปล่อยของดี" และต้องเคยเห็นจริง
+    // ✅ MISS เฉพาะ "ปล่อยของดี" และต้องเคยถูก render บนจอจริง
     if (t.kind === 'good' && t.seen){
       misses++;
       combo = 0;
+      emitJudge('MISS');
       emitScore();
       emitMiss();
-      emitJudge('MISS');
     }
   }
 
@@ -203,32 +228,35 @@
     if (!t || !t.el) return;
     removeTarget(t);
 
+    // POWER: SHIELD
     if (t.emoji === SHIELD){
       shield = Math.min(3, shield + 1);
-      emitScore();
       emitJudge('SHIELD');
+      emitScore();
       return;
     }
 
+    // POWER: FIRE -> add fever
     if (t.emoji === FIRE && FeverUI && typeof FeverUI.add === 'function'){
       FeverUI.add(20);
-      emitScore();
       emitJudge('FEVER+');
+      emitScore();
       return;
     }
 
+    // JUNK
     if (t.kind === 'junk'){
       if (shield > 0){
         shield--;
-        emitScore();
         emitJudge('BLOCK');
+        emitScore();
         return;
       }
       misses++;
       combo = 0;
+      emitJudge('MISS');
       emitScore();
       emitMiss();
-      emitJudge('MISS');
       return;
     }
 
@@ -237,7 +265,7 @@
     combo++;
     comboMax = Math.max(comboMax, combo);
 
-    const feverNow = (FeverUI && typeof FeverUI.isActive === 'function') ? FeverUI.isActive() : false;
+    const feverNow = (FeverUI && typeof FeverUI.isActive === 'function') ? !!FeverUI.isActive() : false;
     score += feverNow ? 20 : 10;
 
     if (Particles && typeof Particles.scorePop === 'function'){
@@ -246,6 +274,63 @@
 
     emitJudge(combo >= 6 ? 'PERFECT' : 'GOOD');
     emitScore();
+  }
+
+  // ===== Gaze hit-test (DOM) =====
+  function centerAimTick(){
+    if (!gazeEnabled || !running || active.length === 0) {
+      gazeTarget = null;
+      gazeStartMs = 0;
+      return;
+    }
+
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const t of active){
+      if (!t || !t.el) continue;
+      const r = t.el.getBoundingClientRect();
+      if (!r || !isFinite(r.left)) continue;
+
+      const tx = r.left + r.width/2;
+      const ty = r.top  + r.height/2;
+
+      const dx = tx - cx;
+      const dy = ty - cy;
+      const d2 = dx*dx + dy*dy;
+
+      if (d2 < bestDist){
+        bestDist = d2;
+        best = t;
+      }
+    }
+
+    const dist = Math.sqrt(bestDist);
+    const within = best && dist <= gazeRadiusPx;
+
+    if (!within){
+      gazeTarget = null;
+      gazeStartMs = 0;
+      return;
+    }
+
+    if (gazeTarget !== best){
+      gazeTarget = best;
+      gazeStartMs = performance.now();
+      return;
+    }
+
+    const held = performance.now() - gazeStartMs;
+    if (held >= gazeFuseMs && gazeTarget){
+      // ยิงตรงกลางจอ
+      const hit = gazeTarget;
+      gazeTarget = null;
+      gazeStartMs = 0;
+      hitTarget(hit, cx, cy);
+    }
   }
 
   // ===== Loops =====
@@ -268,17 +353,21 @@
         p = project(t.pos);
       }
 
-      // fallback 2D (กันจอดำ/กันไปกองมุมซ้ายบน)
+      // fallback 2D
       if (!p){
         p = t.fallback2D;
-      }else{
-        t.seen = true;
       }
+
+      // ✅ seen=true เมื่อ render จริง (project หรือ fallback ก็ถือว่าเห็นแล้ว)
+      t.seen = true;
 
       t.el.style.display = 'block';
       t.el.style.left = p.x + 'px';
       t.el.style.top  = p.y + 'px';
     }
+
+    // gaze logic after positions settled
+    centerAimTick();
 
     rafId = requestAnimationFrame(renderLoop);
   }
@@ -298,6 +387,13 @@
 
     layerEl = opts.layerEl || document.getElementById('gj-layer');
 
+    // gaze options (for VR headset)
+    gazeEnabled = !!opts.gaze;
+    gazeFuseMs = Math.max(250, Number(opts.gazeFuseMs ?? 650) || 650);
+    gazeRadiusPx = Math.max(30, Number(opts.gazeRadiusPx ?? 70) || 70);
+    gazeStartMs = 0;
+    gazeTarget = null;
+
     score=0; combo=0; comboMax=0; goodHits=0; misses=0;
     shield=0;
 
@@ -308,8 +404,14 @@
       FeverUI.reset();
     }
 
-    // debug (ดูใน console ได้ทันที)
-    console.log('[GoodJunkVR] GameEngine.start OK', { diff, hasAFRAME:!!ROOT.AFRAME, hasTHREE:!!getTHREE() });
+    console.log('[GoodJunkVR] GameEngine.start OK', {
+      diff,
+      gazeEnabled,
+      gazeFuseMs,
+      gazeRadiusPx,
+      hasAFRAME:!!ROOT.AFRAME,
+      hasTHREE:!!getTHREE()
+    });
 
     emitScore();
     renderLoop();
@@ -325,13 +427,19 @@
     if (spawnTimer) clearTimeout(spawnTimer);
     spawnTimer = null;
 
+    gazeEnabled = false;
+    gazeStartMs = 0;
+    gazeTarget = null;
+
     const copy = active.slice();
     for (const t of copy) removeTarget(t);
     active.length = 0;
 
-    ROOT.dispatchEvent(new CustomEvent('hha:end',{
-      detail:{ scoreFinal:score, comboMax, misses, reason }
-    }));
+    try{
+      ROOT.dispatchEvent(new CustomEvent('hha:end',{
+        detail:{ scoreFinal:score, comboMax, misses, reason }
+      }));
+    }catch(_){}
   }
 
   ns.GameEngine = { start, stop };
