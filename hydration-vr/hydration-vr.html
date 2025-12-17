@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>Hero Health - Hydration Quest VR</title>
+  
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    /* =========================================================
+       HERO HEALTH THEME (CSS Full Version)
+       ========================================================= */
+    :root {
+      color-scheme: dark;
+      --bg-main: #020617;
+      --text-main: #e5e7eb;
+      --text-soft: #9ca3af;
+      --accent: #22c55e;        /* Green */
+      --accent-2: #38bdf8;      /* Blue */
+      --danger: #f97316;        /* Orange */
+      --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.7);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0; padding: 0; overflow: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: #000;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none; /* สำคัญ: กันจอเลื่อนเวลาลากเป้า */
+    }
+
+    /* --- LAYOUT LAYERS --- */
+    /* 1. VR Canvas (อยู่หลังสุด) */
+    .a-canvas { 
+        position: fixed; top: 0; left: 0; z-index: 0; 
+    }
+
+    /* 2. UI Overlay (อยู่หน้าสุด) */
+    #ui-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 10; pointer-events: none; /* พื้นที่ว่างคลิกทะลุไปหมุนกล้อง */
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+
+    /* ให้ปุ่มและการ์ดกดได้ */
+    .pointer-auto { pointer-events: auto; }
+
+    /* --- HUD ELEMENTS --- */
+    .hha-water-wrap {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      z-index: 40; padding: 6px 16px 10px; border-radius: 24px;
+      background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(148, 163, 184, 0.4);
+      min-width: 220px; text-align: center;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .hha-bar-track {
+      height: 6px; width: 100%; background: #0f172a;
+      border-radius: 10px; overflow: hidden; margin-top: 4px;
+    }
+    .hha-bar-fill { height: 100%; transition: width 0.3s ease; }
+    .fill-water { background: linear-gradient(90deg, #38bdf8, #22c55e); }
+    .fill-fever { background: linear-gradient(90deg, #f97316, #facc15); }
+
+    .hha-hud-row {
+      display: flex; justify-content: space-between; padding: 16px; margin-top: 60px;
+    }
+    .hha-hud-card {
+      background: rgba(2, 6, 23, 0.85); padding: 10px 14px;
+      border-radius: 14px; border: 1px solid rgba(51, 65, 85, 0.8);
+      min-width: 100px;
+    }
+    .hha-hud-title { font-size: 10px; color: var(--text-soft); letter-spacing: 1px; text-transform: uppercase; }
+    .hha-hud-val { font-size: 16px; font-weight: 700; color: #fff; }
+
+    /* --- CROSSHAIR (เป้าเล็ง) --- */
+    #crosshair {
+      position: absolute; top: 50%; left: 50%; width: 24px; height: 24px;
+      transform: translate(-50%, -50%); z-index: 50; pointer-events: none;
+      border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2); transition: transform 0.1s;
+    }
+    #crosshair.active { transform: translate(-50%, -50%) scale(0.8); background: rgba(255, 255, 255, 0.6); }
+
+    /* --- BOTTOM UI --- */
+    .hha-coach-bar {
+      position: fixed; bottom: 80px; left: 16px; right: 16px;
+      background: rgba(2, 6, 23, 0.9); border-radius: 30px;
+      padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      transition: box-shadow 0.3s;
+    }
+    .hha-coach-bar.is-emph { box-shadow: 0 0 15px rgba(56, 189, 248, 0.5); }
+    .hha-coach-face { font-size: 24px; }
+    .hha-coach-text { font-size: 14px; color: #fff; }
+
+    .hha-bottom-row {
+      position: fixed; bottom: 16px; left: 16px; right: 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .hha-fever-wrap {
+      flex: 1; background: rgba(2, 6, 23, 0.9); padding: 8px 16px;
+      border-radius: 20px; border: 1px solid rgba(148, 163, 184, 0.5);
+    }
+    .hha-vr-btn {
+      background: #0f172a; color: #38bdf8; border: 1px solid #38bdf8;
+      padding: 10px 16px; border-radius: 20px; font-weight: bold; font-size: 12px;
+    }
+
+    /* --- SUMMARY SCREEN --- */
+    #ui-summary {
+      position: fixed; inset: 0; z-index: 100;
+      background: radial-gradient(circle, rgba(34,197,94,0.1) 0%, rgba(2,6,23,0.95) 80%);
+      display: flex; align-items: center; justify-content: center;
+      animation: fadeIn 0.5s ease-out;
+    }
+    .hha-summary-box {
+      background: #0b1120; border: 1px solid #334155;
+      padding: 30px; border-radius: 24px; width: 90%; max-width: 400px;
+      text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+      animation: popUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    .rank-big { font-size: 80px; font-weight: 900; line-height: 1; margin: 10px 0; }
+    .rank-s { color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.8); }
+    .rank-a { color: #22c55e; text-shadow: 0 0 20px rgba(34, 197, 94, 0.6); }
+    .rank-b { color: #38bdf8; }
+    .rank-c { color: #9ca3af; }
+
+    .btn-restart {
+      margin-top: 20px; width: 100%; padding: 14px;
+      background: var(--accent); color: #000; font-weight: 800; border: none;
+      border-radius: 12px; font-size: 16px; cursor: pointer;
+    }
+    .btn-restart:active { transform: scale(0.96); }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes popUp { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  </style>
+</head>
+<body>
+
+  <a-scene background="color: #020617" renderer="antialias: true" embedded>
+    <a-assets>
+      <img id="sky" src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/city.jpg">
+    </a-assets>
+
+    <a-sky src="#sky" color="#222" radius="30"></a-sky>
+
+    <a-entity id="rig" position="0 0 0">
+      <a-camera id="gj-camera" position="0 1.6 0" wasd-controls-enabled="false" look-controls="enabled: false">
+        <a-entity cursor="fuse: false"
+                  raycaster="objects: .clickable; far: 20; interval: 50"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.005"
+                  material="opacity: 0; color: transparent">
+        </a-entity>
+      </a-camera>
+    </a-entity>
+
+    <a-entity id="hvr-playfield" position="0 1.2 -1.5"></a-entity>
+  </a-scene>
+
+
+  <div id="ui-layer">
+    
+    <div class="hha-water-wrap pointer-auto">
+      <div style="font-size:10px; color:#94a3b8; display:flex; justify-content:space-between;">
+        <span>HYDRATION</span>
+        <strong id="ui-water-txt" style="color:#fff">0%</strong>
+      </div>
+      <div class="hha-bar-track">
+        <div id="ui-water-fill" class="hha-bar-fill fill-water" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="hha-hud-row">
+      <div class="hha-hud-card pointer-auto">
+        <div class="hha-hud-title">SCORE</div>
+        <div class="hha-hud-val" id="ui-score">0</div>
+        <div style="font-size:12px; color:var(--accent)" id="ui-combo">x0</div>
+      </div>
+
+      <div class="hha-hud-card pointer-auto" style="flex:1; margin-left:12px; text-align:right;">
+        <div class="hha-hud-title">OBJECTIVE</div>
+        <div style="font-size:13px; font-weight:600; color:#fff; margin-top:2px;" id="ui-goal-txt">
+          Loading...
+        </div>
+        <span id="ui-mini-txt" style="font-size:10px; background:#334155; padding:2px 6px; border-radius:4px; display:none;"></span>
+      </div>
+    </div>
+
+    <div id="crosshair"></div>
+
+    <div>
+      <div class="hha-coach-bar pointer-auto" id="ui-coach-bar">
+        <div class="hha-coach-face">🤖</div>
+        <div class="hha-coach-text" id="ui-coach-text">Ready to hydrate?</div>
+      </div>
+
+      <div class="hha-bottom-row">
+        <div class="hha-fever-wrap pointer-auto">
+          <div style="display:flex; justify-content:space-between; font-size:10px; color:#94a3b8;">
+            <span>FEVER GAUGE</span>
+            <strong id="ui-fever-txt">OFF</strong>
+          </div>
+          <div class="hha-bar-track">
+            <div id="ui-fever-fill" class="hha-bar-fill fill-fever" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="hha-vr-btn pointer-auto">👓 VR</div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="ui-summary" style="display: none;">
+    <div class="hha-summary-box pointer-auto">
+      <div class="hha-hud-title" style="color:var(--accent); font-size:12px;">MISSION COMPLETE</div>
+      
+      <div id="sum-rank" class="rank-big rank-s">S</div>
+      
+      <div style="color:#fff; font-size:18px; font-weight:bold; margin-bottom:15px;">
+        SCORE: <span id="sum-score">0</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:rgba(0,0,0,0.2); padding:10px; border-radius:12px;">
+        <div>
+          <div class="hha-hud-title">MAX COMBO</div>
+          <div id="sum-combo" style="color:var(--accent-2); font-weight:bold;">0</div>
+        </div>
+        <div>
+          <div class="hha-hud-title">WATER LEVEL</div>
+          <div id="sum-water" style="color:var(--accent-2); font-weight:bold;">0%</div>
+        </div>
+      </div>
+
+      <button id="btn-restart" class="btn-restart">
+        🔄 PLAY AGAIN
+      </button>
+    </div>
+  </div>
+
+
+  <script type="module">
+    // Import Logic เกม
+    import { boot } from './hydration.safe.js';
+    // Import ระบบหมุนกล้อง (ต้องมีไฟล์นี้นะครับ)
+    import { attachTouchLook } from '../vr/touch-look.js';
+
+    // --- A. Setup Camera ---
+    const cameraEl = document.getElementById('gj-camera');
+    if(cameraEl) {
+      // ignoreSelector: ป้องกันการหมุนกล้องเมื่อกดปุ่ม UI
+      attachTouchLook(cameraEl, { 
+        sensitivity: 0.35, 
+        ignoreSelector: '.pointer-auto' 
+      });
+    }
+
+    // --- B. Crosshair Interaction ---
+    const crosshair = document.getElementById('crosshair');
+    const onInteract = (isActive) => {
+        if(isActive) crosshair.classList.add('active');
+        else crosshair.classList.remove('active');
+    };
+    window.addEventListener('mousedown', () => onInteract(true));
+    window.addEventListener('mouseup', () => onInteract(false));
+    window.addEventListener('touchstart', () => onInteract(true));
+    window.addEventListener('touchend', () => onInteract(false));
+
+
+    // --- C. UI Elements Binding ---
+    const ui = {
+      score: document.getElementById('ui-score'),
+      combo: document.getElementById('ui-combo'),
+      waterFill: document.getElementById('ui-water-fill'),
+      waterTxt: document.getElementById('ui-water-txt'),
+      goal: document.getElementById('ui-goal-txt'),
+      mini: document.getElementById('ui-mini-txt'),
+      coachBar: document.getElementById('ui-coach-bar'),
+      coachTxt: document.getElementById('ui-coach-text'),
+      feverFill: document.getElementById('ui-fever-fill'),
+      feverTxt: document.getElementById('ui-fever-txt'),
+      
+      // Summary Elements
+      summaryParams: document.getElementById('ui-summary'),
+      sumRank: document.getElementById('sum-rank'),
+      sumScore: document.getElementById('sum-score'),
+      sumCombo: document.getElementById('sum-combo'),
+      sumWater: document.getElementById('sum-water'),
+      btnRestart: document.getElementById('btn-restart')
+    };
+
+
+    // --- D. Game Event Listeners ---
+    
+    // 1. Score Update
+    window.addEventListener('hha:score', (e) => {
+      const d = e.detail;
+      ui.score.innerText = d.score;
+      ui.combo.innerText = `x${d.combo}`;
+      
+      ui.waterFill.style.width = `${d.waterPct}%`;
+      ui.waterTxt.innerText = `${d.waterPct}%`;
+
+      // Fever Update
+      const isFever = d.feverActive;
+      ui.feverFill.style.width = isFever ? '100%' : `${d.feverVal}%`;
+      ui.feverTxt.innerText = isFever ? "ACTIVE!" : "READY";
+      ui.feverTxt.style.color = isFever ? "var(--danger)" : "#94a3b8";
+    });
+
+    // 2. Quest Update
+    window.addEventListener('quest:update', (e) => {
+      const d = e.detail;
+      ui.goal.innerText = d.goalHeading || 'Freestyle';
+      if(d.miniHeading) {
+        ui.mini.style.display = 'inline-block';
+        ui.mini.innerText = d.miniHeading;
+      } else {
+        ui.mini.style.display = 'none';
+      }
+    });
+
+    // 3. Coach Message
+    window.addEventListener('hha:coach', (e) => {
+      ui.coachTxt.innerText = e.detail.text;
+      // Animation Effect
+      ui.coachBar.classList.remove('is-emph');
+      void ui.coachBar.offsetWidth; // Force Reflow
+      ui.coachBar.classList.add('is-emph');
+    });
+
+    // 4. GAME OVER & SUMMARY
+    function calculateRank(score) {
+        if (score >= 2500) return { label: 'SS', class: 'rank-s' };
+        if (score >= 2000) return { label: 'S', class: 'rank-s' };
+        if (score >= 1500) return { label: 'A', class: 'rank-a' };
+        if (score >= 1000) return { label: 'B', class: 'rank-b' };
+        return { label: 'C', class: 'rank-c' };
+    }
+
+    window.addEventListener('hha:end', (e) => {
+      const d = e.detail;
+      console.log('🏁 Game Over Data:', d);
+
+      // Populate Data
+      ui.sumScore.innerText = d.score;
+      ui.sumCombo.innerText = `x${d.combo || 0}`; // ต้องส่ง combo มาใน hha:end นะ
+      ui.sumWater.innerText = `${d.waterPct || 0}%`;
+
+      const rank = calculateRank(d.score);
+      ui.sumRank.innerText = rank.label;
+      ui.sumRank.className = `rank-big ${rank.class}`;
+
+      // Show Screen
+      ui.summaryParams.style.display = 'flex';
+    });
+
+    // 5. Restart Action
+    if(ui.btnRestart) {
+      ui.btnRestart.addEventListener('click', () => window.location.reload());
+      ui.btnRestart.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          window.location.reload();
+      });
+    }
+
+    // --- E. Boot Game ---
+    console.log('🚀 Booting Hydration VR...');
+    try {
+      boot({ 
+        difficulty: 'normal', 
+        duration: 120  // เล่น 2 นาที
+      }).then(() => {
+        console.log('✅ Game Started!');
+      });
+    } catch (err) {
+      console.error("Boot Error:", err);
+      ui.coachTxt.innerText = "Error: Check Console";
+    }
+
+  </script>
+</body>
+</html>
