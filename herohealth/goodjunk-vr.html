@@ -668,7 +668,7 @@
             </div>
           </div>
 
-          <!-- ✅ FEVER UI (ให้ ui-fever.js หาเจอ #fever-fill) -->
+          <!-- ✅ FEVER UI -->
           <div class="metric fever-wrap">
             <div class="metric-label">FEVER</div>
             <div class="fever-bar">
@@ -860,7 +860,7 @@
     let prevGoalsCleared = 0;
     let prevMiniCleared  = 0;
 
-    // Lives (hard only): แบบที่ 3 = 1 หัวใจหายทุก MISS_PER_LIFE ครั้ง
+    // Lives (hard only): 1 หัวใจหายทุก MISS_PER_LIFE ครั้ง
     const MAX_LIVES = 3;
     const MISS_PER_LIFE = 3;
     let currentLives = MAX_LIVES;
@@ -1007,6 +1007,32 @@
         elFeverBadge.textContent = on ? 'ON' : 'OFF';
         elFeverBadge.classList.toggle('on', on);
       }
+    }
+
+    // ===== Quest progress helpers (support limit/invert) =====
+    function clamp01(x){
+      x = Number(x) || 0;
+      if (x < 0) return 0;
+      if (x > 1) return 1;
+      return x;
+    }
+    function pctNormal(prog, tgt){
+      prog = prog|0; tgt = tgt|0;
+      if (tgt <= 0) return 0;
+      return Math.round(clamp01(prog / tgt) * 100);
+    }
+    function pctLimit(prog, tgt){
+      prog = prog|0; tgt = tgt|0;
+      if (tgt <= 0) return 0;
+      return Math.round(clamp01((tgt - prog) / tgt) * 100);
+    }
+    function isLimitGoal(goal){
+      if (!goal) return false;
+      const id = String(goal.id || '').toLowerCase();
+      if (id.includes('miss') || id.includes('limit')) return true;
+      const label = String(goal.label || '');
+      if (label.includes('อย่าพลาด') || label.includes('ไม่เกิน')) return true;
+      return false;
     }
 
     // ===== FX helpers =====
@@ -1243,7 +1269,7 @@
       if (typeof d.goodHits === 'number'){ state.goodHits = d.goodHits|0; }
       if (typeof d.misses === 'number'){ state.miss = d.misses|0; elMiss.textContent = String(state.miss); updateLivesFromMisses(); }
 
-      // ✅ สำคัญ: ให้ Quest เห็น FEVER
+      // ✅ ให้ Quest เห็น FEVER
       if (typeof d.feverActive === 'boolean'){ state.feverActive = d.feverActive; }
 
       // comboMax ใช้จาก engine ถ้ามี
@@ -1314,10 +1340,20 @@
       if (goal){
         const prog = goal.prog | 0;
         const tgt  = goal.target | 0;
-        const pct  = tgt > 0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
+
+        // ✅ รองรับ goal แบบ limit (miss <= target) ให้แถบ "เต็มเมื่อพลาดน้อย"
+        const limit = isLimitGoal(goal);
+        const pct   = limit ? pctLimit(prog, tgt) : pctNormal(prog, tgt);
+
         elQuestMain.textContent = goal.label || 'ภารกิจหลัก';
         elQuestMainBar.style.width = pct + '%';
-        elQuestMainCap.textContent = prog + ' / ' + tgt;
+
+        if (limit){
+          elQuestMainCap.textContent = `MISS: ${prog} / ${tgt}`;
+        }else{
+          elQuestMainCap.textContent = `${prog} / ${tgt}`;
+        }
+
       }else{
         elQuestMain.textContent = 'ภารกิจหลัก (หมด/ครบ) ✅';
         elQuestMainBar.style.width = '100%';
@@ -1511,7 +1547,7 @@
       hookVrModeAutoSwitch();
       hookGazeReticleColorEvents();
 
-      // ✅ QuestDirector (กัน error ไม่ให้ทำให้เกมไม่ start)
+      // ✅ QuestDirector
       try{
         Q = makeQuestDirector({
           diff,
@@ -1531,7 +1567,6 @@
       runCountdown(()=>{
         waitSceneReady(()=>{
 
-          // sync fever HUD at start
           updateFeverHUD();
 
           GameEngine.start(diff, {
