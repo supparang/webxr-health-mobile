@@ -221,6 +221,31 @@
       40%{ transform:scale(1.25); }
       100%{ transform:scale(1); }
     }
+  /* ===== DOM Targets Layer ===== */
+    #gj-layer{
+      position:fixed;
+      inset:0;
+      z-index:649;
+      pointer-events:auto;   /* สำคัญ: ต้อง auto เพื่อให้กด/แตะได้ */
+    }
+
+  /* ===== Target (emoji) ===== */
+    .gj-target{
+      position:absolute;      /* สำคัญ: left/top ถึงจะทำงาน */
+      transform:translate(-50%,-50%);
+      font-size:clamp(42px, 7.5vw, 72px);
+      line-height:1;
+      user-select:none;
+      cursor:pointer;
+      pointer-events:auto;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.55));
+      transition: transform .12s ease, opacity .12s ease;
+    }
+
+    .gj-target.hit{
+      transform:translate(-50%,-50%) scale(1.25);
+      opacity:0.35;
+    }
 
     /* ===== Quest panel (บนขวา) ===== */
     .hud-quest{ max-width:280px; font-size:12px; }
