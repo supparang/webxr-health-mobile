@@ -56,24 +56,23 @@
       z-index:0;
     }
 
-    /* ===== DOM Target layer (สำคัญ) =====
-       layer = none, target = auto (คลิกได้, กัน layer บัง HUD) */
+    /* ===== DOM Target Layer ===== */
     #gj-layer{
       position:fixed;
       inset:0;
       z-index:649;          /* ใต้ HUD (650) */
-      pointer-events:none;  /* ให้คลิกเฉพาะที่เป้า */
+      pointer-events:auto;  /* สำคัญ: ต้อง auto เพื่อให้กด/แตะได้ */
     }
 
     .gj-target{
       position:absolute;
-      transform: translate(-50%,-50%) scale(var(--tScale, 1)); /* รองรับ adaptive scale */
-      font-size: clamp(38px, 7vw, 66px);
+      transform: translate(-50%,-50%) scale(var(--tScale, 1));
+      font-size: clamp(42px, 7.5vw, 72px);
       line-height:1;
       text-shadow: 0 10px 24px rgba(0,0,0,0.55);
-      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.35));
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.55));
       user-select:none;
-      pointer-events:auto; /* ต้อง auto ไม่งั้นแตะไม่ได้ */
+      pointer-events:auto;
       cursor:pointer;
       transition: transform .12s ease-out, opacity .12s ease-out;
       will-change: transform, left, top, opacity;
@@ -755,8 +754,14 @@
     const coachMoodKeys = ['neutral','happy','sad','fever'];
     let lastCoachTimeout = null;
 
-    // ✅ state feed เข้า QuestDirector
-    const state = { score:0, goodHits:0, miss:0, comboMax:0, timeLeft:60 };
+    // ✅ สถานะเกม (ใช้ feed เข้า QuestDirector)
+    const state = {
+      score: 0,
+      goodHits: 0,
+      miss: 0,
+      comboMax: 0,
+      timeLeft: 60
+    };
 
     // Quest counters for grade
     let hudGoalsTotal   = 0;
@@ -975,6 +980,7 @@
       });
     }
 
+    // mouse ↔ gaze
     let reticleFuseMs = 650;
     function setCursorMode(mode){
       const cursorEl = document.getElementById('cursor');
@@ -1010,7 +1016,7 @@
       });
     }
 
-    // ===== Reticle progress =====
+    // ===== Reticle progress color =====
     let reticleRAF = null;
     let reticleStartMs = 0;
     let reticleActive = false;
@@ -1135,6 +1141,7 @@
       if (typeof d.goodHits === 'number'){ state.goodHits = d.goodHits|0; }
       if (typeof d.misses === 'number'){ state.miss = d.misses|0; elMiss.textContent = String(state.miss); updateLivesFromMisses(); }
 
+      // comboMax ใช้จาก engine ถ้ามี (กันมั่ว)
       if (typeof d.comboMax === 'number'){
         state.comboMax = d.comboMax|0;
         elCombo.dataset.max = String(state.comboMax);
@@ -1152,6 +1159,7 @@
       updateRealtimeGrade(state.score);
     });
 
+    // hha:miss ใช้เพื่อ “อารมณ์/ข้อความ” เท่านั้น (ไม่ใช้เป็นแหล่งนับหลัก)
     window.addEventListener('hha:miss', ()=>{
       setCoachFace('sad');
       setCoach('พลาดของดีไปนะ ลองโฟกัสผัก ผลไม้ และนมอีกครั้งนะ 😌');
@@ -1171,14 +1179,29 @@
     // Quest update (จาก QuestDirector)
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
-
-      // ✅ กัน payload ว่างจากที่อื่น (เช่น engine start) ไม่ให้ HUD “ครบเฉย”
-      const hasLists = Array.isArray(d.goalsAll) || Array.isArray(d.minisAll);
-      const hasAny   = !!d.goal || !!d.mini || hasLists || !!d.hint;
-      if (!hasAny) return;
-
       const goal = d.goal || null;
       const mini = d.mini || null;
+
+      const goalsAll = d.goalsAll || [];
+      const minisAll = d.minisAll || [];
+
+      // ✅ กันเคส "quest:update ว่าง" (เช่น engine ยิงมา) ไม่ให้ HUD ตีความว่า "ครบ/จบ"
+      const isEmptyPayload =
+        (!goal && !mini && goalsAll.length === 0 && minisAll.length === 0);
+
+      if (isEmptyPayload){
+        elQuestMain.textContent = 'กำลังสุ่มภารกิจ…';
+        elQuestMini.textContent = 'กำลังสุ่ม mini quest…';
+        elQuestMainBar.style.width = '0%';
+        elQuestMiniBar.style.width = '0%';
+        elQuestMainCap.textContent = '0 / 0';
+        elQuestMiniCap.textContent = '0 / 0';
+        elQuestHint.textContent = '';
+        hudGoalsTotal = hudGoalsCleared = hudMiniTotal = hudMiniCleared = 0;
+        prevGoalsCleared = prevMiniCleared = 0;
+        updateRealtimeGrade(state.score);
+        return;
+      }
 
       if (goal){
         const prog = goal.prog | 0;
@@ -1208,8 +1231,6 @@
 
       elQuestHint.textContent = d.hint ? d.hint : '';
 
-      const goalsAll = Array.isArray(d.goalsAll) ? d.goalsAll : [];
-      const minisAll = Array.isArray(d.minisAll) ? d.minisAll : [];
       hudGoalsTotal   = goalsAll.length;
       hudGoalsCleared = goalsAll.filter(g => g && g.done).length;
       hudMiniTotal    = minisAll.length;
@@ -1256,6 +1277,7 @@
       const comboMaxVal = (typeof d.comboMax === 'number') ? (d.comboMax|0) : (state.comboMax|0);
       const misses = (typeof d.misses === 'number') ? (d.misses|0) : (state.miss|0);
 
+      // finalize quests (สำคัญ: missMax ตัดสินตอนจบ)
       let qs = null;
       if (Q){
         qs = Q.finalize({
@@ -1380,7 +1402,7 @@
       hookVrModeAutoSwitch();
       hookGazeReticleColorEvents();
 
-      // ✅ QuestDirector: start ก่อนเริ่มเกม
+      // ✅ QuestDirector: start ตั้งแต่ก่อนเริ่มเกม (แต่ HUD จะไม่แปลว่าครบแล้ว)
       Q = makeQuestDirector({
         diff,
         goalDefs: GOODJUNK_GOALS,
@@ -1395,8 +1417,8 @@
       runCountdown(()=>{
         GameEngine.start(diff, {
           runMode,
-          durationSec: dur,                 /* ✅ สำคัญ: ให้ engine adaptive อิงเวลาได้ */
-          layerEl: document.getElementById('gj-layer')
+          layerEl: document.getElementById('gj-layer'),
+          durationSec: dur
         });
 
         let timeLeft = dur;
