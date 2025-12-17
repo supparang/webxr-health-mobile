@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-  <title>Hero Health - Red Dot Sight</title>
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <title>Hero Health - Neon Sight</title>
+  
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 
   <style>
     /* --- CSS SYSTEM --- */
-    :root { --accent: #22c55e; --bg-card: rgba(15, 23, 42, 0.85); }
-    body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; user-select: none; }
+    :root { --accent: #00ff9d; --bg-card: rgba(0, 20, 40, 0.85); }
+    body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; user-select: none; }
     
     /* UI Layer */
     #ui-layer {
@@ -21,71 +21,46 @@
     .pointer-auto { pointer-events: auto; }
 
     /* Top HUD */
-    .hud-top { padding: 12px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .hud-top { padding: 15px; display: flex; justify-content: space-between; align-items: flex-start; }
     
     .card {
-      background: var(--bg-card); padding: 10px 14px; border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.1); color: white;
-      backdrop-filter: blur(4px); margin-bottom: 8px;
+      background: var(--bg-card); padding: 10px 18px; border-radius: 12px;
+      border: 1px solid rgba(0, 255, 157, 0.3); color: white;
+      backdrop-filter: blur(5px); margin-bottom: 8px; box-shadow: 0 0 15px rgba(0, 255, 157, 0.1);
     }
     
-    .label { font-size: 10px; color: #94a3b8; letter-spacing: 1px; font-weight: bold; margin-bottom: 2px; }
-    .val-big { font-size: 22px; font-weight: 800; line-height: 1; }
+    .label { font-size: 11px; color: #94a3b8; letter-spacing: 1px; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }
+    .val-big { font-size: 26px; font-weight: 800; line-height: 1; color: var(--accent); text-shadow: 0 0 10px rgba(0,255,157,0.5); }
     
     .quest-box {
-      background: linear-gradient(to right, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.6));
-      border-left: 3px solid var(--accent);
-      padding: 8px 12px; border-radius: 8px; margin-top: 5px;
+      background: linear-gradient(90deg, rgba(0, 40, 20, 0.9), transparent);
+      border-left: 4px solid var(--accent);
+      padding: 8px 12px; border-radius: 4px; margin-top: 5px;
     }
 
-    .bar-track { width: 140px; height: 8px; background: #1e293b; border-radius: 10px; overflow: hidden; margin-top: 5px; }
-    .bar-fill { height: 100%; width: 50%; background: linear-gradient(90deg, #38bdf8, #22c55e); transition: width 0.3s; }
+    /* Hydration Bar */
+    .bar-track { width: 150px; height: 10px; background: #0f172a; border-radius: 5px; overflow: hidden; border: 1px solid #333; }
+    .bar-fill { height: 100%; width: 50%; background: linear-gradient(90deg, #38bdf8, #00ff9d); transition: width 0.3s; }
 
-    /* 🔥 แก้ไข: เป้าเล็งแบบ Red Dot (เห็นชัดแน่นอน) */
-    #crosshair {
-      position: absolute; 
-      top: 50%; left: 50%; 
-      transform: translate(-50%, -50%);
-      
-      /* จุดแดงตรงกลาง */
-      width: 8px; height: 8px;
-      background-color: #ef4444; /* สีแดงสด */
-      border: 2px solid white;     /* ขอบขาว */
-      border-radius: 50%;
-      box-shadow: 0 0 10px rgba(255, 0, 0, 0.8); /* แสงฟุ้งสีแดง */
-      
-      z-index: 999; /* อยู่บนสุด */
-    }
-    
-    /* วงกลมรอบเป้า (Crosshair Outer Ring) */
-    #crosshair::after {
-      content: '';
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 30px; height: 30px;
-      border: 2px solid rgba(255, 255, 255, 0.5);
-      border-radius: 50%;
-    }
-
-    .hud-bot { padding: 20px; text-align: center; }
+    /* Bottom Coach */
+    .hud-bot { padding: 30px; text-align: center; }
     .coach-pill {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: var(--bg-card); border: 1px solid #38bdf8;
-      padding: 8px 20px; border-radius: 50px; color: #fff; font-size: 14px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      display: inline-flex; align-items: center; gap: 10px;
+      background: rgba(0,0,0,0.8); border: 2px solid var(--accent);
+      padding: 10px 25px; border-radius: 50px; color: #fff; font-size: 16px; font-weight: bold;
+      box-shadow: 0 0 20px rgba(0, 255, 157, 0.2);
     }
 
+    /* Game Over */
     #game-over {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95);
       z-index: 200; align-items: center; justify-content: center; flex-direction: column;
-      animation: fadeIn 0.5s;
     }
     .btn-restart { 
-      padding: 14px 40px; font-size: 18px; background: var(--accent); color: #000;
-      border: none; border-radius: 12px; cursor: pointer; font-weight: 800; margin-top: 20px;
+      padding: 15px 50px; font-size: 20px; background: var(--accent); color: #000;
+      border: none; border-radius: 50px; cursor: pointer; font-weight: 900; margin-top: 30px;
+      box-shadow: 0 0 20px var(--accent); text-transform: uppercase;
     }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
 <body>
@@ -96,13 +71,13 @@
         <div class="card pointer-auto">
           <div class="label">SCORE</div>
           <div class="val-big" id="ui-score">0</div>
-          <div style="font-size:12px; color:#facc15; margin-top:2px;" id="ui-combo">Combo: x0</div>
+          <div style="font-size:12px; color:#facc15; margin-top:4px;" id="ui-combo">Combo: x0</div>
         </div>
         
         <div class="quest-box pointer-auto">
-          <div class="label" style="color:#22c55e;">CURRENT OBJECTIVE</div>
-          <div id="ui-goal" style="font-size:13px; font-weight:bold; color:#fff;">Loading...</div>
-          <div id="ui-mini" style="font-size:10px; background:#334155; color:#cbd5e1; padding:2px 6px; border-radius:4px; display:inline-block; margin-top:4px;">...</div>
+          <div class="label" style="color:var(--accent);">MISSION</div>
+          <div id="ui-goal" style="font-size:14px; font-weight:bold; color:#fff;">Target Locked</div>
+          <div id="ui-mini" style="font-size:11px; color:#cbd5e1; margin-top:2px;">Find & Shoot 💧</div>
         </div>
       </div>
 
@@ -113,44 +88,56 @@
       </div>
     </div>
     
-    <div id="crosshair"></div>
-
     <div class="hud-bot">
       <div class="coach-pill pointer-auto">
-        <span style="font-size:20px;">🤖</span>
-        <span id="ui-coach">Welcome! Find 💧 to survive.</span>
+        <span style="font-size:24px;">🎯</span>
+        <span id="ui-coach">Look around & Tap to Shoot!</span>
       </div>
     </div>
   </div>
 
   <div id="game-over">
-    <div class="label" style="font-size:14px; margin-bottom:10px;">MISSION RESULT</div>
-    <h1 style="color:white; font-size:40px; margin:0 0 20px 0;">GAME OVER</h1>
-    <div class="card" style="text-align:center; min-width:200px;">
+    <h1 style="color:white; font-size:50px; margin:0; text-shadow: 0 0 20px red;">DEHYDRATED</h1>
+    <p style="color:#aaa; font-size:18px;">MISSION FAILED</p>
+    <div class="card" style="text-align:center; min-width:200px; margin-top:20px;">
       <div class="label">FINAL SCORE</div>
-      <div class="val-big" id="end-score" style="color:var(--accent);">0</div>
+      <div class="val-big" id="end-score">0</div>
     </div>
-    <button class="btn-restart pointer-auto" onclick="location.reload()">PLAY AGAIN</button>
+    <button class="btn-restart pointer-auto" onclick="location.reload()">TRY AGAIN</button>
   </div>
 
-  <a-scene background="color: #1a202c" renderer="antialias: true">
+  <a-scene background="color: #050505" renderer="antialias: true">
     
-    <a-sky color="#1e293b"></a-sky>
-
-    <a-grid helper geometry="primitive: plane; width: 60; height: 60" rotation="-90 0 0" material="src: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAKrVq36zwjjgzj//v37zwjjgzj//v37zwAA9c4Vr9F3E44AAAAASUVORK5CYII=); repeat: 30 30; opacity: 0.2; color: #38bdf8; transparent: true"></a-grid>
+    <a-grid helper geometry="primitive: plane; width: 100; height: 100" 
+            rotation="-90 0 0" position="0 -1 0"
+            material="src: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAKrVq36zwjjgzj//v37zwjjgzj//v37zwAA9c4Vr9F3E44AAAAASUVORK5CYII=); repeat: 80 80; opacity: 0.3; color: #00ff9d; transparent: true"></a-grid>
+    
+    <a-sky color="#0b1026"></a-sky>
 
     <a-entity id="rig" position="0 0 0">
       <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true">
-        <a-entity cursor="fuse: false" 
+        
+        <a-entity cursor="fuse: false"
                   position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.001; radiusOuter: 0.002"
-                  material="color: white; shader: flat; opacity: 0"
+                  geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                  material="color: #00ff9d; shader: flat; opacity: 0.9"
                   raycaster="objects: .clickable; far: 20">
+          
+          <a-entity geometry="primitive: circle; radius: 0.005" material="color: white; shader: flat"></a-entity>
+          
+          <a-animation attribute="scale" begin="click" from="0.5 0.5 0.5" to="1 1 1" dur="150"></a-animation>
+          <a-animation attribute="material.color" begin="mouseenter" to="#ff0055" dur="100"></a-animation>
+          <a-animation attribute="material.color" begin="mouseleave" to="#00ff9d" dur="100"></a-animation>
         </a-entity>
+
       </a-camera>
     </a-entity>
     
     <a-entity id="playfield"></a-entity>
+
+    <a-entity light="type: ambient; color: #fff; intensity: 0.5"></a-entity>
+    <a-entity light="type: directional; color: #00ff9d; intensity: 0.8; position: -1 1 0"></a-entity>
+
   </a-scene>
 
   <script>
@@ -162,8 +149,6 @@
       combo: document.getElementById('ui-combo'),
       waterBar: document.getElementById('ui-water-bar'),
       waterTxt: document.getElementById('ui-water-txt'),
-      goal: document.getElementById('ui-goal'),
-      mini: document.getElementById('ui-mini'),
       coach: document.getElementById('ui-coach')
     };
 
@@ -173,59 +158,62 @@
       el.waterBar.style.width = state.water + "%";
       el.waterTxt.innerText = Math.floor(state.water) + "%";
       
-      if(state.water <= 20) el.waterBar.style.background = "#ef4444"; 
-      else el.waterBar.style.background = "linear-gradient(90deg, #38bdf8, #22c55e)";
+      if(state.water <= 20) el.waterBar.style.background = "#ef4444";
+      else el.waterBar.style.background = "linear-gradient(90deg, #38bdf8, #00ff9d)";
     }
 
-    function setQuest(main, mini) {
-      el.goal.innerText = main;
-      el.mini.innerText = mini;
-      el.mini.style.display = mini ? 'inline-block' : 'none';
-    }
-
-    function spawnEmoji() {
+    function spawnTarget() {
       if(!state.playing) return;
 
       const ent = document.createElement('a-entity');
       
-      // สุ่มตำแหน่งรอบๆ
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 3; 
+      // Random Position (Front-focused)
+      const angle = (Math.random() * 120 - 60) * (Math.PI / 180); // จำกัดมุมแค่ด้านหน้า -60 ถึง 60 องศา จะได้หาง่าย
+      const dist = 3.5; 
       const x = Math.sin(angle) * dist;
-      const y = 1.2 + Math.random() * 0.8; 
+      const y = 1.0 + Math.random() * 1.5; 
       const z = -Math.cos(angle) * dist;
 
       ent.setAttribute('position', {x, y, z});
       
-      // Emoji Text 💧
-      ent.setAttribute('text', { value: '💧', align: 'center', width: 10, color: '#38bdf8' });
-      ent.setAttribute('scale', '0 0 0'); 
+      // Emoji 💧 (ทำให้ใหญ่ขึ้น)
+      ent.setAttribute('text', { 
+        value: '💧', 
+        align: 'center', 
+        width: 15, // เพิ่มขนาด Font
+        color: '#38bdf8',
+        shader: 'msdf'
+      });
+      ent.setAttribute('scale', '0 0 0');
       
-      // Hitbox
-      ent.setAttribute('geometry', 'primitive: plane; width: 0.8; height: 0.8'); // ขยาย Hitbox ให้ใหญ่ขึ้นอีกนิด
+      // Hitbox (แผ่นใสรองหลัง - ทำให้ใหญ่ขึ้นอีก จะได้ยิงง่ายๆ)
+      ent.setAttribute('geometry', 'primitive: plane; width: 1.2; height: 1.2');
       ent.setAttribute('material', 'opacity: 0.0; transparent: true');
-      ent.setAttribute('class', 'clickable'); 
+      ent.setAttribute('class', 'clickable'); // สำคัญ! ต้องตรงกับ Raycaster
 
+      // Look At Player
       ent.object3D.lookAt(0, 1.6, 0);
 
-      ent.setAttribute('animation', 'property: scale; to: 5 5 5; dur: 600; easing: easeOutElastic');
+      // Animation Spawn
+      ent.setAttribute('animation', 'property: scale; to: 6 6 6; dur: 800; easing: easeOutElastic');
 
       // Click Event
       ent.addEventListener('click', () => {
         if(!state.playing) return;
         state.score += 100 + (state.combo * 10);
         state.combo++;
-        state.water = Math.min(100, state.water + 5);
+        state.water = Math.min(100, state.water + 8);
         updateUI();
 
         // Splash 💦
-        ent.setAttribute('text', { value: '💦', color: '#FFF' });
-        ent.setAttribute('animation__die', 'property: scale; to: 8 8 8; dur: 150');
+        ent.setAttribute('text', { value: '💦', color: '#fff' });
+        ent.setAttribute('animation__die', 'property: scale; to: 10 10 10; dur: 150');
         ent.setAttribute('animation__fade', 'property: text.opacity; to: 0; dur: 150');
+        
         setTimeout(() => { if(ent.parentNode) ent.parentNode.removeChild(ent); }, 150);
       });
 
-      // Auto Destroy
+      // Auto Destroy (Miss)
       setTimeout(() => {
         if(ent.parentNode) {
           ent.setAttribute('animation__miss', 'property: scale; to: 0 0 0; dur: 300');
@@ -236,21 +224,23 @@
             }
           }, 300);
         }
-      }, 3000);
+      }, 2500); // 2.5 วินาทีหาย
 
       document.getElementById('playfield').appendChild(ent);
     }
 
+    // Start
     window.addEventListener('load', () => {
-      console.log("System Ready");
-      setQuest("Collect Water 💧", "Tap screen to shoot");
-      el.coach.innerText = "Aim with Red Dot & Tap!";
+      console.log("Neon System Ready");
+      el.coach.innerText = "Aim with the Green Circle!";
+      
+      // Spawn Loop
+      gameLoop = setInterval(spawnTarget, 1000); // มาเร็วขึ้น (ทุก 1 วิ)
 
-      gameLoop = setInterval(spawnEmoji, 1200);
-
+      // Decay Loop
       setInterval(() => {
         if(state.playing) {
-          state.water -= 0.8;
+          state.water -= 1;
           if(state.water <= 0) {
             state.playing = false;
             document.getElementById('end-score').innerText = state.score;
@@ -261,6 +251,9 @@
         }
       }, 1000);
     });
+    
+    // Support Touch for mobile
+    window.addEventListener('touchstart', function() {});
   </script>
 </body>
 </html>
