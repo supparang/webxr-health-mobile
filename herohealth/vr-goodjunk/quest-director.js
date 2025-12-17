@@ -1,9 +1,12 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
 // Quest Director (Goals + Mini Quests) — HeroHealth
-// FIX: ROOT defined, and supports defs style:
+// FIX: ROOT defined
+// NEW: supports endOnly (evaluate done only at finalize)
+//
+// defs style:
 //   - target: number | (ctx)=>number
-//   - progress: (state, ctx)=>number   (alias of getProgress)
-//   - done: (state, prog, target, ctx)=>boolean (alias of isDone)
+//   - progress / getProgress: (state, ctx)=>number
+//   - done / isDone: (state, prog, target, ctx)=>boolean
 //
 // Mini quest = ต่อเนื่องทีละอัน (ทำจบแล้วเลื่อนไปอันถัดไป)
 
@@ -51,7 +54,10 @@ function normalizeDef(def, fallbackId){
     isDone:
       (typeof d.isDone === 'function') ? d.isDone :
       (typeof d.done === 'function') ? d.done :
-      null
+      null,
+
+    // NEW: endOnly => do not mark done during live update; decide only at finalize()
+    endOnly: !!d.endOnly
   };
 }
 
@@ -126,10 +132,19 @@ export function makeQuestDirector(opts = {}){
   function currentGoal(){ return pickedGoals[goalIdx] || null; }
   function currentMini(){ return pickedMinis[miniIdx] || null; }
 
-  function updateOne(item, state){
+  // NEW: finalPass flag
+  function updateOne(item, state, finalPass=false){
     if (!item || item.done) return item;
+
     const progRaw = resolveProgress(item._def, state, ctx);
     item.prog = Math.max(0, Math.floor(Number(progRaw) || 0));
+
+    // ✅ endOnly: ไม่ให้ “ผ่านทันทีตอนเริ่มเกม/ระหว่างเล่น”
+    if (item._def && item._def.endOnly && !finalPass){
+      item.done = false;
+      return item;
+    }
+
     item.done = resolveDone(item._def, state, item.prog, item.target, ctx);
     return item;
   }
@@ -186,8 +201,11 @@ export function makeQuestDirector(opts = {}){
   function start(initialState = {}){
     started = true;
 
-    for (const g of pickedGoals) updateOne(g, initialState);
-    if (pickedMinis[0]) updateOne(pickedMinis[0], initialState);
+    // goals: อัปเดตค่า progress ได้ แต่ endOnly จะยังไม่ done
+    for (const g of pickedGoals) updateOne(g, initialState, false);
+
+    // minis: เริ่มที่ตัวแรก
+    if (pickedMinis[0]) updateOne(pickedMinis[0], initialState, false);
 
     advanceIfDone();
     emitUpdate(buildPayload());
@@ -197,10 +215,10 @@ export function makeQuestDirector(opts = {}){
     if (!started) return;
 
     const g = currentGoal();
-    if (g) updateOne(g, state);
+    if (g) updateOne(g, state, false);
 
     const m = currentMini();
-    if (m) updateOne(m, state);
+    if (m) updateOne(m, state, false);
 
     const beforeG = goalIdx;
     const beforeM = miniIdx;
@@ -209,21 +227,24 @@ export function makeQuestDirector(opts = {}){
 
     if (goalIdx !== beforeG){
       const g2 = currentGoal();
-      if (g2) updateOne(g2, state);
+      if (g2) updateOne(g2, state, false);
     }
     if (miniIdx !== beforeM){
       const m2 = currentMini();
-      if (m2) updateOne(m2, state);
+      if (m2) updateOne(m2, state, false);
     }
 
     emitUpdate(buildPayload());
   }
 
   function finalize(finalState = {}){
-    for (const g of pickedGoals) updateOne(g, finalState);
-    for (const m of pickedMinis) updateOne(m, finalState);
+    // ✅ ตอนจบเท่านั้น: endOnly จะถูกตัดสินจริง
+    for (const g of pickedGoals) updateOne(g, finalState, true);
+    for (const m of pickedMinis) updateOne(m, finalState, true);
+
     advanceIfDone();
     const p = buildPayload();
+
     return {
       goalsCleared: p.goalsCleared|0,
       goalsTotal: p.goalsTotal|0,
