@@ -215,6 +215,7 @@
       z-index:30;
     }
 
+    /* เป้า emoji (presentational) */
     .hvr-target{
       position:absolute;
       transform:translate(-50%,-50%);
@@ -233,7 +234,6 @@
       cursor:pointer;
       transition:transform .08s ease-out, box-shadow .12s ease-out;
 
-      /* ✅ กันโดนทับ */
       z-index:35;
     }
     .hvr-target.bad{
@@ -250,6 +250,7 @@
         0 10px 24px rgba(0,0,0,0.85);
     }
 
+    /* วงเล็งกลางจอ (fixed) */
     .hvr-crosshair{
       position:fixed;
       left:50%;
@@ -364,7 +365,6 @@
       text-decoration:none;
       box-shadow:0 14px 32px rgba(15,23,42,0.95);
     }
-
     .hha-btn-vr span.emoji{ font-size:18px; }
 
     @media (min-width:900px){
@@ -442,6 +442,7 @@
     </article>
   </section>
 
+  <!-- ✅ โซนเล่นจริง (targets จะ spawn ลงในนี้ เมื่อ hydration.safe.js ส่ง spawnHost มา) -->
   <main id="hvr-playfield"></main>
 
   <div id="hvr-crosshair" class="hvr-crosshair">○</div>
@@ -481,10 +482,12 @@
   </a>
 </div>
 
+<!-- ===== Scripts (global HUD / FX) ===== -->
 <script src="./vr/particles.js"></script>
 <script src="./vr/ui-fever.js"></script>
 <script src="./vr/hha-hud.js"></script>
 
+<!-- ===== Boot Hydration VR (module) ===== -->
 <script type="module">
   import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
 
@@ -496,6 +499,21 @@
     if (time < 20) time = 20;
     if (time > 180) time = 180;
     return { diff, time };
+  }
+
+  // ✅ ดูจำนวน target ที่โผล่ ทั้งใน playfield และ overlay (กันสับสน)
+  function watchdogTargets(tag = '') {
+    const pf = document.getElementById('hvr-playfield');
+    const nPf = pf ? pf.querySelectorAll('.hvr-target').length : 0;
+
+    const ov = document.getElementById('hvr-overlay-host');
+    const nOv = ov ? ov.querySelectorAll('.hvr-target').length : 0;
+
+    console.log(`[HydrationVR] ${tag} targets -> playfield=${nPf} overlay=${nOv}`);
+
+    if (nPf === 0 && nOv === 0) {
+      console.warn('[HydrationVR] No targets anywhere -> ตรวจ import path / mode-factory / console error');
+    }
   }
 
   window.addEventListener('DOMContentLoaded', async () => {
@@ -511,22 +529,9 @@
         duration: time
       });
 
-      // ✅ watchdog: บอกทันทีว่า spawn หรือไม่ spawn
-      setTimeout(() => {
-        const pf = document.getElementById('hvr-playfield');
-        const n = pf ? pf.querySelectorAll('.hvr-target').length : 0;
-        console.log('[HydrationVR] targets in playfield =', n);
-
-        if (n === 0) {
-          console.warn('[HydrationVR] No targets spawned. -> mode-factory.js ยังไม่เอา container/spawnLayer ไปใช้ หรือยังไม่เริ่ม spawn');
-        } else {
-          const t = pf.querySelector('.hvr-target');
-          if (t) console.log('[HydrationVR] first target opacity/transform =',
-            getComputedStyle(t).opacity,
-            getComputedStyle(t).transform
-          );
-        }
-      }, 2500);
+      // watchdog after boot
+      setTimeout(() => watchdogTargets('after-boot(2.2s)'), 2200);
+      setTimeout(() => watchdogTargets('after-boot(5.0s)'), 5000);
 
     } catch (err) {
       console.error('[HydrationVR] boot error', err);
@@ -534,6 +539,14 @@
     }
   });
 </script>
+
+<!--
+IMPORTANT:
+เพื่อให้เป้า “โผล่ใน #hvr-playfield และเลื่อนตามหน้า”
+ต้องแก้ hydration.safe.js ให้ส่ง:
+  spawnHost: '#hvr-playfield'
+เข้า factoryBoot(...) (mode-factory.js) ด้วย
+-->
 
 </body>
 </html>
