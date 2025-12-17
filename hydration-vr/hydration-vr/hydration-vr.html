@@ -170,7 +170,7 @@
   </div>
 
   <script>
-    // --- PART 1: TOUCH LOOK CONTROL ---
+    // --- PART 1: TOUCH LOOK CONTROL (กลไกหมุนกล้อง) ---
     function attachTouchLook(cameraEl, options = {}) {
       if (!cameraEl) return;
       const sensitivity = options.sensitivity || 0.25;
@@ -224,7 +224,7 @@
       applyRotationNow();
     }
 
-    // --- PART 2: GAME LOGIC ---
+    // --- PART 2: GAME LOGIC (ระบบเกม) ---
     let state = { score: 0, combo: 0, maxCombo: 0, waterPct: 50, feverVal: 0, feverActive: false, isPlaying: false, timeLeft: 0 };
     const CFG = { decayRate: 0.8, feverThreshold: 100, spawnInterval: 1000 };
     let timerInterval = null, gameLoopInterval = null;
@@ -332,7 +332,7 @@
       }, 1000);
     }
 
-    // --- PART 3: MAIN EXECUTION ---
+    // --- PART 3: START (เริ่มทำงาน) ---
     // Camera Control
     const cameraEl = document.getElementById('gj-camera');
     if(cameraEl) attachTouchLook(cameraEl, { sensitivity: 0.35, ignoreSelector: '.pointer-auto' });
@@ -413,7 +413,7 @@
     window.addEventListener('mousedown', () => onInteract(true)); window.addEventListener('mouseup', () => onInteract(false));
     window.addEventListener('touchstart', () => onInteract(true)); window.addEventListener('touchend', () => onInteract(false));
 
-    // START GAME
+    // START GAME (เริ่มเกม)
     boot({ difficulty: 'normal', duration: 180 });
   </script>
 </body>
