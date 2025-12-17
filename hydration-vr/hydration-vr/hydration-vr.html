@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-  <title>Hero Health - Neon Mode</title>
+  <title>Hero Health - Crystal Water</title>
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 
   <style>
     /* --- THEME --- */
-    :root { --accent: #00ffff; --bg-card: rgba(0, 10, 20, 0.9); }
+    :root { --accent: #00ffff; --bg-card: rgba(0, 20, 40, 0.85); }
     body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; user-select: none; }
     
     #ui-layer {
@@ -18,22 +19,23 @@
     }
     .pointer-auto { pointer-events: auto; }
 
-    /* HUD */
+    /* Top HUD */
     .hud-top { padding: 15px; display: flex; justify-content: space-between; align-items: flex-start; }
     
     .card {
       background: var(--bg-card); padding: 10px 16px; border-radius: 12px;
-      border: 1px solid var(--accent); color: white;
-      box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+      border: 1px solid rgba(0, 255, 255, 0.3); color: white;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
     }
-    .label { font-size: 10px; color: #ccc; font-weight: bold; }
-    .val-big { font-size: 26px; font-weight: 800; color: var(--accent); text-shadow: 0 0 10px var(--accent); }
+    .label { font-size: 10px; color: #94a3b8; font-weight: bold; letter-spacing: 1px; }
+    .val-big { font-size: 26px; font-weight: 800; color: var(--accent); }
     
     .quest-box {
-      background: rgba(0,0,0,0.6);
-      border-left: 4px solid var(--accent);
-      padding: 8px 12px; border-radius: 4px; margin-top: 8px;
-      color: white; pointer-events: auto;
+      background: linear-gradient(90deg, rgba(0, 60, 100, 0.8), transparent);
+      border-left: 4px solid #38bdf8;
+      padding: 8px 12px; border-radius: 4px; margin-top: 6px; color: white;
+      pointer-events: auto;
     }
 
     /* Crosshair */
@@ -52,7 +54,6 @@
       display: inline-flex; align-items: center; gap: 10px;
       background: rgba(0,0,0,0.8); border: 1px solid var(--accent);
       padding: 10px 25px; border-radius: 50px; color: #fff; font-size: 16px;
-      box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
     }
 
     /* Game Over */
@@ -76,13 +77,13 @@
           <div class="val-big" id="ui-score">0</div>
         </div>
         <div class="quest-box">
-          <div class="label" style="color:#00ffff;">MISSION</div>
-          <div style="font-size:14px; font-weight:bold;">Shoot Neon Orbs 🔵</div>
+          <div class="label" style="color:#38bdf8;">MISSION</div>
+          <div style="font-size:14px; font-weight:bold;">Collect Water Crystals 💎</div>
         </div>
       </div>
       <div class="card pointer-auto" style="text-align:right;">
-        <div class="label">WATER</div>
-        <div class="val-big" id="ui-water">50%</div>
+        <div class="label">HYDRATION</div>
+        <div class="val-big" id="ui-water" style="color:#38bdf8;">50%</div>
       </div>
     </div>
     
@@ -90,26 +91,27 @@
 
     <div class="hud-bot">
       <div class="coach-pill pointer-auto">
-        Tap the GLOWING balls! ✨
+        Tap the Blue Crystals! 🔵
       </div>
     </div>
   </div>
 
   <div id="game-over">
-    <h1 style="color:white; margin-bottom:10px;">GAME OVER</h1>
+    <h1 style="color:white; margin:0 0 10px 0;">GAME OVER</h1>
     <p style="color:#aaa;">Score: <span id="end-score">0</span></p>
-    <button class="btn-restart pointer-auto" onclick="location.reload()">REPLAY</button>
+    <button class="btn-restart pointer-auto" onclick="location.reload()">PLAY AGAIN</button>
   </div>
 
-  <a-scene background="color: #050510">
-    <a-entity light="type: ambient; color: #fff; intensity: 1.0"></a-entity>
+  <a-scene background="color: #0f172a">
+    <a-entity light="type: ambient; color: #fff; intensity: 0.6"></a-entity>
+    <a-entity light="type: directional; color: #00ffff; intensity: 0.8; position: 1 2 1"></a-entity>
     
     <a-grid helper geometry="primitive: plane; width: 60; height: 60" 
             rotation="-90 0 0" position="0 -1 0"
             material="src: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAKrVq36zwjjgzj//v37zwjjgzj//v37zwAA9c4Vr9F3E44AAAAASUVORK5CYII=); repeat: 30 30; opacity: 0.15; color: #00ffff; transparent: true">
     </a-grid>
 
-    <a-sky color="#050510"></a-sky>
+    <a-sky color="#0f172a"></a-sky>
 
     <a-entity id="rig" position="0 0 0">
       <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true">
@@ -135,19 +137,28 @@
 
       ent.setAttribute('position', {x, y, z});
       
-      // 🔥 แก้ไข Material ให้เรืองแสง (Emissive)
-      // color: #fff (แกนกลางสีขาว)
-      // emissive: #00ffff (แสงรอบๆ สีฟ้า)
-      // emissiveIntensity: 1 (ความแรงแสงสูงสุด)
-      // metalness: 0 (เอาความเงาออก จะได้ไม่สะท้อนสีดำ)
+      // 🔥 ปรับจูน Material ให้ออกมาเป็น "Crystal Blue"
+      // color: สีฟ้าหลัก
+      // emissive: สีน้ำเงินเข้ม (เรืองแสงอ่อนๆ ไม่แยงตา)
+      // metalness: เงาวาวแบบโลหะ
+      // opacity: 0.9 (โปร่งแสงนิดเดียว)
       ent.setAttribute('geometry', 'primitive: sphere; radius: 0.4');
-      ent.setAttribute('material', 'color: #ffffff; emissive: #00ffff; emissiveIntensity: 1.0; metalness: 0; roughness: 1');
+      ent.setAttribute('material', {
+        color: '#00ffff',
+        emissive: '#0044aa',     
+        emissiveIntensity: 0.6,
+        metalness: 0.6,
+        roughness: 0.2,
+        opacity: 0.9,
+        transparent: true
+      });
       
       ent.setAttribute('class', 'clickable'); 
 
-      // Animation: เกิด + ลอยขึ้นลง
-      ent.setAttribute('animation__spawn', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 500; easing: easeOutElastic');
-      ent.setAttribute('animation__float', 'property: position; to: ' + x + ' ' + (y+0.3) + ' ' + z + '; dir: alternate; loop: true; dur: 1500; easing: easeInOutSine');
+      // Animation: เกิดแบบเด้งดึ๋ง
+      ent.setAttribute('animation__spawn', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 600; easing: easeOutElastic');
+      // Animation: ลอยตุ๊บป่อง
+      ent.setAttribute('animation__float', 'property: position; to: ' + x + ' ' + (y+0.25) + ' ' + z + '; dir: alternate; loop: true; dur: 1800; easing: easeInOutSine');
 
       ent.addEventListener('click', () => {
         if(!state.playing) return;
@@ -157,13 +168,21 @@
         document.getElementById('ui-score').innerText = state.score;
         document.getElementById('ui-water').innerText = Math.floor(state.water) + "%";
         
-        // Effect แตกกระจาย (แสงวาบสีขาว)
-        ent.setAttribute('material', 'emissive: #ffffff; emissiveIntensity: 2');
-        ent.setAttribute('animation__die', 'property: scale; to: 2 2 2; dur: 100');
-        setTimeout(() => { if(ent.parentNode) ent.parentNode.removeChild(ent); }, 100);
+        // Effect แตกกระจาย (เปลี่ยนเป็นสีขาวสว่างวาบ แล้วดับไป)
+        ent.setAttribute('material', { color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 2 });
+        ent.setAttribute('animation__die', 'property: scale; to: 2 2 2; dur: 150');
+        ent.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 150');
+        
+        setTimeout(() => { if(ent.parentNode) ent.parentNode.removeChild(ent); }, 150);
       });
 
-      setTimeout(() => { if(ent.parentNode) ent.parentNode.removeChild(ent); }, 3000);
+      // หายไปเองใน 3 วิ
+      setTimeout(() => { 
+        if(ent.parentNode) {
+          ent.setAttribute('animation__shrink', 'property: scale; to: 0 0 0; dur: 500');
+          setTimeout(() => { if(ent.parentNode) ent.parentNode.removeChild(ent); }, 500);
+        }
+      }, 3000);
 
       document.getElementById('playfield').appendChild(ent);
     }
@@ -179,7 +198,7 @@
             document.getElementById('game-over').style.display = 'flex';
           }
           document.getElementById('ui-water').innerText = Math.floor(state.water) + "%";
-          document.getElementById('ui-water').style.color = state.water < 30 ? '#ff0055' : '#00ffff';
+          document.getElementById('ui-water').style.color = state.water < 30 ? '#ef4444' : '#38bdf8';
         }
       }, 1000);
     });
