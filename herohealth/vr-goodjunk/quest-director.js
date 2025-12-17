@@ -2,19 +2,20 @@
 // Generic Quest Director สำหรับ Good vs Junk VR
 // ใช้ร่วมกับ quest-defs-goodjunk.js และ HUD ที่ฟัง event 'quest:update'
 //
-// ปรับแล้ว:
-// - goalsAll/minisAll ส่ง "รายการทั้งหมด" (รวม done) เพื่อให้ HUD นับ cleared ได้จริง
-// - mini quest ทำต่อเนื่อง (ทำเสร็จแล้วสุ่มอันใหม่) จนครบ maxMini หรือหมดเวลา
-// - missMax ตัดสินตอนจบด้วย finalize(state)
-// - summary() ใช้ค่าจริงสำหรับ hha:end
+// ✅ ปรับแล้ว:
+// - goalsAll/minisAll ส่ง "รายการทั้งหมดที่ถูกสุ่มขึ้นมา" (รวม done) ให้ HUD นับ cleared ได้จริง
+// - mini quest ทำต่อเนื่อง: ทำเสร็จแล้วสุ่มอันใหม่จนกว่าจะครบ maxMini หรือหมดเวลา
+// - missMax ไม่ mark done ระหว่างเกม (กันแสดงว่า "ครบ" ตั้งแต่ยังไม่จบ) → ตัดสินตอน finalize(state)
+// - start() จะปล่อย quest:update ที่มี goal/mini จริง (ไม่ใช่ null)
+// - update() จะปล่อย quest:update ต่อเนื่อง พร้อม current + รายการทั้งหมด
 //
-// state ที่คาดหวัง: { score, goodHits, miss, comboMax, timeLeft }
+// state ที่คาดหวังจาก GameEngine: { score, goodHits, miss, comboMax, timeLeft }
 
 'use strict';
 
 // สุ่มลำดับ array แบบง่าย ๆ
 function shuffle(arr) {
-  const a = arr.slice();
+  const a = (arr || []).slice();
   for (let i = a.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
     [a[i], a[j]] = [a[j], a[i]];
@@ -42,15 +43,30 @@ function tierKey(diff) {
 // แปลง definition → instance พร้อม target ตามระดับความยาก
 function makeInstance(def, diff) {
   const k = tierKey(diff);
+  const target = (def && typeof def[k] === 'number') ? def[k] : 0;
   return {
     id: def.id,
     label: def.label,
     kind: def.kind,   // 'score' | 'goodHits' | 'missMax' | 'combo'
-    target: def[k],
+    target,
     prog: 0,
     done: false,
+
     // สำหรับ missMax: ตัดสินตอนท้าย (pass/fail)
     pass: null
+  };
+}
+
+function asHudItem(inst) {
+  if (!inst) return null;
+  return {
+    id: inst.id,
+    label: inst.label,
+    kind: inst.kind,
+    target: inst.target | 0,
+    prog: inst.prog | 0,
+    done: !!inst.done,
+    pass: (inst.pass === null ? null : !!inst.pass)
   };
 }
 
@@ -78,32 +94,18 @@ export function makeQuestDirector({
   const goalsAll = [];
   const minisAll = [];
 
-  let timeLeft = 60; // จะอัปเดตจาก state ภายนอก
+  let timeLeft = 60;
   let ended = false;
 
-  // ส่งข้อมูลไป HUD ผ่าน event 'quest:update'
+  // ===== HUD emitter =====
   function emitHUD(hintText = '') {
     const detail = {
-      goal: currentGoal ? {
-        id:     currentGoal.id,
-        label:  currentGoal.label,
-        prog:   currentGoal.prog | 0,
-        target: currentGoal.target | 0,
-        done:   !!currentGoal.done,
-        kind:   currentGoal.kind
-      } : null,
-      mini: currentMini ? {
-        id:     currentMini.id,
-        label:  currentMini.label,
-        prog:   currentMini.prog | 0,
-        target: currentMini.target | 0,
-        done:   !!currentMini.done,
-        kind:   currentMini.kind
-      } : null,
+      goal: asHudItem(currentGoal),
+      mini: asHudItem(currentMini),
 
-      // ✅ ส่ง "รายการทั้งหมด" ไม่ใช่แค่ current
-      goalsAll: goalsAll.slice(),
-      minisAll: minisAll.slice(),
+      // ✅ ส่งรายการทั้งหมด (รวม done)
+      goalsAll: goalsAll.map(asHudItem),
+      minisAll: minisAll.map(asHudItem),
 
       hint: hintText || ''
     };
@@ -113,10 +115,9 @@ export function makeQuestDirector({
     } catch (_) {}
   }
 
-  function pickDef(defs, order, idx) {
+  function pickDef(order, idx) {
     if (!order || order.length === 0) return null;
-    const base = order[idx % order.length];
-    return base || null;
+    return order[idx % order.length] || null;
   }
 
   function nextGoal() {
@@ -127,7 +128,7 @@ export function makeQuestDirector({
       return;
     }
 
-    const base = pickDef(goalDefs, goalOrder, goalIdx++);
+    const base = pickDef(goalOrder, goalIdx++);
     if (!base) {
       currentGoal = null;
       emitHUD();
@@ -137,7 +138,7 @@ export function makeQuestDirector({
     currentGoal = makeInstance(base, diff);
     goalsAll.push(currentGoal);
 
-    emitHUD('โฟกัส Goal ใหม่ด้านขวาบน 👀');
+    emitHUD('Goal ใหม่มาแล้ว 👀');
     coach(`Goal ใหม่: ${currentGoal.label}`);
   }
 
@@ -149,7 +150,7 @@ export function makeQuestDirector({
       return;
     }
 
-    const base = pickDef(miniDefs, miniOrder, miniIdx++);
+    const base = pickDef(miniOrder, miniIdx++);
     if (!base) {
       currentMini = null;
       emitHUD();
@@ -166,30 +167,29 @@ export function makeQuestDirector({
   // แปลง state → progress ตาม kind
   function evalInst(inst, state) {
     if (!inst || inst.done) return;
+    const st = state || {};
 
-    const kind = inst.kind;
+    if (inst.kind === 'score') {
+      inst.prog = st.score | 0;
 
-    if (kind === 'score') {
-      inst.prog = state.score | 0;
+    } else if (inst.kind === 'goodHits') {
+      inst.prog = st.goodHits | 0;
 
-    } else if (kind === 'goodHits') {
-      inst.prog = state.goodHits | 0;
+    } else if (inst.kind === 'combo') {
+      inst.prog = st.comboMax | 0;
 
-    } else if (kind === 'combo') {
-      inst.prog = state.comboMax | 0;
-
-    } else if (kind === 'missMax') {
-      // แสดงเป็น "ใช้โควต้าไปแล้ว" (ยิ่งน้อยยิ่งดี)
-      const used = state.miss | 0;
+    } else if (inst.kind === 'missMax') {
+      // แสดงเป็น "ใช้โควต้าไปแล้วกี่ครั้ง" (ยิ่งน้อยยิ่งดี)
+      const used = st.miss | 0;
       inst.prog = Math.min(used, inst.target | 0);
-      // ✅ ยังไม่ตัดสิน done ที่นี่ (ค่อยตัดสินตอน finalize)
+      // ✅ ยังไม่ตัดสิน done ที่นี่
     }
   }
 
   function checkFinish(inst) {
     if (!inst || inst.done) return false;
 
-    // missMax: ตัดสินตอนท้ายเกมเท่านั้น
+    // ✅ missMax: ไม่ให้ผ่าน/ไม่ผ่านกลางเกม (กัน HUD โชว์ครบเฉย ๆ)
     if (inst.kind === 'missMax') return false;
 
     if ((inst.prog | 0) >= (inst.target | 0)) {
@@ -202,11 +202,8 @@ export function makeQuestDirector({
 
   function start(initialState) {
     ended = false;
-    if (initialState && typeof initialState.timeLeft === 'number') {
-      timeLeft = initialState.timeLeft;
-    }
 
-    // เคลียร์ (เผื่อ reuse)
+    // reset everything (เผื่อ reuse)
     goalsAll.length = 0;
     minisAll.length = 0;
     goalsCleared = 0;
@@ -216,17 +213,26 @@ export function makeQuestDirector({
     currentGoal = null;
     currentMini = null;
 
+    if (initialState && typeof initialState.timeLeft === 'number') {
+      timeLeft = initialState.timeLeft;
+    } else {
+      timeLeft = 60;
+    }
+
     nextGoal();
     nextMini();
+
+    // ✅ ทำให้ HUD มีค่าเริ่มต้นทันที (ไม่เป็น null -> “ครบแล้ว”)
+    emitHUD('เริ่มเกมแล้ว! ทำตาม Quest ด้านขวาบน 🎯');
   }
 
   function update(state) {
     if (ended) return;
-    if (!state) state = {};
+    const st = state || {};
 
-    if (typeof state.timeLeft === 'number') timeLeft = state.timeLeft;
+    if (typeof st.timeLeft === 'number') timeLeft = st.timeLeft;
 
-    // ถ้าหมดเวลา ให้หยุดหมุนภารกิจใหม่
+    // หมดเวลา → ไม่สุ่มภารกิจใหม่แล้ว แต่ยังส่ง HUD ได้
     if (timeLeft <= 0) {
       emitHUD('หมดเวลาแล้ว ⏱️');
       return;
@@ -234,7 +240,7 @@ export function makeQuestDirector({
 
     // ===== Goal =====
     if (currentGoal) {
-      evalInst(currentGoal, state);
+      evalInst(currentGoal, st);
       if (checkFinish(currentGoal)) {
         goalsCleared++;
         coach(`Goal ${goalsCleared}/${maxGoals} ผ่านแล้ว, Mini ${miniCleared}/${maxMini}`);
@@ -242,30 +248,27 @@ export function makeQuestDirector({
       }
     }
 
-    // ===== Mini =====
+    // ===== Mini (ต่อเนื่อง) =====
     if (currentMini) {
-      evalInst(currentMini, state);
+      evalInst(currentMini, st);
       if (checkFinish(currentMini)) {
         miniCleared++;
         coach(`Mini ${miniCleared}/${maxMini} ผ่านแล้ว, Goal ${goalsCleared}/${maxGoals}`);
-        if (timeLeft > 0) nextMini(); // ✅ ต่อเนื่องเรื่อย ๆ
+        if (timeLeft > 0) nextMini();
       }
     }
 
-    // ส่ง HUD ต่อเนื่อง
     emitHUD();
   }
 
   // ✅ ตัดสิน missMax ตอนจบเกม
-  // เรียกตอน GameEngine.stop(...) ก่อนยิง hha:end หรือก่อน summary()
   function finalize(state) {
     if (ended) return summary();
     ended = true;
 
-    if (!state) state = {};
-    const miss = state.miss | 0;
+    const st = state || {};
+    const miss = st.miss | 0;
 
-    // ตัดสินทุกภารกิจชนิด missMax ที่เคยสุ่มขึ้นมา
     function finalizeList(list, isGoalList) {
       for (const inst of list) {
         if (!inst || inst.done) continue;
@@ -274,19 +277,24 @@ export function makeQuestDirector({
         // ผ่านถ้า miss <= target
         const pass = miss <= (inst.target | 0);
         inst.pass = pass;
-        inst.done = pass; // ✅ mark done ถ้าผ่าน (ถ้าไม่ผ่านจะคง false)
 
+        // ✅ เฉพาะ "ผ่าน" เท่านั้นที่ถือว่า done
         if (pass) {
+          inst.done = true;
           if (isGoalList) goalsCleared++;
           else miniCleared++;
+        } else {
+          inst.done = false;
         }
+
+        // อัปเดต prog ให้สะท้อนตอนจบ
+        inst.prog = Math.min(miss, inst.target | 0);
       }
     }
 
     finalizeList(goalsAll, true);
     finalizeList(minisAll, false);
 
-    // เคลียร์ current ให้ HUD โชว์ว่า "ครบ/จบ" ได้สวย
     if (goalsCleared >= maxGoals) currentGoal = null;
     if (miniCleared >= maxMini) currentMini = null;
 
@@ -300,12 +308,11 @@ export function makeQuestDirector({
       goalsTotal: maxGoals,
       miniCleared,
       miniTotal: maxMini,
-      goalsAll: goalsAll.slice(),
-      minisAll: minisAll.slice()
+      goalsAll: goalsAll.map(asHudItem),
+      minisAll: minisAll.map(asHudItem)
     };
   }
 
-  // alias เผื่อชอบชื่อ end()
   function end(state){ return finalize(state); }
 
   return { start, update, finalize, end, summary };
