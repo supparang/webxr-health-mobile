@@ -1,269 +1,242 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
-// Quest Director (Goals + Mini quests) for GoodJunkVR
-// - 2 Goals per game
-// - 3 Mini quests per game (sequential: finish one -> next until quota filled)
-// - Start: choose quests and emit HUD only (no auto-complete)
-// - Update: update progress from state (score/goodHits/miss/comboMax/timeLeft)
-// - Finalize: evaluate end-of-game conditions (miss/timeLeft based)
+// STEP 2 PATCH: Quest REAL + FEVER support
+// ใช้ร่วมกับ GameEngine STEP 1
+// 2025-12
 
 'use strict';
 
-function clamp01(x){
-  x = Number(x) || 0;
-  if (x < 0) return 0;
-  if (x > 1) return 1;
-  return x;
+// ---------- utils ----------
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    const j = (Math.random() * (i + 1)) | 0;
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
-function toInt(x){
-  return (Number(x) || 0) | 0;
+function coach(text){
+  if (!text) return;
+  window.dispatchEvent(new CustomEvent('hha:coach',{ detail:{ text }}));
 }
 
-function safeArr(a){
-  return Array.isArray(a) ? a : [];
+function tierKey(diff){
+  if (diff === 'easy') return 'easy';
+  if (diff === 'hard') return 'hard';
+  return 'normal';
 }
 
-function pickRandom(arr, usedSet){
-  const pool = safeArr(arr).filter(it => it && it.id && !(usedSet && usedSet.has(it.id)));
-  if (!pool.length) return null;
-  return pool[(Math.random() * pool.length) | 0];
-}
-
-function nowMs(){
-  return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-}
-
-function emitQuestUpdate(payload){
-  window.dispatchEvent(new CustomEvent('quest:update', { detail: payload }));
-}
-
-function computeHint(goal, mini){
-  const g = goal && goal.hint ? goal.hint : '';
-  const m = mini && mini.hint ? mini.hint : '';
-  if (g && m) return g + ' • ' + m;
-  return g || m || '';
-}
-
-/**
- * Quest definition contract (suggested):
- * {
- *   id: 'g_goodHits',
- *   label: 'เก็บของดีให้ครบ 12 ชิ้น',
- *   hint: 'โฟกัสผัก ผลไม้ นม',
- *   // target getter:
- *   target(diff, runMode) => number,
- *   // progress getter from state:
- *   getProgress(state) => number,
- *   // optional finalize hook:
- *   finalize?(state) => number
- * }
- */
-
-function buildInstance(def, diff, runMode){
-  const target = def && typeof def.target === 'function'
-    ? toInt(def.target(diff, runMode))
-    : toInt(def && def.target);
-
+// ---------- instance ----------
+function makeInstance(def, diff){
+  const k = tierKey(diff);
   return {
-    id: def && def.id ? String(def.id) : ('q_' + Math.random().toString(16).slice(2)),
-    label: def && def.label ? String(def.label) : 'ภารกิจ',
-    hint: def && def.hint ? String(def.hint) : '',
-    target: Math.max(1, target || 1),
+    id: def.id,
+    label: def.label,
+    kind: def.kind,          // score | goodHits | combo | missMax | fever
+    target: def[k] ?? 1,
     prog: 0,
     done: false,
-    _def: def || null
+    pass: null               // ใช้กับ missMax
   };
 }
 
-function updateInstance(inst, state, forceFinalize){
-  if (!inst || !inst._def) return inst;
-  const def = inst._def;
-  const getter = (forceFinalize && typeof def.finalize === 'function')
-    ? def.finalize
-    : def.getProgress;
+// ---------- factory ----------
+export function makeQuestDirector({
+  diff     = 'normal',
+  goalDefs = [],
+  miniDefs = [],
+  maxGoals = 2,
+  maxMini  = 3
+} = {}) {
 
-  const pRaw = (typeof getter === 'function') ? getter(state) : 0;
-  const prog = Math.max(0, Math.min(inst.target, toInt(pRaw)));
+  const goalOrder = shuffle(goalDefs);
+  const miniOrder = shuffle(miniDefs);
 
-  inst.prog = prog;
-  inst.done = (inst.prog >= inst.target);
-  return inst;
-}
+  let goalIdx = 0;
+  let miniIdx = 0;
 
-function makeDirector(opts){
-  const diff = String(opts && opts.diff ? opts.diff : 'normal').toLowerCase();
-  const goalDefs = safeArr(opts && opts.goalDefs);
-  const miniDefs = safeArr(opts && opts.miniDefs);
-  const maxGoals = Math.max(1, toInt(opts && opts.maxGoals) || 2);
-  const maxMini  = Math.max(1, toInt(opts && opts.maxMini)  || 3);
-
-  const usedGoals = new Set();
-  const usedMinis = new Set();
+  let currentGoal = null;
+  let currentMini = null;
 
   const goalsAll = [];
   const minisAll = [];
 
-  let activeGoal = null;
-  let activeMini = null;
-
   let goalsCleared = 0;
   let miniCleared  = 0;
 
-  let started = false;
-  let lastEmitAt = 0;
+  let timeLeft = 60;
+  let ended = false;
 
-  function emitHUD(){
-    // ส่งเฉพาะ active/current + รายการทั้งหมด
-    emitQuestUpdate({
-      goal: activeGoal,
-      mini: activeMini,
-      goalsAll: goalsAll,
-      minisAll: minisAll,
-      hint: computeHint(activeGoal, activeMini),
-      goalsCleared,
-      goalsTotal: goalsAll.length,
-      miniCleared,
-      miniTotal: minisAll.length
-    });
+  // ---------- HUD ----------
+  function emitHUD(hint=''){
+    window.dispatchEvent(new CustomEvent('quest:update',{
+      detail:{
+        goal: currentGoal,
+        mini: currentMini,
+        goalsAll: goalsAll.slice(),
+        minisAll: minisAll.slice(),
+        hint
+      }
+    }));
   }
 
-  function ensurePool(){
-    // เติม goalsAll ให้ครบ maxGoals
-    while (goalsAll.length < maxGoals){
-      const picked = pickRandom(goalDefs, usedGoals);
-      if (!picked) break;
-      usedGoals.add(picked.id);
-      goalsAll.push(buildInstance(picked, diff, opts.runMode || 'play'));
+  function nextGoal(){
+    if (ended) return;
+    if (goalsCleared >= maxGoals || timeLeft <= 0){
+      currentGoal = null;
+      emitHUD();
+      return;
     }
-    // เติม minisAll ให้ครบ maxMini
-    while (minisAll.length < maxMini){
-      const picked = pickRandom(miniDefs, usedMinis);
-      if (!picked) break;
-      usedMinis.add(picked.id);
-      minisAll.push(buildInstance(picked, diff, opts.runMode || 'play'));
+    const base = goalOrder[goalIdx++ % goalOrder.length];
+    currentGoal = makeInstance(base, diff);
+    goalsAll.push(currentGoal);
+    coach(`ภารกิจใหม่: ${currentGoal.label}`);
+    emitHUD('โฟกัสภารกิจหลักด้านขวาบน');
+  }
+
+  function nextMini(){
+    if (ended) return;
+    if (miniCleared >= maxMini || timeLeft <= 0){
+      currentMini = null;
+      emitHUD();
+      return;
+    }
+    const base = miniOrder[miniIdx++ % miniOrder.length];
+    currentMini = makeInstance(base, diff);
+    minisAll.push(currentMini);
+    coach(`Mini quest ใหม่: ${currentMini.label}`);
+    emitHUD('Mini quest ใหม่แล้ว!');
+  }
+
+  // ---------- progress ----------
+  function evalInst(inst, state){
+    if (!inst || inst.done) return;
+
+    switch(inst.kind){
+      case 'score':
+        inst.prog = state.score | 0;
+        break;
+      case 'goodHits':
+        inst.prog = state.goodHits | 0;
+        break;
+      case 'combo':
+        inst.prog = state.comboMax | 0;
+        break;
+      case 'fever':
+        inst.prog = state.feverActive ? 1 : 0;
+        break;
+      case 'missMax':
+        inst.prog = Math.min(state.miss | 0, inst.target | 0);
+        break;
     }
   }
 
-  function setActiveGoalFirstNotDone(){
-    activeGoal = null;
-    for (const g of goalsAll){
-      if (g && !g.done){ activeGoal = g; break; }
+  function checkFinish(inst){
+    if (!inst || inst.done) return false;
+    if (inst.kind === 'missMax') return false;
+
+    if (inst.prog >= inst.target){
+      inst.done = true;
+      inst.pass = true;
+      return true;
     }
+    return false;
   }
 
-  function setActiveMiniFirstNotDone(){
-    activeMini = null;
-    for (const m of minisAll){
-      if (m && !m.done){ activeMini = m; break; }
-    }
-  }
+  // ---------- lifecycle ----------
+  function start(initialState){
+    ended = false;
+    timeLeft = initialState?.timeLeft ?? timeLeft;
 
-  function refreshClearedCounts(){
-    goalsCleared = goalsAll.filter(q => q && q.done).length;
-    miniCleared  = minisAll.filter(q => q && q.done).length;
-  }
+    goalsAll.length = 0;
+    minisAll.length = 0;
+    goalsCleared = 0;
+    miniCleared = 0;
 
-  function start(state){
-    // start = สุ่มเควสต์ + reset prog เป็น 0 + emit HUD (ไม่ auto-complete)
-    started = true;
+    goalIdx = 0;
+    miniIdx = 0;
 
-    // runMode มีผลต่อ target บางอัน (เช่น adaptive off ใน research)
-    opts.runMode = (opts && opts.runMode) ? String(opts.runMode).toLowerCase() : (opts.runMode || 'play');
+    currentGoal = null;
+    currentMini = null;
 
-    ensurePool();
-
-    // รีเซ็ต progress ให้ชัดตอนเริ่ม
-    for (const g of goalsAll){ if (g){ g.prog = 0; g.done = false; } }
-    for (const m of minisAll){ if (m){ m.prog = 0; m.done = false; } }
-
-    setActiveGoalFirstNotDone();
-    setActiveMiniFirstNotDone();
-    refreshClearedCounts();
-    emitHUD();
-    return api;
+    nextGoal();
+    nextMini();
   }
 
   function update(state){
-    if (!started) return api;
-    state = state || {};
+    if (ended) return;
+    if (!state) state = {};
 
-    // throttle emit เล็กน้อย กัน event ถี่มาก
-    const t = nowMs();
-    const allowEmit = (t - lastEmitAt) > 60;
-
-    // update progress
-    if (activeGoal) updateInstance(activeGoal, state, false);
-    if (activeMini) updateInstance(activeMini, state, false);
-
-    // ถ้าเควสต์ปัจจุบัน done แล้ว -> เลือกตัวถัดไป (sequential)
-    const goalJustDone = (activeGoal && activeGoal.done);
-    const miniJustDone = (activeMini && activeMini.done);
-
-    if (goalJustDone){
-      setActiveGoalFirstNotDone();
-    }
-    if (miniJustDone){
-      setActiveMiniFirstNotDone();
+    if (typeof state.timeLeft === 'number'){
+      timeLeft = state.timeLeft;
+      if (timeLeft <= 0) return;
     }
 
-    refreshClearedCounts();
-
-    if (allowEmit || goalJustDone || miniJustDone){
-      lastEmitAt = t;
-      emitHUD();
+    // ---- goal ----
+    if (currentGoal){
+      evalInst(currentGoal, state);
+      if (checkFinish(currentGoal)){
+        goalsCleared++;
+        coach(`ภารกิจหลักผ่าน ${goalsCleared}/${maxGoals}`);
+        nextGoal();
+      }
     }
-    return api;
+
+    // ---- mini ----
+    if (currentMini){
+      evalInst(currentMini, state);
+      if (checkFinish(currentMini)){
+        miniCleared++;
+        coach(`Mini quest ผ่าน ${miniCleared}/${maxMini}`);
+        nextMini();
+      }
+    }
+
+    emitHUD();
   }
 
+  // ---------- finalize (missMax) ----------
   function finalize(state){
-    // finalize = อัปเดต progress รอบสุดท้าย โดย allow def.finalize
-    state = state || {};
+    if (ended) return summary();
+    ended = true;
 
-    for (const g of goalsAll){
-      if (g) updateInstance(g, state, true);
+    const miss = state?.miss | 0;
+
+    function finalizeList(list, isGoal){
+      for (const inst of list){
+        if (inst.done || inst.kind !== 'missMax') continue;
+        const pass = miss <= inst.target;
+        inst.pass = pass;
+        inst.done = pass;
+        if (pass){
+          if (isGoal) goalsCleared++;
+          else miniCleared++;
+        }
+      }
     }
-    for (const m of minisAll){
-      if (m) updateInstance(m, state, true);
-    }
 
-    setActiveGoalFirstNotDone();
-    setActiveMiniFirstNotDone();
-    refreshClearedCounts();
-    emitHUD();
+    finalizeList(goalsAll,true);
+    finalizeList(minisAll,false);
 
+    currentGoal = null;
+    currentMini = null;
+
+    emitHUD('สรุปภารกิจพร้อมแล้ว');
+    return summary();
+  }
+
+  function summary(){
     return {
       goalsCleared,
-      goalsTotal: goalsAll.length,
+      goalsTotal: maxGoals,
       miniCleared,
-      miniTotal: minisAll.length,
-      goalsAll,
-      minisAll
+      miniTotal: maxMini,
+      goalsAll: goalsAll.slice(),
+      minisAll: minisAll.slice()
     };
   }
 
-  const api = {
-    start,
-    update,
-    finalize,
-    getSnapshot(){
-      return {
-        goal: activeGoal,
-        mini: activeMini,
-        goalsAll,
-        minisAll,
-        goalsCleared,
-        goalsTotal: goalsAll.length,
-        miniCleared,
-        miniTotal: minisAll.length
-      };
-    }
-  };
-
-  return api;
-}
-
-export function makeQuestDirector(opts = {}){
-  return makeDirector(opts);
+  return { start, update, finalize, summary };
 }
 
 export default { makeQuestDirector };
