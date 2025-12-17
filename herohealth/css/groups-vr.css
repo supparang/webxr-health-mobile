@@ -10,15 +10,20 @@
   --text-soft:#9ca3af;
   --radius-lg:18px;
   --radius-pill:999px;
+
+  /* ✅ Boss theme tokens */
+  --boss-gold:#facc15;
+  --boss-gold-soft:rgba(250,204,21,0.32);
+  --boss-ring:rgba(250,204,21,0.78);
+  --boss-glow:rgba(250,204,21,0.45);
+  --boss-ink:rgba(2,6,23,0.92);
 }
 
 *,
 *::before,
-*::after {
-  box-sizing:border-box;
-}
+*::after { box-sizing:border-box; }
 
-html, body {
+html, body{
   margin:0;
   padding:0;
   width:100%;
@@ -34,22 +39,21 @@ html, body {
 
 /* ทำให้ a-scene เป็นพื้นหลังเต็มจอ */
 .a-fullscreen body > a-scene,
-a-scene {
+a-scene{
   position:fixed;
   inset:0;
   z-index:0;
 }
 
 /* ===== HUD root ===== */
-
-.hud-root {
+.hud-root{
   position:fixed;
   inset:0;
   pointer-events:none;
   z-index:60;
 }
 
-.hud-top {
+.hud-top{
   position:absolute;
   top:0;
   left:0;
@@ -63,8 +67,7 @@ a-scene {
 }
 
 /* ===== HUD Score (ซ้ายบน) ===== */
-
-.hud-card {
+.hud-card{
   pointer-events:auto;
   background:radial-gradient(circle at top, #0f172a, #020617);
   border-radius:var(--radius-lg);
@@ -78,7 +81,7 @@ a-scene {
   max-width:360px;
 }
 
-.hud-main-title {
+.hud-main-title{
   font-size:11px;
   letter-spacing:.18em;
   text-transform:uppercase;
@@ -86,12 +89,12 @@ a-scene {
   margin-bottom:2px;
 }
 
-.hud-main-mode {
+.hud-main-mode{
   font-size:18px;
   font-weight:600;
 }
 
-.hud-pill {
+.hud-pill{
   border-radius:999px;
   padding:2px 8px;
   font-size:11px;
@@ -102,40 +105,20 @@ a-scene {
   gap:4px;
 }
 
-.hud-metrics {
+.hud-metrics{
   margin-top:8px;
   display:flex;
   gap:14px;
 }
 
-.metric {
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-}
-
-.metric-label {
-  font-size:11px;
-  color:var(--text-soft);
-}
-
-.metric-value {
-  font-size:18px;
-  font-weight:700;
-}
-
-.metric-value.accent {
-  color:#bbf7d0;
-}
-
-.metric-sub {
-  font-size:11px;
-  color:var(--text-soft);
-}
+.metric{ display:flex; flex-direction:column; gap:2px; }
+.metric-label{ font-size:11px; color:var(--text-soft); }
+.metric-value{ font-size:18px; font-weight:700; }
+.metric-value.accent{ color:#bbf7d0; }
+.metric-sub{ font-size:11px; color:var(--text-soft); }
 
 /* ===== HUD Goal + Mini quest (ขวาบน) ===== */
-
-.fg-quest-panel {
+.fg-quest-panel{
   pointer-events:auto;
   min-width:260px;
   max-width:320px;
@@ -147,11 +130,11 @@ a-scene {
     0 18px 40px rgba(15,23,42,0.9),
     0 0 0 1px rgba(15,23,42,1);
   color:var(--text-main);
-  max-height:40vh;          /* ไม่ให้สูงเกินจอ */
-  overflow-y:auto;          /* ถ้ายาวมากให้เลื่อนอ่านได้ */
+  max-height:40vh;
+  overflow-y:auto;
 }
 
-.fg-quest-title {
+.fg-quest-title{
   font-size:11px;
   letter-spacing:.16em;
   text-transform:uppercase;
@@ -159,7 +142,7 @@ a-scene {
   margin-bottom:4px;
 }
 
-.fg-quest-row {
+.fg-quest-row{
   display:flex;
   align-items:flex-start;
   gap:6px;
@@ -167,7 +150,7 @@ a-scene {
   padding:2px 0;
 }
 
-.fg-quest-label {
+.fg-quest-label{
   font-size:11px;
   text-transform:uppercase;
   letter-spacing:.12em;
@@ -176,13 +159,13 @@ a-scene {
   white-space:nowrap;
 }
 
-.fg-quest-main {
+.fg-quest-main{
   flex:1;
   color:var(--text-main);
   opacity:.9;
 }
 
-.fg-quest-progress {
+.fg-quest-progress{
   font-variant-numeric:tabular-nums;
   font-size:12px;
   color:#bbf7d0;
@@ -190,19 +173,18 @@ a-scene {
 }
 
 /* ===== Coach bubble กลางล่าง ===== */
-
-.hud-bottom {
+.hud-bottom{
   position:absolute;
   left:0;
   right:0;
-  bottom:64px;           /* ดันขึ้น ไม่ให้ทับ Fever bar */
+  bottom:64px;
   display:flex;
   justify-content:center;
   align-items:center;
   pointer-events:none;
 }
 
-.coach-bubble {
+.coach-bubble{
   min-width:60%;
   max-width:640px;
   background:rgba(15,23,42,0.95);
@@ -214,17 +196,12 @@ a-scene {
   align-items:center;
   gap:8px;
   pointer-events:auto;
-  transition:
-    transform .20s ease-out,
-    box-shadow .20s ease-out,
-    background .20s ease-out;
+  transition:transform .20s ease-out, box-shadow .20s ease-out, background .20s ease-out;
 }
 
-.coach-bubble.show {
-  display:flex;
-}
+.coach-bubble.show{ display:flex; }
 
-.coach-label {
+.coach-label{
   font-size:11px;
   text-transform:uppercase;
   letter-spacing:.16em;
@@ -233,7 +210,7 @@ a-scene {
 }
 
 /* โค้ชการ์ตูน emoji */
-.coach-avatar {
+.coach-avatar{
   width:28px;
   height:28px;
   border-radius:50%;
@@ -246,80 +223,60 @@ a-scene {
   animation:coach-breathe 2.4s ease-in-out infinite;
 }
 
-@keyframes coach-breathe {
-  0%,100% { transform:scale(1); }
-  50%     { transform:scale(1.07); }
-}
+@keyframes coach-breathe{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.07);} }
 
-/* อารมณ์โค้ช + wiggle */
-.coach-bubble.coach-good {
+.coach-bubble.coach-good{
   background:rgba(22,163,74,0.96);
   box-shadow:0 0 18px rgba(34,197,94,0.85);
 }
-.coach-bubble.coach-hype {
+.coach-bubble.coach-hype{
   background:rgba(79,70,229,0.96);
   box-shadow:0 0 24px rgba(129,140,248,0.95);
 }
-.coach-bubble.coach-bad {
+.coach-bubble.coach-bad{
   background:rgba(127,29,29,0.96);
   box-shadow:0 0 18px rgba(248,113,113,0.95);
 }
 
 .coach-avatar.coach-avatar-good,
 .coach-avatar.coach-avatar-bad,
-.coach-avatar.coach-avatar-hype {
-  animation: coach-wiggle 0.4s ease-in-out;
+.coach-avatar.coach-avatar-hype{
+  animation:coach-wiggle 0.4s ease-in-out;
 }
 
-@keyframes coach-wiggle {
-  0%   { transform:translateX(0); }
-  20%  { transform:translateX(-4px); }
-  40%  { transform:translateX(4px); }
-  60%  { transform:translateX(-3px); }
-  80%  { transform:translateX(3px); }
-  100% { transform:translateX(0); }
+@keyframes coach-wiggle{
+  0%{ transform:translateX(0); }
+  20%{ transform:translateX(-4px); }
+  40%{ transform:translateX(4px); }
+  60%{ transform:translateX(-3px); }
+  80%{ transform:translateX(3px); }
+  100%{ transform:translateX(0); }
 }
 
 /* ===== Layout มือถือ ===== */
-@media (max-width:640px) {
-  .hud-top{
-    flex-direction:column;        /* ซ้อนแนวตั้ง: การ์ดคะแนนอยู่บน, Quest อยู่ล่าง */
-    align-items:stretch;
-  }
-
-  .hud-card,
-  .fg-quest-panel{
-    min-width:0;
-    width:100%;
-    max-width:none;
-  }
-
-  .fg-quest-panel{
-    margin-top:6px;
-    max-height:34vh;
-  }
-
-  .coach-bubble {
-    min-width:0;
-    width:calc(100% - 32px);
-    font-size:12px;
-  }
+@media (max-width:640px){
+  .hud-top{ flex-direction:column; align-items:stretch; }
+  .hud-card, .fg-quest-panel{ min-width:0; width:100%; max-width:none; }
+  .fg-quest-panel{ margin-top:6px; max-height:34vh; }
+  .coach-bubble{ min-width:0; width:calc(100% - 32px); font-size:12px; }
 }
 
 /* ===== Target Layer ===== */
-
-#fg-layer {
+#fg-layer{
   position:fixed;
   inset:0;
-  z-index:40; /* ใต้ HUD แต่เหนือฉาก */
+  z-index:40;
   pointer-events:none;
 }
 
-/* เป้าอาหาร */
-.fg-target {
+/* ===== Targets (GOOD/JUNK) ===== */
+.fg-target{
   position:absolute;
-  width:132px;
-  height:132px;
+
+  /* ✅ รองรับ adaptive/boss ผ่านตัวแปร */
+  width: var(--fg-size, 132px);
+  height: var(--fg-size, 132px);
+
   border-radius:50%;
   background:radial-gradient(circle at 30% 30%, #f97316, #c2410c);
   display:flex;
@@ -331,42 +288,104 @@ a-scene {
     0 12px 32px rgba(15,23,42,0.85),
     0 0 0 4px rgba(15,23,42,0.9);
   transform:translate(-50%, -50%) scale(1);
-  transition:
-    transform .12s ease-out,
-    opacity .12s ease-out,
-    box-shadow .12s ease-out;
+  transition:transform .12s ease-out, opacity .12s ease-out, box-shadow .12s ease-out;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
 }
 
-/* สีพื้นแบ่ง Good / Junk */
-.fg-good {
-  background:radial-gradient(circle at 30% 30%, #22c55e, #15803d);
-}
-
-.fg-junk {
-  background:radial-gradient(circle at 30% 30%, #f97316, #c2410c);
-}
+.fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
+.fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
 
 /* Emoji บนเป้า */
-.fg-target::before {
+.fg-target::before{
   content:attr(data-emoji);
   display:block;
   font-size:clamp(40px, 7vmin, 64px);
   line-height:1;
   color:#fefce8;
-  text-shadow:
-    0 2px 4px rgba(15,23,42,0.9),
-    0 0 10px rgba(15,23,42,0.9);
+  text-shadow:0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
 }
 
 /* ตอนโดนตี */
-.fg-target.hit {
+.fg-target.hit{
   transform:translate(-50%, -50%) scale(0.6);
   opacity:0;
 }
 
-/* ===== สรุปผลแบบ overlay เต็มจอ ===== */
+/* ===== ✅ BOSS: visual + HP dots (pure CSS) ===== */
+/* ใช้จาก GameEngine: el.setAttribute('data-boss','1') */
+.fg-target[data-boss="1"]{
+  /* โทนทอง + เงาแรง */
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.22), transparent 55%),
+    radial-gradient(circle at 45% 55%, rgba(250,204,21,0.22), transparent 60%),
+    radial-gradient(circle at 30% 30%, #22c55e, #15803d);
 
-.result-overlay {
+  /* ring 2 ชั้น */
+  box-shadow:
+    0 18px 48px rgba(15,23,42,0.95),
+    0 0 0 4px rgba(15,23,42,0.9),
+    0 0 0 7px var(--boss-ring),
+    0 0 26px var(--boss-glow);
+
+  border:2px solid rgba(250,204,21,0.86);
+  animation:boss-pulse 0.75s ease-in-out infinite alternate;
+}
+
+/* ให้ emoji บอสเด่นขึ้น */
+.fg-target[data-boss="1"]::before{
+  font-size:clamp(46px, 8vmin, 76px);
+  text-shadow:
+    0 3px 7px rgba(15,23,42,0.95),
+    0 0 18px rgba(250,204,21,0.35),
+    0 0 22px rgba(15,23,42,0.9);
+}
+
+/* ✅ HP Dots (เริ่มต้น 3 ดวง) */
+.fg-target[data-boss="1"]::after{
+  content:"● ● ●";
+  position:absolute;
+  top:10%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  font-size:12px;
+  letter-spacing:.32em;
+  color:var(--boss-gold);
+  text-shadow:0 0 14px rgba(250,204,21,0.65), 0 0 18px rgba(15,23,42,0.9);
+  padding:2px 10px 3px;
+  border-radius:999px;
+  background:rgba(2,6,23,0.55);
+  border:1px solid rgba(250,204,21,0.35);
+  pointer-events:none;
+}
+
+/* ✨ ถ้าอยาก “ลด HP” แบบ CSS ล้วน:
+   ใน GameEngine ใส่ el.setAttribute('data-hp', hp) แล้วใช้ selector นี้
+   (ทำให้พร้อมไว้ก่อนเลย) */
+.fg-target[data-boss="1"][data-hp="3"]::after{ content:"● ● ●"; }
+.fg-target[data-boss="1"][data-hp="2"]::after{ content:"● ● ○"; }
+.fg-target[data-boss="1"][data-hp="1"]::after{ content:"● ○ ○"; }
+
+/* เอฟเฟกต์บอสโดนตี (GameEngine เปลี่ยน transform แล้ว) */
+.fg-target[data-boss="1"].hit{
+  transform:translate(-50%, -50%) scale(0.75);
+  opacity:0;
+}
+
+/* บอสเต้นนิด ๆ */
+@keyframes boss-pulse{
+  0%  { filter:saturate(1.05) brightness(1.02); transform:translate(-50%, -50%) scale(1); }
+  100%{ filter:saturate(1.20) brightness(1.08); transform:translate(-50%, -50%) scale(1.03); }
+}
+
+/* ลด animation สำหรับคนแพ้ง่าย */
+@media (prefers-reduced-motion: reduce){
+  .fg-target[data-boss="1"]{ animation:none; }
+  .coach-avatar{ animation:none; }
+}
+
+/* ===== สรุปผลแบบ overlay เต็มจอ ===== */
+.result-overlay{
   position:fixed;
   inset:0;
   z-index:120;
@@ -376,42 +395,28 @@ a-scene {
   background:radial-gradient(circle at top,#020617ee,#020617f5);
   backdrop-filter:blur(10px);
 }
+.result-overlay.show{ display:flex; }
 
-.result-overlay.show {
-  display:flex;
-}
-
-.result-card {
+.result-card{
   width:90%;
   max-width:420px;
   padding:18px 18px 14px;
   border-radius:18px;
   background:radial-gradient(circle at top,#0f172a,#020617);
   border:1px solid rgba(148,163,184,0.7);
-  box-shadow:
-    0 22px 55px rgba(0,0,0,0.85),
-    0 0 0 1px rgba(15,23,42,1);
+  box-shadow:0 22px 55px rgba(0,0,0,0.85), 0 0 0 1px rgba(15,23,42,1);
   color:var(--text-main);
   font-size:14px;
 }
 
-.result-card h2 {
-  margin:0 0 8px;
-  font-size:16px;
-}
-
-.result-card p {
-  margin:4px 0;
-  font-size:13px;
-}
-
-.result-card hr {
+.result-card h2{ margin:0 0 8px; font-size:16px; }
+.result-card p{ margin:4px 0; font-size:13px; }
+.result-card hr{
   border:none;
   border-top:1px solid rgba(148,163,184,0.5);
   margin:10px 0;
 }
-
-.result-card button {
+.result-card button{
   border-radius:999px;
   border:1px solid rgba(148,163,184,0.7);
   padding:6px 12px;
@@ -421,14 +426,10 @@ a-scene {
   background:rgba(15,23,42,0.9);
   color:#e5e7eb;
 }
-
-.result-card button + button {
-  margin-left:8px;
-}
+.result-card button + button{ margin-left:8px; }
 
 /* ===== End toast (ถ้ายังใช้) ===== */
-
-.end-toast {
+.end-toast{
   position:fixed;
   right:12px;
   bottom:12px;
@@ -439,24 +440,14 @@ a-scene {
   border-radius:18px;
   background:radial-gradient(circle at top,#0f172a,#020617);
   border:1px solid rgba(148,163,184,0.5);
-  box-shadow:
-    0 18px 40px rgba(15,23,42,0.95),
-    0 0 0 1px rgba(15,23,42,1);
+  box-shadow:0 18px 40px rgba(15,23,42,0.95), 0 0 0 1px rgba(15,23,42,1);
   font-size:13px;
   color:var(--text-main);
   display:none;
 }
+.end-toast.show{ display:block; }
 
-.end-toast.show{
-  display:block;
-}
-
-.end-title{
-  font-size:14px;
-  font-weight:600;
-  margin-bottom:6px;
-}
-
+.end-title{ font-size:14px; font-weight:600; margin-bottom:6px; }
 .end-row{
   display:flex;
   justify-content:space-between;
@@ -464,14 +455,8 @@ a-scene {
   gap:8px;
   margin:2px 0;
 }
-
-.end-row span{
-  opacity:.9;
-}
-
-.end-row strong{
-  font-variant-numeric:tabular-nums;
-}
+.end-row span{ opacity:.9; }
+.end-row strong{ font-variant-numeric:tabular-nums; }
 
 .end-actions{
   margin-top:10px;
@@ -490,22 +475,18 @@ a-scene {
   background:rgba(15,23,42,0.9);
   color:#e5e7eb;
 }
-
 .end-btn.primary{
   background:linear-gradient(90deg,#22c55e,#4ade80);
   color:#022c22;
   border:none;
 }
-
-.end-btn.ghost:hover{
-  background:rgba(31,41,55,0.9);
-}
+.end-btn.ghost:hover{ background:rgba(31,41,55,0.9); }
 
 /* ===== Fever gauge จาก ui-fever.js ===== */
-.hha-fever-wrap {
+.hha-fever-wrap{
   position:fixed !important;
   left:10px;
-  bottom:10px;          /* มุมล่างซ้าย ชัดเจน */
+  bottom:10px;
   right:auto;
   transform:none;
   z-index:80 !important;
