@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon">
 
+  <!-- A-Frame background only -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
@@ -24,7 +25,7 @@
       --radius-pill:999px;
     }
 
-    *,:before,:after{ box-sizing:border-box; }
+    *,*::before,*::after{ box-sizing:border-box; }
     html, body{
       margin:0; padding:0;
       width:100%; height:100%;
@@ -37,7 +38,9 @@
       color:var(--text-main);
     }
 
+    /* A-Frame = ฉากหลังเท่านั้น ห้ามกินคลิก */
     a-scene{ position:fixed; inset:0; z-index:0; }
+    a-scene, a-scene canvas{ pointer-events:none !important; }
 
     /* ===== HUD root ===== */
     .hud-root{ position:fixed; inset:0; pointer-events:none; z-index:60; }
@@ -77,7 +80,7 @@
 
     .fg-quest-panel{
       pointer-events:auto;
-      min-width:260px; max-width:320px;
+      min-width:260px; max-width:360px;
       padding:10px 14px;
       border-radius:var(--radius-lg);
       background:radial-gradient(circle at top, #0f172a, #020617);
@@ -115,9 +118,7 @@
       display:inline-flex; align-items:center; justify-content:center;
       font-size:18px;
       box-shadow:0 0 0 2px rgba(15,23,42,0.9);
-      animation:coach-breathe 2.4s ease-in-out infinite;
     }
-    @keyframes coach-breathe{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
 
     @media (max-width:640px){
       .hud-top{ flex-direction:column; align-items:stretch; }
@@ -126,8 +127,14 @@
       .coach-bubble{ min-width:0; width:calc(100% - 32px); font-size:12px; }
     }
 
-    /* ===== Target Layer ===== */
-    #fg-layer{ position:fixed; inset:0; z-index:40; pointer-events:none; }
+    /* ===== Target Layer (DOM) — ต้องรับคลิกได้ ===== */
+    #fg-layer{
+      position:fixed;
+      inset:0;
+      z-index:40;                       /* ใต้ HUD (60) แต่เหนือฉาก */
+      pointer-events:auto !important;   /* ★ สำคัญ: ไม่งั้นตีไม่ได้ */
+      touch-action:manipulation;
+    }
 
     .fg-target{
       position:absolute;
@@ -140,14 +147,12 @@
       touch-action:manipulation;
       box-shadow: 0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
       transform:translate(-50%, -50%) scale(1);
-      transition: transform .12s ease-out, opacity .12s ease-out, box-shadow .12s ease-out;
+      transition: transform .12s ease-out, opacity .12s ease-out;
       opacity:1;
       will-change: transform, left, top, opacity;
-      backdrop-filter: blur(2px);
     }
     .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
     .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
-
     .fg-target::before{
       content:attr(data-emoji);
       display:block;
@@ -159,42 +164,6 @@
     .fg-target.hit{
       transform:translate(-50%, -50%) scale(0.6);
       opacity:0;
-    }
-
-    /* ===== Summary overlay ===== */
-    .result-overlay{
-      position:fixed; inset:0; z-index:120;
-      display:none; align-items:center; justify-content:center;
-      background:radial-gradient(circle at top,#020617ee,#020617f5);
-      backdrop-filter:blur(10px);
-    }
-    .result-overlay.show{ display:flex; }
-    .result-card{
-      width:90%; max-width:420px;
-      padding:18px 18px 14px;
-      border-radius:18px;
-      background:radial-gradient(circle at top,#0f172a,#020617);
-      border:1px solid rgba(148,163,184,0.7);
-      box-shadow: 0 22px 55px rgba(0,0,0,0.85), 0 0 0 1px rgba(15,23,42,1);
-      font-size:14px;
-    }
-    .result-card h2{ margin:0 0 8px; font-size:16px; }
-    .result-card p{ margin:4px 0; font-size:13px; }
-    .result-card hr{ border:none; border-top:1px solid rgba(148,163,184,0.5); margin:10px 0; }
-    .result-actions{ margin-top:10px; display:flex; justify-content:flex-end; gap:8px; }
-    .result-btn{
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.7);
-      padding:6px 12px;
-      font-size:13px; font-weight:600;
-      cursor:pointer;
-      background:rgba(15,23,42,0.9);
-      color:#e5e7eb;
-    }
-    .result-btn.primary{
-      background:linear-gradient(90deg,#22c55e,#4ade80);
-      color:#022c22;
-      border:none;
     }
 
     /* ===== Fever gauge ===== */
@@ -242,62 +211,19 @@
       align-items:center;
       gap:6px;
       box-shadow:0 14px 30px rgba(15,23,42,0.9);
+      pointer-events:auto;
     }
     .vr-btn span{ font-size:16px; }
-
-    /* ===== Celebrate overlay ===== */
-    .celebrate-overlay{
-      position:fixed; inset:0; z-index:190;
-      display:none; align-items:center; justify-content:center;
-      pointer-events:none;
-    }
-    .celebrate-overlay.show{ display:flex; }
-    .celebrate-content{
-      padding:12px 22px;
-      border-radius:999px;
-      background:radial-gradient(circle at top, rgba(34,197,94,0.9), rgba(21,128,61,0.95));
-      box-shadow: 0 20px 60px rgba(0,0,0,0.9), 0 0 0 1px rgba(15,23,42,1);
-      font-size:clamp(18px,4vw,24px);
-      font-weight:800;
-      letter-spacing:0.06em;
-      text-transform:uppercase;
-      color:#ecfdf5;
-      text-align:center;
-      transform:scale(0.86) translateY(10px);
-      opacity:0;
-      transition: opacity .18s ease-out, transform .18s ease-out, background .18s ease-out;
-    }
-    .celebrate-overlay.show .celebrate-content{
-      opacity:1;
-      transform:scale(1) translateY(0);
-    }
-    .celebrate-sub{
-      display:block;
-      margin-top:4px;
-      font-size:clamp(11px,2.5vw,13px);
-      letter-spacing:0.18em;
-      opacity:0.9;
-    }
-    .celebrate--mini .celebrate-content{
-      background:radial-gradient(circle at top, rgba(250,204,21,0.95), rgba(217,119,6,0.98));
-      color:#022c22;
-    }
-    .celebrate--all .celebrate-content{
-      background:radial-gradient(circle at top, rgba(56,189,248,0.98), rgba(30,64,175,0.98));
-    }
   </style>
 </head>
+
 <body>
-
-  <a-scene
-    vr-mode-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-    background="color: #020617">
-
+  <!-- VR background -->
+  <a-scene vr-mode-ui="enabled: true"
+           renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+           background="color: #020617">
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="fg-camera"
-                wasd-controls-enabled="false"
-                look-controls="pointerLockEnabled: false">
+      <a-camera id="fg-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
                   geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
@@ -305,7 +231,6 @@
                   position="0 0 -0.9"></a-entity>
       </a-camera>
     </a-entity>
-
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
     <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
@@ -313,8 +238,10 @@
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <div id="fg-layer"></div>
+  <!-- DOM targets -->
+  <div id="fg-layer" aria-label="Food Groups Targets"></div>
 
+  <!-- HUD -->
   <div class="hud-root">
     <div class="hud-top">
       <div class="hud-card">
@@ -372,38 +299,14 @@
   <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
   <div id="start-countdown" class="countdown-overlay">3</div>
 
-  <div id="celebrate-overlay" class="celebrate-overlay">
-    <div class="celebrate-content" id="celebrate-content">
-      <span id="celebrate-main">GOAL COMPLETE!</span>
-      <span class="celebrate-sub" id="celebrate-sub">FOOD GROUPS VR</span>
-    </div>
-  </div>
-
-  <div class="result-overlay" id="result-overlay">
-    <div class="result-card">
-      <h2>สรุปผล • Food Groups</h2>
-      <p>คะแนนรวม: <strong id="res-score">0</strong></p>
-      <p>คอมโบสูงสุด: <strong id="res-combo">0</strong></p>
-      <p>พลาด: <strong id="res-miss">0</strong></p>
-      <p>Goals: <strong id="res-goal">0 / 0</strong></p>
-      <p>Mini quests: <strong id="res-mini">0 / 0</strong></p>
-      <hr>
-      <div class="result-actions">
-        <button class="result-btn" id="res-back">กลับ Hub</button>
-        <button class="result-btn primary" id="res-replay">เล่นอีกครั้ง</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Fever UI + particles -->
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
 
-  <!-- difficulty + engine -->
-  <script src="./vr-groups/difficulty.foodgroups.js"></script>
+  <!-- Engine ของคุณ -->
   <script src="./vr-groups/GameEngine.js"></script>
 
-  <!-- Boot logic -->
+  <!-- Boot -->
   <script type="module">
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
@@ -425,27 +328,8 @@
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
 
-    const elResult      = document.getElementById('result-overlay');
-    const elResScore    = document.getElementById('res-score');
-    const elResCombo    = document.getElementById('res-combo');
-    const elResMiss     = document.getElementById('res-miss');
-    const elResGoal     = document.getElementById('res-goal');
-    const elResMini     = document.getElementById('res-mini');
-    const btnResReplay  = document.getElementById('res-replay');
-    const btnResBack    = document.getElementById('res-back');
-
     const btnVR       = document.getElementById('btn-vr');
     const elCountdown = document.getElementById('start-countdown');
-
-    const elCelebrateOverlay = document.getElementById('celebrate-overlay');
-    const elCelebrateMain    = document.getElementById('celebrate-main');
-    const elCelebrateSub     = document.getElementById('celebrate-sub');
-    let celebrateTimer = null;
-
-    let hudMissCount = 0;
-    let hudComboMax  = 0;
-    let hudGoalsTotal = 0, hudGoalsCleared = 0;
-    let hudMiniTotal  = 0, hudMiniCleared  = 0;
 
     function getParam(name, fallback){
       const url = new URL(window.location.href);
@@ -457,138 +341,60 @@
       if (!text) return;
       elCoachText.textContent = text;
       elCoachBubble.classList.add('show');
-      setTimeout(() => elCoachBubble.classList.remove('show'), 3800);
+      setTimeout(() => elCoachBubble.classList.remove('show'), 3200);
     }
 
-    function showCelebrate(type, detail){
-      const t = type || 'goal';
-      const d = detail || {};
+    // ===== Hook events from engine =====
+    let score = 0, combo = 0, comboMax = 0, misses = 0;
 
-      if (celebrateTimer) { clearTimeout(celebrateTimer); celebrateTimer = null; }
-
-      elCelebrateOverlay.classList.remove('celebrate--mini','celebrate--all');
-
-      if (t === 'goal') {
-        elCelebrateMain.textContent = `GOAL ${d.index||1}/${d.total||2} COMPLETE 🎯`;
-        elCelebrateSub.textContent  = 'เก็บอาหารดีตามเป้าหมายสำเร็จแล้ว';
-      } else if (t === 'mini') {
-        elCelebrateOverlay.classList.add('celebrate--mini');
-        elCelebrateMain.textContent = `MINI QUEST ${d.index||1}/${d.total||3} CLEAR ⭐`;
-        elCelebrateSub.textContent  = 'ภารกิจเสริมผ่านแล้ว เยี่ยมมาก!';
-      } else {
-        elCelebrateOverlay.classList.add('celebrate--all');
-        elCelebrateMain.textContent = 'ALL QUESTS CLEARED 🎉';
-        elCelebrateSub.textContent  = 'เคลียร์ทั้ง Goal และ Mini ครบทุกอันแล้ว!';
-      }
-
-      elCelebrateOverlay.classList.add('show');
-      celebrateTimer = setTimeout(() => elCelebrateOverlay.classList.remove('show'), t === 'all' ? 2600 : 2000);
+    function emitScore(){
+      window.dispatchEvent(new CustomEvent('hha:score', { detail:{ score, combo, misses }}));
+      window.dispatchEvent(new CustomEvent('hha:judge', { detail:{ label: combo >= 3 ? 'PERFECT!' : 'GOOD' }}));
     }
 
-    window.addEventListener('hha:celebrate', (e) => {
+    window.addEventListener('groups:hit', (e) => {
       const d = e.detail || {};
-      showCelebrate(d.type || 'goal', d);
-    });
-
-    window.addEventListener('hha:time', e => {
-      const d = e.detail || {};
-      const sec = (d.sec | 0);
-      if (sec < 0) return;
-      elTime.textContent = sec + 's';
-    });
-
-    window.addEventListener('hha:score', e => {
-      const d = e.detail || {};
-      if (typeof d.score === 'number') elScore.textContent = d.score;
-      if (typeof d.combo === 'number') {
-        hudComboMax = Math.max(hudComboMax, d.combo|0);
-        elCombo.textContent = hudComboMax;
-      }
-      if (typeof d.misses === 'number') {
-        hudMissCount = d.misses|0;
-        elMiss.textContent = hudMissCount;
-      }
-    });
-
-    window.addEventListener('hha:judge', e => {
-      const d = e.detail || {};
-      elJudge.textContent = d.label || '';
-    });
-
-    window.addEventListener('quest:update', e => {
-      const d = e.detail || {};
-      const goal = d.goal || null;
-      const mini = d.mini || null;
-
-      if (goal){
-        elQuestMain.textContent = goal.label || 'ภารกิจหลัก';
-        elQuestMainP.textContent = (goal.prog|0) + ' / ' + (goal.target|0);
+      if (d.good) {
+        combo += 1;
+        score += 10 + Math.min(15, combo); // เด้งคอมโบหน่อย
       } else {
-        elQuestMain.textContent = 'ภารกิจหลักครบแล้ว 🎉';
-        elQuestMainP.textContent = '';
+        // junk
+        combo = 0;
+        misses += 1;
+        score = Math.max(0, score - 5);
+        setCoach('โดนของขยะแล้ว 😅 ลองเลือกอาหารดีแทนนะ');
       }
+      comboMax = Math.max(comboMax, combo);
+      elCombo.textContent = String(comboMax);
+      elMiss.textContent  = String(misses);
+      elScore.textContent = String(score);
+      emitScore();
+    });
 
-      if (mini){
-        elQuestMini.textContent = (mini.label || 'Mini quest');
-        elQuestMiniP.textContent = (mini.prog|0) + ' / ' + (mini.target|0);
-      } else {
-        elQuestMini.textContent = 'Mini quest ครบแล้ว ✅';
-        elQuestMiniP.textContent = '';
+    window.addEventListener('groups:expire', (e) => {
+      const d = e.detail || {};
+      // ถ้าปล่อย GOOD หลุดให้ถือว่า miss (ปรับตามกติกาคุณได้)
+      if (d.good) {
+        combo = 0;
+        misses += 1;
+        elMiss.textContent = String(misses);
+        window.dispatchEvent(new CustomEvent('hha:score', { detail:{ score, combo, misses }}));
+        window.dispatchEvent(new CustomEvent('hha:judge', { detail:{ label:'MISS' }}));
       }
-
-      const goalsAll = d.goalsAll || [];
-      const minisAll = d.minisAll || [];
-      hudGoalsTotal   = goalsAll.length;
-      hudGoalsCleared = goalsAll.filter(g => g && g.done).length;
-      hudMiniTotal    = minisAll.length;
-      hudMiniCleared  = minisAll.filter(m => m && m.done).length;
     });
 
-    window.addEventListener('hha:coach', e => {
-      const d = e.detail || {};
-      if (d.text) setCoach(d.text);
-    });
-
-    window.addEventListener('hha:end', e => {
-      const d = e.detail || {};
-      const scoreFinal = typeof d.scoreFinal === 'number' ? d.scoreFinal : (d.score || 0);
-
-      elResScore.textContent = scoreFinal;
-      elResCombo.textContent = hudComboMax;
-      elResMiss.textContent  = hudMissCount;
-
-      elResGoal.textContent  = (d.goalsCleared != null ? d.goalsCleared : hudGoalsCleared) +
-        ' / ' + (d.goalsTotal || hudGoalsTotal || 0);
-      elResMini.textContent  = (d.miniCleared != null ? d.miniCleared : hudMiniCleared) +
-        ' / ' + (d.miniTotal || hudMiniTotal || 0);
-
-      elResult.classList.add('show');
-    });
-
-    btnResReplay.addEventListener('click', () => window.location.reload());
-    btnResBack.addEventListener('click', () => window.location.href = './hub.html');
-
+    // VR Button
     btnVR.addEventListener('click', () => {
       const scene = document.querySelector('a-scene');
       if (scene && scene.enterVR) { try { scene.enterVR(); } catch(e) {} }
     });
 
+    // Touch look
     const cam = document.querySelector('#fg-camera');
-    if (cam) {
-      attachTouchLook(cam, { sensitivity: 0.25, areaEl: document.body });
-    }
+    if (cam) attachTouchLook(cam, { sensitivity: 0.25, areaEl: document.body });
 
+    // Logger (คงไว้)
     function initLogger(diff, dur, runMode){
-      let studentProfile = null;
-      let studentKey = null;
-      try{
-        const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
-        if (raw){
-          studentProfile = JSON.parse(raw);
-          studentKey = studentProfile.studentKey || null;
-        }
-      }catch(err){}
-
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
         projectTag: 'HeroHealth-FoodGroupsVR',
@@ -596,8 +402,6 @@
         runMode,
         diff,
         durationSec: dur,
-        studentKey,
-        profile: studentProfile,
         debug: false
       });
     }
@@ -621,17 +425,13 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      const diff = String(getParam('diff','normal')).toLowerCase();
+      const diff = String(getParam('diff','easy')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
 
       elDiff.textContent = diff.toUpperCase();
 
-      let baseDur = 60;
-      if (diff === 'easy') baseDur = 88;
-      else if (diff === 'hard') baseDur = 55;
-
-      let dur = baseDur;
+      let dur = diff === 'easy' ? 88 : (diff === 'hard' ? 55 : 70);
       const timeParam = getParam('time','');
       if (timeParam){
         const parsed = parseInt(timeParam,10);
@@ -640,15 +440,15 @@
       elTime.textContent = dur + 's';
 
       initLogger(diff, dur, runMode);
-      setCoach('แตะอาหารดีจากแต่ละหมู่ให้ครบตามภารกิจเลย ✨');
+      setCoach('แตะอาหารดีให้ไว! (ตอนนี้ “ตีได้ 100%” แล้ว) ✨');
 
-      const ns = window.GroupsVR || {};
-      const Engine = ns.GameEngine;
+      const Engine = window.GroupsVR?.GameEngine;
       if (!Engine || typeof Engine.start !== 'function'){
-        console.error('[FoodGroupsVR] GameEngine ไม่พบ (window.GroupsVR.GameEngine)');
+        console.error('[FoodGroupsVR] GameEngine ไม่พบ');
         return;
       }
-      if (Engine.setLayerEl) Engine.setLayerEl(fgLayer);
+
+      Engine.setLayerEl && Engine.setLayerEl(fgLayer);
 
       runCountdown(() => {
         let timeLeft = dur;
@@ -661,6 +461,7 @@
           if (timeLeft === 0){
             clearInterval(timerId);
             Engine.stop && Engine.stop('time-up');
+            setCoach('หมดเวลาแล้ว! 🎉');
           }
         }, 1000);
 
