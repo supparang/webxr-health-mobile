@@ -21,8 +21,6 @@
       --danger:#f97316;
       --text-main:#e5e7eb;
       --text-soft:#9ca3af;
-      --radius:18px;
-      --pill:999px;
     }
     *{ box-sizing:border-box; }
 
@@ -62,9 +60,6 @@
     #gj-layer{
       position:fixed;
       inset:0;
-      width:100vw;
-      height:100vh;
-      overflow:hidden;
       z-index:649;          /* ใต้ HUD (650) */
       pointer-events:auto;  /* สำคัญ: ต้อง auto เพื่อให้กด/แตะได้ */
     }
@@ -81,7 +76,6 @@
       cursor:pointer;
       transition: transform .12s ease-out, opacity .12s ease-out;
       will-change: transform, left, top, opacity;
-      z-index:649;
     }
     .gj-target.gj-junk{ opacity:0.96; }
     .gj-target.hit{
@@ -146,6 +140,7 @@
       display:flex;
       gap:10px;
       flex-wrap:wrap;
+      align-items:flex-start;
     }
     .metric{ min-width:90px; }
     .metric-label{
@@ -224,6 +219,50 @@
       0%{ transform:scale(1); }
       40%{ transform:scale(1.25); }
       100%{ transform:scale(1); }
+    }
+
+    /* ===== Fever bar ===== */
+    .fever-wrap{
+      min-width:150px;
+      max-width:220px;
+    }
+    .fever-bar{
+      margin-top:3px;
+      width:100%;
+      height:6px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.9);
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,0.18);
+    }
+    #fever-fill{
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#f97316,#ef4444);
+      transition:width .12s ease-out;
+    }
+    .fever-caption{
+      margin-top:2px;
+      font-size:10px;
+      color:var(--text-soft);
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+    }
+    .fever-badge{
+      font-size:10px;
+      padding:1px 6px;
+      border-radius:999px;
+      border:1px solid rgba(251,146,60,0.55);
+      background:rgba(249,115,22,0.12);
+      color:#fed7aa;
+    }
+    .fever-badge.on{
+      border-color:rgba(248,113,113,0.75);
+      background:rgba(239,68,68,0.14);
+      color:#fecaca;
+      box-shadow:0 0 12px rgba(239,68,68,0.25);
     }
 
     /* ===== Quest panel (บนขวา) ===== */
@@ -316,7 +355,7 @@
       width:40px;
       height:40px;
       border-radius:999px;
-      background-image:url('./img/coach-neutral.png');
+      background-image:url('./img/coach-broccoli.png');
       background-size:cover;
       background-position:center;
       flex-shrink:0;
@@ -557,10 +596,11 @@
       <a-camera id="gj-camera"
                 wasd-controls-enabled="false"
                 look-controls="pointerLockEnabled: false">
-        <!-- cursor ring (visual only) -->
         <a-entity id="cursor"
+                  cursor="fuse: false; rayOrigin: mouse"
+                  raycaster="objects: [data-hha-tgt]"
                   geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-                  material="shader: flat; color: #ffffff; opacity: 0.95"
+                  material="shader: flat; color: #ffffff"
                   position="0 0 -0.9">
         </a-entity>
       </a-camera>
@@ -579,7 +619,7 @@
   <!-- ===== HUD Overlay ===== -->
   <div class="hud-root">
     <div class="hud-top">
-      <div class="hud-card" style="flex:1;max-width:460px;">
+      <div class="hud-card" style="flex:1;max-width:520px;">
         <div class="hud-main">
           <div>
             <div class="hud-main-title">
@@ -627,6 +667,19 @@
               <div id="hud-grade-bar" class="grade-bar-fill" data-grade="C"></div>
             </div>
           </div>
+
+          <!-- ✅ FEVER UI (ให้ ui-fever.js หาเจอ #fever-fill) -->
+          <div class="metric fever-wrap">
+            <div class="metric-label">FEVER</div>
+            <div class="fever-bar">
+              <div id="fever-fill"></div>
+            </div>
+            <div class="fever-caption">
+              <span id="hud-fever-text">0%</span>
+              <span id="hud-fever-badge" class="fever-badge">OFF</span>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -711,25 +764,31 @@
       return v !== null && v !== '' ? v : fallback;
     }
 
-    // ===== NEW: waitSceneReady (กันจอดำ/เป้าไม่โผล่) =====
+    // ===== wait A-Frame scene camera ready (กันจอดำ/เป้าไม่โผล่) =====
     function waitSceneReady(cb){
       const scene = document.querySelector('a-scene');
       if (!scene) { cb(); return; }
 
-      const isReady = () => !!(scene.hasLoaded && scene.camera);
-
-      if (isReady()){ cb(); return; }
-
-      let tries = 0;
-      const timer = setInterval(()=>{
-        tries++;
-        if (isReady() || tries > 80){ // ~4s
-          clearInterval(timer);
-          cb(); // เรียกเสมอ กันค้าง
+      const tryReady = ()=>{
+        if (scene.hasLoaded && scene.camera){
+          cb();
+          return true;
         }
-      }, 50);
+        return false;
+      };
 
-      scene.addEventListener('loaded', ()=>{}, { once:true });
+      if (tryReady()) return;
+
+      scene.addEventListener('loaded', ()=>{
+        let tries = 0;
+        const t = setInterval(()=>{
+          tries++;
+          if (tryReady() || tries > 60){ // ~3s
+            clearInterval(t);
+            cb();
+          }
+        }, 50);
+      }, { once:true });
     }
 
     // HUD refs
@@ -777,13 +836,20 @@
     const elCountdown = document.getElementById('start-countdown');
     const elBigCelebrate = document.getElementById('big-celebrate');
 
-    // ✅ สถานะเกม (ใช้ feed เข้า QuestDirector)
+    const elFeverText  = document.getElementById('hud-fever-text');
+    const elFeverBadge = document.getElementById('hud-fever-badge');
+
+    const coachMoodKeys = ['neutral','happy','sad','fever'];
+    let lastCoachTimeout = null;
+
+    // ✅ สถานะเกม (Quest-ready)
     const state = {
       score: 0,
       goodHits: 0,
       miss: 0,
       comboMax: 0,
-      timeLeft: 60
+      timeLeft: 60,
+      feverActive: false
     };
 
     // Quest counters for grade
@@ -794,7 +860,7 @@
     let prevGoalsCleared = 0;
     let prevMiniCleared  = 0;
 
-    // Lives (hard only): 1 หัวใจหายทุก MISS_PER_LIFE ครั้ง
+    // Lives (hard only): แบบที่ 3 = 1 หัวใจหายทุก MISS_PER_LIFE ครั้ง
     const MAX_LIVES = 3;
     const MISS_PER_LIFE = 3;
     let currentLives = MAX_LIVES;
@@ -805,26 +871,12 @@
     let dur = 60;
 
     // ===== Coach =====
-    function coachFaceToImg(mood){
-      const m = String(mood || 'neutral');
-      const map = {
-        neutral: './img/coach-neutral.png',
-        happy: './img/coach-happy.png',
-        sad: './img/coach-sad.png',
-        fever: './img/coach-fever.png'
-      };
-      return map[m] || map.neutral;
-    }
-
     function setCoachFace(mood){
       if (!elCoachEmoji) return;
-      elCoachEmoji.classList.remove('coach-neutral','coach-happy','coach-sad','coach-fever');
-      const m = ['neutral','happy','sad','fever'].includes(mood) ? mood : 'neutral';
+      for (const k of coachMoodKeys) elCoachEmoji.classList.remove('coach-' + k);
+      const m = coachMoodKeys.includes(mood) ? mood : 'neutral';
       elCoachEmoji.classList.add('coach-' + m);
-      elCoachEmoji.style.backgroundImage = `url('${coachFaceToImg(m)}')`;
     }
-
-    let lastCoachTimeout = null;
 
     function pulseCoachCelebrate(){
       if (!elCoachEmoji) return;
@@ -944,6 +996,19 @@
       elGradeBar.dataset.grade = grade;
     }
 
+    // ===== Fever HUD small text/badge =====
+    function updateFeverHUD(){
+      const F = window.FeverUI || null;
+      if (!F) return;
+      const v = Math.max(0, Math.min(100, (F.getValue ? (F.getValue()|0) : 0)));
+      if (elFeverText) elFeverText.textContent = v + '%';
+      const on = !!(F.isActive && F.isActive());
+      if (elFeverBadge){
+        elFeverBadge.textContent = on ? 'ON' : 'OFF';
+        elFeverBadge.classList.toggle('on', on);
+      }
+    }
+
     // ===== FX helpers =====
     function getParticlesAPI(){
       const gm = window.GAME_MODULES || {};
@@ -955,7 +1020,7 @@
       const cx = window.innerWidth / 2;
       const y  = window.innerHeight * 0.22;
       if (P && P.burstAt){
-        P.burstAt(cx, y, { count: 16, good: true });
+        P.burstAt(cx, y, { color: (kind === 'goal') ? '#22c55e' : '#38bdf8', count: 16, good: true });
       }
       if (P && P.scorePop){
         const label = (kind === 'goal') ? ('Goal ' + cleared + '/' + total) : ('Mini ' + cleared + '/' + total);
@@ -972,7 +1037,9 @@
 
       if (P && P.burstAt){
         for (let i = 0; i < 3; i++){
-          setTimeout(()=> P.burstAt(cx, cy, { count: 22, good: true }), i * 260);
+          setTimeout(()=>{
+            P.burstAt(cx, cy, { color: i === 1 ? '#facc15' : '#22c55e', count: 22, good: true });
+          }, i * 260);
         }
       }
       if (P && P.scorePop){
@@ -990,7 +1057,7 @@
       }, 1400);
     }
 
-    // ===== VR / touch =====
+    // ===== VR / cursor =====
     function initVRButton(){
       if (!btnVR) return;
       const scene = document.querySelector('a-scene');
@@ -1015,8 +1082,43 @@
       });
     }
 
-    // ===== Reticle progress (DOM) =====
+    // mouse ↔ gaze
     let reticleFuseMs = 650;
+    function setCursorMode(mode){
+      const cursorEl = document.getElementById('cursor');
+      if (!cursorEl) return;
+      if (mode === 'gaze'){
+        const fuseTimeout = 650;
+        reticleFuseMs = fuseTimeout;
+        cursorEl.setAttribute('cursor', `fuse: true; fuseTimeout: ${fuseTimeout}; rayOrigin: entity`);
+        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.006; radiusOuter: 0.018');
+      }else{
+        cursorEl.setAttribute('cursor', 'fuse: false; rayOrigin: mouse');
+        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.01; radiusOuter: 0.016');
+      }
+    }
+
+    function hookVrModeAutoSwitch(){
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+      setCursorMode('mouse');
+      scene.addEventListener('enter-vr', ()=>{
+        setCursorMode('gaze');
+        setCoachFace('happy');
+        setCoach('เข้าโหมด VR แล้ว! จ้องค้างที่เป้าเพื่อยิง 🎯');
+      });
+      scene.addEventListener('exit-vr', ()=>{
+        setCursorMode('mouse');
+        stopReticleProgress();
+        showReticle(false);
+        setCoachFace('neutral');
+        setCoach('กลับสู่โหมดปกติแล้ว คลิก/แตะเป้าได้เลย 👆');
+      });
+    }
+
+    // ===== Reticle progress color =====
     let reticleRAF = null;
     let reticleStartMs = 0;
     let reticleActive = false;
@@ -1049,7 +1151,19 @@
       if (reticleRAF) cancelAnimationFrame(reticleRAF);
       reticleRAF = null;
     }
-
+    function startReticleProgress(){
+      reticleActive = true;
+      reticleStartMs = performance.now();
+      setReticleProgress01(0);
+      function loop(){
+        if (!reticleActive) return;
+        const t = performance.now() - reticleStartMs;
+        const p = reticleFuseMs > 0 ? (t / reticleFuseMs) : 0;
+        setReticleProgress01(Math.min(1, p));
+        if (p < 1) reticleRAF = requestAnimationFrame(loop);
+      }
+      reticleRAF = requestAnimationFrame(loop);
+    }
     function kindToColor(kind){
       const k = String(kind || '').toLowerCase();
       if (k === 'good') return '#22c55e';
@@ -1059,120 +1173,45 @@
       if (k === 'shield') return '#60a5fa';
       return '#e5e7eb';
     }
-
-    // ===== VR gaze fuse ยิงเป้า DOM จริง =====
-    let domGazeRAF = null;
-    let domGazeTarget = null;
-    let domGazeStart = 0;
-
-    function getCenterBestTarget(){
-      const list = document.querySelectorAll('.gj-target');
-      if (!list || list.length === 0) return null;
-
-      const cx = window.innerWidth * 0.5;
-      const cy = window.innerHeight * 0.5;
-
-      let best = null;
-      let bestDist = 1e9;
-
-      for (const el of list){
-        const r = el.getBoundingClientRect();
-        const x = r.left + r.width * 0.5;
-        const y = r.top  + r.height * 0.5;
-        const dx = x - cx;
-        const dy = y - cy;
-        const d = Math.hypot(dx, dy);
-        if (d < bestDist){
-          bestDist = d;
-          best = { el, x, y, dist: d };
-        }
+    function findKindFromTargetEl(el){
+      if (!el) return '';
+      const root = (typeof el.closest === 'function') ? el.closest('.gj-target') : null;
+      if (root && root.dataset && root.dataset.kind) return root.dataset.kind;
+      if (el.dataset && el.dataset.kind) return el.dataset.kind;
+      return '';
+    }
+    function hookGazeReticleColorEvents(){
+      function shouldUseGaze(){
+        const cursorEl = document.getElementById('cursor');
+        if (!cursorEl) return false;
+        const cur = cursorEl.getAttribute('cursor') || {};
+        return !!cur.fuse;
       }
+      document.addEventListener('mouseenter', (e)=>{
+        if (!shouldUseGaze()) return;
+        const t = e.target;
+        if (!t || !t.getAttribute) return;
+        if (!t.getAttribute('data-hha-tgt')) return;
+        const kind = findKindFromTargetEl(t);
+        setReticleColor(kindToColor(kind));
+        showReticle(true);
+        startReticleProgress();
+      }, true);
 
-      // threshold: ยิ่งเล็กยิ่งต้องเล็งตรง ๆ
-      return (best && best.dist < 70) ? best : null;
-    }
+      document.addEventListener('mouseleave', (e)=>{
+        if (!shouldUseGaze()) return;
+        const t = e.target;
+        if (!t || !t.getAttribute) return;
+        if (!t.getAttribute('data-hha-tgt')) return;
+        stopReticleProgress();
+        showReticle(false);
+      }, true);
 
-    function startDomGazeFuse(){
-      stopDomGazeFuse();
-      domGazeStart = 0;
-      domGazeTarget = null;
-
-      const loop = ()=>{
-        const best = getCenterBestTarget();
-
-        if (!best){
-          domGazeTarget = null;
-          domGazeStart = 0;
-          stopReticleProgress();
-          showReticle(false);
-          domGazeRAF = requestAnimationFrame(loop);
-          return;
-        }
-
-        // เปลี่ยนเป้า
-        if (!domGazeTarget || domGazeTarget !== best.el){
-          domGazeTarget = best.el;
-          domGazeStart = performance.now();
-
-          const kind = domGazeTarget?.dataset?.kind || '';
-          setReticleColor(kindToColor(kind));
-          showReticle(true);
-          setReticleProgress01(0);
-        }
-
-        const t = performance.now() - domGazeStart;
-        const p = reticleFuseMs > 0 ? (t / reticleFuseMs) : 0;
-        setReticleProgress01(Math.min(1, p));
-
-        if (p >= 1){
-          // ยิง!
-          const ev = new PointerEvent('pointerdown', {
-            bubbles: true,
-            cancelable: true,
-            clientX: best.x,
-            clientY: best.y,
-            pointerType: 'mouse'
-          });
-          domGazeTarget.dispatchEvent(ev);
-
-          // reset fuse
-          domGazeStart = performance.now();
-          setReticleProgress01(0);
-        }
-
-        domGazeRAF = requestAnimationFrame(loop);
-      };
-
-      domGazeRAF = requestAnimationFrame(loop);
-    }
-
-    function stopDomGazeFuse(){
-      if (domGazeRAF) cancelAnimationFrame(domGazeRAF);
-      domGazeRAF = null;
-      domGazeTarget = null;
-      domGazeStart = 0;
-      stopReticleProgress();
-      showReticle(false);
-    }
-
-    function hookVrModeAutoSwitch(){
-      const scene = document.querySelector('a-scene');
-      if (!scene) return;
-
-      scene.addEventListener('enter-vr', ()=>{
-        // ใช้ fuse แบบ DOM (ไม่พึ่ง raycaster ของ A-Frame)
-        reticleFuseMs = 650;
-        startDomGazeFuse();
-
-        setCoachFace('happy');
-        setCoach('เข้าโหมด VR แล้ว! เล็งกลางจอ จ้องค้างที่เป้าเพื่อยิง 🎯');
-      });
-
-      scene.addEventListener('exit-vr', ()=>{
-        stopDomGazeFuse();
-        setCoachFace('neutral');
-        setCoach('กลับสู่โหมดปกติแล้ว คลิก/แตะเป้าได้เลย 👆');
-      });
+      document.addEventListener('click', ()=>{
+        if (!shouldUseGaze()) return;
+        stopReticleProgress();
+        showReticle(false);
+      }, true);
     }
 
     // ===== HUD listeners =====
@@ -1196,7 +1235,7 @@
       if (elJudge) elJudge.textContent = d.label || '';
     });
 
-    // ✅ คะแนน/คอมโบ/miss อิง event นี้เป็นหลัก (กันนับมั่ว)
+    // ✅ คะแนน/คอมโบ/miss อิง event นี้เป็นหลัก
     window.addEventListener('hha:score', (e)=>{
       const d = e.detail || {};
 
@@ -1204,7 +1243,10 @@
       if (typeof d.goodHits === 'number'){ state.goodHits = d.goodHits|0; }
       if (typeof d.misses === 'number'){ state.miss = d.misses|0; elMiss.textContent = String(state.miss); updateLivesFromMisses(); }
 
-      // comboMax ใช้จาก engine ถ้ามี (กันมั่ว)
+      // ✅ สำคัญ: ให้ Quest เห็น FEVER
+      if (typeof d.feverActive === 'boolean'){ state.feverActive = d.feverActive; }
+
+      // comboMax ใช้จาก engine ถ้ามี
       if (typeof d.comboMax === 'number'){
         state.comboMax = d.comboMax|0;
         elCombo.dataset.max = String(state.comboMax);
@@ -1218,6 +1260,7 @@
         elCombo.textContent = String(max);
       }
 
+      updateFeverHUD();
       if (Q) Q.update(state);
       updateRealtimeGrade(state.score);
     });
@@ -1232,11 +1275,14 @@
     window.addEventListener('hha:fever', (e)=>{
       const d = e.detail || {};
       const st = d.state ? d.state : 'change';
+      updateFeverHUD();
       if (st === 'start'){
         setCoachFace('fever');
         setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ เลย! 🔥');
       }
-      if (st === 'end') setCoachFace('neutral');
+      if (st === 'end'){
+        setCoachFace('neutral');
+      }
     });
 
     // Quest update (จาก QuestDirector)
@@ -1346,7 +1392,8 @@
           goodHits: state.goodHits|0,
           miss: misses,
           comboMax: comboMaxVal,
-          timeLeft: 0
+          timeLeft: 0,
+          feverActive: state.feverActive
         });
       }else{
         qs = { goalsCleared:0, goalsTotal:0, miniCleared:0, miniTotal:0 };
@@ -1402,6 +1449,7 @@
       state.miss = 0;
       state.comboMax = 0;
       state.timeLeft = dur;
+      state.feverActive = false;
 
       // quest counters init
       hudGoalsTotal = hudGoalsCleared = hudMiniTotal = hudMiniCleared = 0;
@@ -1459,27 +1507,32 @@
       const cam = document.querySelector('#gj-camera');
       attachTouch(cam);
       initVRButton();
-      hookVrModeAutoSwitch();
 
-      // countdown → start engine + timer
+      hookVrModeAutoSwitch();
+      hookGazeReticleColorEvents();
+
+      // ✅ QuestDirector (กัน error ไม่ให้ทำให้เกมไม่ start)
+      try{
+        Q = makeQuestDirector({
+          diff,
+          goalDefs: GOODJUNK_GOALS,
+          miniDefs: GOODJUNK_MINIS,
+          maxGoals: 2,
+          maxMini: 3
+        });
+        Q.start({ ...state });
+        Q.update({ ...state });
+      }catch(err){
+        console.error('[GoodJunkVR] QuestDirector failed:', err);
+        Q = null;
+      }
+
+      // countdown → start engine + timer (รอ scene/camera พร้อม)
       runCountdown(()=>{
         waitSceneReady(()=>{
 
-          // ✅ QuestDirector (กัน error ไม่ให้ทำให้เกมไม่ start)
-          try{
-            Q = makeQuestDirector({
-              diff,
-              goalDefs: GOODJUNK_GOALS,
-              miniDefs: GOODJUNK_MINIS,
-              maxGoals: 2,
-              maxMini: 3
-            });
-            Q.start({ ...state });
-            Q.update({ ...state });
-          }catch(err){
-            console.error('[GoodJunkVR] QuestDirector failed:', err);
-            Q = null;
-          }
+          // sync fever HUD at start
+          updateFeverHUD();
 
           GameEngine.start(diff, {
             runMode,
@@ -1503,11 +1556,6 @@
           window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
           timerId = setInterval(tickTime, 1000);
 
-          // stop เมื่อ tab hidden
-          document.addEventListener('visibilitychange', ()=>{
-            if (document.hidden) GameEngine.stop('tab-hidden');
-          });
-
         });
       });
 
@@ -1515,6 +1563,10 @@
       if (btnReplay) btnReplay.addEventListener('click', ()=> window.location.reload());
       if (btnBackHub) btnBackHub.addEventListener('click', ()=> window.location.href = './hub.html');
       if (elEndRun) elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
+
+      document.addEventListener('visibilitychange', ()=>{
+        if (document.hidden) GameEngine.stop('tab-hidden');
+      });
     });
   </script>
 </body>
