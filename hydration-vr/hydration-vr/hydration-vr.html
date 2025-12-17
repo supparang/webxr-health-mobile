@@ -3,14 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-  <title>Hero Health - Final Sight</title>
+  <title>Hero Health - Final Emoji Quest</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 
   <style>
     /* --- CSS SYSTEM --- */
+    :root { --accent: #22c55e; --bg-card: rgba(15, 23, 42, 0.85); }
     body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; user-select: none; }
     
+    /* UI Layer - วางทับบนสุด */
     #ui-layer {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       z-index: 100; pointer-events: none;
@@ -18,41 +20,44 @@
     }
     .pointer-auto { pointer-events: auto; }
 
-    /* Top HUD */
-    .hud-top { padding: 15px; display: flex; justify-content: space-between; }
-    .card {
-      background: rgba(0, 0, 0, 0.6); padding: 8px 15px; border-radius: 8px;
-      border: 1px solid #555; color: white;
-    }
-    .val-big { font-size: 24px; font-weight: bold; color: #22c55e; }
+    /* Top HUD - ส่วนบน */
+    .hud-top { padding: 15px; display: flex; justify-content: space-between; align-items: flex-start; }
     
-    /* 🔥 เป้าเล็งแบบ 2D (กากบาทใหญ่ๆ) สำหรับโหมดถือเล่น */
+    /* การ์ดข้อมูล (Score, Water) */
+    .card {
+      background: var(--bg-card); padding: 10px 14px; border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1); color: white;
+      backdrop-filter: blur(4px); margin-bottom: 8px;
+    }
+    .label { font-size: 10px; color: #94a3b8; letter-spacing: 1px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
+    .val-big { font-size: 22px; font-weight: 800; line-height: 1; color: var(--accent); }
+    
+    /* 🔥 กล่อง Quest / Objective (ที่คุณต้องการ!) */
+    .quest-box {
+      background: linear-gradient(to right, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.6));
+      border-left: 3px solid #38bdf8;
+      padding: 8px 12px; border-radius: 8px; margin-top: 5px;
+    }
+
+    /* เป้าเล็ง 2D (กากบาทแดงใหญ่ๆ) */
     #crosshair-2d {
       position: absolute; top: 50%; left: 50%; 
       transform: translate(-50%, -50%);
-      width: 40px; height: 40px;
-      z-index: 999;
-      opacity: 0.8;
+      width: 40px; height: 40px; z-index: 99; opacity: 0.8;
     }
-    /* ขีดแนวตั้ง */
-    #crosshair-2d::before {
-      content: ''; position: absolute; top: 0; left: 50%;
-      width: 4px; height: 100%; background: #ff0000;
-      transform: translateX(-50%); box-shadow: 0 0 5px white;
-    }
-    /* ขีดแนวนอน */
-    #crosshair-2d::after {
-      content: ''; position: absolute; top: 50%; left: 0;
-      width: 100%; height: 4px; background: #ff0000;
-      transform: translateY(-50%); box-shadow: 0 0 5px white;
-    }
+    #crosshair-2d::before { content: ''; position: absolute; top: 0; left: 50%; width: 4px; height: 100%; background: #ff0000; transform: translateX(-50%); box-shadow: 0 0 5px white; }
+    #crosshair-2d::after { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 4px; background: #ff0000; transform: translateY(-50%); box-shadow: 0 0 5px white; }
 
+    /* ส่วนล่าง (Coach) */
     .hud-bot { padding: 20px; text-align: center; }
     .coach-pill {
-      background: rgba(0,0,0,0.8); border: 1px solid #fff;
-      padding: 10px 20px; border-radius: 30px; color: #fff; font-size: 16px;
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--bg-card); border: 1px solid #38bdf8;
+      padding: 8px 20px; border-radius: 50px; color: #fff; font-size: 14px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
-    
+
+    /* หน้าจบเกม */
     #game-over {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95);
       z-index: 200; align-items: center; justify-content: center; flex-direction: column;
@@ -63,12 +68,21 @@
 
   <div id="ui-layer">
     <div class="hud-top">
-      <div class="card pointer-auto">
-        <div style="font-size:10px;">SCORE</div>
-        <div class="val-big" id="ui-score">0</div>
+      <div style="display:flex; flex-direction:column; align-items:flex-start;">
+        <div class="card pointer-auto">
+          <div class="label">SCORE</div>
+          <div class="val-big" id="ui-score">0</div>
+        </div>
+        
+        <div class="quest-box pointer-auto">
+          <div class="label" style="color:#38bdf8;">CURRENT OBJECTIVE</div>
+          <div id="ui-goal" style="font-size:13px; font-weight:bold; color:#fff;">Loading...</div>
+          <div id="ui-mini" style="font-size:10px; color:#cbd5e1; margin-top:2px;">...</div>
+        </div>
       </div>
-      <div class="card pointer-auto">
-        <div style="font-size:10px;">WATER</div>
+
+      <div class="card pointer-auto" style="text-align:right;">
+        <div class="label">HYDRATION</div>
         <div class="val-big" id="ui-water">50%</div>
       </div>
     </div>
@@ -77,107 +91,127 @@
 
     <div class="hud-bot">
       <div class="coach-pill pointer-auto">
-        แตะหน้าจอเพื่อยิง! (Tap to Shoot)
+        <span style="font-size:20px;">🤖</span>
+        <span id="ui-coach">Welcome! Tap to shoot 💧</span>
       </div>
     </div>
   </div>
 
   <div id="game-over">
-    <h1 style="color:red; font-size:40px;">GAME OVER</h1>
-    <button style="padding:15px 30px; font-size:20px;" onclick="location.reload()">เล่นใหม่</button>
+    <h1 style="color:white;">GAME OVER</h1>
+    <p style="color:#ccc;">Score: <span id="end-score">0</span></p>
+    <button style="padding:15px 30px; font-size:18px; background:#22c55e; border:none; border-radius:10px; cursor:pointer;" onclick="location.reload()">PLAY AGAIN</button>
   </div>
 
   <a-scene background="color: #111">
-    
-    <a-grid helper geometry="primitive: plane; width: 50; height: 50" rotation="-90 0 0" 
-            material="src: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAKrVq36zwjjgzj//v37zwjjgzj//v37zwAA9c4Vr9F3E44AAAAASUVORK5CYII=); repeat: 25 25; opacity: 0.2; color: #fff; transparent: true"></a-grid>
-    <a-sky color="#222"></a-sky>
+    <a-grid helper geometry="primitive: plane; width: 60; height: 60" rotation="-90 0 0" material="src: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAKrVq36zwjjgzj//v37zwjjgzj//v37zwAA9c4Vr9F3E44AAAAASUVORK5CYII=); repeat: 30 30; opacity: 0.15; color:#38bdf8; transparent: true"></a-grid>
+    <a-sky color="#1a202c"></a-sky>
 
     <a-entity id="rig" position="0 0 0">
       <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true">
-        
         <a-entity cursor="fuse: false"
                   position="0 0 -2" 
                   geometry="primitive: sphere; radius: 0.05"
-                  material="color: #ff0000; shader: flat; opacity: 1"
+                  material="color: #ff0000; shader: flat"
                   raycaster="objects: .clickable; far: 20">
-             <a-entity light="type: point; intensity: 1; distance: 2; color: red"></a-entity>     
         </a-entity>
-
       </a-camera>
     </a-entity>
     
     <a-entity id="playfield"></a-entity>
-
   </a-scene>
 
   <script>
-    let score = 0;
-    let water = 50;
-    let isPlaying = true;
+    let state = { score: 0, water: 50, playing: true };
+    let gameLoop;
     
+    const el = {
+      score: document.getElementById('ui-score'),
+      water: document.getElementById('ui-water'),
+      goal: document.getElementById('ui-goal'),
+      mini: document.getElementById('ui-mini'),
+      coach: document.getElementById('ui-coach')
+    };
+
     function updateUI() {
-      document.getElementById('ui-score').innerText = score;
-      document.getElementById('ui-water').innerText = Math.floor(water) + "%";
+      el.score.innerText = state.score;
+      el.water.innerText = Math.floor(state.water) + "%";
+      el.water.style.color = state.water <= 20 ? '#ef4444' : '#22c55e';
     }
 
-    function spawnTarget() {
-      if(!isPlaying) return;
+    function setQuest(main, mini) {
+      el.goal.innerText = main;
+      el.mini.innerText = mini;
+    }
+
+    function spawnEmoji() {
+      if(!state.playing) return;
 
       const ent = document.createElement('a-entity');
-      // สุ่มตำแหน่งด้านหน้า
-      const angle = (Math.random() * 100 - 50) * (Math.PI / 180); 
-      const dist = 3; 
+      // สุ่มตำแหน่ง
+      const angle = (Math.random() * 120 - 60) * (Math.PI / 180); 
+      const dist = 3.5; 
       const x = Math.sin(angle) * dist;
-      const y = 1.0 + Math.random() * 1.5; 
+      const y = 1.2 + Math.random() * 0.8; 
       const z = -Math.cos(angle) * dist;
 
       ent.setAttribute('position', {x, y, z});
       
-      // เป้าหมาย: กล่องสี่เหลี่ยมสีฟ้า (เห็นง่ายกว่า Emoji)
-      ent.setAttribute('geometry', 'primitive: box; width: 0.8; height: 0.8; depth: 0.8');
-      ent.setAttribute('material', 'color: #38bdf8');
-      ent.setAttribute('class', 'clickable'); // ต้องมี class นี้
+      // 🔥 สร้าง Emoji 💧 (ตัวใหญ่ๆ)
+      ent.setAttribute('text', { value: '💧', align: 'center', width: 15, color: '#38bdf8', shader: 'msdf' });
+      ent.setAttribute('scale', '0 0 0');
+      
+      // 🔥 สร้าง Hitbox ใสๆ รองหลัง (เพื่อให้ยิงง่าย)
+      ent.setAttribute('geometry', 'primitive: plane; width: 1.2; height: 1.2');
+      ent.setAttribute('material', 'opacity: 0.0; transparent: true');
+      ent.setAttribute('class', 'clickable'); 
 
       ent.object3D.lookAt(0, 1.6, 0);
 
-      // Animation
-      ent.setAttribute('animation', 'property: rotation; to: 0 360 0; loop: true; dur: 3000');
-      ent.setAttribute('animation__pop', 'property: scale; from: 0 0 0; to: 1 1 1; dur: 500');
+      // Animation Spawn
+      ent.setAttribute('animation', 'property: scale; to: 6 6 6; dur: 800; easing: easeOutElastic');
 
+      // Click Event
       ent.addEventListener('click', () => {
-        if(!isPlaying) return;
-        score += 100;
-        water = Math.min(100, water + 10);
+        if(!state.playing) return;
+        state.score += 100;
+        state.water = Math.min(100, state.water + 8);
         updateUI();
 
-        // Effect ตาย
-        ent.setAttribute('material', 'color: white');
-        ent.setAttribute('animation__die', 'property: scale; to: 0 0 0; dur: 200');
-        setTimeout(() => { if(ent.parentNode) ent.parentNode.removeChild(ent); }, 200);
+        // Splash Effect 💦
+        ent.setAttribute('text', { value: '💦', color: '#FFF' });
+        ent.setAttribute('animation__die', 'property: scale; to: 10 10 10; dur: 150');
+        ent.setAttribute('animation__fade', 'property: text.opacity; to: 0; dur: 150');
+        setTimeout(() => { if(ent.parentNode) ent.parentNode.removeChild(ent); }, 150);
       });
 
-      // หายไปเอง
+      // Auto Destroy
       setTimeout(() => {
         if(ent.parentNode && ent.parentNode.parentNode) {
             ent.parentNode.removeChild(ent);
         }
-      }, 3000);
+      }, 2500);
 
       document.getElementById('playfield').appendChild(ent);
     }
 
     window.addEventListener('load', () => {
-      // Spawn Loop
-      setInterval(spawnTarget, 1500);
+      // 1. ตั้งค่า Quest
+      setQuest("Collect Water 💧", "Stay hydrated!");
+      el.coach.innerText = "Aim with the red crosshair & Tap!";
+      
+      // 2. เริ่มเกม
+      gameLoop = setInterval(spawnEmoji, 1000);
 
-      // Water Decay
+      // 3. น้ำลด
       setInterval(() => {
-        if(isPlaying) {
-          water -= 1;
-          if(water <= 0) {
-            isPlaying = false;
+        if(state.playing) {
+          state.water -= 1;
+          if(state.water <= 0) {
+            state.playing = false;
+            document.getElementById('end-score').innerText = state.score;
             document.getElementById('game-over').style.display = 'flex';
+            clearInterval(gameLoop);
           }
           updateUI();
         }
