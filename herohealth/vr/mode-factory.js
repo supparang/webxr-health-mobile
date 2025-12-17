@@ -1,6 +1,12 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ PATCH: ใช้ overlay host (fixed fullscreen) กันปัญหา host=0 / ถูก canvas ทับ
+//
+// 2025-12-17 PATCH (สำคัญมาก):
+// ✅ รองรับ cfg.container / cfg.spawnLayer -> spawn ลง playfield จริง (เลื่อนตาม scroll ได้)
+// ✅ fallback overlay host (fixed fullscreen) เฉพาะกรณีไม่มี container/หรือ container ใช้ไม่ได้
+// ✅ computePlayRect อิง container.getBoundingClientRect() และวางตำแหน่ง "ภายใน container"
+// ✅ auto-fix: container ไม่ได้ position:relative -> ใส่ให้
+// ✅ เพิ่ม ctx.spawnX/spawnY + targetId ให้ judge / logger
 
 'use strict';
 
@@ -21,7 +27,7 @@ function pickOne (arr, fallback = null) {
   return arr[i];
 }
 
-// ใช้ดึงตำแหน่งจาก pointer / touch
+// ใช้ดึงตำแหน่งจาก pointer / touch (viewport coords)
 function getEventXY (ev) {
   let x = ev.clientX;
   let y = ev.clientY;
@@ -71,7 +77,9 @@ function pickDiffConfig (modeKey, diffKey) {
   return cfg;
 }
 
-// ✅ inject style overlay host (ครั้งเดียว)
+// ======================================================
+//  Overlay fallback (fixed fullscreen) — ใช้เมื่อไม่มี container
+// ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
   const s = DOC.createElement('style');
@@ -80,17 +88,16 @@ function ensureOverlayStyle () {
     .hvr-overlay-host{
       position:fixed;
       inset:0;
-      z-index:9998; /* สูงกว่า HUD/Canvas ส่วนใหญ่ */
-      pointer-events:none; /* กันไปรบกวนฉาก */
+      z-index:9998;
+      pointer-events:none;
     }
     .hvr-overlay-host .hvr-target{
-      pointer-events:auto; /* แต่ให้เป้ากดได้ */
+      pointer-events:auto;
     }
   `;
   DOC.head.appendChild(s);
 }
 
-// ✅ สร้าง overlay host ที่เห็นชัวร์
 function ensureOverlayHost () {
   if (!DOC) return null;
   ensureOverlayStyle();
@@ -102,10 +109,43 @@ function ensureOverlayHost () {
   host.id = 'hvr-overlay-host';
   host.className = 'hvr-overlay-host';
   host.setAttribute('data-hvr-host', '1');
-
-  // สำคัญ: ต้องอยู่ท้าย body เพื่อทับทุกอย่าง
   DOC.body.appendChild(host);
   return host;
+}
+
+// ======================================================
+//  Container host (playfield) — spawn ลง DOM จริงให้เลื่อนตามจอ
+// ======================================================
+function resolveHostFromCfg(rawCfg) {
+  if (!DOC) return { host: null, hostType: 'none' };
+
+  const h =
+    rawCfg?.container ||
+    rawCfg?.spawnLayer ||
+    null;
+
+  // ถ้าส่งเป็น selector string ก็รองรับ
+  let host = null;
+  if (typeof h === 'string') host = DOC.querySelector(h);
+  else host = h;
+
+  if (host && host.nodeType === 1 && host.isConnected) {
+    // ensure relative positioning
+    try {
+      const cs = ROOT.getComputedStyle(host);
+      if (!cs || cs.position === 'static') host.style.position = 'relative';
+    } catch {}
+
+    // กันโดนทับแบบพื้นฐาน
+    try {
+      if (!host.style.zIndex) host.style.zIndex = '30';
+    } catch {}
+
+    return { host, hostType: 'container' };
+  }
+
+  // fallback overlay
+  return { host: ensureOverlayHost(), hostType: 'overlay' };
 }
 
 // ======================================================
@@ -123,16 +163,24 @@ export async function boot (rawCfg = {}) {
     powerEvery = 7,
     spawnStyle = 'pop',
     judge,
-    onExpire
+    onExpire,
+
+    // ✅ อนุญาต override สำหรับบางเกม
+    spawnInterval,
+    maxActive
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
-  // ✅ ใช้ overlay host เสมอ (แก้ “เป้าไม่โผล่”)
-  const host = ensureOverlayHost();
+  // ✅ ถ้ามี override มากับ cfg ให้ใช้ (ช่วยแก้ “ไม่ spawn” ในบางเคส)
+  if (Number.isFinite(spawnInterval) && spawnInterval > 0) baseDiff.spawnInterval = spawnInterval;
+  if (Number.isFinite(maxActive) && maxActive > 0) baseDiff.maxActive = maxActive;
+
+  const { host, hostType } = resolveHostFromCfg(rawCfg);
+
   if (!host || !DOC) {
-    console.error('[mode-factory] overlay host not found');
+    console.error('[mode-factory] host not found');
     return { stop () {} };
   }
 
@@ -204,24 +252,38 @@ export async function boot (rawCfg = {}) {
     if (sampleTotal >= ADAPT_WINDOW) recalcAdaptive();
   }
 
-  // ✅ เล่นใน viewport จริง (ไม่อิง host.clientWidth/Height ที่อาจ 0)
+  // ✅ play rect ภายใน host
   function computePlayRect () {
-    const w = Math.max(1, ROOT.innerWidth  || 1);
-    const h = Math.max(1, ROOT.innerHeight || 1);
+    // overlay: ใช้ viewport
+    if (hostType === 'overlay') {
+      const w = Math.max(1, ROOT.innerWidth  || 1);
+      const h = Math.max(1, ROOT.innerHeight || 1);
+      const top    = h * 0.25;
+      const bottom = h * 0.82;
+      const left   = w * 0.10;
+      const right  = w * 0.90;
+      return { left, top, width: right - left, height: bottom - top, origin: 'viewport', rect: null };
+    }
 
-    const top    = h * 0.25;
-    const bottom = h * 0.82;
-    const left   = w * 0.10;
-    const right  = w * 0.90;
+    // container: ใช้ bounding rect แล้วแปลงเป็นพิกัด "ภายใน container"
+    const r = host.getBoundingClientRect();
+    const w = Math.max(1, r.width  || 1);
+    const h = Math.max(1, r.height || 1);
 
-    return { left, top, width: right - left, height: bottom - top };
+    // margin แบบ safe ให้ไม่ชนขอบ
+    const left   = w * 0.08;
+    const right  = w * 0.92;
+    const top    = h * 0.08;
+    const bottom = h * 0.92;
+
+    return { left, top, width: right - left, height: bottom - top, origin: 'container', rect: r };
   }
 
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
     const rect = computePlayRect();
-    const x = rect.left + rect.width  * (0.15 + Math.random() * 0.70);
+    const x = rect.left + rect.width  * (0.10 + Math.random() * 0.80);
     const y = rect.top  + rect.height * (0.10 + Math.random() * 0.80);
 
     const poolsGood = Array.isArray(pools.good) ? pools.good : [];
@@ -252,6 +314,8 @@ export async function boot (rawCfg = {}) {
     el.className = 'hvr-target';
     el.setAttribute('data-hha-tgt', '1');
 
+    if (!isGood && !isPower) el.classList.add('bad');
+
     const baseSize = 78;
     const size = baseSize * curScale;
 
@@ -262,15 +326,13 @@ export async function boot (rawCfg = {}) {
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     el.style.borderRadius = '999px';
-    el.style.border = '2px solid rgba(15,23,42,0.85)';
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
     el.style.userSelect = 'none';
     el.style.cursor = 'pointer';
     el.style.touchAction = 'manipulation';
-    el.style.zIndex = '30';
-    el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.85)';
+    el.style.zIndex = '35';
     el.style.transition = 'transform 0.15s ease-out, box-shadow 0.15s ease-out, opacity 0.12s ease-out';
 
     let bgGrad = '';
@@ -309,6 +371,8 @@ export async function boot (rawCfg = {}) {
     inner.appendChild(icon);
     el.appendChild(inner);
 
+    const targetId = `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+
     ROOT.requestAnimationFrame(() => {
       el.style.transform = 'translate(-50%, -50%) scale(1)';
     });
@@ -318,8 +382,11 @@ export async function boot (rawCfg = {}) {
       ch,
       isGood,
       isPower,
-      bornAt: performance.now(),
-      life: baseDiff.life
+      bornAt: (ROOT.performance && performance.now) ? performance.now() : Date.now(),
+      life: baseDiff.life,
+      targetId,
+      spawnX: x,
+      spawnY: y
     };
 
     activeTargets.add(data);
@@ -340,7 +407,18 @@ export async function boot (rawCfg = {}) {
       let res = null;
       if (typeof judge === 'function') {
         const xy = getEventXY(ev);
-        const ctx = { clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y, isGood, isPower };
+
+        // ✅ ctx = viewport coords สำหรับ FX/HUD + เพิ่มข้อมูล spawn
+        const ctx = {
+          clientX: xy.x, clientY: xy.y,
+          cx: xy.x, cy: xy.y,
+          isGood, isPower,
+          targetId,
+          spawnX: data.spawnX,
+          spawnY: data.spawnY,
+          hostType
+        };
+
         try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
       }
 
@@ -371,7 +449,9 @@ export async function boot (rawCfg = {}) {
       try { el.removeEventListener('touchstart', handleHit); } catch {}
       try { host.removeChild(el); } catch {}
 
-      try { if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower }); } catch (err) {
+      try {
+        if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, targetId, spawnX: data.spawnX, spawnY: data.spawnY });
+      } catch (err) {
         console.error('[mode-factory] onExpire error', err);
       }
 
