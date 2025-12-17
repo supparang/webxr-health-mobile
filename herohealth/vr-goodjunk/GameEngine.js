@@ -1,6 +1,14 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL)
-// MISS = good expired + junk hit (shield block = NO miss)
+// Good vs Junk VR — DOM Emoji Engine (FINAL – Adaptive Ready)
+//
+// MISS = good expired + junk hit
+// (junk hit while SHIELD active = NO miss)
+//
+// Adaptive (Play mode only):
+//  - target size  : diff + combo + fever + timeLeft
+//  - spawn speed  : diff + combo + fever + timeLeft
+// Research mode:
+//  - NO adaptive (fixed by diff)
 
 'use strict';
 
@@ -22,6 +30,13 @@
   const STAR='⭐', FIRE='🔥', SHIELD='🛡️';
   const POWER=[STAR,FIRE,SHIELD];
 
+  // ===== Base difficulty =====
+  const BASE = {
+    easy:   { scale: 1.15, spawn: 1100 },
+    normal: { scale: 1.00, spawn:  900 },
+    hard:   { scale: 0.90, spawn:  750 }
+  };
+
   // ===== State =====
   let running=false;
   let layerEl=null;
@@ -37,11 +52,18 @@
 
   let feverActive=false;
 
+  // timing
+  let startTime=0;
+  let durationSec=60;
+
+  // mode
+  let diff='normal';
+  let adaptiveEnabled=true;
+
   // ===== Camera helpers =====
   function getCamera(){
     const camEl = document.querySelector('a-camera');
-    if (camEl && camEl.object3D) return camEl.object3D;
-    return null;
+    return camEl && camEl.object3D ? camEl.object3D : null;
   }
 
   function spawnWorld(){
@@ -74,6 +96,43 @@
     };
   }
 
+  // ===== Time helper =====
+  function timeLeftSec(){
+    const used = (performance.now() - startTime) / 1000;
+    return Math.max(0, durationSec - used);
+  }
+
+  // ===== Adaptive =====
+  function adaptiveScale(){
+    const base = BASE[diff]?.scale ?? 1.0;
+    if (!adaptiveEnabled) return base;
+
+    let reduce = 0;
+    if (combo >= 5)  reduce += 0.08;
+    if (combo >= 10) reduce += 0.10;
+    if (combo >= 15) reduce += 0.12;
+
+    if (feverActive) reduce += 0.12;
+    if (timeLeftSec() <= 15) reduce += 0.08;
+
+    return Math.max(0.65, Math.min(base, base - reduce));
+  }
+
+  function adaptiveSpawn(){
+    const base = BASE[diff]?.spawn ?? 900;
+    if (!adaptiveEnabled) return base;
+
+    let interval = base;
+    if (combo >= 5)  interval -= 120;
+    if (combo >= 10) interval -= 180;
+    if (combo >= 15) interval -= 220;
+
+    if (feverActive) interval -= 120;
+    if (timeLeftSec() <= 15) interval -= 100;
+
+    return Math.max(420, interval);
+  }
+
   // ===== Target =====
   function createTarget(kind){
     if (!layerEl) return;
@@ -89,7 +148,6 @@
     el.textContent = emoji;
     el.setAttribute('data-hha-tgt','1');
 
-    // kind สำหรับ reticle / HUD
     el.dataset.kind =
       emoji === STAR   ? 'star'   :
       emoji === FIRE   ? 'diamond':
@@ -103,6 +161,8 @@
       born: performance.now()
     };
 
+    el.style.setProperty('--tScale', adaptiveScale().toFixed(2));
+
     active.push(t);
     layerEl.appendChild(el);
 
@@ -111,21 +171,7 @@
       hitTarget(t, e.clientX, e.clientY);
     });
 
-    // ===== EXPPIRE =====
     setTimeout(()=>expireTarget(t), 2200);
-  }
-
-  function expireTarget(t){
-    if (!running) return;
-    removeTarget(t);
-
-    // ✅ MISS เฉพาะ "ปล่อยของดี"
-    if (t.kind === 'good'){
-      misses++;
-      combo = 0;
-      emitScore();
-      emitMiss();
-    }
   }
 
   function removeTarget(t){
@@ -134,24 +180,38 @@
     if (t.el) t.el.remove();
   }
 
+  function expireTarget(t){
+    if (!running) return;
+    removeTarget(t);
+
+    // MISS = ปล่อยของดีเท่านั้น
+    if (t.kind === 'good'){
+      misses++;
+      combo = 0;
+      emitScore();
+      emitMiss();
+    }
+  }
+
   function hitTarget(t, x, y){
     removeTarget(t);
 
-    // ===== POWER =====
+    // SHIELD
     if (t.emoji === SHIELD){
       shield = Math.min(3, shield + 1);
       emitScore();
       return;
     }
 
+    // FEVER
     if (t.emoji === FIRE && FeverUI){
       FeverUI.add(20);
     }
 
-    // ===== JUNK =====
+    // JUNK
     if (t.kind === 'junk'){
       if (shield > 0){
-        shield--; // ❌ shield กัน → ไม่นับ miss
+        shield--; // shield กัน → ไม่ MISS
         emitScore();
         return;
       }
@@ -163,20 +223,20 @@
       return;
     }
 
-    // ===== GOOD =====
+    // GOOD
     goodHits++;
     combo++;
     comboMax = Math.max(comboMax, combo);
 
-    const feverNow = FeverUI && FeverUI.isActive();
-    score += feverNow ? 20 : 10;
+    feverActive = FeverUI ? FeverUI.isActive() : false;
+    score += feverActive ? 20 : 10;
 
-    Particles.scorePop(x, y, feverNow ? '+20' : '+10', { good:true });
+    Particles.scorePop(x, y, feverActive ? '+20' : '+10', { good:true });
     emitJudge(combo >= 6 ? 'PERFECT' : 'GOOD');
     emitScore();
   }
 
-  // ===== Emit helpers =====
+  // ===== Emit =====
   function emitJudge(label){
     ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label }}));
   }
@@ -187,7 +247,6 @@
 
   function emitScore(){
     feverActive = FeverUI ? FeverUI.isActive() : false;
-
     ROOT.dispatchEvent(new CustomEvent('hha:score',{
       detail:{
         score,
@@ -218,13 +277,18 @@
     if (active.length < 4){
       createTarget(Math.random() < 0.7 ? 'good' : 'junk');
     }
-    spawnTimer = setTimeout(spawnLoop, 900);
+    spawnTimer = setTimeout(spawnLoop, adaptiveSpawn());
   }
 
   // ===== API =====
-  function start(diff, opts={}){
+  function start(d, opts={}){
     if (running) return;
-    running = true;
+
+    diff = d || 'normal';
+    durationSec = opts.durationSec || 60;
+    startTime = performance.now();
+
+    adaptiveEnabled = (opts.runMode !== 'research');
 
     layerEl = opts.layerEl || document.getElementById('gj-layer');
 
@@ -233,6 +297,7 @@
 
     if (FeverUI) FeverUI.reset();
 
+    running = true;
     emitScore();
     renderLoop();
     spawnLoop();
