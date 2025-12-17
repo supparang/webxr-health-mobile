@@ -1,8 +1,8 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL v4 P5-tuned)
-// + SFX is handled in HTML via judge/fever/quest events
+// Good vs Junk VR — DOM Emoji Engine (FINAL v5 P5-hype)
+// + STAR bonus (คะแนน+เอฟเฟกต์+คอมโบ)
+// + Panic multiplier support (window.__HHA_PANIC_MULT)
 // MISS = good expired (seen) + junk hit (shield block = NO miss)
-// v4: VR center-biased fallback2D (uses window.__HHA_IS_VR)
 
 'use strict';
 
@@ -21,7 +21,7 @@
   const POWER=[STAR,FIRE,SHIELD];
 
   const DIFF_TUNE = {
-    easy:   { spawnEveryMs: 820, ttlMs: 2400, maxActive: 4, goodRatio: 0.72, powerRate: 0.12, tScale: 1.18 },
+    easy:   { spawnEveryMs: 820, ttlMs: 2400, maxActive: 4, goodRatio: 0.72, powerRate: 0.13, tScale: 1.18 },
     normal: { spawnEveryMs: 700, ttlMs: 2100, maxActive: 5, goodRatio: 0.68, powerRate: 0.12, tScale: 1.08 },
     hard:   { spawnEveryMs: 600, ttlMs: 1900, maxActive: 6, goodRatio: 0.64, powerRate: 0.10, tScale: 1.00 }
   };
@@ -29,6 +29,11 @@
   const ENDGAME_SEC = 10;
   const ENDGAME_SPAWN_MULT = 0.85;
   const ENDGAME_TTL_MULT   = 0.90;
+
+  // ⭐ BONUS tuning (เหมาะกับเด็ก ป.5 = ดีใจ + เห็นผลชัด)
+  const STAR_SCORE = 80;      // โบนัสคะแนน
+  const STAR_COMBO_ADD = 2;   // โบนัสคอมโบ (เร้าใจ)
+  const STAR_BURST = 18;      // จำนวนแตกกระจาย
 
   let running=false;
   let layerEl=null;
@@ -145,8 +150,15 @@
 
   function currentSpawnEveryMs(){
     let s = cfg.spawnEveryMs;
+
+    // endgame auto boost
     if (nowSecLeft() <= ENDGAME_SEC) s = Math.round(s * ENDGAME_SPAWN_MULT);
-    return Math.max(260, s);
+
+    // panic multiplier from HTML (10 วิท้าย)
+    const pm = Number(ROOT.__HHA_PANIC_MULT || 1) || 1;
+    s = Math.round(s / Math.max(1, pm)); // pm>1 = spawn ถี่ขึ้น
+
+    return Math.max(240, s);
   }
 
   function currentTtlMs(){
@@ -155,30 +167,26 @@
     return Math.max(900, t);
   }
 
-  // ===== ✅ VR center-bias fallback 2D =====
+  // ===== VR center-bias fallback 2D =====
   function pickFallback2D(){
     const w = window.innerWidth || 1;
     const h = window.innerHeight || 1;
 
     const isVR = !!ROOT.__HHA_IS_VR;
 
-    // safe margins
     const minX = Math.round(w * 0.10);
     const maxX = Math.round(w * 0.90);
     const minY = Math.round(h * 0.18);
     const maxY = Math.round(h * 0.88);
 
-    // center-biased when VR: tighter radius around center
     if (isVR){
       const cx = w * 0.5;
       const cy = h * 0.52;
 
-      // radius tuned for comfort (less neck turning)
-      const rx = w * 0.22;   // ±22% width
-      const ry = h * 0.18;   // ±18% height
+      const rx = w * 0.22;
+      const ry = h * 0.18;
 
-      // simple “triangular distribution” (more density near center)
-      const r01 = ()=> (Math.random() + Math.random()) / 2; // 0..1 center-ish
+      const r01 = ()=> (Math.random() + Math.random()) / 2;
       const sx = (r01()*2 - 1);
       const sy = (r01()*2 - 1);
 
@@ -187,7 +195,6 @@
       return { x: Math.round(x), y: Math.round(y) };
     }
 
-    // normal mode: broader spread
     const x = w * (0.18 + Math.random()*0.64);
     const y = h * (0.22 + Math.random()*0.60);
     return { x: Math.round(clamp(x, minX, maxX)), y: Math.round(clamp(y, minY, maxY)) };
@@ -261,9 +268,32 @@
     }
   }
 
+  function burstAtXY(x,y,count){
+    if (!Particles || typeof Particles.burstAt !== 'function') return;
+    Particles.burstAt(x, y, { count: count|0, good:true });
+  }
+  function popAtXY(x,y,text){
+    if (!Particles || typeof Particles.scorePop !== 'function') return;
+    Particles.scorePop(x, y, text, { good:true });
+  }
+
   function hitTarget(t, x, y){
     if (!t || !t.el) return;
     removeTarget(t);
+
+    // ⭐ STAR BONUS
+    if (t.emoji === STAR){
+      score += STAR_SCORE;
+      combo += STAR_COMBO_ADD;
+      comboMax = Math.max(comboMax, combo);
+
+      burstAtXY(x, y, STAR_BURST);
+      popAtXY(x, y, `+${STAR_SCORE}`);
+
+      emitJudge('STAR!');
+      emitScore();
+      return;
+    }
 
     if (t.emoji === SHIELD){
       shield = Math.min(3, shield + 1);
@@ -294,6 +324,7 @@
       return;
     }
 
+    // GOOD
     goodHits++;
     combo++;
     comboMax = Math.max(comboMax, combo);
@@ -323,7 +354,6 @@
       if (ready && t.pos) p = project(t.pos);
 
       if (!p){
-        // refresh fallback each frame in VR for “follow head” feeling (optional but nice)
         if (ROOT.__HHA_IS_VR) t.fallback2D = pickFallback2D();
         p = t.fallback2D;
       } else {
