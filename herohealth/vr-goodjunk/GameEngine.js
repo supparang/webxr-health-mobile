@@ -1,43 +1,35 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL v3 P5-tuned)
+// Good vs Junk VR — DOM Emoji Engine (FINAL v4 P5-tuned)
+// + SFX is handled in HTML via judge/fever/quest events
 // MISS = good expired (seen) + junk hit (shield block = NO miss)
-//
-// v3:
-// - Diff tuning: spawnEveryMs / ttlMs / maxActive / goodRatio / targetScale
-// - Endgame ramp: last 10s -> faster spawn + shorter ttl (exciting finish)
-// - Fallback 2D positions if 3D project not ready (targets always visible)
+// v4: VR center-biased fallback2D (uses window.__HHA_IS_VR)
 
 'use strict';
 
 (function (ns) {
   const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
-  // ===== External modules =====
   const Particles =
     (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
     ROOT.Particles || { scorePop(){}, burstAt(){} };
 
   const FeverUI = ROOT.FeverUI || null;
 
-  // ===== Emoji pools =====
   const GOOD = ['🍎','🥦','🥕','🍌','🍉','🥛'];
   const JUNK = ['🍔','🍟','🍕','🍩','🍪','🥤'];
   const STAR='⭐', FIRE='🔥', SHIELD='🛡️';
   const POWER=[STAR,FIRE,SHIELD];
 
-  // ===== Difficulty tuning for P.5 (fun + challenge) =====
   const DIFF_TUNE = {
     easy:   { spawnEveryMs: 820, ttlMs: 2400, maxActive: 4, goodRatio: 0.72, powerRate: 0.12, tScale: 1.18 },
     normal: { spawnEveryMs: 700, ttlMs: 2100, maxActive: 5, goodRatio: 0.68, powerRate: 0.12, tScale: 1.08 },
     hard:   { spawnEveryMs: 600, ttlMs: 1900, maxActive: 6, goodRatio: 0.64, powerRate: 0.10, tScale: 1.00 }
   };
 
-  // Endgame ramp (last N seconds)
   const ENDGAME_SEC = 10;
-  const ENDGAME_SPAWN_MULT = 0.85; // faster
-  const ENDGAME_TTL_MULT   = 0.90; // shorter
+  const ENDGAME_SPAWN_MULT = 0.85;
+  const ENDGAME_TTL_MULT   = 0.90;
 
-  // ===== State =====
   let running=false;
   let layerEl=null;
   let active=[];
@@ -53,12 +45,17 @@
   let feverActive=false;
   let feverPrev=false;
 
-  // runtime config
   let cfg = { ...DIFF_TUNE.normal };
   let startMs = 0;
   let durationSec = 60;
 
-  // ===== Dynamic THREE getter =====
+  function clamp(v, min, max){
+    v = Number(v) || 0;
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
+  }
+
   function getTHREE(){
     return ROOT.THREE || (ROOT.AFRAME && ROOT.AFRAME.THREE) || null;
   }
@@ -74,7 +71,6 @@
     return null;
   }
 
-  // ===== World spawn =====
   function spawnWorld(){
     const THREE = getTHREE();
     const cam = getCameraObj3D();
@@ -86,7 +82,6 @@
     const dir = new THREE.Vector3();
     cam.getWorldDirection(dir);
 
-    // slightly closer for kids (feel hittable)
     pos.add(dir.multiplyScalar(2.05));
     pos.x += (Math.random()-0.5)*1.9;
     pos.y += (Math.random()-0.5)*1.45;
@@ -94,7 +89,6 @@
     return pos;
   }
 
-  // ===== Project 3D → 2D =====
   function project(pos){
     const THREE = getTHREE();
     const scene = sceneRef();
@@ -109,7 +103,6 @@
     };
   }
 
-  // ===== Emit helpers =====
   function emitJudge(label){
     ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label }}));
   }
@@ -134,7 +127,7 @@
     if (FeverUI && typeof FeverUI.isActive === 'function'){
       feverActive = !!FeverUI.isActive();
       emitFeverEdgeIfNeeded();
-    }else{
+    } else {
       feverActive = false;
       feverPrev = false;
     }
@@ -162,7 +155,44 @@
     return Math.max(900, t);
   }
 
-  // ===== Target =====
+  // ===== ✅ VR center-bias fallback 2D =====
+  function pickFallback2D(){
+    const w = window.innerWidth || 1;
+    const h = window.innerHeight || 1;
+
+    const isVR = !!ROOT.__HHA_IS_VR;
+
+    // safe margins
+    const minX = Math.round(w * 0.10);
+    const maxX = Math.round(w * 0.90);
+    const minY = Math.round(h * 0.18);
+    const maxY = Math.round(h * 0.88);
+
+    // center-biased when VR: tighter radius around center
+    if (isVR){
+      const cx = w * 0.5;
+      const cy = h * 0.52;
+
+      // radius tuned for comfort (less neck turning)
+      const rx = w * 0.22;   // ±22% width
+      const ry = h * 0.18;   // ±18% height
+
+      // simple “triangular distribution” (more density near center)
+      const r01 = ()=> (Math.random() + Math.random()) / 2; // 0..1 center-ish
+      const sx = (r01()*2 - 1);
+      const sy = (r01()*2 - 1);
+
+      const x = clamp(cx + sx * rx, minX, maxX);
+      const y = clamp(cy + sy * ry, minY, maxY);
+      return { x: Math.round(x), y: Math.round(y) };
+    }
+
+    // normal mode: broader spread
+    const x = w * (0.18 + Math.random()*0.64);
+    const y = h * (0.22 + Math.random()*0.60);
+    return { x: Math.round(clamp(x, minX, maxX)), y: Math.round(clamp(y, minY, maxY)) };
+  }
+
   function createTarget(){
     if (!layerEl) return;
 
@@ -176,10 +206,9 @@
     let emoji = '';
     if (kind === 'good'){
       const rollPower = Math.random() < (cfg.powerRate || 0.1);
-      emoji = rollPower
-        ? POWER[Math.floor(Math.random()*POWER.length)]
-        : GOOD[Math.floor(Math.random()*GOOD.length)];
-    }else{
+      emoji = rollPower ? POWER[Math.floor(Math.random()*POWER.length)]
+                        : GOOD[Math.floor(Math.random()*GOOD.length)];
+    } else {
       emoji = JUNK[Math.floor(Math.random()*JUNK.length)];
     }
 
@@ -191,12 +220,6 @@
       emoji === FIRE   ? 'diamond':
       emoji === SHIELD ? 'shield' : kind;
 
-    // fallback 2D (กันจอดำ/กันไปกองมุมซ้ายบน)
-    const fallback2D = {
-      x: Math.round(window.innerWidth  * (0.18 + Math.random()*0.64)),
-      y: Math.round(window.innerHeight * (0.22 + Math.random()*0.60))
-    };
-
     const t = {
       el,
       kind,
@@ -204,7 +227,7 @@
       pos: spawnWorld(),
       born: performance.now(),
       seen: false,
-      fallback2D
+      fallback2D: pickFallback2D()
     };
 
     active.push(t);
@@ -229,7 +252,6 @@
     if (!running) return;
     removeTarget(t);
 
-    // ✅ MISS เฉพาะ "ปล่อยของดี" และต้องเคยเห็นจริง
     if (t.kind === 'good' && t.seen){
       misses++;
       combo = 0;
@@ -243,7 +265,6 @@
     if (!t || !t.el) return;
     removeTarget(t);
 
-    // POWER: SHIELD
     if (t.emoji === SHIELD){
       shield = Math.min(3, shield + 1);
       emitScore();
@@ -251,7 +272,6 @@
       return;
     }
 
-    // POWER: FIRE (เติม fever)
     if (t.emoji === FIRE && FeverUI && typeof FeverUI.add === 'function'){
       FeverUI.add(20);
       emitScore();
@@ -259,7 +279,6 @@
       return;
     }
 
-    // JUNK
     if (t.kind === 'junk'){
       if (shield > 0){
         shield--;
@@ -275,7 +294,6 @@
       return;
     }
 
-    // GOOD
     goodHits++;
     combo++;
     comboMax = Math.max(comboMax, combo);
@@ -291,7 +309,6 @@
     emitScore();
   }
 
-  // ===== Loops =====
   function renderLoop(){
     if (!running) return;
 
@@ -300,19 +317,16 @@
     for (const t of active){
       if (!t || !t.el) continue;
 
-      if (!t.pos && ready){
-        t.pos = spawnWorld();
-      }
+      if (!t.pos && ready) t.pos = spawnWorld();
 
       let p = null;
-
-      if (ready && t.pos){
-        p = project(t.pos);
-      }
+      if (ready && t.pos) p = project(t.pos);
 
       if (!p){
+        // refresh fallback each frame in VR for “follow head” feeling (optional but nice)
+        if (ROOT.__HHA_IS_VR) t.fallback2D = pickFallback2D();
         p = t.fallback2D;
-      }else{
+      } else {
         t.seen = true;
       }
 
@@ -328,15 +342,12 @@
     if (!running) return;
 
     const maxA = Math.max(1, cfg.maxActive|0);
-    if (active.length < maxA){
-      createTarget();
-    }
+    if (active.length < maxA) createTarget();
 
     const every = currentSpawnEveryMs();
     spawnTimer = setTimeout(spawnLoop, every);
   }
 
-  // ===== API =====
   function start(diff, opts={}){
     if (running) return;
     running = true;
@@ -345,7 +356,6 @@
     cfg = { ...(DIFF_TUNE[dk] || DIFF_TUNE.normal) };
 
     layerEl = opts.layerEl || document.getElementById('gj-layer');
-
     durationSec = Number(opts.durationSec || 60) || 60;
     startMs = performance.now();
 
@@ -354,7 +364,7 @@
 
     if (FeverUI && typeof FeverUI.reset === 'function') FeverUI.reset();
 
-    console.log('[GoodJunkVR] Engine start', { diff: dk, cfg, durationSec });
+    console.log('[GoodJunkVR] Engine start', { diff: dk, cfg, durationSec, isVR: !!ROOT.__HHA_IS_VR });
 
     emitScore();
     renderLoop();
