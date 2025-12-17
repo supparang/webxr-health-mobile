@@ -1,19 +1,25 @@
 // === /herohealth/vr-goodjunk/quest-defs-goodjunk.js ===
-// Goals & Mini quests ที่ปรับความยากใหม่ให้เหมาะกับเด็ก ป.5
-// ใช้ร่วมกับ quest-director.js (สุ่ม Goal 2/10 + Mini 3/15 ตาม diff)
+// Goals & Mini quests สำหรับ Good vs Junk VR (เด็ก ป.5)
+// ใช้ร่วมกับ quest-director.js
+//
+// ดีไซน์:
+// - เกมสุ่ม Goal 2 อัน / Mini 3 อัน ต่อรอบ (ค่าจริงกำหนดใน GameEngine)
+// - แต่ละ def มี target แยกตาม diff: easy / normal / hard
+
+'use strict';
 
 export const GOODJUNK_GOALS = [
-  // 1) เน้นคะแนนรวม "ระดับเริ่มต้น"
+  // 1) คะแนนรวมระดับเริ่มต้น
   {
     id: 'G_SCORE_700',
     label: 'ทำคะแนนรวมให้ได้อย่างน้อย 700 แต้ม',
     kind: 'score',
-    easy:   400,   // เด็กส่วนใหญ่ทำได้
+    easy:   400,
     normal: 700,
     hard:   1000
   },
 
-  // 2) เน้นจำนวนอาหารดี
+  // 2) จำนวนอาหารดี
   {
     id: 'G_GOOD_16',
     label: 'เก็บอาหารดีให้ได้อย่างน้อย 16 ชิ้น',
@@ -23,7 +29,7 @@ export const GOODJUNK_GOALS = [
     hard:   22
   },
 
-  // 3) เน้นคอมโบระดับกลาง
+  // 3) คอมโบระดับกลาง
   {
     id: 'G_COMBO_8',
     label: 'ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 8',
@@ -33,12 +39,12 @@ export const GOODJUNK_GOALS = [
     hard:   11
   },
 
-  // 4) คุมจำนวน miss แบบไม่โหดเกินไป
+  // 4) คุมจำนวน miss (แตะขยะ/ปล่อยดีหลุด รวมกัน)
   {
     id: 'G_MISS_MAX_8',
-    label: 'แตะอาหารขยะไม่เกิน 8 ครั้ง',
+    label: 'Miss รวมไม่เกิน 8 ครั้ง',
     kind: 'missMax',
-    easy:   10,   // easy อนุญาตให้พลาดเยอะสุด
+    easy:   10,
     normal: 8,
     hard:   6
   },
@@ -53,7 +59,7 @@ export const GOODJUNK_GOALS = [
     hard:   1200
   },
 
-  // 6) เน้นเก็บของดีเพิ่มขึ้น
+  // 6) ของดีเพิ่มขึ้น
   {
     id: 'G_GOOD_22',
     label: 'เก็บอาหารดีให้ได้อย่างน้อย 22 ชิ้น',
@@ -63,7 +69,7 @@ export const GOODJUNK_GOALS = [
     hard:   28
   },
 
-  // 7) คอมโบสูงขึ้นอีกนิด
+  // 7) คอมโบสูงขึ้น
   {
     id: 'G_COMBO_12',
     label: 'ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 12',
@@ -73,17 +79,17 @@ export const GOODJUNK_GOALS = [
     hard:   15
   },
 
-  // 8) คุม miss แบบ "เล่นดีขึ้น" แต่ไม่โหดมาก
+  // 8) คุม miss ให้ดีกว่าเดิม
   {
     id: 'G_MISS_MAX_6',
-    label: 'แตะอาหารขยะไม่เกิน 6 ครั้ง',
+    label: 'Miss รวมไม่เกิน 6 ครั้ง',
     kind: 'missMax',
     easy:   8,
     normal: 6,
     hard:   4
   },
 
-  // 9) คะแนนรวมระดับสูง แต่ยัง reachable
+  // 9) คะแนนรวมสูง
   {
     id: 'G_SCORE_1200',
     label: 'ทำคะแนนรวมให้ได้อย่างน้อย 1,200 แต้ม',
@@ -93,7 +99,7 @@ export const GOODJUNK_GOALS = [
     hard:   1500
   },
 
-  // 10) ของดีจำนวนมาก (สำหรับเด็กที่เริ่มชินแล้ว)
+  // 10) ของดีจำนวนมาก
   {
     id: 'G_GOOD_28',
     label: 'เก็บอาหารดีให้ได้อย่างน้อย 28 ชิ้น',
@@ -105,7 +111,7 @@ export const GOODJUNK_GOALS = [
 ];
 
 export const GOODJUNK_MINIS = [
-  // 1) mini ง่ายมาก — ของดีนิดเดียวก็ผ่าน
+  // 1) ของดีนิดเดียวก็ผ่าน
   {
     id: 'M_GOOD_8',
     label: 'เก็บอาหารดีให้ได้อย่างน้อย 8 ชิ้น',
@@ -138,14 +144,14 @@ export const GOODJUNK_MINIS = [
   // 4) คุม miss ระดับเบา
   {
     id: 'M_MISS_MAX_4',
-    label: 'แตะอาหารขยะไม่เกิน 4 ครั้ง',
+    label: 'Miss รวมไม่เกิน 4 ครั้ง',
     kind: 'missMax',
     easy:   5,
     normal: 4,
     hard:   3
   },
 
-  // 5) ของดีเพิ่มขึ้นอีกนิด
+  // 5) ของดีเพิ่มขึ้น
   {
     id: 'M_GOOD_12',
     label: 'เก็บอาหารดีให้ได้อย่างน้อย 12 ชิ้น',
@@ -155,7 +161,7 @@ export const GOODJUNK_MINIS = [
     hard:   16
   },
 
-  // 6) คะแนนช่วงต้นเกม (ใช้คำอธิบายแบบเดิมได้)
+  // 6) คะแนนช่วงต้นเกม
   {
     id: 'M_SCORE_600',
     label: 'ต้นเกมเก็บคะแนนให้ได้ 600 แต้ม',
@@ -195,17 +201,17 @@ export const GOODJUNK_MINIS = [
     hard:   20
   },
 
-  // 10) miss น้อยลงสำหรับเด็กที่โฟกัสดี
+  // 10) miss น้อยลง
   {
     id: 'M_MISS_MAX_3',
-    label: 'แตะอาหารขยะไม่เกิน 3 ครั้ง',
+    label: 'Miss รวมไม่เกิน 3 ครั้ง',
     kind: 'missMax',
     easy:   4,
     normal: 3,
     hard:   2
   },
 
-  // 11) คอมโบสูงขึ้นอีกนิด
+  // 11) คอมโบสูงขึ้น
   {
     id: 'M_COMBO_9',
     label: 'ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 9',
@@ -215,7 +221,7 @@ export const GOODJUNK_MINIS = [
     hard:   11
   },
 
-  // 12) คะแนนรวม 900 แต้ม
+  // 12) คะแนนรวม 900
   {
     id: 'M_SCORE_900',
     label: 'ทำคะแนนรวมให้ได้อย่างน้อย 900 แต้ม',
@@ -225,7 +231,7 @@ export const GOODJUNK_MINIS = [
     hard:   1100
   },
 
-  // 13) ของดี 20 ชิ้น
+  // 13) ของดี 20
   {
     id: 'M_GOOD_20',
     label: 'เก็บอาหารดีให้ได้อย่างน้อย 20 ชิ้น',
@@ -235,17 +241,17 @@ export const GOODJUNK_MINIS = [
     hard:   24
   },
 
-  // 14) miss โหดหน่อยสำหรับโหมดปกติ/ยาก
+  // 14) miss โหดหน่อย
   {
     id: 'M_MISS_MAX_2',
-    label: 'แตะอาหารขยะไม่เกิน 2 ครั้ง',
+    label: 'Miss รวมไม่เกิน 2 ครั้ง',
     kind: 'missMax',
     easy:   3,
     normal: 2,
     hard:   1
   },
 
-  // 15) คอมโบท้าทายสุดใน mini
+  // 15) คอมโบท้าทายสุด
   {
     id: 'M_COMBO_11',
     label: 'ทำคอมโบต่อเนื่องให้ได้อย่างน้อย 11',
