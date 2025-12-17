@@ -1,21 +1,17 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL – Adaptive Ready)
-//
-// MISS = good expired + junk hit
-// (junk hit while SHIELD active = NO miss)
-//
-// Adaptive (Play mode only):
-//  - target size  : diff + combo + fever + timeLeft
-//  - spawn speed  : diff + combo + fever + timeLeft
-// Research mode:
-//  - NO adaptive (fixed by diff)
+// Good vs Junk VR — DOM Emoji Engine (FINAL)
+// FIX: targets stuck at top-left when camera not ready / project() null
+// MISS = good expired + junk hit (shield block = NO miss)
 
 'use strict';
 
 (function (ns) {
 
   const ROOT = window;
-  const THREE = ROOT.THREE;
+
+  // ✅ A-Frame จะมี THREE อยู่ที่ AFRAME.THREE ชัวร์กว่า window.THREE
+  const AFRAME = ROOT.AFRAME;
+  const THREE  = (AFRAME && AFRAME.THREE) || ROOT.THREE;
 
   // ===== External modules =====
   const Particles =
@@ -29,13 +25,6 @@
   const JUNK = ['🍔','🍟','🍕','🍩','🍪','🥤'];
   const STAR='⭐', FIRE='🔥', SHIELD='🛡️';
   const POWER=[STAR,FIRE,SHIELD];
-
-  // ===== Base difficulty =====
-  const BASE = {
-    easy:   { scale: 1.15, spawn: 1100 },
-    normal: { scale: 1.00, spawn:  900 },
-    hard:   { scale: 0.90, spawn:  750 }
-  };
 
   // ===== State =====
   let running=false;
@@ -52,29 +41,44 @@
 
   let feverActive=false;
 
-  // timing
-  let startTime=0;
-  let durationSec=60;
-
-  // mode
-  let diff='normal';
-  let adaptiveEnabled=true;
-
-  // ===== Camera helpers =====
-  function getCamera(){
-    const camEl = document.querySelector('a-camera');
-    return camEl && camEl.object3D ? camEl.object3D : null;
+  // ===== Scene / camera readiness =====
+  function getScene(){
+    return document.querySelector('a-scene');
   }
 
+  function getCameraObj3D(){
+    // ใช้ #gj-camera ก่อน (ตาม HTML ของคุณ) ถ้าไม่เจอค่อย fallback
+    const camEl =
+      document.querySelector('#gj-camera') ||
+      document.querySelector('a-camera') ||
+      null;
+
+    if (camEl && camEl.object3D) return camEl.object3D;
+
+    const scene = getScene();
+    if (scene && scene.camera) return scene.camera; // THREE.Camera
+    return null;
+  }
+
+  function isCameraReady(){
+    const scene = getScene();
+    return !!(scene && scene.camera && THREE);
+  }
+
+  // ===== Spawn world position in front of camera =====
   function spawnWorld(){
-    const cam = getCamera();
-    if (!cam) return null;
+    const cam = getCameraObj3D();
+    const scene = getScene();
+    if (!cam || !scene || !scene.camera || !THREE) return null;
 
     const pos = new THREE.Vector3();
-    cam.getWorldPosition(pos);
+    // cam อาจเป็น Object3D หรือ Camera ก็ได้ — ทั้งคู่มี getWorldPosition
+    if (cam.getWorldPosition) cam.getWorldPosition(pos);
+    else if (scene.camera.getWorldPosition) scene.camera.getWorldPosition(pos);
 
     const dir = new THREE.Vector3();
-    cam.getWorldDirection(dir);
+    if (cam.getWorldDirection) cam.getWorldDirection(dir);
+    else if (scene.camera.getWorldDirection) scene.camera.getWorldDirection(dir);
 
     pos.add(dir.multiplyScalar(2.2));
     pos.x += (Math.random()-0.5)*1.8;
@@ -83,11 +87,17 @@
     return pos;
   }
 
+  // ===== Project 3D -> screen =====
   function project(pos){
-    const scene = document.querySelector('a-scene');
-    if (!scene || !scene.camera) return null;
+    const scene = getScene();
+    if (!scene || !scene.camera || !THREE) return null;
 
-    const v = pos.clone().project(scene.camera);
+    // ถ้า canvas ยังไม่พร้อม ให้รอ
+    const cam = scene.camera;
+    if (!cam || !cam.isCamera) return null;
+
+    const v = pos.clone().project(cam);
+    if (!isFinite(v.x) || !isFinite(v.y) || !isFinite(v.z)) return null;
     if (v.z < -1 || v.z > 1) return null;
 
     return {
@@ -96,46 +106,15 @@
     };
   }
 
-  // ===== Time helper =====
-  function timeLeftSec(){
-    const used = (performance.now() - startTime) / 1000;
-    return Math.max(0, durationSec - used);
-  }
-
-  // ===== Adaptive =====
-  function adaptiveScale(){
-    const base = BASE[diff]?.scale ?? 1.0;
-    if (!adaptiveEnabled) return base;
-
-    let reduce = 0;
-    if (combo >= 5)  reduce += 0.08;
-    if (combo >= 10) reduce += 0.10;
-    if (combo >= 15) reduce += 0.12;
-
-    if (feverActive) reduce += 0.12;
-    if (timeLeftSec() <= 15) reduce += 0.08;
-
-    return Math.max(0.65, Math.min(base, base - reduce));
-  }
-
-  function adaptiveSpawn(){
-    const base = BASE[diff]?.spawn ?? 900;
-    if (!adaptiveEnabled) return base;
-
-    let interval = base;
-    if (combo >= 5)  interval -= 120;
-    if (combo >= 10) interval -= 180;
-    if (combo >= 15) interval -= 220;
-
-    if (feverActive) interval -= 120;
-    if (timeLeftSec() <= 15) interval -= 100;
-
-    return Math.max(420, interval);
-  }
-
   // ===== Target =====
   function createTarget(kind){
-    if (!layerEl) return;
+    if (!layerEl || !running) return;
+
+    const pos = spawnWorld();
+    if (!pos){
+      // กล้องยังไม่พร้อม อย่าเพิ่งสร้างเป้า
+      return;
+    }
 
     const el = document.createElement('div');
     el.className = 'gj-target ' + (kind === 'good' ? 'gj-good' : 'gj-junk');
@@ -148,20 +127,25 @@
     el.textContent = emoji;
     el.setAttribute('data-hha-tgt','1');
 
+    // kind สำหรับ reticle / HUD
     el.dataset.kind =
       emoji === STAR   ? 'star'   :
       emoji === FIRE   ? 'diamond':
       emoji === SHIELD ? 'shield' : kind;
 
+    // ✅ ซ่อนไว้ก่อน กันไปกองมุมซ้าย (0,0)
+    el.style.left = '-9999px';
+    el.style.top  = '-9999px';
+    el.style.opacity = '0';
+
     const t = {
       el,
       kind,
       emoji,
-      pos: spawnWorld(),
-      born: performance.now()
+      pos,
+      born: performance.now(),
+      visible: false
     };
-
-    el.style.setProperty('--tScale', adaptiveScale().toFixed(2));
 
     active.push(t);
     layerEl.appendChild(el);
@@ -171,20 +155,24 @@
       hitTarget(t, e.clientX, e.clientY);
     });
 
+    // ===== EXPIRE =====
     setTimeout(()=>expireTarget(t), 2200);
-  }
 
-  function removeTarget(t){
-    const i = active.indexOf(t);
-    if (i >= 0) active.splice(i,1);
-    if (t.el) t.el.remove();
+    // ✅ ตั้งตำแหน่งทันทีถ้า project ได้
+    const p = project(t.pos);
+    if (p){
+      t.el.style.left = p.x + 'px';
+      t.el.style.top  = p.y + 'px';
+      t.el.style.opacity = '1';
+      t.visible = true;
+    }
   }
 
   function expireTarget(t){
     if (!running) return;
     removeTarget(t);
 
-    // MISS = ปล่อยของดีเท่านั้น
+    // ✅ MISS เฉพาะ "ปล่อยของดี"
     if (t.kind === 'good'){
       misses++;
       combo = 0;
@@ -193,25 +181,30 @@
     }
   }
 
+  function removeTarget(t){
+    const i = active.indexOf(t);
+    if (i >= 0) active.splice(i,1);
+    if (t.el) t.el.remove();
+  }
+
   function hitTarget(t, x, y){
     removeTarget(t);
 
-    // SHIELD
+    // ===== POWER =====
     if (t.emoji === SHIELD){
       shield = Math.min(3, shield + 1);
       emitScore();
       return;
     }
 
-    // FEVER
     if (t.emoji === FIRE && FeverUI){
       FeverUI.add(20);
     }
 
-    // JUNK
+    // ===== JUNK =====
     if (t.kind === 'junk'){
       if (shield > 0){
-        shield--; // shield กัน → ไม่ MISS
+        shield--; // ❌ shield กัน → ไม่นับ miss
         emitScore();
         return;
       }
@@ -223,20 +216,20 @@
       return;
     }
 
-    // GOOD
+    // ===== GOOD =====
     goodHits++;
     combo++;
     comboMax = Math.max(comboMax, combo);
 
-    feverActive = FeverUI ? FeverUI.isActive() : false;
-    score += feverActive ? 20 : 10;
+    const feverNow = FeverUI && FeverUI.isActive();
+    score += feverNow ? 20 : 10;
 
-    Particles.scorePop(x, y, feverActive ? '+20' : '+10', { good:true });
+    Particles.scorePop(x, y, feverNow ? '+20' : '+10', { good:true });
     emitJudge(combo >= 6 ? 'PERFECT' : 'GOOD');
     emitScore();
   }
 
-  // ===== Emit =====
+  // ===== Emit helpers =====
   function emitJudge(label){
     ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label }}));
   }
@@ -247,6 +240,7 @@
 
   function emitScore(){
     feverActive = FeverUI ? FeverUI.isActive() : false;
+
     ROOT.dispatchEvent(new CustomEvent('hha:score',{
       detail:{
         score,
@@ -262,33 +256,44 @@
   // ===== Loops =====
   function renderLoop(){
     if (!running) return;
+
     for (const t of active){
       const p = project(t.pos);
       if (p){
         t.el.style.left = p.x + 'px';
         t.el.style.top  = p.y + 'px';
+
+        if (!t.visible){
+          t.el.style.opacity = '1';
+          t.visible = true;
+        }
+      }else{
+        // ✅ ถ้ายัง project ไม่ได้ ให้ซ่อนไว้ ไม่กองมุมซ้าย
+        t.el.style.opacity = '0';
+        t.visible = false;
       }
     }
+
     rafId = requestAnimationFrame(renderLoop);
   }
 
   function spawnLoop(){
     if (!running) return;
-    if (active.length < 4){
-      createTarget(Math.random() < 0.7 ? 'good' : 'junk');
+
+    // ✅ อย่า spawn จนกว่ากล้องพร้อม
+    if (isCameraReady()){
+      if (active.length < 4){
+        createTarget(Math.random() < 0.7 ? 'good' : 'junk');
+      }
     }
-    spawnTimer = setTimeout(spawnLoop, adaptiveSpawn());
+
+    spawnTimer = setTimeout(spawnLoop, 900);
   }
 
   // ===== API =====
-  function start(d, opts={}){
+  function start(diff, opts={}){
     if (running) return;
-
-    diff = d || 'normal';
-    durationSec = opts.durationSec || 60;
-    startTime = performance.now();
-
-    adaptiveEnabled = (opts.runMode !== 'research');
+    running = true;
 
     layerEl = opts.layerEl || document.getElementById('gj-layer');
 
@@ -297,7 +302,6 @@
 
     if (FeverUI) FeverUI.reset();
 
-    running = true;
     emitScore();
     renderLoop();
     spawnLoop();
@@ -307,7 +311,10 @@
     running = false;
     if (rafId) cancelAnimationFrame(rafId);
     if (spawnTimer) clearTimeout(spawnTimer);
-    active.forEach(removeTarget);
+
+    // remove all
+    const copy = active.slice();
+    for (const t of copy) removeTarget(t);
     active.length = 0;
 
     ROOT.dispatchEvent(new CustomEvent('hha:end',{
