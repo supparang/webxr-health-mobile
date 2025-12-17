@@ -1,105 +1,58 @@
 // === /herohealth/vr-goodjunk/quest-defs-goodjunk.js ===
-// STEP 3 PATCH: Clean + Safe + FEVER Ready
-// 2025-12
+// Goal/Mini definitions for GoodJunkVR
+// Compatible with quest-director.js
 
 'use strict';
 
-/*
-state ที่ QuestDirector ใช้:
-- score
-- goodHits
-- comboMax
-- miss
-- feverActive (boolean)
-*/
+function byDiff(diff, easy, normal, hard){
+  const d = String(diff || 'normal').toLowerCase();
+  if (d === 'easy') return easy;
+  if (d === 'hard') return hard;
+  return normal;
+}
 
-// ======================================================
-// GOALS (ภารกิจหลัก) — สุ่ม 2 ต่อเกม
-// ======================================================
 export const GOODJUNK_GOALS = [
-
   {
-    id: 'G_SCORE',
-    label: 'ทำคะแนนรวมให้ถึง',
-    kind: 'score',
-    easy:   400,
-    normal: 600,
-    hard:   800
+    id: 'score_total',
+    label: 'ทำคะแนนรวมให้ถึงเกณฑ์',
+    hint: 'เก็บอาหารดีต่อเนื่องเพื่อดันคะแนนขึ้น 🥦🍎',
+    target: ({ diff }) => byDiff(diff, 500, 700, 900),
+    progress: (s) => (s && typeof s.score === 'number') ? (s.score|0) : 0
   },
-
   {
-    id: 'G_GOOD',
-    label: 'เก็บอาหารดีให้ครบ',
-    kind: 'goodHits',
-    easy:   10,
-    normal: 14,
-    hard:   18
-  },
-
-  {
-    id: 'G_COMBO',
-    label: 'ทำคอมโบสูงสุด',
-    kind: 'combo',
-    easy:   6,
-    normal: 10,
-    hard:   14
-  },
-
-  {
-    id: 'G_SAFE',
-    label: 'เล่นโดยพลาดไม่เกิน',
-    kind: 'missMax',
-    easy:   6,
-    normal: 4,
-    hard:   3
+    id: 'miss_limit',
+    label: 'อย่าพลาดเกินกำหนด',
+    hint: 'อย่าให้ MISS เพิ่ม! โฟกัสเฉพาะของดี และหลบขยะ 🛡️',
+    target: ({ diff }) => byDiff(diff, 6, 4, 3), // เป้าหมายคือ "พลาด <= target"
+    progress: (s) => {
+      const miss = (s && typeof s.miss === 'number') ? (s.miss|0) : 0;
+      // แปลงให้ "ยิ่งน้อยยิ่งดี": progress = 0..target (เท่ากับ target เมื่อ miss<=target)
+      return 0; // จะใช้ done() แทน
+    },
+    done: (s, _prog, target) => {
+      const miss = (s && typeof s.miss === 'number') ? (s.miss|0) : 0;
+      return miss <= (target|0);
+    }
   }
-
 ];
 
-// ======================================================
-// MINI QUESTS — ทำทีละอัน ต่อเนื่อง
-// ======================================================
 export const GOODJUNK_MINIS = [
-
   {
-    id: 'M_FEVER_ONCE',
-    label: 'เข้า FEVER ให้ได้',
-    kind: 'fever',
-    easy:   1,
-    normal: 1,
-    hard:   1
+    id: 'combo_best',
+    label: 'ทำคอมโบให้ถึงเกณฑ์',
+    target: ({ diff }) => byDiff(diff, 6, 8, 10),
+    progress: (s) => (s && typeof s.comboMax === 'number') ? (s.comboMax|0) : 0
   },
-
   {
-    id: 'M_GOOD_SHORT',
-    label: 'เก็บของดีต่อเนื่อง',
-    kind: 'goodHits',
-    easy:   5,
-    normal: 6,
-    hard:   7
+    id: 'good_hits',
+    label: 'เก็บของดีให้ครบจำนวน',
+    target: ({ diff }) => byDiff(diff, 20, 24, 28),
+    progress: (s) => (s && typeof s.goodHits === 'number') ? (s.goodHits|0) : 0
   },
-
   {
-    id: 'M_COMBO_SHORT',
-    label: 'ทำคอมโบสั้น',
-    kind: 'combo',
-    easy:   4,
-    normal: 5,
-    hard:   6
-  },
-
-  {
-    id: 'M_SAFE_SHORT',
-    label: 'อย่าพลาดเกิน',
-    kind: 'missMax',
-    easy:   3,
-    normal: 2,
-    hard:   1
+    id: 'fever_once',
+    label: 'เข้า FEVER อย่างน้อย 1 ครั้ง',
+    target: () => 1,
+    progress: (s) => (s && s.feverActive) ? 1 : 0
   }
-
 ];
-
-export default {
-  GOODJUNK_GOALS,
-  GOODJUNK_MINIS
-};
