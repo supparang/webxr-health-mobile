@@ -1,242 +1,227 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
-// STEP 2 PATCH: Quest REAL + FEVER support
-// ใช้ร่วมกับ GameEngine STEP 1
-// 2025-12
+// Quest Director (GoodJunkVR-compatible)
+// - Emits: window.dispatchEvent('quest:update', { goal, mini, goalsAll, minisAll, hint })
+// - Supports: continuous mini quests (ทำจบแล้วสุ่มอันต่อไปเรื่อย ๆ จนจบเกม)
+// - Works with your HTML HUD fields exactly
 
 'use strict';
 
-// ---------- utils ----------
-function shuffle(arr){
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--){
-    const j = (Math.random() * (i + 1)) | 0;
-    [a[i], a[j]] = [a[j], a[i]];
+function clamp01(x){ x = Number(x)||0; return Math.max(0, Math.min(1, x)); }
+function nowMs(){ return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
+
+function pickUnique(list, n, rng=Math.random){
+  const src = Array.isArray(list) ? list.slice() : [];
+  // shuffle
+  for (let i = src.length - 1; i > 0; i--){
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = src[i]; src[i] = src[j]; src[j] = tmp;
   }
-  return a;
+  return src.slice(0, Math.max(0, Math.min(n, src.length)));
 }
 
-function coach(text){
-  if (!text) return;
-  window.dispatchEvent(new CustomEvent('hha:coach',{ detail:{ text }}));
+function normalizeDef(def){
+  // def schema:
+  // { id, label, hint, target, getProg(state, ctx) -> number, isDone?(prog,target,state,ctx)->bool, capProg?:bool }
+  if (!def || typeof def !== 'object') return null;
+  const out = { ...def };
+
+  out.id = String(out.id || out.key || out.label || ('q_' + Math.random().toString(16).slice(2)));
+  out.label = String(out.label || 'ภารกิจ');
+  out.hint  = String(out.hint || '');
+  out.target = Math.max(1, (out.target|0) || 1);
+
+  if (typeof out.getProg !== 'function'){
+    // fallback: read state[out.metric]
+    const metric = String(out.metric || '');
+    out.getProg = (state)=> (state && metric ? (state[metric]||0) : 0);
+  }
+
+  if (typeof out.isDone !== 'function'){
+    out.isDone = (prog, target)=> (prog >= target);
+  }
+
+  out.capProg = (out.capProg !== false); // default true
+  return out;
 }
 
-function tierKey(diff){
-  if (diff === 'easy') return 'easy';
-  if (diff === 'hard') return 'hard';
-  return 'normal';
+function computeProgress(def, state, ctx){
+  const target = def.target|0;
+  let prog = 0;
+  try{
+    prog = Number(def.getProg(state, ctx)) || 0;
+  }catch(_e){ prog = 0; }
+
+  if (def.capProg) prog = Math.min(prog, target);
+  const done = !!def.isDone(prog, target, state, ctx);
+
+  return { prog: prog|0, target: target|0, done };
 }
 
-// ---------- instance ----------
-function makeInstance(def, diff){
-  const k = tierKey(diff);
-  return {
-    id: def.id,
-    label: def.label,
-    kind: def.kind,          // score | goodHits | combo | missMax | fever
-    target: def[k] ?? 1,
-    prog: 0,
-    done: false,
-    pass: null               // ใช้กับ missMax
+export function makeQuestDirector(opts={}){
+  const diff = String(opts.diff || 'normal').toLowerCase();
+
+  const goalDefsAll = (opts.goalDefs || []).map(normalizeDef).filter(Boolean);
+  const miniDefsAll = (opts.miniDefs || []).map(normalizeDef).filter(Boolean);
+
+  const maxGoals = Math.max(1, (opts.maxGoals|0) || 2);
+  const maxMini  = Math.max(1, (opts.maxMini|0) || 3);
+
+  // ทำ mini ต่อเนื่องเรื่อย ๆ (ตรงกับที่คุณต้องการ)
+  const continuousMini = (opts.continuousMini !== false);
+
+  // internal
+  const ctx = {
+    diff,
+    startedAtMs: 0,
+    lastEmitMs: 0,
+    emitEveryMs: 120, // กัน spam แต่ยังลื่น
+    state: null
   };
-}
 
-// ---------- factory ----------
-export function makeQuestDirector({
-  diff     = 'normal',
-  goalDefs = [],
-  miniDefs = [],
-  maxGoals = 2,
-  maxMini  = 3
-} = {}) {
+  let goalsAll = []; // [{def, prog,target,done}]
+  let minisAll = []; // [{def, prog,target,done}]
+  let remainingMiniPool = [];
 
-  const goalOrder = shuffle(goalDefs);
-  const miniOrder = shuffle(miniDefs);
+  function emitUpdate(force=false){
+    const t = nowMs();
+    if (!force && (t - ctx.lastEmitMs) < ctx.emitEveryMs) return;
+    ctx.lastEmitMs = t;
 
-  let goalIdx = 0;
-  let miniIdx = 0;
+    // current goal/mini = อันแรกที่ยังไม่ done
+    const curGoalObj = goalsAll.find(g => g && !g.done) || goalsAll[0] || null;
+    const curMiniObj = minisAll.find(m => m && !m.done) || minisAll[0] || null;
 
-  let currentGoal = null;
-  let currentMini = null;
+    const goal = curGoalObj ? {
+      id: curGoalObj.def.id,
+      label: curGoalObj.def.label,
+      hint: curGoalObj.def.hint || '',
+      prog: curGoalObj.prog|0,
+      target: curGoalObj.target|0,
+      done: !!curGoalObj.done
+    } : null;
 
-  const goalsAll = [];
-  const minisAll = [];
+    const mini = curMiniObj ? {
+      id: curMiniObj.def.id,
+      label: curMiniObj.def.label,
+      hint: curMiniObj.def.hint || '',
+      prog: curMiniObj.prog|0,
+      target: curMiniObj.target|0,
+      done: !!curMiniObj.done
+    } : null;
 
-  let goalsCleared = 0;
-  let miniCleared  = 0;
+    const hint = (mini && mini.hint) ? mini.hint : (goal && goal.hint) ? goal.hint : '';
 
-  let timeLeft = 60;
-  let ended = false;
-
-  // ---------- HUD ----------
-  function emitHUD(hint=''){
-    window.dispatchEvent(new CustomEvent('quest:update',{
-      detail:{
-        goal: currentGoal,
-        mini: currentMini,
-        goalsAll: goalsAll.slice(),
-        minisAll: minisAll.slice(),
+    ROOT.dispatchEvent(new CustomEvent('quest:update', {
+      detail: {
+        goal,
+        mini,
+        goalsAll: goalsAll.map(g => g ? ({
+          id:g.def.id, label:g.def.label, prog:g.prog|0, target:g.target|0, done:!!g.done
+        }) : null).filter(Boolean),
+        minisAll: minisAll.map(m => m ? ({
+          id:m.def.id, label:m.def.label, prog:m.prog|0, target:m.target|0, done:!!m.done
+        }) : null).filter(Boolean),
         hint
       }
     }));
   }
 
-  function nextGoal(){
-    if (ended) return;
-    if (goalsCleared >= maxGoals || timeLeft <= 0){
-      currentGoal = null;
-      emitHUD();
-      return;
-    }
-    const base = goalOrder[goalIdx++ % goalOrder.length];
-    currentGoal = makeInstance(base, diff);
-    goalsAll.push(currentGoal);
-    coach(`ภารกิจใหม่: ${currentGoal.label}`);
-    emitHUD('โฟกัสภารกิจหลักด้านขวาบน');
-  }
+  function refreshAllProgress(){
+    if (!ctx.state) return;
 
-  function nextMini(){
-    if (ended) return;
-    if (miniCleared >= maxMini || timeLeft <= 0){
-      currentMini = null;
-      emitHUD();
-      return;
-    }
-    const base = miniOrder[miniIdx++ % miniOrder.length];
-    currentMini = makeInstance(base, diff);
-    minisAll.push(currentMini);
-    coach(`Mini quest ใหม่: ${currentMini.label}`);
-    emitHUD('Mini quest ใหม่แล้ว!');
-  }
+    let changed = false;
 
-  // ---------- progress ----------
-  function evalInst(inst, state){
-    if (!inst || inst.done) return;
+    // goals
+    for (const g of goalsAll){
+      const beforeDone = !!g.done;
+      const beforeProg = g.prog|0;
 
-    switch(inst.kind){
-      case 'score':
-        inst.prog = state.score | 0;
-        break;
-      case 'goodHits':
-        inst.prog = state.goodHits | 0;
-        break;
-      case 'combo':
-        inst.prog = state.comboMax | 0;
-        break;
-      case 'fever':
-        inst.prog = state.feverActive ? 1 : 0;
-        break;
-      case 'missMax':
-        inst.prog = Math.min(state.miss | 0, inst.target | 0);
-        break;
-    }
-  }
+      const r = computeProgress(g.def, ctx.state, ctx);
+      g.prog = r.prog|0;
+      g.target = r.target|0;
+      g.done = !!r.done;
 
-  function checkFinish(inst){
-    if (!inst || inst.done) return false;
-    if (inst.kind === 'missMax') return false;
-
-    if (inst.prog >= inst.target){
-      inst.done = true;
-      inst.pass = true;
-      return true;
-    }
-    return false;
-  }
-
-  // ---------- lifecycle ----------
-  function start(initialState){
-    ended = false;
-    timeLeft = initialState?.timeLeft ?? timeLeft;
-
-    goalsAll.length = 0;
-    minisAll.length = 0;
-    goalsCleared = 0;
-    miniCleared = 0;
-
-    goalIdx = 0;
-    miniIdx = 0;
-
-    currentGoal = null;
-    currentMini = null;
-
-    nextGoal();
-    nextMini();
-  }
-
-  function update(state){
-    if (ended) return;
-    if (!state) state = {};
-
-    if (typeof state.timeLeft === 'number'){
-      timeLeft = state.timeLeft;
-      if (timeLeft <= 0) return;
+      if (beforeDone !== g.done || beforeProg !== g.prog) changed = true;
     }
 
-    // ---- goal ----
-    if (currentGoal){
-      evalInst(currentGoal, state);
-      if (checkFinish(currentGoal)){
-        goalsCleared++;
-        coach(`ภารกิจหลักผ่าน ${goalsCleared}/${maxGoals}`);
-        nextGoal();
+    // minis
+    for (const m of minisAll){
+      const beforeDone = !!m.done;
+      const beforeProg = m.prog|0;
+
+      const r = computeProgress(m.def, ctx.state, ctx);
+      m.prog = r.prog|0;
+      m.target = r.target|0;
+      m.done = !!r.done;
+
+      if (beforeDone !== m.done || beforeProg !== m.prog) changed = true;
+    }
+
+    // ถ้า mini ทำเสร็จแล้ว และต้องการ “ต่อภารกิจย่อยไปเรื่อย ๆ”
+    if (continuousMini){
+      let added = false;
+      // เติมจนกว่าจะมี “mini ที่ยังไม่ done” อย่างน้อย 1 อัน (หรือจน pool หมด)
+      while (remainingMiniPool.length > 0 && !minisAll.some(m => m && !m.done)){
+        const nextDef = remainingMiniPool.shift();
+        if (!nextDef) break;
+
+        const r = computeProgress(nextDef, ctx.state, ctx);
+        minisAll.push({ def: nextDef, prog: r.prog|0, target: r.target|0, done: !!r.done });
+        added = true;
       }
+      if (added) changed = true;
     }
 
-    // ---- mini ----
-    if (currentMini){
-      evalInst(currentMini, state);
-      if (checkFinish(currentMini)){
-        miniCleared++;
-        coach(`Mini quest ผ่าน ${miniCleared}/${maxMini}`);
-        nextMini();
-      }
-    }
-
-    emitHUD();
+    if (changed) emitUpdate(true);
   }
 
-  // ---------- finalize (missMax) ----------
-  function finalize(state){
-    if (ended) return summary();
-    ended = true;
+  function start(initialState={}){
+    ctx.startedAtMs = nowMs();
+    ctx.state = { ...(initialState||{}) };
 
-    const miss = state?.miss | 0;
+    // pick initial
+    const pickedGoals = pickUnique(goalDefsAll, maxGoals);
+    goalsAll = pickedGoals.map(def => {
+      const r = computeProgress(def, ctx.state, ctx);
+      return { def, prog:r.prog|0, target:r.target|0, done:!!r.done };
+    });
 
-    function finalizeList(list, isGoal){
-      for (const inst of list){
-        if (inst.done || inst.kind !== 'missMax') continue;
-        const pass = miss <= inst.target;
-        inst.pass = pass;
-        inst.done = pass;
-        if (pass){
-          if (isGoal) goalsCleared++;
-          else miniCleared++;
-        }
-      }
-    }
+    // mini pool: สุ่มมาก่อน เผื่อ “ต่อภารกิจ” ได้ยาว
+    remainingMiniPool = pickUnique(miniDefsAll, miniDefsAll.length);
+    // ตัดเอา maxMini อันแรกเป็นชุดเริ่มต้น
+    const firstMinis = remainingMiniPool.splice(0, Math.min(maxMini, remainingMiniPool.length));
 
-    finalizeList(goalsAll,true);
-    finalizeList(minisAll,false);
+    minisAll = firstMinis.map(def => {
+      const r = computeProgress(def, ctx.state, ctx);
+      return { def, prog:r.prog|0, target:r.target|0, done:!!r.done };
+    });
 
-    currentGoal = null;
-    currentMini = null;
-
-    emitHUD('สรุปภารกิจพร้อมแล้ว');
-    return summary();
+    // ถ้าเริ่มมาแล้ว mini ชุดแรกดัน done (เช่น target=0) ให้เติมอันต่อไป
+    refreshAllProgress();
+    emitUpdate(true);
   }
 
-  function summary(){
-    return {
-      goalsCleared,
-      goalsTotal: maxGoals,
-      miniCleared,
-      miniTotal: maxMini,
-      goalsAll: goalsAll.slice(),
-      minisAll: minisAll.slice()
-    };
+  function update(nextState={}){
+    // ✅ สำคัญ: ต้อง merge state ทุกครั้ง ไม่ใช่แทนทั้งก้อน
+    ctx.state = { ...(ctx.state||{}), ...(nextState||{}) };
+    refreshAllProgress();
   }
 
-  return { start, update, finalize, summary };
+  function finalize(finalState={}){
+    // อัปเดตสุดท้ายก่อนคำนวณผล
+    update(finalState);
+
+    const goalsCleared = goalsAll.filter(g => g && g.done).length;
+    const goalsTotal = goalsAll.length;
+
+    const miniCleared = minisAll.filter(m => m && m.done).length;
+    const miniTotal = minisAll.length;
+
+    emitUpdate(true);
+
+    return { goalsCleared, goalsTotal, miniCleared, miniTotal };
+  }
+
+  // public API
+  return { start, update, finalize };
 }
-
-export default { makeQuestDirector };
