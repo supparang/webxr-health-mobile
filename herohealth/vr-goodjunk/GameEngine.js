@@ -1,25 +1,20 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine
-// STEP 1 PATCH: FEVER REAL + MISS RULE FIX
-// 2025-12
+// Good vs Junk VR — DOM Emoji Engine (FINAL)
+// MISS = good expired + junk hit (shield block = NO miss)
+
+'use strict';
 
 (function (ns) {
-  'use strict';
 
   const ROOT = window;
-  const A = ROOT.AFRAME;
-  const THREE = (A && A.THREE) || ROOT.THREE;
+  const THREE = ROOT.THREE;
 
-  // ===== FX / UI =====
+  // ===== External modules =====
   const Particles =
     (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
     ROOT.Particles || { scorePop(){}, burstAt(){} };
 
-  const FeverUI =
-    (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
-    ROOT.FeverUI || { ensureFeverBar(){}, setFever(){}, setFeverActive(){}, setShield(){} };
-
-  const { ensureFeverBar, setFever, setFeverActive, setShield } = FeverUI;
+  const FeverUI = ROOT.FeverUI || null;
 
   // ===== Emoji pools =====
   const GOOD = ['🍎','🥦','🥕','🍌','🍉','🥛'];
@@ -28,267 +23,235 @@
   const POWER=[STAR,FIRE,SHIELD];
 
   // ===== State =====
-  let running=false, layerEl=null;
-  let active=[], spawnTimer=null, rafId=null;
+  let running=false;
+  let layerEl=null;
+  let active=[];
+  let rafId=null, spawnTimer=null;
 
   let score=0;
-  let combo=0, comboMax=0;
-  let misses=0;
+  let combo=0;
+  let comboMax=0;
   let goodHits=0;
-
-  // FEVER
-  let feverValue=0;        // 0–100
-  let feverActive=false;
-
-  // Shield
+  let misses=0;
   let shield=0;
 
-  let diff='normal', runMode='play';
+  let feverActive=false;
 
   // ===== Camera helpers =====
-  function getCam(){
-    const camEl=document.querySelector('a-camera');
-    if(camEl && camEl.getObject3D){
-      const c = camEl.getObject3D('camera');
-      if (c) return c;
-    }
-    const scene=document.querySelector('a-scene');
-    return scene && scene.camera ? scene.camera : null;
-  }
-
-  const tmpV = THREE && new THREE.Vector3();
-
-  function project(pos){
-    const cam=getCam();
-    if(!cam || !tmpV || !pos) return null;
-    tmpV.copy(pos).project(cam);
-    if(tmpV.z<-1 || tmpV.z>1) return null;
-    return {
-      x:(tmpV.x*0.5+0.5)*innerWidth,
-      y:(-tmpV.y*0.5+0.5)*innerHeight
-    };
+  function getCamera(){
+    const camEl = document.querySelector('a-camera');
+    if (camEl && camEl.object3D) return camEl.object3D;
+    return null;
   }
 
   function spawnWorld(){
-    if(!THREE) return null;
-    const camEl=document.querySelector('a-camera');
-    if(!camEl || !camEl.object3D) return null;
+    const cam = getCamera();
+    if (!cam) return null;
 
-    const pos=new THREE.Vector3();
-    const dir=new THREE.Vector3();
+    const pos = new THREE.Vector3();
+    cam.getWorldPosition(pos);
 
-    camEl.object3D.getWorldPosition(pos);
-    camEl.object3D.getWorldDirection(dir);
+    const dir = new THREE.Vector3();
+    cam.getWorldDirection(dir);
 
-    pos.add(dir.multiplyScalar(2));
-    pos.x += (Math.random()-0.5)*1.6;
-    pos.y += (Math.random()-0.5)*1.2;
+    pos.add(dir.multiplyScalar(2.2));
+    pos.x += (Math.random()-0.5)*1.8;
+    pos.y += (Math.random()-0.5)*1.4;
+
     return pos;
   }
 
-  // ===== FEVER helpers =====
-  function addFever(v){
-    if (feverActive) return;
-    feverValue = Math.min(100, Math.max(0, feverValue + v));
-    setFever(feverValue);
+  function project(pos){
+    const scene = document.querySelector('a-scene');
+    if (!scene || !scene.camera) return null;
 
-    if (feverValue >= 100){
-      feverActive = true;
-      setFeverActive(true);
-      ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'start' }}));
-    }
-  }
+    const v = pos.clone().project(scene.camera);
+    if (v.z < -1 || v.z > 1) return null;
 
-  function reduceFever(v){
-    if (feverActive) return;
-    feverValue = Math.max(0, feverValue - v);
-    setFever(feverValue);
-  }
-
-  function endFever(){
-    feverActive = false;
-    feverValue = 0;
-    setFever(0);
-    setFeverActive(false);
-    ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'end' }}));
+    return {
+      x: (v.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-v.y * 0.5 + 0.5) * window.innerHeight
+    };
   }
 
   // ===== Target =====
   function createTarget(kind){
     if (!layerEl) return;
 
-    const el=document.createElement('div');
-    el.className='gj-target '+(kind==='good'?'gj-good':'gj-junk');
+    const el = document.createElement('div');
+    el.className = 'gj-target ' + (kind === 'good' ? 'gj-good' : 'gj-junk');
 
-    let emoji=kind==='good'
-      ? (Math.random()<0.1 ? POWER[Math.floor(Math.random()*3)] : GOOD[Math.floor(Math.random()*GOOD.length)])
+    let emoji = kind === 'good'
+      ? (Math.random() < 0.1 ? POWER[Math.floor(Math.random()*POWER.length)]
+                             : GOOD[Math.floor(Math.random()*GOOD.length)])
       : JUNK[Math.floor(Math.random()*JUNK.length)];
 
-    el.textContent=emoji;
+    el.textContent = emoji;
     el.setAttribute('data-hha-tgt','1');
 
+    // kind สำหรับ reticle / HUD
     el.dataset.kind =
-      (emoji===STAR)   ? 'star' :
-      (emoji===FIRE)   ? 'diamond' :
-      (emoji===SHIELD) ? 'shield' :
-      kind;
+      emoji === STAR   ? 'star'   :
+      emoji === FIRE   ? 'diamond':
+      emoji === SHIELD ? 'shield' : kind;
 
-    const t={ el, kind, emoji, pos:spawnWorld(), born:performance.now() };
+    const t = {
+      el,
+      kind,
+      emoji,
+      pos: spawnWorld(),
+      born: performance.now()
+    };
+
     active.push(t);
     layerEl.appendChild(el);
 
-    el.addEventListener('pointerdown',e=>{
+    el.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
-      hit(t,e.clientX,e.clientY);
-    },{passive:false});
+      hitTarget(t, e.clientX, e.clientY);
+    });
 
-    setTimeout(()=>expire(t), 2000+Math.random()*400);
+    // ===== EXPPIRE =====
+    setTimeout(()=>expireTarget(t), 2200);
   }
 
-  // ===== Expire =====
-  function expire(t){
-    if(!running) return;
-    destroy(t,false);
+  function expireTarget(t){
+    if (!running) return;
+    removeTarget(t);
 
-    // ❌ ปล่อยขยะ = ไม่ miss
-    if (t.kind === 'junk') return;
-
-    // ✅ ปล่อยของดี = MISS
-    misses++;
-    combo=0;
-    reduceFever(20);
-    emitScore();
-    emitMiss();
-  }
-
-  function destroy(t,wasHit){
-    const i=active.indexOf(t);
-    if(i>=0) active.splice(i,1);
-    if(t.el){
-      if(wasHit){
-        t.el.classList.add('hit');
-        setTimeout(()=>{ try{t.el.remove();}catch(_){ } },120);
-      }else{
-        try{t.el.remove();}catch(_){}
-      }
-    }
-  }
-
-  // ===== Hit =====
-  function hit(t,x,y){
-    destroy(t,true);
-
-    // ----- POWER -----
-    if(t.emoji===STAR){ score+=40; combo++; }
-    if(t.emoji===FIRE){ addFever(40); }
-    if(t.emoji===SHIELD){
-      shield=Math.min(3,shield+1);
-      setShield(shield);
-      return;
-    }
-
-    // ----- JUNK -----
-    if(t.kind==='junk'){
-      if(shield>0){
-        shield--;
-        setShield(shield);
-        return; // ❌ shield กัน → ไม่ miss
-      }
+    // ✅ MISS เฉพาะ "ปล่อยของดี"
+    if (t.kind === 'good'){
       misses++;
-      combo=0;
-      reduceFever(30);
+      combo = 0;
+      emitScore();
       emitMiss();
+    }
+  }
+
+  function removeTarget(t){
+    const i = active.indexOf(t);
+    if (i >= 0) active.splice(i,1);
+    if (t.el) t.el.remove();
+  }
+
+  function hitTarget(t, x, y){
+    removeTarget(t);
+
+    // ===== POWER =====
+    if (t.emoji === SHIELD){
+      shield = Math.min(3, shield + 1);
       emitScore();
       return;
     }
 
-    // ----- GOOD -----
+    if (t.emoji === FIRE && FeverUI){
+      FeverUI.add(20);
+    }
+
+    // ===== JUNK =====
+    if (t.kind === 'junk'){
+      if (shield > 0){
+        shield--; // ❌ shield กัน → ไม่นับ miss
+        emitScore();
+        return;
+      }
+      misses++;
+      combo = 0;
+      emitScore();
+      emitMiss();
+      emitJudge('MISS');
+      return;
+    }
+
+    // ===== GOOD =====
     goodHits++;
     combo++;
-    comboMax=Math.max(comboMax,combo);
+    comboMax = Math.max(comboMax, combo);
 
-    addFever(12);
+    const feverNow = FeverUI && FeverUI.isActive();
+    score += feverNow ? 20 : 10;
 
-    const base = feverActive ? 20 : 10;
-    score += base;
-
-    Particles.scorePop(x,y,'+'+base,{good:true});
+    Particles.scorePop(x, y, feverNow ? '+20' : '+10', { good:true });
+    emitJudge(combo >= 6 ? 'PERFECT' : 'GOOD');
     emitScore();
   }
 
-  function emitScore(){
-    ROOT.dispatchEvent(new CustomEvent('hha:score',{
-      detail:{
-        score,
-        combo,
-        comboMax,
-        misses,
-        goodHits
-      }
-    }));
+  // ===== Emit helpers =====
+  function emitJudge(label){
+    ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label }}));
   }
 
   function emitMiss(){
     ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses }}));
   }
 
-  // ===== Loop =====
-  function loop(){
-    if(!running) return;
-    for(const t of active){
-      const p=project(t.pos);
-      if(p){
-        t.el.style.left=p.x+'px';
-        t.el.style.top=p.y+'px';
+  function emitScore(){
+    feverActive = FeverUI ? FeverUI.isActive() : false;
+
+    ROOT.dispatchEvent(new CustomEvent('hha:score',{
+      detail:{
+        score,
+        combo,
+        comboMax,
+        goodHits,
+        misses,
+        feverActive
       }
-    }
-    rafId=requestAnimationFrame(loop);
+    }));
   }
 
-  function spawn(){
-    if(!running) return;
-    if(active.length<4) createTarget(Math.random()<0.7?'good':'junk');
-    spawnTimer=setTimeout(spawn,900);
+  // ===== Loops =====
+  function renderLoop(){
+    if (!running) return;
+    for (const t of active){
+      const p = project(t.pos);
+      if (p){
+        t.el.style.left = p.x + 'px';
+        t.el.style.top  = p.y + 'px';
+      }
+    }
+    rafId = requestAnimationFrame(renderLoop);
+  }
+
+  function spawnLoop(){
+    if (!running) return;
+    if (active.length < 4){
+      createTarget(Math.random() < 0.7 ? 'good' : 'junk');
+    }
+    spawnTimer = setTimeout(spawnLoop, 900);
   }
 
   // ===== API =====
-  function start(d,opts={}){
-    if(running) return;
+  function start(diff, opts={}){
+    if (running) return;
+    running = true;
 
-    diff=d||'normal';
-    runMode=opts.runMode||'play';
-    layerEl=opts.layerEl||document.getElementById('gj-layer');
+    layerEl = opts.layerEl || document.getElementById('gj-layer');
 
-    score=combo=comboMax=misses=goodHits=0;
-    feverValue=0; feverActive=false;
+    score=combo=comboMax=goodHits=misses=0;
     shield=0;
 
-    ensureFeverBar();
-    setFever(0); setFeverActive(false); setShield(0);
+    if (FeverUI) FeverUI.reset();
 
-    running=true;
     emitScore();
-
-    loop();
-    spawn();
+    renderLoop();
+    spawnLoop();
   }
 
   function stop(){
-    running=false;
-    if(spawnTimer) clearTimeout(spawnTimer);
-    if(rafId) cancelAnimationFrame(rafId);
-    active.forEach(t=>destroy(t,false));
-    active=[];
-    if (feverActive) endFever();
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    if (spawnTimer) clearTimeout(spawnTimer);
+    active.forEach(removeTarget);
+    active.length = 0;
 
     ROOT.dispatchEvent(new CustomEvent('hha:end',{
       detail:{ scoreFinal:score, comboMax, misses }
     }));
   }
 
-  ns.GameEngine={ start, stop };
+  ns.GameEngine = { start, stop };
 
-})(window.GoodJunkVR=window.GoodJunkVR||{});
+})(window.GoodJunkVR = window.GoodJunkVR || {});
 
-// ES export
 export const GameEngine = window.GoodJunkVR.GameEngine;
