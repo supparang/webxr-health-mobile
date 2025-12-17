@@ -1,25 +1,17 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
 // Quest Director (Goals + Mini Quests) — HeroHealth
-// FIX: ROOT is defined (no more "ROOT is not defined")
-// Design:
-// - เลือก Goals ตาม maxGoals และ Mini ตาม maxMini (ไม่ซ้ำ)
-// - Mini ทำ “ต่อเนื่อง” : ทำอันแรกจบแล้วค่อยเลื่อนอันถัดไป
-// - emit event: window.dispatchEvent(new CustomEvent('quest:update',{detail:{...}}))
+// FIX: ROOT defined, and supports defs style:
+//   - target: number | (ctx)=>number
+//   - progress: (state, ctx)=>number   (alias of getProgress)
+//   - done: (state, prog, target, ctx)=>boolean (alias of isDone)
 //
-// รองรับ def ได้หลายแบบ:
-// 1) def.getProgress(state) => number   (แนะนำที่สุด)
-// 2) def.metric / def.key เป็นชื่อ field ใน state เช่น 'score','goodHits','miss','comboMax','timeLeft'
-// 3) def.isDone(state, prog) => boolean (optional) ไม่งั้นใช้ prog >= target
-//
-// state ที่แนะนำส่งเข้า update:
-// { score, goodHits, miss, comboMax, timeLeft }
-//
-// ใช้กับ goodjunk-vr.html: makeQuestDirector({goalDefs, miniDefs, maxGoals:2, maxMini:3}).start(state)
+// Mini quest = ต่อเนื่องทีละอัน (ทำจบแล้วเลื่อนไปอันถัดไป)
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
+function safeArr(x){ return Array.isArray(x) ? x : (x ? [x] : []); }
 function clamp(n, a, b){
   n = Number(n) || 0;
   if (n < a) return a;
@@ -27,13 +19,8 @@ function clamp(n, a, b){
   return n;
 }
 
-function safeArr(x){
-  return Array.isArray(x) ? x : (x ? [x] : []);
-}
-
 function pickUnique(list, count){
   const arr = safeArr(list).slice();
-  // Fisher–Yates shuffle
   for (let i = arr.length - 1; i > 0; i--){
     const j = Math.floor(Math.random() * (i + 1));
     const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
@@ -47,21 +34,41 @@ function normalizeDef(def, fallbackId){
     id: d.id || d.key || d.metric || fallbackId || ('q_' + Math.random().toString(16).slice(2)),
     label: d.label || d.title || d.name || 'ภารกิจ',
     hint: d.hint || d.desc || d.description || '',
-    target: Number(d.target ?? d.goal ?? d.threshold ?? 1) || 1,
 
-    // progress resolver
-    getProgress: (typeof d.getProgress === 'function') ? d.getProgress : null,
+    // target can be number OR function(ctx)->number
+    target: d.target,
+
+    // progress resolver: prefer getProgress, else progress, else metric/key lookup
+    getProgress:
+      (typeof d.getProgress === 'function') ? d.getProgress :
+      (typeof d.progress === 'function') ? d.progress :
+      null,
+
     metric: (typeof d.metric === 'string' && d.metric) ? d.metric : null,
     key: (typeof d.key === 'string' && d.key) ? d.key : null,
 
-    // done resolver (optional)
-    isDone: (typeof d.isDone === 'function') ? d.isDone : null
+    // done resolver: prefer isDone, else done
+    isDone:
+      (typeof d.isDone === 'function') ? d.isDone :
+      (typeof d.done === 'function') ? d.done :
+      null
   };
 }
 
-function resolveProgress(def, state){
+function resolveTarget(def, ctx){
   try{
-    if (def.getProgress) return Number(def.getProgress(state)) || 0;
+    if (typeof def.target === 'function'){
+      const v = def.target(ctx || {});
+      return Math.max(1, Number(v) || 1);
+    }
+    if (typeof def.target === 'number') return Math.max(1, def.target || 1);
+  }catch(_){}
+  return 1;
+}
+
+function resolveProgress(def, state, ctx){
+  try{
+    if (def.getProgress) return Number(def.getProgress(state, ctx)) || 0;
     const k = def.metric || def.key;
     if (k && state && Object.prototype.hasOwnProperty.call(state, k)){
       return Number(state[k]) || 0;
@@ -70,20 +77,21 @@ function resolveProgress(def, state){
   return 0;
 }
 
-function resolveDone(def, state, prog){
+function resolveDone(def, state, prog, target, ctx){
   try{
-    if (def.isDone) return !!def.isDone(state, prog);
+    if (def.isDone) return !!def.isDone(state, prog, target, ctx);
   }catch(_){}
-  return (Number(prog) || 0) >= (Number(def.target) || 1);
+  return (Number(prog) || 0) >= (Number(target) || 1);
 }
 
-function makeItem(def, index){
+function makeItem(def, index, ctx){
   const d = normalizeDef(def, 'def_' + index);
+  const target = resolveTarget(d, ctx);
   return {
     id: d.id,
     label: d.label,
     hint: d.hint,
-    target: d.target,
+    target,
     _def: d,
     prog: 0,
     done: false
@@ -91,26 +99,25 @@ function makeItem(def, index){
 }
 
 function emitUpdate(payload){
-  // ✅ FIX: use ROOT
   try{
     ROOT.dispatchEvent(new CustomEvent('quest:update', { detail: payload }));
   }catch(err){
-    // กันพังเงียบ ๆ
     console.warn('[QuestDirector] emitUpdate failed:', err);
   }
 }
 
 export function makeQuestDirector(opts = {}){
   const diff = String(opts.diff || 'normal').toLowerCase();
+  const ctx = { diff };
+
   const maxGoals = Number(opts.maxGoals ?? 2) || 2;
   const maxMini  = Number(opts.maxMini  ?? 3) || 3;
 
   const goalDefs = safeArr(opts.goalDefs);
   const miniDefs = safeArr(opts.miniDefs);
 
-  // สุ่มชุดภารกิจ (ไม่ซ้ำ)
-  const pickedGoals = pickUnique(goalDefs, maxGoals).map(makeItem);
-  const pickedMinis = pickUnique(miniDefs, maxMini).map(makeItem);
+  const pickedGoals = pickUnique(goalDefs, maxGoals).map((d,i)=>makeItem(d,i,ctx));
+  const pickedMinis = pickUnique(miniDefs, maxMini).map((d,i)=>makeItem(d,i,ctx));
 
   let started = false;
   let goalIdx = 0;
@@ -121,17 +128,14 @@ export function makeQuestDirector(opts = {}){
 
   function updateOne(item, state){
     if (!item || item.done) return item;
-    const prog = resolveProgress(item._def, state);
-    item.prog = Math.max(0, Math.floor(prog));
-    item.done = resolveDone(item._def, state, item.prog);
+    const progRaw = resolveProgress(item._def, state, ctx);
+    item.prog = Math.max(0, Math.floor(Number(progRaw) || 0));
+    item.done = resolveDone(item._def, state, item.prog, item.target, ctx);
     return item;
   }
 
   function advanceIfDone(){
-    // goal: ถ้าจบให้เลื่อนไป goal ถัดไป
     while (goalIdx < pickedGoals.length && pickedGoals[goalIdx]?.done) goalIdx++;
-
-    // mini: ทำต่อเนื่องทีละอัน
     while (miniIdx < pickedMinis.length && pickedMinis[miniIdx]?.done) miniIdx++;
   }
 
@@ -159,7 +163,6 @@ export function makeQuestDirector(opts = {}){
       goal: goalPayload,
       mini: miniPayload,
 
-      // สำหรับ HUD/สรุปผล
       goalsAll: pickedGoals.map(x => ({
         id: x.id, label: x.label,
         prog: x.prog|0, target: x.target|0, done: !!x.done
@@ -174,7 +177,6 @@ export function makeQuestDirector(opts = {}){
       miniCleared,
       miniTotal: pickedMinis.length,
 
-      // hint โชว์เพิ่มได้ (เลือก hint ของ goal ก่อน)
       hint: (goalPayload && goalPayload.hint) ? goalPayload.hint
           : (miniPayload && miniPayload.hint) ? miniPayload.hint
           : ''
@@ -184,9 +186,7 @@ export function makeQuestDirector(opts = {}){
   function start(initialState = {}){
     started = true;
 
-    // init progress
     for (const g of pickedGoals) updateOne(g, initialState);
-    // mini ทำทีละอัน: อัปเดตเฉพาะตัวแรกเพื่อไม่ให้ “ข้าม” จากค่า state บางตัว
     if (pickedMinis[0]) updateOne(pickedMinis[0], initialState);
 
     advanceIfDone();
@@ -196,25 +196,22 @@ export function makeQuestDirector(opts = {}){
   function update(state = {}){
     if (!started) return;
 
-    // update goal ปัจจุบัน
     const g = currentGoal();
     if (g) updateOne(g, state);
 
-    // update mini ปัจจุบัน (ต่อเนื่อง)
     const m = currentMini();
     if (m) updateOne(m, state);
 
-    const beforeGoalIdx = goalIdx;
-    const beforeMiniIdx = miniIdx;
+    const beforeG = goalIdx;
+    const beforeM = miniIdx;
 
     advanceIfDone();
 
-    // ถ้าเพิ่งเลื่อนไปเป้าหมายใหม่ ให้คำนวณ progress ของตัวใหม่ทันที
-    if (goalIdx !== beforeGoalIdx){
+    if (goalIdx !== beforeG){
       const g2 = currentGoal();
       if (g2) updateOne(g2, state);
     }
-    if (miniIdx !== beforeMiniIdx){
+    if (miniIdx !== beforeM){
       const m2 = currentMini();
       if (m2) updateOne(m2, state);
     }
@@ -223,7 +220,6 @@ export function makeQuestDirector(opts = {}){
   }
 
   function finalize(finalState = {}){
-    // อัปเดตทุกอันครั้งสุดท้าย
     for (const g of pickedGoals) updateOne(g, finalState);
     for (const m of pickedMinis) updateOne(m, finalState);
     advanceIfDone();
@@ -236,17 +232,7 @@ export function makeQuestDirector(opts = {}){
     };
   }
 
-  function debugSnapshot(){
-    return {
-      diff,
-      goalIdx,
-      miniIdx,
-      goals: pickedGoals,
-      minis: pickedMinis
-    };
-  }
-
-  return { start, update, finalize, debugSnapshot };
+  return { start, update, finalize };
 }
 
 export default { makeQuestDirector };
