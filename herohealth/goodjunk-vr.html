@@ -596,7 +596,6 @@
       <a-camera id="gj-camera"
                 wasd-controls-enabled="false"
                 look-controls="pointerLockEnabled: false">
-        <!-- cursor ใช้เป็น visuals เฉย ๆ (DOM gaze ยิงด้วย JS) -->
         <a-entity id="cursor"
                   cursor="fuse: false; rayOrigin: mouse"
                   geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
@@ -668,6 +667,7 @@
             </div>
           </div>
 
+          <!-- ✅ FEVER UI -->
           <div class="metric fever-wrap">
             <div class="metric-label">FEVER</div>
             <div class="fever-bar">
@@ -763,7 +763,6 @@
       return v !== null && v !== '' ? v : fallback;
     }
 
-    // ===== wait A-Frame scene camera ready (กันจอดำ/เป้าไม่โผล่) =====
     function waitSceneReady(cb){
       const scene = document.querySelector('a-scene');
       if (!scene) { cb(); return; }
@@ -775,14 +774,13 @@
         }
         return false;
       };
-
       if (tryReady()) return;
 
       scene.addEventListener('loaded', ()=>{
         let tries = 0;
         const t = setInterval(()=>{
           tries++;
-          if (tryReady() || tries > 60){ // ~3s
+          if (tryReady() || tries > 80){ // ~4s
             clearInterval(t);
             cb();
           }
@@ -838,10 +836,6 @@
     const elFeverText  = document.getElementById('hud-fever-text');
     const elFeverBadge = document.getElementById('hud-fever-badge');
 
-    // reticle UI
-    const elReticleWrap = document.getElementById('reticle-progress');
-    const elReticleRing = document.getElementById('reticle-ring');
-
     const coachMoodKeys = ['neutral','happy','sad','fever'];
     let lastCoachTimeout = null;
 
@@ -863,7 +857,7 @@
     let prevGoalsCleared = 0;
     let prevMiniCleared  = 0;
 
-    // Lives (hard only): 1 หัวใจหายทุก MISS_PER_LIFE ครั้ง
+    // Lives (hard only): 1 หัวใจ = MISS_PER_LIFE ครั้ง
     const MAX_LIVES = 3;
     const MISS_PER_LIFE = 3;
     let currentLives = MAX_LIVES;
@@ -945,6 +939,11 @@
         setCoachFace('sad');
         setCoach('เหลือหัวใจดวงสุดท้ายแล้ว ระวังอย่าพลาดของดีอีกนะ 💓');
       }
+      if (livesLeft <= 0){
+        setCoachFace('sad');
+        setCoach('หัวใจหมดแล้ว! จบเกมทันที 💥');
+        GameEngine.stop('no-lives');
+      }
     }
 
     // ===== Countdown =====
@@ -999,7 +998,7 @@
       elGradeBar.dataset.grade = grade;
     }
 
-    // ===== Fever HUD small text/badge =====
+    // ===== Fever HUD =====
     function updateFeverHUD(){
       const F = window.FeverUI || null;
       if (!F) return;
@@ -1023,7 +1022,7 @@
       const cx = window.innerWidth / 2;
       const y  = window.innerHeight * 0.22;
       if (P && P.burstAt){
-        P.burstAt(cx, y, { color: (kind === 'goal') ? '#22c55e' : '#38bdf8', count: 16, good: true });
+        P.burstAt(cx, y, { count: 16, good: true });
       }
       if (P && P.scorePop){
         const label = (kind === 'goal') ? ('Goal ' + cleared + '/' + total) : ('Mini ' + cleared + '/' + total);
@@ -1040,9 +1039,7 @@
 
       if (P && P.burstAt){
         for (let i = 0; i < 3; i++){
-          setTimeout(()=>{
-            P.burstAt(cx, cy, { color: i === 1 ? '#facc15' : '#22c55e', count: 22, good: true });
-          }, i * 260);
+          setTimeout(()=> P.burstAt(cx, cy, { count: 22, good: true }), i * 260);
         }
       }
       if (P && P.scorePop){
@@ -1060,14 +1057,24 @@
       }, 1400);
     }
 
-    // ===== Touch look =====
+    // ===== VR / touch =====
+    function initVRButton(){
+      if (!btnVR) return;
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+      btnVR.addEventListener('click', ()=>{
+        try{ scene.enterVR(); }
+        catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
+      });
+    }
+
     function attachTouch(cameraEl){
       if (!cameraEl) return;
       attachTouchLook(cameraEl, {
         sensitivity: 0.25,
         areaEl: document.body,
         onActiveChange(active){
-          if (active && elTouchHint){
+          if (active){
             elTouchHint.classList.add('show');
             setTimeout(()=> elTouchHint.classList.remove('show'), 3200);
           }
@@ -1075,38 +1082,56 @@
       });
     }
 
-    // ===== VR button =====
-    function initVRButton(){
-      if (!btnVR) return;
-      const scene = document.querySelector('a-scene');
-      if (!scene) return;
-
-      btnVR.addEventListener('click', ()=>{
-        try{ scene.enterVR(); }
-        catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
-      });
-
-      // hide button if VR not available
-      const hasEnter = (typeof scene.enterVR === 'function');
-      if (!hasEnter) btnVR.style.display = 'none';
+    // ===== Cursor visuals =====
+    function tuneCursorVisualForVR(isVR){
+      const cursorEl = document.getElementById('cursor');
+      if (!cursorEl) return;
+      if (isVR){
+        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.006; radiusOuter: 0.020');
+      }else{
+        cursorEl.setAttribute('material', 'shader: flat; color: #ffffff; opacity: 0.95');
+        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.010; radiusOuter: 0.016');
+      }
     }
 
-    // ===== Reticle UI helpers =====
-    let reticleColor = '#38bdf8';
+    // ===== VR Gaze (DOM targets) =====
+    const reticleWrap = document.getElementById('reticle-progress');
+    const reticleRing = document.getElementById('reticle-ring');
+
+    let gazeFuseMs = 620;   // default normal
+    let gazeRadiusPx = 78;  // default normal
+    let isVR = false;
+
+    function applyGazeTuningByDiff(diffKey){
+      const d = String(diffKey || 'normal').toLowerCase();
+      const table = {
+        easy:   { fuseMs: 520, radiusPx: 92 },
+        normal: { fuseMs: 620, radiusPx: 78 },
+        hard:   { fuseMs: 720, radiusPx: 64 }
+      };
+      const t = table[d] || table.normal;
+      gazeFuseMs = t.fuseMs;
+      gazeRadiusPx = t.radiusPx;
+    }
+
     function showReticle(show){
-      if (!elReticleWrap) return;
-      elReticleWrap.classList.toggle('show', !!show);
+      if (!reticleWrap) return;
+      reticleWrap.classList.toggle('show', !!show);
     }
+
+    let reticleColor = '#38bdf8';
     function setReticleColor(color){
       reticleColor = color || '#38bdf8';
-      if (!elReticleWrap) return;
-      elReticleWrap.style.setProperty('--rp-color', reticleColor);
+      if (!reticleWrap) return;
+      reticleWrap.style.setProperty('--rp-color', reticleColor);
     }
     function setReticleProgress01(p01){
-      if (!elReticleRing) return;
+      if (!reticleRing) return;
       const deg = Math.max(0, Math.min(360, Math.round(p01 * 360)));
-      elReticleRing.style.background = `conic-gradient(${reticleColor} ${deg}deg, rgba(255,255,255,0.12) 0deg)`;
+      reticleRing.style.background = `conic-gradient(${reticleColor} ${deg}deg, rgba(255,255,255,0.12) 0deg)`;
     }
+
     function kindToColor(kind){
       const k = String(kind || '').toLowerCase();
       if (k === 'good') return '#22c55e';
@@ -1117,144 +1142,112 @@
       return '#e5e7eb';
     }
 
-    // ===== VR AUTO-TUNE: gaze ยิง DOM (เฉพาะใน VR) =====
-    let isVR = false;
+    function pickTargetNearCenter(){
+      const layer = document.getElementById('gj-layer');
+      if (!layer) return null;
+
+      const targets = layer.querySelectorAll('.gj-target[data-hha-tgt]');
+      if (!targets || !targets.length) return null;
+
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+
+      let best = null;
+      let bestDist = Infinity;
+      for (const el of targets){
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width/2;
+        const y = r.top + r.height/2;
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < bestDist){
+          bestDist = dist;
+          best = el;
+        }
+      }
+      if (best && bestDist <= gazeRadiusPx) return best;
+      return null;
+    }
+
     let gazeRAF = null;
-    let gazeFuseMs = 650;
-    let gazeRadiusPx = 70;
-    let gazeStartMs = 0;
-    let gazeTargetEl = null;
+    let gazeHoldMs = 0;
+    let gazeLastTs = 0;
+    let gazeCurrentEl = null;
 
     function stopGaze(){
       if (gazeRAF) cancelAnimationFrame(gazeRAF);
       gazeRAF = null;
-      gazeStartMs = 0;
-      gazeTargetEl = null;
+      gazeHoldMs = 0;
+      gazeLastTs = 0;
+      gazeCurrentEl = null;
       setReticleProgress01(0);
-      showReticle(false);
     }
 
-    function dispatchPointerDown(el){
-      try{
-        const cx = window.innerWidth/2;
-        const cy = window.innerHeight/2;
-        const ev = new PointerEvent('pointerdown', {
-          bubbles: true,
-          cancelable: true,
-          clientX: cx,
-          clientY: cy,
-          pointerType: 'mouse'
-        });
-        el.dispatchEvent(ev);
-      }catch(_){}
+    function clickCenterOn(el){
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const x = r.left + r.width/2;
+      const y = r.top + r.height/2;
+
+      // ยิง pointerdown ให้ Engine รับแน่นอน
+      const ev = new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:x, clientY:y, pointerId:1, isPrimary:true });
+      el.dispatchEvent(ev);
     }
 
-    function bestTargetNearCenter(){
-      const list = document.querySelectorAll('.gj-target[data-hha-tgt="1"]');
-      if (!list || !list.length) return null;
-
-      const cx = window.innerWidth/2;
-      const cy = window.innerHeight/2;
-
-      let best = null;
-      let bestD2 = Infinity;
-
-      for (const el of list){
-        const r = el.getBoundingClientRect();
-        if (!r || !isFinite(r.left)) continue;
-        const tx = r.left + r.width/2;
-        const ty = r.top  + r.height/2;
-        const dx = tx - cx;
-        const dy = ty - cy;
-        const d2 = dx*dx + dy*dy;
-        if (d2 < bestD2){
-          bestD2 = d2;
-          best = el;
-        }
-      }
-      return { el: best, dist: Math.sqrt(bestD2) };
-    }
-
-    function loopGaze(){
+    function loopGaze(ts){
       if (!isVR){
         stopGaze();
+        showReticle(false);
         return;
       }
+      if (!gazeLastTs) gazeLastTs = ts;
+      const dt = ts - gazeLastTs;
+      gazeLastTs = ts;
 
-      const found = bestTargetNearCenter();
-      if (!found || !found.el){
-        gazeTargetEl = null;
-        gazeStartMs = 0;
-        setReticleProgress01(0);
-        showReticle(true); // ยังโชว์ dot/วงให้เล็ง
-        gazeRAF = requestAnimationFrame(loopGaze);
-        return;
-      }
+      const el = pickTargetNearCenter();
 
-      const { el, dist } = found;
-
-      if (dist > gazeRadiusPx){
-        gazeTargetEl = null;
-        gazeStartMs = 0;
-        setReticleProgress01(0);
-        showReticle(true);
-        gazeRAF = requestAnimationFrame(loopGaze);
-        return;
-      }
-
-      // within radius
-      const kind = (el.dataset && el.dataset.kind) ? el.dataset.kind : '';
-      setReticleColor(kindToColor(kind));
-      showReticle(true);
-
-      if (gazeTargetEl !== el){
-        gazeTargetEl = el;
-        gazeStartMs = performance.now();
+      if (!el){
+        gazeCurrentEl = null;
+        gazeHoldMs = 0;
         setReticleProgress01(0);
         gazeRAF = requestAnimationFrame(loopGaze);
         return;
       }
 
-      const held = performance.now() - gazeStartMs;
-      const p01 = Math.max(0, Math.min(1, held / gazeFuseMs));
+      if (gazeCurrentEl !== el){
+        gazeCurrentEl = el;
+        gazeHoldMs = 0;
+        const kind = (el.dataset && el.dataset.kind) ? el.dataset.kind : 'good';
+        setReticleColor(kindToColor(kind));
+        setReticleProgress01(0);
+      }
+
+      gazeHoldMs += dt;
+      const p01 = Math.max(0, Math.min(1, gazeHoldMs / gazeFuseMs));
       setReticleProgress01(p01);
 
-      if (held >= gazeFuseMs && gazeTargetEl){
-        const hit = gazeTargetEl;
-        gazeTargetEl = null;
-        gazeStartMs = 0;
+      if (p01 >= 1){
+        clickCenterOn(el);
+        gazeHoldMs = 0;
         setReticleProgress01(0);
-        dispatchPointerDown(hit); // ยิง DOM target
       }
 
       gazeRAF = requestAnimationFrame(loopGaze);
     }
 
-    function tuneCursorVisualForVR(on){
-      const cursorEl = document.getElementById('cursor');
-      if (!cursorEl) return;
-      if (on){
-        cursorEl.setAttribute('cursor', `fuse: true; fuseTimeout: ${gazeFuseMs}; rayOrigin: entity`);
-        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.006; radiusOuter: 0.018');
-      }else{
-        cursorEl.setAttribute('cursor', 'fuse: false; rayOrigin: mouse');
-        cursorEl.setAttribute('geometry', 'primitive: ring; radiusInner: 0.01; radiusOuter: 0.016');
-      }
-    }
-
-    function hookVrAutoTune(){
+    function hookVrModeAutoSwitch(){
       const scene = document.querySelector('a-scene');
       if (!scene) return;
 
       scene.addEventListener('enter-vr', ()=>{
         isVR = true;
-
-        // auto tune visuals + coach
+        applyGazeTuningByDiff(diff);
         tuneCursorVisualForVR(true);
-        setCoachFace('happy');
-        setCoach('เข้าโหมด VR แล้ว! จ้องค้างที่เป้าใกล้กลางจอเพื่อยิง 🎯');
 
-        // start gaze loop
+        setCoachFace('happy');
+        setCoach(`เข้าโหมด VR แล้ว! จ้องค้างเพื่อยิง 🎯 (${diff.toUpperCase()} • ${gazeFuseMs}ms)`);
+
         stopGaze();
         showReticle(true);
         gazeRAF = requestAnimationFrame(loopGaze);
@@ -1264,9 +1257,27 @@
         isVR = false;
         tuneCursorVisualForVR(false);
         stopGaze();
+        showReticle(false);
         setCoachFace('neutral');
         setCoach('กลับสู่โหมดปกติแล้ว คลิก/แตะเป้าได้เลย 👆');
       });
+    }
+
+    // ===== Auto-enter VR after first tap (optional) =====
+    function setupAutoEnterVR(){
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+      const autovr = String(getParam('autovr','0')) === '1';
+      if (!autovr) return;
+
+      setCoachFace('happy');
+      setCoach('แตะหน้าจอ 1 ครั้งเพื่อเข้าโหมด VR อัตโนมัติ 🕶️');
+
+      const once = ()=>{
+        try{ scene.enterVR(); }catch(_){}
+        window.removeEventListener('pointerdown', once, true);
+      };
+      window.addEventListener('pointerdown', once, true);
     }
 
     // ===== HUD listeners =====
@@ -1336,7 +1347,6 @@
       }
     });
 
-    // Quest update
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -1458,9 +1468,7 @@
       const allQuest = (goalsTotal>0 && goalsCleared>=goalsTotal) && (miniTotal>0 && miniCleared>=miniTotal);
 
       if (allQuest){
-        bigCelebrateAllQuests(()=>{
-          showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
-        });
+        bigCelebrateAllQuests(()=> showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal));
       }else{
         showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
       }
@@ -1472,7 +1480,6 @@
       const runParam = String(getParam('run','play')).toLowerCase();
       runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // base duration
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
       else if (diff === 'hard') baseDur = 45;
@@ -1520,15 +1527,15 @@
       setCoachFace('neutral');
       let introMsg = '';
       if (runMode === 'research'){
-        introMsg = 'โหมดวิจัย: เล่นให้เป็นธรรมชาติ แต่พยายามพลาดให้น้อยที่สุดนะ เราจะเก็บข้อมูลการตอบสนองของเธอ 📊';
+        introMsg = 'โหมดวิจัย: เล่นให้เป็นธรรมชาติ แต่พยายามพลาดให้น้อยที่สุดนะ 📊';
       }else{
-        if (diff === 'easy') introMsg = 'โหมดง่าย ลองเก็บผัก ผลไม้ นมให้ได้เยอะ ๆ ก่อน อุ่นเครื่องให้พร้อมนะ 🥦🍎🥛';
-        else if (diff === 'hard') introMsg = 'โหมด HARD พร้อมลุย! หัวใจมีจำกัด พลาดบ่อยหัวใจหาย ระวังให้ดีนะ 💥';
-        else introMsg = 'แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะให้ได้มากที่สุดเลยนะ 🥦🍎🥛';
+        if (diff === 'easy') introMsg = 'โหมดง่าย! เก็บผัก ผลไม้ นมให้เยอะ ๆ นะ 🥦🍎🥛';
+        else if (diff === 'hard') introMsg = 'โหมด HARD! หัวใจมีจำกัด พลาดบ่อยหัวใจหาย ระวังให้ดีนะ 💥';
+        else introMsg = 'แตะเฉพาะอาหารดี ผัก ผลไม้ นม เลี่ยงของขยะนะ 🥦🍎🥛';
       }
       setCoach(introMsg);
 
-      // read studentProfile from hub
+      // profile from hub
       let studentProfile = null;
       let studentKey = null;
       try{
@@ -1537,9 +1544,7 @@
           studentProfile = JSON.parse(raw);
           studentKey = studentProfile.studentKey || null;
         }
-      }catch(err){
-        console.warn('[GoodJunkVR] cannot parse student profile:', err);
-      }
+      }catch(err){}
 
       // cloud logger
       initCloudLogger({
@@ -1554,15 +1559,14 @@
         debug: false
       });
 
-      // touch + VR button
+      // touch + VR button + VR hooks
       const cam = document.querySelector('#gj-camera');
       attachTouch(cam);
       initVRButton();
+      hookVrModeAutoSwitch();
+      setupAutoEnterVR();
 
-      // ✅ VR auto tune: enter-vr => start gaze loop & reticle progress auto
-      hookVrAutoTune();
-
-      // ✅ QuestDirector (กัน error ไม่ให้ทำให้เกมไม่ start)
+      // QuestDirector (ไม่ทำให้เกมพังถ้าล้ม)
       try{
         Q = makeQuestDirector({
           diff,
@@ -1571,6 +1575,7 @@
           maxGoals: 2,
           maxMini: 3
         });
+        // ✅ start แต่ไม่ให้ “miss_limit” ผ่านทันที (ไปแก้ที่ quest-defs)
         Q.start({ ...state });
         Q.update({ ...state });
       }catch(err){
@@ -1578,13 +1583,11 @@
         Q = null;
       }
 
-      // countdown → start engine + timer (รอ scene/camera พร้อม)
+      // countdown → start engine + timer
       runCountdown(()=>{
         waitSceneReady(()=>{
-
           updateFeverHUD();
 
-          // 🔥 Start engine (ปกติไม่เปิด gaze ใน engine; VR gaze ใช้ loopGaze แทน)
           GameEngine.start(diff, {
             runMode,
             layerEl: document.getElementById('gj-layer'),
@@ -1606,7 +1609,6 @@
 
           window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
           timerId = setInterval(tickTime, 1000);
-
         });
       });
 
