@@ -1,18 +1,15 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL)
+// Good vs Junk VR — DOM Emoji Engine (FINAL v2)
 // MISS = good expired + junk hit (shield block = NO miss)
-// FIX: wait camera readiness issues + prevent "miss drift" when target never visible
+// FIX v2:
+// - DO NOT cache THREE at module-load time (sometimes null)
+// - If cannot project 3D->2D, fallback to 2D random positions (so targets always visible)
+// - Prevent miss drift: count good-expire only if ever visible (seen=true)
 
 'use strict';
 
 (function (ns) {
   const ROOT = (typeof window !== 'undefined' ? window : globalThis);
-
-  // Use AFRAME.THREE first (เพราะ window.THREE อาจไม่มีในบาง build)
-  const THREE =
-    ROOT.THREE ||
-    (ROOT.AFRAME && ROOT.AFRAME.THREE) ||
-    null;
 
   // ===== External modules =====
   const Particles =
@@ -43,10 +40,19 @@
   let feverActive=false;
   let feverPrev=false;
 
-  // ===== Helpers =====
+  // ===== Dynamic THREE getter (สำคัญมาก) =====
+  function getTHREE(){
+    return ROOT.THREE || (ROOT.AFRAME && ROOT.AFRAME.THREE) || null;
+  }
+
   function sceneRef(){
-    const scene = document.querySelector('a-scene');
-    return scene || null;
+    return document.querySelector('a-scene') || null;
+  }
+
+  function cameraReady(){
+    const scene = sceneRef();
+    const THREE = getTHREE();
+    return !!(scene && scene.camera && THREE);
   }
 
   function getCameraObj3D(){
@@ -57,13 +63,9 @@
     return null;
   }
 
-  function cameraReady(){
-    const scene = sceneRef();
-    return !!(scene && scene.camera && THREE);
-  }
-
   // ===== World spawn (หน้า camera) =====
   function spawnWorld(){
+    const THREE = getTHREE();
     const cam = getCameraObj3D();
     if (!cam || !THREE) return null;
 
@@ -82,8 +84,9 @@
 
   // ===== Project 3D → 2D =====
   function project(pos){
+    const THREE = getTHREE();
     const scene = sceneRef();
-    if (!scene || !scene.camera || !THREE) return null;
+    if (!scene || !scene.camera || !THREE || !pos) return null;
 
     const v = pos.clone().project(scene.camera);
     if (v.z < -1 || v.z > 1) return null;
@@ -98,7 +101,6 @@
   function emitJudge(label){
     ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label }}));
   }
-
   function emitMiss(){
     ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses }}));
   }
@@ -117,25 +119,16 @@
   }
 
   function emitScore(){
-    // update fever state + edge
     if (FeverUI && typeof FeverUI.isActive === 'function'){
       feverActive = !!FeverUI.isActive();
       emitFeverEdgeIfNeeded();
-    } else {
+    }else{
       feverActive = false;
       feverPrev = false;
     }
 
     ROOT.dispatchEvent(new CustomEvent('hha:score',{
-      detail:{
-        score,
-        combo,
-        comboMax,
-        goodHits,
-        misses,
-        feverActive,
-        shield
-      }
+      detail:{ score, combo, comboMax, goodHits, misses, feverActive, shield }
     }));
   }
 
@@ -154,19 +147,25 @@
     el.textContent = emoji;
     el.setAttribute('data-hha-tgt','1');
 
-    // kind สำหรับ reticle / HUD
     el.dataset.kind =
       emoji === STAR   ? 'star'   :
       emoji === FIRE   ? 'diamond':
       emoji === SHIELD ? 'shield' : kind;
 
+    // fallback 2D (กันจอดำ)
+    const fallback2D = {
+      x: Math.round(window.innerWidth  * (0.2 + Math.random()*0.6)),
+      y: Math.round(window.innerHeight * (0.25 + Math.random()*0.55))
+    };
+
     const t = {
       el,
       kind,
       emoji,
-      pos: spawnWorld(),      // อาจ null ถ้า camera ยังไม่พร้อม
+      pos: spawnWorld(),     // อาจ null
       born: performance.now(),
-      seen: false             // ✅ เคยถูก project ได้จริงไหม
+      seen: false,
+      fallback2D
     };
 
     active.push(t);
@@ -177,7 +176,6 @@
       hitTarget(t, e.clientX || 0, e.clientY || 0);
     });
 
-    // expire
     setTimeout(()=>expireTarget(t), 2200);
   }
 
@@ -189,11 +187,9 @@
 
   function expireTarget(t){
     if (!running) return;
-
-    // remove first
     removeTarget(t);
 
-    // ✅ MISS เฉพาะ "ปล่อยของดี" และต้อง "เคยเห็นจริง" (กัน miss ไหลตอนกล้องยังไม่พร้อม)
+    // ✅ MISS เฉพาะ "ปล่อยของดี" และต้องเคยเห็นจริง
     if (t.kind === 'good' && t.seen){
       misses++;
       combo = 0;
@@ -204,12 +200,9 @@
   }
 
   function hitTarget(t, x, y){
-    // ถ้าโดนหลังถูก remove ไปแล้ว ให้เงียบ
     if (!t || !t.el) return;
-
     removeTarget(t);
 
-    // ===== POWER =====
     if (t.emoji === SHIELD){
       shield = Math.min(3, shield + 1);
       emitScore();
@@ -224,10 +217,9 @@
       return;
     }
 
-    // ===== JUNK =====
     if (t.kind === 'junk'){
       if (shield > 0){
-        shield--; // ❌ shield กัน → ไม่นับ miss
+        shield--;
         emitScore();
         emitJudge('BLOCK');
         return;
@@ -240,7 +232,7 @@
       return;
     }
 
-    // ===== GOOD =====
+    // GOOD
     goodHits++;
     combo++;
     comboMax = Math.max(comboMax, combo);
@@ -260,7 +252,6 @@
   function renderLoop(){
     if (!running) return;
 
-    // ถ้า pos ยังไม่มี (กล้องยังไม่พร้อมตอนสร้าง) ให้เติมทีหลัง
     const ready = cameraReady();
 
     for (const t of active){
@@ -270,17 +261,23 @@
         t.pos = spawnWorld();
       }
 
-      const p = (t.pos && ready) ? project(t.pos) : null;
+      let p = null;
 
-      if (p){
-        t.seen = true;
-        t.el.style.display = 'block';
-        t.el.style.left = p.x + 'px';
-        t.el.style.top  = p.y + 'px';
-      }else{
-        // ✅ กันไปกอง (0,0) มุมซ้ายบน
-        t.el.style.display = 'none';
+      // try 3D project
+      if (ready && t.pos){
+        p = project(t.pos);
       }
+
+      // fallback 2D (กันจอดำ/กันไปกองมุมซ้ายบน)
+      if (!p){
+        p = t.fallback2D;
+      }else{
+        t.seen = true;
+      }
+
+      t.el.style.display = 'block';
+      t.el.style.left = p.x + 'px';
+      t.el.style.top  = p.y + 'px';
     }
 
     rafId = requestAnimationFrame(renderLoop);
@@ -288,7 +285,6 @@
 
   function spawnLoop(){
     if (!running) return;
-
     if (active.length < 4){
       createTarget(Math.random() < 0.7 ? 'good' : 'junk');
     }
@@ -312,6 +308,9 @@
       FeverUI.reset();
     }
 
+    // debug (ดูใน console ได้ทันที)
+    console.log('[GoodJunkVR] GameEngine.start OK', { diff, hasAFRAME:!!ROOT.AFRAME, hasTHREE:!!getTHREE() });
+
     emitScore();
     renderLoop();
     spawnLoop();
@@ -326,7 +325,6 @@
     if (spawnTimer) clearTimeout(spawnTimer);
     spawnTimer = null;
 
-    // cleanup
     const copy = active.slice();
     for (const t of copy) removeTarget(t);
     active.length = 0;
@@ -340,5 +338,4 @@
 
 })(window.GoodJunkVR = window.GoodJunkVR || {});
 
-// ESM export
 export const GameEngine = window.GoodJunkVR.GameEngine;
