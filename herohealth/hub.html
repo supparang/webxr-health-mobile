@@ -417,6 +417,11 @@
 
 <script>
   // ✅ Endpoint ของคุณ (เก็บให้ทุกเกมเรียกใช้ได้)
+  window.addEventListener('pageshow', (e)=>{ if (e.persisted) location.reload(); });
+  window.addEventListener('DOMContentLoaded', ()=>{
+  sessionStorage.setItem('HHA_LOG_ENDPOINT', LOG_ENDPOINT);
+  });
+
   const LOG_ENDPOINT = 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
   sessionStorage.setItem('HHA_LOG_ENDPOINT', LOG_ENDPOINT);
 
