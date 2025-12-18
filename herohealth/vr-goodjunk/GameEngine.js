@@ -1,15 +1,12 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL v3)
-// MISS = good expired + junk hit (shield block = NO miss)
-// v3:
-// - รับ cfg จาก opts.cfg เพื่อจูน spawn/maxActive/junkRatio/lifeMs/powerChance/moveChance/scale
-// - fallback 2D + clamp กันเป้าไปกองมุมซ้ายบน/กันจอดำ
-// - good-expire นับ MISS เฉพาะที่ "เคยเห็นจริง" (seen=true)
+// Good vs Junk VR — DOM Emoji Engine (FINAL v3 - scroll-follow)
+// MISS = good expired (only if seen) + junk hit (shield block = NO miss)
+// ✅ supports spawnHost scroll container so "scroll แล้วเป้าเลื่อนตาม"
 
 'use strict';
 
 (function (ns) {
-  const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+  const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
   const Particles =
     (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
@@ -22,20 +19,9 @@
   const STAR='⭐', FIRE='🔥', SHIELD='🛡️';
   const POWER=[STAR,FIRE,SHIELD];
 
-  // ===== Runtime config (defaults) =====
-  const CFG = {
-    spawnMs: 900,
-    maxActive: 4,
-    junkRatio: 0.33,
-    lifeMs: 2150,
-    powerChance: 0.12,
-    moveChance: 0.34,
-    scale: 1.0
-  };
-
-  // ===== State =====
   let running=false;
   let layerEl=null;
+  let spawnHost=null; // ✅ scroll container
   let active=[];
   let rafId=null, spawnTimer=null;
 
@@ -49,7 +35,6 @@
   let feverActive=false;
   let feverPrev=false;
 
-  // ===== Dynamic THREE getter =====
   function getTHREE(){
     return ROOT.THREE || (ROOT.AFRAME && ROOT.AFRAME.THREE) || null;
   }
@@ -67,14 +52,20 @@
     return null;
   }
 
-  // ===== helpers =====
-  function clamp(n, a, b){
-    n = Number(n) || 0;
-    if (n < a) return a;
-    if (n > b) return b;
-    return n;
+  // ✅ host rect + scroll (หัวใจของ “เป้าเลื่อนตามจอเลื่อน”)
+  function getHostInfo(){
+    const host = spawnHost || (layerEl ? (layerEl.parentElement || document.body) : document.body);
+    const isBody = (host === document.body || host === document.documentElement);
+    const rect = isBody ? { left:0, top:0, width: window.innerWidth, height: window.innerHeight }
+                        : host.getBoundingClientRect();
+    const scrollLeft = host.scrollLeft || 0;
+    const scrollTop  = host.scrollTop  || 0;
+    const width  = (host.clientWidth  || rect.width  || window.innerWidth);
+    const height = (host.clientHeight || rect.height || window.innerHeight);
+    return { host, rect, scrollLeft, scrollTop, width, height };
   }
 
+  // spawn world in front of camera
   function spawnWorld(){
     const THREE = getTHREE();
     const cam = getCameraObj3D();
@@ -89,6 +80,7 @@
     pos.add(dir.multiplyScalar(2.2));
     pos.x += (Math.random()-0.5)*1.8;
     pos.y += (Math.random()-0.5)*1.4;
+
     return pos;
   }
 
@@ -100,29 +92,33 @@
     const v = pos.clone().project(scene.camera);
     if (v.z < -1 || v.z > 1) return null;
 
+    // 화면 좌표(뷰포트 기준)
     return {
       x: (v.x * 0.5 + 0.5) * window.innerWidth,
       y: (-v.y * 0.5 + 0.5) * window.innerHeight
     };
   }
 
-  // ===== Emit =====
   function emitJudge(label){
     ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label }}));
   }
   function emitMiss(){
     ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses }}));
   }
+
   function emitFeverEdgeIfNeeded(){
     if (!FeverUI || typeof FeverUI.isActive !== 'function') return;
+
     feverPrev = feverActive;
     feverActive = !!FeverUI.isActive();
+
     if (feverActive && !feverPrev){
       ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'start' }}));
     } else if (!feverActive && feverPrev){
       ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'end' }}));
     }
   }
+
   function emitScore(){
     if (FeverUI && typeof FeverUI.isActive === 'function'){
       feverActive = !!FeverUI.isActive();
@@ -131,26 +127,22 @@
       feverActive = false;
       feverPrev = false;
     }
+
     ROOT.dispatchEvent(new CustomEvent('hha:score',{
       detail:{ score, combo, comboMax, goodHits, misses, feverActive, shield }
     }));
   }
 
-  // ===== Target =====
   function createTarget(kind){
     if (!layerEl) return;
 
     const el = document.createElement('div');
     el.className = 'gj-target ' + (kind === 'good' ? 'gj-good' : 'gj-junk');
 
-    let emoji = '';
-    if (kind === 'good'){
-      const power = (Math.random() < clamp(CFG.powerChance, 0, 0.35));
-      emoji = power ? POWER[Math.floor(Math.random()*POWER.length)]
-                    : GOOD[Math.floor(Math.random()*GOOD.length)];
-    }else{
-      emoji = JUNK[Math.floor(Math.random()*JUNK.length)];
-    }
+    const emoji = (kind === 'good')
+      ? (Math.random() < 0.12 ? POWER[(Math.random()*POWER.length)|0]
+                             : GOOD[(Math.random()*GOOD.length)|0])
+      : JUNK[(Math.random()*JUNK.length)|0];
 
     el.textContent = emoji;
     el.setAttribute('data-hha-tgt','1');
@@ -160,43 +152,20 @@
       emoji === FIRE   ? 'diamond':
       emoji === SHIELD ? 'shield' : kind;
 
-    // scale from cfg
-    el.style.setProperty('--tScale', String(CFG.scale || 1));
-
-    // fallback 2D
-    const padX = 24;
-    const padY = 84;
+    const hostInfo = getHostInfo();
     const fallback2D = {
-      x: Math.round(padX + Math.random() * Math.max(1, window.innerWidth - padX*2)),
-      y: Math.round(padY + Math.random() * Math.max(1, window.innerHeight - padY*2))
+      x: Math.round(hostInfo.width  * (0.20 + Math.random()*0.60)),
+      y: Math.round(hostInfo.height * (0.20 + Math.random()*0.60))
     };
-
-    // moving excitement (เด็ก ป.5)
-    const moving = Math.random() < clamp(CFG.moveChance, 0, 0.9);
-    const drift2D = moving
-      ? { vx: (Math.random()<0.5?-1:1) * (0.25 + Math.random()*0.55), vy: (Math.random()<0.5?-1:1) * (0.15 + Math.random()*0.45) }
-      : null;
-
-    let drift3D = null;
-    const THREE = getTHREE();
-    if (moving && THREE){
-      drift3D = new THREE.Vector3(
-        (Math.random()<0.5?-1:1) * (0.002 + Math.random()*0.0038),
-        (Math.random()<0.5?-1:1) * (0.0015 + Math.random()*0.0032),
-        0
-      );
-    }
 
     const t = {
       el,
       kind,
       emoji,
-      pos: spawnWorld(),     // may null
+      pos: spawnWorld(),
       born: performance.now(),
       seen: false,
-      fallback2D,
-      drift2D,
-      drift3D
+      fallback2D
     };
 
     active.push(t);
@@ -207,9 +176,7 @@
       hitTarget(t, e.clientX || 0, e.clientY || 0);
     });
 
-    // expire by cfg.lifeMs
-    const life = clamp(CFG.lifeMs, 900, 4200);
-    setTimeout(()=>expireTarget(t), life);
+    setTimeout(()=>expireTarget(t), 2200);
   }
 
   function removeTarget(t){
@@ -222,7 +189,7 @@
     if (!running) return;
     removeTarget(t);
 
-    // MISS เฉพาะ "ปล่อยของดี" และต้องเคยเห็นจริง
+    // ✅ MISS เฉพาะ "ปล่อยของดี" และต้องเคยเห็นจริง
     if (t.kind === 'good' && t.seen){
       misses++;
       combo = 0;
@@ -281,51 +248,33 @@
     emitScore();
   }
 
-  // ===== Loops =====
   function renderLoop(){
     if (!running) return;
 
     const ready = cameraReady();
+    const { rect, scrollLeft, scrollTop } = getHostInfo();
 
     for (const t of active){
       if (!t || !t.el) continue;
 
-      // drift in 3D if possible
-      if (ready && t.pos && t.drift3D){
-        try{ t.pos.add(t.drift3D); }catch(_){}
-      }
-
-      // drift in 2D fallback
-      if (t.drift2D){
-        t.fallback2D.x += t.drift2D.vx;
-        t.fallback2D.y += t.drift2D.vy;
-      }
-
-      if (!t.pos && ready){
-        t.pos = spawnWorld();
-      }
+      if (!t.pos && ready) t.pos = spawnWorld();
 
       let p = null;
-      if (ready && t.pos){
-        p = project(t.pos);
-      }
+      if (ready && t.pos) p = project(t.pos);
 
-      // fallback 2D
       if (!p){
         p = t.fallback2D;
-      }else{
+      } else {
         t.seen = true;
       }
 
-      // clamp within viewport (กันไปกองซ้ายบน/หลุดจอ)
-      const padX = 24;
-      const padY = 84;
-      p.x = clamp(p.x, padX, window.innerWidth - padX);
-      p.y = clamp(p.y, padY, window.innerHeight - padY);
+      // ✅ map viewport -> host local + scroll
+      const left = (p.x - rect.left + scrollLeft);
+      const top  = (p.y - rect.top  + scrollTop);
 
       t.el.style.display = 'block';
-      t.el.style.left = p.x + 'px';
-      t.el.style.top  = p.y + 'px';
+      t.el.style.left = left + 'px';
+      t.el.style.top  = top  + 'px';
     }
 
     rafId = requestAnimationFrame(renderLoop);
@@ -333,53 +282,25 @@
 
   function spawnLoop(){
     if (!running) return;
-
-    const maxA = clamp(CFG.maxActive, 2, 7);
-    if (active.length < maxA){
-      const jr = clamp(CFG.junkRatio, 0.05, 0.70);
-      const kind = (Math.random() < (1 - jr)) ? 'good' : 'junk';
-      createTarget(kind);
+    if (active.length < 5){
+      createTarget(Math.random() < 0.70 ? 'good' : 'junk');
     }
-
-    const ms = clamp(CFG.spawnMs, 520, 1600);
-    spawnTimer = setTimeout(spawnLoop, ms);
+    spawnTimer = setTimeout(spawnLoop, 820); // ✅ เร้าใจขึ้นนิด
   }
 
-  // ===== API =====
   function start(diff, opts={}){
     if (running) return;
     running = true;
 
     layerEl = opts.layerEl || document.getElementById('gj-layer');
-
-    // apply cfg from html
-    if (opts.cfg && typeof opts.cfg === 'object'){
-      const c = opts.cfg;
-      CFG.spawnMs = Number(c.spawnMs ?? c.baseSpawnMs ?? CFG.spawnMs) || CFG.spawnMs;
-      CFG.maxActive = Number(c.maxActiveNow ?? c.maxActive ?? CFG.maxActive) || CFG.maxActive;
-      CFG.junkRatio = Number(c.junkRatioNow ?? c.junkRatio ?? CFG.junkRatio);
-      CFG.lifeMs = Number(c.lifeMs ?? CFG.lifeMs) || CFG.lifeMs;
-      CFG.powerChance = Number(c.powerChance ?? CFG.powerChance);
-      CFG.moveChance  = Number(c.moveChance ?? CFG.moveChance);
-      CFG.scale       = Number(c.scale ?? CFG.scale) || CFG.scale;
-    }
+    spawnHost = opts.spawnHost || (layerEl ? (layerEl.parentElement || document.body) : document.body);
 
     score=0; combo=0; comboMax=0; goodHits=0; misses=0;
     shield=0;
-
     feverActive=false;
     feverPrev=false;
 
-    if (FeverUI && typeof FeverUI.reset === 'function'){
-      FeverUI.reset();
-    }
-
-    console.log('[GoodJunkVR] GameEngine.start OK', {
-      diff,
-      cfg: { ...CFG },
-      hasAFRAME: !!ROOT.AFRAME,
-      hasTHREE: !!getTHREE()
-    });
+    if (FeverUI && typeof FeverUI.reset === 'function') FeverUI.reset();
 
     emitScore();
     renderLoop();
