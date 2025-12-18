@@ -505,10 +505,17 @@
 <div id="hvr-screen-blink" class="hvr-screen-blink"></div>
 
 <!-- ===== Scripts (global HUD / FX) ===== -->
-<script src="./vr/particles.js"></script>
+<!-- ต้องมาก่อน -->
 <script src="./vr/ui-fever.js"></script>
+<script src="./vr/particles.js"></script>
 <script src="./vr/hha-hud.js"></script>
 
+<!-- แล้วค่อย import ตัวเกม -->
+<script type="module">
+  import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
+  hydrationBoot({ difficulty:'easy', duration:90 });
+</script>
+  
 <!-- ✅ Crosshair controller (ยิงด้วยวงเล็ง + กะพริบ+สั่น) -->
 <script>
 (function(){
