@@ -34,11 +34,9 @@
       color:var(--text-main);
     }
 
-    /* A-Frame = ฉากหลังเท่านั้น ห้ามกินคลิก */
     a-scene{ position:fixed; inset:0; z-index:0; }
     a-scene, a-scene canvas{ pointer-events:none !important; }
 
-    /* HUD */
     .hud-root{ position:fixed; inset:0; pointer-events:none; z-index:60; }
     .hud-top{
       position:absolute; top:0; left:0; right:0;
@@ -54,48 +52,40 @@
       padding:10px 14px;
       border:1px solid rgba(148,163,184,0.25);
       box-shadow:0 18px 40px rgba(15,23,42,0.9), 0 0 0 1px rgba(15,23,42,1);
-      min-width:260px; max-width:360px;
+      min-width:260px; max-width:380px;
     }
     .hud-main-title{ font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--text-soft); margin-bottom:2px; }
     .hud-main-mode{ font-size:18px; font-weight:600; }
-
     .hud-pill{
-      margin-top:6px;
+      margin-top:4px;
       border-radius:999px;
       padding:2px 8px;
       font-size:11px;
       border:1px solid rgba(148,163,184,0.5);
       color:var(--text-soft);
       display:inline-flex; align-items:center; gap:6px;
-      background:rgba(2,6,23,0.35);
-      backdrop-filter:blur(8px);
-    }
-    .hud-badge{
-      display:inline-flex; align-items:center; gap:6px;
-      padding:2px 8px;
-      border-radius:999px;
-      font-size:11px;
-      letter-spacing:.12em;
-      text-transform:uppercase;
-      border:1px solid rgba(148,163,184,0.35);
-      background:rgba(15,23,42,0.65);
-      color:#cbd5f5;
-    }
-    .hud-badge.play{
-      border-color:rgba(34,197,94,0.45);
-      color:#bbf7d0;
-    }
-    .hud-badge.research{
-      border-color:rgba(56,189,248,0.55);
-      color:#bae6fd;
     }
 
-    .hud-metrics{ margin-top:10px; display:flex; gap:14px; flex-wrap:wrap; }
-    .metric{ display:flex; flex-direction:column; gap:2px; }
+    /* extra pill for BOSS */
+    .hud-pill.boss{
+      border-color: rgba(250,204,21,0.8);
+      color:#fef3c7;
+      background: rgba(250,204,21,0.12);
+      display:none;
+    }
+    .hud-pill.boss.show{ display:inline-flex; }
+
+    .hud-metrics{ margin-top:8px; display:flex; gap:14px; flex-wrap:wrap; }
+    .metric{ display:flex; flex-direction:column; gap:2px; min-width:88px; }
     .metric-label{ font-size:11px; color:var(--text-soft); }
-    .metric-value{ font-size:18px; font-weight:700; }
+    .metric-value{ font-size:18px; font-weight:800; }
     .metric-value.accent{ color:#bbf7d0; }
     .metric-sub{ font-size:11px; color:var(--text-soft); min-height:14px; }
+
+    .metric-value.multi{
+      color:#fef3c7;
+      text-shadow:0 0 18px rgba(250,204,21,0.25);
+    }
 
     .fg-quest-panel{
       pointer-events:auto;
@@ -152,10 +142,8 @@
       z-index:40;
       pointer-events:auto !important;
       touch-action:manipulation;
-
-      /* ✅ สำคัญ: scale ที่ GameEngine จะปรับ (default = 1) */
-      --fg-scale: 1;
     }
+
     .fg-target{
       position:absolute;
       width:132px; height:132px;
@@ -166,14 +154,37 @@
       user-select:none; -webkit-user-select:none;
       touch-action:manipulation;
       box-shadow:0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
-
-      /* ✅ ใช้ var scale */
       transform:translate(-50%,-50%) scale(var(--fg-scale, 1));
-      transition:transform .12s ease-out, opacity .12s ease-out;
+      transition:transform .12s ease-out, opacity .12s ease-out, filter .12s ease-out;
       opacity:1;
+      filter:saturate(1.05);
     }
     .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
     .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
+
+    /* GOLDEN target */
+    .fg-golden{
+      background:radial-gradient(circle at 30% 30%, #facc15, #d97706);
+      box-shadow:
+        0 14px 40px rgba(250,204,21,0.22),
+        0 12px 32px rgba(15,23,42,0.85),
+        0 0 0 4px rgba(15,23,42,0.9);
+      animation:goldPulse .9s infinite alternate ease-in-out;
+    }
+    @keyframes goldPulse{
+      0%{ filter:brightness(1.00) saturate(1.05); }
+      100%{ filter:brightness(1.14) saturate(1.18); }
+    }
+
+    /* TRAP target */
+    .fg-trap{
+      background:radial-gradient(circle at 30% 30%, #fb7185, #be123c);
+      box-shadow:
+        0 14px 40px rgba(251,113,133,0.18),
+        0 12px 32px rgba(15,23,42,0.85),
+        0 0 0 4px rgba(15,23,42,0.9);
+    }
+
     .fg-target::before{
       content:attr(data-emoji);
       display:block;
@@ -182,12 +193,8 @@
       color:#fefce8;
       text-shadow:0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
     }
-    .fg-target.hit{
-      transform:translate(-50%,-50%) scale(calc(var(--fg-scale,1) * 0.60));
-      opacity:0;
-    }
+    .fg-target.hit{ transform:translate(-50%,-50%) scale(0.6); opacity:0; }
 
-    /* Fever gauge */
     .hha-fever-wrap{
       position:fixed !important;
       left:10px; bottom:10px;
@@ -195,7 +202,6 @@
       z-index:80 !important;
     }
 
-    /* Countdown */
     .countdown-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -211,7 +217,6 @@
     }
     .countdown-overlay.show{ opacity:1; transform:scale(1); }
 
-    /* VR button */
     .vr-btn{
       position:fixed;
       right:12px; bottom:16px;
@@ -230,7 +235,6 @@
     }
     .vr-btn span{ font-size:16px; }
 
-    /* Celebrate overlay */
     .celebrate-overlay{
       position:fixed; inset:0; z-index:190;
       display:none; align-items:center; justify-content:center;
@@ -268,7 +272,6 @@
       background:radial-gradient(circle at top, rgba(56,189,248,0.98), rgba(30,64,175,0.98));
     }
 
-    /* Result overlay */
     .result-overlay{
       position:fixed; inset:0; z-index:220;
       display:none; align-items:center; justify-content:center;
@@ -309,7 +312,6 @@
 </head>
 
 <body>
-  <!-- VR background -->
   <a-scene vr-mode-ui="enabled: true"
            renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
            background="color: #020617">
@@ -329,10 +331,8 @@
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- DOM targets -->
   <div id="fg-layer"></div>
 
-  <!-- HUD -->
   <div class="hud-root">
     <div class="hud-top">
       <div class="hud-card">
@@ -340,12 +340,14 @@
         <div class="hud-main-mode">Food Groups</div>
 
         <div class="hud-pill">
-          <span class="hud-badge" id="hud-run-badge">RUN</span>
-          <span>•</span>
           <span id="hud-diff-label">NORMAL</span>
           <span>•</span>
           <span id="hud-time-label">60s</span>
+          <span>•</span>
+          <span id="hud-run-label">PLAY</span>
         </div>
+
+        <div class="hud-pill boss" id="hud-boss-pill">⚡ BOSS RUSH! SCORE x2</div>
 
         <div class="hud-metrics">
           <div class="metric">
@@ -360,6 +362,14 @@
           <div class="metric">
             <div class="metric-label">พลาด</div>
             <div class="metric-value" id="hud-miss">0</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">ตัวคูณ</div>
+            <div class="metric-value multi" id="hud-multi">x1</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">หลบกับดัก</div>
+            <div class="metric-value" id="hud-avoid">0</div>
           </div>
         </div>
       </div>
@@ -393,7 +403,6 @@
   <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
   <div id="start-countdown" class="countdown-overlay">3</div>
 
-  <!-- Celebrate overlay -->
   <div id="celebrate-overlay" class="celebrate-overlay">
     <div class="celebrate-content">
       <span id="celebrate-main">GOAL COMPLETE!</span>
@@ -401,13 +410,13 @@
     </div>
   </div>
 
-  <!-- Result overlay -->
   <div class="result-overlay" id="result-overlay">
     <div class="result-card">
       <h2>สรุปผล • Food Groups</h2>
       <p>คะแนนรวม: <strong id="res-score">0</strong></p>
       <p>คอมโบสูงสุด: <strong id="res-combo">0</strong></p>
       <p>พลาด: <strong id="res-miss">0</strong></p>
+      <p>หลบกับดัก: <strong id="res-avoid">0</strong></p>
       <p>Goals: <strong id="res-goal">0 / 0</strong></p>
       <p>Mini quests: <strong id="res-mini">0 / 0</strong></p>
       <hr>
@@ -418,15 +427,12 @@
     </div>
   </div>
 
-  <!-- Fever UI + particles -->
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
 
-  <!-- Quest + Engine -->
   <script src="./vr-groups/quest-manager.js"></script>
   <script src="./vr-groups/GameEngine.js"></script>
 
-  <!-- Boot -->
   <script type="module">
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
@@ -439,7 +445,10 @@
     const elJudge = document.getElementById('hud-judge');
     const elDiff  = document.getElementById('hud-diff-label');
     const elTime  = document.getElementById('hud-time-label');
-    const elRun   = document.getElementById('hud-run-badge');
+    const elRun   = document.getElementById('hud-run-label');
+    const elBoss  = document.getElementById('hud-boss-pill');
+    const elMulti = document.getElementById('hud-multi');
+    const elAvoid = document.getElementById('hud-avoid');
 
     const elQuestTitle = document.getElementById('fg-quest-title');
     const elQuestMain  = document.getElementById('fg-quest-main');
@@ -461,6 +470,7 @@
     const elResScore = document.getElementById('res-score');
     const elResCombo = document.getElementById('res-combo');
     const elResMiss  = document.getElementById('res-miss');
+    const elResAvoid = document.getElementById('res-avoid');
     const elResGoal  = document.getElementById('res-goal');
     const elResMini  = document.getElementById('res-mini');
 
@@ -480,7 +490,6 @@
       setTimeout(() => elCoachBubble.classList.remove('show'), 3200);
     }
 
-    // Celebrate
     let celebTimer = null;
     window.addEventListener('hha:celebrate', (e) => {
       const d = e.detail || {};
@@ -507,11 +516,23 @@
     });
 
     // HUD updates
+    let comboMaxSeen = 0;
     window.addEventListener('hha:score', (e) => {
       const d = e.detail || {};
       if (typeof d.score === 'number') elScore.textContent = String(d.score);
       if (typeof d.misses === 'number') elMiss.textContent = String(d.misses);
-      if (typeof d.combo === 'number') elCombo.textContent = String(Math.max(parseInt(elCombo.textContent||'0',10), d.combo|0));
+      if (typeof d.avoid === 'number') elAvoid.textContent = String(d.avoid);
+
+      if (typeof d.combo === 'number') {
+        comboMaxSeen = Math.max(comboMaxSeen, d.combo|0);
+        elCombo.textContent = String(comboMaxSeen);
+      }
+
+      if (typeof d.multiplier === 'number') elMulti.textContent = 'x' + (d.multiplier|0);
+
+      // boss pill
+      if (d.boss) elBoss.classList.add('show');
+      else elBoss.classList.remove('show');
     });
 
     window.addEventListener('hha:judge', (e) => {
@@ -552,22 +573,20 @@
       elResScore.textContent = String(d.scoreFinal ?? 0);
       elResCombo.textContent = String(d.comboMax ?? 0);
       elResMiss.textContent  = String(d.misses ?? 0);
+      elResAvoid.textContent = String(d.avoid ?? 0);
       elResGoal.textContent  = `${d.goalsCleared ?? 0} / ${d.goalsTotal ?? 0}`;
       elResMini.textContent  = `${d.miniCleared ?? 0} / ${d.miniTotal ?? 0}`;
       elResult.classList.add('show');
     });
 
-    // VR
     btnVR.addEventListener('click', () => {
       const scene = document.querySelector('a-scene');
       if (scene && scene.enterVR) { try { scene.enterVR(); } catch {} }
     });
 
-    // Touch look
     const cam = document.querySelector('#fg-camera');
     if (cam) attachTouchLook(cam, { sensitivity: 0.25, areaEl: document.body });
 
-    // Logger
     function initLogger(diff, dur, runMode){
       initCloudLogger({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
@@ -598,17 +617,13 @@
       }, 800);
     }
 
-    // Boot
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // HUD labels
       elDiff.textContent = diff.toUpperCase();
-      elRun.textContent = (runMode === 'research') ? 'RESEARCH' : 'PLAY';
-      elRun.classList.remove('play','research');
-      elRun.classList.add(runMode === 'research' ? 'research' : 'play');
+      elRun.textContent = runMode.toUpperCase();
 
       let dur = (diff === 'easy') ? 88 : (diff === 'hard' ? 55 : 70);
       const timeParam = getParam('time','');
@@ -620,8 +635,8 @@
 
       initLogger(diff, dur, runMode);
       setCoach(runMode === 'research'
-        ? 'โหมดวิจัย: ขนาดเป้าล็อกตามระดับ (ไม่มี adaptive) 📋'
-        : 'โหมดเล่น: เริ่มตามระดับ แล้วปรับความยากอัตโนมัติ 🔥');
+        ? 'โหมดวิจัย: แตะอาหารดีตามหมู่ให้ครบ Goal + Mini ✍️'
+        : 'โหมดเล่น: มีบอส/โกลเด้น/กับดัก! รักษาคอมโบให้ได้ ✨');
 
       const Engine = window.GroupsVR?.GameEngine;
       if (!Engine || typeof Engine.start !== 'function'){
@@ -631,19 +646,22 @@
       Engine.setLayerEl && Engine.setLayerEl(fgLayer);
 
       runCountdown(() => {
-        // timer จบเกม
         let timeLeft = dur;
         const timerId = setInterval(() => {
           timeLeft -= 1;
           if (timeLeft < 0) return;
           elTime.textContent = timeLeft + 's';
+
+          // cue last 10s
+          if (timeLeft === 10) setCoach('อีก 10 วิ! เร่งคอมโบเลยยย 🔥');
+
           if (timeLeft === 0){
             clearInterval(timerId);
             Engine.stop && Engine.stop('time-up');
           }
         }, 1000);
 
-        Engine.start(diff, { layerEl: fgLayer, runMode });
+        Engine.start(diff, { layerEl: fgLayer, runMode, durationSec: dur });
       });
     });
   </script>
