@@ -171,6 +171,57 @@ function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0));
 function isAdaptiveOn() { return MODE === 'play'; }
 function emit(type, detail) { window.dispatchEvent(new CustomEvent(type, { detail })); }
 
+// ---------- FX helpers (คะแนนเด้ง + คำตัดสินข้างเป้า) ----------
+function getSceneCamera() {
+  // A-Frame camera (three.js)
+  return scene && scene.camera ? scene.camera : null;
+}
+
+// return normalized screen coords (0..1)
+function screenPosFromEntity(el) {
+  try{
+    const cam3 = getSceneCamera();
+    if (!cam3 || !el || !el.object3D) return null;
+
+    const v = new THREE.Vector3();
+    el.object3D.getWorldPosition(v);
+    v.project(cam3);
+
+    // behind camera?
+    if (v.z > 1) return null;
+
+    const x = (v.x + 1) / 2;
+    const y = (1 - (v.y + 1) / 2);
+    return { x, y };
+  }catch(_){
+    return null;
+  }
+}
+
+function fxAtEntity(el, kind, judgeText, scoreText) {
+  const p = screenPosFromEntity(el);
+  if (!p) return;
+
+  // แตกกระจายตรงเป้า “จุดเดียว”
+  window.dispatchEvent(new CustomEvent('hha:fx', {
+    detail: { type:'burst', x:p.x, y:p.y, kind }
+  }));
+
+  // คะแนนเด้ง (ขวาบนของเป้านิด)
+  if (scoreText) {
+    window.dispatchEvent(new CustomEvent('hha:fx', {
+      detail: { type:'score', x:p.x, y:p.y, kind, text: scoreText, dx: 28, dy: -14 }
+    }));
+  }
+
+  // คำตัดสิน (ซ้ายของเป้า)
+  if (judgeText) {
+    window.dispatchEvent(new CustomEvent('hha:fx', {
+      detail: { type:'judge', x:p.x, y:p.y, kind, text: judgeText, dx: -34, dy: -10 }
+    }));
+  }
+}
+
 // ---------- Emitters ----------
 function emitGameEvent(payload) {
   emit('hha:event', Object.assign({
