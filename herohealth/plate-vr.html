@@ -398,9 +398,12 @@
 <body>
   <!-- ===== A-Frame Scene (พื้นหลัง VR) ===== -->
   <a-scene
-    vr-mode-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-    background="color: #020617">
+    embedded
+    vr-mode-ui="enabled:true"
+    renderer="antialias:true; colorManagement:true; physicallyCorrectLights:true"
+    background="color:#020617"
+    style="position:fixed; inset:0; width:100vw; height:100vh;">
+
 
     <a-entity id="rig" position="0 1.6 0">
         <a-camera id="cam"
