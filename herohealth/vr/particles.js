@@ -1,10 +1,9 @@
 // === /herohealth/vr/particles.js ===
 // Hero Health Academy — FX layer (burst + score pop + judge pop)
-// Cartoon Judge Upgrade:
-// - Judge bubble = sticker style (outline + highlight + wobble)
-// - Auto badge emoji by label (PERFECT/GOOD/MISS/BLOCK/...)
-// - Require position; if missing => do nothing (no top-left/center ghosts)
-// - Support coords: normalized (0..1), percent (0..100), or px with opts.px=true
+// LINE Sticker Style Upgrade:
+// - MISS: shake mạnh + explode comic
+// - PERFECT: sparkle stars twinkle around + pop bounce
+// - Big head badge + bouncy text + thick outline
 
 (function (root) {
   'use strict';
@@ -36,14 +35,14 @@
     const st = doc.createElement('style');
     st.id = 'hha-fx-style';
     st.textContent = `
-      /* ---- SCORE POP (small pill) ---- */
+      /* ---- SCORE POP ---- */
       .hha-pop{
         padding: 8px 10px;
         border-radius: 999px;
         background: rgba(15,23,42,0.78);
-        border: 1px solid rgba(148,163,184,0.22);
+        border: 2px solid rgba(148,163,184,0.22);
         box-shadow: 0 16px 40px rgba(0,0,0,0.45);
-        font-weight: 900;
+        font-weight: 1000;
         font-size: 14px;
         letter-spacing: .02em;
         color: #e5e7eb;
@@ -52,100 +51,151 @@
         white-space: nowrap;
         backdrop-filter: blur(8px);
       }
-      .hha-pop.good{ border-color: rgba(34,197,94,0.42); }
-      .hha-pop.junk, .hha-pop.haz{ border-color: rgba(249,115,22,0.42); }
-      .hha-pop.power{ border-color: rgba(59,130,246,0.42); }
-      .hha-pop.boss{ border-color: rgba(250,204,21,0.55); }
+      .hha-pop.good{ border-color: rgba(34,197,94,0.55); }
+      .hha-pop.junk, .hha-pop.haz{ border-color: rgba(249,115,22,0.55); }
+      .hha-pop.power{ border-color: rgba(59,130,246,0.55); }
+      .hha-pop.boss{ border-color: rgba(250,204,21,0.75); }
 
       @keyframes hha-pop-up{
-        0%{ transform: translate(-50%,-50%) scale(.88); opacity: 0; }
-        15%{ opacity: 1; }
-        100%{ transform: translate(-50%,-64%) scale(1.0); opacity: 0; }
+        0%{ transform: translate(-50%,-50%) scale(.85); opacity: 0; }
+        18%{ opacity: 1; transform: translate(-50%,-54%) scale(1.08); }
+        100%{ transform: translate(-50%,-68%) scale(0.98); opacity: 0; }
       }
 
-      /* ---- JUDGE STICKER (cartoon bubble) ---- */
+      /* ---- JUDGE STICKER (LINE style) ---- */
       .hha-judge{
+        position: relative;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        border-radius: 16px;
-        background: rgba(255,255,255,0.92);
+        gap: 10px;
+        padding: 11px 14px;
+        border-radius: 18px;
+        background: rgba(255,255,255,0.96);
         color: #0f172a;
         font-weight: 1000;
-        font-size: 14px;
+        font-size: 15px;
         letter-spacing: .02em;
         opacity: 0;
-        transform: translate(-50%,-50%) scale(.75) rotate(-2deg);
-        transform-origin: 50% 60%;
-        border: 3px solid rgba(15,23,42,0.95); /* thick outline */
+        transform: translate(-50%,-50%) scale(.6);
+        transform-origin: 50% 65%;
+        border: 4px solid rgba(15,23,42,0.98); /* thick outline */
         box-shadow:
-          0 18px 40px rgba(0,0,0,0.45),
-          0 2px 0 rgba(15,23,42,0.9);
+          0 20px 46px rgba(0,0,0,0.46),
+          0 3px 0 rgba(15,23,42,0.95);
         backdrop-filter: blur(6px);
-        animation: hha-judge-in 520ms cubic-bezier(.2,1.2,.25,1) forwards;
         white-space: nowrap;
+        animation: hha-judge-bounce 640ms cubic-bezier(.2,1.35,.25,1) forwards;
       }
       .hha-judge:before{
         /* highlight */
         content:"";
         position:absolute;
         left: 10px;
-        top: 7px;
-        width: 46%;
-        height: 36%;
-        border-radius: 14px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0));
+        top: 8px;
+        width: 48%;
+        height: 38%;
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.90), rgba(255,255,255,0));
         pointer-events:none;
       }
       .hha-judge:after{
-        /* little tail */
+        /* tail */
         content:"";
         position:absolute;
-        left: 14px;
-        bottom: -10px;
-        width: 16px;
-        height: 16px;
-        background: rgba(255,255,255,0.92);
-        border-left: 3px solid rgba(15,23,42,0.95);
-        border-bottom: 3px solid rgba(15,23,42,0.95);
+        left: 16px;
+        bottom: -12px;
+        width: 18px;
+        height: 18px;
+        background: rgba(255,255,255,0.96);
+        border-left: 4px solid rgba(15,23,42,0.98);
+        border-bottom: 4px solid rgba(15,23,42,0.98);
         transform: rotate(45deg);
-        border-bottom-left-radius: 6px;
+        border-bottom-left-radius: 7px;
       }
 
       .hha-judge .badge{
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        width: 28px;
-        height: 28px;
+        width: 34px;          /* big head */
+        height: 34px;
         border-radius: 999px;
-        border: 3px solid rgba(15,23,42,0.95);
-        box-shadow: 0 2px 0 rgba(15,23,42,0.85);
-        font-size: 16px;
+        border: 4px solid rgba(15,23,42,0.98);
+        box-shadow: 0 3px 0 rgba(15,23,42,0.95);
+        font-size: 18px;
         line-height: 1;
-        background: rgba(255,255,255,0.95);
+        background: rgba(255,255,255,0.98);
+        transform: rotate(-6deg);
       }
       .hha-judge .txt{
         position: relative;
-        top: 0px;
+        top: 1px;
+        text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+      }
+      /* bouncy text wobble */
+      .hha-judge .txt{
+        animation: hha-text-wobble 640ms cubic-bezier(.2,1.35,.25,1) forwards;
+      }
+      @keyframes hha-text-wobble{
+        0%{ transform: translateY(2px) scale(.85); }
+        40%{ transform: translateY(-1px) scale(1.10); }
+        70%{ transform: translateY(0px) scale(0.98); }
+        100%{ transform: translateY(-1px) scale(1.00); }
       }
 
       /* theme tints */
-      .hha-judge.good{ background: rgba(236,253,245,0.95); }
-      .hha-judge.junk{ background: rgba(255,237,213,0.95); }
-      .hha-judge.haz { background: rgba(254,226,226,0.95); }
-      .hha-judge.power{ background: rgba(219,234,254,0.95); }
-      .hha-judge.boss{ background: rgba(254,249,195,0.95); }
+      .hha-judge.good{ background: rgba(236,253,245,0.98); }
+      .hha-judge.junk{ background: rgba(255,237,213,0.98); }
+      .hha-judge.haz { background: rgba(254,226,226,0.98); }
+      .hha-judge.power{ background: rgba(219,234,254,0.98); }
+      .hha-judge.boss{ background: rgba(254,249,195,0.98); }
 
-      @keyframes hha-judge-in{
-        0%{ opacity: 0; transform: translate(-50%,-50%) scale(.70) rotate(-3deg); }
-        35%{ opacity: 1; transform: translate(-50%,-54%) scale(1.06) rotate(2deg); }
-        60%{ transform: translate(-50%,-58%) scale(1.00) rotate(-1deg); }
-        100%{ opacity: 0; transform: translate(-50%,-74%) scale(.96) rotate(0deg); }
+      /* main bounce */
+      @keyframes hha-judge-bounce{
+        0%{ opacity: 0; transform: translate(-50%,-50%) scale(.55) rotate(-4deg); }
+        22%{ opacity: 1; transform: translate(-50%,-56%) scale(1.16) rotate(3deg); }
+        48%{ transform: translate(-50%,-60%) scale(0.98) rotate(-1deg); }
+        100%{ opacity: 0; transform: translate(-50%,-82%) scale(.96) rotate(0deg); }
       }
 
-      /* ---- BURST ---- */
+      /* MISS: violent shake */
+      .hha-judge.miss{
+        animation: hha-judge-miss 650ms cubic-bezier(.2,1.35,.25,1) forwards;
+      }
+      @keyframes hha-judge-miss{
+        0%{ opacity: 0; transform: translate(-50%,-50%) scale(.62) rotate(-6deg); }
+        18%{ opacity: 1; transform: translate(-50%,-54%) scale(1.10) rotate(4deg); }
+        28%{ transform: translate(calc(-50% - 12px), calc(-56% - 2px)) rotate(-6deg) scale(1.08); }
+        36%{ transform: translate(calc(-50% + 14px), calc(-56% + 2px)) rotate(7deg) scale(1.06); }
+        44%{ transform: translate(calc(-50% - 16px), calc(-56% - 1px)) rotate(-7deg) scale(1.05); }
+        52%{ transform: translate(calc(-50% + 12px), calc(-56% + 1px)) rotate(6deg) scale(1.03); }
+        60%{ transform: translate(-50%,-60%) rotate(-2deg) scale(1.00); }
+        100%{ opacity: 0; transform: translate(-50%,-84%) rotate(0deg) scale(.96); }
+      }
+
+      /* PERFECT: sparkle wrapper */
+      .hha-sparkle{
+        position: fixed;
+        pointer-events:none;
+        transform: translate(-50%,-50%);
+        z-index: 721;
+      }
+      .hha-star{
+        position:absolute;
+        left: 0;
+        top: 0;
+        font-size: 18px;
+        opacity: 0;
+        filter: drop-shadow(0 10px 16px rgba(0,0,0,0.35));
+        animation: hha-star 520ms ease-out forwards;
+      }
+      @keyframes hha-star{
+        0%{ opacity: 0; transform: translate(0,0) scale(.5) rotate(0deg); }
+        20%{ opacity: 1; }
+        100%{ opacity: 0; transform: translate(var(--sx), var(--sy)) scale(1.15) rotate(55deg); }
+      }
+
+      /* BURST */
       .hha-burst{
         position: fixed;
         width: 10px;
@@ -183,7 +233,7 @@
 
     if (opts.px) return { x: clamp(x, 0, W), y: clamp(y, 0, H) };
 
-    const nx = (x > 1.5) ? (x / 100) : x;
+    const nx = (x > 1.5) ? (x / 100) : x; // 0..1 or 0..100
     const ny = (y > 1.5) ? (y / 100) : y;
 
     return { x: clamp(nx, 0, 1) * W, y: clamp(ny, 0, 1) * H };
@@ -215,7 +265,7 @@
     const pop = makeDiv('hha-pop ' + (opts.kind || ''), p.x + dx, p.y + dy);
     pop.textContent = String(text || '');
     layer.appendChild(pop);
-    setTimeout(() => { try{ pop.remove(); }catch(_){} }, 650);
+    setTimeout(() => { try{ pop.remove(); }catch(_){} }, 700);
   }
 
   function badgeFor(label='') {
@@ -234,6 +284,40 @@
     return '🎯';
   }
 
+  function sparklesAt(x, y, opts = {}) {
+    const p = toPx(x, y, opts);
+    if (!p) return;
+    ensureStyles();
+    const layer = ensureLayer();
+
+    const sp = makeDiv('hha-sparkle', p.x, p.y);
+    layer.appendChild(sp);
+
+    const n = clamp(opts.count || 8, 5, 14);
+    for (let i=0;i<n;i++){
+      const star = doc.createElement('div');
+      star.className = 'hha-star';
+      star.textContent = (i % 3 === 0) ? '✨' : (i % 3 === 1) ? '⭐' : '💫';
+
+      const a = (Math.PI*2) * (i/n) + (Math.random()*0.45);
+      const rr = (opts.radius || 80) * (0.55 + Math.random()*0.65);
+      const sx = Math.cos(a) * rr;
+      const sy = Math.sin(a) * rr;
+
+      star.style.setProperty('--sx', sx + 'px');
+      star.style.setProperty('--sy', sy + 'px');
+
+      // random delay for twinkle
+      star.style.animationDelay = (Math.random()*80) + 'ms';
+      star.style.left = '0px';
+      star.style.top  = '0px';
+
+      sp.appendChild(star);
+    }
+
+    setTimeout(() => { try{ sp.remove(); }catch(_){} }, 650);
+  }
+
   function judgeAt(x, y, label, opts = {}) {
     const p = toPx(x, y, opts);
     if (!p) return;
@@ -243,7 +327,13 @@
     const dx = Number(opts.dx)||0;
     const dy = Number(opts.dy)||0;
 
-    const wrap = makeDiv('hha-judge ' + (opts.kind || ''), p.x + dx, p.y + dy);
+    const kind = (opts.kind || '');
+    const txtUp = String(label || '');
+
+    const wrap = makeDiv('hha-judge ' + kind, p.x + dx, p.y + dy);
+
+    // MISS special class => violent shake
+    if (txtUp.toUpperCase().includes('MISS')) wrap.classList.add('miss');
 
     const badge = doc.createElement('span');
     badge.className = 'badge';
@@ -251,13 +341,18 @@
 
     const txt = doc.createElement('span');
     txt.className = 'txt';
-    txt.textContent = String(label || '');
+    txt.textContent = txtUp;
 
     wrap.appendChild(badge);
     wrap.appendChild(txt);
-
     layer.appendChild(wrap);
-    setTimeout(() => { try{ wrap.remove(); }catch(_){} }, 650);
+
+    // PERFECT -> sparkle stars
+    if (txtUp.toUpperCase().includes('PERFECT')) {
+      sparklesAt(x, y, { count: 10, radius: 92 });
+    }
+
+    setTimeout(() => { try{ wrap.remove(); }catch(_){} }, 720);
   }
 
   function burstAt(x, y, opts = {}) {
@@ -270,7 +365,7 @@
     layer.appendChild(burst);
 
     const n = clamp(opts.count || 14, 6, 26);
-    const r = clamp(opts.radius || 92, 40, 160);
+    const r = clamp(opts.radius || 92, 40, 170);
 
     for (let i=0;i<n;i++){
       const shard = doc.createElement('div');
