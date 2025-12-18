@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL v3 - scroll-follow)
+// Good vs Junk VR — DOM Emoji Engine (FINAL v4 - no scroll mode)
 // MISS = good expired (only if seen) + junk hit (shield block = NO miss)
-// ✅ supports spawnHost scroll container so "scroll แล้วเป้าเลื่อนตาม"
+// ✅ layer fixed fullscreen, targets follow viewport only
 
 'use strict';
 
@@ -21,26 +21,16 @@
 
   let running=false;
   let layerEl=null;
-  let spawnHost=null; // ✅ scroll container
   let active=[];
   let rafId=null, spawnTimer=null;
 
-  let score=0;
-  let combo=0;
-  let comboMax=0;
-  let goodHits=0;
-  let misses=0;
-  let shield=0;
-
-  let feverActive=false;
-  let feverPrev=false;
+  let score=0, combo=0, comboMax=0, goodHits=0, misses=0, shield=0;
+  let feverActive=false, feverPrev=false;
 
   function getTHREE(){
     return ROOT.THREE || (ROOT.AFRAME && ROOT.AFRAME.THREE) || null;
   }
-  function sceneRef(){
-    return document.querySelector('a-scene') || null;
-  }
+  function sceneRef(){ return document.querySelector('a-scene') || null; }
   function cameraReady(){
     const scene = sceneRef();
     const THREE = getTHREE();
@@ -48,24 +38,9 @@
   }
   function getCameraObj3D(){
     const camEl = document.querySelector('#gj-camera') || document.querySelector('a-camera');
-    if (camEl && camEl.object3D) return camEl.object3D;
-    return null;
+    return (camEl && camEl.object3D) ? camEl.object3D : null;
   }
 
-  // ✅ host rect + scroll (หัวใจของ “เป้าเลื่อนตามจอเลื่อน”)
-  function getHostInfo(){
-    const host = spawnHost || (layerEl ? (layerEl.parentElement || document.body) : document.body);
-    const isBody = (host === document.body || host === document.documentElement);
-    const rect = isBody ? { left:0, top:0, width: window.innerWidth, height: window.innerHeight }
-                        : host.getBoundingClientRect();
-    const scrollLeft = host.scrollLeft || 0;
-    const scrollTop  = host.scrollTop  || 0;
-    const width  = (host.clientWidth  || rect.width  || window.innerWidth);
-    const height = (host.clientHeight || rect.height || window.innerHeight);
-    return { host, rect, scrollLeft, scrollTop, width, height };
-  }
-
-  // spawn world in front of camera
   function spawnWorld(){
     const THREE = getTHREE();
     const cam = getCameraObj3D();
@@ -92,7 +67,6 @@
     const v = pos.clone().project(scene.camera);
     if (v.z < -1 || v.z > 1) return null;
 
-    // 화면 좌표(뷰포트 기준)
     return {
       x: (v.x * 0.5 + 0.5) * window.innerWidth,
       y: (-v.y * 0.5 + 0.5) * window.innerHeight
@@ -108,10 +82,8 @@
 
   function emitFeverEdgeIfNeeded(){
     if (!FeverUI || typeof FeverUI.isActive !== 'function') return;
-
     feverPrev = feverActive;
     feverActive = !!FeverUI.isActive();
-
     if (feverActive && !feverPrev){
       ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'start' }}));
     } else if (!feverActive && feverPrev){
@@ -123,7 +95,7 @@
     if (FeverUI && typeof FeverUI.isActive === 'function'){
       feverActive = !!FeverUI.isActive();
       emitFeverEdgeIfNeeded();
-    }else{
+    } else {
       feverActive = false;
       feverPrev = false;
     }
@@ -152,16 +124,14 @@
       emoji === FIRE   ? 'diamond':
       emoji === SHIELD ? 'shield' : kind;
 
-    const hostInfo = getHostInfo();
+    // fallback 2D (กันกรณีกล้องยังไม่ ready)
     const fallback2D = {
-      x: Math.round(hostInfo.width  * (0.20 + Math.random()*0.60)),
-      y: Math.round(hostInfo.height * (0.20 + Math.random()*0.60))
+      x: Math.round(window.innerWidth  * (0.20 + Math.random()*0.60)),
+      y: Math.round(window.innerHeight * (0.25 + Math.random()*0.55))
     };
 
     const t = {
-      el,
-      kind,
-      emoji,
+      el, kind, emoji,
       pos: spawnWorld(),
       born: performance.now(),
       seen: false,
@@ -189,7 +159,6 @@
     if (!running) return;
     removeTarget(t);
 
-    // ✅ MISS เฉพาะ "ปล่อยของดี" และต้องเคยเห็นจริง
     if (t.kind === 'good' && t.seen){
       misses++;
       combo = 0;
@@ -232,7 +201,6 @@
       return;
     }
 
-    // GOOD
     goodHits++;
     combo++;
     comboMax = Math.max(comboMax, combo);
@@ -252,8 +220,6 @@
     if (!running) return;
 
     const ready = cameraReady();
-    const { rect, scrollLeft, scrollTop } = getHostInfo();
-
     for (const t of active){
       if (!t || !t.el) continue;
 
@@ -268,13 +234,9 @@
         t.seen = true;
       }
 
-      // ✅ map viewport -> host local + scroll
-      const left = (p.x - rect.left + scrollLeft);
-      const top  = (p.y - rect.top  + scrollTop);
-
       t.el.style.display = 'block';
-      t.el.style.left = left + 'px';
-      t.el.style.top  = top  + 'px';
+      t.el.style.left = p.x + 'px';
+      t.el.style.top  = p.y + 'px';
     }
 
     rafId = requestAnimationFrame(renderLoop);
@@ -285,7 +247,7 @@
     if (active.length < 5){
       createTarget(Math.random() < 0.70 ? 'good' : 'junk');
     }
-    spawnTimer = setTimeout(spawnLoop, 820); // ✅ เร้าใจขึ้นนิด
+    spawnTimer = setTimeout(spawnLoop, 820);
   }
 
   function start(diff, opts={}){
@@ -293,12 +255,10 @@
     running = true;
 
     layerEl = opts.layerEl || document.getElementById('gj-layer');
-    spawnHost = opts.spawnHost || (layerEl ? (layerEl.parentElement || document.body) : document.body);
 
     score=0; combo=0; comboMax=0; goodHits=0; misses=0;
     shield=0;
-    feverActive=false;
-    feverPrev=false;
+    feverActive=false; feverPrev=false;
 
     if (FeverUI && typeof FeverUI.reset === 'function') FeverUI.reset();
 
