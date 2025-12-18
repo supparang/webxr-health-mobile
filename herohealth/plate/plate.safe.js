@@ -1,96 +1,116 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — Full Engine (ES Module)
-// ✅ emoji targets (CanvasTexture)
-// ✅ click/touch works 100% via manual THREE.Raycaster fallback
-// ✅ HUD + quest:update + hha:* events + result modal
-// ✅ export bootPlateDOM for plate-vr.html
+// Balanced Plate VR — Full Engine (ES Module) [FINAL PATCH]
+// ✅ Emoji targets (CanvasTexture)
+// ✅ Click/Touch works 100% (manual THREE.Raycaster fallback)
+// ✅ FX: burst only at target + score pop + cartoon judgement near target
+// ✅ MISS: left-right ricochet + screen shake; PERFECT: star confetti + "ting"
+// ✅ Mini quest Plate Rush (HARD): "ครบ 5 ภายใน 8 วิ" + "ห้ามโดนขยะระหว่างทำ"
+// ✅ Plate Rush near timeout: blink + tick-tick + soft border shake
+//
+// Works with your plate-vr.html (no extra HTML required)
 
 'use strict';
 
+// ---------- Root ----------
+const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+const A = ROOT.AFRAME;
+const THREE = ROOT.THREE;
+
+// ---------- URL defaults ----------
 const URLX = new URL(location.href);
-const DIFF = (URLX.searchParams.get('diff') || 'normal').toLowerCase();
+let DIFF = (URLX.searchParams.get('diff') || 'normal').toLowerCase();
 let TIME = parseInt(URLX.searchParams.get('time') || '70', 10);
 if (Number.isNaN(TIME) || TIME <= 0) TIME = 70;
 TIME = Math.max(20, Math.min(180, TIME));
-const MODE = (URLX.searchParams.get('run') || 'play').toLowerCase() === 'research' ? 'research' : 'play';
+let MODE = (URLX.searchParams.get('run') || 'play').toLowerCase() === 'research' ? 'research' : 'play';
 
-window.DIFF = DIFF;
-window.TIME = TIME;
-window.MODE = MODE;
+// expose for debug
+ROOT.DIFF = DIFF;
+ROOT.TIME = TIME;
+ROOT.MODE = MODE;
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
 function setText(id, v) { const el = $(id); if (el) el.textContent = String(v); }
-function setBarPct(id, pct) {
-  const el = $(id);
-  if (!el) return;
-  const p = Math.max(0, Math.min(100, Number(pct) || 0));
-  el.style.width = `${p}%`;
-}
-function showEl(id, on) { const el = $(id); if (el) el.style.display = on ? '' : 'none'; }
-
-// ---------- A-Frame guards ----------
-const A = window.AFRAME;
-if (!A) console.error('[PlateVR] AFRAME not found');
-
-// ---------- FX fallback ----------
-const ROOT = (typeof window !== 'undefined' ? window : globalThis);
-
-// ใช้ event hha:fx เป็นหลัก (particles.js จะรับไปแสดง)
-// ถ้าไม่มี particles.js ก็ยังเล่นได้ (ไม่โชว์ FX หรือโชว์น้อย)
-function fxEmit(type, x, y, kind, text, dx = 0, dy = 0) {
-  if (x == null || y == null) return;
-  window.dispatchEvent(new CustomEvent('hha:fx', {
-    detail: { type, x, y, kind, text, dx, dy }
-  }));
-}
-
-const DIFF_TABLE = {
-  easy:   { spawnInterval: 980, maxActive: 4, scale: 0.88, lifeMs: 2200, junkRate: 0.12, powerRate: 0.10, hazRate: 0.08 },
-  normal: { spawnInterval: 820, maxActive: 5, scale: 0.78, lifeMs: 1950, junkRate: 0.18, powerRate: 0.10, hazRate: 0.10 },
-  hard:   { spawnInterval: 690, maxActive: 6, scale: 0.70, lifeMs: 1750, junkRate: 0.24, powerRate: 0.11, hazRate: 0.12 }
-};
-const DCFG0 = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
-
-// ---------- Food pools ----------
-const POOL = {
-  g1: { id: 1, label: 'หมู่ 1', type: 'good', emojis: ['🥚','🥛','🐟','🍗','🫘'] },
-  g2: { id: 2, label: 'หมู่ 2', type: 'good', emojis: ['🍚','🍞','🍜','🥔','🌽'] },
-  g3: { id: 3, label: 'หมู่ 3', type: 'good', emojis: ['🥦','🥬','🥕','🍅','🥒'] },
-  g4: { id: 4, label: 'หมู่ 4', type: 'good', emojis: ['🍎','🍌','🍇','🍊','🍉'] },
-  g5: { id: 5, label: 'หมู่ 5', type: 'good', emojis: ['🥑','🫒','🥜','🧈','🍯'] },
-  junk:{ id: 0, label: 'junk',  type: 'junk', emojis: ['🍟','🍔','🍩','🧋','🍭','🥤'] }
-};
-const GROUP_KEYS = ['g1','g2','g3','g4','g5'];
-
-// ---------- Power-ups ----------
-const POWER = {
-  shield: { key:'shield', emoji:'🥗', label:'SALAD SHIELD', durMs: 5200 },
-  cleanse:{ key:'cleanse',emoji:'🍋', label:'CLEANSE', durMs: 0 },
-  golden: { key:'golden', emoji:'⭐',  label:'GOLDEN BITE', durMs: 0 }
-};
-
-// ---------- Hazards ----------
-const HAZ = {
-  wind:     { key:'wind',     emoji:'🌪️', label:'WIND GUST',    durMs: 3800 },
-  blackhole:{ key:'blackhole',emoji:'🕳️', label:'BLACK HOLE',   durMs: 4200 },
-  freeze:   { key:'freeze',   emoji:'🧊', label:'FREEZE RISK',   durMs: 3600 }
-};
+function clamp(v, a, b) { v = Number(v) || 0; return Math.max(a, Math.min(b, v)); }
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
 
 // ---------- Scene refs ----------
 const scene = document.querySelector('a-scene');
 const cam = document.getElementById('cam');
 const targetRoot = document.getElementById('targetRoot');
 
+// ---------- Particles (from /vr/particles.js) ----------
+const Particles =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+  ROOT.Particles ||
+  {
+    scorePop(x, y, value, opts) {
+      // super simple fallback
+      const el = document.createElement('div');
+      el.textContent = String(value || '');
+      Object.assign(el.style, {
+        position: 'fixed',
+        left: (x || 200) + 'px',
+        top: (y || 200) + 'px',
+        transform: 'translate(-50%,-50%)',
+        fontSize: '22px',
+        fontWeight: '900',
+        color: '#fff',
+        textShadow: '0 8px 22px rgba(0,0,0,.75)',
+        zIndex: 99999,
+        pointerEvents: 'none',
+        opacity: '1',
+        transition: 'transform .45s ease, opacity .45s ease'
+      });
+      document.body.appendChild(el);
+      requestAnimationFrame(() => { el.style.transform = 'translate(-50%,-95%) scale(1.05)'; el.style.opacity = '0'; });
+      setTimeout(() => { try { el.remove(); } catch {} }, 520);
+    },
+    burstAt() {}
+  };
+
+// ---------- Difficulty tuning ----------
+const DIFF_TABLE = {
+  easy:   { spawnInterval: 980, maxActive: 4, scale: 0.88, lifeMs: 2200, junkRate: 0.12, powerRate: 0.10, hazRate: 0.08 },
+  normal: { spawnInterval: 820, maxActive: 5, scale: 0.78, lifeMs: 1950, junkRate: 0.18, powerRate: 0.10, hazRate: 0.10 },
+  hard:   { spawnInterval: 690, maxActive: 6, scale: 0.70, lifeMs: 1750, junkRate: 0.24, powerRate: 0.11, hazRate: 0.12 }
+};
+
+// ---------- Pools ----------
+const POOL = {
+  g1: { id: 1, type: 'good', emojis: ['🥚','🥛','🐟','🍗','🫘'] },
+  g2: { id: 2, type: 'good', emojis: ['🍚','🍞','🍜','🥔','🌽'] },
+  g3: { id: 3, type: 'good', emojis: ['🥦','🥬','🥕','🍅','🥒'] },
+  g4: { id: 4, type: 'good', emojis: ['🍎','🍌','🍇','🍊','🍉'] },
+  g5: { id: 5, type: 'good', emojis: ['🥑','🫒','🥜','🧈','🍯'] },
+  junk:{ id: 0, type: 'junk', emojis: ['🍟','🍔','🍩','🧋','🍭','🥤'] }
+};
+const GROUP_KEYS = ['g1','g2','g3','g4','g5'];
+
+const POWER = {
+  shield: { key:'shield', emoji:'🥗', durMs: 5200 },
+  cleanse:{ key:'cleanse',emoji:'🍋', durMs: 0 },
+  golden: { key:'golden', emoji:'⭐',  durMs: 0 }
+};
+
+const HAZ = {
+  wind:     { key:'wind',     emoji:'🌪️', durMs: 3800 },
+  blackhole:{ key:'blackhole',emoji:'🕳️', durMs: 4200 },
+  freeze:   { key:'freeze',   emoji:'🧊', durMs: 3600 }
+};
+
 // ---------- Session ----------
 const sessionId = `PLATE-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
 const t0 = performance.now();
-const sessionStartIso = new Date().toISOString();
+function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0)); }
+function emit(type, detail) { ROOT.dispatchEvent(new CustomEvent(type, { detail })); }
 
+// ---------- Game state ----------
 let started = false;
 let ended = false;
 
-// ---------- Game state ----------
 let tLeft = TIME;
 let timerTick = null;
 
@@ -131,56 +151,244 @@ let spawnTimer = null;
 let activeTargets = new Map();
 let targetSeq = 0;
 
-let currentSpawnInterval = DCFG0.spawnInterval;
+let currentSpawnInterval = (DIFF_TABLE[DIFF] || DIFF_TABLE.normal).spawnInterval;
 
-// ---------- Utils ----------
-function clamp(v, a, b) { v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-function rnd(a, b) { return a + Math.random() * (b - a); }
-function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
-function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0)); }
-function isAdaptiveOn() { return MODE === 'play'; }
-function emit(type, detail) { window.dispatchEvent(new CustomEvent(type, { detail })); }
+// ---------- Rush mini hard state ----------
+let rushActive = false;
+let rushTimerLeft = 0;
+let rushNoJunk = true;
 
-// ---------- FX helpers (ยิง FX “ข้างเป้า”) ----------
-function getSceneCamera() {
-  return scene && scene.camera ? scene.camera : null;
+// ===============================
+// Plate Rush Warning FX (pulse + tick + soft border shake)
+// ===============================
+let __rushWarnEl = null;
+let __rushWarnOn = false;
+let __rushTickCtx = null;
+let __rushTickOsc = null;
+let __rushTickGain = null;
+
+function ensureRushWarnEl(){
+  if (__rushWarnEl) return __rushWarnEl;
+
+  const el = document.createElement('div');
+  el.id = 'hha-rush-warn';
+  Object.assign(el.style, {
+    position: 'fixed',
+    inset: '0',
+    pointerEvents: 'none',
+    zIndex: 680,
+    opacity: '0',
+    transition: 'opacity .12s ease-out',
+  });
+
+  const border = document.createElement('div');
+  border.className = 'hha-rush-border';
+  Object.assign(border.style, {
+    position: 'absolute',
+    inset: '0',
+    borderRadius: '22px',
+    margin: '10px',
+    border: '2px solid rgba(251,191,36,0.0)',
+    boxShadow: '0 0 0 rgba(0,0,0,0)'
+  });
+  el.appendChild(border);
+
+  if (!document.getElementById('hha-rush-warn-style')) {
+    const st = document.createElement('style');
+    st.id = 'hha-rush-warn-style';
+    st.textContent = `
+      @keyframes hhaRushPulse { 0%{opacity:.10} 50%{opacity:.45} 100%{opacity:.10} }
+      @keyframes hhaRushShake { 0%{transform:translate(0,0)} 25%{transform:translate(-2px,0)} 50%{transform:translate(2px,0)} 75%{transform:translate(0,1px)} 100%{transform:translate(0,0)} }
+      #hha-rush-warn.on { opacity: 1; }
+      #hha-rush-warn.on .hha-rush-border{
+        animation: hhaRushPulse .28s ease-in-out infinite, hhaRushShake .38s ease-in-out infinite;
+        border-color: rgba(251,191,36,.65);
+        box-shadow: 0 0 18px rgba(251,191,36,.22), 0 0 55px rgba(249,115,22,.16), inset 0 0 34px rgba(251,191,36,.10);
+      }
+      @media (prefers-reduced-motion: reduce){
+        #hha-rush-warn.on .hha-rush-border{ animation: hhaRushPulse .5s ease-in-out infinite; }
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
+  document.body.appendChild(el);
+  __rushWarnEl = el;
+  return el;
 }
 
-function screenPosFromEntity(el) {
+function rushTickBeep(){
+  try{
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+
+    if (!__rushTickCtx) {
+      __rushTickCtx = new AudioCtx();
+      __rushTickGain = __rushTickCtx.createGain();
+      __rushTickGain.gain.value = 0.0;
+      __rushTickGain.connect(__rushTickCtx.destination);
+
+      __rushTickOsc = __rushTickCtx.createOscillator();
+      __rushTickOsc.type = 'square';
+      __rushTickOsc.frequency.value = 880;
+      __rushTickOsc.connect(__rushTickGain);
+      __rushTickOsc.start();
+    }
+
+    if (__rushTickCtx.state === 'suspended') __rushTickCtx.resume();
+
+    const t = __rushTickCtx.currentTime;
+    __rushTickGain.gain.cancelScheduledValues(t);
+    __rushTickGain.gain.setValueAtTime(0.0, t);
+    __rushTickGain.gain.linearRampToValueAtTime(0.12, t + 0.01);
+    __rushTickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  }catch(_){}
+}
+
+function startRushWarning(){
+  if (__rushWarnOn) return;
+  __rushWarnOn = true;
+  const el = ensureRushWarnEl();
+  el.classList.add('on');
+}
+function stopRushWarning(){
+  if (!__rushWarnOn) return;
+  __rushWarnOn = false;
+  if (__rushWarnEl) __rushWarnEl.classList.remove('on');
+}
+
+// ===============================
+// Screen shake / ricochet for MISS (LINE-sticker vibe)
+// ===============================
+let __shakeStyleAdded = false;
+function ensureShakeStyle(){
+  if (__shakeStyleAdded) return;
+  __shakeStyleAdded = true;
+  const st = document.createElement('style');
+  st.textContent = `
+    @keyframes hhaMissShake {
+      0%{transform:translate(0,0)}
+      15%{transform:translate(-10px, 0)}
+      30%{transform:translate(10px, 0)}
+      45%{transform:translate(-8px, 2px)}
+      60%{transform:translate(8px, -2px)}
+      75%{transform:translate(-5px, 1px)}
+      100%{transform:translate(0,0)}
+    }
+    body.hha-miss-shake{ animation: hhaMissShake .28s ease-in-out 1; }
+  `;
+  document.head.appendChild(st);
+}
+function doMissShake(){
+  ensureShakeStyle();
+  document.body.classList.remove('hha-miss-shake');
+  // force reflow
+  void document.body.offsetWidth;
+  document.body.classList.add('hha-miss-shake');
+  setTimeout(()=>document.body.classList.remove('hha-miss-shake'), 320);
+}
+
+// ===============================
+// Simple SFX (ting for PERFECT)
+// ===============================
+let __sfxCtx = null;
+function sfxTing(){
+  try{
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!__sfxCtx) __sfxCtx = new AudioCtx();
+    if (__sfxCtx.state === 'suspended') __sfxCtx.resume();
+
+    const t = __sfxCtx.currentTime;
+    const o = __sfxCtx.createOscillator();
+    const g = __sfxCtx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(1320, t);
+    o.frequency.exponentialRampToValueAtTime(880, t + 0.10);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.22, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    o.connect(g); g.connect(__sfxCtx.destination);
+    o.start(t);
+    o.stop(t + 0.20);
+  }catch(_){}
+}
+
+// ===============================
+// FX at target (burst + score + cartoon judge near hit)
+// ===============================
+function getSceneCamera() {
+  return (scene && scene.camera) ? scene.camera : null;
+}
+
+function screenPosPxFromEntity(el){
   try{
     const cam3 = getSceneCamera();
-    if (!cam3 || !el || !el.object3D) return null;
+    if (!cam3 || !el || !el.object3D || !THREE) return null;
 
     const v = new THREE.Vector3();
     el.object3D.getWorldPosition(v);
     v.project(cam3);
-    if (v.z > 1) return null;
 
+    if (v.z > 1) return null; // behind camera
     const x = (v.x + 1) / 2;
     const y = (1 - (v.y + 1) / 2);
-    return { x, y };
+
+    return {
+      x: Math.round(x * window.innerWidth),
+      y: Math.round(y * window.innerHeight)
+    };
   }catch(_){
     return null;
   }
 }
 
-function fxAtEntity(el, kind, judgeText, scoreText) {
-  const p = screenPosFromEntity(el);
+function fxBurstAtEntity(el, label){
+  const p = screenPosPxFromEntity(el);
+  if (!p) return;
+  const L = String(label || '').toUpperCase();
+  const goodish = (L === 'PERFECT' || L === 'GOOD' || L === 'BLOCK' || L.includes('CLEAR') || L.includes('BOSS'));
+  const color = (L === 'PERFECT') ? '#facc15'
+              : (L === 'GOOD') ? '#22c55e'
+              : (L === 'MISS') ? '#f97316'
+              : (L === 'BLOCK') ? '#60a5fa'
+              : '#38bdf8';
+
+  // burst only at target
+  Particles.burstAt(p.x, p.y, { color, good: goodish, count: goodish ? 34 : 18 });
+}
+
+function fxScoreJudgeAtEntity(el, ptsText, judgeText, goodFlag){
+  const p = screenPosPxFromEntity(el);
   if (!p) return;
 
-  fxEmit('burst', p.x, p.y, kind, '', 0, 0);
-
-  if (scoreText) fxEmit('score', p.x, p.y, kind, scoreText, 30, -14);
-  if (judgeText) fxEmit('judge', p.x, p.y, kind, judgeText, -38, -10);
+  // score pop slightly to the right-top
+  if (ptsText !== null && ptsText !== undefined && ptsText !== '') {
+    Particles.scorePop(p.x + 34, p.y - 14, ptsText, { judgment: '', good: !!goodFlag });
+  }
+  // judge sticker slightly to the left-top
+  if (judgeText) {
+    Particles.scorePop(p.x - 42, p.y - 18, '', { judgment: judgeText, good: !!goodFlag });
+  }
 }
 
-function fxCenter(text, kind='power') {
-  // กลางจอสำหรับประกาศใหญ่ (ครั้งเดียว)
-  fxEmit('score', 0.5, 0.34, kind, text, 0, 0);
-  fxEmit('burst', 0.5, 0.34, kind, '', 0, 0);
+function fxPerfectSticker(el){
+  const p = screenPosPxFromEntity(el);
+  if (!p) return;
+
+  // big star confetti (3 bursts)
+  Particles.burstAt(p.x, p.y, { color:'#facc15', good:true, count: 42 });
+  setTimeout(()=>Particles.burstAt(p.x, p.y, { color:'#22c55e', good:true, count: 34 }), 120);
+  setTimeout(()=>Particles.burstAt(p.x, p.y, { color:'#38bdf8', good:true, count: 34 }), 240);
+
+  // sticker judge
+  Particles.scorePop(p.x - 46, p.y - 20, '', { judgment:'PERFECT!!', good:true });
+
+  // ting!
+  sfxTing();
 }
 
-// ---------- Emitters ----------
+// ---------- Emitters (logs + HUD bridge) ----------
 function emitGameEvent(payload) {
   emit('hha:event', Object.assign({
     sessionId,
@@ -202,44 +410,22 @@ function emitGameEvent(payload) {
     perfectStreak
   }, payload));
 }
-function emitCoach(text, mood) {
-  emit('hha:coach', { sessionId, mode:'PlateVR', text: String(text||''), mood: mood || 'neutral', timeFromStartMs: fromStartMs() });
-}
-function emitJudge(label) {
-  emit('hha:judge', { sessionId, mode:'PlateVR', label: String(label||''), timeFromStartMs: fromStartMs() });
-}
+function emitCoach(text, mood) { emit('hha:coach', { sessionId, mode:'PlateVR', text: String(text||''), mood: mood || 'neutral', timeFromStartMs: fromStartMs() }); }
+function emitJudge(label) { emit('hha:judge', { sessionId, mode:'PlateVR', label: String(label||''), timeFromStartMs: fromStartMs() }); }
 function emitScore() {
   emit('hha:score', {
     sessionId, mode:'PlateVR',
     score, combo, comboMax: maxCombo, misses: miss,
-    fever: Math.round(fever), feverOn: feverActive ? 1 : 0,
+    feverPct: Math.round(clamp(fever,0,100)),
     timeLeft: tLeft,
     perfectPlates, perfectStreak,
     balancePct: Math.round(balancePct),
     shieldOn: shieldOn ? 1 : 0,
-    bossOn: bossOn ? 1 : 0
+    bossOn: bossOn ? 1 : 0,
+    groupsHave: Object.values(plateHave).filter(Boolean).length
   });
 }
 function emitTime() { emit('hha:time', { sessionId, mode:'PlateVR', sec: tLeft, timeFromStartMs: fromStartMs() }); }
-
-// ---------- HUD ----------
-function hudUpdateAll() {
-  setText('hudTime', tLeft);
-  setText('hudScore', score);
-  setText('hudCombo', combo);
-  setText('hudMiss', miss);
-
-  const pct = Math.round(clamp(fever, 0, 100));
-  setBarPct('hudFever', pct);
-  setText('hudFeverPct', pct + '%');
-
-  const have = Object.values(plateHave).filter(Boolean).length;
-  setText('hudGroupsHave', `${have}/5`);
-  setText('hudPerfectCount', perfectPlates);
-
-  setText('hudGoalLine', `ทำ PERFECT PLATE อย่างน้อย ${goalTotal} จาน (ตอนนี้ ${perfectPlates}/${goalTotal})`);
-  setText('hudMiniLine', miniCurrent ? `Mini: ${miniCurrent.label} • ${miniCurrent.prog}/${miniCurrent.target}` : 'Mini: …');
-}
 
 // ---------- Grade ----------
 function computeGrade() {
@@ -252,7 +438,7 @@ function computeGrade() {
   return 'C';
 }
 
-// ---------- Emoji texture helper ----------
+// ---------- Emoji texture ----------
 function makeEmojiTexture(emoji, opts = {}) {
   const size = opts.size || 256;
   const font = opts.font || '180px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji';
@@ -284,13 +470,13 @@ function makeEmojiTexture(emoji, opts = {}) {
   return tex;
 }
 
+// ---------- Spawn / Targets ----------
 function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   if (!scene || !targetRoot) return null;
 
   const el = document.createElement('a-entity');
   const id = `pt-${++targetSeq}`;
   el.setAttribute('id', id);
-
   el.classList.add('plateTarget');
   el.setAttribute('class', 'plateTarget');
 
@@ -325,7 +511,6 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   el.setAttribute('position', `${x + j} ${y - j} 0`);
 
   el.addEventListener('click', () => onHit(el, 'click'));
-
   return el;
 }
 
@@ -347,16 +532,17 @@ function expireTarget(el) {
     combo = 0;
     fever = clamp(fever - 10, 0, 100);
     emitJudge('MISS');
+    doMissShake();
     emit('hha:miss', { sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
     emitGameEvent({ type:'miss_expire', groupId });
   }
 
   removeTarget(el, 'expire');
   knowAdaptive();
-  hudUpdateAll();
   emitScore();
 }
 
+function isAdaptiveOn() { return MODE === 'play'; }
 function knowAdaptive() {
   if (!isAdaptiveOn()) return;
   const base = (DIFF_TABLE[DIFF] || DIFF_TABLE.normal).spawnInterval;
@@ -377,34 +563,6 @@ function registerGroupHit(groupId) {
     plateHave[groupId] = true;
     plateCounts[groupId] += 1;
     totalsByGroup[groupId] += 1;
-  }
-}
-
-function checkPerfectPlate() {
-  const have = plateHaveCount();
-  if (have >= 5) {
-    perfectPlates += 1;
-    perfectStreak += 1;
-    bestStreak = Math.max(bestStreak, perfectStreak);
-
-    const bonus = 220 + Math.min(180, perfectStreak * 40);
-    score += bonus;
-    emitJudge('PERFECT!');
-    emitCoach(`PERFECT PLATE! +${bonus} 🌟`, 'happy');
-    emitGameEvent({ type:'perfect_plate', perfectPlates, perfectStreak, bonus });
-
-    // ประกาศใหญ่ “ครั้งเดียว”
-    fxCenter(`🌟 PERFECT PLATE +${bonus}`, 'boss');
-
-    fever = clamp(fever + 28, 0, 100);
-    if (fever >= 100) activateFever(5200);
-
-    resetPlate();
-
-    if (miniCurrent && miniCurrent.key === 'perfect') {
-      miniCurrent.prog += 1;
-      if (miniCurrent.prog >= miniCurrent.target) clearMiniQuest();
-    }
   }
 }
 
@@ -429,13 +587,46 @@ function scoreForHit(kind, groupId) {
   if (feverActive) mult += 0.35;
 
   const bal = clamp(balancePct, 0, 100);
-  const balMult = 0.70 + (bal / 100) * 0.40;
+  const balMult = 0.70 + (bal / 100) * 0.40; // 0.70..1.10
   mult *= balMult;
 
   if (DIFF === 'hard') mult *= 0.96;
   if (DIFF === 'easy') mult *= 1.04;
 
   return Math.round(base * mult);
+}
+
+function checkPerfectPlate(hitElForFx) {
+  const have = plateHaveCount();
+  if (have >= 5) {
+    perfectPlates += 1;
+    perfectStreak += 1;
+    bestStreak = Math.max(bestStreak, perfectStreak);
+
+    const bonus = 220 + Math.min(180, perfectStreak * 40);
+    score += bonus;
+
+    emitJudge('PERFECT!');
+    emitCoach(`PERFECT PLATE! +${bonus} 🌟`, 'happy');
+    emitGameEvent({ type:'perfect_plate', perfectPlates, perfectStreak, bonus });
+
+    fever = clamp(fever + 28, 0, 100);
+
+    // PERFECT sticker FX + ting + confetti
+    if (hitElForFx) fxPerfectSticker(hitElForFx);
+
+    resetPlate();
+
+    // Plate Rush mini: clear immediately when plate complete and no junk happened
+    if (miniCurrent && miniCurrent.key === 'rush') {
+      // already satisfied by >=5; handled in updateMiniTick too
+    }
+
+    if (miniCurrent && miniCurrent.key === 'perfect') {
+      miniCurrent.prog += 1;
+      if (miniCurrent.prog >= miniCurrent.target) clearMiniQuest();
+    }
+  }
 }
 
 // ---------- Fever ----------
@@ -448,8 +639,9 @@ function activateFever(ms = 5200) {
 }
 
 function updateFeverTick() {
-  if (!feverActive) fever = clamp(fever - 0.9, 0, 100);
-  else {
+  if (!feverActive) {
+    fever = clamp(fever - 0.9, 0, 100);
+  } else {
     fever = clamp(fever - 0.25, 0, 100);
     if (performance.now() >= feverUntilMs) {
       feverActive = false;
@@ -480,7 +672,7 @@ function updateShieldTick() {
 function enableHaz(key, ms) {
   haz[key] = true;
   hazUntil[key] = performance.now() + ms;
-  emitCoach(`${HAZ[key].label}! ระวัง!`, 'sad');
+  emitCoach(`${key.toUpperCase()}! ระวัง!`, 'sad');
   emitGameEvent({ type:'haz_on', haz: key, durMs: ms });
 }
 function updateHazTick() {
@@ -495,10 +687,11 @@ function updateHazTick() {
 
 // ---------- Mini quests ----------
 const MINI_POOL = [
-  { key:'rush',    label:'Plate Rush: เก็บหมู่ให้ครบ 5',          target: 1 },
-  { key:'perfect', label:'Perfect Chain: ทำ PERFECT เพิ่มอีก',     target: 1 },
-  { key:'clean',   label:'Clean Plate: ห้ามโดนขยะ 10 วินาที',      target: 10 },
-  { key:'combo',   label:'Combo Build: ทำคอมโบให้ถึง 8',           target: 8 }
+  // Plate Rush (HARD): 5 groups within 8s AND no junk during rush
+  { key:'rush',    label:'Plate Rush: ครบ 5 ภายใน 8 วิ (ห้ามโดนขยะ)', target: 8 },
+  { key:'perfect', label:'Perfect Chain: ทำ PERFECT เพิ่มอีก',         target: 1 },
+  { key:'clean',   label:'Clean Plate: ห้ามโดนขยะ 10 วินาที',          target: 10 },
+  { key:'combo',   label:'Combo Build: ทำคอมโบให้ถึง 8',               target: 8 }
 ];
 
 let cleanTimer = 0;
@@ -509,22 +702,44 @@ function emitQuestUpdate() {
     mini: miniCurrent
       ? { label: miniCurrent.label, prog: miniCurrent.prog, target: miniCurrent.target }
       : { label: 'Mini: …', prog: 0, target: 1 },
-    goalsAll: Array.from({length:goalTotal}).map((_,i)=>({done: i < perfectPlates})),
-    minisAll: Array.from({length:Math.max(miniHistory,1)}).map((_,i)=>({done: i < miniCleared}))
+    hint: (miniCurrent && miniCurrent.key === 'rush' && rushActive)
+      ? `เหลือ ${rushTimerLeft}s • ห้ามโดนขยะ!`
+      : ''
   });
 }
 
 function startNextMiniQuest() {
   const def = pick(MINI_POOL);
   miniHistory += 1;
-  miniCurrent = { key: def.key, label: def.label, target: def.target, prog: 0, startedAt: performance.now(), done: false };
-  if (miniCurrent.key === 'clean') cleanTimer = def.target;
+
+  miniCurrent = {
+    key: def.key,
+    label: def.label,
+    target: def.target,
+    prog: 0,
+    startedAt: performance.now(),
+    done: false
+  };
+
+  if (miniCurrent.key === 'clean') {
+    cleanTimer = def.target;
+  }
+
+  if (miniCurrent.key === 'rush') {
+    rushActive = true;
+    rushTimerLeft = def.target; // 8
+    rushNoJunk = true;
+    resetPlate();
+  } else {
+    rushActive = false;
+    stopRushWarning();
+  }
 
   emitGameEvent({ type:'mini_start', miniKey: miniCurrent.key, miniHistory });
   emitCoach(`Mini Quest เริ่ม! ${miniCurrent.label} 🎯`, 'happy');
 
   emitQuestUpdate();
-  hudUpdateAll();
+  emitScore();
 }
 
 function clearMiniQuest() {
@@ -532,18 +747,21 @@ function clearMiniQuest() {
   miniCurrent.done = true;
   miniCleared += 1;
 
+  // stop rush FX if it was rush
+  if (miniCurrent.key === 'rush') {
+    rushActive = false;
+    stopRushWarning();
+  }
+
   emitGameEvent({ type:'mini_clear', miniKey: miniCurrent.key, miniCleared });
   emitCoach('Mini Quest CLEAR! ✅ ต่อไปมาเลย!', 'happy');
   emitJudge('MISSION CLEAR!');
+  Particles.scorePop(window.innerWidth/2, window.innerHeight*0.40, '✅ MINI CLEAR +150', { judgment:'MINI', good:true });
   score += 150;
 
-  // ✅ ประกาศกลางจอ “ครั้งเดียว”
-  fxCenter('✅ MINI CLEAR +150', 'power');
-
-  setTimeout(() => { if (!ended) startNextMiniQuest(); }, 500);
+  setTimeout(() => { if (!ended) startNextMiniQuest(); }, 520);
 
   emitQuestUpdate();
-  hudUpdateAll();
   emitScore();
 }
 
@@ -551,20 +769,29 @@ function updateMiniTick() {
   if (!miniCurrent || miniCurrent.done) return;
 
   if (miniCurrent.key === 'rush') {
-    miniCurrent.prog = (plateHaveCount() >= 5) ? 1 : 0;
-    if (miniCurrent.prog >= miniCurrent.target) clearMiniQuest();
+    miniCurrent.prog = plateHaveCount();
+    // success condition: completed 5 within time and no junk touched during rush
+    if (rushActive && rushTimerLeft > 0 && miniCurrent.prog >= 5 && rushNoJunk) {
+      clearMiniQuest();
+      return;
+    }
   }
+
+  if (miniCurrent.key === 'perfect') {
+    // progress increased on perfect plate
+  }
+
   if (miniCurrent.key === 'combo') {
     miniCurrent.prog = Math.max(miniCurrent.prog, combo);
     if (miniCurrent.prog >= miniCurrent.target) clearMiniQuest();
   }
+
   if (miniCurrent.key === 'clean') {
     miniCurrent.prog = clamp((miniCurrent.target - cleanTimer), 0, miniCurrent.target);
     if (cleanTimer <= 0) clearMiniQuest();
   }
 
   emitQuestUpdate();
-  hudUpdateAll();
 }
 
 // ---------- Boss ----------
@@ -582,8 +809,10 @@ function maybeStartBoss() {
 
 // ---------- Spawn ----------
 function pickSpawnKind() {
+  const DCFG0 = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
   const endBoost = (tLeft <= 18) ? 0.05 : 0.0;
   const r = Math.random();
+
   const hazRate = DCFG0.hazRate + endBoost;
   const powRate = DCFG0.powerRate;
 
@@ -594,6 +823,7 @@ function pickSpawnKind() {
 }
 
 function spawnOne(opts = {}) {
+  const DCFG0 = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
   if (!targetRoot) return;
   if (activeTargets.size >= DCFG0.maxActive) return;
 
@@ -671,12 +901,9 @@ function onHit(el, via = 'click') {
 
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
-  const em = el.dataset.emoji || '';
 
-  // ✅ ยิง FX “ก่อน” removeTarget (ต้องใช้ object3D คำนวณตำแหน่ง)
-  // (ค่อยเติมคะแนน/คำตัดสินจริงด้านล่าง)
-  // แล้วค่อย remove
-  // ---------------------------------------------------------
+  // FX burst at target (one place only)
+  fxBurstAtEntity(el, kind === 'good' ? 'GOOD' : kind === 'junk' ? 'MISS' : 'HIT');
 
   removeTarget(el, 'hit');
   if (!started) return;
@@ -686,62 +913,53 @@ function onHit(el, via = 'click') {
     const hk = pick(Object.keys(HAZ));
     enableHaz(hk, HAZ[hk].durMs);
     combo = Math.max(0, combo - 1);
-
     const pts = scoreForHit('haz', 0);
     score += pts;
-
     emitJudge('RISK!');
-    fxAtEntity(el, 'haz', 'RISK!', `+${pts}`);
-
+    fxScoreJudgeAtEntity(el, `+${pts}`, 'RISK!', true);
     emitGameEvent({ type:'haz_hit', haz: hk });
-    hudUpdateAll(); emitScore();
+    updateMiniTick(); emitScore();
     return;
   }
 
   // power
   if (kind === 'power') {
+    const em = el.dataset.emoji || '';
     if (em === POWER.shield.emoji) {
       enableShield(POWER.shield.durMs);
       const pts = scoreForHit('power', 0);
       score += pts;
       fever = clamp(fever + 10, 0, 100);
-
       emitJudge('SHIELD!');
-      fxAtEntity(el, 'power', 'SHIELD!', `+${pts}`);
+      fxScoreJudgeAtEntity(el, `+${pts}`, 'SHIELD!', true);
       emitGameEvent({ type:'power_shield' });
-
     } else if (em === POWER.cleanse.emoji) {
-      for (const [tid, tr] of Array.from(activeTargets.entries())) {
+      for (const [, tr] of Array.from(activeTargets.entries())) {
         if (tr && tr.el && tr.el.dataset.kind === 'junk') removeTarget(tr.el, 'cleanse');
       }
       balancePct = clamp(balancePct + 22, 0, 100);
       score += 240;
-
       emitJudge('CLEANSE!');
-      fxAtEntity(el, 'power', 'CLEANSE!', '+240');
+      fxScoreJudgeAtEntity(el, '+240', 'CLEANSE!', true);
       emitCoach('ล้างจานแล้ว! ขยะหายไป 💨', 'happy');
       emitGameEvent({ type:'power_cleanse' });
-
     } else if (em === POWER.golden.emoji) {
       score += 320;
       fever = clamp(fever + 22, 0, 100);
       if (fever >= 100) activateFever(5200);
-
       emitJudge('GOLD!');
-      fxAtEntity(el, 'boss', 'GOLD!', '+320');
+      fxScoreJudgeAtEntity(el, '+320', 'GOLD!', true);
       emitCoach('Golden Bite! คะแนนพุ่ง ⭐', 'happy');
       emitGameEvent({ type:'power_golden' });
-
     } else {
       const pts = scoreForHit('power', 0);
       score += pts;
       emitJudge('POWER!');
-      fxAtEntity(el, 'power', 'POWER!', `+${pts}`);
+      fxScoreJudgeAtEntity(el, `+${pts}`, 'POWER!', true);
     }
 
     combo += 1; maxCombo = Math.max(maxCombo, combo);
-    updateMiniTick();
-    hudUpdateAll(); emitScore();
+    updateMiniTick(); emitScore();
     return;
   }
 
@@ -754,36 +972,47 @@ function onHit(el, via = 'click') {
     fever = clamp(fever + 12, 0, 100);
 
     emitJudge('BOSS HIT!');
-    fxAtEntity(el, 'boss', 'BOSS HIT!', `+${pts}`);
+    fxScoreJudgeAtEntity(el, `+${pts}`, 'BOSS!', true);
     emitGameEvent({ type:'boss_hit', hpLeft: bossHP });
 
     if (bossHP <= 0) {
       bossOn = false;
       const bonus = 420 + (DIFF === 'hard' ? 140 : 60);
       score += bonus;
-
       emitCoach(`โค่นบอสแล้ว! +${bonus} 🏆`, 'happy');
       emitJudge('BOSS CLEAR!');
-      fxCenter(`🏆 BOSS CLEAR +${bonus}`, 'boss');
+      Particles.scorePop(window.innerWidth/2, window.innerHeight*0.40, `🏆 +${bonus}`, { judgment:'BOSS CLEAR!', good:true });
       emitGameEvent({ type:'boss_clear', bonus });
     } else {
       setTimeout(() => { if (!ended && bossOn) spawnOne({ forceBoss: true }); }, 260);
     }
 
-    updateMiniTick();
-    hudUpdateAll(); emitScore();
+    updateMiniTick(); emitScore();
     return;
   }
 
   // junk / good
   if (kind === 'junk') {
+    // Plate Rush harder: fail if junk touched during rush
+    if (miniCurrent && miniCurrent.key === 'rush' && rushActive) {
+      stopRushWarning();
+      rushNoJunk = false;
+      emitJudge('FAILED!');
+      doMissShake();
+      Particles.scorePop(window.innerWidth/2, window.innerHeight*0.44, '❌ FAILED', { judgment:'RUSH FAIL', good:false });
+
+      resetPlate();
+      rushTimerLeft = miniCurrent.target; // 8
+      rushNoJunk = true;
+      miniCurrent.prog = 0;
+      emitQuestUpdate();
+    }
+
     if (shieldOn) {
       score += 30;
       fever = clamp(fever + 4, 0, 100);
-
       emitJudge('BLOCK!');
-      fxAtEntity(el, 'good', 'BLOCK!', '+30');
-
+      fxScoreJudgeAtEntity(el, '+30', 'BLOCK!', true);
       emitCoach('โล่กันขยะไว้ได้! 🥗', 'happy');
       emitGameEvent({ type:'junk_blocked' });
       combo += 1; maxCombo = Math.max(maxCombo, combo);
@@ -795,15 +1024,17 @@ function onHit(el, via = 'click') {
       fever = clamp(fever - 12, 0, 100);
 
       emitJudge('MISS');
-      fxAtEntity(el, 'junk', 'MISS', '💥');
-
+      doMissShake();
+      fxScoreJudgeAtEntity(el, '💥', 'MISS!!', false);
       emit('hha:miss', { sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
       emitCoach('โดนขยะแล้ว! เลี่ยงให้ได้ 😵', 'sad');
       emitGameEvent({ type:'junk_hit_miss' });
 
       if (miniCurrent && miniCurrent.key === 'clean') cleanTimer = miniCurrent.target;
     }
-  } else if (kind === 'good') {
+  }
+
+  if (kind === 'good') {
     const pts = scoreForHit('good', groupId);
     score += pts;
     combo += 1; maxCombo = Math.max(maxCombo, combo);
@@ -812,31 +1043,61 @@ function onHit(el, via = 'click') {
     registerGroupHit(groupId);
     updateBalance('good', groupId);
 
-    const judge = (pts >= 110 ? 'PERFECT' : 'GOOD');
+    const judge = (pts >= 110) ? 'PERFECT' : 'GOOD';
     emitJudge(judge);
-    fxAtEntity(el, 'good', judge, `+${pts}`);
-
+    fxScoreJudgeAtEntity(el, `+${pts}`, judge + '!', true);
     emitGameEvent({ type:'good_hit', groupId, points: pts });
 
-    checkPerfectPlate();
     if (fever >= 100) activateFever(5200);
+
+    // check plate completion (pass el for FX)
+    checkPerfectPlate(el);
   }
 
   updateMiniTick();
-  hudUpdateAll();
   emitScore();
   emitGameEvent({ type:'hit', kind, groupId, via });
 
   knowAdaptive();
 }
 
-// ---------- Tick ----------
+// ---------- Tick (1s) ----------
 function tick1s() {
   if (ended) return;
 
   tLeft -= 1;
   if (tLeft < 0) tLeft = 0;
 
+  // Plate Rush (HARD) timer + warning
+  if (miniCurrent && miniCurrent.key === 'rush' && rushActive && !miniCurrent.done) {
+    rushTimerLeft = Math.max(0, rushTimerLeft - 1);
+    miniCurrent.prog = plateHaveCount();
+
+    if (rushTimerLeft > 0 && rushTimerLeft <= 3) {
+      startRushWarning();
+      rushTickBeep();
+      emitJudge('HURRY!');
+    } else {
+      stopRushWarning();
+    }
+
+    if (rushTimerLeft <= 0) {
+      stopRushWarning();
+      emitJudge('TOO SLOW!');
+      emitCoach('ช้าไปนิด! รีเซ็ต Plate Rush ใหม่ 🔁', 'sad');
+
+      resetPlate();
+      rushTimerLeft = miniCurrent.target; // 8
+      rushNoJunk = true;
+      miniCurrent.prog = 0;
+
+      emitQuestUpdate();
+    }
+  } else {
+    stopRushWarning();
+  }
+
+  // Clean mini countdown
   if (miniCurrent && miniCurrent.key === 'clean' && !miniCurrent.done) {
     cleanTimer = Math.max(0, cleanTimer - 1);
     if (cleanTimer <= 0) {
@@ -850,7 +1111,7 @@ function tick1s() {
   updateHazTick();
 
   emitTime();
-  hudUpdateAll();
+  updateMiniTick();
   emitScore();
 
   if (tLeft <= 0) endGame('time_up');
@@ -865,46 +1126,21 @@ function stopTimers() {
   timerTick = null;
 }
 
-// ---------- Result modal ----------
-function showResultModal(reason) {
-  const grade = computeGrade();
-
-  setText('rMode', (MODE === 'research') ? 'Research' : 'Play');
-  setText('rGrade', grade);
-  setText('rScore', score);
-  setText('rMaxCombo', maxCombo);
-  setText('rMiss', miss);
-  setText('rPerfect', perfectPlates);
-
-  setText('rGoals', `${Math.min(perfectPlates, goalTotal)}/${goalTotal}`);
-  setText('rMinis', `${miniCleared}/${Math.max(miniHistory, miniCleared) || 0}`);
-
-  setText('rG1', totalsByGroup[1] || 0);
-  setText('rG2', totalsByGroup[2] || 0);
-  setText('rG3', totalsByGroup[3] || 0);
-  setText('rG4', totalsByGroup[4] || 0);
-  setText('rG5', totalsByGroup[5] || 0);
-  setText('rGTotal', (totalsByGroup[1]+totalsByGroup[2]+totalsByGroup[3]+totalsByGroup[4]+totalsByGroup[5]) || 0);
-
-  const backdrop = $('resultBackdrop');
-  if (backdrop) backdrop.style.display = 'flex';
-}
-
+// ---------- End ----------
 function clearAllTargets() {
-  for (const [id, rec] of Array.from(activeTargets.entries())) {
+  for (const [, rec] of Array.from(activeTargets.entries())) {
     if (rec && rec.el) {
-      try { rec.el.parentNode && rec.el.parentNode.removeChild(rec.el); } catch (_) {}
+      try { rec.el.parentNode && rec.el.parentNode.removeChild(rec.el); } catch {}
     }
   }
   activeTargets.clear();
 }
 
-// ---------- Start / End ----------
 function startGame() {
   if (started || ended) return;
   started = true;
 
-  emitGameEvent({ type:'session_start', sessionStartIso, durationSec: TIME });
+  emitGameEvent({ type:'session_start', sessionStartIso: new Date().toISOString(), durationSec: TIME });
   emitCoach(
     MODE === 'research'
       ? 'โหมดวิจัย: เล่นตามธรรมชาติ เก็บอาหารครบหมู่ให้มากที่สุด 📊'
@@ -925,16 +1161,18 @@ function startGame() {
   shieldOn = false; shieldUntil = 0;
   haz = { wind:false, blackhole:false, freeze:false };
   bossOn = false; bossHP = 0;
+
   miniCleared = 0; miniHistory = 0; miniCurrent = null;
   cleanTimer = 0;
+  rushActive = false; rushTimerLeft = 0; rushNoJunk = true;
+  stopRushWarning();
 
-  hudUpdateAll();
   emitTime();
   emitScore();
 
   startNextMiniQuest();
-
   startTimers();
+
   knowAdaptive();
   spawnLoopStart();
 }
@@ -946,9 +1184,11 @@ function endGame(reason = 'ended') {
   stopTimers();
   if (spawnTimer) clearInterval(spawnTimer);
   spawnTimer = null;
+  stopRushWarning();
   clearAllTargets();
 
   emitGameEvent({ type:'session_end', reason, score, miss, maxCombo, perfectPlates, grade: computeGrade() });
+
   emit('hha:end', {
     sessionId, mode:'PlateVR',
     reason,
@@ -958,23 +1198,23 @@ function endGame(reason = 'ended') {
     perfectPlates,
     goalsCleared: Math.min(perfectPlates, goalTotal),
     goalsTotal: goalTotal,
-    minisCleared: miniCleared,
-    minisTotal: Math.max(miniHistory, miniCleared) || 0,
+    miniCleared: miniCleared,
+    miniTotal: Math.max(miniHistory, miniCleared) || 0,
     timeFromStartMs: fromStartMs()
   });
 
   emitCoach('จบเกมแล้ว! ดูสรุปผลได้เลย 🎉', 'happy');
-  showResultModal(reason);
 }
 
-// ---------- Boot helpers ----------
+// ---------- Controls ----------
 function ensureTouchLookControls() {
   if (!cam) return;
-  try { cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false'); } catch (_) {}
-  try { cam.setAttribute('wasd-controls-enabled', 'false'); } catch (_) {}
+  try { cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false'); } catch {}
+  try { cam.setAttribute('wasd-controls-enabled', 'false'); } catch {}
 }
 
 function bindUI() {
+  // (optional) if your old html had these ids
   const btnRestart = $('btnRestart');
   if (btnRestart) btnRestart.addEventListener('click', () => location.reload());
 
@@ -991,9 +1231,9 @@ function bindUI() {
 
 // ✅ Manual Raycast — “คลิกได้แน่”
 function bindPointerFallback() {
-  if (!scene) return;
-  if (window.__PLATE_POINTER_BOUND__) return;
-  window.__PLATE_POINTER_BOUND__ = true;
+  if (!scene || !THREE) return;
+  if (ROOT.__PLATE_POINTER_BOUND__) return;
+  ROOT.__PLATE_POINTER_BOUND__ = true;
 
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -1043,62 +1283,58 @@ function bindPointerFallback() {
     onHit(cur, 'raycast');
   }
 
-  window.addEventListener('click', doRaycastFromEvent, { passive: true });
-  window.addEventListener('touchstart', doRaycastFromEvent, { passive: true });
+  ROOT.addEventListener('click', doRaycastFromEvent, { passive: true });
+  ROOT.addEventListener('touchstart', doRaycastFromEvent, { passive: true });
 
   console.log('[PlateVR] manual raycast pointer bound ✅');
 }
 
-function resolvePlateStarter() {
-  if (typeof startGame === 'function') return startGame;
-  if (typeof beginGame === 'function') return beginGame;
-  if (typeof start === 'function') return start;
-  if (typeof window.startGame === 'function') return window.startGame;
-  if (typeof window.beginGame === 'function') return window.beginGame;
-  if (typeof window.start === 'function') return window.start;
-  return null;
+// ---------- Boot ----------
+function applyBootOptions(opts){
+  opts = opts || {};
+  if (opts.diff) DIFF = String(opts.diff).toLowerCase();
+  if (opts.runMode) MODE = (String(opts.runMode).toLowerCase() === 'research') ? 'research' : 'play';
+  if (typeof opts.durationSec === 'number') TIME = Math.max(20, Math.min(180, opts.durationSec|0));
+
+  // sync globals
+  ROOT.DIFF = DIFF; ROOT.TIME = TIME; ROOT.MODE = MODE;
+  tLeft = TIME;
 }
 
-// ✅ export ให้ plate-vr.html import ไปเรียก
-export function bootPlateDOM() {
-  if (window.__PLATE_DOM_BOOTED__) return;
-  window.__PLATE_DOM_BOOTED__ = true;
+export function bootPlateDOM(opts = {}) {
+  if (ROOT.__PLATE_DOM_BOOTED__) return;
+  ROOT.__PLATE_DOM_BOOTED__ = true;
+
+  if (!A || !THREE) {
+    console.error('[PlateVR] AFRAME/THREE missing');
+    return;
+  }
+
+  applyBootOptions(opts);
 
   if (!targetRoot) {
     console.error('[PlateVR] #targetRoot not found. Check plate-vr.html');
-    try { emitCoach('หา targetRoot ไม่เจอ! ตรวจ ID ใน plate-vr.html ก่อนนะ ⚠️', 'sad'); } catch (_) {}
+    try { emitCoach('หา targetRoot ไม่เจอ! ตรวจ ID ใน plate-vr.html ก่อนนะ ⚠️', 'sad'); } catch {}
     return;
   }
 
   ensureTouchLookControls();
   bindUI();
 
-  setText('hudMode', (MODE === 'research') ? 'Research' : 'Play');
-  setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
-  setText('hudTime', tLeft);
-  hudUpdateAll();
-
   const bindAfterLoaded = () => bindPointerFallback();
   if (scene && scene.hasLoaded) bindAfterLoaded();
   else if (scene) scene.addEventListener('loaded', bindAfterLoaded, { once: true });
 
-  const starter = resolvePlateStarter();
-  if (!starter) {
-    console.error('[PlateVR] No start function found (startGame/start/beginGame).');
-    try { emitCoach('ยังไม่มีฟังก์ชันเริ่มเกมใน plate.safe.js (startGame/beginGame/start) ⚠️', 'sad'); } catch (_) {}
-    return;
-  }
-
-  if (scene && scene.hasLoaded) starter();
-  else if (scene) scene.addEventListener('loaded', () => starter(), { once:true });
-  else setTimeout(() => starter(), 250);
+  if (scene && scene.hasLoaded) startGame();
+  else if (scene) scene.addEventListener('loaded', () => startGame(), { once:true });
+  else setTimeout(() => startGame(), 250);
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && !ended) endGame('tab_hidden');
   });
 }
 
-// auto boot
-window.addEventListener('DOMContentLoaded', () => {
+// auto boot (safe)
+ROOT.addEventListener('DOMContentLoaded', () => {
   bootPlateDOM();
 });
