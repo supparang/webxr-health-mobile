@@ -1,27 +1,25 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — PRODUCTION SAFE ENGINE (DOM Targets, PC/Mobile/VR)
-//
-// ✅ Research mode: ขนาดเป้า "ล็อก" ตาม diff (easy/normal/hard) เท่านั้น (ไม่มี adaptive)
-// ✅ Play mode: เริ่มตาม diff แล้ว "adaptive" ตามความสามารถ (ปรับ scale + spawn tempo)
-//
-// ✅ เพิ่ม 3 อย่าง (เร้าใจ ป.5):
-//   (1) Golden Target 🌟 +50 (โผล่เป็นครั้งคราว)
-//   (2) PERFECT 3 ติด → FREEZE 2s (หยุด spawn + เป้าค้างชั่วคราว)
-//   (3) Boss Mini 10 วิท้าย: spawn รัว + คะแนน x2 + golden เพิ่ม
+// Food Groups VR — PRODUCTION SAFE ENGINE (NO-FLASH + HIT 100% + QUEST + FX + FEVER)
+// ✅ Size policy (ตามที่บอสสั่ง):
+//    - run=play:  เริ่มขนาดตาม diff (easy/normal/hard) + ADAPTIVE ตามความสามารถ
+//    - run=research: ล็อกขนาดตาม diff เท่านั้น (NO adaptive)
+// DOM target layer (ไม่ใช่ A-Frame target) — เล่นได้ทั้งมือถือ/PC
 //
 // API:
-//   window.GroupsVR.GameEngine.start(diff, { layerEl?, runMode?, durationSec?, config? })
+//   window.GroupsVR.GameEngine.start(diff, { layerEl?, runMode?, config? })
 //   window.GroupsVR.GameEngine.stop(reason?)
 //   window.GroupsVR.GameEngine.setLayerEl(el)
-//   window.GroupsVR.GameEngine.setTimeLeft(sec)
 //
 // Events:
 //   - hha:score   { score, combo, misses, shield, fever }
 //   - hha:judge   { label, x, y, good, emoji }
-//   - quest:update{ goal, mini, goalsAll, minisAll, groupLabel }
+//   - quest:update{ goal, mini, goalsAll, minisAll }
 //   - hha:coach   { text }
 //   - hha:celebrate { type:'goal'|'mini'|'all', index, total, label }
 //   - hha:end     { reason, scoreFinal, comboMax, misses, goalsTotal, goalsCleared, miniTotal, miniCleared }
+//
+// Miss policy:
+//   miss = good expired + junk hit (shield block = NO miss)
 
 (function () {
   'use strict';
@@ -40,7 +38,6 @@
     ROOT.FeverUI ||
     { ensureFeverBar() {}, setFever() {}, setFeverActive() {}, setShield() {} };
 
-  // Quest factory (non-module)
   const QuestFactory =
     (ROOT.GroupsQuest && ROOT.GroupsQuest.createFoodGroupsQuest)
       ? ROOT.GroupsQuest
@@ -95,29 +92,21 @@
   let miniIndexShown = -1;
   let allClearedShown = false;
 
-  // modes
-  let runMode = 'play';   // 'play' | 'research'
-  let diffKey = 'normal';
-  let durationSec = 70;
-  let timeLeftSec = 999;
+  // run mode
+  let runMode = 'play'; // 'play' | 'research'
 
-  // adaptive
-  let baseScale = 1.0;
+  // size/adaptive state
+  let baseScale = 1.0;     // ตาม diff
+  let targetScale = 1.0;   // ใช้ลื่น ๆ (lerp)
   let currentScale = 1.0;
-  let adaptiveEnabled = true;
-  const perfWindow = []; // {hit:boolean, perfect:boolean, t:number}
-  let perfWindowMax = 14;
-  let lastAdaptiveAt = 0;
-
-  // freeze / boss
-  let freezeUntil = 0;
-  let perfectStreak = 0;
-  let bossMode = false;
-  let bossAnnounced = false;
+  let adaptiveT = 0;       // 0..1
+  let emaHit = 0.65;       // ความแม่นโดยประมาณ
+  let emaSpeed = 0.55;     // ความเร็ว (ตีถี่)
+  let lastHitAt = 0;
 
   // ---------- config ----------
   const CFG = {
-    // spawn base
+    // spawn (base)
     spawnInterval: 900,
     maxActive: 4,
 
@@ -125,46 +114,44 @@
     minVisible: 2000,
     lifeTime: [3800, 5200],
 
-    // emoji pools (fallback; quest จะใช้ mapping เอง)
+    // emoji pools
     emojisGood: ['🍗','🥩','🐟','🍳','🥛','🧀','🥦','🥕','🍎','🍌','🍚','🍞','🥔','🍊'],
     emojisJunk: ['🧋','🍟','🍩','🍔','🍕'],
 
     // scoring
     pointsGood: 10,
     pointsGoodFever: 14,
-    pointsGoodBossMul: 2,     // boss x2
-    pointsJunkHit: -8,        // ถ้าโดนขยะ (ไม่มี shield) หักคะแนน
-    pointsGoodExpire: -4,     // ถ้าปล่อยของดีหลุด (expire)
+    pointsJunkHit: -8,
+    pointsGoodExpire: -4,
     pointsJunkExpire: 0,
-
-    // golden
-    goldenChance: 0.06,       // ปรับตาม diff ใน applyDifficulty
-    goldenPoints: 50,
-    goldenFeverGain: 30,
-
-    // perfect
-    perfectTimeMs: 700,       // ตีไวภายในนี้ = PERFECT
-    freezeNeed: 3,
-    freezeMs: 2000,
 
     // fever
     feverGainGood: 14,
     feverLossMiss: 18,
-    feverDurationMs: 8000,    // ระยะเวลา fever active
-    shieldPerFever: 1,        // ได้เกราะเพิ่มเมื่อเข้า fever
+    feverDurationMs: 8000,
+    shieldPerFever: 1,
 
-    // adaptive
-    scaleMin: 0.78,
-    scaleMax: 1.22,
-    scaleStep: 0.05,
-    adaptiveEveryMs: 3200,    // คิดปรับทุก ~3.2s
-    targetHitHigh: 0.80,
-    targetHitLow: 0.55,
+    // ===== Size policy =====
+    // base size per diff (เริ่มต้น)
+    baseScaleEasy: 1.18,
+    baseScaleNormal: 1.00,
+    baseScaleHard: 0.88,
 
-    // boss
-    bossLastSec: 10,
-    bossSpawnInterval: 520,
-    bossMaxActiveBonus: 2
+    // adaptive envelope (ใช้เฉพาะ play)
+    adaptiveMinDelta: -0.16, // เล็กลงสุดจาก base
+    adaptiveMaxDelta: +0.18, // ใหญ่ขึ้นสุดจาก base
+    scaleLerp: 0.14,         // ความลื่นของการเปลี่ยนขนาด
+
+    // adaptive triggers
+    comboForHarder: 10,      // คอมโบสูง → ยากขึ้น
+    missForEasier: 4,        // miss เยอะ → ง่ายขึ้น
+    adaptStepUp: 0.08,       // เพิ่มความยากต่อรอบประเมิน
+    adaptStepDown: 0.10,     // ลดความยากต่อรอบประเมิน
+
+    // spawn adaptive (play only)
+    spawnMin: 620,
+    spawnMax: 1350,
+    spawnAdaptStrength: 0.18 // 0..1
   };
 
   function applyDifficulty(diff) {
@@ -177,9 +164,7 @@
       CFG.lifeTime = [4800, 6500];
       CFG.feverGainGood = 16;
       CFG.feverLossMiss = 16;
-      CFG.goldenChance = 0.05;
-
-      baseScale = 1.12;
+      baseScale = CFG.baseScaleEasy;
     } else if (diff === 'hard') {
       CFG.spawnInterval = 750;
       CFG.maxActive = 5;
@@ -187,48 +172,84 @@
       CFG.lifeTime = [3200, 4600];
       CFG.feverGainGood = 13;
       CFG.feverLossMiss = 20;
-      CFG.goldenChance = 0.07;
-
-      baseScale = 0.92;
-    } else { // normal
+      baseScale = CFG.baseScaleHard;
+    } else {
       CFG.spawnInterval = 900;
       CFG.maxActive = 4;
       CFG.minVisible = 2000;
       CFG.lifeTime = [3800, 5200];
       CFG.feverGainGood = 14;
       CFG.feverLossMiss = 18;
-      CFG.goldenChance = 0.06;
-
-      baseScale = 1.00;
+      baseScale = CFG.baseScaleNormal;
     }
 
-    // mode rules
-    if (runMode === 'research') {
-      adaptiveEnabled = false;
-      currentScale = baseScale;         // 🔒 fixed
-    } else {
-      adaptiveEnabled = true;
-      currentScale = baseScale;         // เริ่มจาก base แล้วค่อยปรับ
-    }
-
-    setScale(currentScale);
+    // init scale
+    adaptiveT = 0;
+    targetScale = baseScale;
+    currentScale = baseScale;
+    applyLayerScale(currentScale);
   }
 
-  function setScale(s) {
-    currentScale = clamp(s, CFG.scaleMin, CFG.scaleMax);
+  function applyLayerScale(scale) {
+    if (!layerEl) return;
+    const s = clamp(scale, 0.72, 1.38);
+    layerEl.style.setProperty('--fg-scale', String(s));
+  }
 
-    // ตั้งเป็น CSS var ที่ชั้น layer (ดีที่สุด)
-    try {
-      if (layerEl && layerEl.style) layerEl.style.setProperty('--fg-scale', String(currentScale));
-      else document.documentElement.style.setProperty('--fg-scale', String(currentScale));
-    } catch {}
+  function evalAdaptiveTick() {
+    // โหมดวิจัย: ล็อก 100%
+    if (runMode === 'research') {
+      targetScale = baseScale;
+      applyLayerScale(baseScale);
+      return;
+    }
+
+    // โหมดเล่น: ปรับตามความสามารถแบบ “เด็ก ป.5 สนุก”
+    // ใช้สัญญาณง่าย ๆ: คอมโบ, miss, ความถี่การตี
+    const comboNow = combo | 0;
+    const missNow = misses | 0;
+
+    // ปรับความยาก (adaptiveT 0..1)
+    if (comboNow >= CFG.comboForHarder) adaptiveT += CFG.adaptStepUp;
+    if (missNow >= CFG.missForEasier)  adaptiveT -= CFG.adaptStepDown;
+
+    // ใช้ EMA ความเร็วตีช่วยเสริม
+    // emaSpeed สูง → ยากขึ้นเล็กน้อย, ต่ำมาก → ง่ายลงเล็กน้อย
+    adaptiveT += (emaSpeed - 0.55) * 0.10;
+
+    adaptiveT = clamp(adaptiveT, 0, 1);
+
+    // แปลงเป็น scale delta: เก่งขึ้น → เล็กลง (negative)
+    const delta = (CFG.adaptiveMaxDelta) * (1 - adaptiveT) + (CFG.adaptiveMinDelta) * (adaptiveT);
+    // delta: adaptiveT=0 → +max (ง่ายขึ้น), adaptiveT=1 → -min (ยากขึ้น)
+    targetScale = clamp(baseScale + delta, 0.72, 1.38);
+  }
+
+  function adaptiveSpawnInterval() {
+    // โหมดวิจัย: ล็อก spawn ตาม diff
+    if (runMode === 'research') return CFG.spawnInterval;
+
+    // โหมดเล่น: เก่งขึ้น → spawn เร็วขึ้นนิด
+    const t = clamp(adaptiveT, 0, 1);
+    const base = CFG.spawnInterval;
+    const towardFast = clamp(base * (1 - CFG.spawnAdaptStrength), CFG.spawnMin, CFG.spawnMax);
+    const towardSlow = clamp(base * (1 + CFG.spawnAdaptStrength), CFG.spawnMin, CFG.spawnMax);
+
+    // t=1 (เก่ง) → towardFast, t=0 (ยังไม่เก่ง) → towardSlow
+    const v = towardSlow + (towardFast - towardSlow) * t;
+    return clamp(v, CFG.spawnMin, CFG.spawnMax);
+  }
+
+  function smoothScaleStep() {
+    // current → target
+    currentScale = currentScale + (targetScale - currentScale) * CFG.scaleLerp;
+    applyLayerScale(currentScale);
   }
 
   function pickScreenPos() {
     const w = Math.max(320, window.innerWidth || 320);
     const h = Math.max(480, window.innerHeight || 480);
 
-    // กันขอบ + กัน HUD บน/ล่าง
     const marginX = Math.min(170, Math.round(w * 0.16));
     const marginYTop = Math.min(240, Math.round(h * 0.24));
     const marginYBot = Math.min(180, Math.round(h * 0.20));
@@ -260,7 +281,6 @@
   function destroyTarget(t, isHit) {
     if (!t || !t.alive) return;
 
-    // ห้ามลบก่อนเวลา (ยกเว้น hit)
     if (!isHit && !t.canExpire) return;
 
     t.alive = false;
@@ -277,7 +297,6 @@
     }
   }
 
-  // ---------- fever ----------
   function setFeverValue(v) {
     fever = clamp(v, 0, FEVER_MAX);
     FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
@@ -304,7 +323,6 @@
     setFeverActive(true);
     feverEndsAt = now() + CFG.feverDurationMs;
 
-    // ได้เกราะเมื่อเข้า fever
     setShieldValue(shield + (CFG.shieldPerFever | 0));
 
     dispatch('hha:judge', {
@@ -319,10 +337,11 @@
 
   function tickFever() {
     if (!feverOn) return;
-    if (now() >= feverEndsAt) setFeverActive(false);
+    if (now() >= feverEndsAt) {
+      setFeverActive(false);
+    }
   }
 
-  // ---------- score/combo/miss ----------
   function addScore(delta) {
     score = (score + (delta | 0)) | 0;
     dispatch('hha:score', { score, combo, misses, shield, fever });
@@ -339,59 +358,6 @@
     dispatch('hha:score', { score, combo, misses, shield, fever });
   }
 
-  // ---------- adaptive ----------
-  function pushPerf(hit, perfect) {
-    perfWindow.push({ hit: !!hit, perfect: !!perfect, t: now() });
-    while (perfWindow.length > perfWindowMax) perfWindow.shift();
-  }
-
-  function computeHitRate() {
-    if (!perfWindow.length) return 0.5;
-    const hits = perfWindow.filter(x => x.hit).length;
-    return hits / perfWindow.length;
-  }
-
-  function maybeAdaptive() {
-    if (!adaptiveEnabled) return;
-    if (runMode !== 'play') return;
-    if (bossMode) return; // ช่วงบอส เรา fix ให้เร้าใจ ไม่แกว่งเยอะ
-
-    const t = now();
-    if (t - lastAdaptiveAt < CFG.adaptiveEveryMs) return;
-    lastAdaptiveAt = t;
-
-    const hitRate = computeHitRate();
-    let next = currentScale;
-
-    // เก่งมาก → เป้าเล็กลง
-    if (hitRate >= CFG.targetHitHigh && comboMax >= 8) next -= CFG.scaleStep;
-
-    // ยากไป → เป้าใหญ่ขึ้น
-    if (hitRate <= CFG.targetHitLow) next += CFG.scaleStep;
-
-    next = clamp(next, CFG.scaleMin, CFG.scaleMax);
-
-    if (Math.abs(next - currentScale) >= 0.01) {
-      setScale(next);
-      dispatch('hha:judge', {
-        label: next < currentScale ? 'LEVEL UP' : 'HELP',
-        x: window.innerWidth / 2,
-        y: window.innerHeight * 0.25,
-        good: true
-      });
-
-      // เล่นให้มันส์ขึ้น: ถ้าเก่ง → เร็วขึ้นนิด
-      if (hitRate >= CFG.targetHitHigh && CFG.spawnInterval > 650) {
-        CFG.spawnInterval = Math.max(650, Math.round(CFG.spawnInterval * 0.94));
-      }
-      // ถ้าพลาดบ่อย → ช้าลงนิด
-      if (hitRate <= CFG.targetHitLow && CFG.spawnInterval < 1300) {
-        CFG.spawnInterval = Math.min(1300, Math.round(CFG.spawnInterval * 1.06));
-      }
-    }
-  }
-
-  // ---------- quest update ----------
   function emitQuestUpdate() {
     if (!quest) return;
 
@@ -399,29 +365,17 @@
     const minisAll = quest.minis || [];
 
     const goal = goalsAll.find(g => g && !g.done) || null;
-
-    // mini = active mini ตัวเดียว
-    const mini = (typeof quest.getActiveMini === 'function')
-      ? quest.getActiveMini()
-      : (minisAll.find(m => m && !m.done && !m.failed) || null);
-
-    const g = (quest.getActiveGroup && quest.getActiveGroup()) ? quest.getActiveGroup() : null;
+    const mini = minisAll.find(m => m && !m.done) || null;
 
     dispatch('quest:update', {
       goal: goal ? { label: goal.label, prog: goal.prog, target: goal.target } : null,
-      mini: mini ? {
-        label: mini.label,
-        prog: mini.prog,
-        target: mini.target,
-        timeLeftSec: (typeof mini.timeLeftSec === 'number') ? mini.timeLeftSec : undefined
-      } : null,
+      mini: mini ? { label: mini.label, prog: mini.prog, target: mini.target } : null,
       goalsAll,
       minisAll,
-      groupLabel: g ? g.label : undefined
+      groupLabel: (quest.getActiveGroup && quest.getActiveGroup()) ? (quest.getActiveGroup().label || '') : ''
     });
 
-    // celebrate goal
-    const goalsCleared = goalsAll.filter(g2 => g2 && g2.done).length;
+    const goalsCleared = goalsAll.filter(g => g && g.done).length;
     if (goalsCleared !== goalIndexShown && goalsCleared > 0) {
       goalIndexShown = goalsCleared;
       dispatch('hha:celebrate', {
@@ -432,8 +386,7 @@
       });
     }
 
-    // celebrate mini
-    const minisCleared = minisAll.filter(m2 => m2 && m2.done).length;
+    const minisCleared = minisAll.filter(m => m && m.done).length;
     if (minisCleared !== miniIndexShown && minisCleared > 0) {
       miniIndexShown = minisCleared;
       dispatch('hha:celebrate', {
@@ -444,7 +397,6 @@
       });
     }
 
-    // all complete
     if (!allClearedShown && goalsCleared === goalsAll.length && minisCleared === minisAll.length) {
       allClearedShown = true;
       dispatch('hha:celebrate', { type: 'all' });
@@ -460,48 +412,27 @@
     return 1;
   }
 
-  // ---------- spawn ----------
-  function canSpawnNow() {
-    if (!running) return false;
-    if (!layerEl) return false;
-    if (now() < freezeUntil) return false;
-    return true;
-  }
-
-  function currentMaxActive() {
-    return CFG.maxActive + (bossMode ? (CFG.bossMaxActiveBonus | 0) : 0);
-  }
-
-  function pickEmoji(g, good) {
-    if (good) {
-      if (g && Array.isArray(g.emojis) && g.emojis.length) {
-        return g.emojis[randInt(0, g.emojis.length - 1)];
-      }
-      return CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
-    }
-    return CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
-  }
-
   function createTarget() {
-    if (!canSpawnNow()) return;
-    if (active.length >= currentMaxActive()) return;
+    if (!running || !layerEl) return;
+    if (active.length >= CFG.maxActive) return;
 
     const g = (quest && quest.getActiveGroup) ? quest.getActiveGroup() : null;
 
-    // good ratio (ให้เด็กสนุก) + บอสท้ายเกมเพิ่มความกดดัน
-    const goodRatio = bossMode ? 0.68 : 0.75;
-    const good = Math.random() < goodRatio;
-
-    // golden target (เป็น good เสมอ)
-    const goldenChance = (bossMode ? Math.min(0.14, CFG.goldenChance + 0.06) : CFG.goldenChance);
-    const isGolden = (good && Math.random() < goldenChance);
-
-    let emoji = isGolden ? '🌟' : pickEmoji(g, good);
+    const good = Math.random() < 0.75;
+    let emoji = '';
+    if (good) {
+      if (g && Array.isArray(g.emojis) && g.emojis.length) {
+        emoji = g.emojis[randInt(0, g.emojis.length - 1)];
+      } else {
+        emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
+      }
+    } else {
+      emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
+    }
 
     const el = document.createElement('div');
     el.className = 'fg-target ' + (good ? 'fg-good' : 'fg-junk');
     el.setAttribute('data-emoji', emoji);
-    if (isGolden) el.classList.add('fg-golden');
 
     const p = pickScreenPos();
     el.style.left = p.x + 'px';
@@ -511,9 +442,8 @@
 
     const t = {
       el,
-      good: good,
+      good,
       emoji,
-      golden: isGolden,
       alive: true,
       canExpire: false,
       bornAt: now(),
@@ -522,10 +452,8 @@
     };
     active.push(t);
 
-    // MIN VISIBLE LOCK
     t.minTimer = setTimeout(() => { t.canExpire = true; }, CFG.minVisible);
 
-    // HARD EXPIRE
     const life = randInt(CFG.lifeTime[0], CFG.lifeTime[1]);
     t.lifeTimer = setTimeout(() => {
       if (!t.canExpire) {
@@ -536,137 +464,79 @@
       }
     }, life);
 
-    // HIT
     bindHit(el, () => hitTarget(t));
   }
 
-  // ---------- perfect/freeze ----------
-  function triggerFreeze() {
-    freezeUntil = now() + (CFG.freezeMs | 0);
-    dispatch('hha:judge', {
-      label: 'FREEZE',
-      x: window.innerWidth / 2,
-      y: window.innerHeight * 0.40,
-      good: true
-    });
-    Particles.scorePop && Particles.scorePop(window.innerWidth / 2, window.innerHeight * 0.40, '❄️', { judgment: 'FREEZE', good: true });
-    coach('โห! PERFECT 3 ติดเลย ❄️ แช่แข็ง 2 วิ!');
-  }
+  function updateEMAs(isHitGood) {
+    // emaHit: ตีของดี = 1, พลาด/โดนขยะ = 0
+    const x = isHitGood ? 1 : 0;
+    emaHit = emaHit * 0.86 + x * 0.14;
 
-  // ---------- boss ----------
-  function maybeBoss() {
-    const last = (CFG.bossLastSec | 0);
-    if (bossMode) return;
-
-    if (typeof timeLeftSec === 'number' && timeLeftSec <= last) {
-      bossMode = true;
-      if (!bossAnnounced) {
-        bossAnnounced = true;
-        coach('บอสมาแล้ววว! 🔥 10 วิท้าย คะแนน x2!');
-        dispatch('hha:judge', { label: 'BOSS', x: window.innerWidth / 2, y: window.innerHeight * 0.30, good: true });
-      }
+    const t = now();
+    if (lastHitAt > 0) {
+      const dt = clamp((t - lastHitAt) / 1000, 0.1, 3.0); // sec
+      const speed = clamp(1.0 / dt, 0.2, 6.0); // hits/sec
+      const norm = clamp(speed / 3.0, 0, 1);
+      emaSpeed = emaSpeed * 0.85 + norm * 0.15;
     }
+    lastHitAt = t;
   }
 
-  // ---------- hit/expire ----------
   function hitTarget(t) {
     if (!running || !t || !t.alive) return;
 
     const pos = centerXY(t.el);
-    const dt = now() - (t.bornAt || now());
-    const isPerfect = (t.good && (feverOn || dt <= CFG.perfectTimeMs) && !t.golden);
 
     if (t.good) {
       destroyTarget(t, true);
 
-      // points
-      let pts = feverOn ? CFG.pointsGoodFever : CFG.pointsGood;
-
-      if (bossMode) pts = (pts * (CFG.pointsGoodBossMul | 0)) | 0;
-
-      // golden
-      if (t.golden) {
-        pts = (CFG.goldenPoints | 0);
-        if (bossMode) pts = (pts * 2) | 0;
-        setFeverValue(fever + (CFG.goldenFeverGain | 0));
-      } else {
-        setFeverValue(fever + CFG.feverGainGood);
-      }
-
+      const pts = feverOn ? CFG.pointsGoodFever : CFG.pointsGood;
       addScore(pts);
       setCombo(combo + 1);
 
+      setFeverValue(fever + CFG.feverGainGood);
       maybeEnterFever();
 
-      // quest update
       if (quest && typeof quest.onGoodHit === 'function') {
-        const gid = (t.golden ? (quest.getActiveGroup ? (quest.getActiveGroup().key || 1) : 1) : emojiToGroupId(t.emoji));
+        const gid = emojiToGroupId(t.emoji);
         quest.onGoodHit(gid, combo);
       }
 
-      // perfect / freeze
-      if (t.golden) {
-        perfectStreak = 0;
-        dispatch('hha:judge', { label: 'GOLDEN', x: pos.x, y: pos.y, good: true, emoji: t.emoji });
-        Particles.scorePop && Particles.scorePop(pos.x, pos.y, '+' + pts, { judgment: 'GOLDEN', good: true });
-      } else if (isPerfect) {
-        perfectStreak++;
-        dispatch('hha:judge', { label: 'PERFECT', x: pos.x, y: pos.y, good: true, emoji: t.emoji });
-        Particles.scorePop && Particles.scorePop(pos.x, pos.y, '+' + pts, { judgment: 'PERFECT', good: true });
+      updateEMAs(true);
 
-        if (perfectStreak >= (CFG.freezeNeed | 0)) {
-          perfectStreak = 0;
-          triggerFreeze();
-        }
-      } else {
-        perfectStreak = 0;
-        dispatch('hha:judge', { label: feverOn ? 'PERFECT' : 'GOOD', x: pos.x, y: pos.y, good: true, emoji: t.emoji });
-        Particles.scorePop && Particles.scorePop(pos.x, pos.y, '+' + pts, { judgment: feverOn ? 'PERFECT' : 'GOOD', good: true });
-      }
-
-      pushPerf(true, !!isPerfect);
-      maybeAdaptive();
+      dispatch('hha:judge', { label: feverOn ? 'PERFECT' : 'GOOD', x: pos.x, y: pos.y, good: true, emoji: t.emoji });
+      Particles.scorePop && Particles.scorePop(pos.x, pos.y, '+' + pts, { judgment: feverOn ? 'PERFECT' : 'GOOD', good: true });
 
     } else {
       destroyTarget(t, true);
 
       if (shield > 0) {
         setShieldValue(shield - 1);
-
-        // quest hook: blocked = true (ไม่เป็น miss / mini no-junk ไม่ควรนับ)
-        if (quest && typeof quest.onJunkHit === 'function') {
-          quest.onJunkHit(emojiToGroupId(t.emoji), true);
-        }
-
         dispatch('hha:judge', { label: 'BLOCK', x: pos.x, y: pos.y, good: true, emoji: t.emoji });
         Particles.scorePop && Particles.scorePop(pos.x, pos.y, '🛡️', { judgment: 'BLOCK', good: true });
         coach('โล่กันไว้แล้ว! ระวังขยะนะ 🛡️');
-
-        pushPerf(true, false); // ถือว่ารอด
-        maybeAdaptive();
+        updateEMAs(false);
       } else {
         addMiss();
         addScore(CFG.pointsJunkHit);
         setCombo(0);
+
         setFeverValue(fever - CFG.feverLossMiss);
 
-        // quest hook: blocked = false (โดนจริง)
         if (quest && typeof quest.onJunkHit === 'function') {
-          quest.onJunkHit(emojiToGroupId(t.emoji), false);
+          const gid = emojiToGroupId(t.emoji);
+          quest.onJunkHit(gid);
         }
 
-        perfectStreak = 0;
+        updateEMAs(false);
+
         dispatch('hha:judge', { label: 'MISS', x: pos.x, y: pos.y, good: false, emoji: t.emoji });
         Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(CFG.pointsJunkHit), { judgment: 'MISS', good: false });
         coach('โอ๊ะ! โดนขยะแล้ว 😵 เล็งอาหารดีก่อนนะ');
-
-        pushPerf(false, false);
-        maybeAdaptive();
       }
     }
 
-    // log-friendly hooks
-    dispatch('groups:hit', { emoji: t.emoji, good: t.good, golden: !!t.golden, x: pos.x, y: pos.y });
+    dispatch('groups:hit', { emoji: t.emoji, good: t.good, x: pos.x, y: pos.y });
 
     emitQuestUpdate();
   }
@@ -675,56 +545,37 @@
     if (!running || !t || !t.alive) return;
     if (!t.canExpire) return;
 
-    // ถ้ากำลัง freeze → ขยายเวลาให้อยู่ต่อ
-    if (now() < freezeUntil) {
-      // postpone
-      setTimeout(() => expireTarget(t), 220);
-      return;
-    }
-
     const pos = centerXY(t.el);
     destroyTarget(t, false);
 
-    // expire = miss เฉพาะ "good หลุด" (golden หลุดนับเป็น miss หนักกว่า)
     if (t.good) {
       addMiss();
-
-      const penalty = t.golden ? (CFG.pointsGoodExpire * 2) : CFG.pointsGoodExpire;
-      addScore(penalty);
-
+      addScore(CFG.pointsGoodExpire);
       setCombo(0);
       setFeverValue(fever - CFG.feverLossMiss);
 
-      perfectStreak = 0;
-      dispatch('hha:judge', { label: 'MISS', x: pos.x, y: pos.y, good: false, emoji: t.emoji });
-      Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(penalty), { judgment: 'MISS', good: false });
+      updateEMAs(false);
 
-      pushPerf(false, false);
-      maybeAdaptive();
+      dispatch('hha:judge', { label: 'MISS', x: pos.x, y: pos.y, good: false, emoji: t.emoji });
+      Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(CFG.pointsGoodExpire), { judgment: 'MISS', good: false });
     } else {
       addScore(CFG.pointsJunkExpire);
     }
 
-    dispatch('groups:expire', { emoji: t.emoji, good: t.good, golden: !!t.golden, x: pos.x, y: pos.y });
+    dispatch('groups:expire', { emoji: t.emoji, good: t.good, x: pos.x, y: pos.y });
 
     emitQuestUpdate();
   }
 
-  // ---------- loops ----------
   function scheduleNextSpawn() {
     if (!running) return;
     clearTimeout(spawnTimer);
 
-    const base = bossMode ? CFG.bossSpawnInterval : CFG.spawnInterval;
-
-    // ระหว่าง freeze ให้รอ
-    const waitFreeze = Math.max(0, freezeUntil - now());
-    const delay = waitFreeze > 0 ? (waitFreeze + 30) : base;
-
+    const interval = adaptiveSpawnInterval();
     spawnTimer = setTimeout(() => {
       createTarget();
       scheduleNextSpawn();
-    }, delay);
+    }, interval);
   }
 
   function startSecondLoop() {
@@ -733,9 +584,12 @@
       if (!running) return;
 
       tickFever();
-      maybeBoss();
 
       if (quest && typeof quest.second === 'function') quest.second();
+
+      // ===== adaptive sizing step =====
+      evalAdaptiveTick();
+      smoothScaleStep();
 
       emitQuestUpdate();
     }, 1000);
@@ -759,16 +613,14 @@
     miniIndexShown = -1;
     allClearedShown = false;
 
-    perfWindow.length = 0;
-    lastAdaptiveAt = 0;
+    emaHit = 0.65;
+    emaSpeed = 0.55;
+    lastHitAt = 0;
 
-    freezeUntil = 0;
-    perfectStreak = 0;
-
-    bossMode = false;
-    bossAnnounced = false;
-
-    setScale(baseScale);
+    adaptiveT = 0;
+    targetScale = baseScale;
+    currentScale = baseScale;
+    applyLayerScale(baseScale);
   }
 
   function stopAll(reason) {
@@ -802,12 +654,6 @@
   ns.GameEngine = {
     setLayerEl(el) { layerEl = el; },
 
-    setTimeLeft(sec) {
-      timeLeftSec = (sec == null) ? timeLeftSec : (sec | 0);
-      // boss check แบบ realtime
-      if (running) maybeBoss();
-    },
-
     start(diff = 'normal', opts = {}) {
       layerEl = (opts && opts.layerEl) ? opts.layerEl : layerEl;
       if (!layerEl) {
@@ -815,17 +661,14 @@
         return;
       }
 
-      diffKey = String(diff || 'normal').toLowerCase();
-      runMode = String((opts && opts.runMode) || 'play').toLowerCase();
+      // run mode
+      runMode = String((opts && opts.runMode) ? opts.runMode : 'play').toLowerCase();
       if (runMode !== 'research') runMode = 'play';
 
-      durationSec = (opts && opts.durationSec) ? (opts.durationSec | 0) : durationSec;
-      timeLeftSec = durationSec;
-
-      // optional override config
+      // optional override
       if (opts && opts.config) Object.assign(CFG, opts.config);
 
-      applyDifficulty(diffKey);
+      applyDifficulty(diff);
       resetState();
 
       // fever HUD init
@@ -836,7 +679,7 @@
 
       // quest init
       if (QuestFactory && typeof QuestFactory.createFoodGroupsQuest === 'function') {
-        quest = QuestFactory.createFoodGroupsQuest(diffKey, runMode);
+        quest = QuestFactory.createFoodGroupsQuest(diff);
       } else {
         quest = null;
         console.warn('[FoodGroupsVR] quest-manager not found: window.GroupsQuest.createFoodGroupsQuest');
@@ -844,9 +687,11 @@
 
       // first coach
       const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
-      coach(runMode === 'research'
-        ? `โหมดวิจัย: ขนาดเป้าคงที่ (${diffKey.toUpperCase()}) เริ่มที่: ${g ? g.label : 'Food Groups'} ✨`
-        : `โหมดเล่น: เริ่มเลย! เก็บอาหารดี: ${g ? g.label : 'Food Groups'} 🔥`);
+      if (runMode === 'research') {
+        coach(g ? `โหมดวิจัย: เริ่มที่ ${g.label} (ขนาดล็อกตามระดับ) 📋` : 'โหมดวิจัย: เริ่มเลย (ขนาดล็อกตามระดับ) 📋');
+      } else {
+        coach(g ? `โหมดเล่น: เริ่มที่ ${g.label} (จะปรับความยากอัตโนมัติ) 🔥` : 'โหมดเล่น: จะปรับความยากอัตโนมัติ 🔥');
+      }
 
       emitQuestUpdate();
 
@@ -854,7 +699,6 @@
       startSecondLoop();
       scheduleNextSpawn();
 
-      // spawn แรกทันที 1–2 ตัว
       createTarget();
       setTimeout(() => createTarget(), Math.min(260, CFG.spawnInterval * 0.35));
 
