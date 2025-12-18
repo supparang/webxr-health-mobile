@@ -1,17 +1,15 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL v3)
-// MISS = good expired + junk hit (shield block = NO miss)
-//
-// FIX v3 (สำคัญสำหรับ “ลากหมุนมุมมองแล้วเป้าต้องขยับตาม”):
-// - ไม่ใช้ fallback2D เป็นตำแหน่งถาวรเมื่อ camera พร้อมแล้ว
-// - ถ้า project fail ในขณะ camera ready -> re-seed world pos ใหม่ทันที แล้วลอง project อีกครั้ง
-// - ใช้ fallback2D เฉพาะช่วง camera ยังไม่ ready เท่านั้น
-// - เป้าจะ “ตามการหมุนกล้อง” เพราะทุกเฟรมจะ project ใหม่จาก world pos -> screen
+// Good vs Junk VR — DOM Emoji Engine (FINAL v3.1)
+// FIX v3.1 (สำคัญ):
+// - Ensure layer exists (auto-create #gj-layer if missing)
+// - Place target immediately (fallback2D) so it never "invisible"
+// - More robust pointer/click handlers (mobile)
+// - Extra debug logs
 
 'use strict';
 
 (function (ns) {
-  const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+  const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 
   // ===== External modules =====
   const Particles =
@@ -46,14 +44,17 @@
   function getTHREE(){
     return ROOT.THREE || (ROOT.AFRAME && ROOT.AFRAME.THREE) || null;
   }
+
   function sceneRef(){
     return document.querySelector('a-scene') || null;
   }
+
   function cameraReady(){
     const scene = sceneRef();
     const THREE = getTHREE();
     return !!(scene && scene.camera && THREE);
   }
+
   function getCameraObj3D(){
     const camEl =
       document.querySelector('#gj-camera') ||
@@ -62,7 +63,36 @@
     return null;
   }
 
-  // ===== Spawn in front of camera (world) =====
+  // ===== Ensure DOM layer =====
+  function ensureLayer(optsLayerEl){
+    let el = optsLayerEl || document.getElementById('gj-layer');
+
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'gj-layer';
+      Object.assign(el.style, {
+        position:'fixed',
+        inset:'0',
+        zIndex:'9999',
+        pointerEvents:'auto',
+        touchAction:'none'
+      });
+      document.body.appendChild(el);
+      console.warn('[GoodJunkVR] #gj-layer not found → auto-created');
+    } else {
+      // กันกรณี CSS/DOM ไปตั้งผิด
+      try{
+        const st = getComputedStyle(el);
+        if (st.position === 'static') el.style.position = 'fixed';
+        el.style.inset = '0';
+        el.style.pointerEvents = 'auto';
+        el.style.zIndex = el.style.zIndex || '9999';
+      }catch(_){}
+    }
+    return el;
+  }
+
+  // ===== World spawn (หน้า camera) =====
   function spawnWorld(){
     const THREE = getTHREE();
     const cam = getCameraObj3D();
@@ -74,12 +104,9 @@
     const dir = new THREE.Vector3();
     cam.getWorldDirection(dir);
 
-    // ระยะหน้า camera (จูนให้เด็ก ป.5 เล่นง่ายขึ้น)
-    pos.add(dir.multiplyScalar(2.1));
-
-    // กระจายซ้ายขวา/ขึ้นลง (ให้ไม่ไปกองมุม)
-    pos.x += (Math.random()-0.5)*1.7;
-    pos.y += (Math.random()-0.5)*1.25;
+    pos.add(dir.multiplyScalar(2.2));
+    pos.x += (Math.random()-0.5)*1.8;
+    pos.y += (Math.random()-0.5)*1.4;
 
     return pos;
   }
@@ -91,17 +118,12 @@
     if (!scene || !scene.camera || !THREE || !pos) return null;
 
     const v = pos.clone().project(scene.camera);
-
-    // อยู่นอก frustum
     if (v.z < -1 || v.z > 1) return null;
 
-    const x = (v.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
-
-    // กัน NaN/Infinity
-    if (!isFinite(x) || !isFinite(y)) return null;
-
-    return { x, y };
+    return {
+      x: (v.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-v.y * 0.5 + 0.5) * window.innerHeight
+    };
   }
 
   // ===== Emit helpers =====
@@ -139,7 +161,7 @@
     }));
   }
 
-  // ===== Target create/remove =====
+  // ===== Target =====
   function createTarget(kind){
     if (!layerEl) return;
 
@@ -147,8 +169,8 @@
     el.className = 'gj-target ' + (kind === 'good' ? 'gj-good' : 'gj-junk');
 
     let emoji = kind === 'good'
-      ? (Math.random() < 0.12 ? POWER[Math.floor(Math.random()*POWER.length)]
-                              : GOOD[Math.floor(Math.random()*GOOD.length)])
+      ? (Math.random() < 0.1 ? POWER[Math.floor(Math.random()*POWER.length)]
+                             : GOOD[Math.floor(Math.random()*GOOD.length)])
       : JUNK[Math.floor(Math.random()*JUNK.length)];
 
     el.textContent = emoji;
@@ -159,27 +181,44 @@
       emoji === FIRE   ? 'diamond':
       emoji === SHIELD ? 'shield' : kind;
 
+    // fallback 2D (กันจอดำ/กันไม่เห็น)
+    const fallback2D = {
+      x: Math.round(window.innerWidth  * (0.2 + Math.random()*0.6)),
+      y: Math.round(window.innerHeight * (0.25 + Math.random()*0.55))
+    };
+
+    // ✅ วางตำแหน่งทันที (ไม่ต้องรอ renderLoop)
+    el.style.display = 'block';
+    el.style.left = fallback2D.x + 'px';
+    el.style.top  = fallback2D.y + 'px';
+
     const t = {
       el,
       kind,
       emoji,
-      pos: cameraReady() ? spawnWorld() : null,
+      pos: null,
       born: performance.now(),
       seen: false,
-      // fallback2D ใช้เฉพาะตอน camera ยังไม่ ready
-      fallback2D: {
-        x: Math.round(window.innerWidth  * (0.20 + Math.random()*0.60)),
-        y: Math.round(window.innerHeight * (0.25 + Math.random()*0.55))
-      }
+      fallback2D
     };
 
     active.push(t);
     layerEl.appendChild(el);
 
-    el.addEventListener('pointerdown', (e)=>{
-      e.preventDefault();
-      hitTarget(t, e.clientX || 0, e.clientY || 0);
-    });
+    const handler = (ev)=>{
+      ev.preventDefault();
+      const x = (ev.clientX != null) ? ev.clientX : fallback2D.x;
+      const y = (ev.clientY != null) ? ev.clientY : fallback2D.y;
+      hitTarget(t, x, y);
+    };
+
+    // ✅ mobile friendly: pointer + click + touch
+    el.addEventListener('pointerdown', handler, { passive:false });
+    el.addEventListener('click', handler, { passive:false });
+    el.addEventListener('touchstart', (ev)=>{
+      const touch = (ev.touches && ev.touches[0]) ? ev.touches[0] : null;
+      handler({ preventDefault(){ ev.preventDefault(); }, clientX: touch?.clientX, clientY: touch?.clientY });
+    }, { passive:false });
 
     setTimeout(()=>expireTarget(t), 2200);
   }
@@ -194,7 +233,7 @@
     if (!running) return;
     removeTarget(t);
 
-    // ✅ MISS เฉพาะ good ที่ “เคยเห็นจริงบนจอ”
+    // MISS เฉพาะ "ปล่อยของดี" และต้องเคยเห็นจริง
     if (t.kind === 'good' && t.seen){
       misses++;
       combo = 0;
@@ -262,8 +301,8 @@
     for (const t of active){
       if (!t || !t.el) continue;
 
-      // ถ้า camera เพิ่งพร้อม ให้สร้าง pos ใหม่ทันที
-      if (ready && !t.pos){
+      // ถ้าเริ่มพร้อมแล้ว ค่อยสร้าง pos 3D
+      if (!t.pos && ready){
         t.pos = spawnWorld();
       }
 
@@ -271,25 +310,12 @@
 
       if (ready && t.pos){
         p = project(t.pos);
+      }
 
-        // ✅ FIX v3: ถ้า project fail ทั้งที่ camera พร้อม -> re-seed pos แล้วลองอีกครั้ง
-        if (!p){
-          t.pos = spawnWorld();
-          p = t.pos ? project(t.pos) : null;
-        }
-
-        // ถ้ายังไม่ได้ ให้รอเฟรมหน้า (อย่าใช้ fallback ค้าง)
-        if (!p){
-          t.el.style.opacity = '0';
-          continue;
-        }
-
-        t.seen = true;
-        t.el.style.opacity = '';
-      } else {
-        // camera ยังไม่พร้อม → ใช้ fallback2D ชั่วคราว
+      if (!p){
         p = t.fallback2D;
-        t.el.style.opacity = '';
+      }else{
+        t.seen = true;
       }
 
       t.el.style.display = 'block';
@@ -302,14 +328,10 @@
 
   function spawnLoop(){
     if (!running) return;
-
-    // จูนให้สนุก/เร้าใจสำหรับ ป.5: โผล่ถี่ขึ้นนิด
-    if (active.length < 5){
-      createTarget(Math.random() < 0.72 ? 'good' : 'junk');
+    if (active.length < 4){
+      createTarget(Math.random() < 0.7 ? 'good' : 'junk');
     }
-
-    // เดิม 900 → เร็วขึ้นเล็กน้อย
-    spawnTimer = setTimeout(spawnLoop, 780);
+    spawnTimer = setTimeout(spawnLoop, 900);
   }
 
   // ===== API =====
@@ -317,7 +339,7 @@
     if (running) return;
     running = true;
 
-    layerEl = opts.layerEl || document.getElementById('gj-layer');
+    layerEl = ensureLayer(opts.layerEl);
 
     score=0; combo=0; comboMax=0; goodHits=0; misses=0;
     shield=0;
@@ -329,14 +351,21 @@
       FeverUI.reset();
     }
 
-    console.log('[GoodJunkVR] GameEngine.start v3', {
+    console.log('[GoodJunkVR] start OK', {
       diff,
+      layerFound: !!layerEl,
+      layerId: layerEl?.id,
       hasAFRAME: !!ROOT.AFRAME,
-      hasTHREE:  !!getTHREE(),
-      camReady:  cameraReady()
+      hasTHREE: !!getTHREE()
     });
 
     emitScore();
+
+    // ✅ สร้างเป้าชุดแรกทันที (กันเห็นว่าง)
+    for (let i=0;i<3;i++){
+      createTarget(Math.random() < 0.7 ? 'good' : 'junk');
+    }
+
     renderLoop();
     spawnLoop();
   }
@@ -347,7 +376,6 @@
 
     if (rafId) cancelAnimationFrame(rafId);
     rafId = null;
-
     if (spawnTimer) clearTimeout(spawnTimer);
     spawnTimer = null;
 
