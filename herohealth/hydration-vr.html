@@ -505,26 +505,66 @@
 <div id="hvr-screen-blink" class="hvr-screen-blink"></div>
 
 <!-- ===== Scripts (global HUD / FX) ===== -->
-<!-- ต้องมาก่อน -->
 <script src="./vr/ui-fever.js"></script>
 <script src="./vr/particles.js"></script>
 <script src="./vr/hha-hud.js"></script>
 
-<!-- แล้วค่อย import ตัวเกม -->
+<!-- ✅ Blink overlay element (ต้องมีจริง ไม่งั้นไม่กะพริบ) -->
+<div id="hvr-screen-blink" aria-hidden="true"></div>
+
+<style>
+  /* overlay กะพริบ */
+  #hvr-screen-blink{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    opacity:0;
+    z-index:60;
+  }
+  #hvr-screen-blink.good{ background:rgba(34,197,94,0.18); }
+  #hvr-screen-blink.bad{ background:rgba(249,115,22,0.22); }
+  #hvr-screen-blink.block{ background:rgba(96,165,250,0.18); }
+
+  #hvr-screen-blink.on{
+    animation:hvrBlink 90ms ease-out 1;
+  }
+  @keyframes hvrBlink{
+    0%{opacity:0;}
+    40%{opacity:1;}
+    100%{opacity:0;}
+  }
+
+  /* crosshair ให้ “สั่น/กะพริบ” ได้ */
+  .hvr-crosshair.ping{
+    animation:hvrPing 90ms ease-out 1;
+  }
+  @keyframes hvrPing{
+    0%{ transform:translate(-50%,-50%) scale(1); }
+    40%{ transform:translate(-50%,-50%) scale(0.90); }
+    100%{ transform:translate(-50%,-50%) scale(1); }
+  }
+</style>
+
+<!-- ===== Boot Hydration VR (module) + Crosshair shooter ===== -->
 <script type="module">
   import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
-  hydrationBoot({ difficulty:'easy', duration:90 });
-</script>
-  
-<!-- ✅ Crosshair controller (ยิงด้วยวงเล็ง + กะพริบ+สั่น) -->
-<script>
-(function(){
-  'use strict';
 
   function $(id){ return document.getElementById(id); }
 
-  const FIRE_COOLDOWN = 160; // ยิงถี่พอดีเด็ก ป.5
-  let lastFireAt = 0;
+  function parseQuery() {
+    const url = new URL(window.location.href);
+    const diff = (url.searchParams.get('diff') || 'easy').toLowerCase();
+    let time = parseInt(url.searchParams.get('time') || '80', 10);
+    if (!Number.isFinite(time) || time <= 0) time = 80;
+    if (time < 20) time = 20;
+    if (time > 180) time = 180;
+    return { diff, time };
+  }
+
+  function setDiffPill(diff, time){
+    const diffPill = $('hha-diff-pill');
+    if (diffPill) diffPill.textContent = `${diff.toUpperCase()} • ${time}s`;
+  }
 
   // ===== Audio tiny beep =====
   let audioCtx = null;
@@ -542,15 +582,6 @@
     }catch{}
   }
 
-  // ===== Crosshair ping animation =====
-  function ping(){
-    const c = $('hvr-crosshair');
-    if(!c) return;
-    c.style.transform = 'translate(-50%,-50%) scale(0.92)';
-    setTimeout(()=>{ c.style.transform='translate(-50%,-50%) scale(1)'; }, 70);
-  }
-
-  // ===== Blink + Vibrate =====
   function vibrate(pattern){
     try{
       if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
@@ -562,137 +593,107 @@
     if (!el) return;
     el.classList.remove('good','bad','block','on');
     el.classList.add(kind || 'good');
-    void el.offsetWidth;         // retrigger
+    void el.offsetWidth; // retrigger
     el.classList.add('on');
-    setTimeout(()=>{ el.classList.remove('on'); }, 85);
+    setTimeout(()=> el.classList.remove('on'), 100);
   }
 
-  // ===== Aim: find element at crosshair point =====
+  function ping(){
+    const c = $('hvr-crosshair');
+    if (!c) return;
+    c.classList.remove('ping');
+    void c.offsetWidth;
+    c.classList.add('ping');
+  }
+
+  // ยิงตาม crosshair จริง ด้วย elementFromPoint
   function elementAtCrosshair(){
     const c = $('hvr-crosshair');
-    if(!c) return null;
+    if (!c) return null;
     const r = c.getBoundingClientRect();
     const x = r.left + r.width/2;
     const y = r.top  + r.height/2;
     const el = document.elementFromPoint(x, y);
     if (!el) return null;
-    const tgt = el.closest ? el.closest('.hvr-target') : null;
-    return tgt || null;
+    return el.closest ? el.closest('.hvr-target') : null;
   }
 
-  // ===== Fire: trigger click on target =====
+  const FIRE_COOLDOWN = 160;
+  let lastFireAt = 0;
+
   function fire(){
     const now = Date.now();
     if (now - lastFireAt < FIRE_COOLDOWN) return;
     lastFireAt = now;
 
     const tgt = elementAtCrosshair();
-    if (!tgt) { beep(220, 0.05); return; }
+    ping();
+
+    if (!tgt){
+      beep(220, 0.05);
+      vibrate(10);
+      return;
+    }
 
     const isBad = tgt.classList.contains('bad');
 
-    // ✅ feedback ก่อนยิงจริง
-    ping();
-    if (isBad) {
+    if (isBad){
       screenBlink('bad');
-      vibrate([20, 40, 20]);
+      vibrate([22, 35, 22]);
       beep(420, 0.06);
     } else {
       screenBlink('good');
-      vibrate(18);
+      vibrate(16);
       beep(880, 0.06);
     }
 
-    // ยิงจริง (เรียก handler ของ mode-factory)
+    // ✅ ยิงแบบ “คลิกจริง” ให้ handler เดิมทำงานครบ (คะแนน/FX/หมดอายุ)
     try{
-      tgt.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX: 0, clientY: 0 }));
+      tgt.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles:true,
+        cancelable:true,
+        clientX: (window.innerWidth/2)|0,
+        clientY: (window.innerHeight/2)|0
+      }));
     }catch{
       try{ tgt.click(); }catch{}
     }
   }
 
-  window.addEventListener('DOMContentLoaded', ()=>{
-    // แตะ/คลิกที่หน้าจอ = ยิง (ให้เล่นเหมือน FPS ง่าย ๆ)
+  // เล่นง่าย: แตะจอที่ไหนก็ยิงจาก crosshair (เหมือน VR)
+  function bindCrosshairControls(){
     document.addEventListener('pointerdown', (e)=>{
-      // ถ้าแตะโดนเป้าโดยตรง → ปล่อยให้เป้าโดนเอง แต่มี blink+สั่นด้วย
+      // ถ้าแตะโดนเป้าจริง ๆ → ปล่อยให้ระบบเดิมนับ hit ตามปกติ
       const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
-      if (t) {
-        const isBad = t.classList.contains('bad');
-        if (isBad) { screenBlink('bad'); vibrate([18, 28, 18]); }
-        else { screenBlink('good'); vibrate(14); }
-        return;
-      }
+      if (t) return;
+
+      // กันคลิกปุ่ม
+      if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr')) return;
+
       fire();
     }, { passive:true });
 
-    // คีย์บอร์ด (PC) กด Space = ยิง
     window.addEventListener('keydown', (e)=>{
       if (e.code === 'Space') { e.preventDefault(); fire(); }
-    });
-
-    // ทำให้ “สั่น” พร้อมใช้ (ต้องมี gesture)
-    try{
-      document.body.addEventListener('click', ()=>{}, { once:true });
-    }catch{}
-  });
-})();
-</script>
-
-<!-- ===== Boot Hydration VR (module) ===== -->
-<script type="module">
-  import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
-
-  function parseQuery() {
-    const url = new URL(window.location.href);
-    const diff = (url.searchParams.get('diff') || 'easy').toLowerCase();
-    const run  = (url.searchParams.get('run') || 'play').toLowerCase();
-    let time = parseInt(url.searchParams.get('time') || '80', 10);
-    if (!Number.isFinite(time) || time <= 0) time = 80;
-    if (time < 20) time = 20;
-    if (time > 180) time = 180;
-    return { diff, time, run };
-  }
-
-  function setDiffPill(diff, time, run){
-    const diffPill = document.getElementById('hha-diff-pill');
-    if (diffPill) diffPill.textContent = `${diff.toUpperCase()} • ${time}s • ${run.toUpperCase()}`;
-  }
-
-  function bindCrosshairShoot() {
-    // แตะที่ไหนก็ยิงจาก crosshair (เหมือน VR)
-    const shoot = (ev) => {
-      // กันคลิกปุ่ม/ลิงก์
-      if (ev && ev.target && ev.target.closest && ev.target.closest('a,button,.hha-btn-vr,.hha-choice')) return;
-
-      const inst = window.HHA_ACTIVE_INST;
-      if (!inst || typeof inst.shootCrosshair !== 'function') return;
-
-      const ok = inst.shootCrosshair();
-      // ถ้ายิงไม่โดนอะไร → ทำเสียง/สั่นเบาได้ในอนาคต (ตอนนี้ไม่ทำให้เวียนหัว)
-    };
-
-    window.addEventListener('pointerdown', shoot, { passive: true });
-  }
-
-  // feedback extra: เวลา MISS ให้กระพริบ+สั่น (เสริมจากใน hydration.safe.js)
-  function bindJudgeFeedback(){
-    window.addEventListener('hha:judge', (e)=>{
-      const lb = String(e?.detail?.label || '').toUpperCase();
-      if (lb === 'MISS') {
-        // (optional) เพิ่ม effect ตรงนี้ได้อีก
-      }
     });
   }
 
   window.addEventListener('DOMContentLoaded', async () => {
-    const { diff, time, run } = parseQuery();
-    setDiffPill(diff, time, run);
+    const { diff, time } = parseQuery();
+    setDiffPill(diff, time);
 
-    try {
-      await hydrationBoot({ difficulty: diff, duration: time });
-      bindCrosshairShoot();
-      bindJudgeFeedback();
-    } catch (err) {
+    try{
+      // ✅ boot ครั้งเดียว
+      await hydrationBoot({
+        difficulty: diff,
+        duration: time,
+        // (เผื่อคุณจะใช้ cfg เพิ่มในอนาคต)
+      });
+
+      // ✅ bind crosshair shooter
+      bindCrosshairControls();
+
+    }catch(err){
       console.error('[HydrationVR] boot error', err);
       alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้');
     }
