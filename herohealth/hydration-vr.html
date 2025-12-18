@@ -210,8 +210,6 @@
       margin-top:14vh;
       margin-bottom:38vh;
       overflow:visible;
-
-      /* ✅ สำคัญ: กันโดนทับ */
       z-index:30;
     }
 
@@ -233,7 +231,6 @@
       user-select:none;
       cursor:pointer;
       transition:transform .08s ease-out, box-shadow .12s ease-out;
-
       z-index:35;
     }
     .hvr-target.bad{
@@ -375,6 +372,65 @@
         max-width:960px;
       }
     }
+
+    /* ==========================================================
+       Crosshair FUN (kids): lock + fuse + ping
+       ========================================================== */
+    #hvr-crosshair{
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+    }
+
+    #hvr-crosshair.lock{
+      transform:translate(-50%,-50%) scale(1.10);
+      border-color: rgba(74,222,128,0.95);
+      box-shadow:
+        0 0 0 2px rgba(15,23,42,0.75),
+        0 0 18px rgba(34,197,94,0.65),
+        0 0 42px rgba(34,197,94,0.40);
+    }
+
+    #hvr-crosshair.lock-bad{
+      transform:translate(-50%,-50%) scale(1.10);
+      border-color: rgba(251,146,60,0.95);
+      box-shadow:
+        0 0 0 2px rgba(15,23,42,0.75),
+        0 0 18px rgba(249,115,22,0.65),
+        0 0 42px rgba(249,115,22,0.40);
+    }
+
+    #hvr-crosshair .fuse-ring{
+      position:absolute;
+      inset:-4px;
+      border-radius:999px;
+      border:4px solid rgba(148,163,184,0.18);
+      pointer-events:none;
+      mask: radial-gradient(circle, transparent 58%, #000 60%);
+      -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%);
+      opacity:0;
+      transform: rotate(-90deg);
+    }
+
+    #hvr-crosshair.fusing .fuse-ring{
+      opacity:1;
+      border-color: rgba(74,222,128,0.35);
+    }
+
+    #hvr-crosshair .fuse-ring::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      background: conic-gradient(rgba(34,197,94,0.95) var(--fuse, 0%), rgba(34,197,94,0.0) 0);
+    }
+
+    #hvr-crosshair.ping{
+      animation: pingPop .18s ease-out;
+    }
+    @keyframes pingPop{
+      0%{ transform:translate(-50%,-50%) scale(1.00); }
+      60%{ transform:translate(-50%,-50%) scale(1.20); }
+      100%{ transform:translate(-50%,-50%) scale(1.05); }
+    }
   </style>
 </head>
 <body>
@@ -442,10 +498,14 @@
     </article>
   </section>
 
-  <!-- ✅ โซนเล่นจริง (targets จะ spawn ลงในนี้ เมื่อ hydration.safe.js ส่ง spawnHost มา) -->
+  <!-- ✅ targets spawn ลงในนี้ → เลื่อนตาม scroll ได้จริง -->
   <main id="hvr-playfield"></main>
 
-  <div id="hvr-crosshair" class="hvr-crosshair">○</div>
+  <!-- ✅ Crosshair + Fuse ring -->
+  <div id="hvr-crosshair" class="hvr-crosshair" aria-label="crosshair">
+    ○
+    <div class="fuse-ring"></div>
+  </div>
 
   <section class="hha-coach-wrap">
     <div class="hha-coach-bubble" id="hha-coach-bubble">
@@ -501,7 +561,7 @@
     return { diff, time };
   }
 
-  // ✅ ดูจำนวน target ที่โผล่ ทั้งใน playfield และ overlay (กันสับสน)
+  // ✅ ดูจำนวน target ที่โผล่ ทั้งใน playfield และ overlay
   function watchdogTargets(tag = '') {
     const pf = document.getElementById('hvr-playfield');
     const nPf = pf ? pf.querySelectorAll('.hvr-target').length : 0;
@@ -529,7 +589,6 @@
         duration: time
       });
 
-      // watchdog after boot
       setTimeout(() => watchdogTargets('after-boot(2.2s)'), 2200);
       setTimeout(() => watchdogTargets('after-boot(5.0s)'), 5000);
 
@@ -540,13 +599,161 @@
   });
 </script>
 
-<!--
-IMPORTANT:
-เพื่อให้เป้า “โผล่ใน #hvr-playfield และเลื่อนตามหน้า”
-ต้องแก้ hydration.safe.js ให้ส่ง:
-  spawnHost: '#hvr-playfield'
-เข้า factoryBoot(...) (mode-factory.js) ด้วย
--->
+<!-- ==========================================================
+     Crosshair Controller: lock + fuse + tap-anywhere ยิงกลางจอ
+     ========================================================== -->
+<script>
+(function(){
+  'use strict';
+
+  const FUSE_MS = 650;
+  const TAP_ANYWHERE = true;
+  const AIM_Y = 0.58;
+  const SOUND = true;
+  const DEBUG = false;
+
+  const cross = () => document.getElementById('hvr-crosshair');
+
+  function centerPoint(){
+    const x = Math.round(window.innerWidth * 0.5);
+    const y = Math.round(window.innerHeight * AIM_Y);
+    return {x,y};
+  }
+
+  function findTargetAtCrosshair(){
+    const {x,y} = centerPoint();
+    const el = document.elementFromPoint(x,y);
+    const tgt = el && el.closest ? el.closest('.hvr-target') : null;
+    const isBad = !!(tgt && tgt.classList.contains('bad'));
+    return { tgt, x, y, isBad };
+  }
+
+  let audioCtx = null;
+  function beep(freq=880, dur=0.05){
+    if (!SOUND) return;
+    try{
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.value = 0.06;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      setTimeout(()=>{ o.stop(); }, Math.max(10, dur*1000));
+    }catch{}
+  }
+
+  function ping(){
+    const c = cross();
+    if (!c) return;
+    c.classList.remove('ping');
+    void c.offsetWidth;
+    c.classList.add('ping');
+  }
+
+  function fire(){
+    const {tgt, x, y, isBad} = findTargetAtCrosshair();
+    if (!tgt) { if(DEBUG) console.log('[Crosshair] no target'); return false; }
+
+    ping();
+    beep(isBad ? 420 : 880, 0.06);
+
+    try{
+      const ev = new PointerEvent('pointerdown', {
+        bubbles:true, cancelable:true,
+        clientX:x, clientY:y,
+        pointerType:'touch'
+      });
+      tgt.dispatchEvent(ev);
+      return true;
+    }catch(e){
+      try{
+        const ev2 = new MouseEvent('click', { bubbles:true, cancelable:true, clientX:x, clientY:y });
+        tgt.dispatchEvent(ev2);
+        return true;
+      }catch{}
+    }
+    return false;
+  }
+
+  function onAnyTap(e){
+    const ui = e.target && e.target.closest && e.target.closest('a,button,#hha-water-header,.hha-card,.hha-bottom-row,.hha-coach-wrap');
+    if (ui) return;
+    fire();
+  }
+
+  let fuseTimer = null;
+  let fuseStart = 0;
+  let lastTgt = null;
+
+  function clearFuse(){
+    if (fuseTimer){ clearTimeout(fuseTimer); fuseTimer = null; }
+    fuseStart = 0;
+    const c = cross();
+    if (c){
+      c.classList.remove('fusing');
+      c.style.setProperty('--fuse', '0%');
+    }
+  }
+
+  function setLock(tgt, isBad){
+    const c = cross();
+    if (!c) return;
+    c.classList.toggle('lock', !!tgt && !isBad);
+    c.classList.toggle('lock-bad', !!tgt && !!isBad);
+  }
+
+  function tickFuse(){
+    const c = cross();
+    const {tgt, isBad} = findTargetAtCrosshair();
+
+    setLock(tgt, isBad);
+
+    if (!tgt){
+      lastTgt = null;
+      clearFuse();
+      requestAnimationFrame(tickFuse);
+      return;
+    }
+
+    if (tgt !== lastTgt){
+      lastTgt = tgt;
+      clearFuse();
+      fuseStart = performance.now();
+
+      if (FUSE_MS > 0){
+        c && c.classList.add('fusing');
+        fuseTimer = setTimeout(()=>{
+          fuseTimer = null;
+          const chk = findTargetAtCrosshair().tgt;
+          if (chk === tgt && tgt.isConnected){
+            fire();
+          }
+          clearFuse();
+        }, FUSE_MS);
+      }
+    }
+
+    if (FUSE_MS > 0 && fuseStart > 0 && c){
+      const t = performance.now() - fuseStart;
+      const pct = Math.max(0, Math.min(100, (t / FUSE_MS) * 100));
+      c.style.setProperty('--fuse', pct.toFixed(0) + '%');
+    }
+
+    requestAnimationFrame(tickFuse);
+  }
+
+  window.addEventListener('DOMContentLoaded', ()=>{
+    const c = cross();
+    if (c) c.style.pointerEvents = 'none';
+    if (TAP_ANYWHERE){
+      document.addEventListener('pointerdown', onAnyTap, { passive:false });
+    }
+    requestAnimationFrame(tickFuse);
+  });
+})();
+</script>
 
 </body>
 </html>
