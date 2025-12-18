@@ -1,13 +1,8 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
 // Quest Director (Goals + Mini Quests) — HeroHealth
-// FIX:
-//  - ROOT defined
-//  - supports defs style:
-//     - target: number | (ctx)=>number
-//     - progress/getProgress: (state, ctx)=>number
-//     - done/isDone: (state, prog, target, ctx)=>boolean
-//  - endOnly: true  => ตัดสิน done เฉพาะตอน finalize() เท่านั้น (กันผ่านตั้งแต่เริ่ม)
-//  - Mini quest = ต่อเนื่องทีละอัน (ทำจบแล้วเลื่อนไปอันถัดไป)
+// ✅ FIX: ROOT defined
+// ✅ NEW: supports def.deferStart = true (ไม่ evaluate done ตอน start)
+// Mini quest = ต่อเนื่องทีละอัน (ทำจบแล้วเลื่อนไปอันถัดไป)
 
 'use strict';
 
@@ -30,22 +25,18 @@ function normalizeDef(def, fallbackId){
     id: d.id || d.key || d.metric || fallbackId || ('q_' + Math.random().toString(16).slice(2)),
     label: d.label || d.title || d.name || 'ภารกิจ',
     hint: d.hint || d.desc || d.description || '',
-    endOnly: !!d.endOnly, // ✅ NEW
-
     target: d.target,
-
     getProgress:
       (typeof d.getProgress === 'function') ? d.getProgress :
       (typeof d.progress === 'function') ? d.progress :
       null,
-
     metric: (typeof d.metric === 'string' && d.metric) ? d.metric : null,
     key: (typeof d.key === 'string' && d.key) ? d.key : null,
-
     isDone:
       (typeof d.isDone === 'function') ? d.isDone :
       (typeof d.done === 'function') ? d.done :
-      null
+      null,
+    deferStart: !!d.deferStart
   };
 }
 
@@ -73,9 +64,6 @@ function resolveProgress(def, state, ctx){
 
 function resolveDone(def, state, prog, target, ctx){
   try{
-    // ✅ endOnly: ตัดสินเฉพาะตอน finalize
-    if (def.endOnly && !(ctx && ctx._final)) return false;
-
     if (def.isDone) return !!def.isDone(state, prog, target, ctx);
   }catch(_){}
   return (Number(prog) || 0) >= (Number(target) || 1);
@@ -105,7 +93,7 @@ function emitUpdate(payload){
 
 export function makeQuestDirector(opts = {}){
   const diff = String(opts.diff || 'normal').toLowerCase();
-  const ctx = { diff, _final:false };
+  const ctx = { diff };
 
   const maxGoals = Number(opts.maxGoals ?? 2) || 2;
   const maxMini  = Number(opts.maxMini  ?? 3) || 3;
@@ -123,13 +111,19 @@ export function makeQuestDirector(opts = {}){
   function currentGoal(){ return pickedGoals[goalIdx] || null; }
   function currentMini(){ return pickedMinis[miniIdx] || null; }
 
-  function updateOne(item, state){
+  function updateOne(item, state, phase){
     if (!item || item.done) return item;
 
     const progRaw = resolveProgress(item._def, state, ctx);
     item.prog = Math.max(0, Math.floor(Number(progRaw) || 0));
-    item.done = resolveDone(item._def, state, item.prog, item.target, ctx);
 
+    // ✅ กัน “ผ่านเลยตอนเริ่ม” สำหรับ constraint/เงื่อนไข
+    if (phase === 'start' && item._def.deferStart){
+      item.done = false;
+      return item;
+    }
+
+    item.done = resolveDone(item._def, state, item.prog, item.target, ctx);
     return item;
   }
 
@@ -147,35 +141,24 @@ export function makeQuestDirector(opts = {}){
 
     const goalPayload = g ? {
       id: g.id, label: g.label, hint: g.hint,
-      prog: g.prog|0, target: g.target|0,
-      done: !!g.done
+      prog: g.prog|0, target: g.target|0, done: !!g.done
     } : null;
 
     const miniPayload = m ? {
       id: m.id, label: m.label, hint: m.hint,
-      prog: m.prog|0, target: m.target|0,
-      done: !!m.done
+      prog: m.prog|0, target: m.target|0, done: !!m.done
     } : null;
 
     return {
       diff,
       goal: goalPayload,
       mini: miniPayload,
-
-      goalsAll: pickedGoals.map(x => ({
-        id: x.id, label: x.label,
-        prog: x.prog|0, target: x.target|0, done: !!x.done
-      })),
-      minisAll: pickedMinis.map(x => ({
-        id: x.id, label: x.label,
-        prog: x.prog|0, target: x.target|0, done: !!x.done
-      })),
-
+      goalsAll: pickedGoals.map(x => ({ id:x.id, label:x.label, prog:x.prog|0, target:x.target|0, done:!!x.done })),
+      minisAll: pickedMinis.map(x => ({ id:x.id, label:x.label, prog:x.prog|0, target:x.target|0, done:!!x.done })),
       goalsCleared,
       goalsTotal: pickedGoals.length,
       miniCleared,
       miniTotal: pickedMinis.length,
-
       hint: (goalPayload && goalPayload.hint) ? goalPayload.hint
           : (miniPayload && miniPayload.hint) ? miniPayload.hint
           : ''
@@ -185,9 +168,9 @@ export function makeQuestDirector(opts = {}){
   function start(initialState = {}){
     started = true;
 
-    // ✅ อย่า mark done แบบ endOnly ตอนเริ่ม (resolveDone กันไว้แล้ว)
-    for (const g of pickedGoals) updateOne(g, initialState);
-    if (pickedMinis[0]) updateOne(pickedMinis[0], initialState);
+    // Goals: init แต่ไม่ให้ constraint ผ่านทันที
+    for (const g of pickedGoals) updateOne(g, initialState, 'start');
+    if (pickedMinis[0]) updateOne(pickedMinis[0], initialState, 'start');
 
     advanceIfDone();
     emitUpdate(buildPayload());
@@ -197,10 +180,10 @@ export function makeQuestDirector(opts = {}){
     if (!started) return;
 
     const g = currentGoal();
-    if (g) updateOne(g, state);
+    if (g) updateOne(g, state, 'update');
 
     const m = currentMini();
-    if (m) updateOne(m, state);
+    if (m) updateOne(m, state, 'update');
 
     const beforeG = goalIdx;
     const beforeM = miniIdx;
@@ -209,29 +192,21 @@ export function makeQuestDirector(opts = {}){
 
     if (goalIdx !== beforeG){
       const g2 = currentGoal();
-      if (g2) updateOne(g2, state);
+      if (g2) updateOne(g2, state, 'update');
     }
     if (miniIdx !== beforeM){
       const m2 = currentMini();
-      if (m2) updateOne(m2, state);
+      if (m2) updateOne(m2, state, 'update');
     }
 
     emitUpdate(buildPayload());
   }
 
   function finalize(finalState = {}){
-    // ✅ เปิดโหมด final ให้ endOnly ตัดสินได้
-    ctx._final = true;
-
-    for (const g of pickedGoals) updateOne(g, finalState);
-    for (const m of pickedMinis) updateOne(m, finalState);
-
+    for (const g of pickedGoals) updateOne(g, finalState, 'final');
+    for (const m of pickedMinis) updateOne(m, finalState, 'final');
     advanceIfDone();
     const p = buildPayload();
-
-    // ปิดกลับ (กัน side-effect)
-    ctx._final = false;
-
     return {
       goalsCleared: p.goalsCleared|0,
       goalsTotal: p.goalsTotal|0,
