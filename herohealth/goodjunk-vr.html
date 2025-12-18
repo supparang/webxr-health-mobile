@@ -435,11 +435,13 @@
     const logText = $('logtext');
 
     // ✅ URL params from Hub: diff, time, run, ch/challenge
-    const URL = new URL(window.location.href);
-    const URL_RUN = (URL.searchParams.get('run') || 'play').toLowerCase();                 // play | research
-    const URL_DIFF = (URL.searchParams.get('diff') || 'normal').toLowerCase();            // easy | normal | hard
-    const URL_CH = (URL.searchParams.get('ch') || URL.searchParams.get('challenge') || 'rush').toLowerCase(); // rush|boss|survival
-    const URL_TIME_RAW = parseInt(URL.searchParams.get('time') || '', 10);
+    // ✅ URL params from Hub: diff, time, run, ch/challenge
+    const pageUrl = new window.URL(window.location.href);
+    const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();                 // play | research
+    const URL_DIFF = (pageUrl.searchParams.get('diff') || 'normal').toLowerCase();            // easy | normal | hard
+    const URL_CH = (pageUrl.searchParams.get('ch') || pageUrl.searchParams.get('challenge') || 'rush').toLowerCase(); // rush|boss|survival
+    const URL_TIME_RAW = parseInt(pageUrl.searchParams.get('time') || '', 10);
+
 
     const DEFAULT_TIME = { easy:80, normal:60, hard:50 }; // ให้ตรงกับ Hub ล่าสุด
     function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
