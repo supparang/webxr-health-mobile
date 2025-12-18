@@ -253,8 +253,8 @@
       left:50%;
       top:58%;
       transform:translate(-50%,-50%);
-      width:48px;
-      height:48px;
+      width:52px;
+      height:52px;
       border-radius:999px;
       border:2px solid rgba(148,163,184,0.9);
       box-shadow:0 0 0 1px rgba(15,23,42,0.85);
@@ -373,63 +373,25 @@
       }
     }
 
-    /* ==========================================================
-       Crosshair FUN (kids): lock + fuse + ping
-       ========================================================== */
-    #hvr-crosshair{
-      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
-    }
-
-    #hvr-crosshair.lock{
-      transform:translate(-50%,-50%) scale(1.10);
-      border-color: rgba(74,222,128,0.95);
-      box-shadow:
-        0 0 0 2px rgba(15,23,42,0.75),
-        0 0 18px rgba(34,197,94,0.65),
-        0 0 42px rgba(34,197,94,0.40);
-    }
-
-    #hvr-crosshair.lock-bad{
-      transform:translate(-50%,-50%) scale(1.10);
-      border-color: rgba(251,146,60,0.95);
-      box-shadow:
-        0 0 0 2px rgba(15,23,42,0.75),
-        0 0 18px rgba(249,115,22,0.65),
-        0 0 42px rgba(249,115,22,0.40);
-    }
-
-    #hvr-crosshair .fuse-ring{
-      position:absolute;
-      inset:-4px;
-      border-radius:999px;
-      border:4px solid rgba(148,163,184,0.18);
-      pointer-events:none;
-      mask: radial-gradient(circle, transparent 58%, #000 60%);
-      -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%);
-      opacity:0;
-      transform: rotate(-90deg);
-    }
-
-    #hvr-crosshair.fusing .fuse-ring{
-      opacity:1;
-      border-color: rgba(74,222,128,0.35);
-    }
-
-    #hvr-crosshair .fuse-ring::before{
-      content:"";
-      position:absolute;
+    /* ===== Screen Blink (kids love it) ===== */
+    .hvr-screen-blink{
+      position:fixed;
       inset:0;
-      border-radius:999px;
-      background: conic-gradient(rgba(34,197,94,0.95) var(--fuse, 0%), rgba(34,197,94,0.0) 0);
+      z-index:9999;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .06s ease;
+      mix-blend-mode: screen;
     }
-
-    #hvr-crosshair.ping{
-      animation: pingPop .18s ease-out;
+    .hvr-screen-blink.on{ opacity:1; }
+    .hvr-screen-blink.good{
+      background: radial-gradient(circle at 50% 58%, rgba(34,197,94,.35), rgba(34,197,94,0) 60%);
     }
-    @keyframes pingPop{
-      0%{ transform:translate(-50%,-50%) scale(1.00); }
-      60%{ transform:translate(-50%,-50%) scale(1.20); }
-      100%{ transform:translate(-50%,-50%) scale(1.05); }
+    .hvr-screen-blink.bad{
+      background: radial-gradient(circle at 50% 58%, rgba(249,115,22,.38), rgba(249,115,22,0) 60%);
+    }
+    .hvr-screen-blink.block{
+      background: radial-gradient(circle at 50% 58%, rgba(96,165,250,.35), rgba(96,165,250,0) 60%);
     }
   </style>
 </head>
@@ -498,14 +460,11 @@
     </article>
   </section>
 
-  <!-- ✅ targets spawn ลงในนี้ → เลื่อนตาม scroll ได้จริง -->
+  <!-- ✅ โซนเล่นจริง -->
   <main id="hvr-playfield"></main>
 
-  <!-- ✅ Crosshair + Fuse ring -->
-  <div id="hvr-crosshair" class="hvr-crosshair" aria-label="crosshair">
-    ○
-    <div class="fuse-ring"></div>
-  </div>
+  <!-- ✅ Crosshair fixed -->
+  <div id="hvr-crosshair" class="hvr-crosshair">○</div>
 
   <section class="hha-coach-wrap">
     <div class="hha-coach-bubble" id="hha-coach-bubble">
@@ -542,10 +501,135 @@
   </a>
 </div>
 
+<!-- ✅ Screen blink layer -->
+<div id="hvr-screen-blink" class="hvr-screen-blink"></div>
+
 <!-- ===== Scripts (global HUD / FX) ===== -->
 <script src="./vr/particles.js"></script>
 <script src="./vr/ui-fever.js"></script>
 <script src="./vr/hha-hud.js"></script>
+
+<!-- ✅ Crosshair controller (ยิงด้วยวงเล็ง + กะพริบ+สั่น) -->
+<script>
+(function(){
+  'use strict';
+
+  function $(id){ return document.getElementById(id); }
+
+  const FIRE_COOLDOWN = 160; // ยิงถี่พอดีเด็ก ป.5
+  let lastFireAt = 0;
+
+  // ===== Audio tiny beep =====
+  let audioCtx = null;
+  function beep(freq, dur){
+    try{
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq || 880;
+      g.gain.value = 0.04;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      o.stop(audioCtx.currentTime + (dur || 0.06));
+    }catch{}
+  }
+
+  // ===== Crosshair ping animation =====
+  function ping(){
+    const c = $('hvr-crosshair');
+    if(!c) return;
+    c.style.transform = 'translate(-50%,-50%) scale(0.92)';
+    setTimeout(()=>{ c.style.transform='translate(-50%,-50%) scale(1)'; }, 70);
+  }
+
+  // ===== Blink + Vibrate =====
+  function vibrate(pattern){
+    try{
+      if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
+    }catch{}
+  }
+
+  function screenBlink(kind){
+    const el = $('hvr-screen-blink');
+    if (!el) return;
+    el.classList.remove('good','bad','block','on');
+    el.classList.add(kind || 'good');
+    void el.offsetWidth;         // retrigger
+    el.classList.add('on');
+    setTimeout(()=>{ el.classList.remove('on'); }, 85);
+  }
+
+  // ===== Aim: find element at crosshair point =====
+  function elementAtCrosshair(){
+    const c = $('hvr-crosshair');
+    if(!c) return null;
+    const r = c.getBoundingClientRect();
+    const x = r.left + r.width/2;
+    const y = r.top  + r.height/2;
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    const tgt = el.closest ? el.closest('.hvr-target') : null;
+    return tgt || null;
+  }
+
+  // ===== Fire: trigger click on target =====
+  function fire(){
+    const now = Date.now();
+    if (now - lastFireAt < FIRE_COOLDOWN) return;
+    lastFireAt = now;
+
+    const tgt = elementAtCrosshair();
+    if (!tgt) { beep(220, 0.05); return; }
+
+    const isBad = tgt.classList.contains('bad');
+
+    // ✅ feedback ก่อนยิงจริง
+    ping();
+    if (isBad) {
+      screenBlink('bad');
+      vibrate([20, 40, 20]);
+      beep(420, 0.06);
+    } else {
+      screenBlink('good');
+      vibrate(18);
+      beep(880, 0.06);
+    }
+
+    // ยิงจริง (เรียก handler ของ mode-factory)
+    try{
+      tgt.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX: 0, clientY: 0 }));
+    }catch{
+      try{ tgt.click(); }catch{}
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', ()=>{
+    // แตะ/คลิกที่หน้าจอ = ยิง (ให้เล่นเหมือน FPS ง่าย ๆ)
+    document.addEventListener('pointerdown', (e)=>{
+      // ถ้าแตะโดนเป้าโดยตรง → ปล่อยให้เป้าโดนเอง แต่มี blink+สั่นด้วย
+      const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
+      if (t) {
+        const isBad = t.classList.contains('bad');
+        if (isBad) { screenBlink('bad'); vibrate([18, 28, 18]); }
+        else { screenBlink('good'); vibrate(14); }
+        return;
+      }
+      fire();
+    }, { passive:true });
+
+    // คีย์บอร์ด (PC) กด Space = ยิง
+    window.addEventListener('keydown', (e)=>{
+      if (e.code === 'Space') { e.preventDefault(); fire(); }
+    });
+
+    // ทำให้ “สั่น” พร้อมใช้ (ต้องมี gesture)
+    try{
+      document.body.addEventListener('click', ()=>{}, { once:true });
+    }catch{}
+  });
+})();
+</script>
 
 <!-- ===== Boot Hydration VR (module) ===== -->
 <script type="module">
@@ -561,7 +645,6 @@
     return { diff, time };
   }
 
-  // ✅ ดูจำนวน target ที่โผล่ ทั้งใน playfield และ overlay
   function watchdogTargets(tag = '') {
     const pf = document.getElementById('hvr-playfield');
     const nPf = pf ? pf.querySelectorAll('.hvr-target').length : 0;
@@ -570,189 +653,24 @@
     const nOv = ov ? ov.querySelectorAll('.hvr-target').length : 0;
 
     console.log(`[HydrationVR] ${tag} targets -> playfield=${nPf} overlay=${nOv}`);
-
-    if (nPf === 0 && nOv === 0) {
-      console.warn('[HydrationVR] No targets anywhere -> ตรวจ import path / mode-factory / console error');
-    }
+    if (nPf === 0 && nOv === 0) console.warn('[HydrationVR] No targets anywhere');
   }
 
   window.addEventListener('DOMContentLoaded', async () => {
     const { diff, time } = parseQuery();
 
-    const diffText = diff.toUpperCase();
     const diffPill = document.getElementById('hha-diff-pill');
-    if (diffPill) diffPill.textContent = diffText + ' • ' + time + 's';
+    if (diffPill) diffPill.textContent = diff.toUpperCase() + ' • ' + time + 's';
 
     try {
-      await hydrationBoot({
-        difficulty: diff,
-        duration: time
-      });
-
+      await hydrationBoot({ difficulty: diff, duration: time });
       setTimeout(() => watchdogTargets('after-boot(2.2s)'), 2200);
       setTimeout(() => watchdogTargets('after-boot(5.0s)'), 5000);
-
     } catch (err) {
       console.error('[HydrationVR] boot error', err);
-      alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้');
+      alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้ (เช็ค console)');
     }
   });
-</script>
-
-<!-- ==========================================================
-     Crosshair Controller: lock + fuse + tap-anywhere ยิงกลางจอ
-     ========================================================== -->
-<script>
-(function(){
-  'use strict';
-
-  const FUSE_MS = 650;
-  const TAP_ANYWHERE = true;
-  const AIM_Y = 0.58;
-  const SOUND = true;
-  const DEBUG = false;
-
-  const cross = () => document.getElementById('hvr-crosshair');
-
-  function centerPoint(){
-    const x = Math.round(window.innerWidth * 0.5);
-    const y = Math.round(window.innerHeight * AIM_Y);
-    return {x,y};
-  }
-
-  function findTargetAtCrosshair(){
-    const {x,y} = centerPoint();
-    const el = document.elementFromPoint(x,y);
-    const tgt = el && el.closest ? el.closest('.hvr-target') : null;
-    const isBad = !!(tgt && tgt.classList.contains('bad'));
-    return { tgt, x, y, isBad };
-  }
-
-  let audioCtx = null;
-  function beep(freq=880, dur=0.05){
-    if (!SOUND) return;
-    try{
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.type = 'sine';
-      o.frequency.value = freq;
-      g.gain.value = 0.06;
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start();
-      setTimeout(()=>{ o.stop(); }, Math.max(10, dur*1000));
-    }catch{}
-  }
-
-  function ping(){
-    const c = cross();
-    if (!c) return;
-    c.classList.remove('ping');
-    void c.offsetWidth;
-    c.classList.add('ping');
-  }
-
-  function fire(){
-    const {tgt, x, y, isBad} = findTargetAtCrosshair();
-    if (!tgt) { if(DEBUG) console.log('[Crosshair] no target'); return false; }
-
-    ping();
-    beep(isBad ? 420 : 880, 0.06);
-
-    try{
-      const ev = new PointerEvent('pointerdown', {
-        bubbles:true, cancelable:true,
-        clientX:x, clientY:y,
-        pointerType:'touch'
-      });
-      tgt.dispatchEvent(ev);
-      return true;
-    }catch(e){
-      try{
-        const ev2 = new MouseEvent('click', { bubbles:true, cancelable:true, clientX:x, clientY:y });
-        tgt.dispatchEvent(ev2);
-        return true;
-      }catch{}
-    }
-    return false;
-  }
-
-  function onAnyTap(e){
-    const ui = e.target && e.target.closest && e.target.closest('a,button,#hha-water-header,.hha-card,.hha-bottom-row,.hha-coach-wrap');
-    if (ui) return;
-    fire();
-  }
-
-  let fuseTimer = null;
-  let fuseStart = 0;
-  let lastTgt = null;
-
-  function clearFuse(){
-    if (fuseTimer){ clearTimeout(fuseTimer); fuseTimer = null; }
-    fuseStart = 0;
-    const c = cross();
-    if (c){
-      c.classList.remove('fusing');
-      c.style.setProperty('--fuse', '0%');
-    }
-  }
-
-  function setLock(tgt, isBad){
-    const c = cross();
-    if (!c) return;
-    c.classList.toggle('lock', !!tgt && !isBad);
-    c.classList.toggle('lock-bad', !!tgt && !!isBad);
-  }
-
-  function tickFuse(){
-    const c = cross();
-    const {tgt, isBad} = findTargetAtCrosshair();
-
-    setLock(tgt, isBad);
-
-    if (!tgt){
-      lastTgt = null;
-      clearFuse();
-      requestAnimationFrame(tickFuse);
-      return;
-    }
-
-    if (tgt !== lastTgt){
-      lastTgt = tgt;
-      clearFuse();
-      fuseStart = performance.now();
-
-      if (FUSE_MS > 0){
-        c && c.classList.add('fusing');
-        fuseTimer = setTimeout(()=>{
-          fuseTimer = null;
-          const chk = findTargetAtCrosshair().tgt;
-          if (chk === tgt && tgt.isConnected){
-            fire();
-          }
-          clearFuse();
-        }, FUSE_MS);
-      }
-    }
-
-    if (FUSE_MS > 0 && fuseStart > 0 && c){
-      const t = performance.now() - fuseStart;
-      const pct = Math.max(0, Math.min(100, (t / FUSE_MS) * 100));
-      c.style.setProperty('--fuse', pct.toFixed(0) + '%');
-    }
-
-    requestAnimationFrame(tickFuse);
-  }
-
-  window.addEventListener('DOMContentLoaded', ()=>{
-    const c = cross();
-    if (c) c.style.pointerEvents = 'none';
-    if (TAP_ANYWHERE){
-      document.addEventListener('pointerdown', onAnyTap, { passive:false });
-    }
-    requestAnimationFrame(tickFuse);
-  });
-})();
 </script>
 
 </body>
