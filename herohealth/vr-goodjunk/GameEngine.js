@@ -1,8 +1,10 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (FINAL v5 P5-hype)
-// + STAR bonus (คะแนน+เอฟเฟกต์+คอมโบ)
-// + Panic multiplier support (window.__HHA_PANIC_MULT)
-// MISS = good expired (seen) + junk hit (shield block = NO miss)
+// Good vs Junk VR — DOM Emoji Engine (FINAL v3)
+// MISS = good expired + junk hit (shield block = NO miss)
+// v3:
+// - รับ cfg จาก opts.cfg เพื่อจูน spawn/maxActive/junkRatio/lifeMs/powerChance/moveChance/scale
+// - fallback 2D + clamp กันเป้าไปกองมุมซ้ายบน/กันจอดำ
+// - good-expire นับ MISS เฉพาะที่ "เคยเห็นจริง" (seen=true)
 
 'use strict';
 
@@ -20,21 +22,18 @@
   const STAR='⭐', FIRE='🔥', SHIELD='🛡️';
   const POWER=[STAR,FIRE,SHIELD];
 
-  const DIFF_TUNE = {
-    easy:   { spawnEveryMs: 820, ttlMs: 2400, maxActive: 4, goodRatio: 0.72, powerRate: 0.13, tScale: 1.18 },
-    normal: { spawnEveryMs: 700, ttlMs: 2100, maxActive: 5, goodRatio: 0.68, powerRate: 0.12, tScale: 1.08 },
-    hard:   { spawnEveryMs: 600, ttlMs: 1900, maxActive: 6, goodRatio: 0.64, powerRate: 0.10, tScale: 1.00 }
+  // ===== Runtime config (defaults) =====
+  const CFG = {
+    spawnMs: 900,
+    maxActive: 4,
+    junkRatio: 0.33,
+    lifeMs: 2150,
+    powerChance: 0.12,
+    moveChance: 0.34,
+    scale: 1.0
   };
 
-  const ENDGAME_SEC = 10;
-  const ENDGAME_SPAWN_MULT = 0.85;
-  const ENDGAME_TTL_MULT   = 0.90;
-
-  // ⭐ BONUS tuning (เหมาะกับเด็ก ป.5 = ดีใจ + เห็นผลชัด)
-  const STAR_SCORE = 80;      // โบนัสคะแนน
-  const STAR_COMBO_ADD = 2;   // โบนัสคอมโบ (เร้าใจ)
-  const STAR_BURST = 18;      // จำนวนแตกกระจาย
-
+  // ===== State =====
   let running=false;
   let layerEl=null;
   let active=[];
@@ -50,21 +49,13 @@
   let feverActive=false;
   let feverPrev=false;
 
-  let cfg = { ...DIFF_TUNE.normal };
-  let startMs = 0;
-  let durationSec = 60;
-
-  function clamp(v, min, max){
-    v = Number(v) || 0;
-    if (v < min) return min;
-    if (v > max) return max;
-    return v;
-  }
-
+  // ===== Dynamic THREE getter =====
   function getTHREE(){
     return ROOT.THREE || (ROOT.AFRAME && ROOT.AFRAME.THREE) || null;
   }
-  function sceneRef(){ return document.querySelector('a-scene') || null; }
+  function sceneRef(){
+    return document.querySelector('a-scene') || null;
+  }
   function cameraReady(){
     const scene = sceneRef();
     const THREE = getTHREE();
@@ -74,6 +65,14 @@
     const camEl = document.querySelector('#gj-camera') || document.querySelector('a-camera');
     if (camEl && camEl.object3D) return camEl.object3D;
     return null;
+  }
+
+  // ===== helpers =====
+  function clamp(n, a, b){
+    n = Number(n) || 0;
+    if (n < a) return a;
+    if (n > b) return b;
+    return n;
   }
 
   function spawnWorld(){
@@ -87,10 +86,9 @@
     const dir = new THREE.Vector3();
     cam.getWorldDirection(dir);
 
-    pos.add(dir.multiplyScalar(2.05));
-    pos.x += (Math.random()-0.5)*1.9;
-    pos.y += (Math.random()-0.5)*1.45;
-
+    pos.add(dir.multiplyScalar(2.2));
+    pos.x += (Math.random()-0.5)*1.8;
+    pos.y += (Math.random()-0.5)*1.4;
     return pos;
   }
 
@@ -108,114 +106,49 @@
     };
   }
 
+  // ===== Emit =====
   function emitJudge(label){
     ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label }}));
   }
   function emitMiss(){
     ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses }}));
   }
-
   function emitFeverEdgeIfNeeded(){
     if (!FeverUI || typeof FeverUI.isActive !== 'function') return;
-
     feverPrev = feverActive;
     feverActive = !!FeverUI.isActive();
-
     if (feverActive && !feverPrev){
       ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'start' }}));
     } else if (!feverActive && feverPrev){
       ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'end' }}));
     }
   }
-
   function emitScore(){
     if (FeverUI && typeof FeverUI.isActive === 'function'){
       feverActive = !!FeverUI.isActive();
       emitFeverEdgeIfNeeded();
-    } else {
+    }else{
       feverActive = false;
       feverPrev = false;
     }
-
     ROOT.dispatchEvent(new CustomEvent('hha:score',{
       detail:{ score, combo, comboMax, goodHits, misses, feverActive, shield }
     }));
   }
 
-  function nowSecLeft(){
-    if (!durationSec || durationSec <= 0) return 9999;
-    const elapsed = (performance.now() - startMs) / 1000;
-    return Math.max(0, durationSec - elapsed);
-  }
-
-  function currentSpawnEveryMs(){
-    let s = cfg.spawnEveryMs;
-
-    // endgame auto boost
-    if (nowSecLeft() <= ENDGAME_SEC) s = Math.round(s * ENDGAME_SPAWN_MULT);
-
-    // panic multiplier from HTML (10 วิท้าย)
-    const pm = Number(ROOT.__HHA_PANIC_MULT || 1) || 1;
-    s = Math.round(s / Math.max(1, pm)); // pm>1 = spawn ถี่ขึ้น
-
-    return Math.max(240, s);
-  }
-
-  function currentTtlMs(){
-    let t = cfg.ttlMs;
-    if (nowSecLeft() <= ENDGAME_SEC) t = Math.round(t * ENDGAME_TTL_MULT);
-    return Math.max(900, t);
-  }
-
-  // ===== VR center-bias fallback 2D =====
-  function pickFallback2D(){
-    const w = window.innerWidth || 1;
-    const h = window.innerHeight || 1;
-
-    const isVR = !!ROOT.__HHA_IS_VR;
-
-    const minX = Math.round(w * 0.10);
-    const maxX = Math.round(w * 0.90);
-    const minY = Math.round(h * 0.18);
-    const maxY = Math.round(h * 0.88);
-
-    if (isVR){
-      const cx = w * 0.5;
-      const cy = h * 0.52;
-
-      const rx = w * 0.22;
-      const ry = h * 0.18;
-
-      const r01 = ()=> (Math.random() + Math.random()) / 2;
-      const sx = (r01()*2 - 1);
-      const sy = (r01()*2 - 1);
-
-      const x = clamp(cx + sx * rx, minX, maxX);
-      const y = clamp(cy + sy * ry, minY, maxY);
-      return { x: Math.round(x), y: Math.round(y) };
-    }
-
-    const x = w * (0.18 + Math.random()*0.64);
-    const y = h * (0.22 + Math.random()*0.60);
-    return { x: Math.round(clamp(x, minX, maxX)), y: Math.round(clamp(y, minY, maxY)) };
-  }
-
-  function createTarget(){
+  // ===== Target =====
+  function createTarget(kind){
     if (!layerEl) return;
-
-    const isGood = Math.random() < cfg.goodRatio;
-    const kind = isGood ? 'good' : 'junk';
 
     const el = document.createElement('div');
     el.className = 'gj-target ' + (kind === 'good' ? 'gj-good' : 'gj-junk');
-    el.style.setProperty('--tScale', String(cfg.tScale || 1));
 
     let emoji = '';
     if (kind === 'good'){
-      const rollPower = Math.random() < (cfg.powerRate || 0.1);
-      emoji = rollPower ? POWER[Math.floor(Math.random()*POWER.length)]
-                        : GOOD[Math.floor(Math.random()*GOOD.length)];
-    } else {
+      const power = (Math.random() < clamp(CFG.powerChance, 0, 0.35));
+      emoji = power ? POWER[Math.floor(Math.random()*POWER.length)]
+                    : GOOD[Math.floor(Math.random()*GOOD.length)];
+    }else{
       emoji = JUNK[Math.floor(Math.random()*JUNK.length)];
     }
 
@@ -227,14 +160,43 @@
       emoji === FIRE   ? 'diamond':
       emoji === SHIELD ? 'shield' : kind;
 
+    // scale from cfg
+    el.style.setProperty('--tScale', String(CFG.scale || 1));
+
+    // fallback 2D
+    const padX = 24;
+    const padY = 84;
+    const fallback2D = {
+      x: Math.round(padX + Math.random() * Math.max(1, window.innerWidth - padX*2)),
+      y: Math.round(padY + Math.random() * Math.max(1, window.innerHeight - padY*2))
+    };
+
+    // moving excitement (เด็ก ป.5)
+    const moving = Math.random() < clamp(CFG.moveChance, 0, 0.9);
+    const drift2D = moving
+      ? { vx: (Math.random()<0.5?-1:1) * (0.25 + Math.random()*0.55), vy: (Math.random()<0.5?-1:1) * (0.15 + Math.random()*0.45) }
+      : null;
+
+    let drift3D = null;
+    const THREE = getTHREE();
+    if (moving && THREE){
+      drift3D = new THREE.Vector3(
+        (Math.random()<0.5?-1:1) * (0.002 + Math.random()*0.0038),
+        (Math.random()<0.5?-1:1) * (0.0015 + Math.random()*0.0032),
+        0
+      );
+    }
+
     const t = {
       el,
       kind,
       emoji,
-      pos: spawnWorld(),
+      pos: spawnWorld(),     // may null
       born: performance.now(),
       seen: false,
-      fallback2D: pickFallback2D()
+      fallback2D,
+      drift2D,
+      drift3D
     };
 
     active.push(t);
@@ -245,8 +207,9 @@
       hitTarget(t, e.clientX || 0, e.clientY || 0);
     });
 
-    const ttl = currentTtlMs();
-    setTimeout(()=>expireTarget(t), ttl);
+    // expire by cfg.lifeMs
+    const life = clamp(CFG.lifeMs, 900, 4200);
+    setTimeout(()=>expireTarget(t), life);
   }
 
   function removeTarget(t){
@@ -259,6 +222,7 @@
     if (!running) return;
     removeTarget(t);
 
+    // MISS เฉพาะ "ปล่อยของดี" และต้องเคยเห็นจริง
     if (t.kind === 'good' && t.seen){
       misses++;
       combo = 0;
@@ -268,32 +232,9 @@
     }
   }
 
-  function burstAtXY(x,y,count){
-    if (!Particles || typeof Particles.burstAt !== 'function') return;
-    Particles.burstAt(x, y, { count: count|0, good:true });
-  }
-  function popAtXY(x,y,text){
-    if (!Particles || typeof Particles.scorePop !== 'function') return;
-    Particles.scorePop(x, y, text, { good:true });
-  }
-
   function hitTarget(t, x, y){
     if (!t || !t.el) return;
     removeTarget(t);
-
-    // ⭐ STAR BONUS
-    if (t.emoji === STAR){
-      score += STAR_SCORE;
-      combo += STAR_COMBO_ADD;
-      comboMax = Math.max(comboMax, combo);
-
-      burstAtXY(x, y, STAR_BURST);
-      popAtXY(x, y, `+${STAR_SCORE}`);
-
-      emitJudge('STAR!');
-      emitScore();
-      return;
-    }
 
     if (t.emoji === SHIELD){
       shield = Math.min(3, shield + 1);
@@ -340,6 +281,7 @@
     emitScore();
   }
 
+  // ===== Loops =====
   function renderLoop(){
     if (!running) return;
 
@@ -348,17 +290,38 @@
     for (const t of active){
       if (!t || !t.el) continue;
 
-      if (!t.pos && ready) t.pos = spawnWorld();
+      // drift in 3D if possible
+      if (ready && t.pos && t.drift3D){
+        try{ t.pos.add(t.drift3D); }catch(_){}
+      }
+
+      // drift in 2D fallback
+      if (t.drift2D){
+        t.fallback2D.x += t.drift2D.vx;
+        t.fallback2D.y += t.drift2D.vy;
+      }
+
+      if (!t.pos && ready){
+        t.pos = spawnWorld();
+      }
 
       let p = null;
-      if (ready && t.pos) p = project(t.pos);
+      if (ready && t.pos){
+        p = project(t.pos);
+      }
 
+      // fallback 2D
       if (!p){
-        if (ROOT.__HHA_IS_VR) t.fallback2D = pickFallback2D();
         p = t.fallback2D;
-      } else {
+      }else{
         t.seen = true;
       }
+
+      // clamp within viewport (กันไปกองซ้ายบน/หลุดจอ)
+      const padX = 24;
+      const padY = 84;
+      p.x = clamp(p.x, padX, window.innerWidth - padX);
+      p.y = clamp(p.y, padY, window.innerHeight - padY);
 
       t.el.style.display = 'block';
       t.el.style.left = p.x + 'px';
@@ -371,30 +334,52 @@
   function spawnLoop(){
     if (!running) return;
 
-    const maxA = Math.max(1, cfg.maxActive|0);
-    if (active.length < maxA) createTarget();
+    const maxA = clamp(CFG.maxActive, 2, 7);
+    if (active.length < maxA){
+      const jr = clamp(CFG.junkRatio, 0.05, 0.70);
+      const kind = (Math.random() < (1 - jr)) ? 'good' : 'junk';
+      createTarget(kind);
+    }
 
-    const every = currentSpawnEveryMs();
-    spawnTimer = setTimeout(spawnLoop, every);
+    const ms = clamp(CFG.spawnMs, 520, 1600);
+    spawnTimer = setTimeout(spawnLoop, ms);
   }
 
+  // ===== API =====
   function start(diff, opts={}){
     if (running) return;
     running = true;
 
-    const dk = String(diff || 'normal').toLowerCase();
-    cfg = { ...(DIFF_TUNE[dk] || DIFF_TUNE.normal) };
-
     layerEl = opts.layerEl || document.getElementById('gj-layer');
-    durationSec = Number(opts.durationSec || 60) || 60;
-    startMs = performance.now();
 
-    score=0; combo=0; comboMax=0; goodHits=0; misses=0; shield=0;
-    feverActive=false; feverPrev=false;
+    // apply cfg from html
+    if (opts.cfg && typeof opts.cfg === 'object'){
+      const c = opts.cfg;
+      CFG.spawnMs = Number(c.spawnMs ?? c.baseSpawnMs ?? CFG.spawnMs) || CFG.spawnMs;
+      CFG.maxActive = Number(c.maxActiveNow ?? c.maxActive ?? CFG.maxActive) || CFG.maxActive;
+      CFG.junkRatio = Number(c.junkRatioNow ?? c.junkRatio ?? CFG.junkRatio);
+      CFG.lifeMs = Number(c.lifeMs ?? CFG.lifeMs) || CFG.lifeMs;
+      CFG.powerChance = Number(c.powerChance ?? CFG.powerChance);
+      CFG.moveChance  = Number(c.moveChance ?? CFG.moveChance);
+      CFG.scale       = Number(c.scale ?? CFG.scale) || CFG.scale;
+    }
 
-    if (FeverUI && typeof FeverUI.reset === 'function') FeverUI.reset();
+    score=0; combo=0; comboMax=0; goodHits=0; misses=0;
+    shield=0;
 
-    console.log('[GoodJunkVR] Engine start', { diff: dk, cfg, durationSec, isVR: !!ROOT.__HHA_IS_VR });
+    feverActive=false;
+    feverPrev=false;
+
+    if (FeverUI && typeof FeverUI.reset === 'function'){
+      FeverUI.reset();
+    }
+
+    console.log('[GoodJunkVR] GameEngine.start OK', {
+      diff,
+      cfg: { ...CFG },
+      hasAFRAME: !!ROOT.AFRAME,
+      hasTHREE: !!getTHREE()
+    });
 
     emitScore();
     renderLoop();
