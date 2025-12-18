@@ -771,22 +771,6 @@
     import { makeQuestDirector } from './vr-goodjunk/quest-director.js';
     import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './vr-goodjunk/quest-defs-goodjunk.js';
 
-    // ---------- helpers: cache-bust navigation ----------
-    function hardNav(url){
-      const u = new URL(url, window.location.href);
-      u.searchParams.set('_', String(Date.now()));
-      window.location.replace(u.toString());
-    }
-    function clearHubFlags(){
-      try{
-        sessionStorage.removeItem('HHA_AUTO_START');
-        sessionStorage.removeItem('HHA_RETURNED_FROM_GAME');
-        // เผื่อใช้ในระบบคุณ
-        sessionStorage.removeItem('HHA_LAST_GAME');
-        sessionStorage.removeItem('HHA_LAST_URL');
-      }catch(_){}
-    }
-
     // ---------------- Params ----------------
     function getParam(name, fallback){
       const url = new URL(window.location.href);
@@ -875,6 +859,25 @@
     const logDot  = document.getElementById('logdot');
     const logText = document.getElementById('logtext');
 
+    // ---------------- NEW: hard reload / hard nav (กัน cache + BFCache) ----------------
+    function hardNav(url){
+      const u = new URL(url, window.location.href);
+      u.searchParams.set('_', String(Date.now()));
+      window.location.replace(u.toString());
+    }
+    function hardReload(){
+      const u = new URL(window.location.href);
+      u.searchParams.set('_', String(Date.now()));
+      window.location.replace(u.toString());
+    }
+
+    // กัน BFCache: ถ้าหน้าถูก restore จาก history ให้ reload ใหม่
+    window.addEventListener('pageshow', (e)=>{
+      if (e.persisted){
+        hardReload();
+      }
+    });
+
     // ---------------- Coach ----------------
     const coachMoodKeys = ['neutral','happy','sad','fever'];
     let lastCoachTimeout = null;
@@ -918,7 +921,7 @@
     let prevGoalsCleared = 0;
     let prevMiniCleared  = 0;
 
-    // Lives (hard only)
+    // Lives (hard only): 1 หัวใจหายทุก MISS_PER_LIFE
     const MAX_LIVES = 3;
     const MISS_PER_LIFE = 3;
     let currentLives = MAX_LIVES;
@@ -928,18 +931,29 @@
     let runMode = 'play';
     let dur = 60;
 
-    // ---- timer refs (สำคัญ: เคลียร์ตอน stop) ----
+    // ---------------- NEW: timer + ended guard ----------------
     let timerId = null;
     let ended = false;
 
-    function safeStop(reason){
-      try{ GameEngine.stop(reason || 'ui'); }catch(_){}
-    }
     function clearTimer(){
       if (timerId){
-        try{ clearInterval(timerId); }catch(_){}
+        clearInterval(timerId);
         timerId = null;
       }
+    }
+
+    function safeStopEngine(reason){
+      try{ GameEngine.stop(reason || 'ui'); }catch(_){}
+      clearTimer();
+    }
+
+    function clearHubFlags(){
+      try{
+        sessionStorage.removeItem('HHA_AUTO_START');
+        sessionStorage.removeItem('HHA_RETURNED_FROM_GAME');
+        sessionStorage.removeItem('HHA_LAST_GAME');
+        sessionStorage.removeItem('HHA_LAST_URL');
+      }catch(_){}
     }
 
     // ---------------- Lives ----------------
@@ -978,7 +992,7 @@
       if (livesLeft <= 0){
         setCoachFace('sad');
         setCoach('โอ๊ะ! หัวใจหมดแล้ว จบเกมนะ 💥');
-        safeStop('lives-zero');
+        safeStopEngine('lives-zero');
       }
     }
 
@@ -1113,6 +1127,7 @@
       });
     }
 
+    // mouse ↔ gaze (พื้นฐาน)
     function setCursorMode(mode){
       const cursorEl = document.getElementById('cursor');
       if (!cursorEl) return;
@@ -1185,8 +1200,8 @@
     }
 
     window.addEventListener('hha:end', (e)=>{
-      ended = true;                // ✅ กัน visibility stop ซ้อน
-      clearTimer();                // ✅ เคลียร์ timer ทันที
+      ended = true;
+      clearTimer();
 
       const d = e.detail || {};
       const scoreFinal = (typeof d.scoreFinal === 'number') ? (d.scoreFinal|0) : (state.score|0);
@@ -1345,15 +1360,16 @@
       if (started) return;
       started = true;
       ended = false;
-      clearTimer();
-      clearHubFlags();
 
+      // hide overlay (gesture already happened)
       if (startOverlay) startOverlay.style.display = 'none';
 
+      // parse params
       diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
       runMode = (runParam === 'research') ? 'research' : 'play';
 
+      // duration defaults
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
       else if (diff === 'hard') baseDur = 50;
@@ -1365,6 +1381,7 @@
         if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
       }
 
+      // HUD init
       elDiff.textContent = diff.toUpperCase();
       elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
       elScore.textContent = '0';
@@ -1374,6 +1391,7 @@
       elTime.textContent  = dur + 's';
       if (elJudge) elJudge.textContent = '';
 
+      // state init
       state.score = 0;
       state.goodHits = 0;
       state.miss = 0;
@@ -1381,10 +1399,12 @@
       state.timeLeft = dur;
       state.feverActive = false;
 
+      // lives init
       currentLives = MAX_LIVES;
       warnedLowLife = false;
       renderLives(currentLives);
 
+      // coach intro
       setCoachFace('neutral');
       if (runMode === 'research'){
         setCoach('โหมดวิจัย: เล่นให้เป็นธรรมชาติ แต่พยายามพลาดให้น้อยที่สุดนะ 📊');
@@ -1394,6 +1414,7 @@
         else setCoach('แตะเฉพาะอาหารดี แล้วหลบขยะ! พร้อมลุย! ⚡');
       }
 
+      // student profile from hub
       let studentProfile = null;
       let studentKey = null;
       try{
@@ -1402,8 +1423,9 @@
           studentProfile = JSON.parse(raw);
           studentKey = studentProfile.studentKey || null;
         }
-      }catch(_){}
+      }catch(err){}
 
+      // init logger (พร้อม debug)
       setLogPending('logger: init…');
       try{
         initCloudLogger({
@@ -1423,11 +1445,13 @@
         setLogBadge(false, 'logger: init failed (check console)');
       }
 
+      // touch + VR button
       const cam = document.querySelector('#gj-camera');
       attachTouch(cam);
       initVRButton();
       hookVrModeAutoSwitch();
 
+      // QuestDirector
       try{
         Q = makeQuestDirector({
           diff,
@@ -1442,6 +1466,7 @@
         Q = null;
       }
 
+      // countdown then start engine
       runCountdown(()=>{
         waitSceneReady(async ()=>{
           updateFeverHUD();
@@ -1456,67 +1481,54 @@
             durationSec: dur
           });
 
-          // ---- timer (stored globally so we can clear on stop/end) ----
+          // timer (สำคัญ: เก็บไว้ clear ตอนจบ/stop)
+          clearTimer();
           let timeLeft = dur;
           window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-
           timerId = setInterval(()=>{
             timeLeft -= 1;
             if (timeLeft < 0) return;
             window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
             if (timeLeft <= 0){
               clearTimer();
-              safeStop('time-up');
+              safeStopEngine('time-up');
             }
           }, 1000);
         });
       });
 
-      if (elEndRun) elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
-    }
-
-    // ---- buttons: replay/back hub (FIX: cache + flags + safe stop) ----
-    if (btnReplay){
-      btnReplay.addEventListener('click', ()=>{
-        clearTimer();
-        safeStop('replay');
+      // buttons (FIX: stop + clear flags + hard nav)
+      if (btnReplay) btnReplay.addEventListener('click', ()=>{
+        safeStopEngine('replay');
         clearHubFlags();
-        // reload แบบกัน cache
-        hardNav(window.location.pathname + window.location.search);
+        hardReload();
       });
-    }
 
-    if (btnBackHub){
-      btnBackHub.addEventListener('click', ()=>{
-        clearTimer();
-        safeStop('back-hub');
+      if (btnBackHub) btnBackHub.addEventListener('click', ()=>{
+        safeStopEngine('back-hub');
         try{
           sessionStorage.setItem('HHA_RETURNED_FROM_GAME', '1');
           sessionStorage.setItem('HHA_LAST_GAME', 'goodjunk');
           sessionStorage.setItem('HHA_LAST_URL', window.location.href);
-          sessionStorage.removeItem('HHA_AUTO_START'); // ✅ กันค้าง
+          sessionStorage.removeItem('HHA_AUTO_START');
         }catch(_){}
         hardNav('./hub.html');
       });
+
+      if (elEndRun) elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
+
+      // visibilitychange (FIX: กัน stop ค้างตอนเปลี่ยนหน้า/กลับ hub)
+      document.addEventListener('visibilitychange', ()=>{
+        if (document.hidden && !ended){
+          safeStopEngine('tab-hidden');
+        }
+      });
     }
-
-    // ---- visibility/pagehide: กัน stop ค้างตอนสลับหน้า ----
-    document.addEventListener('visibilitychange', ()=>{
-      if (document.hidden && !ended){
-        clearTimer();
-        safeStop('tab-hidden');
-      }
-    });
-
-    window.addEventListener('pagehide', ()=>{
-      // มือถือ/Chrome: ออกจากหน้าแล้วค้าง listener ได้ → เคลียร์ให้ชัวร์
-      clearTimer();
-      safeStop('pagehide');
-    });
 
     // Start overlay button hooks
     btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
     btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
+
   </script>
 </body>
 </html>
