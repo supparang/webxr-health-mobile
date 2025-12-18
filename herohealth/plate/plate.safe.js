@@ -173,7 +173,7 @@ function emitTime() { emit('hha:time', { sessionId, mode:'PlateVR', sec: tLeft, 
 /* ===========================
    ✅ BOOT SECTION (ทางเลือก A)
    - ไม่เรียก startGame ตรง ๆ
-   - หา starter ที่มีจริง แล้วเรียกผ่าน __plateStart()
+   - หา starter ที่มีจริง แล้วเรียกผ่าน resolvePlateStarter()
    =========================== */
 
 function ensureTouchLookControls() {
@@ -197,29 +197,23 @@ function bindUI() {
   }
 }
 
-/**
- * ✅ ทาง A: unify starter
- * - รองรับกรณี startGame อยู่ “คนละสโคป” หรือถูก attach ไว้ที่ window
- * - ช่วยกัน error: startGame is not defined
- */
+/** ✅ หา starter ที่มีจริง */
 function resolvePlateStarter() {
   // 1) ใน module scope (ถ้ามีจริง)
   if (typeof startGame === 'function') return startGame;
-  if (typeof start === 'function') return start;
   if (typeof beginGame === 'function') return beginGame;
+  if (typeof start === 'function') return start;
 
-  // 2) ลองใน window (กันกรณีส่วนกลางไปอยู่ global)
+  // 2) ใน window (เผื่อคุณไปผูกไว้ global)
   if (typeof window.startGame === 'function') return window.startGame;
-  if (typeof window.start === 'function') return window.start;
   if (typeof window.beginGame === 'function') return window.beginGame;
+  if (typeof window.start === 'function') return window.start;
 
-  // 3) ไม่พบ
   return null;
 }
 
-// ✅ export ที่ plate-vr.html ต้องการ
+// ✅ export ให้ plate-vr.html import ไปเรียก
 export function bootPlateDOM() {
-  // กันบูตซ้ำ
   if (window.__PLATE_DOM_BOOTED__) return;
   window.__PLATE_DOM_BOOTED__ = true;
 
@@ -230,44 +224,35 @@ export function bootPlateDOM() {
   setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
   setText('hudTime', tLeft);
 
-  // ✅ targetRoot ต้องมีจริง ไม่งั้น “เวลาเดิน miss นับ แต่เป้าไม่โผล่”
+  // ✅ เช็ค element สำคัญ
+  if (!cam) console.warn('[PlateVR] #cam not found. Check plate-vr.html');
   if (!targetRoot) {
     console.error('[PlateVR] #targetRoot not found. Check plate-vr.html');
-    emitCoach('หา targetRoot ไม่เจอ! เพิ่ม <a-entity id="targetRoot" ...> ในกล้องก่อนนะ ⚠️', 'sad');
-    emitJudge('NO TARGET ROOT');
+    emitCoach?.('หา targetRoot ไม่เจอ! ตรวจ ID ใน plate-vr.html ก่อนนะ ⚠️', 'sad');
     return;
   }
 
-  // ✅ หา starter (ทาง A)
-  const __plateStart = resolvePlateStarter();
-  if (!__plateStart) {
+  const starter = resolvePlateStarter();
+  if (!starter) {
     console.error('[PlateVR] No start function found (startGame/start/beginGame).');
-    emitCoach('ไม่เจอฟังก์ชันเริ่มเกม (startGame/start/beginGame) ในไฟล์นี้ ⚠️', 'sad');
-    emitJudge('NO START FN');
+    emitCoach?.('ยังไม่มีฟังก์ชันเริ่มเกมใน plate.safe.js (startGame/beginGame/start) ⚠️', 'sad');
     return;
   }
 
-  // ✅ start game เมื่อ scene พร้อม
+  // ✅ start เมื่อ scene พร้อม
   if (scene) {
-    if (scene.hasLoaded) {
-      window.dispatchEvent(new CustomEvent('plate:boot-ready'));
-      __plateStart();
-    } else {
-      scene.addEventListener('loaded', () => {
-        window.dispatchEvent(new CustomEvent('plate:boot-ready'));
-        __plateStart();
-      }, { once: true });
-    }
+    if (scene.hasLoaded) starter();
+    else scene.addEventListener('loaded', () => starter(), { once: true });
   } else {
-    setTimeout(() => { __plateStart(); }, 250);
+    setTimeout(() => starter(), 250);
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && !ended) endGame('tab_hidden');
+    if (document.hidden && !ended) endGame?.('tab_hidden');
   });
 }
 
-// ✅ auto boot (ถ้า html ไม่เรียกเอง guard จะกันซ้ำ)
+// ✅ เผื่อ html ไม่เรียกเอง ก็ auto boot
 window.addEventListener('DOMContentLoaded', () => {
   bootPlateDOM();
 });
