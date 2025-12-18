@@ -20,9 +20,7 @@
       --radius-lg:18px;
       --radius-pill:999px;
     }
-
     *{box-sizing:border-box;}
-
     html, body{
       margin:0;
       padding:0;
@@ -32,7 +30,6 @@
       height:100%;
       overflow-y:auto;
     }
-
     body{ -webkit-font-smoothing:antialiased; }
 
     #hvr-wrap{
@@ -57,7 +54,6 @@
       z-index:40;
       backdrop-filter:blur(18px);
     }
-
     .hha-water-bar-label{
       font-size:14px;
       color:var(--text-soft);
@@ -66,14 +62,8 @@
       gap:6px;
       white-space:nowrap;
     }
-
     .hha-water-bar-label span.emoji{ font-size:17px; }
-
-    .hha-water-bar-status{
-      margin-left:auto;
-      font-size:14px;
-    }
-
+    .hha-water-bar-status{ margin-left:auto; font-size:14px; }
     .hha-water-bar-fill{
       flex:1 1 auto;
       height:8px;
@@ -83,17 +73,13 @@
     }
     .hha-water-bar-fill-inner{
       height:100%;
-      width:50%;
+      width:38%;
       border-radius:999px;
       background:linear-gradient(90deg,#22c55e,#4ade80);
-      transition:width .3s ease, background .25s ease;
+      transition:width .3s ease;
     }
 
-    .hha-main-row{
-      display:flex;
-      gap:10px;
-      margin-top:8px;
-    }
+    .hha-main-row{ display:flex; gap:10px; margin-top:8px; }
     .hha-card{
       background:radial-gradient(circle at top left,#0b1120,#020617 60%);
       border-radius:var(--radius-lg);
@@ -101,7 +87,6 @@
       padding:12px 14px;
       box-shadow:0 18px 40px rgba(15,23,42,0.85);
     }
-
     .hha-card-left{ flex:1.1 1 0; min-width:0; }
     .hha-card-right{ flex:1 1 0; min-width:0; }
 
@@ -112,18 +97,9 @@
       color:var(--text-soft);
       margin-bottom:2px;
     }
-    .hha-mode{
-      font-size:20px;
-      font-weight:600;
-      margin-bottom:6px;
-    }
+    .hha-mode{ font-size:20px; font-weight:600; margin-bottom:6px; }
 
-    .hha-pill-row{
-      display:flex;
-      gap:8px;
-      margin:6px 0 10px;
-      flex-wrap:wrap;
-    }
+    .hha-pill-row{ display:flex; gap:8px; margin:6px 0 10px; flex-wrap:wrap; }
     .hha-pill{
       border-radius:999px;
       padding:4px 10px;
@@ -133,14 +109,8 @@
       border:1px solid rgba(148,163,184,0.4);
       color:var(--text-soft);
     }
-    .hha-pill-primary{
-      border-color:rgba(56,189,248,0.8);
-      color:#e0f2fe;
-    }
-    .hha-pill-diff{
-      border-color:rgba(34,197,94,0.8);
-      color:#bbf7d0;
-    }
+    .hha-pill-primary{ border-color:rgba(56,189,248,0.8); color:#e0f2fe; }
+    .hha-pill-diff{ border-color:rgba(34,197,94,0.8); color:#bbf7d0; }
 
     .hha-score-row{
       display:flex;
@@ -150,22 +120,10 @@
       gap:10px;
     }
     .hha-score-block{ font-size:13px; }
-    .hha-score-block strong{
-      display:block;
-      font-size:26px;
-      line-height:1.1;
-    }
-    .hha-score-label{
-      font-size:12px;
-      color:var(--text-soft);
-      margin-top:2px;
-    }
+    .hha-score-block strong{ display:block; font-size:26px; line-height:1.1; }
+    .hha-score-label{ font-size:12px; color:var(--text-soft); margin-top:2px; }
 
-    .hha-grade{
-      text-align:right;
-      font-size:12px;
-      color:var(--text-soft);
-    }
+    .hha-grade{ text-align:right; font-size:12px; color:var(--text-soft); }
     .hha-grade span.badge{
       display:inline-block;
       min-width:36px;
@@ -179,41 +137,36 @@
       margin-left:4px;
     }
 
-    /* ✅ NEW: Progress to S */
+    /* ✅ Progress to S (S 30%) */
     .hha-grade-progress{
       margin-top:6px;
-      width:160px;
-      margin-left:auto;
-      text-align:left;
-    }
-    .hha-grade-progress-top{
       display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:8px;
+      flex-direction:column;
+      gap:4px;
+      align-items:flex-end;
+      min-width:180px;
+    }
+    .hha-grade-progress .label{
       font-size:11px;
       color:var(--text-soft);
+      letter-spacing:.06em;
+      text-transform:uppercase;
     }
-    .hha-grade-progress-label{
-      font-weight:800;
-      color:#e5e7eb;
-      letter-spacing:.02em;
-    }
-    .hha-grade-progress-hint{ opacity:.85; }
-    .hha-grade-progress-bar{
-      margin-top:4px;
-      height:6px;
+    .hha-grade-progress .bar{
+      width:180px;
+      height:7px;
       border-radius:999px;
       background:rgba(15,23,42,0.95);
-      overflow:hidden;
       border:1px solid rgba(148,163,184,0.25);
+      overflow:hidden;
+      box-shadow:0 10px 26px rgba(15,23,42,0.7);
     }
-    .hha-grade-progress-bar-inner{
+    .hha-grade-progress .fill{
       height:100%;
       width:0%;
       border-radius:999px;
       background:linear-gradient(90deg,#22c55e,#4ade80);
-      transition:width .22s ease-out;
+      transition:width .18s ease-out;
     }
 
     .hha-quest-title{
@@ -223,21 +176,9 @@
       color:var(--text-soft);
       margin-bottom:4px;
     }
-    .hha-quest-main{
-      font-size:16px;
-      font-weight:600;
-      margin-bottom:4px;
-    }
-    .hha-quest-mini{
-      font-size:14px;
-      color:var(--text-soft);
-      margin-bottom:6px;
-    }
-    .hha-quest-progress{
-      font-size:13px;
-      color:var(--text-soft);
-      margin-top:4px;
-    }
+    .hha-quest-main{ font-size:16px; font-weight:600; margin-bottom:4px; }
+    .hha-quest-mini{ font-size:14px; color:var(--text-soft); margin-bottom:6px; }
+    .hha-quest-progress{ font-size:13px; color:var(--text-soft); margin-top:4px; }
     .hha-quest-progress strong{ color:var(--accent); }
 
     /* ===== PLAYFIELD ===== */
@@ -250,7 +191,6 @@
       z-index:30;
     }
 
-    /* เป้า emoji */
     .hvr-target{
       position:absolute;
       transform:translate(-50%,-50%);
@@ -263,32 +203,29 @@
       display:flex;
       align-items:center;
       justify-content:center;
+      background:radial-gradient(circle at 30% 30%,#4ade80,#16a34a);
       color:#f9fafb;
       user-select:none;
       cursor:pointer;
       transition:transform .08s ease-out, box-shadow .12s ease-out;
       z-index:35;
+      will-change: left, top, transform;
     }
     .hvr-target.bad{
+      background:radial-gradient(circle at 30% 30%,#fb923c,#ea580c);
       box-shadow:
         0 0 0 2px rgba(15,23,42,0.9),
         0 16px 35px rgba(0,0,0,0.85),
         0 0 26px rgba(248,113,113,0.66);
     }
-
-    /* ✅ กะพริบ + สั่น (เด็กชอบ) */
-    .hvr-target.jiggle{ animation: tgtJiggle .28s ease-in-out infinite alternate; }
-    .hvr-target.blink { animation: tgtBlink .55s ease-in-out infinite; }
-    @keyframes tgtJiggle{
-      0%{ transform:translate(-50%,-50%) scale(1) rotate(-2deg); }
-      100%{ transform:translate(-50%,-50%) scale(1.03) rotate(2deg); }
-    }
-    @keyframes tgtBlink{
-      0%, 100%{ filter:brightness(1); }
-      50%{ filter:brightness(1.35); }
+    .hvr-target:active{
+      transform:translate(-50%,-50%) scale(.93);
+      box-shadow:
+        0 0 0 2px rgba(15,23,42,0.9),
+        0 10px 24px rgba(0,0,0,0.85);
     }
 
-    /* Crosshair */
+    /* crosshair fixed */
     .hvr-crosshair{
       position:fixed;
       left:50%;
@@ -337,13 +274,11 @@
     }
     .hha-coach-avatar img{ width:100%; height:100%; object-fit:cover; }
     .hha-coach-text{ font-size:14px; line-height:1.45; }
-    .hha-coach-name{ font-weight:700; margin-bottom:2px; }
+    .hha-coach-name{ font-weight:600; margin-bottom:2px; }
 
     .hha-bottom-row{
       position:fixed;
-      left:0;
-      right:0;
-      bottom:0;
+      left:0; right:0; bottom:0;
       padding:6px 12px 10px;
       display:flex;
       gap:10px;
@@ -352,7 +287,6 @@
       pointer-events:none;
     }
     .hha-bottom-row > *{ pointer-events:auto; }
-
     .hha-fever-card{
       flex:1 1 auto;
       border-radius:var(--radius-lg);
@@ -363,12 +297,7 @@
       color:var(--text-soft);
       box-shadow:0 14px 32px rgba(15,23,42,0.95);
     }
-    .hha-fever-label{
-      display:flex;
-      align-items:center;
-      gap:6px;
-      margin-bottom:4px;
-    }
+    .hha-fever-label{ display:flex; align-items:center; gap:6px; margin-bottom:4px; }
     .hha-fever-label span.emoji{ font-size:16px; }
     .hha-fever-bar{
       height:8px;
@@ -392,7 +321,6 @@
       align-items:center;
       color:var(--text-soft);
     }
-
     .hha-btn-vr{
       flex:0 0 auto;
       min-width:132px;
@@ -411,16 +339,7 @@
     }
     .hha-btn-vr span.emoji{ font-size:18px; }
 
-    @media (min-width:900px){
-      #hvr-wrap{ max-width:960px; margin:0 auto; }
-      .hha-bottom-row{
-        left:50%;
-        transform:translateX(-50%);
-        max-width:960px;
-      }
-    }
-
-    /* Screen Blink layer */
+    /* screen blink */
     #hvr-screen-blink{
       position:fixed;
       inset:0;
@@ -432,284 +351,280 @@
     #hvr-screen-blink.bad{ background:rgba(249,115,22,0.22); }
     #hvr-screen-blink.block{ background:rgba(96,165,250,0.18); }
     #hvr-screen-blink.on{ animation:hvrBlink 90ms ease-out 1; }
-    @keyframes hvrBlink{
-      0%{opacity:0;}
-      40%{opacity:1;}
-      100%{opacity:0;}
+    @keyframes hvrBlink{ 0%{opacity:0;} 40%{opacity:1;} 100%{opacity:0;} }
+
+    @media (min-width:900px){
+      #hvr-wrap{ max-width:960px; margin:0 auto; }
+      .hha-bottom-row{
+        left:50%;
+        transform:translateX(-50%);
+        max-width:960px;
+      }
     }
   </style>
 </head>
+
 <body>
+  <div id="hvr-wrap">
 
-<div id="hvr-wrap">
-
-  <header class="hha-water-bar" id="hha-water-header">
-    <div class="hha-water-bar-label">
-      <span class="emoji">💧</span>
-      <span>Water balance</span>
-    </div>
-    <div class="hha-water-bar-fill">
-      <div class="hha-water-bar-fill-inner" id="hha-water-fill"></div>
-    </div>
-    <div class="hha-water-bar-status" id="hha-water-status">GREEN 50%</div>
-  </header>
-
-  <section class="hha-main-row">
-    <article class="hha-card hha-card-left" id="hha-card-left">
-      <div class="hha-title">HERO HEALTH • HYDRATION VR</div>
-      <div class="hha-mode" id="hha-mode-label">Hydration Quest</div>
-
-      <div class="hha-pill-row">
-        <div class="hha-pill hha-pill-primary" id="hha-mode-pill">PLAY MODE</div>
-        <div class="hha-pill hha-pill-diff" id="hha-diff-pill">EASY • 80s</div>
+    <header class="hha-water-bar" id="hha-water-header">
+      <div class="hha-water-bar-label">
+        <span class="emoji">💧</span>
+        <span>Water balance</span>
       </div>
+      <div class="hha-water-bar-fill">
+        <div class="hha-water-bar-fill-inner" id="hha-water-fill"></div>
+      </div>
+      <div class="hha-water-bar-status" id="hha-water-status">GREEN 50%</div>
+    </header>
 
-      <div class="hha-score-row">
-        <div class="hha-score-block">
-          คะแนน
-          <strong id="hha-score-main">0</strong>
-          <div class="hha-score-label">
-            คอมโบสูงสุด:
-            <span id="hha-combo-max">0</span>
-          </div>
-        </div>
-        <div class="hha-score-block">
-          พลาด
-          <strong id="hha-miss">0</strong>
-          <div class="hha-score-label">
-            น้ำโซน:
-            <span id="hha-water-zone-text">GREEN</span>
-          </div>
+    <section class="hha-main-row">
+      <article class="hha-card hha-card-left" id="hha-card-left">
+        <div class="hha-title">HERO HEALTH • HYDRATION VR</div>
+        <div class="hha-mode" id="hha-mode-label">Hydration Quest</div>
+
+        <div class="hha-pill-row">
+          <div class="hha-pill hha-pill-primary" id="hha-mode-pill">PLAY MODE</div>
+          <div class="hha-pill hha-pill-diff" id="hha-diff-pill">EASY • 80s</div>
         </div>
 
-        <div class="hha-grade">
-          เกรด (REAL-TIME)
-          <span class="badge" id="hha-grade-badge">C</span>
-
-          <!-- ✅ Progress to S -->
-          <div class="hha-grade-progress">
-            <div class="hha-grade-progress-top">
-              <span class="hha-grade-progress-label" id="hha-grade-progress-text">S 0%</span>
-              <span class="hha-grade-progress-hint" id="hha-grade-progress-hint">ไปให้ถึง S!</span>
+        <div class="hha-score-row">
+          <div class="hha-score-block">
+            คะแนน
+            <strong id="hha-score-main">0</strong>
+            <div class="hha-score-label">
+              คอมโบสูงสุด:
+              <span id="hha-combo-max">0</span>
             </div>
-            <div class="hha-grade-progress-bar">
-              <div class="hha-grade-progress-bar-inner" id="hha-grade-progress-fill" style="width:0%"></div>
+          </div>
+
+          <div class="hha-score-block">
+            พลาด
+            <strong id="hha-miss">0</strong>
+            <div class="hha-score-label">
+              น้ำโซน:
+              <span id="hha-water-zone-text">GREEN</span>
+            </div>
+          </div>
+
+          <div class="hha-grade">
+            เกรด (REAL-TIME)
+            <span class="badge" id="hha-grade-badge">C</span>
+
+            <!-- ✅ Progress to S -->
+            <div class="hha-grade-progress">
+              <div class="label" id="hha-grade-progress-label">Progress to S (30%)</div>
+              <div class="bar"><div class="fill" id="hha-grade-progress-fill"></div></div>
             </div>
           </div>
         </div>
-      </div>
-    </article>
+      </article>
 
-    <article class="hha-card hha-card-right" id="hha-card-right">
-      <div class="hha-quest-title">QUEST</div>
-      <div class="hha-quest-main" id="hha-quest-goal">Goal: รักษาโซนน้ำสีเขียว</div>
-      <div class="hha-quest-mini" id="hha-quest-mini">Mini: เก็บน้ำดีต่อเนื่อง</div>
+      <article class="hha-card hha-card-right" id="hha-card-right">
+        <div class="hha-quest-title">QUEST</div>
+        <div class="hha-quest-main" id="hha-quest-goal">Goal: รักษาโซนน้ำสีเขียว</div>
+        <div class="hha-quest-mini" id="hha-quest-mini">Mini: เก็บน้ำดีต่อเนื่อง</div>
 
-      <div class="hha-quest-progress">
-        Goal:
-        <strong><span id="hha-goal-done">0</span>/<span id="hha-goal-total">2</span></strong>
-      </div>
-      <div class="hha-quest-progress">
-        Mini quest:
-        <strong><span id="hha-mini-done">0</span>/<span id="hha-mini-total">3</span></strong>
-      </div>
-    </article>
-  </section>
+        <div class="hha-quest-progress">
+          Goal:
+          <strong><span id="hha-goal-done">0</span>/<span id="hha-goal-total">2</span></strong>
+        </div>
+        <div class="hha-quest-progress">
+          Mini quest:
+          <strong><span id="hha-mini-done">0</span>/<span id="hha-mini-total">3</span></strong>
+        </div>
+      </article>
+    </section>
 
-  <!-- ✅ โซนเล่นจริง: spawn targets ลงในนี้ (เลื่อนตาม scroll) -->
-  <main id="hvr-playfield"></main>
+    <!-- ✅ playfield: เป้าจะ “ตามตอนเลื่อนจอ” โดยธรรมชาติ -->
+    <main id="hvr-playfield"></main>
 
-  <!-- ✅ Crosshair fixed -->
-  <div id="hvr-crosshair" class="hvr-crosshair">○</div>
+    <div id="hvr-crosshair" class="hvr-crosshair">○</div>
 
-  <section class="hha-coach-wrap">
-    <div class="hha-coach-bubble" id="hha-coach-bubble">
-      <div class="hha-coach-avatar"></div>
-      <div class="hha-coach-text">
-        <div class="hha-coach-name">โค้ช</div>
-        <div id="hha-coach-text">
-          ภารกิจคือรักษาน้ำในร่างกายให้อยู่โซนสีเขียว 💧 เลือกน้ำดี เลี่ยงน้ำหวานนะ
+    <section class="hha-coach-wrap">
+      <div class="hha-coach-bubble" id="hha-coach-bubble">
+        <div class="hha-coach-avatar"></div>
+        <div class="hha-coach-text">
+          <div class="hha-coach-name">โค้ช</div>
+          <div id="hha-coach-text">ภารกิจคือรักษาน้ำในร่างกายให้อยู่โซนสีเขียว 💧 เลือกน้ำดี เลี่ยงน้ำหวานนะ</div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-</div>
-
-<div class="hha-bottom-row">
-  <div class="hha-fever-card">
-    <div class="hha-fever-label">
-      <span class="emoji">🔥</span>
-      <span>FEVER GAUGE</span>
-    </div>
-    <div class="hha-fever-bar">
-      <div class="hha-fever-bar-inner" id="hha-fever-fill"></div>
-    </div>
-    <div class="hha-fever-extra">
-      <span>เกราะ: <span id="hha-shield-count">0</span></span>
-      <span id="hha-fever-percent">0%</span>
-    </div>
   </div>
 
-  <a href="#" id="hha-btn-vr" class="hha-btn-vr">
-    <span class="emoji">🕶️</span>
-    <span>เข้าสู่โหมด VR</span>
-  </a>
-</div>
+  <div class="hha-bottom-row">
+    <div class="hha-fever-card">
+      <div class="hha-fever-label">
+        <span class="emoji">🔥</span>
+        <span>FEVER GAUGE</span>
+      </div>
+      <div class="hha-fever-bar">
+        <div class="hha-fever-bar-inner" id="hha-fever-fill"></div>
+      </div>
+      <div class="hha-fever-extra">
+        <span>เกราะ: <span id="hha-shield-count">0</span></span>
+        <span id="hha-fever-percent">0%</span>
+      </div>
+    </div>
 
-<!-- ✅ Screen blink layer (ตัวเดียวพอ) -->
-<div id="hvr-screen-blink" aria-hidden="true"></div>
+    <a href="#" id="hha-btn-vr" class="hha-btn-vr">
+      <span class="emoji">🕶️</span>
+      <span>เข้าสู่โหมด VR</span>
+    </a>
+  </div>
 
-<!-- ===== Scripts (global HUD / FX) ===== -->
-<!-- ต้องมาก่อน (ให้ FeverUI มี API ครบ) -->
-<script src="./vr/ui-fever.js"></script>
-<script src="./vr/particles.js"></script>
-<script src="./vr/hha-hud.js"></script>
+  <div id="hvr-screen-blink" aria-hidden="true"></div>
 
-<!-- ===== Boot Hydration + Crosshair shooter (boot ครั้งเดียว) ===== -->
-<script type="module">
-  import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
+  <!-- global HUD/FX (ต้องมาก่อนเกม) -->
+  <script src="./vr/ui-fever.js"></script>
+  <script src="./vr/particles.js"></script>
+  <script src="./vr/hha-hud.js"></script>
 
-  function $(id){ return document.getElementById(id); }
+  <!-- Boot + Crosshair Shooter -->
+  <script type="module">
+    import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
 
-  function parseQuery() {
-    const url = new URL(window.location.href);
-    const diff = (url.searchParams.get('diff') || 'easy').toLowerCase();
-    let time = parseInt(url.searchParams.get('time') || '80', 10);
-    if (!Number.isFinite(time) || time <= 0) time = 80;
-    if (time < 20) time = 20;
-    if (time > 180) time = 180;
-    return { diff, time };
-  }
+    function $(id){ return document.getElementById(id); }
 
-  // ===== Audio tiny beep =====
-  let audioCtx = null;
-  function beep(freq, dur){
-    try{
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.type = 'sine';
-      o.frequency.value = freq || 880;
-      g.gain.value = 0.04;
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start();
-      o.stop(audioCtx.currentTime + (dur || 0.06));
-    }catch{}
-  }
-
-  function vibrate(pattern){
-    try{
-      if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
-    }catch{}
-  }
-
-  function screenBlink(kind){
-    const el = $('hvr-screen-blink');
-    if (!el) return;
-    el.classList.remove('good','bad','block','on');
-    el.classList.add(kind || 'good');
-    void el.offsetWidth;
-    el.classList.add('on');
-    setTimeout(()=> el.classList.remove('on'), 110);
-  }
-
-  function ping(){
-    const c = $('hvr-crosshair');
-    if (!c) return;
-    c.classList.remove('ping');
-    void c.offsetWidth;
-    c.classList.add('ping');
-  }
-
-  // ยิงตาม crosshair (elementFromPoint)
-  function elementAtCrosshair(){
-    const c = $('hvr-crosshair');
-    if (!c) return null;
-    const r = c.getBoundingClientRect();
-    const x = r.left + r.width/2;
-    const y = r.top  + r.height/2;
-    const el = document.elementFromPoint(x, y);
-    if (!el) return null;
-    return el.closest ? el.closest('.hvr-target') : null;
-  }
-
-  const FIRE_COOLDOWN = 160;
-  let lastFireAt = 0;
-
-  function fire(){
-    const now = Date.now();
-    if (now - lastFireAt < FIRE_COOLDOWN) return;
-    lastFireAt = now;
-
-    const tgt = elementAtCrosshair();
-    ping();
-
-    if (!tgt){
-      beep(220, 0.05);
-      vibrate(10);
-      return;
+    function parseQuery() {
+      const url = new URL(window.location.href);
+      const diff = (url.searchParams.get('diff') || 'easy').toLowerCase();
+      let time = parseInt(url.searchParams.get('time') || '80', 10);
+      if (!Number.isFinite(time) || time <= 0) time = 80;
+      if (time < 20) time = 20;
+      if (time > 180) time = 180;
+      return { diff, time };
     }
 
-    const isBad = tgt.classList.contains('bad');
-
-    if (isBad){
-      screenBlink('bad');
-      vibrate([22, 35, 22]);
-      beep(420, 0.06);
-    } else {
-      screenBlink('good');
-      vibrate(16);
-      beep(880, 0.06);
+    function setDiffPill(diff, time){
+      const diffPill = $('hha-diff-pill');
+      if (diffPill) diffPill.textContent = `${diff.toUpperCase()} • ${time}s`;
     }
 
-    // ยิงแบบ “คลิกจริง” ให้ handler เดิมทำงานครบ
-    try{
-      tgt.dispatchEvent(new PointerEvent('pointerdown', {
-        bubbles:true,
-        cancelable:true,
-        clientX: (window.innerWidth/2)|0,
-        clientY: (window.innerHeight/2)|0
-      }));
-    }catch{
-      try{ tgt.click(); }catch{}
+    // ===== Audio tiny beep =====
+    let audioCtx = null;
+    function beep(freq, dur){
+      try{
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq || 880;
+        g.gain.value = 0.04;
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + (dur || 0.06));
+      }catch{}
     }
-  }
 
-  function bindCrosshairControls(){
-    document.addEventListener('pointerdown', (e)=>{
-      // ถ้าแตะโดนเป้าโดยตรง → ปล่อยให้ระบบเดิมทำงาน
-      const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
-      if (t) return;
+    function vibrate(pattern){
+      try{ if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(pattern); }catch{}
+    }
 
-      // กันคลิกปุ่ม
-      if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr')) return;
+    function screenBlink(kind){
+      const el = $('hvr-screen-blink');
+      if (!el) return;
+      el.classList.remove('good','bad','block','on');
+      el.classList.add(kind || 'good');
+      void el.offsetWidth;
+      el.classList.add('on');
+      setTimeout(()=> el.classList.remove('on'), 110);
+    }
 
-      fire();
-    }, { passive:true });
+    function ping(){
+      const c = $('hvr-crosshair');
+      if (!c) return;
+      c.classList.remove('ping');
+      void c.offsetWidth;
+      c.classList.add('ping');
+    }
 
-    window.addEventListener('keydown', (e)=>{
-      if (e.code === 'Space') { e.preventDefault(); fire(); }
-    });
-  }
+    // ยิงตาม crosshair ด้วย elementFromPoint
+    function elementAtCrosshair(){
+      const c = $('hvr-crosshair');
+      if(!c) return null;
+      const r = c.getBoundingClientRect();
+      const x = r.left + r.width/2;
+      const y = r.top  + r.height/2;
+      const el = document.elementFromPoint(x, y);
+      if (!el) return null;
+      return el.closest ? el.closest('.hvr-target') : null;
+    }
 
-  window.addEventListener('DOMContentLoaded', async () => {
-    const { diff, time } = parseQuery();
-    const diffPill = $('hha-diff-pill');
-    if (diffPill) diffPill.textContent = `${diff.toUpperCase()} • ${time}s`;
+    const FIRE_COOLDOWN = 160;
+    let lastFireAt = 0;
 
-    try{
-      await hydrationBoot({
-        difficulty: diff,
-        duration: time
+    function fire(){
+      const now = Date.now();
+      if (now - lastFireAt < FIRE_COOLDOWN) return;
+      lastFireAt = now;
+
+      const tgt = elementAtCrosshair();
+      ping();
+
+      if (!tgt){
+        beep(220, 0.05);
+        vibrate(10);
+        return;
+      }
+
+      const isBad = tgt.classList.contains('bad');
+      if (isBad){
+        screenBlink('bad');
+        vibrate([22, 35, 22]);
+        beep(420, 0.06);
+      } else {
+        screenBlink('good');
+        vibrate(16);
+        beep(880, 0.06);
+      }
+
+      try{
+        tgt.dispatchEvent(new PointerEvent('pointerdown', {
+          bubbles:true, cancelable:true,
+          clientX: (window.innerWidth/2)|0,
+          clientY: (window.innerHeight/2)|0
+        }));
+      }catch{
+        try{ tgt.click(); }catch{}
+      }
+    }
+
+    function bindCrosshairControls(){
+      document.addEventListener('pointerdown', (e)=>{
+        // แตะโดนเป้าโดยตรง → ปล่อยให้ระบบเดิมทำงาน
+        const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
+        if (t) return;
+        // กันคลิกปุ่ม
+        if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr')) return;
+        fire();
+      }, { passive:true });
+
+      window.addEventListener('keydown', (e)=>{
+        if (e.code === 'Space') { e.preventDefault(); fire(); }
       });
-      bindCrosshairControls();
-    }catch(err){
-      console.error('[HydrationVR] boot error', err);
-      alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้');
     }
-  });
-</script>
 
+    // feedback เสริมจาก judge event
+    window.addEventListener('hha:judge', (e)=>{
+      const lb = String(e?.detail?.label || '').toUpperCase();
+      if (lb === 'BLOCK') screenBlink('block');
+      if (lb === 'MISS') { screenBlink('bad'); vibrate([14, 24, 14]); }
+    });
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const { diff, time } = parseQuery();
+      setDiffPill(diff, time);
+
+      try{
+        await hydrationBoot({ difficulty: diff, duration: time });
+        bindCrosshairControls();
+      }catch(err){
+        console.error('[HydrationVR] boot error', err);
+        alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้');
+      }
+    });
+  </script>
 </body>
 </html>
