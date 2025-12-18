@@ -1,9 +1,9 @@
 // === /herohealth/vr/particles.js ===
 // Hero Health Academy — FX layer (burst + score pop + judge pop)
-// FIX (Dec 2025):
-// - Only show FX when caller provides screen position {x,y} (0..1 or px)
-// - Prevent duplicate layers
-// - Provide public API: burstAt(x,y,opts), floatScoreAt(x,y,text,opts), judgeAt(x,y,text,opts)
+// FIX:
+// - Require position; if missing => do nothing (no top-left/center ghosts)
+// - Support coords: normalized (0..1), percent (0..100), or px with opts.px=true
+// - Back-compat: Particles.scorePop(xPct,yPct,text,opts)
 
 (function (root) {
   'use strict';
@@ -11,7 +11,8 @@
   const doc = root.document;
   if (!doc) return;
 
-  // ---------------- Layer ----------------
+  function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+
   function ensureLayer() {
     let layer = doc.querySelector('.hha-fx-layer');
     if (layer) return layer;
@@ -22,45 +23,13 @@
       position: 'fixed',
       inset: '0',
       pointerEvents: 'none',
-      zIndex: 720, // above HUD (650) but below modals if any
+      zIndex: 720,
       overflow: 'hidden'
     });
     doc.body.appendChild(layer);
     return layer;
   }
 
-  // ---------------- Utils ----------------
-  function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-
-  // Accept (x,y) as:
-  // - normalized 0..1 (screen fraction)  OR
-  // - pixel coords when opts.px = true
-  function toPx(x, y, opts = {}) {
-    const W = root.innerWidth || 1;
-    const H = root.innerHeight || 1;
-    const px = !!opts.px;
-
-    if (px) {
-      return { x: clamp(x, 0, W), y: clamp(y, 0, H) };
-    }
-    return { x: clamp(x, 0, 1) * W, y: clamp(y, 0, 1) * H };
-  }
-
-  function makeDiv(className, xPx, yPx) {
-    const el = doc.createElement('div');
-    el.className = className;
-    Object.assign(el.style, {
-      position: 'fixed',
-      left: xPx + 'px',
-      top: yPx + 'px',
-      transform: 'translate(-50%,-50%)',
-      pointerEvents: 'none',
-      willChange: 'transform, opacity'
-    });
-    return el;
-  }
-
-  // ---------------- Styles (inject once) ----------------
   function ensureStyles(){
     if (doc.getElementById('hha-fx-style')) return;
     const st = doc.createElement('style');
@@ -81,10 +50,9 @@
         white-space: nowrap;
       }
       .hha-pop.good{ border-color: rgba(34,197,94,0.42); }
-      .hha-pop.junk{ border-color: rgba(249,115,22,0.42); }
+      .hha-pop.junk, .hha-pop.haz{ border-color: rgba(249,115,22,0.42); }
       .hha-pop.power{ border-color: rgba(59,130,246,0.42); }
       .hha-pop.boss{ border-color: rgba(250,204,21,0.55); }
-      .hha-pop .small{ font-size: 12px; opacity: .9; font-weight: 800; margin-left: 6px; }
 
       @keyframes hha-pop-up{
         0%{ transform: translate(-50%,-50%) scale(.88); opacity: 0; }
@@ -121,45 +89,81 @@
     doc.head.appendChild(st);
   }
 
-  // ---------------- Public FX ----------------
+  // x,y can be:
+  // - normalized 0..1
+  // - percent 0..100 (heuristic if >1.5)
+  // - px with opts.px=true
+  function toPx(x, y, opts = {}) {
+    if (x == null || y == null) return null;
+
+    const W = root.innerWidth || 1;
+    const H = root.innerHeight || 1;
+
+    if (opts.px) {
+      return { x: clamp(x, 0, W), y: clamp(y, 0, H) };
+    }
+
+    const nx = (x > 1.5) ? (x / 100) : x;
+    const ny = (y > 1.5) ? (y / 100) : y;
+
+    return { x: clamp(nx, 0, 1) * W, y: clamp(ny, 0, 1) * H };
+  }
+
+  function makeDiv(className, xPx, yPx) {
+    const el = doc.createElement('div');
+    el.className = className;
+    Object.assign(el.style, {
+      position: 'fixed',
+      left: xPx + 'px',
+      top: yPx + 'px',
+      transform: 'translate(-50%,-50%)',
+      pointerEvents: 'none',
+      willChange: 'transform, opacity'
+    });
+    return el;
+  }
+
   function floatScoreAt(x, y, text, opts = {}) {
-    if (x == null || y == null) return; // ✅ no position => do nothing
+    const p = toPx(x, y, opts);
+    if (!p) return; // ✅ no position => no FX
     ensureStyles();
     const layer = ensureLayer();
-    const {x: px, y: py} = toPx(x, y, opts);
 
-    const pop = makeDiv('hha-pop ' + (opts.kind || ''), px, py);
+    const dx = Number(opts.dx)||0;
+    const dy = Number(opts.dy)||0;
+
+    const pop = makeDiv('hha-pop ' + (opts.kind || ''), p.x + dx, p.y + dy);
     pop.textContent = String(text || '');
     layer.appendChild(pop);
-
-    // auto remove
     setTimeout(() => { try{ pop.remove(); }catch(_){} }, 650);
   }
 
   function judgeAt(x, y, label, opts = {}) {
-    if (x == null || y == null) return; // ✅ no position => do nothing
+    const p = toPx(x, y, opts);
+    if (!p) return;
     ensureStyles();
     const layer = ensureLayer();
-    const {x: px, y: py} = toPx(x, y, opts);
 
-    const pop = makeDiv('hha-pop ' + (opts.kind || ''), px + (opts.dx || 0), py + (opts.dy || 0));
-    // “คำตัดสิน + คะแนน” แบบคู่กันได้
-    pop.innerHTML = `${String(label || '')}`;
+    const dx = Number(opts.dx)||0;
+    const dy = Number(opts.dy)||0;
+
+    const pop = makeDiv('hha-pop ' + (opts.kind || ''), p.x + dx, p.y + dy);
+    pop.textContent = String(label || '');
     layer.appendChild(pop);
     setTimeout(() => { try{ pop.remove(); }catch(_){} }, 650);
   }
 
   function burstAt(x, y, opts = {}) {
-    if (x == null || y == null) return; // ✅ no position => do nothing
+    const p = toPx(x, y, opts);
+    if (!p) return;
     ensureStyles();
     const layer = ensureLayer();
-    const {x: px, y: py} = toPx(x, y, opts);
 
-    const burst = makeDiv('hha-burst', px, py);
+    const burst = makeDiv('hha-burst', p.x, p.y);
     layer.appendChild(burst);
 
-    const n = clamp(opts.count || 14, 6, 24);
-    const r = clamp(opts.radius || 90, 40, 150);
+    const n = clamp(opts.count || 14, 6, 26);
+    const r = clamp(opts.radius || 92, 40, 160);
 
     for (let i=0;i<n;i++){
       const shard = doc.createElement('div');
@@ -170,13 +174,12 @@
       const dx = Math.cos(a) * rr;
       const dy = Math.sin(a) * rr;
 
-      shard.style.setProperty('--dx', (dx) + 'px');
-      shard.style.setProperty('--dy', (dy) + 'px');
+      shard.style.setProperty('--dx', dx + 'px');
+      shard.style.setProperty('--dy', dy + 'px');
 
-      // tint
       const kind = opts.kind || '';
       if (kind === 'good') shard.style.background = 'rgba(34,197,94,0.95)';
-      else if (kind === 'junk') shard.style.background = 'rgba(249,115,22,0.95)';
+      else if (kind === 'junk' || kind === 'haz') shard.style.background = 'rgba(249,115,22,0.95)';
       else if (kind === 'power') shard.style.background = 'rgba(59,130,246,0.95)';
       else if (kind === 'boss') shard.style.background = 'rgba(250,204,21,0.95)';
 
@@ -186,22 +189,26 @@
     setTimeout(() => { try{ burst.remove(); }catch(_){} }, 520);
   }
 
-  // ---------------- Event bridge ----------------
-  // ✅ ใช้ event เดียวสำหรับ FX แบบระบุตำแหน่ง
+  // ✅ event bridge: {type:'burst'|'score'|'judge', x,y, kind, text, dx, dy}
   root.addEventListener('hha:fx', (e) => {
     const d = e.detail || {};
-    const type = String(d.type || '');
-    if (d.x == null || d.y == null) return; // ✅ no position => ignore
+    if (d.x == null || d.y == null) return; // ✅ MUST have position
 
+    const type = String(d.type || '');
     if (type === 'burst') burstAt(d.x, d.y, d);
     else if (type === 'score') floatScoreAt(d.x, d.y, d.text, d);
     else if (type === 'judge') judgeAt(d.x, d.y, d.text, d);
   });
 
-  // Export API
+  // Back-compat helpers (percent coords)
+  function scorePop(xPct, yPct, text, opts = {}) {
+    floatScoreAt(xPct, yPct, text, Object.assign({ }, opts)); // heuristics: >1.5 => percent
+  }
+
   root.Particles = root.Particles || {};
   root.Particles.burstAt = burstAt;
   root.Particles.floatScoreAt = floatScoreAt;
   root.Particles.judgeAt = judgeAt;
+  root.Particles.scorePop = scorePop;
 
 })(window);
