@@ -90,6 +90,21 @@
     .fg-quest-main{ flex:1; opacity:.92; }
     .fg-quest-progress{ font-variant-numeric:tabular-nums; font-size:12px; color:#bbf7d0; white-space:nowrap; }
 
+    /* mini timed/urgent */
+    .fg-quest-row.mini-timed .fg-quest-progress{ color:#fde68a; }
+    .fg-quest-row.mini-urgent{
+      background:rgba(248,113,113,0.10);
+      border-radius:12px;
+      padding:6px 8px;
+      box-shadow:0 0 0 1px rgba(248,113,113,0.35), 0 0 18px rgba(248,113,113,0.22);
+    }
+    .fg-quest-row.mini-urgent .fg-quest-progress{
+      color:#fecaca;
+      font-weight:800;
+      animation: miniUrgentPulse .35s ease-in-out infinite alternate;
+    }
+    @keyframes miniUrgentPulse{ from{ transform:translateY(0);} to{ transform:translateY(-1px);} }
+
     .hud-bottom{
       position:absolute; left:0; right:0; bottom:64px;
       display:flex; justify-content:center; align-items:center;
@@ -127,7 +142,7 @@
     #fg-layer{
       position:fixed; inset:0;
       z-index:40;
-      pointer-events:auto !important; /* ★ สำคัญ */
+      pointer-events:auto !important;
       touch-action:manipulation;
     }
     .fg-target{
@@ -140,8 +155,8 @@
       user-select:none; -webkit-user-select:none;
       touch-action:manipulation;
       box-shadow:0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
-      transform:translate(-50%,-50%) scale(1);
-      transition:transform .12s ease-out, opacity .12s ease-out;
+      transform:translate(-50%,-50%) scale(var(--fg-scale, 1));
+      transition:transform .12s ease-out, opacity .12s ease-out, box-shadow .12s ease-out;
       opacity:1;
     }
     .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
@@ -154,7 +169,12 @@
       color:#fefce8;
       text-shadow:0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
     }
-    .fg-target.hit{ transform:translate(-50%,-50%) scale(0.6); opacity:0; }
+    .fg-target.hit{ transform:translate(-50%,-50%) scale(calc(var(--fg-scale, 1) * 0.65)); opacity:0; }
+
+    .fg-target.fg-golden{
+      background:radial-gradient(circle at 30% 30%, #facc15, #b45309);
+      box-shadow:0 16px 38px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9), 0 0 20px rgba(250,204,21,0.35);
+    }
 
     /* Fever gauge */
     .hha-fever-wrap{
@@ -274,6 +294,16 @@
       color:#022c22;
       border:none;
     }
+
+    /* boss mode */
+    body.boss-mode .hud-pill{
+      border-color: rgba(250,204,21,0.9);
+      box-shadow: 0 0 0 1px rgba(250,204,21,0.25), 0 0 18px rgba(250,204,21,0.18);
+    }
+    body.boss-mode #hud-time-label{
+      color:#fde68a;
+      font-weight:800;
+    }
   </style>
 </head>
 
@@ -337,7 +367,7 @@
           <div class="fg-quest-main" id="fg-quest-main">—</div>
           <div class="fg-quest-progress" id="fg-quest-main-progress">0 / 0</div>
         </div>
-        <div class="fg-quest-row">
+        <div class="fg-quest-row" id="fg-mini-row">
           <div class="fg-quest-label">Mini</div>
           <div class="fg-quest-main" id="fg-quest-mini">—</div>
           <div class="fg-quest-progress" id="fg-quest-mini-progress">0 / 0</div>
@@ -411,6 +441,7 @@
     const elQuestMini  = document.getElementById('fg-quest-mini');
     const elQuestMainP = document.getElementById('fg-quest-main-progress');
     const elQuestMiniP = document.getElementById('fg-quest-mini-progress');
+    const elMiniRow    = document.getElementById('fg-mini-row');
 
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
@@ -476,7 +507,10 @@
       const d = e.detail || {};
       if (typeof d.score === 'number') elScore.textContent = String(d.score);
       if (typeof d.misses === 'number') elMiss.textContent = String(d.misses);
-      if (typeof d.combo === 'number') elCombo.textContent = String(Math.max(parseInt(elCombo.textContent||'0',10), d.combo|0));
+      if (typeof d.combo === 'number') {
+        const cur = parseInt(elCombo.textContent||'0',10) || 0;
+        elCombo.textContent = String(Math.max(cur, d.combo|0));
+      }
     });
 
     window.addEventListener('hha:judge', (e) => {
@@ -493,9 +527,7 @@
       const goal = d.goal || null;
       const mini = d.mini || null;
 
-      if (d.groupLabel) {
-        elQuestTitle.textContent = `Quest • ${d.groupLabel}`;
-      }
+      if (d.groupLabel) elQuestTitle.textContent = `Quest • ${d.groupLabel}`;
 
       if (goal) {
         elQuestMain.textContent = goal.label || 'Goal';
@@ -505,9 +537,18 @@
         elQuestMainP.textContent = '';
       }
 
+      elMiniRow.classList.remove('mini-timed','mini-urgent');
+
       if (mini) {
         elQuestMini.textContent = mini.label || 'Mini';
-        elQuestMiniP.textContent = `${mini.prog|0} / ${mini.target|0}`;
+
+        if (typeof mini.timeLeftSec === 'number') {
+          elQuestMiniP.textContent = `${mini.prog|0} / ${mini.target|0} • ⏳${mini.timeLeftSec|0}s`;
+          elMiniRow.classList.add('mini-timed');
+          if ((mini.timeLeftSec|0) <= 3) elMiniRow.classList.add('mini-urgent');
+        } else {
+          elQuestMiniP.textContent = `${mini.prog|0} / ${mini.target|0}`;
+        }
       } else {
         elQuestMini.textContent = 'Mini ครบแล้ว ✅';
         elQuestMiniP.textContent = '';
@@ -522,6 +563,7 @@
       elResGoal.textContent  = `${d.goalsCleared ?? 0} / ${d.goalsTotal ?? 0}`;
       elResMini.textContent  = `${d.miniCleared ?? 0} / ${d.miniTotal ?? 0}`;
       elResult.classList.add('show');
+      document.body.classList.remove('boss-mode');
     });
 
     // VR
@@ -582,7 +624,9 @@
       elTime.textContent = dur + 's';
 
       initLogger(diff, dur, runMode);
-      setCoach('เริ่มเลย! เก็บอาหารดีตามหมู่ให้ครบ Goal + Mini ✨');
+      setCoach(runMode === 'research'
+        ? 'โหมดวิจัย: ขนาดเป้าคงที่ตามระดับ (easy/normal/hard) ✨'
+        : 'โหมดเล่น: มี adaptive + Golden + Freeze + Boss 10 วิท้าย! 🔥');
 
       const Engine = window.GroupsVR?.GameEngine;
       if (!Engine || typeof Engine.start !== 'function'){
@@ -592,19 +636,27 @@
       Engine.setLayerEl && Engine.setLayerEl(fgLayer);
 
       runCountdown(() => {
-        // timer จบเกม
         let timeLeft = dur;
+
+        Engine.setTimeLeft && Engine.setTimeLeft(timeLeft);
+
         const timerId = setInterval(() => {
           timeLeft -= 1;
           if (timeLeft < 0) return;
+
           elTime.textContent = timeLeft + 's';
+
+          Engine.setTimeLeft && Engine.setTimeLeft(timeLeft);
+
+          if (timeLeft <= 10) document.body.classList.add('boss-mode');
+
           if (timeLeft === 0){
             clearInterval(timerId);
             Engine.stop && Engine.stop('time-up');
           }
         }, 1000);
 
-        Engine.start(diff, { layerEl: fgLayer, runMode });
+        Engine.start(diff, { layerEl: fgLayer, runMode, durationSec: dur });
       });
     });
   </script>
