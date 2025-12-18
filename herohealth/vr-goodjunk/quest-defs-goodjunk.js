@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/quest-defs-goodjunk.js ===
 // Goal/Mini definitions for GoodJunkVR
-// FIX: miss_limit will NOT pass at start; it is evaluated at end (timeLeft<=0)
+// Compatible with quest-director.js (supports deferStart)
 
 'use strict';
 
@@ -16,25 +16,20 @@ export const GOODJUNK_GOALS = [
     id: 'score_total',
     label: 'ทำคะแนนรวมให้ถึงเกณฑ์',
     hint: 'เก็บอาหารดีต่อเนื่องเพื่อดันคะแนนขึ้น 🥦🍎',
-    target: ({ diff }) => byDiff(diff, 500, 700, 900),
+    target: ({ diff }) => byDiff(diff, 520, 700, 880),
     progress: (s) => (s && typeof s.score === 'number') ? (s.score|0) : 0
   },
   {
     id: 'miss_limit',
-    label: 'อย่าพลาดเกินกำหนด (ตัดสินตอนจบ)',
-    hint: 'พยายามรักษา MISS ให้ต่ำ และอย่าปล่อยของดีหลุดมือ 🛡️',
-    target: ({ diff }) => byDiff(diff, 6, 4, 3), // ต้อง “miss <= target” ตอนจบเกม
-    progress: (s) => {
-      // แสดง progress เป็น "miss ปัจจุบัน" เพื่อให้เด็กเห็นว่าตอนนี้พลาดไปกี่ครั้ง
+    label: 'อย่าพลาดเกินกำหนด',
+    hint: 'อย่าให้ MISS เพิ่ม! โฟกัสเฉพาะของดี และหลบขยะ 🛡️',
+    deferStart: true, // ✅ สำคัญ: กัน “ผ่านเลยตอนเริ่ม”
+    target: ({ diff }) => byDiff(diff, 6, 4, 3),
+    // ทำเป็น constraint: done() ตรวจว่า miss <= target
+    progress: () => 0,
+    done: (s, _prog, target) => {
       const miss = (s && typeof s.miss === 'number') ? (s.miss|0) : 0;
-      return miss;
-    },
-    done: (s, prog, target) => {
-      const miss = (s && typeof s.miss === 'number') ? (s.miss|0) : (prog|0);
-      const timeLeft = (s && typeof s.timeLeft === 'number') ? (s.timeLeft|0) : 9999;
-
-      // ✅ กันผ่านตั้งแต่เริ่ม: ตัดสินเฉพาะตอนจบ (timeLeft<=0)
-      if (timeLeft > 0) return false;
+      // ✅ จะผ่านได้จริงเมื่อเกมเดินไปแล้ว (QuestDirector กันตอน start ด้วย deferStart)
       return miss <= (target|0);
     }
   }
@@ -50,7 +45,7 @@ export const GOODJUNK_MINIS = [
   {
     id: 'good_hits',
     label: 'เก็บของดีให้ครบจำนวน',
-    target: ({ diff }) => byDiff(diff, 20, 24, 28),
+    target: ({ diff }) => byDiff(diff, 18, 24, 28),
     progress: (s) => (s && typeof s.goodHits === 'number') ? (s.goodHits|0) : 0
   },
   {
