@@ -412,20 +412,14 @@
 
   </div>
 
-  <div class="footer-note">Hero Health VR Hub • 4 games • Hub-2025-12-16</div>
+  <div class="footer-note">Hero Health VR Hub • 4 games • Hub-2025-12-18</div>
 </div>
 
 <script>
-  // ✅ Endpoint ของคุณ (เก็บให้ทุกเกมเรียกใช้ได้)
-  window.addEventListener('pageshow', (e)=>{ if (e.persisted) location.reload(); });
-  window.addEventListener('DOMContentLoaded', ()=>{
-  sessionStorage.setItem('HHA_LOG_ENDPOINT', LOG_ENDPOINT);
-  });
-
+  // ✅ Endpoint ของคุณ
   const LOG_ENDPOINT = 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
-  sessionStorage.setItem('HHA_LOG_ENDPOINT', LOG_ENDPOINT);
+  try{ sessionStorage.setItem('HHA_LOG_ENDPOINT', LOG_ENDPOINT); }catch(_){}
 
-  // แผนที่เวลา default ตาม diff (เหมือนเดิม)
   const DIFF_TIME = {
     goodjunk:  { easy: 80, normal: 60, hard: 45 },
     hydration: { easy: 90, normal: 70, hard: 50 },
@@ -513,7 +507,6 @@
     });
   }
 
-  // ✅ URL ของแต่ละเกม “ตามไฟล์ที่ root ของคุณ”
   function getGameUrl(gameKey){
     switch(gameKey){
       case 'goodjunk':  return './goodjunk-vr.html';
@@ -533,7 +526,7 @@
       return;
     }
 
-    try{ sessionStorage.setItem('HHA_STUDENT_PROFILE', JSON.stringify(profile)); } catch(e){}
+    try{ sessionStorage.setItem('HHA_STUDENT_PROFILE', JSON.stringify(profile)); }catch(e){}
 
     const diffSel = document.querySelector(
       isResearch
@@ -548,8 +541,14 @@
     if (time > 180) time = 180;
 
     const base = getGameUrl(gameKey);
-    const url = base + '?diff=' + encodeURIComponent(diff) + '&time=' + encodeURIComponent(String(time)) + '&run=' + encodeURIComponent(runMode);
-    window.location.href = url;
+    // ✅ cache bust ทุกครั้ง ป้องกัน “เล่นรอบสองแล้วค้าง”
+    const url = base
+      + '?diff=' + encodeURIComponent(diff)
+      + '&time=' + encodeURIComponent(String(time))
+      + '&run=' + encodeURIComponent(runMode)
+      + '&ts=' + Date.now();
+
+    window.location.assign(url);
   }
 
   window.addEventListener('DOMContentLoaded', ()=>{
@@ -566,7 +565,6 @@
       });
     });
 
-    // prefill profile (ไม่ pop-up)
     try{
       const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
       if (raw) applyProfileToForm(JSON.parse(raw));
