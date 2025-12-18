@@ -79,6 +79,7 @@
       font-size:11px; padding:2px 8px; border-radius:999px;
       background:rgba(15,118,110,0.2); border:1px solid rgba(45,212,191,0.4);
       color:#a5f3fc; font-weight:600; display:inline-flex; align-items:center; gap:6px;
+      flex-wrap:wrap;
     }
     .hud-metrics{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
     .metric{ min-width:92px; }
@@ -244,6 +245,8 @@
             <span id="hud-challenge-label">RUSH</span>
             <span>•</span>
             <span id="hud-time-label">60s</span>
+            <span>•</span>
+            <span id="hud-run-label">PLAY</span>
           </div>
         </div>
 
@@ -298,6 +301,7 @@
 
   <div class="end-toast" id="end-toast">
     <div class="end-title">สรุปผล • Good vs Junk</div>
+    <div class="end-row"><span>Run</span><strong id="end-run">-</strong></div>
     <div class="end-row"><span>Challenge</span><strong id="end-challenge">-</strong></div>
     <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
     <div class="end-row"><span>คอมโบสูงสุด</span><strong id="end-combo">0</strong></div>
@@ -319,8 +323,8 @@
 
   <div id="start-overlay" class="start-overlay">
     <div class="start-card">
-      <div class="start-title">เริ่มเล่น Good vs Junk 🎮</div>
-      <p class="start-sub">
+      <div class="start-title" id="start-title">เริ่มเล่น Good vs Junk 🎮</div>
+      <p class="start-sub" id="start-sub">
         เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅
       </p>
 
@@ -379,6 +383,7 @@
     const elDiff  = $('hud-diff-label');
     const elChal  = $('hud-challenge-label');
     const elTime  = $('hud-time-label');
+    const elRun   = $('hud-run-label');
     const elJudge = $('hud-judge');
 
     const elQuestMain = $('hud-quest-main');
@@ -403,6 +408,7 @@
     const elEndGoal  = $('end-goal');
     const elEndMini  = $('end-mini');
     const elEndChal  = $('end-challenge');
+    const elEndRun   = $('end-run');
 
     const btnReplay  = $('btn-replay');
     const btnBackHub = $('btn-back-hub');
@@ -416,9 +422,60 @@
     const btnStartVR = $('btn-start-vr');
     const selDiff = $('sel-diff');
     const selChallenge = $('sel-challenge');
+    const startTitle = $('start-title');
+    const startSub = $('start-sub');
 
     const logDot  = $('logdot');
     const logText = $('logtext');
+
+    // --- URL params from Hub ---
+    const URLP = new URL(window.location.href).searchParams;
+
+    function normDiff(v){
+      v = String(v||'').toLowerCase();
+      if (v === 'easy' || v === 'normal' || v === 'hard') return v;
+      return 'normal';
+    }
+    function normChallenge(v){
+      v = String(v||'').toLowerCase();
+      if (v === 'rush' || v === 'boss' || v === 'survival') return v;
+      return 'rush';
+    }
+    function normRun(v){
+      v = String(v||'').toLowerCase();
+      if (v === 'research') return 'research';
+      return 'play';
+    }
+    function clampInt(n, a, b){
+      n = parseInt(n,10);
+      if (isNaN(n)) return null;
+      if (n < a) return a;
+      if (n > b) return b;
+      return n;
+    }
+
+    const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
+
+    const RUN_FROM_URL = normRun(URLP.get('run'));
+    const DIFF_FROM_URL = normDiff(URLP.get('diff'));
+    const CH_FROM_URL = normChallenge(URLP.get('ch') || URLP.get('challenge'));
+    const TIME_FROM_URL = clampInt(URLP.get('time'), 20, 180);
+
+    // preset selectors (Hub -> Game)
+    selDiff.value = DIFF_FROM_URL;
+    selChallenge.value = CH_FROM_URL;
+
+    // duration from Hub (fallback by diff)
+    let DURATION_SEC = (TIME_FROM_URL != null) ? TIME_FROM_URL : (DEFAULT_TIME[DIFF_FROM_URL] || 60);
+
+    // Start overlay text by run
+    if (RUN_FROM_URL === 'research'){
+      startTitle.textContent = 'เริ่มโหมดวิจัย Good vs Junk 🧪';
+      startSub.textContent = 'โหมดวิจัย: ระบบจะส่ง Session + Events ลง Google Sheet (ต้องกดเริ่ม 1 ครั้งเพื่อเปิดสิทธิ์เสียง/VR) ✅';
+    } else {
+      startTitle.textContent = 'เริ่มเล่น Good vs Junk 🎮';
+      startSub.textContent = 'เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅';
+    }
 
     // Coach images (ตามชื่อไฟล์ที่คุณกำหนดไว้)
     const COACH_IMG = {
@@ -524,7 +581,7 @@
       timePlus:0,
       safeSeconds:0,
       bossCleared:false,
-      challenge:'rush'
+      challenge: CH_FROM_URL
     };
 
     // reset mini counters when new mini starts
@@ -560,15 +617,14 @@
     });
 
     // safe seconds tick (นับเมื่อไม่มี miss)
+    let started = false;
     setInterval(()=>{
-      // ถ้าเกมยังไม่เริ่มจะไม่เพิ่ม
       if (!started) return;
       qState.safeSeconds = (qState.safeSeconds|0) + 1;
     }, 1000);
 
     // --- QuestDirector ---
     let Q = null;
-    let started = false;
 
     function celebrateQuest(){
       const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
@@ -593,7 +649,8 @@
     }
 
     function showEndSummary(final, qs){
-      elEndChal.textContent = (final.challenge || '-').toUpperCase();
+      elEndRun.textContent = String((final.runMode || RUN_FROM_URL || 'play')).toUpperCase();
+      elEndChal.textContent = String((final.challenge || CH_FROM_URL || '-')).toUpperCase();
       elEndScore.textContent = String(final.scoreFinal|0);
       elEndCombo.textContent = String(final.comboMax|0);
       elEndMiss.textContent  = String(final.misses|0);
@@ -663,7 +720,6 @@
       elQuestHint.textContent = d.hint || '';
       elMiniCount.textContent = minisAll.length ? ('mini #' + minisAll.length) : '';
 
-      // Celebration เมื่อจำนวน done เพิ่ม
       const gDone = goalsAll.filter(x=>x && x.done).length;
       const mDone = minisAll.filter(x=>x && x.done).length;
       if (gDone && d.hint === 'GOAL CLEAR!') celebrateQuest();
@@ -696,17 +752,27 @@
       started = true;
       startOverlay.style.display = 'none';
 
-      const diff = (selDiff.value || 'normal').toLowerCase();
-      const chal = (selChallenge.value || 'rush').toLowerCase();
+      const diff = normDiff(selDiff.value);
+      const chal = normChallenge(selChallenge.value);
 
+      // duration re-evaluate (if diff changed manually on overlay)
+      if (TIME_FROM_URL == null){
+        DURATION_SEC = DEFAULT_TIME[diff] || 60;
+      }
+
+      // HUD init
       elDiff.textContent = diff.toUpperCase();
       elChal.textContent = chal.toUpperCase();
+      elRun.textContent  = RUN_FROM_URL.toUpperCase();
       elScore.textContent = '0';
       elCombo.textContent = '0';
       elMiss.textContent  = '0';
-      elTime.textContent  = '...';
+      elTime.textContent  = DURATION_SEC + 's';
 
-      setCoach('แตะของดี! หลบ junk! ไปเลย! ⚡', 'neutral');
+      // Coach punchy by challenge (เร้าใจ)
+      if (chal === 'rush') setCoach('RUSH MODE! เร่งสปีด เก็บคอมโบให้สุด! ⚡', 'happy');
+      else if (chal === 'boss') setCoach('BOSS MODE! เก็บแต้มให้แน่น เดี๋ยวเจอบอสท้ายเกม! 🐲', 'neutral');
+      else setCoach('SURVIVAL MODE! ระวังพลาด—หัวใจมีจำกัด! ❤️', 'neutral');
 
       // profile from hub
       let studentProfile = null;
@@ -719,26 +785,35 @@
         }
       }catch(_){}
 
-      // logger (แก้ CORS แล้ว)
+      // ✅ logger: ใช้ run จาก URL (สำคัญสุดสำหรับยิง Sheet)
+      const endpoint = sessionStorage.getItem('HHA_LOG_ENDPOINT')
+        || 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+
+      // แสดงว่า “armed” (ยังไม่การันตีส่งสำเร็จ แต่รู้ว่า init แล้ว)
+      if (logText) logText.textContent = (RUN_FROM_URL === 'research')
+        ? 'logger: armed (research)'
+        : 'logger: armed';
+
       initCloudLogger({
-        endpoint: sessionStorage.getItem('HHA_LOG_ENDPOINT') || 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
+        endpoint,
         projectTag: 'HeroHealth-GoodJunkVR',
         mode: 'GoodJunkVR',
-        runMode: 'play',
+        runMode: RUN_FROM_URL,          // ✅ FIX
         diff,
         challenge: chal,
-        durationSec: 60,
+        durationSec: DURATION_SEC,      // ✅ FIX
         studentKey,
         profile: studentProfile,
-        debug: true
+        debug: (RUN_FROM_URL === 'research') // โหมดวิจัยค่อย debug
       });
 
-      // touch
+      // touch + vr button
       const cam = document.querySelector('#gj-camera');
       attachTouch(cam);
       initVRButton();
 
       // QuestDirector
+      qState.challenge = chal;
       Q = makeQuestDirector({
         diff,
         goalDefs: GOODJUNK_GOALS,
@@ -752,11 +827,10 @@
         waitSceneReady(async ()=>{
           if (wantVR) await tryEnterVR();
 
-          // start engine: duration 60 (rush/boss) / survival ก็ใช้ 60 เป็นค่าเริ่ม แต่ engine จะไม่ลดเวลา
           GameEngine.start(diff, {
-            runMode: 'play',
+            runMode: RUN_FROM_URL,          // ✅ pass through
             challenge: chal,
-            durationSec: 60,
+            durationSec: DURATION_SEC,      // ✅ FIX
             layerEl: document.getElementById('gj-layer')
           });
         });
@@ -771,6 +845,12 @@
 
     // default coach images
     setCoachFace('neutral');
+
+    // 🔥 show initial HUD labels from Hub (ก่อนเริ่ม)
+    elDiff.textContent = DIFF_FROM_URL.toUpperCase();
+    elChal.textContent = CH_FROM_URL.toUpperCase();
+    elRun.textContent  = RUN_FROM_URL.toUpperCase();
+    elTime.textContent = DURATION_SEC + 's';
   </script>
 </body>
 </html>
