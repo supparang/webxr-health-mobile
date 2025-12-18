@@ -4,13 +4,6 @@
 // ✅ click/touch works 100% via manual THREE.Raycaster fallback
 // ✅ HUD + quest:update + hha:* events + result modal
 // ✅ export bootPlateDOM for plate-vr.html
-//
-// Requires in plate-vr.html:
-// - <a-camera id="cam"> ... <a-entity id="targetRoot"> ... </a-camera>
-// - cursor optional (manual raycast handles click/touch)
-// - ids used: hudTime,hudScore,hudCombo,hudMiss,hudFever,hudFeverPct,hudMode,hudDiff,hudGroupsHave,hudPerfectCount,hudGoalLine,hudMiniLine
-// - result modal ids: resultBackdrop,rMode,rGrade,rScore,rMaxCombo,rMiss,rPerfect,rGoals,rMinis,rG1..rG5,rGTotal
-// - buttons: btnRestart, btnPlayAgain, btnEnterVR (optional)
 
 'use strict';
 
@@ -40,41 +33,18 @@ function showEl(id, on) { const el = $(id); if (el) el.style.display = on ? '' :
 const A = window.AFRAME;
 if (!A) console.error('[PlateVR] AFRAME not found');
 
-// ---------- FX fallback (ถ้ามี /herohealth/vr/particles.js จะใช้ของจริง) ----------
+// ---------- FX fallback ----------
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
-const Particles =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-  ROOT.Particles ||
-  {
-    scorePop(x, y, text) {
-      // fallback: pop กลางจอแบบง่าย
-      const el = document.createElement('div');
-      el.textContent = text;
-      Object.assign(el.style, {
-        position: 'fixed',
-        left: (x || 50) + '%',
-        top: (y || 45) + '%',
-        transform: 'translate(-50%,-50%)',
-        fontSize: '22px',
-        fontWeight: '800',
-        color: '#fff',
-        textShadow: '0 6px 18px rgba(0,0,0,.6)',
-        zIndex: 99999,
-        pointerEvents: 'none',
-        opacity: '1',
-        transition: 'transform .5s ease, opacity .5s ease'
-      });
-      document.body.appendChild(el);
-      requestAnimationFrame(() => {
-        el.style.transform = 'translate(-50%,-80%) scale(1.06)';
-        el.style.opacity = '0';
-      });
-      setTimeout(() => { try { el.remove(); } catch (_) {} }, 520);
-    },
-    burstAt() {}
-  };
 
-// ---------- Difficulty tuning ----------
+// ใช้ event hha:fx เป็นหลัก (particles.js จะรับไปแสดง)
+// ถ้าไม่มี particles.js ก็ยังเล่นได้ (ไม่โชว์ FX หรือโชว์น้อย)
+function fxEmit(type, x, y, kind, text, dx = 0, dy = 0) {
+  if (x == null || y == null) return;
+  window.dispatchEvent(new CustomEvent('hha:fx', {
+    detail: { type, x, y, kind, text, dx, dy }
+  }));
+}
+
 const DIFF_TABLE = {
   easy:   { spawnInterval: 980, maxActive: 4, scale: 0.88, lifeMs: 2200, junkRate: 0.12, powerRate: 0.10, hazRate: 0.08 },
   normal: { spawnInterval: 820, maxActive: 5, scale: 0.78, lifeMs: 1950, junkRate: 0.18, powerRate: 0.10, hazRate: 0.10 },
@@ -129,8 +99,8 @@ let combo = 0;
 let maxCombo = 0;
 let miss = 0;
 
-let fever = 0;           // 0..100
-let feverActive = false; // ON = bonus
+let fever = 0;
+let feverActive = false;
 let feverUntilMs = 0;
 
 let perfectPlates = 0;
@@ -171,13 +141,11 @@ function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0));
 function isAdaptiveOn() { return MODE === 'play'; }
 function emit(type, detail) { window.dispatchEvent(new CustomEvent(type, { detail })); }
 
-// ---------- FX helpers (คะแนนเด้ง + คำตัดสินข้างเป้า) ----------
+// ---------- FX helpers (ยิง FX “ข้างเป้า”) ----------
 function getSceneCamera() {
-  // A-Frame camera (three.js)
   return scene && scene.camera ? scene.camera : null;
 }
 
-// return normalized screen coords (0..1)
 function screenPosFromEntity(el) {
   try{
     const cam3 = getSceneCamera();
@@ -186,8 +154,6 @@ function screenPosFromEntity(el) {
     const v = new THREE.Vector3();
     el.object3D.getWorldPosition(v);
     v.project(cam3);
-
-    // behind camera?
     if (v.z > 1) return null;
 
     const x = (v.x + 1) / 2;
@@ -202,24 +168,16 @@ function fxAtEntity(el, kind, judgeText, scoreText) {
   const p = screenPosFromEntity(el);
   if (!p) return;
 
-  // แตกกระจายตรงเป้า “จุดเดียว”
-  window.dispatchEvent(new CustomEvent('hha:fx', {
-    detail: { type:'burst', x:p.x, y:p.y, kind }
-  }));
+  fxEmit('burst', p.x, p.y, kind, '', 0, 0);
 
-  // คะแนนเด้ง (ขวาบนของเป้านิด)
-  if (scoreText) {
-    window.dispatchEvent(new CustomEvent('hha:fx', {
-      detail: { type:'score', x:p.x, y:p.y, kind, text: scoreText, dx: 28, dy: -14 }
-    }));
-  }
+  if (scoreText) fxEmit('score', p.x, p.y, kind, scoreText, 30, -14);
+  if (judgeText) fxEmit('judge', p.x, p.y, kind, judgeText, -38, -10);
+}
 
-  // คำตัดสิน (ซ้ายของเป้า)
-  if (judgeText) {
-    window.dispatchEvent(new CustomEvent('hha:fx', {
-      detail: { type:'judge', x:p.x, y:p.y, kind, text: judgeText, dx: -34, dy: -10 }
-    }));
-  }
+function fxCenter(text, kind='power') {
+  // กลางจอสำหรับประกาศใหญ่ (ครั้งเดียว)
+  fxEmit('score', 0.5, 0.34, kind, text, 0, 0);
+  fxEmit('burst', 0.5, 0.34, kind, '', 0, 0);
 }
 
 // ---------- Emitters ----------
@@ -283,7 +241,7 @@ function hudUpdateAll() {
   setText('hudMiniLine', miniCurrent ? `Mini: ${miniCurrent.label} • ${miniCurrent.prog}/${miniCurrent.target}` : 'Mini: …');
 }
 
-// ---------- Grade (ประกาศครั้งเดียว!) ----------
+// ---------- Grade ----------
 function computeGrade() {
   const allGoal = perfectPlates >= goalTotal;
   if (allGoal && score >= 1400 && maxCombo >= 14 && miss <= 2) return 'SSS';
@@ -305,7 +263,6 @@ function makeEmojiTexture(emoji, opts = {}) {
 
   ctx.clearRect(0,0,size,size);
 
-  // target plate glow
   ctx.beginPath();
   ctx.arc(size/2, size/2, size*0.44, 0, Math.PI*2);
   ctx.fillStyle = 'rgba(15,23,42,0.70)';
@@ -334,21 +291,17 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   const id = `pt-${++targetSeq}`;
   el.setAttribute('id', id);
 
-  // ✅ class ให้ raycaster/manual หาเจอแน่
   el.classList.add('plateTarget');
   el.setAttribute('class', 'plateTarget');
 
-  // plane
   el.setAttribute('geometry', 'primitive: plane; width: 0.52; height: 0.52');
   el.setAttribute('material', 'shader: flat; transparent: true; opacity: 0.98; side: double');
 
-  // meta
   el.dataset.kind = kind;
   el.dataset.groupId = String(groupId || 0);
   el.dataset.emoji = String(emoji || '');
   el.dataset.spawnMs = String(fromStartMs());
 
-  // scale
   const s = clamp(scale, 0.45, 1.35);
   el.addEventListener('loaded', () => {
     try {
@@ -361,20 +314,16 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
     } catch (_) {}
   });
 
-  // random pos (anchored to targetRoot)
   const rangeX = haz.wind ? 1.15 : 0.90;
   const rangeY = haz.wind ? 0.85 : 0.70;
 
   let x = rnd(-rangeX, rangeX);
   let y = rnd(-rangeY, rangeY);
-
   if (haz.blackhole) { x *= 0.35; y *= 0.35; }
 
-  // ✅ ถ้าเด้งซ้อนกัน ให้เพิ่ม jitter
   const j = rnd(-0.12, 0.12);
   el.setAttribute('position', `${x + j} ${y - j} 0`);
 
-  // click handler (เผื่อ cursor ยิง click มาได้)
   el.addEventListener('click', () => onHit(el, 'click'));
 
   return el;
@@ -444,6 +393,9 @@ function checkPerfectPlate() {
     emitCoach(`PERFECT PLATE! +${bonus} 🌟`, 'happy');
     emitGameEvent({ type:'perfect_plate', perfectPlates, perfectStreak, bonus });
 
+    // ประกาศใหญ่ “ครั้งเดียว”
+    fxCenter(`🌟 PERFECT PLATE +${bonus}`, 'boss');
+
     fever = clamp(fever + 28, 0, 100);
     if (fever >= 100) activateFever(5200);
 
@@ -477,7 +429,7 @@ function scoreForHit(kind, groupId) {
   if (feverActive) mult += 0.35;
 
   const bal = clamp(balancePct, 0, 100);
-  const balMult = 0.70 + (bal / 100) * 0.40; // 0.70..1.10
+  const balMult = 0.70 + (bal / 100) * 0.40;
   mult *= balMult;
 
   if (DIFF === 'hard') mult *= 0.96;
@@ -496,9 +448,8 @@ function activateFever(ms = 5200) {
 }
 
 function updateFeverTick() {
-  if (!feverActive) {
-    fever = clamp(fever - 0.9, 0, 100);
-  } else {
+  if (!feverActive) fever = clamp(fever - 0.9, 0, 100);
+  else {
     fever = clamp(fever - 0.25, 0, 100);
     if (performance.now() >= feverUntilMs) {
       feverActive = false;
@@ -566,14 +517,7 @@ function emitQuestUpdate() {
 function startNextMiniQuest() {
   const def = pick(MINI_POOL);
   miniHistory += 1;
-  miniCurrent = {
-    key: def.key,
-    label: def.label,
-    target: def.target,
-    prog: 0,
-    startedAt: performance.now(),
-    done: false
-  };
+  miniCurrent = { key: def.key, label: def.label, target: def.target, prog: 0, startedAt: performance.now(), done: false };
   if (miniCurrent.key === 'clean') cleanTimer = def.target;
 
   emitGameEvent({ type:'mini_start', miniKey: miniCurrent.key, miniHistory });
@@ -591,8 +535,10 @@ function clearMiniQuest() {
   emitGameEvent({ type:'mini_clear', miniKey: miniCurrent.key, miniCleared });
   emitCoach('Mini Quest CLEAR! ✅ ต่อไปมาเลย!', 'happy');
   emitJudge('MISSION CLEAR!');
-  Particles.scorePop(50, 40, '✅ MINI CLEAR +150');
   score += 150;
+
+  // ✅ ประกาศกลางจอ “ครั้งเดียว”
+  fxCenter('✅ MINI CLEAR +150', 'power');
 
   setTimeout(() => { if (!ended) startNextMiniQuest(); }, 500);
 
@@ -638,7 +584,6 @@ function maybeStartBoss() {
 function pickSpawnKind() {
   const endBoost = (tLeft <= 18) ? 0.05 : 0.0;
   const r = Math.random();
-
   const hazRate = DCFG0.hazRate + endBoost;
   const powRate = DCFG0.powerRate;
 
@@ -653,7 +598,6 @@ function spawnOne(opts = {}) {
   if (activeTargets.size >= DCFG0.maxActive) return;
 
   const kind = opts.forceBoss ? 'boss' : pickSpawnKind();
-
   const scl = DCFG0.scale * (haz.freeze ? 0.92 : 1.0);
   const lifeMs = DCFG0.lifeMs + (haz.freeze ? 350 : 0);
 
@@ -720,22 +664,19 @@ function spawnLoopStart() {
 }
 
 // ---------- Hit ----------
-function popHitText(kind, pts) {
-  if (kind === 'good') Particles.scorePop(50, 45, `+${pts}`);
-  else if (kind === 'boss') Particles.scorePop(50, 45, `⭐ +${pts}`);
-  else if (kind === 'power') Particles.scorePop(50, 45, `✨ +${pts}`);
-  else if (kind === 'haz') Particles.scorePop(50, 45, `⚠️ +${pts}`);
-  else if (kind === 'junk') Particles.scorePop(50, 45, pts >= 0 ? `+${pts}` : `${pts}`);
-}
-
 function onHit(el, via = 'click') {
   if (!el || ended) return;
-
   if (el.dataset.hit === '1') return;
   el.dataset.hit = '1';
 
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
+  const em = el.dataset.emoji || '';
+
+  // ✅ ยิง FX “ก่อน” removeTarget (ต้องใช้ object3D คำนวณตำแหน่ง)
+  // (ค่อยเติมคะแนน/คำตัดสินจริงด้านล่าง)
+  // แล้วค่อย remove
+  // ---------------------------------------------------------
 
   removeTarget(el, 'hit');
   if (!started) return;
@@ -745,10 +686,13 @@ function onHit(el, via = 'click') {
     const hk = pick(Object.keys(HAZ));
     enableHaz(hk, HAZ[hk].durMs);
     combo = Math.max(0, combo - 1);
+
     const pts = scoreForHit('haz', 0);
     score += pts;
+
     emitJudge('RISK!');
-    popHitText('haz', pts);
+    fxAtEntity(el, 'haz', 'RISK!', `+${pts}`);
+
     emitGameEvent({ type:'haz_hit', haz: hk });
     hudUpdateAll(); emitScore();
     return;
@@ -756,38 +700,43 @@ function onHit(el, via = 'click') {
 
   // power
   if (kind === 'power') {
-    const em = el.dataset.emoji || '';
     if (em === POWER.shield.emoji) {
       enableShield(POWER.shield.durMs);
       const pts = scoreForHit('power', 0);
       score += pts;
       fever = clamp(fever + 10, 0, 100);
+
       emitJudge('SHIELD!');
-      popHitText('power', pts);
+      fxAtEntity(el, 'power', 'SHIELD!', `+${pts}`);
       emitGameEvent({ type:'power_shield' });
+
     } else if (em === POWER.cleanse.emoji) {
       for (const [tid, tr] of Array.from(activeTargets.entries())) {
         if (tr && tr.el && tr.el.dataset.kind === 'junk') removeTarget(tr.el, 'cleanse');
       }
       balancePct = clamp(balancePct + 22, 0, 100);
       score += 240;
+
       emitJudge('CLEANSE!');
-      Particles.scorePop(50, 45, '🍋 CLEANSE +240');
+      fxAtEntity(el, 'power', 'CLEANSE!', '+240');
       emitCoach('ล้างจานแล้ว! ขยะหายไป 💨', 'happy');
       emitGameEvent({ type:'power_cleanse' });
+
     } else if (em === POWER.golden.emoji) {
       score += 320;
       fever = clamp(fever + 22, 0, 100);
       if (fever >= 100) activateFever(5200);
+
       emitJudge('GOLD!');
-      Particles.scorePop(50, 45, '⭐ GOLD +320');
+      fxAtEntity(el, 'boss', 'GOLD!', '+320');
       emitCoach('Golden Bite! คะแนนพุ่ง ⭐', 'happy');
       emitGameEvent({ type:'power_golden' });
+
     } else {
       const pts = scoreForHit('power', 0);
       score += pts;
       emitJudge('POWER!');
-      popHitText('power', pts);
+      fxAtEntity(el, 'power', 'POWER!', `+${pts}`);
     }
 
     combo += 1; maxCombo = Math.max(maxCombo, combo);
@@ -805,16 +754,17 @@ function onHit(el, via = 'click') {
     fever = clamp(fever + 12, 0, 100);
 
     emitJudge('BOSS HIT!');
-    Particles.scorePop(50, 45, `⭐ HIT +${pts}`);
+    fxAtEntity(el, 'boss', 'BOSS HIT!', `+${pts}`);
     emitGameEvent({ type:'boss_hit', hpLeft: bossHP });
 
     if (bossHP <= 0) {
       bossOn = false;
       const bonus = 420 + (DIFF === 'hard' ? 140 : 60);
       score += bonus;
+
       emitCoach(`โค่นบอสแล้ว! +${bonus} 🏆`, 'happy');
       emitJudge('BOSS CLEAR!');
-      Particles.scorePop(50, 40, `🏆 BOSS CLEAR +${bonus}`);
+      fxCenter(`🏆 BOSS CLEAR +${bonus}`, 'boss');
       emitGameEvent({ type:'boss_clear', bonus });
     } else {
       setTimeout(() => { if (!ended && bossOn) spawnOne({ forceBoss: true }); }, 260);
@@ -830,8 +780,10 @@ function onHit(el, via = 'click') {
     if (shieldOn) {
       score += 30;
       fever = clamp(fever + 4, 0, 100);
+
       emitJudge('BLOCK!');
-      Particles.scorePop(50, 45, '🥗 BLOCK +30');
+      fxAtEntity(el, 'good', 'BLOCK!', '+30');
+
       emitCoach('โล่กันขยะไว้ได้! 🥗', 'happy');
       emitGameEvent({ type:'junk_blocked' });
       combo += 1; maxCombo = Math.max(maxCombo, combo);
@@ -841,8 +793,10 @@ function onHit(el, via = 'click') {
       perfectStreak = 0;
       balancePct = clamp(balancePct - 18, 0, 100);
       fever = clamp(fever - 12, 0, 100);
+
       emitJudge('MISS');
-      Particles.scorePop(50, 45, '💥 MISS');
+      fxAtEntity(el, 'junk', 'MISS', '💥');
+
       emit('hha:miss', { sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
       emitCoach('โดนขยะแล้ว! เลี่ยงให้ได้ 😵', 'sad');
       emitGameEvent({ type:'junk_hit_miss' });
@@ -858,8 +812,10 @@ function onHit(el, via = 'click') {
     registerGroupHit(groupId);
     updateBalance('good', groupId);
 
-    emitJudge(pts >= 110 ? 'PERFECT' : 'GOOD');
-    popHitText('good', pts);
+    const judge = (pts >= 110 ? 'PERFECT' : 'GOOD');
+    emitJudge(judge);
+    fxAtEntity(el, 'good', judge, `+${pts}`);
+
     emitGameEvent({ type:'good_hit', groupId, points: pts });
 
     checkPerfectPlate();
@@ -1049,7 +1005,6 @@ function bindPointerFallback() {
     const canvas = scene.canvas;
     if (!canvas) return;
 
-    // รับเฉพาะ event บน canvas
     const t = ev.target;
     if (!t || String(t.tagName).toUpperCase() !== 'CANVAS') return;
 
@@ -1118,17 +1073,12 @@ export function bootPlateDOM() {
   ensureTouchLookControls();
   bindUI();
 
-  // HUD init
   setText('hudMode', (MODE === 'research') ? 'Research' : 'Play');
   setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
   setText('hudTime', tLeft);
   hudUpdateAll();
 
-  // ✅ bind manual pointer เมื่อ scene loaded (ต้องมี canvas)
-  const bindAfterLoaded = () => {
-    bindPointerFallback();
-  };
-
+  const bindAfterLoaded = () => bindPointerFallback();
   if (scene && scene.hasLoaded) bindAfterLoaded();
   else if (scene) scene.addEventListener('loaded', bindAfterLoaded, { once: true });
 
@@ -1139,7 +1089,6 @@ export function bootPlateDOM() {
     return;
   }
 
-  // start when scene ready
   if (scene && scene.hasLoaded) starter();
   else if (scene) scene.addEventListener('loaded', () => starter(), { once:true });
   else setTimeout(() => starter(), 250);
