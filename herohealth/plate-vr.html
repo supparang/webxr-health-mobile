@@ -403,15 +403,20 @@
     background="color: #020617">
 
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="plate-camera"
-                wasd-controls-enabled="false"
-                look-controls="pointerLockEnabled:false">
+        <a-camera id="cam"
+            wasd-controls-enabled="false"
+            look-controls="pointerLockEnabled:false; touchEnabled:true; mouseEnabled:true">
+
         <a-entity id="cursor"
-                  cursor="fuse:false; rayOrigin: mouse"
-                  geometry="primitive:ring; radiusInner:0.01; radiusOuter:0.016"
-                  material="shader:flat; color:#ffffff; opacity:0.95"
-                  position="0 0 -0.9">
+              cursor="fuse:false; rayOrigin: mouse"
+              geometry="primitive:ring; radiusInner:0.01; radiusOuter:0.016"
+              material="shader:flat; color:#ffffff; opacity:0.95"
+              position="0 0 -0.9">
         </a-entity>
+
+    <!-- ✅ สำคัญ: จุดเกิดเป้า -->
+        <a-entity id="targetRoot" position="0 0 -2.2"></a-entity>
+
       </a-camera>
     </a-entity>
 
