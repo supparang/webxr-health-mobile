@@ -541,6 +541,8 @@
   <!-- ===== Boot: Plate DOM Engine ===== -->
   <script type="module">
     import { bootPlateDOM } from './plate/plate.safe.js';
+    bootPlateDOM();
+
 
     function getParam(name, fallback){
       const url = new URL(window.location.href);
