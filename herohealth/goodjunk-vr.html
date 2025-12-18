@@ -35,7 +35,6 @@
       overflow:hidden;
     }
 
-    /* ===== A-Frame canvas full ===== */
     a-scene{
       width:100vw; height:100vh;
       position:fixed; inset:0;
@@ -47,7 +46,7 @@
       position:fixed;
       inset:0;
       z-index:649;          /* ใต้ HUD (650) */
-      pointer-events:auto;  /* ต้อง auto เพื่อให้กด/แตะได้ */
+      pointer-events:auto;
       touch-action: none;
     }
 
@@ -328,12 +327,12 @@
       width:40px;
       height:40px;
       border-radius:999px;
-      background-image:url('./img/coach-broccoli.png');
       background-size:cover;
       background-position:center;
       flex-shrink:0;
-      box-shadow:0 0 12px rgba(16,185,129,0.8);
       animation:coach-idle 1.4s ease-in-out infinite;
+      background-image:url('./img/coach-neutral.png'); /* ✅ default */
+      box-shadow:0 0 12px rgba(16,185,129,0.8);
     }
     @keyframes coach-idle{
       0%{ transform:translateY(0) scale(1);}
@@ -341,13 +340,10 @@
       60%{ transform:translateY(1px) scale(0.99);}
       100%{ transform:translateY(0) scale(1);}
     }
-    .coach-emoji.coach-neutral{ filter:none; }
-    .coach-emoji.coach-happy{ box-shadow:0 0 18px rgba(34,197,94,0.95); }
-    .coach-emoji.coach-sad{
-      filter:grayscale(0.2) brightness(0.9);
-      box-shadow:0 0 10px rgba(148,163,184,0.8);
-    }
-    .coach-emoji.coach-fever{ box-shadow:0 0 18px rgba(248,113,113,0.9); }
+    .coach-emoji.coach-neutral{ background-image:url('./img/coach-neutral.png'); }
+    .coach-emoji.coach-happy  { background-image:url('./img/coach-happy.png');  box-shadow:0 0 18px rgba(34,197,94,0.95); }
+    .coach-emoji.coach-sad    { background-image:url('./img/coach-sad.png');    box-shadow:0 0 10px rgba(148,163,184,0.8); }
+    .coach-emoji.coach-fever  { background-image:url('./img/coach-fever.png');  box-shadow:0 0 18px rgba(248,113,113,0.9); }
 
     /* ===== Center hint ===== */
     .hint-center{
@@ -586,7 +582,6 @@
 
 <body>
 
-  <!-- ===== A-Frame Scene ===== -->
   <a-scene
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
@@ -613,10 +608,8 @@
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- ✅ DOM Target Layer -->
   <div id="gj-layer"></div>
 
-  <!-- ===== HUD Overlay ===== -->
   <div class="hud-root">
     <div class="hud-top">
       <div class="hud-card" style="flex:1;max-width:520px;">
@@ -737,7 +730,6 @@
     <div class="big-celebrate-inner">ALL QUESTS CLEAR! 🌟</div>
   </div>
 
-  <!-- Start overlay -->
   <div id="start-overlay" class="start-overlay">
     <div class="start-card">
       <div class="start-title">เริ่มเล่น Good vs Junk 🎮</div>
@@ -752,15 +744,12 @@
     </div>
   </div>
 
-  <!-- Logger badge -->
   <div id="logbadge" class="logbadge" aria-hidden="true">
     <span id="logdot" class="dot"></span>
     <span id="logtext">logger: pending…</span>
   </div>
 
-  <!-- Fever UI -->
   <script src="./vr/ui-fever.js"></script>
-  <!-- Particles FX -->
   <script src="./vr/particles.js"></script>
 
   <script type="module">
@@ -771,18 +760,20 @@
     import { makeQuestDirector } from './vr-goodjunk/quest-director.js';
     import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './vr-goodjunk/quest-defs-goodjunk.js';
 
-    // ---------------- Params ----------------
+    // ✅ กันกลับมาจาก BFCache แล้วหน้าเกม “ค้าง” เล่นใหม่ไม่ได้
+    window.addEventListener('pageshow', (e)=>{
+      if (e.persisted) location.reload();
+    });
+
     function getParam(name, fallback){
       const url = new URL(window.location.href);
       const v = url.searchParams.get(name);
       return (v !== null && v !== '') ? v : fallback;
     }
 
-    // ---------------- Scene ready ----------------
     function waitSceneReady(cb){
       const scene = document.querySelector('a-scene');
       if (!scene) { cb(); return; }
-
       const tryReady = ()=>{
         if (scene.hasLoaded && scene.camera){
           cb();
@@ -791,7 +782,6 @@
         return false;
       };
       if (tryReady()) return;
-
       scene.addEventListener('loaded', ()=>{
         let tries = 0;
         const t = setInterval(()=>{
@@ -804,7 +794,6 @@
       }, { once:true });
     }
 
-    // ---------------- HUD refs ----------------
     const elScore   = document.getElementById('hud-score');
     const elCombo   = document.getElementById('hud-combo');
     const elMiss    = document.getElementById('hud-miss');
@@ -859,25 +848,6 @@
     const logDot  = document.getElementById('logdot');
     const logText = document.getElementById('logtext');
 
-    // ---------------- NEW: hard reload / hard nav (กัน cache + BFCache) ----------------
-    function hardNav(url){
-      const u = new URL(url, window.location.href);
-      u.searchParams.set('_', String(Date.now()));
-      window.location.replace(u.toString());
-    }
-    function hardReload(){
-      const u = new URL(window.location.href);
-      u.searchParams.set('_', String(Date.now()));
-      window.location.replace(u.toString());
-    }
-
-    // กัน BFCache: ถ้าหน้าถูก restore จาก history ให้ reload ใหม่
-    window.addEventListener('pageshow', (e)=>{
-      if (e.persisted){
-        hardReload();
-      }
-    });
-
     // ---------------- Coach ----------------
     const coachMoodKeys = ['neutral','happy','sad','fever'];
     let lastCoachTimeout = null;
@@ -890,12 +860,8 @@
     }
     function setCoach(text){
       if (!text) return;
-      if (elCoachBubble){
-        elCoachBubble.classList.add('show');
-      }
-      if (elCoachText){
-        elCoachText.textContent = text;
-      }
+      if (elCoachBubble) elCoachBubble.classList.add('show');
+      if (elCoachText) elCoachText.textContent = text;
       if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
       lastCoachTimeout = setTimeout(()=>{
         if (elCoachBubble) elCoachBubble.classList.remove('show');
@@ -921,7 +887,7 @@
     let prevGoalsCleared = 0;
     let prevMiniCleared  = 0;
 
-    // Lives (hard only): 1 หัวใจหายทุก MISS_PER_LIFE
+    // Lives (hard only)
     const MAX_LIVES = 3;
     const MISS_PER_LIFE = 3;
     let currentLives = MAX_LIVES;
@@ -931,29 +897,14 @@
     let runMode = 'play';
     let dur = 60;
 
-    // ---------------- NEW: timer + ended guard ----------------
+    // timer holder (กันซ้อน)
     let timerId = null;
-    let ended = false;
 
-    function clearTimer(){
+    function clearGameTimer(){
       if (timerId){
         clearInterval(timerId);
         timerId = null;
       }
-    }
-
-    function safeStopEngine(reason){
-      try{ GameEngine.stop(reason || 'ui'); }catch(_){}
-      clearTimer();
-    }
-
-    function clearHubFlags(){
-      try{
-        sessionStorage.removeItem('HHA_AUTO_START');
-        sessionStorage.removeItem('HHA_RETURNED_FROM_GAME');
-        sessionStorage.removeItem('HHA_LAST_GAME');
-        sessionStorage.removeItem('HHA_LAST_URL');
-      }catch(_){}
     }
 
     // ---------------- Lives ----------------
@@ -992,7 +943,7 @@
       if (livesLeft <= 0){
         setCoachFace('sad');
         setCoach('โอ๊ะ! หัวใจหมดแล้ว จบเกมนะ 💥');
-        safeStopEngine('lives-zero');
+        GameEngine.stop('lives-zero');
       }
     }
 
@@ -1127,7 +1078,6 @@
       });
     }
 
-    // mouse ↔ gaze (พื้นฐาน)
     function setCursorMode(mode){
       const cursorEl = document.getElementById('cursor');
       if (!cursorEl) return;
@@ -1200,8 +1150,7 @@
     }
 
     window.addEventListener('hha:end', (e)=>{
-      ended = true;
-      clearTimer();
+      clearGameTimer();
 
       const d = e.detail || {};
       const scoreFinal = (typeof d.scoreFinal === 'number') ? (d.scoreFinal|0) : (state.score|0);
@@ -1341,6 +1290,13 @@
       logText.textContent = text || 'logger: pending…';
     }
 
+    // ✅ รับสถานะจริงจาก logger.js
+    window.addEventListener('hha:logger', (e)=>{
+      const d = e.detail || {};
+      if (d.ok) setLogBadge(true, d.message || 'logger: ok');
+      else setLogBadge(false, d.message || 'logger: error');
+    });
+
     // ---------------- Start game flow ----------------
     let started = false;
 
@@ -1356,20 +1312,25 @@
       }
     }
 
+    function getEndpointFromHub(){
+      try{
+        const v = sessionStorage.getItem('HHA_LOG_ENDPOINT') || '';
+        return v.trim();
+      }catch(_){
+        return '';
+      }
+    }
+
     function bootOnce({ wantVR }){
       if (started) return;
       started = true;
-      ended = false;
 
-      // hide overlay (gesture already happened)
       if (startOverlay) startOverlay.style.display = 'none';
 
-      // parse params
       diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
       runMode = (runParam === 'research') ? 'research' : 'play';
 
-      // duration defaults
       let baseDur = 60;
       if (diff === 'easy') baseDur = 80;
       else if (diff === 'hard') baseDur = 50;
@@ -1381,7 +1342,6 @@
         if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
       }
 
-      // HUD init
       elDiff.textContent = diff.toUpperCase();
       elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
       elScore.textContent = '0';
@@ -1391,7 +1351,6 @@
       elTime.textContent  = dur + 's';
       if (elJudge) elJudge.textContent = '';
 
-      // state init
       state.score = 0;
       state.goodHits = 0;
       state.miss = 0;
@@ -1399,12 +1358,10 @@
       state.timeLeft = dur;
       state.feverActive = false;
 
-      // lives init
       currentLives = MAX_LIVES;
       warnedLowLife = false;
       renderLives(currentLives);
 
-      // coach intro
       setCoachFace('neutral');
       if (runMode === 'research'){
         setCoach('โหมดวิจัย: เล่นให้เป็นธรรมชาติ แต่พยายามพลาดให้น้อยที่สุดนะ 📊');
@@ -1414,7 +1371,6 @@
         else setCoach('แตะเฉพาะอาหารดี แล้วหลบขยะ! พร้อมลุย! ⚡');
       }
 
-      // student profile from hub
       let studentProfile = null;
       let studentKey = null;
       try{
@@ -1423,35 +1379,37 @@
           studentProfile = JSON.parse(raw);
           studentKey = studentProfile.studentKey || null;
         }
-      }catch(err){}
+      }catch(_){}
 
-      // init logger (พร้อม debug)
+      // ✅ endpoint: ดึงจาก hub ก่อน
+      const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+      const FINAL_ENDPOINT = getEndpointFromHub() || DEFAULT_ENDPOINT;
+
       setLogPending('logger: init…');
       try{
         initCloudLogger({
-          endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
+          endpoint: FINAL_ENDPOINT,
           projectTag: 'HeroHealth-GoodJunkVR',
           mode: 'GoodJunkVR',
-          runMode: runMode,
-          diff: diff,
+          runMode,
+          diff,
           durationSec: dur,
-          studentKey: studentKey,
+          studentKey,
           profile: studentProfile,
           debug: true
         });
+        // สถานะจริงจะมาจาก event hha:logger อีกที
         setLogBadge(true, 'logger: ready');
       }catch(err){
         console.error('[GoodJunkVR] logger init failed', err);
         setLogBadge(false, 'logger: init failed (check console)');
       }
 
-      // touch + VR button
       const cam = document.querySelector('#gj-camera');
       attachTouch(cam);
       initVRButton();
       hookVrModeAutoSwitch();
 
-      // QuestDirector
       try{
         Q = makeQuestDirector({
           diff,
@@ -1466,7 +1424,6 @@
         Q = null;
       }
 
-      // countdown then start engine
       runCountdown(()=>{
         waitSceneReady(async ()=>{
           updateFeverHUD();
@@ -1481,8 +1438,8 @@
             durationSec: dur
           });
 
-          // timer (สำคัญ: เก็บไว้ clear ตอนจบ/stop)
-          clearTimer();
+          // timer
+          clearGameTimer();
           let timeLeft = dur;
           window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
           timerId = setInterval(()=>{
@@ -1490,45 +1447,55 @@
             if (timeLeft < 0) return;
             window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
             if (timeLeft <= 0){
-              clearTimer();
-              safeStopEngine('time-up');
+              clearGameTimer();
+              GameEngine.stop('time-up');
             }
           }, 1000);
         });
       });
 
-      // buttons (FIX: stop + clear flags + hard nav)
+      // ✅ replay: กัน cache แปลก ๆ ด้วย replay=timestamp
       if (btnReplay) btnReplay.addEventListener('click', ()=>{
-        safeStopEngine('replay');
-        clearHubFlags();
-        hardReload();
+        GameEngine.stop('replay');
+        clearGameTimer();
+        const u = new URL(window.location.href);
+        u.searchParams.set('replay', String(Date.now()));
+        location.replace(u.toString());
       });
 
-      if (btnBackHub) btnBackHub.addEventListener('click', ()=>{
-        safeStopEngine('back-hub');
+      // ✅ back hub: exit VR ก่อน + replace (กันย้อนกลับมาหน้าเกมค้าง)
+      if (btnBackHub) btnBackHub.addEventListener('click', async ()=>{
         try{
-          sessionStorage.setItem('HHA_RETURNED_FROM_GAME', '1');
-          sessionStorage.setItem('HHA_LAST_GAME', 'goodjunk');
-          sessionStorage.setItem('HHA_LAST_URL', window.location.href);
-          sessionStorage.removeItem('HHA_AUTO_START');
+          GameEngine.stop('back-hub');
         }catch(_){}
-        hardNav('./hub.html');
+        clearGameTimer();
+        const scene = document.querySelector('a-scene');
+        try{
+          if (scene && scene.is && scene.is('vr-mode')){
+            await scene.exitVR();
+          }
+        }catch(_){}
+        location.replace('./hub.html');
       });
 
       if (elEndRun) elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
 
-      // visibilitychange (FIX: กัน stop ค้างตอนเปลี่ยนหน้า/กลับ hub)
       document.addEventListener('visibilitychange', ()=>{
-        if (document.hidden && !ended){
-          safeStopEngine('tab-hidden');
+        if (document.hidden){
+          try{ GameEngine.stop('tab-hidden'); }catch(_){}
+          clearGameTimer();
         }
       });
+
+      // ✅ pagehide: กันออกหน้าแล้วไม่ส่ง log
+      window.addEventListener('pagehide', ()=>{
+        try{ GameEngine.stop('pagehide'); }catch(_){}
+        clearGameTimer();
+      }, { once:true });
     }
 
-    // Start overlay button hooks
     btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
     btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
-
   </script>
 </body>
 </html>
