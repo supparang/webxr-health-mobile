@@ -7,7 +7,6 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
@@ -32,36 +31,23 @@
         radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
         var(--bg-main);
       color:var(--text-main);
-      overflow:hidden; /* ✅ เลื่อนใน playfield แทน */
+      overflow:hidden;                 /* ✅ ไม่มี scroll */
+      touch-action:none;               /* ✅ กัน browser gesture แทรก */
+      overscroll-behavior: none;
     }
 
-    /* ✅ Playfield ที่เลื่อนได้ (ทำให้ “เป้าเลื่อนตามจอเลื่อน”) */
-    #playfield{
-      position:fixed;
-      inset:0;
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-      z-index:0;
-    }
-    /* ✅ ให้มีพื้นที่เลื่อนจริง (ปรับ 140vh/160vh ได้ตามชอบ) */
-    #stage{
-      position:relative;
-      width:100%;
-      height:160vh;
-    }
-
-    /* A-Frame / Layer อยู่ใน stage */
+    /* ===== World (A-Frame) ===== */
     a-scene{
-      position:absolute;
+      position:fixed;
       inset:0;
       width:100%;
       height:100%;
       z-index:0;
     }
 
-    /* ===== DOM Target Layer ===== */
+    /* ✅ DOM Target Layer: fixed = ตามจอเสมอ */
     #gj-layer{
-      position:absolute;
+      position:fixed;
       inset:0;
       z-index:649;          /* ใต้ HUD (650) */
       pointer-events:auto;
@@ -130,7 +116,6 @@
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
-    /* Grade */
     .metric-grade{ min-width:120px; max-width:150px; }
     .grade-text{ display:inline-flex; align-items:center; gap:6px; font-size:14px; }
     .grade-badge{ font-size:11px; padding:2px 6px; border-radius:999px; border:1px solid rgba(148,163,184,0.7); background:rgba(15,23,42,0.9); color:#e5e7eb; }
@@ -144,7 +129,6 @@
       box-shadow:0 0 12px rgba(168,85,247,0.55);
     }
 
-    /* Fever bar */
     .fever-wrap{ min-width:150px; max-width:220px; }
     .fever-bar{ margin-top:3px; width:100%; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(148,163,184,0.18); }
     #fever-fill{ width:0%; height:100%; border-radius:999px; background:linear-gradient(90deg,#f97316,#ef4444); transition:width .12s ease-out; }
@@ -152,7 +136,6 @@
     .fever-badge{ font-size:10px; padding:1px 6px; border-radius:999px; border:1px solid rgba(251,146,60,0.55); background:rgba(249,115,22,0.12); color:#fed7aa; }
     .fever-badge.on{ border-color:rgba(248,113,113,0.75); background:rgba(239,68,68,0.14); color:#fecaca; box-shadow:0 0 12px rgba(239,68,68,0.25); }
 
-    /* Quest panel */
     .hud-quest{ max-width:280px; font-size:12px; }
     .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
     .quest-main-label{ font-size:13px; font-weight:700; }
@@ -162,7 +145,6 @@
     .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
     .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; }
 
-    /* Coach */
     .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
     .coach-bubble{
       min-width:60%;
@@ -194,7 +176,7 @@
     .coach-emoji.coach-sad{ filter:grayscale(0.2) brightness(0.9); box-shadow:0 0 10px rgba(148,163,184,0.8); }
     .coach-emoji.coach-fever{ box-shadow:0 0 18px rgba(248,113,113,0.9); }
 
-    /* Start overlay (คลิกครั้งเดียวเข้าเกม — PC/Mobile ได้) */
+    /* Start overlay */
     .start-overlay{
       position:fixed; inset:0;
       z-index:700;
@@ -241,7 +223,6 @@
     }
     .start-tip{ margin-top:10px; color:var(--text-soft); font-size:12px; }
 
-    /* Countdown */
     .countdown-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -255,7 +236,6 @@
     }
     .countdown-hidden{ opacity:0; visibility:hidden; transform:scale(0.8); }
 
-    /* VR button */
     .vr-btn{
       position:fixed;
       right:12px; bottom:16px;
@@ -275,7 +255,6 @@
       pointer-events:auto;
     }
 
-    /* small hint */
     .hint-center{
       position:fixed; left:50%; top:50%;
       transform:translate(-50%,-50%);
@@ -293,58 +272,46 @@
 </head>
 
 <body>
-
-  <!-- ✅ Start overlay (แก้ “เข้าเกมจอดำ/เริ่มไม่ได้” ในมือถือ/PC) -->
   <div class="start-overlay" id="start-overlay">
     <div class="start-card">
       <div class="start-title">เริ่มเล่น Good vs Junk</div>
       <div class="start-sub">
-        แตะครั้งเดียวเพื่อเริ่มเกม (บน PC/Mobile เล่นได้ทันที) ถ้ามี VR จะกดเข้า VR ได้จากปุ่ม 🕶️
+        แตะครั้งเดียวเพื่อเริ่มเกม (PC/Mobile เล่นได้ทันที) — ลากนิ้วเพื่อหมุนมุมมอง 👆
       </div>
       <div class="start-row">
         <button class="btn-start" id="btn-start">▶ เริ่มเลย</button>
         <div class="start-pill" id="start-pill">DIFF: NORMAL • 60s</div>
       </div>
-      <div class="start-tip">ทิป: ลากนิ้วเพื่อหมุนมุมมอง / ถ้าเลื่อนจอ เป้าจะเลื่อนตาม 🧭</div>
+      <div class="start-tip">โหมดนี้ “ไม่เลื่อนหน้าจอ” เป้าจะตามมุมมอง (เหมือน VR จริง)</div>
     </div>
   </div>
 
-  <!-- ✅ Playfield เลื่อนได้ -->
-  <div id="playfield">
-    <div id="stage">
+  <a-scene
+    vr-mode-ui="enabled: true"
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+    background="color: #020617">
 
-      <!-- ===== A-Frame Scene ===== -->
-      <a-scene
-        vr-mode-ui="enabled: true"
-        renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-        background="color: #020617">
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="gj-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
+        <a-entity id="cursor"
+                  cursor="fuse: false; rayOrigin: mouse"
+                  raycaster="objects: [data-hha-tgt]"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+                  material="shader: flat; color: #ffffff; opacity: 0.95"
+                  position="0 0 -0.9"></a-entity>
+      </a-camera>
+    </a-entity>
 
-        <a-entity id="rig" position="0 1.6 0">
-          <a-camera id="gj-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
-            <a-entity id="cursor"
-                      cursor="fuse: false; rayOrigin: mouse"
-                      raycaster="objects: [data-hha-tgt]"
-                      geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-                      material="shader: flat; color: #ffffff; opacity: 0.95"
-                      position="0 0 -0.9">
-            </a-entity>
-          </a-camera>
-        </a-entity>
+    <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
+    <a-plane position="0 0 0" rotation="-90 0 0" width="24" height="24"
+             material="color: #020617; metalness: 0; roughness: 1"></a-plane>
+    <a-sky color="#020617"></a-sky>
+  </a-scene>
 
-        <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
-        <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
-        <a-plane position="0 0 0" rotation="-90 0 0" width="24" height="24"
-                 material="color: #020617; metalness: 0; roughness: 1"></a-plane>
-        <a-sky color="#020617"></a-sky>
-      </a-scene>
+  <div id="gj-layer"></div>
 
-      <!-- ✅ DOM Target Layer -->
-      <div id="gj-layer"></div>
-
-    </div>
-  </div>
-
-  <!-- ===== HUD ===== -->
+  <!-- HUD (เหมือนเดิม) -->
   <div class="hud-root">
     <div class="hud-top">
       <div class="hud-card" style="flex:1;max-width:520px;">
@@ -394,7 +361,6 @@
               <span id="hud-fever-badge" class="fever-badge">OFF</span>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -430,13 +396,10 @@
   </div>
 
   <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
-
   <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
   <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
 
-  <!-- Fever UI -->
   <script src="./vr/ui-fever.js"></script>
-  <!-- Particles FX -->
   <script src="./vr/particles.js"></script>
 
   <script type="module">
@@ -456,22 +419,17 @@
     function waitSceneReady(cb){
       const scene = document.querySelector('a-scene');
       if (!scene) { cb(); return; }
-      const tryReady = ()=> !!(scene.hasLoaded && scene.camera && (window.THREE || (window.AFRAME && window.AFRAME.THREE)));
-      if (tryReady()) { cb(); return; }
-
+      const ok = ()=> !!(scene.hasLoaded && scene.camera && (window.THREE || (window.AFRAME && window.AFRAME.THREE)));
+      if (ok()) { cb(); return; }
       scene.addEventListener('loaded', ()=>{
-        let tries = 0;
-        const t = setInterval(()=>{
+        let tries=0;
+        const t=setInterval(()=>{
           tries++;
-          if (tryReady() || tries > 80){
-            clearInterval(t);
-            cb();
-          }
+          if (ok() || tries>80){ clearInterval(t); cb(); }
         }, 50);
       }, { once:true });
     }
 
-    // refs
     const elScore = document.getElementById('hud-score');
     const elCombo = document.getElementById('hud-combo');
     const elMiss  = document.getElementById('hud-miss');
@@ -504,7 +462,6 @@
     const btnStart = document.getElementById('btn-start');
     const startPill = document.getElementById('start-pill');
 
-    // game params
     let diff = String(getParam('diff','normal')).toLowerCase();
     let runMode = String(getParam('run','play')).toLowerCase();
     if (runMode !== 'research') runMode = 'play';
@@ -512,16 +469,14 @@
     let dur = 60;
     if (diff === 'easy') dur = 80;
     else if (diff === 'hard') dur = 45;
+
     const timeParam = getParam('time','');
     if (timeParam){
       const parsed = parseInt(timeParam,10);
       if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
     }
 
-    // state (Quest-ready)
     const state = { score:0, goodHits:0, miss:0, comboMax:0, timeLeft:dur, feverActive:false };
-
-    // Quest counters for grade
     let hudGoalsTotal=0, hudGoalsCleared=0, hudMiniTotal=0, hudMiniCleared=0;
 
     function setCoachFace(mood){
@@ -542,8 +497,6 @@
       const allGoalDone = (goalsTotal>0 && goalsCleared>=goalsTotal);
       const allMiniDone = (miniTotal>0 && miniCleared>=miniTotal);
       const allQuest = allGoalDone && allMiniDone;
-
-      // ✅ จูนให้ “เด็ก ป.5” สนุก: ให้ได้ S ง่ายขึ้นนิดนึง แต่ SS/SSS ต้องครบเควส
       if (allQuest && score >= 950 && comboMax >= 10 && misses <= 2) return 'SSS';
       if (allQuest && score >= 780 && comboMax >= 8  && misses <= 4) return 'SS';
       if (score >= 620) return 'S';
@@ -574,7 +527,6 @@
       }
     }
 
-    // countdown
     function runCountdown(onDone){
       if (!elCountdown){ onDone && onDone(); return; }
       const steps = ['3','2','1','GO!'];
@@ -593,16 +545,12 @@
       }, 700);
     }
 
-    // VR button
     function initVRButton(){
       const scene = document.querySelector('a-scene');
       if (!btnVR || !scene) return;
-      btnVR.addEventListener('click', ()=>{
-        try{ scene.enterVR(); } catch(e){ console.warn('[GoodJunkVR] enterVR failed', e); }
-      });
+      btnVR.addEventListener('click', ()=>{ try{ scene.enterVR(); }catch(e){ console.warn(e); } });
     }
 
-    // touch look
     function attachTouch(){
       const cam = document.querySelector('#gj-camera');
       if (!cam) return;
@@ -619,26 +567,12 @@
       });
     }
 
-    // QuestDirector
     let Q = null;
     function initQuest(){
-      try{
-        Q = makeQuestDirector({
-          diff,
-          goalDefs: GOODJUNK_GOALS,
-          miniDefs: GOODJUNK_MINIS,
-          maxGoals: 2,
-          maxMini: 3
-        });
-        // ✅ start แบบ "ไม่ให้ผ่านเลย" (deferStart ใน defs จะกันเอง)
-        Q.start({ ...state });
-      }catch(err){
-        console.error('[GoodJunkVR] QuestDirector failed:', err);
-        Q = null;
-      }
+      Q = makeQuestDirector({ diff, goalDefs: GOODJUNK_GOALS, miniDefs: GOODJUNK_MINIS, maxGoals: 2, maxMini: 3 });
+      Q.start({ ...state });
     }
 
-    // listeners
     window.addEventListener('hha:time', (e)=>{
       const sec = ((e.detail && e.detail.sec) | 0);
       if (sec < 0) return;
@@ -656,10 +590,7 @@
       if (typeof d.score === 'number'){ state.score = d.score|0; if (elScore) elScore.textContent = String(state.score); }
       if (typeof d.goodHits === 'number'){ state.goodHits = d.goodHits|0; }
       if (typeof d.misses === 'number'){ state.miss = d.misses|0; if (elMiss) elMiss.textContent = String(state.miss); }
-      if (typeof d.comboMax === 'number'){
-        state.comboMax = d.comboMax|0;
-        if (elCombo){ elCombo.textContent = String(state.comboMax); elCombo.dataset.max = String(state.comboMax); }
-      }
+      if (typeof d.comboMax === 'number'){ state.comboMax = d.comboMax|0; if (elCombo){ elCombo.textContent = String(state.comboMax); elCombo.dataset.max = String(state.comboMax); } }
       if (typeof d.feverActive === 'boolean'){ state.feverActive = d.feverActive; }
       updateFeverHUD();
       if (Q) Q.update(state);
@@ -677,7 +608,6 @@
       const d = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
-
       const goalsAll = d.goalsAll || [];
       const minisAll = d.minisAll || [];
 
@@ -706,23 +636,18 @@
       }
 
       elQuestHint.textContent = d.hint ? d.hint : '';
-
       hudGoalsTotal = goalsAll.length;
       hudGoalsCleared = goalsAll.filter(x => x && x.done).length;
       hudMiniTotal = minisAll.length;
       hudMiniCleared = minisAll.filter(x => x && x.done).length;
-
       updateRealtimeGrade();
     });
 
-    // END
     window.addEventListener('hha:end', ()=>{
       setCoachFace('happy');
       setCoach('จบเกมแล้ว! กดเริ่มใหม่ได้เลย 🎉');
-      // (ถ้าคุณมี end-toast เดิม สามารถเอากลับมาใส่ได้)
     });
 
-    // ===== Start flow =====
     function refreshStartPill(){
       const label = `DIFF: ${diff.toUpperCase()} • ${dur}s`;
       if (startPill) startPill.textContent = label;
@@ -732,20 +657,13 @@
     function startGameOnce(){
       if (startOverlay) startOverlay.style.display = 'none';
 
-      // init HUD
       if (elDiff) elDiff.textContent = diff.toUpperCase();
       if (elTime) elTime.textContent = dur + 's';
-      if (elScore) elScore.textContent = '0';
-      if (elCombo){ elCombo.textContent = '0'; elCombo.dataset.max = '0'; }
-      if (elMiss) elMiss.textContent = '0';
-      if (elJudge) elJudge.textContent = '';
-
       state.score=0; state.goodHits=0; state.miss=0; state.comboMax=0; state.timeLeft=dur; state.feverActive=false;
       hudGoalsTotal=hudGoalsCleared=hudMiniTotal=hudMiniCleared=0;
       updateRealtimeGrade();
       updateFeverHUD();
 
-      // logger
       try{
         initCloudLogger({
           endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
@@ -756,9 +674,7 @@
           durationSec: dur,
           debug: false
         });
-      }catch(e){
-        console.warn('[GoodJunkVR] cloud logger init failed', e);
-      }
+      }catch(e){ console.warn('[GoodJunkVR] cloud logger init failed', e); }
 
       attachTouch();
       initVRButton();
@@ -766,16 +682,12 @@
 
       runCountdown(()=>{
         waitSceneReady(()=>{
-          const playfield = document.getElementById('playfield');
-
           GameEngine.start(diff, {
             runMode,
             layerEl: document.getElementById('gj-layer'),
-            spawnHost: playfield,                 /* ✅ สำคัญ: ใช้ตัวนี้คำนวณ scroll-follow */
             durationSec: dur
           });
 
-          // timer
           let timeLeft = dur;
           window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
           const timerId = setInterval(()=>{
@@ -791,10 +703,9 @@
       });
 
       setCoachFace('neutral');
-      setCoach('พร้อมแล้ว! แตะของดี เลี่ยงของขยะ แล้วทำคอมโบให้ยาว ๆ นะ 😄');
+      setCoach('พร้อมแล้ว! ลากนิ้วหมุนมุมมอง แล้วแตะของดีให้ไว 😄');
     }
 
-    // “เริ่มเลย” ต้องเป็น user gesture (มือถือ/VR ไม่พัง)
     if (btnStart){
       btnStart.addEventListener('click', startGameOnce, { once:true });
     }
