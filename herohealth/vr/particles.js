@@ -1,312 +1,207 @@
 // === /herohealth/vr/particles.js ===
-// Simple FX layer: score pop + judgment text + target burst
-// + Celebration FX สำหรับ Quest (Goal / Mini / All Complete)
-// ✅ PATCH v2: รองรับ hha:celebrate (type/kind) + all + judge fallback pos + กัน bind ซ้ำ
+// Hero Health Academy — FX layer (burst + score pop + judge pop)
+// FIX (Dec 2025):
+// - Only show FX when caller provides screen position {x,y} (0..1 or px)
+// - Prevent duplicate layers
+// - Provide public API: burstAt(x,y,opts), floatScoreAt(x,y,text,opts), judgeAt(x,y,text,opts)
 
 (function (root) {
   'use strict';
+
   const doc = root.document;
   if (!doc) return;
 
-  // ✅ กัน bind ซ้ำ
-  if (root.__HHA_PARTICLES_BOUND__) {
-    root.GAME_MODULES = root.GAME_MODULES || {};
-    root.GAME_MODULES.Particles = root.GAME_MODULES.Particles || root.Particles || {};
-    return;
-  }
-  root.__HHA_PARTICLES_BOUND__ = true;
-
+  // ---------------- Layer ----------------
   function ensureLayer() {
     let layer = doc.querySelector('.hha-fx-layer');
-    if (!layer) {
-      layer = doc.createElement('div');
-      layer.className = 'hha-fx-layer';
-      Object.assign(layer.style, {
-        position: 'fixed',
-        inset: '0',
-        pointerEvents: 'none',
-        zIndex: 700,
-        overflow: 'hidden'
-      });
-      doc.body.appendChild(layer);
-    }
+    if (layer) return layer;
+
+    layer = doc.createElement('div');
+    layer.className = 'hha-fx-layer';
+    Object.assign(layer.style, {
+      position: 'fixed',
+      inset: '0',
+      pointerEvents: 'none',
+      zIndex: 720, // above HUD (650) but below modals if any
+      overflow: 'hidden'
+    });
+    doc.body.appendChild(layer);
     return layer;
   }
 
-  function burstAt(x, y, opts) {
-    opts = opts || {};
-    const layer = ensureLayer();
-    const color = opts.color || '#22c55e';
-    const good = !!opts.good;
+  // ---------------- Utils ----------------
+  function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
-    const n =
-      typeof opts.count === 'number' && opts.count > 0
-        ? opts.count
-        : good ? 32 : 20;
+  // Accept (x,y) as:
+  // - normalized 0..1 (screen fraction)  OR
+  // - pixel coords when opts.px = true
+  function toPx(x, y, opts = {}) {
+    const W = root.innerWidth || 1;
+    const H = root.innerHeight || 1;
+    const px = !!opts.px;
 
-    for (let i = 0; i < n; i++) {
-      const dot = doc.createElement('div');
-      const size = good ? 7 + Math.random() * 7 : 5 + Math.random() * 5;
-
-      Object.assign(dot.style, {
-        position: 'absolute',
-        left: x + 'px',
-        top: y + 'px',
-        width: size + 'px',
-        height: size + 'px',
-        borderRadius: '999px',
-        background: color,
-        boxShadow: '0 0 14px rgba(0,0,0,0.9)',
-        opacity: '1',
-        pointerEvents: 'none',
-        transform: 'translate(-50%, -50%) scale(0.9)',
-        transition: 'transform 0.55s ease-out, opacity 0.55s ease-out'
-      });
-
-      layer.appendChild(dot);
-
-      const ang = Math.random() * Math.PI * 2;
-      const distBase = good ? 90 : 65;
-      const dist = distBase + Math.random() * 50;
-      const dx = Math.cos(ang) * dist;
-      const dy = Math.sin(ang) * dist;
-
-      requestAnimationFrame(function () {
-        dot.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(0.98)';
-        dot.style.opacity = '0';
-      });
-
-      setTimeout(function () {
-        if (dot.parentNode) dot.parentNode.removeChild(dot);
-      }, 580);
+    if (px) {
+      return { x: clamp(x, 0, W), y: clamp(y, 0, H) };
     }
+    return { x: clamp(x, 0, 1) * W, y: clamp(y, 0, 1) * H };
   }
 
-  function scorePop(x, y, value, opts) {
-    opts = opts || {};
+  function makeDiv(className, xPx, yPx) {
+    const el = doc.createElement('div');
+    el.className = className;
+    Object.assign(el.style, {
+      position: 'fixed',
+      left: xPx + 'px',
+      top: yPx + 'px',
+      transform: 'translate(-50%,-50%)',
+      pointerEvents: 'none',
+      willChange: 'transform, opacity'
+    });
+    return el;
+  }
+
+  // ---------------- Styles (inject once) ----------------
+  function ensureStyles(){
+    if (doc.getElementById('hha-fx-style')) return;
+    const st = doc.createElement('style');
+    st.id = 'hha-fx-style';
+    st.textContent = `
+      .hha-pop{
+        padding: 8px 10px;
+        border-radius: 999px;
+        background: rgba(15,23,42,0.78);
+        border: 1px solid rgba(148,163,184,0.22);
+        box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+        font-weight: 900;
+        font-size: 14px;
+        letter-spacing: .02em;
+        color: #e5e7eb;
+        opacity: 0;
+        animation: hha-pop-up .55s ease-out forwards;
+        white-space: nowrap;
+      }
+      .hha-pop.good{ border-color: rgba(34,197,94,0.42); }
+      .hha-pop.junk{ border-color: rgba(249,115,22,0.42); }
+      .hha-pop.power{ border-color: rgba(59,130,246,0.42); }
+      .hha-pop.boss{ border-color: rgba(250,204,21,0.55); }
+      .hha-pop .small{ font-size: 12px; opacity: .9; font-weight: 800; margin-left: 6px; }
+
+      @keyframes hha-pop-up{
+        0%{ transform: translate(-50%,-50%) scale(.88); opacity: 0; }
+        15%{ opacity: 1; }
+        100%{ transform: translate(-50%,-64%) scale(1.0); opacity: 0; }
+      }
+
+      .hha-burst{
+        position: fixed;
+        width: 10px;
+        height: 10px;
+        transform: translate(-50%,-50%);
+        pointer-events: none;
+        opacity: 1;
+      }
+      .hha-shard{
+        position:absolute;
+        left: 50%;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.92);
+        transform: translate(-50%,-50%);
+        opacity: 0.95;
+        filter: drop-shadow(0 10px 14px rgba(0,0,0,0.35));
+        animation: hha-shard 420ms ease-out forwards;
+      }
+      @keyframes hha-shard{
+        0%{ transform: translate(-50%,-50%) scale(1); opacity: 1; }
+        100%{ transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; }
+      }
+    `;
+    doc.head.appendChild(st);
+  }
+
+  // ---------------- Public FX ----------------
+  function floatScoreAt(x, y, text, opts = {}) {
+    if (x == null || y == null) return; // ✅ no position => do nothing
+    ensureStyles();
     const layer = ensureLayer();
-    const good = !!opts.good;
-    const judgment = String(opts.judgment || '').toUpperCase();
+    const {x: px, y: py} = toPx(x, y, opts);
 
-    const wrap = doc.createElement('div');
-    const parts = [];
-    if (value !== undefined && value !== null && value !== '') parts.push(String(value));
-    if (judgment) parts.push(judgment);
-    wrap.textContent = parts.join(' ');
+    const pop = makeDiv('hha-pop ' + (opts.kind || ''), px, py);
+    pop.textContent = String(text || '');
+    layer.appendChild(pop);
 
-    Object.assign(wrap.style, {
-      position: 'absolute',
-      left: x + 'px',
-      top: y + 'px',
-      transform: 'translate(-50%, -50%) scale(0.9)',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: '20px',
-      fontWeight: '800',
-      color: good ? '#bbf7d0' : '#fed7aa',
-      textShadow: '0 0 20px rgba(0,0,0,0.95)',
-      padding: '4px 12px',
-      borderRadius: '999px',
-      background: 'rgba(15,23,42,0.98)',
-      border: '1px solid rgba(148,163,184,0.5)',
-      whiteSpace: 'nowrap',
-      opacity: '0',
-      transition: 'transform 0.45s ease-out, opacity 0.45s ease-out',
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '6px',
-      letterSpacing: '.06em',
-      textTransform: 'uppercase'
-    });
-
-    layer.appendChild(wrap);
-
-    const burstColor = good ? '#22c55e' : '#f97316';
-    burstAt(x, y, { color: burstColor, good: good });
-
-    requestAnimationFrame(function () {
-      wrap.style.transform = 'translate(-50%, -90%) scale(1.06)';
-      wrap.style.opacity = '1';
-    });
-    setTimeout(function () {
-      wrap.style.transform = 'translate(-50%, -135%) scale(0.98)';
-      wrap.style.opacity = '0';
-    }, 260);
-
-    setTimeout(function () {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-    }, 520);
+    // auto remove
+    setTimeout(() => { try{ pop.remove(); }catch(_){} }, 650);
   }
 
-  function celebrateQuestFX(kind, index, total, label) {
-    ensureLayer();
-    const cx = root.innerWidth / 2;
-    const cy = root.innerHeight * 0.5;
+  function judgeAt(x, y, label, opts = {}) {
+    if (x == null || y == null) return; // ✅ no position => do nothing
+    ensureStyles();
+    const layer = ensureLayer();
+    const {x: px, y: py} = toPx(x, y, opts);
 
-    const k = String(kind || 'goal').toLowerCase();
-    const color = (k === 'goal') ? '#22c55e' : '#38bdf8';
-    const title = (k === 'goal')
-      ? ('GOAL ' + (index || 1) + '/' + (total || 2))
-      : ('MINI ' + (index || 1) + '/' + (total || 3));
+    const pop = makeDiv('hha-pop ' + (opts.kind || ''), px + (opts.dx || 0), py + (opts.dy || 0));
+    // “คำตัดสิน + คะแนน” แบบคู่กันได้
+    pop.innerHTML = `${String(label || '')}`;
+    layer.appendChild(pop);
+    setTimeout(() => { try{ pop.remove(); }catch(_){} }, 650);
+  }
 
-    burstAt(cx, cy, { color: color, good: true, count: 32 });
-    scorePop(cx, cy, 'MISSION CLEAR!', { judgment: title, good: true });
+  function burstAt(x, y, opts = {}) {
+    if (x == null || y == null) return; // ✅ no position => do nothing
+    ensureStyles();
+    const layer = ensureLayer();
+    const {x: px, y: py} = toPx(x, y, opts);
 
-    if (label) {
-      const layer = ensureLayer();
-      const sub = doc.createElement('div');
-      sub.textContent = String(label);
-      Object.assign(sub.style, {
-        position: 'absolute',
-        left: '50%',
-        top: '60%',
-        transform: 'translate(-50%, -50%)',
-        padding: '6px 12px',
-        borderRadius: '999px',
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        fontSize: '13px',
-        fontWeight: '700',
-        color: '#e5e7eb',
-        background: 'rgba(2,6,23,0.88)',
-        border: '1px solid rgba(148,163,184,0.35)',
-        textShadow: '0 0 18px rgba(0,0,0,0.9)',
-        opacity: '0',
-        transition: 'opacity .25s ease-out, transform .25s ease-out',
-        maxWidth: '78vw',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis'
-      });
-      layer.appendChild(sub);
-      requestAnimationFrame(function () {
-        sub.style.opacity = '1';
-        sub.style.transform = 'translate(-50%, -50%) translateY(-2px)';
-      });
-      setTimeout(function () {
-        sub.style.opacity = '0';
-        sub.style.transform = 'translate(-50%, -50%) translateY(-10px)';
-      }, 520);
-      setTimeout(function () {
-        if (sub.parentNode) sub.parentNode.removeChild(sub);
-      }, 820);
+    const burst = makeDiv('hha-burst', px, py);
+    layer.appendChild(burst);
+
+    const n = clamp(opts.count || 14, 6, 24);
+    const r = clamp(opts.radius || 90, 40, 150);
+
+    for (let i=0;i<n;i++){
+      const shard = doc.createElement('div');
+      shard.className = 'hha-shard';
+
+      const a = (Math.PI * 2) * (i / n) + (Math.random()*0.6);
+      const rr = r * (0.65 + Math.random()*0.55);
+      const dx = Math.cos(a) * rr;
+      const dy = Math.sin(a) * rr;
+
+      shard.style.setProperty('--dx', (dx) + 'px');
+      shard.style.setProperty('--dy', (dy) + 'px');
+
+      // tint
+      const kind = opts.kind || '';
+      if (kind === 'good') shard.style.background = 'rgba(34,197,94,0.95)';
+      else if (kind === 'junk') shard.style.background = 'rgba(249,115,22,0.95)';
+      else if (kind === 'power') shard.style.background = 'rgba(59,130,246,0.95)';
+      else if (kind === 'boss') shard.style.background = 'rgba(250,204,21,0.95)';
+
+      burst.appendChild(shard);
     }
+
+    setTimeout(() => { try{ burst.remove(); }catch(_){} }, 520);
   }
 
-  function celebrateAllQuestsFX() {
-    ensureLayer();
-    const cx = root.innerWidth / 2;
-    const cy = root.innerHeight * 0.32;
+  // ---------------- Event bridge ----------------
+  // ✅ ใช้ event เดียวสำหรับ FX แบบระบุตำแหน่ง
+  root.addEventListener('hha:fx', (e) => {
+    const d = e.detail || {};
+    const type = String(d.type || '');
+    if (d.x == null || d.y == null) return; // ✅ no position => ignore
 
-    ['#facc15', '#22c55e', '#38bdf8'].forEach(function (c, idx) {
-      setTimeout(function () {
-        burstAt(cx, cy, { color: c, good: true, count: 34 });
-      }, idx * 220);
-    });
-
-    const layer = ensureLayer();
-    const banner = doc.createElement('div');
-    banner.textContent = 'ALL QUESTS CLEAR! 🌟';
-    Object.assign(banner.style, {
-      position: 'absolute',
-      left: '50%',
-      top: '30%',
-      transform: 'translate(-50%, -50%) scale(0.88)',
-      padding: '10px 18px',
-      borderRadius: '999px',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: '18px',
-      fontWeight: '800',
-      letterSpacing: '.1em',
-      textTransform: 'uppercase',
-      color: '#fef3c7',
-      background:
-        'radial-gradient(circle at top left, rgba(250,250,250,0.18), transparent 55%), rgba(8,47,73,0.96)',
-      border: '1px solid rgba(250,204,21,0.85)',
-      textShadow: '0 0 22px rgba(0,0,0,0.9)',
-      boxShadow: '0 22px 60px rgba(15,23,42,0.95)',
-      opacity: '0',
-      transition: 'opacity .4s ease-out, transform .4s ease-out'
-    });
-    layer.appendChild(banner);
-
-    requestAnimationFrame(function () {
-      banner.style.opacity = '1';
-      banner.style.transform = 'translate(-50%, -50%) scale(1)';
-    });
-    setTimeout(function () {
-      banner.style.opacity = '0';
-      banner.style.transform = 'translate(-50%, -50%) scale(0.94)';
-    }, 1100);
-    setTimeout(function () {
-      if (banner.parentNode) banner.parentNode.removeChild(banner);
-    }, 1500);
-  }
-
-  // ===== Auto-bind events =====
-  if (root && root.addEventListener) {
-    // hha:judge → ถ้าไม่มีตำแหน่ง ให้เด้งกลางจอ (อย่างน้อยเห็นเอฟเฟกต์)
-    root.addEventListener('hha:judge', function (e) {
-      try {
-        const d = e.detail || {};
-        const label = String(d.label || '').toUpperCase();
-        if (!label) return;
-
-        const x = (typeof d.x === 'number') ? d.x : (root.innerWidth / 2);
-        const y = (typeof d.y === 'number') ? d.y : (root.innerHeight * 0.52);
-
-        let good = false;
-        let color = '#f97316';
-        if (label === 'GOOD' || label === 'PERFECT' || label === 'HIT' || label === 'PERFECT!') {
-          good = true; color = '#22c55e';
-        } else if (label === 'FEVER') {
-          good = true; color = '#facc15';
-        } else if (label === 'MISS' || label === 'OOPS!' || label === 'OOPS') {
-          good = false; color = '#f97316';
-        }
-
-        burstAt(x, y, { color, good });
-      } catch (err) {
-        console.warn('[Particles] hha:judge handler error', err);
-      }
-    });
-
-    // ของเดิม
-    root.addEventListener('quest:celebrate', function (e) {
-      try {
-        const d = e.detail || {};
-        celebrateQuestFX(d.kind || 'goal', (d.index || 0) | 0, (d.total || 0) | 0, d.label || '');
-      } catch (err) {
-        console.warn('[Particles] quest:celebrate handler error', err);
-      }
-    });
-    root.addEventListener('quest:all-complete', function () {
-      try { celebrateAllQuestsFX(); } catch (err) {
-        console.warn('[Particles] quest:all-complete handler error', err);
-      }
-    });
-
-    // ✅ NEW: รองรับ event ใหม่ของเรา (type หรือ kind)
-    root.addEventListener('hha:celebrate', function (e) {
-      try {
-        const d = e.detail || {};
-        const t = String(d.type || d.kind || 'goal').toLowerCase();
-
-        if (t === 'all') {
-          celebrateAllQuestsFX();
-          return;
-        }
-
-        const kind = (t === 'mini') ? 'mini' : 'goal';
-        celebrateQuestFX(kind, (d.index || 1) | 0, (d.total || (kind === 'goal' ? 2 : 3)) | 0, d.label || '');
-      } catch (err) {
-        console.warn('[Particles] hha:celebrate handler error', err);
-      }
-    });
-  }
+    if (type === 'burst') burstAt(d.x, d.y, d);
+    else if (type === 'score') floatScoreAt(d.x, d.y, d.text, d);
+    else if (type === 'judge') judgeAt(d.x, d.y, d.text, d);
+  });
 
   // Export API
-  const api = { scorePop, burstAt, celebrateQuestFX, celebrateAllQuestsFX };
-  root.Particles = api;
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = api;
+  root.Particles = root.Particles || {};
+  root.Particles.burstAt = burstAt;
+  root.Particles.floatScoreAt = floatScoreAt;
+  root.Particles.judgeAt = judgeAt;
 
 })(window);
