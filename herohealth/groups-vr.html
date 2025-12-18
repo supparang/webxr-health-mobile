@@ -58,16 +58,39 @@
     }
     .hud-main-title{ font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--text-soft); margin-bottom:2px; }
     .hud-main-mode{ font-size:18px; font-weight:600; }
+
     .hud-pill{
-      margin-top:4px;
+      margin-top:6px;
       border-radius:999px;
       padding:2px 8px;
       font-size:11px;
       border:1px solid rgba(148,163,184,0.5);
       color:var(--text-soft);
       display:inline-flex; align-items:center; gap:6px;
+      background:rgba(2,6,23,0.35);
+      backdrop-filter:blur(8px);
     }
-    .hud-metrics{ margin-top:8px; display:flex; gap:14px; flex-wrap:wrap; }
+    .hud-badge{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:2px 8px;
+      border-radius:999px;
+      font-size:11px;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      border:1px solid rgba(148,163,184,0.35);
+      background:rgba(15,23,42,0.65);
+      color:#cbd5f5;
+    }
+    .hud-badge.play{
+      border-color:rgba(34,197,94,0.45);
+      color:#bbf7d0;
+    }
+    .hud-badge.research{
+      border-color:rgba(56,189,248,0.55);
+      color:#bae6fd;
+    }
+
+    .hud-metrics{ margin-top:10px; display:flex; gap:14px; flex-wrap:wrap; }
     .metric{ display:flex; flex-direction:column; gap:2px; }
     .metric-label{ font-size:11px; color:var(--text-soft); }
     .metric-value{ font-size:18px; font-weight:700; }
@@ -89,21 +112,6 @@
     .fg-quest-label{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-top:2px; white-space:nowrap; }
     .fg-quest-main{ flex:1; opacity:.92; }
     .fg-quest-progress{ font-variant-numeric:tabular-nums; font-size:12px; color:#bbf7d0; white-space:nowrap; }
-
-    /* mini timed/urgent */
-    .fg-quest-row.mini-timed .fg-quest-progress{ color:#fde68a; }
-    .fg-quest-row.mini-urgent{
-      background:rgba(248,113,113,0.10);
-      border-radius:12px;
-      padding:6px 8px;
-      box-shadow:0 0 0 1px rgba(248,113,113,0.35), 0 0 18px rgba(248,113,113,0.22);
-    }
-    .fg-quest-row.mini-urgent .fg-quest-progress{
-      color:#fecaca;
-      font-weight:800;
-      animation: miniUrgentPulse .35s ease-in-out infinite alternate;
-    }
-    @keyframes miniUrgentPulse{ from{ transform:translateY(0);} to{ transform:translateY(-1px);} }
 
     .hud-bottom{
       position:absolute; left:0; right:0; bottom:64px;
@@ -144,6 +152,9 @@
       z-index:40;
       pointer-events:auto !important;
       touch-action:manipulation;
+
+      /* ✅ สำคัญ: scale ที่ GameEngine จะปรับ (default = 1) */
+      --fg-scale: 1;
     }
     .fg-target{
       position:absolute;
@@ -155,8 +166,10 @@
       user-select:none; -webkit-user-select:none;
       touch-action:manipulation;
       box-shadow:0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
+
+      /* ✅ ใช้ var scale */
       transform:translate(-50%,-50%) scale(var(--fg-scale, 1));
-      transition:transform .12s ease-out, opacity .12s ease-out, box-shadow .12s ease-out;
+      transition:transform .12s ease-out, opacity .12s ease-out;
       opacity:1;
     }
     .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
@@ -169,11 +182,9 @@
       color:#fefce8;
       text-shadow:0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
     }
-    .fg-target.hit{ transform:translate(-50%,-50%) scale(calc(var(--fg-scale, 1) * 0.65)); opacity:0; }
-
-    .fg-target.fg-golden{
-      background:radial-gradient(circle at 30% 30%, #facc15, #b45309);
-      box-shadow:0 16px 38px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9), 0 0 20px rgba(250,204,21,0.35);
+    .fg-target.hit{
+      transform:translate(-50%,-50%) scale(calc(var(--fg-scale,1) * 0.60));
+      opacity:0;
     }
 
     /* Fever gauge */
@@ -294,16 +305,6 @@
       color:#022c22;
       border:none;
     }
-
-    /* boss mode */
-    body.boss-mode .hud-pill{
-      border-color: rgba(250,204,21,0.9);
-      box-shadow: 0 0 0 1px rgba(250,204,21,0.25), 0 0 18px rgba(250,204,21,0.18);
-    }
-    body.boss-mode #hud-time-label{
-      color:#fde68a;
-      font-weight:800;
-    }
   </style>
 </head>
 
@@ -337,7 +338,10 @@
       <div class="hud-card">
         <div class="hud-main-title">HERO HEALTH • NUTRITION VR</div>
         <div class="hud-main-mode">Food Groups</div>
+
         <div class="hud-pill">
+          <span class="hud-badge" id="hud-run-badge">RUN</span>
+          <span>•</span>
           <span id="hud-diff-label">NORMAL</span>
           <span>•</span>
           <span id="hud-time-label">60s</span>
@@ -367,7 +371,7 @@
           <div class="fg-quest-main" id="fg-quest-main">—</div>
           <div class="fg-quest-progress" id="fg-quest-main-progress">0 / 0</div>
         </div>
-        <div class="fg-quest-row" id="fg-mini-row">
+        <div class="fg-quest-row">
           <div class="fg-quest-label">Mini</div>
           <div class="fg-quest-main" id="fg-quest-mini">—</div>
           <div class="fg-quest-progress" id="fg-quest-mini-progress">0 / 0</div>
@@ -435,13 +439,13 @@
     const elJudge = document.getElementById('hud-judge');
     const elDiff  = document.getElementById('hud-diff-label');
     const elTime  = document.getElementById('hud-time-label');
+    const elRun   = document.getElementById('hud-run-badge');
 
     const elQuestTitle = document.getElementById('fg-quest-title');
     const elQuestMain  = document.getElementById('fg-quest-main');
     const elQuestMini  = document.getElementById('fg-quest-mini');
     const elQuestMainP = document.getElementById('fg-quest-main-progress');
     const elQuestMiniP = document.getElementById('fg-quest-mini-progress');
-    const elMiniRow    = document.getElementById('fg-mini-row');
 
     const elCoachBubble = document.getElementById('coach-bubble');
     const elCoachText   = document.getElementById('coach-text');
@@ -507,10 +511,7 @@
       const d = e.detail || {};
       if (typeof d.score === 'number') elScore.textContent = String(d.score);
       if (typeof d.misses === 'number') elMiss.textContent = String(d.misses);
-      if (typeof d.combo === 'number') {
-        const cur = parseInt(elCombo.textContent||'0',10) || 0;
-        elCombo.textContent = String(Math.max(cur, d.combo|0));
-      }
+      if (typeof d.combo === 'number') elCombo.textContent = String(Math.max(parseInt(elCombo.textContent||'0',10), d.combo|0));
     });
 
     window.addEventListener('hha:judge', (e) => {
@@ -537,18 +538,9 @@
         elQuestMainP.textContent = '';
       }
 
-      elMiniRow.classList.remove('mini-timed','mini-urgent');
-
       if (mini) {
         elQuestMini.textContent = mini.label || 'Mini';
-
-        if (typeof mini.timeLeftSec === 'number') {
-          elQuestMiniP.textContent = `${mini.prog|0} / ${mini.target|0} • ⏳${mini.timeLeftSec|0}s`;
-          elMiniRow.classList.add('mini-timed');
-          if ((mini.timeLeftSec|0) <= 3) elMiniRow.classList.add('mini-urgent');
-        } else {
-          elQuestMiniP.textContent = `${mini.prog|0} / ${mini.target|0}`;
-        }
+        elQuestMiniP.textContent = `${mini.prog|0} / ${mini.target|0}`;
       } else {
         elQuestMini.textContent = 'Mini ครบแล้ว ✅';
         elQuestMiniP.textContent = '';
@@ -563,7 +555,6 @@
       elResGoal.textContent  = `${d.goalsCleared ?? 0} / ${d.goalsTotal ?? 0}`;
       elResMini.textContent  = `${d.miniCleared ?? 0} / ${d.miniTotal ?? 0}`;
       elResult.classList.add('show');
-      document.body.classList.remove('boss-mode');
     });
 
     // VR
@@ -613,7 +604,11 @@
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
 
+      // HUD labels
       elDiff.textContent = diff.toUpperCase();
+      elRun.textContent = (runMode === 'research') ? 'RESEARCH' : 'PLAY';
+      elRun.classList.remove('play','research');
+      elRun.classList.add(runMode === 'research' ? 'research' : 'play');
 
       let dur = (diff === 'easy') ? 88 : (diff === 'hard' ? 55 : 70);
       const timeParam = getParam('time','');
@@ -625,8 +620,8 @@
 
       initLogger(diff, dur, runMode);
       setCoach(runMode === 'research'
-        ? 'โหมดวิจัย: ขนาดเป้าคงที่ตามระดับ (easy/normal/hard) ✨'
-        : 'โหมดเล่น: มี adaptive + Golden + Freeze + Boss 10 วิท้าย! 🔥');
+        ? 'โหมดวิจัย: ขนาดเป้าล็อกตามระดับ (ไม่มี adaptive) 📋'
+        : 'โหมดเล่น: เริ่มตามระดับ แล้วปรับความยากอัตโนมัติ 🔥');
 
       const Engine = window.GroupsVR?.GameEngine;
       if (!Engine || typeof Engine.start !== 'function'){
@@ -636,27 +631,19 @@
       Engine.setLayerEl && Engine.setLayerEl(fgLayer);
 
       runCountdown(() => {
+        // timer จบเกม
         let timeLeft = dur;
-
-        Engine.setTimeLeft && Engine.setTimeLeft(timeLeft);
-
         const timerId = setInterval(() => {
           timeLeft -= 1;
           if (timeLeft < 0) return;
-
           elTime.textContent = timeLeft + 's';
-
-          Engine.setTimeLeft && Engine.setTimeLeft(timeLeft);
-
-          if (timeLeft <= 10) document.body.classList.add('boss-mode');
-
           if (timeLeft === 0){
             clearInterval(timerId);
             Engine.stop && Engine.stop('time-up');
           }
         }, 1000);
 
-        Engine.start(diff, { layerEl: fgLayer, runMode, durationSec: dur });
+        Engine.start(diff, { layerEl: fgLayer, runMode });
       });
     });
   </script>
