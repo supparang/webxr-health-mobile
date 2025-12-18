@@ -35,6 +35,7 @@
       overflow:hidden;
     }
 
+    /* ===== A-Frame canvas full ===== */
     a-scene{
       width:100vw; height:100vh;
       position:fixed; inset:0;
@@ -46,7 +47,7 @@
       position:fixed;
       inset:0;
       z-index:649;          /* ใต้ HUD (650) */
-      pointer-events:auto;
+      pointer-events:auto;  /* ต้อง auto เพื่อให้กด/แตะได้ */
       touch-action: none;
     }
 
@@ -323,6 +324,8 @@
       color:#6ee7b7;
       font-weight:600;
     }
+
+    /* ✅ Coach images (ตามไฟล์จริงใน /img) */
     .coach-emoji{
       width:40px;
       height:40px;
@@ -330,20 +333,21 @@
       background-size:cover;
       background-position:center;
       flex-shrink:0;
-      animation:coach-idle 1.4s ease-in-out infinite;
-      background-image:url('./img/coach-neutral.png'); /* ✅ default */
       box-shadow:0 0 12px rgba(16,185,129,0.8);
+      animation:coach-idle 1.4s ease-in-out infinite;
+      background-image:url('./img/coach-neutral.png');
     }
+    .coach-emoji.coach-neutral{ background-image:url('./img/coach-neutral.png'); }
+    .coach-emoji.coach-happy  { background-image:url('./img/coach-happy.png'); box-shadow:0 0 18px rgba(34,197,94,0.95); }
+    .coach-emoji.coach-sad    { background-image:url('./img/coach-sad.png'); filter:grayscale(0.2) brightness(0.9); box-shadow:0 0 10px rgba(148,163,184,0.8); }
+    .coach-emoji.coach-fever  { background-image:url('./img/coach-fever.png'); box-shadow:0 0 18px rgba(248,113,113,0.9); }
+
     @keyframes coach-idle{
       0%{ transform:translateY(0) scale(1);}
       30%{ transform:translateY(-2px) scale(1.03);}
       60%{ transform:translateY(1px) scale(0.99);}
       100%{ transform:translateY(0) scale(1);}
     }
-    .coach-emoji.coach-neutral{ background-image:url('./img/coach-neutral.png'); }
-    .coach-emoji.coach-happy  { background-image:url('./img/coach-happy.png');  box-shadow:0 0 18px rgba(34,197,94,0.95); }
-    .coach-emoji.coach-sad    { background-image:url('./img/coach-sad.png');    box-shadow:0 0 10px rgba(148,163,184,0.8); }
-    .coach-emoji.coach-fever  { background-image:url('./img/coach-fever.png');  box-shadow:0 0 18px rgba(248,113,113,0.9); }
 
     /* ===== Center hint ===== */
     .hint-center{
@@ -582,6 +586,7 @@
 
 <body>
 
+  <!-- ===== A-Frame Scene ===== -->
   <a-scene
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
@@ -608,8 +613,10 @@
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
+  <!-- ✅ DOM Target Layer -->
   <div id="gj-layer"></div>
 
+  <!-- ===== HUD Overlay ===== -->
   <div class="hud-root">
     <div class="hud-top">
       <div class="hud-card" style="flex:1;max-width:520px;">
@@ -730,6 +737,7 @@
     <div class="big-celebrate-inner">ALL QUESTS CLEAR! 🌟</div>
   </div>
 
+  <!-- Start overlay -->
   <div id="start-overlay" class="start-overlay">
     <div class="start-card">
       <div class="start-title">เริ่มเล่น Good vs Junk 🎮</div>
@@ -744,15 +752,23 @@
     </div>
   </div>
 
+  <!-- Logger badge -->
   <div id="logbadge" class="logbadge" aria-hidden="true">
     <span id="logdot" class="dot"></span>
     <span id="logtext">logger: pending…</span>
   </div>
 
+  <!-- Fever UI -->
   <script src="./vr/ui-fever.js"></script>
+  <!-- Particles FX -->
   <script src="./vr/particles.js"></script>
 
   <script type="module">
+    // ✅ กัน bfcache: กลับมาแล้ว state ค้างจนเล่นใหม่ไม่ได้
+    window.addEventListener('pageshow', (e)=>{
+      if (e.persisted) window.location.reload();
+    });
+
     import { GameEngine } from './vr-goodjunk/GameEngine.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
@@ -760,20 +776,18 @@
     import { makeQuestDirector } from './vr-goodjunk/quest-director.js';
     import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './vr-goodjunk/quest-defs-goodjunk.js';
 
-    // ✅ กันกลับมาจาก BFCache แล้วหน้าเกม “ค้าง” เล่นใหม่ไม่ได้
-    window.addEventListener('pageshow', (e)=>{
-      if (e.persisted) location.reload();
-    });
-
+    // ---------------- Params ----------------
     function getParam(name, fallback){
       const url = new URL(window.location.href);
       const v = url.searchParams.get(name);
       return (v !== null && v !== '') ? v : fallback;
     }
 
+    // ---------------- Scene ready ----------------
     function waitSceneReady(cb){
       const scene = document.querySelector('a-scene');
       if (!scene) { cb(); return; }
+
       const tryReady = ()=>{
         if (scene.hasLoaded && scene.camera){
           cb();
@@ -782,6 +796,7 @@
         return false;
       };
       if (tryReady()) return;
+
       scene.addEventListener('loaded', ()=>{
         let tries = 0;
         const t = setInterval(()=>{
@@ -794,6 +809,7 @@
       }, { once:true });
     }
 
+    // ---------------- HUD refs ----------------
     const elScore   = document.getElementById('hud-score');
     const elCombo   = document.getElementById('hud-combo');
     const elMiss    = document.getElementById('hud-miss');
@@ -887,7 +903,7 @@
     let prevGoalsCleared = 0;
     let prevMiniCleared  = 0;
 
-    // Lives (hard only)
+    // Lives (hard only): 1 หัวใจหายทุก MISS_PER_LIFE
     const MAX_LIVES = 3;
     const MISS_PER_LIFE = 3;
     let currentLives = MAX_LIVES;
@@ -897,14 +913,112 @@
     let runMode = 'play';
     let dur = 60;
 
-    // timer holder (กันซ้อน)
-    let timerId = null;
+    // ---------------- Logger badge hooks ----------------
+    function setLogBadge(ok, text){
+      if (!logDot || !logText) return;
+      logDot.classList.remove('ok','bad');
+      logDot.classList.add(ok ? 'ok' : 'bad');
+      logText.textContent = text || (ok ? 'logger: ok' : 'logger: error');
+    }
+    function setLogPending(text){
+      if (!logDot || !logText) return;
+      logDot.classList.remove('ok','bad');
+      logText.textContent = text || 'logger: pending…';
+    }
 
-    function clearGameTimer(){
-      if (timerId){
-        clearInterval(timerId);
-        timerId = null;
+    // =========================
+    // ✅ Lite Logger (ยิงเข้า Google Sheet ตรง ๆ)
+    // - ใช้ text/plain กัน preflight (GAS บางตัวไม่ชอบ application/json)
+    // - ส่งตอนจบเกมแน่นอน
+    // =========================
+    function safeParseJSON(raw){
+      try{ return JSON.parse(raw); }catch(_){ return null; }
+    }
+
+    async function gasPost(endpoint, payload){
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        keepalive: true
+      });
+      const text = await res.text().catch(()=> '');
+      let data = null;
+      try{ data = JSON.parse(text); }catch(_){}
+      return { ok: res.ok, status: res.status, text, data };
+    }
+
+    function makeLiteLogger(opts){
+      const startedAt = Date.now();
+      const sid = 'GJ-' + startedAt + '-' + Math.random().toString(16).slice(2);
+      const events = [];
+      let lastScoreStamp = 0;
+      let flushed = false;
+
+      function ev(type, data={}){
+        events.push({
+          ts: Date.now(),
+          t: type,
+          ...data
+        });
       }
+
+      function scoreSnap(s){
+        const now = Date.now();
+        if (now - lastScoreStamp < 1200) return; // throttle
+        lastScoreStamp = now;
+        ev('score', {
+          score: s.score|0,
+          miss: s.miss|0,
+          comboMax: s.comboMax|0,
+          goodHits: s.goodHits|0,
+          feverActive: !!s.feverActive,
+          shield: s.shield|0,
+          timeLeft: s.timeLeft|0
+        });
+      }
+
+      async function flushFinal(final){
+        if (flushed) return { ok:true, note:'already flushed' };
+        flushed = true;
+
+        const sessionRow = {
+          sessionId: sid,
+          projectTag: opts.projectTag,
+          mode: opts.mode,
+          runMode: opts.runMode,
+          diff: opts.diff,
+          durationSec: opts.durationSec,
+          startAt: new Date(startedAt).toISOString(),
+          endAt: new Date().toISOString(),
+
+          studentKey: opts.studentKey || null,
+          profile: opts.profile || null,
+
+          scoreFinal: final.scoreFinal|0,
+          comboMax: final.comboMax|0,
+          misses: final.misses|0,
+
+          goalsCleared: final.goalsCleared|0,
+          goalsTotal: final.goalsTotal|0,
+          miniCleared: final.miniCleared|0,
+          miniTotal: final.miniTotal|0,
+
+          grade: final.grade || ''
+        };
+
+        const payload = {
+          projectTag: opts.projectTag,
+          sessions: [sessionRow],
+          events: events.map(e => ({ sessionId: sid, ...e })),
+          profile: opts.profile || null
+        };
+
+        return await gasPost(opts.endpoint, payload);
+      }
+
+      return { sid, ev, scoreSnap, flushFinal };
     }
 
     // ---------------- Lives ----------------
@@ -996,6 +1110,7 @@
       const pct = pctMap[grade] || 15;
       elGradeBar.style.width = pct + '%';
       elGradeBar.dataset.grade = grade;
+      return grade;
     }
 
     // ---------------- Fever HUD ----------------
@@ -1078,6 +1193,7 @@
       });
     }
 
+    // mouse ↔ gaze (พื้นฐาน)
     function setCursorMode(mode){
       const cursorEl = document.getElementById('cursor');
       if (!cursorEl) return;
@@ -1147,43 +1263,273 @@
       updateRealtimeGrade(scoreFinal);
       setCoachFace(misses <= 3 ? 'happy' : 'neutral');
       setCoach('จบเกมแล้ว! ดูสรุปคะแนนด้านบนได้เลย 🎉');
+      return grade;
     }
 
-    window.addEventListener('hha:end', (e)=>{
-      clearGameTimer();
+    // ---------------- Start game flow ----------------
+    let started = false;
+    let timerId = null;
 
-      const d = e.detail || {};
-      const scoreFinal = (typeof d.scoreFinal === 'number') ? (d.scoreFinal|0) : (state.score|0);
-      const comboMaxVal = (typeof d.comboMax === 'number') ? (d.comboMax|0) : (state.comboMax|0);
-      const misses = (typeof d.misses === 'number') ? (d.misses|0) : (state.miss|0);
+    async function tryEnterVR(){
+      const scene = document.querySelector('a-scene');
+      if (!scene) return false;
+      try{
+        await scene.enterVR();
+        return true;
+      }catch(err){
+        console.warn('[GoodJunkVR] enterVR blocked/failed:', err);
+        return false;
+      }
+    }
 
-      let qs;
-      if (Q){
-        qs = Q.finalize({
-          score: scoreFinal,
-          goodHits: state.goodHits|0,
-          miss: misses,
-          comboMax: comboMaxVal,
-          timeLeft: 0,
-          feverActive: state.feverActive
+    // ✅ endpoint จาก Hub
+    const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+    const ENDPOINT_FROM_HUB = (()=>{ try{ return sessionStorage.getItem('HHA_LOG_ENDPOINT') || ''; }catch(_){ return ''; } })();
+    const FINAL_ENDPOINT = ENDPOINT_FROM_HUB || DEFAULT_ENDPOINT;
+
+    // Lite logger instance (research)
+    let LITE = null;
+
+    function bootOnce({ wantVR }){
+      if (started) return;
+      started = true;
+
+      if (startOverlay) startOverlay.style.display = 'none';
+
+      diff = String(getParam('diff','normal')).toLowerCase();
+      const runParam = String(getParam('run','play')).toLowerCase();
+      runMode = (runParam === 'research') ? 'research' : 'play';
+
+      let baseDur = 60;
+      if (diff === 'easy') baseDur = 80;
+      else if (diff === 'hard') baseDur = 50;
+      dur = baseDur;
+
+      const timeParam = getParam('time','');
+      if (timeParam){
+        const parsed = parseInt(timeParam,10);
+        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
+      }
+
+      // HUD init
+      elDiff.textContent = diff.toUpperCase();
+      elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
+      elScore.textContent = '0';
+      elCombo.textContent = '0';
+      elCombo.dataset.max = '0';
+      elMiss.textContent  = '0';
+      elTime.textContent  = dur + 's';
+      if (elJudge) elJudge.textContent = '';
+
+      // state init
+      state.score = 0;
+      state.goodHits = 0;
+      state.miss = 0;
+      state.comboMax = 0;
+      state.timeLeft = dur;
+      state.feverActive = false;
+
+      // lives init
+      currentLives = MAX_LIVES;
+      warnedLowLife = false;
+      renderLives(currentLives);
+
+      // coach intro
+      setCoachFace('neutral');
+      if (runMode === 'research'){
+        setCoach('โหมดวิจัย: เล่นให้เป็นธรรมชาติ แต่พยายามพลาดให้น้อยที่สุดนะ 📊');
+      } else {
+        if (diff === 'easy') setCoach('โหมดง่าย! เก็บของดีให้ได้เยอะ ๆ แล้วอย่าชนขยะนะ 🥦🍎');
+        else if (diff === 'hard') setCoach('HARD! หัวใจมีจำกัด พลาดบ่อยหัวใจหาย ระวังให้ดีนะ 💥');
+        else setCoach('แตะเฉพาะอาหารดี แล้วหลบขยะ! พร้อมลุย! ⚡');
+      }
+
+      // student profile from hub
+      let studentProfile = null;
+      let studentKey = null;
+      try{
+        const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
+        if (raw){
+          studentProfile = JSON.parse(raw);
+          studentKey = studentProfile.studentKey || null;
+        }
+      }catch(_){}
+
+      // --- init logger (เดิม) ---
+      setLogPending('logger: init…');
+      let cloudInitOK = false;
+      try{
+        initCloudLogger({
+          endpoint: FINAL_ENDPOINT,
+          projectTag: 'HeroHealth-GoodJunkVR',
+          mode: 'GoodJunkVR',
+          runMode: runMode,
+          diff: diff,
+          durationSec: dur,
+          studentKey: studentKey,
+          profile: studentProfile,
+          debug: true
         });
-      } else {
-        qs = { goalsCleared:0, goalsTotal:0, miniCleared:0, miniTotal:0 };
+        cloudInitOK = true;
+        setLogBadge(true, 'logger: ready (endpoint from hub)');
+      }catch(err){
+        console.error('[GoodJunkVR] logger init failed', err);
+        setLogBadge(false, 'logger: init failed (fallback to lite)');
       }
 
-      const goalsCleared = qs.goalsCleared|0;
-      const goalsTotal   = qs.goalsTotal|0;
-      const miniCleared  = qs.miniCleared|0;
-      const miniTotal    = qs.miniTotal|0;
-
-      const allQuest = (goalsTotal>0 && goalsCleared>=goalsTotal) && (miniTotal>0 && miniCleared>=miniTotal);
-
-      if (allQuest){
-        bigCelebrateAllQuests(()=> showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal));
-      } else {
-        showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+      // ✅ Lite logger เฉพาะ research เพื่อ “ยิงแน่นอน”
+      if (runMode === 'research'){
+        LITE = makeLiteLogger({
+          endpoint: FINAL_ENDPOINT,
+          projectTag: 'HeroHealth-GoodJunkVR',
+          mode: 'GoodJunkVR',
+          runMode,
+          diff,
+          durationSec: dur,
+          studentKey,
+          profile: studentProfile
+        });
+        LITE.ev('start', { diff, runMode, durationSec: dur, cloudInitOK });
+        setLogPending('logger: collecting…');
       }
-    });
+
+      // touch + VR button
+      const cam = document.querySelector('#gj-camera');
+      attachTouch(cam);
+      initVRButton();
+      hookVrModeAutoSwitch();
+
+      // QuestDirector
+      try{
+        Q = makeQuestDirector({
+          diff,
+          goalDefs: GOODJUNK_GOALS,
+          miniDefs: GOODJUNK_MINIS,
+          maxGoals: 2,
+          maxMini: 3
+        });
+        Q.start({ ...state });
+      }catch(err){
+        console.error('[GoodJunkVR] QuestDirector failed:', err);
+        Q = null;
+      }
+
+      // --- end handler ---
+      window.addEventListener('hha:end', async (e)=>{
+        const d = e.detail || {};
+        const scoreFinal = (typeof d.scoreFinal === 'number') ? (d.scoreFinal|0) : (state.score|0);
+        const comboMaxVal = (typeof d.comboMax === 'number') ? (d.comboMax|0) : (state.comboMax|0);
+        const misses = (typeof d.misses === 'number') ? (d.misses|0) : (state.miss|0);
+
+        let qs;
+        if (Q){
+          qs = Q.finalize({
+            score: scoreFinal,
+            goodHits: state.goodHits|0,
+            miss: misses,
+            comboMax: comboMaxVal,
+            timeLeft: 0,
+            feverActive: state.feverActive
+          });
+        } else {
+          qs = { goalsCleared:0, goalsTotal:0, miniCleared:0, miniTotal:0 };
+        }
+
+        const goalsCleared = qs.goalsCleared|0;
+        const goalsTotal   = qs.goalsTotal|0;
+        const miniCleared  = qs.miniCleared|0;
+        const miniTotal    = qs.miniTotal|0;
+
+        const allQuest = (goalsTotal>0 && goalsCleared>=goalsTotal) && (miniTotal>0 && miniCleared>=miniTotal);
+
+        const finishUI = ()=>{
+          if (allQuest){
+            bigCelebrateAllQuests(()=> {
+              const g = showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+              // store last grade if needed
+              return g;
+            });
+          } else {
+            showEndSummary(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+          }
+        };
+
+        finishUI();
+
+        // ✅ ยิงลงชีตตอนจบ (research)
+        if (runMode === 'research' && LITE){
+          const grade = computeGrade(scoreFinal, comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal);
+          LITE.ev('end', { scoreFinal, comboMax: comboMaxVal, misses, goalsCleared, goalsTotal, miniCleared, miniTotal, grade });
+
+          setLogPending('logger: sending to sheet…');
+          try{
+            const r = await LITE.flushFinal({
+              scoreFinal, comboMax: comboMaxVal, misses,
+              goalsCleared, goalsTotal, miniCleared, miniTotal,
+              grade
+            });
+            if (r && r.ok){
+              setLogBadge(true, 'logger: sent ✅ (status ' + r.status + ')');
+            }else{
+              setLogBadge(false, 'logger: send failed ❌ (status ' + (r ? r.status : '?') + ')');
+              console.warn('[LiteLogger] response:', r);
+            }
+          }catch(err){
+            console.error('[LiteLogger] send error:', err);
+            setLogBadge(false, 'logger: send error ❌ (check console)');
+          }
+        }
+      }, { once:true });
+
+      // countdown then start engine
+      runCountdown(()=>{
+        waitSceneReady(async ()=>{
+          updateFeverHUD();
+
+          if (wantVR){
+            await tryEnterVR();
+          }
+
+          GameEngine.start(diff, {
+            runMode,
+            layerEl: document.getElementById('gj-layer'),
+            durationSec: dur
+          });
+
+          // timer
+          let timeLeft = dur;
+          window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+
+          if (timerId) clearInterval(timerId);
+          timerId = setInterval(()=>{
+            timeLeft -= 1;
+            if (timeLeft < 0) return;
+            window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+            if (timeLeft <= 0){
+              clearInterval(timerId);
+              timerId = null;
+              GameEngine.stop('time-up');
+            }
+          }, 1000);
+        });
+      });
+
+      // buttons
+      if (btnReplay) btnReplay.addEventListener('click', ()=>{
+        // ✅ cache bust
+        const u = new URL(window.location.href);
+        u.searchParams.set('ts', String(Date.now()));
+        window.location.href = u.toString();
+      });
+      if (btnBackHub) btnBackHub.addEventListener('click', ()=>{
+        window.location.href = './hub.html?ts=' + Date.now();
+      });
+      if (elEndRun) elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
+
+      document.addEventListener('visibilitychange', ()=>{
+        if (document.hidden) GameEngine.stop('tab-hidden');
+      });
+    }
 
     // ---------------- HUD listeners ----------------
     window.addEventListener('hha:time', (e)=>{
@@ -1192,11 +1538,13 @@
       elTime.textContent = sec + 's';
       state.timeLeft = sec;
       if (Q) Q.update(state);
+      if (runMode === 'research' && LITE) LITE.scoreSnap(state);
     });
 
     window.addEventListener('hha:judge', (e)=>{
       const label = ((e.detail||{}).label || '');
       if (elJudge) elJudge.textContent = label;
+      if (runMode === 'research' && LITE && label) LITE.ev('judge', { label });
     });
 
     window.addEventListener('hha:score', (e)=>{
@@ -1211,18 +1559,26 @@
       updateFeverHUD();
       if (Q) Q.update(state);
       updateRealtimeGrade(state.score);
+
+      if (runMode === 'research' && LITE) LITE.scoreSnap(state);
     });
 
     window.addEventListener('hha:miss', ()=>{
       setCoachFace('sad');
       setCoach('พลาดแล้ววว! โฟกัสของดีไว้ก่อนนะ 🥦🍎');
+      if (runMode === 'research' && LITE) LITE.ev('miss', { miss: state.miss|0 });
     });
 
     window.addEventListener('hha:fever', (e)=>{
       updateFeverHUD();
       const st = ((e.detail||{}).state || 'change');
-      if (st === 'start'){ setCoachFace('fever'); setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ 🔥'); }
-      if (st === 'end'){ setCoachFace('neutral'); }
+      if (st === 'start'){
+        setCoachFace('fever'); setCoach('FEVER มาแล้ว! เก็บของดีรัว ๆ 🔥');
+      }
+      if (st === 'end'){
+        setCoachFace('neutral');
+      }
+      if (runMode === 'research' && LITE) LITE.ev('fever', { state: st });
     });
 
     window.addEventListener('quest:update', (e)=>{
@@ -1275,225 +1631,16 @@
       prevMiniCleared  = hudMiniCleared;
 
       updateRealtimeGrade(state.score);
+
+      if (runMode === 'research' && LITE){
+        LITE.ev('quest', {
+          goalsCleared: hudGoalsCleared, goalsTotal: hudGoalsTotal,
+          miniCleared: hudMiniCleared, miniTotal: hudMiniTotal
+        });
+      }
     });
 
-    // ---------------- Logger badge hooks ----------------
-    function setLogBadge(ok, text){
-      if (!logDot || !logText) return;
-      logDot.classList.remove('ok','bad');
-      logDot.classList.add(ok ? 'ok' : 'bad');
-      logText.textContent = text || (ok ? 'logger: ok' : 'logger: error');
-    }
-    function setLogPending(text){
-      if (!logDot || !logText) return;
-      logDot.classList.remove('ok','bad');
-      logText.textContent = text || 'logger: pending…';
-    }
-
-    // ✅ รับสถานะจริงจาก logger.js
-    window.addEventListener('hha:logger', (e)=>{
-      const d = e.detail || {};
-      if (d.ok) setLogBadge(true, d.message || 'logger: ok');
-      else setLogBadge(false, d.message || 'logger: error');
-    });
-
-    // ---------------- Start game flow ----------------
-    let started = false;
-
-    async function tryEnterVR(){
-      const scene = document.querySelector('a-scene');
-      if (!scene) return false;
-      try{
-        await scene.enterVR();
-        return true;
-      }catch(err){
-        console.warn('[GoodJunkVR] enterVR blocked/failed:', err);
-        return false;
-      }
-    }
-
-    function getEndpointFromHub(){
-      try{
-        const v = sessionStorage.getItem('HHA_LOG_ENDPOINT') || '';
-        return v.trim();
-      }catch(_){
-        return '';
-      }
-    }
-
-    function bootOnce({ wantVR }){
-      if (started) return;
-      started = true;
-
-      if (startOverlay) startOverlay.style.display = 'none';
-
-      diff = String(getParam('diff','normal')).toLowerCase();
-      const runParam = String(getParam('run','play')).toLowerCase();
-      runMode = (runParam === 'research') ? 'research' : 'play';
-
-      let baseDur = 60;
-      if (diff === 'easy') baseDur = 80;
-      else if (diff === 'hard') baseDur = 50;
-      dur = baseDur;
-
-      const timeParam = getParam('time','');
-      if (timeParam){
-        const parsed = parseInt(timeParam,10);
-        if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
-      }
-
-      elDiff.textContent = diff.toUpperCase();
-      elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
-      elScore.textContent = '0';
-      elCombo.textContent = '0';
-      elCombo.dataset.max = '0';
-      elMiss.textContent  = '0';
-      elTime.textContent  = dur + 's';
-      if (elJudge) elJudge.textContent = '';
-
-      state.score = 0;
-      state.goodHits = 0;
-      state.miss = 0;
-      state.comboMax = 0;
-      state.timeLeft = dur;
-      state.feverActive = false;
-
-      currentLives = MAX_LIVES;
-      warnedLowLife = false;
-      renderLives(currentLives);
-
-      setCoachFace('neutral');
-      if (runMode === 'research'){
-        setCoach('โหมดวิจัย: เล่นให้เป็นธรรมชาติ แต่พยายามพลาดให้น้อยที่สุดนะ 📊');
-      } else {
-        if (diff === 'easy') setCoach('โหมดง่าย! เก็บของดีให้ได้เยอะ ๆ แล้วอย่าชนขยะนะ 🥦🍎');
-        else if (diff === 'hard') setCoach('HARD! หัวใจมีจำกัด พลาดบ่อยหัวใจหาย ระวังให้ดีนะ 💥');
-        else setCoach('แตะเฉพาะอาหารดี แล้วหลบขยะ! พร้อมลุย! ⚡');
-      }
-
-      let studentProfile = null;
-      let studentKey = null;
-      try{
-        const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
-        if (raw){
-          studentProfile = JSON.parse(raw);
-          studentKey = studentProfile.studentKey || null;
-        }
-      }catch(_){}
-
-      // ✅ endpoint: ดึงจาก hub ก่อน
-      const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
-      const FINAL_ENDPOINT = getEndpointFromHub() || DEFAULT_ENDPOINT;
-
-      setLogPending('logger: init…');
-      try{
-        initCloudLogger({
-          endpoint: FINAL_ENDPOINT,
-          projectTag: 'HeroHealth-GoodJunkVR',
-          mode: 'GoodJunkVR',
-          runMode,
-          diff,
-          durationSec: dur,
-          studentKey,
-          profile: studentProfile,
-          debug: true
-        });
-        // สถานะจริงจะมาจาก event hha:logger อีกที
-        setLogBadge(true, 'logger: ready');
-      }catch(err){
-        console.error('[GoodJunkVR] logger init failed', err);
-        setLogBadge(false, 'logger: init failed (check console)');
-      }
-
-      const cam = document.querySelector('#gj-camera');
-      attachTouch(cam);
-      initVRButton();
-      hookVrModeAutoSwitch();
-
-      try{
-        Q = makeQuestDirector({
-          diff,
-          goalDefs: GOODJUNK_GOALS,
-          miniDefs: GOODJUNK_MINIS,
-          maxGoals: 2,
-          maxMini: 3
-        });
-        Q.start({ ...state });
-      }catch(err){
-        console.error('[GoodJunkVR] QuestDirector failed:', err);
-        Q = null;
-      }
-
-      runCountdown(()=>{
-        waitSceneReady(async ()=>{
-          updateFeverHUD();
-
-          if (wantVR){
-            await tryEnterVR();
-          }
-
-          GameEngine.start(diff, {
-            runMode,
-            layerEl: document.getElementById('gj-layer'),
-            durationSec: dur
-          });
-
-          // timer
-          clearGameTimer();
-          let timeLeft = dur;
-          window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-          timerId = setInterval(()=>{
-            timeLeft -= 1;
-            if (timeLeft < 0) return;
-            window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-            if (timeLeft <= 0){
-              clearGameTimer();
-              GameEngine.stop('time-up');
-            }
-          }, 1000);
-        });
-      });
-
-      // ✅ replay: กัน cache แปลก ๆ ด้วย replay=timestamp
-      if (btnReplay) btnReplay.addEventListener('click', ()=>{
-        GameEngine.stop('replay');
-        clearGameTimer();
-        const u = new URL(window.location.href);
-        u.searchParams.set('replay', String(Date.now()));
-        location.replace(u.toString());
-      });
-
-      // ✅ back hub: exit VR ก่อน + replace (กันย้อนกลับมาหน้าเกมค้าง)
-      if (btnBackHub) btnBackHub.addEventListener('click', async ()=>{
-        try{
-          GameEngine.stop('back-hub');
-        }catch(_){}
-        clearGameTimer();
-        const scene = document.querySelector('a-scene');
-        try{
-          if (scene && scene.is && scene.is('vr-mode')){
-            await scene.exitVR();
-          }
-        }catch(_){}
-        location.replace('./hub.html');
-      });
-
-      if (elEndRun) elEndRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
-
-      document.addEventListener('visibilitychange', ()=>{
-        if (document.hidden){
-          try{ GameEngine.stop('tab-hidden'); }catch(_){}
-          clearGameTimer();
-        }
-      });
-
-      // ✅ pagehide: กันออกหน้าแล้วไม่ส่ง log
-      window.addEventListener('pagehide', ()=>{
-        try{ GameEngine.stop('pagehide'); }catch(_){}
-        clearGameTimer();
-      }, { once:true });
-    }
-
+    // Start overlay button hooks
     btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
     btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
   </script>
