@@ -407,19 +407,22 @@
 
     <a-entity id="rig" position="0 1.6 0">
         <a-camera id="cam"
-            wasd-controls-enabled="false"
-            look-controls="pointerLockEnabled:false; touchEnabled:true; mouseEnabled:true">
+        wasd-controls-enabled="false"
+        look-controls="pointerLockEnabled:false; touchEnabled:true; mouseEnabled:true">
 
-        <a-entity id="cursor"
-              cursor="fuse:false; rayOrigin: mouse"
-              geometry="primitive:ring; radiusInner:0.01; radiusOuter:0.016"
-              material="shader:flat; color:#ffffff; opacity:0.95"
-              position="0 0 -0.9">
-        </a-entity>
-
-    <!-- ✅ สำคัญ: จุดเกิดเป้า -->
-        <a-entity id="targetRoot" position="0 0 -2.2"></a-entity>
-
+  <!-- Cursor ยิงได้ทั้งเมาส์/จอสัมผัส และ VR จ้องค้าง -->
+    <a-cursor
+        id="cursor"
+        raycaster="objects:.plateTarget"
+        fuse="true"
+        fuse-timeout="450"
+        material="color:#ffffff; shader:flat; opacity:0.95"
+        geometry="primitive:ring; radiusInner:0.008; radiusOuter:0.012"
+        position="0 0 -0.9">
+      </a-cursor>
+          
+  <!-- ✅ สำคัญ: จุดเกิดเป้า (ยึดกับกล้อง → หมุนแล้วเป้าตาม) -->
+      <a-entity id="targetRoot" position="0 0 -2.2"></a-entity>
       </a-camera>
     </a-entity>
 
