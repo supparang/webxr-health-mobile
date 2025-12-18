@@ -432,6 +432,10 @@
              material="color: #020617; metalness: 0; roughness: 1"></a-plane>
     <a-sky color="#020617"></a-sky>
   </a-scene>
+  <script type="module">
+    import { bootPlateDOM } from './plate/plate.safe.js';
+    bootPlateDOM();
+  </script>
 
   <!-- ✅ DOM layer for targets -->
   <div id="plate-layer" aria-hidden="true"></div>
