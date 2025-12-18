@@ -1,15 +1,20 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — working full engine (A-Frame targets anchored to #targetRoot)
-// - spawn emoji targets (good groups / junk / powerups / hazards / boss)
-// - click / gaze fuse works via <a-cursor raycaster="objects:.plateTarget">
-// - HUD updates + emit hha:* events + result modal
-// - export bootPlateDOM for plate-vr.html
-//
-// ✅ FIX: remove duplicate computeGrade() (was declared twice -> Identifier already declared)
-// Note: This is ES module (imported by plate-vr.html)
+// Balanced Plate VR — Full Engine (ESM)
+// ✅ FIX: เป้าขึ้น “จุดเดียว” เพราะตั้งตำแหน่งด้วย object3D แต่ A-Frame sync จาก position attribute → ทับกลับ 0 0 0
+//    → แก้เป็น setAttribute('position'/'scale') + ใส่ animation ลอยเบา ๆ
+// ✅ FIX: ลบ computeGrade ซ้ำ (กัน “Identifier ... already been declared”)
+// ✅ มี Boss + Hazards + Powerups + Mini quest ต่อเนื่อง (สนุก/ท้าทาย/เร้าใจ)
+
+// NOTE: ใช้กับ plate-vr.html ที่มี:
+// - <a-camera id="cam"> ... <a-entity id="targetRoot"> อยู่ใน camera
+// - <a-cursor raycaster="objects:.plateTarget"> หรือ cursor click ก็ได้
+// - มี HUD ids: hudTime hudScore hudCombo hudMiss hudFever hudFeverPct hudGroupsHave hudPerfectCount hudGoalLine hudMiniLine hudMode hudDiff
+// - มี result ids: resultBackdrop rMode rGrade rScore rMaxCombo rMiss rPerfect rGoals rMinis rG1 rG2 rG3 rG4 rG5 rGTotal
+// - ปุ่ม: btnEnterVR btnPlayAgain btnRestart (ถ้ามี)
 
 'use strict';
 
+// ---------- URL params ----------
 const URLX = new URL(location.href);
 const DIFF = (URLX.searchParams.get('diff') || 'normal').toLowerCase();
 let TIME = parseInt(URLX.searchParams.get('time') || '70', 10);
@@ -30,13 +35,10 @@ function setBarPct(id, pct) {
   const p = Math.max(0, Math.min(100, Number(pct) || 0));
   el.style.width = `${p}%`;
 }
-function showEl(id, on) { const el = $(id); if (el) el.style.display = on ? '' : 'none'; }
 
 // ---------- A-Frame guards ----------
 const A = window.AFRAME;
 if (!A) console.error('[PlateVR] AFRAME not found');
-const THREE = window.THREE;
-if (!THREE) console.warn('[PlateVR] THREE not found (A-Frame should provide it)');
 
 // ---------- Difficulty tuning ----------
 const DIFF_TABLE = {
@@ -59,19 +61,23 @@ const GROUP_KEYS = ['g1','g2','g3','g4','g5'];
 
 // ---------- Power-ups ----------
 const POWER = {
-  shield: { key:'shield', emoji:'🥗', label:'SALAD SHIELD', durMs: 5200 },
-  cleanse:{ key:'cleanse',emoji:'🍋', label:'CLEANSE', durMs: 0 },
-  golden: { key:'golden', emoji:'⭐',  label:'GOLDEN BITE', durMs: 0 }
+  shield:  { key:'shield',  emoji:'🥗', label:'SALAD SHIELD', durMs: 5200 },
+  cleanse: { key:'cleanse', emoji:'🍋', label:'CLEANSE',      durMs: 0    },
+  golden:  { key:'golden',  emoji:'⭐',  label:'GOLDEN BITE',  durMs: 0    }
 };
 
 // ---------- Hazards ----------
 const HAZ = {
-  wind:     { key:'wind',     emoji:'🌪️', label:'WIND GUST',    durMs: 3800 },
-  blackhole:{ key:'blackhole',emoji:'🕳️', label:'BLACK HOLE',   durMs: 4200 },
-  freeze:   { key:'freeze',   emoji:'🧊', label:'FREEZE RISK',   durMs: 3600 }
+  wind:      { key:'wind',      emoji:'🌪️', label:'WIND GUST',  durMs: 3800 },
+  blackhole: { key:'blackhole', emoji:'🕳️', label:'BLACK HOLE', durMs: 4200 },
+  freeze:    { key:'freeze',    emoji:'🧊', label:'FREEZE RISK', durMs: 3600 }
 };
 
-// ---------- Scene refs (ต้องมีใน plate-vr.html) ----------
+// reverse lookup by emoji (ให้ hazard/power hit ตรงกับที่ spawn)
+const POWER_BY_EMOJI = Object.fromEntries(Object.values(POWER).map(p => [p.emoji, p.key]));
+const HAZ_BY_EMOJI   = Object.fromEntries(Object.values(HAZ).map(h => [h.emoji, h.key]));
+
+// ---------- Scene refs ----------
 const scene = document.querySelector('a-scene');
 const cam = document.getElementById('cam');
 const targetRoot = document.getElementById('targetRoot');
@@ -81,10 +87,10 @@ const sessionId = `PLATE-${Date.now().toString(36)}-${Math.random().toString(36)
 const t0 = performance.now();
 const sessionStartIso = new Date().toISOString();
 
+// ---------- Game state ----------
 let started = false;
 let ended = false;
 
-// ---------- Game state ----------
 let tLeft = TIME;
 let timerTick = null;
 
@@ -93,8 +99,8 @@ let combo = 0;
 let maxCombo = 0;
 let miss = 0;
 
-let fever = 0;           // 0..100
-let feverActive = false; // ON = bonus
+let fever = 0;            // 0..100
+let feverActive = false;
 let feverUntilMs = 0;
 
 let perfectPlates = 0;
@@ -106,31 +112,33 @@ let plateCounts = { 1:0,2:0,3:0,4:0,5:0 };
 let totalsByGroup = { 1:0,2:0,3:0,4:0,5:0 };
 
 let goalTotal = 2;
-let goalCleared = 0;
 
 let miniCleared = 0;
 let miniCurrent = null;
 let miniHistory = 0;
+let cleanTimer = 0;
 
 let bossOn = false;
 let bossHP = 0;
 
 let balancePct = 100;
+
 let shieldOn = false;
 let shieldUntil = 0;
 
 let haz = { wind:false, blackhole:false, freeze:false };
 let hazUntil = { wind:0, blackhole:0, freeze:0 };
 
-let spawnTimer = null;
-let activeTargets = new Map();
+// spawn/targets
+let spawnTimer = null; // setTimeout handle
+let activeTargets = new Map(); // id -> { el, expireTimer, ... }
 let targetSeq = 0;
+let currentSpawnInterval = DCFG0.spawnInterval;
 
 // ---------- Utils ----------
 function clamp(v, a, b) { v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 function rnd(a, b) { return a + Math.random() * (b - a); }
 function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
-function nowIso() { return new Date().toISOString(); }
 function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0)); }
 function isAdaptiveOn() { return MODE === 'play'; }
 function emit(type, detail) { window.dispatchEvent(new CustomEvent(type, { detail })); }
@@ -177,8 +185,11 @@ function emitScore() {
 }
 function emitTime() { emit('hha:time', { sessionId, mode:'PlateVR', sec: tLeft, timeFromStartMs: fromStartMs() }); }
 
-// ---------- HUD direct update (plate-vr.html ids) ----------
+// ---------- HUD update ----------
 function hudUpdateAll() {
+  setText('hudMode', (MODE === 'research') ? 'Research' : 'Play');
+  setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
+
   setText('hudTime', tLeft);
   setText('hudScore', score);
   setText('hudCombo', combo);
@@ -192,42 +203,51 @@ function hudUpdateAll() {
   setText('hudGroupsHave', `${have}/5`);
   setText('hudPerfectCount', perfectPlates);
 
-  setText('hudGoalLine', `ทำ PERFECT PLATE ให้ได้อย่างน้อย ${goalTotal} จาน (ตอนนี้ ${perfectPlates}/${goalTotal})`);
+  setText('hudGoalLine', `Goal: Perfect Plate ${perfectPlates}/${goalTotal}`);
   setText('hudMiniLine', miniCurrent ? `Mini: ${miniCurrent.label} • ${miniCurrent.prog}/${miniCurrent.target}` : 'Mini: …');
 }
 
-// ---------- Emoji texture helper (canvas -> material src) ----------
-function makeEmojiTexture(emoji, opts = {}) {
+// ---------- Grade (single definition; no duplicates) ----------
+function computeGrade() {
+  const allGoal = perfectPlates >= goalTotal;
+  if (allGoal && score >= 1400 && maxCombo >= 14 && miss <= 2) return 'SSS';
+  if (allGoal && score >= 1000 && maxCombo >= 10 && miss <= 4) return 'SS';
+  if (score >= 750) return 'S';
+  if (score >= 550) return 'A';
+  if (score >= 320) return 'B';
+  return 'C';
+}
+
+// ---------- Emoji texture as dataURL (ไม่พึ่ง THREE) ----------
+function makeEmojiDataUrl(emoji, opts = {}) {
   const size = opts.size || 256;
-  const font = opts.font || '180px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji';
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
 
+  // bg glow
   ctx.clearRect(0,0,size,size);
   ctx.beginPath();
   ctx.arc(size/2, size/2, size*0.44, 0, Math.PI*2);
-  ctx.fillStyle = 'rgba(15,23,42,0.65)';
+  ctx.fillStyle = 'rgba(15,23,42,0.70)';
   ctx.fill();
   ctx.lineWidth = 6;
   ctx.strokeStyle = 'rgba(148,163,184,0.35)';
   ctx.stroke();
 
-  ctx.font = font;
+  // emoji
+  ctx.font = (opts.font || '180px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji');
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#fff';
   ctx.fillText(String(emoji), size/2, size/2 + 8);
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  tex.minFilter = THREE.LinearFilter;
-  tex.magFilter = THREE.LinearFilter;
-  return tex;
+  return canvas.toDataURL('image/png');
 }
 
-function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
+// ---------- Target entity (✅ ตำแหน่ง/สเกลผ่าน setAttribute) ----------
+function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0, extraKey = '' }) {
   if (!scene || !targetRoot) return null;
 
   const el = document.createElement('a-entity');
@@ -235,59 +255,64 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   el.setAttribute('id', id);
   el.classList.add('plateTarget');
 
+  const s = clamp(scale, 0.45, 1.35);
+  el.setAttribute('scale', `${s} ${s} ${s}`);
+
+  // geometry + material (dataURL)
   el.setAttribute('geometry', 'primitive: plane; width: 0.52; height: 0.52');
-  el.setAttribute('material', 'shader: flat; transparent: true; opacity: 0.98');
-  el.setAttribute('position', '0 0 0');
+  const src = makeEmojiDataUrl(emoji);
+  el.setAttribute('material', `shader: flat; transparent: true; opacity: 0.98; side: double; src: ${src}`);
 
-  const tex = makeEmojiTexture(emoji);
-  const applyTex = () => {
-    const mesh = el.getObject3D('mesh');
-    if (mesh && mesh.material) {
-      mesh.material.map = tex;
-      mesh.material.needsUpdate = true;
-    }
-  };
-  el.addEventListener('loaded', applyTex);
-  el.addEventListener('object3dset', (e) => { if (e.detail && e.detail.type === 'mesh') applyTex(); });
-
-  el.dataset.kind = kind;         // 'good' | 'junk' | 'power' | 'haz' | 'boss'
+  // meta
+  el.dataset.kind = kind;
   el.dataset.groupId = String(groupId || 0);
   el.dataset.emoji = String(emoji || '');
+  el.dataset.extraKey = String(extraKey || '');
   el.dataset.spawnMs = String(fromStartMs());
 
-  const s = clamp(scale, 0.45, 1.35);
-  el.object3D.scale.set(s, s, s);
-
-  const rangeX = haz.wind ? 1.15 : 0.85;
-  const rangeY = haz.wind ? 0.85 : 0.65;
+  // random pos in front of camera (anchored to targetRoot)
+  const rangeX = haz.wind ? 1.20 : 0.90;
+  const rangeY = haz.wind ? 0.90 : 0.70;
 
   let x = rnd(-rangeX, rangeX);
   let y = rnd(-rangeY, rangeY);
 
-  if (haz.blackhole) {
-    x *= 0.35;
-    y *= 0.35;
-  }
+  if (haz.blackhole) { x *= 0.32; y *= 0.32; }
 
-  el.object3D.position.set(x, y, 0);
+  // ✅ MUST: set position attribute (ไม่ใช้ object3D.position ตอนสร้าง)
+  el.setAttribute('position', `${x} ${y} 0`);
 
+  // float animation (ทำให้ไม่แข็ง)
+  const fx = haz.wind ? 0.14 : 0.09;
+  const fy = haz.wind ? 0.10 : 0.07;
+  const toX = x + rnd(-fx, fx);
+  const toY = y + rnd(-fy, fy);
+  const dur = haz.freeze ? 1200 : 820;
+  el.setAttribute('animation__float', `property: position; dir: alternate; dur: ${dur}; easing: easeInOutSine; loop: true; to: ${toX} ${toY} 0`);
+
+  // interactions
   el.addEventListener('click', () => onHit(el, 'click'));
+
   return el;
 }
 
 function removeTarget(el, reason = 'remove') {
   if (!el) return;
   const id = el.getAttribute('id');
+  const rec = id ? activeTargets.get(id) : null;
+  if (rec && rec.expireTimer) { try { clearTimeout(rec.expireTimer); } catch (_) {} }
   if (id && activeTargets.has(id)) activeTargets.delete(id);
+
   try { el.parentNode && el.parentNode.removeChild(el); } catch (_) {}
   emitGameEvent({ type:'target_remove', reason, targetId: id || '', kind: el.dataset.kind || '' });
 }
 
 function expireTarget(el) {
-  if (!el) return;
+  if (!el || ended) return;
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
+  // expire = miss เฉพาะ good (ไม่ใช่ power/haz/boss/junk)
   if (kind === 'good') {
     miss += 1;
     combo = 0;
@@ -304,18 +329,23 @@ function expireTarget(el) {
   emitScore();
 }
 
-let currentSpawnInterval = DCFG0.spawnInterval;
+// ---------- Adaptive spawn interval ----------
 function knowAdaptive() {
-  if (!isAdaptiveOn()) {
-    currentSpawnInterval = DCFG0.spawnInterval;
-    return;
-  }
+  if (!isAdaptiveOn()) { currentSpawnInterval = DCFG0.spawnInterval; return; }
+
   const base = (DIFF_TABLE[DIFF] || DIFF_TABLE.normal).spawnInterval;
   let k = 1.0;
-  if (combo >= 8) k *= 0.82;
-  if (combo >= 12) k *= 0.75;
-  if (miss >= 8) k *= 1.12;
-  if (tLeft <= 18) k *= 0.82;
+
+  if (combo >= 8)  k *= 0.86;
+  if (combo >= 12) k *= 0.78;
+  if (feverActive) k *= 0.90;
+  if (miss >= 8)   k *= 1.10;
+  if (tLeft <= 18) k *= 0.82; // ช่วงท้ายเร่ง
+
+  // hazard modifier
+  if (haz.freeze) k *= 1.08; // หน่วงนิดให้ “กดให้ทัน”
+  if (haz.wind)   k *= 0.92;
+
   currentSpawnInterval = clamp(Math.round(base * k), 420, 1600);
 }
 
@@ -328,33 +358,6 @@ function registerGroupHit(groupId) {
     plateHave[groupId] = true;
     plateCounts[groupId] += 1;
     totalsByGroup[groupId] += 1;
-  }
-}
-
-function checkPerfectPlate() {
-  const have = plateHaveCount();
-  if (have >= 5) {
-    perfectPlates += 1;
-    perfectStreak += 1;
-    bestStreak = Math.max(bestStreak, perfectStreak);
-
-    const bonus = 220 + Math.min(180, perfectStreak * 40);
-    score += bonus;
-    emitJudge('PERFECT!');
-    emitCoach(`PERFECT PLATE! +${bonus} 🌟`, 'happy');
-    emitGameEvent({ type:'perfect_plate', perfectPlates, perfectStreak, bonus });
-
-    fever = clamp(fever + 28, 0, 100);
-    if (fever >= 100) activateFever(5200);
-
-    resetPlate();
-
-    goalCleared = Math.min(goalTotal, perfectPlates);
-
-    if (miniCurrent && miniCurrent.key === 'perfect') {
-      miniCurrent.prog += 1;
-      if (miniCurrent.prog >= miniCurrent.target) clearMiniQuest();
-    }
   }
 }
 
@@ -372,11 +375,11 @@ function updateBalance(kind, groupId) {
 
 function scoreForHit(kind, groupId) {
   let base = 0;
-  if (kind === 'good') base = 85;
-  if (kind === 'junk') base = -50;
+  if (kind === 'good')  base = 85;
+  if (kind === 'junk')  base = -50;
   if (kind === 'power') base = 120;
-  if (kind === 'haz') base = 90;
-  if (kind === 'boss') base = 140;
+  if (kind === 'haz')   base = 90;
+  if (kind === 'boss')  base = 140;
 
   let mult = 1.0;
   if (feverActive) mult += 0.35;
@@ -391,6 +394,32 @@ function scoreForHit(kind, groupId) {
   return Math.round(base * mult);
 }
 
+function checkPerfectPlate() {
+  if (plateHaveCount() >= 5) {
+    perfectPlates += 1;
+    perfectStreak += 1;
+    bestStreak = Math.max(bestStreak, perfectStreak);
+
+    const bonus = 220 + Math.min(180, perfectStreak * 40);
+    score += bonus;
+
+    emitJudge('PERFECT!');
+    emitCoach(`PERFECT PLATE! +${bonus} 🌟`, 'happy');
+    emitGameEvent({ type:'perfect_plate', perfectPlates, perfectStreak, bonus });
+
+    fever = clamp(fever + 28, 0, 100);
+    if (fever >= 100) activateFever(5200);
+
+    // mini hook
+    if (miniCurrent && miniCurrent.key === 'perfect') {
+      miniCurrent.prog += 1;
+      if (miniCurrent.prog >= miniCurrent.target) clearMiniQuest();
+    }
+
+    resetPlate();
+  }
+}
+
 // ---------- Fever ----------
 function activateFever(ms = 5200) {
   feverActive = true;
@@ -399,6 +428,7 @@ function activateFever(ms = 5200) {
   emitCoach('FEVER ON! คะแนนคูณแรงขึ้น 🔥', 'fever');
   emitGameEvent({ type:'fever_on', durMs: ms });
 }
+
 function updateFeverTick() {
   if (!feverActive) {
     fever = clamp(fever - 0.9, 0, 100);
@@ -431,6 +461,7 @@ function updateShieldTick() {
 
 // ---------- Hazards ----------
 function enableHaz(key, ms) {
+  if (!HAZ[key]) return;
   haz[key] = true;
   hazUntil[key] = performance.now() + ms;
   emitCoach(`${HAZ[key].label}! ระวัง!`, 'sad');
@@ -446,15 +477,13 @@ function updateHazTick() {
   }
 }
 
-// ---------- Mini quests (วนต่อเนื่อง) ----------
+// ---------- Mini quests (ต่อเนื่อง) ----------
 const MINI_POOL = [
-  { key:'rush',    label:'Plate Rush: เก็บหมู่ให้ครบ 5 ภายในเร็ว ๆ', target: 1 },
-  { key:'perfect', label:'Perfect Chain: ทำ PERFECT เพิ่มอีก',        target: 1 },
-  { key:'clean',   label:'Clean Plate: ห้ามโดนขยะ 10 วินาที',        target: 10 },
-  { key:'combo',   label:'Combo Build: ทำคอมโบให้ถึง 8',            target: 8 }
+  { key:'rush',    label:'Plate Rush: เก็บให้ครบ 5 หมู่',        target: 1  },
+  { key:'perfect', label:'Perfect Chain: ทำ PERFECT เพิ่มอีก',   target: 1  },
+  { key:'clean',   label:'Clean Plate: ห้ามโดนขยะ 10 วิ',       target: 10 },
+  { key:'combo',   label:'Combo Build: ทำคอมโบให้ถึง 8',        target: 8  }
 ];
-
-let cleanTimer = 0;
 
 function startNextMiniQuest() {
   const def = pick(MINI_POOL);
@@ -475,7 +504,7 @@ function startNextMiniQuest() {
     goal: { label:`Perfect Plate ${perfectPlates}/${goalTotal}`, prog: perfectPlates, target: goalTotal },
     mini: { label: miniCurrent.label, prog: miniCurrent.prog, target: miniCurrent.target },
     goalsAll: Array.from({length:goalTotal}).map((_,i)=>({done: i < perfectPlates})),
-    minisAll: Array.from({length:miniCleared+1}).map((_,i)=>({done: i < miniCleared}))
+    minisAll: Array.from({length:Math.max(1, miniCleared+1)}).map((_,i)=>({done: i < miniCleared}))
   });
 
   emitGameEvent({ type:'mini_start', miniKey: miniCurrent.key, miniHistory });
@@ -500,8 +529,7 @@ function updateMiniTick() {
   if (!miniCurrent || miniCurrent.done) return;
 
   if (miniCurrent.key === 'rush') {
-    const have = plateHaveCount();
-    miniCurrent.prog = (have >= 5) ? 1 : 0;
+    miniCurrent.prog = (plateHaveCount() >= 5) ? 1 : 0;
     if (miniCurrent.prog >= miniCurrent.target) clearMiniQuest();
   }
 
@@ -519,7 +547,7 @@ function updateMiniTick() {
     goal: { label:`Perfect Plate ${perfectPlates}/${goalTotal}`, prog: perfectPlates, target: goalTotal },
     mini: { label: miniCurrent.label, prog: miniCurrent.prog, target: miniCurrent.target },
     goalsAll: Array.from({length:goalTotal}).map((_,i)=>({done: i < perfectPlates})),
-    minisAll: Array.from({length:miniCleared+1}).map((_,i)=>({done: i < miniCleared}))
+    minisAll: Array.from({length:Math.max(1, miniCleared+1)}).map((_,i)=>({done: i < miniCleared}))
   });
 
   hudUpdateAll();
@@ -528,7 +556,7 @@ function updateMiniTick() {
 // ---------- Boss mode ----------
 function maybeStartBoss() {
   if (bossOn) return;
-  if (tLeft > Math.min(26, Math.floor(TIME * 0.35))) return;
+  if (tLeft > Math.min(26, Math.floor(TIME * 0.35))) return; // ท้ายเกมเท่านั้น
   if (Math.random() < 0.16) {
     bossOn = true;
     bossHP = 3 + (DIFF === 'hard' ? 2 : 1);
@@ -553,7 +581,7 @@ function pickSpawnKind() {
 }
 
 function spawnOne(opts = {}) {
-  if (!targetRoot) return;
+  if (!targetRoot || ended) return;
   if (activeTargets.size >= DCFG0.maxActive) return;
 
   const kind = opts.forceBoss ? 'boss' : pickSpawnKind();
@@ -572,13 +600,13 @@ function spawnOne(opts = {}) {
   } else if (kind === 'power') {
     const pk = pick(Object.keys(POWER));
     const p = POWER[pk];
-    meta = { kind:'power', groupId: 0, emoji: p.emoji, scale: scl * 0.95 };
+    meta = { kind:'power', groupId: 0, emoji: p.emoji, scale: scl * 0.95, extraKey: pk };
   } else if (kind === 'haz') {
     const hk = pick(Object.keys(HAZ));
     const h = HAZ[hk];
-    meta = { kind:'haz', groupId: 0, emoji: h.emoji, scale: scl * 0.95 };
+    meta = { kind:'haz', groupId: 0, emoji: h.emoji, scale: scl * 0.95, extraKey: hk };
   } else if (kind === 'boss') {
-    meta = { kind:'boss', groupId: 0, emoji: '⭐', scale: scl * 1.05 };
+    meta = { kind:'boss', groupId: 0, emoji: '⭐', scale: scl * 1.05, extraKey: 'boss' };
   }
 
   const el = makeTargetEntity(meta);
@@ -587,6 +615,15 @@ function spawnOne(opts = {}) {
   targetRoot.appendChild(el);
 
   const id = el.getAttribute('id');
+  emitGameEvent({ type:'spawn', kind: el.dataset.kind, groupId: meta.groupId || 0, targetId: id });
+
+  const expireTimer = setTimeout(() => {
+    if (ended) return;
+    const rec = activeTargets.get(id);
+    if (!rec) return;
+    expireTarget(rec.el);
+  }, lifeMs);
+
   activeTargets.set(id, {
     id,
     el,
@@ -594,33 +631,20 @@ function spawnOne(opts = {}) {
     groupId: parseInt(el.dataset.groupId || '0', 10) || 0,
     spawnAt: performance.now(),
     expireAt: performance.now() + lifeMs,
-    lifeMs
+    lifeMs,
+    expireTimer
   });
-
-  emitGameEvent({ type:'spawn', kind: el.dataset.kind, groupId: meta.groupId || 0, targetId: id });
-
-  setTimeout(() => {
-    if (ended) return;
-    const rec = activeTargets.get(id);
-    if (!rec) return;
-    expireTarget(rec.el);
-  }, lifeMs);
 }
 
-function spawnLoopStart() {
+function scheduleSpawn() {
+  if (ended) return;
   knowAdaptive();
-  if (spawnTimer) clearInterval(spawnTimer);
 
-  spawnTimer = setInterval(() => {
+  spawnTimer = setTimeout(() => {
     if (ended) return;
     maybeStartBoss();
     spawnOne();
-    knowAdaptive();
-
-    if (spawnTimer) {
-      clearInterval(spawnTimer);
-      spawnLoopStart();
-    }
+    scheduleSpawn();
   }, currentSpawnInterval);
 }
 
@@ -633,31 +657,37 @@ function onHit(el, via = 'click') {
 
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
+  const emoji = el.dataset.emoji || '';
+  const extraKey = el.dataset.extraKey || '';
 
   removeTarget(el, 'hit');
   if (!started) return;
 
+  // HAZ
   if (kind === 'haz') {
-    const hk = pick(Object.keys(HAZ));
-    enableHaz(hk, HAZ[hk].durMs);
+    const hk = extraKey || HAZ_BY_EMOJI[emoji] || pick(Object.keys(HAZ));
+    enableHaz(hk, HAZ[hk]?.durMs || 3200);
     combo = Math.max(0, combo - 1);
     score += scoreForHit('haz', 0);
     emitJudge('RISK!');
     emitGameEvent({ type:'haz_hit', haz: hk });
+    updateMiniTick();
     hudUpdateAll();
     emitScore();
     return;
   }
 
+  // POWER
   if (kind === 'power') {
-    const em = el.dataset.emoji || '';
-    if (em === POWER.shield.emoji) {
+    const pk = extraKey || POWER_BY_EMOJI[emoji] || 'golden';
+
+    if (pk === 'shield') {
       enableShield(POWER.shield.durMs);
       score += scoreForHit('power', 0);
       fever = clamp(fever + 10, 0, 100);
       emitJudge('SHIELD!');
       emitGameEvent({ type:'power_shield' });
-    } else if (em === POWER.cleanse.emoji) {
+    } else if (pk === 'cleanse') {
       for (const [tid, tr] of Array.from(activeTargets.entries())) {
         if (tr && tr.el && tr.el.dataset.kind === 'junk') removeTarget(tr.el, 'cleanse');
       }
@@ -666,27 +696,24 @@ function onHit(el, via = 'click') {
       emitJudge('CLEANSE!');
       emitCoach('ล้างจานแล้ว! ขยะหายไป 💨', 'happy');
       emitGameEvent({ type:'power_cleanse' });
-    } else if (em === POWER.golden.emoji) {
+    } else {
       score += 320;
       fever = clamp(fever + 22, 0, 100);
       if (fever >= 100) activateFever(5200);
       emitJudge('GOLD!');
       emitCoach('Golden Bite! คะแนนพุ่ง ⭐', 'happy');
       emitGameEvent({ type:'power_golden' });
-    } else {
-      score += scoreForHit('power', 0);
-      emitJudge('POWER!');
     }
 
     combo += 1;
     maxCombo = Math.max(maxCombo, combo);
-
     updateMiniTick();
     hudUpdateAll();
     emitScore();
     return;
   }
 
+  // BOSS
   if (kind === 'boss') {
     bossHP -= 1;
     score += scoreForHit('boss', 0);
@@ -708,12 +735,14 @@ function onHit(el, via = 'click') {
       setTimeout(() => { if (!ended && bossOn) spawnOne({ forceBoss: true }); }, 260);
     }
 
+    if (fever >= 100) activateFever(5200);
     updateMiniTick();
     hudUpdateAll();
     emitScore();
     return;
   }
 
+  // JUNK / GOOD
   if (kind === 'junk') {
     if (shieldOn) {
       score += 30;
@@ -721,6 +750,7 @@ function onHit(el, via = 'click') {
       emitJudge('BLOCK!');
       emitCoach('โล่กันขยะไว้ได้! 🥗', 'happy');
       emitGameEvent({ type:'junk_blocked' });
+
       combo += 1;
       maxCombo = Math.max(maxCombo, combo);
     } else {
@@ -729,6 +759,7 @@ function onHit(el, via = 'click') {
       perfectStreak = 0;
       balancePct = clamp(balancePct - 18, 0, 100);
       fever = clamp(fever - 12, 0, 100);
+
       emitJudge('MISS');
       emit('hha:miss', { sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
       emitCoach('โดนขยะแล้ว! เลี่ยงให้ได้ 😵', 'sad');
@@ -749,10 +780,6 @@ function onHit(el, via = 'click') {
     emitJudge(pts >= 110 ? 'PERFECT' : 'GOOD');
     emitGameEvent({ type:'good_hit', groupId, points: pts });
 
-    if (miniCurrent && miniCurrent.key === 'combo') {
-      miniCurrent.prog = Math.max(miniCurrent.prog, combo);
-    }
-
     checkPerfectPlate();
     if (fever >= 100) activateFever(5200);
   }
@@ -772,6 +799,7 @@ function tick1s() {
   tLeft -= 1;
   if (tLeft < 0) tLeft = 0;
 
+  // clean countdown
   if (miniCurrent && miniCurrent.key === 'clean' && !miniCurrent.done) {
     cleanTimer = Math.max(0, cleanTimer - 1);
     if (cleanTimer <= 0) {
@@ -783,6 +811,7 @@ function tick1s() {
   updateFeverTick();
   updateShieldTick();
   updateHazTick();
+  updateMiniTick();
 
   emitTime();
   hudUpdateAll();
@@ -795,6 +824,7 @@ function startTimers() {
   if (timerTick) clearInterval(timerTick);
   timerTick = setInterval(tick1s, 1000);
 }
+
 function stopTimers() {
   if (timerTick) clearInterval(timerTick);
   timerTick = null;
@@ -825,20 +855,10 @@ function showResultModal(reason) {
   if (backdrop) backdrop.style.display = 'flex';
 }
 
-// ✅ keep ONLY ONE computeGrade() (no duplicates)
-function computeGrade() {
-  const allGoal = perfectPlates >= goalTotal;
-  if (allGoal && score >= 1400 && maxCombo >= 14 && miss <= 2) return 'SSS';
-  if (allGoal && score >= 1000 && maxCombo >= 10 && miss <= 4) return 'SS';
-  if (score >= 750) return 'S';
-  if (score >= 550) return 'A';
-  if (score >= 320) return 'B';
-  return 'C';
-}
-
 // ---------- Start / End ----------
 function clearAllTargets() {
   for (const [id, rec] of Array.from(activeTargets.entries())) {
+    if (rec && rec.expireTimer) { try { clearTimeout(rec.expireTimer); } catch (_) {} }
     if (rec && rec.el) {
       try { rec.el.parentNode && rec.el.parentNode.removeChild(rec.el); } catch (_) {}
     }
@@ -860,17 +880,21 @@ function startGame() {
     'neutral'
   );
 
+  // reset state
   tLeft = TIME;
   score = 0; combo = 0; maxCombo = 0; miss = 0;
   fever = 0; feverActive = false; feverUntilMs = 0;
   perfectPlates = 0; perfectStreak = 0; bestStreak = 0;
   balancePct = 100;
+
   resetPlate();
   plateCounts = { 1:0,2:0,3:0,4:0,5:0 };
   totalsByGroup = { 1:0,2:0,3:0,4:0,5:0 };
+
   shieldOn = false; shieldUntil = 0;
   haz = { wind:false, blackhole:false, freeze:false };
   bossOn = false; bossHP = 0;
+
   miniCleared = 0; miniHistory = 0; miniCurrent = null;
   cleanTimer = 0;
 
@@ -882,7 +906,7 @@ function startGame() {
 
   startTimers();
   knowAdaptive();
-  spawnLoopStart();
+  scheduleSpawn();
 }
 
 function endGame(reason = 'ended') {
@@ -890,8 +914,9 @@ function endGame(reason = 'ended') {
   ended = true;
 
   stopTimers();
-  if (spawnTimer) clearInterval(spawnTimer);
+  if (spawnTimer) { try { clearTimeout(spawnTimer); } catch (_) {} }
   spawnTimer = null;
+
   clearAllTargets();
 
   emitGameEvent({ type:'session_end', reason, score, miss, maxCombo, perfectPlates, grade: computeGrade() });
@@ -952,8 +977,6 @@ export function bootPlateDOM() {
   if (window.__PLATE_DOM_BOOTED__) return;
   window.__PLATE_DOM_BOOTED__ = true;
 
-  if (!scene) console.warn('[PlateVR] a-scene not found yet (will wait loaded)');
-  if (!cam) console.warn('[PlateVR] #cam not found. Check plate-vr.html');
   if (!targetRoot) {
     console.error('[PlateVR] #targetRoot not found. Check plate-vr.html');
     emitCoach('หา targetRoot ไม่เจอ! ตรวจ ID ใน plate-vr.html ก่อนนะ ⚠️', 'sad');
@@ -963,9 +986,6 @@ export function bootPlateDOM() {
   ensureTouchLookControls();
   bindUI();
 
-  setText('hudMode', (MODE === 'research') ? 'Research' : 'Play');
-  setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
-  setText('hudTime', tLeft);
   hudUpdateAll();
 
   const starter = resolvePlateStarter();
@@ -984,7 +1004,7 @@ export function bootPlateDOM() {
   });
 }
 
-// auto boot as safety
+// auto boot (กันลืมเรียกใน html)
 window.addEventListener('DOMContentLoaded', () => {
   bootPlateDOM();
 });
