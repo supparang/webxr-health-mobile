@@ -6,6 +6,7 @@
 // ✅ NEW: rhythm spawn (bpm) + pulse class
 // ✅ NEW: trick/fake targets (itemType='fakeGood')
 // ✅ NEW: allowAdaptive flag
+// ✅ PATCH(Storm): spawnIntervalMul (number|fn) ทำให้ spawn ถี่ขึ้นจริง ๆ
 
 'use strict';
 
@@ -95,6 +96,8 @@ function ensureOverlayStyle () {
       50%{ transform:translate(-50%,-50%) scale(1.08); }
       100%{ transform:translate(-50%,-50%) scale(1); }
     }
+    /* storm hint (optional) */
+    .hvr-storm-on .hvr-target{ filter: saturate(1.06) contrast(1.06); }
   `;
   DOC.head.appendChild(s);
 }
@@ -172,6 +175,9 @@ export async function boot (rawCfg = {}) {
     allowAdaptive = true,
     rhythm = null, // { enabled:true, bpm:110 } or boolean
     trickRate = 0.08, // fakeGood frequency
+
+    // ✅ NEW: Storm Wave multiplier (number OR function => number)
+    spawnIntervalMul = null,
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -260,6 +266,16 @@ export async function boot (rawCfg = {}) {
     try { host.classList.add('hvr-rhythm-on'); } catch {}
   }
 
+  // ✅ Storm multiplier getter
+  function getSpawnMul(){
+    let m = 1;
+    try{
+      if (typeof spawnIntervalMul === 'function') m = Number(spawnIntervalMul()) || 1;
+      else if (spawnIntervalMul != null) m = Number(spawnIntervalMul) || 1;
+    }catch{}
+    return clamp(m, 0.25, 2.5);
+  }
+
   // ======================================================
   //  Helpers: perfect distance + crosshair shoot
   // ======================================================
@@ -277,7 +293,6 @@ export async function boot (rawCfg = {}) {
   }
 
   function findTargetAtPoint(clientX, clientY){
-    // choose closest target that contains point (or near point)
     let best = null;
     let bestD = 999999;
 
@@ -297,14 +312,13 @@ export async function boot (rawCfg = {}) {
   function shootCrosshair(){
     if (stopped) return false;
     const x = Math.round((ROOT.innerWidth || 0) * 0.5);
-    const y = Math.round((ROOT.innerHeight || 0) * 0.58); // match your crosshair top:58%
+    const y = Math.round((ROOT.innerHeight || 0) * 0.58);
     const hit = findTargetAtPoint(x, y);
     if (!hit) return false;
 
     const data = hit.t;
     const info = hit.info;
 
-    // simulate hit using stored handler
     if (typeof data._hit === 'function') {
       data._hit({ __hhaSynth:true, clientX:x, clientY:y }, info);
       return true;
@@ -325,7 +339,7 @@ export async function boot (rawCfg = {}) {
 
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
-    const poolsTrick = Array.isArray(pools.trick) ? pools.trick : []; // fakeGood emojis, optional
+    const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
 
     let ch = '💧';
     let isGood = true;
@@ -333,8 +347,6 @@ export async function boot (rawCfg = {}) {
     let itemType = 'good'; // good | bad | power | fakeGood
 
     const canPower = Array.isArray(powerups) && powerups.length > 0;
-
-    // trick (fakeGood) — only if we have trick pool & random
     const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
 
     if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
@@ -343,9 +355,8 @@ export async function boot (rawCfg = {}) {
       isPower = true;
       itemType = 'power';
     } else if (canTrick) {
-      // looks like good but counts as bad in game logic (hydration.safe.js decides)
       ch = pickOne(poolsTrick, '💧');
-      isGood = true;      // VISUAL good
+      isGood = true;
       isPower = false;
       itemType = 'fakeGood';
     } else {
@@ -379,7 +390,6 @@ export async function boot (rawCfg = {}) {
     el.style.touchAction = 'manipulation';
     el.style.zIndex = '35';
 
-    // BG
     let bgGrad = '';
     let ringGlow = '';
 
@@ -387,7 +397,6 @@ export async function boot (rawCfg = {}) {
       bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
       ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
     } else if (itemType === 'fakeGood') {
-      // looks good + sparkle ring (but actually trap)
       bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
       ringGlow = '0 0 0 2px rgba(167,139,250,0.85), 0 0 22px rgba(167,139,250,0.9)';
     } else if (isGood) {
@@ -402,7 +411,6 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
-    // inner
     const inner = DOC.createElement('div');
     inner.style.width = (size * 0.82) + 'px';
     inner.style.height = (size * 0.82) + 'px';
@@ -413,7 +421,6 @@ export async function boot (rawCfg = {}) {
     inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,0.12), rgba(15,23,42,0.36))';
     inner.style.boxShadow = 'inset 0 4px 10px rgba(15,23,42,0.9)';
 
-    // perfect ring (visual)
     const ring = DOC.createElement('div');
     ring.style.position = 'absolute';
     ring.style.left = '50%';
@@ -427,7 +434,6 @@ export async function boot (rawCfg = {}) {
     ring.style.pointerEvents = 'none';
     el.appendChild(ring);
 
-    // sparkle for fakeGood
     if (itemType === 'fakeGood') {
       const sp = DOC.createElement('div');
       sp.textContent = '✨';
@@ -534,7 +540,6 @@ export async function boot (rawCfg = {}) {
         console.error('[mode-factory] onExpire error', err);
       }
 
-      // junk/fake expire → ถือว่า “ดีเล็กน้อย” (ฝึกหลบ)
       if ((itemType === 'bad' || itemType === 'fakeGood') && !isPower) addSample(true);
     }, baseDiff.life);
   }
@@ -552,7 +557,6 @@ export async function boot (rawCfg = {}) {
     if (lastClockTs == null) lastClockTs = ts;
     const dt = ts - lastClockTs;
 
-    // tick per second
     if (dt >= 1000 && secLeft > 0) {
       const steps = Math.floor(dt / 1000);
       for (let i = 0; i < steps; i++) {
@@ -567,6 +571,16 @@ export async function boot (rawCfg = {}) {
     if (secLeft > 0) {
       if (!lastSpawnTs) lastSpawnTs = ts;
 
+      // ✅ Storm multiplier affects interval "จริง"
+      const mul = getSpawnMul();
+      const effInterval = Math.max(35, curInterval * mul);
+
+      // Optional storm class toggle (for CSS glow)
+      try{
+        if (mul < 0.99) host.classList.add('hvr-storm-on');
+        else host.classList.remove('hvr-storm-on');
+      }catch{}
+
       if (rhythmOn && beatMs > 0) {
         if (!lastBeatTs) lastBeatTs = ts;
         const dtBeat = ts - lastBeatTs;
@@ -576,7 +590,7 @@ export async function boot (rawCfg = {}) {
         }
       } else {
         const dtSpawn = ts - lastSpawnTs;
-        if (dtSpawn >= curInterval) {
+        if (dtSpawn >= effInterval) {
           spawnTarget();
           lastSpawnTs = ts;
         }
