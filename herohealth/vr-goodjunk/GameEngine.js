@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
 // Good vs Junk VR — DOM Emoji Engine (HYPER v3)
-// (แก้ payload/FX hooks + block hook)
+// ✅ PATCH: research events (spawn/hit/block/expire) + end.stats (sessions schema)
 
 'use strict';
 
@@ -66,6 +66,15 @@
   let adaptive = { spawnMs: null, maxActive: null, scale: null };
   let lastAdaptAt = 0;
 
+  // ===== Research timing + stats =====
+  let sessionStartMs = 0;              // Date.now baseline (sync with logger)
+  let questStats = null;               // filled from UI via event
+  let rtGood = [];                     // ms for good/star hits (for avg/median/fastHitRate)
+  let nHitJunk = 0;                    // junk taps (errors)
+  let nHitJunkGuard = 0;               // blocked by shield
+  let nExpireGood = 0;                 // good/star expired after seen
+  let nSpawnGood = 0, nSpawnJunk = 0, nSpawnStar = 0, nSpawnDiamond = 0, nSpawnShield = 0;
+
   function getTHREE(){
     return ROOT.THREE || (ROOT.AFRAME && ROOT.AFRAME.THREE) || null;
   }
@@ -84,6 +93,30 @@
 
   function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
   function now(){ return performance.now(); }
+  function nowMs(){ return Date.now(); }
+  function tFromStartMs(){
+    const base = sessionStartMs || nowMs();
+    return Math.max(0, nowMs() - base);
+  }
+  function uid(){
+    return 't' + Math.random().toString(16).slice(2) + '-' + nowMs().toString(16);
+  }
+
+  // Map to schema itemType
+  function itemTypeOf(t){
+    // schema: good / junk / star / diamond / shield
+    const tp = t && (t.type || t.itemType);
+    if (tp === 'good') return 'good';
+    if (tp === 'junk') return 'junk';
+    if (tp === 'gold') return 'star';       // ⭐ map gold -> star
+    if (tp === 'fake') return 'diamond';    // 💎 map fake -> diamond
+    if (tp === 'boss') return 'star';       // treat boss as star-ish (rare)
+    if (tp === 'power'){
+      if (t.power === 'shield') return 'shield';
+      return 'diamond'; // magnet/time/fever -> diamond bucket
+    }
+    return 'good';
+  }
 
   function emitJudge(label, extra){
     ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label, ...extra } }));
@@ -91,6 +124,7 @@
   function emitMiss(){
     ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses }}));
   }
+
   function emitFeverEdgeIfNeeded(){
     if (!FeverUI || typeof FeverUI.isActive !== 'function') return;
     feverPrev = feverActive;
@@ -101,10 +135,12 @@
       ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'end' }}));
     }
   }
+
   function comboMultiplier(){
     const step = Math.floor((combo||0)/6);
     return clamp(1 + step*0.5, 1, 3);
   }
+
   function emitScore(){
     if (FeverUI && typeof FeverUI.isActive === 'function'){
       feverActive = !!FeverUI.isActive();
@@ -124,8 +160,62 @@
       }
     }));
   }
+
   function emitTime(){
     ROOT.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+  }
+
+  // ===== Emit research events to logger =====
+  function emitSpawn(t){
+    ROOT.dispatchEvent(new CustomEvent('hha:spawn', {
+      detail:{
+        timeFromStartMs: tFromStartMs(),
+        targetId: String(t.id || ''),
+        emoji: String(t.emoji || ''),
+        itemType: itemTypeOf(t),
+        lane: ''
+      }
+    }));
+  }
+  function emitHit(t, x, y, extra={}){
+    ROOT.dispatchEvent(new CustomEvent('hha:hit', {
+      detail:{
+        timeFromStartMs: tFromStartMs(),
+        targetId: String(t.id || ''),
+        emoji: String(t.emoji || ''),
+        itemType: itemTypeOf(t),
+        lane: '',
+        rtMs: (typeof t.spawnedAtMs === 'number') ? Math.max(0, nowMs() - t.spawnedAtMs) : null,
+        judgment: extra.judgment || '',
+        totalScore: score,
+        combo,
+        isGood: (itemTypeOf(t)==='good' || itemTypeOf(t)==='star' || itemTypeOf(t)==='shield')
+      }
+    }));
+  }
+  function emitBlock(t, why){
+    ROOT.dispatchEvent(new CustomEvent('hha:block', {
+      detail:{
+        timeFromStartMs: tFromStartMs(),
+        targetId: String(t.id || ''),
+        emoji: String(t.emoji || ''),
+        itemType: itemTypeOf(t),
+        lane: '',
+        judgment: 'BLOCK',
+        extra: { why: why || '' }
+      }
+    }));
+  }
+  function emitExpire(t){
+    ROOT.dispatchEvent(new CustomEvent('hha:expire', {
+      detail:{
+        timeFromStartMs: tFromStartMs(),
+        targetId: String(t.id || ''),
+        emoji: String(t.emoji || ''),
+        itemType: itemTypeOf(t),
+        lane: ''
+      }
+    }));
   }
 
   function spawnWorld(){
@@ -228,6 +318,15 @@
     return { type:'junk', emoji: j, ttl: 2200 };
   }
 
+  function bumpSpawnCounters(t){
+    const it = itemTypeOf(t);
+    if (it === 'good') nSpawnGood++;
+    else if (it === 'junk') nSpawnJunk++;
+    else if (it === 'star') nSpawnStar++;
+    else if (it === 'diamond') nSpawnDiamond++;
+    else if (it === 'shield') nSpawnShield++;
+  }
+
   function createTarget(spec){
     if (!layerEl) return;
     const el = createDomEl();
@@ -250,12 +349,14 @@
     };
 
     const t = {
+      id: uid(),
       el,
       type: spec.type,
       power: spec.power || null,
       emoji: spec.emoji,
       pos: spawnWorld(),
       born: now(),
+      spawnedAtMs: nowMs(),
       ttl: spec.ttl || 2200,
       seen: false,
       fallback2D,
@@ -264,6 +365,10 @@
 
     active.push(t);
     layerEl.appendChild(el);
+
+    // ✅ research: spawn
+    bumpSpawnCounters(t);
+    emitSpawn(t);
 
     el.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
@@ -283,7 +388,11 @@
     if (!running) return;
     removeTarget(t);
 
+    // ✅ research: expire event (always)
+    emitExpire(t);
+
     if ((t.type === 'good' || t.type === 'gold') && t.seen){
+      nExpireGood++;
       misses++;
       combo = 0;
       emitScore();
@@ -308,10 +417,14 @@
   function hitTarget(t, x, y){
     if (!t || !t.el) return;
 
+    // ========= BOSS =========
     if (t.type === 'boss'){
       t.hp = (t.hp|0) - 1;
       if (Particles && Particles.scorePop) Particles.scorePop(x,y,'HIT!',{ judgment:'BOSS', good:true });
+
       emitJudge('BOSS HIT!');
+      emitHit(t, x, y, { judgment:'BOSS_HIT' });
+
       if (t.hp <= 0){
         removeTarget(t);
         bossTarget = null;
@@ -337,13 +450,16 @@
       return;
     }
 
+    // remove from screen before process
     removeTarget(t);
 
+    // ========= POWER =========
     if (t.type === 'power'){
       if (t.power === 'shield'){
         shieldUntil = now() + 5000;
         emitJudge('SHIELD ON!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'🛡️ +5s',{ good:true });
+        emitHit(t, x, y, { judgment:'POWER_SHIELD' });
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'shield' } }));
         return;
@@ -352,6 +468,7 @@
         magnetUntil = now() + 4000;
         emitJudge('MAGNET!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'🧲 +4s',{ good:true });
+        emitHit(t, x, y, { judgment:'POWER_MAGNET' });
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'magnet' } }));
         return;
@@ -363,6 +480,7 @@
         }
         emitJudge('TIME +3!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'⏳ +3s',{ good:true });
+        emitHit(t, x, y, { judgment:'POWER_TIME' });
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'time' } }));
         return;
@@ -371,16 +489,20 @@
         feverAdd(22);
         emitJudge('FEVER+');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'🔥 FEVER+',{ good:true });
+        emitHit(t, x, y, { judgment:'POWER_FEVER' });
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'fever' } }));
         return;
       }
     }
 
+    // ========= FAKE =========
     if (t.type === 'fake'){
       if (shieldOn()){
         emitJudge('BLOCK!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'BLOCK',{ judgment:'FAKE', good:true });
+        nHitJunkGuard++;
+        emitBlock(t, 'fake');
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:block',{ detail:{ ok:true, why:'fake' } }));
         return;
@@ -391,6 +513,9 @@
 
       if (Particles && Particles.scorePop) Particles.scorePop(x,y,'OOPS!',{ judgment:'FAKE!', good:false });
 
+      nHitJunk++;
+      emitHit(t, x, y, { judgment:'FAKE_HIT' });
+
       emitScore();
       emitMiss();
       emitJudge('MISS', { why:'fake' });
@@ -399,10 +524,13 @@
       return;
     }
 
+    // ========= JUNK =========
     if (t.type === 'junk'){
       if (shieldOn()){
         emitJudge('BLOCK!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'BLOCK',{ good:true });
+        nHitJunkGuard++;
+        emitBlock(t, 'junk');
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:block',{ detail:{ ok:true, why:'junk' } }));
         return;
@@ -411,8 +539,10 @@
       combo = 0;
       feverReduce(12);
 
-      // ✅ FIX: ส่ง object ถูกต้อง (ของเดิมส่ง string ทำให้ FX พังเงียบ)
       if (Particles && Particles.scorePop) Particles.scorePop(x,y,'MISS',{ judgment:'JUNK!', good:false });
+
+      nHitJunk++;
+      emitHit(t, x, y, { judgment:'JUNK_HIT' });
 
       emitScore();
       emitMiss();
@@ -421,10 +551,13 @@
       return;
     }
 
-    // GOOD / GOLD
+    // ========= GOOD / GOLD =========
     goodHits++;
     combo++;
     comboMax = Math.max(comboMax, combo);
+
+    const rt = (typeof t.spawnedAtMs === 'number') ? Math.max(0, nowMs() - t.spawnedAtMs) : null;
+    if (rt != null && (t.type === 'good' || t.type === 'gold')) rtGood.push(rt);
 
     if (t.type === 'gold') feverAdd(10);
     else feverAdd(4);
@@ -457,6 +590,7 @@
     }
 
     emitJudge(combo >= 10 ? 'PERFECT' : 'GOOD', { mult });
+    emitHit(t, x, y, { judgment: (t.type === 'gold') ? 'GOLD' : (combo >= 10 ? 'PERFECT' : 'GOOD') });
     emitScore();
 
     ROOT.dispatchEvent(new CustomEvent('quest:goodHit',{ detail:{ type:t.type, add, mult, feverNow } }));
@@ -521,12 +655,14 @@
 
     const hp = (base.bossHP|0) || 8;
     const t = {
+      id: uid(),
       el,
       type:'boss',
       emoji:'🥦👑 ×' + hp,
       hp,
       pos: spawnWorld(),
       born: now(),
+      spawnedAtMs: nowMs(),
       ttl: 999999,
       seen: false,
       fallback2D: { x: window.innerWidth/2, y: window.innerHeight*0.38 },
@@ -536,6 +672,9 @@
 
     active.push(t);
     layerEl.appendChild(el);
+
+    bumpSpawnCounters(t);
+    emitSpawn(t);
 
     el.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
@@ -624,6 +763,18 @@
     tickTimer = setTimeout(tickLoop, 1000);
   }
 
+  // ===== Quest stats hook from UI =====
+  function onQuestStats(e){
+    const d = (e && e.detail) || null;
+    if (!d) return;
+    questStats = {
+      goalsCleared: Number(d.goalsCleared ?? d.goalCleared ?? 0) || 0,
+      goalsTotal:   Number(d.goalsTotal   ?? d.goalTotal   ?? 0) || 0,
+      miniCleared:  Number(d.miniCleared  ?? 0) || 0,
+      miniTotal:    Number(d.miniTotal    ?? 0) || 0
+    };
+  }
+
   function start(diff, opts={}){
     if (running) return;
 
@@ -641,6 +792,12 @@
     durationSec = clamp(opts.durationSec ?? 60, 20, 180);
     timeLeft = durationSec;
 
+    // ✅ baseline time (sync with logger if set)
+    sessionStartMs = (typeof ROOT.HHA_SESSION_START_MS === 'number')
+      ? ROOT.HHA_SESSION_START_MS
+      : nowMs();
+
+    // reset runtime counters
     score=0; combo=0; comboMax=0; goodHits=0; misses=0;
     shieldUntil = 0;
     magnetUntil = 0;
@@ -651,6 +808,17 @@
     lastAdaptAt = 0;
 
     livesLeft = MAX_LIVES;
+
+    // research counters reset
+    questStats = null;
+    rtGood = [];
+    nHitJunk = 0;
+    nHitJunkGuard = 0;
+    nExpireGood = 0;
+    nSpawnGood = 0; nSpawnJunk = 0; nSpawnStar = 0; nSpawnDiamond = 0; nSpawnShield = 0;
+
+    ROOT.addEventListener('hha:questStats', onQuestStats);
+
     ROOT.dispatchEvent(new CustomEvent('hha:lives',{ detail:{ livesLeft, max: MAX_LIVES } }));
 
     if (FeverUI && typeof FeverUI.reset === 'function'){
@@ -673,6 +841,8 @@
     if (!running) return;
     running = false;
 
+    ROOT.removeEventListener('hha:questStats', onQuestStats);
+
     if (rafId) cancelAnimationFrame(rafId);
     rafId = null;
     if (spawnTimer) clearTimeout(spawnTimer);
@@ -683,6 +853,35 @@
     const copy = active.slice();
     for (const t of copy) removeTarget(t);
     active.length = 0;
+
+    // ---- Compute stats for sessions schema ----
+    const goodTotal = Math.max(0, goodHits + nExpireGood); // attempted good opportunities
+    const accuracyGoodPct = goodTotal > 0 ? Math.round((goodHits / goodTotal) * 1000) / 10 : null;
+
+    const hitTotal = Math.max(0, goodHits + nHitJunk);
+    const junkErrorPct = hitTotal > 0 ? Math.round((nHitJunk / hitTotal) * 1000) / 10 : null;
+
+    let avgRtGoodMs = null, medianRtGoodMs = null, fastHitRatePct = null;
+    if (rtGood.length){
+      const arr = rtGood.slice().sort((a,b)=>a-b);
+      const sum = arr.reduce((s,v)=>s+v,0);
+      avgRtGoodMs = Math.round((sum / arr.length) * 10) / 10;
+
+      const mid = Math.floor(arr.length/2);
+      medianRtGoodMs = (arr.length % 2) ? arr[mid] : Math.round(((arr[mid-1]+arr[mid])/2) * 10) / 10;
+
+      const fast = arr.filter(v=>v <= 450).length;
+      fastHitRatePct = Math.round((fast / arr.length) * 1000) / 10;
+    }
+
+    const stats = {
+      ...(questStats || {}),            // goals/minis from UI
+      accuracyGoodPct,
+      junkErrorPct,
+      avgRtGoodMs,
+      medianRtGoodMs,
+      fastHitRatePct
+    };
 
     ROOT.dispatchEvent(new CustomEvent('hha:end',{
       detail:{
@@ -695,7 +894,21 @@
         durationSec,
         runMode,
         diff: diffKey,
-        challenge
+        challenge,
+
+        // ✅ sessions schema counters
+        nTargetGoodSpawned: nSpawnGood,
+        nTargetJunkSpawned: nSpawnJunk,
+        nTargetStarSpawned: nSpawnStar,
+        nTargetDiamondSpawned: nSpawnDiamond,
+        nTargetShieldSpawned: nSpawnShield,
+        nHitGood: goodHits,
+        nHitJunk: nHitJunk,
+        nHitJunkGuard: nHitJunkGuard,
+        nExpireGood: nExpireGood,
+
+        // ✅ IMPORTANT for logger -> sessions columns
+        stats
       }
     }));
   }
