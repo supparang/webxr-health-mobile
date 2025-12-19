@@ -1,10 +1,10 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// Hero Health Research Logger (Schema: sessions / events / students-profile)
-// - Try fetch(cors) + parse JSON first
-// - Fallback: sendBeacon
-// - Fallback: fetch(no-cors) fire-and-forget
-// - collects: sessions[1], events[*], studentsProfile[0..1] (upsert on server)
-// - emits: hha:logger { ok:boolean, msg:string, resp?:object }
+// CORS-friendly client:
+// 1) try fetch(mode:'cors') with Content-Type text/plain (no preflight) and read JSON
+// 2) fallback sendBeacon
+// 3) fallback fetch(no-cors) fire-and-forget
+//
+// Emits: hha:logger { ok:boolean, msg:string }
 
 'use strict';
 
@@ -12,9 +12,7 @@ let CONFIG = {
   endpoint: '',
   projectTag: 'HeroHealth',
   debug: false,
-  gameVersion: 'v0',
-  // เวลาเป็น CORS แล้ว response ไม่ใช่ 2xx จะถือ fail
-  strictHttpOk: true
+  gameVersion: 'v0'
 };
 
 let sessionId = null;
@@ -36,11 +34,9 @@ function uuid(){
   });
 }
 
-function emitLogger(ok, msg, resp){
-  const detail = { ok: !!ok, msg: String(msg || '') };
-  if (resp !== undefined) detail.resp = resp;
-  window.dispatchEvent(new CustomEvent('hha:logger', { detail }));
-  if (CONFIG.debug) console.log('[HHA Logger]', ok, msg, resp || '');
+function emitLogger(ok, msg){
+  window.dispatchEvent(new CustomEvent('hha:logger', { detail:{ ok, msg } }));
+  if (CONFIG.debug) console.log('[HHA Logger]', ok, msg);
 }
 
 function safeNum(v){ v = Number(v); return Number.isFinite(v) ? v : null; }
@@ -109,78 +105,69 @@ function packPayload(final=false){
   };
 }
 
-async function tryFetchCorsJson_(endpoint, bodyStr){
-  // พยายามอ่าน JSON (ต้อง CORS ผ่านถึงจะอ่านได้)
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    mode: 'cors',
-    credentials: 'omit',
-    headers: { 'Content-Type': 'application/json' },
-    body: bodyStr,
-    keepalive: true
-  });
-
-  if (CONFIG.strictHttpOk && !res.ok) {
-    throw new Error('HTTP not ok: ' + res.status);
-  }
-
-  // บางกรณี res.ok แต่ body อ่านไม่ได้ → catch ด้านนอก
-  const json = await res.json();
-  return json;
-}
-
-function trySendBeacon_(endpoint, bodyStr){
-  try{
-    if (!navigator.sendBeacon) return false;
-    const ok = navigator.sendBeacon(endpoint, new Blob([bodyStr], { type:'application/json' }));
-    return !!ok;
-  }catch(_){
-    return false;
-  }
-}
-
-async function tryFetchNoCors_(endpoint, bodyStr){
-  // fire-and-forget: อ่าน response ไม่ได้ แต่ส่งติดได้ในหลายเคส
-  await fetch(endpoint, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body: bodyStr,
-    keepalive: true
-  });
-  return true;
-}
-
 async function send(payload){
   if (!CONFIG.endpoint) throw new Error('No endpoint');
-  const bodyStr = JSON.stringify(payload);
+  const body = JSON.stringify(payload);
 
-  // 1) Try: fetch(cors) + read JSON
+  // -------- 1) Try CORS + read JSON (NO preflight) --------
+  // key trick: Content-Type text/plain;charset=utf-8 => simple request
   try{
-    emitLogger(true, 'logger: sending(cors/json)…');
-    const json = await tryFetchCorsJson_(CONFIG.endpoint, bodyStr);
-    emitLogger(true, payload.final ? 'logger: ok (cors/json final)' : 'logger: ok (cors/json)', json);
-    return { ok:true, via:'cors-json', resp:json };
-  }catch(err1){
-    if (CONFIG.debug) console.warn('[HHA Logger] cors/json failed:', err1);
+    const res = await fetch(CONFIG.endpoint, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body,
+      keepalive: true
+    });
+
+    // ถ้า CORS ผ่าน จะอ่านได้
+    const text = await res.text();
+    let json = null;
+    try { json = JSON.parse(text); } catch(_){}
+
+    if (!res.ok){
+      emitLogger(false, `logger: server ${res.status}`);
+      throw new Error(`Server ${res.status}: ${text.slice(0,200)}`);
+    }
+
+    if (json && json.ok === true){
+      emitLogger(true, payload.final ? 'logger: ok(final)' : 'logger: ok');
+      return true;
+    }
+
+    // ถ้าอ่านไม่เป็น JSON ก็ถือว่า ok แต่แจ้งเตือน
+    emitLogger(true, payload.final ? 'logger: sent (non-json)' : 'logger: sent (non-json)');
+    return true;
+
+  } catch(err){
+    if (CONFIG.debug) console.warn('[HHA Logger] CORS JSON attempt failed', err);
   }
 
-  // 2) Fallback: sendBeacon
-  const beaconOk = trySendBeacon_(CONFIG.endpoint, bodyStr);
-  if (beaconOk){
-    emitLogger(true, payload.final ? 'logger: sent(beacon final)' : 'logger: sent(beacon)');
-    return { ok:true, via:'beacon' };
+  // -------- 2) Fallback sendBeacon (fire-and-forget) --------
+  if (navigator.sendBeacon){
+    try{
+      const ok = navigator.sendBeacon(CONFIG.endpoint, new Blob([body], { type:'text/plain;charset=utf-8' }));
+      if (ok){
+        emitLogger(true, payload.final ? 'logger: beacon(final)' : 'logger: beacon');
+        return true;
+      }
+    } catch(_) {}
   }
 
-  // 3) Fallback: fetch(no-cors)
-  try{
-    await tryFetchNoCors_(CONFIG.endpoint, bodyStr);
-    emitLogger(true, payload.final ? 'logger: sent(no-cors final)' : 'logger: sent(no-cors)');
-    return { ok:true, via:'no-cors' };
-  }catch(err3){
-    emitLogger(false, 'logger: send failed');
-    throw err3;
-  }
+  // -------- 3) Fallback no-cors (opaque) --------
+  await fetch(CONFIG.endpoint, {
+    method:'POST',
+    mode:'no-cors',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body,
+    keepalive:true
+  });
+
+  emitLogger(true, payload.final ? 'logger: sent(no-cors/final)' : 'logger: sent(no-cors)');
+  return true;
 }
 
 function flush(final=false){
@@ -189,8 +176,8 @@ function flush(final=false){
 
   const payload = packPayload(final);
   send(payload).catch(err=>{
+    emitLogger(false, 'logger: send failed');
     if (CONFIG.debug) console.warn('[HHA Logger] send failed', err);
-    emitLogger(false, 'logger: send failed (check console)');
   });
 }
 
@@ -247,8 +234,7 @@ export function initCloudLogger(opts = {}){
     endpoint: opts.endpoint || sessionStorage.getItem('HHA_LOG_ENDPOINT') || '',
     projectTag: opts.projectTag || 'HeroHealth',
     debug: !!opts.debug,
-    gameVersion: opts.gameVersion || 'v0',
-    strictHttpOk: (opts.strictHttpOk !== undefined) ? !!opts.strictHttpOk : true
+    gameVersion: opts.gameVersion || 'v0'
   };
 
   sessionId = uuid();
@@ -264,7 +250,6 @@ export function initCloudLogger(opts = {}){
     timestampIso: sessionStartIso,
     projectTag: CONFIG.projectTag,
     runMode,
-
     ...meta,
 
     sessionId,
@@ -310,7 +295,6 @@ export function initCloudLogger(opts = {}){
     classRoom: prof.classRoom,
     studentNo: prof.studentNo,
     nickName: prof.nickName,
-
     gender: prof.gender,
     age: prof.age,
     gradeLevel: prof.gradeLevel,
@@ -318,7 +302,6 @@ export function initCloudLogger(opts = {}){
     weightKg: prof.weightKg,
     bmi: prof.bmi,
     bmiGroup: prof.bmiGroup,
-
     vrExperience: prof.vrExperience,
     gameFrequency: prof.gameFrequency,
     handedness: prof.handedness,
@@ -326,7 +309,6 @@ export function initCloudLogger(opts = {}){
     healthDetail: prof.healthDetail,
     consentParent: prof.consentParent,
     consentTeacher: prof.consentTeacher,
-
     profileSource: prof.profileSource,
     surveyKey: prof.surveyKey,
     excludeFlag: prof.excludeFlag,
@@ -334,19 +316,16 @@ export function initCloudLogger(opts = {}){
   };
 
   if (prof.studentKey){
-    const nowIso = isoNow();
     profileRow = {
-      timestampIso: nowIso,
+      timestampIso: isoNow(),
       projectTag: CONFIG.projectTag,
       runMode,
-
       studentKey: prof.studentKey,
       schoolCode: prof.schoolCode,
       schoolName: prof.schoolName,
       classRoom: prof.classRoom,
       studentNo: prof.studentNo,
       nickName: prof.nickName,
-
       gender: prof.gender,
       age: prof.age,
       gradeLevel: prof.gradeLevel,
@@ -354,7 +333,6 @@ export function initCloudLogger(opts = {}){
       weightKg: prof.weightKg,
       bmi: prof.bmi,
       bmiGroup: prof.bmiGroup,
-
       vrExperience: prof.vrExperience,
       gameFrequency: prof.gameFrequency,
       handedness: prof.handedness,
@@ -362,9 +340,8 @@ export function initCloudLogger(opts = {}){
       healthDetail: prof.healthDetail,
       consentParent: prof.consentParent,
       consentTeacher: prof.consentTeacher,
-
-      createdAtIso: nowIso,
-      updatedAtIso: nowIso,
+      createdAtIso: isoNow(),
+      updatedAtIso: isoNow(),
       source: prof.profileSource || 'hub'
     };
   } else {
@@ -372,10 +349,6 @@ export function initCloudLogger(opts = {}){
   }
 
   emitLogger(true, 'logger: ready');
-
-  // ----- Bind once (กัน bind ซ้ำเวลาเข้าเกมหลายรอบ) -----
-  if (window.__HHA_LOGGER_BOUND__) return;
-  window.__HHA_LOGGER_BOUND__ = true;
 
   window.addEventListener('hha:spawn', (e)=>{
     const d = e.detail || {};
@@ -410,13 +383,11 @@ export function initCloudLogger(opts = {}){
     const t = Date.now();
     if (t - lastScoreLogAt < 500) return;
     lastScoreLogAt = t;
-
-    const det = (e && e.detail) ? e.detail : {};
     pushEvent(makeEventRow('score', {
-      ...det,
+      ...((e && e.detail) || {}),
       timeFromStartMs: t - sessionStartMs,
-      totalScore: det.score,
-      combo: det.combo
+      totalScore: (e.detail||{}).score,
+      combo: (e.detail||{}).combo
     }));
   });
 
@@ -445,8 +416,8 @@ export function initCloudLogger(opts = {}){
     }
 
     sessionRow.scoreFinal = safeNum(r.scoreFinal);
-    sessionRow.comboMax = safeNum(r.comboMax);
-    sessionRow.misses = safeNum(r.misses);
+    sessionRow.comboMax   = safeNum(r.comboMax);
+    sessionRow.misses     = safeNum(r.misses);
 
     if (r.stats){
       sessionRow.goalsCleared = safeNum(r.stats.goalsCleared);
@@ -471,7 +442,6 @@ export function initCloudLogger(opts = {}){
     flush(true);
   });
 
-  // start event
   pushEvent(makeEventRow('start', { timeFromStartMs: 0, extra:{ startedAtIso: sessionStartIso }}));
   flush(false);
 }
