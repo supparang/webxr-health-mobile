@@ -1,30 +1,10 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — PRODUCTION SAFE ENGINE (NO-FLASH + HIT 100% + QUEST + FX + FEVER + RANK + ADAPTIVE)
-// DOM target layer (ไม่ใช่ A-Frame target) — เล่นได้ทั้งมือถือ/PC
-//
-// API:
-//   window.GroupsVR.GameEngine.start(diff, { layerEl?, runMode?, config? })
-//   window.GroupsVR.GameEngine.stop(reason?)
-//   window.GroupsVR.GameEngine.setLayerEl(el)
-//
-// Events ที่ยิงออก:
-//   - hha:score   { score, combo, misses, shield, fever }
-//   - hha:judge   { label, x, y, good, emoji }
-//   - quest:update{ goal, mini, goalsAll, minisAll, groupLabel, groupKey }
-//   - hha:coach   { text }
-//   - hha:celebrate { kind:'goal'|'mini'|'all', type:'goal'|'mini'|'all', index, total, label }
-//   - hha:rank    { grade, scorePerSec, accuracy, questsPct }
-//   - hha:end     { reason, scoreFinal, comboMax, misses, goalsTotal, goalsCleared, miniTotal, miniCleared, grade }
-//
-// Miss policy:
-//   miss = good expired (ปล่อยของดีหลุด) + junk hit (โดนขยะ)
-//   * ถ้าโดนขยะตอนมี Shield แล้วกันไว้ → ไม่ถือเป็น miss
+// + PANIC TIME (10s) + RUSH MODE (random) + BOSS JUNK
 //
 // Size policy:
-//   - โหมดธรรมดา (runMode='play'):
-//       ขนาดเริ่มต้นตาม diff (easy/normal/hard) + ADAPTIVE ตามความสามารถ (ทำให้สนุก/ท้าทายขึ้น)
-//   - โหมดวิจัย (runMode='research'):
-//       ล็อกขนาดตาม diff เท่านั้น (ไม่ adaptive)
+//   - play: base by diff + adaptive
+//   - research: base by diff only (no adaptive)
 
 (function () {
   'use strict';
@@ -32,7 +12,6 @@
   const ns = (window.GroupsVR = window.GroupsVR || {});
   const ROOT = window;
 
-  // ---------- deps (optional) ----------
   const Particles =
     (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
     ROOT.Particles ||
@@ -43,16 +22,26 @@
     ROOT.FeverUI ||
     { ensureFeverBar() {}, setFever() {}, setFeverActive() {}, setShield() {} };
 
-  // Quest factory (non-module)
   const QuestFactory =
     (ROOT.GroupsQuest && ROOT.GroupsQuest.createFoodGroupsQuest)
       ? ROOT.GroupsQuest
       : null;
 
-  // ---------- helpers ----------
   function now() { return (performance && performance.now) ? performance.now() : Date.now(); }
   function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
+
+  function dispatch(name, detail) {
+    try { window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch {}
+  }
+
+  function coach(text) { if (text) dispatch('hha:coach', { text: String(text) }); }
+
+  function normalizeGrade(g){
+    const x = String(g || '').toUpperCase().trim();
+    if (x === 'SSS' || x === 'SS' || x === 'S' || x === 'A' || x === 'B' || x === 'C') return x;
+    return 'C';
+  }
 
   function centerXY(el) {
     try {
@@ -63,91 +52,83 @@
     }
   }
 
-  function dispatch(name, detail) {
-    try { window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch {}
-  }
-
-  function coach(text) {
-    if (!text) return;
-    dispatch('hha:coach', { text: String(text) });
-  }
-
-  function normalizeGrade(g){
-    const x = String(g || '').toUpperCase().trim();
-    if (x === 'SSS' || x === 'SS' || x === 'S' || x === 'A' || x === 'B' || x === 'C') return x;
-    return 'C';
-  }
-
-  // ---------- engine state ----------
   const active = [];
   let layerEl = null;
   let running = false;
   let spawnTimer = null;
   let secondTimer = null;
 
-  // gameplay stats
   let score = 0;
   let combo = 0;
   let comboMax = 0;
   let misses = 0;
 
-  // hit stats
   let goodHits = 0;
   let junkHits = 0;
   let goodExpires = 0;
   let junkExpires = 0;
   let startedAt = 0;
 
-  // fever / shield
   const FEVER_MAX = 100;
   let fever = 0;
   let feverOn = false;
   let feverEndsAt = 0;
   let shield = 0;
 
-  // quest
   let quest = null;
   let goalIndexShown = -1;
   let miniIndexShown = -1;
   let allClearedShown = false;
 
-  // run mode
-  let runMode = 'play'; // 'play' | 'research'
+  let runMode = 'play';
 
-  // rank
   let lastGrade = 'C';
 
-  // adaptive (เฉพาะ play)
-  let skill = 0;                 // -100..100
-  let sizeMul = 1.0;             // ปรับขนาดเป้า
-  let adaptiveTick = 0;          // นับวินาที
+  // adaptive (play only)
+  let skill = 0;
+  let sizeMul = 1.0;
+  let adaptiveTick = 0;
   let consecutiveGood = 0;
 
-  // ---------- config ----------
+  // ✅ “สะใจ” systems
+  let remainingSec = 0;
+  let panicOn = false;
+  let rushOn = false;
+  let rushEndsAt = 0;
+  let rushCooldownSec = 0;
+
   const CFG = {
     // spawn
     spawnInterval: 900,
     maxActive: 4,
 
-    // visibility policy
+    // visibility
     minVisible: 2000,
     lifeTime: [3800, 5200],
 
-    // size base (px)
-    targetSizePx: 132,            // จะถูกตั้งตาม diff ตอน start()
-    targetSizeMinMul: 0.78,       // clamp เฉพาะ play
+    // base size
+    targetSizePx: 132,
+    targetSizeMinMul: 0.78,
     targetSizeMaxMul: 1.18,
 
-    // emoji pools (fallback)
     emojisGood: ['🍗','🥩','🐟','🍳','🥛','🧀','🥦','🥕','🍎','🍌','🍚','🍞','🥔','🍊'],
     emojisJunk: ['🧋','🍟','🍩','🍔','🍕'],
 
     // scoring
     pointsGood: 10,
     pointsGoodFever: 14,
-    pointsJunkHit: -8,           // โดนขยะ (ไม่มี shield)
-    pointsGoodExpire: -4,        // ปล่อยของดีหลุด
-    pointsJunkExpire: 0,
+    pointsJunkHit: -8,
+    pointsGoodExpire: -4,
+
+    // ✅ rush bonus
+    pointsGoodRushMul: 2,
+
+    // ✅ boss junk
+    bossJunkChance: 0.08,        // 8% ของ junk จะเป็น boss
+    bossJunkEmoji: ['☠️','🧨','💣','👿'],
+    bossJunkPenalty: -18,        // โดนหนัก
+    bossJunkShieldCost: 2,       // กันได้แต่กินโล่ 2
+    bossJunkScaleMul: 1.28,      // ใหญ่กว่า
 
     // fever
     feverGainGood: 14,
@@ -164,9 +145,23 @@
     skillLossExpire: 12,
     skillClamp: 100,
 
-    // excitement
-    coachHypeEveryCombo: 6,       // ทุก ๆ กี่คอมโบ โค้ชปลุกใจ
-    feverHype: true
+    // coach hype
+    coachHypeEveryCombo: 6,
+
+    // ✅ panic time
+    panicLastSec: 10,
+    panicSpawnMul: 0.85,         // สปอว์นถี่ขึ้นเล็กน้อย
+    panicMaxActiveAdd: 1,
+
+    // ✅ rush mode
+    rushEnabled: true,
+    rushMinSec: 6,
+    rushMaxSec: 8,
+    rushSpawnMul: 0.62,          // ถี่ขึ้นชัด ๆ
+    rushMaxActiveAdd: 2,
+    rushMinStartAfterSec: 10,    // อย่าเพิ่งมาเร็วเกิน
+    rushChancePerSec: 0.10,      // โอกาสเริ่มต่อวินาที (ตอน cooldown=0)
+    rushCooldownAfter: 12        // cooldown หลังจบ
   };
 
   function applyDifficulty(diff) {
@@ -188,7 +183,7 @@
       CFG.feverGainGood = 13;
       CFG.feverLossMiss = 20;
       CFG.targetSizePx = 122;
-    } else { // normal
+    } else {
       CFG.spawnInterval = 900;
       CFG.maxActive = 4;
       CFG.minVisible = 2000;
@@ -203,15 +198,14 @@
     const w = Math.max(320, window.innerWidth || 320);
     const h = Math.max(480, window.innerHeight || 480);
 
-    // กันขอบ + กัน HUD บน/ล่าง
     const marginX = Math.min(170, Math.round(w * 0.16));
     const marginYTop = Math.min(240, Math.round(h * 0.24));
     const marginYBot = Math.min(180, Math.round(h * 0.20));
 
-    const x = randInt(marginX, w - marginX);
-    const y = randInt(marginYTop, h - marginYBot);
-
-    return { x, y };
+    return {
+      x: randInt(marginX, w - marginX),
+      y: randInt(marginYTop, h - marginYBot)
+    };
   }
 
   function bindHit(el, handler) {
@@ -234,8 +228,6 @@
 
   function destroyTarget(t, isHit) {
     if (!t || !t.alive) return;
-
-    // ห้ามลบก่อนเวลา (ยกเว้น hit)
     if (!isHit && !t.canExpire) return;
 
     t.alive = false;
@@ -246,13 +238,11 @@
 
     if (t.el) {
       t.el.classList.add('hit');
-      setTimeout(() => {
-        if (t.el && t.el.parentNode) t.el.remove();
-      }, 180);
+      setTimeout(() => { try { t.el && t.el.remove(); } catch {} }, 180);
     }
   }
 
-  // ---------- fever ----------
+  // fever
   function setFeverValue(v) {
     fever = clamp(v, 0, FEVER_MAX);
     FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
@@ -279,7 +269,6 @@
     setFeverActive(true);
     feverEndsAt = now() + CFG.feverDurationMs;
 
-    // ได้เกราะเมื่อเข้า fever
     setShieldValue(shield + (CFG.shieldPerFever | 0));
 
     dispatch('hha:judge', {
@@ -289,9 +278,7 @@
       good: true
     });
 
-    if (CFG.feverHype) coach('🔥 FEVER TIME! แตะรัว ๆ เลยยย!');
-
-    // reset fever bar
+    coach('🔥 FEVER TIME! แตะรัว ๆ เลยยย!');
     setFeverValue(0);
   }
 
@@ -303,7 +290,7 @@
     }
   }
 
-  // ---------- score/combo/miss ----------
+  // score/combo/miss
   function addScore(delta) {
     score = (score + (delta | 0)) | 0;
     dispatch('hha:score', { score, combo, misses, shield, fever });
@@ -320,7 +307,7 @@
     dispatch('hha:score', { score, combo, misses, shield, fever });
   }
 
-  // ---------- quest / celebrate ----------
+  // quest
   function emitQuestUpdate() {
     if (!quest) return;
 
@@ -335,8 +322,7 @@
     dispatch('quest:update', {
       goal: goal ? { label: goal.label, prog: goal.prog, target: goal.target } : null,
       mini: mini ? { label: mini.label, prog: mini.prog, target: mini.target } : null,
-      goalsAll,
-      minisAll,
+      goalsAll, minisAll,
       groupLabel: g ? g.label : '',
       groupKey: g ? (g.key || 0) : 0
     });
@@ -344,30 +330,20 @@
     const goalsCleared = goalsAll.filter(x => x && x.done).length;
     if (goalsCleared !== goalIndexShown && goalsCleared > 0) {
       goalIndexShown = goalsCleared;
-      dispatch('hha:celebrate', {
-        kind: 'goal', type: 'goal',
-        index: goalsCleared,
-        total: goalsAll.length,
-        label: 'GOAL CLEAR!'
-      });
+      dispatch('hha:celebrate', { kind:'goal', type:'goal', index: goalsCleared, total: goalsAll.length });
       coach('🎯 GOAL ผ่านแล้ว! สุดยอด!');
     }
 
     const minisCleared = minisAll.filter(x => x && x.done).length;
     if (minisCleared !== miniIndexShown && minisCleared > 0) {
       miniIndexShown = minisCleared;
-      dispatch('hha:celebrate', {
-        kind: 'mini', type: 'mini',
-        index: minisCleared,
-        total: minisAll.length,
-        label: 'MINI CLEAR!'
-      });
+      dispatch('hha:celebrate', { kind:'mini', type:'mini', index: minisCleared, total: minisAll.length });
       coach('⭐ MINI ผ่าน! เก่งมาก!');
     }
 
     if (!allClearedShown && goalsCleared === goalsAll.length && minisCleared === minisAll.length) {
       allClearedShown = true;
-      dispatch('hha:celebrate', { kind: 'all', type: 'all' });
+      dispatch('hha:celebrate', { kind:'all', type:'all' });
       coach('🎉 เคลียร์ทุกภารกิจแล้ววว! ป.5 เทพมาก!');
     }
   }
@@ -380,30 +356,34 @@
     return 1;
   }
 
-  // ---------- adaptive (play only) ----------
+  // adaptive (play only)
   function clampSkill(v){
     const c = CFG.skillClamp | 0;
     return clamp(v, -c, c);
+  }
+
+  function applyTargetSizeToEl(el, scaleMul = 1.0){
+    if (!el) return;
+    const base = CFG.targetSizePx | 0;
+    const mul = (runMode === 'play') ? (sizeMul || 1.0) : 1.0;
+    const s = clamp(Math.round(base * mul * (scaleMul || 1.0)), 92, 178);
+    el.style.width = s + 'px';
+    el.style.height = s + 'px';
   }
 
   function updateAdaptiveSoon(){
     if (runMode !== 'play') return;
     if (!CFG.adaptiveEnabledPlay) return;
 
-    // ปรับทุก ๆ N วินาที
     adaptiveTick++;
     if (adaptiveTick % (CFG.adaptiveEverySec | 0) !== 0) return;
 
-    // skill -> sizeMul (ง่ายขึ้น = เป้าใหญ่ขึ้น)
-    // skill > 0 แปลว่าเล่นเก่ง → ลดขนาดลงนิด + เพิ่มความหนาแน่นนิด
     const t = clampSkill(skill) / (CFG.skillClamp || 100); // -1..1
-    // sizeMul: จาก 1.10 (ยังไม่เก่ง) ไป 0.90 (เก่งมาก)
     sizeMul = clamp(1.0 - (t * 0.10), CFG.targetSizeMinMul, CFG.targetSizeMaxMul);
 
-    // จูน spawn ตาม skill (สนุก/เร้าใจขึ้น)
-    // เก่งมาก → spawn ถี่ขึ้นเล็กน้อย, maxActive เพิ่มนิด
-    const baseSI = CFG.spawnInterval;
-    const baseMA = CFG.maxActive;
+    // base tuning (แล้วค่อยโดน rush/panic ปรับเพิ่มทีหลัง)
+    const baseSI = CFG._baseSpawnInterval || CFG.spawnInterval;
+    const baseMA = CFG._baseMaxActive || CFG.maxActive;
 
     const si = clamp(baseSI * (1.0 - (t * 0.12)), 520, 1600);
     const ma = clamp(baseMA + (t > 0.55 ? 1 : 0) + (t > 0.85 ? 1 : 0), 2, 7);
@@ -411,27 +391,15 @@
     CFG.spawnInterval = Math.round(si);
     CFG.maxActive = Math.round(ma);
 
-    // โค้ชปลุกใจ
     if (t > 0.65) coach('สปีดเพิ่มแล้วนะ! เก่งขึ้นแล้ว! ⚡');
     else if (t < -0.45) coach('ค่อย ๆ เล็งนะ โค้ชเพิ่มเวลาให้แล้ว ✨');
   }
 
-  function applyTargetSizeToEl(el){
-    if (!el) return;
-    const base = CFG.targetSizePx | 0;
-    const mul = (runMode === 'play') ? (sizeMul || 1.0) : 1.0; // research = fixed
-    const s = clamp(Math.round(base * mul), 96, 168);
-    el.style.width = s + 'px';
-    el.style.height = s + 'px';
-  }
-
-  // ---------- RANK (SSS/SS/S/A/B/C) ----------
+  // rank
   function accuracy() {
-    const total = goodHits + junkHits + goodExpires; // junkExpire ไม่นับ
+    const total = goodHits + junkHits + goodExpires;
     if (total <= 0) return 0;
-    // accuracy: good hit เป็น +, miss (junk hit + good expire) เป็น -
-    const good = goodHits;
-    return clamp(good / total, 0, 1);
+    return clamp(goodHits / total, 0, 1);
   }
 
   function questsPct() {
@@ -451,12 +419,10 @@
   }
 
   function gradeFromMetrics(sps, acc, qp, missCount) {
-    // ✅ เน้น “สนุกแบบป.5”: ทำเควสสำคัญสุด, ตามด้วยความแม่นและสปีด
-    // เกณฑ์นี้ปรับได้ แต่จะออก 6 ระดับเท่านั้น
-    const q = qp;           // 0..1
-    const a = acc;          // 0..1
-    const p = clamp(sps / 3.0, 0, 1); // normalize โดยประมาณ (3 คะแนน/วิ = เก่งมาก)
-    const m = clamp(missCount / 12, 0, 1); // miss เยอะ → ลด
+    const q = qp;
+    const a = acc;
+    const p = clamp(sps / 3.0, 0, 1);
+    const m = clamp(missCount / 12, 0, 1);
 
     const overall = (q * 0.46) + (a * 0.34) + (p * 0.20) - (m * 0.18);
 
@@ -487,31 +453,93 @@
     return g;
   }
 
-  // ---------- targets ----------
+  // ✅ PANIC + RUSH
+  function setPanic(on, secLeft){
+    const next = !!on;
+    if (panicOn === next) return;
+    panicOn = next;
+    dispatch('hha:panic', { on: panicOn, secLeft: secLeft|0 });
+    if (panicOn) coach('⏰ 10 วิสุดท้าย! เร่งแล้วนะ!!!');
+  }
+
+  function tryStartRush(){
+    if (!CFG.rushEnabled) return;
+    if (rushOn) return;
+    if (rushCooldownSec > 0) return;
+    if (remainingSec <= (CFG.panicLastSec + 2)) return; // อย่าชน panic
+    // เริ่มหลังผ่านช่วงต้นเกม
+    const elapsed = Math.floor((now() - startedAt) / 1000);
+    if (elapsed < CFG.rushMinStartAfterSec) return;
+
+    if (Math.random() > CFG.rushChancePerSec) return;
+
+    rushOn = true;
+    const dur = randInt(CFG.rushMinSec, CFG.rushMaxSec);
+    rushEndsAt = now() + (dur * 1000);
+
+    dispatch('hha:rush', { on:true, sec: dur });
+    coach('🚀 RUSH! คะแนน x2 แตะให้ไววว!');
+  }
+
+  function tickRush(){
+    if (!CFG.rushEnabled) return;
+
+    if (rushOn) {
+      if (now() >= rushEndsAt) {
+        rushOn = false;
+        rushEndsAt = 0;
+        rushCooldownSec = CFG.rushCooldownAfter | 0;
+        dispatch('hha:rush', { on:false, sec: 0 });
+        coach('โอเค! จบ RUSH แล้ว ไปต่อ!');
+      }
+    } else {
+      if (rushCooldownSec > 0) rushCooldownSec--;
+      tryStartRush();
+    }
+  }
+
+  function effectiveSpawnInterval(){
+    let si = CFG.spawnInterval;
+
+    if (rushOn) si = Math.round(si * CFG.rushSpawnMul);
+    if (panicOn) si = Math.round(si * CFG.panicSpawnMul);
+
+    return clamp(si, 420, 1600);
+  }
+
+  function effectiveMaxActive(){
+    let ma = CFG.maxActive;
+    if (rushOn) ma += (CFG.rushMaxActiveAdd | 0);
+    if (panicOn) ma += (CFG.panicMaxActiveAdd | 0);
+    return clamp(ma, 2, 9);
+  }
+
+  // targets
   function createTarget() {
     if (!running || !layerEl) return;
-    if (active.length >= CFG.maxActive) return;
+    if (active.length >= effectiveMaxActive()) return;
 
     const g = (quest && quest.getActiveGroup) ? quest.getActiveGroup() : null;
 
     const good = Math.random() < 0.75;
     let emoji = '';
+    let isBoss = false;
+
     if (good) {
-      if (g && Array.isArray(g.emojis) && g.emojis.length) {
-        emoji = g.emojis[randInt(0, g.emojis.length - 1)];
-      } else {
-        emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
-      }
+      if (g && Array.isArray(g.emojis) && g.emojis.length) emoji = g.emojis[randInt(0, g.emojis.length - 1)];
+      else emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
     } else {
-      emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
+      // ✅ boss junk chance
+      isBoss = (Math.random() < CFG.bossJunkChance);
+      if (isBoss) emoji = CFG.bossJunkEmoji[randInt(0, CFG.bossJunkEmoji.length - 1)];
+      else emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
     }
 
     const el = document.createElement('div');
-    el.className = 'fg-target ' + (good ? 'fg-good' : 'fg-junk');
+    el.className = 'fg-target ' + (good ? 'fg-good' : (isBoss ? 'fg-junk fg-boss' : 'fg-junk'));
     el.setAttribute('data-emoji', emoji);
 
-    // size (diff base + adaptive)
-    applyTargetSizeToEl(el);
+    applyTargetSizeToEl(el, isBoss ? CFG.bossJunkScaleMul : 1.0);
 
     const p = pickScreenPos();
     el.style.left = p.x + 'px';
@@ -520,9 +548,8 @@
     layerEl.appendChild(el);
 
     const t = {
-      el,
-      good,
-      emoji,
+      el, good, emoji,
+      boss: isBoss,
       alive: true,
       canExpire: false,
       bornAt: now(),
@@ -531,21 +558,16 @@
     };
     active.push(t);
 
-    // MIN VISIBLE
     t.minTimer = setTimeout(() => { t.canExpire = true; }, CFG.minVisible);
 
-    // HARD EXPIRE
     const life = randInt(CFG.lifeTime[0], CFG.lifeTime[1]);
     t.lifeTimer = setTimeout(() => {
       if (!t.canExpire) {
         const wait = Math.max(0, CFG.minVisible - (now() - t.bornAt));
         setTimeout(() => expireTarget(t), wait);
-      } else {
-        expireTarget(t);
-      }
+      } else expireTarget(t);
     }, life);
 
-    // HIT
     bindHit(el, () => hitTarget(t));
   }
 
@@ -560,33 +582,31 @@
       goodHits++;
       consecutiveGood++;
 
-      const isPerfect = feverOn || (consecutiveGood >= 6); // ให้มี “perfect” แบบป.5 เร้าใจ
-      const pts = feverOn ? CFG.pointsGoodFever : CFG.pointsGood;
+      const isPerfect = feverOn || (consecutiveGood >= 6);
+      let pts = feverOn ? CFG.pointsGoodFever : CFG.pointsGood;
+
+      // ✅ rush x2 for good
+      if (rushOn) pts = Math.round(pts * CFG.pointsGoodRushMul);
 
       addScore(pts);
       setCombo(combo + 1);
 
-      // fever gain
       setFeverValue(fever + CFG.feverGainGood);
       maybeEnterFever();
 
-      // quest
       if (quest && typeof quest.onGoodHit === 'function') {
         const gid = emojiToGroupId(t.emoji);
         quest.onGoodHit(gid, combo);
       }
 
-      // judge + fx
-      const label = isPerfect ? 'PERFECT' : 'GOOD';
+      const label = isPerfect ? 'PERFECT' : (rushOn ? 'RUSH+' : 'GOOD');
       dispatch('hha:judge', { label, x: pos.x, y: pos.y, good: true, emoji: t.emoji });
       Particles.scorePop && Particles.scorePop(pos.x, pos.y, '+' + pts, { judgment: label, good: true });
 
-      // skill up (play only)
       if (runMode === 'play') {
         skill = clampSkill(skill + (isPerfect ? CFG.skillGainPerfect : CFG.skillGainGood));
       }
 
-      // coach hype
       if (CFG.coachHypeEveryCombo && combo > 0 && (combo % CFG.coachHypeEveryCombo === 0)) {
         coach(`คอมโบ ${combo} แล้ว! โคตรเก่ง! 🚀`);
       }
@@ -596,35 +616,41 @@
 
       consecutiveGood = 0;
 
-      if (shield > 0) {
-        // block (not miss)
-        junkHits++; // นับเหตุการณ์ไว้เฉย ๆ
-        setShieldValue(shield - 1);
+      // ✅ boss junk special
+      const isBoss = !!t.boss;
 
-        dispatch('hha:judge', { label: 'BLOCK', x: pos.x, y: pos.y, good: true, emoji: t.emoji });
-        Particles.scorePop && Particles.scorePop(pos.x, pos.y, '🛡️', { judgment: 'BLOCK', good: true });
-        coach('โล่กันไว้แล้ว! ระวังขยะนะ 🛡️');
+      if (shield > 0) {
+        // block (not miss) แต่ boss กินโล่ 2
+        junkHits++;
+        const cost = isBoss ? (CFG.bossJunkShieldCost | 0) : 1;
+        setShieldValue(shield - cost);
+
+        const label = isBoss ? 'BOSS BLOCK' : 'BLOCK';
+        dispatch('hha:judge', { label, x: pos.x, y: pos.y, good: true, emoji: t.emoji });
+        Particles.scorePop && Particles.scorePop(pos.x, pos.y, isBoss ? '🛡️🛡️' : '🛡️', { judgment: label, good: true });
+
+        coach(isBoss ? 'บอสมา! กันได้ แต่โล่หาย 2 😱' : 'โล่กันไว้แล้ว! ระวังขยะนะ 🛡️');
 
       } else {
-        // miss
+        // miss (boss หนักกว่า)
         junkHits++;
         addMiss();
-        addScore(CFG.pointsJunkHit);
+        const penalty = isBoss ? (CFG.bossJunkPenalty | 0) : (CFG.pointsJunkHit | 0);
+        addScore(penalty);
         setCombo(0);
 
         setFeverValue(fever - CFG.feverLossMiss);
 
-        // quest
         if (quest && typeof quest.onJunkHit === 'function') {
           const gid = emojiToGroupId(t.emoji);
           quest.onJunkHit(gid);
         }
 
-        dispatch('hha:judge', { label: 'MISS', x: pos.x, y: pos.y, good: false, emoji: t.emoji });
-        Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(CFG.pointsJunkHit), { judgment: 'MISS', good: false });
-        coach('โอ๊ะ! โดนขยะแล้ว 😵 เล็งอาหารดีก่อนนะ');
+        dispatch('hha:judge', { label: isBoss ? 'BOSS HIT!' : 'MISS', x: pos.x, y: pos.y, good: false, emoji: t.emoji });
+        Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(penalty), { judgment: isBoss ? 'BOSS' : 'MISS', good: false });
 
-        // skill down (play only)
+        coach(isBoss ? '😈 โดนบอส! เจ็บหนัก! เลี่ยงขยะบอส!' : 'โอ๊ะ! โดนขยะแล้ว 😵 เล็งอาหารดีก่อนนะ');
+
         if (runMode === 'play') {
           skill = clampSkill(skill - CFG.skillLossMiss);
         }
@@ -656,17 +682,14 @@
       dispatch('hha:judge', { label: 'MISS', x: pos.x, y: pos.y, good: false, emoji: t.emoji });
       Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(CFG.pointsGoodExpire), { judgment: 'MISS', good: false });
 
-      if (runMode === 'play') {
-        skill = clampSkill(skill - CFG.skillLossExpire);
-      }
+      if (runMode === 'play') skill = clampSkill(skill - CFG.skillLossExpire);
 
     } else {
+      // junk expire = no penalty
       junkExpires++;
-      addScore(CFG.pointsJunkExpire);
     }
 
     dispatch('groups:expire', { emoji: t.emoji, good: t.good, x: pos.x, y: pos.y });
-
     emitQuestUpdate();
     emitRank();
   }
@@ -678,7 +701,7 @@
     spawnTimer = setTimeout(() => {
       createTarget();
       scheduleNextSpawn();
-    }, CFG.spawnInterval);
+    }, effectiveSpawnInterval());
   }
 
   function startSecondLoop() {
@@ -687,15 +710,16 @@
       if (!running) return;
 
       tickFever();
+      tickRush();
 
-      if (quest && typeof quest.second === 'function') {
-        quest.second();
-      }
+      // PANIC check by remainingSec (set from HTML via Engine.setTimeLeft)
+      if (remainingSec > 0 && remainingSec <= (CFG.panicLastSec | 0)) setPanic(true, remainingSec);
+      else setPanic(false, remainingSec);
 
-      // adaptive (play only)
+      if (quest && typeof quest.second === 'function') quest.second();
+
       updateAdaptiveSoon();
 
-      // refresh quest + rank
       emitQuestUpdate();
       emitRank();
 
@@ -723,6 +747,13 @@
     sizeMul = 1.0;
     adaptiveTick = 0;
     consecutiveGood = 0;
+
+    // panic/rush
+    remainingSec = 0;
+    panicOn = false;
+    rushOn = false;
+    rushEndsAt = 0;
+    rushCooldownSec = 0;
   }
 
   function stopAll(reason) {
@@ -753,50 +784,55 @@
     });
   }
 
-  // ---------- PUBLIC API ----------
+  // PUBLIC API
   ns.GameEngine = {
     setLayerEl(el) { layerEl = el; },
 
+    // ✅ HTML ส่ง timeLeft เข้ามา เพื่อ PANIC TIME ทำงานเป๊ะ
+    setTimeLeft(sec) {
+      remainingSec = Math.max(0, sec | 0);
+      dispatch('hha:time', { left: remainingSec });
+    },
+
     start(diff = 'normal', opts = {}) {
       layerEl = (opts && opts.layerEl) ? opts.layerEl : layerEl;
-      if (!layerEl) {
-        console.error('[FoodGroupsVR] layerEl missing');
-        return;
-      }
+      if (!layerEl) { console.error('[FoodGroupsVR] layerEl missing'); return; }
 
       runMode = String((opts && opts.runMode) ? opts.runMode : 'play').toLowerCase();
       if (runMode !== 'research') runMode = 'play';
 
-      // optional override
       if (opts && opts.config) Object.assign(CFG, opts.config);
 
       applyDifficulty(diff);
+
+      // เก็บ base เพื่อ adaptive ปรับจากฐาน ไม่ทำให้ drift
+      CFG._baseSpawnInterval = CFG.spawnInterval;
+      CFG._baseMaxActive = CFG.maxActive;
+
       resetState();
 
-      // fever HUD init
       FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
       FeverUI.setFever && FeverUI.setFever(0);
       FeverUI.setFeverActive && FeverUI.setFeverActive(false);
       FeverUI.setShield && FeverUI.setShield(0);
 
-      // quest init
       if (QuestFactory && typeof QuestFactory.createFoodGroupsQuest === 'function') {
         quest = QuestFactory.createFoodGroupsQuest(diff);
       } else {
         quest = null;
-        console.warn('[FoodGroupsVR] quest-manager not found: window.GroupsQuest.createFoodGroupsQuest');
+        console.warn('[FoodGroupsVR] quest-manager not found');
       }
 
-      // research mode: lock adaptive
+      // research = lock adaptive
       if (runMode === 'research') {
         sizeMul = 1.0;
         CFG.adaptiveEnabledPlay = false;
+        CFG.rushEnabled = false; // ✅ โหมดวิจัยไม่สุ่ม rush ให้กวน
       } else {
-        // play mode: enable adaptive (ตามความสามารถ)
         CFG.adaptiveEnabledPlay = true;
+        CFG.rushEnabled = true;
       }
 
-      // first coach
       const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
       coach(g ? `เริ่มเลย! หมู่ปัจจุบัน: ${g.label} ✨` : 'เริ่มเลย! แตะอาหารดีให้ได้เยอะ ๆ ✨');
 
@@ -807,9 +843,10 @@
       startSecondLoop();
       scheduleNextSpawn();
 
-      // spawn แรกทันที 2 ตัว (สนุกตั้งแต่เริ่ม)
+      // เปิดฉากให้สะใจ
       createTarget();
-      setTimeout(() => createTarget(), Math.min(260, CFG.spawnInterval * 0.35));
+      setTimeout(() => createTarget(), 220);
+      setTimeout(() => createTarget(), 420);
 
       dispatch('hha:score', { score, combo, misses, shield, fever });
     },
