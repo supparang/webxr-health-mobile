@@ -1,78 +1,127 @@
 // === /herohealth/vr-goodjunk/quest-defs-goodjunk.js ===
-// Goal + Mini defs for GoodJunk (Grade 5 friendly)
+// Goal/Mini defs (A+B+C heavy) — for quest-director
+// Expect state fields from goodjunk-vr.html qState:
+// score, goodHits, miss, comboMax, timeLeft, streakGood, goldHitsThisMini,
+// blocks, usedMagnet, timePlus, safeSeconds, bossCleared, challenge, runMode
 
 'use strict';
 
-// Goals (ทำทีละ goal ต่อเนื่องจนจบ)
+// ---------- GOALS (2 goals per run) ----------
 export const GOODJUNK_GOALS = [
   {
-    id: 'collect_good',
-    label: 'เก็บของดีให้ได้',
-    makeTarget: (diff)=> diff==='easy'? 18 : diff==='hard'? 22 : 20,
-    calc: (state, target)=> ({ prog: state.goodHits|0, target })
+    id:'g1',
+    label:'เก็บของดีให้ได้ 25 ชิ้น 🥦',
+    hint:'แตะเฉพาะอาหารดีเท่านั้น',
+    targetByDiff:{ easy:20, normal:25, hard:30 },
+    eval:(s, tgt)=> (s.goodHits|0),
+    pass:(v,tgt)=> v>=tgt
   },
   {
-    id: 'combo',
-    label: 'ทำคอมโบให้ถึง',
-    makeTarget: (diff)=> diff==='easy'? 10 : diff==='hard'? 14 : 12,
-    calc: (state, target)=> ({ prog: state.comboMax|0, target })
+    id:'g2',
+    label:'ทำคอมโบสูงสุดให้ถึง 12 🔥',
+    hint:'ห้ามพลาดระหว่างทาง',
+    targetByDiff:{ easy:10, normal:12, hard:14 },
+    eval:(s)=> (s.comboMax|0),
+    pass:(v,tgt)=> v>=tgt
   },
   {
-    id: 'miss_limit',
-    label: 'พลาดไม่เกิน (รักษาเงื่อนไขจนจบเกม)',
-    makeTarget: (diff)=> diff==='easy'? 5 : diff==='hard'? 3 : 4,
-    calc: (state, target)=> ({ prog: (state.miss|0) <= target ? 1 : 0, target: 1, hold:true, limit:target })
+    id:'g3',
+    label:'พลาดไม่เกิน 4 ครั้ง 🛡️',
+    hint:'หลบ junk/fake ให้ดี',
+    targetByDiff:{ easy:5, normal:4, hard:3 },
+    eval:(s)=> (s.miss|0),
+    pass:(v,tgt)=> v<=tgt
   },
   {
-    id: 'gold_hunter',
-    label: 'ล่า GOLD ให้ได้',
-    makeTarget: (diff)=> diff==='easy'? 1 : diff==='hard'? 2 : 1,
-    calc: (state, target)=> ({ prog: state.goldHits|0, target })
-  },
-  {
-    id: 'boss_clear',
-    label: 'โค่นบอสท้ายเกม',
-    makeTarget: (_diff)=> 1,
-    calc: (state, target)=> ({ prog: state.bossCleared?1:0, target, only:'boss' })
+    id:'g4',
+    label:'เคลียร์บอสให้ได้ 👑 (ถ้าเล่น Boss)',
+    hint:'บอสจะมาใกล้หมดเวลา!',
+    targetByDiff:{ easy:1, normal:1, hard:1 },
+    eval:(s)=> (s.bossCleared ? 1 : 0),
+    pass:(v)=> v>=1,
+    onlyChallenge:['boss']
   }
 ];
 
-// Minis (ต่อเนื่องเรื่อย ๆ จนจบเกม)
+// ---------- MINIS (endless chain) ----------
 export const GOODJUNK_MINIS = [
+  // A: Rush / speed / combo
   {
-    id:'streak3',
-    label:'เก็บของดีติดกัน 3 ครั้ง',
-    makeTarget: ()=> 3,
-    calc: (state, target)=> ({ prog: state.streakGood|0, target })
+    id:'m1',
+    label:'Clean Streak: เก็บดีติดกัน 8 ชิ้น ⚡',
+    hint:'ห้ามพลาดแม้แต่ครั้งเดียว',
+    targetByDiff:{ easy:6, normal:8, hard:10 },
+    eval:(s)=> (s.streakGood|0),
+    pass:(v,tgt)=> v>=tgt
   },
   {
-    id:'block_once',
-    label:'ใช้โล่บล็อก junk ให้ได้ 1 ครั้ง',
-    makeTarget: ()=> 1,
-    calc: (state, target)=> ({ prog: state.blocks|0, target })
+    id:'m2',
+    label:'Gold Hunt: เก็บ GOLD ให้ได้ 1 🟡',
+    hint:'ต้องเก็บภายใน mini นี้เท่านั้น',
+    targetByDiff:{ easy:1, normal:1, hard:1 },
+    eval:(s)=> (s.goldHitsThisMini ? 1 : 0),
+    pass:(v)=> v>=1
+  },
+
+  // B: Avoid / survival pressure
+  {
+    id:'m3',
+    label:'No-Junk Zone: 10 วินาทีห้ามพลาด 🚫',
+    hint:'ไม่แตะ junk/fake และไม่ปล่อยของดีให้หลุด',
+    targetByDiff:{ easy:8, normal:10, hard:12 },
+    eval:(s)=> (s.safeSeconds|0),
+    pass:(v,tgt)=> v>=tgt
   },
   {
-    id:'use_magnet',
-    label:'เก็บ 🧲 แล้วใช้ให้คุ้ม!',
-    makeTarget: ()=> 1,
-    calc: (state, target)=> ({ prog: state.usedMagnet?1:0, target })
+    id:'m4',
+    label:'Shield Save: BLOCK ให้ได้ 2 ครั้ง 🛡️',
+    hint:'ต้องกด shield แล้วกันให้ทัน',
+    targetByDiff:{ easy:1, normal:2, hard:2 },
+    eval:(s)=> (s.blocks|0),
+    pass:(v,tgt)=> v>=tgt
   },
+
+  // A+B: Risk with magnet
   {
-    id:'time_plus',
-    label:'เก็บ ⏳ เพิ่มเวลา 1 ครั้ง',
-    makeTarget: ()=> 1,
-    calc: (state, target)=> ({ prog: state.timePlus|0, target })
+    id:'m5',
+    label:'Magnet Risk: ใช้ 🧲 แล้วเก็บดี 6 ชิ้น',
+    hint:'ระวัง junk จะถูกดูดเข้ามาด้วย!',
+    targetByDiff:{ easy:4, normal:6, hard:7 },
+    eval:(s)=> (s.usedMagnet ? (s.streakGood|0) : 0),
+    pass:(v,tgt)=> v>=tgt
   },
+
+  // A: Time trade
   {
-    id:'no_junk_8s',
-    label:'ห้ามโดน junk 8 วินาที',
-    makeTarget: ()=> 8,
-    calc: (state, target)=> ({ prog: state.safeSeconds|0, target, timer:true })
+    id:'m6',
+    label:'Time Dealer: ใช้ ⏳ เพิ่มเวลา 1 ครั้ง',
+    hint:'แลกคะแนนแต่ช่วยชีวิต!',
+    targetByDiff:{ easy:1, normal:1, hard:1 },
+    eval:(s)=> (s.timePlus|0),
+    pass:(v)=> v>=1,
+    notChallenge:['survival'] // survival ไม่ใช้เวลา
   },
+
+  // C: Boss focus
   {
-    id:'gold_now',
-    label:'เก็บ GOLD ภายในรอบนี้',
-    makeTarget: ()=> 1,
-    calc: (state, target)=> ({ prog: state.goldHitsThisMini?1:0, target })
+    id:'m7',
+    label:'Boss Slayer: เคลียร์บอสให้ได้ 👑',
+    hint:'ช่วงท้ายเกมเท่านั้น',
+    targetByDiff:{ easy:1, normal:1, hard:1 },
+    eval:(s)=> (s.bossCleared ? 1 : 0),
+    pass:(v)=> v>=1,
+    onlyChallenge:['boss']
+  },
+
+  // Final sprint (works all)
+  {
+    id:'m8',
+    label:'Final Sprint: 8 วิสุดท้าย เก็บดีให้ได้ 10 🏁',
+    hint:'โค้งสุดท้าย! เร่งมือ!',
+    targetByDiff:{ easy:8, normal:10, hard:12 },
+    // quest-director จะต้องส่ง progress เฉพาะหน้าต่างเวลาเอง
+    // ที่นี่ใช้ proxy: ถ้า timeLeft <= 8 ให้เอา streakGood มานับ
+    eval:(s)=> (s.timeLeft <= 8 ? (s.streakGood|0) : 0),
+    pass:(v,tgt)=> v>=tgt
   }
 ];
