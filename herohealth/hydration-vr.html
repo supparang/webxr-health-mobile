@@ -405,6 +405,102 @@
       .hha-grade-progress .bar{ width:120px; }
       .hha-btn-vr{ min-width:132px; }
     }
+    /* ===== END SCREEN ===== */
+.hvr-end{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  background:rgba(2,6,23,.68);
+  backdrop-filter:blur(14px);
+}
+.hvr-end.on{ display:flex; }
+
+.hvr-end-card{
+  width:min(720px, 96vw);
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,0.35);
+  background:radial-gradient(circle at top left,#0b1120,#020617 70%);
+  box-shadow:0 30px 80px rgba(0,0,0,.65);
+  padding:16px;
+}
+
+.hvr-end-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.hvr-end-title{
+  font-size:18px;
+  font-weight:800;
+}
+.hvr-end-sub{
+  font-size:12px;
+  color:var(--text-soft);
+}
+.hvr-end-badge{
+  padding:6px 12px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.35);
+  background:rgba(15,23,42,.85);
+  font-weight:900;
+  letter-spacing:.05em;
+}
+
+.hvr-end-grid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+@media (max-width:720px){ .hvr-end-grid{ grid-template-columns:1fr; } }
+
+.hvr-end-box{
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,.22);
+  background:rgba(2,6,23,.55);
+  padding:12px;
+}
+.hvr-end-row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin:6px 0;
+  color:var(--text-soft);
+}
+.hvr-end-row strong{ color:var(--text-main); }
+
+.hvr-end-list{
+  margin:8px 0 0;
+  padding-left:18px;
+  color:var(--text-soft);
+  font-size:13px;
+}
+.hvr-end-actions{
+  margin-top:14px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+.hvr-end-btn{
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.45);
+  padding:10px 14px;
+  background:rgba(15,23,42,.85);
+  color:var(--text-main);
+  text-decoration:none;
+  font-weight:700;
+}
+.hvr-end-btn.primary{
+  border-color:rgba(34,197,94,.65);
+  background:rgba(34,197,94,.18);
+}
+
   </style>
 </head>
 
@@ -566,6 +662,44 @@
       void c.offsetWidth;
       c.classList.add('ping');
     }
+    <!-- ===== END SCREEN ===== -->
+<div id="hvr-end" class="hvr-end" aria-hidden="true">
+  <div class="hvr-end-card">
+    <div class="hvr-end-head">
+      <div>
+        <div class="hvr-end-title">🏁 สรุปผล Hydration Quest</div>
+        <div class="hvr-end-sub" id="hvr-end-sub">พร้อมรายงานความก้าวหน้า Goal & Mini</div>
+      </div>
+      <div class="hvr-end-badge" id="hvr-end-grade">C</div>
+    </div>
+
+    <div class="hvr-end-grid">
+      <div class="hvr-end-box">
+        <div class="hvr-end-row"><span>คะแนน</span><strong id="hvr-end-score">0</strong></div>
+        <div class="hvr-end-row"><span>พลาด</span><strong id="hvr-end-miss">0</strong></div>
+        <div class="hvr-end-row"><span>คอมโบสูงสุด</span><strong id="hvr-end-combo">0</strong></div>
+        <div class="hvr-end-row"><span>Water Zone</span><strong id="hvr-end-zone">GREEN</strong></div>
+        <div class="hvr-end-row"><span>เวลาใน GREEN</span><strong id="hvr-end-green">0s</strong></div>
+      </div>
+
+      <div class="hvr-end-box">
+        <div class="hvr-end-row"><span>Goal</span><strong id="hvr-end-goal">0/2</strong></div>
+        <div class="hvr-end-row"><span>Mini Quest</span><strong id="hvr-end-mini">0/3</strong></div>
+        <div class="hvr-end-row"><span>Progress</span><strong id="hvr-end-prog">0%</strong></div>
+        <div class="hvr-end-row"><span>Fever</span><strong id="hvr-end-fever">0%</strong></div>
+        <div class="hvr-end-row"><span>Shield</span><strong id="hvr-end-shield">0</strong></div>
+
+        <div style="margin-top:8px;color:var(--text-soft);font-size:12px">🎁 รางวัลที่ได้</div>
+        <ul class="hvr-end-list" id="hvr-end-rewards"></ul>
+      </div>
+    </div>
+
+    <div class="hvr-end-actions">
+      <a class="hvr-end-btn" href="./hub.html">กลับ HUB</a>
+      <a class="hvr-end-btn primary" id="hvr-end-retry" href="#">เล่นอีกครั้ง</a>
+    </div>
+  </div>
+</div>
 
     // ยิงจาก crosshair ด้วย elementFromPoint
     function elementAtCrosshair(){
@@ -646,6 +780,61 @@
         console.error('[HydrationVR] boot error', err);
         alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้');
       }
+      function showEndScreen(d){
+  const end = $('hvr-end');
+  if(!end) return;
+  end.classList.add('on');
+  end.setAttribute('aria-hidden','false');
+
+  $('hvr-end-score').textContent = d.score ?? 0;
+  $('hvr-end-miss').textContent  = d.miss ?? 0;
+  $('hvr-end-combo').textContent = d.comboBest ?? 0;
+  $('hvr-end-zone').textContent  = d.zone ?? '';
+  $('hvr-end-green').textContent = (d.greenTick ?? 0) + 's';
+
+  $('hvr-end-goal').textContent  = `${d.goalsDone ?? 0}/${d.goalsTotal ?? 0}`;
+  $('hvr-end-mini').textContent  = `${d.minisDone ?? 0}/${d.minisTotal ?? 0}`;
+  $('hvr-end-prog').textContent  = `${d.progPct ?? 0}%`;
+  $('hvr-end-fever').textContent = `${d.fever ?? 0}%`;
+  $('hvr-end-shield').textContent= `${d.shield ?? 0}`;
+
+  $('hvr-end-grade').textContent = d.grade || 'C';
+  $('hvr-end-sub').textContent   =
+    `Goal ${d.goalsDone ?? 0}/${d.goalsTotal ?? 0} • Mini ${d.minisDone ?? 0}/${d.minisTotal ?? 0}`;
+
+  const ul = $('hvr-end-rewards');
+  if (ul){
+    ul.innerHTML = '';
+    const arr = (d.rewards && Array.isArray(d.rewards.bonuses)) ? d.rewards.bonuses : [];
+    if (!arr.length){
+      const li = document.createElement('li');
+      li.textContent = 'ยังไม่มีรางวัลพิเศษ';
+      ul.appendChild(li);
+    } else {
+      arr.slice(0, 8).forEach(t=>{
+        const li = document.createElement('li');
+        li.textContent = t;
+        ul.appendChild(li);
+      });
+    }
+  }
+}
+
+// คลิก “เล่นอีกครั้ง” = reload พร้อม query เดิม
+const retry = $('hvr-end-retry');
+if (retry){
+  retry.addEventListener('click', (e)=>{
+    e.preventDefault();
+    window.location.reload();
+  });
+}
+
+// รับ event จบเกมจาก hydration.safe.js
+window.addEventListener('hha:end', (e)=>{
+  const d = e?.detail || {};
+  showEndScreen(d);
+});
+
     });
   </script>
 </body>
