@@ -1,24 +1,19 @@
 // === /herohealth/vr/particles.js ===
-// Simple FX layer: score pop + judgment text + target burst
-// + Celebration FX สำหรับ Quest (Goal / Mini / All Complete)
-// ✅ UPGRADE: LINE-sticker Judge + MISS slide+screen shake + PERFECT confetti+ping
-// ✅ PATCH: รองรับ hha:celebrate + quest:* + hha:fx (burst/score/judge) + กัน bind ซ้ำ
+// HeroHealth FX Layer (DOM)
+// - score pop + burst
+// - toast
+// - ✅ HEAVY Celebration: big banner + confetti storm + fanfare + screen shake + sparkle ring
+// Works as IIFE, exposes: window.GAME_MODULES.Particles (and window.Particles)
 
 (function (root) {
   'use strict';
+
   const doc = root.document;
   if (!doc) return;
 
-  if (root.__HHA_PARTICLES_BOUND__) {
-    root.GAME_MODULES = root.GAME_MODULES || {};
-    root.GAME_MODULES.Particles = root.GAME_MODULES.Particles || root.Particles || {};
-    return;
-  }
-  root.__HHA_PARTICLES_BOUND__ = true;
-
-  // ---------- helpers ----------
-  function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-
+  // -----------------------------
+  // Layer
+  // -----------------------------
   function ensureLayer() {
     let layer = doc.querySelector('.hha-fx-layer');
     if (!layer) {
@@ -27,8 +22,8 @@
       Object.assign(layer.style, {
         position: 'fixed',
         inset: '0',
+        zIndex: '99997',
         pointerEvents: 'none',
-        zIndex: 700,
         overflow: 'hidden'
       });
       doc.body.appendChild(layer);
@@ -36,755 +31,489 @@
     return layer;
   }
 
-  function ensureStyles(){
+  // -----------------------------
+  // Styles
+  // -----------------------------
+  function ensureStyle() {
     if (doc.getElementById('hha-fx-style')) return;
-    const st = doc.createElement('style');
-    st.id = 'hha-fx-style';
-    st.textContent = `
-      /* ==== SCREEN SHAKE (whole viewport) ==== */
-      .hha-screen-shake{
-        animation: hha-screen-shake 360ms ease-in-out;
-        transform-origin: 50% 50%;
-      }
-      @keyframes hha-screen-shake{
-        0%{ transform: translate(0,0) }
-        12%{ transform: translate(calc(var(--hha-shake) * -1), calc(var(--hha-shake) * 0.4)) }
-        24%{ transform: translate(calc(var(--hha-shake) *  0.9), calc(var(--hha-shake) * -0.5)) }
-        36%{ transform: translate(calc(var(--hha-shake) * -0.7), calc(var(--hha-shake) * 0.6)) }
-        48%{ transform: translate(calc(var(--hha-shake) *  0.6), calc(var(--hha-shake) * 0.1)) }
-        60%{ transform: translate(calc(var(--hha-shake) * -0.4), calc(var(--hha-shake) * -0.2)) }
-        72%{ transform: translate(calc(var(--hha-shake) *  0.25), calc(var(--hha-shake) * 0.15)) }
-        100%{ transform: translate(0,0) }
-      }
-
-      /* ---- SCORE POP ---- */
-      .hha-pop{
-        padding: 8px 10px;
-        border-radius: 999px;
-        background: rgba(15,23,42,0.82);
-        border: 2px solid rgba(148,163,184,0.22);
-        box-shadow: 0 16px 40px rgba(0,0,0,0.45);
-        font-weight: 1000;
-        font-size: 14px;
-        letter-spacing: .02em;
-        color: #e5e7eb;
-        opacity: 0;
-        animation: hha-pop-up .55s ease-out forwards;
-        white-space: nowrap;
-        backdrop-filter: blur(8px);
-        transform: translate(-50%,-50%);
-      }
-      .hha-pop.good{ border-color: rgba(34,197,94,0.55); color:#bbf7d0; }
-      .hha-pop.junk, .hha-pop.haz{ border-color: rgba(249,115,22,0.55); color:#fed7aa; }
-      .hha-pop.power{ border-color: rgba(59,130,246,0.55); color:#bfdbfe; }
-      .hha-pop.boss{ border-color: rgba(250,204,21,0.75); color:#fef3c7; }
-
-      @keyframes hha-pop-up{
-        0%{ transform: translate(-50%,-50%) scale(.85); opacity: 0; }
-        18%{ opacity: 1; transform: translate(-50%,-54%) scale(1.08); }
-        100%{ transform: translate(-50%,-68%) scale(0.98); opacity: 0; }
-      }
-
-      /* ---- JUDGE STICKER (LINE style) ---- */
-      .hha-judge{
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        padding: 11px 14px;
-        border-radius: 18px;
-        background: rgba(255,255,255,0.96);
-        color: #0f172a;
-        font-weight: 1000;
-        font-size: 15px;
-        letter-spacing: .02em;
-        opacity: 0;
-        transform: translate(-50%,-50%) scale(.6);
-        transform-origin: 50% 65%;
-        border: 4px solid rgba(15,23,42,0.98);
-        box-shadow:
-          0 20px 46px rgba(0,0,0,0.46),
-          0 3px 0 rgba(15,23,42,0.95);
-        backdrop-filter: blur(6px);
-        white-space: nowrap;
+    const s = doc.createElement('style');
+    s.id = 'hha-fx-style';
+    s.textContent = `
+      .hha-fx-pop{
+        position:fixed;
+        transform:translate(-50%,-50%);
+        font-weight:900;
+        font-size:18px;
+        letter-spacing:.02em;
+        filter:drop-shadow(0 10px 20px rgba(0,0,0,.55));
+        opacity:0;
+        animation:hhaPop .55s ease-out forwards;
+        will-change:transform, opacity;
         pointer-events:none;
+        z-index:99998;
       }
-      .hha-judge:before{
-        content:"";
-        position:absolute;
-        left: 10px;
-        top: 8px;
-        width: 48%;
-        height: 38%;
-        border-radius: 16px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.90), rgba(255,255,255,0));
-        pointer-events:none;
-      }
-      .hha-judge:after{
-        content:"";
-        position:absolute;
-        left: 16px;
-        bottom: -12px;
-        width: 18px;
-        height: 18px;
-        background: rgba(255,255,255,0.96);
-        border-left: 4px solid rgba(15,23,42,0.98);
-        border-bottom: 4px solid rgba(15,23,42,0.98);
-        transform: rotate(45deg);
-        border-bottom-left-radius: 7px;
+      @keyframes hhaPop{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.7); }
+        10%{ opacity:1; transform:translate(-50%,-60%) scale(1.06); }
+        100%{ opacity:0; transform:translate(-50%,-120%) scale(1); }
       }
 
-      .hha-judge .badge{
-        display:inline-flex;
-        align-items:center;
+      .hha-fx-burst{
+        position:fixed;
+        width:10px;height:10px;
+        transform:translate(-50%,-50%);
+        pointer-events:none;
+        z-index:99998;
+      }
+      .hha-fx-shard{
+        position:absolute;
+        left:50%;top:50%;
+        width:8px;height:8px;
+        border-radius:6px;
+        transform:translate(-50%,-50%);
+        opacity:.95;
+        filter:drop-shadow(0 10px 18px rgba(0,0,0,.55));
+        animation:hhaShard 520ms ease-out forwards;
+      }
+      @keyframes hhaShard{
+        0%{ transform:translate(-50%,-50%) scale(.7); opacity:.0; }
+        10%{ opacity:.95; }
+        100%{ transform:translate(var(--dx), var(--dy)) scale(.0); opacity:0; }
+      }
+
+      /* --------- TOAST ---------- */
+      .hha-fx-toast{
+        position:fixed;
+        left:50%;
+        bottom:84px;
+        transform:translate(-50%, 14px);
+        min-width:min(560px, 92vw);
+        max-width:min(860px, 92vw);
+        padding:12px 14px;
+        border-radius:16px;
+        border:1px solid rgba(148,163,184,0.35);
+        background:rgba(2,6,23,0.78);
+        backdrop-filter:blur(14px);
+        box-shadow:0 20px 50px rgba(0,0,0,.55);
+        color:#e5e7eb;
+        font-weight:800;
+        letter-spacing:.02em;
+        opacity:0;
+        animation:hhaToast 2.2s ease forwards;
+        pointer-events:none;
+        z-index:99999;
+      }
+      @keyframes hhaToast{
+        0%{ opacity:0; transform:translate(-50%, 16px); }
+        12%{ opacity:1; transform:translate(-50%, 0px); }
+        78%{ opacity:1; transform:translate(-50%, 0px); }
+        100%{ opacity:0; transform:translate(-50%, 14px); }
+      }
+
+      /* --------- HEAVY CELEBRATION ---------- */
+      .hha-cele-wrap{
+        position:fixed;
+        inset:0;
+        pointer-events:none;
+        z-index:99999;
+      }
+      .hha-cele-dim{
+        position:absolute;
+        inset:0;
+        background:radial-gradient(circle at 50% 56%, rgba(34,197,94,.22), rgba(2,6,23,0) 60%),
+                   radial-gradient(circle at 50% 56%, rgba(250,204,21,.18), rgba(2,6,23,0) 68%);
+        opacity:0;
+        animation:hhaDim 1.25s ease-out forwards;
+      }
+      @keyframes hhaDim{
+        0%{ opacity:0; }
+        15%{ opacity:1; }
+        100%{ opacity:0; }
+      }
+
+      .hha-cele-banner{
+        position:absolute;
+        left:50%;
+        top:50%;
+        transform:translate(-50%, -62%) scale(.86);
+        width:min(740px, 92vw);
+        border-radius:22px;
+        border:1px solid rgba(148,163,184,0.38);
+        background:radial-gradient(circle at top left, rgba(11,17,32,.92), rgba(2,6,23,.92) 65%);
+        box-shadow:0 30px 90px rgba(0,0,0,.65);
+        padding:14px 16px 12px;
+        text-align:center;
+        opacity:0;
+        animation:hhaBanner 1.25s ease-out forwards;
+      }
+      @keyframes hhaBanner{
+        0%{ opacity:0; transform:translate(-50%, -64%) scale(.84); }
+        10%{ opacity:1; transform:translate(-50%, -66%) scale(1.02); }
+        22%{ transform:translate(-50%, -66%) scale(1); }
+        80%{ opacity:1; }
+        100%{ opacity:0; transform:translate(-50%, -70%) scale(.98); }
+      }
+      .hha-cele-title{
+        font-weight:1000;
+        letter-spacing:.06em;
+        font-size:20px;
+        text-transform:uppercase;
+      }
+      .hha-cele-sub{
+        margin-top:6px;
+        font-weight:800;
+        font-size:14px;
+        color:rgba(229,231,235,.92);
+      }
+      .hha-cele-badges{
+        margin-top:10px;
+        display:flex;
+        gap:8px;
         justify-content:center;
-        width: 34px;
-        height: 34px;
-        border-radius: 999px;
-        border: 4px solid rgba(15,23,42,0.98);
-        box-shadow: 0 3px 0 rgba(15,23,42,0.95);
-        font-size: 18px;
-        line-height: 1;
-        background: rgba(255,255,255,0.98);
-        transform: rotate(-6deg);
-        flex: 0 0 auto;
+        flex-wrap:wrap;
       }
-      .hha-judge .txt{
-        position: relative;
-        top: 1px;
-        text-shadow: 0 1px 0 rgba(255,255,255,0.7);
-      }
-
-      /* theme tints */
-      .hha-judge.good{ background: rgba(236,253,245,0.98); }
-      .hha-judge.junk{ background: rgba(255,237,213,0.98); }
-      .hha-judge.haz { background: rgba(254,226,226,0.98); }
-      .hha-judge.power{ background: rgba(219,234,254,0.98); }
-      .hha-judge.boss{ background: rgba(254,249,195,0.98); }
-
-      /* NORMAL bounce */
-      .hha-judge{
-        animation: hha-judge-bounce 640ms cubic-bezier(.2,1.35,.25,1) forwards;
-      }
-      .hha-judge .txt{
-        animation: hha-text-wobble 640ms cubic-bezier(.2,1.35,.25,1) forwards;
-      }
-      @keyframes hha-text-wobble{
-        0%{ transform: translateY(2px) scale(.85); }
-        40%{ transform: translateY(-1px) scale(1.10); }
-        70%{ transform: translateY(0px) scale(0.98); }
-        100%{ transform: translateY(-1px) scale(1.00); }
-      }
-      @keyframes hha-judge-bounce{
-        0%{ opacity: 0; transform: translate(-50%,-50%) scale(.55) rotate(-4deg); }
-        22%{ opacity: 1; transform: translate(-50%,-56%) scale(1.16) rotate(3deg); }
-        48%{ transform: translate(-50%,-60%) scale(0.98) rotate(-1deg); }
-        100%{ opacity: 0; transform: translate(-50%,-82%) scale(.96) rotate(0deg); }
-      }
-
-      /* MISS: SLIDE + SHAKE (แฉลบซ้ายขวา) */
-      .hha-judge.miss{
-        animation: hha-judge-miss-slide 720ms cubic-bezier(.15,1.25,.25,1) forwards;
-      }
-      .hha-judge.miss .txt{ animation: hha-text-wobble 520ms cubic-bezier(.2,1.35,.25,1) forwards; }
-
-      @keyframes hha-judge-miss-slide{
-        0%{ opacity: 0; transform: translate(-50%,-50%) scale(.62) rotate(-8deg); }
-        16%{ opacity: 1; transform: translate(-50%,-54%) scale(1.14) rotate(6deg); }
-        28%{ transform: translate(calc(-50% - 62px), calc(-58% - 2px)) rotate(-10deg) scale(1.10); }
-        38%{ transform: translate(calc(-50% + 72px), calc(-58% + 3px)) rotate(12deg) scale(1.08); }
-        48%{ transform: translate(calc(-50% - 58px), calc(-58% - 1px)) rotate(-10deg) scale(1.06); }
-        58%{ transform: translate(calc(-50% + 42px), calc(-60% + 1px)) rotate(8deg) scale(1.02); }
-        70%{ transform: translate(-50%,-64%) rotate(-2deg) scale(1.00); }
-        100%{ opacity: 0; transform: translate(-50%,-86%) rotate(0deg) scale(.96); }
-      }
-
-      /* BURST DOTS (compat) */
-      .hha-fx-dot{
-        position:absolute;
+      .hha-cele-chip{
+        font-weight:900;
+        font-size:12px;
+        letter-spacing:.06em;
+        padding:6px 10px;
         border-radius:999px;
-        pointer-events:none;
+        border:1px solid rgba(148,163,184,0.35);
+        background:rgba(15,23,42,0.82);
+        color:#e5e7eb;
       }
 
-      /* PERFECT: confetti stars */
-      .hha-confetti{
-        position: fixed;
-        pointer-events:none;
-        transform: translate(-50%,-50%);
-        z-index: 701;
-      }
-      .hha-confetti-star{
+      /* confetti */
+      .hha-conf{
         position:absolute;
-        left: 0;
-        top: 0;
-        font-size: 16px;
-        opacity: 0;
-        filter: drop-shadow(0 10px 16px rgba(0,0,0,0.35));
-        animation: hha-confetti-fall 720ms ease-out forwards;
+        top:-10vh;
+        left:var(--x);
+        width:var(--w);
+        height:var(--h);
+        border-radius:6px;
+        opacity:.95;
+        transform:rotate(var(--r));
+        filter:drop-shadow(0 14px 22px rgba(0,0,0,.55));
+        animation:hhaConf var(--t) linear forwards;
       }
-      @keyframes hha-confetti-fall{
-        0%{ opacity: 0; transform: translate(0,0) rotate(0deg) scale(.8); }
-        16%{ opacity: 1; }
-        100%{ opacity: 0; transform: translate(var(--cx), var(--cy)) rotate(160deg) scale(1.08); }
+      @keyframes hhaConf{
+        0%{ transform:translate3d(0,-10vh,0) rotate(var(--r)); opacity:0; }
+        8%{ opacity:.95; }
+        100%{ transform:translate3d(var(--dx), 120vh, 0) rotate(calc(var(--r) + 500deg)); opacity:0; }
       }
 
-      /* Sparkle twinkle */
-      .hha-sparkle{
-        position: fixed;
-        pointer-events:none;
-        transform: translate(-50%,-50%);
-        z-index: 701;
-      }
-      .hha-star{
+      /* sparkle ring at center */
+      .hha-spark{
         position:absolute;
-        left: 0;
-        top: 0;
-        font-size: 18px;
-        opacity: 0;
-        filter: drop-shadow(0 10px 16px rgba(0,0,0,0.35));
-        animation: hha-star 520ms ease-out forwards;
+        left:50%;
+        top:56%;
+        width:min(360px, 60vw);
+        height:min(360px, 60vw);
+        transform:translate(-50%,-50%) scale(.92);
+        border-radius:999px;
+        border:2px solid rgba(255,255,255,0.14);
+        box-shadow:0 0 26px rgba(255,255,255,0.18),
+                   0 0 56px rgba(34,197,94,0.22),
+                   inset 0 0 30px rgba(250,204,21,0.14);
+        opacity:0;
+        animation:hhaSpark 1.1s ease-out forwards;
       }
-      @keyframes hha-star{
-        0%{ opacity: 0; transform: translate(0,0) scale(.5) rotate(0deg); }
-        20%{ opacity: 1; }
-        100%{ opacity: 0; transform: translate(var(--sx), var(--sy)) scale(1.15) rotate(55deg); }
+      @keyframes hhaSpark{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.84); }
+        16%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
+        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.12); }
       }
 
-      /* QUEST banner (existing) */
-      .hha-fx-score{
-        pointer-events:none;
+      /* screen shake */
+      .hha-shake{
+        animation:hhaShake 520ms ease-in-out 1;
+      }
+      @keyframes hhaShake{
+        0%{ transform:translate3d(0,0,0); }
+        10%{ transform:translate3d(-2px, 1px, 0); }
+        20%{ transform:translate3d(2px, -1px, 0); }
+        30%{ transform:translate3d(-3px, 2px, 0); }
+        40%{ transform:translate3d(3px, -2px, 0); }
+        50%{ transform:translate3d(-2px, -1px, 0); }
+        60%{ transform:translate3d(2px, 1px, 0); }
+        100%{ transform:translate3d(0,0,0); }
       }
     `;
-    doc.head.appendChild(st);
+    doc.head.appendChild(s);
   }
 
-  function toPx(x, y, opts){
-    opts = opts || {};
-    const W = root.innerWidth || 1;
-    const H = root.innerHeight || 1;
+  ensureStyle();
+  const layer = ensureLayer();
 
-    if (opts.px) return { x: clamp(x, 0, W), y: clamp(y, 0, H) };
-
-    const nx = (x > 1.5) ? (x / 100) : x; // 0..1 or 0..100
-    const ny = (y > 1.5) ? (y / 100) : y;
-    return { x: clamp(nx, 0, 1) * W, y: clamp(ny, 0, 1) * H };
-  }
-
-  // ---------- screen shake ----------
-  let shakeBusy = false;
-  function screenShake(intensity, ms){
-    const layer = ensureLayer();
-    ensureStyles();
-    if (shakeBusy) return;
-    shakeBusy = true;
-
-    layer.classList.add('hha-screen-shake');
-    layer.style.setProperty('--hha-shake', clamp(intensity||14, 6, 18) + 'px');
-
-    setTimeout(function(){
-      layer.classList.remove('hha-screen-shake');
-      shakeBusy = false;
-    }, clamp(ms||360, 220, 520));
-  }
-
-  // ---------- sound ping ----------
+  // -----------------------------
+  // Audio (safe / tiny)
+  // -----------------------------
   let audioCtx = null;
-  function pingSound(){
+
+  function getAudio(){
     try{
       audioCtx = audioCtx || new (root.AudioContext || root.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume().catch(function(){});
-
-      const now = audioCtx.currentTime;
-
-      const o1 = audioCtx.createOscillator();
-      const o2 = audioCtx.createOscillator();
-      const g  = audioCtx.createGain();
-
-      o1.type = 'sine';
-      o2.type = 'triangle';
-      o1.frequency.setValueAtTime(1200, now);
-      o2.frequency.setValueAtTime(1800, now);
-
-      g.gain.setValueAtTime(0.0001, now);
-      g.gain.exponentialRampToValueAtTime(0.35, now + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
-
-      o1.connect(g); o2.connect(g); g.connect(audioCtx.destination);
-      o1.start(now); o2.start(now + 0.005);
-      o1.stop(now + 0.22); o2.stop(now + 0.22);
-    }catch(_){}
+      return audioCtx;
+    }catch{
+      return null;
+    }
   }
 
-  // ---------- core fx ----------
-  function burstAt(x, y, opts) {
-    opts = opts || {};
-    const layer = ensureLayer();
-    ensureStyles();
+  function tone(freq, dur, type='sine', gain=0.04){
+    const A = getAudio();
+    if (!A) return;
+    try{
+      const o = A.createOscillator();
+      const g = A.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.value = gain;
+      o.connect(g); g.connect(A.destination);
+      o.start();
+      o.stop(A.currentTime + dur);
+    }catch{}
+  }
 
-    const p = toPx(x, y, opts);
-    x = p.x; y = p.y;
+  function fanfare(kind){
+    // short “gamey” fanfare sequences
+    // keep very short, mobile friendly
+    if (kind === 'goal'){
+      tone(659, 0.07, 'triangle', 0.05);
+      setTimeout(()=>tone(784, 0.07, 'triangle', 0.05), 90);
+      setTimeout(()=>tone(988, 0.10, 'triangle', 0.055), 180);
+    } else if (kind === 'mini'){
+      tone(784, 0.06, 'sine', 0.045);
+      setTimeout(()=>tone(988, 0.07, 'sine', 0.045), 90);
+    } else if (kind === 'fever'){
+      tone(523, 0.06, 'square', 0.035);
+      setTimeout(()=>tone(659, 0.06, 'square', 0.035), 70);
+      setTimeout(()=>tone(784, 0.08, 'square', 0.04), 140);
+    } else if (kind === 'end'){
+      tone(392, 0.08, 'triangle', 0.05);
+      setTimeout(()=>tone(523, 0.08, 'triangle', 0.05), 110);
+      setTimeout(()=>tone(659, 0.10, 'triangle', 0.055), 220);
+    } else {
+      tone(880, 0.07, 'triangle', 0.045);
+      setTimeout(()=>tone(988, 0.08, 'triangle', 0.045), 90);
+    }
+  }
 
-    const color = opts.color || '#22c55e';
-    const good = !!opts.good;
-    const kind = String(opts.kind||'').toLowerCase();
+  // -----------------------------
+  // FX API
+  // -----------------------------
+  function scorePop(x, y, delta, label){
+    const el = doc.createElement('div');
+    el.className = 'hha-fx-pop';
+    el.style.left = (x|0) + 'px';
+    el.style.top  = (y|0) + 'px';
 
-    const n =
-      typeof opts.count === 'number' && opts.count > 0
-        ? opts.count
-        : good ? 32 : 20;
+    let txt = '';
+    if (typeof delta === 'number') {
+      const sign = delta > 0 ? '+' : '';
+      txt = `${sign}${delta}`;
+    }
+    const tag = label ? ` • ${label}` : '';
+    el.textContent = `${txt}${tag}`.trim();
 
-    const isPerfect = String(opts.judgment||'').toUpperCase().includes('PERFECT');
+    // label-based color without hardcoding palette too much
+    if (label === 'JUNK' || label === 'MISS') el.style.color = '#fb923c';
+    else if (label === 'BLOCK') el.style.color = '#60a5fa';
+    else if (label === 'POWER' || label === 'GOLD') el.style.color = '#facc15';
+    else el.style.color = '#4ade80';
 
-    for (let i = 0; i < n; i++) {
-      const dot = doc.createElement('div');
-      dot.className = 'hha-fx-dot';
-      const size = good ? 7 + Math.random() * 7 : 5 + Math.random() * 5;
+    layer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch{} }, 700);
+  }
 
-      Object.assign(dot.style, {
-        left: x + 'px',
-        top: y + 'px',
-        width: size + 'px',
-        height: size + 'px',
-        background: color,
-        boxShadow: '0 0 14px rgba(0,0,0,0.9)',
-        opacity: '1',
-        transform: 'translate(-50%, -50%) scale(0.9)',
-        transition: 'transform 0.55s ease-out, opacity 0.55s ease-out'
-      });
+  function burstAt(x, y, label){
+    const wrap = doc.createElement('div');
+    wrap.className = 'hha-fx-burst';
+    wrap.style.left = (x|0) + 'px';
+    wrap.style.top  = (y|0) + 'px';
 
-      layer.appendChild(dot);
+    const n = 14;
+    for (let i=0;i<n;i++){
+      const s = doc.createElement('div');
+      s.className = 'hha-fx-shard';
 
       const ang = Math.random() * Math.PI * 2;
-      const distBase = good ? 90 : 65;
-      const dist = distBase + Math.random() * 50;
-      const dx = Math.cos(ang) * dist;
-      const dy = Math.sin(ang) * dist;
+      const r = 24 + Math.random() * 56;
+      const dx = Math.cos(ang) * r;
+      const dy = Math.sin(ang) * r;
 
-      requestAnimationFrame(function () {
-        dot.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(0.98)';
-        dot.style.opacity = '0';
-      });
+      s.style.setProperty('--dx', dx.toFixed(1)+'px');
+      s.style.setProperty('--dy', dy.toFixed(1)+'px');
 
-      setTimeout(function () {
-        if (dot.parentNode) dot.parentNode.removeChild(dot);
-      }, 580);
+      if (label === 'JUNK' || label === 'MISS') s.style.background = 'rgba(251,146,60,.95)';
+      else if (label === 'BLOCK') s.style.background = 'rgba(96,165,250,.95)';
+      else if (label === 'POWER' || label === 'GOLD') s.style.background = 'rgba(250,204,21,.95)';
+      else s.style.background = 'rgba(74,222,128,.95)';
+
+      s.style.width = (6 + Math.random()*7).toFixed(0)+'px';
+      s.style.height = (6 + Math.random()*7).toFixed(0)+'px';
+
+      wrap.appendChild(s);
     }
-
-    // extra sparkle/confetti for PERFECT when burst called with kind good
-    if (isPerfect || kind === 'perfect') {
-      sparklesAt(x, y, { px:true, count: 10, radius: 92 });
-      confettiStarsAt(x, y, { px:true, count: 22, radius: 160 });
-    }
-  }
-
-  function scorePop(x, y, value, opts) {
-    opts = opts || {};
-    const layer = ensureLayer();
-    ensureStyles();
-
-    const p = toPx(x, y, opts);
-    x = p.x; y = p.y;
-
-    const good = !!opts.good;
-    const judgment = String(opts.judgment || '').toUpperCase();
-
-    const wrap = doc.createElement('div');
-    wrap.className = 'hha-fx-score';
-
-    const parts = [];
-    if (value !== undefined && value !== null && value !== '') parts.push(String(value));
-    if (judgment) parts.push(judgment);
-    wrap.textContent = parts.join(' ');
-
-    Object.assign(wrap.style, {
-      position: 'absolute',
-      left: x + 'px',
-      top: y + 'px',
-      transform: 'translate(-50%, -50%) scale(0.9)',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: '20px',
-      fontWeight: '900',
-      color: good ? '#bbf7d0' : '#fed7aa',
-      textShadow: '0 0 20px rgba(0,0,0,0.95)',
-      padding: '6px 12px',
-      borderRadius: '999px',
-      background: 'rgba(15,23,42,0.96)',
-      border: '2px solid rgba(148,163,184,0.35)',
-      whiteSpace: 'nowrap',
-      opacity: '0',
-      transition: 'transform 0.45s ease-out, opacity 0.45s ease-out',
-      letterSpacing: '.06em',
-      textTransform: 'uppercase',
-      pointerEvents: 'none'
-    });
 
     layer.appendChild(wrap);
-
-    const burstColor = good ? '#22c55e' : '#f97316';
-    burstAt(x, y, { px:true, color: burstColor, good: good });
-
-    requestAnimationFrame(function () {
-      wrap.style.transform = 'translate(-50%, -90%) scale(1.08)';
-      wrap.style.opacity = '1';
-    });
-    setTimeout(function () {
-      wrap.style.transform = 'translate(-50%, -135%) scale(0.98)';
-      wrap.style.opacity = '0';
-    }, 260);
-
-    setTimeout(function () {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-    }, 520);
+    setTimeout(()=>{ try{ wrap.remove(); }catch{} }, 650);
   }
 
-  function badgeFor(label){
-    const t = String(label||'').toUpperCase();
-    if (t.includes('PERFECT')) return '🌟';
-    if (t.includes('GOOD')) return '😊';
-    if (t.includes('MISS')) return '💥';
-    if (t.includes('BLOCK')) return '🛡️';
-    if (t.includes('SHIELD')) return '🥗';
-    if (t.includes('CLEANSE')) return '🍋';
-    if (t.includes('GOLD')) return '⭐';
-    if (t.includes('BOSS')) return '👾';
-    if (t.includes('RISK') || t.includes('HAZ')) return '⚠️';
-    if (t.includes('POWER')) return '✨';
-    if (t.includes('CLEAR')) return '✅';
-    return '🎯';
-  }
-
-  function makeDiv(className, xPx, yPx) {
+  function toast(text){
     const el = doc.createElement('div');
-    el.className = className;
-    Object.assign(el.style, {
-      position: 'fixed',
-      left: xPx + 'px',
-      top: yPx + 'px',
-      transform: 'translate(-50%,-50%)',
-      pointerEvents: 'none',
-      willChange: 'transform, opacity'
-    });
-    return el;
+    el.className = 'hha-fx-toast';
+    el.textContent = String(text || '').slice(0, 220);
+    layer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch{} }, 2400);
   }
 
-  function sparklesAt(x, y, opts){
-    opts = opts || {};
-    const layer = ensureLayer();
-    ensureStyles();
+  // -----------------------------
+  // HEAVY Celebration
+  // -----------------------------
+  let celeLock = 0;
 
-    const p = toPx(x, y, opts);
-    const sp = makeDiv('hha-sparkle', p.x, p.y);
-    layer.appendChild(sp);
-
-    const n = clamp(opts.count || 8, 5, 14);
-    const radius = clamp(opts.radius || 80, 50, 140);
-
-    for (let i=0;i<n;i++){
-      const star = doc.createElement('div');
-      star.className = 'hha-star';
-      star.textContent = (i % 3 === 0) ? '✨' : (i % 3 === 1) ? '⭐' : '💫';
-
-      const a = (Math.PI*2) * (i/n) + (Math.random()*0.45);
-      const rr = radius * (0.55 + Math.random()*0.65);
-      const sx = Math.cos(a) * rr;
-      const sy = Math.sin(a) * rr;
-
-      star.style.setProperty('--sx', sx + 'px');
-      star.style.setProperty('--sy', sy + 'px');
-      star.style.animationDelay = (Math.random()*80) + 'ms';
-      sp.appendChild(star);
-    }
-
-    setTimeout(function(){ try{ sp.remove(); }catch(_){} }, 650);
+  function shakeScreen(){
+    try{
+      const w = doc.getElementById('hvr-wrap') || doc.body;
+      w.classList.remove('hha-shake');
+      // force reflow
+      void w.offsetWidth;
+      w.classList.add('hha-shake');
+      setTimeout(()=>{ try{ w.classList.remove('hha-shake'); }catch{} }, 650);
+    }catch{}
   }
 
-  function confettiStarsAt(x, y, opts){
-    opts = opts || {};
-    const layer = ensureLayer();
-    ensureStyles();
-
-    const p = toPx(x, y, opts);
-    const cf = makeDiv('hha-confetti', p.x, p.y);
-    layer.appendChild(cf);
-
-    const n = clamp(opts.count || 18, 10, 30);
-    const radius = clamp(opts.radius || 140, 90, 220);
-
+  function makeConfetti(parent, intensity){
+    const count = clamp(intensity || 1, 0.6, 2.5);
+    const n = Math.round(120 * count); // heavy
     for (let i=0;i<n;i++){
       const c = doc.createElement('div');
-      c.className = 'hha-confetti-star';
-      c.textContent =
-        (i % 5 === 0) ? '⭐' :
-        (i % 5 === 1) ? '✨' :
-        (i % 5 === 2) ? '💫' :
-        (i % 5 === 3) ? '🌟' : '✴️';
+      c.className = 'hha-conf';
 
-      const a = (Math.PI*2) * Math.random();
-      const rr = radius * (0.35 + Math.random()*0.85);
-      const cx = Math.cos(a) * rr;
-      const cy = (Math.sin(a) * rr) + (60 + Math.random()*120);
+      const x = (Math.random()*100).toFixed(2) + 'vw';
+      const w = (6 + Math.random()*10).toFixed(0) + 'px';
+      const h = (8 + Math.random()*14).toFixed(0) + 'px';
+      const r = (Math.random()*360).toFixed(0) + 'deg';
+      const t = (1.6 + Math.random()*1.2).toFixed(2) + 's';
+      const dx = ((Math.random()*2-1)*18).toFixed(1) + 'vw';
 
-      c.style.setProperty('--cx', cx + 'px');
-      c.style.setProperty('--cy', cy + 'px');
-      c.style.fontSize = (14 + Math.random()*12) + 'px';
-      c.style.animationDelay = (Math.random()*90) + 'ms';
-      cf.appendChild(c);
+      // random bright-ish colors
+      const colors = ['#4ade80','#22c55e','#facc15','#fb923c','#60a5fa','#a78bfa','#f472b6','#34d399'];
+      const col = colors[(Math.random()*colors.length)|0];
+
+      c.style.setProperty('--x', x);
+      c.style.setProperty('--w', w);
+      c.style.setProperty('--h', h);
+      c.style.setProperty('--r', r);
+      c.style.setProperty('--t', t);
+      c.style.setProperty('--dx', dx);
+      c.style.background = col;
+
+      parent.appendChild(c);
+      setTimeout(()=>{ try{ c.remove(); }catch{} }, 2600);
     }
-
-    setTimeout(function(){ try{ cf.remove(); }catch(_){} }, 820);
   }
 
-  function judgeAt(x, y, text, opts){
-    opts = opts || {};
-    const layer = ensureLayer();
-    ensureStyles();
+  function celebrate(kind='goal', opts={}){
+    const now = Date.now();
+    if (now - celeLock < 450) return; // anti spam
+    celeLock = now;
 
-    const p = toPx(x, y, opts);
-    x = p.x; y = p.y;
+    const intensity = Number(opts.intensity ?? 1);
+    const title = String(opts.title || '').trim();
+    const sub   = String(opts.sub || '').trim();
+    const chips = Array.isArray(opts.chips) ? opts.chips.slice(0,6) : [];
 
-    const dx = Number(opts.dx)||0;
-    const dy = Number(opts.dy)||0;
+    let t = title;
+    let s = sub;
 
-    const kind = String(opts.kind||'').toLowerCase();
-    const label = String(text||'').toUpperCase();
-    if (!label) return;
+    if (!t){
+      if (kind === 'goal') t = '🎉 GOAL CLEARED!';
+      else if (kind === 'mini') t = '✨ MINI QUEST CLEARED!';
+      else if (kind === 'fever') t = '🔥 FEVER MODE!';
+      else if (kind === 'end') t = '🏁 STAGE COMPLETE!';
+      else t = '🎊 NICE!';
+    }
+    if (!s){
+      if (kind === 'goal') s = 'ได้รางวัล! แต้ม + เกราะ + Storm Wave 🌊';
+      else if (kind === 'mini') s = 'ได้รางวัล! แต้ม + เวลาเพิ่ม ⏱️';
+      else if (kind === 'fever') s = 'แตะให้ไว! คะแนนคูณ x2!';
+      else if (kind === 'end') s = 'สรุปผลพร้อมรางวัลทั้งหมด';
+      else s = 'ทำได้ดีมาก!';
+    }
 
-    const wrap = makeDiv('hha-judge ' + kind, x + dx, y + dy);
+    // wrap
+    const wrap = doc.createElement('div');
+    wrap.className = 'hha-cele-wrap';
 
-    const isMiss = label.includes('MISS');
-    const isPerfect = label.includes('PERFECT');
+    const dim = doc.createElement('div');
+    dim.className = 'hha-cele-dim';
+    wrap.appendChild(dim);
 
-    if (isMiss) wrap.classList.add('miss');
+    const spark = doc.createElement('div');
+    spark.className = 'hha-spark';
+    wrap.appendChild(spark);
 
-    const badge = doc.createElement('span');
-    badge.className = 'badge';
-    badge.textContent = badgeFor(label);
+    const banner = doc.createElement('div');
+    banner.className = 'hha-cele-banner';
 
-    const t = doc.createElement('span');
-    t.className = 'txt';
-    t.textContent = label;
+    const titleEl = doc.createElement('div');
+    titleEl.className = 'hha-cele-title';
+    titleEl.textContent = t;
 
-    wrap.appendChild(badge);
-    wrap.appendChild(t);
+    const subEl = doc.createElement('div');
+    subEl.className = 'hha-cele-sub';
+    subEl.textContent = s;
+
+    banner.appendChild(titleEl);
+    banner.appendChild(subEl);
+
+    const badgeRow = doc.createElement('div');
+    badgeRow.className = 'hha-cele-badges';
+
+    const defaultChips = [];
+    if (kind === 'goal') defaultChips.push('🎯 GOAL','🛡️ BONUS','🌊 STORM');
+    if (kind === 'mini') defaultChips.push('✨ MINI','⏱️ TIME+','🔥 FEVER+');
+    if (kind === 'fever') defaultChips.push('🔥 FEVER','x2 SCORE','🛡️ SHIELD');
+    if (kind === 'end') defaultChips.push('🏁 FINISH','🎁 REWARDS','⭐ GRADE');
+
+    const chipList = chips.length ? chips : defaultChips;
+
+    chipList.slice(0,6).forEach(tx=>{
+      const c = doc.createElement('div');
+      c.className = 'hha-cele-chip';
+      c.textContent = tx;
+      badgeRow.appendChild(c);
+    });
+
+    banner.appendChild(badgeRow);
+    wrap.appendChild(banner);
+
     layer.appendChild(wrap);
 
-    if (isMiss){
-      screenShake(14, 360);
-    }
-    if (isPerfect){
-      sparklesAt(x, y, { px:true, count: 10, radius: 92 });
-      confettiStarsAt(x, y, { px:true, count: 22, radius: 160 });
-      pingSound();
-    }
+    // confetti storm
+    makeConfetti(wrap, (kind === 'end' ? 1.8 : (kind === 'goal' ? 1.4 : 1.1)) * intensity);
 
-    setTimeout(function(){ try{ wrap.remove(); }catch(_){} }, 760);
+    // sound + shake
+    fanfare(kind);
+    shakeScreen();
+
+    // auto remove
+    setTimeout(()=>{ try{ wrap.remove(); }catch{} }, 1500);
   }
 
-  // ---------- Quest celebrates (keep your existing behavior) ----------
-  function celebrateQuestFX(kind, index, total, label) {
-    ensureLayer();
-    ensureStyles();
-    const cx = root.innerWidth / 2;
-    const cy = root.innerHeight * 0.5;
-
-    const k = String(kind || 'goal').toLowerCase();
-    const color = k === 'goal' ? '#22c55e' : '#38bdf8';
-    const title = (k === 'goal')
-      ? ('GOAL ' + index + '/' + total)
-      : ('MINI ' + index + '/' + total);
-
-    burstAt(cx, cy, { px:true, color: color, good: true, count: 32 });
-    scorePop(cx, cy, 'MISSION CLEAR!', { px:true, judgment: title, good: true });
-
-    if (label) {
-      const layer = ensureLayer();
-      const sub = doc.createElement('div');
-      sub.textContent = String(label);
-      Object.assign(sub.style, {
-        position: 'absolute',
-        left: '50%',
-        top: '60%',
-        transform: 'translate(-50%, -50%)',
-        padding: '6px 12px',
-        borderRadius: '999px',
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        fontSize: '13px',
-        fontWeight: '800',
-        color: '#e5e7eb',
-        background: 'rgba(2,6,23,0.88)',
-        border: '1px solid rgba(148,163,184,0.35)',
-        textShadow: '0 0 18px rgba(0,0,0,0.9)',
-        opacity: '0',
-        transition: 'opacity .25s ease-out, transform .25s ease-out',
-        maxWidth: '78vw',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        pointerEvents:'none'
-      });
-      layer.appendChild(sub);
-      requestAnimationFrame(function () {
-        sub.style.opacity = '1';
-        sub.style.transform = 'translate(-50%, -50%) translateY(-2px)';
-      });
-      setTimeout(function () {
-        sub.style.opacity = '0';
-        sub.style.transform = 'translate(-50%, -50%) translateY(-10px)';
-      }, 520);
-      setTimeout(function () {
-        if (sub.parentNode) sub.parentNode.removeChild(sub);
-      }, 820);
-    }
-  }
-
-  function celebrateAllQuestsFX(detail) {
-    ensureLayer();
-    ensureStyles();
-    const cx = root.innerWidth / 2;
-    const cy = root.innerHeight * 0.32;
-
-    const colors = ['#facc15', '#22c55e', '#38bdf8'];
-    colors.forEach(function (c, idx) {
-      setTimeout(function () {
-        burstAt(cx, cy, { px:true, color: c, good: true, count: 34 });
-      }, idx * 220);
-    });
-
-    const layer = ensureLayer();
-    const banner = doc.createElement('div');
-    banner.textContent = 'ALL QUESTS CLEAR! 🌟';
-    Object.assign(banner.style, {
-      position: 'absolute',
-      left: '50%',
-      top: '30%',
-      transform: 'translate(-50%, -50%) scale(0.88)',
-      padding: '10px 18px',
-      borderRadius: '999px',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: '18px',
-      fontWeight: '900',
-      letterSpacing: '.1em',
-      textTransform: 'uppercase',
-      color: '#fef3c7',
-      background:
-        'radial-gradient(circle at top left, rgba(250,250,250,0.18), transparent 55%), rgba(8,47,73,0.96)',
-      border: '2px solid rgba(250,204,21,0.85)',
-      textShadow: '0 0 22px rgba(0,0,0,0.9)',
-      boxShadow: '0 22px 60px rgba(15,23,42,0.95)',
-      opacity: '0',
-      transition: 'opacity .4s ease-out, transform .4s ease-out',
-      pointerEvents:'none'
-    });
-    layer.appendChild(banner);
-
-    requestAnimationFrame(function () {
-      banner.style.opacity = '1';
-      banner.style.transform = 'translate(-50%, -50%) scale(1)';
-    });
-    setTimeout(function () {
-      banner.style.opacity = '0';
-      banner.style.transform = 'translate(-50%, -50%) scale(0.94)';
-    }, 1100);
-    setTimeout(function () {
-      if (banner.parentNode) banner.parentNode.removeChild(banner);
-    }, 1500);
-  }
-
-  // keep your color mapper (used by old hha:judge hook)
-  function colorByLabel(label) {
-    label = String(label || '').toUpperCase();
-    if (label === 'GOOD' || label === 'PERFECT' || label === 'HIT') return { c:'#22c55e', g:true };
-    if (label === 'FEVER') return { c:'#facc15', g:true };
-    if (label === 'GOLD') return { c:'#facc15', g:true };
-    if (label === 'BOSS') return { c:'#38bdf8', g:true };
-    if (label === 'SLOW' || label === 'STREAK' || label === 'AVOID') return { c:'#a5b4fc', g:true };
-    if (label === 'BLOCK') return { c:'#60a5fa', g:true };
-    if (label === 'TRAP') return { c:'#fb7185', g:false };
-    return { c:'#f97316', g:false };
-  }
-
-  // ---------- Event listeners ----------
-  if (root && root.addEventListener) {
-    // NEW: preferred channel from engines (Plate uses this)
-    root.addEventListener('hha:fx', function(e){
-      try{
-        const d = e.detail || {};
-        if (d.x == null || d.y == null) return;
-        const type = String(d.type||'');
-        if (type === 'burst') burstAt(d.x, d.y, d);
-        else if (type === 'score') scorePop(d.x, d.y, d.text || '', Object.assign({}, d, { px:false }));
-        else if (type === 'judge') judgeAt(d.x, d.y, d.text || '', d);
-      }catch(_){}
-    });
-
-    // keep old: when someone emits hha:judge with x/y
-    root.addEventListener('hha:judge', function (e) {
-      try {
-        const d = e.detail || {};
-        const label = String(d.label || '').toUpperCase();
-        if (!label) return;
-
-        // if engine provides x/y: show sticker too
-        if (typeof d.x === 'number' && typeof d.y === 'number'){
-          judgeAt(d.x, d.y, label, { px:true, kind: (d.kind||'') });
-          return;
-        }
-
-        // otherwise keep only burst mapping (legacy)
-        const hasPos = (typeof d.x === 'number' && typeof d.y === 'number');
-        if (!hasPos) return;
-        const cc = colorByLabel(label);
-        burstAt(d.x, d.y, { px:true, color: cc.c, good: cc.g, count: cc.g ? 28 : 18, judgment: label });
-      } catch (_) {}
-    });
-
-    // quest celebrates (legacy)
-    root.addEventListener('quest:celebrate', function (e) {
-      try {
-        const d = e.detail || {};
-        celebrateQuestFX(d.kind || 'goal', (d.index || 0) | 0, (d.total || 0) | 0, d.label || '');
-      } catch (_) {}
-    });
-
-    root.addEventListener('quest:all-complete', function (e) {
-      try { celebrateAllQuestsFX((e && e.detail) || {}); } catch (_) {}
-    });
-
-    // hha:celebrate (legacy)
-    root.addEventListener('hha:celebrate', function (e) {
-      try {
-        const d = e.detail || {};
-        const type = String(d.type || d.kind || '').toLowerCase();
-        if (type === 'all') { celebrateAllQuestsFX(d); return; }
-        celebrateQuestFX(type || 'goal', (d.index || 0) | 0, (d.total || 0) | 0, d.label || '');
-      } catch (_) {}
-    });
-
-    root.addEventListener('hha:all-complete', function (e) {
-      try { celebrateAllQuestsFX((e && e.detail) || {}); } catch (_) {}
-    });
-  }
-
-  // ---------- API surface ----------
-  const api = {
-    scorePop: function(x, y, value, opts){
-      // keep old signature: expects pixels
-      return scorePop(x, y, value, Object.assign({ px:true }, opts||{}));
-    },
-    burstAt: function(x, y, opts){
-      return burstAt(x, y, Object.assign({ px:true }, opts||{}));
-    },
-    judgeAt: function(x, y, text, opts){
-      return judgeAt(x, y, text, Object.assign({ px:true }, opts||{}));
-    },
-    celebrateQuestFX,
-    celebrateAllQuestsFX,
-    screenShake,
-    pingSound
+  // -----------------------------
+  // Export
+  // -----------------------------
+  const API = {
+    scorePop,
+    burstAt,
+    toast,
+    celebrate
   };
 
-  root.Particles = api;
   root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = api;
+  root.GAME_MODULES.Particles = API;
+  root.Particles = API;
 
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
