@@ -1,12 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// - spawn targets via mode-factory (DOM)
+// - spawn targets via mode-factory (DOM) into #hvr-world
 // - water gauge (GREEN/LOW/HIGH)
 // - fever gauge + shield (via global FeverUI from ./vr/ui-fever.js)
 // - quest goal + mini quest (hydration.quest.js)
+// - LOOK: drag-to-look + gyro-to-look (permission button)
 // - HUD events: hha:score / hha:judge / quest:update / hha:coach / hha:time
-//
-// ✅ PATCH: Gyro/Drag "look" (parallax panning) — เป้าเลื่อนตามหมุน/ลากจอ (ไม่เกี่ยว scroll)
 
 'use strict';
 
@@ -14,7 +13,6 @@ import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import { createHydrationQuest } from './hydration.quest.js';
 
-// --------------------- Globals / helpers ---------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
 function clamp(v, min, max){
@@ -22,12 +20,10 @@ function clamp(v, min, max){
   return v < min ? min : (v > max ? max : v);
 }
 function $id(id){ return document.getElementById(id); }
-
 function dispatch(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
 }
 
-// FX layer (particles.js IIFE)
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
@@ -37,19 +33,16 @@ function getFeverUI(){
   return (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) || ROOT.FeverUI || null;
 }
 
-// --------------------- Tuning (เด็ก ป.5) ---------------------
+// --------------------- Tuning ---------------------
 const TUNE = {
-  // water balance move
   goodWaterPush:  +6,
   junkWaterPush:  -9,
   waterDriftPerSec: -0.8,
 
-  // scoring
   scoreGood:   18,
   scorePower:  28,
   scoreJunk:  -25,
 
-  // fever
   feverGainGood:  9,
   feverGainPower: 14,
   feverLoseJunk:  18,
@@ -58,20 +51,16 @@ const TUNE = {
   feverTriggerAt: 100,
   feverDurationSec: 6,
 
-  // shield
   shieldOnFeverStart: 2,
   shieldMax: 6,
 
-  // miss policy (concept)
   missOnGoodExpire: true,
 
-  // ✅ look / parallax
-  lookEnabled: true,
-  worldScale: 2.2,          // world ใหญ่กว่าจอ (2.0–2.6 แนะนำ)
-  lookStrengthPx: 260,      // ระยะเลื่อนสูงสุด (px)
-  lookSmooth: 0.14,         // 0.10–0.22
-  dragSensitivity: 0.85,    // ลากนิ้วเร็ว/ช้า
-  gyroSensitivity: 0.75     // gyro แรง/เบา
+  // look tuning (px)
+  lookMaxX: 280,
+  lookMaxY: 220,
+  lookPxPerDegX: 6.0,
+  lookPxPerDegY: 5.0
 };
 
 // --------------------- Main boot ---------------------
@@ -79,7 +68,6 @@ export async function boot(opts = {}) {
   const difficulty = String(opts.difficulty || 'easy').toLowerCase();
   const duration   = clamp(opts.duration ?? 90, 20, 180);
 
-  // --- bind HUD widgets ---
   ensureWaterGauge();
 
   const FeverUI = getFeverUI();
@@ -92,216 +80,174 @@ export async function boot(opts = {}) {
     console.warn('[HydrationVR] FeverUI not found or missing functions. Check: ./vr/ui-fever.js loaded before module.');
   }
 
-  // --- runtime state ---
   const state = {
     diff: difficulty,
     timeLeft: duration,
-
     score: 0,
     combo: 0,
     comboBest: 0,
     miss: 0,
 
-    // water gauge
     waterPct: 50,
     zone: 'GREEN',
     greenTick: 0,
 
-    // fever
     fever: 0,
     feverActive: false,
     feverLeft: 0,
     shield: 0
   };
 
-  // --- Quest deck ---
   const Q = createHydrationQuest(difficulty);
 
-  // --- host / playfield ---
   const playfield = $id('hvr-playfield') || null;
 
-  // expose instance (เผื่อ debug)
-  ROOT.HHA_ACTIVE_INST = {
-    stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} }
+  // ---------- ensure world container ----------
+  function ensureWorld(){
+    if (!playfield) return null;
+    let w = $id('hvr-world');
+    if (!w){
+      w = document.createElement('div');
+      w.id = 'hvr-world';
+      playfield.appendChild(w);
+    }
+    return w;
+  }
+  const world = ensureWorld();
+
+  // ---------- LOOK controller (drag + gyro) ----------
+  const look = {
+    enabled: true,
+    dragYaw: 0,
+    dragPitch: 0,
+    gyroYaw: 0,
+    gyroPitch: 0,
+    gyroOn: false,
+    _down: false,
+    _x: 0,
+    _y: 0,
+    _baseYaw: 0,
+    _basePitch: 0,
+    _handler: null
   };
 
-  // ==========================================================
-  //  ✅ Gyro/Drag LOOK (parallax) — ไม่เกี่ยว scroll
-  //  แนวคิด: playfield = viewport, world = ใหญ่กว่า viewport
-  //  แล้ว translate world ตาม gyro/drag → เป้าเลื่อนตามมุมมอง
-  // ==========================================================
-  let look = null;
+  function applyLook(){
+    if (!world) return;
 
-  function ensurePlayfieldWorld(){
-    if (!playfield) return null;
+    // รวม drag + gyro
+    const yaw = clamp(look.dragYaw + (look.gyroOn ? look.gyroYaw : 0), -45, 45);
+    const pitch = clamp(look.dragPitch + (look.gyroOn ? look.gyroPitch : 0), -35, 35);
 
-    // playfield ทำหน้าที่เป็น viewport (เต็มพื้นที่เกม)
-    playfield.style.position = playfield.style.position || 'relative';
-    playfield.style.overflow = 'hidden';
-    playfield.style.minHeight = playfield.style.minHeight || '60vh';
-    playfield.style.height = playfield.style.height || '60vh';
+    const tx = clamp(-yaw * TUNE.lookPxPerDegX, -TUNE.lookMaxX, TUNE.lookMaxX);
+    const ty = clamp(pitch * TUNE.lookPxPerDegY, -TUNE.lookMaxY, TUNE.lookMaxY);
 
-    // world (ใหญ่กว่า playfield)
-    let world = $id('hvr-world');
-    if (!world) {
-      world = document.createElement('div');
-      world.id = 'hvr-world';
-      world.setAttribute('data-hvr-world', '1');
-      playfield.appendChild(world);
-    }
-
-    const s = TUNE.worldScale;
-    Object.assign(world.style, {
-      position: 'absolute',
-      left: '50%',
-      top: '50%',
-      width: (s * 100) + '%',
-      height: (s * 100) + '%',
-      transform: 'translate(-50%,-50%)',
-      willChange: 'transform',
-      pointerEvents: 'none' // เป้าเองจะ pointer-events:auto (มาจาก mode-factory)
-    });
-
-    // ให้ target รับคลิกได้
-    // (mode-factory สร้าง .hvr-target pointer-events:auto อยู่แล้ว)
-    return world;
+    world.style.transform = `translate3d(${tx.toFixed(1)}px, ${ty.toFixed(1)}px, 0)`;
   }
 
-  function setupLookPan(worldEl){
-    if (!worldEl || !TUNE.lookEnabled) return null;
+  function bindDragLook(){
+    if (!playfield) return;
 
-    // state ของ look
-    const L = {
-      enabled: true,
-      yaw: 0, pitch: 0,           // input raw (normalized -1..1)
-      yawT: 0, pitchT: 0,         // target
-      yawS: 0, pitchS: 0,         // smoothed
-      dragging: false,
-      lastX: 0, lastY: 0,
-      raf: 0,
-      gyroOk: false,
-      baseAlpha: null,
-      baseBeta: null
-    };
+    // drag บน playfield ทั้งแผง
+    playfield.addEventListener('pointerdown', (e)=>{
+      // ถ้าโดนเป้าโดยตรง ให้เป้าไปเลย (ไม่เริ่ม look)
+      const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
+      if (t) return;
 
-    function apply(){
-      const maxPx = TUNE.lookStrengthPx;
-      const tx = clamp(L.yawS, -1, 1) * maxPx;
-      const ty = clamp(L.pitchS, -1, 1) * maxPx;
+      look._down = true;
+      look._x = e.clientX || 0;
+      look._y = e.clientY || 0;
+      look._baseYaw = look.dragYaw;
+      look._basePitch = look.dragPitch;
 
-      // translate แบบ center-based
-      worldEl.style.transform =
-        `translate(-50%,-50%) translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px)`;
+      try{ playfield.setPointerCapture && playfield.setPointerCapture(e.pointerId); }catch{}
+    }, { passive:true });
+
+    playfield.addEventListener('pointermove', (e)=>{
+      if (!look._down) return;
+
+      const cx = e.clientX || 0;
+      const cy = e.clientY || 0;
+      const dx = cx - look._x;
+      const dy = cy - look._y;
+
+      // ปรับให้เหมือนหันกล้อง: ลากขวา = มองขวา (yaw+)
+      look.dragYaw = clamp(look._baseYaw + dx * 0.06, -45, 45);
+      look.dragPitch = clamp(look._basePitch + dy * 0.06, -35, 35);
+
+      applyLook();
+    }, { passive:true });
+
+    function end(){
+      look._down = false;
     }
+    playfield.addEventListener('pointerup', end, { passive:true });
+    playfield.addEventListener('pointercancel', end, { passive:true });
 
-    function tick(){
-      if (!L.enabled) return;
-      const k = clamp(TUNE.lookSmooth, 0.05, 0.35);
+    // กัน resize / rotate
+    ROOT.addEventListener('resize', ()=>applyLook(), { passive:true });
+  }
 
-      // smooth towards target
-      L.yawS   = L.yawS   + (L.yawT   - L.yawS)   * k;
-      L.pitchS = L.pitchS + (L.pitchT - L.pitchS) * k;
+  async function enableGyro(){
+    // บางเครื่องต้องขอ permission (iOS/บาง Android)
+    try{
+      if (typeof DeviceOrientationEvent === 'undefined') return false;
 
-      apply();
-      L.raf = ROOT.requestAnimationFrame(tick);
-    }
-
-    // ---- Drag to look (แตะ/ลากที่ฉากว่าง ๆ) ----
-    function onDown(e){
-      // ไม่แย่งคลิกเป้า/ปุ่ม
-      if (e && e.target && e.target.closest && e.target.closest('.hvr-target,a,button,.hha-btn-vr')) return;
-
-      L.dragging = true;
-      L.lastX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX) || 0;
-      L.lastY = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY) || 0;
-    }
-    function onMove(e){
-      if (!L.dragging) return;
-
-      const x = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX) || 0;
-      const y = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY) || 0;
-      const dx = (x - L.lastX);
-      const dy = (y - L.lastY);
-      L.lastX = x; L.lastY = y;
-
-      const w = ROOT.innerWidth  || 360;
-      const h = ROOT.innerHeight || 640;
-
-      // dx/dy → target yaw/pitch
-      const sx = (dx / w) * 2 * TUNE.dragSensitivity;
-      const sy = (dy / h) * 2 * TUNE.dragSensitivity;
-
-      L.yawT   = clamp(L.yawT   + sx, -1, 1);
-      L.pitchT = clamp(L.pitchT + sy, -1, 1);
-    }
-    function onUp(){
-      L.dragging = false;
-    }
-
-    // ---- Gyro to look (deviceorientation) ----
-    function onOrient(ev){
-      // iOS ต้องขอ permission ในคลิกแรก (ถ้าคุณอยากเพิ่มทีหลังค่อยว่ากัน)
-      const a = Number(ev.alpha); // 0..360
-      const b = Number(ev.beta);  // -180..180
-      const g = Number(ev.gamma); // -90..90
-
-      if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(g)) return;
-
-      if (L.baseAlpha == null) { L.baseAlpha = a; L.baseBeta = b; }
-      L.gyroOk = true;
-
-      // yaw จาก gamma (เอียงซ้ายขวา), pitch จาก beta (ก้มเงย)
-      // normalize เป็น -1..1 โดยคร่าว ๆ
-      const yawN   = clamp((g / 35) * TUNE.gyroSensitivity, -1, 1);
-      const pitchN = clamp((b / 45) * TUNE.gyroSensitivity, -1, 1);
-
-      // รวมกับ drag (drag จะเป็นการ “เลื่อนเป้าหมาย” เพิ่ม)
-      // gyro จะคุม “แรงหลัก”
-      L.yawT   = clamp(yawN + (L.yawT * 0.35), -1, 1);
-      L.pitchT = clamp(pitchN + (L.pitchT * 0.35), -1, 1);
-    }
-
-    // bind
-    playfield.addEventListener('pointerdown', onDown, { passive:true });
-    playfield.addEventListener('pointermove', onMove, { passive:true });
-    playfield.addEventListener('pointerup', onUp, { passive:true });
-    playfield.addEventListener('pointercancel', onUp, { passive:true });
-    playfield.addEventListener('mouseleave', onUp, { passive:true });
-
-    // touch fallback
-    playfield.addEventListener('touchstart', onDown, { passive:true });
-    playfield.addEventListener('touchmove', onMove, { passive:true });
-    playfield.addEventListener('touchend', onUp, { passive:true });
-
-    ROOT.addEventListener('deviceorientation', onOrient, { passive:true });
-
-    // start loop
-    L.raf = ROOT.requestAnimationFrame(tick);
-
-    return {
-      stop(){
-        L.enabled = false;
-        try{ if (L.raf) ROOT.cancelAnimationFrame(L.raf); }catch{}
-        playfield.removeEventListener('pointerdown', onDown);
-        playfield.removeEventListener('pointermove', onMove);
-        playfield.removeEventListener('pointerup', onUp);
-        playfield.removeEventListener('pointercancel', onUp);
-        playfield.removeEventListener('mouseleave', onUp);
-
-        playfield.removeEventListener('touchstart', onDown);
-        playfield.removeEventListener('touchmove', onMove);
-        playfield.removeEventListener('touchend', onUp);
-
-        ROOT.removeEventListener('deviceorientation', onOrient);
+      // iOS permission
+      if (typeof DeviceOrientationEvent.requestPermission === 'function'){
+        const res = await DeviceOrientationEvent.requestPermission();
+        if (String(res).toLowerCase() !== 'granted') return false;
       }
-    };
+
+      // bind handler
+      if (look._handler) return true;
+
+      let lastA = null;
+      let lastB = null;
+
+      look._handler = (ev)=>{
+        // alpha: 0-360 (yaw around z), beta: -180..180 (front-back), gamma: -90..90 (left-right)
+        const a = Number(ev.alpha);
+        const b = Number(ev.beta);
+        const g = Number(ev.gamma);
+
+        if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(g)) return;
+
+        // ใช้ gamma เป็น yaw (หมุนซ้ายขวา), beta เป็น pitch (เงยก้ม)
+        // normalize smooth
+        if (lastA == null){ lastA = g; lastB = b; }
+
+        // simple smoothing
+        const sg = (g * 0.25) + (lastA * 0.75);
+        const sb = (b * 0.25) + (lastB * 0.75);
+        lastA = sg; lastB = sb;
+
+        look.gyroYaw = clamp(sg * 0.55, -30, 30);
+        look.gyroPitch = clamp(sb * 0.18, -25, 25);
+
+        look.gyroOn = true;
+        applyLook();
+      };
+
+      ROOT.addEventListener('deviceorientation', look._handler, true);
+
+      dispatch('hha:coach', { text:'🧭 เปิด Gyro แล้ว! หมุนเครื่องเพื่อเล็งได้เลย (ลากจอยังใช้ได้) 🎯', mood:'happy' });
+      return true;
+    }catch(err){
+      console.warn('[HydrationVR] enableGyro error', err);
+      return false;
+    }
   }
 
-  // สร้าง world + look
-  const world = ensurePlayfieldWorld();
-  look = setupLookPan(world);
+  bindDragLook();
+  applyLook();
 
-  // --------------------- HUD update helpers ---------------------
+  // expose instance
+  ROOT.HHA_ACTIVE_INST = {
+    stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} },
+    enableGyro
+  };
+
+  // --------------------- HUD helpers ---------------------
   function updateWaterHud(){
     const out = setWaterGauge(state.waterPct);
     state.zone = out.zone;
@@ -313,6 +259,7 @@ export async function boot(opts = {}) {
   function updateScoreHud(label){
     const goalsDone = Number($id('hha-goal-done')?.textContent || 0) || 0;
     const miniDone  = Number($id('hha-mini-done')?.textContent || 0) || 0;
+
     const prog = clamp((state.score / 1200) * 0.7 + (goalsDone/2) * 0.2 + (miniDone/3) * 0.1, 0, 1);
     const progPct = Math.round(prog * 100);
 
@@ -391,9 +338,9 @@ export async function boot(opts = {}) {
   function feverRender(){
     const F = getFeverUI();
     if (!F) return;
-    if (typeof F.setFever === 'function') F.setFever(state.fever);
-    if (typeof F.setFeverActive === 'function') F.setFeverActive(state.feverActive);
-    if (typeof F.setShield === 'function') F.setShield(state.shield);
+    try{ F.setFever && F.setFever(state.fever); }catch{}
+    try{ F.setFeverActive && F.setFeverActive(state.feverActive); }catch{}
+    try{ F.setShield && F.setShield(state.shield); }catch{}
   }
 
   function feverStart(){
@@ -405,6 +352,7 @@ export async function boot(opts = {}) {
 
     feverRender();
     dispatch('hha:fever', { state:'start', value: state.fever, active:true, shield: state.shield });
+
     dispatch('hha:coach', { text:'🔥 FEVER! แตะให้ไว คะแนนคูณ! +ได้เกราะด้วย 🛡️', mood:'happy' });
     try{ Particles.celebrate && Particles.celebrate('fever'); }catch{}
   }
@@ -431,14 +379,13 @@ export async function boot(opts = {}) {
     feverRender();
   }
 
-  // --------------------- Judge (hit logic) ---------------------
+  // --------------------- Judge ---------------------
   function judge(ch, ctx){
     const isGood = !!ctx.isGood;
     const isPower = !!ctx.isPower;
 
     let scoreDelta = 0;
     let label = 'GOOD';
-
     const mult = state.feverActive ? 2 : 1;
 
     if (isPower){
@@ -450,12 +397,11 @@ export async function boot(opts = {}) {
     } else {
       if (state.shield > 0){
         state.shield -= 1;
-        scoreDelta = 0;
         label = 'BLOCK';
         dispatch('hha:judge', { label:'BLOCK' });
         feverRender();
         updateScoreHud('BLOCK');
-        return { scoreDelta, label, good:false, blocked:true };
+        return { scoreDelta:0, label, good:false, blocked:true };
       }
       scoreDelta = TUNE.scoreJunk;
       label = 'JUNK';
@@ -492,12 +438,10 @@ export async function boot(opts = {}) {
     }catch{}
 
     dispatch('hha:judge', { label });
-
     updateQuestHud();
     return { scoreDelta, label, good: (isGood || isPower) };
   }
 
-  // --------------------- Expire (ของหลุด) ---------------------
   function onExpire(info){
     if (info && info.isGood && !info.isPower && TUNE.missOnGoodExpire){
       state.miss += 1;
@@ -509,31 +453,21 @@ export async function boot(opts = {}) {
     }
   }
 
-  // --------------------- Clock tick (GREEN tick ต้อง sync เข้า quest) ---------------------
+  // --------------------- Clock tick ---------------------
   let timer = null;
 
   function secondTick(){
     state.timeLeft = Math.max(0, state.timeLeft - 1);
     dispatch('hha:time', { sec: state.timeLeft });
 
-    // water drift
     state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec, 0, 100);
     updateWaterHud();
 
-    // ✅ GREEN tick counting + sync เข้า quest
     const z = zoneFrom(state.waterPct);
-    state.zone = z;
+    if (z === 'GREEN') state.greenTick += 1;
 
-    if (Q && Q.stats) Q.stats.zone = z;
-    if (z === 'GREEN'){
-      state.greenTick += 1;
-      if (Q && Q.stats) Q.stats.greenTick = (Q.stats.greenTick | 0) + 1;
-    }
-
-    // ให้ quest เดินเวลา (timeSec/secSinceJunk)
     Q.second();
 
-    // fever tick / decay
     if (state.feverActive){
       state.feverLeft -= 1;
       if (state.feverLeft <= 0) feverEnd();
@@ -555,8 +489,8 @@ export async function boot(opts = {}) {
     difficulty,
     duration,
 
-    // ✅ spawn ลง world ที่เลื่อนตาม gyro/drag
-    spawnHost: world ? '#hvr-world' : (playfield ? '#hvr-playfield' : null),
+    // ✅ spawn เข้า world ที่ขยับตาม look
+    spawnHost: '#hvr-world',
 
     pools: {
       good: ['💧','🥛','🍉','🥥','🍊'],
@@ -569,7 +503,6 @@ export async function boot(opts = {}) {
     powerEvery: 6,
 
     judge: (ch, ctx) => {
-      // power types:
       if (ctx.isPower && ch === '🛡️'){
         state.shield = clamp(state.shield + 1, 0, TUNE.shieldMax);
         feverRender();
@@ -587,16 +520,12 @@ export async function boot(opts = {}) {
     onExpire
   });
 
-  // init HUD
   updateWaterHud();
   updateQuestHud();
   updateScoreHud();
   feverRender();
-
-  // start timer
   timer = ROOT.setInterval(secondTick, 1000);
 
-  // stop cleanup
   const onStop = () => stop();
   ROOT.addEventListener('hha:stop', onStop);
 
@@ -604,11 +533,16 @@ export async function boot(opts = {}) {
     try{ if (timer) ROOT.clearInterval(timer); }catch{}
     timer = null;
 
-    try{ look && look.stop && look.stop(); }catch{}
-    look = null;
-
     try{ spawner && spawner.stop && spawner.stop(); }catch{}
     try{ ROOT.removeEventListener('hha:stop', onStop); }catch{}
+
+    // unbind gyro
+    try{
+      if (look._handler){
+        ROOT.removeEventListener('deviceorientation', look._handler, true);
+        look._handler = null;
+      }
+    }catch{}
 
     dispatch('hha:end', {
       score: state.score|0,
@@ -625,7 +559,7 @@ export async function boot(opts = {}) {
     if (Number.isFinite(sec) && sec <= 0) stop();
   }, { passive:true });
 
-  return { stop };
+  return { stop, enableGyro };
 }
 
 export default { boot };
