@@ -1,8 +1,8 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// ✅ PATCH: celebrate+reward per goal/mini + end summary payload
-// ✅ PATCH: “HEAVY CELEBRATION” (flash+shake+beep+multi celebrate)
-// ✅ PATCH: Storm Wave ทำให้ spawn ถี่ขึ้นจริง ผ่าน mode-factory spawnIntervalMul
+// ✅ FIX: greenTick นับจาก state.zone (case-safe)
+// ✅ FIX: update water header fill/status ให้ชัวร์
+// ✅ FIX: dispatch hha:score/hha:end ให้มี field มาตรฐาน (misses/comboMax)
 
 'use strict';
 
@@ -31,7 +31,7 @@ function getFeverUI(){
   return (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) || ROOT.FeverUI || null;
 }
 
-// --------------------- “HEAVY FX” (flash + shake + beep) ---------------------
+// --------------------- “HEAVY FX” ---------------------
 function flash(kind='good', ms=110){
   const el = $id('hvr-screen-blink');
   if (!el) return;
@@ -71,10 +71,10 @@ function beep(freq=880, dur=0.08, gain=0.07, type='sine'){
   }catch{}
 }
 function megaCelebrate(kind='goal'){
-  // เรียก celebrate ซ้ำ + flash+shake+vibrate+beep เป็นชั้น ๆ
   try{ Particles.celebrate && Particles.celebrate(kind); }catch{}
   try{ Particles.celebrate && Particles.celebrate(kind); }catch{}
   try{ Particles.celebrate && Particles.celebrate(kind); }catch{}
+
   if (kind === 'goal'){
     flash('good', 140);
     shake(3, 520);
@@ -110,7 +110,7 @@ function megaCelebrate(kind='goal'){
   }
 }
 
-// Inject small CSS for shake + storm banner (safe)
+// Inject CSS for shake + storm banner
 (function ensureFxCSS(){
   const id = 'hvr-heavyfx-style';
   if (!ROOT.document || ROOT.document.getElementById(id)) return;
@@ -210,7 +210,6 @@ const TUNE = {
 
   missOnGoodExpire: true,
 
-  // ✅ Rewards (จัดหนักขึ้นนิด)
   rewardGoalScore:  160,
   rewardMiniScore:  100,
   rewardGoalShield: 1,
@@ -252,9 +251,9 @@ export async function boot(opts = {}) {
     feverLeft: 0,
     shield: 0,
 
-    // ✅ Storm/Rush
     stormLeft: 0,
-    stormIntervalMul: 0.65, // ยิ่งต่ำยิ่งถี่ (คูณ interval)
+    stormIntervalMul: 0.65,
+
     rewards: { goalsCleared: 0, minisCleared: 0, bonuses: [] }
   };
 
@@ -276,9 +275,26 @@ export async function boot(opts = {}) {
     }
   }
 
+  function normalizeZone(z){
+    const Z = String(z || '').toUpperCase();
+    if (Z === 'GREEN' || Z === 'YELLOW' || Z === 'RED') return Z;
+    return 'GREEN';
+  }
+
   function updateWaterHud(){
-    const out = setWaterGauge(state.waterPct);
-    state.zone = out.zone;
+    // setWaterGauge อาจคืน zone แบบตัวพิมพ์เล็ก/ใหญ่ → normalize
+    let out = null;
+    try{ out = setWaterGauge(state.waterPct); }catch{}
+    const computed = normalizeZone(out?.zone || zoneFrom(state.waterPct));
+    state.zone = computed;
+
+    // ✅ อัปเดต header fill/status ให้ชัวร์ (กันกรณี ui-water ไม่แตะ DOM บางจุด)
+    const fillEl = $id('hha-water-fill');
+    if (fillEl) fillEl.style.width = clamp(state.waterPct,0,100).toFixed(1) + '%';
+
+    const statusEl = $id('hha-water-status');
+    if (statusEl) statusEl.textContent = `${state.zone} ${Math.round(state.waterPct)}%`;
+
     const ztxt = $id('hha-water-zone-text');
     if (ztxt) ztxt.textContent = state.zone;
   }
@@ -319,14 +335,20 @@ export async function boot(opts = {}) {
 
     dispatch('hha:score', {
       score: state.score|0,
+
+      // ✅ มาตรฐานร่วมเกมอื่น
       combo: state.combo|0,
       comboBest: state.comboBest|0,
+      comboMax: state.comboBest|0,
       miss: state.miss|0,
+      misses: state.miss|0,
+
       zone: state.zone,
       water: Math.round(state.waterPct),
       fever: Math.round(state.fever),
       feverActive: !!state.feverActive,
       shield: state.shield|0,
+
       label: label || '',
       grade,
       progPct,
@@ -345,13 +367,11 @@ export async function boot(opts = {}) {
     state.score = Math.max(0, (state.score + scoreAdd) | 0);
     state.shield = clamp(state.shield + TUNE.rewardGoalShield, 0, TUNE.shieldMax);
 
-    // ✅ เปิด Storm
     state.stormLeft = clamp(state.stormLeft + TUNE.rewardGoalStormSec, 0, 25);
     updateStormUI();
 
     state.rewards.bonuses.push(`🎯 GOAL +${scoreAdd} / 🛡️+${TUNE.rewardGoalShield} / 🌊Storm +${TUNE.rewardGoalStormSec}s`);
 
-    // ✅ HEAVY CELEBRATION
     megaCelebrate('goal');
     try{ Particles.toast && Particles.toast('🎉 GOAL CLEARED! โบนัสแต้ม+เกราะ+Storm Wave!'); }catch{}
     dispatch('hha:coach', { text:'🎉 ผ่าน GOAL แล้ว! ได้แต้ม + เกราะ 🛡️ และ STORM WAVE 🌊!', mood:'happy' });
@@ -412,13 +432,39 @@ export async function boot(opts = {}) {
     if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : `Goal: ทำภารกิจให้ครบ`;
     if (miniEl) miniEl.textContent = mInfo?.text ? `Mini: ${mInfo.text}` : `Mini: ทำมินิเควส`;
 
+    // ✅ ส่ง quest:update แบบ “รองรับของใหม่” + “รองรับของเดิม”
+    const goalTitle = (goalEl?.textContent || 'Goal').replace(/^Goal:\s*/i,'').trim();
+    const miniTitle = (miniEl?.textContent || 'Mini').replace(/^Mini:\s*/i,'').trim();
+
     dispatch('quest:update', {
+      // legacy
       goalDone: goalsDone,
       goalTotal: allGoals.length || 2,
       miniDone: minisDone,
       miniTotal: allMinis.length || 3,
       goalText: goalEl ? goalEl.textContent : '',
-      miniText: miniEl ? miniEl.textContent : ''
+      miniText: miniEl ? miniEl.textContent : '',
+
+      // Patch A-ish (เพื่อเล่นกับ HUD กลางได้)
+      goal: {
+        title: goalTitle,
+        cur: goalsDone,
+        max: (allGoals.length || 2),
+        pct: (allGoals.length ? (goalsDone / allGoals.length) : (goalsDone / 2)),
+        state: (goalsDone >= (allGoals.length || 2)) ? 'clear' : 'run'
+      },
+      mini: {
+        title: miniTitle,
+        cur: minisDone,
+        max: (allMinis.length || 3),
+        pct: (allMinis.length ? (minisDone / allMinis.length) : (minisDone / 3)),
+        state: (minisDone >= (allMinis.length || 3)) ? 'clear' : 'run'
+      },
+      meta: {
+        diff: state.diff,
+        goalsDone,
+        minisDone
+      }
     });
 
     updateScoreHud();
@@ -442,7 +488,6 @@ export async function boot(opts = {}) {
 
     feverRender();
     dispatch('hha:fever', { state:'start', value: state.fever, active:true, shield: state.shield });
-
     dispatch('hha:coach', { text:'🔥 FEVER! แตะให้ไว คะแนนคูณ! +ได้เกราะด้วย 🛡️', mood:'happy' });
     megaCelebrate('fever');
   }
@@ -570,17 +615,17 @@ export async function boot(opts = {}) {
     state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec, 0, 100);
     updateWaterHud();
 
-    if (zoneFrom(state.waterPct) === 'GREEN') state.greenTick += 1;
+    // ✅ FIX: นับจาก state.zone แบบ case-safe
+    if (String(state.zone).toUpperCase() === 'GREEN') state.greenTick += 1;
 
     Q.second();
 
-    // ✅ Storm tick + UI + sound tick
     if (state.stormLeft > 0) {
       state.stormLeft -= 1;
       updateStormUI();
 
       stormBeepEvery++;
-      if (stormBeepEvery % 2 === 0) beep(420, 0.05, 0.03, 'square'); // tick ๆ
+      if (stormBeepEvery % 2 === 0) beep(420, 0.05, 0.03, 'square');
       if (state.stormLeft === 0) {
         try{ Particles.toast && Particles.toast('🌊 Storm Wave จบแล้ว!'); }catch{}
       }
@@ -615,7 +660,6 @@ export async function boot(opts = {}) {
     powerRate: (difficulty === 'hard') ? 0.10 : 0.12,
     powerEvery: 6,
 
-    // ✅ ทำให้ spawn ถี่ขึ้น “จริง” (mode-factory รองรับแล้ว)
     spawnIntervalMul: () => (state.stormLeft > 0 ? state.stormIntervalMul : 1),
 
     judge: (ch, ctx) => {
@@ -635,7 +679,6 @@ export async function boot(opts = {}) {
         beep(660, 0.06, 0.05, 'triangle');
       }
       if (ctx.isPower && ch === '⭐'){
-        // ⭐ ให้ “แรง” เพิ่มนิด
         megaCelebrate('storm');
         try{ Particles.toast && Particles.toast('⭐ SUPER STAR! สายฟ้าแห่งแต้ม!'); }catch{}
       }
@@ -676,8 +719,13 @@ export async function boot(opts = {}) {
 
     dispatch('hha:end', {
       score: state.score|0,
+
+      // ✅ มาตรฐานร่วมเกมอื่น
       miss: state.miss|0,
+      misses: state.miss|0,
       comboBest: state.comboBest|0,
+      comboMax: state.comboBest|0,
+
       water: Math.round(state.waterPct),
       zone: state.zone,
       greenTick: state.greenTick|0,
