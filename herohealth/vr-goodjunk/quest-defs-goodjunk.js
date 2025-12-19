@@ -65,12 +65,13 @@ export const GOODJUNK_MINIS = [
 
   // B: Avoid / survival pressure
   {
-    id:'m3',
-    label:'No-Junk Zone: 10 วินาทีห้ามพลาด 🚫',
-    hint:'ไม่แตะ junk/fake และไม่ปล่อยของดีให้หลุด',
-    targetByDiff:{ easy:8, normal:10, hard:12 },
-    eval:(s)=> (s.safeSeconds|0),
-    pass:(v,tgt)=> v>=tgt
+   id:'m3',
+   label:'No-Junk Zone: 10 วินาทีห้ามพลาด 🚫',
+   hint:'ไม่แตะ junk/fake และไม่ปล่อยของดีให้หลุด',
+   targetByDiff:{ easy:8, normal:10, hard:12 },
+   // ✅ ใช้ตัวนับเฉพาะ mini นี้
+   eval:(s)=> (s.safeSecondsMini|0),
+   pass:(v,tgt)=> v>=tgt
   },
   {
     id:'m4',
