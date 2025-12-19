@@ -3,6 +3,11 @@
 // - sendBeacon first, fallback fetch(no-cors)
 // - collects: sessions[1], events[*], studentsProfile[0..1] (upsert on server)
 // - emits: hha:logger { ok:boolean, msg:string }
+//
+// ✅ PATCH (full):
+// 1) รองรับ durationPlannedSec จาก opts.durationSec ด้วย
+// 2) ฟัง hha:questStats เพื่อเติม goalsCleared/goalsTotal/miniCleared/miniTotal แบบ real-time
+// 3) กัน bind listener ซ้ำ (bindOnce) แต่ยัง re-init session ได้ทุกครั้ง
 
 'use strict';
 
@@ -23,6 +28,9 @@ let eventQueue = [];
 let profileRow = null;
 
 let lastScoreLogAt = 0;
+
+// ---- bind guard ----
+let __BOUND__ = false;
 
 function isoNow(){ return new Date().toISOString(); }
 function uuid(){
@@ -119,6 +127,7 @@ async function send(payload){
     }
   }
 
+  // fallback: Apps Script บางครั้งต้อง no-cors
   await fetch(CONFIG.endpoint, {
     method:'POST',
     mode:'no-cors',
@@ -189,6 +198,129 @@ function makeEventRow(eventType, detail){
   };
 }
 
+// ===== bind once (กัน event ซ้ำ) =====
+function bindOnce(){
+  if (__BOUND__) return;
+  __BOUND__ = true;
+
+  // ---------- listeners from all games ----------
+  window.addEventListener('hha:spawn', (e)=>{
+    const d = e.detail || {};
+    // นับ spawn ใน sessionRow
+    if (d.itemType === 'good') sessionRow.nTargetGoodSpawned++;
+    else if (d.itemType === 'junk') sessionRow.nTargetJunkSpawned++;
+    else if (d.itemType === 'star') sessionRow.nTargetStarSpawned++;
+    else if (d.itemType === 'diamond') sessionRow.nTargetDiamondSpawned++;
+    else if (d.itemType === 'shield') sessionRow.nTargetShieldSpawned++;
+
+    pushEvent(makeEventRow('spawn', d));
+  });
+
+  window.addEventListener('hha:hit', (e)=>{
+    const d = e.detail || {};
+    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nHitGood++;
+    if (d.itemType === 'junk') sessionRow.nHitJunk++;
+
+    pushEvent(makeEventRow('hit', d));
+  });
+
+  window.addEventListener('hha:block', (e)=>{
+    const d = e.detail || {};
+    sessionRow.nHitJunkGuard++;
+    pushEvent(makeEventRow('block', d));
+  });
+
+  window.addEventListener('hha:expire', (e)=>{
+    const d = e.detail || {};
+    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nExpireGood++;
+    pushEvent(makeEventRow('expire', d));
+  });
+
+  // hha:score (throttle) — เผื่อ debug/monitor
+  window.addEventListener('hha:score', (e)=>{
+    const t = Date.now();
+    if (t - lastScoreLogAt < 500) return;
+    lastScoreLogAt = t;
+
+    pushEvent(makeEventRow('score', {
+      ...((e && e.detail) || {}),
+      timeFromStartMs: t - sessionStartMs,
+      totalScore: (e.detail||{}).score,
+      combo: (e.detail||{}).combo
+    }));
+  });
+
+  window.addEventListener('quest:update', (e)=>{
+    const d = e.detail || {};
+    pushEvent(makeEventRow('quest', {
+      timeFromStartMs: Date.now() - sessionStartMs,
+      goalProgress: safeNum(d.goal?.prog),
+      miniProgress: safeNum(d.mini?.prog),
+      extra: d
+    }));
+  });
+
+  // ✅ NEW: questStats -> เติม sessions columns แบบ real-time
+  window.addEventListener('hha:questStats', (e)=>{
+    const s = (e && e.detail) || {};
+    if (s.goalsCleared != null) sessionRow.goalsCleared = safeNum(s.goalsCleared);
+    if (s.goalsTotal   != null) sessionRow.goalsTotal   = safeNum(s.goalsTotal);
+    if (s.miniCleared  != null) sessionRow.miniCleared  = safeNum(s.miniCleared);
+    if (s.miniTotal    != null) sessionRow.miniTotal    = safeNum(s.miniTotal);
+
+    pushEvent(makeEventRow('questStats', {
+      timeFromStartMs: Date.now() - sessionStartMs,
+      goalProgress: sessionRow.goalsCleared,
+      miniProgress: sessionRow.miniCleared,
+      extra: { ...s }
+    }));
+  });
+
+  window.addEventListener('hha:end', (e)=>{
+    const endTs = Date.now();
+    const endIso = isoNow();
+    const r = e.detail || {};
+
+    sessionRow.endTimeIso = endIso;
+    sessionRow.reason = safeStr(r.reason || '');
+
+    // durationPlayedSec
+    if (typeof r.durationSec === 'number' && typeof r.timeLeft === 'number' && r.durationSec > 0){
+      sessionRow.durationPlayedSec = safeNum(r.durationSec - r.timeLeft);
+    } else {
+      sessionRow.durationPlayedSec = safeNum((endTs - sessionStartMs) / 1000);
+    }
+
+    sessionRow.scoreFinal = safeNum(r.scoreFinal);
+    sessionRow.comboMax = safeNum(r.comboMax);
+    sessionRow.misses = safeNum(r.misses);
+
+    // ถ้าเกมส่ง goals/minis ผ่าน r.stats ให้เติม (overwrite ได้)
+    if (r.stats){
+      sessionRow.goalsCleared = safeNum(r.stats.goalsCleared);
+      sessionRow.goalsTotal   = safeNum(r.stats.goalsTotal);
+      sessionRow.miniCleared  = safeNum(r.stats.miniCleared);
+      sessionRow.miniTotal    = safeNum(r.stats.miniTotal);
+
+      // สถิติ accuracy / rt / fastHitRate ฯลฯ ถ้า engine คำนวณมาแล้ว
+      if (r.stats.accuracyGoodPct != null) sessionRow.accuracyGoodPct = safeNum(r.stats.accuracyGoodPct);
+      if (r.stats.junkErrorPct != null) sessionRow.junkErrorPct = safeNum(r.stats.junkErrorPct);
+      if (r.stats.avgRtGoodMs != null) sessionRow.avgRtGoodMs = safeNum(r.stats.avgRtGoodMs);
+      if (r.stats.medianRtGoodMs != null) sessionRow.medianRtGoodMs = safeNum(r.stats.medianRtGoodMs);
+      if (r.stats.fastHitRatePct != null) sessionRow.fastHitRatePct = safeNum(r.stats.fastHitRatePct);
+    }
+
+    pushEvent(makeEventRow('end', {
+      timeFromStartMs: endTs - sessionStartMs,
+      totalScore: safeNum(r.scoreFinal),
+      combo: safeNum(r.comboMax),
+      extra: r
+    }));
+
+    flush(true);
+  });
+}
+
 export function initCloudLogger(opts = {}){
   CONFIG = {
     endpoint: opts.endpoint || sessionStorage.getItem('HHA_LOG_ENDPOINT') || '',
@@ -196,6 +328,9 @@ export function initCloudLogger(opts = {}){
     debug: !!opts.debug,
     gameVersion: opts.gameVersion || 'v0'
   };
+
+  // ✅ bind listeners only once (but re-init state every time)
+  bindOnce();
 
   sessionId = uuid();
   sessionStartMs = Date.now();
@@ -217,7 +352,9 @@ export function initCloudLogger(opts = {}){
     sessionId,
     gameMode: safeStr(opts.mode || opts.gameMode || ''),
     diff: safeStr(opts.diff || ''),
-    durationPlannedSec: safeNum(opts.durationPlannedSec),
+
+    // ✅ PATCH: รองรับ durationPlannedSec จาก durationSec ด้วย
+    durationPlannedSec: safeNum(opts.durationPlannedSec ?? opts.durationSec),
     durationPlayedSec: null,
 
     scoreFinal: null,
@@ -228,7 +365,7 @@ export function initCloudLogger(opts = {}){
     miniCleared: null,
     miniTotal: null,
 
-    // counters — ให้เกมเติมตอนจบ (ส่งผ่าน hha:end)
+    // counters — ให้เกมยิง hha:spawn/hha:hit/hha:block/hha:expire
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
     nTargetStarSpawned: 0,
@@ -238,6 +375,7 @@ export function initCloudLogger(opts = {}){
     nHitJunk: 0,
     nHitJunkGuard: 0,
     nExpireGood: 0,
+
     accuracyGoodPct: null,
     junkErrorPct: null,
     avgRtGoodMs: null,
@@ -280,8 +418,9 @@ export function initCloudLogger(opts = {}){
 
   // --- students-profile row (upsert server) ---
   if (prof.studentKey){
+    const nowIso = isoNow();
     profileRow = {
-      timestampIso: isoNow(),
+      timestampIso: nowIso,
       projectTag: CONFIG.projectTag,
       runMode,
       studentKey: prof.studentKey,
@@ -304,8 +443,8 @@ export function initCloudLogger(opts = {}){
       healthDetail: prof.healthDetail,
       consentParent: prof.consentParent,
       consentTeacher: prof.consentTeacher,
-      createdAtIso: isoNow(),
-      updatedAtIso: isoNow(),
+      createdAtIso: nowIso,
+      updatedAtIso: nowIso,
       source: prof.profileSource || 'hub'
     };
   } else {
@@ -314,112 +453,7 @@ export function initCloudLogger(opts = {}){
 
   emitLogger(true, 'logger: ready');
 
-  // ---------- listeners from all games ----------
-  window.addEventListener('hha:spawn', (e)=>{
-    const d = e.detail || {};
-    // นับ spawn ใน sessionRow
-    if (d.itemType === 'good') sessionRow.nTargetGoodSpawned++;
-    else if (d.itemType === 'junk') sessionRow.nTargetJunkSpawned++;
-    else if (d.itemType === 'star') sessionRow.nTargetStarSpawned++;
-    else if (d.itemType === 'diamond') sessionRow.nTargetDiamondSpawned++;
-    else if (d.itemType === 'shield') sessionRow.nTargetShieldSpawned++;
-
-    pushEvent(makeEventRow('spawn', d));
-  });
-
-  window.addEventListener('hha:hit', (e)=>{
-    const d = e.detail || {};
-    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nHitGood++;
-    if (d.itemType === 'junk') sessionRow.nHitJunk++;
-
-    // เก็บ rt เฉพาะ good
-    if (typeof d.rtMs === 'number' && (d.itemType === 'good' || d.itemType === 'gold')){
-      // เก็บไว้ใน extra เพื่อคำนวณตอน end (หรือคำนวณใน engine แล้วส่งมาเลยก็ได้)
-      // ที่นี่จะ push event ดิบไว้ก่อน
-    }
-    pushEvent(makeEventRow('hit', d));
-  });
-
-  window.addEventListener('hha:block', (e)=>{
-    const d = e.detail || {};
-    sessionRow.nHitJunkGuard++;
-    pushEvent(makeEventRow('block', d));
-  });
-
-  window.addEventListener('hha:expire', (e)=>{
-    const d = e.detail || {};
-    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nExpireGood++;
-    pushEvent(makeEventRow('expire', d));
-  });
-
-  // hha:score (throttle) — เผื่อ debug/monitor
-  window.addEventListener('hha:score', (e)=>{
-    const t = Date.now();
-    if (t - lastScoreLogAt < 500) return;
-    lastScoreLogAt = t;
-    pushEvent(makeEventRow('score', {
-      ...((e && e.detail) || {}),
-      timeFromStartMs: t - sessionStartMs,
-      totalScore: (e.detail||{}).score,
-      combo: (e.detail||{}).combo
-    }));
-  });
-
-  window.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
-    pushEvent(makeEventRow('quest', {
-      timeFromStartMs: Date.now() - sessionStartMs,
-      goalProgress: safeNum(d.goal?.prog),
-      miniProgress: safeNum(d.mini?.prog),
-      extra: d
-    }));
-  });
-
-  window.addEventListener('hha:end', (e)=>{
-    const endTs = Date.now();
-    const endIso = isoNow();
-    const r = e.detail || {};
-
-    sessionRow.endTimeIso = endIso;
-    sessionRow.reason = safeStr(r.reason || '');
-
-    // durationPlayedSec
-    if (typeof r.durationSec === 'number' && typeof r.timeLeft === 'number' && r.durationSec > 0){
-      sessionRow.durationPlayedSec = safeNum(r.durationSec - r.timeLeft);
-    } else {
-      sessionRow.durationPlayedSec = safeNum((endTs - sessionStartMs) / 1000);
-    }
-
-    sessionRow.scoreFinal = safeNum(r.scoreFinal);
-    sessionRow.comboMax = safeNum(r.comboMax);
-    sessionRow.misses = safeNum(r.misses);
-
-    // ถ้าเกมส่ง goals/minis ผ่าน r.stats ให้เติม
-    if (r.stats){
-      sessionRow.goalsCleared = safeNum(r.stats.goalsCleared);
-      sessionRow.goalsTotal   = safeNum(r.stats.goalsTotal);
-      sessionRow.miniCleared  = safeNum(r.stats.miniCleared);
-      sessionRow.miniTotal    = safeNum(r.stats.miniTotal);
-
-      // สถิติ accuracy / rt / fastHitRate ฯลฯ ถ้า engine คำนวณมาแล้ว
-      if (r.stats.accuracyGoodPct != null) sessionRow.accuracyGoodPct = safeNum(r.stats.accuracyGoodPct);
-      if (r.stats.junkErrorPct != null) sessionRow.junkErrorPct = safeNum(r.stats.junkErrorPct);
-      if (r.stats.avgRtGoodMs != null) sessionRow.avgRtGoodMs = safeNum(r.stats.avgRtGoodMs);
-      if (r.stats.medianRtGoodMs != null) sessionRow.medianRtGoodMs = safeNum(r.stats.medianRtGoodMs);
-      if (r.stats.fastHitRatePct != null) sessionRow.fastHitRatePct = safeNum(r.stats.fastHitRatePct);
-    }
-
-    pushEvent(makeEventRow('end', {
-      timeFromStartMs: endTs - sessionStartMs,
-      totalScore: safeNum(r.scoreFinal),
-      combo: safeNum(r.comboMax),
-      extra: r
-    }));
-
-    flush(true);
-  });
-
-  // ส่ง start 1 event
+  // ส่ง start 1 event (ของ session นี้)
   pushEvent(makeEventRow('start', { timeFromStartMs: 0, extra:{ startedAtIso: sessionStartIso }}));
   flush(false);
 }
