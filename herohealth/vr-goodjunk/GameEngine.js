@@ -1,10 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (HYPER v3.2)
-// ✅ spawn/hit/block/expire events for logger
-// ✅ quest:badHit for fair No-Junk Zone
-// ✅ targetId + rtMs
-// ✅ side objects beside hit target (Particles.objPop) + streak specials
-// ✅ “คำโผล่” แบบ ป.5 + แยกสีตามชนิด (ผ่าน prefix ใน Particles.scorePop)
+// Good vs Junk VR — DOM Emoji Engine (HYPER v3.3)
+// ✅ “คำโผล่” GOOD=คำเชียร์เท่านั้น / JUNK=คำเตือนแบบไม่แรง (สุ่มหลายคำ/ชนิด)
+// ✅ object ข้างเป้าอิงชนิดอาหารจริง + side objects + color-by-kind prefix (Particles.scorePop)
 
 'use strict';
 
@@ -73,7 +70,7 @@
   const makeId = ()=> `${Date.now()}-${(++idSeq)}`;
 
   // -----------------------------
-  // NEW: Food type mapping (จริง ๆ)
+  // Food type mapping (จริง ๆ)
   // -----------------------------
   const FOOD_ALL = [...GOOD, ...JUNK];
   const FOOD_KIND = {
@@ -101,12 +98,57 @@
     }
     return null;
   }
-
   function foodInfoFromTarget(t){
     const baseFood = extractBaseFoodEmoji(t && t.emoji);
     const info = baseFood ? FOOD_KIND[baseFood] : null;
     return { baseFood, info };
   }
+
+  // -----------------------------
+  // Helpers (สุ่มคำ)
+  // -----------------------------
+  function pickOne(arr, fallback){
+    if (!Array.isArray(arr) || !arr.length) return fallback || '';
+    return arr[(Math.random() * arr.length) | 0];
+  }
+
+  // ✅ คำเชียร์ (GOOD เท่านั้น) — แยกตามชนิด
+  const WORD_GOOD_GENERIC = [
+    'เก่งมาก!', 'เยี่ยมเลย!', 'สุดยอด!', 'ดีมาก!', 'ไปต่อ!', 'แชมป์!', 'ไหวอยู่!', 'เทพมาก!'
+  ];
+  const WORD_GOOD_FRUIT = [
+    'ผลไม้ดีจัง!', 'สดชื่น!', 'วิตามินมา!', 'เก่งมาก!', 'เลือกถูกแล้ว!', 'ผลไม้ปัง!'
+  ];
+  const WORD_GOOD_VEG = [
+    'ผักเก่ง!', 'แข็งแรง!', 'พลังผัก!', 'สุดยอด!', 'ผักช่วยโต!', 'ผักปัง!'
+  ];
+  const WORD_GOOD_DAIRY = [
+    'นมดี!', 'กระดูกแข็งแรง!', 'แคลเซียมมา!', 'เยี่ยม!', 'นมปัง!', 'โตไว!'
+  ];
+
+  // ✅ คำเตือนแบบไม่แรง (JUNK) — แยกตามชนิด
+  const WORD_JUNK_GENERIC = [
+    'เบาๆ น้า~', 'อันนี้ไม่เอาน้า~', 'พลาดนิดนึง!', 'ลองใหม่!', 'ระวังนะ~', 'ข้ามไปก่อน!'
+  ];
+  const WORD_JUNK_SWEET = [
+    'หวานไปนิด~', 'น้ำตาลเยอะ~', 'ฟันจะงอแง~', 'พอแล้วน้า~', 'ค่อยๆ นะ~'
+  ];
+  const WORD_JUNK_SODA = [
+    'น้ำหวานเยอะ~', 'ดื่มน้ำนะ~', 'หวานจี๊ด~', 'พักก่อน~', 'เลือกน้ำเปล่าดีกว่า~'
+  ];
+  const WORD_JUNK_FRIED = [
+    'มันไปนิด~', 'ทอดเยอะ~', 'พอแล้วน้า~', 'เลือกของดีดีกว่า~', 'ระวังนะ~'
+  ];
+
+  // (ยังคงคำสำหรับชนิดอื่น ๆ)
+  const WORD_FAKE = ['หลอกนะ!', 'แอบหลอก!', 'อย่าโดนหลอก~', 'ตาไวๆ!', 'ดูดีๆ!'];
+  const WORD_BLOCK = ['กันได้!', 'โล่ช่วย!', 'ปลอดภัย!', 'บล็อกแล้ว!', 'รอดแล้ว!'];
+  const WORD_GOLD = ['โบนัส!', 'แจ็กพอต!', 'ว้าว!', 'เก่งสุด!', 'ของพิเศษ!'];
+  const WORD_POWER_SHIELD = ['โล่มา!', 'กันได้!', 'โล่ป้องกัน!', 'ปลอดภัย!'];
+  const WORD_POWER_MAGNET = ['ดูดๆ!', 'มาเลย!', 'เก็บให้หมด!', 'ดูดเข้ามา!'];
+  const WORD_POWER_TIME = ['เวลา+!', 'ต่อเวลา!', 'ยังทัน!', 'เพิ่มเวลา!'];
+  const WORD_POWER_FEVER = ['ไฟลุก!', 'โหมดไฟ!', 'เร็วๆ!', 'คูณคะแนน!'];
+  const WORD_BOSS = ['บอส!', 'สู้ๆ!', 'ตีบอส!', 'เอาชนะ!', 'ไปเลย!'];
 
   // -----------------------------
   // Side objects + word pops
@@ -126,7 +168,6 @@
   function objPairForFood(kind, baseFood, info, power){
     const K = String(kind||'').toLowerCase();
 
-    // power objects
     if (K === 'power'){
       if (power === 'shield') return ['🛡️','✨'];
       if (power === 'magnet') return ['🧲','🧷'];
@@ -135,11 +176,9 @@
       return ['⚡','✨'];
     }
 
-    // boss/block/fake/junk/good/gold with food type
     if (K === 'block') return ['🛡️','✨'];
     if (K === 'boss')  return ['👑','💥'];
 
-    // fake = “หลอก” อิงชนิดอาหารเดิม (baseFood) ถ้ามี
     if (K === 'fake'){
       if (info && info.cat === 'fruit') return ['🌀','🍎'];
       if (info && info.cat === 'veg')   return ['🌀','🥦'];
@@ -154,49 +193,50 @@
       return ['🗑️','💥'];
     }
 
-    // good / gold
     if (K === 'gold'){
-      // “โบนัส” แต่ยังอิงอาหารจริงด้วย
       if (info && info.cat === 'fruit') return ['🪙','🍃'];
       if (info && info.cat === 'veg')   return ['🪙','🌱'];
       if (info && info.cat === 'dairy') return ['🪙','🦴'];
       return ['🪙','✨'];
     }
 
-    // good
-    if (info && info.cat === 'fruit') return ['🍃','💧'];     // สดชื่น
-    if (info && info.cat === 'veg')   return ['🌱','💪'];     // แข็งแรง
-    if (info && info.cat === 'dairy') return ['🦴','✨'];     // กระดูกดี
+    if (info && info.cat === 'fruit') return ['🍃','💧'];
+    if (info && info.cat === 'veg')   return ['🌱','💪'];
+    if (info && info.cat === 'dairy') return ['🦴','✨'];
     return [baseFood || '🥦','✨'];
   }
 
+  // ✅ NEW: คำโผล่ “สุ่มหลายคำ” + GOOD เชียร์ / JUNK เตือนเบา
   function p5WordFor(kind, baseFood, info, power, streakNow){
     const K = String(kind||'').toLowerCase();
-    const s = (streakNow|0);
 
+    // power
     if (K === 'power'){
-      if (power === 'shield') return 'โล่มา!';
-      if (power === 'magnet') return 'ดูดๆ!';
-      if (power === 'time')   return 'เวลา+';
-      if (power === 'fever')  return 'ไฟลุก!';
+      if (power === 'shield') return pickOne(WORD_POWER_SHIELD, 'โล่มา!');
+      if (power === 'magnet') return pickOne(WORD_POWER_MAGNET, 'ดูดๆ!');
+      if (power === 'time')   return pickOne(WORD_POWER_TIME, 'เวลา+!');
+      if (power === 'fever')  return pickOne(WORD_POWER_FEVER, 'ไฟลุก!');
       return 'พลัง!';
     }
-    if (K === 'block') return 'กันได้!';
-    if (K === 'boss')  return 'บอส!';
-    if (K === 'fake')  return 'หลอกนะ!';
-    if (K === 'junk'){
-      if (info && info.cat === 'sweet') return 'หวานจัด!';
-      if (info && info.cat === 'soda')  return 'น้ำหวาน!';
-      if (info && info.cat === 'fried') return 'ของทอด!';
-      return 'ไม่ดีนะ!';
-    }
-    if (K === 'gold') return 'โบนัส!';
 
-    // good
-    if (info && info.cat === 'fruit') return (s>=10 ? 'ผลไม้สุด!' : 'ผลไม้!');
-    if (info && info.cat === 'veg')   return (s>=10 ? 'ผักเทพ!'  : 'ผัก!');
-    if (info && info.cat === 'dairy') return (s>=10 ? 'นมปัง!'   : 'นม!');
-    return (s>=10 ? 'สุดยอด!' : 'เก่งมาก!');
+    if (K === 'block') return pickOne(WORD_BLOCK, 'กันได้!');
+    if (K === 'boss')  return pickOne(WORD_BOSS, 'บอส!');
+    if (K === 'fake')  return pickOne(WORD_FAKE, 'หลอกนะ!');
+    if (K === 'gold')  return pickOne(WORD_GOLD, 'โบนัส!');
+
+    // ✅ JUNK = เตือนแบบไม่แรง
+    if (K === 'junk'){
+      if (info && info.cat === 'sweet') return pickOne(WORD_JUNK_SWEET, 'หวานไปนิด~');
+      if (info && info.cat === 'soda')  return pickOne(WORD_JUNK_SODA,  'น้ำหวานเยอะ~');
+      if (info && info.cat === 'fried') return pickOne(WORD_JUNK_FRIED, 'มันไปนิด~');
+      return pickOne(WORD_JUNK_GENERIC, 'เบาๆ น้า~');
+    }
+
+    // ✅ GOOD = เชียร์เท่านั้น
+    if (info && info.cat === 'fruit') return pickOne(WORD_GOOD_FRUIT, 'ผลไม้ดีจัง!');
+    if (info && info.cat === 'veg')   return pickOne(WORD_GOOD_VEG,   'ผักเก่ง!');
+    if (info && info.cat === 'dairy') return pickOne(WORD_GOOD_DAIRY, 'นมดี!');
+    return pickOne(WORD_GOOD_GENERIC, 'เก่งมาก!');
   }
 
   function sideObjectsOnHit(t, x, y, kind, streakNow){
@@ -205,7 +245,6 @@
     const { baseFood, info } = foodInfoFromTarget(t);
     const s = (streakNow|0);
 
-    // จำนวนชิ้น (สุ่ม 1–2 ชิ้น + milestone เพิ่มความพิเศษ)
     let count = 2;
     if (String(kind) === 'gold') count = 2;
     if (String(kind) === 'boss') count = 2;
@@ -214,16 +253,12 @@
     const special = pickStreakSpecial(s);
     const pair = objPairForFood(kind, baseFood, info, t && t.power);
 
-    // วางซ้าย/ขวา
     const n = Math.max(1, Math.min(2, count));
     for (let i=0;i<n;i++){
       let emo = pair[i] || '✨';
-
-      // แทรก special ให้ดู “ของพิเศษตาม streak”
       if (i === 1 && special && (kind === 'good' || kind === 'gold') && Math.random() < 0.75){
         emo = special;
       }
-
       Particles.objPop(x, y, emo, {
         side: (i===0 ? 'left' : 'right'),
         size: (kind === 'gold' || kind === 'boss') ? 26 :
@@ -231,9 +266,9 @@
       });
     }
 
-    // ✅ “คำโผล่” แยกสีตามชนิด (ผ่าน prefix)
+    // ✅ “คำโผล่” แยกสีตามชนิดด้วย prefix
     if (Particles && typeof Particles.scorePop === 'function'){
-      const K =
+      const TAG =
         (kind === 'good')  ? 'GOOD' :
         (kind === 'gold')  ? 'GOLD' :
         (kind === 'junk')  ? 'JUNK' :
@@ -243,7 +278,7 @@
         (kind === 'power') ? 'POWER' : 'GOOD';
 
       const word = p5WordFor(kind, baseFood, info, t && t.power, s);
-      Particles.scorePop(x, y - 14, '', `[${K}] ${word}`, { plain:true });
+      Particles.scorePop(x, y - 14, '', `[${TAG}] ${word}`, { plain:true });
     }
   }
 
@@ -559,7 +594,7 @@
 
       sideObjectsOnHit(t, x, y, 'boss', combo);
 
-      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'HIT!','[BOSS] บอส!',{ plain:true });
+      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[BOSS] '+pickOne(WORD_BOSS,'บอส!'),{ plain:true });
       emitJudge('BOSS HIT!');
       emitHit(t, 'BOSS_HIT', rtMs, { hp: t.hp });
 
@@ -603,7 +638,6 @@
       if (t.power === 'shield'){
         shieldUntil = now() + 5000;
         emitJudge('SHIELD ON!');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[POWER] โล่มา!',{ plain:true });
         emitHit(t, 'POWER_SHIELD', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'shield' } }));
@@ -612,7 +646,6 @@
       if (t.power === 'magnet'){
         magnetUntil = now() + 4000;
         emitJudge('MAGNET!');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[POWER] ดูดๆ!',{ plain:true });
         emitHit(t, 'POWER_MAGNET', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'magnet' } }));
@@ -624,7 +657,6 @@
           emitTime();
         }
         emitJudge('TIME +3!');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[POWER] เวลา+',{ plain:true });
         emitHit(t, 'POWER_TIME', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'time' } }));
@@ -633,7 +665,6 @@
       if (t.power === 'fever'){
         feverAdd(22);
         emitJudge('FEVER+');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[POWER] ไฟลุก!',{ plain:true });
         emitHit(t, 'POWER_FEVER', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'fever' } }));
@@ -659,8 +690,6 @@
       feverReduce(18);
 
       sideObjectsOnHit(t, x, y, 'fake', combo);
-
-      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[FAKE] หลอกนะ!',{ plain:true });
 
       emitHit(t, 'HIT_FAKE', rtMs);
       emitScore();
@@ -689,8 +718,6 @@
       feverReduce(12);
 
       sideObjectsOnHit(t, x, y, 'junk', combo);
-
-      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[JUNK] ไม่ดีนะ!',{ plain:true });
 
       emitHit(t, 'HIT_JUNK', rtMs);
       emitScore();
@@ -727,7 +754,8 @@
     score += add;
 
     if (Particles && typeof Particles.scorePop === 'function'){
-      Particles.scorePop(x, y, '+' + add, (t.type === 'gold') ? '[GOLD] โบนัส!' : '[GOOD] เก่งมาก!', { plain:false });
+      // ✅ ให้คะแนนขึ้นตามเดิม + สีแยกด้วย prefix
+      Particles.scorePop(x, y, '+' + add, (t.type === 'gold') ? '[GOLD] '+pickOne(WORD_GOLD,'โบนัส!') : '[GOOD] '+pickOne(WORD_GOOD_GENERIC,'เก่งมาก!'));
     }
     if (Particles && typeof Particles.burstAt === 'function'){
       if (t.type === 'gold') Particles.burstAt(x,y,'GOLD');
