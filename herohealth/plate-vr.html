@@ -44,71 +44,16 @@
       inset:0;
     }
 
-    /* ===== TARGET LAYER (DOM overlay) ===== */
-    #plate-layer{
-      position:fixed;
-      inset:0;
-      z-index:649;              /* below HUD (650), above A-Frame */
-      pointer-events:none;
-    }
-
-    .p-target{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      pointer-events:auto;
-      user-select:none;
-      -webkit-user-select:none;
-      touch-action:manipulation;
-
-      font-size:clamp(44px, 9vw, 74px);
-      line-height:1;
-      padding:10px 12px;
-      border-radius:999px;
-
-      background: rgba(15,23,42,0.55);
-      border:1px solid rgba(148,163,184,0.25);
-      box-shadow: 0 18px 40px rgba(0,0,0,0.45);
-      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.35));
-
-      opacity:0;
-      animation: p-pop-in .12s ease-out forwards;
-      will-change: transform, opacity, left, top;
-    }
-
-    .p-target.good{
-      border-color: rgba(34,197,94,0.35);
-      background: radial-gradient(circle at top left, rgba(34,197,94,0.14), transparent 55%),
-                  rgba(15,23,42,0.62);
-    }
-    .p-target.junk{
-      border-color: rgba(249,115,22,0.35);
-      background: radial-gradient(circle at top left, rgba(249,115,22,0.18), transparent 55%),
-                  rgba(15,23,42,0.62);
-    }
-
-    .p-target.hit{
-      animation: p-hit .12s ease-out forwards;
-    }
-
-    @keyframes p-pop-in{
-      from{ transform:translate(-50%,-50%) scale(0.7); opacity:0; }
-      to{ transform:translate(-50%,-50%) scale(1); opacity:1; }
-    }
-    @keyframes p-hit{
-      from{ transform:translate(-50%,-50%) scale(1); opacity:1; }
-      to{ transform:translate(-50%,-50%) scale(0.65); opacity:0; }
-    }
-
     /* ===== HUD ===== */
     .hud-root{
       position:fixed;
       inset:0;
-      pointer-events:none;
       z-index:650;
       display:flex;
       flex-direction:column;
       justify-content:space-between;
       padding:10px 10px 14px;
+      pointer-events:none; /* สำคัญ: HUD ไม่บังคลิกเป้า */
     }
 
     .hud-top{
@@ -124,7 +69,7 @@
       padding:8px 10px;
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
-      pointer-events:auto;
+      pointer-events:none; /* ✅ กันทับ */
     }
 
     .hud-main{
@@ -218,30 +163,6 @@
     }
     .quest-main-label{ font-size:13px; font-weight:800; }
     .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
-    .quest-progress-wrap{ margin-top:6px; display:flex; flex-direction:column; gap:6px; }
-    .quest-bar{
-      position:relative;
-      width:100%;
-      height:4px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.9);
-      overflow:hidden;
-      border:1px solid rgba(148,163,184,0.14);
-    }
-    .quest-bar-fill{
-      position:absolute;
-      inset:0;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg, var(--accent-soft), var(--accent));
-      transition:width .18s ease-out;
-    }
-    .quest-caption{
-      font-size:10px;
-      color:var(--text-soft);
-      display:flex;
-      justify-content:space-between;
-    }
 
     /* Bottom info */
     .hud-bottom{
@@ -257,18 +178,22 @@
       padding:10px 12px;
       border:1px solid rgba(148,163,184,0.18);
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
-      pointer-events:auto;
+      pointer-events:none; /* ✅ กันทับ */
     }
     .muted{ color:var(--text-soft); font-size:12px; }
 
-    .vr-btn{
+    /* ปุ่ม = กดได้ */
+    .vr-btn, .primary-btn, .end-btn, .end-btn-primary{
       pointer-events:auto;
+      cursor:pointer;
+    }
+
+    .vr-btn{
       border-radius:999px;
       border:1px solid rgba(56,189,248,0.7);
       padding:10px 14px;
       font-size:12px;
       font-weight:800;
-      cursor:pointer;
       background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%),
                  rgba(15,23,42,0.96);
       color:#e0f2fe;
@@ -277,101 +202,55 @@
       gap:8px;
       box-shadow:0 14px 30px rgba(15,23,42,0.9);
     }
-    .vr-btn:hover{
-      background:radial-gradient(circle at top left, rgba(56,189,248,0.5), transparent 55%),
-                 rgba(15,23,42,1);
-    }
-
     .primary-btn{
-      pointer-events:auto;
       border-radius:999px;
       border:1px solid rgba(187,247,208,0.9);
       padding:10px 14px;
       font-size:12px;
       font-weight:900;
-      cursor:pointer;
       background:linear-gradient(135deg,#22c55e,#16a34a);
       color:#052e16;
       box-shadow:0 14px 30px rgba(15,23,42,0.9);
     }
-    .primary-btn:hover{ background:linear-gradient(135deg,#4ade80,#22c55e); }
 
-    /* Reticle */
-    .reticle-progress{
-      position: fixed;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%,-50%);
-      width: 44px;
-      height: 44px;
-      border-radius: 999px;
-      z-index: 652;
-      pointer-events: none;
-      display: none;
-      filter: drop-shadow(0 0 10px rgba(0,0,0,0.55));
-    }
-    .reticle-progress.show{ display:block; }
-    .reticle-progress .rp-ring{
-      position:absolute;
-      inset:0;
-      border-radius:999px;
-      background: conic-gradient(var(--rp-color, #38bdf8) 0deg, rgba(255,255,255,0.12) 0deg);
-      mask: radial-gradient(circle, transparent 58%, #000 59%);
-      -webkit-mask: radial-gradient(circle, transparent 58%, #000 59%);
-      border:1px solid rgba(255,255,255,0.22);
-    }
-    .reticle-progress .rp-dot{
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform: translate(-50%,-50%);
-      width: 6px;
-      height: 6px;
-      border-radius:999px;
-      background: rgba(255,255,255,0.95);
-      box-shadow: 0 0 10px rgba(255,255,255,0.45);
-      opacity: 0.95;
-    }
-
-    /* End summary toast */
-    .end-toast{
-      position:fixed;
-      left:50%;
-      top:16%;
-      transform:translateX(-50%);
-      background:radial-gradient(circle at top left, rgba(250,204,21,0.22), transparent 55%),
-                 rgba(15,23,42,0.96);
-      padding:12px 16px 14px;
-      border-radius:20px;
-      border:1px solid rgba(250,204,21,0.65);
-      min-width:300px;
-      max-width:460px;
-      font-size:13px;
-      box-shadow:0 20px 40px rgba(15,23,42,0.85);
+    /* Result (compatible with plate.safe.js: resultBackdrop + r*) */
+    #resultBackdrop{
+      position:fixed; inset:0;
       display:none;
-      z-index:653;
+      align-items:center;
+      justify-content:center;
+      z-index:900;
+      background:rgba(2,6,23,0.72);
       pointer-events:auto;
     }
-    .end-toast.show{ display:block; }
-    .end-title{ font-size:14px; font-weight:900; margin-bottom:6px; }
-    .end-row{ display:flex; justify-content:space-between; font-size:12px; margin-top:2px; }
-    .end-actions{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:10px; }
+    #resultCard{
+      width:min(520px, 92vw);
+      background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.86));
+      border:1px solid rgba(148,163,184,0.22);
+      border-radius:20px;
+      box-shadow:0 24px 60px rgba(0,0,0,0.55);
+      padding:14px 14px 12px;
+      color:var(--text-main);
+    }
+    .res-title{ font-weight:900; font-size:16px; margin-bottom:8px; }
+    .res-row{ display:flex; justify-content:space-between; font-size:13px; margin-top:6px; }
+    .res-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
     .end-btn{
       border-radius:999px;
       border:1px solid rgba(148,163,184,0.6);
-      padding:7px 14px;
+      padding:8px 14px;
       font-size:12px;
       font-weight:800;
-      cursor:pointer;
       background:rgba(15,23,42,0.85);
       color:var(--text-main);
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
     }
     .end-btn-primary{
+      border-radius:999px;
+      border:1px solid rgba(187,247,208,0.9);
+      padding:8px 14px;
+      font-size:12px;
+      font-weight:900;
       background:linear-gradient(135deg,#22c55e,#16a34a);
-      border-color:rgba(187,247,208,0.9);
       color:#052e16;
     }
 
@@ -396,7 +275,7 @@
 </head>
 
 <body>
-  <!-- ===== A-Frame Scene (พื้นหลัง VR) ===== -->
+  <!-- ===== A-Frame Scene ===== -->
   <a-scene
     embedded
     vr-mode-ui="enabled:true"
@@ -404,25 +283,22 @@
     background="color:#020617"
     style="position:fixed; inset:0; width:100vw; height:100vh;">
 
-
     <a-entity id="rig" position="0 1.6 0">
-        <a-camera id="cam"
+      <a-camera id="cam"
         wasd-controls-enabled="false"
         look-controls="pointerLockEnabled:false; touchEnabled:true; mouseEnabled:true">
 
-  <!-- Cursor ยิงได้ทั้งเมาส์/จอสัมผัส และ VR จ้องค้าง -->
-    <a-cursor
-        id="cursor"
-        raycaster="objects:.plateTarget"
-        fuse="true"
-        fuse-timeout="450"
-        material="color:#ffffff; shader:flat; opacity:0.95"
-        geometry="primitive:ring; radiusInner:0.008; radiusOuter:0.012"
-        position="0 0 -0.9">
-      </a-cursor>
-          
-  <!-- ✅ สำคัญ: จุดเกิดเป้า (ยึดกับกล้อง → หมุนแล้วเป้าตาม) -->
-      <a-entity id="targetRoot" position="0 0 -2.2"></a-entity>
+        <!-- ✅ Cursor: ให้เมาส์คลิกได้แน่ + VR ใช้ fuse ได้ -->
+        <a-entity id="cursor"
+          cursor="rayOrigin: mouse; fuse: true; fuseTimeout: 450"
+          raycaster="objects: .plateTarget"
+          geometry="primitive:ring; radiusInner:0.008; radiusOuter:0.012"
+          material="shader:flat; color:#ffffff; opacity:0.95"
+          position="0 0 -0.9">
+        </a-entity>
+
+        <!-- ✅ จุดเกิดเป้า (ยึดกับกล้อง → หมุนแล้วเป้าตาม) -->
+        <a-entity id="targetRoot" position="0 0 -2.2"></a-entity>
       </a-camera>
     </a-entity>
 
@@ -432,13 +308,6 @@
              material="color: #020617; metalness: 0; roughness: 1"></a-plane>
     <a-sky color="#020617"></a-sky>
   </a-scene>
-  <script type="module">
-    import { bootPlateDOM } from './plate/plate.safe.js';
-    bootPlateDOM();
-  </script>
-
-  <!-- ✅ DOM layer for targets -->
-  <div id="plate-layer" aria-hidden="true"></div>
 
   <!-- ===== HUD ===== -->
   <div class="hud-root">
@@ -448,101 +317,85 @@
           <div>
             <div class="hud-main-title">
               Hero Health • Nutrition VR
-              <span id="hud-runmode" style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(30,64,175,0.18);border:1px solid rgba(59,130,246,0.6);color:#bfdbfe;font-weight:700;">
-                Play Mode
+              <span id="hudMode" style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(30,64,175,0.18);border:1px solid rgba(59,130,246,0.6);color:#bfdbfe;font-weight:700;">
+                Play
               </span>
             </div>
             <div class="hud-main-mode">Balanced Plate</div>
           </div>
           <div class="hud-pill">
-            <span id="hud-diff-label">NORMAL</span>
+            <span id="hudDiff">NORMAL</span>
             <span>•</span>
-            <span id="hud-time-label">70s</span>
+            <span id="hudTime">70</span><span>s</span>
           </div>
         </div>
 
         <div class="hud-metrics">
           <div class="metric">
             <div class="metric-label">คะแนน</div>
-            <div class="metric-value accent" id="hud-score">0</div>
-            <div class="metric-label" id="hud-judge" style="margin-top:2px;font-size:11px;color:#e5e7eb;">&nbsp;</div>
+            <div class="metric-value accent" id="hudScore">0</div>
+            <div class="metric-label" id="hudJudge" style="margin-top:2px;font-size:11px;color:#e5e7eb;">&nbsp;</div>
           </div>
 
           <div class="metric">
             <div class="metric-label">คอมโบ</div>
-            <div class="metric-value" id="hud-combo" data-max="0">0</div>
+            <div class="metric-value" id="hudCombo">0</div>
           </div>
 
           <div class="metric">
             <div class="metric-label">พลาด (MISS)</div>
-            <div class="metric-value danger" id="hud-miss">0</div>
+            <div class="metric-value danger" id="hudMiss">0</div>
           </div>
 
           <div class="metric" style="min-width:170px;">
             <div class="metric-label">เวลา</div>
-            <div class="metric-value" id="hud-time">70s</div>
+            <div class="metric-value"><span id="hudTimeLeft">70</span>s</div>
           </div>
         </div>
 
         <div class="fever-row">
-          <div class="fever-bar"><div id="hud-fever-fill" class="fever-fill"></div></div>
-          <div id="hud-fever-pct" class="fever-pct">0%</div>
+          <div class="fever-bar"><div id="hudFever" class="fever-fill"></div></div>
+          <div id="hudFeverPct" class="fever-pct">0%</div>
         </div>
       </div>
 
       <div class="hud-card hud-quest">
         <div class="quest-title">Quest</div>
-        <div id="hud-quest-main" class="quest-main-label">ทำ PERFECT PLATE ให้ได้อย่างน้อย 2 จาน</div>
-        <div id="hud-quest-mini" class="quest-mini-label">Mini: Plate Rush …</div>
-
-        <div class="quest-progress-wrap">
-          <div class="quest-bar"><div id="hud-quest-main-bar" class="quest-bar-fill"></div></div>
-          <div class="quest-caption">
-            <span id="hud-quest-main-caption">0 / 2</span>
-            <span id="hud-quest-hint"></span>
-          </div>
-
-          <div class="quest-bar"><div id="hud-quest-mini-bar" class="quest-bar-fill"></div></div>
-          <div class="quest-caption">
-            <span id="hud-quest-mini-caption">0 / 3</span><span></span>
-          </div>
-        </div>
+        <div id="hudGoalLine" class="quest-main-label">ทำ PERFECT PLATE ให้ได้อย่างน้อย 2 จาน</div>
+        <div id="hudMiniLine" class="quest-mini-label">Mini: …</div>
       </div>
     </div>
 
     <div class="hud-bottom">
       <div class="mini-card">
-        <div class="muted">หมู่ 1–5 (รอบนี้): <b id="hud-groups-have">0/5</b></div>
-        <div class="muted">Perfect Plates: <b id="hud-perfect">0</b></div>
+        <div class="muted">หมู่ 1–5 (รอบนี้): <b id="hudGroupsHave">0/5</b></div>
+        <div class="muted">Perfect Plates: <b id="hudPerfectCount">0</b></div>
       </div>
 
       <div style="display:flex; gap:10px;">
-        <button id="btn-vr" class="vr-btn"><span style="font-size:16px;">🕶️</span> เข้าสู่โหมด VR</button>
-        <button id="btn-restart" class="primary-btn">เล่นใหม่</button>
+        <button id="btnEnterVR" class="vr-btn"><span style="font-size:16px;">🕶️</span> เข้าสู่โหมด VR</button>
+        <button id="btnRestart" class="primary-btn">เล่นใหม่</button>
       </div>
     </div>
   </div>
 
-  <!-- VR Gaze Reticle -->
-  <div id="reticle-progress" class="reticle-progress" aria-hidden="true">
-    <div class="rp-ring" id="reticle-ring"></div>
-    <div class="rp-dot"></div>
-  </div>
+  <!-- Result modal (plate.safe.js compatible) -->
+  <div id="resultBackdrop" role="dialog" aria-modal="true">
+    <div id="resultCard">
+      <div class="res-title">สรุปผล • Balanced Plate</div>
+      <div class="res-row"><span>โหมด</span><b id="rMode">Play</b></div>
+      <div class="res-row"><span>เกรด</span><b id="rGrade">C</b></div>
+      <div class="res-row"><span>คะแนนรวม</span><b id="rScore">0</b></div>
+      <div class="res-row"><span>คอมโบสูงสุด</span><b id="rMaxCombo">0</b></div>
+      <div class="res-row"><span>MISS</span><b id="rMiss">0</b></div>
+      <div class="res-row"><span>Perfect Plates</span><b id="rPerfect">0</b></div>
+      <div class="res-row"><span>Goals</span><b id="rGoals">0/2</b></div>
+      <div class="res-row"><span>Mini quests</span><b id="rMinis">0/0</b></div>
 
-  <!-- End summary -->
-  <div class="end-toast" id="end-toast">
-    <div class="end-title">สรุปผล • Balanced Plate</div>
-    <div class="end-row"><span>โหมด</span><strong id="end-runmode">Play</strong></div>
-    <div class="end-row"><span>คะแนนรวม</span><strong id="end-score">0</strong></div>
-    <div class="end-row"><span>คอมโบสูงสุด</span><strong id="end-combo">0</strong></div>
-    <div class="end-row"><span>MISS</span><strong id="end-miss">0</strong></div>
-    <div class="end-row"><span>Perfect Plates</span><strong id="end-perfect">0</strong></div>
-    <div class="end-row"><span>Goals</span><strong id="end-goal">0 / 2</strong></div>
-    <div class="end-row"><span>Mini quests</span><strong id="end-mini">0 / 3</strong></div>
-
-    <div class="end-actions">
-      <button class="end-btn end-btn-primary" id="btn-playagain">เล่นอีกครั้ง</button>
-      <button class="end-btn" id="btn-backhub">กลับ Hub</button>
+      <div class="res-actions">
+        <button class="end-btn" id="btnBackHub" onclick="location.href='./hub.html'">กลับ Hub</button>
+        <button class="end-btn end-btn-primary" id="btnPlayAgain">เล่นอีกครั้ง</button>
+      </div>
     </div>
   </div>
 
@@ -553,160 +406,10 @@
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
 
-  <!-- ===== Boot: Plate DOM Engine ===== -->
+  <!-- ===== Boot: Plate Engine (เรียกครั้งเดียวพอ) ===== -->
   <script type="module">
     import { bootPlateDOM } from './plate/plate.safe.js';
-    bootPlateDOM();
 
-
-    function getParam(name, fallback){
-      const url = new URL(window.location.href);
-      const v = url.searchParams.get(name);
-      return v !== null && v !== '' ? v : fallback;
-    }
-
-    const diff = String(getParam('diff','normal')).toLowerCase();
-    const runParam = String(getParam('run','play')).toLowerCase();
-    const runMode = (runParam === 'research') ? 'research' : 'play';
-
-    // default duration per diff (plate)
-    let baseDur = 70;
-    if (diff === 'easy') baseDur = 90;
-    else if (diff === 'hard') baseDur = 55;
-
-    let dur = baseDur;
-    const timeParam = getParam('time','');
-    if (timeParam){
-      const parsed = parseInt(timeParam,10);
-      if (!isNaN(parsed) && parsed >= 20 && parsed <= 180) dur = parsed;
-    }
-
-    // HUD refs
-    const elScore = document.getElementById('hud-score');
-    const elCombo = document.getElementById('hud-combo');
-    const elMiss  = document.getElementById('hud-miss');
-    const elTime  = document.getElementById('hud-time');
-    const elTimeLabel = document.getElementById('hud-time-label');
-    const elDiffLabel = document.getElementById('hud-diff-label');
-    const elRunHUD    = document.getElementById('hud-runmode');
-    const elFeverFill = document.getElementById('hud-fever-fill');
-    const elFeverPct  = document.getElementById('hud-fever-pct');
-    const elJudge     = document.getElementById('hud-judge');
-
-    const elGroupsHave = document.getElementById('hud-groups-have');
-    const elPerfect    = document.getElementById('hud-perfect');
-
-    // Quest refs
-    const elQMain = document.getElementById('hud-quest-main');
-    const elQMini = document.getElementById('hud-quest-mini');
-    const elQMainBar = document.getElementById('hud-quest-main-bar');
-    const elQMiniBar = document.getElementById('hud-quest-mini-bar');
-    const elQMainCap = document.getElementById('hud-quest-main-caption');
-    const elQMiniCap = document.getElementById('hud-quest-mini-caption');
-    const elQHint    = document.getElementById('hud-quest-hint');
-
-    // End refs
-    const endToast = document.getElementById('end-toast');
-    const endRun   = document.getElementById('end-runmode');
-    const endScore = document.getElementById('end-score');
-    const endCombo = document.getElementById('end-combo');
-    const endMiss  = document.getElementById('end-miss');
-    const endPerfect = document.getElementById('end-perfect');
-    const endGoal  = document.getElementById('end-goal');
-    const endMini  = document.getElementById('end-mini');
-
-    const btnVR = document.getElementById('btn-vr');
-    const btnRestart = document.getElementById('btn-restart');
-    const btnPlayAgain = document.getElementById('btn-playagain');
-    const btnBackHub = document.getElementById('btn-backhub');
-
-    // Init HUD
-    elDiffLabel.textContent = diff.toUpperCase();
-    elRunHUD.textContent = (runMode === 'research') ? 'Research Mode' : 'Play Mode';
-    elTimeLabel.textContent = dur + 's';
-    elTime.textContent = dur + 's';
-
-    btnRestart?.addEventListener('click', () => window.location.reload());
-    btnPlayAgain?.addEventListener('click', () => window.location.reload());
-    btnBackHub?.addEventListener('click', () => window.location.href = './hub.html');
-
-    // VR button
-    btnVR?.addEventListener('click', () => {
-      const scene = document.querySelector('a-scene');
-      try{ scene?.enterVR(); }catch(e){ console.warn('[PlateVR] enterVR error', e); }
-    });
-
-    // Wire events from engine
-    window.addEventListener('hha:time', (e) => {
-      const sec = (e.detail?.sec|0);
-      elTime.textContent = sec + 's';
-    });
-
-    window.addEventListener('hha:judge', (e) => {
-      const label = e.detail?.label || '';
-      elJudge.textContent = label || '';
-    });
-
-    window.addEventListener('hha:score', (e) => {
-      const d = e.detail || {};
-      if (typeof d.score === 'number') elScore.textContent = d.score;
-      if (typeof d.combo === 'number') {
-        elCombo.textContent = d.combo;
-        const prevMax = parseInt(elCombo.dataset.max || '0', 10) || 0;
-        const max = Math.max(prevMax, d.combo|0);
-        elCombo.dataset.max = String(max);
-      }
-      if (typeof d.misses === 'number') elMiss.textContent = d.misses;
-
-      if (typeof d.feverPct === 'number') {
-        const pct = Math.max(0, Math.min(100, d.feverPct|0));
-        elFeverFill.style.width = pct + '%';
-        elFeverPct.textContent = pct + '%';
-      }
-
-      if (typeof d.groupsHave === 'number') {
-        elGroupsHave.textContent = (d.groupsHave|0) + '/5';
-      }
-      if (typeof d.perfectPlates === 'number') {
-        elPerfect.textContent = d.perfectPlates|0;
-      }
-    });
-
-    window.addEventListener('quest:update', (e) => {
-      const d = e.detail || {};
-      const goal = d.goal || null;
-      const mini = d.mini || null;
-
-      if (goal){
-        elQMain.textContent = goal.label || 'ภารกิจหลัก';
-        elQMainCap.textContent = (goal.prog|0) + ' / ' + (goal.target|0);
-        const pct = goal.target ? Math.round((goal.prog/goal.target)*100) : 0;
-        elQMainBar.style.width = Math.max(0, Math.min(100, pct)) + '%';
-      }
-      if (mini){
-        elQMini.textContent = 'Mini: ' + (mini.label || '');
-        elQMiniCap.textContent = (mini.prog|0) + ' / ' + (mini.target|0);
-        const pct = mini.target ? Math.round((mini.prog/mini.target)*100) : 0;
-        elQMiniBar.style.width = Math.max(0, Math.min(100, pct)) + '%';
-      }
-      elQHint.textContent = d.hint || '';
-    });
-
-    window.addEventListener('hha:end', (e) => {
-      const d = e.detail || {};
-      endToast.classList.add('show');
-
-      endRun.textContent = (runMode === 'research') ? 'Research' : 'Play';
-      endScore.textContent = d.score ?? 0;
-      endCombo.textContent = d.comboMax ?? (parseInt(elCombo.dataset.max||'0',10)||0);
-      endMiss.textContent  = d.misses ?? (parseInt(elMiss.textContent||'0',10)||0);
-      endPerfect.textContent = d.perfectPlates ?? 0;
-
-      endGoal.textContent = (d.goalsCleared ?? 0) + ' / ' + (d.goalsTotal ?? 2);
-      endMini.textContent = (d.miniCleared ?? 0) + ' / ' + (d.miniTotal ?? 3);
-    });
-
-    // Countdown UI (3–2–1–Go)
     const elCountdown = document.getElementById('start-countdown');
     function runCountdown(onDone){
       if (!elCountdown){ onDone?.(); return; }
@@ -723,21 +426,69 @@
         } else {
           elCountdown.textContent = steps[idx];
         }
-      }, 800);
+      }, 650);
     }
 
-    // Boot engine only after scene loaded (กันจอดำ/ค้าง)
     const scene = document.querySelector('a-scene');
-    scene?.addEventListener('loaded', () => {
-      runCountdown(() => {
-        bootPlateDOM({
-          diff,
-          runMode,
-          durationSec: dur,
-          layerEl: document.getElementById('plate-layer')
-        });
-      });
-    }, { once:true });
+    if (scene?.hasLoaded) {
+      runCountdown(() => bootPlateDOM());
+    } else {
+      scene?.addEventListener('loaded', () => {
+        runCountdown(() => bootPlateDOM());
+      }, { once:true });
+    }
+
+    // HUD binders (ฟัง event จาก plate.safe.js ที่ emit อยู่แล้ว)
+    const $ = (id) => document.getElementById(id);
+
+    window.addEventListener('hha:time', (e) => {
+      const sec = (e.detail?.sec|0);
+      const t = Math.max(0, sec);
+      if ($('hudTimeLeft')) $('hudTimeLeft').textContent = String(t);
+      if ($('hudTime')) $('hudTime').textContent = String(t);
+    });
+
+    window.addEventListener('hha:judge', (e) => {
+      const label = e.detail?.label || '';
+      if ($('hudJudge')) $('hudJudge').textContent = label || '';
+    });
+
+    window.addEventListener('hha:score', (e) => {
+      const d = e.detail || {};
+      if (typeof d.score === 'number' && $('hudScore')) $('hudScore').textContent = String(d.score|0);
+      if (typeof d.combo === 'number' && $('hudCombo')) $('hudCombo').textContent = String(d.combo|0);
+      if (typeof d.misses === 'number' && $('hudMiss')) $('hudMiss').textContent = String(d.misses|0);
+
+      // fever -> bar
+      const fever = (typeof d.fever === 'number') ? d.fever : 0;
+      const pct = Math.max(0, Math.min(100, Math.round(fever)));
+      if ($('hudFever')) $('hudFever').style.width = pct + '%';
+      if ($('hudFeverPct')) $('hudFeverPct').textContent = pct + '%';
+
+      // groups/perfect
+      if (typeof d.perfectPlates === 'number' && $('hudPerfectCount')) $('hudPerfectCount').textContent = String(d.perfectPlates|0);
+      // groupsHave อาจไม่ได้ส่งเป็นตัวเลข—แต่ plate.safe.js อัปเดตเองผ่าน hudUpdateAll() อยู่แล้ว
+    });
+
+    window.addEventListener('quest:update', (e) => {
+      const d = e.detail || {};
+      const goal = d.goal || null;
+      const mini = d.mini || null;
+      if (goal && $('hudGoalLine')) $('hudGoalLine').textContent = goal.label || $('hudGoalLine').textContent;
+      if (mini && $('hudMiniLine')) $('hudMiniLine').textContent = 'Mini: ' + (mini.label || '');
+    });
+
+    window.addEventListener('hha:end', () => {
+      const bd = $('resultBackdrop');
+      if (bd) bd.style.display = 'flex';
+    });
+
+    // ปุ่ม replay
+    $('btnPlayAgain')?.addEventListener('click', () => location.reload());
+    $('btnRestart')?.addEventListener('click', () => location.reload());
+    $('btnEnterVR')?.addEventListener('click', () => {
+      try{ scene?.enterVR(); }catch(e){ console.warn('[PlateVR] enterVR error', e); }
+    });
   </script>
 </body>
 </html>
