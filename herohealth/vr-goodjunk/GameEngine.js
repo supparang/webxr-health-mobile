@@ -1,9 +1,10 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (HYPER v3.1)
+// Good vs Junk VR — DOM Emoji Engine (HYPER v3.2)
 // ✅ spawn/hit/block/expire events for logger
 // ✅ quest:badHit for fair No-Junk Zone
 // ✅ targetId + rtMs
-// ✅ NEW: side objects beside hit target (Particles.objPop) + streak specials + power-up extras
+// ✅ side objects beside hit target (Particles.objPop) + streak specials
+// ✅ “คำโผล่” แบบ ป.5 + แยกสีตามชนิด (ผ่าน prefix ใน Particles.scorePop)
 
 'use strict';
 
@@ -12,7 +13,7 @@
 
   const Particles =
     (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-    ROOT.Particles || { scorePop(){}, burstAt(){} };
+    ROOT.Particles || { scorePop(){}, burstAt(){}, objPop(){}, toast(){} };
 
   const FeverUI = ROOT.FeverUI || null;
 
@@ -72,14 +73,49 @@
   const makeId = ()=> `${Date.now()}-${(++idSeq)}`;
 
   // -----------------------------
-  // NEW: Side objects (beside hit)
+  // NEW: Food type mapping (จริง ๆ)
+  // -----------------------------
+  const FOOD_ALL = [...GOOD, ...JUNK];
+  const FOOD_KIND = {
+    // good
+    '🍎': { cat:'fruit',  name:'ผลไม้' },
+    '🍌': { cat:'fruit',  name:'ผลไม้' },
+    '🍉': { cat:'fruit',  name:'ผลไม้' },
+    '🥦': { cat:'veg',    name:'ผัก' },
+    '🥕': { cat:'veg',    name:'ผัก' },
+    '🥛': { cat:'dairy',  name:'นม' },
+
+    // junk
+    '🍔': { cat:'fried',  name:'ฟาสต์ฟู้ด' },
+    '🍟': { cat:'fried',  name:'ของทอด' },
+    '🍕': { cat:'fried',  name:'ของมัน' },
+    '🍩': { cat:'sweet',  name:'ของหวาน' },
+    '🍪': { cat:'sweet',  name:'ขนมหวาน' },
+    '🥤': { cat:'soda',   name:'น้ำหวาน' }
+  };
+
+  function extractBaseFoodEmoji(emojiStr){
+    const s = String(emojiStr || '');
+    for (const e of FOOD_ALL){
+      if (s.includes(e)) return e;
+    }
+    return null;
+  }
+
+  function foodInfoFromTarget(t){
+    const baseFood = extractBaseFoodEmoji(t && t.emoji);
+    const info = baseFood ? FOOD_KIND[baseFood] : null;
+    return { baseFood, info };
+  }
+
+  // -----------------------------
+  // Side objects + word pops
   // -----------------------------
   function canObjPop(){
     return !!(Particles && typeof Particles.objPop === 'function');
   }
 
   function pickStreakSpecial(streak){
-    // milestone-ish
     if (streak >= 20) return '🏆';
     if (streak >= 16) return '💎';
     if (streak >= 12) return '🌟';
@@ -87,68 +123,127 @@
     return null;
   }
 
-  function sideObjectsOnHit(t, x, y, kind, streakNow){
-    // kind: 'good'|'gold'|'junk'|'fake'|'power'|'boss'|'block'
-    if (!canObjPop()) return;
+  function objPairForFood(kind, baseFood, info, power){
+    const K = String(kind||'').toLowerCase();
 
-    const s = (streakNow|0);
-
-    // base pair logic
-    let count = 1;
-    if (kind === 'gold') count = 2;
-    if (kind === 'good' && s >= 8) count = 2;         // perfect-ish
-    if (kind === 'power') count = 2;                  // power-up ให้ดูคุ้ม
-    if (kind === 'boss') count = 2;
-
-    // choose emojis
-    const special = pickStreakSpecial(s);
-
-    const list = [];
-    if (kind === 'good'){
-      list.push(t.emoji || '🥦');
-      if (special) list.push(special);
-      else list.push('✨');
-    } else if (kind === 'gold'){
-      list.push('🪙');
-      list.push('✨');
-      if (special) list[1] = special; // ให้พิเศษแทน sparkle
-    } else if (kind === 'junk'){
-      list.push('💥');
-      list.push('🗑️');
-    } else if (kind === 'fake'){
-      list.push('🌀');
-      list.push('💥');
-    } else if (kind === 'block'){
-      list.push('🛡️');
-      list.push('✨');
-    } else if (kind === 'boss'){
-      list.push('👑');
-      list.push('💥');
-    } else if (kind === 'power'){
-      // power type specific
-      if (t.power === 'shield') { list.push('🛡️'); list.push('✨'); }
-      else if (t.power === 'magnet') { list.push('🧲'); list.push('🧷'); }
-      else if (t.power === 'time') { list.push('⏱️'); list.push('➕'); }
-      else if (t.power === 'fever') { list.push('🔥'); list.push('⚡'); }
-      else { list.push('⚡'); list.push('✨'); }
-    } else {
-      list.push('✨'); list.push('✨');
+    // power objects
+    if (K === 'power'){
+      if (power === 'shield') return ['🛡️','✨'];
+      if (power === 'magnet') return ['🧲','🧷'];
+      if (power === 'time')   return ['⏱️','➕'];
+      if (power === 'fever')  return ['🔥','⚡'];
+      return ['⚡','✨'];
     }
 
-    // spawn
+    // boss/block/fake/junk/good/gold with food type
+    if (K === 'block') return ['🛡️','✨'];
+    if (K === 'boss')  return ['👑','💥'];
+
+    // fake = “หลอก” อิงชนิดอาหารเดิม (baseFood) ถ้ามี
+    if (K === 'fake'){
+      if (info && info.cat === 'fruit') return ['🌀','🍎'];
+      if (info && info.cat === 'veg')   return ['🌀','🥦'];
+      if (info && info.cat === 'dairy') return ['🌀','🥛'];
+      return ['🌀','💥'];
+    }
+
+    if (K === 'junk'){
+      if (info && info.cat === 'sweet') return ['🍬','🦷'];
+      if (info && info.cat === 'soda')  return ['🥤','😵'];
+      if (info && info.cat === 'fried') return ['🍟','🛑'];
+      return ['🗑️','💥'];
+    }
+
+    // good / gold
+    if (K === 'gold'){
+      // “โบนัส” แต่ยังอิงอาหารจริงด้วย
+      if (info && info.cat === 'fruit') return ['🪙','🍃'];
+      if (info && info.cat === 'veg')   return ['🪙','🌱'];
+      if (info && info.cat === 'dairy') return ['🪙','🦴'];
+      return ['🪙','✨'];
+    }
+
+    // good
+    if (info && info.cat === 'fruit') return ['🍃','💧'];     // สดชื่น
+    if (info && info.cat === 'veg')   return ['🌱','💪'];     // แข็งแรง
+    if (info && info.cat === 'dairy') return ['🦴','✨'];     // กระดูกดี
+    return [baseFood || '🥦','✨'];
+  }
+
+  function p5WordFor(kind, baseFood, info, power, streakNow){
+    const K = String(kind||'').toLowerCase();
+    const s = (streakNow|0);
+
+    if (K === 'power'){
+      if (power === 'shield') return 'โล่มา!';
+      if (power === 'magnet') return 'ดูดๆ!';
+      if (power === 'time')   return 'เวลา+';
+      if (power === 'fever')  return 'ไฟลุก!';
+      return 'พลัง!';
+    }
+    if (K === 'block') return 'กันได้!';
+    if (K === 'boss')  return 'บอส!';
+    if (K === 'fake')  return 'หลอกนะ!';
+    if (K === 'junk'){
+      if (info && info.cat === 'sweet') return 'หวานจัด!';
+      if (info && info.cat === 'soda')  return 'น้ำหวาน!';
+      if (info && info.cat === 'fried') return 'ของทอด!';
+      return 'ไม่ดีนะ!';
+    }
+    if (K === 'gold') return 'โบนัส!';
+
+    // good
+    if (info && info.cat === 'fruit') return (s>=10 ? 'ผลไม้สุด!' : 'ผลไม้!');
+    if (info && info.cat === 'veg')   return (s>=10 ? 'ผักเทพ!'  : 'ผัก!');
+    if (info && info.cat === 'dairy') return (s>=10 ? 'นมปัง!'   : 'นม!');
+    return (s>=10 ? 'สุดยอด!' : 'เก่งมาก!');
+  }
+
+  function sideObjectsOnHit(t, x, y, kind, streakNow){
+    if (!canObjPop()) return;
+
+    const { baseFood, info } = foodInfoFromTarget(t);
+    const s = (streakNow|0);
+
+    // จำนวนชิ้น (สุ่ม 1–2 ชิ้น + milestone เพิ่มความพิเศษ)
+    let count = 2;
+    if (String(kind) === 'gold') count = 2;
+    if (String(kind) === 'boss') count = 2;
+    if (String(kind) === 'power') count = 2;
+
+    const special = pickStreakSpecial(s);
+    const pair = objPairForFood(kind, baseFood, info, t && t.power);
+
+    // วางซ้าย/ขวา
     const n = Math.max(1, Math.min(2, count));
     for (let i=0;i<n;i++){
-      const emo = list[i] || '✨';
+      let emo = pair[i] || '✨';
+
+      // แทรก special ให้ดู “ของพิเศษตาม streak”
+      if (i === 1 && special && (kind === 'good' || kind === 'gold') && Math.random() < 0.75){
+        emo = special;
+      }
+
       Particles.objPop(x, y, emo, {
-        // กระจายซ้าย/ขวาให้ชัด
         side: (i===0 ? 'left' : 'right'),
-        size: (kind === 'gold' || kind === 'boss') ? 24 : (kind === 'junk' || kind === 'fake') ? 22 : 20
+        size: (kind === 'gold' || kind === 'boss') ? 26 :
+              (kind === 'junk' || kind === 'fake') ? 24 : 22
       });
     }
 
-    // extra sparkle for very high streak (เบา ๆ)
-    if (kind === 'good' && s >= 16 && Math.random() < 0.35){
-      Particles.objPop(x, y, '🌈', { side:'right', size: 20, dx: 40, dy: -18 });
+    // ✅ “คำโผล่” แยกสีตามชนิด (ผ่าน prefix)
+    if (Particles && typeof Particles.scorePop === 'function'){
+      const K =
+        (kind === 'good')  ? 'GOOD' :
+        (kind === 'gold')  ? 'GOLD' :
+        (kind === 'junk')  ? 'JUNK' :
+        (kind === 'fake')  ? 'FAKE' :
+        (kind === 'block') ? 'BLOCK' :
+        (kind === 'boss')  ? 'BOSS' :
+        (kind === 'power') ? 'POWER' : 'GOOD';
+
+      const word = p5WordFor(kind, baseFood, info, t && t.power, s);
+      Particles.scorePop(x, y - 14, '', `[${K}] ${word}`, { plain:true });
     }
   }
 
@@ -464,7 +559,7 @@
 
       sideObjectsOnHit(t, x, y, 'boss', combo);
 
-      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'HIT!',{ judgment:'BOSS', good:true });
+      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'HIT!','[BOSS] บอส!',{ plain:true });
       emitJudge('BOSS HIT!');
       emitHit(t, 'BOSS_HIT', rtMs, { hp: t.hp });
 
@@ -480,13 +575,12 @@
         comboMax = Math.max(comboMax, combo);
 
         if (Particles && Particles.burstAt){
-          Particles.burstAt(window.innerWidth/2, window.innerHeight*0.22, { count: 30, good: true });
+          Particles.burstAt(window.innerWidth/2, window.innerHeight*0.22, 'GOLD');
         }
 
-        // boss clear: extra side pop
         if (canObjPop()){
-          Particles.objPop(x, y, '🏆', { side:'left', size: 26 });
-          Particles.objPop(x, y, '👑', { side:'right', size: 26 });
+          Particles.objPop(x, y, '🏆', { side:'left', size: 28 });
+          Particles.objPop(x, y, '👑', { side:'right', size: 28 });
         }
 
         emitJudge('BOSS CLEAR!');
@@ -509,7 +603,7 @@
       if (t.power === 'shield'){
         shieldUntil = now() + 5000;
         emitJudge('SHIELD ON!');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'🛡️ +5s',{ good:true });
+        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[POWER] โล่มา!',{ plain:true });
         emitHit(t, 'POWER_SHIELD', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'shield' } }));
@@ -518,7 +612,7 @@
       if (t.power === 'magnet'){
         magnetUntil = now() + 4000;
         emitJudge('MAGNET!');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'🧲 +4s',{ good:true });
+        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[POWER] ดูดๆ!',{ plain:true });
         emitHit(t, 'POWER_MAGNET', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'magnet' } }));
@@ -530,7 +624,7 @@
           emitTime();
         }
         emitJudge('TIME +3!');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'⏳ +3s',{ good:true });
+        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[POWER] เวลา+',{ plain:true });
         emitHit(t, 'POWER_TIME', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'time' } }));
@@ -539,7 +633,7 @@
       if (t.power === 'fever'){
         feverAdd(22);
         emitJudge('FEVER+');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'🔥 FEVER+',{ good:true });
+        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[POWER] ไฟลุก!',{ plain:true });
         emitHit(t, 'POWER_FEVER', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'fever' } }));
@@ -551,9 +645,7 @@
     if (t.type === 'fake'){
       if (shieldOn()){
         sideObjectsOnHit(t, x, y, 'block', combo);
-
         emitJudge('BLOCK!');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'BLOCK',{ judgment:'FAKE', good:true });
         emitBlock(t, 'fake');
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:block',{ detail:{ ok:true, why:'fake' } }));
@@ -568,7 +660,7 @@
 
       sideObjectsOnHit(t, x, y, 'fake', combo);
 
-      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'OOPS!',{ judgment:'FAKE!', good:false });
+      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[FAKE] หลอกนะ!',{ plain:true });
 
       emitHit(t, 'HIT_FAKE', rtMs);
       emitScore();
@@ -583,9 +675,7 @@
     if (t.type === 'junk'){
       if (shieldOn()){
         sideObjectsOnHit(t, x, y, 'block', combo);
-
         emitJudge('BLOCK!');
-        if (Particles && Particles.scorePop) Particles.scorePop(x,y,'BLOCK',{ good:true });
         emitBlock(t, 'junk');
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:block',{ detail:{ ok:true, why:'junk' } }));
@@ -600,7 +690,7 @@
 
       sideObjectsOnHit(t, x, y, 'junk', combo);
 
-      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'MISS',{ judgment:'JUNK!', good:false });
+      if (Particles && Particles.scorePop) Particles.scorePop(x,y,'','[JUNK] ไม่ดีนะ!',{ plain:true });
 
       emitHit(t, 'HIT_JUNK', rtMs);
       emitScore();
@@ -615,7 +705,6 @@
     combo++;
     comboMax = Math.max(comboMax, combo);
 
-    // side objects for good/gold (streak aware)
     sideObjectsOnHit(t, x, y, (t.type === 'gold') ? 'gold' : 'good', combo);
 
     if (t.type === 'gold') feverAdd(10);
@@ -638,14 +727,11 @@
     score += add;
 
     if (Particles && typeof Particles.scorePop === 'function'){
-      Particles.scorePop(x, y, '+' + add, {
-        good:true,
-        judgment: (t.type === 'gold') ? 'GOLD!' : (combo >= 8 ? 'PERFECT!' : 'GOOD')
-      });
+      Particles.scorePop(x, y, '+' + add, (t.type === 'gold') ? '[GOLD] โบนัส!' : '[GOOD] เก่งมาก!', { plain:false });
     }
     if (Particles && typeof Particles.burstAt === 'function'){
-      if (t.type === 'gold') Particles.burstAt(x,y,{ count: 14, good:true });
-      if (st === 'final' && Math.random() < 0.15) Particles.burstAt(x,y,{ count: 10, good:true });
+      if (t.type === 'gold') Particles.burstAt(x,y,'GOLD');
+      if (st === 'final' && Math.random() < 0.15) Particles.burstAt(x,y,'GOOD');
     }
 
     emitHit(t, (t.type === 'gold') ? 'HIT_GOLD' : 'HIT_GOOD', rtMs, { add, mult, feverNow });
