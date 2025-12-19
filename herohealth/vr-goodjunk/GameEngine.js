@@ -1,7 +1,10 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (HYPER v3.3)
+// Good vs Junk VR — DOM Emoji Engine (HYPER v3.4)
 // ✅ “คำโผล่” GOOD=คำเชียร์เท่านั้น / JUNK=คำเตือนแบบไม่แรง (สุ่มหลายคำ/ชนิด)
 // ✅ object ข้างเป้าอิงชนิดอาหารจริง + side objects + color-by-kind prefix (Particles.scorePop)
+// ✅ QUEST v2: play(สุ่ม) GOAL 10 เลือก 2 / MINI 15 เลือก 3, research(FIX ไม่สุ่ม)
+// ✅ quest:update ยิงตลอด → HUD ต้องแสดงแน่นอน
+// ✅ lane แบบ number (1..3) ฝังใน spawn/hit/expire/block + logger
 
 'use strict';
 
@@ -24,6 +27,10 @@
 
   const GOLD = '🟡';
   const FAKE_SPARK = '✨';
+
+  // lane config (number)
+  const LANE_N = 3; // 1..3
+  const LANE_OFFSETS = [-0.9, 0, 0.9]; // world x offset (meters-ish)
 
   const DIFF = {
     easy:   { spawnMs: 1050, maxActive: 3, scale: 1.18, goodRatio: 0.78, powerRatio: 0.16, goldRatio: 0.06, fakeRatio: 0.06, bossHP: 6 },
@@ -302,13 +309,14 @@
   }
 
   function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
+  function clamp01(x){ x=Number(x)||0; return x<0?0:(x>1?1:x); }
   function now(){ return performance.now(); }
 
   function emitJudge(label, extra){
     ROOT.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ label, ...extra } }));
   }
   function emitMiss(){
-    ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses }}));
+    ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses } }));
   }
 
   function emitFeverEdgeIfNeeded(){
@@ -316,9 +324,9 @@
     feverPrev = feverActive;
     feverActive = !!FeverUI.isActive();
     if (feverActive && !feverPrev){
-      ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'start' }}));
+      ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'start' } }));
     }else if (!feverActive && feverPrev){
-      ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'end' }}));
+      ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'end' } }));
     }
   }
 
@@ -348,7 +356,7 @@
   }
 
   function emitTime(){
-    ROOT.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+    ROOT.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft } }));
   }
 
   function emitSpawn(t){
@@ -357,7 +365,8 @@
         timeFromStartMs: null,
         targetId: t.id,
         emoji: t.emoji,
-        itemType: t.type === 'power' ? (t.power || 'power') : t.type
+        itemType: t.type === 'power' ? (t.power || 'power') : t.type,
+        lane: (t.lane!=null) ? String(t.lane) : ''
       }
     }));
   }
@@ -368,7 +377,8 @@
         timeFromStartMs: null,
         targetId: t.id,
         emoji: t.emoji,
-        itemType: t.type === 'power' ? (t.power || 'power') : t.type
+        itemType: t.type === 'power' ? (t.power || 'power') : t.type,
+        lane: (t.lane!=null) ? String(t.lane) : ''
       }
     }));
   }
@@ -385,6 +395,7 @@
         totalScore: score,
         combo,
         isGood: (t.type === 'good' || t.type === 'gold'),
+        lane: (t.lane!=null) ? String(t.lane) : '',
         extra: extra || null
       }
     }));
@@ -397,12 +408,28 @@
         targetId: t.id,
         emoji: t.emoji,
         itemType: why || t.type || 'junk',
-        judgment:'BLOCK'
+        judgment:'BLOCK',
+        lane: (t.lane!=null) ? String(t.lane) : ''
       }
     }));
   }
 
-  function spawnWorld(){
+  function randLane(){
+    return 1 + ((Math.random() * LANE_N) | 0);
+  }
+  function laneToFallbackX(lane){
+    const w = window.innerWidth || 1000;
+    const thirds = w / LANE_N;
+    const center = (lane - 0.5) * thirds;
+    const jitter = (Math.random()-0.5) * (thirds * 0.25);
+    return Math.round(center + jitter);
+  }
+  function laneToWorldOffsetX(lane){
+    const i = Math.max(0, Math.min(LANE_N-1, (lane|0)-1));
+    return LANE_OFFSETS[i] || 0;
+  }
+
+  function spawnWorld(lane){
     const THREE = getTHREE();
     const cam = getCameraObj3D();
     if (!cam || !THREE) return null;
@@ -414,7 +441,12 @@
     cam.getWorldDirection(dir);
 
     pos.add(dir.multiplyScalar(2.1));
-    pos.x += (Math.random()-0.5)*1.9;
+
+    // lane offset (world X)
+    pos.x += laneToWorldOffsetX(lane);
+
+    // small jitter
+    pos.x += (Math.random()-0.5)*0.35;
     pos.y += (Math.random()-0.5)*1.5;
 
     return pos;
@@ -502,6 +534,261 @@
     return { type:'junk', emoji: j, ttl: 2200 };
   }
 
+  // =====================================================
+  // QUEST RUNTIME v2 (play random / research fixed)
+  // play: goals pool 10 pick 2, minis pool 15 pick 3
+  // research: fixed (NO random)
+  // =====================================================
+  const QUEST_CFG = {
+    goalsPick: 2,
+    minisPick: 3,
+    researchFixed: {
+      goals: ['G01','G02'],
+      minis: ['M01','M11','M05']
+    }
+  };
+
+  function pickN(arr, n){
+    const a = (arr||[]).slice();
+    for (let i=a.length-1;i>0;i--){
+      const j = (Math.random()*(i+1))|0;
+      const t=a[i]; a[i]=a[j]; a[j]=t;
+    }
+    return a.slice(0, Math.max(0, n|0));
+  }
+
+  const QSTAT = {
+    goodHit: 0,
+    goldHit: 0,
+    junkHit: 0,
+    fakeHit: 0,
+    block: 0,
+    powerShield: 0,
+    powerMagnet: 0,
+    powerTime: 0,
+    powerFever: 0,
+
+    fruitGood: 0,
+    vegGood: 0,
+    dairyGood: 0,
+
+    noBadOk: true,         // “ช่วงนี้” ยังไม่โดน junk/fake/miss
+    noBadStartMs: 0,
+    lastBadAtMs: 0,
+
+    showGoalIdx: 0,
+    showMiniIdx: 0,
+    lastRotateAt: 0
+  };
+
+  function qFoodInfoFromEmoji(emojiStr){
+    const base = extractBaseFoodEmoji(emojiStr);
+    const info = base ? FOOD_KIND[base] : null;
+    return { baseFood: base, info };
+  }
+
+  function makeCounterQuest(id, title, total, getter){
+    return {
+      id, title,
+      total: (total==null) ? 1 : Math.max(1, total|0),
+      getCur: getter,
+      eval(){
+        const cur = Math.max(0, Number(getter())||0);
+        const done = cur >= this.total;
+        return { cur, total:this.total, prog: (this.total>0)?clamp01(cur/this.total):0, done };
+      }
+    };
+  }
+  function makeTimerQuest(id, title, sec, getSecOk){
+    return {
+      id, title,
+      total: Math.max(1, sec|0),
+      getCur: ()=>0,
+      eval(){
+        const cur = Math.floor(Number(getSecOk())||0);
+        const done = cur >= this.total;
+        return { cur, total:this.total, prog: (this.total>0)?clamp01(cur/this.total):0, done };
+      }
+    };
+  }
+
+  const GOAL_POOL = [
+    makeCounterQuest('G01','เก็บของดีให้ครบ 25 ชิ้น', 25, ()=> QSTAT.goodHit),
+    makeCounterQuest('G02','ทำคะแนนให้ถึง 2500',      2500, ()=> score|0),
+    makeCounterQuest('G03','ทำคอมโบสูงสุดให้ถึง 12',  12, ()=> comboMax|0),
+    makeCounterQuest('G04','เก็บผลไม้ให้ครบ 10',       10, ()=> QSTAT.fruitGood),
+    makeCounterQuest('G05','เก็บผักให้ครบ 10',         10, ()=> QSTAT.vegGood),
+    makeCounterQuest('G06','เก็บนมให้ครบ 6',            6, ()=> QSTAT.dairyGood),
+    makeCounterQuest('G07','เก็บ GOLD ให้ได้ 3 ครั้ง',  3, ()=> QSTAT.goldHit),
+    makeCounterQuest('G08','บล็อกการโจมตีให้ได้ 3',    3, ()=> QSTAT.block),
+    makeCounterQuest('G09','ใช้พลังโล่ 1 ครั้ง',        1, ()=> QSTAT.powerShield),
+    makeCounterQuest('G10','พลาดรวมไม่เกิน 3',          3, ()=> (3 - (misses|0)))
+  ];
+
+  const MINI_POOL = [
+    makeCounterQuest('M01','ทำสตรีค 8 ครั้งติด', 8, ()=> combo|0),
+    makeCounterQuest('M02','เก็บผลไม้ 6 ชิ้น',   6, ()=> QSTAT.fruitGood),
+    makeCounterQuest('M03','เก็บผัก 6 ชิ้น',     6, ()=> QSTAT.vegGood),
+    makeCounterQuest('M04','เก็บนม 3 ชิ้น',      3, ()=> QSTAT.dairyGood),
+    makeCounterQuest('M05','เก็บ GOLD 2 ครั้ง',  2, ()=> QSTAT.goldHit),
+    makeCounterQuest('M06','บล็อกขยะ/หลอก 2 ครั้ง', 2, ()=> QSTAT.block),
+    makeCounterQuest('M07','ใช้โล่ 1 ครั้ง',     1, ()=> QSTAT.powerShield),
+    makeCounterQuest('M08','ใช้แม่เหล็ก 1 ครั้ง',1, ()=> QSTAT.powerMagnet),
+    makeCounterQuest('M09','เพิ่มเวลา 1 ครั้ง',  1, ()=> QSTAT.powerTime),
+    makeCounterQuest('M10','ติด FEVER 1 ครั้ง',  1, ()=> QSTAT.powerFever),
+
+    // timer minis: วัดช่วงที่ “ยังไม่พลาด/ไม่โดน junk/fake”
+    makeTimerQuest('M11','10 วิ ห้ามโดนขยะ/หลอก/พลาด', 10, ()=> {
+      if (!QSTAT.noBadOk) return 0;
+      return (now() - (QSTAT.noBadStartMs||now()))/1000;
+    }),
+    makeTimerQuest('M12','8 วิ ทำให้เนียน', 8, ()=> {
+      if (!QSTAT.noBadOk) return 0;
+      return (now() - (QSTAT.noBadStartMs||now()))/1000;
+    }),
+
+    makeCounterQuest('M13','ตีของดี 5 ครั้งรวด', 5, ()=> Math.min(5, combo|0)),
+    makeCounterQuest('M14','ทำคะแนนให้ถึง 500', 500, ()=> score|0),
+    makeCounterQuest('M15','อย่าโดนหลอก (FAKE) เลย', 1, ()=> (QSTAT.fakeHit===0 ? 1 : 0))
+  ];
+
+  const QUEST = {
+    activeGoals: [],
+    activeMinis: [],
+    doneGoals: {},
+    doneMinis: {},
+    started: false
+  };
+
+  function findQuest(pool, id){
+    for (const q of pool){ if (q && q.id === id) return q; }
+    return null;
+  }
+
+  function pickFixedSet(){
+    // FIX สำหรับ research (ปรับได้ตามที่คุณต้องล็อก)
+    return QUEST_CFG.researchFixed;
+  }
+
+  function buildActiveQuests(){
+    if (runMode === 'research'){
+      const fixed = pickFixedSet();
+      QUEST.activeGoals = (fixed.goals||[]).map(id=>findQuest(GOAL_POOL,id)).filter(Boolean);
+      QUEST.activeMinis = (fixed.minis||[]).map(id=>findQuest(MINI_POOL,id)).filter(Boolean);
+    }else{
+      QUEST.activeGoals = pickN(GOAL_POOL, QUEST_CFG.goalsPick);
+      QUEST.activeMinis = pickN(MINI_POOL, QUEST_CFG.minisPick);
+    }
+    QUEST.doneGoals = {};
+    QUEST.doneMinis = {};
+    QSTAT.showGoalIdx = 0;
+    QSTAT.showMiniIdx = 0;
+    QSTAT.lastRotateAt = 0;
+  }
+
+  function resetQuestStats(){
+    QSTAT.goodHit = 0;
+    QSTAT.goldHit = 0;
+    QSTAT.junkHit = 0;
+    QSTAT.fakeHit = 0;
+    QSTAT.block = 0;
+    QSTAT.powerShield = 0;
+    QSTAT.powerMagnet = 0;
+    QSTAT.powerTime = 0;
+    QSTAT.powerFever = 0;
+
+    QSTAT.fruitGood = 0;
+    QSTAT.vegGood = 0;
+    QSTAT.dairyGood = 0;
+
+    QSTAT.noBadOk = true;
+    QSTAT.noBadStartMs = now();
+    QSTAT.lastBadAtMs = 0;
+  }
+
+  function emitQuestUpdate(){
+    const gList = QUEST.activeGoals || [];
+    const mList = QUEST.activeMinis || [];
+
+    // rotate display (HUD ตอนนี้โชว์ทีละรายการ → สลับให้เห็นครบ)
+    const t = now();
+    if (t - (QSTAT.lastRotateAt||0) > 2800){
+      QSTAT.lastRotateAt = t;
+      if (gList.length > 1) QSTAT.showGoalIdx = (QSTAT.showGoalIdx + 1) % gList.length;
+      if (mList.length > 1) QSTAT.showMiniIdx = (QSTAT.showMiniIdx + 1) % mList.length;
+    }
+
+    const gIdx = Math.max(0, Math.min(gList.length-1, QSTAT.showGoalIdx|0));
+    const mIdx = Math.max(0, Math.min(mList.length-1, QSTAT.showMiniIdx|0));
+
+    const g = gList[gIdx];
+    const m = mList[mIdx];
+
+    const gEval = g ? g.eval() : { cur:0,total:0,prog:0,done:false };
+    const mEval = m ? m.eval() : { cur:0,total:0,prog:0,done:false };
+
+    const goalTitle = g ? `GOAL ${gIdx+1}/${gList.length}: ${g.title}` : 'กำลังสุ่มภารกิจ…';
+    const miniTitle = m ? `MINI ${mIdx+1}/${mList.length}: ${m.title}` : 'กำลังสุ่ม mini quest…';
+
+    ROOT.dispatchEvent(new CustomEvent('quest:update', {
+      detail:{
+        goal: { title: goalTitle, ...gEval },
+        mini: { title: miniTitle, ...mEval },
+        extra:{
+          goals: gList.map((q,i)=>({ i:i+1, id:q.id, title:q.title, ...q.eval(), done: !!QUEST.doneGoals[q.id] })),
+          minis: mList.map((q,i)=>({ i:i+1, id:q.id, title:q.title, ...q.eval(), done: !!QUEST.doneMinis[q.id] }))
+        }
+      }
+    }));
+  }
+
+  function checkQuestCompletion(){
+    let changed = false;
+
+    for (const q of (QUEST.activeGoals||[])){
+      const e = q.eval();
+      if (e.done && !QUEST.doneGoals[q.id]){
+        QUEST.doneGoals[q.id] = true;
+        changed = true;
+        ROOT.dispatchEvent(new CustomEvent('hha:celebrate',{ detail:{ type:'goal', id:q.id, title:q.title } }));
+      }
+    }
+
+    for (const q of (QUEST.activeMinis||[])){
+      const e = q.eval();
+      if (e.done && !QUEST.doneMinis[q.id]){
+        QUEST.doneMinis[q.id] = true;
+        changed = true;
+        ROOT.dispatchEvent(new CustomEvent('hha:celebrate',{ detail:{ type:'mini', id:q.id, title:q.title } }));
+      }
+    }
+
+    if (changed) emitQuestUpdate();
+  }
+
+  function initQuestRun(){
+    resetQuestStats();
+    buildActiveQuests();
+    QUEST.started = true;
+    emitQuestUpdate(); // ✅ ให้ QUEST panel โผล่ทันที
+  }
+
+  function questSummary(){
+    const g = QUEST.activeGoals || [];
+    const m = QUEST.activeMinis || [];
+    let gCleared = 0, mCleared = 0;
+    for (const q of g) if (QUEST.doneGoals[q.id]) gCleared++;
+    for (const q of m) if (QUEST.doneMinis[q.id]) mCleared++;
+    return {
+      goalsCleared: gCleared,
+      goalsTotal: g.length,
+      miniCleared: mCleared,
+      miniTotal: m.length
+    };
+  }
+
+  // =====================================================
+
   function createTarget(spec){
     if (!layerEl) return;
 
@@ -518,8 +805,10 @@
 
     el.textContent = spec.emoji;
 
+    const lane = randLane();
+
     const fallback2D = {
-      x: Math.round(window.innerWidth  * (0.18 + Math.random()*0.64)),
+      x: laneToFallbackX(lane),
       y: Math.round(window.innerHeight * (0.22 + Math.random()*0.58))
     };
 
@@ -529,7 +818,8 @@
       type: spec.type,
       power: spec.power || null,
       emoji: spec.emoji,
-      pos: spawnWorld(),
+      lane,
+      pos: spawnWorld(lane),
       born: now(),
       ttl: spec.ttl || 2200,
       seen: false,
@@ -556,6 +846,18 @@
     if (t.el) t.el.remove();
   }
 
+  function markBadEvent(){
+    QSTAT.noBadOk = false;
+    QSTAT.lastBadAtMs = now();
+  }
+  function recoverBadWindowOnGood(){
+    // เมื่อทำของดีหลังพลาด → เริ่มจับเวลาใหม่
+    if (!QSTAT.noBadOk){
+      QSTAT.noBadOk = true;
+      QSTAT.noBadStartMs = now();
+    }
+  }
+
   function expireTarget(t){
     if (!running) return;
     removeTarget(t);
@@ -565,9 +867,16 @@
     if ((t.type === 'good' || t.type === 'gold') && t.seen){
       misses++;
       combo = 0;
+
+      markBadEvent();
+
       emitScore();
       emitMiss();
       emitJudge('MISS');
+
+      checkQuestCompletion();
+      emitQuestUpdate();
+
       checkSurvivalLives();
     }
   }
@@ -620,10 +929,16 @@
 
         emitJudge('BOSS CLEAR!');
         ROOT.dispatchEvent(new CustomEvent('quest:bossClear',{ detail:{ ok:true } }));
+
+        checkQuestCompletion();
+        emitQuestUpdate();
+
         emitScore();
       }else{
         t.el.style.setProperty('--tScale', String((pickBase().scale||1) * 1.12));
         t.el.textContent = '🥦👑' + ' ' + '×' + t.hp;
+
+        emitQuestUpdate();
         emitScore();
       }
       return;
@@ -637,18 +952,26 @@
 
       if (t.power === 'shield'){
         shieldUntil = now() + 5000;
+        QSTAT.powerShield++;
         emitJudge('SHIELD ON!');
         emitHit(t, 'POWER_SHIELD', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'shield' } }));
+
+        checkQuestCompletion();
+        emitQuestUpdate();
         return;
       }
       if (t.power === 'magnet'){
         magnetUntil = now() + 4000;
+        QSTAT.powerMagnet++;
         emitJudge('MAGNET!');
         emitHit(t, 'POWER_MAGNET', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'magnet' } }));
+
+        checkQuestCompletion();
+        emitQuestUpdate();
         return;
       }
       if (t.power === 'time'){
@@ -656,18 +979,26 @@
           timeLeft = clamp(timeLeft + 3, 0, 180);
           emitTime();
         }
+        QSTAT.powerTime++;
         emitJudge('TIME +3!');
         emitHit(t, 'POWER_TIME', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'time' } }));
+
+        checkQuestCompletion();
+        emitQuestUpdate();
         return;
       }
       if (t.power === 'fever'){
         feverAdd(22);
+        QSTAT.powerFever++;
         emitJudge('FEVER+');
         emitHit(t, 'POWER_FEVER', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'fever' } }));
+
+        checkQuestCompletion();
+        emitQuestUpdate();
         return;
       }
     }
@@ -676,10 +1007,14 @@
     if (t.type === 'fake'){
       if (shieldOn()){
         sideObjectsOnHit(t, x, y, 'block', combo);
+        QSTAT.block++;
         emitJudge('BLOCK!');
         emitBlock(t, 'fake');
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:block',{ detail:{ ok:true, why:'fake' } }));
+
+        checkQuestCompletion();
+        emitQuestUpdate();
         return;
       }
 
@@ -689,6 +1024,9 @@
       combo = 0;
       feverReduce(18);
 
+      QSTAT.fakeHit++;
+      markBadEvent();
+
       sideObjectsOnHit(t, x, y, 'fake', combo);
 
       emitHit(t, 'HIT_FAKE', rtMs);
@@ -697,6 +1035,9 @@
       emitJudge('MISS', { why:'fake' });
       checkSurvivalLives();
       ROOT.dispatchEvent(new CustomEvent('quest:fakeHit',{ detail:{ hit:true } }));
+
+      checkQuestCompletion();
+      emitQuestUpdate();
       return;
     }
 
@@ -704,10 +1045,14 @@
     if (t.type === 'junk'){
       if (shieldOn()){
         sideObjectsOnHit(t, x, y, 'block', combo);
+        QSTAT.block++;
         emitJudge('BLOCK!');
         emitBlock(t, 'junk');
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:block',{ detail:{ ok:true, why:'junk' } }));
+
+        checkQuestCompletion();
+        emitQuestUpdate();
         return;
       }
 
@@ -717,6 +1062,9 @@
       combo = 0;
       feverReduce(12);
 
+      QSTAT.junkHit++;
+      markBadEvent();
+
       sideObjectsOnHit(t, x, y, 'junk', combo);
 
       emitHit(t, 'HIT_JUNK', rtMs);
@@ -724,6 +1072,9 @@
       emitMiss();
       emitJudge('MISS');
       checkSurvivalLives();
+
+      checkQuestCompletion();
+      emitQuestUpdate();
       return;
     }
 
@@ -731,6 +1082,18 @@
     goodHits++;
     combo++;
     comboMax = Math.max(comboMax, combo);
+
+    QSTAT.goodHit++;
+    if (t.type === 'gold') QSTAT.goldHit++;
+
+    const fi = qFoodInfoFromEmoji(t.emoji);
+    if (fi && fi.info){
+      if (fi.info.cat === 'fruit') QSTAT.fruitGood++;
+      if (fi.info.cat === 'veg')   QSTAT.vegGood++;
+      if (fi.info.cat === 'dairy') QSTAT.dairyGood++;
+    }
+
+    recoverBadWindowOnGood();
 
     sideObjectsOnHit(t, x, y, (t.type === 'gold') ? 'gold' : 'good', combo);
 
@@ -754,8 +1117,13 @@
     score += add;
 
     if (Particles && typeof Particles.scorePop === 'function'){
-      // ✅ ให้คะแนนขึ้นตามเดิม + สีแยกด้วย prefix
-      Particles.scorePop(x, y, '+' + add, (t.type === 'gold') ? '[GOLD] '+pickOne(WORD_GOLD,'โบนัส!') : '[GOOD] '+pickOne(WORD_GOOD_GENERIC,'เก่งมาก!'));
+      Particles.scorePop(
+        x, y,
+        '+' + add,
+        (t.type === 'gold')
+          ? '[GOLD] '+pickOne(WORD_GOLD,'โบนัส!')
+          : '[GOOD] '+pickOne(WORD_GOOD_GENERIC,'เก่งมาก!')
+      );
     }
     if (Particles && typeof Particles.burstAt === 'function'){
       if (t.type === 'gold') Particles.burstAt(x,y,'GOLD');
@@ -767,6 +1135,9 @@
     emitScore();
 
     ROOT.dispatchEvent(new CustomEvent('quest:goodHit',{ detail:{ type:t.type, add, mult, feverNow } }));
+
+    checkQuestCompletion();
+    emitQuestUpdate();
   }
 
   function checkSurvivalLives(){
@@ -827,13 +1198,16 @@
     el.style.setProperty('--tScale', String(base.scale * 1.28));
 
     const hp = (base.bossHP|0) || 8;
+    const lane = 2;
+
     const t = {
       id: makeId(),
       el,
       type:'boss',
       emoji:'🥦👑 ×' + hp,
       hp,
-      pos: spawnWorld(),
+      lane,
+      pos: spawnWorld(lane),
       born: now(),
       ttl: 999999,
       seen: false,
@@ -855,6 +1229,8 @@
     bossTarget = t;
     emitJudge('BOSS!');
     ROOT.dispatchEvent(new CustomEvent('quest:boss', { detail:{ hp } }));
+
+    emitQuestUpdate();
   }
 
   function renderLoop(){
@@ -866,7 +1242,7 @@
     for (const t of active){
       if (!t || !t.el) continue;
 
-      if (!t.pos && ready) t.pos = spawnWorld();
+      if (!t.pos && ready) t.pos = spawnWorld(t.lane);
 
       let p = null;
       if (ready && t.pos) p = project(t.pos);
@@ -931,6 +1307,12 @@
       }
     }
 
+    // ✅ ให้ timer-minis เดิน + HUD ไม่ว่าง
+    if (QUEST && QUEST.started){
+      checkQuestCompletion();
+      emitQuestUpdate();
+    }
+
     tickTimer = setTimeout(tickLoop, 1000);
   }
 
@@ -969,6 +1351,10 @@
 
     ROOT.dispatchEvent(new CustomEvent('hha:mode', { detail:{ diff:diffKey, runMode, challenge, durationSec } }));
 
+    // ✅ เปิด Quest ตามสเปค: play random 2/3, research fixed
+    initQuestRun();
+    emitQuestUpdate();
+
     emitTime();
     emitScore();
 
@@ -994,6 +1380,8 @@
     for (const t of copy) removeTarget(t);
     active.length = 0;
 
+    const qs = questSummary();
+
     ROOT.dispatchEvent(new CustomEvent('hha:end',{
       detail:{
         scoreFinal:score,
@@ -1005,7 +1393,10 @@
         durationSec,
         runMode,
         diff: diffKey,
-        challenge
+        challenge,
+        stats: {
+          ...qs
+        }
       }
     }));
   }
