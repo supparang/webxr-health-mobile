@@ -2,8 +2,9 @@
 // HeroHealth FX Layer (DOM)
 // - score pop + burst
 // - toast
-// - ✅ HEAVY Celebration: big banner + confetti storm + fanfare + screen shake + sparkle ring
-// Works as IIFE, exposes: window.GAME_MODULES.Particles (and window.Particles)
+// - ✅ HEAVY Celebration + ✅ ULTRA Celebration (confetti waves + fireworks + flash + triple shake + clap)
+//
+// Exposes: window.GAME_MODULES.Particles (and window.Particles)
 
 (function (root) {
   'use strict';
@@ -110,7 +111,7 @@
         100%{ opacity:0; transform:translate(-50%, 14px); }
       }
 
-      /* --------- HEAVY CELEBRATION ---------- */
+      /* --------- CELEBRATION ---------- */
       .hha-cele-wrap{
         position:fixed;
         inset:0;
@@ -123,11 +124,26 @@
         background:radial-gradient(circle at 50% 56%, rgba(34,197,94,.22), rgba(2,6,23,0) 60%),
                    radial-gradient(circle at 50% 56%, rgba(250,204,21,.18), rgba(2,6,23,0) 68%);
         opacity:0;
-        animation:hhaDim 1.25s ease-out forwards;
+        animation:hhaDim 1.35s ease-out forwards;
       }
       @keyframes hhaDim{
         0%{ opacity:0; }
         15%{ opacity:1; }
+        100%{ opacity:0; }
+      }
+
+      .hha-cele-flash{
+        position:absolute;
+        inset:0;
+        background:radial-gradient(circle at 50% 56%, rgba(255,255,255,.22), rgba(255,255,255,0) 58%);
+        opacity:0;
+        mix-blend-mode:screen;
+        animation:hhaFlash 1.0s ease-out forwards;
+      }
+      @keyframes hhaFlash{
+        0%{ opacity:0; }
+        10%{ opacity:1; }
+        28%{ opacity:.25; }
         100%{ opacity:0; }
       }
 
@@ -136,7 +152,7 @@
         left:50%;
         top:50%;
         transform:translate(-50%, -62%) scale(.86);
-        width:min(740px, 92vw);
+        width:min(760px, 92vw);
         border-radius:22px;
         border:1px solid rgba(148,163,184,0.38);
         background:radial-gradient(circle at top left, rgba(11,17,32,.92), rgba(2,6,23,.92) 65%);
@@ -144,13 +160,13 @@
         padding:14px 16px 12px;
         text-align:center;
         opacity:0;
-        animation:hhaBanner 1.25s ease-out forwards;
+        animation:hhaBanner 1.55s ease-out forwards;
       }
       @keyframes hhaBanner{
         0%{ opacity:0; transform:translate(-50%, -64%) scale(.84); }
-        10%{ opacity:1; transform:translate(-50%, -66%) scale(1.02); }
+        10%{ opacity:1; transform:translate(-50%, -66%) scale(1.04); }
         22%{ transform:translate(-50%, -66%) scale(1); }
-        80%{ opacity:1; }
+        85%{ opacity:1; }
         100%{ opacity:0; transform:translate(-50%, -70%) scale(.98); }
       }
       .hha-cele-title{
@@ -199,7 +215,7 @@
       @keyframes hhaConf{
         0%{ transform:translate3d(0,-10vh,0) rotate(var(--r)); opacity:0; }
         8%{ opacity:.95; }
-        100%{ transform:translate3d(var(--dx), 120vh, 0) rotate(calc(var(--r) + 500deg)); opacity:0; }
+        100%{ transform:translate3d(var(--dx), 120vh, 0) rotate(calc(var(--r) + 520deg)); opacity:0; }
       }
 
       /* sparkle ring at center */
@@ -207,8 +223,8 @@
         position:absolute;
         left:50%;
         top:56%;
-        width:min(360px, 60vw);
-        height:min(360px, 60vw);
+        width:min(380px, 62vw);
+        height:min(380px, 62vw);
         transform:translate(-50%,-50%) scale(.92);
         border-radius:999px;
         border:2px solid rgba(255,255,255,0.14);
@@ -216,12 +232,12 @@
                    0 0 56px rgba(34,197,94,0.22),
                    inset 0 0 30px rgba(250,204,21,0.14);
         opacity:0;
-        animation:hhaSpark 1.1s ease-out forwards;
+        animation:hhaSpark 1.35s ease-out forwards;
       }
       @keyframes hhaSpark{
         0%{ opacity:0; transform:translate(-50%,-50%) scale(.84); }
-        16%{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
-        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.12); }
+        16%{ opacity:1; transform:translate(-50%,-50%) scale(1.05); }
+        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.16); }
       }
 
       /* screen shake */
@@ -274,9 +290,36 @@
     }catch{}
   }
 
+  function noiseBurst(dur=0.06, gain=0.06){
+    // small clap-like noise (super short, mobile-friendly)
+    const A = getAudio();
+    if (!A) return;
+    try{
+      const len = Math.max(1, Math.floor(A.sampleRate * dur));
+      const buf = A.createBuffer(1, len, A.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i=0;i<len;i++){
+        // quick decay envelope
+        const env = 1 - (i / len);
+        data[i] = (Math.random()*2-1) * env;
+      }
+      const src = A.createBufferSource();
+      src.buffer = buf;
+
+      const bp = A.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1800;
+
+      const g = A.createGain();
+      g.gain.value = gain;
+
+      src.connect(bp); bp.connect(g); g.connect(A.destination);
+      src.start();
+      src.stop(A.currentTime + dur);
+    }catch{}
+  }
+
   function fanfare(kind){
-    // short “gamey” fanfare sequences
-    // keep very short, mobile friendly
     if (kind === 'goal'){
       tone(659, 0.07, 'triangle', 0.05);
       setTimeout(()=>tone(784, 0.07, 'triangle', 0.05), 90);
@@ -292,6 +335,17 @@
       tone(392, 0.08, 'triangle', 0.05);
       setTimeout(()=>tone(523, 0.08, 'triangle', 0.05), 110);
       setTimeout(()=>tone(659, 0.10, 'triangle', 0.055), 220);
+    } else if (kind === 'ultra'){
+      // ULTRA: fast “victory run”
+      tone(523, 0.06, 'triangle', 0.055);
+      setTimeout(()=>tone(659, 0.06, 'triangle', 0.06), 70);
+      setTimeout(()=>tone(784, 0.07, 'triangle', 0.065), 140);
+      setTimeout(()=>tone(988, 0.08, 'triangle', 0.07), 220);
+      setTimeout(()=>tone(1175, 0.10, 'triangle', 0.075), 320);
+      // clap bursts
+      setTimeout(()=>noiseBurst(0.05, 0.07), 120);
+      setTimeout(()=>noiseBurst(0.06, 0.07), 240);
+      setTimeout(()=>noiseBurst(0.06, 0.075), 360);
     } else {
       tone(880, 0.07, 'triangle', 0.045);
       setTimeout(()=>tone(988, 0.08, 'triangle', 0.045), 90);
@@ -315,7 +369,6 @@
     const tag = label ? ` • ${label}` : '';
     el.textContent = `${txt}${tag}`.trim();
 
-    // label-based color without hardcoding palette too much
     if (label === 'JUNK' || label === 'MISS') el.style.color = '#fb923c';
     else if (label === 'BLOCK') el.style.color = '#60a5fa';
     else if (label === 'POWER' || label === 'GOLD') el.style.color = '#facc15';
@@ -347,10 +400,11 @@
       if (label === 'JUNK' || label === 'MISS') s.style.background = 'rgba(251,146,60,.95)';
       else if (label === 'BLOCK') s.style.background = 'rgba(96,165,250,.95)';
       else if (label === 'POWER' || label === 'GOLD') s.style.background = 'rgba(250,204,21,.95)';
+      else if (label === 'FIREWORK') s.style.background = 'rgba(167,139,250,.95)';
       else s.style.background = 'rgba(74,222,128,.95)';
 
-      s.style.width = (6 + Math.random()*7).toFixed(0)+'px';
-      s.style.height = (6 + Math.random()*7).toFixed(0)+'px';
+      s.style.width = (6 + Math.random()*8).toFixed(0)+'px';
+      s.style.height = (6 + Math.random()*8).toFixed(0)+'px';
 
       wrap.appendChild(s);
     }
@@ -368,37 +422,47 @@
   }
 
   // -----------------------------
-  // HEAVY Celebration
+  // CELEBRATION
   // -----------------------------
   let celeLock = 0;
 
-  function shakeScreen(){
+  function clamp(v,min,max){
+    v = Number(v)||0;
+    return v<min?min:(v>max?max:v);
+  }
+
+  function shakeOnce(){
     try{
       const w = doc.getElementById('hvr-wrap') || doc.body;
       w.classList.remove('hha-shake');
-      // force reflow
       void w.offsetWidth;
       w.classList.add('hha-shake');
       setTimeout(()=>{ try{ w.classList.remove('hha-shake'); }catch{} }, 650);
     }catch{}
   }
 
+  function shakeTriple(){
+    shakeOnce();
+    setTimeout(shakeOnce, 220);
+    setTimeout(shakeOnce, 460);
+  }
+
   function makeConfetti(parent, intensity){
-    const count = clamp(intensity || 1, 0.6, 2.5);
-    const n = Math.round(120 * count); // heavy
+    const count = clamp(intensity || 1, 0.6, 3.2);
+    const n = Math.round(140 * count);
+    const colors = ['#4ade80','#22c55e','#facc15','#fb923c','#60a5fa','#a78bfa','#f472b6','#34d399'];
+
     for (let i=0;i<n;i++){
       const c = doc.createElement('div');
       c.className = 'hha-conf';
 
       const x = (Math.random()*100).toFixed(2) + 'vw';
-      const w = (6 + Math.random()*10).toFixed(0) + 'px';
-      const h = (8 + Math.random()*14).toFixed(0) + 'px';
+      const w = (6 + Math.random()*11).toFixed(0) + 'px';
+      const h = (8 + Math.random()*16).toFixed(0) + 'px';
       const r = (Math.random()*360).toFixed(0) + 'deg';
-      const t = (1.6 + Math.random()*1.2).toFixed(2) + 's';
-      const dx = ((Math.random()*2-1)*18).toFixed(1) + 'vw';
+      const t = (1.7 + Math.random()*1.4).toFixed(2) + 's';
+      const dx = ((Math.random()*2-1)*22).toFixed(1) + 'vw';
 
-      // random bright-ish colors
-      const colors = ['#4ade80','#22c55e','#facc15','#fb923c','#60a5fa','#a78bfa','#f472b6','#34d399'];
       const col = colors[(Math.random()*colors.length)|0];
 
       c.style.setProperty('--x', x);
@@ -410,16 +474,40 @@
       c.style.background = col;
 
       parent.appendChild(c);
-      setTimeout(()=>{ try{ c.remove(); }catch{} }, 2600);
+      setTimeout(()=>{ try{ c.remove(); }catch{} }, 3200);
+    }
+  }
+
+  function fireworksBurst(parent, x, y){
+    // x,y in px
+    burstAt(x, y, 'FIREWORK');
+    // extra spark pop
+    try{
+      scorePop(x, y, '', '✨');
+    }catch{}
+  }
+
+  function fireworksShow(parent, rounds=4){
+    const W = root.innerWidth || 1000;
+    const H = root.innerHeight || 700;
+    for (let i=0;i<rounds;i++){
+      setTimeout(()=>{
+        const x = Math.round(W*(0.18 + Math.random()*0.64));
+        const y = Math.round(H*(0.18 + Math.random()*0.42));
+        fireworksBurst(parent, x, y);
+        noiseBurst(0.05, 0.06);
+      }, 120 + i*190);
     }
   }
 
   function celebrate(kind='goal', opts={}){
     const now = Date.now();
-    if (now - celeLock < 450) return; // anti spam
+    if (now - celeLock < 420) return;
     celeLock = now;
 
-    const intensity = Number(opts.intensity ?? 1);
+    const ultra = (kind === 'ultra') || !!opts.ultra;
+
+    const intensity = Number(opts.intensity ?? (ultra ? 2.6 : 1));
     const title = String(opts.title || '').trim();
     const sub   = String(opts.sub || '').trim();
     const chips = Array.isArray(opts.chips) ? opts.chips.slice(0,6) : [];
@@ -428,27 +516,32 @@
     let s = sub;
 
     if (!t){
-      if (kind === 'goal') t = '🎉 GOAL CLEARED!';
+      if (ultra) t = '💥 ULTRA CLEAR!!';
+      else if (kind === 'goal') t = '🎉 GOAL CLEARED!';
       else if (kind === 'mini') t = '✨ MINI QUEST CLEARED!';
       else if (kind === 'fever') t = '🔥 FEVER MODE!';
       else if (kind === 'end') t = '🏁 STAGE COMPLETE!';
       else t = '🎊 NICE!';
     }
     if (!s){
-      if (kind === 'goal') s = 'ได้รางวัล! แต้ม + เกราะ + Storm Wave 🌊';
+      if (ultra) s = 'รางวัลกระหน่ำ! +โบนัส +พลุ +คอนเฟตติ 🌈';
+      else if (kind === 'goal') s = 'ได้รางวัล! แต้ม + เกราะ + Storm Wave 🌊';
       else if (kind === 'mini') s = 'ได้รางวัล! แต้ม + เวลาเพิ่ม ⏱️';
       else if (kind === 'fever') s = 'แตะให้ไว! คะแนนคูณ x2!';
       else if (kind === 'end') s = 'สรุปผลพร้อมรางวัลทั้งหมด';
       else s = 'ทำได้ดีมาก!';
     }
 
-    // wrap
     const wrap = doc.createElement('div');
     wrap.className = 'hha-cele-wrap';
 
     const dim = doc.createElement('div');
     dim.className = 'hha-cele-dim';
     wrap.appendChild(dim);
+
+    const flash = doc.createElement('div');
+    flash.className = 'hha-cele-flash';
+    wrap.appendChild(flash);
 
     const spark = doc.createElement('div');
     spark.className = 'hha-spark';
@@ -472,13 +565,13 @@
     badgeRow.className = 'hha-cele-badges';
 
     const defaultChips = [];
-    if (kind === 'goal') defaultChips.push('🎯 GOAL','🛡️ BONUS','🌊 STORM');
-    if (kind === 'mini') defaultChips.push('✨ MINI','⏱️ TIME+','🔥 FEVER+');
-    if (kind === 'fever') defaultChips.push('🔥 FEVER','x2 SCORE','🛡️ SHIELD');
-    if (kind === 'end') defaultChips.push('🏁 FINISH','🎁 REWARDS','⭐ GRADE');
+    if (ultra) defaultChips.push('💥 ULTRA','🎆 FIREWORKS','🌈 CONFETTI');
+    else if (kind === 'goal') defaultChips.push('🎯 GOAL','🛡️ BONUS','🌊 STORM');
+    else if (kind === 'mini') defaultChips.push('✨ MINI','⏱️ TIME+','🔥 FEVER+');
+    else if (kind === 'fever') defaultChips.push('🔥 FEVER','x2 SCORE','🛡️ SHIELD');
+    else if (kind === 'end') defaultChips.push('🏁 FINISH','🎁 REWARDS','⭐ GRADE');
 
     const chipList = chips.length ? chips : defaultChips;
-
     chipList.slice(0,6).forEach(tx=>{
       const c = doc.createElement('div');
       c.className = 'hha-cele-chip';
@@ -491,26 +584,36 @@
 
     layer.appendChild(wrap);
 
-    // confetti storm
-    makeConfetti(wrap, (kind === 'end' ? 1.8 : (kind === 'goal' ? 1.4 : 1.1)) * intensity);
+    // SOUND + SHAKE
+    fanfare(ultra ? 'ultra' : kind);
+    if (ultra) shakeTriple(); else shakeOnce();
 
-    // sound + shake
-    fanfare(kind);
-    shakeScreen();
+    // CONFETTI WAVES (ULTRA = 3 waves)
+    if (ultra){
+      makeConfetti(wrap, 2.4 * intensity);
+      setTimeout(()=>makeConfetti(wrap, 2.0 * intensity), 260);
+      setTimeout(()=>makeConfetti(wrap, 1.6 * intensity), 520);
+
+      // FIREWORKS
+      fireworksShow(wrap, 6);
+      setTimeout(()=>fireworksShow(wrap, 5), 420);
+
+      // extra clap
+      setTimeout(()=>noiseBurst(0.07, 0.08), 520);
+      setTimeout(()=>noiseBurst(0.07, 0.085), 680);
+    } else {
+      makeConfetti(wrap, (kind === 'end' ? 1.8 : (kind === 'goal' ? 1.4 : 1.1)) * intensity);
+    }
 
     // auto remove
-    setTimeout(()=>{ try{ wrap.remove(); }catch{} }, 1500);
+    const ttl = ultra ? 2600 : 1500;
+    setTimeout(()=>{ try{ wrap.remove(); }catch{} }, ttl);
   }
 
   // -----------------------------
   // Export
   // -----------------------------
-  const API = {
-    scorePop,
-    burstAt,
-    toast,
-    celebrate
-  };
+  const API = { scorePop, burstAt, toast, celebrate };
 
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = API;
