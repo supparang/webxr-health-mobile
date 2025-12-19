@@ -28,10 +28,11 @@
       color:var(--text-main);
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
       height:100%;
-      overflow:hidden;
+      overflow:hidden; /* เกมไม่ต้อง scroll */
     }
     body{ -webkit-font-smoothing:antialiased; }
 
+    /* ===== WRAP ===== */
     #hvr-wrap{
       position:relative;
       height:100vh;
@@ -42,6 +43,7 @@
       overflow:hidden;
     }
 
+    /* ===== Water bar ===== */
     .hha-water-bar{
       background:linear-gradient(135deg,#020617,#020617);
       border-radius:999px;
@@ -80,6 +82,7 @@
       transition:width .25s ease;
     }
 
+    /* ===== Main row ===== */
     .hha-main-row{
       display:flex;
       gap:10px;
@@ -109,7 +112,6 @@
       font-weight:600;
       margin-bottom:6px;
     }
-
     .hha-pill-row{
       display:flex;
       gap:8px;
@@ -153,6 +155,7 @@
       margin-top:2px;
     }
 
+    /* ===== Grade + progress ===== */
     .hha-grade{
       text-align:right;
       font-size:12px;
@@ -197,6 +200,7 @@
       transition:width .25s ease;
     }
 
+    /* ===== Quest ===== */
     .hha-quest-title{
       font-size:14px;
       letter-spacing:.08em;
@@ -229,21 +233,9 @@
       left:0; right:0; top:0; bottom:0;
       z-index:30;
       overflow:hidden;
-
-      /* ✅ ต้องรับ pointer เพื่อให้ drag look ทำงาน */
-      pointer-events:auto;
-      touch-action:pan-x pan-y;
+      transform:translate(0px,0px);
+      pointer-events:none;
     }
-
-    /* world ที่ขยับทั้งฉาก */
-    #hvr-world{
-      position:absolute;
-      left:0; top:0;
-      width:100%; height:100%;
-      transform:translate3d(0px,0px,0);
-      will-change:transform;
-    }
-
     .hvr-target{
       pointer-events:auto;
       position:absolute;
@@ -279,6 +271,7 @@
         0 10px 24px rgba(0,0,0,0.85);
     }
 
+    /* ===== Crosshair ===== */
     .hvr-crosshair{
       position:absolute;
       left:50%;
@@ -306,13 +299,9 @@
       100%{ transform:translate(-50%,-50%) scale(1); }
     }
 
-    .hha-coach-wrap{
-      margin-top:auto;
-      z-index:40;
-      pointer-events:none;
-    }
+    /* ===== Coach ===== */
+    .hha-coach-wrap{ margin-top:auto; z-index:40; }
     .hha-coach-bubble{
-      pointer-events:auto;
       display:flex;
       gap:10px;
       padding:10px 12px;
@@ -325,6 +314,7 @@
     .hha-coach-avatar{
       width:40px; height:40px;
       border-radius:999px;
+      overflow:hidden;
       background:#064e3b;
       flex-shrink:0;
       display:flex;
@@ -335,6 +325,7 @@
     .hha-coach-text{ font-size:14px; line-height:1.45; }
     .hha-coach-name{ font-weight:700; margin-bottom:2px; }
 
+    /* ===== Bottom row ===== */
     .hha-bottom-row{
       position:absolute;
       left:0; right:0; bottom:0;
@@ -357,23 +348,16 @@
       color:var(--text-soft);
       box-shadow:0 14px 32px rgba(15,23,42,0.95);
     }
-    .hha-fever-label{
-      display:flex;
-      align-items:center;
-      gap:6px;
-      margin-bottom:6px;
-    }
+    .hha-fever-label{ display:flex; align-items:center; gap:6px; margin-bottom:6px; }
     .hha-fever-label span.emoji{ font-size:16px; }
     .hha-fever-bar{
-      height:8px;
-      border-radius:999px;
+      height:8px; border-radius:999px;
       background:rgba(15,23,42,0.95);
       overflow:hidden;
       position:relative;
     }
     .hha-fever-bar-inner{
-      height:100%;
-      width:0%;
+      height:100%; width:0%;
       border-radius:999px;
       background:linear-gradient(90deg,#f97316,#fb923c,#facc15);
       transition:width .2s ease-out;
@@ -387,8 +371,9 @@
       color:var(--text-soft);
     }
 
-    .hha-btn{
+    .hha-btn-vr{
       flex:0 0 auto;
+      min-width:156px;
       border-radius:999px;
       border:1px solid rgba(148,163,184,0.55);
       padding:10px 14px;
@@ -401,11 +386,11 @@
       gap:6px;
       text-decoration:none;
       box-shadow:0 14px 32px rgba(15,23,42,0.95);
-      white-space:nowrap;
     }
-    .hha-btn span.emoji{ font-size:18px; }
+    .hha-btn-vr span.emoji{ font-size:18px; }
 
-    .hvr-screen-blink{
+    /* ===== Screen blink ===== */
+    #hvr-screen-blink{
       position:absolute;
       inset:0;
       z-index:9999;
@@ -414,17 +399,37 @@
       transition: opacity .06s ease;
       mix-blend-mode: screen;
     }
-    .hvr-screen-blink.on{ opacity:1; }
-    .hvr-screen-blink.good{
+    #hvr-screen-blink.on{ opacity:1; }
+    #hvr-screen-blink.good{
       background: radial-gradient(circle at 50% 56%, rgba(34,197,94,.35), rgba(34,197,94,0) 60%);
     }
-    .hvr-screen-blink.bad{
+    #hvr-screen-blink.bad{
       background: radial-gradient(circle at 50% 56%, rgba(249,115,22,.38), rgba(249,115,22,0) 60%);
     }
-    .hvr-screen-blink.block{
+    #hvr-screen-blink.block{
       background: radial-gradient(circle at 50% 56%, rgba(96,165,250,.35), rgba(96,165,250,0) 60%);
     }
 
+    /* ===== DANGER pulse + shake (เร้าใจ) ===== */
+    #hvr-wrap.danger{
+      animation:dangerPulse 0.55s ease-in-out infinite;
+    }
+    @keyframes dangerPulse{
+      0%,100%{ filter:none; }
+      50%{ filter: drop-shadow(0 0 18px rgba(249,115,22,.32)); }
+    }
+    #hvr-wrap.shake{
+      animation:shake 0.18s linear infinite;
+    }
+    @keyframes shake{
+      0%{ transform:translate(0,0); }
+      25%{ transform:translate(1px,0); }
+      50%{ transform:translate(0,1px); }
+      75%{ transform:translate(-1px,0); }
+      100%{ transform:translate(0,-1px); }
+    }
+
+    /* ===== Responsive ===== */
     @media (min-width:900px){
       #hvr-wrap{ max-width:1100px; margin:0 auto; }
     }
@@ -432,6 +437,7 @@
       .hha-main-row{ flex-direction:column; }
       .hha-grade{ min-width:0; }
       .hha-grade-progress .bar{ width:120px; }
+      .hha-btn-vr{ min-width:132px; }
     }
   </style>
 </head>
@@ -486,7 +492,7 @@
             <span class="badge" id="hha-grade-badge">C</span>
 
             <div class="hha-grade-progress">
-              <span id="hha-grade-progress-text">Progress to S: 0%</span>
+              <span id="hha-grade-progress-text">Progress to S (30%): 0%</span>
               <span class="bar"><div id="hha-grade-progress-fill"></div></span>
             </div>
           </div>
@@ -495,8 +501,8 @@
 
       <article class="hha-card hha-card-right" id="hha-card-right">
         <div class="hha-quest-title">QUEST</div>
-        <div class="hha-quest-main" id="hha-quest-goal">Goal: โซนน้ำสีเขียว • 0/18 วินาที (โซน GREEN)</div>
-        <div class="hha-quest-mini" id="hha-quest-mini">Mini: สายคอมโบ • 0/5 คอมโบสูงสุด</div>
+        <div class="hha-quest-main" id="hha-quest-goal">Goal: —</div>
+        <div class="hha-quest-mini" id="hha-quest-mini">Mini: —</div>
 
         <div class="hha-quest-progress">
           Goal:
@@ -509,22 +515,26 @@
       </article>
     </section>
 
+    <!-- ✅ Playfield -->
     <main id="hvr-playfield" aria-hidden="false"></main>
 
+    <!-- ✅ Crosshair -->
     <div id="hvr-crosshair" class="hvr-crosshair">○</div>
 
+    <!-- Coach -->
     <section class="hha-coach-wrap">
       <div class="hha-coach-bubble" id="hha-coach-bubble">
-        <div class="hha-coach-avatar">🧭</div>
+        <div class="hha-coach-avatar" id="hha-coach-avatar">💧</div>
         <div class="hha-coach-text">
           <div class="hha-coach-name">โค้ช</div>
           <div id="hha-coach-text">
-            ลากจอเพื่อมองหาเป้า 👀 แตะปล่อยเพื่อยิง ○ ถ้าจะหมุนเครื่องให้เหมือน VR ให้กด “Enable Gyro” 1 ครั้งนะ!
+            แตะจอเพื่อ “ยิงจากวงเล็ง ○” เก็บน้ำดี 💧 เลี่ยงน้ำหวาน 🥤 แล้วคุม GREEN!
           </div>
         </div>
       </div>
     </section>
 
+    <!-- Bottom -->
     <div class="hha-bottom-row">
       <div class="hha-fever-card">
         <div class="hha-fever-label">
@@ -540,50 +550,22 @@
         </div>
       </div>
 
-      <a href="#" id="hha-btn-gyro" class="hha-btn">
-        <span class="emoji">🧭</span>
-        <span>Enable Gyro</span>
-      </a>
-
-      <a href="#" id="hha-btn-vr" class="hha-btn">
+      <a href="#" id="hha-btn-vr" class="hha-btn-vr">
         <span class="emoji">🕶️</span>
         <span>เข้าสู่โหมด VR</span>
       </a>
     </div>
 
-    <div id="hvr-screen-blink" class="hvr-screen-blink" aria-hidden="true"></div>
+    <!-- Blink layer -->
+    <div id="hvr-screen-blink" aria-hidden="true"></div>
   </div>
 
-  <!-- global HUD/FX ต้องมาก่อน -->
+  <!-- ===== Scripts (global HUD / FX) ===== -->
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
   <script src="./vr/hha-hud.js"></script>
 
-  <!-- feedback blink/vibrate -->
-  <script>
-  (function(){
-    'use strict';
-    const $ = (id)=>document.getElementById(id);
-    function vibrate(p){ try{ if (navigator && navigator.vibrate) navigator.vibrate(p); }catch{} }
-    function blink(kind){
-      const el = $('hvr-screen-blink');
-      if (!el) return;
-      el.classList.remove('good','bad','block','on');
-      el.classList.add(kind || 'good');
-      void el.offsetWidth;
-      el.classList.add('on');
-      setTimeout(()=> el.classList.remove('on'), 90);
-    }
-    window.addEventListener('hha:judge', (e)=>{
-      const lb = String(e && e.detail && e.detail.label || '').toUpperCase();
-      if (!lb) return;
-      if (lb === 'GOOD' || lb === 'POWER' || lb === 'SHIELD+' || lb === 'TIME+') { blink('good'); vibrate(12); }
-      else if (lb === 'BLOCK') { blink('block'); vibrate([12,20,12]); }
-      else if (lb === 'JUNK' || lb === 'MISS') { blink('bad'); vibrate([18,28,18]); }
-    }, { passive:true });
-  })();
-  </script>
-
+  <!-- ===== Boot Hydration VR + Crosshair shooter + DANGER effects ===== -->
   <script type="module">
     import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
 
@@ -604,21 +586,24 @@
       if (diffPill) diffPill.textContent = `${diff.toUpperCase()} • ${time}s`;
     }
 
+    // ===== tiny sound (tick/beep) =====
     let audioCtx = null;
-    function beep(freq, dur){
+    function beep(freq, dur, vol){
       try{
         audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
         const o = audioCtx.createOscillator();
         const g = audioCtx.createGain();
         o.type = 'sine';
         o.frequency.value = freq || 880;
-        g.gain.value = 0.04;
+        g.gain.value = (vol ?? 0.04);
         o.connect(g); g.connect(audioCtx.destination);
         o.start();
         o.stop(audioCtx.currentTime + (dur || 0.06));
       }catch{}
     }
-    function vibrate(pattern){ try{ if (navigator && navigator.vibrate) navigator.vibrate(pattern); }catch{} }
+    function vibrate(pattern){
+      try{ if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(pattern); }catch{}
+    }
 
     function ping(){
       const c = $('hvr-crosshair');
@@ -628,6 +613,18 @@
       c.classList.add('ping');
     }
 
+    // screen blink
+    function screenBlink(kind){
+      const el = $('hvr-screen-blink');
+      if (!el) return;
+      el.className = '';
+      el.id = 'hvr-screen-blink';
+      el.classList.add(kind || 'good');
+      el.classList.add('on');
+      setTimeout(()=> el.classList.remove('on'), 90);
+    }
+
+    // ยิงตาม crosshair ด้วย elementFromPoint
     function elementAtCrosshair(){
       const c = $('hvr-crosshair');
       if(!c) return null;
@@ -651,9 +648,20 @@
       ping();
 
       if (!tgt){
-        beep(220, 0.05);
+        beep(220, 0.05, 0.03);
         vibrate(10);
         return;
+      }
+
+      const isBad = tgt.classList.contains('bad');
+      if (isBad){
+        screenBlink('bad');
+        vibrate([22, 35, 22]);
+        beep(420, 0.06, 0.04);
+      } else {
+        screenBlink('good');
+        vibrate(14);
+        beep(880, 0.06, 0.035);
       }
 
       try{
@@ -668,37 +676,11 @@
       }
     }
 
-    // tap ยิง / drag = look
     function bindCrosshairControls(){
-      let downX=0, downY=0, downT=0, moved=false;
-
       document.addEventListener('pointerdown', (e)=>{
         const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
         if (t) return;
-        if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn')) return;
-
-        moved=false;
-        downX = e.clientX || 0;
-        downY = e.clientY || 0;
-        downT = performance.now();
-      }, { passive:true });
-
-      document.addEventListener('pointermove', (e)=>{
-        if (!downT) return;
-        const dx = (e.clientX||0) - downX;
-        const dy = (e.clientY||0) - downY;
-        if ((dx*dx + dy*dy) > 64) moved = true;
-      }, { passive:true });
-
-      document.addEventListener('pointerup', (e)=>{
-        if (!downT) return;
-        const dt = performance.now() - downT;
-        const wasTap = (!moved && dt < 260);
-        downT = 0;
-
-        if (!wasTap) return;
-        if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn')) return;
-
+        if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr')) return;
         fire();
       }, { passive:true });
 
@@ -707,29 +689,53 @@
       });
     }
 
+    // ✅ DANGER / TIME LOW effects (เร้าใจ)
+    function bindDangerAndTime(){
+      const wrap = $('hvr-wrap');
+
+      // zone → danger pulse + shake
+      window.addEventListener('hha:score', (e)=>{
+        const zone = String(e?.detail?.zone || '');
+        if (!wrap) return;
+
+        if (zone === 'LOW' || zone === 'HIGH'){
+          wrap.classList.add('danger');
+        } else {
+          wrap.classList.remove('danger');
+          wrap.classList.remove('shake');
+        }
+      });
+
+      // time low → tick + shake เล็กน้อยตอน <= 10
+      window.addEventListener('hha:time', (e)=>{
+        const sec = Number(e?.detail?.sec);
+        if (!wrap || !Number.isFinite(sec)) return;
+
+        if (sec <= 10 && sec > 0){
+          wrap.classList.add('shake');
+          beep(980, 0.03, 0.025);
+          vibrate(6);
+        } else {
+          wrap.classList.remove('shake');
+        }
+      });
+
+      // judge feedback overlay
+      window.addEventListener('hha:judge', (e)=>{
+        const lb = String(e?.detail?.label || '').toUpperCase();
+        if (lb === 'BLOCK') screenBlink('block');
+        if (lb === 'MISS')  screenBlink('bad');
+      });
+    }
+
     window.addEventListener('DOMContentLoaded', async () => {
       const { diff, time } = parseQuery();
       setDiffPill(diff, time);
 
       try{
-        const inst = await hydrationBoot({ difficulty: diff, duration: time });
+        await hydrationBoot({ difficulty: diff, duration: time });
         bindCrosshairControls();
-
-        // ✅ ปุ่มขอ permission gyro
-        const btnGyro = $('hha-btn-gyro');
-        if (btnGyro){
-          btnGyro.addEventListener('click', async (e)=>{
-            e.preventDefault();
-            try{
-              if (inst && typeof inst.enableGyro === 'function'){
-                const ok = await inst.enableGyro();
-                if (ok) btnGyro.querySelector('span:last-child').textContent = 'Gyro ON';
-              }
-            }catch(err){
-              console.warn('[HydrationVR] enableGyro failed', err);
-            }
-          });
-        }
+        bindDangerAndTime();
       }catch(err){
         console.error('[HydrationVR] boot error', err);
         alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้');
