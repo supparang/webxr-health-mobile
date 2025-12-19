@@ -1,14 +1,16 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
 // Quest Director (Goals sequential + Minis chain) for GoodJunk
-// PATCH(A): ยิง event quest:update แบบ “มาตรฐาน HUD” + quest:cleared
-// - ทุกครั้งที่ progress เปลี่ยน จะ dispatch quest:update
-// - เมื่อ goal/min i ผ่าน จะ dispatch quest:cleared (ให้ HUD/FX ใช้ร่วมกัน)
-// - payload:
-//   quest:update.detail = {
-//     goal:{title,cur,max,pct,state},
-//     mini:{title,cur,max,pct,timeLeft,timeTotal,state},
-//     meta:{goalIndex,miniCount,diff}
-//   }
+// PATCH(B): Play mode "สุ่มตามระดับ" (Goal 10 pick 2, Mini 15 pick 3)
+//         + Research mode "Fix ตามระดับ" (ไม่สุ่ม)
+//         + FIX: dispatch event บน window (HUD ฟังที่ window) เพื่อแก้ goal+mini ไม่แสดง
+//
+// Emits:
+//  quest:update.detail = {
+//    goal:{title,cur,max,pct,state},
+//    mini:{title,cur,max,pct,timeLeft,timeTotal,state},
+//    meta:{goalIndex,miniCount,diff,runMode,goalsPick,minisPick,goalsTotal,minisTotal}
+//  }
+//  quest:cleared.detail = { kind:'goal'|'mini', title, ...counts }
 
 'use strict';
 
@@ -24,9 +26,15 @@ function nowMs() {
   return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 }
 
+// ✅ FIX: HUD binder ส่วนใหญ่ฟัง window.addEventListener(...)
+const BUS =
+  (typeof window !== 'undefined' && window.dispatchEvent) ? window :
+  (typeof document !== 'undefined' && document.dispatchEvent) ? document :
+  null;
+
 function dispatch(name, detail) {
-  if (typeof document === 'undefined') return;
-  document.dispatchEvent(new CustomEvent(name, { detail }));
+  if (!BUS) return;
+  BUS.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
 function safeText(v, fallback = '') {
@@ -41,6 +49,21 @@ function pickOne(arr, fallback = null) {
   arr = ensureArr(arr);
   if (!arr.length) return fallback;
   return arr[(Math.random() * arr.length) | 0];
+}
+
+function shuffleCopy(arr){
+  const a = ensureArr(arr).slice();
+  for (let i=a.length-1;i>0;i--){
+    const j = (Math.random()*(i+1))|0;
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function pickN(arr, n){
+  const a = shuffleCopy(arr);
+  const k = Math.max(0, Math.min(Number(n)||0, a.length));
+  return a.slice(0, k);
 }
 
 // mini factory: normalize to shape
@@ -75,23 +98,88 @@ function normGoal(def) {
   };
 }
 
+function pickDiffKey(diff){
+  diff = String(diff || 'normal').toLowerCase();
+  if (diff !== 'easy' && diff !== 'normal' && diff !== 'hard') return 'normal';
+  return diff;
+}
+
+function asPoolByDiff(input, normalizer){
+  // input can be:
+  //  - { easy:[...], normal:[...], hard:[...] }
+  //  - [... ] (fallback pool for all)
+  const out = { easy:[], normal:[], hard:[] };
+  if (Array.isArray(input)){
+    const a = ensureArr(input).map(normalizer);
+    out.easy = a.slice();
+    out.normal = a.slice();
+    out.hard = a.slice();
+    return out;
+  }
+  const obj = input || {};
+  out.easy   = ensureArr(obj.easy).map(normalizer);
+  out.normal = ensureArr(obj.normal).map(normalizer);
+  out.hard   = ensureArr(obj.hard).map(normalizer);
+  // fallback: ถ้าขาดระดับไหน ให้ยืม normal
+  if (!out.easy.length) out.easy = out.normal.slice();
+  if (!out.hard.length) out.hard = out.normal.slice();
+  return out;
+}
+
+function mapFixedIds(fixedByDiff){
+  // fixedByDiff: { easy:{ goals:[id,id], minis:[id,id,id] }, ... }
+  const obj = fixedByDiff || {};
+  const mk = (x)=>({
+    goals: ensureArr(x && x.goals).map(String),
+    minis: ensureArr(x && x.minis).map(String)
+  });
+  return {
+    easy: mk(obj.easy),
+    normal: mk(obj.normal),
+    hard: mk(obj.hard)
+  };
+}
+
+function findById(pool, id){
+  id = String(id || '');
+  return ensureArr(pool).find(q => String(q.id) === id) || null;
+}
+
 export function makeQuestDirector(opts = {}) {
-  const diff = String(opts.diff || 'normal').toLowerCase();
-  const goalDefs = ensureArr(opts.goalDefs).map(normGoal);
-  const miniDefs = ensureArr(opts.miniDefs).map(normMini);
+  const diffKey = pickDiffKey(opts.diff || 'normal');
 
-  const maxGoals = Math.max(1, Number(opts.maxGoals || 2));
-  const maxMini = Math.max(1, Number(opts.maxMini || 999));
+  // runMode: 'play' | 'research' (default play)
+  const runMode = (String(opts.runMode || 'play').toLowerCase() === 'research') ? 'research' : 'play';
 
-  // external ctx adapter: user will call director.onEvent('goodHit', ctx) etc.
-  // We keep state simple and generic.
+  // ✅ สเปกที่ตกลงกัน
+  const goalsPick = Math.max(1, Number(opts.goalsPick ?? 2));
+  const minisPick = Math.max(1, Number(opts.minisPick ?? 3));
 
+  // Pools by diff (recommended)
+  const goalPoolsByDiff = asPoolByDiff(opts.goalPoolsByDiff ?? opts.goalDefs ?? [], normGoal);
+  const miniPoolsByDiff = asPoolByDiff(opts.miniPoolsByDiff ?? opts.miniDefs ?? [], normMini);
+
+  // Research fixed by diff (ids)
+  const researchFixedByDiff = mapFixedIds(opts.researchFixedByDiff || opts.researchFixed || {});
+
+  // Active pools chosen for this session
+  const POOL_GOALS = goalPoolsByDiff[diffKey] || goalPoolsByDiff.normal;
+  const POOL_MINIS = miniPoolsByDiff[diffKey] || miniPoolsByDiff.normal;
+
+  // state
   const st = {
-    goalsAll: goalDefs.slice(0),
-    minisAll: miniDefs.slice(0),
+    started: false,
 
-    goalIndex: 0,
-    miniCount: 0,
+    diff: diffKey,
+    runMode,
+
+    // selected sets for this run (play=random pick; research=fixed)
+    goalsSel: [],
+    minisSel: [],
+
+    goalIndex: 0,     // index in goalsSel
+    miniIndex: 0,     // index in minisSel
+    miniCount: 0,     // how many minis attempted so far (1-based display)
 
     activeGoal: null,
     activeMini: null,
@@ -99,23 +187,13 @@ export function makeQuestDirector(opts = {}) {
     goalCur: 0,
     miniCur: 0,
 
-    miniStartMs: 0,  // for time mini
-    started: false,
+    miniStartMs: 0,
 
     lastEmitKey: '',
+
     goalsCleared: 0,
     minisCleared: 0
   };
-
-  function chooseGoal(i) {
-    if (!st.goalsAll.length) return null;
-    return st.goalsAll[Math.min(i, st.goalsAll.length - 1)];
-  }
-
-  function chooseMiniNext() {
-    if (!st.minisAll.length) return null;
-    return pickOne(st.minisAll, null);
-  }
 
   function resetMini(def) {
     st.activeMini = def ? normMini(def) : null;
@@ -134,6 +212,18 @@ export function makeQuestDirector(opts = {}) {
     }
   }
 
+  function chooseMiniAt(i){
+    if (!st.minisSel.length) return null;
+    const idx = Math.min(Math.max(0, i|0), st.minisSel.length - 1);
+    return st.minisSel[idx];
+  }
+
+  function chooseGoalAt(i){
+    if (!st.goalsSel.length) return null;
+    const idx = Math.min(Math.max(0, i|0), st.goalsSel.length - 1);
+    return st.goalsSel[idx];
+  }
+
   function getMiniTimeLeftMs() {
     if (!st.activeMini) return null;
     if (st.activeMini.kind !== 'time') return null;
@@ -148,24 +238,18 @@ export function makeQuestDirector(opts = {}) {
     const m = st.activeMini;
 
     if (typeof m.pct === 'function') {
-      try {
-        const v = m.pct(ctx || {});
-        return clamp01(v);
-      } catch (_) {}
+      try { return clamp01(m.pct(ctx || {})); } catch (_) {}
     }
 
     if (m.kind === 'time') {
       const total = Math.max(1, Number(m.timeTotalMs || 1));
       const left = getMiniTimeLeftMs();
       if (left === null) return 0;
-      // time quest usually progresses by accomplishing count, not by time.
-      // But HUD needs pct: use count/target if target exists, else time-based countdown visual.
-      if (m.target > 0) return clamp01(st.miniCur / m.target);
+      if (m.target > 0) return clamp01(st.miniCur / Math.max(1, m.target));
       return clamp01(1 - (left / total));
     }
 
-    const target = Math.max(1, Number(m.target || 1));
-    return clamp01(st.miniCur / target);
+    return clamp01(st.miniCur / Math.max(1, Number(m.target || 1)));
   }
 
   function goalPctFromState(ctx) {
@@ -173,14 +257,10 @@ export function makeQuestDirector(opts = {}) {
     const g = st.activeGoal;
 
     if (typeof g.pct === 'function') {
-      try {
-        const v = g.pct(ctx || {});
-        return clamp01(v);
-      } catch (_) {}
+      try { return clamp01(g.pct(ctx || {})); } catch (_) {}
     }
 
-    const target = Math.max(1, Number(g.target || 1));
-    return clamp01(st.goalCur / target);
+    return clamp01(st.goalCur / Math.max(1, Number(g.target || 1)));
   }
 
   function buildPayload(ctx) {
@@ -194,7 +274,7 @@ export function makeQuestDirector(opts = {}) {
     const miniPct = miniPctFromState(ctx);
 
     const miniLeft = getMiniTimeLeftMs();
-    const miniTotal = m && m.kind === 'time' ? Math.max(0, Number(m.timeTotalMs || 0)) : null;
+    const miniTotal = (m && m.kind === 'time') ? Math.max(0, Number(m.timeTotalMs || 0)) : null;
 
     return {
       goal: g ? {
@@ -202,7 +282,7 @@ export function makeQuestDirector(opts = {}) {
         cur: Math.max(0, st.goalCur),
         max: Math.max(0, goalMax),
         pct: goalPct,
-        state: (st.goalsCleared >= st.goalIndex && goalPct >= 1) ? 'cleared' : 'active'
+        state: (goalPct >= 1) ? 'cleared' : 'active'
       } : null,
       mini: m ? {
         title: m.title,
@@ -214,9 +294,14 @@ export function makeQuestDirector(opts = {}) {
         state: (miniPct >= 1) ? 'cleared' : 'active'
       } : null,
       meta: {
-        goalIndex: st.goalIndex,
-        miniCount: st.miniCount,
-        diff
+        goalIndex: st.goalIndex,          // 0-based
+        miniCount: st.miniCount,          // 1-based progress display style
+        diff: st.diff,
+        runMode: st.runMode,
+        goalsPick,
+        minisPick,
+        goalsTotal: st.goalsSel.length,
+        minisTotal: st.minisSel.length
       }
     };
   }
@@ -225,9 +310,12 @@ export function makeQuestDirector(opts = {}) {
     const p = buildPayload(ctx);
     const key = JSON.stringify([
       p.goal ? [p.goal.title, p.goal.cur, p.goal.max, Math.round((p.goal.pct || 0) * 1000), p.goal.state] : null,
-      p.mini ? [p.mini.title, p.mini.cur, p.mini.max, Math.round((p.mini.pct || 0) * 1000), p.mini.state, p.mini.timeLeft ? Math.round(p.mini.timeLeft / 100) : null] : null,
+      p.mini ? [p.mini.title, p.mini.cur, p.mini.max, Math.round((p.mini.pct || 0) * 1000), p.mini.state,
+                (p.mini.timeLeft != null ? Math.round(p.mini.timeLeft / 100) : null)] : null,
       p.meta.goalIndex,
-      p.meta.miniCount
+      p.meta.miniCount,
+      p.meta.diff,
+      p.meta.runMode
     ]);
 
     if (!force && key === st.lastEmitKey) return;
@@ -238,40 +326,79 @@ export function makeQuestDirector(opts = {}) {
 
   function clearMini(ctx) {
     st.minisCleared += 1;
+
     dispatch('quest:cleared', {
       kind: 'mini',
       title: st.activeMini ? st.activeMini.title : '',
+      miniIndex: st.miniIndex,
       miniCount: st.miniCount,
-      minisCleared: st.minisCleared
+      minisCleared: st.minisCleared,
+      minisTotal: st.minisSel.length,
+      diff: st.diff,
+      runMode: st.runMode
     });
-    // next mini
+
+    // next mini (ตามลิสต์ที่เลือกไว้แล้ว)
+    st.miniIndex += 1;
     st.miniCount += 1;
-    if (st.miniCount >= maxMini) {
-      // stop chaining; keep last cleared state
+
+    if (st.miniIndex >= st.minisSel.length) {
       resetMini(null);
     } else {
-      resetMini(chooseMiniNext());
+      resetMini(chooseMiniAt(st.miniIndex));
     }
     emitUpdate(ctx, true);
   }
 
   function clearGoal(ctx) {
     st.goalsCleared += 1;
+
     dispatch('quest:cleared', {
       kind: 'goal',
       title: st.activeGoal ? st.activeGoal.title : '',
       goalIndex: st.goalIndex,
-      goalsCleared: st.goalsCleared
+      goalsCleared: st.goalsCleared,
+      goalsTotal: st.goalsSel.length,
+      diff: st.diff,
+      runMode: st.runMode
     });
 
     st.goalIndex += 1;
-    if (st.goalIndex >= maxGoals) {
-      // no more goals; keep null or last state
+
+    if (st.goalIndex >= st.goalsSel.length) {
       resetGoal(null);
     } else {
-      resetGoal(chooseGoal(st.goalIndex));
+      resetGoal(chooseGoalAt(st.goalIndex));
     }
     emitUpdate(ctx, true);
+  }
+
+  // ✅ Build selected quests for this run (PLAY random by diff / RESEARCH fixed by diff)
+  function buildSelectedSets(){
+    // goalsSel
+    if (st.runMode === 'research'){
+      const fixed = researchFixedByDiff[st.diff] || researchFixedByDiff.normal || { goals:[], minis:[] };
+
+      st.goalsSel = ensureArr(fixed.goals).map(id => findById(POOL_GOALS, id)).filter(Boolean);
+      st.minisSel = ensureArr(fixed.minis).map(id => findById(POOL_MINIS, id)).filter(Boolean);
+
+      // fallback ถ้า fixed ว่างจริง ๆ
+      if (!st.goalsSel.length) st.goalsSel = pickN(POOL_GOALS, goalsPick);
+      if (!st.minisSel.length) st.minisSel = pickN(POOL_MINIS, minisPick);
+
+    } else {
+      // ✅ play mode: “สุ่มตามระดับ” เท่านั้น
+      st.goalsSel = pickN(POOL_GOALS, goalsPick);
+      st.minisSel = pickN(POOL_MINIS, minisPick);
+    }
+
+    // reset indices
+    st.goalIndex = 0;
+    st.miniIndex = 0;
+    st.miniCount = 1;
+
+    st.goalsCleared = 0;
+    st.minisCleared = 0;
   }
 
   // public API
@@ -280,10 +407,12 @@ export function makeQuestDirector(opts = {}) {
       if (st.started) return;
       st.started = true;
 
-      // init first goal + mini
-      resetGoal(chooseGoal(st.goalIndex));
-      resetMini(chooseMiniNext());
+      buildSelectedSets();
 
+      resetGoal(chooseGoalAt(0));
+      resetMini(chooseMiniAt(0));
+
+      // ✅ ยิงครั้งแรกให้ HUD โชว์แน่นอน
       emitUpdate(ctx, true);
     },
 
@@ -303,72 +432,81 @@ export function makeQuestDirector(opts = {}) {
       }
 
       // --- Default generic progress rules (safe fallback) ---
-      // Goal progress: count "good hits" by default
+      // Goal + Mini (count) progress: count "good hits" by default
       if (t === 'goodhit' || t === 'perfecthit') {
         if (st.activeGoal) st.goalCur += 1;
         if (st.activeMini && st.activeMini.kind === 'count') st.miniCur += 1;
       }
 
-      // Example: a mini could be "avoid junk during X seconds"
-      // -> should be handled by miniDefs.onEvent; we keep default minimal.
-
       // Time mini timeout check
       if (st.activeMini && st.activeMini.kind === 'time') {
         const left = getMiniTimeLeftMs();
         if (left !== null && left <= 0) {
-          // time out => reset mini (fail) but keep chaining
-          resetMini(chooseMiniNext());
+          // time out => ถือว่า fail แล้วไป mini ถัดไป (ตามลิสต์) เพื่อคงจำนวน 3 mini ตามที่เลือก
+          st.miniIndex += 1;
+          st.miniCount += 1;
+          if (st.miniIndex >= st.minisSel.length) resetMini(null);
+          else resetMini(chooseMiniAt(st.miniIndex));
           emitUpdate(ctx, true);
           return;
         }
       }
 
       // Check clear conditions
-      // Goal
       if (st.activeGoal) {
         const goalTarget = Math.max(1, Number(st.activeGoal.target || 1));
         if (st.goalCur >= goalTarget) {
           clearGoal(ctx);
-          // After goal clear, do not fall through
           return;
         }
       }
-      // Mini
+
       if (st.activeMini) {
         const miniTarget = Math.max(1, Number(st.activeMini.target || 1));
         if (st.activeMini.kind !== 'time' && st.miniCur >= miniTarget) {
           clearMini(ctx);
           return;
         }
-        // time mini can also have target count within time window
         if (st.activeMini.kind === 'time' && miniTarget > 0 && st.miniCur >= miniTarget) {
           clearMini(ctx);
           return;
         }
       }
 
-      // Emit progress updates (throttle by key)
       emitUpdate(ctx, false);
     },
 
-    // If engine has its own tick loop, call this each frame/interval to update timer display
+    // call periodically if you want timer refresh smoother
     tick(ctx = {}) {
       if (!st.started) return;
-      // emit timer changes more frequently, but still keyed with timeLeft bucketed
       emitUpdate(ctx, false);
     },
 
-    // stats getters
+    // expose selected sets (useful for logger / HUD debug)
+    getSelected() {
+      return {
+        diff: st.diff,
+        runMode: st.runMode,
+        goalsSel: st.goalsSel.slice(),
+        minisSel: st.minisSel.slice()
+      };
+    },
+
     getState() {
       return {
+        diff: st.diff,
+        runMode: st.runMode,
         goalIndex: st.goalIndex,
+        miniIndex: st.miniIndex,
         miniCount: st.miniCount,
         goalsCleared: st.goalsCleared,
         minisCleared: st.minisCleared,
         activeGoal: st.activeGoal,
         activeMini: st.activeMini,
         goalCur: st.goalCur,
-        miniCur: st.miniCur
+        miniCur: st.miniCur,
+        goalsTotal: st.goalsSel.length,
+        minisTotal: st.minisSel.length
       };
     }
   };
