@@ -1,14 +1,10 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// Hero Health Research Logger (Schema: sessions / events / students-profile)
+// Hero Health Research Logger (CORS-friendly for GitHub Pages -> Google Apps Script)
+// Schema: sessions / events / students-profile
 // - sendBeacon first, fallback fetch(no-cors)
+// - CORS-friendly: send as text/plain;charset=utf-8 to reduce preflight
 // - collects: sessions[1], events[*], studentsProfile[0..1] (upsert on server)
 // - emits: hha:logger { ok:boolean, msg:string }
-//
-// ✅ PATCH (ครบชุด):
-// 1) durationPlannedSec รองรับ opts.durationSec ด้วย
-// 2) กัน bind ซ้ำ (handlers bind ครั้งเดียว แต่ทำงานกับ sessionRow ชุดล่าสุด)
-// 3) รองรับ hha:questStats เพื่อเติม goalsCleared/goalsTotal/miniCleared/miniTotal ก่อน end
-// 4) fetch fallback ใช้ Content-Type text/plain เพื่อลดปัญหา preflight/CORS
 
 'use strict';
 
@@ -29,14 +25,14 @@ let eventQueue = [];
 let profileRow = null;
 
 let lastScoreLogAt = 0;
+let flushInFlight = false;
 
-// เก็บ rt good เพื่อคำนวณถ้า engine ไม่ส่ง stats มา
-let _rtGood = [];
-let _rtGoodFast = 0;
-const FAST_RT_MS = 350;
-
-// bind once
-let _BOUND = false;
+// prevent double bind
+if (typeof window !== 'undefined' && window.__HHA_LOGGER_BOUND__) {
+  // already bound in this page
+} else if (typeof window !== 'undefined') {
+  window.__HHA_LOGGER_BOUND__ = true;
+}
 
 function isoNow(){ return new Date().toISOString(); }
 function uuid(){
@@ -47,7 +43,9 @@ function uuid(){
 }
 
 function emitLogger(ok, msg){
-  window.dispatchEvent(new CustomEvent('hha:logger', { detail:{ ok, msg } }));
+  try{
+    window.dispatchEvent(new CustomEvent('hha:logger', { detail:{ ok, msg } }));
+  }catch(_){}
   if (CONFIG.debug) console.log('[HHA Logger]', ok, msg);
 }
 
@@ -106,6 +104,7 @@ function deviceLabel(){
 }
 
 function packPayload(final=false){
+  // จำกัด event กัน payload ใหญ่
   const events = eventQueue.splice(0, 800);
   return {
     projectTag: CONFIG.projectTag,
@@ -117,25 +116,42 @@ function packPayload(final=false){
   };
 }
 
+/**
+ * CORS-friendly send:
+ * - prefer sendBeacon with text/plain blob
+ * - fallback fetch no-cors with Content-Type text/plain;charset=utf-8
+ * Why: Apps Script + GitHub Pages often fails on application/json preflight.
+ */
 async function send(payload){
   if (!CONFIG.endpoint) throw new Error('No endpoint');
+
+  // IMPORTANT: send as text/plain to reduce preflight/CORS issues
   const body = JSON.stringify(payload);
 
+  // 1) sendBeacon (best-effort)
   if (navigator.sendBeacon){
-    const ok = navigator.sendBeacon(CONFIG.endpoint, new Blob([body], {type:'application/json'}));
-    if (ok){
-      emitLogger(true, payload.final ? 'logger: sent(final)' : 'logger: sent');
-      return true;
+    try{
+      const ok = navigator.sendBeacon(
+        CONFIG.endpoint,
+        new Blob([body], { type:'text/plain;charset=utf-8' })
+      );
+      if (ok){
+        emitLogger(true, payload.final ? 'logger: sent(final/beacon)' : 'logger: sent(beacon)');
+        return true;
+      }
+    }catch(err){
+      // ignore and fallback
+      if (CONFIG.debug) console.warn('[HHA Logger] beacon error', err);
     }
   }
 
-  // ✅ no-cors ลดปัญหา preflight: ใช้ text/plain
+  // 2) fetch fallback (no-cors)
   await fetch(CONFIG.endpoint, {
     method:'POST',
     mode:'no-cors',
+    keepalive: true,
     headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-    body,
-    keepalive: true
+    body
   });
 
   emitLogger(true, payload.final ? 'logger: sent(final/no-cors)' : 'logger: sent(no-cors)');
@@ -145,11 +161,20 @@ async function send(payload){
 function flush(final=false){
   if (!sessionId) return;
   if (!final && eventQueue.length === 0) return;
+  if (flushInFlight) return;
 
   const payload = packPayload(final);
+  flushInFlight = true;
+
   send(payload).catch(err=>{
     emitLogger(false, 'logger: send failed (check console)');
     console.warn('[HHA Logger] send failed', err);
+  }).finally(()=>{
+    flushInFlight = false;
+    // ถ้ายังมี event ค้างมาก ๆ ให้ยิงต่อทันทีแบบเบา ๆ
+    if (eventQueue.length >= 200) {
+      setTimeout(()=>flush(false), 10);
+    }
   });
 }
 
@@ -201,148 +226,6 @@ function makeEventRow(eventType, detail){
   };
 }
 
-function median(arr){
-  if (!arr || !arr.length) return null;
-  const a = arr.slice().sort((x,y)=>x-y);
-  const mid = Math.floor(a.length/2);
-  return (a.length%2) ? a[mid] : Math.round((a[mid-1]+a[mid])/2);
-}
-
-function avg(arr){
-  if (!arr || !arr.length) return null;
-  const s = arr.reduce((p,c)=>p+c,0);
-  return Math.round(s / arr.length);
-}
-
-function bindOnce(){
-  if (_BOUND) return;
-  _BOUND = true;
-
-  // ---------- listeners from all games ----------
-  window.addEventListener('hha:spawn', (e)=>{
-    const d = e.detail || {};
-
-    // นับ spawn ใน sessionRow
-    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nTargetGoodSpawned++;
-    else if (d.itemType === 'junk' || d.itemType === 'fake') sessionRow.nTargetJunkSpawned++;
-    else if (d.itemType === 'star') sessionRow.nTargetStarSpawned++;
-    else if (d.itemType === 'diamond') sessionRow.nTargetDiamondSpawned++;
-    else if (d.itemType === 'shield') sessionRow.nTargetShieldSpawned++;
-
-    pushEvent(makeEventRow('spawn', d));
-  });
-
-  window.addEventListener('hha:hit', (e)=>{
-    const d = e.detail || {};
-
-    if (d.itemType === 'good' || d.itemType === 'gold'){
-      sessionRow.nHitGood++;
-      if (typeof d.rtMs === 'number'){
-        _rtGood.push(d.rtMs);
-        if (d.rtMs <= FAST_RT_MS) _rtGoodFast++;
-      }
-    }
-    if (d.itemType === 'junk' || d.itemType === 'fake') sessionRow.nHitJunk++;
-
-    pushEvent(makeEventRow('hit', d));
-  });
-
-  window.addEventListener('hha:block', (e)=>{
-    const d = e.detail || {};
-    sessionRow.nHitJunkGuard++;
-    pushEvent(makeEventRow('block', d));
-  });
-
-  window.addEventListener('hha:expire', (e)=>{
-    const d = e.detail || {};
-    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nExpireGood++;
-    pushEvent(makeEventRow('expire', d));
-  });
-
-  // ✅ เติม goals/minis ให้ทันก่อน end
-  window.addEventListener('hha:questStats', (e)=>{
-    const d = e.detail || {};
-    if (d.goalsCleared != null) sessionRow.goalsCleared = safeNum(d.goalsCleared);
-    if (d.goalsTotal   != null) sessionRow.goalsTotal   = safeNum(d.goalsTotal);
-    if (d.miniCleared  != null) sessionRow.miniCleared  = safeNum(d.miniCleared);
-    if (d.miniTotal    != null) sessionRow.miniTotal    = safeNum(d.miniTotal);
-  });
-
-  // hha:score (throttle) — เผื่อ debug/monitor
-  window.addEventListener('hha:score', (e)=>{
-    const t = Date.now();
-    if (t - lastScoreLogAt < 500) return;
-    lastScoreLogAt = t;
-
-    pushEvent(makeEventRow('score', {
-      ...((e && e.detail) || {}),
-      timeFromStartMs: t - sessionStartMs,
-      totalScore: (e.detail||{}).score,
-      combo: (e.detail||{}).combo
-    }));
-  });
-
-  window.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
-    pushEvent(makeEventRow('quest', {
-      timeFromStartMs: Date.now() - sessionStartMs,
-      goalProgress: safeNum(d.goal?.prog),
-      miniProgress: safeNum(d.mini?.prog),
-      extra: d
-    }));
-  });
-
-  window.addEventListener('hha:end', (e)=>{
-    const endTs = Date.now();
-    const endIso = isoNow();
-    const r = e.detail || {};
-
-    sessionRow.endTimeIso = endIso;
-    sessionRow.reason = safeStr(r.reason || '');
-
-    // durationPlayedSec
-    if (typeof r.durationSec === 'number' && typeof r.timeLeft === 'number' && r.durationSec > 0){
-      sessionRow.durationPlayedSec = safeNum(r.durationSec - r.timeLeft);
-    } else {
-      sessionRow.durationPlayedSec = safeNum((endTs - sessionStartMs) / 1000);
-    }
-
-    sessionRow.scoreFinal = safeNum(r.scoreFinal);
-    sessionRow.comboMax = safeNum(r.comboMax);
-    sessionRow.misses = safeNum(r.misses);
-
-    // ✅ ถ้า engine ส่ง stats มา -> เติมลง sessions
-    if (r.stats){
-      if (r.stats.goalsCleared != null) sessionRow.goalsCleared = safeNum(r.stats.goalsCleared);
-      if (r.stats.goalsTotal   != null) sessionRow.goalsTotal   = safeNum(r.stats.goalsTotal);
-      if (r.stats.miniCleared  != null) sessionRow.miniCleared  = safeNum(r.stats.miniCleared);
-      if (r.stats.miniTotal    != null) sessionRow.miniTotal    = safeNum(r.stats.miniTotal);
-
-      if (r.stats.accuracyGoodPct != null) sessionRow.accuracyGoodPct = safeNum(r.stats.accuracyGoodPct);
-      if (r.stats.junkErrorPct    != null) sessionRow.junkErrorPct    = safeNum(r.stats.junkErrorPct);
-      if (r.stats.avgRtGoodMs     != null) sessionRow.avgRtGoodMs     = safeNum(r.stats.avgRtGoodMs);
-      if (r.stats.medianRtGoodMs  != null) sessionRow.medianRtGoodMs  = safeNum(r.stats.medianRtGoodMs);
-      if (r.stats.fastHitRatePct  != null) sessionRow.fastHitRatePct  = safeNum(r.stats.fastHitRatePct);
-    }
-
-    // ✅ ถ้า engine ไม่ส่ง rt มาเลย -> คำนวณจาก rtGood ที่สะสมไว้
-    if (sessionRow.avgRtGoodMs == null && _rtGood.length){
-      sessionRow.avgRtGoodMs = avg(_rtGood);
-      sessionRow.medianRtGoodMs = median(_rtGood);
-      sessionRow.fastHitRatePct = Math.round((_rtGoodFast / Math.max(1, _rtGood.length)) * 100);
-    }
-
-    pushEvent(makeEventRow('end', {
-      timeFromStartMs: endTs - sessionStartMs,
-      totalScore: safeNum(r.scoreFinal),
-      combo: safeNum(r.comboMax),
-      extra: r
-    }));
-
-    flush(true);
-  });
-}
-
 export function initCloudLogger(opts = {}){
   CONFIG = {
     endpoint: opts.endpoint || sessionStorage.getItem('HHA_LOG_ENDPOINT') || '',
@@ -350,10 +233,6 @@ export function initCloudLogger(opts = {}){
     debug: !!opts.debug,
     gameVersion: opts.gameVersion || 'v0'
   };
-
-  // reset per-session accumulators
-  _rtGood = [];
-  _rtGoodFast = 0;
 
   sessionId = uuid();
   sessionStartMs = Date.now();
@@ -364,12 +243,7 @@ export function initCloudLogger(opts = {}){
   const prof = flattenProfile(profile);
   const meta = baseResearchMeta(opts.researchMeta || {});
 
-  const planned =
-    (opts.durationPlannedSec != null) ? opts.durationPlannedSec :
-    (opts.durationSec != null) ? opts.durationSec :
-    null;
-
-  // --- sessions row (ให้ครบตามชีตของอาจารย์) ---
+  // --- sessions row ---
   sessionRow = {
     timestampIso: sessionStartIso,
     projectTag: CONFIG.projectTag,
@@ -380,7 +254,7 @@ export function initCloudLogger(opts = {}){
     sessionId,
     gameMode: safeStr(opts.mode || opts.gameMode || ''),
     diff: safeStr(opts.diff || ''),
-    durationPlannedSec: safeNum(planned),
+    durationPlannedSec: safeNum(opts.durationPlannedSec),
     durationPlayedSec: null,
 
     scoreFinal: null,
@@ -391,16 +265,18 @@ export function initCloudLogger(opts = {}){
     miniCleared: null,
     miniTotal: null,
 
-    // counters
+    // counters — engines เติมผ่าน event
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
     nTargetStarSpawned: 0,
     nTargetDiamondSpawned: 0,
     nTargetShieldSpawned: 0,
+
     nHitGood: 0,
     nHitJunk: 0,
     nHitJunkGuard: 0,
     nExpireGood: 0,
+
     accuracyGoodPct: null,
     junkErrorPct: null,
     avgRtGoodMs: null,
@@ -414,7 +290,7 @@ export function initCloudLogger(opts = {}){
     startTimeIso: sessionStartIso,
     endTimeIso: '',
 
-    // profile fields (flatten)
+    // profile fields
     studentKey: prof.studentKey,
     schoolCode: prof.schoolCode,
     schoolName: prof.schoolName,
@@ -475,12 +351,121 @@ export function initCloudLogger(opts = {}){
     profileRow = null;
   }
 
-  bindOnce();
   emitLogger(true, 'logger: ready');
 
+  // ---------- listeners from all games ----------
+  window.addEventListener('hha:spawn', (e)=>{
+    const d = e.detail || {};
+    if (d.itemType === 'good') sessionRow.nTargetGoodSpawned++;
+    else if (d.itemType === 'junk') sessionRow.nTargetJunkSpawned++;
+    else if (d.itemType === 'star') sessionRow.nTargetStarSpawned++;
+    else if (d.itemType === 'diamond') sessionRow.nTargetDiamondSpawned++;
+    else if (d.itemType === 'shield') sessionRow.nTargetShieldSpawned++;
+
+    pushEvent(makeEventRow('spawn', d));
+  });
+
+  window.addEventListener('hha:hit', (e)=>{
+    const d = e.detail || {};
+    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nHitGood++;
+    if (d.itemType === 'junk') sessionRow.nHitJunk++;
+
+    pushEvent(makeEventRow('hit', d));
+  });
+
+  window.addEventListener('hha:block', (e)=>{
+    const d = e.detail || {};
+    sessionRow.nHitJunkGuard++;
+    pushEvent(makeEventRow('block', d));
+  });
+
+  window.addEventListener('hha:expire', (e)=>{
+    const d = e.detail || {};
+    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nExpireGood++;
+    pushEvent(makeEventRow('expire', d));
+  });
+
+  // hha:score (throttle) — เผื่อ debug/monitor
+  window.addEventListener('hha:score', (e)=>{
+    const t = Date.now();
+    if (t - lastScoreLogAt < 500) return;
+    lastScoreLogAt = t;
+
+    const det = (e && e.detail) || {};
+    pushEvent(makeEventRow('score', {
+      ...det,
+      timeFromStartMs: t - sessionStartMs,
+      totalScore: det.score,
+      combo: det.combo
+    }));
+  });
+
+  window.addEventListener('quest:update', (e)=>{
+    const d = e.detail || {};
+    pushEvent(makeEventRow('quest', {
+      timeFromStartMs: Date.now() - sessionStartMs,
+      goalProgress: safeNum(d.goal?.prog),
+      miniProgress: safeNum(d.mini?.prog),
+      extra: d
+    }));
+  });
+
+  window.addEventListener('hha:end', (e)=>{
+    const endTs = Date.now();
+    const endIso = isoNow();
+    const r = e.detail || {};
+
+    sessionRow.endTimeIso = endIso;
+    sessionRow.reason = safeStr(r.reason || '');
+
+    if (typeof r.durationSec === 'number' && typeof r.timeLeft === 'number' && r.durationSec > 0){
+      sessionRow.durationPlayedSec = safeNum(r.durationSec - r.timeLeft);
+    } else {
+      sessionRow.durationPlayedSec = safeNum((endTs - sessionStartMs) / 1000);
+    }
+
+    sessionRow.scoreFinal = safeNum(r.scoreFinal);
+    sessionRow.comboMax   = safeNum(r.comboMax);
+    sessionRow.misses     = safeNum(r.misses);
+
+    if (r.stats){
+      sessionRow.goalsCleared = safeNum(r.stats.goalsCleared);
+      sessionRow.goalsTotal   = safeNum(r.stats.goalsTotal);
+      sessionRow.miniCleared  = safeNum(r.stats.miniCleared);
+      sessionRow.miniTotal    = safeNum(r.stats.miniTotal);
+
+      if (r.stats.accuracyGoodPct != null) sessionRow.accuracyGoodPct = safeNum(r.stats.accuracyGoodPct);
+      if (r.stats.junkErrorPct != null) sessionRow.junkErrorPct = safeNum(r.stats.junkErrorPct);
+      if (r.stats.avgRtGoodMs != null) sessionRow.avgRtGoodMs = safeNum(r.stats.avgRtGoodMs);
+      if (r.stats.medianRtGoodMs != null) sessionRow.medianRtGoodMs = safeNum(r.stats.medianRtGoodMs);
+      if (r.stats.fastHitRatePct != null) sessionRow.fastHitRatePct = safeNum(r.stats.fastHitRatePct);
+    }
+
+    pushEvent(makeEventRow('end', {
+      timeFromStartMs: endTs - sessionStartMs,
+      totalScore: safeNum(r.scoreFinal),
+      combo: safeNum(r.comboMax),
+      extra: r
+    }));
+
+    flush(true);
+  });
+
   // ส่ง start 1 event
-  pushEvent(makeEventRow('start', { timeFromStartMs: 0, extra:{ startedAtIso: sessionStartIso }}));
+  pushEvent(makeEventRow('start', {
+    timeFromStartMs: 0,
+    extra:{ startedAtIso: sessionStartIso }
+  }));
+
   flush(false);
+
+  // optional: flush on visibility/pagehide (best effort)
+  window.addEventListener('visibilitychange', ()=>{
+    if (document.visibilityState === 'hidden') flush(true);
+  });
+  window.addEventListener('pagehide', ()=>{
+    flush(true);
+  });
 }
 
 export function flushNow(){ flush(false); }
