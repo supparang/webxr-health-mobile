@@ -1,13 +1,8 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
 // Quest Director (Goals sequential + Minis chain) for GoodJunk
-// ✅ v2: รองรับ schema ใหม่จาก quest-defs-goodjunk.js:
-// - targetByDiff / eval(state) / pass(value,target)
-// - hint / onlyChallenge[] / notChallenge[]
-// - Goals: สุ่ม "ทั้งหมดในเกม" = maxGoals, ทำแบบ sequential
-// - Minis: ต่อเนื่องไม่รู้จบ (maxMini) + สุ่มแบบกรองเงื่อนไข
-// Emits:
-// - quest:update { goal, mini, goalsAll, minisAll, hint }
-// - quest:miniStart { id }
+// ✅ รองรับ schema ใหม่: targetByDiff / eval / pass / onlyChallenge / notChallenge
+// ✅ ทำงานแบบ "เกมจริง": เลือกภารกิจที่เข้ากับ challenge, ข้ามที่ใช้ไม่ได้, chain mini ต่อเนื่อง
+// ✅ emit quest:update + quest:miniStart
 
 'use strict';
 
@@ -23,31 +18,24 @@ export function makeQuestDirector(opts = {}) {
     minisAll: [],
     goalIndex: 0,
     miniCount: 0,
-    activeGoal: null,
     activeMini: null,
-    started: false,
-    lastHint: ''
+    activeGoal: null,
+    started: false
   };
 
-  function clampInt(v, min, max){
-    v = (v|0);
-    if (v < min) return min;
-    if (v > max) return max;
-    return v;
+  function emit(detail){
+    window.dispatchEvent(new CustomEvent('quest:update',{ detail }));
   }
 
-  function pickUnique(defs, n){
-    const arr = defs.slice();
-    const out = [];
-    while (arr.length && out.length < n){
-      const i = (Math.random()*arr.length)|0;
-      out.push(arr.splice(i,1)[0]);
-    }
-    return out;
+  function pickTargetsByDiff(def){
+    if (!def || !def.targetByDiff) return 1;
+    const t = def.targetByDiff[diff];
+    return (Number(t) > 0 ? (t|0) : 1);
   }
 
-  function isAllowed(def, gameState){
+  function eligible(def, gameState){
     const ch = String(gameState?.challenge || '').toLowerCase();
+
     if (Array.isArray(def.onlyChallenge) && def.onlyChallenge.length){
       if (!def.onlyChallenge.map(x=>String(x).toLowerCase()).includes(ch)) return false;
     }
@@ -57,118 +45,76 @@ export function makeQuestDirector(opts = {}) {
     return true;
   }
 
-  function targetFor(def){
-    if (def && def.targetByDiff && def.targetByDiff[diff] != null){
-      return clampInt(def.targetByDiff[diff], 1, 9999);
-    }
-    // fallback: ถ้าไม่มี targetByDiff ให้ใช้ 1
-    return 1;
-  }
-
   function newGoal(def){
+    const target = pickTargetsByDiff(def);
     return {
-      id: String(def.id || ''),
-      label: String(def.label || 'Goal'),
-      hint: String(def.hint || ''),
-      target: targetFor(def),
-      prog: 0,
-      done: false
+      id:def.id,
+      label:def.label || 'Goal',
+      hint:def.hint || '',
+      target,
+      prog:0,
+      done:false,
+      hold: !!def.hold,     // ถ้าคุณอยากทำ hold-goal ในอนาคต
+      limit: def.limitByDiff ? (def.limitByDiff[diff]|0) : null
     };
   }
 
   function newMini(def){
+    const target = pickTargetsByDiff(def);
     return {
-      id: String(def.id || ''),
-      label: String(def.label || 'Mini'),
-      hint: String(def.hint || ''),
-      target: targetFor(def),
-      prog: 0,
-      done: false,
+      id:def.id,
+      label:def.label || 'Mini',
+      hint:def.hint || '',
+      target,
+      prog:0,
+      done:false,
       startedAt: Date.now()
     };
   }
 
-  function emit(detail){
-    window.dispatchEvent(new CustomEvent('quest:update', { detail }));
+  function pickUniqueEligible(defs, n, gameState){
+    const pool = defs.filter(d => d && eligible(d, gameState));
+    const arr = pool.slice();
+    const out = [];
+    while (arr.length && out.length < n){
+      const i = (Math.random()*arr.length)|0;
+      out.push(arr.splice(i,1)[0]);
+    }
+    return out;
   }
 
   function buildPayload(hint=''){
-    const g = (stateQ.activeGoal && !stateQ.activeGoal.done) ? stateQ.activeGoal : null;
-    const m = (stateQ.activeMini && !stateQ.activeMini.done) ? stateQ.activeMini : null;
-    stateQ.lastHint = hint || '';
+    const g = stateQ.activeGoal && !stateQ.activeGoal.done ? stateQ.activeGoal : null;
+    const m = stateQ.activeMini && !stateQ.activeMini.done ? stateQ.activeMini : null;
+
     return {
       goal: g,
       mini: m,
       goalsAll: stateQ.goalsAll,
       minisAll: stateQ.minisAll,
-      hint: stateQ.lastHint
+      hint
     };
   }
 
-  function recomputeOne(def, row, gameState){
-    // progress
-    let v = 0;
-    try{
-      v = (typeof def.eval === 'function') ? (def.eval(gameState) | 0) : 0;
-    }catch(_){ v = 0; }
-    row.prog = v;
-
-    // pass/fail
-    let ok = false;
-    try{
-      if (typeof def.pass === 'function') ok = !!def.pass(v, row.target);
-      else ok = (v >= (row.target|0));
-    }catch(_){ ok = false; }
-    row.done = ok;
-  }
-
-  function nextGoal(){
-    stateQ.goalIndex++;
-    stateQ.activeGoal = stateQ.goalsAll[stateQ.goalIndex] || null;
-  }
-
-  function pickMiniDef(gameState){
-    // กัน loop: ลองสุ่มสูงสุด 12 ครั้ง
-    for (let k=0;k<12;k++){
-      const def = miniDefs[(Math.random()*miniDefs.length)|0];
-      if (!def) continue;
-      if (!isAllowed(def, gameState)) continue;
-      return def;
-    }
-    // fallback: ถ้าไม่มีตัวที่ผ่านเงื่อนไข ให้คืน null
-    return null;
-  }
-
-  function nextMini(gameState){
-    if (stateQ.miniCount >= maxMini){
-      stateQ.activeMini = null;
-      return;
-    }
-    const def = pickMiniDef(gameState);
-    if (!def){
-      stateQ.activeMini = null;
-      return;
-    }
-    const m = newMini(def);
-    stateQ.activeMini = m;
-    stateQ.minisAll.push(m);
-    stateQ.miniCount++;
-
-    // แจ้ง html ให้ reset mini counters ที่ต้องรีเซ็ต
-    window.dispatchEvent(new CustomEvent('quest:miniStart', { detail:{ id: m.id } }));
-    emit(buildPayload('Mini ใหม่มาแล้ว!'));
+  function computeProgress(def, gameState, current){
+    // schema ใหม่: eval / pass
+    const v = (typeof def.eval === 'function') ? def.eval(gameState, current?.target) : 0;
+    const prog = (Number(v) || 0) | 0;
+    const target = (current?.target|0) || pickTargetsByDiff(def);
+    const pass = (typeof def.pass === 'function') ? !!def.pass(prog, target, gameState) : (prog >= target);
+    return { prog, target, pass };
   }
 
   function start(gameState){
     stateQ.started = true;
 
-    // เลือก goals “ทั้งหมดในเกม” (maxGoals) และทำ sequential
-    const pickedGoals = pickUnique(goalDefs, maxGoals);
+    // เลือก goals ที่ "ใช้ได้จริง" กับ challenge นี้
+    const pickedGoals = pickUniqueEligible(goalDefs, maxGoals, gameState);
     stateQ.goalsAll = pickedGoals.map(def => newGoal(def));
     stateQ.goalIndex = 0;
     stateQ.activeGoal = stateQ.goalsAll[0] || null;
 
-    // minis chain
+    // mini chain
     stateQ.minisAll = [];
     stateQ.miniCount = 0;
     stateQ.activeMini = null;
@@ -177,20 +123,48 @@ export function makeQuestDirector(opts = {}) {
     emit(buildPayload('เริ่มภารกิจ!'));
   }
 
+  function nextGoal(){
+    stateQ.goalIndex++;
+    stateQ.activeGoal = stateQ.goalsAll[stateQ.goalIndex] || null;
+  }
+
+  function nextMini(gameState){
+    if (stateQ.miniCount >= maxMini) { stateQ.activeMini = null; return; }
+
+    // เลือก mini ที่ใช้ได้กับ challenge นี้
+    const pool = miniDefs.filter(d => d && eligible(d, gameState));
+    if (!pool.length){ stateQ.activeMini = null; return; }
+
+    const def = pool[(Math.random()*pool.length)|0];
+    const m = newMini(def);
+
+    stateQ.activeMini = m;
+    stateQ.minisAll.push(m);
+    stateQ.miniCount++;
+
+    window.dispatchEvent(new CustomEvent('quest:miniStart', { detail:{ id:m.id }}));
+    emit(buildPayload('Mini ใหม่มาแล้ว!'));
+  }
+
   function update(gameState){
     if (!stateQ.started) return;
 
-    // --- GOAL ---
+    // ----- GOAL -----
     if (stateQ.activeGoal){
       const g = stateQ.activeGoal;
-      const def = goalDefs.find(d => String(d.id) === String(g.id));
-      if (def){
-        // ถ้า goal นี้ไม่ตรง challenge → ข้ามแบบแฟร์ (ถือว่าผ่าน)
-        if (!isAllowed(def, gameState)){
-          g.done = true;
-        } else {
-          recomputeOne(def, g, gameState);
-        }
+      const def = goalDefs.find(d=>d.id===g.id);
+
+      if (!def){
+        g.done = true;
+        nextGoal();
+      } else if (!eligible(def, gameState)){
+        g.done = true;
+        nextGoal();
+      } else {
+        const r = computeProgress(def, gameState, g);
+        g.prog = r.prog;
+        g.target = r.target;
+        g.done = r.pass;
 
         if (g.done){
           emit(buildPayload('GOAL CLEAR!'));
@@ -199,46 +173,45 @@ export function makeQuestDirector(opts = {}) {
       }
     }
 
-    // --- MINI ---
+    // ----- MINI -----
     if (stateQ.activeMini){
       const m = stateQ.activeMini;
-      const def = miniDefs.find(d => String(d.id) === String(m.id));
-      if (def){
-        // ถ้า mini นี้ไม่ตรง challenge → เปลี่ยนตัวใหม่ทันที
-        if (!isAllowed(def, gameState)){
-          m.done = true; // นับว่าจบ (ข้าม)
-          nextMini(gameState);
-          return;
-        }
+      const def = miniDefs.find(d=>d.id===m.id);
 
-        recomputeOne(def, m, gameState);
+      if (!def){
+        m.done = true;
+        nextMini(gameState);
+        return;
+      }
+      if (!eligible(def, gameState)){
+        m.done = true; // ข้ามแบบแฟร์
+        nextMini(gameState);
+        return;
+      }
 
-        if (m.done){
-          emit(buildPayload('MINI CLEAR!'));
-          nextMini(gameState);
-          return;
-        }
+      const r = computeProgress(def, gameState, m);
+      m.prog = r.prog;
+      m.target = r.target;
+      m.done = r.pass;
+
+      if (m.done){
+        emit(buildPayload('MINI CLEAR!'));
+        nextMini(gameState);
+        return;
       }
     }
 
-    // hint โชว์ของ def ที่ active (ถ้ามี)
-    let hint = '';
-    const gNow = stateQ.activeGoal;
-    if (gNow && gNow.hint) hint = gNow.hint;
-
-    const mNow = stateQ.activeMini;
-    if (mNow && mNow.hint){
-      hint = hint ? (hint + ' • ' + mNow.hint) : mNow.hint;
-    }
-
-    emit(buildPayload(hint));
+    // hint เฉพาะกิจ (อยากใส่เพิ่มได้)
+    emit(buildPayload(''));
   }
 
   function finalize(gameState){
-    const goalsCleared = stateQ.goalsAll.filter(x => x && x.done).length;
+    // goals
+    const goalsCleared = stateQ.goalsAll.filter(x=>x && x.done).length;
     const goalsTotal   = stateQ.goalsAll.length;
 
-    const miniCleared  = stateQ.minisAll.filter(x => x && x.done).length;
+    // minis
+    const miniCleared  = stateQ.minisAll.filter(x=>x && x.done).length;
     const miniTotal    = stateQ.minisAll.length;
 
     return { goalsCleared, goalsTotal, miniCleared, miniTotal };
