@@ -34,7 +34,31 @@
       color:var(--text-main);
     }
 
-    /* A-Frame = ฉากหลังเท่านั้น ห้ามกินคลิก */
+    /* ✅ PANIC visuals */
+    body.panic::before{
+      content:"";
+      position:fixed; inset:-20px;
+      background:
+        radial-gradient(circle at center, transparent 55%, rgba(248,113,113,0.28) 75%, rgba(248,113,113,0.42) 100%);
+      pointer-events:none;
+      z-index:175;
+      animation:panicPulse .45s ease-in-out infinite;
+      mix-blend-mode:screen;
+    }
+    @keyframes panicPulse { 0%,100%{opacity:.45} 50%{opacity:.95} }
+
+    body.panic{
+      animation:panicShake .22s ease-in-out infinite;
+    }
+    @keyframes panicShake{
+      0%{ transform:translate(0,0) }
+      25%{ transform:translate(1px,-1px) }
+      50%{ transform:translate(-1px,1px) }
+      75%{ transform:translate(1px,1px) }
+      100%{ transform:translate(0,0) }
+    }
+
+    /* A-Frame = background only */
     a-scene{ position:fixed; inset:0; z-index:0; }
     a-scene, a-scene canvas{ pointer-events:none !important; }
 
@@ -67,7 +91,6 @@
       color:var(--text-soft);
       display:inline-flex; align-items:center; gap:6px;
     }
-
     .hud-metrics{ margin-top:8px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
     .metric{ display:flex; flex-direction:column; gap:2px; min-width:88px; }
     .metric-label{ font-size:11px; color:var(--text-soft); }
@@ -75,20 +98,9 @@
     .metric-value.accent{ color:#bbf7d0; }
     .metric-sub{ font-size:11px; color:var(--text-soft); min-height:14px; }
 
-    /* ✅ Grade badge */
-    .rank-pill{
-      margin-left:auto;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-      align-items:flex-end;
-      min-width:92px;
-    }
-    .rank-pill .metric-label{ text-align:right; }
+    .rank-pill{ margin-left:auto; display:flex; flex-direction:column; gap:4px; align-items:flex-end; min-width:92px; }
     .rank-badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
+      display:inline-flex; align-items:center; justify-content:center;
       min-width:74px;
       padding:4px 10px;
       border-radius:999px;
@@ -162,7 +174,7 @@
     }
     .fg-target{
       position:absolute;
-      width:132px; height:132px; /* engine จะ override ตาม diff/adaptive */
+      width:132px; height:132px;
       border-radius:50%;
       display:flex; align-items:center; justify-content:center;
       pointer-events:auto;
@@ -176,6 +188,18 @@
     }
     .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
     .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
+
+    /* ✅ boss junk look */
+    .fg-boss{
+      background:radial-gradient(circle at 30% 30%, #ef4444, #7f1d1d) !important;
+      box-shadow:
+        0 16px 36px rgba(0,0,0,0.75),
+        0 0 0 5px rgba(15,23,42,0.9),
+        0 0 28px rgba(239,68,68,0.65);
+      animation:bossPulse .55s ease-in-out infinite;
+    }
+    @keyframes bossPulse { 0%,100%{ filter:saturate(1) } 50%{ filter:saturate(1.5) } }
+
     .fg-target::before{
       content:attr(data-emoji);
       display:block;
@@ -210,6 +234,40 @@
     }
     .countdown-overlay.show{ opacity:1; transform:scale(1); }
 
+    /* ✅ RUSH overlay */
+    .rush-overlay{
+      position:fixed;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%) scale(.88);
+      z-index:185;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .16s ease-out, transform .16s ease-out;
+      filter:drop-shadow(0 18px 40px rgba(0,0,0,0.65));
+    }
+    .rush-overlay.show{
+      opacity:1;
+      transform:translate(-50%,-50%) scale(1);
+    }
+    .rush-badge{
+      padding:12px 22px;
+      border-radius:999px;
+      font-weight:1000;
+      letter-spacing:.10em;
+      color:#04101f;
+      background:linear-gradient(90deg,#facc15,#22c55e,#38bdf8);
+      font-size:clamp(18px,4vw,26px);
+    }
+    .rush-sub{
+      margin-top:6px;
+      text-align:center;
+      font-size:12px;
+      letter-spacing:.14em;
+      color:#e0f2fe;
+      opacity:.9;
+    }
+
     /* VR button */
     .vr-btn{
       position:fixed;
@@ -229,43 +287,23 @@
     }
     .vr-btn span{ font-size:16px; }
 
-    /* Celebrate overlay */
-    .celebrate-overlay{
-      position:fixed; inset:0; z-index:190;
-      display:none; align-items:center; justify-content:center;
-      pointer-events:none;
-    }
+    /* Celebrate overlay (เดิม) */
+    .celebrate-overlay{ position:fixed; inset:0; z-index:190; display:none; align-items:center; justify-content:center; pointer-events:none; }
     .celebrate-overlay.show{ display:flex; }
     .celebrate-content{
-      padding:12px 22px;
-      border-radius:999px;
+      padding:12px 22px; border-radius:999px;
       background:radial-gradient(circle at top, rgba(34,197,94,0.9), rgba(21,128,61,0.95));
       box-shadow:0 20px 60px rgba(0,0,0,0.9), 0 0 0 1px rgba(15,23,42,1);
-      font-size:clamp(18px,4vw,24px);
-      font-weight:800;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-      color:#ecfdf5;
-      text-align:center;
+      font-size:clamp(18px,4vw,24px); font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+      color:#ecfdf5; text-align:center;
       transform:scale(.86) translateY(10px);
       opacity:0;
       transition:opacity .18s ease-out, transform .18s ease-out, background .18s ease-out;
     }
     .celebrate-overlay.show .celebrate-content{ opacity:1; transform:scale(1) translateY(0); }
-    .celebrate-sub{
-      display:block;
-      margin-top:4px;
-      font-size:clamp(11px,2.5vw,13px);
-      letter-spacing:.18em;
-      opacity:.9;
-    }
-    .celebrate--mini .celebrate-content{
-      background:radial-gradient(circle at top, rgba(250,204,21,0.95), rgba(217,119,6,0.98));
-      color:#022c22;
-    }
-    .celebrate--all .celebrate-content{
-      background:radial-gradient(circle at top, rgba(56,189,248,0.98), rgba(30,64,175,0.98));
-    }
+    .celebrate-sub{ display:block; margin-top:4px; font-size:clamp(11px,2.5vw,13px); letter-spacing:.18em; opacity:.9; }
+    .celebrate--mini .celebrate-content{ background:radial-gradient(circle at top, rgba(250,204,21,0.95), rgba(217,119,6,0.98)); color:#022c22; }
+    .celebrate--all .celebrate-content{ background:radial-gradient(circle at top, rgba(56,189,248,0.98), rgba(30,64,175,0.98)); }
 
     /* Result overlay */
     .result-overlay{
@@ -331,6 +369,12 @@
   <!-- DOM targets -->
   <div id="fg-layer"></div>
 
+  <!-- ✅ RUSH overlay -->
+  <div id="rush-overlay" class="rush-overlay">
+    <div class="rush-badge">🚀 RUSH MODE!</div>
+    <div class="rush-sub">คะแนนอาหารดี x2 • แตะให้ไว!</div>
+  </div>
+
   <!-- HUD -->
   <div class="hud-root">
     <div class="hud-top">
@@ -358,7 +402,6 @@
             <div class="metric-value" id="hud-miss">0</div>
           </div>
 
-          <!-- ✅ Grade realtime -->
           <div class="rank-pill">
             <div class="metric-label">GRADE</div>
             <div class="rank-badge" id="hud-rank">C</div>
@@ -463,6 +506,8 @@
     const elCelebrateMain = document.getElementById('celebrate-main');
     const elCelebrateSub  = document.getElementById('celebrate-sub');
 
+    const elRush = document.getElementById('rush-overlay');
+
     const elResult   = document.getElementById('result-overlay');
     const elResGrade = document.getElementById('res-grade');
     const elResScore = document.getElementById('res-score');
@@ -485,6 +530,23 @@
       elCoachText.textContent = text;
       elCoachBubble.classList.add('show');
       setTimeout(() => elCoachBubble.classList.remove('show'), 3200);
+    }
+
+    // ✅ simple tick sound (WebAudio) for PANIC
+    let audioCtx = null;
+    function beep(freq=880, dur=0.06, gain=0.06){
+      try{
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = audioCtx;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'square';
+        o.frequency.value = freq;
+        g.gain.value = gain;
+        o.connect(g); g.connect(ctx.destination);
+        o.start();
+        o.stop(ctx.currentTime + dur);
+      }catch{}
     }
 
     // Celebrate
@@ -533,7 +595,7 @@
       if (d.text) setCoach(d.text);
     });
 
-    // ✅ Grade realtime (ล็อก 6 ค่า)
+    // Grade realtime
     window.addEventListener('hha:rank', (e) => {
       const d = e.detail || {};
       const g = String(d.grade || 'C').toUpperCase().trim();
@@ -546,14 +608,45 @@
       rankPopT = setTimeout(() => elRank.classList.remove('pop'), 180);
     });
 
+    // ✅ PANIC listener
+    let panicTickTimer = null;
+    window.addEventListener('hha:panic', (e) => {
+      const d = e.detail || {};
+      const on = !!d.on;
+      document.body.classList.toggle('panic', on);
+
+      clearInterval(panicTickTimer);
+      if (on){
+        // tick เร็วขึ้นเมื่อเวลาใกล้หมด (10->1)
+        panicTickTimer = setInterval(() => {
+          const left = parseInt(elTime.textContent||'0',10) || 0;
+          const freq = left <= 3 ? 1100 : (left <= 6 ? 980 : 880);
+          beep(freq, 0.05, 0.055);
+        }, 520);
+      }
+    });
+
+    // ✅ RUSH listener
+    let rushTimer = null;
+    window.addEventListener('hha:rush', (e) => {
+      const d = e.detail || {};
+      if (d.on){
+        elRush.classList.add('show');
+        clearTimeout(rushTimer);
+        rushTimer = setTimeout(() => elRush.classList.remove('show'), 1400);
+        // เสียงเปิด RUSH
+        beep(660,0.06,0.06); setTimeout(()=>beep(880,0.06,0.06),80); setTimeout(()=>beep(990,0.06,0.06),160);
+      } else {
+        elRush.classList.remove('show');
+      }
+    });
+
     window.addEventListener('quest:update', (e) => {
       const d = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
 
-      if (d.groupLabel) {
-        elQuestTitle.textContent = `Quest • ${d.groupLabel}`;
-      }
+      if (d.groupLabel) elQuestTitle.textContent = `Quest • ${d.groupLabel}`;
 
       if (goal) {
         elQuestMain.textContent = goal.label || 'Goal';
@@ -651,12 +744,18 @@
       Engine.setLayerEl && Engine.setLayerEl(fgLayer);
 
       runCountdown(() => {
-        // timer จบเกม
         let timeLeft = dur;
+
+        // ส่งเวลาให้ Engine เพื่อ PANIC ทำงาน
+        Engine.setTimeLeft && Engine.setTimeLeft(timeLeft);
+
         const timerId = setInterval(() => {
           timeLeft -= 1;
           if (timeLeft < 0) return;
+
           elTime.textContent = timeLeft + 's';
+          Engine.setTimeLeft && Engine.setTimeLeft(timeLeft);
+
           if (timeLeft === 0){
             clearInterval(timerId);
             Engine.stop && Engine.stop('time-up');
