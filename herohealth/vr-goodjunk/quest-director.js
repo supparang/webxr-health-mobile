@@ -1,8 +1,7 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
 // Quest Director (Goals sequential + Minis chain) for GoodJunk
 // ✅ รองรับ schema ใหม่: targetByDiff / eval / pass / onlyChallenge / notChallenge
-// ✅ ทำงานแบบ "เกมจริง": เลือกภารกิจที่เข้ากับ challenge, ข้ามที่ใช้ไม่ได้, chain mini ต่อเนื่อง
-// ✅ emit quest:update + quest:miniStart
+// ✅ chain mini ต่อเนื่อง, เลี่ยง mini/goal ที่ใช้ไม่ได้กับ challenge, ไม่ล็อกเกม
 
 'use strict';
 
@@ -53,9 +52,7 @@ export function makeQuestDirector(opts = {}) {
       hint:def.hint || '',
       target,
       prog:0,
-      done:false,
-      hold: !!def.hold,     // ถ้าคุณอยากทำ hold-goal ในอนาคต
-      limit: def.limitByDiff ? (def.limitByDiff[diff]|0) : null
+      done:false
     };
   }
 
@@ -97,7 +94,6 @@ export function makeQuestDirector(opts = {}) {
   }
 
   function computeProgress(def, gameState, current){
-    // schema ใหม่: eval / pass
     const v = (typeof def.eval === 'function') ? def.eval(gameState, current?.target) : 0;
     const prog = (Number(v) || 0) | 0;
     const target = (current?.target|0) || pickTargetsByDiff(def);
@@ -108,13 +104,11 @@ export function makeQuestDirector(opts = {}) {
   function start(gameState){
     stateQ.started = true;
 
-    // เลือก goals ที่ "ใช้ได้จริง" กับ challenge นี้
     const pickedGoals = pickUniqueEligible(goalDefs, maxGoals, gameState);
     stateQ.goalsAll = pickedGoals.map(def => newGoal(def));
     stateQ.goalIndex = 0;
     stateQ.activeGoal = stateQ.goalsAll[0] || null;
 
-    // mini chain
     stateQ.minisAll = [];
     stateQ.miniCount = 0;
     stateQ.activeMini = null;
@@ -131,7 +125,6 @@ export function makeQuestDirector(opts = {}) {
   function nextMini(gameState){
     if (stateQ.miniCount >= maxMini) { stateQ.activeMini = null; return; }
 
-    // เลือก mini ที่ใช้ได้กับ challenge นี้
     const pool = miniDefs.filter(d => d && eligible(d, gameState));
     if (!pool.length){ stateQ.activeMini = null; return; }
 
@@ -149,15 +142,12 @@ export function makeQuestDirector(opts = {}) {
   function update(gameState){
     if (!stateQ.started) return;
 
-    // ----- GOAL -----
+    // GOAL
     if (stateQ.activeGoal){
       const g = stateQ.activeGoal;
       const def = goalDefs.find(d=>d.id===g.id);
 
-      if (!def){
-        g.done = true;
-        nextGoal();
-      } else if (!eligible(def, gameState)){
+      if (!def || !eligible(def, gameState)){
         g.done = true;
         nextGoal();
       } else {
@@ -173,18 +163,13 @@ export function makeQuestDirector(opts = {}) {
       }
     }
 
-    // ----- MINI -----
+    // MINI
     if (stateQ.activeMini){
       const m = stateQ.activeMini;
       const def = miniDefs.find(d=>d.id===m.id);
 
-      if (!def){
+      if (!def || !eligible(def, gameState)){
         m.done = true;
-        nextMini(gameState);
-        return;
-      }
-      if (!eligible(def, gameState)){
-        m.done = true; // ข้ามแบบแฟร์
         nextMini(gameState);
         return;
       }
@@ -201,16 +186,13 @@ export function makeQuestDirector(opts = {}) {
       }
     }
 
-    // hint เฉพาะกิจ (อยากใส่เพิ่มได้)
     emit(buildPayload(''));
   }
 
   function finalize(gameState){
-    // goals
     const goalsCleared = stateQ.goalsAll.filter(x=>x && x.done).length;
     const goalsTotal   = stateQ.goalsAll.length;
 
-    // minis
     const miniCleared  = stateQ.minisAll.filter(x=>x && x.done).length;
     const miniTotal    = stateQ.minisAll.length;
 
