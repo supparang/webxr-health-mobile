@@ -34,7 +34,7 @@
       color:var(--text-main);
     }
 
-    /* A-Frame = background only */
+    /* A-Frame = ฉากหลังเท่านั้น ห้ามกินคลิก */
     a-scene{ position:fixed; inset:0; z-index:0; }
     a-scene, a-scene canvas{ pointer-events:none !important; }
 
@@ -67,12 +67,41 @@
       color:var(--text-soft);
       display:inline-flex; align-items:center; gap:6px;
     }
-    .hud-metrics{ margin-top:8px; display:flex; gap:14px; flex-wrap:wrap; }
-    .metric{ display:flex; flex-direction:column; gap:2px; }
+
+    .hud-metrics{ margin-top:8px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+    .metric{ display:flex; flex-direction:column; gap:2px; min-width:88px; }
     .metric-label{ font-size:11px; color:var(--text-soft); }
     .metric-value{ font-size:18px; font-weight:700; }
     .metric-value.accent{ color:#bbf7d0; }
     .metric-sub{ font-size:11px; color:var(--text-soft); min-height:14px; }
+
+    /* ✅ Grade badge */
+    .rank-pill{
+      margin-left:auto;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      align-items:flex-end;
+      min-width:92px;
+    }
+    .rank-pill .metric-label{ text-align:right; }
+    .rank-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:74px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-weight:900;
+      letter-spacing:.08em;
+      font-size:14px;
+      color:#0b1220;
+      background:linear-gradient(90deg,#facc15,#22c55e,#38bdf8);
+      box-shadow:0 14px 28px rgba(0,0,0,0.55);
+      transform:translateY(0) scale(1);
+      transition:transform .16s ease-out;
+    }
+    .rank-badge.pop{ transform:translateY(-1px) scale(1.08); }
 
     .fg-quest-panel{
       pointer-events:auto;
@@ -121,6 +150,7 @@
       .hud-card,.fg-quest-panel{ min-width:0; width:100%; max-width:none; }
       .fg-quest-panel{ margin-top:6px; max-height:34vh; }
       .coach-bubble{ min-width:0; width:calc(100% - 32px); font-size:12px; }
+      .rank-pill{ align-items:flex-start; margin-left:0; }
     }
 
     /* DOM targets */
@@ -130,19 +160,9 @@
       pointer-events:auto !important;
       touch-action:manipulation;
     }
-
-    /* boss screen shake (เบา ๆ) */
-    #fg-layer.boss-on{
-      animation:hhaBossShake .20s infinite alternate ease-in-out;
-    }
-    @keyframes hhaBossShake{
-      0%{ transform:translate3d(0,0,0); }
-      100%{ transform:translate3d(1px,-1px,0); }
-    }
-
     .fg-target{
       position:absolute;
-      width:132px; height:132px;
+      width:132px; height:132px; /* engine จะ override ตาม diff/adaptive */
       border-radius:50%;
       display:flex; align-items:center; justify-content:center;
       pointer-events:auto;
@@ -151,12 +171,11 @@
       touch-action:manipulation;
       box-shadow:0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
       transform:translate(-50%,-50%) scale(1);
-      transition:transform .12s ease-out, opacity .12s ease-out, filter .12s ease-out;
+      transition:transform .12s ease-out, opacity .12s ease-out;
       opacity:1;
     }
     .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
     .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
-
     .fg-target::before{
       content:attr(data-emoji);
       display:block;
@@ -166,41 +185,6 @@
       text-shadow:0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
     }
     .fg-target.hit{ transform:translate(-50%,-50%) scale(0.6); opacity:0; }
-
-    /* golden */
-    .fg-golden{
-      background:radial-gradient(circle at 30% 30%, rgba(250,204,21,0.98), rgba(245,158,11,0.98)) !important;
-      box-shadow:
-        0 14px 42px rgba(15,23,42,0.9),
-        0 0 0 5px rgba(250,204,21,0.55),
-        0 0 26px rgba(250,204,21,0.35);
-      animation:hhaGoldPulse .6s infinite alternate ease-in-out;
-      filter:saturate(1.25);
-    }
-    @keyframes hhaGoldPulse{
-      0%{ transform:translate(-50%,-50%) scale(1.00); }
-      100%{ transform:translate(-50%,-50%) scale(1.06); }
-    }
-
-    /* trap */
-    .fg-trap{
-      background:radial-gradient(circle at 30% 30%, rgba(239,68,68,0.98), rgba(127,29,29,0.98)) !important;
-      box-shadow:
-        0 14px 42px rgba(0,0,0,0.9),
-        0 0 0 5px rgba(248,113,113,0.45);
-      animation:hhaTrapWiggle .35s infinite alternate ease-in-out;
-    }
-    @keyframes hhaTrapWiggle{
-      0%{ transform:translate(-50%,-50%) rotate(-2deg) scale(1); }
-      100%{ transform:translate(-50%,-50%) rotate(2deg) scale(1.02); }
-    }
-
-    /* boss target hint */
-    .fg-boss{
-      box-shadow:
-        0 14px 42px rgba(15,23,42,0.92),
-        0 0 0 5px rgba(56,189,248,0.35);
-    }
 
     /* Fever gauge */
     .hha-fever-wrap{
@@ -373,6 +357,12 @@
             <div class="metric-label">พลาด</div>
             <div class="metric-value" id="hud-miss">0</div>
           </div>
+
+          <!-- ✅ Grade realtime -->
+          <div class="rank-pill">
+            <div class="metric-label">GRADE</div>
+            <div class="rank-badge" id="hud-rank">C</div>
+          </div>
         </div>
       </div>
 
@@ -417,6 +407,7 @@
   <div class="result-overlay" id="result-overlay">
     <div class="result-card">
       <h2>สรุปผล • Food Groups</h2>
+      <p>เกรด: <strong id="res-grade">C</strong></p>
       <p>คะแนนรวม: <strong id="res-score">0</strong></p>
       <p>คอมโบสูงสุด: <strong id="res-combo">0</strong></p>
       <p>พลาด: <strong id="res-miss">0</strong></p>
@@ -452,6 +443,10 @@
     const elDiff  = document.getElementById('hud-diff-label');
     const elTime  = document.getElementById('hud-time-label');
 
+    const elRank = document.getElementById('hud-rank');
+    let currentGrade = 'C';
+    let rankPopT = null;
+
     const elQuestTitle = document.getElementById('fg-quest-title');
     const elQuestMain  = document.getElementById('fg-quest-main');
     const elQuestMini  = document.getElementById('fg-quest-mini');
@@ -469,6 +464,7 @@
     const elCelebrateSub  = document.getElementById('celebrate-sub');
 
     const elResult   = document.getElementById('result-overlay');
+    const elResGrade = document.getElementById('res-grade');
     const elResScore = document.getElementById('res-score');
     const elResCombo = document.getElementById('res-combo');
     const elResMiss  = document.getElementById('res-miss');
@@ -495,7 +491,7 @@
     let celebTimer = null;
     window.addEventListener('hha:celebrate', (e) => {
       const d = e.detail || {};
-      const type = d.type || 'goal';
+      const type = d.type || d.kind || 'goal';
 
       elCelebrateOverlay.classList.remove('celebrate--mini','celebrate--all');
 
@@ -522,7 +518,10 @@
       const d = e.detail || {};
       if (typeof d.score === 'number') elScore.textContent = String(d.score);
       if (typeof d.misses === 'number') elMiss.textContent = String(d.misses);
-      if (typeof d.combo === 'number') elCombo.textContent = String(Math.max(parseInt(elCombo.textContent||'0',10), d.combo|0));
+      if (typeof d.combo === 'number') {
+        const cur = parseInt(elCombo.textContent || '0', 10) || 0;
+        elCombo.textContent = String(Math.max(cur, d.combo|0));
+      }
     });
 
     window.addEventListener('hha:judge', (e) => {
@@ -534,12 +533,27 @@
       if (d.text) setCoach(d.text);
     });
 
+    // ✅ Grade realtime (ล็อก 6 ค่า)
+    window.addEventListener('hha:rank', (e) => {
+      const d = e.detail || {};
+      const g = String(d.grade || 'C').toUpperCase().trim();
+      const safe = (['SSS','SS','S','A','B','C'].includes(g)) ? g : 'C';
+      currentGrade = safe;
+      elRank.textContent = safe;
+
+      clearTimeout(rankPopT);
+      elRank.classList.add('pop');
+      rankPopT = setTimeout(() => elRank.classList.remove('pop'), 180);
+    });
+
     window.addEventListener('quest:update', (e) => {
       const d = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
 
-      if (d.groupLabel) elQuestTitle.textContent = `Quest • ${d.groupLabel}`;
+      if (d.groupLabel) {
+        elQuestTitle.textContent = `Quest • ${d.groupLabel}`;
+      }
 
       if (goal) {
         elQuestMain.textContent = goal.label || 'Goal';
@@ -560,6 +574,7 @@
 
     window.addEventListener('hha:end', (e) => {
       const d = e.detail || {};
+      elResGrade.textContent = String(d.grade || currentGrade || 'C');
       elResScore.textContent = String(d.scoreFinal ?? 0);
       elResCombo.textContent = String(d.comboMax ?? 0);
       elResMiss.textContent  = String(d.misses ?? 0);
@@ -626,9 +641,7 @@
       elTime.textContent = dur + 's';
 
       initLogger(diff, dur, runMode);
-      setCoach(runMode === 'research'
-        ? 'โหมดวิจัย: ล็อกตามระดับ ง่าย/ปกติ/ยาก เท่านั้น ✅'
-        : 'โหมดเล่น: มี Adaptive + Boss + เป้าทอง + กับดัก 🔥');
+      setCoach('เริ่มเลย! เก็บอาหารดีตามหมู่ให้ครบ Goal + Mini ✨');
 
       const Engine = window.GroupsVR?.GameEngine;
       if (!Engine || typeof Engine.start !== 'function'){
@@ -637,19 +650,9 @@
       }
       Engine.setLayerEl && Engine.setLayerEl(fgLayer);
 
-      // timer จบเกม (รองรับ time bonus)
-      let timeLeft = dur;
-      const timeCap = dur + 20; // กันยาวเกิน (เพิ่มได้แต่ไม่เกิน +20s)
-
-      window.addEventListener('hha:timeBonus', (e) => {
-        const d = e.detail || {};
-        const add = Math.max(0, Number(d.addSec) || 0);
-        if (add <= 0) return;
-        timeLeft = Math.min(timeCap, timeLeft + add);
-        elTime.textContent = timeLeft + 's';
-      });
-
       runCountdown(() => {
+        // timer จบเกม
+        let timeLeft = dur;
         const timerId = setInterval(() => {
           timeLeft -= 1;
           if (timeLeft < 0) return;
@@ -660,7 +663,7 @@
           }
         }, 1000);
 
-        Engine.start(diff, { layerEl: fgLayer, runMode, durationSec: dur });
+        Engine.start(diff, { layerEl: fgLayer, runMode });
       });
     });
   </script>
