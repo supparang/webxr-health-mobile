@@ -29,6 +29,7 @@
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
       height:100%;
       overflow:hidden; /* เกมไม่ต้อง scroll */
+      touch-action:none; /* ให้ลากเหมือน VR */
     }
     body{ -webkit-font-smoothing:antialiased; }
 
@@ -54,6 +55,7 @@
       z-index:40;
       backdrop-filter:blur(18px);
       box-shadow:0 14px 36px rgba(0,0,0,0.45);
+      user-select:none;
     }
     .hha-water-bar-label{
       font-size:14px;
@@ -93,6 +95,7 @@
       padding:12px 14px;
       box-shadow:0 18px 40px rgba(15,23,42,0.85);
       min-width:0;
+      user-select:none;
     }
     .hha-card-left{ flex:1.15 1 0; }
     .hha-card-right{ flex:1 1 0; }
@@ -269,6 +272,7 @@
       z-index:60;
       backdrop-filter:blur(8px);
       background:radial-gradient(circle at 30% 30%,rgba(15,23,42,0.9),rgba(15,23,42,0.4));
+      user-select:none;
     }
     .hvr-crosshair.ping{ animation:hvrPing 90ms ease-out 1; }
     @keyframes hvrPing{
@@ -278,7 +282,7 @@
     }
 
     /* Coach */
-    .hha-coach-wrap{ margin-top:auto; z-index:40; }
+    .hha-coach-wrap{ margin-top:auto; z-index:40; user-select:none; }
     .hha-coach-bubble{
       display:flex;
       gap:10px;
@@ -326,6 +330,7 @@
       font-size:12px;
       color:var(--text-soft);
       box-shadow:0 14px 32px rgba(15,23,42,0.95);
+      user-select:none;
     }
     .hha-fever-label{
       display:flex;
@@ -372,6 +377,7 @@
       gap:6px;
       text-decoration:none;
       box-shadow:0 14px 32px rgba(15,23,42,0.95);
+      user-select:none;
     }
     .hha-btn-vr span.emoji{ font-size:18px; }
 
@@ -405,102 +411,98 @@
       .hha-grade-progress .bar{ width:120px; }
       .hha-btn-vr{ min-width:132px; }
     }
+
     /* ===== END SCREEN ===== */
-.hvr-end{
-  position:fixed;
-  inset:0;
-  z-index:99999;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  padding:16px;
-  background:rgba(2,6,23,.68);
-  backdrop-filter:blur(14px);
-}
-.hvr-end.on{ display:flex; }
+    .hvr-end{
+      position:fixed;
+      inset:0;
+      z-index:99999;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      background:rgba(2,6,23,.68);
+      backdrop-filter:blur(14px);
+    }
+    .hvr-end.on{ display:flex; }
 
-.hvr-end-card{
-  width:min(720px, 96vw);
-  border-radius:18px;
-  border:1px solid rgba(148,163,184,0.35);
-  background:radial-gradient(circle at top left,#0b1120,#020617 70%);
-  box-shadow:0 30px 80px rgba(0,0,0,.65);
-  padding:16px;
-}
+    .hvr-end-card{
+      width:min(720px, 96vw);
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,0.35);
+      background:radial-gradient(circle at top left,#0b1120,#020617 70%);
+      box-shadow:0 30px 80px rgba(0,0,0,.65);
+      padding:16px;
+    }
 
-.hvr-end-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.hvr-end-title{
-  font-size:18px;
-  font-weight:800;
-}
-.hvr-end-sub{
-  font-size:12px;
-  color:var(--text-soft);
-}
-.hvr-end-badge{
-  padding:6px 12px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.35);
-  background:rgba(15,23,42,.85);
-  font-weight:900;
-  letter-spacing:.05em;
-}
+    .hvr-end-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .hvr-end-title{ font-size:18px; font-weight:800; }
+    .hvr-end-sub{ font-size:12px; color:var(--text-soft); }
+    .hvr-end-badge{
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.35);
+      background:rgba(15,23,42,.85);
+      font-weight:900;
+      letter-spacing:.05em;
+      user-select:none;
+    }
 
-.hvr-end-grid{
-  margin-top:12px;
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
-@media (max-width:720px){ .hvr-end-grid{ grid-template-columns:1fr; } }
+    .hvr-end-grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    @media (max-width:720px){ .hvr-end-grid{ grid-template-columns:1fr; } }
 
-.hvr-end-box{
-  border-radius:14px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.55);
-  padding:12px;
-}
-.hvr-end-row{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  margin:6px 0;
-  color:var(--text-soft);
-}
-.hvr-end-row strong{ color:var(--text-main); }
+    .hvr-end-box{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.55);
+      padding:12px;
+    }
+    .hvr-end-row{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin:6px 0;
+      color:var(--text-soft);
+    }
+    .hvr-end-row strong{ color:var(--text-main); }
 
-.hvr-end-list{
-  margin:8px 0 0;
-  padding-left:18px;
-  color:var(--text-soft);
-  font-size:13px;
-}
-.hvr-end-actions{
-  margin-top:14px;
-  display:flex;
-  gap:10px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-}
-.hvr-end-btn{
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.45);
-  padding:10px 14px;
-  background:rgba(15,23,42,.85);
-  color:var(--text-main);
-  text-decoration:none;
-  font-weight:700;
-}
-.hvr-end-btn.primary{
-  border-color:rgba(34,197,94,.65);
-  background:rgba(34,197,94,.18);
-}
-
+    .hvr-end-list{
+      margin:8px 0 0;
+      padding-left:18px;
+      color:var(--text-soft);
+      font-size:13px;
+    }
+    .hvr-end-actions{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+    .hvr-end-btn{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.45);
+      padding:10px 14px;
+      background:rgba(15,23,42,.85);
+      color:var(--text-main);
+      text-decoration:none;
+      font-weight:700;
+      user-select:none;
+    }
+    .hvr-end-btn.primary{
+      border-color:rgba(34,197,94,.65);
+      background:rgba(34,197,94,.18);
+    }
   </style>
 </head>
 
@@ -586,7 +588,7 @@
         <div class="hha-coach-avatar">💧</div>
         <div class="hha-coach-text">
           <div class="hha-coach-name">โค้ช</div>
-          <div id="hha-coach-text">แตะจอเพื่อยิงจากวงเล็ง ○ หรือแตะโดนเป้าโดยตรงก็ได้ — รักษา GREEN!</div>
+          <div id="hha-coach-text">ลากจอ = มองรอบ ๆ • แตะจอ = ยิงจากวงเล็ง ○ • เก็บน้ำดีแล้วคุม GREEN!</div>
         </div>
       </div>
     </section>
@@ -613,7 +615,45 @@
     </div>
 
     <div id="hvr-screen-blink" class="hvr-screen-blink" aria-hidden="true"></div>
+  </div>
 
+  <!-- ✅ END SCREEN (ต้องอยู่นอก <script> เท่านั้น!) -->
+  <div id="hvr-end" class="hvr-end" aria-hidden="true">
+    <div class="hvr-end-card">
+      <div class="hvr-end-head">
+        <div>
+          <div class="hvr-end-title">🏁 สรุปผล Hydration Quest</div>
+          <div class="hvr-end-sub" id="hvr-end-sub">พร้อมรายงานความก้าวหน้า Goal & Mini</div>
+        </div>
+        <div class="hvr-end-badge" id="hvr-end-grade">C</div>
+      </div>
+
+      <div class="hvr-end-grid">
+        <div class="hvr-end-box">
+          <div class="hvr-end-row"><span>คะแนน</span><strong id="hvr-end-score">0</strong></div>
+          <div class="hvr-end-row"><span>พลาด</span><strong id="hvr-end-miss">0</strong></div>
+          <div class="hvr-end-row"><span>คอมโบสูงสุด</span><strong id="hvr-end-combo">0</strong></div>
+          <div class="hvr-end-row"><span>Water Zone</span><strong id="hvr-end-zone">GREEN</strong></div>
+          <div class="hvr-end-row"><span>เวลาใน GREEN</span><strong id="hvr-end-green">0s</strong></div>
+        </div>
+
+        <div class="hvr-end-box">
+          <div class="hvr-end-row"><span>Goal</span><strong id="hvr-end-goal">0/2</strong></div>
+          <div class="hvr-end-row"><span>Mini Quest</span><strong id="hvr-end-mini">0/3</strong></div>
+          <div class="hvr-end-row"><span>Progress</span><strong id="hvr-end-prog">0%</strong></div>
+          <div class="hvr-end-row"><span>Fever</span><strong id="hvr-end-fever">0%</strong></div>
+          <div class="hvr-end-row"><span>Shield</span><strong id="hvr-end-shield">0</strong></div>
+
+          <div style="margin-top:8px;color:var(--text-soft);font-size:12px">🎁 รางวัลที่ได้</div>
+          <ul class="hvr-end-list" id="hvr-end-rewards"></ul>
+        </div>
+      </div>
+
+      <div class="hvr-end-actions">
+        <a class="hvr-end-btn" href="./hub.html">กลับ HUB</a>
+        <a class="hvr-end-btn primary" id="hvr-end-retry" href="#">เล่นอีกครั้ง</a>
+      </div>
+    </div>
   </div>
 
   <!-- ===== Scripts (global HUD / FX) ===== -->
@@ -625,7 +665,7 @@
   <script type="module">
     import { boot as hydrationBoot } from './hydration-vr/hydration.safe.js';
 
-    function $(id){ return document.getElementById(id); }
+    const $ = (id)=>document.getElementById(id);
 
     function parseQuery() {
       const url = new URL(window.location.href);
@@ -634,7 +674,7 @@
       if (!Number.isFinite(time) || time <= 0) time = 90;
       if (time < 20) time = 20;
       if (time > 180) time = 180;
-      return { diff, time };
+      return { diff, time, url };
     }
 
     function setDiffPill(diff, time){
@@ -642,7 +682,7 @@
       if (diffPill) diffPill.textContent = `${diff.toUpperCase()} • ${time}s`;
     }
 
-    // small feedback (blink + vibrate)
+    // feedback
     function vibrate(pattern){
       try{ if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(pattern); }catch{}
     }
@@ -663,45 +703,7 @@
       c.classList.add('ping');
     }
 
-    <div id="hvr-end" class="hvr-end" aria-hidden="true">
-  <div class="hvr-end-card">
-    <div class="hvr-end-head">
-      <div>
-        <div class="hvr-end-title">🏁 สรุปผล Hydration Quest</div>
-        <div class="hvr-end-sub" id="hvr-end-sub">พร้อมรายงานความก้าวหน้า Goal & Mini</div>
-      </div>
-      <div class="hvr-end-badge" id="hvr-end-grade">C</div>
-    </div>
-
-    <div class="hvr-end-grid">
-      <div class="hvr-end-box">
-        <div class="hvr-end-row"><span>คะแนน</span><strong id="hvr-end-score">0</strong></div>
-        <div class="hvr-end-row"><span>พลาด</span><strong id="hvr-end-miss">0</strong></div>
-        <div class="hvr-end-row"><span>คอมโบสูงสุด</span><strong id="hvr-end-combo">0</strong></div>
-        <div class="hvr-end-row"><span>Water Zone</span><strong id="hvr-end-zone">GREEN</strong></div>
-        <div class="hvr-end-row"><span>เวลาใน GREEN</span><strong id="hvr-end-green">0s</strong></div>
-      </div>
-
-      <div class="hvr-end-box">
-        <div class="hvr-end-row"><span>Goal</span><strong id="hvr-end-goal">0/2</strong></div>
-        <div class="hvr-end-row"><span>Mini Quest</span><strong id="hvr-end-mini">0/3</strong></div>
-        <div class="hvr-end-row"><span>Progress</span><strong id="hvr-end-prog">0%</strong></div>
-        <div class="hvr-end-row"><span>Fever</span><strong id="hvr-end-fever">0%</strong></div>
-        <div class="hvr-end-row"><span>Shield</span><strong id="hvr-end-shield">0</strong></div>
-
-        <div style="margin-top:8px;color:var(--text-soft);font-size:12px">🎁 รางวัลที่ได้</div>
-        <ul class="hvr-end-list" id="hvr-end-rewards"></ul>
-      </div>
-    </div>
-
-    <div class="hvr-end-actions">
-      <a class="hvr-end-btn" href="./hub.html">กลับ HUB</a>
-      <a class="hvr-end-btn primary" id="hvr-end-retry" href="#">เล่นอีกครั้ง</a>
-    </div>
-  </div>
-</div>
-
-    // ยิงจาก crosshair ด้วย elementFromPoint
+    // ยิงจาก crosshair
     function elementAtCrosshair(){
       const c = $('hvr-crosshair');
       if(!c) return null;
@@ -713,7 +715,7 @@
       return el.closest ? el.closest('.hvr-target') : null;
     }
 
-    const FIRE_COOLDOWN = 160;
+    const FIRE_COOLDOWN = 140;
     let lastFireAt = 0;
 
     function fire(){
@@ -723,13 +725,11 @@
 
       ping();
       const tgt = elementAtCrosshair();
-
       if (!tgt){
         vibrate(10);
         return;
       }
 
-      // ให้ความรู้สึก “ยิง”
       const isBad = tgt.classList.contains('bad');
       screenBlink(isBad ? 'bad' : 'good');
       vibrate(isBad ? [18,28,18] : 14);
@@ -748,9 +748,11 @@
 
     function bindCrosshairControls(){
       document.addEventListener('pointerdown', (e)=>{
-        const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
+        // กันกด end screen
+        if (document.getElementById('hvr-end')?.classList.contains('on')) return;
 
         // ถ้าแตะโดนเป้าจริง ๆ → ให้ระบบเดิมนับ
+        const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
         if (t){
           const isBad = t.classList.contains('bad');
           screenBlink(isBad ? 'bad' : 'good');
@@ -758,8 +760,8 @@
           return;
         }
 
-        // กันคลิกปุ่ม
-        if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr')) return;
+        // กันกดปุ่ม/การ์ด
+        if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr,.hha-card,.hha-water-bar')) return;
 
         fire();
       }, { passive:true });
@@ -769,72 +771,162 @@
       });
     }
 
+    // ✅ Drag look: ลากจอเพื่อ “มอง” แล้ว playfield/เป้าเลื่อนตาม (เหมือน VR)
+    function bindDragLook(){
+      const pf = $('hvr-playfield');
+      if (!pf) return;
+
+      let down = false;
+      let sx=0, sy=0;
+      let ox=0, oy=0;
+      let vx=0, vy=0;
+      let last=0;
+
+      const MAX_X = 240;
+      const MAX_Y = 200;
+
+      function apply(){
+        pf.style.transform = `translate3d(${ox|0}px, ${oy|0}px, 0)`;
+      }
+      apply();
+
+      function onDown(e){
+        // ไม่ลากถ้ากดโดนเป้า/ปุ่ม
+        const hitT = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
+        if (hitT) return;
+        if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr')) return;
+        if (document.getElementById('hvr-end')?.classList.contains('on')) return;
+
+        down = true;
+        sx = e.clientX; sy = e.clientY;
+        vx = vy = 0;
+        last = performance.now();
+      }
+      function onMove(e){
+        if (!down) return;
+        const now = performance.now();
+        const dt = Math.max(1, now - last);
+        last = now;
+
+        const dx = e.clientX - sx;
+        const dy = e.clientY - sy;
+
+        // sensitivity
+        const nx = dx * 0.9;
+        const ny = dy * 0.9;
+
+        // velocity (for inertia)
+        vx = (nx - (ox)) / dt;
+        vy = (ny - (oy)) / dt;
+
+        ox = Math.max(-MAX_X, Math.min(MAX_X, nx));
+        oy = Math.max(-MAX_Y, Math.min(MAX_Y, ny));
+        apply();
+      }
+      function onUp(){
+        if (!down) return;
+        down = false;
+
+        // inertia
+        let ivx = vx * 60;
+        let ivy = vy * 60;
+        const decay = 0.92;
+
+        function step(){
+          ivx *= decay; ivy *= decay;
+          ox = Math.max(-MAX_X, Math.min(MAX_X, ox + ivx));
+          oy = Math.max(-MAX_Y, Math.min(MAX_Y, oy + ivy));
+          apply();
+          if (Math.abs(ivx) + Math.abs(ivy) > 0.8) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }
+
+      window.addEventListener('pointerdown', onDown, { passive:true });
+      window.addEventListener('pointermove', onMove, { passive:true });
+      window.addEventListener('pointerup', onUp, { passive:true });
+      window.addEventListener('pointercancel', onUp, { passive:true });
+    }
+
+    // ===== END SCREEN =====
+    function showEndScreen(d){
+      const end = $('hvr-end');
+      if(!end) return;
+      end.classList.add('on');
+      end.setAttribute('aria-hidden','false');
+
+      $('hvr-end-score').textContent = d.score ?? 0;
+      $('hvr-end-miss').textContent  = d.miss ?? 0;
+      $('hvr-end-combo').textContent = d.comboBest ?? 0;
+      $('hvr-end-zone').textContent  = d.zone ?? '';
+      $('hvr-end-green').textContent = (d.greenTick ?? 0) + 's';
+
+      $('hvr-end-goal').textContent  = `${d.goalsDone ?? 0}/${d.goalsTotal ?? 0}`;
+      $('hvr-end-mini').textContent  = `${d.minisDone ?? 0}/${d.minisTotal ?? 0}`;
+      $('hvr-end-prog').textContent  = `${d.progPct ?? 0}%`;
+      $('hvr-end-fever').textContent = `${d.fever ?? 0}%`;
+      $('hvr-end-shield').textContent= `${d.shield ?? 0}`;
+
+      $('hvr-end-grade').textContent = d.grade || 'C';
+      $('hvr-end-sub').textContent   =
+        `Goal ${d.goalsDone ?? 0}/${d.goalsTotal ?? 0} • Mini ${d.minisDone ?? 0}/${d.minisTotal ?? 0}`;
+
+      const ul = $('hvr-end-rewards');
+      if (ul){
+        ul.innerHTML = '';
+        const arr = (d.rewards && Array.isArray(d.rewards.bonuses)) ? d.rewards.bonuses : [];
+        if (!arr.length){
+          const li = document.createElement('li');
+          li.textContent = 'ยังไม่มีรางวัลพิเศษ';
+          ul.appendChild(li);
+        } else {
+          arr.slice(0, 10).forEach(t=>{
+            const li = document.createElement('li');
+            li.textContent = t;
+            ul.appendChild(li);
+          });
+        }
+      }
+
+      // ฉลองหนัก ๆ ตอนจบ (ถ้ามี particles.js celebrate)
+      try{
+        if (window.Particles && typeof window.Particles.celebrate === 'function') {
+          window.Particles.celebrate('allComplete');
+          window.Particles.celebrate('allComplete');
+          window.Particles.celebrate('allComplete');
+        }
+      }catch{}
+      screenBlink('good');
+      vibrate([40,60,40,60,40]);
+    }
+
     window.addEventListener('DOMContentLoaded', async () => {
-      const { diff, time } = parseQuery();
+      const { diff, time, url } = parseQuery();
       setDiffPill(diff, time);
+
+      // retry = reload with same query (no cache bust)
+      const retry = $('hvr-end-retry');
+      if (retry){
+        retry.addEventListener('click', (e)=>{
+          e.preventDefault();
+          window.location.href = url.toString();
+        });
+      }
 
       try{
         await hydrationBoot({ difficulty: diff, duration: time });
         bindCrosshairControls();
+        bindDragLook();
       }catch(err){
         console.error('[HydrationVR] boot error', err);
-        alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้');
+        alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้ (เช็ค path ไฟล์ hydration.safe.js)');
       }
-      function showEndScreen(d){
-  const end = $('hvr-end');
-  if(!end) return;
-  end.classList.add('on');
-  end.setAttribute('aria-hidden','false');
 
-  $('hvr-end-score').textContent = d.score ?? 0;
-  $('hvr-end-miss').textContent  = d.miss ?? 0;
-  $('hvr-end-combo').textContent = d.comboBest ?? 0;
-  $('hvr-end-zone').textContent  = d.zone ?? '';
-  $('hvr-end-green').textContent = (d.greenTick ?? 0) + 's';
-
-  $('hvr-end-goal').textContent  = `${d.goalsDone ?? 0}/${d.goalsTotal ?? 0}`;
-  $('hvr-end-mini').textContent  = `${d.minisDone ?? 0}/${d.minisTotal ?? 0}`;
-  $('hvr-end-prog').textContent  = `${d.progPct ?? 0}%`;
-  $('hvr-end-fever').textContent = `${d.fever ?? 0}%`;
-  $('hvr-end-shield').textContent= `${d.shield ?? 0}`;
-
-  $('hvr-end-grade').textContent = d.grade || 'C';
-  $('hvr-end-sub').textContent   =
-    `Goal ${d.goalsDone ?? 0}/${d.goalsTotal ?? 0} • Mini ${d.minisDone ?? 0}/${d.minisTotal ?? 0}`;
-
-  const ul = $('hvr-end-rewards');
-  if (ul){
-    ul.innerHTML = '';
-    const arr = (d.rewards && Array.isArray(d.rewards.bonuses)) ? d.rewards.bonuses : [];
-    if (!arr.length){
-      const li = document.createElement('li');
-      li.textContent = 'ยังไม่มีรางวัลพิเศษ';
-      ul.appendChild(li);
-    } else {
-      arr.slice(0, 8).forEach(t=>{
-        const li = document.createElement('li');
-        li.textContent = t;
-        ul.appendChild(li);
-      });
-    }
-  }
-}
-
-// คลิก “เล่นอีกครั้ง” = reload พร้อม query เดิม
-const retry = $('hvr-end-retry');
-if (retry){
-  retry.addEventListener('click', (e)=>{
-    e.preventDefault();
-    window.location.reload();
-  });
-}
-
-// รับ event จบเกมจาก hydration.safe.js
-window.addEventListener('hha:end', (e)=>{
-  const d = e?.detail || {};
-  showEndScreen(d);
-});
-
+      // รับ event จบเกมจาก hydration.safe.js
+      window.addEventListener('hha:end', (e)=>{
+        const d = e?.detail || {};
+        showEndScreen(d);
+      }, { passive:true });
     });
   </script>
 </body>
