@@ -1,6 +1,8 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// Good vs Junk VR — DOM Emoji Engine (HYPER v3)
-// (แก้ payload/FX hooks + block hook + ✅ quest:badHit for fair No-Junk Zone)
+// Good vs Junk VR — DOM Emoji Engine (HYPER v3.1)
+// ✅ spawn/hit/block/expire events for logger
+// ✅ quest:badHit for fair No-Junk Zone
+// ✅ targetId + rtMs
 
 'use strict';
 
@@ -13,7 +15,6 @@
 
   const FeverUI = ROOT.FeverUI || null;
 
-  // ===== Emoji pools =====
   const GOOD = ['🍎','🥦','🥕','🍌','🍉','🥛'];
   const JUNK = ['🍔','🍟','🍕','🍩','🍪','🥤'];
 
@@ -66,12 +67,8 @@
   let adaptive = { spawnMs: null, maxActive: null, scale: null };
   let lastAdaptAt = 0;
 
-  // ✅ PATCH: helper ยิง quest:badHit แบบปลอดภัย
-  function emitBadHit(why){
-    try{
-      ROOT.dispatchEvent(new CustomEvent('quest:badHit', { detail:{ why: String(why || '') } }));
-    }catch(_){}
-  }
+  let idSeq = 0;
+  const makeId = ()=> `${Date.now()}-${(++idSeq)}`;
 
   function getTHREE(){
     return ROOT.THREE || (ROOT.AFRAME && ROOT.AFRAME.THREE) || null;
@@ -98,6 +95,7 @@
   function emitMiss(){
     ROOT.dispatchEvent(new CustomEvent('hha:miss',{ detail:{ misses }}));
   }
+
   function emitFeverEdgeIfNeeded(){
     if (!FeverUI || typeof FeverUI.isActive !== 'function') return;
     feverPrev = feverActive;
@@ -108,10 +106,12 @@
       ROOT.dispatchEvent(new CustomEvent('hha:fever',{ detail:{ state:'end' }}));
     }
   }
+
   function comboMultiplier(){
     const step = Math.floor((combo||0)/6);
     return clamp(1 + step*0.5, 1, 3);
   }
+
   function emitScore(){
     if (FeverUI && typeof FeverUI.isActive === 'function'){
       feverActive = !!FeverUI.isActive();
@@ -131,8 +131,60 @@
       }
     }));
   }
+
   function emitTime(){
     ROOT.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+  }
+
+  function emitSpawn(t){
+    ROOT.dispatchEvent(new CustomEvent('hha:spawn', {
+      detail:{
+        timeFromStartMs: null,
+        targetId: t.id,
+        emoji: t.emoji,
+        itemType: t.type === 'power' ? (t.power || 'power') : t.type
+      }
+    }));
+  }
+
+  function emitExpire(t){
+    ROOT.dispatchEvent(new CustomEvent('hha:expire', {
+      detail:{
+        timeFromStartMs: null,
+        targetId: t.id,
+        emoji: t.emoji,
+        itemType: t.type === 'power' ? (t.power || 'power') : t.type
+      }
+    }));
+  }
+
+  function emitHit(t, judgment, rtMs, extra){
+    ROOT.dispatchEvent(new CustomEvent('hha:hit', {
+      detail:{
+        timeFromStartMs: null,
+        targetId: t.id,
+        emoji: t.emoji,
+        itemType: t.type === 'power' ? (t.power || 'power') : t.type,
+        judgment: judgment || '',
+        rtMs: (typeof rtMs === 'number') ? Math.max(0, rtMs|0) : null,
+        totalScore: score,
+        combo,
+        isGood: (t.type === 'good' || t.type === 'gold'),
+        extra: extra || null
+      }
+    }));
+  }
+
+  function emitBlock(t, why){
+    ROOT.dispatchEvent(new CustomEvent('hha:block', {
+      detail:{
+        timeFromStartMs: null,
+        targetId: t.id,
+        emoji: t.emoji,
+        itemType: why || t.type || 'junk',
+        judgment:'BLOCK'
+      }
+    }));
   }
 
   function spawnWorld(){
@@ -237,8 +289,8 @@
 
   function createTarget(spec){
     if (!layerEl) return;
-    const el = createDomEl();
 
+    const el = createDomEl();
     const base = pickBase();
     el.style.setProperty('--tScale', String(base.scale));
 
@@ -257,6 +309,7 @@
     };
 
     const t = {
+      id: makeId(),
       el,
       type: spec.type,
       power: spec.power || null,
@@ -271,6 +324,8 @@
 
     active.push(t);
     layerEl.appendChild(el);
+
+    emitSpawn(t);
 
     el.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
@@ -290,7 +345,9 @@
     if (!running) return;
     removeTarget(t);
 
-    // ✅ NOTE: good/gold expire = MISS ในเกม (แต่ "No-Junk Zone" จะไม่ reset เพราะเราไม่ยิง quest:badHit ตรงนี้)
+    emitExpire(t);
+
+    // ✅ “ปล่อยของดี” ยังถือเป็น miss (ตามกติกาเดิมของคุณ)
     if ((t.type === 'good' || t.type === 'gold') && t.seen){
       misses++;
       combo = 0;
@@ -316,10 +373,14 @@
   function hitTarget(t, x, y){
     if (!t || !t.el) return;
 
+    const rtMs = now() - (t.born || now());
+
     if (t.type === 'boss'){
       t.hp = (t.hp|0) - 1;
       if (Particles && Particles.scorePop) Particles.scorePop(x,y,'HIT!',{ judgment:'BOSS', good:true });
       emitJudge('BOSS HIT!');
+      emitHit(t, 'BOSS_HIT', rtMs, { hp: t.hp });
+
       if (t.hp <= 0){
         removeTarget(t);
         bossTarget = null;
@@ -347,11 +408,13 @@
 
     removeTarget(t);
 
+    // POWER
     if (t.type === 'power'){
       if (t.power === 'shield'){
         shieldUntil = now() + 5000;
         emitJudge('SHIELD ON!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'🛡️ +5s',{ good:true });
+        emitHit(t, 'POWER_SHIELD', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'shield' } }));
         return;
@@ -360,6 +423,7 @@
         magnetUntil = now() + 4000;
         emitJudge('MAGNET!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'🧲 +4s',{ good:true });
+        emitHit(t, 'POWER_MAGNET', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'magnet' } }));
         return;
@@ -371,6 +435,7 @@
         }
         emitJudge('TIME +3!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'⏳ +3s',{ good:true });
+        emitHit(t, 'POWER_TIME', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'time' } }));
         return;
@@ -379,23 +444,26 @@
         feverAdd(22);
         emitJudge('FEVER+');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'🔥 FEVER+',{ good:true });
+        emitHit(t, 'POWER_FEVER', rtMs);
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:power',{ detail:{ power:'fever' } }));
         return;
       }
     }
 
+    // FAKE
     if (t.type === 'fake'){
       if (shieldOn()){
         emitJudge('BLOCK!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'BLOCK',{ judgment:'FAKE', good:true });
+        emitBlock(t, 'fake');
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:block',{ detail:{ ok:true, why:'fake' } }));
-        return; // ✅ BLOCK = ไม่ถือว่า badHit
+        return;
       }
 
-      // ✅ PATCH: fake hit จริง → badHit (รีเซ็ต No-Junk Zone / streak)
-      emitBadHit('fake');
+      // ✅ fair No-Junk: badHit เฉพาะตอนโดนของเสียจริง
+      ROOT.dispatchEvent(new CustomEvent('quest:badHit', { detail:{ type:'fake' } }));
 
       misses++;
       combo = 0;
@@ -403,6 +471,7 @@
 
       if (Particles && Particles.scorePop) Particles.scorePop(x,y,'OOPS!',{ judgment:'FAKE!', good:false });
 
+      emitHit(t, 'HIT_FAKE', rtMs);
       emitScore();
       emitMiss();
       emitJudge('MISS', { why:'fake' });
@@ -411,17 +480,19 @@
       return;
     }
 
+    // JUNK
     if (t.type === 'junk'){
       if (shieldOn()){
         emitJudge('BLOCK!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'BLOCK',{ good:true });
+        emitBlock(t, 'junk');
         emitScore();
         ROOT.dispatchEvent(new CustomEvent('quest:block',{ detail:{ ok:true, why:'junk' } }));
-        return; // ✅ BLOCK = ไม่ถือว่า badHit
+        return;
       }
 
-      // ✅ PATCH: junk hit จริง → badHit (รีเซ็ต No-Junk Zone / streak)
-      emitBadHit('junk');
+      // ✅ fair No-Junk: badHit เฉพาะตอนโดนของเสียจริง
+      ROOT.dispatchEvent(new CustomEvent('quest:badHit', { detail:{ type:'junk' } }));
 
       misses++;
       combo = 0;
@@ -429,6 +500,7 @@
 
       if (Particles && Particles.scorePop) Particles.scorePop(x,y,'MISS',{ judgment:'JUNK!', good:false });
 
+      emitHit(t, 'HIT_JUNK', rtMs);
       emitScore();
       emitMiss();
       emitJudge('MISS');
@@ -471,6 +543,7 @@
       if (st === 'final' && Math.random() < 0.15) Particles.burstAt(x,y,{ count: 10, good:true });
     }
 
+    emitHit(t, (t.type === 'gold') ? 'HIT_GOLD' : 'HIT_GOOD', rtMs, { add, mult, feverNow });
     emitJudge(combo >= 10 ? 'PERFECT' : 'GOOD', { mult });
     emitScore();
 
@@ -536,6 +609,7 @@
 
     const hp = (base.bossHP|0) || 8;
     const t = {
+      id: makeId(),
       el,
       type:'boss',
       emoji:'🥦👑 ×' + hp,
@@ -551,6 +625,8 @@
 
     active.push(t);
     layerEl.appendChild(el);
+
+    emitSpawn(t);
 
     el.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
