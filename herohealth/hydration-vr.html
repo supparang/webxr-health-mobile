@@ -655,6 +655,44 @@
       </div>
     </div>
   </div>
+<!-- ✅ End Screen (วางใน BODY เท่านั้น ห้ามอยู่ใน <script>) -->
+<div id="hvr-end" class="hvr-end" aria-hidden="true">
+  <div class="hvr-end-card">
+    <div class="hvr-end-head">
+      <div>
+        <div class="hvr-end-title">🏁 สรุปผล Hydration Quest</div>
+        <div class="hvr-end-sub" id="hvr-end-sub">พร้อมรายงานความก้าวหน้า Goal & Mini</div>
+      </div>
+      <div class="hvr-end-badge" id="hvr-end-grade">C</div>
+    </div>
+
+    <div class="hvr-end-grid">
+      <div class="hvr-end-box">
+        <div class="hvr-end-row"><span>คะแนน</span><strong id="hvr-end-score">0</strong></div>
+        <div class="hvr-end-row"><span>พลาด</span><strong id="hvr-end-miss">0</strong></div>
+        <div class="hvr-end-row"><span>คอมโบสูงสุด</span><strong id="hvr-end-combo">0</strong></div>
+        <div class="hvr-end-row"><span>Water Zone</span><strong id="hvr-end-zone">GREEN</strong></div>
+        <div class="hvr-end-row"><span>เวลาใน GREEN</span><strong id="hvr-end-green">0s</strong></div>
+      </div>
+
+      <div class="hvr-end-box">
+        <div class="hvr-end-row"><span>Goal</span><strong id="hvr-end-goal">0/2</strong></div>
+        <div class="hvr-end-row"><span>Mini Quest</span><strong id="hvr-end-mini">0/3</strong></div>
+        <div class="hvr-end-row"><span>Progress</span><strong id="hvr-end-prog">0%</strong></div>
+        <div class="hvr-end-row"><span>Fever</span><strong id="hvr-end-fever">0%</strong></div>
+        <div class="hvr-end-row"><span>Shield</span><strong id="hvr-end-shield">0</strong></div>
+
+        <div style="margin-top:8px;color:var(--text-soft);font-size:12px">🎁 รางวัลที่ได้</div>
+        <ul class="hvr-end-list" id="hvr-end-rewards"></ul>
+      </div>
+    </div>
+
+    <div class="hvr-end-actions">
+      <a class="hvr-end-btn" href="./hub.html">กลับ HUB</a>
+      <a class="hvr-end-btn primary" id="hvr-end-retry" href="#">เล่นอีกครั้ง</a>
+    </div>
+  </div>
+</div>
 
   <!-- ===== Scripts (global HUD / FX) ===== -->
   <script src="./vr/ui-fever.js"></script>
