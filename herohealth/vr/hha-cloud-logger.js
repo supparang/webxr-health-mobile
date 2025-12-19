@@ -1,10 +1,10 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// Hero Health Research Logger (CORS-friendly for GitHub Pages -> Google Apps Script)
-// Schema: sessions / events / students-profile
-// - sendBeacon first, fallback fetch(no-cors)
-// - CORS-friendly: send as text/plain;charset=utf-8 to reduce preflight
+// Hero Health Research Logger (Schema: sessions / events / students-profile)
+// - Try fetch(cors) + parse JSON first
+// - Fallback: sendBeacon
+// - Fallback: fetch(no-cors) fire-and-forget
 // - collects: sessions[1], events[*], studentsProfile[0..1] (upsert on server)
-// - emits: hha:logger { ok:boolean, msg:string }
+// - emits: hha:logger { ok:boolean, msg:string, resp?:object }
 
 'use strict';
 
@@ -12,7 +12,9 @@ let CONFIG = {
   endpoint: '',
   projectTag: 'HeroHealth',
   debug: false,
-  gameVersion: 'v0'
+  gameVersion: 'v0',
+  // เวลาเป็น CORS แล้ว response ไม่ใช่ 2xx จะถือ fail
+  strictHttpOk: true
 };
 
 let sessionId = null;
@@ -25,14 +27,6 @@ let eventQueue = [];
 let profileRow = null;
 
 let lastScoreLogAt = 0;
-let flushInFlight = false;
-
-// prevent double bind
-if (typeof window !== 'undefined' && window.__HHA_LOGGER_BOUND__) {
-  // already bound in this page
-} else if (typeof window !== 'undefined') {
-  window.__HHA_LOGGER_BOUND__ = true;
-}
 
 function isoNow(){ return new Date().toISOString(); }
 function uuid(){
@@ -42,11 +36,11 @@ function uuid(){
   });
 }
 
-function emitLogger(ok, msg){
-  try{
-    window.dispatchEvent(new CustomEvent('hha:logger', { detail:{ ok, msg } }));
-  }catch(_){}
-  if (CONFIG.debug) console.log('[HHA Logger]', ok, msg);
+function emitLogger(ok, msg, resp){
+  const detail = { ok: !!ok, msg: String(msg || '') };
+  if (resp !== undefined) detail.resp = resp;
+  window.dispatchEvent(new CustomEvent('hha:logger', { detail }));
+  if (CONFIG.debug) console.log('[HHA Logger]', ok, msg, resp || '');
 }
 
 function safeNum(v){ v = Number(v); return Number.isFinite(v) ? v : null; }
@@ -104,7 +98,6 @@ function deviceLabel(){
 }
 
 function packPayload(final=false){
-  // จำกัด event กัน payload ใหญ่
   const events = eventQueue.splice(0, 800);
   return {
     projectTag: CONFIG.projectTag,
@@ -116,65 +109,88 @@ function packPayload(final=false){
   };
 }
 
-/**
- * CORS-friendly send:
- * - prefer sendBeacon with text/plain blob
- * - fallback fetch no-cors with Content-Type text/plain;charset=utf-8
- * Why: Apps Script + GitHub Pages often fails on application/json preflight.
- */
-async function send(payload){
-  if (!CONFIG.endpoint) throw new Error('No endpoint');
-
-  // IMPORTANT: send as text/plain to reduce preflight/CORS issues
-  const body = JSON.stringify(payload);
-
-  // 1) sendBeacon (best-effort)
-  if (navigator.sendBeacon){
-    try{
-      const ok = navigator.sendBeacon(
-        CONFIG.endpoint,
-        new Blob([body], { type:'text/plain;charset=utf-8' })
-      );
-      if (ok){
-        emitLogger(true, payload.final ? 'logger: sent(final/beacon)' : 'logger: sent(beacon)');
-        return true;
-      }
-    }catch(err){
-      // ignore and fallback
-      if (CONFIG.debug) console.warn('[HHA Logger] beacon error', err);
-    }
-  }
-
-  // 2) fetch fallback (no-cors)
-  await fetch(CONFIG.endpoint, {
-    method:'POST',
-    mode:'no-cors',
-    keepalive: true,
-    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-    body
+async function tryFetchCorsJson_(endpoint, bodyStr){
+  // พยายามอ่าน JSON (ต้อง CORS ผ่านถึงจะอ่านได้)
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    mode: 'cors',
+    credentials: 'omit',
+    headers: { 'Content-Type': 'application/json' },
+    body: bodyStr,
+    keepalive: true
   });
 
-  emitLogger(true, payload.final ? 'logger: sent(final/no-cors)' : 'logger: sent(no-cors)');
+  if (CONFIG.strictHttpOk && !res.ok) {
+    throw new Error('HTTP not ok: ' + res.status);
+  }
+
+  // บางกรณี res.ok แต่ body อ่านไม่ได้ → catch ด้านนอก
+  const json = await res.json();
+  return json;
+}
+
+function trySendBeacon_(endpoint, bodyStr){
+  try{
+    if (!navigator.sendBeacon) return false;
+    const ok = navigator.sendBeacon(endpoint, new Blob([bodyStr], { type:'application/json' }));
+    return !!ok;
+  }catch(_){
+    return false;
+  }
+}
+
+async function tryFetchNoCors_(endpoint, bodyStr){
+  // fire-and-forget: อ่าน response ไม่ได้ แต่ส่งติดได้ในหลายเคส
+  await fetch(endpoint, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: bodyStr,
+    keepalive: true
+  });
   return true;
+}
+
+async function send(payload){
+  if (!CONFIG.endpoint) throw new Error('No endpoint');
+  const bodyStr = JSON.stringify(payload);
+
+  // 1) Try: fetch(cors) + read JSON
+  try{
+    emitLogger(true, 'logger: sending(cors/json)…');
+    const json = await tryFetchCorsJson_(CONFIG.endpoint, bodyStr);
+    emitLogger(true, payload.final ? 'logger: ok (cors/json final)' : 'logger: ok (cors/json)', json);
+    return { ok:true, via:'cors-json', resp:json };
+  }catch(err1){
+    if (CONFIG.debug) console.warn('[HHA Logger] cors/json failed:', err1);
+  }
+
+  // 2) Fallback: sendBeacon
+  const beaconOk = trySendBeacon_(CONFIG.endpoint, bodyStr);
+  if (beaconOk){
+    emitLogger(true, payload.final ? 'logger: sent(beacon final)' : 'logger: sent(beacon)');
+    return { ok:true, via:'beacon' };
+  }
+
+  // 3) Fallback: fetch(no-cors)
+  try{
+    await tryFetchNoCors_(CONFIG.endpoint, bodyStr);
+    emitLogger(true, payload.final ? 'logger: sent(no-cors final)' : 'logger: sent(no-cors)');
+    return { ok:true, via:'no-cors' };
+  }catch(err3){
+    emitLogger(false, 'logger: send failed');
+    throw err3;
+  }
 }
 
 function flush(final=false){
   if (!sessionId) return;
   if (!final && eventQueue.length === 0) return;
-  if (flushInFlight) return;
 
   const payload = packPayload(final);
-  flushInFlight = true;
-
   send(payload).catch(err=>{
+    if (CONFIG.debug) console.warn('[HHA Logger] send failed', err);
     emitLogger(false, 'logger: send failed (check console)');
-    console.warn('[HHA Logger] send failed', err);
-  }).finally(()=>{
-    flushInFlight = false;
-    // ถ้ายังมี event ค้างมาก ๆ ให้ยิงต่อทันทีแบบเบา ๆ
-    if (eventQueue.length >= 200) {
-      setTimeout(()=>flush(false), 10);
-    }
   });
 }
 
@@ -231,7 +247,8 @@ export function initCloudLogger(opts = {}){
     endpoint: opts.endpoint || sessionStorage.getItem('HHA_LOG_ENDPOINT') || '',
     projectTag: opts.projectTag || 'HeroHealth',
     debug: !!opts.debug,
-    gameVersion: opts.gameVersion || 'v0'
+    gameVersion: opts.gameVersion || 'v0',
+    strictHttpOk: (opts.strictHttpOk !== undefined) ? !!opts.strictHttpOk : true
   };
 
   sessionId = uuid();
@@ -243,7 +260,6 @@ export function initCloudLogger(opts = {}){
   const prof = flattenProfile(profile);
   const meta = baseResearchMeta(opts.researchMeta || {});
 
-  // --- sessions row ---
   sessionRow = {
     timestampIso: sessionStartIso,
     projectTag: CONFIG.projectTag,
@@ -254,7 +270,7 @@ export function initCloudLogger(opts = {}){
     sessionId,
     gameMode: safeStr(opts.mode || opts.gameMode || ''),
     diff: safeStr(opts.diff || ''),
-    durationPlannedSec: safeNum(opts.durationPlannedSec),
+    durationPlannedSec: safeNum(opts.durationPlannedSec ?? opts.durationSec),
     durationPlayedSec: null,
 
     scoreFinal: null,
@@ -265,13 +281,11 @@ export function initCloudLogger(opts = {}){
     miniCleared: null,
     miniTotal: null,
 
-    // counters — engines เติมผ่าน event
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
     nTargetStarSpawned: 0,
     nTargetDiamondSpawned: 0,
     nTargetShieldSpawned: 0,
-
     nHitGood: 0,
     nHitJunk: 0,
     nHitJunkGuard: 0,
@@ -290,13 +304,13 @@ export function initCloudLogger(opts = {}){
     startTimeIso: sessionStartIso,
     endTimeIso: '',
 
-    // profile fields
     studentKey: prof.studentKey,
     schoolCode: prof.schoolCode,
     schoolName: prof.schoolName,
     classRoom: prof.classRoom,
     studentNo: prof.studentNo,
     nickName: prof.nickName,
+
     gender: prof.gender,
     age: prof.age,
     gradeLevel: prof.gradeLevel,
@@ -304,6 +318,7 @@ export function initCloudLogger(opts = {}){
     weightKg: prof.weightKg,
     bmi: prof.bmi,
     bmiGroup: prof.bmiGroup,
+
     vrExperience: prof.vrExperience,
     gameFrequency: prof.gameFrequency,
     handedness: prof.handedness,
@@ -311,24 +326,27 @@ export function initCloudLogger(opts = {}){
     healthDetail: prof.healthDetail,
     consentParent: prof.consentParent,
     consentTeacher: prof.consentTeacher,
+
     profileSource: prof.profileSource,
     surveyKey: prof.surveyKey,
     excludeFlag: prof.excludeFlag,
     noteResearcher: prof.noteResearcher
   };
 
-  // --- students-profile row (upsert server) ---
   if (prof.studentKey){
+    const nowIso = isoNow();
     profileRow = {
-      timestampIso: isoNow(),
+      timestampIso: nowIso,
       projectTag: CONFIG.projectTag,
       runMode,
+
       studentKey: prof.studentKey,
       schoolCode: prof.schoolCode,
       schoolName: prof.schoolName,
       classRoom: prof.classRoom,
       studentNo: prof.studentNo,
       nickName: prof.nickName,
+
       gender: prof.gender,
       age: prof.age,
       gradeLevel: prof.gradeLevel,
@@ -336,6 +354,7 @@ export function initCloudLogger(opts = {}){
       weightKg: prof.weightKg,
       bmi: prof.bmi,
       bmiGroup: prof.bmiGroup,
+
       vrExperience: prof.vrExperience,
       gameFrequency: prof.gameFrequency,
       handedness: prof.handedness,
@@ -343,8 +362,9 @@ export function initCloudLogger(opts = {}){
       healthDetail: prof.healthDetail,
       consentParent: prof.consentParent,
       consentTeacher: prof.consentTeacher,
-      createdAtIso: isoNow(),
-      updatedAtIso: isoNow(),
+
+      createdAtIso: nowIso,
+      updatedAtIso: nowIso,
       source: prof.profileSource || 'hub'
     };
   } else {
@@ -353,7 +373,10 @@ export function initCloudLogger(opts = {}){
 
   emitLogger(true, 'logger: ready');
 
-  // ---------- listeners from all games ----------
+  // ----- Bind once (กัน bind ซ้ำเวลาเข้าเกมหลายรอบ) -----
+  if (window.__HHA_LOGGER_BOUND__) return;
+  window.__HHA_LOGGER_BOUND__ = true;
+
   window.addEventListener('hha:spawn', (e)=>{
     const d = e.detail || {};
     if (d.itemType === 'good') sessionRow.nTargetGoodSpawned++;
@@ -361,7 +384,6 @@ export function initCloudLogger(opts = {}){
     else if (d.itemType === 'star') sessionRow.nTargetStarSpawned++;
     else if (d.itemType === 'diamond') sessionRow.nTargetDiamondSpawned++;
     else if (d.itemType === 'shield') sessionRow.nTargetShieldSpawned++;
-
     pushEvent(makeEventRow('spawn', d));
   });
 
@@ -369,7 +391,6 @@ export function initCloudLogger(opts = {}){
     const d = e.detail || {};
     if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nHitGood++;
     if (d.itemType === 'junk') sessionRow.nHitJunk++;
-
     pushEvent(makeEventRow('hit', d));
   });
 
@@ -385,13 +406,12 @@ export function initCloudLogger(opts = {}){
     pushEvent(makeEventRow('expire', d));
   });
 
-  // hha:score (throttle) — เผื่อ debug/monitor
   window.addEventListener('hha:score', (e)=>{
     const t = Date.now();
     if (t - lastScoreLogAt < 500) return;
     lastScoreLogAt = t;
 
-    const det = (e && e.detail) || {};
+    const det = (e && e.detail) ? e.detail : {};
     pushEvent(makeEventRow('score', {
       ...det,
       timeFromStartMs: t - sessionStartMs,
@@ -425,8 +445,8 @@ export function initCloudLogger(opts = {}){
     }
 
     sessionRow.scoreFinal = safeNum(r.scoreFinal);
-    sessionRow.comboMax   = safeNum(r.comboMax);
-    sessionRow.misses     = safeNum(r.misses);
+    sessionRow.comboMax = safeNum(r.comboMax);
+    sessionRow.misses = safeNum(r.misses);
 
     if (r.stats){
       sessionRow.goalsCleared = safeNum(r.stats.goalsCleared);
@@ -451,21 +471,9 @@ export function initCloudLogger(opts = {}){
     flush(true);
   });
 
-  // ส่ง start 1 event
-  pushEvent(makeEventRow('start', {
-    timeFromStartMs: 0,
-    extra:{ startedAtIso: sessionStartIso }
-  }));
-
+  // start event
+  pushEvent(makeEventRow('start', { timeFromStartMs: 0, extra:{ startedAtIso: sessionStartIso }}));
   flush(false);
-
-  // optional: flush on visibility/pagehide (best effort)
-  window.addEventListener('visibilitychange', ()=>{
-    if (document.visibilityState === 'hidden') flush(true);
-  });
-  window.addEventListener('pagehide', ()=>{
-    flush(true);
-  });
 }
 
 export function flushNow(){ flush(false); }
