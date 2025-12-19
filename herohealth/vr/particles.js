@@ -3,6 +3,7 @@
 // - score pop + burst
 // - toast
 // - ✅ HEAVY Celebration + ✅ ULTRA Celebration (confetti waves + fireworks + flash + triple shake + clap)
+// - ✅ NEW: objPop (object beside hit target)
 //
 // Exposes: window.GAME_MODULES.Particles (and window.Particles)
 
@@ -80,6 +81,20 @@
         0%{ transform:translate(-50%,-50%) scale(.7); opacity:.0; }
         10%{ opacity:.95; }
         100%{ transform:translate(var(--dx), var(--dy)) scale(.0); opacity:0; }
+      }
+
+      /* --------- OBJ POP (beside hit) ---------- */
+      .hha-objpop{
+        position:fixed;
+        left:0; top:0;
+        transform:translate(-50%,-50%);
+        font-weight:950;
+        line-height:1;
+        opacity:0;
+        pointer-events:none;
+        filter:drop-shadow(0 12px 20px rgba(0,0,0,.55));
+        z-index:10060;
+        will-change:transform, opacity;
       }
 
       /* --------- TOAST ---------- */
@@ -291,7 +306,6 @@
   }
 
   function noiseBurst(dur=0.06, gain=0.06){
-    // small clap-like noise (super short, mobile-friendly)
     const A = getAudio();
     if (!A) return;
     try{
@@ -299,7 +313,6 @@
       const buf = A.createBuffer(1, len, A.sampleRate);
       const data = buf.getChannelData(0);
       for (let i=0;i<len;i++){
-        // quick decay envelope
         const env = 1 - (i / len);
         data[i] = (Math.random()*2-1) * env;
       }
@@ -336,13 +349,11 @@
       setTimeout(()=>tone(523, 0.08, 'triangle', 0.05), 110);
       setTimeout(()=>tone(659, 0.10, 'triangle', 0.055), 220);
     } else if (kind === 'ultra'){
-      // ULTRA: fast “victory run”
       tone(523, 0.06, 'triangle', 0.055);
       setTimeout(()=>tone(659, 0.06, 'triangle', 0.06), 70);
       setTimeout(()=>tone(784, 0.07, 'triangle', 0.065), 140);
       setTimeout(()=>tone(988, 0.08, 'triangle', 0.07), 220);
       setTimeout(()=>tone(1175, 0.10, 'triangle', 0.075), 320);
-      // clap bursts
       setTimeout(()=>noiseBurst(0.05, 0.07), 120);
       setTimeout(()=>noiseBurst(0.06, 0.07), 240);
       setTimeout(()=>noiseBurst(0.06, 0.075), 360);
@@ -422,6 +433,48 @@
   }
 
   // -----------------------------
+  // NEW: Object pop beside hit
+  // -----------------------------
+  function objPop(x, y, emoji='✨', opts={}){
+    ensureLayer();
+
+    const el = doc.createElement('div');
+    el.className = 'hha-objpop';
+    el.textContent = String(emoji || '✨');
+
+    const side = (opts.side === 'left') ? -1 : (opts.side === 'right') ? 1 : (Math.random()<0.5 ? -1 : 1);
+    const dx0  = Number.isFinite(opts.dx) ? opts.dx : (24 + Math.random()*16) * side;
+    const dy0  = Number.isFinite(opts.dy) ? opts.dy : (-8 - Math.random()*10);
+    const size = Number.isFinite(opts.size) ? opts.size : (18 + Math.random()*10);
+    const rot0 = Number.isFinite(opts.rot) ? opts.rot : ((Math.random()*90 - 45) * side);
+    const tint = String(opts.tint || '');
+
+    el.style.left = (x|0) + 'px';
+    el.style.top  = (y|0) + 'px';
+    el.style.fontSize = size + 'px';
+    el.style.transform = `translate(${dx0}px, ${dy0}px) scale(0.92) rotate(${rot0}deg)`;
+    if (tint) el.style.filter = `drop-shadow(0 12px 20px rgba(0,0,0,.55)) ${tint}`;
+
+    layer.appendChild(el);
+
+    requestAnimationFrame(()=>{
+      el.style.transition = 'transform 520ms ease-out, opacity 520ms ease-out';
+      el.style.opacity = '1';
+      el.style.transform =
+        `translate(${dx0 + (10*side)}px, ${dy0 - 28}px) scale(1.08) rotate(${rot0 + 18*side}deg)`;
+    });
+
+    setTimeout(()=>{
+      el.style.transition = 'transform 420ms ease-in, opacity 420ms ease-in';
+      el.style.opacity = '0';
+      el.style.transform =
+        `translate(${dx0 + (18*side)}px, ${dy0 - 56}px) scale(0.88) rotate(${rot0 + 36*side}deg)`;
+    }, 520);
+
+    setTimeout(()=>{ try{ el.remove(); }catch{} }, 980);
+  }
+
+  // -----------------------------
   // CELEBRATION
   // -----------------------------
   let celeLock = 0;
@@ -479,12 +532,8 @@
   }
 
   function fireworksBurst(parent, x, y){
-    // x,y in px
     burstAt(x, y, 'FIREWORK');
-    // extra spark pop
-    try{
-      scorePop(x, y, '', '✨');
-    }catch{}
+    try{ scorePop(x, y, '', '✨'); }catch{}
   }
 
   function fireworksShow(parent, rounds=4){
@@ -584,28 +633,21 @@
 
     layer.appendChild(wrap);
 
-    // SOUND + SHAKE
     fanfare(ultra ? 'ultra' : kind);
     if (ultra) shakeTriple(); else shakeOnce();
 
-    // CONFETTI WAVES (ULTRA = 3 waves)
     if (ultra){
       makeConfetti(wrap, 2.4 * intensity);
       setTimeout(()=>makeConfetti(wrap, 2.0 * intensity), 260);
       setTimeout(()=>makeConfetti(wrap, 1.6 * intensity), 520);
-
-      // FIREWORKS
       fireworksShow(wrap, 6);
       setTimeout(()=>fireworksShow(wrap, 5), 420);
-
-      // extra clap
       setTimeout(()=>noiseBurst(0.07, 0.08), 520);
       setTimeout(()=>noiseBurst(0.07, 0.085), 680);
     } else {
       makeConfetti(wrap, (kind === 'end' ? 1.8 : (kind === 'goal' ? 1.4 : 1.1)) * intensity);
     }
 
-    // auto remove
     const ttl = ultra ? 2600 : 1500;
     setTimeout(()=>{ try{ wrap.remove(); }catch{} }, ttl);
   }
@@ -613,7 +655,7 @@
   // -----------------------------
   // Export
   // -----------------------------
-  const API = { scorePop, burstAt, toast, celebrate };
+  const API = { scorePop, burstAt, toast, celebrate, objPop };
 
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.Particles = API;
