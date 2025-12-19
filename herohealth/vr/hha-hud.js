@@ -1,15 +1,12 @@
 // === /herohealth/vr/hha-hud.js ===
 // Hero Health Academy — Global HUD Binder (DOM/VR)
-// รองรับทุกเกม (GoodJunkVR / HydrationVR / PlateVR / GroupsVR ฯลฯ)
-// ฟัง event กลางจาก GameEngine / mode-factory แล้วอัปเดต UI:
-// - hha:score      (อัปเดตคะแนน/คอมโบ/miss/โซนน้ำ/ฯลฯ)
-// - quest:update   (หัวข้อ Goal/Mini + progress + highlight)
-// - hha:coach      (ข้อความโค้ช + mood → เปลี่ยนรูปโค้ช)
-// - hha:fever      (สถานะ fever — เผื่อเกมอยาก sync เพิ่ม)
-// - hha:judge      (ข้อความ judgement — เผื่ออยากโชว์เพิ่มในอนาคต)
-// - hha:end        (สรุปตอนจบ + ตรึงผล)
-// - hha:adaptive   (โชว์ debug เล็ก ๆ ได้ถ้าต้องการ)
-// * ทำงานแบบ "ปลอดภัย" ถ้า element ไม่อยู่ก็ข้าม
+// PATCH(A): เพิ่ม Progress Visibility แบบ “เห็นชัดมาก”
+// - Goal progress bar + x/y + pct
+// - Mini quest progress bar + x/y หรือ timer + timeLeft
+// - Status tag: ACTIVE / CLEARED (โชว์ชั่วคราวตอนผ่าน)
+// - รองรับ payload มาตรฐานจาก quest:update:
+//   detail: { goal:{title,cur,max,pct,state}, mini:{title,cur,max,pct,timeLeft,timeTotal,state}, meta?:{...} }
+// - ฟัง quest:cleared เพื่อแฟลชสถานะ + ปล่อยให้ particles/celebrate ทำงานร่วมกันได้
 
 (function (root) {
   'use strict';
@@ -17,503 +14,455 @@
   const doc = root.document;
   if (!doc) return;
 
-  // ---------------------------
-  // Helpers
-  // ---------------------------
-  const $ = (sel) => doc.querySelector(sel);
-  const clamp = (v, min, max) => {
-    v = Number(v) || 0;
-    if (v < min) return min;
-    if (v > max) return max;
-    return v;
-  };
-
-  function safeText(el, txt) {
-    if (!el) return;
-    el.textContent = (txt == null) ? '' : String(txt);
+  // -------------------------
+  // Utils
+  // -------------------------
+  function clamp01(x) {
+    x = Number(x);
+    if (!isFinite(x)) x = 0;
+    if (x < 0) return 0;
+    if (x > 1) return 1;
+    return x;
+  }
+  function pctToText(pct) {
+    pct = clamp01(pct);
+    return Math.round(pct * 100) + '%';
+  }
+  function safeText(v, fallback = '') {
+    if (v === null || v === undefined) return fallback;
+    const s = String(v);
+    return s.trim() ? s : fallback;
+  }
+  function msToSec(v) {
+    v = Number(v);
+    if (!isFinite(v)) return null;
+    return Math.max(0, v) / 1000;
+  }
+  function formatSec(sec) {
+    sec = Number(sec);
+    if (!isFinite(sec)) return '';
+    sec = Math.max(0, sec);
+    // แสดงแบบ 8.0s ชัด ๆ
+    return (sec >= 10 ? Math.round(sec) : (Math.round(sec * 10) / 10)) + 's';
   }
 
-  function fmtInt(v) {
-    v = Number(v) || 0;
-    return String(Math.round(v));
-  }
+  // -------------------------
+  // HUD creation (safe)
+  // -------------------------
+  const HUD_ID = 'hha-hud';
+  const STYLE_ID = 'hha-hud-style-a';
 
-  function upper(s) {
-    return String(s || '').toUpperCase();
-  }
-
-  // เพิ่มคลาสสถานะให้บรรทัด progress (active/done/dim)
-  function setQuestLineState(el, { active=false, done=false, dim=false } = {}) {
-    if (!el) return;
-    el.classList.toggle('is-active', !!active);
-    el.classList.toggle('is-done', !!done);
-    el.classList.toggle('is-dim', !!dim);
-  }
-
-  // ---------------------------
-  // DOM refs (optional)
-  // ---------------------------
-  const refs = {
-    // top water gauge
-    waterFill:   null,
-    waterStatus: null,
-
-    // main stats
-    modeLabel:   null,
-    modePill:    null,
-    diffPill:    null,
-    score:       null,
-    comboMax:    null,
-    miss:        null,
-    waterZoneText: null,
-
-    // grade badge
-    gradeBadge:  null,
-
-    // quest card
-    questGoal:   null,
-    questMini:   null,
-    goalDone:    null,
-    goalTotal:   null,
-    miniDone:    null,
-    miniTotal:   null,
-
-    // ✅ progress lines (ใหม่)
-    goalProgress: null,
-    miniProgress: null,
-
-    // coach
-    coachBubble: null,
-    coachText:   null,
-    coachName:   null,
-    coachAvatarWrap: null,
-    coachAvatarImg:  null,
-
-    // fever (ส่วนใหญ่ให้ ui-fever.js ดูแล แต่เราช่วยอัปเดต text บางจุดได้)
-    feverFill:   null,
-    feverPct:    null,
-    shield:      null,
-
-    // vr button
-    btnVr:       null,
-
-    // crosshair (ถ้ามี)
-    crosshair:   null,
-  };
-
-  function bindRefs() {
-    refs.waterFill   = $('#hha-water-fill');
-    refs.waterStatus = $('#hha-water-status');
-
-    refs.modeLabel   = $('#hha-mode-label');
-    refs.modePill    = $('#hha-mode-pill');
-    refs.diffPill    = $('#hha-diff-pill');
-
-    refs.score       = $('#hha-score-main');
-    refs.comboMax    = $('#hha-combo-max');
-    refs.miss        = $('#hha-miss');
-    refs.waterZoneText = $('#hha-water-zone-text');
-
-    refs.gradeBadge  = $('#hha-grade-badge');
-
-    refs.questGoal   = $('#hha-quest-goal');
-    refs.questMini   = $('#hha-quest-mini');
-    refs.goalDone    = $('#hha-goal-done');
-    refs.goalTotal   = $('#hha-goal-total');
-    refs.miniDone    = $('#hha-mini-done');
-    refs.miniTotal   = $('#hha-mini-total');
-
-    // ✅ ต้องมี element id เหล่านี้ใน HTML (ถ้าไม่มีก็ไม่พัง)
-    refs.goalProgress = $('#hha-goal-progress');
-    refs.miniProgress = $('#hha-mini-progress');
-
-    refs.coachBubble = $('#hha-coach-bubble');
-    refs.coachText   = $('#hha-coach-text');
-    refs.coachName   = doc.querySelector('.hha-coach-name');
-    refs.coachAvatarWrap = doc.querySelector('.hha-coach-avatar');
-    refs.coachAvatarImg  = refs.coachAvatarWrap ? refs.coachAvatarWrap.querySelector('img') : null;
-
-    refs.feverFill   = $('#hha-fever-fill');
-    refs.feverPct    = $('#hha-fever-percent');
-    refs.shield      = $('#hha-shield-count');
-
-    refs.btnVr       = $('#hha-btn-vr');
-    refs.crosshair   = $('#hvr-crosshair');
-
-    // ✅ inject CSS highlight ถ้าในหน้าไม่ได้มีเอง
-    ensureQuestStyle();
-  }
-
-  // ---------------------------
-  // inject CSS สำหรับ highlight (ครั้งเดียว)
-  // ---------------------------
-  let questStyleInjected = false;
-  function ensureQuestStyle(){
-    if (questStyleInjected) return;
-    questStyleInjected = true;
-    if (doc.getElementById('hha-quest-highlight-style')) return;
+  function ensureStyle() {
+    if (doc.getElementById(STYLE_ID)) return;
 
     const st = doc.createElement('style');
-    st.id = 'hha-quest-highlight-style';
+    st.id = STYLE_ID;
     st.textContent = `
-      .hha-quest-line{
-        font-size:12px;
-        color:rgba(226,232,240,.92);
-        margin-top:6px;
-        padding:6px 10px;
-        border-radius:12px;
-        border:1px solid rgba(148,163,184,.22);
-        background:rgba(2,6,23,.35);
-        transition:transform .15s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease, opacity .2s ease;
-        line-height:1.35;
-      }
-      .hha-quest-line.is-active{
-        border-color:rgba(56,189,248,.75);
-        box-shadow:0 0 0 2px rgba(56,189,248,.18), 0 18px 40px rgba(15,23,42,.75);
-        background:rgba(2,6,23,.55);
-        transform:translateY(-1px);
-      }
-      .hha-quest-line.is-done{
-        border-color:rgba(34,197,94,.70);
-        background:rgba(34,197,94,.10);
-        color:rgba(187,247,208,.98);
-      }
-      .hha-quest-line.is-dim{ opacity:.45; }
-    `;
+/* ===== HHA HUD Patch A: Progress Visibility ===== */
+#${HUD_ID}{
+  position:fixed; inset:0; pointer-events:none; z-index:9999;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+#${HUD_ID} .hha-top{
+  position:fixed; top:10px; left:50%; transform:translateX(-50%);
+  display:flex; gap:10px; align-items:flex-start; justify-content:center;
+  width:min(980px, calc(100vw - 24px));
+  pointer-events:none;
+}
+#${HUD_ID} .hha-card{
+  pointer-events:none;
+  background:rgba(2,6,23,0.72);
+  border:1px solid rgba(148,163,184,0.22);
+  box-shadow:0 10px 30px rgba(0,0,0,0.35);
+  border-radius:16px;
+  padding:10px 12px;
+  backdrop-filter: blur(8px);
+  min-width: 320px;
+  max-width: 520px;
+}
+#${HUD_ID} .hha-titleRow{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin-bottom:8px;
+}
+#${HUD_ID} .hha-title{
+  font-weight:800;
+  font-size:13px;
+  color:#e5e7eb;
+  letter-spacing:.2px;
+  line-height:1.1;
+  display:flex; align-items:center; gap:8px;
+}
+#${HUD_ID} .hha-sub{
+  font-weight:700;
+  font-size:12px;
+  color:#a7f3d0;
+  opacity:.95;
+}
+#${HUD_ID} .hha-badge{
+  font-weight:900;
+  font-size:11px;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.28);
+  color:#e5e7eb;
+  background:rgba(15,23,42,0.55);
+  text-transform:uppercase;
+  letter-spacing:.6px;
+}
+#${HUD_ID} .hha-badge.active{
+  border-color:rgba(34,197,94,0.5);
+  background:rgba(34,197,94,0.16);
+}
+#${HUD_ID} .hha-badge.cleared{
+  border-color:rgba(250,204,21,0.6);
+  background:rgba(250,204,21,0.18);
+  color:#fff7ed;
+}
+#${HUD_ID} .hha-badge.hidden{ display:none; }
+
+#${HUD_ID} .hha-progressRow{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin-bottom:6px;
+}
+#${HUD_ID} .hha-desc{
+  color:#cbd5e1;
+  font-weight:700;
+  font-size:12px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  max-width: 78%;
+}
+#${HUD_ID} .hha-count{
+  color:#f8fafc;
+  font-weight:900;
+  font-size:12px;
+}
+#${HUD_ID} .hha-bar{
+  width:100%;
+  height:10px;
+  border-radius:999px;
+  background:rgba(148,163,184,0.16);
+  border:1px solid rgba(148,163,184,0.18);
+  overflow:hidden;
+}
+#${HUD_ID} .hha-fill{
+  width:0%;
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg, rgba(34,197,94,0.95), rgba(59,130,246,0.9));
+  transition:width 160ms ease;
+  box-shadow: 0 0 14px rgba(34,197,94,0.22);
+}
+#${HUD_ID} .hha-fill.warn{
+  background:linear-gradient(90deg, rgba(250,204,21,0.95), rgba(244,63,94,0.9));
+  box-shadow: 0 0 16px rgba(244,63,94,0.22);
+}
+#${HUD_ID} .hha-pct{
+  margin-top:6px;
+  display:flex; align-items:center; justify-content:space-between;
+  color:#94a3b8;
+  font-weight:800;
+  font-size:11px;
+}
+#${HUD_ID} .hha-flash{
+  animation:hhaFlash 420ms ease both;
+}
+@keyframes hhaFlash{
+  0%{ transform:translateY(-2px) scale(1.01); filter:brightness(1.12); }
+  100%{ transform:translateY(0) scale(1); filter:brightness(1); }
+}
+
+/* mobile tighten */
+@media (max-width:520px){
+  #${HUD_ID} .hha-card{ min-width: 220px; padding:9px 10px; }
+  #${HUD_ID} .hha-title{ font-size:12px; }
+  #${HUD_ID} .hha-desc{ max-width:74%; }
+}
+    `.trim();
     doc.head.appendChild(st);
   }
 
-  // ---------------------------
-  // Grade logic (simple + stable)
-  // ---------------------------
-  function computeGrade(d) {
-    const score = Number(d?.score ?? d?.scoreFinal ?? 0) || 0;
-    const misses = Number(d?.misses ?? d?.miss ?? 0) || 0;
+  function ensureHUD() {
+    let hud = doc.getElementById(HUD_ID);
+    if (hud) return hud;
 
-    const goalsCleared = Number(d?.goalsCleared ?? 0) || 0;
-    const goalsTarget  = Number(d?.goalsTarget ?? d?.goalsTotal ?? 0) || 0;
-    const questsCleared = Number(d?.questsCleared ?? d?.quests ?? d?.miniCleared ?? 0) || 0;
-    const questsTarget  = Number(d?.questsTarget ?? d?.questsTotal ?? d?.miniTotal ?? 0) || 0;
+    hud = doc.createElement('div');
+    hud.id = HUD_ID;
 
-    const goalRatio  = goalsTarget > 0 ? (goalsCleared / goalsTarget) : 0;
-    const questRatio = questsTarget > 0 ? (questsCleared / questsTarget) : 0;
+    // Top center group: Goal + Mini
+    const top = doc.createElement('div');
+    top.className = 'hha-top';
 
-    const taskBonus = (goalRatio >= 1 ? 0.10 : 0) + (questRatio >= 1 ? 0.08 : 0);
+    // Goal card
+    const goal = doc.createElement('div');
+    goal.className = 'hha-card';
+    goal.innerHTML = `
+      <div class="hha-titleRow">
+        <div class="hha-title"><span>🎯</span><span id="hhaGoalTitle">GOAL</span></div>
+        <div class="hha-badge active hidden" id="hhaGoalBadge">ACTIVE</div>
+      </div>
+      <div class="hha-progressRow">
+        <div class="hha-desc" id="hhaGoalDesc">—</div>
+        <div class="hha-count" id="hhaGoalCount">0/0</div>
+      </div>
+      <div class="hha-bar"><div class="hha-fill" id="hhaGoalFill"></div></div>
+      <div class="hha-pct">
+        <span id="hhaGoalPct">0%</span>
+        <span id="hhaGoalHint">ทำให้ครบ!</span>
+      </div>
+    `;
 
-    const missPenalty = clamp(misses * 0.04, 0, 0.40);
+    // Mini card
+    const mini = doc.createElement('div');
+    mini.className = 'hha-card';
+    mini.innerHTML = `
+      <div class="hha-titleRow">
+        <div class="hha-title"><span>🧩</span><span id="hhaMiniTitle">MINI QUEST</span></div>
+        <div class="hha-badge active hidden" id="hhaMiniBadge">ACTIVE</div>
+      </div>
+      <div class="hha-progressRow">
+        <div class="hha-desc" id="hhaMiniDesc">—</div>
+        <div class="hha-count" id="hhaMiniCount">0/0</div>
+      </div>
+      <div class="hha-bar"><div class="hha-fill" id="hhaMiniFill"></div></div>
+      <div class="hha-pct">
+        <span id="hhaMiniPct">0%</span>
+        <span id="hhaMiniHint">—</span>
+      </div>
+    `;
 
-    const sNorm = clamp(Math.log10(1 + score) / 3.2, 0, 1);
-    const raw = clamp(sNorm + taskBonus - missPenalty, 0, 1);
+    top.appendChild(goal);
+    top.appendChild(mini);
+    hud.appendChild(top);
+    doc.body.appendChild(hud);
 
-    if (raw >= 0.92) return 'SSS';
-    if (raw >= 0.84) return 'SS';
-    if (raw >= 0.76) return 'S';
-    if (raw >= 0.62) return 'A';
-    if (raw >= 0.50) return 'B';
-    return 'C';
+    return hud;
   }
 
-  // ---------------------------
-  // Coach avatar (optional)
-  // ---------------------------
-  const COACH_IMG = {
-    neutral: '../img/coach-neutral.png',
-    happy:   '../img/coach-happy.png',
-    sad:     '../img/coach-sad.png',
-    fever:   '../img/coach-fever.png'
-  };
+  function $(id) { return doc.getElementById(id); }
 
-  function ensureCoachImg() {
-    if (!refs.coachAvatarWrap) return;
-    if (!refs.coachAvatarImg) {
-      const img = doc.createElement('img');
-      img.alt = 'โค้ช';
-      refs.coachAvatarWrap.appendChild(img);
-      refs.coachAvatarImg = img;
+  function setBadge(el, state) {
+    if (!el) return;
+    el.classList.remove('active', 'cleared', 'hidden');
+    if (!state) { el.classList.add('hidden'); return; }
+    const s = String(state).toLowerCase();
+    if (s === 'active') {
+      el.textContent = 'ACTIVE';
+      el.classList.add('active');
+    } else if (s === 'cleared' || s === 'complete' || s === 'completed') {
+      el.textContent = 'CLEARED';
+      el.classList.add('cleared');
+    } else {
+      el.textContent = String(state).toUpperCase();
+      el.classList.add('active');
     }
-    if (!refs.coachAvatarImg.getAttribute('src')) {
-      refs.coachAvatarImg.src = COACH_IMG.neutral;
+  }
+
+  function flashCard(cardEl) {
+    if (!cardEl) return;
+    cardEl.classList.remove('hha-flash');
+    // force reflow
+    void cardEl.offsetWidth;
+    cardEl.classList.add('hha-flash');
+  }
+
+  function setProgress(fillEl, pct01, warn = false) {
+    if (!fillEl) return;
+    pct01 = clamp01(pct01);
+    fillEl.style.width = Math.round(pct01 * 1000) / 10 + '%';
+    if (warn) fillEl.classList.add('warn');
+    else fillEl.classList.remove('warn');
+  }
+
+  // -------------------------
+  // State + update functions
+  // -------------------------
+  let lastGoalKey = '';
+  let lastMiniKey = '';
+  let lastGoalCur = null;
+  let lastMiniCur = null;
+
+  function updateGoal(g) {
+    const goalCard = $('hhaGoalTitle')?.closest('.hha-card');
+    const badge = $('hhaGoalBadge');
+    const titleEl = $('hhaGoalTitle');
+    const descEl = $('hhaGoalDesc');
+    const countEl = $('hhaGoalCount');
+    const pctEl = $('hhaGoalPct');
+    const hintEl = $('hhaGoalHint');
+    const fillEl = $('hhaGoalFill');
+
+    if (!g) {
+      if (descEl) descEl.textContent = '—';
+      if (countEl) countEl.textContent = '0/0';
+      if (pctEl) pctEl.textContent = '0%';
+      if (hintEl) hintEl.textContent = '—';
+      setProgress(fillEl, 0);
+      setBadge(badge, null);
+      return;
     }
-  }
 
-  function setCoachMood(mood) {
-    ensureCoachImg();
-    if (!refs.coachAvatarImg) return;
-    const key = String(mood || 'neutral').toLowerCase();
-    const src =
-      COACH_IMG[key] ||
-      (key.includes('fever') ? COACH_IMG.fever : null) ||
-      (key.includes('happy') ? COACH_IMG.happy : null) ||
-      (key.includes('sad') ? COACH_IMG.sad : null) ||
-      COACH_IMG.neutral;
-    refs.coachAvatarImg.src = src;
-  }
+    const title = safeText(g.title, 'GOAL');
+    const cur = Number(g.cur ?? 0);
+    const max = Math.max(0, Number(g.max ?? 0));
+    const pct = (g.pct !== undefined && g.pct !== null)
+      ? clamp01(g.pct)
+      : (max > 0 ? clamp01(cur / max) : 0);
 
-  // ---------------------------
-  // Water gauge UI (top header)
-  // ---------------------------
-  function setWaterUI(pct, zone) {
-    const p = clamp(pct, 0, 100);
-    if (refs.waterFill) refs.waterFill.style.width = p.toFixed(0) + '%';
+    const state = safeText(g.state, 'active');
+    const key = title + '|' + max;
 
-    const z = upper(zone || '');
-    if (refs.waterStatus) safeText(refs.waterStatus, `${z || '—'} ${p.toFixed(0)}%`);
-    if (refs.waterZoneText) safeText(refs.waterZoneText, z || '—');
+    if (titleEl) titleEl.textContent = 'GOAL';
+    if (descEl) descEl.textContent = title;
+    if (countEl) countEl.textContent = `${Math.max(0, cur)}/${Math.max(0, max)}`;
+    if (pctEl) pctEl.textContent = pctToText(pct);
 
-    if (refs.waterFill) {
-      if (z === 'GREEN') {
-        refs.waterFill.style.background = 'linear-gradient(90deg,#22c55e,#4ade80)';
-      } else {
-        refs.waterFill.style.background = 'linear-gradient(90deg,#f97316,#fb923c)';
+    // hint
+    if (hintEl) {
+      if (String(state).toLowerCase().includes('clear')) hintEl.textContent = 'ผ่านแล้ว! 🎉';
+      else if (pct >= 0.8) hintEl.textContent = 'ใกล้แล้ว! 🔥';
+      else hintEl.textContent = 'ทำให้ครบ!';
+    }
+
+    setBadge(badge, state);
+    setProgress(fillEl, pct, false);
+
+    // flash when progress increments OR goal changes
+    if (key !== lastGoalKey || (lastGoalCur !== null && cur !== lastGoalCur)) {
+      // flash only on positive progress or change
+      if (key !== lastGoalKey || (cur > (lastGoalCur ?? -Infinity))) {
+        flashCard(goalCard);
       }
     }
+    lastGoalKey = key;
+    lastGoalCur = cur;
   }
 
-  // ---------------------------
-  // Quest UI (✅ เพิ่มรายละเอียด + progress + highlight)
-  // ---------------------------
-  function updateQuestUI(detail) {
-    if (!detail) return;
+  function updateMini(m) {
+    const miniCard = $('hhaMiniTitle')?.closest('.hha-card');
+    const badge = $('hhaMiniBadge');
+    const titleEl = $('hhaMiniTitle');
+    const descEl = $('hhaMiniDesc');
+    const countEl = $('hhaMiniCount');
+    const pctEl = $('hhaMiniPct');
+    const hintEl = $('hhaMiniHint');
+    const fillEl = $('hhaMiniFill');
 
-    // Headings (preferred)
-    if (detail.goalHeading != null) safeText(refs.questGoal, detail.goalHeading);
-    else if (detail.goal && (detail.goal.label || detail.goal.title || detail.goal.text)) {
-      safeText(refs.questGoal, 'Goal: ' + (detail.goal.label || detail.goal.title || detail.goal.text));
+    if (!m) {
+      if (descEl) descEl.textContent = '—';
+      if (countEl) countEl.textContent = '0/0';
+      if (pctEl) pctEl.textContent = '0%';
+      if (hintEl) hintEl.textContent = '—';
+      setProgress(fillEl, 0);
+      setBadge(badge, null);
+      return;
     }
 
-    if (detail.miniHeading != null) safeText(refs.questMini, detail.miniHeading);
-    else if (detail.mini && (detail.mini.label || detail.mini.title || detail.mini.text)) {
-      safeText(refs.questMini, 'Mini: ' + (detail.mini.label || detail.mini.title || detail.mini.text));
+    const title = safeText(m.title, 'MINI QUEST');
+    const cur = Number(m.cur ?? 0);
+    const max = Math.max(0, Number(m.max ?? 0));
+    const pct = (m.pct !== undefined && m.pct !== null)
+      ? clamp01(m.pct)
+      : (max > 0 ? clamp01(cur / max) : 0);
+
+    const state = safeText(m.state, 'active');
+    const key = title + '|' + max;
+
+    if (titleEl) titleEl.textContent = 'MINI QUEST';
+    if (descEl) descEl.textContent = title;
+
+    // timer vs counter hint
+    const tl = msToSec(m.timeLeft);
+    const tt = msToSec(m.timeTotal);
+    const hasTimer = (tl !== null && tt !== null && tt > 0);
+
+    if (countEl) {
+      if (hasTimer) countEl.textContent = `${formatSec(tl)}`;
+      else countEl.textContent = `${Math.max(0, cur)}/${Math.max(0, max)}`;
+    }
+    if (pctEl) pctEl.textContent = pctToText(pct);
+
+    // warning when time left low
+    let warn = false;
+    if (hasTimer) {
+      // warn when <= 3s
+      warn = (tl <= 3.0);
     }
 
-    // Counters
-    const gd = Number(detail.meta?.goalsCleared ?? detail.goalsCleared ?? detail.goalIndex ?? 0) || 0;
-    const gt = Number(detail.meta?.goalsTarget  ?? detail.goalTotal   ?? 0) || 0;
-
-    const md =
-      Number(
-        detail.meta?.questsCleared ??
-        detail.meta?.quests ??
-        detail.miniIndex ??
-        0
-      ) || 0;
-
-    const mt =
-      Number(
-        detail.meta?.questsTarget ??
-        detail.meta?.questsTotal ??
-        detail.miniTotal ??
-        0
-      ) || 0;
-
-    if (refs.goalDone)  safeText(refs.goalDone, fmtInt(gd));
-    if (refs.goalTotal) safeText(refs.goalTotal, fmtInt(gt || 0));
-
-    if (refs.miniDone)  safeText(refs.miniDone, fmtInt(md));
-    if (refs.miniTotal) safeText(refs.miniTotal, fmtInt(mt || 0));
-
-    // ✅ progress text + highlight states
-    const goalProgText = detail.goalProgressText || '';
-    const miniProgText = detail.miniProgressText || '';
-
-    if (refs.goalProgress) {
-      safeText(refs.goalProgress, goalProgText ? `Progress: ${goalProgText}` : '');
-      setQuestLineState(refs.goalProgress, {
-        active: !!detail.goalActive,
-        done: !!detail.goalDone,
-        dim: !goalProgText
-      });
+    if (hintEl) {
+      if (String(state).toLowerCase().includes('clear')) hintEl.textContent = 'ผ่านแล้ว! 🌟';
+      else if (hasTimer) hintEl.textContent = `เหลือ ${formatSec(tl)} ⏳`;
+      else if (pct >= 0.8) hintEl.textContent = 'อีกนิดเดียว! ⚡';
+      else hintEl.textContent = 'ทำภารกิจย่อย!';
     }
-    if (refs.miniProgress) {
-      safeText(refs.miniProgress, miniProgText ? `Progress: ${miniProgText}` : '');
-      setQuestLineState(refs.miniProgress, {
-        active: !!detail.miniActive,
-        done: !!detail.miniDone,
-        dim: !miniProgText
-      });
+
+    setBadge(badge, state);
+    setProgress(fillEl, pct, warn);
+
+    // flash when progress increments OR mini changes
+    if (key !== lastMiniKey || (lastMiniCur !== null && cur !== lastMiniCur)) {
+      if (key !== lastMiniKey || (cur > (lastMiniCur ?? -Infinity))) {
+        flashCard(miniCard);
+      }
     }
+    lastMiniKey = key;
+    lastMiniCur = cur;
   }
 
-  // ---------------------------
-  // Score UI
-  // ---------------------------
-  let lastScorePayload = null;
+  // -------------------------
+  // Bind listeners (safe)
+  // -------------------------
+  ensureStyle();
+  ensureHUD();
 
-  function updateScoreUI(d) {
+  // Existing HHA events (keep)
+  function onScore() { /* เกมอื่นใช้ต่อได้ ไม่แตะ */ }
+  function onCoach() { /* เกมอื่นใช้ต่อได้ ไม่แตะ */ }
+  function onEnd() { /* เกมอื่นใช้ต่อได้ ไม่แตะ */ }
+
+  // Patch A: quest:update
+  function onQuestUpdate(ev) {
+    const d = ev && ev.detail ? ev.detail : null;
     if (!d) return;
-    lastScorePayload = d;
-
-    if (refs.modeLabel && d.modeLabel) safeText(refs.modeLabel, d.modeLabel);
-    if (refs.modePill) {
-      const rm = String(d.runMode || '').toUpperCase();
-      if (rm) safeText(refs.modePill, rm + ' MODE');
-    }
-
-    if (refs.diffPill && d.difficulty) {
-      const t = (String(d.difficulty).toUpperCase());
-      const dur = (Number(d.durationPlannedSec ?? d.durationSec ?? d.timeSec ?? '') || '').toString();
-      safeText(refs.diffPill, dur ? `${t} • ${dur}s` : t);
-    }
-
-    if (refs.score) safeText(refs.score, fmtInt(d.score));
-    if (refs.comboMax) safeText(refs.comboMax, fmtInt(d.comboMax));
-    if (refs.miss) safeText(refs.miss, fmtInt(d.misses ?? d.miss));
-
-    if (d.waterPct != null || d.waterZone != null) {
-      setWaterUI(d.waterPct ?? 0, d.waterZone ?? '');
-    }
-
-    if (refs.goalDone && refs.goalTotal) {
-      const gd = Number(d.goalsCleared ?? 0) || 0;
-      const gt = Number(d.goalsTarget ?? d.goalsTotal ?? 0) || 0;
-      if (gt) {
-        safeText(refs.goalDone, fmtInt(gd));
-        safeText(refs.goalTotal, fmtInt(gt));
-      }
-    }
-    if (refs.miniDone && refs.miniTotal) {
-      const md = Number(d.questsCleared ?? d.quests ?? d.miniCleared ?? 0) || 0;
-      const mt = Number(d.questsTarget ?? d.questsTotal ?? d.miniTotal ?? 0) || 0;
-      if (mt) {
-        safeText(refs.miniDone, fmtInt(md));
-        safeText(refs.miniTotal, fmtInt(mt));
-      }
-    }
-
-    if (refs.gradeBadge) {
-      const g = computeGrade(d);
-      safeText(refs.gradeBadge, g);
-    }
+    updateGoal(d.goal || null);
+    updateMini(d.mini || null);
   }
 
-  // ---------------------------
-  // Fever UI (ถ้ามี element แต่ ui-fever.js จะเป็นตัวหลัก)
-  // ---------------------------
-  function updateFeverUI(d) {
+  // Patch A: quest:cleared -> flash badge CLEARED ชั่วครู่ (HUD)
+  function onQuestCleared(ev) {
+    const d = ev && ev.detail ? ev.detail : null;
     if (!d) return;
-    const fever = clamp(d.fever ?? d.feverValue ?? 0, 0, 100);
-    const active = !!(d.active ?? d.feverActive);
+    const kind = String(d.kind || d.type || '').toLowerCase();
+    const state = 'cleared';
 
-    if (refs.feverFill) {
-      refs.feverFill.style.width = fever.toFixed(0) + '%';
-      refs.feverFill.style.opacity = active ? '1' : '0.9';
-    }
-    if (refs.feverPct) safeText(refs.feverPct, fever.toFixed(0) + '%');
-
-    if (active) setCoachMood('fever');
-  }
-
-  // ---------------------------
-  // Coach message
-  // ---------------------------
-  let coachTimer = null;
-  function onCoach(ev) {
-    const d = ev?.detail || {};
-    const text = d.text || d.message || '';
-    if (!text) return;
-
-    if (refs.coachText) safeText(refs.coachText, text);
-
-    const mood = d.mood || d.face || (String(text).includes('🔥') ? 'fever' : null);
-    if (mood) setCoachMood(mood);
-
-    if (refs.coachBubble) {
-      refs.coachBubble.style.transform = 'scale(1.02)';
-      refs.coachBubble.style.transition = 'transform 120ms ease-out';
-      if (coachTimer) clearTimeout(coachTimer);
-      coachTimer = setTimeout(() => {
-        if (!refs.coachBubble) return;
-        refs.coachBubble.style.transform = 'scale(1)';
-      }, 220);
+    if (kind.includes('goal')) {
+      const badge = $('hhaGoalBadge');
+      setBadge(badge, state);
+      flashCard($('hhaGoalTitle')?.closest('.hha-card'));
+      // กลับเป็น ACTIVE ต่อ ถ้ายังมี goal ใหม่
+      setTimeout(() => {
+        // ไม่ override ถ้า goal อัปเดตมาใหม่แล้ว
+        // (ปล่อยให้ quest:update จัดการ)
+      }, 350);
+    } else if (kind.includes('mini')) {
+      const badge = $('hhaMiniBadge');
+      setBadge(badge, state);
+      flashCard($('hhaMiniTitle')?.closest('.hha-card'));
     }
   }
 
-  // ---------------------------
-  // End event
-  // ---------------------------
-  function onEnd(ev) {
-    const d = ev?.detail || {};
-    updateScoreUI({
-      score: d.scoreFinal ?? d.score ?? 0,
-      comboMax: d.comboMax ?? 0,
-      misses: d.misses ?? 0,
-      difficulty: d.difficulty || '',
-      goalsCleared: d.goalsCleared ?? '',
-      goalsTotal: d.goalsTarget ?? '',
-      questsCleared: d.questsCleared ?? d.quests ?? '',
-      questsTotal: d.questsTarget ?? d.questsTotal ?? '',
-      waterPct: d.waterEnd ?? null,
-      waterZone: d.waterZoneEnd ?? null
-    });
+  // Register only once
+  if (!root.__HHA_HUD_BOUND_A__) {
+    root.__HHA_HUD_BOUND_A__ = true;
 
-    if (refs.coachText) {
-      safeText(refs.coachText, 'จบเกมแล้ว 🎉 ดูสรุปผลได้เลย');
-      setCoachMood('happy');
-    }
+    doc.addEventListener('quest:update', onQuestUpdate, { passive: true });
+    doc.addEventListener('quest:cleared', onQuestCleared, { passive: true });
+
+    // keep compatibility with existing HUD signals (no-op if not used)
+    doc.addEventListener('hha:score', onScore, { passive: true });
+    doc.addEventListener('hha:coach', onCoach, { passive: true });
+    doc.addEventListener('hha:end', onEnd, { passive: true });
   }
-
-  // ---------------------------
-  // VR button
-  // ---------------------------
-  function bindVrButton() {
-    if (!refs.btnVr) return;
-    refs.btnVr.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      try {
-        root.dispatchEvent(new CustomEvent('hha:enter-vr', { detail: { source: 'hud' } }));
-      } catch {}
-      const host = doc.getElementById('hvr-playfield');
-      if (host && host.scrollIntoView) {
-        try { host.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
-      }
-    }, { passive: false });
-  }
-
-  function onAdaptive(ev) {
-    // reserved
-  }
-
-  // ---------------------------
-  // Bind all
-  // ---------------------------
-  function init() {
-    bindRefs();
-    ensureCoachImg();
-    bindVrButton();
-
-    if (refs.coachText && !refs.coachText.textContent) {
-      safeText(refs.coachText, 'พร้อมแล้ว! เล็งแล้วแตะเป้าได้เลย 👀');
-    }
-    setCoachMood('neutral');
-
-    root.addEventListener('hha:score', (ev) => updateScoreUI(ev.detail));
-    root.addEventListener('quest:update', (ev) => updateQuestUI(ev.detail));
-    root.addEventListener('hha:coach', onCoach);
-    root.addEventListener('hha:fever', (ev) => updateFeverUI(ev.detail));
-    root.addEventListener('hha:judge', () => {});
-    root.addEventListener('hha:end', onEnd);
-
-    root.addEventListener('hha:adaptive', onAdaptive);
-
-    root.addEventListener('hha:rebind-hud', () => {
-      bindRefs();
-      ensureCoachImg();
-      bindVrButton();
-    });
-  }
-
-  if (doc.readyState === 'loading') {
-    doc.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.HUD = {
-    rebind() {
-      try { root.dispatchEvent(new Event('hha:rebind-hud')); } catch {}
-    }
-  };
 
 })(typeof window !== 'undefined' ? window : globalThis);
