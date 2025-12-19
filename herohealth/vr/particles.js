@@ -2,8 +2,9 @@
 // HeroHealth FX Layer (DOM)
 // - score pop + burst
 // - toast
+// - ✅ objPop (side objects beside hit target)
+// - ✅ color-by-kind prefix for scorePop: [GOOD]/[JUNK]/[GOLD]/[FAKE]/[POWER]/[BLOCK]/[BOSS]
 // - ✅ HEAVY Celebration + ✅ ULTRA Celebration (confetti waves + fireworks + flash + triple shake + clap)
-// - ✅ NEW: objPop (object beside hit target)
 //
 // Exposes: window.GAME_MODULES.Particles (and window.Particles)
 
@@ -53,6 +54,7 @@
         will-change:transform, opacity;
         pointer-events:none;
         z-index:99998;
+        white-space:nowrap;
       }
       @keyframes hhaPop{
         0%{ opacity:0; transform:translate(-50%,-50%) scale(.7); }
@@ -83,18 +85,23 @@
         100%{ transform:translate(var(--dx), var(--dy)) scale(.0); opacity:0; }
       }
 
-      /* --------- OBJ POP (beside hit) ---------- */
-      .hha-objpop{
+      /* --------- OBJ POP (side emojis) ---------- */
+      .hha-obj-pop{
         position:fixed;
-        left:0; top:0;
         transform:translate(-50%,-50%);
-        font-weight:950;
-        line-height:1;
+        font-weight:1000;
+        font-size:22px;
+        filter:drop-shadow(0 12px 20px rgba(0,0,0,.60));
         opacity:0;
-        pointer-events:none;
-        filter:drop-shadow(0 12px 20px rgba(0,0,0,.55));
-        z-index:10060;
+        animation:hhaObj 720ms ease-out forwards;
         will-change:transform, opacity;
+        pointer-events:none;
+        z-index:99998;
+      }
+      @keyframes hhaObj{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.7); }
+        12%{ opacity:1; transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.10); }
+        100%{ opacity:0; transform:translate(calc(-50% + var(--dx2)), calc(-50% + var(--dy2))) scale(.9); }
       }
 
       /* --------- TOAST ---------- */
@@ -366,23 +373,41 @@
   // -----------------------------
   // FX API
   // -----------------------------
-  function scorePop(x, y, delta, label){
+  function scorePop(x, y, delta, label, opts = {}){
     const el = doc.createElement('div');
     el.className = 'hha-fx-pop';
     el.style.left = (x|0) + 'px';
     el.style.top  = (y|0) + 'px';
 
+    // ---- NEW: kind prefix parsing ----
+    let kind = '';
+    let textLabel = (label == null) ? '' : String(label);
+
+    const m = textLabel.match(/^\s*\[(GOOD|JUNK|GOLD|FAKE|POWER|BLOCK|BOSS)\]\s*/i);
+    if (m){
+      kind = String(m[1] || '').toUpperCase();
+      textLabel = textLabel.replace(/^\s*\[(GOOD|JUNK|GOLD|FAKE|POWER|BLOCK|BOSS)\]\s*/i, '');
+    }
+
     let txt = '';
     if (typeof delta === 'number') {
       const sign = delta > 0 ? '+' : '';
       txt = `${sign}${delta}`;
+    } else if (typeof delta === 'string' && delta.trim()){
+      txt = delta.trim();
     }
-    const tag = label ? ` • ${label}` : '';
+
+    const plain = !!opts.plain;
+    const tag = textLabel ? (plain ? `${textLabel}` : ` • ${textLabel}`) : '';
     el.textContent = `${txt}${tag}`.trim();
 
-    if (label === 'JUNK' || label === 'MISS') el.style.color = '#fb923c';
-    else if (label === 'BLOCK') el.style.color = '#60a5fa';
-    else if (label === 'POWER' || label === 'GOLD') el.style.color = '#facc15';
+    // ---- NEW: color by kind ----
+    if (kind === 'JUNK' || kind === 'FAKE') el.style.color = '#fb923c';       // ส้มเตือน
+    else if (kind === 'BLOCK') el.style.color = '#60a5fa';                   // ฟ้าโล่
+    else if (kind === 'POWER') el.style.color = '#a78bfa';                   // ม่วงพาวเวอร์
+    else if (kind === 'GOLD') el.style.color = '#facc15';                    // ทอง
+    else if (kind === 'BOSS') el.style.color = '#f472b6';                    // ชมพูบอส
+    else if (kind === 'GOOD') el.style.color = '#4ade80';                    // เขียวของดี
     else el.style.color = '#4ade80';
 
     layer.appendChild(el);
@@ -424,6 +449,39 @@
     setTimeout(()=>{ try{ wrap.remove(); }catch{} }, 650);
   }
 
+  // ✅ NEW: object pop beside hit target
+  function objPop(x, y, emoji, opts = {}){
+    const el = doc.createElement('div');
+    el.className = 'hha-obj-pop';
+    el.textContent = String(emoji || '✨');
+
+    const size = Math.max(14, Math.min(34, Number(opts.size || 22)));
+    el.style.fontSize = size + 'px';
+
+    const side = (opts.side === 'right') ? 'right' : 'left';
+
+    // default drift
+    const dxBase = (side === 'right') ? 34 : -34;
+    const dyBase = -10;
+
+    const dx = (typeof opts.dx === 'number') ? opts.dx : dxBase + (Math.random()*10 - 5);
+    const dy = (typeof opts.dy === 'number') ? opts.dy : dyBase + (Math.random()*10 - 6);
+
+    const dx2 = dx * 1.35;
+    const dy2 = dy - 18;
+
+    el.style.setProperty('--dx',  (dx|0) + 'px');
+    el.style.setProperty('--dy',  (dy|0) + 'px');
+    el.style.setProperty('--dx2', (dx2|0) + 'px');
+    el.style.setProperty('--dy2', (dy2|0) + 'px');
+
+    el.style.left = (x|0) + 'px';
+    el.style.top  = (y|0) + 'px';
+
+    layer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch{} }, 820);
+  }
+
   function toast(text){
     const el = doc.createElement('div');
     el.className = 'hha-fx-toast';
@@ -433,49 +491,7 @@
   }
 
   // -----------------------------
-  // NEW: Object pop beside hit
-  // -----------------------------
-  function objPop(x, y, emoji='✨', opts={}){
-    ensureLayer();
-
-    const el = doc.createElement('div');
-    el.className = 'hha-objpop';
-    el.textContent = String(emoji || '✨');
-
-    const side = (opts.side === 'left') ? -1 : (opts.side === 'right') ? 1 : (Math.random()<0.5 ? -1 : 1);
-    const dx0  = Number.isFinite(opts.dx) ? opts.dx : (24 + Math.random()*16) * side;
-    const dy0  = Number.isFinite(opts.dy) ? opts.dy : (-8 - Math.random()*10);
-    const size = Number.isFinite(opts.size) ? opts.size : (18 + Math.random()*10);
-    const rot0 = Number.isFinite(opts.rot) ? opts.rot : ((Math.random()*90 - 45) * side);
-    const tint = String(opts.tint || '');
-
-    el.style.left = (x|0) + 'px';
-    el.style.top  = (y|0) + 'px';
-    el.style.fontSize = size + 'px';
-    el.style.transform = `translate(${dx0}px, ${dy0}px) scale(0.92) rotate(${rot0}deg)`;
-    if (tint) el.style.filter = `drop-shadow(0 12px 20px rgba(0,0,0,.55)) ${tint}`;
-
-    layer.appendChild(el);
-
-    requestAnimationFrame(()=>{
-      el.style.transition = 'transform 520ms ease-out, opacity 520ms ease-out';
-      el.style.opacity = '1';
-      el.style.transform =
-        `translate(${dx0 + (10*side)}px, ${dy0 - 28}px) scale(1.08) rotate(${rot0 + 18*side}deg)`;
-    });
-
-    setTimeout(()=>{
-      el.style.transition = 'transform 420ms ease-in, opacity 420ms ease-in';
-      el.style.opacity = '0';
-      el.style.transform =
-        `translate(${dx0 + (18*side)}px, ${dy0 - 56}px) scale(0.88) rotate(${rot0 + 36*side}deg)`;
-    }, 520);
-
-    setTimeout(()=>{ try{ el.remove(); }catch{} }, 980);
-  }
-
-  // -----------------------------
-  // CELEBRATION
+  // CELEBRATION (เดิม)
   // -----------------------------
   let celeLock = 0;
 
@@ -533,7 +549,7 @@
 
   function fireworksBurst(parent, x, y){
     burstAt(x, y, 'FIREWORK');
-    try{ scorePop(x, y, '', '✨'); }catch{}
+    try{ scorePop(x, y, '', '[GOLD] ✨', { plain:true }); }catch{}
   }
 
   function fireworksShow(parent, rounds=4){
@@ -640,8 +656,10 @@
       makeConfetti(wrap, 2.4 * intensity);
       setTimeout(()=>makeConfetti(wrap, 2.0 * intensity), 260);
       setTimeout(()=>makeConfetti(wrap, 1.6 * intensity), 520);
+
       fireworksShow(wrap, 6);
       setTimeout(()=>fireworksShow(wrap, 5), 420);
+
       setTimeout(()=>noiseBurst(0.07, 0.08), 520);
       setTimeout(()=>noiseBurst(0.07, 0.085), 680);
     } else {
