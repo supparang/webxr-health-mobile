@@ -28,8 +28,8 @@
       color:var(--text-main);
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
       height:100%;
-      overflow:hidden; /* เกมไม่ต้อง scroll */
-      touch-action:none; /* ให้ลากเหมือน VR */
+      overflow:hidden;
+      touch-action:none;
     }
     body{ -webkit-font-smoothing:antialiased; }
 
@@ -234,7 +234,7 @@
       overflow:hidden;
       transform:translate3d(0,0,0);
       will-change:transform;
-      pointer-events:none;
+      pointer-events:auto; /* ✅ FIX: ต้อง auto ไม่งั้น target ยิง/แตะไม่ได้ */
     }
     .hvr-target{
       pointer-events:auto;
@@ -617,7 +617,7 @@
     <div id="hvr-screen-blink" class="hvr-screen-blink" aria-hidden="true"></div>
   </div>
 
-  <!-- ✅ END SCREEN (ต้องอยู่นอก <script> เท่านั้น!) -->
+  <!-- ✅ END SCREEN (เหลืออันเดียวเท่านั้น) -->
   <div id="hvr-end" class="hvr-end" aria-hidden="true">
     <div class="hvr-end-card">
       <div class="hvr-end-head">
@@ -655,44 +655,6 @@
       </div>
     </div>
   </div>
-<!-- ✅ End Screen (วางใน BODY เท่านั้น ห้ามอยู่ใน <script>) -->
-<div id="hvr-end" class="hvr-end" aria-hidden="true">
-  <div class="hvr-end-card">
-    <div class="hvr-end-head">
-      <div>
-        <div class="hvr-end-title">🏁 สรุปผล Hydration Quest</div>
-        <div class="hvr-end-sub" id="hvr-end-sub">พร้อมรายงานความก้าวหน้า Goal & Mini</div>
-      </div>
-      <div class="hvr-end-badge" id="hvr-end-grade">C</div>
-    </div>
-
-    <div class="hvr-end-grid">
-      <div class="hvr-end-box">
-        <div class="hvr-end-row"><span>คะแนน</span><strong id="hvr-end-score">0</strong></div>
-        <div class="hvr-end-row"><span>พลาด</span><strong id="hvr-end-miss">0</strong></div>
-        <div class="hvr-end-row"><span>คอมโบสูงสุด</span><strong id="hvr-end-combo">0</strong></div>
-        <div class="hvr-end-row"><span>Water Zone</span><strong id="hvr-end-zone">GREEN</strong></div>
-        <div class="hvr-end-row"><span>เวลาใน GREEN</span><strong id="hvr-end-green">0s</strong></div>
-      </div>
-
-      <div class="hvr-end-box">
-        <div class="hvr-end-row"><span>Goal</span><strong id="hvr-end-goal">0/2</strong></div>
-        <div class="hvr-end-row"><span>Mini Quest</span><strong id="hvr-end-mini">0/3</strong></div>
-        <div class="hvr-end-row"><span>Progress</span><strong id="hvr-end-prog">0%</strong></div>
-        <div class="hvr-end-row"><span>Fever</span><strong id="hvr-end-fever">0%</strong></div>
-        <div class="hvr-end-row"><span>Shield</span><strong id="hvr-end-shield">0</strong></div>
-
-        <div style="margin-top:8px;color:var(--text-soft);font-size:12px">🎁 รางวัลที่ได้</div>
-        <ul class="hvr-end-list" id="hvr-end-rewards"></ul>
-      </div>
-    </div>
-
-    <div class="hvr-end-actions">
-      <a class="hvr-end-btn" href="./hub.html">กลับ HUB</a>
-      <a class="hvr-end-btn primary" id="hvr-end-retry" href="#">เล่นอีกครั้ง</a>
-    </div>
-  </div>
-</div>
 
   <!-- ===== Scripts (global HUD / FX) ===== -->
   <script src="./vr/ui-fever.js"></script>
@@ -786,10 +748,8 @@
 
     function bindCrosshairControls(){
       document.addEventListener('pointerdown', (e)=>{
-        // กันกด end screen
         if (document.getElementById('hvr-end')?.classList.contains('on')) return;
 
-        // ถ้าแตะโดนเป้าจริง ๆ → ให้ระบบเดิมนับ
         const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
         if (t){
           const isBad = t.classList.contains('bad');
@@ -798,7 +758,6 @@
           return;
         }
 
-        // กันกดปุ่ม/การ์ด
         if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr,.hha-card,.hha-water-bar')) return;
 
         fire();
@@ -809,7 +768,7 @@
       });
     }
 
-    // ✅ Drag look: ลากจอเพื่อ “มอง” แล้ว playfield/เป้าเลื่อนตาม (เหมือน VR)
+    // ✅ Drag look: ลาก playfield ให้เป้าเลื่อนตาม
     function bindDragLook(){
       const pf = $('hvr-playfield');
       if (!pf) return;
@@ -829,7 +788,6 @@
       apply();
 
       function onDown(e){
-        // ไม่ลากถ้ากดโดนเป้า/ปุ่ม
         const hitT = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
         if (hitT) return;
         if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr')) return;
@@ -849,11 +807,9 @@
         const dx = e.clientX - sx;
         const dy = e.clientY - sy;
 
-        // sensitivity
         const nx = dx * 0.9;
         const ny = dy * 0.9;
 
-        // velocity (for inertia)
         vx = (nx - (ox)) / dt;
         vy = (ny - (oy)) / dt;
 
@@ -865,7 +821,6 @@
         if (!down) return;
         down = false;
 
-        // inertia
         let ivx = vx * 60;
         let ivy = vy * 60;
         const decay = 0.92;
@@ -886,6 +841,17 @@
       window.addEventListener('pointercancel', onUp, { passive:true });
     }
 
+    // ✅ VR button = fullscreen (VR-like)
+    async function requestFs(){
+      const el = document.getElementById('hvr-wrap') || document.documentElement;
+      try{
+        if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+        if (el.requestFullscreen) await el.requestFullscreen({ navigationUI:'hide' });
+      }catch(err){
+        console.warn('[HydrationVR] fullscreen blocked', err);
+      }
+    }
+
     // ===== END SCREEN =====
     function showEndScreen(d){
       const end = $('hvr-end');
@@ -894,8 +860,8 @@
       end.setAttribute('aria-hidden','false');
 
       $('hvr-end-score').textContent = d.score ?? 0;
-      $('hvr-end-miss').textContent  = d.miss ?? 0;
-      $('hvr-end-combo').textContent = d.comboBest ?? 0;
+      $('hvr-end-miss').textContent  = (d.misses ?? d.miss ?? 0);
+      $('hvr-end-combo').textContent = (d.comboMax ?? d.comboBest ?? 0);
       $('hvr-end-zone').textContent  = d.zone ?? '';
       $('hvr-end-green').textContent = (d.greenTick ?? 0) + 's';
 
@@ -926,7 +892,6 @@
         }
       }
 
-      // ฉลองหนัก ๆ ตอนจบ (ถ้ามี particles.js celebrate)
       try{
         if (window.Particles && typeof window.Particles.celebrate === 'function') {
           window.Particles.celebrate('allComplete');
@@ -942,12 +907,19 @@
       const { diff, time, url } = parseQuery();
       setDiffPill(diff, time);
 
-      // retry = reload with same query (no cache bust)
       const retry = $('hvr-end-retry');
       if (retry){
         retry.addEventListener('click', (e)=>{
           e.preventDefault();
           window.location.href = url.toString();
+        });
+      }
+
+      const vrBtn = $('hha-btn-vr');
+      if (vrBtn){
+        vrBtn.addEventListener('click', async (e)=>{
+          e.preventDefault();
+          await requestFs();
         });
       }
 
@@ -960,7 +932,6 @@
         alert('ไม่สามารถเริ่มโหมด Hydration Quest ได้ (เช็ค path ไฟล์ hydration.safe.js)');
       }
 
-      // รับ event จบเกมจาก hydration.safe.js
       window.addEventListener('hha:end', (e)=>{
         const d = e?.detail || {};
         showEndScreen(d);
