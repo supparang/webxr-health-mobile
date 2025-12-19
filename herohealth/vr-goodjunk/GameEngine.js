@@ -3,6 +3,7 @@
 // ✅ spawn/hit/block/expire events for logger
 // ✅ quest:badHit for fair No-Junk Zone
 // ✅ targetId + rtMs
+// ✅ NEW: side objects beside hit target (Particles.objPop) + streak specials + power-up extras
 
 'use strict';
 
@@ -70,6 +71,90 @@
   let idSeq = 0;
   const makeId = ()=> `${Date.now()}-${(++idSeq)}`;
 
+  // -----------------------------
+  // NEW: Side objects (beside hit)
+  // -----------------------------
+  function canObjPop(){
+    return !!(Particles && typeof Particles.objPop === 'function');
+  }
+
+  function pickStreakSpecial(streak){
+    // milestone-ish
+    if (streak >= 20) return '🏆';
+    if (streak >= 16) return '💎';
+    if (streak >= 12) return '🌟';
+    if (streak >= 10) return '🔥';
+    return null;
+  }
+
+  function sideObjectsOnHit(t, x, y, kind, streakNow){
+    // kind: 'good'|'gold'|'junk'|'fake'|'power'|'boss'|'block'
+    if (!canObjPop()) return;
+
+    const s = (streakNow|0);
+
+    // base pair logic
+    let count = 1;
+    if (kind === 'gold') count = 2;
+    if (kind === 'good' && s >= 8) count = 2;         // perfect-ish
+    if (kind === 'power') count = 2;                  // power-up ให้ดูคุ้ม
+    if (kind === 'boss') count = 2;
+
+    // choose emojis
+    const special = pickStreakSpecial(s);
+
+    const list = [];
+    if (kind === 'good'){
+      list.push(t.emoji || '🥦');
+      if (special) list.push(special);
+      else list.push('✨');
+    } else if (kind === 'gold'){
+      list.push('🪙');
+      list.push('✨');
+      if (special) list[1] = special; // ให้พิเศษแทน sparkle
+    } else if (kind === 'junk'){
+      list.push('💥');
+      list.push('🗑️');
+    } else if (kind === 'fake'){
+      list.push('🌀');
+      list.push('💥');
+    } else if (kind === 'block'){
+      list.push('🛡️');
+      list.push('✨');
+    } else if (kind === 'boss'){
+      list.push('👑');
+      list.push('💥');
+    } else if (kind === 'power'){
+      // power type specific
+      if (t.power === 'shield') { list.push('🛡️'); list.push('✨'); }
+      else if (t.power === 'magnet') { list.push('🧲'); list.push('🧷'); }
+      else if (t.power === 'time') { list.push('⏱️'); list.push('➕'); }
+      else if (t.power === 'fever') { list.push('🔥'); list.push('⚡'); }
+      else { list.push('⚡'); list.push('✨'); }
+    } else {
+      list.push('✨'); list.push('✨');
+    }
+
+    // spawn
+    const n = Math.max(1, Math.min(2, count));
+    for (let i=0;i<n;i++){
+      const emo = list[i] || '✨';
+      Particles.objPop(x, y, emo, {
+        // กระจายซ้าย/ขวาให้ชัด
+        side: (i===0 ? 'left' : 'right'),
+        size: (kind === 'gold' || kind === 'boss') ? 24 : (kind === 'junk' || kind === 'fake') ? 22 : 20
+      });
+    }
+
+    // extra sparkle for very high streak (เบา ๆ)
+    if (kind === 'good' && s >= 16 && Math.random() < 0.35){
+      Particles.objPop(x, y, '🌈', { side:'right', size: 20, dx: 40, dy: -18 });
+    }
+  }
+
+  // -----------------------------
+  // camera helpers
+  // -----------------------------
   function getTHREE(){
     return ROOT.THREE || (ROOT.AFRAME && ROOT.AFRAME.THREE) || null;
   }
@@ -347,7 +432,6 @@
 
     emitExpire(t);
 
-    // ✅ “ปล่อยของดี” ยังถือเป็น miss (ตามกติกาเดิมของคุณ)
     if ((t.type === 'good' || t.type === 'gold') && t.seen){
       misses++;
       combo = 0;
@@ -377,6 +461,9 @@
 
     if (t.type === 'boss'){
       t.hp = (t.hp|0) - 1;
+
+      sideObjectsOnHit(t, x, y, 'boss', combo);
+
       if (Particles && Particles.scorePop) Particles.scorePop(x,y,'HIT!',{ judgment:'BOSS', good:true });
       emitJudge('BOSS HIT!');
       emitHit(t, 'BOSS_HIT', rtMs, { hp: t.hp });
@@ -395,6 +482,13 @@
         if (Particles && Particles.burstAt){
           Particles.burstAt(window.innerWidth/2, window.innerHeight*0.22, { count: 30, good: true });
         }
+
+        // boss clear: extra side pop
+        if (canObjPop()){
+          Particles.objPop(x, y, '🏆', { side:'left', size: 26 });
+          Particles.objPop(x, y, '👑', { side:'right', size: 26 });
+        }
+
         emitJudge('BOSS CLEAR!');
         ROOT.dispatchEvent(new CustomEvent('quest:bossClear',{ detail:{ ok:true } }));
         emitScore();
@@ -410,6 +504,8 @@
 
     // POWER
     if (t.type === 'power'){
+      sideObjectsOnHit(t, x, y, 'power', combo);
+
       if (t.power === 'shield'){
         shieldUntil = now() + 5000;
         emitJudge('SHIELD ON!');
@@ -454,6 +550,8 @@
     // FAKE
     if (t.type === 'fake'){
       if (shieldOn()){
+        sideObjectsOnHit(t, x, y, 'block', combo);
+
         emitJudge('BLOCK!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'BLOCK',{ judgment:'FAKE', good:true });
         emitBlock(t, 'fake');
@@ -462,12 +560,13 @@
         return;
       }
 
-      // ✅ fair No-Junk: badHit เฉพาะตอนโดนของเสียจริง
       ROOT.dispatchEvent(new CustomEvent('quest:badHit', { detail:{ type:'fake' } }));
 
       misses++;
       combo = 0;
       feverReduce(18);
+
+      sideObjectsOnHit(t, x, y, 'fake', combo);
 
       if (Particles && Particles.scorePop) Particles.scorePop(x,y,'OOPS!',{ judgment:'FAKE!', good:false });
 
@@ -483,6 +582,8 @@
     // JUNK
     if (t.type === 'junk'){
       if (shieldOn()){
+        sideObjectsOnHit(t, x, y, 'block', combo);
+
         emitJudge('BLOCK!');
         if (Particles && Particles.scorePop) Particles.scorePop(x,y,'BLOCK',{ good:true });
         emitBlock(t, 'junk');
@@ -491,12 +592,13 @@
         return;
       }
 
-      // ✅ fair No-Junk: badHit เฉพาะตอนโดนของเสียจริง
       ROOT.dispatchEvent(new CustomEvent('quest:badHit', { detail:{ type:'junk' } }));
 
       misses++;
       combo = 0;
       feverReduce(12);
+
+      sideObjectsOnHit(t, x, y, 'junk', combo);
 
       if (Particles && Particles.scorePop) Particles.scorePop(x,y,'MISS',{ judgment:'JUNK!', good:false });
 
@@ -512,6 +614,9 @@
     goodHits++;
     combo++;
     comboMax = Math.max(comboMax, combo);
+
+    // side objects for good/gold (streak aware)
+    sideObjectsOnHit(t, x, y, (t.type === 'gold') ? 'gold' : 'good', combo);
 
     if (t.type === 'gold') feverAdd(10);
     else feverAdd(4);
