@@ -1,12 +1,10 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR (DOM) — Play + Research Mode (Concept-locked)
-// - spawn targets inside #hvr-playfield (ไม่ใช้ overlay)
-// - water gauge เป็นแกนหลัก (LOW / GREEN / HIGH)
-// - MISS = junk hit เท่านั้น (โหมดวิจัย/เล่นเหมือนกัน)
-// - good expired: ไม่เป็น miss แต่ทำให้น้ำลด (concept ไม่ทิ้ง)
-// - fever + shield ทำงานผ่าน window.FeverUI (IIFE)
-// - crosshair ยิงได้จาก HTML
-// - เป้าตามตอนหมุน/resize จอ: ทำผ่าน mode-factory ที่มี reflow (แนะนำให้ใส่ patch reflow ตามที่ส่งก่อนหน้า)
+// Hydration Quest VR — DOM AimLayer Engine (PLAY MODE ready)
+// Fixes:
+// ✅ Fever/Shield update via global FeverUI (new/legacy)
+// ✅ Aim layer: targets shift with deviceorientation + drag (like VR camera)
+// ✅ Quest UI: emit quest:update + DOM fallback (goal/mini done/total)
+// ✅ Uses mode-factory spawnHost = '#hvr-aim-layer'
 
 'use strict';
 
@@ -14,472 +12,517 @@ import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import { createHydrationQuest } from './hydration.quest.js';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+const DOC  = ROOT.document;
 
-function clamp(v, min, max){
-  v = Number(v) || 0;
-  if (v < min) return min;
-  if (v > max) return max;
-  return v;
+function $(id){ return DOC ? DOC.getElementById(id) : null; }
+function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
+
+function getFeverUI(){
+  return (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) || ROOT.FeverUI || null;
 }
 
-function $(id){ return document.getElementById(id); }
-
-function dispatch(name, detail){
-  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch{}
+function fx(){
+  return (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) || ROOT.Particles || { scorePop(){}, burstAt(){} };
 }
 
-// ===== FX / Fever =====
-const Particles =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-  ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, floatScore(){}, celebration(){} };
+function emit(name, detail){
+  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
+}
 
-const FeverUI =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
-  ROOT.FeverUI ||
-  { ensureFeverBar(){}, setFever(){}, setFeverActive(){}, setShield(){}, getShield(){ return 0; }, isActive(){ return false; }, getValue(){ return 0; } };
+function setText(id, txt){
+  const el = $(id);
+  if (el) el.textContent = String(txt ?? '');
+}
 
-// ===== Grade (S=30%) =====
-const S_THRESHOLD = 0.30; // ✅ “S 30%”
-function gradeFrom(p){
-  if (p >= 0.60) return 'SSS';
-  if (p >= 0.45) return 'SS';
-  if (p >= 0.30) return 'S';
-  if (p >= 0.22) return 'A';
-  if (p >= 0.14) return 'B';
+function screenBlink(kind){
+  const el = $('hvr-screen-blink');
+  if (!el) return;
+  el.classList.remove('good','bad','block','on');
+  el.classList.add(kind || 'good');
+  void el.offsetWidth;
+  el.classList.add('on');
+  setTimeout(()=> el.classList.remove('on'), 110);
+}
+
+function vibrate(pattern){
+  try{ if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(pattern); }catch{}
+}
+
+// ===== Grade + ProgressToS (S=30%) =====
+function calcProgressToS(score, miss){
+  // “S 30%” แบบง่าย: สร้างคะแนนเป้าหมายตามเวลา/ความพลาด
+  // ให้เด็กเห็นขึ้นเร็ว แต่ยังต้องรักษา miss ต่ำ
+  const base = 1200;                 // ปรับได้
+  const missPenalty = (miss|0) * 120;
+  const target = Math.max(400, base + missPenalty);
+  const pct = clamp((Number(score)||0) / target * 30, 0, 30); // S = 30%
+  return { pctToS: pct, target, raw: clamp((Number(score)||0) / target * 100, 0, 999) };
+}
+
+function gradeFrom(score, miss){
+  // โทนเด็ก ป.5: ไม่เครียดเกินไป
+  const s = Number(score)||0;
+  const m = miss|0;
+  if (s >= 3200 && m <= 1) return 'SSS';
+  if (s >= 2400 && m <= 2) return 'SS';
+  if (s >= 1800 && m <= 3) return 'S';
+  if (s >= 1200) return 'A';
+  if (s >= 800)  return 'B';
   return 'C';
 }
 
-function updateGradeUI(progress01){
-  const badge = $('hha-grade-badge');
-  if (badge) badge.textContent = gradeFrom(progress01);
+// ===== Aim (หมุน/ลาก) =====
+function installAimController(){
+  const play = $('hvr-playfield');
+  const layer = $('hvr-aim-layer');
+  if (!play || !layer) return { get(){ return {x:0,y:0}; }, dispose(){} };
 
-  const fill = $('hha-grade-progress-fill');
-  const txt  = $('hha-grade-progress-text');
+  // aim offset in px (เลื่อนสนามเป้า)
+  let ax = 0, ay = 0;
+  let dragging = false;
+  let sx = 0, sy = 0;
+  let ox = 0, oy = 0;
 
-  // Progress to S = progress / 0.30 (cap 100)
-  const toS = clamp(progress01 / S_THRESHOLD, 0, 1);
-  if (fill) fill.style.width = (toS * 100).toFixed(0) + '%';
-  if (txt) txt.textContent = `Progress to S: ${(toS * 100).toFixed(0)}%`;
-}
+  // config
+  const MAX_X = 160;
+  const MAX_Y = 120;
 
-// ===== Coach helpers =====
-function setCoach(text, mood='neutral'){
-  dispatch('hha:coach', { text, mood });
-
-  const el = $('hha-coach-text');
-  if (el) el.textContent = text;
-
-  // avatar (optional) ตามไฟล์ที่คุณใช้ในโปรเจค:
-  // /herohealth/img/coach-neutral.png, coach-happy.png, coach-sad.png, coach-fever.png
-  const av = $('hha-coach-avatar');
-  if (av && !av.querySelector('img')){
-    const img = document.createElement('img');
-    img.alt = 'coach';
-    img.src = `./img/coach-${mood}.png`;
-    img.onerror = () => { /* ไม่เด้ง error */ };
-    av.appendChild(img);
-  } else if (av){
-    const img = av.querySelector('img');
-    if (img) img.src = `./img/coach-${mood}.png`;
+  function apply(){
+    // ขยับทั้ง layer ให้เป้า “เลื่อนตาม” เหมือนกล้อง VR
+    layer.style.transform = `translate(${ax.toFixed(1)}px, ${ay.toFixed(1)}px)`;
   }
+
+  // --- Drag fallback (ทุกเครื่องเล่นได้) ---
+  function onDown(e){
+    dragging = true;
+    sx = e.clientX || 0;
+    sy = e.clientY || 0;
+    ox = ax; oy = ay;
+  }
+  function onMove(e){
+    if (!dragging) return;
+    const dx = (e.clientX || 0) - sx;
+    const dy = (e.clientY || 0) - sy;
+    ax = clamp(ox + dx * 0.55, -MAX_X, MAX_X);
+    ay = clamp(oy + dy * 0.55, -MAX_Y, MAX_Y);
+    apply();
+  }
+  function onUp(){ dragging = false; }
+
+  play.addEventListener('pointerdown', onDown, { passive:true });
+  ROOT.addEventListener('pointermove', onMove, { passive:true });
+  ROOT.addEventListener('pointerup', onUp, { passive:true });
+  ROOT.addEventListener('pointercancel', onUp, { passive:true });
+
+  // --- DeviceOrientation (มือถือ: หมุนแล้วเลื่อน) ---
+  function onOri(ev){
+    // gamma: ซ้ายขวา (-90..90), beta: หน้า-หลัง (-180..180)
+    const g = Number(ev.gamma);
+    const b = Number(ev.beta);
+    if (!Number.isFinite(g) || !Number.isFinite(b)) return;
+
+    // map → px
+    const tx = clamp(g * 2.2, -MAX_X, MAX_X);
+    const ty = clamp((b - 20) * 1.4, -MAX_Y, MAX_Y);
+
+    // smoothing
+    ax = ax * 0.78 + tx * 0.22;
+    ay = ay * 0.78 + ty * 0.22;
+    apply();
+  }
+
+  // ไม่ฝืนขอ permission ในนี้ (บางบราวเซอร์ต้องกดปุ่ม)
+  // แต่ถ้าได้ event มา ก็ใช้ทันที
+  ROOT.addEventListener('deviceorientation', onOri, true);
+
+  apply();
+
+  return {
+    get(){ return { x: ax, y: ay }; },
+    dispose(){
+      play.removeEventListener('pointerdown', onDown);
+      ROOT.removeEventListener('pointermove', onMove);
+      ROOT.removeEventListener('pointerup', onUp);
+      ROOT.removeEventListener('pointercancel', onUp);
+      ROOT.removeEventListener('deviceorientation', onOri, true);
+    }
+  };
 }
 
 // ===== Main boot =====
 export async function boot(opts = {}){
-  const URLX = new URL(location.href);
-  const diffKey = String(opts.difficulty || URLX.searchParams.get('diff') || 'easy').toLowerCase();
+  if (!DOC) return;
 
-  const runMode = String(opts.runMode || URLX.searchParams.get('run') || 'play').toLowerCase(); // play | research
-  const IS_RESEARCH = (runMode === 'research');
+  const difficulty = String(opts.difficulty || 'easy').toLowerCase();
+  const duration   = clamp(opts.duration ?? 90, 20, 180);
 
-  const duration = clamp(parseInt(opts.duration || URLX.searchParams.get('time') || '80', 10), 20, 180);
-
-  // Bind water HUD (header)
+  // bind HUD
   ensureWaterGauge();
 
-  // Init Fever/Shield UI
-  FeverUI.ensureFeverBar();
-  FeverUI.setFever(0);
-  FeverUI.setFeverActive(false);
-  FeverUI.setShield(0);
+  const FeverUI = getFeverUI();
+  if (FeverUI && typeof FeverUI.ensureFeverBar === 'function') FeverUI.ensureFeverBar();
 
-  // Quest deck
-  const quest = createHydrationQuest(diffKey);
+  const aim = installAimController();
 
-  // ===== State =====
+  // host for targets = aim layer
+  const hostSel = '#hvr-aim-layer';
+  const hostEl = DOC.querySelector(hostSel);
+  if (!hostEl) throw new Error('hvr-aim-layer not found');
+
+  // ----- Game config -----
+  // Pools: ดี/แย่ + powerups
+  const pools = {
+    good: ['💧','💧','💧','🍉','🥛','🥒','🍊','🍓'],
+    bad:  ['🥤','🧃','🍭','🍩','🧋']
+  };
+
+  // powerups: shield + fever boost + score gem
+  const powerups = ['🛡️','🔥','💎'];
+
+  // ----- State -----
   let stopped = false;
-
-  let water = 50;                // 0..100
-  let zone  = 'GREEN';
 
   let score = 0;
   let combo = 0;
   let comboMax = 0;
+  let miss = 0;
 
-  let miss = 0;                  // ✅ MISS = junk hit only
-  let goodExpired = 0;           // ✅ separate
-  let junkExpired = 0;
+  let shield = 0;
 
-  // scoring model: ให้ “น้ำ” เป็นแกนหลัก แต่ยังมีคะแนนให้สนุก
-  const RULE = {
-    goodHit:   { water:+3, score:+10, fever:+6 },
-    junkHit:   { water:-7, score:-25, fever:-12 },
-    goodExpire:{ water:-2, score:  0 },
-    junkExpire:{ water:+0, score:  0 },
+  let fever = 0;
+  let feverActive = false;
+  let feverEndsAt = 0;
 
-    // Play-only fun
-    powerStar: { water:+2, score:+15, fever:+25 }, // ⭐ เติม fever
-    powerShield: { shield:+1 }                     // 🛡️ เพิ่มเกราะ
-  };
+  let water = 50; // %
+  let zone  = 'GREEN';
 
-  // Progress metric (0..1) เพื่อ grade/Progress-to-S
-  // ใช้ “ความสามารถรักษาน้ำ” + “ความแม่น (miss)” แบบไม่ช่วยมากใน research
-  function computeProgress01(){
-    // water closeness to GREEN (35..65)
-    const w = clamp(water,0,100);
-    const closeness = (w >= 35 && w <= 65) ? 1 : (w < 35 ? clamp(w/35,0,1) : clamp((100-w)/35,0,1));
+  // Quest deck
+  const quest = createHydrationQuest(difficulty);
 
-    // miss penalty
-    const totalActions = Math.max(1, (quest.stats.goodHits + quest.stats.junkHits));
-    const missRate = clamp(miss / totalActions, 0, 1);
-    const aim = clamp(1 - missRate, 0, 1);
+  // init quest ui
+  function updateQuestUI(){
+    // ใช้ progress info จาก quest.js
+    const g0 = quest.getGoalProgressInfo('goal-green-time');
+    const m0 = quest.getMiniProgressInfo('mini-combo');
 
-    // รวมเป็น progress
-    // research: เน้น water มากกว่า
-    const p = IS_RESEARCH ? (0.75*closeness + 0.25*aim) : (0.60*closeness + 0.40*aim);
-    return clamp(p,0,1);
-  }
+    const goalText = `Goal: โซนน้ำสีเขียว • ${g0.text}`;
+    const miniText = `Mini: สายคอมโบ • ${m0.text}`;
 
-  function syncHUD(){
-    const z = zoneFrom(water);
-    zone = z;
+    // DOM fallback
+    setText('hha-quest-goal', goalText);
+    setText('hha-quest-mini', miniText);
 
-    setWaterGauge(water); // update header
+    // done/total (ให้ HUD ไม่เป็น 0/0)
+    const goals = quest.getProgress('goals')._all || quest.goals || [];
+    const minis = quest.getProgress('mini')._all || quest.minis || [];
 
-    // score block
-    const sEl = $('hha-score-main'); if (sEl) sEl.textContent = String(score|0);
-    const mEl = $('hha-miss');       if (mEl) mEl.textContent = String(miss|0);
-    const cEl = $('hha-combo-max');  if (cEl) cEl.textContent = String(comboMax|0);
-    const zEl = $('hha-water-zone-text'); if (zEl) zEl.textContent = zone;
+    const goalDone = goals.filter(x=>x._done || x.done).length;
+    const goalTotal = goals.length || 2;
 
-    // grade + progress-to-S
-    updateGradeUI(computeProgress01());
+    const miniDone = minis.filter(x=>x._done || x.done).length;
+    const miniTotal = minis.length || 3;
 
-    // quest counters (จำนวนรวมคงที่)
-    const gT = $('hha-goal-total'); if (gT) gT.textContent = String(quest.goals.length);
-    const mT = $('hha-mini-total'); if (mT) mT.textContent = String(quest.minis.length);
+    setText('hha-goal-done', goalDone);
+    setText('hha-goal-total', goalTotal);
+    setText('hha-mini-done', miniDone);
+    setText('hha-mini-total', miniTotal);
 
-    // done counts
-    const gDone = quest.goals.filter(x=>x._done).length;
-    const mDone = quest.minis.filter(x=>x._done).length;
-    const gD = $('hha-goal-done'); if (gD) gD.textContent = String(gDone);
-    const mD = $('hha-mini-done'); if (mD) mD.textContent = String(mDone);
-
-    // quest text (โชว์ 1 goal + 1 mini แบบชัด)
-    const curGoal = quest.goals.find(x=>!x._done) || quest.goals[0];
-    const curMini = quest.minis.find(x=>!x._done) || quest.minis[0];
-
-    const goalEl = $('hha-quest-goal');
-    const miniEl = $('hha-quest-mini');
-
-    if (goalEl && curGoal){
-      const info = quest.getGoalProgressInfo(curGoal.id);
-      goalEl.textContent = `Goal: ${curGoal.label} • ${info.text}`;
-    }
-    if (miniEl && curMini){
-      const info = quest.getMiniProgressInfo(curMini.id);
-      miniEl.textContent = `Mini: ${curMini.label} • ${info.text}`;
-    }
-
-    // dispatch unified score event (ให้ hha-hud.js ฟังได้)
-    dispatch('hha:score', {
-      modeKey: 'hydration',
-      runMode,
-      difficulty: diffKey,
-      score, combo, comboMax,
-      miss,
-      water, zone,
-      shield: (FeverUI.getShield ? FeverUI.getShield() : 0),
-      fever: (FeverUI.getValue ? FeverUI.getValue() : 0),
-      goodExpired,
-      junkExpired
-    });
-
-    // quest update event
-    dispatch('quest:update', {
-      modeKey: 'hydration',
-      goals: quest.goals,
-      minis: quest.minis
+    // event for hha-hud.js (ถ้าฟังอยู่)
+    emit('quest:update', {
+      goal: goalText,
+      mini: miniText,
+      goalDone, goalTotal,
+      miniDone, miniTotal
     });
   }
 
-  function blink(kind){
-    const el = $('hvr-screen-blink');
-    if (!el) return;
-    el.classList.remove('good','bad','block','on');
-    el.classList.add(kind || 'good');
-    void el.offsetWidth;
-    el.classList.add('on');
-    setTimeout(()=> el.classList.remove('on'), 100);
+  function updateScoreUI(){
+    setText('hha-score-main', score|0);
+    setText('hha-miss', miss|0);
+    setText('hha-combo-max', comboMax|0);
+
+    // water zone text
+    setText('hha-water-zone-text', zone);
+
+    // grade
+    const g = gradeFrom(score, miss);
+    setText('hha-grade-badge', g);
+
+    // progress to S (S=30%)
+    const p = calcProgressToS(score, miss);
+    const pct = clamp(p.pctToS / 30 * 100, 0, 100);
+    setText('hha-grade-progress-text', `Progress to S: ${pct.toFixed(0)}%`);
+    const fill = $('hha-grade-progress-fill');
+    if (fill) fill.style.width = pct.toFixed(1) + '%';
+
+    // global HUD event (เผื่อเกมอื่นฟัง)
+    emit('hha:score', { score, combo, comboMax, miss, water, zone, grade: g });
   }
 
-  function ping(){
-    const c = $('hvr-crosshair');
-    if (!c) return;
-    c.classList.remove('ping');
-    void c.offsetWidth;
-    c.classList.add('ping');
-  }
+  function setFeverUI(){
+    const ui = FeverUI;
+    if (!ui) return;
 
-  // ===== judge() — called by mode-factory when player hits a target =====
-  function judge(ch, ctx){
-    if (stopped) return { scoreDelta:0, good:true, label:'STOP' };
-
-    const isPower = !!ctx?.isPower;
-    const isGood  = !!ctx?.isGood;
-
-    // Powerups (Play only)
-    if (!IS_RESEARCH && isPower){
-      // ⭐ fever boost
-      if (ch === '⭐'){
-        FeverUI.setFever(clamp((FeverUI.getValue?.() || 0) + RULE.powerStar.fever, 0, 100));
-        water = clamp(water + RULE.powerStar.water, 0, 100);
-        score += RULE.powerStar.score;
-        combo++; comboMax = Math.max(comboMax, combo);
-        quest.onGood();
-        ping(); blink('good');
-
-        dispatch('hha:judge', { label:'POWER', kind:'STAR', ch, scoreDelta: RULE.powerStar.score });
-        syncHUD();
-        return { scoreDelta: RULE.powerStar.score, good:true, label:'POWER' };
-      }
-
-      // 🛡️ shield
-      if (ch === '🛡️'){
-        const cur = (FeverUI.getShield ? FeverUI.getShield() : 0) | 0;
-        FeverUI.setShield(Math.min(9, cur + RULE.powerShield.shield));
-        score += 8;
-        combo++; comboMax = Math.max(comboMax, combo);
-        quest.onGood();
-        ping(); blink('block');
-
-        dispatch('hha:judge', { label:'POWER', kind:'SHIELD', ch, scoreDelta: 8 });
-        syncHUD();
-        return { scoreDelta: 8, good:true, label:'POWER' };
-      }
+    // new API
+    if (typeof ui.setFever === 'function') ui.setFever(fever);
+    else if (typeof ui.add === 'function') {
+      // legacy: add ได้อย่างเดียว → ทำให้ค่อย ๆ ขึ้นพอประมาณ
+      // (ถ้า active แล้ว legacy จะ ignore อยู่แล้ว)
+      // เราไม่สามารถ set absolute ได้ จึงไม่เรียกตรงนี้
     }
 
-    // junk hit
-    if (!isGood){
-      const sh = (FeverUI.getShield ? FeverUI.getShield() : 0) | 0;
-      if (sh > 0 && !IS_RESEARCH){
-        // ✅ block junk (ไม่เป็น miss)
-        FeverUI.setShield(sh - 1);
-        combo = 0;
-        ping(); blink('block');
-        dispatch('hha:judge', { label:'BLOCK', ch, scoreDelta:0 });
-        syncHUD();
-        return { scoreDelta:0, good:true, label:'BLOCK' };
-      }
-
-      // ✅ จริง: นับ miss เฉพาะ junk hit
-      miss += 1;
-      score += RULE.junkHit.score;
-      water = clamp(water + RULE.junkHit.water, 0, 100);
-      combo = 0;
-
-      quest.onJunk();
-
-      // fever penalty
-      FeverUI.setFever(clamp((FeverUI.getValue?.() || 0) + RULE.junkHit.fever, 0, 100));
-
-      // FX
-      ping(); blink('bad');
-      Particles.scorePop?.(ctx?.clientX || 0, ctx?.clientY || 0, RULE.junkHit.score, 'MISS');
-      dispatch('hha:judge', { label:'MISS', ch, scoreDelta: RULE.junkHit.score });
-
-      syncHUD();
-      return { scoreDelta: RULE.junkHit.score, good:false, label:'MISS' };
-    }
-
-    // good hit
-    score += RULE.goodHit.score;
-    water = clamp(water + RULE.goodHit.water, 0, 100);
-    combo++; comboMax = Math.max(comboMax, combo);
-
-    quest.onGood();
-    quest.updateCombo(comboMax);
-    quest.updateScore(score);
-
-    // fever add
-    FeverUI.setFever(clamp((FeverUI.getValue?.() || 0) + RULE.goodHit.fever, 0, 100));
-
-    ping(); blink('good');
-    Particles.scorePop?.(ctx?.clientX || 0, ctx?.clientY || 0, RULE.goodHit.score, 'GOOD');
-    dispatch('hha:judge', { label:'GOOD', ch, scoreDelta: RULE.goodHit.score });
-
-    syncHUD();
-    return { scoreDelta: RULE.goodHit.score, good:true, label:'GOOD' };
+    if (typeof ui.setFeverActive === 'function') ui.setFeverActive(feverActive);
+    if (typeof ui.setShield === 'function') ui.setShield(shield);
   }
 
-  // ===== expire handler =====
-  function onExpire(info){
+  function addShield(n){
+    shield = clamp((shield|0) + (n|0), 0, 9);
+    setFeverUI();
+  }
+
+  function addFever(n){
+    if (feverActive) return;
+    const ui = FeverUI;
+
+    fever = clamp(fever + (Number(n)||0), 0, 100);
+
+    // update UI (new)
+    if (ui && typeof ui.setFever === 'function') ui.setFever(fever);
+    // legacy
+    if (ui && typeof ui.add === 'function') ui.add(Number(n)||0);
+
+    if (fever >= 100){
+      feverActive = true;
+      feverEndsAt = Date.now() + 6000;
+      if (ui && typeof ui.setFeverActive === 'function') ui.setFeverActive(true);
+      screenBlink('block');
+      vibrate([14,20,14]);
+      emit('hha:coach', { mood:'happy', text:'🔥 FEVER! ยิงแรงขึ้น + ได้โล่ 1!' });
+      addShield(1);
+    }
+  }
+
+  function endFeverIfNeeded(){
+    if (!feverActive) return;
+    if (Date.now() < feverEndsAt) return;
+    feverActive = false;
+    fever = 0;
+    const ui = FeverUI;
+    if (ui && typeof ui.setFever === 'function') ui.setFever(0);
+    if (ui && typeof ui.setFeverActive === 'function') ui.setFeverActive(false);
+  }
+
+  function applyWater(delta){
+    water = clamp(water + (Number(delta)||0), 0, 100);
+    zone = zoneFrom(water);
+    setWaterGauge(water);
+  }
+
+  // น้ำค่อย ๆ ลด (ถ้าไม่ยิงน้ำดี) → concept hydration
+  function tickSecond(){
     if (stopped) return;
-    const isGood = !!info?.isGood;
-    const isPower = !!info?.isPower;
+    endFeverIfNeeded();
 
-    // powerups ถ้าหายไป -> ไม่ลงโทษ
-    if (isPower) { syncHUD(); return; }
+    // natural drift: ค่อย ๆ แห้ง
+    applyWater(-0.55);
 
-    if (isGood){
-      // ✅ good expired: ไม่เป็น miss แต่ทำให้น้ำลด (concept)
-      goodExpired++;
-      water = clamp(water + RULE.goodExpire.water, 0, 100);
-      // combo ไม่ตัด (เพราะไม่ได้ “ยิงพลาด”) แต่ความช้าโดน water แล้ว
-      dispatch('hha:judge', { label:'EXPIRE', kind:'GOOD', ch: info?.ch || 'good', scoreDelta:0 });
-    }else{
-      junkExpired++;
-      water = clamp(water + RULE.junkExpire.water, 0, 100);
-      dispatch('hha:judge', { label:'EXPIRE', kind:'JUNK', ch: info?.ch || 'junk', scoreDelta:0 });
-    }
-
-    syncHUD();
+    quest.second();
+    updateQuestUI();
+    updateScoreUI();
   }
 
-  // ===== pools & mode tuning =====
-  const pools = {
-    good: ['💧','🥛','🍉','🥥','🫐'],
-    bad:  ['🥤','🧋','🧃','🍭']
-  };
+  // clock from mode-factory
+  function onTime(e){
+    const sec = Number(e?.detail?.sec);
+    if (!Number.isFinite(sec)) return;
+    if (sec <= 0){
+      stop();
+      return;
+    }
+    // เรานับ 1 วินาทีต่อ event
+    tickSecond();
+  }
+  ROOT.addEventListener('hha:time', onTime);
 
-  // Play: มี powerups, Research: ไม่มี powerups
-  const powerups = IS_RESEARCH ? [] : ['⭐','🛡️'];
+  // ===== Judge (hit handling) =====
+  const GOOD_SET  = new Set(pools.good);
+  const BAD_SET   = new Set(pools.bad);
 
-  // ✅ ล็อก concept โหมดวิจัย (ไม่ช่วยผู้เล่น)
-  const goodRate = IS_RESEARCH ? 0.62 : 0.66;
+  function judge(ch, ctx){
+    if (stopped) return { scoreDelta: 0, label:'NONE' };
 
-  // Boot spawner
-  const inst = await factoryBoot({
+    const c = String(ch||'');
+    const isPower = (c === '🛡️' || c === '🔥' || c === '💎');
+    const isGood  = isPower || GOOD_SET.has(c);
+    const isBad   = (!isPower && BAD_SET.has(c));
+
+    // fever buff
+    const mult = feverActive ? 2 : 1;
+
+    // ---- Powerups ----
+    if (isPower){
+      if (c === '🛡️'){
+        addShield(1);
+        score += 40 * mult;
+        combo += 1; comboMax = Math.max(comboMax, combo);
+        addFever(10);
+        screenBlink('block'); vibrate(16);
+        emit('hha:judge', { label:'SHIELD', ch:c });
+        quest.onGood();
+        updateQuestUI(); updateScoreUI();
+        return { scoreDelta: 40, label:'SHIELD', good:true };
+      }
+      if (c === '🔥'){
+        addFever(35);
+        score += 30 * mult;
+        combo += 1; comboMax = Math.max(comboMax, combo);
+        screenBlink('good'); vibrate(12);
+        emit('hha:judge', { label:'FEVER+', ch:c });
+        quest.onGood();
+        updateQuestUI(); updateScoreUI();
+        return { scoreDelta: 30, label:'FEVER+', good:true };
+      }
+      // 💎
+      score += 60 * mult;
+      combo += 1; comboMax = Math.max(comboMax, combo);
+      addFever(12);
+      screenBlink('good'); vibrate(10);
+      emit('hha:judge', { label:'GEM', ch:c });
+      quest.onGood();
+      updateQuestUI(); updateScoreUI();
+      return { scoreDelta: 60, label:'GEM', good:true };
+    }
+
+    // ---- Bad ----
+    if (isBad){
+      if (shield > 0){
+        shield -= 1; setFeverUI();
+        combo = 0;
+        // block: น้ำยังขึ้นนิด ๆ แต่ไม่ miss
+        applyWater(+3.5);
+        screenBlink('block'); vibrate([12,18,12]);
+        emit('hha:judge', { label:'BLOCK', ch:c });
+        updateQuestUI(); updateScoreUI();
+        return { scoreDelta: 0, label:'BLOCK', good:true };
+      }
+
+      miss += 1;
+      combo = 0;
+      score = Math.max(0, score - 25);
+      applyWater(+10.0);    // น้ำหวาน → HIGH
+      addFever(-8);         // (ถ้าใช้ setFever จะ clamp)
+      screenBlink('bad'); vibrate([22,35,22]);
+      quest.onJunk();
+      updateQuestUI(); updateScoreUI();
+      return { scoreDelta: -25, label:'MISS', good:false };
+    }
+
+    // ---- Good ----
+    if (isGood){
+      combo += 1;
+      comboMax = Math.max(comboMax, combo);
+
+      // perfect window: combo สูง
+      const perfect = combo % 7 === 0;
+      const add = perfect ? 40 : 22;
+      score += add * mult;
+
+      applyWater(+3.6);   // น้ำดี → ดันเข้า GREEN
+      addFever(perfect ? 14 : 8);
+
+      screenBlink('good'); vibrate(12);
+      emit('hha:judge', { label: perfect ? 'PERFECT' : 'GOOD', ch:c });
+      quest.onGood();
+      quest.updateCombo(comboMax);
+      quest.updateScore(score);
+
+      updateQuestUI(); updateScoreUI();
+      return { scoreDelta: add, label: perfect ? 'PERFECT' : 'GOOD', good:true };
+    }
+
+    // default
+    return { scoreDelta: 0, label:'OK', good:true };
+  }
+
+  function onExpire(info){
+    // ปล่อย “ของดี” หาย: ไม่ miss แต่เสียจังหวะ + น้ำค่อย ๆ แห้งแล้วอยู่ดี
+    if (!info) return;
+
+    // ถ้าเป็น junk หายเอง → ถือว่าดี (ไม่ต้องทำอะไร)
+    if (info.isGood && !info.isPower){
+      // ลงโทษนิด ๆ ให้เด็กอยากยิง
+      score = Math.max(0, score - 6);
+      combo = 0;
+      emit('hha:judge', { label:'LATE', ch: info.ch });
+      updateScoreUI();
+    }
+  }
+
+  // ===== start mode-factory (spawn into aim layer) =====
+  const modeInst = await factoryBoot({
     modeKey: 'hydration',
-    difficulty: diffKey,
+    difficulty,
     duration,
-
-    // ✅ spawn ลง playfield (ไม่ overlay)
-    spawnHost: '#hvr-playfield',
-
     pools,
-    goodRate,
-
+    goodRate: 0.68,
     powerups,
-    powerRate: IS_RESEARCH ? 0 : 0.10,
-    powerEvery: IS_RESEARCH ? 9999 : 7,
-
-    // ถ้า mode-factory รองรับ disableAdaptive จะล็อกให้เลย (ไม่มีก็ไม่พัง)
-    disableAdaptive: IS_RESEARCH,
-
+    powerRate: 0.14,
+    powerEvery: 6,
+    spawnHost: hostSel,
     judge,
     onExpire
   });
 
-  // expose for debug/stop
+  // init UI
+  setWaterGauge(water);
+  setFeverUI();
+  updateQuestUI();
+  updateScoreUI();
+
+  // expose instance for crosshair shooter
+  const inst = {
+    stop,
+    shootCrosshair(){
+      if (stopped) return false;
+      const cross = $('hvr-crosshair');
+      if (!cross) return false;
+      const r = cross.getBoundingClientRect();
+      const x = r.left + r.width/2;
+      const y = r.top  + r.height/2;
+      const el = DOC.elementFromPoint(x, y);
+      const tgt = el && el.closest ? el.closest('.hvr-target') : null;
+      if (!tgt) return false;
+
+      try{
+        tgt.dispatchEvent(new PointerEvent('pointerdown', {
+          bubbles:true, cancelable:true,
+          clientX: x|0, clientY: y|0
+        }));
+      }catch{
+        try{ tgt.click(); }catch{}
+      }
+      return true;
+    },
+    getState(){
+      return { score, combo, comboMax, miss, water, zone, shield, fever, feverActive, aim: aim.get() };
+    }
+  };
+
   ROOT.HHA_ACTIVE_INST = inst;
 
-  // ===== time tick from mode-factory =====
-  let lastSec = null;
-
-  function onTime(e){
-    if (stopped) return;
-    const sec = e?.detail?.sec;
-    if (!Number.isFinite(sec)) return;
-
-    // init
-    if (lastSec == null) lastSec = sec;
-
-    // detect 1-second step
-    if (sec !== lastSec){
-      // every second: update quest timing
-      quest.second();
-
-      // zone update + greenTick
-      const z = zoneFrom(water);
-      quest.stats.zone = z;
-      if (z === 'GREEN'){
-        quest.stats.greenTick += 1;
-      }
-      // update combo/score into quest
-      quest.updateScore(score);
-      quest.updateCombo(comboMax);
-
-      // coach hint บางจังหวะ
-      const t = quest.stats.timeSec;
-      if (t === 2){
-        setCoach(IS_RESEARCH
-          ? 'โหมดวิจัย: รักษา Water ให้อยู่ GREEN ให้มากที่สุด 💧 (ไม่มีตัวช่วยพิเศษ)'
-          : 'แตะจอที่ไหนก็ยิงจากวงเล็ง ○ เลือกน้ำดี เลี่ยงน้ำหวาน! 💧');
-      }
-      if (!IS_RESEARCH && (t % 10 === 0)){
-        const sh = (FeverUI.getShield ? FeverUI.getShield() : 0) | 0;
-        if (sh > 0) setCoach(`มีเกราะ ${sh} อัน! ถ้าโดน 🥤 จะบล็อกได้ 🛡️`, 'happy');
-        else setCoach(`คุมโซน GREEN ไว้! ถ้าเริ่ม LOW/HIGH ให้รีบเก็บน้ำดี 💧`, 'neutral');
-      }
-
-      // sync HUD
-      syncHUD();
-
-      lastSec = sec;
-    }
-
-    // end
-    if (sec <= 0){
-      endGame();
-    }
-  }
-
-  ROOT.addEventListener('hha:time', onTime);
-
-  function endGame(){
+  function stop(){
     if (stopped) return;
     stopped = true;
 
     try{ ROOT.removeEventListener('hha:time', onTime); }catch{}
-    try{ inst?.stop?.(); }catch{}
+    try{ aim.dispose(); }catch{}
+    try{ if (modeInst && typeof modeInst.stop === 'function') modeInst.stop(); }catch{}
 
-    const progress01 = computeProgress01();
-    const grade = gradeFrom(progress01);
-
-    setCoach(`จบเกมแล้ว! ได้เกรด ${grade} • โซนน้ำ ${zone} 💧`, (grade === 'SSS' || grade === 'SS' || grade === 'S') ? 'happy' : 'neutral');
-
-    dispatch('hha:end', {
-      modeKey: 'hydration',
-      runMode,
-      difficulty: diffKey,
-      duration,
-      score, comboMax,
-      miss,
-      water, zone,
-      goodExpired,
-      junkExpired,
-      grade,
-      progress01
-    });
-
-    // celebration (เบา ๆ)
-    try{ Particles.celebration?.(); }catch{}
+    emit('hha:end', { score, miss, comboMax, water, zone });
   }
 
-  // initial paint
-  setCoach(IS_RESEARCH
-    ? 'โหมดวิจัย: รักษา Water ให้อยู่ GREEN ให้มากที่สุด 💧 (ไม่มี power-ups)'
-    : 'แตะจอที่ไหนก็ยิงจากวงเล็ง ○ เก็บน้ำดี 💧 เลี่ยงน้ำหวาน 🥤');
-  syncHUD();
-
-  return {
-    stop(){
-      try{ endGame(); }catch{}
-    }
-  };
+  return inst;
 }
 
 export default { boot };
