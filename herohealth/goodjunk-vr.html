@@ -33,19 +33,6 @@
     }
     a-scene{ width:100vw; height:100vh; position:fixed; inset:0; z-index:0; }
 
-    /* Panic pulse */
-    body.panic{
-      animation: panic-jolt .22s linear;
-      filter: saturate(1.05);
-    }
-    @keyframes panic-jolt{
-      0%{ transform:translateX(0); }
-      25%{ transform:translateX(1px); }
-      50%{ transform:translateX(-1px); }
-      75%{ transform:translateX(1px); }
-      100%{ transform:translateX(0); }
-    }
-
     /* DOM target layer */
     #gj-layer{
       position:fixed; inset:0;
@@ -88,7 +75,6 @@
     .hud-main{ display:flex; gap:10px; align-items:center; margin-bottom:4px; }
     .hud-main-title{ font-size:14px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--text-soft); }
     .hud-main-mode{ font-size:15px; font-weight:800; }
-
     .hud-pill{
       font-size:11px; padding:2px 8px; border-radius:999px;
       background:rgba(15,118,110,0.2); border:1px solid rgba(45,212,191,0.4);
@@ -99,31 +85,6 @@
       border-color:rgba(59,130,246,0.55);
       color:#bfdbfe;
     }
-
-    /* NEW: Rush meter line */
-    .rush-wrap{ margin-top:6px; display:flex; align-items:center; gap:8px; }
-    .rush-tag{
-      font-size:10px; letter-spacing:.12em; text-transform:uppercase;
-      color:#fde68a; font-weight:900;
-    }
-    .rush-bar{
-      flex:1; height:6px; border-radius:999px; overflow:hidden;
-      background:rgba(15,23,42,0.9);
-      border:1px solid rgba(250,204,21,0.28);
-    }
-    .rush-fill{
-      height:100%; width:0%;
-      background:linear-gradient(90deg, rgba(250,204,21,0.2), rgba(250,204,21,0.95));
-      transition:width .12s ease-out;
-    }
-    .rush-state{
-      font-size:10px; color:#fef3c7; font-weight:900;
-      min-width:74px; text-align:right;
-    }
-    .rush-overheat .rush-fill{
-      background:linear-gradient(90deg, rgba(248,113,113,0.2), rgba(248,113,113,0.95));
-    }
-
     .hud-metrics{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
     .metric{ min-width:92px; }
     .metric-label{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-soft); }
@@ -131,17 +92,7 @@
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
-    /* NEW: lives pill */
-    .lives-pill{
-      font-size:11px; padding:2px 8px; border-radius:999px;
-      background:rgba(239,68,68,0.10);
-      border:1px solid rgba(239,68,68,0.35);
-      color:#fecaca; font-weight:900;
-      display:inline-flex; align-items:center; gap:6px;
-      margin-left:6px;
-    }
-
-    .hud-quest{ max-width:310px; font-size:12px; }
+    .hud-quest{ max-width:340px; font-size:12px; }
     .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
     .quest-main-label{ font-size:13px; font-weight:700; }
     .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
@@ -293,30 +244,15 @@
             <div class="hud-main-mode">Good vs Junk</div>
           </div>
 
-          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
-            <div id="hud-pill" class="hud-pill">
-              <span id="hud-run-label" style="font-weight:900;">PLAY</span>
-              <span>•</span>
-              <span id="hud-diff-label">NORMAL</span>
-              <span>•</span>
-              <span id="hud-challenge-label">RUSH</span>
-              <span>•</span>
-              <span id="hud-time-label">60s</span>
-            </div>
-
-            <div id="hud-lives" class="lives-pill" style="display:none;">
-              ❤️ <span id="hud-lives-val">3</span>/<span id="hud-lives-max">3</span>
-            </div>
+          <div id="hud-pill" class="hud-pill">
+            <span id="hud-run-label" style="font-weight:900;">PLAY</span>
+            <span>•</span>
+            <span id="hud-diff-label">NORMAL</span>
+            <span>•</span>
+            <span id="hud-challenge-label">RUSH</span>
+            <span>•</span>
+            <span id="hud-time-label">60s</span>
           </div>
-        </div>
-
-        <!-- NEW: Rush meter -->
-        <div id="rushWrap" class="rush-wrap" style="display:none;">
-          <span class="rush-tag">RUSH</span>
-          <div id="rushBar" class="rush-bar">
-            <div id="rushFill" class="rush-fill"></div>
-          </div>
-          <span id="rushState" class="rush-state">0%</span>
         </div>
 
         <div class="hud-metrics">
@@ -340,12 +276,14 @@
         <div class="quest-title">Quest</div>
         <div id="hud-quest-main" class="quest-main-label">กำลังสุ่มภารกิจ…</div>
         <div id="hud-quest-mini" class="quest-mini-label">กำลังสุ่ม mini quest…</div>
+
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div id="hud-quest-main-bar" class="quest-bar-fill"></div></div>
           <div class="quest-caption">
             <span id="hud-quest-main-caption">0 / 0</span>
             <span id="hud-quest-hint"></span>
           </div>
+
           <div class="quest-bar"><div id="hud-quest-mini-bar" class="quest-bar-fill"></div></div>
           <div class="quest-caption">
             <span id="hud-quest-mini-caption">0 / 0</span>
@@ -409,7 +347,7 @@
         <div>
           <div class="start-label">Challenge</div>
           <select id="sel-challenge">
-            <option value="rush" selected>rush (สปีด + RUSH/OVERHEAT)</option>
+            <option value="rush" selected>rush (สปีด + ตัวคูณ)</option>
             <option value="boss">boss (ท้ายเกมมีบอส)</option>
             <option value="survival">survival (หัวใจ)</option>
           </select>
@@ -439,7 +377,7 @@
     import { makeQuestDirector } from './vr-goodjunk/quest-director.js';
     import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './vr-goodjunk/quest-defs-goodjunk.js';
 
-    // bfcache fix
+    // ---- bfcache fix: กลับจาก hub แล้วเล่นใหม่ได้ชัวร์ ----
     window.addEventListener('pageshow', (e)=>{
       if (e.persisted) window.location.reload();
     });
@@ -498,25 +436,14 @@
     const logDot  = $('logdot');
     const logText = $('logtext');
 
-    // NEW: Rush UI
-    const rushWrap = $('rushWrap');
-    const rushBar  = $('rushBar');
-    const rushFill = $('rushFill');
-    const rushState= $('rushState');
-
-    // NEW: Lives UI
-    const hudLives = $('hud-lives');
-    const hudLivesVal = $('hud-lives-val');
-    const hudLivesMax = $('hud-lives-max');
-
-    // URL params from Hub: diff, time, run, ch/challenge
+    // ✅ URL params from Hub: diff, time, run, ch/challenge
     const pageUrl = new window.URL(window.location.href);
     const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();                 // play | research
     const URL_DIFF = (pageUrl.searchParams.get('diff') || 'normal').toLowerCase();            // easy | normal | hard
     const URL_CH = (pageUrl.searchParams.get('ch') || pageUrl.searchParams.get('challenge') || 'rush').toLowerCase(); // rush|boss|survival
     const URL_TIME_RAW = parseInt(pageUrl.searchParams.get('time') || '', 10);
 
-    const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
+    const DEFAULT_TIME = { easy:80, normal:60, hard:50 }; // ให้ตรงกับ Hub ล่าสุด
     function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
     function normDiff(v){ v=String(v||'normal').toLowerCase(); return (v==='easy'||v==='hard'||v==='normal') ? v : 'normal'; }
     function normCh(v){ v=String(v||'rush').toLowerCase(); return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush'; }
@@ -624,87 +551,53 @@
       setLogBadge(d.ok ? 'ok' : 'bad', d.msg || '');
     });
 
-    // ✅ Optional: probe ยิงเข้า Sheet (ใช้เฉพาะตอนแก้ปัญหา) -> เพิ่ม ?probe=1
-    async function probeLogger(endpoint, meta){
-      if (!endpoint) return;
-      const PROBE_ON = (pageUrl.searchParams.get('probe') === '1');  // ✅ FIX: pageUrl ไม่ใช่ URL
-      if (!PROBE_ON) return;
-
-      const payload = {
-        projectTag: 'HeroHealth-GoodJunkVR',
-        sessions: [{
-          sessionId: 'probe-' + Date.now(),
-          ts: new Date().toISOString(),
-          note: 'probe',
-          ...meta
-        }],
-        events: [{
-          ts: new Date().toISOString(),
-          type: 'probe',
-          ...meta
-        }]
-      };
-
-      try{
-        await fetch(endpoint, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload),
-          keepalive: true
-        });
-        setLogBadge('ok', 'logger: probe sent (no-cors)');
-      }catch(err){
-        console.warn('[GoodJunkVR] probe failed:', err);
-        setLogBadge('bad', 'logger: probe failed');
-      }
-    }
-
-    // profile from hub
     function getProfile(){
       let studentProfile = null;
       let studentKey = null;
       try{
-        const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE'); // ✅ key นี้
+        const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
         if (raw){
           studentProfile = JSON.parse(raw);
-          studentKey = studentProfile.studentKey || studentProfile.studentNo || studentProfile.studentId || null;
+          studentKey = studentProfile.studentKey || null;
         }
       }catch(_){}
       return { studentProfile, studentKey };
     }
     function hasProfile(p){
       if (!p || typeof p !== 'object') return false;
-      return !!(p.studentKey || p.studentId || p.studentNo || p.name || p.nickName);
+      return !!(p.studentId || p.name || p.nickName || p.studentNo);
     }
 
-    // --- Quest Director state (ต้องสอดคล้องกับ quest-defs) ---
+    // -------------------------
+    // Quest state (ส่งให้ QuestDirector)
+    // -------------------------
     const qState = {
       score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
-
       streakGood:0,
       goldHits:0,
       goldHitsThisMini:false,
-
       blocks:0,
       usedMagnet:false,
       timePlus:0,
-      safeSeconds:0,
-      bossCleared:false,
 
+      // ✅ FAIR No-Junk Zone: นับเฉพาะ "ไม่มี junk/fake hit" (ไม่สน good expire)
+      safeNoJunkSeconds:0,
+      bossCleared:false,
       challenge: CH_INIT,
       runMode: RUN_MODE
     };
 
-    // reset mini counters when new mini starts
+    // mini reset
     window.addEventListener('quest:miniStart', ()=>{
       qState.goldHitsThisMini = false;
       qState.usedMagnet = false;
       qState.timePlus = 0;
-      qState.safeSeconds = 0;
       qState.blocks = 0;
+      qState.safeNoJunkSeconds = 0; // รีเซ็ตหน้าต่างความปลอดภัยต่อ mini
+      qState.streakGood = 0;
     });
 
+    // ✅ ฝั่งเกมควรยิง event เหล่านี้ (GameEngine เวอร์ชันล่าสุดคุณยิง quest:goodHit/quest:block/quest:power/quest:bossClear อยู่แล้ว)
     window.addEventListener('quest:goodHit', (e)=>{
       const d = e.detail || {};
       if (d.type === 'gold'){
@@ -714,10 +607,14 @@
       qState.streakGood = (qState.streakGood|0) + 1;
     });
 
-    window.addEventListener('hha:miss', ()=>{
+    // ✅ bad hit (junk/fake) = รีเซ็ต safeNoJunkSeconds + streak
+    window.addEventListener('quest:badHit', ()=>{
+      qState.safeNoJunkSeconds = 0;
       qState.streakGood = 0;
-      qState.safeSeconds = 0;
     });
+
+    // ✅ ปล่อยของดี expire จะ "ไม่นับเป็น badHit" เพื่อความยุติธรรมของ No-Junk Zone
+    // แต่ยังนับ miss ในเกมตามปกติอยู่ (จาก engine)
 
     window.addEventListener('quest:block', ()=>{
       qState.blocks = (qState.blocks|0) + 1;
@@ -733,11 +630,11 @@
       qState.bossCleared = true;
     });
 
-    // safe seconds tick
+    // ✅ safeNoJunkSeconds tick (เพิ่มเมื่อเกมเริ่มแล้ว)
     let started = false;
     setInterval(()=>{
       if (!started) return;
-      qState.safeSeconds = (qState.safeSeconds|0) + 1;
+      qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
     }, 1000);
 
     // --- QuestDirector ---
@@ -747,8 +644,8 @@
       const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
       const cx = window.innerWidth/2;
       const y  = window.innerHeight*0.22;
-      if (P?.burstAt) P.burstAt(cx, y, { count: 18, good: true });
-      if (P?.scorePop) P.scorePop(cx, y, 'MISSION CLEAR!', { judgment:'GREAT!', good:true });
+      if (P && P.burstAt) P.burstAt(cx, y, { count: 18, good: true });
+      if (P && P.scorePop) P.scorePop(cx, y, 'MISSION CLEAR!', { judgment:'GREAT!', good:true });
       setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
     }
 
@@ -757,10 +654,10 @@
       const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
       const cx = window.innerWidth/2;
       const cy = window.innerHeight*0.35;
-      if (P?.burstAt){
+      if (P && P.burstAt){
         for (let i=0;i<3;i++) setTimeout(()=>P.burstAt(cx,cy,{ count:26, good:true }), i*240);
       }
-      if (P?.scorePop) P.scorePop(cx,cy,'ALL QUESTS CLEAR!',{ judgment:'AMAZING', good:true });
+      if (P && P.scorePop) P.scorePop(cx,cy,'ALL QUESTS CLEAR!',{ judgment:'AMAZING', good:true });
       elBigCelebrate.classList.add('show');
       setTimeout(()=>{ elBigCelebrate.classList.remove('show'); callback && callback(); }, 1200);
     }
@@ -776,38 +673,6 @@
       elEndToast.classList.add('show');
       setCoach('จบเกมแล้ว! ดูสรุปคะแนนได้เลย 🎉', (final.misses|0)<=3 ? 'happy' : 'neutral');
     }
-
-    // panic effect from engine
-    window.addEventListener('hha:panic', ()=>{
-      document.body.classList.add('panic');
-      clearTimeout(window.__panicTm);
-      window.__panicTm = setTimeout(()=>document.body.classList.remove('panic'), 220);
-    });
-
-    // rush UI from engine
-    window.addEventListener('hha:rush', (e)=>{
-      const d = e.detail || {};
-      if (!rushWrap) return;
-      rushWrap.style.display = 'flex';
-      const pct = Math.max(0, Math.min(100, Number(d.meter)||0));
-      rushFill.style.width = pct + '%';
-
-      const isOver = !!d.overheat;
-      rushBar.classList.toggle('rush-overheat', isOver);
-
-      if (isOver) rushState.textContent = 'OVERHEAT';
-      else if (d.rush) rushState.textContent = 'RUSH!';
-      else rushState.textContent = pct.toFixed(0) + '%';
-    });
-
-    // lives UI
-    window.addEventListener('hha:lives', (e)=>{
-      const d = e.detail || {};
-      if (!hudLives) return;
-      hudLives.style.display = 'inline-flex';
-      hudLivesVal.textContent = String(d.livesLeft ?? 0);
-      hudLivesMax.textContent = String(d.max ?? 3);
-    });
 
     // HUD listeners
     window.addEventListener('hha:judge', (e)=>{
@@ -834,6 +699,8 @@
       if (Q) Q.update(qState);
     });
 
+    // ✅ กัน celebrate ซ้ำรัว
+    let lastHint = '';
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -842,6 +709,7 @@
       const goalsAll = d.goalsAll || [];
       const minisAll = d.minisAll || [];
 
+      // MAIN
       if (goal){
         const prog = goal.prog|0, tgt = goal.target|0;
         const pct = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
@@ -854,6 +722,7 @@
         elQuestMainCap.textContent = '';
       }
 
+      // MINI
       if (mini){
         const prog = mini.prog|0, tgt = mini.target|0;
         const pct = tgt>0 ? Math.max(0, Math.min(100, (prog/tgt)*100)) : 0;
@@ -867,12 +736,16 @@
       }
 
       elQuestHint.textContent = d.hint || '';
-      elMiniCount.textContent = minisAll.length ? ('mini #' + minisAll.length) : '';
 
       const gDone = goalsAll.filter(x=>x && x.done).length;
       const mDone = minisAll.filter(x=>x && x.done).length;
-      if (gDone && d.hint === 'GOAL CLEAR!') celebrateQuest();
-      if (mDone && d.hint === 'MINI CLEAR!') celebrateQuest();
+      elMiniCount.textContent = minisAll.length ? (`mini ${mDone}/${minisAll.length}`) : '';
+
+      // celebrate once
+      if (d.hint && d.hint !== lastHint){
+        if (d.hint === 'GOAL CLEAR!' || d.hint === 'MINI CLEAR!') celebrateQuest();
+        lastHint = d.hint;
+      }
     });
 
     window.addEventListener('hha:end', (e)=>{
@@ -904,7 +777,7 @@
       }
       if (startSub){
         startSub.textContent = (RUN_MODE === 'research')
-          ? 'โหมดวิจัย: ต้องมี Student ID/ชื่อเล่นจาก Hub แล้วค่อยกดเริ่ม ✅'
+          ? 'โหมดวิจัย: ต้องมี Student ID หรือชื่อเล่นจาก Hub แล้วค่อยกดเริ่ม ✅'
           : 'เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅';
       }
     }
@@ -912,7 +785,7 @@
     function bootOnce({ wantVR }){
       if (started) return;
 
-      // research gate
+      // ✅ research gate
       if (RUN_MODE === 'research'){
         const { studentProfile } = getProfile();
         if (!hasProfile(studentProfile)){
@@ -941,18 +814,19 @@
       elMiss.textContent  = '0';
       elJudge.textContent = '\u00A0';
 
-      setCoach('แตะของดี! หลบ junk/fake! ไปเลย! ⚡', 'neutral');
+      setCoach('แตะของดี! หลบ junk! ไปเลย! ⚡', 'neutral');
 
+      // profile from hub
       const { studentProfile, studentKey } = getProfile();
 
-      // endpoint from Hub
+      // ✅ logger endpoint (จาก Hub) + fallback
       const endpoint =
         sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
         'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
 
       setLogBadge(null, 'logger: init…');
 
-      // init logger
+      // ✅ init logger
       initCloudLogger({
         endpoint,
         projectTag: 'HeroHealth-GoodJunkVR',
@@ -960,37 +834,27 @@
         runMode: RUN_MODE,
         diff,
         challenge: chal,
-        durationPlannedSec: durationSec,
+        durationPlannedSec: durationSec, // ให้ตรงชื่อคีย์ใน logger
         studentKey,
         profile: studentProfile,
         debug: true
       });
-
-      probeLogger(endpoint, { runMode: RUN_MODE, diff, challenge: chal, durationSec });
 
       // touch + VR button
       const cam = document.querySelector('#gj-camera');
       attachTouch(cam);
       initVRButton();
 
-      // QuestDirector
+      // ✅ QuestDirector (ต้องใช้เวอร์ชัน director ที่รองรับ eval/pass schema)
       Q = makeQuestDirector({
         diff,
         goalDefs: GOODJUNK_GOALS,
         miniDefs: GOODJUNK_MINIS,
         maxGoals: 2,
-        maxMini: 999
+        maxMini: 999,
+        challenge: chal
       });
       Q.start(qState);
-
-      // show lives only for survival
-      if (chal === 'survival'){
-        hudLives.style.display = 'inline-flex';
-        hudLivesVal.textContent = '3';
-        hudLivesMax.textContent = '3';
-      } else {
-        hudLives.style.display = 'none';
-      }
 
       runCountdown(async ()=>{
         waitSceneReady(async ()=>{
@@ -1009,6 +873,7 @@
       btnBackHub.addEventListener('click', ()=> window.location.href = './hub.html');
     }
 
+    // ---- init defaults from Hub params ----
     function prefillFromHub(){
       try{ selDiff.value = DIFF_INIT; }catch(_){}
       try{ selChallenge.value = CH_INIT; }catch(_){}
@@ -1026,9 +891,6 @@
       } else {
         setLogBadge(null, 'logger: endpoint missing (hub?)');
       }
-
-      // rush UI always visible
-      if (rushWrap) rushWrap.style.display = 'flex';
     }
 
     btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
