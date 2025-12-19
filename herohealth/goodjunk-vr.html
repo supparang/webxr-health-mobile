@@ -344,7 +344,7 @@
   <script src="./vr/hha-summary.js"></script>
 
   <script type="module">
-    import { GameEngine } from './vr-goodjunk/GameEngine.js';
+    import { boot as goodjunkBoot } from './vr-goodjunk/goodjunk.safe.js';
     import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
     import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
@@ -823,17 +823,21 @@
       Q.start(qState);
 
       runCountdown(async ()=>{
-        waitSceneReady(async ()=>{
-          if (wantVR) await tryEnterVR();
+      waitSceneReady(async ()=>{
+        if (wantVR) await tryEnterVR();
 
-          GameEngine.start(diff, {
-            runMode: RUN_MODE,
-            challenge: chal,
-            durationSec,
-            layerEl: document.getElementById('gj-layer')
-          });
+    // ✅ ใช้ safe wrapper แทน
+      const ENGINE = goodjunkBoot(diff, {
+        runMode: RUN_MODE,
+        challenge: chal,
+        durationSec,
+        layerEl: document.getElementById('gj-layer')
         });
+
+    // (ออปชัน) เก็บไว้ดีบัก
+    window.__GJ_ENGINE__ = ENGINE;
       });
+    });
     }
 
     // ---- init defaults from Hub params ----
