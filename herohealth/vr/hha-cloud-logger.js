@@ -26,6 +26,9 @@ let profileRow = null;
 
 let lastScoreLogAt = 0;
 
+// ✅ NEW: keep latest stats snapshot (from hha:stat)
+let lastStat = null;
+
 function isoNow(){ return new Date().toISOString(); }
 function uuid(){
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c=>{
@@ -41,6 +44,11 @@ function emitLogger(ok, msg){
 
 function safeNum(v){ v = Number(v); return Number.isFinite(v) ? v : null; }
 function safeStr(v){ return (v==null) ? '' : String(v); }
+
+function tFromStart(){
+  const t = Date.now();
+  return sessionStartMs ? (t - sessionStartMs) : null;
+}
 
 function flattenProfile(profile){
   const p = profile || {};
@@ -110,20 +118,16 @@ async function send(payload){
   const body = JSON.stringify(payload);
 
   // -------- 1) Try CORS + read JSON (NO preflight) --------
-  // key trick: Content-Type text/plain;charset=utf-8 => simple request
   try{
     const res = await fetch(CONFIG.endpoint, {
       method: 'POST',
       mode: 'cors',
       credentials: 'omit',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body,
       keepalive: true
     });
 
-    // ถ้า CORS ผ่าน จะอ่านได้
     const text = await res.text();
     let json = null;
     try { json = JSON.parse(text); } catch(_){}
@@ -138,7 +142,6 @@ async function send(payload){
       return true;
     }
 
-    // ถ้าอ่านไม่เป็น JSON ก็ถือว่า ok แต่แจ้งเตือน
     emitLogger(true, payload.final ? 'logger: sent (non-json)' : 'logger: sent (non-json)');
     return true;
 
@@ -229,6 +232,36 @@ function makeEventRow(eventType, detail){
   };
 }
 
+// ✅ NEW: merge stat into sessionRow (and keep lastStat)
+function applyStatToSession(stat){
+  if (!stat) return;
+  lastStat = { ...stat };
+
+  // quest
+  if (stat.goalsCleared != null) sessionRow.goalsCleared = safeNum(stat.goalsCleared);
+  if (stat.goalsTotal   != null) sessionRow.goalsTotal   = safeNum(stat.goalsTotal);
+  if (stat.miniCleared  != null) sessionRow.miniCleared  = safeNum(stat.miniCleared);
+  if (stat.miniTotal    != null) sessionRow.miniTotal    = safeNum(stat.miniTotal);
+
+  // quality
+  if (stat.accuracyGoodPct != null) sessionRow.accuracyGoodPct = safeNum(stat.accuracyGoodPct);
+  if (stat.junkErrorPct    != null) sessionRow.junkErrorPct    = safeNum(stat.junkErrorPct);
+  if (stat.avgRtGoodMs     != null) sessionRow.avgRtGoodMs     = safeNum(stat.avgRtGoodMs);
+  if (stat.medianRtGoodMs  != null) sessionRow.medianRtGoodMs  = safeNum(stat.medianRtGoodMs);
+  if (stat.fastHitRatePct  != null) sessionRow.fastHitRatePct  = safeNum(stat.fastHitRatePct);
+}
+
+// ✅ NEW: spawn counters mapping for GoodJunk v3.1 itemType
+function countSpawnByItemType(itemType){
+  const it = safeStr(itemType).toLowerCase();
+  if (it === 'good') sessionRow.nTargetGoodSpawned++;
+  else if (it === 'junk') sessionRow.nTargetJunkSpawned++;
+  else if (it === 'gold') sessionRow.nTargetStarSpawned++;     // reuse legacy column
+  else if (it === 'fake') sessionRow.nTargetDiamondSpawned++;  // reuse legacy column
+  else if (it === 'shield') sessionRow.nTargetShieldSpawned++; // legacy column
+  // magnet/time/fever: ไม่มีคอลัมน์เฉพาะใน sessionRow ตอนนี้ (ยังไม่เพิ่ม) — เก็บไว้ใน events เพียงพอ
+}
+
 export function initCloudLogger(opts = {}){
   CONFIG = {
     endpoint: opts.endpoint || sessionStorage.getItem('HHA_LOG_ENDPOINT') || '',
@@ -241,6 +274,9 @@ export function initCloudLogger(opts = {}){
   sessionStartMs = Date.now();
   sessionStartIso = isoNow();
   runMode = (opts.runMode === 'research') ? 'research' : 'play';
+
+  lastStat = null;
+  lastScoreLogAt = 0;
 
   const profile = opts.profile || null;
   const prof = flattenProfile(profile);
@@ -350,51 +386,82 @@ export function initCloudLogger(opts = {}){
 
   emitLogger(true, 'logger: ready');
 
+  // -----------------------------
+  // LISTENERS
+  // -----------------------------
+
   window.addEventListener('hha:spawn', (e)=>{
-    const d = e.detail || {};
-    if (d.itemType === 'good') sessionRow.nTargetGoodSpawned++;
-    else if (d.itemType === 'junk') sessionRow.nTargetJunkSpawned++;
-    else if (d.itemType === 'star') sessionRow.nTargetStarSpawned++;
-    else if (d.itemType === 'diamond') sessionRow.nTargetDiamondSpawned++;
-    else if (d.itemType === 'shield') sessionRow.nTargetShieldSpawned++;
+    const d0 = e.detail || {};
+    const d = { ...d0, timeFromStartMs: safeNum(d0.timeFromStartMs ?? tFromStart()) };
+
+    countSpawnByItemType(d.itemType);
     pushEvent(makeEventRow('spawn', d));
   });
 
   window.addEventListener('hha:hit', (e)=>{
-    const d = e.detail || {};
+    const d0 = e.detail || {};
+    const d = { ...d0, timeFromStartMs: safeNum(d0.timeFromStartMs ?? tFromStart()) };
+
     if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nHitGood++;
     if (d.itemType === 'junk') sessionRow.nHitJunk++;
+
     pushEvent(makeEventRow('hit', d));
   });
 
   window.addEventListener('hha:block', (e)=>{
-    const d = e.detail || {};
+    const d0 = e.detail || {};
+    const d = { ...d0, timeFromStartMs: safeNum(d0.timeFromStartMs ?? tFromStart()) };
+
     sessionRow.nHitJunkGuard++;
     pushEvent(makeEventRow('block', d));
   });
 
   window.addEventListener('hha:expire', (e)=>{
-    const d = e.detail || {};
+    const d0 = e.detail || {};
+    const d = { ...d0, timeFromStartMs: safeNum(d0.timeFromStartMs ?? tFromStart()) };
+
     if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nExpireGood++;
     pushEvent(makeEventRow('expire', d));
+  });
+
+  // ✅ NEW: hha:stat -> keep latest stats + push event
+  window.addEventListener('hha:stat', (e)=>{
+    const d0 = (e && e.detail) || {};
+    const d = { ...d0, timeFromStartMs: safeNum(d0.timeFromStartMs ?? tFromStart()) };
+
+    // update session summary live
+    applyStatToSession(d);
+
+    // also log event row (so you can analyze changes over time)
+    pushEvent(makeEventRow('stat', d));
   });
 
   window.addEventListener('hha:score', (e)=>{
     const t = Date.now();
     if (t - lastScoreLogAt < 500) return;
     lastScoreLogAt = t;
+
+    const det = (e && e.detail) || {};
     pushEvent(makeEventRow('score', {
-      ...((e && e.detail) || {}),
+      ...det,
       timeFromStartMs: t - sessionStartMs,
-      totalScore: (e.detail||{}).score,
-      combo: (e.detail||{}).combo
+      totalScore: det.score,
+      combo: det.combo
     }));
   });
 
+  // quest:update: keep progress event + (optional) update totals if provided
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
+
+    // ✅ ถ้า quest director ส่ง totals/cleared มา ให้เติม sessionRow ด้วย (กันว่าง)
+    if (d.goalsCleared != null) sessionRow.goalsCleared = safeNum(d.goalsCleared);
+    if (d.goalsTotal   != null) sessionRow.goalsTotal   = safeNum(d.goalsTotal);
+    if (d.miniCleared  != null) sessionRow.miniCleared  = safeNum(d.miniCleared);
+    if (d.miniTotal    != null) sessionRow.miniTotal    = safeNum(d.miniTotal);
+
     pushEvent(makeEventRow('quest', {
-      timeFromStartMs: Date.now() - sessionStartMs,
+      timeFromStartMs: tFromStart(),
       goalProgress: safeNum(d.goal?.prog),
       miniProgress: safeNum(d.mini?.prog),
       extra: d
@@ -419,6 +486,7 @@ export function initCloudLogger(opts = {}){
     sessionRow.comboMax   = safeNum(r.comboMax);
     sessionRow.misses     = safeNum(r.misses);
 
+    // 1) ถ้า engine ส่ง r.stats มา ใช้ก่อน
     if (r.stats){
       sessionRow.goalsCleared = safeNum(r.stats.goalsCleared);
       sessionRow.goalsTotal   = safeNum(r.stats.goalsTotal);
@@ -426,10 +494,19 @@ export function initCloudLogger(opts = {}){
       sessionRow.miniTotal    = safeNum(r.stats.miniTotal);
 
       if (r.stats.accuracyGoodPct != null) sessionRow.accuracyGoodPct = safeNum(r.stats.accuracyGoodPct);
-      if (r.stats.junkErrorPct != null) sessionRow.junkErrorPct = safeNum(r.stats.junkErrorPct);
-      if (r.stats.avgRtGoodMs != null) sessionRow.avgRtGoodMs = safeNum(r.stats.avgRtGoodMs);
-      if (r.stats.medianRtGoodMs != null) sessionRow.medianRtGoodMs = safeNum(r.stats.medianRtGoodMs);
-      if (r.stats.fastHitRatePct != null) sessionRow.fastHitRatePct = safeNum(r.stats.fastHitRatePct);
+      if (r.stats.junkErrorPct    != null) sessionRow.junkErrorPct    = safeNum(r.stats.junkErrorPct);
+      if (r.stats.avgRtGoodMs     != null) sessionRow.avgRtGoodMs     = safeNum(r.stats.avgRtGoodMs);
+      if (r.stats.medianRtGoodMs  != null) sessionRow.medianRtGoodMs  = safeNum(r.stats.medianRtGoodMs);
+      if (r.stats.fastHitRatePct  != null) sessionRow.fastHitRatePct  = safeNum(r.stats.fastHitRatePct);
+    }
+
+    // 2) ✅ fallback: ถ้า stats ว่าง ให้ใช้ lastStat ที่สะสมจาก hha:stat
+    if (!r.stats && lastStat){
+      applyStatToSession(lastStat);
+    } else if (r.stats && lastStat){
+      // เติมช่องที่ยัง null ด้วย lastStat (กันหลุดบางฟิลด์)
+      const merged = { ...lastStat, ...r.stats };
+      applyStatToSession(merged);
     }
 
     pushEvent(makeEventRow('end', {
