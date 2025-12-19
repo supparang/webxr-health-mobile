@@ -43,7 +43,7 @@
       overflow:hidden;
     }
 
-    /* ===== Water bar (sticky top) ===== */
+    /* ===== Water bar ===== */
     .hha-water-bar{
       background:linear-gradient(135deg,#020617,#020617);
       border-radius:999px;
@@ -236,8 +236,10 @@
       top:0; bottom:0;
       z-index:30;
       overflow:hidden;
-      transform:translate(0px,0px);
-      pointer-events:none; /* ให้เป้ารับเอง */
+
+      /* ✅ สำคัญ: ต้องรับ pointer เพื่อให้ drag-to-look ของ hydration.safe.js ทำงาน */
+      pointer-events:auto;
+      touch-action:pan-x pan-y; /* ให้ลากได้ลื่น (ไม่ต้อง scroll อยู่แล้ว) */
     }
     .hvr-target{
       pointer-events:auto;
@@ -274,7 +276,7 @@
         0 10px 24px rgba(0,0,0,0.85);
     }
 
-    /* ===== Crosshair fixed ===== */
+    /* ===== Crosshair ===== */
     .hvr-crosshair{
       position:absolute;
       left:50%;
@@ -302,12 +304,14 @@
       100%{ transform:translate(-50%,-50%) scale(1); }
     }
 
-    /* ===== Coach (optional) ===== */
+    /* ===== Coach ===== */
     .hha-coach-wrap{
       margin-top:auto;
       z-index:40;
+      pointer-events:none;
     }
     .hha-coach-bubble{
+      pointer-events:auto;
       display:flex;
       gap:10px;
       padding:10px 12px;
@@ -332,7 +336,7 @@
     .hha-coach-text{ font-size:14px; line-height:1.45; }
     .hha-coach-name{ font-weight:700; margin-bottom:2px; }
 
-    /* ===== Bottom row (fever + VR button) ===== */
+    /* ===== Bottom row ===== */
     .hha-bottom-row{
       position:absolute;
       left:0; right:0; bottom:0;
@@ -486,7 +490,6 @@
             เกรด (REAL-TIME)
             <span class="badge" id="hha-grade-badge">C</span>
 
-            <!-- ✅ Progress to S -->
             <div class="hha-grade-progress">
               <span id="hha-grade-progress-text">Progress to S: 0%</span>
               <span class="bar"><div id="hha-grade-progress-fill"></div></span>
@@ -511,7 +514,7 @@
       </article>
     </section>
 
-    <!-- ✅ Playfield (targets spawn here) -->
+    <!-- ✅ Playfield -->
     <main id="hvr-playfield" aria-hidden="false"></main>
 
     <!-- ✅ Crosshair -->
@@ -524,7 +527,7 @@
         <div class="hha-coach-text">
           <div class="hha-coach-name">โค้ช</div>
           <div id="hha-coach-text">
-            แตะ/ยิงที่วงเล็ง ○ เก็บน้ำดี 💧 แล้วเลี่ยงน้ำหวาน 🥤 รักษา GREEN!
+            ลากจอเพื่อมองหาเป้า 👀 แตะปล่อยเพื่อยิง ○ เก็บน้ำดี 💧 เลี่ยงน้ำหวาน 🥤 รักษา GREEN!
           </div>
         </div>
       </div>
@@ -562,6 +565,39 @@
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
   <script src="./vr/hha-hud.js"></script>
+
+  <!-- ✅ Judge feedback: blink + vibrate (ตาม GOOD/JUNK/BLOCK/MISS) -->
+  <script>
+  (function(){
+    'use strict';
+    const $ = (id)=>document.getElementById(id);
+
+    function vibrate(p){ try{ if (navigator && navigator.vibrate) navigator.vibrate(p); }catch{} }
+
+    function blink(kind){
+      const el = $('hvr-screen-blink');
+      if (!el) return;
+      el.classList.remove('good','bad','block','on');
+      el.classList.add(kind || 'good');
+      void el.offsetWidth;
+      el.classList.add('on');
+      setTimeout(()=> el.classList.remove('on'), 90);
+    }
+
+    window.addEventListener('hha:judge', (e)=>{
+      const lb = String(e && e.detail && e.detail.label || '').toUpperCase();
+      if (!lb) return;
+
+      if (lb === 'GOOD' || lb === 'POWER' || lb === 'SHIELD+' || lb === 'TIME+') {
+        blink('good'); vibrate(12);
+      } else if (lb === 'BLOCK') {
+        blink('block'); vibrate([12,20,12]);
+      } else if (lb === 'JUNK' || lb === 'MISS') {
+        blink('bad'); vibrate([18,28,18]);
+      }
+    }, { passive:true });
+  })();
+  </script>
 
   <!-- ===== Boot Hydration VR (module) ===== -->
   <script type="module">
@@ -601,7 +637,7 @@
     }
 
     function vibrate(pattern){
-      try{ if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(pattern); }catch{}
+      try{ if (navigator && navigator.vibrate) navigator.vibrate(pattern); }catch{}
     }
 
     function ping(){
@@ -612,7 +648,7 @@
       c.classList.add('ping');
     }
 
-    // ยิงตาม crosshair จริง ด้วย elementFromPoint (สำหรับคลิกเล่นเหมือน VR)
+    // element under crosshair
     function elementAtCrosshair(){
       const c = $('hvr-crosshair');
       if(!c) return null;
@@ -641,7 +677,6 @@
         return;
       }
 
-      // ยิงแบบ “pointerdown” ให้ handler ใน mode-factory ทำงานครบ
       try{
         tgt.dispatchEvent(new PointerEvent('pointerdown', {
           bubbles:true,
@@ -654,14 +689,40 @@
       }
     }
 
-    // แตะจอที่ไหนก็ยิงจาก crosshair (เหมือน VR)
+    // ✅ Tap-to-shoot (ไม่ยิงตอนลาก) เพื่อให้ drag-to-look ทำงานร่วมกันได้
     function bindCrosshairControls(){
+      let downX=0, downY=0, downT=0, moved=false;
+
       document.addEventListener('pointerdown', (e)=>{
-        // ถ้าแตะโดนเป้าจริง ๆ → ปล่อยให้ระบบเดิมนับ hit ตามปกติ
+        // ถ้าแตะโดนเป้า → ปล่อยให้เป้าทำงานเอง
         const t = e.target && e.target.closest ? e.target.closest('.hvr-target') : null;
         if (t) return;
 
         // กันคลิกปุ่ม
+        if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr')) return;
+
+        moved = false;
+        downX = e.clientX || 0;
+        downY = e.clientY || 0;
+        downT = performance.now();
+      }, { passive:true });
+
+      document.addEventListener('pointermove', (e)=>{
+        if (!downT) return;
+        const dx = (e.clientX||0) - downX;
+        const dy = (e.clientY||0) - downY;
+        if ((dx*dx + dy*dy) > 64) moved = true; // >8px ถือว่าลาก
+      }, { passive:true });
+
+      document.addEventListener('pointerup', (e)=>{
+        if (!downT) return;
+        const dt = performance.now() - downT;
+        const wasTap = (!moved && dt < 250);
+
+        downT = 0;
+
+        if (!wasTap) return; // ลาก = look, ไม่ยิง
+        // กันปล่อยบนปุ่ม
         if (e.target && e.target.closest && e.target.closest('a,button,.hha-btn-vr')) return;
 
         fire();
