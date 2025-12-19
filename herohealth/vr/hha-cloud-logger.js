@@ -4,10 +4,11 @@
 // - collects: sessions[1], events[*], studentsProfile[0..1] (upsert on server)
 // - emits: hha:logger { ok:boolean, msg:string }
 //
-// ✅ PATCH (full):
-// 1) รองรับ durationPlannedSec จาก opts.durationSec ด้วย
-// 2) ฟัง hha:questStats เพื่อเติม goalsCleared/goalsTotal/miniCleared/miniTotal แบบ real-time
-// 3) กัน bind listener ซ้ำ (bindOnce) แต่ยัง re-init session ได้ทุกครั้ง
+// ✅ PATCH (ครบชุด):
+// 1) durationPlannedSec รองรับ opts.durationSec ด้วย
+// 2) กัน bind ซ้ำ (handlers bind ครั้งเดียว แต่ทำงานกับ sessionRow ชุดล่าสุด)
+// 3) รองรับ hha:questStats เพื่อเติม goalsCleared/goalsTotal/miniCleared/miniTotal ก่อน end
+// 4) fetch fallback ใช้ Content-Type text/plain เพื่อลดปัญหา preflight/CORS
 
 'use strict';
 
@@ -29,8 +30,13 @@ let profileRow = null;
 
 let lastScoreLogAt = 0;
 
-// ---- bind guard ----
-let __BOUND__ = false;
+// เก็บ rt good เพื่อคำนวณถ้า engine ไม่ส่ง stats มา
+let _rtGood = [];
+let _rtGoodFast = 0;
+const FAST_RT_MS = 350;
+
+// bind once
+let _BOUND = false;
 
 function isoNow(){ return new Date().toISOString(); }
 function uuid(){
@@ -49,7 +55,6 @@ function safeNum(v){ v = Number(v); return Number.isFinite(v) ? v : null; }
 function safeStr(v){ return (v==null) ? '' : String(v); }
 
 function flattenProfile(profile){
-  // profile จาก Hub อาจมีไม่ครบ ให้ส่งคอลัมน์เท่าที่มี
   const p = profile || {};
   return {
     studentKey: safeStr(p.studentKey || ''),
@@ -97,13 +102,10 @@ function baseResearchMeta(meta){
 }
 
 function deviceLabel(){
-  // จะเก็บเป็น string ง่าย ๆ ในคอลัมน์ device
-  // (อาจารย์จะวิเคราะห์ทีหลังได้)
   return safeStr(navigator.userAgent || '');
 }
 
 function packPayload(final=false){
-  // จำกัด event กัน payload ใหญ่
   const events = eventQueue.splice(0, 800);
   return {
     projectTag: CONFIG.projectTag,
@@ -127,12 +129,13 @@ async function send(payload){
     }
   }
 
-  // fallback: Apps Script บางครั้งต้อง no-cors
+  // ✅ no-cors ลดปัญหา preflight: ใช้ text/plain
   await fetch(CONFIG.endpoint, {
     method:'POST',
     mode:'no-cors',
-    headers:{ 'Content-Type':'application/json' },
-    body
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body,
+    keepalive: true
   });
 
   emitLogger(true, payload.final ? 'logger: sent(final/no-cors)' : 'logger: sent(no-cors)');
@@ -198,17 +201,30 @@ function makeEventRow(eventType, detail){
   };
 }
 
-// ===== bind once (กัน event ซ้ำ) =====
+function median(arr){
+  if (!arr || !arr.length) return null;
+  const a = arr.slice().sort((x,y)=>x-y);
+  const mid = Math.floor(a.length/2);
+  return (a.length%2) ? a[mid] : Math.round((a[mid-1]+a[mid])/2);
+}
+
+function avg(arr){
+  if (!arr || !arr.length) return null;
+  const s = arr.reduce((p,c)=>p+c,0);
+  return Math.round(s / arr.length);
+}
+
 function bindOnce(){
-  if (__BOUND__) return;
-  __BOUND__ = true;
+  if (_BOUND) return;
+  _BOUND = true;
 
   // ---------- listeners from all games ----------
   window.addEventListener('hha:spawn', (e)=>{
     const d = e.detail || {};
+
     // นับ spawn ใน sessionRow
-    if (d.itemType === 'good') sessionRow.nTargetGoodSpawned++;
-    else if (d.itemType === 'junk') sessionRow.nTargetJunkSpawned++;
+    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nTargetGoodSpawned++;
+    else if (d.itemType === 'junk' || d.itemType === 'fake') sessionRow.nTargetJunkSpawned++;
     else if (d.itemType === 'star') sessionRow.nTargetStarSpawned++;
     else if (d.itemType === 'diamond') sessionRow.nTargetDiamondSpawned++;
     else if (d.itemType === 'shield') sessionRow.nTargetShieldSpawned++;
@@ -218,8 +234,15 @@ function bindOnce(){
 
   window.addEventListener('hha:hit', (e)=>{
     const d = e.detail || {};
-    if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nHitGood++;
-    if (d.itemType === 'junk') sessionRow.nHitJunk++;
+
+    if (d.itemType === 'good' || d.itemType === 'gold'){
+      sessionRow.nHitGood++;
+      if (typeof d.rtMs === 'number'){
+        _rtGood.push(d.rtMs);
+        if (d.rtMs <= FAST_RT_MS) _rtGoodFast++;
+      }
+    }
+    if (d.itemType === 'junk' || d.itemType === 'fake') sessionRow.nHitJunk++;
 
     pushEvent(makeEventRow('hit', d));
   });
@@ -234,6 +257,15 @@ function bindOnce(){
     const d = e.detail || {};
     if (d.itemType === 'good' || d.itemType === 'gold') sessionRow.nExpireGood++;
     pushEvent(makeEventRow('expire', d));
+  });
+
+  // ✅ เติม goals/minis ให้ทันก่อน end
+  window.addEventListener('hha:questStats', (e)=>{
+    const d = e.detail || {};
+    if (d.goalsCleared != null) sessionRow.goalsCleared = safeNum(d.goalsCleared);
+    if (d.goalsTotal   != null) sessionRow.goalsTotal   = safeNum(d.goalsTotal);
+    if (d.miniCleared  != null) sessionRow.miniCleared  = safeNum(d.miniCleared);
+    if (d.miniTotal    != null) sessionRow.miniTotal    = safeNum(d.miniTotal);
   });
 
   // hha:score (throttle) — เผื่อ debug/monitor
@@ -260,22 +292,6 @@ function bindOnce(){
     }));
   });
 
-  // ✅ NEW: questStats -> เติม sessions columns แบบ real-time
-  window.addEventListener('hha:questStats', (e)=>{
-    const s = (e && e.detail) || {};
-    if (s.goalsCleared != null) sessionRow.goalsCleared = safeNum(s.goalsCleared);
-    if (s.goalsTotal   != null) sessionRow.goalsTotal   = safeNum(s.goalsTotal);
-    if (s.miniCleared  != null) sessionRow.miniCleared  = safeNum(s.miniCleared);
-    if (s.miniTotal    != null) sessionRow.miniTotal    = safeNum(s.miniTotal);
-
-    pushEvent(makeEventRow('questStats', {
-      timeFromStartMs: Date.now() - sessionStartMs,
-      goalProgress: sessionRow.goalsCleared,
-      miniProgress: sessionRow.miniCleared,
-      extra: { ...s }
-    }));
-  });
-
   window.addEventListener('hha:end', (e)=>{
     const endTs = Date.now();
     const endIso = isoNow();
@@ -295,19 +311,25 @@ function bindOnce(){
     sessionRow.comboMax = safeNum(r.comboMax);
     sessionRow.misses = safeNum(r.misses);
 
-    // ถ้าเกมส่ง goals/minis ผ่าน r.stats ให้เติม (overwrite ได้)
+    // ✅ ถ้า engine ส่ง stats มา -> เติมลง sessions
     if (r.stats){
-      sessionRow.goalsCleared = safeNum(r.stats.goalsCleared);
-      sessionRow.goalsTotal   = safeNum(r.stats.goalsTotal);
-      sessionRow.miniCleared  = safeNum(r.stats.miniCleared);
-      sessionRow.miniTotal    = safeNum(r.stats.miniTotal);
+      if (r.stats.goalsCleared != null) sessionRow.goalsCleared = safeNum(r.stats.goalsCleared);
+      if (r.stats.goalsTotal   != null) sessionRow.goalsTotal   = safeNum(r.stats.goalsTotal);
+      if (r.stats.miniCleared  != null) sessionRow.miniCleared  = safeNum(r.stats.miniCleared);
+      if (r.stats.miniTotal    != null) sessionRow.miniTotal    = safeNum(r.stats.miniTotal);
 
-      // สถิติ accuracy / rt / fastHitRate ฯลฯ ถ้า engine คำนวณมาแล้ว
       if (r.stats.accuracyGoodPct != null) sessionRow.accuracyGoodPct = safeNum(r.stats.accuracyGoodPct);
-      if (r.stats.junkErrorPct != null) sessionRow.junkErrorPct = safeNum(r.stats.junkErrorPct);
-      if (r.stats.avgRtGoodMs != null) sessionRow.avgRtGoodMs = safeNum(r.stats.avgRtGoodMs);
-      if (r.stats.medianRtGoodMs != null) sessionRow.medianRtGoodMs = safeNum(r.stats.medianRtGoodMs);
-      if (r.stats.fastHitRatePct != null) sessionRow.fastHitRatePct = safeNum(r.stats.fastHitRatePct);
+      if (r.stats.junkErrorPct    != null) sessionRow.junkErrorPct    = safeNum(r.stats.junkErrorPct);
+      if (r.stats.avgRtGoodMs     != null) sessionRow.avgRtGoodMs     = safeNum(r.stats.avgRtGoodMs);
+      if (r.stats.medianRtGoodMs  != null) sessionRow.medianRtGoodMs  = safeNum(r.stats.medianRtGoodMs);
+      if (r.stats.fastHitRatePct  != null) sessionRow.fastHitRatePct  = safeNum(r.stats.fastHitRatePct);
+    }
+
+    // ✅ ถ้า engine ไม่ส่ง rt มาเลย -> คำนวณจาก rtGood ที่สะสมไว้
+    if (sessionRow.avgRtGoodMs == null && _rtGood.length){
+      sessionRow.avgRtGoodMs = avg(_rtGood);
+      sessionRow.medianRtGoodMs = median(_rtGood);
+      sessionRow.fastHitRatePct = Math.round((_rtGoodFast / Math.max(1, _rtGood.length)) * 100);
     }
 
     pushEvent(makeEventRow('end', {
@@ -329,8 +351,9 @@ export function initCloudLogger(opts = {}){
     gameVersion: opts.gameVersion || 'v0'
   };
 
-  // ✅ bind listeners only once (but re-init state every time)
-  bindOnce();
+  // reset per-session accumulators
+  _rtGood = [];
+  _rtGoodFast = 0;
 
   sessionId = uuid();
   sessionStartMs = Date.now();
@@ -340,6 +363,11 @@ export function initCloudLogger(opts = {}){
   const profile = opts.profile || null;
   const prof = flattenProfile(profile);
   const meta = baseResearchMeta(opts.researchMeta || {});
+
+  const planned =
+    (opts.durationPlannedSec != null) ? opts.durationPlannedSec :
+    (opts.durationSec != null) ? opts.durationSec :
+    null;
 
   // --- sessions row (ให้ครบตามชีตของอาจารย์) ---
   sessionRow = {
@@ -352,9 +380,7 @@ export function initCloudLogger(opts = {}){
     sessionId,
     gameMode: safeStr(opts.mode || opts.gameMode || ''),
     diff: safeStr(opts.diff || ''),
-
-    // ✅ PATCH: รองรับ durationPlannedSec จาก durationSec ด้วย
-    durationPlannedSec: safeNum(opts.durationPlannedSec ?? opts.durationSec),
+    durationPlannedSec: safeNum(planned),
     durationPlayedSec: null,
 
     scoreFinal: null,
@@ -365,7 +391,7 @@ export function initCloudLogger(opts = {}){
     miniCleared: null,
     miniTotal: null,
 
-    // counters — ให้เกมยิง hha:spawn/hha:hit/hha:block/hha:expire
+    // counters
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
     nTargetStarSpawned: 0,
@@ -375,7 +401,6 @@ export function initCloudLogger(opts = {}){
     nHitJunk: 0,
     nHitJunkGuard: 0,
     nExpireGood: 0,
-
     accuracyGoodPct: null,
     junkErrorPct: null,
     avgRtGoodMs: null,
@@ -418,9 +443,8 @@ export function initCloudLogger(opts = {}){
 
   // --- students-profile row (upsert server) ---
   if (prof.studentKey){
-    const nowIso = isoNow();
     profileRow = {
-      timestampIso: nowIso,
+      timestampIso: isoNow(),
       projectTag: CONFIG.projectTag,
       runMode,
       studentKey: prof.studentKey,
@@ -443,17 +467,18 @@ export function initCloudLogger(opts = {}){
       healthDetail: prof.healthDetail,
       consentParent: prof.consentParent,
       consentTeacher: prof.consentTeacher,
-      createdAtIso: nowIso,
-      updatedAtIso: nowIso,
+      createdAtIso: isoNow(),
+      updatedAtIso: isoNow(),
       source: prof.profileSource || 'hub'
     };
   } else {
     profileRow = null;
   }
 
+  bindOnce();
   emitLogger(true, 'logger: ready');
 
-  // ส่ง start 1 event (ของ session นี้)
+  // ส่ง start 1 event
   pushEvent(makeEventRow('start', { timeFromStartMs: 0, extra:{ startedAtIso: sessionStartIso }}));
   flush(false);
 }
