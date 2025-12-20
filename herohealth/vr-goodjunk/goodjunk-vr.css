@@ -345,3 +345,12 @@ select{
 .dot{ width:8px; height:8px; border-radius:999px; background:#9ca3af; }
 .dot.ok{ background:#22c55e; }
 .dot.bad{ background:#ef4444; }
+.hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
+.fever-row{ display:flex; align-items:center; gap:8px; }
+.fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
+.fever-bar{ width:140px; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(148,163,184,0.18); }
+.fever-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.95)); transition:width .16s ease-out; }
+.fever-pct{ font-size:10px; color:#fde68a; font-weight:900; min-width:42px; text-align:right; }
+.shield-row{ display:flex; align-items:center; gap:6px; }
+.shield-label{ font-size:12px; }
+.shield-count{ font-weight:950; color:#93c5fd; }
