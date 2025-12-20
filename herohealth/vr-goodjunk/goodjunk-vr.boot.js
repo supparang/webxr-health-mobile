@@ -1,14 +1,15 @@
-// === /herohealth/vr/goodjunk-vr.boot.js ===
+// === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
-import { initCloudLogger } from './hha-cloud-logger.js';
+import { attachTouchLook } from './touch-look-goodjunk.js';
+import { initCloudLogger } from '../vr/hha-cloud-logger.js';
 
-import { attachTouchLook } from '../vr-goodjunk/touch-look-goodjunk.js';
-import { makeQuestDirector } from '../vr-goodjunk/quest-director.js';
-import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodjunk.js';
+import { makeQuestDirector } from './quest-director.js';
+import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
 (function () {
   'use strict';
 
+  // bfcache fix
   window.addEventListener('pageshow', (e)=>{
     if (e.persisted) window.location.reload();
   });
@@ -17,7 +18,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){} };
   const safeStyleWidth = (el, w)=>{ try{ if (el) el.style.width = w; }catch(_){} };
 
-  // HUD
+  // HUD elements
   const elScore = $('hud-score');
   const elCombo = $('hud-combo');
   const elMiss  = $('hud-miss');
@@ -57,11 +58,11 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
   const logDot  = $('logdot');
   const logText = $('logtext');
 
-  // URL params
+  // URL params from hub
   const pageUrl = new window.URL(window.location.href);
-  const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();
-  const URL_DIFF = (pageUrl.searchParams.get('diff') || 'normal').toLowerCase();
-  const URL_CH = (pageUrl.searchParams.get('ch') || pageUrl.searchParams.get('challenge') || 'rush').toLowerCase();
+  const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();                 // play | research
+  const URL_DIFF = (pageUrl.searchParams.get('diff') || 'normal').toLowerCase();            // easy | normal | hard
+  const URL_CH = (pageUrl.searchParams.get('ch') || pageUrl.searchParams.get('challenge') || 'rush').toLowerCase(); // rush|boss|survival
   const URL_TIME_RAW = parseInt(pageUrl.searchParams.get('time') || '', 10);
 
   const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
@@ -78,7 +79,8 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
     20, 180
   );
 
-  // Coach images (อยู่ใน /herohealth/img ตามที่คุณตั้งชื่อไว้)
+  // ✅ Coach images (HTML ของคุณใส่ ./img/... ซึ่งผิดโฟลเดอร์)
+  // โฟลเดอร์จริงคือ /herohealth/img → จาก /vr-goodjunk ต้องใช้ ../img/...
   const COACH_IMG = {
     neutral: '../img/coach-neutral.png',
     happy:   '../img/coach-happy.png',
@@ -99,26 +101,34 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
     lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), 4200);
   }
 
-  // ---------- FX (Particles from /vr/particles.js IIFE) ----------
+  // ---------- FX helper ----------
   function getParticles(){
     return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
   }
-  function fxAt(detail, fallbackY=0.55){
+  function posFromDetail(detail){
+    // ถ้า engine ส่ง x/y มา จะใช้
     const x = (detail && typeof detail.x === 'number') ? detail.x : (window.innerWidth * 0.5);
-    const y = (detail && typeof detail.y === 'number') ? detail.y : (window.innerHeight * fallbackY);
+    const y = (detail && typeof detail.y === 'number') ? detail.y : (window.innerHeight * 0.55);
     return { x, y };
   }
-  function fxGood(detail, label='GOOD!'){
-    const P = getParticles(); if (!P) return;
-    const { x, y } = fxAt(detail, 0.55);
-    try{ P.burstAt && P.burstAt(x, y, { count: 14, good: true }); }catch(_){}
-    try{ P.scorePop && P.scorePop(x, y, '', label, { plain:true }); }catch(_){}
+  function fxBurst(detail, good=true, count=14){
+    const P = getParticles(); if (!P || !P.burstAt) return;
+    const { x, y } = posFromDetail(detail);
+    try{ P.burstAt(x, y, { count, good: !!good }); }catch(_){}
   }
-  function fxBad(detail, label='MISS!'){
-    const P = getParticles(); if (!P) return;
-    const { x, y } = fxAt(detail, 0.55);
-    try{ P.burstAt && P.burstAt(x, y, { count: 12, good: false }); }catch(_){}
-    try{ P.scorePop && P.scorePop(x, y, '', label, { plain:true }); }catch(_){}
+  function fxPop(detail, label, plain=true){
+    const P = getParticles(); if (!P || !P.scorePop) return;
+    const { x, y } = posFromDetail(detail);
+    try{ P.scorePop(x, y, '', String(label||''), { plain: !!plain }); }catch(_){}
+  }
+  function fxCelebrate(kind){
+    const P = getParticles(); if (!P || !P.celebrate) return;
+    try{
+      P.celebrate(kind, {
+        title: kind === 'goal' ? '🎉 GOAL CLEARED!' : '✨ MINI CLEARED!',
+        sub: 'ไปต่อเลย! 🌟'
+      });
+    }catch(_){}
   }
 
   function runCountdown(onDone){
@@ -133,7 +143,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
         clearInterval(t);
         elCountdown.classList.add('countdown-hidden');
         onDone && onDone();
-      } else {
+      }else{
         safeText(elCountdown, steps[idx]);
       }
     }, 650);
@@ -221,22 +231,98 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
     return !!(p.studentId || p.name || p.nickName || p.studentNo);
   }
 
-  // Quest state
+  // Quest state shared with QuestDirector
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
-    streakGood:0, blocks:0, usedMagnet:false, timePlus:0,
-    safeNoJunkSeconds:0, bossCleared:false,
-    challenge: CH_INIT, runMode: RUN_MODE
+    streakGood:0,
+    goldHits:0,
+    goldHitsThisMini:false,
+    blocks:0,
+    usedMagnet:false,
+    timePlus:0,
+    safeNoJunkSeconds:0,
+    bossCleared:false,
+    challenge: CH_INIT,
+    runMode: RUN_MODE,
+    final8Good: 0
   };
 
+  // mini reset
+  window.addEventListener('quest:miniStart', ()=>{
+    qState.goldHitsThisMini = false;
+    qState.usedMagnet = false;
+    qState.timePlus = 0;
+    qState.blocks = 0;
+    qState.safeNoJunkSeconds = 0;
+    qState.streakGood = 0;
+  });
+
+  // safeNoJunkSeconds tick
   let started = false;
+  setInterval(()=>{
+    if (!started) return;
+    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
+  }, 1000);
+
   let Q = null;
+
+  // --------- เอฟเฟกต์: ฟัง event แล้วยิง FX ---------
+  window.addEventListener('quest:goodHit', (e)=>{
+    const d = e.detail || {};
+    const isPerfect = String(d.judgment||'').toLowerCase().includes('perfect');
+    fxBurst(d, true, isPerfect ? 18 : 14);
+    fxPop(d, isPerfect ? 'PERFECT!' : 'GOOD!');
+    if (Q){
+      Q.onEvent(isPerfect ? 'perfectHit' : 'goodHit', qState);
+    }
+  });
+
+  window.addEventListener('quest:badHit', (e)=>{
+    const d = e.detail || {};
+    fxBurst(d, false, 14);
+    fxPop(d, 'JUNK!');
+    qState.safeNoJunkSeconds = 0;
+    qState.streakGood = 0;
+    if (Q) Q.onEvent('junkHit', qState);
+  });
+
+  window.addEventListener('quest:block', (e)=>{
+    const d = e.detail || {};
+    qState.blocks = (qState.blocks|0) + 1;
+    fxBurst(d, true, 10);
+    fxPop(d, 'BLOCK!');
+    if (Q) Q.onEvent('shieldBlock', qState);
+  });
+
+  window.addEventListener('quest:power', (e)=>{
+    const d = e.detail || {};
+    const p = (d.power||'');
+    if (p === 'magnet') qState.usedMagnet = true;
+    if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
+    fxBurst(d, true, 12);
+    fxPop(d, String(p||'POWER').toUpperCase() + '!');
+    if (Q) Q.onEvent('power', qState);
+  });
+
+  window.addEventListener('quest:bossClear', ()=>{
+    qState.bossCleared = true;
+    fxPop({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, 'BOSS CLEAR!');
+    fxBurst({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, true, 22);
+    if (Q) Q.onEvent('bossClear', qState);
+  });
+
+  window.addEventListener('quest:cleared', (e)=>{
+    const d = e.detail || {};
+    const kind = String(d.kind||'').toLowerCase();
+    if (kind.includes('goal')) fxCelebrate('goal');
+    else fxCelebrate('mini');
+    setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
+  });
 
   // HUD listeners
   window.addEventListener('hha:judge', (e)=>{
     const label = (e.detail||{}).label || '';
     safeText(elJudge, label || '\u00A0');
-    if (String(label).toLowerCase().includes('perfect')) fxGood(e.detail, 'PERFECT!');
   });
 
   window.addEventListener('hha:time', (e)=>{
@@ -244,6 +330,9 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
     if (typeof sec === 'number' && sec >= 0){
       safeText(elTime, sec + 's');
       qState.timeLeft = sec|0;
+
+      if (qState.timeLeft <= 8) qState.final8Good = (qState.final8Good|0);
+
       if (Q) Q.tick(qState);
     }
   });
@@ -258,43 +347,14 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
     if (Q) Q.tick(qState);
   });
 
-  // ✅ FX from quest events
-  window.addEventListener('quest:goodHit', (e)=>{
-    const d = e.detail || {};
-    const isPerfect = String(d.judgment||'').toLowerCase().includes('perfect');
-    fxGood(d, isPerfect ? 'PERFECT!' : 'GOOD!');
-    if (Q) Q.onEvent(isPerfect ? 'perfectHit' : 'goodHit', qState);
-  });
-
-  window.addEventListener('quest:badHit', (e)=>{
-    const d = e.detail || {};
-    fxBad(d, 'JUNK!');
-    if (Q) Q.onEvent('junkHit', qState);
-  });
-
-  window.addEventListener('quest:block', (e)=>{
-    const d = e.detail || {};
-    qState.blocks = (qState.blocks|0) + 1;
-    fxGood(d, 'BLOCK!');
-    if (Q) Q.onEvent('shieldBlock', qState);
-  });
-
-  window.addEventListener('quest:power', (e)=>{
-    const d = e.detail || {};
-    const p = d.power;
-    if (p === 'magnet') qState.usedMagnet = true;
-    if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
-    fxGood(d, (p||'POWER').toUpperCase() + '!');
-    if (Q) Q.onEvent('power', qState);
-  });
-
-  // quest:update (ของคุณเดิม)
+  // quest:update (schema ใหม่)
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
     const mini = d.mini || null;
     const meta = d.meta || {};
 
+    // goal
     if (goal){
       const cur = (goal.cur|0);
       const max = (goal.max|0);
@@ -308,6 +368,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
       safeText(elQuestMainCap, '');
     }
 
+    // mini
     if (mini){
       const cur = (mini.cur|0);
       const max = (mini.max|0);
@@ -327,6 +388,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
       safeText(elQuestMiniCap, '');
     }
 
+    // hint
     let hint = '';
     if (goal && String(goal.state||'').toLowerCase().includes('clear')) hint = 'GOAL CLEAR! 🎉';
     else if (mini && String(mini.state||'').toLowerCase().includes('clear')) hint = 'MINI CLEAR! ✨';
@@ -355,10 +417,13 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
   function prefillFromHub(){
     try{ selDiff.value = DIFF_INIT; }catch(_){}
     try{ selChallenge.value = CH_INIT; }catch(_){}
+
     applyRunPill();
+
     safeText(elDiff, DIFF_INIT.toUpperCase());
     safeText(elChal, CH_INIT.toUpperCase());
     safeText(elTime, DUR_INIT + 's');
+
     setCoachFace('neutral');
 
     const endpoint = sessionStorage.getItem('HHA_LOG_ENDPOINT');
@@ -369,6 +434,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
   async function bootOnce({ wantVR }){
     if (started) return;
 
+    // research gate
     if (RUN_MODE === 'research'){
       const { studentProfile } = getProfile();
       if (!hasProfile(studentProfile)){
@@ -385,6 +451,9 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
     const chal = normCh(selChallenge?.value || CH_INIT);
     const durationSec = clamp(DUR_INIT, 20, 180);
 
+    qState.challenge = chal;
+    qState.runMode = RUN_MODE;
+
     safeText(elDiff, diff.toUpperCase());
     safeText(elChal, chal.toUpperCase());
     safeText(elTime, durationSec + 's');
@@ -396,8 +465,10 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
 
     setCoach('แตะของดี! หลบ junk! ไปเลย! ⚡', 'neutral');
 
+    // profile from hub
     const { studentProfile, studentKey } = getProfile();
 
+    // logger endpoint + fallback
     const endpoint =
       sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
       'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
@@ -441,7 +512,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
         try{
           if (wantVR) await tryEnterVR();
 
-          const ENGINE = await goodjunkBoot({
+          const ENGINE = goodjunkBoot({
             diff,
             run: RUN_MODE,
             challenge: chal,
@@ -452,11 +523,16 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from '../vr-goodjunk/quest-defs-goodju
           if (!ENGINE) throw new Error('ENGINE is null (goodjunkBoot failed)');
           window.__GJ_ENGINE__ = ENGINE;
 
-          // kick quest UI
+          // กันกรณี particles ยังไม่ขึ้น
+          if (!getParticles()) {
+            console.warn('[GoodJunkVR] Particles not found (did you load ../vr/particles.js before this module?)');
+          }
+
+          // ปลุก HUD
           try{ Q && Q.tick && Q.tick(qState); }catch(_){}
         }catch(err){
           console.error('[GoodJunkVR] boot failed:', err);
-          alert('เข้าเกมไม่สำเร็จ: engine โหลดไม่ผ่าน\nดู Console เพื่อหา error บรรทัดแรก');
+          alert('กด Start แล้วเข้าเกมไม่สำเร็จ\nดู Console: error บรรทัดแรก');
         }
       });
     });
