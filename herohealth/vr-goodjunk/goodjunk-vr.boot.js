@@ -227,34 +227,10 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
   let Q = null;
 
-  function getParticles(){
-    return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
-  }
-
-  function celebrateQuest(kind='mini'){
-    const P = getParticles();
-    if (P && P.celebrate){
-      P.celebrate(kind === 'goal' ? 'goal' : 'mini', {
-        title: kind === 'goal' ? '🎉 GOAL CLEARED!' : '✨ MINI CLEARED!',
-        sub: 'ไปต่อเลย! 🌟'
-      });
-    }
-    setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
-  }
-
-  function bigCelebrateAll(callback){
-    if (!elBigCelebrate){ callback && callback(); return; }
-    const P = getParticles();
-    P?.celebrate?.('ultra', { title:'💥 ALL QUESTS CLEAR!', sub:'สุดยอดมาก! ดูสรุปได้เลย 🎉' });
-    elBigCelebrate.classList.add('show');
-    setTimeout(()=>{ elBigCelebrate.classList.remove('show'); callback && callback(); }, 1200);
-  }
-
   window.addEventListener('hha:judge', (e)=>{
     const label = (e.detail||{}).label || '';
     safeText(elJudge, label || '\u00A0');
   });
-
   window.addEventListener('hha:time', (e)=>{
     const sec = (e.detail||{}).sec;
     if (typeof sec === 'number' && sec >= 0){
@@ -263,7 +239,6 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
       if (Q) Q.tick(qState);
     }
   });
-
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
@@ -272,101 +247,6 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
     if (typeof d.challenge === 'string'){ qState.challenge = normCh(d.challenge); }
     if (Q) Q.tick(qState);
-  });
-
-  window.addEventListener('quest:goodHit', (e)=>{
-    const d = e.detail || {};
-    if (d.type === 'gold'){
-      qState.goldHits++;
-      qState.goldHitsThisMini = true;
-    }
-    qState.streakGood = (qState.streakGood|0) + 1;
-    if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
-
-    if (Q){
-      const isPerfect = String(d.judgment||'').toLowerCase().includes('perfect');
-      Q.onEvent(isPerfect ? 'perfectHit' : 'goodHit', qState);
-    }
-  });
-
-  window.addEventListener('quest:badHit', ()=>{
-    qState.safeNoJunkSeconds = 0;
-    qState.streakGood = 0;
-    if (Q) Q.onEvent('junkHit', qState);
-  });
-
-  window.addEventListener('quest:block', ()=>{
-    qState.blocks = (qState.blocks|0) + 1;
-    if (Q) Q.onEvent('shieldBlock', qState);
-  });
-
-  window.addEventListener('quest:power', (e)=>{
-    const p = (e.detail||{}).power;
-    if (p === 'magnet') qState.usedMagnet = true;
-    if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
-    if (Q) Q.onEvent('power', qState);
-  });
-
-  window.addEventListener('quest:bossClear', ()=>{
-    qState.bossCleared = true;
-    if (Q) Q.onEvent('bossClear', qState);
-  });
-
-  window.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
-    const goal = d.goal || null;
-    const mini = d.mini || null;
-    const meta = d.meta || {};
-
-    if (goal){
-      const cur = (goal.cur|0);
-      const max = (goal.max|0);
-      const pct = Math.max(0, Math.min(1, Number(goal.pct ?? (max>0?cur/max:0))));
-      safeText(elQuestMain, goal.title || 'ภารกิจหลัก');
-      safeStyleWidth(elQuestMainBar, Math.round(pct*100) + '%');
-      safeText(elQuestMainCap, `${cur} / ${max}`);
-    } else {
-      safeText(elQuestMain, 'ภารกิจหลัก (ครบ) ✅');
-      safeStyleWidth(elQuestMainBar, '100%');
-      safeText(elQuestMainCap, '');
-    }
-
-    if (mini){
-      const cur = (mini.cur|0);
-      const max = (mini.max|0);
-      const pct = Math.max(0, Math.min(1, Number(mini.pct ?? (max>0?cur/max:0))));
-      safeText(elQuestMini, 'Mini: ' + (mini.title || ''));
-      safeStyleWidth(elQuestMiniBar, Math.round(pct*100) + '%');
-
-      if (typeof mini.timeLeft === 'number' && typeof mini.timeTotal === 'number' && mini.timeTotal > 0){
-        const secLeft = Math.max(0, mini.timeLeft/1000);
-        safeText(elQuestMiniCap, `เหลือ ${secLeft >= 10 ? Math.round(secLeft) : (Math.round(secLeft*10)/10)}s`);
-      } else {
-        safeText(elQuestMiniCap, `${cur} / ${max}`);
-      }
-    } else {
-      safeText(elQuestMini, 'Mini quest (ครบ) ✅');
-      safeStyleWidth(elQuestMiniBar, '100%');
-      safeText(elQuestMiniCap, '');
-    }
-
-    let hint = '';
-    if (goal && String(goal.state||'').toLowerCase().includes('clear')) hint = 'GOAL CLEAR! 🎉';
-    else if (mini && String(mini.state||'').toLowerCase().includes('clear')) hint = 'MINI CLEAR! ✨';
-    else if (goal && Number(goal.pct||0) >= 0.8) hint = 'ใกล้แล้ว! 🔥';
-    else if (mini && Number(mini.pct||0) >= 0.8) hint = 'อีกนิดเดียว! ⚡';
-    safeText(elQuestHint, hint);
-
-    const miniCount = (meta.miniCount|0);
-    const minisCleared = (Q && Q.getState) ? (Q.getState().minisCleared|0) : 0;
-    safeText(elMiniCount, `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`);
-  });
-
-  window.addEventListener('quest:cleared', (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind||'').toLowerCase();
-    if (kind.includes('goal')) celebrateQuest('goal');
-    else celebrateQuest('mini');
   });
 
   function applyRunPill(){
@@ -385,13 +265,11 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   function prefillFromHub(){
     try{ selDiff.value = DIFF_INIT; }catch(_){}
     try{ selChallenge.value = CH_INIT; }catch(_){}
-
     applyRunPill();
 
     safeText(elDiff, DIFF_INIT.toUpperCase());
     safeText(elChal, CH_INIT.toUpperCase());
     safeText(elTime, DUR_INIT + 's');
-
     setCoachFace('neutral');
 
     const endpoint = sessionStorage.getItem('HHA_LOG_ENDPOINT');
@@ -418,22 +296,16 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     const chal = normCh(selChallenge?.value || CH_INIT);
     const durationSec = clamp(DUR_INIT, 20, 180);
 
-    qState.challenge = chal;
-    qState.runMode = RUN_MODE;
-
     safeText(elDiff, diff.toUpperCase());
     safeText(elChal, chal.toUpperCase());
     safeText(elTime, durationSec + 's');
 
-    safeText(elScore, '0');
-    safeText(elCombo, '0');
-    safeText(elMiss,  '0');
+    safeText(elScore, '0'); safeText(elCombo, '0'); safeText(elMiss, '0');
     safeText(elJudge, '\u00A0');
 
     setCoach('แตะของดี! หลบ junk! ไปเลย! ⚡', 'neutral');
 
     const { studentProfile, studentKey } = getProfile();
-
     const endpoint =
       sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
       'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
@@ -472,75 +344,32 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
     runCountdown(()=>{
       waitSceneReady(async ()=>{
-        if (wantVR) await tryEnterVR();
+        try{
+          if (wantVR) await tryEnterVR();
 
-        // ✅ สำคัญ: await ให้แน่ใจว่า boot ทำงานครบก่อน
-        const ENGINE = await goodjunkBoot({
-          diff,
-          run: RUN_MODE,
-          challenge: chal,
-          time: durationSec,
-          layerEl: document.getElementById('gj-layer')
-        });
+          // ✅ สำคัญที่สุด
+          const ENGINE = await goodjunkBoot({
+            diff,
+            run: RUN_MODE,
+            challenge: chal,
+            time: durationSec,
+            layerEl: document.getElementById('gj-layer')
+          });
 
-        window.__GJ_ENGINE__ = ENGINE;
+          if (!ENGINE){
+            throw new Error('ENGINE is null (goodjunkBoot failed)');
+          }
 
-        try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+          window.__GJ_ENGINE__ = ENGINE;
+
+          try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+        }catch(err){
+          console.error('[GoodJunkVR] boot failed:', err);
+          alert('เข้าเกมไม่สำเร็จ: engine โหลดไม่ผ่าน\nดู Console เพื่อหา error บรรทัดแรก');
+        }
       });
     });
   }
-
-  window.addEventListener('hha:end', (e)=>{
-    const final = (e && e.detail) ? e.detail : {};
-    const qs = (Q && Q.getState) ? Q.getState() : {};
-
-    const goalsCleared = qs.goalsCleared|0;
-    const minisCleared = qs.minisCleared|0;
-    const goalsTotal = 2;
-    const allQuest = (goalsCleared >= goalsTotal);
-
-    const merged = {
-      projectTag: 'HeroHealth-GoodJunkVR',
-      mode: 'GoodJunkVR',
-      diff: final.diff || DIFF_INIT,
-      durationSec: final.durationSec || DUR_INIT,
-
-      score: final.scoreFinal ?? final.score ?? qState.score ?? 0,
-      grade: final.grade || 'A',
-
-      goalsCleared,
-      goalsTotal,
-      minisCleared,
-
-      perfect: final.perfect ?? 0,
-      good: final.good ?? qState.goodHits ?? 0,
-      miss: final.misses ?? final.miss ?? qState.miss ?? 0,
-
-      challenge: final.challenge || qState.challenge || CH_INIT,
-      runMode: final.runMode || RUN_MODE,
-
-      hubUrl: './hub.html',
-      restartUrl: window.location.href.split('#')[0],
-
-      logger: {
-        pending: !!loggerState.pending,
-        ok: !!loggerState.ok,
-        message: loggerState.message || ''
-      }
-    };
-
-    const show = ()=>{
-      if (window.HHA_Summary && typeof window.HHA_Summary.show === 'function') {
-        window.HHA_Summary.show(merged);
-      } else {
-        console.warn('[GoodJunkVR] HHA_Summary missing');
-      }
-      setCoach('จบเกมแล้ว! ดูสรุปคะแนนได้เลย 🎉', (merged.miss|0)<=3 ? 'happy' : 'neutral');
-    };
-
-    if (allQuest) bigCelebrateAll(show);
-    else show();
-  }, true);
 
   btnStart2D && btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
   btnStartVR && btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
