@@ -354,3 +354,19 @@ select{
 .shield-row{ display:flex; align-items:center; gap:6px; }
 .shield-label{ font-size:12px; }
 .shield-count{ font-weight:950; color:#93c5fd; }
+/* FORCE emoji visible (กันสกิน/::before จากที่อื่น) */
+.gj-target{
+  background: transparent !important;
+  background-image: none !important;
+}
+.gj-target::before,
+.gj-target::after{
+  content:none !important;
+  background:none !important;
+  background-image:none !important;
+}
+.gj-emoji{
+  display:block;
+  font-size: inherit;
+  line-height: 1;
+}
