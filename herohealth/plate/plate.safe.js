@@ -1,12 +1,12 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — FULL EXTREME v10 (ES Module)
+// Balanced Plate VR — PRODUCTION v10 (ES Module)
 // ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้
 // ✅ FX “สติ๊กเกอร์ LINE”: คำตัดสินหัวโต + คะแนนเด้งข้างเป้า
-// ✅ MISS: สั่นทั้งจอ + เสียง
-// ✅ PERFECT: confetti ดาว + เสียงติ๊ง
-// ✅ 1–8 Challenge Pack (ครบตามที่ขอ)
-// ✅ PATCH v10: เป้าเลื่อนตามจอแบบ Hydration + clamp safe zone + ไม่ทับ HUD บน/ล่าง/ซ้าย/ขวา
-// ✅ NEW v10: Pause/Resume (ปุ่ม + Space) + กัน timeout สำคัญวิ่งต่อระหว่าง pause + tab hidden → pause
+// ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ง
+// ✅ 1–8 Challenge Pack (Goal + Mini + Twist + Boss Phase + Hero10)
+// ✅ PATCH: เป้าเลื่อนตามจอ + clamp safe zone + ไม่ทับ HUD บน/ล่าง/ซ้าย/ขวา
+// ✅ PRODUCTION: Pause/Resume + กัน “คลิกซ้อน/กดซ้ำ” + freeze target timers ตอน pause
+// ✅ Events: hha:time / hha:score / quest:update / hha:event / hha:coach / hha:judge / hha:end
 
 'use strict';
 
@@ -22,6 +22,9 @@ window.DIFF = DIFF;
 window.TIME = TIME;
 window.MODE = MODE;
 
+// ---------- Project tag ----------
+const PROJECT_TAG = 'HeroHealth-PlateVR';
+
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
 function setText(id, v) { const el = $(id); if (el) el.textContent = String(v); }
@@ -31,6 +34,8 @@ function setBarPct(id, pct) {
   const p = Math.max(0, Math.min(100, Number(pct) || 0));
   el.style.width = `${p}%`;
 }
+function showEl(id, on) { const el = $(id); if (el) el.style.display = on ? '' : 'none'; }
+
 function ensureFxLayer() {
   let layer = document.querySelector('.plate-fx-layer');
   if (!layer) {
@@ -80,20 +85,13 @@ const Particles =
   ROOT.Particles ||
   { scorePop() {}, burstAt() {} };
 
-// ---------- Difficulty tuning ----------
+// ---------- Difficulty tuning (Production) ----------
 const DIFF_TABLE = {
-  easy:   { spawnInterval: 980, maxActive: 4, scale: 0.90, lifeMs: 2350, junkRate: 0.12, powerRate: 0.11, hazRate: 0.08 },
-  normal: { spawnInterval: 820, maxActive: 5, scale: 0.80, lifeMs: 2050, junkRate: 0.18, powerRate: 0.11, hazRate: 0.10 },
-  hard:   { spawnInterval: 690, maxActive: 6, scale: 0.72, lifeMs: 1850, junkRate: 0.24, powerRate: 0.12, hazRate: 0.12 }
+  easy:   { spawnInterval: 1020, maxActive: 4, scale: 0.92, lifeMs: 2500, junkRate: 0.12, powerRate: 0.12, hazRate: 0.08 },
+  normal: { spawnInterval:  840, maxActive: 5, scale: 0.82, lifeMs: 2150, junkRate: 0.18, powerRate: 0.11, hazRate: 0.10 },
+  hard:   { spawnInterval:  700, maxActive: 6, scale: 0.74, lifeMs: 1900, junkRate: 0.25, powerRate: 0.12, hazRate: 0.12 }
 };
 const DCFG0 = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
-
-// Grade thresholds: ปรับให้ “แฟร์ตามความยาก” (HARD ผ่อนคะแนนนิดหน่อย, EASY ต้องการคะแนนมากขึ้นเล็กน้อย)
-const GRADE_TABLE = {
-  easy:   { sss:{score:1600, combo:16, miss:2}, ss:{score:1200, combo:12, miss:4}, s:{score:860}, a:{score:620}, b:{score:360} },
-  normal: { sss:{score:1400, combo:14, miss:2}, ss:{score:1000, combo:10, miss:4}, s:{score:750}, a:{score:550}, b:{score:320} },
-  hard:   { sss:{score:1300, combo:13, miss:3}, ss:{score:940,  combo:9,  miss:5}, s:{score:720}, a:{score:520}, b:{score:300} }
-};
 
 // ---------- Food pools ----------
 const POOL = {
@@ -161,7 +159,6 @@ function getHudExclusionRects() {
     const r = el.getBoundingClientRect();
     if (!r || r.width < 30 || r.height < 20) continue;
 
-    // ถ้ากำลังซ่อนอยู่ (display:none) จะได้ width/height 0 อยู่แล้ว
     const x0 = clamp01((r.left   - pad) / W);
     const x1 = clamp01((r.right  + pad) / W);
     const y0 = clamp01((r.top    - pad) / H);
@@ -178,7 +175,7 @@ function inAnyRect(nx, ny, rects){
   return false;
 }
 
-// ✅ ติด targetRoot กับกล้อง → หมุนจอแล้วเป้าเลื่อนตาม (เหมือน Hydration)
+// ✅ ติด targetRoot กับกล้อง → หมุนจอแล้วเป้าเลื่อนตาม
 function attachTargetRootToCamera() {
   if (!cam || !targetRoot) return;
   try{
@@ -188,7 +185,7 @@ function attachTargetRootToCamera() {
   }catch(_){}
 }
 
-// ✅ สุ่มตำแหน่งแบบปลอดภัย + ไม่ทับ HUD ซ้าย/ขวา/บน/ล่าง
+// ✅ สุ่มตำแหน่งแบบปลอดภัย + ไม่ทับ HUD
 function pickSafeXY() {
   const nf = getNoFlyRatios();
   const hudRects = getHudExclusionRects();
@@ -202,7 +199,7 @@ function pickSafeXY() {
   if (maxNX - minNX < 0.15) { minNX = 0.15; maxNX = 0.85; }
   if (maxNY - minNY < 0.15) { minNY = 0.20; maxNY = 0.80; }
 
-  const MAX_TRY = 44;
+  const MAX_TRY = 40;
   for (let i = 0; i < MAX_TRY; i++) {
     const nx = rnd(minNX, maxNX);
     const ny = rnd(minNY, maxNY);
@@ -256,31 +253,29 @@ let totalsByGroup = { 1:0,2:0,3:0,4:0,5:0 };
 
 let goalTotal = 2;
 
-// (1) streak + (2) perfect chain
 let goodStreak = 0;
 let lastGoodGroup = 0;
 let perfectChain = 0;
 let lastMissAtMs = -99999;
 
-// (8) last 10 sec hero mode
 let hero10On = false;
 let hero10Clean = true;
 
-// (3) boss phase + golden zone
 let bossPhaseOn = false;
 let bossOn = false;
 let bossHP = 0;
 let goldenZoneUntilMs = 0;
 
-// (6) golden risk (junk surge)
 let junkSurgeUntilMs = 0;
 
-// (4) mini quests
 let miniCleared = 0;
 let miniCurrent = null;
 let miniHistory = 0;
 
-// (4) Plate Rush timer FX
+let cleanTimer = 0;
+let tw = { twNoRepeatOk:true, twVegHits:0, twNoMissFirst3s:true, twStartMs:0 };
+
+// Plate Rush FX
 let rushDeadlineMs = 0;
 let rushNoJunkOK = true;
 let rushTicked = {3:false,2:false,1:false};
@@ -300,37 +295,18 @@ let targetSeq = 0;
 
 let currentSpawnInterval = DCFG0.spawnInterval;
 
-// ---------- Pause-safe timeouts (สำคัญกับเกมเพลย์) ----------
-let gameTimeouts = []; // { id, fn, dueAt, tag }
-function gameTimeout(fn, ms, tag='') {
-  const dueAt = performance.now() + ms;
-  const rec = { id: 0, fn, dueAt, tag, remainMs: ms };
-  rec.id = setTimeout(() => {
-    // ลบตัวเองออก
-    gameTimeouts = gameTimeouts.filter(x => x !== rec);
-    if (ended || paused) return;
-    try { fn(); } catch (e) { console.warn('[PlateVR] gameTimeout fn error', e); }
-  }, ms);
-  gameTimeouts.push(rec);
-  return rec;
-}
-function pauseAllGameTimeouts() {
+// ---------- Click de-dupe ----------
+const recentHits = new Map(); // targetId -> t(ms)
+const HIT_DEDUPE_MS = 240;
+function wasRecentlyHit(targetId) {
   const now = performance.now();
-  for (const rec of gameTimeouts) {
-    try { clearTimeout(rec.id); } catch(_){}
-    rec.remainMs = Math.max(0, rec.dueAt - now);
+  for (const [k, t] of recentHits.entries()) {
+    if (now - t > 1000) recentHits.delete(k);
   }
-}
-function resumeAllGameTimeouts() {
-  for (const rec of gameTimeouts) {
-    const ms = Math.max(0, rec.remainMs || 0);
-    rec.dueAt = performance.now() + ms;
-    rec.id = setTimeout(() => {
-      gameTimeouts = gameTimeouts.filter(x => x !== rec);
-      if (ended || paused) return;
-      try { rec.fn(); } catch (e) { console.warn('[PlateVR] gameTimeout fn error', e); }
-    }, ms);
-  }
+  const t = recentHits.get(targetId);
+  if (t && now - t < HIT_DEDUPE_MS) return true;
+  recentHits.set(targetId, now);
+  return false;
 }
 
 // ---------- Utils ----------
@@ -349,6 +325,9 @@ function ac() {
   if (!Ctx) return null;
   __ac = new Ctx();
   return __ac;
+}
+function tryResumeAudio() {
+  try { ac()?.resume?.(); } catch(_) {}
 }
 function beep(freq=880, dur=0.06, type='sine', gain=0.08) {
   const ctx = ac();
@@ -538,15 +517,20 @@ function fxOnHit(el, kind, judgeText, pts) {
 }
 
 // ---------- Emitters ----------
+let eventSeq = 0;
 function emitGameEvent(payload) {
+  eventSeq += 1;
   emit('hha:event', Object.assign({
+    projectTag: PROJECT_TAG,
     sessionId,
+    eventSeq,
     type: payload.type || '',
     mode: 'PlateVR',
     difficulty: DIFF,
     runMode: MODE,
     timeFromStartMs: fromStartMs(),
     timeLeftSec: tLeft,
+    paused: paused ? 1 : 0,
     feverState: feverActive ? 'ON' : 'OFF',
     feverValue: Math.round(fever),
     totalScore: score,
@@ -558,43 +542,42 @@ function emitGameEvent(payload) {
     balancePct: Math.round(balancePct),
     perfectPlates,
     perfectStreak,
-    goodStreak,
-    paused: paused ? 1 : 0
+    goodStreak
   }, payload));
 }
 function emitCoach(text, mood) {
-  emit('hha:coach', { sessionId, mode:'PlateVR', text: String(text||''), mood: mood || 'neutral', timeFromStartMs: fromStartMs() });
+  emit('hha:coach', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', text: String(text||''), mood: mood || 'neutral', timeFromStartMs: fromStartMs() });
 }
 function emitJudge(label) {
-  emit('hha:judge', { sessionId, mode:'PlateVR', label: String(label||''), timeFromStartMs: fromStartMs() });
+  emit('hha:judge', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', label: String(label||''), timeFromStartMs: fromStartMs() });
 }
 function computeGradeNow() {
-  const gtab = GRADE_TABLE[DIFF] || GRADE_TABLE.normal;
   const allGoal = perfectPlates >= goalTotal;
-  if (allGoal && score >= gtab.sss.score && maxCombo >= gtab.sss.combo && miss <= gtab.sss.miss) return 'SSS';
-  if (allGoal && score >= gtab.ss.score  && maxCombo >= gtab.ss.combo  && miss <= gtab.ss.miss)  return 'SS';
-  if (score >= gtab.s.score) return 'S';
-  if (score >= gtab.a.score) return 'A';
-  if (score >= gtab.b.score) return 'B';
+  if (allGoal && score >= 1400 && maxCombo >= 14 && miss <= 2) return 'SSS';
+  if (allGoal && score >= 1000 && maxCombo >= 10 && miss <= 4) return 'SS';
+  if (score >= 750) return 'S';
+  if (score >= 550) return 'A';
+  if (score >= 320) return 'B';
   return 'C';
 }
 function emitScore() {
   emit('hha:score', {
+    projectTag: PROJECT_TAG,
     sessionId, mode:'PlateVR',
     score, combo, comboMax: maxCombo, misses: miss,
     fever: Math.round(fever), feverOn: feverActive ? 1 : 0,
     timeLeft: tLeft,
+    paused: paused ? 1 : 0,
     perfectPlates, perfectStreak,
     balancePct: Math.round(balancePct),
     shieldOn: shieldOn ? 1 : 0,
     bossOn: bossOn ? 1 : 0,
     bossPhaseOn: bossPhaseOn ? 1 : 0,
     goodStreak,
-    gradeNow: computeGradeNow(),
-    paused: paused ? 1 : 0
+    gradeNow: computeGradeNow()
   });
 }
-function emitTime() { emit('hha:time', { sessionId, mode:'PlateVR', sec: tLeft, timeFromStartMs: fromStartMs() }); }
+function emitTime() { emit('hha:time', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', sec: tLeft, paused: paused ? 1 : 0, timeFromStartMs: fromStartMs() }); }
 
 // ---------- HUD (สำรอง) ----------
 function hudUpdateAll() {
@@ -602,6 +585,7 @@ function hudUpdateAll() {
   setText('hudScore', score);
   setText('hudCombo', combo);
   setText('hudMiss', miss);
+  showEl('hudPaused', paused);
 
   const pct = Math.round(clamp(fever, 0, 100));
   setBarPct('hudFever', pct);
@@ -612,14 +596,14 @@ function hudUpdateAll() {
   setText('hudPerfectCount', perfectPlates);
 
   setText('hudGoalLine', `ทำ PERFECT PLATE อย่างน้อย ${goalTotal} จาน (ตอนนี้ ${perfectPlates}/${goalTotal})`);
-  setText('hudMiniLine', miniCurrent ? `${miniCurrent.label} • ${miniCurrent.prog}/${miniCurrent.target}` : 'Mini: …');
-  setText('hudMiniHint', miniCurrent ? (miniCurrent.hint || (miniCurrent.twistLabel ? `Twist: ${miniCurrent.twistLabel}` : '')) : '…');
 
-  const pausedPill = $('hudPaused');
-  if (pausedPill) pausedPill.style.display = paused ? 'inline-flex' : 'none';
-
-  const btnPause = $('btnPause');
-  if (btnPause) btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
+  if (miniCurrent) {
+    setText('hudMiniLine', `Mini: ${miniCurrent.label} • ${miniCurrent.prog}/${miniCurrent.target}`);
+    setText('hudMiniHint', miniCurrent.hint || '');
+  } else {
+    setText('hudMiniLine', 'Mini: …');
+    setText('hudMiniHint', '…');
+  }
 }
 
 // ---------- Emoji texture helper ----------
@@ -692,7 +676,8 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   const pos = pickSafeXY();
   el.setAttribute('position', `${pos.x} ${pos.y} 0`);
 
-  el.addEventListener('click', () => onHit(el, 'click'));
+  // Click from cursor / fuse
+  el.addEventListener('click', () => onHit(el, 'cursor'));
   return el;
 }
 
@@ -701,7 +686,7 @@ function removeTarget(el, reason = 'remove') {
   const id = el.getAttribute('id');
   if (id && activeTargets.has(id)) {
     const rec = activeTargets.get(id);
-    if (rec && rec.expireT) { try{ clearTimeout(rec.expireT); }catch(_){ } }
+    if (rec && rec.expireTO) { try{ clearTimeout(rec.expireTO); }catch(_){} }
     activeTargets.delete(id);
   }
   try { el.parentNode && el.parentNode.removeChild(el); } catch (_) {}
@@ -709,8 +694,7 @@ function removeTarget(el, reason = 'remove') {
 }
 
 function expireTarget(el) {
-  if (!el || ended) return;
-  if (paused) return; // ✅ ไม่ให้ expire ระหว่าง pause
+  if (!el || ended || paused) return;
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
@@ -723,7 +707,7 @@ function expireTarget(el) {
     emitJudge('MISS');
     lastMissAtMs = performance.now();
     hero10Clean = false;
-    emit('hha:miss', { sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
+    emit('hha:miss', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
     emitGameEvent({ type:'miss_expire', groupId });
   }
 
@@ -846,19 +830,18 @@ function scoreForHit(kind, groupId) {
 function activateFever(ms = 5200) {
   feverActive = true;
   feverUntilMs = performance.now() + ms;
-  emit('hha:fever', { sessionId, mode:'PlateVR', on: 1, value: 100, timeFromStartMs: fromStartMs() });
+  emit('hha:fever', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', on: 1, value: 100, timeFromStartMs: fromStartMs() });
   emitCoach('FEVER ON! คะแนนคูณแรงขึ้น 🔥', 'fever');
   emitGameEvent({ type:'fever_on', durMs: ms });
 }
 function updateFeverTick() {
-  if (paused || ended) return;
   if (!feverActive) {
     fever = clamp(fever - 0.9, 0, 100);
   } else {
     fever = clamp(fever - 0.25, 0, 100);
     if (performance.now() >= feverUntilMs) {
       feverActive = false;
-      emit('hha:fever', { sessionId, mode:'PlateVR', on: 0, value: Math.round(fever), timeFromStartMs: fromStartMs() });
+      emit('hha:fever', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', on: 0, value: Math.round(fever), timeFromStartMs: fromStartMs() });
       emitCoach('FEVER หมดแล้ว สู้ต่อได้เลย ✨', 'neutral');
       emitGameEvent({ type:'fever_off' });
     }
@@ -873,7 +856,6 @@ function enableShield(ms = POWER.shield.durMs) {
   emitGameEvent({ type:'shield_on', durMs: ms });
 }
 function updateShieldTick() {
-  if (paused || ended) return;
   if (!shieldOn) return;
   if (performance.now() >= shieldUntil) {
     shieldOn = false;
@@ -890,7 +872,6 @@ function enableHaz(key, ms) {
   emitGameEvent({ type:'haz_on', haz: key, durMs: ms });
 }
 function updateHazTick() {
-  if (paused || ended) return;
   for (const k of Object.keys(haz)) {
     if (haz[k] && performance.now() >= hazUntil[k]) {
       haz[k] = false;
@@ -902,9 +883,9 @@ function updateHazTick() {
 
 // ---------- Mini quests ----------
 const TWIST_POOL = [
-  { key:'noRepeat', label:'ห้ามเก็บหมู่เดิมซ้ำติดกัน!', check: (st)=> st.twNoRepeatOk },
-  { key:'needVeg2', label:'ต้องมี “ผัก 🥦” อย่างน้อย 2 ครั้ง!', check: (st)=> (st.twVegHits>=2) },
-  { key:'noMiss3s', label:'ห้ามพลาดภายใน 3 วิแรก!', check: (st)=> st.twNoMissFirst3s }
+  { key:'noRepeat', label:'ห้ามเก็บหมู่เดิมซ้ำติดกัน!' },
+  { key:'needVeg2', label:'ต้องมี “ผัก 🥦” อย่างน้อย 2 ครั้ง!' },
+  { key:'noMiss3s', label:'ห้ามพลาดภายใน 3 วิแรก!' }
 ];
 
 const MINI_POOL = [
@@ -914,21 +895,29 @@ const MINI_POOL = [
   { key:'combo8',   label:'Combo Build: ทำคอมโบให้ถึง 8',        target: 8, twistAllowed: true }
 ];
 
-let cleanTimer = 0;
-let tw = { twNoRepeatOk:true, twVegHits:0, twNoMissFirst3s:true, twStartMs:0 };
-
 function emitQuestUpdate() {
   emit('quest:update', {
+    projectTag: PROJECT_TAG,
+    sessionId,
+    mode: 'PlateVR',
     goal: { label:`Perfect Plate ${perfectPlates}/${goalTotal}`, prog: perfectPlates, target: goalTotal },
     mini: miniCurrent
-      ? { label: miniCurrent.label, prog: miniCurrent.prog, target: miniCurrent.target }
-      : { label: 'Mini: …', prog: 0, target: 1 },
-    hint: miniCurrent?.hint || ''
+      ? { label: miniCurrent.label, prog: miniCurrent.prog, target: miniCurrent.target, hint: miniCurrent.hint || '' }
+      : { label: 'Mini: …', prog: 0, target: 1, hint: '' }
   });
 }
 
+function twistOkNow() {
+  if (!miniCurrent || miniCurrent.done) return true;
+  const tk = miniCurrent.twistKey;
+  if (!tk) return true;
+  if (tk === 'noRepeat') return !!tw.twNoRepeatOk;
+  if (tk === 'needVeg2') return (tw.twVegHits >= 2);
+  if (tk === 'noMiss3s') return !!tw.twNoMissFirst3s;
+  return true;
+}
+
 function startNextMiniQuest() {
-  if (ended || paused) return;
   const def = pick(MINI_POOL);
   miniHistory += 1;
 
@@ -980,8 +969,7 @@ function clearMiniQuest() {
   stickerAt(window.innerWidth*0.5, window.innerHeight*0.40, `✅ MINI CLEAR +${bonus}`, { tone:'gold', big:true, life: 820 });
   try { Particles.burstAt(window.innerWidth*0.5, window.innerHeight*0.42, { color:'#38bdf8', good:true, count: 34 }); } catch(_){}
 
-  // ✅ schedule แบบ pause-safe
-  gameTimeout(() => { if (!ended) startNextMiniQuest(); }, 520, 'mini_next');
+  setTimeout(() => { if (!ended) startNextMiniQuest(); }, 520);
 
   emitQuestUpdate();
   hudUpdateAll();
@@ -994,22 +982,12 @@ function failMiniQuest(reason='fail') {
   emitGameEvent({ type:'mini_fail', miniKey: miniCurrent.key, reason });
   emitCoach(`Mini Quest พลาด! ลองอันใหม่เลย 💪`, 'sad');
   stickerAt(window.innerWidth*0.5, window.innerHeight*0.42, `😵 FAIL`, { tone:'bad', big:true, life: 620 });
-  gameTimeout(() => { if (!ended) startNextMiniQuest(); }, 620, 'mini_fail_next');
+  setTimeout(() => { if (!ended) startNextMiniQuest(); }, 620);
   emitQuestUpdate();
 }
 
-function twistOkNow() {
-  if (!miniCurrent || miniCurrent.done) return true;
-  const tk = miniCurrent.twistKey;
-  if (!tk) return true;
-  if (tk === 'noRepeat') return !!tw.twNoRepeatOk;
-  if (tk === 'needVeg2') return (tw.twVegHits >= 2);
-  if (tk === 'noMiss3s') return !!tw.twNoMissFirst3s;
-  return true;
-}
-
 function updateMiniTick() {
-  if (!miniCurrent || miniCurrent.done) return;
+  if (!miniCurrent || miniCurrent.done || paused) return;
 
   if (miniCurrent.twistKey === 'noMiss3s') {
     const dt = performance.now() - tw.twStartMs;
@@ -1054,7 +1032,7 @@ function updateMiniTick() {
     miniCurrent.hint =
       `เหลือ ${leftS}s • ตอนนี้ ${have}/5` +
       (rushNoJunkOK ? '' : ' • ❌ โดนขยะแล้ว!') +
-      (miniCurrent.twistLabel ? ` • Twist: ${miniCurrent.twistLabel}` : '');
+      (miniCurrent.twistLabel ? ` • ${miniCurrent.twistLabel}` : '');
 
     if (miniCurrent.prog >= miniCurrent.target) clearMiniQuest();
   }
@@ -1079,13 +1057,13 @@ function updateMiniTick() {
 
 // ---------- Boss Phase ----------
 function maybeStartBossPhase() {
-  if (bossPhaseOn) return;
+  if (bossPhaseOn || paused) return;
   if (tLeft > 20) return;
   bossPhaseOn = true;
   emitCoach('⚔️ BOSS PHASE! ท้ายเกมมาแล้ว! ระวังขยะ + บอส ⭐', 'sad');
   stickerAt(window.innerWidth*0.5, window.innerHeight*0.26, '⚔️ BOSS PHASE!', { tone:'boss', big:true, life: 980 });
   emitGameEvent({ type:'boss_phase_on' });
-  gameTimeout(()=>{ if (!ended) spawnOne({ forceBoss:true }); }, 240, 'boss_phase_spawn');
+  setTimeout(()=>{ if (!ended && !paused) spawnOne({ forceBoss:true }); }, 240);
 }
 function startGoldenZone(ms=3000) {
   goldenZoneUntilMs = performance.now() + ms;
@@ -1143,30 +1121,31 @@ function spawnOne(opts = {}) {
   targetRoot.appendChild(el);
 
   const id = el.getAttribute('id');
-  const rec = {
+  const now = performance.now();
+  const expireAt = now + lifeMs;
+
+  const expireTO = setTimeout(() => {
+    if (ended || paused) return;
+    const rec = activeTargets.get(id);
+    if (!rec) return;
+    expireTarget(rec.el);
+  }, lifeMs);
+
+  activeTargets.set(id, {
     id, el,
     kind: el.dataset.kind,
     groupId: parseInt(el.dataset.groupId || '0', 10) || 0,
-    spawnAt: performance.now(),
-    expireAt: performance.now() + lifeMs,
+    spawnAt: now,
+    expireAt,
     lifeMs,
     remainMs: lifeMs,
-    expireT: 0
-  };
-  activeTargets.set(id, rec);
+    expireTO
+  });
 
   emitGameEvent({ type:'spawn', kind: el.dataset.kind, groupId: meta.groupId || 0, targetId: id });
-
-  rec.expireT = setTimeout(() => {
-    if (ended || paused) return;
-    const r2 = activeTargets.get(id);
-    if (!r2) return;
-    expireTarget(r2.el);
-  }, lifeMs);
 }
 
 function spawnLoopStart() {
-  if (ended) return;
   knowAdaptive();
   if (spawnTimer) clearInterval(spawnTimer);
 
@@ -1193,8 +1172,12 @@ function applyTwistOnGood(groupId) {
   lastGoodGroup = groupId;
 }
 
-function onHit(el, via = 'click') {
+function onHit(el, via = 'cursor') {
   if (!el || ended || paused) return;
+
+  const id = el.getAttribute('id') || '';
+  if (id && wasRecentlyHit(id)) return;
+
   if (el.dataset.hit === '1') return;
   el.dataset.hit = '1';
 
@@ -1207,6 +1190,8 @@ function onHit(el, via = 'click') {
 
   removeTarget(el, 'hit');
   if (!started) return;
+
+  emitGameEvent({ type:'hit_raw', kind, groupId, via, targetId: id });
 
   if (kind === 'haz') {
     const hk = el.dataset.hazKey || pick(Object.keys(HAZ));
@@ -1302,7 +1287,7 @@ function onHit(el, via = 'click') {
       sfxDing();
       emitGameEvent({ type:'boss_clear', bonus });
     } else {
-      gameTimeout(() => { if (!ended) spawnOne({ forceBoss: true }); }, 240, 'boss_rehit_spawn');
+      setTimeout(() => { if (!ended && !paused) spawnOne({ forceBoss: true }); }, 240);
     }
 
     updateMiniTick();
@@ -1331,14 +1316,14 @@ function onHit(el, via = 'click') {
       balancePct = clamp(balancePct - 18, 0, 100);
       fever = clamp(fever - 12, 0, 100);
       emitJudge('MISS');
-      preFx('MISS!', -0);
+      preFx('MISS!', 0);
       lastMissAtMs = performance.now();
       hero10Clean = false;
 
       screenShake();
       sfxMiss();
 
-      emit('hha:miss', { sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
+      emit('hha:miss', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
       emitCoach('โดนขยะแล้ว! เลี่ยงให้ได้ 😵', 'sad');
       emitGameEvent({ type:'junk_hit_miss' });
 
@@ -1371,7 +1356,7 @@ function onHit(el, via = 'click') {
   updateMiniTick();
   hudUpdateAll();
   emitScore();
-  emitGameEvent({ type:'hit', kind, groupId, via });
+  emitGameEvent({ type:'hit', kind, groupId, via, targetId: id });
 
   knowAdaptive();
 }
@@ -1424,76 +1409,7 @@ function stopTimers() {
   timerTick = null;
 }
 
-// ---------- Pause / Resume ----------
-function pauseGame(reason='pause') {
-  if (ended || !started) return;
-  if (paused) return;
-  paused = true;
-
-  // stop tick + spawn interval
-  stopTimers();
-  if (spawnTimer) clearInterval(spawnTimer);
-  spawnTimer = null;
-
-  // pause important timeouts
-  pauseAllGameTimeouts();
-
-  // pause per-target expire timers
-  const now = performance.now();
-  for (const [id, rec] of Array.from(activeTargets.entries())) {
-    if (!rec) continue;
-    rec.remainMs = Math.max(0, (rec.expireAt || now) - now);
-    if (rec.expireT) { try{ clearTimeout(rec.expireT); }catch(_){ } }
-    rec.expireT = 0;
-  }
-
-  emitGameEvent({ type:'pause', reason });
-  emit('hha:pause', { sessionId, mode:'PlateVR', paused: 1, reason, timeFromStartMs: fromStartMs() });
-
-  hudUpdateAll();
-  emitCoach('⏸️ พักก่อน… กด RESUME เพื่อเล่นต่อ', 'neutral');
-}
-
-function resumeGame(reason='resume') {
-  if (ended || !started) return;
-  if (!paused) return;
-  paused = false;
-
-  // resume timers
-  startTimers();
-  knowAdaptive();
-  spawnLoopStart();
-
-  // resume important timeouts
-  resumeAllGameTimeouts();
-
-  // resume per-target expire timers
-  const now = performance.now();
-  for (const [id, rec] of Array.from(activeTargets.entries())) {
-    if (!rec || !rec.el) continue;
-    const ms = Math.max(50, rec.remainMs || 0);
-    rec.expireAt = now + ms;
-    rec.expireT = setTimeout(() => {
-      if (ended || paused) return;
-      const r2 = activeTargets.get(id);
-      if (!r2) return;
-      expireTarget(r2.el);
-    }, ms);
-  }
-
-  emitGameEvent({ type:'resume', reason });
-  emit('hha:pause', { sessionId, mode:'PlateVR', paused: 0, reason, timeFromStartMs: fromStartMs() });
-
-  hudUpdateAll();
-  emitCoach('▶️ ลุยต่อได้เลย!', 'happy');
-}
-
-function togglePause() {
-  if (paused) resumeGame('toggle');
-  else pauseGame('toggle');
-}
-
-// ---------- Result modal (optional) ----------
+// ---------- Result modal ----------
 function computeGradeFinal() { return computeGradeNow(); }
 function showResultModal(reason) {
   setText('rMode', (MODE === 'research') ? 'Research' : 'Play');
@@ -1517,9 +1433,65 @@ function showResultModal(reason) {
   if (backdrop) backdrop.style.display = 'flex';
 }
 
+// ---------- Pause/Resume ----------
+function freezeTargetTimers() {
+  const now = performance.now();
+  for (const rec of activeTargets.values()) {
+    if (!rec) continue;
+    rec.remainMs = Math.max(0, (rec.expireAt || now) - now);
+    if (rec.expireTO) { try{ clearTimeout(rec.expireTO); }catch(_){} }
+    rec.expireTO = null;
+  }
+}
+function resumeTargetTimers() {
+  const now = performance.now();
+  for (const rec of activeTargets.values()) {
+    if (!rec || !rec.el) continue;
+    const ms = Math.max(80, rec.remainMs || 0);
+    rec.expireAt = now + ms;
+    rec.expireTO = setTimeout(() => {
+      if (ended || paused) return;
+      const r = activeTargets.get(rec.id);
+      if (!r) return;
+      expireTarget(r.el);
+    }, ms);
+  }
+}
+
+function pauseGame(source='ui') {
+  if (ended || paused) return;
+  paused = true;
+  showEl('hudPaused', true);
+
+  stopTimers();
+  if (spawnTimer) clearInterval(spawnTimer);
+  spawnTimer = null;
+
+  freezeTargetTimers();
+
+  emit('hha:pause', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', on: 1, source, timeFromStartMs: fromStartMs() });
+  emitGameEvent({ type:'pause_on', source });
+  emitScore();
+}
+function resumeGame(source='ui') {
+  if (ended || !paused) return;
+  paused = false;
+  showEl('hudPaused', false);
+
+  resumeTargetTimers();
+  startTimers();
+  spawnLoopStart();
+
+  emit('hha:pause', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', on: 0, source, timeFromStartMs: fromStartMs() });
+  emitGameEvent({ type:'pause_off', source });
+  emitScore();
+}
+function togglePause() { if (paused) resumeGame('ui'); else pauseGame('ui'); }
+
+// ---------- Targets cleanup ----------
 function clearAllTargets() {
   for (const [id, rec] of Array.from(activeTargets.entries())) {
-    if (rec && rec.expireT) { try{ clearTimeout(rec.expireT); }catch(_){ } }
+    if (rec && rec.expireTO) { try{ clearTimeout(rec.expireTO); }catch(_){} }
     if (rec && rec.el) {
       try { rec.el.parentNode && rec.el.parentNode.removeChild(rec.el); } catch (_) {}
     }
@@ -1579,11 +1551,10 @@ function startGame() {
   cleanTimer = 0;
 
   paused = false;
-  gameTimeouts = [];
-
   hudUpdateAll();
   emitTime();
   emitScore();
+  emitQuestUpdate();
 
   startNextMiniQuest();
   startTimers();
@@ -1595,16 +1566,11 @@ function startGame() {
 function endGame(reason = 'ended') {
   if (ended) return;
   ended = true;
-  paused = false;
 
+  paused = false;
   stopTimers();
   if (spawnTimer) clearInterval(spawnTimer);
   spawnTimer = null;
-
-  // kill timeouts
-  for (const rec of gameTimeouts) { try{ clearTimeout(rec.id); }catch(_){ } }
-  gameTimeouts = [];
-
   clearAllTargets();
 
   if (hero10On && hero10Clean && MODE !== 'research') {
@@ -1618,6 +1584,7 @@ function endGame(reason = 'ended') {
 
   emitGameEvent({ type:'session_end', reason, score, miss, maxCombo, perfectPlates, grade: computeGradeFinal() });
   emit('hha:end', {
+    projectTag: PROJECT_TAG,
     sessionId, mode:'PlateVR',
     reason,
     score,
@@ -1634,7 +1601,6 @@ function endGame(reason = 'ended') {
 
   emitCoach('จบเกมแล้ว! ดูสรุปผลได้เลย 🎉', 'happy');
   showResultModal(reason);
-  hudUpdateAll();
 }
 
 // ---------- Boot helpers ----------
@@ -1653,16 +1619,22 @@ function bindUI() {
   const btnEnterVR = $('btnEnterVR');
   if (btnEnterVR && scene) {
     btnEnterVR.addEventListener('click', async () => {
-      try { await ac()?.resume?.(); } catch(_){}
+      tryResumeAudio();
       try { await scene.enterVR(); } catch (e) { console.warn('[PlateVR] enterVR failed', e); }
     });
   }
 
   const btnPause = $('btnPause');
-  if (btnPause) btnPause.addEventListener('click', () => togglePause());
+  if (btnPause) {
+    btnPause.addEventListener('click', () => {
+      tryResumeAudio();
+      togglePause();
+      btnPause.textContent = paused ? '▶️ RESUME' : '⏸️ PAUSE';
+    });
+  }
 }
 
-// ✅ Manual Raycast — “คลิกได้แน่”
+// ✅ Manual Raycast fallback — คลิกได้แน่ + กันซ้อนด้วย recentHits
 function bindPointerFallback() {
   if (!scene) return;
   if (window.__PLATE_POINTER_BOUND__) return;
@@ -1679,8 +1651,9 @@ function bindPointerFallback() {
     if (!canvas) return;
 
     const t = ev.target;
-    // รับทั้งกรณีคลิก canvas และกรณีคลิกองค์ประกอบอื่น (HUD pointer-events none แล้วส่วนใหญ่จะเป็น canvas)
-    try { ac()?.resume?.(); } catch(_){}
+    if (!t || String(t.tagName).toUpperCase() !== 'CANVAS') return;
+
+    tryResumeAudio();
 
     const rect = canvas.getBoundingClientRect();
 
@@ -1717,44 +1690,11 @@ function bindPointerFallback() {
     onHit(cur, 'raycast');
   }
 
-  window.addEventListener('click', doRaycastFromEvent, { passive: true });
-  window.addEventListener('touchstart', doRaycastFromEvent, { passive: true });
+  window.addEventListener('pointerdown', doRaycastFromEvent, { passive: true });
 
-  console.log('[PlateVR] manual raycast pointer bound ✅');
+  console.log('[PlateVR] pointer fallback bound ✅');
 }
 
-function resolvePlateStarter() {
-  if (typeof startGame === 'function') return startGame;
-  if (typeof beginGame === 'function') return beginGame;
-  if (typeof start === 'function') return start;
-  if (typeof window.startGame === 'function') return window.startGame;
-  if (typeof window.beginGame === 'function') return window.beginGame;
-  if (typeof window.start === 'function') return window.start;
-  return null;
-}
-
-function bindKeys() {
-  if (window.__PLATE_KEYS_BOUND__) return;
-  window.__PLATE_KEYS_BOUND__ = true;
-
-  window.addEventListener('keydown', (e) => {
-    if (ended) return;
-    if (e.code === 'Space') {
-      e.preventDefault();
-      togglePause();
-    }
-    if (e.code === 'Escape') {
-      // Escape: ถ้าอยู่ใน VR บางทีจะออก VR เอง ให้แค่ pause เผื่อไว้
-      pauseGame('escape');
-    }
-    if (e.code === 'KeyR') {
-      // R: restart
-      location.reload();
-    }
-  }, { passive: false });
-}
-
-// ✅ export ให้ plate-vr.html import ไปเรียก
 export function bootPlateDOM() {
   if (window.__PLATE_DOM_BOOTED__) return;
   window.__PLATE_DOM_BOOTED__ = true;
@@ -1767,7 +1707,6 @@ export function bootPlateDOM() {
 
   ensureTouchLookControls();
   bindUI();
-  bindKeys();
 
   setText('hudMode', (MODE === 'research') ? 'Research' : 'Play');
   setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
@@ -1778,26 +1717,22 @@ export function bootPlateDOM() {
   if (scene && scene.hasLoaded) bindAfterLoaded();
   else if (scene) scene.addEventListener('loaded', bindAfterLoaded, { once: true });
 
-  const starter = resolvePlateStarter();
-  if (!starter) {
-    console.error('[PlateVR] No start function found (startGame/start/beginGame).');
-    try { emitCoach('ยังไม่มีฟังก์ชันเริ่มเกม (startGame/beginGame/start) ⚠️', 'sad'); } catch (_) {}
-    return;
-  }
+  window.addEventListener('pointerdown', tryResumeAudio, { passive: true, once: true });
 
-  if (scene && scene.hasLoaded) starter();
-  else if (scene) scene.addEventListener('loaded', () => starter(), { once:true });
-  else setTimeout(() => starter(), 250);
+  if (scene && scene.hasLoaded) startGame();
+  else if (scene) scene.addEventListener('loaded', () => startGame(), { once:true });
+  else setTimeout(() => startGame(), 250);
 
-  // ✅ tab hidden → pause / visible → resume (แทนการจบทันที)
   document.addEventListener('visibilitychange', () => {
-    if (ended || !started) return;
-    if (document.hidden) pauseGame('tab_hidden');
-    else resumeGame('tab_visible');
+    if (document.hidden && !ended && !paused) pauseGame('tab_hidden');
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (ended) return;
+    if (e.key === 'Escape') togglePause();
   });
 }
 
-// auto boot
 window.addEventListener('DOMContentLoaded', () => {
   bootPlateDOM();
 });
