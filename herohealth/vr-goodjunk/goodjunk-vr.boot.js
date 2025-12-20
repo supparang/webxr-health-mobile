@@ -1,16 +1,18 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// ✅ PATCH: กันเกมเริ่มเองก่อนกด Start
-// - เปลี่ยน import goodjunk.safe.js เป็น "dynamic import" ใน bootOnce()
-// - Guard event listeners ไม่ให้ยิง FX/HUD ก่อน started
-// - ปิด pointer-events ของ layer ก่อนเริ่ม แล้วค่อยเปิดตอน Start
+// ✅ FINAL PATCH (Production Start Flow)
+// - export boot() ให้ loader เรียก
+// - dynamic import goodjunk.safe.js AFTER Start only
+// - guards: no FX/HUD before started
+// - pre-start lock: disable target layer until Start
+// - COACH paths fixed for document at /herohealth/ (use ./img/...)
 
+// imports (NO goodjunk.safe.js static import!)
 import { attachTouchLook } from './touch-look-goodjunk.js';
 import { initCloudLogger } from '../vr/hha-cloud-logger.js';
-
 import { makeQuestDirector } from './quest-director.js';
 import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
-(function () {
+export function boot(){
   'use strict';
 
   // bfcache fix
@@ -59,10 +61,6 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   const selDiff = $('sel-diff');
   const selChallenge = $('sel-challenge');
 
-  const logDot  = $('logdot');
-  const logText = $('logtext');
-
-  // ✅ เป้าที่ DOM layer
   const layerEl = $('gj-layer');
 
   // URL params from hub
@@ -86,12 +84,12 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     20, 180
   );
 
-  // ✅ Coach images (โฟลเดอร์จริงคือ /herohealth/img → จาก /vr-goodjunk ต้องใช้ ../img/...)
+  // ✅ Coach images path for document at /herohealth/
   const COACH_IMG = {
-    neutral: '../img/coach-neutral.png',
-    happy:   '../img/coach-happy.png',
-    sad:     '../img/coach-sad.png',
-    fever:   '../img/coach-fever.png'
+    neutral: './img/coach-neutral.png',
+    happy:   './img/coach-happy.png',
+    sad:     './img/coach-sad.png',
+    fever:   './img/coach-fever.png'
   };
 
   let lastCoachTimeout = null;
@@ -202,19 +200,6 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     });
   }
 
-  // Logger badge
-  function setLogBadge(state, text){
-    if (!logDot || !logText) return;
-    logDot.classList.remove('ok','bad');
-    if (state === 'ok') logDot.classList.add('ok');
-    else if (state === 'bad') logDot.classList.add('bad');
-    safeText(logText, text || (state==='ok' ? 'logger: ok' : state==='bad' ? 'logger: error' : 'logger: pending…'));
-  }
-  window.addEventListener('hha:logger', (e)=>{
-    const d = e.detail || {};
-    setLogBadge(d.ok ? 'ok' : 'bad', d.msg || '');
-  });
-
   function getProfile(){
     let studentProfile = null;
     let studentKey = null;
@@ -232,7 +217,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     return !!(p.studentId || p.name || p.nickName || p.studentNo);
   }
 
-  // Quest state shared with QuestDirector
+  // Quest state
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
     streakGood:0,
@@ -248,6 +233,26 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     final8Good: 0
   };
 
+  let started = false;
+  let Q = null;
+
+  function setPreStartLock(){
+    started = false;
+    try{ document.body.classList.remove('game-started'); }catch(_){}
+    if (layerEl) layerEl.style.pointerEvents = 'none';
+    if (elBigCelebrate) elBigCelebrate.classList.remove('show');
+  }
+  function setStartedUnlock(){
+    try{ document.body.classList.add('game-started'); }catch(_){}
+    if (layerEl) layerEl.style.pointerEvents = 'auto';
+  }
+
+  // safeNoJunkSeconds tick
+  setInterval(()=>{
+    if (!started) return;
+    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
+  }, 1000);
+
   // mini reset
   window.addEventListener('quest:miniStart', ()=>{
     if (!started) return;
@@ -259,28 +264,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     qState.streakGood = 0;
   });
 
-  // safeNoJunkSeconds tick
-  let started = false;
-  setInterval(()=>{
-    if (!started) return;
-    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
-  }, 1000);
-
-  let Q = null;
-
-  // ✅ PRE-START LOCK: กันเป้า/กัน input ก่อน Start
-  function setPreStartLock(){
-    try{ document.body.classList.remove('game-started'); }catch(_){}
-    if (layerEl) layerEl.style.pointerEvents = 'none';
-    // กัน celebrate ค้าง
-    if (elBigCelebrate) elBigCelebrate.classList.remove('show');
-  }
-  function setStartedUnlock(){
-    try{ document.body.classList.add('game-started'); }catch(_){}
-    if (layerEl) layerEl.style.pointerEvents = 'auto';
-  }
-
-  // --------- เอฟเฟกต์: ฟัง event แล้วยิง FX ---------
+  // --------- FX event guards ---------
   window.addEventListener('quest:goodHit', (e)=>{
     if (!started) return;
     const d = e.detail || {};
@@ -337,7 +321,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
   });
 
-  // HUD listeners (✅ ignore before started)
+  // HUD listeners (ignore before started)
   window.addEventListener('hha:judge', (e)=>{
     if (!started) return;
     const label = (e.detail||{}).label || '';
@@ -442,19 +426,6 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     safeText(elTime, DUR_INIT + 's');
 
     setCoachFace('neutral');
-
-    const endpoint = sessionStorage.getItem('HHA_LOG_ENDPOINT');
-    if (endpoint) setLogBadge(null, 'logger: endpoint set ✓');
-    else setLogBadge(null, 'logger: endpoint missing (hub?)');
-  }
-
-  // Logger helper for prefill
-  function setLogBadge(state, text){
-    if (!logDot || !logText) return;
-    logDot.classList.remove('ok','bad');
-    if (state === 'ok') logDot.classList.add('ok');
-    else if (state === 'bad') logDot.classList.add('bad');
-    safeText(logText, text || 'logger: pending…');
   }
 
   async function bootOnce({ wantVR }){
@@ -470,11 +441,10 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
       }
     }
 
-    // ✅ started = true ก่อน เพื่อเปิด guard
+    // start now
     started = true;
     setStartedUnlock();
 
-    // ซ่อน overlay
     if (startOverlay) startOverlay.style.display = 'none';
     if (elBigCelebrate) elBigCelebrate.classList.remove('show');
 
@@ -499,12 +469,10 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     // profile from hub
     const { studentProfile, studentKey } = getProfile();
 
-    // logger endpoint + fallback
     const endpoint =
       sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
       'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
 
-    setLogBadge(null, 'logger: init…');
     initCloudLogger({
       endpoint,
       projectTag: 'HeroHealth-GoodJunkVR',
@@ -539,7 +507,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
         try{
           if (wantVR) await tryEnterVR();
 
-          // ✅ สำคัญที่สุด: โหลด goodjunk.safe.js หลัง Start เท่านั้น
+          // ✅ dynamic import engine AFTER Start only
           const mod = await import('./goodjunk.safe.js');
           const goodjunkBoot = mod && mod.boot;
           if (typeof goodjunkBoot !== 'function'){
@@ -557,14 +525,12 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
           if (!ENGINE) throw new Error('ENGINE is null (goodjunkBoot failed)');
           window.__GJ_ENGINE__ = ENGINE;
 
-          // ปลุก HUD
           try{ Q && Q.tick && Q.tick(qState); }catch(_){}
         }catch(err){
-          console.error('[GoodJunkVR] boot failed:', err);
+          console.error('[GoodJunkVR] start failed:', err);
           alert('กด Start แล้วเข้าเกมไม่สำเร็จ\nดู Console: error บรรทัดแรก');
 
-          // ถ้าพัง ให้กลับไปสถานะก่อนเริ่ม (ไม่ค้าง started)
-          started = false;
+          // rollback
           setPreStartLock();
           if (startOverlay) startOverlay.style.display = '';
         }
@@ -572,12 +538,78 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     });
   }
 
-  // ✅ ปิดทุกอย่างก่อนเริ่ม
-  setPreStartLock();
+  // ---- helpers used above ----
+  async function tryEnterVR(){
+    const scene = document.querySelector('a-scene');
+    if (!scene) return false;
+    try{ await scene.enterVR(); return true; }
+    catch(err){ console.warn('[GoodJunkVR] enterVR blocked:', err); return false; }
+  }
+
+  function initVRButton(){
+    if (!btnVR) return;
+    const scene = document.querySelector('a-scene');
+    if (!scene) return;
+    btnVR.addEventListener('click', async ()=>{
+      try{ await scene.enterVR(); }
+      catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
+    });
+  }
+
+  function attachTouch(cameraEl){
+    if (!cameraEl) return;
+    attachTouchLook(cameraEl, {
+      sensitivity: 0.26,
+      areaEl: document.body,
+      onActiveChange(active){
+        if (active){
+          elTouchHint && elTouchHint.classList.add('show');
+          setTimeout(()=> elTouchHint && elTouchHint.classList.remove('show'), 2400);
+        }
+      }
+    });
+  }
+
+  function runCountdown(onDone){
+    if (!elCountdown){ onDone && onDone(); return; }
+    const steps = ['3','2','1','Go!'];
+    let idx = 0;
+    elCountdown.classList.remove('countdown-hidden');
+    safeText(elCountdown, steps[0]);
+    const t = setInterval(()=>{
+      idx++;
+      if (idx >= steps.length){
+        clearInterval(t);
+        elCountdown.classList.add('countdown-hidden');
+        onDone && onDone();
+      }else{
+        safeText(elCountdown, steps[idx]);
+      }
+    }, 650);
+  }
+
+  function waitSceneReady(cb){
+    const scene = document.querySelector('a-scene');
+    if (!scene) { cb(); return; }
+    const tryReady = ()=>{
+      if (scene.hasLoaded && scene.camera){ cb(); return true; }
+      return false;
+    };
+    if (tryReady()) return;
+    scene.addEventListener('loaded', ()=>{
+      let tries=0;
+      const it = setInterval(()=>{
+        tries++;
+        if (tryReady() || tries>80){ clearInterval(it); cb(); }
+      }, 50);
+    }, { once:true });
+  }
 
   // bind start buttons
   btnStart2D && btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
   btnStartVR && btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
 
+  // init state
+  setPreStartLock();
   prefillFromHub();
-})();
+}
