@@ -1,13 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — Safe Boot Wrapper (PRODUCTION CLEAN)
-// รองรับ GameEngine export ได้หลายแบบ:
-// - export boot(ctx)
-// - export start(ctx) หรือ start(diff, opts)
-// - export const GameEngine = { start, stop }
-// - export class GameEngine
-// - export makeEngine(ctx) -> {start()}
-// - ✅ export createEngine(ctx) -> {start()}   << PATCH สำคัญ (ของคุณตอนนี้)
-// - export default (function/object)
+// GoodJunkVR — Safe Boot Wrapper (updated)
+// ✅ เพิ่มรองรับ engineMod.createEngine (แล้ว start() ให้เอง)
 
 'use strict';
 
@@ -21,15 +14,18 @@ function clampInt(v, min, max, fallback) {
 
 function parseQuery(urlObj) {
   const url = urlObj || new URL(window.location.href);
+
   const diff = String(url.searchParams.get('diff') || 'normal').toLowerCase();
   const time = clampInt(url.searchParams.get('time') || '60', 20, 180, 60);
   const run = String(url.searchParams.get('run') || '').toLowerCase();
-  const challenge = String(
-    url.searchParams.get('challenge') ||
-    url.searchParams.get('ch') ||
-    url.searchParams.get('mode2') ||
-    ''
-  ).toLowerCase();
+  const challenge =
+    String(
+      url.searchParams.get('challenge') ||
+      url.searchParams.get('ch') ||
+      url.searchParams.get('mode2') ||
+      ''
+    ).toLowerCase();
+
   return { url, diff, time, run, challenge };
 }
 
@@ -86,23 +82,18 @@ function adaptStarter(fnOrObj) {
 
 function pickEngineStarter(engineMod) {
   if (engineMod) {
-    // debug: โชว์รายการ export ที่มี
-    try {
-      console.log('[GoodJunkVR] GameEngine exports:', Object.keys(engineMod));
-    } catch (_) {}
+    // debug
+    try { console.log('[GoodJunkVR] GameEngine exports:', Object.keys(engineMod)); } catch (_) {}
 
     // 0) default export
     if (engineMod.default) {
       const s0 = adaptStarter(engineMod.default);
       if (s0) return s0;
-
-      if (typeof engineMod.default === 'object' && engineMod.default) {
-        if (typeof engineMod.default.boot === 'function') return adaptStarter(engineMod.default.boot);
-        if (typeof engineMod.default.start === 'function') return adaptStarter(engineMod.default.start);
-        if (engineMod.default.GameEngine && typeof engineMod.default.GameEngine === 'object') {
-          const sObj = adaptStarter(engineMod.default.GameEngine);
-          if (sObj) return sObj;
-        }
+      if (typeof engineMod.default === 'object' && engineMod.default && typeof engineMod.default.boot === 'function') {
+        return adaptStarter(engineMod.default.boot);
+      }
+      if (typeof engineMod.default === 'object' && engineMod.default && typeof engineMod.default.start === 'function') {
+        return adaptStarter(engineMod.default.start);
       }
     }
 
@@ -112,7 +103,7 @@ function pickEngineStarter(engineMod) {
     // 2) export start()
     if (typeof engineMod.start === 'function') return adaptStarter(engineMod.start);
 
-    // 3) export const GameEngine = { start, stop }
+    // 3) export const GameEngine = {start,stop}
     if (engineMod.GameEngine && typeof engineMod.GameEngine === 'object') {
       const sObj = adaptStarter(engineMod.GameEngine);
       if (sObj) return sObj;
@@ -132,7 +123,7 @@ function pickEngineStarter(engineMod) {
       };
     }
 
-    // 5) export makeEngine(ctx)
+    // 5) export factory makeEngine()
     if (typeof engineMod.makeEngine === 'function') {
       return (ctx = {}) => {
         try {
@@ -145,14 +136,12 @@ function pickEngineStarter(engineMod) {
       };
     }
 
-    // ✅ 6) export createEngine(ctx)  << PATCH สำคัญ
+    // 6) ✅ export createEngine() แล้ว start ให้เอง
     if (typeof engineMod.createEngine === 'function') {
       return (ctx = {}) => {
         try {
           const inst = engineMod.createEngine(ctx);
           if (inst && typeof inst.start === 'function') return inst.start();
-          // เผื่อ createEngine คืน function start เลย
-          if (typeof inst === 'function') return inst(ctx);
           console.error('[GoodJunkVR] createEngine() did not return {start()}');
         } catch (e) {
           console.error('[GoodJunkVR] createEngine(ctx) failed:', e);
@@ -161,7 +150,7 @@ function pickEngineStarter(engineMod) {
     }
   }
 
-  // fallback เผื่อเป็น IIFE ผูกไว้ที่ window
+  // fallback global (ไม่แนะนำ แต่กันพัง)
   const w = window;
   const cand =
     w.GoodJunkEngine ||
@@ -195,11 +184,12 @@ export async function boot(opts = {}) {
 
   if (!startEngine) {
     console.error('[GoodJunkVR] ไม่พบตัวเริ่มเกมจาก GameEngine.js (boot/start/GameEngine/makeEngine/createEngine/default)');
-    return null;
+    return;
   }
 
   const factoryBoot = await loadFactoryBoot();
   if (factoryBoot) {
+    console.log('[GoodJunkVR] using mode-factory');
     return factoryBoot({
       mode: 'goodjunk',
       projectTag: 'HeroHealth-GoodJunkVR',
