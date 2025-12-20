@@ -2,9 +2,12 @@
 // HeroHealth FX Layer (DOM)
 // - score pop + burst
 // - toast
-// - ✅ objPop (side objects beside hit target)
-// - ✅ color-by-kind prefix for scorePop: [GOOD]/[JUNK]/[GOLD]/[FAKE]/[POWER]/[BLOCK]/[BOSS]
-// - ✅ HEAVY Celebration + ✅ ULTRA Celebration (confetti waves + fireworks + flash + triple shake + clap)
+// - objPop (side objects beside hit target)
+// - color-by-kind prefix for scorePop: [GOOD]/[JUNK]/[GOLD]/[FAKE]/[POWER]/[BLOCK]/[BOSS]
+// - HEAVY Celebration + ULTRA Celebration (confetti waves + fireworks + flash + triple shake + clap)
+//
+// ✅ PATCH: ปลอดภัยตอน doc.body ยังไม่พร้อม (กัน appendChild null)
+// ✅ PATCH: burstAt รองรับทั้ง (x,y,'LABEL') และ (x,y,{...opts}) และเพิ่ม heavy shards + stars/confetti ทุก hit
 //
 // Exposes: window.GAME_MODULES.Particles (and window.Particles)
 
@@ -15,74 +18,43 @@
   if (!doc) return;
 
   // -----------------------------
-  // Layer (PATCH: safe when body is null)
+  // Layer (safe)
   // -----------------------------
-  let __HHA_LAYER = null;
-  let __HHA_WAIT_BOUND = false;
-
-  function __tryAppendLayer() {
-    try {
-      if (!__HHA_LAYER) return;
-      if (__HHA_LAYER.isConnected) return;
-      if (!doc.body) return; // ✅ body ยังไม่มา ก็อย่า append
-      doc.body.appendChild(__HHA_LAYER);
-    } catch (_) {}
-  }
-
-  function __ensureAppendWhenReady() {
-    if (__HHA_WAIT_BOUND) return;
-    __HHA_WAIT_BOUND = true;
-
-    // ถ้าตอนนี้ ready แล้วแต่ body ยังไม่มา (rare) ก็รอ tick สั้น ๆ
-    const trySoon = () => {
-      __tryAppendLayer();
-      if (__HHA_LAYER && !__HHA_LAYER.isConnected && doc.body) {
-        __tryAppendLayer();
-      }
-    };
-
-    doc.addEventListener('DOMContentLoaded', () => {
-      trySoon();
-      // กันบาง browser ที่ DOMContentLoaded มาแต่ body ยัง layout ไม่จบ
-      setTimeout(trySoon, 0);
-      setTimeout(trySoon, 50);
-    }, { once: true });
-
-    // ถ้าไฟล์ถูกโหลดหลัง DOMContentLoaded ไปแล้ว
-    if (doc.readyState === 'interactive' || doc.readyState === 'complete') {
-      setTimeout(trySoon, 0);
-    }
-  }
+  let __layer = null;
+  let __layerPending = false;
 
   function ensureLayer() {
-    // มีอยู่แล้ว → ลอง append ถ้าจำเป็น
-    if (__HHA_LAYER) {
-      __tryAppendLayer();
-      __ensureAppendWhenReady();
-      return __HHA_LAYER;
-    }
-
-    // ลองหา layer ที่มีอยู่แล้วใน DOM
     let layer = doc.querySelector('.hha-fx-layer');
-    if (!layer) {
-      layer = doc.createElement('div');
-      layer.className = 'hha-fx-layer';
-      Object.assign(layer.style, {
-        position: 'fixed',
-        inset: '0',
-        zIndex: '99997',
-        pointerEvents: 'none',
-        overflow: 'hidden'
-      });
+    if (layer) return layer;
+
+    // ✅ กันกรณี script รันก่อน body พร้อม
+    if (!doc.body) {
+      if (!__layerPending) {
+        __layerPending = true;
+        doc.addEventListener('DOMContentLoaded', () => {
+          __layerPending = false;
+          try { ensureLayer(); } catch (_) {}
+        }, { once: true });
+      }
+      return null;
     }
 
-    __HHA_LAYER = layer;
+    layer = doc.createElement('div');
+    layer.className = 'hha-fx-layer';
+    Object.assign(layer.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '99997',
+      pointerEvents: 'none',
+      overflow: 'hidden'
+    });
+    doc.body.appendChild(layer);
+    return layer;
+  }
 
-    // ✅ อย่า append ถ้า body ยังไม่มา
-    __tryAppendLayer();
-    __ensureAppendWhenReady();
-
-    return __HHA_LAYER;
+  function getLayer() {
+    __layer = __layer || ensureLayer();
+    return __layer;
   }
 
   // -----------------------------
@@ -134,6 +106,50 @@
         0%{ transform:translate(-50%,-50%) scale(.7); opacity:.0; }
         10%{ opacity:.95; }
         100%{ transform:translate(var(--dx), var(--dy)) scale(.0); opacity:0; }
+      }
+
+      /* heavier shard punch */
+      .hha-fx-shard.heavy{
+        border-radius:10px;
+        animation:hhaShardHeavy 640ms cubic-bezier(.12,.75,.18,1) forwards;
+      }
+      @keyframes hhaShardHeavy{
+        0%{ transform:translate(-50%,-50%) scale(.75); opacity:0; }
+        12%{ opacity:.98; }
+        100%{ transform:translate(var(--dx), var(--dy)) scale(.0); opacity:0; }
+      }
+
+      /* --------- HIT STARS ---------- */
+      .hha-hit-star{
+        position:absolute;
+        left:50%; top:50%;
+        transform:translate(-50%,-50%) scale(.9);
+        opacity:0;
+        filter:drop-shadow(0 10px 18px rgba(0,0,0,.55));
+        will-change:transform, opacity;
+        animation:hhaStar 620ms ease-out forwards;
+      }
+      @keyframes hhaStar{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); }
+        16%{ opacity:1; transform:translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(1.1); }
+        100%{ opacity:0; transform:translate(calc(-50% + var(--sx2)), calc(-50% + var(--sy2))) scale(.9); }
+      }
+
+      /* --------- HIT CONFETTI ---------- */
+      .hha-hit-conf{
+        position:absolute;
+        left:50%; top:50%;
+        width:10px; height:14px;
+        border-radius:6px;
+        opacity:.95;
+        transform:translate(-50%,-50%) rotate(var(--r));
+        filter:drop-shadow(0 12px 18px rgba(0,0,0,.55));
+        animation:hhaHitConf var(--t) ease-out forwards;
+      }
+      @keyframes hhaHitConf{
+        0%{ opacity:0; transform:translate(-50%,-50%) rotate(var(--r)) scale(.7); }
+        12%{ opacity:.95; }
+        100%{ opacity:0; transform:translate(calc(-50% + var(--cx)), calc(-50% + var(--cy))) rotate(calc(var(--r) + 220deg)) scale(.0); }
       }
 
       /* --------- OBJ POP (side emojis) ---------- */
@@ -272,7 +288,7 @@
         color:#e5e7eb;
       }
 
-      /* confetti */
+      /* confetti (full screen) */
       .hha-conf{
         position:absolute;
         top:-10vh;
@@ -328,12 +344,11 @@
         100%{ transform:translate3d(0,0,0); }
       }
     `;
-    doc.head.appendChild(s);
+    if (doc.head) doc.head.appendChild(s);
+    else doc.documentElement && doc.documentElement.appendChild(s);
   }
 
   ensureStyle();
-  // ✅ อย่าเรียก ensureLayer() แบบบังคับตอน load ไฟล์
-  // ให้เรียกเมื่อมีการใช้งาน FX จริง ๆ (lazy) → กัน iOS/Android crash
 
   // -----------------------------
   // Audio (safe / tiny)
@@ -423,10 +438,56 @@
   }
 
   // -----------------------------
+  // small hit stars + confetti
+  // -----------------------------
+  function hitStars(wrap, heavy){
+    const n = heavy ? 8 : 5;
+    const glyphs = ['⭐','✨','💫'];
+    for (let i=0;i<n;i++){
+      const st = doc.createElement('div');
+      st.className = 'hha-hit-star';
+      st.textContent = glyphs[(Math.random()*glyphs.length)|0];
+      st.style.fontSize = (heavy ? (18 + Math.random()*12) : (16 + Math.random()*10)).toFixed(0)+'px';
+      const sx  = (Math.random()*2-1) * (heavy ? 48 : 34);
+      const sy  = (Math.random()*2-1) * (heavy ? 48 : 34) - (heavy ? 10 : 6);
+      const sx2 = sx * 1.4;
+      const sy2 = sy - (heavy ? 28 : 18);
+      st.style.setProperty('--sx',  sx.toFixed(0)+'px');
+      st.style.setProperty('--sy',  sy.toFixed(0)+'px');
+      st.style.setProperty('--sx2', sx2.toFixed(0)+'px');
+      st.style.setProperty('--sy2', sy2.toFixed(0)+'px');
+      wrap.appendChild(st);
+      setTimeout(()=>{ try{ st.remove(); }catch{} }, 720);
+    }
+  }
+
+  function hitConfetti(wrap, heavy){
+    const n = heavy ? 14 : 9;
+    const cols = ['#4ade80','#22c55e','#facc15','#fb923c','#60a5fa','#a78bfa','#f472b6','#34d399'];
+    for (let i=0;i<n;i++){
+      const c = doc.createElement('div');
+      c.className = 'hha-hit-conf';
+      c.style.background = cols[(Math.random()*cols.length)|0];
+      c.style.width  = (heavy ? (8 + Math.random()*10) : (7 + Math.random()*8)).toFixed(0)+'px';
+      c.style.height = (heavy ? (10 + Math.random()*14) : (9 + Math.random()*12)).toFixed(0)+'px';
+      c.style.setProperty('--r', (Math.random()*360).toFixed(0)+'deg');
+      c.style.setProperty('--t', (heavy ? (0.65 + Math.random()*0.25) : (0.58 + Math.random()*0.22)).toFixed(2)+'s');
+
+      const cx = (Math.random()*2-1) * (heavy ? 96 : 72);
+      const cy = (Math.random()*2-1) * (heavy ? 96 : 72) - (heavy ? 18 : 12);
+      c.style.setProperty('--cx', cx.toFixed(0)+'px');
+      c.style.setProperty('--cy', cy.toFixed(0)+'px');
+
+      wrap.appendChild(c);
+      setTimeout(()=>{ try{ c.remove(); }catch{} }, 900);
+    }
+  }
+
+  // -----------------------------
   // FX API
   // -----------------------------
   function scorePop(x, y, delta, label, opts = {}){
-    const layer = ensureLayer();
+    const layer = getLayer();
     if (!layer) return;
 
     const el = doc.createElement('div');
@@ -434,7 +495,7 @@
     el.style.left = (x|0) + 'px';
     el.style.top  = (y|0) + 'px';
 
-    // ---- kind prefix parsing ----
+    // kind prefix parsing
     let kind = '';
     let textLabel = (label == null) ? '' : String(label);
 
@@ -456,7 +517,7 @@
     const tag = textLabel ? (plain ? `${textLabel}` : ` • ${textLabel}`) : '';
     el.textContent = `${txt}${tag}`.trim();
 
-    // ---- color by kind ----
+    // color by kind
     if (kind === 'JUNK' || kind === 'FAKE') el.style.color = '#fb923c';
     else if (kind === 'BLOCK') el.style.color = '#60a5fa';
     else if (kind === 'POWER') el.style.color = '#a78bfa';
@@ -469,47 +530,84 @@
     setTimeout(()=>{ try{ el.remove(); }catch{} }, 700);
   }
 
-  function burstAt(x, y, label){
-    const layer = ensureLayer();
+  // ✅ burstAt รองรับทั้ง (x,y,'LABEL') และ (x,y,{good,count,label,heavy,stars,confetti})
+  function burstAt(x, y, labelOrOpts){
+    const layer = getLayer();
     if (!layer) return;
+
+    let label = '';
+    let opts = {};
+
+    if (typeof labelOrOpts === 'string') {
+      label = labelOrOpts;
+    } else if (labelOrOpts && typeof labelOrOpts === 'object') {
+      opts = labelOrOpts;
+      label = String(opts.label || opts.kind || '');
+    }
+
+    const goodFlag = (typeof opts.good === 'boolean') ? opts.good : true;
+
+    const heavy = !!opts.heavy || (typeof opts.count === 'number' && opts.count >= 40) || /PERFECT|BOSS|GOLD/i.test(label);
+    const stars = (opts.stars === undefined) ? true : !!opts.stars;
+    const confetti = (opts.confetti === undefined) ? true : !!opts.confetti;
+
+    const n = Math.max(10, Math.min(60, Number(opts.count || (heavy ? 32 : 18))));
 
     const wrap = doc.createElement('div');
     wrap.className = 'hha-fx-burst';
     wrap.style.left = (x|0) + 'px';
     wrap.style.top  = (y|0) + 'px';
 
-    const n = 14;
+    // palette
+    const isBad = /JUNK|MISS|FAKE|RISK/i.test(label) || (!goodFlag);
+    const isBlock = /BLOCK/i.test(label);
+    const isPower = /POWER/i.test(label);
+    const isGold  = /GOLD/i.test(label);
+    const isBoss  = /BOSS/i.test(label);
+
+    function shardColor(){
+      if (isBad) return 'rgba(251,146,60,.95)';
+      if (isBlock) return 'rgba(96,165,250,.95)';
+      if (isPower || isGold) return 'rgba(250,204,21,.95)';
+      if (isBoss) return 'rgba(244,114,182,.95)';
+      return 'rgba(74,222,128,.95)';
+    }
+
+    const baseDist = heavy ? 44 : 26;
+    const varDist  = heavy ? 90 : 58;
+
     for (let i=0;i<n;i++){
       const s = doc.createElement('div');
-      s.className = 'hha-fx-shard';
+      s.className = 'hha-fx-shard' + (heavy ? ' heavy' : '');
 
       const ang = Math.random() * Math.PI * 2;
-      const r = 24 + Math.random() * 56;
+      const r = baseDist + Math.random() * varDist;
       const dx = Math.cos(ang) * r;
       const dy = Math.sin(ang) * r;
 
       s.style.setProperty('--dx', dx.toFixed(1)+'px');
       s.style.setProperty('--dy', dy.toFixed(1)+'px');
 
-      if (label === 'JUNK' || label === 'MISS') s.style.background = 'rgba(251,146,60,.95)';
-      else if (label === 'BLOCK') s.style.background = 'rgba(96,165,250,.95)';
-      else if (label === 'POWER' || label === 'GOLD') s.style.background = 'rgba(250,204,21,.95)';
-      else if (label === 'FIREWORK') s.style.background = 'rgba(167,139,250,.95)';
-      else s.style.background = 'rgba(74,222,128,.95)';
+      s.style.background = shardColor();
 
-      s.style.width = (6 + Math.random()*8).toFixed(0)+'px';
-      s.style.height = (6 + Math.random()*8).toFixed(0)+'px';
+      const w = heavy ? (8 + Math.random()*12) : (6 + Math.random()*8);
+      const h = heavy ? (8 + Math.random()*12) : (6 + Math.random()*8);
+      s.style.width  = w.toFixed(0)+'px';
+      s.style.height = h.toFixed(0)+'px';
 
       wrap.appendChild(s);
     }
 
+    if (stars) hitStars(wrap, heavy);
+    if (confetti) hitConfetti(wrap, heavy);
+
     layer.appendChild(wrap);
-    setTimeout(()=>{ try{ wrap.remove(); }catch{} }, 650);
+    setTimeout(()=>{ try{ wrap.remove(); }catch{} }, heavy ? 760 : 650);
   }
 
-  // ✅ object pop beside hit target
+  // obj pop beside hit target
   function objPop(x, y, emoji, opts = {}){
-    const layer = ensureLayer();
+    const layer = getLayer();
     if (!layer) return;
 
     const el = doc.createElement('div');
@@ -543,7 +641,7 @@
   }
 
   function toast(text){
-    const layer = ensureLayer();
+    const layer = getLayer();
     if (!layer) return;
 
     const el = doc.createElement('div');
@@ -554,7 +652,7 @@
   }
 
   // -----------------------------
-  // CELEBRATION
+  // CELEBRATION (เดิม) (คงไว้)
   // -----------------------------
   let celeLock = 0;
 
@@ -565,7 +663,7 @@
 
   function shakeOnce(){
     try{
-      const w = doc.getElementById('hvr-wrap') || doc.body || doc.documentElement;
+      const w = doc.getElementById('hvr-wrap') || doc.body;
       if (!w) return;
       w.classList.remove('hha-shake');
       void w.offsetWidth;
@@ -612,7 +710,7 @@
   }
 
   function fireworksBurst(parent, x, y){
-    burstAt(x, y, 'FIREWORK');
+    burstAt(x, y, { label:'FIREWORK', heavy:true, stars:true, confetti:true, count: 26, good:true });
     try{ scorePop(x, y, '', '[GOLD] ✨', { plain:true }); }catch{}
   }
 
@@ -630,7 +728,7 @@
   }
 
   function celebrate(kind='goal', opts={}){
-    const layer = ensureLayer();
+    const layer = getLayer();
     if (!layer) return;
 
     const now = Date.now();
