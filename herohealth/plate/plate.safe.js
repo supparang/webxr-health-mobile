@@ -1,7 +1,7 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION v10.2 (ES Module)
+// Balanced Plate VR — PRODUCTION v10.3 (ES Module)
 // ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้
-// ✅ FX “สติ๊กเกอร์ LINE”: คำตัดสินหัวโต + คะแนนเด้งข้างเป้า
+// ✅ FX “เด้งตรงเป้า”: คำตัดสิน + คะแนนเด้งตรงตำแหน่งเป้า + shards หนัก + ดาว/คอนเฟตติทุก hit
 // ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ง
 // ✅ 1–8 Challenge Pack (Goal + Mini + Twist + Boss Phase + Hero10)
 // ✅ PATCH: เป้าเลื่อนตามจอ + clamp safe zone + ไม่ทับ HUD บน/ล่าง/ซ้าย/ขวา
@@ -84,7 +84,7 @@ const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  { scorePop() {}, burstAt() {} };
+  { scorePop() {}, burstAt() {}, toast() {}, celebrate() {}, objPop() {} };
 
 // ---------- Difficulty tuning (Production) ----------
 const DIFF_TABLE = {
@@ -418,6 +418,7 @@ function screenShake() {
 
 // =======================
 // HUD-safe FX nudge (แก้ “คำตัดสิน/คะแนนโดน HUD บัง”)
+// (ยังคงไว้ใช้กับสติ๊กเกอร์กลางจออื่น ๆ)
 // =======================
 function nudgeFxAwayFromHud(px, py) {
   const W = Math.max(1, window.innerWidth || 1);
@@ -441,27 +442,19 @@ function nudgeFxAwayFromHud(px, py) {
     const r = el.getBoundingClientRect();
     if (!r || r.width < 20 || r.height < 20) continue;
 
-    // ถ้าอยู่ใต้กรอบ HUD -> ดันออก
     const inside = (x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad);
     if (!inside) continue;
 
-    // เลือกทิศทางที่ดันแล้ว “ใกล้สุด” และยังอยู่ในจอ
     const candidates = [];
-
-    // ลงล่าง
     candidates.push({ x, y: r.bottom + pad, cost: Math.abs((r.bottom + pad) - y) });
-    // ขึ้นบน
     candidates.push({ x, y: r.top - pad, cost: Math.abs((r.top - pad) - y) });
-    // ไปขวา
     candidates.push({ x: r.right + pad, y, cost: Math.abs((r.right + pad) - x) });
-    // ไปซ้าย
     candidates.push({ x: r.left - pad, y, cost: Math.abs((r.left - pad) - x) });
 
     let best = null;
     for (const c of candidates) {
       const cx = clamp(c.x, pad, W - pad);
       const cy = clamp(c.y, pad, H - pad);
-      // อย่าไปทับซ้ำจุดเดิม
       if (cx === x && cy === y) continue;
       const ok = (cx >= 0 && cx <= W && cy >= 0 && cy <= H);
       if (!ok) continue;
@@ -475,7 +468,7 @@ function nudgeFxAwayFromHud(px, py) {
   return { x, y };
 }
 
-// ---------- Sticker FX ----------
+// ---------- Sticker FX (เดิม - ใช้กับกลางจอ/โบนัส) ----------
 function stickerAt(px, py, text, opts = {}) {
   const layer = ensureFxLayer();
   const el = document.createElement('div');
@@ -579,39 +572,75 @@ function screenPxFromEntity(el) {
   }catch(_){ return null; }
 }
 
-function fxOnHit(el, kind, judgeText, pts) {
-  const p0 = screenPxFromEntity(el);
+// ✅ ใหม่: world point -> screen px (ใช้กับ raycast intersection เพื่อให้เด้ง "ตรงเป้า" โคตรแม่น)
+function screenPxFromWorldPoint(worldPoint) {
+  try{
+    const cam3 = getSceneCamera();
+    if (!cam3 || !worldPoint) return null;
+    const v = new THREE.Vector3(worldPoint.x, worldPoint.y, worldPoint.z);
+    v.project(cam3);
+    if (v.z > 1) return null;
+    const x = (v.x + 1) / 2;
+    const y = (1 - (v.y + 1) / 2);
+    return { x: x * window.innerWidth, y: y * window.innerHeight };
+  }catch(_){ return null; }
+}
+
+// ✅ FX: คะแนน+คำตัดสินเด้ง "ตรงเป้า" + แตกกระจายหนัก + ดาว/คอนเฟตติทุก hit
+function fxOnHit(el, kind, judgeText, pts, hit = null) {
+  // 1) ใช้จุดชน (raycast intersection) ก่อน → แม่นสุด
+  let p0 = null;
+  if (hit && hit.point) p0 = screenPxFromWorldPoint(hit.point);
+
+  // 2) fallback: ใช้ world pos ของ entity
+  if (!p0) p0 = screenPxFromEntity(el);
   if (!p0) return;
 
-  // ✅ ถ้าจุดไปอยู่ใต้ HUD ให้เลื่อนออกอัตโนมัติ
-  const p = nudgeFxAwayFromHud(p0.x, p0.y);
+  const x = p0.x;
+  const y = p0.y;
 
-  // ✅ แตกกระจายให้เห็นชัด (Particles.js บางเวอร์ชันรับแค่ good/count)
+  const k = String(kind || '').toLowerCase();
+  const judge = String(judgeText || '');
+
+  const label =
+    (k === 'junk')  ? 'MISS' :
+    (k === 'boss')  ? 'BOSS' :
+    (k === 'power') ? 'POWER' :
+    (k === 'haz')   ? 'RISK' :
+    (judge.includes('PERFECT') ? 'GOOD' : 'GOOD');
+
+  // ✅ แตกกระจายหนัก + ดาว/คอนเฟตติทุก hit
   try {
-    Particles.burstAt(p.x, p.y, {
-      good: kind !== 'junk',
-      count: (judgeText && String(judgeText).includes('PERFECT')) ? 44 : 30
+    Particles.burstAt(x, y, {
+      label,
+      good: (k !== 'junk'),
+      heavy: true,
+      stars: true,
+      confetti: true,
+      count: judge.includes('PERFECT') ? 44 : 32
     });
   } catch(_){}
 
-  // ✅ คะแนนเด้งข้างเป้า
+  // ✅ คะแนนเด้งตรงเป้า
   if (typeof pts === 'number') {
-    const tone = (pts < 0 || kind==='junk') ? 'bad' : (kind==='boss' ? 'boss' : (kind==='power' ? 'gold' : 'good'));
-    stickerAt(p.x, p.y, (pts>=0?`+${pts}`:`${pts}`), { tone, dx: 44, dy: -10, life: 540, big: false });
+    try { Particles.scorePop(x, y - 4, pts, '', { plain:true }); } catch(_){}
   }
 
-  // ✅ คำตัดสินหัวโต
-  if (judgeText) {
-    const jt = String(judgeText);
-    const tone = (jt.includes('MISS') || jt.includes('BAD')) ? 'bad'
-      : (jt.includes('BOSS') ? 'boss'
-      : (jt.includes('GOLD') || jt.includes('FEVER') || jt.includes('CLEAR') ? 'gold' : 'good'));
-    stickerAt(p.x, p.y, jt, { tone, dx: -58, dy: -12, life: 590, big: true });
+  // ✅ คำตัดสินเด้งตรงเป้า (เหนือขึ้นไปนิด)
+  if (judge) {
+    const prefix =
+      (k === 'junk')  ? '[JUNK] ' :
+      (k === 'boss')  ? '[BOSS] ' :
+      (k === 'power') ? '[POWER] ' :
+      (k === 'haz')   ? '[FAKE] ' :
+      '[GOOD] ';
+    try { Particles.scorePop(x, y - 30, '', `${prefix}${judge}`, { plain:true }); } catch(_){}
   }
 
-  if (judgeText && String(judgeText).includes('PERFECT')) {
-    starConfetti(p.x, p.y, 24);
-    sfxDing();
+  // ✅ ถ้า PERFECT ให้มีติ๊ง (optional)
+  if (judge.includes('PERFECT')) {
+    // เสียงหลักของคุณอยู่ที่ logic อื่นแล้ว แต่เพิ่มได้
+    // sfxDing();
   }
 }
 
@@ -776,7 +805,7 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   el.setAttribute('position', `${pos.x} ${pos.y} 0`);
 
   // Click from cursor / fuse
-  el.addEventListener('click', () => onHit(el, 'cursor'));
+  el.addEventListener('click', () => onHit(el, 'cursor', null));
   return el;
 }
 
@@ -878,10 +907,10 @@ function checkPerfectPlate() {
     emitCoach(`PERFECT PLATE! +${bonus}${chainBonus?` (+${chainBonus} CHAIN!)`:''} 🌟`, 'happy');
     emitGameEvent({ type:'perfect_plate', perfectPlates, perfectStreak, perfectChain, bonus, chainBonus });
 
-    // ✅ ให้ FX ชัด ๆ ตอน PERFECT
+    // ✅ ให้ FX ชัด ๆ ตอน PERFECT (กลางจอ)
     try {
       const p = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.42);
-      Particles.burstAt(p.x, p.y, { good:true, count: 52 });
+      Particles.burstAt(p.x, p.y, { label:'PERFECT', good:true, heavy:true, stars:true, confetti:true, count: 52 });
       starConfetti(p.x, p.y, 26);
     } catch(_) {}
 
@@ -1076,7 +1105,7 @@ function clearMiniQuest() {
   const p = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.42);
   stickerAt(p.x, p.y, `✅ MINI CLEAR +${bonus}`, { tone:'gold', big:true, life: 840 });
 
-  try { Particles.burstAt(p.x, p.y, { good:true, count: 40 }); } catch(_){}
+  try { Particles.burstAt(p.x, p.y, { label:'MINI', good:true, heavy:true, stars:true, confetti:true, count: 40 }); } catch(_){}
 
   setTimeout(() => { if (!ended) startNextMiniQuest(); }, 520);
 
@@ -1284,7 +1313,8 @@ function applyTwistOnGood(groupId) {
   lastGoodGroup = groupId;
 }
 
-function onHit(el, via = 'cursor') {
+// ✅ onHit รับ hit intersection (จาก raycast) เพื่อให้ FX เด้ง "ตรงเป้า" แบบแม่นสุด
+function onHit(el, via = 'cursor', hit = null) {
   if (!el || ended || paused) return;
 
   const id = el.getAttribute('id') || '';
@@ -1297,7 +1327,7 @@ function onHit(el, via = 'cursor') {
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
   const preFx = (judge, pts) => {
-    try { fxOnHit(el, kind, judge, pts); } catch(_){}
+    try { fxOnHit(el, kind, judge, pts, hit); } catch(_){}
   };
 
   removeTarget(el, 'hit');
@@ -1397,7 +1427,7 @@ function onHit(el, via = 'cursor') {
 
       const p = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.42);
       stickerAt(p.x, p.y, `🏆 BOSS CLEAR +${bonus}`, { tone:'boss', big:true, life: 980 });
-      try { Particles.burstAt(p.x, p.y, { good:true, count: 48 }); } catch(_){}
+      try { Particles.burstAt(p.x, p.y, { label:'BOSS', good:true, heavy:true, stars:true, confetti:true, count: 48 }); } catch(_){}
       sfxDing();
 
       emitGameEvent({ type:'boss_clear', bonus });
@@ -1692,7 +1722,7 @@ function endGame(reason = 'ended') {
     const bonus = 260;
     score += bonus;
     stickerAt(window.innerWidth*0.5, window.innerHeight*0.30, `✨ FINISH CLEAN +${bonus}`, { tone:'gold', big:true, life: 980 });
-    try { Particles.burstAt(window.innerWidth*0.5, window.innerHeight*0.42, { good:true, count: 44 }); } catch(_){}
+    try { Particles.burstAt(window.innerWidth*0.5, window.innerHeight*0.42, { label:'END', good:true, heavy:true, stars:true, confetti:true, count: 44 }); } catch(_){}
     sfxDing();
     emitGameEvent({ type:'finish_clean_bonus', bonus });
   }
@@ -1738,7 +1768,6 @@ function bindFirstGesture200() {
       return; // ยังไม่ถอด listener เพื่อให้ผู้ใช้แตะขอใหม่ได้
     }
 
-    // grant แล้วค่อยถอด (200% sure)
     window.removeEventListener('pointerdown', once, true);
     window.removeEventListener('touchstart', once, true);
     window.removeEventListener('click', once, true);
@@ -1760,8 +1789,6 @@ function bindUI() {
   if (btnEnterVR && scene) {
     btnEnterVR.addEventListener('click', async () => {
       tryResumeAudio();
-
-      // ✅ iOS ขอ permission ก่อนเข้า VR “ทุกครั้ง”
       await ensureMotionPermission(true);
 
       try {
@@ -1844,7 +1871,8 @@ function bindPointerFallback() {
     }
     if (!cur || !cur.classList || !cur.classList.contains('plateTarget')) return;
 
-    onHit(cur, 'raycast');
+    // ✅ ส่ง intersects[0] เข้าไป → fxOnHit ใช้ point ได้แม่นสุด
+    onHit(cur, 'raycast', intersects[0]);
   }
 
   window.addEventListener('pointerdown', doRaycastFromEvent, { passive: true });
