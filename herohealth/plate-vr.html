@@ -208,26 +208,74 @@
   </a-scene>
 
   <!-- Module -->
-  <script type="module">
-    import { initCloudLogger } from './vr/hha-cloud-logger.js';
-    import { bootPlateDOM } from './plate/plate.safe.js';
+<script type="module">
+  import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-    // ✅ เริ่ม logger ก่อน (เพื่อจับ hha:event / hha:end ตั้งแต่ต้น)
-    initCloudLogger({
-      endpoint: 'https://script.google.com/macros/s/AKfycbzOVSfe_gLDBCI7wXhVmIR2h74wGvbSzGQmoi1QbfwZgutreu0ImKQFxK4DZzGEzv7hiA/exec',
-      debug: true
+  const ENDPOINT = 'https://script.google.com/macros/s/AKfycbzOVSfe_gLDBCI7wXhVmIR2h74wGvbSzGQmoi1QbfwZgutreu0ImKQFxK4DZzGEzv7hiA/exec';
+
+  initCloudLogger({ endpoint: ENDPOINT, debug: true });
+
+  // --- Bridge: แปลง event ของเกม -> event ที่ logger ฟัง ---
+  // logger ของคุณฟัง: hha:log_session, hha:log_event
+  const emitLog = (type, detail) => window.dispatchEvent(new CustomEvent(type, { detail }));
+
+  // events (ยิงบ่อย)
+  window.addEventListener('hha:event', (e) => {
+    const d = e.detail || {};
+    emitLog('hha:log_event', {
+      timestampIso: new Date().toISOString(),
+      projectTag: d.projectTag || 'HeroHealth-PlateVR',
+      runMode: d.runMode || (new URL(location.href).searchParams.get('run') || 'play'),
+      sessionId: d.sessionId || '',
+      eventType: d.type || '',
+      gameMode: d.mode || 'PlateVR',
+      diff: d.difficulty || (new URL(location.href).searchParams.get('diff') || 'normal'),
+      timeFromStartMs: d.timeFromStartMs ?? '',
+      targetId: d.targetId || '',
+      emoji: d.emoji || '',
+      itemType: d.kind || '',
+      rtMs: d.rtMs ?? '',
+      judgment: d.judgment || '',
+      totalScore: d.totalScore ?? '',
+      combo: d.combo ?? '',
+      isGood: (String(d.kind || '') === 'junk') ? 0 : 1,
+      feverState: d.feverState || '',
+      feverValue: d.feverValue ?? '',
+      goalProgress: d.goalProgress ?? '',
+      miniProgress: d.miniProgress ?? '',
+      extra: d
     });
+  });
 
-    // อัปเดต grade บน HUD ทันที (ของเดิมคุณ)
-    window.addEventListener('hha:score', (e) => {
-      const d = e.detail || {};
-      const g = d.gradeNow || '';
-      const el = document.getElementById('hudGrade');
-      if (el && g) el.textContent = g;
+  // session summary (ยิงตอนจบ)
+  window.addEventListener('hha:end', (e) => {
+    const d = e.detail || {};
+    emitLog('hha:log_session', {
+      timestampIso: new Date().toISOString(),
+      projectTag: d.projectTag || 'HeroHealth-PlateVR',
+      runMode: d.runMode || (new URL(location.href).searchParams.get('run') || 'play'),
+      sessionId: d.sessionId || '',
+      gameMode: d.mode || 'PlateVR',
+      diff: (new URL(location.href).searchParams.get('diff') || 'normal'),
+      durationPlannedSec: (new URL(location.href).searchParams.get('time') || ''),
+      durationPlayedSec: '',
+
+      scoreFinal: d.score ?? '',
+      comboMax: d.comboMax ?? '',
+      misses: d.misses ?? '',
+
+      goalsCleared: d.goalsCleared ?? '',
+      goalsTotal: d.goalsTotal ?? '',
+      miniCleared: d.miniCleared ?? '',
+      miniTotal: d.miniTotal ?? '',
+
+      reason: d.reason || '',
+      startTimeIso: '',
+      endTimeIso: new Date().toISOString(),
+
+      noteResearcher: ''
     });
-
-    bootPlateDOM();
-  </script>
-
+  });
+</script>
 </body>
 </html>
