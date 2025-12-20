@@ -17,6 +17,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){} };
   const safeStyleWidth = (el, w)=>{ try{ if (el) el.style.width = w; }catch(_){} };
 
+  // HUD elements
   const elScore = $('hud-score');
   const elCombo = $('hud-combo');
   const elMiss  = $('hud-miss');
@@ -56,6 +57,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   const logDot  = $('logdot');
   const logText = $('logtext');
 
+  // URL params
   const pageUrl = new window.URL(window.location.href);
   const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();
   const URL_DIFF = (pageUrl.searchParams.get('diff') || 'normal').toLowerCase();
@@ -76,6 +78,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     20, 180
   );
 
+  // Coach images
   const COACH_IMG = {
     neutral: './img/coach-neutral.png',
     happy:   './img/coach-happy.png',
@@ -94,6 +97,30 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     setCoachFace(mood);
     if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
     lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), 4200);
+  }
+
+  // ✅ Particles helper (FX)
+  function getParticles(){
+    return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
+  }
+  function fxAt(detail, fallbackY=0.52){
+    const x = (detail && typeof detail.x === 'number') ? detail.x : (window.innerWidth * 0.5);
+    const y = (detail && typeof detail.y === 'number') ? detail.y : (window.innerHeight * fallbackY);
+    return { x, y };
+  }
+  function fxGood(detail, label='GOOD'){
+    const P = getParticles();
+    if (!P) return;
+    const { x, y } = fxAt(detail, 0.55);
+    try{ P.burstAt && P.burstAt(x, y, { count: 14, good: true }); }catch(_){}
+    try{ P.scorePop && P.scorePop(x, y, '', label, { plain:true }); }catch(_){}
+  }
+  function fxBad(detail, label='MISS'){
+    const P = getParticles();
+    if (!P) return;
+    const { x, y } = fxAt(detail, 0.55);
+    try{ P.burstAt && P.burstAt(x, y, { count: 12, good: false }); }catch(_){}
+    try{ P.scorePop && P.scorePop(x, y, '', label, { plain:true }); }catch(_){}
   }
 
   function runCountdown(onDone){
@@ -162,6 +189,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     });
   }
 
+  // Logger badge
   const loggerState = { pending:true, ok:false, message:'' };
   function setLogBadge(state, text){
     if (!logDot || !logText) return;
@@ -195,6 +223,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     return !!(p.studentId || p.name || p.nickName || p.studentNo);
   }
 
+  // Quest state
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
     streakGood:0,
@@ -210,6 +239,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     final8Good: 0
   };
 
+  // mini reset
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = false;
     qState.usedMagnet = false;
@@ -219,6 +249,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     qState.streakGood = 0;
   });
 
+  // safeNoJunkSeconds tick
   let started = false;
   setInterval(()=>{
     if (!started) return;
@@ -227,10 +258,16 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
   let Q = null;
 
+  // ✅ HUD listeners + FX
   window.addEventListener('hha:judge', (e)=>{
     const label = (e.detail||{}).label || '';
     safeText(elJudge, label || '\u00A0');
+    // ถ้า engine ส่งพิกัดมา จะยิง FX ตามจุดนั้น
+    if (label) {
+      if (String(label).toLowerCase().includes('perfect')) fxGood(e.detail, 'PERFECT!');
+    }
   });
+
   window.addEventListener('hha:time', (e)=>{
     const sec = (e.detail||{}).sec;
     if (typeof sec === 'number' && sec >= 0){
@@ -239,6 +276,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
       if (Q) Q.tick(qState);
     }
   });
+
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
@@ -247,6 +285,93 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
     if (typeof d.challenge === 'string'){ qState.challenge = normCh(d.challenge); }
     if (Q) Q.tick(qState);
+  });
+
+  // ✅ FX from quest events (เอาให้ “มีแน่”)
+  window.addEventListener('quest:goodHit', (e)=>{
+    const d = e.detail || {};
+    qState.streakGood = (qState.streakGood|0) + 1;
+
+    const isPerfect = String(d.judgment||'').toLowerCase().includes('perfect');
+    fxGood(d, isPerfect ? 'PERFECT!' : 'GOOD!');
+
+    if (Q) Q.onEvent(isPerfect ? 'perfectHit' : 'goodHit', qState);
+  });
+
+  window.addEventListener('quest:badHit', (e)=>{
+    const d = e.detail || {};
+    qState.safeNoJunkSeconds = 0;
+    qState.streakGood = 0;
+
+    fxBad(d, 'JUNK!');
+    if (Q) Q.onEvent('junkHit', qState);
+  });
+
+  window.addEventListener('quest:block', (e)=>{
+    const d = e.detail || {};
+    qState.blocks = (qState.blocks|0) + 1;
+    fxGood(d, 'BLOCK!');
+    if (Q) Q.onEvent('shieldBlock', qState);
+  });
+
+  window.addEventListener('quest:power', (e)=>{
+    const d = e.detail || {};
+    const p = d.power;
+    if (p === 'magnet') qState.usedMagnet = true;
+    if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
+    fxGood(d, (p||'POWER').toUpperCase()+'!');
+    if (Q) Q.onEvent('power', qState);
+  });
+
+  // quest:update (เดิมของคุณ)
+  window.addEventListener('quest:update', (e)=>{
+    const d = e.detail || {};
+    const goal = d.goal || null;
+    const mini = d.mini || null;
+    const meta = d.meta || {};
+
+    if (goal){
+      const cur = (goal.cur|0);
+      const max = (goal.max|0);
+      const pct = Math.max(0, Math.min(1, Number(goal.pct ?? (max>0?cur/max:0))));
+      safeText(elQuestMain, goal.title || 'ภารกิจหลัก');
+      safeStyleWidth(elQuestMainBar, Math.round(pct*100) + '%');
+      safeText(elQuestMainCap, `${cur} / ${max}`);
+    } else {
+      safeText(elQuestMain, 'ภารกิจหลัก (ครบ) ✅');
+      safeStyleWidth(elQuestMainBar, '100%');
+      safeText(elQuestMainCap, '');
+    }
+
+    if (mini){
+      const cur = (mini.cur|0);
+      const max = (mini.max|0);
+      const pct = Math.max(0, Math.min(1, Number(mini.pct ?? (max>0?cur/max:0))));
+      safeText(elQuestMini, 'Mini: ' + (mini.title || ''));
+      safeStyleWidth(elQuestMiniBar, Math.round(pct*100) + '%');
+
+      if (typeof mini.timeLeft === 'number' && typeof mini.timeTotal === 'number' && mini.timeTotal > 0){
+        const secLeft = Math.max(0, mini.timeLeft/1000);
+        safeText(elQuestMiniCap, `เหลือ ${secLeft >= 10 ? Math.round(secLeft) : (Math.round(secLeft*10)/10)}s`);
+      } else {
+        safeText(elQuestMiniCap, `${cur} / ${max}`);
+      }
+    } else {
+      safeText(elQuestMini, 'Mini quest (ครบ) ✅');
+      safeStyleWidth(elQuestMiniBar, '100%');
+      safeText(elQuestMiniCap, '');
+    }
+
+    let hint = '';
+    if (goal && String(goal.state||'').toLowerCase().includes('clear')) hint = 'GOAL CLEAR! 🎉';
+    else if (mini && String(mini.state||'').toLowerCase().includes('clear')) hint = 'MINI CLEAR! ✨';
+    else if (goal && Number(goal.pct||0) >= 0.8) hint = 'ใกล้แล้ว! 🔥';
+    else if (mini && Number(mini.pct||0) >= 0.8) hint = 'อีกนิดเดียว! ⚡';
+    safeText(elQuestHint, hint);
+
+    const miniCount = (meta.miniCount|0);
+    const minisCleared = (Q && Q.getState) ? (Q.getState().minisCleared|0) : 0;
+    safeText(elMiniCount, `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`);
   });
 
   function applyRunPill(){
@@ -265,11 +390,13 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   function prefillFromHub(){
     try{ selDiff.value = DIFF_INIT; }catch(_){}
     try{ selChallenge.value = CH_INIT; }catch(_){}
+
     applyRunPill();
 
     safeText(elDiff, DIFF_INIT.toUpperCase());
     safeText(elChal, CH_INIT.toUpperCase());
     safeText(elTime, DUR_INIT + 's');
+
     setCoachFace('neutral');
 
     const endpoint = sessionStorage.getItem('HHA_LOG_ENDPOINT');
@@ -296,16 +423,22 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     const chal = normCh(selChallenge?.value || CH_INIT);
     const durationSec = clamp(DUR_INIT, 20, 180);
 
+    qState.challenge = chal;
+    qState.runMode = RUN_MODE;
+
     safeText(elDiff, diff.toUpperCase());
     safeText(elChal, chal.toUpperCase());
     safeText(elTime, durationSec + 's');
 
-    safeText(elScore, '0'); safeText(elCombo, '0'); safeText(elMiss, '0');
+    safeText(elScore, '0');
+    safeText(elCombo, '0');
+    safeText(elMiss,  '0');
     safeText(elJudge, '\u00A0');
 
     setCoach('แตะของดี! หลบ junk! ไปเลย! ⚡', 'neutral');
 
     const { studentProfile, studentKey } = getProfile();
+
     const endpoint =
       sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
       'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
@@ -347,7 +480,6 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
         try{
           if (wantVR) await tryEnterVR();
 
-          // ✅ สำคัญที่สุด
           const ENGINE = await goodjunkBoot({
             diff,
             run: RUN_MODE,
@@ -356,12 +488,9 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
             layerEl: document.getElementById('gj-layer')
           });
 
-          if (!ENGINE){
-            throw new Error('ENGINE is null (goodjunkBoot failed)');
-          }
+          if (!ENGINE) throw new Error('ENGINE is null (goodjunkBoot failed)');
 
           window.__GJ_ENGINE__ = ENGINE;
-
           try{ Q && Q.tick && Q.tick(qState); }catch(_){}
         }catch(err){
           console.error('[GoodJunkVR] boot failed:', err);
