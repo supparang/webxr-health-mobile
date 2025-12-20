@@ -1,7 +1,8 @@
-<!-- === /herohealth/hydration-vr/hydration-vr.html ===
+<!-- === /herohealth/hydration-vr.html ===
 Hydration Quest VR (PLAY MODE) — Full HTML
-✅ รองรับ hydration.safe.js ที่คุณอัปเดต (heavy FX + quest + chain minis + end summary chain)
-✅ มี element id ครบทุกตัวที่ JS เรียกใช้
+✅ FIX: ปุ่มกดไม่ติด (bind ก่อน import + path ถูกต้องสำหรับ /herohealth/*.html)
+✅ ใช้ hydration-vr/hydration.safe.js
+✅ goHub -> ./hub.html
 -->
 
 <!doctype html>
@@ -221,12 +222,11 @@ Hydration Quest VR (PLAY MODE) — Full HTML
     }
     .quest-counts b{ color:var(--txt); }
 
-    /* Playfield (tap targets spawn here by mode-factory) */
+    /* Playfield */
     #hvr-playfield{
       position:absolute;
       inset:0;
       z-index:1;
-      /* important: allow pointer */
       pointer-events:auto;
     }
 
@@ -292,6 +292,14 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       background:rgba(34,197,94,.14);
     }
     .btn:active{ transform:translateY(1px); }
+
+    /* ✅ FIX: ปุ่มต้องอยู่บนสุดเสมอ กันโดนเลเยอร์อื่นทับ */
+    #btn-start,#btn-reload,#btn-exit,#btn-retry,#btn-to-hub{
+      position:relative;
+      z-index:99999;
+      pointer-events:auto;
+      touch-action:manipulation;
+    }
 
     .chips{
       display:flex;
@@ -542,7 +550,7 @@ Hydration Quest VR (PLAY MODE) — Full HTML
                 <div class="label">🔁 Chain Minis</div>
                 <div class="value" id="end-chain">0 (fail 0)</div>
               </div>
-              <div class="end-small">✅ เพิ่มตามที่สั่ง: โชว์ Chain cleared + fail (นับ fail เฉพาะ junk hit)</div>
+              <div class="end-small">โชว์ Chain cleared + fail (นับ fail เฉพาะ junk hit)</div>
             </div>
             <div class="card">
               <div class="kpi">
@@ -567,9 +575,10 @@ Hydration Quest VR (PLAY MODE) — Full HTML
 
   </div>
 
+  <!-- ✅ FIX: bind ปุ่มก่อน แล้วค่อย import เกมแบบ dynamic -->
   <script type="module">
-    import { boot } from './hydration.safe.js';
-
+    'use strict';
+    const ROOT = window;
     const $ = (id)=>document.getElementById(id);
 
     function qs(){
@@ -580,35 +589,64 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       };
     }
 
+    function bindTap(el, fn){
+      if (!el) return;
+      const h = (e)=>{ try{ e.preventDefault(); e.stopPropagation(); }catch{} fn(e); };
+      el.addEventListener('pointerdown', h, { passive:false });
+      el.addEventListener('touchstart', h, { passive:false });
+      el.addEventListener('click', h, { passive:false });
+    }
+
     function goHub(){
-      // ปรับ path ตามโปรเจกต์จริงของคุณ
-      // ถ้าไฟล์นี้อยู่ /herohealth/hydration-vr/ ให้กลับ ../hub.html
-      location.href = '../hub.html';
+      // ✅ /herohealth/hub.html
+      location.href = './hub.html';
     }
 
     const p = qs();
     const urlInfo = $('hvr-url-info');
     if (urlInfo) urlInfo.textContent = `diff=${p.diff} • time=${p.time}`;
 
+    // หน้า start ไม่ให้ playfield มาทับปุ่ม
+    const playfield = $('hvr-playfield');
+    if (playfield) playfield.style.pointerEvents = 'none';
+
+    bindTap($('btn-reload'), ()=>location.reload());
+    bindTap($('btn-exit'), goHub);
+    bindTap($('btn-to-hub'), goHub);
+    bindTap($('btn-retry'), ()=>location.reload());
+
     let inst = null;
 
     async function startGame(){
       const start = $('hvr-start');
       if (start) start.style.display = 'none';
+      if (playfield) playfield.style.pointerEvents = 'auto';
 
-      // boot hydration
-      inst = await boot({ difficulty: p.diff, duration: p.time });
+      try{
+        // ✅ PATH ถูกต้องสำหรับ /herohealth/hydration-vr.html
+        const mod = await import('./hydration-vr/hydration.safe.js');
+        if (!mod || typeof mod.boot !== 'function') throw new Error('boot() not found');
 
-      // ให้โหมดเสียงทำงานในมือถือ: แตะครั้งแรกปลดล็อก audio ได้ (เราไม่ force)
-      try{ document.body.focus(); }catch{}
+        inst = await mod.boot({ difficulty: p.diff, duration: p.time });
+        ROOT.__HVR_INST = inst;
+
+        // ปลดล็อกเสียงบางเครื่อง
+        try{
+          const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
+          if (AC){
+            const ac = new AC();
+            if (ac.state === 'suspended') ac.resume();
+          }
+        }catch{}
+      }catch(err){
+        console.error('[Hydration] start failed:', err);
+        if (start) start.style.display = 'flex';
+        if (playfield) playfield.style.pointerEvents = 'none';
+        alert('เริ่มเกมไม่ได้: ตรวจ path import / ไฟล์ 404 / syntax error\nเปิด Console ดู error');
+      }
     }
 
-    $('btn-start')?.addEventListener('click', startGame, { passive:true });
-    $('btn-reload')?.addEventListener('click', ()=>location.reload(), { passive:true });
-    $('btn-exit')?.addEventListener('click', goHub, { passive:true });
-
-    $('btn-retry')?.addEventListener('click', ()=>location.reload(), { passive:true });
-    $('btn-to-hub')?.addEventListener('click', goHub, { passive:true });
+    bindTap($('btn-start'), startGame);
 
     // End screen
     window.addEventListener('hha:end', (e)=>{
@@ -623,7 +661,6 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       const md = d.minisDone ?? 0, mt = d.minisTotal ?? 0;
       $('end-quests') && ($('end-quests').textContent = `${gd}/${gt} • ${md}/${mt}`);
 
-      // ✅ Chain summary (ตามที่ขอ)
       const cc = d.chainCleared ?? (d.rewards?.chainCleared ?? 0);
       const cf = d.chainFailed ?? (d.rewards?.chainFailed ?? 0);
       $('end-chain') && ($('end-chain').textContent = `${cc} (fail ${cf})`);
@@ -645,9 +682,6 @@ Hydration Quest VR (PLAY MODE) — Full HTML
           `Water ${water}% • Zone ${zone} • GREEN ${gtick}s • Fever ${fever} • Shield ${shield} • Progress ${prog}%`;
       }
     }, { passive:true });
-
-    // ถ้าต้องการ “auto start” ให้ปลดคอมเมนต์:
-    // startGame();
   </script>
 </body>
 </html>
