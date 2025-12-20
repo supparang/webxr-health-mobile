@@ -2,10 +2,11 @@
 // Quest Deck สำหรับ Hydration Quest VR
 // ใช้ร่วมกับ: hydration.safe.js (GOAL_TARGET = 2, MINI_TARGET = 3)
 //
-// ✅ 2025-12-16c:
-// - เพิ่ม getGoalProgressInfo(id) / getMiniProgressInfo(id)
-// - เพิ่ม getMiniNoJunkProgress() สำหรับ HUD hint
-// - ใส่ target/prog ลงใน quest objects เพื่อให้ logger/hud ใช้ได้
+// ✅ FIX 2025-12-20:
+// - เพิ่ม setZone(zone)
+// - second(zone) นับ greenTick จากโซนจริง
+// - รองรับโซน: GREEN / LOW / HIGH (case-safe)
+// - คง API เดิมทั้งหมด + getGoalProgressInfo/getMiniProgressInfo
 
 'use strict';
 
@@ -22,6 +23,12 @@ function normDiff (d) {
   d = String(d || 'normal').toLowerCase();
   if (d !== 'easy' && d !== 'hard') return 'normal';
   return d;
+}
+
+function normZone (z) {
+  const Z = String(z || '').toUpperCase();
+  if (Z === 'GREEN' || Z === 'LOW' || Z === 'HIGH') return Z;
+  return 'GREEN';
 }
 
 function makeView (all) {
@@ -46,7 +53,7 @@ export function createHydrationQuest (diffKey = 'normal') {
   // ---------- Stats ----------
   const stats = {
     zone: 'GREEN',
-    greenTick: 0,
+    greenTick: 0,     // ✅ จะนับจาก zone จริง
     timeSec: 0,
 
     goodHits: 0,
@@ -107,15 +114,14 @@ export function createHydrationQuest (diffKey = 'normal') {
   ];
 
   function badZoneSec () {
+    // ✅ เวลาที่ไม่ได้อยู่ GREEN (รวม LOW/HIGH)
     return clamp(stats.timeSec - stats.greenTick, 0, 9999);
   }
 
   function syncProgFields () {
-    // goals
     goals[0].prog = clamp(stats.greenTick, 0, goals[0].target);
-    goals[1].prog = badZoneSec(); // เป็น “ค่าเสีย” (ต้อง <= target)
+    goals[1].prog = badZoneSec(); // ค่าเสีย (ต้อง <= target)
 
-    // minis
     minis[0].prog = clamp(stats.comboBest, 0, minis[0].target);
     minis[1].prog = clamp(stats.goodHits, 0, minis[1].target);
     minis[2].prog = clamp(stats.secSinceJunk, 0, minis[2].target);
@@ -124,10 +130,12 @@ export function createHydrationQuest (diffKey = 'normal') {
   function evalGoals () {
     syncProgFields();
 
+    // Goal 1: greenTick ถึงเกณฑ์
     if (!goals[0]._done && stats.greenTick >= cfg.goalGreenTick) {
       goals[0]._done = true;
     }
 
+    // Goal 2: badZoneSec <= limit และมีเวลาเล่นพอ (กันผ่านแบบ “ยังไม่เล่นครบ”)
     if (!goals[1]._done) {
       const bz = badZoneSec();
       if (bz <= cfg.goalBadZoneLimit && stats.timeSec >= cfg.goalGreenTick) {
@@ -147,6 +155,11 @@ export function createHydrationQuest (diffKey = 'normal') {
   function evalAll () { evalGoals(); evalMinis(); }
 
   // ---------- API ----------
+  function setZone (zone) {
+    stats.zone = normZone(zone);
+    evalGoals();
+  }
+
   function updateScore (score) {
     stats.score = Number(score) || 0;
     evalAll();
@@ -170,9 +183,17 @@ export function createHydrationQuest (diffKey = 'normal') {
     evalAll();
   }
 
-  function second () {
+  // ✅ FIX: second(zone) นับ greenTick จากโซนจริง
+  function second (zoneMaybe) {
+    if (zoneMaybe != null) stats.zone = normZone(zoneMaybe);
+
     stats.timeSec += 1;
     stats.secSinceJunk += 1;
+
+    if (String(stats.zone).toUpperCase() === 'GREEN') {
+      stats.greenTick += 1;
+    }
+
     evalAll();
   }
 
@@ -185,7 +206,6 @@ export function createHydrationQuest (diffKey = 'normal') {
     return [];
   }
 
-  // ✅ ให้ hydration.safe.js / HUD ดึง progress เป็นข้อความได้เลย
   function getGoalProgressInfo(id) {
     syncProgFields();
     if (id === 'goal-green-time') {
@@ -226,6 +246,7 @@ export function createHydrationQuest (diffKey = 'normal') {
     stats,
     goals,
     minis,
+    setZone,        // ✅ NEW
     updateScore,
     updateCombo,
     onGood,
@@ -234,8 +255,6 @@ export function createHydrationQuest (diffKey = 'normal') {
     getProgress,
     nextGoal,
     nextMini,
-
-    // ✅ NEW
     getGoalProgressInfo,
     getMiniProgressInfo,
     getMiniNoJunkProgress
