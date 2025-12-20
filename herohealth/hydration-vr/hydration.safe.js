@@ -3,17 +3,13 @@
 // ✅ FIX ROOT CAUSE: sync GREEN time into Quest.stats.greenTick so GOAL can pass
 // ✅ ADD 1-7: Arcade fun pack (Green Streak/Jackpot + Panic + Storm+ + Decoy + SurpriseMini + PerfectStreak + MiniBoss)
 // ✅ Heavy Celebration hooks (Particles.celebrate/ toast) + shake/flash/beep/vibrate
-// ✅ PATCH 2025-12-20(C): Mini quest chain ต่อเนื่อง (ARCADE) + HUD show minisDone(all) but keep miniTotal=3 for grade
+// ✅ PATCH 2025-12-20: Anti-Tilt / failStreak นับเฉพาะ “junk hit จริง” (ไม่รวม MISS จาก good expire)
 
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import { createHydrationQuest } from './hydration.quest.js';
-
-// --------------------- Arcade mode ---------------------
-// ✅ เปิดเพื่อให้ mini quest ต่อเนื่องไม่จำกัด
-const ARCADE = true;
 
 // --------------------- Globals / helpers ---------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
@@ -212,8 +208,8 @@ const TUNE = {
   scoreFeverBonus: 6,
 
   // extra arcade
-  scoreStormBonusMul: 1.30,
-  stormExtraJunkPenalty: 10,
+  scoreStormBonusMul: 1.30,      // (3) storm bonus mul
+  stormExtraJunkPenalty: 10,     // (3) junk harsher in storm
 
   feverGainGood:  9,
   feverGainPower: 14,
@@ -292,16 +288,20 @@ export async function boot(opts = {}) {
     zone: 'GREEN',
     greenTick: 0,
 
+    // (1) Green streak / jackpot
     greenStreak: 0,
 
+    // fever
     fever: 0,
     feverActive: false,
     feverLeft: 0,
     shield: 0,
 
+    // (3) storm
     stormLeft: 0,
     stormIntervalMul: 0.65,
 
+    // (5) surprise mini
     surprise: {
       active: false,
       cleared: false,
@@ -310,11 +310,13 @@ export async function boot(opts = {}) {
       need: TUNE.surpriseNeedHits,
       got: 0,
       noJunkOk: true,
-      triggerAt: Math.max(25, Math.floor(duration * 0.55))
+      triggerAt: Math.max(25, Math.floor(duration * 0.55)) // เริ่มตอนเหลือ ~55% เวลา (ครั้งเดียว)
     },
 
+    // (6) perfect streak
     perfectStreak: 0,
 
+    // (7) boss
     boss: {
       active: false,
       spawned: false,
@@ -345,12 +347,14 @@ export async function boot(opts = {}) {
   function normalizeZone(z){
     const Z = String(z || '').toUpperCase();
     if (Z === 'GREEN' || Z === 'YELLOW' || Z === 'RED') return Z;
+    // ui-water อาจใช้ LOW/HIGH → map
     if (Z === 'LOW') return 'YELLOW';
     if (Z === 'HIGH') return 'RED';
     return 'GREEN';
   }
 
   function syncQuestZone(){
+    // ✅ ROOT FIX: quest goals use stats.greenTick/timeSec; we must keep them updated
     try{
       if (Q && Q.stats){
         Q.stats.zone = state.zone;
@@ -530,36 +534,21 @@ export async function boot(opts = {}) {
     const allGoals = Q.goals || [];
     const allMinis = Q.minis || [];
     const goalsDone = allGoals.filter(g => g._done || g.done).length;
+    const minisDone = allMinis.filter(m => m._done || m.done).length;
 
-    // ✅ IMPORTANT: minisDone “จริงทั้งหมด” ใช้ Q.stats.minisDone (รองรับ chain)
-    const minisDoneAll = (Q && Q.stats && Number.isFinite(Q.stats.minisDone)) ? (Q.stats.minisDone|0) : allMinis.filter(m => m._done || m.done).length;
-
-    // ---- reward goal change ----
     if (goalsDone > lastGoalsDone) {
       for (let i = lastGoalsDone; i < goalsDone; i++) rewardGoal();
       lastGoalsDone = goalsDone;
     }
-
-    // ---- reward mini change + ✅ ARCADE chain ----
-    if (minisDoneAll > lastMinisDone) {
-      for (let i = lastMinisDone; i < minisDoneAll; i++) {
-        rewardMini();
-        // ✅ ต่อ mini ใหม่ทันที
-        if (ARCADE && Q && typeof Q.nextMini === 'function') {
-          try { Q.nextMini({ harder:true }); } catch {}
-        }
-      }
-      lastMinisDone = minisDoneAll;
+    if (minisDone > lastMinisDone) {
+      for (let i = lastMinisDone; i < minisDone; i++) rewardMini();
+      lastMinisDone = minisDone;
     }
 
     const gd = $id('hha-goal-done'); if (gd) gd.textContent = String(goalsDone);
     const gt = $id('hha-goal-total'); if (gt) gt.textContent = String(allGoals.length || 2);
-
-    // ✅ HUD: โชว์ minisDone เป็น “จำนวนที่ผ่านจริงทั้งหมด”
-    const md = $id('hha-mini-done');  if (md) md.textContent = String(minisDoneAll);
-
-    // ⚠️ คง miniTotal = 3 เพื่อให้ calcProg()/grade ไม่เพี้ยน
-    const mt = $id('hha-mini-total'); if (mt) mt.textContent = '3';
+    const md = $id('hha-mini-done'); if (md) md.textContent = String(minisDone);
+    const mt = $id('hha-mini-total'); if (mt) mt.textContent = String(allMinis.length || 3);
 
     const curGoal = (goals && goals[0]) ? goals[0].id : (allGoals[0]?.id || '');
     const curMini = (minis && minis[0]) ? minis[0].id : (allMinis[0]?.id || '');
@@ -586,9 +575,8 @@ export async function boot(opts = {}) {
     dispatch('quest:update', {
       goalDone: goalsDone,
       goalTotal: allGoals.length || 2,
-      miniDone: minisDoneAll,
-      miniTotal: 3,
-
+      miniDone: minisDone,
+      miniTotal: allMinis.length || 3,
       goalText: goalEl ? goalEl.textContent : '',
       miniText: miniEl ? miniEl.textContent : '',
 
@@ -601,17 +589,16 @@ export async function boot(opts = {}) {
       },
       mini: {
         title: miniTitle,
-        cur: minisDoneAll,
-        max: 3,
-        pct: clamp(minisDoneAll / 3, 0, 1),
-        state: (minisDoneAll >= 3) ? 'clear' : 'run'
+        cur: minisDone,
+        max: (allMinis.length || 3),
+        pct: (allMinis.length ? (minisDone / allMinis.length) : (minisDone / 3)),
+        state: (minisDone >= (allMinis.length || 3)) ? 'clear' : 'run'
       },
       meta: {
         diff: state.diff,
         goalsDone,
-        minisDone: minisDoneAll,
-        surpriseActive: !!state.surprise.active,
-        arcade: !!ARCADE
+        minisDone,
+        surpriseActive: !!state.surprise.active
       }
     });
 
@@ -664,6 +651,7 @@ export async function boot(opts = {}) {
 
   // --------------------- Judge ---------------------
   function judge(ch, ctx){
+    // (4) Decoy resolution
     let isGood = !!ctx.isGood;
     let isPower = !!ctx.isPower;
     let isFake = false;
@@ -671,7 +659,7 @@ export async function boot(opts = {}) {
     if (!isPower && ch === '🌀'){
       isFake = true;
       const roll = Math.random();
-      isGood = (roll < 0.40);
+      isGood = (roll < 0.40); // 40% กลายเป็น GOOD / 60% เป็น JUNK
     }
 
     const bossWindow = (state.timeLeft <= TUNE.bossTimeWindow && state.timeLeft > 0);
@@ -690,6 +678,7 @@ export async function boot(opts = {}) {
       scoreDelta = TUNE.scoreGood * mult;
       label = isFake ? '[FAKE] LUCKY!' : '[GOOD] GOOD';
     } else {
+      // block by shield
       if (state.shield > 0){
         state.shield -= 1;
 
@@ -762,6 +751,9 @@ export async function boot(opts = {}) {
       state.miss += 1;
       state.perfectStreak = 0;
 
+      // ✅ Anti-Tilt / failStreak ต้องนับ “เฉพาะ junk hit จริง”
+      try{ Q.onFail && Q.onFail(); }catch{}
+
       if (state.surprise.active){
         state.surprise.noJunkOk = false;
         failSurpriseMini();
@@ -815,6 +807,10 @@ export async function boot(opts = {}) {
       state.combo = 0;
       state.perfectStreak = 0;
       state.waterPct = clamp(state.waterPct - 3, 0, 100);
+
+      // ✅ PATCH: ห้ามนับ failStreak จาก MISS (expire) — ต้องนับเฉพาะ junk hit
+      // try{ Q.onFail && Q.onFail(); }catch{}  // ← intentionally removed
+
       dispatch('hha:judge', { label:'MISS' });
       flash('bad', 80);
       vibrate(10);
@@ -979,12 +975,8 @@ export async function boot(opts = {}) {
 
     const goalsDone = Number($id('hha-goal-done')?.textContent || 0) || 0;
     const goalsTotal = Number($id('hha-goal-total')?.textContent || 2) || 2;
-
-    const minisDone = (Q && Q.stats && Number.isFinite(Q.stats.minisDone))
-      ? (Q.stats.minisDone|0)
-      : (Number($id('hha-mini-done')?.textContent || 0) || 0);
-
-    const minisTotal = 3;
+    const minisDone = Number($id('hha-mini-done')?.textContent || 0) || 0;
+    const minisTotal = Number($id('hha-mini-total')?.textContent || 3) || 3;
 
     const progPct = Math.round(calcProg() * 100);
     const grade = gradeFromProg(progPct);
