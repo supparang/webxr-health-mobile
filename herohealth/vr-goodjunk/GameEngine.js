@@ -1,21 +1,18 @@
 'use strict';
 
-function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
+function clamp(v, min, max){ v = Number(v)||0; return v<min?min:(v>max?max:v); }
 function now(){ return performance.now(); }
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 
 function dispatch(name, detail){
   window.dispatchEvent(new CustomEvent(name, { detail }));
-}
-
-function pick(arr){
-  return arr[(Math.random()*arr.length)|0];
 }
 
 function rectsOverlap(a,b){
   return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
 }
 
-// safe zone: กันทับ HUD + ขอบ
+// safe zone: avoid HUD + edges
 function buildAvoidRects(){
   const rects = [];
   const pad = 10;
@@ -23,13 +20,9 @@ function buildAvoidRects(){
   const hudCards = document.querySelectorAll('.hud-card');
   hudCards.forEach(el=>{
     const r = el.getBoundingClientRect();
-    rects.push({
-      left: r.left - pad, top: r.top - pad,
-      right: r.right + pad, bottom: r.bottom + pad
-    });
+    rects.push({ left:r.left-pad, top:r.top-pad, right:r.right+pad, bottom:r.bottom+pad });
   });
 
-  // bottom coach area
   const coach = document.querySelector('#coach-bubble');
   if (coach){
     const r = coach.getBoundingClientRect();
@@ -40,10 +33,8 @@ function buildAvoidRects(){
 }
 
 function scoreGrade({ score, misses }){
-  // โทนง่าย ๆ แต่ใช้งานจริง: โดน miss เยอะจะตกเกรด
   const s = Number(score)||0;
   const m = Number(misses)||0;
-
   if (s >= 220 && m <= 2) return 'SSS';
   if (s >= 170 && m <= 4) return 'SS';
   if (s >= 120 && m <= 6) return 'S';
@@ -59,11 +50,20 @@ export function createEngine(opts = {}) {
   const durationSec = clamp(opts.durationSec ?? 60, 20, 180);
   const layerEl = opts.layerEl || document.getElementById('gj-layer');
 
+  // FX modules (your particles + your fever)
+  const Particles =
+    (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
+    window.Particles || null;
+
+  const FeverUI =
+    (window.GAME_MODULES && window.GAME_MODULES.FeverUI) ||
+    window.FeverUI || null;
+
   const CFG = {
-    easy:   { spawnEvery: 900,  maxActive: 4, lifetime: 2200, baseScale: 1.12, junkRatio: 0.18 },
-    normal: { spawnEvery: 760,  maxActive: 5, lifetime: 2000, baseScale: 1.00, junkRatio: 0.26 },
-    hard:   { spawnEvery: 640,  maxActive: 6, lifetime: 1800, baseScale: 0.92, junkRatio: 0.34 }
-  }[diff] || { spawnEvery: 760, maxActive: 5, lifetime: 2000, baseScale: 1.0, junkRatio: 0.26 };
+    easy:   { spawnEvery: 900,  maxActive: 4, lifetime: 2300, baseScale: 1.12, junkRatio: 0.18 },
+    normal: { spawnEvery: 760,  maxActive: 5, lifetime: 2050, baseScale: 1.00, junkRatio: 0.26 },
+    hard:   { spawnEvery: 640,  maxActive: 6, lifetime: 1850, baseScale: 0.92, junkRatio: 0.34 }
+  }[diff] || { spawnEvery: 760, maxActive: 5, lifetime: 2050, baseScale: 1.0, junkRatio: 0.26 };
 
   const EMOJI = {
     good: ['🥦','🥕','🍎','🍌','🍇','🥛','🥜','🐟','🍠','🥬','🍉'],
@@ -74,7 +74,6 @@ export function createEngine(opts = {}) {
     boss: ['👹','🧌']
   };
 
-  // challenge modifiers
   const CH = {
     rush:     { spawnMul: 0.92, scoreMul: 1.15 },
     boss:     { spawnMul: 1.00, scoreMul: 1.05 },
@@ -83,7 +82,6 @@ export function createEngine(opts = {}) {
 
   const S = {
     started:false,
-    t0:0,
     timeLeft: durationSec,
 
     score:0,
@@ -93,15 +91,18 @@ export function createEngine(opts = {}) {
     combo:0,
     comboMax:0,
 
-    // shield
-    shieldUntil: 0,
+    // Fever / Shield state
+    fever: 0,
+    feverActive: false,
+    feverUntil: 0,
+    shield: 0,          // 0..9
 
-    // boss
+    // Boss
     bossSpawned:false,
     bossHP:0
   };
 
-  const active = new Map(); // id -> {el,type,spawnAt,expireAt,kind,...}
+  const active = new Map(); // id -> meta
   let spawnTimer = null;
   let timeTimer  = null;
   let rafId = null;
@@ -121,30 +122,94 @@ export function createEngine(opts = {}) {
     });
   }
 
-  function canSpawnMore(){
-    return active.size < CFG.maxActive;
+  function syncFeverUI(){
+    if (!FeverUI) return;
+    try{
+      FeverUI.ensureFeverBar?.();
+      FeverUI.setFever?.(S.fever);
+      FeverUI.setFeverActive?.(!!S.feverActive);
+      FeverUI.setShield?.(S.shield);
+    }catch(_){}
   }
 
-  function mkTarget({ type, emoji, className, scaleMul=1, lifetime=CFG.lifetime }){
+  function addFever(delta){
+    if (!FeverUI) {
+      S.fever = clamp(S.fever + delta, 0, 100);
+      return;
+    }
+    try{
+      // legacy add() will auto set active when full
+      if (typeof FeverUI.add === 'function') FeverUI.add(delta);
+      S.fever = (typeof FeverUI.getValue === 'function') ? (FeverUI.getValue()|0) : clamp(S.fever + delta, 0, 100);
+      S.feverActive = (typeof FeverUI.isActive === 'function') ? !!FeverUI.isActive() : S.feverActive;
+    }catch(_){
+      S.fever = clamp(S.fever + delta, 0, 100);
+    }
+    syncFeverUI();
+  }
+
+  function startFeverWindow(ms=5500){
+    // ขยาย FEVER ACTIVE แบบ “มีเวลา” เพื่อใช้คูณคะแนน (ไม่ใช่แค่เต็มแล้วค้าง)
+    S.feverActive = true;
+    S.feverUntil = now() + ms;
+    if (Particles?.celebrate) Particles.celebrate('fever', { title:'🔥 FEVER!', sub:'คะแนนคูณ! แตะให้ไว!' });
+    syncFeverUI();
+  }
+
+  function tickFever(){
+    if (!S.feverActive) return;
+    if (now() >= S.feverUntil){
+      S.feverActive = false;
+      // ลด fever ลงมาครึ่งหนึ่งเพื่อกลับไปสะสมต่อ
+      S.fever = Math.max(0, Math.round(S.fever * 0.45));
+      if (FeverUI?.setFeverActive) FeverUI.setFeverActive(false);
+      if (FeverUI?.setFever) FeverUI.setFever(S.fever);
+    }
+  }
+
+  function setShield(n){
+    S.shield = clamp(n|0, 0, 9);
+    if (FeverUI?.setShield) FeverUI.setShield(S.shield);
+  }
+
+  function incShield(){
+    setShield(Math.min(9, (S.shield|0) + 1));
+  }
+
+  function consumeShieldBlock(){
+    if (S.shield > 0){
+      setShield(S.shield - 1);
+      dispatch('quest:block', {});
+      // ✅ block FX
+      if (Particles?.burstAt) Particles.burstAt(window.innerWidth/2, window.innerHeight*0.28, { label:'[BLOCK] BLOCK!', heavy:false, good:true });
+      if (Particles?.scorePop) Particles.scorePop(window.innerWidth/2, window.innerHeight*0.28, '', '[BLOCK] BLOCK!', { plain:true });
+      setJudge('BLOCK!');
+      emitScore();
+      return true;
+    }
+    return false;
+  }
+
+  function canSpawnMore(){ return active.size < CFG.maxActive; }
+
+  function mkTarget({ emoji, className, scaleMul=1 }){
     const el = document.createElement('div');
     el.className = 'gj-target ' + (className||'');
     el.textContent = emoji;
     el.setAttribute('data-hha-tgt','1');
     el.style.setProperty('--tScale', String(CFG.baseScale * scaleMul));
 
-    // position: random but avoid HUD
     const avoid = buildAvoidRects();
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    const tries = 60;
-    let x= w*0.5, y = h*0.55;
-    const margin = 70; // keep from edges
-    for (let i=0;i<tries;i++){
+    const margin = 70;
+    let x = w*0.5, y = h*0.55;
+    for (let i=0;i<60;i++){
       x = margin + Math.random()*(w - margin*2);
       y = margin + Math.random()*(h - margin*2);
 
-      const rect = { left:x-50, top:y-50, right:x+50, bottom:y+50 };
+      const rect = { left:x-54, top:y-54, right:x+54, bottom:y+54 };
       let ok = true;
       for (const a of avoid){
         if (rectsOverlap(rect, a)){ ok=false; break; }
@@ -154,42 +219,7 @@ export function createEngine(opts = {}) {
 
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
-
     return el;
-  }
-
-  function spawnOne(){
-    if (!layerEl) return;
-    if (!canSpawnMore()) return;
-
-    // boss in "boss" challenge at last 12s
-    if (challenge === 'boss' && !S.bossSpawned && S.timeLeft <= 12){
-      spawnBoss();
-      return;
-    }
-
-    // power chance (low)
-    const pRoll = Math.random();
-    if (pRoll < 0.08){
-      spawnPower();
-      return;
-    }
-
-    // fake chance
-    if (pRoll >= 0.08 && pRoll < 0.12){
-      spawnFake();
-      return;
-    }
-
-    // gold chance
-    if (pRoll >= 0.12 && pRoll < 0.17){
-      spawnGold();
-      return;
-    }
-
-    const isJunk = Math.random() < CFG.junkRatio;
-    if (isJunk) spawnJunk();
-    else spawnGood();
   }
 
   function addToActive(el, meta){
@@ -203,7 +233,6 @@ export function createEngine(opts = {}) {
     layerEl.appendChild(el);
     el.addEventListener('click', onClickTarget, { passive:true });
     el.addEventListener('touchstart', onClickTarget, { passive:true });
-
     return id;
   }
 
@@ -217,34 +246,35 @@ export function createEngine(opts = {}) {
       setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 120);
     }catch(_){}
 
-    // expire miss: only for GOOD targets
+    // ✅ miss only when GOOD expired (your combined miss rule: goodExpired + junkHit)
     if (reason === 'expired' && t.type === 'good'){
       S.misses++;
       S.combo = 0;
       setJudge('MISS');
       dispatch('quest:miss', { kind:'goodExpired' });
+      if (Particles?.burstAt) Particles.burstAt(window.innerWidth/2, window.innerHeight*0.28, { label:'[JUNK] MISS', good:false, heavy:false });
       emitScore();
     }
   }
 
   function spawnGood(){
-    const el = mkTarget({ type:'good', emoji: pick(EMOJI.good), className:'' });
+    const el = mkTarget({ emoji: pick(EMOJI.good), className:'' });
     addToActive(el, { type:'good', lifetime: CFG.lifetime });
   }
 
   function spawnJunk(){
-    const el = mkTarget({ type:'junk', emoji: pick(EMOJI.junk), className:'gj-junk', scaleMul: 1.05, lifetime: CFG.lifetime });
+    const el = mkTarget({ emoji: pick(EMOJI.junk), className:'gj-junk', scaleMul: 1.05 });
     addToActive(el, { type:'junk', lifetime: CFG.lifetime });
   }
 
   function spawnGold(){
-    const el = mkTarget({ type:'gold', emoji: pick(EMOJI.gold), className:'gj-gold', scaleMul: 1.08, lifetime: CFG.lifetime * 0.95 });
-    addToActive(el, { type:'gold', lifetime: CFG.lifetime * 0.95 });
+    const el = mkTarget({ emoji: pick(EMOJI.gold), className:'gj-gold', scaleMul: 1.08 });
+    addToActive(el, { type:'gold', lifetime: Math.round(CFG.lifetime * 0.95) });
   }
 
   function spawnFake(){
-    const el = mkTarget({ type:'fake', emoji: pick(EMOJI.fake), className:'gj-fake', scaleMul: 1.00, lifetime: CFG.lifetime * 0.9 });
-    addToActive(el, { type:'fake', lifetime: CFG.lifetime * 0.9 });
+    const el = mkTarget({ emoji: pick(EMOJI.fake), className:'gj-fake', scaleMul: 1.00 });
+    addToActive(el, { type:'fake', lifetime: Math.round(CFG.lifetime * 0.9) });
   }
 
   function spawnPower(){
@@ -253,116 +283,177 @@ export function createEngine(opts = {}) {
     if (emoji.includes('🧲')) power = 'magnet';
     else if (emoji.includes('⏱️')) power = 'time';
 
-    const el = mkTarget({ type:'power', emoji, className:'gj-power', scaleMul: 1.00, lifetime: CFG.lifetime * 0.9 });
-    addToActive(el, { type:'power', power, lifetime: CFG.lifetime * 0.9 });
+    const el = mkTarget({ emoji, className:'gj-power', scaleMul: 1.00 });
+    addToActive(el, { type:'power', power, lifetime: Math.round(CFG.lifetime * 0.9) });
   }
 
   function spawnBoss(){
     S.bossSpawned = true;
-    S.bossHP = 6; // click good hits to reduce? (simple: click boss)
-    const el = mkTarget({ type:'boss', emoji: pick(EMOJI.boss), className:'gj-boss', scaleMul: 1.15, lifetime: 999999 });
+    S.bossHP = 6;
+    const el = mkTarget({ emoji: pick(EMOJI.boss), className:'gj-boss', scaleMul: 1.15 });
     addToActive(el, { type:'boss', lifetime: 999999 });
     setJudge('BOSS!');
+    if (Particles?.celebrate) Particles.celebrate('goal', { title:'👹 BOSS 등장!', sub:'ตีให้แตก!' });
+  }
+
+  function spawnOne(){
+    if (!layerEl) return;
+    if (!canSpawnMore()) return;
+
+    if (challenge === 'boss' && !S.bossSpawned && S.timeLeft <= 12){
+      spawnBoss();
+      return;
+    }
+
+    const pRoll = Math.random();
+    if (pRoll < 0.08){ spawnPower(); return; }
+    if (pRoll < 0.12){ spawnFake();  return; }
+    if (pRoll < 0.17){ spawnGold();  return; }
+
+    const isJunk = Math.random() < CFG.junkRatio;
+    if (isJunk) spawnJunk(); else spawnGood();
+  }
+
+  function centerFX(label, good=true, heavy=false){
+    const cx = window.innerWidth/2;
+    const cy = window.innerHeight*0.30;
+    if (Particles?.burstAt) Particles.burstAt(cx, cy, { label, good, heavy });
+  }
+
+  function hitFX(x,y,label,good=true,heavy=false,delta=null){
+    if (Particles?.burstAt) Particles.burstAt(x, y, { label, good, heavy });
+    if (Particles?.scorePop){
+      if (typeof delta === 'number') Particles.scorePop(x, y, delta, label);
+      else Particles.scorePop(x, y, '', label, { plain:true });
+    }
   }
 
   function onClickTarget(ev){
     const el = ev.currentTarget;
-    const id = el && el.dataset ? el.dataset.tid : null;
+    const id = el?.dataset?.tid;
     if (!id) return;
     const t = active.get(id);
     if (!t) return;
 
-    // remove immediately
     active.delete(id);
     try{
       el.classList.add('gone');
       setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 120);
     }catch(_){}
 
-    const dt = now() - t.spawnAt;
-    const isPerfect = dt <= 520; // fast click = perfect
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width/2;
+    const y = r.top + r.height/2;
 
-    // boss
+    const dt = now() - t.spawnAt;
+    const isPerfect = dt <= 520;
+
+    // --- boss ---
     if (t.type === 'boss'){
       S.bossHP = Math.max(0, (S.bossHP|0) - 1);
       setJudge('HIT!');
+      hitFX(x,y,'[BOSS] HIT!', true, true);
+
       dispatch('quest:goodHit', { type:'boss', judgment:'HIT' });
+
+      S.score += Math.round(10 * CH.scoreMul * (S.feverActive ? 1.55 : 1.0));
+      emitScore();
+
       if (S.bossHP <= 0){
         setJudge('BOSS CLEAR!');
         dispatch('quest:bossClear', {});
+        if (Particles?.celebrate) Particles.celebrate('ultra', { title:'👹 BOSS CLEAR!!', sub:'สุดยอด! โบนัสกระหน่ำ!', ultra:true });
       }
-      // score a bit
-      S.score += Math.round(8 * CH.scoreMul);
-      emitScore();
       return;
     }
 
-    // power
+    // --- power ---
     if (t.type === 'power'){
       if (t.power === 'shield'){
-        S.shieldUntil = now() + 5200;
+        incShield();
         setJudge('SHIELD!');
+        hitFX(x,y,'[POWER] SHIELD+', true, true);
         dispatch('quest:power', { power:'shield' });
       } else if (t.power === 'magnet'){
-        // simple: spawn 2 extra goods instantly
         setJudge('MAGNET!');
+        hitFX(x,y,'[POWER] MAGNET!', true, true);
         dispatch('quest:power', { power:'magnet' });
+        // spawn extra goods
         spawnGood(); spawnGood();
       } else if (t.power === 'time'){
-        // plus time: add 3 sec
         S.timeLeft += 3;
         setJudge('+TIME!');
+        hitFX(x,y,'[POWER] +TIME', true, true);
         dispatch('quest:power', { power:'time' });
       }
       emitScore();
       return;
     }
 
-    // fake behaves like junk
+    // --- fake acts like junk ---
     if (t.type === 'fake'){
-      // shield block?
-      if (now() < S.shieldUntil){
-        setJudge('BLOCK!');
-        dispatch('quest:block', {});
-        emitScore();
+      // ✅ shield block
+      if (consumeShieldBlock()){
+        hitFX(x,y,'[BLOCK] BLOCK!', true, false);
         return;
       }
       S.misses++;
       S.combo = 0;
       setJudge('OOPS!');
+      hitFX(x,y,'[FAKE] OOPS!', false, false);
       dispatch('quest:badHit', { type:'fake' });
       emitScore();
       return;
     }
 
-    // junk
+    // --- junk ---
     if (t.type === 'junk'){
-      if (now() < S.shieldUntil){
-        setJudge('BLOCK!');
-        dispatch('quest:block', {});
-        emitScore();
+      if (consumeShieldBlock()){
+        hitFX(x,y,'[BLOCK] BLOCK!', true, false);
         return;
       }
       S.misses++;
       S.combo = 0;
       setJudge('MISS');
+      hitFX(x,y,'[JUNK] MISS', false, false);
       dispatch('quest:badHit', { type:'junk' });
       emitScore();
       return;
     }
 
-    // good/gold
+    // --- good / gold ---
     if (t.type === 'good' || t.type === 'gold'){
       S.goodHits++;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
 
+      // fever gain
+      const feverGain = (t.type === 'gold') ? 14 : (isPerfect ? 10 : 8);
+      addFever(feverGain);
+
+      // if fever reached active -> open window once
+      // (กรณี legacy add() ทำให้ active ทันที)
+      if (!S.feverActive){
+        const isActive = FeverUI?.isActive ? !!FeverUI.isActive() : (S.fever >= 100);
+        if (isActive){
+          startFeverWindow(5500);
+        }
+      }
+
       let add = (t.type === 'gold') ? 12 : 8;
       if (isPerfect){ add += 4; S.perfect++; setJudge('PERFECT!'); }
       else setJudge('GOOD!');
 
-      add = Math.round(add * CH.scoreMul);
+      const feverMul = S.feverActive ? 1.55 : 1.0;
+      add = Math.round(add * CH.scoreMul * feverMul);
+
       S.score += add;
+
+      const label = (t.type === 'gold')
+        ? (isPerfect ? '[GOLD] PERFECT!' : '[GOLD] GOLD!')
+        : (isPerfect ? '[GOOD] PERFECT!' : '[GOOD] GOOD!');
+
+      hitFX(x,y,label,true, isPerfect || t.type === 'gold', add);
 
       dispatch('quest:goodHit', { type: t.type, judgment: isPerfect ? 'PERFECT' : 'GOOD' });
       emitScore();
@@ -373,14 +464,11 @@ export function createEngine(opts = {}) {
   function tickExpire(){
     const t = now();
     for (const [id, obj] of active){
-      if (obj.expireAt <= t){
-        removeTarget(id, 'expired');
-      }
+      if (obj.expireAt <= t) removeTarget(id, 'expired');
     }
   }
 
   function startTimers(){
-    // spawn loop
     const spawnEvery = Math.max(280, Math.round(CFG.spawnEvery * CH.spawnMul));
     spawnTimer = setInterval(()=>{
       if (!S.started) return;
@@ -388,27 +476,23 @@ export function createEngine(opts = {}) {
       spawnOne();
     }, spawnEvery);
 
-    // time loop
     dispatch('hha:time', { sec: S.timeLeft|0 });
     timeTimer = setInterval(()=>{
       if (!S.started) return;
+
       S.timeLeft = Math.max(0, (S.timeLeft|0) - 1);
       dispatch('hha:time', { sec: S.timeLeft|0 });
 
-      // survival (extra punishment: if miss too high end early)
       if (challenge === 'survival' && S.misses >= 12){
         S.timeLeft = 0;
       }
-
-      if (S.timeLeft <= 0){
-        end();
-      }
+      if (S.timeLeft <= 0) end();
     }, 1000);
 
-    // expire + smooth
     const loop = ()=>{
       if (!S.started) return;
       tickExpire();
+      tickFever();
       rafId = requestAnimationFrame(loop);
     };
     rafId = requestAnimationFrame(loop);
@@ -435,7 +519,8 @@ export function createEngine(opts = {}) {
 
     const grade = scoreGrade({ score:S.score, misses:S.misses });
 
-    // end event -> boot.js จะจับแล้ว show summary
+    if (Particles?.celebrate) Particles.celebrate('end', { title:'🏁 FINISH!', sub:'สรุปผล + รางวัล' });
+
     dispatch('hha:end', {
       mode: 'GoodJunkVR',
       runMode: run,
@@ -457,19 +542,20 @@ export function createEngine(opts = {}) {
       console.warn('[GoodJunkVR] layerEl missing');
       return;
     }
+
     S.started = true;
-    S.t0 = now();
 
-    // start mini chain signal
+    // init fever UI once
+    syncFeverUI();
+
     dispatch('quest:miniStart', {});
-
-    // initial score event
     emitScore();
 
-    // spawn a few immediately
+    // initial spawns
     for (let i=0;i<Math.min(3, CFG.maxActive); i++) spawnOne();
 
     startTimers();
+    centerFX('[GOOD] START!', true, false);
   }
 
   return {
@@ -482,7 +568,10 @@ export function createEngine(opts = {}) {
         perfect:S.perfect|0,
         misses:S.misses|0,
         comboMax:S.comboMax|0,
-        timeLeft:S.timeLeft|0
+        timeLeft:S.timeLeft|0,
+        fever:S.fever|0,
+        feverActive: !!S.feverActive,
+        shield:S.shield|0
       };
     }
   };
