@@ -1,5 +1,5 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION v10.4 (ES Module)
+// Balanced Plate VR — PRODUCTION v10.5 (ES Module)
 // ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้
 // ✅ FX “เด้งตรงเป้า”: คำตัดสิน + คะแนนเด้งตรงตำแหน่งเป้า + shards หนัก + ดาว/คอนเฟตติทุก hit
 // ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ง
@@ -8,6 +8,7 @@
 // ✅ PRODUCTION: Pause/Resume + กัน “คลิกซ้อน/กดซ้ำ” + freeze target timers ตอน pause
 // ✅ iOS 200%: ขอ Motion/Orientation permission จาก gesture อัตโนมัติ + รองรับ Shinecon
 // ✅ Events: hha:time / hha:score / quest:update / hha:event / hha:coach / hha:judge / hha:end
+// ✅ LOGGER PATCH (NO-CORS): เขียนลง Google Sheet (sessions/events/students-profile) ผ่าน GAS endpoint แบบ text/plain + sendBeacon
 
 'use strict';
 
@@ -25,6 +26,153 @@ window.MODE = MODE;
 
 // ---------- Project tag ----------
 const PROJECT_TAG = 'HeroHealth-PlateVR';
+
+// =======================================================
+// ✅ INLINE CLOUD LOGGER (NO-CORS friendly) — for PlateVR
+// =======================================================
+const LOGGER_ENDPOINT =
+  (URLX.searchParams.get('log') || '') ||
+  (sessionStorage.getItem('HHA_LOGGER_ENDPOINT') || '') ||
+  'https://script.google.com/macros/s/AKfycbzOVSfe_gLDBCI7wXhVmIR2h74wGvbSzGQmoi1QbfwZgutreu0ImKQFxK4DZzGEzv7hiA/exec';
+
+const __HHA_LOGGER = {
+  endpoint: String(LOGGER_ENDPOINT || ''),
+  debug: !!(URLX.searchParams.get('debug') === '1'),
+  bound: false,
+  sessionsQueue: [],
+  eventsQueue: [],
+  profilesQueue: [],
+  flushTimer: null,
+  FLUSH_DELAY: 900
+};
+
+function nowIso(){ return new Date().toISOString(); }
+function safeObj(x){ return (x && typeof x === 'object') ? x : {}; }
+
+function __loggerInit(opts = {}) {
+  __HHA_LOGGER.endpoint = String(opts.endpoint || __HHA_LOGGER.endpoint || '');
+  __HHA_LOGGER.debug = !!opts.debug;
+
+  // persist for other games
+  if (__HHA_LOGGER.endpoint) {
+    try { sessionStorage.setItem('HHA_LOGGER_ENDPOINT', __HHA_LOGGER.endpoint); } catch(_) {}
+  }
+
+  if (__HHA_LOGGER.bound) return;
+  __HHA_LOGGER.bound = true;
+
+  window.addEventListener('hha:log_session', (e) => {
+    const row = safeObj(e.detail);
+    __HHA_LOGGER.sessionsQueue.push(row);
+    __loggerScheduleFlush();
+  });
+
+  window.addEventListener('hha:log_event', (e) => {
+    const row = safeObj(e.detail);
+    __HHA_LOGGER.eventsQueue.push(row);
+    __loggerScheduleFlush();
+  });
+
+  window.addEventListener('hha:log_profile', (e) => {
+    const row = safeObj(e.detail);
+    __HHA_LOGGER.profilesQueue.push(row);
+    __loggerScheduleFlush();
+  });
+
+  // best-effort flush on unload
+  window.addEventListener('pagehide', () => __loggerFlushNow(true));
+  window.addEventListener('visibilitychange', () => {
+    if (document.hidden) __loggerFlushNow(true);
+  });
+
+  if (__HHA_LOGGER.debug) console.log('[PlateVR][Logger] init', __HHA_LOGGER.endpoint);
+}
+
+function __loggerScheduleFlush() {
+  if (__HHA_LOGGER.flushTimer) return;
+  __HHA_LOGGER.flushTimer = setTimeout(() => __loggerFlushNow(false), __HHA_LOGGER.FLUSH_DELAY);
+}
+
+async function __loggerFlushNow(isFinal) {
+  __HHA_LOGGER.flushTimer = null;
+  const endpoint = __HHA_LOGGER.endpoint;
+  if (!endpoint) return;
+
+  if (!__HHA_LOGGER.sessionsQueue.length && !__HHA_LOGGER.eventsQueue.length && !__HHA_LOGGER.profilesQueue.length) {
+    return;
+  }
+
+  const payload = {
+    projectTag: PROJECT_TAG,
+    timestampIso: nowIso(),
+    sessions: __HHA_LOGGER.sessionsQueue.splice(0),
+    events: __HHA_LOGGER.eventsQueue.splice(0),
+    studentsProfile: __HHA_LOGGER.profilesQueue.splice(0)
+  };
+
+  const body = JSON.stringify(payload);
+
+  // ✅ sendBeacon first (no-cors, no preflight)
+  try {
+    if (navigator.sendBeacon) {
+      const ok = navigator.sendBeacon(endpoint, new Blob([body], { type: 'text/plain;charset=utf-8' }));
+      if (__HHA_LOGGER.debug) console.log('[PlateVR][Logger] beacon', ok, payload);
+      if (ok) return;
+    }
+  } catch (e) {
+    if (__HHA_LOGGER.debug) console.warn('[PlateVR][Logger] beacon failed', e);
+  }
+
+  // ✅ fetch no-cors (opaque). Cannot read response but should write to sheet.
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body
+    });
+    if (__HHA_LOGGER.debug) console.log('[PlateVR][Logger] fetch(no-cors) sent', payload);
+  } catch (err) {
+    // network error only -> requeue
+    __HHA_LOGGER.sessionsQueue = payload.sessions.concat(__HHA_LOGGER.sessionsQueue);
+    __HHA_LOGGER.eventsQueue = payload.events.concat(__HHA_LOGGER.eventsQueue);
+    __HHA_LOGGER.profilesQueue = payload.studentsProfile.concat(__HHA_LOGGER.profilesQueue);
+    if (__HHA_LOGGER.debug) console.warn('[PlateVR][Logger] flush error', err);
+  }
+
+  // ถ้า isFinal ก็พยายามอีกครั้งแบบเร็ว (กันหลุดตอนปิดแท็บ)
+  if (isFinal && (__HHA_LOGGER.sessionsQueue.length || __HHA_LOGGER.eventsQueue.length || __HHA_LOGGER.profilesQueue.length)) {
+    try {
+      if (navigator.sendBeacon) navigator.sendBeacon(endpoint, new Blob([JSON.stringify({
+        projectTag: PROJECT_TAG,
+        timestampIso: nowIso(),
+        sessions: __HHA_LOGGER.sessionsQueue.splice(0),
+        events: __HHA_LOGGER.eventsQueue.splice(0),
+        studentsProfile: __HHA_LOGGER.profilesQueue.splice(0)
+      })], { type: 'text/plain;charset=utf-8' }));
+    } catch(_) {}
+  }
+}
+
+// ---------- Hub/Profile (best-effort) ----------
+function readJson(key){
+  try { return JSON.parse(sessionStorage.getItem(key) || 'null') || {}; } catch(_) { return {}; }
+}
+function getHubProfile(){
+  return (
+    readJson('HHA_PROFILE') ||
+    readJson('herohealth_profile') ||
+    readJson('playerProfile') ||
+    {}
+  );
+}
+function getHubResearch(){
+  return (
+    readJson('HHA_RESEARCH') ||
+    readJson('herohealth_research') ||
+    {}
+  );
+}
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -192,7 +340,7 @@ function attachTargetRootToCamera() {
 // ---------- Session ----------
 const sessionId = `PLATE-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
 const t0 = performance.now();
-const sessionStartIso = new Date().toISOString();
+const sessionStartIso = nowIso();
 
 let started = false;
 let ended = false;
@@ -262,6 +410,22 @@ let activeTargets = new Map();
 let targetSeq = 0;
 
 let currentSpawnInterval = DCFG0.spawnInterval;
+
+// ---------- Schema counters (sessions) ----------
+let nTargetGoodSpawned = 0;
+let nTargetJunkSpawned = 0;
+let nTargetStarSpawned = 0;     // ⭐ boss / golden
+let nTargetDiamondSpawned = 0;  // 🍋 cleanse
+let nTargetShieldSpawned = 0;   // 🥗 shield
+
+let nHitGood = 0;
+let nHitJunk = 0;
+let nHitJunkGuard = 0;
+let nExpireGood = 0;
+
+let rtGoodSum = 0;
+let rtGoodN = 0;
+let rtGoodList = []; // median
 
 // ---------- Click de-dupe ----------
 const recentHits = new Map(); // targetId -> t(ms)
@@ -389,7 +553,6 @@ function nudgeFxAwayFromHud(px, py) {
   const H = Math.max(1, window.innerHeight || 1);
   const pad = 14;
 
-  // ✅ จับเฉพาะกล่องจริง
   const sels = [
     '#hudTop .card', '#hudBottom .card', '#hudLeft .card',
     '#hudRight .btn',
@@ -661,6 +824,186 @@ function fxOnHit(el, kind, judgeText, pts, hit = null) {
   }
 }
 
+// =======================================================
+// ✅ SCHEMA MAPPING (sessions/events) → hha:log_*
+// =======================================================
+function median(arr){
+  const a = (arr || []).slice().filter(n => Number.isFinite(n)).sort((x,y)=>x-y);
+  if (!a.length) return '';
+  const mid = Math.floor(a.length/2);
+  return (a.length % 2) ? a[mid] : Math.round((a[mid-1] + a[mid]) / 2);
+}
+
+function schemaCommonFromHub(){
+  const p = getHubProfile();
+  const r = getHubResearch();
+
+  return {
+    runMode: MODE,
+    studyId: r.studyId || r.studyID || '',
+    phase: r.phase || '',
+    conditionGroup: r.conditionGroup || r.group || '',
+
+    sessionOrder: r.sessionOrder || '',
+    blockLabel: r.blockLabel || '',
+    siteCode: r.siteCode || '',
+    schoolYear: r.schoolYear || '',
+    semester: r.semester || '',
+
+    studentKey: p.studentKey || p.sid || '',
+    schoolCode: p.schoolCode || '',
+    schoolName: p.schoolName || '',
+    classRoom: p.classRoom || p.class || '',
+    studentNo: p.studentNo || '',
+    nickName: p.nickName || p.nickname || '',
+
+    gender: p.gender || '',
+    age: p.age || '',
+    gradeLevel: p.gradeLevel || p.grade || '',
+
+    heightCm: p.heightCm || '',
+    weightKg: p.weightKg || '',
+    bmi: p.bmi || '',
+    bmiGroup: p.bmiGroup || '',
+
+    vrExperience: p.vrExperience || '',
+    gameFrequency: p.gameFrequency || '',
+    handedness: p.handedness || '',
+    visionIssue: p.visionIssue || '',
+    healthDetail: p.healthDetail || '',
+
+    consentParent: (p.consentParent ?? ''),
+    consentTeacher:(p.consentTeacher ?? ''),
+
+    profileSource: p.profileSource || p.source || '',
+    surveyKey: p.surveyKey || '',
+    excludeFlag: (p.excludeFlag ?? ''),
+    noteResearcher: r.noteResearcher || ''
+  };
+}
+
+function buildSessionRow(reason){
+  const c = schemaCommonFromHub();
+
+  const playedSec = Math.max(0, Math.round(fromStartMs()/1000));
+  const goodDen = (nHitGood + nExpireGood);
+  const accuracyGoodPct = goodDen ? Math.round((nHitGood / goodDen) * 1000)/10 : '';
+  const junkDen = (nHitGood + nHitJunk);
+  const junkErrorPct = junkDen ? Math.round((nHitJunk / junkDen) * 1000)/10 : '';
+
+  const avgRtGoodMs = rtGoodN ? Math.round(rtGoodSum / rtGoodN) : '';
+  const medianRtGoodMs = rtGoodList.length ? median(rtGoodList) : '';
+
+  const fastHitRatePct = (rtGoodList.length)
+    ? Math.round((rtGoodList.filter(v=>v <= 650).length / rtGoodList.length) * 1000)/10
+    : '';
+
+  const device = (() => {
+    const ua = navigator.userAgent || '';
+    if (/OculusBrowser|Quest/i.test(ua)) return 'VR';
+    if (/Android/i.test(ua)) return 'Android';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
+    return 'PC';
+  })();
+
+  return {
+    timestampIso: nowIso(),
+    projectTag: PROJECT_TAG,
+    ...c,
+
+    sessionId,
+    gameMode: 'PlateVR',
+    diff: DIFF,
+
+    durationPlannedSec: TIME,
+    durationPlayedSec: playedSec,
+
+    scoreFinal: score,
+    comboMax: maxCombo,
+    misses: miss,
+
+    goalsCleared: Math.min(perfectPlates, goalTotal),
+    goalsTotal: goalTotal,
+    miniCleared: miniCleared,
+    miniTotal: Math.max(miniHistory, miniCleared) || 0,
+
+    nTargetGoodSpawned,
+    nTargetJunkSpawned,
+    nTargetStarSpawned,
+    nTargetDiamondSpawned,
+    nTargetShieldSpawned,
+
+    nHitGood,
+    nHitJunk,
+    nHitJunkGuard,
+    nExpireGood,
+
+    accuracyGoodPct,
+    junkErrorPct,
+    avgRtGoodMs,
+    medianRtGoodMs,
+    fastHitRatePct,
+
+    device,
+    gameVersion: '10.5',
+    reason: reason || '',
+
+    startTimeIso: sessionStartIso,
+    endTimeIso: nowIso()
+  };
+}
+
+function buildEventRow(ev){
+  const c = schemaCommonFromHub();
+
+  const itemType =
+    ev.kind === 'good' ? 'good'
+    : ev.kind === 'junk' ? 'junk'
+    : ev.kind === 'power' ? 'power'
+    : ev.kind === 'haz' ? 'haz'
+    : ev.kind === 'boss' ? 'boss'
+    : '';
+
+  return {
+    timestampIso: nowIso(),
+    projectTag: PROJECT_TAG,
+    ...c,
+
+    sessionId,
+    eventType: ev.eventType || ev.type || '',
+    gameMode: 'PlateVR',
+    diff: DIFF,
+
+    timeFromStartMs: fromStartMs(),
+    targetId: ev.targetId || '',
+    emoji: ev.emoji || '',
+    itemType,
+    lane: ev.lane || '',
+
+    rtMs: Number.isFinite(ev.rtMs) ? Math.round(ev.rtMs) : '',
+    judgment: ev.judgment || '',
+
+    totalScore: score,
+    combo: combo,
+    isGood: (ev.kind === 'good') ? 1 : 0,
+
+    feverState: feverActive ? 'ON' : 'OFF',
+    feverValue: Math.round(fever),
+
+    goalProgress: `${perfectPlates}/${goalTotal}`,
+    miniProgress: miniCurrent ? `${miniCurrent.prog}/${miniCurrent.target}` : '',
+
+    extra: ev.extra || ''
+  };
+}
+
+function logEventSchema(ev){
+  emit('hha:log_event', buildEventRow(ev));
+}
+function logSessionSchema(reason){
+  emit('hha:log_session', buildSessionRow(reason));
+}
+
 // ---------- Emitters ----------
 let eventSeq = 0;
 function emitGameEvent(payload) {
@@ -853,6 +1196,18 @@ function expireTarget(el) {
     hero10Clean = false;
     emit('hha:miss', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
     emitGameEvent({ type:'miss_expire', groupId });
+
+    // ✅ schema
+    nExpireGood += 1;
+    logEventSchema({
+      eventType: 'expire_good',
+      kind: 'good',
+      targetId: el.getAttribute('id') || '',
+      emoji: el.dataset.emoji || '',
+      rtMs: '',
+      judgment: 'MISS',
+      extra: 'expired'
+    });
   }
 
   removeTarget(el, 'expire');
@@ -1274,6 +1629,13 @@ function spawnOne(opts = {}) {
 
   if (kind === 'haz' && meta.hazKey) el.dataset.hazKey = meta.hazKey;
 
+  // ✅ spawn counters (schema)
+  if (meta.kind === 'good') nTargetGoodSpawned += 1;
+  if (meta.kind === 'junk') nTargetJunkSpawned += 1;
+  if (meta.kind === 'boss' || meta.emoji === '⭐') nTargetStarSpawned += 1;
+  if (meta.kind === 'power' && meta.emoji === POWER.shield.emoji) nTargetShieldSpawned += 1;
+  if (meta.kind === 'power' && meta.emoji === POWER.cleanse.emoji) nTargetDiamondSpawned += 1;
+
   targetRoot.appendChild(el);
 
   const id = el.getAttribute('id');
@@ -1299,6 +1661,17 @@ function spawnOne(opts = {}) {
   });
 
   emitGameEvent({ type:'spawn', kind: el.dataset.kind, groupId: meta.groupId || 0, targetId: id });
+
+  // ✅ schema event
+  logEventSchema({
+    eventType: 'spawn',
+    kind: meta.kind,
+    targetId: id,
+    emoji: meta.emoji,
+    rtMs: '',
+    judgment: '',
+    extra: meta.hazKey ? `haz=${meta.hazKey}` : ''
+  });
 }
 
 function spawnLoopStart() {
@@ -1340,6 +1713,9 @@ function onHit(el, via = 'cursor', hit = null) {
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
+  const spawnMs = parseInt(el.dataset.spawnMs || '0', 10) || 0;
+  const rtMs = Math.max(0, fromStartMs() - spawnMs);
+
   const preFx = (judge, pts) => {
     try { fxOnHit(el, kind, judge, pts, hit); } catch(_){}
   };
@@ -1360,6 +1736,17 @@ function onHit(el, via = 'cursor', hit = null) {
     emitJudge('RISK!');
     preFx('RISK!', pts);
     emitGameEvent({ type:'haz_hit', haz: hk, points: pts });
+
+    // ✅ schema
+    logEventSchema({
+      eventType: 'hit_haz',
+      kind: 'haz',
+      targetId: id,
+      emoji: el.dataset.emoji || '',
+      rtMs,
+      judgment: 'RISK',
+      extra: `haz=${hk};via=${via}`
+    });
 
     hudUpdateAll(); emitScore();
     return;
@@ -1407,6 +1794,17 @@ function onHit(el, via = 'cursor', hit = null) {
 
     combo += 1; maxCombo = Math.max(maxCombo, combo);
 
+    // ✅ schema
+    logEventSchema({
+      eventType: 'hit_power',
+      kind: 'power',
+      targetId: id,
+      emoji: el.dataset.emoji || '',
+      rtMs,
+      judgment: 'POWER',
+      extra: `via=${via}`
+    });
+
     updateMiniTick();
     hudUpdateAll(); emitScore();
     return;
@@ -1431,6 +1829,17 @@ function onHit(el, via = 'cursor', hit = null) {
     preFx('BOSS HIT!', pts);
     emitGameEvent({ type:'boss_hit', hpLeft: bossHP, points: pts });
 
+    // ✅ schema
+    logEventSchema({
+      eventType: 'hit_boss',
+      kind: 'boss',
+      targetId: id,
+      emoji: '⭐',
+      rtMs,
+      judgment: 'BOSS',
+      extra: `hpLeft=${bossHP};via=${via}`
+    });
+
     if (bossHP <= 0) {
       bossOn = false;
       const bonus = 420 + (DIFF === 'hard' ? 140 : 60);
@@ -1445,6 +1854,16 @@ function onHit(el, via = 'cursor', hit = null) {
       sfxDing();
 
       emitGameEvent({ type:'boss_clear', bonus });
+
+      logEventSchema({
+        eventType: 'boss_clear',
+        kind: 'boss',
+        targetId: id,
+        emoji: '⭐',
+        rtMs,
+        judgment: 'CLEAR',
+        extra: `bonus=${bonus}`
+      });
     } else {
       setTimeout(() => { if (!ended && !paused) spawnOne({ forceBoss: true }); }, 240);
     }
@@ -1466,6 +1885,18 @@ function onHit(el, via = 'cursor', hit = null) {
       emitCoach('โล่กันขยะไว้ได้! 🥗', 'happy');
       emitGameEvent({ type:'junk_blocked', points: pts });
       combo += 1; maxCombo = Math.max(maxCombo, combo);
+
+      // ✅ schema
+      nHitJunkGuard += 1;
+      logEventSchema({
+        eventType: 'junk_blocked',
+        kind: 'junk',
+        targetId: id,
+        emoji: el.dataset.emoji || '',
+        rtMs,
+        judgment: 'BLOCK',
+        extra: `via=${via}`
+      });
     } else {
       miss += 1;
       combo = 0;
@@ -1487,6 +1918,18 @@ function onHit(el, via = 'cursor', hit = null) {
       emitGameEvent({ type:'junk_hit_miss' });
 
       if (miniCurrent && !miniCurrent.done && miniCurrent.key === 'clean10') cleanTimer = miniCurrent.target;
+
+      // ✅ schema
+      nHitJunk += 1;
+      logEventSchema({
+        eventType: 'hit_junk',
+        kind: 'junk',
+        targetId: id,
+        emoji: el.dataset.emoji || '',
+        rtMs,
+        judgment: 'MISS',
+        extra: `via=${via}`
+      });
     }
   } else if (kind === 'good') {
     const pts = scoreForHit('good', groupId);
@@ -1505,6 +1948,22 @@ function onHit(el, via = 'cursor', hit = null) {
     emitJudge(judge);
     preFx(judge, pts);
     emitGameEvent({ type:'good_hit', groupId, points: pts });
+
+    // ✅ schema
+    nHitGood += 1;
+    rtGoodSum += rtMs;
+    rtGoodN += 1;
+    rtGoodList.push(rtMs);
+
+    logEventSchema({
+      eventType: 'hit_good',
+      kind: 'good',
+      targetId: id,
+      emoji: el.dataset.emoji || '',
+      rtMs,
+      judgment: judge,
+      extra: `groupId=${groupId};via=${via}`
+    });
 
     streakBonusCheck();
     checkPerfectPlate();
@@ -1663,6 +2122,9 @@ function startGame() {
   if (started || ended) return;
   started = true;
 
+  // ✅ init logger early
+  __loggerInit({ endpoint: LOGGER_ENDPOINT, debug: __HHA_LOGGER.debug });
+
   ensureShakeStyle();
   ensureFxLayer();
   ensureEdgeOverlay();
@@ -1709,11 +2171,60 @@ function startGame() {
   miniCleared = 0; miniHistory = 0; miniCurrent = null;
   cleanTimer = 0;
 
+  // ✅ schema counters reset
+  nTargetGoodSpawned = 0;
+  nTargetJunkSpawned = 0;
+  nTargetStarSpawned = 0;
+  nTargetDiamondSpawned = 0;
+  nTargetShieldSpawned = 0;
+  nHitGood = 0;
+  nHitJunk = 0;
+  nHitJunkGuard = 0;
+  nExpireGood = 0;
+  rtGoodSum = 0;
+  rtGoodN = 0;
+  rtGoodList = [];
+
   paused = false;
   hudUpdateAll();
   emitTime();
   emitScore();
   emitQuestUpdate();
+
+  // ✅ optional: upsert profile once at start (if hub has it)
+  try {
+    const p = getHubProfile();
+    if (p && (p.studentKey || p.sid)) {
+      emit('hha:log_profile', {
+        projectTag: PROJECT_TAG,
+        runMode: MODE,
+        timestampIso: nowIso(),
+        studentKey: p.studentKey || p.sid || '',
+        schoolCode: p.schoolCode || '',
+        schoolName: p.schoolName || '',
+        classRoom: p.classRoom || p.class || '',
+        studentNo: p.studentNo || '',
+        nickName: p.nickName || p.nickname || '',
+        gender: p.gender || '',
+        age: p.age || '',
+        gradeLevel: p.gradeLevel || p.grade || '',
+        heightCm: p.heightCm || '',
+        weightKg: p.weightKg || '',
+        bmi: p.bmi || '',
+        bmiGroup: p.bmiGroup || '',
+        vrExperience: p.vrExperience || '',
+        gameFrequency: p.gameFrequency || '',
+        handedness: p.handedness || '',
+        visionIssue: p.visionIssue || '',
+        healthDetail: p.healthDetail || '',
+        consentParent: (p.consentParent ?? ''),
+        consentTeacher:(p.consentTeacher ?? ''),
+        createdAtIso: p.createdAtIso || nowIso(),
+        updatedAtIso: nowIso(),
+        source: p.profileSource || p.source || 'hub'
+      });
+    }
+  } catch(_) {}
 
   startNextMiniQuest();
   startTimers();
@@ -1757,6 +2268,12 @@ function endGame(reason = 'ended') {
     grade: computeGradeFinal(),
     timeFromStartMs: fromStartMs()
   });
+
+  // ✅ write sessions row to Google Sheet
+  try { logSessionSchema(reason); } catch(e){ console.warn('[PlateVR] logSessionSchema failed', e); }
+
+  // flush asap
+  try { __loggerFlushNow(true); } catch(_) {}
 
   emitCoach('จบเกมแล้ว! ดูสรุปผลได้เลย 🎉', 'happy');
   showResultModal(reason);
@@ -1903,6 +2420,9 @@ export function bootPlateDOM() {
     try { emitCoach('หา targetRoot ไม่เจอ! ตรวจ ID ใน plate-vr.html ก่อนนะ ⚠️', 'sad'); } catch (_) {}
     return;
   }
+
+  // ✅ init logger early (so first events won't be lost)
+  __loggerInit({ endpoint: LOGGER_ENDPOINT, debug: __HHA_LOGGER.debug });
 
   ensureTouchLookControls();
   bindUI();
