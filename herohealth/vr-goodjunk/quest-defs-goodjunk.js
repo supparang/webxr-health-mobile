@@ -128,3 +128,46 @@ export const GOODJUNK_MINIS = [
     pass:(v,tgt)=> v>=tgt
   }
 ];
+export const GOODJUNK_GOALS = [
+  {
+    id: 'G1_GOOD_HITS',
+    title: 'แตะอาหารดีให้ได้ 18 ครั้ง',
+    kind: 'count',
+    max: 18,
+    rule: null
+  },
+  {
+    id: 'G2_SCORE',
+    title: 'ทำคะแนนให้ถึง 160',
+    kind: 'count',
+    max: 160,
+    rule: null
+  }
+];
+
+export const GOODJUNK_MINIS = [
+  {
+    id: 'M_STREAK',
+    title: 'คอมโบอาหารดี 6 ครั้งติด',
+    kind: 'count',
+    max: 6,
+    timeTotal: 0,
+    tags: ['rush','survival','boss']
+  },
+  {
+    id: 'M_NOJUNK_5S',
+    title: 'No-Junk Zone: ห้ามโดน junk 5 วินาที',
+    kind: 'count',
+    max: 5,
+    timeTotal: 6500,   // กันหลุด (มี buffer)
+    tags: ['rush','survival']
+  },
+  {
+    id: 'M_GOLD_1',
+    title: 'เก็บ Gold ⭐ ให้ได้ 1 ครั้ง',
+    kind: 'count',
+    max: 1,
+    timeTotal: 0,
+    tags: ['boss','rush']
+  }
+];
