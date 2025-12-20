@@ -1,131 +1,530 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
+     GoodJunkVR (PRODUCTION) — Full HTML
+     ✅ DOM emoji targets on #gj-layer
+     ✅ HUD + Quest + Coach + Fever/Shield UI
+     ✅ Start overlay (2D / VR)
+     ✅ Loads particles.js BEFORE boot module (สำคัญมาก)
+-->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Hero Health — Good vs Junk VR</title>
+  <title>Hero Health — GoodJunk VR</title>
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ Production CSS -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
+  <style>
+    :root{
+      color-scheme: light dark;
+      --bg-main:#020617;
+      --panel:#020617;
+      --panel-soft:#0b1120;
+      --accent:#22c55e;
+      --accent-soft:rgba(34,197,94,0.18);
+      --danger:#f97316;
+      --text-main:#e5e7eb;
+      --text-soft:#9ca3af;
+    }
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
+        var(--bg-main);
+      color:var(--text-main);
+      overflow:hidden;
+    }
+
+    a-scene{ width:100vw; height:100vh; position:fixed; inset:0; z-index:0; }
+
+    /* DOM target layer */
+    #gj-layer{
+      position:fixed; inset:0;
+      z-index:649;
+      pointer-events:auto;
+      touch-action:none;
+    }
+    .gj-target{
+      position:absolute;
+      transform: translate(-50%,-50%) scale(var(--tScale, 1));
+      font-size: clamp(44px, 7.8vw, 76px);
+      line-height:1;
+      text-shadow: 0 10px 24px rgba(0,0,0,0.55);
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.55));
+      user-select:none;
+      pointer-events:auto;
+      cursor:pointer;
+      transition: transform .12s ease-out, opacity .12s ease-out;
+      will-change: transform, left, top, opacity;
+    }
+    .gj-target.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.72); }
+    .gj-junk{ opacity:.96; filter: drop-shadow(0 14px 24px rgba(249,115,22,0.25)); }
+    .gj-gold{ filter: drop-shadow(0 14px 26px rgba(250,204,21,0.35)); }
+    .gj-fake{ filter: drop-shadow(0 14px 24px rgba(168,85,247,0.25)); }
+    .gj-power{ filter: drop-shadow(0 14px 26px rgba(56,189,248,0.30)); }
+    .gj-boss{
+      font-size: clamp(54px, 10vw, 110px);
+      filter: drop-shadow(0 18px 32px rgba(250,204,21,0.25));
+    }
+
+    /* HUD */
+    .hud-root{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:650;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      padding:10px 10px 14px;
+    }
+    .hud-top{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+    }
+    .hud-card{
+      background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
+      border-radius:18px;
+      padding:8px 10px;
+      box-shadow:0 18px 40px rgba(15,23,42,0.65);
+      border:1px solid rgba(148,163,184,0.18);
+      pointer-events:auto;
+    }
+    .hud-main{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin-bottom:4px;
+    }
+    .hud-main-title{
+      font-size:14px;
+      font-weight:600;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      color:var(--text-soft);
+    }
+    .hud-main-mode{
+      font-size:15px;
+      font-weight:800;
+    }
+    .hud-pill{
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:999px;
+      background:rgba(15,118,110,0.2);
+      border:1px solid rgba(45,212,191,0.4);
+      color:#a5f3fc;
+      font-weight:600;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .hud-pill.research{
+      background:rgba(37,99,235,0.18);
+      border-color:rgba(59,130,246,0.55);
+      color:#bfdbfe;
+    }
+    .hud-metrics{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
+    .metric{ min-width:92px; }
+    .metric-label{
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      color:var(--text-soft);
+    }
+    .metric-value{
+      font-size:15px;
+      font-weight:800;
+      margin-top:2px;
+    }
+    .metric-value.accent{ color:var(--accent); }
+    .metric-value.danger{ color:var(--danger); }
+
+    /* Quest */
+    .hud-quest{ max-width:340px; font-size:12px; }
+    .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
+    .quest-main-label{ font-size:13px; font-weight:700; }
+    .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
+    .quest-progress-wrap{ margin-top:5px; display:flex; flex-direction:column; gap:4px; }
+    .quest-bar{ position:relative; width:100%; height:4px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; }
+    .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
+    .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
+
+    /* Coach */
+    .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
+    .coach-bubble{
+      min-width:60%;
+      max-width:680px;
+      text-align:left;
+      background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%), rgba(15,23,42,0.96);
+      border-radius:999px;
+      padding:8px 14px;
+      border:1px solid rgba(52,211,153,0.45);
+      font-size:13px;
+      display:none;
+      align-items:center;
+      justify-content:flex-start;
+      gap:8px;
+      pointer-events:auto;
+      position:relative;
+      overflow:hidden;
+      box-shadow:0 18px 40px rgba(15,23,42,0.65);
+    }
+    .coach-bubble.show{ display:flex; }
+    .coach-col{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+    .coach-label{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.16em;
+      color:#6ee7b7;
+      font-weight:800;
+    }
+    .coach-emoji{
+      width:40px; height:40px;
+      border-radius:999px;
+      background-size:cover;
+      background-position:center;
+      flex-shrink:0;
+      box-shadow:0 0 12px rgba(16,185,129,0.8);
+      animation:coach-idle 1.4s ease-in-out infinite;
+    }
+    @keyframes coach-idle{
+      0%{ transform:translateY(0) scale(1); }
+      30%{ transform:translateY(-2px) scale(1.03); }
+      60%{ transform:translateY(1px) scale(0.99); }
+      100%{ transform:translateY(0) scale(1); }
+    }
+
+    /* Center hint */
+    .hint-center{
+      position:fixed; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      font-size:12px;
+      color:var(--text-soft);
+      background:rgba(15,23,42,0.8);
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.35);
+      display:none;
+      pointer-events:none;
+      z-index:651;
+    }
+    .hint-center.show{ display:block; }
+
+    /* Countdown */
+    .countdown-overlay{
+      position:fixed; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      z-index:655;
+      font-size:clamp(3rem, 10vw, 5rem);
+      font-weight:900;
+      color:#fbbf24;
+      text-shadow:0 0 40px rgba(0,0,0,0.85);
+      pointer-events:none;
+      transition:opacity .25s ease-out, transform .25s ease-out;
+    }
+    .countdown-hidden{
+      opacity:0;
+      visibility:hidden;
+      transform:scale(0.8);
+    }
+
+    /* VR button */
+    .vr-btn{
+      position:fixed; right:12px; bottom:16px; z-index:653;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,0.7);
+      padding:8px 14px;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+      background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%), rgba(15,23,42,0.96);
+      color:#e0f2fe;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      box-shadow:0 14px 30px rgba(15,23,42,0.9);
+    }
+    .vr-btn span{ font-size:16px; }
+
+    /* Big celebrate */
+    .big-celebrate{
+      position:fixed; inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:654;
+      pointer-events:none;
+    }
+    .big-celebrate.show{ display:flex; animation:big-celebrate-fade 1.2s ease-out forwards; }
+    .big-celebrate-inner{
+      padding:16px 22px;
+      border-radius:999px;
+      background:radial-gradient(circle at top left, rgba(250,250,250,0.16), transparent 55%), rgba(8,47,73,0.96);
+      border:1px solid rgba(251,191,36,0.75);
+      font-size:16px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#fef9c3;
+      box-shadow:0 24px 60px rgba(15,23,42,0.95);
+    }
+    @keyframes big-celebrate-fade{
+      0%{ opacity:0; transform:scale(0.85); }
+      20%{ opacity:1; transform:scale(1); }
+      80%{ opacity:1; transform:scale(1); }
+      100%{ opacity:0; transform:scale(0.9); }
+    }
+
+    /* Start overlay */
+    .start-overlay{
+      position:fixed; inset:0;
+      z-index:700;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:radial-gradient(circle at 50% 35%, rgba(34,197,94,0.18), transparent 55%), rgba(2,6,23,0.92);
+    }
+    .start-card{
+      width:min(560px, 96vw);
+      border-radius:22px;
+      background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
+      border:1px solid rgba(148,163,184,0.2);
+      box-shadow:0 30px 80px rgba(0,0,0,0.55);
+      padding:16px 16px 14px;
+      text-align:left;
+    }
+    .start-title{ font-size:18px; font-weight:950; margin:0 0 6px; letter-spacing:.02em; }
+    .start-sub{ margin:0 0 12px; color:var(--text-soft); font-size:13px; line-height:1.35; }
+    .start-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .start-label{ font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:.14em; }
+    select{
+      width:100%;
+      border-radius:12px;
+      border:1px solid rgba(30,64,175,0.6);
+      background:rgba(15,23,42,0.9);
+      padding:7px 9px;
+      color:var(--text-main);
+      font-size:13px;
+      outline:none;
+    }
+    .start-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; margin-top:12px; }
+    .start-btn{
+      border-radius:999px;
+      border:1px solid rgba(187,247,208,0.9);
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      color:#052e16;
+      padding:10px 14px;
+      font-weight:950;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .start-btn.secondary{
+      border:1px solid rgba(148,163,184,0.6);
+      background:rgba(15,23,42,0.86);
+      color:var(--text-main);
+      font-weight:850;
+    }
+
+    /* logger badge */
+    .logbadge{
+      position:fixed; left:10px; bottom:10px; z-index:690;
+      background:rgba(15,23,42,0.88);
+      border:1px solid rgba(148,163,184,0.22);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:11px;
+      color:#e5e7eb;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      pointer-events:none;
+      max-width:92vw;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .dot{ width:8px; height:8px; border-radius:999px; background:#9ca3af; }
+    .dot.ok{ background:#22c55e; }
+    .dot.bad{ background:#ef4444; }
+
+    /* Fever UI block (HUD) */
+    .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
+    .fever-row{ display:flex; align-items:center; gap:8px; }
+    .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
+    .fever-bar{ width:140px; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(148,163,184,0.18); }
+    .fever-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.95)); transition:width .16s ease-out; }
+    .fever-pct{ font-size:10px; color:#fde68a; font-weight:900; min-width:42px; text-align:right; }
+    .shield-row{ display:flex; align-items:center; gap:6px; }
+    .shield-label{ font-size:12px; }
+    .shield-count{ font-weight:950; color:#93c5fd; }
+
+    /* Start hint */
+    .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
+  </style>
+
+  <!-- ✅ IMPORTANT: FX IIFE MUST LOAD BEFORE boot module -->
+  <script src="../vr/particles.js"></script>
+  <script src="../vr/ui-fever.js"></script>
+  <script src="../vr/hha-summary.js"></script>
+
+  <!-- Boot (module) -->
+  <script type="module" src="./goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
-  <!-- A-Frame scene -->
+
+  <!-- A-Frame scene (ไว้เป็นฉาก/VR camera; เป้าจริงอยู่บน DOM layer) -->
   <a-scene
-    vr-mode-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-    background="color: #020617">
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="colorManagement: true; physicallyCorrectLights: true"
+  >
+    <!-- Camera -->
+    <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
 
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="gj-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
-        <a-entity id="cursor"
-          cursor="fuse: false; rayOrigin: mouse"
-          raycaster="objects: [data-hha-tgt]"
-          geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-          material="shader: flat; color: #ffffff; opacity: 0.95"
-          position="0 0 -0.9"></a-entity>
-      </a-camera>
-    </a-entity>
-
-    <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
-    <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
-
-    <a-plane position="0 0 0" rotation="-90 0 0" width="16" height="16"
-      material="color: #020617; metalness: 0; roughness: 1"></a-plane>
-    <a-sky color="#020617"></a-sky>
+    <!-- Simple environment -->
+    <a-entity light="type: ambient; intensity: 1.0"></a-entity>
+    <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
+    <a-sky color="#061225"></a-sky>
   </a-scene>
 
-  <!-- DOM targets layer -->
-  <div id="gj-layer"></div>
+  <!-- DOM target layer -->
+  <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
 
   <!-- HUD -->
-  <div class="hud-root">
+  <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
-      <div class="hud-card hud-left" style="flex:1;max-width:560px;">
+      <!-- Left: Score/Time/Miss/Combo -->
+      <div class="hud-card" style="min-width: 290px;">
         <div class="hud-main">
-          <div>
-            <div class="hud-main-title">Hero Health • Nutrition VR</div>
-            <div class="hud-main-mode">Good vs Junk</div>
-          </div>
-
-          <div id="hud-pill" class="hud-pill">
-            <span id="hud-run-label" style="font-weight:900;">PLAY</span>
-            <span>•</span>
-            <span id="hud-diff-label">NORMAL</span>
-            <span>•</span>
-            <span id="hud-challenge-label">RUSH</span>
-            <span>•</span>
-            <span id="hud-time-label">60s</span>
+          <div class="hud-main-title">GOODJUNK</div>
+          <div class="hud-pill" id="hud-pill">
+            <span>●</span>
+            <span id="hud-run-label">PLAY</span>
           </div>
         </div>
 
         <div class="hud-metrics">
           <div class="metric">
-            <div class="metric-label">คะแนน</div>
+            <div class="metric-label">Score</div>
             <div class="metric-value accent" id="hud-score">0</div>
-            <div class="metric-label" id="hud-judge" style="margin-top:2px;font-size:11px;color:#e5e7eb;">&nbsp;</div>
           </div>
           <div class="metric">
-            <div class="metric-label">คอมโบสูงสุด</div>
+            <div class="metric-label">Combo Max</div>
             <div class="metric-value" id="hud-combo">0</div>
           </div>
           <div class="metric">
-            <div class="metric-label">พลาด</div>
+            <div class="metric-label">Miss</div>
             <div class="metric-value danger" id="hud-miss">0</div>
           </div>
+          <div class="metric">
+            <div class="metric-label">Time</div>
+            <div class="metric-value" id="hud-time-label">—</div>
+          </div>
+        </div>
+
+        <div class="tiny-note">
+          Diff: <b id="hud-diff-label">NORMAL</b> • Challenge: <b id="hud-challenge-label">RUSH</b>
+          <span style="margin-left:8px;">|</span>
+          <span id="hud-judge" style="margin-left:8px; font-weight:900;">&nbsp;</span>
         </div>
       </div>
 
-      <div class="hud-card hud-quest">
+      <!-- Right: Quest + Fever -->
+      <div class="hud-card hud-quest" style="min-width: 300px;">
         <div class="quest-title">Quest</div>
-        <div id="hud-quest-main" class="quest-main-label">กำลังสุ่มภารกิจ…</div>
-        <div id="hud-quest-mini" class="quest-mini-label">กำลังสุ่ม mini quest…</div>
 
+        <div class="quest-main-label" id="hud-quest-main">ภารกิจหลัก</div>
         <div class="quest-progress-wrap">
-          <div class="quest-bar"><div id="hud-quest-main-bar" class="quest-bar-fill"></div></div>
+          <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-main-bar"></div></div>
           <div class="quest-caption">
             <span id="hud-quest-main-caption">0 / 0</span>
             <span id="hud-quest-hint"></span>
           </div>
+        </div>
 
-          <div class="quest-bar"><div id="hud-quest-mini-bar" class="quest-bar-fill"></div></div>
+        <div class="quest-mini-label" id="hud-quest-mini">Mini: —</div>
+        <div class="quest-progress-wrap">
+          <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-mini-bar"></div></div>
           <div class="quest-caption">
             <span id="hud-quest-mini-caption">0 / 0</span>
-            <span id="hud-mini-count"></span>
+            <span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span>
+          </div>
+        </div>
+
+        <!-- Fever/Shield UI (ui-fever.js จะอัปเดตเองถ้าใช้ id นี้) -->
+        <div class="hud-fever">
+          <div class="fever-row">
+            <div class="fever-label">FEVER</div>
+            <div class="fever-bar"><div class="fever-fill" id="fever-fill" style="width:0%"></div></div>
+            <div class="fever-pct" id="fever-pct">0%</div>
+          </div>
+          <div class="shield-row">
+            <div class="shield-label">🛡️</div>
+            <div>Shield</div>
+            <div class="shield-count" id="shield-count">0</div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Bottom: Coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <div id="coach-emoji" class="coach-emoji"></div>
-        <div class="coach-copy">
-          <span class="coach-label">โค้ช</span>
-          <span id="coach-text">แตะเฉพาะอาหารดี แล้วหลบ junk นะ!</span>
+        <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
+        <div class="coach-col">
+          <div class="coach-label">Coach</div>
+          <div id="coach-text">แตะของดี! หลบ junk! ⚡</div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="hint-center" id="touch-hint">ลากนิ้วบนหน้าจอเพื่อหมุนมุมมอง 👆</div>
+  <!-- Center hint (touch look) -->
+  <div class="hint-center" id="touch-hint">ลากนิ้วเพื่อหมุนมุมมอง 👆</div>
 
-  <div id="start-countdown" class="countdown-overlay countdown-hidden">3</div>
-  <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
+  <!-- Countdown overlay -->
+  <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
 
+  <!-- Big celebrate -->
   <div class="big-celebrate" id="big-celebrate">
-    <div class="big-celebrate-inner">ALL QUESTS CLEAR! 🌟</div>
+    <div class="big-celebrate-inner">ALL QUESTS CLEAR!</div>
+  </div>
+
+  <!-- VR button -->
+  <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR">
+    <span>🥽</span> Enter VR
+  </button>
+
+  <!-- Logger badge -->
+  <div class="logbadge" id="logbadge">
+    <div class="dot" id="logdot"></div>
+    <div id="logtext">logger: pending…</div>
   </div>
 
   <!-- Start overlay -->
-  <div id="start-overlay" class="start-overlay">
+  <div class="start-overlay" id="start-overlay">
     <div class="start-card">
-      <div class="start-title">เริ่มเล่น Good vs Junk 🎮</div>
+      <h1 class="start-title">GoodJunk VR</h1>
       <p class="start-sub" id="start-sub">
         เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅
       </p>
@@ -134,48 +533,31 @@
         <div>
           <div class="start-label">Difficulty</div>
           <select id="sel-diff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
           </select>
         </div>
         <div>
           <div class="start-label">Challenge</div>
           <select id="sel-challenge">
-            <option value="rush" selected>rush (สปีด + ตัวคูณ)</option>
-            <option value="boss">boss (ท้ายเกมมีบอส)</option>
-            <option value="survival">survival (หัวใจ)</option>
+            <option value="rush" selected>Rush</option>
+            <option value="boss">Boss</option>
+            <option value="survival">Survival</option>
           </select>
         </div>
       </div>
 
       <div class="start-row">
-        <button id="btn-start-2d" class="start-btn secondary">เริ่มแบบปกติ</button>
-        <button id="btn-start-vr" class="start-btn">เริ่ม + เข้าสู่ VR อัตโนมัติ 🕶️</button>
+        <button class="start-btn secondary" id="btn-start-2d" type="button">▶ Start 2D</button>
+        <button class="start-btn" id="btn-start-vr" type="button">🥽 Start VR</button>
+      </div>
+
+      <div class="tiny-note">
+        * โหมดวิจัยจะบังคับโปรไฟล์จาก Hub ก่อนเริ่มเล่น
       </div>
     </div>
   </div>
-  <div class="hud-fever">
-  <div class="fever-row">
-    <span class="fever-label">FEVER</span>
-    <div class="fever-bar">
-      <div id="hha-fever-fill" class="fever-fill"></div>
-    </div>
-    <span id="hha-fever-percent" class="fever-pct">0%</span>
-  </div>
-  <div class="shield-row">
-    <span class="shield-label">🛡️</span>
-    <span id="hha-shield-count" class="shield-count">0</span>
-  </div>
-</div>
 
-  <!-- Logger badge -->
-  <div id="logbadge" class="logbadge" aria-hidden="true">
-    <span id="logdot" class="dot"></span>
-    <span id="logtext">logger: pending…</span>
-  </div>
-
-  <!-- ✅ Production boot -->
-  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </body>
 </html>
