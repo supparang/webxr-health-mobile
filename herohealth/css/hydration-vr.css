@@ -542,3 +542,24 @@ body {
     right: 10px;
   }
 }
+/* === HUD overlap fix: keep Water gauge visible === */
+
+/* ให้ water bar อยู่ชั้นบน และกดไม่ได้กันยิง */
+.hha-water-bar, #hha-water-bar, #hha-water-wrap{
+  position: relative;
+  z-index: 99996 !important;
+  pointer-events: none;
+}
+
+/* กันการ์ด GOAL/MINI มาทับซ้ายบน: ดันไปทางขวา */
+#hha-quest-top, .hha-quest-top, .hha-quest-card, .hha-quest-panel{
+  margin-left: 170px !important; /* ปรับ 150-220 ตามจอ */
+  z-index: 99995 !important;
+}
+
+/* มือถือ: เพิ่มระยะอีกนิด */
+@media (max-width: 520px){
+  #hha-quest-top, .hha-quest-top, .hha-quest-card, .hha-quest-panel{
+    margin-left: 190px !important;
+  }
+}
