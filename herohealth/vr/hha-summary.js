@@ -1,429 +1,143 @@
-// === /herohealth/vr/hha-summary.js ===
-// Hero Health Academy — End-of-Game Summary Overlay (DOM/VR)
-// PATCH(B): Production-ready "จบเกม = ต้องมีหน้าสรุป"
-// - ฟัง event: hha:end  (CustomEvent)
-//   detail ตัวอย่าง:
-//   {
-//     projectTag, mode, diff, durationSec,
-//     score, grade,
-//     goalsCleared, goalsTotal,
-//     minisCleared,
-//     perfect, good, miss,
-//     shield, comboMax,
-//     hubUrl, restartUrl,
-//     logger: { pending:boolean, ok:boolean, message:string }
-//   }
-// - ปุ่ม: เล่นใหม่ / กลับ Hub
-// - ปลอดภัย: ถ้าไม่มีข้อมูลบางตัว ก็แสดงเท่าที่มี
-// - รองรับเกมทุกตัว (GoodJunk/Hydration/Plate/Groups ฯลฯ)
-
 (function (root) {
   'use strict';
 
   const doc = root.document;
   if (!doc) return;
 
-  const OVERLAY_ID = 'hha-summary';
-  const STYLE_ID   = 'hha-summary-style-b';
-
-  function safeText(v, fb='—') {
-    if (v === null || v === undefined) return fb;
-    const s = String(v).trim();
-    return s ? s : fb;
-  }
-  function safeNum(v, fb=0) {
-    v = Number(v);
-    return isFinite(v) ? v : fb;
-  }
-  function fmtTime(sec) {
-    sec = safeNum(sec, 0);
-    sec = Math.max(0, Math.round(sec));
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    if (m <= 0) return `${s}s`;
-    return `${m}m ${s}s`;
-  }
-  function pickHubUrl(detail) {
-    const d = detail || {};
-    // 1) explicit
-    if (d.hubUrl) return String(d.hubUrl);
-    // 2) sessionStorage (ถ้ามี hub ตั้งไว้ใน hub.html)
-    try {
-      const ss = root.sessionStorage;
-      if (ss) {
-        const v = ss.getItem('HHA_HUB_URL') || ss.getItem('hhaHubUrl');
-        if (v) return String(v);
-      }
-    } catch (_) {}
-    // 3) referrer heuristic (ถ้ามาจาก hub.html)
-    const ref = safeText(doc.referrer, '');
-    if (ref && /hub\.html/i.test(ref)) return ref;
-    // 4) fallback
-    return 'hub.html';
-  }
-  function pickRestartUrl(detail) {
-    const d = detail || {};
-    if (d.restartUrl) return String(d.restartUrl);
-    // reload current url without hash (คง query ไว้)
-    try {
-      const u = new URL(root.location.href);
-      u.hash = '';
-      return u.toString();
-    } catch (_) {
-      return root.location.href;
-    }
-  }
-
-  function ensureStyle() {
-    if (doc.getElementById(STYLE_ID)) return;
-    const st = doc.createElement('style');
-    st.id = STYLE_ID;
-    st.textContent = `
-/* ===== HHA Summary Patch B ===== */
-#${OVERLAY_ID}{
-  position:fixed; inset:0; z-index:10050;
-  display:none;
-  align-items:center; justify-content:center;
-  padding: 18px;
-}
-#${OVERLAY_ID}.show{ display:flex; }
-#${OVERLAY_ID} .hha-backdrop{
-  position:absolute; inset:0;
-  background: rgba(2,6,23,0.78);
-  backdrop-filter: blur(10px);
-}
-#${OVERLAY_ID} .hha-card{
-  position:relative;
-  width:min(980px, calc(100vw - 24px));
-  max-height: min(92vh, 780px);
-  overflow:auto;
-  border-radius: 22px;
-  border:1px solid rgba(148,163,184,0.22);
-  background: rgba(15,23,42,0.65);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
-  padding: 18px 18px 16px;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-  color:#e5e7eb;
-}
-#${OVERLAY_ID} .hha-head{
-  display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
-  margin-bottom: 10px;
-}
-#${OVERLAY_ID} .hha-title{
-  font-weight: 1000;
-  font-size: 18px;
-  letter-spacing: .2px;
-}
-#${OVERLAY_ID} .hha-sub{
-  margin-top:4px;
-  color:#94a3b8;
-  font-weight: 800;
-  font-size: 12px;
-}
-#${OVERLAY_ID} .hha-gradeWrap{
-  display:flex; align-items:center; gap:10px;
-}
-#${OVERLAY_ID} .hha-grade{
-  font-weight: 1100;
-  font-size: 34px;
-  letter-spacing: 1px;
-  padding: 10px 14px;
-  border-radius: 18px;
-  border:1px solid rgba(250,204,21,0.55);
-  background: rgba(250,204,21,0.14);
-  color:#fff7ed;
-  text-shadow: 0 8px 20px rgba(0,0,0,0.35);
-}
-#${OVERLAY_ID} .hha-medal{
-  font-size: 28px;
-  filter: drop-shadow(0 10px 18px rgba(0,0,0,0.35));
-}
-#${OVERLAY_ID} .hha-grid{
-  display:grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 12px;
-  margin-top: 12px;
-}
-@media (max-width: 760px){
-  #${OVERLAY_ID} .hha-grid{ grid-template-columns: 1fr; }
-  #${OVERLAY_ID} .hha-grade{ font-size: 30px; }
-}
-#${OVERLAY_ID} .hha-panel{
-  border-radius: 18px;
-  border:1px solid rgba(148,163,184,0.18);
-  background: rgba(2,6,23,0.45);
-  padding: 12px 12px 10px;
-}
-#${OVERLAY_ID} .hha-panelTitle{
-  font-weight: 1000;
-  font-size: 13px;
-  color:#e2e8f0;
-  margin-bottom: 8px;
-  display:flex; align-items:center; gap:8px;
-}
-#${OVERLAY_ID} .hha-rows{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 10px;
-}
-#${OVERLAY_ID} .hha-row{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  padding: 8px 10px;
-  border-radius: 14px;
-  border:1px solid rgba(148,163,184,0.14);
-  background: rgba(15,23,42,0.35);
-}
-#${OVERLAY_ID} .hha-k{
-  color:#94a3b8;
-  font-weight: 900;
-  font-size: 12px;
-}
-#${OVERLAY_ID} .hha-v{
-  color:#f8fafc;
-  font-weight: 1100;
-  font-size: 12px;
-}
-#${OVERLAY_ID} .hha-bigScore{
-  font-weight: 1100;
-  font-size: 42px;
-  letter-spacing: .5px;
-  margin: 4px 0 8px;
-}
-#${OVERLAY_ID} .hha-note{
-  color:#a7f3d0;
-  font-weight: 900;
-  font-size: 12px;
-  opacity: .92;
-}
-#${OVERLAY_ID} .hha-logger{
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border:1px solid rgba(148,163,184,0.18);
-  background: rgba(15,23,42,0.35);
-  color:#cbd5e1;
-  font-weight: 900;
-  font-size: 12px;
-}
-#${OVERLAY_ID} .hha-logger.ok{ border-color: rgba(34,197,94,0.35); color:#d1fae5; background: rgba(34,197,94,0.10); }
-#${OVERLAY_ID} .hha-logger.pending{ border-color: rgba(250,204,21,0.35); color:#fff7ed; background: rgba(250,204,21,0.10); }
-#${OVERLAY_ID} .hha-logger.fail{ border-color: rgba(244,63,94,0.35); color:#ffe4e6; background: rgba(244,63,94,0.10); }
-
-#${OVERLAY_ID} .hha-actions{
-  margin-top: 12px;
-  display:flex; flex-wrap:wrap;
-  gap: 10px;
-  justify-content:flex-end;
-}
-#${OVERLAY_ID} .hha-btn{
-  pointer-events:auto;
-  cursor:pointer;
-  user-select:none;
-  border-radius: 16px;
-  padding: 12px 14px;
-  font-weight: 1100;
-  font-size: 14px;
-  border:1px solid rgba(148,163,184,0.22);
-  background: rgba(15,23,42,0.55);
-  color:#e5e7eb;
-  box-shadow: 0 10px 26px rgba(0,0,0,0.25);
-}
-#${OVERLAY_ID} .hha-btn.primary{
-  border-color: rgba(34,197,94,0.55);
-  background: rgba(34,197,94,0.16);
-}
-#${OVERLAY_ID} .hha-btn.secondary{
-  border-color: rgba(59,130,246,0.55);
-  background: rgba(59,130,246,0.14);
-}
-#${OVERLAY_ID} .hha-btn:active{
-  transform: translateY(1px) scale(0.99);
-}
-    `.trim();
-    doc.head.appendChild(st);
-  }
-
-  function ensureOverlay() {
-    let el = doc.getElementById(OVERLAY_ID);
+  function ensure(){
+    let el = doc.querySelector('.hha-summary');
     if (el) return el;
 
     el = doc.createElement('div');
-    el.id = OVERLAY_ID;
+    el.className = 'hha-summary';
+    Object.assign(el.style, {
+      position:'fixed',
+      inset:'0',
+      zIndex:'900',
+      display:'none',
+      alignItems:'center',
+      justifyContent:'center',
+      padding:'18px',
+      background:'rgba(2,6,23,0.86)'
+    });
+
     el.innerHTML = `
-      <div class="hha-backdrop" aria-hidden="true"></div>
-      <div class="hha-card" role="dialog" aria-modal="true" aria-label="Game Summary">
-        <div class="hha-head">
+      <div class="hha-summary-card" style="
+        width:min(640px, 96vw);
+        border-radius:22px;
+        padding:14px 14px 12px;
+        background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
+        border:1px solid rgba(148,163,184,0.2);
+        box-shadow:0 30px 80px rgba(0,0,0,0.55);
+        color:#e5e7eb;
+      ">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
           <div>
-            <div class="hha-title" id="hhaSumTitle">สรุปผลการเล่น</div>
-            <div class="hha-sub" id="hhaSumSub">—</div>
+            <div style="font-weight:950;font-size:18px;">สรุปผลการเล่น 🎉</div>
+            <div class="hha-summary-sub" style="color:#9ca3af;font-size:12px;margin-top:2px;"></div>
           </div>
-          <div class="hha-gradeWrap">
-            <div class="hha-medal" id="hhaSumMedal">🏁</div>
-            <div class="hha-grade" id="hhaSumGrade">A</div>
+          <div class="hha-summary-grade" style="
+            border-radius:999px;
+            padding:6px 10px;
+            border:1px solid rgba(187,247,208,0.7);
+            background:rgba(15,23,42,0.8);
+            font-weight:950;
+          ">GRADE A</div>
+        </div>
+
+        <div class="hha-summary-grid" style="
+          display:grid;
+          grid-template-columns: 1fr 1fr;
+          gap:10px;
+          margin-top:12px;
+        ">
+          <div class="box" style="border:1px solid rgba(148,163,184,0.18); border-radius:16px; padding:10px;">
+            <div style="color:#9ca3af;font-size:11px;letter-spacing:.14em;text-transform:uppercase;">Score</div>
+            <div class="hha-summary-score" style="font-size:22px;font-weight:950;margin-top:2px;color:#22c55e;">0</div>
+            <div class="hha-summary-lines" style="font-size:12px;color:#cbd5e1;margin-top:6px;line-height:1.35;"></div>
+          </div>
+
+          <div class="box" style="border:1px solid rgba(148,163,184,0.18); border-radius:16px; padding:10px;">
+            <div style="color:#9ca3af;font-size:11px;letter-spacing:.14em;text-transform:uppercase;">Quests</div>
+            <div class="hha-summary-quests" style="font-size:14px;font-weight:850;margin-top:2px;">0 / 2</div>
+            <div class="hha-summary-minis" style="font-size:12px;color:#cbd5e1;margin-top:6px;">mini ผ่าน 0</div>
+            <div class="hha-summary-logger" style="font-size:11px;color:#9ca3af;margin-top:6px;">logger: …</div>
           </div>
         </div>
 
-        <div class="hha-grid">
-          <div class="hha-panel">
-            <div class="hha-panelTitle">🏆 คะแนนรวม</div>
-            <div class="hha-bigScore" id="hhaSumScore">0</div>
-            <div class="hha-note" id="hhaSumNote">ทำได้ดีมาก! ลองทำให้ได้เกรดสูงขึ้นอีกนะ ✨</div>
-          </div>
-
-          <div class="hha-panel">
-            <div class="hha-panelTitle">📊 สถิติ</div>
-            <div class="hha-rows">
-              <div class="hha-row"><div class="hha-k">เวลา</div><div class="hha-v" id="hhaSumTime">0s</div></div>
-              <div class="hha-row"><div class="hha-k">โหมด</div><div class="hha-v" id="hhaSumMode">—</div></div>
-              <div class="hha-row"><div class="hha-k">ระดับ</div><div class="hha-v" id="hhaSumDiff">—</div></div>
-              <div class="hha-row"><div class="hha-k">Miss</div><div class="hha-v" id="hhaSumMiss">0</div></div>
-
-              <div class="hha-row"><div class="hha-k">Perfect</div><div class="hha-v" id="hhaSumPerfect">0</div></div>
-              <div class="hha-row"><div class="hha-k">Good</div><div class="hha-v" id="hhaSumGood">0</div></div>
-
-              <div class="hha-row"><div class="hha-k">Goals</div><div class="hha-v" id="hhaSumGoals">0/0</div></div>
-              <div class="hha-row"><div class="hha-k">Mini</div><div class="hha-v" id="hhaSumMinis">0</div></div>
-            </div>
-
-            <div class="hha-logger" id="hhaSumLogger" style="display:none"></div>
-          </div>
-        </div>
-
-        <div class="hha-actions">
-          <button class="hha-btn secondary" id="hhaSumHub">🏠 กลับ Hub</button>
-          <button class="hha-btn primary" id="hhaSumRestart">🔁 เล่นใหม่</button>
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px;">
+          <button class="hha-btn hha-restart" style="border-radius:999px;border:1px solid rgba(148,163,184,0.6);padding:9px 12px;background:rgba(15,23,42,0.86);color:#e5e7eb;font-weight:850;cursor:pointer;">เล่นใหม่</button>
+          <button class="hha-btn hha-hub" style="border-radius:999px;border:1px solid rgba(187,247,208,0.9);padding:9px 12px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;font-weight:950;cursor:pointer;">กลับ Hub</button>
         </div>
       </div>
     `;
+
     doc.body.appendChild(el);
     return el;
   }
 
-  function medalFromGrade(grade) {
-    grade = String(grade || '').toUpperCase();
-    if (grade === 'SSS') return '👑';
-    if (grade === 'SS')  return '🥇';
-    if (grade === 'S')   return '🥈';
-    if (grade === 'A')   return '🥉';
-    if (grade === 'B')   return '⭐';
-    if (grade === 'C')   return '🧱';
-    return '🏁';
+  function fmtMode(d){
+    const run = String(d.runMode||'play').toUpperCase();
+    const diff = String(d.diff||'normal').toUpperCase();
+    const ch = String(d.challenge||'rush').toUpperCase();
+    const t = Number(d.durationSec||0)|0;
+    return `${run} • ${diff} • ${ch} • ${t}s`;
   }
 
-  function noteFromGrade(grade) {
-    grade = String(grade || '').toUpperCase();
-    if (grade === 'SSS') return 'สุดยอดมาก! เก่งขั้นเทพเลย! 👑🔥';
-    if (grade === 'SS')  return 'โหดมาก! อีกนิดเดียวถึง SSS แล้ว! 🥇';
-    if (grade === 'S')   return 'เยี่ยมมาก! รักษาฟอร์มนี้ไว้! 🥈';
-    if (grade === 'A')   return 'ทำได้ดี! ลองลด Miss ลงอีกหน่อยนะ ✨';
-    if (grade === 'B')   return 'กำลังมา! ฝึกอีกนิดเดี๋ยวก็พุ่ง 🚀';
-    if (grade === 'C')   return 'ไม่เป็นไร! ลองใหม่ได้ เก่งขึ้นแน่นอน 💪';
-    return 'จบเกมแล้ว! พร้อมลุยรอบต่อไปไหม?';
-  }
+  function show(detail = {}){
+    const el = ensure();
+    const card = el.querySelector('.hha-summary-card');
 
-  function showSummary(detail) {
-    ensureStyle();
-    const el = ensureOverlay();
+    const sub = el.querySelector('.hha-summary-sub');
+    const grade = el.querySelector('.hha-summary-grade');
+    const score = el.querySelector('.hha-summary-score');
+    const lines = el.querySelector('.hha-summary-lines');
+    const quests = el.querySelector('.hha-summary-quests');
+    const minis = el.querySelector('.hha-summary-minis');
+    const logger = el.querySelector('.hha-summary-logger');
 
-    const d = detail || {};
+    sub.textContent = fmtMode(detail);
 
-    // Title/sub
-    doc.getElementById('hhaSumTitle').textContent = safeText(d.projectTag, 'สรุปผลการเล่น');
-    const sub = [
-      safeText(d.mode, 'mode'),
-      '•',
-      safeText(d.diff, 'diff'),
-    ].join(' ');
-    doc.getElementById('hhaSumSub').textContent = sub;
+    grade.textContent = `GRADE ${detail.grade || 'A'}`;
+    score.textContent = String(detail.score ?? 0);
 
-    // Grade/medal
-    const grade = safeText(d.grade, 'A').toUpperCase();
-    doc.getElementById('hhaSumGrade').textContent = grade;
-    doc.getElementById('hhaSumMedal').textContent = medalFromGrade(grade);
+    const good = detail.good ?? 0;
+    const perfect = detail.perfect ?? 0;
+    const miss = detail.miss ?? 0;
 
-    // Score
-    doc.getElementById('hhaSumScore').textContent = String(safeNum(d.score, 0));
-    doc.getElementById('hhaSumNote').textContent = noteFromGrade(grade);
+    lines.innerHTML = `
+      ✅ good: <b>${good}</b><br/>
+      🌟 perfect: <b>${perfect}</b><br/>
+      ❌ miss: <b>${miss}</b>
+    `;
 
-    // Stats
-    doc.getElementById('hhaSumTime').textContent = fmtTime(d.durationSec);
-    doc.getElementById('hhaSumMode').textContent = safeText(d.mode, '—');
-    doc.getElementById('hhaSumDiff').textContent = safeText(d.diff, '—');
-    doc.getElementById('hhaSumMiss').textContent = String(safeNum(d.miss, 0));
-    doc.getElementById('hhaSumPerfect').textContent = String(safeNum(d.perfect, 0));
-    doc.getElementById('hhaSumGood').textContent = String(safeNum(d.good, 0));
+    const gC = detail.goalsCleared ?? 0;
+    const gT = detail.goalsTotal ?? 2;
+    quests.textContent = `${gC} / ${gT} goals`;
 
-    const gc = safeNum(d.goalsCleared, 0);
-    const gt = safeNum(d.goalsTotal, 0);
-    doc.getElementById('hhaSumGoals').textContent = `${gc}/${gt}`;
-    doc.getElementById('hhaSumMinis').textContent = String(safeNum(d.minisCleared, 0));
+    minis.textContent = `mini ผ่าน ${detail.minisCleared ?? 0}`;
 
-    // Logger status (optional)
-    const logEl = doc.getElementById('hhaSumLogger');
-    if (d.logger && typeof d.logger === 'object') {
-      const pending = !!d.logger.pending;
-      const ok      = !!d.logger.ok;
-      const msg     = safeText(d.logger.message, '');
-      logEl.style.display = 'block';
-      logEl.classList.remove('ok','pending','fail');
-      if (pending) {
-        logEl.classList.add('pending');
-        logEl.textContent = 'กำลังส่งข้อมูลการวิจัย… ⏳';
-      } else if (ok) {
-        logEl.classList.add('ok');
-        logEl.textContent = msg || 'ส่งข้อมูลแล้ว ✅';
-      } else {
-        logEl.classList.add('fail');
-        logEl.textContent = msg || 'ส่งข้อมูลไม่สำเร็จ (ลองใหม่ได้) ⚠️';
+    const lg = detail.logger || {};
+    logger.textContent = lg.pending ? 'logger: pending…' : (lg.ok ? 'logger: ok ✓' : `logger: ${lg.message||'error'}`);
+
+    const btnRestart = el.querySelector('.hha-restart');
+    const btnHub = el.querySelector('.hha-hub');
+
+    btnRestart.onclick = ()=> location.href = detail.restartUrl || location.href.split('#')[0];
+    btnHub.onclick = ()=> location.href = detail.hubUrl || './hub.html';
+
+    el.style.display = 'flex';
+    el.addEventListener('click', (e)=>{
+      // click outside card -> close
+      if (e.target === el){
+        el.style.display = 'none';
       }
-    } else {
-      logEl.style.display = 'none';
-    }
+    }, { once:true });
 
-    // Buttons
-    const hubUrl = pickHubUrl(d);
-    const restartUrl = pickRestartUrl(d);
-
-    const btnHub = doc.getElementById('hhaSumHub');
-    const btnRestart = doc.getElementById('hhaSumRestart');
-
-    btnHub.onclick = () => { root.location.href = hubUrl; };
-    btnRestart.onclick = () => { root.location.href = restartUrl; };
-
-    // show overlay + block gameplay clicks
-    el.classList.add('show');
-    // prevent scrolling background (mobile)
-    doc.documentElement.style.overflow = 'hidden';
-    doc.body.style.overflow = 'hidden';
+    // keep focus (optional)
+    if (card) card.focus?.();
   }
 
-  function hideSummary() {
-    const el = doc.getElementById(OVERLAY_ID);
-    if (!el) return;
-    el.classList.remove('show');
-    doc.documentElement.style.overflow = '';
-    doc.body.style.overflow = '';
-  }
+  root.HHA_Summary = { show };
 
-  // Expose API (optional)
-  root.HHA_Summary = {
-    show: showSummary,
-    hide: hideSummary
-  };
-
-  // Bind once
-  if (!root.__HHA_SUMMARY_BOUND_B__) {
-    root.__HHA_SUMMARY_BOUND_B__ = true;
-
-    doc.addEventListener('hha:end', (ev) => {
-      const d = ev && ev.detail ? ev.detail : {};
-      showSummary(d);
-    }, { passive: true });
-
-    // ESC to close (debug/dev) — ใน production จะไม่ต้องปิดก็ได้
-    doc.addEventListener('keydown', (e) => {
-      if (e && e.key === 'Escape') hideSummary();
-    }, { passive: true });
-  }
-
-})(typeof window !== 'undefined' ? window : globalThis);
+})(window);
