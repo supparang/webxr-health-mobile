@@ -212,6 +212,12 @@
   </a-scene>
 
   <script type="module">
+    initCloudLogger({
+  endpoint: 'https://script.google.com/macros/s/AKfycbzOVSfe_gLDBCI7wXhVmIR2h74wGvbSzGQmoi1QbfwZgutreu0ImKQFxK4DZzGEzv7hiA/exec',
+  projectTag: 'HeroHealth-PlateVR',
+  debug: true
+    });
+
     import { bootPlateDOM } from './plate/plate.safe.js';
 
     window.addEventListener('hha:score', (e) => {
