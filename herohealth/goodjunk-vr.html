@@ -1,9 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Full HTML
+     GoodJunkVR (PRODUCTION) — Full HTML (UPDATED)
      ✅ DOM emoji targets on #gj-layer
      ✅ HUD + Quest + Coach + Fever/Shield UI
      ✅ Start overlay (2D / VR)
      ✅ Loads particles.js BEFORE boot module (สำคัญมาก)
+     ✅ Coach image path fixed to ../img/*.png
+     ✅ favicon path fixed to ../favicon.ico
 -->
 <!doctype html>
 <html lang="th">
@@ -12,7 +14,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Hero Health — GoodJunk VR</title>
   <meta name="color-scheme" content="light dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -471,7 +473,7 @@
           </div>
         </div>
 
-        <!-- Fever/Shield UI (ui-fever.js จะอัปเดตเองถ้าใช้ id นี้) -->
+        <!-- Fever/Shield UI -->
         <div class="hud-fever">
           <div class="fever-row">
             <div class="fever-label">FEVER</div>
@@ -490,7 +492,8 @@
     <!-- Bottom: Coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
+        <!-- ✅ FIX PATH -->
+        <div class="coach-emoji" id="coach-emoji" style="background-image:url('../img/coach-neutral.png')"></div>
         <div class="coach-col">
           <div class="coach-label">Coach</div>
           <div id="coach-text">แตะของดี! หลบ junk! ⚡</div>
