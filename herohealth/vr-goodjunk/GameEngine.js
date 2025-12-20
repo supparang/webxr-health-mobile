@@ -1,10 +1,7 @@
 // === /herohealth/vr-goodjunk/GameEngine.js ===
-// GoodJunkVR — ES Module Engine (PRODUCTION)
-// Exports:
-// - createEngine(ctx)
-// - start(ctx)           ✅ goodjunk.safe.js หาเจอแน่
-// - GameEngine.start(ctx)✅ goodjunk.safe.js หาเจอแน่
-// - default { GameEngine, start, createEngine }
+// GoodJunkVR — DOM Emoji Engine (ESM / PROD)
+// ✅ exports: createEngine, start, boot, GameEngine, default
+// ✅ ทำงานกับ goodjunk.safe.js ที่เรียก boot(ctx) หรือ GameEngine.start(ctx)
 
 'use strict';
 
@@ -51,18 +48,12 @@ function scoreGrade({ score, misses }){
   return 'C';
 }
 
-export function createEngine(ctx = {}) {
-  const diff = String(ctx.diff||'normal').toLowerCase();
-  const run  = String(ctx.run||'play').toLowerCase();
-  const challenge = String(ctx.challenge||'rush').toLowerCase();
-
-  // ✅ รับทั้ง ctx.time และ ctx.durationSec
-  const durationSec = clamp(
-    (ctx.time ?? ctx.durationSec ?? 60),
-    20, 180
-  );
-
-  const layerEl = ctx.layerEl || document.getElementById('gj-layer');
+export function createEngine(opts = {}) {
+  const diff = String(opts.diff||'normal').toLowerCase();
+  const run  = String(opts.run||'play').toLowerCase();
+  const challenge = String(opts.challenge||'rush').toLowerCase();
+  const durationSec = clamp(opts.durationSec ?? opts.time ?? 60, 20, 180);
+  const layerEl = opts.layerEl || document.getElementById('gj-layer');
 
   const Particles =
     (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
@@ -113,7 +104,7 @@ export function createEngine(ctx = {}) {
     bossHP:0
   };
 
-  const active = new Map(); // id -> meta
+  const active = new Map();
   let spawnTimer = null;
   let timeTimer  = null;
   let rafId = null;
@@ -151,9 +142,7 @@ export function createEngine(ctx = {}) {
   function startFeverWindow(ms=5500){
     S.feverActive = true;
     S.feverUntil = now() + ms;
-    try{
-      Particles?.celebrate?.('fever', { title:'🔥 FEVER!', sub:'คะแนนคูณ! แตะให้ไว!' });
-    }catch(_){}
+    Particles?.celebrate?.('fever', { title:'🔥 FEVER!', sub:'คะแนนคูณ! แตะให้ไว!' });
     syncFeverUI();
   }
 
@@ -168,9 +157,12 @@ export function createEngine(ctx = {}) {
 
   function setShield(n){
     S.shield = clamp(n|0, 0, 9);
-    syncFeverUI();
+    FeverUI?.setShield?.(S.shield);
   }
-  function incShield(){ setShield(Math.min(9, (S.shield|0) + 1)); }
+
+  function incShield(){
+    setShield(Math.min(9, (S.shield|0) + 1));
+  }
 
   function consumeShieldBlock(){
     if (S.shield > 0){
@@ -185,15 +177,25 @@ export function createEngine(ctx = {}) {
 
   function canSpawnMore(){ return active.size < CFG.maxActive; }
 
+  // ✅ เป้าเป็น emoji “ล้วน” (กันสกินหยดน้ำทับ)
   function mkTarget({ emoji, className, scaleMul=1 }){
     const el = document.createElement('div');
     el.className = 'gj-target ' + (className||'');
-    el.textContent = emoji;
-
-    // เผื่อ mode-factory ใช้ attribute นี้
     el.setAttribute('data-hha-tgt','1');
 
+    // กัน CSS จากที่อื่นเอา background มาทับ
+    el.style.background = 'transparent';
+    el.style.backgroundImage = 'none';
+    el.style.boxShadow = 'none';
+
     el.style.setProperty('--tScale', String(CFG.baseScale * scaleMul));
+
+    // ห่อเป็น span เพื่อกัน ::before/skin
+    el.textContent = '';
+    const sp = document.createElement('span');
+    sp.className = 'gj-emoji';
+    sp.textContent = emoji;
+    el.appendChild(sp);
 
     const avoid = buildAvoidRects();
     const w = window.innerWidth;
@@ -201,6 +203,7 @@ export function createEngine(ctx = {}) {
 
     const margin = 70;
     let x = w*0.5, y = h*0.55;
+
     for (let i=0;i<60;i++){
       x = margin + Math.random()*(w - margin*2);
       y = margin + Math.random()*(h - margin*2);
@@ -242,7 +245,7 @@ export function createEngine(ctx = {}) {
       setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 120);
     }catch(_){}
 
-    // ✅ miss: goodExpired เท่านั้น (ตาม rule ของคุณ)
+    // MISS เฉพาะ good หมดเวลา
     if (reason === 'expired' && t.type === 'good'){
       S.misses++;
       S.combo = 0;
@@ -277,13 +280,14 @@ export function createEngine(ctx = {}) {
     const el = mkTarget({ emoji, className:'gj-power', scaleMul: 1.00 });
     addToActive(el, { type:'power', power, lifetime: Math.round(CFG.lifetime * 0.9) });
   }
+
   function spawnBoss(){
     S.bossSpawned = true;
     S.bossHP = 6;
     const el = mkTarget({ emoji: pick(EMOJI.boss), className:'gj-boss', scaleMul: 1.15 });
     addToActive(el, { type:'boss', lifetime: 999999 });
     setJudge('BOSS!');
-    try{ Particles?.celebrate?.('goal', { title:'👹 BOSS 등장!', sub:'ตีให้แตก!' }); }catch(_){}
+    Particles?.celebrate?.('goal', { title:'👹 BOSS 등장!', sub:'ตีให้แตก!' });
   }
 
   function spawnOne(){
@@ -291,8 +295,7 @@ export function createEngine(ctx = {}) {
     if (!canSpawnMore()) return;
 
     if (challenge === 'boss' && !S.bossSpawned && S.timeLeft <= 12){
-      spawnBoss();
-      return;
+      spawnBoss(); return;
     }
 
     const pRoll = Math.random();
@@ -320,24 +323,22 @@ export function createEngine(ctx = {}) {
     const dt = now() - t.spawnAt;
     const isPerfect = dt <= 520;
 
-    // --- boss ---
+    // boss
     if (t.type === 'boss'){
       S.bossHP = Math.max(0, (S.bossHP|0) - 1);
       setJudge('HIT!');
       dispatch('quest:goodHit', { type:'boss', judgment:'HIT' });
-
       S.score += Math.round(10 * CH.scoreMul * (S.feverActive ? 1.55 : 1.0));
       emitScore();
-
       if (S.bossHP <= 0){
         setJudge('BOSS CLEAR!');
         dispatch('quest:bossClear', {});
-        try{ Particles?.celebrate?.('ultra', { title:'👹 BOSS CLEAR!!', sub:'สุดยอด! โบนัสกระหน่ำ!', ultra:true }); }catch(_){}
+        Particles?.celebrate?.('ultra', { title:'👹 BOSS CLEAR!!', sub:'สุดยอด!' });
       }
       return;
     }
 
-    // --- power ---
+    // power
     if (t.type === 'power'){
       if (t.power === 'shield'){
         incShield();
@@ -346,7 +347,6 @@ export function createEngine(ctx = {}) {
       } else if (t.power === 'magnet'){
         setJudge('MAGNET!');
         dispatch('quest:power', { power:'magnet' });
-        // spawn extra goods
         spawnGood(); spawnGood();
       } else if (t.power === 'time'){
         S.timeLeft += 3;
@@ -357,29 +357,27 @@ export function createEngine(ctx = {}) {
       return;
     }
 
-    // --- fake acts like junk ---
+    // fake -> junk
     if (t.type === 'fake'){
       if (consumeShieldBlock()) return;
-      S.misses++;
-      S.combo = 0;
+      S.misses++; S.combo = 0;
       setJudge('OOPS!');
       dispatch('quest:badHit', { type:'fake' });
       emitScore();
       return;
     }
 
-    // --- junk ---
+    // junk
     if (t.type === 'junk'){
       if (consumeShieldBlock()) return;
-      S.misses++;
-      S.combo = 0;
+      S.misses++; S.combo = 0;
       setJudge('MISS');
       dispatch('quest:badHit', { type:'junk' });
       emitScore();
       return;
     }
 
-    // --- good / gold ---
+    // good / gold
     if (t.type === 'good' || t.type === 'gold'){
       S.goodHits++;
       S.combo++;
@@ -398,7 +396,6 @@ export function createEngine(ctx = {}) {
 
       const feverMul = S.feverActive ? 1.55 : 1.0;
       add = Math.round(add * CH.scoreMul * feverMul);
-
       S.score += add;
 
       dispatch('quest:goodHit', { type: t.type, judgment: isPerfect ? 'PERFECT' : 'GOOD' });
@@ -416,6 +413,7 @@ export function createEngine(ctx = {}) {
 
   function startTimers(){
     const spawnEvery = Math.max(280, Math.round(CFG.spawnEvery * CH.spawnMul));
+
     spawnTimer = setInterval(()=>{
       if (!S.started) return;
       if (!canSpawnMore()) return;
@@ -423,9 +421,9 @@ export function createEngine(ctx = {}) {
     }, spawnEvery);
 
     dispatch('hha:time', { sec: S.timeLeft|0 });
+
     timeTimer = setInterval(()=>{
       if (!S.started) return;
-
       S.timeLeft = Math.max(0, (S.timeLeft|0) - 1);
       dispatch('hha:time', { sec: S.timeLeft|0 });
 
@@ -464,8 +462,7 @@ export function createEngine(ctx = {}) {
     clearAllTargets();
 
     const grade = scoreGrade({ score:S.score, misses:S.misses });
-
-    try{ Particles?.celebrate?.('end', { title:'🏁 FINISH!', sub:'สรุปผล + รางวัล' }); }catch(_){}
+    Particles?.celebrate?.('end', { title:'🏁 FINISH!', sub:'สรุปผล' });
 
     dispatch('hha:end', {
       mode: 'GoodJunkVR',
@@ -490,14 +487,15 @@ export function createEngine(ctx = {}) {
     }
 
     S.started = true;
-    syncFeverUI();
 
+    syncFeverUI();
     dispatch('quest:miniStart', {});
     emitScore();
 
     for (let i=0;i<Math.min(3, CFG.maxActive); i++) spawnOne();
 
     startTimers();
+    setJudge('START!');
   }
 
   return {
@@ -519,15 +517,14 @@ export function createEngine(ctx = {}) {
   };
 }
 
-// ✅ named starter ที่ goodjunk.safe.js จะหาเจอ
+// --- Convenience starters (ให้ goodjunk.safe.js หาเจอแน่ ๆ) ---
 export function start(ctx = {}) {
   const eng = createEngine(ctx);
   eng?.start?.();
   return eng;
 }
-
-// ✅ GameEngine object starter (รองรับ pattern เก่า)
-export const GameEngine = { start };
-
-// ✅ default export
-export default { GameEngine, start, createEngine };
+export async function boot(ctx = {}) {
+  return start(ctx);
+}
+export const GameEngine = { start, boot };
+export default { createEngine, start, boot, GameEngine };
