@@ -1,11 +1,12 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — FULL EXTREME v9 (ES Module)
+// Balanced Plate VR — FULL EXTREME v9.1 (ES Module)
 // ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้
 // ✅ FX “สติ๊กเกอร์ LINE”: คำตัดสินหัวโต + คะแนนเด้งข้างเป้า
 // ✅ MISS: แฉลบซ้ายขวา + สั่นทั้งจอ (แรง) + เสียง
 // ✅ PERFECT: confetti ดาว + เสียงติ๊ง
-// ✅ 1–8 Challenge Pack (ครบตามที่ขอ)
+// ✅ 1–8 Challenge Pack
 // ✅ PATCH v9: เป้าเลื่อนตามจอแบบ Hydration + clamp safe zone + ไม่ทับ HUD บน/ล่าง/ซ้าย/ขวา
+// ✅ PATCH v9.1 (A–E): Rush fair w/ Shield, noMiss3s fixed, HUD rect cache, HUD click-through, Pause/Resume on visibilitychange + freeze target timers
 
 'use strict';
 
@@ -161,6 +162,17 @@ function getHudExclusionRects() {
   }
   return rects;
 }
+
+// ✅ PATCH C: cache rects ลดหน่วงบนมือถือ
+let __hudRectCache = { at: 0, rects: [] };
+function getHudExclusionRectsFast() {
+  const now = performance.now();
+  if (now - __hudRectCache.at < 250) return __hudRectCache.rects;
+  __hudRectCache.at = now;
+  __hudRectCache.rects = getHudExclusionRects();
+  return __hudRectCache.rects;
+}
+
 function inAnyRect(nx, ny, rects){
   for (const a of rects){
     if (nx >= a.x0 && nx <= a.x1 && ny >= a.y0 && ny <= a.y1) return true;
@@ -168,7 +180,7 @@ function inAnyRect(nx, ny, rects){
   return false;
 }
 
-// ✅ ติด targetRoot กับกล้อง → หมุนจอแล้วเป้าเลื่อนตาม (เหมือน Hydration)
+// ✅ ติด targetRoot กับกล้อง → หมุนจอแล้วเป้าเลื่อนตาม
 function attachTargetRootToCamera() {
   if (!cam || !targetRoot) return;
   try{
@@ -178,10 +190,10 @@ function attachTargetRootToCamera() {
   }catch(_){}
 }
 
-// ✅ สุ่มตำแหน่งแบบปลอดภัย + ไม่ทับ HUD ซ้าย/ขวา/บน/ล่าง
+// ✅ สุ่มตำแหน่งแบบปลอดภัย + ไม่ทับ HUD
 function pickSafeXY() {
   const nf = getNoFlyRatios();
-  const hudRects = getHudExclusionRects();
+  const hudRects = getHudExclusionRectsFast(); // ✅ PATCH C
 
   let minNX = SAFE.padNX;
   let maxNX = 1 - SAFE.padNX;
@@ -221,6 +233,10 @@ const sessionStartIso = new Date().toISOString();
 
 let started = false;
 let ended = false;
+
+// ✅ PATCH E: pause/resume
+let paused = false;
+let pauseReason = '';
 
 // ---------- Game state ----------
 let tLeft = TIME;
@@ -514,7 +530,8 @@ function emitGameEvent(payload) {
     balancePct: Math.round(balancePct),
     perfectPlates,
     perfectStreak,
-    goodStreak
+    goodStreak,
+    paused: paused ? 1 : 0
   }, payload));
 }
 function emitCoach(text, mood) {
@@ -544,7 +561,8 @@ function emitScore() {
     bossOn: bossOn ? 1 : 0,
     bossPhaseOn: bossPhaseOn ? 1 : 0,
     goodStreak,
-    gradeNow: computeGradeNow()
+    gradeNow: computeGradeNow(),
+    paused: paused ? 1 : 0
   });
 }
 function emitTime() { emit('hha:time', { sessionId, mode:'PlateVR', sec: tLeft, timeFromStartMs: fromStartMs() }); }
@@ -611,7 +629,6 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   const el = document.createElement('a-entity');
   const id = `pt-${++targetSeq}`;
   el.setAttribute('id', id);
-  el.classList.add('plateTarget');
   el.setAttribute('class', 'plateTarget');
 
   el.setAttribute('geometry', 'primitive: plane; width: 0.52; height: 0.52');
@@ -642,16 +659,29 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   return el;
 }
 
+function clearExpireTimerById(id) {
+  const rec = activeTargets.get(id);
+  if (!rec) return;
+  if (rec.expireTimer) {
+    try { clearTimeout(rec.expireTimer); } catch(_){}
+    rec.expireTimer = null;
+  }
+}
+
 function removeTarget(el, reason = 'remove') {
   if (!el) return;
   const id = el.getAttribute('id');
-  if (id && activeTargets.has(id)) activeTargets.delete(id);
+  if (id && activeTargets.has(id)) {
+    clearExpireTimerById(id);
+    activeTargets.delete(id);
+  }
   try { el.parentNode && el.parentNode.removeChild(el); } catch (_) {}
   emitGameEvent({ type:'target_remove', reason, targetId: id || '', kind: el.dataset.kind || '' });
 }
 
 function expireTarget(el) {
-  if (!el) return;
+  if (!el || ended || paused) return;
+
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
@@ -663,6 +693,7 @@ function expireTarget(el) {
     fever = clamp(fever - 10, 0, 100);
     emitJudge('MISS');
     lastMissAtMs = performance.now();
+    markMissForTwist(); // ✅ PATCH B
     hero10Clean = false;
     emit('hha:miss', { sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
     emitGameEvent({ type:'miss_expire', groupId });
@@ -855,6 +886,13 @@ const MINI_POOL = [
 let cleanTimer = 0;
 let tw = { twNoRepeatOk:true, twVegHits:0, twNoMissFirst3s:true, twStartMs:0 };
 
+// ✅ PATCH B: mark miss immediately for twist noMiss3s
+function markMissForTwist() {
+  if (miniCurrent?.twistKey !== 'noMiss3s') return;
+  const dt = performance.now() - (tw.twStartMs || 0);
+  if (dt <= 3000) tw.twNoMissFirst3s = false;
+}
+
 function emitQuestUpdate() {
   emit('quest:update', {
     goal: { label:`Perfect Plate ${perfectPlates}/${goalTotal}`, prog: perfectPlates, target: goalTotal },
@@ -917,7 +955,7 @@ function clearMiniQuest() {
   stickerAt(window.innerWidth*0.5, window.innerHeight*0.40, `✅ MINI CLEAR +${bonus}`, { tone:'gold', big:true, life: 820 });
   try { Particles.burstAt(window.innerWidth*0.5, window.innerHeight*0.42, { color:'#38bdf8', good:true, count: 34 }); } catch(_){}
 
-  setTimeout(() => { if (!ended) startNextMiniQuest(); }, 520);
+  setTimeout(() => { if (!ended && !paused) startNextMiniQuest(); }, 520);
 
   emitQuestUpdate();
   hudUpdateAll();
@@ -930,7 +968,7 @@ function failMiniQuest(reason='fail') {
   emitGameEvent({ type:'mini_fail', miniKey: miniCurrent.key, reason });
   emitCoach(`Mini Quest พลาด! ลองอันใหม่เลย 💪`, 'sad');
   stickerAt(window.innerWidth*0.5, window.innerHeight*0.42, `😵 FAIL`, { tone:'bad', big:true, life: 620 });
-  setTimeout(() => { if (!ended) startNextMiniQuest(); }, 620);
+  setTimeout(() => { if (!ended && !paused) startNextMiniQuest(); }, 620);
   emitQuestUpdate();
 }
 
@@ -945,12 +983,7 @@ function twistOkNow() {
 }
 
 function updateMiniTick() {
-  if (!miniCurrent || miniCurrent.done) return;
-
-  if (miniCurrent.twistKey === 'noMiss3s') {
-    const dt = performance.now() - tw.twStartMs;
-    if (dt <= 3000 && performance.now() - lastMissAtMs < 900) tw.twNoMissFirst3s = false;
-  }
+  if (!miniCurrent || miniCurrent.done || paused) return;
 
   if (miniCurrent.key === 'rush8') {
     const have = plateHaveCount();
@@ -1021,7 +1054,7 @@ function maybeStartBossPhase() {
   emitCoach('⚔️ BOSS PHASE! ท้ายเกมมาแล้ว! ระวังขยะ + บอส ⭐', 'sad');
   stickerAt(window.innerWidth*0.5, window.innerHeight*0.26, '⚔️ BOSS PHASE!', { tone:'boss', big:true, life: 980 });
   emitGameEvent({ type:'boss_phase_on' });
-  setTimeout(()=>{ if (!ended) spawnOne({ forceBoss:true }); }, 240);
+  setTimeout(()=>{ if (!ended && !paused) spawnOne({ forceBoss:true }); }, 240);
 }
 function startGoldenZone(ms=3000) {
   goldenZoneUntilMs = performance.now() + ms;
@@ -1043,8 +1076,22 @@ function pickSpawnKind() {
   return 'good';
 }
 
+function scheduleExpireFor(id) {
+  const rec = activeTargets.get(id);
+  if (!rec) return;
+  clearExpireTimerById(id);
+
+  const left = Math.max(0, rec.expireAt - performance.now());
+  rec.expireTimer = setTimeout(() => {
+    if (ended || paused) return;
+    const r = activeTargets.get(id);
+    if (!r) return;
+    expireTarget(r.el);
+  }, left);
+}
+
 function spawnOne(opts = {}) {
-  if (!targetRoot) return;
+  if (!targetRoot || ended || paused) return;
   if (activeTargets.size >= DCFG0.maxActive) return;
 
   const kind = opts.forceBoss ? 'boss' : pickSpawnKind();
@@ -1085,25 +1132,23 @@ function spawnOne(opts = {}) {
     groupId: parseInt(el.dataset.groupId || '0', 10) || 0,
     spawnAt: performance.now(),
     expireAt: performance.now() + lifeMs,
-    lifeMs
+    lifeMs,
+    expireTimer: null,
+    _pauseLeft: 0
   });
 
   emitGameEvent({ type:'spawn', kind: el.dataset.kind, groupId: meta.groupId || 0, targetId: id });
 
-  setTimeout(() => {
-    if (ended) return;
-    const rec = activeTargets.get(id);
-    if (!rec) return;
-    expireTarget(rec.el);
-  }, lifeMs);
+  scheduleExpireFor(id);
 }
 
 function spawnLoopStart() {
+  if (ended || paused) return;
   knowAdaptive();
   if (spawnTimer) clearInterval(spawnTimer);
 
   const loop = () => {
-    if (ended) return;
+    if (ended || paused) return;
     maybeStartBossPhase();
     spawnOne();
     knowAdaptive();
@@ -1114,7 +1159,7 @@ function spawnLoopStart() {
   spawnTimer = setInterval(loop, currentSpawnInterval);
 }
 
-// ---------- Hit logic (เหมือน v8 ของคุณทั้งหมด) ----------
+// ---------- Hit logic ----------
 function applyTwistOnGood(groupId) {
   if (miniCurrent?.twistKey === 'noRepeat') {
     if (lastGoodGroup && groupId === lastGoodGroup) tw.twNoRepeatOk = false;
@@ -1126,7 +1171,7 @@ function applyTwistOnGood(groupId) {
 }
 
 function onHit(el, via = 'click') {
-  if (!el || ended) return;
+  if (!el || ended || paused) return;
   if (el.dataset.hit === '1') return;
   el.dataset.hit = '1';
 
@@ -1234,7 +1279,7 @@ function onHit(el, via = 'click') {
       sfxDing();
       emitGameEvent({ type:'boss_clear', bonus });
     } else {
-      setTimeout(() => { if (!ended) spawnOne({ forceBoss: true }); }, 240);
+      setTimeout(() => { if (!ended && !paused) spawnOne({ forceBoss: true }); }, 240);
     }
 
     updateMiniTick();
@@ -1242,10 +1287,11 @@ function onHit(el, via = 'click') {
     return;
   }
 
+  // ✅ PATCH A: Rush fair w/ Shield (โดนขยะจริงเท่านั้นที่ทำให้ rushNoJunkOK = false)
   if (kind === 'junk') {
-    if (miniCurrent && !miniCurrent.done && miniCurrent.key === 'rush8') rushNoJunkOK = false;
 
     if (shieldOn) {
+      // ✅ Shield block = ไม่นับว่า “โดนขยะ” → Rush ยังผ่านเงื่อนไข “ห้ามโดนขยะ” ได้
       const pts = 30;
       score += pts;
       fever = clamp(fever + 4, 0, 100);
@@ -1254,7 +1300,11 @@ function onHit(el, via = 'click') {
       emitCoach('โล่กันขยะไว้ได้! 🥗', 'happy');
       emitGameEvent({ type:'junk_blocked', points: pts });
       combo += 1; maxCombo = Math.max(maxCombo, combo);
+
     } else {
+      // โดนจริง → Rush fail condition
+      if (miniCurrent && !miniCurrent.done && miniCurrent.key === 'rush8') rushNoJunkOK = false;
+
       miss += 1;
       combo = 0;
       goodStreak = 0;
@@ -1265,6 +1315,7 @@ function onHit(el, via = 'click') {
       emitJudge('MISS');
       preFx('MISS!', -0);
       lastMissAtMs = performance.now();
+      markMissForTwist(); // ✅ PATCH B
       hero10Clean = false;
 
       screenShake();
@@ -1276,6 +1327,7 @@ function onHit(el, via = 'click') {
 
       if (miniCurrent && !miniCurrent.done && miniCurrent.key === 'clean10') cleanTimer = miniCurrent.target;
     }
+
   } else if (kind === 'good') {
     const pts = scoreForHit('good', groupId);
     score += pts;
@@ -1320,7 +1372,7 @@ function handleHero10() {
   emitGameEvent({ type:'hero10_on' });
 }
 function tick1s() {
-  if (ended) return;
+  if (ended || paused) return;
 
   tLeft -= 1;
   if (tLeft < 0) tLeft = 0;
@@ -1356,6 +1408,52 @@ function stopTimers() {
   timerTick = null;
 }
 
+// ✅ PATCH E: pause/resume with freezing target timers
+function pauseGame(reason='pause') {
+  if (ended || paused) return;
+  paused = true;
+  pauseReason = reason;
+
+  stopTimers();
+  if (spawnTimer) clearInterval(spawnTimer);
+  spawnTimer = null;
+
+  // freeze target expire timers
+  for (const [id, rec] of activeTargets.entries()) {
+    if (!rec) continue;
+    rec._pauseLeft = Math.max(0, rec.expireAt - performance.now());
+    if (rec.expireTimer) {
+      try { clearTimeout(rec.expireTimer); } catch(_){}
+      rec.expireTimer = null;
+    }
+  }
+
+  emitCoach('⏸️ พักเกมชั่วคราว (กลับมาแล้วเล่นต่อได้)', 'neutral');
+  emitGameEvent({ type:'pause', reason });
+  emitScore();
+}
+function resumeGame() {
+  if (ended || !paused) return;
+  paused = false;
+
+  // resume target expire timers
+  for (const [id, rec] of activeTargets.entries()) {
+    if (!rec) continue;
+    const left = Number(rec._pauseLeft) || 0;
+    rec.expireAt = performance.now() + left;
+    rec._pauseLeft = 0;
+    scheduleExpireFor(id);
+  }
+
+  startTimers();
+  spawnLoopStart();
+
+  emitCoach('▶️ เล่นต่อได้เลย!', 'happy');
+  emitGameEvent({ type:'resume', reason: pauseReason || '' });
+  pauseReason = '';
+  emitScore();
+}
+
 // ---------- Result modal (optional) ----------
 function computeGradeFinal() { return computeGradeNow(); }
 function showResultModal(reason) {
@@ -1382,6 +1480,10 @@ function showResultModal(reason) {
 
 function clearAllTargets() {
   for (const [id, rec] of Array.from(activeTargets.entries())) {
+    if (rec && rec.expireTimer) {
+      try { clearTimeout(rec.expireTimer); } catch(_){}
+      rec.expireTimer = null;
+    }
     if (rec && rec.el) {
       try { rec.el.parentNode && rec.el.parentNode.removeChild(rec.el); } catch (_) {}
     }
@@ -1439,6 +1541,9 @@ function startGame() {
 
   miniCleared = 0; miniHistory = 0; miniCurrent = null;
   cleanTimer = 0;
+
+  paused = false;
+  pauseReason = '';
 
   hudUpdateAll();
   emitTime();
@@ -1520,7 +1625,7 @@ function bindPointerFallback() {
   const mouse = new THREE.Vector2();
 
   function doRaycastFromEvent(ev) {
-    if (ended) return;
+    if (ended || paused) return;
     if (!scene.camera) return;
 
     const canvas = scene.canvas;
@@ -1616,8 +1721,11 @@ export function bootPlateDOM() {
   else if (scene) scene.addEventListener('loaded', () => starter(), { once:true });
   else setTimeout(() => starter(), 250);
 
+  // ✅ PATCH E: visibilitychange = pause/resume (ไม่จบเกม)
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && !ended) endGame('tab_hidden');
+    if (ended) return;
+    if (document.hidden) pauseGame('tab_hidden');
+    else resumeGame();
   });
 }
 
