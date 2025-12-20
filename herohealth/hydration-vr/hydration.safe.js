@@ -3,12 +3,17 @@
 // ✅ FIX ROOT CAUSE: sync GREEN time into Quest.stats.greenTick so GOAL can pass
 // ✅ ADD 1-7: Arcade fun pack (Green Streak/Jackpot + Panic + Storm+ + Decoy + SurpriseMini + PerfectStreak + MiniBoss)
 // ✅ Heavy Celebration hooks (Particles.celebrate/ toast) + shake/flash/beep/vibrate
+// ✅ PATCH 2025-12-20(C): Mini quest chain ต่อเนื่อง (ARCADE) + HUD show minisDone(all) but keep miniTotal=3 for grade
 
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import { createHydrationQuest } from './hydration.quest.js';
+
+// --------------------- Arcade mode ---------------------
+// ✅ เปิดเพื่อให้ mini quest ต่อเนื่องไม่จำกัด
+const ARCADE = true;
 
 // --------------------- Globals / helpers ---------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
@@ -207,8 +212,8 @@ const TUNE = {
   scoreFeverBonus: 6,
 
   // extra arcade
-  scoreStormBonusMul: 1.30,      // (3) storm bonus mul
-  stormExtraJunkPenalty: 10,     // (3) junk harsher in storm
+  scoreStormBonusMul: 1.30,
+  stormExtraJunkPenalty: 10,
 
   feverGainGood:  9,
   feverGainPower: 14,
@@ -287,20 +292,16 @@ export async function boot(opts = {}) {
     zone: 'GREEN',
     greenTick: 0,
 
-    // (1) Green streak / jackpot
     greenStreak: 0,
 
-    // fever
     fever: 0,
     feverActive: false,
     feverLeft: 0,
     shield: 0,
 
-    // (3) storm
     stormLeft: 0,
     stormIntervalMul: 0.65,
 
-    // (5) surprise mini
     surprise: {
       active: false,
       cleared: false,
@@ -309,13 +310,11 @@ export async function boot(opts = {}) {
       need: TUNE.surpriseNeedHits,
       got: 0,
       noJunkOk: true,
-      triggerAt: Math.max(25, Math.floor(duration * 0.55)) // เริ่มตอนเหลือ ~55% เวลา (ครั้งเดียว)
+      triggerAt: Math.max(25, Math.floor(duration * 0.55))
     },
 
-    // (6) perfect streak
     perfectStreak: 0,
 
-    // (7) boss
     boss: {
       active: false,
       spawned: false,
@@ -346,18 +345,15 @@ export async function boot(opts = {}) {
   function normalizeZone(z){
     const Z = String(z || '').toUpperCase();
     if (Z === 'GREEN' || Z === 'YELLOW' || Z === 'RED') return Z;
-    // ui-water อาจใช้ LOW/HIGH → map
     if (Z === 'LOW') return 'YELLOW';
     if (Z === 'HIGH') return 'RED';
     return 'GREEN';
   }
 
   function syncQuestZone(){
-    // ✅ ROOT FIX: quest goals use stats.greenTick/timeSec; we must keep them updated
     try{
       if (Q && Q.stats){
         Q.stats.zone = state.zone;
-        // Q.stats.greenTick is “seconds in GREEN”
         if (!Number.isFinite(Q.stats.greenTick)) Q.stats.greenTick = 0;
       }
     }catch{}
@@ -369,7 +365,6 @@ export async function boot(opts = {}) {
     const computed = normalizeZone(out?.zone || zoneFrom(state.waterPct));
     state.zone = computed;
 
-    // hard update (บางครั้ง ui-water ไม่แตะ DOM)
     const fillEl = $id('hha-water-fill');
     if (fillEl) fillEl.style.width = clamp(state.waterPct,0,100).toFixed(1) + '%';
 
@@ -435,7 +430,6 @@ export async function boot(opts = {}) {
       progPct,
       stormLeft: state.stormLeft|0,
 
-      // extra debug-ish (optional for HUD)
       greenStreak: state.greenStreak|0,
       surpriseActive: !!state.surprise.active,
       surpriseLeft: state.surprise.left|0,
@@ -536,21 +530,36 @@ export async function boot(opts = {}) {
     const allGoals = Q.goals || [];
     const allMinis = Q.minis || [];
     const goalsDone = allGoals.filter(g => g._done || g.done).length;
-    const minisDone = allMinis.filter(m => m._done || m.done).length;
 
+    // ✅ IMPORTANT: minisDone “จริงทั้งหมด” ใช้ Q.stats.minisDone (รองรับ chain)
+    const minisDoneAll = (Q && Q.stats && Number.isFinite(Q.stats.minisDone)) ? (Q.stats.minisDone|0) : allMinis.filter(m => m._done || m.done).length;
+
+    // ---- reward goal change ----
     if (goalsDone > lastGoalsDone) {
       for (let i = lastGoalsDone; i < goalsDone; i++) rewardGoal();
       lastGoalsDone = goalsDone;
     }
-    if (minisDone > lastMinisDone) {
-      for (let i = lastMinisDone; i < minisDone; i++) rewardMini();
-      lastMinisDone = minisDone;
+
+    // ---- reward mini change + ✅ ARCADE chain ----
+    if (minisDoneAll > lastMinisDone) {
+      for (let i = lastMinisDone; i < minisDoneAll; i++) {
+        rewardMini();
+        // ✅ ต่อ mini ใหม่ทันที
+        if (ARCADE && Q && typeof Q.nextMini === 'function') {
+          try { Q.nextMini({ harder:true }); } catch {}
+        }
+      }
+      lastMinisDone = minisDoneAll;
     }
 
     const gd = $id('hha-goal-done'); if (gd) gd.textContent = String(goalsDone);
     const gt = $id('hha-goal-total'); if (gt) gt.textContent = String(allGoals.length || 2);
-    const md = $id('hha-mini-done'); if (md) md.textContent = String(minisDone);
-    const mt = $id('hha-mini-total'); if (mt) mt.textContent = String(allMinis.length || 3);
+
+    // ✅ HUD: โชว์ minisDone เป็น “จำนวนที่ผ่านจริงทั้งหมด”
+    const md = $id('hha-mini-done');  if (md) md.textContent = String(minisDoneAll);
+
+    // ⚠️ คง miniTotal = 3 เพื่อให้ calcProg()/grade ไม่เพี้ยน
+    const mt = $id('hha-mini-total'); if (mt) mt.textContent = '3';
 
     const curGoal = (goals && goals[0]) ? goals[0].id : (allGoals[0]?.id || '');
     const curMini = (minis && minis[0]) ? minis[0].id : (allMinis[0]?.id || '');
@@ -563,7 +572,6 @@ export async function boot(opts = {}) {
 
     if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : `Goal: ทำภารกิจให้ครบ`;
 
-    // (5) override mini text when surprise active
     if (miniEl){
       if (state.surprise.active){
         miniEl.textContent = `Mini: ⚡ SURPRISE ${state.surprise.got}/${state.surprise.need} ใน ${state.surprise.left}s (ห้ามโดนขยะ!)`;
@@ -576,15 +584,14 @@ export async function boot(opts = {}) {
     const miniTitle = (miniEl?.textContent || 'Mini').replace(/^Mini:\s*/i,'').trim();
 
     dispatch('quest:update', {
-      // legacy
       goalDone: goalsDone,
       goalTotal: allGoals.length || 2,
-      miniDone: minisDone,
-      miniTotal: allMinis.length || 3,
+      miniDone: minisDoneAll,
+      miniTotal: 3,
+
       goalText: goalEl ? goalEl.textContent : '',
       miniText: miniEl ? miniEl.textContent : '',
 
-      // structured
       goal: {
         title: goalTitle,
         cur: goalsDone,
@@ -594,16 +601,17 @@ export async function boot(opts = {}) {
       },
       mini: {
         title: miniTitle,
-        cur: minisDone,
-        max: (allMinis.length || 3),
-        pct: (allMinis.length ? (minisDone / allMinis.length) : (minisDone / 3)),
-        state: (minisDone >= (allMinis.length || 3)) ? 'clear' : 'run'
+        cur: minisDoneAll,
+        max: 3,
+        pct: clamp(minisDoneAll / 3, 0, 1),
+        state: (minisDoneAll >= 3) ? 'clear' : 'run'
       },
       meta: {
         diff: state.diff,
         goalsDone,
-        minisDone,
-        surpriseActive: !!state.surprise.active
+        minisDone: minisDoneAll,
+        surpriseActive: !!state.surprise.active,
+        arcade: !!ARCADE
       }
     });
 
@@ -656,7 +664,6 @@ export async function boot(opts = {}) {
 
   // --------------------- Judge ---------------------
   function judge(ch, ctx){
-    // (4) Decoy resolution
     let isGood = !!ctx.isGood;
     let isPower = !!ctx.isPower;
     let isFake = false;
@@ -664,11 +671,9 @@ export async function boot(opts = {}) {
     if (!isPower && ch === '🌀'){
       isFake = true;
       const roll = Math.random();
-      // 40% กลายเป็น GOOD / 60% เป็น JUNK
       isGood = (roll < 0.40);
     }
 
-    // (7) Boss tag (ช่วงท้าย)
     const bossWindow = (state.timeLeft <= TUNE.bossTimeWindow && state.timeLeft > 0);
     const isBoss = (!isPower && ch === '👑' && bossWindow);
 
@@ -685,11 +690,9 @@ export async function boot(opts = {}) {
       scoreDelta = TUNE.scoreGood * mult;
       label = isFake ? '[FAKE] LUCKY!' : '[GOOD] GOOD';
     } else {
-      // block by shield
       if (state.shield > 0){
         state.shield -= 1;
 
-        // (7) if boss blocked → reward a little
         if (isBoss && !state.boss.hitOrBlocked){
           state.boss.hitOrBlocked = true;
           state.rewards.bossSurvived = (state.rewards.bossSurvived|0) + 1;
@@ -710,7 +713,6 @@ export async function boot(opts = {}) {
         return { scoreDelta, label, good:false, blocked:true };
       }
 
-      // boss penalty
       if (isBoss){
         scoreDelta = -(TUNE.bossJunkPenalty);
         label = '[BOSS] BOSS!';
@@ -723,19 +725,15 @@ export async function boot(opts = {}) {
         shake(2, 360);
         vibrate([16,26,16]);
         beep(160, 0.08, 0.06, 'sawtooth');
-        // (3) harsher junk during storm
         if (state.stormLeft > 0) scoreDelta -= TUNE.stormExtraJunkPenalty;
       }
     }
 
-    // perfect / fever bonus
     if ((isGood || isPower) && ctx.hitPerfect) scoreDelta += TUNE.scorePerfectBonus;
     if ((isGood || isPower) && state.feverActive) scoreDelta += TUNE.scoreFeverBonus;
 
-    // (3) apply storm mul (only benefit-ish, not on negative)
     if (scoreDelta > 0) scoreDelta = Math.round(scoreDelta * stormMul);
 
-    // combo rules + (6) perfect streak logic
     if (isGood || isPower){
       state.combo += 1;
       if (state.combo > state.comboBest) state.comboBest = state.combo;
@@ -743,7 +741,6 @@ export async function boot(opts = {}) {
       flash('good', 85);
       vibrate(8);
 
-      // (6) perfect streak reward
       if (ctx.hitPerfect){
         state.perfectStreak += 1;
         if (state.perfectStreak >= TUNE.perfectStreakTarget){
@@ -757,7 +754,6 @@ export async function boot(opts = {}) {
           try{ Particles.toast && Particles.toast(`🎯 PERFECT x${TUNE.perfectStreakTarget}! โบนัสมาแล้ว!`); }catch{}
         }
       } else {
-        // ถ้าไม่ perfect ติดกัน → รีเซ็ต streak ให้ต้อง “ต่อเนื่อง”
         state.perfectStreak = 0;
       }
 
@@ -766,7 +762,6 @@ export async function boot(opts = {}) {
       state.miss += 1;
       state.perfectStreak = 0;
 
-      // (5) surprise fail if junk hit during surprise
       if (state.surprise.active){
         state.surprise.noJunkOk = false;
         failSurpriseMini();
@@ -775,13 +770,11 @@ export async function boot(opts = {}) {
 
     state.score = Math.max(0, (state.score + scoreDelta) | 0);
 
-    // water + fever + quest
     if (isPower || isGood){
       state.waterPct = clamp(state.waterPct + TUNE.goodWaterPush, 0, 100);
       feverAdd(isPower ? TUNE.feverGainPower : TUNE.feverGainGood);
       Q.onGood();
 
-      // (5) surprise progress on good/power
       if (state.surprise.active){
         state.surprise.got += 1;
         if (state.surprise.got >= state.surprise.need && state.surprise.noJunkOk){
@@ -804,7 +797,6 @@ export async function boot(opts = {}) {
       Particles.burstAt && Particles.burstAt(ctx.clientX || 0, ctx.clientY || 0, label);
       Particles.scorePop && Particles.scorePop(ctx.clientX || 0, ctx.clientY || 0, scoreDelta, label);
 
-      // extra side emoji pop (optional)
       if (Particles.objPop && (isGood || isPower)){
         Particles.objPop(ctx.clientX || 0, ctx.clientY || 0, '✨', { side:'left', size:22 });
         Particles.objPop(ctx.clientX || 0, ctx.clientY || 0, '💧', { side:'right', size:22 });
@@ -839,22 +831,18 @@ export async function boot(opts = {}) {
     state.timeLeft = Math.max(0, state.timeLeft - 1);
     dispatch('hha:time', { sec: state.timeLeft });
 
-    // water drift
     state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec, 0, 100);
     updateWaterHud();
 
-    // ✅ FIX ROOT: count GREEN seconds BOTH in state and quest.stats
     if (String(state.zone).toUpperCase() === 'GREEN'){
       state.greenTick += 1;
 
-      // (ROOT FIX) quest green tick
       try{
         if (Q && Q.stats){
           Q.stats.greenTick = (Q.stats.greenTick|0) + 1;
         }
       }catch{}
 
-      // (1) GREEN STREAK / JACKPOT
       state.greenStreak += 1;
 
       if (state.greenStreak % TUNE.greenStreakEverySec === 0){
@@ -873,25 +861,20 @@ export async function boot(opts = {}) {
       state.greenStreak = 0;
     }
 
-    // quest internal tick (timeSec / secSinceJunk)
     Q.second();
 
-    // (5) start surprise mini once
     if (!state.surprise.cleared && !state.surprise.failed && !state.surprise.active){
       if (state.timeLeft === state.surprise.triggerAt){
         startSurpriseMini();
       }
     }
-    // (5) surprise countdown
     if (state.surprise.active){
       state.surprise.left = Math.max(0, state.surprise.left - 1);
       if (state.surprise.left <= 0){
-        // timeout fail unless already cleared
         if (!state.surprise.cleared) failSurpriseMini();
       }
     }
 
-    // (3) storm tick
     if (state.stormLeft > 0) {
       state.stormLeft -= 1;
       updateStormUI();
@@ -906,7 +889,6 @@ export async function boot(opts = {}) {
       updateStormUI();
     }
 
-    // fever tick / decay
     if (state.feverActive){
       state.feverLeft -= 1;
       if (state.feverLeft <= 0) feverEnd();
@@ -916,11 +898,9 @@ export async function boot(opts = {}) {
       feverRender();
     }
 
-    // (2) near-end panic (<=10s)
     if (state.timeLeft <= 10 && state.timeLeft > 0){
       megaCelebrate('panic');
       if (state.timeLeft <= 5){
-        // ยิ่งท้าย ยิ่งถี่
         beep(980, 0.045, 0.035, 'square');
       }
     }
@@ -936,8 +916,6 @@ export async function boot(opts = {}) {
 
     spawnHost: playfield ? '#hvr-playfield' : null,
 
-    // (4) add decoy 🌀
-    // (7) add boss marker 👑 (จะ “นับเป็นบอส” เฉพาะช่วงท้าย 15 วิ)
     pools: {
       good: ['💧','🥛','🍉','🥥','🍊'],
       bad:  ['🥤','🧋','🍟','🍔','🌀','👑']
@@ -952,7 +930,6 @@ export async function boot(opts = {}) {
     spawnIntervalMul: () => (state.stormLeft > 0 ? state.stormIntervalMul : 1),
 
     judge: (ch, ctx) => {
-      // power handling
       if (ctx.isPower && ch === '🛡️'){
         state.shield = clamp(state.shield + 1, 0, TUNE.shieldMax);
         feverRender();
@@ -969,7 +946,6 @@ export async function boot(opts = {}) {
         beep(660, 0.06, 0.05, 'triangle');
       }
       if (ctx.isPower && ch === '⭐'){
-        // ⭐ = เปิดความเร้าใจ: เพิ่ม storm + โบนัสสั้น ๆ
         state.stormLeft = clamp(state.stormLeft + 3, 0, 25);
         updateStormUI();
         megaCelebrate('storm');
@@ -1003,8 +979,12 @@ export async function boot(opts = {}) {
 
     const goalsDone = Number($id('hha-goal-done')?.textContent || 0) || 0;
     const goalsTotal = Number($id('hha-goal-total')?.textContent || 2) || 2;
-    const minisDone = Number($id('hha-mini-done')?.textContent || 0) || 0;
-    const minisTotal = Number($id('hha-mini-total')?.textContent || 3) || 3;
+
+    const minisDone = (Q && Q.stats && Number.isFinite(Q.stats.minisDone))
+      ? (Q.stats.minisDone|0)
+      : (Number($id('hha-mini-done')?.textContent || 0) || 0);
+
+    const minisTotal = 3;
 
     const progPct = Math.round(calcProg() * 100);
     const grade = gradeFromProg(progPct);
