@@ -15,9 +15,54 @@
   if (!doc) return;
 
   // -----------------------------
-  // Layer
+  // Layer (PATCH: safe when body is null)
   // -----------------------------
+  let __HHA_LAYER = null;
+  let __HHA_WAIT_BOUND = false;
+
+  function __tryAppendLayer() {
+    try {
+      if (!__HHA_LAYER) return;
+      if (__HHA_LAYER.isConnected) return;
+      if (!doc.body) return; // ✅ body ยังไม่มา ก็อย่า append
+      doc.body.appendChild(__HHA_LAYER);
+    } catch (_) {}
+  }
+
+  function __ensureAppendWhenReady() {
+    if (__HHA_WAIT_BOUND) return;
+    __HHA_WAIT_BOUND = true;
+
+    // ถ้าตอนนี้ ready แล้วแต่ body ยังไม่มา (rare) ก็รอ tick สั้น ๆ
+    const trySoon = () => {
+      __tryAppendLayer();
+      if (__HHA_LAYER && !__HHA_LAYER.isConnected && doc.body) {
+        __tryAppendLayer();
+      }
+    };
+
+    doc.addEventListener('DOMContentLoaded', () => {
+      trySoon();
+      // กันบาง browser ที่ DOMContentLoaded มาแต่ body ยัง layout ไม่จบ
+      setTimeout(trySoon, 0);
+      setTimeout(trySoon, 50);
+    }, { once: true });
+
+    // ถ้าไฟล์ถูกโหลดหลัง DOMContentLoaded ไปแล้ว
+    if (doc.readyState === 'interactive' || doc.readyState === 'complete') {
+      setTimeout(trySoon, 0);
+    }
+  }
+
   function ensureLayer() {
+    // มีอยู่แล้ว → ลอง append ถ้าจำเป็น
+    if (__HHA_LAYER) {
+      __tryAppendLayer();
+      __ensureAppendWhenReady();
+      return __HHA_LAYER;
+    }
+
+    // ลองหา layer ที่มีอยู่แล้วใน DOM
     let layer = doc.querySelector('.hha-fx-layer');
     if (!layer) {
       layer = doc.createElement('div');
@@ -29,9 +74,15 @@
         pointerEvents: 'none',
         overflow: 'hidden'
       });
-      doc.body.appendChild(layer);
     }
-    return layer;
+
+    __HHA_LAYER = layer;
+
+    // ✅ อย่า append ถ้า body ยังไม่มา
+    __tryAppendLayer();
+    __ensureAppendWhenReady();
+
+    return __HHA_LAYER;
   }
 
   // -----------------------------
@@ -281,7 +332,8 @@
   }
 
   ensureStyle();
-  const layer = ensureLayer();
+  // ✅ อย่าเรียก ensureLayer() แบบบังคับตอน load ไฟล์
+  // ให้เรียกเมื่อมีการใช้งาน FX จริง ๆ (lazy) → กัน iOS/Android crash
 
   // -----------------------------
   // Audio (safe / tiny)
@@ -374,12 +426,15 @@
   // FX API
   // -----------------------------
   function scorePop(x, y, delta, label, opts = {}){
+    const layer = ensureLayer();
+    if (!layer) return;
+
     const el = doc.createElement('div');
     el.className = 'hha-fx-pop';
     el.style.left = (x|0) + 'px';
     el.style.top  = (y|0) + 'px';
 
-    // ---- NEW: kind prefix parsing ----
+    // ---- kind prefix parsing ----
     let kind = '';
     let textLabel = (label == null) ? '' : String(label);
 
@@ -401,13 +456,13 @@
     const tag = textLabel ? (plain ? `${textLabel}` : ` • ${textLabel}`) : '';
     el.textContent = `${txt}${tag}`.trim();
 
-    // ---- NEW: color by kind ----
-    if (kind === 'JUNK' || kind === 'FAKE') el.style.color = '#fb923c';       // ส้มเตือน
-    else if (kind === 'BLOCK') el.style.color = '#60a5fa';                   // ฟ้าโล่
-    else if (kind === 'POWER') el.style.color = '#a78bfa';                   // ม่วงพาวเวอร์
-    else if (kind === 'GOLD') el.style.color = '#facc15';                    // ทอง
-    else if (kind === 'BOSS') el.style.color = '#f472b6';                    // ชมพูบอส
-    else if (kind === 'GOOD') el.style.color = '#4ade80';                    // เขียวของดี
+    // ---- color by kind ----
+    if (kind === 'JUNK' || kind === 'FAKE') el.style.color = '#fb923c';
+    else if (kind === 'BLOCK') el.style.color = '#60a5fa';
+    else if (kind === 'POWER') el.style.color = '#a78bfa';
+    else if (kind === 'GOLD') el.style.color = '#facc15';
+    else if (kind === 'BOSS') el.style.color = '#f472b6';
+    else if (kind === 'GOOD') el.style.color = '#4ade80';
     else el.style.color = '#4ade80';
 
     layer.appendChild(el);
@@ -415,6 +470,9 @@
   }
 
   function burstAt(x, y, label){
+    const layer = ensureLayer();
+    if (!layer) return;
+
     const wrap = doc.createElement('div');
     wrap.className = 'hha-fx-burst';
     wrap.style.left = (x|0) + 'px';
@@ -449,8 +507,11 @@
     setTimeout(()=>{ try{ wrap.remove(); }catch{} }, 650);
   }
 
-  // ✅ NEW: object pop beside hit target
+  // ✅ object pop beside hit target
   function objPop(x, y, emoji, opts = {}){
+    const layer = ensureLayer();
+    if (!layer) return;
+
     const el = doc.createElement('div');
     el.className = 'hha-obj-pop';
     el.textContent = String(emoji || '✨');
@@ -460,7 +521,6 @@
 
     const side = (opts.side === 'right') ? 'right' : 'left';
 
-    // default drift
     const dxBase = (side === 'right') ? 34 : -34;
     const dyBase = -10;
 
@@ -483,6 +543,9 @@
   }
 
   function toast(text){
+    const layer = ensureLayer();
+    if (!layer) return;
+
     const el = doc.createElement('div');
     el.className = 'hha-fx-toast';
     el.textContent = String(text || '').slice(0, 220);
@@ -491,7 +554,7 @@
   }
 
   // -----------------------------
-  // CELEBRATION (เดิม)
+  // CELEBRATION
   // -----------------------------
   let celeLock = 0;
 
@@ -502,7 +565,8 @@
 
   function shakeOnce(){
     try{
-      const w = doc.getElementById('hvr-wrap') || doc.body;
+      const w = doc.getElementById('hvr-wrap') || doc.body || doc.documentElement;
+      if (!w) return;
       w.classList.remove('hha-shake');
       void w.offsetWidth;
       w.classList.add('hha-shake');
@@ -566,6 +630,9 @@
   }
 
   function celebrate(kind='goal', opts={}){
+    const layer = ensureLayer();
+    if (!layer) return;
+
     const now = Date.now();
     if (now - celeLock < 420) return;
     celeLock = now;
