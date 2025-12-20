@@ -2,11 +2,12 @@
 // Balanced Plate VR — PRODUCTION v10 (ES Module)
 // ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้
 // ✅ FX “สติ๊กเกอร์ LINE”: คำตัดสินหัวโต + คะแนนเด้งข้างเป้า
-// ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ง
+// ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ก
 // ✅ 1–8 Challenge Pack (Goal + Mini + Twist + Boss Phase + Hero10)
 // ✅ PATCH: เป้าเลื่อนตามจอ + clamp safe zone + ไม่ทับ HUD บน/ล่าง/ซ้าย/ขวา
 // ✅ PRODUCTION: Pause/Resume + กัน “คลิกซ้อน/กดซ้ำ” + freeze target timers ตอน pause
 // ✅ Events: hha:time / hha:score / quest:update / hha:event / hha:coach / hha:judge / hha:end
+// ✅ PATCH (2025-12-20): FX เด้งตรงเป้า (ล็อกพิกัดก่อน remove) + ดัน FX ออกนอก HUD + zIndex สูงสุด
 
 'use strict';
 
@@ -45,7 +46,7 @@ function ensureFxLayer() {
       position: 'fixed',
       inset: '0',
       pointerEvents: 'none',
-      zIndex: 99999,
+      zIndex: 2147483647, // ✅ สูงสุด
       overflow: 'hidden'
     });
     document.body.appendChild(layer);
@@ -61,7 +62,7 @@ function ensureEdgeOverlay() {
       position: 'fixed',
       inset: '0',
       pointerEvents: 'none',
-      zIndex: 99998,
+      zIndex: 2147483646,
       borderRadius: '0',
       border: '0px solid rgba(255,255,255,0)',
       boxShadow: 'inset 0 0 0 rgba(0,0,0,0)',
@@ -175,7 +176,33 @@ function inAnyRect(nx, ny, rects){
   return false;
 }
 
-// ✅ ติด targetRoot กับกล้อง → หมุนจอแล้วเป้าเลื่อนตาม
+function nudgePointOutOfHud(px, py) {
+  const W = Math.max(1, window.innerWidth || 1);
+  const H = Math.max(1, window.innerHeight || 1);
+
+  px = clamp(px, 28, W - 28);
+  py = clamp(py, 28, H - 28);
+
+  const nx = px / W;
+  const ny = py / H;
+
+  const rects = getHudExclusionRects();
+  if (!inAnyRect(nx, ny, rects)) return { px, py };
+
+  for (const r of rects) {
+    if (nx >= r.x0 && nx <= r.x1 && ny >= r.y0 && ny <= r.y1) {
+      const downNy = clamp01(r.y1 + 0.03);
+      let newPy = downNy * H;
+      if (newPy > H - 40) {
+        const upNy = clamp01(r.y0 - 0.03);
+        newPy = upNy * H;
+      }
+      return { px: clamp(px, 28, W - 28), py: clamp(newPy, 28, H - 28) };
+    }
+  }
+  return { px, py };
+}
+
 function attachTargetRootToCamera() {
   if (!cam || !targetRoot) return;
   try{
@@ -185,7 +212,6 @@ function attachTargetRootToCamera() {
   }catch(_){}
 }
 
-// ✅ สุ่มตำแหน่งแบบปลอดภัย + ไม่ทับ HUD
 function pickSafeXY() {
   const nf = getNoFlyRatios();
   const hudRects = getHudExclusionRects();
@@ -326,9 +352,7 @@ function ac() {
   __ac = new Ctx();
   return __ac;
 }
-function tryResumeAudio() {
-  try { ac()?.resume?.(); } catch(_) {}
-}
+function tryResumeAudio() { try { ac()?.resume?.(); } catch(_) {} }
 function beep(freq=880, dur=0.06, type='sine', gain=0.08) {
   const ctx = ac();
   if (!ctx) return;
@@ -472,48 +496,62 @@ function starConfetti(px, py, n = 16) {
 }
 
 function getSceneCamera() { return scene && scene.camera ? scene.camera : null; }
+
 function screenPxFromEntity(el) {
   try{
     const cam3 = getSceneCamera();
     if (!cam3 || !el || !el.object3D) return null;
+
+    cam3.updateMatrixWorld?.(true);
+    el.object3D.updateMatrixWorld?.(true);
+
     const v = new THREE.Vector3();
     el.object3D.getWorldPosition(v);
     v.project(cam3);
-    if (v.z > 1) return null;
+
+    if (!Number.isFinite(v.x) || !Number.isFinite(v.y)) return null;
+
     const x = (v.x + 1) / 2;
     const y = (1 - (v.y + 1) / 2);
     return { x: x * window.innerWidth, y: y * window.innerHeight };
   }catch(_){ return null; }
 }
 
-function fxOnHit(el, kind, judgeText, pts) {
-  const p = screenPxFromEntity(el);
-  if (!p) return;
+function fxOnHitAt(px, py, kind, judgeText, pts) {
+  const nudged = nudgePointOutOfHud(px, py);
+  px = nudged.px; py = nudged.py;
 
   try {
-    Particles.burstAt(p.x, p.y, {
+    Particles.burstAt(px, py, {
       color: (kind==='junk'?'#fb7185':kind==='boss'?'#38bdf8':kind==='power'?'#facc15':'#22c55e'),
       good: kind!=='junk',
-      count: (kind==='perfect'?38:26)
+      count: (judgeText && String(judgeText).includes('PERFECT')) ? 38 : 26
     });
   } catch(_){}
 
   if (typeof pts === 'number') {
     const tone = (pts < 0 || kind==='junk') ? 'bad' : (kind==='boss' ? 'boss' : (kind==='power' ? 'gold' : 'good'));
-    stickerAt(p.x, p.y, (pts>=0?`+${pts}`:`${pts}`), { tone, dx: 42, dy: -10, life: 520, big: false });
+    stickerAt(px, py, (pts>=0?`+${pts}`:`${pts}`), { tone, dx: 42, dy: -10, life: 520, big: false });
   }
 
   if (judgeText) {
-    const tone = (judgeText.includes('MISS') || judgeText.includes('BAD')) ? 'bad'
-      : (judgeText.includes('BOSS') ? 'boss'
-      : (judgeText.includes('GOLD') || judgeText.includes('FEVER') ? 'gold' : 'good'));
-    stickerAt(p.x, p.y, judgeText, { tone, dx: -56, dy: -12, life: 560, big: true });
+    const t = String(judgeText);
+    const tone = (t.includes('MISS') || t.includes('BAD')) ? 'bad'
+      : (t.includes('BOSS') ? 'boss'
+      : (t.includes('GOLD') || t.includes('FEVER') ? 'gold' : 'good'));
+    stickerAt(px, py, judgeText, { tone, dx: -56, dy: -12, life: 560, big: true });
   }
 
-  if (judgeText && judgeText.includes('PERFECT')) {
-    starConfetti(p.x, p.y, 22);
+  if (judgeText && String(judgeText).includes('PERFECT')) {
+    starConfetti(px, py, 22);
     sfxDing();
   }
+}
+
+function fxOnHit(el, kind, judgeText, pts) {
+  const p = screenPxFromEntity(el);
+  if (!p) return;
+  fxOnHitAt(p.x, p.y, kind, judgeText, pts);
 }
 
 // ---------- Emitters ----------
@@ -672,11 +710,9 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
     } catch (_) {}
   });
 
-  // ✅ SAFE spawn: ไม่ทับ HUD + clamp safe zone + ตามจอ
   const pos = pickSafeXY();
   el.setAttribute('position', `${pos.x} ${pos.y} 0`);
 
-  // Click from cursor / fuse
   el.addEventListener('click', () => onHit(el, 'cursor'));
   return el;
 }
@@ -1184,8 +1220,13 @@ function onHit(el, via = 'cursor') {
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
+  const hitPx = screenPxFromEntity(el);
+
   const preFx = (judge, pts) => {
-    try { fxOnHit(el, kind, judge, pts); } catch(_){}
+    try {
+      if (hitPx) fxOnHitAt(hitPx.x, hitPx.y, kind, judge, pts);
+      else fxOnHit(el, kind, judge, pts);
+    } catch(_){}
   };
 
   removeTarget(el, 'hit');
@@ -1410,10 +1451,9 @@ function stopTimers() {
 }
 
 // ---------- Result modal ----------
-function computeGradeFinal() { return computeGradeNow(); }
 function showResultModal(reason) {
   setText('rMode', (MODE === 'research') ? 'Research' : 'Play');
-  setText('rGrade', computeGradeFinal());
+  setText('rGrade', computeGradeNow());
   setText('rScore', score);
   setText('rMaxCombo', maxCombo);
   setText('rMiss', miss);
@@ -1582,7 +1622,7 @@ function endGame(reason = 'ended') {
     emitGameEvent({ type:'finish_clean_bonus', bonus });
   }
 
-  emitGameEvent({ type:'session_end', reason, score, miss, maxCombo, perfectPlates, grade: computeGradeFinal() });
+  emitGameEvent({ type:'session_end', reason, score, miss, maxCombo, perfectPlates, grade: computeGradeNow() });
   emit('hha:end', {
     projectTag: PROJECT_TAG,
     sessionId, mode:'PlateVR',
@@ -1595,7 +1635,7 @@ function endGame(reason = 'ended') {
     goalsTotal: goalTotal,
     miniCleared: miniCleared,
     miniTotal: Math.max(miniHistory, miniCleared) || 0,
-    grade: computeGradeFinal(),
+    grade: computeGradeNow(),
     timeFromStartMs: fromStartMs()
   });
 
@@ -1634,7 +1674,6 @@ function bindUI() {
   }
 }
 
-// ✅ Manual Raycast fallback — คลิกได้แน่ + กันซ้อนด้วย recentHits
 function bindPointerFallback() {
   if (!scene) return;
   if (window.__PLATE_POINTER_BOUND__) return;
