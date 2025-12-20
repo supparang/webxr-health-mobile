@@ -1,13 +1,13 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION v10 (ES Module)
+// Balanced Plate VR — PRODUCTION v10.1 (ES Module)
 // ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้
 // ✅ FX “สติ๊กเกอร์ LINE”: คำตัดสินหัวโต + คะแนนเด้งข้างเป้า
-// ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ก
+// ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ง
 // ✅ 1–8 Challenge Pack (Goal + Mini + Twist + Boss Phase + Hero10)
 // ✅ PATCH: เป้าเลื่อนตามจอ + clamp safe zone + ไม่ทับ HUD บน/ล่าง/ซ้าย/ขวา
 // ✅ PRODUCTION: Pause/Resume + กัน “คลิกซ้อน/กดซ้ำ” + freeze target timers ตอน pause
 // ✅ Events: hha:time / hha:score / quest:update / hha:event / hha:coach / hha:judge / hha:end
-// ✅ PATCH (2025-12-20): FX เด้งตรงเป้า (ล็อกพิกัดก่อน remove) + ดัน FX ออกนอก HUD + zIndex สูงสุด
+// ✅ PATCH v10.1: FIX เอฟเฟกต์ไม่เด้งตรงเป้า (เก็บพิกัดก่อน removeTarget) + nudge กัน HUD บัง + z-index FX สูงสุด
 
 'use strict';
 
@@ -46,7 +46,7 @@ function ensureFxLayer() {
       position: 'fixed',
       inset: '0',
       pointerEvents: 'none',
-      zIndex: 2147483647, // ✅ สูงสุด
+      zIndex: 2147483647, // ✅ PATCH: สูงสุด กันโดน HUD/Canvas บัง
       overflow: 'hidden'
     });
     document.body.appendChild(layer);
@@ -62,7 +62,7 @@ function ensureEdgeOverlay() {
       position: 'fixed',
       inset: '0',
       pointerEvents: 'none',
-      zIndex: 2147483646,
+      zIndex: 99998,
       borderRadius: '0',
       border: '0px solid rgba(255,255,255,0)',
       boxShadow: 'inset 0 0 0 rgba(0,0,0,0)',
@@ -81,6 +81,7 @@ if (!A) console.error('[PlateVR] AFRAME not found');
 
 // ---------- FX module fallback ----------
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
+// NOTE: ถ้าต้องการ burst แตกกระจาย ให้แน่ใจว่า plate-vr.html ใส่ <script src="./vr/particles.js"></script>
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
@@ -176,12 +177,16 @@ function inAnyRect(nx, ny, rects){
   return false;
 }
 
+// ✅ PATCH: ดันจุดเอฟเฟกต์ออกจาก HUD เพื่อไม่ให้ “คะแนน+คำตัดสิน” โดนบัง
 function nudgePointOutOfHud(px, py) {
   const W = Math.max(1, window.innerWidth || 1);
   const H = Math.max(1, window.innerHeight || 1);
 
-  px = clamp(px, 28, W - 28);
-  py = clamp(py, 28, H - 28);
+  const clampPx = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // clamp ขอบจอเบื้องต้น
+  px = clampPx(px, 28, W - 28);
+  py = clampPx(py, 28, H - 28);
 
   const nx = px / W;
   const ny = py / H;
@@ -191,18 +196,19 @@ function nudgePointOutOfHud(px, py) {
 
   for (const r of rects) {
     if (nx >= r.x0 && nx <= r.x1 && ny >= r.y0 && ny <= r.y1) {
-      const downNy = clamp01(r.y1 + 0.03);
-      let newPy = downNy * H;
-      if (newPy > H - 40) {
-        const upNy = clamp01(r.y0 - 0.03);
-        newPy = upNy * H;
-      }
-      return { px: clamp(px, 28, W - 28), py: clamp(newPy, 28, H - 28) };
+      // ดันลงใต้ HUD ที่ทับอยู่
+      let newPy = clamp01(r.y1 + 0.03) * H;
+
+      // ถ้าใกล้ขอบล่างไป → ดันขึ้นแทน
+      if (newPy > H - 40) newPy = clamp01(r.y0 - 0.03) * H;
+
+      return { px: clampPx(px, 28, W - 28), py: clampPx(newPy, 28, H - 28) };
     }
   }
   return { px, py };
 }
 
+// ✅ ติด targetRoot กับกล้อง → หมุนจอแล้วเป้าเลื่อนตาม
 function attachTargetRootToCamera() {
   if (!cam || !targetRoot) return;
   try{
@@ -210,41 +216,6 @@ function attachTargetRootToCamera() {
     targetRoot.setAttribute('position', '0 0 -1.35');
     targetRoot.setAttribute('rotation', '0 0 0');
   }catch(_){}
-}
-
-function pickSafeXY() {
-  const nf = getNoFlyRatios();
-  const hudRects = getHudExclusionRects();
-
-  let minNX = SAFE.padNX;
-  let maxNX = 1 - SAFE.padNX;
-
-  let minNY = Math.max(nf.topR, SAFE.padNY);
-  let maxNY = 1 - Math.max(nf.bottomR, SAFE.padNY);
-
-  if (maxNX - minNX < 0.15) { minNX = 0.15; maxNX = 0.85; }
-  if (maxNY - minNY < 0.15) { minNY = 0.20; maxNY = 0.80; }
-
-  const MAX_TRY = 40;
-  for (let i = 0; i < MAX_TRY; i++) {
-    const nx = rnd(minNX, maxNX);
-    const ny = rnd(minNY, maxNY);
-    if (inAnyRect(nx, ny, hudRects)) continue;
-
-    let x = (nx - 0.5) * 2 * SAFE.rx;
-    let y = (0.5 - ny) * 2 * SAFE.ry;
-
-    if (haz.blackhole) { x *= 0.40; y *= 0.40; }
-    if (haz.wind) { x *= 1.08; y *= 1.08; }
-
-    x = clamp(x, -SAFE.rx, SAFE.rx);
-    y = clamp(y, -SAFE.ry, SAFE.ry);
-
-    return { x, y };
-  }
-
-  const fallbackNY = (minNY + maxNY) * 0.5;
-  return { x: 0, y: clamp((0.5 - fallbackNY) * 2 * SAFE.ry, -SAFE.ry, SAFE.ry) };
 }
 
 // ---------- Session ----------
@@ -343,6 +314,42 @@ function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0));
 function isAdaptiveOn() { return MODE === 'play'; }
 function emit(type, detail) { window.dispatchEvent(new CustomEvent(type, { detail })); }
 
+// ✅ สุ่มตำแหน่งแบบปลอดภัย + ไม่ทับ HUD
+function pickSafeXY() {
+  const nf = getNoFlyRatios();
+  const hudRects = getHudExclusionRects();
+
+  let minNX = SAFE.padNX;
+  let maxNX = 1 - SAFE.padNX;
+
+  let minNY = Math.max(nf.topR, SAFE.padNY);
+  let maxNY = 1 - Math.max(nf.bottomR, SAFE.padNY);
+
+  if (maxNX - minNX < 0.15) { minNX = 0.15; maxNX = 0.85; }
+  if (maxNY - minNY < 0.15) { minNY = 0.20; maxNY = 0.80; }
+
+  const MAX_TRY = 40;
+  for (let i = 0; i < MAX_TRY; i++) {
+    const nx = rnd(minNX, maxNX);
+    const ny = rnd(minNY, maxNY);
+    if (inAnyRect(nx, ny, hudRects)) continue;
+
+    let x = (nx - 0.5) * 2 * SAFE.rx;
+    let y = (0.5 - ny) * 2 * SAFE.ry;
+
+    if (haz.blackhole) { x *= 0.40; y *= 0.40; }
+    if (haz.wind) { x *= 1.08; y *= 1.08; }
+
+    x = clamp(x, -SAFE.rx, SAFE.rx);
+    y = clamp(y, -SAFE.ry, SAFE.ry);
+
+    return { x, y };
+  }
+
+  const fallbackNY = (minNY + maxNY) * 0.5;
+  return { x: 0, y: clamp((0.5 - fallbackNY) * 2 * SAFE.ry, -SAFE.ry, SAFE.ry) };
+}
+
 // ---------- WebAudio tiny SFX ----------
 let __ac = null;
 function ac() {
@@ -352,7 +359,9 @@ function ac() {
   __ac = new Ctx();
   return __ac;
 }
-function tryResumeAudio() { try { ac()?.resume?.(); } catch(_) {} }
+function tryResumeAudio() {
+  try { ac()?.resume?.(); } catch(_) {}
+}
 function beep(freq=880, dur=0.06, type='sine', gain=0.08) {
   const ctx = ac();
   if (!ctx) return;
@@ -497,6 +506,7 @@ function starConfetti(px, py, n = 16) {
 
 function getSceneCamera() { return scene && scene.camera ? scene.camera : null; }
 
+// ✅ PATCH: project ให้เสถียร + updateMatrixWorld ก่อน
 function screenPxFromEntity(el) {
   try{
     const cam3 = getSceneCamera();
@@ -517,6 +527,7 @@ function screenPxFromEntity(el) {
   }catch(_){ return null; }
 }
 
+// ✅ PATCH: FX แบบรับพิกัดโดยตรง + nudge กัน HUD บัง
 function fxOnHitAt(px, py, kind, judgeText, pts) {
   const nudged = nudgePointOutOfHud(px, py);
   px = nudged.px; py = nudged.py;
@@ -710,9 +721,11 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
     } catch (_) {}
   });
 
+  // ✅ SAFE spawn: ไม่ทับ HUD + clamp safe zone + ตามจอ
   const pos = pickSafeXY();
   el.setAttribute('position', `${pos.x} ${pos.y} 0`);
 
+  // Click from cursor / fuse
   el.addEventListener('click', () => onHit(el, 'cursor'));
   return el;
 }
@@ -1220,6 +1233,7 @@ function onHit(el, via = 'cursor') {
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
+  // ✅ PATCH: เก็บพิกัด “ก่อน” removeTarget เพื่อให้ FX เด้งตรงเป้าเสมอ
   const hitPx = screenPxFromEntity(el);
 
   const preFx = (judge, pts) => {
@@ -1451,9 +1465,10 @@ function stopTimers() {
 }
 
 // ---------- Result modal ----------
+function computeGradeFinal() { return computeGradeNow(); }
 function showResultModal(reason) {
   setText('rMode', (MODE === 'research') ? 'Research' : 'Play');
-  setText('rGrade', computeGradeNow());
+  setText('rGrade', computeGradeFinal());
   setText('rScore', score);
   setText('rMaxCombo', maxCombo);
   setText('rMiss', miss);
@@ -1622,7 +1637,7 @@ function endGame(reason = 'ended') {
     emitGameEvent({ type:'finish_clean_bonus', bonus });
   }
 
-  emitGameEvent({ type:'session_end', reason, score, miss, maxCombo, perfectPlates, grade: computeGradeNow() });
+  emitGameEvent({ type:'session_end', reason, score, miss, maxCombo, perfectPlates, grade: computeGradeFinal() });
   emit('hha:end', {
     projectTag: PROJECT_TAG,
     sessionId, mode:'PlateVR',
@@ -1635,7 +1650,7 @@ function endGame(reason = 'ended') {
     goalsTotal: goalTotal,
     miniCleared: miniCleared,
     miniTotal: Math.max(miniHistory, miniCleared) || 0,
-    grade: computeGradeNow(),
+    grade: computeGradeFinal(),
     timeFromStartMs: fromStartMs()
   });
 
@@ -1674,6 +1689,7 @@ function bindUI() {
   }
 }
 
+// ✅ Manual Raycast fallback — คลิกได้แน่ + กันซ้อนด้วย recentHits
 function bindPointerFallback() {
   if (!scene) return;
   if (window.__PLATE_POINTER_BOUND__) return;
