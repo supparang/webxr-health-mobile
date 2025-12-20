@@ -1,14 +1,17 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION v10.5 (ES Module)
+// Balanced Plate VR — PRODUCTION v10.6 (ES Module)
+// ✅ PATCH INCLUDED: เป้าโผล่ชัวร์ + เป้าเลื่อนตามจอเหมือน Hydration
+//    1) attachTargetRootToCamera() re-query + bind enter-vr/exit-vr/camera-set-active
+//    2) spawn loop เปลี่ยนเป็น recursive setTimeout + spawn ทันที (ไม่หลุด loop)
 // ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้
 // ✅ FX “เด้งตรงเป้า”: คำตัดสิน + คะแนนเด้งตรงตำแหน่งเป้า + shards หนัก + ดาว/คอนเฟตติทุก hit
 // ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ง
 // ✅ 1–8 Challenge Pack (Goal + Mini + Twist + Boss Phase + Hero10)
-// ✅ PATCH: เป้าเลื่อนตามจอ + clamp safe zone + ไม่ทับ HUD (เช็คด้วย projection จริงบนจอ)
+// ✅ SAFE ZONE: clamp safe zone + ไม่ทับ HUD (เช็คด้วย projection จริงบนจอ)
 // ✅ PRODUCTION: Pause/Resume + กัน “คลิกซ้อน/กดซ้ำ” + freeze target timers ตอน pause
 // ✅ iOS 200%: ขอ Motion/Orientation permission จาก gesture อัตโนมัติ + รองรับ Shinecon
 // ✅ Events: hha:time / hha:score / quest:update / hha:event / hha:coach / hha:judge / hha:end
-// ✅ LOGGER PATCH (NO-CORS): เขียนลง Google Sheet (sessions/events/students-profile) ผ่าน GAS endpoint แบบ text/plain + sendBeacon
+// ✅ INLINE LOGGER (NO-CORS): sendBeacon + fetch(no-cors) → GAS endpoint (sessions/events/students-profile)
 
 'use strict';
 
@@ -267,10 +270,10 @@ const HAZ = {
   freeze:   { key:'freeze',   emoji:'🧊', label:'FREEZE RISK',   durMs: 3600 }
 };
 
-// ---------- Scene refs ----------
-const scene = document.querySelector('a-scene');
-const cam = document.getElementById('cam');
-const targetRoot = document.getElementById('targetRoot');
+// ---------- Scene refs (re-query safe) ----------
+let scene = document.querySelector('a-scene');
+let cam = document.getElementById('cam');
+let targetRoot = document.getElementById('targetRoot');
 
 // =======================
 // SAFE ZONE + HUD CLAMP
@@ -283,7 +286,7 @@ const SAFE = {
   hudPadPx: 16
 };
 
-const TARGET_Z = 1.35; // ✅ ต้องตรงกับตำแหน่ง targetRoot หน้าเลนส์
+const TARGET_Z = 1.35; // ✅ ต้องตรงกับ HTML: targetRoot position="0 0 -1.35"
 
 function clamp01(v){ return Math.max(0, Math.min(1, v)); }
 function getNoFlyRatios(){ return { topR: 0.18, bottomR: 0.20 }; }
@@ -327,13 +330,25 @@ function inAnyRect(nx, ny, rects){
   return false;
 }
 
-// ✅ ติด targetRoot กับกล้อง → หมุนจอแล้วเป้าเลื่อนตาม
+// =======================================================
+// ✅ PATCH: ผูก targetRoot กับกล้องแบบ “แน่น” (re-query + VR events)
+// =======================================================
+function refreshRefs(){
+  scene = document.querySelector('a-scene');
+  cam = document.getElementById('cam');
+  targetRoot = document.getElementById('targetRoot');
+}
+
 function attachTargetRootToCamera() {
-  if (!cam || !targetRoot) return;
+  refreshRefs();
+  const camEl = cam;
+  const tr = targetRoot;
+  if (!camEl || !tr) return;
+
   try{
-    if (targetRoot.parentElement !== cam) cam.appendChild(targetRoot);
-    targetRoot.setAttribute('position', `0 0 -${TARGET_Z}`);
-    targetRoot.setAttribute('rotation', '0 0 0');
+    if (tr.parentElement !== camEl) camEl.appendChild(tr);
+    tr.setAttribute('position', `0 0 -${TARGET_Z}`);
+    tr.setAttribute('rotation', '0 0 0');
   }catch(_){}
 }
 
@@ -405,7 +420,8 @@ let shieldUntil = 0;
 let haz = { wind:false, blackhole:false, freeze:false };
 let hazUntil = { wind:0, blackhole:0, freeze:0 };
 
-let spawnTimer = null;
+// ---------- targets ----------
+let spawnTimer = null; // ✅ setTimeout handle
 let activeTargets = new Map();
 let targetSeq = 0;
 
@@ -685,7 +701,10 @@ function starConfetti(px, py, n = 18) {
   }
 }
 
-function getSceneCamera() { return scene && scene.camera ? scene.camera : null; }
+function getSceneCamera() {
+  refreshRefs();
+  return (scene && scene.camera) ? scene.camera : null;
+}
 
 function screenPxFromEntity(el) {
   try{
@@ -945,7 +964,7 @@ function buildSessionRow(reason){
     fastHitRatePct,
 
     device,
-    gameVersion: '10.5',
+    gameVersion: '10.6',
     reason: reason || '',
 
     startTimeIso: sessionStartIso,
@@ -1064,6 +1083,9 @@ function emitScore() {
     goodStreak,
     gradeNow: computeGradeNow()
   });
+
+  // ✅ HUD grade sync (คุณมี #hudGrade ใน HTML)
+  try { setText('hudGrade', computeGradeNow()); } catch(_) {}
 }
 function emitTime() { emit('hha:time', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', sec: tLeft, paused: paused ? 1 : 0, timeFromStartMs: fromStartMs() }); }
 
@@ -1092,6 +1114,9 @@ function hudUpdateAll() {
     setText('hudMiniLine', 'Mini: …');
     setText('hudMiniHint', '…');
   }
+
+  // grade
+  setText('hudGrade', computeGradeNow());
 }
 
 // ---------- Emoji texture helper ----------
@@ -1132,6 +1157,7 @@ function makeEmojiTexture(emoji, opts = {}) {
 }
 
 function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
+  refreshRefs();
   if (!scene || !targetRoot) return null;
 
   const el = document.createElement('a-entity');
@@ -1597,8 +1623,12 @@ function pickSpawnKind() {
 }
 
 function spawnOne(opts = {}) {
+  refreshRefs();
   if (!targetRoot || ended || paused) return;
   if (activeTargets.size >= DCFG0.maxActive) return;
+
+  // ✅ ensure root is attached (กันเคสเข้า VR แล้วหลุด)
+  attachTargetRootToCamera();
 
   const kind = opts.forceBoss ? 'boss' : pickSpawnKind();
   const scl = DCFG0.scale * (haz.freeze ? 0.92 : 1.0);
@@ -1674,20 +1704,20 @@ function spawnOne(opts = {}) {
   });
 }
 
+// ✅ PATCH: spawn loop แบบ setTimeout (ไม่หลุด) + spawn ทันที
 function spawnLoopStart() {
   knowAdaptive();
-  if (spawnTimer) clearInterval(spawnTimer);
+  if (spawnTimer) clearTimeout(spawnTimer);
 
-  const loop = () => {
+  const step = () => {
     if (ended || paused) return;
     maybeStartBossPhase();
     spawnOne();
     knowAdaptive();
-    if (spawnTimer) clearInterval(spawnTimer);
-    spawnTimer = setInterval(loop, currentSpawnInterval);
+    spawnTimer = setTimeout(step, currentSpawnInterval);
   };
 
-  spawnTimer = setInterval(loop, currentSpawnInterval);
+  step(); // ✅ โผล่ทันที
 }
 
 // ---------- Hit logic ----------
@@ -1701,6 +1731,7 @@ function applyTwistOnGood(groupId) {
   lastGoodGroup = groupId;
 }
 
+// ---------- Hit / Score (เดิม) ----------
 function onHit(el, via = 'cursor', hit = null) {
   if (!el || ended || paused) return;
 
@@ -1723,7 +1754,7 @@ function onHit(el, via = 'cursor', hit = null) {
   removeTarget(el, 'hit');
   if (!started) return;
 
-  emitGameEvent({ type:'hit_raw', kind, groupId, via, targetId: id });
+  emitGameEvent({ type:'hit_raw', kind, groupId, via, targetId: id, emoji: el.dataset.emoji || '' });
 
   if (kind === 'haz') {
     const hk = el.dataset.hazKey || pick(Object.keys(HAZ));
@@ -1737,7 +1768,6 @@ function onHit(el, via = 'cursor', hit = null) {
     preFx('RISK!', pts);
     emitGameEvent({ type:'haz_hit', haz: hk, points: pts });
 
-    // ✅ schema
     logEventSchema({
       eventType: 'hit_haz',
       kind: 'haz',
@@ -1794,7 +1824,6 @@ function onHit(el, via = 'cursor', hit = null) {
 
     combo += 1; maxCombo = Math.max(maxCombo, combo);
 
-    // ✅ schema
     logEventSchema({
       eventType: 'hit_power',
       kind: 'power',
@@ -1829,7 +1858,6 @@ function onHit(el, via = 'cursor', hit = null) {
     preFx('BOSS HIT!', pts);
     emitGameEvent({ type:'boss_hit', hpLeft: bossHP, points: pts });
 
-    // ✅ schema
     logEventSchema({
       eventType: 'hit_boss',
       kind: 'boss',
@@ -1886,7 +1914,6 @@ function onHit(el, via = 'cursor', hit = null) {
       emitGameEvent({ type:'junk_blocked', points: pts });
       combo += 1; maxCombo = Math.max(maxCombo, combo);
 
-      // ✅ schema
       nHitJunkGuard += 1;
       logEventSchema({
         eventType: 'junk_blocked',
@@ -1919,7 +1946,6 @@ function onHit(el, via = 'cursor', hit = null) {
 
       if (miniCurrent && !miniCurrent.done && miniCurrent.key === 'clean10') cleanTimer = miniCurrent.target;
 
-      // ✅ schema
       nHitJunk += 1;
       logEventSchema({
         eventType: 'hit_junk',
@@ -1949,7 +1975,6 @@ function onHit(el, via = 'cursor', hit = null) {
     preFx(judge, pts);
     emitGameEvent({ type:'good_hit', groupId, points: pts });
 
-    // ✅ schema
     nHitGood += 1;
     rtGoodSum += rtMs;
     rtGoodN += 1;
@@ -2082,7 +2107,7 @@ function pauseGame(source='ui') {
   showEl('hudPaused', true);
 
   stopTimers();
-  if (spawnTimer) clearInterval(spawnTimer);
+  if (spawnTimer) clearTimeout(spawnTimer);
   spawnTimer = null;
 
   freezeTargetTimers();
@@ -2122,7 +2147,6 @@ function startGame() {
   if (started || ended) return;
   started = true;
 
-  // ✅ init logger early
   __loggerInit({ endpoint: LOGGER_ENDPOINT, debug: __HHA_LOGGER.debug });
 
   ensureShakeStyle();
@@ -2171,7 +2195,6 @@ function startGame() {
   miniCleared = 0; miniHistory = 0; miniCurrent = null;
   cleanTimer = 0;
 
-  // ✅ schema counters reset
   nTargetGoodSpawned = 0;
   nTargetJunkSpawned = 0;
   nTargetStarSpawned = 0;
@@ -2191,7 +2214,7 @@ function startGame() {
   emitScore();
   emitQuestUpdate();
 
-  // ✅ optional: upsert profile once at start (if hub has it)
+  // profile once
   try {
     const p = getHubProfile();
     if (p && (p.studentKey || p.sid)) {
@@ -2239,7 +2262,7 @@ function endGame(reason = 'ended') {
 
   paused = false;
   stopTimers();
-  if (spawnTimer) clearInterval(spawnTimer);
+  if (spawnTimer) clearTimeout(spawnTimer);
   spawnTimer = null;
   clearAllTargets();
 
@@ -2269,10 +2292,7 @@ function endGame(reason = 'ended') {
     timeFromStartMs: fromStartMs()
   });
 
-  // ✅ write sessions row to Google Sheet
   try { logSessionSchema(reason); } catch(e){ console.warn('[PlateVR] logSessionSchema failed', e); }
-
-  // flush asap
   try { __loggerFlushNow(true); } catch(_) {}
 
   emitCoach('จบเกมแล้ว! ดูสรุปผลได้เลย 🎉', 'happy');
@@ -2281,6 +2301,7 @@ function endGame(reason = 'ended') {
 
 // ---------- Boot helpers ----------
 function ensureTouchLookControls() {
+  refreshRefs();
   if (!cam) return;
   try { cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false; magicWindowTrackingEnabled:true'); } catch (_) {}
   try { cam.setAttribute('wasd-controls-enabled', 'false'); } catch (_) {}
@@ -2343,6 +2364,7 @@ function bindUI() {
 
 // ✅ Manual Raycast fallback — คลิกได้แน่ + กันซ้อน
 function bindPointerFallback() {
+  refreshRefs();
   if (!scene) return;
   if (window.__PLATE_POINTER_BOUND__) return;
   window.__PLATE_POINTER_BOUND__ = true;
@@ -2415,18 +2437,25 @@ export function bootPlateDOM() {
   if (window.__PLATE_DOM_BOOTED__) return;
   window.__PLATE_DOM_BOOTED__ = true;
 
+  refreshRefs();
+
   if (!targetRoot) {
     console.error('[PlateVR] #targetRoot not found. Check plate-vr.html');
     try { emitCoach('หา targetRoot ไม่เจอ! ตรวจ ID ใน plate-vr.html ก่อนนะ ⚠️', 'sad'); } catch (_) {}
     return;
   }
-try{
-  targetRoot.setAttribute('position', `0 0 -${TARGET_Z}`);
-  targetRoot.setAttribute('rotation', '0 0 0');
-  }catch(_){}
 
   // ✅ init logger early (so first events won't be lost)
   __loggerInit({ endpoint: LOGGER_ENDPOINT, debug: __HHA_LOGGER.debug });
+
+  // ✅ PATCH: ผูก targetRoot แน่น ๆ ตั้งแต่ก่อนเริ่ม + ตอนเข้า/ออก VR + เปลี่ยนกล้อง
+  attachTargetRootToCamera();
+  if (scene) {
+    scene.addEventListener('loaded', attachTargetRootToCamera, { once: true });
+    scene.addEventListener('enter-vr', attachTargetRootToCamera);
+    scene.addEventListener('exit-vr', attachTargetRootToCamera);
+    scene.addEventListener('camera-set-active', attachTargetRootToCamera);
+  }
 
   ensureTouchLookControls();
   bindUI();
@@ -2443,6 +2472,7 @@ try{
 
   window.addEventListener('pointerdown', tryResumeAudio, { passive: true });
 
+  // ✅ เริ่มเกมหลัง scene loaded (เหมือนเดิม)
   if (scene && scene.hasLoaded) startGame();
   else if (scene) scene.addEventListener('loaded', () => startGame(), { once:true });
   else setTimeout(() => startGame(), 250);
