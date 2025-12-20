@@ -1,11 +1,9 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Full HTML (UPDATED)
-     ✅ DOM emoji targets on #gj-layer
-     ✅ HUD + Quest + Coach + Fever/Shield UI
-     ✅ Start overlay (2D / VR)
-     ✅ Loads particles.js BEFORE boot module (สำคัญมาก)
-     ✅ Coach image path fixed to ../img/*.png
-     ✅ favicon path fixed to ../favicon.ico
+     GoodJunkVR (PRODUCTION) — Full HTML (PATCHED)
+     ✅ Sync URL params → UI (diff/challenge/run/time)
+     ✅ Prevent celebrate before START (fix "ALL QUESTS CLEAR!" showing early)
+     ✅ Default Quest captions as "—" (instead of 0/0)
+     ✅ Keeps: particles.js BEFORE boot module
 -->
 <!doctype html>
 <html lang="th">
@@ -114,10 +112,6 @@
       letter-spacing:.03em;
       text-transform:uppercase;
       color:var(--text-soft);
-    }
-    .hud-main-mode{
-      font-size:15px;
-      font-weight:800;
     }
     .hud-pill{
       font-size:11px;
@@ -388,6 +382,107 @@
   <script src="../vr/ui-fever.js"></script>
   <script src="../vr/hha-summary.js"></script>
 
+  <!-- ✅ PATCH (no JS file edits needed): sync URL → UI + block celebrate before START -->
+  <script>
+  (() => {
+    const qs = new URLSearchParams(location.search);
+
+    function norm(v, allowed, fallback){
+      v = String(v || '').toLowerCase();
+      return allowed.includes(v) ? v : fallback;
+    }
+
+    const PARAMS = {
+      diff: norm(qs.get('diff') || 'normal', ['easy','normal','hard'], 'normal'),
+      challenge: norm(qs.get('challenge') || 'rush', ['rush','boss','survival'], 'rush'),
+      run: norm(qs.get('run') || 'play', ['play','research'], 'play'),
+      time: Number(qs.get('time') || 0) || 0
+    };
+
+    // Expose for boot if needed
+    window.__GJ_URL_PARAMS = PARAMS;
+    window.__GJ_STARTED = false;
+
+    // Patch Particles.celebrate so it won't trigger before START (fix early "ALL QUESTS CLEAR!")
+    function patchParticles(root){
+      const P = (root.GAME_MODULES && root.GAME_MODULES.Particles) || root.Particles;
+      if (!P || P.__gj_patched) return;
+      P.__gj_patched = true;
+
+      const orig = (typeof P.celebrate === 'function') ? P.celebrate.bind(P) : null;
+      if (orig){
+        P.celebrate = function(...args){
+          if (!window.__GJ_STARTED) return;
+          return orig(...args);
+        };
+      }
+    }
+    patchParticles(window);
+
+    function setText(id, txt){
+      const el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    }
+
+    function applyUI(p){
+      const diff = norm(p.diff, ['easy','normal','hard'], 'normal');
+      const challenge = norm(p.challenge, ['rush','boss','survival'], 'rush');
+      const run = norm(p.run, ['play','research'], 'play');
+
+      // Start overlay selects
+      const selDiff = document.getElementById('sel-diff');
+      const selCh = document.getElementById('sel-challenge');
+      if (selDiff) selDiff.value = diff;
+      if (selCh) selCh.value = challenge;
+
+      // HUD labels
+      setText('hud-diff-label', diff.toUpperCase());
+      setText('hud-challenge-label', challenge.toUpperCase());
+      setText('hud-run-label', run.toUpperCase());
+
+      const pill = document.getElementById('hud-pill');
+      if (pill) pill.classList.toggle('research', run === 'research');
+
+      // Start subtitle add time
+      const sub = document.getElementById('start-sub');
+      if (sub && p.time){
+        sub.textContent =
+          `เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅ — เวลาเล่นประมาณ ${p.time} วินาที`;
+      }
+
+      // Ensure celebrate hidden at boot
+      const big = document.getElementById('big-celebrate');
+      if (big) big.classList.remove('show');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      applyUI(PARAMS);
+
+      // live update HUD when changing selects
+      const selDiff = document.getElementById('sel-diff');
+      const selCh = document.getElementById('sel-challenge');
+      const updateFromSel = () => {
+        applyUI({
+          ...PARAMS,
+          diff: selDiff ? selDiff.value : PARAMS.diff,
+          challenge: selCh ? selCh.value : PARAMS.challenge
+        });
+      };
+      if (selDiff) selDiff.addEventListener('change', updateFromSel);
+      if (selCh) selCh.addEventListener('change', updateFromSel);
+
+      // mark started (unlock celebrate after START)
+      const markStarted = () => { window.__GJ_STARTED = true; };
+      const b2d = document.getElementById('btn-start-2d');
+      const bvr = document.getElementById('btn-start-vr');
+      const bEnter = document.getElementById('btn-vr');
+      if (b2d) b2d.addEventListener('click', markStarted);
+      if (bvr) bvr.addEventListener('click', markStarted);
+      if (bEnter) bEnter.addEventListener('click', markStarted);
+    });
+  })();
+  </script>
+
   <!-- Boot (module) -->
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 </head>
@@ -459,7 +554,7 @@
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-main-bar"></div></div>
           <div class="quest-caption">
-            <span id="hud-quest-main-caption">0 / 0</span>
+            <span id="hud-quest-main-caption">—</span>
             <span id="hud-quest-hint"></span>
           </div>
         </div>
@@ -468,7 +563,7 @@
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-mini-bar"></div></div>
           <div class="quest-caption">
-            <span id="hud-quest-mini-caption">0 / 0</span>
+            <span id="hud-quest-mini-caption">—</span>
             <span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span>
           </div>
         </div>
@@ -492,7 +587,6 @@
     <!-- Bottom: Coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <!-- ✅ FIX PATH -->
         <div class="coach-emoji" id="coach-emoji" style="background-image:url('../img/coach-neutral.png')"></div>
         <div class="coach-col">
           <div class="coach-label">Coach</div>
