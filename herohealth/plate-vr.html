@@ -26,18 +26,16 @@
     /* HUD groups (ให้ clamp อ่าน) */
     .hud-top, .hud-bottom, .hud-left, .hud-right{
       position:fixed; z-index:900;
-      pointer-events:none; /* ✅ PATCH D: HUD คลิกทะลุไปถึง canvas */
       display:flex; gap:10px;
+      pointer-events:none; /* ✅ ให้คลิกทะลุ HUD ได้ (ยกเว้นปุ่ม/การ์ด) */
     }
     .hud-top{ top:10px; left:10px; right:10px; justify-content:space-between; align-items:flex-start; }
     .hud-bottom{ bottom:10px; left:10px; right:10px; justify-content:space-between; align-items:flex-end; }
     .hud-left{ left:10px; top:88px; flex-direction:column; }
     .hud-right{ right:10px; top:88px; flex-direction:column; align-items:flex-end; }
 
-    /* ✅ PATCH D: ปุ่มยังคลิกได้ */
-    #hudRight, #hudRight .btn{ pointer-events:auto; }
-
     .card{
+      pointer-events:auto; /* ✅ กดปุ่ม/เลือกในการ์ดได้ */
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--radius);
@@ -68,6 +66,7 @@
     .bar > div{ height:100%; width:0%; background:var(--warn); transition:width .2s ease; }
 
     .btn{
+      pointer-events:auto; /* ✅ */
       cursor:pointer;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.25);
@@ -81,6 +80,7 @@
     /* Quest panels */
     .quest-panel{ max-width: 56vw; }
     .mini-panel{ max-width: 56vw; }
+    .hint{ margin-top:6px; color:var(--muted); font-weight:900; line-height:1.2; }
 
     /* Result modal (optional) */
     #resultBackdrop{
@@ -88,10 +88,8 @@
       align-items:center; justify-content:center;
       background:rgba(0,0,0,.62);
       padding:18px;
-      pointer-events:auto; /* ✅ PATCH D: modal คลิกได้ */
+      pointer-events:auto;
     }
-    #resultBackdrop *{ pointer-events:auto; }
-
     #resultCard{ width:min(720px, 92vw); }
     .big{ font-size:22px; font-weight:1000; letter-spacing:.06em; }
     .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -109,6 +107,7 @@
         <span class="pill">⭐ <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
         <span class="pill">🔥 <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
         <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
+        <span class="pill" id="hudPaused" style="display:none;">⏸️ <span class="k">PAUSED</span></span>
       </div>
       <div class="row" style="margin-top:8px;">
         <span class="k">FEVER</span>
@@ -137,12 +136,14 @@
     <div id="miniPanel" class="card mini-panel">
       <div class="big">🧩 MINI</div>
       <div id="hudMiniLine" style="margin-top:6px; font-weight:900;">…</div>
+      <div id="hudMiniHint" class="hint">…</div>
     </div>
   </div>
 
   <!-- RIGHT HUD (Buttons) -->
   <div id="hudRight" class="hud-right">
     <button id="btnEnterVR" class="btn">🥽 ENTER VR</button>
+    <button id="btnPause" class="btn">⏸️ PAUSE</button>
     <button id="btnRestart" class="btn">🔁 RESTART</button>
   </div>
 
@@ -194,7 +195,7 @@
   >
     <!-- Camera -->
     <a-entity id="cam" camera position="0 1.6 0" look-controls="touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false">
-      <!-- Cursor: ใช้ได้ทั้ง Fuse/Click -->
+      <!-- Cursor: Fuse/Click (VR gaze + Desktop click) -->
       <a-cursor
         id="cursor"
         fuse="true"
