@@ -23,26 +23,14 @@
       --bad:#fb7185;
       --radius:18px;
     }
-    html,body{
-      margin:0; height:100%;
-      background:var(--bg); color:var(--txt);
-      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-      overflow:hidden;
-    }
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; overflow:hidden; }
 
     .hud-top, .hud-bottom, .hud-left, .hud-right{
       position:fixed; z-index:900;
       display:flex; gap:10px;
       pointer-events:none;
     }
-
-    /* ✅ TOP HUD = 1 card */
-    .hud-top{
-      top:10px; left:10px; right:10px;
-      justify-content:center;
-      align-items:flex-start;
-    }
-
+    .hud-top{ top:10px; left:10px; right:10px; justify-content:flex-start; align-items:flex-start; }
     .hud-bottom{ bottom:10px; left:10px; right:10px; justify-content:space-between; align-items:flex-end; }
     .hud-left{ left:10px; top:88px; flex-direction:column; }
     .hud-right{ right:10px; top:88px; flex-direction:column; align-items:flex-end; }
@@ -58,11 +46,8 @@
       max-width: 52vw;
     }
 
-    /* TOP card ให้เต็มแถวและอ่านง่าย */
-    .hud-top .card{
-      width:min(980px, calc(100vw - 20px));
-      max-width:unset;
-    }
+    /* ✅ TOP card ใหญ่แต่ไม่ล้นจอ */
+    #hudTop .card{ max-width:min(980px, calc(100vw - 20px)); }
 
     .pill{
       display:inline-flex; align-items:center; gap:8px;
@@ -77,7 +62,6 @@
     .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .k{ color:var(--muted); font-weight:800; }
     .v{ font-weight:900; }
-
     .bar{
       width:160px; height:10px; border-radius:999px;
       background:rgba(148,163,184,.18);
@@ -102,26 +86,6 @@
     .mini-panel{ max-width: 56vw; }
     .hint{ margin-top:6px; color:var(--muted); font-weight:900; line-height:1.2; }
 
-    /* ✅ Layout ภายใน TOP card */
-    .top-grid{
-      display:grid;
-      grid-template-columns: 1.35fr 1fr;
-      gap:10px;
-      align-items:start;
-    }
-    .top-left{ display:flex; flex-direction:column; gap:8px; }
-    .top-right{
-      display:flex;
-      flex-direction:column;
-      align-items:flex-end;
-      text-align:right;
-      gap:8px;
-    }
-    .top-right .row{ justify-content:flex-end; }
-
-    /* ✅ ขวา 2 แถวตามที่สั่ง */
-    .hud-row3a, .hud-row3b{ justify-content:flex-end; flex-wrap:wrap; }
-
     #resultBackdrop{
       position:fixed; inset:0; display:none; z-index:950;
       align-items:center; justify-content:center;
@@ -132,53 +96,33 @@
     #resultCard{ width:min(720px, 92vw); }
     .big{ font-size:22px; font-weight:1000; letter-spacing:.06em; }
     .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-
-    @media (max-width:720px){
-      .top-grid{ grid-template-columns: 1fr; }
-      .top-right{ align-items:flex-start; text-align:left; }
-      .top-right .row{ justify-content:flex-start; }
-      .grid{ grid-template-columns:1fr; }
-      .card{ max-width: 90vw; }
-    }
+    @media (max-width:720px){ .grid{ grid-template-columns:1fr; } .card{ max-width: 90vw; } }
   </style>
 </head>
 
 <body>
 
-  <!-- TOP HUD (✅ 1 CARD) -->
+  <!-- TOP HUD ✅ รวมเป็น 1 card -->
   <div id="hudTop" class="hud-top">
     <div class="card">
-      <div class="top-grid">
-        <!-- LEFT -->
-        <div class="top-left">
-          <div class="row">
-            <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
-            <span class="pill">⭐ <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
-            <span class="pill">🔥 <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
-            <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
-            <span class="pill" id="hudPaused" style="display:none;">⏸️ <span class="k">PAUSED</span></span>
-          </div>
+      <div class="row">
+        <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
+        <span class="pill">⭐ <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
+        <span class="pill">🔥 <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
+        <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
+        <span class="pill" id="hudPaused" style="display:none;">⏸️ <span class="k">PAUSED</span></span>
 
-          <div class="row">
-            <span class="k">FEVER</span>
-            <div class="bar"><div id="hudFever"></div></div>
-            <span id="hudFeverPct" class="v">0%</span>
-            <span class="pill">🏅 <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
-          </div>
-        </div>
+        <span class="pill">🎮 <span id="hudMode">Play</span></span>
+        <span class="pill">⚙️ <span id="hudDiff">Normal</span></span>
+        <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
+        <span class="pill">🌟 <span class="k">PERFECT</span> <span id="hudPerfectCount" class="v">0</span></span>
+      </div>
 
-        <!-- RIGHT (✅ 2 ROWS) -->
-        <div class="top-right">
-          <div class="row hud-row3a">
-            <span class="pill">🎮 <span id="hudMode">Play</span></span>
-            <span class="pill">⚙️ <span id="hudDiff">Normal</span></span>
-          </div>
-
-          <div class="row hud-row3b">
-            <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
-            <span class="pill">🌟 <span class="k">PERFECT</span> <span id="hudPerfectCount" class="v">0</span></span>
-          </div>
-        </div>
+      <div class="row" style="margin-top:8px;">
+        <span class="k">FEVER</span>
+        <div class="bar"><div id="hudFever"></div></div>
+        <span id="hudFeverPct" class="v">0%</span>
+        <span class="pill">🏅 <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
       </div>
     </div>
   </div>
@@ -252,7 +196,6 @@
     <!-- Camera -->
     <a-entity id="cam" camera position="0 1.6 0"
       look-controls="touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false; magicWindowTrackingEnabled:true">
-      <!-- Cursor: Fuse/Click (VR gaze + Desktop click) -->
       <a-cursor
         id="cursor"
         fuse="true"
@@ -262,19 +205,15 @@
         geometry="primitive:ring; radiusInner:0.010; radiusOuter:0.018"
       ></a-cursor>
 
-      <!-- targetRoot -->
       <a-entity id="targetRoot"></a-entity>
     </a-entity>
 
-    <!-- Light -->
     <a-entity light="type:ambient; intensity:1.0; color:#ffffff"></a-entity>
   </a-scene>
 
-  <!-- Module -->
   <script type="module">
     import { bootPlateDOM } from './plate/plate.safe.js';
 
-    // อัปเดต grade บน HUD ทันที
     window.addEventListener('hha:score', (e) => {
       const d = e.detail || {};
       const g = d.gradeNow || '';
