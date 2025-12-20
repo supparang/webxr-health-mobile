@@ -2664,4 +2664,4 @@ export function bootPlateDOM() {
 
 window.addEventListener('DOMContentLoaded', () => {
   bootPlateDOM();
-});
+}
