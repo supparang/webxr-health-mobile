@@ -1,9 +1,15 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION v10.6 (ES Module)
-// ✅ PATCH v10.6: “เป้าเลื่อนตามเหมือน Hydration” แบบชัวร์ (ผูกกับ Active Camera จริงของ A-Frame)
-//   - ใช้ scene.camera.el (active camera) แทน #cam เพราะตอน enter-vr A-Frame สลับกล้อง
-//   - reattach เมื่อ loaded / enter-vr / exit-vr / camera-set-active + หน่วง 0ms/250ms กัน race
-// ✅ ของเดิมทั้งหมด: Emoji targets + FX + Goal/Mini + Boss + Pause/Resume + clamp safe zone + logger
+// HeroHealth — Balanced Plate VR — PRODUCTION v10.6 (ES Module)
+// ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้ (พร้อม fallback raycast ชัวร์)
+// ✅ FX “เด้งตรงเป้า”: คำตัดสิน + คะแนนเด้งตรงตำแหน่งเป้า + shards หนัก + ดาว/คอนเฟตติทุก hit
+// ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ง
+// ✅ Goal + Mini Quest chain ต่อเนื่อง + Boss Phase + Wave
+// ✅ PATCH: เป้าเลื่อนตามจอ (attach targetRoot กับ camera แบบ object3D ชัวร์) + clamp safe zone + ไม่ทับ HUD (projection check)
+// ✅ PATCH: MIX MODE (Hardcore + Rhythm) — spawn quantize ตามบีท + โบนัส ON-BEAT
+// ✅ PRODUCTION: Pause/Resume + กัน “คลิกซ้อน/กดซ้ำ” + freeze target timers ตอน pause
+// ✅ iOS 200%: ขอ Motion/Orientation permission จาก gesture อัตโนมัติ + รองรับ Shinecon
+// ✅ Events: hha:time / hha:score / quest:update / hha:event / hha:coach / hha:judge / hha:end
+// ✅ LOGGER PATCH (NO-CORS): เขียนลง Google Sheet ผ่าน GAS endpoint แบบ text/plain + sendBeacon
 
 'use strict';
 
@@ -256,19 +262,10 @@ const HAZ = {
   freeze:   { key:'freeze',   emoji:'🧊', label:'FREEZE RISK',   durMs: 3600 }
 };
 
-// =======================================================
-// ✅ SCENE REFS (PATCH v10.6)
-// =======================================================
-let scene = null;
-let cam = null;        // อาจไม่ใช่ active camera ตอน enter-vr
-let targetRoot = null;
-
-function refreshRefs(){
-  scene = document.querySelector('a-scene');
-  cam = document.getElementById('cam');
-  targetRoot = document.getElementById('targetRoot');
-  return { scene, cam, targetRoot };
-}
+// ---------- Scene refs ----------
+const scene = document.querySelector('a-scene');
+const cam = document.getElementById('cam');
+const targetRoot = document.getElementById('targetRoot');
 
 // =======================
 // SAFE ZONE + HUD CLAMP
@@ -281,7 +278,7 @@ const SAFE = {
   hudPadPx: 16
 };
 
-const TARGET_Z = 1.35; // ต้องตรงกับ HTML (targetRoot หน้าเลนส์)
+const TARGET_Z = 1.35; // ✅ ต้องตรงกับตำแหน่ง targetRoot หน้าเลนส์
 
 function clamp01(v){ return Math.max(0, Math.min(1, v)); }
 function getNoFlyRatios(){ return { topR: 0.18, bottomR: 0.20 }; }
@@ -324,30 +321,33 @@ function inAnyRect(nx, ny, rects){
   return false;
 }
 
-// =======================================================
-// ✅ PATCH v10.6: ผูก targetRoot กับ “Active Camera” จริง
-// =======================================================
-function getActiveCameraEl(){
-  refreshRefs();
-
-  // A-Frame active camera (สำคัญสุดตอน enter-vr)
-  if (scene && scene.camera && scene.camera.el) return scene.camera.el;
-
-  // fallback: camera entity ใดๆ
-  const any = document.querySelector('[camera]');
-  return any || cam || null;
-}
-
+// ✅ PATCH v10.6: ติด targetRoot กับกล้อง “ชัวร์” ด้วย object3D + retry
 function attachTargetRootToCamera() {
-  refreshRefs();
-  const camEl = getActiveCameraEl();
-  if (!camEl || !targetRoot) return;
+  if (!cam || !targetRoot) return;
 
-  try{
-    if (targetRoot.parentElement !== camEl) camEl.appendChild(targetRoot);
-    targetRoot.setAttribute('position', `0 0 -${TARGET_Z}`);
-    targetRoot.setAttribute('rotation', '0 0 0');
-  }catch(_){}
+  const tryBind = () => {
+    try{
+      if (targetRoot.parentElement !== cam) cam.appendChild(targetRoot);
+
+      if (cam.object3D && targetRoot.object3D && targetRoot.object3D.parent !== cam.object3D) {
+        cam.object3D.add(targetRoot.object3D);
+      }
+
+      if (targetRoot.object3D) {
+        targetRoot.object3D.position.set(0, 0, -TARGET_Z);
+        targetRoot.object3D.rotation.set(0, 0, 0);
+      }
+
+      targetRoot.setAttribute('position', `0 0 -${TARGET_Z}`);
+      targetRoot.setAttribute('rotation', '0 0 0');
+    }catch(_){}
+
+    if ((!cam.object3D || !targetRoot.object3D) && !ended) {
+      requestAnimationFrame(tryBind);
+    }
+  };
+
+  tryBind();
 }
 
 // ---------- Session ----------
@@ -418,11 +418,73 @@ let shieldUntil = 0;
 let haz = { wind:false, blackhole:false, freeze:false };
 let hazUntil = { wind:0, blackhole:0, freeze:0 };
 
-let spawnTimer = null;
+// ---------- targets ----------
+let spawnTimer = null; // kept for backward-compat (ไม่ใช้หลักแล้วใน v10.6)
 let activeTargets = new Map();
 let targetSeq = 0;
 
 let currentSpawnInterval = DCFG0.spawnInterval;
+
+// ===============================
+// 🎵 RHYTHM MIX MODE (PATCH v10.6)
+// ===============================
+const MIX_ON = (MODE === 'play');        // โหมดเล่นปกติเท่านั้น
+const BPM_BASE = 108;
+const BPM_WAVE = 132;
+const BPM_BOSS = 128;
+const ONBEAT_WINDOW_MS = 120;
+
+let beatT0Ms = 0;
+let beatMs = 60000 / BPM_BASE;
+let beatIndex = 0;
+
+let spawnTO = null;   // scheduler ตัวใหม่
+let nextSpawnAtMs = 0;
+
+// ===============================
+// 🌊 WAVE SYSTEM (Hardcore feel)
+// ===============================
+let waveOn = false;
+let waveLevel = 0;        // 1..3
+let waveUntilMs = 0;
+const WAVE_CFG = {
+  gapSec: 12,      // ทุก ๆ 12 วิ โอกาสเริ่ม wave
+  durMs: 6200,     // ระยะเวลา wave
+  maxLevel: 3
+};
+
+function updateWaveFx(){
+  const edge = ensureEdgeOverlay();
+  edge.style.opacity = '1';
+  edge.style.border = '3px solid rgba(56,189,248,0.70)';
+  edge.style.boxShadow = 'inset 0 0 0 999px rgba(56,189,248,0.05), inset 0 0 34px rgba(56,189,248,0.20)';
+}
+function stopWave(){
+  waveOn = false;
+  const edge = ensureEdgeOverlay();
+  edge.style.opacity = '0';
+  edge.classList.remove('plate-edge-pulse');
+  edgePulseOn = false;
+  emitGameEvent({ type:'wave_off', level: waveLevel });
+}
+function startWave(){
+  if (!MIX_ON || waveOn || paused || ended) return;
+  waveOn = true;
+  waveLevel = Math.min(WAVE_CFG.maxLevel, Math.max(1, waveLevel + 1));
+  waveUntilMs = performance.now() + WAVE_CFG.durMs;
+
+  emitCoach(`🌊 WAVE ${waveLevel}! เป้ามาเป็นชุด — ตีตามจังหวะ! 🎵`, 'happy');
+  const p = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.24);
+  stickerAt(p.x, p.y, `🌊 WAVE ${waveLevel}!`, { tone:'boss', big:true, life: 980 });
+
+  ensureShakeStyle();
+  const edge = ensureEdgeOverlay();
+  edge.style.opacity = '1';
+  edge.classList.add('plate-edge-pulse');
+  edgePulseOn = true;
+
+  emitGameEvent({ type:'wave_on', level: waveLevel, durMs: WAVE_CFG.durMs });
+}
 
 // ---------- Schema counters (sessions) ----------
 let nTargetGoodSpawned = 0;
@@ -495,7 +557,7 @@ function sfxDing(){ beep(1320, 0.08, 'sine', 0.10); setTimeout(()=>beep(1760,0.0
 function sfxMiss(){ beep(220, 0.10, 'sawtooth', 0.10); setTimeout(()=>beep(160,0.10,'sawtooth',0.09), 80); }
 
 // =======================
-// iOS Motion Permission
+// iOS Motion Permission (200% sure)
 // =======================
 let __motionAsked = false;
 let __motionGranted = false;
@@ -558,7 +620,9 @@ function screenShake() {
   setTimeout(()=>document.body.classList.remove('plate-shake'), 320);
 }
 
-// ---------- HUD-safe FX nudge ----------
+// =======================
+// HUD-safe FX nudge
+// =======================
 function nudgeFxAwayFromHud(px, py) {
   const W = Math.max(1, window.innerWidth || 1);
   const H = Math.max(1, window.innerHeight || 1);
@@ -696,7 +760,7 @@ function starConfetti(px, py, n = 18) {
   }
 }
 
-function getSceneCamera() { refreshRefs(); return scene && scene.camera ? scene.camera : null; }
+function getSceneCamera() { return scene && scene.camera ? scene.camera : null; }
 
 function screenPxFromEntity(el) {
   try{
@@ -711,7 +775,6 @@ function screenPxFromEntity(el) {
     return { x: x * window.innerWidth, y: y * window.innerHeight };
   }catch(_){ return null; }
 }
-
 function screenPxFromWorldPoint(worldPoint) {
   try{
     const cam3 = getSceneCamera();
@@ -724,7 +787,6 @@ function screenPxFromWorldPoint(worldPoint) {
     return { x: x * window.innerWidth, y: y * window.innerHeight };
   }catch(_){ return null; }
 }
-
 function screenPxFromCameraLocal(x, y, z) {
   try {
     const cam3 = getSceneCamera();
@@ -742,6 +804,7 @@ function screenPxFromCameraLocal(x, y, z) {
   } catch (_) { return null; }
 }
 
+// ✅ สุ่มตำแหน่งแบบปลอดภัย + project เช็ค HUD จริงบนจอ
 function pickSafeXY() {
   const nf = getNoFlyRatios();
   const hudRects = getHudExclusionRects();
@@ -786,7 +849,7 @@ function pickSafeXY() {
   return { x: 0, y: 0 };
 }
 
-// ---------- FX on hit ----------
+// ✅ FX: คะแนน+คำตัดสินเด้ง "ตรงเป้า"
 function fxOnHit(el, kind, judgeText, pts, hit = null) {
   let p0 = null;
   if (hit && hit.point) p0 = screenPxFromWorldPoint(hit.point);
@@ -833,7 +896,7 @@ function fxOnHit(el, kind, judgeText, pts, hit = null) {
 }
 
 // =======================================================
-// ✅ SCHEMA MAPPING (sessions/events)
+// ✅ SCHEMA MAPPING (sessions/events) → hha:log_*
 // =======================================================
 function median(arr){
   const a = (arr || []).slice().filter(n => Number.isFinite(n)).sort((x,y)=>x-y);
@@ -1005,8 +1068,12 @@ function buildEventRow(ev){
   };
 }
 
-function logEventSchema(ev){ emit('hha:log_event', buildEventRow(ev)); }
-function logSessionSchema(reason){ emit('hha:log_session', buildSessionRow(reason)); }
+function logEventSchema(ev){
+  emit('hha:log_event', buildEventRow(ev));
+}
+function logSessionSchema(reason){
+  emit('hha:log_session', buildSessionRow(reason));
+}
 
 // ---------- Emitters ----------
 let eventSeq = 0;
@@ -1034,7 +1101,9 @@ function emitGameEvent(payload) {
     balancePct: Math.round(balancePct),
     perfectPlates,
     perfectStreak,
-    goodStreak
+    goodStreak,
+    waveOn: waveOn ? 1 : 0,
+    waveLevel
   }, payload));
 }
 function emitCoach(text, mood) {
@@ -1053,7 +1122,6 @@ function computeGradeNow() {
   return 'C';
 }
 function emitScore() {
-  const gradeNow = computeGradeNow();
   emit('hha:score', {
     projectTag: PROJECT_TAG,
     sessionId, mode:'PlateVR',
@@ -1067,11 +1135,10 @@ function emitScore() {
     bossOn: bossOn ? 1 : 0,
     bossPhaseOn: bossPhaseOn ? 1 : 0,
     goodStreak,
-    gradeNow
+    gradeNow: computeGradeNow(),
+    waveOn: waveOn ? 1 : 0,
+    waveLevel
   });
-
-  // ✅ HUD realtime grade
-  setText('hudGrade', gradeNow);
 }
 function emitTime() { emit('hha:time', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', sec: tLeft, paused: paused ? 1 : 0, timeFromStartMs: fromStartMs() }); }
 
@@ -1081,6 +1148,7 @@ function hudUpdateAll() {
   setText('hudScore', score);
   setText('hudCombo', combo);
   setText('hudMiss', miss);
+  setText('hudGrade', computeGradeNow());
   showEl('hudPaused', paused);
 
   const pct = Math.round(clamp(fever, 0, 100));
@@ -1092,9 +1160,6 @@ function hudUpdateAll() {
   setText('hudPerfectCount', perfectPlates);
 
   setText('hudGoalLine', `ทำ PERFECT PLATE อย่างน้อย ${goalTotal} จาน (ตอนนี้ ${perfectPlates}/${goalTotal})`);
-
-  // ✅ realtime grade
-  setText('hudGrade', computeGradeNow());
 
   if (miniCurrent) {
     setText('hudMiniLine', `Mini: ${miniCurrent.label} • ${miniCurrent.prog}/${miniCurrent.target}`);
@@ -1142,8 +1207,41 @@ function makeEmojiTexture(emoji, opts = {}) {
   return tex;
 }
 
+function applyEmojiMap(el){
+  if (!el) return;
+  const emoji = el.dataset.emoji || '';
+  if (!emoji) return;
+
+  const tryApply = () => {
+    try{
+      const mesh = el.getObject3D('mesh');
+      if (!mesh || !mesh.material) return false;
+
+      const mat = mesh.material;
+      if (!mat.map || mat.__plateEmoji !== emoji) {
+        mat.map = makeEmojiTexture(emoji);
+        mat.transparent = true;
+        mat.opacity = 0.98;
+        mat.needsUpdate = true;
+        mat.__plateEmoji = emoji;
+      }
+      return true;
+    }catch(_){ return false; }
+  };
+
+  if (tryApply()) return;
+
+  // retry a few frames (A-Frame บางที mesh มาเลท)
+  let n = 0;
+  const raf = () => {
+    n++;
+    if (tryApply()) return;
+    if (n < 8) requestAnimationFrame(raf);
+  };
+  requestAnimationFrame(raf);
+}
+
 function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
-  refreshRefs();
   if (!scene || !targetRoot) return null;
 
   const el = document.createElement('a-entity');
@@ -1161,16 +1259,16 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   el.dataset.spawnMs = String(fromStartMs());
 
   const s = clamp(scale, 0.45, 1.35);
-  el.addEventListener('loaded', () => {
+
+  const onReady = () => {
     try {
-      el.object3D.scale.set(s, s, s);
-      const mesh = el.getObject3D('mesh');
-      if (mesh && mesh.material) {
-        mesh.material.map = makeEmojiTexture(emoji);
-        mesh.material.needsUpdate = true;
-      }
+      if (el.object3D) el.object3D.scale.set(s, s, s);
     } catch (_) {}
-  });
+    applyEmojiMap(el);
+  };
+
+  el.addEventListener('loaded', onReady);
+  el.addEventListener('object3dset', onReady);
 
   const pos = pickSafeXY();
   el.setAttribute('position', `${pos.x} ${pos.y} 0`);
@@ -1239,6 +1337,7 @@ function knowAdaptive() {
   if (tLeft <= 18) k *= 0.82;
   if (bossPhaseOn) k *= 0.86;
   if (hero10On) k *= 0.80;
+  if (waveOn) k *= 0.80; // wave: ถี่ขึ้น
 
   currentSpawnInterval = clamp(Math.round(base * k), 420, 1600);
 }
@@ -1299,7 +1398,7 @@ function checkPerfectPlate() {
 
     resetPlate();
 
-    if (miniCurrent && !miniCurrent.done && String(miniCurrent.key).startsWith('perfect')) {
+    if (miniCurrent && !miniCurrent.done && miniCurrent.key.startsWith('perfect')) {
       miniCurrent.prog += 1;
       if (miniCurrent.prog >= miniCurrent.target) clearMiniQuest();
     }
@@ -1337,6 +1436,7 @@ function scoreForHit(kind, groupId) {
   if (DIFF === 'easy') mult *= 1.04;
 
   if (performance.now() < goldenZoneUntilMs) mult *= 1.18;
+  if (waveOn) mult *= 1.04;
 
   return Math.round(base * mult);
 }
@@ -1596,24 +1696,39 @@ function startGoldenZone(ms=3000) {
 function pickSpawnKind() {
   const endBoost = (tLeft <= 18) ? 0.05 : 0.0;
   const r = Math.random();
+
   const hazRate = (DCFG0.hazRate + endBoost) + (bossPhaseOn ? 0.02 : 0);
   const powRate = DCFG0.powerRate + (bossPhaseOn ? 0.01 : 0);
   const junkExtra = (performance.now() < junkSurgeUntilMs) ? 0.12 : 0.0;
-  const junkRate = clamp(DCFG0.junkRate + (bossPhaseOn ? 0.07 : 0) + junkExtra, 0.05, 0.60);
+
+  // wave/boss ทำให้ junk หน่อย ๆ
+  const junkRate = clamp(
+    DCFG0.junkRate +
+    (bossPhaseOn ? 0.07 : 0) +
+    (waveOn ? 0.06 : 0) +
+    junkExtra,
+    0.05, 0.60
+  );
+
+  // 🔥 hardcore tweak: 12 วิท้าย เพิ่มโอกาส junk เล็กน้อย
+  const endHard = (tLeft <= 12) ? 0.05 : 0.0;
+  const junkRate2 = clamp(junkRate + endHard, 0.06, 0.72);
+
   if (r < hazRate) return 'haz';
   if (r < hazRate + powRate) return 'power';
-  if (r < hazRate + powRate + junkRate) return 'junk';
+  if (r < hazRate + powRate + junkRate2) return 'junk';
   return 'good';
 }
 
 function spawnOne(opts = {}) {
-  refreshRefs();
   if (!targetRoot || ended || paused) return;
-  if (activeTargets.size >= DCFG0.maxActive) return;
+
+  const maxA = DCFG0.maxActive + (waveOn ? 1 : 0) + (bossPhaseOn ? 1 : 0);
+  if (activeTargets.size >= maxA) return;
 
   const kind = opts.forceBoss ? 'boss' : pickSpawnKind();
-  const scl = DCFG0.scale * (haz.freeze ? 0.92 : 1.0);
-  const lifeMs = DCFG0.lifeMs + (haz.freeze ? 350 : 0);
+  const scl = DCFG0.scale * (haz.freeze ? 0.92 : 1.0) * (waveOn ? 0.96 : 1.0);
+  const lifeMs = DCFG0.lifeMs + (haz.freeze ? 350 : 0) + (waveOn ? -120 : 0);
 
   let meta = null;
 
@@ -1683,20 +1798,81 @@ function spawnOne(opts = {}) {
   });
 }
 
-function spawnLoopStart() {
+// ---------- RHYTHM Scheduler (v10.6) ----------
+function bpmNow(){
+  if (!MIX_ON) return BPM_BASE;
+  if (waveOn) return BPM_WAVE + waveLevel * 2;
+  if (bossPhaseOn || tLeft <= 20) return BPM_BOSS;
+  return BPM_BASE;
+}
+function computeBeatMs(){
+  const bpm = bpmNow();
+  return Math.max(320, Math.round(60000 / bpm));
+}
+function clearSpawnScheduler(){
+  if (spawnTO) { try{ clearTimeout(spawnTO); }catch(_){} }
+  spawnTO = null;
+}
+function spawnPatternOnBeat(bi){
+  spawnOne();
+
+  if (bi % 4 === 0) spawnOne();
+
+  if (waveOn && bi % 8 === 0) {
+    setTimeout(()=>{ if (!ended && !paused) spawnOne(); }, 90);
+  }
+
+  if ((bossPhaseOn || tLeft <= 14) && bi % 4 === 2) {
+    setTimeout(()=>{ if (!ended && !paused) spawnOne(); }, 120);
+  }
+}
+function scheduleNextSpawn(){
+  if (ended || paused) return;
+
+  beatMs = computeBeatMs();
+  if (!beatT0Ms) beatT0Ms = performance.now();
+
   knowAdaptive();
-  if (spawnTimer) clearInterval(spawnTimer);
+  const now = performance.now();
 
-  const loop = () => {
+  const spawnEvery = (currentSpawnInterval > beatMs * 1.6) ? 2 : 1;
+
+  const dt = now - beatT0Ms;
+  const bi = Math.max(0, Math.floor(dt / beatMs));
+  beatIndex = bi;
+
+  const nextBi = bi + spawnEvery;
+  nextSpawnAtMs = beatT0Ms + nextBi * beatMs;
+
+  const delay = Math.max(0, nextSpawnAtMs - now);
+
+  spawnTO = setTimeout(() => {
     if (ended || paused) return;
-    maybeStartBossPhase();
-    spawnOne();
-    knowAdaptive();
-    if (spawnTimer) clearInterval(spawnTimer);
-    spawnTimer = setInterval(loop, currentSpawnInterval);
-  };
 
-  spawnTimer = setInterval(loop, currentSpawnInterval);
+    maybeStartBossPhase();
+
+    if (MIX_ON && !waveOn) {
+      const elapsed = TIME - tLeft;
+      if (elapsed > 0 && elapsed % WAVE_CFG.gapSec === 0) startWave();
+    }
+
+    const now2 = performance.now();
+    const bi2 = Math.max(0, Math.floor((now2 - beatT0Ms) / beatMs));
+    spawnPatternOnBeat(bi2);
+
+    if (waveOn) {
+      updateWaveFx();
+      if (performance.now() >= waveUntilMs) stopWave();
+    }
+
+    scheduleNextSpawn();
+  }, delay);
+}
+function spawnLoopStart() {
+  clearSpawnScheduler();
+  beatT0Ms = performance.now();
+  beatMs = computeBeatMs();
+  scheduleNextSpawn();
 }
 
 // ---------- Hit logic ----------
@@ -1943,6 +2119,23 @@ function onHit(el, via = 'cursor', hit = null) {
 
     goodStreak += 1;
 
+    // 🎵 ON-BEAT BONUS (MIX v10.6)
+    if (MIX_ON && beatT0Ms && beatMs) {
+      const now = performance.now();
+      const off = (now - beatT0Ms) % beatMs;
+      const dist = Math.min(off, beatMs - off);
+
+      if (dist <= ONBEAT_WINDOW_MS) {
+        const beatBonus = 18 + Math.min(22, waveLevel * 6);
+        score += beatBonus;
+
+        const pBeat = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.34);
+        stickerAt(pBeat.x, pBeat.y, `🎵 ON-BEAT +${beatBonus}`, { tone:'boss', big:true, life: 720 });
+
+        emitGameEvent({ type:'onbeat_bonus', bonus: beatBonus, distMs: Math.round(dist) });
+      }
+    }
+
     applyTwistOnGood(groupId);
 
     registerGroupHit(groupId);
@@ -2085,8 +2278,12 @@ function pauseGame(source='ui') {
   showEl('hudPaused', true);
 
   stopTimers();
+
   if (spawnTimer) clearInterval(spawnTimer);
   spawnTimer = null;
+
+  // ✅ v10.6: scheduler ใหม่
+  clearSpawnScheduler();
 
   freezeTargetTimers();
 
@@ -2131,40 +2328,17 @@ function startGame() {
   ensureFxLayer();
   ensureEdgeOverlay();
 
-  // ✅ PATCH v10.6: attach แบบ “active camera”
   attachTargetRootToCamera();
-
-  // ✅ re-attach hooks (กันกล้องสลับตอน enter-vr)
-  refreshRefs();
-  if (scene) {
-    const reattachSoon = () => {
-      attachTargetRootToCamera();
-      setTimeout(attachTargetRootToCamera, 0);
-      setTimeout(attachTargetRootToCamera, 250);
-    };
-    scene.addEventListener('enter-vr', reattachSoon);
-    scene.addEventListener('exit-vr', reattachSoon);
-    scene.addEventListener('camera-set-active', reattachSoon);
-  }
-
-  window.addEventListener('resize', () => {
-    attachTargetRootToCamera();
-    setTimeout(attachTargetRootToCamera, 0);
-  }, { passive:true });
-
-  window.addEventListener('orientationchange', () => {
-    attachTargetRootToCamera();
-    setTimeout(attachTargetRootToCamera, 0);
-    setTimeout(attachTargetRootToCamera, 250);
-  }, { passive:true });
+  window.addEventListener('resize', attachTargetRootToCamera, { passive:true });
+  window.addEventListener('orientationchange', attachTargetRootToCamera, { passive:true });
 
   emitGameEvent({ type:'session_start', sessionStartIso, durationSec: TIME });
   emitCoach(
     MODE === 'research'
       ? 'โหมดวิจัย: เล่นตามธรรมชาติ เก็บอาหารครบหมู่ให้มากที่สุด 📊'
       : (DIFF === 'hard'
-        ? 'HARD! ท้ายเกมมี BOSS PHASE ด้วย 😈'
-        : 'เป้าหมาย: ทำ PERFECT PLATE ให้ได้! พร้อมลุย 🍽️'),
+        ? 'HARD! โหมด MIX เปิดแล้ว 🎵🔥 (ท้ายเกมมี BOSS PHASE)'
+        : 'เป้าหมาย: ทำ PERFECT PLATE ให้ได้! (โหมด MIX: ตีตามจังหวะได้โบนัส) 🎵🍽️'),
     'neutral'
   );
 
@@ -2196,6 +2370,12 @@ function startGame() {
   miniCleared = 0; miniHistory = 0; miniCurrent = null;
   cleanTimer = 0;
 
+  waveOn = false; waveLevel = 0; waveUntilMs = 0;
+
+  beatT0Ms = performance.now();
+  beatMs = computeBeatMs();
+  beatIndex = 0;
+
   nTargetGoodSpawned = 0;
   nTargetJunkSpawned = 0;
   nTargetStarSpawned = 0;
@@ -2215,7 +2395,6 @@ function startGame() {
   emitScore();
   emitQuestUpdate();
 
-  // upsert profile once
   try {
     const p = getHubProfile();
     if (p && (p.studentKey || p.sid)) {
@@ -2263,8 +2442,11 @@ function endGame(reason = 'ended') {
 
   paused = false;
   stopTimers();
+
   if (spawnTimer) clearInterval(spawnTimer);
   spawnTimer = null;
+
+  clearSpawnScheduler();
   clearAllTargets();
 
   if (hero10On && hero10Clean && MODE !== 'research') {
@@ -2294,6 +2476,7 @@ function endGame(reason = 'ended') {
   });
 
   try { logSessionSchema(reason); } catch(e){ console.warn('[PlateVR] logSessionSchema failed', e); }
+
   try { __loggerFlushNow(true); } catch(_) {}
 
   emitCoach('จบเกมแล้ว! ดูสรุปผลได้เลย 🎉', 'happy');
@@ -2302,7 +2485,6 @@ function endGame(reason = 'ended') {
 
 // ---------- Boot helpers ----------
 function ensureTouchLookControls() {
-  refreshRefs();
   if (!cam) return;
   try { cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false; magicWindowTrackingEnabled:true'); } catch (_) {}
   try { cam.setAttribute('wasd-controls-enabled', 'false'); } catch (_) {}
@@ -2339,7 +2521,6 @@ function bindUI() {
   if (btnPlayAgain) btnPlayAgain.addEventListener('click', () => location.reload());
 
   const btnEnterVR = $('btnEnterVR');
-  refreshRefs();
   if (btnEnterVR && scene) {
     btnEnterVR.addEventListener('click', async () => {
       tryResumeAudio();
@@ -2347,10 +2528,6 @@ function bindUI() {
 
       try {
         await scene.enterVR();
-        // ✅ เข้า VR แล้ว reattach
-        attachTargetRootToCamera();
-        setTimeout(attachTargetRootToCamera, 0);
-        setTimeout(attachTargetRootToCamera, 250);
       } catch (e) {
         console.warn('[PlateVR] enterVR failed', e);
         try { emitCoach('เข้า VR ไม่สำเร็จ ลองแตะหน้าจออีกครั้ง แล้วกด ENTER VR ใหม่ 🥽', 'sad'); } catch(_) {}
@@ -2370,7 +2547,6 @@ function bindUI() {
 
 // ✅ Manual Raycast fallback — คลิกได้แน่ + กันซ้อน
 function bindPointerFallback() {
-  refreshRefs();
   if (!scene) return;
   if (window.__PLATE_POINTER_BOUND__) return;
   window.__PLATE_POINTER_BOUND__ = true;
@@ -2414,7 +2590,6 @@ function bindPointerFallback() {
 
     raycaster.setFromCamera(mouse, scene.camera);
 
-    refreshRefs();
     const root3D = targetRoot && targetRoot.object3D;
     if (!root3D) return;
 
@@ -2444,18 +2619,11 @@ export function bootPlateDOM() {
   if (window.__PLATE_DOM_BOOTED__) return;
   window.__PLATE_DOM_BOOTED__ = true;
 
-  refreshRefs();
-
   if (!targetRoot) {
     console.error('[PlateVR] #targetRoot not found. Check plate-vr.html');
     try { emitCoach('หา targetRoot ไม่เจอ! ตรวจ ID ใน plate-vr.html ก่อนนะ ⚠️', 'sad'); } catch (_) {}
     return;
   }
-
-  try{
-    targetRoot.setAttribute('position', `0 0 -${TARGET_Z}`);
-    targetRoot.setAttribute('rotation', '0 0 0');
-  }catch(_){}
 
   __loggerInit({ endpoint: LOGGER_ENDPOINT, debug: __HHA_LOGGER.debug });
 
@@ -2465,32 +2633,18 @@ export function bootPlateDOM() {
 
   setText('hudMode', (MODE === 'research') ? 'Research' : 'Play');
   setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
-  setText('hudTime', tLeft);
+
+  // ✅ สำคัญ: attach ตั้งแต่ก่อนเริ่มเกม
+  const bindAttach = () => attachTargetRootToCamera();
+  if (scene && scene.hasLoaded) bindAttach();
+  else if (scene) scene.addEventListener('loaded', bindAttach, { once:true });
+  else setTimeout(bindAttach, 80);
+
   hudUpdateAll();
 
-  // ✅ PATCH v10.6: attach + reattach hooks ตั้งแต่ boot
-  const afterSceneReady = () => {
-    refreshRefs();
-    attachTargetRootToCamera();
-    setTimeout(attachTargetRootToCamera, 0);
-    setTimeout(attachTargetRootToCamera, 250);
-    bindPointerFallback();
-  };
-
-  if (scene && scene.hasLoaded) afterSceneReady();
-  else if (scene) scene.addEventListener('loaded', afterSceneReady, { once: true });
-
-  // reattach on camera switching
-  if (scene) {
-    const reattachSoon = () => {
-      attachTargetRootToCamera();
-      setTimeout(attachTargetRootToCamera, 0);
-      setTimeout(attachTargetRootToCamera, 250);
-    };
-    scene.addEventListener('enter-vr', reattachSoon);
-    scene.addEventListener('exit-vr', reattachSoon);
-    scene.addEventListener('camera-set-active', reattachSoon);
-  }
+  const bindAfterLoaded = () => bindPointerFallback();
+  if (scene && scene.hasLoaded) bindAfterLoaded();
+  else if (scene) scene.addEventListener('loaded', bindAfterLoaded, { once: true });
 
   window.addEventListener('pointerdown', tryResumeAudio, { passive: true });
 
