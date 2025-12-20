@@ -1,10 +1,10 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION v10.3 (ES Module)
+// Balanced Plate VR — PRODUCTION v10.4 (ES Module)
 // ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้
 // ✅ FX “เด้งตรงเป้า”: คำตัดสิน + คะแนนเด้งตรงตำแหน่งเป้า + shards หนัก + ดาว/คอนเฟตติทุก hit
 // ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ง
 // ✅ 1–8 Challenge Pack (Goal + Mini + Twist + Boss Phase + Hero10)
-// ✅ PATCH: เป้าเลื่อนตามจอ + clamp safe zone + ไม่ทับ HUD บน/ล่าง/ซ้าย/ขวา
+// ✅ PATCH: เป้าเลื่อนตามจอ + clamp safe zone + ไม่ทับ HUD (เช็คด้วย projection จริงบนจอ)
 // ✅ PRODUCTION: Pause/Resume + กัน “คลิกซ้อน/กดซ้ำ” + freeze target timers ตอน pause
 // ✅ iOS 200%: ขอ Motion/Orientation permission จาก gesture อัตโนมัติ + รองรับ Shinecon
 // ✅ Events: hha:time / hha:score / quest:update / hha:event / hha:coach / hha:judge / hha:end
@@ -134,21 +134,24 @@ const SAFE = {
   padNY: 0.08,
   hudPadPx: 16
 };
+
+const TARGET_Z = 1.35; // ✅ ต้องตรงกับตำแหน่ง targetRoot หน้าเลนส์
+
 function clamp01(v){ return Math.max(0, Math.min(1, v)); }
 function getNoFlyRatios(){ return { topR: 0.18, bottomR: 0.20 }; }
 
+// ✅ เก็บเฉพาะ “การ์ด/ปุ่มจริง” ไม่เอา container แถบ HUD (กันคำนวณเพี้ยน)
 function getHudExclusionRects() {
   const W = Math.max(1, window.innerWidth || 1);
   const H = Math.max(1, window.innerHeight || 1);
 
   const sels = [
-    '.hud-top', '.hud-bottom',
-    '.hud-left', '.hud-right',
-    '.quest-panel', '.mini-panel',
-    '#hud', '#hudTop', '#hudBottom',
-    '#hudLeft', '#hudRight',
+    '#hudTop .card',
+    '#hudBottom .card',
+    '#hudLeft .card',
+    '#hudRight .btn',
     '#questPanel', '#miniPanel',
-    '#resultBackdrop', '#resultCard'
+    '#resultCard'
   ].join(',');
 
   const els = Array.from(document.querySelectorAll(sels));
@@ -181,45 +184,9 @@ function attachTargetRootToCamera() {
   if (!cam || !targetRoot) return;
   try{
     if (targetRoot.parentElement !== cam) cam.appendChild(targetRoot);
-    targetRoot.setAttribute('position', '0 0 -1.35');
+    targetRoot.setAttribute('position', `0 0 -${TARGET_Z}`);
     targetRoot.setAttribute('rotation', '0 0 0');
   }catch(_){}
-}
-
-// ✅ สุ่มตำแหน่งแบบปลอดภัย + ไม่ทับ HUD
-function pickSafeXY() {
-  const nf = getNoFlyRatios();
-  const hudRects = getHudExclusionRects();
-
-  let minNX = SAFE.padNX;
-  let maxNX = 1 - SAFE.padNX;
-
-  let minNY = Math.max(nf.topR, SAFE.padNY);
-  let maxNY = 1 - Math.max(nf.bottomR, SAFE.padNY);
-
-  if (maxNX - minNX < 0.15) { minNX = 0.15; maxNX = 0.85; }
-  if (maxNY - minNY < 0.15) { minNY = 0.20; maxNY = 0.80; }
-
-  const MAX_TRY = 40;
-  for (let i = 0; i < MAX_TRY; i++) {
-    const nx = rnd(minNX, maxNX);
-    const ny = rnd(minNY, maxNY);
-    if (inAnyRect(nx, ny, hudRects)) continue;
-
-    let x = (nx - 0.5) * 2 * SAFE.rx;
-    let y = (0.5 - ny) * 2 * SAFE.ry;
-
-    if (haz.blackhole) { x *= 0.40; y *= 0.40; }
-    if (haz.wind) { x *= 1.08; y *= 1.08; }
-
-    x = clamp(x, -SAFE.rx, SAFE.rx);
-    y = clamp(y, -SAFE.ry, SAFE.ry);
-
-    return { x, y };
-  }
-
-  const fallbackNY = (minNY + maxNY) * 0.5;
-  return { x: 0, y: clamp((0.5 - fallbackNY) * 2 * SAFE.ry, -SAFE.ry, SAFE.ry) };
 }
 
 // ---------- Session ----------
@@ -363,7 +330,6 @@ async function ensureMotionPermission(force = false) {
   __motionAsked = true;
   let ok = true;
 
-  // iOS 13+ ต้อง requestPermission() จาก gesture เท่านั้น
   try {
     if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function') {
       const res = await window.DeviceOrientationEvent.requestPermission();
@@ -371,7 +337,6 @@ async function ensureMotionPermission(force = false) {
     }
   } catch (_) { ok = false; }
 
-  // บางเครื่องจะต้องขอ DeviceMotion ด้วย
   try {
     if (window.DeviceMotionEvent && typeof window.DeviceMotionEvent.requestPermission === 'function') {
       const res = await window.DeviceMotionEvent.requestPermission();
@@ -417,17 +382,17 @@ function screenShake() {
 }
 
 // =======================
-// HUD-safe FX nudge (แก้ “คำตัดสิน/คะแนนโดน HUD บัง”)
-// (ยังคงไว้ใช้กับสติ๊กเกอร์กลางจออื่น ๆ)
+// HUD-safe FX nudge
 // =======================
 function nudgeFxAwayFromHud(px, py) {
   const W = Math.max(1, window.innerWidth || 1);
   const H = Math.max(1, window.innerHeight || 1);
   const pad = 14;
 
+  // ✅ จับเฉพาะกล่องจริง
   const sels = [
-    '#hudTop', '#hudLeft', '#hudRight', '#hudBottom',
-    '.hud-top', '.hud-left', '.hud-right', '.hud-bottom',
+    '#hudTop .card', '#hudBottom .card', '#hudLeft .card',
+    '#hudRight .btn',
     '#questPanel', '#miniPanel',
     '#resultCard'
   ].join(',');
@@ -468,7 +433,7 @@ function nudgeFxAwayFromHud(px, py) {
   return { x, y };
 }
 
-// ---------- Sticker FX (เดิม - ใช้กับกลางจอ/โบนัส) ----------
+// ---------- Sticker FX ----------
 function stickerAt(px, py, text, opts = {}) {
   const layer = ensureFxLayer();
   const el = document.createElement('div');
@@ -558,6 +523,7 @@ function starConfetti(px, py, n = 18) {
 }
 
 function getSceneCamera() { return scene && scene.camera ? scene.camera : null; }
+
 function screenPxFromEntity(el) {
   try{
     const cam3 = getSceneCamera();
@@ -572,7 +538,7 @@ function screenPxFromEntity(el) {
   }catch(_){ return null; }
 }
 
-// ✅ ใหม่: world point -> screen px (ใช้กับ raycast intersection เพื่อให้เด้ง "ตรงเป้า" โคตรแม่น)
+// world point -> screen px (จาก raycast intersection)
 function screenPxFromWorldPoint(worldPoint) {
   try{
     const cam3 = getSceneCamera();
@@ -586,13 +552,73 @@ function screenPxFromWorldPoint(worldPoint) {
   }catch(_){ return null; }
 }
 
+// ✅ camera-local (x,y,z) -> screen px (ใช้เช็คไม่ทับ HUD แบบชัวร์)
+function screenPxFromCameraLocal(x, y, z) {
+  try {
+    const cam3 = getSceneCamera();
+    if (!cam3) return null;
+
+    const v = new THREE.Vector3(x, y, z);
+    v.applyMatrix4(cam3.matrixWorld);
+    v.project(cam3);
+
+    if (v.z > 1) return null;
+
+    const sx = (v.x + 1) / 2;
+    const sy = (1 - (v.y + 1) / 2);
+    return { x: sx * window.innerWidth, y: sy * window.innerHeight };
+  } catch (_) { return null; }
+}
+
+// ✅ สุ่มตำแหน่งแบบปลอดภัย + project เช็ค HUD จริงบนจอ
+function pickSafeXY() {
+  const nf = getNoFlyRatios();
+  const hudRects = getHudExclusionRects();
+
+  const W = Math.max(1, window.innerWidth || 1);
+  const H = Math.max(1, window.innerHeight || 1);
+
+  const padX = SAFE.rx * (SAFE.padNX * 2);
+  const padY = SAFE.ry * (SAFE.padNY * 2);
+
+  const minX = -SAFE.rx + padX;
+  const maxX =  SAFE.rx - padX;
+  const minY = -SAFE.ry + padY;
+  const maxY =  SAFE.ry - padY;
+
+  const MAX_TRY = 70;
+
+  for (let i = 0; i < MAX_TRY; i++) {
+    let x = rnd(minX, maxX);
+    let y = rnd(minY, maxY);
+
+    if (haz.blackhole) { x *= 0.40; y *= 0.40; }
+    if (haz.wind)      { x *= 1.08; y *= 1.08; }
+
+    x = clamp(x, -SAFE.rx, SAFE.rx);
+    y = clamp(y, -SAFE.ry, SAFE.ry);
+
+    const p = screenPxFromCameraLocal(x, y, -TARGET_Z);
+    if (!p) continue;
+
+    const nx = clamp01(p.x / W);
+    const ny = clamp01(p.y / H);
+
+    if (ny < nf.topR) continue;
+    if (ny > (1 - nf.bottomR)) continue;
+
+    if (inAnyRect(nx, ny, hudRects)) continue;
+
+    return { x, y };
+  }
+
+  return { x: 0, y: 0 };
+}
+
 // ✅ FX: คะแนน+คำตัดสินเด้ง "ตรงเป้า" + แตกกระจายหนัก + ดาว/คอนเฟตติทุก hit
 function fxOnHit(el, kind, judgeText, pts, hit = null) {
-  // 1) ใช้จุดชน (raycast intersection) ก่อน → แม่นสุด
   let p0 = null;
   if (hit && hit.point) p0 = screenPxFromWorldPoint(hit.point);
-
-  // 2) fallback: ใช้ world pos ของ entity
   if (!p0) p0 = screenPxFromEntity(el);
   if (!p0) return;
 
@@ -609,7 +635,6 @@ function fxOnHit(el, kind, judgeText, pts, hit = null) {
     (k === 'haz')   ? 'RISK' :
     (judge.includes('PERFECT') ? 'GOOD' : 'GOOD');
 
-  // ✅ แตกกระจายหนัก + ดาว/คอนเฟตติทุก hit
   try {
     Particles.burstAt(x, y, {
       label,
@@ -621,12 +646,10 @@ function fxOnHit(el, kind, judgeText, pts, hit = null) {
     });
   } catch(_){}
 
-  // ✅ คะแนนเด้งตรงเป้า
   if (typeof pts === 'number') {
     try { Particles.scorePop(x, y - 4, pts, '', { plain:true }); } catch(_){}
   }
 
-  // ✅ คำตัดสินเด้งตรงเป้า (เหนือขึ้นไปนิด)
   if (judge) {
     const prefix =
       (k === 'junk')  ? '[JUNK] ' :
@@ -635,12 +658,6 @@ function fxOnHit(el, kind, judgeText, pts, hit = null) {
       (k === 'haz')   ? '[FAKE] ' :
       '[GOOD] ';
     try { Particles.scorePop(x, y - 30, '', `${prefix}${judge}`, { plain:true }); } catch(_){}
-  }
-
-  // ✅ ถ้า PERFECT ให้มีติ๊ง (optional)
-  if (judge.includes('PERFECT')) {
-    // เสียงหลักของคุณอยู่ที่ logic อื่นแล้ว แต่เพิ่มได้
-    // sfxDing();
   }
 }
 
@@ -800,11 +817,10 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
     } catch (_) {}
   });
 
-  // ✅ SAFE spawn: ไม่ทับ HUD + clamp safe zone + ตามจอ
+  // ✅ SAFE spawn: project เช็ค HUD จริง
   const pos = pickSafeXY();
   el.setAttribute('position', `${pos.x} ${pos.y} 0`);
 
-  // Click from cursor / fuse
   el.addEventListener('click', () => onHit(el, 'cursor', null));
   return el;
 }
@@ -907,7 +923,6 @@ function checkPerfectPlate() {
     emitCoach(`PERFECT PLATE! +${bonus}${chainBonus?` (+${chainBonus} CHAIN!)`:''} 🌟`, 'happy');
     emitGameEvent({ type:'perfect_plate', perfectPlates, perfectStreak, perfectChain, bonus, chainBonus });
 
-    // ✅ ให้ FX ชัด ๆ ตอน PERFECT (กลางจอ)
     try {
       const p = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.42);
       Particles.burstAt(p.x, p.y, { label:'PERFECT', good:true, heavy:true, stars:true, confetti:true, count: 52 });
@@ -1313,7 +1328,6 @@ function applyTwistOnGood(groupId) {
   lastGoodGroup = groupId;
 }
 
-// ✅ onHit รับ hit intersection (จาก raycast) เพื่อให้ FX เด้ง "ตรงเป้า" แบบแม่นสุด
 function onHit(el, via = 'cursor', hit = null) {
   if (!el || ended || paused) return;
 
@@ -1765,7 +1779,7 @@ function bindFirstGesture200() {
 
     if (!__motionGranted) {
       try { emitCoach('iPhone ต้องกด Allow Motion/Orientation ก่อนนะ 📱 (แตะอีกครั้งได้เลย)', 'sad'); } catch(_) {}
-      return; // ยังไม่ถอด listener เพื่อให้ผู้ใช้แตะขอใหม่ได้
+      return;
     }
 
     window.removeEventListener('pointerdown', once, true);
@@ -1810,7 +1824,7 @@ function bindUI() {
   }
 }
 
-// ✅ Manual Raycast fallback — คลิกได้แน่ + กันซ้อนด้วย recentHits
+// ✅ Manual Raycast fallback — คลิกได้แน่ + กันซ้อน
 function bindPointerFallback() {
   if (!scene) return;
   if (window.__PLATE_POINTER_BOUND__) return;
@@ -1871,7 +1885,6 @@ function bindPointerFallback() {
     }
     if (!cur || !cur.classList || !cur.classList.contains('plateTarget')) return;
 
-    // ✅ ส่ง intersects[0] เข้าไป → fxOnHit ใช้ point ได้แม่นสุด
     onHit(cur, 'raycast', intersects[0]);
   }
 
@@ -1893,7 +1906,7 @@ export function bootPlateDOM() {
 
   ensureTouchLookControls();
   bindUI();
-  bindFirstGesture200(); // ✅ แตะที่ไหนก็ขอ permission + resume audio
+  bindFirstGesture200();
 
   setText('hudMode', (MODE === 'research') ? 'Research' : 'Play');
   setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
@@ -1904,7 +1917,6 @@ export function bootPlateDOM() {
   if (scene && scene.hasLoaded) bindAfterLoaded();
   else if (scene) scene.addEventListener('loaded', bindAfterLoaded, { once: true });
 
-  // NOTE: ไม่ใช้ once แล้ว เพื่อ iOS ที่ปฏิเสธรอบแรกยังแตะขอใหม่ได้
   window.addEventListener('pointerdown', tryResumeAudio, { passive: true });
 
   if (scene && scene.hasLoaded) startGame();
