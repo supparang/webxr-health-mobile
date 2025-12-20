@@ -1,18 +1,13 @@
 // === /herohealth/hydration-vr/hydration.quest.js ===
 // Quest Deck สำหรับ Hydration Quest VR
-// ใช้ร่วมกับ: hydration.safe.js (GOAL_TARGET = 2, MINI_TARGET = 3)
+// ใช้ร่วมกับ: hydration.safe.js
 //
-// ✅ FIX 2025-12-20 (เดิม):
+// ✅ FIX 2025-12-20 + UPGRADE 2025-12-20(B):
 // - เพิ่ม setZone(zone)
 // - second(zone) นับ greenTick จากโซนจริง
 // - รองรับโซน: GREEN / LOW / HIGH (case-safe)
+// - ✅ NEW: Mini chain ต่อเนื่อง (nextMini) + stats.minisDone
 // - คง API เดิมทั้งหมด + getGoalProgressInfo/getMiniProgressInfo
-//
-// ✅ PATCH 2025-12-20 (เพิ่ม):
-// - nextMini(): ทำ Mini ต่อเนื่องไม่จำกัด (mini chain)
-// - addRandomMini(): helper สำหรับสุ่ม mini ใหม่
-// - getMiniProgressInfo รองรับ id แบบมี suffix เช่น mini-no-junk-4
-// - mini counters: minisDone, miniSerial (สำหรับ UI/สรุปผล)
 
 'use strict';
 
@@ -37,16 +32,15 @@ function normZone (z) {
   return 'GREEN';
 }
 
+function pickOne(arr, fallback=null){
+  if (!Array.isArray(arr) || !arr.length) return fallback;
+  return arr[(Math.random()*arr.length)|0];
+}
+
 function makeView (all) {
   const remain = all.filter(item => !item._done && !item.done);
   remain._all = all;
   return remain;
-}
-
-function pickOne (arr, fallback = null) {
-  if (!Array.isArray(arr) || !arr.length) return fallback;
-  const i = Math.floor(Math.random() * arr.length);
-  return arr[i];
 }
 
 export function createHydrationQuest (diffKey = 'normal') {
@@ -59,15 +53,7 @@ export function createHydrationQuest (diffKey = 'normal') {
 
     miniComboBest: (diff === 'easy') ? 5 : (diff === 'hard' ? 10 : 7),
     miniGoodHits:  (diff === 'easy') ? 20 : (diff === 'hard' ? 30 : 24),
-    miniNoJunkSec: (diff === 'easy') ? 10 : (diff === 'hard' ? 18 : 14),
-
-    // ✅ chain tuning (ค่อย ๆ โหดขึ้นเมื่อผ่าน mini มากขึ้น)
-    chainStepCombo:   (diff === 'hard') ? 2 : 2,
-    chainStepGood:    (diff === 'hard') ? 6 : 5,
-    chainStepNoJunk:  (diff === 'hard') ? 3 : 2,
-    chainCapCombo:    (diff === 'hard') ? 20 : 16,
-    chainCapGood:     (diff === 'hard') ? 80 : 65,
-    chainCapNoJunk:   (diff === 'hard') ? 40 : 32
+    miniNoJunkSec: (diff === 'easy') ? 10 : (diff === 'hard' ? 18 : 14)
   };
 
   // ---------- Stats ----------
@@ -84,12 +70,12 @@ export function createHydrationQuest (diffKey = 'normal') {
     comboBest: 0,
     score: 0,
 
-    // ✅ mini chain counters
+    // ✅ NEW: mini chain counter
     minisDone: 0,
-    miniSerial: 0
+    minisSpawned: 0
   };
 
-  // ---------- Goals (fixed 2) ----------
+  // ---------- Goals ----------
   const goals = [
     {
       id: 'goal-green-time',
@@ -109,67 +95,53 @@ export function createHydrationQuest (diffKey = 'normal') {
     }
   ];
 
-  // ---------- Mini templates ----------
-  function makeMiniCombo(target, serial){
-    return {
-      id: `mini-combo-${serial}`,
-      kind: 'mini-combo',
+  // ---------- Minis (base set) ----------
+  const minis = [
+    {
+      id: 'mini-combo',
       label: 'สายคอมโบ',
-      text: 'ทำคอมโบสูงสุดให้ถึงตามเกณฑ์',
-      target,
+      text: 'ทำคอมโบสูงสุดให้ถึงตามเกณฑ์ของระดับนี้',
+      target: cfg.miniComboBest,
       prog: 0,
       _done: false
-    };
-  }
-  function makeMiniGoodHits(target, serial){
-    return {
-      id: `mini-good-hits-${serial}`,
-      kind: 'mini-good-hits',
+    },
+    {
+      id: 'mini-good-hits',
       label: 'เก็บน้ำดีรัว ๆ',
       text: 'เก็บน้ำดี (💧 / 🥛 / 🍉 / Power-ups) ให้ครบตามจำนวน',
-      target,
+      target: cfg.miniGoodHits,
       prog: 0,
       _done: false
-    };
-  }
-  function makeMiniNoJunk(target, serial){
-    return {
-      id: `mini-no-junk-${serial}`,
-      kind: 'mini-no-junk',
+    },
+    {
+      id: 'mini-no-junk',
       label: 'เลี่ยงน้ำหวาน',
       text: 'ไม่โดนน้ำหวานต่อเนื่องตามเวลาที่กำหนด',
-      target,
+      target: cfg.miniNoJunkSec,
       prog: 0,
       _done: false
-    };
-  }
+    }
+  ];
 
-  function nextMiniSerial(){
-    stats.miniSerial = (stats.miniSerial|0) + 1;
-    return stats.miniSerial|0;
-  }
-
-  function scaleTarget(base, step, cap, doneCount, harder){
-    // doneCount = จำนวน mini ที่ผ่านไปแล้ว
-    // harder=true => เพิ่มความโหดตาม doneCount, false => ใช้ base
-    const t = Number(base)||0;
-    if (!harder) return t;
-    const scaled = t + (Math.max(0, doneCount) * (Number(step)||0));
-    return clamp(scaled, 1, Number(cap)||9999);
-  }
-
-  // ---------- Minis (เริ่มต้น 3 อันเหมือนเดิม) ----------
-  const minis = [];
-
-  function seedMinis(){
-    minis.length = 0;
-    stats.miniSerial = 0;
-
-    minis.push(makeMiniCombo(cfg.miniComboBest, nextMiniSerial()));
-    minis.push(makeMiniGoodHits(cfg.miniGoodHits, nextMiniSerial()));
-    minis.push(makeMiniNoJunk(cfg.miniNoJunkSec, nextMiniSerial()));
-  }
-  seedMinis();
+  // ---------- Dynamic mini templates (Arcade chain) ----------
+  // จะสุ่ม 1 อันมาต่อท้าย โดย target จะ “โหดขึ้น” ตามจำนวน mini ที่ผ่าน
+  const MINI_TEMPLATES = [
+    {
+      key: 'combo',
+      makeTarget(base, inc){ return clamp(base + inc, 3, 30); },
+      makeText(t){ return `ทำคอมโบสูงสุดให้ถึง ${t} (ต่อเนื่อง)`; }
+    },
+    {
+      key: 'goodhits',
+      makeTarget(base, inc){ return clamp(base + inc*2, 8, 80); },
+      makeText(t){ return `เก็บน้ำดีให้ครบ ${t} ครั้ง`; }
+    },
+    {
+      key: 'nojunk',
+      makeTarget(base, inc){ return clamp(base + inc, 6, 40); },
+      makeText(t){ return `ไม่โดนน้ำหวานต่อเนื่อง ${t} วินาที`; }
+    }
+  ];
 
   function badZoneSec () {
     // ✅ เวลาที่ไม่ได้อยู่ GREEN (รวม LOW/HIGH)
@@ -180,12 +152,14 @@ export function createHydrationQuest (diffKey = 'normal') {
     goals[0].prog = clamp(stats.greenTick, 0, goals[0].target);
     goals[1].prog = badZoneSec(); // ค่าเสีย (ต้อง <= target)
 
-    // minis: อัปเดตตาม kind
     minis.forEach(m=>{
-      if (m._done) return;
-      if (m.kind === 'mini-combo')      m.prog = clamp(stats.comboBest, 0, m.target);
-      else if (m.kind === 'mini-good-hits') m.prog = clamp(stats.goodHits, 0, m.target);
-      else if (m.kind === 'mini-no-junk')   m.prog = clamp(stats.secSinceJunk, 0, m.target);
+      if (m.id.startsWith('mini-combo') || m.id.includes('combo')) {
+        m.prog = clamp(stats.comboBest, 0, m.target);
+      } else if (m.id.startsWith('mini-good-hits') || m.id.includes('goodhits')) {
+        m.prog = clamp(stats.goodHits, 0, m.target);
+      } else if (m.id.startsWith('mini-no-junk') || m.id.includes('nojunk')) {
+        m.prog = clamp(stats.secSinceJunk, 0, m.target);
+      }
     });
   }
 
@@ -212,68 +186,22 @@ export function createHydrationQuest (diffKey = 'normal') {
     minis.forEach(m=>{
       if (m._done) return;
 
-      if (m.kind === 'mini-combo') {
+      if (m.id.startsWith('mini-combo') || m.id.includes('combo')) {
         if (stats.comboBest >= m.target) m._done = true;
-      } else if (m.kind === 'mini-good-hits') {
+      } else if (m.id.startsWith('mini-good-hits') || m.id.includes('goodhits')) {
         if (stats.goodHits >= m.target) m._done = true;
-      } else if (m.kind === 'mini-no-junk') {
+      } else if (m.id.startsWith('mini-no-junk') || m.id.includes('nojunk')) {
         if (stats.secSinceJunk >= m.target) m._done = true;
+      }
+
+      if (m._done) {
+        // ✅ NEW: นับจำนวน mini ที่ผ่านทั้งหมด (ต่อเนื่อง)
+        stats.minisDone = (stats.minisDone|0) + 1;
       }
     });
   }
 
   function evalAll () { evalGoals(); evalMinis(); }
-
-  // ------------------------------------------------------
-  // ✅ Mini chain: สุ่ม mini ใหม่เติมเข้าคิว
-  // ------------------------------------------------------
-  const MINI_KINDS = ['mini-combo','mini-good-hits','mini-no-junk'];
-
-  function addRandomMini(opts = {}){
-    const harder = !!opts.harder;
-    const doneCount = stats.minisDone|0;
-
-    // กันซ้ำชนิดเดิมติด ๆ (ให้รู้สึก “เปลี่ยนจังหวะ”)
-    const remain = makeView(minis);
-    const lastKind = (remain.length === 1) ? remain[0].kind : null;
-
-    let kinds = MINI_KINDS.slice();
-    if (lastKind) kinds = kinds.filter(k=>k !== lastKind);
-    const kind = pickOne(kinds, pickOne(MINI_KINDS, 'mini-no-junk'));
-
-    const serial = nextMiniSerial();
-
-    if (kind === 'mini-combo'){
-      const target = scaleTarget(cfg.miniComboBest, cfg.chainStepCombo, cfg.chainCapCombo, doneCount, harder);
-      minis.push(makeMiniCombo(target, serial));
-    } else if (kind === 'mini-good-hits'){
-      const target = scaleTarget(cfg.miniGoodHits, cfg.chainStepGood, cfg.chainCapGood, doneCount, harder);
-      minis.push(makeMiniGoodHits(target, serial));
-    } else {
-      const target = scaleTarget(cfg.miniNoJunkSec, cfg.chainStepNoJunk, cfg.chainCapNoJunk, doneCount, harder);
-      minis.push(makeMiniNoJunk(target, serial));
-    }
-  }
-
-  function nextMini(opts = {}){
-    // เมื่อมี mini ที่เพิ่ง “ผ่าน” ให้เพิ่มตัวนับ และเติม mini ใหม่ต่อ
-    // หมายเหตุ: safe.js ควรเรียก nextMini() เฉพาะ Play Mode
-    const harder = (opts && typeof opts.harder === 'boolean') ? opts.harder : true;
-
-    // นับจำนวน mini ที่ done เพิ่ม (ครั้งเดียวต่อการเรียก)
-    stats.minisDone = (stats.minisDone|0) + 1;
-
-    // เติม mini ใหม่เข้าคิว 1 อัน
-    addRandomMini({ harder });
-
-    // sync โปรเกรสอีกรอบเพื่อให้ UI อ่านได้ทันที
-    syncProgFields();
-  }
-
-  function nextGoal () {
-    // Goals ของ Hydration ตั้งใจให้เป็น fixed 2 อัน
-    // (เว้นไว้ไม่ให้พัง API)
-  }
 
   // ---------- API ----------
   function setZone (zone) {
@@ -318,6 +246,59 @@ export function createHydrationQuest (diffKey = 'normal') {
     evalAll();
   }
 
+  // ------------------------------------------------------
+  // ✅ NEW: nextMini() -> สร้าง mini ใหม่มาต่อเรื่อย ๆ
+  // ------------------------------------------------------
+  function nextMini (opts = {}) {
+    // ทำให้ mini โผล่มาต่อเฉพาะเมื่อมี mini ผ่านแล้ว หรือ caller อยาก force
+    const harder = !!opts.harder;
+
+    const cleared = (stats.minisDone|0);
+    const spawned = (stats.minisSpawned|0);
+
+    // เพิ่มความยากแบบนุ่ม ๆ: easy เพิ่มช้ากว่า hard
+    const baseInc = harder ? Math.max(1, Math.floor(cleared * 0.45)) : Math.max(0, Math.floor(cleared * 0.25));
+    const diffInc = (diff === 'easy') ? Math.floor(baseInc * 0.75) : (diff === 'hard' ? Math.ceil(baseInc * 1.2) : baseInc);
+
+    // สุ่มประเภท mini
+    const t = pickOne(MINI_TEMPLATES, MINI_TEMPLATES[0]);
+    let base = 0;
+
+    if (t.key === 'combo') base = cfg.miniComboBest;
+    if (t.key === 'goodhits') base = cfg.miniGoodHits;
+    if (t.key === 'nojunk') base = cfg.miniNoJunkSec;
+
+    const target = t.makeTarget(base, diffInc);
+
+    const id = `mini-${t.key}-${Date.now()}-${spawned}`;
+    const labelMap = {
+      combo: 'สายคอมโบ (ต่อเนื่อง)',
+      goodhits: 'เก็บน้ำดีต่อเนื่อง',
+      nojunk: 'เลี่ยงน้ำหวาน (ต่อเนื่อง)'
+    };
+
+    const m = {
+      id,
+      label: labelMap[t.key] || 'Mini ต่อเนื่อง',
+      text: t.makeText(target),
+      target,
+      prog: 0,
+      _done: false,
+
+      // internal tag
+      _kind: t.key
+    };
+
+    minis.push(m);
+    stats.minisSpawned = spawned + 1;
+
+    // sync prog ทันที
+    syncProgFields();
+    return m;
+  }
+
+  function nextGoal () {}
+
   function getProgress (kind) {
     if (kind === 'goals') return makeView(goals);
     if (kind === 'mini')  return makeView(minis);
@@ -336,35 +317,37 @@ export function createHydrationQuest (diffKey = 'normal') {
     return { now: 0, target: 0, text: '' };
   }
 
-  // ✅ รองรับ id ที่มี suffix เช่น mini-no-junk-4
   function getMiniProgressInfo(id) {
     syncProgFields();
-    const s = String(id || '');
+    const m = minis.find(x => x.id === id) || null;
 
-    if (s.startsWith('mini-combo')) {
-      // หา mini ตัวจริงจาก id (ถ้ามี) ไม่งั้น fallback จาก stats
-      const m = minis.find(x => x.id === s) || minis.find(x => x.kind === 'mini-combo' && !x._done);
-      const target = m ? m.target : cfg.miniComboBest;
-      return { now: stats.comboBest, target, text: `${stats.comboBest}/${target} คอมโบสูงสุด` };
+    // base ids
+    if (id === 'mini-combo') {
+      return { now: stats.comboBest, target: cfg.miniComboBest, text: `${stats.comboBest}/${cfg.miniComboBest} คอมโบสูงสุด` };
     }
-    if (s.startsWith('mini-good-hits')) {
-      const m = minis.find(x => x.id === s) || minis.find(x => x.kind === 'mini-good-hits' && !x._done);
-      const target = m ? m.target : cfg.miniGoodHits;
-      return { now: stats.goodHits, target, text: `${stats.goodHits}/${target} น้ำดีที่เก็บ` };
+    if (id === 'mini-good-hits') {
+      return { now: stats.goodHits, target: cfg.miniGoodHits, text: `${stats.goodHits}/${cfg.miniGoodHits} น้ำดีที่เก็บ` };
     }
-    if (s.startsWith('mini-no-junk')) {
-      const m = minis.find(x => x.id === s) || minis.find(x => x.kind === 'mini-no-junk' && !x._done);
-      const target = m ? m.target : cfg.miniNoJunkSec;
-      return { now: stats.secSinceJunk, target, text: `${stats.secSinceJunk}/${target} วินาทีไม่โดนน้ำหวาน` };
+    if (id === 'mini-no-junk') {
+      return { now: stats.secSinceJunk, target: cfg.miniNoJunkSec, text: `${stats.secSinceJunk}/${cfg.miniNoJunkSec} วินาทีไม่โดนน้ำหวาน` };
     }
+
+    // dynamic minis (chain)
+    if (m && (m.id.includes('combo') || m._kind === 'combo')) {
+      return { now: stats.comboBest, target: m.target, text: `${stats.comboBest}/${m.target} คอมโบสูงสุด` };
+    }
+    if (m && (m.id.includes('goodhits') || m._kind === 'goodhits')) {
+      return { now: stats.goodHits, target: m.target, text: `${stats.goodHits}/${m.target} น้ำดีที่เก็บ` };
+    }
+    if (m && (m.id.includes('nojunk') || m._kind === 'nojunk')) {
+      return { now: stats.secSinceJunk, target: m.target, text: `${stats.secSinceJunk}/${m.target} วินาทีไม่โดนน้ำหวาน` };
+    }
+
     return { now: 0, target: 0, text: '' };
   }
 
   function getMiniNoJunkProgress() {
-    // เอา target จาก mini-no-junk ที่ active อยู่ (ถ้ามี) เพื่อความแม่น
-    const m = minis.find(x => x.kind === 'mini-no-junk' && !x._done);
-    const target = m ? m.target : cfg.miniNoJunkSec;
-    return { now: stats.secSinceJunk, target };
+    return { now: stats.secSinceJunk, target: cfg.miniNoJunkSec };
   }
 
   // Debug helper
@@ -377,19 +360,15 @@ export function createHydrationQuest (diffKey = 'normal') {
     stats,
     goals,
     minis,
-
-    setZone,        // ✅ NEW (เดิม)
+    setZone,        // ✅ NEW
     updateScore,
     updateCombo,
     onGood,
     onJunk,
     second,
-
     getProgress,
     nextGoal,
-    nextMini,        // ✅ NOW WORKING
-    addRandomMini,   // ✅ helper (ปลอดภัย ไม่ใช้ก็ได้)
-
+    nextMini,       // ✅ NEW REAL IMPLEMENTATION
     getGoalProgressInfo,
     getMiniProgressInfo,
     getMiniNoJunkProgress
