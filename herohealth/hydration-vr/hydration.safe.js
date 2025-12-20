@@ -1,8 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// ✅ FIX: greenTick นับจาก state.zone (case-safe)
-// ✅ FIX: update water header fill/status ให้ชัวร์
-// ✅ FIX: dispatch hha:score/hha:end ให้มี field มาตรฐาน (misses/comboMax)
+// ✅ FIX: Q greenTick นับจาก zone จริง (ส่ง zone เข้า Q ทุกวินาที)
+// ✅ FIX: normalizeZone รองรับ GREEN/LOW/HIGH
+// ✅ FIX: grade lock (SS/SSS ต้องผ่าน GOAL ครบก่อน)
+// ✅ FIX: hha:score/hha:end ส่ง field มาตรฐาน (misses/comboMax)
 
 'use strict';
 
@@ -161,6 +162,7 @@ function megaCelebrate(kind='goal'){
       letter-spacing:.06em;
       user-select:none;
       backdrop-filter:blur(10px);
+      pointer-events:none;
     }
     #hvr-storm-banner.on{ display:block; }
     #hvr-storm-banner .dot{
@@ -244,7 +246,6 @@ export async function boot(opts = {}) {
 
     waterPct: 50,
     zone: 'GREEN',
-    greenTick: 0,
 
     fever: 0,
     feverActive: false,
@@ -275,20 +276,20 @@ export async function boot(opts = {}) {
     }
   }
 
+  // ✅ FIX: โซนของ Hydration ใช้ GREEN/LOW/HIGH
   function normalizeZone(z){
     const Z = String(z || '').toUpperCase();
-    if (Z === 'GREEN' || Z === 'YELLOW' || Z === 'RED') return Z;
+    if (Z === 'GREEN' || Z === 'LOW' || Z === 'HIGH') return Z;
     return 'GREEN';
   }
 
   function updateWaterHud(){
-    // setWaterGauge อาจคืน zone แบบตัวพิมพ์เล็ก/ใหญ่ → normalize
     let out = null;
     try{ out = setWaterGauge(state.waterPct); }catch{}
     const computed = normalizeZone(out?.zone || zoneFrom(state.waterPct));
     state.zone = computed;
 
-    // ✅ อัปเดต header fill/status ให้ชัวร์ (กันกรณี ui-water ไม่แตะ DOM บางจุด)
+    // update header fill/status ให้ชัวร์
     const fillEl = $id('hha-water-fill');
     if (fillEl) fillEl.style.width = clamp(state.waterPct,0,100).toFixed(1) + '%';
 
@@ -299,21 +300,46 @@ export async function boot(opts = {}) {
     if (ztxt) ztxt.textContent = state.zone;
   }
 
+  function getQuestCounts(){
+    const allGoals = Q.goals || [];
+    const allMinis = Q.minis || [];
+    const goalsDone = allGoals.filter(g => g._done || g.done).length;
+    const minisDone = allMinis.filter(m => m._done || m.done).length;
+    return {
+      goalsDone,
+      goalsTotal: (allGoals.length || 2),
+      minisDone,
+      minisTotal: (allMinis.length || 3)
+    };
+  }
+
   function calcProg(){
-    const goalsDone = Number($id('hha-goal-done')?.textContent || 0) || 0;
-    const miniDone  = Number($id('hha-mini-done')?.textContent || 0) || 0;
-    const prog = clamp((state.score / 1200) * 0.7 + (goalsDone/2) * 0.2 + (miniDone/3) * 0.1, 0, 1);
+    // ใช้จาก DOM ได้ แต่คุมด้วย Q count ก็ได้ (เอาให้เสถียร)
+    const qc = getQuestCounts();
+    const prog = clamp(
+      (state.score / 1200) * 0.7 +
+      (qc.goalsDone / qc.goalsTotal) * 0.2 +
+      (qc.minisDone / qc.minisTotal) * 0.1,
+      0, 1
+    );
     return prog;
   }
 
+  // ✅ FIX: grade lock — ถ้า GOAL ยังไม่ครบ ห้ามได้ SS/SSS
   function gradeFromProg(progPct){
-    let grade = 'C';
-    if (progPct >= 95) grade = 'SSS';
-    else if (progPct >= 85) grade = 'SS';
-    else if (progPct >= 70) grade = 'S';
-    else if (progPct >= 50) grade = 'A';
-    else if (progPct >= 30) grade = 'B';
-    return grade;
+    const qc = getQuestCounts();
+    if ((qc.goalsDone|0) < (qc.goalsTotal|0)) {
+      if (progPct >= 70) return 'S';
+      if (progPct >= 50) return 'A';
+      if (progPct >= 30) return 'B';
+      return 'C';
+    }
+    if (progPct >= 95) return 'SSS';
+    if (progPct >= 85) return 'SS';
+    if (progPct >= 70) return 'S';
+    if (progPct >= 50) return 'A';
+    if (progPct >= 30) return 'B';
+    return 'C';
   }
 
   function updateScoreHud(label){
@@ -336,7 +362,6 @@ export async function boot(opts = {}) {
     dispatch('hha:score', {
       score: state.score|0,
 
-      // ✅ มาตรฐานร่วมเกมอื่น
       combo: state.combo|0,
       comboBest: state.comboBest|0,
       comboMax: state.comboBest|0,
@@ -432,7 +457,6 @@ export async function boot(opts = {}) {
     if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : `Goal: ทำภารกิจให้ครบ`;
     if (miniEl) miniEl.textContent = mInfo?.text ? `Mini: ${mInfo.text}` : `Mini: ทำมินิเควส`;
 
-    // ✅ ส่ง quest:update แบบ “รองรับของใหม่” + “รองรับของเดิม”
     const goalTitle = (goalEl?.textContent || 'Goal').replace(/^Goal:\s*/i,'').trim();
     const miniTitle = (miniEl?.textContent || 'Mini').replace(/^Mini:\s*/i,'').trim();
 
@@ -445,7 +469,6 @@ export async function boot(opts = {}) {
       goalText: goalEl ? goalEl.textContent : '',
       miniText: miniEl ? miniEl.textContent : '',
 
-      // Patch A-ish (เพื่อเล่นกับ HUD กลางได้)
       goal: {
         title: goalTitle,
         cur: goalsDone,
@@ -613,13 +636,20 @@ export async function boot(opts = {}) {
     dispatch('hha:time', { sec: state.timeLeft });
 
     state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec, 0, 100);
+
+    // อัปเดต zone ก่อน
     updateWaterHud();
 
-    // ✅ FIX: นับจาก state.zone แบบ case-safe
-    if (String(state.zone).toUpperCase() === 'GREEN') state.greenTick += 1;
+    // ✅ FIX: ส่ง zone เข้า Quest เพื่อให้นับ greenTick จริง
+    try{
+      if (typeof Q.setZone === 'function') Q.setZone(state.zone);
+      // quest รุ่นใหม่รองรับ second(zone)
+      if (typeof Q.second === 'function') {
+        try{ Q.second(state.zone); } catch { Q.second(); }
+      }
+    }catch{}
 
-    Q.second();
-
+    // storm tick
     if (state.stormLeft > 0) {
       state.stormLeft -= 1;
       updateStormUI();
@@ -634,6 +664,7 @@ export async function boot(opts = {}) {
       updateStormUI();
     }
 
+    // fever tick / decay
     if (state.feverActive){
       state.feverLeft -= 1;
       if (state.feverLeft <= 0) feverEnd();
@@ -688,8 +719,15 @@ export async function boot(opts = {}) {
     onExpire
   });
 
+  // init
   updateStormUI();
   updateWaterHud();
+
+  // ✅ init zone into Q ก่อนเริ่มนับ
+  try{
+    if (typeof Q.setZone === 'function') Q.setZone(state.zone);
+  }catch{}
+
   updateQuestHud();
   updateScoreHud();
   feverRender();
@@ -706,21 +744,20 @@ export async function boot(opts = {}) {
     try{ spawner && spawner.stop && spawner.stop(); }catch{}
     try{ ROOT.removeEventListener('hha:stop', onStop); }catch{}
 
-    const goalsDone = Number($id('hha-goal-done')?.textContent || 0) || 0;
-    const goalsTotal = Number($id('hha-goal-total')?.textContent || 2) || 2;
-    const minisDone = Number($id('hha-mini-done')?.textContent || 0) || 0;
-    const minisTotal = Number($id('hha-mini-total')?.textContent || 3) || 3;
+    const qc = getQuestCounts();
 
     const progPct = Math.round(calcProg() * 100);
     const grade = gradeFromProg(progPct);
 
+    // ✅ greenTick เอาจาก Q เป็นหลัก (ถ้าไม่มีค่อย 0)
+    const greenTick = (Q.stats && Number.isFinite(Q.stats.greenTick)) ? (Q.stats.greenTick|0) : 0;
+
     megaCelebrate('end');
-    try{ Particles.toast && Particles.toast(`🏁 จบเกม! เกรด ${grade} • Goal ${goalsDone}/${goalsTotal} • Mini ${minisDone}/${minisTotal}`); }catch{}
+    try{ Particles.toast && Particles.toast(`🏁 จบเกม! เกรด ${grade} • Goal ${qc.goalsDone}/${qc.goalsTotal} • Mini ${qc.minisDone}/${qc.minisTotal}`); }catch{}
 
     dispatch('hha:end', {
       score: state.score|0,
 
-      // ✅ มาตรฐานร่วมเกมอื่น
       miss: state.miss|0,
       misses: state.miss|0,
       comboBest: state.comboBest|0,
@@ -728,13 +765,18 @@ export async function boot(opts = {}) {
 
       water: Math.round(state.waterPct),
       zone: state.zone,
-      greenTick: state.greenTick|0,
+      greenTick: greenTick,
+
       fever: Math.round(state.fever),
       shield: state.shield|0,
 
-      goalsDone, goalsTotal,
-      minisDone, minisTotal,
-      grade, progPct,
+      goalsDone: qc.goalsDone,
+      goalsTotal: qc.goalsTotal,
+      minisDone: qc.minisDone,
+      minisTotal: qc.minisTotal,
+
+      grade,
+      progPct,
 
       rewards: state.rewards,
     });
