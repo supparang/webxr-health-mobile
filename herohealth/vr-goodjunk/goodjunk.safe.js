@@ -1,6 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — Safe Boot Wrapper (PROD)
-// ✅ finds starter from GameEngine.js: boot/start/GameEngine/createEngine/makeEngine/default
+// GoodJunkVR — Safe Boot Wrapper (AUTO-DETECT ENGINE FILE)
+// ✅ export named: boot
+// ✅ tries engine module candidates like ./game-engine-goodjunk-*.js
+// ✅ fallback: window.GameEngine / window.GoodJunkEngine / GAME_MODULES...
 
 'use strict';
 
@@ -14,19 +16,11 @@ function clampInt(v, min, max, fallback) {
 
 function parseQuery(urlObj) {
   const url = urlObj || new URL(window.location.href);
-
   const diff = String(url.searchParams.get('diff') || 'normal').toLowerCase();
   const time = clampInt(url.searchParams.get('time') || '60', 20, 180, 60);
   const run = String(url.searchParams.get('run') || '').toLowerCase();
-
   const challenge =
-    String(
-      url.searchParams.get('challenge') ||
-      url.searchParams.get('ch') ||
-      url.searchParams.get('mode2') ||
-      ''
-    ).toLowerCase();
-
+    String(url.searchParams.get('challenge') || url.searchParams.get('ch') || '').toLowerCase();
   return { url, diff, time, run, challenge };
 }
 
@@ -36,15 +30,6 @@ async function loadFactoryBoot() {
     if (mod && typeof mod.boot === 'function') return mod.boot;
   } catch (_) {}
   return null;
-}
-
-async function loadEngineModule() {
-  try {
-    return await import('./GameEngine.js');
-  } catch (e) {
-    console.warn('[GoodJunkVR] import GameEngine.js failed:', e);
-    return null;
-  }
 }
 
 function adaptStarter(fnOrObj) {
@@ -60,6 +45,7 @@ function adaptStarter(fnOrObj) {
         return fnOrObj(ctx);
       } catch (e) {
         console.error('[GoodJunkVR] starter() failed:', e);
+        return null;
       }
     };
   }
@@ -74,6 +60,7 @@ function adaptStarter(fnOrObj) {
         return fnOrObj.start(ctx);
       } catch (e) {
         console.error('[GoodJunkVR] engine.start() failed:', e);
+        return null;
       }
     };
   }
@@ -82,87 +69,117 @@ function adaptStarter(fnOrObj) {
 }
 
 function pickEngineStarter(engineMod) {
-  if (engineMod) {
-    // 0) default
-    if (engineMod.default) {
-      const s0 = adaptStarter(engineMod.default);
-      if (s0) return s0;
-      if (typeof engineMod.default === 'object' && engineMod.default && typeof engineMod.default.boot === 'function') {
-        return adaptStarter(engineMod.default.boot);
-      }
-      if (typeof engineMod.default === 'object' && engineMod.default && typeof engineMod.default.start === 'function') {
-        return adaptStarter(engineMod.default.start);
-      }
-    }
+  if (!engineMod) return null;
 
-    // 1) boot()
-    if (typeof engineMod.boot === 'function') return adaptStarter(engineMod.boot);
-
-    // 2) start()
-    if (typeof engineMod.start === 'function') return adaptStarter(engineMod.start);
-
-    // 3) GameEngine object
-    if (engineMod.GameEngine && typeof engineMod.GameEngine === 'object') {
-      const sObj = adaptStarter(engineMod.GameEngine);
-      if (sObj) return sObj;
-    }
-
-    // ✅ 3.5) createEngine() -> return engine with start()
-    if (typeof engineMod.createEngine === 'function') {
-      return (ctx = {}) => {
-        try{
-          const inst = engineMod.createEngine(ctx);
-          if (inst && typeof inst.start === 'function') { inst.start(); return inst; }
-          console.error('[GoodJunkVR] createEngine() did not return {start()}');
-        }catch(e){
-          console.error('[GoodJunkVR] createEngine(ctx) failed:', e);
-        }
-      };
-    }
-
-    // 4) class GameEngine
-    if (typeof engineMod.GameEngine === 'function') {
-      return (ctx = {}) => {
-        try {
-          const inst = new engineMod.GameEngine(ctx);
-          if (inst && typeof inst.start === 'function') return inst.start();
-          if (inst && typeof inst.run === 'function') return inst.run();
-          console.error('[GoodJunkVR] GameEngine instance has no start/run');
-        } catch (e) {
-          console.error('[GoodJunkVR] new GameEngine(ctx) failed:', e);
-        }
-      };
-    }
-
-    // 5) makeEngine()
-    if (typeof engineMod.makeEngine === 'function') {
-      return (ctx = {}) => {
-        try {
-          const inst = engineMod.makeEngine(ctx);
-          if (inst && typeof inst.start === 'function') return inst.start();
-          console.error('[GoodJunkVR] makeEngine() did not return {start()}');
-        } catch (e) {
-          console.error('[GoodJunkVR] makeEngine(ctx) failed:', e);
-        }
-      };
-    }
+  // default
+  if (engineMod.default) {
+    const s0 = adaptStarter(engineMod.default);
+    if (s0) return s0;
+    if (engineMod.default && typeof engineMod.default.boot === 'function') return adaptStarter(engineMod.default.boot);
+    if (engineMod.default && typeof engineMod.default.start === 'function') return adaptStarter(engineMod.default.start);
   }
 
-  // fallback window
+  // named
+  if (typeof engineMod.boot === 'function') return adaptStarter(engineMod.boot);
+  if (typeof engineMod.start === 'function') return adaptStarter(engineMod.start);
+
+  // object
+  if (engineMod.GameEngine && typeof engineMod.GameEngine === 'object') {
+    const sObj = adaptStarter(engineMod.GameEngine);
+    if (sObj) return sObj;
+  }
+
+  // factory -> instance.start()
+  if (typeof engineMod.createEngine === 'function') {
+    return (ctx = {}) => {
+      try {
+        const inst = engineMod.createEngine(ctx);
+        if (inst && typeof inst.start === 'function') {
+          inst.start();
+          return inst;
+        }
+        console.error('[GoodJunkVR] createEngine() did not return {start()}');
+      } catch (e) {
+        console.error('[GoodJunkVR] createEngine(ctx) failed:', e);
+      }
+      return null;
+    };
+  }
+
+  // class
+  if (typeof engineMod.GameEngine === 'function') {
+    return (ctx = {}) => {
+      try {
+        const inst = new engineMod.GameEngine(ctx);
+        if (inst && typeof inst.start === 'function') return inst.start();
+        if (inst && typeof inst.run === 'function') return inst.run();
+        console.error('[GoodJunkVR] GameEngine instance has no start/run');
+      } catch (e) {
+        console.error('[GoodJunkVR] new GameEngine(ctx) failed:', e);
+      }
+      return null;
+    };
+  }
+
+  return null;
+}
+
+async function tryImportOne(path) {
+  try {
+    const m = await import(path);
+    return m || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * ✅ สำคัญ: โฟลเดอร์คุณใช้ชื่อไฟล์แบบ `game-engine-goodjunk-...js`
+ * ดังนั้นเราลอง candidate หลายชื่อให้ครอบคลุม
+ */
+async function loadEngineModuleAuto() {
+  const candidates = [
+    './GameEngine.js',
+    './game-engine-goodjunk.js',
+    './game-engine-goodjunk-vr.js',
+    './game-engine-goodjunk-vr.mobile.js',
+    './game-engine-goodjunk-vr-mobile.js',
+    './game-engine-goodjunk-vr-mobile-controller.js',
+    './game-engine-goodjunk-vr-mobile-controls.js',
+    './game-engine-goodjunk-main.js',
+
+    // เผื่อคุณตั้งชื่อไฟล์ยาว/มี suffix
+    './game-engine-goodjunk-vr-prod.js',
+    './game-engine-goodjunk-v3.js',
+    './game-engine-goodjunk-vr-v3.js'
+  ];
+
+  for (const p of candidates) {
+    const mod = await tryImportOne(p);
+    if (mod) return { mod, path: p };
+  }
+
+  // fallback: ถ้า engine ไม่ได้เป็น ESM แต่ attach ไว้ที่ window
+  return { mod: null, path: '' };
+}
+
+function pickStarterFromWindow() {
   const w = window;
+
   const cand =
     w.GoodJunkEngine ||
     w.GoodJunkVR ||
-    (w.GAME_MODULES && (w.GAME_MODULES.GoodJunkEngine || w.GAME_MODULES.GoodJunkVR)) ||
+    w.GameEngine ||
+    (w.GAME_MODULES && (w.GAME_MODULES.GoodJunkEngine || w.GAME_MODULES.GoodJunkVR || w.GAME_MODULES.GameEngine)) ||
     null;
 
-  if (cand) {
-    if (typeof cand.boot === 'function') return adaptStarter(cand.boot.bind(cand));
-    if (typeof cand.start === 'function') return adaptStarter(cand.start.bind(cand));
-    if (cand.GameEngine && typeof cand.GameEngine === 'object') {
-      const sObj = adaptStarter(cand.GameEngine);
-      if (sObj) return sObj;
-    }
+  if (!cand) return null;
+
+  if (typeof cand.boot === 'function') return adaptStarter(cand.boot.bind(cand));
+  if (typeof cand.start === 'function') return adaptStarter(cand.start.bind(cand));
+  if (cand.GameEngine && typeof cand.GameEngine === 'object') {
+    const s = adaptStarter(cand.GameEngine);
+    if (s) return s;
   }
 
   return null;
@@ -177,15 +194,22 @@ export async function boot(opts = {}) {
   const run = String(opts.run || q.run || '').toLowerCase();
   const challenge = String(opts.challenge || q.challenge || '').toLowerCase();
 
-  const engineMod = await loadEngineModule();
-  const startEngine = pickEngineStarter(engineMod);
+  const { mod: engineMod, path } = await loadEngineModuleAuto();
+  let startEngine = pickEngineStarter(engineMod);
 
   if (!startEngine) {
-    console.error('[GoodJunkVR] ไม่พบตัวเริ่มเกมจาก GameEngine.js (boot/start/GameEngine/createEngine/makeEngine/default)');
+    startEngine = pickStarterFromWindow();
+  }
+
+  if (!startEngine) {
+    console.error('[GoodJunkVR] ❌ ไม่พบ Engine starter (ลองแล้วทั้ง ESM candidates + window fallback)');
+    console.error('[GoodJunkVR] ตรวจสอบชื่อไฟล์ engine: game-engine-goodjunk-*.js ว่าเป็น ESM และ export start/boot ได้');
     return null;
   }
 
   const factoryBoot = await loadFactoryBoot();
+
+  // ✅ ถ้ามี mode-factory ให้ใช้ (รองรับ scroll-follow/ยิงกลางจอ/ฯลฯ)
   if (factoryBoot) {
     return factoryBoot({
       mode: 'goodjunk',
@@ -198,7 +222,12 @@ export async function boot(opts = {}) {
     });
   }
 
-  return startEngine({ ...opts, diff, time, run, challenge });
+  // ✅ ไม่มี factory ก็สตาร์ทตรง ๆ
+  const ctx = { ...opts, diff, time, run, challenge };
+  const out = startEngine(ctx);
+
+  if (path) console.log('[GoodJunkVR] engine module:', path);
+  return out;
 }
 
 export default { boot };
