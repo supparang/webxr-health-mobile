@@ -2420,6 +2420,10 @@ export function bootPlateDOM() {
     try { emitCoach('หา targetRoot ไม่เจอ! ตรวจ ID ใน plate-vr.html ก่อนนะ ⚠️', 'sad'); } catch (_) {}
     return;
   }
+try{
+  targetRoot.setAttribute('position', `0 0 -${TARGET_Z}`);
+  targetRoot.setAttribute('rotation', '0 0 0');
+  }catch(_){}
 
   // ✅ init logger early (so first events won't be lost)
   __loggerInit({ endpoint: LOGGER_ENDPOINT, debug: __HHA_LOGGER.debug });
