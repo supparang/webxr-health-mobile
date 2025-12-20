@@ -8,7 +8,7 @@
 'use strict';
 
 let CONFIG = {
-  endpoint: '',       // https://script.google.com/macros/s/.../exec
+  endpoint: 'https://script.google.com/macros/s/AKfycbxdy-3BjJhn6Fo3kQX9oxHQIlXT7p2OXn-UYfv1MKV5oSW6jYG-RlnAgKlHqrNxxbhmaw/exec',
   projectTag: '',     // optional default tag
   debug: false,
 
