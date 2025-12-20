@@ -1,13 +1,13 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION v10.1 (ES Module)
+// Balanced Plate VR — PRODUCTION v10.2 (ES Module)
 // ✅ Emoji targets (CanvasTexture) + คลิก/จิ้ม/VR gaze ได้
 // ✅ FX “สติ๊กเกอร์ LINE”: คำตัดสินหัวโต + คะแนนเด้งข้างเป้า
 // ✅ MISS: สั่นจอ + เสียง (แรง) | PERFECT: confetti ดาว + เสียงติ๊ง
 // ✅ 1–8 Challenge Pack (Goal + Mini + Twist + Boss Phase + Hero10)
 // ✅ PATCH: เป้าเลื่อนตามจอ + clamp safe zone + ไม่ทับ HUD บน/ล่าง/ซ้าย/ขวา
 // ✅ PRODUCTION: Pause/Resume + กัน “คลิกซ้อน/กดซ้ำ” + freeze target timers ตอน pause
+// ✅ iOS 200%: ขอ Motion/Orientation permission จาก gesture อัตโนมัติ + รองรับ Shinecon
 // ✅ Events: hha:time / hha:score / quest:update / hha:event / hha:coach / hha:judge / hha:end
-// ✅ PATCH v10.1: FIX เอฟเฟกต์ไม่เด้งตรงเป้า (เก็บพิกัดก่อน removeTarget) + nudge กัน HUD บัง + z-index FX สูงสุด
 
 'use strict';
 
@@ -46,7 +46,7 @@ function ensureFxLayer() {
       position: 'fixed',
       inset: '0',
       pointerEvents: 'none',
-      zIndex: 2147483647, // ✅ PATCH: สูงสุด กันโดน HUD/Canvas บัง
+      zIndex: 99999,
       overflow: 'hidden'
     });
     document.body.appendChild(layer);
@@ -81,7 +81,6 @@ if (!A) console.error('[PlateVR] AFRAME not found');
 
 // ---------- FX module fallback ----------
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
-// NOTE: ถ้าต้องการ burst แตกกระจาย ให้แน่ใจว่า plate-vr.html ใส่ <script src="./vr/particles.js"></script>
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
@@ -177,37 +176,6 @@ function inAnyRect(nx, ny, rects){
   return false;
 }
 
-// ✅ PATCH: ดันจุดเอฟเฟกต์ออกจาก HUD เพื่อไม่ให้ “คะแนน+คำตัดสิน” โดนบัง
-function nudgePointOutOfHud(px, py) {
-  const W = Math.max(1, window.innerWidth || 1);
-  const H = Math.max(1, window.innerHeight || 1);
-
-  const clampPx = (v, a, b) => Math.max(a, Math.min(b, v));
-
-  // clamp ขอบจอเบื้องต้น
-  px = clampPx(px, 28, W - 28);
-  py = clampPx(py, 28, H - 28);
-
-  const nx = px / W;
-  const ny = py / H;
-
-  const rects = getHudExclusionRects();
-  if (!inAnyRect(nx, ny, rects)) return { px, py };
-
-  for (const r of rects) {
-    if (nx >= r.x0 && nx <= r.x1 && ny >= r.y0 && ny <= r.y1) {
-      // ดันลงใต้ HUD ที่ทับอยู่
-      let newPy = clamp01(r.y1 + 0.03) * H;
-
-      // ถ้าใกล้ขอบล่างไป → ดันขึ้นแทน
-      if (newPy > H - 40) newPy = clamp01(r.y0 - 0.03) * H;
-
-      return { px: clampPx(px, 28, W - 28), py: clampPx(newPy, 28, H - 28) };
-    }
-  }
-  return { px, py };
-}
-
 // ✅ ติด targetRoot กับกล้อง → หมุนจอแล้วเป้าเลื่อนตาม
 function attachTargetRootToCamera() {
   if (!cam || !targetRoot) return;
@@ -216,6 +184,42 @@ function attachTargetRootToCamera() {
     targetRoot.setAttribute('position', '0 0 -1.35');
     targetRoot.setAttribute('rotation', '0 0 0');
   }catch(_){}
+}
+
+// ✅ สุ่มตำแหน่งแบบปลอดภัย + ไม่ทับ HUD
+function pickSafeXY() {
+  const nf = getNoFlyRatios();
+  const hudRects = getHudExclusionRects();
+
+  let minNX = SAFE.padNX;
+  let maxNX = 1 - SAFE.padNX;
+
+  let minNY = Math.max(nf.topR, SAFE.padNY);
+  let maxNY = 1 - Math.max(nf.bottomR, SAFE.padNY);
+
+  if (maxNX - minNX < 0.15) { minNX = 0.15; maxNX = 0.85; }
+  if (maxNY - minNY < 0.15) { minNY = 0.20; maxNY = 0.80; }
+
+  const MAX_TRY = 40;
+  for (let i = 0; i < MAX_TRY; i++) {
+    const nx = rnd(minNX, maxNX);
+    const ny = rnd(minNY, maxNY);
+    if (inAnyRect(nx, ny, hudRects)) continue;
+
+    let x = (nx - 0.5) * 2 * SAFE.rx;
+    let y = (0.5 - ny) * 2 * SAFE.ry;
+
+    if (haz.blackhole) { x *= 0.40; y *= 0.40; }
+    if (haz.wind) { x *= 1.08; y *= 1.08; }
+
+    x = clamp(x, -SAFE.rx, SAFE.rx);
+    y = clamp(y, -SAFE.ry, SAFE.ry);
+
+    return { x, y };
+  }
+
+  const fallbackNY = (minNY + maxNY) * 0.5;
+  return { x: 0, y: clamp((0.5 - fallbackNY) * 2 * SAFE.ry, -SAFE.ry, SAFE.ry) };
 }
 
 // ---------- Session ----------
@@ -314,42 +318,6 @@ function fromStartMs() { return Math.max(0, Math.round(performance.now() - t0));
 function isAdaptiveOn() { return MODE === 'play'; }
 function emit(type, detail) { window.dispatchEvent(new CustomEvent(type, { detail })); }
 
-// ✅ สุ่มตำแหน่งแบบปลอดภัย + ไม่ทับ HUD
-function pickSafeXY() {
-  const nf = getNoFlyRatios();
-  const hudRects = getHudExclusionRects();
-
-  let minNX = SAFE.padNX;
-  let maxNX = 1 - SAFE.padNX;
-
-  let minNY = Math.max(nf.topR, SAFE.padNY);
-  let maxNY = 1 - Math.max(nf.bottomR, SAFE.padNY);
-
-  if (maxNX - minNX < 0.15) { minNX = 0.15; maxNX = 0.85; }
-  if (maxNY - minNY < 0.15) { minNY = 0.20; maxNY = 0.80; }
-
-  const MAX_TRY = 40;
-  for (let i = 0; i < MAX_TRY; i++) {
-    const nx = rnd(minNX, maxNX);
-    const ny = rnd(minNY, maxNY);
-    if (inAnyRect(nx, ny, hudRects)) continue;
-
-    let x = (nx - 0.5) * 2 * SAFE.rx;
-    let y = (0.5 - ny) * 2 * SAFE.ry;
-
-    if (haz.blackhole) { x *= 0.40; y *= 0.40; }
-    if (haz.wind) { x *= 1.08; y *= 1.08; }
-
-    x = clamp(x, -SAFE.rx, SAFE.rx);
-    y = clamp(y, -SAFE.ry, SAFE.ry);
-
-    return { x, y };
-  }
-
-  const fallbackNY = (minNY + maxNY) * 0.5;
-  return { x: 0, y: clamp((0.5 - fallbackNY) * 2 * SAFE.ry, -SAFE.ry, SAFE.ry) };
-}
-
 // ---------- WebAudio tiny SFX ----------
 let __ac = null;
 function ac() {
@@ -382,6 +350,39 @@ function sfxTick(){ beep(1200, 0.04, 'square', 0.06); }
 function sfxDing(){ beep(1320, 0.08, 'sine', 0.10); setTimeout(()=>beep(1760,0.08,'sine',0.09), 60); }
 function sfxMiss(){ beep(220, 0.10, 'sawtooth', 0.10); setTimeout(()=>beep(160,0.10,'sawtooth',0.09), 80); }
 
+// =======================
+// iOS Motion Permission (200% sure)
+// =======================
+let __motionAsked = false;
+let __motionGranted = false;
+
+async function ensureMotionPermission(force = false) {
+  if (__motionGranted) return true;
+  if (__motionAsked && !force) return false;
+
+  __motionAsked = true;
+  let ok = true;
+
+  // iOS 13+ ต้อง requestPermission() จาก gesture เท่านั้น
+  try {
+    if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function') {
+      const res = await window.DeviceOrientationEvent.requestPermission();
+      ok = ok && (res === 'granted');
+    }
+  } catch (_) { ok = false; }
+
+  // บางเครื่องจะต้องขอ DeviceMotion ด้วย
+  try {
+    if (window.DeviceMotionEvent && typeof window.DeviceMotionEvent.requestPermission === 'function') {
+      const res = await window.DeviceMotionEvent.requestPermission();
+      ok = ok && (res === 'granted');
+    }
+  } catch (_) { /* ไม่ถือว่าตก */ }
+
+  __motionGranted = !!ok;
+  return __motionGranted;
+}
+
 // ---------- Screen Shake ----------
 function ensureShakeStyle() {
   if (document.getElementById('__plate_shake_css__')) return;
@@ -413,6 +414,65 @@ function screenShake() {
   void document.body.offsetWidth;
   document.body.classList.add('plate-shake');
   setTimeout(()=>document.body.classList.remove('plate-shake'), 320);
+}
+
+// =======================
+// HUD-safe FX nudge (แก้ “คำตัดสิน/คะแนนโดน HUD บัง”)
+// =======================
+function nudgeFxAwayFromHud(px, py) {
+  const W = Math.max(1, window.innerWidth || 1);
+  const H = Math.max(1, window.innerHeight || 1);
+  const pad = 14;
+
+  const sels = [
+    '#hudTop', '#hudLeft', '#hudRight', '#hudBottom',
+    '.hud-top', '.hud-left', '.hud-right', '.hud-bottom',
+    '#questPanel', '#miniPanel',
+    '#resultCard'
+  ].join(',');
+
+  const els = Array.from(document.querySelectorAll(sels));
+
+  let x = clamp(px, pad, W - pad);
+  let y = clamp(py, pad, H - pad);
+
+  for (const el of els) {
+    if (!el || !el.getBoundingClientRect) continue;
+    const r = el.getBoundingClientRect();
+    if (!r || r.width < 20 || r.height < 20) continue;
+
+    // ถ้าอยู่ใต้กรอบ HUD -> ดันออก
+    const inside = (x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad);
+    if (!inside) continue;
+
+    // เลือกทิศทางที่ดันแล้ว “ใกล้สุด” และยังอยู่ในจอ
+    const candidates = [];
+
+    // ลงล่าง
+    candidates.push({ x, y: r.bottom + pad, cost: Math.abs((r.bottom + pad) - y) });
+    // ขึ้นบน
+    candidates.push({ x, y: r.top - pad, cost: Math.abs((r.top - pad) - y) });
+    // ไปขวา
+    candidates.push({ x: r.right + pad, y, cost: Math.abs((r.right + pad) - x) });
+    // ไปซ้าย
+    candidates.push({ x: r.left - pad, y, cost: Math.abs((r.left - pad) - x) });
+
+    let best = null;
+    for (const c of candidates) {
+      const cx = clamp(c.x, pad, W - pad);
+      const cy = clamp(c.y, pad, H - pad);
+      // อย่าไปทับซ้ำจุดเดิม
+      if (cx === x && cy === y) continue;
+      const ok = (cx >= 0 && cx <= W && cy >= 0 && cy <= H);
+      if (!ok) continue;
+      const cand = { x: cx, y: cy, cost: c.cost };
+      if (!best || cand.cost < best.cost) best = cand;
+    }
+
+    if (best) { x = best.x; y = best.y; }
+  }
+
+  return { x, y };
 }
 
 // ---------- Sticker FX ----------
@@ -471,7 +531,7 @@ function stickerAt(px, py, text, opts = {}) {
   setTimeout(() => { try{ el.remove(); }catch(_){} }, (opts.life ?? 520) + 220);
 }
 
-function starConfetti(px, py, n = 16) {
+function starConfetti(px, py, n = 18) {
   const layer = ensureFxLayer();
   for (let i=0;i<n;i++){
     const s = document.createElement('div');
@@ -491,78 +551,68 @@ function starConfetti(px, py, n = 16) {
     layer.appendChild(s);
 
     const ang = Math.random()*Math.PI*2;
-    const dist = 80 + Math.random()*70;
+    const dist = 90 + Math.random()*85;
     const dx = Math.cos(ang)*dist;
-    const dy = Math.sin(ang)*dist - (20 + Math.random()*50);
+    const dy = Math.sin(ang)*dist - (20 + Math.random()*65);
 
     requestAnimationFrame(()=>{
-      s.style.transition = 'transform .58s ease-out, opacity .58s ease-out';
-      s.style.transform = `translate(${dx}px,${dy}px) scale(${0.9+Math.random()*0.5}) rotate(${(Math.random()*240-120)|0}deg)`;
+      s.style.transition = 'transform .60s ease-out, opacity .60s ease-out';
+      s.style.transform = `translate(${dx}px,${dy}px) scale(${0.9+Math.random()*0.5}) rotate(${(Math.random()*260-130)|0}deg)`;
       s.style.opacity = '0';
     });
-    setTimeout(()=>{ try{ s.remove(); }catch(_){} }, 620);
+    setTimeout(()=>{ try{ s.remove(); }catch(_){} }, 660);
   }
 }
 
 function getSceneCamera() { return scene && scene.camera ? scene.camera : null; }
-
-// ✅ PATCH: project ให้เสถียร + updateMatrixWorld ก่อน
 function screenPxFromEntity(el) {
   try{
     const cam3 = getSceneCamera();
     if (!cam3 || !el || !el.object3D) return null;
-
-    cam3.updateMatrixWorld?.(true);
-    el.object3D.updateMatrixWorld?.(true);
-
     const v = new THREE.Vector3();
     el.object3D.getWorldPosition(v);
     v.project(cam3);
-
-    if (!Number.isFinite(v.x) || !Number.isFinite(v.y)) return null;
-
+    if (v.z > 1) return null;
     const x = (v.x + 1) / 2;
     const y = (1 - (v.y + 1) / 2);
     return { x: x * window.innerWidth, y: y * window.innerHeight };
   }catch(_){ return null; }
 }
 
-// ✅ PATCH: FX แบบรับพิกัดโดยตรง + nudge กัน HUD บัง
-function fxOnHitAt(px, py, kind, judgeText, pts) {
-  const nudged = nudgePointOutOfHud(px, py);
-  px = nudged.px; py = nudged.py;
+function fxOnHit(el, kind, judgeText, pts) {
+  const p0 = screenPxFromEntity(el);
+  if (!p0) return;
 
+  // ✅ ถ้าจุดไปอยู่ใต้ HUD ให้เลื่อนออกอัตโนมัติ
+  const p = nudgeFxAwayFromHud(p0.x, p0.y);
+
+  // ✅ แตกกระจายให้เห็นชัด (Particles.js บางเวอร์ชันรับแค่ good/count)
   try {
-    Particles.burstAt(px, py, {
-      color: (kind==='junk'?'#fb7185':kind==='boss'?'#38bdf8':kind==='power'?'#facc15':'#22c55e'),
-      good: kind!=='junk',
-      count: (judgeText && String(judgeText).includes('PERFECT')) ? 38 : 26
+    Particles.burstAt(p.x, p.y, {
+      good: kind !== 'junk',
+      count: (judgeText && String(judgeText).includes('PERFECT')) ? 44 : 30
     });
   } catch(_){}
 
+  // ✅ คะแนนเด้งข้างเป้า
   if (typeof pts === 'number') {
     const tone = (pts < 0 || kind==='junk') ? 'bad' : (kind==='boss' ? 'boss' : (kind==='power' ? 'gold' : 'good'));
-    stickerAt(px, py, (pts>=0?`+${pts}`:`${pts}`), { tone, dx: 42, dy: -10, life: 520, big: false });
+    stickerAt(p.x, p.y, (pts>=0?`+${pts}`:`${pts}`), { tone, dx: 44, dy: -10, life: 540, big: false });
   }
 
+  // ✅ คำตัดสินหัวโต
   if (judgeText) {
-    const t = String(judgeText);
-    const tone = (t.includes('MISS') || t.includes('BAD')) ? 'bad'
-      : (t.includes('BOSS') ? 'boss'
-      : (t.includes('GOLD') || t.includes('FEVER') ? 'gold' : 'good'));
-    stickerAt(px, py, judgeText, { tone, dx: -56, dy: -12, life: 560, big: true });
+    const jt = String(judgeText);
+    const tone = (jt.includes('MISS') || jt.includes('BAD')) ? 'bad'
+      : (jt.includes('BOSS') ? 'boss'
+      : (jt.includes('GOLD') || jt.includes('FEVER') || jt.includes('CLEAR') ? 'gold' : 'good'));
+    stickerAt(p.x, p.y, jt, { tone, dx: -58, dy: -12, life: 590, big: true });
   }
 
   if (judgeText && String(judgeText).includes('PERFECT')) {
-    starConfetti(px, py, 22);
+    starConfetti(p.x, p.y, 24);
     sfxDing();
   }
-}
-
-function fxOnHit(el, kind, judgeText, pts) {
-  const p = screenPxFromEntity(el);
-  if (!p) return;
-  fxOnHitAt(p.x, p.y, kind, judgeText, pts);
 }
 
 // ---------- Emitters ----------
@@ -828,6 +878,13 @@ function checkPerfectPlate() {
     emitCoach(`PERFECT PLATE! +${bonus}${chainBonus?` (+${chainBonus} CHAIN!)`:''} 🌟`, 'happy');
     emitGameEvent({ type:'perfect_plate', perfectPlates, perfectStreak, perfectChain, bonus, chainBonus });
 
+    // ✅ ให้ FX ชัด ๆ ตอน PERFECT
+    try {
+      const p = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.42);
+      Particles.burstAt(p.x, p.y, { good:true, count: 52 });
+      starConfetti(p.x, p.y, 26);
+    } catch(_) {}
+
     fever = clamp(fever + 28, 0, 100);
     if (fever >= 100) activateFever(5200);
 
@@ -1015,8 +1072,11 @@ function clearMiniQuest() {
 
   const bonus = 180 + (miniCleared*10);
   score += bonus;
-  stickerAt(window.innerWidth*0.5, window.innerHeight*0.40, `✅ MINI CLEAR +${bonus}`, { tone:'gold', big:true, life: 820 });
-  try { Particles.burstAt(window.innerWidth*0.5, window.innerHeight*0.42, { color:'#38bdf8', good:true, count: 34 }); } catch(_){}
+
+  const p = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.42);
+  stickerAt(p.x, p.y, `✅ MINI CLEAR +${bonus}`, { tone:'gold', big:true, life: 840 });
+
+  try { Particles.burstAt(p.x, p.y, { good:true, count: 40 }); } catch(_){}
 
   setTimeout(() => { if (!ended) startNextMiniQuest(); }, 520);
 
@@ -1030,7 +1090,10 @@ function failMiniQuest(reason='fail') {
   miniCurrent.done = true;
   emitGameEvent({ type:'mini_fail', miniKey: miniCurrent.key, reason });
   emitCoach(`Mini Quest พลาด! ลองอันใหม่เลย 💪`, 'sad');
-  stickerAt(window.innerWidth*0.5, window.innerHeight*0.42, `😵 FAIL`, { tone:'bad', big:true, life: 620 });
+
+  const p = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.42);
+  stickerAt(p.x, p.y, `😵 FAIL`, { tone:'bad', big:true, life: 640 });
+
   setTimeout(() => { if (!ended) startNextMiniQuest(); }, 620);
   emitQuestUpdate();
 }
@@ -1233,14 +1296,8 @@ function onHit(el, via = 'cursor') {
   const kind = el.dataset.kind || '';
   const groupId = parseInt(el.dataset.groupId || '0', 10) || 0;
 
-  // ✅ PATCH: เก็บพิกัด “ก่อน” removeTarget เพื่อให้ FX เด้งตรงเป้าเสมอ
-  const hitPx = screenPxFromEntity(el);
-
   const preFx = (judge, pts) => {
-    try {
-      if (hitPx) fxOnHitAt(hitPx.x, hitPx.y, kind, judge, pts);
-      else fxOnHit(el, kind, judge, pts);
-    } catch(_){}
+    try { fxOnHit(el, kind, judge, pts); } catch(_){}
   };
 
   removeTarget(el, 'hit');
@@ -1337,9 +1394,12 @@ function onHit(el, via = 'cursor') {
       startGoldenZone(3000);
       emitCoach(`โค่นบอสแล้ว! +${bonus} 🏆`, 'happy');
       emitJudge('BOSS CLEAR!');
-      stickerAt(window.innerWidth*0.5, window.innerHeight*0.34, `🏆 BOSS CLEAR +${bonus}`, { tone:'boss', big:true, life: 980 });
-      try { Particles.burstAt(window.innerWidth*0.5, window.innerHeight*0.42, { color:'#38bdf8', good:true, count: 40 }); } catch(_){}
+
+      const p = nudgeFxAwayFromHud(window.innerWidth*0.5, window.innerHeight*0.42);
+      stickerAt(p.x, p.y, `🏆 BOSS CLEAR +${bonus}`, { tone:'boss', big:true, life: 980 });
+      try { Particles.burstAt(p.x, p.y, { good:true, count: 48 }); } catch(_){}
       sfxDing();
+
       emitGameEvent({ type:'boss_clear', bonus });
     } else {
       setTimeout(() => { if (!ended && !paused) spawnOne({ forceBoss: true }); }, 240);
@@ -1632,7 +1692,7 @@ function endGame(reason = 'ended') {
     const bonus = 260;
     score += bonus;
     stickerAt(window.innerWidth*0.5, window.innerHeight*0.30, `✨ FINISH CLEAN +${bonus}`, { tone:'gold', big:true, life: 980 });
-    try { Particles.burstAt(window.innerWidth*0.5, window.innerHeight*0.42, { color:'#facc15', good:true, count: 42 }); } catch(_){}
+    try { Particles.burstAt(window.innerWidth*0.5, window.innerHeight*0.42, { good:true, count: 44 }); } catch(_){}
     sfxDing();
     emitGameEvent({ type:'finish_clean_bonus', bonus });
   }
@@ -1661,9 +1721,34 @@ function endGame(reason = 'ended') {
 // ---------- Boot helpers ----------
 function ensureTouchLookControls() {
   if (!cam) return;
-  try { cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false'); } catch (_) {}
+  try { cam.setAttribute('look-controls', 'touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false; magicWindowTrackingEnabled:true'); } catch (_) {}
   try { cam.setAttribute('wasd-controls-enabled', 'false'); } catch (_) {}
 }
+
+function bindFirstGesture200() {
+  if (window.__PLATE_FIRST_GESTURE_200__) return;
+  window.__PLATE_FIRST_GESTURE_200__ = true;
+
+  const once = async () => {
+    tryResumeAudio();
+    await ensureMotionPermission(false);
+
+    if (!__motionGranted) {
+      try { emitCoach('iPhone ต้องกด Allow Motion/Orientation ก่อนนะ 📱 (แตะอีกครั้งได้เลย)', 'sad'); } catch(_) {}
+      return; // ยังไม่ถอด listener เพื่อให้ผู้ใช้แตะขอใหม่ได้
+    }
+
+    // grant แล้วค่อยถอด (200% sure)
+    window.removeEventListener('pointerdown', once, true);
+    window.removeEventListener('touchstart', once, true);
+    window.removeEventListener('click', once, true);
+  };
+
+  window.addEventListener('pointerdown', once, true);
+  window.addEventListener('touchstart', once, true);
+  window.addEventListener('click', once, true);
+}
+
 function bindUI() {
   const btnRestart = $('btnRestart');
   if (btnRestart) btnRestart.addEventListener('click', () => location.reload());
@@ -1675,7 +1760,16 @@ function bindUI() {
   if (btnEnterVR && scene) {
     btnEnterVR.addEventListener('click', async () => {
       tryResumeAudio();
-      try { await scene.enterVR(); } catch (e) { console.warn('[PlateVR] enterVR failed', e); }
+
+      // ✅ iOS ขอ permission ก่อนเข้า VR “ทุกครั้ง”
+      await ensureMotionPermission(true);
+
+      try {
+        await scene.enterVR();
+      } catch (e) {
+        console.warn('[PlateVR] enterVR failed', e);
+        try { emitCoach('เข้า VR ไม่สำเร็จ ลองแตะหน้าจออีกครั้ง แล้วกด ENTER VR ใหม่ 🥽', 'sad'); } catch(_) {}
+      }
     });
   }
 
@@ -1698,8 +1792,16 @@ function bindPointerFallback() {
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
 
+  let __lastPointerShot = 0;
+  const __SHOT_DEDUPE_MS = 180;
+
   function doRaycastFromEvent(ev) {
     if (ended || paused) return;
+
+    const now = performance.now();
+    if (now - __lastPointerShot < __SHOT_DEDUPE_MS) return;
+    __lastPointerShot = now;
+
     if (!scene.camera) return;
 
     const canvas = scene.canvas;
@@ -1746,6 +1848,7 @@ function bindPointerFallback() {
   }
 
   window.addEventListener('pointerdown', doRaycastFromEvent, { passive: true });
+  window.addEventListener('touchstart', doRaycastFromEvent, { passive: true });
 
   console.log('[PlateVR] pointer fallback bound ✅');
 }
@@ -1762,6 +1865,7 @@ export function bootPlateDOM() {
 
   ensureTouchLookControls();
   bindUI();
+  bindFirstGesture200(); // ✅ แตะที่ไหนก็ขอ permission + resume audio
 
   setText('hudMode', (MODE === 'research') ? 'Research' : 'Play');
   setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
@@ -1772,7 +1876,8 @@ export function bootPlateDOM() {
   if (scene && scene.hasLoaded) bindAfterLoaded();
   else if (scene) scene.addEventListener('loaded', bindAfterLoaded, { once: true });
 
-  window.addEventListener('pointerdown', tryResumeAudio, { passive: true, once: true });
+  // NOTE: ไม่ใช้ once แล้ว เพื่อ iOS ที่ปฏิเสธรอบแรกยังแตะขอใหม่ได้
+  window.addEventListener('pointerdown', tryResumeAudio, { passive: true });
 
   if (scene && scene.hasLoaded) startGame();
   else if (scene) scene.addEventListener('loaded', () => startGame(), { once:true });
