@@ -43,11 +43,8 @@
       padding:10px 12px;
       box-shadow:0 18px 40px rgba(0,0,0,.35);
       backdrop-filter: blur(8px);
-      max-width: 52vw;
+      max-width: 92vw;
     }
-
-    /* ✅ TOP card ใหญ่แต่ไม่ล้นจอ */
-    #hudTop .card{ max-width:min(980px, calc(100vw - 20px)); }
 
     .pill{
       display:inline-flex; align-items:center; gap:8px;
@@ -62,6 +59,7 @@
     .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .k{ color:var(--muted); font-weight:800; }
     .v{ font-weight:900; }
+
     .bar{
       width:160px; height:10px; border-radius:999px;
       background:rgba(148,163,184,.18);
@@ -96,33 +94,37 @@
     #resultCard{ width:min(720px, 92vw); }
     .big{ font-size:22px; font-weight:1000; letter-spacing:.06em; }
     .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    @media (max-width:720px){ .grid{ grid-template-columns:1fr; } .card{ max-width: 90vw; } }
+    @media (max-width:720px){
+      .grid{ grid-template-columns:1fr; }
+      .card{ max-width: 94vw; }
+      .bar{ width:140px; }
+    }
   </style>
 </head>
 
 <body>
 
-  <!-- TOP HUD ✅ รวมเป็น 1 card -->
+  <!-- TOP HUD (✅ เหลือ 1 card) -->
   <div id="hudTop" class="hud-top">
-    <div class="card">
+    <div class="card" style="width:min(980px, 92vw);">
       <div class="row">
         <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
         <span class="pill">⭐ <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
         <span class="pill">🔥 <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
         <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
         <span class="pill" id="hudPaused" style="display:none;">⏸️ <span class="k">PAUSED</span></span>
-
-        <span class="pill">🎮 <span id="hudMode">Play</span></span>
-        <span class="pill">⚙️ <span id="hudDiff">Normal</span></span>
-        <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
-        <span class="pill">🌟 <span class="k">PERFECT</span> <span id="hudPerfectCount" class="v">0</span></span>
       </div>
 
       <div class="row" style="margin-top:8px;">
         <span class="k">FEVER</span>
         <div class="bar"><div id="hudFever"></div></div>
         <span id="hudFeverPct" class="v">0%</span>
+
         <span class="pill">🏅 <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
+        <span class="pill">🎮 <span id="hudMode">Play</span></span>
+        <span class="pill">⚙️ <span id="hudDiff">Normal</span></span>
+        <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
+        <span class="pill">🌟 <span class="k">PERFECT</span> <span id="hudPerfectCount" class="v">0</span></span>
       </div>
     </div>
   </div>
@@ -196,6 +198,7 @@
     <!-- Camera -->
     <a-entity id="cam" camera position="0 1.6 0"
       look-controls="touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false; magicWindowTrackingEnabled:true">
+      <!-- Cursor -->
       <a-cursor
         id="cursor"
         fuse="true"
@@ -205,21 +208,26 @@
         geometry="primitive:ring; radiusInner:0.010; radiusOuter:0.018"
       ></a-cursor>
 
+      <!-- targetRoot -->
       <a-entity id="targetRoot"></a-entity>
     </a-entity>
 
     <a-entity light="type:ambient; intensity:1.0; color:#ffffff"></a-entity>
   </a-scene>
 
+  <!-- Module -->
   <script type="module">
-    initCloudLogger({
-  endpoint: 'https://script.google.com/macros/s/AKfycbzOVSfe_gLDBCI7wXhVmIR2h74wGvbSzGQmoi1QbfwZgutreu0ImKQFxK4DZzGEzv7hiA/exec',
-  projectTag: 'HeroHealth-PlateVR',
-  debug: true
-    });
-
+    import { initCloudLogger } from './vr/hha-cloud-logger.js';
     import { bootPlateDOM } from './plate/plate.safe.js';
 
+    // ✅ init logger (แก้ initCloudLogger not defined)
+    initCloudLogger({
+      endpoint: 'https://script.google.com/macros/s/AKfycbzOVSfe_gLDBCI7wXhVmIR2h74wGvbSzGQmoi1QbfwZgutreu0ImKQFxK4DZzGEzv7hiA/exec',
+      projectTag: 'HeroHealth-PlateVR',
+      debug: true
+    });
+
+    // อัปเดต grade บน HUD ทันที
     window.addEventListener('hha:score', (e) => {
       const d = e.detail || {};
       const g = d.gradeNow || '';
