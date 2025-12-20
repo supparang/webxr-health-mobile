@@ -6,8 +6,25 @@
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-  <script src="./vr/particles.js"></script>
 
+  <!-- (Optional) WebXR Polyfill — ช่วยบางกรณีที่ไม่มี navigator.xr -->
+  <script>
+    (function () {
+      try {
+        if (!('xr' in navigator)) {
+          var s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.min.js';
+          s.async = false;
+          document.head.appendChild(s);
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- ✅ FIX: particles.js ต้อง defer (กัน doc.body = null) -->
+  <script src="./vr/particles.js" defer></script>
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
@@ -22,7 +39,24 @@
       --bad:#fb7185;
       --radius:18px;
     }
-    html,body{ margin:0; height:100%; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; overflow:hidden; }
+
+    html,body{
+      margin:0;
+      height:100%;
+      background:var(--bg);
+      color:var(--txt);
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      overflow:hidden;
+      touch-action:none; /* ✅ กัน browser scroll ระหว่างหมุน/ลาก */
+    }
+
+    /* ✅ wrapper สำหรับ shake ใน particles.js */
+    #hvr-wrap{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      touch-action:none;
+    }
 
     /* HUD groups (ให้ clamp อ่าน) */
     .hud-top, .hud-bottom, .hud-left, .hud-right{
@@ -75,6 +109,7 @@
       color:var(--txt);
       padding:10px 12px;
       font-weight:900;
+      -webkit-tap-highlight-color: transparent;
     }
     .btn:active{ transform:translateY(1px); }
 
@@ -94,140 +129,156 @@
     #resultCard{ width:min(720px, 92vw); }
     .big{ font-size:22px; font-weight:1000; letter-spacing:.06em; }
     .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    @media (max-width:720px){ .grid{ grid-template-columns:1fr; } .card{ max-width: 90vw; } }
+    @media (max-width:720px){
+      .grid{ grid-template-columns:1fr; }
+      .card{ max-width: 90vw; }
+      .hud-left{ top:78px; }
+      .hud-right{ top:78px; }
+    }
+
+    /* A-Frame fullscreen fit */
+    a-scene{
+      position:fixed !important;
+      inset:0 !important;
+      width:100vw !important;
+      height:100vh !important;
+      touch-action:none;
+    }
+    canvas{ touch-action:none; }
   </style>
 </head>
 
 <body>
+  <div id="hvr-wrap">
 
-  <!-- TOP HUD -->
-  <div id="hudTop" class="hud-top">
-    <div class="card">
-      <div class="row">
-        <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
-        <span class="pill">⭐ <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
-        <span class="pill">🔥 <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
-        <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
-        <span class="pill" id="hudPaused" style="display:none;">⏸️ <span class="k">PAUSED</span></span>
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <span class="k">FEVER</span>
-        <div class="bar"><div id="hudFever"></div></div>
-        <span id="hudFeverPct" class="v">0%</span>
-        <span class="pill">🏅 <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="row">
-        <span class="pill">🎮 <span id="hudMode">Play</span></span>
-        <span class="pill">⚙️ <span id="hudDiff">Normal</span></span>
-        <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
-        <span class="pill">🌟 <span class="k">PERFECT</span> <span id="hudPerfectCount" class="v">0</span></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- LEFT HUD (Quest) -->
-  <div id="hudLeft" class="hud-left">
-    <div id="questPanel" class="card quest-panel">
-      <div class="big">🎯 QUEST</div>
-      <div id="hudGoalLine" style="margin-top:6px; font-weight:900;">…</div>
-    </div>
-    <div id="miniPanel" class="card mini-panel">
-      <div class="big">🧩 MINI</div>
-      <div id="hudMiniLine" style="margin-top:6px; font-weight:900;">…</div>
-      <div id="hudMiniHint" class="hint">…</div>
-    </div>
-  </div>
-
-  <!-- RIGHT HUD (Buttons) -->
-  <div id="hudRight" class="hud-right">
-    <button id="btnEnterVR" class="btn">🥽 ENTER VR</button>
-    <button id="btnPause" class="btn">⏸️ PAUSE</button>
-    <button id="btnRestart" class="btn">🔁 RESTART</button>
-  </div>
-
-  <!-- BOTTOM HUD (hint area / optional) -->
-  <div id="hudBottom" class="hud-bottom">
-    <div class="card" style="max-width:72vw;">
-      <div class="k">Tip</div>
-      <div style="font-weight:900;">เก็บอาหารครบ 5 หมู่ให้ไว — ระวังขยะ! (Plate Rush จะมาเป็นระยะ)</div>
-    </div>
-  </div>
-
-  <!-- RESULT MODAL (optional) -->
-  <div id="resultBackdrop">
-    <div id="resultCard" class="card">
-      <div class="big">📊 RESULT</div>
-      <div class="grid" style="margin-top:10px;">
-        <div class="card">
-          <div class="row"><span class="k">MODE</span> <span id="rMode" class="v">Play</span></div>
-          <div class="row"><span class="k">GRADE</span> <span id="rGrade" class="v">C</span></div>
-          <div class="row"><span class="k">SCORE</span> <span id="rScore" class="v">0</span></div>
-          <div class="row"><span class="k">MAX COMBO</span> <span id="rMaxCombo" class="v">0</span></div>
-          <div class="row"><span class="k">MISS</span> <span id="rMiss" class="v">0</span></div>
-          <div class="row"><span class="k">PERFECT</span> <span id="rPerfect" class="v">0</span></div>
+    <!-- TOP HUD -->
+    <div id="hudTop" class="hud-top">
+      <div class="card">
+        <div class="row">
+          <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
+          <span class="pill">⭐ <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
+          <span class="pill">🔥 <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
+          <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
+          <span class="pill" id="hudPaused" style="display:none;">⏸️ <span class="k">PAUSED</span></span>
         </div>
-        <div class="card">
-          <div class="row"><span class="k">GOALS</span> <span id="rGoals" class="v">0/0</span></div>
-          <div class="row"><span class="k">MINI</span> <span id="rMinis" class="v">0/0</span></div>
-          <div class="row"><span class="k">G1</span> <span id="rG1" class="v">0</span></div>
-          <div class="row"><span class="k">G2</span> <span id="rG2" class="v">0</span></div>
-          <div class="row"><span class="k">G3</span> <span id="rG3" class="v">0</span></div>
-          <div class="row"><span class="k">G4</span> <span id="rG4" class="v">0</span></div>
-          <div class="row"><span class="k">G5</span> <span id="rG5" class="v">0</span></div>
-          <div class="row"><span class="k">TOTAL</span> <span id="rGTotal" class="v">0</span></div>
+        <div class="row" style="margin-top:8px;">
+          <span class="k">FEVER</span>
+          <div class="bar"><div id="hudFever"></div></div>
+          <span id="hudFeverPct" class="v">0%</span>
+          <span class="pill">🏅 <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
         </div>
       </div>
 
-      <div class="row" style="justify-content:flex-end; margin-top:12px;">
-        <button id="btnPlayAgain" class="btn">🎮 PLAY AGAIN</button>
+      <div class="card">
+        <div class="row">
+          <span class="pill">🎮 <span id="hudMode">Play</span></span>
+          <span class="pill">⚙️ <span id="hudDiff">Normal</span></span>
+          <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
+          <span class="pill">🌟 <span class="k">PERFECT</span> <span id="hudPerfectCount" class="v">0</span></span>
+        </div>
       </div>
     </div>
+
+    <!-- LEFT HUD (Quest) -->
+    <div id="hudLeft" class="hud-left">
+      <div id="questPanel" class="card quest-panel">
+        <div class="big">🎯 QUEST</div>
+        <div id="hudGoalLine" style="margin-top:6px; font-weight:900;">…</div>
+      </div>
+      <div id="miniPanel" class="card mini-panel">
+        <div class="big">🧩 MINI</div>
+        <div id="hudMiniLine" style="margin-top:6px; font-weight:900;">…</div>
+        <div id="hudMiniHint" class="hint">…</div>
+      </div>
+    </div>
+
+    <!-- RIGHT HUD (Buttons) -->
+    <div id="hudRight" class="hud-right">
+      <button id="btnEnterVR" class="btn">🥽 ENTER VR</button>
+      <button id="btnPause" class="btn">⏸️ PAUSE</button>
+      <button id="btnRestart" class="btn">🔁 RESTART</button>
+    </div>
+
+    <!-- BOTTOM HUD (hint area / optional) -->
+    <div id="hudBottom" class="hud-bottom">
+      <div class="card" style="max-width:72vw;">
+        <div class="k">Tip</div>
+        <div style="font-weight:900;">เก็บอาหารครบ 5 หมู่ให้ไว — ระวังขยะ! (Plate Rush จะมาเป็นระยะ)</div>
+      </div>
+    </div>
+
+    <!-- RESULT MODAL (optional) -->
+    <div id="resultBackdrop">
+      <div id="resultCard" class="card">
+        <div class="big">📊 RESULT</div>
+        <div class="grid" style="margin-top:10px;">
+          <div class="card">
+            <div class="row"><span class="k">MODE</span> <span id="rMode" class="v">Play</span></div>
+            <div class="row"><span class="k">GRADE</span> <span id="rGrade" class="v">C</span></div>
+            <div class="row"><span class="k">SCORE</span> <span id="rScore" class="v">0</span></div>
+            <div class="row"><span class="k">MAX COMBO</span> <span id="rMaxCombo" class="v">0</span></div>
+            <div class="row"><span class="k">MISS</span> <span id="rMiss" class="v">0</span></div>
+            <div class="row"><span class="k">PERFECT</span> <span id="rPerfect" class="v">0</span></div>
+          </div>
+          <div class="card">
+            <div class="row"><span class="k">GOALS</span> <span id="rGoals" class="v">0/0</span></div>
+            <div class="row"><span class="k">MINI</span> <span id="rMinis" class="v">0/0</span></div>
+            <div class="row"><span class="k">G1</span> <span id="rG1" class="v">0</span></div>
+            <div class="row"><span class="k">G2</span> <span id="rG2" class="v">0</span></div>
+            <div class="row"><span class="k">G3</span> <span id="rG3" class="v">0</span></div>
+            <div class="row"><span class="k">G4</span> <span id="rG4" class="v">0</span></div>
+            <div class="row"><span class="k">G5</span> <span id="rG5" class="v">0</span></div>
+            <div class="row"><span class="k">TOTAL</span> <span id="rGTotal" class="v">0</span></div>
+          </div>
+        </div>
+
+        <div class="row" style="justify-content:flex-end; margin-top:12px;">
+          <button id="btnPlayAgain" class="btn">🎮 PLAY AGAIN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- A-Frame Scene -->
+    <a-scene
+      renderer="colorManagement:true; physicallyCorrectLights:false"
+      background="color:#020617"
+      vr-mode-ui="enabled:true"
+      device-orientation-permission-ui="enabled:true"
+    >
+      <!-- Camera -->
+      <a-entity id="cam" camera position="0 1.6 0" look-controls="touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false">
+        <!-- Cursor: Fuse/Click (VR gaze + Desktop click) -->
+        <a-cursor
+          id="cursor"
+          fuse="true"
+          fuse-timeout="700"
+          raycaster="objects:.plateTarget"
+          material="color:#ffffff; shader:flat; opacity:0.85"
+          geometry="primitive:ring; radiusInner:0.010; radiusOuter:0.018"
+        ></a-cursor>
+
+        <!-- ✅ targetRoot (ปลายทาง spawn) -->
+        <a-entity id="targetRoot"></a-entity>
+      </a-entity>
+
+      <!-- Light (เบา ๆ) -->
+      <a-entity light="type:ambient; intensity:1.0; color:#ffffff"></a-entity>
+    </a-scene>
+
+    <!-- Module -->
+    <script type="module">
+      // NOTE: plate.safe.js ของคุณมี DOMContentLoaded boot อยู่แล้ว
+      // ที่นี่เราแค่ sync grade บน HUD ให้ทันที
+      import './plate/plate.safe.js';
+
+      window.addEventListener('hha:score', (e) => {
+        const d = e.detail || {};
+        const g = d.gradeNow || '';
+        const el = document.getElementById('hudGrade');
+        if (el && g) el.textContent = g;
+      });
+    </script>
+
   </div>
-
-  <!-- A-Frame Scene -->
-  <a-scene
-    renderer="colorManagement:true; physicallyCorrectLights:false"
-    background="color:#020617"
-    vr-mode-ui="enabled:true"
-    embedded
-  >
-    <!-- Camera -->
-    <a-entity id="cam" camera position="0 1.6 0" look-controls="touchEnabled:true; mouseEnabled:true; pointerLockEnabled:false">
-      <!-- Cursor: Fuse/Click (VR gaze + Desktop click) -->
-      <a-cursor
-        id="cursor"
-        fuse="true"
-        fuse-timeout="700"
-        raycaster="objects:.plateTarget"
-        material="color:#ffffff; shader:flat; opacity:0.85"
-        geometry="primitive:ring; radiusInner:0.010; radiusOuter:0.018"
-      ></a-cursor>
-
-      <!-- ✅ targetRoot (ปลายทาง spawn) -->
-      <a-entity id="targetRoot"></a-entity>
-    </a-entity>
-
-    <!-- Light (เบา ๆ) -->
-    <a-entity light="type:ambient; intensity:1.0; color:#ffffff"></a-entity>
-  </a-scene>
-
-  <!-- Module -->
-  <script type="module">
-    import { bootPlateDOM } from './plate/plate.safe.js';
-
-    // รับ event จาก plate.safe.js เพื่ออัปเดต grade บน HUD ทันที (ถ้ามี)
-    window.addEventListener('hha:score', (e) => {
-      const d = e.detail || {};
-      const g = d.gradeNow || '';
-      const el = document.getElementById('hudGrade');
-      if (el && g) el.textContent = g;
-    });
-
-    bootPlateDOM();
-  </script>
-
 </body>
 </html>
