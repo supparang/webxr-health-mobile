@@ -19,10 +19,13 @@
       --danger:#f97316;
       --text-main:#e5e7eb;
       --text-soft:#9ca3af;
+      --radius-lg:18px;
+      --radius-pill:999px;
     }
     *{ box-sizing:border-box; }
     body{
-      margin:0; min-height:100vh;
+      margin:0;
+      min-height:100vh;
       font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background:
         radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
@@ -31,11 +34,20 @@
       color:var(--text-main);
       overflow:hidden;
     }
-    a-scene{ width:100vw; height:100vh; position:fixed; inset:0; z-index:0; }
+
+    /* A-Frame canvas full */
+    a-scene{
+      width:100vw;
+      height:100vh;
+      position:fixed;
+      inset:0;
+      z-index:0;
+    }
 
     /* DOM target layer */
     #gj-layer{
-      position:fixed; inset:0;
+      position:fixed;
+      inset:0;
       z-index:649;
       pointer-events:auto;
       touch-action:none;
@@ -62,138 +74,401 @@
       filter: drop-shadow(0 18px 32px rgba(250,204,21,0.25));
     }
 
-    /* HUD */
-    .hud-root{ position:fixed; inset:0; pointer-events:none; z-index:650; display:flex; flex-direction:column; justify-content:space-between; padding:10px 10px 14px; }
-    .hud-top{ display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+    /* ===== HUD หลัก ===== */
+    .hud-root{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:650;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      padding:10px 10px 14px;
+    }
+    .hud-top{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+    }
     .hud-card{
       background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
-      border-radius:18px; padding:8px 10px;
+      border-radius:18px;
+      padding:8px 10px;
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
       pointer-events:auto;
     }
-    .hud-main{ display:flex; gap:10px; align-items:center; margin-bottom:4px; }
-    .hud-main-title{ font-size:14px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--text-soft); }
-    .hud-main-mode{ font-size:15px; font-weight:800; }
+    .hud-main{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin-bottom:4px;
+    }
+    .hud-main-title{
+      font-size:14px;
+      font-weight:600;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      color:var(--text-soft);
+    }
+    .hud-main-mode{
+      font-size:15px;
+      font-weight:800;
+    }
     .hud-pill{
-      font-size:11px; padding:2px 8px; border-radius:999px;
-      background:rgba(15,118,110,0.2); border:1px solid rgba(45,212,191,0.4);
-      color:#a5f3fc; font-weight:600; display:inline-flex; align-items:center; gap:6px;
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:999px;
+      background:rgba(15,118,110,0.2);
+      border:1px solid rgba(45,212,191,0.4);
+      color:#a5f3fc;
+      font-weight:600;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
     }
     .hud-pill.research{
       background:rgba(37,99,235,0.18);
       border-color:rgba(59,130,246,0.55);
       color:#bfdbfe;
     }
-    .hud-metrics{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+
+    .hud-metrics{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
     .metric{ min-width:92px; }
-    .metric-label{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-soft); }
-    .metric-value{ font-size:15px; font-weight:800; margin-top:2px; }
+    .metric-label{
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      color:var(--text-soft);
+    }
+    .metric-value{
+      font-size:15px;
+      font-weight:800;
+      margin-top:2px;
+    }
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
+    /* ===== Quest panel (บนขวา) ===== */
     .hud-quest{ max-width:340px; font-size:12px; }
-    .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
+    .quest-title{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      color:var(--text-soft);
+      margin-bottom:2px;
+    }
     .quest-main-label{ font-size:13px; font-weight:700; }
     .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
-    .quest-progress-wrap{ margin-top:5px; display:flex; flex-direction:column; gap:4px; }
-    .quest-bar{ position:relative; width:100%; height:4px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; }
-    .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
-    .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
+    .quest-progress-wrap{
+      margin-top:5px;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .quest-bar{
+      position:relative;
+      width:100%;
+      height:4px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.9);
+      overflow:hidden;
+    }
+    .quest-bar-fill{
+      position:absolute;
+      inset:0;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg, var(--accent-soft), var(--accent));
+      transition:width .18s ease-out;
+    }
+    .quest-caption{
+      font-size:10px;
+      color:var(--text-soft);
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+    }
 
-    .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
+    /* ===== Coach bubble (ล่างกลาง) ===== */
+    .hud-bottom{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      padding-bottom:72px;
+    }
     .coach-bubble{
-      min-width:60%; max-width:680px; text-align:left;
-      background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%), rgba(15,23,42,0.96);
-      border-radius:999px; padding:8px 14px; border:1px solid rgba(52,211,153,0.45);
-      font-size:13px; display:none; align-items:center; justify-content:flex-start; gap:8px;
-      pointer-events:auto; position:relative; overflow:hidden;
+      position:relative;
+      min-width:60%;
+      max-width:680px;
+      text-align:left;
+      background:
+        radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%),
+        rgba(15,23,42,0.96);
+      border-radius:999px;
+      padding:8px 14px;
+      border:1px solid rgba(52,211,153,0.45);
+      font-size:13px;
+      display:none;
+      align-items:center;
+      justify-content:flex-start;
+      gap:8px;
+      pointer-events:auto;
+      box-shadow:0 18px 40px rgba(15,23,42,0.65);
+      overflow:hidden;
     }
-    .coach-bubble.show{ display:flex; }
-    .coach-label{ font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:#6ee7b7; font-weight:800; }
+    .coach-bubble.show{
+      display:flex;
+      opacity:1;
+      transform:translateY(0) scale(1);
+      animation:coach-bubble-pop 0.4s cubic-bezier(0.18,0.89,0.32,1.28);
+    }
+    @keyframes coach-bubble-pop{
+      0%{ transform:translateY(6px) scale(0.9); box-shadow:0 0 0 rgba(52,211,153,0.0); }
+      50%{ transform:translateY(-2px) scale(1.04); box-shadow:0 18px 40px rgba(16,185,129,0.95); }
+      100%{ transform:translateY(0) scale(1); box-shadow:0 18px 40px rgba(15,23,42,0.65); }
+    }
+    .coach-label{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.16em;
+      color:#6ee7b7;
+      font-weight:800;
+    }
     .coach-emoji{
-      width:40px; height:40px; border-radius:999px; background-size:cover; background-position:center;
-      flex-shrink:0; box-shadow:0 0 12px rgba(16,185,129,0.8);
-      animation:coach-idle 1.4s ease-in-out infinite;
+      width:46px;
+      height:46px;
+      border-radius:999px;
+      background-image:url('./img/coach-neutral.png'); /* ✅ ชื่อตรงกับไฟล์จริง */
+      background-size:cover;
+      background-position:center;
+      flex-shrink:0;
+      box-shadow:0 0 18px rgba(16,185,129,0.9);
+      animation:coach-idle 1.1s ease-in-out infinite alternate;
     }
-    @keyframes coach-idle{ 0%{ transform:translateY(0) scale(1);} 30%{ transform:translateY(-2px) scale(1.03);} 60%{ transform:translateY(1px) scale(0.99);} 100%{ transform:translateY(0) scale(1);} }
+    @keyframes coach-idle{
+      0%{ transform:translateY(0) scale(1) rotate(-1.5deg); }
+      50%{ transform:translateY(-3px) scale(1.04) rotate(1.5deg); }
+      100%{ transform:translateY(1px) scale(0.99) rotate(-1deg); }
+    }
+    .coach-emoji.coach-celebrate{ animation:coach-celebrate-bounce 0.75s ease-out; }
+    @keyframes coach-celebrate-bounce{
+      0%{ transform:translateY(0) scale(1) rotate(0deg); }
+      20%{ transform:translateY(-10px) scale(1.12) rotate(-6deg); }
+      40%{ transform:translateY(-4px) scale(1.04) rotate(5deg); }
+      60%{ transform:translateY(-12px) scale(1.13) rotate(-4deg); }
+      100%{ transform:translateY(0) scale(1) rotate(0deg); }
+    }
+    .coach-emoji.coach-neutral{ filter:none; }
+    .coach-emoji.coach-happy{ box-shadow:0 0 22px rgba(34,197,94,0.95); }
+    .coach-emoji.coach-sad{ filter:grayscale(0.3) brightness(0.9); box-shadow:0 0 12px rgba(148,163,184,0.9); }
+    .coach-emoji.coach-fever{ box-shadow:0 0 24px rgba(248,113,113,0.95); }
 
+    /* ===== Center hint ===== */
     .hint-center{
-      position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
-      font-size:12px; color:var(--text-soft); background:rgba(15,23,42,0.8);
-      padding:6px 10px; border-radius:999px; border:1px solid rgba(148,163,184,0.35);
-      display:none; pointer-events:none; z-index:651;
+      position:fixed;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      font-size:12px;
+      color:var(--text-soft);
+      background:rgba(15,23,42,0.8);
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.35);
+      display:none;
+      pointer-events:none;
+      z-index:651;
     }
     .hint-center.show{ display:block; }
 
+    /* ===== Start Countdown ===== */
+    .countdown-overlay{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:655;
+      font-size:clamp(3rem, 10vw, 5rem);
+      font-weight:900;
+      color:#fbbf24;
+      text-shadow:0 0 40px rgba(0,0,0,0.85);
+      pointer-events:none;
+      transition:opacity .25s ease-out, transform .25s ease-out;
+    }
+    .countdown-hidden{
+      opacity:0;
+      visibility:hidden;
+      transform:scale(0.8);
+    }
+
+    /* ===== ฉลองใหญ่เต็มจอ ===== */
+    .big-celebrate{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:654;
+      pointer-events:none;
+    }
+    .big-celebrate.show{
+      display:flex;
+      animation:big-celebrate-fade 1.2s ease-out forwards;
+    }
+    .big-celebrate-inner{
+      padding:16px 22px;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at top left, rgba(250,250,250,0.16), transparent 55%),
+        rgba(8,47,73,0.96);
+      border:1px solid rgba(251,191,36,0.75);
+      font-size:16px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#fef9c3;
+      box-shadow:0 24px 60px rgba(15,23,42,0.95);
+    }
+    @keyframes big-celebrate-fade{
+      0%{ opacity:0; transform:scale(0.85); }
+      20%{ opacity:1; transform:scale(1); }
+      80%{ opacity:1; transform:scale(1); }
+      100%{ opacity:0; transform:scale(0.9); }
+    }
+
+    /* ===== ปุ่มเข้า VR ===== */
     .vr-btn{
-      position:fixed; right:12px; bottom:16px; z-index:653;
-      border-radius:999px; border:1px solid rgba(56,189,248,0.7); padding:8px 14px;
-      font-size:12px; font-weight:800; cursor:pointer;
-      background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%), rgba(15,23,42,0.96);
-      color:#e0f2fe; display:inline-flex; align-items:center; gap:6px; box-shadow:0 14px 30px rgba(15,23,42,0.9);
+      position:fixed;
+      right:12px;
+      bottom:16px;
+      z-index:653;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,0.7);
+      padding:8px 14px;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%),
+        rgba(15,23,42,0.96);
+      color:#e0f2fe;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      box-shadow:0 14px 30px rgba(15,23,42,0.9);
     }
     .vr-btn span{ font-size:16px; }
-
-    .countdown-overlay{
-      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-      z-index:655; font-size:clamp(3rem, 10vw, 5rem); font-weight:900; color:#fbbf24;
-      text-shadow:0 0 40px rgba(0,0,0,0.85); pointer-events:none; transition:opacity .25s ease-out, transform .25s ease-out;
+    .vr-btn:hover{
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.5), transparent 55%),
+        rgba(15,23,42,1);
     }
-    .countdown-hidden{ opacity:0; visibility:hidden; transform:scale(0.8); }
 
-    .big-celebrate{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:654; pointer-events:none; }
-    .big-celebrate.show{ display:flex; animation:big-celebrate-fade 1.2s ease-out forwards; }
-    .big-celebrate-inner{
-      padding:16px 22px; border-radius:999px;
-      background:radial-gradient(circle at top left, rgba(250,250,250,0.16), transparent 55%), rgba(8,47,73,0.96);
-      border:1px solid rgba(251,191,36,0.75); font-size:16px; font-weight:900; letter-spacing:.08em; text-transform:uppercase;
-      color:#fef9c3; box-shadow:0 24px 60px rgba(15,23,42,0.95);
-    }
-    @keyframes big-celebrate-fade{ 0%{ opacity:0; transform:scale(0.85);} 20%{ opacity:1; transform:scale(1);} 80%{ opacity:1; transform:scale(1);} 100%{ opacity:0; transform:scale(0.9);} }
-
+    /* ===== Start Overlay ===== */
     .start-overlay{
-      position:fixed; inset:0; z-index:700; display:flex; align-items:center; justify-content:center;
-      padding:18px; background:radial-gradient(circle at 50% 35%, rgba(34,197,94,0.18), transparent 55%), rgba(2,6,23,0.92);
+      position:fixed;
+      inset:0;
+      z-index:700;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(34,197,94,0.18), transparent 55%),
+        rgba(2,6,23,0.92);
     }
     .start-card{
-      width:min(560px, 96vw); border-radius:22px;
+      width:min(560px, 96vw);
+      border-radius:22px;
       background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
-      border:1px solid rgba(148,163,184,0.2); box-shadow:0 30px 80px rgba(0,0,0,0.55);
-      padding:16px 16px 14px; text-align:left;
+      border:1px solid rgba(148,163,184,0.2);
+      box-shadow:0 30px 80px rgba(0,0,0,0.55);
+      padding:16px 16px 14px;
+      text-align:left;
     }
     .start-title{ font-size:18px; font-weight:950; margin:0 0 6px; letter-spacing:.02em; }
     .start-sub{ margin:0 0 12px; color:var(--text-soft); font-size:13px; line-height:1.35; }
-
     .start-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .start-grid > div{ display:flex; flex-direction:column; gap:6px; }
     .start-label{ font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:.14em; }
     select{
-      width:100%; border-radius:12px; border:1px solid rgba(30,64,175,0.6);
-      background:rgba(15,23,42,0.9); padding:7px 9px; color:var(--text-main); font-size:13px; outline:none;
+      width:100%;
+      border-radius:12px;
+      border:1px solid rgba(30,64,175,0.6);
+      background:rgba(15,23,42,0.9);
+      padding:7px 9px;
+      color:var(--text-main);
+      font-size:13px;
+      outline:none;
     }
-
-    .start-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; margin-top:12px; }
+    .start-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+      margin-top:12px;
+    }
     .start-btn{
-      border-radius:999px; border:1px solid rgba(187,247,208,0.9);
+      border-radius:999px;
+      border:1px solid rgba(187,247,208,0.9);
       background:linear-gradient(135deg,#22c55e,#16a34a);
-      color:#052e16; padding:10px 14px; font-weight:950; cursor:pointer; display:inline-flex; align-items:center; gap:8px;
+      color:#052e16;
+      padding:10px 14px;
+      font-weight:950;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
     }
     .start-btn.secondary{
       border:1px solid rgba(148,163,184,0.6);
       background:rgba(15,23,42,0.86);
-      color:var(--text-main); font-weight:850;
+      color:var(--text-main);
+      font-weight:850;
     }
 
+    /* Logger badge */
     .logbadge{
-      position:fixed; left:10px; bottom:10px; z-index:690;
-      background:rgba(15,23,42,0.88); border:1px solid rgba(148,163,184,0.22);
-      border-radius:999px; padding:6px 10px; font-size:11px; color:#e5e7eb;
-      display:flex; align-items:center; gap:8px; pointer-events:none; max-width:92vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      position:fixed;
+      left:10px;
+      bottom:10px;
+      z-index:690;
+      background:rgba(15,23,42,0.88);
+      border:1px solid rgba(148,163,184,0.22);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:11px;
+      color:#e5e7eb;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      pointer-events:none;
+      max-width:92vw;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
     }
     .dot{ width:8px; height:8px; border-radius:999px; background:#9ca3af; }
     .dot.ok{ background:#22c55e; }
     .dot.bad{ background:#ef4444; }
+
+    @media (max-width:560px){
+      .hud-top{ flex-direction:column; align-items:stretch; }
+      .hud-card{ width:100%; }
+      .hud-quest{ max-width:unset; }
+      .coach-bubble{ min-width:92%; }
+      .start-grid{ grid-template-columns:1fr; }
+    }
   </style>
 </head>
 
@@ -337,10 +612,9 @@
     <span id="logtext">logger: pending…</span>
   </div>
 
+  <!-- External modules (IIFE) -->
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
-
-  <!-- ✅ Patch B Summary Overlay -->
   <script src="./vr/hha-summary.js"></script>
 
   <script type="module">
@@ -405,7 +679,7 @@
     const URL_CH = (pageUrl.searchParams.get('ch') || pageUrl.searchParams.get('challenge') || 'rush').toLowerCase(); // rush|boss|survival
     const URL_TIME_RAW = parseInt(pageUrl.searchParams.get('time') || '', 10);
 
-    const DEFAULT_TIME = { easy:80, normal:60, hard:50 }; // ให้ตรงกับ Hub ล่าสุด
+    const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
     function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
     function normDiff(v){ v=String(v||'normal').toLowerCase(); return (v==='easy'||v==='hard'||v==='normal') ? v : 'normal'; }
     function normCh(v){ v=String(v||'rush').toLowerCase(); return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush'; }
@@ -419,7 +693,7 @@
       20, 180
     );
 
-    // Coach images (ตามชื่อไฟล์ที่คุณกำหนดไว้)
+    // ✅ Coach images (ชื่อไฟล์ตามที่คุณล็อกไว้ใน /herohealth/img)
     const COACH_IMG = {
       neutral: './img/coach-neutral.png',
       happy:   './img/coach-happy.png',
@@ -430,7 +704,11 @@
     let lastCoachTimeout = null;
     function setCoachFace(mood){
       const m = COACH_IMG[mood] ? mood : 'neutral';
-      if (elCoachEmoji) elCoachEmoji.style.backgroundImage = `url('${COACH_IMG[m]}')`;
+      if (elCoachEmoji){
+        elCoachEmoji.style.backgroundImage = `url('${COACH_IMG[m]}')`;
+        elCoachEmoji.classList.remove('coach-neutral','coach-happy','coach-sad','coach-fever');
+        elCoachEmoji.classList.add('coach-' + m);
+      }
     }
     function setCoach(text, mood='neutral'){
       if (elCoachBubble) elCoachBubble.classList.add('show');
@@ -500,7 +778,7 @@
       });
     }
 
-    // Logger badge (รับ event จาก logger)
+    // Logger badge
     const loggerState = { pending:true, ok:false, message:'' };
     function setLogBadge(state, text){
       if (!logDot || !logText) return;
@@ -534,9 +812,7 @@
       return !!(p.studentId || p.name || p.nickName || p.studentNo);
     }
 
-    // -------------------------
-    // Quest state (ส่งให้ QuestDirector)
-    // -------------------------
+    // Quest state
     const qState = {
       score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
       streakGood:0,
@@ -546,7 +822,7 @@
       usedMagnet:false,
       timePlus:0,
 
-      // ✅ FAIR No-Junk Zone: นับเฉพาะ "ไม่มี junk/fake hit" (ไม่สน good expire)
+      // FAIR No-Junk Zone: นับเฉพาะ "ไม่มี junk/fake hit"
       safeNoJunkSeconds:0,
       bossCleared:false,
       challenge: CH_INIT,
@@ -563,23 +839,25 @@
       qState.streakGood = 0;
     });
 
-    // ✅ safeNoJunkSeconds tick (เพิ่มเมื่อเกมเริ่มแล้ว)
+    // safeNoJunkSeconds tick
     let started = false;
     setInterval(()=>{
       if (!started) return;
       qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
     }, 1000);
 
-    // --- QuestDirector (Patch A schema) ---
     let Q = null;
 
-    // FX helpers
     function celebrateQuest(kind='mini'){
       const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
       const cx = window.innerWidth/2;
       const y  = window.innerHeight*0.22;
       if (P && P.burstAt) P.burstAt(cx, y, { count: 18, good: true });
       if (P && P.scorePop) P.scorePop(cx, y, (kind==='goal'?'GOAL CLEAR!':'MINI CLEAR!'), { judgment:'GREAT!', good:true });
+      if (elCoachEmoji){
+        elCoachEmoji.classList.add('coach-celebrate');
+        setTimeout(()=> elCoachEmoji.classList.remove('coach-celebrate'), 800);
+      }
       setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
     }
 
@@ -596,7 +874,6 @@
       setTimeout(()=>{ elBigCelebrate.classList.remove('show'); callback && callback(); }, 1200);
     }
 
-    // HUD listeners
     window.addEventListener('hha:judge', (e)=>{
       const label = (e.detail||{}).label || '';
       if (elJudge) elJudge.textContent = label;
@@ -618,11 +895,10 @@
       if (typeof d.misses === 'number'){ qState.miss = d.misses|0; elMiss.textContent = String(qState.miss); }
       if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; elCombo.textContent = String(qState.comboMax); }
       if (typeof d.challenge === 'string'){ qState.challenge = normCh(d.challenge); }
-      // ไม่จำเป็นต้อง Q.tick ที่นี่เสมอ แต่เรียกได้เพื่อให้ UI timer/สถานะทัน
       if (Q) Q.tick(qState);
     });
 
-    // ✅ ให้ QuestDirector เดินตาม event เกม (ถ้า GameEngine ยิง event เหล่านี้อยู่แล้ว)
+    // Quest events from engine
     window.addEventListener('quest:goodHit', (e)=>{
       const d = e.detail || {};
       if (d.type === 'gold'){
@@ -660,14 +936,13 @@
       if (Q) Q.onEvent('bossClear', qState);
     });
 
-    // ✅ Patch A schema: quest:update.detail = {goal:{title,cur,max,pct,state}, mini:{...}, meta:{goalIndex,miniCount,diff}}
+    // quest:update schema
     window.addEventListener('quest:update', (e)=>{
       const d = e.detail || {};
       const goal = d.goal || null;
       const mini = d.mini || null;
       const meta = d.meta || {};
 
-      // MAIN (Goal)
       if (goal){
         const cur = (goal.cur|0);
         const max = (goal.max|0);
@@ -681,7 +956,6 @@
         elQuestMainCap.textContent = '';
       }
 
-      // MINI
       if (mini){
         const cur = (mini.cur|0);
         const max = (mini.max|0);
@@ -689,7 +963,6 @@
         elQuestMini.textContent = 'Mini: ' + (mini.title || '');
         elQuestMiniBar.style.width = Math.round(pct*100) + '%';
 
-        // timer caption ถ้ามี
         if (typeof mini.timeLeft === 'number' && typeof mini.timeTotal === 'number' && mini.timeTotal > 0){
           const secLeft = Math.max(0, mini.timeLeft/1000);
           elQuestMiniCap.textContent = `เหลือ ${secLeft >= 10 ? Math.round(secLeft) : (Math.round(secLeft*10)/10)}s`;
@@ -702,7 +975,6 @@
         elQuestMiniCap.textContent = '';
       }
 
-      // Hint แบบเล่นจริง
       let hint = '';
       if (goal && String(goal.state||'').toLowerCase().includes('clear')) hint = 'GOAL CLEAR!';
       else if (mini && String(mini.state||'').toLowerCase().includes('clear')) hint = 'MINI CLEAR!';
@@ -710,14 +982,11 @@
       else if (mini && Number(mini.pct||0) >= 0.8) hint = 'อีกนิดเดียว! ⚡';
       elQuestHint.textContent = hint;
 
-      // Mini counter chain (จำนวน mini ที่ผ่านไปแล้ว)
       const miniCount = (meta.miniCount|0);
       const minisCleared = (Q && Q.getState) ? (Q.getState().minisCleared|0) : 0;
       elMiniCount.textContent = `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`;
-
     });
 
-    // ✅ Patch A: quest:cleared => ฉลองแบบไม่ซ้ำรัว
     window.addEventListener('quest:cleared', (e)=>{
       const d = e.detail || {};
       const kind = String(d.kind||'').toLowerCase();
@@ -735,9 +1004,7 @@
     function applyRunPill(){
       const runTxt = RUN_MODE.toUpperCase();
       if (elRunLabel) elRunLabel.textContent = runTxt;
-      if (elPill){
-        elPill.classList.toggle('research', RUN_MODE === 'research');
-      }
+      if (elPill) elPill.classList.toggle('research', RUN_MODE === 'research');
       if (startSub){
         startSub.textContent = (RUN_MODE === 'research')
           ? 'โหมดวิจัย: ต้องมี Student ID หรือชื่อเล่นจาก Hub แล้วค่อยกดเริ่ม ✅'
@@ -748,7 +1015,6 @@
     function bootOnce({ wantVR }){
       if (started) return;
 
-      // ✅ research gate
       if (RUN_MODE === 'research'){
         const { studentProfile } = getProfile();
         if (!hasProfile(studentProfile)){
@@ -779,10 +1045,8 @@
 
       setCoach('แตะของดี! หลบ junk! ไปเลย! ⚡', 'neutral');
 
-      // profile from hub
       const { studentProfile, studentKey } = getProfile();
 
-      // ✅ logger endpoint (จาก Hub) + fallback
       const endpoint =
         sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
         'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
@@ -792,7 +1056,6 @@
       loggerState.message = '';
       setLogBadge(null, 'logger: init…');
 
-      // ✅ init logger
       initCloudLogger({
         endpoint,
         projectTag: 'HeroHealth-GoodJunkVR',
@@ -806,12 +1069,10 @@
         debug: true
       });
 
-      // touch + VR button
       const cam = document.querySelector('#gj-camera');
       attachTouch(cam);
       initVRButton();
 
-      // ✅ QuestDirector (Patch A)
       Q = makeQuestDirector({
         diff,
         goalDefs: GOODJUNK_GOALS,
@@ -823,68 +1084,50 @@
       Q.start(qState);
 
       runCountdown(async ()=>{
-      waitSceneReady(async ()=>{
-        if (wantVR) await tryEnterVR();
+        waitSceneReady(async ()=>{
+          if (wantVR) await tryEnterVR();
 
-    // ✅ ใช้ safe wrapper แทน
-      const ENGINE = goodjunkBoot(diff, {
-        runMode: RUN_MODE,
-        challenge: chal,
-        durationSec,
-        layerEl: document.getElementById('gj-layer')
+          const ENGINE = goodjunkBoot(diff, {
+            runMode: RUN_MODE,
+            challenge: chal,
+            durationSec,
+            layerEl: document.getElementById('gj-layer')
+          });
+          window.__GJ_ENGINE__ = ENGINE;
         });
-
-    // (ออปชัน) เก็บไว้ดีบัก
-    window.__GJ_ENGINE__ = ENGINE;
       });
-    });
     }
 
-    // ---- init defaults from Hub params ----
     function prefillFromHub(){
       try{ selDiff.value = DIFF_INIT; }catch(_){}
       try{ selChallenge.value = CH_INIT; }catch(_){}
-
       applyRunPill();
       elDiff.textContent = DIFF_INIT.toUpperCase();
       elChal.textContent = CH_INIT.toUpperCase();
       elTime.textContent = DUR_INIT + 's';
-
       setCoachFace('neutral');
 
       const endpoint = sessionStorage.getItem('HHA_LOG_ENDPOINT');
-      if (endpoint){
-        setLogBadge(null, 'logger: endpoint set ✓');
-      } else {
-        setLogBadge(null, 'logger: endpoint missing (hub?)');
-      }
+      if (endpoint) setLogBadge(null, 'logger: endpoint set ✓');
+      else setLogBadge(null, 'logger: endpoint missing (hub?)');
     }
 
     btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
     btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
-
     prefillFromHub();
 
-    // -------------------------------------------------------------------
-    // ✅ PATCH(B) “จับ hha:end” แล้วเรียก Summary Overlay แบบ merge stats
-    //    - stopImmediatePropagation กันโชว์ซ้ำ/กัน toast เก่า
-    //    - bigCelebrateAll แล้วค่อย show summary
-    // -------------------------------------------------------------------
+    // ✅ PATCH(B) จับ hha:end แล้วโชว์ Summary Overlay (กันซ้ำ)
     document.addEventListener('hha:end', (e)=>{
-      // กัน handler อื่น (รวมถึง auto-listener ใน hha-summary.js)
-      // แล้วเราจะเรียก HHA_Summary.show เองแบบ payload ครบ
       try{
         e.stopImmediatePropagation();
         e.stopPropagation();
       }catch(_){}
 
       const final = (e && e.detail) ? e.detail : {};
-
       const qs = (Q && Q.getState) ? Q.getState() : {};
       const goalsCleared = qs.goalsCleared|0;
       const minisCleared = qs.minisCleared|0;
 
-      // ประเมิน allQuest แบบ “goal ครบ 2” + mini ผ่าน >= 1 (หรือจะตัดเงื่อนไข mini ก็ได้)
       const goalsTotal = 2;
       const allQuest = (goalsCleared >= goalsTotal);
 
@@ -919,7 +1162,7 @@
       };
 
       const show = ()=>{
-        if (window.HHA_Summary && typeof window.HHA_Summary.show === 'function') {
+        if (window.HHA_Summary && typeof window.HHA_Summary.show === 'function'){
           window.HHA_Summary.show(merged);
         } else {
           // fallback: ถ้า script ยังโหลดไม่ทัน
@@ -928,13 +1171,10 @@
         setCoach('จบเกมแล้ว! ดูสรุปคะแนนได้เลย 🎉', (merged.miss|0)<=3 ? 'happy' : 'neutral');
       };
 
-      if (allQuest){
-        bigCelebrateAll(show);
-      } else {
-        show();
-      }
+      if (allQuest) bigCelebrateAll(show);
+      else show();
 
-    }, true); // ✅ capture = มาก่อน
+    }, true);
   </script>
 </body>
 </html>
