@@ -1,11 +1,8 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Full HTML (ROOT PATH FIX)
-     ✅ DOM emoji targets on #gj-layer
-     ✅ HUD + Quest + Coach + Fever/Shield UI
-     ✅ Start overlay (2D / VR)
-     ✅ Loads particles.js BEFORE boot module (สำคัญมาก)
-     ✅ PATH FIX: ใช้ ./vr/*, ./vr-goodjunk/*, ./img/*, ./favicon.ico (เพราะไฟล์นี้อยู่ /herohealth/)
-     ✅ Boot loader fallback: ถ้า import ไม่ได้จะขึ้น error ที่ badge
+     GoodJunkVR (PRODUCTION) — Full HTML (FINAL START FIX)
+     ✅ NO fallback to goodjunk.safe.js (prevents auto-start)
+     ✅ Boot module must export boot() and bind Start buttons
+     ✅ Pre-start lock: targets hidden + no pointer events until Start
 -->
 <!doctype html>
 <html lang="th">
@@ -77,6 +74,10 @@
       filter: drop-shadow(0 18px 32px rgba(250,204,21,0.25));
     }
 
+    /* ✅ PRE-START LOCK (กัน TIME/MISS หลุด + กันแตะโดน) */
+    body:not(.game-started) #gj-layer{ pointer-events:none !important; }
+    body:not(.game-started) .gj-target{ display:none !important; }
+
     /* HUD */
     .hud-root{
       position:fixed;
@@ -114,10 +115,6 @@
       letter-spacing:.03em;
       text-transform:uppercase;
       color:var(--text-soft);
-    }
-    .hud-main-mode{
-      font-size:15px;
-      font-weight:800;
     }
     .hud-pill{
       font-size:11px;
@@ -296,7 +293,7 @@
     /* Start overlay */
     .start-overlay{
       position:fixed; inset:0;
-      z-index:700;
+      z-index:99999; /* ✅ ทับทุกอย่าง */
       display:flex;
       align-items:center;
       justify-content:center;
@@ -379,7 +376,6 @@
     .shield-label{ font-size:12px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
 
-    /* Start hint */
     .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
   </style>
 
@@ -388,7 +384,7 @@
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
 
-  <!-- ✅ Boot loader (module) — FIX: import จาก ./vr-goodjunk/... (เพราะไฟล์นี้อยู่ /herohealth/) -->
+  <!-- ✅ Boot loader (module) — ONLY loads goodjunk-vr.boot.js (NO safe.js fallback) -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
 
@@ -400,45 +396,27 @@
     }
 
     async function loadBoot(){
-      // ลองหลาย path เผื่อคุณสลับโฟลเดอร์/ชื่อไฟล์
-      const candidates = [
-        './vr-goodjunk/goodjunk-vr.boot.js',
-        './vr-goodjunk/goodjunk-vr.boot.mjs',
-        './vr-goodjunk/goodjunk.boot.js',
-        './vr-goodjunk/goodjunk.safe.js',
-        './goodjunk-vr.boot.js' // legacy (แต่ตอนนี้ของคุณ 404)
-      ];
+      const p = './vr-goodjunk/goodjunk-vr.boot.js';
+      try{
+        setBadge(false, 'boot: loading…');
+        const mod = await import(p);
 
-      let lastErr = null;
-      for (const p of candidates){
-        try{
-          const mod = await import(p);
-          // รองรับหลายชื่อ export เผื่อไฟล์บูตคุณต่างกัน
-          const bootFn = mod.boot || mod.start || mod.init || mod.default;
-          if (typeof bootFn === 'function'){
-            setBadge(true, 'boot: ' + p);
-            bootFn(); // ให้ไฟล์บูตไป bind ปุ่ม Start/VR เอง
-            return;
-          }
-          // ถ้า import ได้แต่ไม่มี function ก็ให้ถือว่าผิด
-          lastErr = new Error('Boot module loaded but no boot/start/init/default function: ' + p);
-        }catch(e){
-          lastErr = e;
+        if (!mod || typeof mod.boot !== 'function'){
+          throw new Error('Boot module loaded but no export boot() : ' + p);
         }
-      }
 
-      console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
-      setBadge(false, 'boot failed: ' + (lastErr && lastErr.message ? lastErr.message : 'unknown'));
-      // กันผู้ใช้กดแล้วงง: เปลี่ยนข้อความใน start-sub
-      const sub = $('#start-sub');
-      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
+        mod.boot(); // ✅ bind Start buttons / init UI
+        setBadge(true, 'boot: ' + p);
+      }catch(e){
+        console.error('[GoodJunk] BOOT LOAD FAILED', e);
+        setBadge(false, 'boot failed: ' + (e?.message || 'unknown'));
+        const sub = $('#start-sub');
+        if (sub) sub.textContent =
+          '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
+      }
     }
 
-    window.addEventListener('load', () => {
-      // แสดง badge ว่าเริ่มโหลด
-      setBadge(false, 'boot: loading…');
-      loadBoot();
-    });
+    window.addEventListener('load', loadBoot);
   </script>
 </head>
 
@@ -542,7 +520,6 @@
     <!-- Bottom: Coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
-        <!-- ✅ FIX PATH (ROOT) -->
         <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
         <div class="coach-col">
           <div class="coach-label">Coach</div>
