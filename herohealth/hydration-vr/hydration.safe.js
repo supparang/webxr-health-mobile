@@ -1,11 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
 // ✅ FIX ROOT CAUSE: sync GREEN time into Quest.stats.greenTick so GOAL can pass
-// ✅ ADD 1-7: Arcade fun pack (Green Streak/Jackpot + Panic + Storm+ + Decoy + SurpriseMini + PerfectStreak + MiniBoss)
-// ✅ NEW: Mini ต่อเนื่อง “ชนิดใหม่” 2 แบบ (Junk Cleanse + Perfect Chain) → วนไม่สิ้นสุด
-// ✅ RULE: “นับเฉพาะ junk hit” เป็น fail (MISS จาก good expire ไม่ทำให้ fail mini chain)
+// ✅ ADD Arcade fun pack (Green Streak/Jackpot + Panic + Storm+ + Decoy + SurpriseMini + PerfectStreak + MiniBoss)
+// ✅ NEW: “Mini ต่อเนื่อง” (Chain Minis) เพิ่ม 2 ชนิดใหม่:
+//    (A) Junk Cleanse  — อยู่รอด X วินาที โดย “แพ้เฉพาะ junk hit”
+//    (B) Perfect Chain — PERFECT ติดต่อกัน X ครั้ง (ไม่ perfect รีเซ็ต, ไม่ถือว่าแพ้) + แพ้เฉพาะ junk hit
+// ✅ RULE (ตามที่สั่ง): mini chain “นับเฉพาะ junk hit” เป็น fail เท่านั้น
 // ✅ Heavy Celebration hooks (Particles.celebrate/ toast) + shake/flash/beep/vibrate
-// ✅ PROD: listener cleanup กัน bind ซ้ำ + end payload สถิติครบ
 
 'use strict';
 
@@ -188,29 +189,18 @@ function megaCelebrate(kind='goal'){
       50%{ transform:scale(1.35); opacity:1 }
       100%{ transform:scale(1); opacity:.7 }
     }
-    #hvr-mini-banner{
-      position:fixed;
-      left:50%;
-      top:48px;
-      transform:translateX(-50%);
-      z-index:99990;
-      display:none;
-      padding:7px 12px;
+
+    /* mini chain badge hint (optional) */
+    .hvr-mini-chain-badge{
+      display:inline-block;
+      padding:3px 10px;
       border-radius:999px;
-      border:1px solid rgba(34,197,94,.55);
-      background:rgba(2,6,23,.75);
-      color:#dcfce7;
-      box-shadow:0 16px 38px rgba(0,0,0,.55);
+      border:1px solid rgba(148,163,184,.35);
+      background:rgba(15,23,42,.80);
+      margin-left:8px;
       font-weight:900;
       letter-spacing:.04em;
-      user-select:none;
-      backdrop-filter:blur(10px);
-      max-width:min(92vw, 920px);
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
-    #hvr-mini-banner.on{ display:block; }
   `;
   ROOT.document.head.appendChild(s);
 
@@ -218,11 +208,6 @@ function megaCelebrate(kind='goal'){
   b.id = 'hvr-storm-banner';
   b.innerHTML = `<span class="dot"></span>STORM WAVE <span id="hvr-storm-left">0</span>s`;
   ROOT.document.body.appendChild(b);
-
-  const m = ROOT.document.createElement('div');
-  m.id = 'hvr-mini-banner';
-  m.textContent = 'MINI CHAIN';
-  ROOT.document.body.appendChild(m);
 })();
 
 // --------------------- Tuning ---------------------
@@ -237,9 +222,9 @@ const TUNE = {
   scorePerfectBonus: 10,
   scoreFeverBonus: 6,
 
-  // extra arcade
-  scoreStormBonusMul: 1.30,      // storm bonus mul
-  stormExtraJunkPenalty: 10,     // junk harsher in storm
+  // storm
+  scoreStormBonusMul: 1.30,
+  stormExtraJunkPenalty: 10,
 
   feverGainGood:  9,
   feverGainPower: 14,
@@ -252,6 +237,7 @@ const TUNE = {
   shieldOnFeverStart: 2,
   shieldMax: 6,
 
+  // IMPORTANT: miss from good expire is NOT used as chain-fail (ตามคำสั่ง)
   missOnGoodExpire: true,
 
   rewardGoalScore:  160,
@@ -261,14 +247,14 @@ const TUNE = {
   rewardGoalStormSec: 5,
   rewardMiniFever:  18,
 
-  // (1) green streak
+  // green streak
   greenStreakEverySec: 5,
   greenStreakScore: 25,
   greenStreakFever: 6,
   greenJackpotEverySec: 15,
   greenJackpotScore: 120,
 
-  // (5) surprise mini
+  // surprise mini (ครั้งเดียว)
   surpriseWindowSec: 8,
   surpriseNeedHits: 4,
   surpriseRewardScore: 220,
@@ -277,23 +263,38 @@ const TUNE = {
   surpriseRewardFever: 22,
   surprisePenaltyFail: 0,
 
-  // (6) perfect streak (เดิม)
+  // perfect streak (ระบบเดิมในเกมหลัก)
   perfectStreakTarget: 3,
   perfectRewardScore: 80,
   perfectRewardShield: 1,
   perfectRewardStorm: 2,
 
-  // (7) boss
+  // boss
   bossTimeWindow: 15,
   bossJunkPenalty: 60,
   bossRewardIfBlocked: 60,
 
-  // ✅ NEW: Mini Chain rewards (เบากว่า mini หลัก แต่ต่อเนื่องสนุก)
-  chainRewardScore: 90,
-  chainRewardTime:  1,
+  // =============================
+  // NEW: MINI CHAIN (ต่อเนื่อง)
+  // =============================
+  chainEnabled: true,
+  chainRewardScore: 140,
+  chainRewardTime:  2,
   chainRewardStorm: 2,
-  chainRewardShield: 1,
-  chainRewardFever: 10
+  chainRewardFever: 16,
+  chainFailPenaltyScore: 0,     // “แพ้เฉพาะ junk hit” แต่ไม่ต้องหักแต้ม (ตั้ง 0)
+  chainStartDelaySec: 3,        // เริ่ม chain หลังเริ่มเกม 3 วิ
+  chainBetweenDelaySec: 1,      // เว้น 1 วิ แล้วขึ้น mini ต่อไป
+
+  // (A) Junk Cleanse
+  cleanseSecEasy:   7,
+  cleanseSecNormal: 9,
+  cleanseSecHard:  12,
+
+  // (B) Perfect Chain
+  pchainNeedEasy:   2,
+  pchainNeedNormal: 3,
+  pchainNeedHard:   4,
 };
 
 // --------------------- Main boot ---------------------
@@ -325,27 +326,16 @@ export async function boot(opts = {}) {
     zone: 'GREEN',
     greenTick: 0,
 
-    // (1) Green streak / jackpot
     greenStreak: 0,
 
-    // fever
     fever: 0,
     feverActive: false,
     feverLeft: 0,
     shield: 0,
 
-    // storm
     stormLeft: 0,
     stormIntervalMul: 0.65,
 
-    // stats (✅ end summary)
-    goodHits: 0,
-    junkHits: 0,        // ✅ นับเฉพาะ junk hit (ไม่รวม expire)
-    blockedHits: 0,
-    powerHits: 0,
-    perfectHits: 0,
-
-    // surprise mini
     surprise: {
       active: false,
       cleared: false,
@@ -354,34 +344,44 @@ export async function boot(opts = {}) {
       need: TUNE.surpriseNeedHits,
       got: 0,
       noJunkOk: true,
-      triggerAt: Math.max(25, Math.floor(duration * 0.55)) // เริ่มตอนเหลือ ~55% เวลา (ครั้งเดียว)
+      triggerAt: Math.max(25, Math.floor(duration * 0.55))
     },
 
-    // perfect streak (เดิม)
     perfectStreak: 0,
 
-    // boss
     boss: {
       active: false,
       spawned: false,
       hitOrBlocked: false
     },
 
-    // ✅ NEW: Mini Chain (ต่อเนื่องวนไม่สิ้นสุด)
-    miniChain: {
-      active: true,
-      id: 0,
-      type: '',
+    // ✅ NEW: Mini Chain
+    chain: {
+      enabled: !!TUNE.chainEnabled,
+      started: false,
+      startIn: TUNE.chainStartDelaySec,
+      nextIn: 0,               // cooldown ก่อนขึ้นอันถัดไป
+      active: false,
+      kind: '',
       title: '',
-      left: 0,
-      target: 0,
-      got: 0,
-      streak: 0,
-      noJunk: true,
-      cleared: 0
+      left: 0,                 // ใช้กับ cleanse timer
+      need: 0,                 // ใช้กับ perfect chain
+      got: 0,                  // ใช้กับ perfect chain
+      clearedCount: 0,
+      failCount: 0,            // fail เฉพาะ junk hit
+      lastFailAt: 0,
+      lastClearAt: 0,
     },
 
-    rewards: { goalsCleared: 0, minisCleared: 0, chainCleared: 0, bonuses: [], surCleared: 0, bossSurvived: 0 }
+    rewards: {
+      goalsCleared: 0,
+      minisCleared: 0,         // core minis (3 อันของ quest)
+      chainCleared: 0,         // ✅ chain minis เพิ่ม (ต่อเนื่อง)
+      chainFailed: 0,          // ✅ fail จาก junk hit เท่านั้น
+      bonuses: [],
+      surCleared: 0,
+      bossSurvived: 0
+    }
   };
 
   const Q = createHydrationQuest(difficulty);
@@ -390,14 +390,6 @@ export async function boot(opts = {}) {
   ROOT.HHA_ACTIVE_INST = {
     stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} }
   };
-
-  function showMiniBanner(text, ms=1200){
-    const el = $id('hvr-mini-banner');
-    if (!el) return;
-    el.textContent = text;
-    el.classList.add('on');
-    ROOT.setTimeout(()=> el.classList.remove('on'), ms);
-  }
 
   function updateStormUI(){
     const left = state.stormLeft|0;
@@ -413,14 +405,12 @@ export async function boot(opts = {}) {
   function normalizeZone(z){
     const Z = String(z || '').toUpperCase();
     if (Z === 'GREEN' || Z === 'YELLOW' || Z === 'RED') return Z;
-    // ui-water อาจใช้ LOW/HIGH → map
     if (Z === 'LOW') return 'YELLOW';
     if (Z === 'HIGH') return 'RED';
     return 'GREEN';
   }
 
   function syncQuestZone(){
-    // ✅ ROOT FIX: quest goals use stats.greenTick/timeSec; we must keep them updated
     try{
       if (Q && Q.stats){
         Q.stats.zone = state.zone;
@@ -435,7 +425,6 @@ export async function boot(opts = {}) {
     const computed = normalizeZone(out?.zone || zoneFrom(state.waterPct));
     state.zone = computed;
 
-    // hard update (บางครั้ง ui-water ไม่แตะ DOM)
     const fillEl = $id('hha-water-fill');
     if (fillEl) fillEl.style.width = clamp(state.waterPct,0,100).toFixed(1) + '%';
 
@@ -445,26 +434,26 @@ export async function boot(opts = {}) {
     const ztxt = $id('hha-water-zone-text');
     if (ztxt) ztxt.textContent = state.zone;
 
-    // ส่งโซนให้ quest (quest รองรับ GREEN/LOW/HIGH แต่เราใช้ GREEN/YELLOW/RED → map)
-    const qZone = (state.zone === 'GREEN') ? 'GREEN' : (state.zone === 'YELLOW' ? 'LOW' : 'HIGH');
-    try{ Q.setZone && Q.setZone(qZone); }catch{}
     syncQuestZone();
+    // ✅ zone ให้ quest ใช้ทันที
+    try{ Q.setZone && Q.setZone(state.zone); }catch{}
   }
 
   function calcProg(){
     const goalsDone = Number($id('hha-goal-done')?.textContent || 0) || 0;
     const miniDone  = Number($id('hha-mini-done')?.textContent || 0) || 0;
+    // ✅ เอา chain เข้าโปรเกรสด้วย (นิดหน่อย)
+    const chain = state.rewards.chainCleared|0;
+    const chainTerm = clamp(chain / 10, 0, 1) * 0.08;
 
-    // ✅ normalize by duration (กันเกรดเพี้ยน)
-    const baselinePerSec = (difficulty === 'hard') ? 13.5 : (difficulty === 'easy' ? 12.0 : 12.8);
-    const expected = Math.max(600, duration * baselinePerSec);
-
-    const scorePart = clamp(state.score / expected, 0, 1) * 0.65;
-    const goalPart  = clamp(goalsDone / 2, 0, 1) * 0.20;
-    const miniPart  = clamp(miniDone / 3, 0, 1) * 0.10;
-    const chainPart = clamp((state.miniChain.cleared || 0) / 6, 0, 1) * 0.05; // chain เสริมเล็ก ๆ
-
-    return clamp(scorePart + goalPart + miniPart + chainPart, 0, 1);
+    const prog = clamp(
+      (state.score / 1200) * 0.68 +
+      (goalsDone/2) * 0.18 +
+      (miniDone/3) * 0.10 +
+      chainTerm,
+      0, 1
+    );
+    return prog;
   }
 
   function gradeFromProg(progPct){
@@ -513,15 +502,16 @@ export async function boot(opts = {}) {
       progPct,
       stormLeft: state.stormLeft|0,
 
-      // extra debug-ish
       greenStreak: state.greenStreak|0,
       surpriseActive: !!state.surprise.active,
       surpriseLeft: state.surprise.left|0,
       bossActive: !!state.boss.active,
 
-      // ✅ chain info
-      chainCleared: state.miniChain.cleared|0,
-      chainType: state.miniChain.type || ''
+      // ✅ chain
+      chainActive: !!state.chain.active,
+      chainKind: state.chain.kind,
+      chainCleared: state.rewards.chainCleared|0,
+      chainFailed: state.rewards.chainFailed|0
     });
   }
 
@@ -566,28 +556,168 @@ export async function boot(opts = {}) {
     dispatch('hha:judge', { label:'MINI+' });
   }
 
-  // ✅ NEW: reward mini chain (ต่อเนื่อง)
-  function rewardChain(kindLabel){
-    state.rewards.chainCleared = (state.rewards.chainCleared|0) + 1;
+  // ==========================================================
+  // ✅ NEW: MINI CHAIN SYSTEM (ต่อเนื่อง) — 2 ชนิดใหม่
+  // ==========================================================
+  function chainPickKind(){
+    // คุณสั่ง “เอา 2 เลย” → ใช้ 2 แบบนี้ล้วน ๆ สลับกันแบบสุ่ม
+    return (Math.random() < 0.5) ? 'cleanse' : 'pchain';
+  }
 
+  function chainConfigFor(kind){
+    const d = state.diff;
+    const isEasy = (d === 'easy');
+    const isHard = (d === 'hard');
+    if (kind === 'cleanse'){
+      const sec = isEasy ? TUNE.cleanseSecEasy : (isHard ? TUNE.cleanseSecHard : TUNE.cleanseSecNormal);
+      return { left: sec, need: 0 };
+    }
+    // perfect chain
+    const need = isEasy ? TUNE.pchainNeedEasy : (isHard ? TUNE.pchainNeedHard : TUNE.pchainNeedNormal);
+    return { left: 0, need };
+  }
+
+  function chainStartIfReady(){
+    if (!state.chain.enabled) return;
+    if (state.chain.started) return;
+    if (state.chain.startIn > 0) return;
+    state.chain.started = true;
+    state.chain.nextIn = 0;
+    chainNext();
+  }
+
+  function chainNext(){
+    if (!state.chain.enabled) return;
+    if (state.timeLeft <= 0) return;
+    if (state.chain.active) return;
+    if (state.chain.nextIn > 0) return;
+
+    const kind = chainPickKind();
+    const cfg = chainConfigFor(kind);
+
+    state.chain.active = true;
+    state.chain.kind = kind;
+    state.chain.got = 0;
+    state.chain.need = cfg.need|0;
+    state.chain.left = cfg.left|0;
+
+    if (kind === 'cleanse'){
+      state.chain.title = `🧼 Junk Cleanse: อยู่รอด ${state.chain.left}s (แพ้เฉพาะ JUNK HIT)`;
+      try{ Particles.toast && Particles.toast(`🧼 Junk Cleanse! อยู่รอด ${state.chain.left}s (แพ้เฉพาะ JUNK HIT)`); }catch{}
+      dispatch('hha:coach', { text:`🧼 MINI CHAIN! อยู่รอด ${state.chain.left} วิ ห้ามโดน JUNK (โดนอย่างเดียวถึงแพ้)!`, mood:'neutral' });
+      megaCelebrate('mini');
+    } else {
+      state.chain.title = `🎯 Perfect Chain: PERFECT ${state.chain.need} ครั้งติด`;
+      try{ Particles.toast && Particles.toast(`🎯 Perfect Chain! PERFECT ${state.chain.need} ครั้งติด`); }catch{}
+      dispatch('hha:coach', { text:`🎯 MINI CHAIN! ทำ PERFECT ให้ครบ ${state.chain.need} ครั้งติด (ไม่ perfect รีเซ็ต แต่ไม่ถือว่าแพ้)`, mood:'happy' });
+      megaCelebrate('mini');
+    }
+
+    updateQuestHud(); // ให้ mini text เปลี่ยนทันที
+  }
+
+  function chainClear(extraNote=''){
+    if (!state.chain.active) return;
+
+    state.chain.active = false;
+    state.chain.lastClearAt = Date.now();
+
+    state.rewards.chainCleared = (state.rewards.chainCleared|0) + 1;
+    state.chain.clearedCount = state.rewards.chainCleared|0;
+
+    // reward
     state.score = Math.max(0, (state.score + TUNE.chainRewardScore) | 0);
     state.timeLeft = clamp(state.timeLeft + TUNE.chainRewardTime, 0, 180);
     state.stormLeft = clamp(state.stormLeft + TUNE.chainRewardStorm, 0, 25);
-    state.shield = clamp(state.shield + TUNE.chainRewardShield, 0, TUNE.shieldMax);
+    updateStormUI();
     if (!state.feverActive) state.fever = clamp(state.fever + TUNE.chainRewardFever, 0, 100);
 
-    updateStormUI();
+    const note = extraNote ? ` • ${extraNote}` : '';
+    state.rewards.bonuses.push(`🔁 CHAIN CLEAR +${TUNE.chainRewardScore} / ⏱️+${TUNE.chainRewardTime}s / 🌊+${TUNE.chainRewardStorm}s / 🔥+${TUNE.chainRewardFever}${note}`);
 
-    state.rewards.bonuses.push(`🔁 CHAIN(${kindLabel}) +${TUNE.chainRewardScore} / ⏱️+${TUNE.chainRewardTime}s / 🌊+${TUNE.chainRewardStorm}s / 🛡️+${TUNE.chainRewardShield}`);
+    megaCelebrate('goal');
+    try{ Particles.toast && Particles.toast(`🔁 CHAIN CLEAR! (#${state.rewards.chainCleared}) รางวัลจัดเต็ม!`); }catch{}
+    dispatch('hha:judge', { label:'CHAIN+' });
 
-    megaCelebrate('mini');
-    try{ Particles.toast && Particles.toast(`🔁 MINI CHAIN CLEARED! ${kindLabel}`); }catch{}
-    dispatch('hha:coach', { text:`🔁 MINI CHAIN ผ่านแล้ว! (${kindLabel}) โบนัสมา!`, mood:'happy' });
-    showMiniBanner(`🔁 CHAIN CLEAR • ${kindLabel} • +${TUNE.chainRewardScore} ⏱️+${TUNE.chainRewardTime}s 🛡️+${TUNE.chainRewardShield}`);
-    dispatch('hha:time', { sec: state.timeLeft });
+    // queue next
+    state.chain.nextIn = TUNE.chainBetweenDelaySec;
+    updateQuestHud();
   }
 
-  // --------------------- Surprise mini ---------------------
+  function chainFailByJunk(){
+    // ✅ ตามคำสั่ง: fail เฉพาะ junk hit
+    if (!state.chain.active) return;
+
+    state.chain.active = false;
+    state.chain.lastFailAt = Date.now();
+    state.rewards.chainFailed = (state.rewards.chainFailed|0) + 1;
+    state.chain.failCount = state.rewards.chainFailed|0;
+
+    if (TUNE.chainFailPenaltyScore){
+      state.score = Math.max(0, (state.score - TUNE.chainFailPenaltyScore) | 0);
+    }
+
+    megaCelebrate('panic');
+    try{ Particles.toast && Particles.toast('💥 CHAIN FAIL (JUNK HIT)! ไม่เป็นไร ต่ออันถัดไป!'); }catch{}
+    dispatch('hha:coach', { text:'💥 MINI CHAIN พังเพราะโดน JUNK! ไม่เป็นไร ต่ออันถัดไปเลย!', mood:'sad' });
+    dispatch('hha:judge', { label:'CHAIN FAIL' });
+
+    // queue next
+    state.chain.nextIn = TUNE.chainBetweenDelaySec;
+    updateQuestHud();
+  }
+
+  function chainOnSecond(){
+    if (!state.chain.enabled) return;
+
+    if (!state.chain.started){
+      state.chain.startIn = Math.max(0, (state.chain.startIn|0) - 1);
+      chainStartIfReady();
+      return;
+    }
+
+    if (state.chain.nextIn > 0){
+      state.chain.nextIn -= 1;
+      if (state.chain.nextIn <= 0){
+        chainNext();
+      }
+      return;
+    }
+
+    if (!state.chain.active) return;
+
+    // tick logic
+    if (state.chain.kind === 'cleanse'){
+      state.chain.left = Math.max(0, (state.chain.left|0) - 1);
+      if (state.chain.left <= 0){
+        chainClear('🧼 Cleanse');
+      }
+    }
+    // perfect chain ไม่มีเวลาถอย — ผ่านด้วย perfect hits
+  }
+
+  function chainOnGoodHit(ctx){
+    if (!state.chain.active) return;
+    if (!ctx) return;
+
+    if (state.chain.kind === 'pchain'){
+      // ต้อง PERFECT ติดต่อกัน
+      if (ctx.hitPerfect){
+        state.chain.got += 1;
+        beep(880, 0.04, 0.03, 'triangle');
+        if (state.chain.got >= state.chain.need){
+          chainClear(`🎯 Perfect x${state.chain.need}`);
+        }
+      } else {
+        // ไม่ perfect => รีเซ็ต แต่ไม่ fail
+        state.chain.got = 0;
+        beep(420, 0.04, 0.02, 'square');
+      }
+    }
+    // cleanse ไม่ต้องทำอะไรกับ good
+  }
+
+  // --------------------- Surprise mini (ครั้งเดียว) ---------------------
   function startSurpriseMini(){
     if (state.surprise.cleared || state.surprise.failed || state.surprise.active) return;
     state.surprise.active = true;
@@ -633,137 +763,6 @@ export async function boot(opts = {}) {
     dispatch('hha:coach', { text:'💥 ไม่เป็นไร! SURPRISE MINI พลาดได้ ลองทำ Green ต่อ!', mood:'neutral' });
   }
 
-  // --------------------- ✅ NEW: MINI CHAIN (2 แบบ) ---------------------
-  function chainCfg(){
-    // ปรับตามระดับ
-    if (difficulty === 'hard') {
-      return {
-        cleanseSec: 14,
-        perfectNeed: 4
-      };
-    }
-    if (difficulty === 'easy') {
-      return {
-        cleanseSec: 10,
-        perfectNeed: 3
-      };
-    }
-    return {
-      cleanseSec: 12,
-      perfectNeed: 3
-    };
-  }
-
-  function startChainMini(type){
-    const C = chainCfg();
-    state.miniChain.id = (state.miniChain.id|0) + 1;
-    state.miniChain.type = type;
-    state.miniChain.got = 0;
-    state.miniChain.streak = 0;
-    state.miniChain.noJunk = true;
-
-    if (type === 'junkCleanse'){
-      state.miniChain.title = `Junk Cleanse`;
-      state.miniChain.left = C.cleanseSec;
-      state.miniChain.target = C.cleanseSec;
-      // แสดงทันที
-      showMiniBanner(`🧼 MINI CHAIN: ไม่โดน JUNK ${C.cleanseSec}s (นับ fail เฉพาะ junk hit)`, 1200);
-    } else {
-      state.miniChain.title = `Perfect Chain`;
-      state.miniChain.left = 9999; // ไม่ใช้เวลา
-      state.miniChain.target = C.perfectNeed;
-      showMiniBanner(`🎯 MINI CHAIN: PERFECT ${C.perfectNeed} ครั้งติด`, 1200);
-    }
-
-    dispatch('hha:coach', { text:`🔁 MINI CHAIN เริ่ม: ${state.miniChain.title}!`, mood:'neutral' });
-  }
-
-  function nextChainMini(){
-    // สลับ 2 แบบ + ใส่ความหลากหลายด้วยการสุ่มเล็กน้อย
-    const prev = state.miniChain.type;
-    const roll = Math.random();
-    let next = 'junkCleanse';
-    if (prev === 'junkCleanse') next = (roll < 0.80 ? 'perfectChain' : 'junkCleanse');
-    else next = (roll < 0.80 ? 'junkCleanse' : 'perfectChain');
-    startChainMini(next);
-  }
-
-  function chainClear(){
-    state.miniChain.cleared = (state.miniChain.cleared|0) + 1;
-
-    const label = (state.miniChain.type === 'junkCleanse')
-      ? 'Junk Cleanse'
-      : `Perfect x${state.miniChain.target}`;
-
-    rewardChain(label);
-
-    // ต่อทันที (ต่อเนื่อง)
-    nextChainMini();
-  }
-
-  function chainFailByJunkHit(){
-    // ✅ RULE: fail เฉพาะ junk hit เท่านั้น
-    // ให้ “โหดแต่ยุติธรรม”: รีเซ็ต progress แล้วเริ่ม mini ใหม่ชนิดเดิมอีกรอบ (ไม่ตัดแต้ม)
-    const type = state.miniChain.type || 'junkCleanse';
-    megaCelebrate('panic');
-    try{ Particles.toast && Particles.toast('💥 MINI CHAIN FAIL (JUNK HIT)! เริ่มใหม่!'); }catch{}
-    dispatch('hha:coach', { text:'💥 MINI CHAIN พลาดเพราะโดน JUNK! เริ่มใหม่ทันที!', mood:'sad' });
-
-    startChainMini(type);
-  }
-
-  // init chain
-  startChainMini('junkCleanse');
-
-  function chainSecondTick(){
-    if (!state.miniChain.active) return;
-
-    if (state.miniChain.type === 'junkCleanse'){
-      // ถ้าโดน junk hit เราจะ fail ทันทีจาก judge แล้ว
-      state.miniChain.left = Math.max(0, (state.miniChain.left|0) - 1);
-      state.miniChain.got = (state.miniChain.target - state.miniChain.left);
-
-      if (state.miniChain.left <= 0){
-        chainClear();
-      }
-    } else if (state.miniChain.type === 'perfectChain'){
-      // ไม่ต้องนับเวลา
-    }
-  }
-
-  function chainOnGoodHit(ctx){
-    if (!state.miniChain.active) return;
-
-    if (state.miniChain.type === 'perfectChain'){
-      const isPerfect = !!ctx.hitPerfect;
-      if (isPerfect){
-        state.miniChain.streak = (state.miniChain.streak|0) + 1;
-        state.miniChain.got = state.miniChain.streak;
-        if (state.miniChain.streak >= state.miniChain.target){
-          chainClear();
-        }
-      } else {
-        // ต้อง “ติดกัน”
-        state.miniChain.streak = 0;
-        state.miniChain.got = 0;
-      }
-    }
-  }
-
-  function chainOnJunkHit(){
-    if (!state.miniChain.active) return;
-    chainFailByJunkHit();
-  }
-
-  function chainText(){
-    if (!state.miniChain.active) return '';
-    if (state.miniChain.type === 'junkCleanse'){
-      return `🔁 CHAIN: 🧼 ไม่โดน JUNK ${state.miniChain.got}/${state.miniChain.target}s`;
-    }
-    return `🔁 CHAIN: 🎯 PERFECT ${state.miniChain.got}/${state.miniChain.target}`;
-  }
-
-  // --------------------- Quest HUD ---------------------
   function updateQuestHud(){
     const goals = Q.getProgress('goals');
     const minis = Q.getProgress('mini');
@@ -784,12 +783,8 @@ export async function boot(opts = {}) {
 
     const gd = $id('hha-goal-done'); if (gd) gd.textContent = String(goalsDone);
     const gt = $id('hha-goal-total'); if (gt) gt.textContent = String(allGoals.length || 2);
-
     const md = $id('hha-mini-done'); if (md) md.textContent = String(minisDone);
-
-    // ✅ miniTotal แสดง “3+chain” แบบเห็นว่ามีต่อเนื่อง
-    const mt = $id('hha-mini-total');
-    if (mt) mt.textContent = `3+`;
+    const mt = $id('hha-mini-total'); if (mt) mt.textContent = String(allMinis.length || 3);
 
     const curGoal = (goals && goals[0]) ? goals[0].id : (allGoals[0]?.id || '');
     const curMini = (minis && minis[0]) ? minis[0].id : (allMinis[0]?.id || '');
@@ -802,14 +797,24 @@ export async function boot(opts = {}) {
 
     if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : `Goal: ทำภารกิจให้ครบ`;
 
-    // (5) override mini text when surprise active
+    // ✅ PRIORITY: Surprise mini > Chain mini > Core mini
     if (miniEl){
       if (state.surprise.active){
         miniEl.textContent = `Mini: ⚡ SURPRISE ${state.surprise.got}/${state.surprise.need} ใน ${state.surprise.left}s (ห้ามโดนขยะ!)`;
+      } else if (state.chain.enabled && (state.chain.active || state.chain.started)) {
+        if (!state.chain.started && state.chain.startIn > 0){
+          miniEl.textContent = `Mini: 🔁 Chain starts in ${state.chain.startIn}s`;
+        } else if (state.chain.active){
+          if (state.chain.kind === 'cleanse'){
+            miniEl.textContent = `Mini: 🧼 Junk Cleanse เหลือ ${state.chain.left}s (แพ้เฉพาะ JUNK HIT) • Cleared ${state.rewards.chainCleared}`;
+          } else {
+            miniEl.textContent = `Mini: 🎯 Perfect Chain ${state.chain.got}/${state.chain.need} (ไม่ perfect รีเซ็ต) • Cleared ${state.rewards.chainCleared}`;
+          }
+        } else {
+          miniEl.textContent = `Mini: 🔁 Chain Ready • Cleared ${state.rewards.chainCleared} / Failed ${state.rewards.chainFailed}`;
+        }
       } else {
-        // ✅ โชว์ mini หลัก + chain ต่อเนื่องรวม
-        const base = (mInfo?.text ? `Mini: ${mInfo.text}` : `Mini: ทำมินิเควส`);
-        miniEl.textContent = `${base}  •  ${chainText()}`;
+        miniEl.textContent = mInfo?.text ? `Mini: ${mInfo.text}` : `Mini: ทำมินิเควส`;
       }
     }
 
@@ -820,8 +825,7 @@ export async function boot(opts = {}) {
       goalDone: goalsDone,
       goalTotal: allGoals.length || 2,
       miniDone: minisDone,
-      miniTotal: 3, // ตัวเลขจริงสำหรับระบบ
-
+      miniTotal: allMinis.length || 3,
       goalText: goalEl ? goalEl.textContent : '',
       miniText: miniEl ? miniEl.textContent : '',
 
@@ -844,8 +848,9 @@ export async function boot(opts = {}) {
         goalsDone,
         minisDone,
         surpriseActive: !!state.surprise.active,
-        chainCleared: state.miniChain.cleared|0,
-        chainType: state.miniChain.type || ''
+        chainActive: !!state.chain.active,
+        chainCleared: state.rewards.chainCleared|0,
+        chainFailed: state.rewards.chainFailed|0
       }
     });
 
@@ -903,14 +908,12 @@ export async function boot(opts = {}) {
     let isPower = !!ctx.isPower;
     let isFake = false;
 
-    // trick logic (ตัวลวง)
     if (!isPower && ch === '🌀'){
       isFake = true;
       const roll = Math.random();
-      isGood = (roll < 0.40); // 40% good
+      isGood = (roll < 0.40);
     }
 
-    // (7) Boss tag (ช่วงท้าย)
     const bossWindow = (state.timeLeft <= TUNE.bossTimeWindow && state.timeLeft > 0);
     const isBoss = (!isPower && ch === '👑' && bossWindow);
 
@@ -930,9 +933,7 @@ export async function boot(opts = {}) {
       // block by shield
       if (state.shield > 0){
         state.shield -= 1;
-        state.blockedHits += 1;
 
-        // (7) if boss blocked → reward a little
         if (isBoss && !state.boss.hitOrBlocked){
           state.boss.hitOrBlocked = true;
           state.rewards.bossSurvived = (state.rewards.bossSurvived|0) + 1;
@@ -953,9 +954,6 @@ export async function boot(opts = {}) {
         return { scoreDelta, label, good:false, blocked:true };
       }
 
-      // ✅ junk hit จริงเท่านั้น
-      state.junkHits += 1;
-
       // boss penalty
       if (isBoss){
         scoreDelta = -(TUNE.bossJunkPenalty);
@@ -969,7 +967,6 @@ export async function boot(opts = {}) {
         shake(2, 360);
         vibrate([16,26,16]);
         beep(160, 0.08, 0.06, 'sawtooth');
-        // harsher junk during storm
         if (state.stormLeft > 0) scoreDelta -= TUNE.stormExtraJunkPenalty;
       }
     }
@@ -978,10 +975,9 @@ export async function boot(opts = {}) {
     if ((isGood || isPower) && ctx.hitPerfect) scoreDelta += TUNE.scorePerfectBonus;
     if ((isGood || isPower) && state.feverActive) scoreDelta += TUNE.scoreFeverBonus;
 
-    // apply storm mul (only positive)
     if (scoreDelta > 0) scoreDelta = Math.round(scoreDelta * stormMul);
 
-    // combo rules + perfect streak logic
+    // combo rules + perfect streak
     if (isGood || isPower){
       state.combo += 1;
       if (state.combo > state.comboBest) state.comboBest = state.combo;
@@ -989,10 +985,8 @@ export async function boot(opts = {}) {
       flash('good', 85);
       vibrate(8);
 
+      // perfect streak reward (เกมหลัก)
       if (ctx.hitPerfect){
-        state.perfectHits += 1;
-
-        // (6) perfect streak reward (เดิม)
         state.perfectStreak += 1;
         if (state.perfectStreak >= TUNE.perfectStreakTarget){
           state.perfectStreak = 0;
@@ -1013,39 +1007,34 @@ export async function boot(opts = {}) {
       state.miss += 1;
       state.perfectStreak = 0;
 
-      // (5) surprise fail if junk hit during surprise
+      // surprise fail on junk
       if (state.surprise.active){
         state.surprise.noJunkOk = false;
         failSurpriseMini();
       }
+
+      // ✅ chain fail “เฉพาะ junk hit”
+      chainFailByJunk();
     }
 
-    // ✅ Mini Chain update (นับ fail เฉพาะ junk hit)
-    if (isGood || isPower){
-      chainOnGoodHit(ctx);
-    } else {
-      chainOnJunkHit();
-    }
-
-    // apply score
     state.score = Math.max(0, (state.score + scoreDelta) | 0);
 
     // water + fever + quest
     if (isPower || isGood){
-      if (isPower) state.powerHits += 1;
-
-      state.goodHits += 1;
       state.waterPct = clamp(state.waterPct + TUNE.goodWaterPush, 0, 100);
       feverAdd(isPower ? TUNE.feverGainPower : TUNE.feverGainGood);
       Q.onGood();
 
-      // surprise progress on good/power
+      // surprise progress
       if (state.surprise.active){
         state.surprise.got += 1;
         if (state.surprise.got >= state.surprise.need && state.surprise.noJunkOk){
           clearSurpriseMini();
         }
       }
+
+      // ✅ chain progress
+      chainOnGoodHit(ctx);
 
     } else {
       state.waterPct = clamp(state.waterPct + TUNE.junkWaterPush, 0, 100);
@@ -1075,7 +1064,6 @@ export async function boot(opts = {}) {
 
   // --------------------- Expire ---------------------
   function onExpire(info){
-    // ✅ RULE: “นับเฉพาะ junk hit” เป็น fail mini chain → expire ไม่เกี่ยว
     if (info && info.isGood && !info.isPower && TUNE.missOnGoodExpire){
       state.miss += 1;
       state.combo = 0;
@@ -1086,6 +1074,7 @@ export async function boot(opts = {}) {
       vibrate(10);
       updateWaterHud();
       updateScoreHud('MISS');
+      // ✅ ตามคำสั่ง: chain ไม่ fail จาก miss/expire
     }
   }
 
@@ -1101,7 +1090,7 @@ export async function boot(opts = {}) {
     state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec, 0, 100);
     updateWaterHud();
 
-    // ✅ ROOT FIX: count GREEN seconds BOTH in state and quest.stats
+    // ✅ FIX ROOT: count GREEN seconds BOTH in state and quest.stats
     if (String(state.zone).toUpperCase() === 'GREEN'){
       state.greenTick += 1;
 
@@ -1133,10 +1122,10 @@ export async function boot(opts = {}) {
     // quest internal tick
     Q.second();
 
-    // ✅ chain second tick
-    chainSecondTick();
+    // ✅ NEW: chain second tick
+    chainOnSecond();
 
-    // start surprise mini once
+    // start surprise once
     if (!state.surprise.cleared && !state.surprise.failed && !state.surprise.active){
       if (state.timeLeft === state.surprise.triggerAt){
         startSurpriseMini();
@@ -1175,7 +1164,7 @@ export async function boot(opts = {}) {
       feverRender();
     }
 
-    // near-end panic (<=10s)
+    // near-end panic
     if (state.timeLeft <= 10 && state.timeLeft > 0){
       megaCelebrate('panic');
       if (state.timeLeft <= 5){
@@ -1194,10 +1183,6 @@ export async function boot(opts = {}) {
 
     spawnHost: playfield ? '#hvr-playfield' : null,
 
-    // ✅ exclusion auto already in mode-factory; extra explicit selectors (เผื่อจัด layout ใหม่)
-    excludeSelectors: ['#hha-water-header','.hha-main-row','.hha-bottom-row','#hvr-crosshair','#hvr-end'],
-
-    // add decoy 🌀 + boss 👑
     pools: {
       good: ['💧','🥛','🍉','🥥','🍊'],
       bad:  ['🥤','🧋','🍟','🍔','🌀','👑']
@@ -1253,38 +1238,27 @@ export async function boot(opts = {}) {
   const onStop = () => stop();
   ROOT.addEventListener('hha:stop', onStop);
 
-  // ✅ stop by time event (bind once + cleanup)
-  const onTimeStop = (e)=>{
-    const sec = Number(e?.detail?.sec);
-    if (Number.isFinite(sec) && sec <= 0) stop();
-  };
-  ROOT.addEventListener('hha:time', onTimeStop, { passive:true });
-
   function stop(){
-    // กัน stop ซ้ำ
-    if (timer == null && !spawner) return;
-
     try{ if (timer) ROOT.clearInterval(timer); }catch{}
     timer = null;
 
     try{ spawner && spawner.stop && spawner.stop(); }catch{}
     try{ ROOT.removeEventListener('hha:stop', onStop); }catch{}
-    try{ ROOT.removeEventListener('hha:time', onTimeStop); }catch{}
 
     const goalsDone = Number($id('hha-goal-done')?.textContent || 0) || 0;
     const goalsTotal = Number($id('hha-goal-total')?.textContent || 2) || 2;
     const minisDone = Number($id('hha-mini-done')?.textContent || 0) || 0;
-    const minisTotal = 3;
+    const minisTotal = Number($id('hha-mini-total')?.textContent || 3) || 3;
 
     const progPct = Math.round(calcProg() * 100);
     const grade = gradeFromProg(progPct);
 
     megaCelebrate('end');
-    try{ Particles.toast && Particles.toast(`🏁 จบเกม! เกรด ${grade} • Goal ${goalsDone}/${goalsTotal} • Mini ${minisDone}/${minisTotal} • Chain ${state.miniChain.cleared|0}`); }catch{}
-
-    const perfectRate = (state.goodHits + state.powerHits) > 0
-      ? Math.round((state.perfectHits / Math.max(1,(state.goodHits + state.powerHits))) * 100)
-      : 0;
+    try{
+      Particles.toast && Particles.toast(
+        `🏁 จบเกม! เกรด ${grade} • Goal ${goalsDone}/${goalsTotal} • Mini ${minisDone}/${minisTotal} • Chain ${state.rewards.chainCleared} (fail ${state.rewards.chainFailed})`
+      );
+    }catch{}
 
     dispatch('hha:end', {
       score: state.score|0,
@@ -1303,28 +1277,20 @@ export async function boot(opts = {}) {
       goalsDone, goalsTotal,
       minisDone, minisTotal,
 
-      // ✅ chain
-      chainCleared: state.miniChain.cleared|0,
-      chainType: state.miniChain.type || '',
+      // ✅ NEW: chain summary
+      chainCleared: state.rewards.chainCleared|0,
+      chainFailed: state.rewards.chainFailed|0,
 
       grade, progPct,
-
-      // ✅ full stats
-      stats: {
-        goodHits: state.goodHits|0,
-        junkHits: state.junkHits|0,       // ✅ “นับเฉพาะ junk hit”
-        blockedHits: state.blockedHits|0,
-        powerHits: state.powerHits|0,
-        perfectHits: state.perfectHits|0,
-        perfectRate: perfectRate|0,
-        stormLeft: state.stormLeft|0,
-        surpriseCleared: state.surprise.cleared ? 1 : 0,
-        bossSurvived: state.rewards.bossSurvived|0
-      },
 
       rewards: state.rewards,
     });
   }
+
+  ROOT.addEventListener('hha:time', (e)=>{
+    const sec = Number(e?.detail?.sec);
+    if (Number.isFinite(sec) && sec <= 0) stop();
+  }, { passive:true });
 
   return { stop };
 }
