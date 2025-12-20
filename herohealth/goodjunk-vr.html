@@ -1,8 +1,11 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Full HTML (FINAL START FIX)
-     ✅ NO fallback to goodjunk.safe.js (prevents auto-start)
-     ✅ Boot module must export boot() and bind Start buttons
-     ✅ Pre-start lock: targets hidden + no pointer events until Start
+     GoodJunkVR (PRODUCTION) — Full HTML (ROOT PATH FIX + BOOT LOADER FIX)
+     ✅ DOM emoji targets on #gj-layer
+     ✅ HUD + Quest + Coach + Fever/Shield UI
+     ✅ Start overlay (2D / VR)
+     ✅ Loads particles.js BEFORE boot module (สำคัญมาก)
+     ✅ PATH: ./vr/*, ./vr-goodjunk/*, ./img/*, ./favicon.ico
+     ✅ FIX: boot loader import ได้แม้ไม่มี export (เพราะไฟล์บูตเป็น IIFE)
 -->
 <!doctype html>
 <html lang="th">
@@ -73,10 +76,6 @@
       font-size: clamp(54px, 10vw, 110px);
       filter: drop-shadow(0 18px 32px rgba(250,204,21,0.25));
     }
-
-    /* ✅ PRE-START LOCK (กัน TIME/MISS หลุด + กันแตะโดน) */
-    body:not(.game-started) #gj-layer{ pointer-events:none !important; }
-    body:not(.game-started) .gj-target{ display:none !important; }
 
     /* HUD */
     .hud-root{
@@ -293,7 +292,7 @@
     /* Start overlay */
     .start-overlay{
       position:fixed; inset:0;
-      z-index:99999; /* ✅ ทับทุกอย่าง */
+      z-index:700;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -375,7 +374,6 @@
     .shield-row{ display:flex; align-items:center; gap:6px; }
     .shield-label{ font-size:12px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
-
     .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
   </style>
 
@@ -384,7 +382,7 @@
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
 
-  <!-- ✅ Boot loader (module) — ONLY loads goodjunk-vr.boot.js (NO safe.js fallback) -->
+  <!-- ✅ Boot loader (module) — FIX: import สำเร็จแม้ไฟล์เป็น IIFE ไม่มี export -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
 
@@ -396,42 +394,50 @@
     }
 
     async function loadBoot(){
-      const p = './vr-goodjunk/goodjunk-vr.boot.js';
-      try{
-        setBadge(false, 'boot: loading…');
-        const mod = await import(p);
+      const candidates = [
+        './vr-goodjunk/goodjunk-vr.boot.js',
+        './vr-goodjunk/goodjunk-vr.boot.mjs',
+        './vr-goodjunk/goodjunk.boot.js',
+        './goodjunk-vr.boot.js'
+      ];
 
-        if (!mod || typeof mod.boot !== 'function'){
-          throw new Error('Boot module loaded but no export boot() : ' + p);
+      let lastErr = null;
+      for (const p of candidates){
+        try{
+          const mod = await import(p);
+
+          // ✅ ของคุณเป็น IIFE: import ผ่าน = bind ปุ่ม Start แล้ว
+          // แต่เผื่ออนาคตทำเป็น export ก็รองรับไว้
+          const bootFn = mod.boot || mod.start || mod.init || mod.default;
+          if (typeof bootFn === 'function') {
+            bootFn();
+          }
+
+          setBadge(true, 'boot: ' + p);
+          return;
+        }catch(e){
+          lastErr = e;
         }
-
-        mod.boot(); // ✅ bind Start buttons / init UI
-        setBadge(true, 'boot: ' + p);
-      }catch(e){
-        console.error('[GoodJunk] BOOT LOAD FAILED', e);
-        setBadge(false, 'boot failed: ' + (e?.message || 'unknown'));
-        const sub = $('#start-sub');
-        if (sub) sub.textContent =
-          '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
       }
+
+      console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
+      setBadge(false, 'boot failed: ' + (lastErr && lastErr.message ? lastErr.message : 'unknown'));
+      const sub = $('#start-sub');
+      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
     }
 
-    window.addEventListener('load', loadBoot);
+    window.addEventListener('load', () => {
+      setBadge(false, 'boot: loading…');
+      loadBoot();
+    });
   </script>
 </head>
 
 <body>
 
   <!-- A-Frame scene (ไว้เป็นฉาก/VR camera; เป้าจริงอยู่บน DOM layer) -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="colorManagement: true; physicallyCorrectLights: true"
-  >
-    <!-- Camera -->
+  <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true">
     <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
-
-    <!-- Simple environment -->
     <a-entity light="type: ambient; intensity: 1.0"></a-entity>
     <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
     <a-sky color="#061225"></a-sky>
