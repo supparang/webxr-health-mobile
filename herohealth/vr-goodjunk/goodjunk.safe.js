@@ -1,4 +1,14 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
+// GoodJunkVR — Safe Boot Wrapper (PRODUCTION CLEAN)
+// รองรับ GameEngine export ได้หลายแบบ:
+// - export boot(ctx)
+// - export start(ctx) หรือ start(diff, opts)
+// - export const GameEngine = { start, stop }
+// - export class GameEngine
+// - export makeEngine(ctx) -> {start()}
+// - ✅ export createEngine(ctx) -> {start()}   << PATCH สำคัญ (ของคุณตอนนี้)
+// - export default (function/object)
+
 'use strict';
 
 function clampInt(v, min, max, fallback) {
@@ -13,7 +23,7 @@ function parseQuery(urlObj) {
   const url = urlObj || new URL(window.location.href);
   const diff = String(url.searchParams.get('diff') || 'normal').toLowerCase();
   const time = clampInt(url.searchParams.get('time') || '60', 20, 180, 60);
-  const run  = String(url.searchParams.get('run') || '').toLowerCase();
+  const run = String(url.searchParams.get('run') || '').toLowerCase();
   const challenge = String(
     url.searchParams.get('challenge') ||
     url.searchParams.get('ch') ||
@@ -27,9 +37,7 @@ async function loadFactoryBoot() {
   try {
     const mod = await import('../vr/mode-factory.js');
     if (mod && typeof mod.boot === 'function') return mod.boot;
-  } catch (e) {
-    console.warn('[GoodJunkVR] mode-factory import failed:', e);
-  }
+  } catch (_) {}
   return null;
 }
 
@@ -48,7 +56,6 @@ function adaptStarter(fnOrObj) {
   if (typeof fnOrObj === 'function') {
     return (ctx = {}) => {
       try {
-        console.log('[GoodJunkVR] starter is function len=', fnOrObj.length, 'ctx=', ctx);
         if (fnOrObj.length >= 2) {
           const diff = String(ctx.diff || 'normal').toLowerCase();
           return fnOrObj(diff, ctx);
@@ -63,7 +70,6 @@ function adaptStarter(fnOrObj) {
   if (typeof fnOrObj === 'object' && typeof fnOrObj.start === 'function') {
     return (ctx = {}) => {
       try {
-        console.log('[GoodJunkVR] starter is object.start len=', fnOrObj.start.length, 'ctx=', ctx);
         if (fnOrObj.start.length >= 2) {
           const diff = String(ctx.diff || 'normal').toLowerCase();
           return fnOrObj.start(diff, ctx);
@@ -80,11 +86,12 @@ function adaptStarter(fnOrObj) {
 
 function pickEngineStarter(engineMod) {
   if (engineMod) {
-    // debug list exports
+    // debug: โชว์รายการ export ที่มี
     try {
       console.log('[GoodJunkVR] GameEngine exports:', Object.keys(engineMod));
-    } catch {}
+    } catch (_) {}
 
+    // 0) default export
     if (engineMod.default) {
       const s0 = adaptStarter(engineMod.default);
       if (s0) return s0;
@@ -92,21 +99,29 @@ function pickEngineStarter(engineMod) {
       if (typeof engineMod.default === 'object' && engineMod.default) {
         if (typeof engineMod.default.boot === 'function') return adaptStarter(engineMod.default.boot);
         if (typeof engineMod.default.start === 'function') return adaptStarter(engineMod.default.start);
+        if (engineMod.default.GameEngine && typeof engineMod.default.GameEngine === 'object') {
+          const sObj = adaptStarter(engineMod.default.GameEngine);
+          if (sObj) return sObj;
+        }
       }
     }
 
+    // 1) export boot()
     if (typeof engineMod.boot === 'function') return adaptStarter(engineMod.boot);
+
+    // 2) export start()
     if (typeof engineMod.start === 'function') return adaptStarter(engineMod.start);
 
+    // 3) export const GameEngine = { start, stop }
     if (engineMod.GameEngine && typeof engineMod.GameEngine === 'object') {
       const sObj = adaptStarter(engineMod.GameEngine);
       if (sObj) return sObj;
     }
 
+    // 4) export class GameEngine
     if (typeof engineMod.GameEngine === 'function') {
       return (ctx = {}) => {
         try {
-          console.log('[GoodJunkVR] starter is class GameEngine(ctx)');
           const inst = new engineMod.GameEngine(ctx);
           if (inst && typeof inst.start === 'function') return inst.start();
           if (inst && typeof inst.run === 'function') return inst.run();
@@ -117,10 +132,10 @@ function pickEngineStarter(engineMod) {
       };
     }
 
+    // 5) export makeEngine(ctx)
     if (typeof engineMod.makeEngine === 'function') {
       return (ctx = {}) => {
         try {
-          console.log('[GoodJunkVR] starter is makeEngine(ctx)');
           const inst = engineMod.makeEngine(ctx);
           if (inst && typeof inst.start === 'function') return inst.start();
           console.error('[GoodJunkVR] makeEngine() did not return {start()}');
@@ -129,9 +144,24 @@ function pickEngineStarter(engineMod) {
         }
       };
     }
+
+    // ✅ 6) export createEngine(ctx)  << PATCH สำคัญ
+    if (typeof engineMod.createEngine === 'function') {
+      return (ctx = {}) => {
+        try {
+          const inst = engineMod.createEngine(ctx);
+          if (inst && typeof inst.start === 'function') return inst.start();
+          // เผื่อ createEngine คืน function start เลย
+          if (typeof inst === 'function') return inst(ctx);
+          console.error('[GoodJunkVR] createEngine() did not return {start()}');
+        } catch (e) {
+          console.error('[GoodJunkVR] createEngine(ctx) failed:', e);
+        }
+      };
+    }
   }
 
-  // window fallback
+  // fallback เผื่อเป็น IIFE ผูกไว้ที่ window
   const w = window;
   const cand =
     w.GoodJunkEngine ||
@@ -156,22 +186,20 @@ export async function boot(opts = {}) {
 
   const diff = String(opts.diff || q.diff || 'normal').toLowerCase();
   const time = clampInt(opts.time ?? q.time, 20, 180, 60);
+
   const run = String(opts.run || q.run || '').toLowerCase();
   const challenge = String(opts.challenge || q.challenge || '').toLowerCase();
-
-  console.log('[GoodJunkVR] boot()', { diff, time, run, challenge });
 
   const engineMod = await loadEngineModule();
   const startEngine = pickEngineStarter(engineMod);
 
   if (!startEngine) {
-    console.error('[GoodJunkVR] ไม่พบตัวเริ่มเกมจาก GameEngine.js');
-    return;
+    console.error('[GoodJunkVR] ไม่พบตัวเริ่มเกมจาก GameEngine.js (boot/start/GameEngine/makeEngine/createEngine/default)');
+    return null;
   }
 
   const factoryBoot = await loadFactoryBoot();
   if (factoryBoot) {
-    console.log('[GoodJunkVR] using mode-factory');
     return factoryBoot({
       mode: 'goodjunk',
       projectTag: 'HeroHealth-GoodJunkVR',
@@ -179,14 +207,10 @@ export async function boot(opts = {}) {
       time,
       run,
       challenge,
-      engineBoot: (ctx = {}) => {
-        console.log('[GoodJunkVR] engineBoot CALLED with ctx=', ctx);
-        return startEngine({ ...ctx, diff, time, run, challenge });
-      }
+      engineBoot: (ctx = {}) => startEngine({ ...ctx, diff, time, run, challenge })
     });
   }
 
-  console.log('[GoodJunkVR] no mode-factory → start engine directly');
   return startEngine({ diff, time, run, challenge });
 }
 
