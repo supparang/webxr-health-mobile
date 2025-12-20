@@ -1,515 +1,489 @@
-// === /herohealth/vr-goodjunk/quest-director.js ===
-// Quest Director (Goals sequential + Minis chain) for GoodJunk
-// PATCH(B): Play mode "สุ่มตามระดับ" (Goal 10 pick 2, Mini 15 pick 3)
-//         + Research mode "Fix ตามระดับ" (ไม่สุ่ม)
-//         + FIX: dispatch event บน window (HUD ฟังที่ window) เพื่อแก้ goal+mini ไม่แสดง
-//
-// Emits:
-//  quest:update.detail = {
-//    goal:{title,cur,max,pct,state},
-//    mini:{title,cur,max,pct,timeLeft,timeTotal,state},
-//    meta:{goalIndex,miniCount,diff,runMode,goalsPick,minisPick,goalsTotal,minisTotal}
-//  }
-//  quest:cleared.detail = { kind:'goal'|'mini', title, ...counts }
-
 'use strict';
 
-function clamp01(x) {
-  x = Number(x);
-  if (!isFinite(x)) x = 0;
-  if (x < 0) return 0;
-  if (x > 1) return 1;
-  return x;
+function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
+function now(){ return performance.now(); }
+
+function dispatch(name, detail){
+  window.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-function nowMs() {
-  return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+function pick(arr){
+  return arr[(Math.random()*arr.length)|0];
 }
 
-// ✅ FIX: HUD binder ส่วนใหญ่ฟัง window.addEventListener(...)
-const BUS =
-  (typeof window !== 'undefined' && window.dispatchEvent) ? window :
-  (typeof document !== 'undefined' && document.dispatchEvent) ? document :
-  null;
-
-function dispatch(name, detail) {
-  if (!BUS) return;
-  BUS.dispatchEvent(new CustomEvent(name, { detail }));
+function rectsOverlap(a,b){
+  return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
 }
 
-function safeText(v, fallback = '') {
-  if (v === null || v === undefined) return fallback;
-  const s = String(v);
-  return s.trim() ? s : fallback;
-}
+// safe zone: กันทับ HUD + ขอบ
+function buildAvoidRects(){
+  const rects = [];
+  const pad = 10;
 
-function ensureArr(a) { return Array.isArray(a) ? a : []; }
-
-function pickOne(arr, fallback = null) {
-  arr = ensureArr(arr);
-  if (!arr.length) return fallback;
-  return arr[(Math.random() * arr.length) | 0];
-}
-
-function shuffleCopy(arr){
-  const a = ensureArr(arr).slice();
-  for (let i=a.length-1;i>0;i--){
-    const j = (Math.random()*(i+1))|0;
-    [a[i],a[j]] = [a[j],a[i]];
-  }
-  return a;
-}
-
-function pickN(arr, n){
-  const a = shuffleCopy(arr);
-  const k = Math.max(0, Math.min(Number(n)||0, a.length));
-  return a.slice(0, k);
-}
-
-// mini factory: normalize to shape
-function normMini(def) {
-  const d = def || {};
-  return {
-    id: safeText(d.id, ''),
-    title: safeText(d.title, 'Mini Quest'),
-    kind: safeText(d.kind, 'count'), // 'count' | 'time'
-    target: Number(d.target ?? d.max ?? 1),
-    // time-based:
-    timeTotalMs: Number(d.timeTotalMs ?? d.timeMs ?? 0),
-    // optional predicate hooks:
-    onStart: typeof d.onStart === 'function' ? d.onStart : null,
-    onEvent: typeof d.onEvent === 'function' ? d.onEvent : null,
-    // optional: compute pct from ctx
-    pct: typeof d.pct === 'function' ? d.pct : null
-  };
-}
-
-// goal factory: normalize to shape
-function normGoal(def) {
-  const d = def || {};
-  return {
-    id: safeText(d.id, ''),
-    title: safeText(d.title, 'Goal'),
-    target: Number(d.target ?? d.max ?? 1),
-    // optional predicate hooks:
-    onStart: typeof d.onStart === 'function' ? d.onStart : null,
-    onEvent: typeof d.onEvent === 'function' ? d.onEvent : null,
-    pct: typeof d.pct === 'function' ? d.pct : null
-  };
-}
-
-function pickDiffKey(diff){
-  diff = String(diff || 'normal').toLowerCase();
-  if (diff !== 'easy' && diff !== 'normal' && diff !== 'hard') return 'normal';
-  return diff;
-}
-
-function asPoolByDiff(input, normalizer){
-  // input can be:
-  //  - { easy:[...], normal:[...], hard:[...] }
-  //  - [... ] (fallback pool for all)
-  const out = { easy:[], normal:[], hard:[] };
-  if (Array.isArray(input)){
-    const a = ensureArr(input).map(normalizer);
-    out.easy = a.slice();
-    out.normal = a.slice();
-    out.hard = a.slice();
-    return out;
-  }
-  const obj = input || {};
-  out.easy   = ensureArr(obj.easy).map(normalizer);
-  out.normal = ensureArr(obj.normal).map(normalizer);
-  out.hard   = ensureArr(obj.hard).map(normalizer);
-  // fallback: ถ้าขาดระดับไหน ให้ยืม normal
-  if (!out.easy.length) out.easy = out.normal.slice();
-  if (!out.hard.length) out.hard = out.normal.slice();
-  return out;
-}
-
-function mapFixedIds(fixedByDiff){
-  // fixedByDiff: { easy:{ goals:[id,id], minis:[id,id,id] }, ... }
-  const obj = fixedByDiff || {};
-  const mk = (x)=>({
-    goals: ensureArr(x && x.goals).map(String),
-    minis: ensureArr(x && x.minis).map(String)
+  const hudCards = document.querySelectorAll('.hud-card');
+  hudCards.forEach(el=>{
+    const r = el.getBoundingClientRect();
+    rects.push({
+      left: r.left - pad, top: r.top - pad,
+      right: r.right + pad, bottom: r.bottom + pad
+    });
   });
-  return {
-    easy: mk(obj.easy),
-    normal: mk(obj.normal),
-    hard: mk(obj.hard)
-  };
+
+  // bottom coach area
+  const coach = document.querySelector('#coach-bubble');
+  if (coach){
+    const r = coach.getBoundingClientRect();
+    rects.push({ left:r.left-pad, top:r.top-pad, right:r.right+pad, bottom:r.bottom+pad });
+  }
+
+  return rects;
 }
 
-function findById(pool, id){
-  id = String(id || '');
-  return ensureArr(pool).find(q => String(q.id) === id) || null;
+function scoreGrade({ score, misses }){
+  // โทนง่าย ๆ แต่ใช้งานจริง: โดน miss เยอะจะตกเกรด
+  const s = Number(score)||0;
+  const m = Number(misses)||0;
+
+  if (s >= 220 && m <= 2) return 'SSS';
+  if (s >= 170 && m <= 4) return 'SS';
+  if (s >= 120 && m <= 6) return 'S';
+  if (s >= 80  && m <= 8) return 'A';
+  if (s >= 40) return 'B';
+  return 'C';
 }
 
-export function makeQuestDirector(opts = {}) {
-  const diffKey = pickDiffKey(opts.diff || 'normal');
+export function createEngine(opts = {}) {
+  const diff = String(opts.diff||'normal').toLowerCase();
+  const run  = String(opts.run||'play').toLowerCase();
+  const challenge = String(opts.challenge||'rush').toLowerCase();
+  const durationSec = clamp(opts.durationSec ?? 60, 20, 180);
+  const layerEl = opts.layerEl || document.getElementById('gj-layer');
 
-  // runMode: 'play' | 'research' (default play)
-  const runMode = (String(opts.runMode || 'play').toLowerCase() === 'research') ? 'research' : 'play';
+  const CFG = {
+    easy:   { spawnEvery: 900,  maxActive: 4, lifetime: 2200, baseScale: 1.12, junkRatio: 0.18 },
+    normal: { spawnEvery: 760,  maxActive: 5, lifetime: 2000, baseScale: 1.00, junkRatio: 0.26 },
+    hard:   { spawnEvery: 640,  maxActive: 6, lifetime: 1800, baseScale: 0.92, junkRatio: 0.34 }
+  }[diff] || { spawnEvery: 760, maxActive: 5, lifetime: 2000, baseScale: 1.0, junkRatio: 0.26 };
 
-  // ✅ สเปกที่ตกลงกัน
-  const goalsPick = Math.max(1, Number(opts.goalsPick ?? 2));
-  const minisPick = Math.max(1, Number(opts.minisPick ?? 3));
-
-  // Pools by diff (recommended)
-  const goalPoolsByDiff = asPoolByDiff(opts.goalPoolsByDiff ?? opts.goalDefs ?? [], normGoal);
-  const miniPoolsByDiff = asPoolByDiff(opts.miniPoolsByDiff ?? opts.miniDefs ?? [], normMini);
-
-  // Research fixed by diff (ids)
-  const researchFixedByDiff = mapFixedIds(opts.researchFixedByDiff || opts.researchFixed || {});
-
-  // Active pools chosen for this session
-  const POOL_GOALS = goalPoolsByDiff[diffKey] || goalPoolsByDiff.normal;
-  const POOL_MINIS = miniPoolsByDiff[diffKey] || miniPoolsByDiff.normal;
-
-  // state
-  const st = {
-    started: false,
-
-    diff: diffKey,
-    runMode,
-
-    // selected sets for this run (play=random pick; research=fixed)
-    goalsSel: [],
-    minisSel: [],
-
-    goalIndex: 0,     // index in goalsSel
-    miniIndex: 0,     // index in minisSel
-    miniCount: 0,     // how many minis attempted so far (1-based display)
-
-    activeGoal: null,
-    activeMini: null,
-
-    goalCur: 0,
-    miniCur: 0,
-
-    miniStartMs: 0,
-
-    lastEmitKey: '',
-
-    goalsCleared: 0,
-    minisCleared: 0
+  const EMOJI = {
+    good: ['🥦','🥕','🍎','🍌','🍇','🥛','🥜','🐟','🍠','🥬','🍉'],
+    junk: ['🍟','🍔','🍕','🍩','🍪','🍫','🥤','🍬'],
+    gold: ['⭐','🌟','✨'],
+    fake: ['😈','🌀','🧟'],
+    power: ['🛡️','🧲','⏱️'],
+    boss: ['👹','🧌']
   };
 
-  function resetMini(def) {
-    st.activeMini = def ? normMini(def) : null;
-    st.miniCur = 0;
-    st.miniStartMs = nowMs();
-    if (st.activeMini && st.activeMini.onStart) {
-      try { st.activeMini.onStart(); } catch (_) {}
-    }
+  // challenge modifiers
+  const CH = {
+    rush:     { spawnMul: 0.92, scoreMul: 1.15 },
+    boss:     { spawnMul: 1.00, scoreMul: 1.05 },
+    survival: { spawnMul: 0.98, scoreMul: 1.00 }
+  }[challenge] || { spawnMul: 1.0, scoreMul: 1.0 };
+
+  const S = {
+    started:false,
+    t0:0,
+    timeLeft: durationSec,
+
+    score:0,
+    goodHits:0,
+    perfect:0,
+    misses:0,
+    combo:0,
+    comboMax:0,
+
+    // shield
+    shieldUntil: 0,
+
+    // boss
+    bossSpawned:false,
+    bossHP:0
+  };
+
+  const active = new Map(); // id -> {el,type,spawnAt,expireAt,kind,...}
+  let spawnTimer = null;
+  let timeTimer  = null;
+  let rafId = null;
+
+  function setJudge(text){
+    dispatch('hha:judge', { label: text || '' });
   }
 
-  function resetGoal(def) {
-    st.activeGoal = def ? normGoal(def) : null;
-    st.goalCur = 0;
-    if (st.activeGoal && st.activeGoal.onStart) {
-      try { st.activeGoal.onStart(); } catch (_) {}
-    }
+  function emitScore(){
+    dispatch('hha:score', {
+      score: S.score|0,
+      goodHits: S.goodHits|0,
+      perfect: S.perfect|0,
+      misses: S.misses|0,
+      comboMax: S.comboMax|0,
+      challenge
+    });
   }
 
-  function chooseMiniAt(i){
-    if (!st.minisSel.length) return null;
-    const idx = Math.min(Math.max(0, i|0), st.minisSel.length - 1);
-    return st.minisSel[idx];
+  function canSpawnMore(){
+    return active.size < CFG.maxActive;
   }
 
-  function chooseGoalAt(i){
-    if (!st.goalsSel.length) return null;
-    const idx = Math.min(Math.max(0, i|0), st.goalsSel.length - 1);
-    return st.goalsSel[idx];
-  }
+  function mkTarget({ type, emoji, className, scaleMul=1, lifetime=CFG.lifetime }){
+    const el = document.createElement('div');
+    el.className = 'gj-target ' + (className||'');
+    el.textContent = emoji;
+    el.setAttribute('data-hha-tgt','1');
+    el.style.setProperty('--tScale', String(CFG.baseScale * scaleMul));
 
-  function getMiniTimeLeftMs() {
-    if (!st.activeMini) return null;
-    if (st.activeMini.kind !== 'time') return null;
-    const total = Math.max(0, Number(st.activeMini.timeTotalMs || 0));
-    if (!total) return null;
-    const elapsed = nowMs() - st.miniStartMs;
-    return Math.max(0, total - elapsed);
-  }
+    // position: random but avoid HUD
+    const avoid = buildAvoidRects();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
 
-  function miniPctFromState(ctx) {
-    if (!st.activeMini) return 0;
-    const m = st.activeMini;
+    const tries = 60;
+    let x= w*0.5, y = h*0.55;
+    const margin = 70; // keep from edges
+    for (let i=0;i<tries;i++){
+      x = margin + Math.random()*(w - margin*2);
+      y = margin + Math.random()*(h - margin*2);
 
-    if (typeof m.pct === 'function') {
-      try { return clamp01(m.pct(ctx || {})); } catch (_) {}
-    }
-
-    if (m.kind === 'time') {
-      const total = Math.max(1, Number(m.timeTotalMs || 1));
-      const left = getMiniTimeLeftMs();
-      if (left === null) return 0;
-      if (m.target > 0) return clamp01(st.miniCur / Math.max(1, m.target));
-      return clamp01(1 - (left / total));
-    }
-
-    return clamp01(st.miniCur / Math.max(1, Number(m.target || 1)));
-  }
-
-  function goalPctFromState(ctx) {
-    if (!st.activeGoal) return 0;
-    const g = st.activeGoal;
-
-    if (typeof g.pct === 'function') {
-      try { return clamp01(g.pct(ctx || {})); } catch (_) {}
-    }
-
-    return clamp01(st.goalCur / Math.max(1, Number(g.target || 1)));
-  }
-
-  function buildPayload(ctx) {
-    const g = st.activeGoal;
-    const m = st.activeMini;
-
-    const goalMax = g ? Math.max(0, Number(g.target || 0)) : 0;
-    const miniMax = m ? Math.max(0, Number(m.target || 0)) : 0;
-
-    const goalPct = goalPctFromState(ctx);
-    const miniPct = miniPctFromState(ctx);
-
-    const miniLeft = getMiniTimeLeftMs();
-    const miniTotal = (m && m.kind === 'time') ? Math.max(0, Number(m.timeTotalMs || 0)) : null;
-
-    return {
-      goal: g ? {
-        title: g.title,
-        cur: Math.max(0, st.goalCur),
-        max: Math.max(0, goalMax),
-        pct: goalPct,
-        state: (goalPct >= 1) ? 'cleared' : 'active'
-      } : null,
-      mini: m ? {
-        title: m.title,
-        cur: Math.max(0, st.miniCur),
-        max: Math.max(0, miniMax),
-        pct: miniPct,
-        timeLeft: (miniLeft !== null ? Math.max(0, miniLeft) : null),
-        timeTotal: (miniTotal !== null ? miniTotal : null),
-        state: (miniPct >= 1) ? 'cleared' : 'active'
-      } : null,
-      meta: {
-        goalIndex: st.goalIndex,          // 0-based
-        miniCount: st.miniCount,          // 1-based progress display style
-        diff: st.diff,
-        runMode: st.runMode,
-        goalsPick,
-        minisPick,
-        goalsTotal: st.goalsSel.length,
-        minisTotal: st.minisSel.length
+      const rect = { left:x-50, top:y-50, right:x+50, bottom:y+50 };
+      let ok = true;
+      for (const a of avoid){
+        if (rectsOverlap(rect, a)){ ok=false; break; }
       }
+      if (ok) break;
+    }
+
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
+
+    return el;
+  }
+
+  function spawnOne(){
+    if (!layerEl) return;
+    if (!canSpawnMore()) return;
+
+    // boss in "boss" challenge at last 12s
+    if (challenge === 'boss' && !S.bossSpawned && S.timeLeft <= 12){
+      spawnBoss();
+      return;
+    }
+
+    // power chance (low)
+    const pRoll = Math.random();
+    if (pRoll < 0.08){
+      spawnPower();
+      return;
+    }
+
+    // fake chance
+    if (pRoll >= 0.08 && pRoll < 0.12){
+      spawnFake();
+      return;
+    }
+
+    // gold chance
+    if (pRoll >= 0.12 && pRoll < 0.17){
+      spawnGold();
+      return;
+    }
+
+    const isJunk = Math.random() < CFG.junkRatio;
+    if (isJunk) spawnJunk();
+    else spawnGood();
+  }
+
+  function addToActive(el, meta){
+    const id = 't' + Math.random().toString(16).slice(2);
+    const spawnAt = now();
+    const expireAt = spawnAt + (meta.lifetime ?? CFG.lifetime);
+
+    active.set(id, { id, el, spawnAt, expireAt, ...meta });
+    el.dataset.tid = id;
+
+    layerEl.appendChild(el);
+    el.addEventListener('click', onClickTarget, { passive:true });
+    el.addEventListener('touchstart', onClickTarget, { passive:true });
+
+    return id;
+  }
+
+  function removeTarget(id, reason){
+    const t = active.get(id);
+    if (!t) return;
+    active.delete(id);
+
+    try{
+      t.el.classList.add('gone');
+      setTimeout(()=>{ try{ t.el.remove(); }catch(_){ } }, 120);
+    }catch(_){}
+
+    // expire miss: only for GOOD targets
+    if (reason === 'expired' && t.type === 'good'){
+      S.misses++;
+      S.combo = 0;
+      setJudge('MISS');
+      dispatch('quest:miss', { kind:'goodExpired' });
+      emitScore();
+    }
+  }
+
+  function spawnGood(){
+    const el = mkTarget({ type:'good', emoji: pick(EMOJI.good), className:'' });
+    addToActive(el, { type:'good', lifetime: CFG.lifetime });
+  }
+
+  function spawnJunk(){
+    const el = mkTarget({ type:'junk', emoji: pick(EMOJI.junk), className:'gj-junk', scaleMul: 1.05, lifetime: CFG.lifetime });
+    addToActive(el, { type:'junk', lifetime: CFG.lifetime });
+  }
+
+  function spawnGold(){
+    const el = mkTarget({ type:'gold', emoji: pick(EMOJI.gold), className:'gj-gold', scaleMul: 1.08, lifetime: CFG.lifetime * 0.95 });
+    addToActive(el, { type:'gold', lifetime: CFG.lifetime * 0.95 });
+  }
+
+  function spawnFake(){
+    const el = mkTarget({ type:'fake', emoji: pick(EMOJI.fake), className:'gj-fake', scaleMul: 1.00, lifetime: CFG.lifetime * 0.9 });
+    addToActive(el, { type:'fake', lifetime: CFG.lifetime * 0.9 });
+  }
+
+  function spawnPower(){
+    const emoji = pick(EMOJI.power);
+    let power = 'shield';
+    if (emoji.includes('🧲')) power = 'magnet';
+    else if (emoji.includes('⏱️')) power = 'time';
+
+    const el = mkTarget({ type:'power', emoji, className:'gj-power', scaleMul: 1.00, lifetime: CFG.lifetime * 0.9 });
+    addToActive(el, { type:'power', power, lifetime: CFG.lifetime * 0.9 });
+  }
+
+  function spawnBoss(){
+    S.bossSpawned = true;
+    S.bossHP = 6; // click good hits to reduce? (simple: click boss)
+    const el = mkTarget({ type:'boss', emoji: pick(EMOJI.boss), className:'gj-boss', scaleMul: 1.15, lifetime: 999999 });
+    addToActive(el, { type:'boss', lifetime: 999999 });
+    setJudge('BOSS!');
+  }
+
+  function onClickTarget(ev){
+    const el = ev.currentTarget;
+    const id = el && el.dataset ? el.dataset.tid : null;
+    if (!id) return;
+    const t = active.get(id);
+    if (!t) return;
+
+    // remove immediately
+    active.delete(id);
+    try{
+      el.classList.add('gone');
+      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 120);
+    }catch(_){}
+
+    const dt = now() - t.spawnAt;
+    const isPerfect = dt <= 520; // fast click = perfect
+
+    // boss
+    if (t.type === 'boss'){
+      S.bossHP = Math.max(0, (S.bossHP|0) - 1);
+      setJudge('HIT!');
+      dispatch('quest:goodHit', { type:'boss', judgment:'HIT' });
+      if (S.bossHP <= 0){
+        setJudge('BOSS CLEAR!');
+        dispatch('quest:bossClear', {});
+      }
+      // score a bit
+      S.score += Math.round(8 * CH.scoreMul);
+      emitScore();
+      return;
+    }
+
+    // power
+    if (t.type === 'power'){
+      if (t.power === 'shield'){
+        S.shieldUntil = now() + 5200;
+        setJudge('SHIELD!');
+        dispatch('quest:power', { power:'shield' });
+      } else if (t.power === 'magnet'){
+        // simple: spawn 2 extra goods instantly
+        setJudge('MAGNET!');
+        dispatch('quest:power', { power:'magnet' });
+        spawnGood(); spawnGood();
+      } else if (t.power === 'time'){
+        // plus time: add 3 sec
+        S.timeLeft += 3;
+        setJudge('+TIME!');
+        dispatch('quest:power', { power:'time' });
+      }
+      emitScore();
+      return;
+    }
+
+    // fake behaves like junk
+    if (t.type === 'fake'){
+      // shield block?
+      if (now() < S.shieldUntil){
+        setJudge('BLOCK!');
+        dispatch('quest:block', {});
+        emitScore();
+        return;
+      }
+      S.misses++;
+      S.combo = 0;
+      setJudge('OOPS!');
+      dispatch('quest:badHit', { type:'fake' });
+      emitScore();
+      return;
+    }
+
+    // junk
+    if (t.type === 'junk'){
+      if (now() < S.shieldUntil){
+        setJudge('BLOCK!');
+        dispatch('quest:block', {});
+        emitScore();
+        return;
+      }
+      S.misses++;
+      S.combo = 0;
+      setJudge('MISS');
+      dispatch('quest:badHit', { type:'junk' });
+      emitScore();
+      return;
+    }
+
+    // good/gold
+    if (t.type === 'good' || t.type === 'gold'){
+      S.goodHits++;
+      S.combo++;
+      S.comboMax = Math.max(S.comboMax, S.combo);
+
+      let add = (t.type === 'gold') ? 12 : 8;
+      if (isPerfect){ add += 4; S.perfect++; setJudge('PERFECT!'); }
+      else setJudge('GOOD!');
+
+      add = Math.round(add * CH.scoreMul);
+      S.score += add;
+
+      dispatch('quest:goodHit', { type: t.type, judgment: isPerfect ? 'PERFECT' : 'GOOD' });
+      emitScore();
+      return;
+    }
+  }
+
+  function tickExpire(){
+    const t = now();
+    for (const [id, obj] of active){
+      if (obj.expireAt <= t){
+        removeTarget(id, 'expired');
+      }
+    }
+  }
+
+  function startTimers(){
+    // spawn loop
+    const spawnEvery = Math.max(280, Math.round(CFG.spawnEvery * CH.spawnMul));
+    spawnTimer = setInterval(()=>{
+      if (!S.started) return;
+      if (!canSpawnMore()) return;
+      spawnOne();
+    }, spawnEvery);
+
+    // time loop
+    dispatch('hha:time', { sec: S.timeLeft|0 });
+    timeTimer = setInterval(()=>{
+      if (!S.started) return;
+      S.timeLeft = Math.max(0, (S.timeLeft|0) - 1);
+      dispatch('hha:time', { sec: S.timeLeft|0 });
+
+      // survival (extra punishment: if miss too high end early)
+      if (challenge === 'survival' && S.misses >= 12){
+        S.timeLeft = 0;
+      }
+
+      if (S.timeLeft <= 0){
+        end();
+      }
+    }, 1000);
+
+    // expire + smooth
+    const loop = ()=>{
+      if (!S.started) return;
+      tickExpire();
+      rafId = requestAnimationFrame(loop);
     };
+    rafId = requestAnimationFrame(loop);
   }
 
-  function emitUpdate(ctx, force = false) {
-    const p = buildPayload(ctx);
-    const key = JSON.stringify([
-      p.goal ? [p.goal.title, p.goal.cur, p.goal.max, Math.round((p.goal.pct || 0) * 1000), p.goal.state] : null,
-      p.mini ? [p.mini.title, p.mini.cur, p.mini.max, Math.round((p.mini.pct || 0) * 1000), p.mini.state,
-                (p.mini.timeLeft != null ? Math.round(p.mini.timeLeft / 100) : null)] : null,
-      p.meta.goalIndex,
-      p.meta.miniCount,
-      p.meta.diff,
-      p.meta.runMode
-    ]);
-
-    if (!force && key === st.lastEmitKey) return;
-    st.lastEmitKey = key;
-
-    dispatch('quest:update', p);
+  function stopTimers(){
+    if (spawnTimer) { clearInterval(spawnTimer); spawnTimer=null; }
+    if (timeTimer)  { clearInterval(timeTimer); timeTimer=null; }
+    if (rafId)      { cancelAnimationFrame(rafId); rafId=null; }
   }
 
-  function clearMini(ctx) {
-    st.minisCleared += 1;
+  function clearAllTargets(){
+    for (const [id] of active){
+      removeTarget(id, 'clear');
+    }
+    active.clear();
+  }
 
-    dispatch('quest:cleared', {
-      kind: 'mini',
-      title: st.activeMini ? st.activeMini.title : '',
-      miniIndex: st.miniIndex,
-      miniCount: st.miniCount,
-      minisCleared: st.minisCleared,
-      minisTotal: st.minisSel.length,
-      diff: st.diff,
-      runMode: st.runMode
+  function end(){
+    if (!S.started) return;
+    S.started = false;
+    stopTimers();
+    clearAllTargets();
+
+    const grade = scoreGrade({ score:S.score, misses:S.misses });
+
+    // end event -> boot.js จะจับแล้ว show summary
+    dispatch('hha:end', {
+      mode: 'GoodJunkVR',
+      runMode: run,
+      diff,
+      challenge,
+      durationSec,
+      scoreFinal: S.score|0,
+      good: S.goodHits|0,
+      perfect: S.perfect|0,
+      misses: S.misses|0,
+      comboMax: S.comboMax|0,
+      grade
     });
-
-    // next mini (ตามลิสต์ที่เลือกไว้แล้ว)
-    st.miniIndex += 1;
-    st.miniCount += 1;
-
-    if (st.miniIndex >= st.minisSel.length) {
-      resetMini(null);
-    } else {
-      resetMini(chooseMiniAt(st.miniIndex));
-    }
-    emitUpdate(ctx, true);
   }
 
-  function clearGoal(ctx) {
-    st.goalsCleared += 1;
-
-    dispatch('quest:cleared', {
-      kind: 'goal',
-      title: st.activeGoal ? st.activeGoal.title : '',
-      goalIndex: st.goalIndex,
-      goalsCleared: st.goalsCleared,
-      goalsTotal: st.goalsSel.length,
-      diff: st.diff,
-      runMode: st.runMode
-    });
-
-    st.goalIndex += 1;
-
-    if (st.goalIndex >= st.goalsSel.length) {
-      resetGoal(null);
-    } else {
-      resetGoal(chooseGoalAt(st.goalIndex));
+  function start(){
+    if (S.started) return;
+    if (!layerEl){
+      console.warn('[GoodJunkVR] layerEl missing');
+      return;
     }
-    emitUpdate(ctx, true);
+    S.started = true;
+    S.t0 = now();
+
+    // start mini chain signal
+    dispatch('quest:miniStart', {});
+
+    // initial score event
+    emitScore();
+
+    // spawn a few immediately
+    for (let i=0;i<Math.min(3, CFG.maxActive); i++) spawnOne();
+
+    startTimers();
   }
 
-  // ✅ Build selected quests for this run (PLAY random by diff / RESEARCH fixed by diff)
-  function buildSelectedSets(){
-    // goalsSel
-    if (st.runMode === 'research'){
-      const fixed = researchFixedByDiff[st.diff] || researchFixedByDiff.normal || { goals:[], minis:[] };
-
-      st.goalsSel = ensureArr(fixed.goals).map(id => findById(POOL_GOALS, id)).filter(Boolean);
-      st.minisSel = ensureArr(fixed.minis).map(id => findById(POOL_MINIS, id)).filter(Boolean);
-
-      // fallback ถ้า fixed ว่างจริง ๆ
-      if (!st.goalsSel.length) st.goalsSel = pickN(POOL_GOALS, goalsPick);
-      if (!st.minisSel.length) st.minisSel = pickN(POOL_MINIS, minisPick);
-
-    } else {
-      // ✅ play mode: “สุ่มตามระดับ” เท่านั้น
-      st.goalsSel = pickN(POOL_GOALS, goalsPick);
-      st.minisSel = pickN(POOL_MINIS, minisPick);
-    }
-
-    // reset indices
-    st.goalIndex = 0;
-    st.miniIndex = 0;
-    st.miniCount = 1;
-
-    st.goalsCleared = 0;
-    st.minisCleared = 0;
-  }
-
-  // public API
-  const api = {
-    start(ctx = {}) {
-      if (st.started) return;
-      st.started = true;
-
-      buildSelectedSets();
-
-      resetGoal(chooseGoalAt(0));
-      resetMini(chooseMiniAt(0));
-
-      // ✅ ยิงครั้งแรกให้ HUD โชว์แน่นอน
-      emitUpdate(ctx, true);
-    },
-
-    // Generic event hook from game:
-    // type examples: 'goodHit', 'junkHit', 'perfectHit', 'goodExpired', 'shieldBlock', 'tick'
-    onEvent(type, ctx = {}) {
-      if (!st.started) api.start(ctx);
-
-      const t = String(type || '').toLowerCase();
-
-      // Allow defs to react first
-      if (st.activeGoal && st.activeGoal.onEvent) {
-        try { st.activeGoal.onEvent(t, ctx, st); } catch (_) {}
-      }
-      if (st.activeMini && st.activeMini.onEvent) {
-        try { st.activeMini.onEvent(t, ctx, st); } catch (_) {}
-      }
-
-      // --- Default generic progress rules (safe fallback) ---
-      // Goal + Mini (count) progress: count "good hits" by default
-      if (t === 'goodhit' || t === 'perfecthit') {
-        if (st.activeGoal) st.goalCur += 1;
-        if (st.activeMini && st.activeMini.kind === 'count') st.miniCur += 1;
-      }
-
-      // Time mini timeout check
-      if (st.activeMini && st.activeMini.kind === 'time') {
-        const left = getMiniTimeLeftMs();
-        if (left !== null && left <= 0) {
-          // time out => ถือว่า fail แล้วไป mini ถัดไป (ตามลิสต์) เพื่อคงจำนวน 3 mini ตามที่เลือก
-          st.miniIndex += 1;
-          st.miniCount += 1;
-          if (st.miniIndex >= st.minisSel.length) resetMini(null);
-          else resetMini(chooseMiniAt(st.miniIndex));
-          emitUpdate(ctx, true);
-          return;
-        }
-      }
-
-      // Check clear conditions
-      if (st.activeGoal) {
-        const goalTarget = Math.max(1, Number(st.activeGoal.target || 1));
-        if (st.goalCur >= goalTarget) {
-          clearGoal(ctx);
-          return;
-        }
-      }
-
-      if (st.activeMini) {
-        const miniTarget = Math.max(1, Number(st.activeMini.target || 1));
-        if (st.activeMini.kind !== 'time' && st.miniCur >= miniTarget) {
-          clearMini(ctx);
-          return;
-        }
-        if (st.activeMini.kind === 'time' && miniTarget > 0 && st.miniCur >= miniTarget) {
-          clearMini(ctx);
-          return;
-        }
-      }
-
-      emitUpdate(ctx, false);
-    },
-
-    // call periodically if you want timer refresh smoother
-    tick(ctx = {}) {
-      if (!st.started) return;
-      emitUpdate(ctx, false);
-    },
-
-    // expose selected sets (useful for logger / HUD debug)
-    getSelected() {
+  return {
+    start,
+    end,
+    getState(){
       return {
-        diff: st.diff,
-        runMode: st.runMode,
-        goalsSel: st.goalsSel.slice(),
-        minisSel: st.minisSel.slice()
-      };
-    },
-
-    getState() {
-      return {
-        diff: st.diff,
-        runMode: st.runMode,
-        goalIndex: st.goalIndex,
-        miniIndex: st.miniIndex,
-        miniCount: st.miniCount,
-        goalsCleared: st.goalsCleared,
-        minisCleared: st.minisCleared,
-        activeGoal: st.activeGoal,
-        activeMini: st.activeMini,
-        goalCur: st.goalCur,
-        miniCur: st.miniCur,
-        goalsTotal: st.goalsSel.length,
-        minisTotal: st.minisSel.length
+        score:S.score|0,
+        goodHits:S.goodHits|0,
+        perfect:S.perfect|0,
+        misses:S.misses|0,
+        comboMax:S.comboMax|0,
+        timeLeft:S.timeLeft|0
       };
     }
   };
-
-  return api;
 }
