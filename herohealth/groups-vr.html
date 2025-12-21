@@ -34,7 +34,7 @@
       color:var(--text-main);
     }
 
-    /* ✅ PANIC visuals */
+    /* PANIC */
     body.panic::before{
       content:"";
       position:fixed; inset:-20px;
@@ -55,12 +55,91 @@
       100%{ transform:translate(0,0) }
     }
 
-    /* micro hitstop */
-    body.hitstop{ filter:saturate(1.2) contrast(1.06) brightness(1.04); }
-
-    /* A-Frame = background only */
+    /* A-Frame background only */
     a-scene{ position:fixed; inset:0; z-index:0; }
     a-scene, a-scene canvas{ pointer-events:none !important; }
+
+    /* DOM targets layer */
+    #fg-layer{
+      position:fixed; inset:0;
+      z-index:40;
+      pointer-events:auto !important;
+      touch-action:manipulation;
+    }
+
+    /* Emoji sticker target */
+    .fg-target{
+      position:absolute;
+      left:0; top:0;
+      width:132px; height:132px;
+      border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      pointer-events:auto;
+      cursor:pointer;
+      user-select:none; -webkit-user-select:none;
+      touch-action:manipulation;
+      box-shadow:0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
+      opacity:0;
+      transform:translate3d(50vw,50vh,0) translate(-50%,-50%) scale(.92);
+      transition:transform .14s ease-out, opacity .14s ease-out, filter .14s ease-out;
+      will-change:transform, opacity;
+    }
+    .fg-target.show{ opacity:1; transform:translate3d(50vw,50vh,0) translate(-50%,-50%) scale(1); }
+    .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
+    .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
+
+    .fg-target::before{
+      content:attr(data-emoji);
+      display:block;
+      font-size:clamp(40px,7vmin,64px);
+      line-height:1;
+      color:#fefce8;
+      text-shadow:0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
+      transform:translateY(-2px);
+    }
+
+    .fg-target.hit{ opacity:0; transform:translate3d(var(--x,50vw),var(--y,50vh),0) translate(-50%,-50%) scale(.62); }
+    .fg-target.out{ opacity:0; filter:blur(1px); }
+
+    /* boss look */
+    .fg-boss{
+      background:radial-gradient(circle at 30% 30%, #ef4444, #7f1d1d) !important;
+      box-shadow:
+        0 16px 36px rgba(0,0,0,0.75),
+        0 0 0 5px rgba(15,23,42,0.9),
+        0 0 28px rgba(239,68,68,0.65);
+      animation:bossPulse .55s ease-in-out infinite;
+    }
+    @keyframes bossPulse { 0%,100%{ filter:saturate(1) } 50%{ filter:saturate(1.55) } }
+
+    /* boss break bar (NEW) */
+    .bossbar{
+      position:absolute;
+      left:14px; right:14px; bottom:12px;
+      height:8px;
+      border-radius:999px;
+      background:rgba(2,6,23,0.55);
+      border:1px solid rgba(248,113,113,0.45);
+      overflow:hidden;
+      box-shadow:0 10px 24px rgba(0,0,0,0.45);
+    }
+    .bossbar-fill{
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,#facc15,#ef4444);
+      border-radius:999px;
+      transition:width .12s ease-out;
+    }
+
+    /* lock highlight */
+    .fg-target.lock{
+      box-shadow:
+        0 18px 42px rgba(0,0,0,0.62),
+        0 0 0 7px rgba(250,204,21,0.18),
+        0 0 0 2px rgba(250,204,21,0.75),
+        0 0 38px rgba(56,189,248,0.38);
+      filter:saturate(1.25) brightness(1.08);
+    }
 
     /* HUD */
     .hud-root{ position:fixed; inset:0; pointer-events:none; z-index:60; }
@@ -165,81 +244,85 @@
       .rank-pill{ align-items:flex-start; margin-left:0; }
     }
 
-    /* DOM targets */
-    #fg-layer{
-      position:fixed; inset:0;
-      z-index:40;
-      pointer-events:auto !important;
-      touch-action:manipulation;
+    /* center reticle (NEW) */
+    #aim-reticle{
+      position:fixed;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:26px; height:26px;
+      border-radius:50%;
+      border:2px solid rgba(255,255,255,0.7);
+      z-index:170;
+      pointer-events:none;
+      box-shadow:0 12px 30px rgba(0,0,0,0.5);
+      opacity:0.85;
     }
+    #aim-reticle.ok{ border-color: rgba(34,197,94,0.9); }
+    #aim-reticle.miss{ border-color: rgba(248,113,113,0.95); }
+    #aim-reticle.perfect{ border-color: rgba(250,204,21,0.95); transform:translate(-50%,-50%) scale(1.06); }
 
-    /* emoji sticker style + fade */
-    .fg-target{
-      position:absolute;
-      width:132px; height:132px;
+    /* lock beam (NEW) */
+    .lock-beam{
+      position:fixed;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:0px;
+      height:3px;
+      z-index:168;
+      pointer-events:none;
+      opacity:0;
+      transform-origin:left center;
+      transition:opacity .08s ease-out;
+      filter:drop-shadow(0 18px 40px rgba(0,0,0,.55));
+    }
+    .lock-beam.show{ opacity:1; }
+    .lock-beam-inner{
+      height:3px;
+      width:100%;
       border-radius:999px;
-      display:flex; align-items:center; justify-content:center;
-      pointer-events:auto;
-      cursor:pointer;
-      user-select:none; -webkit-user-select:none;
-      touch-action:manipulation;
+      background:linear-gradient(90deg,
+        rgba(224,242,254,0.0),
+        rgba(56,189,248,0.55),
+        rgba(250,204,21,0.92));
+      box-shadow:0 0 22px rgba(56,189,248,0.35);
+    }
 
-      /* sticker */
-      background:radial-gradient(circle at 30% 30%, #22c55e, #15803d);
-      box-shadow:
-        0 18px 42px rgba(0,0,0,0.62),
-        0 0 0 6px rgba(255,255,255,0.10),
-        0 0 0 1px rgba(15,23,42,1);
-
-      transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(1);
-      transition:opacity .12s ease-out, transform .12s ease-out, filter .12s ease-out;
+    /* charge overlay (NEW) */
+    .charge-overlay{
+      position:fixed;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%) scale(.92);
+      z-index:186;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .14s ease-out, transform .14s ease-out;
+      filter:drop-shadow(0 18px 40px rgba(0,0,0,0.65));
+    }
+    .charge-overlay.show{
       opacity:1;
-      will-change:transform,opacity;
+      transform:translate(-50%,-50%) scale(1);
+    }
+    .charge-badge{
+      padding:10px 18px;
+      border-radius:999px;
+      font-weight:1000;
+      letter-spacing:.10em;
+      color:#04101f;
+      background:linear-gradient(90deg,#facc15,#38bdf8,#22c55e);
+      font-size:clamp(16px,3.6vw,22px);
+    }
+    .charge-sub{
+      margin-top:6px;
+      text-align:center;
+      font-size:12px;
+      letter-spacing:.12em;
+      color:#e0f2fe;
+      opacity:.92;
     }
 
-    .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
-    .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
-
-    /* boss junk look */
-    .fg-boss{
-      background:radial-gradient(circle at 30% 30%, #ef4444, #7f1d1d) !important;
-      box-shadow:
-        0 22px 55px rgba(0,0,0,0.75),
-        0 0 0 6px rgba(255,255,255,0.12),
-        0 0 0 1px rgba(15,23,42,1),
-        0 0 34px rgba(239,68,68,0.68);
-      animation:bossPulse .55s ease-in-out infinite;
-    }
-    @keyframes bossPulse { 0%,100%{ filter:saturate(1) } 50%{ filter:saturate(1.55) } }
-
-    .fg-target::before{
-      content:attr(data-emoji);
-      display:block;
-      font-size:clamp(40px,7vmin,64px);
-      line-height:1;
-      color:#fefce8;
-      text-shadow:
-        0 2px 6px rgba(15,23,42,0.9),
-        0 0 14px rgba(15,23,42,0.75);
-      filter:drop-shadow(0 10px 18px rgba(0,0,0,0.35));
-    }
-
-    .fg-target.spawn{ opacity:0; transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(.72); }
-    .fg-target.spawn{ animation:popIn .14s ease-out forwards; }
-    @keyframes popIn{ to{ opacity:1; transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(1); } }
-
-    .fg-target.out{ opacity:0; transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(.82); }
-    .fg-target.hit{ opacity:0; transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(0.6); }
-
-    /* Fever gauge */
-    .hha-fever-wrap{
-      position:fixed !important;
-      left:10px; bottom:10px;
-      transform:none;
-      z-index:80 !important;
-    }
-
-    /* Countdown */
+    /* countdown */
     .countdown-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -289,64 +372,13 @@
       opacity:.9;
     }
 
-    /* Aim reticle */
-    .aim-reticle{
-      position:fixed;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      z-index:170;
-      pointer-events:none;
-      opacity:.92;
-      filter:drop-shadow(0 10px 28px rgba(0,0,0,.55));
+    /* Fever gauge (global) */
+    .hha-fever-wrap{
+      position:fixed !important;
+      left:10px; bottom:10px;
+      transform:none;
+      z-index:80 !important;
     }
-    .aim-ring{
-      width:44px; height:44px;
-      border-radius:999px;
-      border:2px solid rgba(224,242,254,.9);
-      box-shadow:0 0 20px rgba(56,189,248,.38);
-      opacity:.85;
-    }
-    .aim-dot{
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      width:6px; height:6px;
-      border-radius:999px;
-      background:rgba(250,204,21,.95);
-      box-shadow:0 0 16px rgba(250,204,21,.55);
-    }
-    .aim-reticle.perfect .aim-ring{
-      animation:aimPulse .18s ease-out 1;
-      border-color:rgba(34,197,94,.95);
-      box-shadow:0 0 26px rgba(34,197,94,.55);
-    }
-    .aim-reticle.miss .aim-ring{
-      animation:aimPulseMiss .14s ease-out 1;
-      border-color:rgba(248,113,113,.95);
-      box-shadow:0 0 26px rgba(248,113,113,.55);
-    }
-    @keyframes aimPulse{ 0%{ transform:scale(.92); opacity:.8 } 100%{ transform:scale(1.12); opacity:1 } }
-    @keyframes aimPulseMiss{ 0%{ transform:scale(.92) } 50%{ transform:scale(1.18) } 100%{ transform:scale(1.02) } }
-
-    /* danger banner */
-    .danger-banner{
-      position:fixed;
-      left:50%;
-      top:14%;
-      transform:translateX(-50%) scale(.96);
-      z-index:186;
-      pointer-events:none;
-      opacity:0;
-      padding:10px 18px;
-      border-radius:999px;
-      font-weight:1000;
-      letter-spacing:.18em;
-      color:#fff;
-      background:linear-gradient(90deg, rgba(239,68,68,.95), rgba(217,119,6,.92));
-      box-shadow:0 20px 60px rgba(0,0,0,.75);
-      transition:opacity .14s ease-out, transform .14s ease-out;
-    }
-    .danger-banner.show{ opacity:1; transform:translateX(-50%) scale(1); }
 
     /* VR button */
     .vr-btn{
@@ -431,7 +463,13 @@
            renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
            background="color: #020617">
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="fg-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false"></a-camera>
+      <a-camera id="fg-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
+        <a-entity id="cursor"
+                  cursor="fuse: false; rayOrigin: mouse"
+                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+                  material="shader: flat; color: #ffffff"
+                  position="0 0 -0.9"></a-entity>
+      </a-camera>
     </a-entity>
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
@@ -443,21 +481,22 @@
   <!-- DOM targets -->
   <div id="fg-layer"></div>
 
-  <!-- Aim Reticle -->
-  <div id="aim-reticle" class="aim-reticle" aria-hidden="true">
-    <div class="aim-ring"></div>
-    <div class="aim-dot"></div>
+  <!-- Lock beam + reticle (NEW) -->
+  <div id="lock-beam" class="lock-beam" aria-hidden="true">
+    <div class="lock-beam-inner"></div>
   </div>
-
-  <!-- Danger banner -->
-  <div id="danger-banner" class="danger-banner" aria-hidden="true">
-    ⚠️ DANGER
-  </div>
+  <div id="aim-reticle" aria-hidden="true"></div>
 
   <!-- RUSH overlay -->
   <div id="rush-overlay" class="rush-overlay">
     <div class="rush-badge">🚀 RUSH MODE!</div>
-    <div class="rush-sub">คะแนนอาหารดี x2 • แตะ/จ้องให้ไว!</div>
+    <div class="rush-sub">คะแนนอาหารดี x2 • มี CHAIN</div>
+  </div>
+
+  <!-- CHARGE overlay (NEW) -->
+  <div id="charge-overlay" class="charge-overlay">
+    <div class="charge-badge">⚡ CHARGE SHOT!</div>
+    <div class="charge-sub">ปล่อยพลัง • ทะลวง + CHAIN x2</div>
   </div>
 
   <!-- HUD -->
@@ -549,7 +588,7 @@
     </div>
   </div>
 
-  <!-- Fever UI + particles + logger (IIFE) -->
+  <!-- Global modules -->
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
   <script src="./vr/hha-cloud-logger.js"></script>
@@ -592,8 +631,7 @@
     const elCelebrateSub  = document.getElementById('celebrate-sub');
 
     const elRush = document.getElementById('rush-overlay');
-    const reticle = document.getElementById('aim-reticle');
-    const dangerBanner = document.getElementById('danger-banner');
+    const elCharge = document.getElementById('charge-overlay');
 
     const elResult   = document.getElementById('result-overlay');
     const elResGrade = document.getElementById('res-grade');
@@ -602,6 +640,9 @@
     const elResMiss  = document.getElementById('res-miss');
     const elResGoal  = document.getElementById('res-goal');
     const elResMini  = document.getElementById('res-mini');
+
+    const reticle = document.getElementById('aim-reticle');
+    const lockBeam = document.getElementById('lock-beam');
 
     document.getElementById('res-replay').addEventListener('click', () => location.reload());
     document.getElementById('res-back').addEventListener('click', () => location.href = './hub.html');
@@ -619,7 +660,7 @@
       setTimeout(() => elCoachBubble.classList.remove('show'), 3200);
     }
 
-    // ✅ simple tick sound (WebAudio) for PANIC
+    // simple beep for PANIC/RUSH
     let audioCtx = null;
     function beep(freq=880, dur=0.06, gain=0.06){
       try{
@@ -695,6 +736,16 @@
       rankPopT = setTimeout(() => elRank.classList.remove('pop'), 180);
     });
 
+    // Reticle feedback
+    window.addEventListener('groups:reticle', (e) => {
+      const s = (e.detail && e.detail.state) ? e.detail.state : '';
+      reticle.classList.remove('ok','miss','perfect');
+      if (s === 'ok') reticle.classList.add('ok');
+      else if (s === 'miss') reticle.classList.add('miss');
+      else if (s === 'perfect') reticle.classList.add('perfect');
+      setTimeout(() => reticle.classList.remove('ok','miss','perfect'), 140);
+    });
+
     // PANIC listener
     let panicTickTimer = null;
     window.addEventListener('hha:panic', (e) => {
@@ -726,26 +777,47 @@
       }
     });
 
-    // Reticle feedback
-    window.addEventListener('groups:reticle', (e) => {
+    // CHARGE overlay (NEW)
+    let chargeTimer = null;
+    window.addEventListener('groups:charge', (e) => {
       const d = e.detail || {};
-      if (!reticle) return;
-      reticle.classList.remove('perfect','miss');
-      if (d.state === 'perfect') reticle.classList.add('perfect');
-      if (d.state === 'miss') reticle.classList.add('miss');
-      setTimeout(() => reticle.classList.remove('perfect','miss'), 180);
-    });
-
-    // Danger banner
-    window.addEventListener('groups:danger', (e) => {
-      const d = e.detail || {};
-      if (!dangerBanner) return;
       if (d.on){
-        dangerBanner.classList.add('show');
-        setTimeout(() => dangerBanner.classList.remove('show'), 700);
+        elCharge.classList.add('show');
+        clearTimeout(chargeTimer);
+        chargeTimer = setTimeout(() => elCharge.classList.remove('show'), 900);
       }
     });
 
+    // Lock beam (NEW)
+    function setBeam(x, y, prog, charge){
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const dx = x - cx;
+      const dy = y - cy;
+      const len = Math.max(0, Math.sqrt(dx*dx + dy*dy) - 10);
+      const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+
+      lockBeam.style.width = `${len}px`;
+      lockBeam.style.transform = `translate(-50%,-50%) rotate(${ang}deg)`;
+      lockBeam.style.opacity = String(0.18 + 0.82 * (prog ?? 0));
+
+      // ถ้าชาร์จกำลังขึ้น ให้กระพริบเบา ๆ
+      if ((charge ?? 0) > 0.65) lockBeam.style.filter = 'drop-shadow(0 0 26px rgba(250,204,21,0.55))';
+      else lockBeam.style.filter = 'drop-shadow(0 18px 40px rgba(0,0,0,.55))';
+
+      lockBeam.classList.add('show');
+    }
+
+    window.addEventListener('groups:lock', (e) => {
+      const d = e.detail || {};
+      if (!d.on){
+        lockBeam.classList.remove('show');
+        return;
+      }
+      setBeam(d.x ?? (window.innerWidth/2), d.y ?? (window.innerHeight/2), d.prog ?? 0, d.charge ?? 0);
+    });
+
+    // Quest update
     window.addEventListener('quest:update', (e) => {
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -770,6 +842,7 @@
       }
     });
 
+    // End
     window.addEventListener('hha:end', (e) => {
       const d = e.detail || {};
       elResGrade.textContent = String(d.grade || currentGrade || 'C');
@@ -785,23 +858,19 @@
     btnVR.addEventListener('click', () => {
       const scene = document.querySelector('a-scene');
       if (scene && scene.enterVR) { try { scene.enterVR(); } catch {} }
-      // hint: gaze/fuse ทำงานตลอด (Engine ใช้ center aim)
-      setCoach('โหมด VR: “จ้อง” เป้าไว้ ~0.5 วิ จะยิงอัตโนมัติ 👀🎯');
     });
 
     // Touch look
     const cam = document.querySelector('#fg-camera');
     if (cam) attachTouchLook(cam, { sensitivity: 0.25, areaEl: document.body });
 
-    // ✅ Logger (IIFE): set endpoint + init (แก้ error import/export)
+    // Logger (FIX: ใช้ IIFE)
     function initLogger(endpoint){
       try{
-        if (endpoint) sessionStorage.setItem('HHA_LOGGER_ENDPOINT', endpoint);
-      }catch{}
-      try{
-        if (window.HHACloudLogger && window.HHACloudLogger.init) {
-          window.HHACloudLogger.init({ endpoint, debug:false });
-        }
+        window.HHACloudLogger && window.HHACloudLogger.init && window.HHACloudLogger.init({
+          endpoint,
+          debug: false
+        });
       }catch{}
     }
 
@@ -840,8 +909,7 @@
       elTime.textContent = dur + 's';
 
       initLogger('https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec');
-
-      setCoach('เริ่มเลย! เก็บอาหารดีตามหมู่ให้ครบ Goal + Mini ✨ (แตะหรือจ้องกลางจอได้)');
+      setCoach('เริ่มเลย! “จ้อง” เพื่อ LOCK ยิงเป็นชุด + ชาร์จได้ ⚡');
 
       const Engine = window.GroupsVR?.GameEngine;
       if (!Engine || typeof Engine.start !== 'function'){
