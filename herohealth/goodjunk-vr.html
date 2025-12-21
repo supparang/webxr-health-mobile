@@ -1,10 +1,4 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Full HTML
-     ✅ Start overlay (2D/VR) + End summary overlay
-     ✅ Loads particles.js BEFORE boot module
-     ✅ HUD: Fever/Shield + STUN badge + Vortex indicator
-     ✅ DOM emoji targets on #gj-layer
--->
+<!-- === /herohealth/goodjunk-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -14,7 +8,6 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
@@ -32,7 +25,8 @@
       /* screen FX */
       --shake-x: 0px;
       --shake-y: 0px;
-      --fever-glow: 0;
+      --fever-glow: 0;        /* 0..1 */
+      --fire-alpha: 0;        /* 0..1 */
     }
     *{ box-sizing:border-box; }
 
@@ -60,6 +54,136 @@
       will-change: transform;
     }
 
+    /* ✅ FX overlays */
+    #fx-fire, #fx-border, #fx-flash{
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:648; /* below targets but above scene */
+    }
+
+    /* Fire overlay (uses CSS vars; intensity controlled by JS) */
+    #fx-fire{
+      opacity: var(--fire-alpha);
+      transition: opacity 160ms ease-out;
+      background:
+        radial-gradient(circle at 30% 92%, rgba(251,146,60,0.25), transparent 55%),
+        radial-gradient(circle at 70% 96%, rgba(239,68,68,0.22), transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(250,204,21,0.14), transparent 62%);
+      mix-blend-mode: screen;
+      filter: blur(0.2px);
+      animation: fire-flicker 0.22s infinite linear;
+      transform: translate(var(--shake-x), var(--shake-y));
+    }
+    @keyframes fire-flicker{
+      0%{ filter: brightness(1) saturate(1.0); }
+      50%{ filter: brightness(1.08) saturate(1.25); }
+      100%{ filter: brightness(1) saturate(1.0); }
+    }
+
+    /* Border warning */
+    #fx-border{
+      opacity: 0;
+      transition: opacity 160ms ease-out;
+      box-shadow:
+        inset 0 0 0 0 rgba(0,0,0,0),
+        inset 0 0 90px rgba(0,0,0,0);
+      transform: translate(var(--shake-x), var(--shake-y));
+    }
+
+    /* FEVER hot: orange border pulse */
+    body.fever-hot #fx-border{
+      opacity: 1;
+      animation: border-pulse 0.40s infinite ease-in-out;
+      box-shadow:
+        inset 0 0 0 2px rgba(251,146,60,0.42),
+        inset 0 0 82px rgba(251,146,60,0.16);
+    }
+    @keyframes border-pulse{
+      0%{
+        box-shadow:
+          inset 0 0 0 2px rgba(251,146,60,0.35),
+          inset 0 0 70px rgba(251,146,60,0.12);
+      }
+      50%{
+        box-shadow:
+          inset 0 0 0 3px rgba(250,204,21,0.55),
+          inset 0 0 120px rgba(239,68,68,0.22);
+      }
+      100%{
+        box-shadow:
+          inset 0 0 0 2px rgba(251,146,60,0.35),
+          inset 0 0 70px rgba(251,146,60,0.12);
+      }
+    }
+
+    /* STUN: pink/red aggressive border + strobe */
+    body.stun-on #fx-border{
+      opacity: 1;
+      animation: border-stun 0.18s infinite linear;
+      box-shadow:
+        inset 0 0 0 3px rgba(251,113,133,0.62),
+        inset 0 0 140px rgba(251,113,133,0.24);
+    }
+    @keyframes border-stun{
+      0%{
+        box-shadow:
+          inset 0 0 0 3px rgba(251,113,133,0.58),
+          inset 0 0 120px rgba(251,113,133,0.20);
+      }
+      50%{
+        box-shadow:
+          inset 0 0 0 4px rgba(244,63,94,0.75),
+          inset 0 0 180px rgba(244,63,94,0.30);
+      }
+      100%{
+        box-shadow:
+          inset 0 0 0 3px rgba(251,113,133,0.58),
+          inset 0 0 120px rgba(251,113,133,0.20);
+      }
+    }
+
+    /* Final sprint: faster warning */
+    body.final-sprint #fx-border{
+      opacity: 1;
+      animation: border-sprint 0.14s infinite linear;
+      box-shadow:
+        inset 0 0 0 3px rgba(250,204,21,0.55),
+        inset 0 0 150px rgba(250,204,21,0.16);
+    }
+    @keyframes border-sprint{
+      0%{
+        box-shadow:
+          inset 0 0 0 3px rgba(250,204,21,0.50),
+          inset 0 0 120px rgba(239,68,68,0.16);
+      }
+      50%{
+        box-shadow:
+          inset 0 0 0 4px rgba(244,63,94,0.65),
+          inset 0 0 190px rgba(244,63,94,0.26);
+      }
+      100%{
+        box-shadow:
+          inset 0 0 0 3px rgba(250,204,21,0.50),
+          inset 0 0 120px rgba(239,68,68,0.16);
+      }
+    }
+
+    /* Flash overlay: used for 1s lock on STUN trigger */
+    #fx-flash{
+      opacity: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(253,230,138,0.55), rgba(244,63,94,0.10), transparent 70%);
+      mix-blend-mode: screen;
+      transition: opacity 90ms ease-out;
+    }
+    body.stun-lock #fx-flash{
+      opacity: 1;
+      animation: flash-pop 0.22s infinite alternate ease-in-out;
+    }
+    @keyframes flash-pop{
+      0%{ opacity: 0.55; }
+      100%{ opacity: 0.85; }
+    }
+
     /* ✅ Emoji sticker style */
     .gj-target{
       position:absolute;
@@ -72,7 +196,6 @@
       transition: transform .12s ease-out, opacity .12s ease-out, filter .12s ease-out;
       will-change: transform, left, top, opacity;
 
-      /* sticker feel */
       padding: 8px 10px;
       border-radius: 18px;
       background:
@@ -83,7 +206,6 @@
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
     }
-
     .gj-target.in{ opacity:0; transform:translate(-50%,-50%) scale(0.85); }
     .gj-target.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.72); }
 
@@ -97,7 +219,7 @@
       border-color: rgba(250,204,21,0.45);
     }
 
-    /* HUD */
+    /* HUD (เหมือนเดิมจากไฟล์ก่อนหน้า) */
     .hud-root{
       position:fixed;
       inset:0;
@@ -173,7 +295,6 @@
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
-    /* Quest */
     .hud-quest{ max-width:340px; font-size:12px; }
     .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
     .quest-main-label{ font-size:13px; font-weight:700; }
@@ -183,7 +304,6 @@
     .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
     .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
 
-    /* Fever UI */
     .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:6px; }
     .fever-row{ display:flex; align-items:center; gap:8px; }
     .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
@@ -193,7 +313,6 @@
     .shield-row{ display:flex; align-items:center; gap:6px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
 
-    /* STUN badge */
     .stun-badge{
       display:none;
       align-items:center;
@@ -211,7 +330,6 @@
     }
     .stun-badge.show{ display:flex; }
 
-    /* Coach */
     .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
     .coach-bubble{
       min-width:60%;
@@ -256,23 +374,6 @@
       100%{ transform:translateY(0) scale(1); }
     }
 
-    /* Touch hint */
-    .hint-center{
-      position:fixed; left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      font-size:12px;
-      color:var(--text-soft);
-      background:rgba(15,23,42,0.8);
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.35);
-      display:none;
-      pointer-events:none;
-      z-index:651;
-    }
-    .hint-center.show{ display:block; }
-
-    /* Countdown */
     .countdown-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -290,7 +391,6 @@
       transform:scale(0.8);
     }
 
-    /* VR button */
     .vr-btn{
       position:fixed; right:12px; bottom:16px; z-index:653;
       border-radius:999px;
@@ -308,7 +408,6 @@
     }
     .vr-btn span{ font-size:16px; }
 
-    /* logger badge */
     .logbadge{
       position:fixed; left:10px; bottom:10px; z-index:690;
       background:rgba(15,23,42,0.88);
@@ -330,7 +429,6 @@
     .dot.ok{ background:#22c55e; }
     .dot.bad{ background:#ef4444; }
 
-    /* Start overlay */
     .start-overlay{
       position:fixed; inset:0;
       z-index:700;
@@ -384,7 +482,6 @@
     }
     .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
 
-    /* ✅ Vortex indicator (STUN center) */
     .vortex{
       position:fixed;
       width:120px; height:120px;
@@ -411,7 +508,6 @@
       100%{ transform: translate(var(--shake-x), var(--shake-y)) rotate(360deg); }
     }
 
-    /* ✅ End summary overlay */
     .end-overlay{
       position:fixed; inset:0;
       z-index:720;
@@ -476,12 +572,10 @@
     }
   </style>
 
-  <!-- ✅ IMPORTANT: FX IIFE MUST LOAD BEFORE boot module -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
 
-  <!-- ✅ Boot loader (module) -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
 
@@ -527,30 +621,25 @@
 
 <body>
 
-  <!-- A-Frame scene (ใช้เป็น camera rig; เป้าจริงอยู่บน DOM layer) -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="colorManagement: true; physicallyCorrectLights: true"
-  >
-    <!-- ✅ Disable built-in look-controls to avoid conflicts (we control rotation in boot.js) -->
+  <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true">
     <a-entity id="gj-camera" camera look-controls="enabled: false" position="0 1.6 0"></a-entity>
-
     <a-entity light="type: ambient; intensity: 1.0"></a-entity>
     <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
     <a-sky color="#061225"></a-sky>
   </a-scene>
 
-  <!-- DOM target layer -->
+  <!-- ✅ FX overlays -->
+  <div id="fx-fire" aria-hidden="true"></div>
+  <div id="fx-border" aria-hidden="true"></div>
+  <div id="fx-flash" aria-hidden="true"></div>
+
   <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
 
-  <!-- Vortex indicator -->
   <div class="vortex" id="stun-vortex" aria-hidden="true"></div>
 
-  <!-- HUD -->
+  <!-- HUD (เหมือนเดิม) -->
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
-      <!-- Left -->
       <div class="hud-card" style="min-width: 290px;">
         <div class="hud-main">
           <div class="hud-main-title">GOODJUNK</div>
@@ -586,7 +675,6 @@
         </div>
       </div>
 
-      <!-- Right: Quest + Fever -->
       <div class="hud-card hud-quest" style="min-width: 300px;">
         <div class="quest-title">Quest</div>
 
@@ -624,7 +712,6 @@
       </div>
     </div>
 
-    <!-- Bottom: Coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
@@ -636,30 +723,21 @@
     </div>
   </div>
 
-  <!-- Touch hint -->
-  <div class="hint-center" id="touch-hint">ลากนิ้วเพื่อหมุนมุมมอง 👆</div>
-
-  <!-- Countdown -->
   <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
 
-  <!-- VR button -->
   <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR">
     <span>🥽</span> Enter VR
   </button>
 
-  <!-- Logger badge -->
   <div class="logbadge" id="logbadge">
     <div class="dot" id="logdot"></div>
     <div id="logtext">boot: loading…</div>
   </div>
 
-  <!-- Start overlay -->
   <div class="start-overlay" id="start-overlay">
     <div class="start-card">
       <h1 class="start-title">GoodJunk VR</h1>
-      <p class="start-sub" id="start-sub">
-        เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅
-      </p>
+      <p class="start-sub" id="start-sub">เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅</p>
 
       <div class="start-grid">
         <div>
@@ -686,12 +764,11 @@
       </div>
 
       <div class="tiny-note">
-        * แตะ/ลากหน้าจอหลังเริ่มเกมเพื่อ “เลื่อนมุมมอง” แบบ VR Feel • แตะตรงไหนก็ได้เพื่อย้าย “ศูนย์กลาง STUN”
+        * ลากเพื่อ “เลื่อนมุมมอง” • แตะที่ไหนก็ได้เพื่อย้าย “ศูนย์กลาง STUN”
       </div>
     </div>
   </div>
 
-  <!-- ✅ End summary overlay -->
   <div class="end-overlay" id="end-overlay" aria-label="End Summary">
     <div class="end-card">
       <div class="end-title">
