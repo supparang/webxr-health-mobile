@@ -1,18 +1,10 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ spawnHost: append เป้า (อาจถูก translate จาก drag view)
-// ✅ boundsHost: ใช้คำนวณ safe zone / crosshair (ควรเป็นตัวนิ่งเต็มจอ)
-// ✅ FIX: spawn ใช้ "bounds-local" แล้ว map ด้วยสัดส่วนเข้า spawnHost (ไม่ชดเชย view translate → ไม่ติดมุมขวาล่าง)
+// ✅ FIX-2: spawn จาก "พื้นที่ที่เห็นจริง" ของ spawnHost (getBoundingClientRect) แล้วแปลงเป็น local
+//          → ไม่ล็อกมุมล่างขวา/ไม่โผล่ที่เดิมแม้ drag view หรือ mobile viewport เปลี่ยน
+// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion rects
 // ✅ center bias spawn (หาเจอง่าย)
-// ✅ auto bottom inset (กันโผล่ใต้ address bar/gesture bar บนมือถือ)
-// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันแต่ละเกม
-// ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
 // ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
-// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ rhythm spawn (bpm) + pulse class
-// ✅ trick/fake targets (itemType='fakeGood')
-// ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
-// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
 
 'use strict';
 
@@ -154,7 +146,7 @@ function resolveHost (rawCfg, keyName = 'spawnHost') {
 }
 
 // ======================================================
-//  SAFE ZONE / EXCLUSION
+//  Exclusion rects (HUD avoid)
 // ======================================================
 function collectExclusionElements(rawCfg){
   if (!DOC) return [];
@@ -170,26 +162,16 @@ function collectExclusionElements(rawCfg){
   }
 
   const AUTO = [
-    '#hha-water-header',
-    '.hha-water-bar',
-    '.hha-main-row',
-    '#hha-card-left',
-    '#hha-card-right',
-    '.hha-bottom-row',
-    '.hha-fever-card',
-    '#hvr-crosshair',
-    '.hvr-crosshair',
+    '.hud',
     '#hvr-end',
     '.hvr-end',
-    '.hud'
+    '#hvr-crosshair',
+    '.hvr-crosshair',
+    '[data-hha-exclude="1"]'
   ];
   AUTO.forEach(s=>{
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
   });
-
-  try{
-    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
-  }catch{}
 
   const uniq = [];
   const seen = new Set();
@@ -202,83 +184,11 @@ function collectExclusionElements(rawCfg){
   return uniq;
 }
 
-function computeExclusionMargins(hostRect, exEls){
-  const m = { top:0, bottom:0, left:0, right:0 };
-  if (!hostRect || !exEls || !exEls.length) return m;
-
-  const hx1 = hostRect.left, hy1 = hostRect.top;
-  const hx2 = hostRect.right, hy2 = hostRect.bottom;
-
-  exEls.forEach(el=>{
-    let r = null;
-    try{ r = el.getBoundingClientRect(); }catch{}
-    if (!r) return;
-
-    const ox1 = Math.max(hx1, r.left);
-    const oy1 = Math.max(hy1, r.top);
-    const ox2 = Math.min(hx2, r.right);
-    const oy2 = Math.min(hy2, r.bottom);
-    if (ox2 <= ox1 || oy2 <= oy1) return;
-
-    // reserve margin if exclusion overlaps edge zone (robust)
-    if (r.top < hy1 + 100 && r.bottom > hy1) {
-      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
-    }
-    if (r.bottom > hy2 - 110 && r.top < hy2) {
-      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
-    }
-    if (r.left < hx1 + 90 && r.right > hx1) {
-      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
-    }
-    if (r.right > hx2 - 90 && r.left < hx2) {
-      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
-    }
-  });
-
-  return m;
+function rectIntersectsPoint(r, x, y){
+  return !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 }
 
-// ======================================================
-//  Mobile viewport insets (address bar / gesture bar)
-// ======================================================
-function getViewportInsets(){
-  const vv = ROOT.visualViewport;
-  if (!vv) return { top:0, bottom:0, left:0, right:0 };
-  const top = Math.max(0, Number(vv.offsetTop || 0));
-  const left = Math.max(0, Number(vv.offsetLeft || 0));
-  const bottom = Math.max(0, (Number(ROOT.innerHeight || 0) - (Number(vv.height || 0) + top)));
-  const right = Math.max(0, (Number(ROOT.innerWidth || 0) - (Number(vv.width || 0) + left)));
-  return { top, bottom, left, right };
-}
-
-function computePlayRectFromHost (hostEl, exState) {
-  const r = hostEl.getBoundingClientRect();
-  const isOverlay = hostEl && hostEl.id === 'hvr-overlay-host';
-
-  let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
-  let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
-
-  const insets = getViewportInsets();
-  const extraBottom = clamp(insets.bottom, 0, 140); // กันเป้าลงไปใต้ gesture bar
-  const extraTop    = clamp(insets.top, 0, 80);
-
-  const basePadX   = w * 0.10;
-  const basePadTop = h * 0.12 + extraTop * 0.35;
-  const basePadBot = h * 0.14 + extraBottom * 0.65;
-
-  const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
-
-  const left   = basePadX + m.left;
-  const top    = basePadTop + m.top;
-  const width  = Math.max(1, w - (basePadX*2) - m.left - m.right);
-  const height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
-
-  return { left, top, width, height, hostRect: r, isOverlay };
-}
-
-// ======================================================
-//  Gaussian center bias
-// ======================================================
+// Gaussian random (center bias)
 function randn(){
   let u = 0, v = 0;
   while (u === 0) u = Math.random();
@@ -457,17 +367,40 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
+  // Exclusion cache (viewport rects)
+  const exState = {
+    els: [],
+    rects: [],
+    lastRefreshTs: 0
+  };
+
+  function refreshExclusions(ts){
+    if (!DOC) return;
+    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (ts - exState.lastRefreshTs < 350) return;
+    exState.lastRefreshTs = ts;
+
+    exState.els = collectExclusionElements({ excludeSelectors });
+    const rects = [];
+    exState.els.forEach(el=>{
+      try{
+        const r = el.getBoundingClientRect();
+        if (r && r.width > 2 && r.height > 2) rects.push(r);
+      }catch{}
+    });
+    exState.rects = rects;
+  }
+
   function getCrosshairPoint(){
     let rect = null;
     try{ rect = hostBounds.getBoundingClientRect(); }catch{}
     if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
 
-    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
     const padX = rect.width * 0.08;
     const padY = rect.height * 0.10;
 
-    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
-    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
+    const x = rect.left + padX + (rect.width  - padX*2) * 0.50;
+    const y = rect.top  + padY + (rect.height - padY*2) * 0.52;
     return { x: Math.round(x), y: Math.round(y) };
   }
 
@@ -488,65 +421,58 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Exclusions cache (computed from boundsHost)
-  // ======================================================
-  const exState = {
-    els: collectExclusionElements({ excludeSelectors }),
-    margins: { top:0,bottom:0,left:0,right:0 },
-    lastRefreshTs: 0
-  };
-
-  function refreshExclusions(ts){
-    if (!DOC) return;
-    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 600) return;
-    exState.lastRefreshTs = ts;
-
-    exState.els = collectExclusionElements({ excludeSelectors });
-    let hostRect = null;
-    try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
-    exState.margins = computeExclusionMargins(hostRect, exState.els);
-  }
-
-  // ======================================================
-  //  Spawn target (FIXED mapping)
+  //  Spawn target (FIXED: visible-rect spawn)
   // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
     refreshExclusions();
 
-    const rect = computePlayRectFromHost(hostBounds, exState);
-
-    // ✅ center-biased pick in bounds space
-    let bx = 0.5 + randn() * 0.18;
-    let by = 0.52 + randn() * 0.20;
-    bx = clamp01(bx);
-    by = clamp01(by);
-
-    const padX = 0.12;
-    const padY = 0.12;
-
-    const xBoundsLocal = rect.left + rect.width  * (padX + (1 - padX*2) * bx);
-    const yBoundsLocal = rect.top  + rect.height * (padY + (1 - padY*2) * by);
-
-    // ✅ FIX: map bounds-local → spawnHost-local by scale only (no translate compensation)
-    let bRect=null, sRect=null;
-    try{ bRect = hostBounds.getBoundingClientRect(); }catch{}
+    let sRect = null;
     try{ sRect = hostSpawn.getBoundingClientRect(); }catch{}
-    if (!bRect) bRect = { width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
-    if (!sRect) sRect = { width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    if (!sRect || sRect.width < 10 || sRect.height < 10) return;
 
-    const sx = (bRect.width  > 1) ? (sRect.width  / bRect.width)  : 1;
-    const sy = (bRect.height > 1) ? (sRect.height / bRect.height) : 1;
+    // padding ที่ปลอดภัย (กันชิดขอบ/กันลงใต้ bar มือถือ)
+    const padL = Math.max(26, sRect.width  * 0.10);
+    const padR = Math.max(26, sRect.width  * 0.10);
+    const padT = Math.max(30, sRect.height * 0.14);
+    const padB = Math.max(44, sRect.height * 0.14);
 
-    let xLocal = xBoundsLocal * sx;
-    let yLocal = yBoundsLocal * sy;
+    // try หาจุดที่ไม่ทับ HUD
+    let xV = 0, yV = 0;
+    let ok = false;
 
-    // ✅ hard clamp กันไปชนขอบ+แถบล่าง
-    xLocal = clamp(xLocal, 32, Math.max(32, (sRect.width  || 1) - 32));
-    yLocal = clamp(yLocal, 42, Math.max(42, (sRect.height || 1) - 58));
+    for (let attempt = 0; attempt < 18; attempt++) {
+      // center-biased (หาเจอง่าย)
+      let bx = 0.50 + randn() * 0.18;
+      let by = 0.56 + randn() * 0.20;
+      bx = clamp01(bx);
+      by = clamp01(by);
+
+      xV = sRect.left + padL + (sRect.width  - padL - padR) * bx;
+      yV = sRect.top  + padT + (sRect.height - padT - padB) * by;
+
+      // ไม่ทับ HUD
+      let collide = false;
+      for (const r of exState.rects) {
+        if (rectIntersectsPoint(r, xV, yV)) { collide = true; break; }
+      }
+      if (!collide) { ok = true; break; }
+    }
+
+    // ถ้าหาไม่ได้ ให้เอากลางจอ
+    if (!ok) {
+      xV = sRect.left + sRect.width  * 0.50;
+      yV = sRect.top  + sRect.height * 0.58;
+    }
+
+    // แปลง viewport → local ของ spawnHost
+    let xLocal = xV - sRect.left;
+    let yLocal = yV - sRect.top;
+
+    // clamp อีกทีให้แน่น
+    xLocal = clamp(xLocal, 24, Math.max(24, sRect.width  - 24));
+    yLocal = clamp(yLocal, 30, Math.max(30, sRect.height - 54));
 
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
@@ -823,11 +749,6 @@ export async function boot (rawCfg = {}) {
 
       const mul = getSpawnMul();
       const effInterval = Math.max(35, curInterval * mul);
-
-      try{
-        if (mul < 0.99) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
-        else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
-      }catch{}
 
       if (rhythmOn && beatMs > 0) {
         if (!lastBeatTs) lastBeatTs = ts;
