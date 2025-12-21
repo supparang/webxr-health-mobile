@@ -35,33 +35,58 @@
       position:fixed;
       inset:0;
       overflow:hidden;
-      background: radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
-                  radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
-                  radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
-                  #020617;
+      background:
+        radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
+        radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
+        radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
+        #020617;
+      transform: translate3d(0,0,0);
+      will-change: transform, filter;
     }
 
-    /* ====== PLAYFIELD MUST FILL SCREEN ====== */
+    /* ====== PLAYFIELD (bounds host) ====== */
     #hvr-playfield{
       position:absolute;
       inset:0;
       width:100%;
       height:100%;
-      z-index:10;          /* ✅ เป้าอยู่ชั้นนี้ */
+      z-index:10;
       overflow:hidden;
-      touch-action:none;   /* ✅ drag view */
+      touch-action:none;
       user-select:none;
       -webkit-user-select:none;
-      transform: translate3d(0,0,0);
     }
 
-    /* postFX canvas (star burst / shimmer etc) */
+    /* ✅ spawn layer that actually moves (targets live here) */
+    #hvr-spawnlayer{
+      position:absolute;
+      inset:0;
+      transform: translate3d(0,0,0);
+      will-change: transform;
+    }
+
+    /* postFX canvas */
     #hvr-postfx{
       position:fixed;
       inset:0;
       z-index:60;
       pointer-events:none;
     }
+
+    /* blink overlay */
+    #hvr-screen-blink{
+      position:fixed;
+      inset:0;
+      z-index:70;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .14s ease-out;
+      mix-blend-mode: screen;
+    }
+    #hvr-screen-blink.on{ opacity:.18; }
+    #hvr-screen-blink.good{ background: radial-gradient(800px 600px at 50% 50%, rgba(34,197,94,.55), transparent 60%); }
+    #hvr-screen-blink.bad{  background: radial-gradient(800px 600px at 50% 50%, rgba(239,68,68,.55), transparent 60%); }
+    #hvr-screen-blink.perfect{ background: radial-gradient(900px 700px at 50% 50%, rgba(255,255,255,.75), transparent 60%); }
 
     /* HUD layer */
     .hud{
@@ -122,20 +147,6 @@
       transition:width .2s ease-out;
     }
 
-    /* blink overlay (good/bad/perfect feedback) */
-    #hvr-screen-blink{
-      position:fixed;
-      inset:0;
-      z-index:70;
-      pointer-events:none;
-      opacity:0;
-      transition: opacity .14s ease-out;
-    }
-    #hvr-screen-blink.on{ opacity:.18; }
-    #hvr-screen-blink.good{ background: radial-gradient(800px 600px at 50% 50%, rgba(34,197,94,.55), transparent 60%); }
-    #hvr-screen-blink.bad{  background: radial-gradient(800px 600px at 50% 50%, rgba(239,68,68,.55), transparent 60%); }
-    #hvr-screen-blink.perfect{ background: radial-gradient(900px 700px at 50% 50%, rgba(255,255,255,.75), transparent 60%); }
-
     /* end overlay */
     #hvr-end{
       position:fixed;
@@ -170,16 +181,14 @@
 
 <body>
   <div id="hvr-wrap">
-    <!-- ✅ playfield MUST exist + fill -->
-    <div id="hvr-playfield" aria-label="playfield"></div>
+    <div id="hvr-playfield" aria-label="playfield">
+      <!-- ✅ targets spawn here -->
+      <div id="hvr-spawnlayer"></div>
+    </div>
 
-    <!-- ✅ postFX canvas -->
     <canvas id="hvr-postfx"></canvas>
-
-    <!-- blink overlay -->
     <div id="hvr-screen-blink"></div>
 
-    <!-- HUD -->
     <div class="hud">
       <div class="card">
         <div class="row">
@@ -227,14 +236,10 @@
       </div>
     </div>
 
-    <!-- End overlay -->
     <div id="hvr-end"></div>
-
-    <!-- Error overlay -->
     <div id="hvr-error"></div>
   </div>
 
-  <!-- ✅ BOOT -->
   <script type="module">
     const errBox = document.getElementById('hvr-error');
 
@@ -250,14 +255,13 @@
       const mod = await import('./hydration-vr/hydration.safe.js');
       const boot = mod.boot || (mod.default && mod.default.boot);
       if (!boot) throw new Error('hydration.safe.js ไม่มี export boot');
-
       await boot({ difficulty: diff, duration: time });
       console.log('[HydrationVR] boot OK', { diff, time });
     }catch(e){
       console.error(e);
       errBox.classList.add('on');
       errBox.textContent =
-        '❌ Hydration boot failed\\n\\n' +
+        '❌ Hydration boot failed\n\n' +
         String(e && (e.stack || e.message || e));
     }
   </script>
