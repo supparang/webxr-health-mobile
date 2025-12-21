@@ -1,18 +1,19 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — DOM Emoji Engine (PRODUCTION)
-// ✅ Targets are DOM but behave like VR: world-space + follow camera yaw/pitch
-// ✅ Clamp safe zone: avoid overlapping HUD/cards
+// GoodJunkVR — DOM Emoji Engine (PRODUCTION, Step 3)
+// ✅ Targets follow camera yaw/pitch (VR-feel)
 // ✅ Sticker emoji targets + fade-in/out
-// ✅ Fever rises & decays; at 100 => STUN (slow game + junk shatter near aim point)
-// ✅ Emits:
-//    - hha:time {sec}
-//    - hha:score {score, goodHits, misses, comboMax, challenge}
-//    - hha:judge {label}
-//    - hha:fever {fever, shield, stunActive}
-//    - hha:end {score, goodHits, misses, comboMax}
-//    - quest:goodHit / quest:badHit / quest:block / quest:power / quest:bossClear
-//    - quest:miniStart (optional from director)
-// MISS rule (GoodJunk): miss = good expired + junk hit (if shield blocks → NOT miss)
+// ✅ Fever rises & DECAYS; at 100 => STUN (lock 1s + slow + junk auto-shatter near aim)
+// ✅ Fire overlay intensity by fever%
+// ✅ Slow whole game by fever% + hard slow during STUN
+// ✅ Final Sprint (<= 8s): more pressure + border warning
+//
+// Emits:
+// - hha:time {sec}
+// - hha:score {score, goodHits, misses, comboMax, challenge}
+// - hha:judge {label}
+// - hha:fever {fever, shield, stunActive}
+// - hha:end {score, goodHits, misses, comboMax, ...}
+// - quest:goodHit / quest:badHit / quest:block / quest:power / quest:bossClear
 
 'use strict';
 
@@ -26,11 +27,17 @@ function now(){ return performance.now(); }
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
 }
+function setBodyClass(cls, on){
+  try{ document.body && document.body.classList && document.body.classList.toggle(cls, !!on); }catch(_){}
+}
+function setCssVar(k, v){
+  try{ document.documentElement.style.setProperty(k, v); }catch(_){}
+}
 
 /* ----------------------- DOM World Mapper ----------------------- */
-const WORLD_SCALE = 2.10;     // feel like VR
-const Y_PITCH_GAIN = 0.78;    // vertical gain
-const WRAP_PAD = 150;         // edge wrap pad
+const WORLD_SCALE = 2.10;
+const Y_PITCH_GAIN = 0.78;
+const WRAP_PAD = 150;
 
 function wrapRad(a){
   a = Number(a) || 0;
@@ -151,26 +158,25 @@ export function boot(opts = {}){
     score: 0,
     goodHits: 0,
     goldHits: 0,
-    misses: 0,       // miss = good expired + junk hit (blocked doesn't count)
+    misses: 0,
     combo: 0,
     comboMax: 0,
 
-    fever: 0,        // 0..100
-    shield: 0,       // charges
+    fever: 0,
+    shield: 0,
 
-    // STUN mode
     stunActive: false,
     stunUntil: 0,
+    lockUntil: 0,      // ✅ 1s lock on stun trigger
 
-    // magnet (pull ONLY good)
     magnetUntil: 0,
-
     bossCleared: false,
 
-    // internal
+    finalSprint: false,
+
     lastTickSec: -1,
     lastFeverDecayAt: now(),
-    lastShakeAt: now()
+    lastStunFxAt: 0
   };
 
   const ACTIVE = new Set();
@@ -191,24 +197,53 @@ export function boot(opts = {}){
     });
 
     emit('hha:fever', {
-      fever: state.fever|0,
+      fever: Math.round(clamp(state.fever,0,100)),
       shield: state.shield|0,
       stunActive: !!state.stunActive
     });
   }
 
+  // ✅ slow factor by fever% (0..1) + STUN heavy slow
+  function slowFactor(){
+    const f = clamp(state.fever, 0, 100) / 100;
+    // base slow from fever: up to ~0.65
+    let sf = 1 - 0.35 * Math.pow(f, 1.35);
+    // final sprint adds tension (slightly faster spawn, not faster movement)
+    if (state.finalSprint) sf = Math.max(0.62, sf);
+    // stun is heavy slow
+    if (state.stunActive) sf = Math.min(sf, 0.55);
+    return clamp(sf, 0.50, 1.0);
+  }
+
   // ✅ Shake intensity based on fever% (stronger)
   function applyShake(){
     const f = clamp(state.fever, 0, 100) / 100;
-    const base = state.stunActive ? 10 : 5; // px
-    const amp = base * (0.2 + f * 0.95);
+    const base = state.stunActive ? 12 : (state.finalSprint ? 9 : 6);
+    const amp = base * (0.22 + f * 1.05);
 
     const t = now() * 0.001;
-    const sx = (Math.sin(t*19.0) + Math.sin(t*31.0)*0.6) * amp * 0.55;
-    const sy = (Math.cos(t*23.0) + Math.cos(t*37.0)*0.6) * amp * 0.55;
+    const sx = (Math.sin(t*19.0) + Math.sin(t*31.0)*0.6) * amp * 0.58;
+    const sy = (Math.cos(t*23.0) + Math.cos(t*37.0)*0.6) * amp * 0.58;
 
-    document.documentElement.style.setProperty('--shake-x', sx.toFixed(2) + 'px');
-    document.documentElement.style.setProperty('--shake-y', sy.toFixed(2) + 'px');
+    setCssVar('--shake-x', sx.toFixed(2) + 'px');
+    setCssVar('--shake-y', sy.toFixed(2) + 'px');
+  }
+
+  // ✅ fire overlay intensity by fever%
+  function applyFire(){
+    const f = clamp(state.fever, 0, 100) / 100;
+    // start showing from 55%
+    const hot = clamp((f - 0.55) / 0.45, 0, 1);
+    const alpha = state.stunActive ? Math.max(0.75, hot) : hot * 0.85;
+    setCssVar('--fire-alpha', alpha.toFixed(3));
+
+    setBodyClass('fever-hot', f >= 0.70 && !state.stunActive);
+  }
+
+  function setFxClasses(){
+    setBodyClass('stun-on', !!state.stunActive);
+    setBodyClass('stun-lock', now() < state.lockUntil);
+    setBodyClass('final-sprint', !!state.finalSprint);
   }
 
   function addFever(v){
@@ -221,27 +256,33 @@ export function boot(opts = {}){
   function decayFever(){
     const t = now();
     const dt = Math.max(0, t - state.lastFeverDecayAt);
-    if (dt < 220) return;
+    if (dt < 180) return;
 
-    // decay per second: normal = 4/s, stun = 10/s
-    const perSec = state.stunActive ? 10 : 4;
+    // decay per second: normal = 4.5/s, stun = 12/s (ลดไวขึ้นให้ “เต็มแล้วไม่ค้าง”)
+    const perSec = state.stunActive ? 12 : 4.5;
     const dec = (dt/1000) * perSec;
 
     state.fever = clamp(state.fever - dec, 0, 100);
     state.lastFeverDecayAt = t;
 
-    // end stun early if fever drops below 40 or time reached
-    if (state.stunActive && (t >= state.stunUntil || state.fever <= 40)){
+    // end stun if time reached or fever below threshold
+    if (state.stunActive && (t >= state.stunUntil || state.fever <= 35)){
       state.stunActive = false;
       state.stunUntil = 0;
+      state.lockUntil = 0;
     }
   }
 
   function startStun(){
+    const t = now();
     state.stunActive = true;
-    state.stunUntil = now() + 6000; // 6s stun window
+    state.stunUntil = t + 6500;   // 6.5s stun window
+    state.lockUntil = t + 1000;   // ✅ lock 1s
+    state.lastStunFxAt = t;
+
     setJudge('STUN!');
     syncHUD();
+    setFxClasses();
   }
 
   function spendShield(){
@@ -264,7 +305,6 @@ export function boot(opts = {}){
     if (kind === 'boss') el.classList.add('gj-boss');
 
     layerEl.appendChild(el);
-    // fade-in
     requestAnimationFrame(()=>{ try{ el.classList.remove('in'); }catch(_){} });
     return el;
   }
@@ -275,14 +315,23 @@ export function boot(opts = {}){
     if (challenge === 'survival'){
       goodRatio = Math.max(0.52, goodRatio - 0.08);
     }
-    if (challenge === 'boss'){
-      if (!state.bossCleared && Math.random() < 0.10) return 'boss';
+
+    // Final sprint: slightly harsher ratio
+    if (state.finalSprint){
+      goodRatio = Math.max(0.48, goodRatio - 0.10);
     }
 
-    // power/gold occasionally
+    if (challenge === 'boss'){
+      if (!state.bossCleared && Math.random() < (state.finalSprint ? 0.14 : 0.10)) return 'boss';
+    }
+
+    // power/gold occasionally (final sprint reduces power a bit)
     const r = Math.random();
-    if (r < 0.08) return 'power';
-    if (r < 0.14) return 'gold';
+    const pCut = state.finalSprint ? 0.06 : 0.08;
+    const gCut = state.finalSprint ? 0.10 : 0.14;
+
+    if (r < pCut) return 'power';
+    if (r < gCut) return 'gold';
 
     return (Math.random() < goodRatio) ? 'good' : 'junk';
   }
@@ -313,10 +362,9 @@ export function boot(opts = {}){
   function spawnOne(){
     if (!state.running) return;
 
-    // slow game while stun
-    const slow = state.stunActive ? 0.55 : 1.0;
-
-    if (ACTIVE.size >= Math.round(CFG.maxActive * (state.stunActive ? 0.8 : 1.0))) return;
+    const sf = slowFactor();
+    const maxAllowed = Math.round(CFG.maxActive * (state.stunActive ? 0.80 : 1.0));
+    if (ACTIVE.size >= maxAllowed) return;
 
     const kind = chooseSpawnKind();
     const emoji = chooseEmoji(kind);
@@ -326,6 +374,10 @@ export function boot(opts = {}){
     const safePt = pickScreenPointSafe(SIZES, 18);
     const w = screenToWorldPoint(safePt, look);
 
+    // ttl adjusted by slow (slow => longer ttl slightly)
+    const baseTtl = (kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs;
+    const ttl = baseTtl * (1.0 + (1.0 - sf) * 0.40);
+
     const t = {
       id: Math.random().toString(16).slice(2),
       kind,
@@ -334,7 +386,7 @@ export function boot(opts = {}){
       wx: w.wx,
       wy: w.wy,
       bornAt: now(),
-      ttlMs: (kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs,
+      ttlMs: ttl,
       dead: false,
       bossHp: (kind === 'boss') ? 3 : 1
     };
@@ -348,24 +400,22 @@ export function boot(opts = {}){
 
     el.style.setProperty('--tScale', String(scale));
 
-    // initial render
     const s = worldToScreen(t.wx, t.wy, look, SIZES);
     el.style.left = s.x + 'px';
     el.style.top  = s.y + 'px';
 
-    // click/tap
     const onDown = (ev)=>{
       ev.preventDefault?.();
       ev.stopPropagation?.();
+
+      // ✅ lock 1s: ignore hits during stun-lock
+      if (now() < state.lockUntil) return;
 
       const x = (ev?.clientX ?? (ev?.touches?.[0]?.clientX)) ?? s.x;
       const y = (ev?.clientY ?? (ev?.touches?.[0]?.clientY)) ?? s.y;
       hitTarget(t, x, y);
     };
     el.addEventListener('pointerdown', onDown, { passive:false });
-
-    // stun slow: slightly longer ttl
-    if (state.stunActive) t.ttlMs = t.ttlMs / slow;
 
     ACTIVE.add(t);
   }
@@ -384,7 +434,6 @@ export function boot(opts = {}){
   function handleExpire(t){
     if (!t || t.dead) return;
 
-    // MISS rule: good/gold/power/boss expired counts as miss (junk expiry does nothing)
     if (t.kind === 'good' || t.kind === 'gold' || t.kind === 'power' || t.kind === 'boss'){
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
@@ -396,15 +445,18 @@ export function boot(opts = {}){
     killTarget(t, true);
   }
 
-  // ✅ STUN: junk breaks itself near aim point center
+  // ✅ STUN: junk breaks itself near aim center (no miss)
   function stunAutoShatter(){
     if (!state.stunActive) return;
     const ap = window.__GJ_AIM_POINT__;
     if (!ap) return;
 
     const look = getLookRad(cameraEl);
-    const R = 120; // radius px
+    const R = 135; // bigger radius feels stronger
     const tNow = now();
+
+    // lock period: do *extra* shatter after lock ends (feels like release)
+    const boosted = (tNow - state.lastStunFxAt) > 700;
 
     for (const t of ACTIVE){
       if (!t || t.dead) continue;
@@ -415,16 +467,15 @@ export function boot(opts = {}){
       const dy = s.y - ap.y;
       const d2 = dx*dx + dy*dy;
 
-      if (d2 <= R*R){
-        // smash without miss
-        state.score += 6;
-        fxBurst(s.x, s.y, true, 10);
-        fxPop(s.x, s.y, 'SMASH!');
+      const RR = boosted ? (R*R*1.05) : (R*R);
+      if (d2 <= RR){
+        state.score += 7;
+        fxBurst(s.x, s.y, true, boosted ? 14 : 10);
+        fxPop(s.x, s.y, boosted ? 'SHATTER!' : 'SMASH!');
         killTarget(t, true);
       }
 
-      // safety: if stun ends mid-loop
-      if (!state.stunActive && tNow > state.stunUntil) break;
+      if (!state.stunActive) break;
     }
   }
 
@@ -446,16 +497,17 @@ export function boot(opts = {}){
       const dx = ap.x - s.x;
       const dy = ap.y - s.y;
 
-      // move world position slightly toward aim
-      t.wx += dx * 0.05;
-      t.wy += dy * 0.05;
+      t.wx += dx * 0.06;
+      t.wy += dy * 0.06;
     }
   }
 
   function hitTarget(t, x, y){
     if (!t || t.dead || !state.running) return;
 
-    // boss: multi hit
+    // extra guard
+    if (now() < state.lockUntil) return;
+
     if (t.kind === 'boss'){
       t.bossHp = (t.bossHp|0) - 1;
       if (t.bossHp > 0){
@@ -474,7 +526,7 @@ export function boot(opts = {}){
       setJudge('BOSS!');
       emit('quest:bossClear', {});
       emit('quest:goodHit', { x, y, judgment:'perfect' });
-      state.score += 90;
+      state.score += 95;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
@@ -485,7 +537,6 @@ export function boot(opts = {}){
     }
 
     if (t.kind === 'junk'){
-      // shield block?
       if (spendShield()){
         setJudge('BLOCK');
         emit('quest:block', { x, y });
@@ -494,7 +545,6 @@ export function boot(opts = {}){
         return;
       }
 
-      // junk hit = miss
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
@@ -507,7 +557,6 @@ export function boot(opts = {}){
     }
 
     if (t.kind === 'power'){
-      // decide power
       let p = 'shield';
       if (t.emoji === '🧲') p = 'magnet';
       if (t.emoji === '⏱️') p = 'time';
@@ -519,8 +568,7 @@ export function boot(opts = {}){
         state.endAt = state.endAt + 2500;
       }
       if (p === 'magnet'){
-        // 4 seconds pull-only-good
-        state.magnetUntil = now() + 4000;
+        state.magnetUntil = now() + 4200;
       }
 
       setJudge(String(p).toUpperCase());
@@ -537,9 +585,7 @@ export function boot(opts = {}){
 
     if (t.kind === 'gold'){
       setJudge('GOLD!');
-      // ✅ important: tag kind='gold' so boot can set goldHitsThisMini
       emit('quest:goodHit', { x, y, judgment:'perfect', kind:'gold' });
-      // also emit quest:power 'gold' as extra compatibility
       emit('quest:power', { x, y, power:'gold' });
 
       state.score += (CFG.scoreGold|0);
@@ -554,20 +600,18 @@ export function boot(opts = {}){
     }
 
     // normal good
-    {
-      const perfect = (Math.random() < 0.20);
-      setJudge(perfect ? 'PERFECT!' : 'GOOD!');
-      emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good' });
+    const perfect = (Math.random() < (state.finalSprint ? 0.15 : 0.20));
+    setJudge(perfect ? 'PERFECT!' : 'GOOD!');
+    emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good' });
 
-      state.score += (CFG.scoreGood|0) + (perfect ? 6 : 0);
-      state.goodHits++;
-      state.combo++;
-      state.comboMax = Math.max(state.comboMax, state.combo);
+    state.score += (CFG.scoreGood|0) + (perfect ? 6 : 0);
+    state.goodHits++;
+    state.combo++;
+    state.comboMax = Math.max(state.comboMax, state.combo);
 
-      addFever(+CFG.feverGain + (perfect ? 3 : 0));
-      syncHUD();
-      killTarget(t, true);
-    }
+    addFever(+CFG.feverGain + (perfect ? 3 : 0));
+    syncHUD();
+    killTarget(t, true);
   }
 
   function updateTargetsFollowLook(){
@@ -576,14 +620,20 @@ export function boot(opts = {}){
     const look = getLookRad(cameraEl);
     const tNow = now();
 
-    // fever decay + shake
     decayFever();
-    applyShake();
 
     // time tick
     const secLeft = Math.max(0, Math.ceil((state.endAt - tNow)/1000));
     if (secLeft !== state.lastTickSec){
       state.lastTickSec = secLeft;
+
+      // ✅ Final sprint trigger
+      if (!state.finalSprint && secLeft <= 8){
+        state.finalSprint = true;
+        setJudge('FINAL!');
+        syncHUD();
+      }
+
       emit('hha:time', { sec: secLeft });
     }
 
@@ -591,25 +641,35 @@ export function boot(opts = {}){
     if (tNow >= state.endAt){
       state.running = false;
       emit('hha:time', { sec: 0 });
+
       syncHUD();
 
-      // cleanup
       for (const t of Array.from(ACTIVE)) killTarget(t, false);
       ACTIVE.clear();
 
-      // ✅ end summary event
+      // clear FX
+      setCssVar('--shake-x','0px');
+      setCssVar('--shake-y','0px');
+      setCssVar('--fire-alpha','0');
+      setBodyClass('fever-hot', false);
+      setBodyClass('stun-on', false);
+      setBodyClass('stun-lock', false);
+      setBodyClass('final-sprint', false);
+
       emit('hha:end', {
         score: state.score|0,
         goodHits: state.goodHits|0,
         misses: state.misses|0,
         comboMax: state.comboMax|0,
-        diff,
-        challenge,
-        runMode
+        diff, challenge, runMode
       });
-
       return;
     }
+
+    // FX classes + shake + fire
+    setFxClasses();
+    applyShake();
+    applyFire();
 
     // STUN smash + magnet pull
     stunAutoShatter();
@@ -619,7 +679,6 @@ export function boot(opts = {}){
     for (const t of ACTIVE){
       if (!t || t.dead || !t.el || !t.el.isConnected) continue;
 
-      // expire
       if ((tNow - t.bornAt) >= t.ttlMs){
         handleExpire(t);
         continue;
@@ -638,16 +697,31 @@ export function boot(opts = {}){
     spawnTimer = setInterval(()=>{
       if (!state.running) return;
 
-      // slow spawn when stun
-      const slow = state.stunActive ? 1.75 : 1.0;
+      // lock: don’t spawn new targets during lock window (feels like “stun impact”)
+      if (now() < state.lockUntil) return;
 
-      // probabilistic spawn to mimic slowed world
-      if (state.stunActive && Math.random() < 0.45) return;
+      const sf = slowFactor();
 
+      // probability gate based on slow (lower sf => fewer spawns)
+      // base chance = 1.0; at sf=0.55 => ~0.62
+      const chance = clamp(0.62 + (sf - 0.55) * 0.85, 0.60, 1.0);
+      if (Math.random() > chance) return;
+
+      // normal spawn
       spawnOne();
 
-      // optional small extra pop of good during magnet
-      if (now() < state.magnetUntil && Math.random() < 0.28){
+      // final sprint: extra pressure
+      if (state.finalSprint && Math.random() < 0.55){
+        spawnOne();
+      }
+
+      // stun: sometimes add extra junk to be shattered (feels “chaos”)
+      if (state.stunActive && Math.random() < 0.35){
+        spawnOne();
+      }
+
+      // magnet: slight extra good feed
+      if (now() < state.magnetUntil && Math.random() < 0.22){
         spawnOne();
       }
     }, CFG.spawnMs);
@@ -658,10 +732,16 @@ export function boot(opts = {}){
   syncHUD();
   setJudge(' ');
 
+  // reset FX
+  setCssVar('--fire-alpha', '0');
+  setBodyClass('fever-hot', false);
+  setBodyClass('stun-on', false);
+  setBodyClass('stun-lock', false);
+  setBodyClass('final-sprint', false);
+
   startSpawning();
   rafId = requestAnimationFrame(updateTargetsFollowLook);
 
-  // public api
   const api = {
     stop(){
       state.running = false;
@@ -671,12 +751,18 @@ export function boot(opts = {}){
       for (const t of Array.from(ACTIVE)) killTarget(t, false);
       ACTIVE.clear();
 
-      // clear shake
-      document.documentElement.style.setProperty('--shake-x','0px');
-      document.documentElement.style.setProperty('--shake-y','0px');
+      setCssVar('--shake-x','0px');
+      setCssVar('--shake-y','0px');
+      setCssVar('--fire-alpha','0');
+      setBodyClass('fever-hot', false);
+      setBodyClass('stun-on', false);
+      setBodyClass('stun-lock', false);
+      setBodyClass('final-sprint', false);
     },
     getState(){ return { ...state, active: ACTIVE.size }; }
   };
 
   return api;
 }
+
+export default boot;
