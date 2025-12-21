@@ -7,6 +7,8 @@
 // ✅ PERFECT: ดาวแตกหนัก ๆ + chroma flash + burst
 // ✅ Storm: sway แรง/เร็ว + speedlines + wobble + chroma split ต่อเนื่อง
 // ✅ Fix zone counting: ใช้ zone จาก ui-water (LOW/GREEN/HIGH) แล้ว map เป็น BLUE/GREEN/RED
+// ✅ FIX IMPORTANT: boundsHost = '#hvr-wrap' (ตัวนิ่งเต็มจอ) → เป้าจะไม่หลุดจอ/หาเจอง่าย
+// ✅ Bubble skin: ใสเหมือนฟองสบู่ + iridescence ชัดขึ้น (ขอบสวย / ตัวใส)
 
 'use strict';
 
@@ -33,14 +35,12 @@ function addClass(el, c){ try{ el && el.classList.add(c); }catch{} }
 function removeClass(el, c){ try{ el && el.classList.remove(c); }catch{} }
 
 function zoneLabelFrom(zone){
-  // ui-water: LOW / GREEN / HIGH
   if (zone === 'LOW') return 'BLUE';
   if (zone === 'HIGH') return 'RED';
   return 'GREEN';
 }
 
 function gradeFrom(score){
-  // โทนเดียวกับซีรีส์เกมคุณ (ง่ายต่อการอ่าน)
   if (score >= 2600) return 'SSS';
   if (score >= 2000) return 'SS';
   if (score >= 1500) return 'S';
@@ -58,6 +58,8 @@ function ensureHydrationStyle(){
     #hvr-playfield{
       --view-x: 0px;
       --view-y: 0px;
+      --tilt-x: 0;
+      --tilt-y: 0;
     }
     .hvr-parallax{
       position:absolute;
@@ -85,11 +87,11 @@ function ensureHydrationStyle(){
       transform: translate3d(calc(var(--view-x) * var(--px, 0.42)), calc(var(--view-y) * var(--py, 0.34)), 0) rotate(0.0001deg);
     }
 
-    /* postFX chroma/wobble controlled by classes */
+    /* postFX chroma split (stronger red edge) */
     #hvr-wrap.hvr-chroma{
       filter:
-        drop-shadow(2.6px 0 rgba(255, 40, 80, 0.55))
-        drop-shadow(-1.6px 0 rgba(0, 190, 255, 0.22));
+        drop-shadow(3.4px 0 rgba(255, 30, 70, 0.70))
+        drop-shadow(-2.2px 0 rgba(0, 190, 255, 0.28));
     }
 
     #hvr-wrap.hvr-wobble{
@@ -97,9 +99,9 @@ function ensureHydrationStyle(){
     }
     @keyframes hvrWobble{
       0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      25%{ transform: translate3d(0.6px,-0.4px,0) rotate(0.03deg); }
-      50%{ transform: translate3d(-0.7px,0.5px,0) rotate(-0.03deg); }
-      75%{ transform: translate3d(0.4px,0.6px,0) rotate(0.02deg); }
+      25%{ transform: translate3d(0.7px,-0.5px,0) rotate(0.04deg); }
+      50%{ transform: translate3d(-0.8px,0.6px,0) rotate(-0.04deg); }
+      75%{ transform: translate3d(0.5px,0.7px,0) rotate(0.03deg); }
       100%{ transform: translate3d(0,0,0) rotate(0deg); }
     }
 
@@ -115,18 +117,18 @@ function ensureHydrationStyle(){
       background:
         repeating-linear-gradient(110deg,
           rgba(255,255,255,.00) 0 18px,
-          rgba(255,80,120,.10) 18px 20px,
-          rgba(0,190,255,.08) 20px 22px,
+          rgba(255,80,120,.12) 18px 20px,
+          rgba(0,190,255,.10) 20px 22px,
           rgba(255,255,255,.00) 22px 44px
         );
-      filter: blur(0.6px) saturate(1.08) contrast(1.06);
-      animation: hvrLines 0.32s linear infinite;
+      filter: blur(0.6px) saturate(1.12) contrast(1.08);
+      animation: hvrLines 0.26s linear infinite;
     }
     @keyframes hvrLines{
       0%{ transform: translate3d(-10px, -10px, 0); }
-      100%{ transform: translate3d(26px, 22px, 0); }
+      100%{ transform: translate3d(30px, 26px, 0); }
     }
-    .hvr-speedlines.on{ opacity:0.30; }
+    .hvr-speedlines.on{ opacity:0.34; }
 
     /* tiny perfect flash pulse (short) */
     #hvr-wrap.hvr-perfect-pulse{
@@ -134,8 +136,81 @@ function ensureHydrationStyle(){
     }
     @keyframes hvrPerfectPulse{
       0%{ filter: saturate(1) contrast(1); }
-      45%{ filter: saturate(1.25) contrast(1.12); }
+      45%{ filter: saturate(1.30) contrast(1.14); }
       100%{ filter: saturate(1) contrast(1); }
+    }
+
+    /* ===== Bubble skin (near-invisible body, beautiful rim + strong iridescence) ===== */
+    .hvr-target.hvr-bubble{
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    .hvr-bubble-inner{
+      position:relative;
+      width:100%;
+      height:100%;
+      border-radius:999px;
+      overflow:hidden;
+      /* body: almost invisible */
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), rgba(255,255,255,.02) 38%, rgba(0,0,0,0) 60%),
+        radial-gradient(circle at 65% 70%, rgba(255,255,255,.06), rgba(0,0,0,0) 58%);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.08),
+        0 16px 34px rgba(2,6,23,.55);
+    }
+    .hvr-bubble-rim{
+      position:absolute;
+      inset:-3%;
+      border-radius:999px;
+      pointer-events:none;
+      /* rim highlight */
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 46%),
+        radial-gradient(circle at 68% 76%, rgba(255,255,255,.28), rgba(255,255,255,0) 56%);
+      mix-blend-mode: screen;
+      opacity:.42;
+      filter: blur(.2px);
+    }
+    .hvr-bubble-film{
+      position:absolute;
+      inset:-6%;
+      border-radius:999px;
+      pointer-events:none;
+      /* strong thin-film iridescence */
+      background:
+        conic-gradient(from 120deg,
+          rgba(255, 0, 120, .00),
+          rgba(255, 0, 120, .22),
+          rgba(0, 210, 255, .20),
+          rgba(80, 255, 160, .18),
+          rgba(255, 240, 120, .18),
+          rgba(255, 0, 120, .22),
+          rgba(255, 0, 120, .00)
+        );
+      mix-blend-mode: screen;
+      opacity:.56;
+      filter: blur(.35px) saturate(1.25);
+      animation: hvrFilmSpin 1.8s linear infinite;
+      transform: translate3d(calc(var(--tilt-x) * 2px), calc(var(--tilt-y) * 2px), 0);
+    }
+    @keyframes hvrFilmSpin{
+      0%{ transform: rotate(0deg) translate3d(calc(var(--tilt-x) * 2px), calc(var(--tilt-y) * 2px), 0); }
+      100%{ transform: rotate(360deg) translate3d(calc(var(--tilt-x) * 2px), calc(var(--tilt-y) * 2px), 0); }
+    }
+    .hvr-bubble-icon{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      filter: drop-shadow(0 4px 6px rgba(2,6,23,.65));
+    }
+    .hvr-bubble-perfect-ring{
+      opacity:.42 !important;
+      border-width:2px !important;
+      border-color: rgba(255,255,255,.50) !important;
+      box-shadow: 0 0 18px rgba(255,255,255,.22) !important;
     }
   `;
   DOC.head.appendChild(s);
@@ -164,14 +239,13 @@ function drawStarBurst(ctx, x, y, t, strength=1){
   const r1 = 40 + 70*strength;
   ctx.save();
   ctx.translate(x,y);
-
-  // chroma-ish glow
   ctx.globalCompositeOperation = 'screen';
 
   for (let i=0;i<n;i++){
     const a = (i/n) * Math.PI*2 + (t*0.002);
     const rr = r0 + (r1-r0) * (0.25 + 0.75*Math.random());
     const w = 1 + 2*strength;
+
     ctx.strokeStyle = `rgba(255, 60, 110, ${0.10 + 0.10*strength})`;
     ctx.lineWidth = w;
     ctx.beginPath();
@@ -188,7 +262,6 @@ function drawStarBurst(ctx, x, y, t, strength=1){
     ctx.stroke();
   }
 
-  // sparkle dots
   for (let k=0;k<16;k++){
     const a = Math.random()*Math.PI*2;
     const rr = 10 + Math.random()* (68*strength);
@@ -211,7 +284,6 @@ export async function boot(opts = {}){
   const playfield = $id('hvr-playfield');
   const blink = $id('hvr-screen-blink');
 
-  // Build parallax layers
   if (playfield && !playfield.querySelector('.hvr-parallax')){
     const l1 = DOC.createElement('div'); l1.className = 'hvr-parallax l1';
     const l2 = DOC.createElement('div'); l2.className = 'hvr-parallax l2';
@@ -219,7 +291,6 @@ export async function boot(opts = {}){
     playfield.appendChild(l2);
   }
 
-  // speedlines overlay
   let speedLines = DOC.querySelector('.hvr-speedlines');
   if (!speedLines){
     speedLines = DOC.createElement('div');
@@ -229,46 +300,36 @@ export async function boot(opts = {}){
 
   const post = ensurePostFXCanvas();
 
-  // difficulty
   const diff = String(opts.difficulty || 'easy').toLowerCase();
   const duration = clamp(opts.duration ?? 90, 20, 180);
 
-  // pools
-  const GOOD = ['💧','🧊','🥤','🫧']; // น้ำ/น้ำแข็ง/ขวด/ฟอง
-  const BAD  = ['🍟','🥤','🍩','🍕']; // junk
+  const GOOD  = ['💧','🧊','🥤','🫧'];
+  const BAD   = ['🍟','🥤','🍩','🍕'];
   const POWER = ['⭐','⚡','✨'];
 
-  // state
   const s = {
     running: true,
     startedAt: now(),
-
     score: 0,
     combo: 0,
     comboMax: 0,
     miss: 0,
-
     water: 50,
-    zone: 'GREEN',      // LOW/GREEN/HIGH (from ui-water)
-    zoneLabel: 'GREEN', // BLUE/GREEN/RED
-
+    zone: 'GREEN',
+    zoneLabel: 'GREEN',
     greenTick: 0,
     timeLeft: duration,
-
     viewX: 0,
     viewY: 0,
 
-    // storm
     stormOn: false,
     stormUntil: 0,
-    stormStrength: 0, // 0..1.2
+    stormStrength: 0,
 
-    // tilt shimmer
     tiltX: 0,
     tiltY: 0,
 
-    // postfx hits
-    sparks: [] // {x,y,t0,str}
+    sparks: []
   };
 
   function hud(){
@@ -276,19 +337,16 @@ export async function boot(opts = {}){
     setText('hha-combo-max', s.comboMax|0);
     setText('hha-miss', s.miss|0);
 
-    // grade
     const g = gradeFrom(s.score);
     const badge = $id('hha-grade-badge');
     if (badge) badge.textContent = g;
 
-    // progress fill
     const fill = $id('hha-grade-progress-fill');
     const t = $id('hha-grade-progress-text');
-    const pct = clamp((s.score / 1500) * 100, 0, 100); // S ~ 1500
+    const pct = clamp((s.score / 1500) * 100, 0, 100);
     if (fill) fill.style.width = pct.toFixed(0) + '%';
     if (t) t.textContent = `Progress to S: ${pct.toFixed(0)}%`;
 
-    // quest text (light)
     const qg = $id('hha-quest-goal');
     const qm = $id('hha-quest-mini');
     if (qg) qg.textContent = `Goal: อยู่ GREEN ให้นานที่สุด (ตอนนี้ ${s.greenTick}s)`;
@@ -302,7 +360,6 @@ export async function boot(opts = {}){
     playfield.style.transform = `translate3d(${s.viewX}px, ${s.viewY}px, 0)`;
   }
 
-  // ✅ drag view + tap shoot (short tap)
   function bindViewDragAndShoot(inst){
     if (!playfield) return;
 
@@ -327,9 +384,9 @@ export async function boot(opts = {}){
       if (!moved && (Math.abs(dx)+Math.abs(dy) > TH)) moved = true;
 
       if (moved){
-        // clamp a bit
-        s.viewX = clamp(vx0 + dx, -180, 180);
-        s.viewY = clamp(vy0 + dy, -140, 140);
+        // ✅ กันหลุดโลกเกินไป (หาเป้าไม่เจอ)
+        s.viewX = clamp(vx0 + dx, -110, 110);
+        s.viewY = clamp(vy0 + dy, -90, 90);
         applyView();
       }
     };
@@ -339,7 +396,6 @@ export async function boot(opts = {}){
       try{ playfield.releasePointerCapture(pid); }catch{}
       pid = null;
 
-      // short tap => shoot from crosshair
       if (!moved && inst && typeof inst.shootCrosshair === 'function'){
         inst.shootCrosshair();
       }
@@ -367,7 +423,6 @@ export async function boot(opts = {}){
   }
 
   function perfectFX(x,y){
-    // heavy burst
     try{ Particles.burstAt(x,y,'PERFECT'); }catch{}
     try{ Particles.scorePop(x,y,'PERFECT! +','gold'); }catch{}
     blinkOn('perfect', 130);
@@ -394,7 +449,6 @@ export async function boot(opts = {}){
     blinkOn('bad', 110);
   }
 
-  // Storm controls
   function setStorm(on, strength=1){
     s.stormOn = !!on;
     s.stormStrength = clamp(strength, 0, 1.25);
@@ -421,10 +475,8 @@ export async function boot(opts = {}){
     }
   }
 
-  // device tilt → update CSS vars for shimmer
   function bindTilt(){
     const onOri = (e)=>{
-      // gamma: left/right, beta: front/back
       const gx = clamp((e.gamma||0)/30, -1, 1);
       const gy = clamp((e.beta||0)/40, -1, 1);
       s.tiltX = gx;
@@ -439,7 +491,6 @@ export async function boot(opts = {}){
     return ()=> ROOT.removeEventListener('deviceorientation', onOri);
   }
 
-  // PostFX render loop
   let fxRaf = null;
   function fxLoop(){
     if (!post || !post.ctx) return;
@@ -448,7 +499,6 @@ export async function boot(opts = {}){
 
     ctx.clearRect(0,0,ROOT.innerWidth||1,ROOT.innerHeight||1);
 
-    // draw spark bursts
     const out = [];
     for (const sp of s.sparks){
       const dt = t - sp.t0;
@@ -466,37 +516,31 @@ export async function boot(opts = {}){
   }
   fxRaf = ROOT.requestAnimationFrame(fxLoop);
 
-  // ✅ main scoring / water update
   function updateWater(delta){
     s.water = clamp(s.water + delta, 0, 100);
-    const z = zoneFrom(s.water);     // LOW/GREEN/HIGH
+    const z = zoneFrom(s.water);
     s.zone = z;
-    s.zoneLabel = zoneLabelFrom(z); // BLUE/GREEN/RED
+    s.zoneLabel = zoneLabelFrom(z);
 
     setWaterGauge(s.water);
 
-    // force HUD text to BLUE/GREEN/RED style
     const st = $id('hha-water-status');
     if (st) st.textContent = `${s.zoneLabel} ${Math.round(s.water)}%`;
     const zt = $id('hha-water-zone-text');
-    if (zt) zt.textContent = s.zoneLabel;
+    if (zt) zt.textContent = `ZONE ${s.zoneLabel}`;
 
-    return { pct:s.water, zone:s.zone };
+    return { pct: s.water, zone: s.zone };
   }
 
-  // init
   updateWater(0);
   hud();
   applyView();
 
-  // mode-factory spawn speed mul: storm => faster
   function spawnMul(){
     if (!s.stormOn) return 1.0;
-    // heavy storm => 0.45..0.70
     return clamp(0.70 - 0.22*s.stormStrength, 0.42, 0.75);
   }
 
-  // judge callback from mode-factory
   function judge(ch, ctx){
     const x = ctx?.clientX || (ctx?.targetRect?.left + (ctx?.targetRect?.width||0)/2) || (ROOT.innerWidth/2);
     const y = ctx?.clientY || (ctx?.targetRect?.top + (ctx?.targetRect?.height||0)/2) || (ROOT.innerHeight/2);
@@ -508,7 +552,6 @@ export async function boot(opts = {}){
 
     const perfect = !!ctx?.hitPerfect;
 
-    // PERFECT ring bonus (even if good)
     if (perfect){
       s.score += 120;
       s.combo += 1;
@@ -524,7 +567,6 @@ export async function boot(opts = {}){
       updateWater(-10);
       badFX(x,y,'MISS','bad');
 
-      // junk hit can trigger storm sometimes (panic)
       if (!s.stormOn && Math.random() < 0.18){
         s.stormUntil = now() + 5200;
         setStorm(true, 0.85);
@@ -534,7 +576,6 @@ export async function boot(opts = {}){
       return { scoreDelta: -45, good:false };
     }
 
-    // fakeGood (trick) acts like bad when not perfect
     if (isFakeGood && !perfect){
       s.miss += 1;
       s.combo = 0;
@@ -545,7 +586,6 @@ export async function boot(opts = {}){
       return { scoreDelta: -30, good:false };
     }
 
-    // powerup
     if (isPower){
       s.score += 95;
       s.combo += 1;
@@ -553,7 +593,6 @@ export async function boot(opts = {}){
       updateWater(+9);
       goodFX(x,y,'POWER +95','power');
 
-      // power => storm wave “สนุกเร้าใจ” ชัวร์
       s.stormUntil = now() + 6800;
       setStorm(true, 1.05);
 
@@ -561,22 +600,18 @@ export async function boot(opts = {}){
       return { scoreDelta: +95, good:true };
     }
 
-    // normal good hit
     s.score += 55;
     s.combo += 1;
     s.comboMax = Math.max(s.comboMax, s.combo);
 
-    // water gain depends on zone
     if (s.zone === 'LOW') updateWater(+8);
     else if (s.zone === 'HIGH') updateWater(+3);
     else updateWater(+5);
 
-    // streak bonus
     if (s.combo > 0 && (s.combo % 8 === 0)){
       s.score += 80;
       goodFX(x,y,`STREAK +80`,'good');
 
-      // streak => storm (rare) เพื่อเร้าใจ
       if (!s.stormOn && Math.random() < 0.32){
         s.stormUntil = now() + 6200;
         setStorm(true, 0.95);
@@ -589,9 +624,7 @@ export async function boot(opts = {}){
     return { scoreDelta: +55, good:true };
   }
 
-  // expire callback
   function onExpire(info){
-    // ถ้าปล่อย GOOD หลุด: ลดคอมโบเล็กน้อย แต่ไม่ถือว่า miss
     const itemType = String(info?.itemType||'');
     if (itemType === 'good' || itemType === 'power'){
       s.combo = Math.max(0, s.combo - 1);
@@ -599,12 +632,82 @@ export async function boot(opts = {}){
     hud();
   }
 
-  // boot mode-factory
+  // ✅ Bubble decorate (ใสเหมือนฟองสบู่จริง + iridescence ชัด)
+  function decorateTarget(el, parts, data, meta){
+    const type = String(data?.itemType || '');
+    const isBad = type === 'bad';
+    const isPower = type === 'power';
+
+    // ทำ bubble เฉพาะของดี/ทริก/พาวเวอร์ (ขยะยังเป็นส้ม/แดงชัด)
+    if (!isBad){
+      el.classList.add('hvr-bubble');
+
+      // แทน inner เดิมด้วย bubble DOM (ไม่ทำให้คลิกเพี้ยน)
+      const inner = parts.inner;
+      if (inner){
+        inner.style.background = 'transparent';
+        inner.style.boxShadow = 'none';
+        inner.style.inset = '0';
+        inner.style.position = 'relative';
+
+        // clear content แล้วประกอบใหม่
+        inner.innerHTML = '';
+
+        const bubble = DOC.createElement('div');
+        bubble.className = 'hvr-bubble-inner';
+
+        const film = DOC.createElement('div');
+        film.className = 'hvr-bubble-film';
+
+        const rim = DOC.createElement('div');
+        rim.className = 'hvr-bubble-rim';
+
+        const iconWrap = DOC.createElement('div');
+        iconWrap.className = 'hvr-bubble-icon';
+
+        const icon = parts.icon || DOC.createElement('span');
+        icon.style.filter = 'drop-shadow(0 4px 6px rgba(2,6,23,.65))';
+        iconWrap.appendChild(icon);
+
+        bubble.appendChild(film);
+        bubble.appendChild(rim);
+        bubble.appendChild(iconWrap);
+        inner.appendChild(bubble);
+      }
+
+      // ring ให้ชัด/สวยขึ้น
+      if (parts.ring){
+        parts.ring.classList.add('hvr-bubble-perfect-ring');
+      }
+
+      // สีเฉพาะ power ให้เด่น
+      if (isPower){
+        el.style.filter = 'drop-shadow(0 0 14px rgba(250,204,21,.20))';
+      } else if (type === 'fakeGood'){
+        el.style.filter = 'drop-shadow(0 0 14px rgba(167,139,250,.18))';
+      } else {
+        el.style.filter = 'drop-shadow(0 0 14px rgba(34,197,94,.12))';
+      }
+    } else {
+      // junk: เด่นชัด
+      el.style.opacity = '0.96';
+    }
+
+    // storm: ส่ายแรงขึ้นนิดตาม spawnMul
+    if (el && el.classList){
+      if (meta && meta.spawnMul && Number(meta.spawnMul) < 0.99) el.classList.add('hvr-storm-on');
+      else el.classList.remove('hvr-storm-on');
+    }
+  }
+
   const inst = await factoryBoot({
     modeKey: 'hydration',
     difficulty: diff,
     duration,
-    spawnHost: '#hvr-playfield',
+
+    spawnHost:  '#hvr-playfield',
+    boundsHost: '#hvr-wrap', // ✅ FIX: ตัวนิ่งเต็มจอ (กันเป้าหลุดจอ)
+
     pools: { good: GOOD, bad: BAD, trick: ['💧','🫧'] },
     goodRate: diff === 'hard' ? 0.58 : (diff === 'normal' ? 0.62 : 0.68),
     powerups: POWER,
@@ -614,51 +717,46 @@ export async function boot(opts = {}){
     rhythm: { enabled:true, bpm: (diff==='hard'?126:(diff==='normal'?118:108)) },
     trickRate: diff === 'hard' ? 0.12 : 0.08,
     spawnIntervalMul: spawnMul,
-    excludeSelectors: ['.hud', '#hvr-start', '#hvr-end', '#hvr-screen-blink'],
+
+    excludeSelectors: ['.hud', '#hvr-end', '#hvr-screen-blink'],
+    decorateTarget,
+
     judge,
     onExpire
   });
 
-  // bind drag view / shoot
   const unbindDrag = bindViewDragAndShoot(inst);
   const unbindTilt = bindTilt();
 
-  // time tick from mode-factory
   function onTime(ev){
     const sec = ev?.detail?.sec;
     if (typeof sec !== 'number') return;
     s.timeLeft = sec;
 
-    // natural drain each second
     updateWater(-1.4);
 
-    // ✅ zone counting fix (นับจาก zone LOW/GREEN/HIGH)
     if (s.zone === 'GREEN') s.greenTick += 1;
 
-    // storm lifecycle
     maybeStormTick();
 
-    // when in RED(HIGH) too long => penalty drip
     if (s.zone === 'HIGH'){
       s.score = Math.max(0, s.score - 3);
     }
     hud();
 
-    // end condition
     if (sec <= 0){
       endGame();
     }
   }
   ROOT.addEventListener('hha:time', onTime, { passive:true });
 
-  // End overlay builder
   function buildEndOverlay(){
     const end = $id('hvr-end');
     if (!end) return;
     end.className = 'on';
 
     const g = gradeFrom(s.score);
-    const html = `
+    end.innerHTML = `
       <div style="width:min(760px,100%); display:grid; grid-template-columns:1fr; gap:10px;">
         <div style="background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.24); border-radius:24px; padding:14px; box-shadow:0 22px 70px rgba(0,0,0,.60);">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
@@ -680,7 +778,7 @@ export async function boot(opts = {}){
             </div>
             <div class="card" style="pointer-events:auto;">
               <div class="kpi"><div class="label">GREEN time</div><div class="value">${s.greenTick|0}s</div></div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ในโซน GREEN (นับถูกแล้ว)</div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ในโซน GREEN</div>
             </div>
             <div class="card" style="pointer-events:auto;">
               <div class="kpi"><div class="label">Water end</div><div class="value">${Math.round(s.water)}% (${s.zoneLabel})</div></div>
@@ -695,7 +793,6 @@ export async function boot(opts = {}){
         </div>
       </div>
     `;
-    end.innerHTML = html;
 
     const retry = $id('hvr-end-retry');
     const hub = $id('hvr-end-hub');
@@ -720,12 +817,10 @@ export async function boot(opts = {}){
 
     setStorm(false, 0);
 
-    // final celebrate
     try{ Particles.celebrate('END'); }catch{}
 
     buildEndOverlay();
 
-    // also emit end event (เผื่อ HUD กลางอื่นใช้)
     try{
       ROOT.dispatchEvent(new CustomEvent('hha:end', {
         detail:{
@@ -742,7 +837,6 @@ export async function boot(opts = {}){
     }catch{}
   }
 
-  // first HUD update
   hud();
 
   return {
