@@ -1,143 +1,191 @@
-(function (root) {
+// === /herohealth/vr/hha-summary.js ===
+// HHA Summary Overlay (IIFE)
+// ✅ listens: hha:end (primary), also fallback hha:summary
+// ✅ builds overlay if exists (#hha-summary), else creates minimal one
+// ✅ buttons: retry / close / hub
+// ✅ grade: SSS, SS, S, A, B, C
+
+(function(root){
   'use strict';
 
   const doc = root.document;
   if (!doc) return;
 
-  function ensure(){
-    let el = doc.querySelector('.hha-summary');
-    if (el) return el;
+  function $(id){ return doc.getElementById(id); }
+  function safeNum(v, d=0){ v = Number(v); return Number.isFinite(v) ? v : d; }
+  function clamp(v,a,b){ v=safeNum(v,0); if(v<a) return a; if(v>b) return b; return v; }
 
-    el = doc.createElement('div');
-    el.className = 'hha-summary';
-    Object.assign(el.style, {
-      position:'fixed',
-      inset:'0',
-      zIndex:'900',
-      display:'none',
-      alignItems:'center',
-      justifyContent:'center',
-      padding:'18px',
-      background:'rgba(2,6,23,0.86)'
-    });
+  function ensureOverlay(){
+    let wrap = $('hha-summary');
+    if (wrap) return wrap;
 
-    el.innerHTML = `
-      <div class="hha-summary-card" style="
-        width:min(640px, 96vw);
-        border-radius:22px;
-        padding:14px 14px 12px;
-        background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
-        border:1px solid rgba(148,163,184,0.2);
-        box-shadow:0 30px 80px rgba(0,0,0,0.55);
-        color:#e5e7eb;
-      ">
-        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
-          <div>
-            <div style="font-weight:950;font-size:18px;">สรุปผลการเล่น 🎉</div>
-            <div class="hha-summary-sub" style="color:#9ca3af;font-size:12px;margin-top:2px;"></div>
-          </div>
-          <div class="hha-summary-grade" style="
-            border-radius:999px;
-            padding:6px 10px;
-            border:1px solid rgba(187,247,208,0.7);
-            background:rgba(15,23,42,0.8);
-            font-weight:950;
-          ">GRADE A</div>
+    // fallback: create minimal overlay (in case HTML not updated)
+    wrap = doc.createElement('div');
+    wrap.id = 'hha-summary';
+    wrap.className = 'hha-summary';
+    wrap.innerHTML = `
+      <div class="hha-summary-card">
+        <div class="hha-summary-title">สรุปผลจบเกม</div>
+        <div class="hha-summary-sub" id="hha-summary-sub">—</div>
+        <div class="hha-summary-grid" id="hha-summary-grid"></div>
+        <div class="hha-summary-grade">
+          <span class="hha-badge">GRADE</span>
+          <span id="hha-summary-grade" class="hha-grade">S</span>
         </div>
-
-        <div class="hha-summary-grid" style="
-          display:grid;
-          grid-template-columns: 1fr 1fr;
-          gap:10px;
-          margin-top:12px;
-        ">
-          <div class="box" style="border:1px solid rgba(148,163,184,0.18); border-radius:16px; padding:10px;">
-            <div style="color:#9ca3af;font-size:11px;letter-spacing:.14em;text-transform:uppercase;">Score</div>
-            <div class="hha-summary-score" style="font-size:22px;font-weight:950;margin-top:2px;color:#22c55e;">0</div>
-            <div class="hha-summary-lines" style="font-size:12px;color:#cbd5e1;margin-top:6px;line-height:1.35;"></div>
-          </div>
-
-          <div class="box" style="border:1px solid rgba(148,163,184,0.18); border-radius:16px; padding:10px;">
-            <div style="color:#9ca3af;font-size:11px;letter-spacing:.14em;text-transform:uppercase;">Quests</div>
-            <div class="hha-summary-quests" style="font-size:14px;font-weight:850;margin-top:2px;">0 / 2</div>
-            <div class="hha-summary-minis" style="font-size:12px;color:#cbd5e1;margin-top:6px;">mini ผ่าน 0</div>
-            <div class="hha-summary-logger" style="font-size:11px;color:#9ca3af;margin-top:6px;">logger: …</div>
-          </div>
+        <div class="hha-summary-actions">
+          <button type="button" class="hha-btn" id="hha-btn-retry">เล่นใหม่</button>
+          <button type="button" class="hha-btn ghost" id="hha-btn-close">ปิด</button>
+          <a class="hha-btn ghost" id="hha-btn-hub" href="./hub.html">กลับ Hub</a>
         </div>
-
-        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px;">
-          <button class="hha-btn hha-restart" style="border-radius:999px;border:1px solid rgba(148,163,184,0.6);padding:9px 12px;background:rgba(15,23,42,0.86);color:#e5e7eb;font-weight:850;cursor:pointer;">เล่นใหม่</button>
-          <button class="hha-btn hha-hub" style="border-radius:999px;border:1px solid rgba(187,247,208,0.9);padding:9px 12px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;font-weight:950;cursor:pointer;">กลับ Hub</button>
-        </div>
+        <div class="hha-summary-note" id="hha-summary-note"></div>
       </div>
     `;
-
-    doc.body.appendChild(el);
-    return el;
+    Object.assign(wrap.style,{
+      position:'fixed', inset:'0', zIndex:'900',
+      display:'none', alignItems:'center', justifyContent:'center',
+      padding:'18px',
+      background:'rgba(2,6,23,0.92)'
+    });
+    doc.body.appendChild(wrap);
+    return wrap;
   }
 
-  function fmtMode(d){
-    const run = String(d.runMode||'play').toUpperCase();
-    const diff = String(d.diff||'normal').toUpperCase();
-    const ch = String(d.challenge||'rush').toUpperCase();
-    const t = Number(d.durationSec||0)|0;
-    return `${run} • ${diff} • ${ch} • ${t}s`;
+  function calcGrade(stat){
+    const score = safeNum(stat.score, 0);
+    const miss  = safeNum(stat.misses, stat.miss ?? 0);
+    const combo = safeNum(stat.comboMax, 0);
+    const good  = safeNum(stat.goodHits, 0);
+
+    // โทน “เกมจริง”: miss ดรอปแรง, combo ช่วยดัน
+    const scoreNorm = clamp(score / 900, 0, 2.0);     // ปรับ scale ให้เข้ากับคะแนนจริงของเกม
+    const comboNorm = clamp(combo / 40, 0, 1.5);
+    const goodNorm  = clamp(good / 45, 0, 1.5);
+    const missPen   = clamp(miss / 10, 0, 2.0);
+
+    const perf = (scoreNorm*0.52) + (comboNorm*0.28) + (goodNorm*0.20) - (missPen*0.55);
+
+    if (perf >= 1.20 && miss <= 2) return 'SSS';
+    if (perf >= 1.05 && miss <= 4) return 'SS';
+    if (perf >= 0.85) return 'S';
+    if (perf >= 0.62) return 'A';
+    if (perf >= 0.42) return 'B';
+    return 'C';
   }
 
-  function show(detail = {}){
-    const el = ensure();
-    const card = el.querySelector('.hha-summary-card');
+  function metric(label, value){
+    const div = doc.createElement('div');
+    div.className = 'hha-metric';
+    div.innerHTML = `<div class="hha-mlabel">${label}</div><div class="hha-mvalue">${value}</div>`;
+    return div;
+  }
 
-    const sub = el.querySelector('.hha-summary-sub');
-    const grade = el.querySelector('.hha-summary-grade');
-    const score = el.querySelector('.hha-summary-score');
-    const lines = el.querySelector('.hha-summary-lines');
-    const quests = el.querySelector('.hha-summary-quests');
-    const minis = el.querySelector('.hha-summary-minis');
-    const logger = el.querySelector('.hha-summary-logger');
+  function showSummary(detail){
+    const wrap = ensureOverlay();
+    const sub  = $('hha-summary-sub');
+    const grid = $('hha-summary-grid');
+    const gradeEl = $('hha-summary-grade');
+    const note = $('hha-summary-note');
 
-    sub.textContent = fmtMode(detail);
+    const mode = String(detail.mode || detail.game || 'Game');
+    const diff = String(detail.diff || 'normal').toUpperCase();
+    const ch   = String(detail.challenge || detail.ch || 'rush').toUpperCase();
+    const run  = String(detail.runMode || detail.run || 'play').toUpperCase();
 
-    grade.textContent = `GRADE ${detail.grade || 'A'}`;
-    score.textContent = String(detail.score ?? 0);
+    const score = safeNum(detail.score, 0)|0;
+    const good  = safeNum(detail.goodHits, 0)|0;
+    const gold  = safeNum(detail.goldHits, 0)|0;
+    const miss  = safeNum(detail.misses, detail.miss ?? 0)|0;
+    const combo = safeNum(detail.comboMax, 0)|0;
+    const shield= safeNum(detail.shield, 0)|0;
+    const boss  = !!detail.bossCleared;
 
-    const good = detail.good ?? 0;
-    const perfect = detail.perfect ?? 0;
-    const miss = detail.miss ?? 0;
+    const grade = calcGrade({ score, goodHits:good, misses:miss, comboMax:combo });
 
-    lines.innerHTML = `
-      ✅ good: <b>${good}</b><br/>
-      🌟 perfect: <b>${perfect}</b><br/>
-      ❌ miss: <b>${miss}</b>
-    `;
+    if (sub){
+      sub.textContent = `${mode} • ${run} • DIFF ${diff} • CH ${ch}`;
+    }
 
-    const gC = detail.goalsCleared ?? 0;
-    const gT = detail.goalsTotal ?? 2;
-    quests.textContent = `${gC} / ${gT} goals`;
+    if (grid){
+      grid.innerHTML = '';
+      grid.appendChild(metric('Score', score));
+      grid.appendChild(metric('Good Hits', good));
+      grid.appendChild(metric('Gold', gold));
+      grid.appendChild(metric('Miss', miss));
+      grid.appendChild(metric('Combo Max', combo));
+      grid.appendChild(metric('Shield Left', shield));
+      grid.appendChild(metric('Boss', boss ? '✅' : '—'));
+    }
 
-    minis.textContent = `mini ผ่าน ${detail.minisCleared ?? 0}`;
+    if (gradeEl) gradeEl.textContent = grade;
 
-    const lg = detail.logger || {};
-    logger.textContent = lg.pending ? 'logger: pending…' : (lg.ok ? 'logger: ok ✓' : `logger: ${lg.message||'error'}`);
+    if (note){
+      const tips =
+        (grade === 'C' || grade === 'B') ? 'ทริค: โฟกัสแตะ “ของดี” ต่อเนื่อง + อย่าโดน junk (Miss ลดเกรดแรงมาก)' :
+        (grade === 'A' || grade === 'S') ? 'โคตรดีแล้ว! ลองดัน combo + เก็บ GOLD ให้มากขึ้นเพื่อขึ้น SS/SSS' :
+        'โหดมาก! 👑';
+      note.textContent = tips;
+    }
 
-    const btnRestart = el.querySelector('.hha-restart');
-    const btnHub = el.querySelector('.hha-hub');
+    // show
+    wrap.classList.add('show');
+    wrap.setAttribute('aria-hidden','false');
 
-    btnRestart.onclick = ()=> location.href = detail.restartUrl || location.href.split('#')[0];
-    btnHub.onclick = ()=> location.href = detail.hubUrl || './hub.html';
+    // try flush logger when ending
+    try{
+      const L = root.HHACloudLogger;
+      if (L && typeof L.flushNow === 'function') L.flushNow(true);
+    }catch(_){}
 
-    el.style.display = 'flex';
-    el.addEventListener('click', (e)=>{
-      // click outside card -> close
-      if (e.target === el){
-        el.style.display = 'none';
+    // bind buttons (once)
+    bindButtons();
+  }
+
+  let bound = false;
+  function bindButtons(){
+    if (bound) return;
+    bound = true;
+
+    const wrap = ensureOverlay();
+    const btnRetry = $('hha-btn-retry');
+    const btnClose = $('hha-btn-close');
+
+    function close(){
+      wrap.classList.remove('show');
+      wrap.setAttribute('aria-hidden','true');
+    }
+
+    btnClose && btnClose.addEventListener('click', close);
+
+    btnRetry && btnRetry.addEventListener('click', ()=>{
+      // reload with same query (keep diff/time/run/ch if present)
+      try{
+        const u = new URL(location.href);
+        // ensure ts to avoid cached modules
+        u.searchParams.set('ts', String(Date.now()));
+        location.href = u.toString();
+      }catch(_){
+        location.reload();
       }
-    }, { once:true });
+    });
 
-    // keep focus (optional)
-    if (card) card.focus?.();
+    // click outside to close
+    wrap.addEventListener('pointerdown', (e)=>{
+      if (e.target === wrap) close();
+    });
+    // ESC to close
+    window.addEventListener('keydown', (e)=>{
+      if (e.key === 'Escape') close();
+    });
   }
 
-  root.HHA_Summary = { show };
+  // MAIN listeners
+  root.addEventListener('hha:end', (e)=>{
+    showSummary((e && e.detail) ? e.detail : {});
+  });
+
+  // fallback (if other games emit hha:summary)
+  root.addEventListener('hha:summary', (e)=>{
+    showSummary((e && e.detail) ? e.detail : {});
+  });
 
 })(window);
