@@ -1,10 +1,11 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION v11.1 (ES Module)
+// Balanced Plate VR — PRODUCTION v11.2 (ES Module)
 // ✅ Global hha-cloud-logger.js (no inline JS in HTML)
 // ✅ Cursor click -> raycast intersection -> onHit(intersection)
-// ✅ VR-look: drag-to-look + deviceorientation + light inertia
-// ✅ Emoji Sticker (A-Frame material.src via dataURL) + fade-in/out
+// ✅ VR-look: drag-to-look + deviceorientation + light inertia (drag only on CANVAS; no HUD drag)
+// ✅ Emoji Sticker (A-Frame material.src via dataURL) + WAIT texture loaded -> fade-in/out (fix white square)
 // ✅ Tap-anywhere to start (iOS motion/audio permission friendly)
+// ✅ XR Controllers (trigger/select) support if controller entities exist in HTML
 
 'use strict';
 
@@ -654,9 +655,27 @@ function ensureLookInertiaComponent() {
       this.wantQ = new THREE.Quaternion();
       this.euler = new THREE.Euler(0,0,0,'YXZ');
 
+      const isUI = (t) => {
+        if (!t || !t.closest) return false;
+        return !!(
+          t.closest('#hudTop') || t.closest('#hudBottom') ||
+          t.closest('#hudLeft') || t.closest('#hudRight') ||
+          t.closest('#questPanel') || t.closest('#miniPanel') ||
+          t.closest('#resultBackdrop') || t.closest('#resultCard') ||
+          t.closest('#plateTapOverlay') ||
+          t.closest('button') || t.closest('.btn')
+        );
+      };
+
       const onDown = (ev) => {
         if (!this.data.enabled) return;
         if (document.hidden) return;
+
+        // ✅ drag only on CANVAS, ignore UI
+        const t = ev.target;
+        if (isUI(t)) return;
+        if (!t || String(t.tagName).toUpperCase() !== 'CANVAS') return;
+
         this.drag = true;
         const p = (ev.touches && ev.touches[0]) ? ev.touches[0] : ev;
         this.lastX = p.clientX;
@@ -993,13 +1012,18 @@ function wasRecentlyHit(targetId) {
 function isAdaptiveOn() { return MODE === 'play'; }
 
 // =======================================================
-// ✅ Emoji Sticker texture (A-Frame material.src) — no more white squares
+// ✅ Emoji Sticker texture (A-Frame material.src) — FIX white squares by waiting texture load
 // =======================================================
 function applyEmojiTextureToEntity(el, emoji, s) {
   try {
     if (!el) return;
 
     if (el.object3D) el.object3D.scale.set(s, s, s);
+
+    // keep current opacity (important for fade-in waiting texture)
+    const curMat = el.getAttribute('material') || {};
+    const curOp = Number(curMat.opacity);
+    const keepOpacity = Number.isFinite(curOp) ? curOp : 0.0;
 
     const size = 256;
     const canvas = document.createElement('canvas');
@@ -1062,11 +1086,11 @@ function applyEmojiTextureToEntity(el, emoji, s) {
 
     const url = canvas.toDataURL('image/png');
 
-    // ✅ A-Frame owns material lifecycle; no map-reset issue
+    // ✅ keep opacity at 0 until texture is loaded
     el.setAttribute('material', {
       shader: 'flat',
       transparent: true,
-      opacity: 0.98,
+      opacity: keepOpacity,
       side: 'double',
       src: url
     });
@@ -1091,8 +1115,8 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   el.setAttribute('class', 'plateTarget');
 
   el.setAttribute('geometry', 'primitive: plane; width: 0.52; height: 0.52');
-  // start invisible (fade-in)
-  el.setAttribute('material', 'shader: flat; transparent: true; opacity: 0.0; side: double');
+  // start invisible (fade-in after texture loaded)
+  el.setAttribute('material', 'shader: flat; emphasize:false; transparent: true; opacity: 0.0; side: double');
 
   el.dataset.kind = kind;
   el.dataset.groupId = String(groupId || 0);
@@ -1112,14 +1136,26 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
 
   const s = clamp(scale, 0.45, 1.35);
 
-  // emoji sticker
-  const applyAll = () => {
-    applyEmojiTextureToEntity(el, emoji, s);
-    // pop + fade-in
+  // ---- texture + fade-in only when texture is ready ----
+  const fadeInOnce = () => {
+    if (el.dataset.fadedIn === '1') return;
+    el.dataset.fadedIn = '1';
     try{
       el.setAttribute('animation__in_op', 'property: material.opacity; from: 0.0; to: 0.98; dur: 160; easing: easeOutQuad');
       el.setAttribute('animation__in_sc',  'property: scale; from: 0.72 0.72 0.72; to: 1 1 1; dur: 180; easing: easeOutBack');
     }catch(_){}
+  };
+
+  const applyAll = () => {
+    // keep invisible first
+    try { el.setAttribute('material', 'shader: flat; transparent: true; opacity: 0.0; side: double'); } catch(_){}
+
+    applyEmojiTextureToEntity(el, emoji, s);
+
+    // ✅ when texture loaded -> fade in (prevents white square)
+    el.addEventListener('materialtextureloaded', fadeInOnce, { once: true });
+    // fallback (cache or some browsers)
+    setTimeout(fadeInOnce, 120);
   };
 
   el.addEventListener('object3dset', (e) => {
@@ -1127,8 +1163,9 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   });
   el.addEventListener('loaded', applyAll);
 
-  // click (if A-Frame fires it) — no intersection here
-  el.addEventListener('click', () => onHit(el, 'target-click', null));
+  // ❌ IMPORTANT: do not use target click without intersection (prevents double hit + respects "send intersection")
+  // If you REALLY want to keep A-Frame click, use intersection only:
+  // el.addEventListener('click', (ev) => onHit(el, 'aframe-click', ev?.detail?.intersection || null));
 
   return el;
 }
@@ -1732,7 +1769,7 @@ function buildSessionRow(reason){
     fastHitRatePct,
 
     device,
-    gameVersion: '11.1',
+    gameVersion: '11.2',
     reason: reason || '',
 
     startTimeIso: sessionStartIso,
@@ -1891,6 +1928,7 @@ function applyTwistOnGood(groupId) {
 
 function onHit(el, via = 'cursor', hit = null) {
   if (!el || ended || paused) return;
+  if (!started) return; // ✅ important: ignore hits before start (prevents "consume" targets)
 
   const id = el.getAttribute('id') || '';
   if (id && wasRecentlyHit(id)) return;
@@ -1907,8 +1945,6 @@ function onHit(el, via = 'cursor', hit = null) {
   const preFx = (judge, pts) => {
     try { fxOnHit(el, kind, judge, pts, hit); } catch(_){}
   };
-
-  if (!started) return;
 
   emitGameEvent({ type:'hit_raw', kind, groupId, via, targetId: id });
 
@@ -2319,20 +2355,17 @@ function bindCursorIntersectionClick() {
   window.__PLATE_CURSOR_INTERSECT_BOUND__ = true;
 
   const raycaster = new THREE.Raycaster();
-  const tmpV = new THREE.Vector3();
   const origin = new THREE.Vector3();
   const dir = new THREE.Vector3();
 
-  const shoot = () => {
+  const shootCenter = () => {
     if (ended || paused) return;
     if (!scene.camera) return;
     ensureWorldRoot();
     const root3D = worldRoot && worldRoot.object3D;
     if (!root3D) return;
 
-    // origin = camera world position
     cam.object3D.getWorldPosition(origin);
-    // dir = camera forward
     cam.object3D.getWorldDirection(dir).normalize();
 
     raycaster.set(origin, dir);
@@ -2354,13 +2387,14 @@ function bindCursorIntersectionClick() {
   };
 
   // cursor element click (fuse or click)
-  if (cursorEl) cursorEl.addEventListener('click', shoot);
+  if (cursorEl) cursorEl.addEventListener('click', shootCenter);
 
-  // fallback: any pointer down on canvas -> center shoot (tap-anywhere)
+  // fallback: any pointer down on canvas -> center shoot (tap-to-hit like VR)
   window.addEventListener('pointerdown', (ev) => {
     const t = ev.target;
     if (!t || String(t.tagName).toUpperCase() !== 'CANVAS') return;
-    shoot();
+    tryResumeAudio();
+    shootCenter();
   }, { passive: true });
 
   if (DEBUG_LOG) console.log('[PlateVR] cursor intersection click bound ✅');
@@ -2434,6 +2468,46 @@ function bindPointerFallback() {
   window.addEventListener('touchstart', doRaycastFromEvent, { passive: true });
 
   if (DEBUG_LOG) console.log('[PlateVR] pointer fallback bound ✅');
+}
+
+// ✅ XR Controllers support (trigger/select)
+function bindXRControllers() {
+  if (!scene || !THREE) return;
+  if (window.__PLATE_XR_CTRL_BOUND__) return;
+  window.__PLATE_XR_CTRL_BOUND__ = true;
+
+  const ctrls = Array.from(document.querySelectorAll('[laser-controls],[hand-controls],[tracked-controls]'));
+  if (!ctrls.length) return;
+
+  for (const c of ctrls) {
+    try { c.setAttribute('raycaster', 'objects:.plateTarget; far: 20'); } catch(_) {}
+
+    const shoot = () => {
+      if (ended || paused || !started) return;
+
+      const rc = c.components && c.components.raycaster;
+      const list = (rc && rc.intersections) ? rc.intersections : [];
+      if (!list.length) return;
+
+      const hit = list[0];
+      const hitEl = hit && hit.object && hit.object.el;
+      if (!hitEl) return;
+
+      let cur = hitEl;
+      while (cur && cur !== scene && (!cur.classList || !cur.classList.contains('plateTarget'))) {
+        cur = cur.parentEl;
+      }
+      if (!cur) return;
+
+      onHit(cur, 'xr', hit);
+    };
+
+    c.addEventListener('triggerdown', shoot);
+    c.addEventListener('selectstart', shoot);
+    c.addEventListener('click', shoot);
+  }
+
+  if (DEBUG_LOG) console.log('[PlateVR] XR controllers bound ✅');
 }
 
 // ---------- Start / End ----------
@@ -2603,7 +2677,7 @@ function ensureTouchLookControls() {
   if (!cam) return;
 
   // ✅ ให้ look-controls รับ deviceorientation (magic window) แต่ปิด touch ของมัน
-  // แล้วให้ hha-look-inertia ทำ drag + inertia แทน
+  // แล้วให้ hha-look-inertia ทำ drag + inertia แทน (drag only on CANVAS)
   try { cam.setAttribute('look-controls', 'touchEnabled:false; mouseEnabled:true; pointerLockEnabled:false; magicWindowTrackingEnabled:true'); } catch (_) {}
   try { cam.setAttribute('wasd-controls-enabled', 'false'); } catch (_) {}
 
@@ -2653,7 +2727,7 @@ function bindTapAnywhereStart() {
 
   ensureTapOverlay();
 
-  const startOnce = async (ev) => {
+  const startOnce = async () => {
     if (started || ended) return;
 
     tryResumeAudio();
@@ -2709,6 +2783,7 @@ export function bootPlateDOM() {
     ensureBillboardComponent();
     bindPointerFallback();
     bindCursorIntersectionClick();
+    bindXRControllers();
   };
 
   if (scene && scene.hasLoaded) bindAfterLoaded();
