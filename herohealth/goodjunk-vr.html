@@ -1,6 +1,3 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Full HTML (ROOT PATH FIX)
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -10,7 +7,6 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
@@ -24,12 +20,13 @@
       --danger:#f97316;
       --text-main:#e5e7eb;
       --text-soft:#9ca3af;
+
+      /* ✅ intensity from JS */
+      --fever-intensity: 0;
     }
     *{ box-sizing:border-box; }
-
     body{
-      margin:0;
-      min-height:100vh;
+      margin:0; min-height:100vh;
       font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background:
         radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
@@ -41,12 +38,46 @@
 
     a-scene{ width:100vw; height:100vh; position:fixed; inset:0; z-index:0; }
 
-    /* DOM target layer */
+    /* DOM targets layer */
     #gj-layer{
       position:fixed; inset:0;
       z-index:649;
       pointer-events:auto;
       touch-action:none;
+      transform-origin:center center;
+    }
+
+    /* ✅ FX layer (extra) */
+    #gj-fx{
+      position:fixed; inset:0;
+      z-index:660;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    /* ✅ FEVER FIRE overlay */
+    #fever-fire{
+      position:fixed; inset:-20px;
+      z-index:651;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .18s ease-out;
+      mix-blend-mode:screen;
+      filter: blur(0.2px) saturate(1.25);
+      background:
+        radial-gradient(circle at 50% 110%, rgba(255,140,0,0.45), transparent 60%),
+        radial-gradient(circle at 15% 105%, rgba(255,80,0,0.38), transparent 62%),
+        radial-gradient(circle at 85% 108%, rgba(255,200,0,0.30), transparent 64%),
+        linear-gradient(180deg, transparent 35%, rgba(255,80,0,0.10) 65%, rgba(255,120,0,0.22));
+      animation: fireWaves 1.05s linear infinite;
+    }
+    #fever-fire.show{
+      opacity: clamp(0.12, calc(var(--fever-intensity) * 0.012), 0.55);
+    }
+    @keyframes fireWaves{
+      0%{ transform: translateY(8px) scale(1.02); filter: blur(0.2px) hue-rotate(0deg); }
+      50%{ transform: translateY(-8px) scale(1.03); filter: blur(0.6px) hue-rotate(8deg); }
+      100%{ transform: translateY(8px) scale(1.02); filter: blur(0.2px) hue-rotate(0deg); }
     }
 
     /* ✅ emoji sticker style */
@@ -58,8 +89,6 @@
       user-select:none;
       pointer-events:auto;
       cursor:pointer;
-
-      /* sticker card */
       display:flex;
       align-items:center;
       justify-content:center;
@@ -68,16 +97,14 @@
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.14);
       backdrop-filter: blur(8px);
-
       box-shadow:0 18px 44px rgba(0,0,0,0.55);
       filter: drop-shadow(0 10px 18px rgba(0,0,0,0.55));
-
       opacity:0;
       transition: transform .14s ease-out, opacity .16s ease-out, filter .18s ease-out;
       will-change: transform, left, top, opacity;
     }
     .gj-target.in{ opacity:1; }
-    .gj-target.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.72) rotate(var(--tRot, 0deg)); }
+    .gj-target.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.68) rotate(var(--tRot, 0deg)); }
 
     .gj-junk{ border-color: rgba(249,115,22,0.36); box-shadow:0 18px 44px rgba(249,115,22,0.12); }
     .gj-gold{ border-color: rgba(250,204,21,0.45); box-shadow:0 18px 44px rgba(250,204,21,0.16); }
@@ -112,6 +139,7 @@
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
       pointer-events:auto;
+      position:relative;
     }
     .hud-main{
       display:flex;
@@ -174,7 +202,50 @@
     .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
     .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
 
-    /* Fever UI block (HUD) */
+    /* ✅ FINAL SPRINT lockbar */
+    .final-lockbar{
+      margin-top:10px;
+      display:none;
+      flex-direction:column;
+      gap:6px;
+      padding:8px 10px;
+      border-radius:16px;
+      border:1px solid rgba(250,204,21,0.35);
+      background:radial-gradient(circle at top left, rgba(250,204,21,0.18), transparent 58%), rgba(2,6,23,0.30);
+      box-shadow:0 18px 50px rgba(250,204,21,0.10);
+    }
+    .final-lockbar.show{ display:flex; }
+    .final-lock-head{
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+      color:#fde68a; font-weight:950;
+    }
+    .final-lock-row{
+      display:grid;
+      grid-template-columns:repeat(8, 1fr);
+      gap:6px;
+    }
+    .lock-cell{
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,0.12);
+      border:1px solid rgba(148,163,184,0.12);
+      overflow:hidden;
+      position:relative;
+    }
+    .lock-cell.on{
+      background:rgba(250,204,21,0.22);
+      border-color:rgba(250,204,21,0.42);
+      box-shadow:0 0 18px rgba(250,204,21,0.16);
+    }
+    .lock-cell.on::after{
+      content:"";
+      position:absolute; inset:0;
+      background:linear-gradient(90deg, rgba(250,204,21,0.20), rgba(250,204,21,0.95));
+      opacity:0.85;
+    }
+
+    /* Fever UI */
     .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
     .fever-row{ display:flex; align-items:center; gap:8px; }
     .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
@@ -185,7 +256,7 @@
     .shield-label{ font-size:12px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
 
-    /* ✅ STUN badge */
+    /* STUN badge */
     .stun-badge{
       display:none;
       margin-top:8px;
@@ -209,7 +280,7 @@
       100%{ transform:scale(1); }
     }
 
-    /* ✅ STUN border flash */
+    /* STUN border flash */
     .stun-border{
       position:fixed; inset:0;
       border:3px solid rgba(249,115,22,0.0);
@@ -229,7 +300,7 @@
       100%{ border-color: rgba(249,115,22,0.15); }
     }
 
-    /* ✅ STUN vortex marker (aim point) */
+    /* STUN vortex */
     .stun-vortex{
       position:fixed;
       left:50%;
@@ -307,11 +378,7 @@
       pointer-events:none;
       transition:opacity .25s ease-out, transform .25s ease-out;
     }
-    .countdown-hidden{
-      opacity:0;
-      visibility:hidden;
-      transform:scale(0.8);
-    }
+    .countdown-hidden{ opacity:0; visibility:hidden; transform:scale(0.8); }
 
     /* VR button */
     .vr-btn{
@@ -407,7 +474,7 @@
     }
     .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
 
-    /* ✅ END OVERLAY (summary) */
+    /* END overlay */
     .end-overlay{
       position:fixed; inset:0;
       z-index:800;
@@ -426,13 +493,7 @@
       box-shadow:0 30px 90px rgba(0,0,0,0.65);
       padding:16px 16px 14px;
     }
-    .end-top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
-    }
+    .end-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
     .end-title{ font-size:18px; font-weight:950; margin:0; }
     .end-grade{
       padding:6px 12px;
@@ -457,13 +518,7 @@
     }
     .end-stat .k{ font-size:10px; color:var(--text-soft); letter-spacing:.12em; text-transform:uppercase; }
     .end-stat .v{ font-size:16px; font-weight:950; margin-top:4px; }
-    .end-row{
-      display:flex;
-      gap:10px;
-      justify-content:flex-end;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
+    .end-row{ display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:10px; }
     .end-btn{
       border-radius:999px;
       padding:10px 14px;
@@ -480,15 +535,13 @@
     }
   </style>
 
-  <!-- FX IIFE MUST LOAD BEFORE boot module -->
+  <!-- FX IIFE -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
-  <script src="./vr/hha-summary.js"></script>
 
-  <!-- Boot loader (module) -->
+  <!-- Boot module -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
-
     function setBadge(ok, msg){
       const dot = $('#logdot');
       const text = $('#logtext');
@@ -500,8 +553,7 @@
       const candidates = [
         './vr-goodjunk/goodjunk-vr.boot.js',
         './vr-goodjunk/goodjunk-vr.boot.mjs',
-        './vr-goodjunk/goodjunk.boot.js',
-        './vr-goodjunk/goodjunk.safe.js'
+        './vr-goodjunk/goodjunk.boot.js'
       ];
 
       let lastErr = null;
@@ -523,7 +575,7 @@
       console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
       setBadge(false, 'boot failed: ' + (lastErr && lastErr.message ? lastErr.message : 'unknown'));
       const sub = $('#start-sub');
-      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
+      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
     }
 
     window.addEventListener('load', () => {
@@ -534,30 +586,23 @@
 </head>
 
 <body>
-
-  <!-- A-Frame scene -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="colorManagement: true; physicallyCorrectLights: true"
-  >
+  <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true">
     <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
     <a-entity light="type: ambient; intensity: 1.0"></a-entity>
     <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
     <a-sky color="#061225"></a-sky>
   </a-scene>
 
-  <!-- DOM target layer -->
   <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
+  <div id="gj-fx" aria-hidden="true"></div>
 
-  <!-- ✅ STUN overlays -->
+  <div id="fever-fire" aria-hidden="true"></div>
   <div class="stun-border" id="stun-border"></div>
   <div class="stun-vortex" id="stun-vortex"></div>
 
-  <!-- HUD -->
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
-      <!-- Left -->
+
       <div class="hud-card" style="min-width: 290px;">
         <div class="hud-main">
           <div class="hud-main-title">GOODJUNK</div>
@@ -593,7 +638,6 @@
         </div>
       </div>
 
-      <!-- Right -->
       <div class="hud-card hud-quest" style="min-width: 300px;">
         <div class="quest-title">Quest</div>
 
@@ -615,7 +659,24 @@
           </div>
         </div>
 
-        <!-- Fever/Shield UI -->
+        <!-- ✅ FINAL SPRINT lockbar -->
+        <div class="final-lockbar" id="final-lockbar">
+          <div class="final-lock-head">
+            <span>FINAL SPRINT</span>
+            <span id="final-lock-req">REQ/SEC: 2</span>
+          </div>
+          <div class="final-lock-row" id="final-lock-row">
+            <div class="lock-cell" data-i="0"></div>
+            <div class="lock-cell" data-i="1"></div>
+            <div class="lock-cell" data-i="2"></div>
+            <div class="lock-cell" data-i="3"></div>
+            <div class="lock-cell" data-i="4"></div>
+            <div class="lock-cell" data-i="5"></div>
+            <div class="lock-cell" data-i="6"></div>
+            <div class="lock-cell" data-i="7"></div>
+          </div>
+        </div>
+
         <div class="hud-fever">
           <div class="fever-row">
             <div class="fever-label">FEVER</div>
@@ -627,14 +688,11 @@
             <div>Shield</div>
             <div class="shield-count" id="shield-count">0</div>
           </div>
-
-          <!-- ✅ STUN badge -->
           <div class="stun-badge" id="hud-stun">⚠ STUN</div>
         </div>
       </div>
     </div>
 
-    <!-- Bottom: Coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
@@ -646,27 +704,21 @@
     </div>
   </div>
 
-  <!-- Countdown overlay -->
   <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
 
-  <!-- VR button -->
   <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR">
     <span>🥽</span> Enter VR
   </button>
 
-  <!-- Logger badge -->
   <div class="logbadge" id="logbadge">
     <div class="dot" id="logdot"></div>
     <div id="logtext">boot: loading…</div>
   </div>
 
-  <!-- Start overlay -->
   <div class="start-overlay" id="start-overlay">
     <div class="start-card">
       <h1 class="start-title">GoodJunk VR</h1>
-      <p class="start-sub" id="start-sub">
-        เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅
-      </p>
+      <p class="start-sub" id="start-sub">เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง ✅</p>
 
       <div class="start-grid">
         <div>
@@ -692,13 +744,10 @@
         <button class="start-btn" id="btn-start-vr" type="button">🥽 Start VR</button>
       </div>
 
-      <div class="tiny-note">
-        * โหมดวิจัยจะบังคับโปรไฟล์จาก Hub ก่อนเริ่มเล่น
-      </div>
+      <div class="tiny-note">* โหมดวิจัยจะบังคับโปรไฟล์จาก Hub ก่อนเริ่มเล่น</div>
     </div>
   </div>
 
-  <!-- ✅ End Summary -->
   <div class="end-overlay" id="end-overlay" aria-label="End Summary">
     <div class="end-card">
       <div class="end-top">
