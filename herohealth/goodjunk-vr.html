@@ -1,5 +1,5 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Step 1+2 VR Feel Pack
+     GoodJunkVR (PRODUCTION) — Step 1+2 + Step 3 FX/Quest Why
 -->
 <!doctype html>
 <html lang="th">
@@ -47,6 +47,14 @@
       touch-action:none;
     }
 
+    /* ✅ FX layer above targets */
+    #gj-fx-layer{
+      position:fixed; inset:0;
+      z-index:660;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
     /* --- Emoji Sticker Targets --- */
     .gj-target{
       position:absolute;
@@ -57,7 +65,6 @@
       pointer-events:auto;
       cursor:pointer;
 
-      /* sticker vibe */
       filter: drop-shadow(0 14px 24px rgba(0,0,0,0.55));
       text-shadow:
         0 2px 0 rgba(255,255,255,0.95),
@@ -74,7 +81,6 @@
       will-change: transform, left, top, opacity;
       opacity:1;
     }
-
     .gj-target.spawn{
       opacity:0;
       transform:translate(-50%,-50%) scale(0.72);
@@ -89,7 +95,6 @@
       transform:translate(-50%,-50%) scale(0.62) rotate(6deg);
       filter: drop-shadow(0 8px 14px rgba(0,0,0,0.35));
     }
-
     .gj-junk{ opacity:.98; filter: drop-shadow(0 14px 24px rgba(249,115,22,0.25)); }
     .gj-gold{ filter: drop-shadow(0 16px 28px rgba(250,204,21,0.38)); }
     .gj-fake{ filter: drop-shadow(0 14px 24px rgba(168,85,247,0.25)); }
@@ -150,6 +155,17 @@
     .quest-bar{ position:relative; width:100%; height:4px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; }
     .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
     .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
+    /* ✅ why line */
+    .quest-why{
+      font-size:10px;
+      color:#cbd5e1;
+      opacity:0.85;
+      margin-top:3px;
+      min-height:14px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
 
     /* Coach */
     .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
@@ -212,9 +228,7 @@
       pointer-events:none;
       transition:opacity .25s ease-out, transform .25s ease-out;
     }
-    .countdown-hidden{
-      opacity:0; visibility:hidden; transform:scale(0.8);
-    }
+    .countdown-hidden{ opacity:0; visibility:hidden; transform:scale(0.8); }
 
     /* VR button */
     .vr-btn{
@@ -268,12 +282,10 @@
     .shield-count{ font-weight:950; color:#93c5fd; }
   </style>
 
-  <!-- FX / HUD helpers -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
 
-  <!-- Boot loader -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
     function setBadge(ok, msg){
@@ -314,7 +326,6 @@
 <body>
 
   <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true;physicallyCorrectLights:true">
-    <!-- ✅ ปิด A-Frame look-controls เพื่อใช้ตัวควบคุมของเรา -->
     <a-entity id="gj-camera" camera look-controls="enabled:false" position="0 1.6 0"></a-entity>
     <a-entity light="type:ambient; intensity:1.0"></a-entity>
     <a-entity light="type:directional; intensity:0.7" position="1 2 1"></a-entity>
@@ -322,6 +333,7 @@
   </a-scene>
 
   <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
+  <div id="gj-fx-layer" aria-label="GoodJunk FX Layer"></div>
 
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
@@ -358,6 +370,7 @@
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-mini-bar"></div></div>
           <div class="quest-caption"><span id="hud-quest-mini-caption">0 / 0</span><span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span></div>
+          <div class="quest-why" id="hud-mini-why"></div>
         </div>
 
         <div class="hud-fever">
