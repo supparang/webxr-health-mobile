@@ -1,18 +1,15 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ spawnHost = #hvr-playfield (targets เลื่อนตาม drag)
-// ✅ crosshair shooting via shootCrosshair()
+// ✅ spawnHost: ที่ “append เป้า”
+// ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
+// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันให้แต่ละเกมทำได้
+// ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
+// ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
 // ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ rhythm spawn + pulse
-// ✅ trick targets (fakeGood)
-// ✅ Storm: spawnIntervalMul + host class .hvr-storm-on
-// ✅ SAFEZONE: excludeSelectors กันทับ HUD
-//
-// ✅ UPDATE (SOAP BUBBLE v2):
-// - “Clear core (almost invisible) + strong rainbow rim”
-// - Thin-film iridescence จำกัดอยู่ที่ขอบ (edge mask)
-// - Micro-banding (ฟองสบู่จริง ๆ)
-// - Tilt shimmer ใช้ CSS vars: --tilt-x / --tilt-y (hydration.safe.js ตั้งไว้แล้ว)
+// ✅ rhythm spawn (bpm) + pulse class
+// ✅ trick/fake targets (itemType='fakeGood')
+// ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
+// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
 
 'use strict';
 
@@ -78,11 +75,10 @@ function pickDiffConfig (modeKey, diffKey) {
 }
 
 // ======================================================
-//  Overlay fallback + Styles
+//  Overlay fallback
 // ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
-
   const s = DOC.createElement('style');
   s.id = 'hvr-overlay-style';
   s.textContent = `
@@ -92,205 +88,31 @@ function ensureOverlayStyle () {
       z-index:9998;
       pointer-events:none;
     }
-    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
-
-    /* pulse for rhythm */
-    .hvr-target.hvr-pulse .hvr-bubble{
-      animation: hvrPulse .55s ease-in-out infinite;
+    .hvr-overlay-host .hvr-target{
+      pointer-events:auto;
+    }
+    .hvr-target.hvr-pulse{
+      animation:hvrPulse .55s ease-in-out infinite;
     }
     @keyframes hvrPulse{
-      0%{ transform: scale(1); }
-      50%{ transform: scale(1.07); }
-      100%{ transform: scale(1); }
+      0%{ transform:translate(-50%,-50%) scale(1); }
+      50%{ transform:translate(-50%,-50%) scale(1.08); }
+      100%{ transform:translate(-50%,-50%) scale(1); }
     }
-
-    /* ====== SOAP BUBBLE (CLEAR CORE + RAINBOW RIM) ====== */
-    .hvr-target{ will-change: transform; }
-    .hvr-bubble{
+    .hvr-wiggle{
       position:absolute;
       inset:0;
       border-radius:999px;
       display:flex;
       align-items:center;
       justify-content:center;
-      transform: translateZ(0);
-      overflow:hidden;
-      will-change: transform, filter;
-
-      /* แกนกลาง “ใสเกือบไม่เห็น” */
-      background:
-        radial-gradient(circle at 30% 22%, rgba(255,255,255,.14), rgba(255,255,255,0) 36%),
-        radial-gradient(circle at 72% 80%, rgba(255,255,255,.06), rgba(255,255,255,0) 52%),
-        radial-gradient(circle at 50% 55%, rgba(255,255,255,.015), rgba(255,255,255,0) 72%);
-
-      box-shadow:
-        0 16px 44px rgba(0,0,0,.20),
-        0 0 0 1px rgba(255,255,255,.10),
-        inset 0 0 0 1.15px rgba(255,255,255,.10);
-
-      filter: saturate(1.06) contrast(1.06);
-      animation: hvrFloat 1.75s ease-in-out infinite;
-    }
-
-    @keyframes hvrFloat{
-      0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      25%{ transform: translate3d(calc(var(--sx,1) * 1.8px), -3.6px, 0) rotate(calc(var(--rx,1) * 1.15deg)); }
-      50%{ transform: translate3d(calc(var(--sx,1) * -1.35px), 1.65px, 0) rotate(calc(var(--rx,1) * -1.05deg)); }
-      75%{ transform: translate3d(calc(var(--sx,1) * 1.15px), 3.75px, 0) rotate(calc(var(--rx,1) * 0.85deg)); }
-      100%{ transform: translate3d(0,0,0) rotate(0deg); }
-    }
-
-    /* Fresnel rim (คม/ชัดขึ้น) */
-    .hvr-bubble .hvr-fresnel{
-      position:absolute;
-      inset:-2px;
-      border-radius:999px;
       pointer-events:none;
-      background:
-        radial-gradient(circle at 50% 56%,
-          rgba(255,255,255,0) 0 54%,
-          rgba(255,255,255,.06) 62%,
-          rgba(255,255,255,.18) 76%,
-          rgba(255,255,255,.16) 88%,
-          rgba(255,255,255,.08) 100%);
-      mix-blend-mode: screen;
-      opacity: .98;
-      filter: contrast(1.12);
+      transform: translate3d(0,0,0);
+      will-change: transform;
     }
-
-    /* Specular highlights */
-    .hvr-bubble::before{
-      content:"";
-      position:absolute;
-      inset:-10%;
-      border-radius:999px;
-      pointer-events:none;
-      background:
-        radial-gradient(circle at 26% 18%, rgba(255,255,255,.40), rgba(255,255,255,0) 36%),
-        radial-gradient(circle at 37% 33%, rgba(255,255,255,.16), rgba(255,255,255,0) 44%),
-        radial-gradient(circle at 78% 82%, rgba(255,255,255,.11), rgba(255,255,255,0) 56%);
-      opacity:.70;
-      mix-blend-mode: screen;
-      filter: blur(0.2px);
-    }
-
-    /*
-      Thin-film iridescence:
-      - จำกัดอยู่ที่ “ขอบ” (edge mask)
-      - สีรุ้งชัดขึ้น + micro-banding
-      - reactive tilt shimmer: ใช้ --tilt-x / --tilt-y (ตั้งไว้ที่ playfield)
-    */
-    .hvr-bubble::after{
-      content:"";
-      position:absolute;
-      inset:-22%;
-      border-radius:999px;
-      pointer-events:none;
-
-      /* derive tilt -> angle/shift (no JS needed) */
-      --tx: var(--tilt-x, 0);
-      --ty: var(--tilt-y, 0);
-      --tilt-ang: calc(145deg + (var(--tx) * 46deg) + (var(--ty) * 26deg));
-      --tilt-shift-x: calc(var(--tx) * 10px);
-      --tilt-shift-y: calc(var(--ty) * 6px);
-
-      background:
-        /* Micro-banding (เหมือนฟองจริง) */
-        repeating-conic-gradient(from var(--tilt-ang) at 50% 50%,
-          rgba(255,255,255,0) 0 6deg,
-          rgba(255,255,255,.05) 6deg 7deg,
-          rgba(255,255,255,0) 7deg 12deg
-        ),
-        /* Rainbow film (boosted) */
-        conic-gradient(from var(--tilt-ang) at 50% 50%,
-          rgba(255,  50, 120, .22),
-          rgba(  0, 210, 255, .22),
-          rgba( 80, 255, 210, .18),
-          rgba(255, 235, 120, .22),
-          rgba(190, 120, 255, .18),
-          rgba(255,  50, 120, .22)
-        ),
-        /* Edge glow assist */
-        radial-gradient(circle at 50% 55%,
-          rgba(255,255,255,0) 0 56%,
-          rgba(255,255,255,.06) 66%,
-          rgba(255,255,255,.00) 100%
-        );
-
-      transform: translate3d(var(--tilt-shift-x), var(--tilt-shift-y), 0);
-
-      opacity: var(--film-op, .90);
-      mix-blend-mode: screen;
-      filter: blur(0.28px) saturate(1.38) contrast(1.20);
-
-      /* mask ให้ไปอยู่ “ขอบ” จริง ๆ (core clear) */
-      -webkit-mask-image:
-        radial-gradient(circle at 50% 55%,
-          rgba(0,0,0,0) 0 58%,
-          rgba(0,0,0,.55) 70%,
-          rgba(0,0,0,1) 82%,
-          rgba(0,0,0,1) 100%);
-              mask-image:
-        radial-gradient(circle at 50% 55%,
-          rgba(0,0,0,0) 0 58%,
-          rgba(0,0,0,.55) 70%,
-          rgba(0,0,0,1) 82%,
-          rgba(0,0,0,1) 100%);
-    }
-
-    /* Rim line (บางแต่คม + นิดๆ chroma edge) */
-    .hvr-rim{
-      position:absolute;
-      inset:0;
-      border-radius:999px;
-      pointer-events:none;
-      box-shadow:
-        inset 0 0 0 1.25px rgba(255,255,255,.18),
-        0 0 0 1px rgba(255,255,255,.10),
-        0 0 18px var(--glow, rgba(255,255,255,.12));
-      opacity:1;
-      filter:
-        drop-shadow(1.3px 0 rgba(255, 60, 120, .22))
-        drop-shadow(-1.1px 0 rgba(0, 200, 255, .18));
-    }
-
-    /* Perfect ring marker */
-    .hvr-ring{
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform: translate(-50%,-50%);
-      border-radius:999px;
-      pointer-events:none;
-      box-shadow: 0 0 12px rgba(255,255,255,0.16);
-      opacity:.85;
-    }
-
-    /* Emoji icon */
-    .hvr-icon{
-      line-height:1;
-      user-select:none;
-      pointer-events:none;
-      filter: drop-shadow(0 3px 5px rgba(0,0,0,.34));
-    }
-
-    /* Type tuning (bubble stays clear; glow only) */
-    .hvr-target.hvr-good  { --glow: rgba(34,197,94,.22); }
-    .hvr-target.hvr-bad   { --glow: rgba(239,68,68,.22); }
-    .hvr-target.hvr-power { --glow: rgba(250,204,21,.26); }
-    .hvr-target.hvr-trick { --glow: rgba(167,139,250,.22); }
-
-    /* Storm => sway faster + film stronger + rim brighter */
-    .hvr-storm-on .hvr-bubble{
-      animation-duration: 0.62s;
-      filter: saturate(1.10) contrast(1.10);
-    }
-    .hvr-storm-on .hvr-bubble{ --film-op: 1.05; }
-    .hvr-storm-on .hvr-rim{ opacity:1; }
   `;
   DOC.head.appendChild(s);
 }
-
 function ensureOverlayHost () {
   if (!DOC) return null;
   ensureOverlayStyle();
@@ -309,24 +131,24 @@ function ensureOverlayHost () {
 // ======================================================
 //  Host resolver
 // ======================================================
-function resolveHost (rawCfg) {
+function resolveHost (rawCfg, keyName = 'spawnHost') {
   if (!DOC) return null;
 
-  const spawnHost = rawCfg && rawCfg.spawnHost;
-  if (spawnHost && typeof spawnHost === 'string') {
-    const el = DOC.querySelector(spawnHost);
+  const h = rawCfg && rawCfg[keyName];
+  if (h && typeof h === 'string') {
+    const el = DOC.querySelector(h);
     if (el) return el;
   }
-  if (spawnHost && spawnHost.nodeType === 1) return spawnHost;
+  if (h && h.nodeType === 1) return h;
 
   const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
-  if (spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
+  if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
 
   return ensureOverlayHost();
 }
 
 // ======================================================
-//  SAFE ZONE / EXCLUSION (กันทับ HUD)
+//  SAFE ZONE / EXCLUSION
 // ======================================================
 function collectExclusionElements(rawCfg){
   if (!DOC) return [];
@@ -342,11 +164,18 @@ function collectExclusionElements(rawCfg){
   }
 
   const AUTO = [
-    '.hud',
-    '#hvr-start',
+    '#hha-water-header',
+    '.hha-water-bar',
+    '.hha-main-row',
+    '#hha-card-left',
+    '#hha-card-right',
+    '.hha-bottom-row',
+    '.hha-fever-card',
+    '#hvr-crosshair',
+    '.hvr-crosshair',
     '#hvr-end',
-    '#hvr-screen-blink',
-    '#hvr-postfx'
+    '.hvr-end',
+    '.hud'
   ];
   AUTO.forEach(s=>{
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
@@ -385,16 +214,21 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    if (r.top <= hy1 + 2 && r.bottom > hy1) {
+    // reserve margin if exclusion overlaps edge zone (robust)
+    // top band
+    if (r.top < hy1 + 80 && r.bottom > hy1) {
       m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
-    if (r.bottom >= hy2 - 2 && r.top < hy2) {
+    // bottom band
+    if (r.bottom > hy2 - 80 && r.top < hy2) {
       m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
     }
-    if (r.left <= hx1 + 2 && r.right > hx1) {
+    // left band
+    if (r.left < hx1 + 80 && r.right > hx1) {
       m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
     }
-    if (r.right >= hx2 - 2 && r.left < hx2) {
+    // right band
+    if (r.right > hx2 - 80 && r.left < hx2) {
       m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
     }
   });
@@ -442,15 +276,22 @@ export async function boot (rawCfg = {}) {
     allowAdaptive = true,
     rhythm = null,
     trickRate = 0.08,
+
     spawnIntervalMul = null,
-    excludeSelectors = null
+    excludeSelectors = null,
+
+    // ✅ NEW
+    boundsHost = null,
+    decorateTarget = null
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
-  const host = resolveHost(rawCfg);
-  if (!host || !DOC) {
+  const hostSpawn = resolveHost(rawCfg, 'spawnHost');
+  const hostBounds = (boundsHost ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
+
+  if (!hostSpawn || !hostBounds || !DOC) {
     console.error('[mode-factory] host not found');
     return { stop () {}, shootCrosshair(){ return false; } };
   }
@@ -533,9 +374,10 @@ export async function boot (rawCfg = {}) {
   if (rhythmOn) {
     const bpm = clamp((rhythm && rhythm.bpm) ? rhythm.bpm : 110, 70, 160);
     beatMs = Math.round(60000 / bpm);
-    try { host.classList.add('hvr-rhythm-on'); } catch {}
+    try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
   }
 
+  // ✅ Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -545,9 +387,10 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
+  // ✅ life getter
   function getLifeMs(){
     const mul = getSpawnMul();
-    const stormLifeMul = (mul < 0.99) ? 0.85 : 1.0;
+    const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
     const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
     const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
 
@@ -556,7 +399,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Hit info + Crosshair shoot
+  //  perfect distance + crosshair shoot
   // ======================================================
   function computeHitInfoFromPoint(el, clientX, clientY){
     const r = el.getBoundingClientRect();
@@ -588,29 +431,10 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
-  // crosshair = center of usable host rect (exclude HUD margins)
-  const exState = {
-    els: collectExclusionElements({ excludeSelectors }),
-    margins: { top:0,bottom:0,left:0,right:0 },
-    lastRefreshTs: 0
-  };
-
-  function refreshExclusions(ts){
-    if (!DOC) return;
-    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 600) return;
-    exState.lastRefreshTs = ts;
-
-    exState.els = collectExclusionElements({ excludeSelectors });
-    let hostRect = null;
-    try{ hostRect = host.getBoundingClientRect(); }catch{}
-    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
-    exState.margins = computeExclusionMargins(hostRect, exState.els);
-  }
-
+  // crosshair uses bounds host (stable even if spawn layer moves)
   function getCrosshairPoint(){
     let rect = null;
-    try{ rect = host.getBoundingClientRect(); }catch{}
+    try{ rect = hostBounds.getBoundingClientRect(); }catch{}
     if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
 
     const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
@@ -624,7 +448,6 @@ export async function boot (rawCfg = {}) {
 
   function shootCrosshair(){
     if (stopped) return false;
-    refreshExclusions();
     const p = getCrosshairPoint();
     const hit = findTargetAtPoint(p.x, p.y);
     if (!hit) return false;
@@ -640,14 +463,36 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn target
+  //  Exclusions cache (computed from boundsHost)
+  // ======================================================
+  const exState = {
+    els: collectExclusionElements({ excludeSelectors }),
+    margins: { top:0,bottom:0,left:0,right:0 },
+    lastRefreshTs: 0
+  };
+
+  function refreshExclusions(ts){
+    if (!DOC) return;
+    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (ts - exState.lastRefreshTs < 600) return;
+    exState.lastRefreshTs = ts;
+
+    exState.els = collectExclusionElements({ excludeSelectors });
+    let hostRect = null;
+    try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
+    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    exState.margins = computeExclusionMargins(hostRect, exState.els);
+  }
+
+  // ======================================================
+  //  Spawn target inside hostSpawn using bounds from hostBounds
   // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
     refreshExclusions();
 
-    const rect = computePlayRectFromHost(host, exState);
+    const rect = computePlayRectFromHost(hostBounds, exState);
 
     const xLocal = rect.left + rect.width  * (0.15 + Math.random() * 0.70);
     const yLocal = rect.top  + rect.height * (0.10 + Math.random() * 0.80);
@@ -659,7 +504,7 @@ export async function boot (rawCfg = {}) {
     let ch = '💧';
     let isGood = true;
     let isPower = false;
-    let itemType = 'good'; // good | bad | power | fakeGood
+    let itemType = 'good';
 
     const canPower = Array.isArray(powerups) && powerups.length > 0;
     const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
@@ -681,7 +526,7 @@ export async function boot (rawCfg = {}) {
         isGood = true;
         itemType = 'good';
       } else {
-        ch = pickOne(poolsBad, '🍟');
+        ch = pickOne(poolsBad, '🥤');
         isGood = false;
         itemType = 'bad';
       }
@@ -693,64 +538,93 @@ export async function boot (rawCfg = {}) {
     el.setAttribute('data-hha-tgt', '1');
     el.setAttribute('data-item-type', itemType);
 
-    if (itemType === 'power') el.classList.add('hvr-power');
-    else if (itemType === 'fakeGood') el.classList.add('hvr-trick');
-    else if (!isGood) el.classList.add('hvr-bad');
-    else el.classList.add('hvr-good');
-
-    const baseSize = 84;
+    const baseSize = 78;
     const size = baseSize * curScale;
 
     el.style.position = 'absolute';
     el.style.left = xLocal + 'px';
     el.style.top  = yLocal + 'px';
+    el.style.transform = 'translate(-50%, -50%) scale(0.9)';
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
-    el.style.transform = 'translate(-50%, -50%) scale(0.88)';
     el.style.touchAction = 'manipulation';
     el.style.zIndex = '35';
+    el.style.borderRadius = '999px';
 
-    el.style.setProperty('--sx', (Math.random()<0.5?-1:1) * (0.85 + Math.random()*1.15));
-    el.style.setProperty('--rx', (Math.random()<0.5?-1:1) * (0.85 + Math.random()*1.15));
+    // wiggle layer (animated visuals)
+    const wiggle = DOC.createElement('div');
+    wiggle.className = 'hvr-wiggle';
+    wiggle.style.borderRadius = '999px';
 
-    const bubble = DOC.createElement('div');
-    bubble.className = 'hvr-bubble';
+    // default look (can be overridden by decorateTarget)
+    let bgGrad = '';
+    let ringGlow = '';
 
-    const fres = DOC.createElement('div');
-    fres.className = 'hvr-fresnel';
-    bubble.appendChild(fres);
-
-    const rim = DOC.createElement('div');
-    rim.className = 'hvr-rim';
-    bubble.appendChild(rim);
-
-    const ring = DOC.createElement('div');
-    ring.className = 'hvr-ring';
-    ring.style.width  = (size * 0.36) + 'px';
-    ring.style.height = (size * 0.36) + 'px';
-    ring.style.border = '2px solid rgba(255,255,255,0.30)';
-    bubble.appendChild(ring);
-
-    if (itemType === 'fakeGood') {
-      const sp = DOC.createElement('div');
-      sp.textContent = '✨';
-      sp.style.position = 'absolute';
-      sp.style.right = '8px';
-      sp.style.top = '6px';
-      sp.style.fontSize = '18px';
-      sp.style.opacity = '0.9';
-      sp.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.65))';
-      sp.style.pointerEvents = 'none';
-      bubble.appendChild(sp);
+    if (isPower) {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
+      ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
+    } else if (itemType === 'fakeGood') {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
+      ringGlow = '0 0 0 2px rgba(167,139,250,0.85), 0 0 22px rgba(167,139,250,0.9)';
+    } else if (isGood) {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
+      ringGlow = '0 0 0 2px rgba(74,222,128,0.75), 0 0 18px rgba(16,185,129,0.85)';
+    } else {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #fb923c, #ea580c)';
+      ringGlow = '0 0 0 2px rgba(248,113,113,0.75), 0 0 18px rgba(248,113,113,0.9)';
+      el.classList.add('bad');
     }
 
-    const icon = DOC.createElement('span');
-    icon.className = 'hvr-icon';
-    icon.textContent = ch;
-    icon.style.fontSize = (size * 0.62) + 'px';
-    bubble.appendChild(icon);
+    el.style.background = bgGrad;
+    el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
-    el.appendChild(bubble);
+    // ring (perfect hint)
+    const ring = DOC.createElement('div');
+    ring.style.position = 'absolute';
+    ring.style.left = '50%';
+    ring.style.top  = '50%';
+    ring.style.width  = (size * 0.36) + 'px';
+    ring.style.height = (size * 0.36) + 'px';
+    ring.style.transform = 'translate(-50%, -50%)';
+    ring.style.borderRadius = '999px';
+    ring.style.border = '2px solid rgba(255,255,255,0.35)';
+    ring.style.boxShadow = '0 0 12px rgba(255,255,255,0.18)';
+    ring.style.pointerEvents = 'none';
+
+    const inner = DOC.createElement('div');
+    inner.style.width = (size * 0.82) + 'px';
+    inner.style.height = (size * 0.82) + 'px';
+    inner.style.borderRadius = '999px';
+    inner.style.display = 'flex';
+    inner.style.alignItems = 'center';
+    inner.style.justifyContent = 'center';
+    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,0.12), rgba(15,23,42,0.36))';
+    inner.style.boxShadow = 'inset 0 4px 10px rgba(15,23,42,0.9)';
+
+    const icon = DOC.createElement('span');
+    icon.textContent = ch;
+    icon.style.fontSize = (size * 0.60) + 'px';
+    icon.style.lineHeight = '1';
+    icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+    inner.appendChild(icon);
+
+    // trick badge
+    let badge = null;
+    if (itemType === 'fakeGood') {
+      badge = DOC.createElement('div');
+      badge.textContent = '✨';
+      badge.style.position = 'absolute';
+      badge.style.right = '8px';
+      badge.style.top = '6px';
+      badge.style.fontSize = '18px';
+      badge.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+      badge.style.pointerEvents = 'none';
+    }
+
+    wiggle.appendChild(ring);
+    wiggle.appendChild(inner);
+    if (badge) wiggle.appendChild(badge);
+    el.appendChild(wiggle);
 
     if (rhythmOn) el.classList.add('hvr-pulse');
 
@@ -771,8 +645,24 @@ export async function boot (rawCfg = {}) {
       _hit: null
     };
 
+    // allow per-game decorate
+    try{
+      if (typeof decorateTarget === 'function'){
+        decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
+          size,
+          modeKey,
+          difficulty: diffKey,
+          spawnMul: getSpawnMul(),
+          curScale,
+          adaptLevel
+        });
+      }
+    }catch(err){
+      console.warn('[mode-factory] decorateTarget error', err);
+    }
+
     activeTargets.add(data);
-    host.appendChild(el);
+    hostSpawn.appendChild(el);
 
     function consumeHit(evOrSynth, hitInfoOpt){
       if (stopped) return;
@@ -785,7 +675,7 @@ export async function boot (rawCfg = {}) {
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
       try { el.removeEventListener('click', handleHit); } catch {}
       try { el.removeEventListener('touchstart', handleHit); } catch {}
-      try { host.removeChild(el); } catch {}
+      try { hostSpawn.removeChild(el); } catch {}
 
       let res = null;
       if (typeof judge === 'function') {
@@ -794,7 +684,7 @@ export async function boot (rawCfg = {}) {
           : getEventXY(evOrSynth || {});
         const info = hitInfoOpt || (keepRect ? (function(){
           const cx = keepRect.left + keepRect.width/2;
-          const cy = keepRect.top + keepRect.height/2;
+          const cy = keepRect.top  + keepRect.height/2;
           const dx = (xy.x - cx);
           const dy = (xy.y - cy);
           const dist = Math.sqrt(dx*dx + dy*dy);
@@ -805,7 +695,7 @@ export async function boot (rawCfg = {}) {
         })() : computeHitInfoFromPoint(el, xy.x, xy.y));
 
         const ctx = {
-          clientX: xy.x, clientY: xy.y,
+          clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
           isGood, isPower,
           itemType,
           hitPerfect: !!info.perfect,
@@ -849,7 +739,7 @@ export async function boot (rawCfg = {}) {
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
       try { el.removeEventListener('click', handleHit); } catch {}
       try { el.removeEventListener('touchstart', handleHit); } catch {}
-      try { host.removeChild(el); } catch {}
+      try { hostSpawn.removeChild(el); } catch {}
 
       try { if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, itemType }); } catch (err) {
         console.error('[mode-factory] onExpire error', err);
@@ -857,7 +747,7 @@ export async function boot (rawCfg = {}) {
     }, lifeMs);
   }
 
-  // ---------- clock ----------
+  // ---------- clock (hha:time) ----------
   function dispatchTime (sec) {
     try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
@@ -889,8 +779,8 @@ export async function boot (rawCfg = {}) {
       const effInterval = Math.max(35, curInterval * mul);
 
       try{
-        if (mul < 0.99) host.classList.add('hvr-storm-on');
-        else host.classList.remove('hvr-storm-on');
+        if (mul < 0.99) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
+        else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
       }catch{}
 
       if (rhythmOn && beatMs > 0) {
@@ -931,7 +821,6 @@ export async function boot (rawCfg = {}) {
   const onStopEvent = () => stop();
   ROOT.addEventListener('hha:stop', onStopEvent);
 
-  ensureOverlayStyle(); // ✅ make sure style exists
   rafId = ROOT.requestAnimationFrame(loop);
 
   return {
