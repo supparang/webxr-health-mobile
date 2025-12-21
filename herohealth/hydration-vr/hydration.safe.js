@@ -1,20 +1,18 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION (Fix black screen / zero-size playfield on mobile)
+// Hydration Quest VR — PRODUCTION (Hard fix: mobile black screen / no targets)
 //
-// ✅ Fix "จอดำ": force #hvr-playfield = fixed fullscreen + re-check size (mobile address bar)
-// ✅ mode-factory (DOM target spawner + crosshair shoot + perfect ring)
-// ✅ คืน FX: score pop + judgment + burst (Particles)
-// ✅ Drag view: เลื่อนจอแล้วเป้าเลื่อนตาม (host transform)
-// ✅ PERFECT: ดาวแตกหนัก ๆ + chroma flash + burst
-// ✅ Storm: sway แรง/เร็ว + speedlines + wobble + chroma split ต่อเนื่อง (แดงแรงขึ้น)
-// ✅ Fix zone counting: ใช้ zone จาก ui-water (LOW/GREEN/HIGH) แล้ว map เป็น BLUE/GREEN/RED
+// ✅ Wait for playfield rect > 0 before boot mode-factory (mobile viewport settle)
+// ✅ Force playfield fullscreen (100svh) even if HTML uses absolute
+// ✅ Bubble target skin (soap bubble): almost transparent body + strong rainbow rim
+// ✅ Device-tilt shimmer (reactive)
+// ✅ PERFECT: heavy star burst + particles + blink
+// ✅ Storm: strong chroma split (red edge) + wobble + speedlines + target sway faster
+// ✅ Zone counting fix: LOW/GREEN/HIGH -> BLUE/GREEN/RED (count uses latest zone)
 //
-// Paths:
-// /herohealth/hydration-vr.html
-// /herohealth/hydration-vr/hydration.safe.js
-// /herohealth/vr/mode-factory.js
-// /herohealth/vr/ui-water.js
-// /herohealth/vr/particles.js
+// Depends:
+//   /herohealth/vr/mode-factory.js
+//   /herohealth/vr/ui-water.js
+//   /herohealth/vr/particles.js (IIFE)
 
 'use strict';
 
@@ -34,9 +32,9 @@ function now(){ return (typeof performance!=='undefined' && performance.now)?per
 function $id(id){ return DOC ? DOC.getElementById(id) : null; }
 function addClass(el, c){ try{ el && el.classList.add(c); }catch{} }
 function removeClass(el, c){ try{ el && el.classList.remove(c); }catch{} }
+function setText(id, txt){ const el=$id(id); if(el) el.textContent=String(txt); }
 
 function zoneLabelFrom(zone){
-  // ui-water: LOW / GREEN / HIGH
   if (zone === 'LOW') return 'BLUE';
   if (zone === 'HIGH') return 'RED';
   return 'GREEN';
@@ -50,22 +48,7 @@ function gradeFrom(score){
   return 'C';
 }
 
-function ensureEl(id, tag='div', parent=DOC.body){
-  if (!DOC) return null;
-  let el = DOC.getElementById(id);
-  if (el && el.isConnected) return el;
-  el = DOC.createElement(tag);
-  el.id = id;
-  parent.appendChild(el);
-  return el;
-}
-
-function setText(id, txt){
-  const el = $id(id);
-  if (el) el.textContent = String(txt);
-}
-
-function ensureBasePageLock(){
+function ensureBaseLock(){
   if (!DOC) return;
   try{
     DOC.documentElement.style.height = '100%';
@@ -76,7 +59,6 @@ function ensureBasePageLock(){
   }catch{}
 }
 
-// ✅ IMPORTANT: full-screen playfield for mobile (fix spawn area = 0)
 function forceFullscreenPlayfield(playfield, wrap){
   if (!playfield) return;
   try{
@@ -87,7 +69,7 @@ function forceFullscreenPlayfield(playfield, wrap){
       wrap.style.touchAction = 'none';
     }
     Object.assign(playfield.style, {
-      position: 'fixed',      // << key fix
+      position: 'fixed',     // key fix (override absolute)
       inset: '0',
       width: '100vw',
       height: '100vh',
@@ -101,11 +83,31 @@ function forceFullscreenPlayfield(playfield, wrap){
       background: 'transparent',
       transform: playfield.style.transform || 'translate3d(0,0,0)'
     });
-
-    // modern viewport units (better on mobile)
+    // better on mobile
     playfield.style.height = '100svh';
     playfield.style.minHeight = '100svh';
   }catch{}
+}
+
+async function waitForPlayfieldReady(playfield, wrap, errBox){
+  const minW = 120, minH = 120;
+  for (let i=0;i<50;i++){
+    forceFullscreenPlayfield(playfield, wrap);
+    const r = playfield.getBoundingClientRect();
+    if (r.width >= minW && r.height >= minH) return r;
+
+    // mobile address bar settle
+    await new Promise(res=>ROOT.setTimeout(res, (i<10?40:60)));
+  }
+  const r = playfield.getBoundingClientRect();
+  if (errBox){
+    errBox.classList.add('on');
+    errBox.textContent =
+      `❌ Playfield size not ready\n`+
+      `rect: ${Math.round(r.width)}x${Math.round(r.height)}\n`+
+      `Try: hard refresh / check CSS overflow / viewport meta.\n`;
+  }
+  return r;
 }
 
 function ensureHydrationStyle(){
@@ -113,25 +115,19 @@ function ensureHydrationStyle(){
   const s = DOC.createElement('style');
   s.id = 'hvr-hydration-style';
   s.textContent = `
-    #hvr-playfield{
-      --view-x: 0px;
-      --view-y: 0px;
-      --tilt-x: 0;
-      --tilt-y: 0;
-    }
+    #hvr-playfield{ --view-x:0px; --view-y:0px; --tilt-x:0; --tilt-y:0; }
 
-    /* parallax layers */
+    /* parallax */
     .hvr-parallax{
-      position:absolute;
-      inset:-14%;
+      position:absolute; inset:-14%;
       pointer-events:none;
-      transform: translate3d(calc(var(--view-x) * var(--px, 0.2)), calc(var(--view-y) * var(--py, 0.2)), 0);
+      transform: translate3d(calc(var(--view-x) * var(--px,0.2)), calc(var(--view-y) * var(--py,0.2)), 0);
       will-change: transform;
-      opacity: var(--op, 0.32);
-      filter: blur(var(--blur, 0px)) saturate(1.05) contrast(1.05);
+      opacity: var(--op,0.30);
+      filter: blur(var(--blur,0px)) saturate(1.05) contrast(1.05);
     }
     .hvr-parallax.l1{
-      --px: 0.16; --py: 0.12; --op:0.28; --blur:0px;
+      --px:0.16; --py:0.12; --op:0.28; --blur:0px;
       background:
         radial-gradient(920px 640px at 20% 18%, rgba(96,165,250,.20), transparent 60%),
         radial-gradient(840px 660px at 80% 20%, rgba(34,197,94,.18), transparent 60%),
@@ -139,183 +135,151 @@ function ensureHydrationStyle(){
       mix-blend-mode: screen;
     }
     .hvr-parallax.l2{
-      --px: 0.44; --py: 0.36; --op:0.18; --blur:0.25px;
+      --px:0.44; --py:0.36; --op:0.18; --blur:0.25px;
       background:
         repeating-radial-gradient(circle at 32% 42%, rgba(255,255,255,.085) 0 2px, transparent 2px 28px),
         repeating-linear-gradient(45deg, rgba(59,130,246,.060) 0 1px, transparent 1px 20px);
       mix-blend-mode: overlay;
-      transform: translate3d(calc(var(--view-x) * var(--px, 0.44)), calc(var(--view-y) * var(--py, 0.36)), 0) rotate(0.0001deg);
     }
 
-    /* chroma split (strong red edge) */
+    /* strong chroma (red edge) */
     #hvr-wrap.hvr-chroma-strong{
       filter:
-        drop-shadow(4.6px 0 rgba(255, 40, 80, 0.72))
-        drop-shadow(-2.8px 0 rgba(0, 205, 255, 0.34))
-        drop-shadow(0 0 10px rgba(255, 255, 255, 0.06));
+        drop-shadow(5.0px 0 rgba(255, 40, 80, 0.78))
+        drop-shadow(-3.2px 0 rgba(0, 205, 255, 0.36))
+        drop-shadow(0 0 12px rgba(255,255,255,0.06));
     }
 
     /* wobble */
-    #hvr-wrap.hvr-wobble{
-      animation: hvrWobble 0.95s ease-in-out infinite;
-      will-change: transform, filter;
-    }
+    #hvr-wrap.hvr-wobble{ animation:hvrWobble 0.95s ease-in-out infinite; will-change:transform,filter; }
     @keyframes hvrWobble{
-      0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      20%{ transform: translate3d(0.9px,-0.6px,0) rotate(0.05deg); }
-      50%{ transform: translate3d(-1.0px,0.8px,0) rotate(-0.05deg); }
-      80%{ transform: translate3d(0.7px,0.9px,0) rotate(0.03deg); }
-      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+      0%{transform:translate3d(0,0,0) rotate(0deg)}
+      20%{transform:translate3d(.9px,-.6px,0) rotate(.05deg)}
+      50%{transform:translate3d(-1.0px,.8px,0) rotate(-.05deg)}
+      80%{transform:translate3d(.7px,.9px,0) rotate(.03deg)}
+      100%{transform:translate3d(0,0,0) rotate(0deg)}
     }
 
     /* speedlines */
     .hvr-speedlines{
-      position:fixed;
-      inset:-22%;
+      position:fixed; inset:-22%;
       pointer-events:none;
       z-index:99960;
       opacity:0;
-      mix-blend-mode: screen;
+      mix-blend-mode:screen;
       background:
         repeating-linear-gradient(110deg,
-          rgba(255,255,255,.00) 0 14px,
+          rgba(255,255,255,0) 0 14px,
           rgba(255,80,120,.14) 14px 16px,
           rgba(0,205,255,.10) 16px 18px,
-          rgba(255,255,255,.00) 18px 40px
+          rgba(255,255,255,0) 18px 40px
         );
-      filter: blur(0.65px) saturate(1.12) contrast(1.10);
-      animation: hvrLines 0.28s linear infinite;
-      transform: translate3d(0,0,0);
-      will-change: transform, opacity;
+      filter:blur(.65px) saturate(1.12) contrast(1.10);
+      animation:hvrLines .28s linear infinite;
+      transform:translate3d(0,0,0);
+      will-change:transform,opacity;
     }
-    @keyframes hvrLines{
-      0%{ transform: translate3d(-12px, -12px, 0); }
-      100%{ transform: translate3d(32px, 26px, 0); }
-    }
-    .hvr-speedlines.on{ opacity:0.34; }
+    @keyframes hvrLines{ 0%{transform:translate3d(-12px,-12px,0)} 100%{transform:translate3d(32px,26px,0)} }
+    .hvr-speedlines.on{ opacity:.34; }
 
-    /* blink */
-    #hvr-screen-blink{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:99980;
-      opacity:0;
-      transition:opacity 90ms ease;
-      mix-blend-mode:screen;
-    }
-    #hvr-screen-blink.on{ opacity:1; }
-    #hvr-screen-blink.good{ background:rgba(34,197,94,.22); }
-    #hvr-screen-blink.bad{ background:rgba(239,68,68,.22); }
-    #hvr-screen-blink.perfect{ background:rgba(255,255,255,.20); }
-
-    /* ===== Bubble target skin ===== */
-    .hvr-target{
-      border-radius: 999px !important;
-      background: transparent !important;
-      box-shadow: none !important;
-      overflow: visible !important;
+    /* ===== Bubble target skin (support many target classes) ===== */
+    .hvr-target, .hha-target, .hha-dom-target, .hha-tgt, .target, [data-hha-target]{
+      border-radius:999px !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      overflow:visible !important;
       isolation:isolate;
-      will-change: transform;
-      opacity: 1 !important;
-      display: block !important;
-      pointer-events: auto !important;
-      z-index: 30 !important; /* ensure above background */
+      will-change:transform;
+      opacity:1 !important;
+      display:block !important;
+      pointer-events:auto !important;
+      z-index:30 !important;
     }
 
-    .hvr-target .hvr-bubble{
-      position:absolute;
-      inset:0;
+    .hvr-bubble{
+      position:absolute; inset:0;
       border-radius:999px;
       background:
         radial-gradient(circle at 30% 25%,
           rgba(255,255,255,.08),
           rgba(255,255,255,.02) 34%,
           rgba(255,255,255,.01) 55%,
-          rgba(255,255,255,.00) 68%),
+          rgba(255,255,255,0) 70%),
         radial-gradient(circle at 50% 60%,
           rgba(120,180,255,.04),
-          rgba(255,255,255,.00) 62%);
-      backdrop-filter: blur(0.6px);
-      -webkit-backdrop-filter: blur(0.6px);
-      opacity:0.92;
+          rgba(255,255,255,0) 62%);
+      backdrop-filter: blur(.6px);
+      -webkit-backdrop-filter: blur(.6px);
+      opacity:.92;
       pointer-events:none;
     }
 
-    .hvr-target .hvr-film{
-      position:absolute;
-      inset:-2px;
+    .hvr-film{
+      position:absolute; inset:-2px;
       border-radius:999px;
       background:
         conic-gradient(from calc(120deg + (var(--tilt-x) * 18deg) + (var(--tilt-y) * 10deg)),
-          rgba(255,60,120,.00),
-          rgba(255,60,120,.40),
-          rgba(0,205,255,.40),
-          rgba(140,255,160,.32),
-          rgba(255,230,120,.34),
-          rgba(170,120,255,.34),
-          rgba(255,60,120,.38),
-          rgba(255,60,120,.00)
+          rgba(255,60,120,0),
+          rgba(255,60,120,.46),
+          rgba(0,205,255,.46),
+          rgba(140,255,160,.36),
+          rgba(255,230,120,.40),
+          rgba(170,120,255,.40),
+          rgba(255,60,120,.44),
+          rgba(255,60,120,0)
         );
-      filter: blur(0.32px) saturate(1.28) contrast(1.12);
-      opacity:0.62; /* stronger rainbow rim */
-      mix-blend-mode: screen;
+      filter: blur(.32px) saturate(1.35) contrast(1.16);
+      opacity:.70; /* rainbow rim stronger */
+      mix-blend-mode:screen;
       pointer-events:none;
       mask: radial-gradient(circle at center, transparent 66%, #000 70%);
       -webkit-mask: radial-gradient(circle at center, transparent 66%, #000 70%);
     }
 
-    .hvr-target .hvr-rim{
-      position:absolute;
-      inset:0;
+    .hvr-rim{
+      position:absolute; inset:0;
       border-radius:999px;
       box-shadow:
-        0 0 0 1px rgba(255,255,255,.13),
+        0 0 0 1px rgba(255,255,255,.14),
         0 0 18px rgba(255,255,255,.08),
-        0 0 26px rgba(0,205,255,.10),
-        0 0 26px rgba(255,60,120,.10);
-      opacity:0.70;
+        0 0 28px rgba(0,205,255,.12),
+        0 0 28px rgba(255,60,120,.12);
+      opacity:.72;
       pointer-events:none;
     }
 
-    .hvr-target .hvr-shimmer{
-      position:absolute;
-      inset:-8%;
+    .hvr-shimmer{
+      position:absolute; inset:-8%;
       border-radius:999px;
       background:
         radial-gradient(140px 90px at calc(50% + (var(--tilt-x) * 30%)) calc(40% + (var(--tilt-y) * 22%)),
-          rgba(255,255,255,.16),
+          rgba(255,255,255,.18),
           rgba(255,255,255,.02) 55%,
-          rgba(255,255,255,.00) 70%);
-      mix-blend-mode: screen;
-      opacity:0.44;
-      filter: blur(0.2px);
+          rgba(255,255,255,0) 72%);
+      mix-blend-mode:screen;
+      opacity:.46;
+      filter: blur(.2px);
       pointer-events:none;
-      transform: translate3d(0,0,0);
-      animation: hvrShimmer 1.35s ease-in-out infinite;
+      animation:hvrShimmer 1.35s ease-in-out infinite;
     }
     @keyframes hvrShimmer{
-      0%{ transform: translate3d(-1px,-1px,0) rotate(-0.05deg); opacity:.36; }
-      50%{ transform: translate3d(1px,1px,0) rotate(0.05deg); opacity:.52; }
-      100%{ transform: translate3d(-1px,-1px,0) rotate(-0.05deg); opacity:.36; }
+      0%{ transform:translate3d(-1px,-1px,0) rotate(-.05deg); opacity:.36; }
+      50%{ transform:translate3d( 1px, 1px,0) rotate( .05deg); opacity:.54; }
+      100%{ transform:translate3d(-1px,-1px,0) rotate(-.05deg); opacity:.36; }
     }
 
-    .hvr-target .hvr-icon{
+    .hvr-icon{
       position:absolute;
-      left:50%;
-      top:50%;
-      transform: translate(-50%,-50%) scale(0.98);
+      left:50%; top:50%;
+      transform: translate(-50%,-50%) scale(.98);
       filter: drop-shadow(0 3px 6px rgba(0,0,0,.55));
-      opacity:0.90;
+      opacity:.90;
       pointer-events:none;
-      user-select:none;
-      -webkit-user-select:none;
+      user-select:none; -webkit-user-select:none;
     }
 
-    .hvr-target .hvr-perfect-ring{
-      position:absolute;
-      left:50%;
-      top:50%;
+    .hvr-perfect-ring{
+      position:absolute; left:50%; top:50%;
       transform: translate(-50%,-50%);
       border-radius:999px;
       border:2px solid rgba(255,255,255,.40);
@@ -323,26 +287,25 @@ function ensureHydrationStyle(){
         0 0 10px rgba(255,255,255,.18),
         0 0 18px rgba(255,60,120,.16),
         0 0 18px rgba(0,205,255,.12);
-      pointer-events:none;
       opacity:.75;
-      width:36%;
-      height:36%;
+      width:36%; height:36%;
+      pointer-events:none;
     }
 
-    .hvr-target.hvr-float{ animation: hvrFloat 1.65s ease-in-out infinite; }
+    .hvr-float{ animation:hvrFloat 1.65s ease-in-out infinite; }
     @keyframes hvrFloat{
-      0%{ transform: translate(-50%,-50%) translate3d(0,0,0) rotate(0deg); }
-      35%{ transform: translate(-50%,-50%) translate3d(1.6px,-1.2px,0) rotate(0.10deg); }
-      70%{ transform: translate(-50%,-50%) translate3d(-1.4px,1.8px,0) rotate(-0.10deg); }
-      100%{ transform: translate(-50%,-50%) translate3d(0,0,0) rotate(0deg); }
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      35%{ transform: translate3d(1.6px,-1.2px,0) rotate(.10deg); }
+      70%{ transform: translate3d(-1.4px,1.8px,0) rotate(-.10deg); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
     }
-    .hvr-storm-on .hvr-target.hvr-float{ animation: hvrFloatStorm 0.85s ease-in-out infinite; }
+    .hvr-storm-on .hvr-float{ animation:hvrFloatStorm .85s ease-in-out infinite; }
     @keyframes hvrFloatStorm{
-      0%{ transform: translate(-50%,-50%) translate3d(0,0,0) rotate(0deg); }
-      25%{ transform: translate(-50%,-50%) translate3d(3.0px,-2.3px,0) rotate(0.22deg); }
-      50%{ transform: translate(-50%,-50%) translate3d(-3.2px,2.6px,0) rotate(-0.22deg); }
-      75%{ transform: translate(-50%,-50%) translate3d(2.4px,3.0px,0) rotate(0.16deg); }
-      100%{ transform: translate(-50%,-50%) translate3d(0,0,0) rotate(0deg); }
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      25%{ transform: translate3d(3.0px,-2.3px,0) rotate(.22deg); }
+      50%{ transform: translate3d(-3.2px,2.6px,0) rotate(-.22deg); }
+      75%{ transform: translate3d(2.4px,3.0px,0) rotate(.16deg); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
     }
   `;
   DOC.head.appendChild(s);
@@ -350,13 +313,10 @@ function ensureHydrationStyle(){
 
 function ensurePostFXCanvas(){
   if (!DOC) return null;
-  let c = $id('hvr-postfx');
-  if (!c){
-    c = DOC.createElement('canvas');
-    c.id = 'hvr-postfx';
-    DOC.body.appendChild(c);
-  }
+  const c = $id('hvr-postfx');
+  if (!c) return null;
   const ctx = c.getContext('2d');
+
   function resize(){
     const dpr = Math.max(1, Math.min(2, ROOT.devicePixelRatio || 1));
     c.width  = Math.floor((ROOT.innerWidth||1) * dpr);
@@ -413,7 +373,17 @@ function drawStarBurst(ctx, x, y, t, strength=1){
   ctx.restore();
 }
 
-// Make mode-factory targets become bubble skin
+// Apply bubble skin to targets created by mode-factory (supports multiple class names)
+function isLikelyTarget(el){
+  if (!el || el.nodeType !== 1) return false;
+  const c = el.classList;
+  if (!c) return false;
+  if (c.contains('hvr-target') || c.contains('hha-target') || c.contains('hha-dom-target') || c.contains('hha-tgt')) return true;
+  if (c.contains('target')) return true;
+  if (el.hasAttribute && el.hasAttribute('data-hha-target')) return true;
+  return false;
+}
+
 function mountBubbleSkin(host){
   if (!DOC || !host) return ()=>{};
   const apply = (el)=>{
@@ -421,7 +391,7 @@ function mountBubbleSkin(host){
     if (el.__hvrBubbleApplied) return;
     el.__hvrBubbleApplied = true;
 
-    // hard force visible
+    // make sure target is visible
     try{
       el.style.opacity = '1';
       el.style.display = 'block';
@@ -429,23 +399,30 @@ function mountBubbleSkin(host){
       el.style.zIndex = '30';
     }catch{}
 
-    // bubble layers
+    // icon: find span/img (emoji or image)
+    let icon = null;
+    try{
+      icon = el.querySelector('span, img, .emoji, .icon');
+    }catch{}
+    if (icon){
+      try{
+        icon.classList.add('hvr-icon');
+        // if it's span emoji, center it
+        if (icon.tagName === 'SPAN'){
+          icon.style.position = 'absolute';
+          icon.style.left = '50%';
+          icon.style.top = '50%';
+          icon.style.transform = 'translate(-50%,-50%) scale(.98)';
+        }
+      }catch{}
+    }
+
+    // layers
     const bubble = DOC.createElement('div'); bubble.className = 'hvr-bubble';
     const film   = DOC.createElement('div'); film.className   = 'hvr-film';
     const rim    = DOC.createElement('div'); rim.className    = 'hvr-rim';
     const shim   = DOC.createElement('div'); shim.className   = 'hvr-shimmer';
     const pr     = DOC.createElement('div'); pr.className     = 'hvr-perfect-ring';
-
-    // icon
-    let iconSpan = null;
-    try{ iconSpan = el.querySelector('span'); }catch{}
-    if (iconSpan){
-      iconSpan.classList.add('hvr-icon');
-      try{
-        iconSpan.style.opacity = '0.90';
-        iconSpan.style.transform = 'translate(-50%,-50%) scale(0.98)';
-      }catch{}
-    }
 
     el.appendChild(bubble);
     el.appendChild(film);
@@ -456,14 +433,20 @@ function mountBubbleSkin(host){
     addClass(el, 'hvr-float');
   };
 
-  try{ host.querySelectorAll('.hvr-target').forEach(apply); }catch{}
+  // initial scan
+  try{
+    host.querySelectorAll('.hvr-target,.hha-target,.hha-dom-target,.hha-tgt,.target,[data-hha-target]').forEach(apply);
+  }catch{}
+
   const mo = new MutationObserver((muts)=>{
     for (const m of muts){
       for (const n of m.addedNodes){
         if (!n || n.nodeType !== 1) continue;
-        if (n.classList && n.classList.contains('hvr-target')) apply(n);
+        if (isLikelyTarget(n)) apply(n);
         else{
-          try{ n.querySelectorAll && n.querySelectorAll('.hvr-target').forEach(apply); }catch{}
+          try{
+            n.querySelectorAll && n.querySelectorAll('.hvr-target,.hha-target,.hha-dom-target,.hha-tgt,.target,[data-hha-target]').forEach(apply);
+          }catch{}
         }
       }
     }
@@ -472,7 +455,6 @@ function mountBubbleSkin(host){
   return ()=>{ try{ mo.disconnect(); }catch{} };
 }
 
-// tiny blink helper
 function blinkOn(blink, kind, ms=110){
   if (!blink) return;
   blink.className = '';
@@ -484,28 +466,32 @@ function blinkOn(blink, kind, ms=110){
 export async function boot(opts = {}){
   if (!DOC) return { stop(){} };
 
-  ensureBasePageLock();
+  ensureBaseLock();
   ensureHydrationStyle();
   ensureWaterGauge();
 
-  const wrap = $id('hvr-wrap') || ensureEl('hvr-wrap','div', DOC.body);
-  const playfield = $id('hvr-playfield') || ensureEl('hvr-playfield','div', wrap);
+  const wrap      = $id('hvr-wrap');
+  const playfield = $id('hvr-playfield');
+  const blink     = $id('hvr-screen-blink');
+  const errBox    = $id('hvr-error');
 
-  // ✅ force fullscreen now + after viewport settles (mobile)
+  if (!wrap || !playfield){
+    if (errBox){
+      errBox.classList.add('on');
+      errBox.textContent = '❌ Missing #hvr-wrap or #hvr-playfield';
+    }
+    return { stop(){} };
+  }
+
+  // force fullscreen + wait for real rect
   forceFullscreenPlayfield(playfield, wrap);
-  ROOT.setTimeout(()=>forceFullscreenPlayfield(playfield, wrap), 80);
-  ROOT.setTimeout(()=>forceFullscreenPlayfield(playfield, wrap), 380);
+  await waitForPlayfieldReady(playfield, wrap, errBox);
 
-  // helpers
-  const blink = $id('hvr-screen-blink') || ensureEl('hvr-screen-blink','div', DOC.body);
-  const endEl = $id('hvr-end') || ensureEl('hvr-end','div', DOC.body);
-
-  // parallax
-  if (playfield && !playfield.querySelector('.hvr-parallax')){
-    const l1 = DOC.createElement('div'); l1.className = 'hvr-parallax l1';
-    const l2 = DOC.createElement('div'); l2.className = 'hvr-parallax l2';
-    playfield.appendChild(l1);
-    playfield.appendChild(l2);
+  // parallax layers
+  if (!playfield.querySelector('.hvr-parallax')){
+    const l1 = DOC.createElement('div'); l1.className='hvr-parallax l1';
+    const l2 = DOC.createElement('div'); l2.className='hvr-parallax l2';
+    playfield.appendChild(l1); playfield.appendChild(l2);
   }
 
   // speedlines
@@ -519,45 +505,36 @@ export async function boot(opts = {}){
   const post = ensurePostFXCanvas();
   const unmountBubble = mountBubbleSkin(playfield);
 
-  // ✅ small delay to let mobile layout finalize before mode-factory reads host rect
-  await new Promise(r=>ROOT.setTimeout(r, 120));
-
   // difficulty
   const diff = String(opts.difficulty || 'easy').toLowerCase();
   const duration = clamp(opts.duration ?? 90, 20, 180);
 
-  // pools
   const GOOD  = ['💧','🧊','🫧','🥤'];
   const BAD   = ['🍟','🍩','🍕','🧋'];
   const POWER = ['⭐','⚡','✨'];
 
-  // state
   const s = {
-    running: true,
-    score: 0,
-    combo: 0,
-    comboMax: 0,
-    miss: 0,
+    running:true,
+    score:0,
+    combo:0,
+    comboMax:0,
+    miss:0,
 
-    water: 50,
-    zone: 'GREEN',      // LOW/GREEN/HIGH
-    zoneLabel: 'GREEN', // BLUE/GREEN/RED
-    greenTick: 0,
-    badTick: 0,
+    water:50,
+    zone:'GREEN',
+    zoneLabel:'GREEN',
 
-    timeLeft: duration,
+    greenTick:0,
+    badTick:0,
+    timeLeft:duration,
 
-    viewX: 0,
-    viewY: 0,
+    viewX:0, viewY:0,
 
-    stormOn: false,
-    stormUntil: 0,
-    stormStrength: 0,
+    stormOn:false,
+    stormUntil:0,
+    stormStrength:0,
 
-    tiltX: 0,
-    tiltY: 0,
-
-    sparks: []
+    sparks:[]
   };
 
   function hud(){
@@ -578,7 +555,7 @@ export async function boot(opts = {}){
     const qg = $id('hha-quest-goal');
     const qm = $id('hha-quest-mini');
     if (qg) qg.textContent = `Goal: ⏳ อยู่ GREEN ≥ 16s (ตอนนี้ ${s.greenTick}/16) • ⛔ อยู่ BLUE/RED รวมไม่เกิน 32s (bad ${s.badTick}/32)`;
-    if (qm) qm.textContent = `Mini: ✅ Combo ${s.comboMax}/8 • ✅ Perfect — • ✅ NoJunk —`;
+    if (qm) qm.textContent = `Mini: ✅ Combo Max ${s.comboMax}/8 • ✅ Perfect • ✅ NoJunk`;
   }
 
   function applyView(){
@@ -600,48 +577,40 @@ export async function boot(opts = {}){
     const zt = $id('hha-water-zone-text');
     if (zt) zt.textContent = `ZONE ${s.zoneLabel}`;
 
-    return { zone: z, label: s.zoneLabel };
+    return { zone:z, label:s.zoneLabel };
   }
 
   function setStorm(on, strength=1){
     s.stormOn = !!on;
     s.stormStrength = clamp(strength, 0, 1.25);
 
-    if (wrap){
-      if (s.stormOn){
-        addClass(wrap,'hvr-chroma-strong');
-        addClass(wrap,'hvr-wobble');
-      }else{
-        removeClass(wrap,'hvr-chroma-strong');
-        removeClass(wrap,'hvr-wobble');
-      }
+    if (s.stormOn){
+      addClass(wrap,'hvr-chroma-strong');
+      addClass(wrap,'hvr-wobble');
+      addClass(speedLines,'on');
+      addClass(playfield,'hvr-storm-on');
+    }else{
+      removeClass(wrap,'hvr-chroma-strong');
+      removeClass(wrap,'hvr-wobble');
+      removeClass(speedLines,'on');
+      removeClass(playfield,'hvr-storm-on');
     }
-    if (speedLines){
-      if (s.stormOn) addClass(speedLines,'on');
-      else removeClass(speedLines,'on');
-    }
-    // also toggle host class for target sway
-    try{
-      if (s.stormOn) playfield.classList.add('hvr-storm-on');
-      else playfield.classList.remove('hvr-storm-on');
-    }catch{}
   }
   function maybeStormTick(){
     const t = now();
     if (s.stormOn && t > s.stormUntil) setStorm(false, 0);
   }
 
-  // device tilt vars
+  // tilt shimmer
   const onOri = (e)=>{
     const gx = clamp((e.gamma||0)/30, -1, 1);
     const gy = clamp((e.beta||0)/40, -1, 1);
-    s.tiltX=gx; s.tiltY=gy;
     playfield.style.setProperty('--tilt-x', gx.toFixed(3));
     playfield.style.setProperty('--tilt-y', gy.toFixed(3));
   };
   ROOT.addEventListener('deviceorientation', onOri, { passive:true });
 
-  // postfx loop
+  // post fx loop
   let fxRaf = null;
   function fxLoop(){
     if (!post || !post.ctx) return;
@@ -659,8 +628,8 @@ export async function boot(opts = {}){
       drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.80 + 0.60*k));
     }
     s.sparks = out;
-
     ctx.globalAlpha = 1;
+
     fxRaf = ROOT.requestAnimationFrame(fxLoop);
   }
   fxRaf = ROOT.requestAnimationFrame(fxLoop);
@@ -687,7 +656,7 @@ export async function boot(opts = {}){
     blinkOn(blink,'bad',120);
   }
 
-  // judge from mode-factory
+  // judge callback
   function judge(ch, ctx){
     const x = ctx?.clientX || (ctx?.targetRect?.left + (ctx?.targetRect?.width||0)/2) || (ROOT.innerWidth/2);
     const y = ctx?.clientY || (ctx?.targetRect?.top + (ctx?.targetRect?.height||0)/2) || (ROOT.innerHeight/2);
@@ -737,12 +706,15 @@ export async function boot(opts = {}){
       s.comboMax = Math.max(s.comboMax, s.combo);
       updateWater(+9);
       goodFX(x,y,'POWER +95','power');
+
       s.stormUntil = now() + 6800;
       setStorm(true, 1.05);
+
       hud();
       return { scoreDelta:+95, good:true };
     }
 
+    // normal good
     s.score += 55;
     s.combo += 1;
     s.comboMax = Math.max(s.comboMax, s.combo);
@@ -779,7 +751,7 @@ export async function boot(opts = {}){
   hud();
   applyView();
 
-  // boot mode-factory
+  // boot mode-factory (AFTER playfield rect is ready)
   const inst = await factoryBoot({
     modeKey: 'hydration',
     difficulty: diff,
@@ -794,14 +766,15 @@ export async function boot(opts = {}){
     rhythm: { enabled:true, bpm: (diff==='hard'?126:(diff==='normal'?118:108)) },
     trickRate: diff === 'hard' ? 0.12 : 0.08,
     spawnIntervalMul: spawnMul,
-    excludeSelectors: ['.hud', '#hvr-start', '#hvr-end', '#hvr-screen-blink'],
+    excludeSelectors: ['.hud', '#hvr-end', '#hvr-screen-blink', '#hvr-postfx', '#hvr-error'],
     judge,
     onExpire
   });
 
-  // ✅ Drag view + tap shoot
+  // drag view + tap shoot
   let down=false, moved=false, sx=0, sy=0, vx0=0, vy0=0, pid=null;
   const TH=6;
+
   const onDown2=(e)=>{
     if (!s.running) return;
     down=true; moved=false;
@@ -830,21 +803,22 @@ export async function boot(opts = {}){
       inst.shootCrosshair();
     }
   };
+
   playfield.addEventListener('pointerdown', onDown2, { passive:true });
   playfield.addEventListener('pointermove', onMove2, { passive:true });
   playfield.addEventListener('pointerup', onUp2, { passive:true });
   playfield.addEventListener('pointercancel', onUp2, { passive:true });
 
-  // time tick from mode-factory
+  // time tick
   function onTime(ev){
     const sec = ev?.detail?.sec;
     if (typeof sec !== 'number') return;
     s.timeLeft = sec;
 
-    // natural drain
+    // drain + get latest zone NOW
     const st = updateWater(-1.4);
 
-    // ✅ FIX: count from returned zone NOW (not stale)
+    // ✅ count uses latest zone (fix mismatch)
     if (st.zone === 'GREEN') s.greenTick += 1;
     else s.badTick += 1;
 
@@ -855,57 +829,9 @@ export async function boot(opts = {}){
     }
 
     hud();
-
     if (sec <= 0) endGame();
   }
   ROOT.addEventListener('hha:time', onTime, { passive:true });
-
-  function buildEndOverlay(){
-    const g = gradeFrom(s.score);
-    endEl.className = 'on';
-    endEl.innerHTML = `
-      <div style="width:min(760px,100%); margin:0 auto; padding:14px;">
-        <div style="background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.24); border-radius:24px; padding:14px; box-shadow:0 22px 70px rgba(0,0,0,.60);">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <h2 style="margin:0; font-size:18px; font-weight:1000;">🏁 สรุปผลการเล่น</h2>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span style="color:rgba(148,163,184,.9); font-weight:900;">Grade</span>
-              <span style="font-weight:1000; letter-spacing:.08em;">${g}</span>
-            </div>
-          </div>
-
-          <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.22); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-size:12px;">Score</div>
-              <div style="font-size:20px; font-weight:1000; margin-top:4px;">${s.score|0}</div>
-            </div>
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.22); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-size:12px;">Combo / Miss</div>
-              <div style="font-size:20px; font-weight:1000; margin-top:4px;">${s.comboMax|0} • ${s.miss|0}</div>
-            </div>
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.22); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-size:12px;">GREEN time</div>
-              <div style="font-size:20px; font-weight:1000; margin-top:4px;">${s.greenTick|0}s</div>
-            </div>
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.22); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-size:12px;">BLUE/RED time</div>
-              <div style="font-size:20px; font-weight:1000; margin-top:4px;">${s.badTick|0}s</div>
-            </div>
-          </div>
-
-          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button id="hvr-end-retry" style="pointer-events:auto; border:1px solid rgba(34,197,94,.45); background:rgba(34,197,94,.14); color:#e5e7eb; border-radius:14px; padding:10px 12px; font-weight:900; cursor:pointer;">🔁 เล่นอีกครั้ง</button>
-            <button id="hvr-end-hub" style="pointer-events:auto; border:1px solid rgba(148,163,184,.28); background:rgba(2,6,23,.55); color:#e5e7eb; border-radius:14px; padding:10px 12px; font-weight:900; cursor:pointer;">🏠 กลับ Hub</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const retry = $id('hvr-end-retry');
-    const hub = $id('hvr-end-hub');
-    if (retry) retry.onclick = ()=>location.reload();
-    if (hub) hub.onclick = ()=>location.href = './hub.html';
-  }
 
   function endGame(){
     if (!s.running) return;
@@ -929,8 +855,6 @@ export async function boot(opts = {}){
 
     setStorm(false, 0);
     try{ Particles.celebrate('END'); }catch{}
-
-    buildEndOverlay();
   }
 
   return {
