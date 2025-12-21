@@ -1,5 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Step D: Final Sprint pulse + Summary + STUN UI + robust quest state
+// Step E:
+// ✅ Real-time Grade SSS/SS/S/A/B/C + grade-up FX
+// ✅ Celebration on mini/goal cleared (no need to edit quest-director)
+// ✅ Summary shows grade
+// ✅ Still compatible with Step D safe.js
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
@@ -19,6 +23,7 @@ export function boot(){
   const $ = (id)=>document.getElementById(id);
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){ } };
 
+  // HUD
   const elScore = $('hud-score');
   const elCombo = $('hud-combo');
   const elMiss  = $('hud-miss');
@@ -65,6 +70,10 @@ export function boot(){
   const elBorder    = $('stun-border');
   const elFire      = $('fever-fire');
 
+  // ✅ Grade badge
+  const elGradeWrap = $('hud-grade');
+  const elGradeVal  = $('hud-grade-val');
+
   // Summary
   const sumOverlay = $('summary-overlay');
   const sumScore = $('sum-score');
@@ -77,8 +86,15 @@ export function boot(){
   const sumChal  = $('sum-chal');
   const sumRun   = $('sum-run');
   const sumTime  = $('sum-time');
+  const sumGrade = $('sum-grade');
   const btnSumClose = $('btn-sum-close');
   const btnSumRetry = $('btn-sum-retry');
+
+  // Particles (optional, safe)
+  const Particles =
+    (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
+    window.Particles ||
+    { celebrate(){}, burstAt(){}, scorePop(){}, toast(){} };
 
   const pageUrl = new window.URL(window.location.href);
   const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();
@@ -100,6 +116,26 @@ export function boot(){
     (Number.isFinite(URL_TIME_RAW) ? URL_TIME_RAW : (DEFAULT_TIME[DIFF_INIT] || 60)),
     20, 180
   );
+
+  // --- audio/haptic helpers ---
+  function vibrate(ms){
+    try{ if (navigator.vibrate) navigator.vibrate(ms|0); }catch(_){}
+  }
+  function beep(freq=880, ms=60, gain=0.035){
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'square';
+      o.frequency.value = freq;
+      g.gain.value = gain;
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      setTimeout(()=>{ try{o.stop();}catch(_){} try{ctx.close();}catch(_){} }, ms);
+    }catch(_){}
+  }
 
   const COACH_IMG = {
     neutral: './img/coach-neutral.png',
@@ -187,7 +223,6 @@ export function boot(){
     if (!layer) return;
     defaultAim();
 
-    // tap anywhere = move center
     layer.addEventListener('pointerdown', (e)=>{
       if (typeof e.clientX === 'number' && typeof e.clientY === 'number'){
         setAimPoint(e.clientX, e.clientY);
@@ -205,7 +240,98 @@ export function boot(){
     });
   }
 
-  // ---- Quest state (shared) ----
+  // ---- Grade system ----
+  function diffMul(diff){
+    diff = String(diff||'normal').toLowerCase();
+    if (diff === 'hard') return 1.10;
+    if (diff === 'easy') return 0.95;
+    return 1.0;
+  }
+
+  function computeGrade(s){
+    // s: {score, goodHits, miss, comboMax, goalsCleared, minisCleared, diff}
+    const score = s.score|0;
+    const miss = s.miss|0;
+    const combo = s.comboMax|0;
+    const goals = s.goalsCleared|0;
+    const minis = s.minisCleared|0;
+    const good  = s.goodHits|0;
+
+    const total = Math.max(1, good + miss);
+    const acc = good / total;                 // 0..1
+
+    // Core index: reward score + combo + quest clears + accuracy; punish misses hard
+    const base = score + combo*15 + goals*160 + minis*38 + Math.round(acc*140);
+    const penalty = miss*85;
+
+    let idx = (base - penalty) * diffMul(s.diff);
+
+    // safety clamps / special rules
+    if (miss >= 12) idx = Math.min(idx, 520); // miss เยอะไม่ให้บินไป S ง่ายๆ
+    if (goals >= 2 && minis >= 6 && miss === 0) idx = Math.max(idx, 940); // flawless quest = SSS
+
+    if (idx >= 920) return 'SSS';
+    if (idx >= 780) return 'SS';
+    if (idx >= 650) return 'S';
+    if (idx >= 520) return 'A';
+    if (idx >= 400) return 'B';
+    return 'C';
+  }
+
+  function gradeClass(g){
+    if (g === 'SSS') return 'g-SSS';
+    if (g === 'SS') return 'g-SS';
+    if (g === 'S') return 'g-S';
+    if (g === 'A') return 'g-A';
+    if (g === 'B') return 'g-B';
+    return 'g-C';
+  }
+
+  let lastGrade = 'C';
+  function setGradeUI(g, { isUp=false } = {}){
+    if (!elGradeWrap || !elGradeVal) return;
+
+    elGradeVal.textContent = g;
+    elGradeWrap.classList.remove('g-SSS','g-SS','g-S','g-A','g-B','g-C');
+    elGradeWrap.classList.add(gradeClass(g));
+
+    if (isUp){
+      elGradeWrap.classList.remove('grade-up');
+      void elGradeWrap.offsetWidth;
+      elGradeWrap.classList.add('grade-up');
+    }
+  }
+
+  function rankValue(g){
+    // bigger = better
+    if (g === 'SSS') return 6;
+    if (g === 'SS')  return 5;
+    if (g === 'S')   return 4;
+    if (g === 'A')   return 3;
+    if (g === 'B')   return 2;
+    return 1;
+  }
+
+  function maybeGradeUp(newG){
+    if (rankValue(newG) > rankValue(lastGrade)){
+      // grade-up feedback
+      setGradeUI(newG, { isUp:true });
+      beep(980, 60, 0.04);
+      beep(1240, 70, 0.035);
+      vibrate(60);
+      try{
+        Particles.celebrate && Particles.celebrate({ kind:'GRADE_UP', intensity: 1 });
+      }catch(_){}
+      setCoach(`เกรดขึ้น! ➜ ${newG} ✨`, 'happy');
+      lastGrade = newG;
+      return;
+    }
+    // normal set (no spam)
+    setGradeUI(newG, { isUp:false });
+    lastGrade = newG;
+  }
+
+  // ---- Quest state ----
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
     streakGood:0,
@@ -219,10 +345,10 @@ export function boot(){
     runMode: RUN_MODE,
     final8Good: 0,
 
-    // Step D
     stunBreaks: 0,
     goalsCleared: 0,
-    minisCleared: 0
+    minisCleared: 0,
+    diff: DIFF_INIT
   };
 
   // reset per mini
@@ -244,7 +370,57 @@ export function boot(){
   }, 1000);
 
   let Q = null;
+
+  // track meta changes for celebration
   let lastQuestMeta = { goalsCleared:0, minisCleared:0, miniCount:0 };
+
+  function celebrateMini(){
+    const x = window.innerWidth*0.5;
+    const y = window.innerHeight*0.38;
+    try{
+      Particles.burstAt && Particles.burstAt(x, y, 'gold');
+      Particles.celebrate && Particles.celebrate({ kind:'MINI', intensity: 0.8 });
+    }catch(_){}
+    vibrate(45);
+    beep(980, 55, 0.03);
+    setCoach('MINI สำเร็จ! ต่อไปมาเลย! ⚡', 'happy');
+  }
+
+  function celebrateGoal(){
+    const x = window.innerWidth*0.5;
+    const y = window.innerHeight*0.30;
+    try{
+      Particles.celebrate && Particles.celebrate({ kind:'GOAL', intensity: 1.2 });
+      Particles.burstAt && Particles.burstAt(x, y, 'gold');
+      Particles.burstAt && Particles.burstAt(x-80, y+40, 'good');
+      Particles.burstAt && Particles.burstAt(x+80, y+40, 'good');
+    }catch(_){}
+    vibrate([40,30,40]);
+    beep(880, 70, 0.035);
+    beep(1180, 80, 0.03);
+    setCoach('GOAL ผ่านแล้ว! โหดขึ้นอีกนิดนะ! 🔥', 'happy');
+  }
+
+  function celebrateAll(){
+    const x = window.innerWidth*0.5;
+    const y = window.innerHeight*0.26;
+    try{
+      Particles.celebrate && Particles.celebrate({ kind:'ALL_CLEAR', intensity: 1.8 });
+      Particles.burstAt && Particles.burstAt(x, y, 'gold');
+      Particles.burstAt && Particles.burstAt(x-140, y+70, 'gold');
+      Particles.burstAt && Particles.burstAt(x+140, y+70, 'gold');
+    }catch(_){}
+    vibrate([55,35,55,35,55]);
+    beep(920, 80, 0.04);
+    beep(1240, 90, 0.035);
+    beep(1560, 110, 0.03);
+    setCoach('ALL CLEAR! 🏆', 'fever');
+  }
+
+  function updateGradeNow(){
+    const g = computeGrade(qState);
+    maybeGradeUp(g);
+  }
 
   // events from safe.js
   window.addEventListener('quest:goodHit', (e)=>{
@@ -252,17 +428,20 @@ export function boot(){
     qState.streakGood = (qState.streakGood|0) + 1;
     if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
     if (d.kind === 'gold') qState.goldHitsThisMini = true;
+    updateGradeNow();
     if (Q) Q.tick(qState);
   });
 
   window.addEventListener('quest:gold', ()=>{
     qState.goldHitsThisMini = true;
+    updateGradeNow();
     if (Q) Q.tick(qState);
   });
 
   window.addEventListener('quest:badHit', ()=>{
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
+    updateGradeNow();
     if (Q) Q.tick(qState);
   });
 
@@ -286,6 +465,7 @@ export function boot(){
 
   window.addEventListener('quest:bossClear', ()=>{
     qState.bossCleared = true;
+    updateGradeNow();
     if (Q) Q.tick(qState);
   });
 
@@ -307,6 +487,7 @@ export function boot(){
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
+    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
     if (typeof d.misses === 'number'){
       qState.miss = d.misses|0;
       safeText(elMiss, String(qState.miss));
@@ -316,6 +497,7 @@ export function boot(){
       }
     }
     if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
+    updateGradeNow();
     if (Q) Q.tick(qState);
   });
 
@@ -359,12 +541,15 @@ export function boot(){
     }
   });
 
-  // quest:update (bars + meta)
+  // quest:update (bars + meta) + ✅ celebration detection
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
     const mini = d.mini || null;
     const meta = d.meta || {};
+
+    const prevGoals = lastQuestMeta.goalsCleared|0;
+    const prevMinis = lastQuestMeta.minisCleared|0;
 
     lastQuestMeta = {
       goalsCleared: meta.goalsCleared|0,
@@ -373,6 +558,14 @@ export function boot(){
     };
     qState.goalsCleared = lastQuestMeta.goalsCleared|0;
     qState.minisCleared = lastQuestMeta.minisCleared|0;
+
+    // 🎉 detect clears
+    if ((lastQuestMeta.minisCleared|0) > prevMinis) celebrateMini();
+    if ((lastQuestMeta.goalsCleared|0) > prevGoals) celebrateGoal();
+    if ((lastQuestMeta.goalsCleared|0) >= 2 && prevGoals < 2) celebrateAll();
+
+    // update grade from quest clears
+    updateGradeNow();
 
     if (goal){
       const cur = (goal.cur|0), max = (goal.max|0);
@@ -425,6 +618,9 @@ export function boot(){
     if (elDiff) elDiff.textContent = DIFF_INIT.toUpperCase();
     if (elChal) elChal.textContent = CH_INIT.toUpperCase();
     if (elTime) elTime.textContent = DUR_INIT + 's';
+    qState.diff = DIFF_INIT;
+    lastGrade = 'C';
+    setGradeUI('C', { isUp:false });
     setCoach('แตะของดี! หลบ junk! ⚡', 'neutral');
     setLogBadge(null, 'boot: ready');
   }
@@ -488,8 +684,10 @@ export function boot(){
     safeText(sumDiff,  String(payload.diff||'').toUpperCase());
     safeText(sumChal,  String(payload.challenge||'').toUpperCase());
     safeText(sumRun,   String(payload.runMode||'').toUpperCase());
-
     safeText(sumTime,  `เล่น ${payload.durationSec|0}s`);
+
+    const g = payload.grade || computeGrade(payload);
+    safeText(sumGrade, g);
   }
 
   btnSumClose && btnSumClose.addEventListener('click', ()=>{
@@ -502,19 +700,29 @@ export function boot(){
   // receive end from safe.js (guaranteed)
   window.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
-    showSummary({
+
+    // compute grade at end using freshest qState/meta
+    const endPayload = {
       score: d.score|0,
       goodHits: d.goodHits|0,
+      miss: d.misses|0,
       misses: d.misses|0,
       comboMax: d.comboMax|0,
       goalsCleared: (lastQuestMeta.goalsCleared|0),
       minisCleared: (lastQuestMeta.minisCleared|0),
-      diff: d.diff || DIFF_INIT,
+      diff: d.diff || qState.diff || DIFF_INIT,
       challenge: d.challenge || CH_INIT,
       runMode: d.runMode || RUN_MODE,
       durationSec: d.durationSec || DUR_INIT
-    });
-    setCoach('จบเกมแล้ว! ดูสรุปด้านบนเลย 🎉', 'happy');
+    };
+    endPayload.grade = computeGrade(endPayload);
+
+    showSummary(endPayload);
+
+    try{
+      Particles.celebrate && Particles.celebrate({ kind:'END', intensity: 1.2 });
+    }catch(_){}
+    setCoach(`จบเกม! เกรด ${endPayload.grade} 🎉`, (endPayload.grade==='SSS'||endPayload.grade==='SS') ? 'fever' : 'happy');
   });
 
   let startedOnce = false;
@@ -531,6 +739,7 @@ export function boot(){
 
     qState.challenge = chal;
     qState.runMode = RUN_MODE;
+    qState.diff = diff;
 
     if (elDiff) elDiff.textContent = diff.toUpperCase();
     if (elChal) elChal.textContent = chal.toUpperCase();
@@ -568,6 +777,10 @@ export function boot(){
     });
     Q.start(qState);
 
+    // initial grade baseline
+    lastGrade = 'C';
+    setGradeUI('C', { isUp:false });
+
     runCountdown(()=>{
       waitSceneReady(async ()=>{
         if (wantVR) await tryEnterVR();
@@ -582,7 +795,7 @@ export function boot(){
 
         window.__GJ_ENGINE__ = ENGINE;
 
-        setCoach('แตะพื้นที่ว่างเพื่อย้าย vortex ได้! ⚡', 'neutral');
+        setCoach('แตะพื้นที่ว่างเพื่อย้าย vortex ได้! ⚡ ทำเกรดให้สูงขึ้น! 🏆', 'neutral');
       });
     });
   }
