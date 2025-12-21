@@ -1,756 +1,862 @@
-// === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION (ROOT html: /herohealth/hydration-vr.html)
-//
-// ✅ ใช้ mode-factory (DOM target spawner + crosshair shoot + perfect ring)
-// ✅ คืน FX: score pop + judgment + burst (Particles)
-// ✅ Drag view: เลื่อนจอแล้วเป้าเลื่อนตาม (host transform)
-// ✅ PERFECT: ดาวแตกหนัก ๆ + chroma flash + burst
-// ✅ Storm: sway แรง/เร็ว + speedlines + wobble + chroma split ต่อเนื่อง
-// ✅ Fix zone counting: ใช้ zone จาก ui-water (LOW/GREEN/HIGH) แล้ว map เป็น BLUE/GREEN/RED
+// === /herohealth/vr/mode-factory.js ===
+// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
+// ✅ spawnHost = #hvr-playfield (targets เลื่อนตาม drag)
+// ✅ crosshair shooting via shootCrosshair()
+// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
+// ✅ rhythm spawn + pulse
+// ✅ trick targets (fakeGood)
+// ✅ Storm: spawnIntervalMul + host class .hvr-storm-on
+// ✅ SAFEZONE: excludeSelectors กันทับ HUD
+// ✅ NEW (VISUAL): bubble glass + thin-film iridescence + reactive shimmer (device tilt vars)
 
 'use strict';
-
-import { boot as factoryBoot } from '../vr/mode-factory.js';
-import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
-const Particles =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-  ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, celebrate(){} };
-
-function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
-function now(){ return (typeof performance!=='undefined' && performance.now)?performance.now():Date.now(); }
-function $id(id){ return DOC ? DOC.getElementById(id) : null; }
-
-function setText(id, txt){
-  const el = $id(id);
-  if (el) el.textContent = String(txt);
+function clamp (v, min, max) {
+  v = Number(v) || 0;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
 }
-function addClass(el, c){ try{ el && el.classList.add(c); }catch{} }
-function removeClass(el, c){ try{ el && el.classList.remove(c); }catch{} }
-
-function zoneLabelFrom(zone){
-  // ui-water: LOW / GREEN / HIGH
-  if (zone === 'LOW') return 'BLUE';
-  if (zone === 'HIGH') return 'RED';
-  return 'GREEN';
+function pickOne (arr, fallback = null) {
+  if (!Array.isArray(arr) || !arr.length) return fallback;
+  const i = Math.floor(Math.random() * arr.length);
+  return arr[i];
 }
+function getEventXY (ev) {
+  let x = ev.clientX;
+  let y = ev.clientY;
 
-function gradeFrom(score){
-  // โทนเดียวกับซีรีส์เกมคุณ (ง่ายต่อการอ่าน)
-  if (score >= 2600) return 'SSS';
-  if (score >= 2000) return 'SS';
-  if (score >= 1500) return 'S';
-  if (score >= 1100) return 'A';
-  if (score >= 700)  return 'B';
-  return 'C';
+  if ((x == null || y == null || (x === 0 && y === 0)) && ev.touches && ev.touches[0]) {
+    x = ev.touches[0].clientX;
+    y = ev.touches[0].clientY;
+  }
+  if ((x == null || y == null) && ev.changedTouches && ev.changedTouches[0]) {
+    x = ev.changedTouches[0].clientX;
+    y = ev.changedTouches[0].clientY;
+  }
+  return { x: x || 0, y: y || 0 };
 }
 
-function ensureHydrationStyle(){
-  if (!DOC || DOC.getElementById('hvr-hydration-style')) return;
+// ---------- Base difficulty ----------
+const DEFAULT_DIFF = {
+  easy:   { spawnInterval: 900, maxActive: 3, life: 1900, scale: 1.15 },
+  normal: { spawnInterval: 800, maxActive: 4, life: 1700, scale: 1.00 },
+  hard:   { spawnInterval: 650, maxActive: 5, life: 1500, scale: 0.90 }
+};
+
+function pickDiffConfig (modeKey, diffKey) {
+  diffKey = String(diffKey || 'normal').toLowerCase();
+  let base = null;
+
+  if (ROOT.HHA_DIFF_TABLE && modeKey && ROOT.HHA_DIFF_TABLE[modeKey]) {
+    const table = ROOT.HHA_DIFF_TABLE[modeKey];
+    if (table && table[diffKey]) base = table[diffKey];
+  }
+  if (!base) base = DEFAULT_DIFF[diffKey] || DEFAULT_DIFF.normal;
+
+  const cfg = {
+    spawnInterval: Number(base.spawnInterval ?? base.interval ?? 800),
+    maxActive:     Number(base.maxActive ?? base.active ?? 4),
+    life:          Number(base.life ?? base.targetLife ?? 1700),
+    scale:         Number(base.scale ?? base.size ?? 1)
+  };
+
+  if (!Number.isFinite(cfg.spawnInterval) || cfg.spawnInterval <= 0) cfg.spawnInterval = 800;
+  if (!Number.isFinite(cfg.maxActive)     || cfg.maxActive <= 0)     cfg.maxActive = 4;
+  if (!Number.isFinite(cfg.life)          || cfg.life <= 0)          cfg.life = 1700;
+  if (!Number.isFinite(cfg.scale)         || cfg.scale <= 0)         cfg.scale = 1;
+
+  return cfg;
+}
+
+// ======================================================
+//  Overlay fallback + Styles
+// ======================================================
+function ensureOverlayStyle () {
+  if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
   const s = DOC.createElement('style');
-  s.id = 'hvr-hydration-style';
+  s.id = 'hvr-overlay-style';
   s.textContent = `
-    /* 2-layer parallax backgrounds */
-    #hvr-playfield{
-      --view-x: 0px;
-      --view-y: 0px;
-    }
-    .hvr-parallax{
-      position:absolute;
-      inset:-12%;
+    .hvr-overlay-host{
+      position:fixed;
+      inset:0;
+      z-index:9998;
       pointer-events:none;
-      transform: translate3d(calc(var(--view-x) * var(--px, 0.2)), calc(var(--view-y) * var(--py, 0.2)), 0);
-      will-change: transform;
-      opacity: var(--op, 0.35);
-      filter: blur(var(--blur, 0px));
     }
-    .hvr-parallax.l1{
-      --px: 0.18; --py: 0.14; --op:0.26; --blur:0px;
-      background:
-        radial-gradient(900px 600px at 20% 15%, rgba(96,165,250,.18), transparent 60%),
-        radial-gradient(800px 620px at 80% 20%, rgba(34,197,94,.16), transparent 60%),
-        radial-gradient(900px 700px at 50% 70%, rgba(59,130,246,.10), transparent 65%);
-      mix-blend-mode: screen;
+    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
+
+    /* pulse for rhythm (optional) */
+    .hvr-target.hvr-pulse .hvr-bubble{
+      animation: hvrPulse .55s ease-in-out infinite;
     }
-    .hvr-parallax.l2{
-      --px: 0.42; --py: 0.34; --op:0.20; --blur:0.2px;
-      background:
-        repeating-radial-gradient(circle at 30% 40%, rgba(255,255,255,.08) 0 2px, transparent 2px 26px),
-        repeating-linear-gradient(45deg, rgba(59,130,246,.06) 0 1px, transparent 1px 18px);
-      mix-blend-mode: overlay;
-      transform: translate3d(calc(var(--view-x) * var(--px, 0.42)), calc(var(--view-y) * var(--py, 0.34)), 0) rotate(0.0001deg);
+    @keyframes hvrPulse{
+      0%{ transform: scale(1); }
+      50%{ transform: scale(1.08); }
+      100%{ transform: scale(1); }
     }
 
-    /* postFX chroma/wobble controlled by classes */
-    #hvr-wrap.hvr-chroma{
-      filter:
-        drop-shadow(2.6px 0 rgba(255, 40, 80, 0.55))
-        drop-shadow(-1.6px 0 rgba(0, 190, 255, 0.22));
+    /* ====== NEW: Bubble float/sway ====== */
+    .hvr-target{ will-change: transform; }
+    .hvr-bubble{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transform: translateZ(0);
+      animation: hvrFloat 1.65s ease-in-out infinite;
+      will-change: transform, filter;
+      overflow:hidden;
     }
-
-    #hvr-wrap.hvr-wobble{
-      animation: hvrWobble 1.05s ease-in-out infinite;
-    }
-    @keyframes hvrWobble{
+    @keyframes hvrFloat{
       0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      25%{ transform: translate3d(0.6px,-0.4px,0) rotate(0.03deg); }
-      50%{ transform: translate3d(-0.7px,0.5px,0) rotate(-0.03deg); }
-      75%{ transform: translate3d(0.4px,0.6px,0) rotate(0.02deg); }
+      25%{ transform: translate3d(calc(var(--sx,1) * 1.6px), -3.2px, 0) rotate(calc(var(--rx,1) * 1.2deg)); }
+      50%{ transform: translate3d(calc(var(--sx,1) * -1.2px), 1.4px, 0) rotate(calc(var(--rx,1) * -1.0deg)); }
+      75%{ transform: translate3d(calc(var(--sx,1) * 1.0px), 3.4px, 0) rotate(calc(var(--rx,1) * 0.8deg)); }
       100%{ transform: translate3d(0,0,0) rotate(0deg); }
     }
 
-    /* Storm speedlines overlay */
-    .hvr-speedlines{
-      position:fixed;
-      inset:-20%;
-      pointer-events:none;
-      z-index:99960;
-      opacity:0;
-      transform: translate3d(0,0,0);
-      mix-blend-mode: screen;
-      background:
-        repeating-linear-gradient(110deg,
-          rgba(255,255,255,.00) 0 18px,
-          rgba(255,80,120,.10) 18px 20px,
-          rgba(0,190,255,.08) 20px 22px,
-          rgba(255,255,255,.00) 22px 44px
-        );
-      filter: blur(0.6px) saturate(1.08) contrast(1.06);
-      animation: hvrLines 0.32s linear infinite;
+    /* Storm => float/sway แรง/เร็วขึ้น + blur นิดให้เร้าใจ */
+    .hvr-storm-on .hvr-bubble{
+      animation-duration: 0.62s;
+      filter: saturate(1.10) contrast(1.08);
     }
-    @keyframes hvrLines{
-      0%{ transform: translate3d(-10px, -10px, 0); }
-      100%{ transform: translate3d(26px, 22px, 0); }
-    }
-    .hvr-speedlines.on{ opacity:0.30; }
+    .hvr-storm-on .hvr-target{ filter: drop-shadow(0 10px 26px rgba(0,0,0,.45)); }
 
-    /* tiny perfect flash pulse (short) */
-    #hvr-wrap.hvr-perfect-pulse{
-      animation: hvrPerfectPulse 180ms ease-out 1;
+    /* Bubble glass: clear + thin-film iridescence (uses --tilt-ang / --tilt-shift from playfield) */
+    .hvr-bubble::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 35% 28%, rgba(255,255,255,.36), rgba(255,255,255,0) 40%),
+        radial-gradient(circle at 70% 78%, rgba(255,255,255,.14), rgba(255,255,255,0) 52%);
+      opacity:.70;
+      mix-blend-mode: screen;
+      pointer-events:none;
     }
-    @keyframes hvrPerfectPulse{
-      0%{ filter: saturate(1) contrast(1); }
-      45%{ filter: saturate(1.25) contrast(1.12); }
-      100%{ filter: saturate(1) contrast(1); }
+    .hvr-bubble::after{
+      content:"";
+      position:absolute;
+      inset:-12%;
+      border-radius:999px;
+      background:
+        linear-gradient(var(--tilt-ang, 135deg),
+          rgba(255, 60, 120, .18),
+          rgba(0, 200, 255, .14),
+          rgba(120, 255, 200, .12),
+          rgba(255, 230, 120, .16),
+          rgba(255, 60, 120, .18)
+        );
+      transform: translate3d(var(--tilt-shift, 0px), 0, 0);
+      opacity:.55;
+      mix-blend-mode: screen;
+      filter: blur(0.2px) saturate(1.08);
+      pointer-events:none;
+    }
+
+    /* inner rim */
+    .hvr-rim{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      box-shadow:
+        inset 0 0 0 2px rgba(255,255,255,.28),
+        inset 0 10px 18px rgba(255,255,255,.10);
+      pointer-events:none;
+    }
+
+    /* Perfect ring (center ring already created per-target) */
+    .hvr-ring{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform: translate(-50%,-50%);
+      border-radius:999px;
+      pointer-events:none;
+      box-shadow: 0 0 12px rgba(255,255,255,0.18);
+    }
+
+    /* Emoji icon */
+    .hvr-icon{
+      line-height:1;
+      filter: drop-shadow(0 3px 5px rgba(0,0,0,.45));
+      user-select:none;
+      pointer-events:none;
     }
   `;
   DOC.head.appendChild(s);
 }
+function ensureOverlayHost () {
+  if (!DOC) return null;
+  ensureOverlayStyle();
 
-function ensurePostFXCanvas(){
-  const c = $id('hvr-postfx');
-  if (!c) return null;
-  const ctx = c.getContext('2d');
-  function resize(){
-    const dpr = Math.max(1, Math.min(2, ROOT.devicePixelRatio || 1));
-    c.width  = Math.floor((ROOT.innerWidth||1) * dpr);
-    c.height = Math.floor((ROOT.innerHeight||1) * dpr);
-    c.style.width = '100%';
-    c.style.height = '100%';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-  resize();
-  ROOT.addEventListener('resize', resize, { passive:true });
-  return { c, ctx, resize };
+  let host = DOC.getElementById('hvr-overlay-host');
+  if (host && host.isConnected) return host;
+
+  host = DOC.createElement('div');
+  host.id = 'hvr-overlay-host';
+  host.className = 'hvr-overlay-host';
+  host.setAttribute('data-hvr-host', '1');
+  DOC.body.appendChild(host);
+  return host;
 }
 
-function drawStarBurst(ctx, x, y, t, strength=1){
-  const n = Math.floor(18 + 18*strength);
-  const r0 = 6 + 10*strength;
-  const r1 = 40 + 70*strength;
-  ctx.save();
-  ctx.translate(x,y);
+// ======================================================
+//  Host resolver
+// ======================================================
+function resolveHost (rawCfg) {
+  if (!DOC) return null;
 
-  // chroma-ish glow
-  ctx.globalCompositeOperation = 'screen';
-
-  for (let i=0;i<n;i++){
-    const a = (i/n) * Math.PI*2 + (t*0.002);
-    const rr = r0 + (r1-r0) * (0.25 + 0.75*Math.random());
-    const w = 1 + 2*strength;
-    ctx.strokeStyle = `rgba(255, 60, 110, ${0.10 + 0.10*strength})`;
-    ctx.lineWidth = w;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a)*r0, Math.sin(a)*r0);
-    ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
-    ctx.stroke();
-
-    const a2 = a + 0.18;
-    ctx.strokeStyle = `rgba(0, 190, 255, ${0.07 + 0.10*strength})`;
-    ctx.lineWidth = w*0.85;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a2)*r0, Math.sin(a2)*r0);
-    ctx.lineTo(Math.cos(a2)*rr*0.92, Math.sin(a2)*rr*0.92);
-    ctx.stroke();
+  const spawnHost = rawCfg && rawCfg.spawnHost;
+  if (spawnHost && typeof spawnHost === 'string') {
+    const el = DOC.querySelector(spawnHost);
+    if (el) return el;
   }
+  if (spawnHost && spawnHost.nodeType === 1) return spawnHost;
 
-  // sparkle dots
-  for (let k=0;k<16;k++){
-    const a = Math.random()*Math.PI*2;
-    const rr = 10 + Math.random()* (68*strength);
-    ctx.fillStyle = `rgba(255,255,255,${0.12 + 0.18*Math.random()})`;
-    ctx.beginPath();
-    ctx.arc(Math.cos(a)*rr, Math.sin(a)*rr, 1.2 + 2.2*Math.random(), 0, Math.PI*2);
-    ctx.fill();
-  }
+  const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
+  if (spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
 
-  ctx.restore();
+  return ensureOverlayHost();
 }
 
-export async function boot(opts = {}){
-  if (!DOC) return { stop(){} };
+// ======================================================
+//  SAFE ZONE / EXCLUSION (กันทับ HUD)
+// ======================================================
+function collectExclusionElements(rawCfg){
+  if (!DOC) return [];
+  const out = [];
 
-  ensureHydrationStyle();
-  ensureWaterGauge();
-
-  const wrap = $id('hvr-wrap');
-  const playfield = $id('hvr-playfield');
-  const blink = $id('hvr-screen-blink');
-
-  // Build parallax layers
-  if (playfield && !playfield.querySelector('.hvr-parallax')){
-    const l1 = DOC.createElement('div'); l1.className = 'hvr-parallax l1';
-    const l2 = DOC.createElement('div'); l2.className = 'hvr-parallax l2';
-    playfield.appendChild(l1);
-    playfield.appendChild(l2);
+  const sel = rawCfg && rawCfg.excludeSelectors;
+  if (Array.isArray(sel)) {
+    sel.forEach(s=>{
+      try{ DOC.querySelectorAll(String(s)).forEach(el=> out.push(el)); }catch{}
+    });
+  } else if (typeof sel === 'string') {
+    try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
 
-  // speedlines overlay
-  let speedLines = DOC.querySelector('.hvr-speedlines');
-  if (!speedLines){
-    speedLines = DOC.createElement('div');
-    speedLines.className = 'hvr-speedlines';
-    DOC.body.appendChild(speedLines);
-  }
-
-  const post = ensurePostFXCanvas();
-
-  // difficulty
-  const diff = String(opts.difficulty || 'easy').toLowerCase();
-  const duration = clamp(opts.duration ?? 90, 20, 180);
-
-  // pools
-  const GOOD = ['💧','🧊','🥤','🫧']; // น้ำ/น้ำแข็ง/ขวด/ฟอง
-  const BAD  = ['🍟','🥤','🍩','🍕']; // junk
-  const POWER = ['⭐','⚡','✨'];
-
-  // state
-  const s = {
-    running: true,
-    startedAt: now(),
-
-    score: 0,
-    combo: 0,
-    comboMax: 0,
-    miss: 0,
-
-    water: 50,
-    zone: 'GREEN',      // LOW/GREEN/HIGH (from ui-water)
-    zoneLabel: 'GREEN', // BLUE/GREEN/RED
-
-    greenTick: 0,
-    timeLeft: duration,
-
-    viewX: 0,
-    viewY: 0,
-
-    // storm
-    stormOn: false,
-    stormUntil: 0,
-    stormStrength: 0, // 0..1.2
-
-    // tilt shimmer
-    tiltX: 0,
-    tiltY: 0,
-
-    // postfx hits
-    sparks: [] // {x,y,t0,str}
-  };
-
-  function hud(){
-    setText('hha-score-main', s.score|0);
-    setText('hha-combo-max', s.comboMax|0);
-    setText('hha-miss', s.miss|0);
-
-    // grade
-    const g = gradeFrom(s.score);
-    const badge = $id('hha-grade-badge');
-    if (badge) badge.textContent = g;
-
-    // progress fill
-    const fill = $id('hha-grade-progress-fill');
-    const t = $id('hha-grade-progress-text');
-    const pct = clamp((s.score / 1500) * 100, 0, 100); // S ~ 1500
-    if (fill) fill.style.width = pct.toFixed(0) + '%';
-    if (t) t.textContent = `Progress to S: ${pct.toFixed(0)}%`;
-
-    // quest text (light)
-    const qg = $id('hha-quest-goal');
-    const qm = $id('hha-quest-mini');
-    if (qg) qg.textContent = `Goal: อยู่ GREEN ให้นานที่สุด (ตอนนี้ ${s.greenTick}s)`;
-    if (qm) qm.textContent = `Mini: Perfect/Combo ลุ้น Storm Wave!`;
-  }
-
-  function applyView(){
-    if (!playfield) return;
-    playfield.style.setProperty('--view-x', s.viewX + 'px');
-    playfield.style.setProperty('--view-y', s.viewY + 'px');
-    playfield.style.transform = `translate3d(${s.viewX}px, ${s.viewY}px, 0)`;
-  }
-
-  // ✅ drag view + tap shoot (short tap)
-  function bindViewDragAndShoot(inst){
-    if (!playfield) return;
-
-    let down = false;
-    let moved = false;
-    let sx=0, sy=0, vx0=0, vy0=0;
-    let pid = null;
-    const TH = 6;
-
-    const onDown = (e)=>{
-      if (!s.running) return;
-      down = true; moved = false;
-      pid = e.pointerId;
-      try{ playfield.setPointerCapture(pid); }catch{}
-      sx = e.clientX; sy = e.clientY;
-      vx0 = s.viewX; vy0 = s.viewY;
-    };
-    const onMove = (e)=>{
-      if (!down || !s.running) return;
-      const dx = e.clientX - sx;
-      const dy = e.clientY - sy;
-      if (!moved && (Math.abs(dx)+Math.abs(dy) > TH)) moved = true;
-
-      if (moved){
-        // clamp a bit
-        s.viewX = clamp(vx0 + dx, -180, 180);
-        s.viewY = clamp(vy0 + dy, -140, 140);
-        applyView();
-      }
-    };
-    const onUp = (e)=>{
-      if (!down) return;
-      down = false;
-      try{ playfield.releasePointerCapture(pid); }catch{}
-      pid = null;
-
-      // short tap => shoot from crosshair
-      if (!moved && inst && typeof inst.shootCrosshair === 'function'){
-        inst.shootCrosshair();
-      }
-    };
-
-    playfield.addEventListener('pointerdown', onDown, { passive:true });
-    playfield.addEventListener('pointermove', onMove, { passive:true });
-    playfield.addEventListener('pointerup', onUp, { passive:true });
-    playfield.addEventListener('pointercancel', onUp, { passive:true });
-
-    return ()=> {
-      playfield.removeEventListener('pointerdown', onDown);
-      playfield.removeEventListener('pointermove', onMove);
-      playfield.removeEventListener('pointerup', onUp);
-      playfield.removeEventListener('pointercancel', onUp);
-    };
-  }
-
-  function blinkOn(kind, ms=110){
-    if (!blink) return;
-    blink.className = '';
-    blink.classList.add('on');
-    if (kind) blink.classList.add(kind);
-    ROOT.setTimeout(()=>{ blink.className=''; }, ms);
-  }
-
-  function perfectFX(x,y){
-    // heavy burst
-    try{ Particles.burstAt(x,y,'PERFECT'); }catch{}
-    try{ Particles.scorePop(x,y,'PERFECT! +','gold'); }catch{}
-    blinkOn('perfect', 130);
-
-    if (wrap){
-      addClass(wrap,'hvr-perfect-pulse');
-      ROOT.setTimeout(()=>removeClass(wrap,'hvr-perfect-pulse'), 220);
-    }
-
-    if (post && post.ctx){
-      s.sparks.push({ x, y, t0: now(), str: 1.25 });
-    }
-  }
-
-  function goodFX(x,y, txt='+', kind='good'){
-    try{ Particles.burstAt(x,y,kind==='good'?'GOOD':'POWER'); }catch{}
-    try{ Particles.scorePop(x,y,txt,kind); }catch{}
-    blinkOn('good', 90);
-  }
-
-  function badFX(x,y, txt='MISS', kind='bad'){
-    try{ Particles.burstAt(x,y,'BAD'); }catch{}
-    try{ Particles.scorePop(x,y,txt,'bad'); }catch{}
-    blinkOn('bad', 110);
-  }
-
-  // Storm controls
-  function setStorm(on, strength=1){
-    s.stormOn = !!on;
-    s.stormStrength = clamp(strength, 0, 1.25);
-
-    if (wrap){
-      if (s.stormOn){
-        addClass(wrap,'hvr-chroma');
-        addClass(wrap,'hvr-wobble');
-      }else{
-        removeClass(wrap,'hvr-chroma');
-        removeClass(wrap,'hvr-wobble');
-      }
-    }
-    if (speedLines){
-      if (s.stormOn) addClass(speedLines,'on');
-      else removeClass(speedLines,'on');
-    }
-  }
-
-  function maybeStormTick(){
-    const t = now();
-    if (s.stormOn && t > s.stormUntil){
-      setStorm(false, 0);
-    }
-  }
-
-  // device tilt → update CSS vars for shimmer
-  function bindTilt(){
-    let active = false;
-    const onOri = (e)=>{
-      active = true;
-      // gamma: left/right, beta: front/back
-      const gx = clamp((e.gamma||0)/30, -1, 1);
-      const gy = clamp((e.beta||0)/40, -1, 1);
-      s.tiltX = gx;
-      s.tiltY = gy;
-
-      if (playfield){
-        playfield.style.setProperty('--tilt-x', gx.toFixed(3));
-        playfield.style.setProperty('--tilt-y', gy.toFixed(3));
-      }
-    };
-    ROOT.addEventListener('deviceorientation', onOri, { passive:true });
-
-    // iOS needs user gesture sometimes – ok if it never fires
-    return ()=> ROOT.removeEventListener('deviceorientation', onOri);
-  }
-
-  // PostFX render loop
-  let fxRaf = null;
-  function fxLoop(){
-    if (!post || !post.ctx) return;
-    const ctx = post.ctx;
-    const t = now();
-
-    ctx.clearRect(0,0,ROOT.innerWidth||1,ROOT.innerHeight||1);
-
-    // draw spark bursts
-    const out = [];
-    for (const sp of s.sparks){
-      const dt = t - sp.t0;
-      if (dt > 520) continue;
-      out.push(sp);
-
-      const k = 1 - (dt/520);
-      ctx.globalAlpha = 0.55 * k;
-      drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.75 + 0.55*k));
-    }
-    s.sparks = out;
-
-    ctx.globalAlpha = 1;
-    fxRaf = ROOT.requestAnimationFrame(fxLoop);
-  }
-  fxRaf = ROOT.requestAnimationFrame(fxLoop);
-
-  // ✅ main scoring / water update
-  function updateWater(delta){
-    s.water = clamp(s.water + delta, 0, 100);
-    const z = zoneFrom(s.water);     // LOW/GREEN/HIGH
-    s.zone = z;
-    s.zoneLabel = zoneLabelFrom(z); // BLUE/GREEN/RED
-
-    const r = setWaterGauge(s.water);
-    // force HUD text to BLUE/GREEN/RED style
-    const st = $id('hha-water-status');
-    if (st) st.textContent = `${s.zoneLabel} ${Math.round(s.water)}%`;
-    const zt = $id('hha-water-zone-text');
-    if (zt) zt.textContent = s.zoneLabel;
-
-    return r;
-  }
-
-  // init
-  updateWater(0);
-  hud();
-  applyView();
-
-  // mode-factory spawn speed mul: storm => faster
-  function spawnMul(){
-    if (!s.stormOn) return 1.0;
-    // heavy storm => 0.45..0.70
-    return clamp(0.70 - 0.22*s.stormStrength, 0.42, 0.75);
-  }
-
-  // judge callback from mode-factory
-  function judge(ch, ctx){
-    const x = ctx?.clientX || (ctx?.targetRect?.left + (ctx?.targetRect?.width||0)/2) || (ROOT.innerWidth/2);
-    const y = ctx?.clientY || (ctx?.targetRect?.top + (ctx?.targetRect?.height||0)/2) || (ROOT.innerHeight/2);
-
-    const itemType = String(ctx?.itemType || '');
-    const isBad = (itemType === 'bad');
-    const isPower = (itemType === 'power');
-    const isFakeGood = (itemType === 'fakeGood');
-
-    const perfect = !!ctx?.hitPerfect;
-
-    // PERFECT ring bonus (even if good)
-    if (perfect){
-      s.score += 120;
-      s.combo += 1;
-      s.comboMax = Math.max(s.comboMax, s.combo);
-      updateWater(+4);
-      perfectFX(x,y);
-    }
-
-    if (isBad){
-      s.miss += 1;
-      s.combo = 0;
-      s.score = Math.max(0, s.score - 45);
-      updateWater(-10);
-      badFX(x,y,'MISS','bad');
-
-      // junk hit can trigger storm sometimes (panic)
-      if (!s.stormOn && Math.random() < 0.18){
-        s.stormUntil = now() + 5200;
-        setStorm(true, 0.85);
-      }
-
-      hud();
-      return { scoreDelta: -45, good:false };
-    }
-
-    // fakeGood (trick) acts like bad when not perfect
-    if (isFakeGood && !perfect){
-      s.miss += 1;
-      s.combo = 0;
-      s.score = Math.max(0, s.score - 30);
-      updateWater(-7);
-      badFX(x,y,'TRICK!','bad');
-      hud();
-      return { scoreDelta: -30, good:false };
-    }
-
-    // powerup
-    if (isPower){
-      s.score += 95;
-      s.combo += 1;
-      s.comboMax = Math.max(s.comboMax, s.combo);
-      updateWater(+9);
-      goodFX(x,y,'POWER +95','power');
-
-      // power => storm wave “สนุกเร้าใจ” ชัวร์
-      s.stormUntil = now() + 6800;
-      setStorm(true, 1.05);
-
-      hud();
-      return { scoreDelta: +95, good:true };
-    }
-
-    // normal good hit
-    s.score += 55;
-    s.combo += 1;
-    s.comboMax = Math.max(s.comboMax, s.combo);
-
-    // water gain depends on zone
-    if (s.zone === 'LOW') updateWater(+8);
-    else if (s.zone === 'HIGH') updateWater(+3);
-    else updateWater(+5);
-
-    // streak bonus
-    if (s.combo > 0 && (s.combo % 8 === 0)){
-      s.score += 80;
-      goodFX(x,y,`STREAK +80`,'good');
-
-      // streak => storm (rare) เพื่อเร้าใจ
-      if (!s.stormOn && Math.random() < 0.32){
-        s.stormUntil = now() + 6200;
-        setStorm(true, 0.95);
-      }
-    } else {
-      goodFX(x,y,'+55','good');
-    }
-
-    hud();
-    return { scoreDelta: +55, good:true };
-  }
-
-  // expire callback
-  function onExpire(info){
-    // ถ้าปล่อย GOOD หลุด: ลดคอมโบเล็กน้อย แต่ไม่ถือว่า miss
-    const itemType = String(info?.itemType||'');
-    if (itemType === 'good' || itemType === 'power'){
-      s.combo = Math.max(0, s.combo - 1);
-    }
-    hud();
-  }
-
-  // boot mode-factory
-  const inst = await factoryBoot({
-    modeKey: 'hydration',
-    difficulty: diff,
-    duration,
-    spawnHost: '#hvr-playfield',
-    pools: { good: GOOD, bad: BAD, trick: ['💧','🫧'] },
-    goodRate: diff === 'hard' ? 0.58 : (diff === 'normal' ? 0.62 : 0.68),
-    powerups: POWER,
-    powerRate: diff === 'hard' ? 0.12 : 0.10,
-    powerEvery: 7,
-    allowAdaptive: true,
-    rhythm: { enabled:true, bpm: (diff==='hard'?126:(diff==='normal'?118:108)) },
-    trickRate: diff === 'hard' ? 0.12 : 0.08,
-    spawnIntervalMul: spawnMul,
-    excludeSelectors: ['.hud', '#hvr-start', '#hvr-end', '#hvr-screen-blink'],
-    judge,
-    onExpire
+  const AUTO = [
+    '.hud',
+    '#hvr-start',
+    '#hvr-end',
+    '#hvr-screen-blink',
+    '#hvr-postfx'
+  ];
+  AUTO.forEach(s=>{
+    try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
   });
 
-  // bind drag view / shoot
-  const unbindDrag = bindViewDragAndShoot(inst);
-  const unbindTilt = bindTilt();
+  try{
+    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
+  }catch{}
 
-  // time tick from mode-factory
-  function onTime(ev){
-    const sec = ev?.detail?.sec;
-    if (typeof sec !== 'number') return;
-    s.timeLeft = sec;
+  const uniq = [];
+  const seen = new Set();
+  out.forEach(el=>{
+    if (!el || !el.isConnected) return;
+    if (seen.has(el)) return;
+    seen.add(el);
+    uniq.push(el);
+  });
+  return uniq;
+}
 
-    // natural drain each second
-    updateWater(-1.4);
+function computeExclusionMargins(hostRect, exEls){
+  const m = { top:0, bottom:0, left:0, right:0 };
+  if (!hostRect || !exEls || !exEls.length) return m;
 
-    // ✅ zone counting fix (นับจาก zone LOW/GREEN/HIGH)
-    if (s.zone === 'GREEN') s.greenTick += 1;
+  const hx1 = hostRect.left, hy1 = hostRect.top;
+  const hx2 = hostRect.right, hy2 = hostRect.bottom;
 
-    // storm lifecycle
-    maybeStormTick();
+  exEls.forEach(el=>{
+    let r = null;
+    try{ r = el.getBoundingClientRect(); }catch{}
+    if (!r) return;
 
-    // when in RED(HIGH) too long => penalty drip
-    if (s.zone === 'HIGH'){
-      s.score = Math.max(0, s.score - 3);
+    const ox1 = Math.max(hx1, r.left);
+    const oy1 = Math.max(hy1, r.top);
+    const ox2 = Math.min(hx2, r.right);
+    const oy2 = Math.min(hy2, r.bottom);
+    if (ox2 <= ox1 || oy2 <= oy1) return;
+
+    if (r.top <= hy1 + 2 && r.bottom > hy1) {
+      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
-    hud();
-
-    // end condition
-    if (sec <= 0){
-      endGame();
+    if (r.bottom >= hy2 - 2 && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
     }
+    if (r.left <= hx1 + 2 && r.right > hx1) {
+      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    }
+    if (r.right >= hx2 - 2 && r.left < hx2) {
+      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+    }
+  });
+
+  return m;
+}
+
+function computePlayRectFromHost (hostEl, exState) {
+  const r = hostEl.getBoundingClientRect();
+  const isOverlay = hostEl && hostEl.id === 'hvr-overlay-host';
+
+  let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
+  let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
+
+  const basePadX = w * 0.10;
+  const basePadTop = h * 0.12;
+  const basePadBot = h * 0.12;
+
+  const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+
+  const left   = basePadX + m.left;
+  const top    = basePadTop + m.top;
+  const width  = Math.max(1, w - (basePadX*2) - m.left - m.right);
+  const height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
+
+  return { left, top, width, height, hostRect: r, isOverlay };
+}
+
+// ======================================================
+//  boot(cfg)
+// ======================================================
+export async function boot (rawCfg = {}) {
+  const {
+    difficulty = 'normal',
+    duration   = 60,
+    modeKey    = 'hydration',
+    pools      = {},
+    goodRate   = 0.6,
+    powerups   = [],
+    powerRate  = 0.10,
+    powerEvery = 7,
+    judge,
+    onExpire,
+
+    allowAdaptive = true,
+    rhythm = null,
+    trickRate = 0.08,
+    spawnIntervalMul = null,
+    excludeSelectors = null
+  } = rawCfg || {};
+
+  const diffKey  = String(difficulty || 'normal').toLowerCase();
+  const baseDiff = pickDiffConfig(modeKey, diffKey);
+
+  const host = resolveHost(rawCfg);
+  if (!host || !DOC) {
+    console.error('[mode-factory] host not found');
+    return { stop () {}, shootCrosshair(){ return false; } };
   }
-  ROOT.addEventListener('hha:time', onTime, { passive:true });
 
-  // End overlay builder
-  function buildEndOverlay(detail){
-    const end = $id('hvr-end');
-    if (!end) return;
-    end.className = 'on';
+  let stopped = false;
 
-    const g = gradeFrom(s.score);
-    const html = `
-      <div style="width:min(760px,100%); display:grid; grid-template-columns:1fr; gap:10px;">
-        <div style="background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.24); border-radius:24px; padding:14px; box-shadow:0 22px 70px rgba(0,0,0,.60);">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <h2 style="margin:0; font-size:18px; font-weight:1000;">🏁 สรุปผลการเล่น</h2>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span style="color:rgba(148,163,184,.9); font-weight:900;">Grade</span>
-              <span style="font-weight:1000; letter-spacing:.08em;">${g}</span>
-            </div>
-          </div>
+  let totalDuration = clamp(duration, 20, 180);
+  let secLeft       = totalDuration;
+  let lastClockTs   = null;
 
-          <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;">
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">Score</div><div class="value">${s.score|0}</div></div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">รวมโบนัส PERFECT/STREAK/STORM</div>
-            </div>
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">Combo / Miss</div><div class="value">${s.comboMax|0} • ${s.miss|0}</div></div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">คอมโบสูงสุด • miss (junk/trick)</div>
-            </div>
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">GREEN time</div><div class="value">${s.greenTick|0}s</div></div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ในโซน GREEN (นับถูกแล้ว)</div>
-            </div>
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">Water end</div><div class="value">${Math.round(s.water)}% (${s.zoneLabel})</div></div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">โซนสุดท้าย</div>
-            </div>
-          </div>
+  let activeTargets = new Set();
+  let lastSpawnTs   = 0;
+  let spawnCounter  = 0;
 
-          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button id="hvr-end-retry" class="btn primary" style="pointer-events:auto;">🔁 เล่นอีกครั้ง</button>
-            <button id="hvr-end-hub" class="btn" style="pointer-events:auto;">🏠 กลับ Hub</button>
-          </div>
-        </div>
-      </div>
-    `;
-    end.innerHTML = html;
+  // ---------- Adaptive ----------
+  let adaptLevel   = 0;
+  let curInterval  = baseDiff.spawnInterval;
+  let curMaxActive = baseDiff.maxActive;
+  let curScale     = baseDiff.scale;
+  let curLife      = baseDiff.life;
 
-    const retry = $id('hvr-end-retry');
-    const hub = $id('hvr-end-hub');
-    if (retry) retry.onclick = ()=>location.reload();
-    if (hub) hub.onclick = ()=>location.href = './hub.html';
-  }
+  let sampleHits   = 0;
+  let sampleMisses = 0;
+  let sampleTotal  = 0;
+  const ADAPT_WINDOW = 12;
 
-  function endGame(){
-    if (!s.running) return;
-    s.running = false;
+  function recalcAdaptive () {
+    if (!allowAdaptive) return;
+    if (sampleTotal < ADAPT_WINDOW) return;
 
-    try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{}
-    try{ inst && inst.stop && inst.stop(); }catch{}
+    const hitRate = sampleHits / sampleTotal;
+    let next = adaptLevel;
 
-    if (unbindDrag) try{ unbindDrag(); }catch{}
-    if (unbindTilt) try{ unbindTilt(); }catch{}
+    if (hitRate >= 0.85 && sampleMisses <= 2) next += 1;
+    else if (hitRate <= 0.55 || sampleMisses >= 6) next -= 1;
 
-    ROOT.removeEventListener('hha:time', onTime);
+    adaptLevel = clamp(next, -1, 3);
 
-    if (fxRaf) try{ ROOT.cancelAnimationFrame(fxRaf); }catch{}
-    fxRaf = null;
+    const intervalMul = 1 - (adaptLevel * 0.12);
+    const scaleMul    = 1 - (adaptLevel * 0.10);
+    const lifeMul     = 1 - (adaptLevel * 0.08);
+    const bonusActive = adaptLevel;
 
-    setStorm(false, 0);
+    curInterval  = clamp(baseDiff.spawnInterval * intervalMul,
+                         baseDiff.spawnInterval * 0.45,
+                         baseDiff.spawnInterval * 1.4);
+    curScale     = clamp(baseDiff.scale * scaleMul,
+                         baseDiff.scale * 0.6,
+                         baseDiff.scale * 1.4);
+    curLife      = clamp(baseDiff.life * lifeMul,
+                         baseDiff.life * 0.55,
+                         baseDiff.life * 1.15);
+    curMaxActive = clamp(baseDiff.maxActive + bonusActive, 2, 10);
 
-    // final celebrate
-    try{ Particles.celebrate('END'); }catch{}
+    sampleHits = sampleMisses = sampleTotal = 0;
 
-    buildEndOverlay();
-
-    // also emit end event (เผื่อ HUD กลางอื่นใช้)
-    try{
-      ROOT.dispatchEvent(new CustomEvent('hha:end', {
-        detail:{
-          score: s.score|0,
-          miss: s.miss|0,
-          comboBest: s.comboMax|0,
-          grade: gradeFrom(s.score),
-          water: Math.round(s.water),
-          zone: s.zoneLabel,
-          greenTick: s.greenTick|0,
-          progPct: clamp((s.score/1500)*100,0,100)|0
-        }
+    try {
+      ROOT.dispatchEvent(new CustomEvent('hha:adaptive', {
+        detail: { modeKey, difficulty: diffKey, level: adaptLevel, spawnInterval: curInterval, maxActive: curMaxActive, scale: curScale, life: curLife }
       }));
-    }catch{}
+    } catch {}
   }
 
-  // first HUD update
-  hud();
+  function addSample (isHit) {
+    if (!allowAdaptive) return;
+    if (isHit) sampleHits++;
+    else sampleMisses++;
+    sampleTotal++;
+    if (sampleTotal >= ADAPT_WINDOW) recalcAdaptive();
+  }
+
+  // ---------- Rhythm ----------
+  let rhythmOn = false;
+  let beatMs = 0;
+  let lastBeatTs = 0;
+
+  if (typeof rhythm === 'boolean') rhythmOn = rhythm;
+  else if (rhythm && rhythm.enabled) rhythmOn = true;
+
+  if (rhythmOn) {
+    const bpm = clamp((rhythm && rhythm.bpm) ? rhythm.bpm : 110, 70, 160);
+    beatMs = Math.round(60000 / bpm);
+    try { host.classList.add('hvr-rhythm-on'); } catch {}
+  }
+
+  function getSpawnMul(){
+    let m = 1;
+    try{
+      if (typeof spawnIntervalMul === 'function') m = Number(spawnIntervalMul()) || 1;
+      else if (spawnIntervalMul != null) m = Number(spawnIntervalMul) || 1;
+    }catch{}
+    return clamp(m, 0.25, 2.5);
+  }
+
+  function getLifeMs(){
+    const mul = getSpawnMul();
+    const stormLifeMul = (mul < 0.99) ? 0.85 : 1.0;
+    const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
+    const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
+
+    const life = curLife * stormLifeMul * ratioLifeMul;
+    return Math.round(clamp(life, 520, baseDiff.life * 1.25));
+  }
+
+  // ======================================================
+  //  Hit info + Crosshair shoot
+  // ======================================================
+  function computeHitInfoFromPoint(el, clientX, clientY){
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top  + r.height/2;
+    const dx = (clientX - cx);
+    const dy = (clientY - cy);
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const rad  = Math.max(1, Math.min(r.width, r.height) / 2);
+    const norm = dist / rad;
+    const perfect = norm <= 0.33;
+    return { cx, cy, dist, norm, perfect, rect:r };
+  }
+
+  function findTargetAtPoint(clientX, clientY){
+    let best = null;
+    let bestD = 999999;
+
+    activeTargets.forEach(t => {
+      const el = t.el;
+      if (!el || !el.isConnected) return;
+      const r = el.getBoundingClientRect();
+      const inside = (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom);
+      if (!inside) return;
+      const info = computeHitInfoFromPoint(el, clientX, clientY);
+      if (info.dist < bestD) { bestD = info.dist; best = { t, info }; }
+    });
+
+    return best;
+  }
+
+  // crosshair = center of usable host rect (exclude HUD margins)
+  const exState = {
+    els: collectExclusionElements({ excludeSelectors }),
+    margins: { top:0,bottom:0,left:0,right:0 },
+    lastRefreshTs: 0
+  };
+
+  function refreshExclusions(ts){
+    if (!DOC) return;
+    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (ts - exState.lastRefreshTs < 600) return;
+    exState.lastRefreshTs = ts;
+
+    exState.els = collectExclusionElements({ excludeSelectors });
+    let hostRect = null;
+    try{ hostRect = host.getBoundingClientRect(); }catch{}
+    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    exState.margins = computeExclusionMargins(hostRect, exState.els);
+  }
+
+  function getCrosshairPoint(){
+    let rect = null;
+    try{ rect = host.getBoundingClientRect(); }catch{}
+    if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+
+    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+    const padX = rect.width * 0.08;
+    const padY = rect.height * 0.10;
+
+    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
+    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+
+  function shootCrosshair(){
+    if (stopped) return false;
+    refreshExclusions();
+    const p = getCrosshairPoint();
+    const hit = findTargetAtPoint(p.x, p.y);
+    if (!hit) return false;
+
+    const data = hit.t;
+    const info = hit.info;
+
+    if (typeof data._hit === 'function') {
+      data._hit({ __hhaSynth:true, clientX:p.x, clientY:p.y }, info);
+      return true;
+    }
+    return false;
+  }
+
+  // ======================================================
+  //  Spawn target
+  // ======================================================
+  function spawnTarget () {
+    if (activeTargets.size >= curMaxActive) return;
+
+    refreshExclusions();
+
+    const rect = computePlayRectFromHost(host, exState);
+
+    const xLocal = rect.left + rect.width  * (0.15 + Math.random() * 0.70);
+    const yLocal = rect.top  + rect.height * (0.10 + Math.random() * 0.80);
+
+    const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
+    const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
+    const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
+
+    let ch = '💧';
+    let isGood = true;
+    let isPower = false;
+    let itemType = 'good'; // good | bad | power | fakeGood
+
+    const canPower = Array.isArray(powerups) && powerups.length > 0;
+    const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
+
+    if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
+      ch = pickOne(powerups, '⭐');
+      isGood = true;
+      isPower = true;
+      itemType = 'power';
+    } else if (canTrick) {
+      ch = pickOne(poolsTrick, '💧');
+      isGood = true;
+      isPower = false;
+      itemType = 'fakeGood';
+    } else {
+      const r = Math.random();
+      if (r < goodRate || !poolsBad.length) {
+        ch = pickOne(poolsGood, '💧');
+        isGood = true;
+        itemType = 'good';
+      } else {
+        ch = pickOne(poolsBad, '🍟');
+        isGood = false;
+        itemType = 'bad';
+      }
+    }
+    spawnCounter++;
+
+    const el = DOC.createElement('div');
+    el.className = 'hvr-target';
+    el.setAttribute('data-hha-tgt', '1');
+    el.setAttribute('data-item-type', itemType);
+
+    const baseSize = 82; // slightly bigger => nicer bubble
+    const size = baseSize * curScale;
+
+    el.style.position = 'absolute';
+    el.style.left = xLocal + 'px';
+    el.style.top  = yLocal + 'px';
+    el.style.width  = size + 'px';
+    el.style.height = size + 'px';
+    el.style.transform = 'translate(-50%, -50%) scale(0.88)';
+    el.style.touchAction = 'manipulation';
+    el.style.zIndex = '35';
+
+    // random float direction
+    el.style.setProperty('--sx', (Math.random()<0.5?-1:1) * (0.8 + Math.random()*1.2));
+    el.style.setProperty('--rx', (Math.random()<0.5?-1:1) * (0.8 + Math.random()*1.2));
+
+    // bubble element (anim + iridescence)
+    const bubble = DOC.createElement('div');
+    bubble.className = 'hvr-bubble';
+
+    // base color tone per type (glass tint)
+    let tint = 'rgba(80, 255, 180, 0.22)';
+    let glow = 'rgba(34,197,94,0.45)';
+    if (itemType === 'power'){
+      tint = 'rgba(255, 220, 120, 0.22)';
+      glow = 'rgba(250,204,21,0.55)';
+    } else if (itemType === 'fakeGood'){
+      tint = 'rgba(160, 120, 255, 0.22)';
+      glow = 'rgba(167,139,250,0.55)';
+    } else if (!isGood){
+      tint = 'rgba(255, 120, 120, 0.20)';
+      glow = 'rgba(239,68,68,0.55)';
+    }
+
+    bubble.style.background = `
+      radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), rgba(255,255,255,0) 45%),
+      radial-gradient(circle at 65% 70%, ${tint}, rgba(0,0,0,0) 60%),
+      radial-gradient(circle at 50% 50%, rgba(15,23,42,.35), rgba(15,23,42,.55))
+    `;
+    bubble.style.boxShadow = `0 14px 30px rgba(15,23,42,0.55), 0 0 0 2px ${glow}, 0 0 22px ${glow}`;
+
+    // rim
+    const rim = DOC.createElement('div');
+    rim.className = 'hvr-rim';
+    bubble.appendChild(rim);
+
+    // perfect ring marker
+    const ring = DOC.createElement('div');
+    ring.className = 'hvr-ring';
+    ring.style.width  = (size * 0.36) + 'px';
+    ring.style.height = (size * 0.36) + 'px';
+    ring.style.border = '2px solid rgba(255,255,255,0.35)';
+    bubble.appendChild(ring);
+
+    // fakeGood sparkle marker
+    if (itemType === 'fakeGood') {
+      const sp = DOC.createElement('div');
+      sp.textContent = '✨';
+      sp.style.position = 'absolute';
+      sp.style.right = '8px';
+      sp.style.top = '6px';
+      sp.style.fontSize = '18px';
+      sp.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+      sp.style.pointerEvents = 'none';
+      bubble.appendChild(sp);
+    }
+
+    // icon
+    const icon = DOC.createElement('span');
+    icon.className = 'hvr-icon';
+    icon.textContent = ch;
+    icon.style.fontSize = (size * 0.62) + 'px';
+    bubble.appendChild(icon);
+
+    el.appendChild(bubble);
+
+    if (rhythmOn) el.classList.add('hvr-pulse');
+
+    ROOT.requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%, -50%) scale(1)';
+    });
+
+    const lifeMs = getLifeMs();
+
+    const data = {
+      el,
+      ch,
+      isGood,
+      isPower,
+      itemType,
+      bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+      life: lifeMs,
+      _hit: null
+    };
+
+    activeTargets.add(data);
+    host.appendChild(el);
+
+    function consumeHit(evOrSynth, hitInfoOpt){
+      if (stopped) return;
+      if (!activeTargets.has(data)) return;
+
+      let keepRect = null;
+      try{ keepRect = el.getBoundingClientRect(); }catch{}
+
+      activeTargets.delete(data);
+      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
+      try { host.removeChild(el); } catch {}
+
+      let res = null;
+      if (typeof judge === 'function') {
+        const xy = (evOrSynth && evOrSynth.__hhaSynth)
+          ? { x: evOrSynth.clientX, y: evOrSynth.clientY }
+          : getEventXY(evOrSynth || {});
+        const info = hitInfoOpt || (keepRect ? (function(){
+          const cx = keepRect.left + keepRect.width/2;
+          const cy = keepRect.top + keepRect.height/2;
+          const dx = (xy.x - cx);
+          const dy = (xy.y - cy);
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const rad  = Math.max(1, Math.min(keepRect.width, keepRect.height) / 2);
+          const norm = dist / rad;
+          const perfect = norm <= 0.33;
+          return { cx, cy, dist, norm, perfect, rect: keepRect };
+        })() : computeHitInfoFromPoint(el, xy.x, xy.y));
+
+        const ctx = {
+          clientX: xy.x, clientY: xy.y,
+          isGood, isPower,
+          itemType,
+          hitPerfect: !!info.perfect,
+          hitDistNorm: Number(info.norm || 1),
+          targetRect: info.rect
+        };
+        try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
+      }
+
+      let isHit = false;
+      if (res && typeof res.scoreDelta === 'number') {
+        if (res.scoreDelta > 0) isHit = true;
+        else if (res.scoreDelta < 0) isHit = false;
+        else isHit = isGood;
+      } else if (res && typeof res.good === 'boolean') {
+        isHit = !!res.good;
+      } else {
+        isHit = isGood;
+      }
+      addSample(isHit);
+    }
+
+    const handleHit = (ev) => {
+      if (stopped) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      consumeHit(ev, null);
+    };
+
+    data._hit = consumeHit;
+
+    el.addEventListener('pointerdown', handleHit, { passive: false });
+    el.addEventListener('click', handleHit, { passive: false });
+    el.addEventListener('touchstart', handleHit, { passive: false });
+
+    ROOT.setTimeout(() => {
+      if (stopped) return;
+      if (!activeTargets.has(data)) return;
+
+      activeTargets.delete(data);
+      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
+      try { host.removeChild(el); } catch {}
+
+      try { if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, itemType }); } catch (err) {
+        console.error('[mode-factory] onExpire error', err);
+      }
+    }, lifeMs);
+  }
+
+  // ---------- clock ----------
+  function dispatchTime (sec) {
+    try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
+  }
+
+  let rafId = null;
+
+  function loop (ts) {
+    if (stopped) return;
+
+    refreshExclusions(ts);
+
+    if (lastClockTs == null) lastClockTs = ts;
+    const dt = ts - lastClockTs;
+
+    if (dt >= 1000 && secLeft > 0) {
+      const steps = Math.floor(dt / 1000);
+      for (let i = 0; i < steps; i++) {
+        secLeft--;
+        dispatchTime(secLeft);
+        if (secLeft <= 0) break;
+      }
+      lastClockTs += steps * 1000;
+    }
+
+    if (secLeft > 0) {
+      if (!lastSpawnTs) lastSpawnTs = ts;
+
+      const mul = getSpawnMul();
+      const effInterval = Math.max(35, curInterval * mul);
+
+      try{
+        if (mul < 0.99) host.classList.add('hvr-storm-on');
+        else host.classList.remove('hvr-storm-on');
+      }catch{}
+
+      if (rhythmOn && beatMs > 0) {
+        if (!lastBeatTs) lastBeatTs = ts;
+        const dtBeat = ts - lastBeatTs;
+        if (dtBeat >= beatMs) {
+          spawnTarget();
+          lastBeatTs += Math.floor(dtBeat / beatMs) * beatMs;
+        }
+      } else {
+        const dtSpawn = ts - lastSpawnTs;
+        if (dtSpawn >= effInterval) {
+          spawnTarget();
+          lastSpawnTs = ts;
+        }
+      }
+    } else {
+      stop();
+      return;
+    }
+
+    rafId = ROOT.requestAnimationFrame(loop);
+  }
+
+  function stop () {
+    if (stopped) return;
+    stopped = true;
+
+    try { if (rafId != null) ROOT.cancelAnimationFrame(rafId); } catch {}
+    rafId = null;
+
+    activeTargets.forEach(t => { try { t.el.remove(); } catch {} });
+    activeTargets.clear();
+
+    try { dispatchTime(0); } catch {}
+  }
+
+  const onStopEvent = () => stop();
+  ROOT.addEventListener('hha:stop', onStopEvent);
+
+  rafId = ROOT.requestAnimationFrame(loop);
 
   return {
-    stop(){ endGame(); },
-    shoot(){ try{ inst && inst.shootCrosshair && inst.shootCrosshair(); }catch{} }
+    stop () {
+      ROOT.removeEventListener('hha:stop', onStopEvent);
+      stop();
+    },
+    shootCrosshair
   };
 }
 
