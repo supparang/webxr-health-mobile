@@ -33,6 +33,7 @@ export default function bootGoodJunkVR(){
   const elQuestMiniCap = $('hud-quest-mini-caption');
   const elQuestHint = $('hud-quest-hint');
   const elMiniCount = $('hud-mini-count');
+  const elMiniWhy = $('hud-mini-why');
 
   const coachBubble = $('coach-bubble');
   const coachEmoji  = $('coach-emoji');
@@ -68,13 +69,15 @@ export default function bootGoodJunkVR(){
   if (selDiff) selDiff.value = initDiff;
   if (selChallenge) selChallenge.value = initCh;
 
-  // --- FX helpers (Particles.js) ---
-  function P(){ return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null; }
-  function burst(x,y,good=true,count=14){ try{ P()?.burstAt?.(x,y,{count,good}); }catch(_){} }
-  function pop(x,y,label){ try{ P()?.scorePop?.(x,y,'',String(label||''),{plain:true}); }catch(_){} }
-  function celebrate(kind){ try{ P()?.celebrate?.(kind,{title: kind==='goal'?'🎉 GOAL CLEARED!':'✨ MINI CLEARED!', sub:'ไปต่อเลย!'}); }catch(_){} }
+  // Particles celebrate (ถ้ามี)
+  function celebrate(kind){
+    try{
+      const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
+      P?.celebrate?.(kind, { title: kind==='goal'?'🎉 GOAL CLEARED!':'✨ MINI CLEARED!', sub:'ไปต่อเลย!' });
+    }catch(_){}
+  }
 
-  // --- coach ---
+  // coach
   const COACH = {
     neutral:'./img/coach-neutral.png',
     happy:'./img/coach-happy.png',
@@ -87,10 +90,10 @@ export default function bootGoodJunkVR(){
     if (coachText) coachText.textContent = text || '';
     if (coachEmoji) coachEmoji.style.backgroundImage = `url('${COACH[mood] || COACH.neutral}')`;
     if (coachTimer) clearTimeout(coachTimer);
-    coachTimer = setTimeout(()=> coachBubble && coachBubble.classList.remove('show'), 3800);
+    coachTimer = setTimeout(()=> coachBubble && coachBubble.classList.remove('show'), 3600);
   }
 
-  // --- countdown ---
+  // countdown
   function runCountdown(done){
     if (!countdown){ done(); return; }
     const steps = ['3','2','1','Go!'];
@@ -114,7 +117,7 @@ export default function bootGoodJunkVR(){
     });
   }
 
-  // --- core state for QuestDirector ---
+  // core state for QuestDirector
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0,
     timeLeft:initTime,
@@ -135,15 +138,15 @@ export default function bootGoodJunkVR(){
   let engine = null;
   let lookCtl = null;
 
-  // safeNoJunkSeconds: นับเฉพาะ “ไม่โดน junk/fake”
+  // safeNoJunkSeconds tick (รีเซ็ตเมื่อโดน junk)
   setInterval(()=>{
     if (!running) return;
     if ((qState.timeLeft|0) <= 0) return;
     qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
   }, 1000);
 
-  // QuestDirector
-  const Q = makeQuestDirector({
+  // QuestDirector instance
+  let Q = makeQuestDirector({
     diff: initDiff,
     challenge: initCh,
     goalDefs: GOODJUNK_GOALS,
@@ -152,6 +155,30 @@ export default function bootGoodJunkVR(){
     maxMini: 999
   });
   Q.start(qState);
+
+  // --- WHY helper (บอกว่าติดอะไร) ---
+  function setWhy(txt){
+    if (!elMiniWhy) return;
+    elMiniWhy.textContent = txt || '';
+  }
+  function miniWhy(m){
+    if (!m || m.state === 'clear') return '✅ ผ่านแล้ว';
+    const cur = Number(m.cur||0);
+    const max = Number(m.max||0);
+    const left = Math.max(0, max - cur);
+
+    switch(String(m.id||'')){
+      case 'm1': return `เหลืออีก ${left} ชิ้น (ห้ามพลาด/หมดอายุ)`;
+      case 'm2': return qState.goldHitsThisMini ? '✅ ได้ GOLD แล้ว' : 'ยังไม่ได้ GOLD ในมินินี้';
+      case 'm3': return `รอดอีก ${left} วิ (โดน junk/fake = รีเซ็ต)`;
+      case 'm4': return `BLOCK อีก ${left} ครั้ง`;
+      case 'm5': return qState.usedMagnet ? `หลังใช้ 🧲 เหลืออีก ${left} ชิ้น` : 'ยังไม่ได้ใช้ 🧲';
+      case 'm6': return `ใช้ ⏳ อีก ${left} ครั้ง`;
+      case 'm7': return qState.bossCleared ? '✅ เคลียร์บอสแล้ว' : 'ยังไม่เคลียร์บอส';
+      case 'm8': return `ช่วง 8 วิท้าย เหลืออีก ${left} ชิ้น`;
+      default:   return `เหลืออีก ${left}`;
+    }
+  }
 
   // --- HUD quest update ---
   window.addEventListener('quest:update', (e)=>{
@@ -169,6 +196,9 @@ export default function bootGoodJunkVR(){
       if (elQuestMini) elQuestMini.textContent = `Mini: ${m.title || '—'}`;
       if (elQuestMiniCap) elQuestMiniCap.textContent = `${m.cur|0} / ${m.max|0}`;
       if (elQuestMiniBar) elQuestMiniBar.style.width = `${Math.round((m.pct||0)*100)}%`;
+      setWhy(miniWhy(m));
+    }else{
+      setWhy('');
     }
     if (elMiniCount){
       elMiniCount.textContent = `mini ผ่าน ${meta.minisCleared|0} • เล่นอยู่ ${(meta.miniCount|0)+1}`;
@@ -188,44 +218,34 @@ export default function bootGoodJunkVR(){
     qState.blocks = 0;
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
+    setWhy('');
   });
 
-  // --- listen engine events (effect + quest counters) ---
+  // ✅ hit events now include kind + delta + label (จาก goodjunk.safe.js)
   window.addEventListener('quest:goodHit', (e)=>{
-    const x = e.detail?.x ?? innerWidth*0.5;
-    const y = e.detail?.y ?? innerHeight*0.55;
-    burst(x,y,true,14);
-    pop(x,y, String(e.detail?.judgment||'').includes('perfect') ? 'PERFECT!' : 'GOOD!');
+    const kind = String(e.detail?.kind || 'good');
+    if (kind === 'gold') qState.goldHitsThisMini = true;
+
+    // streak + final8 tracking
     qState.streakGood = (qState.streakGood|0) + 1;
     if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
+
     Q.tick(qState);
   });
 
-  window.addEventListener('quest:badHit', (e)=>{
-    const x = e.detail?.x ?? innerWidth*0.5;
-    const y = e.detail?.y ?? innerHeight*0.55;
-    burst(x,y,false,14);
-    pop(x,y,'JUNK!');
+  window.addEventListener('quest:badHit', ()=>{
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
     Q.tick(qState);
   });
 
-  window.addEventListener('quest:block', (e)=>{
-    const x = e.detail?.x ?? innerWidth*0.5;
-    const y = e.detail?.y ?? innerHeight*0.55;
-    burst(x,y,true,10);
-    pop(x,y,'BLOCK!');
+  window.addEventListener('quest:block', ()=>{
     qState.blocks = (qState.blocks|0) + 1;
     Q.tick(qState);
   });
 
   window.addEventListener('quest:power', (e)=>{
-    const x = e.detail?.x ?? innerWidth*0.5;
-    const y = e.detail?.y ?? innerHeight*0.55;
-    burst(x,y,true,12);
-    pop(x,y, String(e.detail?.power||'').toUpperCase());
-    const p = String(e.detail?.power||'');
+    const p = String(e.detail?.power || '');
     if (p === 'magnet') qState.usedMagnet = true;
     if (p === 'time') qState.timePlus = (qState.timePlus|0) + 1;
     Q.tick(qState);
@@ -237,7 +257,7 @@ export default function bootGoodJunkVR(){
     Q.tick(qState);
   });
 
-  // --- HUD: score/time/judge ---
+  // score/time/judge
   window.addEventListener('hha:judge', (e)=>{
     if (elJudge) elJudge.textContent = String(e.detail?.label || '').trim() || ' ';
   });
@@ -263,7 +283,7 @@ export default function bootGoodJunkVR(){
     if (elCombo) elCombo.textContent = String(qState.comboMax|0);
     if (elMiss)  elMiss.textContent  = String(qState.miss|0);
 
-    // streak reset เมื่อ miss เพิ่ม (รวม good expire) → ทำให้ Clean Streak โหดจริง
+    // Clean Streak โหดจริง: miss เพิ่ม (รวมของดีหมดอายุ) -> reset streak
     if ((qState.miss|0) > (lastMiss|0)){
       qState.streakGood = 0;
       lastMiss = qState.miss|0;
@@ -272,7 +292,6 @@ export default function bootGoodJunkVR(){
     Q.tick(qState);
   });
 
-  // --- start engine ---
   function startGame({ diff, challenge, time, wantVR }){
     if (!layerEl) return;
 
@@ -284,11 +303,8 @@ export default function bootGoodJunkVR(){
     if (elDiff) elDiff.textContent = diff.toUpperCase();
     if (elChal) elChal.textContent = challenge.toUpperCase();
     if (elRunLabel) elRunLabel.textContent = (qState.runMode==='research' ? 'RESEARCH' : 'PLAY');
-    if (elPill){
-      elPill.classList.toggle('research', qState.runMode==='research');
-    }
+    if (elPill) elPill.classList.toggle('research', qState.runMode==='research');
 
-    // init look controller (drag + gyro)
     if (!lookCtl && camEl){
       lookCtl = attachTouchLook(camEl, {
         areaEl: layerEl,
@@ -298,45 +314,34 @@ export default function bootGoodJunkVR(){
         pitchLimit: 1.15,
         showHint: (on)=>{ if (!hint) return; hint.classList.toggle('show', !!on); }
       });
-      // เก็บไว้ debug
       window.__GJ_LOOK__ = lookCtl;
     }
 
-    // start engine
     try{ engine?.stop?.(); }catch(_){}
     engine = goodjunkBoot({ diff, run: qState.runMode, challenge, time, layerEl });
 
-    // reset quest director pool (สร้างใหม่เพื่อรับ diff/challenge)
-    try{
-      const Q2 = makeQuestDirector({
-        diff, challenge,
-        goalDefs: GOODJUNK_GOALS,
-        miniDefs: GOODJUNK_MINIS,
-        maxGoals: 2,
-        maxMini: 999
-      });
-      Q2.start(qState);
-      // เปลี่ยน reference
-      Object.assign(Q, Q2);
-    }catch(_){}
+    // reset quest director (รับ diff/challenge ใหม่)
+    Q = makeQuestDirector({
+      diff, challenge,
+      goalDefs: GOODJUNK_GOALS,
+      miniDefs: GOODJUNK_MINIS,
+      maxGoals: 2,
+      maxMini: 999
+    });
+    Q.start(qState);
 
     say('เริ่มแล้ว! ลากเพื่อหมุนมุมมอง แล้วแตะเป้าเลย ⚡', 'neutral');
-
-    if (wantVR && scene){
-      try{ scene.enterVR(); }catch(_){}
-    }
+    if (wantVR && scene){ try{ scene.enterVR(); }catch(_){} }
   }
 
-  // --- start buttons ---
   function onStart(wantVR){
     const diff = normDiff(selDiff?.value || initDiff);
     const ch   = normCh(selChallenge?.value || initCh);
     const time = clamp(initTime, 20, 180);
 
-    // ขอ permission ไจโร “ต้องอยู่ใน gesture”
+    // iOS gyro permission must be in gesture
     try{ lookCtl?.requestGyroPermission?.(); }catch(_){}
 
-    // hide overlay + countdown + start
     if (startOverlay) startOverlay.style.display = 'none';
     runCountdown(()=> startGame({ diff, challenge: ch, time, wantVR }));
   }
@@ -344,11 +349,9 @@ export default function bootGoodJunkVR(){
   if (btnStart2D) btnStart2D.addEventListener('click', ()=> onStart(false));
   if (btnStartVR) btnStartVR.addEventListener('click', ()=> onStart(true));
 
-  // ✅ tap-anywhere unlock (กันกรณีบางเครื่องไม่ยอม)
   document.addEventListener('pointerdown', ()=>{
     try{ lookCtl?.requestGyroPermission?.(); }catch(_){}
   }, { once:true, passive:true });
 
-  // init hint once
   setTimeout(()=>{ if (hint) hint.classList.add('show'); setTimeout(()=> hint && hint.classList.remove('show'), 1800); }, 900);
 }
