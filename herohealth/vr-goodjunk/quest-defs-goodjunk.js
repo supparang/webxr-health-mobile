@@ -1,17 +1,13 @@
 // === /herohealth/vr-goodjunk/quest-defs-goodjunk.js ===
 // Goal/Mini defs (A+B+C heavy) — schema สำหรับ quest-director
-// Expect gameState fields from goodjunk-vr.boot.js qState:
-// score, goodHits, miss, comboMax, timeLeft, streakGood, goldHitsThisMini,
-// blocks, usedMagnet, timePlus, safeNoJunkSeconds, bossCleared, challenge, runMode,
-// final8Good
 
 'use strict';
 
-// ---------- GOALS (2 goals per run) ----------
 export const GOODJUNK_GOALS = [
   {
     id:'g1',
-    label:'เก็บของดีให้ได้ 25 ชิ้น 🥦',
+    // ❗️อย่า hardcode 25 เพราะ easy เป็น 20 → ให้ดูจาก progress caption แทน
+    label:'เก็บของดีให้ครบตามเป้า 🥦',
     hint:'แตะเฉพาะอาหารดีเท่านั้น',
     targetByDiff:{ easy:20, normal:25, hard:30 },
     eval:(s)=> (s.goodHits|0),
@@ -19,7 +15,7 @@ export const GOODJUNK_GOALS = [
   },
   {
     id:'g2',
-    label:'ทำคอมโบสูงสุดให้ถึง 12 🔥',
+    label:'ทำคอมโบสูงสุดให้ถึงเป้า 🔥',
     hint:'ห้ามพลาดระหว่างทาง',
     targetByDiff:{ easy:10, normal:12, hard:14 },
     eval:(s)=> (s.comboMax|0),
@@ -27,7 +23,7 @@ export const GOODJUNK_GOALS = [
   },
   {
     id:'g3',
-    label:'พลาดไม่เกิน 4 ครั้ง 🛡️',
+    label:'พลาดไม่เกินเป้า 🛡️',
     hint:'หลบ junk/fake ให้ดี',
     targetByDiff:{ easy:5, normal:4, hard:3 },
     eval:(s)=> (s.miss|0),
@@ -44,61 +40,43 @@ export const GOODJUNK_GOALS = [
   }
 ];
 
-// ---------- MINIS (endless chain) ----------
 export const GOODJUNK_MINIS = [
-  // A: streak/สปีด
-  {
-    id:'m1',
-    label:'Clean Streak: เก็บดีติดกัน 8 ชิ้น ⚡',
+  { id:'m1',
+    label:'Clean Streak: เก็บดีติดกัน ⚡',
     hint:'ห้ามพลาดแม้แต่ครั้งเดียว',
     targetByDiff:{ easy:6, normal:8, hard:10 },
     eval:(s)=> (s.streakGood|0),
     pass:(v,tgt)=> v>=tgt
   },
-
-  // A: gold
-  {
-    id:'m2',
-    label:'Gold Hunt: เก็บ GOLD ให้ได้ 1 🟡',
+  { id:'m2',
+    label:'Gold Hunt: เก็บ GOLD ให้ได้ 🟡',
     hint:'ต้องเก็บภายใน mini นี้เท่านั้น',
     targetByDiff:{ easy:1, normal:1, hard:1 },
     eval:(s)=> (s.goldHitsThisMini ? 1 : 0),
     pass:(v)=> v>=1
   },
-
-  // B: ✅ ยุติธรรมขึ้น: นับเฉพาะ “ไม่โดน junk/fake”
-  {
-    id:'m3',
-    label:'No-Junk Zone: 10 วิห้ามโดนของเสีย 🚫',
+  { id:'m3',
+    label:'No-Junk Zone: ห้ามโดนของเสีย 🚫',
     hint:'โดน junk/fake = รีเซ็ต (ปล่อยของดีหมดอายุไม่เป็นไร)',
     targetByDiff:{ easy:8, normal:10, hard:12 },
     eval:(s)=> (s.safeNoJunkSeconds|0),
     pass:(v,tgt)=> v>=tgt
   },
-
-  // B: shield block
-  {
-    id:'m4',
-    label:'Shield Save: BLOCK ให้ได้ 2 ครั้ง 🛡️',
+  { id:'m4',
+    label:'Shield Save: BLOCK ให้ได้ 🛡️',
     hint:'กด shield แล้วกันให้ทัน',
     targetByDiff:{ easy:1, normal:2, hard:2 },
     eval:(s)=> (s.blocks|0),
     pass:(v,tgt)=> v>=tgt
   },
-
-  // A+B: magnet risk
-  {
-    id:'m5',
-    label:'Magnet Risk: ใช้ 🧲 แล้วเก็บดี 6 ชิ้น',
-    hint:'ระวัง junk จะถูกดูดเข้ามาด้วย!',
+  { id:'m5',
+    label:'STUN Risk: ใช้ 🧲 แล้วเก็บดีให้ครบ',
+    hint:'ระวัง junk จะเข้าหาศูนย์กลาง!',
     targetByDiff:{ easy:4, normal:6, hard:7 },
     eval:(s)=> (s.usedMagnet ? (s.streakGood|0) : 0),
     pass:(v,tgt)=> v>=tgt
   },
-
-  // A: time power (ไม่ใช้ใน survival)
-  {
-    id:'m6',
+  { id:'m6',
     label:'Time Dealer: ใช้ ⏳ เพิ่มเวลา 1 ครั้ง',
     hint:'ช่วยชีวิตได้!',
     targetByDiff:{ easy:1, normal:1, hard:1 },
@@ -106,10 +84,7 @@ export const GOODJUNK_MINIS = [
     pass:(v)=> v>=1,
     notChallenge:['survival']
   },
-
-  // C: boss focus
-  {
-    id:'m7',
+  { id:'m7',
     label:'Boss Slayer: เคลียร์บอสให้ได้ 👑',
     hint:'ช่วงท้ายเกมเท่านั้น',
     targetByDiff:{ easy:1, normal:1, hard:1 },
@@ -117,12 +92,9 @@ export const GOODJUNK_MINIS = [
     pass:(v)=> v>=1,
     onlyChallenge:['boss']
   },
-
-  // โค้งสุดท้าย “เกมจริง”
-  {
-    id:'m8',
-    label:'Final Sprint: 8 วิสุดท้าย เก็บดีให้ได้ 10 🏁',
-    hint:'เริ่มนับเมื่อเข้า 8 วิสุดท้าย',
+  { id:'m8',
+    label:'Final Sprint: 8 วิสุดท้าย เก็บดีให้ครบ 🏁',
+    hint:'เริ่มนับเมื่อเข้า 8 วิสุดท้าย (โดน junk = lock 1 วิ)',
     targetByDiff:{ easy:8, normal:10, hard:12 },
     eval:(s)=> (s.final8Good|0),
     pass:(v,tgt)=> v>=tgt
