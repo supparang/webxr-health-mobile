@@ -9,6 +9,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 (function () {
   'use strict';
 
+  // bfcache fix
   window.addEventListener('pageshow', (e)=>{
     if (e.persisted) window.location.reload();
   });
@@ -16,6 +17,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   const $ = (id)=>document.getElementById(id);
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){} };
   const safeStyleWidth = (el, w)=>{ try{ if (el) el.style.width = w; }catch(_){} };
+  const clamp = (v,min,max)=>{ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; };
 
   // HUD elements
   const elScore = $('hud-score');
@@ -56,6 +58,11 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   const logDot  = $('logdot');
   const logText = $('logtext');
 
+  // Fever/Shield (HTML นี้มีอยู่แล้ว)
+  const elFeverFill  = $('fever-fill');
+  const elFeverPct   = $('fever-pct');
+  const elShieldCount= $('shield-count');
+
   // URL params from hub
   const pageUrl = new window.URL(window.location.href);
   const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();                 // play | research
@@ -64,7 +71,6 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   const URL_TIME_RAW = parseInt(pageUrl.searchParams.get('time') || '', 10);
 
   const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
-  function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
   function normDiff(v){ v=String(v||'normal').toLowerCase(); return (v==='easy'||v==='hard'||v==='normal') ? v : 'normal'; }
   function normCh(v){ v=String(v||'rush').toLowerCase(); return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush'; }
   function normRun(v){ v=String(v||'play').toLowerCase(); return (v==='research') ? 'research' : 'play'; }
@@ -77,12 +83,12 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     20, 180
   );
 
-  // Coach images (ไฟล์อยู่ /herohealth/img)
+  // ✅ Coach images (HTML root: /herohealth/ → ใช้ ./img/...)
   const COACH_IMG = {
-    neutral: '../img/coach-neutral.png',
-    happy:   '../img/coach-happy.png',
-    sad:     '../img/coach-sad.png',
-    fever:   '../img/coach-fever.png'
+    neutral: './img/coach-neutral.png',
+    happy:   './img/coach-happy.png',
+    sad:     './img/coach-sad.png',
+    fever:   './img/coach-fever.png'
   };
 
   let lastCoachTimeout = null;
@@ -102,35 +108,104 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   function getParticles(){
     return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
   }
-  function posFromDetail(detail){
+
+  // fallback FX (ถ้า particles.js ไม่ขึ้น/ไม่มีฟังก์ชัน)
+  function ensureFallbackFxStyle(){
+    if (document.getElementById('hha-fx-fallback-style')) return;
+    const st = document.createElement('style');
+    st.id = 'hha-fx-fallback-style';
+    st.textContent = `
+      .hha-pop{
+        position:fixed; z-index:9999; pointer-events:none;
+        font-weight:950; font-size:14px; letter-spacing:.06em;
+        text-shadow:0 10px 24px rgba(0,0,0,.65);
+        transform:translate(-50%,-50%);
+        animation:hha-pop 650ms ease-out forwards;
+      }
+      @keyframes hha-pop{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.85); }
+        15%{ opacity:1; transform:translate(-50%,-60%) scale(1); }
+        100%{ opacity:0; transform:translate(-50%,-120%) scale(.95); }
+      }
+      .hha-shard{
+        position:fixed; z-index:9998; pointer-events:none;
+        width:8px; height:8px; border-radius:3px;
+        transform:translate(-50%,-50%);
+        opacity:.95;
+        animation:hha-shard 520ms ease-out forwards;
+      }
+      @keyframes hha-shard{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.7); }
+        10%{ opacity:1; }
+        100%{ opacity:0; transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.6); }
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
+  function fxBurst(detail, good=true, count=14){
+    const P = getParticles();
     const x = (detail && typeof detail.x === 'number') ? detail.x : (window.innerWidth * 0.5);
     const y = (detail && typeof detail.y === 'number') ? detail.y : (window.innerHeight * 0.55);
-    return { x, y };
+
+    if (P && P.burstAt){
+      try{ P.burstAt(x, y, { count, good: !!good }); return; }catch(_){}
+    }
+
+    // fallback
+    ensureFallbackFxStyle();
+    for (let i=0;i<count;i++){
+      const s = document.createElement('div');
+      s.className = 'hha-shard';
+      const ang = Math.random()*Math.PI*2;
+      const r = 20 + Math.random()*46;
+      const dx = Math.cos(ang)*r;
+      const dy = Math.sin(ang)*r;
+      s.style.left = x+'px';
+      s.style.top  = y+'px';
+      s.style.setProperty('--dx', dx+'px');
+      s.style.setProperty('--dy', dy+'px');
+      s.style.background = good ? 'rgba(34,197,94,.95)' : 'rgba(249,115,22,.95)';
+      document.body.appendChild(s);
+      setTimeout(()=>{ try{s.remove();}catch(_){ } }, 620);
+    }
   }
-  function fxBurst(detail, good=true, count=14){
-    const P = getParticles(); if (!P || !P.burstAt) return;
-    const { x, y } = posFromDetail(detail);
-    try{ P.burstAt(x, y, { count, good: !!good }); }catch(_){}
+
+  function fxPop(detail, label){
+    const P = getParticles();
+    const x = (detail && typeof detail.x === 'number') ? detail.x : (window.innerWidth * 0.5);
+    const y = (detail && typeof detail.y === 'number') ? detail.y : (window.innerHeight * 0.55);
+
+    if (P && P.scorePop){
+      try{ P.scorePop(x, y, '', String(label||''), { plain:true }); return; }catch(_){}
+    }
+
+    // fallback
+    ensureFallbackFxStyle();
+    const el = document.createElement('div');
+    el.className = 'hha-pop';
+    el.style.left = x+'px';
+    el.style.top  = y+'px';
+    el.style.color = String(label||'').toUpperCase().includes('JUNK') ? '#fb923c' : '#86efac';
+    el.textContent = String(label||'');
+    document.body.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
   }
-  function fxScore(detail, points){
-    const P = getParticles(); if (!P || !P.scorePop) return;
-    const { x, y } = posFromDetail(detail);
-    const p = (points == null) ? '' : String(points);
-    try{ P.scorePop(x, y, p, '', { plain:false }); }catch(_){}
-  }
-  function fxLabel(detail, label, plain=true){
-    const P = getParticles(); if (!P || !P.scorePop) return;
-    const { x, y } = posFromDetail(detail);
-    try{ P.scorePop(x, y, '', String(label||''), { plain: !!plain }); }catch(_){}
-  }
+
   function fxCelebrate(kind){
-    const P = getParticles(); if (!P || !P.celebrate) return;
-    try{
-      P.celebrate(kind, {
-        title: kind === 'goal' ? '🎉 GOAL CLEARED!' : '✨ MINI CLEARED!',
-        sub: 'ไปต่อเลย! 🌟'
-      });
-    }catch(_){}
+    const P = getParticles();
+    if (P && P.celebrate){
+      try{
+        P.celebrate(kind, {
+          title: kind === 'goal' ? '🎉 GOAL CLEARED!' : '✨ MINI CLEARED!',
+          sub: 'ไปต่อเลย! 🌟'
+        });
+        return;
+      }catch(_){}
+    }
+    // fallback: pop ใหญ่กลางจอ
+    fxPop({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, kind === 'goal' ? 'GOAL CLEAR!' : 'MINI CLEAR!');
+    fxBurst({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, true, 22);
   }
 
   function runCountdown(onDone){
@@ -185,21 +260,89 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     });
   }
 
+  // ✅ FIX สำคัญ: ผูก touch-look กับ #gj-layer (เลเยอร์เป้าทับเต็มจอ)
+  function fallbackTouchLook(cameraEl, areaEl, sensitivity=0.0032){
+    if (!cameraEl || !cameraEl.object3D || !areaEl) return;
+    let down = false;
+    let lastX=0, lastY=0;
+
+    const rot = cameraEl.object3D.rotation;
+
+    function onDown(ev){
+      // ถ้าแตะบน HUD/ปุ่ม ไม่ต้องหมุน
+      const t = ev.target;
+      if (t && (t.closest?.('.hud-card') || t.closest?.('#start-overlay') || t.closest?.('.vr-btn'))) return;
+
+      down = true;
+      lastX = (ev.clientX ?? ev.touches?.[0]?.clientX ?? 0);
+      lastY = (ev.clientY ?? ev.touches?.[0]?.clientY ?? 0);
+      try{ areaEl.setPointerCapture?.(ev.pointerId); }catch(_){}
+      ev.preventDefault?.();
+    }
+
+    function onMove(ev){
+      if (!down) return;
+      const x = (ev.clientX ?? ev.touches?.[0]?.clientX ?? lastX);
+      const y = (ev.clientY ?? ev.touches?.[0]?.clientY ?? lastY);
+      const dx = x - lastX;
+      const dy = y - lastY;
+      lastX = x; lastY = y;
+
+      rot.y -= dx * sensitivity;              // yaw
+      rot.x -= dy * (sensitivity * 0.85);     // pitch
+      rot.x = clamp(rot.x, -1.2, 1.2);
+
+      elTouchHint && elTouchHint.classList.add('show');
+      clearTimeout(fallbackTouchLook._t);
+      fallbackTouchLook._t = setTimeout(()=> elTouchHint && elTouchHint.classList.remove('show'), 900);
+
+      ev.preventDefault?.();
+    }
+
+    function onUp(){
+      down = false;
+    }
+
+    areaEl.style.touchAction = 'none';
+    areaEl.addEventListener('pointerdown', onDown, { passive:false });
+    areaEl.addEventListener('pointermove', onMove, { passive:false });
+    window.addEventListener('pointerup', onUp, { passive:true });
+
+    areaEl.addEventListener('touchstart', onDown, { passive:false });
+    areaEl.addEventListener('touchmove', onMove, { passive:false });
+    window.addEventListener('touchend', onUp, { passive:true });
+  }
+
   function attachTouch(cameraEl){
     if (!cameraEl) return;
-    attachTouchLook(cameraEl, {
-      sensitivity: 0.26,
-      areaEl: document.body,
-      onActiveChange(active){
-        if (active){
-          elTouchHint && elTouchHint.classList.add('show');
-          setTimeout(()=> elTouchHint && elTouchHint.classList.remove('show'), 2400);
-        }
+    const layer = document.getElementById('gj-layer') || document.body;
+
+    // ให้ drag จับที่เลเยอร์เป้าชัวร์ ๆ
+    try{ layer.style.touchAction = 'none'; }catch(_){}
+
+    // ถ้ามี attachTouchLook ให้ใช้ แต่เปลี่ยน areaEl จาก body → layer
+    try{
+      if (typeof attachTouchLook === 'function'){
+        attachTouchLook(cameraEl, {
+          sensitivity: 0.30,
+          areaEl: layer,
+          onActiveChange(active){
+            if (active){
+              elTouchHint && elTouchHint.classList.add('show');
+              setTimeout(()=> elTouchHint && elTouchHint.classList.remove('show'), 1800);
+            }
+          }
+        });
+        return;
       }
-    });
+    }catch(_){}
+
+    // fallback แน่นอน
+    fallbackTouchLook(cameraEl, layer, 0.0033);
   }
 
   // Logger badge
+  const loggerState = { pending:true, ok:false, message:'' };
   function setLogBadge(state, text){
     if (!logDot || !logText) return;
     logDot.classList.remove('ok','bad');
@@ -209,7 +352,20 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   }
   window.addEventListener('hha:logger', (e)=>{
     const d = e.detail || {};
+    loggerState.pending = false;
+    loggerState.ok = !!d.ok;
+    loggerState.message = d.msg || '';
     setLogBadge(d.ok ? 'ok' : 'bad', d.msg || '');
+  });
+
+  // ✅ บังคับอัปเดต Fever/Shield บน HUD (ไม่พึ่ง ui-fever.js)
+  window.addEventListener('hha:fever', (e)=>{
+    const d = e.detail || {};
+    const f = clamp(d.fever ?? 0, 0, 100);
+    const sh = clamp(d.shield ?? 0, 0, 99);
+    if (elFeverFill) elFeverFill.style.width = f + '%';
+    if (elFeverPct) safeText(elFeverPct, f + '%');
+    if (elShieldCount) safeText(elShieldCount, String(sh));
   });
 
   function getProfile(){
@@ -232,6 +388,8 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   // Quest state shared with QuestDirector
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
+
+    // ✅ สำคัญสำหรับ mini
     streakGood:0,
     goldHitsThisMini:false,
     blocks:0,
@@ -252,9 +410,10 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     qState.blocks = 0;
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
+    qState.final8Good = 0; // reset เฉพาะ mini (ถ้าอยากให้สะสมทั้งเกม เอาบรรทัดนี้ออก)
   });
 
-  // safeNoJunkSeconds tick (นับเฉพาะช่วงเล่น)
+  // safeNoJunkSeconds tick (นับเฉพาะ "ไม่โดน junk" ตามที่นิยามไว้)
   let started = false;
   setInterval(()=>{
     if (!started) return;
@@ -263,78 +422,66 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
   let Q = null;
 
-  // ---------------------- Quest events → FX + qState ----------------------
+  // --------- เอฟเฟกต์: ฟัง event แล้วยิง FX + ✅ซิงก์ค่าสำหรับ mini ---------
   window.addEventListener('quest:goodHit', (e)=>{
     const d = e.detail || {};
-    const kind = String(d.kind || 'GOOD').toUpperCase();
-    const isPerfect = String(d.judgment||'').toLowerCase().includes('perfect');
+    const judgment = String(d.judgment||'').toLowerCase();
+    const kind = String(d.kind||'good').toLowerCase();
 
-    // ✅ streak เดินเมื่อเก็บดี (GOOD/GOLD/BOSS)
-    qState.streakGood = (qState.streakGood|0) + 1;
+    const isPerfect = judgment.includes('perfect');
+    fxBurst(d, true, isPerfect ? 18 : 14);
+    fxPop(d, isPerfect ? 'PERFECT!' : (kind==='gold' ? 'GOLD!' : 'GOOD!'));
 
-    // ✅ Gold hunt
-    if (kind === 'GOLD') qState.goldHitsThisMini = true;
-
-    // ✅ Final 8s mini
-    if ((qState.timeLeft|0) <= 8 && (kind === 'GOOD' || kind === 'GOLD')) {
-      qState.final8Good = (qState.final8Good|0) + 1;
+    // ✅ streakGood นับเฉพาะของดี (รวม GOLD) / ถ้าอยากให้ power ไม่นับ streak ก็ไม่เพิ่ม
+    if (kind === 'good' || kind === 'gold'){
+      qState.streakGood = (qState.streakGood|0) + 1;
+      if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
     }
 
-    // FX
-    fxBurst(d, true, isPerfect ? 18 : 14);
-    fxScore(d, d.points != null ? `+${d.points}` : '+');
-    fxLabel(d, isPerfect ? 'PERFECT!' : (kind==='GOLD'?'GOLD!':'GOOD!'), true);
+    if (kind === 'gold') qState.goldHitsThisMini = true;
 
-    if (Q) Q.tick(qState);
+    if (Q){
+      Q.onEvent(isPerfect ? 'perfectHit' : 'goodHit', qState);
+    }
   });
 
   window.addEventListener('quest:badHit', (e)=>{
     const d = e.detail || {};
-    // ✅ junk/fake = รีเซ็ต streak + safeNoJunk (ตาม m3)
+    fxBurst(d, false, 14);
+    fxPop(d, 'JUNK!');
+
+    // ✅ mini rules
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
 
-    fxBurst(d, false, 14);
-    fxScore(d, d.points != null ? `${d.points}` : '-');
-    fxLabel(d, (d.kind||'JUNK') + '!', true);
-
-    if (Q) Q.tick(qState);
+    if (Q) Q.onEvent('junkHit', qState);
   });
 
   window.addEventListener('quest:block', (e)=>{
     const d = e.detail || {};
     qState.blocks = (qState.blocks|0) + 1;
-
     fxBurst(d, true, 10);
-    fxLabel(d, 'BLOCK!', true);
-
-    if (Q) Q.tick(qState);
+    fxPop(d, 'BLOCK!');
+    if (Q) Q.onEvent('shieldBlock', qState);
   });
 
   window.addEventListener('quest:power', (e)=>{
     const d = e.detail || {};
-    const p = String(d.power||'').toLowerCase();
+    const p = String(d.power||'');
     if (p === 'magnet') qState.usedMagnet = true;
     if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
 
     fxBurst(d, true, 12);
-    fxScore(d, d.points != null ? `+${d.points}` : '+');
-    fxLabel(d, String(p||'POWER').toUpperCase() + '!', true);
+    fxPop(d, (p||'POWER').toUpperCase() + '!');
 
-    if (Q) Q.tick(qState);
+    if (Q) Q.onEvent('power', qState);
   });
 
   window.addEventListener('quest:bossClear', ()=>{
     qState.bossCleared = true;
-    fxLabel({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, 'BOSS CLEAR!', true);
+    fxPop({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, 'BOSS CLEAR!');
     fxBurst({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, true, 22);
-    if (Q) Q.tick(qState);
-  });
-
-  // ✅ good expired = miss แต่ไม่รีเซ็ต safeNoJunkSeconds (ตาม m3)
-  window.addEventListener('quest:miss', ()=>{
-    qState.streakGood = 0;
-    if (Q) Q.tick(qState);
+    if (Q) Q.onEvent('bossClear', qState);
   });
 
   window.addEventListener('quest:cleared', (e)=>{
@@ -347,8 +494,13 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
   // HUD listeners
   window.addEventListener('hha:judge', (e)=>{
-    const label = (e.detail||{}).label || '';
+    const label = String((e.detail||{}).label || '').trim();
     safeText(elJudge, label || '\u00A0');
+
+    // ✅ ถ้าเป็น MISS ให้รีเซ็ต streak (เพราะ good หมดอายุจะยิง MISS)
+    if (label.toUpperCase().includes('MISS')){
+      qState.streakGood = 0;
+    }
   });
 
   window.addEventListener('hha:time', (e)=>{
@@ -356,6 +508,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     if (typeof sec === 'number' && sec >= 0){
       safeText(elTime, sec + 's');
       qState.timeLeft = sec|0;
+
       if (Q) Q.tick(qState);
     }
   });
@@ -413,7 +566,9 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     else if (mini && Number(mini.pct||0) >= 0.8) hint = 'อีกนิดเดียว! ⚡';
     safeText(elQuestHint, hint);
 
-    safeText(elMiniCount, `mini ผ่าน ${(meta.minisCleared|0)} • เล่นอยู่ ${(meta.miniCount|0)+1}`);
+    const miniCount = (meta.miniCount|0);
+    const minisCleared = (Q && Q.getState) ? (Q.getState().minisCleared|0) : 0;
+    safeText(elMiniCount, `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`);
   });
 
   function applyRunPill(){
@@ -424,7 +579,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     if (startSub){
       safeText(startSub, (RUN_MODE === 'research')
         ? 'โหมดวิจัย: ต้องมี Student ID หรือชื่อเล่นจาก Hub แล้วค่อยกดเริ่ม ✅'
-        : 'เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅'
+        : 'ลากนิ้วเพื่อหมุนมุมมอง (เหมือน VR) แล้วแตะเป้าให้ทัน! ✅'
       );
     }
   }
@@ -449,6 +604,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
   async function bootOnce({ wantVR }){
     if (started) return;
 
+    // research gate
     if (RUN_MODE === 'research'){
       const { studentProfile } = getProfile();
       if (!hasProfile(studentProfile)){
@@ -477,15 +633,21 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
     safeText(elMiss,  '0');
     safeText(elJudge, '\u00A0');
 
-    setCoach('แตะของดี! หลบ junk/fake! ไปเลย! ⚡', 'neutral');
+    setCoach('ลากนิ้วเพื่อหมุนมุมมอง แล้วแตะของดี! หลบ junk! ⚡', 'neutral');
 
+    // profile from hub
     const { studentProfile, studentKey } = getProfile();
 
+    // logger endpoint + fallback
     const endpoint =
       sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
       'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
 
+    loggerState.pending = true;
+    loggerState.ok = false;
+    loggerState.message = '';
     setLogBadge(null, 'logger: init…');
+
     initCloudLogger({
       endpoint,
       projectTag: 'HeroHealth-GoodJunkVR',
@@ -499,10 +661,12 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
       debug: true
     });
 
+    // ✅ touch + VR button
     const cam = document.querySelector('#gj-camera');
     attachTouch(cam);
     initVRButton();
 
+    // QuestDirector
     Q = makeQuestDirector({
       diff,
       goalDefs: GOODJUNK_GOALS,
@@ -529,10 +693,7 @@ import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
           if (!ENGINE) throw new Error('ENGINE is null (goodjunkBoot failed)');
           window.__GJ_ENGINE__ = ENGINE;
 
-          if (!getParticles()) {
-            console.warn('[GoodJunkVR] Particles not found (load ./vr/particles.js before boot module)');
-          }
-
+          // ปลุก HUD
           try{ Q && Q.tick && Q.tick(qState); }catch(_){}
         }catch(err){
           console.error('[GoodJunkVR] boot failed:', err);
