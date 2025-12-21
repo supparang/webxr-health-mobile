@@ -1,3 +1,11 @@
+<!-- === /herohealth/goodjunk-vr.html ===
+     GoodJunkVR (PRODUCTION) — Step D
+     ✅ VR-feel: targets follow yaw/pitch (world mapper in safe.js)
+     ✅ Sticker emoji style + fade in/out
+     ✅ STUN HUD badge + border flash + vortex (tap-anywhere center)
+     ✅ Fever fire overlay + stronger shake hooks
+     ✅ Summary overlay (always shows at end)
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -20,13 +28,12 @@
       --danger:#f97316;
       --text-main:#e5e7eb;
       --text-soft:#9ca3af;
-
-      /* ✅ intensity from JS */
-      --fever-intensity: 0;
     }
     *{ box-sizing:border-box; }
+
     body{
-      margin:0; min-height:100vh;
+      margin:0;
+      min-height:100vh;
       font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background:
         radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
@@ -38,84 +45,142 @@
 
     a-scene{ width:100vw; height:100vh; position:fixed; inset:0; z-index:0; }
 
-    /* DOM targets layer */
+    /* ---- STUN border + fire overlay ---- */
+    .stun-border{
+      position:fixed; inset:8px;
+      border-radius:26px;
+      pointer-events:none;
+      z-index:652;
+      opacity:0;
+      transform:translateZ(0);
+      transition:opacity .12s ease-out;
+      border:2px solid rgba(56,189,248,0.0);
+      box-shadow:
+        0 0 0 0 rgba(56,189,248,0.0),
+        inset 0 0 0 0 rgba(56,189,248,0.0);
+    }
+    .stun-border.show{
+      opacity:1;
+      border-color: rgba(56,189,248,0.85);
+      box-shadow:
+        0 0 38px rgba(56,189,248,0.45),
+        inset 0 0 26px rgba(56,189,248,0.35);
+      animation: stunBorderPulse .22s linear infinite;
+    }
+    @keyframes stunBorderPulse{
+      0%{ filter:brightness(1); }
+      50%{ filter:brightness(1.35); }
+      100%{ filter:brightness(1); }
+    }
+
+    .fever-fire{
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:651;
+      opacity:0;
+      transition:opacity .18s ease-out;
+      mix-blend-mode:screen;
+    }
+    .fever-fire.show{ opacity:0.9; }
+    .fever-fire::before{
+      content:"🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥";
+      position:absolute; inset:-20%;
+      font-size:44px;
+      opacity:.22;
+      filter: blur(.2px) saturate(1.25);
+      animation: fireScroll 1.35s linear infinite;
+      transform: rotate(-8deg);
+      white-space:nowrap;
+    }
+    @keyframes fireScroll{
+      0%{ transform:translate(-6%, -6%) rotate(-8deg); }
+      100%{ transform:translate(6%, 6%) rotate(-8deg); }
+    }
+
+    /* vortex indicator at aim point */
+    #stun-vortex{
+      position:fixed;
+      width:18px; height:18px;
+      border-radius:999px;
+      transform:translate(-50%,-50%);
+      left:50%; top:62%;
+      pointer-events:none;
+      z-index:653;
+      opacity:0;
+      filter: drop-shadow(0 0 18px rgba(56,189,248,0.9));
+    }
+    #stun-vortex.show{ opacity:1; }
+    #stun-vortex::before{
+      content:"";
+      position:absolute; inset:-44px;
+      border-radius:999px;
+      border:2px solid rgba(56,189,248,0.55);
+      box-shadow: inset 0 0 24px rgba(56,189,248,0.35);
+      animation:vortexPulse .55s ease-in-out infinite;
+    }
+    #stun-vortex::after{
+      content:"";
+      position:absolute; inset:0;
+      border-radius:999px;
+      background:rgba(56,189,248,0.95);
+      box-shadow:0 0 18px rgba(56,189,248,0.9);
+      animation:vortexDot .22s linear infinite;
+    }
+    @keyframes vortexPulse{
+      0%{ transform:scale(.88); opacity:.75; }
+      60%{ transform:scale(1.06); opacity:1; }
+      100%{ transform:scale(.88); opacity:.75; }
+    }
+    @keyframes vortexDot{
+      0%{ transform:scale(1); }
+      50%{ transform:scale(1.14); }
+      100%{ transform:scale(1); }
+    }
+
+    /* ---- DOM target layer ---- */
     #gj-layer{
       position:fixed; inset:0;
       z-index:649;
       pointer-events:auto;
       touch-action:none;
-      transform-origin:center center;
     }
 
-    /* ✅ FX layer (extra) */
-    #gj-fx{
-      position:fixed; inset:0;
-      z-index:660;
-      pointer-events:none;
-      overflow:hidden;
-    }
-
-    /* ✅ FEVER FIRE overlay */
-    #fever-fire{
-      position:fixed; inset:-20px;
-      z-index:651;
-      pointer-events:none;
-      opacity:0;
-      transition:opacity .18s ease-out;
-      mix-blend-mode:screen;
-      filter: blur(0.2px) saturate(1.25);
-      background:
-        radial-gradient(circle at 50% 110%, rgba(255,140,0,0.45), transparent 60%),
-        radial-gradient(circle at 15% 105%, rgba(255,80,0,0.38), transparent 62%),
-        radial-gradient(circle at 85% 108%, rgba(255,200,0,0.30), transparent 64%),
-        linear-gradient(180deg, transparent 35%, rgba(255,80,0,0.10) 65%, rgba(255,120,0,0.22));
-      animation: fireWaves 1.05s linear infinite;
-    }
-    #fever-fire.show{
-      opacity: clamp(0.12, calc(var(--fever-intensity) * 0.012), 0.55);
-    }
-    @keyframes fireWaves{
-      0%{ transform: translateY(8px) scale(1.02); filter: blur(0.2px) hue-rotate(0deg); }
-      50%{ transform: translateY(-8px) scale(1.03); filter: blur(0.6px) hue-rotate(8deg); }
-      100%{ transform: translateY(8px) scale(1.02); filter: blur(0.2px) hue-rotate(0deg); }
-    }
-
-    /* ✅ emoji sticker style */
     .gj-target{
       position:absolute;
       transform: translate(-50%,-50%) scale(var(--tScale, 1)) rotate(var(--tRot, 0deg));
-      font-size: clamp(44px, 7.8vw, 76px);
+      font-size: clamp(46px, 7.8vw, 80px);
       line-height:1;
       user-select:none;
       pointer-events:auto;
       cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:10px 12px;
-      border-radius:18px;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.14);
-      backdrop-filter: blur(8px);
-      box-shadow:0 18px 44px rgba(0,0,0,0.55);
+      will-change: transform, left, top, opacity, filter;
+      transition: transform .10s ease-out, opacity .14s ease-out, filter .10s ease-out;
+      opacity:0; /* fade-in */
       filter: drop-shadow(0 10px 18px rgba(0,0,0,0.55));
-      opacity:0;
-      transition: transform .14s ease-out, opacity .16s ease-out, filter .18s ease-out;
-      will-change: transform, left, top, opacity;
     }
-    .gj-target.in{ opacity:1; }
-    .gj-target.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.68) rotate(var(--tRot, 0deg)); }
+    .gj-target.spawn{ opacity:1; }
+    .gj-target.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.72) rotate(var(--tRot, 0deg)); }
 
-    .gj-junk{ border-color: rgba(249,115,22,0.36); box-shadow:0 18px 44px rgba(249,115,22,0.12); }
-    .gj-gold{ border-color: rgba(250,204,21,0.45); box-shadow:0 18px 44px rgba(250,204,21,0.16); }
-    .gj-power{ border-color: rgba(56,189,248,0.45); box-shadow:0 18px 44px rgba(56,189,248,0.16); }
+    /* sticker style */
+    .gj-sticker{
+      text-shadow:
+        0 2px 0 rgba(255,255,255,0.12),
+        0 12px 26px rgba(0,0,0,0.55);
+      filter:
+        drop-shadow(0 10px 18px rgba(0,0,0,0.55))
+        drop-shadow(0 0 14px rgba(255,255,255,0.12));
+    }
+
+    .gj-junk{ opacity:.98; filter: drop-shadow(0 14px 24px rgba(249,115,22,0.28)); }
+    .gj-gold{ filter: drop-shadow(0 14px 26px rgba(250,204,21,0.38)); }
+    .gj-fake{ filter: drop-shadow(0 14px 24px rgba(168,85,247,0.28)); }
+    .gj-power{ filter: drop-shadow(0 14px 26px rgba(56,189,248,0.34)); }
     .gj-boss{
-      font-size: clamp(54px, 10vw, 110px);
-      border-color: rgba(250,204,21,0.42);
-      box-shadow:0 18px 60px rgba(250,204,21,0.14);
+      font-size: clamp(58px, 10vw, 114px);
+      filter: drop-shadow(0 18px 32px rgba(250,204,21,0.30));
     }
 
-    /* HUD */
+    /* ---- HUD ---- */
     .hud-root{
       position:fixed;
       inset:0;
@@ -139,7 +204,6 @@
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
       pointer-events:auto;
-      position:relative;
     }
     .hud-main{
       display:flex;
@@ -202,50 +266,7 @@
     .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
     .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
 
-    /* ✅ FINAL SPRINT lockbar */
-    .final-lockbar{
-      margin-top:10px;
-      display:none;
-      flex-direction:column;
-      gap:6px;
-      padding:8px 10px;
-      border-radius:16px;
-      border:1px solid rgba(250,204,21,0.35);
-      background:radial-gradient(circle at top left, rgba(250,204,21,0.18), transparent 58%), rgba(2,6,23,0.30);
-      box-shadow:0 18px 50px rgba(250,204,21,0.10);
-    }
-    .final-lockbar.show{ display:flex; }
-    .final-lock-head{
-      display:flex; justify-content:space-between; align-items:center;
-      font-size:11px; letter-spacing:.16em; text-transform:uppercase;
-      color:#fde68a; font-weight:950;
-    }
-    .final-lock-row{
-      display:grid;
-      grid-template-columns:repeat(8, 1fr);
-      gap:6px;
-    }
-    .lock-cell{
-      height:10px;
-      border-radius:999px;
-      background:rgba(148,163,184,0.12);
-      border:1px solid rgba(148,163,184,0.12);
-      overflow:hidden;
-      position:relative;
-    }
-    .lock-cell.on{
-      background:rgba(250,204,21,0.22);
-      border-color:rgba(250,204,21,0.42);
-      box-shadow:0 0 18px rgba(250,204,21,0.16);
-    }
-    .lock-cell.on::after{
-      content:"";
-      position:absolute; inset:0;
-      background:linear-gradient(90deg, rgba(250,204,21,0.20), rgba(250,204,21,0.95));
-      opacity:0.85;
-    }
-
-    /* Fever UI */
+    /* Fever UI block */
     .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
     .fever-row{ display:flex; align-items:center; gap:8px; }
     .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
@@ -253,73 +274,25 @@
     .fever-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.95)); transition:width .16s ease-out; }
     .fever-pct{ font-size:10px; color:#fde68a; font-weight:900; min-width:42px; text-align:right; }
     .shield-row{ display:flex; align-items:center; gap:6px; }
-    .shield-label{ font-size:12px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
 
     /* STUN badge */
     .stun-badge{
       display:none;
-      margin-top:8px;
-      width:fit-content;
-      padding:6px 10px;
-      border-radius:999px;
+      margin-left:8px;
+      font-size:11px;
       font-weight:950;
-      letter-spacing:.14em;
+      letter-spacing:.08em;
       text-transform:uppercase;
-      color:#fff7ed;
-      border:1px solid rgba(255,159,64,0.85);
-      background:radial-gradient(circle at top left, rgba(249,115,22,0.35), transparent 55%), rgba(15,23,42,0.92);
-      box-shadow:0 18px 40px rgba(249,115,22,0.20);
-      animation: stunPulse .8s ease-in-out infinite;
-      pointer-events:none;
+      padding:2px 10px;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,0.75);
+      background:radial-gradient(circle at top left, rgba(56,189,248,0.25), transparent 55%), rgba(15,23,42,0.92);
+      color:#e0f2fe;
+      box-shadow:0 0 22px rgba(56,189,248,0.22);
     }
     .stun-badge.show{ display:inline-flex; align-items:center; gap:8px; }
-    @keyframes stunPulse{
-      0%{ transform:scale(1); }
-      50%{ transform:scale(1.06); }
-      100%{ transform:scale(1); }
-    }
-
-    /* STUN border flash */
-    .stun-border{
-      position:fixed; inset:0;
-      border:3px solid rgba(249,115,22,0.0);
-      border-radius:20px;
-      pointer-events:none;
-      z-index:652;
-      opacity:0;
-      transition:opacity .12s ease-out;
-    }
-    .stun-border.show{
-      opacity:1;
-      animation: borderFlicker .22s linear infinite;
-    }
-    @keyframes borderFlicker{
-      0%{ border-color: rgba(249,115,22,0.0); }
-      50%{ border-color: rgba(249,115,22,0.75); }
-      100%{ border-color: rgba(249,115,22,0.15); }
-    }
-
-    /* STUN vortex */
-    .stun-vortex{
-      position:fixed;
-      left:50%;
-      top:62%;
-      width:46px; height:46px;
-      transform:translate(-50%,-50%);
-      border-radius:999px;
-      border:1px solid rgba(249,115,22,0.65);
-      background:radial-gradient(circle at center, rgba(249,115,22,0.35), rgba(249,115,22,0.05) 55%, transparent 70%);
-      box-shadow:0 0 24px rgba(249,115,22,0.22);
-      pointer-events:none;
-      z-index:651;
-      opacity:0;
-    }
-    .stun-vortex.show{ opacity:1; animation:vortexSpin .55s linear infinite; }
-    @keyframes vortexSpin{
-      0%{ transform:translate(-50%,-50%) rotate(0deg); }
-      100%{ transform:translate(-50%,-50%) rotate(360deg); }
-    }
+    .stun-badge b{ color:#7dd3fc; }
 
     /* Coach */
     .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
@@ -366,6 +339,22 @@
       100%{ transform:translateY(0) scale(1); }
     }
 
+    /* Center hint */
+    .hint-center{
+      position:fixed; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      font-size:12px;
+      color:var(--text-soft);
+      background:rgba(15,23,42,0.8);
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.35);
+      display:none;
+      pointer-events:none;
+      z-index:655;
+    }
+    .hint-center.show{ display:block; }
+
     /* Countdown */
     .countdown-overlay{
       position:fixed; inset:0;
@@ -378,7 +367,11 @@
       pointer-events:none;
       transition:opacity .25s ease-out, transform .25s ease-out;
     }
-    .countdown-hidden{ opacity:0; visibility:hidden; transform:scale(0.8); }
+    .countdown-hidden{
+      opacity:0;
+      visibility:hidden;
+      transform:scale(0.8);
+    }
 
     /* VR button */
     .vr-btn{
@@ -474,74 +467,77 @@
     }
     .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
 
-    /* END overlay */
-    .end-overlay{
+    /* Summary overlay */
+    .summary-overlay{
       position:fixed; inset:0;
-      z-index:800;
+      z-index:720;
       display:none;
       align-items:center;
       justify-content:center;
       padding:18px;
-      background:radial-gradient(circle at 50% 35%, rgba(250,204,21,0.10), transparent 55%), rgba(2,6,23,0.86);
+      background:radial-gradient(circle at 50% 35%, rgba(56,189,248,0.12), transparent 55%), rgba(2,6,23,0.94);
     }
-    .end-overlay.show{ display:flex; }
-    .end-card{
-      width:min(620px, 96vw);
+    .summary-overlay.show{ display:flex; }
+    .summary-card{
+      width:min(640px, 96vw);
       border-radius:24px;
-      background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
-      border:1px solid rgba(148,163,184,0.18);
-      box-shadow:0 30px 90px rgba(0,0,0,0.65);
+      background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.86));
+      border:1px solid rgba(148,163,184,0.22);
+      box-shadow:0 34px 90px rgba(0,0,0,0.62);
       padding:16px 16px 14px;
     }
-    .end-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
-    .end-title{ font-size:18px; font-weight:950; margin:0; }
-    .end-grade{
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid rgba(250,204,21,0.55);
-      background:rgba(250,204,21,0.10);
-      font-weight:950;
-      letter-spacing:.10em;
-      color:#fef9c3;
+    .summary-head{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      margin-bottom:10px;
     }
-    .end-grid{
+    .summary-title{
+      font-size:18px; font-weight:950; letter-spacing:.02em; margin:0;
+    }
+    .summary-badges{ display:flex; gap:8px; flex-wrap:wrap; }
+    .summary-chip{
+      font-size:11px;
+      padding:3px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.25);
+      background:rgba(15,23,42,0.7);
+      color:#e5e7eb;
+      font-weight:800;
+    }
+    .summary-grid{
       display:grid;
       grid-template-columns:repeat(3, 1fr);
       gap:10px;
-      margin:12px 0;
+      margin-top:10px;
     }
-    .end-stat{
+    .sum-box{
       border-radius:16px;
-      border:1px solid rgba(148,163,184,0.14);
-      background:rgba(2,6,23,0.35);
-      padding:10px 10px;
+      border:1px solid rgba(148,163,184,0.16);
+      background:rgba(15,23,42,0.65);
+      padding:10px;
     }
-    .end-stat .k{ font-size:10px; color:var(--text-soft); letter-spacing:.12em; text-transform:uppercase; }
-    .end-stat .v{ font-size:16px; font-weight:950; margin-top:4px; }
-    .end-row{ display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:10px; }
-    .end-btn{
-      border-radius:999px;
-      padding:10px 14px;
-      cursor:pointer;
-      font-weight:950;
-      border:1px solid rgba(148,163,184,0.6);
-      background:rgba(15,23,42,0.86);
-      color:var(--text-main);
+    .sum-label{ font-size:10px; color:var(--text-soft); text-transform:uppercase; letter-spacing:.14em; }
+    .sum-val{ font-size:18px; font-weight:950; margin-top:4px; }
+    .sum-row{
+      display:flex; justify-content:space-between; gap:10px;
+      margin-top:10px;
+      color:var(--text-soft);
+      font-size:12px;
     }
-    .end-btn.primary{
-      border:1px solid rgba(187,247,208,0.9);
-      background:linear-gradient(135deg,#22c55e,#16a34a);
-      color:#052e16;
+    .sum-actions{
+      margin-top:12px;
+      display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap;
     }
   </style>
 
-  <!-- FX IIFE -->
+  <!-- FX + UI (IIFE) -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
+  <script src="./vr/hha-summary.js"></script>
 
   <!-- Boot module -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
+
     function setBadge(ok, msg){
       const dot = $('#logdot');
       const text = $('#logtext');
@@ -553,7 +549,8 @@
       const candidates = [
         './vr-goodjunk/goodjunk-vr.boot.js',
         './vr-goodjunk/goodjunk-vr.boot.mjs',
-        './vr-goodjunk/goodjunk.boot.js'
+        './vr-goodjunk/goodjunk.boot.js',
+        './vr-goodjunk/goodjunk.safe.js'
       ];
 
       let lastErr = null;
@@ -566,16 +563,15 @@
             bootFn();
             return;
           }
-          lastErr = new Error('Boot module loaded but no boot/start/init/default function: ' + p);
+          lastErr = new Error('loaded but no boot/start/init/default: ' + p);
         }catch(e){
           lastErr = e;
         }
       }
-
       console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
-      setBadge(false, 'boot failed: ' + (lastErr && lastErr.message ? lastErr.message : 'unknown'));
+      setBadge(false, 'boot failed: ' + (lastErr?.message || 'unknown'));
       const sub = $('#start-sub');
-      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
+      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
     }
 
     window.addEventListener('load', () => {
@@ -586,6 +582,7 @@
 </head>
 
 <body>
+
   <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true">
     <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
     <a-entity light="type: ambient; intensity: 1.0"></a-entity>
@@ -593,17 +590,18 @@
     <a-sky color="#061225"></a-sky>
   </a-scene>
 
+  <!-- STUN overlays -->
+  <div class="fever-fire" id="fever-fire" aria-hidden="true"></div>
+  <div class="stun-border" id="stun-border" aria-hidden="true"></div>
+  <div id="stun-vortex" aria-hidden="true"></div>
+
+  <!-- DOM target layer -->
   <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
-  <div id="gj-fx" aria-hidden="true"></div>
 
-  <div id="fever-fire" aria-hidden="true"></div>
-  <div class="stun-border" id="stun-border"></div>
-  <div class="stun-vortex" id="stun-vortex"></div>
-
+  <!-- HUD -->
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
-
-      <div class="hud-card" style="min-width: 290px;">
+      <div class="hud-card" style="min-width: 300px;">
         <div class="hud-main">
           <div class="hud-main-title">GOODJUNK</div>
           <div class="hud-pill" id="hud-pill">
@@ -633,12 +631,13 @@
 
         <div class="tiny-note">
           Diff: <b id="hud-diff-label">NORMAL</b> • Challenge: <b id="hud-challenge-label">RUSH</b>
+          <span class="stun-badge" id="hud-stun">⚡ STUN <b>SLOW</b></span>
           <span style="margin-left:8px;">|</span>
           <span id="hud-judge" style="margin-left:8px; font-weight:900;">&nbsp;</span>
         </div>
       </div>
 
-      <div class="hud-card hud-quest" style="min-width: 300px;">
+      <div class="hud-card hud-quest" style="min-width: 320px;">
         <div class="quest-title">Quest</div>
 
         <div class="quest-main-label" id="hud-quest-main">ภารกิจหลัก</div>
@@ -659,24 +658,6 @@
           </div>
         </div>
 
-        <!-- ✅ FINAL SPRINT lockbar -->
-        <div class="final-lockbar" id="final-lockbar">
-          <div class="final-lock-head">
-            <span>FINAL SPRINT</span>
-            <span id="final-lock-req">REQ/SEC: 2</span>
-          </div>
-          <div class="final-lock-row" id="final-lock-row">
-            <div class="lock-cell" data-i="0"></div>
-            <div class="lock-cell" data-i="1"></div>
-            <div class="lock-cell" data-i="2"></div>
-            <div class="lock-cell" data-i="3"></div>
-            <div class="lock-cell" data-i="4"></div>
-            <div class="lock-cell" data-i="5"></div>
-            <div class="lock-cell" data-i="6"></div>
-            <div class="lock-cell" data-i="7"></div>
-          </div>
-        </div>
-
         <div class="hud-fever">
           <div class="fever-row">
             <div class="fever-label">FEVER</div>
@@ -688,7 +669,6 @@
             <div>Shield</div>
             <div class="shield-count" id="shield-count">0</div>
           </div>
-          <div class="stun-badge" id="hud-stun">⚠ STUN</div>
         </div>
       </div>
     </div>
@@ -704,6 +684,8 @@
     </div>
   </div>
 
+  <div class="hint-center" id="touch-hint">ลากนิ้วเพื่อหมุนมุมมอง 👆</div>
+
   <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
 
   <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR">
@@ -718,7 +700,9 @@
   <div class="start-overlay" id="start-overlay">
     <div class="start-card">
       <h1 class="start-title">GoodJunk VR</h1>
-      <p class="start-sub" id="start-sub">เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง ✅</p>
+      <p class="start-sub" id="start-sub">
+        เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅
+      </p>
 
       <div class="start-grid">
         <div>
@@ -744,32 +728,59 @@
         <button class="start-btn" id="btn-start-vr" type="button">🥽 Start VR</button>
       </div>
 
-      <div class="tiny-note">* โหมดวิจัยจะบังคับโปรไฟล์จาก Hub ก่อนเริ่มเล่น</div>
+      <div class="tiny-note">
+        * แตะ “พื้นที่ว่าง” เพื่อย้ายศูนย์กลาง STUN (vortex) ได้ตลอดเกม
+      </div>
     </div>
   </div>
 
-  <div class="end-overlay" id="end-overlay" aria-label="End Summary">
-    <div class="end-card">
-      <div class="end-top">
-        <div>
-          <div class="end-title">RESULT</div>
-          <div style="font-size:12px;color:#9ca3af;margin-top:2px;">สรุปผลการเล่นรอบนี้</div>
+  <!-- Summary -->
+  <div class="summary-overlay" id="summary-overlay" aria-label="Summary">
+    <div class="summary-card">
+      <div class="summary-head">
+        <h2 class="summary-title">สรุปผลเกม</h2>
+        <div class="summary-badges">
+          <div class="summary-chip" id="sum-diff">DIFF</div>
+          <div class="summary-chip" id="sum-chal">CH</div>
+          <div class="summary-chip" id="sum-run">RUN</div>
         </div>
-        <div class="end-grade" id="end-grade">GRADE: C</div>
       </div>
 
-      <div class="end-grid">
-        <div class="end-stat"><div class="k">Score</div><div class="v" id="end-score">0</div></div>
-        <div class="end-stat"><div class="k">Good</div><div class="v" id="end-good">0</div></div>
-        <div class="end-stat"><div class="k">Miss</div><div class="v" id="end-miss">0</div></div>
-        <div class="end-stat"><div class="k">Combo Max</div><div class="v" id="end-combo">0</div></div>
-        <div class="end-stat"><div class="k">Goals Cleared</div><div class="v" id="end-goals">0</div></div>
-        <div class="end-stat"><div class="k">Minis Cleared</div><div class="v" id="end-minis">0</div></div>
+      <div class="summary-grid">
+        <div class="sum-box">
+          <div class="sum-label">Score</div>
+          <div class="sum-val" id="sum-score">0</div>
+        </div>
+        <div class="sum-box">
+          <div class="sum-label">Good Hits</div>
+          <div class="sum-val" id="sum-good">0</div>
+        </div>
+        <div class="sum-box">
+          <div class="sum-label">Miss</div>
+          <div class="sum-val" id="sum-miss">0</div>
+        </div>
+        <div class="sum-box">
+          <div class="sum-label">Combo Max</div>
+          <div class="sum-val" id="sum-combo">0</div>
+        </div>
+        <div class="sum-box">
+          <div class="sum-label">Goals Cleared</div>
+          <div class="sum-val" id="sum-goals">0</div>
+        </div>
+        <div class="sum-box">
+          <div class="sum-label">Mini Cleared</div>
+          <div class="sum-val" id="sum-minis">0</div>
+        </div>
       </div>
 
-      <div class="end-row">
-        <button class="end-btn" id="end-close" type="button">Close</button>
-        <button class="end-btn primary" id="end-restart" type="button">Restart</button>
+      <div class="sum-row">
+        <div id="sum-note">แตะพื้นที่ว่างเพื่อย้าย vortex ได้ • STUN จะชะลอเวลาและทำให้ junk แตกเอง</div>
+        <div id="sum-time"></div>
+      </div>
+
+      <div class="sum-actions">
+        <button class="start-btn secondary" id="btn-sum-close" type="button">ปิด</button>
+        <button class="start-btn" id="btn-sum-retry" type="button">เล่นใหม่</button>
       </div>
     </div>
   </div>
