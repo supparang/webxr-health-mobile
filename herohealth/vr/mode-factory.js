@@ -1,8 +1,10 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ spawnHost: ที่ “append เป้า”
-// ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
-// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันให้แต่ละเกมทำได้
+// ✅ spawnHost: ที่ “append เป้า” (อาจถูก translate จาก drag view)
+// ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (ควรเป็นตัวนิ่งเต็มจอ)
+// ✅ FIX: สุ่มตำแหน่งบน boundsHost แล้วแปลงกลับเป็น local ของ spawnHost (กันเป้าหลุดจอ)
+// ✅ bias spawn เข้ากลางจอ (หาเจอง่ายขึ้น)
+// ✅ decorateTarget(el, parts, data, meta): ให้เกมสกินเป้าได้
 // ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
 // ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
 // ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
@@ -22,11 +24,14 @@ function clamp (v, min, max) {
   if (v > max) return max;
   return v;
 }
+function clamp01 (x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
+
 function pickOne (arr, fallback = null) {
   if (!Array.isArray(arr) || !arr.length) return fallback;
   const i = Math.floor(Math.random() * arr.length);
   return arr[i];
 }
+
 function getEventXY (ev) {
   let x = ev.clientX;
   let y = ev.clientY;
@@ -214,20 +219,15 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    // reserve margin if exclusion overlaps edge zone (robust)
-    // top band
     if (r.top < hy1 + 80 && r.bottom > hy1) {
       m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
-    // bottom band
     if (r.bottom > hy2 - 80 && r.top < hy2) {
       m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
     }
-    // left band
     if (r.left < hx1 + 80 && r.right > hx1) {
       m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
     }
-    // right band
     if (r.right > hx2 - 80 && r.left < hx2) {
       m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
     }
@@ -243,7 +243,7 @@ function computePlayRectFromHost (hostEl, exState) {
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
-  const basePadX = w * 0.10;
+  const basePadX   = w * 0.10;
   const basePadTop = h * 0.12;
   const basePadBot = h * 0.12;
 
@@ -288,7 +288,7 @@ export async function boot (rawCfg = {}) {
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
-  const hostSpawn = resolveHost(rawCfg, 'spawnHost');
+  const hostSpawn  = resolveHost(rawCfg, 'spawnHost');
   const hostBounds = (boundsHost ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
 
   if (!hostSpawn || !hostBounds || !DOC) {
@@ -485,7 +485,19 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
+  //  Spawn helpers: center-biased random
+  // ======================================================
+  function randn(){
+    // Box–Muller (0,1) ~ N(0,1)
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  // ======================================================
   //  Spawn target inside hostSpawn using bounds from hostBounds
+  //  ✅ FIX: bounds -> screen -> spawnHost local
   // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
@@ -494,8 +506,32 @@ export async function boot (rawCfg = {}) {
 
     const rect = computePlayRectFromHost(hostBounds, exState);
 
-    const xLocal = rect.left + rect.width  * (0.15 + Math.random() * 0.70);
-    const yLocal = rect.top  + rect.height * (0.10 + Math.random() * 0.80);
+    // ✅ 1) pick point on boundsHost (stable) with center bias (หาเจอง่าย)
+    let bx = 0.5 + randn() * 0.18;
+    let by = 0.52 + randn() * 0.20;
+    bx = clamp01(bx);
+    by = clamp01(by);
+
+    const padX = 0.10, padY = 0.12;
+    const xBoundsLocal = rect.left + rect.width  * (padX + (1 - padX*2) * bx);
+    const yBoundsLocal = rect.top  + rect.height * (padY + (1 - padY*2) * by);
+
+    // ✅ 2) bounds local -> screen
+    let bRect = null, sRect = null;
+    try{ bRect = hostBounds.getBoundingClientRect(); }catch{}
+    try{ sRect = hostSpawn.getBoundingClientRect(); }catch{}
+    if (!bRect) bRect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    if (!sRect) sRect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+
+    const screenX = bRect.left + xBoundsLocal;
+    const screenY = bRect.top  + yBoundsLocal;
+
+    // ✅ 3) screen -> spawnHost local (สำคัญมาก ถ้า spawnHost ถูก translate จาก drag view)
+    let xLocal = screenX - sRect.left;
+    let yLocal = screenY - sRect.top;
+
+    xLocal = clamp(xLocal, 24, Math.max(24, sRect.width  - 24));
+    yLocal = clamp(yLocal, 24, Math.max(24, sRect.height - 24));
 
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
@@ -520,8 +556,8 @@ export async function boot (rawCfg = {}) {
       isPower = false;
       itemType = 'fakeGood';
     } else {
-      const r = Math.random();
-      if (r < goodRate || !poolsBad.length) {
+      const r2 = Math.random();
+      if (r2 < goodRate || !poolsBad.length) {
         ch = pickOne(poolsGood, '💧');
         isGood = true;
         itemType = 'good';
