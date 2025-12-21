@@ -1,12 +1,3 @@
-<!-- === /herohealth/groups-vr.html ===
-Food Groups VR — PRODUCTION (PLAY/RESEARCH)
-✅ FIX: groups-quests.js เป็น IIFE (no import) -> window.GroupsQuest.createFoodGroupsQuest
-✅ FIX: กัน cache ด้วย ?v=...
-✅ VR-look: drag-to-look + deviceorientation-to-look + inertia เบา ๆ
-✅ DOM world-anchored targets (#fg-layer) + lock ring + charge ring + reticle
-✅ afterimage CSS (2 shadows, scale โตตอนหาย)
--->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -24,63 +15,48 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.74);
-      --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.22);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --good:#22c55e;
-      --junk:#ef4444;
-      --warn:#f59e0b;
-      --accent:#38bdf8;
       --radius:18px;
       --pill:999px;
       --shadow:0 18px 40px rgba(0,0,0,.35);
     }
 
     html,body{
-      margin:0; padding:0;
-      width:100%; height:100%;
-      background: radial-gradient(1200px 600px at 50% 0%, rgba(56,189,248,.12), transparent 55%),
-                  radial-gradient(1000px 700px at 80% 90%, rgba(34,197,94,.10), transparent 60%),
-                  var(--bg);
+      margin:0; padding:0; width:100%; height:100%;
+      background:
+        radial-gradient(1200px 600px at 50% 0%, rgba(56,189,248,.12), transparent 55%),
+        radial-gradient(1000px 700px at 80% 90%, rgba(34,197,94,.10), transparent 60%),
+        var(--bg);
       color:var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", "Noto Sans", Arial;
       overflow:hidden;
     }
 
-    /* --- A-Frame fill --- */
-    .sceneWrap{
-      position:fixed; inset:0;
-      z-index:0;
-    }
+    .sceneWrap{ position:fixed; inset:0; z-index:0; }
     a-scene{ width:100%; height:100%; }
 
-    /* --- overlay --- */
-    .ui{
-      position:fixed; inset:0;
-      z-index:5;
-      pointer-events:none;
-    }
+    .ui{ position:fixed; inset:0; z-index:5; pointer-events:none; }
 
-    /* layer for targets */
     #fg-layer{
       position:fixed; inset:0;
       z-index:6;
-      pointer-events:auto;              /* allow direct hits + tap-anywhere binding */
+      pointer-events:auto;
       touch-action: manipulation;
     }
 
-    /* ===== TARGET: emoji sticker ===== */
+    /* ===== TARGET (emoji sticker) ===== */
     .fg-target{
       position:absolute;
       left:0; top:0;
-      transform: translate3d(50vw,50vh,0) translate(-50%,-50%);
-      display:flex;
-      align-items:center;
-      justify-content:center;
+
+      /* ✅ ใช้ --x/--y/--s จาก GameEngine */
+      transform: translate3d(var(--x,50vw), var(--y,50vh), 0) translate(-50%,-50%) scale(var(--s,1));
+
+      display:flex; align-items:center; justify-content:center;
       border-radius:999px;
-      user-select:none;
-      -webkit-user-select:none;
+      user-select:none; -webkit-user-select:none;
       cursor:pointer;
 
       background:
@@ -96,10 +72,10 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
       transition: filter .12s ease, transform .12s ease, opacity .12s ease;
       opacity:0;
 
-      /* emoji look */
       font-size:54px;
       line-height:1;
       text-shadow: 0 8px 18px rgba(0,0,0,.25);
+      will-change: transform, opacity;
     }
 
     .fg-target::before{
@@ -113,20 +89,28 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
       pointer-events:none;
       transition: opacity .15s ease;
     }
+    .fg-target.fg-good::before{ background: radial-gradient(circle at 40% 35%, rgba(34,197,94,.22), transparent 55%); }
+    .fg-target.fg-junk::before{ background: radial-gradient(circle at 40% 35%, rgba(239,68,68,.22), transparent 55%); }
 
-    .fg-target.fg-good::before{
-      background: radial-gradient(circle at 40% 35%, rgba(34,197,94,.22), transparent 55%);
+    .fg-target.spawn{
+      opacity:0;
+      transform: translate3d(var(--x,50vw), var(--y,50vh), 0) translate(-50%,-50%) scale(calc(var(--s,1) * .78));
     }
-    .fg-target.fg-junk::before{
-      background: radial-gradient(circle at 40% 35%, rgba(239,68,68,.22), transparent 55%);
+    .fg-target.show{
+      opacity:1;
+      transform: translate3d(var(--x,50vw), var(--y,50vh), 0) translate(-50%,-50%) scale(var(--s,1));
+    }
+    .fg-target.out{
+      opacity:0;
+      filter: blur(1px);
+      transform: translate3d(var(--x,50vw), var(--y,50vh), 0) translate(-50%,-50%) scale(calc(var(--s,1) * 1.10));
+    }
+    .fg-target.hit{
+      opacity:0;
+      filter: blur(1px);
+      transform: translate3d(var(--x,50vw), var(--y,50vh), 0) translate(-50%,-50%) scale(calc(var(--s,1) * 1.22));
     }
 
-    .fg-target.spawn{ opacity:0; transform: translate3d(50vw,50vh,0) translate(-50%,-50%) scale(.78); }
-    .fg-target.show{ opacity:1; transform: translate3d(var(--x,50vw),var(--y,50vh),0) translate(-50%,-50%) scale(1); }
-    .fg-target.out{ opacity:0; filter: blur(1px); transform: translate3d(var(--x,50vw),var(--y,50vh),0) translate(-50%,-50%) scale(1.08); }
-    .fg-target.hit{ opacity:0; filter: blur(1px); transform: translate3d(var(--x,50vw),var(--y,50vh),0) translate(-50%,-50%) scale(1.20); }
-
-    /* lock highlight on target */
     .fg-target.lock{
       filter: saturate(1.05) brightness(1.05);
       box-shadow:
@@ -135,7 +119,6 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
         0 0 0 14px rgba(56,189,248,.08);
     }
 
-    /* boss styling */
     .fg-target.fg-boss{
       border:1px solid rgba(245,158,11,.35);
       box-shadow:
@@ -145,121 +128,29 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
     .fg-target.fg-boss::before{
       background: radial-gradient(circle at 40% 35%, rgba(245,158,11,.22), transparent 60%);
     }
-
-    .fg-target.rage{
-      animation: ragePulse .55s ease-in-out infinite alternate;
-    }
+    .fg-target.rage{ animation: ragePulse .55s ease-in-out infinite alternate; }
     @keyframes ragePulse{
-      from{ transform: translate3d(var(--x,50vw),var(--y,50vh),0) translate(-50%,-50%) scale(1); }
-      to  { transform: translate3d(var(--x,50vw),var(--y,50vh),0) translate(-50%,-50%) scale(1.06); }
+      from{ transform: translate3d(var(--x,50vw), var(--y,50vh), 0) translate(-50%,-50%) scale(var(--s,1)); }
+      to  { transform: translate3d(var(--x,50vw), var(--y,50vh), 0) translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)); }
     }
 
     /* boss bar */
     .bossbar{
-      position:absolute;
-      left:10%; right:10%;
-      bottom:-8px;
-      height:8px;
-      border-radius:999px;
+      position:absolute; left:10%; right:10%; bottom:-8px;
+      height:8px; border-radius:999px;
       background: rgba(2,6,23,.55);
       border:1px solid rgba(255,255,255,.18);
       overflow:hidden;
       box-shadow: 0 10px 20px rgba(0,0,0,.25);
       pointer-events:none;
     }
-    .bossbar-fill{
-      height:100%;
-      width:100%;
-      background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
-    }
+    .bossbar-fill{ height:100%; width:100%; background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95)); }
 
-    /* ===== RETICLE + LOCK RING + CHARGE RING ===== */
-    .reticle{
-      position:fixed;
-      left:50%; top:52%;
-      transform: translate(-50%,-50%);
-      width:16px; height:16px;
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,.55);
-      box-shadow: 0 0 0 8px rgba(56,189,248,.08);
-      pointer-events:none;
-      z-index:10;
-      opacity:.9;
-    }
-
-    .lockRing{
-      position:fixed;
-      width:84px; height:84px;
-      left:50%; top:52%;
-      transform: translate(-50%,-50%);
-      border-radius:999px;
-      pointer-events:none;
-      z-index:11;
-      opacity:0;
-      transition: opacity .08s ease;
-    }
-    .lockRing.on{ opacity:1; }
-
-    .lockRing::before{
-      content:'';
-      position:absolute; inset:0;
-      border-radius:999px;
-      background: conic-gradient(rgba(56,189,248,.95) var(--p,0%), rgba(255,255,255,.10) 0);
-      mask: radial-gradient(circle, transparent 58%, #000 60%);
-      -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%);
-      filter: drop-shadow(0 0 10px rgba(56,189,248,.25));
-    }
-
-    .chargeRing{
-      position:fixed;
-      width:108px; height:108px;
-      left:50%; top:52%;
-      transform: translate(-50%,-50%);
-      border-radius:999px;
-      pointer-events:none;
-      z-index:11;
-      opacity:0;
-      transition: opacity .08s ease;
-    }
-    .chargeRing.on{ opacity:1; }
-
-    .chargeRing::before{
-      content:'';
-      position:absolute; inset:0;
-      border-radius:999px;
-      background: conic-gradient(rgba(34,197,94,.95) var(--c,0%), rgba(255,255,255,.08) 0);
-      mask: radial-gradient(circle, transparent 66%, #000 68%);
-      -webkit-mask: radial-gradient(circle, transparent 66%, #000 68%);
-      filter: drop-shadow(0 0 10px rgba(34,197,94,.22));
-    }
-
-    /* panic border */
-    .panicBorder{
-      position:fixed; inset:10px;
-      border-radius:24px;
-      border:2px solid rgba(239,68,68,.0);
-      box-shadow: 0 0 0 0 rgba(239,68,68,.0);
-      pointer-events:none;
-      z-index:9;
-      opacity:0;
-    }
-    .panicBorder.on{
-      opacity:1;
-      animation: panicFlash .55s ease-in-out infinite;
-    }
-    @keyframes panicFlash{
-      0%{ border-color: rgba(239,68,68,.08); box-shadow: 0 0 0 0 rgba(239,68,68,.0); }
-      50%{ border-color: rgba(239,68,68,.35); box-shadow: 0 0 0 8px rgba(239,68,68,.08); }
-      100%{ border-color: rgba(239,68,68,.10); box-shadow: 0 0 0 0 rgba(239,68,68,.0); }
-    }
-
-    /* ===== AFTERIMAGE (2 SHADOWS) — โตตอนหาย ===== */
+    /* Afterimage */
     .fg-afterimage{
-      position:absolute;
-      left:0; top:0;
-      pointer-events:none;
-      user-select:none;
-      z-index: 5;
+      position:absolute; left:0; top:0;
+      pointer-events:none; user-select:none;
+      z-index:5;
       transform: translate3d(0,0,0) translate(-50%,-50%);
       mix-blend-mode: screen;
     }
@@ -271,36 +162,21 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
       will-change: transform, opacity;
       animation: fgAfterFadeScale 280ms ease-out forwards;
       text-shadow: 0 0 10px rgba(255,90,180,.18);
+      font-size:54px;
     }
-    .fg-afterimage.a1 .fg-afterimage-inner{
-      opacity:.34;
-      filter: blur(.8px);
-      transform: scale(0.90);
-      animation-duration: 300ms;
-      text-shadow: 0 0 12px rgba(255,90,180,.22);
-    }
-    .fg-afterimage.a2 .fg-afterimage-inner{
-      opacity:.22;
-      filter: blur(1.1px);
-      transform: scale(0.88);
-      animation-duration: 340ms;
-      text-shadow: 0 0 14px rgba(255,90,180,.26);
-    }
+    .fg-afterimage.a1 .fg-afterimage-inner{ opacity:.34; filter: blur(.8px); transform: scale(0.90); animation-duration: 300ms; }
+    .fg-afterimage.a2 .fg-afterimage-inner{ opacity:.22; filter: blur(1.1px); transform: scale(0.88); animation-duration: 340ms; }
     @keyframes fgAfterFadeScale{
       0%   { opacity: 1;   transform: scale(0.90); }
       55%  { opacity: .55; transform: scale(1.06); }
       100% { opacity: 0;   transform: scale(1.26); }
     }
 
-    /* ===== HUD ===== */
+    /* HUD */
     .hud{
       position:fixed;
-      left:14px; right:14px;
-      top:12px;
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      justify-content:space-between;
+      left:14px; right:14px; top:12px;
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
       z-index:12;
       pointer-events:none;
     }
@@ -314,25 +190,11 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
       -webkit-backdrop-filter: blur(10px);
       min-width: 210px;
     }
-    .row{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-    }
-    .kpi{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-      font-size:13px;
-      color:var(--muted);
-    }
+    .row{ display:flex; gap:10px; align-items:center; justify-content:space-between; }
+    .kpi{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--muted); margin-top:8px; }
     .kpi b{ color:var(--text); font-size:14px; }
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
+      display:inline-flex; align-items:center; gap:8px;
       border-radius: var(--pill);
       padding:6px 10px;
       border:1px solid rgba(255,255,255,.16);
@@ -341,46 +203,24 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
       font-size:13px;
     }
     .pill small{ color:var(--muted); }
-
-    /* Coach + Quest */
-    .hudRight{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      align-items:flex-end;
-    }
+    .hudRight{ display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
     .coachBox{ max-width: 430px; }
-    #coachText{
-      font-size:14px;
-      color:var(--text);
-      line-height:1.35;
-    }
-    #questGoal, #questMini{
-      font-size:13px;
-      color:var(--muted);
-      line-height:1.25;
-      margin-top:6px;
+    #coachText{ font-size:14px; color:var(--text); line-height:1.35; }
+    #questGoal, #questMini, #questDbg{
+      font-size:13px; color:var(--muted); line-height:1.25; margin-top:6px;
     }
 
     /* bottom controls */
     .bottom{
       position:fixed;
-      left:14px; right:14px;
-      bottom:12px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
+      left:14px; right:14px; bottom:12px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
       z-index:12;
       pointer-events:none;
     }
-    .btnRow{
-      display:flex; gap:10px;
-      pointer-events:auto;
-    }
+    .btnRow{ display:flex; gap:10px; pointer-events:auto; }
     button{
-      appearance:none;
-      border:none;
+      appearance:none; border:none;
       background: rgba(255,255,255,.10);
       border:1px solid rgba(255,255,255,.18);
       color:var(--text);
@@ -394,22 +234,13 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
       transition: transform .08s ease, filter .12s ease;
     }
     button:active{ transform: translateY(1px) scale(.99); }
-    button.primary{
-      background: linear-gradient(180deg, rgba(56,189,248,.35), rgba(56,189,248,.10));
-      border:1px solid rgba(56,189,248,.35);
-    }
-    button.danger{
-      background: linear-gradient(180deg, rgba(239,68,68,.32), rgba(239,68,68,.10));
-      border:1px solid rgba(239,68,68,.35);
-    }
+    button.primary{ background: linear-gradient(180deg, rgba(56,189,248,.35), rgba(56,189,248,.10)); border:1px solid rgba(56,189,248,.35); }
+    button.danger{ background: linear-gradient(180deg, rgba(239,68,68,.32), rgba(239,68,68,.10)); border:1px solid rgba(239,68,68,.35); }
 
     /* start overlay */
     .overlay{
-      position:fixed; inset:0;
-      z-index:20;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      position:fixed; inset:0; z-index:20;
+      display:flex; align-items:center; justify-content:center;
       padding:18px;
       background: radial-gradient(900px 600px at 50% 20%, rgba(56,189,248,.16), transparent 60%),
                   rgba(2,6,23,.72);
@@ -424,40 +255,18 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
       box-shadow: 0 26px 70px rgba(0,0,0,.45);
       padding:18px;
     }
-    .title{
-      font-size:18px;
-      font-weight:900;
-      letter-spacing:.2px;
-      margin:0 0 6px 0;
-    }
-    .sub{
-      margin:0 0 12px 0;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.35;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-    }
-    .note{
-      font-size:12px;
-      color:rgba(226,232,240,.82);
-      line-height:1.35;
-    }
+    .title{ font-size:18px; font-weight:900; letter-spacing:.2px; margin:0 0 6px 0; }
+    .sub{ margin:0 0 12px 0; color:var(--muted); font-size:13px; line-height:1.35; }
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     .chip{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
-      padding:8px 10px;
-      border-radius: 14px;
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 10px; border-radius: 14px;
       background: rgba(255,255,255,.08);
       border:1px solid rgba(255,255,255,.16);
-      color:var(--text);
-      font-size:13px;
+      color:var(--text); font-size:13px;
     }
     .chip b{ font-size:14px; }
+    .note{ font-size:12px; color:rgba(226,232,240,.82); line-height:1.35; }
 
     @media (max-width: 720px){
       .grid{ grid-template-columns: 1fr; }
@@ -468,17 +277,15 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
     }
   </style>
 
-  <!-- Global FX / Fever / HUD / Logger (IIFE) -->
-  <script src="./vr/particles.js?v=121" defer></script>
-  <script src="./vr/ui-fever.js?v=121" defer></script>
-  <script src="./vr/hha-hud.js?v=121" defer></script>
-  <script src="./vr/hha-cloud-logger.js?v=121" defer></script>
+  <!-- Global IIFE modules -->
+  <script src="./vr/particles.js?v=fg121" defer></script>
+  <script src="./vr/ui-fever.js?v=fg121" defer></script>
+  <script src="./vr/hha-hud.js?v=fg121" defer></script>
+  <script src="./vr/hha-cloud-logger.js?v=fg121" defer></script>
 
-  <!-- Quest defs (IIFE attach window.GroupsQuest.createFoodGroupsQuest) -->
-  <script src="./vr-groups/groups-quests.js?v=121" defer></script>
-
-  <!-- GameEngine (IIFE attach window.GroupsVR.GameEngine) -->
-  <script src="./vr-groups/GameEngine.js?v=121" defer></script>
+  <!-- ✅ IMPORTANT: quest must load BEFORE engine -->
+  <script src="./vr-groups/groups-quests.js?v=fg121" defer></script>
+  <script src="./vr-groups/GameEngine.js?v=fg121" defer></script>
 
   <!-- VR-look (drag + deviceorientation + inertia) -->
   <script>
@@ -487,11 +294,10 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
     if (!window.AFRAME) return;
 
     AFRAME.registerComponent('hha-vrlook', {
-      schema: { drag: {default:true}, gyro:{default:true}, inertia:{default:0.86}, speed:{default:0.20} },
+      schema: { drag: {default:true}, gyro:{default:true}, inertia:{default:0.86}, speed:{default:0.22} },
       init: function(){
         this.yaw = 0; this.pitch = 0;
         this.vYaw = 0; this.vPitch = 0;
-
         this.dragging = false;
         this.lastX = 0; this.lastY = 0;
 
@@ -507,7 +313,6 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
           const dx = (p.clientX - this.lastX);
           const dy = (p.clientY - this.lastY);
           this.lastX = p.clientX; this.lastY = p.clientY;
-
           const s = this.data.speed;
           this.vYaw   += dx * s;
           this.vPitch += dy * s;
@@ -541,24 +346,13 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
 
         this.yaw += this.vYaw * 0.016;
         this.pitch += this.vPitch * 0.016;
-
         this.pitch = Math.max(-75, Math.min(75, this.pitch));
 
         if (this.data.gyro && this._gyroYaw !== null){
           this.yaw   = (this.yaw   * 0.94) + (this._gyroYaw   * 0.06);
           this.pitch = (this.pitch * 0.94) + (this._gyroPitch * 0.06);
         }
-
         this.el.setAttribute('rotation', { x: this.pitch, y: this.yaw, z: 0 });
-      },
-      remove: function(){
-        window.removeEventListener('pointerdown', this._onDown);
-        window.removeEventListener('pointermove', this._onMove);
-        window.removeEventListener('pointerup',   this._onUp);
-        window.removeEventListener('touchstart',  this._onDown);
-        window.removeEventListener('touchmove',   this._onMove);
-        window.removeEventListener('touchend',    this._onUp);
-        window.removeEventListener('deviceorientation', this._onOri, true);
       }
     });
   })();
@@ -566,44 +360,25 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
 </head>
 
 <body>
-  <!-- A-Frame scene (camera rotation used by engine) -->
   <div class="sceneWrap">
-    <a-scene
-      embedded
-      vr-mode-ui="enabled: true"
-      renderer="antialias: true; colorManagement: true"
-      background="color: #020617">
-
+    <a-scene embedded vr-mode-ui="enabled:true" renderer="antialias:true; colorManagement:true" background="color:#020617">
       <a-sky color="#020617"></a-sky>
-
       <a-entity id="rig" position="0 1.6 0">
-        <a-entity id="cam"
-          camera
-          look-controls="enabled:false"
-          hha-vrlook="drag:true; gyro:true; inertia:0.86; speed:0.22">
-        </a-entity>
+        <a-entity id="cam" camera look-controls="enabled:false" hha-vrlook="drag:true; gyro:true; inertia:0.86; speed:0.22"></a-entity>
       </a-entity>
     </a-scene>
   </div>
 
-  <!-- DOM targets layer -->
   <div id="fg-layer" aria-label="targets"></div>
 
-  <!-- overlay UI -->
   <div class="ui">
-    <div class="panicBorder" id="panicBorder"></div>
-    <div class="reticle" id="reticle"></div>
-    <div class="lockRing" id="lockRing" style="--p:0%"></div>
-    <div class="chargeRing" id="chargeRing" style="--c:0%"></div>
-
-    <!-- HUD top -->
     <div class="hud">
       <div class="panel">
         <div class="row">
           <div class="pill"><small>เวลา</small> <b id="hudTime">--</b></div>
           <div class="pill"><small>เกรด</small> <b id="hudGrade">C</b></div>
         </div>
-        <div class="kpi" style="margin-top:8px">
+        <div class="kpi">
           <span>คะแนน <b id="hudScore">0</b></span>
           <span>คอมโบ <b id="hudCombo">0</b></span>
           <span>MISS <b id="hudMiss">0</b></span>
@@ -616,11 +391,11 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
           <div id="coachText">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ 💫 (เลื่อนจอเพื่อหันกล้อง)</div>
           <div id="questGoal">GOAL: —</div>
           <div id="questMini">MINI: —</div>
+          <div id="questDbg">Quest: …</div>
         </div>
       </div>
     </div>
 
-    <!-- bottom controls -->
     <div class="bottom">
       <div class="note">
         <div class="chip"><b>LOCK</b> จ้องจนวงฟ้าเต็ม → ยิงเป็นชุด</div>
@@ -634,23 +409,22 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
     </div>
   </div>
 
-  <!-- start overlay -->
   <div class="overlay" id="startOverlay">
     <div class="card">
       <h1 class="title">Food Groups VR — โหมดเล่นจริง 🔥</h1>
       <p class="sub">
-        แตะได้ทุกที่ (aim assist) + จ้องล็อกยิงเป็นชุด + ชาร์จยิงทะลุแบบ Cone<br>
-        <b>Rage = Double-Feint</b> (หลอก 2 จังหวะ) • <b>Decoy = Invert</b> (หน้าตาดีแต่โดนแล้ว MISS)
+        หมุนหมู่อัตโนมัติ + 2 Goals + 7 Minis • Decoy(Invert) • Rage(Double-Feint) • Fever/Shield<br>
+        ถ้าภารกิจไม่ขึ้น ให้ดูบรรทัด “Quest: OK/FAIL” ด้านขวาบน
       </p>
       <div class="grid">
         <div class="chip">🎚️ Difficulty: <b id="uiDiff">normal</b></div>
         <div class="chip">⏱️ Time: <b id="uiTime">70</b> sec</div>
         <div class="chip">🧪 Run: <b id="uiRun">play</b></div>
-        <div class="chip">📝 Log: <b id="uiLog">auto</b></div>
+        <div class="chip">🧩 Quest: <b id="uiQuest">…</b></div>
       </div>
 
       <p class="note" style="margin-top:12px">
-        Tips: มือถือ “ขยับเครื่อง” ได้ (gyro) / ลากจอได้ (drag). ถ้า iOS ขอสิทธิ์ motion ให้กดเริ่มแล้วอนุญาต.
+        มือถือ: ขยับเครื่องได้ (gyro) / ลากจอได้ (drag). iOS อาจต้องกดอนุญาต motion ตอนเริ่ม
       </p>
 
       <div class="btnRow" style="margin-top:12px; justify-content:flex-end;">
@@ -662,78 +436,53 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
   <script>
   (function(){
     'use strict';
-    function qs(sel){ return document.querySelector(sel); }
+    const $ = (s)=>document.querySelector(s);
     const URLX = new URL(location.href);
 
     const diff = (URLX.searchParams.get('diff') || 'normal').toLowerCase();
     const time = parseInt(URLX.searchParams.get('time') || '70', 10) || 70;
     const run  = (URLX.searchParams.get('run') || 'play').toLowerCase();
-    const log  = (URLX.searchParams.get('log') || (sessionStorage.getItem('HHA_LOGGER_ENDPOINT')||'') || 'auto');
 
-    qs('#uiDiff').textContent = diff;
-    qs('#uiTime').textContent = String(time);
-    qs('#uiRun').textContent  = run;
-    qs('#uiLog').textContent  = log ? (log==='auto'?'auto':'custom') : 'off';
+    $('#uiDiff').textContent = diff;
+    $('#uiTime').textContent = String(time);
+    $('#uiRun').textContent  = run;
 
-    const layerEl = qs('#fg-layer');
-    const camEl = qs('#cam');
-    const overlay = qs('#startOverlay');
+    function questStatus(){
+      const ok = !!(window.GroupsQuest && typeof window.GroupsQuest.createFoodGroupsQuest === 'function');
+      $('#uiQuest').textContent = ok ? 'OK' : 'FAIL';
+      $('#questDbg').textContent = ok ? 'Quest: OK ✅' : 'Quest: FAIL ❌ (groups-quests.js ไม่โหลด/ไม่ attach)';
+    }
+    window.addEventListener('load', questStatus);
 
-    // UI hooks
-    const lockRing = qs('#lockRing');
-    const chargeRing = qs('#chargeRing');
-    const panicBorder = qs('#panicBorder');
-
-    window.addEventListener('groups:lock', (e)=>{
-      const d = (e && e.detail) ? e.detail : {};
-      const on = !!d.on;
-      lockRing.classList.toggle('on', on);
-      chargeRing.classList.toggle('on', on);
-
-      const p = Math.max(0, Math.min(1, Number(d.prog||0)));
-      const c = Math.max(0, Math.min(1, Number(d.charge||0)));
-      lockRing.style.setProperty('--p', Math.round(p*100) + '%');
-      chargeRing.style.setProperty('--c', Math.round(c*100) + '%');
-    });
-
-    window.addEventListener('hha:panic', (e)=>{
-      const d = e && e.detail ? e.detail : {};
-      panicBorder.classList.toggle('on', !!d.on);
-    });
-
+    // HUD bind
     window.addEventListener('hha:time', (e)=>{
       const d = e && e.detail ? e.detail : {};
-      if (typeof d.left === 'number') qs('#hudTime').textContent = String(d.left);
+      if (typeof d.left === 'number') $('#hudTime').textContent = String(d.left);
     });
-
     window.addEventListener('hha:score', (e)=>{
       const d = e && e.detail ? e.detail : {};
-      if (typeof d.score === 'number') qs('#hudScore').textContent = String(d.score);
-      if (typeof d.combo === 'number') qs('#hudCombo').textContent = String(d.combo);
-      if (typeof d.misses === 'number') qs('#hudMiss').textContent = String(d.misses);
-      if (typeof d.shield === 'number') qs('#hudShield').textContent = String(d.shield);
+      if (typeof d.score === 'number') $('#hudScore').textContent = String(d.score);
+      if (typeof d.combo === 'number') $('#hudCombo').textContent = String(d.combo);
+      if (typeof d.misses === 'number') $('#hudMiss').textContent = String(d.misses);
+      if (typeof d.shield === 'number') $('#hudShield').textContent = String(d.shield);
     });
-
     window.addEventListener('hha:rank', (e)=>{
       const d = e && e.detail ? e.detail : {};
-      if (d.grade) qs('#hudGrade').textContent = String(d.grade);
+      if (d.grade) $('#hudGrade').textContent = String(d.grade);
     });
-
     window.addEventListener('hha:coach', (e)=>{
       const d = e && e.detail ? e.detail : {};
-      if (d.text) qs('#coachText').textContent = String(d.text);
+      if (d.text) $('#coachText').textContent = String(d.text);
     });
-
     window.addEventListener('quest:update', (e)=>{
       const d = e && e.detail ? e.detail : {};
       const g = d.goal ? (`GOAL: ${d.goal.label} (${d.goal.prog}/${d.goal.target})`) : 'GOAL: —';
       const m = d.mini ? (`MINI: ${d.mini.label} (${d.mini.prog}/${d.mini.target})`) : 'MINI: —';
-      qs('#questGoal').textContent = g;
-      qs('#questMini').textContent = m;
+      $('#questGoal').textContent = g;
+      $('#questMini').textContent = m;
     });
 
     function requestMotionPermissionIfNeeded(){
-      // iOS requires permission sometimes
       try{
         const DM = window.DeviceMotionEvent;
         const DO = window.DeviceOrientationEvent;
@@ -742,43 +491,41 @@ Food Groups VR — PRODUCTION (PLAY/RESEARCH)
         if (DO && typeof DO.requestPermission === 'function') asks.push(DO.requestPermission());
         if (!asks.length) return Promise.resolve();
         return Promise.allSettled(asks).then(()=>{});
-      }catch{
-        return Promise.resolve();
-      }
+      }catch{ return Promise.resolve(); }
     }
 
     function safeStart(){
       const eng = window.GroupsVR && window.GroupsVR.GameEngine;
       if (!eng) { alert('GameEngine ยังไม่โหลด'); return; }
 
-      eng.setLayerEl(layerEl);
-      eng.setCameraEl(camEl);
+      eng.setLayerEl($('#fg-layer'));
+      eng.setCameraEl($('#cam'));
       eng.setTimeLeft(time);
 
-      overlay.style.display = 'none';
+      $('#startOverlay').style.display = 'none';
       eng.start(diff, { runMode: run });
 
-      qs('#btnToggleGaze').textContent = 'Gaze: ON';
-      qs('#btnToggleGaze').dataset.on = '1';
+      $('#btnToggleGaze').textContent = 'Gaze: ON';
+      $('#btnToggleGaze').dataset.on = '1';
     }
 
-    qs('#btnStart').addEventListener('click', ()=>{
+    $('#btnStart').addEventListener('click', ()=>{
       requestMotionPermissionIfNeeded().finally(()=>safeStart());
     });
 
-    qs('#btnStop').addEventListener('click', ()=>{
+    $('#btnStop').addEventListener('click', ()=>{
       const eng = window.GroupsVR && window.GroupsVR.GameEngine;
       if (eng) eng.stop('user_stop');
-      overlay.style.display = 'flex';
+      $('#startOverlay').style.display = 'flex';
     });
 
-    qs('#btnToggleGaze').addEventListener('click', ()=>{
+    $('#btnToggleGaze').addEventListener('click', ()=>{
       const eng = window.GroupsVR && window.GroupsVR.GameEngine;
       if (!eng) return;
-      const on = (qs('#btnToggleGaze').dataset.on === '1');
+      const on = ($('#btnToggleGaze').dataset.on === '1');
       eng.setGaze(!on);
-      qs('#btnToggleGaze').dataset.on = on ? '0' : '1';
-      qs('#btnToggleGaze').textContent = on ? 'Gaze: OFF' : 'Gaze: ON';
+      $('#btnToggleGaze').dataset.on = on ? '0' : '1';
+      $('#btnToggleGaze').textContent = on ? 'Gaze: OFF' : 'Gaze: ON';
     });
   })();
   </script>
