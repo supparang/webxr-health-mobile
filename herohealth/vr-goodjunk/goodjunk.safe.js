@@ -1,22 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — DOM Emoji Engine (PRODUCTION)
-// ✅ Targets are DOM but behave like VR: world-space + follow camera yaw/pitch
-// ✅ Clamp safe zone: avoid overlapping HUD/cards
-// ✅ TimeScale (Slow-Motion) จริง: spawn/TTL/time เดินด้วย dtGame
-// ✅ FEVER:
-//    - เพิ่ม/ลดจากการเล่น + decay เอง (ไม่ค้าง 100%)
-//    - ถึง 100% เข้า FEVER MODE (ไฟลุกท่วมจอ) ~6s แล้วลดลงจนหมด
-// ✅ STUN (Final Sprint โหดแบบเกมจริง):
-//    - ถ้า “พลาด/โดน junk” ใน 8 วิสุดท้าย -> STUN 1s + Slow-Motion + ยิงไม่ติด
-// Emits:
-//    - hha:time {sec}
-//    - hha:score {score, goodHits, misses, comboMax, challenge}
-//    - hha:judge {label}
-//    - hha:fever {fever, shield, active}
-//    - hha:lock {ms}  (ใช้กับ FX + HUD STUN)
-//    - hha:stun {ms}  (สำรอง)
-//    - quest:goodHit / quest:badHit / quest:block / quest:power / quest:bossClear
-// MISS rule (GoodJunk): miss = good expired + junk hit (if shield blocks → NOT miss)
+// Step 1+2: VR-feel targets follow camera yaw/pitch + sticker + fade + tap-anywhere
 
 'use strict';
 
@@ -27,7 +11,6 @@ function clamp(v, min, max){
   return v;
 }
 function now(){ return performance.now(); }
-
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
 }
@@ -124,6 +107,7 @@ export function boot(opts = {}){
   }
 
   const diff = String(opts.diff || 'normal').toLowerCase();
+  const runMode = String(opts.run || 'play').toLowerCase();
   const challenge = String(opts.challenge || 'rush').toLowerCase();
   const durationSec = clamp(opts.time ?? 60, 20, 180);
 
@@ -134,18 +118,10 @@ export function boot(opts = {}){
 
   const CFG = diffCfg(diff);
 
-  // --- time system (dtGame = dtReal * timeScale)
   const state = {
+    startedAt: now(),
+    endAt: now() + durationSec*1000,
     running: true,
-
-    // game time (scaled)
-    timeScale: 1.0,
-    gameTime: 0,
-    lastRealAt: now(),
-    spawnAcc: 0,
-
-    // remaining in "game ms"
-    remainingMs: durationSec * 1000,
 
     score: 0,
     goodHits: 0,
@@ -154,27 +130,19 @@ export function boot(opts = {}){
     combo: 0,
     comboMax: 0,
 
-    fever: 0,        // 0..100
+    fever: 0,
     shield: 0,
-
-    feverActive: false,
-    feverActiveLeftMs: 0,
-
-    lockedUntilReal: 0,   // ยิงไม่ติดช่วง STUN (ใช้ real time)
-    slowUntilReal: 0,     // slow-motion window (real time)
 
     bossCleared: false,
 
-    lastTickSec: -1,
-    lastFeverEmitAt: 0
+    lastTickSec: -1
   };
 
   const ACTIVE = new Set();
   let rafId = 0;
+  let spawnTimer = 0;
 
-  function setJudge(label){
-    emit('hha:judge', { label: String(label||'') });
-  }
+  function setJudge(label){ emit('hha:judge', { label: String(label||'') }); }
   function syncHUD(){
     emit('hha:score', {
       score: state.score|0,
@@ -186,49 +154,11 @@ export function boot(opts = {}){
     emit('hha:fever', {
       fever: state.fever|0,
       shield: state.shield|0,
-      active: !!state.feverActive
+      active: state.fever >= 100
     });
   }
 
-  // ------- FEVER behavior -------
-  const FEVER_DECAY_PER_SEC = 2.8;   // ไม่ให้ค้าง 100% (เวลานิ่ง ๆ จะค่อย ๆ ลด)
-  const FEVER_MODE_MS = 6000;        // โหมดไฟลุก
-  const FEVER_SCORE_MULT = 1.35;     // ช่วง fever ให้สะใจขึ้น
-
-  function addFever(v){
-    state.fever = clamp(state.fever + v, 0, 100);
-
-    // เข้า FEVER MODE เมื่อถึง 100% (ครั้งแรก)
-    if (!state.feverActive && state.fever >= 100){
-      state.feverActive = true;
-      state.feverActiveLeftMs = FEVER_MODE_MS;
-      // “รางวัล” เล็ก ๆ ให้รู้สึกเท่
-      state.shield = clamp((state.shield|0) + 1, 0, 9);
-      emit('hha:fever', { fever: 100, shield: state.shield|0, active: true });
-    }
-  }
-
-  function feverTick(dtGameMs){
-    // ระหว่าง FEVER MODE: ลดลงจนหมด
-    if (state.feverActive){
-      state.feverActiveLeftMs = Math.max(0, state.feverActiveLeftMs - dtGameMs);
-      const pct = (state.feverActiveLeftMs / FEVER_MODE_MS);
-      state.fever = clamp(Math.round(100 * pct), 0, 100);
-      if (state.feverActiveLeftMs <= 0){
-        state.feverActive = false;
-        // จบ fever ให้เหลือไฟ 15% (ยังรู้สึกต่อเนื่อง)
-        state.fever = Math.min(state.fever, 15);
-      }
-      return;
-    }
-
-    // นอก FEVER MODE: decay เอง
-    const dec = FEVER_DECAY_PER_SEC * (dtGameMs/1000);
-    if (dec > 0){
-      state.fever = clamp(state.fever - dec, 0, 100);
-    }
-  }
-
+  function addFever(v){ state.fever = clamp(state.fever + v, 0, 100); }
   function spendShield(){
     if (state.shield > 0){
       state.shield = Math.max(0, (state.shield|0) - 1);
@@ -239,7 +169,7 @@ export function boot(opts = {}){
 
   function mkEl(kind, emoji){
     const el = document.createElement('div');
-    el.className = 'gj-target';
+    el.className = 'gj-target spawn';
     el.textContent = emoji;
 
     if (kind === 'junk') el.classList.add('gj-junk');
@@ -249,6 +179,8 @@ export function boot(opts = {}){
     if (kind === 'boss') el.classList.add('gj-boss');
 
     layerEl.appendChild(el);
+    // fade-in
+    requestAnimationFrame(()=> el.classList.add('in'));
     return el;
   }
 
@@ -262,7 +194,6 @@ export function boot(opts = {}){
       if (!state.bossCleared && Math.random() < 0.10) return 'boss';
     }
 
-    // power/gold occasionally
     const r = Math.random();
     if (r < 0.08) return 'power';
     if (r < 0.14) return 'gold';
@@ -274,7 +205,7 @@ export function boot(opts = {}){
     const GOOD = ['🥦','🥕','🍎','🍌','🥛','🍇','🍊','🥬'];
     const JUNK = ['🍟','🍔','🍕','🍩','🍰','🍿','🥤','🍗'];
     const GOLD = ['🌟','✨','🏅','💎'];
-    const POWER = ['🛡️','🧲','⏱️']; // shield / magnet / time
+    const POWER = ['🛡️','🧲','⏱️'];
     const BOSS = ['👾','😈','🦖','💀'];
 
     if (kind === 'good') return GOOD[(Math.random()*GOOD.length)|0];
@@ -306,8 +237,6 @@ export function boot(opts = {}){
     const safePt = pickScreenPointSafe(SIZES, 18);
     const w = screenToWorldPoint(safePt, look);
 
-    const ttl = (kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs;
-
     const t = {
       id: Math.random().toString(16).slice(2),
       kind,
@@ -315,8 +244,10 @@ export function boot(opts = {}){
       el,
       wx: w.wx,
       wy: w.wy,
-      bornGame: state.gameTime,
-      ttlMs: ttl,
+      sx: safePt.x,
+      sy: safePt.y,
+      bornAt: now(),
+      ttlMs: (kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs,
       dead: false,
       bossHp: (kind === 'boss') ? 3 : 1
     };
@@ -324,19 +255,21 @@ export function boot(opts = {}){
     const scale =
       (kind === 'boss') ? 1.25 :
       (kind === 'gold') ? 1.05 :
+      (kind === 'power') ? 1.0 :
       1.0;
 
     el.style.setProperty('--tScale', String(scale));
 
     const s = worldToScreen(t.wx, t.wy, look, SIZES);
+    t.sx = s.x; t.sy = s.y;
     el.style.left = s.x + 'px';
     el.style.top  = s.y + 'px';
 
     const onDown = (ev)=>{
       ev.preventDefault?.();
       ev.stopPropagation?.();
-      const x = (ev?.clientX ?? (ev?.touches?.[0]?.clientX)) ?? s.x;
-      const y = (ev?.clientY ?? (ev?.touches?.[0]?.clientY)) ?? s.y;
+      const x = (ev?.clientX ?? (ev?.touches?.[0]?.clientX)) ?? t.sx;
+      const y = (ev?.clientY ?? (ev?.touches?.[0]?.clientY)) ?? t.sy;
       hitTarget(t, x, y);
     };
     el.addEventListener('pointerdown', onDown, { passive:false });
@@ -352,37 +285,18 @@ export function boot(opts = {}){
     const el = t.el;
     if (el && el.isConnected){
       if (gone) el.classList.add('gone');
-      setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 110);
+      setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 120);
     }
-  }
-
-  // ---------- STUN + Slow-Motion (Final Sprint) ----------
-  function triggerStun(ms=1000){
-    const tNow = now();
-    state.lockedUntilReal = Math.max(state.lockedUntilReal, tNow + ms);
-    state.slowUntilReal   = Math.max(state.slowUntilReal, tNow + ms);
-
-    emit('hha:lock', { ms });
-    emit('hha:stun', { ms });
-  }
-
-  function isFinalSprint(){
-    // 8 วิสุดท้ายตามเวลาเกม (remainingMs)
-    return state.remainingMs <= 8000;
   }
 
   function handleExpire(t){
     if (!t || t.dead) return;
 
-    // MISS rule: good expired counts as miss
+    // MISS: good/gold/power/boss expire counts as miss
     if (t.kind === 'good' || t.kind === 'gold' || t.kind === 'power' || t.kind === 'boss'){
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
-
-      // Final Sprint โหดแบบเกมจริง: พลาดใน 8 วิสุดท้าย -> STUN 1 วิ + slow
-      if (isFinalSprint()) triggerStun(1000);
-
       setJudge('MISS');
       syncHUD();
     }
@@ -392,22 +306,12 @@ export function boot(opts = {}){
   function hitTarget(t, x, y){
     if (!t || t.dead || !state.running) return;
 
-    // ถ้า STUN อยู่ -> ยิงไม่ติด (ชัด ๆ)
-    if (now() < state.lockedUntilReal){
-      setJudge('STUN!');
-      // ปล่อยให้เป้าอยู่ต่อ (ไม่ kill) เพื่อ “เจ็บจริง”
-      return;
-    }
-
-    // boss: ต้องตีหลายที
     if (t.kind === 'boss'){
       t.bossHp = (t.bossHp|0) - 1;
       if (t.bossHp > 0){
         setJudge('HIT!');
-        emit('quest:goodHit', { x, y, judgment:'good', kind:'boss' });
-
-        const mult = state.feverActive ? FEVER_SCORE_MULT : 1;
-        state.score += Math.round((CFG.scoreGood|0) * mult);
+        emit('quest:goodHit', { x, y, judgment:'good' });
+        state.score += (CFG.scoreGood|0);
         state.goodHits++;
         state.combo++;
         state.comboMax = Math.max(state.comboMax, state.combo);
@@ -418,10 +322,8 @@ export function boot(opts = {}){
       state.bossCleared = true;
       setJudge('BOSS!');
       emit('quest:bossClear', {});
-      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'boss' });
-
-      const mult = state.feverActive ? FEVER_SCORE_MULT : 1;
-      state.score += Math.round(90 * mult);
+      emit('quest:goodHit', { x, y, judgment:'perfect' });
+      state.score += 90;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
@@ -432,25 +334,20 @@ export function boot(opts = {}){
     }
 
     if (t.kind === 'junk'){
-      // shield block?
       if (spendShield()){
         setJudge('BLOCK');
-        emit('quest:block', { x, y, kind:'junk' });
+        emit('quest:block', { x, y });
         syncHUD();
         killTarget(t, true);
         return;
       }
 
-      // junk hit = miss
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
 
-      // Final Sprint โหด: โดน junk ใน 8 วิสุดท้าย -> STUN 1 วิ + slow
-      if (isFinalSprint()) triggerStun(1000);
-
       setJudge('JUNK!');
-      emit('quest:badHit', { x, y, judgment:'junk', kind:'junk' });
+      emit('quest:badHit', { x, y, judgment:'junk' });
       syncHUD();
       killTarget(t, true);
       return;
@@ -465,14 +362,12 @@ export function boot(opts = {}){
         state.shield = clamp((state.shield|0) + 1, 0, 9);
       }
       if (p === 'time'){
-        state.remainingMs = Math.min(state.remainingMs + 2500, (durationSec*1000 + 12000));
+        state.endAt = state.endAt + 2500;
       }
 
       setJudge(String(p).toUpperCase());
-      emit('quest:power', { x, y, power: p, kind:'power' });
-
-      const mult = state.feverActive ? FEVER_SCORE_MULT : 1;
-      state.score += Math.round(18 * mult);
+      emit('quest:power', { x, y, power: p });
+      state.score += 18;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
@@ -484,10 +379,8 @@ export function boot(opts = {}){
 
     if (t.kind === 'gold'){
       setJudge('GOLD!');
-      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'gold' });
-
-      const mult = state.feverActive ? FEVER_SCORE_MULT : 1;
-      state.score += Math.round((CFG.scoreGold|0) * mult);
+      emit('quest:goodHit', { x, y, judgment:'perfect' });
+      state.score += (CFG.scoreGold|0);
       state.goldHits++;
       state.goodHits++;
       state.combo += 2;
@@ -499,59 +392,62 @@ export function boot(opts = {}){
     }
 
     // normal good
-    {
-      const perfect = (Math.random() < 0.20);
-      setJudge(perfect ? 'PERFECT!' : 'GOOD!');
-      emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good', kind:'good' });
+    const perfect = (Math.random() < 0.20);
+    setJudge(perfect ? 'PERFECT!' : 'GOOD!');
+    emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good' });
 
-      const mult = state.feverActive ? FEVER_SCORE_MULT : 1;
-      state.score += Math.round(((CFG.scoreGood|0) + (perfect ? 6 : 0)) * mult);
-      state.goodHits++;
-      state.combo++;
-      state.comboMax = Math.max(state.comboMax, state.combo);
-
-      addFever(+CFG.feverGain + (perfect ? 3 : 0));
-      syncHUD();
-      killTarget(t, true);
-    }
+    state.score += (CFG.scoreGood|0) + (perfect ? 6 : 0);
+    state.goodHits++;
+    state.combo++;
+    state.comboMax = Math.max(state.comboMax, state.combo);
+    addFever(+CFG.feverGain + (perfect ? 3 : 0));
+    syncHUD();
+    killTarget(t, true);
   }
 
-  function updateLoop(){
+  // ✅ Tap-anywhere assist: แตะพื้น → เลือกเป้าใกล้สุด
+  function findClosestTarget(x, y, maxDist=110){
+    let best = null;
+    let bestD2 = maxDist*maxDist;
+    for (const t of ACTIVE){
+      if (!t || t.dead) continue;
+      const dx = (t.sx - x);
+      const dy = (t.sy - y);
+      const d2 = dx*dx + dy*dy;
+      if (d2 < bestD2){
+        bestD2 = d2;
+        best = t;
+      }
+    }
+    return best;
+  }
+  function onLayerDown(ev){
+    // ถ้ากดโดนตัวเป้าเอง ให้ handler ของเป้าทำงานไป
+    if (ev.target && ev.target !== layerEl) return;
+    const x = ev.clientX ?? (ev.touches?.[0]?.clientX);
+    const y = ev.clientY ?? (ev.touches?.[0]?.clientY);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    const t = findClosestTarget(x,y,110);
+    if (t) hitTarget(t, x, y);
+    ev.preventDefault?.();
+  }
+  layerEl.addEventListener('pointerdown', onLayerDown, { passive:false });
+  layerEl.addEventListener('touchstart', onLayerDown, { passive:false });
+
+  function updateTargetsFollowLook(){
     if (!state.running) return;
 
+    const look = getLookRad(cameraEl);
     const tNow = now();
-    const dtReal = Math.max(0, tNow - state.lastRealAt);
-    state.lastRealAt = tNow;
 
-    // Slow-Motion window: เวลา real อยู่ใน slowUntilReal -> timeScale ลด
-    if (tNow < state.slowUntilReal){
-      state.timeScale = 0.55; // ✅ slow ทั้งเกม (spawn/เวลา/ttl)
-    } else {
-      state.timeScale = 1.0;
-    }
-
-    const dtGame = dtReal * state.timeScale;
-    state.gameTime += dtGame;
-    state.remainingMs = Math.max(0, state.remainingMs - dtGame);
-
-    // FEVER tick (ลดเอง + โหมดไฟลุก)
-    feverTick(dtGame);
-
-    // time tick
-    const secLeft = Math.max(0, Math.ceil(state.remainingMs/1000));
+    const secLeft = Math.max(0, Math.ceil((state.endAt - tNow)/1000));
     if (secLeft !== state.lastTickSec){
       state.lastTickSec = secLeft;
       emit('hha:time', { sec: secLeft });
     }
 
-    // emit fever frequently แต่ไม่ spam
-    if ((tNow - state.lastFeverEmitAt) > 180){
-      state.lastFeverEmitAt = tNow;
-      emit('hha:fever', { fever: state.fever|0, shield: state.shield|0, active: !!state.feverActive });
-    }
-
-    // end
-    if (state.remainingMs <= 0){
+    if (tNow >= state.endAt){
       state.running = false;
       emit('hha:time', { sec: 0 });
       syncHUD();
@@ -560,71 +456,29 @@ export function boot(opts = {}){
       return;
     }
 
-    // spawn via accumulator (dtGame)
-    state.spawnAcc += dtGame;
-
-    // Final Sprint (8 วิสุดท้าย) “โหดขึ้น”: spawn เร็วขึ้นนิด + junk เพิ่ม
-    const inFinal = (state.remainingMs <= 8000);
-
-    const spawnMs = inFinal ? Math.max(220, CFG.spawnMs * 0.72) : CFG.spawnMs;
-
-    while (state.spawnAcc >= spawnMs){
-      state.spawnAcc -= spawnMs;
-      // ช่วง Final ให้มีโอกาส junk เพิ่มนิด (ไม่แก้ CFG ตรง ๆ)
-      if (inFinal && Math.random() < 0.14){
-        // spawn junk เพิ่ม 1 ตัว ถ้าพื้นที่พอ
-        if (ACTIVE.size < CFG.maxActive) {
-          const el = mkEl('junk', chooseEmoji('junk'));
-          const look = getLookRad(cameraEl);
-          const safePt = pickScreenPointSafe(SIZES, 18);
-          const w = screenToWorldPoint(safePt, look);
-          const t = {
-            id: Math.random().toString(16).slice(2),
-            kind:'junk',
-            emoji: el.textContent,
-            el,
-            wx:w.wx, wy:w.wy,
-            bornGame: state.gameTime,
-            ttlMs: CFG.ttlMs,
-            dead:false,
-            bossHp:1
-          };
-          el.style.setProperty('--tScale','1.0');
-          const s = worldToScreen(t.wx, t.wy, look, SIZES);
-          el.style.left = s.x + 'px';
-          el.style.top  = s.y + 'px';
-          const onDown = (ev)=>{
-            ev.preventDefault?.(); ev.stopPropagation?.();
-            const x = (ev?.clientX ?? (ev?.touches?.[0]?.clientX)) ?? s.x;
-            const y = (ev?.clientY ?? (ev?.touches?.[0]?.clientY)) ?? s.y;
-            hitTarget(t, x, y);
-          };
-          el.addEventListener('pointerdown', onDown, { passive:false });
-          el.addEventListener('touchstart', onDown, { passive:false });
-          ACTIVE.add(t);
-        }
-      }
-
-      spawnOne();
-    }
-
-    // move all targets
-    const look = getLookRad(cameraEl);
     for (const t of ACTIVE){
       if (!t || t.dead || !t.el || !t.el.isConnected) continue;
 
-      // expire by gameTime (timeScale มีผลจริง)
-      if ((state.gameTime - t.bornGame) >= t.ttlMs){
+      if ((tNow - t.bornAt) >= t.ttlMs){
         handleExpire(t);
         continue;
       }
 
       const s = worldToScreen(t.wx, t.wy, look, SIZES);
+      t.sx = s.x; t.sy = s.y;
       t.el.style.left = s.x + 'px';
       t.el.style.top  = s.y + 'px';
     }
 
-    rafId = requestAnimationFrame(updateLoop);
+    rafId = requestAnimationFrame(updateTargetsFollowLook);
+  }
+
+  function startSpawning(){
+    if (spawnTimer) clearInterval(spawnTimer);
+    spawnTimer = setInterval(()=>{
+      if (!state.running) return;
+      spawnOne();
+    }, CFG.spawnMs);
   }
 
   // init
@@ -632,18 +486,22 @@ export function boot(opts = {}){
   syncHUD();
   setJudge(' ');
 
-  rafId = requestAnimationFrame(updateLoop);
+  startSpawning();
+  rafId = requestAnimationFrame(updateTargetsFollowLook);
 
-  const api = {
+  return {
     stop(){
       state.running = false;
+      try{ clearInterval(spawnTimer); }catch(_){}
       try{ cancelAnimationFrame(rafId); }catch(_){}
       try{ window.removeEventListener('resize', onResize); }catch(_){}
+      try{
+        layerEl.removeEventListener('pointerdown', onLayerDown);
+        layerEl.removeEventListener('touchstart', onLayerDown);
+      }catch(_){}
       for (const t of Array.from(ACTIVE)) killTarget(t, false);
       ACTIVE.clear();
     },
     getState(){ return { ...state, active: ACTIVE.size }; }
   };
-
-  return api;
 }
