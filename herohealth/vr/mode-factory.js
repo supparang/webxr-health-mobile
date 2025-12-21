@@ -9,7 +9,8 @@
 // ✅ PATCH(Storm): spawnIntervalMul (number|fn) ทำให้ spawn ถี่ขึ้นจริง ๆ
 // ✅ PATCH(LIFE): อายุเป้าปรับตาม adaptive + storm จริง (ไม่ยึด baseDiff.life ตายตัว)
 // ✅ PATCH(SAFEZONE): กัน spawn ทับ HUD top/bottom/left/right ด้วย exclusion auto + cfg.excludeSelectors
-// ✅ NEW(Visual): Bubble glass + thin-film iridescence (ฟองสบู่ขอบรุ้งบาง ๆ) + storm accent
+// ✅ VISUAL: Bubble glass + THIN-FILM IRIDESCENCE (rim mask) + STORM boost
+// ✅ VISUAL: PERFECT => iridescent starburst + ring flash (หนัก ๆ)
 
 'use strict';
 
@@ -88,11 +89,8 @@ function ensureOverlayStyle () {
       z-index:9998;
       pointer-events:none;
     }
-    .hvr-overlay-host .hvr-target{
-      pointer-events:auto;
-    }
+    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
 
-    /* base */
     .hvr-target{
       border-radius:999px;
       user-select:none;
@@ -100,79 +98,168 @@ function ensureOverlayStyle () {
       transition: transform 180ms cubic-bezier(.2,.9,.2,1), filter 140ms ease;
       will-change: transform, filter;
       transform: translate(-50%,-50%) scale(0.92);
-      border: 1px solid rgba(255,255,255,.16);
-
-      /* glassy */
+      border: 1px solid rgba(255,255,255,.14);
+      overflow:hidden; /* important for film layers */
       backdrop-filter: blur(1.6px) saturate(1.35);
       -webkit-backdrop-filter: blur(1.6px) saturate(1.35);
-      filter: saturate(1.02) contrast(1.01);
-      overflow:hidden; /* for film layer */
+      filter: saturate(1.03) contrast(1.01);
     }
 
-    .hvr-target.hvr-pulse{
-      animation:hvrPulse .55s ease-in-out infinite;
-    }
+    .hvr-target.hvr-pulse{ animation:hvrPulse .55s ease-in-out infinite; }
     @keyframes hvrPulse{
       0%{ transform:translate(-50%,-50%) scale(1); }
       50%{ transform:translate(-50%,-50%) scale(1.08); }
       100%{ transform:translate(-50%,-50%) scale(1); }
     }
 
-    /* storm hint (optional) */
-    .hvr-storm-on .hvr-target{ filter: saturate(1.06) contrast(1.06); }
+    /* Storm hint */
+    .hvr-storm-on .hvr-target{
+      filter: saturate(1.08) contrast(1.05);
+    }
 
     /* ====================================================
-       ✅ Thin-film iridescence (soap bubble film)
+       ✅ THIN-FILM IRIDESCENCE (rim-only + subtle shimmer)
        ==================================================== */
+
+    /* base film */
     .hvr-film{
       position:absolute;
-      inset:-14%;
+      inset:-18%;
       border-radius:999px;
       pointer-events:none;
-      opacity:.26;
+      opacity:.22;
       mix-blend-mode: screen;
       will-change: transform, opacity, filter;
-      transform: translateZ(0) rotate(0deg);
-      filter: saturate(1.12) contrast(1.06);
+      transform: translateZ(0) rotate(0deg) scale(1.04);
+      filter: saturate(1.18) contrast(1.08);
       background:
         conic-gradient(
           from 210deg,
           rgba(255,  0,180,.00) 0deg,
-          rgba( 72, 99,255,.26) 55deg,
-          rgba(  0,255,214,.22) 110deg,
-          rgba(255,255, 80,.20) 165deg,
-          rgba(255,120,  0,.22) 220deg,
-          rgba(255, 60,180,.24) 290deg,
-          rgba( 72, 99,255,.26) 360deg
-        ),
-        radial-gradient(circle at 28% 24%, rgba(255,255,255,.32), rgba(255,255,255,0) 52%),
-        radial-gradient(circle at 72% 76%, rgba(0,0,0,.14), rgba(0,0,0,0) 62%);
-      animation: hvrFilmSpin 2.9s linear infinite;
-    }
-    @keyframes hvrFilmSpin{
-      0%{ transform: translateZ(0) rotate(0deg); }
-      100%{ transform: translateZ(0) rotate(360deg); }
+          rgba( 72, 99,255,.30) 55deg,
+          rgba(  0,255,214,.26) 110deg,
+          rgba(255,255, 80,.22) 165deg,
+          rgba(255,120,  0,.26) 220deg,
+          rgba(255, 60,180,.28) 290deg,
+          rgba( 72, 99,255,.30) 360deg
+        );
+      animation: hvrIriShift 2.6s ease-in-out infinite alternate;
     }
 
-    /* extra specular highlight */
+    /* rim mask film (focus around edge) */
+    .hvr-rimfilm{
+      opacity:.34;
+      filter: saturate(1.28) contrast(1.12);
+      background:
+        conic-gradient(
+          from 250deg,
+          rgba( 84,103,255,.34) 0deg,
+          rgba(255, 75,210,.30) 70deg,
+          rgba(255,210, 80,.28) 140deg,
+          rgba( 60,255,220,.30) 210deg,
+          rgba(255,130, 40,.30) 290deg,
+          rgba( 84,103,255,.34) 360deg
+        ),
+        radial-gradient(circle at 30% 22%, rgba(255,255,255,.22), rgba(255,255,255,0) 52%);
+      /* rim mask */
+      -webkit-mask-image: radial-gradient(circle, rgba(0,0,0,0) 56%, rgba(0,0,0,1) 64%, rgba(0,0,0,1) 100%);
+      mask-image: radial-gradient(circle, rgba(0,0,0,0) 56%, rgba(0,0,0,1) 64%, rgba(0,0,0,1) 100%);
+      animation: hvrIriRim 1.9s ease-in-out infinite alternate;
+    }
+
+    @keyframes hvrIriShift{
+      0%{ transform: translateZ(0) translate(-1.5%, -0.8%) rotate(-6deg) scale(1.05); filter: hue-rotate(0deg) saturate(1.16) contrast(1.06); }
+      100%{ transform: translateZ(0) translate(1.6%, 1.0%) rotate(22deg) scale(1.08); filter: hue-rotate(55deg) saturate(1.26) contrast(1.10); }
+    }
+
+    @keyframes hvrIriRim{
+      0%{ transform: translateZ(0) translate(0%, 0%) rotate(0deg) scale(1.06); filter: hue-rotate(10deg) saturate(1.28) contrast(1.10); }
+      100%{ transform: translateZ(0) translate(2.2%, -1.6%) rotate(34deg) scale(1.10); filter: hue-rotate(75deg) saturate(1.36) contrast(1.14); }
+    }
+
+    /* specular highlight */
     .hvr-spec{
       position:absolute;
       inset:0;
       border-radius:999px;
       pointer-events:none;
-      opacity:.45;
+      opacity:.46;
       mix-blend-mode: screen;
       background:
-        radial-gradient(circle at 26% 22%, rgba(255,255,255,.55), rgba(255,255,255,0) 46%),
-        radial-gradient(circle at 60% 70%, rgba(255,255,255,.12), rgba(255,255,255,0) 62%);
-      filter: blur(.1px);
+        radial-gradient(circle at 26% 22%, rgba(255,255,255,.56), rgba(255,255,255,0) 46%),
+        radial-gradient(circle at 62% 76%, rgba(255,255,255,.14), rgba(255,255,255,0) 62%);
+      filter: blur(.12px);
     }
 
-    /* storm => film เด่นขึ้น + เร็วขึ้นนิด */
-    .hvr-storm-on .hvr-film{
-      opacity:.34;
-      filter: saturate(1.24) contrast(1.10);
-      animation-duration: 1.9s;
+    /* storm boost */
+    .hvr-storm-on .hvr-film{ opacity:.28; animation-duration: 1.55s; filter:saturate(1.28) contrast(1.12); }
+    .hvr-storm-on .hvr-rimfilm{ opacity:.44; animation-duration: 1.15s; filter:saturate(1.44) contrast(1.18); }
+
+    /* ====================================================
+       ✅ PERFECT FX (heavy): iridescent starburst + ring flash
+       ==================================================== */
+    .hvr-perfect-layer{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:99990;
+      overflow:visible;
+    }
+
+    .hvr-perfect-star{
+      position:absolute;
+      left:0; top:0;
+      width:10px; height:10px;
+      border-radius:999px;
+      transform: translate(-50%,-50%) scale(.8);
+      opacity:0;
+      mix-blend-mode: screen;
+      filter: saturate(1.35) contrast(1.15);
+      background:
+        conic-gradient(from 180deg,
+          rgba(84,103,255,.95),
+          rgba(255,75,210,.95),
+          rgba(255,210,80,.95),
+          rgba(60,255,220,.95),
+          rgba(255,130,40,.95),
+          rgba(84,103,255,.95)
+        );
+      box-shadow:
+        0 0 18px rgba(255,255,255,.22),
+        0 0 30px rgba(120,200,255,.18);
+      animation: hvrStarPop .52s ease-out forwards;
+    }
+
+    @keyframes hvrStarPop{
+      0%{ opacity:0; transform: translate(-50%,-50%) scale(.65); }
+      15%{ opacity:1; transform: translate(-50%,-50%) scale(1.05); }
+      100%{ opacity:0; transform: translate(-50%,-50%) scale(1.55); }
+    }
+
+    .hvr-perfect-ringflash{
+      position:absolute;
+      left:0; top:0;
+      width:12px; height:12px;
+      border-radius:999px;
+      transform: translate(-50%,-50%) scale(.55);
+      opacity:.0;
+      pointer-events:none;
+      mix-blend-mode: screen;
+      background:
+        radial-gradient(circle,
+          rgba(255,255,255,.55) 0%,
+          rgba(255,255,255,.18) 28%,
+          rgba(255,255,255,0) 62%
+        );
+      box-shadow:
+        0 0 30px rgba(255,255,255,.20),
+        0 0 70px rgba(80,200,255,.12);
+      animation: hvrRingFlash .42s ease-out forwards;
+    }
+    @keyframes hvrRingFlash{
+      0%{ opacity:0; transform: translate(-50%,-50%) scale(.55); }
+      20%{ opacity:1; }
+      100%{ opacity:0; transform: translate(-50%,-50%) scale(5.0); }
     }
   `;
   DOC.head.appendChild(s);
@@ -218,7 +305,6 @@ function collectExclusionElements(rawCfg){
   if (!DOC) return [];
   const out = [];
 
-  // Explicit selectors from cfg
   const sel = rawCfg && rawCfg.excludeSelectors;
   if (Array.isArray(sel)) {
     sel.forEach(s=>{
@@ -228,7 +314,6 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
 
-  // Auto common HUD blocks (HeroHealth patterns)
   const AUTO = [
     '#hha-water-header',
     '.hha-water-bar',
@@ -248,12 +333,10 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
   });
 
-  // Any marked exclusion
   try{
     DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
   }catch{}
 
-  // unique + connected
   const uniq = [];
   const seen = new Set();
   out.forEach(el=>{
@@ -278,26 +361,21 @@ function computeExclusionMargins(hostRect, exEls){
     try{ r = el.getBoundingClientRect(); }catch{}
     if (!r) return;
 
-    // ignore if no overlap with host
     const ox1 = Math.max(hx1, r.left);
     const oy1 = Math.max(hy1, r.top);
     const ox2 = Math.min(hx2, r.right);
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    // top
     if (r.top <= hy1 + 2 && r.bottom > hy1) {
       m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
-    // bottom
     if (r.bottom >= hy2 - 2 && r.top < hy2) {
       m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
     }
-    // left
     if (r.left <= hx1 + 2 && r.right > hx1) {
       m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
     }
-    // right
     if (r.right >= hx2 - 2 && r.left < hx2) {
       m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
     }
@@ -313,12 +391,10 @@ function computePlayRectFromHost (hostEl, exState) {
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
-  // base padding inside host
   const basePadX = w * 0.10;
   const basePadTop = h * 0.12;
   const basePadBot = h * 0.12;
 
-  // exclusion margins from HUD
   const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
 
   const left   = basePadX + m.left;
@@ -327,6 +403,58 @@ function computePlayRectFromHost (hostEl, exState) {
   const height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
 
   return { left, top, width, height, hostRect: r, isOverlay };
+}
+
+// ======================================================
+//  PERFECT FX helpers
+// ======================================================
+function ensurePerfectLayer(){
+  if (!DOC) return null;
+  let layer = DOC.querySelector('.hvr-perfect-layer');
+  if (layer && layer.isConnected) return layer;
+  layer = DOC.createElement('div');
+  layer.className = 'hvr-perfect-layer';
+  DOC.body.appendChild(layer);
+  return layer;
+}
+
+function perfectBurstAt(x, y, intensity = 1){
+  const layer = ensurePerfectLayer();
+  if (!layer) return;
+
+  // ring flash
+  const rf = DOC.createElement('div');
+  rf.className = 'hvr-perfect-ringflash';
+  rf.style.left = x + 'px';
+  rf.style.top  = y + 'px';
+  rf.style.width = (12 * (1 + intensity*0.25)) + 'px';
+  rf.style.height = (12 * (1 + intensity*0.25)) + 'px';
+  layer.appendChild(rf);
+  ROOT.setTimeout(()=>{ try{ rf.remove(); }catch{} }, 520);
+
+  // stars
+  const N = Math.round(16 + intensity*8); // heavy
+  for (let i=0;i<N;i++){
+    const st = DOC.createElement('div');
+    st.className = 'hvr-perfect-star';
+
+    const ang = Math.random() * Math.PI * 2;
+    const dist = (18 + Math.random()*32) * (1 + intensity*0.35);
+    const sx = x + Math.cos(ang) * dist;
+    const sy = y + Math.sin(ang) * dist;
+
+    const sz = (8 + Math.random()*14) * (1 + intensity*0.15);
+    st.style.left = sx + 'px';
+    st.style.top  = sy + 'px';
+    st.style.width = sz + 'px';
+    st.style.height = sz + 'px';
+
+    // random delay for “sparkle”
+    st.style.animationDelay = (Math.random()*70) + 'ms';
+
+    layer.appendChild(st);
+    ROOT.setTimeout(()=>{ try{ st.remove(); }catch{} }, 650);
+  }
 }
 
 // ======================================================
@@ -346,15 +474,11 @@ export async function boot (rawCfg = {}) {
     judge,
     onExpire,
 
-    // NEW
     allowAdaptive = true,
-    rhythm = null, // { enabled:true, bpm:110 } or boolean
-    trickRate = 0.08, // fakeGood frequency
+    rhythm = null,
+    trickRate = 0.08,
 
-    // ✅ Storm Wave multiplier (number OR function => number)
     spawnIntervalMul = null,
-
-    // ✅ Safe zone
     excludeSelectors = null
   } = rawCfg || {};
 
@@ -367,7 +491,6 @@ export async function boot (rawCfg = {}) {
     return { stop () {}, shootCrosshair(){ return false; } };
   }
 
-  // ---------- Game state ----------
   let stopped = false;
 
   let totalDuration = clamp(duration, 20, 180);
@@ -383,7 +506,7 @@ export async function boot (rawCfg = {}) {
   let curInterval  = baseDiff.spawnInterval;
   let curMaxActive = baseDiff.maxActive;
   let curScale     = baseDiff.scale;
-  let curLife      = baseDiff.life; // ✅ adaptive life
+  let curLife      = baseDiff.life;
 
   let sampleHits   = 0;
   let sampleMisses = 0;
@@ -449,7 +572,6 @@ export async function boot (rawCfg = {}) {
     try { host.classList.add('hvr-rhythm-on'); } catch {}
   }
 
-  // ✅ Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -459,7 +581,6 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
-  // ✅ life getter (adaptive + storm)
   function getLifeMs(){
     const mul = getSpawnMul();
     const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
@@ -471,7 +592,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Helpers: perfect distance + crosshair shoot
+  //  Hit info + crosshair
   // ======================================================
   function computeHitInfoFromPoint(el, clientX, clientY){
     const r = el.getBoundingClientRect();
@@ -481,8 +602,8 @@ export async function boot (rawCfg = {}) {
     const dy = (clientY - cy);
     const dist = Math.sqrt(dx*dx + dy*dy);
     const rad  = Math.max(1, Math.min(r.width, r.height) / 2);
-    const norm = dist / rad; // 0..1 (inside)
-    const perfect = norm <= 0.33; // inner ring
+    const norm = dist / rad;
+    const perfect = norm <= 0.33;
     return { cx, cy, dist, norm, perfect, rect:r };
   }
 
@@ -501,6 +622,25 @@ export async function boot (rawCfg = {}) {
     });
 
     return best;
+  }
+
+  const exState = {
+    els: collectExclusionElements({ excludeSelectors }),
+    margins: { top:0,bottom:0,left:0,right:0 },
+    lastRefreshTs: 0
+  };
+
+  function refreshExclusions(ts){
+    if (!DOC) return;
+    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (ts - exState.lastRefreshTs < 600) return;
+    exState.lastRefreshTs = ts;
+
+    exState.els = collectExclusionElements({ excludeSelectors });
+    let hostRect = null;
+    try{ hostRect = host.getBoundingClientRect(); }catch{}
+    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    exState.margins = computeExclusionMargins(hostRect, exState.els);
   }
 
   function getCrosshairPoint(){
@@ -534,33 +674,17 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn target inside host
+  //  Thin-film layers helper
   // ======================================================
-  const exState = {
-    els: collectExclusionElements({ excludeSelectors }),
-    margins: { top:0,bottom:0,left:0,right:0 },
-    lastRefreshTs: 0
-  };
-
-  function refreshExclusions(ts){
-    if (!DOC) return;
-    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 600) return;
-    exState.lastRefreshTs = ts;
-
-    exState.els = collectExclusionElements({ excludeSelectors });
-    let hostRect = null;
-    try{ hostRect = host.getBoundingClientRect(); }catch{}
-    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
-    exState.margins = computeExclusionMargins(hostRect, exState.els);
-  }
-
-  // ---- helper: create film layers ----
-  function addThinFilmLayers(el){
+  function addIridescenceLayers(el){
     try{
       const film = DOC.createElement('div');
       film.className = 'hvr-film';
       el.appendChild(film);
+
+      const rim = DOC.createElement('div');
+      rim.className = 'hvr-film hvr-rimfilm';
+      el.appendChild(rim);
 
       const spec = DOC.createElement('div');
       spec.className = 'hvr-spec';
@@ -568,6 +692,9 @@ export async function boot (rawCfg = {}) {
     }catch{}
   }
 
+  // ======================================================
+  //  Spawn
+  // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
@@ -631,43 +758,42 @@ export async function boot (rawCfg = {}) {
     el.style.touchAction = 'manipulation';
     el.style.zIndex = '35';
 
-    // ---- palette (RGBA strings, tuned for transparency) ----
-    let coreA = 'rgba(74,222,128,0.30)';
-    let coreB = 'rgba(16,185,129,0.44)';
-    let rim   = 'rgba(255,255,255,0.20)';
-    let glow  = '0 0 18px rgba(16,185,129,0.18), 0 0 0 2px rgba(74,222,128,0.16)';
+    // palette (transparent bubble)
+    let coreA = 'rgba(74,222,128,0.28)';
+    let coreB = 'rgba(16,185,129,0.40)';
+    let rim   = 'rgba(255,255,255,0.18)';
+    let glow  = '0 0 18px rgba(16,185,129,0.16), 0 0 0 2px rgba(74,222,128,0.14)';
 
     if (isPower) {
-      coreA = 'rgba(250,204,21,0.30)';
-      coreB = 'rgba(249,115,22,0.46)';
-      rim   = 'rgba(255,255,255,0.22)';
-      glow  = '0 0 24px rgba(250,204,21,0.22), 0 0 0 2px rgba(250,204,21,0.18)';
-    } else if (itemType === 'fakeGood') {
-      coreA = 'rgba(167,139,250,0.26)';
-      coreB = 'rgba(34,197,94,0.40)';
+      coreA = 'rgba(250,204,21,0.26)';
+      coreB = 'rgba(249,115,22,0.40)';
       rim   = 'rgba(255,255,255,0.20)';
-      glow  = '0 0 22px rgba(167,139,250,0.22), 0 0 0 2px rgba(167,139,250,0.18)';
-    } else if (!isGood) {
-      coreA = 'rgba(251,146,60,0.30)';
-      coreB = 'rgba(239,68,68,0.42)';
+      glow  = '0 0 24px rgba(250,204,21,0.18), 0 0 0 2px rgba(250,204,21,0.14)';
+    } else if (itemType === 'fakeGood') {
+      coreA = 'rgba(167,139,250,0.22)';
+      coreB = 'rgba(34,197,94,0.34)';
       rim   = 'rgba(255,255,255,0.18)';
-      glow  = '0 0 22px rgba(248,113,113,0.22), 0 0 0 2px rgba(248,113,113,0.18)';
+      glow  = '0 0 22px rgba(167,139,250,0.18), 0 0 0 2px rgba(167,139,250,0.14)';
+    } else if (!isGood) {
+      coreA = 'rgba(251,146,60,0.26)';
+      coreB = 'rgba(239,68,68,0.36)';
+      rim   = 'rgba(255,255,255,0.16)';
+      glow  = '0 0 22px rgba(248,113,113,0.18), 0 0 0 2px rgba(248,113,113,0.14)';
       el.classList.add('bad');
     }
 
-    // ✅ bubble glass surface (transparent)
     el.style.background =
-      `radial-gradient(circle at 28% 22%, rgba(255,255,255,.42), rgba(255,255,255,0) 46%),
-       radial-gradient(circle at 62% 78%, rgba(15,23,42,.18), rgba(15,23,42,0) 62%),
+      `radial-gradient(circle at 28% 22%, rgba(255,255,255,.44), rgba(255,255,255,0) 46%),
+       radial-gradient(circle at 62% 78%, rgba(15,23,42,.16), rgba(15,23,42,0) 62%),
        radial-gradient(circle at 42% 50%, ${coreA}, ${coreB})`;
 
     el.style.boxShadow =
       `0 18px 44px rgba(2,6,23,.62),
-       0 0 0 2px rgba(255,255,255,.10),
+       0 0 0 2px rgba(255,255,255,.09),
        ${glow}`;
 
-    // ✅ add thin-film iridescence + spec highlight
-    addThinFilmLayers(el);
+    // ✅ iridescence
+    addIridescenceLayers(el);
 
     // inner lens
     const inner = DOC.createElement('div');
@@ -682,7 +808,7 @@ export async function boot (rawCfg = {}) {
     inner.style.top  = '50%';
     inner.style.transform = 'translate(-50%, -50%)';
     inner.style.background =
-      'radial-gradient(circle at 30% 25%, rgba(255,255,255,.08), rgba(15,23,42,.26))';
+      'radial-gradient(circle at 30% 25%, rgba(255,255,255,.08), rgba(15,23,42,.24))';
     inner.style.boxShadow =
       'inset 0 10px 26px rgba(2,6,23,.58), inset 0 0 0 1px rgba(255,255,255,.10)';
 
@@ -695,11 +821,11 @@ export async function boot (rawCfg = {}) {
     ring.style.height = (size * 0.36) + 'px';
     ring.style.transform = 'translate(-50%, -50%)';
     ring.style.borderRadius = '999px';
-    ring.style.border = '2px solid rgba(255,255,255,0.32)';
-    ring.style.boxShadow = '0 0 12px rgba(255,255,255,0.14)';
+    ring.style.border = '2px solid rgba(255,255,255,0.30)';
+    ring.style.boxShadow = '0 0 12px rgba(255,255,255,0.12)';
     ring.style.pointerEvents = 'none';
 
-    // subtle rim outline (thin)
+    // rim outline
     const rimEl = DOC.createElement('div');
     rimEl.style.position = 'absolute';
     rimEl.style.inset = '0';
@@ -766,6 +892,29 @@ export async function boot (rawCfg = {}) {
       let keepRect = null;
       try{ keepRect = el.getBoundingClientRect(); }catch{}
 
+      // compute hit info before remove (for PERFECT fx)
+      let infoForFx = hitInfoOpt || null;
+      if (!infoForFx) {
+        try{
+          const xy = (evOrSynth && evOrSynth.__hhaSynth)
+            ? { x: evOrSynth.clientX, y: evOrSynth.clientY }
+            : getEventXY(evOrSynth || {});
+          infoForFx = computeHitInfoFromPoint(el, xy.x, xy.y);
+        }catch{}
+      }
+
+      // ✅ PERFECT => iridescence burst (heavy)
+      if (infoForFx && infoForFx.perfect) {
+        const cx = infoForFx.rect ? (infoForFx.rect.left + infoForFx.rect.width/2) : (keepRect ? keepRect.left + keepRect.width/2 : null);
+        const cy = infoForFx.rect ? (infoForFx.rect.top  + infoForFx.rect.height/2) : (keepRect ? keepRect.top + keepRect.height/2 : null);
+        if (cx != null && cy != null) {
+          // intensity boosted a bit in storm
+          const mul = getSpawnMul();
+          const stormBoost = (mul < 0.99) ? 1.25 : 1.0;
+          perfectBurstAt(cx, cy, 1.0 * stormBoost);
+        }
+      }
+
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
       try { el.removeEventListener('click', handleHit); } catch {}
@@ -800,7 +949,6 @@ export async function boot (rawCfg = {}) {
         try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
       }
 
-      // sample for adaptive
       let isHit = false;
       if (res && typeof res.scoreDelta === 'number') {
         if (res.scoreDelta > 0) isHit = true;
@@ -843,7 +991,7 @@ export async function boot (rawCfg = {}) {
     }, lifeMs);
   }
 
-  // ---------- clock (hha:time) ----------
+  // ---------- clock ----------
   function dispatchTime (sec) {
     try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
@@ -868,7 +1016,6 @@ export async function boot (rawCfg = {}) {
       lastClockTs += steps * 1000;
     }
 
-    // spawn
     if (secLeft > 0) {
       if (!lastSpawnTs) lastSpawnTs = ts;
 
