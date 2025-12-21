@@ -1,13 +1,10 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ PATCH(A+): spawnHost/spawnLayer/container → เป้าลง playfield
-// ✅ NEW: crosshair shooting via shootCrosshair()
-// ✅ NEW: perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ PATCH(Storm): spawnIntervalMul (number|fn) ทำให้ spawn ถี่ขึ้นจริง ๆ
-// ✅ PATCH(LIFE): อายุเป้าปรับตาม adaptive + storm จริง
-// ✅ PATCH(SAFEZONE): กัน spawn ทับ HUD
-// ✅ UPGRADE VISUAL: target bubble (no more squares) + 2-layer parallax inside target + float/sway
-// ✅ UPGRADE STORM: stronger sway + speedlines
+// ✅ bubble targets + float/sway
+// ✅ Storm: stronger sway + speed feel (via CSS vars)
+// ✅ PERFECT ring distance (ctx.hitPerfect, ctx.hitDistNorm)
+// ✅ Crosshair shooting (tap anywhere ยิงจากกลาง play area) via shootCrosshair()
+// ✅ SAFEZONE: กัน spawn ทับ HUD (excludeSelectors + auto excludes)
 
 'use strict';
 
@@ -73,7 +70,7 @@ function pickDiffConfig (modeKey, diffKey) {
 }
 
 // ======================================================
-//  Overlay fallback (global styles)
+//  Overlay style (bubble + motion)
 // ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
@@ -86,139 +83,79 @@ function ensureOverlayStyle () {
       z-index:9998;
       pointer-events:none;
     }
-    .hvr-overlay-host .hvr-target{
-      pointer-events:auto;
-    }
+    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
 
-    /* ===== Target pulse (optional rhythm) ===== */
-    .hvr-target.hvr-pulse .hvr-move{
-      animation: hvrPulse .55s ease-in-out infinite;
-    }
-    @keyframes hvrPulse{
-      0%{ transform: translate3d(0,0,0) scale(1); }
-      50%{ transform: translate3d(0,0,0) scale(1.07); }
-      100%{ transform: translate3d(0,0,0) scale(1); }
-    }
-
-    /* ===== BEAUTY: bubble target (fix square look) ===== */
+    /* Bubble base */
     .hvr-target{
       border-radius:999px;
-      overflow:visible;
-      transform: translate(-50%, -50%);
-      will-change: transform;
       user-select:none;
-      -webkit-user-select:none;
       -webkit-tap-highlight-color: transparent;
-    }
-    .hvr-target .hvr-move{
-      width:100%;
-      height:100%;
-      border-radius:999px;
-      position:relative;
-      overflow:visible;
-      transform: scale(0.86);
-      transition: transform 120ms ease;
+      transition: transform 180ms cubic-bezier(.2,.9,.2,1), filter 140ms ease;
       will-change: transform, filter;
-    }
-    .hvr-target .hvr-glint{
-      position:absolute;
-      inset:-2px;
-      border-radius:999px;
-      pointer-events:none;
-      background: radial-gradient(circle at 30% 25%,
-                  rgba(255,255,255,.62),
-                  rgba(255,255,255,0) 58%);
-      mix-blend-mode:screen;
-      opacity:.72;
-      filter: blur(.1px);
-    }
-    .hvr-target.bad .hvr-glint{ opacity:.55; }
-
-    /* inner parallax: back glow + front icon drift */
-    .hvr-target .hvr-back{
-      position:absolute;
-      inset:0;
-      border-radius:999px;
-      pointer-events:none;
-      opacity:.95;
-      filter: blur(.2px);
-      mix-blend-mode: screen;
-      transform: translate3d(var(--bx,0px), var(--by,0px), 0);
-    }
-    .hvr-target .hvr-front{
-      position:absolute;
-      inset:0;
-      border-radius:999px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      transform: translate3d(var(--fx,0px), var(--fy,0px), 0);
+      transform: translate(-50%,-50%) scale(0.92);
+      filter: saturate(1.06);
     }
 
-    .hvr-target .hvr-ring{
-      position:absolute;
-      left:50%;
-      top:50%;
-      width:38%;
-      height:38%;
-      transform: translate(-50%,-50%);
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,0.34);
-      box-shadow: 0 0 14px rgba(255,255,255,0.18);
-      pointer-events:none;
-    }
-
-    /* float/sway movement (default) */
-    .hvr-target .hvr-move.hvr-float{
-      animation: hvrFloat var(--fd,2.9s) ease-in-out infinite;
+    /* Floating / sway (per-target variables) */
+    .hvr-target{
+      animation:
+        hvrFloat var(--hvr-float-dur, 2.6s) ease-in-out infinite,
+        hvrSway  var(--hvr-sway-dur, 1.8s) ease-in-out infinite;
     }
     @keyframes hvrFloat{
-      0%   { transform: translate3d(0,0,0) rotate(0deg) scale(0.90); filter:none; }
-      25%  { transform: translate3d(calc(var(--ax,7px) * .70), calc(var(--ay,6px) * -.45), 0) rotate(calc(var(--ar,3deg) * .38)) scale(0.98); }
-      50%  { transform: translate3d(calc(var(--ax,7px) * -.55), calc(var(--ay,6px) * .55), 0) rotate(calc(var(--ar,3deg) * -.42)) scale(1.00); }
-      75%  { transform: translate3d(calc(var(--ax,7px) * .45), calc(var(--ay,6px) * .40), 0) rotate(calc(var(--ar,3deg) * .30)) scale(0.99); }
-      100% { transform: translate3d(0,0,0) rotate(0deg) scale(0.90); }
+      0%{ transform: translate(-50%,-50%) translate3d(0,0,0) scale(1); }
+      50%{ transform: translate(-50%,-50%) translate3d(0, -8px,0) scale(1.02); }
+      100%{ transform: translate(-50%,-50%) translate3d(0,0,0) scale(1); }
+    }
+    @keyframes hvrSway{
+      0%{ filter: saturate(1.06); }
+      50%{ filter: saturate(1.12) contrast(1.03); }
+      100%{ filter: saturate(1.06); }
     }
 
-    /* STORM: stronger sway + speed lines */
-    .hvr-storm-on .hvr-target .hvr-move.hvr-float{
-      animation: hvrFloatStorm var(--sd,.75s) ease-in-out infinite;
-      filter:
-        drop-shadow(1.4px 0 rgba(255,0,80,.20))
-        drop-shadow(-1.4px 0 rgba(0,255,255,.18))
-        saturate(1.06) contrast(1.04);
+    /* Spawn pop (2-step via JS + CSS assist) */
+    .hvr-target.hvr-spawn{ transform: translate(-50%,-50%) scale(1); }
+
+    /* Storm makes motion stronger (uses --hvr-storm 0..1 on host) */
+    [data-hvr-host="1"].hvr-storm-on .hvr-target,
+    .hvr-storm-on .hvr-target{
+      filter: saturate(1.16) contrast(1.06);
     }
-    @keyframes hvrFloatStorm{
-      0%   { transform: translate3d(0,0,0) rotate(0deg) scale(0.94); }
-      20%  { transform: translate3d(calc(var(--ax,10px) * 1.15), calc(var(--ay,9px) * -.85), 0) rotate(calc(var(--ar,4deg) * .75)) scale(1.03); }
-      50%  { transform: translate3d(calc(var(--ax,10px) * -1.10), calc(var(--ay,9px) * .90), 0) rotate(calc(var(--ar,4deg) * -0.85)) scale(1.06); }
-      80%  { transform: translate3d(calc(var(--ax,10px) * 0.95), calc(var(--ay,9px) * 0.75), 0) rotate(calc(var(--ar,4deg) * .60)) scale(1.02); }
-      100% { transform: translate3d(0,0,0) rotate(0deg) scale(0.94); }
+    .hvr-storm-on .hvr-target{
+      animation-duration:
+        calc(var(--hvr-float-dur, 2.6s) * 0.72),
+        calc(var(--hvr-sway-dur, 1.8s)  * 0.65);
     }
 
-    .hvr-target .hvr-speedlines{
+    /* Perfect ring flash */
+    .hvr-ring{
       position:absolute;
-      inset:-16px;
+      left:50%; top:50%;
+      transform: translate(-50%,-50%);
       border-radius:999px;
       pointer-events:none;
-      opacity:0;
-      filter: blur(.2px);
-      background:
-        repeating-linear-gradient(120deg,
-          rgba(255,255,255,0.00) 0 10px,
-          rgba(255,255,255,0.12) 10px 12px,
-          rgba(255,255,255,0.00) 12px 22px);
-      mask-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0 44%, rgba(0,0,0,1) 60% 100%);
-      mix-blend-mode: screen;
-      animation: hvrSpeed 420ms linear infinite;
+      opacity:.85;
+      box-shadow: 0 0 14px rgba(255,255,255,.18);
     }
-    @keyframes hvrSpeed{
-      0%{ transform: translate3d(-16px, 10px, 0) rotate(0deg); opacity:.05; }
-      30%{ opacity:.18; }
-      100%{ transform: translate3d(18px, -12px, 0) rotate(0deg); opacity:.05; }
+    .hvr-target.hvr-perfect .hvr-ring{
+      animation: hvrRingFlash .22s ease-out 1;
     }
-    .hvr-storm-on .hvr-target .hvr-speedlines{
-      opacity:.60;
+    @keyframes hvrRingFlash{
+      0%{ opacity:.0; transform: translate(-50%,-50%) scale(0.85); box-shadow:0 0 0 rgba(250,204,21,0); }
+      40%{ opacity:1; transform: translate(-50%,-50%) scale(1.06); box-shadow:0 0 22px rgba(250,204,21,.34); }
+      100%{ opacity:0; transform: translate(-50%,-50%) scale(1.22); box-shadow:0 0 30px rgba(250,204,21,.0); }
+    }
+
+    /* small pulse (optional rhythm) */
+    .hvr-target.hvr-pulse{
+      animation:
+        hvrFloat var(--hvr-float-dur, 2.6s) ease-in-out infinite,
+        hvrPulse .55s ease-in-out infinite;
+    }
+    @keyframes hvrPulse{
+      0%{ transform:translate(-50%,-50%) scale(1); }
+      50%{ transform:translate(-50%,-50%) scale(1.06); }
+      100%{ transform:translate(-50%,-50%) scale(1); }
     }
   `;
   DOC.head.appendChild(s);
@@ -258,7 +195,7 @@ function resolveHost (rawCfg) {
 }
 
 // ======================================================
-//  SAFE ZONE / EXCLUSION (กันทับ HUD)
+//  SAFE ZONE / EXCLUSION
 // ======================================================
 function collectExclusionElements(rawCfg){
   if (!DOC) return [];
@@ -273,29 +210,12 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
 
-  const AUTO = [
-    '#hha-water-header',
-    '.hha-water-bar',
-    '.hha-main-row',
-    '#hha-card-left',
-    '#hha-card-right',
-    '.hha-bottom-row',
-    '.hha-fever-card',
-    '#hvr-crosshair',
-    '.hvr-crosshair',
-    '#hvr-end',
-    '.hvr-end',
-    '.hud',
-    '#hvr-start'
-  ];
-  AUTO.forEach(s=>{
-    try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
-  });
-
+  // Any marked exclusion
   try{
     DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
   }catch{}
 
+  // unique + connected
   const uniq = [];
   const seen = new Set();
   out.forEach(el=>{
@@ -309,7 +229,6 @@ function collectExclusionElements(rawCfg){
 
 function computeExclusionMargins(hostRect, exEls){
   const m = { top:0, bottom:0, left:0, right:0 };
-
   if (!hostRect || !exEls || !exEls.length) return m;
 
   const hx1 = hostRect.left, hy1 = hostRect.top;
@@ -326,18 +245,10 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    if (r.top <= hy1 + 2 && r.bottom > hy1) {
-      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
-    }
-    if (r.bottom >= hy2 - 2 && r.top < hy2) {
-      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
-    }
-    if (r.left <= hx1 + 2 && r.right > hx1) {
-      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
-    }
-    if (r.right >= hx2 - 2 && r.left < hx2) {
-      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
-    }
+    if (r.top <= hy1 + 2 && r.bottom > hy1) m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    if (r.bottom >= hy2 - 2 && r.top < hy2) m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+    if (r.left <= hx1 + 2 && r.right > hx1) m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    if (r.right >= hx2 - 2 && r.left < hx2) m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
   });
 
   return m;
@@ -377,19 +288,14 @@ export async function boot (rawCfg = {}) {
     powerups   = [],
     powerRate  = 0.10,
     powerEvery = 7,
-    spawnStyle = 'pop',
     judge,
     onExpire,
 
-    // NEW
     allowAdaptive = true,
     rhythm = null,
     trickRate = 0.08,
 
-    // Storm multiplier (number OR function)
     spawnIntervalMul = null,
-
-    // Safe zone
     excludeSelectors = null
   } = rawCfg || {};
 
@@ -404,7 +310,6 @@ export async function boot (rawCfg = {}) {
 
   // ---------- Game state ----------
   let stopped = false;
-
   let totalDuration = clamp(duration, 20, 180);
   let secLeft       = totalDuration;
   let lastClockTs   = null;
@@ -494,19 +399,17 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
-  // life getter (adaptive + storm)
   function getLifeMs(){
     const mul = getSpawnMul();
     const stormLifeMul = (mul < 0.99) ? 0.86 : 1.0;
     const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
     const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
-
     const life = curLife * stormLifeMul * ratioLifeMul;
     return Math.round(clamp(life, 520, baseDiff.life * 1.25));
   }
 
   // ======================================================
-  //  Helpers: perfect distance + crosshair shoot
+  //  perfect distance + crosshair shoot
   // ======================================================
   function computeHitInfoFromPoint(el, clientX, clientY){
     const r = el.getBoundingClientRect();
@@ -516,7 +419,7 @@ export async function boot (rawCfg = {}) {
     const dy = (clientY - cy);
     const dist = Math.sqrt(dx*dx + dy*dy);
     const rad  = Math.max(1, Math.min(r.width, r.height) / 2);
-    const norm = dist / rad;
+    const norm = dist / rad; // 0..1 (inside)
     const perfect = norm <= 0.33;
     return { cx, cy, dist, norm, perfect, rect:r };
   }
@@ -538,7 +441,7 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
-  // shoot at center of safe play area
+  // safe crosshair point = center of play area (avoid HUD)
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
     margins: { top:0,bottom:0,left:0,right:0 },
@@ -574,6 +477,7 @@ export async function boot (rawCfg = {}) {
 
   function shootCrosshair(){
     if (stopped) return false;
+    refreshExclusions();
     const p = getCrosshairPoint();
     const hit = findTargetAtPoint(p.x, p.y);
     if (!hit) return false;
@@ -589,7 +493,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn target inside host (prettier)
+  //  spawn target
   // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
@@ -630,7 +534,7 @@ export async function boot (rawCfg = {}) {
         isGood = true;
         itemType = 'good';
       } else {
-        ch = pickOne(poolsBad, '🥤');
+        ch = pickOne(poolsBad, '🧋');
         isGood = false;
         itemType = 'bad';
       }
@@ -641,9 +545,9 @@ export async function boot (rawCfg = {}) {
     el.className = 'hvr-target';
     el.setAttribute('data-hha-tgt', '1');
     el.setAttribute('data-item-type', itemType);
-    if (!isGood && !isPower) el.classList.add('bad');
 
-    const baseSize = 78;
+    // Bubble sizing
+    const baseSize = 86;
     const size = baseSize * curScale;
 
     el.style.position = 'absolute';
@@ -654,125 +558,120 @@ export async function boot (rawCfg = {}) {
     el.style.touchAction = 'manipulation';
     el.style.zIndex = '35';
 
-    // movement parameters (random per target)
-    const ax = (6 + Math.random()*8) * (isPower ? 1.10 : 1.0);
-    const ay = (5 + Math.random()*7) * (isGood ? 0.95 : 1.10);
-    const ar = (2.2 + Math.random()*3.2);
-    const fd = (2.4 + Math.random()*1.2);
-    const sd = (0.62 + Math.random()*0.20); // storm duration (faster)
+    // Random motion params per target
+    const floatDur = (2.2 + Math.random()*1.2).toFixed(2) + 's';
+    const swayDur  = (1.2 + Math.random()*0.9).toFixed(2) + 's';
+    el.style.setProperty('--hvr-float-dur', floatDur);
+    el.style.setProperty('--hvr-sway-dur',  swayDur);
 
-    el.style.setProperty('--ax', ax.toFixed(2)+'px');
-    el.style.setProperty('--ay', ay.toFixed(2)+'px');
-    el.style.setProperty('--ar', ar.toFixed(2)+'deg');
-    el.style.setProperty('--fd', fd.toFixed(2)+'s');
-    el.style.setProperty('--sd', sd.toFixed(2)+'s');
-
-    // inner parallax offsets
-    el.style.setProperty('--bx', ((Math.random()*2.2)-1.1).toFixed(2)+'px');
-    el.style.setProperty('--by', ((Math.random()*2.2)-1.1).toFixed(2)+'px');
-    el.style.setProperty('--fx', ((Math.random()*1.6)-0.8).toFixed(2)+'px');
-    el.style.setProperty('--fy', ((Math.random()*1.6)-0.8).toFixed(2)+'px');
-
-    // visual container
-    const move = DOC.createElement('div');
-    move.className = 'hvr-move hvr-float';
-
-    // bubble gradient + rings
-    let bgGrad = '';
-    let ringGlow = '';
-    if (isPower) {
-      bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
-      ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 26px rgba(250,204,21,0.92)';
-    } else if (itemType === 'fakeGood') {
-      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
-      ringGlow = '0 0 0 2px rgba(167,139,250,0.90), 0 0 26px rgba(167,139,250,0.90)';
-    } else if (isGood) {
-      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
-      ringGlow = '0 0 0 2px rgba(74,222,128,0.78), 0 0 22px rgba(16,185,129,0.92)';
+    // Bubble gradients by type
+    let rim, coreA, coreB, glow;
+    if (isPower){
+      rim  = 'rgba(250,204,21,.92)';
+      coreA='rgba(250,204,21,.65)';
+      coreB='rgba(249,115,22,.70)';
+      glow='0 0 26px rgba(250,204,21,.34), 0 0 0 2px rgba(250,204,21,.70)';
+    } else if (itemType === 'fakeGood'){
+      rim  = 'rgba(167,139,250,.88)';
+      coreA='rgba(34,197,94,.52)';
+      coreB='rgba(22,163,74,.66)';
+      glow='0 0 26px rgba(167,139,250,.28), 0 0 0 2px rgba(167,139,250,.65)';
+    } else if (isGood){
+      rim  = 'rgba(74,222,128,.88)';
+      coreA='rgba(34,197,94,.52)';
+      coreB='rgba(22,163,74,.70)';
+      glow='0 0 22px rgba(34,197,94,.22), 0 0 0 2px rgba(74,222,128,.58)';
     } else {
-      bgGrad = 'radial-gradient(circle at 30% 25%, #fb923c, #ea580c)';
-      ringGlow = '0 0 0 2px rgba(248,113,113,0.78), 0 0 22px rgba(248,113,113,0.92)';
+      rim  = 'rgba(248,113,113,.88)';
+      coreA='rgba(249,115,22,.62)';
+      coreB='rgba(234,88,12,.76)';
+      glow='0 0 22px rgba(239,68,68,.22), 0 0 0 2px rgba(248,113,113,.55)';
+      el.classList.add('bad');
     }
 
-    move.style.background = bgGrad;
-    move.style.boxShadow =
-      '0 22px 52px rgba(0,0,0,.52),' +
-      ringGlow +
-      ', inset 0 10px 20px rgba(255,255,255,.08)' +
-      ', inset 0 -14px 26px rgba(0,0,0,.30)';
+    // Bubble surface
+    el.style.background =
+      `radial-gradient(circle at 30% 25%, rgba(255,255,255,.32), rgba(255,255,255,0) 44%),
+       radial-gradient(circle at 55% 70%, rgba(15,23,42,.32), rgba(15,23,42,0) 58%),
+       radial-gradient(circle at 40% 45%, ${coreA}, ${coreB})`;
+    el.style.boxShadow = `0 18px 44px rgba(2,6,23,.78), ${glow}`;
 
-    // back glow (parallax layer)
-    const back = DOC.createElement('div');
-    back.className = 'hvr-back';
-    back.style.background =
-      'radial-gradient(circle at 40% 35%, rgba(255,255,255,.18), rgba(255,255,255,0) 60%),' +
-      'radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), rgba(255,255,255,0) 52%)';
-    move.appendChild(back);
+    // Rim outline
+    const rimEl = DOC.createElement('div');
+    rimEl.style.position='absolute';
+    rimEl.style.inset='0';
+    rimEl.style.borderRadius='999px';
+    rimEl.style.boxShadow = `inset 0 0 0 2px ${rim}, inset 0 10px 20px rgba(255,255,255,.08)`;
+    rimEl.style.pointerEvents='none';
+    el.appendChild(rimEl);
 
-    // inner bowl
+    // Gloss highlight
+    const gloss = DOC.createElement('div');
+    gloss.style.position='absolute';
+    gloss.style.left='14%';
+    gloss.style.top='10%';
+    gloss.style.width='46%';
+    gloss.style.height='38%';
+    gloss.style.borderRadius='999px';
+    gloss.style.transform='rotate(-18deg)';
+    gloss.style.background='radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), rgba(255,255,255,0) 70%)';
+    gloss.style.filter='blur(.2px)';
+    gloss.style.opacity='.85';
+    gloss.style.pointerEvents='none';
+    el.appendChild(gloss);
+
+    // Inner “water” lens
     const inner = DOC.createElement('div');
-    inner.style.position = 'absolute';
-    inner.style.left = '50%';
-    inner.style.top  = '50%';
-    inner.style.width = (size * 0.82) + 'px';
-    inner.style.height = (size * 0.82) + 'px';
-    inner.style.transform = 'translate(-50%,-50%)';
+    inner.style.position='absolute';
+    inner.style.left='50%';
+    inner.style.top='50%';
+    inner.style.transform='translate(-50%,-50%)';
+    inner.style.width = (size * 0.80) + 'px';
+    inner.style.height = (size * 0.80) + 'px';
     inner.style.borderRadius = '999px';
     inner.style.display = 'flex';
     inner.style.alignItems = 'center';
     inner.style.justifyContent = 'center';
-    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,0.10), rgba(15,23,42,0.38))';
-    inner.style.boxShadow = 'inset 0 6px 12px rgba(15,23,42,0.90)';
+    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,.10), rgba(15,23,42,.38))';
+    inner.style.boxShadow = 'inset 0 8px 20px rgba(2,6,23,.72), inset 0 0 0 1px rgba(255,255,255,.08)';
+    el.appendChild(inner);
 
-    // icon (front parallax layer)
-    const front = DOC.createElement('div');
-    front.className = 'hvr-front';
-
+    // Icon
     const icon = DOC.createElement('span');
     icon.textContent = ch;
     icon.style.fontSize = (size * 0.60) + 'px';
     icon.style.lineHeight = '1';
-    icon.style.filter = 'drop-shadow(0 4px 6px rgba(15,23,42,0.9))';
+    icon.style.filter = 'drop-shadow(0 6px 8px rgba(2,6,23,.8))';
+    inner.appendChild(icon);
 
-    front.appendChild(icon);
-    inner.appendChild(front);
-    move.appendChild(inner);
-
-    // perfect ring
+    // Perfect ring (inner)
     const ring = DOC.createElement('div');
     ring.className = 'hvr-ring';
-    move.appendChild(ring);
+    ring.style.width  = (size * 0.36) + 'px';
+    ring.style.height = (size * 0.36) + 'px';
+    ring.style.border = '2px solid rgba(255,255,255,0.34)';
+    ring.style.boxShadow = '0 0 14px rgba(255,255,255,0.16)';
+    ring.style.pointerEvents = 'none';
+    el.appendChild(ring);
 
-    // glint
-    const glint = DOC.createElement('div');
-    glint.className = 'hvr-glint';
-    move.appendChild(glint);
-
-    // storm speedlines
-    const sl = DOC.createElement('div');
-    sl.className = 'hvr-speedlines';
-    move.appendChild(sl);
-
-    // fakeGood spark hint
+    // FakeGood marker
     if (itemType === 'fakeGood') {
       const sp = DOC.createElement('div');
       sp.textContent = '✨';
       sp.style.position = 'absolute';
-      sp.style.right = '8px';
-      sp.style.top = '6px';
+      sp.style.right = '10px';
+      sp.style.top = '8px';
       sp.style.fontSize = '18px';
-      sp.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+      sp.style.filter = 'drop-shadow(0 6px 8px rgba(2,6,23,.8))';
       sp.style.pointerEvents = 'none';
-      move.appendChild(sp);
+      el.appendChild(sp);
     }
-
-    el.appendChild(move);
 
     if (rhythmOn) el.classList.add('hvr-pulse');
 
-    // “pop-in”
+    // Spawn pop
     ROOT.requestAnimationFrame(() => {
-      move.style.transform = 'scale(1)';
+      el.classList.add('hvr-spawn');
     });
 
     const lifeMs = getLifeMs();
@@ -795,6 +694,7 @@ export async function boot (rawCfg = {}) {
       if (stopped) return;
       if (!activeTargets.has(data)) return;
 
+      // keep rect before remove
       let keepRect = null;
       try{ keepRect = el.getBoundingClientRect(); }catch{}
 
@@ -822,14 +722,22 @@ export async function boot (rawCfg = {}) {
         })() : computeHitInfoFromPoint(el, xy.x, xy.y));
 
         const ctx = {
-          clientX: xy.x, clientY: xy.y,
-          cx: info.cx, cy: info.cy,
+          clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
           isGood, isPower,
           itemType,
           hitPerfect: !!info.perfect,
           hitDistNorm: Number(info.norm || 1),
           targetRect: info.rect
         };
+
+        // local perfect flash (ring)
+        if (ctx.hitPerfect && itemType !== 'bad'){
+          try{
+            el.classList.add('hvr-perfect');
+            setTimeout(()=>{ try{ el.classList.remove('hvr-perfect'); }catch{} }, 240);
+          }catch{}
+        }
+
         try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
       }
 
