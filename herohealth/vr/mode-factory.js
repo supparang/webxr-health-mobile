@@ -1,15 +1,18 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ spawnHost=#hvr-playfield → เป้าขยับตาม drag view
-// ✅ crosshair shooting (tap short) via shootCrosshair()
+// ✅ spawnHost = #hvr-playfield (targets เลื่อนตาม drag)
+// ✅ crosshair shooting via shootCrosshair()
 // ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
 // ✅ rhythm spawn + pulse
-// ✅ trick/fake targets (itemType='fakeGood')
-// ✅ Storm: spawnIntervalMul ทำให้ spawn ถี่ขึ้นจริง
-// ✅ Life adaptive + storm
-// ✅ SAFEZONE: กัน spawn ทับ HUD
-// ✅ NEW VISUAL: bubble transparent + thin-film iridescence + reactive shimmer + tilt shimmer
-// ✅ NEW MOVE: target float/sway via inner wrapper; Storm = sway แรง/เร็วขึ้น
+// ✅ trick targets (fakeGood)
+// ✅ Storm: spawnIntervalMul + host class .hvr-storm-on
+// ✅ SAFEZONE: excludeSelectors กันทับ HUD
+//
+// ✅ UPDATE (SOAP BUBBLE v2):
+// - “Clear core (almost invisible) + strong rainbow rim”
+// - Thin-film iridescence จำกัดอยู่ที่ขอบ (edge mask)
+// - Micro-banding (ฟองสบู่จริง ๆ)
+// - Tilt shimmer ใช้ CSS vars: --tilt-x / --tilt-y (hydration.safe.js ตั้งไว้แล้ว)
 
 'use strict';
 
@@ -30,6 +33,7 @@ function pickOne (arr, fallback = null) {
 function getEventXY (ev) {
   let x = ev.clientX;
   let y = ev.clientY;
+
   if ((x == null || y == null || (x === 0 && y === 0)) && ev.touches && ev.touches[0]) {
     x = ev.touches[0].clientX;
     y = ev.touches[0].clientY;
@@ -74,10 +78,11 @@ function pickDiffConfig (modeKey, diffKey) {
 }
 
 // ======================================================
-// Overlay fallback + global CSS
+//  Overlay fallback + Styles
 // ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
+
   const s = DOC.createElement('style');
   s.id = 'hvr-overlay-style';
   s.textContent = `
@@ -89,169 +94,203 @@ function ensureOverlayStyle () {
     }
     .hvr-overlay-host .hvr-target{ pointer-events:auto; }
 
-    /* pulse (rhythm) */
-    .hvr-target.hvr-pulse .hvr-wob{
-      animation-name:hvrSwayPulse;
-      animation-duration: var(--sway-dur, 1.55s);
+    /* pulse for rhythm */
+    .hvr-target.hvr-pulse .hvr-bubble{
+      animation: hvrPulse .55s ease-in-out infinite;
+    }
+    @keyframes hvrPulse{
+      0%{ transform: scale(1); }
+      50%{ transform: scale(1.07); }
+      100%{ transform: scale(1); }
     }
 
-    /* target base */
-    .hvr-target{
-      border-radius:999px;
-      contain: layout paint;
-      will-change: transform;
-    }
-
-    /* inner wobble wrapper (no conflict with outer scale pop-in) */
-    .hvr-wob{
-      position:absolute;
-      inset:0;
-      border-radius:999px;
-      animation: hvrSway var(--sway-dur, 1.95s) ease-in-out infinite;
-      transform: translate3d(0,0,0);
-      will-change: transform;
-    }
-
-    /* sway amplitude vars set per target; storm modifies via host class */
-    @keyframes hvrSway{
-      0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      25%{ transform: translate3d(calc(var(--sx, 6) * 1px), calc(var(--sy, -5) * 1px), 0) rotate(0.6deg); }
-      50%{ transform: translate3d(calc(var(--sx, -6) * 1px), calc(var(--sy, 6) * 1px), 0) rotate(-0.7deg); }
-      75%{ transform: translate3d(calc(var(--sx, 5) * 1px), calc(var(--sy, 4) * 1px), 0) rotate(0.5deg); }
-      100%{ transform: translate3d(0,0,0) rotate(0deg); }
-    }
-
-    @keyframes hvrSwayPulse{
-      0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      50%{ transform: translate3d(calc(var(--sx, 7) * 1px), calc(var(--sy, -6) * 1px), 0) rotate(0.9deg); }
-      100%{ transform: translate3d(0,0,0) rotate(0deg); }
-    }
-
-    /* bubble layers */
+    /* ====== SOAP BUBBLE (CLEAR CORE + RAINBOW RIM) ====== */
+    .hvr-target{ will-change: transform; }
     .hvr-bubble{
       position:absolute;
       inset:0;
       border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transform: translateZ(0);
+      overflow:hidden;
+      will-change: transform, filter;
+
+      /* แกนกลาง “ใสเกือบไม่เห็น” */
       background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.52), rgba(255,255,255,0.04) 40%, rgba(0,0,0,0.00) 64%),
-        radial-gradient(circle at 55% 70%, rgba(59,130,246,0.16), rgba(34,197,94,0.10) 45%, rgba(0,0,0,0.00) 68%),
-        radial-gradient(circle at 50% 55%, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 55%, rgba(0,0,0,0.00) 70%);
+        radial-gradient(circle at 30% 22%, rgba(255,255,255,.14), rgba(255,255,255,0) 36%),
+        radial-gradient(circle at 72% 80%, rgba(255,255,255,.06), rgba(255,255,255,0) 52%),
+        radial-gradient(circle at 50% 55%, rgba(255,255,255,.015), rgba(255,255,255,0) 72%);
+
       box-shadow:
-        0 16px 34px rgba(15,23,42,0.55),
-        inset 0 0 0 2px rgba(255,255,255,0.14),
-        inset 0 -12px 24px rgba(0,0,0,0.10);
-      backdrop-filter: blur(1.2px);
-      opacity: 0.98;
+        0 16px 44px rgba(0,0,0,.20),
+        0 0 0 1px rgba(255,255,255,.10),
+        inset 0 0 0 1.15px rgba(255,255,255,.10);
+
+      filter: saturate(1.06) contrast(1.06);
+      animation: hvrFloat 1.75s ease-in-out infinite;
     }
 
-    /* thin-film iridescence (conic + blend) + reacts to tilt vars on host */
-    .hvr-film{
+    @keyframes hvrFloat{
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      25%{ transform: translate3d(calc(var(--sx,1) * 1.8px), -3.6px, 0) rotate(calc(var(--rx,1) * 1.15deg)); }
+      50%{ transform: translate3d(calc(var(--sx,1) * -1.35px), 1.65px, 0) rotate(calc(var(--rx,1) * -1.05deg)); }
+      75%{ transform: translate3d(calc(var(--sx,1) * 1.15px), 3.75px, 0) rotate(calc(var(--rx,1) * 0.85deg)); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+    }
+
+    /* Fresnel rim (คม/ชัดขึ้น) */
+    .hvr-bubble .hvr-fresnel{
       position:absolute;
-      inset:-6%;
+      inset:-2px;
       border-radius:999px;
+      pointer-events:none;
       background:
-        conic-gradient(from 180deg at 50% 50%,
-          rgba(255, 80, 120, 0.18),
-          rgba(0, 190, 255, 0.18),
-          rgba(34, 197, 94, 0.16),
-          rgba(250, 204, 21, 0.12),
-          rgba(255, 80, 120, 0.18)
-        );
+        radial-gradient(circle at 50% 56%,
+          rgba(255,255,255,0) 0 54%,
+          rgba(255,255,255,.06) 62%,
+          rgba(255,255,255,.18) 76%,
+          rgba(255,255,255,.16) 88%,
+          rgba(255,255,255,.08) 100%);
       mix-blend-mode: screen;
-      filter: blur(0.2px) saturate(1.2);
-      opacity: 0.72;
-      transform:
-        translate3d(calc(var(--tilt-x, 0) * 8px), calc(var(--tilt-y, 0) * 6px), 0)
-        rotate(calc(var(--tilt-x, 0) * 8deg));
-      will-change: transform;
-      pointer-events:none;
+      opacity: .98;
+      filter: contrast(1.12);
     }
 
-    /* shimmer sweep */
-    .hvr-shimmer{
+    /* Specular highlights */
+    .hvr-bubble::before{
+      content:"";
       position:absolute;
-      inset:-18%;
+      inset:-10%;
       border-radius:999px;
+      pointer-events:none;
       background:
-        linear-gradient(120deg,
-          rgba(255,255,255,0.00) 0%,
-          rgba(255,255,255,0.10) 18%,
-          rgba(255,255,255,0.00) 38%,
-          rgba(255, 80, 120, 0.06) 52%,
-          rgba(0, 190, 255, 0.06) 66%,
-          rgba(255,255,255,0.00) 86%
-        );
+        radial-gradient(circle at 26% 18%, rgba(255,255,255,.40), rgba(255,255,255,0) 36%),
+        radial-gradient(circle at 37% 33%, rgba(255,255,255,.16), rgba(255,255,255,0) 44%),
+        radial-gradient(circle at 78% 82%, rgba(255,255,255,.11), rgba(255,255,255,0) 56%);
+      opacity:.70;
       mix-blend-mode: screen;
-      opacity: 0.38;
-      filter: blur(0.6px);
-      animation: hvrShimmer 1.55s ease-in-out infinite;
-      transform: translate3d(0,0,0);
-      pointer-events:none;
-    }
-    @keyframes hvrShimmer{
-      0%{ transform: translate3d(-10px,-6px,0) rotate(8deg); opacity:0.16; }
-      50%{ transform: translate3d(12px,10px,0) rotate(-10deg); opacity:0.44; }
-      100%{ transform: translate3d(-10px,-6px,0) rotate(8deg); opacity:0.16; }
+      filter: blur(0.2px);
     }
 
-    /* gloss highlight */
-    .hvr-gloss{
+    /*
+      Thin-film iridescence:
+      - จำกัดอยู่ที่ “ขอบ” (edge mask)
+      - สีรุ้งชัดขึ้น + micro-banding
+      - reactive tilt shimmer: ใช้ --tilt-x / --tilt-y (ตั้งไว้ที่ playfield)
+    */
+    .hvr-bubble::after{
+      content:"";
       position:absolute;
-      inset:10%;
+      inset:-22%;
       border-radius:999px;
-      background: radial-gradient(circle at 28% 22%, rgba(255,255,255,0.55), rgba(255,255,255,0.02) 48%, rgba(0,0,0,0.0) 60%);
+      pointer-events:none;
+
+      /* derive tilt -> angle/shift (no JS needed) */
+      --tx: var(--tilt-x, 0);
+      --ty: var(--tilt-y, 0);
+      --tilt-ang: calc(145deg + (var(--tx) * 46deg) + (var(--ty) * 26deg));
+      --tilt-shift-x: calc(var(--tx) * 10px);
+      --tilt-shift-y: calc(var(--ty) * 6px);
+
+      background:
+        /* Micro-banding (เหมือนฟองจริง) */
+        repeating-conic-gradient(from var(--tilt-ang) at 50% 50%,
+          rgba(255,255,255,0) 0 6deg,
+          rgba(255,255,255,.05) 6deg 7deg,
+          rgba(255,255,255,0) 7deg 12deg
+        ),
+        /* Rainbow film (boosted) */
+        conic-gradient(from var(--tilt-ang) at 50% 50%,
+          rgba(255,  50, 120, .22),
+          rgba(  0, 210, 255, .22),
+          rgba( 80, 255, 210, .18),
+          rgba(255, 235, 120, .22),
+          rgba(190, 120, 255, .18),
+          rgba(255,  50, 120, .22)
+        ),
+        /* Edge glow assist */
+        radial-gradient(circle at 50% 55%,
+          rgba(255,255,255,0) 0 56%,
+          rgba(255,255,255,.06) 66%,
+          rgba(255,255,255,.00) 100%
+        );
+
+      transform: translate3d(var(--tilt-shift-x), var(--tilt-shift-y), 0);
+
+      opacity: var(--film-op, .90);
       mix-blend-mode: screen;
-      opacity: 0.58;
-      pointer-events:none;
+      filter: blur(0.28px) saturate(1.38) contrast(1.20);
+
+      /* mask ให้ไปอยู่ “ขอบ” จริง ๆ (core clear) */
+      -webkit-mask-image:
+        radial-gradient(circle at 50% 55%,
+          rgba(0,0,0,0) 0 58%,
+          rgba(0,0,0,.55) 70%,
+          rgba(0,0,0,1) 82%,
+          rgba(0,0,0,1) 100%);
+              mask-image:
+        radial-gradient(circle at 50% 55%,
+          rgba(0,0,0,0) 0 58%,
+          rgba(0,0,0,.55) 70%,
+          rgba(0,0,0,1) 82%,
+          rgba(0,0,0,1) 100%);
     }
 
-    /* icon holder */
-    .hvr-icon{
+    /* Rim line (บางแต่คม + นิดๆ chroma edge) */
+    .hvr-rim{
       position:absolute;
-      left:50%;
-      top:50%;
-      transform: translate(-50%,-50%);
-      line-height:1;
-      filter: drop-shadow(0 4px 6px rgba(15,23,42,0.85));
-      user-select:none;
+      inset:0;
+      border-radius:999px;
       pointer-events:none;
+      box-shadow:
+        inset 0 0 0 1.25px rgba(255,255,255,.18),
+        0 0 0 1px rgba(255,255,255,.10),
+        0 0 18px var(--glow, rgba(255,255,255,.12));
+      opacity:1;
+      filter:
+        drop-shadow(1.3px 0 rgba(255, 60, 120, .22))
+        drop-shadow(-1.1px 0 rgba(0, 200, 255, .18));
     }
 
-    /* perfect ring */
+    /* Perfect ring marker */
     .hvr-ring{
       position:absolute;
       left:50%;
       top:50%;
       transform: translate(-50%,-50%);
-      width:36%;
-      height:36%;
       border-radius:999px;
-      border:2px solid rgba(255,255,255,0.34);
-      box-shadow: 0 0 12px rgba(255,255,255,0.18);
       pointer-events:none;
+      box-shadow: 0 0 12px rgba(255,255,255,0.16);
+      opacity:.85;
     }
 
-    /* storm makes sway faster/stronger */
-    .hvr-storm-on .hvr-target{
-      filter: saturate(1.06) contrast(1.06);
-    }
-    .hvr-storm-on .hvr-wob{
-      animation-duration: var(--storm-dur, 0.85s);
-    }
-
-    /* tiny bad tint */
-    .hvr-target.bad .hvr-bubble{
-      box-shadow:
-        0 16px 34px rgba(15,23,42,0.55),
-        inset 0 0 0 2px rgba(255,255,255,0.12),
-        inset 0 -12px 24px rgba(0,0,0,0.12);
-      filter: hue-rotate(330deg) saturate(1.05);
-      opacity: 0.96;
+    /* Emoji icon */
+    .hvr-icon{
+      line-height:1;
+      user-select:none;
+      pointer-events:none;
+      filter: drop-shadow(0 3px 5px rgba(0,0,0,.34));
     }
 
+    /* Type tuning (bubble stays clear; glow only) */
+    .hvr-target.hvr-good  { --glow: rgba(34,197,94,.22); }
+    .hvr-target.hvr-bad   { --glow: rgba(239,68,68,.22); }
+    .hvr-target.hvr-power { --glow: rgba(250,204,21,.26); }
+    .hvr-target.hvr-trick { --glow: rgba(167,139,250,.22); }
+
+    /* Storm => sway faster + film stronger + rim brighter */
+    .hvr-storm-on .hvr-bubble{
+      animation-duration: 0.62s;
+      filter: saturate(1.10) contrast(1.10);
+    }
+    .hvr-storm-on .hvr-bubble{ --film-op: 1.05; }
+    .hvr-storm-on .hvr-rim{ opacity:1; }
   `;
   DOC.head.appendChild(s);
 }
+
 function ensureOverlayHost () {
   if (!DOC) return null;
   ensureOverlayStyle();
@@ -268,7 +307,7 @@ function ensureOverlayHost () {
 }
 
 // ======================================================
-// Host resolver
+//  Host resolver
 // ======================================================
 function resolveHost (rawCfg) {
   if (!DOC) return null;
@@ -287,7 +326,7 @@ function resolveHost (rawCfg) {
 }
 
 // ======================================================
-// SAFE ZONE / EXCLUSION
+//  SAFE ZONE / EXCLUSION (กันทับ HUD)
 // ======================================================
 function collectExclusionElements(rawCfg){
   if (!DOC) return [];
@@ -304,24 +343,18 @@ function collectExclusionElements(rawCfg){
 
   const AUTO = [
     '.hud',
-    '#hha-water-header',
-    '.hha-water-bar',
-    '.hha-main-row',
-    '#hha-card-left',
-    '#hha-card-right',
-    '.hha-bottom-row',
-    '.hha-fever-card',
-    '#hvr-crosshair',
-    '.hvr-crosshair',
+    '#hvr-start',
     '#hvr-end',
-    '.hvr-end',
-    '#hvr-start'
+    '#hvr-screen-blink',
+    '#hvr-postfx'
   ];
   AUTO.forEach(s=>{
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
   });
 
-  try{ DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el)); }catch{}
+  try{
+    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
+  }catch{}
 
   const uniq = [];
   const seen = new Set();
@@ -391,7 +424,7 @@ function computePlayRectFromHost (hostEl, exState) {
 }
 
 // ======================================================
-// boot(cfg)
+//  boot(cfg)
 // ======================================================
 export async function boot (rawCfg = {}) {
   const {
@@ -409,7 +442,6 @@ export async function boot (rawCfg = {}) {
     allowAdaptive = true,
     rhythm = null,
     trickRate = 0.08,
-
     spawnIntervalMul = null,
     excludeSelectors = null
   } = rawCfg || {};
@@ -515,13 +547,17 @@ export async function boot (rawCfg = {}) {
 
   function getLifeMs(){
     const mul = getSpawnMul();
-    const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
+    const stormLifeMul = (mul < 0.99) ? 0.85 : 1.0;
     const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
     const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
+
     const life = curLife * stormLifeMul * ratioLifeMul;
     return Math.round(clamp(life, 520, baseDiff.life * 1.25));
   }
 
+  // ======================================================
+  //  Hit info + Crosshair shoot
+  // ======================================================
   function computeHitInfoFromPoint(el, clientX, clientY){
     const r = el.getBoundingClientRect();
     const cx = r.left + r.width/2;
@@ -552,7 +588,7 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
-  // ✅ ยิงที่กลาง play area (กันทับ HUD)
+  // crosshair = center of usable host rect (exclude HUD margins)
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
     margins: { top:0,bottom:0,left:0,right:0 },
@@ -588,6 +624,7 @@ export async function boot (rawCfg = {}) {
 
   function shootCrosshair(){
     if (stopped) return false;
+    refreshExclusions();
     const p = getCrosshairPoint();
     const hit = findTargetAtPoint(p.x, p.y);
     if (!hit) return false;
@@ -602,13 +639,16 @@ export async function boot (rawCfg = {}) {
     return false;
   }
 
-  // Spawn
+  // ======================================================
+  //  Spawn target
+  // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
     refreshExclusions();
 
     const rect = computePlayRectFromHost(host, exState);
+
     const xLocal = rect.left + rect.width  * (0.15 + Math.random() * 0.70);
     const yLocal = rect.top  + rect.height * (0.10 + Math.random() * 0.80);
 
@@ -619,7 +659,7 @@ export async function boot (rawCfg = {}) {
     let ch = '💧';
     let isGood = true;
     let isPower = false;
-    let itemType = 'good';
+    let itemType = 'good'; // good | bad | power | fakeGood
 
     const canPower = Array.isArray(powerups) && powerups.length > 0;
     const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
@@ -641,7 +681,7 @@ export async function boot (rawCfg = {}) {
         isGood = true;
         itemType = 'good';
       } else {
-        ch = pickOne(poolsBad, '🥤');
+        ch = pickOne(poolsBad, '🍟');
         isGood = false;
         itemType = 'bad';
       }
@@ -653,83 +693,64 @@ export async function boot (rawCfg = {}) {
     el.setAttribute('data-hha-tgt', '1');
     el.setAttribute('data-item-type', itemType);
 
-    const baseSize = 78;
+    if (itemType === 'power') el.classList.add('hvr-power');
+    else if (itemType === 'fakeGood') el.classList.add('hvr-trick');
+    else if (!isGood) el.classList.add('hvr-bad');
+    else el.classList.add('hvr-good');
+
+    const baseSize = 84;
     const size = baseSize * curScale;
 
     el.style.position = 'absolute';
     el.style.left = xLocal + 'px';
     el.style.top  = yLocal + 'px';
-    el.style.transform = 'translate(-50%, -50%) scale(0.86)';
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
+    el.style.transform = 'translate(-50%, -50%) scale(0.88)';
     el.style.touchAction = 'manipulation';
     el.style.zIndex = '35';
 
-    // random sway params
-    const sx = (Math.random() * 10 + 5) * (Math.random()<0.5?-1:1);
-    const sy = (Math.random() * 10 + 4) * (Math.random()<0.5?-1:1);
-    el.style.setProperty('--sx', sx.toFixed(2));
-    el.style.setProperty('--sy', sy.toFixed(2));
-
-    // duration influenced by storm (host class toggled in loop)
-    el.style.setProperty('--sway-dur', (1.75 + Math.random()*0.9).toFixed(2) + 's');
-    el.style.setProperty('--storm-dur', (0.62 + Math.random()*0.35).toFixed(2) + 's');
-
-    // build inner wobble wrapper
-    const wob = DOC.createElement('div');
-    wob.className = 'hvr-wob';
+    el.style.setProperty('--sx', (Math.random()<0.5?-1:1) * (0.85 + Math.random()*1.15));
+    el.style.setProperty('--rx', (Math.random()<0.5?-1:1) * (0.85 + Math.random()*1.15));
 
     const bubble = DOC.createElement('div');
     bubble.className = 'hvr-bubble';
 
-    // tint by type (subtle)
-    if (isPower){
-      bubble.style.filter = 'saturate(1.18) hue-rotate(14deg)';
-    } else if (!isGood){
-      el.classList.add('bad');
-      bubble.style.filter = 'saturate(1.10) hue-rotate(330deg)';
-    } else if (itemType === 'fakeGood'){
-      bubble.style.filter = 'saturate(1.12) hue-rotate(250deg)';
-    }
+    const fres = DOC.createElement('div');
+    fres.className = 'hvr-fresnel';
+    bubble.appendChild(fres);
 
-    const film = DOC.createElement('div');
-    film.className = 'hvr-film';
-
-    const shimmer = DOC.createElement('div');
-    shimmer.className = 'hvr-shimmer';
-
-    const gloss = DOC.createElement('div');
-    gloss.className = 'hvr-gloss';
+    const rim = DOC.createElement('div');
+    rim.className = 'hvr-rim';
+    bubble.appendChild(rim);
 
     const ring = DOC.createElement('div');
     ring.className = 'hvr-ring';
+    ring.style.width  = (size * 0.36) + 'px';
+    ring.style.height = (size * 0.36) + 'px';
+    ring.style.border = '2px solid rgba(255,255,255,0.30)';
+    bubble.appendChild(ring);
 
-    const icon = DOC.createElement('span');
-    icon.className = 'hvr-icon';
-    icon.textContent = ch;
-    icon.style.fontSize = (size * 0.60) + 'px';
-
-    // trick badge
-    if (itemType === 'fakeGood'){
+    if (itemType === 'fakeGood') {
       const sp = DOC.createElement('div');
       sp.textContent = '✨';
       sp.style.position = 'absolute';
       sp.style.right = '8px';
       sp.style.top = '6px';
       sp.style.fontSize = '18px';
-      sp.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+      sp.style.opacity = '0.9';
+      sp.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.65))';
       sp.style.pointerEvents = 'none';
-      wob.appendChild(sp);
+      bubble.appendChild(sp);
     }
 
-    wob.appendChild(bubble);
-    wob.appendChild(film);
-    wob.appendChild(shimmer);
-    wob.appendChild(gloss);
-    wob.appendChild(ring);
-    wob.appendChild(icon);
+    const icon = DOC.createElement('span');
+    icon.className = 'hvr-icon';
+    icon.textContent = ch;
+    icon.style.fontSize = (size * 0.62) + 'px';
+    bubble.appendChild(icon);
 
-    el.appendChild(wob);
+    el.appendChild(bubble);
 
     if (rhythmOn) el.classList.add('hvr-pulse');
 
@@ -784,7 +805,7 @@ export async function boot (rawCfg = {}) {
         })() : computeHitInfoFromPoint(el, xy.x, xy.y));
 
         const ctx = {
-          clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
+          clientX: xy.x, clientY: xy.y,
           isGood, isPower,
           itemType,
           hitPerfect: !!info.perfect,
@@ -836,6 +857,7 @@ export async function boot (rawCfg = {}) {
     }, lifeMs);
   }
 
+  // ---------- clock ----------
   function dispatchTime (sec) {
     try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
@@ -909,6 +931,7 @@ export async function boot (rawCfg = {}) {
   const onStopEvent = () => stop();
   ROOT.addEventListener('hha:stop', onStopEvent);
 
+  ensureOverlayStyle(); // ✅ make sure style exists
   rafId = ROOT.requestAnimationFrame(loop);
 
   return {
