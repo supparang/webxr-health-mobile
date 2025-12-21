@@ -1,15 +1,13 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ PATCH(A+): spawnHost/spawnLayer/container → เป้าลง playfield เลื่อนตาม drag/scroll (host transform)
-// ✅ NEW: crosshair shooting (tap anywhere ยิงจากกลางจอ) via shootCrosshair()
+// ✅ PATCH(A+): spawnHost/spawnLayer/container → เป้าลง playfield
+// ✅ NEW: crosshair shooting via shootCrosshair()
 // ✅ NEW: perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ NEW: rhythm spawn (bpm) + pulse class
-// ✅ NEW: trick/fake targets (itemType='fakeGood')
-// ✅ NEW: allowAdaptive flag
 // ✅ PATCH(Storm): spawnIntervalMul (number|fn) ทำให้ spawn ถี่ขึ้นจริง ๆ
-// ✅ PATCH(LIFE): อายุเป้าปรับตาม adaptive + storm จริง (ไม่ยึด baseDiff.life ตายตัว)
-// ✅ PATCH(SAFEZONE): กัน spawn ทับ HUD top/bottom/left/right ด้วย exclusion auto + cfg.excludeSelectors
-// ✅ NEW (ตามที่ขอ): movement เป้าแบบ “ลอย/ส่าย” (ทำที่ inner → hit-box ไม่เพี้ยน)
+// ✅ PATCH(LIFE): อายุเป้าปรับตาม adaptive + storm จริง
+// ✅ PATCH(SAFEZONE): กัน spawn ทับ HUD
+// ✅ UPGRADE VISUAL: target bubble (no more squares) + 2-layer parallax inside target + float/sway
+// ✅ UPGRADE STORM: stronger sway + speedlines
 
 'use strict';
 
@@ -75,7 +73,7 @@ function pickDiffConfig (modeKey, diffKey) {
 }
 
 // ======================================================
-//  Overlay fallback
+//  Overlay fallback (global styles)
 // ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
@@ -91,32 +89,136 @@ function ensureOverlayStyle () {
     .hvr-overlay-host .hvr-target{
       pointer-events:auto;
     }
-    .hvr-target.hvr-pulse{
-      animation:hvrPulse .55s ease-in-out infinite;
+
+    /* ===== Target pulse (optional rhythm) ===== */
+    .hvr-target.hvr-pulse .hvr-move{
+      animation: hvrPulse .55s ease-in-out infinite;
     }
     @keyframes hvrPulse{
-      0%{ transform:translate(-50%,-50%) scale(1); }
-      50%{ transform:translate(-50%,-50%) scale(1.08); }
-      100%{ transform:translate(-50%,-50%) scale(1); }
+      0%{ transform: translate3d(0,0,0) scale(1); }
+      50%{ transform: translate3d(0,0,0) scale(1.07); }
+      100%{ transform: translate3d(0,0,0) scale(1); }
     }
-    /* storm hint (optional) */
-    .hvr-storm-on .hvr-target{ filter: saturate(1.06) contrast(1.06); }
 
-    /* ===== Target float/sway (inner only — hit area ไม่เพี้ยน) ===== */
-    .hvr-target .hvr-float-inner{
+    /* ===== BEAUTY: bubble target (fix square look) ===== */
+    .hvr-target{
+      border-radius:999px;
+      overflow:visible;
+      transform: translate(-50%, -50%);
+      will-change: transform;
+      user-select:none;
+      -webkit-user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hvr-target .hvr-move{
       width:100%;
       height:100%;
+      border-radius:999px;
+      position:relative;
+      overflow:visible;
+      transform: scale(0.86);
+      transition: transform 120ms ease;
+      will-change: transform, filter;
+    }
+    .hvr-target .hvr-glint{
+      position:absolute;
+      inset:-2px;
+      border-radius:999px;
+      pointer-events:none;
+      background: radial-gradient(circle at 30% 25%,
+                  rgba(255,255,255,.62),
+                  rgba(255,255,255,0) 58%);
+      mix-blend-mode:screen;
+      opacity:.72;
+      filter: blur(.1px);
+    }
+    .hvr-target.bad .hvr-glint{ opacity:.55; }
+
+    /* inner parallax: back glow + front icon drift */
+    .hvr-target .hvr-back{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      pointer-events:none;
+      opacity:.95;
+      filter: blur(.2px);
+      mix-blend-mode: screen;
+      transform: translate3d(var(--bx,0px), var(--by,0px), 0);
+    }
+    .hvr-target .hvr-front{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
       display:flex;
       align-items:center;
       justify-content:center;
-      transform: translate3d(0,0,0);
-      animation: hvrFloatSway var(--fs, 1.25s) ease-in-out infinite;
-      will-change: transform;
+      transform: translate3d(var(--fx,0px), var(--fy,0px), 0);
     }
-    @keyframes hvrFloatSway{
-      0%   { transform: translate3d(calc(var(--fx, 0px) * -1), calc(var(--fy, 0px) *  0.3),0) rotate(calc(var(--fr, 0deg) * -1)); }
-      50%  { transform: translate3d(var(--fx, 0px), var(--fy, 0px),0) rotate(var(--fr, 0deg)); }
-      100% { transform: translate3d(calc(var(--fx, 0px) * -1), calc(var(--fy, 0px) *  0.3),0) rotate(calc(var(--fr, 0deg) * -1)); }
+
+    .hvr-target .hvr-ring{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:38%;
+      height:38%;
+      transform: translate(-50%,-50%);
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,0.34);
+      box-shadow: 0 0 14px rgba(255,255,255,0.18);
+      pointer-events:none;
+    }
+
+    /* float/sway movement (default) */
+    .hvr-target .hvr-move.hvr-float{
+      animation: hvrFloat var(--fd,2.9s) ease-in-out infinite;
+    }
+    @keyframes hvrFloat{
+      0%   { transform: translate3d(0,0,0) rotate(0deg) scale(0.90); filter:none; }
+      25%  { transform: translate3d(calc(var(--ax,7px) * .70), calc(var(--ay,6px) * -.45), 0) rotate(calc(var(--ar,3deg) * .38)) scale(0.98); }
+      50%  { transform: translate3d(calc(var(--ax,7px) * -.55), calc(var(--ay,6px) * .55), 0) rotate(calc(var(--ar,3deg) * -.42)) scale(1.00); }
+      75%  { transform: translate3d(calc(var(--ax,7px) * .45), calc(var(--ay,6px) * .40), 0) rotate(calc(var(--ar,3deg) * .30)) scale(0.99); }
+      100% { transform: translate3d(0,0,0) rotate(0deg) scale(0.90); }
+    }
+
+    /* STORM: stronger sway + speed lines */
+    .hvr-storm-on .hvr-target .hvr-move.hvr-float{
+      animation: hvrFloatStorm var(--sd,.75s) ease-in-out infinite;
+      filter:
+        drop-shadow(1.4px 0 rgba(255,0,80,.20))
+        drop-shadow(-1.4px 0 rgba(0,255,255,.18))
+        saturate(1.06) contrast(1.04);
+    }
+    @keyframes hvrFloatStorm{
+      0%   { transform: translate3d(0,0,0) rotate(0deg) scale(0.94); }
+      20%  { transform: translate3d(calc(var(--ax,10px) * 1.15), calc(var(--ay,9px) * -.85), 0) rotate(calc(var(--ar,4deg) * .75)) scale(1.03); }
+      50%  { transform: translate3d(calc(var(--ax,10px) * -1.10), calc(var(--ay,9px) * .90), 0) rotate(calc(var(--ar,4deg) * -0.85)) scale(1.06); }
+      80%  { transform: translate3d(calc(var(--ax,10px) * 0.95), calc(var(--ay,9px) * 0.75), 0) rotate(calc(var(--ar,4deg) * .60)) scale(1.02); }
+      100% { transform: translate3d(0,0,0) rotate(0deg) scale(0.94); }
+    }
+
+    .hvr-target .hvr-speedlines{
+      position:absolute;
+      inset:-16px;
+      border-radius:999px;
+      pointer-events:none;
+      opacity:0;
+      filter: blur(.2px);
+      background:
+        repeating-linear-gradient(120deg,
+          rgba(255,255,255,0.00) 0 10px,
+          rgba(255,255,255,0.12) 10px 12px,
+          rgba(255,255,255,0.00) 12px 22px);
+      mask-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0 44%, rgba(0,0,0,1) 60% 100%);
+      mix-blend-mode: screen;
+      animation: hvrSpeed 420ms linear infinite;
+    }
+    @keyframes hvrSpeed{
+      0%{ transform: translate3d(-16px, 10px, 0) rotate(0deg); opacity:.05; }
+      30%{ opacity:.18; }
+      100%{ transform: translate3d(18px, -12px, 0) rotate(0deg); opacity:.05; }
+    }
+    .hvr-storm-on .hvr-target .hvr-speedlines{
+      opacity:.60;
     }
   `;
   DOC.head.appendChild(s);
@@ -183,7 +285,8 @@ function collectExclusionElements(rawCfg){
     '.hvr-crosshair',
     '#hvr-end',
     '.hvr-end',
-    '.hud' /* ✅ ครอบ HUD เกม Hydration แบบใหม่นี้ด้วย */
+    '.hud',
+    '#hvr-start'
   ];
   AUTO.forEach(s=>{
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
@@ -206,6 +309,7 @@ function collectExclusionElements(rawCfg){
 
 function computeExclusionMargins(hostRect, exEls){
   const m = { top:0, bottom:0, left:0, right:0 };
+
   if (!hostRect || !exEls || !exEls.length) return m;
 
   const hx1 = hostRect.left, hy1 = hostRect.top;
@@ -277,12 +381,15 @@ export async function boot (rawCfg = {}) {
     judge,
     onExpire,
 
+    // NEW
     allowAdaptive = true,
     rhythm = null,
     trickRate = 0.08,
 
+    // Storm multiplier (number OR function)
     spawnIntervalMul = null,
 
+    // Safe zone
     excludeSelectors = null
   } = rawCfg || {};
 
@@ -295,6 +402,7 @@ export async function boot (rawCfg = {}) {
     return { stop () {}, shootCrosshair(){ return false; } };
   }
 
+  // ---------- Game state ----------
   let stopped = false;
 
   let totalDuration = clamp(duration, 20, 180);
@@ -306,7 +414,7 @@ export async function boot (rawCfg = {}) {
   let spawnCounter  = 0;
 
   // ---------- Adaptive ----------
-  let adaptLevel   = 0;
+  let adaptLevel   = 0; // -1 .. 3
   let curInterval  = baseDiff.spawnInterval;
   let curMaxActive = baseDiff.maxActive;
   let curScale     = baseDiff.scale;
@@ -376,6 +484,7 @@ export async function boot (rawCfg = {}) {
     try { host.classList.add('hvr-rhythm-on'); } catch {}
   }
 
+  // Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -385,9 +494,10 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
+  // life getter (adaptive + storm)
   function getLifeMs(){
     const mul = getSpawnMul();
-    const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
+    const stormLifeMul = (mul < 0.99) ? 0.86 : 1.0;
     const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
     const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
 
@@ -428,6 +538,7 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
+  // shoot at center of safe play area
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
     margins: { top:0,bottom:0,left:0,right:0 },
@@ -478,7 +589,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn target inside host
+  //  Spawn target inside host (prettier)
   // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
@@ -497,7 +608,7 @@ export async function boot (rawCfg = {}) {
     let ch = '💧';
     let isGood = true;
     let isPower = false;
-    let itemType = 'good';
+    let itemType = 'good'; // good | bad | power | fakeGood
 
     const canPower = Array.isArray(powerups) && powerups.length > 0;
     const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
@@ -530,6 +641,7 @@ export async function boot (rawCfg = {}) {
     el.className = 'hvr-target';
     el.setAttribute('data-hha-tgt', '1');
     el.setAttribute('data-item-type', itemType);
+    if (!isGood && !isPower) el.classList.add('bad');
 
     const baseSize = 78;
     const size = baseSize * curScale;
@@ -537,47 +649,111 @@ export async function boot (rawCfg = {}) {
     el.style.position = 'absolute';
     el.style.left = xLocal + 'px';
     el.style.top  = yLocal + 'px';
-    el.style.transform = 'translate(-50%, -50%) scale(0.9)';
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     el.style.touchAction = 'manipulation';
     el.style.zIndex = '35';
 
+    // movement parameters (random per target)
+    const ax = (6 + Math.random()*8) * (isPower ? 1.10 : 1.0);
+    const ay = (5 + Math.random()*7) * (isGood ? 0.95 : 1.10);
+    const ar = (2.2 + Math.random()*3.2);
+    const fd = (2.4 + Math.random()*1.2);
+    const sd = (0.62 + Math.random()*0.20); // storm duration (faster)
+
+    el.style.setProperty('--ax', ax.toFixed(2)+'px');
+    el.style.setProperty('--ay', ay.toFixed(2)+'px');
+    el.style.setProperty('--ar', ar.toFixed(2)+'deg');
+    el.style.setProperty('--fd', fd.toFixed(2)+'s');
+    el.style.setProperty('--sd', sd.toFixed(2)+'s');
+
+    // inner parallax offsets
+    el.style.setProperty('--bx', ((Math.random()*2.2)-1.1).toFixed(2)+'px');
+    el.style.setProperty('--by', ((Math.random()*2.2)-1.1).toFixed(2)+'px');
+    el.style.setProperty('--fx', ((Math.random()*1.6)-0.8).toFixed(2)+'px');
+    el.style.setProperty('--fy', ((Math.random()*1.6)-0.8).toFixed(2)+'px');
+
+    // visual container
+    const move = DOC.createElement('div');
+    move.className = 'hvr-move hvr-float';
+
+    // bubble gradient + rings
     let bgGrad = '';
     let ringGlow = '';
-
     if (isPower) {
       bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
-      ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
+      ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 26px rgba(250,204,21,0.92)';
     } else if (itemType === 'fakeGood') {
       bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
-      ringGlow = '0 0 0 2px rgba(167,139,250,0.85), 0 0 22px rgba(167,139,250,0.9)';
+      ringGlow = '0 0 0 2px rgba(167,139,250,0.90), 0 0 26px rgba(167,139,250,0.90)';
     } else if (isGood) {
       bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
-      ringGlow = '0 0 0 2px rgba(74,222,128,0.75), 0 0 18px rgba(16,185,129,0.85)';
+      ringGlow = '0 0 0 2px rgba(74,222,128,0.78), 0 0 22px rgba(16,185,129,0.92)';
     } else {
       bgGrad = 'radial-gradient(circle at 30% 25%, #fb923c, #ea580c)';
-      ringGlow = '0 0 0 2px rgba(248,113,113,0.75), 0 0 18px rgba(248,113,113,0.9)';
-      el.classList.add('bad');
+      ringGlow = '0 0 0 2px rgba(248,113,113,0.78), 0 0 22px rgba(248,113,113,0.92)';
     }
 
-    el.style.background = bgGrad;
-    el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
+    move.style.background = bgGrad;
+    move.style.boxShadow =
+      '0 22px 52px rgba(0,0,0,.52),' +
+      ringGlow +
+      ', inset 0 10px 20px rgba(255,255,255,.08)' +
+      ', inset 0 -14px 26px rgba(0,0,0,.30)';
 
-    // PERFECT ring guide (static ring)
+    // back glow (parallax layer)
+    const back = DOC.createElement('div');
+    back.className = 'hvr-back';
+    back.style.background =
+      'radial-gradient(circle at 40% 35%, rgba(255,255,255,.18), rgba(255,255,255,0) 60%),' +
+      'radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), rgba(255,255,255,0) 52%)';
+    move.appendChild(back);
+
+    // inner bowl
+    const inner = DOC.createElement('div');
+    inner.style.position = 'absolute';
+    inner.style.left = '50%';
+    inner.style.top  = '50%';
+    inner.style.width = (size * 0.82) + 'px';
+    inner.style.height = (size * 0.82) + 'px';
+    inner.style.transform = 'translate(-50%,-50%)';
+    inner.style.borderRadius = '999px';
+    inner.style.display = 'flex';
+    inner.style.alignItems = 'center';
+    inner.style.justifyContent = 'center';
+    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,0.10), rgba(15,23,42,0.38))';
+    inner.style.boxShadow = 'inset 0 6px 12px rgba(15,23,42,0.90)';
+
+    // icon (front parallax layer)
+    const front = DOC.createElement('div');
+    front.className = 'hvr-front';
+
+    const icon = DOC.createElement('span');
+    icon.textContent = ch;
+    icon.style.fontSize = (size * 0.60) + 'px';
+    icon.style.lineHeight = '1';
+    icon.style.filter = 'drop-shadow(0 4px 6px rgba(15,23,42,0.9))';
+
+    front.appendChild(icon);
+    inner.appendChild(front);
+    move.appendChild(inner);
+
+    // perfect ring
     const ring = DOC.createElement('div');
-    ring.style.position = 'absolute';
-    ring.style.left = '50%';
-    ring.style.top  = '50%';
-    ring.style.width  = (size * 0.36) + 'px';
-    ring.style.height = (size * 0.36) + 'px';
-    ring.style.transform = 'translate(-50%, -50%)';
-    ring.style.borderRadius = '999px';
-    ring.style.border = '2px solid rgba(255,255,255,0.35)';
-    ring.style.boxShadow = '0 0 12px rgba(255,255,255,0.18)';
-    ring.style.pointerEvents = 'none';
-    el.appendChild(ring);
+    ring.className = 'hvr-ring';
+    move.appendChild(ring);
 
+    // glint
+    const glint = DOC.createElement('div');
+    glint.className = 'hvr-glint';
+    move.appendChild(glint);
+
+    // storm speedlines
+    const sl = DOC.createElement('div');
+    sl.className = 'hvr-speedlines';
+    move.appendChild(sl);
+
+    // fakeGood spark hint
     if (itemType === 'fakeGood') {
       const sp = DOC.createElement('div');
       sp.textContent = '✨';
@@ -587,40 +763,16 @@ export async function boot (rawCfg = {}) {
       sp.style.fontSize = '18px';
       sp.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
       sp.style.pointerEvents = 'none';
-      el.appendChild(sp);
+      move.appendChild(sp);
     }
 
-    // ✅ INNER: ลอย/ส่ายที่ชั้นใน (hit-box ไม่เพี้ยน)
-    const inner = DOC.createElement('div');
-    inner.className = 'hvr-float-inner';
-    inner.style.width = (size * 0.82) + 'px';
-    inner.style.height = (size * 0.82) + 'px';
-    inner.style.borderRadius = '999px';
-    inner.style.display = 'flex';
-    inner.style.alignItems = 'center';
-    inner.style.justifyContent = 'center';
-    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,0.12), rgba(15,23,42,0.36))';
-    inner.style.boxShadow = 'inset 0 4px 10px rgba(15,23,42,0.9)';
-
-    const amp = Math.max(2, Math.round(size * 0.045));
-    inner.style.setProperty('--fx', `${(Math.random()*2-1)*amp}px`);
-    inner.style.setProperty('--fy', `${(Math.random()*2-1)*amp}px`);
-    inner.style.setProperty('--fr', `${(Math.random()*2-1)*(amp*0.35)}deg`);
-    inner.style.setProperty('--fs', `${(0.95 + Math.random()*0.55).toFixed(2)}s`);
-
-    const icon = DOC.createElement('span');
-    icon.textContent = ch;
-    icon.style.fontSize = (size * 0.60) + 'px';
-    icon.style.lineHeight = '1';
-    icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
-
-    inner.appendChild(icon);
-    el.appendChild(inner);
+    el.appendChild(move);
 
     if (rhythmOn) el.classList.add('hvr-pulse');
 
+    // “pop-in”
     ROOT.requestAnimationFrame(() => {
-      el.style.transform = 'translate(-50%, -50%) scale(1)';
+      move.style.transform = 'scale(1)';
     });
 
     const lifeMs = getLifeMs();
@@ -670,7 +822,8 @@ export async function boot (rawCfg = {}) {
         })() : computeHitInfoFromPoint(el, xy.x, xy.y));
 
         const ctx = {
-          clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
+          clientX: xy.x, clientY: xy.y,
+          cx: info.cx, cy: info.cy,
           isGood, isPower,
           itemType,
           hitPerfect: !!info.perfect,
@@ -680,6 +833,7 @@ export async function boot (rawCfg = {}) {
         try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
       }
 
+      // sample for adaptive
       let isHit = false;
       if (res && typeof res.scoreDelta === 'number') {
         if (res.scoreDelta > 0) isHit = true;
@@ -747,6 +901,7 @@ export async function boot (rawCfg = {}) {
       lastClockTs += steps * 1000;
     }
 
+    // spawn
     if (secLeft > 0) {
       if (!lastSpawnTs) lastSpawnTs = ts;
 
