@@ -35,6 +35,15 @@ export default function bootGoodJunkVR(){
   const elMiniCount = $('hud-mini-count');
   const elMiniWhy = $('hud-mini-why');
 
+  // Fever HUD bits
+  const feverFill = $('fever-fill');
+  const feverPct  = $('fever-pct');
+  const shieldCount = $('shield-count');
+  const stunRow = $('stun-row');
+  const stunFill = $('stun-fill');
+  const stunPct  = $('stun-pct');
+  const stunPill = $('hud-stun-pill');
+
   const coachBubble = $('coach-bubble');
   const coachEmoji  = $('coach-emoji');
   const coachText   = $('coach-text');
@@ -69,7 +78,6 @@ export default function bootGoodJunkVR(){
   if (selDiff) selDiff.value = initDiff;
   if (selChallenge) selChallenge.value = initCh;
 
-  // Particles celebrate (ถ้ามี)
   function celebrate(kind){
     try{
       const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
@@ -93,7 +101,6 @@ export default function bootGoodJunkVR(){
     coachTimer = setTimeout(()=> coachBubble && coachBubble.classList.remove('show'), 3600);
   }
 
-  // countdown
   function runCountdown(done){
     if (!countdown){ done(); return; }
     const steps = ['3','2','1','Go!'];
@@ -110,14 +117,13 @@ export default function bootGoodJunkVR(){
     }, 650);
   }
 
-  // VR button
   if (btnVR && scene){
     btnVR.addEventListener('click', async ()=>{
       try{ await scene.enterVR(); }catch(_){}
     });
   }
 
-  // core state for QuestDirector
+  // state for QuestDirector
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0,
     timeLeft:initTime,
@@ -145,7 +151,7 @@ export default function bootGoodJunkVR(){
     qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
   }, 1000);
 
-  // QuestDirector instance
+  // QuestDirector
   let Q = makeQuestDirector({
     diff: initDiff,
     challenge: initCh,
@@ -156,17 +162,13 @@ export default function bootGoodJunkVR(){
   });
   Q.start(qState);
 
-  // --- WHY helper (บอกว่าติดอะไร) ---
-  function setWhy(txt){
-    if (!elMiniWhy) return;
-    elMiniWhy.textContent = txt || '';
-  }
+  // WHY helper
+  function setWhy(txt){ if (elMiniWhy) elMiniWhy.textContent = txt || ''; }
   function miniWhy(m){
     if (!m || m.state === 'clear') return '✅ ผ่านแล้ว';
     const cur = Number(m.cur||0);
     const max = Number(m.max||0);
     const left = Math.max(0, max - cur);
-
     switch(String(m.id||'')){
       case 'm1': return `เหลืออีก ${left} ชิ้น (ห้ามพลาด/หมดอายุ)`;
       case 'm2': return qState.goldHitsThisMini ? '✅ ได้ GOLD แล้ว' : 'ยังไม่ได้ GOLD ในมินินี้';
@@ -180,7 +182,7 @@ export default function bootGoodJunkVR(){
     }
   }
 
-  // --- HUD quest update ---
+  // Quest HUD update
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const g = d.goal || null;
@@ -221,15 +223,12 @@ export default function bootGoodJunkVR(){
     setWhy('');
   });
 
-  // ✅ hit events now include kind + delta + label (จาก goodjunk.safe.js)
+  // hit events
   window.addEventListener('quest:goodHit', (e)=>{
     const kind = String(e.detail?.kind || 'good');
     if (kind === 'gold') qState.goldHitsThisMini = true;
-
-    // streak + final8 tracking
     qState.streakGood = (qState.streakGood|0) + 1;
     if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
-
     Q.tick(qState);
   });
 
@@ -283,13 +282,41 @@ export default function bootGoodJunkVR(){
     if (elCombo) elCombo.textContent = String(qState.comboMax|0);
     if (elMiss)  elMiss.textContent  = String(qState.miss|0);
 
-    // Clean Streak โหดจริง: miss เพิ่ม (รวมของดีหมดอายุ) -> reset streak
     if ((qState.miss|0) > (lastMiss|0)){
       qState.streakGood = 0;
       lastMiss = qState.miss|0;
     }
-
     Q.tick(qState);
+  });
+
+  // ✅ Step 4: FEVER HUD + fire overlay
+  window.addEventListener('hha:fever', (e)=>{
+    const d = e.detail || {};
+    const fever = Math.max(0, Math.min(100, Number(d.fever)||0));
+    const shield = Math.max(0, Number(d.shield)||0);
+    const active = !!d.active;
+
+    if (feverFill) feverFill.style.width = `${Math.round(fever)}%`;
+    if (feverPct) feverPct.textContent = `${Math.round(fever)}%`;
+    if (shieldCount) shieldCount.textContent = String(shield|0);
+
+    document.body.classList.toggle('fever-on', active);
+    if (stunRow) stunRow.style.display = active ? '' : 'none';
+    if (stunPill) stunPill.style.display = active ? '' : 'none';
+  });
+
+  // ✅ Step 4: STUN bar update (left ms)
+  window.addEventListener('hha:stun', (e)=>{
+    const d = e.detail || {};
+    const active = !!d.active;
+    const leftMs = Math.max(0, Number(d.leftMs)||0);
+    const durMs  = Math.max(1, Number(d.durMs)||1);
+    const pct = Math.max(0, Math.min(1, leftMs / durMs));
+
+    if (stunFill) stunFill.style.width = `${Math.round(pct*100)}%`;
+    if (stunPct)  stunPct.textContent = `${(leftMs/1000).toFixed(1)}s`;
+    if (stunRow)  stunRow.style.display = active ? '' : 'none';
+    if (stunPill) stunPill.style.display = active ? '' : 'none';
   });
 
   function startGame({ diff, challenge, time, wantVR }){
@@ -320,7 +347,6 @@ export default function bootGoodJunkVR(){
     try{ engine?.stop?.(); }catch(_){}
     engine = goodjunkBoot({ diff, run: qState.runMode, challenge, time, layerEl });
 
-    // reset quest director (รับ diff/challenge ใหม่)
     Q = makeQuestDirector({
       diff, challenge,
       goalDefs: GOODJUNK_GOALS,
@@ -339,7 +365,6 @@ export default function bootGoodJunkVR(){
     const ch   = normCh(selChallenge?.value || initCh);
     const time = clamp(initTime, 20, 180);
 
-    // iOS gyro permission must be in gesture
     try{ lookCtl?.requestGyroPermission?.(); }catch(_){}
 
     if (startOverlay) startOverlay.style.display = 'none';
