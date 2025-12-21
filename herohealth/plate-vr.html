@@ -1,3 +1,4 @@
+<!-- === /herohealth/plate-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,14 +8,13 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Global modules (NO inline JS) -->
+  <!-- Global FX + Inputs + Cloud Logger (NO inline JS in HTML) -->
   <script src="./vr/particles.js" defer></script>
+  <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
-  <script src="./vr/hha-reticlefx.js" defer></script>
-  <script src="./vr/hha-vrlook.js" defer></script>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
     :root{
@@ -56,7 +56,7 @@
       border:1px solid rgba(148,163,184,.25);
       border-radius:999px;
       padding:6px 10px;
-      font-weight:900;
+      font-weight:800;
       letter-spacing:.02em;
       white-space:nowrap;
     }
@@ -80,9 +80,6 @@
       color:var(--txt);
       padding:10px 12px;
       font-weight:900;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
     }
     .btn:active{ transform:translateY(1px); }
 
@@ -155,7 +152,7 @@
   <div id="hudBottom" class="hud-bottom">
     <div class="card" style="max-width:72vw;">
       <div class="k">Tip</div>
-      <div style="font-weight:900;">แตะที่ไหนก็ได้เพื่อยิง (Tap-anywhere) — เล็งด้วยการ “หันมือถือ/ลากจอ” ให้เหมือน VR</div>
+      <div style="font-weight:900;">แตะตรงไหนก็ได้เพื่อยิง (Tap-anywhere) • หมุนมือถือเหมือน VR • ระวังขยะ!</div>
     </div>
   </div>
 
@@ -197,27 +194,33 @@
     vr-mode-ui="enabled:true"
     embedded
   >
-    <!-- Camera (controls are injected/managed by hha-vrlook.js + plate.safe.js) -->
-    <a-entity id="cam" camera position="0 1.6 0"
-      hha-vrlook="enabled:true; inertia:0.14; gyroBlend:0.92; pitchLimit:1.28;">
-      <a-cursor
-        id="cursor"
-        fuse="true"
-        fuse-timeout="700"
-        raycaster="objects:.plateTarget"
-        hha-reticlefx="on:true; pulse:true; hoverScale:1.18; fuseGlow:true;"
-        material="color:#ffffff; shader:flat; opacity:0.85"
-        geometry="primitive:ring; radiusInner:0.010; radiusOuter:0.018"
-      ></a-cursor>
-
-      <!-- legacy (ไม่ใช้เป็น root หลักแล้ว แต่คงไว้ไม่ให้ของเดิมพัง) -->
-      <a-entity id="targetRoot" position="0 0 -1.35"></a-entity>
+    <!-- Rig (drag inertia) -->
+    <a-entity id="rig" position="0 0 0" rotation="0 0 0">
+      <!-- Camera -->
+      <a-entity id="cam"
+        camera
+        position="0 1.6 0"
+        look-controls="touchEnabled:false; mouseEnabled:false; pointerLockEnabled:false; magicWindowTrackingEnabled:true"
+      >
+        <!-- Cursor (gaze/fuse in VR) -->
+        <a-cursor
+          id="cursor"
+          fuse="true"
+          fuse-timeout="700"
+          raycaster="objects:.plateTarget"
+          material="color:#ffffff; shader:flat; opacity:0.85"
+          geometry="primitive:ring; radiusInner:0.010; radiusOuter:0.018"
+        ></a-cursor>
+      </a-entity>
     </a-entity>
 
     <a-entity light="type:ambient; intensity:1.0; color:#ffffff"></a-entity>
+
+    <!-- World Targets root -->
+    <a-entity id="worldTargets"></a-entity>
   </a-scene>
 
-  <!-- Game module -->
+  <!-- Module -->
   <script type="module" src="./plate/plate.safe.js"></script>
 </body>
 </html>
