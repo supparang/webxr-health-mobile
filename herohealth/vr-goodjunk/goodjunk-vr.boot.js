@@ -1,8 +1,12 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Final Sprint v2 binder: STUN bar + coach event + input lock class
+// GoodJunkVR Page Boot (PRODUCTION)
+// ✅ Fix: start works, no black-screen
+// ✅ VR-look: drag-to-look + deviceorientation-to-look + inertia
+// ✅ Tap-anywhere sets STUN aim point (vortex center not always screen center)
+// ✅ Fix: goodHits/miss/goldHitsThisMini update → Goal/Mini can pass
+// ✅ End summary overlay shows on hha:end
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
-
 import { makeQuestDirector } from './quest-director.js';
 import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
@@ -11,11 +15,15 @@ export function boot(){
   if (window.__GJ_PAGE_BOOTED__) return;
   window.__GJ_PAGE_BOOTED__ = true;
 
-  window.addEventListener('pageshow', (e)=>{ if (e.persisted) window.location.reload(); });
+  window.addEventListener('pageshow', (e)=>{
+    if (e.persisted) window.location.reload();
+  });
 
   const $ = (id)=>document.getElementById(id);
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){ } };
+  const safeClass = (el, cls, on)=>{ try{ el && el.classList && el.classList.toggle(cls, !!on); }catch(_){ } };
 
+  // HUD
   const elScore = $('hud-score');
   const elCombo = $('hud-combo');
   const elMiss  = $('hud-miss');
@@ -58,16 +66,20 @@ export function boot(){
   const elShield    = $('shield-count');
   const elStunBadge = $('hud-stun');
 
+  // vortex
   const elVortex = $('stun-vortex');
-  const elFlame  = $('fever-flame');
-  const elTouchHint = $('touch-hint');
 
-  // ✅ STUN bar
-  const elStunRow  = $('stun-row');
-  const elStunFill = $('stun-fill');
-  const elStunTime = $('stun-time');
-
-  const layerEl = document.getElementById('gj-layer');
+  // end summary
+  const endOverlay = $('end-overlay');
+  const endScore = $('end-score');
+  const endGood  = $('end-good');
+  const endMiss  = $('end-miss');
+  const endCombo = $('end-combo');
+  const endGoals = $('end-goals');
+  const endMinis = $('end-minis');
+  const endGrade = $('end-grade');
+  const btnEndClose = $('end-close');
+  const btnEndRestart = $('end-restart');
 
   const pageUrl = new window.URL(window.location.href);
   const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();
@@ -90,11 +102,12 @@ export function boot(){
     20, 180
   );
 
+  // ✅ Correct paths (boot.js is inside /vr-goodjunk)
   const COACH_IMG = {
-    neutral: './img/coach-neutral.png',
-    happy:   './img/coach-happy.png',
-    sad:     './img/coach-sad.png',
-    fever:   './img/coach-fever.png'
+    neutral: '../img/coach-neutral.png',
+    happy:   '../img/coach-happy.png',
+    sad:     '../img/coach-sad.png',
+    fever:   '../img/coach-fever.png'
   };
 
   let lastCoachTimeout = null;
@@ -102,19 +115,13 @@ export function boot(){
     const m = COACH_IMG[mood] ? mood : 'neutral';
     if (elCoachEmoji) elCoachEmoji.style.backgroundImage = `url('${COACH_IMG[m]}')`;
   }
-  function setCoach(text, mood='neutral', holdMs=4200){
+  function setCoach(text, mood='neutral'){
     if (elCoachBubble) elCoachBubble.classList.add('show');
     safeText(elCoachText, text || '');
     setCoachFace(mood);
     if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
-    lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), holdMs);
+    lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), 4200);
   }
-
-  // ✅ listen coach event from engine
-  window.addEventListener('hha:coach', (e)=>{
-    const d = e.detail || {};
-    if (d.text) setCoach(String(d.text), String(d.mood||'neutral'), Number(d.holdMs||4200));
-  });
 
   function setLogBadge(state, text){
     if (!logDot || !logText) return;
@@ -158,7 +165,114 @@ export function boot(){
     });
   }
 
-  // --------- Aim Point (center of STUN) ----------
+  /* -------------------- ✅ VR-LOOK (drag + gyro + inertia) -------------------- */
+  function enableVRLook(cameraEl){
+    if (!cameraEl || !cameraEl.object3D) return;
+
+    const areaEl = document.getElementById('gj-layer') || document.body;
+
+    const DEG = Math.PI / 180;
+    const clampPitch = (p)=> Math.max(-1.2, Math.min(1.2, p));
+
+    // base from gyro, plus drag offset
+    let gyroYaw = 0, gyroPitch = 0;
+    let offYaw = 0, offPitch = 0;
+
+    // inertia velocity from drag
+    let vYaw = 0, vPitch = 0;
+    let lastDown = 0;
+
+    // drag state
+    let dragging = false;
+    let lastX = 0, lastY = 0;
+
+    // tune
+    const sens = 0.0031;          // drag sensitivity
+    const inert = 0.92;           // inertia decay
+    const vMax = 0.08;
+
+    function apply(){
+      const yaw = gyroYaw + offYaw;
+      const pitch = clampPitch(gyroPitch + offPitch);
+
+      // write to A-Frame camera rotation (x=pitch, y=yaw)
+      cameraEl.object3D.rotation.x = pitch;
+      cameraEl.object3D.rotation.y = yaw;
+      cameraEl.object3D.rotation.z = 0;
+    }
+
+    function raf(){
+      // inertia only when not dragging
+      if (!dragging){
+        offYaw  += vYaw;
+        offPitch += vPitch;
+        vYaw *= inert;
+        vPitch *= inert;
+        if (Math.abs(vYaw) < 0.00015) vYaw = 0;
+        if (Math.abs(vPitch) < 0.00015) vPitch = 0;
+      }
+      apply();
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+
+    function isInteractiveTarget(t){
+      // don't rotate view when pressing on target/button/select
+      const el = t?.target;
+      if (!el) return false;
+      if (el.closest && (el.closest('.gj-target') || el.closest('button') || el.closest('select') || el.closest('#start-overlay') || el.closest('#end-overlay'))) return true;
+      return false;
+    }
+
+    areaEl.addEventListener('pointerdown', (e)=>{
+      if (isInteractiveTarget(e)) return;
+      dragging = true;
+      lastDown = Date.now();
+      lastX = e.clientX;
+      lastY = e.clientY;
+      vYaw = 0; vPitch = 0;
+    }, { passive:true });
+
+    areaEl.addEventListener('pointermove', (e)=>{
+      if (!dragging) return;
+      const dx = (e.clientX - lastX);
+      const dy = (e.clientY - lastY);
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      offYaw  -= dx * sens;
+      offPitch -= dy * sens;
+
+      // update inertia velocity
+      vYaw  = Math.max(-vMax, Math.min(vMax, (-dx * sens) * 0.65));
+      vPitch= Math.max(-vMax, Math.min(vMax, (-dy * sens) * 0.65));
+    }, { passive:true });
+
+    areaEl.addEventListener('pointerup', ()=>{ dragging = false; }, { passive:true });
+    areaEl.addEventListener('pointercancel', ()=>{ dragging = false; }, { passive:true });
+
+    // ✅ device orientation (Android ok; iOS may require permission)
+    window.addEventListener('deviceorientation', (ev)=>{
+      // alpha: compass (0..360), beta: front-back (-180..180)
+      if (typeof ev.alpha !== 'number' || typeof ev.beta !== 'number') return;
+
+      // portrait mapping
+      const a = ev.alpha * DEG;
+      const b = ev.beta * DEG;
+
+      // smooth a bit (low-pass)
+      gyroYaw = gyroYaw * 0.90 + a * 0.10;
+
+      // pitch center around ~0 when phone upright
+      const p = (b - 0.85); // small offset so "upright" feels centered
+      gyroPitch = gyroPitch * 0.90 + p * 0.10;
+
+      // if user just dragged, don't fight gyro too hard for ~700ms
+      if (Date.now() - lastDown < 700) return;
+    }, { passive:true });
+  }
+
+  /* -------------------- ✅ Aim point (STUN center) -------------------- */
   function setAimPoint(x, y){
     window.__GJ_AIM_POINT__ = { x: x|0, y: y|0, t: Date.now() };
     if (elVortex){
@@ -166,12 +280,16 @@ export function boot(){
       elVortex.style.top  = (y|0) + 'px';
     }
   }
-  function defaultAim(){ setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62); }
+  function defaultAim(){
+    setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62);
+  }
   function bindAimListeners(){
-    if (!layerEl) return;
+    const layer = document.getElementById('gj-layer');
+    if (!layer) return;
     defaultAim();
 
-    layerEl.addEventListener('pointerdown', (e)=>{
+    // tap-anywhere sets STUN center (but if tapping target, target handler will stopPropagation)
+    layer.addEventListener('pointerdown', (e)=>{
       if (typeof e.clientX === 'number' && typeof e.clientY === 'number'){
         setAimPoint(e.clientX, e.clientY);
       }
@@ -179,146 +297,36 @@ export function boot(){
 
     window.addEventListener('resize', ()=>{
       const ap = window.__GJ_AIM_POINT__;
-      if (!ap) defaultAim();
-      else{
-        const x = Math.max(20, Math.min(window.innerWidth-20, ap.x|0));
-        const y = Math.max(20, Math.min(window.innerHeight-20, ap.y|0));
-        setAimPoint(x, y);
-      }
+      if (!ap) return defaultAim();
+      const x = Math.max(20, Math.min(window.innerWidth-20, ap.x|0));
+      const y = Math.max(20, Math.min(window.innerHeight-20, ap.y|0));
+      setAimPoint(x, y);
     });
   }
 
-  // --------- VR LOOK: drag + gyro + inertia ----------
-  function attachVRLook(cameraEl, opts = {}){
-    if (!cameraEl || !cameraEl.object3D) return { enableGyro: async()=>false, destroy: ()=>{} };
-
-    const layer = opts.layerEl || document.getElementById('gj-layer') || document.body;
-    const hint  = opts.hintEl || elTouchHint;
-    const sensitivity = Number(opts.sensitivity ?? 0.0034);
-    const pitchMin = Number(opts.pitchMin ?? -1.18);
-    const pitchMax = Number(opts.pitchMax ??  1.18);
-
-    let yaw = 0, pitch = 0;
-    let vy = 0, vp = 0;
-    let dragging = false;
-    let lastX = 0, lastY = 0;
-    let raf = 0;
-
-    // gyro
-    let gyroOn = false;
-    let gBaseA = null, gBaseB = null;
-    let gYaw = 0, gPitch = 0;
-
-    function clampRad(v, a, b){ return (v < a) ? a : (v > b) ? b : v; }
-    function wrapPI(v){
-      v = Number(v)||0;
-      const TWO = Math.PI*2;
-      v = v % TWO; if (v < 0) v += TWO;
-      return v;
-    }
-    function apply(){
-      cameraEl.object3D.rotation.y = wrapPI(yaw);
-      cameraEl.object3D.rotation.x = clampRad(pitch, pitchMin, pitchMax);
-    }
-    function showHint(){
-      if (!hint) return;
-      hint.classList.add('show');
-      setTimeout(()=> hint.classList.remove('show'), 1800);
-    }
-    showHint();
-
-    function onDown(e){
-      dragging = true;
-      lastX = e.clientX || 0; lastY = e.clientY || 0;
-      try{ layer.setPointerCapture(e.pointerId); }catch(_){}
-      try{ layer.classList.add('dragging'); }catch(_){}
-      e.preventDefault?.();
-    }
-    function onMove(e){
-      if (!dragging) return;
-      const x = e.clientX || 0, y = e.clientY || 0;
-      const dx = x - lastX, dy = y - lastY;
-      lastX = x; lastY = y;
-
-      yaw   -= dx * sensitivity;
-      pitch -= dy * sensitivity;
-
-      vy = (-dx * sensitivity) * 0.55;
-      vp = (-dy * sensitivity) * 0.55;
-
-      apply();
-      e.preventDefault?.();
-    }
-    function onUp(e){
-      dragging = false;
-      try{ layer.classList.remove('dragging'); }catch(_){}
-      e.preventDefault?.();
-    }
-
-    layer.addEventListener('pointerdown', onDown, { passive:false });
-    layer.addEventListener('pointermove', onMove, { passive:false });
-    layer.addEventListener('pointerup', onUp, { passive:false });
-    layer.addEventListener('pointercancel', onUp, { passive:false });
-
-    function tick(){
-      if (!dragging){
-        const damp = 0.88;
-        vy *= damp; vp *= damp;
-        if (Math.abs(vy) > 0.00002 || Math.abs(vp) > 0.00002){
-          yaw += vy; pitch += vp;
-        }
-      }
-      if (gyroOn){
-        const blend = 0.12;
-        yaw   = yaw   + (gYaw   - yaw)   * blend;
-        pitch = pitch + (gPitch - pitch) * blend;
-      }
-      apply();
-      raf = requestAnimationFrame(tick);
-    }
-    raf = requestAnimationFrame(tick);
-
-    function onDeviceOri(ev){
-      if (!gyroOn) return;
-      const a = Number(ev.alpha || 0);
-      const b = Number(ev.beta  || 0);
-      const aRad = (a * Math.PI) / 180;
-      const bRad = (b * Math.PI) / 180;
-      if (gBaseA == null){ gBaseA = aRad; gBaseB = bRad; }
-      let ry = aRad - gBaseA;
-      let rp = (bRad - gBaseB) * 0.85;
-      gYaw = wrapPI(yaw + ry);
-      gPitch = clampRad(pitch + rp, pitchMin, pitchMax);
-    }
-
-    async function enableGyro(){
-      if (!('DeviceOrientationEvent' in window)) return false;
-      try{
-        if (typeof window.DeviceOrientationEvent.requestPermission === 'function'){
-          const res = await window.DeviceOrientationEvent.requestPermission();
-          if (String(res) !== 'granted') return false;
-        }
-        gyroOn = true; gBaseA = null; gBaseB = null;
-        window.addEventListener('deviceorientation', onDeviceOri, true);
-        return true;
-      }catch(_){ return false; }
-    }
-
-    function destroy(){
-      try{ cancelAnimationFrame(raf); }catch(_){}
-      try{
-        layer.removeEventListener('pointerdown', onDown);
-        layer.removeEventListener('pointermove', onMove);
-        layer.removeEventListener('pointerup', onUp);
-        layer.removeEventListener('pointercancel', onUp);
-      }catch(_){}
-      try{ window.removeEventListener('deviceorientation', onDeviceOri, true); }catch(_){}
-    }
-
-    return { enableGyro, destroy };
+  /* -------------------- ✅ Particles helper -------------------- */
+  function getParticles(){
+    return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
+  }
+  function fxBurst(x,y,good=true,count=14){
+    const P = getParticles(); if (!P || !P.burstAt) return;
+    try{ P.burstAt(x, y, { count, good: !!good }); }catch(_){}
+  }
+  function fxPop(x,y,label,plain=true){
+    const P = getParticles(); if (!P || !P.scorePop) return;
+    try{ P.scorePop(x, y, '', String(label||''), { plain: !!plain }); }catch(_){}
+  }
+  function fxCelebrate(kind){
+    const P = getParticles(); if (!P || !P.celebrate) return;
+    try{
+      P.celebrate(kind, {
+        title: kind === 'goal' ? '🎉 GOAL CLEARED!' : '✨ MINI CLEARED!',
+        sub: 'ไปต่อเลย! 🌟'
+      });
+    }catch(_){}
   }
 
-  // Quest shared state
+  /* -------------------- Quest shared state -------------------- */
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
     streakGood:0,
@@ -332,6 +340,7 @@ export function boot(){
     runMode: RUN_MODE,
     final8Good: 0
   };
+  window.__GJ_QSTATE__ = qState;
 
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = false;
@@ -344,44 +353,96 @@ export function boot(){
   });
 
   let started = false;
-  setInterval(()=>{ if (started) qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1; }, 1000);
+  setInterval(()=>{
+    if (!started) return;
+    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
+  }, 1000);
 
   let Q = null;
 
-  window.addEventListener('quest:goodHit', ()=>{
+  /* -------------------- Quest/FX hooks from safe.js -------------------- */
+  window.addEventListener('quest:goodHit', (e)=>{
+    const d = e.detail || {};
+    const x = Number(d.x||0), y = Number(d.y||0);
+    const j = String(d.judgment||'good').toLowerCase();
+    const isPerfect = j.includes('perfect');
+
+    // streak & final sprint count
     qState.streakGood = (qState.streakGood|0) + 1;
     if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
-    if (Q) Q.tick(qState);
-  });
-  window.addEventListener('quest:badHit', ()=>{
-    qState.safeNoJunkSeconds = 0;
-    qState.streakGood = 0;
-    if (Q) Q.tick(qState);
-  });
-  window.addEventListener('quest:block', ()=>{
-    qState.blocks = (qState.blocks|0) + 1;
-    if (Q) Q.tick(qState);
-  });
-  window.addEventListener('quest:power', (e)=>{
-    const d = e.detail || {};
-    const p = (d.power||'');
-    if (p === 'magnet') qState.usedMagnet = true;
-    if (p === 'time') qState.timePlus = (qState.timePlus|0) + 1;
-    if (p === 'gold') qState.goldHitsThisMini = true;
-    if (Q) Q.tick(qState);
-  });
-  window.addEventListener('quest:bossClear', ()=>{
-    qState.bossCleared = true;
-    if (Q) Q.tick(qState);
+
+    fxBurst(x,y,true,isPerfect ? 18 : 14);
+    fxPop(x,y,isPerfect ? 'PERFECT!' : 'GOOD!');
+
+    // gold mini fix: if safe.js tags kind='gold' we set flag
+    if (String(d.kind||'') === 'gold') qState.goldHitsThisMini = true;
+
+    Q && Q.tick(qState);
   });
 
-  window.addEventListener('hha:judge', (e)=>{ safeText(elJudge, (e.detail||{}).label || '\u00A0'); });
+  window.addEventListener('quest:badHit', (e)=>{
+    const d = e.detail || {};
+    const x = Number(d.x||0), y = Number(d.y||0);
+
+    qState.safeNoJunkSeconds = 0;
+    qState.streakGood = 0;
+
+    fxBurst(x,y,false,14);
+    fxPop(x,y,'JUNK!');
+
+    Q && Q.tick(qState);
+  });
+
+  window.addEventListener('quest:block', (e)=>{
+    const d = e.detail || {};
+    const x = Number(d.x||0), y = Number(d.y||0);
+
+    qState.blocks = (qState.blocks|0) + 1;
+
+    fxBurst(x,y,true,10);
+    fxPop(x,y,'BLOCK!');
+
+    Q && Q.tick(qState);
+  });
+
+  window.addEventListener('quest:power', (e)=>{
+    const d = e.detail || {};
+    const x = Number(d.x||0), y = Number(d.y||0);
+    const p = String(d.power||'').toLowerCase();
+
+    if (p === 'magnet') qState.usedMagnet = true;
+    if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
+    if (p === 'gold')   qState.goldHitsThisMini = true;
+
+    fxBurst(x,y,true,12);
+    fxPop(x,y,(p||'POWER').toUpperCase() + '!');
+
+    Q && Q.tick(qState);
+  });
+
+  window.addEventListener('quest:bossClear', ()=>{
+    qState.bossCleared = true;
+    Q && Q.tick(qState);
+  });
+
+  window.addEventListener('quest:cleared', (e)=>{
+    const d = e.detail || {};
+    const kind = String(d.kind||'').toLowerCase();
+    fxCelebrate(kind.includes('goal') ? 'goal' : 'mini');
+    setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
+  });
+
+  /* -------------------- HUD listeners -------------------- */
+  window.addEventListener('hha:judge', (e)=>{
+    safeText(elJudge, (e.detail||{}).label || '\u00A0');
+  });
+
   window.addEventListener('hha:time', (e)=>{
     const sec = (e.detail||{}).sec;
     if (typeof sec === 'number' && sec >= 0){
       safeText(elTime, sec + 's');
       qState.timeLeft = sec|0;
-      if (Q) Q.tick(qState);
+      Q && Q.tick(qState);
     }
   });
 
@@ -389,17 +450,20 @@ export function boot(){
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
-    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; } // ✅ important
+    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
     if (typeof d.misses === 'number'){
       qState.miss = d.misses|0;
       safeText(elMiss, String(qState.miss));
-      if (qState.miss > lastMissSeen){ qState.streakGood = 0; lastMissSeen = qState.miss; }
+      if (qState.miss > lastMissSeen){
+        qState.streakGood = 0;
+        lastMissSeen = qState.miss;
+      }
     }
     if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
-    if (Q) Q.tick(qState);
+    Q && Q.tick(qState);
   });
 
-  // Fever + STUN badge + vortex + flame + STUN bar + input lock
+  // ✅ Fever/Shield + STUN badge + vortex
   window.addEventListener('hha:fever', (e)=>{
     const d = e.detail || {};
     const fever = Number(d.fever||0);
@@ -409,32 +473,11 @@ export function boot(){
     if (elFeverFill) elFeverFill.style.width = Math.max(0, Math.min(100, fever)) + '%';
     if (elFeverPct) safeText(elFeverPct, Math.round(Math.max(0, Math.min(100, fever))) + '%');
     if (elShield) safeText(elShield, String(shield|0));
-    if (elStunBadge) elStunBadge.classList.toggle('show', stunActive);
-    if (elFlame) elFlame.classList.toggle('show', stunActive || fever >= 85);
+    if (elStunBadge) safeClass(elStunBadge, 'show', stunActive);
 
-    // ✅ STUN bar bind
-    const leftMs = Number(d.stunLeftMs || 0);
-    const durMs  = Number(d.stunDurMs  || 0);
-    if (elStunRow) elStunRow.classList.toggle('show', stunActive && durMs > 0);
-    if (elStunFill && stunActive && durMs > 0){
-      const pct = Math.max(0, Math.min(1, leftMs / durMs));
-      elStunFill.style.width = Math.round(pct * 100) + '%';
-    } else if (elStunFill){
-      elStunFill.style.width = '0%';
-    }
-    if (elStunTime){
-      elStunTime.textContent = stunActive ? (Math.max(0, leftMs)/1000).toFixed(1)+'s' : '0.0s';
-    }
-
-    // ✅ input lock class (1s) from engine
-    const lockMs = Number(d.lockMs || 0);
-    if (layerEl && lockMs > 0){
-      layerEl.classList.add('input-locked');
-      setTimeout(()=> layerEl.classList.remove('input-locked'), lockMs);
-    }
-
+    // vortex follows aim point while stun
     if (elVortex){
-      elVortex.classList.toggle('show', stunActive);
+      safeClass(elVortex, 'show', stunActive);
       const ap = window.__GJ_AIM_POINT__;
       if (ap && stunActive){
         elVortex.style.left = (ap.x|0) + 'px';
@@ -443,6 +486,7 @@ export function boot(){
     }
   });
 
+  // quest:update (bars)
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
@@ -489,7 +533,7 @@ export function boot(){
     if (startSub){
       startSub.textContent = (RUN_MODE === 'research')
         ? 'โหมดวิจัย: ต้องมี Student ID หรือชื่อเล่นจาก Hub แล้วค่อยกดเริ่ม ✅'
-        : 'เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง ✅';
+        : 'เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅';
     }
   }
 
@@ -501,22 +545,25 @@ export function boot(){
     if (elChal) elChal.textContent = CH_INIT.toUpperCase();
     if (elTime) elTime.textContent = DUR_INIT + 's';
     setCoach('แตะของดี! หลบ junk! ⚡', 'neutral');
-    setLogBadge(null, 'boot: ready');
+    setLogBadge('ok', 'boot: ready');
   }
 
-  function initLogger(payload){
+  // ✅ logger safe: use IIFE global if present; otherwise dynamically import and use window.HHACloudLogger
+  async function initLoggerSafe(opts){
     try{
-      const L = window.HHACloudLogger;
-      if (L && typeof L.init === 'function'){
-        L.init({ endpoint: payload.endpoint, debug: !!payload.debug });
-        setLogBadge('ok', 'logger: ok ✓');
+      // prefer already-loaded global
+      if (window.HHACloudLogger && typeof window.HHACloudLogger.init === 'function'){
+        window.HHACloudLogger.init(opts || {});
         return true;
       }
-      setLogBadge('bad', 'logger: not found (skip)');
+      // else load script as module (it still runs and sets window.HHACloudLogger)
+      await import('../vr/hha-cloud-logger.js');
+      if (window.HHACloudLogger && typeof window.HHACloudLogger.init === 'function'){
+        window.HHACloudLogger.init(opts || {});
+        return true;
+      }
       return false;
-    }catch(err){
-      setLogBadge('bad', 'logger: init failed (skip)');
-      console.warn('[GoodJunkVR] logger init failed:', err);
+    }catch(_){
       return false;
     }
   }
@@ -524,8 +571,11 @@ export function boot(){
   function waitSceneReady(cb){
     const scene = document.querySelector('a-scene');
     if (!scene) { cb(); return; }
-    const tryReady = ()=> (scene.hasLoaded && scene.camera);
-    if (tryReady()) { cb(); return; }
+    const tryReady = ()=>{
+      if (scene.hasLoaded && scene.camera){ cb(); return true; }
+      return false;
+    };
+    if (tryReady()) return;
     scene.addEventListener('loaded', ()=>{
       let tries=0;
       const it = setInterval(()=>{
@@ -535,11 +585,71 @@ export function boot(){
     }, { once:true });
   }
 
-  let LOOK = null;
+  function gradeFromStats({score, miss, comboMax, goalsCleared, minisCleared}){
+    // สเกลง่าย ๆ ให้ “ดูเป็นเกมจริง”
+    const s = Number(score||0);
+    const m = Number(miss||0);
+    const c = Number(comboMax||0);
+    const g = Number(goalsCleared||0);
+    const n = Number(minisCleared||0);
+
+    const value = (s * 1.0) + (c * 18) + (g * 260) + (n * 55) - (m * 120);
+
+    if (value >= 1800) return 'SSS';
+    if (value >= 1450) return 'SS';
+    if (value >= 1180) return 'S';
+    if (value >= 900)  return 'A';
+    if (value >= 620)  return 'B';
+    return 'C';
+  }
+
+  function showEndSummary(stats){
+    if (!endOverlay) return;
+    const qMeta = (Q && Q.getState) ? Q.getState() : { goalsCleared:0, minisCleared:0 };
+
+    const final = {
+      score: qState.score|0,
+      goodHits: qState.goodHits|0,
+      miss: qState.miss|0,
+      comboMax: qState.comboMax|0,
+      goalsCleared: qMeta.goalsCleared|0,
+      minisCleared: qMeta.minisCleared|0,
+      ...(stats||{})
+    };
+
+    const gr = gradeFromStats(final);
+
+    safeText(endScore, String(final.score|0));
+    safeText(endGood,  String(final.goodHits|0));
+    safeText(endMiss,  String(final.miss|0));
+    safeText(endCombo, String(final.comboMax|0));
+    safeText(endGoals, String(final.goalsCleared|0));
+    safeText(endMinis, String(final.minisCleared|0));
+    safeText(endGrade, 'GRADE: ' + gr);
+
+    endOverlay.classList.add('show');
+  }
+
+  btnEndClose && btnEndClose.addEventListener('click', ()=>{
+    endOverlay && endOverlay.classList.remove('show');
+  });
+  btnEndRestart && btnEndRestart.addEventListener('click', ()=>{
+    // restart with new ts to bypass cache
+    const u = new URL(location.href);
+    u.searchParams.set('ts', String(Date.now()));
+    location.href = u.toString();
+  });
+
+  // ✅ End event from safe.js
+  window.addEventListener('hha:end', (e)=>{
+    const d = e.detail || {};
+    showEndSummary(d);
+  });
 
   async function bootOnce({ wantVR }){
     if (started) return;
     started = true;
+
     if (startOverlay) startOverlay.style.display = 'none';
 
     const diff = normDiff(selDiff?.value || DIFF_INIT);
@@ -553,24 +663,27 @@ export function boot(){
     if (elChal) elChal.textContent = chal.toUpperCase();
     if (elTime) elTime.textContent = durationSec + 's';
 
+    // aim system
     bindAimListeners();
+
+    // logger (optional)
+    const endpoint =
+      (sessionStorage.getItem('HHA_LOGGER_ENDPOINT') || '') ||
+      (sessionStorage.getItem('HHA_LOG_ENDPOINT') || '') ||
+      '';
+
+    const okLogger = await initLoggerSafe({
+      endpoint,
+      debug: false
+    });
+    setLogBadge(okLogger ? 'ok' : 'bad', okLogger ? 'logger: ok ✓' : 'logger: skip');
+
+    // camera look
+    const cam = document.querySelector('#gj-camera');
+    enableVRLook(cam);
     initVRButton();
 
-    const endpoint =
-      sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
-      sessionStorage.getItem('HHA_LOGGER_ENDPOINT') ||
-      'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
-
-    initLogger({ endpoint, debug:true });
-
-    // look controls (drag + gyro)
-    const cam = document.querySelector('#gj-camera');
-    LOOK = attachVRLook(cam, { layerEl, hintEl: elTouchHint, sensitivity: 0.0034 });
-    try{
-      const ok = await LOOK.enableGyro();
-      if (ok) setCoach('Gyro พร้อม! หมุนมือถือ = หมุนมุมมอง 🥽', 'happy');
-    }catch(_){}
-
+    // Quest
     Q = makeQuestDirector({
       diff,
       goalDefs: GOODJUNK_GOALS,
@@ -590,10 +703,11 @@ export function boot(){
           run: RUN_MODE,
           challenge: chal,
           time: durationSec,
-          layerEl
+          layerEl: document.getElementById('gj-layer')
         });
 
         window.__GJ_ENGINE__ = ENGINE;
+        setCoach('เริ่มแล้ว! ลากเพื่อเลื่อนมุมมอง • แตะเพื่อย้ายศูนย์กลาง STUN ⚡', 'neutral');
       });
     });
   }
@@ -603,3 +717,5 @@ export function boot(){
 
   prefill();
 }
+
+export default boot;
