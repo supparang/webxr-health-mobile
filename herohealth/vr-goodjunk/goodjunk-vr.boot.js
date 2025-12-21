@@ -1,667 +1,545 @@
-// === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-import { boot as goodjunkBoot } from './goodjunk.safe.js';
-import { attachTouchLook } from './touch-look-goodjunk.js';
-import { initCloudLogger } from '../vr/hha-cloud-logger.js';
+<!-- === /herohealth/goodjunk-vr.html ===
+     GoodJunkVR (PRODUCTION) — Step 1+2 VR Feel Pack
+     ✅ VR-look: drag-to-look + inertia (มือถือ/PC)
+     ✅ deviceorientation-to-look (มือถือ) + smoothing + iOS permission
+     ✅ Targets follow camera yaw/pitch (world-space)
+     ✅ Emoji sticker style + fade-in/out
+     ✅ Tap-anywhere assist (แตะพื้น → เลือกเป้าใกล้สุด)
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Hero Health — GoodJunk VR</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-import { makeQuestDirector } from './quest-director.js';
-import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
+  <!-- A-Frame core -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-(function () {
-  'use strict';
-
-  // bfcache fix
-  window.addEventListener('pageshow', (e)=>{
-    if (e.persisted) window.location.reload();
-  });
-
-  const $ = (id)=>document.getElementById(id);
-  const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){} };
-  const safeStyleWidth = (el, w)=>{ try{ if (el) el.style.width = w; }catch(_){} };
-
-  // HUD elements
-  const elScore = $('hud-score');
-  const elCombo = $('hud-combo');
-  const elMiss  = $('hud-miss');
-  const elDiff  = $('hud-diff-label');
-  const elChal  = $('hud-challenge-label');
-  const elTime  = $('hud-time-label');
-  const elJudge = $('hud-judge');
-
-  const elRunLabel = $('hud-run-label');
-  const elPill = $('hud-pill');
-  const startSub = $('start-sub');
-
-  const elQuestMain = $('hud-quest-main');
-  const elQuestMini = $('hud-quest-mini');
-  const elQuestMainBar = $('hud-quest-main-bar');
-  const elQuestMiniBar = $('hud-quest-mini-bar');
-  const elQuestMainCap = $('hud-quest-main-caption');
-  const elQuestMiniCap = $('hud-quest-mini-caption');
-  const elQuestHint = $('hud-quest-hint');
-  const elMiniCount = $('hud-mini-count');
-
-  const elCoachBubble = $('coach-bubble');
-  const elCoachText   = $('coach-text');
-  const elCoachEmoji  = $('coach-emoji');
-
-  const elTouchHint = $('touch-hint');
-  const btnVR      = $('btn-vr');
-  const elCountdown = $('start-countdown');
-
-  const startOverlay = $('start-overlay');
-  const startCard = startOverlay ? startOverlay.querySelector('.start-card') : null;
-  const btnStart2D = $('btn-start-2d');
-  const btnStartVR = $('btn-start-vr');
-  const selDiff = $('sel-diff');
-  const selChallenge = $('sel-challenge');
-
-  const logDot  = $('logdot');
-  const logText = $('logtext');
-
-  // Extra overlays
-  const feverFire = $('fever-fire');
-  const lockFx = $('lock-fx');
-
-  // STUN UI
-  const stunFill = $('stun-fill');
-  const stunTxt  = $('stun-txt');
-  let stunEndAt = 0;
-  let stunTotal = 0;
-  let stunRaf = 0;
-
-  // URL params from hub
-  const pageUrl = new window.URL(window.location.href);
-  const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();                 // play | research
-  const URL_DIFF = (pageUrl.searchParams.get('diff') || 'normal').toLowerCase();            // easy | normal | hard
-  const URL_CH = (pageUrl.searchParams.get('ch') || pageUrl.searchParams.get('challenge') || 'rush').toLowerCase(); // rush|boss|survival
-  const URL_TIME_RAW = parseInt(pageUrl.searchParams.get('time') || '', 10);
-
-  const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
-  function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
-  function normDiff(v){ v=String(v||'normal').toLowerCase(); return (v==='easy'||v==='hard'||v==='normal') ? v : 'normal'; }
-  function normCh(v){ v=String(v||'rush').toLowerCase(); return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush'; }
-  function normRun(v){ v=String(v||'play').toLowerCase(); return (v==='research') ? 'research' : 'play'; }
-
-  const RUN_MODE = normRun(URL_RUN);
-  const DIFF_INIT = normDiff(URL_DIFF);
-  const CH_INIT = normCh(URL_CH);
-  const DUR_INIT = clamp(
-    (Number.isFinite(URL_TIME_RAW) ? URL_TIME_RAW : (DEFAULT_TIME[DIFF_INIT] || 60)),
-    20, 180
-  );
-
-  // Coach images (ไฟล์จริงอยู่ /herohealth/img)
-  const COACH_IMG = {
-    neutral: '../img/coach-neutral.png',
-    happy:   '../img/coach-happy.png',
-    sad:     '../img/coach-sad.png',
-    fever:   '../img/coach-fever.png'
-  };
-
-  let lastCoachTimeout = null;
-  function setCoachFace(mood){
-    const m = COACH_IMG[mood] ? mood : 'neutral';
-    if (elCoachEmoji) elCoachEmoji.style.backgroundImage = `url('${COACH_IMG[m]}')`;
-  }
-  function setCoach(text, mood='neutral'){
-    if (elCoachBubble) elCoachBubble.classList.add('show');
-    safeText(elCoachText, text || '');
-    setCoachFace(mood);
-    if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
-    lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), 4200);
-  }
-
-  // ---------- FX helper ----------
-  function getParticles(){
-    return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
-  }
-  function posFromDetail(detail){
-    const x = (detail && typeof detail.x === 'number') ? detail.x : (window.innerWidth * 0.5);
-    const y = (detail && typeof detail.y === 'number') ? detail.y : (window.innerHeight * 0.55);
-    return { x, y };
-  }
-  function fxBurst(detail, good=true, count=14){
-    const P = getParticles(); if (!P || !P.burstAt) return;
-    const { x, y } = posFromDetail(detail);
-    try{ P.burstAt(x, y, { count, good: !!good }); }catch(_){}
-  }
-  function fxPop(detail, label, plain=true){
-    const P = getParticles(); if (!P || !P.scorePop) return;
-    const { x, y } = posFromDetail(detail);
-    try{ P.scorePop(x, y, '', String(label||''), { plain: !!plain }); }catch(_){}
-  }
-  function fxCelebrate(kind){
-    const P = getParticles(); if (!P || !P.celebrate) return;
-    try{
-      P.celebrate(kind, {
-        title: kind === 'goal' ? '🎉 GOAL CLEARED!' : '✨ MINI CLEARED!',
-        sub: 'ไปต่อเลย! 🌟'
-      });
-    }catch(_){}
-  }
-
-  // ---------- LOCK/STUN FX ----------
-  let __audioCtx = null;
-  function getAudioCtx(){
-    try{
-      if (__audioCtx) return __audioCtx;
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      __audioCtx = new AC();
-      return __audioCtx;
-    }catch(_){ return null; }
-  }
-  function beep(freq=880, dur=0.06, gain=0.08){
-    const ac = getAudioCtx();
-    if (!ac) return;
-    try{
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = 'square';
-      o.frequency.value = freq;
-      g.gain.value = gain;
-      o.connect(g); g.connect(ac.destination);
-      const t0 = ac.currentTime;
-      o.start(t0);
-      o.stop(t0 + dur);
-    }catch(_){}
-  }
-  function tickSeries(ms=1000){
-    const times = [0, 140, 280, 420, 560];
-    for (let i=0;i<times.length;i++){
-      setTimeout(()=> beep(900 + i*40, 0.05, 0.06), times[i]);
+  <style>
+    :root{
+      color-scheme: light dark;
+      --bg-main:#020617;
+      --panel:#020617;
+      --panel-soft:#0b1120;
+      --accent:#22c55e;
+      --accent-soft:rgba(34,197,94,0.18);
+      --danger:#f97316;
+      --text-main:#e5e7eb;
+      --text-soft:#9ca3af;
     }
-  }
-  function playLockFx(ms=1000){
-    if (lockFx){
-      try{
-        lockFx.classList.remove('show');
-        lockFx.style.setProperty('--lockDur', String(ms)+'ms');
-        void lockFx.offsetWidth;
-        lockFx.classList.add('show');
-        setTimeout(()=> lockFx.classList.remove('show'), ms + 120);
-      }catch(_){}
-    }
-    document.body.classList.add('lock-shake');
-    setTimeout(()=> document.body.classList.remove('lock-shake'), 240);
+    *{ box-sizing:border-box; }
 
-    tickSeries(ms);
-    try{ navigator.vibrate && navigator.vibrate([70,40,70]); }catch(_){}
-    fxPop({ x: window.innerWidth*0.5, y: window.innerHeight*0.42 }, 'STUN 1s!', true);
-  }
-
-  function startStunHUD(ms=1000){
-    const now = performance.now();
-    stunEndAt = Math.max(stunEndAt, now + ms);
-    stunTotal = ms;
-
-    function frame(){
-      const t = performance.now();
-      const left = Math.max(0, stunEndAt - t);
-      const pct = (stunTotal > 0) ? (left / stunTotal) : 0;
-
-      if (stunFill) stunFill.style.width = Math.round(pct*100) + '%';
-      if (stunTxt)  stunTxt.textContent  = (left > 0) ? (Math.ceil(left/100)/10).toFixed(1) + 's' : '—';
-
-      if (left > 0){
-        stunRaf = requestAnimationFrame(frame);
-      }else{
-        if (stunFill) stunFill.style.width = '0%';
-        if (stunTxt)  stunTxt.textContent  = '—';
-        stunRaf = 0;
-      }
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.22), transparent 55%),
+        var(--bg-main);
+      color:var(--text-main);
+      overflow:hidden;
+      touch-action:none;
     }
 
-    if (!stunRaf) stunRaf = requestAnimationFrame(frame);
-  }
+    a-scene{ width:100vw; height:100vh; position:fixed; inset:0; z-index:0; }
 
-  window.addEventListener('hha:lock', (e)=>{
-    const ms = (e.detail && typeof e.detail.ms === 'number') ? e.detail.ms : 1000;
-    playLockFx(ms);
-    startStunHUD(ms);
-    setCoach('โดนล็อก! 1 วิ ยิงไม่ติด 😵‍💫', 'sad');
-  });
-
-  // รองรับ event ชื่อ hha:stun ด้วย (เผื่ออนาคต)
-  window.addEventListener('hha:stun', (e)=>{
-    const ms = (e.detail && typeof e.detail.ms === 'number') ? e.detail.ms : 1000;
-    startStunHUD(ms);
-  });
-
-  // ---------- FEVER overlay ----------
-  window.addEventListener('hha:fever', (e)=>{
-    const d = e.detail || {};
-    const fever = Number(d.fever || 0);
-    const active = !!d.active || fever >= 100;
-    if (feverFire) feverFire.classList.toggle('show', active);
-    if (active) setCoachFace('fever');
-  });
-
-  function runCountdown(onDone){
-    if (!elCountdown){ onDone && onDone(); return; }
-    const steps = ['3','2','1','Go!'];
-    let idx = 0;
-    elCountdown.classList.remove('countdown-hidden');
-    safeText(elCountdown, steps[0]);
-    const t = setInterval(()=>{
-      idx++;
-      if (idx >= steps.length){
-        clearInterval(t);
-        elCountdown.classList.add('countdown-hidden');
-        onDone && onDone();
-      }else{
-        safeText(elCountdown, steps[idx]);
-      }
-    }, 650);
-  }
-
-  function waitSceneReady(cb){
-    const scene = document.querySelector('a-scene');
-    if (!scene) { cb(); return; }
-    const tryReady = ()=>{
-      if (scene.hasLoaded && scene.camera){ cb(); return true; }
-      return false;
-    };
-    if (tryReady()) return;
-    scene.addEventListener('loaded', ()=>{
-      let tries=0;
-      const it = setInterval(()=>{
-        tries++;
-        if (tryReady() || tries>80){ clearInterval(it); cb(); }
-      }, 50);
-    }, { once:true });
-  }
-
-  async function tryEnterVR(){
-    const scene = document.querySelector('a-scene');
-    if (!scene) return false;
-    try{ await scene.enterVR(); return true; }
-    catch(err){ console.warn('[GoodJunkVR] enterVR blocked:', err); return false; }
-  }
-
-  function initVRButton(){
-    if (!btnVR) return;
-    const scene = document.querySelector('a-scene');
-    if (!scene) return;
-    btnVR.addEventListener('click', async ()=>{
-      try{ await scene.enterVR(); }
-      catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
-    });
-  }
-
-  function attachTouch(cameraEl){
-    if (!cameraEl) return;
-    attachTouchLook(cameraEl, {
-      sensitivity: 0.26,
-      areaEl: document.body,
-      onActiveChange(active){
-        if (active){
-          elTouchHint && elTouchHint.classList.add('show');
-          setTimeout(()=> elTouchHint && elTouchHint.classList.remove('show'), 2400);
-        }
-      }
-    });
-  }
-
-  // Logger badge
-  const loggerState = { pending:true, ok:false, message:'' };
-  function setLogBadge(state, text){
-    if (!logDot || !logText) return;
-    logDot.classList.remove('ok','bad');
-    if (state === 'ok') logDot.classList.add('ok');
-    else if (state === 'bad') logDot.classList.add('bad');
-    safeText(logText, text || (state==='ok' ? 'logger: ok' : state==='bad' ? 'logger: error' : 'logger: pending…'));
-  }
-  window.addEventListener('hha:logger', (e)=>{
-    const d = e.detail || {};
-    loggerState.pending = false;
-    loggerState.ok = !!d.ok;
-    loggerState.message = d.msg || '';
-    setLogBadge(d.ok ? 'ok' : 'bad', d.msg || '');
-  });
-
-  function getProfile(){
-    let studentProfile = null;
-    let studentKey = null;
-    try{
-      const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
-      if (raw){
-        studentProfile = JSON.parse(raw);
-        studentKey = studentProfile.studentKey || null;
-      }
-    }catch(_){}
-    return { studentProfile, studentKey };
-  }
-  function hasProfile(p){
-    if (!p || typeof p !== 'object') return false;
-    return !!(p.studentId || p.name || p.nickName || p.studentNo);
-  }
-
-  // Quest state shared with QuestDirector
-  const qState = {
-    score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
-    streakGood:0,
-    goldHits:0,
-    goldHitsThisMini:false,
-    blocks:0,
-    usedMagnet:false,
-    timePlus:0,
-    safeNoJunkSeconds:0,
-    bossCleared:false,
-    challenge: CH_INIT,
-    runMode: RUN_MODE,
-    final8Good: 0
-  };
-
-  // mini reset
-  window.addEventListener('quest:miniStart', ()=>{
-    qState.goldHitsThisMini = false;
-    qState.usedMagnet = false;
-    qState.timePlus = 0;
-    qState.blocks = 0;
-    qState.safeNoJunkSeconds = 0;
-    qState.streakGood = 0;
-  });
-
-  // safeNoJunkSeconds tick
-  let started = false;
-  setInterval(()=>{
-    if (!started) return;
-    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
-  }, 1000);
-
-  let Q = null;
-
-  // --------- เอฟเฟกต์: ฟัง event แล้วยิง FX ---------
-  window.addEventListener('quest:goodHit', (e)=>{
-    const d = e.detail || {};
-    const isPerfect = String(d.judgment||'').toLowerCase().includes('perfect');
-
-    // ✅ streakGood ต้องเพิ่มจริง ไม่งั้น Clean Streak ไม่ผ่าน
-    qState.streakGood = (qState.streakGood|0) + 1;
-
-    // ✅ final8Good
-    if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
-
-    // ✅ goldHitsThisMini
-    if (String(d.kind||'') === 'gold') qState.goldHitsThisMini = true;
-
-    fxBurst(d, true, isPerfect ? 18 : 14);
-    fxPop(d, isPerfect ? 'PERFECT!' : (String(d.kind||'')==='gold' ? 'GOLD!' : 'GOOD!'));
-
-    if (Q) Q.onEvent(isPerfect ? 'perfectHit' : 'goodHit', qState);
-  });
-
-  window.addEventListener('quest:badHit', (e)=>{
-    const d = e.detail || {};
-    fxBurst(d, false, 14);
-    fxPop(d, 'JUNK!');
-    qState.safeNoJunkSeconds = 0;
-    qState.streakGood = 0;
-    if (Q) Q.onEvent('junkHit', qState);
-  });
-
-  window.addEventListener('quest:block', (e)=>{
-    const d = e.detail || {};
-    qState.blocks = (qState.blocks|0) + 1;
-    fxBurst(d, true, 10);
-    fxPop(d, 'BLOCK!');
-    if (Q) Q.onEvent('shieldBlock', qState);
-  });
-
-  window.addEventListener('quest:power', (e)=>{
-    const d = e.detail || {};
-    const p = (d.power||'');
-    if (p === 'magnet') qState.usedMagnet = true;
-    if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
-    fxBurst(d, true, 12);
-    fxPop(d, String(p||'POWER').toUpperCase() + '!');
-    // power ไม่เพิ่ม streakGood (ให้ Clean Streak ยุติธรรม: นับเฉพาะ good/gold)
-    if (Q) Q.onEvent('power', qState);
-  });
-
-  window.addEventListener('quest:bossClear', ()=>{
-    qState.bossCleared = true;
-    fxPop({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, 'BOSS CLEAR!');
-    fxBurst({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, true, 22);
-    if (Q) Q.onEvent('bossClear', qState);
-  });
-
-  window.addEventListener('quest:cleared', (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind||'').toLowerCase();
-    if (kind.includes('goal')) fxCelebrate('goal');
-    else fxCelebrate('mini');
-    setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
-  });
-
-  // HUD listeners
-  window.addEventListener('hha:judge', (e)=>{
-    const label = (e.detail||{}).label || '';
-    safeText(elJudge, label || '\u00A0');
-
-    // ถ้าเป็น MISS ให้ reset streak (กันกรณี good expired)
-    if (String(label).toUpperCase().includes('MISS')) {
-      qState.streakGood = 0;
-    }
-  });
-
-  window.addEventListener('hha:time', (e)=>{
-    const sec = (e.detail||{}).sec;
-    if (typeof sec === 'number' && sec >= 0){
-      safeText(elTime, sec + 's');
-      qState.timeLeft = sec|0;
-      if (Q) Q.tick(qState);
-    }
-  });
-
-  let _lastMiss = 0;
-  window.addEventListener('hha:score', (e)=>{
-    const d = e.detail || {};
-    if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
-    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
-    if (typeof d.misses === 'number'){
-      qState.miss = d.misses|0;
-      safeText(elMiss, String(qState.miss));
-      // ถ้า miss เพิ่มขึ้น -> reset streak
-      if (qState.miss > _lastMiss) qState.streakGood = 0;
-      _lastMiss = qState.miss;
-    }
-    if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
-    if (typeof d.challenge === 'string'){ qState.challenge = normCh(d.challenge); }
-    if (Q) Q.tick(qState);
-  });
-
-  // quest:update (schema ใหม่)
-  window.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
-    const goal = d.goal || null;
-    const mini = d.mini || null;
-    const meta = d.meta || {};
-
-    if (goal){
-      const cur = (goal.cur|0);
-      const max = (goal.max|0);
-      const pct = Math.max(0, Math.min(1, Number(goal.pct ?? (max>0?cur/max:0))));
-      safeText(elQuestMain, goal.title || 'ภารกิจหลัก');
-      safeStyleWidth(elQuestMainBar, Math.round(pct*100) + '%');
-      safeText(elQuestMainCap, `${cur} / ${max}`);
-    } else {
-      safeText(elQuestMain, 'ภารกิจหลัก (ครบ) ✅');
-      safeStyleWidth(elQuestMainBar, '100%');
-      safeText(elQuestMainCap, '');
+    /* DOM target layer */
+    #gj-layer{
+      position:fixed; inset:0;
+      z-index:649;
+      pointer-events:auto;
+      touch-action:none;
     }
 
-    if (mini){
-      const cur = (mini.cur|0);
-      const max = (mini.max|0);
-      const pct = Math.max(0, Math.min(1, Number(mini.pct ?? (max>0?cur/max:0))));
-      safeText(elQuestMini, 'Mini: ' + (mini.title || ''));
-      safeStyleWidth(elQuestMiniBar, Math.round(pct*100) + '%');
-      safeText(elQuestMiniCap, `${cur} / ${max}`);
-    } else {
-      safeText(elQuestMini, 'Mini quest (ครบ) ✅');
-      safeStyleWidth(elQuestMiniBar, '100%');
-      safeText(elQuestMiniCap, '');
+    /* --- Emoji Sticker Targets --- */
+    .gj-target{
+      position:absolute;
+      transform: translate(-50%,-50%) scale(var(--tScale, 1));
+      font-size: clamp(46px, 8.0vw, 82px);
+      line-height:1;
+      user-select:none;
+      pointer-events:auto;
+      cursor:pointer;
+
+      /* sticker vibe */
+      filter: drop-shadow(0 14px 24px rgba(0,0,0,0.55));
+      text-shadow:
+        0 2px 0 rgba(255,255,255,0.95),
+        0 -2px 0 rgba(255,255,255,0.95),
+        2px 0 0 rgba(255,255,255,0.95),
+        -2px 0 0 rgba(255,255,255,0.95),
+        2px 2px 0 rgba(255,255,255,0.95),
+        -2px 2px 0 rgba(255,255,255,0.95),
+        2px -2px 0 rgba(255,255,255,0.95),
+        -2px -2px 0 rgba(255,255,255,0.95),
+        0 14px 26px rgba(0,0,0,0.55);
+
+      transition: transform .12s ease-out, opacity .12s ease-out, filter .12s ease-out;
+      will-change: transform, left, top, opacity;
+      opacity:1;
     }
 
-    let hint = '';
-    if (goal && String(goal.state||'').toLowerCase().includes('clear')) hint = 'GOAL CLEAR! 🎉';
-    else if (mini && String(mini.state||'').toLowerCase().includes('clear')) hint = 'MINI CLEAR! ✨';
-    else if (goal && Number(goal.pct||0) >= 0.8) hint = 'ใกล้แล้ว! 🔥';
-    else if (mini && Number(mini.pct||0) >= 0.8) hint = 'อีกนิดเดียว! ⚡';
-    safeText(elQuestHint, hint);
-
-    const miniCount = (meta.miniCount|0);
-    const minisCleared = (Q && Q.getState) ? (Q.getState().minisCleared|0) : 0;
-    safeText(elMiniCount, `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`);
-  });
-
-  function applyRunPill(){
-    const runTxt = RUN_MODE.toUpperCase();
-    safeText(elRunLabel, runTxt);
-    if (elPill) elPill.classList.toggle('research', RUN_MODE === 'research');
-
-    if (startSub){
-      safeText(startSub, (RUN_MODE === 'research')
-        ? 'โหมดวิจัย: ต้องมี Student ID หรือชื่อเล่นจาก Hub แล้วค่อยกดเริ่ม ✅'
-        : 'เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅'
-      );
+    .gj-target.spawn{
+      opacity:0;
+      transform:translate(-50%,-50%) scale(0.72);
+      filter: drop-shadow(0 8px 14px rgba(0,0,0,0.45));
     }
-  }
-
-  function prefillFromHub(){
-    try{ selDiff.value = DIFF_INIT; }catch(_){}
-    try{ selChallenge.value = CH_INIT; }catch(_){}
-
-    applyRunPill();
-
-    safeText(elDiff, DIFF_INIT.toUpperCase());
-    safeText(elChal, CH_INIT.toUpperCase());
-    safeText(elTime, DUR_INIT + 's');
-
-    setCoachFace('neutral');
-
-    const endpoint = sessionStorage.getItem('HHA_LOG_ENDPOINT');
-    if (endpoint) setLogBadge(null, 'logger: endpoint set ✓');
-    else setLogBadge(null, 'logger: endpoint missing (hub?)');
-  }
-
-  async function bootOnce({ wantVR }){
-    if (started) return;
-
-    if (RUN_MODE === 'research'){
-      const { studentProfile } = getProfile();
-      if (!hasProfile(studentProfile)){
-        alert('โหมดวิจัย: กรุณากรอก "รหัสนักเรียน" หรือ "ชื่อเล่น" ที่ Hub ก่อน แล้วกลับมาเริ่มใหม่');
-        window.location.href = './hub.html';
-        return;
-      }
+    .gj-target.spawn.in{
+      opacity:1;
+      transform:translate(-50%,-50%) scale(var(--tScale, 1));
     }
 
-    started = true;
-    if (startOverlay) startOverlay.style.display = 'none';
+    .gj-target.gone{
+      opacity:0;
+      transform:translate(-50%,-50%) scale(0.62) rotate(6deg);
+      filter: drop-shadow(0 8px 14px rgba(0,0,0,0.35));
+    }
 
-    const diff = normDiff(selDiff?.value || DIFF_INIT);
-    const chal = normCh(selChallenge?.value || CH_INIT);
-    const durationSec = clamp(DUR_INIT, 20, 180);
+    .gj-junk{ opacity:.98; filter: drop-shadow(0 14px 24px rgba(249,115,22,0.25)); }
+    .gj-gold{ filter: drop-shadow(0 16px 28px rgba(250,204,21,0.38)); }
+    .gj-fake{ filter: drop-shadow(0 14px 24px rgba(168,85,247,0.25)); }
+    .gj-power{ filter: drop-shadow(0 16px 28px rgba(56,189,248,0.30)); }
+    .gj-boss{
+      font-size: clamp(56px, 10.5vw, 118px);
+      filter: drop-shadow(0 18px 34px rgba(250,204,21,0.28));
+    }
 
-    qState.challenge = chal;
-    qState.runMode = RUN_MODE;
-    qState.final8Good = 0;
-    qState.streakGood = 0;
-    qState.goldHitsThisMini = false;
+    /* HUD */
+    .hud-root{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:650;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      padding:10px 10px 14px;
+    }
+    .hud-top{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+    }
+    .hud-card{
+      background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
+      border-radius:18px;
+      padding:8px 10px;
+      box-shadow:0 18px 40px rgba(15,23,42,0.65);
+      border:1px solid rgba(148,163,184,0.18);
+      pointer-events:auto;
+    }
+    .hud-main{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin-bottom:4px;
+    }
+    .hud-main-title{
+      font-size:14px;
+      font-weight:600;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      color:var(--text-soft);
+    }
+    .hud-pill{
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:999px;
+      background:rgba(15,118,110,0.2);
+      border:1px solid rgba(45,212,191,0.4);
+      color:#a5f3fc;
+      font-weight:600;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .hud-pill.research{
+      background:rgba(37,99,235,0.18);
+      border-color:rgba(59,130,246,0.55);
+      color:#bfdbfe;
+    }
+    .hud-metrics{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
+    .metric{ min-width:92px; }
+    .metric-label{
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      color:var(--text-soft);
+    }
+    .metric-value{
+      font-size:15px;
+      font-weight:800;
+      margin-top:2px;
+    }
+    .metric-value.accent{ color:var(--accent); }
+    .metric-value.danger{ color:var(--danger); }
 
-    safeText(elDiff, diff.toUpperCase());
-    safeText(elChal, chal.toUpperCase());
-    safeText(elTime, durationSec + 's');
+    /* Quest */
+    .hud-quest{ max-width:340px; font-size:12px; }
+    .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
+    .quest-main-label{ font-size:13px; font-weight:700; }
+    .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
+    .quest-progress-wrap{ margin-top:5px; display:flex; flex-direction:column; gap:4px; }
+    .quest-bar{ position:relative; width:100%; height:4px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; }
+    .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
+    .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
 
-    safeText(elScore, '0');
-    safeText(elCombo, '0');
-    safeText(elMiss,  '0');
-    safeText(elJudge, '\u00A0');
+    /* Coach */
+    .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
+    .coach-bubble{
+      min-width:60%;
+      max-width:680px;
+      text-align:left;
+      background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%), rgba(15,23,42,0.96);
+      border-radius:999px;
+      padding:8px 14px;
+      border:1px solid rgba(52,211,153,0.45);
+      font-size:13px;
+      display:none;
+      align-items:center;
+      justify-content:flex-start;
+      gap:8px;
+      pointer-events:auto;
+      position:relative;
+      overflow:hidden;
+      box-shadow:0 18px 40px rgba(15,23,42,0.65);
+    }
+    .coach-bubble.show{ display:flex; }
+    .coach-col{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+    .coach-label{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.16em;
+      color:#6ee7b7;
+      font-weight:800;
+    }
+    .coach-emoji{
+      width:40px; height:40px;
+      border-radius:999px;
+      background-size:cover;
+      background-position:center;
+      flex-shrink:0;
+      box-shadow:0 0 12px rgba(16,185,129,0.8);
+      animation:coach-idle 1.4s ease-in-out infinite;
+    }
+    @keyframes coach-idle{
+      0%{ transform:translateY(0) scale(1); }
+      30%{ transform:translateY(-2px) scale(1.03); }
+      60%{ transform:translateY(1px) scale(0.99); }
+      100%{ transform:translateY(0) scale(1); }
+    }
 
-    setCoach('แตะของดี! หลบ junk! ไปเลย! ⚡', 'neutral');
+    /* Center hint */
+    .hint-center{
+      position:fixed; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      font-size:12px;
+      color:var(--text-soft);
+      background:rgba(15,23,42,0.8);
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.35);
+      display:none;
+      pointer-events:none;
+      z-index:651;
+    }
+    .hint-center.show{ display:block; }
 
-    const { studentProfile, studentKey } = getProfile();
+    /* Countdown */
+    .countdown-overlay{
+      position:fixed; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      z-index:655;
+      font-size:clamp(3rem, 10vw, 5rem);
+      font-weight:900;
+      color:#fbbf24;
+      text-shadow:0 0 40px rgba(0,0,0,0.85);
+      pointer-events:none;
+      transition:opacity .25s ease-out, transform .25s ease-out;
+    }
+    .countdown-hidden{
+      opacity:0;
+      visibility:hidden;
+      transform:scale(0.8);
+    }
 
-    const endpoint =
-      sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
-      'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+    /* VR button */
+    .vr-btn{
+      position:fixed; right:12px; bottom:16px; z-index:653;
+      border-radius:999px;
+      border:1px solid rgba(56,189,248,0.7);
+      padding:8px 14px;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+      background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%), rgba(15,23,42,0.96);
+      color:#e0f2fe;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      box-shadow:0 14px 30px rgba(15,23,42,0.9);
+    }
+    .vr-btn span{ font-size:16px; }
 
-    loggerState.pending = true;
-    loggerState.ok = false;
-    loggerState.message = '';
-    setLogBadge(null, 'logger: init…');
+    /* Logger badge */
+    .logbadge{
+      position:fixed; left:10px; bottom:10px; z-index:690;
+      background:rgba(15,23,42,0.88);
+      border:1px solid rgba(148,163,184,0.22);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:11px;
+      color:#e5e7eb;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      pointer-events:none;
+      max-width:92vw;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .dot{ width:8px; height:8px; border-radius:999px; background:#9ca3af; }
+    .dot.ok{ background:#22c55e; }
+    .dot.bad{ background:#ef4444; }
 
-    initCloudLogger({
-      endpoint,
-      projectTag: 'HeroHealth-GoodJunkVR',
-      mode: 'GoodJunkVR',
-      runMode: RUN_MODE,
-      diff,
-      challenge: chal,
-      durationPlannedSec: durationSec,
-      studentKey,
-      profile: studentProfile,
-      debug: true
-    });
+    /* Fever UI block (HUD) */
+    .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
+    .fever-row{ display:flex; align-items:center; gap:8px; }
+    .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
+    .fever-bar{ width:140px; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(148,163,184,0.18); }
+    .fever-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.95)); transition:width .16s ease-out; }
+    .fever-pct{ font-size:10px; color:#fde68a; font-weight:900; min-width:42px; text-align:right; }
+    .shield-row{ display:flex; align-items:center; gap:6px; }
+    .shield-label{ font-size:12px; }
+    .shield-count{ font-weight:950; color:#93c5fd; }
+  </style>
 
-    const cam = document.querySelector('#gj-camera');
-    attachTouch(cam);
-    initVRButton();
+  <!-- ✅ IMPORTANT: FX IIFE MUST LOAD BEFORE boot module -->
+  <script src="./vr/particles.js"></script>
+  <script src="./vr/ui-fever.js"></script>
+  <script src="./vr/hha-summary.js"></script>
 
-    Q = makeQuestDirector({
-      diff,
-      goalDefs: GOODJUNK_GOALS,
-      miniDefs: GOODJUNK_MINIS,
-      maxGoals: 2,
-      maxMini: 999,
-      challenge: chal
-    });
-    Q.start(qState);
+  <!-- ✅ Boot loader (module) -->
+  <script type="module">
+    const $ = (sel) => document.querySelector(sel);
 
-    runCountdown(()=>{
-      waitSceneReady(async ()=>{
+    function setBadge(ok, msg){
+      const dot = $('#logdot');
+      const text = $('#logtext');
+      if (dot) dot.className = 'dot ' + (ok ? 'ok' : 'bad');
+      if (text) text.textContent = msg;
+    }
+
+    async function loadBoot(){
+      const candidates = [
+        './vr-goodjunk/goodjunk-vr.boot.js',
+        './vr-goodjunk/goodjunk-vr.boot.mjs',
+        './vr-goodjunk/goodjunk.boot.js',
+        './goodjunk-vr.boot.js'
+      ];
+
+      let lastErr = null;
+      for (const p of candidates){
         try{
-          if (wantVR) await tryEnterVR();
-
-          const ENGINE = goodjunkBoot({
-            diff,
-            run: RUN_MODE,
-            challenge: chal,
-            time: durationSec,
-            layerEl: document.getElementById('gj-layer')
-          });
-
-          if (!ENGINE) throw new Error('ENGINE is null (goodjunkBoot failed)');
-          window.__GJ_ENGINE__ = ENGINE;
-
-          if (!getParticles()) {
-            console.warn('[GoodJunkVR] Particles not found (did you load ./vr/particles.js before this module?)');
+          const mod = await import(p);
+          const bootFn = mod.boot || mod.start || mod.init || mod.default;
+          if (typeof bootFn === 'function'){
+            setBadge(true, 'boot: ' + p);
+            bootFn();
+            return;
           }
-
-          try{ Q && Q.tick && Q.tick(qState); }catch(_){}
-        }catch(err){
-          console.error('[GoodJunkVR] boot failed:', err);
-          alert('กด Start แล้วเข้าเกมไม่สำเร็จ\nดู Console: error บรรทัดแรก');
+          lastErr = new Error('Boot module loaded but no boot/start/init/default function: ' + p);
+        }catch(e){
+          lastErr = e;
         }
-      });
+      }
+
+      console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
+      setBadge(false, 'boot failed: ' + (lastErr && lastErr.message ? lastErr.message : 'unknown'));
+      const sub = $('#start-sub');
+      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
+    }
+
+    window.addEventListener('load', () => {
+      setBadge(false, 'boot: loading…');
+      loadBoot();
     });
-  }
+  </script>
+</head>
 
-  btnStart2D && btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
-  btnStartVR && btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
+<body>
 
-  // ✅ tap-anywhere on overlay (เริ่ม 2D)
-  if (startOverlay){
-    startOverlay.addEventListener('click', (ev)=>{
-      // ถ้าคลิกบนปุ่ม/select ในการ์ด ให้ไม่ auto-start
-      const t = ev.target;
-      if (t && (t.closest && t.closest('button, select, option, .start-card'))) return;
-      bootOnce({ wantVR:false });
-    }, { passive:true });
-  }
+  <!-- A-Frame scene (กล้องใช้เป็นตัวกำหนด yaw/pitch ให้ DOM targets) -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="colorManagement: true; physicallyCorrectLights: true"
+  >
+    <!-- ✅ ปิด look-controls ของ A-Frame เพื่อไม่แย่ง drag เรา -->
+    <a-entity id="gj-camera" camera look-controls="enabled: false" position="0 1.6 0"></a-entity>
 
-  prefillFromHub();
-})();
+    <a-entity light="type: ambient; intensity: 1.0"></a-entity>
+    <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
+    <a-sky color="#061225"></a-sky>
+  </a-scene>
+
+  <!-- DOM target layer -->
+  <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
+
+  <!-- HUD -->
+  <div class="hud-root" aria-label="HUD">
+    <div class="hud-top">
+      <!-- Left: Score/Time/Miss/Combo -->
+      <div class="hud-card" style="min-width: 290px;">
+        <div class="hud-main">
+          <div class="hud-main-title">GOODJUNK</div>
+          <div class="hud-pill" id="hud-pill">
+            <span>●</span>
+            <span id="hud-run-label">PLAY</span>
+          </div>
+        </div>
+
+        <div class="hud-metrics">
+          <div class="metric">
+            <div class="metric-label">Score</div>
+            <div class="metric-value accent" id="hud-score">0</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Combo Max</div>
+            <div class="metric-value" id="hud-combo">0</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Miss</div>
+            <div class="metric-value danger" id="hud-miss">0</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Time</div>
+            <div class="metric-value" id="hud-time-label">—</div>
+          </div>
+        </div>
+
+        <div style="font-size:11px; color:var(--text-soft); margin-top:6px;">
+          Diff: <b id="hud-diff-label">NORMAL</b> • Challenge: <b id="hud-challenge-label">RUSH</b>
+          <span style="margin-left:8px;">|</span>
+          <span id="hud-judge" style="margin-left:8px; font-weight:900;">&nbsp;</span>
+        </div>
+      </div>
+
+      <!-- Right: Quest + Fever -->
+      <div class="hud-card hud-quest" style="min-width: 300px;">
+        <div class="quest-title">Quest</div>
+
+        <div class="quest-main-label" id="hud-quest-main">ภารกิจหลัก</div>
+        <div class="quest-progress-wrap">
+          <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-main-bar"></div></div>
+          <div class="quest-caption">
+            <span id="hud-quest-main-caption">0 / 0</span>
+            <span id="hud-quest-hint"></span>
+          </div>
+        </div>
+
+        <div class="quest-mini-label" id="hud-quest-mini">Mini: —</div>
+        <div class="quest-progress-wrap">
+          <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-mini-bar"></div></div>
+          <div class="quest-caption">
+            <span id="hud-quest-mini-caption">0 / 0</span>
+            <span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span>
+          </div>
+        </div>
+
+        <!-- Fever/Shield UI -->
+        <div class="hud-fever">
+          <div class="fever-row">
+            <div class="fever-label">FEVER</div>
+            <div class="fever-bar"><div class="fever-fill" id="fever-fill" style="width:0%"></div></div>
+            <div class="fever-pct" id="fever-pct">0%</div>
+          </div>
+          <div class="shield-row">
+            <div class="shield-label">🛡️</div>
+            <div>Shield</div>
+            <div class="shield-count" id="shield-count">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: Coach -->
+    <div class="hud-bottom">
+      <div class="coach-bubble" id="coach-bubble">
+        <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
+        <div class="coach-col">
+          <div class="coach-label">Coach</div>
+          <div id="coach-text">แตะของดี! หลบ junk! ⚡</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center hint -->
+  <div class="hint-center" id="touch-hint">ลากนิ้วเพื่อหมุนมุมมอง 👆</div>
+
+  <!-- Countdown overlay -->
+  <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
+
+  <!-- VR button -->
+  <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR">
+    <span>🥽</span> Enter VR
+  </button>
+
+  <!-- Logger badge -->
+  <div class="logbadge" id="logbadge">
+    <div class="dot" id="logdot"></div>
+    <div id="logtext">boot: loading…</div>
+  </div>
+
+  <!-- Start overlay -->
+  <div class="start-overlay" id="start-overlay">
+    <div class="start-card" style="width:min(560px,96vw);border-radius:22px;background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));border:1px solid rgba(148,163,184,0.2);box-shadow:0 30px 80px rgba(0,0,0,0.55);padding:16px 16px 14px;">
+      <h1 style="font-size:18px;font-weight:950;margin:0 0 6px;letter-spacing:.02em;">GoodJunk VR</h1>
+      <p class="start-sub" id="start-sub" style="margin:0 0 12px;color:var(--text-soft);font-size:13px;line-height:1.35;">
+        เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR/ไจโร) ✅
+      </p>
+
+      <div class="start-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <div style="font-size:11px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.14em;">Difficulty</div>
+          <select id="sel-diff" style="width:100%;border-radius:12px;border:1px solid rgba(30,64,175,0.6);background:rgba(15,23,42,0.9);padding:7px 9px;color:var(--text-main);font-size:13px;outline:none;">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.14em;">Challenge</div>
+          <select id="sel-challenge" style="width:100%;border-radius:12px;border:1px solid rgba(30,64,175,0.6);background:rgba(15,23,42,0.9);padding:7px 9px;color:var(--text-main);font-size:13px;outline:none;">
+            <option value="rush" selected>Rush</option>
+            <option value="boss">Boss</option>
+            <option value="survival">Survival</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-top:12px;">
+        <button id="btn-start-2d" type="button" style="border-radius:999px;border:1px solid rgba(148,163,184,0.6);background:rgba(15,23,42,0.86);color:var(--text-main);font-weight:850;padding:10px 14px;cursor:pointer;">▶ Start 2D</button>
+        <button id="btn-start-vr" type="button" style="border-radius:999px;border:1px solid rgba(187,247,208,0.9);background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;padding:10px 14px;font-weight:950;cursor:pointer;">🥽 Start VR</button>
+      </div>
+
+      <div style="font-size:11px;color:var(--text-soft);margin-top:8px;">
+        * ถ้าใช้ iPhone/iPad: กด Start แล้วกด “Allow” เพื่อเปิดไจโร
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
