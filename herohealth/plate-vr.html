@@ -1,4 +1,3 @@
-<!-- === /herohealth/plate-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -8,16 +7,14 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Global FX + Inputs + Logger (IIFE) -->
+  <!-- Global IIFE modules (no inline JS) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
+  <script src="./vr/hha-reticlefx.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Cursor reticle FX (global component; must load after A-Frame) -->
-  <script src="./vr/hha-reticlefx.js" defer></script>
 
   <style>
     :root{
@@ -31,13 +28,8 @@
       --bad:#fb7185;
       --radius:18px;
     }
-    html,body{
-      margin:0; height:100%;
-      background:var(--bg); color:var(--txt);
-      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
-      overflow:hidden;
-      touch-action: none; /* สำคัญกับ drag-to-look + tap-anywhere */
-    }
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--txt);
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif; overflow:hidden; }
 
     .hud-top, .hud-bottom, .hud-left, .hud-right{
       position:fixed; z-index:900;
@@ -65,14 +57,13 @@
       border:1px solid rgba(148,163,184,.25);
       border-radius:999px;
       padding:6px 10px;
-      font-weight:900;
+      font-weight:800;
       letter-spacing:.02em;
       white-space:nowrap;
     }
     .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .k{ color:var(--muted); font-weight:800; }
     .v{ font-weight:900; }
-
     .bar{
       width:160px; height:10px; border-radius:999px;
       background:rgba(148,163,184,.18);
@@ -107,38 +98,67 @@
     #resultCard{ width:min(720px, 92vw); }
     .big{ font-size:22px; font-weight:1000; letter-spacing:.06em; }
     .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    @media (max-width:720px){
-      .grid{ grid-template-columns:1fr; }
-      .card{ max-width: 90vw; }
-    }
+    @media (max-width:720px){ .grid{ grid-template-columns:1fr; } .card{ max-width: 90vw; } }
 
-    /* Tap-anywhere hint */
-    #tapHint{
-      position:fixed; left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      z-index:920;
-      pointer-events:none;
-      font-weight:1000;
-      letter-spacing:.04em;
+    /* Tap-to-start overlay */
+    #startOverlay{
+      position:fixed; inset:0; z-index:960;
+      display:flex; align-items:center; justify-content:center;
+      background:radial-gradient(900px 520px at 50% 40%, rgba(34,197,94,0.10), rgba(2,6,23,0.92));
+      padding:18px;
+      pointer-events:auto;
+    }
+    #startOverlay .box{
+      width:min(720px, 92vw);
       background:rgba(2,6,23,.78);
-      border:1px solid rgba(148,163,184,.22);
-      border-radius:999px;
-      padding:10px 14px;
-      box-shadow:0 18px 44px rgba(0,0,0,.45);
-      opacity:0;
-      transition: opacity .28s ease, transform .28s ease;
+      border:1px solid rgba(148,163,184,.32);
+      border-radius:22px;
+      padding:16px 16px;
+      box-shadow:0 26px 80px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
     }
-    #tapHint.on{
-      opacity:1;
-      transform:translate(-50%,-54%);
+    #startOverlay .title{
+      font-size:22px; font-weight:1000; letter-spacing:.04em;
     }
+    #startOverlay .sub{
+      margin-top:8px; color:rgba(226,232,240,.82); font-weight:900; line-height:1.35;
+    }
+    #startOverlay .sub b{ color:#fff; }
+    #startOverlay .hint{
+      margin-top:10px; color:rgba(148,163,184,.95); font-weight:900;
+    }
+    #startOverlay .row2{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    #startOverlay .cta{
+      pointer-events:auto;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.25);
+      background:rgba(34,197,94,.18);
+      color:var(--txt);
+      padding:12px 14px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+    #startOverlay .cta:active{ transform:translateY(1px); }
   </style>
 </head>
 
 <body>
 
-  <!-- Tap-anywhere hint -->
-  <div id="tapHint">แตะที่ไหนก็ได้เพื่อเริ่ม + เปิด Motion 🎮📱</div>
+  <!-- TAP TO START -->
+  <div id="startOverlay">
+    <div class="box">
+      <div class="title">🍽️ Balanced Plate VR</div>
+      <div class="sub">
+        <b>แตะที่ไหนก็ได้</b> เพื่อเริ่มเล่น (และอนุญาต Motion บน iPhone)<br/>
+        หมุนมือถือ/ลากจอเพื่อมองแบบ VR • ยิงด้วยการแตะ (tap-anywhere) • จ้อง + fuse ก็ได้
+      </div>
+      <div class="row2">
+        <button id="btnStart" class="cta">▶️ START (Tap Anywhere)</button>
+        <button id="btnEnterVR2" class="cta">🥽 ENTER VR</button>
+      </div>
+      <div class="hint">Tip: โหมด Play มี Adaptive / โหมด Research จะยึดตาม Easy/Normal/Hard เท่านั้น</div>
+    </div>
+  </div>
 
   <!-- TOP HUD -->
   <div id="hudTop" class="hud-top">
@@ -231,9 +251,14 @@
     vr-mode-ui="enabled:true"
     embedded
   >
-    <!-- Camera (เราปิด look-controls แล้วให้ plate.safe.js คุม VR-look เอง) -->
-    <a-entity id="cam" camera position="0 1.6 0"
-      look-controls="enabled:false">
+    <!-- Camera -->
+    <a-entity
+      id="cam"
+      camera
+      position="0 1.6 0"
+      look-controls="enabled:false"
+      hha-vrlook="enabled:true; gyro:true; drag:true; inertia:0.08; pitchLimit:78"
+    >
       <a-cursor
         id="cursor"
         fuse="true"
@@ -241,14 +266,16 @@
         raycaster="objects:.plateTarget; far: 6"
         material="color:#ffffff; shader:flat; opacity:0.88"
         geometry="primitive:ring; radiusInner:0.010; radiusOuter:0.018"
-        hha-reticlefx="scaleHover:1.26; opacityHover:0.98; scaleIdle:1.0; opacityIdle:0.72"
+        hha-reticlefx="hoverScale:1.28; hoverOpacity:1.0; idleOpacity:0.70; fusePulse:1"
       ></a-cursor>
-
-      <!-- legacy root (ยังคงไว้) -->
-      <a-entity id="targetRoot" position="0 0 -1.35" rotation="0 0 0"></a-entity>
     </a-entity>
 
     <a-entity light="type:ambient; intensity:1.0; color:#ffffff"></a-entity>
+
+    <!-- world root for targets -->
+    <a-entity id="worldTargets"></a-entity>
+    <!-- legacy (kept harmless) -->
+    <a-entity id="targetRoot" position="0 0 -1.35" rotation="0 0 0"></a-entity>
   </a-scene>
 
   <!-- Module -->
