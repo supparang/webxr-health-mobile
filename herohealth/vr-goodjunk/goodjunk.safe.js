@@ -3,6 +3,7 @@
 // Step 1+2: VR-feel targets follow camera yaw/pitch + sticker + fade + tap-anywhere
 // Step 3: DOM FX burst + float score + judgment near target + include kind/delta in events
 // Step 4: FEVER drains + FEVER->STUN slow-mo + fire overlay hooks (via hha:fever active) + hha:stun
+// Step 5: HERO POWER during STUN — "pull good to safe center" + "repel junk to edges"
 
 'use strict';
 
@@ -31,6 +32,11 @@ function ensureFxStyle(){
   @keyframes gjShard{
     0%{ transform:translate(-50%,-50%) scale(.7); opacity:1; }
     100%{ transform:translate(var(--dx), var(--dy)) scale(.9); opacity:0; }
+  }
+  @keyframes gjPulse{
+    0%{ transform:translate(-50%,-50%) scale(1); opacity:.75; }
+    60%{ transform:translate(-50%,-50%) scale(1.18); opacity:.35; }
+    100%{ transform:translate(-50%,-50%) scale(1.28); opacity:0; }
   }`;
   document.head.appendChild(st);
 }
@@ -96,6 +102,26 @@ function fxBurst(x, y, tone='good'){
     layer.appendChild(s);
     setTimeout(()=>{ try{ s.remove(); }catch(_){} }, 520);
   }
+}
+function fxPulse(x, y){
+  const layer = fxLayer();
+  const ring = document.createElement('div');
+  Object.assign(ring.style, {
+    position:'fixed',
+    left:(x|0)+'px',
+    top:(y|0)+'px',
+    width:'160px',
+    height:'160px',
+    borderRadius:'999px',
+    border:'2px solid rgba(250,204,21,0.85)',
+    boxShadow:'0 0 24px rgba(250,204,21,0.35)',
+    background:'radial-gradient(circle at center, rgba(250,204,21,0.16), transparent 60%)',
+    transform:'translate(-50%,-50%)',
+    animation:'gjPulse .55s ease-out forwards',
+    pointerEvents:'none'
+  });
+  layer.appendChild(ring);
+  setTimeout(()=>{ try{ ring.remove(); }catch(_){} }, 650);
 }
 
 /* ----------------------- DOM World Mapper ----------------------- */
@@ -201,10 +227,18 @@ export function boot(opts = {}){
   const CFG = diffCfg(diff);
 
   // --- Step 4 tuning ---
-  const FEVER_DECAY_PER_SEC = 3.2;       // ปกติค่อย ๆ ลด
-  const STUN_DUR_MS = 4200;              // ช่วง slow-mo
-  const STUN_SLOW_SCALE = 0.55;          // ยิ่งน้อยยิ่งช้าลง
-  const STUN_FEVER_DRAIN_PER_SEC = 22.0; // ตอน STUN ให้ลดเร็ว → จบเองแน่นอน
+  const FEVER_DECAY_PER_SEC = 3.2;
+  const STUN_DUR_MS = 4200;
+  const STUN_SLOW_SCALE = 0.55;
+  const STUN_FEVER_DRAIN_PER_SEC = 22.0;
+
+  // --- Step 5: HERO POWER tuning ---
+  const HERO_PULL = 0.80;      // ดูดของดี
+  const HERO_PUSH = 0.95;      // ผลักขยะ
+  const HERO_MAX_STEP = 130;   // จำกัด step ต่อเฟรม (px)
+  const HERO_EDGE_PAD = 28;    // กันให้ไม่หลุดจอ
+  const HERO_CENTER_Y = 0.60;  // จุดศูนย์กลาง “ปลอดภัย” (ไม่ทับ HUD บน)
+  const HERO_RING = 0.78;      // สำหรับผลัก junk ไปแถว ๆ ขอบ
 
   const state = {
     startedAt: now(),
@@ -218,10 +252,9 @@ export function boot(opts = {}){
     combo: 0,
     comboMax: 0,
 
-    fever: 0,        // 0..100 (มีลด)
+    fever: 0,
     shield: 0,
 
-    // STUN (slow-mo)
     stunActive: false,
     stunUntil: 0,
     stunDurMs: STUN_DUR_MS,
@@ -230,7 +263,9 @@ export function boot(opts = {}){
 
     lastTickSec: -1,
     lastFrameAt: now(),
-    lastSpawnAt: 0
+    lastSpawnAt: 0,
+
+    heroShown: false
   };
 
   const ACTIVE = new Set();
@@ -256,7 +291,6 @@ export function boot(opts = {}){
       challenge
     });
 
-    // FEVER active => ใช้ STUN เป็นตัวเปิดเอฟเฟกต์ไฟ
     emit('hha:fever', {
       fever: state.fever|0,
       shield: state.shield|0,
@@ -273,15 +307,16 @@ export function boot(opts = {}){
   function addFever(v){
     state.fever = clamp(state.fever + v, 0, 100);
 
-    // ✅ Step 4: FEVER เต็ม → เข้า STUN (slow-mo) + ไฟลุก
     if (state.fever >= 100 && !state.stunActive){
       state.stunActive = true;
       state.stunUntil = now() + state.stunDurMs;
 
       setJudge('FEVER!');
-      fxBurst(window.innerWidth*0.5, window.innerHeight*0.52, 'gold');
-      fxFloat(window.innerWidth*0.5, window.innerHeight*0.52, '🔥 FEVER → STUN!', 'gold');
+      fxPulse(window.innerWidth*0.5, window.innerHeight*HERO_CENTER_Y);
+      fxBurst(window.innerWidth*0.5, window.innerHeight*HERO_CENTER_Y, 'gold');
+      fxFloat(window.innerWidth*0.5, window.innerHeight*HERO_CENTER_Y, '🦸 HERO POWER!', 'gold');
 
+      state.heroShown = true;
       syncHUD();
     }
   }
@@ -311,17 +346,16 @@ export function boot(opts = {}){
   }
 
   function chooseSpawnKind(){
-    // ✅ Step 4: ระหว่าง STUN ให้ “ยุติธรรม/มันส์” ขึ้น
-    let goodRatio = CFG.goodRatio + (isStun() ? 0.12 : 0);
+    let goodRatio = CFG.goodRatio + (isStun() ? 0.14 : 0);
 
     if (challenge === 'survival') goodRatio = Math.max(0.52, goodRatio - 0.08);
     if (challenge === 'boss'){
-      if (!state.bossCleared && Math.random() < (isStun() ? 0.06 : 0.10)) return 'boss';
+      if (!state.bossCleared && Math.random() < (isStun() ? 0.05 : 0.10)) return 'boss';
     }
 
     const r = Math.random();
-    const powerP = isStun() ? 0.11 : 0.08;
-    const goldP  = isStun() ? 0.12 : 0.06;
+    const powerP = isStun() ? 0.12 : 0.08;
+    const goldP  = isStun() ? 0.14 : 0.06;
 
     if (r < powerP) return 'power';
     if (r < powerP + goldP) return 'gold';
@@ -353,11 +387,11 @@ export function boot(opts = {}){
 
   function effectiveSpawnMs(){
     const slow = isStun() ? STUN_SLOW_SCALE : 1.0;
-    return CFG.spawnMs / slow; // slow=0.55 => interval ใหญ่ขึ้น (ช้าลง)
+    return CFG.spawnMs / slow;
   }
   function effectiveTtlMs(baseTtl){
     const slow = isStun() ? STUN_SLOW_SCALE : 1.0;
-    return baseTtl / slow; // expire ช้าลง
+    return baseTtl / slow;
   }
 
   function spawnOne(){
@@ -426,7 +460,7 @@ export function boot(opts = {}){
   function handleExpire(t){
     if (!t || t.dead) return;
 
-    // ✅ Step 4: ระหว่าง STUN ให้ “ของดีหมดอายุ” ไม่เป็น MISS (ไม่ทำลาย feeling)
+    // ระหว่าง STUN: ของดีหมดอายุไม่เป็น MISS (รู้สึกเป็นพลังฮีโร่)
     if (isStun()){
       killTarget(t, true);
       return;
@@ -449,7 +483,6 @@ export function boot(opts = {}){
   function hitTarget(t, x, y){
     if (!t || t.dead || !state.running) return;
 
-    // boss
     if (t.kind === 'boss'){
       t.bossHp = (t.bossHp|0) - 1;
       if (t.bossHp > 0){
@@ -488,7 +521,6 @@ export function boot(opts = {}){
       return;
     }
 
-    // junk
     if (t.kind === 'junk'){
       if (spendShield()){
         setJudge('BLOCK');
@@ -514,7 +546,6 @@ export function boot(opts = {}){
       return;
     }
 
-    // power
     if (t.kind === 'power'){
       let p = 'shield';
       if (t.emoji === '🧲') p = 'magnet';
@@ -542,7 +573,6 @@ export function boot(opts = {}){
       return;
     }
 
-    // gold
     if (t.kind === 'gold'){
       const delta = (CFG.scoreGold|0);
       state.score += delta;
@@ -562,7 +592,6 @@ export function boot(opts = {}){
       return;
     }
 
-    // normal good
     const perfect = (Math.random() < 0.20);
     const delta = (CFG.scoreGood|0) + (perfect ? 6 : 0);
 
@@ -609,6 +638,97 @@ export function boot(opts = {}){
   layerEl.addEventListener('pointerdown', onLayerDown, { passive:false });
   layerEl.addEventListener('touchstart', onLayerDown, { passive:false });
 
+  // ✅ Step 5: HERO POWER field (pull good / repel junk)
+  function heroAnchor(){
+    // anchor = กลางจอค่อนไปล่าง เพื่อไม่ชน HUD บน
+    let ax = SIZES.W * 0.5;
+    let ay = SIZES.H * HERO_CENTER_Y;
+
+    // ถ้าบัง HUD ให้เลื่อนลงอีกนิด (แบบ deterministic ไม่สุ่ม)
+    const rects = getHudRects();
+    const pad = 14;
+    for (const r of rects){
+      if (pointInRect(ax, ay, r)){
+        ay = Math.min(SIZES.H - 90, r.y + r.h + 80);
+      }
+    }
+    ax = clamp(ax, HERO_EDGE_PAD, SIZES.W - HERO_EDGE_PAD);
+    ay = clamp(ay, HERO_EDGE_PAD, SIZES.H - HERO_EDGE_PAD);
+    return { ax, ay };
+  }
+  function clampToEdges(x,y){
+    x = clamp(x, HERO_EDGE_PAD, SIZES.W - HERO_EDGE_PAD);
+    y = clamp(y, HERO_EDGE_PAD, SIZES.H - HERO_EDGE_PAD);
+    return { x, y };
+  }
+  function pushToRing(x,y, ax, ay){
+    // ขยะถูกผลักให้อยู่แถว ๆ วงแหวนรอบศูนย์กลาง (เหมือนโดนพลังผลัก)
+    const dx = x - ax;
+    const dy = y - ay;
+    const dist = Math.max(1, Math.hypot(dx,dy));
+    const want = Math.min(SIZES.W, SIZES.H) * HERO_RING;
+    const k = want / dist;
+    return { x: ax + dx*k, y: ay + dy*k };
+  }
+
+  function applyHeroPower(look, dtSec){
+    if (!isStun()) return;
+
+    // strength ที่เห็นชัด แต่ไม่วูบวาบ
+    const pull = clamp(HERO_PULL * dtSec, 0, 0.11);
+    const push = clamp(HERO_PUSH * dtSec, 0, 0.13);
+    const { ax, ay } = heroAnchor();
+
+    // pulse เป็นระยะให้ “รู้สึกพลัง” (เบา ๆ)
+    if (!state._heroPulseAt || (now() - state._heroPulseAt) > 900){
+      state._heroPulseAt = now();
+      fxPulse(ax, ay);
+    }
+
+    for (const t of ACTIVE){
+      if (!t || t.dead || !t.el || !t.el.isConnected) continue;
+
+      const s = worldToScreen(t.wx, t.wy, look, SIZES);
+      let x = s.x, y = s.y;
+
+      const dx = ax - x;
+      const dy = ay - y;
+
+      // จำกัด step ต่อเฟรมกันวูบ
+      const step = Math.min(HERO_MAX_STEP, Math.hypot(dx,dy));
+      const nx = (dx / Math.max(1e-6, Math.hypot(dx,dy))) * step;
+      const ny = (dy / Math.max(1e-6, Math.hypot(dx,dy))) * step;
+
+      if (t.kind === 'junk'){
+        // ผลักออกจากศูนย์กลาง + จัดเข้าวงแหวน
+        x = x - nx * push;
+        y = y - ny * push;
+        const ring = pushToRing(x,y,ax,ay);
+        x = ring.x; y = ring.y;
+
+        // ขยะดูเหมือนโดนแรงผลัก (เล็กลงนิด/สั่นนิด)
+        t.el.style.transform = `translate(-50%,-50%) scale(${(Number(getComputedStyle(t.el).getPropertyValue('--tScale'))||1)*0.98}) rotate(${(Math.random()*2-1)*2}deg)`;
+      } else {
+        // ของดี/ทอง/พาวเวอร์/บอส ถูกดูดเข้าศูนย์กลาง
+        x = x + nx * pull;
+        y = y + ny * pull;
+      }
+
+      const clamped = clampToEdges(x,y);
+      x = clamped.x; y = clamped.y;
+
+      // update world pos ให้ติดกับมุมมองแบบ VR-feel
+      const w = screenToWorldPoint({ x, y }, look);
+      t.wx = w.wx;
+      t.wy = w.wy;
+
+      // commit screen (ลด jitter)
+      t.sx = x; t.sy = y;
+      t.el.style.left = x + 'px';
+      t.el.style.top  = y + 'px';
+    }
+  }
+
   function updateLoop(){
     if (!state.running) return;
 
@@ -617,17 +737,18 @@ export function boot(opts = {}){
     state.lastFrameAt = tNow;
     const dtSec = dt / 1000;
 
-    // ✅ Step 4: FEVER decay (ตลอดเวลา)
     const inStun = isStun();
 
+    // FEVER decay
     if (inStun){
-      // drain เร็วเพื่อจบเอง + ทำให้ไฟดับ
       state.fever = clamp(state.fever - STUN_FEVER_DRAIN_PER_SEC * dtSec, 0, 100);
       if (tNow >= state.stunUntil){
         state.stunActive = false;
       }
     }else{
       state.fever = clamp(state.fever - FEVER_DECAY_PER_SEC * dtSec, 0, 100);
+      // reset hero show for next time
+      state.heroShown = false;
     }
 
     // time tick
@@ -635,7 +756,6 @@ export function boot(opts = {}){
     if (secLeft !== state.lastTickSec){
       state.lastTickSec = secLeft;
       emit('hha:time', { sec: secLeft });
-      // sync status more often
       syncHUD();
     }
 
@@ -656,15 +776,16 @@ export function boot(opts = {}){
       spawnOne();
     }
 
-    // update all targets (follow look + expiry)
     const look = getLookRad(cameraEl);
+
+    // ✅ Step 5: HERO POWER apply BEFORE normal follow (เพื่อให้เห็นชัด)
+    applyHeroPower(look, dtSec);
+
+    // update all targets (follow look + expiry)
     for (const t of ACTIVE){
       if (!t || t.dead || !t.el || !t.el.isConnected) continue;
 
-      // refresh ttl while stun toggles (ให้รู้สึกว่า slow มีผลจริง)
-      // (เราจะไม่เปลี่ยน bornAt แค่ขยาย ttl ตอนที่ STUN เริ่ม)
       if (inStun && t.ttlMs < (CFG.ttlMs / STUN_SLOW_SCALE)){
-        // bump ttl onceเล็ก ๆ เพื่อให้ของบนจอ “อยู่นานขึ้น”
         t.ttlMs = Math.max(t.ttlMs, effectiveTtlMs(t.ttlMs));
       }
 
@@ -673,6 +794,7 @@ export function boot(opts = {}){
         continue;
       }
 
+      // ถ้าไม่ได้ถูก heroPower “ล็อก” ไว้ก็ยัง follow look ปกติ
       const s = worldToScreen(t.wx, t.wy, look, SIZES);
       t.sx = s.x; t.sy = s.y;
       t.el.style.left = s.x + 'px';
@@ -687,7 +809,6 @@ export function boot(opts = {}){
   syncHUD();
   setJudge(' ');
 
-  // prime spawn timer
   state.lastSpawnAt = now() - effectiveSpawnMs()*0.85;
   rafId = requestAnimationFrame(updateLoop);
 
