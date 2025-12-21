@@ -1,9 +1,7 @@
 // === /herohealth/vr-groups/GameEngine.js ===
 // Food Groups VR — PRODUCTION SAFE ENGINE (NO-FLASH + HIT 100% + QUEST + FX + FEVER + RANK + ADAPTIVE)
-// ✅ PATCH 1: world-anchored / parallax targets ตาม camera + inertia เบา ๆ (optional look controls)
-// ✅ PATCH 2: clamp safe zone กันทับ HUD 4 ด้าน (อ่าน avoid rects จาก element จริง)
-// ✅ Emoji sticker feel: fade-in / fade-out + “sticker” styling hooks
-//
+// + PANIC TIME (10s) + RUSH MODE (random) + BOSS JUNK
+// ✅ LOG: detailed events -> hha:log_event (Global HHACloudLogger)
 // Size policy:
 //   - play: base by diff + adaptive
 //   - research: base by diff only (no adaptive)
@@ -30,14 +28,10 @@
       : null;
 
   function now() { return (performance && performance.now) ? performance.now() : Date.now(); }
+  function nowIso(){ try { return new Date().toISOString(); } catch { return String(Date.now()); } }
   function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
-  function lerp(a, b, t){ return a + (b - a) * t; }
-  function wrapDeg(d){
-    d = Number(d) || 0;
-    d = ((d + 180) % 360) - 180;
-    return d;
-  }
+  function safeObj(x){ return (x && typeof x === 'object') ? x : {}; }
 
   function dispatch(name, detail) {
     try { window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch {}
@@ -60,42 +54,83 @@
     }
   }
 
-  // -------------------------
-  // Runtime state
-  // -------------------------
+  // --- session / logging ---
+  function uuid(){
+    try {
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+    } catch {}
+    return 'sess_' + Math.random().toString(16).slice(2) + '_' + Date.now();
+  }
+
+  let sessionId = '';
+  let evtSeq = 0;
+  let diffNow = 'normal';
+
+  function getQuestStateLite(){
+    if (!quest) return { groupKey:0, groupLabel:'', goalLabel:'', goalProg:0, goalTarget:0, miniLabel:'', miniProg:0, miniTarget:0 };
+    const goalsAll = quest.goals || [];
+    const minisAll = quest.minis || [];
+    const goal = goalsAll.find(g => g && !g.done) || null;
+    const mini = minisAll.find(m => m && !m.done) || null;
+    const g = quest.getActiveGroup ? quest.getActiveGroup() : null;
+    return {
+      groupKey: g ? (g.key || 0) : 0,
+      groupLabel: g ? (g.label || '') : '',
+      goalLabel: goal ? (goal.label || '') : '',
+      goalProg: goal ? (goal.prog|0) : 0,
+      goalTarget: goal ? (goal.target|0) : 0,
+      miniLabel: mini ? (mini.label || '') : '',
+      miniProg: mini ? (mini.prog|0) : 0,
+      miniTarget: mini ? (mini.target|0) : 0
+    };
+  }
+
+  function snapshotLite(extra){
+    const q = getQuestStateLite();
+    return Object.assign({
+      projectTag: 'HeroHealth-FoodGroupsVR',
+      mode: 'FoodGroupsVR',
+      sessionId,
+      seq: (++evtSeq)|0,
+      tsIso: nowIso(),
+      tMs: Math.round(now()),
+      runMode,
+      diff: diffNow,
+
+      score, combo, comboMax, misses,
+      goodHits, junkHits, goodExpires, junkExpires,
+
+      fever, feverOn,
+      shield,
+
+      panicOn,
+      rushOn,
+      timeLeftSec: remainingSec|0,
+
+      grade: lastGrade,
+
+      groupKey: q.groupKey,
+      groupLabel: q.groupLabel,
+
+      goalLabel: q.goalLabel,
+      goalProg: q.goalProg,
+      goalTarget: q.goalTarget,
+
+      miniLabel: q.miniLabel,
+      miniProg: q.miniProg,
+      miniTarget: q.miniTarget
+    }, safeObj(extra));
+  }
+
+  function logEvent(type, extra){
+    dispatch('hha:log_event', snapshotLite(Object.assign({ type: String(type || 'event') }, safeObj(extra))));
+  }
+
   const active = [];
   let layerEl = null;
   let running = false;
   let spawnTimer = null;
   let secondTimer = null;
-
-  // camera/look/parallax
-  let camEl = null;
-
-  // PATCH 1: parallax base rotation + smoothed rotation
-  let baseRot = { yaw: 0, pitch: 0 };          // baseline at start
-  let smoothRot = { yaw: 0, pitch: 0 };        // smoothed current
-  let desiredRot = { yaw: 0, pitch: 0 };       // desired from camera or look controls
-  let rafId = 0;
-
-  // PATCH 2: safe zone avoid UI rects
-  let avoidEls = [];
-  let safeRect = null;
-  let safeRectAt = 0;
-
-  // optional look controls (drag + deviceorientation + inertia)
-  let lookEnabled = false;
-  let lookAreaEl = null;
-  let dragging = false;
-  let dragLastX = 0;
-  let dragLastY = 0;
-  let velYaw = 0;
-  let velPitch = 0;
-  let lastMoveAt = 0;
-
-  let devOriEnabled = false;
-  let devOriLast = { yaw: 0, pitch: 0, has: false };
-  let devOriListener = null;
 
   let score = 0;
   let combo = 0;
@@ -129,16 +164,13 @@
   let adaptiveTick = 0;
   let consecutiveGood = 0;
 
-  // “สะใจ” systems
+  // ✅ “สะใจ” systems
   let remainingSec = 0;
   let panicOn = false;
   let rushOn = false;
   let rushEndsAt = 0;
   let rushCooldownSec = 0;
 
-  // -------------------------
-  // Config
-  // -------------------------
   const CFG = {
     // spawn
     spawnInterval: 900,
@@ -162,10 +194,10 @@
     pointsJunkHit: -8,
     pointsGoodExpire: -4,
 
-    // rush bonus
+    // ✅ rush bonus
     pointsGoodRushMul: 2,
 
-    // boss junk
+    // ✅ boss junk
     bossJunkChance: 0.08,        // 8% ของ junk จะเป็น boss
     bossJunkEmoji: ['☠️','🧨','💣','👿'],
     bossJunkPenalty: -18,        // โดนหนัก
@@ -190,40 +222,20 @@
     // coach hype
     coachHypeEveryCombo: 6,
 
-    // panic time
+    // ✅ panic time
     panicLastSec: 10,
-    panicSpawnMul: 0.85,
+    panicSpawnMul: 0.85,         // สปอว์นถี่ขึ้นเล็กน้อย
     panicMaxActiveAdd: 1,
 
-    // rush mode
+    // ✅ rush mode
     rushEnabled: true,
     rushMinSec: 6,
     rushMaxSec: 8,
-    rushSpawnMul: 0.62,
+    rushSpawnMul: 0.62,          // ถี่ขึ้นชัด ๆ
     rushMaxActiveAdd: 2,
-    rushMinStartAfterSec: 10,
-    rushChancePerSec: 0.10,
-    rushCooldownAfter: 12,
-
-    // PATCH 1: parallax factors (deg -> px)
-    parallaxYawPxPer90w: 0.35,   // x = dy * (w/90)*factor
-    parallaxPitchPxPer90h: 0.22, // y = -dp * (h/90)*factor
-    parallaxClampPitch: 45,
-
-    // sticker feel
-    appearDelayMs: 16,
-    fadeOutMs: 180,
-
-    // safe zone padding
-    safePad: 12,
-    safeMinW: 180,
-    safeMinH: 220,
-
-    // optional look controls defaults
-    lookSensitivity: 0.25,        // deg per px-ish (we scale)
-    lookInertia: 0.92,            // velocity decay
-    lookDamp: 0.14,               // smoothing (0..1)
-    lookMaxPitch: 55
+    rushMinStartAfterSec: 10,    // อย่าเพิ่งมาเร็วเกิน
+    rushChancePerSec: 0.10,      // โอกาสเริ่มต่อวินาที (ตอน cooldown=0)
+    rushCooldownAfter: 12        // cooldown หลังจบ
   };
 
   function applyDifficulty(diff) {
@@ -256,358 +268,20 @@
     }
   }
 
-  // -------------------------
-  // PATCH 2: Safe zone (avoid HUD)
-  // -------------------------
-  function isElUsable(el){
-    if (!el) return false;
-    try {
-      const r = el.getBoundingClientRect();
-      if (!r || r.width <= 0 || r.height <= 0) return false;
-      // allow even if outside viewport; we just ignore later
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  function getAvoidRects(){
-    const rects = [];
-    for (const el of avoidEls) {
-      if (!isElUsable(el)) continue;
-      try {
-        const r = el.getBoundingClientRect();
-        rects.push({
-          left: r.left, top: r.top, right: r.right, bottom: r.bottom,
-          width: r.width, height: r.height
-        });
-      } catch {}
-    }
-    return rects;
-  }
-
-  function computeSafeRect(force=false){
-    const t = now();
-    if (!force && safeRect && (t - safeRectAt) < 250) return safeRect;
-
+  function pickScreenPos() {
     const w = Math.max(320, window.innerWidth || 320);
     const h = Math.max(480, window.innerHeight || 480);
 
-    // fallback margins (old behavior)
-    const defLeft  = Math.min(170, Math.round(w * 0.16));
-    const defRight = defLeft;
-    const defTop   = Math.min(240, Math.round(h * 0.24));
-    const defBot   = Math.min(180, Math.round(h * 0.20));
-
-    let topBand = 0, botBand = 0, leftBand = 0, rightBand = 0;
-    const pad = CFG.safePad | 0;
-
-    const rects = getAvoidRects();
-    for (const r of rects) {
-      // only consider rects that are actually near edges (to avoid over-excluding)
-      const nearTop    = r.top < Math.max(48, h * 0.22);
-      const nearBottom = r.bottom > Math.min(h - 48, h * 0.78);
-      const nearLeft   = r.left < Math.max(48, w * 0.22);
-      const nearRight  = r.right > Math.min(w - 48, w * 0.78);
-
-      if (nearTop)    topBand    = Math.max(topBand, r.bottom);
-      if (nearBottom) botBand    = Math.max(botBand, h - r.top);
-      if (nearLeft)   leftBand   = Math.max(leftBand, r.right);
-      if (nearRight)  rightBand  = Math.max(rightBand, w - r.left);
-    }
-
-    const left  = Math.max(defLeft,  Math.round(leftBand + pad));
-    const right = w - Math.max(defRight, Math.round(rightBand + pad));
-    const top   = Math.max(defTop,   Math.round(topBand + pad));
-    const bottom= h - Math.max(defBot, Math.round(botBand + pad));
-
-    // minimum safe size
-    let L = left, R = right, T = top, B = bottom;
-    if ((R - L) < CFG.safeMinW) {
-      const mid = (L + R) / 2;
-      L = clamp(mid - CFG.safeMinW/2, 0, w - CFG.safeMinW);
-      R = L + CFG.safeMinW;
-    }
-    if ((B - T) < CFG.safeMinH) {
-      const mid = (T + B) / 2;
-      T = clamp(mid - CFG.safeMinH/2, 0, h - CFG.safeMinH);
-      B = T + CFG.safeMinH;
-    }
-
-    safeRect = { left: L, right: R, top: T, bottom: B, w, h };
-    safeRectAt = t;
-    return safeRect;
-  }
-
-  function pickBasePos(){
-    const sr = computeSafeRect(true);
-    // base in “world space”: normalized [-1..1] within safe rect
-    const u = Math.random(); // 0..1
-    const v = Math.random(); // 0..1
-    // bias slightly away from edges
-    const uu = 0.08 + u * 0.84;
-    const vv = 0.10 + v * 0.80;
-
-    const x = sr.left + uu * (sr.right - sr.left);
-    const y = sr.top  + vv * (sr.bottom - sr.top);
+    const marginX = Math.min(170, Math.round(w * 0.16));
+    const marginYTop = Math.min(240, Math.round(h * 0.24));
+    const marginYBot = Math.min(180, Math.round(h * 0.20));
 
     return {
-      // store normalized too (optional future)
-      baseX: x,
-      baseY: y
+      x: randInt(marginX, w - marginX),
+      y: randInt(marginYTop, h - marginYBot)
     };
   }
 
-  // -------------------------
-  // Look / camera rotation
-  // -------------------------
-  function getCamRot(){
-    if (!camEl || !camEl.getAttribute) return { yaw: desiredRot.yaw, pitch: desiredRot.pitch };
-    try {
-      const r = camEl.getAttribute('rotation') || { x:0, y:0, z:0 };
-      return { yaw: Number(r.y)||0, pitch: Number(r.x)||0 };
-    } catch {
-      return { yaw: desiredRot.yaw, pitch: desiredRot.pitch };
-    }
-  }
-
-  function setCamRot(yaw, pitch){
-    if (!camEl || !camEl.setAttribute) return;
-    try {
-      camEl.setAttribute('rotation', { x: pitch, y: yaw, z: 0 });
-    } catch {}
-  }
-
-  // Optional: internal look controls (drag + deviceorientation + inertia)
-  function detachLook(){
-    if (!lookAreaEl) return;
-    try {
-      lookAreaEl.removeEventListener('pointerdown', onPointerDown, { passive:false });
-      lookAreaEl.removeEventListener('pointermove', onPointerMove, { passive:false });
-      lookAreaEl.removeEventListener('pointerup', onPointerUp, { passive:false });
-      lookAreaEl.removeEventListener('pointercancel', onPointerUp, { passive:false });
-      lookAreaEl.removeEventListener('touchstart', onPointerDown, { passive:false });
-      lookAreaEl.removeEventListener('touchmove', onPointerMove, { passive:false });
-      lookAreaEl.removeEventListener('touchend', onPointerUp, { passive:false });
-    } catch {}
-    lookAreaEl = null;
-
-    if (devOriListener) {
-      try { window.removeEventListener('deviceorientation', devOriListener); } catch {}
-      devOriListener = null;
-    }
-    devOriEnabled = false;
-    dragging = false;
-  }
-
-  function enableLook(opts){
-    detachLook();
-    lookEnabled = true;
-
-    const area = (opts && opts.areaEl) ? opts.areaEl : document.body;
-    lookAreaEl = area;
-
-    const sens = (opts && typeof opts.sensitivity === 'number') ? opts.sensitivity : CFG.lookSensitivity;
-    const inertia = (opts && typeof opts.inertia === 'number') ? opts.inertia : CFG.lookInertia;
-    const maxPitch = (opts && typeof opts.maxPitch === 'number') ? opts.maxPitch : CFG.lookMaxPitch;
-
-    CFG.lookSensitivity = sens;
-    CFG.lookInertia = inertia;
-    CFG.lookMaxPitch = maxPitch;
-
-    // init desiredRot from camera if present
-    const r0 = getCamRot();
-    desiredRot.yaw = r0.yaw;
-    desiredRot.pitch = r0.pitch;
-
-    // device orientation
-    const useDO = !!(opts && opts.useDeviceOrientation);
-    if (useDO) {
-      devOriEnabled = true;
-      devOriListener = (ev) => {
-        try {
-          // alpha (0..360) ~ yaw, beta (-180..180) ~ pitch
-          const a = (typeof ev.alpha === 'number') ? ev.alpha : null;
-          const b = (typeof ev.beta === 'number') ? ev.beta : null;
-          if (a === null || b === null) return;
-
-          // map: yaw = alpha, pitch = (beta - 60) rough (phone upright)
-          const yaw = wrapDeg(a);
-          const pitch = clamp((b - 60), -CFG.lookMaxPitch, CFG.lookMaxPitch);
-
-          devOriLast.yaw = yaw;
-          devOriLast.pitch = pitch;
-          devOriLast.has = true;
-        } catch {}
-      };
-      try { window.addEventListener('deviceorientation', devOriListener, { passive:true }); } catch {}
-    } else {
-      devOriEnabled = false;
-    }
-
-    // attach pointer listeners
-    try {
-      lookAreaEl.addEventListener('pointerdown', onPointerDown, { passive:false });
-      lookAreaEl.addEventListener('pointermove', onPointerMove, { passive:false });
-      lookAreaEl.addEventListener('pointerup', onPointerUp, { passive:false });
-      lookAreaEl.addEventListener('pointercancel', onPointerUp, { passive:false });
-
-      // fallback touch (บางเครื่อง)
-      lookAreaEl.addEventListener('touchstart', onPointerDown, { passive:false });
-      lookAreaEl.addEventListener('touchmove', onPointerMove, { passive:false });
-      lookAreaEl.addEventListener('touchend', onPointerUp, { passive:false });
-    } catch {}
-  }
-
-  function disableLook(){
-    lookEnabled = false;
-    detachLook();
-  }
-
-  function onPointerDown(ev){
-    try { ev.preventDefault(); } catch {}
-    try { ev.stopPropagation(); } catch {}
-
-    dragging = true;
-    lastMoveAt = now();
-
-    const p = getEventXY(ev);
-    dragLastX = p.x;
-    dragLastY = p.y;
-    velYaw = 0;
-    velPitch = 0;
-  }
-
-  function onPointerMove(ev){
-    if (!dragging) return;
-    try { ev.preventDefault(); } catch {}
-    try { ev.stopPropagation(); } catch {}
-
-    const p = getEventXY(ev);
-    const dx = (p.x - dragLastX);
-    const dy = (p.y - dragLastY);
-    dragLastX = p.x;
-    dragLastY = p.y;
-
-    // sensitivity scaling: px -> degrees
-    const k = CFG.lookSensitivity;
-    const yawDelta = dx * k;
-    const pitchDelta = dy * k;
-
-    // update desired (drag-to-look)
-    desiredRot.yaw = wrapDeg(desiredRot.yaw + yawDelta);
-    desiredRot.pitch = clamp(desiredRot.pitch + pitchDelta, -CFG.lookMaxPitch, CFG.lookMaxPitch);
-
-    // velocity for inertia
-    velYaw = lerp(velYaw, yawDelta, 0.35);
-    velPitch = lerp(velPitch, pitchDelta, 0.35);
-    lastMoveAt = now();
-  }
-
-  function onPointerUp(ev){
-    try { ev.preventDefault(); } catch {}
-    try { ev.stopPropagation(); } catch {}
-    dragging = false;
-  }
-
-  function getEventXY(ev){
-    try {
-      if (ev.touches && ev.touches[0]) return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
-      if (typeof ev.clientX === 'number') return { x: ev.clientX, y: ev.clientY };
-    } catch {}
-    return { x: window.innerWidth/2, y: window.innerHeight/2 };
-  }
-
-  // Parallax + “world anchored” screen projection
-  function updateDesiredRot(){
-    // If we have a camera element AND look controls are NOT explicitly enabled,
-    // prefer camera's rotation (because A-Frame/look-controls or your attachTouchLook will drive it).
-    if (camEl && !lookEnabled) {
-      const r = getCamRot();
-      desiredRot.yaw = r.yaw;
-      desiredRot.pitch = r.pitch;
-      return;
-    }
-
-    // If look controls enabled: apply device orientation when not dragging recently
-    if (lookEnabled) {
-      const t = now();
-      const idle = (!dragging && (t - lastMoveAt) > 90);
-
-      if (devOriEnabled && devOriLast.has && idle) {
-        // soft follow device orientation
-        desiredRot.yaw = lerp(desiredRot.yaw, devOriLast.yaw, 0.10);
-        desiredRot.pitch = lerp(desiredRot.pitch, devOriLast.pitch, 0.10);
-      }
-
-      // inertia after drag release
-      if (!dragging) {
-        velYaw *= CFG.lookInertia;
-        velPitch *= CFG.lookInertia;
-
-        if (Math.abs(velYaw) > 0.02 || Math.abs(velPitch) > 0.02) {
-          desiredRot.yaw = wrapDeg(desiredRot.yaw + velYaw);
-          desiredRot.pitch = clamp(desiredRot.pitch + velPitch, -CFG.lookMaxPitch, CFG.lookMaxPitch);
-        } else {
-          velYaw = 0; velPitch = 0;
-        }
-      }
-
-      // if camEl exists, drive camera too
-      if (camEl) setCamRot(desiredRot.yaw, desiredRot.pitch);
-    }
-  }
-
-  function startParallaxLoop(){
-    cancelAnimationFrame(rafId);
-    // baseline
-    const r0 = getCamRot();
-    baseRot = { yaw: r0.yaw, pitch: r0.pitch };
-    smoothRot = { yaw: r0.yaw, pitch: r0.pitch };
-    desiredRot = { yaw: r0.yaw, pitch: r0.pitch };
-
-    const step = () => {
-      if (!running) return;
-
-      // update desired rotation source (camera vs look controls)
-      updateDesiredRot();
-
-      // smooth rotation
-      const damp = clamp(CFG.lookDamp, 0.02, 0.35);
-      smoothRot.yaw = wrapDeg(lerp(smoothRot.yaw, desiredRot.yaw, damp));
-      smoothRot.pitch = lerp(smoothRot.pitch, desiredRot.pitch, damp);
-
-      // compute parallax offset vs baseline
-      const sr = computeSafeRect(false);
-      const dy = wrapDeg(smoothRot.yaw - baseRot.yaw);
-      const dp = clamp(smoothRot.pitch - baseRot.pitch, -CFG.parallaxClampPitch, CFG.parallaxClampPitch);
-
-      const ox = dy * (sr.w / 90) * CFG.parallaxYawPxPer90w;
-      const oy = -dp * (sr.h / 90) * CFG.parallaxPitchPxPer90h;
-
-      // apply to every alive target, clamp within safe rect
-      for (const t of active) {
-        if (!t || !t.alive || !t.el) continue;
-        const x = clamp(t.baseX + ox, sr.left, sr.right);
-        const y = clamp(t.baseY + oy, sr.top, sr.bottom);
-        t.el.style.left = x + 'px';
-        t.el.style.top  = y + 'px';
-      }
-
-      rafId = requestAnimationFrame(step);
-    };
-
-    rafId = requestAnimationFrame(step);
-  }
-
-  function stopParallaxLoop(){
-    cancelAnimationFrame(rafId);
-    rafId = 0;
-  }
-
-  // -------------------------
-  // Input / Targets
-  // -------------------------
   function bindHit(el, handler) {
     const on = (ev) => {
       try { ev.preventDefault(); } catch {}
@@ -626,30 +300,6 @@
     if (i >= 0) active.splice(i, 1);
   }
 
-  function stickerAppear(el){
-    if (!el) return;
-    // fade-in: start hidden then show
-    el.classList.add('fg-sticker');
-    el.classList.add('fg-appear');     // optional hook
-    el.style.opacity = '0';
-    el.style.transform = 'translate(-50%,-50%) scale(0.86)';
-    setTimeout(() => {
-      try {
-        el.style.opacity = '1';
-        el.style.transform = 'translate(-50%,-50%) scale(1)';
-        el.classList.add('show');
-      } catch {}
-    }, CFG.appearDelayMs | 0);
-  }
-
-  function stickerFadeOut(el){
-    if (!el) return;
-    try {
-      el.classList.add('hit'); // uses your CSS transition scale+opacity
-      el.style.opacity = '0';
-    } catch {}
-  }
-
   function destroyTarget(t, isHit) {
     if (!t || !t.alive) return;
     if (!isHit && !t.canExpire) return;
@@ -661,14 +311,12 @@
     removeFromActive(t);
 
     if (t.el) {
-      stickerFadeOut(t.el);
-      setTimeout(() => { try { t.el && t.el.remove(); } catch {} }, CFG.fadeOutMs | 0);
+      t.el.classList.add('hit');
+      setTimeout(() => { try { t.el && t.el.remove(); } catch {} }, 180);
     }
   }
 
-  // -------------------------
-  // Fever
-  // -------------------------
+  // fever
   function setFeverValue(v) {
     fever = clamp(v, 0, FEVER_MAX);
     FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
@@ -706,6 +354,8 @@
 
     coach('🔥 FEVER TIME! แตะรัว ๆ เลยยย!');
     setFeverValue(0);
+
+    logEvent('fever_start', { durationMs: CFG.feverDurationMs });
   }
 
   function tickFever() {
@@ -713,12 +363,11 @@
     if (now() >= feverEndsAt) {
       setFeverActive(false);
       coach('เฟเวอร์หมดแล้ว! ตั้งใจต่อ! ✨');
+      logEvent('fever_end', {});
     }
   }
 
-  // -------------------------
-  // Score / Combo / Miss
-  // -------------------------
+  // score/combo/miss
   function addScore(delta) {
     score = (score + (delta | 0)) | 0;
     dispatch('hha:score', { score, combo, misses, shield, fever });
@@ -735,9 +384,7 @@
     dispatch('hha:score', { score, combo, misses, shield, fever });
   }
 
-  // -------------------------
-  // Quest
-  // -------------------------
+  // quest
   function emitQuestUpdate() {
     if (!quest) return;
 
@@ -762,6 +409,7 @@
       goalIndexShown = goalsCleared;
       dispatch('hha:celebrate', { kind:'goal', type:'goal', index: goalsCleared, total: goalsAll.length });
       coach('🎯 GOAL ผ่านแล้ว! สุดยอด!');
+      logEvent('quest_goal_cleared', { index: goalsCleared, total: goalsAll.length });
     }
 
     const minisCleared = minisAll.filter(x => x && x.done).length;
@@ -769,12 +417,14 @@
       miniIndexShown = minisCleared;
       dispatch('hha:celebrate', { kind:'mini', type:'mini', index: minisCleared, total: minisAll.length });
       coach('⭐ MINI ผ่าน! เก่งมาก!');
+      logEvent('quest_mini_cleared', { index: minisCleared, total: minisAll.length });
     }
 
     if (!allClearedShown && goalsCleared === goalsAll.length && minisCleared === minisAll.length) {
       allClearedShown = true;
       dispatch('hha:celebrate', { kind:'all', type:'all' });
       coach('🎉 เคลียร์ทุกภารกิจแล้ววว! ป.5 เทพมาก!');
+      logEvent('quest_all_cleared', { goalsTotal: goalsAll.length, minisTotal: minisAll.length });
     }
   }
 
@@ -786,9 +436,7 @@
     return 1;
   }
 
-  // -------------------------
-  // Adaptive (play only)
-  // -------------------------
+  // adaptive (play only)
   function clampSkill(v){
     const c = CFG.skillClamp | 0;
     return clamp(v, -c, c);
@@ -813,7 +461,6 @@
     const t = clampSkill(skill) / (CFG.skillClamp || 100); // -1..1
     sizeMul = clamp(1.0 - (t * 0.10), CFG.targetSizeMinMul, CFG.targetSizeMaxMul);
 
-    // base tuning (แล้วค่อยโดน rush/panic ปรับเพิ่มทีหลัง)
     const baseSI = CFG._baseSpawnInterval || CFG.spawnInterval;
     const baseMA = CFG._baseMaxActive || CFG.maxActive;
 
@@ -823,13 +470,15 @@
     CFG.spawnInterval = Math.round(si);
     CFG.maxActive = Math.round(ma);
 
+    // log เฉพาะตอน “ขยับระดับ” ชัด ๆ (กัน spam)
+    if (t > 0.75) logEvent('adaptive_up', { t: Number(t.toFixed(2)), spawnInterval: CFG.spawnInterval, maxActive: CFG.maxActive, sizeMul: Number(sizeMul.toFixed(2)) });
+    else if (t < -0.55) logEvent('adaptive_down', { t: Number(t.toFixed(2)), spawnInterval: CFG.spawnInterval, maxActive: CFG.maxActive, sizeMul: Number(sizeMul.toFixed(2)) });
+
     if (t > 0.65) coach('สปีดเพิ่มแล้วนะ! เก่งขึ้นแล้ว! ⚡');
     else if (t < -0.45) coach('ค่อย ๆ เล็งนะ โค้ชเพิ่มเวลาให้แล้ว ✨');
   }
 
-  // -------------------------
-  // Rank
-  // -------------------------
+  // rank
   function accuracy() {
     const total = goodHits + junkHits + goodExpires;
     if (total <= 0) return 0;
@@ -883,27 +532,34 @@
       questsPct: Number((qp * 100).toFixed(0))
     });
 
+    // log เฉพาะตอน grade เปลี่ยน
+    if (g !== lastGrade) {
+      logEvent('rank_change', { from: lastGrade, to: g, scorePerSec: Number(sps.toFixed(2)), accPct: Number((acc*100).toFixed(0)), questsPct: Number((qp*100).toFixed(0)) });
+    }
+
     lastGrade = g;
     return g;
   }
 
-  // -------------------------
-  // PANIC + RUSH
-  // -------------------------
+  // ✅ PANIC + RUSH
   function setPanic(on, secLeft){
     const next = !!on;
     if (panicOn === next) return;
     panicOn = next;
     dispatch('hha:panic', { on: panicOn, secLeft: secLeft|0 });
-    if (panicOn) coach('⏰ 10 วิสุดท้าย! เร่งแล้วนะ!!!');
+    if (panicOn) {
+      coach('⏰ 10 วิสุดท้าย! เร่งแล้วนะ!!!');
+      logEvent('panic_on', { secLeft: secLeft|0 });
+    } else {
+      logEvent('panic_off', {});
+    }
   }
 
   function tryStartRush(){
     if (!CFG.rushEnabled) return;
     if (rushOn) return;
     if (rushCooldownSec > 0) return;
-    if (remainingSec <= (CFG.panicLastSec + 2)) return;
-
+    if (remainingSec <= (CFG.panicLastSec + 2)) return; // อย่าชน panic
     const elapsed = Math.floor((now() - startedAt) / 1000);
     if (elapsed < CFG.rushMinStartAfterSec) return;
 
@@ -915,6 +571,7 @@
 
     dispatch('hha:rush', { on:true, sec: dur });
     coach('🚀 RUSH! คะแนน x2 แตะให้ไววว!');
+    logEvent('rush_start', { durSec: dur });
   }
 
   function tickRush(){
@@ -927,6 +584,7 @@
         rushCooldownSec = CFG.rushCooldownAfter | 0;
         dispatch('hha:rush', { on:false, sec: 0 });
         coach('โอเค! จบ RUSH แล้ว ไปต่อ!');
+        logEvent('rush_end', { cooldownSec: rushCooldownSec|0 });
       }
     } else {
       if (rushCooldownSec > 0) rushCooldownSec--;
@@ -936,21 +594,19 @@
 
   function effectiveSpawnInterval(){
     let si = CFG.spawnInterval;
-    if (rushOn)  si = Math.round(si * CFG.rushSpawnMul);
+    if (rushOn) si = Math.round(si * CFG.rushSpawnMul);
     if (panicOn) si = Math.round(si * CFG.panicSpawnMul);
     return clamp(si, 420, 1600);
   }
 
   function effectiveMaxActive(){
     let ma = CFG.maxActive;
-    if (rushOn)  ma += (CFG.rushMaxActiveAdd | 0);
+    if (rushOn) ma += (CFG.rushMaxActiveAdd | 0);
     if (panicOn) ma += (CFG.panicMaxActiveAdd | 0);
     return clamp(ma, 2, 9);
   }
 
-  // -------------------------
-  // Targets
-  // -------------------------
+  // targets
   function createTarget() {
     if (!running || !layerEl) return;
     if (active.length >= effectiveMaxActive()) return;
@@ -974,20 +630,16 @@
     el.className = 'fg-target ' + (good ? 'fg-good' : (isBoss ? 'fg-junk fg-boss' : 'fg-junk'));
     el.setAttribute('data-emoji', emoji);
 
-    // sticker hooks (CSS optional)
-    el.classList.add('fg-sticker');
-
     applyTargetSizeToEl(el, isBoss ? CFG.bossJunkScaleMul : 1.0);
 
-    // PATCH 2: pick inside safe rect
-    const p = pickBasePos();
-    el.style.left = p.baseX + 'px';
-    el.style.top  = p.baseY + 'px';
-
-    // appear animation
-    stickerAppear(el);
+    const p = pickScreenPos();
+    el.style.left = p.x + 'px';
+    el.style.top  = p.y + 'px';
 
     layerEl.appendChild(el);
+
+    // fade in (emoji sticker feel)
+    requestAnimationFrame(() => { try { el.classList.add('show'); } catch {} });
 
     const t = {
       el, good, emoji,
@@ -996,11 +648,7 @@
       canExpire: false,
       bornAt: now(),
       minTimer: null,
-      lifeTimer: null,
-
-      // PATCH 1: store “world anchored” base screen pos (will be parallax-shifted each frame)
-      baseX: p.baseX,
-      baseY: p.baseY
+      lifeTimer: null
     };
     active.push(t);
 
@@ -1052,6 +700,16 @@
         skill = clampSkill(skill + (isPerfect ? CFG.skillGainPerfect : CFG.skillGainGood));
       }
 
+      logEvent('hit_good', {
+        emoji: t.emoji,
+        x: Math.round(pos.x), y: Math.round(pos.y),
+        points: pts,
+        perfect: !!isPerfect,
+        rush: !!rushOn,
+        feverOn: !!feverOn,
+        consecutiveGood: consecutiveGood|0
+      });
+
       if (CFG.coachHypeEveryCombo && combo > 0 && (combo % CFG.coachHypeEveryCombo === 0)) {
         coach(`คอมโบ ${combo} แล้ว! โคตรเก่ง! 🚀`);
       }
@@ -1066,6 +724,7 @@
       if (shield > 0) {
         junkHits++;
         const cost = isBoss ? (CFG.bossJunkShieldCost | 0) : 1;
+        const before = shield|0;
         setShieldValue(shield - cost);
 
         const label = isBoss ? 'BOSS BLOCK' : 'BLOCK';
@@ -1073,6 +732,15 @@
         Particles.scorePop && Particles.scorePop(pos.x, pos.y, isBoss ? '🛡️🛡️' : '🛡️', { judgment: label, good: true });
 
         coach(isBoss ? 'บอสมา! กันได้ แต่โล่หาย 2 😱' : 'โล่กันไว้แล้ว! ระวังขยะนะ 🛡️');
+
+        logEvent('hit_junk_block', {
+          emoji: t.emoji,
+          boss: !!isBoss,
+          x: Math.round(pos.x), y: Math.round(pos.y),
+          shieldBefore: before,
+          shieldCost: cost,
+          shieldAfter: (before - cost)
+        });
 
       } else {
         junkHits++;
@@ -1096,6 +764,14 @@
         if (runMode === 'play') {
           skill = clampSkill(skill - CFG.skillLossMiss);
         }
+
+        logEvent('hit_junk_miss', {
+          emoji: t.emoji,
+          boss: !!isBoss,
+          x: Math.round(pos.x), y: Math.round(pos.y),
+          penalty,
+          feverLoss: CFG.feverLossMiss|0
+        });
       }
     }
 
@@ -1126,8 +802,16 @@
 
       if (runMode === 'play') skill = clampSkill(skill - CFG.skillLossExpire);
 
+      logEvent('expire_good_miss', {
+        emoji: t.emoji,
+        x: Math.round(pos.x), y: Math.round(pos.y),
+        penalty: CFG.pointsGoodExpire|0,
+        feverLoss: CFG.feverLossMiss|0
+      });
+
     } else {
       junkExpires++;
+      logEvent('expire_junk', { emoji: t.emoji });
     }
 
     dispatch('groups:expire', { emoji: t.emoji, good: t.good, x: pos.x, y: pos.y });
@@ -1163,8 +847,11 @@
       emitQuestUpdate();
       emitRank();
 
-      // refresh safe rect a bit more often during play (HUD may animate)
-      computeSafeRect(false);
+      // ✅ lightweight heartbeat (ทุก 5 วิ) กัน log บวม
+      const elapsed = Math.floor((now() - startedAt) / 1000);
+      if (elapsed > 0 && (elapsed % 5 === 0)) {
+        logEvent('tick', { elapsedSec: elapsed, activeCount: active.length|0, spawnInterval: CFG.spawnInterval|0, maxActive: CFG.maxActive|0, sizeMul: Number((sizeMul||1).toFixed(2)) });
+      }
 
     }, 1000);
   }
@@ -1198,17 +885,13 @@
     rushEndsAt = 0;
     rushCooldownSec = 0;
 
-    // parallax safe rect
-    safeRect = null;
-    safeRectAt = 0;
+    evtSeq = 0;
   }
 
   function stopAll(reason) {
     running = false;
     clearTimeout(spawnTimer); spawnTimer = null;
     clearInterval(secondTimer); secondTimer = null;
-
-    stopParallaxLoop();
 
     active.slice().forEach(t => destroyTarget(t, true));
     active.length = 0;
@@ -1220,7 +903,7 @@
 
     const finalGrade = normalizeGrade(lastGrade || emitRank() || 'C');
 
-    dispatch('hha:end', {
+    const endPayload = {
       reason: reason || 'stop',
       scoreFinal: score,
       comboMax,
@@ -1230,41 +913,22 @@
       miniTotal: minisAll.length,
       miniCleared: minisCleared,
       grade: finalGrade
-    });
+    };
+
+    dispatch('hha:end', endPayload);
+
+    // ✅ log end summary
+    logEvent('end', Object.assign({}, endPayload, {
+      durationSec: Math.max(1, Math.floor((now() - startedAt) / 1000)),
+      goodHits, junkHits, goodExpires, junkExpires
+    }));
   }
 
-  // -------------------------
   // PUBLIC API
-  // -------------------------
   ns.GameEngine = {
     setLayerEl(el) { layerEl = el; },
 
-    // PATCH 1: camera element (A-Frame camera)
-    setCameraEl(el){ camEl = el; },
-
-    // PATCH 2: avoid UI elements (real clamp safe zone)
-    // accept: [Element,...] or ['#id','.class',...]
-    setAvoidEls(list){
-      const out = [];
-      if (Array.isArray(list)) {
-        for (const it of list) {
-          if (!it) continue;
-          if (typeof it === 'string') {
-            try { const el = document.querySelector(it); if (el) out.push(el); } catch {}
-          } else if (it && typeof it.getBoundingClientRect === 'function') {
-            out.push(it);
-          }
-        }
-      }
-      avoidEls = out;
-      computeSafeRect(true);
-    },
-
-    // Optional: internal VR-look (drag + deviceorientation + inertia)
-    enableLook(opts){ enableLook(opts || {}); },
-    disableLook(){ disableLook(); },
-
-    // HTML ส่ง timeLeft เข้ามา เพื่อ PANIC TIME ทำงานเป๊ะ
+    // ✅ HTML ส่ง timeLeft เข้ามา เพื่อ PANIC TIME ทำงานเป๊ะ
     setTimeLeft(sec) {
       remainingSec = Math.max(0, sec | 0);
       dispatch('hha:time', { left: remainingSec });
@@ -1274,16 +938,17 @@
       layerEl = (opts && opts.layerEl) ? opts.layerEl : layerEl;
       if (!layerEl) { console.error('[FoodGroupsVR] layerEl missing'); return; }
 
-      // accept camera + avoid in start opts
-      if (opts.cameraEl) camEl = opts.cameraEl;
-      if (opts.avoidEls) this.setAvoidEls(opts.avoidEls);
+      diffNow = String(diff || 'normal').toLowerCase();
 
       runMode = String((opts && opts.runMode) ? opts.runMode : 'play').toLowerCase();
       if (runMode !== 'research') runMode = 'play';
 
+      // session id (รับจาก HTML ได้)
+      sessionId = String((opts && opts.sessionId) ? opts.sessionId : '') || uuid();
+
       if (opts && opts.config) Object.assign(CFG, opts.config);
 
-      applyDifficulty(diff);
+      applyDifficulty(diffNow);
 
       // เก็บ base เพื่อ adaptive ปรับจากฐาน ไม่ทำให้ drift
       CFG._baseSpawnInterval = CFG.spawnInterval;
@@ -1297,35 +962,21 @@
       FeverUI.setShield && FeverUI.setShield(0);
 
       if (QuestFactory && typeof QuestFactory.createFoodGroupsQuest === 'function') {
-        quest = QuestFactory.createFoodGroupsQuest(diff);
+        quest = QuestFactory.createFoodGroupsQuest(diffNow);
       } else {
         quest = null;
         console.warn('[FoodGroupsVR] quest-manager not found');
       }
 
-      // research = lock adaptive
+      // research = lock adaptive + no rush
       if (runMode === 'research') {
         sizeMul = 1.0;
         CFG.adaptiveEnabledPlay = false;
-        CFG.rushEnabled = false; // โหมดวิจัยไม่สุ่ม rush
+        CFG.rushEnabled = false;
       } else {
         CFG.adaptiveEnabledPlay = true;
         CFG.rushEnabled = true;
       }
-
-      // Optional: enable built-in look controls via start opts (to replace external attachTouchLook if you want)
-      if (opts && opts.look && opts.look.enabled) {
-        this.enableLook({
-          areaEl: (opts.look.areaEl || document.body),
-          sensitivity: (typeof opts.look.sensitivity === 'number' ? opts.look.sensitivity : CFG.lookSensitivity),
-          inertia: (typeof opts.look.inertia === 'number' ? opts.look.inertia : CFG.lookInertia),
-          maxPitch: (typeof opts.look.maxPitch === 'number' ? opts.look.maxPitch : CFG.lookMaxPitch),
-          useDeviceOrientation: !!opts.look.useDeviceOrientation
-        });
-      }
-
-      // safe rect ready
-      computeSafeRect(true);
 
       const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
       coach(g ? `เริ่มเลย! หมู่ปัจจุบัน: ${g.label} ✨` : 'เริ่มเลย! แตะอาหารดีให้ได้เยอะ ๆ ✨');
@@ -1334,10 +985,6 @@
       emitRank();
 
       running = true;
-
-      // PATCH 1: start parallax loop (world-anchored targets)
-      startParallaxLoop();
-
       startSecondLoop();
       scheduleNextSpawn();
 
@@ -1347,6 +994,18 @@
       setTimeout(() => createTarget(), 420);
 
       dispatch('hha:score', { score, combo, misses, shield, fever });
+
+      // ✅ log start
+      logEvent('start', {
+        spawnInterval: CFG.spawnInterval|0,
+        maxActive: CFG.maxActive|0,
+        minVisible: CFG.minVisible|0,
+        lifeMin: CFG.lifeTime[0]|0,
+        lifeMax: CFG.lifeTime[1]|0,
+        targetSizePx: CFG.targetSizePx|0,
+        rushEnabled: !!CFG.rushEnabled,
+        adaptiveEnabled: !!CFG.adaptiveEnabledPlay
+      });
     },
 
     stop(reason) {
