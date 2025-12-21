@@ -1,23 +1,17 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION (Self-contained spawner)
+// Hydration Quest VR — PRODUCTION
 //
-// ✅ เป้าขึ้นแน่นอน (ไม่พึ่ง mode-factory)
-// ✅ เป้าเป็น “ฟองสบู่จริง” ใสเกือบไม่เห็น + ขอบรุ้ง iridescence ชัด + shimmer ตาม device-tilt
-// ✅ bubble 2 ชั้น + perfect ring
-// ✅ PERFECT: ดาวแตกหนัก ๆ + canvas starburst + chroma pulse + score/judge + shard mix
-// ✅ Storm Wave: ส่ายแรง/เร็วขึ้น + speedlines + wobble ต่อเนื่อง + chroma split “ขอบแดงแรงขึ้น”
-// ✅ Drag view: เลื่อนจอแล้วเป้าเลื่อนตาม (host transform) + tap = ยิงกลางจอ (crosshair)
-// ✅ Fix zone counting: ใช้ zoneFrom (LOW/GREEN/HIGH) map เป็น BLUE/GREEN/RED
-//
-// Requires:
-// - /herohealth/vr/ui-water.js  (module)
-// - /herohealth/vr/particles.js (IIFE)  -> window.Particles or window.GAME_MODULES.Particles
-//
-// HTML should have:
-// - #hvr-wrap, #hvr-playfield, #hvr-postfx, #hvr-screen-blink, #hvr-crosshair (recommended)
+// ✅ Bubble “ฟองสบู่จริง”: ใสเกือบไม่เห็น แต่ขอบสวย + thin-film iridescence ชัดขึ้น
+// ✅ Reactive shimmer + device-tilt shimmer
+// ✅ Targets “ลอย/ส่าย” (wiggle) และ Storm ทำให้ส่ายแรง/เร็วขึ้น + speedlines หนักขึ้น
+// ✅ PERFECT: ring bonus + ดาวแตกหนัก ๆ + chroma flash + sound sparkle
+// ✅ คืน FX: score pop + judgment + burst (Particles)
+// ✅ Drag view: เลื่อนจอแล้วเป้าเลื่อนตาม (เลื่อน #hvr-spawnlayer) + clamp safe zone ไม่ทับ HUD
+// ✅ Fix zone counting: ui-water LOW/GREEN/HIGH → map BLUE/GREEN/RED
 
 'use strict';
 
+import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
@@ -31,9 +25,13 @@ const Particles =
 function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
 function now(){ return (typeof performance!=='undefined' && performance.now)?performance.now():Date.now(); }
 function $id(id){ return DOC ? DOC.getElementById(id) : null; }
-function setText(id, txt){ const el=$id(id); if (el) el.textContent = String(txt); }
-function addClass(el,c){ try{ el && el.classList.add(c);}catch{} }
-function removeClass(el,c){ try{ el && el.classList.remove(c);}catch{} }
+
+function setText(id, txt){
+  const el = $id(id);
+  if (el) el.textContent = String(txt);
+}
+function addClass(el, c){ try{ el && el.classList.add(c); }catch{} }
+function removeClass(el, c){ try{ el && el.classList.remove(c); }catch{} }
 
 function zoneLabelFrom(zone){
   if (zone === 'LOW') return 'BLUE';
@@ -50,122 +48,85 @@ function gradeFrom(score){
   return 'C';
 }
 
-// --- tiny synth (no external files) ---
-function makeSfx(){
-  let ac = null;
-  function ctx(){
-    if (!ac){
-      const A = ROOT.AudioContext || ROOT.webkitAudioContext;
-      if (!A) return null;
-      ac = new A();
-    }
-    return ac;
-  }
-  function beep(freq=880, dur=0.06, type='triangle', gain=0.04){
-    const c = ctx(); if (!c) return;
-    if (c.state === 'suspended') c.resume().catch(()=>{});
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.type = type;
-    o.frequency.value = freq;
-    g.gain.value = gain;
-    o.connect(g); g.connect(c.destination);
-    const t0 = c.currentTime;
-    g.gain.setValueAtTime(gain, t0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.start(t0);
-    o.stop(t0 + dur + 0.01);
-  }
-  function tick(){
-    beep(1200, 0.03, 'square', 0.018);
-  }
-  function hitGood(){
-    beep(740, 0.05, 'triangle', 0.035);
-  }
-  function hitBad(){
-    beep(220, 0.08, 'sawtooth', 0.030);
-  }
-  function hitPerfect(){
-    beep(1200, 0.05, 'triangle', 0.045);
-    ROOT.setTimeout(()=>beep(1800, 0.06, 'triangle', 0.035), 30);
-  }
-  return { tick, hitGood, hitBad, hitPerfect };
-}
-
+// ------------------------------------------------------
+//  Styles: bubble skin + shimmer + storm wobble + speedlines
+// ------------------------------------------------------
 function ensureHydrationStyle(){
   if (!DOC || DOC.getElementById('hvr-hydration-style')) return;
   const s = DOC.createElement('style');
   s.id = 'hvr-hydration-style';
   s.textContent = `
-    /* 2-layer parallax */
-    #hvr-playfield{ --view-x:0px; --view-y:0px; --tilt-x:0; --tilt-y:0; }
-    .hvr-parallax{
-      position:absolute;
-      inset:-12%;
-      pointer-events:none;
-      transform: translate3d(calc(var(--view-x) * var(--px, 0.2)), calc(var(--view-y) * var(--py, 0.2)), 0);
-      will-change: transform;
-      opacity: var(--op, 0.35);
-      filter: blur(var(--blur, 0px));
+    /* vars */
+    #hvr-wrap{
+      --storm: 0;
+      --chroma: 0;
+      --wob: 0;
     }
-    .hvr-parallax.l1{
-      --px:.18; --py:.14; --op:.28; --blur:0px;
-      background:
-        radial-gradient(1000px 700px at 18% 20%, rgba(96,165,250,.18), transparent 60%),
-        radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.14), transparent 62%),
-        radial-gradient(1100px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%);
-      mix-blend-mode: screen;
+    #hvr-playfield{
+      --tilt-x: 0;
+      --tilt-y: 0;
+      --view-x: 0px;
+      --view-y: 0px;
     }
-    .hvr-parallax.l2{
-      --px:.42; --py:.34; --op:.22; --blur:.3px;
-      background:
-        repeating-radial-gradient(circle at 30% 40%, rgba(255,255,255,.07) 0 2px, transparent 2px 26px),
-        repeating-linear-gradient(45deg, rgba(59,130,246,.07) 0 1px, transparent 1px 18px);
-      mix-blend-mode: overlay;
-      transform: translate3d(calc(var(--view-x) * var(--px, .42)), calc(var(--view-y) * var(--py, .34)), 0) rotate(0.0001deg);
+    #hvr-spawnlayer{
+      transform: translate3d(var(--view-x), var(--view-y), 0);
     }
 
-    /* Storm chroma/wobble (แดงแรงขึ้น) */
+    /* stronger chromatic split (แดงชัด) */
     #hvr-wrap.hvr-chroma{
       filter:
-        drop-shadow(4.2px 0 rgba(255, 40, 80, 0.70))
-        drop-shadow(-2.4px 0 rgba(0, 190, 255, 0.25))
-        saturate(1.03);
+        drop-shadow(calc(3px + var(--chroma) * 2px) 0 rgba(255, 30, 70, 0.70))
+        drop-shadow(calc(-2px - var(--chroma) * 1px) 0 rgba(0, 200, 255, 0.26))
+        saturate(calc(1.06 + var(--chroma) * 0.10))
+        contrast(calc(1.03 + var(--chroma) * 0.08));
     }
+
+    /* continuous wobble (เบา ๆ แต่รู้สึก) */
     #hvr-wrap.hvr-wobble{
-      animation: hvrWobble 0.92s ease-in-out infinite;
+      animation: hvrWobble 1.05s ease-in-out infinite;
     }
     @keyframes hvrWobble{
       0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      25%{ transform: translate3d(0.9px,-0.7px,0) rotate(0.05deg); }
-      50%{ transform: translate3d(-1.1px,0.9px,0) rotate(-0.05deg); }
-      75%{ transform: translate3d(0.7px,1.0px,0) rotate(0.04deg); }
+      25%{ transform: translate3d(calc(0.7px + var(--wob) * 0.9px), calc(-0.4px - var(--wob) * 0.6px), 0) rotate(calc(0.03deg + var(--wob) * 0.03deg)); }
+      50%{ transform: translate3d(calc(-0.8px - var(--wob) * 0.9px), calc(0.6px + var(--wob) * 0.7px), 0) rotate(calc(-0.03deg - var(--wob) * 0.03deg)); }
+      75%{ transform: translate3d(calc(0.5px + var(--wob) * 0.7px), calc(0.7px + var(--wob) * 0.7px), 0) rotate(calc(0.02deg + var(--wob) * 0.03deg)); }
       100%{ transform: translate3d(0,0,0) rotate(0deg); }
     }
 
-    /* Speedlines overlay (storm) */
+    /* storm speedlines overlay (global) */
     .hvr-speedlines{
       position:fixed;
       inset:-20%;
       pointer-events:none;
       z-index:99960;
       opacity:0;
+      transform: translate3d(0,0,0);
       mix-blend-mode: screen;
       background:
-        repeating-linear-gradient(112deg,
-          rgba(255,255,255,0) 0 14px,
-          rgba(255,80,120,.14) 14px 16px,
-          rgba(0,190,255,.10) 16px 18px,
-          rgba(255,255,255,0) 18px 40px
+        repeating-linear-gradient(110deg,
+          rgba(255,255,255,.00) 0 16px,
+          rgba(255,80,120,.13) 16px 18px,
+          rgba(0,190,255,.11) 18px 20px,
+          rgba(255,255,255,.00) 20px 40px
         );
-      filter: blur(.6px) saturate(1.10) contrast(1.08);
-      animation: hvrLines .26s linear infinite;
+      filter: blur(0.55px) saturate(1.12) contrast(1.08);
+      animation: hvrLines 0.26s linear infinite;
     }
     @keyframes hvrLines{
-      0%{ transform: translate3d(-18px,-14px,0); }
-      100%{ transform: translate3d(34px,26px,0); }
+      0%{ transform: translate3d(-12px, -12px, 0); }
+      100%{ transform: translate3d(32px, 26px, 0); }
     }
-    .hvr-speedlines.on{ opacity:.36; }
+    .hvr-speedlines.on{ opacity:0.16; } /* will be boosted by JS via style */
+
+    /* shimmer pulse (reactive) */
+    #hvr-playfield.hvr-shimmer{
+      animation: hvrShimmerPulse 260ms ease-out 1;
+    }
+    @keyframes hvrShimmerPulse{
+      0%{ filter: none; }
+      55%{ filter: saturate(1.22) contrast(1.10) brightness(1.03); }
+      100%{ filter: none; }
+    }
 
     /* perfect pulse */
     #hvr-wrap.hvr-perfect-pulse{
@@ -173,123 +134,132 @@ function ensureHydrationStyle(){
     }
     @keyframes hvrPerfectPulse{
       0%{ filter: saturate(1) contrast(1); }
-      45%{ filter: saturate(1.28) contrast(1.14); }
+      45%{ filter: saturate(1.30) contrast(1.14) brightness(1.02); }
       100%{ filter: saturate(1) contrast(1); }
     }
 
-    /* ===== Bubble target (ฟองสบู่ใส + ขอบรุ้ง) ===== */
+    /* ---------- bubble skin ---------- */
     .hvr-target{
-      position:absolute;
-      width:84px;
-      height:84px;
       border-radius:999px;
-      transform: translate3d(0,0,0);
-      will-change: transform, filter;
-      pointer-events:auto;
-      user-select:none;
-      -webkit-user-select:none;
-      -webkit-tap-highlight-color: transparent;
-      background: rgba(255,255,255,.02); /* ใสเกือบไม่เห็น */
-      box-shadow:
-        0 10px 26px rgba(0,0,0,.28),
-        0 0 0 1px rgba(255,255,255,.06) inset;
-      overflow:hidden;
     }
 
-    /* bubble layer 1: thin-film rim (rainbow) */
-    .hvr-target::before{
+    .hvr-target[data-skin="bubble"]{
+      background: transparent !important;
+      box-shadow: none !important;
+      border: 1px solid rgba(255,255,255,0.10);
+      outline: 1px solid rgba(255,255,255,0.04);
+      overflow: visible;
+      contain: paint;
+    }
+
+    /* bubble body (almost invisible) */
+    .hvr-target[data-skin="bubble"]::before{
       content:"";
       position:absolute;
-      inset:-10%;
+      inset:-2px;
       border-radius:999px;
       background:
-        radial-gradient(circle at 30% 28%, rgba(255,255,255,.26), rgba(255,255,255,0) 36%),
-        conic-gradient(from calc(200deg + (var(--tilt-x) * 26deg)),
-          rgba(255, 60, 120, .38),
-          rgba(255, 180, 80, .30),
-          rgba(120, 255, 180, .28),
-          rgba(70, 190, 255, .34),
-          rgba(170, 120, 255, .36),
-          rgba(255, 60, 120, .38)
+        radial-gradient(circle at 32% 28%, rgba(255,255,255,0.30), rgba(255,255,255,0.06) 22%, rgba(255,255,255,0.00) 55%),
+        radial-gradient(circle at 70% 72%, rgba(120,180,255,0.09), rgba(255,255,255,0.00) 58%);
+      opacity: 0.45;
+      filter: blur(0.2px);
+      pointer-events:none;
+    }
+
+    /* thin-film iridescence rim (รุ้งชัด แต่บาง) */
+    .hvr-target[data-skin="bubble"]::after{
+      content:"";
+      position:absolute;
+      inset:-6px;
+      border-radius:999px;
+      background:
+        conic-gradient(from 220deg,
+          rgba(255,0,80,0.00),
+          rgba(255,0,80,0.38),
+          rgba(255,190,0,0.34),
+          rgba(0,255,140,0.30),
+          rgba(0,190,255,0.34),
+          rgba(180,80,255,0.34),
+          rgba(255,0,80,0.38),
+          rgba(255,0,80,0.00)
         );
-      filter: blur(.2px) saturate(1.18);
+      opacity: 0.30;
+      filter: saturate(1.35) contrast(1.10);
       mix-blend-mode: screen;
-      opacity: .86;
-      transform: rotate(calc(var(--iri-r, 0deg) + (var(--tilt-y) * 8deg)));
+      pointer-events:none;
+      transform: translate3d(calc(var(--tilt-x) * 8px), calc(var(--tilt-y) * -7px), 0);
+      will-change: transform, opacity;
     }
 
-    /* bubble layer 2: inner glass + reactive shimmer */
-    .hvr-target::after{
-      content:"";
+    /* bubble inner ring (perfect hint) – refined */
+    .hvr-target[data-skin="bubble"] .hvr-wiggle > .hvr-ring{
+      border: 2px solid rgba(255,255,255,0.20) !important;
+      box-shadow: 0 0 14px rgba(255,255,255,0.12) !important;
+    }
+
+    /* wiggle motion: float/sway (stronger in storm via vars) */
+    .hvr-target[data-skin="bubble"] .hvr-wiggle{
+      animation:
+        hvrFloat calc(2.25s - var(--storm) * 0.55s) ease-in-out infinite,
+        hvrSway  calc(1.55s - var(--storm) * 0.40s) ease-in-out infinite;
+      transform: translate3d(0,0,0);
+    }
+    @keyframes hvrFloat{
+      0%{ transform: translate3d(0,0,0) scale(1); }
+      50%{ transform: translate3d(0, calc(-5px - var(--storm) * 7px), 0) scale(1.01); }
+      100%{ transform: translate3d(0,0,0) scale(1); }
+    }
+    @keyframes hvrSway{
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      25%{ transform: translate3d(calc(3px + var(--storm) * 7px), calc(-1px - var(--storm) * 2px), 0) rotate(calc(0.8deg + var(--storm) * 1.3deg)); }
+      50%{ transform: translate3d(0,0,0) rotate(0deg); }
+      75%{ transform: translate3d(calc(-3px - var(--storm) * 7px), calc(1px + var(--storm) * 2px), 0) rotate(calc(-0.8deg - var(--storm) * 1.3deg)); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+    }
+
+    /* per-target wind lines (only storm) */
+    .hvr-target[data-skin="bubble"] .hvr-wind{
       position:absolute;
-      inset:10%;
+      inset:-14px;
       border-radius:999px;
+      opacity:0;
+      pointer-events:none;
+      mix-blend-mode: screen;
       background:
-        radial-gradient(circle at calc(50% + (var(--tilt-x) * 18%)) calc(38% + (var(--tilt-y) * 10%)),
-          rgba(255,255,255,.18),
-          rgba(255,255,255,0) 55%),
-        radial-gradient(circle at 65% 72%,
-          rgba(70,190,255,.10),
-          rgba(255,60,120,.08),
-          rgba(255,255,255,0) 62%);
-      opacity:.95;
-      mix-blend-mode: screen;
-      filter: blur(.2px) saturate(1.12);
-      transform: translate3d(calc(var(--shim-x, 0px)), calc(var(--shim-y, 0px)), 0);
+        repeating-linear-gradient(125deg,
+          rgba(255,255,255,0.00) 0 10px,
+          rgba(255,80,120,0.11) 10px 12px,
+          rgba(0,190,255,0.10) 12px 14px,
+          rgba(255,255,255,0.00) 14px 26px
+        );
+      filter: blur(0.55px) saturate(1.10);
+      animation: hvrWind 0.32s linear infinite;
+    }
+    @keyframes hvrWind{
+      0%{ transform: translate3d(-10px,-10px,0); }
+      100%{ transform: translate3d(22px,18px,0); }
+    }
+    .hvr-storm-on .hvr-target[data-skin="bubble"] .hvr-wind{
+      opacity: calc(0.08 + var(--storm) * 0.14);
     }
 
-    .hvr-target .emoji{
-      position:absolute;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:32px;
-      filter: drop-shadow(0 10px 16px rgba(0,0,0,.26));
-      transform: translate3d(0,0,0);
-    }
-
-    /* perfect ring (always animating per target life) */
-    .hvr-target .ring{
-      position:absolute;
-      left:50%;
-      top:50%;
-      width:110%;
-      height:110%;
-      border-radius:999px;
-      transform: translate(-50%,-50%) scale(1.12);
-      border: 2px solid rgba(255,255,255,.32);
-      box-shadow:
-        0 0 0 1px rgba(255,40,80,.18) inset,
-        0 0 18px rgba(255,255,255,.16);
-      opacity:.70;
-      mix-blend-mode: screen;
-      pointer-events:none;
-    }
-
-    .hvr-target.bad{ filter: saturate(0.92) brightness(0.96); }
-    .hvr-target.power{ filter: saturate(1.18) brightness(1.06); }
-
-    /* burst shards (DOM) */
-    .hvr-shard{
-      position:fixed;
-      width:10px;height:10px;
-      border-radius:4px;
-      pointer-events:none;
-      z-index:99970;
-      mix-blend-mode: screen;
-      opacity:.9;
-      transform: translate3d(0,0,0);
-      filter: blur(.15px) saturate(1.1);
+    /* junk still readable */
+    .hvr-target[data-item-type="bad"]{
+      filter: saturate(1.05) contrast(1.05);
     }
   `;
   DOC.head.appendChild(s);
 }
 
+// ------------------------------------------------------
+//  PostFX canvas (stars / shimmer spark)
+// ------------------------------------------------------
 function ensurePostFXCanvas(){
   const c = $id('hvr-postfx');
   if (!c) return null;
   const ctx = c.getContext('2d');
+  if (!ctx) return null;
+
   function resize(){
     const dpr = Math.max(1, Math.min(2, ROOT.devicePixelRatio || 1));
     c.width  = Math.floor((ROOT.innerWidth||1) * dpr);
@@ -304,7 +274,7 @@ function ensurePostFXCanvas(){
 }
 
 function drawStarBurst(ctx, x, y, t, strength=1){
-  const n = Math.floor(22 + 22*strength);
+  const n = Math.floor(20 + 22*strength);
   const r0 = 6 + 10*strength;
   const r1 = 46 + 86*strength;
 
@@ -312,119 +282,103 @@ function drawStarBurst(ctx, x, y, t, strength=1){
   ctx.translate(x,y);
   ctx.globalCompositeOperation = 'screen';
 
+  // rays (two chroma layers)
   for (let i=0;i<n;i++){
     const a = (i/n) * Math.PI*2 + (t*0.002);
-    const rr = r0 + (r1-r0) * (0.35 + 0.65*Math.random());
-    const w = 1.2 + 2.4*strength;
+    const rr = r0 + (r1-r0) * (0.25 + 0.75*Math.random());
+    const w = 1.15 + 2.6*strength;
 
-    ctx.strokeStyle = `rgba(255, 60, 110, ${0.14 + 0.12*strength})`;
+    ctx.strokeStyle = `rgba(255, 60, 120, ${0.12 + 0.13*strength})`;
     ctx.lineWidth = w;
     ctx.beginPath();
     ctx.moveTo(Math.cos(a)*r0, Math.sin(a)*r0);
     ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
     ctx.stroke();
 
-    const a2 = a + 0.16;
-    ctx.strokeStyle = `rgba(0, 190, 255, ${0.10 + 0.12*strength})`;
+    const a2 = a + 0.20;
+    ctx.strokeStyle = `rgba(0, 200, 255, ${0.10 + 0.12*strength})`;
     ctx.lineWidth = w*0.86;
     ctx.beginPath();
     ctx.moveTo(Math.cos(a2)*r0, Math.sin(a2)*r0);
-    ctx.lineTo(Math.cos(a2)*rr*0.92, Math.sin(a2)*rr*0.92);
+    ctx.lineTo(Math.cos(a2)*rr*0.94, Math.sin(a2)*rr*0.94);
     ctx.stroke();
   }
 
+  // sparkle dots
   for (let k=0;k<18;k++){
     const a = Math.random()*Math.PI*2;
-    const rr = 12 + Math.random()* (80*strength);
-    ctx.fillStyle = `rgba(255,255,255,${0.14 + 0.22*Math.random()})`;
+    const rr = 10 + Math.random()*(74*strength);
+    ctx.fillStyle = `rgba(255,255,255,${0.12 + 0.22*Math.random()})`;
     ctx.beginPath();
-    ctx.arc(Math.cos(a)*rr, Math.sin(a)*rr, 1.4 + 2.6*Math.random(), 0, Math.PI*2);
+    ctx.arc(Math.cos(a)*rr, Math.sin(a)*rr, 1.1 + 2.4*Math.random(), 0, Math.PI*2);
     ctx.fill();
   }
 
   ctx.restore();
 }
 
-function spawnShards(x,y, count=10){
-  const body = DOC.body;
-  for (let i=0;i<count;i++){
-    const d = DOC.createElement('div');
-    d.className = 'hvr-shard';
-    const hue = (i*28 + Math.random()*18) % 360;
-    d.style.background = `linear-gradient(135deg,
-      hsla(${hue}, 95%, 70%, .75),
-      hsla(${(hue+60)%360}, 95%, 65%, .45)
-    )`;
-    d.style.left = (x-5) + 'px';
-    d.style.top  = (y-5) + 'px';
+// ------------------------------------------------------
+//  Tiny audio (sparkle/pop)
+// ------------------------------------------------------
+let _ac = null;
+function ensureAudio(){
+  try{
+    const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
+    if (!AC) return null;
+    if (!_ac) _ac = new AC();
+    if (_ac.state === 'suspended') _ac.resume();
+    return _ac;
+  }catch{ return null; }
+}
+function playSparkle(str=1){
+  const ac = ensureAudio(); if (!ac) return;
+  const t0 = ac.currentTime + 0.002;
 
-    const ang = Math.random()*Math.PI*2;
-    const sp  = 140 + Math.random()*260;
-    const dx  = Math.cos(ang)*sp;
-    const dy  = Math.sin(ang)*sp;
-    const rot = (Math.random()*220 - 110);
-    body.appendChild(d);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.12*str, t0+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+0.18);
 
-    d.animate([
-      { transform:`translate3d(0,0,0) rotate(0deg) scale(1)`, opacity:0.95 },
-      { transform:`translate3d(${dx}px,${dy}px,0) rotate(${rot}deg) scale(0.55)`, opacity:0 }
-    ], { duration: 520 + Math.random()*240, easing:'cubic-bezier(.18,.9,.22,1)' });
+  const o1 = ac.createOscillator();
+  o1.type = 'triangle';
+  o1.frequency.setValueAtTime(880, t0);
+  o1.frequency.exponentialRampToValueAtTime(1600, t0+0.08);
 
-    ROOT.setTimeout(()=>{ try{ d.remove(); }catch{} }, 900);
-  }
+  const o2 = ac.createOscillator();
+  o2.type = 'sine';
+  o2.frequency.setValueAtTime(1320, t0);
+  o2.frequency.exponentialRampToValueAtTime(2200, t0+0.06);
+
+  o1.connect(g); o2.connect(g);
+  g.connect(ac.destination);
+
+  o1.start(t0); o2.start(t0);
+  o1.stop(t0+0.20); o2.stop(t0+0.20);
+}
+function playPop(str=1){
+  const ac = ensureAudio(); if (!ac) return;
+  const t0 = ac.currentTime + 0.001;
+
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.10*str, t0+0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+0.08);
+
+  const o = ac.createOscillator();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(260, t0);
+  o.frequency.exponentialRampToValueAtTime(90, t0+0.06);
+
+  o.connect(g);
+  g.connect(ac.destination);
+
+  o.start(t0);
+  o.stop(t0+0.09);
 }
 
-function blinkOn(kind, ms=110){
-  const blink = $id('hvr-screen-blink');
-  if (!blink) return;
-  blink.className = '';
-  blink.classList.add('on');
-  if (kind) blink.classList.add(kind);
-  ROOT.setTimeout(()=>{ blink.className=''; }, ms);
-}
-
-function computeSafeSpawnRect(playfield){
-  // กันทับ HUD: ใช้ rect ของ .hud .card ทั้งหมด
-  const w = ROOT.innerWidth || 1;
-  const h = ROOT.innerHeight || 1;
-
-  // base safe margin
-  const pad = 18;
-
-  // collect forbidden rects
-  const bad = [];
-  const cards = DOC.querySelectorAll('.hud .card');
-  cards.forEach(el=>{
-    const r = el.getBoundingClientRect();
-    bad.push({ l:r.left, t:r.top, r:r.right, b:r.bottom });
-  });
-
-  // also avoid very top band (status area)
-  bad.push({ l:0, t:0, r:w, b:110 });
-
-  function ok(x,y, size){
-    const l=x, t=y, rr=x+size, bb=y+size;
-    if (l < pad || t < pad || rr > w-pad || bb > h-pad) return false;
-    for (const b of bad){
-      const inter = !(rr < b.l || l > b.r || bb < b.t || t > b.b);
-      if (inter) return false;
-    }
-    return true;
-  }
-
-  return {
-    pick(size){
-      for (let k=0;k<28;k++){
-        const x = pad + Math.random()*(w - pad*2 - size);
-        const y = pad + Math.random()*(h - pad*2 - size);
-        if (ok(x,y,size)) return { x, y };
-      }
-      // fallback: center-ish
-      return { x: (w-size)/2, y: (h-size)/2 + 80 };
-    }
-  };
-}
-
+// ------------------------------------------------------
+//  boot()
+// ------------------------------------------------------
 export async function boot(opts = {}){
   if (!DOC) return { stop(){} };
 
@@ -433,19 +387,10 @@ export async function boot(opts = {}){
 
   const wrap = $id('hvr-wrap');
   const playfield = $id('hvr-playfield');
-  const crosshair = $id('hvr-crosshair');
+  const spawnLayer = $id('hvr-spawnlayer');
+  const blink = $id('hvr-screen-blink');
 
-  if (!playfield) throw new Error('ไม่พบ #hvr-playfield ใน hydration-vr.html');
-
-  // parallax layers
-  if (!playfield.querySelector('.hvr-parallax')){
-    const l1 = DOC.createElement('div'); l1.className='hvr-parallax l1';
-    const l2 = DOC.createElement('div'); l2.className='hvr-parallax l2';
-    playfield.appendChild(l1);
-    playfield.appendChild(l2);
-  }
-
-  // speedlines
+  // storm global speedlines overlay
   let speedLines = DOC.querySelector('.hvr-speedlines');
   if (!speedLines){
     speedLines = DOC.createElement('div');
@@ -454,51 +399,43 @@ export async function boot(opts = {}){
   }
 
   const post = ensurePostFXCanvas();
-  const SFX = makeSfx();
 
   const diff = String(opts.difficulty || 'easy').toLowerCase();
   const duration = clamp(opts.duration ?? 90, 20, 180);
 
-  const DIFF = {
-    easy:   { size:86, max:4, life:1700, spawn:1050, good:0.70, power:0.10, trick:0.08 },
-    normal: { size:76, max:5, life:1550, spawn:920,  good:0.64, power:0.10, trick:0.10 },
-    hard:   { size:68, max:6, life:1320, spawn:760,  good:0.58, power:0.12, trick:0.12 }
-  }[diff] || { size:76, max:5, life:1550, spawn:920, good:0.64, power:0.10, trick:0.10 };
-
   // pools
-  const GOOD  = ['💧','🧊','🥤','🫧'];
-  const BAD   = ['🍟','🍩','🍕','🍔'];
-  const POWER = ['⭐','✨','⚡'];
-  const TRICK = ['🫧','🥤']; // หลอก
+  const GOOD = ['💧','🧊','🫧'];         // โฟมน้ำ/น้ำแข็ง/ฟอง
+  const BAD  = ['🍟','🍩','🍕','🥤'];    // junk
+  const POWER = ['⭐','⚡','✨'];
 
   const s = {
-    running:true,
+    running: true,
     startedAt: now(),
-    score:0, combo:0, comboMax:0, miss:0,
-    water:50,
-    zone:'GREEN',
-    zoneLabel:'GREEN',
-    greenTick:0,
+
+    score: 0,
+    combo: 0,
+    comboMax: 0,
+    miss: 0,
+
+    water: 50,
+    zone: 'GREEN',
+    zoneLabel: 'GREEN',
+
+    greenTick: 0,
     timeLeft: duration,
 
-    viewX:0, viewY:0,
-    stormOn:false,
-    stormUntil:0,
-    stormStrength:0,
-    tiltX:0, tiltY:0,
+    // view offset (applies to spawnLayer)
+    viewX: 0,
+    viewY: 0,
 
-    sparks:[],
-    targets: new Map(), // id -> obj
-    nextId: 1,
-    spawnTimer: 0,
+    stormOn: false,
+    stormUntil: 0,
+    stormStrength: 0,
 
-    // drag
-    dragOff: null,
-    tiltOff: null,
+    tiltX: 0,
+    tiltY: 0,
 
-    // safe picker (recompute on resize occasionally)
-    safe: computeSafeSpawnRect(playfield),
-    lastSafeRecalc: 0
+    sparks: [] // postFX bursts
   };
 
   function hud(){
@@ -518,30 +455,28 @@ export async function boot(opts = {}){
 
     const qg = $id('hha-quest-goal');
     const qm = $id('hha-quest-mini');
-    if (qg) qg.textContent = `Goal: ⏳ อยู่ GREEN ≥ 16s (ตอนนี้ ${s.greenTick}s)`;
-    if (qm) qm.textContent = `Mini: ✅ Combo ≥ 8 • ✅ Perfect ≥ 4 • ✅ NoJunk`;
+    if (qg) qg.textContent = `Goal: อยู่ GREEN ให้นานที่สุด (ตอนนี้ ${s.greenTick}s)`;
+    if (qm) qm.textContent = `Mini: PERFECT/Combo ลุ้น Storm Wave!`;
   }
 
   function applyView(){
+    if (!playfield) return;
     playfield.style.setProperty('--view-x', s.viewX + 'px');
     playfield.style.setProperty('--view-y', s.viewY + 'px');
-    playfield.style.transform = `translate3d(${s.viewX}px, ${s.viewY}px, 0)`;
   }
 
-  function updateWater(delta){
-    s.water = clamp(s.water + delta, 0, 100);
-    const z = zoneFrom(s.water);
-    s.zone = z;
-    s.zoneLabel = zoneLabelFrom(z);
-    setWaterGauge(s.water);
+  function shimmerPulse(){
+    if (!playfield) return;
+    addClass(playfield, 'hvr-shimmer');
+    ROOT.setTimeout(()=>removeClass(playfield,'hvr-shimmer'), 280);
+  }
 
-    // force HUD text BLUE/GREEN/RED
-    const st = $id('hha-water-status');
-    if (st) st.textContent = `${s.zoneLabel} ${Math.round(s.water)}%`;
-    const zt = $id('hha-water-zone-text');
-    if (zt) zt.textContent = (s.zoneLabel === 'GREEN') ? 'ZONE GREEN' : `ZONE ${s.zoneLabel}`;
-
-    return { pct:s.water, zone:z };
+  function blinkOn(kind, ms=110){
+    if (!blink) return;
+    blink.className = '';
+    blink.classList.add('on');
+    if (kind) blink.classList.add(kind);
+    ROOT.setTimeout(()=>{ blink.className=''; }, ms);
   }
 
   function setStorm(on, strength=1){
@@ -549,108 +484,97 @@ export async function boot(opts = {}){
     s.stormStrength = clamp(strength, 0, 1.25);
 
     if (wrap){
-      if (s.stormOn){ addClass(wrap,'hvr-chroma'); addClass(wrap,'hvr-wobble'); }
-      else { removeClass(wrap,'hvr-chroma'); removeClass(wrap,'hvr-wobble'); }
+      wrap.style.setProperty('--storm', String(s.stormStrength.toFixed(3)));
+      wrap.style.setProperty('--chroma', String((0.65 + s.stormStrength*0.75).toFixed(3)));
+      wrap.style.setProperty('--wob', String((0.20 + s.stormStrength*0.55).toFixed(3)));
+      if (s.stormOn){
+        addClass(wrap,'hvr-chroma');
+        addClass(wrap,'hvr-wobble');
+      }else{
+        removeClass(wrap,'hvr-chroma');
+        removeClass(wrap,'hvr-wobble');
+      }
     }
+
     if (speedLines){
-      if (s.stormOn) addClass(speedLines,'on');
-      else removeClass(speedLines,'on');
+      if (s.stormOn){
+        addClass(speedLines,'on');
+        // heavier with strength
+        speedLines.style.opacity = String(clamp(0.18 + s.stormStrength*0.18, 0, 0.40));
+        speedLines.style.animationDuration = `${clamp(0.30 - s.stormStrength*0.10, 0.18, 0.32)}s`;
+      }else{
+        removeClass(speedLines,'on');
+        speedLines.style.opacity = '';
+        speedLines.style.animationDuration = '';
+      }
     }
   }
 
   function maybeStormTick(){
     const t = now();
-    if (s.stormOn && t > s.stormUntil) setStorm(false, 0);
-  }
-
-  function perfectFX(x,y){
-    try{ Particles.burstAt(x,y,'PERFECT'); }catch{}
-    try{ Particles.scorePop(x,y,'PERFECT! +120','gold'); }catch{}
-    blinkOn('perfect', 140);
-    SFX.hitPerfect();
-
-    if (wrap){
-      addClass(wrap,'hvr-perfect-pulse');
-      ROOT.setTimeout(()=>removeClass(wrap,'hvr-perfect-pulse'), 220);
+    if (s.stormOn && t > s.stormUntil){
+      setStorm(false, 0);
     }
-
-    if (post && post.ctx){
-      s.sparks.push({ x, y, t0: now(), str: 1.25 });
-    }
-    spawnShards(x,y, 14);
   }
 
-  function goodFX(x,y, txt='+55', kind='good'){
-    try{ Particles.burstAt(x,y, kind==='power'?'POWER':'GOOD'); }catch{}
-    try{ Particles.scorePop(x,y, txt, kind); }catch{}
-    blinkOn('good', 95);
-    SFX.hitGood();
-    spawnShards(x,y, kind==='power' ? 12 : 8);
-  }
-
-  function badFX(x,y, txt='MISS'){
-    try{ Particles.burstAt(x,y,'BAD'); }catch{}
-    try{ Particles.scorePop(x,y, txt,'bad'); }catch{}
-    blinkOn('bad', 120);
-    SFX.hitBad();
-    spawnShards(x,y, 8);
-  }
-
-  // device tilt -> shimmer
+  // device tilt shimmer
   function bindTilt(){
     const onOri = (e)=>{
-      // gamma: left/right, beta: front/back
+      // gamma: L/R, beta: F/B
       const gx = clamp((e.gamma||0)/30, -1, 1);
       const gy = clamp((e.beta||0)/40, -1, 1);
       s.tiltX = gx; s.tiltY = gy;
-      playfield.style.setProperty('--tilt-x', gx.toFixed(3));
-      playfield.style.setProperty('--tilt-y', gy.toFixed(3));
+
+      if (playfield){
+        playfield.style.setProperty('--tilt-x', gx.toFixed(3));
+        playfield.style.setProperty('--tilt-y', gy.toFixed(3));
+      }
     };
     ROOT.addEventListener('deviceorientation', onOri, { passive:true });
-    return ()=>ROOT.removeEventListener('deviceorientation', onOri);
+    return ()=> ROOT.removeEventListener('deviceorientation', onOri);
   }
 
-  // drag view + tap shoot(center)
-  function bindViewDragAndShoot(){
-    let down=false, moved=false, sx=0, sy=0, vx0=0, vy0=0, pid=null;
-    const TH=6;
+  // drag view on playfield (but move spawnLayer via CSS vars)
+  function bindViewDragAndShoot(inst){
+    if (!playfield) return;
 
-    function shootCenter(){
-      const cx = (ROOT.innerWidth||1)/2;
-      const cy = (ROOT.innerHeight||1)/2;
-      let el = DOC.elementFromPoint(cx,cy);
-      // climb to target
-      while (el && el !== DOC.body && !el.classList?.contains('hvr-target')) el = el.parentNode;
-      if (el && el.classList?.contains('hvr-target')){
-        const id = Number(el.dataset.id||0);
-        if (id && s.targets.has(id)) hitTarget(id, { clientX:cx, clientY:cy, by:'crosshair' });
-      }
-    }
+    let down = false;
+    let moved = false;
+    let sx=0, sy=0, vx0=0, vy0=0;
+    let pid = null;
+    const TH = 6;
 
-    const onDown=(e)=>{
+    const onDown = (e)=>{
       if (!s.running) return;
-      down=true; moved=false;
-      pid=e.pointerId;
+      down = true; moved = false;
+      pid = e.pointerId;
       try{ playfield.setPointerCapture(pid); }catch{}
-      sx=e.clientX; sy=e.clientY;
-      vx0=s.viewX; vy0=s.viewY;
+      sx = e.clientX; sy = e.clientY;
+      vx0 = s.viewX; vy0 = s.viewY;
     };
-    const onMove=(e)=>{
+    const onMove = (e)=>{
       if (!down || !s.running) return;
-      const dx=e.clientX-sx, dy=e.clientY-sy;
-      if (!moved && (Math.abs(dx)+Math.abs(dy) > TH)) moved=true;
+      const dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      if (!moved && (Math.abs(dx)+Math.abs(dy) > TH)) moved = true;
+
       if (moved){
+        // clamp view
         s.viewX = clamp(vx0 + dx, -180, 180);
         s.viewY = clamp(vy0 + dy, -140, 140);
         applyView();
       }
     };
-    const onUp=()=>{
+    const onUp = ()=>{
       if (!down) return;
-      down=false;
+      down = false;
       try{ playfield.releasePointerCapture(pid); }catch{}
-      pid=null;
-      if (!moved) shootCenter();
+      pid = null;
+
+      // tap => shoot
+      if (!moved && inst && typeof inst.shootCrosshair === 'function'){
+        inst.shootCrosshair();
+      }
     };
 
     playfield.addEventListener('pointerdown', onDown, { passive:true });
@@ -666,157 +590,151 @@ export async function boot(opts = {}){
     };
   }
 
-  // postFX loop
-  let fxRaf=null;
+  // PostFX render loop
+  let fxRaf = null;
   function fxLoop(){
     if (!post || !post.ctx) return;
     const ctx = post.ctx;
     const t = now();
+
     ctx.clearRect(0,0,ROOT.innerWidth||1,ROOT.innerHeight||1);
 
-    const out=[];
+    const out = [];
     for (const sp of s.sparks){
       const dt = t - sp.t0;
       if (dt > 560) continue;
       out.push(sp);
+
       const k = 1 - (dt/560);
-      ctx.globalAlpha = 0.60 * k;
-      drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.80 + 0.60*k));
+      ctx.globalAlpha = 0.62 * k;
+      drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.75 + 0.60*k));
     }
     s.sparks = out;
-    ctx.globalAlpha = 1;
 
+    ctx.globalAlpha = 1;
     fxRaf = ROOT.requestAnimationFrame(fxLoop);
   }
   fxRaf = ROOT.requestAnimationFrame(fxLoop);
 
-  // ---------- targets ----------
-  function pickType(){
-    const r = Math.random();
-    if (r < DIFF.power) return 'power';
-    if (r < DIFF.power + (1-DIFF.power)*DIFF.good) return 'good';
-    const r2 = Math.random();
-    if (r2 < DIFF.trick) return 'trick';
-    return 'bad';
+  // water update
+  function updateWater(delta){
+    s.water = clamp(s.water + delta, 0, 100);
+    const z = zoneFrom(s.water);     // LOW/GREEN/HIGH
+    s.zone = z;
+    s.zoneLabel = zoneLabelFrom(z); // BLUE/GREEN/RED
+
+    setWaterGauge(s.water);
+
+    const st = $id('hha-water-status');
+    if (st) st.textContent = `${s.zoneLabel} ${Math.round(s.water)}%`;
+    const zt = $id('hha-water-zone-text');
+    if (zt) zt.textContent = `ZONE ${s.zoneLabel}`;
+
+    return { pct:s.water, zone:s.zone };
   }
 
-  function pickEmoji(type){
-    if (type === 'power') return POWER[(Math.random()*POWER.length)|0];
-    if (type === 'bad') return BAD[(Math.random()*BAD.length)|0];
-    if (type === 'trick') return TRICK[(Math.random()*TRICK.length)|0];
-    return GOOD[(Math.random()*GOOD.length)|0];
+  // init
+  updateWater(0);
+  hud();
+  applyView();
+
+  // storm => faster spawn
+  function spawnMul(){
+    if (!s.stormOn) return 1.0;
+    return clamp(0.70 - 0.25*s.stormStrength, 0.40, 0.75);
   }
 
-  function makeTarget(){
-    const id = s.nextId++;
-    const type = pickType();
-    const emoji = pickEmoji(type);
+  // decorate targets to bubble skin + per-target wind lines
+  function decorateTarget(el, parts, data){
+    if (!el || !parts) return;
 
-    // resize safe rect occasionally
-    const t = now();
-    if (t - s.lastSafeRecalc > 900){
-      s.safe = computeSafeSpawnRect(playfield);
-      s.lastSafeRecalc = t;
-    }
+    // make ring selectable by CSS
+    if (parts.ring) parts.ring.classList.add('hvr-ring');
 
-    const size = DIFF.size * (type==='power' ? 1.05 : 1.0);
-    const p = s.safe.pick(size);
+    // bubble skin for good/power/fakeGood
+    const it = String(data.itemType||'');
+    const isBad = (it === 'bad');
 
-    const el = DOC.createElement('div');
-    el.className = 'hvr-target' + (type==='bad' ? ' bad' : (type==='power' ? ' power' : ''));
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
-    el.style.left = p.x + 'px';
-    el.style.top  = p.y + 'px';
-    el.dataset.id = String(id);
+    if (!isBad){
+      el.dataset.skin = 'bubble';
 
-    // ring + emoji
-    const ring = DOC.createElement('div');
-    ring.className = 'ring';
-    const em = DOC.createElement('div');
-    em.className = 'emoji';
-    em.textContent = emoji;
-
-    el.appendChild(ring);
-    el.appendChild(em);
-
-    // reactive shimmer vars
-    el.style.setProperty('--iri-r', (Math.random()*180 - 90).toFixed(2) + 'deg');
-
-    // click direct
-    el.addEventListener('pointerdown', (e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      hitTarget(id, e);
-    }, { passive:false });
-
-    playfield.appendChild(el);
-
-    const life = DIFF.life * (type==='bad' ? 1.05 : 1.0) * (type==='power' ? 0.92 : 1.0);
-    const t0 = now();
-    const swayA = (type==='bad' ? 10 : 12) * (1 + Math.random()*0.6);
-    const swayB = (type==='bad' ? 8 : 10) * (1 + Math.random()*0.6);
-    const spd  = 1.0 + Math.random()*0.8;
-    const ph   = Math.random()*Math.PI*2;
-
-    s.targets.set(id, { id, type, emoji, el, ring, t0, life, swayA, swayB, spd, ph, baseX:p.x, baseY:p.y });
-  }
-
-  function removeTarget(id){
-    const o = s.targets.get(id);
-    if (!o) return;
-    s.targets.delete(id);
-    try{ o.el.remove(); }catch{}
-  }
-
-  function hitTarget(id, ev){
-    const o = s.targets.get(id);
-    if (!o || !s.running) return;
-
-    const t = now();
-    const prog = clamp((t - o.t0) / o.life, 0, 1);
-
-    // perfect window (กลาง ๆ)
-    const perfect = (prog > 0.40 && prog < 0.60);
-
-    // hit point (screen)
-    const r = o.el.getBoundingClientRect();
-    const x = (ev?.clientX ?? (r.left + r.width/2));
-    const y = (ev?.clientY ?? (r.top + r.height/2));
-
-    // remove
-    removeTarget(id);
-
-    // scoring rules (คล้ายของเดิม)
-    if (o.type === 'bad'){
-      s.miss += 1;
-      s.combo = 0;
-      s.score = Math.max(0, s.score - 45);
-      updateWater(-10);
-      badFX(x,y,'MISS');
-
-      // panic storm chance
-      if (!s.stormOn && Math.random() < 0.22){
-        s.stormUntil = now() + 5600;
-        setStorm(true, 0.95);
+      // make inner “almost invisible” – we keep emoji for readability but lighter
+      if (parts.icon){
+        parts.icon.style.filter = 'drop-shadow(0 2px 3px rgba(2,6,23,0.55))';
+        parts.icon.style.opacity = (it === 'power') ? '0.95' : '0.86';
       }
 
-      hud();
-      return;
+      // inner background reduced
+      if (parts.inner){
+        parts.inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.08), rgba(2,6,23,0.06) 55%, rgba(2,6,23,0.00) 78%)';
+        parts.inner.style.boxShadow = 'inset 0 0 0 rgba(0,0,0,0)';
+      }
+
+      // add per-target wind overlay for storm
+      const wind = DOC.createElement('div');
+      wind.className = 'hvr-wind';
+      parts.wiggle && parts.wiggle.appendChild(wind);
+
+      // tiny random variation
+      el.style.setProperty('--seed', String(Math.random().toFixed(3)));
+    } else {
+      // junk: keep default but polish a bit
+      el.dataset.skin = '';
+      el.style.boxShadow = '0 16px 36px rgba(15,23,42,0.85), 0 0 0 2px rgba(255,80,120,0.32), 0 0 22px rgba(255,80,120,0.18)';
+    }
+  }
+
+  function perfectFX(x,y){
+    // heavy burst
+    try{ Particles.burstAt(x,y,'PERFECT'); }catch{}
+    try{ Particles.scorePop(x,y,'PERFECT! +','gold'); }catch{}
+    blinkOn('perfect', 140);
+
+    // sparkle sound + pop
+    playSparkle(1.0);
+    playPop(0.65);
+
+    shimmerPulse();
+
+    if (wrap){
+      addClass(wrap,'hvr-perfect-pulse');
+      ROOT.setTimeout(()=>removeClass(wrap,'hvr-perfect-pulse'), 220);
     }
 
-    // trick acts like bad if not perfect
-    if (o.type === 'trick' && !perfect){
-      s.miss += 1;
-      s.combo = 0;
-      s.score = Math.max(0, s.score - 30);
-      updateWater(-7);
-      badFX(x,y,'TRICK!');
-      hud();
-      return;
+    if (post && post.ctx){
+      // double burst for heavier feel
+      s.sparks.push({ x, y, t0: now(), str: 1.35 });
+      s.sparks.push({ x: x + (Math.random()*10-5), y: y + (Math.random()*10-5), t0: now()+8, str: 1.05 });
     }
+  }
 
-    // perfect bonus (even for good/power/trick)
+  function goodFX(x,y, txt='+', kind='good'){
+    try{ Particles.burstAt(x,y,kind==='good'?'GOOD':'POWER'); }catch{}
+    try{ Particles.scorePop(x,y,txt,kind); }catch{}
+    blinkOn('good', 90);
+    playPop(kind==='power'?0.80:0.55);
+    shimmerPulse();
+  }
+
+  function badFX(x,y, txt='MISS'){
+    try{ Particles.burstAt(x,y,'BAD'); }catch{}
+    try{ Particles.scorePop(x,y,txt,'bad'); }catch{}
+    blinkOn('bad', 110);
+    playPop(0.80);
+  }
+
+  // judge callback
+  function judge(ch, ctx){
+    const x = ctx?.clientX || (ctx?.targetRect?.left + (ctx?.targetRect?.width||0)/2) || (ROOT.innerWidth/2);
+    const y = ctx?.clientY || (ctx?.targetRect?.top + (ctx?.targetRect?.height||0)/2) || (ROOT.innerHeight/2);
+
+    const itemType = String(ctx?.itemType || '');
+    const isBad = (itemType === 'bad');
+    const isPower = (itemType === 'power');
+    const isFakeGood = (itemType === 'fakeGood');
+    const perfect = !!ctx?.hitPerfect;
+
+    // PERFECT ring bonus
     if (perfect){
       s.score += 120;
       s.combo += 1;
@@ -825,22 +743,50 @@ export async function boot(opts = {}){
       perfectFX(x,y);
     }
 
-    if (o.type === 'power'){
+    if (isBad){
+      s.miss += 1;
+      s.combo = 0;
+      s.score = Math.max(0, s.score - 45);
+      updateWater(-10);
+      badFX(x,y,'MISS');
+
+      // panic storm sometimes
+      if (!s.stormOn && Math.random() < 0.18){
+        s.stormUntil = now() + 5200;
+        setStorm(true, 0.90);
+      }
+
+      hud();
+      return { scoreDelta: -45, good:false };
+    }
+
+    // trick: bad when not perfect
+    if (isFakeGood && !perfect){
+      s.miss += 1;
+      s.combo = 0;
+      s.score = Math.max(0, s.score - 30);
+      updateWater(-7);
+      badFX(x,y,'TRICK!');
+      hud();
+      return { scoreDelta: -30, good:false };
+    }
+
+    if (isPower){
       s.score += 95;
       s.combo += 1;
       s.comboMax = Math.max(s.comboMax, s.combo);
       updateWater(+9);
       goodFX(x,y,'POWER +95','power');
 
-      // power => storm sure
+      // power triggers storm wave
       s.stormUntil = now() + 7200;
       setStorm(true, 1.10);
 
       hud();
-      return;
+      return { scoreDelta: +95, good:true };
     }
 
-    // good hit
+    // normal good
     s.score += 55;
     s.combo += 1;
     s.comboMax = Math.max(s.comboMax, s.combo);
@@ -849,127 +795,92 @@ export async function boot(opts = {}){
     else if (s.zone === 'HIGH') updateWater(+3);
     else updateWater(+5);
 
+    // streak
     if (s.combo > 0 && (s.combo % 8 === 0)){
       s.score += 80;
       goodFX(x,y,'STREAK +80','good');
 
-      if (!s.stormOn && Math.random() < 0.34){
-        s.stormUntil = now() + 6500;
+      if (!s.stormOn && Math.random() < 0.32){
+        s.stormUntil = now() + 6400;
         setStorm(true, 1.00);
       }
-    }else{
+    } else {
       goodFX(x,y,'+55','good');
     }
 
     hud();
+    return { scoreDelta: +55, good:true };
   }
 
-  // animate/update targets (float/sway + ring)
-  function tickTargets(){
-    const t = now();
-
-    // auto-spawn logic
-    const stormMul = s.stormOn ? clamp(0.72 - 0.22*s.stormStrength, 0.42, 0.78) : 1.0;
-    const spawnEvery = DIFF.spawn * stormMul;
-
-    if (t - s.spawnTimer > spawnEvery){
-      s.spawnTimer = t;
-      if (s.targets.size < DIFF.max){
-        makeTarget();
-      }
+  // expire callback
+  function onExpire(info){
+    const itemType = String(info?.itemType||'');
+    if (itemType === 'good' || itemType === 'power'){
+      s.combo = Math.max(0, s.combo - 1);
     }
+    hud();
+  }
 
-    // per-target movement
-    for (const o of s.targets.values()){
-      const dt = (t - o.t0);
-      const prog = clamp(dt / o.life, 0, 1);
+  // boot mode-factory
+  const inst = await factoryBoot({
+    modeKey: 'hydration',
+    difficulty: diff,
+    duration,
 
-      // expire
-      if (prog >= 1){
-        // letting good slip => soften combo (no miss)
-        if (o.type === 'good' || o.type === 'power'){
-          s.combo = Math.max(0, s.combo - 1);
-        }
-        removeTarget(o.id);
-        continue;
-      }
+    // ✅ spawn to moving layer
+    spawnHost: '#hvr-spawnlayer',
+    // ✅ bounds for safe zone / crosshair (stable)
+    boundsHost: '#hvr-playfield',
 
-      // sway stronger in storm
-      const stormBoost = s.stormOn ? (1.55 + 0.65*s.stormStrength) : 1.0;
+    pools: { good: GOOD, bad: BAD, trick: ['💧','🫧'] },
+    goodRate: diff === 'hard' ? 0.58 : (diff === 'normal' ? 0.62 : 0.68),
+    powerups: POWER,
+    powerRate: diff === 'hard' ? 0.12 : 0.10,
+    powerEvery: 7,
 
-      const sx = Math.sin(o.ph + (dt*0.0026*o.spd)) * o.swayA * stormBoost;
-      const sy = Math.cos(o.ph + (dt*0.0022*o.spd)) * o.swayB * stormBoost;
+    allowAdaptive: true,
+    rhythm: { enabled:true, bpm: (diff==='hard'?126:(diff==='normal'?118:108)) },
+    trickRate: diff === 'hard' ? 0.12 : 0.08,
 
-      // subtle float upward/down
-      const fy = Math.sin(o.ph*0.7 + (dt*0.0015)) * 6;
+    spawnIntervalMul: spawnMul,
 
-      o.el.style.transform = `translate3d(${sx}px, ${sy + fy}px, 0)`;
+    // clamp safe zone against HUD (robust)
+    excludeSelectors: ['.hud', '#hvr-end', '#hvr-screen-blink'],
 
-      // reactive shimmer move (tiny)
-      o.el.style.setProperty('--shim-x', (sx*0.05).toFixed(2) + 'px');
-      o.el.style.setProperty('--shim-y', (sy*0.05).toFixed(2) + 'px');
+    decorateTarget,
+    judge,
+    onExpire
+  });
 
-      // perfect ring shrink
-      const ringScale = 1.12 - prog*0.42;           // 1.12 -> 0.70
-      const ringOp = 0.72 - prog*0.25;
-      o.ring.style.transform = `translate(-50%,-50%) scale(${ringScale.toFixed(3)})`;
-      o.ring.style.opacity = ringOp.toFixed(3);
+  const unbindDrag = bindViewDragAndShoot(inst);
+  const unbindTilt = bindTilt();
 
-      // make rim rainbow clearer near perfect window
-      if (prog > 0.36 && prog < 0.64){
-        o.el.style.filter = 'saturate(1.10) brightness(1.04)';
-      }else{
-        o.el.style.filter = (o.type==='power') ? 'saturate(1.18) brightness(1.06)' : '';
-      }
-    }
+  function onTime(ev){
+    const sec = ev?.detail?.sec;
+    if (typeof sec !== 'number') return;
+    s.timeLeft = sec;
 
-    // storm lifecycle
+    // natural drain
+    updateWater(-1.4);
+
+    // ✅ zone counting fix
+    if (s.zone === 'GREEN') s.greenTick += 1;
+
     maybeStormTick();
 
-    ROOT.requestAnimationFrame(tickTargets);
-  }
-
-  // time tick (1s) -> drive water & green count
-  let secLeft = duration;
-  let lastSecAt = now();
-  function timeLoop(){
-    if (!s.running) return;
-    const t = now();
-    if (t - lastSecAt >= 1000){
-      lastSecAt += 1000;
-      secLeft -= 1;
-      s.timeLeft = secLeft;
-
-      // natural drain
-      updateWater(-1.4);
-
-      // count green time
-      if (s.zone === 'GREEN') s.greenTick += 1;
-
-      // red penalty drip
-      if (s.zone === 'HIGH'){
-        s.score = Math.max(0, s.score - 3);
-      }
-
-      // emit hha:time (เผื่อส่วนอื่น)
-      try{
-        ROOT.dispatchEvent(new CustomEvent('hha:time', { detail:{ sec: secLeft } }));
-      }catch{}
-
-      // last 6 sec tick sound (เบา ๆ)
-      if (secLeft <= 6 && secLeft > 0) SFX.tick();
-
-      hud();
-
-      if (secLeft <= 0){
-        endGame();
-        return;
-      }
+    // RED penalty
+    if (s.zone === 'HIGH'){
+      s.score = Math.max(0, s.score - 3);
     }
-    ROOT.requestAnimationFrame(timeLoop);
-  }
 
-  // end overlay
+    hud();
+
+    if (sec <= 0){
+      endGame();
+    }
+  }
+  ROOT.addEventListener('hha:time', onTime, { passive:true });
+
   function buildEndOverlay(){
     const end = $id('hvr-end');
     if (!end) return;
@@ -988,27 +899,27 @@ export async function boot(opts = {}){
           </div>
 
           <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;">
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-weight:900; font-size:12px;">Score</div>
-              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.score|0}</div>
+            <div class="card" style="pointer-events:auto;">
+              <div class="kpi"><div class="label">Score</div><div class="value">${s.score|0}</div></div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">รวมโบนัส PERFECT/STREAK/STORM</div>
             </div>
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-weight:900; font-size:12px;">Combo / Miss</div>
-              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.comboMax|0} • ${s.miss|0}</div>
+            <div class="card" style="pointer-events:auto;">
+              <div class="kpi"><div class="label">Combo / Miss</div><div class="value">${s.comboMax|0} • ${s.miss|0}</div></div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">คอมโบสูงสุด • miss (junk/trick)</div>
             </div>
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-weight:900; font-size:12px;">GREEN time</div>
-              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.greenTick|0}s</div>
+            <div class="card" style="pointer-events:auto;">
+              <div class="kpi"><div class="label">GREEN time</div><div class="value">${s.greenTick|0}s</div></div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ในโซน GREEN</div>
             </div>
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-weight:900; font-size:12px;">Water end</div>
-              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${Math.round(s.water)}% (${s.zoneLabel})</div>
+            <div class="card" style="pointer-events:auto;">
+              <div class="kpi"><div class="label">Water end</div><div class="value">${Math.round(s.water)}% (${s.zoneLabel})</div></div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">โซนสุดท้าย</div>
             </div>
           </div>
 
           <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button id="hvr-end-retry" style="pointer-events:auto; border-radius:999px; border:1px solid rgba(34,197,94,.35); background:rgba(34,197,94,.14); color:#eafff1; padding:10px 14px; font-weight:1000;">🔁 เล่นอีกครั้ง</button>
-            <button id="hvr-end-hub" style="pointer-events:auto; border-radius:999px; border:1px solid rgba(148,163,184,.25); background:rgba(2,6,23,.55); color:#e5e7eb; padding:10px 14px; font-weight:1000;">🏠 กลับ Hub</button>
+            <button id="hvr-end-retry" class="pill" style="pointer-events:auto; padding:10px 12px; border-radius:16px; cursor:pointer;">🔁 เล่นอีกครั้ง</button>
+            <button id="hvr-end-hub" class="pill" style="pointer-events:auto; padding:10px 12px; border-radius:16px; cursor:pointer;">🏠 กลับ Hub</button>
           </div>
         </div>
       </div>
@@ -1024,17 +935,16 @@ export async function boot(opts = {}){
     if (!s.running) return;
     s.running = false;
 
-    // stop loops
-    try{ ROOT.cancelAnimationFrame(fxRaf); }catch{}
+    try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{}
+    try{ inst && inst.stop && inst.stop(); }catch{}
+
+    if (unbindDrag) try{ unbindDrag(); }catch{}
+    if (unbindTilt) try{ unbindTilt(); }catch{}
+
+    ROOT.removeEventListener('hha:time', onTime);
+
+    if (fxRaf) try{ ROOT.cancelAnimationFrame(fxRaf); }catch{}
     fxRaf = null;
-
-    // clear targets
-    for (const id of Array.from(s.targets.keys())) removeTarget(id);
-
-    // remove listeners
-    if (s.dragOff) try{ s.dragOff(); }catch{}
-    if (s.tiltOff) try{ s.tiltOff(); }catch{}
-    s.dragOff = null; s.tiltOff = null;
 
     setStorm(false, 0);
 
@@ -1057,33 +967,15 @@ export async function boot(opts = {}){
     }catch{}
   }
 
-  // init
-  updateWater(0);
+  // unlock audio by user gesture (first interaction usually handled by gameplay already)
+  ensureAudio();
+
+  // initial HUD update
   hud();
-  applyView();
 
-  // start bindings
-  s.dragOff = bindViewDragAndShoot();
-  s.tiltOff = bindTilt();
-
-  // start storm occasionally when combo grows (fun)
-  function stormAutoFromCombo(){
-    if (!s.running) return;
-    if (!s.stormOn && s.comboMax >= 8 && Math.random() < 0.05){
-      s.stormUntil = now() + 5200;
-      setStorm(true, 0.90);
-    }
-    ROOT.setTimeout(stormAutoFromCombo, 900);
-  }
-  stormAutoFromCombo();
-
-  // run loops
-  tickTargets();
-  timeLoop();
-
-  // public API
   return {
-    stop(){ endGame(); }
+    stop(){ endGame(); },
+    shoot(){ try{ inst && inst.shootCrosshair && inst.shootCrosshair(); }catch{} }
   };
 }
 
