@@ -1,10 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Step E:
-// ✅ Real-time Grade SSS/SS/S/A/B/C + grade-up FX
-// ✅ Celebration on mini/goal cleared (no need to edit quest-director)
-// ✅ Summary shows grade
-// ✅ Still compatible with Step D safe.js
-
+// Step G boot binder
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
 
@@ -16,14 +11,11 @@ export function boot(){
   if (window.__GJ_PAGE_BOOTED__) return;
   window.__GJ_PAGE_BOOTED__ = true;
 
-  window.addEventListener('pageshow', (e)=>{
-    if (e.persisted) window.location.reload();
-  });
+  window.addEventListener('pageshow', (e)=>{ if (e.persisted) window.location.reload(); });
 
   const $ = (id)=>document.getElementById(id);
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){ } };
 
-  // HUD
   const elScore = $('hud-score');
   const elCombo = $('hud-combo');
   const elMiss  = $('hud-miss');
@@ -64,37 +56,25 @@ export function boot(){
   const elFeverFill = $('fever-fill');
   const elFeverPct  = $('fever-pct');
   const elShield    = $('shield-count');
-
   const elStunBadge = $('hud-stun');
-  const elVortex    = $('stun-vortex');
-  const elBorder    = $('stun-border');
-  const elFire      = $('fever-fire');
 
-  // ✅ Grade badge
-  const elGradeWrap = $('hud-grade');
-  const elGradeVal  = $('hud-grade-val');
+  const elVortex = $('stun-vortex');
+  const elBeacon = $('boss-beacon');
+  const gameRoot = $('game-root');
 
-  // Summary
-  const sumOverlay = $('summary-overlay');
+  // Boss HUD
+  const elBossWrap = $('boss-wrap');
+  const elBossFill = $('boss-fill');
+  const elBossPhase= $('boss-phase');
+
+  // Summary overlay
+  const sumOverlay = $('sum-overlay');
   const sumScore = $('sum-score');
   const sumGood  = $('sum-good');
   const sumMiss  = $('sum-miss');
   const sumCombo = $('sum-combo');
-  const sumGoals = $('sum-goals');
-  const sumMinis = $('sum-minis');
-  const sumDiff  = $('sum-diff');
-  const sumChal  = $('sum-chal');
-  const sumRun   = $('sum-run');
-  const sumTime  = $('sum-time');
-  const sumGrade = $('sum-grade');
-  const btnSumClose = $('btn-sum-close');
-  const btnSumRetry = $('btn-sum-retry');
-
-  // Particles (optional, safe)
-  const Particles =
-    (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
-    window.Particles ||
-    { celebrate(){}, burstAt(){}, scorePop(){}, toast(){} };
+  const btnReplay = $('btn-replay');
+  const btnExit = $('btn-exit');
 
   const pageUrl = new window.URL(window.location.href);
   const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();
@@ -117,26 +97,6 @@ export function boot(){
     20, 180
   );
 
-  // --- audio/haptic helpers ---
-  function vibrate(ms){
-    try{ if (navigator.vibrate) navigator.vibrate(ms|0); }catch(_){}
-  }
-  function beep(freq=880, ms=60, gain=0.035){
-    try{
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      const ctx = new AC();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'square';
-      o.frequency.value = freq;
-      g.gain.value = gain;
-      o.connect(g); g.connect(ctx.destination);
-      o.start();
-      setTimeout(()=>{ try{o.stop();}catch(_){} try{ctx.close();}catch(_){} }, ms);
-    }catch(_){}
-  }
-
   const COACH_IMG = {
     neutral: './img/coach-neutral.png',
     happy:   './img/coach-happy.png',
@@ -149,19 +109,19 @@ export function boot(){
     const m = COACH_IMG[mood] ? mood : 'neutral';
     if (elCoachEmoji) elCoachEmoji.style.backgroundImage = `url('${COACH_IMG[m]}')`;
   }
-  function setCoach(text, mood='neutral'){
+  function setCoach(text, mood='neutral', holdMs=4200){
     if (elCoachBubble) elCoachBubble.classList.add('show');
     safeText(elCoachText, text || '');
     setCoachFace(mood);
     if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
-    lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), 4200);
+    lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), holdMs);
   }
 
   function setLogBadge(state, text){
     if (!logDot || !logText) return;
-    logDot.classList.remove('ok','bad');
-    if (state === 'ok') logDot.classList.add('ok');
-    else if (state === 'bad') logDot.classList.add('bad');
+    logDot.style.background = '#9ca3af';
+    if (state === 'ok') logDot.style.background = '#22c55e';
+    else if (state === 'bad') logDot.style.background = '#ef4444';
     safeText(logText, text || '');
   }
 
@@ -189,7 +149,6 @@ export function boot(){
     try{ await scene.enterVR(); return true; }
     catch(err){ console.warn('[GoodJunkVR] enterVR blocked:', err); return false; }
   }
-
   function initVRButton(){
     if (!btnVR) return;
     const scene = document.querySelector('a-scene');
@@ -207,7 +166,7 @@ export function boot(){
     }catch(_){}
   }
 
-  // ---- Aim point (tap anywhere) ----
+  // ------------------ AIM POINT (ศูนย์กลาง STUN) ------------------
   function setAimPoint(x, y){
     window.__GJ_AIM_POINT__ = { x: x|0, y: y|0, t: Date.now() };
     if (elVortex){
@@ -215,9 +174,8 @@ export function boot(){
       elVortex.style.top  = (y|0) + 'px';
     }
   }
-  function defaultAim(){
-    setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62);
-  }
+  function defaultAim(){ setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62); }
+
   function bindAimListeners(){
     const layer = document.getElementById('gj-layer');
     if (!layer) return;
@@ -240,98 +198,26 @@ export function boot(){
     });
   }
 
-  // ---- Grade system ----
-  function diffMul(diff){
-    diff = String(diff||'normal').toLowerCase();
-    if (diff === 'hard') return 1.10;
-    if (diff === 'easy') return 0.95;
-    return 1.0;
+  // ------------------ tiny beep helper (no external files) ------------------
+  let __audioCtx = null;
+  function beep(freq=880, ms=70, gain=0.035){
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      __audioCtx = __audioCtx || new AC();
+      const t0 = __audioCtx.currentTime;
+      const osc = __audioCtx.createOscillator();
+      const g = __audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.value = gain;
+      osc.connect(g); g.connect(__audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + ms/1000);
+    }catch(_){}
   }
 
-  function computeGrade(s){
-    // s: {score, goodHits, miss, comboMax, goalsCleared, minisCleared, diff}
-    const score = s.score|0;
-    const miss = s.miss|0;
-    const combo = s.comboMax|0;
-    const goals = s.goalsCleared|0;
-    const minis = s.minisCleared|0;
-    const good  = s.goodHits|0;
-
-    const total = Math.max(1, good + miss);
-    const acc = good / total;                 // 0..1
-
-    // Core index: reward score + combo + quest clears + accuracy; punish misses hard
-    const base = score + combo*15 + goals*160 + minis*38 + Math.round(acc*140);
-    const penalty = miss*85;
-
-    let idx = (base - penalty) * diffMul(s.diff);
-
-    // safety clamps / special rules
-    if (miss >= 12) idx = Math.min(idx, 520); // miss เยอะไม่ให้บินไป S ง่ายๆ
-    if (goals >= 2 && minis >= 6 && miss === 0) idx = Math.max(idx, 940); // flawless quest = SSS
-
-    if (idx >= 920) return 'SSS';
-    if (idx >= 780) return 'SS';
-    if (idx >= 650) return 'S';
-    if (idx >= 520) return 'A';
-    if (idx >= 400) return 'B';
-    return 'C';
-  }
-
-  function gradeClass(g){
-    if (g === 'SSS') return 'g-SSS';
-    if (g === 'SS') return 'g-SS';
-    if (g === 'S') return 'g-S';
-    if (g === 'A') return 'g-A';
-    if (g === 'B') return 'g-B';
-    return 'g-C';
-  }
-
-  let lastGrade = 'C';
-  function setGradeUI(g, { isUp=false } = {}){
-    if (!elGradeWrap || !elGradeVal) return;
-
-    elGradeVal.textContent = g;
-    elGradeWrap.classList.remove('g-SSS','g-SS','g-S','g-A','g-B','g-C');
-    elGradeWrap.classList.add(gradeClass(g));
-
-    if (isUp){
-      elGradeWrap.classList.remove('grade-up');
-      void elGradeWrap.offsetWidth;
-      elGradeWrap.classList.add('grade-up');
-    }
-  }
-
-  function rankValue(g){
-    // bigger = better
-    if (g === 'SSS') return 6;
-    if (g === 'SS')  return 5;
-    if (g === 'S')   return 4;
-    if (g === 'A')   return 3;
-    if (g === 'B')   return 2;
-    return 1;
-  }
-
-  function maybeGradeUp(newG){
-    if (rankValue(newG) > rankValue(lastGrade)){
-      // grade-up feedback
-      setGradeUI(newG, { isUp:true });
-      beep(980, 60, 0.04);
-      beep(1240, 70, 0.035);
-      vibrate(60);
-      try{
-        Particles.celebrate && Particles.celebrate({ kind:'GRADE_UP', intensity: 1 });
-      }catch(_){}
-      setCoach(`เกรดขึ้น! ➜ ${newG} ✨`, 'happy');
-      lastGrade = newG;
-      return;
-    }
-    // normal set (no spam)
-    setGradeUI(newG, { isUp:false });
-    lastGrade = newG;
-  }
-
-  // ---- Quest state ----
+  // ------------------ Quest shared state ------------------
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
     streakGood:0,
@@ -343,15 +229,9 @@ export function boot(){
     bossCleared:false,
     challenge: CH_INIT,
     runMode: RUN_MODE,
-    final8Good: 0,
-
-    stunBreaks: 0,
-    goalsCleared: 0,
-    minisCleared: 0,
-    diff: DIFF_INIT
+    final8Good: 0
   };
 
-  // reset per mini
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = false;
     qState.usedMagnet = false;
@@ -360,7 +240,6 @@ export function boot(){
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
     qState.final8Good = 0;
-    qState.stunBreaks = 0;
   });
 
   let started = false;
@@ -371,105 +250,34 @@ export function boot(){
 
   let Q = null;
 
-  // track meta changes for celebration
-  let lastQuestMeta = { goalsCleared:0, minisCleared:0, miniCount:0 };
-
-  function celebrateMini(){
-    const x = window.innerWidth*0.5;
-    const y = window.innerHeight*0.38;
-    try{
-      Particles.burstAt && Particles.burstAt(x, y, 'gold');
-      Particles.celebrate && Particles.celebrate({ kind:'MINI', intensity: 0.8 });
-    }catch(_){}
-    vibrate(45);
-    beep(980, 55, 0.03);
-    setCoach('MINI สำเร็จ! ต่อไปมาเลย! ⚡', 'happy');
-  }
-
-  function celebrateGoal(){
-    const x = window.innerWidth*0.5;
-    const y = window.innerHeight*0.30;
-    try{
-      Particles.celebrate && Particles.celebrate({ kind:'GOAL', intensity: 1.2 });
-      Particles.burstAt && Particles.burstAt(x, y, 'gold');
-      Particles.burstAt && Particles.burstAt(x-80, y+40, 'good');
-      Particles.burstAt && Particles.burstAt(x+80, y+40, 'good');
-    }catch(_){}
-    vibrate([40,30,40]);
-    beep(880, 70, 0.035);
-    beep(1180, 80, 0.03);
-    setCoach('GOAL ผ่านแล้ว! โหดขึ้นอีกนิดนะ! 🔥', 'happy');
-  }
-
-  function celebrateAll(){
-    const x = window.innerWidth*0.5;
-    const y = window.innerHeight*0.26;
-    try{
-      Particles.celebrate && Particles.celebrate({ kind:'ALL_CLEAR', intensity: 1.8 });
-      Particles.burstAt && Particles.burstAt(x, y, 'gold');
-      Particles.burstAt && Particles.burstAt(x-140, y+70, 'gold');
-      Particles.burstAt && Particles.burstAt(x+140, y+70, 'gold');
-    }catch(_){}
-    vibrate([55,35,55,35,55]);
-    beep(920, 80, 0.04);
-    beep(1240, 90, 0.035);
-    beep(1560, 110, 0.03);
-    setCoach('ALL CLEAR! 🏆', 'fever');
-  }
-
-  function updateGradeNow(){
-    const g = computeGrade(qState);
-    maybeGradeUp(g);
-  }
-
-  // events from safe.js
-  window.addEventListener('quest:goodHit', (e)=>{
-    const d = e.detail || {};
+  window.addEventListener('quest:goodHit', ()=>{
     qState.streakGood = (qState.streakGood|0) + 1;
     if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
-    if (d.kind === 'gold') qState.goldHitsThisMini = true;
-    updateGradeNow();
     if (Q) Q.tick(qState);
   });
-
-  window.addEventListener('quest:gold', ()=>{
-    qState.goldHitsThisMini = true;
-    updateGradeNow();
-    if (Q) Q.tick(qState);
-  });
-
   window.addEventListener('quest:badHit', ()=>{
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
-    updateGradeNow();
     if (Q) Q.tick(qState);
   });
-
   window.addEventListener('quest:block', ()=>{
     qState.blocks = (qState.blocks|0) + 1;
     if (Q) Q.tick(qState);
   });
-
-  window.addEventListener('quest:stunBreak', ()=>{
-    qState.stunBreaks = (qState.stunBreaks|0) + 1;
-    if (Q) Q.tick(qState);
-  });
-
   window.addEventListener('quest:power', (e)=>{
     const d = e.detail || {};
-    const p = String(d.power||'');
+    const p = (d.power||'');
     if (p === 'magnet') qState.usedMagnet = true;
     if (p === 'time') qState.timePlus = (qState.timePlus|0) + 1;
+    if (p === 'gold') qState.goldHitsThisMini = true;
     if (Q) Q.tick(qState);
   });
-
   window.addEventListener('quest:bossClear', ()=>{
     qState.bossCleared = true;
-    updateGradeNow();
     if (Q) Q.tick(qState);
   });
 
-  // HUD updates
+  // ------------------ HUD listeners ------------------
   window.addEventListener('hha:judge', (e)=>{
     safeText(elJudge, (e.detail||{}).label || '\u00A0');
   });
@@ -487,85 +295,101 @@ export function boot(){
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
-    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
     if (typeof d.misses === 'number'){
       qState.miss = d.misses|0;
       safeText(elMiss, String(qState.miss));
-      if (qState.miss > lastMissSeen){
-        qState.streakGood = 0;
-        lastMissSeen = qState.miss;
-      }
+      if (qState.miss > lastMissSeen){ qState.streakGood = 0; lastMissSeen = qState.miss; }
     }
     if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
-    updateGradeNow();
     if (Q) Q.tick(qState);
+
+    // Boss HUD
+    const bossAlive = !!d.bossAlive;
+    const hp = Number(d.bossHp||0);
+    const hpMax = Math.max(1, Number(d.bossHpMax||1));
+    const phase = Number(d.bossPhase||1);
+
+    if (elBossWrap) elBossWrap.classList.toggle('show', bossAlive);
+    if (elBossFill) elBossFill.style.width = bossAlive ? (Math.max(0, Math.min(1, hp/hpMax))*100).toFixed(0)+'%' : '0%';
+    if (elBossPhase) elBossPhase.textContent = bossAlive ? ('P' + (phase|0)) : 'P1';
   });
 
-  // Fever/Shield + STUN UI
+  // Fever/Shield + STUN badge + vortex + shake (Step G)
   window.addEventListener('hha:fever', (e)=>{
     const d = e.detail || {};
-    const fever = Number(d.fever||0);
+    const fever = Math.max(0, Math.min(100, Number(d.fever||0)));
     const shield = Number(d.shield||0);
     const stunActive = !!d.stunActive;
-    const slow = Number(d.slow||0);
 
-    if (elFeverFill) elFeverFill.style.width = Math.max(0, Math.min(100, fever)) + '%';
-    if (elFeverPct) safeText(elFeverPct, Math.round(Math.max(0, Math.min(100, fever))) + '%');
+    if (elFeverFill) elFeverFill.style.width = fever + '%';
+    if (elFeverPct) safeText(elFeverPct, Math.round(fever) + '%');
     if (elShield) safeText(elShield, String(shield|0));
+    if (elStunBadge) elStunBadge.classList.toggle('show', stunActive);
 
-    if (elStunBadge){
-      elStunBadge.classList.toggle('show', stunActive);
-      if (stunActive){
-        elStunBadge.innerHTML = `⚡ STUN <b>${slow ? ('SLOW x' + slow.toFixed(2)) : 'SLOW'}</b>`;
-      }
-    }
-
-    if (elBorder) elBorder.classList.toggle('show', stunActive);
-    if (elFire) elFire.classList.toggle('show', stunActive);
-
+    // vortex show only when stun
     if (elVortex){
       elVortex.classList.toggle('show', stunActive);
       const ap = window.__GJ_AIM_POINT__;
-      if (ap){
+      if (ap && stunActive){
         elVortex.style.left = (ap.x|0) + 'px';
         elVortex.style.top  = (ap.y|0) + 'px';
       }
     }
+
+    // shake scales by fever (strong near 100)
+    if (gameRoot){
+      const amp = (fever/100);
+      const px = (amp < 0.18) ? 0 : (0.6 + amp*2.8);   // 0..~3.4px
+      document.documentElement.style.setProperty('--shakeAmp', px.toFixed(2)+'px');
+      document.documentElement.style.setProperty('--shakeDur', (0.30 - amp*0.10).toFixed(2)+'s');
+      gameRoot.classList.toggle('shake', fever >= 18);
+      gameRoot.classList.toggle('stun-fire', stunActive);
+    }
+
+    // tiny warning beep near full
+    if (fever >= 92 && !stunActive) beep(980, 40, 0.025);
+    if (stunActive) beep(220, 30, 0.02);
   });
 
-  // Final sprint pulse (lock 1s)
+  // Step F: final pulse -> vortex lock animation
   window.addEventListener('hha:finalPulse', (e)=>{
     const sec = (e.detail||{}).secLeft|0;
-    if (sec > 0){
-      setCoach(`🏁 FINAL LOCK! เหลือ ${sec}s — อย่าพลาด!`, 'fever');
+    if (elVortex){
+      elVortex.classList.add('lock');
+      setTimeout(()=>{ try{ elVortex.classList.remove('lock'); }catch(_){ } }, 980);
     }
+    try{ navigator.vibrate && navigator.vibrate(20); }catch(_){}
+    beep(760, 60, 0.03);
+    if (sec > 0) setCoach(`🏁 FINAL LOCK! เหลือ ${sec}s — อย่าพลาด!`, 'fever', 1400);
   });
 
-  // quest:update (bars + meta) + ✅ celebration detection
+  // Step G: boss pulse beacon -> “ย้ายศูนย์กลาง”
+  let beaconTimer = null;
+  window.addEventListener('hha:bossPulse', (e)=>{
+    const d = e.detail || {};
+    const x = Number(d.x||0), y = Number(d.y||0);
+    const ttl = Number(d.ttlMs||1200);
+
+    if (elBeacon){
+      elBeacon.classList.add('show');
+      elBeacon.style.left = (x|0)+'px';
+      elBeacon.style.top  = (y|0)+'px';
+      if (beaconTimer) clearTimeout(beaconTimer);
+      beaconTimer = setTimeout(()=>{ try{ elBeacon.classList.remove('show'); }catch(_){ } }, Math.max(300, ttl|0));
+    }
+
+    // urgent feedback
+    beep(1040, 70, 0.035);
+    try{ navigator.vibrate && navigator.vibrate([25,40,25]); }catch(_){}
+    setCoach('⚠️ BOSS PULSE! แตะย้าย “ศูนย์กลาง” ไปที่วงสีทองเร็ว!', 'fever', 1800);
+  });
+
+  // Quest bars
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
     const mini = d.mini || null;
     const meta = d.meta || {};
-
-    const prevGoals = lastQuestMeta.goalsCleared|0;
-    const prevMinis = lastQuestMeta.minisCleared|0;
-
-    lastQuestMeta = {
-      goalsCleared: meta.goalsCleared|0,
-      minisCleared: meta.minisCleared|0,
-      miniCount: meta.miniCount|0
-    };
-    qState.goalsCleared = lastQuestMeta.goalsCleared|0;
-    qState.minisCleared = lastQuestMeta.minisCleared|0;
-
-    // 🎉 detect clears
-    if ((lastQuestMeta.minisCleared|0) > prevMinis) celebrateMini();
-    if ((lastQuestMeta.goalsCleared|0) > prevGoals) celebrateGoal();
-    if ((lastQuestMeta.goalsCleared|0) >= 2 && prevGoals < 2) celebrateAll();
-
-    // update grade from quest clears
-    updateGradeNow();
 
     if (goal){
       const cur = (goal.cur|0), max = (goal.max|0);
@@ -593,7 +417,7 @@ export function boot(){
 
     const miniCount = (meta.miniCount|0);
     const minisCleared = (meta.minisCleared|0);
-    if (elMiniCount) elMiniCount.textContent = `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount}`;
+    if (elMiniCount) elMiniCount.textContent = `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`;
 
     let hint = '';
     if (goal && Number(goal.pct||0) >= 0.8) hint = 'ใกล้แล้ว! 🔥';
@@ -618,38 +442,8 @@ export function boot(){
     if (elDiff) elDiff.textContent = DIFF_INIT.toUpperCase();
     if (elChal) elChal.textContent = CH_INIT.toUpperCase();
     if (elTime) elTime.textContent = DUR_INIT + 's';
-    qState.diff = DIFF_INIT;
-    lastGrade = 'C';
-    setGradeUI('C', { isUp:false });
     setCoach('แตะของดี! หลบ junk! ⚡', 'neutral');
-    setLogBadge(null, 'boot: ready');
-  }
-
-  // logger safe init (works with IIFE too)
-  async function initLoggerSafe(payload){
-    try{
-      const mod = await import('../vr/hha-cloud-logger.js');
-      const fn =
-        mod.initCloudLogger ||
-        mod.initLogger ||
-        mod.init ||
-        mod.default ||
-        window.initCloudLogger ||
-        (window.HHACloudLogger && window.HHACloudLogger.init);
-
-      if (typeof fn === 'function'){
-        fn(payload);
-        setLogBadge('ok', 'logger: ok ✓');
-        return true;
-      }
-      setLogBadge('bad', 'logger: export not found (skip)');
-      console.warn('[GoodJunkVR] Logger loaded but no init function.', Object.keys(mod||{}));
-      return false;
-    }catch(err){
-      setLogBadge('bad', 'logger: load failed (skip)');
-      console.warn('[GoodJunkVR] Logger load failed (skip):', err);
-      return false;
-    }
+    setLogBadge('ok', 'boot: ready');
   }
 
   function waitSceneReady(cb){
@@ -669,61 +463,42 @@ export function boot(){
     }, { once:true });
   }
 
-  function showSummary(payload){
-    if (!sumOverlay) return;
-    sumOverlay.classList.add('show');
-
-    safeText(sumScore, String(payload.score|0));
-    safeText(sumGood,  String(payload.goodHits|0));
-    safeText(sumMiss,  String(payload.misses|0));
-    safeText(sumCombo, String(payload.comboMax|0));
-
-    safeText(sumGoals, String(payload.goalsCleared|0));
-    safeText(sumMinis, String(payload.minisCleared|0));
-
-    safeText(sumDiff,  String(payload.diff||'').toUpperCase());
-    safeText(sumChal,  String(payload.challenge||'').toUpperCase());
-    safeText(sumRun,   String(payload.runMode||'').toUpperCase());
-    safeText(sumTime,  `เล่น ${payload.durationSec|0}s`);
-
-    const g = payload.grade || computeGrade(payload);
-    safeText(sumGrade, g);
-  }
-
-  btnSumClose && btnSumClose.addEventListener('click', ()=>{
-    sumOverlay && sumOverlay.classList.remove('show');
-  });
-  btnSumRetry && btnSumRetry.addEventListener('click', ()=>{
-    window.location.reload();
-  });
-
-  // receive end from safe.js (guaranteed)
+  // ✅ End summary
   window.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
+    safeText(sumScore, String(d.score|0));
+    safeText(sumGood,  String(d.goodHits|0));
+    safeText(sumMiss,  String(d.misses|0));
+    safeText(sumCombo, String(d.comboMax|0));
+    if (sumOverlay) sumOverlay.classList.add('show');
 
-    // compute grade at end using freshest qState/meta
-    const endPayload = {
-      score: d.score|0,
-      goodHits: d.goodHits|0,
-      miss: d.misses|0,
-      misses: d.misses|0,
-      comboMax: d.comboMax|0,
-      goalsCleared: (lastQuestMeta.goalsCleared|0),
-      minisCleared: (lastQuestMeta.minisCleared|0),
-      diff: d.diff || qState.diff || DIFF_INIT,
-      challenge: d.challenge || CH_INIT,
-      runMode: d.runMode || RUN_MODE,
-      durationSec: d.durationSec || DUR_INIT
-    };
-    endPayload.grade = computeGrade(endPayload);
-
-    showSummary(endPayload);
-
-    try{
-      Particles.celebrate && Particles.celebrate({ kind:'END', intensity: 1.2 });
-    }catch(_){}
-    setCoach(`จบเกม! เกรด ${endPayload.grade} 🎉`, (endPayload.grade==='SSS'||endPayload.grade==='SS') ? 'fever' : 'happy');
+    setCoach('จบเกมแล้ว! 🎉 ดูสรุปผลได้เลย', 'happy', 2400);
+    beep(660, 120, 0.03);
   });
+
+  btnReplay && btnReplay.addEventListener('click', ()=>{ location.reload(); });
+  btnExit && btnExit.addEventListener('click', ()=>{
+    // ถ้าอยู่ใน hub structure ให้กลับ /herohealth/hub.html
+    location.href = './hub.html';
+  });
+
+  // Logger init (IIFE)
+  function initLogger(){
+    try{
+      const endpoint =
+        sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
+        sessionStorage.getItem('HHA_LOGGER_ENDPOINT') ||
+        (new URL(location.href)).searchParams.get('log') ||
+        '';
+      if (window.HHACloudLogger && typeof window.HHACloudLogger.init === 'function'){
+        window.HHACloudLogger.init({ endpoint, debug: true });
+        setLogBadge('ok', endpoint ? 'logger: ok ✓' : 'logger: no endpoint (ok)');
+        return true;
+      }
+      setLogBadge('bad', 'logger: missing (skip)');
+    }catch(_){}
+    return false;
+  }
 
   let startedOnce = false;
 
@@ -731,6 +506,7 @@ export function boot(){
     if (startedOnce) return;
     startedOnce = true;
     started = true;
+
     if (startOverlay) startOverlay.style.display = 'none';
 
     const diff = normDiff(selDiff?.value || DIFF_INIT);
@@ -739,29 +515,13 @@ export function boot(){
 
     qState.challenge = chal;
     qState.runMode = RUN_MODE;
-    qState.diff = diff;
 
     if (elDiff) elDiff.textContent = diff.toUpperCase();
     if (elChal) elChal.textContent = chal.toUpperCase();
     if (elTime) elTime.textContent = durationSec + 's';
 
     bindAimListeners();
-
-    const endpoint =
-      sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
-      'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
-
-    await initLoggerSafe({
-      endpoint,
-      projectTag: 'HeroHealth-GoodJunkVR',
-      mode: 'GoodJunkVR',
-      runMode: RUN_MODE,
-      diff,
-      challenge: chal,
-      durationPlannedSec: durationSec,
-      profile: null,
-      debug: true
-    });
+    initLogger();
 
     const cam = document.querySelector('#gj-camera');
     attachTouch(cam);
@@ -777,14 +537,11 @@ export function boot(){
     });
     Q.start(qState);
 
-    // initial grade baseline
-    lastGrade = 'C';
-    setGradeUI('C', { isUp:false });
-
     runCountdown(()=>{
       waitSceneReady(async ()=>{
         if (wantVR) await tryEnterVR();
 
+        // start engine
         const ENGINE = goodjunkBoot({
           diff,
           run: RUN_MODE,
@@ -794,8 +551,6 @@ export function boot(){
         });
 
         window.__GJ_ENGINE__ = ENGINE;
-
-        setCoach('แตะพื้นที่ว่างเพื่อย้าย vortex ได้! ⚡ ทำเกรดให้สูงขึ้น! 🏆', 'neutral');
       });
     });
   }
