@@ -1,11 +1,9 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration Quest VR (PLAY MODE) — Full HTML
-✅ FIX: ปุ่มกดไม่ติด (bind ก่อน import + path ถูกต้องสำหรับ /herohealth/*.html)
+Hydration Quest VR (PLAY MODE) — Full HTML (UPDATED: prettier targets-ready + 2-layer parallax + wobble/chroma hooks)
+✅ bind ปุ่มก่อน import
 ✅ ใช้ hydration-vr/hydration.safe.js
 ✅ goHub -> ./hub.html
-✅ NEW: Parallax 2 ชั้น + PERFECT ring FX CSS
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -30,6 +28,10 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       --shadow:0 18px 55px rgba(0,0,0,.55);
       --radius:18px;
       --pill:999px;
+
+      /* parallax pointer */
+      --px:0;
+      --py:0;
     }
     *{ box-sizing:border-box; }
     html,body{ height:100%; }
@@ -52,6 +54,39 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       overflow:hidden;
     }
 
+    /* ===== 2-layer parallax background (behind playfield) ===== */
+    .hvr-bg{
+      position:absolute;
+      inset:-6%;
+      z-index:0;
+      pointer-events:none;
+      transform: translate3d(calc(var(--px) * 1px), calc(var(--py) * 1px), 0);
+      transition: transform 90ms ease-out;
+      will-change: transform;
+      opacity:.95;
+    }
+    #hvr-bg1{
+      filter: blur(.1px);
+      opacity:.55;
+      transform: translate3d(calc(var(--px) * 0.6px), calc(var(--py) * 0.6px), 0);
+      background:
+        radial-gradient(circle at 18% 30%, rgba(34,197,94,.22), transparent 54%),
+        radial-gradient(circle at 78% 38%, rgba(96,165,250,.18), transparent 58%),
+        radial-gradient(circle at 62% 78%, rgba(245,158,11,.10), transparent 62%),
+        radial-gradient(circle at 30% 75%, rgba(167,139,250,.10), transparent 64%);
+    }
+    #hvr-bg2{
+      opacity:.30;
+      transform: translate3d(calc(var(--px) * 1.15px), calc(var(--py) * 1.15px), 0);
+      background:
+        radial-gradient(circle at 20% 35%, rgba(255,255,255,.08), transparent 55%),
+        repeating-radial-gradient(circle at 22% 36%,
+          rgba(148,163,184,.10) 0 1px,
+          transparent 1px 18px),
+        linear-gradient(180deg, rgba(2,6,23,.10), rgba(2,6,23,.40));
+      mix-blend-mode: screen;
+    }
+
     /* Screen blink overlay (flash) */
     #hvr-screen-blink{
       position:fixed;
@@ -66,6 +101,52 @@ Hydration Quest VR (PLAY MODE) — Full HTML
     #hvr-screen-blink.good{ background:rgba(34,197,94,.22); }
     #hvr-screen-blink.bad{ background:rgba(239,68,68,.22); }
     #hvr-screen-blink.block{ background:rgba(96,165,250,.22); }
+
+    /* Playfield */
+    #hvr-playfield{
+      position:absolute;
+      inset:0;
+      z-index:1;
+      pointer-events:auto;
+      overflow:hidden;
+    }
+
+    /* ===== Continuous subtle wobble + chroma (applies only to playfield, HUD stays crisp) ===== */
+    #hvr-playfield.hvr-wobble{
+      animation: hvrWobble 1.25s ease-in-out infinite;
+      transform-origin: 50% 56%;
+      will-change: transform, filter;
+    }
+    #hvr-playfield.hvr-wobble-strong{
+      animation: hvrWobbleStrong .78s ease-in-out infinite;
+    }
+    @keyframes hvrWobble{
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      25%{ transform: translate3d(0.35px,-0.25px,0) rotate(0.03deg); }
+      50%{ transform: translate3d(-0.35px,0.25px,0) rotate(-0.03deg); }
+      75%{ transform: translate3d(0.25px,0.35px,0) rotate(0.02deg); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+    }
+    @keyframes hvrWobbleStrong{
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      20%{ transform: translate3d(1.2px,-0.9px,0) rotate(0.09deg); }
+      50%{ transform: translate3d(-1.2px,0.8px,0) rotate(-0.09deg); }
+      80%{ transform: translate3d(0.9px,1.1px,0) rotate(0.06deg); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+    }
+
+    /* chromatic split (subtle always, stronger on storm) */
+    #hvr-playfield.hvr-chroma{
+      filter:
+        drop-shadow(0.8px 0 rgba(255,0,60,.18))
+        drop-shadow(-0.8px 0 rgba(0,255,255,.14));
+    }
+    #hvr-playfield.hvr-chroma-strong{
+      filter:
+        drop-shadow(1.6px 0 rgba(255,0,80,.28))
+        drop-shadow(-1.6px 0 rgba(0,255,255,.22))
+        contrast(1.03) saturate(1.06);
+    }
 
     /* HUD */
     .hud{
@@ -128,10 +209,7 @@ Hydration Quest VR (PLAY MODE) — Full HTML
     }
 
     /* Water gauge */
-    .water{
-      width:240px;
-      min-width:240px;
-    }
+    .water{ width:240px; min-width:240px; }
     .bar{
       position:relative;
       height:12px;
@@ -163,10 +241,7 @@ Hydration Quest VR (PLAY MODE) — Full HTML
     }
 
     /* Grade progress */
-    .grade{
-      width:260px;
-      min-width:260px;
-    }
+    .grade{ width:260px; min-width:260px; }
     .progress{
       position:relative;
       height:12px;
@@ -201,10 +276,7 @@ Hydration Quest VR (PLAY MODE) — Full HTML
     }
 
     /* Quest panel */
-    .quest{
-      width:100%;
-      min-width:0;
-    }
+    .quest{ width:100%; min-width:0; }
     .quest-line{
       font-size:12px;
       color:var(--txt);
@@ -222,79 +294,6 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       font-size:12px;
     }
     .quest-counts b{ color:var(--txt); }
-
-    /* Playfield */
-    #hvr-playfield{
-      position:absolute;
-      inset:0;
-      z-index:1;
-      pointer-events:auto;
-
-      /* Parallax vars */
-      --hvr-px: 0px;
-      --hvr-py: 0px;
-    }
-
-    /* ===========================
-       Parallax (2 layers)
-       controlled by CSS vars: --hvr-px, --hvr-py (px)
-    =========================== */
-    #hvr-playfield .hvr-parallax{
-      position:absolute;
-      inset:-16%;
-      pointer-events:none;
-      z-index:0;              /* อยู่หลังเป้า */
-      transform: translate3d(var(--tx, 0px), var(--ty, 0px), 0);
-      transition: transform 60ms linear;
-      opacity: 0.9;
-    }
-    #hvr-playfield .hvr-parallax.back{
-      --tx: calc(var(--hvr-px) * -0.16);
-      --ty: calc(var(--hvr-py) * -0.16);
-      background:
-        radial-gradient(900px 520px at 25% 30%, rgba(34,197,94,.13), transparent 60%),
-        radial-gradient(820px 540px at 70% 40%, rgba(96,165,250,.12), transparent 62%),
-        radial-gradient(520px 420px at 55% 70%, rgba(245,158,11,.09), transparent 58%),
-        repeating-radial-gradient(circle at 20% 30%,
-          rgba(226,232,240,.06) 0 1px,
-          transparent 1px 18px);
-      filter: blur(0.6px);
-    }
-    #hvr-playfield .hvr-parallax.front{
-      --tx: calc(var(--hvr-px) * -0.32);
-      --ty: calc(var(--hvr-py) * -0.32);
-      background:
-        radial-gradient(420px 320px at 30% 45%, rgba(226,232,240,.06), transparent 62%),
-        radial-gradient(520px 420px at 80% 65%, rgba(96,165,250,.07), transparent 65%),
-        linear-gradient(180deg, rgba(2,6,23,.08), rgba(2,6,23,0));
-      mix-blend-mode: screen;
-      opacity: 0.65;
-    }
-
-    /* ===========================
-       PERFECT ring FX (hit feedback)
-    =========================== */
-    .hvr-perfect-ring{
-      position:fixed;
-      left:0; top:0;
-      width:12px; height:12px;
-      border-radius:999px;
-      border:2px solid rgba(250,204,21,.95);
-      box-shadow:
-        0 0 0 2px rgba(34,197,94,.25),
-        0 0 24px rgba(250,204,21,.55),
-        0 0 46px rgba(34,197,94,.25);
-      transform: translate3d(-50%,-50%,0) scale(0.65);
-      opacity: 1;
-      pointer-events:none;
-      z-index: 99990;
-      animation: hvrPerfectPop .46s ease-out forwards;
-    }
-    @keyframes hvrPerfectPop{
-      0%   { transform: translate3d(-50%,-50%,0) scale(0.65); opacity: 1; }
-      70%  { transform: translate3d(-50%,-50%,0) scale(3.2);  opacity: .45; }
-      100% { transform: translate3d(-50%,-50%,0) scale(4.2);  opacity: 0; }
-    }
 
     /* Start overlay */
     #hvr-start{
@@ -322,11 +321,7 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       justify-content:space-between;
       gap:12px;
     }
-    .title{
-      font-size:20px;
-      font-weight:1000;
-      letter-spacing:.02em;
-    }
+    .title{ font-size:20px; font-weight:1000; letter-spacing:.02em; }
     .subtitle{
       margin-top:4px;
       color:var(--muted);
@@ -359,7 +354,7 @@ Hydration Quest VR (PLAY MODE) — Full HTML
     }
     .btn:active{ transform:translateY(1px); }
 
-    /* ✅ FIX: ปุ่มต้องอยู่บนสุดเสมอ กันโดนเลเยอร์อื่นทับ */
+    /* FIX: ปุ่มต้องอยู่บนสุดเสมอ กันโดนเลเยอร์อื่นทับ */
     #btn-start,#btn-reload,#btn-exit,#btn-retry,#btn-to-hub{
       position:relative;
       z-index:99999;
@@ -367,12 +362,7 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       touch-action:manipulation;
     }
 
-    .chips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:10px;
-    }
+    .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
     .chip{
       display:inline-flex;
       align-items:center;
@@ -436,9 +426,7 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap:10px;
     }
-    .end-kpis .card{
-      pointer-events:auto;
-    }
+    .end-kpis .card{ pointer-events:auto; }
     .end-small{
       margin-top:10px;
       color:var(--muted);
@@ -453,9 +441,8 @@ Hydration Quest VR (PLAY MODE) — Full HTML
     }
 
     @media (max-width: 720px){
-      .hud{ top:8px; }
+      .hud{ top:8px; flex-direction:column; }
       .water,.grade{ min-width:0; width:100%; }
-      .hud{ flex-direction:column; }
       .hud-left,.hud-mid,.hud-right{ width:100%; }
       .end-kpis{ grid-template-columns:1fr; }
     }
@@ -464,6 +451,10 @@ Hydration Quest VR (PLAY MODE) — Full HTML
 
 <body>
   <div id="hvr-wrap">
+
+    <!-- 2-layer parallax background -->
+    <div id="hvr-bg1" class="hvr-bg"></div>
+    <div id="hvr-bg2" class="hvr-bg"></div>
 
     <!-- FX overlays -->
     <div id="hvr-screen-blink" class=""></div>
@@ -546,11 +537,8 @@ Hydration Quest VR (PLAY MODE) — Full HTML
       </div>
     </div>
 
-    <!-- Playfield (Parallax 2 layers inside) -->
-    <div id="hvr-playfield" aria-label="playfield">
-      <div class="hvr-parallax back" aria-hidden="true"></div>
-      <div class="hvr-parallax front" aria-hidden="true"></div>
-    </div>
+    <!-- Playfield -->
+    <div id="hvr-playfield" aria-label="playfield"></div>
 
     <!-- Start overlay -->
     <div id="hvr-start">
@@ -667,9 +655,41 @@ Hydration Quest VR (PLAY MODE) — Full HTML
     }
 
     function goHub(){
-      // ✅ /herohealth/hub.html
       location.href = './hub.html';
     }
+
+    // parallax pointer -> CSS vars (2 layers)
+    (function bindParallax(){
+      const wrap = $('hvr-wrap');
+      if (!wrap) return;
+      let tx = 0, ty = 0;
+      function setVars(x,y){
+        // clamp to keep subtle
+        const cx = Math.max(-14, Math.min(14, x));
+        const cy = Math.max(-10, Math.min(10, y));
+        wrap.style.setProperty('--px', cx.toFixed(2));
+        wrap.style.setProperty('--py', cy.toFixed(2));
+      }
+      window.addEventListener('pointermove', (e)=>{
+        const w = window.innerWidth || 1;
+        const h = window.innerHeight || 1;
+        const nx = ((e.clientX / w) - 0.5) * 2;
+        const ny = ((e.clientY / h) - 0.5) * 2;
+        tx = nx * 10;
+        ty = ny * 7;
+        setVars(tx, ty);
+      }, { passive:true });
+
+      // optional device tilt
+      window.addEventListener('deviceorientation', (e)=>{
+        const gx = Number(e.gamma||0); // left-right
+        const by = Number(e.beta||0);  // front-back
+        if (!Number.isFinite(gx) || !Number.isFinite(by)) return;
+        const nx = Math.max(-18, Math.min(18, gx));
+        const ny = Math.max(-14, Math.min(14, by - 10));
+        setVars(nx * 0.35, ny * 0.25);
+      }, { passive:true });
+    })();
 
     const p = qs();
     const urlInfo = $('hvr-url-info');
@@ -689,10 +709,13 @@ Hydration Quest VR (PLAY MODE) — Full HTML
     async function startGame(){
       const start = $('hvr-start');
       if (start) start.style.display = 'none';
-      if (playfield) playfield.style.pointerEvents = 'auto';
+      if (playfield) {
+        playfield.style.pointerEvents = 'auto';
+        // subtle always-on wobble + chroma (storm will strengthen via JS)
+        playfield.classList.add('hvr-wobble', 'hvr-chroma');
+      }
 
       try{
-        // ✅ PATH ถูกต้องสำหรับ /herohealth/hydration-vr.html
         const mod = await import('./hydration-vr/hydration.safe.js');
         if (!mod || typeof mod.boot !== 'function') throw new Error('boot() not found');
 
