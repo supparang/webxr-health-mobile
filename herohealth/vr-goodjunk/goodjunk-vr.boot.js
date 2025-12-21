@@ -1,4 +1,3 @@
-// === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
 
@@ -10,9 +9,7 @@ export function boot(){
   if (window.__GJ_PAGE_BOOTED__) return;
   window.__GJ_PAGE_BOOTED__ = true;
 
-  window.addEventListener('pageshow', (e)=>{
-    if (e.persisted) window.location.reload();
-  });
+  window.addEventListener('pageshow', (e)=>{ if (e.persisted) window.location.reload(); });
 
   const $ = (id)=>document.getElementById(id);
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){ } };
@@ -59,6 +56,24 @@ export function boot(){
   const elShield    = $('shield-count');
   const elStunBadge = $('hud-stun');
   const elVortex = $('stun-vortex');
+  const elFire = $('fever-fire');
+
+  const lockbar = $('final-lockbar');
+  const lockReq = $('final-lock-req');
+  const lockRow = $('final-lock-row');
+
+  const endOverlay = $('end-overlay');
+  const endGrade = $('end-grade');
+  const endScore = $('end-score');
+  const endGood  = $('end-good');
+  const endMiss2 = $('end-miss');
+  const endCombo = $('end-combo');
+  const endGoals = $('end-goals');
+  const endMinis = $('end-minis');
+  const endClose = $('end-close');
+  const endRestart = $('end-restart');
+
+  const border = $('stun-border');
 
   const pageUrl = new window.URL(window.location.href);
   const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();
@@ -76,10 +91,7 @@ export function boot(){
   const CH_INIT = normCh(URL_CH);
 
   const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
-  const DUR_INIT = clamp(
-    (Number.isFinite(URL_TIME_RAW) ? URL_TIME_RAW : (DEFAULT_TIME[DIFF_INIT] || 60)),
-    20, 180
-  );
+  const DUR_INIT = clamp((Number.isFinite(URL_TIME_RAW) ? URL_TIME_RAW : (DEFAULT_TIME[DIFF_INIT] || 60)), 20, 180);
 
   const COACH_IMG = {
     neutral: './img/coach-neutral.png',
@@ -107,6 +119,28 @@ export function boot(){
     if (state === 'ok') logDot.classList.add('ok');
     else if (state === 'bad') logDot.classList.add('bad');
     safeText(logText, text || '');
+  }
+
+  // ---- tiny audio (tick/lock) ----
+  let AC = null;
+  function ensureAudio(){
+    try{
+      if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+      if (AC.state === 'suspended') AC.resume().catch(()=>{});
+    }catch(_){}
+  }
+  function beep(freq=880, dur=0.06, gain=0.06){
+    try{
+      if (!AC) return;
+      const o = AC.createOscillator();
+      const g = AC.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.value = gain;
+      o.connect(g); g.connect(AC.destination);
+      o.start();
+      o.stop(AC.currentTime + dur);
+    }catch(_){}
   }
 
   function runCountdown(onDone){
@@ -138,6 +172,7 @@ export function boot(){
     const scene = document.querySelector('a-scene');
     if (!scene) return;
     btnVR.addEventListener('click', async ()=>{
+      ensureAudio();
       try{ await scene.enterVR(); }
       catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
     });
@@ -145,9 +180,7 @@ export function boot(){
 
   function attachTouch(cameraEl){
     if (!cameraEl) return;
-    try{
-      attachTouchLook(cameraEl, { sensitivity: 0.26, areaEl: document.body });
-    }catch(_){}
+    try{ attachTouchLook(cameraEl, { sensitivity: 0.26, areaEl: document.body }); }catch(_){}
   }
 
   // Aim point
@@ -193,11 +226,19 @@ export function boot(){
     bossCleared:false,
     challenge: CH_INIT,
     runMode: RUN_MODE,
-    final8Good: 0
+
+    // ✅ Final Sprint v2
+    finalSprintActive:false,
+    finalSprintLocks:0,
+    finalSprintNeedPerSec:2,
+    finalSprintThisSec:0,
+    finalSprintFailed:false,
+    finalSprintLastSec:999
   };
 
   window.__GJ_QUEST_META__ = { goalsCleared:0, minisCleared:0, miniCount:0, goalIndex:0 };
 
+  // reset per mini
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = false;
     qState.usedMagnet = false;
@@ -205,7 +246,9 @@ export function boot(){
     qState.blocks = 0;
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
-    qState.final8Good = 0;
+
+    // reset final sprint counters (แต่ถ้าอยู่ท้ายเกมแล้ว จะถูกเปิดใหม่ใน hha:time)
+    qState.finalSprintThisSec = 0;
   });
 
   let started = false;
@@ -216,20 +259,113 @@ export function boot(){
 
   let Q = null;
 
+  // final sprint per-sec requirement by diff
+  function needPerSec(diff){
+    diff = String(diff||'normal').toLowerCase();
+    if (diff === 'easy') return 1;
+    if (diff === 'hard') return 2;
+    return 2; // normal
+  }
+
+  function setLockUI(locks){
+    if (!lockRow) return;
+    const cells = lockRow.querySelectorAll('.lock-cell');
+    for (let i=0;i<cells.length;i++){
+      cells[i].classList.toggle('on', i < (locks|0));
+    }
+  }
+
+  function showLockbar(show){
+    if (!lockbar) return;
+    lockbar.classList.toggle('show', !!show);
+  }
+
+  function tickFinalSprint(secLeft){
+    // start when <= 8
+    const active = (secLeft <= 8 && secLeft > 0);
+    if (active && !qState.finalSprintActive){
+      qState.finalSprintActive = true;
+      qState.finalSprintLocks = 0;
+      qState.finalSprintFailed = false;
+      qState.finalSprintThisSec = 0;
+      qState.finalSprintLastSec = secLeft;
+
+      showLockbar(true);
+      setLockUI(0);
+      if (lockReq) lockReq.textContent = `REQ/SEC: ${qState.finalSprintNeedPerSec}`;
+      setCoach('FINAL SPRINT! ล็อกให้ครบทุกวิ! 🔒', 'fever');
+      ensureAudio();
+    }
+    if (!active && qState.finalSprintActive){
+      qState.finalSprintActive = false;
+      showLockbar(false);
+    }
+
+    // per second transition (lock step)
+    if (!qState.finalSprintActive) return;
+
+    if (secLeft !== qState.finalSprintLastSec){
+      // every second tick sound
+      ensureAudio();
+      beep(880, 0.04, 0.045);
+
+      // evaluate previous second quota (ยกเว้นวินาทีแรกที่เพิ่งเริ่ม)
+      const prev = qState.finalSprintLastSec;
+      if (prev <= 8 && prev > 0 && prev !== 999){
+        // need per sec
+        if (!qState.finalSprintFailed && qState.finalSprintThisSec >= qState.finalSprintNeedPerSec){
+          qState.finalSprintLocks = (qState.finalSprintLocks|0) + 1;
+
+          // lock effect
+          beep(1240, 0.06, 0.06);
+          try{
+            window.dispatchEvent(new CustomEvent('hha:judge', { detail: { label: 'LOCK!' } }));
+          }catch(_){}
+        } else {
+          // failed this second => mini likely won't pass (locks stop)
+          // (ไม่รีเซ็ตทั้งระบบ เพื่อให้โหดแบบเกมจริง)
+        }
+        setLockUI(qState.finalSprintLocks|0);
+      }
+
+      qState.finalSprintThisSec = 0;
+      qState.finalSprintLastSec = secLeft;
+
+      if (Q) Q.tick(qState);
+    }
+  }
+
+  // from safe.js
   window.addEventListener('quest:goodHit', ()=>{
     qState.streakGood = (qState.streakGood|0) + 1;
-    if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
-    if (Q) Q.tick(qState);
+
+    // ✅ count in final sprint (per second)
+    if (qState.finalSprintActive && !qState.finalSprintFailed){
+      qState.finalSprintThisSec = (qState.finalSprintThisSec|0) + 1;
+      if (Q) Q.tick(qState);
+    }
   });
+
   window.addEventListener('quest:badHit', ()=>{
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
+
+    // ✅ hitting junk during final sprint => fail instantly
+    if (qState.finalSprintActive){
+      qState.finalSprintFailed = true;
+      setCoach('โดน JUNK ตอน FINAL SPRINT = FAIL! 💥', 'sad');
+      ensureAudio();
+      beep(220, 0.12, 0.08);
+      if (Q) Q.tick(qState);
+    }
     if (Q) Q.tick(qState);
   });
+
   window.addEventListener('quest:block', ()=>{
     qState.blocks = (qState.blocks|0) + 1;
     if (Q) Q.tick(qState);
   });
+
   window.addEventListener('quest:power', (e)=>{
     const d = e.detail || {};
     const p = (d.power||'');
@@ -238,19 +374,28 @@ export function boot(){
     if (p === 'gold') qState.goldHitsThisMini = true;
     if (Q) Q.tick(qState);
   });
+
   window.addEventListener('quest:bossClear', ()=>{
     qState.bossCleared = true;
     if (Q) Q.tick(qState);
   });
 
+  // HUD update
   window.addEventListener('hha:judge', (e)=>{
     safeText(elJudge, (e.detail||{}).label || '\u00A0');
   });
+
+  let currentDiff = DIFF_INIT;
+
   window.addEventListener('hha:time', (e)=>{
     const sec = (e.detail||{}).sec;
     if (typeof sec === 'number' && sec >= 0){
       safeText(elTime, sec + 's');
       qState.timeLeft = sec|0;
+
+      // ✅ final sprint tick
+      tickFinalSprint(qState.timeLeft|0);
+
       if (Q) Q.tick(qState);
     }
   });
@@ -259,7 +404,7 @@ export function boot(){
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
-    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; } // ✅ FIX goal g1
+    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
     if (typeof d.misses === 'number'){
       qState.miss = d.misses|0;
       safeText(elMiss, String(qState.miss));
@@ -274,16 +419,21 @@ export function boot(){
 
   window.addEventListener('hha:fever', (e)=>{
     const d = e.detail || {};
-    const fever = Number(d.fever||0);
+    const fever = Math.max(0, Math.min(100, Number(d.fever||0)));
     const shield = Number(d.shield||0);
     const stunActive = !!d.stunActive;
 
-    if (elFeverFill) elFeverFill.style.width = Math.max(0, Math.min(100, fever)) + '%';
-    if (elFeverPct) safeText(elFeverPct, Math.round(Math.max(0, Math.min(100, fever))) + '%');
+    if (elFeverFill) elFeverFill.style.width = fever + '%';
+    if (elFeverPct) safeText(elFeverPct, Math.round(fever) + '%');
     if (elShield) safeText(elShield, String(shield|0));
     if (elStunBadge) elStunBadge.classList.toggle('show', stunActive);
-    const border = document.getElementById('stun-border');
     if (border) border.classList.toggle('show', stunActive);
+
+    // 🔥 fire overlay intensity
+    try{
+      document.documentElement.style.setProperty('--fever-intensity', String(Math.round(fever)));
+      if (elFire) elFire.classList.toggle('show', fever >= 75 || stunActive);
+    }catch(_){}
 
     if (elVortex){
       elVortex.classList.toggle('show', stunActive);
@@ -295,7 +445,6 @@ export function boot(){
     }
   });
 
-  // ✅ Quest bars + “ขาดอีก …” hint
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
@@ -318,8 +467,7 @@ export function boot(){
       if (elQuestMainBar) elQuestMainBar.style.width = Math.round(pct*100) + '%';
       if (elQuestMainCap) elQuestMainCap.textContent = `${cur} / ${max}`;
 
-      // reason text
-      if (goal.id === 'g3'){ // miss <= max
+      if (goal.id === 'g3'){
         const remain = Math.max(0, max - cur);
         hint = `เหลือโควตา miss ${remain}`;
       } else {
@@ -339,9 +487,14 @@ export function boot(){
       if (elQuestMiniBar) elQuestMiniBar.style.width = Math.round(pct*100) + '%';
       if (elQuestMiniCap) elQuestMiniCap.textContent = `${cur} / ${max}`;
 
-      // override hint with mini reason (ชัดกว่า)
-      const need = Math.max(0, max - cur);
-      hint = (need > 0) ? `Mini ขาดอีก ${need}` : 'Mini ใกล้แล้ว!';
+      // stronger hint for Final Sprint
+      if (mini.id === 'm8'){
+        if (qState.finalSprintFailed) hint = 'FINAL FAIL: โดน JUNK 💥';
+        else hint = `LOCK ${qState.finalSprintLocks}/8 • ในวินี้ ${qState.finalSprintThisSec}/${qState.finalSprintNeedPerSec}`;
+      } else {
+        const need = Math.max(0, max - cur);
+        hint = (need > 0) ? `Mini ขาดอีก ${need}` : 'Mini ใกล้แล้ว!';
+      }
     } else {
       if (elQuestMini) elQuestMini.textContent = 'Mini quest (ครบ) ✅';
       if (elQuestMiniBar) elQuestMiniBar.style.width = '100%';
@@ -351,8 +504,56 @@ export function boot(){
     const miniCount = (meta.miniCount|0);
     const minisCleared = (meta.minisCleared|0);
     if (elMiniCount) elMiniCount.textContent = `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`;
-
     if (elQuestHint) elQuestHint.textContent = hint || '';
+  });
+
+  // ---- END summary handling ----
+  function computeGrade(score, miss, goalsCleared, minisCleared){
+    // ปรับให้ "เกมจริง" เน้นทั้งทำภารกิจ + พลาดน้อย
+    if (goalsCleared >= 2 && minisCleared >= 8 && miss <= 1 && score >= 900) return 'SSS';
+    if (goalsCleared >= 2 && minisCleared >= 6 && miss <= 2 && score >= 750) return 'SS';
+    if (goalsCleared >= 2 && minisCleared >= 4 && miss <= 3 && score >= 600) return 'S';
+    if (goalsCleared >= 1 && minisCleared >= 3 && score >= 420) return 'A';
+    if (score >= 260) return 'B';
+    return 'C';
+  }
+
+  window.addEventListener('hha:end', (e)=>{
+    const d = (e.detail||{});
+    const meta = window.__GJ_QUEST_META__ || {};
+    const goalsCleared = meta.goalsCleared|0;
+    const minisCleared = meta.minisCleared|0;
+
+    const score = d.score|0;
+    const good = d.goodHits|0;
+    const miss = d.misses|0;
+    const combo = d.comboMax|0;
+
+    const g = computeGrade(score, miss, goalsCleared, minisCleared);
+
+    if (endGrade) endGrade.textContent = `GRADE: ${g}`;
+    if (endScore) endScore.textContent = String(score);
+    if (endGood)  endGood.textContent  = String(good);
+    if (endMiss2) endMiss2.textContent = String(miss);
+    if (endCombo) endCombo.textContent = String(combo);
+    if (endGoals) endGoals.textContent = String(goalsCleared);
+    if (endMinis) endMinis.textContent = String(minisCleared);
+
+    if (endOverlay) endOverlay.classList.add('show');
+
+    // celebration sound
+    ensureAudio();
+    beep(880, 0.08, 0.05);
+    setCoach(`จบแล้ว! เกรด ${g} ✅`, (g==='SSS'||g==='SS'||g==='S') ? 'happy' : 'neutral');
+  });
+
+  endClose && endClose.addEventListener('click', ()=>{
+    endOverlay && endOverlay.classList.remove('show');
+  });
+  endRestart && endRestart.addEventListener('click', ()=>{
+    const u = new URL(location.href);
+    u.searchParams.set('ts', String(Date.now()));
+    location.href = u.toString();
   });
 
   function applyRunPill(){
@@ -379,22 +580,15 @@ export function boot(){
   async function initLoggerSafe(payload){
     try{
       const mod = await import('../vr/hha-cloud-logger.js');
-      const fn =
-        mod.initCloudLogger ||
-        mod.initLogger ||
-        mod.init ||
-        mod.default ||
-        window.initCloudLogger ||
-        (window.HHACloudLogger && window.HHACloudLogger.init);
-
+      const fn = (window.HHACloudLogger && window.HHACloudLogger.init);
       if (typeof fn === 'function'){
         fn(payload);
         setLogBadge('ok', 'logger: ok ✓');
         return true;
       }
-      setLogBadge('bad', 'logger: export not found (skip)');
+      setLogBadge('bad', 'logger: init not found (skip)');
       return false;
-    }catch(err){
+    }catch(_){
       setLogBadge('bad', 'logger: load failed (skip)');
       return false;
     }
@@ -403,11 +597,8 @@ export function boot(){
   function waitSceneReady(cb){
     const scene = document.querySelector('a-scene');
     if (!scene) { cb(); return; }
-    const tryReady = ()=>{
-      if (scene.hasLoaded && scene.camera){ cb(); return true; }
-      return false;
-    };
-    if (tryReady()) return;
+    const tryReady = ()=> (scene.hasLoaded && scene.camera);
+    if (tryReady()) { cb(); return; }
     scene.addEventListener('loaded', ()=>{
       let tries=0;
       const it = setInterval(()=>{
@@ -420,10 +611,20 @@ export function boot(){
   async function bootOnce({ wantVR }){
     if (started) return;
     started = true;
+
+    ensureAudio();
+
     if (startOverlay) startOverlay.style.display = 'none';
+    if (endOverlay) endOverlay.classList.remove('show');
 
     const diff = normDiff(selDiff?.value || DIFF_INIT);
     const chal = normCh(selChallenge?.value || CH_INIT);
+    currentDiff = diff;
+
+    // set final sprint req
+    qState.finalSprintNeedPerSec = needPerSec(diff);
+    if (lockReq) lockReq.textContent = `REQ/SEC: ${qState.finalSprintNeedPerSec}`;
+
     const durationSec = clamp(DUR_INIT, 20, 180);
 
     qState.challenge = chal;
