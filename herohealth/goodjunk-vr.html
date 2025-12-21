@@ -1,9 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — FULL (VR-FEEL PACK)
-     ✅ emoji sticker targets + fade in/out
-     ✅ drag-to-look + gyro-to-look + inertia (in safe.js)
-     ✅ tap-anywhere (near target) to hit
-     ✅ paths are ROOT-correct for /herohealth/
+     GoodJunkVR (PRODUCTION) — Full HTML (ROOT PATH FIX)
+     ✅ DOM emoji targets on #gj-layer
+     ✅ HUD + Quest + Coach + Fever/Shield + STUN bar
+     ✅ Start overlay (2D / VR) + tap-anywhere
+     ✅ Loads particles.js BEFORE boot module
+     ✅ FEVER FIRE overlay + LOCK overlay
 -->
 <!doctype html>
 <html lang="th">
@@ -52,79 +53,53 @@
       z-index:649;
       pointer-events:auto;
       touch-action:none;
-      user-select:none;
     }
 
-    /* ---------- Emoji Sticker Style ---------- */
+    /* ---- Emoji Sticker look (VR-feel) ---- */
     .gj-target{
       position:absolute;
       transform: translate(-50%,-50%) scale(var(--tScale, 1));
-      font-size: clamp(46px, 8.4vw, 82px);
+      font-size: clamp(46px, 7.8vw, 78px);
       line-height:1;
-
-      /* sticker plate */
-      padding:10px 12px;
-      border-radius:18px;
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.22), transparent 55%),
-        rgba(255,255,255,0.10);
-      border:1px solid rgba(255,255,255,0.18);
-      backdrop-filter: blur(6px);
-
-      /* pop shadow */
-      box-shadow:
-        0 18px 40px rgba(0,0,0,0.45),
-        0 2px 0 rgba(255,255,255,0.14) inset;
-      text-shadow: 0 10px 24px rgba(0,0,0,0.55);
-      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.55));
-
+      user-select:none;
       pointer-events:auto;
       cursor:pointer;
-      transition: transform .12s ease-out, opacity .16s ease-out;
-      will-change: transform, left, top, opacity;
-      opacity:1;
-    }
-
-    /* spawn / gone */
-    .gj-target.spawn{
+      will-change: transform, left, top, opacity, filter;
+      filter:
+        drop-shadow(0 18px 26px rgba(0,0,0,0.55))
+        drop-shadow(0 0 16px rgba(56,189,248,0.12));
+      text-shadow: 0 12px 22px rgba(0,0,0,0.40);
+      transition: transform .12s ease-out, opacity .18s ease-out, filter .18s ease-out;
       opacity:0;
-      transform:translate(-50%,-50%) scale(calc(var(--tScale,1) * 0.85));
+      animation: stickerIn .16s ease-out forwards;
     }
-    .gj-target.spawn.in{
-      opacity:1;
-      transform:translate(-50%,-50%) scale(var(--tScale,1));
+    @keyframes stickerIn{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(0.82); }
+      100%{ opacity:1; transform:translate(-50%,-50%) scale(var(--tScale,1)); }
     }
     .gj-target.gone{
       opacity:0;
-      transform:translate(-50%,-50%) scale(calc(var(--tScale,1) * 0.72));
+      transform:translate(-50%,-50%) scale(0.66) rotate(-6deg);
+      filter:
+        drop-shadow(0 10px 18px rgba(0,0,0,0.35))
+        blur(0.2px);
     }
-
-    /* category tints */
     .gj-junk{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(249,115,22,0.22), transparent 60%),
-        rgba(255,255,255,0.08);
-      border-color: rgba(249,115,22,0.35);
+      opacity:.98;
+      filter: drop-shadow(0 18px 28px rgba(249,115,22,0.25));
     }
     .gj-gold{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(250,204,21,0.26), transparent 60%),
-        rgba(255,255,255,0.08);
-      border-color: rgba(250,204,21,0.45);
+      filter: drop-shadow(0 20px 32px rgba(250,204,21,0.35));
+    }
+    .gj-fake{
+      filter: drop-shadow(0 18px 28px rgba(168,85,247,0.25));
     }
     .gj-power{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(56,189,248,0.26), transparent 60%),
-        rgba(255,255,255,0.08);
-      border-color: rgba(56,189,248,0.45);
+      filter: drop-shadow(0 18px 30px rgba(56,189,248,0.30));
     }
     .gj-boss{
-      font-size: clamp(56px, 10vw, 116px);
-      border-radius:22px;
-      background:
-        radial-gradient(circle at 30% 25%, rgba(168,85,247,0.26), transparent 60%),
-        rgba(255,255,255,0.08);
-      border-color: rgba(168,85,247,0.45);
+      font-size: clamp(56px, 10.5vw, 118px);
+      filter: drop-shadow(0 22px 40px rgba(250,204,21,0.22));
     }
 
     /* HUD */
@@ -258,6 +233,22 @@
       100%{ transform:translateY(0) scale(1); }
     }
 
+    /* Center hint */
+    .hint-center{
+      position:fixed; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      font-size:12px;
+      color:var(--text-soft);
+      background:rgba(15,23,42,0.8);
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.35);
+      display:none;
+      pointer-events:none;
+      z-index:651;
+    }
+    .hint-center.show{ display:block; }
+
     /* Countdown */
     .countdown-overlay{
       position:fixed; inset:0;
@@ -294,7 +285,7 @@
     }
     .vr-btn span{ font-size:16px; }
 
-    /* logger badge */
+    /* Logger badge */
     .logbadge{
       position:fixed; left:10px; bottom:10px; z-index:690;
       background:rgba(15,23,42,0.88);
@@ -316,8 +307,8 @@
     .dot.ok{ background:#22c55e; }
     .dot.bad{ background:#ef4444; }
 
-    /* Fever UI block (HUD) */
-    .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
+    /* Fever + STUN block (HUD) */
+    .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:6px; }
     .fever-row{ display:flex; align-items:center; gap:8px; }
     .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
     .fever-bar{ width:140px; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(148,163,184,0.18); }
@@ -326,6 +317,12 @@
     .shield-row{ display:flex; align-items:center; gap:6px; }
     .shield-label{ font-size:12px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
+
+    .stun-row{ display:flex; align-items:center; gap:8px; }
+    .stun-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#fca5a5; font-weight:900; }
+    .stun-bar{ width:140px; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(248,113,113,0.28); }
+    .stun-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(248,113,113,0.25), rgba(248,113,113,0.95)); transition:width .08s linear; }
+    .stun-txt{ font-size:10px; color:#fecaca; font-weight:900; min-width:42px; text-align:right; }
 
     /* Start overlay */
     .start-overlay{
@@ -380,30 +377,159 @@
       font-weight:850;
     }
     .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
+
+    /* ===== FEVER FIRE overlay ===== */
+    .fever-fire{
+      position:fixed; inset:0;
+      z-index:652;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .18s ease-out;
+      mix-blend-mode: screen;
+      filter: saturate(1.25) contrast(1.05);
+    }
+    .fever-fire.show{ opacity:1; }
+    .fever-fire::before{
+      content:"";
+      position:absolute; inset:-8%;
+      background:
+        radial-gradient(70% 40% at 50% 95%, rgba(255,140,0,0.65), transparent 60%),
+        radial-gradient(45% 25% at 30% 96%, rgba(255,60,0,0.55), transparent 60%),
+        radial-gradient(45% 25% at 70% 96%, rgba(255,80,0,0.55), transparent 60%),
+        radial-gradient(55% 35% at 50% 88%, rgba(255,220,120,0.22), transparent 60%);
+      opacity:0.9;
+      animation: fireRise 1.15s linear infinite;
+      transform: translateY(0);
+      filter: blur(0.2px);
+    }
+    .fever-fire::after{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(circle at 50% 60%, rgba(255,200,0,0.12), transparent 55%),
+        radial-gradient(circle at 20% 70%, rgba(255,90,0,0.10), transparent 55%),
+        radial-gradient(circle at 80% 70%, rgba(255,60,0,0.10), transparent 55%);
+      opacity:0.8;
+      animation: firePulse .55s ease-in-out infinite;
+    }
+    @keyframes fireRise{
+      0%{ transform: translateY(6%) scale(1.02); opacity:0.65; }
+      40%{ transform: translateY(2%) scale(1.03); opacity:0.95; }
+      100%{ transform: translateY(-4%) scale(1.02); opacity:0.65; }
+    }
+    @keyframes firePulse{
+      0%{ opacity:0.35; }
+      50%{ opacity:0.95; }
+      100%{ opacity:0.35; }
+    }
+
+    /* ===== LOCK FX (Final Sprint STUN) ===== */
+    .lock-fx{
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index: 999;
+      opacity:0;
+      --lockDur: 1000ms;
+    }
+    .lock-fx::before{
+      content:"";
+      position:absolute; inset:0;
+      border: 8px solid rgba(239,68,68,0.0);
+      box-shadow:
+        inset 0 0 0 2px rgba(239,68,68,0.0),
+        inset 0 0 80px rgba(239,68,68,0.0);
+      background:
+        radial-gradient(circle at 50% 35%, rgba(239,68,68,0.14), transparent 58%),
+        radial-gradient(circle at 50% 60%, rgba(0,0,0,0.55), rgba(0,0,0,0.82));
+      opacity:0;
+      transform: scale(1);
+    }
+    .lock-fx.show{ opacity:1; }
+    .lock-fx.show::before{ animation: lockPulse var(--lockDur) ease-out 1; }
+    @keyframes lockPulse{
+      0%{ opacity:0; transform:scale(1.02); border-color: rgba(239,68,68,0.0); box-shadow: inset 0 0 0 2px rgba(239,68,68,0.0), inset 0 0 80px rgba(239,68,68,0.0); }
+      8%{ opacity:1; transform:scale(1); border-color: rgba(239,68,68,0.95); box-shadow: inset 0 0 0 2px rgba(239,68,68,0.7), inset 0 0 90px rgba(239,68,68,0.35); }
+      34%{ opacity:1; border-color: rgba(239,68,68,0.85); box-shadow: inset 0 0 0 2px rgba(239,68,68,0.55), inset 0 0 80px rgba(239,68,68,0.30); }
+      100%{ opacity:0; transform:scale(0.995); border-color: rgba(239,68,68,0.0); box-shadow: inset 0 0 0 2px rgba(239,68,68,0.0), inset 0 0 80px rgba(239,68,68,0.0); }
+    }
+    body.lock-shake{ animation: lockShake 220ms linear 1; }
+    @keyframes lockShake{
+      0%{ transform: translate3d(0,0,0) }
+      15%{ transform: translate3d(-2px, 1px,0) }
+      30%{ transform: translate3d(2px, -1px,0) }
+      45%{ transform: translate3d(-1px, -2px,0) }
+      60%{ transform: translate3d(2px, 1px,0) }
+      75%{ transform: translate3d(-1px, 2px,0) }
+      100%{ transform: translate3d(0,0,0) }
+    }
   </style>
 
-  <!-- FX IIFE -->
+  <!-- ✅ IMPORTANT: FX IIFE MUST LOAD BEFORE boot module -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
 
-  <!-- Boot (module) -->
-  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
+  <!-- ✅ Boot loader (module) -->
+  <script type="module">
+    const $ = (sel) => document.querySelector(sel);
+
+    function setBadge(ok, msg){
+      const dot = $('#logdot');
+      const text = $('#logtext');
+      if (dot) dot.className = 'dot ' + (ok ? 'ok' : 'bad');
+      if (text) text.textContent = msg;
+    }
+
+    async function loadBoot(){
+      const candidates = [
+        './vr-goodjunk/goodjunk-vr.boot.js',
+        './vr-goodjunk/goodjunk-vr.boot.mjs',
+        './vr-goodjunk/goodjunk.boot.js',
+        './vr-goodjunk/goodjunk.safe.js',
+        './goodjunk-vr.boot.js'
+      ];
+
+      let lastErr = null;
+      for (const p of candidates){
+        try{
+          const mod = await import(p);
+          const bootFn = mod.boot || mod.start || mod.init || mod.default;
+          if (typeof bootFn === 'function'){
+            setBadge(true, 'boot: ' + p);
+            bootFn();
+            return;
+          }
+          lastErr = new Error('Boot loaded but no boot/start/init/default: ' + p);
+        }catch(e){
+          lastErr = e;
+        }
+      }
+
+      console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
+      setBadge(false, 'boot failed: ' + (lastErr && lastErr.message ? lastErr.message : 'unknown'));
+      const sub = $('#start-sub');
+      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
+    }
+
+    window.addEventListener('load', () => {
+      setBadge(false, 'boot: loading…');
+      loadBoot();
+    });
+  </script>
 </head>
 
 <body>
 
-  <!-- A-Frame scene (แค่ฉาก/VR camera; เป้าจริงอยู่ DOM) -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="colorManagement: true; physicallyCorrectLights: true"
-  >
+  <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true">
     <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
     <a-entity light="type: ambient; intensity: 1.0"></a-entity>
     <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
     <a-sky color="#061225"></a-sky>
   </a-scene>
+
+  <!-- overlays -->
+  <div class="fever-fire" id="fever-fire" aria-hidden="true"></div>
+  <div class="lock-fx" id="lock-fx" aria-hidden="true"></div>
 
   <!-- DOM target layer -->
   <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
@@ -411,7 +537,7 @@
   <!-- HUD -->
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
-
+      <!-- Left: Score/Time/Miss/Combo -->
       <div class="hud-card" style="min-width: 290px;">
         <div class="hud-main">
           <div class="hud-main-title">GOODJUNK</div>
@@ -447,6 +573,7 @@
         </div>
       </div>
 
+      <!-- Right: Quest + Fever + STUN -->
       <div class="hud-card hud-quest" style="min-width: 300px;">
         <div class="quest-title">Quest</div>
 
@@ -468,6 +595,7 @@
           </div>
         </div>
 
+        <!-- Fever/Shield UI -->
         <div class="hud-fever">
           <div class="fever-row">
             <div class="fever-label">FEVER</div>
@@ -479,11 +607,18 @@
             <div>Shield</div>
             <div class="shield-count" id="shield-count">0</div>
           </div>
+
+          <!-- ✅ STUN bar -->
+          <div class="stun-row">
+            <div class="stun-label">STUN</div>
+            <div class="stun-bar"><div class="stun-fill" id="stun-fill" style="width:0%"></div></div>
+            <div class="stun-txt" id="stun-txt">—</div>
+          </div>
         </div>
       </div>
-
     </div>
 
+    <!-- Bottom: Coach -->
     <div class="hud-bottom">
       <div class="coach-bubble" id="coach-bubble">
         <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
@@ -495,22 +630,29 @@
     </div>
   </div>
 
+  <!-- Center hint (touch look) -->
+  <div class="hint-center" id="touch-hint">ลากนิ้วเพื่อหมุนมุมมอง 👆</div>
+
+  <!-- Countdown overlay -->
   <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
 
+  <!-- VR button -->
   <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR">
     <span>🥽</span> Enter VR
   </button>
 
+  <!-- Logger badge -->
   <div class="logbadge" id="logbadge">
     <div class="dot" id="logdot"></div>
-    <div id="logtext">boot: ready</div>
+    <div id="logtext">boot: loading…</div>
   </div>
 
+  <!-- Start overlay -->
   <div class="start-overlay" id="start-overlay">
     <div class="start-card">
       <h1 class="start-title">GoodJunk VR</h1>
       <p class="start-sub" id="start-sub">
-        ลากนิ้วเพื่อหมุนมุมมอง • มือถือใช้ “เอียงเครื่อง” ได้ (ถ้าอนุญาต) ✅
+        เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅
       </p>
 
       <div class="start-grid">
@@ -538,7 +680,7 @@
       </div>
 
       <div class="tiny-note">
-        * Tip: แตะ “ที่ว่าง” ใกล้เป้า ก็โดนได้ (tap-anywhere) • Final Sprint โหด: โดน junk/พลาดใน 8 วิท้ายรีเซ็ต!
+        * แตะพื้นหลังในหน้าต่างนี้ (tap-anywhere) เพื่อเริ่มแบบ 2D ได้ด้วย
       </div>
     </div>
   </div>
