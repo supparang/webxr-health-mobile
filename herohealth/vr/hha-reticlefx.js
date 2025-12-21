@@ -1,64 +1,92 @@
 // === /herohealth/vr/hha-reticlefx.js ===
-// Reticle FX (IIFE) — hover/press feedback for <a-cursor>
-// ✅ Must load after AFRAME, before scene uses component
+// Global Reticle FX (IIFE) — hover/fuse feedback for <a-cursor>
+// ✅ โหลดก่อน scene → ไม่เจอ unknown component
+// Usage: <a-cursor hha-reticlefx="hoverScale:1.25; hoverOpacity:1; idleOpacity:.7; fusePulse:1"></a-cursor>
 
-(function (root) {
+(function () {
   'use strict';
-
-  const A = root.AFRAME;
+  const A = window.AFRAME;
   if (!A || !A.registerComponent) return;
-
   if (A.components && A.components['hha-reticlefx']) return;
 
-  function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b, v)); }
+  function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
   A.registerComponent('hha-reticlefx', {
     schema: {
-      idleScale: { type:'number', default: 1.0 },
-      hoverScale:{ type:'number', default: 1.25 },
-      pressScale:{ type:'number', default: 0.85 },
-      ease:      { type:'number', default: 0.22 }
+      hoverScale: { type: 'number', default: 1.25 },
+      idleOpacity:{ type: 'number', default: 0.70 },
+      hoverOpacity:{ type: 'number', default: 1.0 },
+      fusePulse:  { type: 'number', default: 1 }
     },
     init: function () {
-      this.s = this.data.idleScale;
-      this.t = this.data.idleScale;
+      this._hover = false;
+      this._fusing = false;
+      this._t0 = performance.now();
 
-      this.onEnter = () => { this.t = this.data.hoverScale; };
-      this.onLeave = () => { this.t = this.data.idleScale; };
-      this.onDown  = () => { this.t = this.data.pressScale; };
-      this.onUp    = () => { this.t = this.data.hoverScale; };
+      const el = this.el;
+      this._base = {
+        scale: el.object3D.scale.clone(),
+        opacity: (function(){
+          try{
+            const m = el.getAttribute('material') || {};
+            return Number(m.opacity);
+          }catch(_){ return 0.88; }
+        })()
+      };
 
-      this.el.addEventListener('mouseenter', this.onEnter);
-      this.el.addEventListener('mouseleave', this.onLeave);
+      const setOpacity = (op) => {
+        try{
+          el.setAttribute('material', 'opacity', clamp(op, 0, 1));
+        }catch(_){}
+      };
 
-      // cursor emits click; also listen pointer to feel responsive on mobile
-      this.el.addEventListener('click', () => {
-        this.t = this.data.pressScale;
-        setTimeout(() => { this.t = this.data.hoverScale; }, 90);
-      });
+      const setScaleMul = (mul) => {
+        try{
+          el.object3D.scale.set(
+            this._base.scale.x * mul,
+            this._base.scale.y * mul,
+            this._base.scale.z * mul
+          );
+        }catch(_){}
+      };
 
-      root.addEventListener('pointerdown', this.onDown, { passive:true });
-      root.addEventListener('pointerup', this.onUp, { passive:true });
-      root.addEventListener('touchstart', this.onDown, { passive:true });
-      root.addEventListener('touchend', this.onUp, { passive:true });
+      this._applyIdle = () => {
+        this._hover = false;
+        this._fusing = false;
+        setScaleMul(1);
+        setOpacity(this.data.idleOpacity);
+      };
+
+      this._applyHover = () => {
+        this._hover = true;
+        setScaleMul(this.data.hoverScale);
+        setOpacity(this.data.hoverOpacity);
+      };
+
+      el.addEventListener('raycaster-intersection', () => this._applyHover());
+      el.addEventListener('raycaster-intersection-cleared', () => this._applyIdle());
+
+      el.addEventListener('fusing', () => { this._fusing = true; });
+      el.addEventListener('mouseleave', () => this._applyIdle());
+
+      // start idle
+      this._applyIdle();
     },
-    tick: function () {
-      const e = clamp(this.data.ease, 0.05, 0.5);
-      this.s += (this.t - this.s) * e;
+    tick: function (t) {
+      if (!this._hover) return;
+      if (!this.data.fusePulse) return;
+      if (!this._fusing) return;
 
-      const g = this.el.getAttribute('geometry') || {};
-      const ri = Number(g.radiusInner || 0.01);
-      const ro = Number(g.radiusOuter || 0.018);
-
-      // scale ring radii
-      this.el.setAttribute('geometry', `primitive:ring; radiusInner:${(ri*this.s).toFixed(4)}; radiusOuter:${(ro*this.s).toFixed(4)}`);
-
-      // slight opacity cue
-      const mat = this.el.getAttribute('material') || {};
-      const baseOp = 0.85;
-      const op = clamp(baseOp + (this.s-1)*0.25, 0.55, 0.98);
-      this.el.setAttribute('material', `color:${mat.color||'#fff'}; shader:flat; opacity:${op.toFixed(3)}`);
+      // gentle pulse while fusing
+      const phase = ((t - this._t0) / 180) % (Math.PI * 2);
+      const pulse = 1 + Math.sin(phase) * 0.06;
+      try{
+        this.el.object3D.scale.set(
+          this._base.scale.x * this.data.hoverScale * pulse,
+          this._base.scale.y * this.data.hoverScale * pulse,
+          this._base.scale.z * this.data.hoverScale * pulse
+        );
+      }catch(_){}
     }
   });
-
-})(window);
+})();
