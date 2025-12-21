@@ -2,19 +2,18 @@
 // GoodJunkVR — DOM Emoji Engine (PRODUCTION)
 // ✅ Targets are DOM but behave like VR: world-space + follow camera yaw/pitch
 // ✅ Clamp safe zone: avoid overlapping HUD/cards
-// ✅ Events for HUD/Quest/FX:
-//    - hha:time  {sec}
-//    - hha:score {score, goodHits, misses, comboMax, challenge, fever, shield}
-//    - hha:fever {fever, shield, active}
+// ✅ Events:
+//    - hha:time {sec}
+//    - hha:score {score, goodHits, misses, comboMax, challenge}
 //    - hha:judge {label}
-//    - quest:goodHit  {x,y, judgment, kind}
-//    - quest:badHit   {x,y, judgment, kind}
-//    - quest:block    {x,y, kind, shield}
-//    - quest:power    {x,y, power, kind, shield}
-//    - quest:bossClear{kind}
-//    - quest:miniStart (optional from director)
-//
-// MISS rule (GoodJunk): miss = good expired + junk hit (if shield blocks → NOT miss)
+//    - hha:fever {fever, shield, active}
+//    - quest:goodHit {x,y,judgment,kind,points}
+//    - quest:badHit  {x,y,judgment,kind,points}
+//    - quest:block   {x,y,kind,points,shieldLeft}
+//    - quest:power   {x,y,power,kind,points}
+//    - quest:bossClear {}
+//    - quest:miss    {missKind:'goodExpired'|'goldExpired'|'powerExpired'|'bossExpired', kind:'MISS'}
+// MISS rule (GoodJunk): miss = good expired + junk/fake hit (if shield blocks → NOT miss)
 
 'use strict';
 
@@ -25,15 +24,14 @@ function clamp(v, min, max){
   return v;
 }
 function now(){ return performance.now(); }
-
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
 }
 
 /* ----------------------- DOM World Mapper ----------------------- */
 const WORLD_SCALE = 2.05;     // จูนให้เลื่อนรู้สึกเหมือน VR
-const Y_PITCH_GAIN = 0.75;   // ความแรงแกนตั้ง
-const WRAP_PAD = 140;        // กันหลุดขอบ
+const Y_PITCH_GAIN = 0.75;
+const WRAP_PAD = 140;
 
 function wrapRad(a){
   a = Number(a) || 0;
@@ -122,7 +120,6 @@ export function boot(opts = {}){
   }
 
   const diff = String(opts.diff || 'normal').toLowerCase();
-  const runMode = String(opts.run || 'play').toLowerCase();
   const challenge = String(opts.challenge || 'rush').toLowerCase();
   const durationSec = clamp(opts.time ?? 60, 20, 180);
 
@@ -141,7 +138,7 @@ export function boot(opts = {}){
     score: 0,
     goodHits: 0,
     goldHits: 0,
-    misses: 0,       // miss = good expired + junk hit (blocked doesn't count)
+    misses: 0,       // miss = good expired + junk/fake hit (blocked doesn't count)
     combo: 0,
     comboMax: 0,
 
@@ -160,19 +157,14 @@ export function boot(opts = {}){
   function setJudge(label){
     emit('hha:judge', { label: String(label||'') });
   }
-
-  // ✅ ยิง 2 event ซ้ำซ้อนกันเพื่อกันหลุด (บาง HUD ฟัง score บางอันฟัง fever)
   function syncHUD(){
     emit('hha:score', {
       score: state.score|0,
       goodHits: state.goodHits|0,
       misses: state.misses|0,
       comboMax: state.comboMax|0,
-      challenge,
-      fever: state.fever|0,
-      shield: state.shield|0
+      challenge
     });
-
     emit('hha:fever', {
       fever: state.fever|0,
       shield: state.shield|0,
@@ -196,11 +188,11 @@ export function boot(opts = {}){
     el.className = 'gj-target';
     el.textContent = emoji;
 
-    if (kind === 'junk')  el.classList.add('gj-junk');
-    if (kind === 'gold')  el.classList.add('gj-gold');
-    if (kind === 'fake')  el.classList.add('gj-fake');
+    if (kind === 'junk') el.classList.add('gj-junk');
+    if (kind === 'fake') el.classList.add('gj-fake');
+    if (kind === 'gold') el.classList.add('gj-gold');
     if (kind === 'power') el.classList.add('gj-power');
-    if (kind === 'boss')  el.classList.add('gj-boss');
+    if (kind === 'boss') el.classList.add('gj-boss');
 
     layerEl.appendChild(el);
     return el;
@@ -217,24 +209,29 @@ export function boot(opts = {}){
     }
 
     const r = Math.random();
-    if (r < 0.08) return 'power';
-    if (r < 0.14) return 'gold';
+    if (r < 0.06) return 'power';
+    if (r < 0.12) return 'gold';
+    if (r < 0.18) return 'fake';
 
     return (Math.random() < goodRatio) ? 'good' : 'junk';
   }
 
   function chooseEmoji(kind){
-    const GOOD = ['🥦','🥕','🍎','🍌','🥛','🍇','🍊','🥬'];
-    const JUNK = ['🍟','🍔','🍕','🍩','🍰','🍿','🥤','🍗'];
-    const GOLD = ['🌟','✨','🏅','💎'];
+    const GOOD  = ['🥦','🥕','🍎','🍌','🥛','🍇','🍊','🥬'];
+    const JUNK  = ['🍟','🍔','🍕','🍩','🍰','🍿','🥤','🍗'];
+    const FAKE  = ['🍬','🍫','🧁','🍭'];
+    const GOLD  = ['🌟','✨','🏅','💎'];
     const POWER = ['🛡️','🧲','⏱️']; // shield / magnet / time
-    const BOSS = ['👾','😈','🦖','💀'];
+    const BOSS  = ['👾','😈','🦖','💀'];
 
-    if (kind === 'good')  return GOOD[(Math.random()*GOOD.length)|0];
-    if (kind === 'junk')  return JUNK[(Math.random()*JUNK.length)|0];
-    if (kind === 'gold')  return GOLD[(Math.random()*GOLD.length)|0];
-    if (kind === 'power') return POWER[(Math.random()*POWER.length)|0];
-    if (kind === 'boss')  return BOSS[(Math.random()*BOSS.length)|0];
+    const pick = (arr)=> arr[(Math.random()*arr.length)|0];
+
+    if (kind === 'good') return pick(GOOD);
+    if (kind === 'junk') return pick(JUNK);
+    if (kind === 'fake') return pick(FAKE);
+    if (kind === 'gold') return pick(GOLD);
+    if (kind === 'power') return pick(POWER);
+    if (kind === 'boss') return pick(BOSS);
     return '❓';
   }
 
@@ -260,7 +257,6 @@ export function boot(opts = {}){
     const w = screenToWorldPoint(safePt, look);
 
     const t = {
-      id: Math.random().toString(16).slice(2),
       kind,
       emoji,
       el,
@@ -273,9 +269,8 @@ export function boot(opts = {}){
     };
 
     const scale =
-      (kind === 'boss')  ? 1.25 :
-      (kind === 'gold')  ? 1.05 :
-      (kind === 'power') ? 1.0  :
+      (kind === 'boss') ? 1.25 :
+      (kind === 'gold') ? 1.05 :
       1.0;
 
     el.style.setProperty('--tScale', String(scale));
@@ -287,9 +282,9 @@ export function boot(opts = {}){
     const onDown = (ev)=>{
       ev.preventDefault?.();
       ev.stopPropagation?.();
-      const x = (ev?.clientX ?? (ev?.touches?.[0]?.clientX)) ?? s.x;
-      const y = (ev?.clientY ?? (ev?.touches?.[0]?.clientY)) ?? s.y;
-      hitTarget(t, x, y);
+      const cx = (ev?.clientX ?? (ev?.touches?.[0]?.clientX)) ?? s.x;
+      const cy = (ev?.clientY ?? (ev?.touches?.[0]?.clientY)) ?? s.y;
+      hitTarget(t, cx, cy);
     };
     el.addEventListener('pointerdown', onDown, { passive:false });
     el.addEventListener('touchstart', onDown, { passive:false });
@@ -311,18 +306,25 @@ export function boot(opts = {}){
   function handleExpire(t){
     if (!t || t.dead) return;
 
-    // ✅ MISS rule: "good expired" เท่านั้น (gold นับเป็น good)
-    if (t.kind === 'good' || t.kind === 'gold'){
+    // ✅ good expired counts as miss (ตามกติกา)
+    if (t.kind === 'good' || t.kind === 'gold' || t.kind === 'power' || t.kind === 'boss'){
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
 
       setJudge('MISS');
       syncHUD();
-    }
 
-    // junk/power expire: ไม่ต้องนับ miss
-    // boss expire: (ถ้าต้องการให้โหดค่อยนับ) — ตอนนี้ไม่คิดเป็น miss เพื่อไม่หงุดหงิด
+      emit('quest:miss', {
+        kind: 'MISS',
+        missKind:
+          (t.kind === 'gold')  ? 'goldExpired'  :
+          (t.kind === 'power') ? 'powerExpired' :
+          (t.kind === 'boss')  ? 'bossExpired'  :
+          'goodExpired'
+      });
+    }
+    // junk/fake expiry = ไม่ต้องทำอะไร
     killTarget(t, true);
   }
 
@@ -332,66 +334,58 @@ export function boot(opts = {}){
     // boss: ต้องตีหลายที
     if (t.kind === 'boss'){
       t.bossHp = (t.bossHp|0) - 1;
-
       if (t.bossHp > 0){
+        const pts = (CFG.scoreGood|0);
         setJudge('HIT!');
-        emit('quest:goodHit', { x, y, judgment:'good', kind:'BOSS' });
-
-        state.score += (CFG.scoreGood|0);
+        emit('quest:goodHit', { x, y, judgment:'good', kind:'BOSS', points: pts });
+        state.score += pts;
         state.goodHits++;
         state.combo++;
         state.comboMax = Math.max(state.comboMax, state.combo);
         addFever(+CFG.feverGain);
-
         syncHUD();
         return;
       }
-
       // boss cleared
       state.bossCleared = true;
+      const pts = 90;
       setJudge('BOSS!');
-      emit('quest:bossClear', { kind:'BOSS' });
-      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'BOSS' });
-
-      state.score += 90;
+      emit('quest:bossClear', {});
+      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'BOSS', points: pts });
+      state.score += pts;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+18);
-
       syncHUD();
       killTarget(t, true);
       return;
     }
 
-    if (t.kind === 'junk'){
-      // shield block?
+    // junk/fake
+    if (t.kind === 'junk' || t.kind === 'fake'){
       if (spendShield()){
         setJudge('BLOCK');
-
-        // ✅ ส่ง shield หลังหักไปแล้ว
-        emit('quest:block', { x, y, kind:'BLOCK', shield: state.shield|0 });
-
+        emit('quest:block', { x, y, kind:'BLOCK', points:0, shieldLeft: state.shield|0 });
         syncHUD();
         killTarget(t, true);
         return;
       }
 
-      // junk hit = miss
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
 
+      const pts = -1;
       setJudge('JUNK!');
-      emit('quest:badHit', { x, y, judgment:'junk', kind:'JUNK' });
-
+      emit('quest:badHit', { x, y, judgment:'junk', kind:(t.kind==='fake'?'FAKE':'JUNK'), points: pts });
       syncHUD();
       killTarget(t, true);
       return;
     }
 
+    // power
     if (t.kind === 'power'){
-      // decide power by emoji
       let p = 'shield';
       if (t.emoji === '🧲') p = 'magnet';
       if (t.emoji === '⏱️') p = 'time';
@@ -403,36 +397,30 @@ export function boot(opts = {}){
         state.endAt = state.endAt + 2500;
       }
 
-      const kind =
-        (p === 'shield') ? 'SHIELD' :
-        (p === 'magnet') ? 'MAGNET' :
-        (p === 'time')   ? 'TIME'   : 'POWER';
-
+      const pts = 18;
       setJudge(String(p).toUpperCase());
-      emit('quest:power', { x, y, power: p, kind, shield: state.shield|0 });
-
-      state.score += 18;
+      emit('quest:power', { x, y, power: p, kind:'POWER', points: pts });
+      state.score += pts;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+8);
-
       syncHUD();
       killTarget(t, true);
       return;
     }
 
+    // gold
     if (t.kind === 'gold'){
+      const pts = (CFG.scoreGold|0);
       setJudge('GOLD!');
-      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'GOLD' });
-
-      state.score += (CFG.scoreGold|0);
+      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'GOLD', points: pts });
+      state.score += pts;
       state.goldHits++;
       state.goodHits++;
       state.combo += 2;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+14);
-
       syncHUD();
       killTarget(t, true);
       return;
@@ -441,12 +429,11 @@ export function boot(opts = {}){
     // normal good
     {
       const perfect = (Math.random() < 0.20);
-      const kind = perfect ? 'PERFECT' : 'GOOD';
-
+      const pts = (CFG.scoreGood|0) + (perfect ? 6 : 0);
       setJudge(perfect ? 'PERFECT!' : 'GOOD!');
-      emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good', kind });
+      emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good', kind:'GOOD', points: pts });
 
-      state.score += (CFG.scoreGood|0) + (perfect ? 6 : 0);
+      state.score += pts;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
@@ -463,14 +450,12 @@ export function boot(opts = {}){
     const look = getLookRad(cameraEl);
     const tNow = now();
 
-    // time tick
     const secLeft = Math.max(0, Math.ceil((state.endAt - tNow)/1000));
     if (secLeft !== state.lastTickSec){
       state.lastTickSec = secLeft;
       emit('hha:time', { sec: secLeft });
     }
 
-    // end
     if (tNow >= state.endAt){
       state.running = false;
       emit('hha:time', { sec: 0 });
@@ -481,7 +466,6 @@ export function boot(opts = {}){
       return;
     }
 
-    // move all targets
     for (const t of ACTIVE){
       if (!t || t.dead || !t.el || !t.el.isConnected) continue;
 
@@ -514,8 +498,7 @@ export function boot(opts = {}){
   startSpawning();
   rafId = requestAnimationFrame(updateTargetsFollowLook);
 
-  // public api
-  const api = {
+  return {
     stop(){
       state.running = false;
       try{ clearInterval(spawnTimer); }catch(_){}
@@ -526,6 +509,4 @@ export function boot(opts = {}){
     },
     getState(){ return { ...state, active: ACTIVE.size }; }
   };
-
-  return api;
 }
