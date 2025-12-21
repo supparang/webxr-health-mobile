@@ -1,11 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Full HTML (ROOT PATH FIX + BOOT LOADER FIX)
-     ✅ DOM emoji targets on #gj-layer
-     ✅ HUD + Quest + Coach + Fever/Shield UI
-     ✅ Start overlay (2D / VR)
-     ✅ Loads particles.js BEFORE boot module (สำคัญมาก)
-     ✅ PATH: ./vr/*, ./vr-goodjunk/*, ./img/*, ./favicon.ico
-     ✅ FIX: boot loader import ได้แม้ไม่มี export (เพราะไฟล์บูตเป็น IIFE)
+     GoodJunkVR (PRODUCTION) — Full HTML (VR-look + sticker targets + tap-anywhere)
+     ✅ Root paths: ./vr/*, ./vr-goodjunk/*, ./img/*, ./favicon.ico (ไฟล์อยู่ /herohealth/)
+     ✅ DOM emoji targets (#gj-layer) + “emoji sticker” style + fade-in/out
+     ✅ VR-look: drag-to-look + deviceorientation-to-look (มือถือ) + inertia เบา ๆ
+     ✅ tap-anywhere assist (แตะตรงไหนก็ช่วย “ตีเป้าใกล้สุด”)
 -->
 <!doctype html>
 <html lang="th">
@@ -30,6 +28,11 @@
       --danger:#f97316;
       --text-main:#e5e7eb;
       --text-soft:#9ca3af;
+
+      /* sticker theme */
+      --sticker-bg: rgba(255,255,255,0.94);
+      --sticker-border: rgba(2,6,23,0.16);
+      --sticker-shadow: rgba(0,0,0,0.35);
     }
     *{ box-sizing:border-box; }
 
@@ -54,30 +57,78 @@
       pointer-events:auto;
       touch-action:none;
     }
+
+    /* ---------- Emoji Sticker Targets ---------- */
     .gj-target{
       position:absolute;
       transform: translate(-50%,-50%) scale(var(--tScale, 1));
-      font-size: clamp(44px, 7.8vw, 76px);
       line-height:1;
-      text-shadow: 0 10px 24px rgba(0,0,0,0.55);
-      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.55));
       user-select:none;
       pointer-events:auto;
       cursor:pointer;
-      transition: transform .12s ease-out, opacity .12s ease-out;
-      will-change: transform, left, top, opacity;
-    }
-    .gj-target.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.72); }
-    .gj-junk{ opacity:.96; filter: drop-shadow(0 14px 24px rgba(249,115,22,0.25)); }
-    .gj-gold{ filter: drop-shadow(0 14px 26px rgba(250,204,21,0.35)); }
-    .gj-fake{ filter: drop-shadow(0 14px 24px rgba(168,85,247,0.25)); }
-    .gj-power{ filter: drop-shadow(0 14px 26px rgba(56,189,248,0.30)); }
-    .gj-boss{
-      font-size: clamp(54px, 10vw, 110px);
-      filter: drop-shadow(0 18px 32px rgba(250,204,21,0.25));
+      will-change: transform, left, top, opacity, filter;
+
+      /* sticker shell */
+      padding: 10px 12px 10px 12px;
+      border-radius: 18px;
+      background: var(--sticker-bg);
+      border: 2px solid var(--sticker-border);
+      box-shadow:
+        0 18px 40px var(--sticker-shadow),
+        inset 0 0 0 2px rgba(255,255,255,0.55);
+      backdrop-filter: blur(2px);
+
+      /* text */
+      font-size: clamp(40px, 7.2vw, 72px);
+
+      /* cute tilt */
+      transform-origin: 50% 55%;
+      filter: drop-shadow(0 12px 18px rgba(0,0,0,0.35));
+      transition: transform .12s ease-out, opacity .16s ease-out, filter .16s ease-out;
     }
 
-    /* HUD */
+    /* tiny shine */
+    .gj-target::after{
+      content:"";
+      position:absolute;
+      inset: 6px 8px auto 8px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.0), rgba(255,255,255,0.85), rgba(255,255,255,0.0));
+      opacity: 0.55;
+      pointer-events:none;
+      transform: rotate(-8deg);
+    }
+
+    /* spawn / disappear */
+    .gj-target.spawn{
+      opacity:0;
+      transform:translate(-50%,-50%) scale(calc(var(--tScale,1)*0.78)) rotate(var(--rot, -6deg));
+      animation: gjFadeIn .16s ease-out forwards;
+    }
+    @keyframes gjFadeIn{
+      to{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(var(--tScale,1)) rotate(var(--rot, -6deg));
+      }
+    }
+    .gj-target.gone{
+      opacity:0;
+      transform:translate(-50%,-50%) scale(calc(var(--tScale,1)*0.72)) rotate(var(--rot, -6deg));
+    }
+
+    /* types */
+    .gj-junk{ box-shadow: 0 18px 40px rgba(249,115,22,0.18), inset 0 0 0 2px rgba(255,255,255,0.55); }
+    .gj-gold{ box-shadow: 0 20px 46px rgba(250,204,21,0.24), inset 0 0 0 2px rgba(255,255,255,0.55); }
+    .gj-power{ box-shadow: 0 20px 46px rgba(56,189,248,0.22), inset 0 0 0 2px rgba(255,255,255,0.55); }
+    .gj-boss{
+      font-size: clamp(54px, 10vw, 110px);
+      border-radius: 22px;
+      padding: 12px 14px;
+      box-shadow: 0 26px 66px rgba(250,204,21,0.18), inset 0 0 0 2px rgba(255,255,255,0.55);
+    }
+
+    /* ---------- HUD ---------- */
     .hud-root{
       position:fixed;
       inset:0;
@@ -236,11 +287,7 @@
       pointer-events:none;
       transition:opacity .25s ease-out, transform .25s ease-out;
     }
-    .countdown-hidden{
-      opacity:0;
-      visibility:hidden;
-      transform:scale(0.8);
-    }
+    .countdown-hidden{ opacity:0; visibility:hidden; transform:scale(0.8); }
 
     /* VR button */
     .vr-btn{
@@ -341,6 +388,7 @@
       color:var(--text-main);
       font-weight:850;
     }
+    .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
 
     /* logger badge */
     .logbadge{
@@ -374,7 +422,20 @@
     .shield-row{ display:flex; align-items:center; gap:6px; }
     .shield-label{ font-size:12px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
-    .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
+
+    /* tap-anywhere hint */
+    .tap-anywhere{
+      margin-top:10px;
+      font-size:12px;
+      color:#d1fae5;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      background:rgba(16,185,129,0.12);
+      border:1px solid rgba(16,185,129,0.35);
+      border-radius:12px;
+      padding:8px 10px;
+    }
   </style>
 
   <!-- ✅ IMPORTANT: FX IIFE MUST LOAD BEFORE boot module -->
@@ -382,62 +443,24 @@
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
 
-  <!-- ✅ Boot loader (module) — FIX: import สำเร็จแม้ไฟล์เป็น IIFE ไม่มี export -->
-  <script type="module">
-    const $ = (sel) => document.querySelector(sel);
-
-    function setBadge(ok, msg){
-      const dot = $('#logdot');
-      const text = $('#logtext');
-      if (dot) dot.className = 'dot ' + (ok ? 'ok' : 'bad');
-      if (text) text.textContent = msg;
-    }
-
-    async function loadBoot(){
-      const candidates = [
-        './vr-goodjunk/goodjunk-vr.boot.js',
-        './vr-goodjunk/goodjunk-vr.boot.mjs',
-        './vr-goodjunk/goodjunk.boot.js',
-        './goodjunk-vr.boot.js'
-      ];
-
-      let lastErr = null;
-      for (const p of candidates){
-        try{
-          const mod = await import(p);
-
-          // ✅ ของคุณเป็น IIFE: import ผ่าน = bind ปุ่ม Start แล้ว
-          // แต่เผื่ออนาคตทำเป็น export ก็รองรับไว้
-          const bootFn = mod.boot || mod.start || mod.init || mod.default;
-          if (typeof bootFn === 'function') {
-            bootFn();
-          }
-
-          setBadge(true, 'boot: ' + p);
-          return;
-        }catch(e){
-          lastErr = e;
-        }
-      }
-
-      console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
-      setBadge(false, 'boot failed: ' + (lastErr && lastErr.message ? lastErr.message : 'unknown'));
-      const sub = $('#start-sub');
-      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
-    }
-
-    window.addEventListener('load', () => {
-      setBadge(false, 'boot: loading…');
-      loadBoot();
-    });
-  </script>
+  <!-- Boot -->
+  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
 
-  <!-- A-Frame scene (ไว้เป็นฉาก/VR camera; เป้าจริงอยู่บน DOM layer) -->
-  <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true">
-    <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
+  <!-- A-Frame scene (ใช้เป็น environment + VR camera; เป้าจริงอยู่บน DOM layer) -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="colorManagement: true; physicallyCorrectLights: true"
+  >
+    <!-- Rig + Camera -->
+    <a-entity id="gj-rig" position="0 1.6 0">
+      <a-entity id="gj-camera" camera look-controls="enabled: false" position="0 0 0"></a-entity>
+    </a-entity>
+
+    <!-- Simple environment -->
     <a-entity light="type: ambient; intensity: 1.0"></a-entity>
     <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
     <a-sky color="#061225"></a-sky>
@@ -535,7 +558,7 @@
     </div>
   </div>
 
-  <!-- Center hint (touch look) -->
+  <!-- Center hint -->
   <div class="hint-center" id="touch-hint">ลากนิ้วเพื่อหมุนมุมมอง 👆</div>
 
   <!-- Countdown overlay -->
@@ -554,7 +577,7 @@
   <!-- Logger badge -->
   <div class="logbadge" id="logbadge">
     <div class="dot" id="logdot"></div>
-    <div id="logtext">boot: loading…</div>
+    <div id="logtext">logger: pending…</div>
   </div>
 
   <!-- Start overlay -->
@@ -584,13 +607,18 @@
         </div>
       </div>
 
+      <div class="tap-anywhere">
+        <span>🎯</span>
+        <span><b>Tap-anywhere:</b> แตะตรงไหนก็ช่วย “ตีเป้าใกล้สุด” (กันพลาดเวลาหมุนจอ)</span>
+      </div>
+
       <div class="start-row">
         <button class="start-btn secondary" id="btn-start-2d" type="button">▶ Start 2D</button>
         <button class="start-btn" id="btn-start-vr" type="button">🥽 Start VR</button>
       </div>
 
       <div class="tiny-note">
-        * โหมดวิจัยจะบังคับโปรไฟล์จาก Hub ก่อนเริ่มเล่น
+        * มือถือ: ถ้าเบราว์เซอร์ถามสิทธิ์ “Motion &amp; Orientation” ให้กด Allow เพื่อหมุนตามการหันเครื่อง
       </div>
     </div>
   </div>
