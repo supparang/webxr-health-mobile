@@ -1,10 +1,3 @@
-<!-- === /herohealth/hydration-vr.html ===
-Hydration Quest VR (PLAY MODE) — Production
-✅ มี canvas post layer (#hvr-postfx)
-✅ bind ปุ่มก่อน แล้วค่อย import hydration.safe.js
-✅ playfield เป็น host ให้ mode-factory (เป้าเลื่อนตาม drag)
--->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -14,463 +7,259 @@ Hydration Quest VR (PLAY MODE) — Production
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ FX core (IIFE) -->
+  <!-- ✅ FX (Particles IIFE) -->
   <script src="./vr/particles.js" defer></script>
 
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.74);
-      --panel2:rgba(15,23,42,.72);
-      --stroke:rgba(148,163,184,.22);
-      --txt:#e5e7eb;
-      --muted:#9ca3af;
-      --good:#22c55e;
-      --bad:#ef4444;
-      --warn:#f59e0b;
-      --shadow:0 18px 55px rgba(0,0,0,.55);
-      --radius:18px;
-      --pill:999px;
-    }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      background:
-        radial-gradient(1200px 800px at 50% -10%, rgba(34,197,94,.18), transparent 60%),
-        radial-gradient(900px 700px at 20% 30%, rgba(96,165,250,.14), transparent 55%),
-        radial-gradient(800px 700px at 80% 35%, rgba(245,158,11,.10), transparent 55%),
-        var(--bg);
-      color:var(--txt);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", "Noto Sans", Arial, sans-serif;
-      overflow:hidden;
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.20);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --radius:22px;
     }
 
-    /* Main wrapper (wobble/chroma apply here) */
-    #hvr-wrap{
-      position:relative;
-      width:100%;
+    html,body{
       height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
       overflow:hidden;
     }
 
-    /* Playfield (targets host) */
+    /* ====== ROOT WRAP ====== */
+    #hvr-wrap{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      background: radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
+                  radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
+                  radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
+                  #020617;
+    }
+
+    /* ====== PLAYFIELD MUST FILL SCREEN ====== */
     #hvr-playfield{
       position:absolute;
       inset:0;
-      z-index:1;
-      pointer-events:auto;
-      touch-action:none; /* drag view */
+      width:100%;
+      height:100%;
+      z-index:10;          /* ✅ เป้าอยู่ชั้นนี้ */
+      overflow:hidden;
+      touch-action:none;   /* ✅ drag view */
+      user-select:none;
+      -webkit-user-select:none;
       transform: translate3d(0,0,0);
-      will-change: transform;
     }
 
-    /* Canvas postFX layer */
+    /* postFX canvas (star burst / shimmer etc) */
     #hvr-postfx{
       position:fixed;
       inset:0;
-      z-index:99955;
+      z-index:60;
       pointer-events:none;
-      width:100%;
-      height:100%;
     }
 
-    /* Storm speedlines (overlay above postfx) */
-    .hvr-speedlines{
-      position:fixed;
-      inset:-20%;
-      pointer-events:none;
-      z-index:99960;
-      opacity:0;
-      mix-blend-mode: screen;
-      background:
-        repeating-linear-gradient(110deg,
-          rgba(255,255,255,.00) 0 14px,
-          rgba(255,80,120,.18) 14px 16px,
-          rgba(0,190,255,.14) 16px 18px,
-          rgba(255,255,255,.00) 18px 40px
-        );
-      filter: blur(0.7px) saturate(1.10) contrast(1.10);
-      animation: hvrLines 0.22s linear infinite;
-    }
-    @keyframes hvrLines{
-      0%{ transform: translate3d(-12px, -12px, 0); }
-      100%{ transform: translate3d(30px, 26px, 0); }
-    }
-    .hvr-speedlines.on{ opacity:0.42; }
-
-    /* Screen blink overlay (flash) */
-    #hvr-screen-blink{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:99980;
-      opacity:0;
-      transition:opacity 90ms ease;
-      mix-blend-mode:screen;
-    }
-    #hvr-screen-blink.on{ opacity:1; }
-    #hvr-screen-blink.good{ background:rgba(34,197,94,.22); }
-    #hvr-screen-blink.bad{ background:rgba(239,68,68,.22); }
-    #hvr-screen-blink.block{ background:rgba(96,165,250,.22); }
-    #hvr-screen-blink.perfect{ background:rgba(250,204,21,.22); } /* ✅ สำคัญ */
-
-    /* HUD */
+    /* HUD layer */
     .hud{
       position:fixed;
-      left:12px; right:12px;
-      top:10px;
+      left:18px;
+      right:18px;
+      top:14px;
+      z-index:80;
+      pointer-events:none;
       display:flex;
-      gap:10px;
-      align-items:stretch;
-      z-index:50;
-      pointer-events:none;
+      gap:14px;
+      align-items:flex-start;
+      justify-content:space-between;
     }
-    .card{
-      pointer-events:none;
+    .hud .card{
+      pointer-events:auto;
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-      padding:10px 12px;
-      min-width:0;
+      box-shadow:0 20px 60px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      padding:14px 14px 12px;
+      min-width: 260px;
+      max-width: 420px;
     }
-    .hud-left{ flex:1.25; display:flex; gap:10px; min-width:0; }
-    .hud-mid{ flex:1; display:flex; gap:10px; min-width:0; }
-    .hud-right{ flex:0.85; display:flex; gap:10px; justify-content:flex-end; min-width:0; }
+    .hud .card.small{ min-width: 220px; max-width: 300px; }
 
-    .row{ display:flex; align-items:center; gap:10px; }
-    .kpi{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-    .kpi .label{
-      font-size:12px; color:var(--muted); letter-spacing:.02em;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
-    .kpi .value{
-      font-size:18px; font-weight:900; letter-spacing:.02em;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
+    .title{ font-size:22px; font-weight:900; margin:2px 0 6px; }
+    .muted{ color:var(--muted); font-size:12px; }
+
+    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
     .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:6px 10px; border-radius:var(--pill);
-      border:1px solid var(--stroke);
-      background:rgba(15,23,42,.62);
-      box-shadow:0 10px 28px rgba(0,0,0,.35);
-      white-space:nowrap;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.55);
+      border-radius:999px;
+      padding:6px 10px;
+      font-weight:900;
+      letter-spacing:.06em;
+      font-size:12px;
     }
 
-    /* Water gauge (HUD bind for ui-water.js) */
-    .water{ width:240px; min-width:240px; }
-    .bar{
-      position:relative; height:12px; border-radius:var(--pill); overflow:hidden;
-      background:rgba(148,163,184,.16);
-      border:1px solid rgba(148,163,184,.22);
+    /* Water header HUD (bind by ui-water.js) */
+    #hha-water-header{ display:flex; flex-direction:column; gap:8px; }
+    #hha-water-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    #hha-water-bar{
+      width:100%;
+      height:8px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#0b1220;
+      border:1px solid rgba(148,163,184,.18);
     }
     #hha-water-fill{
-      position:absolute; left:0; top:0; bottom:0;
+      height:100%;
       width:50%;
-      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(96,165,250,.75), rgba(239,68,68,.85));
-      border-radius:var(--pill);
-      transition:width 160ms ease;
-    }
-    .water-meta{
-      display:flex; justify-content:space-between; align-items:center;
-      margin-top:6px; font-size:12px; color:var(--muted); gap:8px;
-    }
-    #hha-water-zone-text{ color:#dbeafe; font-weight:900; letter-spacing:.08em; }
-
-    /* Grade progress */
-    .grade{ width:260px; min-width:260px; }
-    .progress{
-      position:relative; height:12px; border-radius:var(--pill); overflow:hidden;
-      background:rgba(148,163,184,.16);
-      border:1px solid rgba(148,163,184,.22);
-    }
-    #hha-grade-progress-fill{
-      position:absolute; left:0; top:0; bottom:0;
-      width:0%;
-      background:linear-gradient(90deg, rgba(245,158,11,.95), rgba(34,197,94,.95));
-      border-radius:var(--pill);
-      transition:width 180ms ease;
-    }
-    #hha-grade-badge{
-      font-weight:1000; letter-spacing:.08em;
-      padding:6px 10px; border-radius:var(--pill);
-      border:1px solid rgba(148,163,184,.28);
-      background:rgba(2,6,23,.55);
-      box-shadow:0 12px 30px rgba(0,0,0,.35);
-    }
-    #hha-grade-progress-text{
-      margin-top:6px; font-size:12px; color:var(--muted);
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      background:linear-gradient(90deg,#22c55e,#4ade80);
+      border-radius:999px;
+      transition:width .2s ease-out;
     }
 
-    /* Quest panel */
-    .quest{ width:100%; min-width:0; }
-    .quest-line{
-      font-size:12px; color:var(--txt); font-weight:800; letter-spacing:.01em;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px;
+    /* blink overlay (good/bad/perfect feedback) */
+    #hvr-screen-blink{
+      position:fixed;
+      inset:0;
+      z-index:70;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .14s ease-out;
     }
-    .quest-counts{ display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; color:var(--muted); font-size:12px; }
-    .quest-counts b{ color:var(--txt); }
+    #hvr-screen-blink.on{ opacity:.18; }
+    #hvr-screen-blink.good{ background: radial-gradient(800px 600px at 50% 50%, rgba(34,197,94,.55), transparent 60%); }
+    #hvr-screen-blink.bad{  background: radial-gradient(800px 600px at 50% 50%, rgba(239,68,68,.55), transparent 60%); }
+    #hvr-screen-blink.perfect{ background: radial-gradient(900px 700px at 50% 50%, rgba(255,255,255,.75), transparent 60%); }
 
-    /* Start overlay */
-    #hvr-start{
-      position:fixed; inset:0; z-index:120;
-      display:flex; align-items:center; justify-content:center; padding:18px;
-      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.92));
-      backdrop-filter:blur(12px);
-    }
-    .start-card{
-      width:min(720px, 100%);
-      background:var(--panel2);
-      border:1px solid rgba(148,163,184,.24);
-      border-radius:24px;
-      padding:16px;
-      box-shadow:0 22px 70px rgba(0,0,0,.60);
-    }
-    .start-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-    .title{ font-size:20px; font-weight:1000; letter-spacing:.02em; }
-    .subtitle{ margin-top:4px; color:var(--muted); font-size:13px; line-height:1.35; }
-    .controls{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-    .btn{
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.28);
-      background:rgba(2,6,23,.55);
-      color:var(--txt);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:900;
-      letter-spacing:.02em;
-      cursor:pointer;
-      user-select:none;
-      touch-action:manipulation;
-      box-shadow:0 14px 36px rgba(0,0,0,.45);
-    }
-    .btn.primary{ border-color:rgba(34,197,94,.45); background:rgba(34,197,94,.14); }
-    .btn:active{ transform:translateY(1px); }
-
-    /* ✅ ปุ่มบนสุด กันโดนเลเยอร์ทับ */
-    #btn-start,#btn-reload,#btn-exit,#btn-retry,#btn-to-hub{
-      position:relative; z-index:99999; pointer-events:auto; touch-action:manipulation;
-    }
-
-    .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-    .chip{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:6px 10px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.25);
-      background:rgba(2,6,23,.40);
-      color:var(--muted);
-      font-size:12px; font-weight:800; letter-spacing:.02em;
-    }
-    .chip b{ color:var(--txt); }
-
-    /* End overlay */
+    /* end overlay */
     #hvr-end{
-      position:fixed; inset:0; z-index:140; display:none;
-      align-items:center; justify-content:center; padding:18px;
-      background:linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.94));
-      backdrop-filter:blur(12px);
+      position:fixed;
+      inset:0;
+      z-index:90;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
     }
     #hvr-end.on{ display:flex; }
 
-    @media (max-width: 720px){
-      .hud{ top:8px; flex-direction:column; }
-      .water,.grade{ min-width:0; width:100%; }
-      .hud-left,.hud-mid,.hud-right{ width:100%; }
+    /* error overlay */
+    #hvr-error{
+      position:fixed;
+      left:14px; right:14px; bottom:14px;
+      z-index:120;
+      background:rgba(239,68,68,.12);
+      border:1px solid rgba(239,68,68,.35);
+      color:#fecaca;
+      padding:10px 12px;
+      border-radius:16px;
+      font-size:12px;
+      display:none;
+      white-space:pre-wrap;
     }
+    #hvr-error.on{ display:block; }
   </style>
 </head>
 
 <body>
   <div id="hvr-wrap">
-    <div id="hvr-screen-blink"></div>
+    <!-- ✅ playfield MUST exist + fill -->
+    <div id="hvr-playfield" aria-label="playfield"></div>
+
+    <!-- ✅ postFX canvas -->
     <canvas id="hvr-postfx"></canvas>
-    <div class="hvr-speedlines"></div>
+
+    <!-- blink overlay -->
+    <div id="hvr-screen-blink"></div>
 
     <!-- HUD -->
     <div class="hud">
-      <div class="hud-left">
-        <div class="card quest">
-          <div class="row" style="justify-content:space-between;">
-            <div class="kpi">
-              <div class="label">Quest</div>
-              <div class="value">Hydration</div>
-            </div>
-            <div class="pill">
-              <span style="color:var(--muted); font-weight:900;">Grade</span>
-              <span id="hha-grade-badge">C</span>
-            </div>
-          </div>
+      <div class="card">
+        <div class="row">
+          <div class="muted">Quest</div>
+          <div class="pill">Grade <span id="hha-grade-badge">C</span></div>
+        </div>
+        <div class="title">Hydration</div>
 
-          <div id="hha-quest-goal" class="quest-line">Goal: —</div>
-          <div id="hha-quest-mini" class="quest-line">Mini: —</div>
-
-          <div class="quest-counts">
-            <div class="pill">🎯 Goal <b><span id="hha-goal-done">0</span>/<span id="hha-goal-total">2</span></b></div>
-            <div class="pill">✨ Mini <b><span id="hha-mini-done">0</span>/<span id="hha-mini-total">3</span></b></div>
-          </div>
+        <div class="muted" style="margin-top:6px;">
+          <div id="hha-quest-goal">Goal: —</div>
+          <div id="hha-quest-mini">Mini: —</div>
         </div>
 
-        <div class="card water">
-          <div class="row" style="justify-content:space-between;">
-            <div class="kpi">
-              <div class="label">Water</div>
-              <div class="value" id="hha-water-status">GREEN 50%</div>
-            </div>
-            <div class="pill">
-              <span style="color:var(--muted); font-weight:900;">ZONE</span>
-              <span id="hha-water-zone-text">GREEN</span>
-            </div>
-          </div>
-          <div class="bar" style="margin-top:8px;">
-            <div id="hha-water-fill"></div>
-          </div>
-          <div class="water-meta">
-            <span>รักษาให้อยู่ GREEN ให้นานที่สุด 💧</span>
-            <span style="opacity:.9;">(+แต้มจาก streak)</span>
-          </div>
+        <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+          <span class="pill">🎯 Goal <b id="hha-goal-count">0</b>/2</span>
+          <span class="pill">✨ Mini <b id="hha-mini-count">0</b>/3</span>
         </div>
       </div>
 
-      <div class="hud-mid">
-        <div class="card grade">
-          <div class="row" style="justify-content:space-between;">
-            <div class="kpi">
-              <div class="label">Progress</div>
-              <div class="value"><span id="hha-score-main">0</span> pts</div>
-            </div>
-            <div class="pill">
-              <span style="color:var(--muted); font-weight:900;">Combo Max</span>
-              <span style="font-weight:1000;"><span id="hha-combo-max">0</span></span>
-            </div>
+      <div class="card small" id="hha-water-card">
+        <div id="hha-water-header">
+          <div class="row" id="hha-water-top">
+            <div class="muted">Water</div>
+            <div class="pill" id="hha-water-zone-text">ZONE GREEN</div>
           </div>
-
-          <div class="progress" style="margin-top:8px;">
-            <div id="hha-grade-progress-fill"></div>
-          </div>
-          <div id="hha-grade-progress-text">Progress to S: 0%</div>
+          <div id="hha-water-status" class="muted">GREEN 50%</div>
+          <div id="hha-water-bar"><div id="hha-water-fill"></div></div>
+          <div class="muted">รักษาให้อยู่ GREEN ให้นานที่สุด 💧</div>
         </div>
       </div>
 
-      <div class="hud-right">
-        <div class="card" style="min-width:170px;">
-          <div class="kpi">
-            <div class="label">Miss</div>
-            <div class="value"><span id="hha-miss">0</span></div>
-          </div>
-          <div style="margin-top:6px; color:var(--muted); font-size:12px; line-height:1.35;">
-            JUNK hit = miss + ลดน้ำ/ลดความเร็ว
-          </div>
+      <div class="card small">
+        <div class="row"><div class="muted">Progress</div><div class="pill">Combo Max <b id="hha-combo-max">0</b></div></div>
+        <div class="title"><span id="hha-score-main">0</span> pts</div>
+        <div class="muted" id="hha-grade-progress-text">Progress to S: 0%</div>
+        <div style="margin-top:8px; height:8px; background:#0b1220; border:1px solid rgba(148,163,184,.18); border-radius:999px; overflow:hidden;">
+          <div id="hha-grade-progress-fill" style="height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#60a5fa);"></div>
         </div>
       </div>
-    </div>
 
-    <!-- Playfield -->
-    <div id="hvr-playfield" aria-label="playfield"></div>
-
-    <!-- Start overlay -->
-    <div id="hvr-start">
-      <div class="start-card">
-        <div class="start-top">
-          <div>
-            <div class="title">💧 Hydration Quest VR (Play)</div>
-            <div class="subtitle">
-              แตะ “น้ำดี” ให้มาก รักษาโซน GREEN และระวัง “JUNK”<br>
-              PERFECT = ดาวแตก + เสียง ping • Storm = เป้าส่ายแรง + speedlines + chroma
-            </div>
-          </div>
-          <div class="pill" style="pointer-events:auto;">
-            <span style="color:var(--muted); font-weight:900;">URL</span>
-            <span id="hvr-url-info" style="font-weight:1000;">diff=easy • time=90</span>
-          </div>
-        </div>
-
-        <div class="chips">
-          <div class="chip">🎯 Goal: <b>GREEN time</b> + <b>Bad zone ≤ limit</b></div>
-          <div class="chip">✨ Mini: <b>Combo</b> / <b>Perfect</b> / <b>No Junk</b></div>
-          <div class="chip">🌪️ Storm: <b>ส่ายแรง</b> + <b>สปีดไลน์</b> + <b>chroma</b></div>
-        </div>
-
-        <div class="controls">
-          <button id="btn-start" class="btn primary">▶️ เริ่มเกม</button>
-          <button id="btn-reload" class="btn">🔄 รีโหลด</button>
-          <button id="btn-exit" class="btn">🏠 กลับ Hub</button>
-        </div>
-
-        <div class="subtitle" style="margin-top:10px;">
-          เคล็ดลับ: แตะจอ 1 ครั้งก่อนเริ่ม (บางมือถือปลดล็อกเสียง)
-        </div>
+      <div class="card small" style="min-width:220px;">
+        <div class="muted">Miss</div>
+        <div class="title" style="margin-top:6px;"><span id="hha-miss">0</span></div>
+        <div class="muted">JUNK hit = miss + ลดน้ำ/ลดความเร็ว</div>
       </div>
     </div>
 
     <!-- End overlay -->
     <div id="hvr-end"></div>
+
+    <!-- Error overlay -->
+    <div id="hvr-error"></div>
   </div>
 
+  <!-- ✅ BOOT -->
   <script type="module">
-    'use strict';
-    const $ = (id)=>document.getElementById(id);
+    const errBox = document.getElementById('hvr-error');
 
-    function qs(){
+    function qs(name, fallback=null){
       const u = new URL(location.href);
-      return {
-        diff: (u.searchParams.get('diff') || u.searchParams.get('difficulty') || 'easy').toLowerCase(),
-        time: Number(u.searchParams.get('time') || u.searchParams.get('duration') || 90) || 90
-      };
+      return u.searchParams.get(name) ?? fallback;
     }
 
-    function bindTap(el, fn){
-      if (!el) return;
-      const h = (e)=>{ try{ e.preventDefault(); e.stopPropagation(); }catch{} fn(e); };
-      el.addEventListener('pointerdown', h, { passive:false });
-      el.addEventListener('touchstart', h, { passive:false });
-      el.addEventListener('click', h, { passive:false });
+    const diff = (qs('diff','easy') || 'easy').toLowerCase();
+    const time = Number(qs('time', '90')) || 90;
+
+    try{
+      const mod = await import('./hydration-vr/hydration.safe.js');
+      const boot = mod.boot || (mod.default && mod.default.boot);
+      if (!boot) throw new Error('hydration.safe.js ไม่มี export boot');
+
+      await boot({ difficulty: diff, duration: time });
+      console.log('[HydrationVR] boot OK', { diff, time });
+    }catch(e){
+      console.error(e);
+      errBox.classList.add('on');
+      errBox.textContent =
+        '❌ Hydration boot failed\\n\\n' +
+        String(e && (e.stack || e.message || e));
     }
-
-    function goHub(){ location.href = './hub.html'; }
-
-    const p = qs();
-    const urlInfo = $('hvr-url-info');
-    if (urlInfo) urlInfo.textContent = `diff=${p.diff} • time=${p.time}`;
-
-    const playfield = $('hvr-playfield');
-    if (playfield) playfield.style.pointerEvents = 'none';
-
-    bindTap($('btn-reload'), ()=>location.reload());
-    bindTap($('btn-exit'), goHub);
-
-    let inst = null;
-
-    async function startGame(){
-      const start = $('hvr-start');
-      if (start) start.style.display = 'none';
-      if (playfield) playfield.style.pointerEvents = 'auto';
-
-      try{
-        const mod = await import('./hydration-vr/hydration.safe.js');
-        if (!mod || typeof mod.boot !== 'function') throw new Error('boot() not found');
-        inst = await mod.boot({ difficulty: p.diff, duration: p.time });
-        window.__HVR_INST = inst;
-
-        // unlock audio
-        try{
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if (AC){
-            const ac = new AC();
-            if (ac.state === 'suspended') ac.resume();
-          }
-        }catch{}
-      }catch(err){
-        console.error('[Hydration] start failed:', err);
-        if (start) start.style.display = 'flex';
-        if (playfield) playfield.style.pointerEvents = 'none';
-        alert('เริ่มเกมไม่ได้: ตรวจ path import / ไฟล์ 404 / syntax error\nเปิด Console ดู error');
-      }
-    }
-
-    bindTap($('btn-start'), startGame);
   </script>
 </body>
 </html>
