@@ -1,3 +1,9 @@
+<!-- =========================
+     /herohealth/plate-vr.html
+     Balanced Plate VR — PRODUCTION (NO inline JS)
+     - Uses global hha-cloud-logger.js
+     - plate.safe.js handles everything
+========================= -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,10 +13,8 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- FX (IIFE) -->
+  <!-- FX + compat (global IIFE) -->
   <script src="./vr/particles.js" defer></script>
-
-  <!-- Optional input compat (IIFE) -->
   <script src="./vr/hha-compat-input.js" defer></script>
 
   <!-- ✅ Global Cloud Logger (IIFE) -->
@@ -59,7 +63,7 @@
       border:1px solid rgba(148,163,184,.25);
       border-radius:999px;
       padding:6px 10px;
-      font-weight:900;
+      font-weight:800;
       letter-spacing:.02em;
       white-space:nowrap;
     }
@@ -72,7 +76,7 @@
       border:1px solid rgba(148,163,184,.22);
       overflow:hidden;
     }
-    .bar > div{ height:100%; width:0%; background:var(--warn); transition:width .18s ease; }
+    .bar > div{ height:100%; width:0%; background:var(--warn); transition:width .2s ease; }
 
     .btn{
       pointer-events:auto;
@@ -83,9 +87,6 @@
       color:var(--txt);
       padding:10px 12px;
       font-weight:900;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
     }
     .btn:active{ transform:translateY(1px); }
 
@@ -105,32 +106,31 @@
     .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     @media (max-width:720px){ .grid{ grid-template-columns:1fr; } .card{ max-width: 90vw; } }
 
-    /* small helper hint */
+    /* Tap-anywhere helper (optional message area) */
     #tapHint{
-      position: fixed;
-      left: 50%;
-      top: 68%;
-      transform: translate(-50%,-50%);
-      z-index: 920;
+      position:fixed;
+      left:50%; top:58px;
+      transform:translateX(-50%);
+      z-index:920;
       pointer-events:none;
       opacity:.0;
       transition: opacity .25s ease;
-      font-weight: 900;
+      font-weight:1000;
       letter-spacing:.03em;
-      color: rgba(229,231,235,.92);
-      text-shadow: 0 8px 18px rgba(0,0,0,.45);
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.55);
+      background:rgba(15,23,42,.75);
+      border:1px solid rgba(148,163,184,.28);
+      border-radius:999px;
+      padding:8px 12px;
+      box-shadow:0 14px 28px rgba(0,0,0,.35);
       backdrop-filter: blur(8px);
-      white-space: nowrap;
+      white-space:nowrap;
     }
   </style>
 </head>
 
 <body>
-  <div id="tapHint">📱 แตะตรงไหนก็ได้เพื่อยิงเป้า (Tap-anywhere)</div>
+
+  <div id="tapHint">👉 แตะตรงไหนก็ได้เพื่อยิงเป้า (Tap-anywhere)</div>
 
   <!-- TOP HUD -->
   <div id="hudTop" class="hud-top">
@@ -181,11 +181,11 @@
   <div id="hudBottom" class="hud-bottom">
     <div class="card" style="max-width:72vw;">
       <div class="k">Tip</div>
-      <div style="font-weight:900;">เก็บอาหารครบ 5 หมู่ให้ไว — ระวังขยะ! (ท้ายเกมมี BOSS PHASE)</div>
+      <div style="font-weight:900;">เก็บอาหารครบ 5 หมู่ให้ไว — ระวังขยะ! (Plate Rush จะมาเป็นระยะ)</div>
     </div>
   </div>
 
-  <!-- RESULT -->
+  <!-- RESULT MODAL -->
   <div id="resultBackdrop">
     <div id="resultCard" class="card">
       <div class="big">📊 RESULT</div>
@@ -223,20 +223,21 @@
     vr-mode-ui="enabled:true"
     embedded
   >
-    <!-- Camera (attributes minimal; JS จะเป็นคนผูก VR-look + reticlefx เพื่อกัน unknown component) -->
+    <!-- Camera -->
     <a-entity id="cam" camera position="0 1.6 0">
-      <a-cursor
+      <!-- Cursor (visual only; plate.safe.js does the actual hit test) -->
+      <a-entity
         id="cursor"
-        fuse="true"
-        fuse-timeout="700"
-        raycaster="objects:.plateTarget"
-        material="color:#ffffff; shader:flat; opacity:0.85"
         geometry="primitive:ring; radiusInner:0.010; radiusOuter:0.018"
-      ></a-cursor>
+        material="color:#ffffff; shader:flat; opacity:0.85"
+        position="0 0 -1"
+      ></a-entity>
+
+      <!-- legacy placeholder -->
+      <a-entity id="targetRoot" position="0 0 -1.35" rotation="0 0 0"></a-entity>
     </a-entity>
 
     <a-entity id="worldTargets"></a-entity>
-
     <a-entity light="type:ambient; intensity:1.0; color:#ffffff"></a-entity>
   </a-scene>
 
