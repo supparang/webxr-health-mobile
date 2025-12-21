@@ -1,12 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Page Boot (PRODUCTION)
-// ✅ Fix: start works, no black-screen
-// ✅ VR-look: drag-to-look + deviceorientation-to-look + inertia
-// ✅ Tap-anywhere sets STUN aim point (vortex center not always screen center)
-// ✅ Fix: goodHits/miss/goldHitsThisMini update → Goal/Mini can pass
-// ✅ End summary overlay shows on hha:end
-
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
+import { attachTouchLook } from './touch-look-goodjunk.js';
+
 import { makeQuestDirector } from './quest-director.js';
 import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
@@ -21,9 +16,7 @@ export function boot(){
 
   const $ = (id)=>document.getElementById(id);
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){ } };
-  const safeClass = (el, cls, on)=>{ try{ el && el.classList && el.classList.toggle(cls, !!on); }catch(_){ } };
 
-  // HUD
   const elScore = $('hud-score');
   const elCombo = $('hud-combo');
   const elMiss  = $('hud-miss');
@@ -65,21 +58,7 @@ export function boot(){
   const elFeverPct  = $('fever-pct');
   const elShield    = $('shield-count');
   const elStunBadge = $('hud-stun');
-
-  // vortex
   const elVortex = $('stun-vortex');
-
-  // end summary
-  const endOverlay = $('end-overlay');
-  const endScore = $('end-score');
-  const endGood  = $('end-good');
-  const endMiss  = $('end-miss');
-  const endCombo = $('end-combo');
-  const endGoals = $('end-goals');
-  const endMinis = $('end-minis');
-  const endGrade = $('end-grade');
-  const btnEndClose = $('end-close');
-  const btnEndRestart = $('end-restart');
 
   const pageUrl = new window.URL(window.location.href);
   const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();
@@ -102,12 +81,11 @@ export function boot(){
     20, 180
   );
 
-  // ✅ Correct paths (boot.js is inside /vr-goodjunk)
   const COACH_IMG = {
-    neutral: '../img/coach-neutral.png',
-    happy:   '../img/coach-happy.png',
-    sad:     '../img/coach-sad.png',
-    fever:   '../img/coach-fever.png'
+    neutral: './img/coach-neutral.png',
+    happy:   './img/coach-happy.png',
+    sad:     './img/coach-sad.png',
+    fever:   './img/coach-fever.png'
   };
 
   let lastCoachTimeout = null;
@@ -165,114 +143,17 @@ export function boot(){
     });
   }
 
-  /* -------------------- ✅ VR-LOOK (drag + gyro + inertia) -------------------- */
-  function enableVRLook(cameraEl){
-    if (!cameraEl || !cameraEl.object3D) return;
-
-    const areaEl = document.getElementById('gj-layer') || document.body;
-
-    const DEG = Math.PI / 180;
-    const clampPitch = (p)=> Math.max(-1.2, Math.min(1.2, p));
-
-    // base from gyro, plus drag offset
-    let gyroYaw = 0, gyroPitch = 0;
-    let offYaw = 0, offPitch = 0;
-
-    // inertia velocity from drag
-    let vYaw = 0, vPitch = 0;
-    let lastDown = 0;
-
-    // drag state
-    let dragging = false;
-    let lastX = 0, lastY = 0;
-
-    // tune
-    const sens = 0.0031;          // drag sensitivity
-    const inert = 0.92;           // inertia decay
-    const vMax = 0.08;
-
-    function apply(){
-      const yaw = gyroYaw + offYaw;
-      const pitch = clampPitch(gyroPitch + offPitch);
-
-      // write to A-Frame camera rotation (x=pitch, y=yaw)
-      cameraEl.object3D.rotation.x = pitch;
-      cameraEl.object3D.rotation.y = yaw;
-      cameraEl.object3D.rotation.z = 0;
-    }
-
-    function raf(){
-      // inertia only when not dragging
-      if (!dragging){
-        offYaw  += vYaw;
-        offPitch += vPitch;
-        vYaw *= inert;
-        vPitch *= inert;
-        if (Math.abs(vYaw) < 0.00015) vYaw = 0;
-        if (Math.abs(vPitch) < 0.00015) vPitch = 0;
-      }
-      apply();
-      requestAnimationFrame(raf);
-    }
-    requestAnimationFrame(raf);
-
-    function isInteractiveTarget(t){
-      // don't rotate view when pressing on target/button/select
-      const el = t?.target;
-      if (!el) return false;
-      if (el.closest && (el.closest('.gj-target') || el.closest('button') || el.closest('select') || el.closest('#start-overlay') || el.closest('#end-overlay'))) return true;
-      return false;
-    }
-
-    areaEl.addEventListener('pointerdown', (e)=>{
-      if (isInteractiveTarget(e)) return;
-      dragging = true;
-      lastDown = Date.now();
-      lastX = e.clientX;
-      lastY = e.clientY;
-      vYaw = 0; vPitch = 0;
-    }, { passive:true });
-
-    areaEl.addEventListener('pointermove', (e)=>{
-      if (!dragging) return;
-      const dx = (e.clientX - lastX);
-      const dy = (e.clientY - lastY);
-      lastX = e.clientX;
-      lastY = e.clientY;
-
-      offYaw  -= dx * sens;
-      offPitch -= dy * sens;
-
-      // update inertia velocity
-      vYaw  = Math.max(-vMax, Math.min(vMax, (-dx * sens) * 0.65));
-      vPitch= Math.max(-vMax, Math.min(vMax, (-dy * sens) * 0.65));
-    }, { passive:true });
-
-    areaEl.addEventListener('pointerup', ()=>{ dragging = false; }, { passive:true });
-    areaEl.addEventListener('pointercancel', ()=>{ dragging = false; }, { passive:true });
-
-    // ✅ device orientation (Android ok; iOS may require permission)
-    window.addEventListener('deviceorientation', (ev)=>{
-      // alpha: compass (0..360), beta: front-back (-180..180)
-      if (typeof ev.alpha !== 'number' || typeof ev.beta !== 'number') return;
-
-      // portrait mapping
-      const a = ev.alpha * DEG;
-      const b = ev.beta * DEG;
-
-      // smooth a bit (low-pass)
-      gyroYaw = gyroYaw * 0.90 + a * 0.10;
-
-      // pitch center around ~0 when phone upright
-      const p = (b - 0.85); // small offset so "upright" feels centered
-      gyroPitch = gyroPitch * 0.90 + p * 0.10;
-
-      // if user just dragged, don't fight gyro too hard for ~700ms
-      if (Date.now() - lastDown < 700) return;
-    }, { passive:true });
+  function attachTouch(cameraEl){
+    if (!cameraEl) return;
+    try{
+      attachTouchLook(cameraEl, {
+        sensitivity: 0.26,
+        areaEl: document.body
+      });
+    }catch(_){}
   }
 
-  /* -------------------- ✅ Aim point (STUN center) -------------------- */
+  // --------- ✅ Aim Point (ศูนย์กลาง STUN) ----------
   function setAimPoint(x, y){
     window.__GJ_AIM_POINT__ = { x: x|0, y: y|0, t: Date.now() };
     if (elVortex){
@@ -288,7 +169,6 @@ export function boot(){
     if (!layer) return;
     defaultAim();
 
-    // tap-anywhere sets STUN center (but if tapping target, target handler will stopPropagation)
     layer.addEventListener('pointerdown', (e)=>{
       if (typeof e.clientX === 'number' && typeof e.clientY === 'number'){
         setAimPoint(e.clientX, e.clientY);
@@ -297,36 +177,16 @@ export function boot(){
 
     window.addEventListener('resize', ()=>{
       const ap = window.__GJ_AIM_POINT__;
-      if (!ap) return defaultAim();
-      const x = Math.max(20, Math.min(window.innerWidth-20, ap.x|0));
-      const y = Math.max(20, Math.min(window.innerHeight-20, ap.y|0));
-      setAimPoint(x, y);
+      if (!ap) defaultAim();
+      else{
+        const x = Math.max(20, Math.min(window.innerWidth-20, ap.x|0));
+        const y = Math.max(20, Math.min(window.innerHeight-20, ap.y|0));
+        setAimPoint(x, y);
+      }
     });
   }
 
-  /* -------------------- ✅ Particles helper -------------------- */
-  function getParticles(){
-    return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
-  }
-  function fxBurst(x,y,good=true,count=14){
-    const P = getParticles(); if (!P || !P.burstAt) return;
-    try{ P.burstAt(x, y, { count, good: !!good }); }catch(_){}
-  }
-  function fxPop(x,y,label,plain=true){
-    const P = getParticles(); if (!P || !P.scorePop) return;
-    try{ P.scorePop(x, y, '', String(label||''), { plain: !!plain }); }catch(_){}
-  }
-  function fxCelebrate(kind){
-    const P = getParticles(); if (!P || !P.celebrate) return;
-    try{
-      P.celebrate(kind, {
-        title: kind === 'goal' ? '🎉 GOAL CLEARED!' : '✨ MINI CLEARED!',
-        sub: 'ไปต่อเลย! 🌟'
-      });
-    }catch(_){}
-  }
-
-  /* -------------------- Quest shared state -------------------- */
+  // Quest shared state
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
     streakGood:0,
@@ -340,7 +200,9 @@ export function boot(){
     runMode: RUN_MODE,
     final8Good: 0
   };
-  window.__GJ_QSTATE__ = qState;
+
+  // ✅ keep last quest meta for summary
+  window.__GJ_QUEST_META__ = { goalsCleared:0, minisCleared:0, miniCount:0, goalIndex:0 };
 
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = false;
@@ -360,97 +222,61 @@ export function boot(){
 
   let Q = null;
 
-  /* -------------------- Quest/FX hooks from safe.js -------------------- */
-  window.addEventListener('quest:goodHit', (e)=>{
-    const d = e.detail || {};
-    const x = Number(d.x||0), y = Number(d.y||0);
-    const j = String(d.judgment||'good').toLowerCase();
-    const isPerfect = j.includes('perfect');
-
-    // streak & final sprint count
+  // FX hooks (เรียกจาก safe.js)
+  window.addEventListener('quest:goodHit', ()=>{
     qState.streakGood = (qState.streakGood|0) + 1;
     if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
-
-    fxBurst(x,y,true,isPerfect ? 18 : 14);
-    fxPop(x,y,isPerfect ? 'PERFECT!' : 'GOOD!');
-
-    // gold mini fix: if safe.js tags kind='gold' we set flag
-    if (String(d.kind||'') === 'gold') qState.goldHitsThisMini = true;
-
-    Q && Q.tick(qState);
+    if (Q) Q.tick(qState);
   });
-
-  window.addEventListener('quest:badHit', (e)=>{
-    const d = e.detail || {};
-    const x = Number(d.x||0), y = Number(d.y||0);
-
+  window.addEventListener('quest:badHit', ()=>{
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
-
-    fxBurst(x,y,false,14);
-    fxPop(x,y,'JUNK!');
-
-    Q && Q.tick(qState);
+    if (Q) Q.tick(qState);
   });
-
-  window.addEventListener('quest:block', (e)=>{
-    const d = e.detail || {};
-    const x = Number(d.x||0), y = Number(d.y||0);
-
+  window.addEventListener('quest:block', ()=>{
     qState.blocks = (qState.blocks|0) + 1;
-
-    fxBurst(x,y,true,10);
-    fxPop(x,y,'BLOCK!');
-
-    Q && Q.tick(qState);
+    if (Q) Q.tick(qState);
   });
-
   window.addEventListener('quest:power', (e)=>{
     const d = e.detail || {};
-    const x = Number(d.x||0), y = Number(d.y||0);
-    const p = String(d.power||'').toLowerCase();
-
+    const p = (d.power||'');
     if (p === 'magnet') qState.usedMagnet = true;
-    if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
-    if (p === 'gold')   qState.goldHitsThisMini = true;
-
-    fxBurst(x,y,true,12);
-    fxPop(x,y,(p||'POWER').toUpperCase() + '!');
-
-    Q && Q.tick(qState);
+    if (p === 'time') qState.timePlus = (qState.timePlus|0) + 1;
+    if (p === 'gold') qState.goldHitsThisMini = true;
+    if (Q) Q.tick(qState);
   });
-
   window.addEventListener('quest:bossClear', ()=>{
     qState.bossCleared = true;
-    Q && Q.tick(qState);
+    if (Q) Q.tick(qState);
   });
 
-  window.addEventListener('quest:cleared', (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind||'').toLowerCase();
-    fxCelebrate(kind.includes('goal') ? 'goal' : 'mini');
-    setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
-  });
-
-  /* -------------------- HUD listeners -------------------- */
+  // HUD update
   window.addEventListener('hha:judge', (e)=>{
     safeText(elJudge, (e.detail||{}).label || '\u00A0');
   });
-
   window.addEventListener('hha:time', (e)=>{
     const sec = (e.detail||{}).sec;
     if (typeof sec === 'number' && sec >= 0){
       safeText(elTime, sec + 's');
       qState.timeLeft = sec|0;
-      Q && Q.tick(qState);
+      if (Q) Q.tick(qState);
     }
   });
 
   let lastMissSeen = 0;
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
-    if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
-    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
+
+    if (typeof d.score === 'number'){
+      qState.score = d.score|0;
+      safeText(elScore, String(qState.score));
+    }
+
+    // ✅ FIX: sync goodHits ให้ goal g1 ผ่านได้
+    if (typeof d.goodHits === 'number'){
+      qState.goodHits = d.goodHits|0;
+    }
+
     if (typeof d.misses === 'number'){
       qState.miss = d.misses|0;
       safeText(elMiss, String(qState.miss));
@@ -459,8 +285,13 @@ export function boot(){
         lastMissSeen = qState.miss;
       }
     }
-    if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
-    Q && Q.tick(qState);
+
+    if (typeof d.comboMax === 'number'){
+      qState.comboMax = d.comboMax|0;
+      safeText(elCombo, String(qState.comboMax));
+    }
+
+    if (Q) Q.tick(qState);
   });
 
   // ✅ Fever/Shield + STUN badge + vortex
@@ -473,11 +304,10 @@ export function boot(){
     if (elFeverFill) elFeverFill.style.width = Math.max(0, Math.min(100, fever)) + '%';
     if (elFeverPct) safeText(elFeverPct, Math.round(Math.max(0, Math.min(100, fever))) + '%');
     if (elShield) safeText(elShield, String(shield|0));
-    if (elStunBadge) safeClass(elStunBadge, 'show', stunActive);
+    if (elStunBadge) elStunBadge.classList.toggle('show', stunActive);
 
-    // vortex follows aim point while stun
     if (elVortex){
-      safeClass(elVortex, 'show', stunActive);
+      elVortex.classList.toggle('show', stunActive);
       const ap = window.__GJ_AIM_POINT__;
       if (ap && stunActive){
         elVortex.style.left = (ap.x|0) + 'px';
@@ -486,12 +316,20 @@ export function boot(){
     }
   });
 
-  // quest:update (bars)
+  // quest:update (bars) + store meta for summary
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
     const mini = d.mini || null;
     const meta = d.meta || {};
+
+    // ✅ keep for summary
+    window.__GJ_QUEST_META__ = {
+      goalsCleared: (meta.goalsCleared|0),
+      minisCleared: (meta.minisCleared|0),
+      miniCount: (meta.miniCount|0),
+      goalIndex: (meta.goalIndex|0)
+    };
 
     if (goal){
       const cur = (goal.cur|0), max = (goal.max|0);
@@ -545,25 +383,32 @@ export function boot(){
     if (elChal) elChal.textContent = CH_INIT.toUpperCase();
     if (elTime) elTime.textContent = DUR_INIT + 's';
     setCoach('แตะของดี! หลบ junk! ⚡', 'neutral');
-    setLogBadge('ok', 'boot: ready');
+    setLogBadge(null, 'boot: ready');
   }
 
-  // ✅ logger safe: use IIFE global if present; otherwise dynamically import and use window.HHACloudLogger
-  async function initLoggerSafe(opts){
+  // ✅ dynamic import logger (กันชื่อ export ไม่ตรง)
+  async function initLoggerSafe(payload){
     try{
-      // prefer already-loaded global
-      if (window.HHACloudLogger && typeof window.HHACloudLogger.init === 'function'){
-        window.HHACloudLogger.init(opts || {});
+      const mod = await import('../vr/hha-cloud-logger.js');
+      const fn =
+        mod.initCloudLogger ||
+        mod.initLogger ||
+        mod.init ||
+        mod.default ||
+        window.initCloudLogger ||
+        (window.HHACloudLogger && window.HHACloudLogger.init);
+
+      if (typeof fn === 'function'){
+        fn(payload);
+        setLogBadge('ok', 'logger: ok ✓');
         return true;
       }
-      // else load script as module (it still runs and sets window.HHACloudLogger)
-      await import('../vr/hha-cloud-logger.js');
-      if (window.HHACloudLogger && typeof window.HHACloudLogger.init === 'function'){
-        window.HHACloudLogger.init(opts || {});
-        return true;
-      }
+      setLogBadge('bad', 'logger: export not found (skip)');
+      console.warn('[GoodJunkVR] Logger module loaded but no init function export found.', Object.keys(mod||{}));
       return false;
-    }catch(_){
+    }catch(err){
+      setLogBadge('bad', 'logger: load failed (skip)');
+      console.warn('[GoodJunkVR] Logger load failed (skip):', err);
       return false;
     }
   }
@@ -585,71 +430,9 @@ export function boot(){
     }, { once:true });
   }
 
-  function gradeFromStats({score, miss, comboMax, goalsCleared, minisCleared}){
-    // สเกลง่าย ๆ ให้ “ดูเป็นเกมจริง”
-    const s = Number(score||0);
-    const m = Number(miss||0);
-    const c = Number(comboMax||0);
-    const g = Number(goalsCleared||0);
-    const n = Number(minisCleared||0);
-
-    const value = (s * 1.0) + (c * 18) + (g * 260) + (n * 55) - (m * 120);
-
-    if (value >= 1800) return 'SSS';
-    if (value >= 1450) return 'SS';
-    if (value >= 1180) return 'S';
-    if (value >= 900)  return 'A';
-    if (value >= 620)  return 'B';
-    return 'C';
-  }
-
-  function showEndSummary(stats){
-    if (!endOverlay) return;
-    const qMeta = (Q && Q.getState) ? Q.getState() : { goalsCleared:0, minisCleared:0 };
-
-    const final = {
-      score: qState.score|0,
-      goodHits: qState.goodHits|0,
-      miss: qState.miss|0,
-      comboMax: qState.comboMax|0,
-      goalsCleared: qMeta.goalsCleared|0,
-      minisCleared: qMeta.minisCleared|0,
-      ...(stats||{})
-    };
-
-    const gr = gradeFromStats(final);
-
-    safeText(endScore, String(final.score|0));
-    safeText(endGood,  String(final.goodHits|0));
-    safeText(endMiss,  String(final.miss|0));
-    safeText(endCombo, String(final.comboMax|0));
-    safeText(endGoals, String(final.goalsCleared|0));
-    safeText(endMinis, String(final.minisCleared|0));
-    safeText(endGrade, 'GRADE: ' + gr);
-
-    endOverlay.classList.add('show');
-  }
-
-  btnEndClose && btnEndClose.addEventListener('click', ()=>{
-    endOverlay && endOverlay.classList.remove('show');
-  });
-  btnEndRestart && btnEndRestart.addEventListener('click', ()=>{
-    // restart with new ts to bypass cache
-    const u = new URL(location.href);
-    u.searchParams.set('ts', String(Date.now()));
-    location.href = u.toString();
-  });
-
-  // ✅ End event from safe.js
-  window.addEventListener('hha:end', (e)=>{
-    const d = e.detail || {};
-    showEndSummary(d);
-  });
-
   async function bootOnce({ wantVR }){
     if (started) return;
     started = true;
-
     if (startOverlay) startOverlay.style.display = 'none';
 
     const diff = normDiff(selDiff?.value || DIFF_INIT);
@@ -663,27 +446,30 @@ export function boot(){
     if (elChal) elChal.textContent = chal.toUpperCase();
     if (elTime) elTime.textContent = durationSec + 's';
 
-    // aim system
+    // bind aim system
     bindAimListeners();
 
-    // logger (optional)
+    // logger payload
     const endpoint =
-      (sessionStorage.getItem('HHA_LOGGER_ENDPOINT') || '') ||
-      (sessionStorage.getItem('HHA_LOG_ENDPOINT') || '') ||
-      '';
+      sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
+      'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
 
-    const okLogger = await initLoggerSafe({
+    await initLoggerSafe({
       endpoint,
-      debug: false
+      projectTag: 'HeroHealth-GoodJunkVR',
+      mode: 'GoodJunkVR',
+      runMode: RUN_MODE,
+      diff,
+      challenge: chal,
+      durationPlannedSec: durationSec,
+      profile: null,
+      debug: true
     });
-    setLogBadge(okLogger ? 'ok' : 'bad', okLogger ? 'logger: ok ✓' : 'logger: skip');
 
-    // camera look
     const cam = document.querySelector('#gj-camera');
-    enableVRLook(cam);
+    attachTouch(cam);
     initVRButton();
 
-    // Quest
     Q = makeQuestDirector({
       diff,
       goalDefs: GOODJUNK_GOALS,
@@ -692,6 +478,7 @@ export function boot(){
       maxMini: 999,
       challenge: chal
     });
+    window.__GJ_QUEST__ = Q; // ✅ เผื่อ summary/ดีบัก
     Q.start(qState);
 
     runCountdown(()=>{
@@ -707,7 +494,6 @@ export function boot(){
         });
 
         window.__GJ_ENGINE__ = ENGINE;
-        setCoach('เริ่มแล้ว! ลากเพื่อเลื่อนมุมมอง • แตะเพื่อย้ายศูนย์กลาง STUN ⚡', 'neutral');
       });
     });
   }
@@ -717,5 +503,3 @@ export function boot(){
 
   prefill();
 }
-
-export default boot;
