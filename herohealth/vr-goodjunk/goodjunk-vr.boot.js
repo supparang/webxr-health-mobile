@@ -1,6 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Boot binder — VR LOOK (drag + gyro + inertia) + HUD/Quest wiring (FIX goal pass + summary)
-// NOTE: logger uses IIFE window.HHACloudLogger (no ES export mismatch)
+// Final Sprint v2 binder: STUN bar + coach event + input lock class
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 
@@ -12,9 +11,7 @@ export function boot(){
   if (window.__GJ_PAGE_BOOTED__) return;
   window.__GJ_PAGE_BOOTED__ = true;
 
-  window.addEventListener('pageshow', (e)=>{
-    if (e.persisted) window.location.reload();
-  });
+  window.addEventListener('pageshow', (e)=>{ if (e.persisted) window.location.reload(); });
 
   const $ = (id)=>document.getElementById(id);
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){ } };
@@ -65,6 +62,13 @@ export function boot(){
   const elFlame  = $('fever-flame');
   const elTouchHint = $('touch-hint');
 
+  // ✅ STUN bar
+  const elStunRow  = $('stun-row');
+  const elStunFill = $('stun-fill');
+  const elStunTime = $('stun-time');
+
+  const layerEl = document.getElementById('gj-layer');
+
   const pageUrl = new window.URL(window.location.href);
   const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();
   const URL_DIFF = (pageUrl.searchParams.get('diff') || 'normal').toLowerCase();
@@ -98,13 +102,19 @@ export function boot(){
     const m = COACH_IMG[mood] ? mood : 'neutral';
     if (elCoachEmoji) elCoachEmoji.style.backgroundImage = `url('${COACH_IMG[m]}')`;
   }
-  function setCoach(text, mood='neutral'){
+  function setCoach(text, mood='neutral', holdMs=4200){
     if (elCoachBubble) elCoachBubble.classList.add('show');
     safeText(elCoachText, text || '');
     setCoachFace(mood);
     if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
-    lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), 4200);
+    lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), holdMs);
   }
+
+  // ✅ listen coach event from engine
+  window.addEventListener('hha:coach', (e)=>{
+    const d = e.detail || {};
+    if (d.text) setCoach(String(d.text), String(d.mood||'neutral'), Number(d.holdMs||4200));
+  });
 
   function setLogBadge(state, text){
     if (!logDot || !logText) return;
@@ -148,7 +158,7 @@ export function boot(){
     });
   }
 
-  // --------- ✅ Aim Point (ศูนย์กลาง STUN) ----------
+  // --------- Aim Point (center of STUN) ----------
   function setAimPoint(x, y){
     window.__GJ_AIM_POINT__ = { x: x|0, y: y|0, t: Date.now() };
     if (elVortex){
@@ -156,16 +166,12 @@ export function boot(){
       elVortex.style.top  = (y|0) + 'px';
     }
   }
-  function defaultAim(){
-    setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62);
-  }
+  function defaultAim(){ setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62); }
   function bindAimListeners(){
-    const layer = document.getElementById('gj-layer');
-    if (!layer) return;
+    if (!layerEl) return;
     defaultAim();
 
-    layer.addEventListener('pointerdown', (e)=>{
-      // ถ้ากดโดน target มัน stopPropagation ที่ตัว target แล้ว (ไม่มาถึง layer)
+    layerEl.addEventListener('pointerdown', (e)=>{
       if (typeof e.clientX === 'number' && typeof e.clientY === 'number'){
         setAimPoint(e.clientX, e.clientY);
       }
@@ -182,13 +188,13 @@ export function boot(){
     });
   }
 
-  // --------- ✅ VR LOOK: drag + gyro + inertia ----------
+  // --------- VR LOOK: drag + gyro + inertia ----------
   function attachVRLook(cameraEl, opts = {}){
     if (!cameraEl || !cameraEl.object3D) return { enableGyro: async()=>false, destroy: ()=>{} };
 
     const layer = opts.layerEl || document.getElementById('gj-layer') || document.body;
     const hint  = opts.hintEl || elTouchHint;
-    const sensitivity = Number(opts.sensitivity ?? 0.0032);
+    const sensitivity = Number(opts.sensitivity ?? 0.0034);
     const pitchMin = Number(opts.pitchMin ?? -1.18);
     const pitchMax = Number(opts.pitchMax ??  1.18);
 
@@ -207,23 +213,13 @@ export function boot(){
     function wrapPI(v){
       v = Number(v)||0;
       const TWO = Math.PI*2;
-      v = v % TWO;
-      if (v < 0) v += TWO;
+      v = v % TWO; if (v < 0) v += TWO;
       return v;
     }
     function apply(){
       cameraEl.object3D.rotation.y = wrapPI(yaw);
       cameraEl.object3D.rotation.x = clampRad(pitch, pitchMin, pitchMax);
     }
-    function syncFromCamera(){
-      try{
-        yaw = wrapPI(cameraEl.object3D.rotation.y);
-        pitch = clampRad(cameraEl.object3D.rotation.x, pitchMin, pitchMax);
-        apply();
-      }catch(_){}
-    }
-    syncFromCamera();
-
     function showHint(){
       if (!hint) return;
       hint.classList.add('show');
@@ -232,27 +228,21 @@ export function boot(){
     showHint();
 
     function onDown(e){
-      // drag only when press on empty layer (targets stop propagation)
       dragging = true;
-      lastX = e.clientX || 0;
-      lastY = e.clientY || 0;
+      lastX = e.clientX || 0; lastY = e.clientY || 0;
       try{ layer.setPointerCapture(e.pointerId); }catch(_){}
       try{ layer.classList.add('dragging'); }catch(_){}
       e.preventDefault?.();
     }
     function onMove(e){
       if (!dragging) return;
-      const x = e.clientX || 0;
-      const y = e.clientY || 0;
-      const dx = x - lastX;
-      const dy = y - lastY;
+      const x = e.clientX || 0, y = e.clientY || 0;
+      const dx = x - lastX, dy = y - lastY;
       lastX = x; lastY = y;
 
-      // yaw: left/right, pitch: up/down
       yaw   -= dx * sensitivity;
       pitch -= dy * sensitivity;
 
-      // inertia seed
       vy = (-dx * sensitivity) * 0.55;
       vp = (-dy * sensitivity) * 0.55;
 
@@ -271,24 +261,18 @@ export function boot(){
     layer.addEventListener('pointercancel', onUp, { passive:false });
 
     function tick(){
-      // inertia (only when not dragging)
       if (!dragging){
         const damp = 0.88;
-        vy *= damp;
-        vp *= damp;
+        vy *= damp; vp *= damp;
         if (Math.abs(vy) > 0.00002 || Math.abs(vp) > 0.00002){
-          yaw += vy;
-          pitch += vp;
+          yaw += vy; pitch += vp;
         }
       }
-
-      // gyro blend (soft)
       if (gyroOn){
         const blend = 0.12;
         yaw   = yaw   + (gYaw   - yaw)   * blend;
         pitch = pitch + (gPitch - pitch) * blend;
       }
-
       apply();
       raf = requestAnimationFrame(tick);
     }
@@ -296,40 +280,28 @@ export function boot(){
 
     function onDeviceOri(ev){
       if (!gyroOn) return;
-      const a = Number(ev.alpha || 0); // 0..360
-      const b = Number(ev.beta  || 0); // -180..180
-      // map: yaw from alpha, pitch from beta (tilt)
+      const a = Number(ev.alpha || 0);
+      const b = Number(ev.beta  || 0);
       const aRad = (a * Math.PI) / 180;
       const bRad = (b * Math.PI) / 180;
-
       if (gBaseA == null){ gBaseA = aRad; gBaseB = bRad; }
-
-      // relative from baseline
       let ry = aRad - gBaseA;
       let rp = (bRad - gBaseB) * 0.85;
-
-      // keep stable
       gYaw = wrapPI(yaw + ry);
       gPitch = clampRad(pitch + rp, pitchMin, pitchMax);
     }
 
     async function enableGyro(){
       if (!('DeviceOrientationEvent' in window)) return false;
-
       try{
         if (typeof window.DeviceOrientationEvent.requestPermission === 'function'){
           const res = await window.DeviceOrientationEvent.requestPermission();
           if (String(res) !== 'granted') return false;
         }
-        gyroOn = true;
-        gBaseA = null; gBaseB = null;
+        gyroOn = true; gBaseA = null; gBaseB = null;
         window.addEventListener('deviceorientation', onDeviceOri, true);
-        setCoach('Gyro พร้อม! หมุนมือถือ = หมุนมุมมอง 🥽', 'happy');
         return true;
-      }catch(err){
-        console.warn('[GoodJunkVR] gyro enable failed:', err);
-        return false;
-      }
+      }catch(_){ return false; }
     }
 
     function destroy(){
@@ -343,7 +315,7 @@ export function boot(){
       try{ window.removeEventListener('deviceorientation', onDeviceOri, true); }catch(_){}
     }
 
-    return { enableGyro, destroy, syncFromCamera };
+    return { enableGyro, destroy };
   }
 
   // Quest shared state
@@ -372,14 +344,10 @@ export function boot(){
   });
 
   let started = false;
-  setInterval(()=>{
-    if (!started) return;
-    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
-  }, 1000);
+  setInterval(()=>{ if (started) qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1; }, 1000);
 
   let Q = null;
 
-  // FX hooks (from safe.js)
   window.addEventListener('quest:goodHit', ()=>{
     qState.streakGood = (qState.streakGood|0) + 1;
     if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
@@ -407,10 +375,7 @@ export function boot(){
     if (Q) Q.tick(qState);
   });
 
-  // HUD update
-  window.addEventListener('hha:judge', (e)=>{
-    safeText(elJudge, (e.detail||{}).label || '\u00A0');
-  });
+  window.addEventListener('hha:judge', (e)=>{ safeText(elJudge, (e.detail||{}).label || '\u00A0'); });
   window.addEventListener('hha:time', (e)=>{
     const sec = (e.detail||{}).sec;
     if (typeof sec === 'number' && sec >= 0){
@@ -424,23 +389,17 @@ export function boot(){
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
-
-    // ✅ FIX: goodHits MUST be captured for goal g1
-    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
-
+    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; } // ✅ important
     if (typeof d.misses === 'number'){
       qState.miss = d.misses|0;
       safeText(elMiss, String(qState.miss));
-      if (qState.miss > lastMissSeen){
-        qState.streakGood = 0;
-        lastMissSeen = qState.miss;
-      }
+      if (qState.miss > lastMissSeen){ qState.streakGood = 0; lastMissSeen = qState.miss; }
     }
     if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
     if (Q) Q.tick(qState);
   });
 
-  // Fever/Shield + STUN + flame
+  // Fever + STUN badge + vortex + flame + STUN bar + input lock
   window.addEventListener('hha:fever', (e)=>{
     const d = e.detail || {};
     const fever = Number(d.fever||0);
@@ -450,9 +409,29 @@ export function boot(){
     if (elFeverFill) elFeverFill.style.width = Math.max(0, Math.min(100, fever)) + '%';
     if (elFeverPct) safeText(elFeverPct, Math.round(Math.max(0, Math.min(100, fever))) + '%');
     if (elShield) safeText(elShield, String(shield|0));
-
     if (elStunBadge) elStunBadge.classList.toggle('show', stunActive);
     if (elFlame) elFlame.classList.toggle('show', stunActive || fever >= 85);
+
+    // ✅ STUN bar bind
+    const leftMs = Number(d.stunLeftMs || 0);
+    const durMs  = Number(d.stunDurMs  || 0);
+    if (elStunRow) elStunRow.classList.toggle('show', stunActive && durMs > 0);
+    if (elStunFill && stunActive && durMs > 0){
+      const pct = Math.max(0, Math.min(1, leftMs / durMs));
+      elStunFill.style.width = Math.round(pct * 100) + '%';
+    } else if (elStunFill){
+      elStunFill.style.width = '0%';
+    }
+    if (elStunTime){
+      elStunTime.textContent = stunActive ? (Math.max(0, leftMs)/1000).toFixed(1)+'s' : '0.0s';
+    }
+
+    // ✅ input lock class (1s) from engine
+    const lockMs = Number(d.lockMs || 0);
+    if (layerEl && lockMs > 0){
+      layerEl.classList.add('input-locked');
+      setTimeout(()=> layerEl.classList.remove('input-locked'), lockMs);
+    }
 
     if (elVortex){
       elVortex.classList.toggle('show', stunActive);
@@ -462,13 +441,8 @@ export function boot(){
         elVortex.style.top  = (ap.y|0) + 'px';
       }
     }
-
-    // Coach react
-    if (stunActive) setCoach('STUN! ⚡ junk ใกล้ศูนย์กลางจะแตกเอง!', 'fever');
-    else if (fever >= 85) setCoach('ไฟเริ่มลุกแล้ว! อีกนิดจะ STUN 🔥', 'fever');
   });
 
-  // quest:update bars
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
@@ -515,7 +489,7 @@ export function boot(){
     if (startSub){
       startSub.textContent = (RUN_MODE === 'research')
         ? 'โหมดวิจัย: ต้องมี Student ID หรือชื่อเล่นจาก Hub แล้วค่อยกดเริ่ม ✅'
-        : 'เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅';
+        : 'เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง ✅';
     }
   }
 
@@ -550,11 +524,8 @@ export function boot(){
   function waitSceneReady(cb){
     const scene = document.querySelector('a-scene');
     if (!scene) { cb(); return; }
-    const tryReady = ()=>{
-      if (scene.hasLoaded && scene.camera){ cb(); return true; }
-      return false;
-    };
-    if (tryReady()) return;
+    const tryReady = ()=> (scene.hasLoaded && scene.camera);
+    if (tryReady()) { cb(); return; }
     scene.addEventListener('loaded', ()=>{
       let tries=0;
       const it = setInterval(()=>{
@@ -582,35 +553,24 @@ export function boot(){
     if (elChal) elChal.textContent = chal.toUpperCase();
     if (elTime) elTime.textContent = durationSec + 's';
 
-    // aim system
     bindAimListeners();
+    initVRButton();
 
-    // logger
     const endpoint =
       sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
       sessionStorage.getItem('HHA_LOGGER_ENDPOINT') ||
       'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
 
-    initLogger({
-      endpoint,
-      projectTag: 'HeroHealth-GoodJunkVR',
-      debug: true
-    });
-
-    initVRButton();
+    initLogger({ endpoint, debug:true });
 
     // look controls (drag + gyro)
     const cam = document.querySelector('#gj-camera');
-    LOOK = attachVRLook(cam, {
-      layerEl: document.getElementById('gj-layer'),
-      hintEl: elTouchHint,
-      sensitivity: 0.0034
-    });
+    LOOK = attachVRLook(cam, { layerEl, hintEl: elTouchHint, sensitivity: 0.0034 });
+    try{
+      const ok = await LOOK.enableGyro();
+      if (ok) setCoach('Gyro พร้อม! หมุนมือถือ = หมุนมุมมอง 🥽', 'happy');
+    }catch(_){}
 
-    // try enable gyro (after user gesture — we are inside click handler)
-    try{ await LOOK.enableGyro(); }catch(_){}
-
-    // quest director
     Q = makeQuestDirector({
       diff,
       goalDefs: GOODJUNK_GOALS,
@@ -630,7 +590,7 @@ export function boot(){
           run: RUN_MODE,
           challenge: chal,
           time: durationSec,
-          layerEl: document.getElementById('gj-layer')
+          layerEl
         });
 
         window.__GJ_ENGINE__ = ENGINE;
