@@ -1,7 +1,10 @@
 // === /herohealth/vr-goodjunk/quest-defs-goodjunk.js ===
+// Step D: Final Sprint harder (แบบ 2)
+// Expect qState: score, goodHits, miss, comboMax, timeLeft, streakGood, goldHitsThisMini,
+// blocks, usedMagnet, timePlus, safeNoJunkSeconds, bossCleared, challenge, runMode, final8Good
+
 'use strict';
 
-// ---------- GOALS (2 goals per run) ----------
 export const GOODJUNK_GOALS = [
   {
     id:'g1',
@@ -38,7 +41,6 @@ export const GOODJUNK_GOALS = [
   }
 ];
 
-// ---------- MINIS (endless chain) ----------
 export const GOODJUNK_MINIS = [
   {
     id:'m1',
@@ -67,22 +69,22 @@ export const GOODJUNK_MINIS = [
   {
     id:'m4',
     label:'Shield Save: BLOCK ให้ได้ 2 ครั้ง 🛡️',
-    hint:'กด shield แล้วกันให้ทัน',
+    hint:'มีโล่แล้วค่อยเสี่ยงชน junk',
     targetByDiff:{ easy:1, normal:2, hard:2 },
     eval:(s)=> (s.blocks|0),
     pass:(v,tgt)=> v>=tgt
   },
   {
     id:'m5',
-    label:'Magnet Risk: ใช้ 🧲 แล้วเก็บดี 6 ชิ้น',
-    hint:'ตอนนี้ 🧲 = STUN (junk ใกล้ศูนย์กลางจะแตกเอง)',
-    targetByDiff:{ easy:4, normal:6, hard:7 },
-    eval:(s)=> (s.usedMagnet ? (s.streakGood|0) : 0),
+    label:'STUN Magnet: ใช้ 🧲 แล้วให้ junk แตกเอง 4 ครั้ง',
+    hint:'แตะพื้นที่ว่างเพื่อย้ายศูนย์กลาง vortex!',
+    targetByDiff:{ easy:2, normal:4, hard:5 },
+    eval:(s)=> (s.stunBreaks|0),
     pass:(v,tgt)=> v>=tgt
   },
   {
     id:'m6',
-    label:'Time Dealer: ใช้ ⏳ เพิ่มเวลา 1 ครั้ง',
+    label:'Time Dealer: ใช้ ⏱️ เพิ่มเวลา 1 ครั้ง',
     hint:'ช่วยชีวิตได้!',
     targetByDiff:{ easy:1, normal:1, hard:1 },
     eval:(s)=> (s.timePlus|0),
@@ -99,13 +101,13 @@ export const GOODJUNK_MINIS = [
     onlyChallenge:['boss']
   },
 
-  // ✅ FINAL SPRINT แบบ 2: ล็อก 8 วิ (ต้องผ่านทุกวิ + ห้ามโดน junk)
+  // ✅ Step D: Final Sprint (แบบ 2) — โหดขึ้น
   {
     id:'m8',
-    label:'Final Sprint (LOCK): 8 วิสุดท้าย ล็อกให้ครบ 8 🔒',
-    hint:'ทุก 1 วิต้องเก็บดีให้ครบ quota/วิ + ห้ามโดน junk ระหว่างทำ!',
-    targetByDiff:{ easy:8, normal:8, hard:8 },           // 8 locks
-    eval:(s)=> (s.finalSprintLocks|0),                    // ✅ new metric
-    pass:(v,tgt, s)=> (v>=tgt) && !s.finalSprintFailed
+    label:'Final Sprint (PRO): 8 วิสุดท้าย เก็บดีให้ได้ 12 🏁',
+    hint:'ล็อกทุก 1 วิ • junk โผล่เยอะขึ้น • อย่าพลาด!',
+    targetByDiff:{ easy:10, normal:12, hard:14 },
+    eval:(s)=> (s.final8Good|0),
+    pass:(v,tgt)=> v>=tgt
   }
 ];
