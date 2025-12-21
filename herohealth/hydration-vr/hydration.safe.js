@@ -1,14 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
+// ✅ TARGET BEAUTY HOOKS: storm wobble/chroma toggles + PERFECT heavy star burst + perfect sound
 // ✅ FIX ROOT CAUSE: sync GREEN time into Quest.stats.greenTick so GOAL can pass
-// ✅ ADD Arcade fun pack (Green Streak/Jackpot + Panic + Storm+ + Decoy + SurpriseMini + PerfectStreak + MiniBoss)
-// ✅ NEW: “Mini ต่อเนื่อง” (Chain Minis) เพิ่ม 2 ชนิดใหม่:
-//    (A) Junk Cleanse  — อยู่รอด X วินาที โดย “แพ้เฉพาะ junk hit”
-//    (B) Perfect Chain — PERFECT ติดต่อกัน X ครั้ง (ไม่ perfect รีเซ็ต, ไม่ถือว่าแพ้) + แพ้เฉพาะ junk hit
-// ✅ RULE (ตามที่สั่ง): mini chain “นับเฉพาะ junk hit” เป็น fail เท่านั้น
-// ✅ Heavy Celebration hooks (Particles.celebrate/ toast) + shake/flash/beep/vibrate
-// ✅ HEAVIER STORM FX: 3-layer speedlines + vignette + pulse + warp burst
-// ✅ NEW: CHROMATIC SPLIT (subtle) + CONTINUOUS SCREEN WOBBLE during Storm Wave
+// ✅ Arcade fun pack + Chain minis (fail = junk hit only)
+// ✅ Heavy Celebration hooks + chroma split + wobble continuous
 
 'use strict';
 
@@ -76,6 +71,7 @@ function beep(freq=880, dur=0.08, gain=0.07, type='sine'){
     o.stop(t0 + dur + 0.01);
   }catch{}
 }
+
 function megaCelebrate(kind='goal'){
   try{ Particles.celebrate && Particles.celebrate(kind); }catch{}
   try{ Particles.celebrate && Particles.celebrate(kind); }catch{}
@@ -122,10 +118,99 @@ function megaCelebrate(kind='goal'){
     shake(3, 650);
     vibrate([30,60,30]);
     beep(140, 0.12, 0.08, 'sawtooth');
+  } else if (kind === 'perfect'){
+    // 🔥 PERFECT ring — heavy sparkle chord
+    flash('good', 95);
+    vibrate([12,18,12]);
+    beep(1760, 0.05, 0.08, 'triangle');
+    ROOT.setTimeout(()=>beep(2093, 0.06, 0.075, 'triangle'), 45);
+    ROOT.setTimeout(()=>beep(2637, 0.07, 0.07, 'triangle'), 100);
   }
 }
 
-// Inject CSS for shake + storm banner + HEAVY STORM FX (speedlines+chroma+wobble)
+// --------------------- PERFECT heavy star burst (DOM) ---------------------
+function ensurePerfectLayer(){
+  if (!ROOT.document) return null;
+  let layer = ROOT.document.querySelector('.hvr-perfect-layer');
+  if (layer && layer.isConnected) return layer;
+
+  const sId = 'hvr-perfectfx-style';
+  if (!ROOT.document.getElementById(sId)){
+    const s = ROOT.document.createElement('style');
+    s.id = sId;
+    s.textContent = `
+      .hvr-perfect-layer{
+        position:fixed;
+        inset:0;
+        z-index:99970;
+        pointer-events:none;
+        overflow:hidden;
+      }
+      .hvr-star{
+        position:absolute;
+        left:0; top:0;
+        transform: translate3d(-50%,-50%,0);
+        will-change: transform, opacity, filter;
+        filter: drop-shadow(0 10px 18px rgba(0,0,0,.55));
+        font-weight: 900;
+      }
+      .hvr-star.big{ font-size:28px; }
+      .hvr-star.mid{ font-size:22px; }
+      .hvr-star.small{ font-size:16px; opacity:.95; }
+      @keyframes hvrExplode{
+        0%{ transform: translate3d(var(--x0), var(--y0), 0) scale(0.65) rotate(0deg); opacity:0; }
+        12%{ opacity:1; }
+        70%{ opacity:1; }
+        100%{ transform: translate3d(var(--x1), var(--y1), 0) scale(var(--s)) rotate(var(--r)); opacity:0; }
+      }
+    `;
+    ROOT.document.head.appendChild(s);
+  }
+
+  layer = ROOT.document.createElement('div');
+  layer.className = 'hvr-perfect-layer';
+  ROOT.document.body.appendChild(layer);
+  return layer;
+}
+
+function perfectBurst(x, y, intensity=1.0){
+  const layer = ensurePerfectLayer();
+  if (!layer) return;
+
+  // heavier when storm
+  const n = Math.round(14 * intensity);
+  const emojis = ['✨','💥','⭐','🌟','✴️','✳️'];
+  for (let i=0;i<n;i++){
+    const sp = ROOT.document.createElement('span');
+    sp.className = 'hvr-star ' + (i < 4 ? 'big' : (i < 9 ? 'mid' : 'small'));
+    sp.textContent = emojis[(Math.random()*emojis.length)|0];
+
+    const ang = Math.random() * Math.PI * 2;
+    const dist = (60 + Math.random()*170) * intensity;
+    const dx = Math.cos(ang) * dist;
+    const dy = Math.sin(ang) * dist;
+
+    const s = (0.85 + Math.random()*0.9) * intensity;
+    const r = ((Math.random()*520 - 260) | 0) + 'deg';
+
+    sp.style.left = x + 'px';
+    sp.style.top  = y + 'px';
+
+    sp.style.setProperty('--x0', '0px');
+    sp.style.setProperty('--y0', '0px');
+    sp.style.setProperty('--x1', dx.toFixed(1)+'px');
+    sp.style.setProperty('--y1', dy.toFixed(1)+'px');
+    sp.style.setProperty('--s', s.toFixed(2));
+    sp.style.setProperty('--r', r);
+
+    sp.style.animation = `hvrExplode ${520 + (Math.random()*260)|0}ms cubic-bezier(.2,.85,.2,1) 1`;
+    layer.appendChild(sp);
+
+    ROOT.setTimeout(()=>{ try{ sp.remove(); }catch{} }, 1100);
+  }
+}
+
+// Inject CSS for shake + storm banner
 (function ensureFxCSS(){
   const id = 'hvr-heavyfx-style';
   if (!ROOT.document || ROOT.document.getElementById(id)) return;
@@ -159,7 +244,6 @@ function megaCelebrate(kind='goal'){
       75%{ transform:translate3d(4px,5px,0) }
       100%{ transform:translate3d(0,0,0) }
     }
-
     #hvr-storm-banner{
       position:fixed;
       left:50%;
@@ -191,148 +275,6 @@ function megaCelebrate(kind='goal'){
       0%{ transform:scale(1); opacity:.7 }
       50%{ transform:scale(1.35); opacity:1 }
       100%{ transform:scale(1); opacity:.7 }
-    }
-
-    /* mini chain badge hint (optional) */
-    .hvr-mini-chain-badge{
-      display:inline-block;
-      padding:3px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.35);
-      background:rgba(15,23,42,.80);
-      margin-left:8px;
-      font-weight:900;
-      letter-spacing:.04em;
-    }
-
-    /* =========================================================
-       ✅ HEAVY: STORM SPEED LINES (3-layer + vignette + pulse + warp)
-       ========================================================= */
-    #hvr-wrap.hvr-stormfx{
-      --stormFx: 1.2;
-      --stormSpeed: .30s;
-      --stormBright: 1.18;
-      --stormBlur: .25px;
-    }
-    #hvr-wrap.hvr-stormfx::before,
-    #hvr-wrap.hvr-stormfx::after{
-      content:"";
-      position:absolute;
-      inset:-22%;
-      pointer-events:none;
-      z-index:3; /* above playfield, below HUD */
-      opacity: clamp(0, var(--stormFx,0), 1.45);
-      mix-blend-mode: screen;
-      will-change: transform, background-position, opacity, filter;
-      filter: blur(var(--stormBlur,.25px)) saturate(1.20) contrast(1.10) brightness(var(--stormBright,1.12));
-      transform: translate3d(0,0,0);
-    }
-    #hvr-wrap.hvr-stormfx::before{
-      background-image:
-        repeating-linear-gradient(
-          118deg,
-          rgba(147,197,253,0.00) 0px,
-          rgba(147,197,253,0.00) 7px,
-          rgba(147,197,253,0.34) 9px,
-          rgba(147,197,253,0.00) 14px
-        ),
-        repeating-linear-gradient(
-          118deg,
-          rgba(191,219,254,0.00) 0px,
-          rgba(191,219,254,0.00) 18px,
-          rgba(191,219,254,0.18) 19px,
-          rgba(191,219,254,0.00) 30px
-        );
-      animation: hvrStormLines1 var(--stormSpeed,.30s) linear infinite;
-    }
-    @keyframes hvrStormLines1{
-      0%   { background-position: 0px 0px,  0px 0px;  transform:translate3d(-18px,-10px,0) }
-      100% { background-position: 320px 220px, 220px 170px; transform:translate3d(18px,10px,0) }
-    }
-
-    #hvr-wrap.hvr-stormfx::after{
-      opacity: calc(clamp(0.0, var(--stormFx,0), 1.6) * 0.95);
-      background-image:
-        repeating-linear-gradient(
-          96deg,
-          rgba(219,234,254,0.00) 0px,
-          rgba(219,234,254,0.00) 12px,
-          rgba(219,234,254,0.20) 13px,
-          rgba(219,234,254,0.00) 22px
-        ),
-        radial-gradient(closest-side at 50% 55%,
-          rgba(2,6,23,0.00) 58%,
-          rgba(2,6,23,0.35) 78%,
-          rgba(2,6,23,0.62) 100%
-        );
-      animation: hvrStormLines2 calc(var(--stormSpeed,.30s) * 1.35) linear infinite;
-    }
-    @keyframes hvrStormLines2{
-      0%   { background-position: 0px 0px, 0 0;   transform:translate3d(14px,-14px,0) }
-      100% { background-position: 260px 360px, 0 0; transform:translate3d(-14px,14px,0) }
-    }
-
-    #hvr-wrap.hvr-stormfx.hvr-storm-pulse::before,
-    #hvr-wrap.hvr-stormfx.hvr-storm-pulse::after{
-      opacity: calc(clamp(0.0, var(--stormFx,0), 1.6) * 1.25);
-      filter: blur(calc(var(--stormBlur,.25px) * 1.4)) saturate(1.35) contrast(1.22) brightness(1.30);
-    }
-
-    #hvr-wrap.hvr-stormfx.hvr-storm-burst::before{
-      animation:
-        hvrStormLines1 var(--stormSpeed,.30s) linear infinite,
-        hvrStormBurst .55s ease-out 1;
-    }
-    #hvr-wrap.hvr-stormfx.hvr-storm-burst::after{
-      animation:
-        hvrStormLines2 calc(var(--stormSpeed,.30s) * 1.35) linear infinite,
-        hvrStormBurst2 .65s ease-out 1;
-    }
-    @keyframes hvrStormBurst{
-      0%   { opacity:0; transform:translate3d(0,0,0) scale(1.08); }
-      35%  { opacity:1; transform:translate3d(0,0,0) scale(1.02); }
-      100% { opacity:clamp(0, var(--stormFx,0), 1.45); transform:translate3d(0,0,0) scale(1.00); }
-    }
-    @keyframes hvrStormBurst2{
-      0%   { opacity:0; transform:translate3d(0,0,0) scale(1.10); }
-      45%  { opacity:1; transform:translate3d(0,0,0) scale(1.03); }
-      100% { opacity:calc(clamp(0.0, var(--stormFx,0), 1.6) * 0.95); transform:translate3d(0,0,0) scale(1.00); }
-    }
-
-    /* =========================================================
-       ✅ NEW: CHROMATIC SPLIT + CONTINUOUS WOBBLE (Storm only)
-       - ทำกับ #hvr-playfield เพื่อไม่ชนกับ shake ที่ใช้ #hvr-wrap
-       ========================================================= */
-    #hvr-wrap.hvr-stormfx #hvr-playfield{
-      transform-origin: 50% 55%;
-      animation: hvrStormWobble .92s ease-in-out infinite;
-      filter:
-        drop-shadow(0.70px 0 rgba(255, 70, 150, .16))
-        drop-shadow(-0.70px 0 rgba( 60, 220, 255, .14));
-    }
-    /* pulse = chroma แรงขึ้นนิด + wobble แรงขึ้นนิด (รู้สึก “กระชาก”) */
-    #hvr-wrap.hvr-stormfx.hvr-storm-pulse #hvr-playfield{
-      animation-duration: .78s;
-      filter:
-        drop-shadow(1.40px 0 rgba(255, 70, 150, .22))
-        drop-shadow(-1.40px 0 rgba( 60, 220, 255, .20));
-    }
-    @keyframes hvrStormWobble{
-      0%{
-        transform:
-          translate3d(calc(var(--stormFx,1)*-0.90px), calc(var(--stormFx,1)*-0.55px), 0)
-          rotate(calc(var(--stormFx,1)*-0.12deg));
-      }
-      50%{
-        transform:
-          translate3d(calc(var(--stormFx,1)* 0.95px), calc(var(--stormFx,1)* 0.65px), 0)
-          rotate(calc(var(--stormFx,1)* 0.12deg));
-      }
-      100%{
-        transform:
-          translate3d(calc(var(--stormFx,1)*-0.90px), calc(var(--stormFx,1)*-0.55px), 0)
-          rotate(calc(var(--stormFx,1)*-0.12deg));
-      }
     }
   `;
   ROOT.document.head.appendChild(s);
@@ -370,7 +312,7 @@ const TUNE = {
   shieldOnFeverStart: 2,
   shieldMax: 6,
 
-  // IMPORTANT: miss from good expire is NOT used as chain-fail (ตามคำสั่ง)
+  // IMPORTANT: miss from good expire is NOT used as chain-fail
   missOnGoodExpire: true,
 
   rewardGoalScore:  160,
@@ -408,16 +350,16 @@ const TUNE = {
   bossRewardIfBlocked: 60,
 
   // =============================
-  // NEW: MINI CHAIN (ต่อเนื่อง)
+  // MINI CHAIN (ต่อเนื่อง)
   // =============================
   chainEnabled: true,
   chainRewardScore: 140,
   chainRewardTime:  2,
   chainRewardStorm: 2,
   chainRewardFever: 16,
-  chainFailPenaltyScore: 0,     // “แพ้เฉพาะ junk hit” แต่ไม่ต้องหักแต้ม (ตั้ง 0)
-  chainStartDelaySec: 3,        // เริ่ม chain หลังเริ่มเกม 3 วิ
-  chainBetweenDelaySec: 1,      // เว้น 1 วิ แล้วขึ้น mini ต่อไป
+  chainFailPenaltyScore: 0,
+  chainStartDelaySec: 3,
+  chainBetweenDelaySec: 1,
 
   // (A) Junk Cleanse
   cleanseSecEasy:   7,
@@ -488,7 +430,6 @@ export async function boot(opts = {}) {
       hitOrBlocked: false
     },
 
-    // ✅ NEW: Mini Chain
     chain: {
       enabled: !!TUNE.chainEnabled,
       started: false,
@@ -520,35 +461,26 @@ export async function boot(opts = {}) {
   const Q = createHydrationQuest(difficulty);
   const playfield = $id('hvr-playfield') || null;
 
+  // visuals toggles (storm -> wobble/chroma stronger)
+  function setStormVisual(on){
+    const pf = $id('hvr-playfield');
+    if (!pf) return;
+    if (on){
+      pf.classList.add('hvr-wobble-strong','hvr-chroma-strong');
+      pf.classList.remove('hvr-chroma');
+      try{ pf.classList.add('hvr-wobble'); }catch{}
+    } else {
+      pf.classList.remove('hvr-wobble-strong','hvr-chroma-strong');
+      pf.classList.add('hvr-chroma');
+    }
+  }
+
   ROOT.HHA_ACTIVE_INST = {
     stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} }
   };
 
-  // ✅ NEW: Storm pulse driver (for heavier feeling)
-  let _stormPrevOn = false;
-  let _stormPulseTimer = null;
-
-  function setStormPulse(on){
-    const wrap = $id('hvr-wrap');
-    if (!wrap) return;
-
-    if (!on){
-      if (_stormPulseTimer) { try{ clearInterval(_stormPulseTimer); }catch{} }
-      _stormPulseTimer = null;
-      wrap.classList.remove('hvr-storm-pulse');
-      return;
-    }
-
-    if (_stormPulseTimer) return;
-    _stormPulseTimer = setInterval(()=>{
-      wrap.classList.add('hvr-storm-pulse');
-      setTimeout(()=>wrap.classList.remove('hvr-storm-pulse'), 110);
-    }, 320);
-  }
-
   function updateStormUI(){
     const left = state.stormLeft|0;
-
     const b = $id('hvr-storm-banner');
     const t = $id('hvr-storm-left');
     if (t) t.textContent = String(left);
@@ -556,36 +488,7 @@ export async function boot(opts = {}) {
       if (left > 0) b.classList.add('on');
       else b.classList.remove('on');
     }
-
-    const wrap = $id('hvr-wrap');
-    if (!wrap) return;
-
-    const on = left > 0;
-    wrap.classList.toggle('hvr-stormfx', on);
-
-    // intensity หนักขึ้น (อนุญาต >1)
-    const intensity = on ? clamp((left / 8), 0.55, 1.55) : 0;
-    wrap.style.setProperty('--stormFx', String(intensity));
-
-    // speed เร็วขึ้นมาก
-    const speed = on ? clamp(0.34 - intensity * 0.10, 0.22, 0.34) : 0.45;
-    wrap.style.setProperty('--stormSpeed', `${speed.toFixed(2)}s`);
-
-    wrap.style.setProperty('--stormBright', String(on ? clamp(1.10 + intensity * 0.12, 1.12, 1.36) : 1.0));
-    wrap.style.setProperty('--stormBlur', `${on ? clamp(0.22 + intensity * 0.10, 0.22, 0.42) : 0.2}px`);
-
-    // burst ตอนเริ่ม storm
-    if (on && !_stormPrevOn){
-      wrap.classList.add('hvr-storm-burst');
-      setTimeout(()=>wrap.classList.remove('hvr-storm-burst'), 680);
-
-      try{ megaCelebrate('storm'); }catch{}
-      try{ Particles.toast && Particles.toast('🌪️ STORM WAVE!!'); }catch{}
-    }
-
-    // pulse ตลอดช่วง storm
-    setStormPulse(on);
-    _stormPrevOn = on;
+    setStormVisual(left > 0);
   }
 
   function normalizeZone(z){
@@ -698,7 +601,7 @@ export async function boot(opts = {}) {
     });
   }
 
-  // ✅ track completion changes → celebrate+reward
+  // completion changes → celebrate+reward
   let lastGoalsDone = 0;
   let lastMinisDone = 0;
 
@@ -740,7 +643,7 @@ export async function boot(opts = {}) {
   }
 
   // ==========================================================
-  // ✅ MINI CHAIN SYSTEM
+  // MINI CHAIN SYSTEM (ต่อเนื่อง)
   // ==========================================================
   function chainPickKind(){
     return (Math.random() < 0.5) ? 'cleanse' : 'pchain';
@@ -871,7 +774,8 @@ export async function boot(opts = {}) {
     if (state.chain.kind === 'pchain'){
       if (ctx.hitPerfect){
         state.chain.got += 1;
-        beep(880, 0.04, 0.03, 'triangle');
+        // tighter “perfect tick” sound
+        beep(1320, 0.035, 0.04, 'triangle');
         if (state.chain.got >= state.chain.need){
           chainClear(`🎯 Perfect x${state.chain.need}`);
         }
@@ -990,6 +894,7 @@ export async function boot(opts = {}) {
       miniTotal: allMinis.length || 3,
       goalText: goalEl ? goalEl.textContent : '',
       miniText: miniEl ? miniEl.textContent : '',
+
       goal: {
         title: goalTitle,
         cur: goalsDone,
@@ -1026,7 +931,6 @@ export async function boot(opts = {}) {
     if (typeof F.setFeverActive === 'function') F.setFeverActive(state.feverActive);
     if (typeof F.setShield === 'function') F.setShield(state.shield);
   }
-
   function feverStart(){
     state.feverActive = true;
     state.feverLeft = TUNE.feverDurationSec;
@@ -1039,7 +943,6 @@ export async function boot(opts = {}) {
     dispatch('hha:coach', { text:'🔥 FEVER! แตะให้ไว คะแนนคูณ! +ได้เกราะด้วย 🛡️', mood:'happy' });
     megaCelebrate('fever');
   }
-
   function feverEnd(){
     state.feverActive = false;
     state.feverLeft = 0;
@@ -1048,14 +951,12 @@ export async function boot(opts = {}) {
     dispatch('hha:fever', { state:'end', value: state.fever, active:false, shield: state.shield });
     dispatch('hha:coach', { text:'ดีมาก! FEVER จบแล้ว กลับไปรักษา GREEN ต่อ 💧', mood:'neutral' });
   }
-
   function feverAdd(v){
     if (state.feverActive) return;
     state.fever = clamp(state.fever + (Number(v)||0), 0, 100);
     if (state.fever >= TUNE.feverTriggerAt) feverStart();
     else feverRender();
   }
-
   function feverLose(v){
     if (state.feverActive) return;
     state.fever = clamp(state.fever - (Number(v)||0), 0, 100);
@@ -1064,6 +965,7 @@ export async function boot(opts = {}) {
 
   // --------------------- Judge ---------------------
   function judge(ch, ctx){
+    // Decoy resolution
     let isGood = !!ctx.isGood;
     let isPower = !!ctx.isPower;
     let isFake = false;
@@ -1090,6 +992,7 @@ export async function boot(opts = {}) {
       scoreDelta = TUNE.scoreGood * mult;
       label = isFake ? '[FAKE] LUCKY!' : '[GOOD] GOOD';
     } else {
+      // block by shield
       if (state.shield > 0){
         state.shield -= 1;
 
@@ -1113,6 +1016,7 @@ export async function boot(opts = {}) {
         return { scoreDelta, label, good:false, blocked:true };
       }
 
+      // boss penalty
       if (isBoss){
         scoreDelta = -(TUNE.bossJunkPenalty);
         label = '[BOSS] BOSS!';
@@ -1129,11 +1033,14 @@ export async function boot(opts = {}) {
       }
     }
 
-    if ((isGood || isPower) && ctx.hitPerfect) scoreDelta += TUNE.scorePerfectBonus;
+    // perfect / fever bonus
+    const hitPerfect = !!ctx.hitPerfect;
+    if ((isGood || isPower) && hitPerfect) scoreDelta += TUNE.scorePerfectBonus;
     if ((isGood || isPower) && state.feverActive) scoreDelta += TUNE.scoreFeverBonus;
 
     if (scoreDelta > 0) scoreDelta = Math.round(scoreDelta * stormMul);
 
+    // combo rules + perfect streak
     if (isGood || isPower){
       state.combo += 1;
       if (state.combo > state.comboBest) state.comboBest = state.combo;
@@ -1141,7 +1048,26 @@ export async function boot(opts = {}) {
       flash('good', 85);
       vibrate(8);
 
-      if (ctx.hitPerfect){
+      // 🔥 PERFECT ring special
+      if (hitPerfect){
+        megaCelebrate('perfect');
+
+        // heavy burst stars (more during storm)
+        const intensity = (state.stormLeft > 0 ? 1.35 : 1.0) * (state.feverActive ? 1.15 : 1.0);
+        perfectBurst(ctx.clientX || 0, ctx.clientY || 0, intensity);
+
+        // also ask Particles to pop extra
+        try{
+          Particles.objPop && Particles.objPop(ctx.clientX||0, ctx.clientY||0, '💥', { side:'left', size:26 });
+          Particles.objPop && Particles.objPop(ctx.clientX||0, ctx.clientY||0, '✨', { side:'right', size:26 });
+          Particles.objPop && Particles.objPop(ctx.clientX||0, ctx.clientY||0, '⭐', { side:'top', size:24 });
+        }catch{}
+
+        dispatch('hha:judge', { label:'PERFECT' });
+      }
+
+      // perfect streak reward (เกมหลัก)
+      if (hitPerfect){
         state.perfectStreak += 1;
         if (state.perfectStreak >= TUNE.perfectStreakTarget){
           state.perfectStreak = 0;
@@ -1162,21 +1088,25 @@ export async function boot(opts = {}) {
       state.miss += 1;
       state.perfectStreak = 0;
 
+      // surprise fail on junk
       if (state.surprise.active){
         state.surprise.noJunkOk = false;
         failSurpriseMini();
       }
 
+      // chain fail “เฉพาะ junk hit”
       chainFailByJunk();
     }
 
     state.score = Math.max(0, (state.score + scoreDelta) | 0);
 
+    // water + fever + quest
     if (isPower || isGood){
       state.waterPct = clamp(state.waterPct + TUNE.goodWaterPush, 0, 100);
       feverAdd(isPower ? TUNE.feverGainPower : TUNE.feverGainGood);
       Q.onGood();
 
+      // surprise progress
       if (state.surprise.active){
         state.surprise.got += 1;
         if (state.surprise.got >= state.surprise.need && state.surprise.noJunkOk){
@@ -1184,6 +1114,7 @@ export async function boot(opts = {}) {
         }
       }
 
+      // chain progress
       chainOnGoodHit(ctx);
 
     } else {
@@ -1209,7 +1140,7 @@ export async function boot(opts = {}) {
 
     dispatch('hha:judge', { label: String(label).replace(/\[[^\]]+\]\s*/g,'').trim() });
     updateQuestHud();
-    return { scoreDelta, label, good: (isGood || isPower) };
+    return { scoreDelta, label, good: (isGood || isPower), hitPerfect };
   }
 
   // --------------------- Expire ---------------------
@@ -1224,6 +1155,7 @@ export async function boot(opts = {}) {
       vibrate(10);
       updateWaterHud();
       updateScoreHud('MISS');
+      // chain ไม่ fail จาก miss/expire
     }
   }
 
@@ -1235,9 +1167,11 @@ export async function boot(opts = {}) {
     state.timeLeft = Math.max(0, state.timeLeft - 1);
     dispatch('hha:time', { sec: state.timeLeft });
 
+    // water drift
     state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec, 0, 100);
     updateWaterHud();
 
+    // FIX ROOT: count GREEN seconds BOTH in state and quest.stats
     if (String(state.zone).toUpperCase() === 'GREEN'){
       state.greenTick += 1;
 
@@ -1247,6 +1181,7 @@ export async function boot(opts = {}) {
         }
       }catch{}
 
+      // GREEN STREAK / JACKPOT
       state.greenStreak += 1;
 
       if (state.greenStreak % TUNE.greenStreakEverySec === 0){
@@ -1266,13 +1201,17 @@ export async function boot(opts = {}) {
     }
 
     Q.second();
+
+    // chain second tick
     chainOnSecond();
 
+    // start surprise once
     if (!state.surprise.cleared && !state.surprise.failed && !state.surprise.active){
       if (state.timeLeft === state.surprise.triggerAt){
         startSurpriseMini();
       }
     }
+    // surprise countdown
     if (state.surprise.active){
       state.surprise.left = Math.max(0, state.surprise.left - 1);
       if (state.surprise.left <= 0){
@@ -1280,6 +1219,7 @@ export async function boot(opts = {}) {
       }
     }
 
+    // storm tick
     if (state.stormLeft > 0) {
       state.stormLeft -= 1;
       updateStormUI();
@@ -1294,6 +1234,7 @@ export async function boot(opts = {}) {
       updateStormUI();
     }
 
+    // fever tick / decay
     if (state.feverActive){
       state.feverLeft -= 1;
       if (state.feverLeft <= 0) feverEnd();
@@ -1303,6 +1244,7 @@ export async function boot(opts = {}) {
       feverRender();
     }
 
+    // near-end panic
     if (state.timeLeft <= 10 && state.timeLeft > 0){
       megaCelebrate('panic');
       if (state.timeLeft <= 5){
@@ -1332,9 +1274,14 @@ export async function boot(opts = {}) {
     powerRate: (difficulty === 'hard') ? 0.10 : 0.12,
     powerEvery: 6,
 
+    // ✅ Storm Wave -> spawn ถี่ขึ้นจริง
     spawnIntervalMul: () => (state.stormLeft > 0 ? state.stormIntervalMul : 1),
 
+    // ✅ prettier target motion: allow rhythm pulse optionally if you want later
+    rhythm: null,
+
     judge: (ch, ctx) => {
+      // power handling
       if (ctx.isPower && ch === '🛡️'){
         state.shield = clamp(state.shield + 1, 0, TUNE.shieldMax);
         feverRender();
@@ -1378,9 +1325,6 @@ export async function boot(opts = {}) {
   function stop(){
     try{ if (timer) ROOT.clearInterval(timer); }catch{}
     timer = null;
-
-    // stop storm pulse timer
-    setStormPulse(false);
 
     try{ spawner && spawner.stop && spawner.stop(); }catch{}
     try{ ROOT.removeEventListener('hha:stop', onStop); }catch{}
