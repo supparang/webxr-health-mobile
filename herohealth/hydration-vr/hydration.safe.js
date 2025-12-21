@@ -7,7 +7,8 @@
 //    (B) Perfect Chain — PERFECT ติดต่อกัน X ครั้ง (ไม่ perfect รีเซ็ต, ไม่ถือว่าแพ้) + แพ้เฉพาะ junk hit
 // ✅ RULE (ตามที่สั่ง): mini chain “นับเฉพาะ junk hit” เป็น fail เท่านั้น
 // ✅ Heavy Celebration hooks (Particles.celebrate/ toast) + shake/flash/beep/vibrate
-// ✅ NEW (THIS PATCH): Storm Wave “speed lines / wind streaks” overlay (2-layer parallax) ขณะ Storm ทำงาน
+// ✅ HEAVIER STORM FX: 3-layer speedlines + vignette + pulse + warp burst
+// ✅ NEW: CHROMATIC SPLIT (subtle) + CONTINUOUS SCREEN WOBBLE during Storm Wave
 
 'use strict';
 
@@ -17,7 +18,6 @@ import { createHydrationQuest } from './hydration.quest.js';
 
 // --------------------- Globals / helpers ---------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC  = ROOT.document;
 
 function clamp(v, min, max){
   v = Number(v) || 0;
@@ -125,12 +125,11 @@ function megaCelebrate(kind='goal'){
   }
 }
 
-// Inject CSS for shake + storm banner + (NEW) storm speed-lines
+// Inject CSS for shake + storm banner + HEAVY STORM FX (speedlines+chroma+wobble)
 (function ensureFxCSS(){
   const id = 'hvr-heavyfx-style';
-  if (!DOC || DOC.getElementById(id)) return;
-
-  const s = DOC.createElement('style');
+  if (!ROOT.document || ROOT.document.getElementById(id)) return;
+  const s = ROOT.document.createElement('style');
   s.id = id;
   s.textContent = `
     .hvr-shake-1{ animation:hvrShake1 .35s ease-in-out 1; }
@@ -207,72 +206,141 @@ function megaCelebrate(kind='goal'){
     }
 
     /* =========================================================
-       ✅ NEW: STORM SPEED LINES (2-layer parallax)
-       - เปิดเมื่อ #hvr-wrap มี class .hvr-stormfx
-       - ความเข้ม/ความเร็วควบคุมด้วย CSS var:
-         --stormFx   (0..1)  => opacity
-         --stormSpeed (seconds) => animation speed
+       ✅ HEAVY: STORM SPEED LINES (3-layer + vignette + pulse + warp)
        ========================================================= */
     #hvr-wrap.hvr-stormfx{
-      --stormFx: 1;
-      --stormSpeed: .42s;
+      --stormFx: 1.2;
+      --stormSpeed: .30s;
+      --stormBright: 1.18;
+      --stormBlur: .25px;
     }
     #hvr-wrap.hvr-stormfx::before,
     #hvr-wrap.hvr-stormfx::after{
       content:"";
       position:absolute;
-      inset:-18%;
+      inset:-22%;
       pointer-events:none;
-      z-index:3; /* เหนือ playfield แต่ใต้ HUD (HUD z-index:50) */
-      opacity: var(--stormFx, 0);
+      z-index:3; /* above playfield, below HUD */
+      opacity: clamp(0, var(--stormFx,0), 1.45);
       mix-blend-mode: screen;
-      will-change: transform, background-position, opacity;
-      filter: blur(.2px) saturate(1.08) contrast(1.05);
+      will-change: transform, background-position, opacity, filter;
+      filter: blur(var(--stormBlur,.25px)) saturate(1.20) contrast(1.10) brightness(var(--stormBright,1.12));
+      transform: translate3d(0,0,0);
     }
-
-    /* Layer 1: เส้นยาวหนาแน่น (เร็ว) */
     #hvr-wrap.hvr-stormfx::before{
-      background:
+      background-image:
         repeating-linear-gradient(
           118deg,
           rgba(147,197,253,0.00) 0px,
-          rgba(147,197,253,0.00) 10px,
-          rgba(147,197,253,0.22) 12px,
-          rgba(147,197,253,0.00) 18px
+          rgba(147,197,253,0.00) 7px,
+          rgba(147,197,253,0.34) 9px,
+          rgba(147,197,253,0.00) 14px
+        ),
+        repeating-linear-gradient(
+          118deg,
+          rgba(191,219,254,0.00) 0px,
+          rgba(191,219,254,0.00) 18px,
+          rgba(191,219,254,0.18) 19px,
+          rgba(191,219,254,0.00) 30px
         );
-      animation: hvrStormLines1 var(--stormSpeed, .42s) linear infinite;
-      transform: translate3d(0,0,0);
+      animation: hvrStormLines1 var(--stormSpeed,.30s) linear infinite;
     }
     @keyframes hvrStormLines1{
-      0%   { background-position: 0px 0px; transform:translate3d(-12px,-6px,0); }
-      100% { background-position: 220px 160px; transform:translate3d(12px,6px,0); }
+      0%   { background-position: 0px 0px,  0px 0px;  transform:translate3d(-18px,-10px,0) }
+      100% { background-position: 320px 220px, 220px 170px; transform:translate3d(18px,10px,0) }
     }
 
-    /* Layer 2: เส้นเล็กละเอียด (ช้ากว่า) -> parallax */
     #hvr-wrap.hvr-stormfx::after{
-      background:
+      opacity: calc(clamp(0.0, var(--stormFx,0), 1.6) * 0.95);
+      background-image:
         repeating-linear-gradient(
-          98deg,
-          rgba(191,219,254,0.00) 0px,
-          rgba(191,219,254,0.00) 16px,
-          rgba(191,219,254,0.16) 17px,
-          rgba(191,219,254,0.00) 28px
+          96deg,
+          rgba(219,234,254,0.00) 0px,
+          rgba(219,234,254,0.00) 12px,
+          rgba(219,234,254,0.20) 13px,
+          rgba(219,234,254,0.00) 22px
+        ),
+        radial-gradient(closest-side at 50% 55%,
+          rgba(2,6,23,0.00) 58%,
+          rgba(2,6,23,0.35) 78%,
+          rgba(2,6,23,0.62) 100%
         );
-      opacity: calc(var(--stormFx,0) * 0.75);
-      animation: hvrStormLines2 calc(var(--stormSpeed, .42s) * 1.35) linear infinite;
-      transform: translate3d(0,0,0);
+      animation: hvrStormLines2 calc(var(--stormSpeed,.30s) * 1.35) linear infinite;
     }
     @keyframes hvrStormLines2{
-      0%   { background-position: 0px 0px; transform:translate3d(10px,-10px,0); }
-      100% { background-position: 180px 240px; transform:translate3d(-10px,10px,0); }
+      0%   { background-position: 0px 0px, 0 0;   transform:translate3d(14px,-14px,0) }
+      100% { background-position: 260px 360px, 0 0; transform:translate3d(-14px,14px,0) }
+    }
+
+    #hvr-wrap.hvr-stormfx.hvr-storm-pulse::before,
+    #hvr-wrap.hvr-stormfx.hvr-storm-pulse::after{
+      opacity: calc(clamp(0.0, var(--stormFx,0), 1.6) * 1.25);
+      filter: blur(calc(var(--stormBlur,.25px) * 1.4)) saturate(1.35) contrast(1.22) brightness(1.30);
+    }
+
+    #hvr-wrap.hvr-stormfx.hvr-storm-burst::before{
+      animation:
+        hvrStormLines1 var(--stormSpeed,.30s) linear infinite,
+        hvrStormBurst .55s ease-out 1;
+    }
+    #hvr-wrap.hvr-stormfx.hvr-storm-burst::after{
+      animation:
+        hvrStormLines2 calc(var(--stormSpeed,.30s) * 1.35) linear infinite,
+        hvrStormBurst2 .65s ease-out 1;
+    }
+    @keyframes hvrStormBurst{
+      0%   { opacity:0; transform:translate3d(0,0,0) scale(1.08); }
+      35%  { opacity:1; transform:translate3d(0,0,0) scale(1.02); }
+      100% { opacity:clamp(0, var(--stormFx,0), 1.45); transform:translate3d(0,0,0) scale(1.00); }
+    }
+    @keyframes hvrStormBurst2{
+      0%   { opacity:0; transform:translate3d(0,0,0) scale(1.10); }
+      45%  { opacity:1; transform:translate3d(0,0,0) scale(1.03); }
+      100% { opacity:calc(clamp(0.0, var(--stormFx,0), 1.6) * 0.95); transform:translate3d(0,0,0) scale(1.00); }
+    }
+
+    /* =========================================================
+       ✅ NEW: CHROMATIC SPLIT + CONTINUOUS WOBBLE (Storm only)
+       - ทำกับ #hvr-playfield เพื่อไม่ชนกับ shake ที่ใช้ #hvr-wrap
+       ========================================================= */
+    #hvr-wrap.hvr-stormfx #hvr-playfield{
+      transform-origin: 50% 55%;
+      animation: hvrStormWobble .92s ease-in-out infinite;
+      filter:
+        drop-shadow(0.70px 0 rgba(255, 70, 150, .16))
+        drop-shadow(-0.70px 0 rgba( 60, 220, 255, .14));
+    }
+    /* pulse = chroma แรงขึ้นนิด + wobble แรงขึ้นนิด (รู้สึก “กระชาก”) */
+    #hvr-wrap.hvr-stormfx.hvr-storm-pulse #hvr-playfield{
+      animation-duration: .78s;
+      filter:
+        drop-shadow(1.40px 0 rgba(255, 70, 150, .22))
+        drop-shadow(-1.40px 0 rgba( 60, 220, 255, .20));
+    }
+    @keyframes hvrStormWobble{
+      0%{
+        transform:
+          translate3d(calc(var(--stormFx,1)*-0.90px), calc(var(--stormFx,1)*-0.55px), 0)
+          rotate(calc(var(--stormFx,1)*-0.12deg));
+      }
+      50%{
+        transform:
+          translate3d(calc(var(--stormFx,1)* 0.95px), calc(var(--stormFx,1)* 0.65px), 0)
+          rotate(calc(var(--stormFx,1)* 0.12deg));
+      }
+      100%{
+        transform:
+          translate3d(calc(var(--stormFx,1)*-0.90px), calc(var(--stormFx,1)*-0.55px), 0)
+          rotate(calc(var(--stormFx,1)*-0.12deg));
+      }
     }
   `;
-  DOC.head.appendChild(s);
+  ROOT.document.head.appendChild(s);
 
-  const b = DOC.createElement('div');
+  const b = ROOT.document.createElement('div');
   b.id = 'hvr-storm-banner';
   b.innerHTML = `<span class="dot"></span>STORM WAVE <span id="hvr-storm-left">0</span>s`;
-  DOC.body.appendChild(b);
+  ROOT.document.body.appendChild(b);
 })();
 
 // --------------------- Tuning ---------------------
@@ -425,24 +493,24 @@ export async function boot(opts = {}) {
       enabled: !!TUNE.chainEnabled,
       started: false,
       startIn: TUNE.chainStartDelaySec,
-      nextIn: 0,               // cooldown ก่อนขึ้นอันถัดไป
+      nextIn: 0,
       active: false,
       kind: '',
       title: '',
-      left: 0,                 // ใช้กับ cleanse timer
-      need: 0,                 // ใช้กับ perfect chain
-      got: 0,                  // ใช้กับ perfect chain
+      left: 0,
+      need: 0,
+      got: 0,
       clearedCount: 0,
-      failCount: 0,            // fail เฉพาะ junk hit
+      failCount: 0,
       lastFailAt: 0,
       lastClearAt: 0,
     },
 
     rewards: {
       goalsCleared: 0,
-      minisCleared: 0,         // core minis (3 อันของ quest)
-      chainCleared: 0,         // ✅ chain minis เพิ่ม (ต่อเนื่อง)
-      chainFailed: 0,          // ✅ fail จาก junk hit เท่านั้น
+      minisCleared: 0,
+      chainCleared: 0,
+      chainFailed: 0,
       bonuses: [],
       surCleared: 0,
       bossSurvived: 0
@@ -456,6 +524,28 @@ export async function boot(opts = {}) {
     stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} }
   };
 
+  // ✅ NEW: Storm pulse driver (for heavier feeling)
+  let _stormPrevOn = false;
+  let _stormPulseTimer = null;
+
+  function setStormPulse(on){
+    const wrap = $id('hvr-wrap');
+    if (!wrap) return;
+
+    if (!on){
+      if (_stormPulseTimer) { try{ clearInterval(_stormPulseTimer); }catch{} }
+      _stormPulseTimer = null;
+      wrap.classList.remove('hvr-storm-pulse');
+      return;
+    }
+
+    if (_stormPulseTimer) return;
+    _stormPulseTimer = setInterval(()=>{
+      wrap.classList.add('hvr-storm-pulse');
+      setTimeout(()=>wrap.classList.remove('hvr-storm-pulse'), 110);
+    }, 320);
+  }
+
   function updateStormUI(){
     const left = state.stormLeft|0;
 
@@ -467,20 +557,35 @@ export async function boot(opts = {}) {
       else b.classList.remove('on');
     }
 
-    // ✅ NEW: toggle “speed lines / wind streaks” overlay บน #hvr-wrap
     const wrap = $id('hvr-wrap');
-    if (wrap){
-      const on = left > 0;
-      wrap.classList.toggle('hvr-stormfx', on);
+    if (!wrap) return;
 
-      // intensity 0..1 (ตามเวลาที่เหลือ) -> ทำให้ตอนใกล้หมดจะเบาลงเอง
-      const intensity = on ? clamp(left / 8, 0.28, 1.0) : 0;
-      wrap.style.setProperty('--stormFx', String(intensity));
+    const on = left > 0;
+    wrap.classList.toggle('hvr-stormfx', on);
 
-      // ยิ่ง intense ยิ่งเร็ว (dur น้อยลง)
-      const speed = on ? clamp(0.58 - intensity * 0.26, 0.30, 0.62) : 0.62;
-      wrap.style.setProperty('--stormSpeed', `${speed.toFixed(2)}s`);
+    // intensity หนักขึ้น (อนุญาต >1)
+    const intensity = on ? clamp((left / 8), 0.55, 1.55) : 0;
+    wrap.style.setProperty('--stormFx', String(intensity));
+
+    // speed เร็วขึ้นมาก
+    const speed = on ? clamp(0.34 - intensity * 0.10, 0.22, 0.34) : 0.45;
+    wrap.style.setProperty('--stormSpeed', `${speed.toFixed(2)}s`);
+
+    wrap.style.setProperty('--stormBright', String(on ? clamp(1.10 + intensity * 0.12, 1.12, 1.36) : 1.0));
+    wrap.style.setProperty('--stormBlur', `${on ? clamp(0.22 + intensity * 0.10, 0.22, 0.42) : 0.2}px`);
+
+    // burst ตอนเริ่ม storm
+    if (on && !_stormPrevOn){
+      wrap.classList.add('hvr-storm-burst');
+      setTimeout(()=>wrap.classList.remove('hvr-storm-burst'), 680);
+
+      try{ megaCelebrate('storm'); }catch{}
+      try{ Particles.toast && Particles.toast('🌪️ STORM WAVE!!'); }catch{}
     }
+
+    // pulse ตลอดช่วง storm
+    setStormPulse(on);
+    _stormPrevOn = on;
   }
 
   function normalizeZone(z){
@@ -635,7 +740,7 @@ export async function boot(opts = {}) {
   }
 
   // ==========================================================
-  // ✅ NEW: MINI CHAIN SYSTEM (ต่อเนื่อง) — 2 ชนิดใหม่
+  // ✅ MINI CHAIN SYSTEM
   // ==========================================================
   function chainPickKind(){
     return (Math.random() < 0.5) ? 'cleanse' : 'pchain';
@@ -651,7 +756,6 @@ export async function boot(opts = {}) {
     const need = isEasy ? TUNE.pchainNeedEasy : (isHard ? TUNE.pchainNeedHard : TUNE.pchainNeedNormal);
     return { left: 0, need };
   }
-
   function chainStartIfReady(){
     if (!state.chain.enabled) return;
     if (state.chain.started) return;
@@ -660,7 +764,6 @@ export async function boot(opts = {}) {
     state.chain.nextIn = 0;
     chainNext();
   }
-
   function chainNext(){
     if (!state.chain.enabled) return;
     if (state.timeLeft <= 0) return;
@@ -690,7 +793,6 @@ export async function boot(opts = {}) {
 
     updateQuestHud();
   }
-
   function chainClear(extraNote=''){
     if (!state.chain.active) return;
 
@@ -716,7 +818,6 @@ export async function boot(opts = {}) {
     state.chain.nextIn = TUNE.chainBetweenDelaySec;
     updateQuestHud();
   }
-
   function chainFailByJunk(){
     if (!state.chain.active) return;
 
@@ -737,7 +838,6 @@ export async function boot(opts = {}) {
     state.chain.nextIn = TUNE.chainBetweenDelaySec;
     updateQuestHud();
   }
-
   function chainOnSecond(){
     if (!state.chain.enabled) return;
 
@@ -764,7 +864,6 @@ export async function boot(opts = {}) {
       }
     }
   }
-
   function chainOnGoodHit(ctx){
     if (!state.chain.active) return;
     if (!ctx) return;
@@ -795,7 +894,6 @@ export async function boot(opts = {}) {
     dispatch('hha:coach', { text:`⚡ SURPRISE MINI! เก็บน้ำดี ${state.surprise.need} ภายใน ${TUNE.surpriseWindowSec} วิ และห้ามโดนขยะ!`, mood:'happy' });
     megaCelebrate('mini');
   }
-
   function clearSurpriseMini(){
     state.surprise.active = false;
     state.surprise.cleared = true;
@@ -814,7 +912,6 @@ export async function boot(opts = {}) {
     try{ Particles.toast && Particles.toast('💥 SURPRISE CLEAR!! รางวัลจัดหนัก!!'); }catch{}
     dispatch('hha:coach', { text:'💥 สุดยอด! SURPRISE MINI ผ่านแล้ว! โบนัสจัดหนัก!!', mood:'happy' });
   }
-
   function failSurpriseMini(){
     if (!state.surprise.active) return;
     state.surprise.active = false;
@@ -893,7 +990,6 @@ export async function boot(opts = {}) {
       miniTotal: allMinis.length || 3,
       goalText: goalEl ? goalEl.textContent : '',
       miniText: miniEl ? miniEl.textContent : '',
-
       goal: {
         title: goalTitle,
         cur: goalsDone,
@@ -1035,6 +1131,7 @@ export async function boot(opts = {}) {
 
     if ((isGood || isPower) && ctx.hitPerfect) scoreDelta += TUNE.scorePerfectBonus;
     if ((isGood || isPower) && state.feverActive) scoreDelta += TUNE.scoreFeverBonus;
+
     if (scoreDelta > 0) scoreDelta = Math.round(scoreDelta * stormMul);
 
     if (isGood || isPower){
@@ -1169,7 +1266,6 @@ export async function boot(opts = {}) {
     }
 
     Q.second();
-
     chainOnSecond();
 
     if (!state.surprise.cleared && !state.surprise.failed && !state.surprise.active){
@@ -1200,30 +1296,11 @@ export async function boot(opts = {}) {
 
     if (state.feverActive){
       state.feverLeft -= 1;
-      if (state.feverLeft <= 0) {
-        state.feverActive = false;
-        state.feverLeft = 0;
-        state.fever = clamp(state.fever * 0.35, 0, 100);
-        feverRender();
-        dispatch('hha:fever', { state:'end', value: state.fever, active:false, shield: state.shield });
-        dispatch('hha:coach', { text:'ดีมาก! FEVER จบแล้ว กลับไปรักษา GREEN ต่อ 💧', mood:'neutral' });
-      } else {
-        state.fever = 100;
-        feverRender();
-      }
+      if (state.feverLeft <= 0) feverEnd();
+      else { state.fever = 100; feverRender(); }
     } else {
       state.fever = clamp(state.fever - TUNE.feverAutoDecay, 0, 100);
       feverRender();
-      if (state.fever >= TUNE.feverTriggerAt) {
-        state.feverActive = true;
-        state.feverLeft = TUNE.feverDurationSec;
-        state.fever = TUNE.feverTriggerAt;
-        state.shield = clamp(state.shield + TUNE.shieldOnFeverStart, 0, TUNE.shieldMax);
-        feverRender();
-        dispatch('hha:fever', { state:'start', value: state.fever, active:true, shield: state.shield });
-        dispatch('hha:coach', { text:'🔥 FEVER! แตะให้ไว คะแนนคูณ! +ได้เกราะด้วย 🛡️', mood:'happy' });
-        megaCelebrate('fever');
-      }
     }
 
     if (state.timeLeft <= 10 && state.timeLeft > 0){
@@ -1302,6 +1379,9 @@ export async function boot(opts = {}) {
     try{ if (timer) ROOT.clearInterval(timer); }catch{}
     timer = null;
 
+    // stop storm pulse timer
+    setStormPulse(false);
+
     try{ spawner && spawner.stop && spawner.stop(); }catch{}
     try{ ROOT.removeEventListener('hha:stop', onStop); }catch{}
 
@@ -1341,6 +1421,7 @@ export async function boot(opts = {}) {
       chainFailed: state.rewards.chainFailed|0,
 
       grade, progPct,
+
       rewards: state.rewards,
     });
   }
