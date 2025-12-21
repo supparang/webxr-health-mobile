@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Step G boot binder
+// Step H binder: kick+chroma + hero burst overlay
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
 
@@ -60,7 +60,9 @@ export function boot(){
 
   const elVortex = $('stun-vortex');
   const elBeacon = $('boss-beacon');
-  const gameRoot = $('game-root');
+
+  const gameCam = $('game-cam');
+  const fxChroma = $('fx-chroma');
 
   // Boss HUD
   const elBossWrap = $('boss-wrap');
@@ -92,10 +94,7 @@ export function boot(){
   const CH_INIT = normCh(URL_CH);
 
   const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
-  const DUR_INIT = clamp(
-    (Number.isFinite(URL_TIME_RAW) ? URL_TIME_RAW : (DEFAULT_TIME[DIFF_INIT] || 60)),
-    20, 180
-  );
+  const DUR_INIT = clamp((Number.isFinite(URL_TIME_RAW) ? URL_TIME_RAW : (DEFAULT_TIME[DIFF_INIT] || 60)), 20, 180);
 
   const COACH_IMG = {
     neutral: './img/coach-neutral.png',
@@ -161,44 +160,10 @@ export function boot(){
 
   function attachTouch(cameraEl){
     if (!cameraEl) return;
-    try{
-      attachTouchLook(cameraEl, { sensitivity: 0.26, areaEl: document.body });
-    }catch(_){}
+    try{ attachTouchLook(cameraEl, { sensitivity: 0.26, areaEl: document.body }); }catch(_){}
   }
 
-  // ------------------ AIM POINT (ศูนย์กลาง STUN) ------------------
-  function setAimPoint(x, y){
-    window.__GJ_AIM_POINT__ = { x: x|0, y: y|0, t: Date.now() };
-    if (elVortex){
-      elVortex.style.left = (x|0) + 'px';
-      elVortex.style.top  = (y|0) + 'px';
-    }
-  }
-  function defaultAim(){ setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62); }
-
-  function bindAimListeners(){
-    const layer = document.getElementById('gj-layer');
-    if (!layer) return;
-    defaultAim();
-
-    layer.addEventListener('pointerdown', (e)=>{
-      if (typeof e.clientX === 'number' && typeof e.clientY === 'number'){
-        setAimPoint(e.clientX, e.clientY);
-      }
-    }, { passive:true });
-
-    window.addEventListener('resize', ()=>{
-      const ap = window.__GJ_AIM_POINT__;
-      if (!ap) defaultAim();
-      else{
-        const x = Math.max(20, Math.min(window.innerWidth-20, ap.x|0));
-        const y = Math.max(20, Math.min(window.innerHeight-20, ap.y|0));
-        setAimPoint(x, y);
-      }
-    });
-  }
-
-  // ------------------ tiny beep helper (no external files) ------------------
+  // Audio beep helper
   let __audioCtx = null;
   function beep(freq=880, ms=70, gain=0.035){
     try{
@@ -217,20 +182,49 @@ export function boot(){
     }catch(_){}
   }
 
-  // ------------------ Quest shared state ------------------
+  // AIM POINT
+  function setAimPoint(x, y){
+    window.__GJ_AIM_POINT__ = { x: x|0, y: y|0, t: Date.now() };
+    if (elVortex){
+      elVortex.style.left = (x|0) + 'px';
+      elVortex.style.top  = (y|0) + 'px';
+    }
+  }
+  function defaultAim(){ setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62); }
+
+  function bindAimListeners(){
+    const layer = document.getElementById('gj-layer');
+    if (!layer) return;
+    defaultAim();
+    layer.addEventListener('pointerdown', (e)=>{
+      if (typeof e.clientX === 'number' && typeof e.clientY === 'number'){
+        setAimPoint(e.clientX, e.clientY);
+      }
+    }, { passive:true });
+
+    window.addEventListener('resize', ()=>{
+      const ap = window.__GJ_AIM_POINT__;
+      if (!ap) defaultAim();
+      else{
+        const x = Math.max(20, Math.min(window.innerWidth-20, ap.x|0));
+        const y = Math.max(20, Math.min(window.innerHeight-20, ap.y|0));
+        setAimPoint(x, y);
+      }
+    });
+  }
+
+  // Quest shared state
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
-    streakGood:0,
-    goldHitsThisMini:false,
-    blocks:0,
-    usedMagnet:false,
-    timePlus:0,
-    safeNoJunkSeconds:0,
-    bossCleared:false,
-    challenge: CH_INIT,
-    runMode: RUN_MODE,
-    final8Good: 0
+    streakGood:0, goldHitsThisMini:false, blocks:0, usedMagnet:false,
+    timePlus:0, safeNoJunkSeconds:0, bossCleared:false,
+    challenge: CH_INIT, runMode: RUN_MODE, final8Good: 0
   };
+
+  let started = false;
+  setInterval(()=>{ if (started) qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1; }, 1000);
+
+  let Q = null;
 
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = false;
@@ -241,14 +235,6 @@ export function boot(){
     qState.streakGood = 0;
     qState.final8Good = 0;
   });
-
-  let started = false;
-  setInterval(()=>{
-    if (!started) return;
-    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
-  }, 1000);
-
-  let Q = null;
 
   window.addEventListener('quest:goodHit', ()=>{
     qState.streakGood = (qState.streakGood|0) + 1;
@@ -277,10 +263,8 @@ export function boot(){
     if (Q) Q.tick(qState);
   });
 
-  // ------------------ HUD listeners ------------------
-  window.addEventListener('hha:judge', (e)=>{
-    safeText(elJudge, (e.detail||{}).label || '\u00A0');
-  });
+  // HUD basics
+  window.addEventListener('hha:judge', (e)=>{ safeText(elJudge, (e.detail||{}).label || '\u00A0'); });
 
   window.addEventListener('hha:time', (e)=>{
     const sec = (e.detail||{}).sec;
@@ -314,7 +298,7 @@ export function boot(){
     if (elBossPhase) elBossPhase.textContent = bossAlive ? ('P' + (phase|0)) : 'P1';
   });
 
-  // Fever/Shield + STUN badge + vortex + shake (Step G)
+  // Fever/Shield + STUN + shake intensity by fever%
   window.addEventListener('hha:fever', (e)=>{
     const d = e.detail || {};
     const fever = Math.max(0, Math.min(100, Number(d.fever||0)));
@@ -326,7 +310,6 @@ export function boot(){
     if (elShield) safeText(elShield, String(shield|0));
     if (elStunBadge) elStunBadge.classList.toggle('show', stunActive);
 
-    // vortex show only when stun
     if (elVortex){
       elVortex.classList.toggle('show', stunActive);
       const ap = window.__GJ_AIM_POINT__;
@@ -336,22 +319,20 @@ export function boot(){
       }
     }
 
-    // shake scales by fever (strong near 100)
-    if (gameRoot){
+    if (gameCam){
       const amp = (fever/100);
-      const px = (amp < 0.18) ? 0 : (0.6 + amp*2.8);   // 0..~3.4px
+      const px = (amp < 0.18) ? 0 : (0.6 + amp*2.8);
       document.documentElement.style.setProperty('--shakeAmp', px.toFixed(2)+'px');
       document.documentElement.style.setProperty('--shakeDur', (0.30 - amp*0.10).toFixed(2)+'s');
-      gameRoot.classList.toggle('shake', fever >= 18);
-      gameRoot.classList.toggle('stun-fire', stunActive);
+      gameCam.classList.toggle('shake', fever >= 18);
+      gameCam.classList.toggle('stun-fire', stunActive);
     }
 
-    // tiny warning beep near full
     if (fever >= 92 && !stunActive) beep(980, 40, 0.025);
     if (stunActive) beep(220, 30, 0.02);
   });
 
-  // Step F: final pulse -> vortex lock animation
+  // Final lock pulse
   window.addEventListener('hha:finalPulse', (e)=>{
     const sec = (e.detail||{}).secLeft|0;
     if (elVortex){
@@ -363,7 +344,7 @@ export function boot(){
     if (sec > 0) setCoach(`🏁 FINAL LOCK! เหลือ ${sec}s — อย่าพลาด!`, 'fever', 1400);
   });
 
-  // Step G: boss pulse beacon -> “ย้ายศูนย์กลาง”
+  // Boss beacon
   let beaconTimer = null;
   window.addEventListener('hha:bossPulse', (e)=>{
     const d = e.detail || {};
@@ -378,13 +359,53 @@ export function boot(){
       beaconTimer = setTimeout(()=>{ try{ elBeacon.classList.remove('show'); }catch(_){ } }, Math.max(300, ttl|0));
     }
 
-    // urgent feedback
     beep(1040, 70, 0.035);
     try{ navigator.vibrate && navigator.vibrate([25,40,25]); }catch(_){}
     setCoach('⚠️ BOSS PULSE! แตะย้าย “ศูนย์กลาง” ไปที่วงสีทองเร็ว!', 'fever', 1800);
   });
 
-  // Quest bars
+  // ✅ Step H FX: kick + chroma + hero overlay
+  let kickTimer = null;
+  let chromaTimer = null;
+
+  function doKick(intensity=1){
+    if (!gameCam) return;
+    const amp = Math.max(6, Math.min(18, 10 * intensity));
+    const rot = Math.max(2, Math.min(8, 4 * intensity));
+    document.documentElement.style.setProperty('--kickAmp', amp.toFixed(0)+'px');
+    document.documentElement.style.setProperty('--kickRot', rot.toFixed(0)+'deg');
+
+    gameCam.classList.add('kick');
+    if (kickTimer) clearTimeout(kickTimer);
+    kickTimer = setTimeout(()=>{ try{ gameCam.classList.remove('kick'); }catch(_){ } }, 260);
+  }
+
+  function doChroma(ms=180, hero=false){
+    if (!fxChroma) return;
+    fxChroma.classList.toggle('hero', !!hero);
+    fxChroma.classList.add('show');
+    if (chromaTimer) clearTimeout(chromaTimer);
+    chromaTimer = setTimeout(()=>{ try{ fxChroma.classList.remove('show'); fxChroma.classList.remove('hero'); }catch(_){ } }, Math.max(120, ms|0));
+  }
+
+  window.addEventListener('hha:fx', (e)=>{
+    const d = e.detail || {};
+    const type = String(d.type||'');
+    if (type === 'kick'){
+      doKick(Number(d.intensity||1));
+      beep(160, 70, 0.03);
+      try{ navigator.vibrate && navigator.vibrate(25); }catch(_){}
+    } else if (type === 'chroma'){
+      doChroma(Number(d.ms||180), false);
+      beep(220, 40, 0.02);
+    } else if (type === 'hero'){
+      doChroma(Number(d.ms||180), true);
+      beep(740, 60, 0.03);
+      try{ navigator.vibrate && navigator.vibrate([10,20,10]); }catch(_){}
+    }
+  });
+
+  // quest:update
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
@@ -463,7 +484,7 @@ export function boot(){
     }, { once:true });
   }
 
-  // ✅ End summary
+  // End summary
   window.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
     safeText(sumScore, String(d.score|0));
@@ -477,10 +498,7 @@ export function boot(){
   });
 
   btnReplay && btnReplay.addEventListener('click', ()=>{ location.reload(); });
-  btnExit && btnExit.addEventListener('click', ()=>{
-    // ถ้าอยู่ใน hub structure ให้กลับ /herohealth/hub.html
-    location.href = './hub.html';
-  });
+  btnExit && btnExit.addEventListener('click', ()=>{ location.href = './hub.html'; });
 
   // Logger init (IIFE)
   function initLogger(){
@@ -541,7 +559,6 @@ export function boot(){
       waitSceneReady(async ()=>{
         if (wantVR) await tryEnterVR();
 
-        // start engine
         const ENGINE = goodjunkBoot({
           diff,
           run: RUN_MODE,
