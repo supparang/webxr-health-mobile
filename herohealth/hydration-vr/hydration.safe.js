@@ -1,4 +1,13 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
+// Hydration Quest VR — PRODUCTION (ROOT html: /herohealth/hydration-vr.html)
+//
+// ✅ ใช้ mode-factory (DOM target spawner + crosshair shoot + perfect ring)
+// ✅ คืน FX: score pop + judgment + burst (Particles)
+// ✅ Drag view: เลื่อนจอแล้วเป้าเลื่อนตาม (host transform)
+// ✅ PERFECT: ดาวแตกหนัก ๆ + chroma flash + burst
+// ✅ Storm: sway แรง/เร็ว + speedlines + wobble + chroma split ต่อเนื่อง
+// ✅ Fix zone counting: ใช้ zone จาก ui-water (LOW/GREEN/HIGH) แล้ว map เป็น BLUE/GREEN/RED
+
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
@@ -10,529 +19,738 @@ const DOC  = ROOT.document;
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  null;
+  { scorePop(){}, burstAt(){}, celebrate(){} };
 
-function $(id){ return DOC ? DOC.getElementById(id) : null; }
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-function now(){ return (typeof performance !== 'undefined') ? performance.now() : Date.now(); }
+function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
+function now(){ return (typeof performance!=='undefined' && performance.now)?performance.now():Date.now(); }
+function $id(id){ return DOC ? DOC.getElementById(id) : null; }
 
-function zoneLabel(zoneCode){
-  if (zoneCode === 'LOW') return 'BLUE';
-  if (zoneCode === 'HIGH') return 'RED';
+function setText(id, txt){
+  const el = $id(id);
+  if (el) el.textContent = String(txt);
+}
+function addClass(el, c){ try{ el && el.classList.add(c); }catch{} }
+function removeClass(el, c){ try{ el && el.classList.remove(c); }catch{} }
+
+function zoneLabelFrom(zone){
+  // ui-water: LOW / GREEN / HIGH
+  if (zone === 'LOW') return 'BLUE';
+  if (zone === 'HIGH') return 'RED';
   return 'GREEN';
 }
 
-function ensureFallbackFxLayer(){
-  let layer = DOC.querySelector('.hvr-fx-layer');
-  if (layer) return layer;
-  layer = DOC.createElement('div');
-  layer.className = 'hvr-fx-layer';
-  DOC.body.appendChild(layer);
-  return layer;
-}
-
-function fxText(text, x, y, opts = {}){
-  const layer = ensureFallbackFxLayer();
-  const el = DOC.createElement('div');
-  el.textContent = text;
-  Object.assign(el.style, {
-    position:'fixed',
-    left: (x|0) + 'px',
-    top: (y|0) + 'px',
-    transform:'translate(-50%,-50%)',
-    fontWeight:'1000',
-    letterSpacing:'.04em',
-    fontSize: (opts.size||16) + 'px',
-    textShadow:'0 10px 28px rgba(0,0,0,.55)',
-    opacity:'1',
-    pointerEvents:'none',
-    zIndex:'99989',
-    filter:'drop-shadow(0 10px 18px rgba(0,0,0,.35))',
-    willChange:'transform,opacity'
-  });
-  el.style.color = opts.color || '#e5e7eb';
-  layer.appendChild(el);
-
-  const dy = opts.dy ?? -46;
-  const t0 = now();
-  const dur = opts.dur ?? 520;
-
-  function step(){
-    const t = now();
-    const p = clamp((t - t0) / dur, 0, 1);
-    const ease = 1 - Math.pow(1-p, 3);
-    el.style.transform = `translate(-50%, -50%) translateY(${(dy*ease).toFixed(1)}px) scale(${(1+0.08*(1-p)).toFixed(3)})`;
-    el.style.opacity = String(1 - p);
-    if (p < 1) requestAnimationFrame(step);
-    else { try{ el.remove(); }catch{} }
-  }
-  requestAnimationFrame(step);
-}
-
-function fxScore(delta, x, y){
-  // prefer particles.js
-  if (Particles && typeof Particles.scorePop === 'function'){
-    try{ Particles.scorePop((delta>=0?`+${delta}`:`${delta}`), x, y); return; }catch{}
-  }
-  fxText(delta>=0?`+${delta}`:`${delta}`, x, y, { size:16, color: delta>=0?'#a7f3d0':'#fecaca', dy:-56, dur:620 });
-}
-
-function fxJudge(label, x, y, kind){
-  const map = {
-    PERFECT: { color:'#fde68a', size:18 },
-    GOOD:    { color:'#86efac', size:16 },
-    MISS:    { color:'#fca5a5', size:16 },
-    POWER:   { color:'#93c5fd', size:16 }
-  };
-  const st = map[label] || { color:'#e5e7eb', size:16 };
-
-  if (Particles && typeof Particles.judgeText === 'function'){
-    try{ Particles.judgeText(label, x, y, kind); return; }catch{}
-  }
-  fxText(label, x, y-22, { size: st.size, color: st.color, dy:-40, dur:520 });
-}
-
-function fxBurst(kind, x, y){
-  if (Particles && typeof Particles.burstAt === 'function'){
-    try{ Particles.burstAt(x, y, { kind, power: 1.35 }); return; }catch{}
-  }
-  // fallback: burst เป็นข้อความจิ๋ว
-  const t = kind === 'STAR' ? '✨' : (kind === 'SPLASH' ? '💦' : '💥');
-  fxText(t, x, y, { size:18, color:'#e5e7eb', dy:-34, dur:420 });
-}
-
-function blink(type){
-  const el = $('hvr-screen-blink');
-  if (!el) return;
-  el.className = '';
-  el.classList.add(type || 'good');
-  el.classList.add('on');
-  ROOT.setTimeout(()=>{ try{ el.classList.remove('on'); }catch{} }, 110);
-}
-
-function pickDiff(d){
-  d = String(d||'easy').toLowerCase();
-  if (d === 'hard') return {
-    goalGreenSec: 34,
-    maxBadSec: 18,
-    miniCombo: 10,
-    miniPerfect: 6,
-    miniNoJunkSec: 14,
-    scorePerfect: 28,
-    scoreGood: 16,
-    penBad: -35,
-    waterGood: +3.2,
-    waterBad: -10.0,
-    stormEverySec: 22,
-    stormLenSec: 7
-  };
-  if (d === 'normal') return {
-    goalGreenSec: 32,
-    maxBadSec: 22,
-    miniCombo: 9,
-    miniPerfect: 5,
-    miniNoJunkSec: 12,
-    scorePerfect: 26,
-    scoreGood: 14,
-    penBad: -30,
-    waterGood: +3.0,
-    waterBad: -9.0,
-    stormEverySec: 24,
-    stormLenSec: 6
-  };
-  return {
-    goalGreenSec: 28,
-    maxBadSec: 26,
-    miniCombo: 8,
-    miniPerfect: 4,
-    miniNoJunkSec: 10,
-    scorePerfect: 24,
-    scoreGood: 12,
-    penBad: -26,
-    waterGood: +2.7,
-    waterBad: -8.0,
-    stormEverySec: 26,
-    stormLenSec: 6
-  };
-}
-
-function gradeFromScore(score){
-  score = Number(score)||0;
-  if (score >= 2300) return 'SSS';
-  if (score >= 1750) return 'SS';
-  if (score >= 1350) return 'S';
-  if (score >= 950)  return 'A';
-  if (score >= 650)  return 'B';
+function gradeFrom(score){
+  // โทนเดียวกับซีรีส์เกมคุณ (ง่ายต่อการอ่าน)
+  if (score >= 2600) return 'SSS';
+  if (score >= 2000) return 'SS';
+  if (score >= 1500) return 'S';
+  if (score >= 1100) return 'A';
+  if (score >= 700)  return 'B';
   return 'C';
 }
-function gradeProgress(score){
-  score = Number(score)||0;
-  const tiers = [
-    { g:'C',  min:0,    max:650 },
-    { g:'B',  min:650,  max:950 },
-    { g:'A',  min:950,  max:1350 },
-    { g:'S',  min:1350, max:1750 },
-    { g:'SS', min:1750, max:2300 },
-    { g:'SSS',min:2300, max:2600 }
-  ];
-  let cur = tiers[0];
-  for (const t of tiers){ if (score >= t.min) cur = t; }
-  const span = Math.max(1, cur.max - cur.min);
-  const pct = clamp((score - cur.min)/span, 0, 1);
-  return { grade: gradeFromScore(score), pct, next: (cur.g==='SSS'?'MAX':cur.max) };
+
+function ensureHydrationStyle(){
+  if (!DOC || DOC.getElementById('hvr-hydration-style')) return;
+  const s = DOC.createElement('style');
+  s.id = 'hvr-hydration-style';
+  s.textContent = `
+    /* 2-layer parallax backgrounds */
+    #hvr-playfield{
+      --view-x: 0px;
+      --view-y: 0px;
+    }
+    .hvr-parallax{
+      position:absolute;
+      inset:-12%;
+      pointer-events:none;
+      transform: translate3d(calc(var(--view-x) * var(--px, 0.2)), calc(var(--view-y) * var(--py, 0.2)), 0);
+      will-change: transform;
+      opacity: var(--op, 0.35);
+      filter: blur(var(--blur, 0px));
+    }
+    .hvr-parallax.l1{
+      --px: 0.18; --py: 0.14; --op:0.26; --blur:0px;
+      background:
+        radial-gradient(900px 600px at 20% 15%, rgba(96,165,250,.18), transparent 60%),
+        radial-gradient(800px 620px at 80% 20%, rgba(34,197,94,.16), transparent 60%),
+        radial-gradient(900px 700px at 50% 70%, rgba(59,130,246,.10), transparent 65%);
+      mix-blend-mode: screen;
+    }
+    .hvr-parallax.l2{
+      --px: 0.42; --py: 0.34; --op:0.20; --blur:0.2px;
+      background:
+        repeating-radial-gradient(circle at 30% 40%, rgba(255,255,255,.08) 0 2px, transparent 2px 26px),
+        repeating-linear-gradient(45deg, rgba(59,130,246,.06) 0 1px, transparent 1px 18px);
+      mix-blend-mode: overlay;
+      transform: translate3d(calc(var(--view-x) * var(--px, 0.42)), calc(var(--view-y) * var(--py, 0.34)), 0) rotate(0.0001deg);
+    }
+
+    /* postFX chroma/wobble controlled by classes */
+    #hvr-wrap.hvr-chroma{
+      filter:
+        drop-shadow(2.6px 0 rgba(255, 40, 80, 0.55))
+        drop-shadow(-1.6px 0 rgba(0, 190, 255, 0.22));
+    }
+
+    #hvr-wrap.hvr-wobble{
+      animation: hvrWobble 1.05s ease-in-out infinite;
+    }
+    @keyframes hvrWobble{
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      25%{ transform: translate3d(0.6px,-0.4px,0) rotate(0.03deg); }
+      50%{ transform: translate3d(-0.7px,0.5px,0) rotate(-0.03deg); }
+      75%{ transform: translate3d(0.4px,0.6px,0) rotate(0.02deg); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+    }
+
+    /* Storm speedlines overlay */
+    .hvr-speedlines{
+      position:fixed;
+      inset:-20%;
+      pointer-events:none;
+      z-index:99960;
+      opacity:0;
+      transform: translate3d(0,0,0);
+      mix-blend-mode: screen;
+      background:
+        repeating-linear-gradient(110deg,
+          rgba(255,255,255,.00) 0 18px,
+          rgba(255,80,120,.10) 18px 20px,
+          rgba(0,190,255,.08) 20px 22px,
+          rgba(255,255,255,.00) 22px 44px
+        );
+      filter: blur(0.6px) saturate(1.08) contrast(1.06);
+      animation: hvrLines 0.32s linear infinite;
+    }
+    @keyframes hvrLines{
+      0%{ transform: translate3d(-10px, -10px, 0); }
+      100%{ transform: translate3d(26px, 22px, 0); }
+    }
+    .hvr-speedlines.on{ opacity:0.30; }
+
+    /* tiny perfect flash pulse (short) */
+    #hvr-wrap.hvr-perfect-pulse{
+      animation: hvrPerfectPulse 180ms ease-out 1;
+    }
+    @keyframes hvrPerfectPulse{
+      0%{ filter: saturate(1) contrast(1); }
+      45%{ filter: saturate(1.25) contrast(1.12); }
+      100%{ filter: saturate(1) contrast(1); }
+    }
+  `;
+  DOC.head.appendChild(s);
 }
 
-function hudSet(id,v){ const el=$(id); if(el) el.textContent=String(v); }
-function hudQuest(goalText, miniText){
-  const g=$('hha-quest-goal'); const m=$('hha-quest-mini');
-  if(g) g.textContent = goalText || 'Goal: —';
-  if(m) m.textContent = miniText || 'Mini: —';
+function ensurePostFXCanvas(){
+  const c = $id('hvr-postfx');
+  if (!c) return null;
+  const ctx = c.getContext('2d');
+  function resize(){
+    const dpr = Math.max(1, Math.min(2, ROOT.devicePixelRatio || 1));
+    c.width  = Math.floor((ROOT.innerWidth||1) * dpr);
+    c.height = Math.floor((ROOT.innerHeight||1) * dpr);
+    c.style.width = '100%';
+    c.style.height = '100%';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();
+  ROOT.addEventListener('resize', resize, { passive:true });
+  return { c, ctx, resize };
 }
 
-export async function boot(opts = {}) {
-  const diffKey = String(opts.difficulty || 'easy').toLowerCase();
-  const duration = clamp(opts.duration ?? 90, 20, 180);
-  const D = pickDiff(diffKey);
+function drawStarBurst(ctx, x, y, t, strength=1){
+  const n = Math.floor(18 + 18*strength);
+  const r0 = 6 + 10*strength;
+  const r1 = 40 + 70*strength;
+  ctx.save();
+  ctx.translate(x,y);
 
+  // chroma-ish glow
+  ctx.globalCompositeOperation = 'screen';
+
+  for (let i=0;i<n;i++){
+    const a = (i/n) * Math.PI*2 + (t*0.002);
+    const rr = r0 + (r1-r0) * (0.25 + 0.75*Math.random());
+    const w = 1 + 2*strength;
+    ctx.strokeStyle = `rgba(255, 60, 110, ${0.10 + 0.10*strength})`;
+    ctx.lineWidth = w;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*r0, Math.sin(a)*r0);
+    ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
+    ctx.stroke();
+
+    const a2 = a + 0.18;
+    ctx.strokeStyle = `rgba(0, 190, 255, ${0.07 + 0.10*strength})`;
+    ctx.lineWidth = w*0.85;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a2)*r0, Math.sin(a2)*r0);
+    ctx.lineTo(Math.cos(a2)*rr*0.92, Math.sin(a2)*rr*0.92);
+    ctx.stroke();
+  }
+
+  // sparkle dots
+  for (let k=0;k<16;k++){
+    const a = Math.random()*Math.PI*2;
+    const rr = 10 + Math.random()* (68*strength);
+    ctx.fillStyle = `rgba(255,255,255,${0.12 + 0.18*Math.random()})`;
+    ctx.beginPath();
+    ctx.arc(Math.cos(a)*rr, Math.sin(a)*rr, 1.2 + 2.2*Math.random(), 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+export async function boot(opts = {}){
+  if (!DOC) return { stop(){} };
+
+  ensureHydrationStyle();
   ensureWaterGauge();
-  ensureFallbackFxLayer(); // เผื่อ particles.js ไม่มา
 
-  // PostFX
-  const PostFX = ROOT.PostFXCanvas || null;
-  try{
-    PostFX && PostFX.init({
-      zIndex: 46, blendMode:'screen', opacity: 1,
-      strength: 1.05, chroma: 1.25, wobble: 0.85, scan: 0.55, vignette: 0.85, speedlines: 0.70,
-      tiltEnabled: true
-    });
-  }catch{}
+  const wrap = $id('hvr-wrap');
+  const playfield = $id('hvr-playfield');
+  const blink = $id('hvr-screen-blink');
 
-  const state = {
-    timeLeft: duration,
+  // Build parallax layers
+  if (playfield && !playfield.querySelector('.hvr-parallax')){
+    const l1 = DOC.createElement('div'); l1.className = 'hvr-parallax l1';
+    const l2 = DOC.createElement('div'); l2.className = 'hvr-parallax l2';
+    playfield.appendChild(l1);
+    playfield.appendChild(l2);
+  }
+
+  // speedlines overlay
+  let speedLines = DOC.querySelector('.hvr-speedlines');
+  if (!speedLines){
+    speedLines = DOC.createElement('div');
+    speedLines.className = 'hvr-speedlines';
+    DOC.body.appendChild(speedLines);
+  }
+
+  const post = ensurePostFXCanvas();
+
+  // difficulty
+  const diff = String(opts.difficulty || 'easy').toLowerCase();
+  const duration = clamp(opts.duration ?? 90, 20, 180);
+
+  // pools
+  const GOOD = ['💧','🧊','🥤','🫧']; // น้ำ/น้ำแข็ง/ขวด/ฟอง
+  const BAD  = ['🍟','🥤','🍩','🍕']; // junk
+  const POWER = ['⭐','⚡','✨'];
+
+  // state
+  const s = {
+    running: true,
+    startedAt: now(),
+
     score: 0,
     combo: 0,
     comboMax: 0,
     miss: 0,
 
     water: 50,
-    zoneCode: 'GREEN',
+    zone: 'GREEN',      // LOW/GREEN/HIGH (from ui-water)
+    zoneLabel: 'GREEN', // BLUE/GREEN/RED
 
     greenTick: 0,
-    redTick: 0,
-    blueTick: 0,
+    timeLeft: duration,
 
-    perfectCount: 0,
-    lastJunkHitAt: now(),
-    noJunkSec: 0,
+    viewX: 0,
+    viewY: 0,
 
+    // storm
     stormOn: false,
-    nextStormAt: D.stormEverySec,
-    stormLeft: 0,
+    stormUntil: 0,
+    stormStrength: 0, // 0..1.2
 
-    stopped: false
+    // tilt shimmer
+    tiltX: 0,
+    tiltY: 0,
+
+    // postfx hits
+    sparks: [] // {x,y,t0,str}
   };
 
-  // HUD init
-  hudSet('hha-goal-total', 2);
-  hudSet('hha-mini-total', 3);
-  hudSet('hha-goal-done', 0);
-  hudSet('hha-mini-done', 0);
-  hudSet('hha-score-main', 0);
-  hudSet('hha-combo-max', 0);
-  hudSet('hha-miss', 0);
-  hudSet('hha-grade-badge', 'C');
-  const gp = $('hha-grade-progress-fill');
-  const gpt = $('hha-grade-progress-text');
-  if (gp) gp.style.width = '0%';
-  if (gpt) gpt.textContent = 'Progress to S: 0%';
+  function hud(){
+    setText('hha-score-main', s.score|0);
+    setText('hha-combo-max', s.comboMax|0);
+    setText('hha-miss', s.miss|0);
 
-  function updateGrade(){
-    const g = gradeProgress(state.score);
-    const badge = $('hha-grade-badge');
-    if (badge) badge.textContent = g.grade;
-    if (gp) gp.style.width = Math.round(g.pct*100)+'%';
-    if (gpt){
-      const nextLabel = (g.grade==='SSS') ? 'MAX' : `Next @ ${g.next}`;
-      gpt.textContent = `Progress (${g.grade}) → ${nextLabel}: ${Math.round(g.pct*100)}%`;
-    }
+    // grade
+    const g = gradeFrom(s.score);
+    const badge = $id('hha-grade-badge');
+    if (badge) badge.textContent = g;
+
+    // progress fill
+    const fill = $id('hha-grade-progress-fill');
+    const t = $id('hha-grade-progress-text');
+    const pct = clamp((s.score / 1500) * 100, 0, 100); // S ~ 1500
+    if (fill) fill.style.width = pct.toFixed(0) + '%';
+    if (t) t.textContent = `Progress to S: ${pct.toFixed(0)}%`;
+
+    // quest text (light)
+    const qg = $id('hha-quest-goal');
+    const qm = $id('hha-quest-mini');
+    if (qg) qg.textContent = `Goal: อยู่ GREEN ให้นานที่สุด (ตอนนี้ ${s.greenTick}s)`;
+    if (qm) qm.textContent = `Mini: Perfect/Combo ลุ้น Storm Wave!`;
   }
 
-  function setWater(v){
-    state.water = clamp(v, 0, 100);
-    const zc = zoneFrom(state.water); // LOW/GREEN/HIGH
-    state.zoneCode = zc;
-
-    const out = setWaterGauge(state.water);
-    const label = zoneLabel(zc);
-
-    const statusEl = $('hha-water-status');
-    if (statusEl) statusEl.textContent = `${label} ${Math.round(out.pct)}%`;
-    const zoneText = $('hha-water-zone-text');
-    if (zoneText) zoneText.textContent = label;
-
-    const fill = $('hha-water-fill');
-    if (fill){
-      if (zc === 'LOW') fill.style.background = 'linear-gradient(90deg, rgba(56,189,248,.95), rgba(96,165,250,.85))';
-      else if (zc === 'HIGH') fill.style.background = 'linear-gradient(90deg, rgba(239,68,68,.95), rgba(245,158,11,.85))';
-      else fill.style.background = 'linear-gradient(90deg, rgba(34,197,94,.95), rgba(96,165,250,.80))';
-    }
+  function applyView(){
+    if (!playfield) return;
+    playfield.style.setProperty('--view-x', s.viewX + 'px');
+    playfield.style.setProperty('--view-y', s.viewY + 'px');
+    playfield.style.transform = `translate3d(${s.viewX}px, ${s.viewY}px, 0)`;
   }
 
-  function addScore(delta, x, y){
-    delta = Number(delta)||0;
-    state.score = Math.max(0, Math.round(state.score + delta));
-    hudSet('hha-score-main', state.score);
-    updateGrade();
-    if (Number.isFinite(x) && Number.isFinite(y)) fxScore(delta, x, y);
-  }
+  // ✅ drag view + tap shoot (short tap)
+  function bindViewDragAndShoot(inst){
+    if (!playfield) return;
 
-  function setCombo(v){
-    state.combo = Math.max(0, v|0);
-    state.comboMax = Math.max(state.comboMax, state.combo);
-    hudSet('hha-combo-max', state.comboMax);
-  }
+    let down = false;
+    let moved = false;
+    let sx=0, sy=0, vx0=0, vy0=0;
+    let pid = null;
+    const TH = 6;
 
-  function addMiss(){
-    state.miss++;
-    hudSet('hha-miss', state.miss);
-  }
+    const onDown = (e)=>{
+      if (!s.running) return;
+      down = true; moved = false;
+      pid = e.pointerId;
+      try{ playfield.setPointerCapture(pid); }catch{}
+      sx = e.clientX; sy = e.clientY;
+      vx0 = s.viewX; vy0 = s.viewY;
+    };
+    const onMove = (e)=>{
+      if (!down || !s.running) return;
+      const dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      if (!moved && (Math.abs(dx)+Math.abs(dy) > TH)) moved = true;
 
-  // quests (คงเดิม)
-  const goals = [
-    { id:'g1', label:`อยู่ GREEN ให้ครบ ${D.goalGreenSec}s`, done:false, check:()=> state.greenTick>=D.goalGreenSec },
-    { id:'g2', label:`อยู่ BLUE/RED รวมไม่เกิน ${D.maxBadSec}s`, done:false,
-      check:()=> (state.redTick+state.blueTick)<=D.maxBadSec && state.timeLeft<=0
-    }
-  ];
-  const minis = [
-    { id:'m1', label:`ทำ Combo ให้ถึง ${D.miniCombo}`, done:false, check:()=> state.comboMax>=D.miniCombo },
-    { id:'m2', label:`Perfect ให้ครบ ${D.miniPerfect} ครั้ง`, done:false, check:()=> state.perfectCount>=D.miniPerfect },
-    { id:'m3', label:`ห้ามโดน JUNK ${D.miniNoJunkSec}s`, done:false, check:()=> state.noJunkSec>=D.miniNoJunkSec }
-  ];
-
-  function updateQuestHud(){
-    const g1=goals[0], g2=goals[1];
-    const m1=minis[0], m2=minis[1], m3=minis[2];
-
-    let goalLine = `Goal: ${g1.done?'✅':'⏳'} ${g1.label} (${state.greenTick}/${D.goalGreenSec})`;
-    if (g1.done && !g2.done) goalLine = `Goal: ⏳ ${g2.label} (bad ${state.redTick+state.blueTick}/${D.maxBadSec})`;
-    if (g1.done && g2.done) goalLine = `Goal: ✅ ผ่านครบ 2/2`;
-
-    let miniLine = `Mini: ${m1.done?'✅':'⏳'} Combo ${state.comboMax}/${D.miniCombo} • ${m2.done?'✅':'⏳'} Perfect ${state.perfectCount}/${D.miniPerfect}`;
-    miniLine += ` • ${m3.done?'✅':'⏳'} NoJunk ${state.noJunkSec}/${D.miniNoJunkSec}s`;
-
-    hudQuest(goalLine, miniLine);
-    hudSet('hha-goal-done', goals.filter(g=>g.done).length);
-    hudSet('hha-mini-done', minis.filter(m=>m.done).length);
-  }
-
-  // storm control
-  let inst = null;
-  function setStorm(on){
-    on = !!on;
-    if (state.stormOn === on) return;
-    state.stormOn = on;
-
-    // postfx
-    try{
-      if (PostFX){
-        PostFX.setStorm(on);
-        if (on) PostFX.setParams({ chroma:1.55, wobble:1.15, speedlines:1.25, scan:0.62, vignette:0.92 });
-        else PostFX.setParams({ chroma:1.25, wobble:0.85, speedlines:0.70, scan:0.55, vignette:0.85 });
+      if (moved){
+        // clamp a bit
+        s.viewX = clamp(vx0 + dx, -180, 180);
+        s.viewY = clamp(vy0 + dy, -140, 140);
+        applyView();
       }
-    }catch{}
+    };
+    const onUp = (e)=>{
+      if (!down) return;
+      down = false;
+      try{ playfield.releasePointerCapture(pid); }catch{}
+      pid = null;
 
-    // ✅ สำคัญ: บอก mode-factory ให้เป้าส่ายแรง/เร็วขึ้น
-    try{ inst && inst.setStorm && inst.setStorm(on); }catch{}
+      // short tap => shoot from crosshair
+      if (!moved && inst && typeof inst.shootCrosshair === 'function'){
+        inst.shootCrosshair();
+      }
+    };
 
-    if (on) state.stormLeft = D.stormLenSec;
+    playfield.addEventListener('pointerdown', onDown, { passive:true });
+    playfield.addEventListener('pointermove', onMove, { passive:true });
+    playfield.addEventListener('pointerup', onUp, { passive:true });
+    playfield.addEventListener('pointercancel', onUp, { passive:true });
+
+    return ()=> {
+      playfield.removeEventListener('pointerdown', onDown);
+      playfield.removeEventListener('pointermove', onMove);
+      playfield.removeEventListener('pointerup', onUp);
+      playfield.removeEventListener('pointercancel', onUp);
+    };
   }
 
-  // judge (คืน FX: burst + score + judgement)
+  function blinkOn(kind, ms=110){
+    if (!blink) return;
+    blink.className = '';
+    blink.classList.add('on');
+    if (kind) blink.classList.add(kind);
+    ROOT.setTimeout(()=>{ blink.className=''; }, ms);
+  }
+
+  function perfectFX(x,y){
+    // heavy burst
+    try{ Particles.burstAt(x,y,'PERFECT'); }catch{}
+    try{ Particles.scorePop(x,y,'PERFECT! +','gold'); }catch{}
+    blinkOn('perfect', 130);
+
+    if (wrap){
+      addClass(wrap,'hvr-perfect-pulse');
+      ROOT.setTimeout(()=>removeClass(wrap,'hvr-perfect-pulse'), 220);
+    }
+
+    if (post && post.ctx){
+      s.sparks.push({ x, y, t0: now(), str: 1.25 });
+    }
+  }
+
+  function goodFX(x,y, txt='+', kind='good'){
+    try{ Particles.burstAt(x,y,kind==='good'?'GOOD':'POWER'); }catch{}
+    try{ Particles.scorePop(x,y,txt,kind); }catch{}
+    blinkOn('good', 90);
+  }
+
+  function badFX(x,y, txt='MISS', kind='bad'){
+    try{ Particles.burstAt(x,y,'BAD'); }catch{}
+    try{ Particles.scorePop(x,y,txt,'bad'); }catch{}
+    blinkOn('bad', 110);
+  }
+
+  // Storm controls
+  function setStorm(on, strength=1){
+    s.stormOn = !!on;
+    s.stormStrength = clamp(strength, 0, 1.25);
+
+    if (wrap){
+      if (s.stormOn){
+        addClass(wrap,'hvr-chroma');
+        addClass(wrap,'hvr-wobble');
+      }else{
+        removeClass(wrap,'hvr-chroma');
+        removeClass(wrap,'hvr-wobble');
+      }
+    }
+    if (speedLines){
+      if (s.stormOn) addClass(speedLines,'on');
+      else removeClass(speedLines,'on');
+    }
+  }
+
+  function maybeStormTick(){
+    const t = now();
+    if (s.stormOn && t > s.stormUntil){
+      setStorm(false, 0);
+    }
+  }
+
+  // device tilt → update CSS vars for shimmer
+  function bindTilt(){
+    let active = false;
+    const onOri = (e)=>{
+      active = true;
+      // gamma: left/right, beta: front/back
+      const gx = clamp((e.gamma||0)/30, -1, 1);
+      const gy = clamp((e.beta||0)/40, -1, 1);
+      s.tiltX = gx;
+      s.tiltY = gy;
+
+      if (playfield){
+        playfield.style.setProperty('--tilt-x', gx.toFixed(3));
+        playfield.style.setProperty('--tilt-y', gy.toFixed(3));
+      }
+    };
+    ROOT.addEventListener('deviceorientation', onOri, { passive:true });
+
+    // iOS needs user gesture sometimes – ok if it never fires
+    return ()=> ROOT.removeEventListener('deviceorientation', onOri);
+  }
+
+  // PostFX render loop
+  let fxRaf = null;
+  function fxLoop(){
+    if (!post || !post.ctx) return;
+    const ctx = post.ctx;
+    const t = now();
+
+    ctx.clearRect(0,0,ROOT.innerWidth||1,ROOT.innerHeight||1);
+
+    // draw spark bursts
+    const out = [];
+    for (const sp of s.sparks){
+      const dt = t - sp.t0;
+      if (dt > 520) continue;
+      out.push(sp);
+
+      const k = 1 - (dt/520);
+      ctx.globalAlpha = 0.55 * k;
+      drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.75 + 0.55*k));
+    }
+    s.sparks = out;
+
+    ctx.globalAlpha = 1;
+    fxRaf = ROOT.requestAnimationFrame(fxLoop);
+  }
+  fxRaf = ROOT.requestAnimationFrame(fxLoop);
+
+  // ✅ main scoring / water update
+  function updateWater(delta){
+    s.water = clamp(s.water + delta, 0, 100);
+    const z = zoneFrom(s.water);     // LOW/GREEN/HIGH
+    s.zone = z;
+    s.zoneLabel = zoneLabelFrom(z); // BLUE/GREEN/RED
+
+    const r = setWaterGauge(s.water);
+    // force HUD text to BLUE/GREEN/RED style
+    const st = $id('hha-water-status');
+    if (st) st.textContent = `${s.zoneLabel} ${Math.round(s.water)}%`;
+    const zt = $id('hha-water-zone-text');
+    if (zt) zt.textContent = s.zoneLabel;
+
+    return r;
+  }
+
+  // init
+  updateWater(0);
+  hud();
+  applyView();
+
+  // mode-factory spawn speed mul: storm => faster
+  function spawnMul(){
+    if (!s.stormOn) return 1.0;
+    // heavy storm => 0.45..0.70
+    return clamp(0.70 - 0.22*s.stormStrength, 0.42, 0.75);
+  }
+
+  // judge callback from mode-factory
   function judge(ch, ctx){
-    const x = Number(ctx?.clientX ?? 0);
-    const y = Number(ctx?.clientY ?? 0);
+    const x = ctx?.clientX || (ctx?.targetRect?.left + (ctx?.targetRect?.width||0)/2) || (ROOT.innerWidth/2);
+    const y = ctx?.clientY || (ctx?.targetRect?.top + (ctx?.targetRect?.height||0)/2) || (ROOT.innerHeight/2);
 
-    const itemType = String(ctx?.itemType || (ctx?.isGood ? 'good' : 'bad'));
-    const perfect  = !!ctx?.hitPerfect;
-    const isPower  = !!ctx?.isPower;
+    const itemType = String(ctx?.itemType || '');
+    const isBad = (itemType === 'bad');
+    const isPower = (itemType === 'power');
+    const isFakeGood = (itemType === 'fakeGood');
 
-    if (isPower || itemType === 'power'){
-      blink('block');
-      try{ PostFX && PostFX.flash('block'); }catch{}
-      fxBurst('STAR', x, y);
-      fxJudge('POWER', x, y, 'power');
-      addScore(55, x, y);
-      setCombo(state.combo + 1);
-      setWater(state.water + 6.0);
-      return;
-    }
+    const perfect = !!ctx?.hitPerfect;
 
-    if (itemType === 'bad' || ctx?.isGood === false){
-      blink('bad');
-      try{ PostFX && PostFX.flash('bad'); }catch{}
-      fxBurst('SMOKE', x, y);
-      fxJudge('MISS', x, y, 'bad');
-      addMiss();
-      setCombo(0);
-      state.lastJunkHitAt = now();
-      state.noJunkSec = 0;
-      addScore(D.penBad, x, y);
-      setWater(state.water + D.waterBad);
-      return;
-    }
-
-    // good / fakeGood
-    blink('good');
-
-    const base = (itemType === 'fakeGood') ? 6 : D.scoreGood;
-    const perfBonus = perfect ? D.scorePerfect : 0;
-    const comboBonus = (itemType === 'fakeGood') ? 0 : Math.min(24, Math.floor(state.combo * 0.7));
-    const delta = base + perfBonus + comboBonus;
-
-    // burst mix (shard/particle)
-    fxBurst(perfect ? 'STAR' : 'SPLASH', x, y);
-    fxJudge(perfect ? 'PERFECT' : 'GOOD', x, y, 'good');
-    addScore(delta, x, y);
-
-    setCombo(state.combo + (itemType==='fakeGood' ? (perfect?1:0) : 1));
-    setWater(state.water + (itemType==='fakeGood' ? 1.0 : D.waterGood));
-
+    // PERFECT ring bonus (even if good)
     if (perfect){
-      state.perfectCount++;
-      // PERFECT: กระแทก chroma/wobble สั้น ๆ
-      try{
-        PostFX && PostFX.flash('good');
-        PostFX && PostFX.setParams({ chroma:1.75, wobble: state.stormOn?1.35:1.05, speedlines: state.stormOn?1.45:0.95 });
-      }catch{}
-      ROOT.setTimeout(()=>{
-        try{
-          if (!PostFX) return;
-          if (state.stormOn) PostFX.setParams({ chroma:1.55, wobble:1.15, speedlines:1.25 });
-          else PostFX.setParams({ chroma:1.25, wobble:0.85, speedlines:0.70 });
-        }catch{}
-      }, 220);
+      s.score += 120;
+      s.combo += 1;
+      s.comboMax = Math.max(s.comboMax, s.combo);
+      updateWater(+4);
+      perfectFX(x,y);
     }
+
+    if (isBad){
+      s.miss += 1;
+      s.combo = 0;
+      s.score = Math.max(0, s.score - 45);
+      updateWater(-10);
+      badFX(x,y,'MISS','bad');
+
+      // junk hit can trigger storm sometimes (panic)
+      if (!s.stormOn && Math.random() < 0.18){
+        s.stormUntil = now() + 5200;
+        setStorm(true, 0.85);
+      }
+
+      hud();
+      return { scoreDelta: -45, good:false };
+    }
+
+    // fakeGood (trick) acts like bad when not perfect
+    if (isFakeGood && !perfect){
+      s.miss += 1;
+      s.combo = 0;
+      s.score = Math.max(0, s.score - 30);
+      updateWater(-7);
+      badFX(x,y,'TRICK!','bad');
+      hud();
+      return { scoreDelta: -30, good:false };
+    }
+
+    // powerup
+    if (isPower){
+      s.score += 95;
+      s.combo += 1;
+      s.comboMax = Math.max(s.comboMax, s.combo);
+      updateWater(+9);
+      goodFX(x,y,'POWER +95','power');
+
+      // power => storm wave “สนุกเร้าใจ” ชัวร์
+      s.stormUntil = now() + 6800;
+      setStorm(true, 1.05);
+
+      hud();
+      return { scoreDelta: +95, good:true };
+    }
+
+    // normal good hit
+    s.score += 55;
+    s.combo += 1;
+    s.comboMax = Math.max(s.comboMax, s.combo);
+
+    // water gain depends on zone
+    if (s.zone === 'LOW') updateWater(+8);
+    else if (s.zone === 'HIGH') updateWater(+3);
+    else updateWater(+5);
+
+    // streak bonus
+    if (s.combo > 0 && (s.combo % 8 === 0)){
+      s.score += 80;
+      goodFX(x,y,`STREAK +80`,'good');
+
+      // streak => storm (rare) เพื่อเร้าใจ
+      if (!s.stormOn && Math.random() < 0.32){
+        s.stormUntil = now() + 6200;
+        setStorm(true, 0.95);
+      }
+    } else {
+      goodFX(x,y,'+55','good');
+    }
+
+    hud();
+    return { scoreDelta: +55, good:true };
   }
 
+  // expire callback
   function onExpire(info){
-    const itemType = String(info?.itemType || '');
-    if (itemType === 'bad') setWater(state.water - 2.0);
+    // ถ้าปล่อย GOOD หลุด: ลดคอมโบเล็กน้อย แต่ไม่ถือว่า miss
+    const itemType = String(info?.itemType||'');
+    if (itemType === 'good' || itemType === 'power'){
+      s.combo = Math.max(0, s.combo - 1);
+    }
+    hud();
   }
 
-  // boot mode-factory (สำคัญ: excludeSelectors เพื่อ safe zone)
-  const hostEl = $('hvr-playfield') || DOC.body;
-
-  inst = await factoryBoot({
-    modeKey:'hydration',
-    difficulty: diffKey,
+  // boot mode-factory
+  const inst = await factoryBoot({
+    modeKey: 'hydration',
+    difficulty: diff,
     duration,
-    spawnHost: hostEl,
-    pools: {
-      good: ['💧','💦','🫧','🚰','🧊','🥒','🍉','🫐'],
-      bad:  ['🥤','🧃','🍟','🍔','🍩','🍰','🧋','🍬'],
-      trick:['💧','🫧']
-    },
-    powerups: ['⭐','🛡️'],
-    goodRate: 0.68,
-    powerRate: 0.10,
-    trickRate: 0.09,
+    spawnHost: '#hvr-playfield',
+    pools: { good: GOOD, bad: BAD, trick: ['💧','🫧'] },
+    goodRate: diff === 'hard' ? 0.58 : (diff === 'normal' ? 0.62 : 0.68),
+    powerups: POWER,
+    powerRate: diff === 'hard' ? 0.12 : 0.10,
+    powerEvery: 7,
     allowAdaptive: true,
-
-    // ✅ safe zone ไม่ทับ HUD (อ่านจาก selector)
-    excludeSelectors: ['.hud', '#hvr-start', '#hvr-end'],
-
-    // storm multiplier: ถี่ขึ้น
-    spawnIntervalMul: ()=> state.stormOn ? 0.55 : 1.0,
-
+    rhythm: { enabled:true, bpm: (diff==='hard'?126:(diff==='normal'?118:108)) },
+    trickRate: diff === 'hard' ? 0.12 : 0.08,
+    spawnIntervalMul: spawnMul,
+    excludeSelectors: ['.hud', '#hvr-start', '#hvr-end', '#hvr-screen-blink'],
     judge,
     onExpire
   });
 
-  // init
-  setWater(50);
-  updateGrade();
-  updateQuestHud();
+  // bind drag view / shoot
+  const unbindDrag = bindViewDragAndShoot(inst);
+  const unbindTilt = bindTilt();
 
-  // time tick
+  // time tick from mode-factory
   function onTime(ev){
-    const sec = Number(ev?.detail?.sec ?? 0);
-    state.timeLeft = sec;
+    const sec = ev?.detail?.sec;
+    if (typeof sec !== 'number') return;
+    s.timeLeft = sec;
 
-    // ✅ zone timing (นับตาม zoneCode จริง)
-    if (sec > 0){
-      const zc = state.zoneCode;
-      if (zc === 'GREEN') state.greenTick++;
-      else if (zc === 'HIGH') state.redTick++;
-      else if (zc === 'LOW') state.blueTick++;
+    // natural drain each second
+    updateWater(-1.4);
 
-      state.noJunkSec = clamp(Math.floor((now() - state.lastJunkHitAt)/1000), 0, 999);
+    // ✅ zone counting fix (นับจาก zone LOW/GREEN/HIGH)
+    if (s.zone === 'GREEN') s.greenTick += 1;
+
+    // storm lifecycle
+    maybeStormTick();
+
+    // when in RED(HIGH) too long => penalty drip
+    if (s.zone === 'HIGH'){
+      s.score = Math.max(0, s.score - 3);
     }
+    hud();
 
-    // storm schedule
-    const elapsed = duration - sec;
-    if (!state.stormOn && elapsed >= state.nextStormAt && sec > 0){
-      setStorm(true);
-      state.nextStormAt += D.stormEverySec;
-    }
-    if (state.stormOn){
-      if (state.stormLeft > 0) state.stormLeft--;
-      if (state.stormLeft <= 0) setStorm(false);
-    }
-
-    // quest checks
-    if (!goals[0].done && goals[0].check()){
-      goals[0].done = true;
-      try{ Particles && Particles.celebrate && Particles.celebrate('GOAL'); }catch{}
-      try{ PostFX && PostFX.flash('good'); }catch{}
-    }
-    for (const m of minis){
-      if (!m.done && m.check()){
-        m.done = true;
-        try{ Particles && Particles.celebrate && Particles.celebrate('MINI'); }catch{}
-        try{ PostFX && PostFX.flash('block'); }catch{}
-      }
-    }
-
-    updateQuestHud();
-
-    if (sec <= 0 && !state.stopped){
-      if (!goals[1].done && goals[1].check()) goals[1].done = true;
-      state.stopped = true;
-
-      try{ ROOT.removeEventListener('hha:time', onTime); }catch{}
-      try{ inst && inst.stop && inst.stop(); }catch{}
-      try{ PostFX && PostFX.destroy && PostFX.destroy(); }catch{}
-
-      const grade = gradeFromScore(state.score);
-      try{
-        ROOT.dispatchEvent(new CustomEvent('hha:end', { detail:{
-          score: state.score,
-          grade,
-          comboBest: state.comboMax,
-          miss: state.miss,
-          water: Math.round(state.water),
-          zone: zoneLabel(state.zoneCode),
-          greenTick: state.greenTick,
-          redTick: state.redTick,
-          blueTick: state.blueTick,
-          goalsDone: goals.filter(g=>g.done).length,
-          goalsTotal: 2,
-          minisDone: minis.filter(m=>m.done).length,
-          minisTotal: 3
-        }}));
-      }catch{}
+    // end condition
+    if (sec <= 0){
+      endGame();
     }
   }
-
   ROOT.addEventListener('hha:time', onTime, { passive:true });
 
+  // End overlay builder
+  function buildEndOverlay(detail){
+    const end = $id('hvr-end');
+    if (!end) return;
+    end.className = 'on';
+
+    const g = gradeFrom(s.score);
+    const html = `
+      <div style="width:min(760px,100%); display:grid; grid-template-columns:1fr; gap:10px;">
+        <div style="background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.24); border-radius:24px; padding:14px; box-shadow:0 22px 70px rgba(0,0,0,.60);">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <h2 style="margin:0; font-size:18px; font-weight:1000;">🏁 สรุปผลการเล่น</h2>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="color:rgba(148,163,184,.9); font-weight:900;">Grade</span>
+              <span style="font-weight:1000; letter-spacing:.08em;">${g}</span>
+            </div>
+          </div>
+
+          <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;">
+            <div class="card" style="pointer-events:auto;">
+              <div class="kpi"><div class="label">Score</div><div class="value">${s.score|0}</div></div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">รวมโบนัส PERFECT/STREAK/STORM</div>
+            </div>
+            <div class="card" style="pointer-events:auto;">
+              <div class="kpi"><div class="label">Combo / Miss</div><div class="value">${s.comboMax|0} • ${s.miss|0}</div></div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">คอมโบสูงสุด • miss (junk/trick)</div>
+            </div>
+            <div class="card" style="pointer-events:auto;">
+              <div class="kpi"><div class="label">GREEN time</div><div class="value">${s.greenTick|0}s</div></div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ในโซน GREEN (นับถูกแล้ว)</div>
+            </div>
+            <div class="card" style="pointer-events:auto;">
+              <div class="kpi"><div class="label">Water end</div><div class="value">${Math.round(s.water)}% (${s.zoneLabel})</div></div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">โซนสุดท้าย</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="hvr-end-retry" class="btn primary" style="pointer-events:auto;">🔁 เล่นอีกครั้ง</button>
+            <button id="hvr-end-hub" class="btn" style="pointer-events:auto;">🏠 กลับ Hub</button>
+          </div>
+        </div>
+      </div>
+    `;
+    end.innerHTML = html;
+
+    const retry = $id('hvr-end-retry');
+    const hub = $id('hvr-end-hub');
+    if (retry) retry.onclick = ()=>location.reload();
+    if (hub) hub.onclick = ()=>location.href = './hub.html';
+  }
+
+  function endGame(){
+    if (!s.running) return;
+    s.running = false;
+
+    try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{}
+    try{ inst && inst.stop && inst.stop(); }catch{}
+
+    if (unbindDrag) try{ unbindDrag(); }catch{}
+    if (unbindTilt) try{ unbindTilt(); }catch{}
+
+    ROOT.removeEventListener('hha:time', onTime);
+
+    if (fxRaf) try{ ROOT.cancelAnimationFrame(fxRaf); }catch{}
+    fxRaf = null;
+
+    setStorm(false, 0);
+
+    // final celebrate
+    try{ Particles.celebrate('END'); }catch{}
+
+    buildEndOverlay();
+
+    // also emit end event (เผื่อ HUD กลางอื่นใช้)
+    try{
+      ROOT.dispatchEvent(new CustomEvent('hha:end', {
+        detail:{
+          score: s.score|0,
+          miss: s.miss|0,
+          comboBest: s.comboMax|0,
+          grade: gradeFrom(s.score),
+          water: Math.round(s.water),
+          zone: s.zoneLabel,
+          greenTick: s.greenTick|0,
+          progPct: clamp((s.score/1500)*100,0,100)|0
+        }
+      }));
+    }catch{}
+  }
+
+  // first HUD update
+  hud();
+
   return {
-    stop(){
-      try{ ROOT.removeEventListener('hha:time', onTime); }catch{}
-      try{ inst && inst.stop && inst.stop(); }catch{}
-      try{ PostFX && PostFX.destroy && PostFX.destroy(); }catch{}
-    }
+    stop(){ endGame(); },
+    shoot(){ try{ inst && inst.shootCrosshair && inst.shootCrosshair(); }catch{} }
   };
 }
 
