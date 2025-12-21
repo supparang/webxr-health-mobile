@@ -2,6 +2,7 @@
 // GoodJunkVR — DOM Emoji Engine (PRODUCTION)
 // Step 1+2: VR-feel targets follow camera yaw/pitch + sticker + fade + tap-anywhere
 // Step 3: DOM FX burst + float score + judgment near target + include kind/delta in events
+// Step 4: FEVER drains + FEVER->STUN slow-mo + fire overlay hooks (via hha:fever active) + hha:stun
 
 'use strict';
 
@@ -16,7 +17,7 @@ function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
 }
 
-/* ----------------------- DOM FX (always visible) ----------------------- */
+/* ----------------------- DOM FX ----------------------- */
 function ensureFxStyle(){
   if (document.getElementById('gj-fx-style')) return;
   const st = document.createElement('style');
@@ -199,6 +200,12 @@ export function boot(opts = {}){
 
   const CFG = diffCfg(diff);
 
+  // --- Step 4 tuning ---
+  const FEVER_DECAY_PER_SEC = 3.2;       // ปกติค่อย ๆ ลด
+  const STUN_DUR_MS = 4200;              // ช่วง slow-mo
+  const STUN_SLOW_SCALE = 0.55;          // ยิ่งน้อยยิ่งช้าลง
+  const STUN_FEVER_DRAIN_PER_SEC = 22.0; // ตอน STUN ให้ลดเร็ว → จบเองแน่นอน
+
   const state = {
     startedAt: now(),
     endAt: now() + durationSec*1000,
@@ -211,17 +218,31 @@ export function boot(opts = {}){
     combo: 0,
     comboMax: 0,
 
-    fever: 0,
+    fever: 0,        // 0..100 (มีลด)
     shield: 0,
+
+    // STUN (slow-mo)
+    stunActive: false,
+    stunUntil: 0,
+    stunDurMs: STUN_DUR_MS,
 
     bossCleared: false,
 
-    lastTickSec: -1
+    lastTickSec: -1,
+    lastFrameAt: now(),
+    lastSpawnAt: 0
   };
 
   const ACTIVE = new Set();
   let rafId = 0;
-  let spawnTimer = 0;
+
+  function isStun(){
+    return state.stunActive && now() < state.stunUntil;
+  }
+  function stunLeftMs(){
+    if (!state.stunActive) return 0;
+    return Math.max(0, state.stunUntil - now());
+  }
 
   function setJudge(label){
     emit('hha:judge', { label: String(label||'') });
@@ -234,14 +255,37 @@ export function boot(opts = {}){
       comboMax: state.comboMax|0,
       challenge
     });
+
+    // FEVER active => ใช้ STUN เป็นตัวเปิดเอฟเฟกต์ไฟ
     emit('hha:fever', {
       fever: state.fever|0,
       shield: state.shield|0,
-      active: state.fever >= 100
+      active: isStun()
+    });
+
+    emit('hha:stun', {
+      active: isStun(),
+      leftMs: stunLeftMs(),
+      durMs: state.stunDurMs|0
     });
   }
 
-  function addFever(v){ state.fever = clamp(state.fever + v, 0, 100); }
+  function addFever(v){
+    state.fever = clamp(state.fever + v, 0, 100);
+
+    // ✅ Step 4: FEVER เต็ม → เข้า STUN (slow-mo) + ไฟลุก
+    if (state.fever >= 100 && !state.stunActive){
+      state.stunActive = true;
+      state.stunUntil = now() + state.stunDurMs;
+
+      setJudge('FEVER!');
+      fxBurst(window.innerWidth*0.5, window.innerHeight*0.52, 'gold');
+      fxFloat(window.innerWidth*0.5, window.innerHeight*0.52, '🔥 FEVER → STUN!', 'gold');
+
+      syncHUD();
+    }
+  }
+
   function spendShield(){
     if (state.shield > 0){
       state.shield = Math.max(0, (state.shield|0) - 1);
@@ -267,15 +311,22 @@ export function boot(opts = {}){
   }
 
   function chooseSpawnKind(){
-    let goodRatio = CFG.goodRatio;
+    // ✅ Step 4: ระหว่าง STUN ให้ “ยุติธรรม/มันส์” ขึ้น
+    let goodRatio = CFG.goodRatio + (isStun() ? 0.12 : 0);
+
     if (challenge === 'survival') goodRatio = Math.max(0.52, goodRatio - 0.08);
     if (challenge === 'boss'){
-      if (!state.bossCleared && Math.random() < 0.10) return 'boss';
+      if (!state.bossCleared && Math.random() < (isStun() ? 0.06 : 0.10)) return 'boss';
     }
+
     const r = Math.random();
-    if (r < 0.08) return 'power';
-    if (r < 0.14) return 'gold';
-    return (Math.random() < goodRatio) ? 'good' : 'junk';
+    const powerP = isStun() ? 0.11 : 0.08;
+    const goldP  = isStun() ? 0.12 : 0.06;
+
+    if (r < powerP) return 'power';
+    if (r < powerP + goldP) return 'gold';
+
+    return (Math.random() < clamp(goodRatio, 0.35, 0.92)) ? 'good' : 'junk';
   }
 
   function chooseEmoji(kind){
@@ -300,6 +351,15 @@ export function boot(opts = {}){
     return { wx, wy };
   }
 
+  function effectiveSpawnMs(){
+    const slow = isStun() ? STUN_SLOW_SCALE : 1.0;
+    return CFG.spawnMs / slow; // slow=0.55 => interval ใหญ่ขึ้น (ช้าลง)
+  }
+  function effectiveTtlMs(baseTtl){
+    const slow = isStun() ? STUN_SLOW_SCALE : 1.0;
+    return baseTtl / slow; // expire ช้าลง
+  }
+
   function spawnOne(){
     if (!state.running) return;
     if (ACTIVE.size >= CFG.maxActive) return;
@@ -312,6 +372,7 @@ export function boot(opts = {}){
     const safePt = pickScreenPointSafe(SIZES, 18);
     const w = screenToWorldPoint(safePt, look);
 
+    const baseTtl = (kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs;
     const t = {
       id: Math.random().toString(16).slice(2),
       kind,
@@ -322,7 +383,7 @@ export function boot(opts = {}){
       sx: safePt.x,
       sy: safePt.y,
       bornAt: now(),
-      ttlMs: (kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs,
+      ttlMs: effectiveTtlMs(baseTtl),
       dead: false,
       bossHp: (kind === 'boss') ? 3 : 1
     };
@@ -364,23 +425,31 @@ export function boot(opts = {}){
 
   function handleExpire(t){
     if (!t || t.dead) return;
-    // MISS: good/gold/power/boss expire counts as miss
+
+    // ✅ Step 4: ระหว่าง STUN ให้ “ของดีหมดอายุ” ไม่เป็น MISS (ไม่ทำลาย feeling)
+    if (isStun()){
+      killTarget(t, true);
+      return;
+    }
+
     if (t.kind === 'good' || t.kind === 'gold' || t.kind === 'power' || t.kind === 'boss'){
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
+
       setJudge('MISS');
       fxBurst(t.sx, t.sy, 'bad');
       fxFloat(t.sx, t.sy, 'MISS', 'bad');
       syncHUD();
     }
+
     killTarget(t, true);
   }
 
   function hitTarget(t, x, y){
     if (!t || t.dead || !state.running) return;
 
-    // ---------- BOSS ----------
+    // boss
     if (t.kind === 'boss'){
       t.bossHp = (t.bossHp|0) - 1;
       if (t.bossHp > 0){
@@ -400,7 +469,6 @@ export function boot(opts = {}){
         return;
       }
 
-      // boss cleared
       state.bossCleared = true;
       const delta = 90;
       state.score += delta;
@@ -420,7 +488,7 @@ export function boot(opts = {}){
       return;
     }
 
-    // ---------- JUNK ----------
+    // junk
     if (t.kind === 'junk'){
       if (spendShield()){
         setJudge('BLOCK');
@@ -446,7 +514,7 @@ export function boot(opts = {}){
       return;
     }
 
-    // ---------- POWER ----------
+    // power
     if (t.kind === 'power'){
       let p = 'shield';
       if (t.emoji === '🧲') p = 'magnet';
@@ -474,7 +542,7 @@ export function boot(opts = {}){
       return;
     }
 
-    // ---------- GOLD ----------
+    // gold
     if (t.kind === 'gold'){
       const delta = (CFG.scoreGold|0);
       state.score += delta;
@@ -494,7 +562,7 @@ export function boot(opts = {}){
       return;
     }
 
-    // ---------- NORMAL GOOD ----------
+    // normal good
     const perfect = (Math.random() < 0.20);
     const delta = (CFG.scoreGood|0) + (perfect ? 6 : 0);
 
@@ -541,18 +609,37 @@ export function boot(opts = {}){
   layerEl.addEventListener('pointerdown', onLayerDown, { passive:false });
   layerEl.addEventListener('touchstart', onLayerDown, { passive:false });
 
-  function updateTargetsFollowLook(){
+  function updateLoop(){
     if (!state.running) return;
 
-    const look = getLookRad(cameraEl);
     const tNow = now();
+    const dt = Math.max(0, (tNow - state.lastFrameAt));
+    state.lastFrameAt = tNow;
+    const dtSec = dt / 1000;
 
+    // ✅ Step 4: FEVER decay (ตลอดเวลา)
+    const inStun = isStun();
+
+    if (inStun){
+      // drain เร็วเพื่อจบเอง + ทำให้ไฟดับ
+      state.fever = clamp(state.fever - STUN_FEVER_DRAIN_PER_SEC * dtSec, 0, 100);
+      if (tNow >= state.stunUntil){
+        state.stunActive = false;
+      }
+    }else{
+      state.fever = clamp(state.fever - FEVER_DECAY_PER_SEC * dtSec, 0, 100);
+    }
+
+    // time tick
     const secLeft = Math.max(0, Math.ceil((state.endAt - tNow)/1000));
     if (secLeft !== state.lastTickSec){
       state.lastTickSec = secLeft;
       emit('hha:time', { sec: secLeft });
+      // sync status more often
+      syncHUD();
     }
 
+    // end
     if (tNow >= state.endAt){
       state.running = false;
       emit('hha:time', { sec: 0 });
@@ -562,8 +649,24 @@ export function boot(opts = {}){
       return;
     }
 
+    // spawn (rAF-based so we can slow-mo)
+    const needSpawn = (tNow - state.lastSpawnAt) >= effectiveSpawnMs();
+    if (needSpawn){
+      state.lastSpawnAt = tNow;
+      spawnOne();
+    }
+
+    // update all targets (follow look + expiry)
+    const look = getLookRad(cameraEl);
     for (const t of ACTIVE){
       if (!t || t.dead || !t.el || !t.el.isConnected) continue;
+
+      // refresh ttl while stun toggles (ให้รู้สึกว่า slow มีผลจริง)
+      // (เราจะไม่เปลี่ยน bornAt แค่ขยาย ttl ตอนที่ STUN เริ่ม)
+      if (inStun && t.ttlMs < (CFG.ttlMs / STUN_SLOW_SCALE)){
+        // bump ttl onceเล็ก ๆ เพื่อให้ของบนจอ “อยู่นานขึ้น”
+        t.ttlMs = Math.max(t.ttlMs, effectiveTtlMs(t.ttlMs));
+      }
 
       if ((tNow - t.bornAt) >= t.ttlMs){
         handleExpire(t);
@@ -576,15 +679,7 @@ export function boot(opts = {}){
       t.el.style.top  = s.y + 'px';
     }
 
-    rafId = requestAnimationFrame(updateTargetsFollowLook);
-  }
-
-  function startSpawning(){
-    if (spawnTimer) clearInterval(spawnTimer);
-    spawnTimer = setInterval(()=>{
-      if (!state.running) return;
-      spawnOne();
-    }, CFG.spawnMs);
+    rafId = requestAnimationFrame(updateLoop);
   }
 
   // init
@@ -592,13 +687,13 @@ export function boot(opts = {}){
   syncHUD();
   setJudge(' ');
 
-  startSpawning();
-  rafId = requestAnimationFrame(updateTargetsFollowLook);
+  // prime spawn timer
+  state.lastSpawnAt = now() - effectiveSpawnMs()*0.85;
+  rafId = requestAnimationFrame(updateLoop);
 
   return {
     stop(){
       state.running = false;
-      try{ clearInterval(spawnTimer); }catch(_){}
       try{ cancelAnimationFrame(rafId); }catch(_){}
       try{ window.removeEventListener('resize', onResize); }catch(_){}
       try{
