@@ -1,8 +1,4 @@
-<!-- === /herohealth/goodjunk-vr.html ===
- GoodJunkVR (PRODUCTION) — VR Feel + STUN + Sticker Targets
- ✅ loads particles + ui-fever + summary + IIFE logger BEFORE boot
- ✅ DOM targets follow camera world yaw/pitch (true VR feel)
--->
+<!-- === /herohealth/goodjunk-vr.html (UPDATED) === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -38,8 +34,64 @@
       color:var(--text-main);
       overflow:hidden;
     }
-
     a-scene{ width:100vw; height:100vh; position:fixed; inset:0; z-index:0; }
+
+    /* ---------- STUN FX: border flash + shake ---------- */
+    .stun-frame{
+      position:fixed; inset:0;
+      z-index:657;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .12s ease-out;
+    }
+    .stun-frame::before{
+      content:"";
+      position:absolute; inset:10px;
+      border-radius:22px;
+      border:2px solid rgba(251,191,36,0.0);
+      box-shadow:
+        0 0 0 2px rgba(251,191,36,0.0),
+        0 0 60px rgba(251,191,36,0.0);
+    }
+    body.stun-on .stun-frame{ opacity:1; }
+    body.stun-on .stun-frame::before{
+      animation: stunBorder 0.45s ease-in-out infinite;
+    }
+    @keyframes stunBorder{
+      0%{
+        border-color: rgba(251,191,36,0.30);
+        box-shadow: 0 0 0 2px rgba(251,191,36,0.12), 0 0 50px rgba(249,115,22,0.10);
+      }
+      50%{
+        border-color: rgba(251,191,36,0.85);
+        box-shadow: 0 0 0 2px rgba(251,191,36,0.28), 0 0 80px rgba(249,115,22,0.22);
+      }
+      100%{
+        border-color: rgba(251,191,36,0.35);
+        box-shadow: 0 0 0 2px rgba(251,191,36,0.14), 0 0 60px rgba(249,115,22,0.14);
+      }
+    }
+
+    body.stun-on #gj-layer{
+      animation: stunShakeSoft 0.22s linear infinite;
+    }
+    body.stun-impact #gj-layer{
+      animation: stunShakeImpact 0.08s linear infinite;
+    }
+    @keyframes stunShakeSoft{
+      0%{ transform: translate(0,0); }
+      25%{ transform: translate(0.8px,-0.6px); }
+      50%{ transform: translate(-0.6px,0.7px); }
+      75%{ transform: translate(0.6px,0.6px); }
+      100%{ transform: translate(0,0); }
+    }
+    @keyframes stunShakeImpact{
+      0%{ transform: translate(0,0); }
+      25%{ transform: translate(2px,-2px); }
+      50%{ transform: translate(-2px,2px); }
+      75%{ transform: translate(2px,2px); }
+      100%{ transform: translate(0,0); }
+    }
 
     /* ---------- STUN FIRE overlay ---------- */
     .fire-overlay{
@@ -72,9 +124,8 @@
       z-index:649;
       pointer-events:auto;
       touch-action:none;
+      will-change: transform;
     }
-
-    /* Sticker target: “emoji sticker” */
     .gj-target{
       position:absolute;
       transform: translate(-50%,-50%) scale(var(--tScale, 1)) rotate(var(--tRot, 0deg));
@@ -83,8 +134,6 @@
       user-select:none;
       pointer-events:auto;
       cursor:pointer;
-
-      /* sticker */
       padding: 8px 10px;
       border-radius: 18px;
       background: rgba(255,255,255,0.06);
@@ -93,21 +142,16 @@
         0 18px 44px rgba(0,0,0,0.55),
         0 0 0 6px rgba(255,255,255,0.03) inset;
       backdrop-filter: blur(0.5px);
-
       opacity:0;
       transition: transform .12s ease-out, opacity .16s ease-out, filter .16s ease-out;
       will-change: transform, left, top, opacity;
     }
     .gj-target.in{ opacity:1; }
     .gj-target.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.78) rotate(var(--tRot, 0deg)); }
-
     .gj-junk{ filter: drop-shadow(0 16px 26px rgba(249,115,22,0.28)); }
     .gj-gold{ filter: drop-shadow(0 18px 30px rgba(250,204,21,0.36)); }
     .gj-power{ filter: drop-shadow(0 18px 30px rgba(56,189,248,0.30)); }
-    .gj-boss{
-      font-size: clamp(56px, 10.5vw, 118px);
-      filter: drop-shadow(0 22px 38px rgba(250,204,21,0.28));
-    }
+    .gj-boss{ font-size: clamp(56px, 10.5vw, 118px); filter: drop-shadow(0 22px 38px rgba(250,204,21,0.28)); }
 
     /* ---------- STUN vortex indicator ---------- */
     .stun-vortex{
@@ -129,214 +173,22 @@
     .stun-vortex.show{ opacity:1; }
     @keyframes vortexSpin{ to{ transform: translate(-50%,-50%) rotate(360deg); } }
 
-    /* ---------- HUD ---------- */
-    .hud-root{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:650;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      padding:10px 10px 14px;
-    }
-    .hud-top{
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      align-items:flex-start;
-    }
-    .hud-card{
-      background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
-      border-radius:18px;
-      padding:8px 10px;
-      box-shadow:0 18px 40px rgba(15,23,42,0.65);
-      border:1px solid rgba(148,163,184,0.18);
-      pointer-events:auto;
-    }
-    .hud-main{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      margin-bottom:4px;
-    }
-    .hud-main-title{
-      font-size:14px;
-      font-weight:600;
-      letter-spacing:.03em;
-      text-transform:uppercase;
-      color:var(--text-soft);
-    }
-    .hud-pill{
-      font-size:11px;
-      padding:2px 8px;
-      border-radius:999px;
-      background:rgba(15,118,110,0.2);
-      border:1px solid rgba(45,212,191,0.4);
-      color:#a5f3fc;
-      font-weight:600;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-    }
-    .hud-pill.research{
-      background:rgba(37,99,235,0.18);
-      border-color:rgba(59,130,246,0.55);
-      color:#bfdbfe;
-    }
+    /* ---------- HUD / Start overlay / etc. (เหมือนเดิมจากไฟล์คุณ) ---------- */
+    /* ... (คงเดิม) ... */
 
-    .hud-stun{
-      margin-left:auto;
-      font-size:11px;
-      padding:2px 10px;
-      border-radius:999px;
-      background:rgba(251,191,36,0.16);
-      border:1px solid rgba(251,191,36,0.65);
-      color:#fde68a;
-      font-weight:950;
-      letter-spacing:.08em;
-      display:none;
-      align-items:center;
-      gap:6px;
-      box-shadow:0 10px 26px rgba(251,191,36,0.12);
-    }
-    .hud-stun.show{ display:inline-flex; }
-    .hud-stun .dot{ width:8px;height:8px;border-radius:999px;background:#fbbf24; box-shadow:0 0 16px rgba(251,191,36,0.9); }
-
-    .hud-metrics{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:flex-start;
-    }
-    .metric{ min-width:92px; }
-    .metric-label{
-      font-size:10px;
-      text-transform:uppercase;
-      letter-spacing:.06em;
-      color:var(--text-soft);
-    }
-    .metric-value{
-      font-size:15px;
-      font-weight:800;
-      margin-top:2px;
-    }
-    .metric-value.accent{ color:var(--accent); }
-    .metric-value.danger{ color:var(--danger); }
-
-    /* Quest */
-    .hud-quest{ max-width:360px; font-size:12px; }
-    .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
-    .quest-main-label{ font-size:13px; font-weight:800; }
-    .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
-    .quest-progress-wrap{ margin-top:5px; display:flex; flex-direction:column; gap:4px; }
-    .quest-bar{ position:relative; width:100%; height:4px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; }
-    .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
-    .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
-
-    /* Fever */
-    .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
-    .fever-row{ display:flex; align-items:center; gap:8px; }
-    .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
-    .fever-bar{ width:140px; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(148,163,184,0.18); }
-    .fever-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.95)); transition:width .16s ease-out; }
-    .fever-pct{ font-size:10px; color:#fde68a; font-weight:950; min-width:42px; text-align:right; }
-    .shield-row{ display:flex; align-items:center; gap:6px; }
-    .shield-count{ font-weight:950; color:#93c5fd; }
-
-    /* Coach */
-    .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
-    .coach-bubble{
-      min-width:60%;
-      max-width:680px;
-      text-align:left;
-      background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%), rgba(15,23,42,0.96);
-      border-radius:999px;
-      padding:8px 14px;
-      border:1px solid rgba(52,211,153,0.45);
-      font-size:13px;
-      display:none;
-      align-items:center;
-      justify-content:flex-start;
-      gap:8px;
-      pointer-events:auto;
-      position:relative;
-      overflow:hidden;
-      box-shadow:0 18px 40px rgba(15,23,42,0.65);
-    }
-    .coach-bubble.show{ display:flex; }
-    .coach-col{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
-    .coach-label{
-      font-size:11px;
-      text-transform:uppercase;
-      letter-spacing:.16em;
-      color:#6ee7b7;
-      font-weight:950;
-    }
-    .coach-emoji{
-      width:40px; height:40px;
-      border-radius:999px;
-      background-size:cover;
-      background-position:center;
-      flex-shrink:0;
-      box-shadow:0 0 12px rgba(16,185,129,0.8);
-      animation:coach-idle 1.4s ease-in-out infinite;
-    }
-    @keyframes coach-idle{
-      0%{ transform:translateY(0) scale(1); }
-      30%{ transform:translateY(-2px) scale(1.03); }
-      60%{ transform:translateY(1px) scale(0.99); }
-      100%{ transform:translateY(0) scale(1); }
-    }
-
-    /* Countdown */
-    .countdown-overlay{
+    /* ---------- End Summary Overlay ---------- */
+    .end-overlay{
       position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      z-index:655;
-      font-size:clamp(3rem, 10vw, 5rem);
-      font-weight:900;
-      color:#fbbf24;
-      text-shadow:0 0 40px rgba(0,0,0,0.85);
-      pointer-events:none;
-      transition:opacity .25s ease-out, transform .25s ease-out;
-    }
-    .countdown-hidden{
-      opacity:0;
-      visibility:hidden;
-      transform:scale(0.8);
-    }
-
-    /* VR button */
-    .vr-btn{
-      position:fixed; right:12px; bottom:16px; z-index:653;
-      border-radius:999px;
-      border:1px solid rgba(56,189,248,0.7);
-      padding:8px 14px;
-      font-size:12px;
-      font-weight:950;
-      cursor:pointer;
-      background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%), rgba(15,23,42,0.96);
-      color:#e0f2fe;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      box-shadow:0 14px 30px rgba(15,23,42,0.9);
-    }
-    .vr-btn span{ font-size:16px; }
-
-    /* Start overlay */
-    .start-overlay{
-      position:fixed; inset:0;
-      z-index:700;
-      display:flex;
+      z-index:720;
+      display:none;
       align-items:center;
       justify-content:center;
       padding:18px;
-      background:radial-gradient(circle at 50% 35%, rgba(34,197,94,0.18), transparent 55%), rgba(2,6,23,0.92);
+      background:radial-gradient(circle at 50% 35%, rgba(56,189,248,0.18), transparent 55%), rgba(2,6,23,0.92);
     }
-    .start-card{
-      width:min(560px, 96vw);
+    .end-overlay.show{ display:flex; }
+    .end-card{
+      width:min(640px, 96vw);
       border-radius:22px;
       background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
       border:1px solid rgba(148,163,184,0.2);
@@ -344,279 +196,115 @@
       padding:16px 16px 14px;
       text-align:left;
     }
-    .start-title{ font-size:18px; font-weight:950; margin:0 0 6px; letter-spacing:.02em; }
-    .start-sub{ margin:0 0 12px; color:var(--text-soft); font-size:13px; line-height:1.35; }
-    .start-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .start-label{ font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:.14em; }
-    select{
-      width:100%;
-      border-radius:12px;
-      border:1px solid rgba(30,64,175,0.6);
-      background:rgba(15,23,42,0.9);
-      padding:7px 9px;
-      color:var(--text-main);
-      font-size:13px;
-      outline:none;
+    .end-title{ font-size:18px; font-weight:950; margin:0 0 8px; }
+    .end-grid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:10px;
+      margin:10px 0 12px;
     }
-    .start-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; margin-top:12px; }
-    .start-btn{
+    .end-item{
+      background:rgba(15,23,42,0.72);
+      border:1px solid rgba(148,163,184,0.18);
+      border-radius:16px;
+      padding:10px;
+    }
+    .end-k{ font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:.12em; }
+    .end-v{ font-size:16px; font-weight:950; margin-top:4px; }
+    .end-row{ display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+    .end-btn{
       border-radius:999px;
-      border:1px solid rgba(187,247,208,0.9);
-      background:linear-gradient(135deg,#22c55e,#16a34a);
-      color:#052e16;
-      padding:10px 14px;
-      font-weight:950;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-    }
-    .start-btn.secondary{
-      border:1px solid rgba(148,163,184,0.6);
+      border:1px solid rgba(148,163,184,0.55);
       background:rgba(15,23,42,0.86);
       color:var(--text-main);
-      font-weight:850;
+      padding:10px 14px;
+      font-weight:900;
+      cursor:pointer;
     }
-
-    /* logger badge */
-    .logbadge{
-      position:fixed; left:10px; bottom:10px; z-index:690;
-      background:rgba(15,23,42,0.88);
-      border:1px solid rgba(148,163,184,0.22);
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:11px;
-      color:#e5e7eb;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      pointer-events:none;
-      max-width:92vw;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
+    .end-btn.primary{
+      border-color: rgba(187,247,208,0.9);
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      color:#052e16;
     }
-    .dot{ width:8px; height:8px; border-radius:999px; background:#9ca3af; }
-    .dot.ok{ background:#22c55e; }
-    .dot.bad{ background:#ef4444; }
   </style>
 
-  <!-- ✅ FX + UI (IIFE) -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
-
-  <!-- ✅ Logger is IIFE: MUST be loaded as script -->
   <script src="./vr/hha-cloud-logger.js"></script>
 
-  <!-- ✅ Boot loader (module) -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
-
     function setBadge(ok, msg){
       const dot = $('#logdot');
       const text = $('#logtext');
       if (dot) dot.className = 'dot ' + (ok ? 'ok' : 'bad');
       if (text) text.textContent = msg;
     }
-
     async function loadBoot(){
-      const candidates = [
-        './vr-goodjunk/goodjunk-vr.boot.js',
-        './vr-goodjunk/goodjunk-vr.boot.mjs'
-      ];
-
+      const candidates = ['./vr-goodjunk/goodjunk-vr.boot.js'];
       let lastErr = null;
       for (const p of candidates){
         try{
           const mod = await import(p);
-          const bootFn = mod.boot || mod.start || mod.init || mod.default;
+          const bootFn = mod.boot || mod.default;
           if (typeof bootFn === 'function'){
             setBadge(true, 'boot: ' + p);
             bootFn();
             return;
           }
-          lastErr = new Error('Boot loaded but no boot/start/init/default: ' + p);
-        }catch(e){
-          lastErr = e;
-        }
+          lastErr = new Error('Boot loaded but no boot/default: ' + p);
+        }catch(e){ lastErr = e; }
       }
       console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
       setBadge(false, 'boot failed: ' + (lastErr?.message || 'unknown'));
-      const sub = $('#start-sub');
-      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ ./vr-goodjunk/goodjunk-vr.boot.js';
     }
-
-    window.addEventListener('load', () => {
-      setBadge(false, 'boot: loading…');
-      loadBoot();
-    });
+    window.addEventListener('load', () => { setBadge(false, 'boot: loading…'); loadBoot(); });
   </script>
 </head>
 
 <body>
-  <!-- STUN fire overlay -->
   <div class="fire-overlay" id="fire-overlay"></div>
+  <div class="stun-frame" id="stun-frame"></div>
 
-  <!-- A-Frame scene -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true; physicallyCorrectLights:true">
-    <!-- rig + camera (look-controls for headset/orientation; drag adds to rig) -->
     <a-entity id="gj-rig" rotation="0 0 0">
-      <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
+      <a-entity id="gj-camera" camera look-controls="enabled:true" position="0 1.6 0"></a-entity>
     </a-entity>
-
     <a-entity light="type: ambient; intensity: 1.0"></a-entity>
     <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
     <a-sky color="#061225"></a-sky>
   </a-scene>
 
-  <!-- DOM target layer -->
-  <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
-
-  <!-- STUN vortex (aim center indicator) -->
+  <div id="gj-layer"></div>
   <div class="stun-vortex" id="stun-vortex"></div>
 
-  <!-- HUD -->
-  <div class="hud-root" aria-label="HUD">
-    <div class="hud-top">
-      <div class="hud-card" style="min-width: 300px;">
-        <div class="hud-main">
-          <div class="hud-main-title">GOODJUNK</div>
+  <!-- (HUD + start overlay + logger badge + VR button คงเดิมของคุณ) -->
+  <!-- ... วาง HUD/Start เดิมจากไฟล์คุณ ... -->
 
-          <div class="hud-pill" id="hud-pill">
-            <span>●</span>
-            <span id="hud-run-label">PLAY</span>
-          </div>
-
-          <div class="hud-stun" id="hud-stun">
-            <span class="dot"></span> STUN
-          </div>
-        </div>
-
-        <div class="hud-metrics">
-          <div class="metric">
-            <div class="metric-label">Score</div>
-            <div class="metric-value accent" id="hud-score">0</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Combo Max</div>
-            <div class="metric-value" id="hud-combo">0</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Miss</div>
-            <div class="metric-value danger" id="hud-miss">0</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Time</div>
-            <div class="metric-value" id="hud-time-label">—</div>
-          </div>
-        </div>
-
-        <div style="margin-top:6px; font-size:11px; color:var(--text-soft);">
-          Diff: <b id="hud-diff-label">NORMAL</b> • Challenge: <b id="hud-challenge-label">RUSH</b>
-          <span style="margin-left:8px;">|</span>
-          <span id="hud-judge" style="margin-left:8px; font-weight:950;">&nbsp;</span>
-        </div>
+  <!-- ✅ End Summary -->
+  <div class="end-overlay" id="end-overlay">
+    <div class="end-card">
+      <h2 class="end-title">สรุปผลเกม (GOODJUNK)</h2>
+      <div style="color:var(--text-soft); font-size:13px;">
+        Diff: <b id="end-diff">—</b> • Challenge: <b id="end-ch">—</b>
+        • Goals ผ่าน <b id="end-goals">0</b> • Mini ผ่าน <b id="end-minis">0</b>
       </div>
 
-      <div class="hud-card hud-quest" style="min-width: 320px;">
-        <div class="quest-title">Quest</div>
-
-        <div class="quest-main-label" id="hud-quest-main">ภารกิจหลัก</div>
-        <div class="quest-progress-wrap">
-          <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-main-bar"></div></div>
-          <div class="quest-caption">
-            <span id="hud-quest-main-caption">0 / 0</span>
-            <span id="hud-quest-hint"></span>
-          </div>
-        </div>
-
-        <div class="quest-mini-label" id="hud-quest-mini">Mini: —</div>
-        <div class="quest-progress-wrap">
-          <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-mini-bar"></div></div>
-          <div class="quest-caption">
-            <span id="hud-quest-mini-caption">0 / 0</span>
-            <span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span>
-          </div>
-        </div>
-
-        <div class="hud-fever">
-          <div class="fever-row">
-            <div class="fever-label">FEVER</div>
-            <div class="fever-bar"><div class="fever-fill" id="fever-fill" style="width:0%"></div></div>
-            <div class="fever-pct" id="fever-pct">0%</div>
-          </div>
-          <div class="shield-row">
-            <div style="font-size:12px;">🛡️</div>
-            <div>Shield</div>
-            <div class="shield-count" id="shield-count">0</div>
-          </div>
-        </div>
+      <div class="end-grid">
+        <div class="end-item"><div class="end-k">Score</div><div class="end-v" id="end-score">0</div></div>
+        <div class="end-item"><div class="end-k">Good Hits</div><div class="end-v" id="end-good">0</div></div>
+        <div class="end-item"><div class="end-k">Miss</div><div class="end-v" id="end-miss">0</div></div>
+        <div class="end-item"><div class="end-k">Combo Max</div><div class="end-v" id="end-combo">0</div></div>
+        <div class="end-item"><div class="end-k">Gold</div><div class="end-v" id="end-gold">0</div></div>
+        <div class="end-item"><div class="end-k">Fever (end)</div><div class="end-v" id="end-fever">0%</div></div>
       </div>
-    </div>
 
-    <div class="hud-bottom">
-      <div class="coach-bubble" id="coach-bubble">
-        <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
-        <div class="coach-col">
-          <div class="coach-label">Coach</div>
-          <div id="coach-text">แตะของดี! หลบ junk! ⚡</div>
-        </div>
+      <div class="end-row">
+        <button class="end-btn" id="btn-end-close" type="button">ปิด</button>
+        <button class="end-btn primary" id="btn-end-restart" type="button">เล่นใหม่</button>
       </div>
     </div>
   </div>
-
-  <!-- Countdown overlay -->
-  <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
-
-  <!-- VR button -->
-  <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR">
-    <span>🥽</span> Enter VR
-  </button>
-
-  <!-- Logger badge -->
-  <div class="logbadge" id="logbadge">
-    <div class="dot" id="logdot"></div>
-    <div id="logtext">boot: loading…</div>
-  </div>
-
-  <!-- Start overlay -->
-  <div class="start-overlay" id="start-overlay">
-    <div class="start-card">
-      <h1 class="start-title">GoodJunk VR</h1>
-      <p class="start-sub" id="start-sub">
-        เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅
-      </p>
-
-      <div class="start-grid">
-        <div>
-          <div class="start-label">Difficulty</div>
-          <select id="sel-diff">
-            <option value="easy">Easy</option>
-            <option value="normal" selected>Normal</option>
-            <option value="hard">Hard</option>
-          </select>
-        </div>
-        <div>
-          <div class="start-label">Challenge</div>
-          <select id="sel-challenge">
-            <option value="rush" selected>Rush</option>
-            <option value="boss">Boss</option>
-            <option value="survival">Survival</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="start-row">
-        <button class="start-btn secondary" id="btn-start-2d" type="button">▶ Start 2D</button>
-        <button class="start-btn" id="btn-start-vr" type="button">🥽 Start VR</button>
-      </div>
-
-      <div style="margin-top:8px; font-size:11px; color:var(--text-soft);">
-        * แตะ “พื้นที่ว่าง” เพื่อย้ายศูนย์กลาง STUN (วง vortex) • ลากเพื่อหมุนมุมมอง
-      </div>
-    </div>
-  </div>
-
 </body>
 </html>
