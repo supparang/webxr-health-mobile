@@ -1,526 +1,923 @@
 // === /herohealth/vr/mode-factory.js ===
-// DOM Mode Factory — spawner + pan-to-look + crosshair shot
-// ✅ drag to pan = เลื่อนมุมมอง (เป้าเลื่อนตาม)
-// ✅ tap short = shootCrosshair (ยิงกลางจอ)
-// ✅ PERFECT ring (heavy)
-// ✅ safe zone clamp ไม่ทับ HUD (อ่านจาก excludeSelectors)
-// ✅ ส่ง ctx ให้ judge(): {clientX,clientY, isGood, itemType, hitPerfect, isPower}
+// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
+// ✅ spawnHost=#hvr-playfield → เป้าขยับตาม drag view
+// ✅ crosshair shooting (tap short) via shootCrosshair()
+// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
+// ✅ rhythm spawn + pulse
+// ✅ trick/fake targets (itemType='fakeGood')
+// ✅ Storm: spawnIntervalMul ทำให้ spawn ถี่ขึ้นจริง
+// ✅ Life adaptive + storm
+// ✅ SAFEZONE: กัน spawn ทับ HUD
+// ✅ NEW VISUAL: bubble transparent + thin-film iridescence + reactive shimmer + tilt shimmer
+// ✅ NEW MOVE: target float/sway via inner wrapper; Storm = sway แรง/เร็วขึ้น
 
 'use strict';
 
-function clamp(v, a, b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-function now(){ return (typeof performance !== 'undefined') ? performance.now() : Date.now(); }
-function rand(a,b){ return a + Math.random()*(b-a); }
-function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
 
-function ensureStyle(){
-  if (document.getElementById('hha-mode-factory-style')) return;
-  const s = document.createElement('style');
-  s.id = 'hha-mode-factory-style';
-  s.textContent = `
-  .hha-world{
-    position:absolute;
-    inset:0;
-    z-index:18; /* targets under HUD (50), under postfx (46), but hit works */
-    transform:translate3d(0,0,0);
-    will-change:transform;
+function clamp (v, min, max) {
+  v = Number(v) || 0;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+function pickOne (arr, fallback = null) {
+  if (!Array.isArray(arr) || !arr.length) return fallback;
+  const i = Math.floor(Math.random() * arr.length);
+  return arr[i];
+}
+function getEventXY (ev) {
+  let x = ev.clientX;
+  let y = ev.clientY;
+  if ((x == null || y == null || (x === 0 && y === 0)) && ev.touches && ev.touches[0]) {
+    x = ev.touches[0].clientX;
+    y = ev.touches[0].clientY;
   }
-  .hha-target{
-    position:absolute;
-    left:50%; top:50%;
-    transform:translate3d(-50%,-50%,0);
-    display:grid;
-    place-items:center;
-    user-select:none;
-    -webkit-user-select:none;
-    touch-action:none;
-    cursor:pointer;
-    filter: drop-shadow(0 18px 22px rgba(0,0,0,.35));
-    will-change:transform, opacity;
+  if ((x == null || y == null) && ev.changedTouches && ev.changedTouches[0]) {
+    x = ev.changedTouches[0].clientX;
+    y = ev.changedTouches[0].clientY;
   }
-  .hha-emoji{
-    font-size:42px;
-    line-height:1;
-    transform: translateZ(0);
-  }
-  .hha-bubble{
-    position:absolute;
-    inset:-16px;
-    border-radius:999px;
-    pointer-events:none;
-    opacity:.0;
-  }
-  .hha-target[data-kind="good"] .hha-bubble{
-    opacity:.42;
-    background: radial-gradient(circle at 30% 30%,
-      rgba(255,255,255,.28), rgba(80,230,255,.12) 40%, rgba(34,197,94,.12) 65%, rgba(255,255,255,0) 72%);
-    border:1px solid rgba(160,220,255,.22);
-  }
-  .hha-target[data-kind="bad"] .hha-bubble{
-    opacity:.38;
-    background: radial-gradient(circle at 30% 30%,
-      rgba(255,255,255,.22), rgba(255,64,96,.14) 45%, rgba(245,158,11,.10) 70%, rgba(255,255,255,0) 78%);
-    border:1px solid rgba(255,120,140,.20);
-  }
-  .hha-target[data-kind="power"] .hha-bubble{
-    opacity:.45;
-    background: radial-gradient(circle at 35% 30%,
-      rgba(255,255,255,.30), rgba(160,120,255,.18) 40%, rgba(80,230,255,.10) 70%, rgba(255,255,255,0) 78%);
-    border:1px solid rgba(200,180,255,.22);
-  }
-
-  @keyframes hha-float{
-    0%{ transform:translate3d(-50%,-50%,0) rotate(-0.6deg) }
-    50%{ transform:translate3d(-50%,-55%,0) rotate(0.6deg) }
-    100%{ transform:translate3d(-50%,-50%,0) rotate(-0.6deg) }
-  }
-  .hha-target{ animation: hha-float 1.55s ease-in-out infinite; }
-  .hha-target[data-storm="1"]{ animation-duration: .75s; } /* storm = ส่ายเร็ว */
-  .hha-target[data-storm="1"] .hha-emoji{ filter: drop-shadow(0 0 14px rgba(80,230,255,.22)); }
-
-  /* PERFECT ring */
-  .hha-perfect-ring{
-    position:fixed;
-    width:12px; height:12px;
-    left:0; top:0;
-    transform:translate(-50%,-50%);
-    border-radius:999px;
-    pointer-events:none;
-    z-index:99970;
-    box-shadow:
-      0 0 0 2px rgba(255,255,255,.55),
-      0 0 0 10px rgba(160,120,255,.18),
-      0 0 34px rgba(80,230,255,.22);
-    animation:hha-pr 420ms ease-out forwards;
-  }
-  @keyframes hha-pr{
-    0%{ opacity:0; transform:translate(-50%,-50%) scale(.35); }
-    15%{ opacity:1; }
-    100%{ opacity:0; transform:translate(-50%,-50%) scale(3.6); }
-  }
-  `;
-  document.head.appendChild(s);
+  return { x: x || 0, y: y || 0 };
 }
 
-function computeSafeRect(excludeSelectors = []) {
-  const W = window.innerWidth || 1;
-  const H = window.innerHeight || 1;
+// ---------- Base difficulty ----------
+const DEFAULT_DIFF = {
+  easy:   { spawnInterval: 900, maxActive: 3, life: 1900, scale: 1.15 },
+  normal: { spawnInterval: 800, maxActive: 4, life: 1700, scale: 1.00 },
+  hard:   { spawnInterval: 650, maxActive: 5, life: 1500, scale: 0.90 }
+};
 
-  // base margins
-  let top = 10, left = 10, right = 10, bottom = 10;
+function pickDiffConfig (modeKey, diffKey) {
+  diffKey = String(diffKey || 'normal').toLowerCase();
+  let base = null;
 
-  // bump margins from excluded HUD elements
-  for (const sel of (excludeSelectors || [])) {
-    const el = document.querySelector(sel);
-    if (!el) continue;
-    const r = el.getBoundingClientRect();
-    if (!r || !isFinite(r.left)) continue;
-
-    // if element sits near top -> raise top safe
-    if (r.top <= 40) top = Math.max(top, r.bottom + 10);
-    // near bottom
-    if (r.bottom >= H - 40) bottom = Math.max(bottom, (H - r.top) + 10);
-    // left
-    if (r.left <= 40) left = Math.max(left, r.right + 10);
-    // right
-    if (r.right >= W - 40) right = Math.max(right, (W - r.left) + 10);
+  if (ROOT.HHA_DIFF_TABLE && modeKey && ROOT.HHA_DIFF_TABLE[modeKey]) {
+    const table = ROOT.HHA_DIFF_TABLE[modeKey];
+    if (table && table[diffKey]) base = table[diffKey];
   }
+  if (!base) base = DEFAULT_DIFF[diffKey] || DEFAULT_DIFF.normal;
 
-  return {
-    left, top,
-    right: W - right,
-    bottom: H - bottom,
-    width: Math.max(1, (W - right) - left),
-    height: Math.max(1, (H - bottom) - top)
+  const cfg = {
+    spawnInterval: Number(base.spawnInterval ?? base.interval ?? 800),
+    maxActive:     Number(base.maxActive ?? base.active ?? 4),
+    life:          Number(base.life ?? base.targetLife ?? 1700),
+    scale:         Number(base.scale ?? base.size ?? 1)
   };
+
+  if (!Number.isFinite(cfg.spawnInterval) || cfg.spawnInterval <= 0) cfg.spawnInterval = 800;
+  if (!Number.isFinite(cfg.maxActive)     || cfg.maxActive <= 0)     cfg.maxActive = 4;
+  if (!Number.isFinite(cfg.life)          || cfg.life <= 0)          cfg.life = 1700;
+  if (!Number.isFinite(cfg.scale)         || cfg.scale <= 0)         cfg.scale = 1;
+
+  return cfg;
 }
 
-function hitPerfectByPoint(targetEl, clientX, clientY){
-  const r = targetEl.getBoundingClientRect();
-  const cx = r.left + r.width/2;
-  const cy = r.top + r.height/2;
-  const dx = clientX - cx;
-  const dy = clientY - cy;
-  const dist = Math.sqrt(dx*dx + dy*dy);
-  const rad = Math.min(r.width, r.height) * 0.28;
-  return dist <= rad;
-}
-
-function spawnTarget(world, opt){
-  const el = document.createElement('div');
-  el.className = 'hha-target';
-  el.dataset.kind = opt.kind;       // good/bad/power/fakeGood
-  el.dataset.storm = opt.storm ? '1' : '0';
-
-  // store base position in normalized (0..1) within safe rect
-  el.__bx = opt.bx;
-  el.__by = opt.by;
-  el.__size = opt.size;
-
-  // bubble + emoji
-  const bub = document.createElement('div');
-  bub.className = 'hha-bubble';
-  const emo = document.createElement('div');
-  emo.className = 'hha-emoji';
-  emo.textContent = opt.emoji;
-
-  el.appendChild(bub);
-  el.appendChild(emo);
-
-  el.style.width = opt.size + 'px';
-  el.style.height = opt.size + 'px';
-
-  // lifespan
-  el.__born = now();
-  el.__ttl = opt.ttl;
-
-  // slight per target phase
-  el.__ph = Math.random()*Math.PI*2;
-
-  world.appendChild(el);
-  return el;
-}
-
-function drawPerfectRing(x,y){
-  const ring = document.createElement('div');
-  ring.className = 'hha-perfect-ring';
-  ring.style.left = x + 'px';
-  ring.style.top  = y + 'px';
-  document.body.appendChild(ring);
-  setTimeout(()=>{ try{ ring.remove(); }catch{} }, 520);
-}
-
-export async function boot(cfg = {}) {
-  ensureStyle();
-
-  const spawnHost = cfg.spawnHost || document.body;
-  const pools = cfg.pools || { good:['💧'], bad:['🥤'], trick:['💧'] };
-
-  const excludeSelectors = Array.isArray(cfg.excludeSelectors) ? cfg.excludeSelectors : [];
-  const allowAdaptive = !!cfg.allowAdaptive;
-
-  const duration = Math.max(20, Number(cfg.duration || 90));
-  const goodRate = clamp(cfg.goodRate ?? 0.68, 0.1, 0.95);
-  const powerRate = clamp(cfg.powerRate ?? 0.10, 0, 0.30);
-  const trickRate = clamp(cfg.trickRate ?? 0.08, 0, 0.35);
-
-  const spawnIntervalBase = 900; // ms
-  const ttlBase = 1500;          // ms
-  const maxActive = 6;
-
-  // world layer
-  let world = spawnHost.querySelector('.hha-world');
-  if (!world) {
-    world = document.createElement('div');
-    world.className = 'hha-world';
-    spawnHost.appendChild(world);
-  }
-
-  // pan-to-look state
-  let panX = 0, panY = 0;
-  let drag = { on:false, id:null, sx:0, sy:0, ox:0, oy:0, moved:0, downAt:0, onTarget:false };
-  const panMaxX = ()=> (window.innerWidth || 1) * 0.22;
-  const panMaxY = ()=> (window.innerHeight || 1) * 0.18;
-
-  // storm (from game logic)
-  let storm = false;
-
-  // runtime
-  let stopped = false;
-  let timeLeft = duration;
-  let tAcc = 0;
-  let lastTick = now();
-  let lastSpawn = 0;
-
-  const targets = new Set();
-
-  function updateWorldTransform(){
-    // move world
-    world.style.transform = `translate3d(${panX.toFixed(2)}px, ${panY.toFixed(2)}px, 0)`;
-  }
-
-  function placeTargets(){
-    const safe = computeSafeRect(excludeSelectors);
-    for (const el of targets){
-      if (!el.isConnected) continue;
-      const bx = clamp(el.__bx, 0, 1);
-      const by = clamp(el.__by, 0, 1);
-
-      // position within safe (screen space)
-      let x = safe.left + bx * safe.width;
-      let y = safe.top + by * safe.height;
-
-      // apply a small per-target sway (so it "ลอย/ส่าย")
-      const age = (now() - el.__born) * 0.001;
-      const sway = (storm ? 10 : 5);
-      x += Math.sin(age* (storm ? 9.2 : 4.8) + el.__ph) * sway;
-      y += Math.cos(age* (storm ? 8.7 : 4.2) + el.__ph) * sway;
-
-      // clamp final with size
-      const r = (el.__size || 48) * 0.45;
-      x = clamp(x, safe.left + r, safe.right - r);
-      y = clamp(y, safe.top + r, safe.bottom - r);
-
-      el.style.left = x + 'px';
-      el.style.top  = y + 'px';
-      el.dataset.storm = storm ? '1' : '0';
+// ======================================================
+// Overlay fallback + global CSS
+// ======================================================
+function ensureOverlayStyle () {
+  if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
+  const s = DOC.createElement('style');
+  s.id = 'hvr-overlay-style';
+  s.textContent = `
+    .hvr-overlay-host{
+      position:fixed;
+      inset:0;
+      z-index:9998;
+      pointer-events:none;
     }
+    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
+
+    /* pulse (rhythm) */
+    .hvr-target.hvr-pulse .hvr-wob{
+      animation-name:hvrSwayPulse;
+      animation-duration: var(--sway-dur, 1.55s);
+    }
+
+    /* target base */
+    .hvr-target{
+      border-radius:999px;
+      contain: layout paint;
+      will-change: transform;
+    }
+
+    /* inner wobble wrapper (no conflict with outer scale pop-in) */
+    .hvr-wob{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      animation: hvrSway var(--sway-dur, 1.95s) ease-in-out infinite;
+      transform: translate3d(0,0,0);
+      will-change: transform;
+    }
+
+    /* sway amplitude vars set per target; storm modifies via host class */
+    @keyframes hvrSway{
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      25%{ transform: translate3d(calc(var(--sx, 6) * 1px), calc(var(--sy, -5) * 1px), 0) rotate(0.6deg); }
+      50%{ transform: translate3d(calc(var(--sx, -6) * 1px), calc(var(--sy, 6) * 1px), 0) rotate(-0.7deg); }
+      75%{ transform: translate3d(calc(var(--sx, 5) * 1px), calc(var(--sy, 4) * 1px), 0) rotate(0.5deg); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+    }
+
+    @keyframes hvrSwayPulse{
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      50%{ transform: translate3d(calc(var(--sx, 7) * 1px), calc(var(--sy, -6) * 1px), 0) rotate(0.9deg); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+    }
+
+    /* bubble layers */
+    .hvr-bubble{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.52), rgba(255,255,255,0.04) 40%, rgba(0,0,0,0.00) 64%),
+        radial-gradient(circle at 55% 70%, rgba(59,130,246,0.16), rgba(34,197,94,0.10) 45%, rgba(0,0,0,0.00) 68%),
+        radial-gradient(circle at 50% 55%, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 55%, rgba(0,0,0,0.00) 70%);
+      box-shadow:
+        0 16px 34px rgba(15,23,42,0.55),
+        inset 0 0 0 2px rgba(255,255,255,0.14),
+        inset 0 -12px 24px rgba(0,0,0,0.10);
+      backdrop-filter: blur(1.2px);
+      opacity: 0.98;
+    }
+
+    /* thin-film iridescence (conic + blend) + reacts to tilt vars on host */
+    .hvr-film{
+      position:absolute;
+      inset:-6%;
+      border-radius:999px;
+      background:
+        conic-gradient(from 180deg at 50% 50%,
+          rgba(255, 80, 120, 0.18),
+          rgba(0, 190, 255, 0.18),
+          rgba(34, 197, 94, 0.16),
+          rgba(250, 204, 21, 0.12),
+          rgba(255, 80, 120, 0.18)
+        );
+      mix-blend-mode: screen;
+      filter: blur(0.2px) saturate(1.2);
+      opacity: 0.72;
+      transform:
+        translate3d(calc(var(--tilt-x, 0) * 8px), calc(var(--tilt-y, 0) * 6px), 0)
+        rotate(calc(var(--tilt-x, 0) * 8deg));
+      will-change: transform;
+      pointer-events:none;
+    }
+
+    /* shimmer sweep */
+    .hvr-shimmer{
+      position:absolute;
+      inset:-18%;
+      border-radius:999px;
+      background:
+        linear-gradient(120deg,
+          rgba(255,255,255,0.00) 0%,
+          rgba(255,255,255,0.10) 18%,
+          rgba(255,255,255,0.00) 38%,
+          rgba(255, 80, 120, 0.06) 52%,
+          rgba(0, 190, 255, 0.06) 66%,
+          rgba(255,255,255,0.00) 86%
+        );
+      mix-blend-mode: screen;
+      opacity: 0.38;
+      filter: blur(0.6px);
+      animation: hvrShimmer 1.55s ease-in-out infinite;
+      transform: translate3d(0,0,0);
+      pointer-events:none;
+    }
+    @keyframes hvrShimmer{
+      0%{ transform: translate3d(-10px,-6px,0) rotate(8deg); opacity:0.16; }
+      50%{ transform: translate3d(12px,10px,0) rotate(-10deg); opacity:0.44; }
+      100%{ transform: translate3d(-10px,-6px,0) rotate(8deg); opacity:0.16; }
+    }
+
+    /* gloss highlight */
+    .hvr-gloss{
+      position:absolute;
+      inset:10%;
+      border-radius:999px;
+      background: radial-gradient(circle at 28% 22%, rgba(255,255,255,0.55), rgba(255,255,255,0.02) 48%, rgba(0,0,0,0.0) 60%);
+      mix-blend-mode: screen;
+      opacity: 0.58;
+      pointer-events:none;
+    }
+
+    /* icon holder */
+    .hvr-icon{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform: translate(-50%,-50%);
+      line-height:1;
+      filter: drop-shadow(0 4px 6px rgba(15,23,42,0.85));
+      user-select:none;
+      pointer-events:none;
+    }
+
+    /* perfect ring */
+    .hvr-ring{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform: translate(-50%,-50%);
+      width:36%;
+      height:36%;
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,0.34);
+      box-shadow: 0 0 12px rgba(255,255,255,0.18);
+      pointer-events:none;
+    }
+
+    /* storm makes sway faster/stronger */
+    .hvr-storm-on .hvr-target{
+      filter: saturate(1.06) contrast(1.06);
+    }
+    .hvr-storm-on .hvr-wob{
+      animation-duration: var(--storm-dur, 0.85s);
+    }
+
+    /* tiny bad tint */
+    .hvr-target.bad .hvr-bubble{
+      box-shadow:
+        0 16px 34px rgba(15,23,42,0.55),
+        inset 0 0 0 2px rgba(255,255,255,0.12),
+        inset 0 -12px 24px rgba(0,0,0,0.12);
+      filter: hue-rotate(330deg) saturate(1.05);
+      opacity: 0.96;
+    }
+
+  `;
+  DOC.head.appendChild(s);
+}
+function ensureOverlayHost () {
+  if (!DOC) return null;
+  ensureOverlayStyle();
+
+  let host = DOC.getElementById('hvr-overlay-host');
+  if (host && host.isConnected) return host;
+
+  host = DOC.createElement('div');
+  host.id = 'hvr-overlay-host';
+  host.className = 'hvr-overlay-host';
+  host.setAttribute('data-hvr-host', '1');
+  DOC.body.appendChild(host);
+  return host;
+}
+
+// ======================================================
+// Host resolver
+// ======================================================
+function resolveHost (rawCfg) {
+  if (!DOC) return null;
+
+  const spawnHost = rawCfg && rawCfg.spawnHost;
+  if (spawnHost && typeof spawnHost === 'string') {
+    const el = DOC.querySelector(spawnHost);
+    if (el) return el;
+  }
+  if (spawnHost && spawnHost.nodeType === 1) return spawnHost;
+
+  const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
+  if (spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
+
+  return ensureOverlayHost();
+}
+
+// ======================================================
+// SAFE ZONE / EXCLUSION
+// ======================================================
+function collectExclusionElements(rawCfg){
+  if (!DOC) return [];
+  const out = [];
+
+  const sel = rawCfg && rawCfg.excludeSelectors;
+  if (Array.isArray(sel)) {
+    sel.forEach(s=>{
+      try{ DOC.querySelectorAll(String(s)).forEach(el=> out.push(el)); }catch{}
+    });
+  } else if (typeof sel === 'string') {
+    try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
 
-  function chooseKind(){
-    const r = Math.random();
-    if (r < powerRate) return 'power';
-    if (r < powerRate + trickRate) return 'fakeGood';
-    return (Math.random() < goodRate) ? 'good' : 'bad';
+  const AUTO = [
+    '.hud',
+    '#hha-water-header',
+    '.hha-water-bar',
+    '.hha-main-row',
+    '#hha-card-left',
+    '#hha-card-right',
+    '.hha-bottom-row',
+    '.hha-fever-card',
+    '#hvr-crosshair',
+    '.hvr-crosshair',
+    '#hvr-end',
+    '.hvr-end',
+    '#hvr-start'
+  ];
+  AUTO.forEach(s=>{
+    try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
+  });
+
+  try{ DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el)); }catch{}
+
+  const uniq = [];
+  const seen = new Set();
+  out.forEach(el=>{
+    if (!el || !el.isConnected) return;
+    if (seen.has(el)) return;
+    seen.add(el);
+    uniq.push(el);
+  });
+  return uniq;
+}
+
+function computeExclusionMargins(hostRect, exEls){
+  const m = { top:0, bottom:0, left:0, right:0 };
+  if (!hostRect || !exEls || !exEls.length) return m;
+
+  const hx1 = hostRect.left, hy1 = hostRect.top;
+  const hx2 = hostRect.right, hy2 = hostRect.bottom;
+
+  exEls.forEach(el=>{
+    let r = null;
+    try{ r = el.getBoundingClientRect(); }catch{}
+    if (!r) return;
+
+    const ox1 = Math.max(hx1, r.left);
+    const oy1 = Math.max(hy1, r.top);
+    const ox2 = Math.min(hx2, r.right);
+    const oy2 = Math.min(hy2, r.bottom);
+    if (ox2 <= ox1 || oy2 <= oy1) return;
+
+    if (r.top <= hy1 + 2 && r.bottom > hy1) {
+      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    }
+    if (r.bottom >= hy2 - 2 && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+    }
+    if (r.left <= hx1 + 2 && r.right > hx1) {
+      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    }
+    if (r.right >= hx2 - 2 && r.left < hx2) {
+      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+    }
+  });
+
+  return m;
+}
+
+function computePlayRectFromHost (hostEl, exState) {
+  const r = hostEl.getBoundingClientRect();
+  const isOverlay = hostEl && hostEl.id === 'hvr-overlay-host';
+
+  let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
+  let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
+
+  const basePadX = w * 0.10;
+  const basePadTop = h * 0.12;
+  const basePadBot = h * 0.12;
+
+  const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+
+  const left   = basePadX + m.left;
+  const top    = basePadTop + m.top;
+  const width  = Math.max(1, w - (basePadX*2) - m.left - m.right);
+  const height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
+
+  return { left, top, width, height, hostRect: r, isOverlay };
+}
+
+// ======================================================
+// boot(cfg)
+// ======================================================
+export async function boot (rawCfg = {}) {
+  const {
+    difficulty = 'normal',
+    duration   = 60,
+    modeKey    = 'hydration',
+    pools      = {},
+    goodRate   = 0.6,
+    powerups   = [],
+    powerRate  = 0.10,
+    powerEvery = 7,
+    judge,
+    onExpire,
+
+    allowAdaptive = true,
+    rhythm = null,
+    trickRate = 0.08,
+
+    spawnIntervalMul = null,
+    excludeSelectors = null
+  } = rawCfg || {};
+
+  const diffKey  = String(difficulty || 'normal').toLowerCase();
+  const baseDiff = pickDiffConfig(modeKey, diffKey);
+
+  const host = resolveHost(rawCfg);
+  if (!host || !DOC) {
+    console.error('[mode-factory] host not found');
+    return { stop () {}, shootCrosshair(){ return false; } };
   }
 
-  function spawnOne(){
-    if (targets.size >= maxActive) return;
-    const safe = computeSafeRect(excludeSelectors);
+  let stopped = false;
 
-    // normalized
-    const bx = Math.random();
-    const by = Math.random();
+  let totalDuration = clamp(duration, 20, 180);
+  let secLeft       = totalDuration;
+  let lastClockTs   = null;
 
-    const kind = chooseKind();
-    const emoji =
-      kind === 'good' ? pick(pools.good) :
-      kind === 'bad' ? pick(pools.bad) :
-      kind === 'fakeGood' ? pick(pools.trick || pools.good) :
-      pick((cfg.powerups && cfg.powerups.length) ? cfg.powerups : ['⭐','🛡️']);
+  let activeTargets = new Set();
+  let lastSpawnTs   = 0;
+  let spawnCounter  = 0;
 
-    // size by difficulty-ish
-    const sizeBase = clamp(cfg.sizeBase ?? 56, 42, 78);
-    const scaleMul = clamp(cfg.scaleMul ?? 1.0, 0.75, 1.35);
-    const size = Math.round(sizeBase * scaleMul * (kind==='power' ? 1.05 : 1.0));
+  // ---------- Adaptive ----------
+  let adaptLevel   = 0;
+  let curInterval  = baseDiff.spawnInterval;
+  let curMaxActive = baseDiff.maxActive;
+  let curScale     = baseDiff.scale;
+  let curLife      = baseDiff.life;
 
-    // ttl varies
-    const ttl = Math.round(ttlBase * (storm ? 0.85 : 1.0) * rand(0.90, 1.18));
+  let sampleHits   = 0;
+  let sampleMisses = 0;
+  let sampleTotal  = 0;
+  const ADAPT_WINDOW = 12;
 
-    const el = spawnTarget(world, { kind, emoji, bx, by, size, ttl, storm });
-    targets.add(el);
+  function recalcAdaptive () {
+    if (!allowAdaptive) return;
+    if (sampleTotal < ADAPT_WINDOW) return;
 
-    // hit handler
-    const onHit = (ev)=>{
+    const hitRate = sampleHits / sampleTotal;
+    let next = adaptLevel;
+
+    if (hitRate >= 0.85 && sampleMisses <= 2) next += 1;
+    else if (hitRate <= 0.55 || sampleMisses >= 6) next -= 1;
+
+    adaptLevel = clamp(next, -1, 3);
+
+    const intervalMul = 1 - (adaptLevel * 0.12);
+    const scaleMul    = 1 - (adaptLevel * 0.10);
+    const lifeMul     = 1 - (adaptLevel * 0.08);
+    const bonusActive = adaptLevel;
+
+    curInterval  = clamp(baseDiff.spawnInterval * intervalMul,
+                         baseDiff.spawnInterval * 0.45,
+                         baseDiff.spawnInterval * 1.4);
+    curScale     = clamp(baseDiff.scale * scaleMul,
+                         baseDiff.scale * 0.6,
+                         baseDiff.scale * 1.4);
+    curLife      = clamp(baseDiff.life * lifeMul,
+                         baseDiff.life * 0.55,
+                         baseDiff.life * 1.15);
+    curMaxActive = clamp(baseDiff.maxActive + bonusActive, 2, 10);
+
+    sampleHits = sampleMisses = sampleTotal = 0;
+
+    try {
+      ROOT.dispatchEvent(new CustomEvent('hha:adaptive', {
+        detail: { modeKey, difficulty: diffKey, level: adaptLevel, spawnInterval: curInterval, maxActive: curMaxActive, scale: curScale, life: curLife }
+      }));
+    } catch {}
+  }
+
+  function addSample (isHit) {
+    if (!allowAdaptive) return;
+    if (isHit) sampleHits++;
+    else sampleMisses++;
+    sampleTotal++;
+    if (sampleTotal >= ADAPT_WINDOW) recalcAdaptive();
+  }
+
+  // ---------- Rhythm ----------
+  let rhythmOn = false;
+  let beatMs = 0;
+  let lastBeatTs = 0;
+
+  if (typeof rhythm === 'boolean') rhythmOn = rhythm;
+  else if (rhythm && rhythm.enabled) rhythmOn = true;
+
+  if (rhythmOn) {
+    const bpm = clamp((rhythm && rhythm.bpm) ? rhythm.bpm : 110, 70, 160);
+    beatMs = Math.round(60000 / bpm);
+    try { host.classList.add('hvr-rhythm-on'); } catch {}
+  }
+
+  function getSpawnMul(){
+    let m = 1;
+    try{
+      if (typeof spawnIntervalMul === 'function') m = Number(spawnIntervalMul()) || 1;
+      else if (spawnIntervalMul != null) m = Number(spawnIntervalMul) || 1;
+    }catch{}
+    return clamp(m, 0.25, 2.5);
+  }
+
+  function getLifeMs(){
+    const mul = getSpawnMul();
+    const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
+    const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
+    const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
+    const life = curLife * stormLifeMul * ratioLifeMul;
+    return Math.round(clamp(life, 520, baseDiff.life * 1.25));
+  }
+
+  function computeHitInfoFromPoint(el, clientX, clientY){
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top  + r.height/2;
+    const dx = (clientX - cx);
+    const dy = (clientY - cy);
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const rad  = Math.max(1, Math.min(r.width, r.height) / 2);
+    const norm = dist / rad;
+    const perfect = norm <= 0.33;
+    return { cx, cy, dist, norm, perfect, rect:r };
+  }
+
+  function findTargetAtPoint(clientX, clientY){
+    let best = null;
+    let bestD = 999999;
+
+    activeTargets.forEach(t => {
+      const el = t.el;
+      if (!el || !el.isConnected) return;
+      const r = el.getBoundingClientRect();
+      const inside = (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom);
+      if (!inside) return;
+      const info = computeHitInfoFromPoint(el, clientX, clientY);
+      if (info.dist < bestD) { bestD = info.dist; best = { t, info }; }
+    });
+
+    return best;
+  }
+
+  // ✅ ยิงที่กลาง play area (กันทับ HUD)
+  const exState = {
+    els: collectExclusionElements({ excludeSelectors }),
+    margins: { top:0,bottom:0,left:0,right:0 },
+    lastRefreshTs: 0
+  };
+
+  function refreshExclusions(ts){
+    if (!DOC) return;
+    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (ts - exState.lastRefreshTs < 600) return;
+    exState.lastRefreshTs = ts;
+
+    exState.els = collectExclusionElements({ excludeSelectors });
+    let hostRect = null;
+    try{ hostRect = host.getBoundingClientRect(); }catch{}
+    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    exState.margins = computeExclusionMargins(hostRect, exState.els);
+  }
+
+  function getCrosshairPoint(){
+    let rect = null;
+    try{ rect = host.getBoundingClientRect(); }catch{}
+    if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+
+    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+    const padX = rect.width * 0.08;
+    const padY = rect.height * 0.10;
+
+    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
+    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+
+  function shootCrosshair(){
+    if (stopped) return false;
+    const p = getCrosshairPoint();
+    const hit = findTargetAtPoint(p.x, p.y);
+    if (!hit) return false;
+
+    const data = hit.t;
+    const info = hit.info;
+
+    if (typeof data._hit === 'function') {
+      data._hit({ __hhaSynth:true, clientX:p.x, clientY:p.y }, info);
+      return true;
+    }
+    return false;
+  }
+
+  // Spawn
+  function spawnTarget () {
+    if (activeTargets.size >= curMaxActive) return;
+
+    refreshExclusions();
+
+    const rect = computePlayRectFromHost(host, exState);
+    const xLocal = rect.left + rect.width  * (0.15 + Math.random() * 0.70);
+    const yLocal = rect.top  + rect.height * (0.10 + Math.random() * 0.80);
+
+    const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
+    const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
+    const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
+
+    let ch = '💧';
+    let isGood = true;
+    let isPower = false;
+    let itemType = 'good';
+
+    const canPower = Array.isArray(powerups) && powerups.length > 0;
+    const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
+
+    if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
+      ch = pickOne(powerups, '⭐');
+      isGood = true;
+      isPower = true;
+      itemType = 'power';
+    } else if (canTrick) {
+      ch = pickOne(poolsTrick, '💧');
+      isGood = true;
+      isPower = false;
+      itemType = 'fakeGood';
+    } else {
+      const r = Math.random();
+      if (r < goodRate || !poolsBad.length) {
+        ch = pickOne(poolsGood, '💧');
+        isGood = true;
+        itemType = 'good';
+      } else {
+        ch = pickOne(poolsBad, '🥤');
+        isGood = false;
+        itemType = 'bad';
+      }
+    }
+    spawnCounter++;
+
+    const el = DOC.createElement('div');
+    el.className = 'hvr-target';
+    el.setAttribute('data-hha-tgt', '1');
+    el.setAttribute('data-item-type', itemType);
+
+    const baseSize = 78;
+    const size = baseSize * curScale;
+
+    el.style.position = 'absolute';
+    el.style.left = xLocal + 'px';
+    el.style.top  = yLocal + 'px';
+    el.style.transform = 'translate(-50%, -50%) scale(0.86)';
+    el.style.width  = size + 'px';
+    el.style.height = size + 'px';
+    el.style.touchAction = 'manipulation';
+    el.style.zIndex = '35';
+
+    // random sway params
+    const sx = (Math.random() * 10 + 5) * (Math.random()<0.5?-1:1);
+    const sy = (Math.random() * 10 + 4) * (Math.random()<0.5?-1:1);
+    el.style.setProperty('--sx', sx.toFixed(2));
+    el.style.setProperty('--sy', sy.toFixed(2));
+
+    // duration influenced by storm (host class toggled in loop)
+    el.style.setProperty('--sway-dur', (1.75 + Math.random()*0.9).toFixed(2) + 's');
+    el.style.setProperty('--storm-dur', (0.62 + Math.random()*0.35).toFixed(2) + 's');
+
+    // build inner wobble wrapper
+    const wob = DOC.createElement('div');
+    wob.className = 'hvr-wob';
+
+    const bubble = DOC.createElement('div');
+    bubble.className = 'hvr-bubble';
+
+    // tint by type (subtle)
+    if (isPower){
+      bubble.style.filter = 'saturate(1.18) hue-rotate(14deg)';
+    } else if (!isGood){
+      el.classList.add('bad');
+      bubble.style.filter = 'saturate(1.10) hue-rotate(330deg)';
+    } else if (itemType === 'fakeGood'){
+      bubble.style.filter = 'saturate(1.12) hue-rotate(250deg)';
+    }
+
+    const film = DOC.createElement('div');
+    film.className = 'hvr-film';
+
+    const shimmer = DOC.createElement('div');
+    shimmer.className = 'hvr-shimmer';
+
+    const gloss = DOC.createElement('div');
+    gloss.className = 'hvr-gloss';
+
+    const ring = DOC.createElement('div');
+    ring.className = 'hvr-ring';
+
+    const icon = DOC.createElement('span');
+    icon.className = 'hvr-icon';
+    icon.textContent = ch;
+    icon.style.fontSize = (size * 0.60) + 'px';
+
+    // trick badge
+    if (itemType === 'fakeGood'){
+      const sp = DOC.createElement('div');
+      sp.textContent = '✨';
+      sp.style.position = 'absolute';
+      sp.style.right = '8px';
+      sp.style.top = '6px';
+      sp.style.fontSize = '18px';
+      sp.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+      sp.style.pointerEvents = 'none';
+      wob.appendChild(sp);
+    }
+
+    wob.appendChild(bubble);
+    wob.appendChild(film);
+    wob.appendChild(shimmer);
+    wob.appendChild(gloss);
+    wob.appendChild(ring);
+    wob.appendChild(icon);
+
+    el.appendChild(wob);
+
+    if (rhythmOn) el.classList.add('hvr-pulse');
+
+    ROOT.requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%, -50%) scale(1)';
+    });
+
+    const lifeMs = getLifeMs();
+
+    const data = {
+      el,
+      ch,
+      isGood,
+      isPower,
+      itemType,
+      bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+      life: lifeMs,
+      _hit: null
+    };
+
+    activeTargets.add(data);
+    host.appendChild(el);
+
+    function consumeHit(evOrSynth, hitInfoOpt){
+      if (stopped) return;
+      if (!activeTargets.has(data)) return;
+
+      let keepRect = null;
+      try{ keepRect = el.getBoundingClientRect(); }catch{}
+
+      activeTargets.delete(data);
+      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
+      try { host.removeChild(el); } catch {}
+
+      let res = null;
+      if (typeof judge === 'function') {
+        const xy = (evOrSynth && evOrSynth.__hhaSynth)
+          ? { x: evOrSynth.clientX, y: evOrSynth.clientY }
+          : getEventXY(evOrSynth || {});
+        const info = hitInfoOpt || (keepRect ? (function(){
+          const cx = keepRect.left + keepRect.width/2;
+          const cy = keepRect.top + keepRect.height/2;
+          const dx = (xy.x - cx);
+          const dy = (xy.y - cy);
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const rad  = Math.max(1, Math.min(keepRect.width, keepRect.height) / 2);
+          const norm = dist / rad;
+          const perfect = norm <= 0.33;
+          return { cx, cy, dist, norm, perfect, rect: keepRect };
+        })() : computeHitInfoFromPoint(el, xy.x, xy.y));
+
+        const ctx = {
+          clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
+          isGood, isPower,
+          itemType,
+          hitPerfect: !!info.perfect,
+          hitDistNorm: Number(info.norm || 1),
+          targetRect: info.rect
+        };
+        try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
+      }
+
+      let isHit = false;
+      if (res && typeof res.scoreDelta === 'number') {
+        if (res.scoreDelta > 0) isHit = true;
+        else if (res.scoreDelta < 0) isHit = false;
+        else isHit = isGood;
+      } else if (res && typeof res.good === 'boolean') {
+        isHit = !!res.good;
+      } else {
+        isHit = isGood;
+      }
+      addSample(isHit);
+    }
+
+    const handleHit = (ev) => {
       if (stopped) return;
       ev.preventDefault();
       ev.stopPropagation();
-
-      const cx = ev.clientX ?? (ev.touches && ev.touches[0] && ev.touches[0].clientX) ?? 0;
-      const cy = ev.clientY ?? (ev.touches && ev.touches[0] && ev.touches[0].clientY) ?? 0;
-
-      const hitPerfect = hitPerfectByPoint(el, cx, cy);
-      if (hitPerfect) drawPerfectRing(cx, cy);
-
-      const ctx = {
-        clientX: cx,
-        clientY: cy,
-        isGood: (kind === 'good' || kind === 'fakeGood' || kind === 'power'),
-        itemType: kind,
-        hitPerfect,
-        isPower: (kind === 'power')
-      };
-
-      try{ cfg.judge && cfg.judge(emoji, ctx); }catch(e){ console.warn(e); }
-
-      // remove target
-      try{ el.remove(); }catch{}
-      targets.delete(el);
+      consumeHit(ev, null);
     };
 
-    el.addEventListener('pointerdown', onHit, { passive:false });
-    el.addEventListener('touchstart', onHit, { passive:false });
+    data._hit = consumeHit;
 
-    return el;
-  }
+    el.addEventListener('pointerdown', handleHit, { passive: false });
+    el.addEventListener('click', handleHit, { passive: false });
+    el.addEventListener('touchstart', handleHit, { passive: false });
 
-  function expireTargets(){
-    const t = now();
-    for (const el of targets){
-      if (!el.isConnected){ targets.delete(el); continue; }
-      if (t - el.__born >= el.__ttl){
-        const kind = el.dataset.kind || 'good';
-        try{ cfg.onExpire && cfg.onExpire({ itemType: kind }); }catch{}
-        try{ el.remove(); }catch{}
-        targets.delete(el);
+    ROOT.setTimeout(() => {
+      if (stopped) return;
+      if (!activeTargets.has(data)) return;
+
+      activeTargets.delete(data);
+      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
+      try { host.removeChild(el); } catch {}
+
+      try { if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, itemType }); } catch (err) {
+        console.error('[mode-factory] onExpire error', err);
       }
-    }
+    }, lifeMs);
   }
 
-  // -------- pan + tap-to-shoot (empty area only) --------
-  function isTargetEl(node){
-    if (!node) return false;
-    return !!(node.closest && node.closest('.hha-target'));
+  function dispatchTime (sec) {
+    try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
 
-  function onDown(e){
-    if (stopped) return;
-    const pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
-    const x = pt.clientX || 0;
-    const y = pt.clientY || 0;
+  let rafId = null;
 
-    drag.onTarget = isTargetEl(e.target);
-    // กดบนเป้า -> ให้เป้าจัดการ hit เอง ไม่เริ่ม drag
-    if (drag.onTarget) return;
-
-    drag.on = true;
-    drag.id = e.pointerId ?? 'touch';
-    drag.sx = x; drag.sy = y;
-    drag.ox = panX; drag.oy = panY;
-    drag.moved = 0;
-    drag.downAt = now();
-  }
-
-  function onMove(e){
-    if (!drag.on || stopped) return;
-    const pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
-    const x = pt.clientX || 0;
-    const y = pt.clientY || 0;
-
-    const dx = x - drag.sx;
-    const dy = y - drag.sy;
-    drag.moved = Math.max(drag.moved, Math.abs(dx) + Math.abs(dy));
-
-    // pan
-    panX = clamp(drag.ox + dx, -panMaxX(), +panMaxX());
-    panY = clamp(drag.oy + dy, -panMaxY(), +panMaxY());
-    updateWorldTransform();
-  }
-
-  function onUp(e){
-    if (!drag.on || stopped) return;
-    drag.on = false;
-
-    // tap short on empty area -> shoot crosshair
-    const dt = now() - drag.downAt;
-    const isTap = (drag.moved <= 10) && (dt <= 260);
-    if (isTap && typeof inst.shootCrosshair === 'function') {
-      try{ inst.shootCrosshair(); }catch{}
-    }
-  }
-
-  spawnHost.addEventListener('pointerdown', onDown, { passive:false });
-  spawnHost.addEventListener('pointermove', onMove, { passive:false });
-  spawnHost.addEventListener('pointerup', onUp, { passive:false });
-  spawnHost.addEventListener('pointercancel', onUp, { passive:false });
-
-  spawnHost.addEventListener('touchstart', onDown, { passive:false });
-  spawnHost.addEventListener('touchmove', onMove, { passive:false });
-  spawnHost.addEventListener('touchend', onUp, { passive:false });
-  spawnHost.addEventListener('touchcancel', onUp, { passive:false });
-
-  function shootCrosshair(){
-    // ยิงกลางจอ: หาเป้าที่ใกล้จุดกลางสุด แล้วนับเป็น hit แบบ "ประมาณ"
-    if (targets.size <= 0) return false;
-
-    const cx = (window.innerWidth||1)/2;
-    const cy = (window.innerHeight||1)/2;
-
-    let best = null;
-    let bestD = Infinity;
-    for (const el of targets){
-      const r = el.getBoundingClientRect();
-      const tx = r.left + r.width/2;
-      const ty = r.top + r.height/2;
-      const dx = tx - cx, dy = ty - cy;
-      const d = dx*dx + dy*dy;
-      if (d < bestD){ bestD = d; best = el; }
-    }
-    if (!best) return false;
-
-    // simulate pointer hit at center
-    const rect = best.getBoundingClientRect();
-    const px = rect.left + rect.width/2;
-    const py = rect.top  + rect.height/2;
-
-    const kind = best.dataset.kind || 'good';
-    const emoji = best.querySelector('.hha-emoji')?.textContent || '💧';
-    const hitPerfect = true; // ยิงกลางจอให้เป็น PERFECT เพื่อสนุก
-
-    drawPerfectRing(px, py);
-
-    const ctx = {
-      clientX: px, clientY: py,
-      isGood: (kind==='good'||kind==='fakeGood'||kind==='power'),
-      itemType: kind,
-      hitPerfect,
-      isPower: (kind==='power')
-    };
-
-    try{ cfg.judge && cfg.judge(emoji, ctx); }catch{}
-    try{ best.remove(); }catch{}
-    targets.delete(best);
-    return true;
-  }
-
-  // main loop
-  function tick(){
+  function loop (ts) {
     if (stopped) return;
 
-    const t = now();
-    const dt = Math.min(0.05, (t - lastTick)/1000);
-    lastTick = t;
+    refreshExclusions(ts);
 
-    // countdown (emit per sec)
-    tAcc += dt;
-    if (tAcc >= 1.0){
-      tAcc = 0;
-      timeLeft = Math.max(0, timeLeft - 1);
-      window.dispatchEvent(new CustomEvent('hha:time', { detail: { sec: timeLeft } }));
+    if (lastClockTs == null) lastClockTs = ts;
+    const dt = ts - lastClockTs;
+
+    if (dt >= 1000 && secLeft > 0) {
+      const steps = Math.floor(dt / 1000);
+      for (let i = 0; i < steps; i++) {
+        secLeft--;
+        dispatchTime(secLeft);
+        if (secLeft <= 0) break;
+      }
+      lastClockTs += steps * 1000;
     }
 
-    // spawn schedule (allow storm multiplier from cfg.spawnIntervalMul())
-    const mul = (typeof cfg.spawnIntervalMul === 'function') ? clamp(cfg.spawnIntervalMul(), 0.35, 2.2) : 1.0;
-    const interval = spawnIntervalBase * mul;
+    if (secLeft > 0) {
+      if (!lastSpawnTs) lastSpawnTs = ts;
 
-    if (t - lastSpawn >= interval){
-      lastSpawn = t;
-      spawnOne();
-    }
+      const mul = getSpawnMul();
+      const effInterval = Math.max(35, curInterval * mul);
 
-    expireTargets();
-    placeTargets();
+      try{
+        if (mul < 0.99) host.classList.add('hvr-storm-on');
+        else host.classList.remove('hvr-storm-on');
+      }catch{}
 
-    if (timeLeft <= 0){
-      stopped = true;
-      // cleanup targets
-      for (const el of targets){ try{ el.remove(); }catch{} }
-      targets.clear();
+      if (rhythmOn && beatMs > 0) {
+        if (!lastBeatTs) lastBeatTs = ts;
+        const dtBeat = ts - lastBeatTs;
+        if (dtBeat >= beatMs) {
+          spawnTarget();
+          lastBeatTs += Math.floor(dtBeat / beatMs) * beatMs;
+        }
+      } else {
+        const dtSpawn = ts - lastSpawnTs;
+        if (dtSpawn >= effInterval) {
+          spawnTarget();
+          lastSpawnTs = ts;
+        }
+      }
+    } else {
+      stop();
       return;
     }
 
-    requestAnimationFrame(tick);
+    rafId = ROOT.requestAnimationFrame(loop);
   }
 
-  // start
-  updateWorldTransform();
-  placeTargets();
-  requestAnimationFrame(tick);
+  function stop () {
+    if (stopped) return;
+    stopped = true;
 
-  const inst = {
-    stop(){
-      stopped = true;
-      try{
-        spawnHost.removeEventListener('pointerdown', onDown);
-        spawnHost.removeEventListener('pointermove', onMove);
-        spawnHost.removeEventListener('pointerup', onUp);
-        spawnHost.removeEventListener('pointercancel', onUp);
-        spawnHost.removeEventListener('touchstart', onDown);
-        spawnHost.removeEventListener('touchmove', onMove);
-        spawnHost.removeEventListener('touchend', onUp);
-        spawnHost.removeEventListener('touchcancel', onUp);
-      }catch{}
-      try{ world.remove(); }catch{}
+    try { if (rafId != null) ROOT.cancelAnimationFrame(rafId); } catch {}
+    rafId = null;
+
+    activeTargets.forEach(t => { try { t.el.remove(); } catch {} });
+    activeTargets.clear();
+
+    try { dispatchTime(0); } catch {}
+  }
+
+  const onStopEvent = () => stop();
+  ROOT.addEventListener('hha:stop', onStopEvent);
+
+  rafId = ROOT.requestAnimationFrame(loop);
+
+  return {
+    stop () {
+      ROOT.removeEventListener('hha:stop', onStopEvent);
+      stop();
     },
-    shootCrosshair,
-    setStorm(on){
-      storm = !!on;
-      // mark existing
-      for (const el of targets){ el.dataset.storm = storm ? '1' : '0'; }
-    }
+    shootCrosshair
   };
-
-  return inst;
 }
 
 export default { boot };
