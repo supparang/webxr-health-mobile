@@ -1,7 +1,6 @@
 // === /herohealth/vr/hha-reticlefx.js ===
-// Global Reticle FX (IIFE) — hover/fuse feedback for <a-cursor>
-// ✅ โหลดก่อน scene → ไม่เจอ unknown component
-// Usage: <a-cursor hha-reticlefx="hoverScale:1.25; hoverOpacity:1; idleOpacity:.7; fusePulse:1"></a-cursor>
+// Global reticle hover/fuse feedback for <a-cursor>
+// ต้องเป็น global เพื่อเลี่ยง “unknown component” ตอน A-Frame init
 
 (function () {
   'use strict';
@@ -9,84 +8,81 @@
   if (!A || !A.registerComponent) return;
   if (A.components && A.components['hha-reticlefx']) return;
 
-  function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-
   A.registerComponent('hha-reticlefx', {
     schema: {
-      hoverScale: { type: 'number', default: 1.25 },
-      idleOpacity:{ type: 'number', default: 0.70 },
-      hoverOpacity:{ type: 'number', default: 1.0 },
-      fusePulse:  { type: 'number', default: 1 }
+      on: { default: true },
+      pulse: { default: true },
+      hoverScale: { default: 1.15 },
+      fuseGlow: { default: true }
     },
     init: function () {
-      this._hover = false;
+      this._baseScale = this.el.object3D.scale.clone();
+      this._hovering = false;
       this._fusing = false;
-      this._t0 = performance.now();
+      this._t = 0;
 
-      const el = this.el;
-      this._base = {
-        scale: el.object3D.scale.clone(),
-        opacity: (function(){
-          try{
-            const m = el.getAttribute('material') || {};
-            return Number(m.opacity);
-          }catch(_){ return 0.88; }
-        })()
+      const setScale = (k) => {
+        try {
+          const s = this._baseScale;
+          this.el.object3D.scale.set(s.x * k, s.y * k, s.z * k);
+        } catch (_) {}
       };
 
       const setOpacity = (op) => {
-        try{
-          el.setAttribute('material', 'opacity', clamp(op, 0, 1));
-        }catch(_){}
+        try {
+          const mesh = this.el.getObject3D('mesh');
+          if (!mesh) return;
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          for (const m of mats) {
+            if (!m) continue;
+            m.transparent = true;
+            m.opacity = Math.max(0.15, Math.min(1, op));
+            m.needsUpdate = true;
+          }
+        } catch (_) {}
       };
 
-      const setScaleMul = (mul) => {
-        try{
-          el.object3D.scale.set(
-            this._base.scale.x * mul,
-            this._base.scale.y * mul,
-            this._base.scale.z * mul
-          );
-        }catch(_){}
-      };
+      this._setScale = setScale;
+      this._setOpacity = setOpacity;
 
-      this._applyIdle = () => {
-        this._hover = false;
+      this.el.addEventListener('mouseenter', () => {
+        this._hovering = true;
+        setScale(this.data.hoverScale);
+        setOpacity(1.0);
+      });
+
+      this.el.addEventListener('mouseleave', () => {
+        this._hovering = false;
         this._fusing = false;
-        setScaleMul(1);
-        setOpacity(this.data.idleOpacity);
-      };
+        setScale(1.0);
+        setOpacity(0.85);
+      });
 
-      this._applyHover = () => {
-        this._hover = true;
-        setScaleMul(this.data.hoverScale);
-        setOpacity(this.data.hoverOpacity);
-      };
+      this.el.addEventListener('fusing', () => {
+        this._fusing = true;
+        if (this.data.fuseGlow) setOpacity(1.0);
+      });
 
-      el.addEventListener('raycaster-intersection', () => this._applyHover());
-      el.addEventListener('raycaster-intersection-cleared', () => this._applyIdle());
+      this.el.addEventListener('click', () => {
+        // click pulse
+        setScale(this.data.hoverScale + 0.15);
+        setOpacity(1.0);
+        setTimeout(() => {
+          if (!this._hovering) setScale(1.0);
+        }, 90);
+      });
 
-      el.addEventListener('fusing', () => { this._fusing = true; });
-      el.addEventListener('mouseleave', () => this._applyIdle());
-
-      // start idle
-      this._applyIdle();
+      setOpacity(0.85);
+      setScale(1.0);
     },
-    tick: function (t) {
-      if (!this._hover) return;
-      if (!this.data.fusePulse) return;
-      if (!this._fusing) return;
+    tick: function (t, dt) {
+      if (!this.data.on) return;
+      if (!this.data.pulse) return;
+      if (!this._hovering && !this._fusing) return;
 
-      // gentle pulse while fusing
-      const phase = ((t - this._t0) / 180) % (Math.PI * 2);
-      const pulse = 1 + Math.sin(phase) * 0.06;
-      try{
-        this.el.object3D.scale.set(
-          this._base.scale.x * this.data.hoverScale * pulse,
-          this._base.scale.y * this.data.hoverScale * pulse,
-          this._base.scale.z * this.data.hoverScale * pulse
-        );
-      }catch(_){}
+      this._t += (dt || 16);
+      const k = 1 + 0.04 * Math.sin(this._t / 120);
+      try { this._setScale((this._hovering ? this.data.hoverScale : 1.0) * k); } catch (_) {}
     }
   });
 })();
