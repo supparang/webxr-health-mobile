@@ -1,11 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR (PRODUCTION) — Step G
-// ✅ Fever decays (not stuck at 100)
-// ✅ STUN: slow game + fire overlay (UI via boot.js) + junk breaks near vortex center
-// ✅ Shake intensity scales by fever% (handled in boot.js via hha:fever)
-// ✅ Boss Phase 2: Pulse Wave → MUST MOVE aimpoint to beacon (hha:bossPulse)
-// ✅ Boss HP bar data via hha:score
-// ✅ End summary event hha:end
+// GoodJunkVR (PRODUCTION) — Step H
+// ✅ H1: Pulse success → HERO BURST 1.5s (attract ONLY good/gold/power)
+// ✅ H2: Penalty → Camera Kick + Chromatic Flash (hha:fx)
+// ✅ H3: Boss Phase2 → 3 Attack Patterns (Ring / Laser / Storm)
 
 'use strict';
 
@@ -23,6 +20,7 @@ function safeDispatch(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
 }
 function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
+function lerp(a,b,t){ return a + (b-a)*t; }
 
 function getAimPoint(){
   const ap = ROOT.__GJ_AIM_POINT__;
@@ -109,8 +107,8 @@ export function boot(opts = {}){
     combo: 0,
     comboMax: 0,
 
-    fever: 0,                 // 0..100
-    feverDecayPerSec: 9.5,    // ✅ ลดจริง
+    fever: 0,
+    feverDecayPerSec: 9.5,
     stunActive: false,
     stunEndsAt: 0,
     slow: 1.0,
@@ -119,6 +117,10 @@ export function boot(opts = {}){
 
     magnetActive: false,
     magnetEndsAt: 0,
+
+    // H1 Hero Burst (good-only pull)
+    heroBurstActive: false,
+    heroBurstEndsAt: 0,
 
     finalLock: false,
     finalLockEndsAt: 0,
@@ -131,13 +133,17 @@ export function boot(opts = {}){
     bossHpMax: 0,
     bossDecoyCooldownAt: 0,
 
-    // Boss Pulse Wave (Step G)
+    // Boss Pulse Wave
     pulseActive: false,
     pulseX: 0,
     pulseY: 0,
     pulseDeadlineAt: 0,
     pulseNextAt: 0,
     pulseRadiusPx: 74,
+
+    // H3 Boss attacks
+    bossAtkNextAt: 0,
+    bossAtkLast: '',
 
     lastSpawnAt: 0,
     targets: new Map(),
@@ -169,6 +175,16 @@ export function boot(opts = {}){
   }
   function setJudge(label){ safeDispatch('hha:judge', { label: String(label||'') }); }
 
+  function fxKick(intensity=1){
+    safeDispatch('hha:fx', { type:'kick', intensity: Number(intensity||1) });
+  }
+  function fxChroma(ms=180){
+    safeDispatch('hha:fx', { type:'chroma', ms: ms|0 });
+  }
+  function fxHero(ms=220){
+    safeDispatch('hha:fx', { type:'hero', ms: ms|0 });
+  }
+
   function setCombo(v){
     S.combo = Math.max(0, v|0);
     if (S.combo > S.comboMax) S.comboMax = S.combo;
@@ -179,7 +195,7 @@ export function boot(opts = {}){
     S.stunActive = true;
     S.slow = 0.62;
     S.stunEndsAt = now() + 6200;
-    S.fever = 65; // drop from 100 so it can climb again
+    S.fever = 65;
     setJudge('STUN!');
     emitFever();
     try{ Particles.celebrate && Particles.celebrate({ kind:'STUN', intensity:1.2 }); }catch(_){}
@@ -211,6 +227,14 @@ export function boot(opts = {}){
     emitFever();
   }
 
+  function startHeroBurst(){
+    S.heroBurstActive = true;
+    S.heroBurstEndsAt = now() + 1500;
+    fxHero(240);
+    setJudge('HERO BURST!');
+    try{ Particles.celebrate && Particles.celebrate({ kind:'HERO', intensity:1.2 }); }catch(_){}
+  }
+
   function isFinalSprint(){ return (S.timeLeft|0) <= 8; }
   function triggerFinalPulse(secLeft){
     if (S.finalLock) return;
@@ -240,17 +264,17 @@ export function boot(opts = {}){
     });
   }
 
-  // -------- spawn --------
-  function spawnTarget(kind){
-    if (!S.running) return;
-    if (S.targets.size >= D.maxActive) return;
+  // ------- spawn helpers -------
+  function spawnTarget(kind, pos=null){
+    if (!S.running) return null;
+    if (S.targets.size >= D.maxActive && kind !== 'boss') return null;
 
     const margin = 28;
     const topSafe = 110;
     const botSafe = 165;
 
-    const x = randi(margin, Math.max(margin+10, innerWidth - margin));
-    const y = randi(topSafe, Math.max(topSafe+10, innerHeight - botSafe));
+    const x = pos ? (pos.x|0) : randi(margin, Math.max(margin+10, innerWidth - margin));
+    const y = pos ? (pos.y|0) : randi(topSafe, Math.max(topSafe+10, innerHeight - botSafe));
 
     let emoji = '❓', cls = '', ttl = D.ttlMs;
 
@@ -280,6 +304,10 @@ export function boot(opts = {}){
       emoji = POOL_JUNK[randi(0, POOL_JUNK.length-1)];
       cls = 'gj-junk';
       ttl = Math.round(ttl * 0.72);
+    } else if (kind === 'laser'){
+      emoji = '⚡';
+      cls = 'gj-fake';
+      ttl = Math.round(ttl * 0.62);
     }
 
     const el = createEl(layer, x, y, emoji, cls);
@@ -292,6 +320,7 @@ export function boot(opts = {}){
     const id = S.nextId++;
     const t = {
       id, kind, el,
+      x, y,
       bornAt: now(),
       expiresAt: now() + ttl
     };
@@ -301,6 +330,8 @@ export function boot(opts = {}){
       ev.preventDefault?.(); ev.stopPropagation?.();
       onHit(t, ev);
     }, { passive:false });
+
+    return t;
   }
 
   function spawnWave(){
@@ -325,7 +356,7 @@ export function boot(opts = {}){
     return spawnTarget('good');
   }
 
-  // -------- boss --------
+  // ------- boss -------
   function maybeSpawnBoss(){
     if (challenge !== 'boss') return;
     if (S.bossSpawned) return;
@@ -349,8 +380,11 @@ export function boot(opts = {}){
     S.bossPhase = 2;
     setJudge('PHASE 2!');
     try{ Particles.celebrate && Particles.celebrate({ kind:'BOSS_PHASE2', intensity:1.6 }); }catch(_){}
-    // start pulse wave after short delay
     S.pulseNextAt = now() + 900;
+
+    // Attack schedule
+    S.bossAtkNextAt = now() + 950;
+    S.bossAtkLast = '';
     emitScore();
   }
 
@@ -368,14 +402,13 @@ export function boot(opts = {}){
     emitScore();
   }
 
-  // -------- boss pulse wave (Step G) --------
+  // ------- boss pulse (move center) -------
   function pickPulsePoint(){
-    // avoid HUD area: keep in safe vertical band
     const pad = 70;
     const top = 150;
     const bottom = innerHeight - 190;
-
     const cur = getAimPoint();
+
     for (let i=0;i<30;i++){
       const x = randi(pad, Math.max(pad+10, innerWidth-pad));
       const y = randi(top, Math.max(top+10, bottom));
@@ -389,7 +422,7 @@ export function boot(opts = {}){
     S.pulseActive = true;
     S.pulseX = p.x|0;
     S.pulseY = p.y|0;
-    S.pulseDeadlineAt = now() + 1200; // must move within 1.2s
+    S.pulseDeadlineAt = now() + 1200;
     safeDispatch('hha:bossPulse', { x:S.pulseX, y:S.pulseY, ttlMs:1200 });
   }
 
@@ -400,30 +433,35 @@ export function boot(opts = {}){
     const ok = dist2(ap.x, ap.y, S.pulseX, S.pulseY) <= (S.pulseRadiusPx * S.pulseRadiusPx);
 
     if (ok){
-      // success reward (tiny)
+      // ✅ H1: Success -> hero burst 1.5s (good-only pull)
       setJudge('PULSE OK!');
       const pts = 35;
       S.score += pts;
       S.goodHits++;
       setCombo(S.combo + 1);
-      addFever(6);
+      addFever(8);
       scorePop(S.pulseX, S.pulseY, `+${pts}`, 'PULSE!');
       burstFX(S.pulseX, S.pulseY, 'gold');
       safeDispatch('quest:goodHit', { kind:'pulse' });
+
+      startHeroBurst();
+
     } else {
-      // fail punish (game real)
+      // ✅ H2: Fail -> kick + chroma + punish
       setJudge('PULSE HIT!');
       burstFX(S.pulseX, S.pulseY, 'trap');
+      fxChroma(180);
+      fxKick(1.25);
 
       if ((S.shield|0) > 0){
-        S.shield = 0; // shield break in phase2 vibe
+        S.shield = 0;
         safeDispatch('quest:badHit', { kind:'pulseShieldBreak' });
       } else {
         S.misses++;
         setCombo(0);
         safeDispatch('quest:badHit', { kind:'pulse' });
       }
-      addFever(-14);
+      addFever(-16);
     }
 
     S.pulseActive = false;
@@ -431,8 +469,57 @@ export function boot(opts = {}){
     emitFever();
   }
 
-  // -------- hits --------
-  function onHit(t, ev){
+  // ------- H3: Boss attack patterns (phase2) -------
+  function bossAttackPattern(){
+    // pick 1 of 3 patterns, avoid immediate repeat
+    const patterns = ['ring','laser','storm'];
+    let pick = patterns[randi(0, patterns.length-1)];
+    if (pick === S.bossAtkLast) pick = patterns[(patterns.indexOf(pick)+1) % patterns.length];
+    S.bossAtkLast = pick;
+
+    const ap = getAimPoint();
+    const center = { x: ap.x|0, y: ap.y|0 };
+
+    if (pick === 'ring'){
+      setJudge('BOSS: RING!');
+      fxChroma(140);
+      // spawn junk ring around aimpoint
+      const n = 7;
+      const R = 180;
+      for (let i=0;i<n;i++){
+        const ang = (Math.PI*2) * (i/n) + (Math.random()*0.22);
+        const x = clamp(center.x + Math.cos(ang)*R, 40, innerWidth-40);
+        const y = clamp(center.y + Math.sin(ang)*R, 150, innerHeight-190);
+        spawnTarget('junk', { x, y });
+      }
+      // one good bait
+      spawnTarget('good', { x: clamp(center.x, 40, innerWidth-40), y: clamp(center.y-60, 150, innerHeight-190) });
+
+    } else if (pick === 'laser'){
+      setJudge('BOSS: LASER!');
+      fxChroma(160);
+      fxKick(0.7);
+      // laser sweep line: spawn several ⚡ in a line (as fake)
+      const y = clamp(center.y + randi(-80,80), 150, innerHeight-190);
+      const steps = 6;
+      for (let i=0;i<steps;i++){
+        const x = lerp(60, innerWidth-60, i/(steps-1));
+        spawnTarget('laser', { x, y });
+      }
+
+    } else { // storm
+      setJudge('BOSS: STORM!');
+      fxChroma(150);
+      // decoy storm + gold target
+      for (let i=0;i<6;i++){
+        spawnTarget('decoy');
+      }
+      spawnTarget('gold', { x: clamp(center.x + randi(-120,120), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
+    }
+  }
+
+  // ------- hits -------
+  function onHit(t){
     if (!S.running) return;
 
     if (S.finalLock){
@@ -443,6 +530,8 @@ export function boot(opts = {}){
     const rect = t.el.getBoundingClientRect();
     const cx = rect.left + rect.width/2;
     const cy = rect.top + rect.height/2;
+
+    const isBad = (t.kind === 'junk' || t.kind === 'fake' || t.kind === 'decoy' || t.kind === 'laser');
 
     if (t.kind === 'good'){
       S.goodHits++;
@@ -511,8 +600,8 @@ export function boot(opts = {}){
       if ((S.bossHp|0) <= 0) bossClear();
       emitScore();
 
-    } else {
-      // junk/fake/decoy
+    } else if (isBad){
+      // ✅ penalty feel (H2)
       if ((S.shield|0) > 0){
         if (challenge === 'boss' && S.bossPhase === 2){
           S.shield = 0;
@@ -521,11 +610,14 @@ export function boot(opts = {}){
           scorePop(cx, cy, '💥', 'SHIELD BREAK!');
           burstFX(cx, cy, 'trap');
           safeDispatch('quest:badHit', { kind:'shieldbreak' });
+          fxKick(1.0);
+          fxChroma(160);
         } else {
           S.shield = Math.max(0, (S.shield|0) - 1);
           scorePop(cx, cy, '🛡️', 'BLOCK!');
           burstFX(cx, cy, 'power');
           safeDispatch('quest:block', {});
+          fxKick(0.65);
         }
       } else {
         S.misses++;
@@ -534,6 +626,8 @@ export function boot(opts = {}){
         scorePop(cx, cy, '', 'MISS!');
         burstFX(cx, cy, 'trap');
         safeDispatch('quest:badHit', { kind:t.kind });
+        fxKick(1.15);
+        fxChroma(170);
       }
 
       killEl(t.el); S.targets.delete(t.id);
@@ -548,14 +642,13 @@ export function boot(opts = {}){
     emitFever();
   }
 
-  // expire + stun field
+  // expire
   function expireTick(){
     const tnow = now();
     for (const t of Array.from(S.targets.values())){
       if (t.kind === 'boss') continue;
       if (tnow >= t.expiresAt){
         if (t.kind === 'good' || t.kind === 'gold'){
-          // small combo decay (not a miss)
           setCombo(Math.max(0, (S.combo|0) - 2));
         }
         killEl(t.el);
@@ -564,13 +657,14 @@ export function boot(opts = {}){
     }
   }
 
+  // STUN field
   function stunFieldTick(){
     if (!S.stunActive) return;
     const ap = getAimPoint();
     const R = 140, R2 = R*R;
 
     for (const t of Array.from(S.targets.values())){
-      if (t.kind !== 'junk' && t.kind !== 'fake' && t.kind !== 'decoy') continue;
+      if (t.kind !== 'junk' && t.kind !== 'fake' && t.kind !== 'decoy' && t.kind !== 'laser') continue;
       const r = t.el.getBoundingClientRect();
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
@@ -584,8 +678,42 @@ export function boot(opts = {}){
     }
   }
 
+  // H1 hero burst pull: ONLY good/gold/power
+  function heroBurstTick(){
+    if (!S.heroBurstActive) return;
+    const tnow = now();
+    if (tnow >= S.heroBurstEndsAt){
+      S.heroBurstActive = false;
+      return;
+    }
+
+    const ap = getAimPoint();
+    const strength = 0.18; // pull speed
+    const swirl = 0.08;
+
+    for (const t of S.targets.values()){
+      if (t.kind !== 'good' && t.kind !== 'gold' && t.kind !== 'power') continue;
+
+      const dx = ap.x - t.x;
+      const dy = ap.y - t.y;
+
+      // pull
+      t.x = lerp(t.x, ap.x, strength);
+      t.y = lerp(t.y, ap.y, strength);
+
+      // small swirl
+      t.x += (-dy) * swirl * 0.002;
+      t.y += ( dx) * swirl * 0.002;
+
+      t.el.style.left = (t.x|0) + 'px';
+      t.el.style.top  = (t.y|0) + 'px';
+      t.el.style.setProperty('--tRot', (randi(-6,6))+'deg');
+    }
+  }
+
+  // final sprint
   function finalSprintTick(){
-    if (!isFinalSprint()) return;
+    if ((S.timeLeft|0) > 8) return;
     const sec = S.timeLeft|0;
     if (S.lastFinalPulseSec !== sec){
       S.lastFinalPulseSec = sec;
@@ -637,19 +765,24 @@ export function boot(opts = {}){
     // boss spawn
     maybeSpawnBoss();
 
-    // Boss Pulse Wave (only phase2)
+    // Boss Pulse Wave (phase2)
     if (S.bossAlive && S.bossPhase === 2){
       if (!S.pulseActive && tnow >= (S.pulseNextAt||0)){
         startBossPulse();
-        S.pulseNextAt = tnow + 2150; // next pulse
+        S.pulseNextAt = tnow + 2150;
       }
       if (S.pulseActive && tnow >= S.pulseDeadlineAt){
-        // time out -> resolve fail
         resolveBossPulse();
+      }
+
+      // ✅ H3 attacks
+      if (tnow >= (S.bossAtkNextAt||0)){
+        bossAttackPattern();
+        S.bossAtkNextAt = tnow + 3200; // cadence
       }
     }
 
-    // spawn
+    // spawn cadence
     const spawnGap = Math.round(D.spawnMs * (S.stunActive ? 1.15 : 1.0));
     if (tnow - S.lastSpawnAt >= spawnGap){
       S.lastSpawnAt = tnow;
@@ -675,6 +808,7 @@ export function boot(opts = {}){
       }
     }
 
+    heroBurstTick();
     expireTick();
     stunFieldTick();
 
@@ -696,7 +830,7 @@ export function boot(opts = {}){
         comboMax:S.comboMax|0, timeLeft:S.timeLeft|0,
         fever:Math.round(S.fever), stunActive:!!S.stunActive, shield:S.shield|0,
         bossAlive:!!S.bossAlive, bossPhase:S.bossPhase|0, bossHp:S.bossHp|0, bossHpMax:S.bossHpMax|0,
-        pulseActive:!!S.pulseActive
+        pulseActive:!!S.pulseActive, heroBurstActive:!!S.heroBurstActive
       };
     }
   };
