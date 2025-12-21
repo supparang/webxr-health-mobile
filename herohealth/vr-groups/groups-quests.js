@@ -1,274 +1,203 @@
 // === /herohealth/vr-groups/groups-quests.js ===
-// Quest + Coach script สำหรับเกม Food Groups (เดินตามเพลง 5 หมู่)
-// ใช้คู่กับ GameEngine ของ Groups + HUD เดิม (quest:update / hha:coach)
+// Food Groups VR — Quest Pack (IIFE, NO import)
+// ✅ exposes: window.GroupsQuest.createFoodGroupsQuest(diff)
+// ✅ goals + minis + group rotation
+// ✅ works with GameEngine.js (emitQuestUpdate / quest.second / onGoodHit / onJunkHit)
 
-'use strict';
+(function (root) {
+  'use strict';
 
-import { FOOD_GROUPS } from './food-groups.js';
+  const FOOD_GROUPS = [
+    { key: 1, label: 'หมู่ 1 โปรตีน', emojis: ['🍗','🥩','🐟','🍳','🥚','🫘','🥛','🧀'] },
+    { key: 2, label: 'หมู่ 2 คาร์บ',   emojis: ['🍚','🍞','🥖','🥔','🍜','🥨'] },
+    { key: 3, label: 'หมู่ 3 ผัก',     emojis: ['🥦','🥕','🥬','🍅','🥒','🫑'] },
+    { key: 4, label: 'หมู่ 4 ผลไม้',   emojis: ['🍎','🍌','🍊','🍉','🍇','🍓'] },
+    { key: 5, label: 'หมู่ 5 ไขมัน',   emojis: ['🥑','🧈','🥜','🌰','🫒'] },
+  ];
 
-// ----- เพลงโภชนาการแบบย่อ (ไว้ให้โค้ชพูด) -----
-export const GROUP_SONG_LINES = {
-  1: 'หมู่ 1 มีเนื้อ นม ไข่ ถั่วเมล็ด ช่วยให้เติบโตแข็งแรง 💪',
-  2: 'หมู่ 2 มีข้าว แป้ง เผือก มัน และน้ำตาล เพิ่มพลังให้ร่างกาย ⚡',
-  3: 'หมู่ 3 ผักสีเขียว เหลือง และผักต่าง ๆ มีวิตามินและใยอาหาร 🥦',
-  4: 'หมู่ 4 ผลไม้หลากสี สดชื่นและดีต่อสุขภาพ 🍎🍌🍊',
-  5: 'หมู่ 5 ไขมันและน้ำมัน ช่วยให้ร่างกายอบอุ่น แต่กินแต่พอดีนะ 🥑🧈'
-};
+  function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-// helper ส่ง event ไป HUD โค้ช
-function say(text) {
-  if (!text) return;
-  window.dispatchEvent(new CustomEvent('hha:coach', {
-    detail: { text }
-  }));
-}
+  function createFoodGroupsQuest(diff){
+    diff = String(diff||'normal').toLowerCase();
 
-// ----- สร้าง Quest ตามระดับความยาก -----
-export function buildGroupsQuestPlan(diff = 'normal') {
-  diff = String(diff || 'normal').toLowerCase();
+    // --- tuning ---
+    const goalTarget = (diff==='easy') ? 9 : (diff==='hard' ? 12 : 10);
+    const miniCombo  = (diff==='easy') ? 5 : (diff==='hard' ? 7 : 6);
+    const noJunkSec  = (diff==='easy') ? 4 : (diff==='hard' ? 6 : 5);
 
-  // จำนวนเป้า "ดี" ต่อหมู่ (หลัก ๆ ใช้หมู่ 1–4 เป็นจุดเน้น, หมู่ 5 เน้น "รู้จักแต่ไม่เยอะ")
-  let g1, g2, g3, g4, g5;
-  let mini1Need, mini2Need;
+    const st = {
+      groupIndex: 0,
 
-  if (diff === 'easy') {
-    g1 = 6;   // โปรตีน
-    g2 = 6;   // พลังงาน
-    g3 = 5;   // ผัก
-    g4 = 5;   // ผลไม้
-    g5 = 3;   // ไขมัน (ให้เจอ แต่ไม่เยอะ)
-    mini1Need = 1; // จานสีรุ้ง 1 รอบ
-    mini2Need = 1; // จานสมดุล 1 รอบ
-  } else if (diff === 'hard') {
-    g1 = 12;
-    g2 = 12;
-    g3 = 10;
-    g4 = 10;
-    g5 = 5;
-    mini1Need = 2;
-    mini2Need = 2;
-  } else {
-    // normal
-    g1 = 9;
-    g2 = 9;
-    g3 = 8;
-    g4 = 8;
-    g5 = 4;
-    mini1Need = 2;
-    mini2Need = 1;
-  }
+      // mini states
+      streak: 0,
+      safeSec: 0,
+      lastJunkHitAtMs: 0,
 
-  // helper: label หมู่จาก FOOD_GROUPS
-  function groupInfo(id) {
-    const g = FOOD_GROUPS.find(x => x.id === id);
-    return g || {
-      id,
-      labelShort: `หมู่ ${id}`,
-      label: `หมู่ ${id}`,
-      tagline: ''
+      rushActive: false,
+      rushLeft: 0,
+      rushNeed: 5,
+      rushGot: 0,
+      rushNoJunk: true,
+    };
+
+    const goals = [
+      { id:'g1', label:'', target: goalTarget, prog:0, done:false },
+      { id:'g2', label:'', target: goalTarget, prog:0, done:false },
+    ];
+
+    const minis = [
+      { id:'m1', label:'', target: miniCombo, prog:0, done:false },
+      { id:'m2', label:'', target: noJunkSec, prog:0, done:false },
+      { id:'m3', label:'', target: 5, prog:0, done:false }, // Plate Rush (5 in 8s + no junk)
+    ];
+
+    function getActiveGroup(){
+      return FOOD_GROUPS[st.groupIndex] || FOOD_GROUPS[0];
+    }
+
+    function refreshLabels(){
+      const g = getActiveGroup();
+      if (goals[0] && !goals[0].done && !goals[0].label) {
+        goals[0].label = `เก็บอาหาร ${g.label} ให้ได้ ${goals[0].target} ชิ้น`;
+      }
+      if (goals[1] && !goals[1].done && !goals[1].label) {
+        goals[1].label = `เก็บอาหาร ${g.label} ให้ได้ ${goals[1].target} ชิ้น`;
+      }
+
+      minis[0].label = `คอมโบ ${minis[0].target} (อย่าพลาด!)`;
+      minis[1].label = `อยู่รอด ${minis[1].target} วิ ไม่โดนขยะ`;
+      minis[2].label = `Plate Rush: เก็บ 5 ใน 8 วิ + ห้ามโดนขยะ`;
+    }
+
+    function advanceGroup(){
+      st.groupIndex = (st.groupIndex + 1) % FOOD_GROUPS.length;
+
+      // reset goal label to reflect new group
+      const g = getActiveGroup();
+      const activeGoal = goals.find(x=>x && !x.done);
+      if (activeGoal){
+        activeGoal.label = `เก็บอาหาร ${g.label} ให้ได้ ${activeGoal.target} ชิ้น`;
+        activeGoal.prog = 0;
+      }
+
+      // minis soft reset
+      st.streak = 0; minis[0].prog = 0;
+    }
+
+    function activeGoal(){
+      return goals.find(x=>x && !x.done) || null;
+    }
+
+    function markDone(item){
+      if (!item || item.done) return;
+      item.done = true;
+      item.prog = item.target;
+    }
+
+    function startRush(){
+      st.rushActive = true;
+      st.rushLeft = 8;
+      st.rushNeed = 5;
+      st.rushGot = 0;
+      st.rushNoJunk = true;
+      minis[2].prog = 0;
+    }
+
+    function resetRush(){
+      st.rushActive = false;
+      st.rushLeft = 0;
+      st.rushGot = 0;
+      st.rushNoJunk = true;
+      minis[2].prog = 0;
+    }
+
+    // initialize labels
+    refreshLabels();
+    // ensure goal label includes first group
+    goals[0].label = `เก็บอาหาร ${getActiveGroup().label} ให้ได้ ${goals[0].target} ชิ้น`;
+    goals[1].label = `เก็บอาหาร ${getActiveGroup().label} ให้ได้ ${goals[1].target} ชิ้น`;
+
+    return {
+      goals,
+      minis,
+
+      getActiveGroup,
+
+      onGoodHit(groupId, combo){
+        refreshLabels();
+
+        // --- GOAL progress ---
+        const g = activeGoal();
+        if (g){
+          g.prog = clamp(g.prog + 1, 0, g.target);
+          if (g.prog >= g.target){
+            markDone(g);
+
+            // ถ้ายังมี goal ถัดไป -> เปลี่ยนหมู่
+            const next = activeGoal();
+            if (next){
+              advanceGroup();
+              refreshLabels();
+            }
+          }
+        }
+
+        // --- MINI 1: combo streak ---
+        st.streak = clamp(st.streak + 1, 0, 99);
+        minis[0].prog = clamp(st.streak, 0, minis[0].target);
+        if (!minis[0].done && minis[0].prog >= minis[0].target) markDone(minis[0]);
+
+        // --- MINI 3: Plate Rush auto-start (โหดแบบเห็นผล) ---
+        if (!minis[2].done){
+          if (!st.rushActive && Math.random() < 0.14) startRush(); // โผล่เป็นระยะ
+          if (st.rushActive){
+            st.rushGot++;
+            minis[2].prog = clamp(st.rushGot, 0, minis[2].target);
+            if (st.rushNoJunk && st.rushGot >= st.rushNeed && st.rushLeft > 0){
+              markDone(minis[2]);
+              resetRush();
+            }
+          }
+        }
+      },
+
+      onJunkHit(groupId){
+        // reset combo mini
+        st.streak = 0;
+        minis[0].prog = 0;
+
+        // reset safe mini
+        st.safeSec = 0;
+        minis[1].prog = 0;
+        st.lastJunkHitAtMs = Date.now();
+
+        // break rush
+        if (st.rushActive){
+          st.rushNoJunk = false;
+          resetRush();
+        }
+      },
+
+      second(){
+        refreshLabels();
+
+        // MINI 2: no junk for N sec
+        st.safeSec = clamp(st.safeSec + 1, 0, 99);
+        minis[1].prog = clamp(st.safeSec, 0, minis[1].target);
+        if (!minis[1].done && minis[1].prog >= minis[1].target) markDone(minis[1]);
+
+        // Rush countdown
+        if (!minis[2].done && st.rushActive){
+          st.rushLeft--;
+          if (st.rushLeft <= 0){
+            resetRush();
+          }
+        }
+      }
     };
   }
 
-  const g1Info = groupInfo(1);
-  const g2Info = groupInfo(2);
-  const g3Info = groupInfo(3);
-  const g4Info = groupInfo(4);
-  const g5Info = groupInfo(5);
+  root.GroupsQuest = root.GroupsQuest || {};
+  root.GroupsQuest.createFoodGroupsQuest = createFoodGroupsQuest;
 
-  // ----- Main goals: เดินทีละหมู่ตามเพลง -----
-  const goals = [
-    {
-      id: 'G1',
-      groupId: 1,
-      label: `Goal 1 • ${g1Info.labelShort} — เก็บอาหารหมู่ 1 ให้ครบ ${g1} ชิ้น`,
-      shortLabel: 'หมู่ 1 โปรตีน',
-      target: g1,
-      prog: 0,
-      done: false,
-      songLine: GROUP_SONG_LINES[1]
-    },
-    {
-      id: 'G2',
-      groupId: 2,
-      label: `Goal 2 • ${g2Info.labelShort} — เก็บอาหารหมู่ 2 ให้ครบ ${g2} ชิ้น`,
-      shortLabel: 'หมู่ 2 พลังงาน',
-      target: g2,
-      prog: 0,
-      done: false,
-      songLine: GROUP_SONG_LINES[2]
-    },
-    {
-      id: 'G3',
-      groupId: 3,
-      label: `Goal 3 • ${g3Info.labelShort} — เก็บผักหมู่ 3 ให้ครบ ${g3} ชิ้น`,
-      shortLabel: 'หมู่ 3 ผัก',
-      target: g3,
-      prog: 0,
-      done: false,
-      songLine: GROUP_SONG_LINES[3]
-    },
-    {
-      id: 'G4',
-      groupId: 4,
-      label: `Goal 4 • ${g4Info.labelShort} — เก็บผลไม้หมู่ 4 ให้ครบ ${g4} ชิ้น`,
-      shortLabel: 'หมู่ 4 ผลไม้',
-      target: g4,
-      prog: 0,
-      done: false,
-      songLine: GROUP_SONG_LINES[4]
-    },
-    {
-      id: 'G5',
-      groupId: 5,
-      label: `Goal 5 • ${g5Info.labelShort} — รู้จักหมู่ 5 ให้ครบ ${g5} ชิ้น (อย่ากินเยอะเกินไป)`,
-      shortLabel: 'หมู่ 5 ไขมัน',
-      target: g5,
-      prog: 0,
-      done: false,
-      songLine: GROUP_SONG_LINES[5]
-    }
-  ];
-
-  // ----- Mini quests: “เล่นตามเพลง” + “จานสมดุล” -----
-  const minis = [
-    {
-      id: 'M1',
-      type: 'rainbow',
-      label: `Mini 1 • Rainbow Plate — เก็บให้ครบทั้ง 5 หมู่ อย่างน้อย ${mini1Need} รอบ`,
-      desc: 'เก็บอาหารให้ครบทุกหมู่ 1–5 ตามเพลง',
-      target: mini1Need,
-      prog: 0,
-      done: false
-    },
-    {
-      id: 'M2',
-      type: 'balanced-plate',
-      label: `Mini 2 • Balanced Plate — ทำจานสมดุล (หมู่ 2 เป็นหลัก ผัก+ผลไม้เยอะ) ${mini2Need} รอบ`,
-      desc: 'ในรอบเดียว ให้หมู่ 2,3,4 เยอะกว่าหมู่ 5',
-      target: mini2Need,
-      prog: 0,
-      done: false
-    }
-  ];
-
-  return { goals, minis };
-}
-
-// =======================================================
-//                     COACH SCRIPT
-// =======================================================
-
-export const GroupsCoach = (function () {
-
-  // เรียกตอนเริ่มเกมครั้งแรก
-  function intro() {
-    say('วันนี้เราจะมาเล่นเกมจัดกลุ่มอาหารตามเพลงโภชนาการไทยกันนะ 🎵');
-    setTimeout(() => {
-      say('ฟังโค้ชให้ดี แล้วลองเก็บอาหารให้ครบทั้ง 5 หมู่ไปพร้อม ๆ กับเพลงเลย!');
-    }, 2500);
-  }
-
-  // เรียกเมื่อเริ่ม Goal ใหม่ (เปลี่ยนหมู่)
-  function onGoalStart(goal) {
-    if (!goal) return;
-    const gId = goal.groupId;
-
-    // พูดตามเพลงในแต่ละหมู่
-    const line = GROUP_SONG_LINES[gId] || '';
-    const base = goal.label || '';
-
-    if (gId === 1) {
-      say(`เริ่มภารกิจหมู่ 1 แล้ว! เนื้อ นม ไข่ ถั่วเมล็ด ช่วยให้เติบโตแข็งแรง 💪 \nลองเล็งอาหารหมู่ 1 ให้ครบตามเป้ากันดู`);
-    } else if (gId === 2) {
-      say(`ต่อไปหมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล เพิ่มพลังให้ร่างกาย ⚡\nเลือกให้พอดี ไม่หวานจัดเกินไปนะ`);
-    } else if (gId === 3) {
-      say(`ถึงคิวหมู่ 3 ผักต่าง ๆ แล้ว! ผักสีเขียว เหลือง ช่วยให้ได้วิตามินและใยอาหาร 🥦`);
-    } else if (gId === 4) {
-      say(`หมู่ 4 ผลไม้หลากสี สดชื่นและมีวิตามิน 🍎🍌🍊 ลองเก็บให้ครบตามเป้าดูนะ`);
-    } else if (gId === 5) {
-      say(`หมู่ 5 ไขมันและน้ำมัน ช่วยให้ร่างกายอบอุ่น 🥑🧈 แต่จำไว้ว่า กินแต่พอดีไม่เยอะเกินไปน้า`);
-    } else {
-      say(base || line || 'เริ่มภารกิจใหม่แล้ว ลองเก็บอาหารตามเป้าเลย!');
-    }
-  }
-
-  // เรียกเมื่อความคืบหน้า Goal เปลี่ยน (ใช้โชว์ “ใกล้ครบแล้ว”)
-  function onGoalProgress(goal) {
-    if (!goal) return;
-    const remain = (goal.target | 0) - (goal.prog | 0);
-    if (remain <= 0) return;
-
-    if (remain === 1) {
-      say(`หมู่นี้เหลืออีกแค่ 1 ชิ้นสุดท้าย เท่านั้น! เก่งมาก ลองหาชิ้นสุดท้ายให้เจอ 👀`);
-    } else if (remain <= 3) {
-      say(`อีกแค่ ${remain} ชิ้นก็ครบภารกิจหมู่ ${goal.groupId} แล้ว สู้ ๆ ✨`);
-    }
-  }
-
-  // เรียกเมื่อจบ Goal หนึ่งหมู่
-  function onGoalComplete(goal, index, total) {
-    if (!goal) return;
-    const gId = goal.groupId;
-
-    if (gId === 1) {
-      say('เยี่ยมมาก! หมู่ 1 เนื้อ นม ไข่ ถั่วเมล็ด ครบแล้ว 🎉 ร่างกายแข็งแรง เติบโตดีเลย');
-    } else if (gId === 2) {
-      say('เก่งมาก! หมู่ 2 พลังงานครบแล้ว ⚡ ตอนนี้มีพลังพร้อมเล่นต่อหมู่ถัดไป');
-    } else if (gId === 3) {
-      say('ภารกิจหมู่ 3 ผักสำเร็จแล้ว 🥦 ได้วิตามินและใยอาหารเพียบเลย!');
-    } else if (gId === 4) {
-      say('หมู่ 4 ผลไม้ครบแล้ว 🍎🍌🍊 ได้ทั้งความอร่อยและวิตามิน');
-    } else if (gId === 5) {
-      say('หมู่ 5 ไขมันรู้จักครบแล้ว 🥑🧈 จำไว้ว่ากินนิดเดียวก็พอ ไม่ต้องเยอะมากนะ');
-    } else {
-      say(`ภารกิจหมู่ ${gId} สำเร็จแล้ว! เยี่ยมมาก 🎉`);
-    }
-
-    // ถ้ายังไม่ครบ 5 หมู่ ให้โค้ยชวนไปหมู่ต่อไป
-    if (index < total) {
-      const nextId = (goal.groupId || 0) + 1;
-      if (nextId <= 5) {
-        setTimeout(() => {
-          say(`พร้อมไปหมู่ ${nextId} ต่อเลยไหม? ฟังคำในเพลงแล้วลองสังเกตอาหารให้ดี ๆ นะ 🎵`);
-        }, 2500);
-      }
-    }
-  }
-
-  // Mini quest — Rainbow Plate
-  function onMiniRainbowProgress(prog, target) {
-    if (prog <= 0) return;
-    if (prog < target) {
-      say(`เยี่ยม! ทำจานสีรุ้งไปแล้ว ${prog} รอบ 🎨 ลองให้ครบ ${target} รอบนะ`);
-    } else {
-      say('สุดยอด! ทำ Rainbow Plate ครบตามเป้าแล้ว ได้ครบทั้ง 5 หมู่ตามเพลงเลย 🎉');
-    }
-  }
-
-  // Mini quest — Balanced Plate
-  function onMiniBalancedComplete(prog, target) {
-    if (prog < target) {
-      say(`จานสมดุลไปแล้ว ${prog} รอบ 🥗 ลองจัดให้หมู่ 2 (ข้าวแป้ง) + ผัก + ผลไม้ สมดุลกว่าของมันทอดดูกันต่อ`);
-    } else {
-      say('เยี่ยมมาก! ทำจานสมดุลครบแล้ว แสดงว่าจัดอาหารตามหลักโภชนาการได้ดีมาก 🥗🌈');
-    }
-  }
-
-  // เรียกเมื่อ “ครบทุกหมู่” (จบเพลง)
-  function onAllGroupsComplete() {
-    say('สุดยอด! ตอนนี้เก็บอาหารครบทั้ง 5 หมู่ตามเพลงแล้ว 🎵');
-    setTimeout(() => {
-      say('จำให้ได้ว่าในจานนึง ควรมีข้าวเป็นหลัก ผักและผลไม้เยอะ ๆ โปรตีนพอดี ๆ ส่วนของทอดและไขมันกินแต่นิดเดียวพอ 🥗🍚🍎');
-    }, 2800);
-  }
-
-  return {
-    intro,
-    onGoalStart,
-    onGoalProgress,
-    onGoalComplete,
-    onMiniRainbowProgress,
-    onMiniBalancedComplete,
-    onAllGroupsComplete
-  };
-})();
+})(window);
