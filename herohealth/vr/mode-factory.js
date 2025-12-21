@@ -1,10 +1,15 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ bubble targets + float/sway
-// ✅ Storm: stronger sway + speed feel (via CSS vars)
-// ✅ PERFECT ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ Crosshair shooting (tap anywhere ยิงจากกลาง play area) via shootCrosshair()
-// ✅ SAFEZONE: กัน spawn ทับ HUD (excludeSelectors + auto excludes)
+// ✅ PATCH(A+): spawnHost/spawnLayer/container → เป้าลง playfield เลื่อนตาม drag/scroll (host transform)
+// ✅ NEW: crosshair shooting (tap anywhere ยิงจากกลางจอ) via shootCrosshair()
+// ✅ NEW: perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
+// ✅ NEW: rhythm spawn (bpm) + pulse class
+// ✅ NEW: trick/fake targets (itemType='fakeGood')
+// ✅ NEW: allowAdaptive flag
+// ✅ PATCH(Storm): spawnIntervalMul (number|fn) ทำให้ spawn ถี่ขึ้นจริง ๆ
+// ✅ PATCH(LIFE): อายุเป้าปรับตาม adaptive + storm จริง (ไม่ยึด baseDiff.life ตายตัว)
+// ✅ PATCH(SAFEZONE): กัน spawn ทับ HUD top/bottom/left/right ด้วย exclusion auto + cfg.excludeSelectors
+// ✅ NEW(Visual): Bubble glass + thin-film iridescence (ฟองสบู่ขอบรุ้งบาง ๆ) + storm accent
 
 'use strict';
 
@@ -70,7 +75,7 @@ function pickDiffConfig (modeKey, diffKey) {
 }
 
 // ======================================================
-//  Overlay style (bubble + motion)
+//  Overlay fallback
 // ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
@@ -83,9 +88,11 @@ function ensureOverlayStyle () {
       z-index:9998;
       pointer-events:none;
     }
-    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
+    .hvr-overlay-host .hvr-target{
+      pointer-events:auto;
+    }
 
-    /* Bubble base */
+    /* base */
     .hvr-target{
       border-radius:999px;
       user-select:none;
@@ -93,69 +100,79 @@ function ensureOverlayStyle () {
       transition: transform 180ms cubic-bezier(.2,.9,.2,1), filter 140ms ease;
       will-change: transform, filter;
       transform: translate(-50%,-50%) scale(0.92);
-      filter: saturate(1.06);
+      border: 1px solid rgba(255,255,255,.16);
+
+      /* glassy */
+      backdrop-filter: blur(1.6px) saturate(1.35);
+      -webkit-backdrop-filter: blur(1.6px) saturate(1.35);
+      filter: saturate(1.02) contrast(1.01);
+      overflow:hidden; /* for film layer */
     }
 
-    /* Floating / sway (per-target variables) */
-    .hvr-target{
-      animation:
-        hvrFloat var(--hvr-float-dur, 2.6s) ease-in-out infinite,
-        hvrSway  var(--hvr-sway-dur, 1.8s) ease-in-out infinite;
-    }
-    @keyframes hvrFloat{
-      0%{ transform: translate(-50%,-50%) translate3d(0,0,0) scale(1); }
-      50%{ transform: translate(-50%,-50%) translate3d(0, -8px,0) scale(1.02); }
-      100%{ transform: translate(-50%,-50%) translate3d(0,0,0) scale(1); }
-    }
-    @keyframes hvrSway{
-      0%{ filter: saturate(1.06); }
-      50%{ filter: saturate(1.12) contrast(1.03); }
-      100%{ filter: saturate(1.06); }
-    }
-
-    /* Spawn pop (2-step via JS + CSS assist) */
-    .hvr-target.hvr-spawn{ transform: translate(-50%,-50%) scale(1); }
-
-    /* Storm makes motion stronger (uses --hvr-storm 0..1 on host) */
-    [data-hvr-host="1"].hvr-storm-on .hvr-target,
-    .hvr-storm-on .hvr-target{
-      filter: saturate(1.16) contrast(1.06);
-    }
-    .hvr-storm-on .hvr-target{
-      animation-duration:
-        calc(var(--hvr-float-dur, 2.6s) * 0.72),
-        calc(var(--hvr-sway-dur, 1.8s)  * 0.65);
-    }
-
-    /* Perfect ring flash */
-    .hvr-ring{
-      position:absolute;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      border-radius:999px;
-      pointer-events:none;
-      opacity:.85;
-      box-shadow: 0 0 14px rgba(255,255,255,.18);
-    }
-    .hvr-target.hvr-perfect .hvr-ring{
-      animation: hvrRingFlash .22s ease-out 1;
-    }
-    @keyframes hvrRingFlash{
-      0%{ opacity:.0; transform: translate(-50%,-50%) scale(0.85); box-shadow:0 0 0 rgba(250,204,21,0); }
-      40%{ opacity:1; transform: translate(-50%,-50%) scale(1.06); box-shadow:0 0 22px rgba(250,204,21,.34); }
-      100%{ opacity:0; transform: translate(-50%,-50%) scale(1.22); box-shadow:0 0 30px rgba(250,204,21,.0); }
-    }
-
-    /* small pulse (optional rhythm) */
     .hvr-target.hvr-pulse{
-      animation:
-        hvrFloat var(--hvr-float-dur, 2.6s) ease-in-out infinite,
-        hvrPulse .55s ease-in-out infinite;
+      animation:hvrPulse .55s ease-in-out infinite;
     }
     @keyframes hvrPulse{
       0%{ transform:translate(-50%,-50%) scale(1); }
-      50%{ transform:translate(-50%,-50%) scale(1.06); }
+      50%{ transform:translate(-50%,-50%) scale(1.08); }
       100%{ transform:translate(-50%,-50%) scale(1); }
+    }
+
+    /* storm hint (optional) */
+    .hvr-storm-on .hvr-target{ filter: saturate(1.06) contrast(1.06); }
+
+    /* ====================================================
+       ✅ Thin-film iridescence (soap bubble film)
+       ==================================================== */
+    .hvr-film{
+      position:absolute;
+      inset:-14%;
+      border-radius:999px;
+      pointer-events:none;
+      opacity:.26;
+      mix-blend-mode: screen;
+      will-change: transform, opacity, filter;
+      transform: translateZ(0) rotate(0deg);
+      filter: saturate(1.12) contrast(1.06);
+      background:
+        conic-gradient(
+          from 210deg,
+          rgba(255,  0,180,.00) 0deg,
+          rgba( 72, 99,255,.26) 55deg,
+          rgba(  0,255,214,.22) 110deg,
+          rgba(255,255, 80,.20) 165deg,
+          rgba(255,120,  0,.22) 220deg,
+          rgba(255, 60,180,.24) 290deg,
+          rgba( 72, 99,255,.26) 360deg
+        ),
+        radial-gradient(circle at 28% 24%, rgba(255,255,255,.32), rgba(255,255,255,0) 52%),
+        radial-gradient(circle at 72% 76%, rgba(0,0,0,.14), rgba(0,0,0,0) 62%);
+      animation: hvrFilmSpin 2.9s linear infinite;
+    }
+    @keyframes hvrFilmSpin{
+      0%{ transform: translateZ(0) rotate(0deg); }
+      100%{ transform: translateZ(0) rotate(360deg); }
+    }
+
+    /* extra specular highlight */
+    .hvr-spec{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      pointer-events:none;
+      opacity:.45;
+      mix-blend-mode: screen;
+      background:
+        radial-gradient(circle at 26% 22%, rgba(255,255,255,.55), rgba(255,255,255,0) 46%),
+        radial-gradient(circle at 60% 70%, rgba(255,255,255,.12), rgba(255,255,255,0) 62%);
+      filter: blur(.1px);
+    }
+
+    /* storm => film เด่นขึ้น + เร็วขึ้นนิด */
+    .hvr-storm-on .hvr-film{
+      opacity:.34;
+      filter: saturate(1.24) contrast(1.10);
+      animation-duration: 1.9s;
     }
   `;
   DOC.head.appendChild(s);
@@ -195,12 +212,13 @@ function resolveHost (rawCfg) {
 }
 
 // ======================================================
-//  SAFE ZONE / EXCLUSION
+//  SAFE ZONE / EXCLUSION (กันทับ HUD)
 // ======================================================
 function collectExclusionElements(rawCfg){
   if (!DOC) return [];
   const out = [];
 
+  // Explicit selectors from cfg
   const sel = rawCfg && rawCfg.excludeSelectors;
   if (Array.isArray(sel)) {
     sel.forEach(s=>{
@@ -209,6 +227,26 @@ function collectExclusionElements(rawCfg){
   } else if (typeof sel === 'string') {
     try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
+
+  // Auto common HUD blocks (HeroHealth patterns)
+  const AUTO = [
+    '#hha-water-header',
+    '.hha-water-bar',
+    '.hha-main-row',
+    '#hha-card-left',
+    '#hha-card-right',
+    '.hha-bottom-row',
+    '.hha-fever-card',
+    '#hvr-crosshair',
+    '.hvr-crosshair',
+    '#hvr-end',
+    '.hvr-end',
+    '.hud',
+    '#hvr-start'
+  ];
+  AUTO.forEach(s=>{
+    try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
+  });
 
   // Any marked exclusion
   try{
@@ -229,6 +267,7 @@ function collectExclusionElements(rawCfg){
 
 function computeExclusionMargins(hostRect, exEls){
   const m = { top:0, bottom:0, left:0, right:0 };
+
   if (!hostRect || !exEls || !exEls.length) return m;
 
   const hx1 = hostRect.left, hy1 = hostRect.top;
@@ -239,16 +278,29 @@ function computeExclusionMargins(hostRect, exEls){
     try{ r = el.getBoundingClientRect(); }catch{}
     if (!r) return;
 
+    // ignore if no overlap with host
     const ox1 = Math.max(hx1, r.left);
     const oy1 = Math.max(hy1, r.top);
     const ox2 = Math.min(hx2, r.right);
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    if (r.top <= hy1 + 2 && r.bottom > hy1) m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
-    if (r.bottom >= hy2 - 2 && r.top < hy2) m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
-    if (r.left <= hx1 + 2 && r.right > hx1) m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
-    if (r.right >= hx2 - 2 && r.left < hx2) m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+    // top
+    if (r.top <= hy1 + 2 && r.bottom > hy1) {
+      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    }
+    // bottom
+    if (r.bottom >= hy2 - 2 && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+    }
+    // left
+    if (r.left <= hx1 + 2 && r.right > hx1) {
+      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    }
+    // right
+    if (r.right >= hx2 - 2 && r.left < hx2) {
+      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+    }
   });
 
   return m;
@@ -261,10 +313,12 @@ function computePlayRectFromHost (hostEl, exState) {
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
+  // base padding inside host
   const basePadX = w * 0.10;
   const basePadTop = h * 0.12;
   const basePadBot = h * 0.12;
 
+  // exclusion margins from HUD
   const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
 
   const left   = basePadX + m.left;
@@ -288,14 +342,19 @@ export async function boot (rawCfg = {}) {
     powerups   = [],
     powerRate  = 0.10,
     powerEvery = 7,
+    spawnStyle = 'pop',
     judge,
     onExpire,
 
+    // NEW
     allowAdaptive = true,
-    rhythm = null,
-    trickRate = 0.08,
+    rhythm = null, // { enabled:true, bpm:110 } or boolean
+    trickRate = 0.08, // fakeGood frequency
 
+    // ✅ Storm Wave multiplier (number OR function => number)
     spawnIntervalMul = null,
+
+    // ✅ Safe zone
     excludeSelectors = null
   } = rawCfg || {};
 
@@ -310,6 +369,7 @@ export async function boot (rawCfg = {}) {
 
   // ---------- Game state ----------
   let stopped = false;
+
   let totalDuration = clamp(duration, 20, 180);
   let secLeft       = totalDuration;
   let lastClockTs   = null;
@@ -323,7 +383,7 @@ export async function boot (rawCfg = {}) {
   let curInterval  = baseDiff.spawnInterval;
   let curMaxActive = baseDiff.maxActive;
   let curScale     = baseDiff.scale;
-  let curLife      = baseDiff.life;
+  let curLife      = baseDiff.life; // ✅ adaptive life
 
   let sampleHits   = 0;
   let sampleMisses = 0;
@@ -389,7 +449,7 @@ export async function boot (rawCfg = {}) {
     try { host.classList.add('hvr-rhythm-on'); } catch {}
   }
 
-  // Storm multiplier getter
+  // ✅ Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -399,17 +459,19 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
+  // ✅ life getter (adaptive + storm)
   function getLifeMs(){
     const mul = getSpawnMul();
-    const stormLifeMul = (mul < 0.99) ? 0.86 : 1.0;
+    const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
     const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
     const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
+
     const life = curLife * stormLifeMul * ratioLifeMul;
     return Math.round(clamp(life, 520, baseDiff.life * 1.25));
   }
 
   // ======================================================
-  //  perfect distance + crosshair shoot
+  //  Helpers: perfect distance + crosshair shoot
   // ======================================================
   function computeHitInfoFromPoint(el, clientX, clientY){
     const r = el.getBoundingClientRect();
@@ -420,7 +482,7 @@ export async function boot (rawCfg = {}) {
     const dist = Math.sqrt(dx*dx + dy*dy);
     const rad  = Math.max(1, Math.min(r.width, r.height) / 2);
     const norm = dist / rad; // 0..1 (inside)
-    const perfect = norm <= 0.33;
+    const perfect = norm <= 0.33; // inner ring
     return { cx, cy, dist, norm, perfect, rect:r };
   }
 
@@ -441,7 +503,39 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
-  // safe crosshair point = center of play area (avoid HUD)
+  function getCrosshairPoint(){
+    let rect = null;
+    try{ rect = host.getBoundingClientRect(); }catch{}
+    if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+
+    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+    const padX = rect.width * 0.08;
+    const padY = rect.height * 0.10;
+
+    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
+    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+
+  function shootCrosshair(){
+    if (stopped) return false;
+    const p = getCrosshairPoint();
+    const hit = findTargetAtPoint(p.x, p.y);
+    if (!hit) return false;
+
+    const data = hit.t;
+    const info = hit.info;
+
+    if (typeof data._hit === 'function') {
+      data._hit({ __hhaSynth:true, clientX:p.x, clientY:p.y }, info);
+      return true;
+    }
+    return false;
+  }
+
+  // ======================================================
+  //  Spawn target inside host
+  // ======================================================
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
     margins: { top:0,bottom:0,left:0,right:0 },
@@ -461,40 +555,19 @@ export async function boot (rawCfg = {}) {
     exState.margins = computeExclusionMargins(hostRect, exState.els);
   }
 
-  function getCrosshairPoint(){
-    let rect = null;
-    try{ rect = host.getBoundingClientRect(); }catch{}
-    if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+  // ---- helper: create film layers ----
+  function addThinFilmLayers(el){
+    try{
+      const film = DOC.createElement('div');
+      film.className = 'hvr-film';
+      el.appendChild(film);
 
-    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
-    const padX = rect.width * 0.08;
-    const padY = rect.height * 0.10;
-
-    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
-    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
-    return { x: Math.round(x), y: Math.round(y) };
+      const spec = DOC.createElement('div');
+      spec.className = 'hvr-spec';
+      el.appendChild(spec);
+    }catch{}
   }
 
-  function shootCrosshair(){
-    if (stopped) return false;
-    refreshExclusions();
-    const p = getCrosshairPoint();
-    const hit = findTargetAtPoint(p.x, p.y);
-    if (!hit) return false;
-
-    const data = hit.t;
-    const info = hit.info;
-
-    if (typeof data._hit === 'function') {
-      data._hit({ __hhaSynth:true, clientX:p.x, clientY:p.y }, info);
-      return true;
-    }
-    return false;
-  }
-
-  // ======================================================
-  //  spawn target
-  // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
@@ -534,7 +607,7 @@ export async function boot (rawCfg = {}) {
         isGood = true;
         itemType = 'good';
       } else {
-        ch = pickOne(poolsBad, '🧋');
+        ch = pickOne(poolsBad, '🥤');
         isGood = false;
         itemType = 'bad';
       }
@@ -546,132 +619,128 @@ export async function boot (rawCfg = {}) {
     el.setAttribute('data-hha-tgt', '1');
     el.setAttribute('data-item-type', itemType);
 
-    // Bubble sizing
-    const baseSize = 86;
+    const baseSize = 78;
     const size = baseSize * curScale;
 
     el.style.position = 'absolute';
     el.style.left = xLocal + 'px';
     el.style.top  = yLocal + 'px';
+    el.style.transform = 'translate(-50%, -50%) scale(0.9)';
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     el.style.touchAction = 'manipulation';
     el.style.zIndex = '35';
 
-    // Random motion params per target
-    const floatDur = (2.2 + Math.random()*1.2).toFixed(2) + 's';
-    const swayDur  = (1.2 + Math.random()*0.9).toFixed(2) + 's';
-    el.style.setProperty('--hvr-float-dur', floatDur);
-    el.style.setProperty('--hvr-sway-dur',  swayDur);
+    // ---- palette (RGBA strings, tuned for transparency) ----
+    let coreA = 'rgba(74,222,128,0.30)';
+    let coreB = 'rgba(16,185,129,0.44)';
+    let rim   = 'rgba(255,255,255,0.20)';
+    let glow  = '0 0 18px rgba(16,185,129,0.18), 0 0 0 2px rgba(74,222,128,0.16)';
 
-    // Bubble gradients by type
-    let rim, coreA, coreB, glow;
-    if (isPower){
-      rim  = 'rgba(250,204,21,.92)';
-      coreA='rgba(250,204,21,.65)';
-      coreB='rgba(249,115,22,.70)';
-      glow='0 0 26px rgba(250,204,21,.34), 0 0 0 2px rgba(250,204,21,.70)';
-    } else if (itemType === 'fakeGood'){
-      rim  = 'rgba(167,139,250,.88)';
-      coreA='rgba(34,197,94,.52)';
-      coreB='rgba(22,163,74,.66)';
-      glow='0 0 26px rgba(167,139,250,.28), 0 0 0 2px rgba(167,139,250,.65)';
-    } else if (isGood){
-      rim  = 'rgba(74,222,128,.88)';
-      coreA='rgba(34,197,94,.52)';
-      coreB='rgba(22,163,74,.70)';
-      glow='0 0 22px rgba(34,197,94,.22), 0 0 0 2px rgba(74,222,128,.58)';
-    } else {
-      rim  = 'rgba(248,113,113,.88)';
-      coreA='rgba(249,115,22,.62)';
-      coreB='rgba(234,88,12,.76)';
-      glow='0 0 22px rgba(239,68,68,.22), 0 0 0 2px rgba(248,113,113,.55)';
+    if (isPower) {
+      coreA = 'rgba(250,204,21,0.30)';
+      coreB = 'rgba(249,115,22,0.46)';
+      rim   = 'rgba(255,255,255,0.22)';
+      glow  = '0 0 24px rgba(250,204,21,0.22), 0 0 0 2px rgba(250,204,21,0.18)';
+    } else if (itemType === 'fakeGood') {
+      coreA = 'rgba(167,139,250,0.26)';
+      coreB = 'rgba(34,197,94,0.40)';
+      rim   = 'rgba(255,255,255,0.20)';
+      glow  = '0 0 22px rgba(167,139,250,0.22), 0 0 0 2px rgba(167,139,250,0.18)';
+    } else if (!isGood) {
+      coreA = 'rgba(251,146,60,0.30)';
+      coreB = 'rgba(239,68,68,0.42)';
+      rim   = 'rgba(255,255,255,0.18)';
+      glow  = '0 0 22px rgba(248,113,113,0.22), 0 0 0 2px rgba(248,113,113,0.18)';
       el.classList.add('bad');
     }
 
-    // Bubble surface
+    // ✅ bubble glass surface (transparent)
     el.style.background =
-      `radial-gradient(circle at 30% 25%, rgba(255,255,255,.32), rgba(255,255,255,0) 44%),
-       radial-gradient(circle at 55% 70%, rgba(15,23,42,.32), rgba(15,23,42,0) 58%),
-       radial-gradient(circle at 40% 45%, ${coreA}, ${coreB})`;
-    el.style.boxShadow = `0 18px 44px rgba(2,6,23,.78), ${glow}`;
+      `radial-gradient(circle at 28% 22%, rgba(255,255,255,.42), rgba(255,255,255,0) 46%),
+       radial-gradient(circle at 62% 78%, rgba(15,23,42,.18), rgba(15,23,42,0) 62%),
+       radial-gradient(circle at 42% 50%, ${coreA}, ${coreB})`;
 
-    // Rim outline
-    const rimEl = DOC.createElement('div');
-    rimEl.style.position='absolute';
-    rimEl.style.inset='0';
-    rimEl.style.borderRadius='999px';
-    rimEl.style.boxShadow = `inset 0 0 0 2px ${rim}, inset 0 10px 20px rgba(255,255,255,.08)`;
-    rimEl.style.pointerEvents='none';
-    el.appendChild(rimEl);
+    el.style.boxShadow =
+      `0 18px 44px rgba(2,6,23,.62),
+       0 0 0 2px rgba(255,255,255,.10),
+       ${glow}`;
 
-    // Gloss highlight
-    const gloss = DOC.createElement('div');
-    gloss.style.position='absolute';
-    gloss.style.left='14%';
-    gloss.style.top='10%';
-    gloss.style.width='46%';
-    gloss.style.height='38%';
-    gloss.style.borderRadius='999px';
-    gloss.style.transform='rotate(-18deg)';
-    gloss.style.background='radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), rgba(255,255,255,0) 70%)';
-    gloss.style.filter='blur(.2px)';
-    gloss.style.opacity='.85';
-    gloss.style.pointerEvents='none';
-    el.appendChild(gloss);
+    // ✅ add thin-film iridescence + spec highlight
+    addThinFilmLayers(el);
 
-    // Inner “water” lens
+    // inner lens
     const inner = DOC.createElement('div');
-    inner.style.position='absolute';
-    inner.style.left='50%';
-    inner.style.top='50%';
-    inner.style.transform='translate(-50%,-50%)';
-    inner.style.width = (size * 0.80) + 'px';
-    inner.style.height = (size * 0.80) + 'px';
+    inner.style.width = (size * 0.82) + 'px';
+    inner.style.height = (size * 0.82) + 'px';
     inner.style.borderRadius = '999px';
     inner.style.display = 'flex';
     inner.style.alignItems = 'center';
     inner.style.justifyContent = 'center';
-    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,.10), rgba(15,23,42,.38))';
-    inner.style.boxShadow = 'inset 0 8px 20px rgba(2,6,23,.72), inset 0 0 0 1px rgba(255,255,255,.08)';
-    el.appendChild(inner);
+    inner.style.position = 'absolute';
+    inner.style.left = '50%';
+    inner.style.top  = '50%';
+    inner.style.transform = 'translate(-50%, -50%)';
+    inner.style.background =
+      'radial-gradient(circle at 30% 25%, rgba(255,255,255,.08), rgba(15,23,42,.26))';
+    inner.style.boxShadow =
+      'inset 0 10px 26px rgba(2,6,23,.58), inset 0 0 0 1px rgba(255,255,255,.10)';
 
-    // Icon
+    // perfect ring
+    const ring = DOC.createElement('div');
+    ring.style.position = 'absolute';
+    ring.style.left = '50%';
+    ring.style.top  = '50%';
+    ring.style.width  = (size * 0.36) + 'px';
+    ring.style.height = (size * 0.36) + 'px';
+    ring.style.transform = 'translate(-50%, -50%)';
+    ring.style.borderRadius = '999px';
+    ring.style.border = '2px solid rgba(255,255,255,0.32)';
+    ring.style.boxShadow = '0 0 12px rgba(255,255,255,0.14)';
+    ring.style.pointerEvents = 'none';
+
+    // subtle rim outline (thin)
+    const rimEl = DOC.createElement('div');
+    rimEl.style.position = 'absolute';
+    rimEl.style.inset = '0';
+    rimEl.style.borderRadius = '999px';
+    rimEl.style.pointerEvents = 'none';
+    rimEl.style.boxShadow =
+      `inset 0 0 0 2px ${rim},
+       inset 0 10px 22px rgba(255,255,255,.06)`;
+
+    // icon
     const icon = DOC.createElement('span');
     icon.textContent = ch;
     icon.style.fontSize = (size * 0.60) + 'px';
     icon.style.lineHeight = '1';
-    icon.style.filter = 'drop-shadow(0 6px 8px rgba(2,6,23,.8))';
-    inner.appendChild(icon);
+    icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+    icon.style.position = 'relative';
+    icon.style.zIndex = '2';
 
-    // Perfect ring (inner)
-    const ring = DOC.createElement('div');
-    ring.className = 'hvr-ring';
-    ring.style.width  = (size * 0.36) + 'px';
-    ring.style.height = (size * 0.36) + 'px';
-    ring.style.border = '2px solid rgba(255,255,255,0.34)';
-    ring.style.boxShadow = '0 0 14px rgba(255,255,255,0.16)';
-    ring.style.pointerEvents = 'none';
-    el.appendChild(ring);
-
-    // FakeGood marker
+    // fake marker
     if (itemType === 'fakeGood') {
       const sp = DOC.createElement('div');
       sp.textContent = '✨';
       sp.style.position = 'absolute';
-      sp.style.right = '10px';
-      sp.style.top = '8px';
+      sp.style.right = '8px';
+      sp.style.top = '6px';
       sp.style.fontSize = '18px';
-      sp.style.filter = 'drop-shadow(0 6px 8px rgba(2,6,23,.8))';
+      sp.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
       sp.style.pointerEvents = 'none';
+      sp.style.zIndex = '3';
       el.appendChild(sp);
     }
 
+    inner.appendChild(icon);
+    el.appendChild(inner);
+    el.appendChild(ring);
+    el.appendChild(rimEl);
+
     if (rhythmOn) el.classList.add('hvr-pulse');
 
-    // Spawn pop
     ROOT.requestAnimationFrame(() => {
-      el.classList.add('hvr-spawn');
+      el.style.transform = 'translate(-50%, -50%) scale(1)';
     });
 
     const lifeMs = getLifeMs();
@@ -694,7 +763,6 @@ export async function boot (rawCfg = {}) {
       if (stopped) return;
       if (!activeTargets.has(data)) return;
 
-      // keep rect before remove
       let keepRect = null;
       try{ keepRect = el.getBoundingClientRect(); }catch{}
 
@@ -711,7 +779,7 @@ export async function boot (rawCfg = {}) {
           : getEventXY(evOrSynth || {});
         const info = hitInfoOpt || (keepRect ? (function(){
           const cx = keepRect.left + keepRect.width/2;
-          const cy = keepRect.top + keepRect.height/2;
+          const cy = keepRect.top  + keepRect.height/2;
           const dx = (xy.x - cx);
           const dy = (xy.y - cy);
           const dist = Math.sqrt(dx*dx + dy*dy);
@@ -729,15 +797,6 @@ export async function boot (rawCfg = {}) {
           hitDistNorm: Number(info.norm || 1),
           targetRect: info.rect
         };
-
-        // local perfect flash (ring)
-        if (ctx.hitPerfect && itemType !== 'bad'){
-          try{
-            el.classList.add('hvr-perfect');
-            setTimeout(()=>{ try{ el.classList.remove('hvr-perfect'); }catch{} }, 240);
-          }catch{}
-        }
-
         try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
       }
 
