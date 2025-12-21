@@ -1,5 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Step 1+2 + Step 3 + Step 4 (FEVER fire + STUN slow-mo)
+     GoodJunkVR (PRODUCTION) — Full HTML (ROOT PATH)
+     ✅ DOM emoji targets on #gj-layer
+     ✅ HUD + Quest + Coach + Fever/Shield UI + STUN badge
+     ✅ Start overlay (2D / VR)
+     ✅ Loads particles.js BEFORE boot module
+     ✅ Boot loader imports ./vr-goodjunk/goodjunk-vr.boot.js (now exports boot())
 -->
 <!doctype html>
 <html lang="th">
@@ -10,6 +15,7 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
@@ -25,6 +31,7 @@
       --text-soft:#9ca3af;
     }
     *{ box-sizing:border-box; }
+
     body{
       margin:0;
       min-height:100vh;
@@ -35,8 +42,8 @@
         var(--bg-main);
       color:var(--text-main);
       overflow:hidden;
-      touch-action:none;
     }
+
     a-scene{ width:100vw; height:100vh; position:fixed; inset:0; z-index:0; }
 
     /* DOM target layer */
@@ -47,121 +54,60 @@
       touch-action:none;
     }
 
-    /* FX layer above targets */
-    #gj-fx-layer{
-      position:fixed; inset:0;
-      z-index:660;
-      pointer-events:none;
-      overflow:hidden;
-    }
-
-    /* ✅ FEVER FIRE overlay (above everything but no block input) */
-    #fever-fire{
-      position:fixed; inset:-10vh -10vw;
-      z-index:680;
-      pointer-events:none;
-      opacity:0;
-      transition:opacity .18s ease-out, transform .18s ease-out;
-      transform:scale(1.02);
-      filter: saturate(1.25) contrast(1.1);
-      mix-blend-mode: screen;
-    }
-    body.fever-on #fever-fire{
-      opacity:1;
-      transform:scale(1.05);
-    }
-    /* flame layers */
-    #fever-fire::before,
-    #fever-fire::after{
-      content:"";
-      position:absolute; inset:0;
-      background:
-        radial-gradient(circle at 30% 70%, rgba(251,146,60,0.55), transparent 45%),
-        radial-gradient(circle at 60% 80%, rgba(250,204,21,0.45), transparent 50%),
-        radial-gradient(circle at 50% 95%, rgba(239,68,68,0.35), transparent 55%),
-        conic-gradient(from 200deg, rgba(251,146,60,0.00), rgba(251,146,60,0.24), rgba(250,204,21,0.18), rgba(239,68,68,0.12), rgba(251,146,60,0.00));
-      filter: blur(22px);
-      animation: fireWave 0.8s linear infinite;
-      opacity:0.9;
-    }
-    #fever-fire::after{
-      filter: blur(38px);
-      opacity:0.65;
-      animation: fireWave2 1.1s linear infinite;
-      transform:scale(1.08);
-    }
-    @keyframes fireWave{
-      0%{ transform:translate3d(-2%, 2%, 0) rotate(0deg); }
-      50%{ transform:translate3d(2%, -2%, 0) rotate(5deg); }
-      100%{ transform:translate3d(-2%, 2%, 0) rotate(0deg); }
-    }
-    @keyframes fireWave2{
-      0%{ transform:translate3d(1%, -1%, 0) rotate(0deg) scale(1.08); }
-      50%{ transform:translate3d(-1%, 1%, 0) rotate(-4deg) scale(1.12); }
-      100%{ transform:translate3d(1%, -1%, 0) rotate(0deg) scale(1.08); }
-    }
-
-    /* --- Emoji Sticker Targets --- */
+    /* --- “emoji sticker” targets --- */
     .gj-target{
       position:absolute;
       transform: translate(-50%,-50%) scale(var(--tScale, 1));
-      font-size: clamp(46px, 8.0vw, 82px);
+      font-size: clamp(44px, 7.8vw, 78px);
       line-height:1;
+
+      /* sticker-ish */
+      text-shadow:
+        0 2px 0 rgba(255,255,255,0.18),
+        0 10px 24px rgba(0,0,0,0.55);
+      filter:
+        drop-shadow(0 0 10px rgba(255,255,255,0.10))
+        drop-shadow(0 12px 18px rgba(0,0,0,0.55));
+
       user-select:none;
       pointer-events:auto;
       cursor:pointer;
 
-      filter: drop-shadow(0 14px 24px rgba(0,0,0,0.55));
-      text-shadow:
-        0 2px 0 rgba(255,255,255,0.95),
-        0 -2px 0 rgba(255,255,255,0.95),
-        2px 0 0 rgba(255,255,255,0.95),
-        -2px 0 0 rgba(255,255,255,0.95),
-        2px 2px 0 rgba(255,255,255,0.95),
-        -2px 2px 0 rgba(255,255,255,0.95),
-        2px -2px 0 rgba(255,255,255,0.95),
-        -2px -2px 0 rgba(255,255,255,0.95),
-        0 14px 26px rgba(0,0,0,0.55);
-
-      transition: transform .12s ease-out, opacity .12s ease-out, filter .12s ease-out;
+      opacity:0;
+      animation: gj-pop-in .14s ease-out forwards;
+      transition: transform .12s ease-out, opacity .12s ease-out;
       will-change: transform, left, top, opacity;
-      opacity:1;
     }
-    .gj-target.spawn{
-      opacity:0;
-      transform:translate(-50%,-50%) scale(0.72);
-      filter: drop-shadow(0 8px 14px rgba(0,0,0,0.45));
-    }
-    .gj-target.spawn.in{
-      opacity:1;
-      transform:translate(-50%,-50%) scale(var(--tScale, 1));
-    }
-    .gj-target.gone{
-      opacity:0;
-      transform:translate(-50%,-50%) scale(0.62) rotate(6deg);
-      filter: drop-shadow(0 8px 14px rgba(0,0,0,0.35));
-    }
-    .gj-junk{ opacity:.98; filter: drop-shadow(0 14px 24px rgba(249,115,22,0.25)); }
-    .gj-gold{ filter: drop-shadow(0 16px 28px rgba(250,204,21,0.38)); }
-    .gj-fake{ filter: drop-shadow(0 14px 24px rgba(168,85,247,0.25)); }
-    .gj-power{ filter: drop-shadow(0 16px 28px rgba(56,189,248,0.30)); }
+    .gj-target.gone{ opacity:0; transform:translate(-50%,-50%) scale(0.72); }
+    .gj-junk{ opacity:.98; filter: drop-shadow(0 0 10px rgba(249,115,22,0.18)) drop-shadow(0 14px 24px rgba(249,115,22,0.22)); }
+    .gj-gold{ filter: drop-shadow(0 0 12px rgba(250,204,21,0.22)) drop-shadow(0 14px 26px rgba(250,204,21,0.30)); }
+    .gj-fake{ filter: drop-shadow(0 0 12px rgba(168,85,247,0.20)) drop-shadow(0 14px 24px rgba(168,85,247,0.25)); }
+    .gj-power{ filter: drop-shadow(0 0 12px rgba(56,189,248,0.22)) drop-shadow(0 14px 26px rgba(56,189,248,0.30)); }
     .gj-boss{
-      font-size: clamp(56px, 10.5vw, 118px);
-      filter: drop-shadow(0 18px 34px rgba(250,204,21,0.28));
+      font-size: clamp(54px, 10vw, 112px);
+      filter: drop-shadow(0 0 14px rgba(250,204,21,0.18)) drop-shadow(0 18px 32px rgba(250,204,21,0.22));
+    }
+    @keyframes gj-pop-in{
+      from{ opacity:0; transform:translate(-50%,-50%) scale(0.78) rotate(-1.5deg); }
+      to  { opacity:1; transform:translate(-50%,-50%) scale(var(--tScale,1)) rotate(0deg); }
     }
 
     /* HUD */
     .hud-root{
-      position:fixed; inset:0;
+      position:fixed;
+      inset:0;
       pointer-events:none;
       z-index:650;
-      display:flex; flex-direction:column;
+      display:flex;
+      flex-direction:column;
       justify-content:space-between;
       padding:10px 10px 14px;
     }
     .hud-top{
-      display:flex; justify-content:space-between;
-      gap:8px; align-items:flex-start;
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
     }
     .hud-card{
       background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
@@ -171,61 +117,82 @@
       border:1px solid rgba(148,163,184,0.18);
       pointer-events:auto;
     }
-    .hud-main{ display:flex; gap:10px; align-items:center; margin-bottom:4px; }
-    .hud-main-title{ font-size:14px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--text-soft); }
+    .hud-main{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin-bottom:4px;
+    }
+    .hud-main-title{
+      font-size:14px;
+      font-weight:600;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      color:var(--text-soft);
+    }
     .hud-pill{
-      font-size:11px; padding:2px 8px; border-radius:999px;
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:999px;
       background:rgba(15,118,110,0.2);
       border:1px solid rgba(45,212,191,0.4);
-      color:#a5f3fc; font-weight:600;
-      display:inline-flex; align-items:center; gap:6px;
+      color:#a5f3fc;
+      font-weight:800;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
     }
     .hud-pill.research{
       background:rgba(37,99,235,0.18);
       border-color:rgba(59,130,246,0.55);
       color:#bfdbfe;
     }
-    /* STUN pill */
-    .hud-pill.stun{
-      background:rgba(250,204,21,0.16);
-      border-color:rgba(250,204,21,0.55);
-      color:#fde68a;
-      font-weight:900;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-    }
 
-    .hud-metrics{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+    /* ✅ STUN badge */
+    .hud-pill.stun{
+      background:rgba(245,158,11,0.16);
+      border-color:rgba(251,191,36,0.65);
+      color:#fde68a;
+      display:none;
+    }
+    .hud-pill.stun.show{ display:inline-flex; }
+
+    .hud-metrics{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
     .metric{ min-width:92px; }
-    .metric-label{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-soft); }
-    .metric-value{ font-size:15px; font-weight:800; margin-top:2px; }
+    .metric-label{
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      color:var(--text-soft);
+    }
+    .metric-value{
+      font-size:15px;
+      font-weight:900;
+      margin-top:2px;
+    }
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
     /* Quest */
     .hud-quest{ max-width:340px; font-size:12px; }
     .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
-    .quest-main-label{ font-size:13px; font-weight:700; }
+    .quest-main-label{ font-size:13px; font-weight:800; }
     .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
     .quest-progress-wrap{ margin-top:5px; display:flex; flex-direction:column; gap:4px; }
     .quest-bar{ position:relative; width:100%; height:4px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; }
     .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
     .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
-    .quest-why{
-      font-size:10px;
-      color:#cbd5e1;
-      opacity:0.85;
-      margin-top:3px;
-      min-height:14px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
 
     /* Coach */
     .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
     .coach-bubble{
-      min-width:60%; max-width:680px;
+      min-width:60%;
+      max-width:680px;
       text-align:left;
       background:radial-gradient(circle at top left, rgba(52,211,153,0.18), transparent 55%), rgba(15,23,42,0.96);
       border-radius:999px;
@@ -234,16 +201,27 @@
       font-size:13px;
       display:none;
       align-items:center;
+      justify-content:flex-start;
       gap:8px;
       pointer-events:auto;
+      position:relative;
+      overflow:hidden;
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
     }
     .coach-bubble.show{ display:flex; }
     .coach-col{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
-    .coach-label{ font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:#6ee7b7; font-weight:800; }
+    .coach-label{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.16em;
+      color:#6ee7b7;
+      font-weight:900;
+    }
     .coach-emoji{
-      width:40px; height:40px; border-radius:999px;
-      background-size:cover; background-position:center;
+      width:40px; height:40px;
+      border-radius:999px;
+      background-size:cover;
+      background-position:center;
       flex-shrink:0;
       box-shadow:0 0 12px rgba(16,185,129,0.8);
       animation:coach-idle 1.4s ease-in-out infinite;
@@ -283,7 +261,11 @@
       pointer-events:none;
       transition:opacity .25s ease-out, transform .25s ease-out;
     }
-    .countdown-hidden{ opacity:0; visibility:hidden; transform:scale(0.8); }
+    .countdown-hidden{
+      opacity:0;
+      visibility:hidden;
+      transform:scale(0.8);
+    }
 
     /* VR button */
     .vr-btn{
@@ -291,21 +273,69 @@
       border-radius:999px;
       border:1px solid rgba(56,189,248,0.7);
       padding:8px 14px;
-      font-size:12px; font-weight:800;
+      font-size:12px;
+      font-weight:900;
       cursor:pointer;
       background:radial-gradient(circle at top left, rgba(56,189,248,0.35), transparent 55%), rgba(15,23,42,0.96);
       color:#e0f2fe;
-      display:inline-flex; align-items:center; gap:6px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
       box-shadow:0 14px 30px rgba(15,23,42,0.9);
     }
     .vr-btn span{ font-size:16px; }
 
     /* Start overlay */
     .start-overlay{
-      position:fixed; inset:0; z-index:700;
-      display:flex; align-items:center; justify-content:center;
+      position:fixed; inset:0;
+      z-index:700;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       padding:18px;
       background:radial-gradient(circle at 50% 35%, rgba(34,197,94,0.18), transparent 55%), rgba(2,6,23,0.92);
+    }
+    .start-card{
+      width:min(560px, 96vw);
+      border-radius:22px;
+      background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
+      border:1px solid rgba(148,163,184,0.2);
+      box-shadow:0 30px 80px rgba(0,0,0,0.55);
+      padding:16px 16px 14px;
+      text-align:left;
+    }
+    .start-title{ font-size:18px; font-weight:950; margin:0 0 6px; letter-spacing:.02em; }
+    .start-sub{ margin:0 0 12px; color:var(--text-soft); font-size:13px; line-height:1.35; }
+    .start-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .start-label{ font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:.14em; }
+    select{
+      width:100%;
+      border-radius:12px;
+      border:1px solid rgba(30,64,175,0.6);
+      background:rgba(15,23,42,0.9);
+      padding:7px 9px;
+      color:var(--text-main);
+      font-size:13px;
+      outline:none;
+    }
+    .start-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; margin-top:12px; }
+    .start-btn{
+      border-radius:999px;
+      border:1px solid rgba(187,247,208,0.9);
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      color:#052e16;
+      padding:10px 14px;
+      font-weight:950;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .start-btn.secondary{
+      border:1px solid rgba(148,163,184,0.6);
+      background:rgba(15,23,42,0.86);
+      color:var(--text-main);
+      font-weight:900;
     }
 
     /* logger badge */
@@ -317,56 +347,54 @@
       padding:6px 10px;
       font-size:11px;
       color:#e5e7eb;
-      display:flex; align-items:center; gap:8px;
+      display:flex;
+      align-items:center;
+      gap:8px;
       pointer-events:none;
       max-width:92vw;
-      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
     }
     .dot{ width:8px; height:8px; border-radius:999px; background:#9ca3af; }
     .dot.ok{ background:#22c55e; }
     .dot.bad{ background:#ef4444; }
 
-    /* Fever UI */
-    .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:6px; }
+    /* Fever UI block (HUD) */
+    .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
     .fever-row{ display:flex; align-items:center; gap:8px; }
-    .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
+    .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:950; }
     .fever-bar{ width:140px; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(148,163,184,0.18); }
-    .fever-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.95)); transition:width .12s ease-out; }
-    .fever-pct{ font-size:10px; color:#fde68a; font-weight:900; min-width:46px; text-align:right; }
+    .fever-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.95)); transition:width .16s ease-out; }
+    .fever-pct{ font-size:10px; color:#fde68a; font-weight:950; min-width:42px; text-align:right; }
     .shield-row{ display:flex; align-items:center; gap:6px; }
+    .shield-label{ font-size:12px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
 
-    /* STUN row */
-    .stun-row{ display:none; align-items:center; gap:8px; }
-    body.fever-on .stun-row{ display:flex; }
-    .stun-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg, rgba(239,68,68,0.18), rgba(251,146,60,0.65), rgba(250,204,21,0.95));
-      transition:width .10s linear;
-    }
+    .tiny-note{ font-size:11px; color:var(--text-soft); margin-top:8px; }
   </style>
 
+  <!-- ✅ IMPORTANT: FX IIFE MUST LOAD BEFORE boot module -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
 
+  <!-- ✅ Boot loader (module) -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
+
     function setBadge(ok, msg){
       const dot = $('#logdot');
       const text = $('#logtext');
       if (dot) dot.className = 'dot ' + (ok ? 'ok' : 'bad');
       if (text) text.textContent = msg;
     }
+
     async function loadBoot(){
       const candidates = [
-        './vr-goodjunk/goodjunk-vr.boot.js',
-        './vr-goodjunk/goodjunk-vr.boot.mjs',
-        './vr-goodjunk/goodjunk.boot.js',
-        './goodjunk-vr.boot.js'
+        './vr-goodjunk/goodjunk-vr.boot.js'
       ];
+
       let lastErr = null;
       for (const p of candidates){
         try{
@@ -377,70 +405,101 @@
             bootFn();
             return;
           }
-          lastErr = new Error('Loaded but no boot/start/init/default: ' + p);
-        }catch(e){ lastErr = e; }
+          lastErr = new Error('Boot module loaded but no boot/start/init/default function: ' + p);
+        }catch(e){
+          lastErr = e;
+        }
       }
+
       console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
-      setBadge(false, 'boot failed: ' + (lastErr?.message || 'unknown'));
+      setBadge(false, 'boot failed: ' + (lastErr && lastErr.message ? lastErr.message : 'unknown'));
       const sub = $('#start-sub');
-      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
+      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ (ดู badge มุมซ้ายล่าง) — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
     }
-    window.addEventListener('load', ()=>{ setBadge(false, 'boot: loading…'); loadBoot(); });
+
+    window.addEventListener('load', () => {
+      setBadge(false, 'boot: loading…');
+      loadBoot();
+    });
   </script>
 </head>
 
 <body>
 
-  <a-scene embedded vr-mode-ui="enabled:false" renderer="colorManagement:true;physicallyCorrectLights:true">
-    <a-entity id="gj-camera" camera look-controls="enabled:false" position="0 1.6 0"></a-entity>
-    <a-entity light="type:ambient; intensity:1.0"></a-entity>
-    <a-entity light="type:directional; intensity:0.7" position="1 2 1"></a-entity>
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="colorManagement: true; physicallyCorrectLights: true"
+  >
+    <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
+    <a-entity light="type: ambient; intensity: 1.0"></a-entity>
+    <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
     <a-sky color="#061225"></a-sky>
   </a-scene>
 
   <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
-  <div id="gj-fx-layer" aria-label="GoodJunk FX Layer"></div>
-
-  <!-- ✅ FEVER FIRE -->
-  <div id="fever-fire" aria-hidden="true"></div>
 
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
-      <div class="hud-card" style="min-width:290px;">
+      <div class="hud-card" style="min-width: 300px;">
         <div class="hud-main">
           <div class="hud-main-title">GOODJUNK</div>
-          <div class="hud-pill" id="hud-pill"><span>●</span><span id="hud-run-label">PLAY</span></div>
-          <div class="hud-pill stun" id="hud-stun-pill" style="display:none;">🔥 STUN</div>
+          <div class="hud-pill" id="hud-pill">
+            <span>●</span>
+            <span id="hud-run-label">PLAY</span>
+          </div>
+
+          <!-- ✅ STUN badge -->
+          <div class="hud-pill stun" id="hud-stun">
+            <span>🔥</span><span>STUN</span>
+          </div>
         </div>
 
         <div class="hud-metrics">
-          <div class="metric"><div class="metric-label">Score</div><div class="metric-value accent" id="hud-score">0</div></div>
-          <div class="metric"><div class="metric-label">Combo Max</div><div class="metric-value" id="hud-combo">0</div></div>
-          <div class="metric"><div class="metric-label">Miss</div><div class="metric-value danger" id="hud-miss">0</div></div>
-          <div class="metric"><div class="metric-label">Time</div><div class="metric-value" id="hud-time-label">—</div></div>
+          <div class="metric">
+            <div class="metric-label">Score</div>
+            <div class="metric-value accent" id="hud-score">0</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Combo Max</div>
+            <div class="metric-value" id="hud-combo">0</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Miss</div>
+            <div class="metric-value danger" id="hud-miss">0</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Time</div>
+            <div class="metric-value" id="hud-time-label">—</div>
+          </div>
         </div>
 
-        <div style="font-size:11px;color:var(--text-soft);margin-top:6px;">
+        <div class="tiny-note">
           Diff: <b id="hud-diff-label">NORMAL</b> • Challenge: <b id="hud-challenge-label">RUSH</b>
           <span style="margin-left:8px;">|</span>
-          <span id="hud-judge" style="margin-left:8px;font-weight:900;">&nbsp;</span>
+          <span id="hud-judge" style="margin-left:8px; font-weight:950;">&nbsp;</span>
         </div>
       </div>
 
-      <div class="hud-card hud-quest" style="min-width:300px;">
+      <div class="hud-card hud-quest" style="min-width: 300px;">
         <div class="quest-title">Quest</div>
 
         <div class="quest-main-label" id="hud-quest-main">ภารกิจหลัก</div>
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-main-bar"></div></div>
-          <div class="quest-caption"><span id="hud-quest-main-caption">0 / 0</span><span id="hud-quest-hint"></span></div>
+          <div class="quest-caption">
+            <span id="hud-quest-main-caption">0 / 0</span>
+            <span id="hud-quest-hint"></span>
+          </div>
         </div>
 
         <div class="quest-mini-label" id="hud-quest-mini">Mini: —</div>
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-mini-bar"></div></div>
-          <div class="quest-caption"><span id="hud-quest-mini-caption">0 / 0</span><span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span></div>
-          <div class="quest-why" id="hud-mini-why"></div>
+          <div class="quest-caption">
+            <span id="hud-quest-mini-caption">0 / 0</span>
+            <span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span>
+          </div>
         </div>
 
         <div class="hud-fever">
@@ -449,20 +508,12 @@
             <div class="fever-bar"><div class="fever-fill" id="fever-fill" style="width:0%"></div></div>
             <div class="fever-pct" id="fever-pct">0%</div>
           </div>
-
-          <!-- ✅ STUN bar -->
-          <div class="stun-row" id="stun-row">
-            <div class="fever-label">STUN</div>
-            <div class="fever-bar"><div class="stun-fill" id="stun-fill" style="width:0%"></div></div>
-            <div class="fever-pct" id="stun-pct">0.0s</div>
-          </div>
-
           <div class="shield-row">
-            <div>🛡️ Shield</div>
+            <div class="shield-label">🛡️</div>
+            <div>Shield</div>
             <div class="shield-count" id="shield-count">0</div>
           </div>
         </div>
-
       </div>
     </div>
 
@@ -478,9 +529,12 @@
   </div>
 
   <div class="hint-center" id="touch-hint">ลากนิ้วเพื่อหมุนมุมมอง 👆</div>
+
   <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
 
-  <button class="vr-btn" id="btn-vr" type="button"><span>🥽</span> Enter VR</button>
+  <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR">
+    <span>🥽</span> Enter VR
+  </button>
 
   <div class="logbadge" id="logbadge">
     <div class="dot" id="logdot"></div>
@@ -488,24 +542,24 @@
   </div>
 
   <div class="start-overlay" id="start-overlay">
-    <div style="width:min(560px,96vw);border-radius:22px;background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));border:1px solid rgba(148,163,184,0.2);box-shadow:0 30px 80px rgba(0,0,0,0.55);padding:16px 16px 14px;">
-      <h1 style="font-size:18px;font-weight:950;margin:0 0 6px;">GoodJunk VR</h1>
-      <p id="start-sub" style="margin:0 0 12px;color:var(--text-soft);font-size:13px;line-height:1.35;">
-        เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR/ไจโร) ✅
+    <div class="start-card">
+      <h1 class="start-title">GoodJunk VR</h1>
+      <p class="start-sub" id="start-sub">
+        เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅
       </p>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="start-grid">
         <div>
-          <div style="font-size:11px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.14em;">Difficulty</div>
-          <select id="sel-diff" style="width:100%;border-radius:12px;border:1px solid rgba(30,64,175,0.6);background:rgba(15,23,42,0.9);padding:7px 9px;color:var(--text-main);font-size:13px;">
+          <div class="start-label">Difficulty</div>
+          <select id="sel-diff">
             <option value="easy">Easy</option>
             <option value="normal" selected>Normal</option>
             <option value="hard">Hard</option>
           </select>
         </div>
         <div>
-          <div style="font-size:11px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.14em;">Challenge</div>
-          <select id="sel-challenge" style="width:100%;border-radius:12px;border:1px solid rgba(30,64,175,0.6);background:rgba(15,23,42,0.9);padding:7px 9px;color:var(--text-main);font-size:13px;">
+          <div class="start-label">Challenge</div>
+          <select id="sel-challenge">
             <option value="rush" selected>Rush</option>
             <option value="boss">Boss</option>
             <option value="survival">Survival</option>
@@ -513,13 +567,13 @@
         </div>
       </div>
 
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-top:12px;">
-        <button id="btn-start-2d" type="button" style="border-radius:999px;border:1px solid rgba(148,163,184,0.6);background:rgba(15,23,42,0.86);color:var(--text-main);font-weight:850;padding:10px 14px;cursor:pointer;">▶ Start 2D</button>
-        <button id="btn-start-vr" type="button" style="border-radius:999px;border:1px solid rgba(187,247,208,0.9);background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;padding:10px 14px;font-weight:950;cursor:pointer;">🥽 Start VR</button>
+      <div class="start-row">
+        <button class="start-btn secondary" id="btn-start-2d" type="button">▶ Start 2D</button>
+        <button class="start-btn" id="btn-start-vr" type="button">🥽 Start VR</button>
       </div>
 
-      <div style="font-size:11px;color:var(--text-soft);margin-top:8px;">
-        * iPhone/iPad: กด Start แล้วกด “Allow” เพื่อเปิดไจโร
+      <div class="tiny-note">
+        * โหมดวิจัยจะบังคับโปรไฟล์จาก Hub ก่อนเริ่มเล่น
       </div>
     </div>
   </div>
