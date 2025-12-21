@@ -1,6 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — DOM Emoji Engine (PRODUCTION)
 // Step 1+2: VR-feel targets follow camera yaw/pitch + sticker + fade + tap-anywhere
+// Step 3: DOM FX burst + float score + judgment near target + include kind/delta in events
 
 'use strict';
 
@@ -13,6 +14,87 @@ function clamp(v, min, max){
 function now(){ return performance.now(); }
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+}
+
+/* ----------------------- DOM FX (always visible) ----------------------- */
+function ensureFxStyle(){
+  if (document.getElementById('gj-fx-style')) return;
+  const st = document.createElement('style');
+  st.id = 'gj-fx-style';
+  st.textContent = `
+  @keyframes gjFloatUp{
+    0%{ transform:translate(-50%,-50%) scale(.96); opacity:0; }
+    12%{ opacity:1; transform:translate(-50%,-55%) scale(1); }
+    100%{ transform:translate(-50%,-110%) scale(1.04); opacity:0; }
+  }
+  @keyframes gjShard{
+    0%{ transform:translate(-50%,-50%) scale(.7); opacity:1; }
+    100%{ transform:translate(var(--dx), var(--dy)) scale(.9); opacity:0; }
+  }`;
+  document.head.appendChild(st);
+}
+function fxLayer(){
+  let el = document.getElementById('gj-fx-layer');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'gj-fx-layer';
+    Object.assign(el.style, { position:'fixed', inset:'0', pointerEvents:'none', zIndex:'660', overflow:'hidden' });
+    document.body.appendChild(el);
+  }
+  ensureFxStyle();
+  return el;
+}
+function fxFloat(x, y, text, tone='good'){
+  const layer = fxLayer();
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  Object.assign(div.style, {
+    position:'fixed',
+    left: (x|0) + 'px',
+    top: (y|0) + 'px',
+    transform:'translate(-50%,-50%)',
+    fontWeight:'950',
+    letterSpacing:'0.02em',
+    fontSize:'13px',
+    padding:'6px 10px',
+    borderRadius:'999px',
+    border:'1px solid rgba(148,163,184,0.25)',
+    background:'rgba(2,6,23,0.68)',
+    boxShadow:'0 16px 40px rgba(0,0,0,0.55)',
+    color: tone==='bad' ? '#fdba74' : tone==='gold' ? '#fde68a' : tone==='block' ? '#bfdbfe' : '#bbf7d0',
+    textShadow:'0 8px 18px rgba(0,0,0,0.75)',
+    animation:'gjFloatUp .85s ease-out forwards'
+  });
+  layer.appendChild(div);
+  setTimeout(()=>{ try{ div.remove(); }catch(_){} }, 950);
+}
+function fxBurst(x, y, tone='good'){
+  const layer = fxLayer();
+  const N = (tone==='gold') ? 16 : (tone==='bad') ? 12 : 14;
+  for (let i=0;i<N;i++){
+    const s = document.createElement('div');
+    const a = Math.random()*Math.PI*2;
+    const r = (tone==='bad') ? (36 + Math.random()*56) : (42 + Math.random()*70);
+    const dx = Math.cos(a)*r;
+    const dy = Math.sin(a)*r - (tone==='good' ? 10 : 0);
+    s.textContent = (tone==='bad') ? '✖' : (tone==='gold') ? '✦' : '•';
+    Object.assign(s.style, {
+      position:'fixed',
+      left:(x|0)+'px',
+      top:(y|0)+'px',
+      transform:'translate(-50%,-50%)',
+      fontSize: (tone==='gold') ? '14px' : '12px',
+      fontWeight:'900',
+      opacity:'1',
+      color: tone==='bad' ? '#fb923c' : tone==='gold' ? '#facc15' : '#22c55e',
+      textShadow:'0 10px 22px rgba(0,0,0,0.75)',
+      '--dx': dx.toFixed(1)+'px',
+      '--dy': dy.toFixed(1)+'px',
+      animation:'gjShard .48s ease-out forwards'
+    });
+    layer.appendChild(s);
+    setTimeout(()=>{ try{ s.remove(); }catch(_){} }, 520);
+  }
 }
 
 /* ----------------------- DOM World Mapper ----------------------- */
@@ -40,7 +122,6 @@ function computeWorldSize(){
 }
 function worldToScreen(wx, wy, look, sizes){
   const { W, H, worldW, worldH } = sizes;
-
   const vx = (look.yaw / (Math.PI * 2)) * worldW;
   const vy = (look.pitch / (Math.PI)) * worldH * Y_PITCH_GAIN;
 
@@ -142,7 +223,9 @@ export function boot(opts = {}){
   let rafId = 0;
   let spawnTimer = 0;
 
-  function setJudge(label){ emit('hha:judge', { label: String(label||'') }); }
+  function setJudge(label){
+    emit('hha:judge', { label: String(label||'') });
+  }
   function syncHUD(){
     emit('hha:score', {
       score: state.score|0,
@@ -179,25 +262,19 @@ export function boot(opts = {}){
     if (kind === 'boss') el.classList.add('gj-boss');
 
     layerEl.appendChild(el);
-    // fade-in
     requestAnimationFrame(()=> el.classList.add('in'));
     return el;
   }
 
   function chooseSpawnKind(){
     let goodRatio = CFG.goodRatio;
-
-    if (challenge === 'survival'){
-      goodRatio = Math.max(0.52, goodRatio - 0.08);
-    }
+    if (challenge === 'survival') goodRatio = Math.max(0.52, goodRatio - 0.08);
     if (challenge === 'boss'){
       if (!state.bossCleared && Math.random() < 0.10) return 'boss';
     }
-
     const r = Math.random();
     if (r < 0.08) return 'power';
     if (r < 0.14) return 'gold';
-
     return (Math.random() < goodRatio) ? 'good' : 'junk';
   }
 
@@ -207,7 +284,6 @@ export function boot(opts = {}){
     const GOLD = ['🌟','✨','🏅','💎'];
     const POWER = ['🛡️','🧲','⏱️'];
     const BOSS = ['👾','😈','🦖','💀'];
-
     if (kind === 'good') return GOOD[(Math.random()*GOOD.length)|0];
     if (kind === 'junk') return JUNK[(Math.random()*JUNK.length)|0];
     if (kind === 'gold') return GOLD[(Math.random()*GOLD.length)|0];
@@ -219,7 +295,6 @@ export function boot(opts = {}){
   function screenToWorldPoint(screenPt, look){
     const vx = (look.yaw / (Math.PI * 2)) * SIZES.worldW;
     const vy = (look.pitch / (Math.PI)) * SIZES.worldH * Y_PITCH_GAIN;
-
     const wx = (screenPt.x - SIZES.W*0.5) + vx;
     const wy = (screenPt.y - SIZES.H*0.5) + vy;
     return { wx, wy };
@@ -255,9 +330,7 @@ export function boot(opts = {}){
     const scale =
       (kind === 'boss') ? 1.25 :
       (kind === 'gold') ? 1.05 :
-      (kind === 'power') ? 1.0 :
-      1.0;
-
+      (kind === 'power') ? 1.0 : 1.0;
     el.style.setProperty('--tScale', String(scale));
 
     const s = worldToScreen(t.wx, t.wy, look, SIZES);
@@ -291,13 +364,14 @@ export function boot(opts = {}){
 
   function handleExpire(t){
     if (!t || t.dead) return;
-
     // MISS: good/gold/power/boss expire counts as miss
     if (t.kind === 'good' || t.kind === 'gold' || t.kind === 'power' || t.kind === 'boss'){
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
       setJudge('MISS');
+      fxBurst(t.sx, t.sy, 'bad');
+      fxFloat(t.sx, t.sy, 'MISS', 'bad');
       syncHUD();
     }
     killTarget(t, true);
@@ -306,36 +380,52 @@ export function boot(opts = {}){
   function hitTarget(t, x, y){
     if (!t || t.dead || !state.running) return;
 
+    // ---------- BOSS ----------
     if (t.kind === 'boss'){
       t.bossHp = (t.bossHp|0) - 1;
       if (t.bossHp > 0){
-        setJudge('HIT!');
-        emit('quest:goodHit', { x, y, judgment:'good' });
-        state.score += (CFG.scoreGood|0);
+        const delta = (CFG.scoreGood|0);
+        state.score += delta;
         state.goodHits++;
         state.combo++;
         state.comboMax = Math.max(state.comboMax, state.combo);
         addFever(+CFG.feverGain);
+
+        setJudge('HIT!');
+        fxBurst(x,y,'good');
+        fxFloat(x,y,`+${delta} HIT!`,'good');
+
+        emit('quest:goodHit', { x, y, judgment:'good', kind:'boss', delta, label:'HIT!' });
         syncHUD();
         return;
       }
+
+      // boss cleared
       state.bossCleared = true;
-      setJudge('BOSS!');
-      emit('quest:bossClear', {});
-      emit('quest:goodHit', { x, y, judgment:'perfect' });
-      state.score += 90;
+      const delta = 90;
+      state.score += delta;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+18);
+
+      setJudge('BOSS!');
+      fxBurst(x,y,'gold');
+      fxFloat(x,y,`+${delta} BOSS!`,'gold');
+
+      emit('quest:bossClear', {});
+      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'boss', delta, label:'BOSS!' });
       syncHUD();
       killTarget(t, true);
       return;
     }
 
+    // ---------- JUNK ----------
     if (t.kind === 'junk'){
       if (spendShield()){
         setJudge('BLOCK');
+        fxBurst(x,y,'block');
+        fxFloat(x,y,'BLOCK!','block');
         emit('quest:block', { x, y });
         syncHUD();
         killTarget(t, true);
@@ -347,65 +437,83 @@ export function boot(opts = {}){
       addFever(-CFG.feverLoss);
 
       setJudge('JUNK!');
-      emit('quest:badHit', { x, y, judgment:'junk' });
+      fxBurst(x,y,'bad');
+      fxFloat(x,y,'JUNK!','bad');
+
+      emit('quest:badHit', { x, y, judgment:'junk', kind:'junk', delta:0, label:'JUNK!' });
       syncHUD();
       killTarget(t, true);
       return;
     }
 
+    // ---------- POWER ----------
     if (t.kind === 'power'){
       let p = 'shield';
       if (t.emoji === '🧲') p = 'magnet';
       if (t.emoji === '⏱️') p = 'time';
 
-      if (p === 'shield'){
-        state.shield = clamp((state.shield|0) + 1, 0, 9);
-      }
-      if (p === 'time'){
-        state.endAt = state.endAt + 2500;
-      }
+      if (p === 'shield') state.shield = clamp((state.shield|0) + 1, 0, 9);
+      if (p === 'time') state.endAt = state.endAt + 2500;
 
-      setJudge(String(p).toUpperCase());
-      emit('quest:power', { x, y, power: p });
-      state.score += 18;
+      const delta = 18;
+      state.score += delta;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+8);
+
+      const label = String(p).toUpperCase();
+      setJudge(label);
+      fxBurst(x,y,'good');
+      fxFloat(x,y,`+${delta} ${label}`,'good');
+
+      emit('quest:power', { x, y, power: p });
+      emit('quest:goodHit', { x, y, judgment:'good', kind:'power', delta, label });
       syncHUD();
       killTarget(t, true);
       return;
     }
 
+    // ---------- GOLD ----------
     if (t.kind === 'gold'){
-      setJudge('GOLD!');
-      emit('quest:goodHit', { x, y, judgment:'perfect' });
-      state.score += (CFG.scoreGold|0);
+      const delta = (CFG.scoreGold|0);
+      state.score += delta;
       state.goldHits++;
       state.goodHits++;
       state.combo += 2;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+14);
+
+      setJudge('GOLD!');
+      fxBurst(x,y,'gold');
+      fxFloat(x,y,`+${delta} GOLD!`,'gold');
+
+      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'gold', delta, label:'GOLD!' });
       syncHUD();
       killTarget(t, true);
       return;
     }
 
-    // normal good
+    // ---------- NORMAL GOOD ----------
     const perfect = (Math.random() < 0.20);
-    setJudge(perfect ? 'PERFECT!' : 'GOOD!');
-    emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good' });
+    const delta = (CFG.scoreGood|0) + (perfect ? 6 : 0);
 
-    state.score += (CFG.scoreGood|0) + (perfect ? 6 : 0);
+    state.score += delta;
     state.goodHits++;
     state.combo++;
     state.comboMax = Math.max(state.comboMax, state.combo);
     addFever(+CFG.feverGain + (perfect ? 3 : 0));
+
+    setJudge(perfect ? 'PERFECT!' : 'GOOD!');
+    fxBurst(x,y,'good');
+    fxFloat(x,y,`+${delta} ${perfect?'PERFECT!':'GOOD!'}`,'good');
+
+    emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good', kind:'good', delta, label:(perfect?'PERFECT!':'GOOD!') });
     syncHUD();
     killTarget(t, true);
   }
 
-  // ✅ Tap-anywhere assist: แตะพื้น → เลือกเป้าใกล้สุด
+  // Tap-anywhere assist
   function findClosestTarget(x, y, maxDist=110){
     let best = null;
     let bestD2 = maxDist*maxDist;
@@ -422,12 +530,10 @@ export function boot(opts = {}){
     return best;
   }
   function onLayerDown(ev){
-    // ถ้ากดโดนตัวเป้าเอง ให้ handler ของเป้าทำงานไป
     if (ev.target && ev.target !== layerEl) return;
     const x = ev.clientX ?? (ev.touches?.[0]?.clientX);
     const y = ev.clientY ?? (ev.touches?.[0]?.clientY);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-
     const t = findClosestTarget(x,y,110);
     if (t) hitTarget(t, x, y);
     ev.preventDefault?.();
