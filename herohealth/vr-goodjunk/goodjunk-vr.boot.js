@@ -146,14 +146,11 @@ export function boot(){
   function attachTouch(cameraEl){
     if (!cameraEl) return;
     try{
-      attachTouchLook(cameraEl, {
-        sensitivity: 0.26,
-        areaEl: document.body
-      });
+      attachTouchLook(cameraEl, { sensitivity: 0.26, areaEl: document.body });
     }catch(_){}
   }
 
-  // --------- ✅ Aim Point (ศูนย์กลาง STUN) ----------
+  // Aim point
   function setAimPoint(x, y){
     window.__GJ_AIM_POINT__ = { x: x|0, y: y|0, t: Date.now() };
     if (elVortex){
@@ -161,9 +158,7 @@ export function boot(){
       elVortex.style.top  = (y|0) + 'px';
     }
   }
-  function defaultAim(){
-    setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62);
-  }
+  function defaultAim(){ setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62); }
   function bindAimListeners(){
     const layer = document.getElementById('gj-layer');
     if (!layer) return;
@@ -201,7 +196,6 @@ export function boot(){
     final8Good: 0
   };
 
-  // ✅ keep last quest meta for summary
   window.__GJ_QUEST_META__ = { goalsCleared:0, minisCleared:0, miniCount:0, goalIndex:0 };
 
   window.addEventListener('quest:miniStart', ()=>{
@@ -222,7 +216,6 @@ export function boot(){
 
   let Q = null;
 
-  // FX hooks (เรียกจาก safe.js)
   window.addEventListener('quest:goodHit', ()=>{
     qState.streakGood = (qState.streakGood|0) + 1;
     if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
@@ -250,7 +243,6 @@ export function boot(){
     if (Q) Q.tick(qState);
   });
 
-  // HUD update
   window.addEventListener('hha:judge', (e)=>{
     safeText(elJudge, (e.detail||{}).label || '\u00A0');
   });
@@ -266,17 +258,8 @@ export function boot(){
   let lastMissSeen = 0;
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
-
-    if (typeof d.score === 'number'){
-      qState.score = d.score|0;
-      safeText(elScore, String(qState.score));
-    }
-
-    // ✅ FIX: sync goodHits ให้ goal g1 ผ่านได้
-    if (typeof d.goodHits === 'number'){
-      qState.goodHits = d.goodHits|0;
-    }
-
+    if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
+    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; } // ✅ FIX goal g1
     if (typeof d.misses === 'number'){
       qState.miss = d.misses|0;
       safeText(elMiss, String(qState.miss));
@@ -285,16 +268,10 @@ export function boot(){
         lastMissSeen = qState.miss;
       }
     }
-
-    if (typeof d.comboMax === 'number'){
-      qState.comboMax = d.comboMax|0;
-      safeText(elCombo, String(qState.comboMax));
-    }
-
+    if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
     if (Q) Q.tick(qState);
   });
 
-  // ✅ Fever/Shield + STUN badge + vortex
   window.addEventListener('hha:fever', (e)=>{
     const d = e.detail || {};
     const fever = Number(d.fever||0);
@@ -305,6 +282,8 @@ export function boot(){
     if (elFeverPct) safeText(elFeverPct, Math.round(Math.max(0, Math.min(100, fever))) + '%');
     if (elShield) safeText(elShield, String(shield|0));
     if (elStunBadge) elStunBadge.classList.toggle('show', stunActive);
+    const border = document.getElementById('stun-border');
+    if (border) border.classList.toggle('show', stunActive);
 
     if (elVortex){
       elVortex.classList.toggle('show', stunActive);
@@ -316,14 +295,13 @@ export function boot(){
     }
   });
 
-  // quest:update (bars) + store meta for summary
+  // ✅ Quest bars + “ขาดอีก …” hint
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
     const mini = d.mini || null;
     const meta = d.meta || {};
 
-    // ✅ keep for summary
     window.__GJ_QUEST_META__ = {
       goalsCleared: (meta.goalsCleared|0),
       minisCleared: (meta.minisCleared|0),
@@ -331,12 +309,23 @@ export function boot(){
       goalIndex: (meta.goalIndex|0)
     };
 
+    let hint = '';
+
     if (goal){
       const cur = (goal.cur|0), max = (goal.max|0);
       const pct = Math.max(0, Math.min(1, Number(goal.pct ?? (max>0?cur/max:0))));
       if (elQuestMain) elQuestMain.textContent = goal.title || 'ภารกิจหลัก';
       if (elQuestMainBar) elQuestMainBar.style.width = Math.round(pct*100) + '%';
       if (elQuestMainCap) elQuestMainCap.textContent = `${cur} / ${max}`;
+
+      // reason text
+      if (goal.id === 'g3'){ // miss <= max
+        const remain = Math.max(0, max - cur);
+        hint = `เหลือโควตา miss ${remain}`;
+      } else {
+        const need = Math.max(0, max - cur);
+        hint = (need > 0) ? `ขาดอีก ${need}` : 'ใกล้แล้ว!';
+      }
     } else {
       if (elQuestMain) elQuestMain.textContent = 'ภารกิจหลัก (ครบ) ✅';
       if (elQuestMainBar) elQuestMainBar.style.width = '100%';
@@ -349,6 +338,10 @@ export function boot(){
       if (elQuestMini) elQuestMini.textContent = 'Mini: ' + (mini.title || '');
       if (elQuestMiniBar) elQuestMiniBar.style.width = Math.round(pct*100) + '%';
       if (elQuestMiniCap) elQuestMiniCap.textContent = `${cur} / ${max}`;
+
+      // override hint with mini reason (ชัดกว่า)
+      const need = Math.max(0, max - cur);
+      hint = (need > 0) ? `Mini ขาดอีก ${need}` : 'Mini ใกล้แล้ว!';
     } else {
       if (elQuestMini) elQuestMini.textContent = 'Mini quest (ครบ) ✅';
       if (elQuestMiniBar) elQuestMiniBar.style.width = '100%';
@@ -359,10 +352,7 @@ export function boot(){
     const minisCleared = (meta.minisCleared|0);
     if (elMiniCount) elMiniCount.textContent = `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`;
 
-    let hint = '';
-    if (goal && Number(goal.pct||0) >= 0.8) hint = 'ใกล้แล้ว! 🔥';
-    else if (mini && Number(mini.pct||0) >= 0.8) hint = 'อีกนิดเดียว! ⚡';
-    if (elQuestHint) elQuestHint.textContent = hint;
+    if (elQuestHint) elQuestHint.textContent = hint || '';
   });
 
   function applyRunPill(){
@@ -386,7 +376,6 @@ export function boot(){
     setLogBadge(null, 'boot: ready');
   }
 
-  // ✅ dynamic import logger (กันชื่อ export ไม่ตรง)
   async function initLoggerSafe(payload){
     try{
       const mod = await import('../vr/hha-cloud-logger.js');
@@ -404,11 +393,9 @@ export function boot(){
         return true;
       }
       setLogBadge('bad', 'logger: export not found (skip)');
-      console.warn('[GoodJunkVR] Logger module loaded but no init function export found.', Object.keys(mod||{}));
       return false;
     }catch(err){
       setLogBadge('bad', 'logger: load failed (skip)');
-      console.warn('[GoodJunkVR] Logger load failed (skip):', err);
       return false;
     }
   }
@@ -446,10 +433,8 @@ export function boot(){
     if (elChal) elChal.textContent = chal.toUpperCase();
     if (elTime) elTime.textContent = durationSec + 's';
 
-    // bind aim system
     bindAimListeners();
 
-    // logger payload
     const endpoint =
       sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
       'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
@@ -478,7 +463,7 @@ export function boot(){
       maxMini: 999,
       challenge: chal
     });
-    window.__GJ_QUEST__ = Q; // ✅ เผื่อ summary/ดีบัก
+    window.__GJ_QUEST__ = Q;
     Q.start(qState);
 
     runCountdown(()=>{
