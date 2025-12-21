@@ -7,8 +7,11 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- FX + compat input (classic defer) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
@@ -98,7 +101,7 @@
 
 <body>
 
-  <!-- TOP HUD (✅ รวมเป็น 1 card) -->
+  <!-- TOP HUD -->
   <div id="hudTop" class="hud-top">
     <div class="card">
       <div class="row">
@@ -123,7 +126,7 @@
     </div>
   </div>
 
-  <!-- LEFT HUD (Quest) -->
+  <!-- LEFT HUD -->
   <div id="hudLeft" class="hud-left">
     <div id="questPanel" class="card quest-panel">
       <div class="big">🎯 QUEST</div>
@@ -136,7 +139,7 @@
     </div>
   </div>
 
-  <!-- RIGHT HUD (Buttons) -->
+  <!-- RIGHT HUD -->
   <div id="hudRight" class="hud-right">
     <button id="btnEnterVR" class="btn">🥽 ENTER VR</button>
     <button id="btnPause" class="btn">⏸️ PAUSE</button>
@@ -201,82 +204,31 @@
         geometry="primitive:ring; radiusInner:0.010; radiusOuter:0.018"
       ></a-cursor>
 
-          <a-entity id="targetRoot" position="0 0 -1.35" rotation="0 0 0"></a-entity>
+      <!-- legacy root (คงไว้ได้) -->
+      <a-entity id="targetRoot" position="0 0 -1.35" rotation="0 0 0"></a-entity>
     </a-entity>
 
     <a-entity light="type:ambient; intensity:1.0; color:#ffffff"></a-entity>
   </a-scene>
 
-  <!-- Module -->
-  <script type="module" src="./plate/plate.safe.js"></script>
+  <!-- ✅ Global Cloud Logger (ตัวเดียวพอ) -->
   <script type="module">
-  import { initCloudLogger } from './vr/hha-cloud-logger.js';
+    import { initCloudLogger } from './vr/hha-cloud-logger.js';
 
-  const ENDPOINT = 'https://script.google.com/macros/s/AKfycbxdy-3BjJhn6Fo3kQX9oxHQIlXT7p2OXn-UYfv1MKV5oSW6jYG-RlnAgKlHqrNxxbhmaw/exec';
+    const URLX = new URL(location.href);
+    const ENDPOINT =
+      URLX.searchParams.get('log') ||
+      sessionStorage.getItem('HHA_LOGGER_ENDPOINT') ||
+      'PUT_YOUR_GAS_ENDPOINT_HERE';
 
-  initCloudLogger({ endpoint: ENDPOINT, debug: true });
-
-  // --- Bridge: แปลง event ของเกม -> event ที่ logger ฟัง ---
-  // logger ของคุณฟัง: hha:log_session, hha:log_event
-  const emitLog = (type, detail) => window.dispatchEvent(new CustomEvent(type, { detail }));
-
-  // events (ยิงบ่อย)
-  window.addEventListener('hha:event', (e) => {
-    const d = e.detail || {};
-    emitLog('hha:log_event', {
-      timestampIso: new Date().toISOString(),
-      projectTag: d.projectTag || 'HeroHealth-PlateVR',
-      runMode: d.runMode || (new URL(location.href).searchParams.get('run') || 'play'),
-      sessionId: d.sessionId || '',
-      eventType: d.type || '',
-      gameMode: d.mode || 'PlateVR',
-      diff: d.difficulty || (new URL(location.href).searchParams.get('diff') || 'normal'),
-      timeFromStartMs: d.timeFromStartMs ?? '',
-      targetId: d.targetId || '',
-      emoji: d.emoji || '',
-      itemType: d.kind || '',
-      rtMs: d.rtMs ?? '',
-      judgment: d.judgment || '',
-      totalScore: d.totalScore ?? '',
-      combo: d.combo ?? '',
-      isGood: (String(d.kind || '') === 'junk') ? 0 : 1,
-      feverState: d.feverState || '',
-      feverValue: d.feverValue ?? '',
-      goalProgress: d.goalProgress ?? '',
-      miniProgress: d.miniProgress ?? '',
-      extra: d
+    initCloudLogger({
+      endpoint: ENDPOINT,
+      debug: URLX.searchParams.get('debug') === '1'
     });
-  });
+  </script>
 
-  // session summary (ยิงตอนจบ)
-  window.addEventListener('hha:end', (e) => {
-    const d = e.detail || {};
-    emitLog('hha:log_session', {
-      timestampIso: new Date().toISOString(),
-      projectTag: d.projectTag || 'HeroHealth-PlateVR',
-      runMode: d.runMode || (new URL(location.href).searchParams.get('run') || 'play'),
-      sessionId: d.sessionId || '',
-      gameMode: d.mode || 'PlateVR',
-      diff: (new URL(location.href).searchParams.get('diff') || 'normal'),
-      durationPlannedSec: (new URL(location.href).searchParams.get('time') || ''),
-      durationPlayedSec: '',
+  <!-- ✅ Plate Game -->
+  <script type="module" src="./plate/plate.safe.js"></script>
 
-      scoreFinal: d.score ?? '',
-      comboMax: d.comboMax ?? '',
-      misses: d.misses ?? '',
-
-      goalsCleared: d.goalsCleared ?? '',
-      goalsTotal: d.goalsTotal ?? '',
-      miniCleared: d.miniCleared ?? '',
-      miniTotal: d.miniTotal ?? '',
-
-      reason: d.reason || '',
-      startTimeIso: '',
-      endTimeIso: new Date().toISOString(),
-
-      noteResearcher: ''
-    });
-  });
-</script>
 </body>
 </html>
