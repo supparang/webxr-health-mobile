@@ -1,12 +1,8 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Step G
-     ✅ VR-feel targets + tap-anywhere aim
-     ✅ Screen shake scales with fever% (game-root only, HUD stable)
-     ✅ STUN fire overlay + STUN badge
-     ✅ Boss Pulse beacon (move aimpoint)
-     ✅ Boss HP bar HUD
-     ✅ End summary overlay restored
-     ✅ Loads IIFE tools BEFORE boot module
+     GoodJunkVR (PRODUCTION) — Step H
+     ✅ Add #game-cam wrapper (shake+kicks) HUD stable
+     ✅ Add chromatic overlay #fx-chroma
+     ✅ Keep STUN fire overlay, vortex, boss beacon, summary
 -->
 <!doctype html>
 <html lang="th">
@@ -33,7 +29,11 @@
 
       --shakeAmp: 0px;
       --shakeDur: 0.24s;
+
+      --kickAmp: 10px;
+      --kickRot: 4deg;
     }
+
     *{ box-sizing:border-box; }
     body{
       margin:0;
@@ -47,16 +47,34 @@
       overflow:hidden;
     }
 
-    /* ---------- GAME ROOT (shake only this; HUD stays stable) ---------- */
+    /* Root wrapper */
     #game-root{
       position:fixed; inset:0;
       z-index:0;
+      pointer-events:none;
+    }
+
+    /* Camera stage (shake/kick/fire overlays here) */
+    #game-cam{
+      position:absolute; inset:0;
       transform: translate3d(0,0,0);
       will-change: transform, filter;
+      pointer-events:none;
     }
-    #game-root.shake{
+
+    /* Shake (only game-cam) */
+    #game-cam.shake{
       animation: gj-shake var(--shakeDur) linear infinite;
     }
+
+    /* Kick (combine with shake) */
+    #game-cam.kick{
+      animation: gj-kick .22s ease-out 1;
+    }
+    #game-cam.shake.kick{
+      animation: gj-shake var(--shakeDur) linear infinite, gj-kick .22s ease-out 1;
+    }
+
     @keyframes gj-shake{
       0%   { transform: translate3d(calc(var(--shakeAmp) * 0.15), calc(var(--shakeAmp) * -0.30), 0); }
       20%  { transform: translate3d(calc(var(--shakeAmp) * -0.35), calc(var(--shakeAmp) * 0.25), 0); }
@@ -64,9 +82,14 @@
       70%  { transform: translate3d(calc(var(--shakeAmp) * -0.28), calc(var(--shakeAmp) * -0.40), 0); }
       100% { transform: translate3d(calc(var(--shakeAmp) * 0.12), calc(var(--shakeAmp) * 0.30), 0); }
     }
+    @keyframes gj-kick{
+      0%{ transform: translate3d(calc(var(--kickAmp) * 0.55), calc(var(--kickAmp) * -0.45), 0) rotate(calc(var(--kickRot) * -0.7)); }
+      45%{ transform: translate3d(calc(var(--kickAmp) * -0.75), calc(var(--kickAmp) * 0.55), 0) rotate(var(--kickRot)); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+    }
 
-    /* STUN fire overlay (game-root only) */
-    #game-root.stun-fire::before{
+    /* STUN fire overlay (game-cam only) */
+    #game-cam.stun-fire::before{
       content:"";
       position:absolute; inset:-12%;
       background:
@@ -80,7 +103,7 @@
       animation: firePulse 0.55s ease-in-out infinite;
       pointer-events:none;
     }
-    #game-root.stun-fire::after{
+    #game-cam.stun-fire::after{
       content:"";
       position:absolute; inset:0;
       border:2px solid rgba(255,120,0,0.45);
@@ -100,7 +123,40 @@
       100%{ opacity:0.20; }
     }
 
-    a-scene{ width:100vw; height:100vh; position:absolute; inset:0; z-index:0; }
+    /* Chromatic flash overlay */
+    #fx-chroma{
+      position:absolute; inset:0;
+      pointer-events:none;
+      opacity:0;
+      mix-blend-mode: screen;
+      background:
+        radial-gradient(circle at 40% 40%, rgba(56,189,248,0.18), transparent 55%),
+        radial-gradient(circle at 60% 60%, rgba(249,115,22,0.18), transparent 58%),
+        linear-gradient(90deg, rgba(255,0,100,0.06), transparent 40%, rgba(0,255,220,0.06));
+      filter: saturate(1.4) contrast(1.1);
+    }
+    #fx-chroma.show{
+      animation: chromaFlash .18s ease-out 1;
+    }
+    @keyframes chromaFlash{
+      0%{ opacity:0.00; transform:scale(1); }
+      30%{ opacity:0.55; transform:scale(1.01); }
+      100%{ opacity:0.00; transform:scale(1); }
+    }
+    /* Hero Burst overlay (blue/green shimmer) */
+    #fx-chroma.hero{
+      background:
+        radial-gradient(circle at 50% 60%, rgba(34,197,94,0.18), transparent 58%),
+        radial-gradient(circle at 45% 45%, rgba(56,189,248,0.16), transparent 55%),
+        linear-gradient(90deg, rgba(34,197,94,0.06), transparent 40%, rgba(56,189,248,0.06));
+    }
+
+    a-scene{
+      width:100vw; height:100vh;
+      position:absolute; inset:0;
+      z-index:0;
+      pointer-events:auto;
+    }
 
     /* ---------- DOM target layer ---------- */
     #gj-layer{
@@ -169,7 +225,7 @@
     @keyframes vortexSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg);} }
     @keyframes vortexPulse{ 0%{transform:scale(0.9)} 50%{transform:scale(1.12)} 100%{transform:scale(0.9)} }
 
-    /* Step F keep: lock ring shrink */
+    /* Lock ring shrink */
     #stun-vortex.lock::before{ animation: vortexLockShrink 1s ease-out 1 !important; }
     #stun-vortex.lock::after{
       animation: vortexLockDot 0.12s linear infinite !important;
@@ -217,7 +273,7 @@
     @keyframes beaconSpin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
     @keyframes beaconPulse{ 0%{transform:scale(0.86)} 50%{transform:scale(1.18)} 100%{transform:scale(0.86)} }
 
-    /* ---------- HUD ---------- */
+    /* ---------- HUD (เหมือนเดิมจาก Step G) ---------- */
     .hud-root{
       position:fixed;
       inset:0;
@@ -269,7 +325,6 @@
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
-    /* Quest block */
     .hud-quest{ max-width:360px; font-size:12px; }
     .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
     .quest-main-label{ font-size:13px; font-weight:700; }
@@ -279,7 +334,6 @@
     .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
     .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
 
-    /* Fever UI */
     .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:6px; }
     .fever-row{ display:flex; align-items:center; gap:8px; }
     .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
@@ -289,15 +343,9 @@
     .shield-row{ display:flex; align-items:center; gap:6px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
 
-    /* STUN badge (HUD) */
     #hud-stun{
-      display:none;
-      align-items:center;
-      gap:8px;
-      font-weight:950;
-      letter-spacing:.10em;
-      text-transform:uppercase;
-      font-size:11px;
+      display:none; align-items:center; gap:8px;
+      font-weight:950; letter-spacing:.10em; text-transform:uppercase; font-size:11px;
       color:#fff7ed;
       background:linear-gradient(135deg, rgba(249,115,22,0.20), rgba(250,204,21,0.14));
       border:1px solid rgba(251,146,60,0.55);
@@ -314,33 +362,14 @@
     }
     @keyframes stunDot{ 0%{transform:scale(1)} 50%{transform:scale(1.25)} 100%{transform:scale(1)} }
 
-    /* Boss HP */
-    .boss-wrap{
-      margin-top:6px;
-      display:none;
-      flex-direction:column;
-      gap:4px;
-    }
+    .boss-wrap{ margin-top:6px; display:none; flex-direction:column; gap:4px; }
     .boss-wrap.show{ display:flex; }
     .boss-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
     .boss-name{ font-size:11px; font-weight:950; letter-spacing:.10em; text-transform:uppercase; color:#fde68a; }
     .boss-phase{ font-size:11px; font-weight:900; color:#93c5fd; }
-    .boss-bar{
-      height:7px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.9);
-      border:1px solid rgba(148,163,184,0.18);
-      overflow:hidden;
-    }
-    .boss-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg, rgba(251,191,36,0.22), rgba(251,191,36,0.98));
-      transition: width .14s ease-out;
-    }
+    .boss-bar{ height:7px; border-radius:999px; background:rgba(15,23,42,0.9); border:1px solid rgba(148,163,184,0.18); overflow:hidden; }
+    .boss-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(251,191,36,0.22), rgba(251,191,36,0.98)); transition: width .14s ease-out; }
 
-    /* Bottom coach */
     .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
     .coach-bubble{
       min-width:60%;
@@ -376,7 +405,6 @@
       100%{ transform:translateY(0) scale(1); }
     }
 
-    /* VR button */
     .vr-btn{
       position:fixed; right:12px; bottom:16px; z-index:653;
       border-radius:999px;
@@ -394,7 +422,6 @@
     }
     .vr-btn span{ font-size:16px; }
 
-    /* Countdown */
     .countdown-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -408,7 +435,6 @@
     }
     .countdown-hidden{ opacity:0; visibility:hidden; transform:scale(0.8); }
 
-    /* Start overlay */
     .start-overlay{
       position:fixed; inset:0;
       z-index:700;
@@ -461,7 +487,6 @@
       font-weight:850;
     }
 
-    /* Summary overlay */
     .sum-overlay{
       position:fixed; inset:0;
       z-index:800;
@@ -508,7 +533,7 @@
     }
   </style>
 
-  <!-- FX + UI IIFEs (must load before boot module) -->
+  <!-- FX + UI IIFEs -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
@@ -520,7 +545,7 @@
     function setBadge(ok, msg){
       const dot = $('#logdot');
       const text = $('#logtext');
-      if (dot) dot.className = 'dot ' + (ok ? 'ok' : 'bad');
+      if (dot) dot.style.background = ok ? '#22c55e' : '#ef4444';
       if (text) text.textContent = msg;
     }
 
@@ -558,20 +583,25 @@
 <body>
 
   <div id="game-root">
-    <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true">
-      <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
-      <a-entity light="type: ambient; intensity: 1.0"></a-entity>
-      <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
-      <a-sky color="#061225"></a-sky>
-    </a-scene>
+    <div id="game-cam">
+      <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true">
+        <a-entity id="gj-camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
+        <a-entity light="type: ambient; intensity: 1.0"></a-entity>
+        <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
+        <a-sky color="#061225"></a-sky>
+      </a-scene>
 
-    <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
+      <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
 
-    <!-- STUN vortex center (aimpoint) -->
-    <div id="stun-vortex" aria-hidden="true"></div>
+      <!-- STUN vortex center -->
+      <div id="stun-vortex" aria-hidden="true"></div>
 
-    <!-- Boss pulse beacon -->
-    <div id="boss-beacon" aria-hidden="true"></div>
+      <!-- Boss pulse beacon -->
+      <div id="boss-beacon" aria-hidden="true"></div>
+
+      <!-- Chromatic FX -->
+      <div id="fx-chroma" aria-hidden="true"></div>
+    </div>
   </div>
 
   <!-- HUD -->
@@ -644,7 +674,6 @@
             <div class="shield-count" id="shield-count">0</div>
           </div>
 
-          <!-- Boss HP -->
           <div class="boss-wrap" id="boss-wrap">
             <div class="boss-top">
               <div class="boss-name">BOSS</div>
@@ -674,11 +703,11 @@
   </button>
 
   <!-- Logger badge -->
-  <div class="logbadge" id="logbadge" style="position:fixed; left:10px; bottom:10px; z-index:690;
+  <div id="logbadge" style="position:fixed; left:10px; bottom:10px; z-index:690;
     background:rgba(15,23,42,0.88); border:1px solid rgba(148,163,184,0.22); border-radius:999px;
     padding:6px 10px; font-size:11px; color:#e5e7eb; display:flex; align-items:center; gap:8px;
     pointer-events:none; max-width:92vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-    <div class="dot" id="logdot" style="width:8px;height:8px;border-radius:999px;background:#9ca3af;"></div>
+    <div id="logdot" style="width:8px;height:8px;border-radius:999px;background:#9ca3af;"></div>
     <div id="logtext">boot: loading…</div>
   </div>
 
