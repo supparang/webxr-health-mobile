@@ -34,7 +34,7 @@
       color:var(--text-main);
     }
 
-    /* ✅ PANIC visuals */
+    /* PANIC visuals */
     body.panic::before{
       content:"";
       position:fixed; inset:-20px;
@@ -175,18 +175,21 @@
     .fg-target{
       position:absolute;
       width:132px; height:132px;
-      border-radius:22px;
+      border-radius:50%;
       display:flex; align-items:center; justify-content:center;
       pointer-events:auto;
       cursor:pointer;
       user-select:none; -webkit-user-select:none;
       touch-action:manipulation;
       box-shadow:0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
-      transform:translate(-50%,-50%) scale(0.86);
+      transform:translate(-50%,-50%) scale(0.92);
       transition:transform .14s ease-out, opacity .14s ease-out;
-      opacity:0;
+      opacity:0; /* fade-in base */
+      will-change:transform,left,top,opacity;
     }
+    .fg-target.spawn{ opacity:0; transform:translate(-50%,-50%) scale(0.86); }
     .fg-target.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+    .fg-target.fade{ opacity:0; transform:translate(-50%,-50%) scale(0.78); }
     .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
     .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
 
@@ -368,7 +371,7 @@
   </a-scene>
 
   <!-- DOM targets -->
-  <div id="fg-layer"></div>
+  <div id="fg-layer" aria-label="targets layer"></div>
 
   <!-- RUSH overlay -->
   <div id="rush-overlay" class="rush-overlay">
@@ -465,14 +468,16 @@
     </div>
   </div>
 
-  <!-- Fever UI + particles + ✅ logger (GLOBAL IIFE) -->
+  <!-- Fever UI + particles -->
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
-  <script src="./vr/hha-cloud-logger.js"></script>
 
   <!-- Quest + Engine -->
   <script src="./vr-groups/quest-manager.js"></script>
   <script src="./vr-groups/GameEngine.js"></script>
+
+  <!-- Logger (IIFE) -->
+  <script src="./vr/hha-cloud-logger.js"></script>
 
   <!-- Boot -->
   <script type="module">
@@ -533,7 +538,7 @@
       setTimeout(() => elCoachBubble.classList.remove('show'), 3200);
     }
 
-    // ✅ simple tick sound (WebAudio) for PANIC
+    // simple tick sound (WebAudio) for PANIC
     let audioCtx = null;
     function beep(freq=880, dur=0.06, gain=0.06){
       try{
@@ -609,7 +614,7 @@
       rankPopT = setTimeout(() => elRank.classList.remove('pop'), 180);
     });
 
-    // ✅ PANIC listener
+    // PANIC listener
     let panicTickTimer = null;
     window.addEventListener('hha:panic', (e) => {
       const d = e.detail || {};
@@ -618,7 +623,6 @@
 
       clearInterval(panicTickTimer);
       if (on){
-        // tick เร็วขึ้นเมื่อเวลาใกล้หมด (10->1)
         panicTickTimer = setInterval(() => {
           const left = parseInt(elTime.textContent||'0',10) || 0;
           const freq = left <= 3 ? 1100 : (left <= 6 ? 980 : 880);
@@ -627,7 +631,7 @@
       }
     });
 
-    // ✅ RUSH listener
+    // RUSH listener
     let rushTimer = null;
     window.addEventListener('hha:rush', (e) => {
       const d = e.detail || {};
@@ -635,7 +639,6 @@
         elRush.classList.add('show');
         clearTimeout(rushTimer);
         rushTimer = setTimeout(() => elRush.classList.remove('show'), 1400);
-        // เสียงเปิด RUSH
         beep(660,0.06,0.06); setTimeout(()=>beep(880,0.06,0.06),80); setTimeout(()=>beep(990,0.06,0.06),160);
       } else {
         elRush.classList.remove('show');
@@ -687,37 +690,15 @@
     const cam = document.querySelector('#fg-camera');
     if (cam) attachTouchLook(cam, { sensitivity: 0.25, areaEl: document.body });
 
-    // ✅ Logger (GLOBAL)
-    function sessionUUID(){
-      try { if (crypto && crypto.randomUUID) return crypto.randomUUID(); } catch {}
-      return 'sess_' + Math.random().toString(16).slice(2) + '_' + Date.now();
-    }
-
-    function initLogger(diff, dur, runMode, sessionId){
-      const L = window.HHACloudLogger;
-      if (!L || typeof L.init !== 'function'){
-        console.warn('[FoodGroupsVR] HHACloudLogger missing (logger disabled)');
-        return;
-      }
-
-      L.init({
-        endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
-        debug: false
-      });
-
-      // log session meta (1 ครั้ง)
-      window.dispatchEvent(new CustomEvent('hha:log_session', {
-        detail: {
-          projectTag: 'HeroHealth-FoodGroupsVR',
-          mode: 'FoodGroupsVR',
-          sessionId,
-          runMode,
-          diff,
-          durationSec: dur,
-          startedAtIso: new Date().toISOString(),
-          ua: navigator.userAgent
-        }
-      }));
+    // Logger (IIFE) — FIX: no named export, use window.HHACloudLogger.init
+    function initLogger(){
+      const endpoint = 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+      try{
+        window.HHACloudLogger && window.HHACloudLogger.init && window.HHACloudLogger.init({
+          endpoint,
+          debug: false
+        });
+      }catch{}
     }
 
     function runCountdown(onDone){
@@ -738,7 +719,6 @@
       }, 800);
     }
 
-    // Boot
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
@@ -754,9 +734,7 @@
       }
       elTime.textContent = dur + 's';
 
-      const sessionId = sessionUUID();
-      initLogger(diff, dur, runMode, sessionId);
-
+      initLogger();
       setCoach('เริ่มเลย! เก็บอาหารดีตามหมู่ให้ครบ Goal + Mini ✨');
 
       const Engine = window.GroupsVR?.GameEngine;
@@ -784,8 +762,7 @@
           }
         }, 1000);
 
-        // ✅ ส่ง sessionId ให้ Engine (ให้ log_event ผูกกับ session เดียวกัน)
-        Engine.start(diff, { layerEl: fgLayer, runMode, sessionId });
+        Engine.start(diff, { layerEl: fgLayer, runMode });
       });
     });
   </script>
