@@ -1,14 +1,10 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION v11.2 (ES Module)
-// ✅ Global Cloud Logger: ใช้ ./vr/hha-cloud-logger.js (no inline JS in HTML)
-// ✅ Cursor click passes intersection -> onHit (VR fuse/controller)
-// ✅ Tap-anywhere raycast (mobile/desktop) -> onHit(intersection)
-// ✅ VR-look: drag-to-look + inertia (rig) + deviceorientation via magicWindowTracking
-// ✅ Emoji sticker targets (CanvasTexture) + fade-in / fade-out + pop
-// ✅ World-anchored + billboard + HUD clamp safe zone
-// ✅ Pause/Resume + click de-dupe + freeze target timers on pause
-// ✅ Events: hha:time / hha:score / quest:update / hha:event / hha:coach / hha:judge / hha:end
-// ✅ Schema: hha:log_session / hha:log_event / hha:log_profile (global logger listens)
+// Balanced Plate VR — PRODUCTION v11.1 (ES Module)
+// ✅ Global hha-cloud-logger.js (no inline JS in HTML)
+// ✅ Cursor click -> raycast intersection -> onHit(intersection)
+// ✅ VR-look: drag-to-look + deviceorientation + light inertia
+// ✅ Emoji Sticker (A-Frame material.src via dataURL) + fade-in/out
+// ✅ Tap-anywhere to start (iOS motion/audio permission friendly)
 
 'use strict';
 
@@ -27,59 +23,19 @@ window.MODE = MODE;
 // ---------- Project tag ----------
 const PROJECT_TAG = 'HeroHealth-PlateVR';
 
-// ---------- Global Logger (from ./vr/hha-cloud-logger.js) ----------
+// ---------- Cloud Logger (global module) ----------
+import { initCloudLogger } from '../vr/hha-cloud-logger.js';
+
+// ✅ endpoint: รับจาก query ?log=... หรือ sessionStorage หรือ default
 const LOGGER_ENDPOINT =
   (URLX.searchParams.get('log') || '') ||
   (sessionStorage.getItem('HHA_LOGGER_ENDPOINT') || '') ||
   'https://script.google.com/macros/s/AKfycbzOVSfe_gLDBCI7wXhVmIR2h74wGvbSzGQmoi1QbfwZgutreu0ImKQFxK4DZzGEzv7hiA/exec';
 
-function initGlobalCloudLogger() {
-  try {
-    if (LOGGER_ENDPOINT) sessionStorage.setItem('HHA_LOGGER_ENDPOINT', String(LOGGER_ENDPOINT));
-  } catch (_) {}
+const DEBUG_LOG = (URLX.searchParams.get('debug') === '1');
 
-  const ROOT = (typeof window !== 'undefined' ? window : globalThis);
-
-  // support a few common names
-  const fn =
-    ROOT.initCloudLogger ||
-    ROOT.initHhaCloudLogger ||
-    (ROOT.HHACloudLogger && (ROOT.HHACloudLogger.initCloudLogger || ROOT.HHACloudLogger.init)) ||
-    (ROOT.GAME_MODULES && ROOT.GAME_MODULES.CloudLogger && (ROOT.GAME_MODULES.CloudLogger.initCloudLogger || ROOT.GAME_MODULES.CloudLogger.init));
-
-  if (typeof fn === 'function') {
-    try {
-      fn({ endpoint: String(LOGGER_ENDPOINT || ''), debug: (URLX.searchParams.get('debug') === '1') });
-      return true;
-    } catch (e) {
-      console.warn('[PlateVR] initCloudLogger failed', e);
-      return false;
-    }
-  }
-
-  // If logger file uses event listeners only, this is fine too.
-  return false;
-}
-
-// ---------- Hub/Profile (best-effort) ----------
-function readJson(key){
-  try { return JSON.parse(sessionStorage.getItem(key) || 'null') || {}; } catch(_) { return {}; }
-}
-function getHubProfile(){
-  return (
-    readJson('HHA_PROFILE') ||
-    readJson('herohealth_profile') ||
-    readJson('playerProfile') ||
-    {}
-  );
-}
-function getHubResearch(){
-  return (
-    readJson('HHA_RESEARCH') ||
-    readJson('herohealth_research') ||
-    {}
-  );
-}
+// persist for other games
+try { if (LOGGER_ENDPOINT) sessionStorage.setItem('HHA_LOGGER_ENDPOINT', LOGGER_ENDPOINT); } catch(_) {}
 
 // ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -92,50 +48,18 @@ function setBarPct(id, pct) {
 }
 function showEl(id, on) { const el = $(id); if (el) el.style.display = on ? '' : 'none'; }
 
-function ensureFxLayer() {
-  let layer = document.querySelector('.plate-fx-layer');
-  if (!layer) {
-    layer = document.createElement('div');
-    layer.className = 'plate-fx-layer';
-    Object.assign(layer.style, {
-      position: 'fixed',
-      inset: '0',
-      pointerEvents: 'none',
-      zIndex: 99999,
-      overflow: 'hidden'
-    });
-    document.body.appendChild(layer);
-  }
-  return layer;
-}
-function ensureEdgeOverlay() {
-  let el = document.getElementById('plate-edge');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'plate-edge';
-    Object.assign(el.style, {
-      position: 'fixed',
-      inset: '0',
-      pointerEvents: 'none',
-      zIndex: 99998,
-      borderRadius: '0',
-      border: '0px solid rgba(255,255,255,0)',
-      boxShadow: 'inset 0 0 0 rgba(0,0,0,0)',
-      opacity: '0',
-      transition: 'opacity .14s ease',
-      willChange: 'opacity, box-shadow, border'
-    });
-    document.body.appendChild(el);
-  }
-  return el;
-}
+function nowIso(){ return new Date().toISOString(); }
+function clamp(v, a, b) { v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
+function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+function emit(type, detail) { window.dispatchEvent(new CustomEvent(type, { detail })); }
 
-// ---------- A-Frame guards ----------
+// ---------- A-Frame / THREE ----------
 const A = window.AFRAME;
-if (!A) console.error('[PlateVR] AFRAME not found');
-
-// ---------- THREE ----------
 const THREE = window.THREE;
+if (!A) console.error('[PlateVR] AFRAME not found');
+if (!THREE) console.error('[PlateVR] THREE not found (A-Frame should provide it)');
 
 // ---------- FX module fallback ----------
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
@@ -144,7 +68,7 @@ const Particles =
   ROOT.Particles ||
   { scorePop() {}, burstAt() {}, toast() {}, celebrate() {}, objPop() {} };
 
-// ---------- Difficulty tuning ----------
+// ---------- Difficulty tuning (Production) ----------
 const DIFF_TABLE = {
   easy:   { spawnInterval: 1020, maxActive: 4, scale: 0.92, lifeMs: 2500, junkRate: 0.12, powerRate: 0.12, hazRate: 0.08 },
   normal: { spawnInterval:  840, maxActive: 5, scale: 0.82, lifeMs: 2150, junkRate: 0.18, powerRate: 0.11, hazRate: 0.10 },
@@ -179,9 +103,10 @@ const HAZ = {
 
 // ---------- Scene refs ----------
 const scene = document.querySelector('a-scene');
-const rig = document.getElementById('rig');
 const cam = document.getElementById('cam');
-const cursor = document.getElementById('cursor');
+const cursorEl = document.getElementById('cursor');
+
+// ✅ World root สำหรับเป้า (อยู่ในโลก)
 let worldRoot = document.getElementById('worldTargets');
 
 // =======================
@@ -195,19 +120,12 @@ const SAFE = {
   hudPadPx: 16
 };
 
-// ✅ ระยะเป้า
+// ✅ ระยะ “ลึก” ของเป้าจากผู้เล่น
 const TARGET_DISTANCE = 2.15;
 
-// ---------- Utils ----------
-function clamp(v, a, b) { v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-function rnd(a, b) { return a + Math.random() * (b - a); }
-function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
-function clamp01(v){ return Math.max(0, Math.min(1, v)); }
-function emit(type, detail) { window.dispatchEvent(new CustomEvent(type, { detail })); }
-function nowIso(){ return new Date().toISOString(); }
 function getNoFlyRatios(){ return { topR: 0.18, bottomR: 0.20 }; }
 
-// ✅ เก็บเฉพาะการ์ด/ปุ่มจริง
+// ✅ เก็บเฉพาะ “การ์ด/ปุ่มจริง”
 function getHudExclusionRects() {
   const W = Math.max(1, window.innerWidth || 1);
   const H = Math.max(1, window.innerHeight || 1);
@@ -218,7 +136,8 @@ function getHudExclusionRects() {
     '#hudLeft .card',
     '#hudRight .btn',
     '#questPanel', '#miniPanel',
-    '#resultCard'
+    '#resultCard',
+    '#plateTapOverlay'
   ].join(',');
 
   const els = Array.from(document.querySelectorAll(sels));
@@ -272,7 +191,6 @@ function screenPxFromWorldPoint(worldPoint) {
     return { x: x * window.innerWidth, y: y * window.innerHeight };
   }catch(_){ return null; }
 }
-
 function screenPxFromEntity(el) {
   try{
     const cam3 = getSceneCamera();
@@ -287,7 +205,7 @@ function screenPxFromEntity(el) {
   }catch(_){ return null; }
 }
 
-// ✅ แปลง offset บนระนาบหน้ากล้อง → world pos (ตรึง)
+// ✅ แปลง offset บนระนาบหน้ากล้อง ณ ตอน spawn → world position (ตรึงไว้)
 function worldPosFromCameraOffsets(x, y, dist) {
   if (!cam || !cam.object3D || !THREE) return null;
 
@@ -310,7 +228,7 @@ function worldPosFromCameraOffsets(x, y, dist) {
   return p;
 }
 
-// ✅ สุ่มตำแหน่ง + project เช็ค HUD จริง (world-anchored)
+// ✅ สุ่มตำแหน่งแบบปลอดภัย + project เช็ค HUD จริงบนจอ
 function pickSafeWorldPos() {
   const nf = getNoFlyRatios();
   const hudRects = getHudExclusionRects();
@@ -361,21 +279,44 @@ function pickSafeWorldPos() {
 }
 
 // =======================
-// Billboard (หันเข้ากล้องทุกเฟรม)
+// FX layers
 // =======================
-function ensureBillboardComponent() {
-  if (!A || !A.registerComponent) return;
-  if (A.components && A.components['hha-billboard']) return;
-
-  A.registerComponent('hha-billboard', {
-    tick: function () {
-      try{
-        const sc = this.el.sceneEl;
-        if (!sc || !sc.camera) return;
-        this.el.object3D.quaternion.copy(sc.camera.quaternion);
-      }catch(_){}
-    }
-  });
+function ensureFxLayer() {
+  let layer = document.querySelector('.plate-fx-layer');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.className = 'plate-fx-layer';
+    Object.assign(layer.style, {
+      position: 'fixed',
+      inset: '0',
+      pointerEvents: 'none',
+      zIndex: 99999,
+      overflow: 'hidden'
+    });
+    document.body.appendChild(layer);
+  }
+  return layer;
+}
+function ensureEdgeOverlay() {
+  let el = document.getElementById('plate-edge');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'plate-edge';
+    Object.assign(el.style, {
+      position: 'fixed',
+      inset: '0',
+      pointerEvents: 'none',
+      zIndex: 99998,
+      borderRadius: '0',
+      border: '0px solid rgba(255,255,255,0)',
+      boxShadow: 'inset 0 0 0 rgba(0,0,0,0)',
+      opacity: '0',
+      transition: 'opacity .14s ease',
+      willChange: 'opacity, box-shadow, border'
+    });
+    document.body.appendChild(el);
+  }
+  return el;
 }
 
 // =======================
@@ -441,7 +382,9 @@ async function ensureMotionPermission(force = false) {
   return __motionGranted;
 }
 
-// ---------- Screen Shake ----------
+// =======================
+// Screen Shake + edge pulse
+// =======================
 function ensureShakeStyle() {
   if (document.getElementById('__plate_shake_css__')) return;
   const st = document.createElement('style');
@@ -486,7 +429,8 @@ function nudgeFxAwayFromHud(px, py) {
     '#hudTop .card', '#hudBottom .card', '#hudLeft .card',
     '#hudRight .btn',
     '#questPanel', '#miniPanel',
-    '#resultCard'
+    '#resultCard',
+    '#plateTapOverlay'
   ].join(',');
 
   const els = Array.from(document.querySelectorAll(sels));
@@ -614,9 +558,10 @@ function starConfetti(px, py, n = 18) {
   }
 }
 
-// ✅ FX “เด้งตรงเป้า”
+// ✅ FX: คะแนน+คำตัดสินเด้งตรงเป้า (ใช้ intersection.point ถ้ามี)
 function fxOnHit(el, kind, judgeText, pts, hit = null) {
   let p0 = null;
+
   if (hit && hit.point) p0 = screenPxFromWorldPoint(hit.point);
   if (!p0) p0 = screenPxFromEntity(el);
   if (!p0) return;
@@ -648,6 +593,7 @@ function fxOnHit(el, kind, judgeText, pts, hit = null) {
   if (typeof pts === 'number') {
     try { Particles.scorePop(x, y - 4, pts, '', { plain:true }); } catch(_){}
   }
+
   if (judge) {
     const prefix =
       (k === 'junk')  ? '[JUNK] ' :
@@ -659,14 +605,236 @@ function fxOnHit(el, kind, judgeText, pts, hit = null) {
   }
 }
 
+// =======================
+// Billboard component
+// =======================
+function ensureBillboardComponent() {
+  if (!A || !A.registerComponent) return;
+  if (A.components && A.components['hha-billboard']) return;
+
+  A.registerComponent('hha-billboard', {
+    tick: function () {
+      try{
+        const sc = this.el.sceneEl;
+        if (!sc || !sc.camera) return;
+        this.el.object3D.quaternion.copy(sc.camera.quaternion);
+      }catch(_){}
+    }
+  });
+}
+
+// =======================
+// VR-look: drag + inertia (deviceorientation handled by look-controls)
+// =======================
+function ensureLookInertiaComponent() {
+  if (!A || !A.registerComponent) return;
+  if (A.components && A.components['hha-look-inertia']) return;
+
+  A.registerComponent('hha-look-inertia', {
+    schema: {
+      enabled: { default: true },
+      yawLimit: { default: 999 },        // not used
+      pitchMin: { default: -80 },
+      pitchMax: { default: 80 },
+      sens: { default: 0.15 },           // degrees per px
+      inertia: { default: 0.92 },        // decay
+      velClamp: { default: 2.4 },        // deg per frame clamp
+      smooth: { default: 0.18 }          // slerp factor
+    },
+    init: function () {
+      this.drag = false;
+      this.lastX = 0;
+      this.lastY = 0;
+      this.vx = 0;
+      this.vy = 0;
+      this.offYaw = 0;     // degrees
+      this.offPitch = 0;   // degrees
+      this.tmpQ = new THREE.Quaternion();
+      this.baseQ = new THREE.Quaternion();
+      this.wantQ = new THREE.Quaternion();
+      this.euler = new THREE.Euler(0,0,0,'YXZ');
+
+      const onDown = (ev) => {
+        if (!this.data.enabled) return;
+        if (document.hidden) return;
+        this.drag = true;
+        const p = (ev.touches && ev.touches[0]) ? ev.touches[0] : ev;
+        this.lastX = p.clientX;
+        this.lastY = p.clientY;
+      };
+      const onMove = (ev) => {
+        if (!this.data.enabled || !this.drag) return;
+        const p = (ev.touches && ev.touches[0]) ? ev.touches[0] : ev;
+        const dx = (p.clientX - this.lastX);
+        const dy = (p.clientY - this.lastY);
+        this.lastX = p.clientX;
+        this.lastY = p.clientY;
+
+        // update velocity (deg/frame-ish)
+        const s = this.data.sens;
+        const vyaw = clamp(dx * s, -this.data.velClamp, this.data.velClamp);
+        const vpitch = clamp(dy * s, -this.data.velClamp, this.data.velClamp);
+        this.vx = 0.55*this.vx + 0.45*vyaw;
+        this.vy = 0.55*this.vy + 0.45*vpitch;
+
+        // apply immediate offset
+        this.offYaw += this.vx;
+        this.offPitch += this.vy;
+        this.offPitch = clamp(this.offPitch, this.data.pitchMin, this.data.pitchMax);
+      };
+      const onUp = () => { this.drag = false; };
+
+      window.addEventListener('pointerdown', onDown, { passive: true });
+      window.addEventListener('pointermove', onMove, { passive: true });
+      window.addEventListener('pointerup', onUp, { passive: true });
+      window.addEventListener('touchstart', onDown, { passive: true });
+      window.addEventListener('touchmove', onMove, { passive: true });
+      window.addEventListener('touchend', onUp, { passive: true });
+
+      this._cleanup = () => {
+        window.removeEventListener('pointerdown', onDown);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('touchstart', onDown);
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onUp);
+      };
+    },
+    remove: function(){ try{ this._cleanup && this._cleanup(); }catch(_){} },
+    tick: function () {
+      if (!this.data.enabled) return;
+      if (!this.el || !this.el.object3D) return;
+
+      // inertia when not dragging
+      if (!this.drag) {
+        this.vx *= this.data.inertia;
+        this.vy *= this.data.inertia;
+        if (Math.abs(this.vx) < 0.002) this.vx = 0;
+        if (Math.abs(this.vy) < 0.002) this.vy = 0;
+
+        this.offYaw += this.vx;
+        this.offPitch += this.vy;
+        this.offPitch = clamp(this.offPitch, this.data.pitchMin, this.data.pitchMax);
+      }
+
+      // base orientation from look-controls/deviceorientation
+      this.baseQ.copy(this.el.object3D.quaternion);
+
+      // apply offset quaternion
+      const yaw = THREE.MathUtils.degToRad(this.offYaw);
+      const pitch = THREE.MathUtils.degToRad(this.offPitch);
+      this.euler.set(pitch, yaw, 0);
+      this.tmpQ.setFromEuler(this.euler);
+
+      this.wantQ.copy(this.baseQ).multiply(this.tmpQ);
+
+      // smooth
+      this.el.object3D.quaternion.slerp(this.wantQ, this.data.smooth);
+    }
+  });
+}
+
+// =======================
+// Tap-anywhere overlay
+// =======================
+function ensureTapOverlay() {
+  let ov = document.getElementById('plateTapOverlay');
+  if (ov) return ov;
+
+  ov = document.createElement('div');
+  ov.id = 'plateTapOverlay';
+  Object.assign(ov.style, {
+    position: 'fixed',
+    inset: '0',
+    zIndex: 99997,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'auto',
+    background: 'radial-gradient(ellipse at center, rgba(2,6,23,0.50), rgba(2,6,23,0.92))',
+    backdropFilter: 'blur(6px)'
+  });
+
+  const card = document.createElement('div');
+  Object.assign(card.style, {
+    width: 'min(720px, 92vw)',
+    padding: '18px 18px',
+    borderRadius: '18px',
+    border: '1px solid rgba(148,163,184,0.28)',
+    background: 'rgba(15,23,42,0.78)',
+    boxShadow: '0 30px 80px rgba(0,0,0,0.55)',
+    color: '#e5e7eb',
+    fontFamily: 'system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif'
+  });
+
+  const title = document.createElement('div');
+  title.textContent = '🍽️ Balanced Plate VR';
+  Object.assign(title.style, { fontSize: '22px', fontWeight: '1000', letterSpacing: '.04em' });
+
+  const sub = document.createElement('div');
+  sub.textContent = 'แตะตรงไหนก็ได้เพื่อเริ่ม (Tap-anywhere) • หมุนมือถือเหมือน VR • ระวังขยะ!';
+  Object.assign(sub.style, { marginTop: '8px', fontWeight: '900', color: 'rgba(229,231,235,0.90)' });
+
+  const hint = document.createElement('div');
+  hint.textContent = 'iPhone: ถ้ามีหน้าต่างขอ Motion/Orientation ให้กด Allow';
+  Object.assign(hint.style, { marginTop: '10px', fontWeight: '900', color: 'rgba(156,163,175,0.95)' });
+
+  const btn = document.createElement('button');
+  btn.textContent = '▶️ START';
+  Object.assign(btn.style, {
+    marginTop: '14px',
+    width: '100%',
+    padding: '12px 14px',
+    borderRadius: '14px',
+    border: '1px solid rgba(148,163,184,0.25)',
+    background: 'rgba(34,197,94,0.22)',
+    color: '#e5e7eb',
+    fontWeight: '1000',
+    cursor: 'pointer'
+  });
+
+  card.appendChild(title);
+  card.appendChild(sub);
+  card.appendChild(hint);
+  card.appendChild(btn);
+  ov.appendChild(card);
+  document.body.appendChild(ov);
+
+  return ov;
+}
+function hideTapOverlay() {
+  const ov = document.getElementById('plateTapOverlay');
+  if (ov) { try{ ov.remove(); }catch(_){} }
+}
+
 // =======================================================
-// ✅ SCHEMA MAPPING -> hha:log_* (global logger listens)
+// ✅ SCHEMA MAPPING (sessions/events) -> hha:log_*
 // =======================================================
 function median(arr){
   const a = (arr || []).slice().filter(n => Number.isFinite(n)).sort((x,y)=>x-y);
   if (!a.length) return '';
   const mid = Math.floor(a.length/2);
   return (a.length % 2) ? a[mid] : Math.round((a[mid-1] + a[mid]) / 2);
+}
+
+// ---------- Hub/Profile (best-effort) ----------
+function readJson(key){
+  try { return JSON.parse(sessionStorage.getItem(key) || 'null') || {}; } catch(_) { return {}; }
+}
+function getHubProfile(){
+  return (
+    readJson('HHA_PROFILE') ||
+    readJson('herohealth_profile') ||
+    readJson('playerProfile') ||
+    {}
+  );
+}
+function getHubResearch(){
+  return (
+    readJson('HHA_RESEARCH') ||
+    readJson('herohealth_research') ||
+    {}
+  );
 }
 
 function schemaCommonFromHub(){
@@ -792,7 +960,7 @@ let activeTargets = new Map();
 let targetSeq = 0;
 let currentSpawnInterval = DCFG0.spawnInterval;
 
-// ---------- Schema counters ----------
+// ---------- Schema counters (sessions) ----------
 let nTargetGoodSpawned = 0;
 let nTargetJunkSpawned = 0;
 let nTargetStarSpawned = 0;
@@ -825,101 +993,86 @@ function wasRecentlyHit(targetId) {
 function isAdaptiveOn() { return MODE === 'play'; }
 
 // =======================================================
-// ✅ Emoji sticker texture helper
+// ✅ Emoji Sticker texture (A-Frame material.src) — no more white squares
 // =======================================================
-function roundRect(ctx, x, y, w, h, r){
-  const rr = Math.min(r, w/2, h/2);
-  ctx.beginPath();
-  ctx.moveTo(x+rr, y);
-  ctx.arcTo(x+w, y, x+w, y+h, rr);
-  ctx.arcTo(x+w, y+h, x, y+h, rr);
-  ctx.arcTo(x, y+h, x, y, rr);
-  ctx.arcTo(x, y, x+w, y, rr);
-  ctx.closePath();
-}
-
-function makeEmojiTexture(emoji, opts = {}) {
-  if (!THREE) return null;
-
-  const size = opts.size || 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-
-  ctx.clearRect(0,0,size,size);
-
-  // shadow
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.55)';
-  ctx.shadowBlur = 22;
-  ctx.shadowOffsetY = 10;
-  roundRect(ctx, size*0.10, size*0.10, size*0.80, size*0.80, size*0.20);
-  ctx.fillStyle = 'rgba(15,23,42,0.78)';
-  ctx.fill();
-  ctx.restore();
-
-  // sticker base
-  roundRect(ctx, size*0.10, size*0.10, size*0.80, size*0.80, size*0.20);
-  ctx.fillStyle = 'rgba(15,23,42,0.78)';
-  ctx.fill();
-
-  // white sticker border
-  ctx.lineWidth = Math.max(6, Math.round(size*0.028));
-  ctx.strokeStyle = 'rgba(255,255,255,0.90)';
-  ctx.stroke();
-
-  // inner gloss
-  ctx.save();
-  ctx.globalAlpha = 0.18;
-  roundRect(ctx, size*0.14, size*0.14, size*0.72, size*0.38, size*0.16);
-  ctx.fillStyle = 'rgba(255,255,255,1)';
-  ctx.fill();
-  ctx.restore();
-
-  // tiny sparkle
-  ctx.save();
-  ctx.globalAlpha = 0.25;
-  ctx.fillStyle = 'rgba(255,255,255,1)';
-  ctx.beginPath();
-  ctx.arc(size*0.26, size*0.26, size*0.04, 0, Math.PI*2);
-  ctx.fill();
-  ctx.restore();
-
-  // emoji
-  ctx.font = `${Math.round(size*0.62)}px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#fff';
-  ctx.fillText(String(emoji), size/2, size/2 + size*0.05);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  tex.minFilter = THREE.LinearFilter;
-  tex.magFilter = THREE.LinearFilter;
-  return tex;
-}
-
 function applyEmojiTextureToEntity(el, emoji, s) {
   try {
-    if (!el || !el.object3D || !THREE) return;
+    if (!el) return;
 
-    el.object3D.scale.set(s, s, s);
+    if (el.object3D) el.object3D.scale.set(s, s, s);
 
-    const mesh = el.getObject3D('mesh');
-    if (!mesh) return;
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
 
-    const tex = makeEmojiTexture(emoji);
-    if (!tex) return;
+    ctx.clearRect(0,0,size,size);
 
-    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const m of mats) {
-      if (!m) continue;
-      m.map = tex;
-      m.transparent = true;
-      m.needsUpdate = true;
+    // base sticker (rounded)
+    const r = Math.round(size * 0.20);
+    const x = Math.round(size * 0.10);
+    const y = Math.round(size * 0.10);
+    const w = Math.round(size * 0.80);
+    const h = Math.round(size * 0.80);
+
+    // helper: round rect
+    function rr(px, py, pw, ph, pr){
+      const k = Math.max(0, Math.min(pr, Math.min(pw, ph)/2));
+      ctx.beginPath();
+      ctx.moveTo(px+k, py);
+      ctx.arcTo(px+pw, py, px+pw, py+ph, k);
+      ctx.arcTo(px+pw, py+ph, px, py+ph, k);
+      ctx.arcTo(px, py+ph, px, py, k);
+      ctx.arcTo(px, py, px+pw, py, k);
+      ctx.closePath();
     }
-  } catch (_) {}
+
+    // shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.60)';
+    ctx.shadowBlur = 22;
+    ctx.shadowOffsetY = 12;
+    rr(x,y,w,h,r);
+    ctx.fillStyle = 'rgba(15,23,42,0.78)';
+    ctx.fill();
+    ctx.restore();
+
+    // fill + border
+    rr(x,y,w,h,r);
+    ctx.fillStyle = 'rgba(15,23,42,0.78)';
+    ctx.fill();
+    ctx.lineWidth = Math.max(6, Math.round(size*0.028));
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+    ctx.stroke();
+
+    // gloss
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    rr(Math.round(size*0.14), Math.round(size*0.14), Math.round(size*0.72), Math.round(size*0.38), Math.round(size*0.16));
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.restore();
+
+    // emoji
+    ctx.font = `${Math.round(size*0.62)}px system-ui, "Segoe UI Emoji", "Noto Color Emoji"`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(emoji || '🥦'), size/2, size/2 + size*0.05);
+
+    const url = canvas.toDataURL('image/png');
+
+    // ✅ A-Frame owns material lifecycle; no map-reset issue
+    el.setAttribute('material', {
+      shader: 'flat',
+      transparent: true,
+      opacity: 0.98,
+      side: 'double',
+      src: url
+    });
+  } catch (e) {
+    console.warn('[PlateVR] applyEmojiTextureToEntity failed', e);
+  }
 }
 
 // =======================================================
@@ -938,13 +1091,8 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
   el.setAttribute('class', 'plateTarget');
 
   el.setAttribute('geometry', 'primitive: plane; width: 0.52; height: 0.52');
-
-  // start invisible then fade in
-  el.setAttribute('material', 'shader: flat; transparent: true; opacity: 0; side: double');
-
-  // fade in + pop
-  el.setAttribute('animation__fadein', 'property:material.opacity; from:0; to:0.98; dur:160; easing:easeOutCubic');
-  el.setAttribute('animation__pop', 'property:scale; from:0.65 0.65 0.65; to:1 1 1; dur:160; easing:easeOutBack');
+  // start invisible (fade-in)
+  el.setAttribute('material', 'shader: flat; transparent: true; opacity: 0.0; side: double');
 
   el.dataset.kind = kind;
   el.dataset.groupId = String(groupId || 0);
@@ -956,44 +1104,56 @@ function makeTargetEntity({ kind, groupId = 0, emoji, scale = 1.0 }) {
 
   // SAFE spawn
   const pos = pickSafeWorldPos();
-  if (pos && pos.wp) el.setAttribute('position', `${pos.wp.x} ${pos.wp.y} ${pos.wp.z}`);
-  else el.setAttribute('position', `0 1.5 -${TARGET_DISTANCE}`);
+  if (pos && pos.wp) {
+    el.setAttribute('position', `${pos.wp.x} ${pos.wp.y} ${pos.wp.z}`);
+  } else {
+    el.setAttribute('position', `0 1.5 -${TARGET_DISTANCE}`);
+  }
 
   const s = clamp(scale, 0.45, 1.35);
 
-  // apply texture now + when mesh ready
-  applyEmojiTextureToEntity(el, emoji, s);
-  el.addEventListener('object3dset', (e) => {
-    if (e.detail && e.detail.type === 'mesh') applyEmojiTextureToEntity(el, emoji, s);
-  });
-  el.addEventListener('loaded', () => applyEmojiTextureToEntity(el, emoji, s));
+  // emoji sticker
+  const applyAll = () => {
+    applyEmojiTextureToEntity(el, emoji, s);
+    // pop + fade-in
+    try{
+      el.setAttribute('animation__in_op', 'property: material.opacity; from: 0.0; to: 0.98; dur: 160; easing: easeOutQuad');
+      el.setAttribute('animation__in_sc',  'property: scale; from: 0.72 0.72 0.72; to: 1 1 1; dur: 180; easing: easeOutBack');
+    }catch(_){}
+  };
 
-  // IMPORTANT: no direct click handler on target
-  // (we handle via cursor click intersection + tap-anywhere raycast)
+  el.addEventListener('object3dset', (e) => {
+    if (e.detail && e.detail.type === 'mesh') applyAll();
+  });
+  el.addEventListener('loaded', applyAll);
+
+  // click (if A-Frame fires it) — no intersection here
+  el.addEventListener('click', () => onHit(el, 'target-click', null));
 
   return el;
 }
 
-function removeTarget(el, reason = 'remove') {
+function removeTargetSoft(el, reason = 'remove', fadeMs = 140) {
   if (!el) return;
-  const id = el.getAttribute('id');
 
-  // cleanup timers + remove from map immediately
+  const id = el.getAttribute('id');
   if (id && activeTargets.has(id)) {
     const rec = activeTargets.get(id);
     if (rec && rec.expireTO) { try{ clearTimeout(rec.expireTO); }catch(_){} }
     activeTargets.delete(id);
   }
 
-  // fade out then remove node
-  try {
-    el.setAttribute('animation__fadeout', 'property:material.opacity; from:0.98; to:0; dur:120; easing:easeInQuad');
-    el.setAttribute('animation__shrink', 'property:scale; to:0.70 0.70 0.70; dur:120; easing:easeInQuad');
-  } catch(_) {}
+  try { el.dataset.removing = '1'; } catch(_){}
+
+  // fade-out + shrink
+  try{
+    el.setAttribute('animation__out_op', `property: material.opacity; from: 0.98; to: 0.0; dur: ${fadeMs}; easing: easeInQuad`);
+    el.setAttribute('animation__out_sc', `property: scale; from: 1 1 1; to: 0.75 0.75 0.75; dur: ${fadeMs}; easing: easeInQuad`);
+  }catch(_){}
 
   setTimeout(() => {
     try { el.parentNode && el.parentNode.removeChild(el); } catch (_) {}
-  }, 130);
+  }, Math.max(80, fadeMs + 30));
 
   emitGameEvent({ type:'target_remove', reason, targetId: id || '', kind: el.dataset.kind || '' });
 }
@@ -1015,7 +1175,6 @@ function expireTarget(el) {
     emit('hha:miss', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', misses: miss, timeFromStartMs: fromStartMs() });
     emitGameEvent({ type:'miss_expire', groupId });
 
-    // schema
     nExpireGood += 1;
     logEventSchema({
       eventType: 'expire_good',
@@ -1028,7 +1187,7 @@ function expireTarget(el) {
     });
   }
 
-  removeTarget(el, 'expire');
+  removeTargetSoft(el, 'expire', 160);
   knowAdaptive();
   hudUpdateAll();
   emitScore();
@@ -1573,7 +1732,7 @@ function buildSessionRow(reason){
     fastHitRatePct,
 
     device,
-    gameVersion: '11.2',
+    gameVersion: '11.1',
     reason: reason || '',
 
     startTimeIso: sessionStartIso,
@@ -1657,7 +1816,6 @@ function emitGameEvent(payload) {
     goodStreak
   }, payload));
 }
-
 function emitCoach(text, mood) {
   emit('hha:coach', { projectTag: PROJECT_TAG, sessionId, mode:'PlateVR', text: String(text||''), mood: mood || 'neutral', timeFromStartMs: fromStartMs() });
 }
@@ -1750,10 +1908,12 @@ function onHit(el, via = 'cursor', hit = null) {
     try { fxOnHit(el, kind, judge, pts, hit); } catch(_){}
   };
 
-  removeTarget(el, 'hit');
   if (!started) return;
 
   emitGameEvent({ type:'hit_raw', kind, groupId, via, targetId: id });
+
+  // remove with fade AFTER we got screen position (preFx uses el/hit)
+  const softRemove = (reason) => removeTargetSoft(el, reason, 140);
 
   if (kind === 'haz') {
     const hk = el.dataset.hazKey || pick(Object.keys(HAZ));
@@ -1765,6 +1925,7 @@ function onHit(el, via = 'cursor', hit = null) {
 
     emitJudge('RISK!');
     preFx('RISK!', pts);
+    softRemove('hit');
     emitGameEvent({ type:'haz_hit', haz: hk, points: pts });
 
     logEventSchema({
@@ -1791,10 +1952,11 @@ function onHit(el, via = 'cursor', hit = null) {
       fever = clamp(fever + 10, 0, 100);
       emitJudge('SHIELD!');
       preFx('SHIELD!', pts);
+      softRemove('hit');
       emitGameEvent({ type:'power_shield', points: pts });
     } else if (em === POWER.cleanse.emoji) {
-      for (const [, tr] of Array.from(activeTargets.entries())) {
-        if (tr && tr.el && tr.el.dataset.kind === 'junk') removeTarget(tr.el, 'cleanse');
+      for (const [tid, tr] of Array.from(activeTargets.entries())) {
+        if (tr && tr.el && tr.el.dataset.kind === 'junk') removeTargetSoft(tr.el, 'cleanse', 120);
       }
       balancePct = clamp(balancePct + 22, 0, 100);
       score += 240;
@@ -1802,6 +1964,7 @@ function onHit(el, via = 'cursor', hit = null) {
       goodStreak = 0;
       emitJudge('CLEANSE!');
       preFx('CLEANSE!', 240);
+      softRemove('hit');
       emitCoach('ล้างจานแล้ว! ขยะหายไป 💨 (คอมโบรีเซ็ต)', 'happy');
       emitGameEvent({ type:'power_cleanse', points: 240 });
     } else if (em === POWER.golden.emoji) {
@@ -1813,12 +1976,14 @@ function onHit(el, via = 'cursor', hit = null) {
       if (fever >= 100) activateFever(5200);
       emitJudge('GOLD!');
       preFx('GOLD!', 320);
+      softRemove('hit');
       emitCoach('Golden Bite! คะแนนพุ่ง ⭐ (ระวัง! ขยะเพิ่ม 3 วิ)', 'happy');
       emitGameEvent({ type:'power_golden', points: 320, junkSurgeMs: 3000 });
     } else {
       score += pts;
       emitJudge('POWER!');
       preFx('POWER!', pts);
+      softRemove('hit');
     }
 
     combo += 1; maxCombo = Math.max(maxCombo, combo);
@@ -1855,6 +2020,7 @@ function onHit(el, via = 'cursor', hit = null) {
 
     emitJudge('BOSS HIT!');
     preFx('BOSS HIT!', pts);
+    softRemove('hit');
     emitGameEvent({ type:'boss_hit', hpLeft: bossHP, points: pts });
 
     logEventSchema({
@@ -1909,6 +2075,7 @@ function onHit(el, via = 'cursor', hit = null) {
       fever = clamp(fever + 4, 0, 100);
       emitJudge('BLOCK!');
       preFx('BLOCK!', pts);
+      softRemove('hit');
       emitCoach('โล่กันขยะไว้ได้! 🥗', 'happy');
       emitGameEvent({ type:'junk_blocked', points: pts });
       combo += 1; maxCombo = Math.max(maxCombo, combo);
@@ -1933,6 +2100,7 @@ function onHit(el, via = 'cursor', hit = null) {
       fever = clamp(fever - 12, 0, 100);
       emitJudge('MISS');
       preFx('MISS!', 0);
+      softRemove('hit');
       lastMissAtMs = performance.now();
       hero10Clean = false;
 
@@ -1972,6 +2140,7 @@ function onHit(el, via = 'cursor', hit = null) {
     const judge = (pts >= 110) ? 'PERFECT' : 'GOOD';
     emitJudge(judge);
     preFx(judge, pts);
+    softRemove('hit');
     emitGameEvent({ type:'good_hit', groupId, points: pts });
 
     nHitGood += 1;
@@ -2134,13 +2303,137 @@ function togglePause() { if (paused) resumeGame('ui'); else pauseGame('ui'); }
 
 // ---------- Targets cleanup ----------
 function clearAllTargets() {
-  for (const [, rec] of Array.from(activeTargets.entries())) {
+  for (const [id, rec] of Array.from(activeTargets.entries())) {
     if (rec && rec.expireTO) { try{ clearTimeout(rec.expireTO); }catch(_){} }
     if (rec && rec.el) {
       try { rec.el.parentNode && rec.el.parentNode.removeChild(rec.el); } catch (_) {}
     }
   }
   activeTargets.clear();
+}
+
+// ---------- Cursor click -> intersection -> onHit ----------
+function bindCursorIntersectionClick() {
+  if (!scene || !cam || !THREE) return;
+  if (window.__PLATE_CURSOR_INTERSECT_BOUND__) return;
+  window.__PLATE_CURSOR_INTERSECT_BOUND__ = true;
+
+  const raycaster = new THREE.Raycaster();
+  const tmpV = new THREE.Vector3();
+  const origin = new THREE.Vector3();
+  const dir = new THREE.Vector3();
+
+  const shoot = () => {
+    if (ended || paused) return;
+    if (!scene.camera) return;
+    ensureWorldRoot();
+    const root3D = worldRoot && worldRoot.object3D;
+    if (!root3D) return;
+
+    // origin = camera world position
+    cam.object3D.getWorldPosition(origin);
+    // dir = camera forward
+    cam.object3D.getWorldDirection(dir).normalize();
+
+    raycaster.set(origin, dir);
+
+    const intersects = raycaster.intersectObjects(root3D.children, true);
+    if (!intersects || !intersects.length) return;
+
+    const hitObj = intersects[0].object;
+    const hitEl = hitObj && hitObj.el;
+    if (!hitEl) return;
+
+    let cur = hitEl;
+    while (cur && cur !== scene && (!cur.classList || !cur.classList.contains('plateTarget'))) {
+      cur = cur.parentEl;
+    }
+    if (!cur || !cur.classList || !cur.classList.contains('plateTarget')) return;
+
+    onHit(cur, 'cursor', intersects[0]);
+  };
+
+  // cursor element click (fuse or click)
+  if (cursorEl) cursorEl.addEventListener('click', shoot);
+
+  // fallback: any pointer down on canvas -> center shoot (tap-anywhere)
+  window.addEventListener('pointerdown', (ev) => {
+    const t = ev.target;
+    if (!t || String(t.tagName).toUpperCase() !== 'CANVAS') return;
+    shoot();
+  }, { passive: true });
+
+  if (DEBUG_LOG) console.log('[PlateVR] cursor intersection click bound ✅');
+}
+
+// ✅ Manual Raycast fallback — คลิกได้แน่ (สำหรับจิ้มตำแหน่ง)
+function bindPointerFallback() {
+  if (!scene || !THREE) return;
+  if (window.__PLATE_POINTER_BOUND__) return;
+  window.__PLATE_POINTER_BOUND__ = true;
+
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  let __lastPointerShot = 0;
+  const __SHOT_DEDUPE_MS = 180;
+
+  function doRaycastFromEvent(ev) {
+    if (ended || paused) return;
+
+    const now = performance.now();
+    if (now - __lastPointerShot < __SHOT_DEDUPE_MS) return;
+    __lastPointerShot = now;
+
+    if (!scene.camera) return;
+    const canvas = scene.canvas;
+    if (!canvas) return;
+
+    const t = ev.target;
+    if (!t || String(t.tagName).toUpperCase() !== 'CANVAS') return;
+
+    tryResumeAudio();
+
+    const rect = canvas.getBoundingClientRect();
+
+    let cx, cy;
+    if (ev.touches && ev.touches.length) {
+      cx = ev.touches[0].clientX;
+      cy = ev.touches[0].clientY;
+    } else {
+      cx = ev.clientX;
+      cy = ev.clientY;
+    }
+
+    mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -(((cy - rect.top) / rect.height) * 2 - 1);
+
+    raycaster.setFromCamera(mouse, scene.camera);
+
+    ensureWorldRoot();
+    const root3D = worldRoot && worldRoot.object3D;
+    if (!root3D) return;
+
+    const intersects = raycaster.intersectObjects(root3D.children, true);
+    if (!intersects || !intersects.length) return;
+
+    const hitObj = intersects[0].object;
+    const hitEl = hitObj && hitObj.el;
+    if (!hitEl) return;
+
+    let cur = hitEl;
+    while (cur && cur !== scene && (!cur.classList || !cur.classList.contains('plateTarget'))) {
+      cur = cur.parentEl;
+    }
+    if (!cur || !cur.classList || !cur.classList.contains('plateTarget')) return;
+
+    onHit(cur, 'raycast', intersects[0]);
+  }
+
+  window.addEventListener('pointerdown', doRaycastFromEvent, { passive: true });
+  window.addEventListener('touchstart', doRaycastFromEvent, { passive: true });
+
+  if (DEBUG_LOG) console.log('[PlateVR] pointer fallback bound ✅');
 }
 
 // ---------- Start / End ----------
@@ -2150,8 +2443,14 @@ function startGame() {
 
   ensureWorldRoot();
   ensureBillboardComponent();
+  ensureLookInertiaComponent();
 
-  initGlobalCloudLogger();
+  // ✅ init global logger once
+  try {
+    initCloudLogger({ endpoint: LOGGER_ENDPOINT, debug: DEBUG_LOG });
+  } catch (e) {
+    console.warn('[PlateVR] initCloudLogger failed', e);
+  }
 
   ensureShakeStyle();
   ensureFxLayer();
@@ -2215,7 +2514,7 @@ function startGame() {
   emitScore();
   emitQuestUpdate();
 
-  // upsert profile
+  // upsert profile once at start
   try {
     const p = getHubProfile();
     if (p && (p.studentKey || p.sid)) {
@@ -2299,237 +2598,20 @@ function endGame(reason = 'ended') {
   showResultModal(reason);
 }
 
-// =======================================================
-// ✅ VR-look (drag-to-look + inertia) on Rig
-// =======================================================
-function ensureVRLook() {
-  if (!rig || !scene) return;
-  if (window.__PLATE_VRLOOK_BOUND__) return;
-  window.__PLATE_VRLOOK_BOUND__ = true;
-
-  let dragging = false;
-  let lastX = 0, lastY = 0;
-  let vx = 0, vy = 0; // velocity (px/frame-ish)
-  let yaw = 0, pitch = 0; // degrees
-  let lastT = 0;
-
-  // start from rig rotation
-  try {
-    const r = rig.getAttribute('rotation') || {x:0,y:0,z:0};
-    pitch = Number(r.x)||0;
-    yaw = Number(r.y)||0;
-  } catch(_) {}
-
-  const SENS = 0.095;      // deg per px
-  const DAMP = 0.88;       // inertia damping
-  const MAX_PITCH = 72;
-
-  function inVRMode() {
-    try { return scene.is && scene.is('vr-mode'); } catch(_) { return false; }
-  }
-
-  function applyRot() {
-    if (!rig) return;
-    pitch = clamp(pitch, -MAX_PITCH, MAX_PITCH);
-    try { rig.setAttribute('rotation', `${pitch} ${yaw} 0`); } catch(_) {}
-  }
-
-  function onDown(ev) {
-    if (ended || paused) return;
-    if (inVRMode()) return; // don't fight headset tracking
-    const canvas = scene && scene.canvas;
-    if (!canvas) return;
-    if (ev.target !== canvas) return;
-
-    tryResumeAudio();
-
-    dragging = true;
-    lastT = performance.now();
-
-    if (ev.touches && ev.touches.length) {
-      lastX = ev.touches[0].clientX;
-      lastY = ev.touches[0].clientY;
-    } else {
-      lastX = ev.clientX;
-      lastY = ev.clientY;
-    }
-
-    vx = 0; vy = 0;
-  }
-
-  function onMove(ev) {
-    if (!dragging) return;
-    if (ended || paused) return;
-    if (inVRMode()) return;
-
-    const now = performance.now();
-    const dt = Math.max(8, now - lastT);
-    lastT = now;
-
-    let x, y;
-    if (ev.touches && ev.touches.length) {
-      x = ev.touches[0].clientX;
-      y = ev.touches[0].clientY;
-    } else {
-      x = ev.clientX;
-      y = ev.clientY;
-    }
-
-    const dx = x - lastX;
-    const dy = y - lastY;
-    lastX = x; lastY = y;
-
-    // velocity (px per ~frame)
-    vx = (vx*0.35) + (dx * (16/dt)) * 0.65;
-    vy = (vy*0.35) + (dy * (16/dt)) * 0.65;
-
-    yaw   -= dx * SENS;
-    pitch -= dy * SENS;
-    applyRot();
-  }
-
-  function onUp() { dragging = false; }
-
-  function tickInertia() {
-    if (!ended) {
-      if (!dragging && !paused && !inVRMode()) {
-        if (Math.abs(vx) > 0.02 || Math.abs(vy) > 0.02) {
-          yaw   -= vx * SENS;
-          pitch -= vy * SENS;
-          vx *= DAMP;
-          vy *= DAMP;
-          applyRot();
-        }
-      }
-      requestAnimationFrame(tickInertia);
-    }
-  }
-
-  window.addEventListener('pointerdown', onDown, { passive:true });
-  window.addEventListener('pointermove', onMove, { passive:true });
-  window.addEventListener('pointerup', onUp, { passive:true });
-  window.addEventListener('pointercancel', onUp, { passive:true });
-
-  window.addEventListener('touchstart', onDown, { passive:true });
-  window.addEventListener('touchmove', onMove, { passive:true });
-  window.addEventListener('touchend', onUp, { passive:true });
-  window.addEventListener('touchcancel', onUp, { passive:true });
-
-  requestAnimationFrame(tickInertia);
-}
-
-// =======================================================
-// ✅ Cursor click -> intersection -> onHit (requirement)
-// =======================================================
-function bindCursorIntersection() {
-  if (!cursor || !scene) return;
-  if (window.__PLATE_CURSOR_BOUND__) return;
-  window.__PLATE_CURSOR_BOUND__ = true;
-
-  cursor.addEventListener('click', () => {
-    if (ended || paused) return;
-    if (!cursor.components || !cursor.components.raycaster) return;
-
-    const rc = cursor.components.raycaster;
-    const i = (rc.intersections && rc.intersections.length) ? rc.intersections[0] : null;
-    if (!i || !i.object) return;
-
-    // climb to entity with class plateTarget
-    let el = i.object.el;
-    while (el && el !== scene && (!el.classList || !el.classList.contains('plateTarget'))) {
-      el = el.parentEl;
-    }
-    if (!el || !el.classList || !el.classList.contains('plateTarget')) return;
-
-    onHit(el, 'cursor', i);
-  });
-}
-
-// =======================================================
-// ✅ Tap-anywhere raycast (mobile/desktop) -> onHit(intersection)
-// =======================================================
-function bindTapAnywhereRaycast() {
-  if (!scene || !THREE) return;
-  if (window.__PLATE_TAPANY_BOUND__) return;
-  window.__PLATE_TAPANY_BOUND__ = true;
-
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-
-  let __lastShot = 0;
-  const SHOT_DEDUPE_MS = 120;
-
-  function fireRay(ev) {
-    if (ended || paused) return;
-    if (!scene.camera) return;
-
-    const now = performance.now();
-    if (now - __lastShot < SHOT_DEDUPE_MS) return;
-    __lastShot = now;
-
-    const canvas = scene.canvas;
-    if (!canvas) return;
-
-    // tap anywhere on canvas only
-    const t = ev.target;
-    if (!t || String(t.tagName).toUpperCase() !== 'CANVAS') return;
-
-    tryResumeAudio();
-
-    const rect = canvas.getBoundingClientRect();
-
-    let cx, cy;
-    if (ev.touches && ev.touches.length) {
-      cx = ev.touches[0].clientX;
-      cy = ev.touches[0].clientY;
-    } else {
-      cx = ev.clientX;
-      cy = ev.clientY;
-    }
-
-    mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -(((cy - rect.top) / rect.height) * 2 - 1);
-
-    raycaster.setFromCamera(mouse, scene.camera);
-
-    ensureWorldRoot();
-    const root3D = worldRoot && worldRoot.object3D;
-    if (!root3D) return;
-
-    const intersects = raycaster.intersectObjects(root3D.children, true);
-    if (!intersects || !intersects.length) return;
-
-    const hitObj = intersects[0].object;
-    const hitEl = hitObj && hitObj.el;
-    if (!hitEl) return;
-
-    let cur = hitEl;
-    while (cur && cur !== scene && (!cur.classList || !cur.classList.contains('plateTarget'))) {
-      cur = cur.parentEl;
-    }
-    if (!cur || !cur.classList || !cur.classList.contains('plateTarget')) return;
-
-    onHit(cur, 'tap', intersects[0]);
-  }
-
-  window.addEventListener('pointerdown', fireRay, { passive:true });
-  window.addEventListener('touchstart', fireRay, { passive:true });
-}
-
 // ---------- Boot helpers ----------
-function bindFirstGesture200() {
-  if (window.__PLATE_FIRST_GESTURE_200__) return;
-  window.__PLATE_FIRST_GESTURE_200__ = true;
+function ensureTouchLookControls() {
+  if (!cam) return;
 
-  const once = async () => {
-    tryResumeAudio();
-    await ensureMotionPermission(false);
-    // ไม่บังคับ ถ้าไม่ grant ก็ยังเล่นได้ (drag + tap)
-  };
+  // ✅ ให้ look-controls รับ deviceorientation (magic window) แต่ปิด touch ของมัน
+  // แล้วให้ hha-look-inertia ทำ drag + inertia แทน
+  try { cam.setAttribute('look-controls', 'touchEnabled:false; mouseEnabled:true; pointerLockEnabled:false; magicWindowTrackingEnabled:true'); } catch (_) {}
+  try { cam.setAttribute('wasd-controls-enabled', 'false'); } catch (_) {}
 
-  window.addEventListener('pointerdown', once, true);
-  window.addEventListener('touchstart', once, true);
-  window.addEventListener('click', once, true);
+  // attach inertia component
+  try {
+    ensureLookInertiaComponent();
+    cam.setAttribute('hha-look-inertia', 'enabled:true; sens:0.15; inertia:0.92; smooth:0.18');
+  } catch(_) {}
 }
 
 function bindUI() {
@@ -2564,7 +2646,42 @@ function bindUI() {
   }
 }
 
-// ---------- Main Boot ----------
+// ✅ Tap-anywhere start: เริ่มเกมหลัง gesture แรก
+function bindTapAnywhereStart() {
+  if (window.__PLATE_TAP_START_BOUND__) return;
+  window.__PLATE_TAP_START_BOUND__ = true;
+
+  ensureTapOverlay();
+
+  const startOnce = async (ev) => {
+    if (started || ended) return;
+
+    tryResumeAudio();
+    await ensureMotionPermission(false); // best-effort
+
+    // hide overlay + start game
+    hideTapOverlay();
+
+    // remove listeners
+    window.removeEventListener('pointerdown', startOnce, true);
+    window.removeEventListener('touchstart', startOnce, true);
+    window.removeEventListener('click', startOnce, true);
+
+    startGame();
+  };
+
+  // start on any gesture
+  window.addEventListener('pointerdown', startOnce, true);
+  window.addEventListener('touchstart', startOnce, true);
+  window.addEventListener('click', startOnce, true);
+
+  // also allow button inside overlay
+  const ov = document.getElementById('plateTapOverlay');
+  if (ov) {
+    ov.addEventListener('click', startOnce, { capture: true, passive: true });
+  }
+}
+
 export function bootPlateDOM() {
   if (window.__PLATE_DOM_BOOTED__) return;
   window.__PLATE_DOM_BOOTED__ = true;
@@ -2574,9 +2691,13 @@ export function bootPlateDOM() {
     return;
   }
 
-  initGlobalCloudLogger();
+  // init global logger early
+  try {
+    initCloudLogger({ endpoint: LOGGER_ENDPOINT, debug: DEBUG_LOG });
+  } catch(_) {}
+
+  ensureTouchLookControls();
   bindUI();
-  bindFirstGesture200();
 
   setText('hudMode', (MODE === 'research') ? 'Research' : 'Play');
   setText('hudDiff', (DIFF === 'easy') ? 'Easy' : (DIFF === 'hard') ? 'Hard' : 'Normal');
@@ -2586,32 +2707,27 @@ export function bootPlateDOM() {
   const bindAfterLoaded = () => {
     ensureWorldRoot();
     ensureBillboardComponent();
-    ensureVRLook();
-    bindCursorIntersection();     // ✅ cursor click -> intersection
-    bindTapAnywhereRaycast();     // ✅ tap-anywhere
+    bindPointerFallback();
+    bindCursorIntersectionClick();
   };
 
   if (scene && scene.hasLoaded) bindAfterLoaded();
   else scene.addEventListener('loaded', bindAfterLoaded, { once: true });
 
-  window.addEventListener('pointerdown', tryResumeAudio, { passive: true });
-
-  if (scene && scene.hasLoaded) startGame();
-  else scene.addEventListener('loaded', () => startGame(), { once:true });
+  // tap-anywhere to start (แทน auto-start)
+  bindTapAnywhereStart();
 
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && !ended && !paused) pauseGame('tab_hidden');
+    if (document.hidden && !ended && !paused && started) pauseGame('tab_hidden');
   });
 
   window.addEventListener('keydown', (e) => {
     if (ended) return;
     if (e.key === 'Escape') togglePause();
   });
-
-  // refresh HUD clamp after resize/orientationchange
-  window.addEventListener('resize', () => { /* rects are computed on spawn */ }, { passive:true });
 }
 
+// Boot
 window.addEventListener('DOMContentLoaded', () => {
   bootPlateDOM();
 });
