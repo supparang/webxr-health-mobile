@@ -3,11 +3,17 @@
 // ✅ Targets are DOM but behave like VR: world-space + follow camera yaw/pitch
 // ✅ Clamp safe zone: avoid overlapping HUD/cards
 // ✅ Events for HUD/Quest/FX:
-//    - hha:time {sec}
-//    - hha:score {score, goodHits, misses, comboMax, challenge}
+//    - hha:time  {sec}
+//    - hha:score {score, goodHits, misses, comboMax, challenge, fever, shield}
+//    - hha:fever {fever, shield, active}
 //    - hha:judge {label}
-//    - quest:goodHit / quest:badHit / quest:block / quest:power / quest:bossClear
+//    - quest:goodHit  {x,y, judgment, kind}
+//    - quest:badHit   {x,y, judgment, kind}
+//    - quest:block    {x,y, kind, shield}
+//    - quest:power    {x,y, power, kind, shield}
+//    - quest:bossClear{kind}
 //    - quest:miniStart (optional from director)
+//
 // MISS rule (GoodJunk): miss = good expired + junk hit (if shield blocks → NOT miss)
 
 'use strict';
@@ -74,7 +80,6 @@ function getHudRects(){
   for (const el of els){
     if (!el || !el.getBoundingClientRect) continue;
     const r = el.getBoundingClientRect();
-    // ขยายกรอบนิดเพื่อกันชิดเกิน
     rects.push({ x:r.left-8, y:r.top-8, w:r.width+16, h:r.height+16 });
   }
   return rects;
@@ -145,8 +150,6 @@ export function boot(opts = {}){
 
     bossCleared: false,
 
-    // for rate control
-    lastSpawnAt: 0,
     lastTickSec: -1
   };
 
@@ -157,15 +160,19 @@ export function boot(opts = {}){
   function setJudge(label){
     emit('hha:judge', { label: String(label||'') });
   }
+
+  // ✅ ยิง 2 event ซ้ำซ้อนกันเพื่อกันหลุด (บาง HUD ฟัง score บางอันฟัง fever)
   function syncHUD(){
     emit('hha:score', {
       score: state.score|0,
       goodHits: state.goodHits|0,
       misses: state.misses|0,
       comboMax: state.comboMax|0,
-      challenge
+      challenge,
+      fever: state.fever|0,
+      shield: state.shield|0
     });
-    // ให้ ui-fever.js อัปเดตได้ (ถ้ามันฟัง event นี้)
+
     emit('hha:fever', {
       fever: state.fever|0,
       shield: state.shield|0,
@@ -189,30 +196,26 @@ export function boot(opts = {}){
     el.className = 'gj-target';
     el.textContent = emoji;
 
-    if (kind === 'junk') el.classList.add('gj-junk');
-    if (kind === 'gold') el.classList.add('gj-gold');
-    if (kind === 'fake') el.classList.add('gj-fake');
+    if (kind === 'junk')  el.classList.add('gj-junk');
+    if (kind === 'gold')  el.classList.add('gj-gold');
+    if (kind === 'fake')  el.classList.add('gj-fake');
     if (kind === 'power') el.classList.add('gj-power');
-    if (kind === 'boss') el.classList.add('gj-boss');
+    if (kind === 'boss')  el.classList.add('gj-boss');
 
     layerEl.appendChild(el);
     return el;
   }
 
   function chooseSpawnKind(){
-    // challenge tuning
     let goodRatio = CFG.goodRatio;
 
     if (challenge === 'survival'){
-      // โหดขึ้น: junk มากขึ้นนิด
       goodRatio = Math.max(0.52, goodRatio - 0.08);
     }
     if (challenge === 'boss'){
-      // boss mode: โอกาส boss เพิ่มเป็นระยะ
       if (!state.bossCleared && Math.random() < 0.10) return 'boss';
     }
 
-    // power/gold occasionally
     const r = Math.random();
     if (r < 0.08) return 'power';
     if (r < 0.14) return 'gold';
@@ -227,16 +230,15 @@ export function boot(opts = {}){
     const POWER = ['🛡️','🧲','⏱️']; // shield / magnet / time
     const BOSS = ['👾','😈','🦖','💀'];
 
-    if (kind === 'good') return GOOD[(Math.random()*GOOD.length)|0];
-    if (kind === 'junk') return JUNK[(Math.random()*JUNK.length)|0];
-    if (kind === 'gold') return GOLD[(Math.random()*GOLD.length)|0];
+    if (kind === 'good')  return GOOD[(Math.random()*GOOD.length)|0];
+    if (kind === 'junk')  return JUNK[(Math.random()*JUNK.length)|0];
+    if (kind === 'gold')  return GOLD[(Math.random()*GOLD.length)|0];
     if (kind === 'power') return POWER[(Math.random()*POWER.length)|0];
-    if (kind === 'boss') return BOSS[(Math.random()*BOSS.length)|0];
+    if (kind === 'boss')  return BOSS[(Math.random()*BOSS.length)|0];
     return '❓';
   }
 
   function screenToWorldPoint(screenPt, look){
-    // reverse worldToScreen for initial placement
     const vx = (look.yaw / (Math.PI * 2)) * SIZES.worldW;
     const vy = (look.pitch / (Math.PI)) * SIZES.worldH * Y_PITCH_GAIN;
 
@@ -270,21 +272,18 @@ export function boot(opts = {}){
       bossHp: (kind === 'boss') ? 3 : 1
     };
 
-    // scale tuning
     const scale =
-      (kind === 'boss') ? 1.25 :
-      (kind === 'gold') ? 1.05 :
-      (kind === 'power') ? 1.0 :
+      (kind === 'boss')  ? 1.25 :
+      (kind === 'gold')  ? 1.05 :
+      (kind === 'power') ? 1.0  :
       1.0;
 
     el.style.setProperty('--tScale', String(scale));
 
-    // initial render
     const s = worldToScreen(t.wx, t.wy, look, SIZES);
     el.style.left = s.x + 'px';
     el.style.top  = s.y + 'px';
 
-    // click/tap
     const onDown = (ev)=>{
       ev.preventDefault?.();
       ev.stopPropagation?.();
@@ -312,8 +311,8 @@ export function boot(opts = {}){
   function handleExpire(t){
     if (!t || t.dead) return;
 
-    // MISS rule: good expired counts as miss
-    if (t.kind === 'good' || t.kind === 'gold' || t.kind === 'power' || t.kind === 'boss'){
+    // ✅ MISS rule: "good expired" เท่านั้น (gold นับเป็น good)
+    if (t.kind === 'good' || t.kind === 'gold'){
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
@@ -321,7 +320,9 @@ export function boot(opts = {}){
       setJudge('MISS');
       syncHUD();
     }
-    // junk expiry = ไม่ต้องทำอะไร
+
+    // junk/power expire: ไม่ต้องนับ miss
+    // boss expire: (ถ้าต้องการให้โหดค่อยนับ) — ตอนนี้ไม่คิดเป็น miss เพื่อไม่หงุดหงิด
     killTarget(t, true);
   }
 
@@ -331,27 +332,33 @@ export function boot(opts = {}){
     // boss: ต้องตีหลายที
     if (t.kind === 'boss'){
       t.bossHp = (t.bossHp|0) - 1;
+
       if (t.bossHp > 0){
         setJudge('HIT!');
-        emit('quest:goodHit', { x, y, judgment:'good' });
+        emit('quest:goodHit', { x, y, judgment:'good', kind:'BOSS' });
+
         state.score += (CFG.scoreGood|0);
         state.goodHits++;
         state.combo++;
         state.comboMax = Math.max(state.comboMax, state.combo);
         addFever(+CFG.feverGain);
+
         syncHUD();
         return;
       }
+
       // boss cleared
       state.bossCleared = true;
       setJudge('BOSS!');
-      emit('quest:bossClear', {});
-      emit('quest:goodHit', { x, y, judgment:'perfect' });
+      emit('quest:bossClear', { kind:'BOSS' });
+      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'BOSS' });
+
       state.score += 90;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+18);
+
       syncHUD();
       killTarget(t, true);
       return;
@@ -361,7 +368,10 @@ export function boot(opts = {}){
       // shield block?
       if (spendShield()){
         setJudge('BLOCK');
-        emit('quest:block', { x, y });
+
+        // ✅ ส่ง shield หลังหักไปแล้ว
+        emit('quest:block', { x, y, kind:'BLOCK', shield: state.shield|0 });
+
         syncHUD();
         killTarget(t, true);
         return;
@@ -373,7 +383,8 @@ export function boot(opts = {}){
       addFever(-CFG.feverLoss);
 
       setJudge('JUNK!');
-      emit('quest:badHit', { x, y, judgment:'junk' });
+      emit('quest:badHit', { x, y, judgment:'junk', kind:'JUNK' });
+
       syncHUD();
       killTarget(t, true);
       return;
@@ -389,17 +400,23 @@ export function boot(opts = {}){
         state.shield = clamp((state.shield|0) + 1, 0, 9);
       }
       if (p === 'time'){
-        // เพิ่มเวลาเล็กน้อย (แต่ไม่เกิน +12)
         state.endAt = state.endAt + 2500;
       }
 
+      const kind =
+        (p === 'shield') ? 'SHIELD' :
+        (p === 'magnet') ? 'MAGNET' :
+        (p === 'time')   ? 'TIME'   : 'POWER';
+
       setJudge(String(p).toUpperCase());
-      emit('quest:power', { x, y, power: p });
+      emit('quest:power', { x, y, power: p, kind, shield: state.shield|0 });
+
       state.score += 18;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+8);
+
       syncHUD();
       killTarget(t, true);
       return;
@@ -407,13 +424,15 @@ export function boot(opts = {}){
 
     if (t.kind === 'gold'){
       setJudge('GOLD!');
-      emit('quest:goodHit', { x, y, judgment:'perfect' });
+      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'GOLD' });
+
       state.score += (CFG.scoreGold|0);
       state.goldHits++;
       state.goodHits++;
-      state.combo += 2; // gold ให้คอมโบแรงขึ้น
+      state.combo += 2;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+14);
+
       syncHUD();
       killTarget(t, true);
       return;
@@ -421,10 +440,11 @@ export function boot(opts = {}){
 
     // normal good
     {
-      // perfect chance (center-ish)
       const perfect = (Math.random() < 0.20);
+      const kind = perfect ? 'PERFECT' : 'GOOD';
+
       setJudge(perfect ? 'PERFECT!' : 'GOOD!');
-      emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good' });
+      emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good', kind });
 
       state.score += (CFG.scoreGood|0) + (perfect ? 6 : 0);
       state.goodHits++;
@@ -456,10 +476,8 @@ export function boot(opts = {}){
       emit('hha:time', { sec: 0 });
       syncHUD();
 
-      // cleanup
       for (const t of Array.from(ACTIVE)) killTarget(t, false);
       ACTIVE.clear();
-
       return;
     }
 
@@ -467,7 +485,6 @@ export function boot(opts = {}){
     for (const t of ACTIVE){
       if (!t || t.dead || !t.el || !t.el.isConnected) continue;
 
-      // expire
       if ((tNow - t.bornAt) >= t.ttlMs){
         handleExpire(t);
         continue;
@@ -481,15 +498,10 @@ export function boot(opts = {}){
     rafId = requestAnimationFrame(updateTargetsFollowLook);
   }
 
-  // spawn loop
   function startSpawning(){
     if (spawnTimer) clearInterval(spawnTimer);
     spawnTimer = setInterval(()=>{
       if (!state.running) return;
-
-      // magnet effect: ถ้ามี shield>=1 หรือ random power ก็ช่วยดูดดีเข้ามานิด (เบา ๆ)
-      // (ไม่ force ย้าย world ตลอด เดี๋ยวเวียนหัว) -> ข้ามเพื่อความนิ่ง production
-
       spawnOne();
     }, CFG.spawnMs);
   }
