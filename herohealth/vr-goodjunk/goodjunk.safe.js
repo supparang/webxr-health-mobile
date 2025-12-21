@@ -1,785 +1,726 @@
-// === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot (ROOT) — VR-look (drag + deviceorientation + inertia) + fever/shield bind + tap-anywhere
-import { boot as goodjunkBoot } from './goodjunk.safe.js';
-import { initCloudLogger } from '../vr/hha-cloud-logger.js';
+// === /herohealth/vr-goodjunk/goodjunk.safe.js ===
+// GoodJunkVR — DOM Emoji Engine (PRODUCTION, VR-FEEL PACK)
+// ✅ Targets: DOM emoji sticker + fade in/out
+// ✅ VR-feel look controller:
+//    - drag-to-look + inertia
+//    - deviceorientation-to-look (mobile) if permitted
+// ✅ tap-anywhere near target to hit (VR-like)
+// ✅ Clamp safe zone: avoid overlapping HUD/cards
+// ✅ Events:
+//    - hha:time {sec}
+//    - hha:score {score, goodHits, misses, comboMax, challenge}
+//    - hha:judge {label}
+//    - hha:fever {fever, shield, active}
+//    - hha:final8 {enter|inc|reset}
+//    - quest:goodHit / quest:badHit / quest:block / quest:power / quest:bossClear
+//    - quest:miniStart (optional from director)
+// MISS rule (GoodJunk): miss = good expired + junk hit (if shield blocks → NOT miss)
 
-import { makeQuestDirector } from './quest-director.js';
-import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
+'use strict';
 
-(function () {
-  'use strict';
+function clamp(v, min, max){
+  v = Number(v) || 0;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+function now(){ return performance.now(); }
 
-  // bfcache fix
-  window.addEventListener('pageshow', (e)=>{
-    if (e.persisted) window.location.reload();
-  });
+function emit(name, detail){
+  try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+}
 
-  const $ = (id)=>document.getElementById(id);
-  const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){} };
-  const safeStyleWidth = (el, w)=>{ try{ if (el) el.style.width = w; }catch(_){} };
-  const clamp = (v,min,max)=>{ v=Number(v)||0; return v<min?min:(v>max?max:v); };
+/* ----------------------- DOM World Mapper ----------------------- */
+const WORLD_SCALE = 2.05;
+const Y_PITCH_GAIN = 0.78;
+const WRAP_PAD = 140;
 
-  // HUD elements
-  const elScore = $('hud-score');
-  const elCombo = $('hud-combo');
-  const elMiss  = $('hud-miss');
-  const elDiff  = $('hud-diff-label');
-  const elChal  = $('hud-challenge-label');
-  const elTime  = $('hud-time-label');
-  const elJudge = $('hud-judge');
+function wrapRad(a){
+  a = Number(a) || 0;
+  const TWO = Math.PI * 2;
+  a = a % TWO;
+  if (a < 0) a += TWO;
+  return a;
+}
+function computeWorldSize(){
+  const W = window.innerWidth, H = window.innerHeight;
+  return { W, H, worldW: W * WORLD_SCALE, worldH: H * WORLD_SCALE };
+}
+function worldToScreen(wx, wy, look, sizes){
+  const { W, H, worldW, worldH } = sizes;
 
-  const elRunLabel = $('hud-run-label');
-  const elPill = $('hud-pill');
-  const startSub = $('start-sub');
+  const vx = (look.yaw / (Math.PI * 2)) * worldW;
+  const vy = (look.pitch / (Math.PI)) * worldH * Y_PITCH_GAIN;
 
-  const elQuestMain = $('hud-quest-main');
-  const elQuestMini = $('hud-quest-mini');
-  const elQuestMainBar = $('hud-quest-main-bar');
-  const elQuestMiniBar = $('hud-quest-mini-bar');
-  const elQuestMainCap = $('hud-quest-main-caption');
-  const elQuestMiniCap = $('hud-quest-mini-caption');
-  const elQuestHint = $('hud-quest-hint');
-  const elMiniCount = $('hud-mini-count');
+  let x = (wx - vx) + W * 0.5;
+  let y = (wy - vy) + H * 0.5;
 
-  const elCoachBubble = $('coach-bubble');
-  const elCoachText   = $('coach-text');
-  const elCoachEmoji  = $('coach-emoji');
+  const minX = -WRAP_PAD, maxX = W + WRAP_PAD;
+  const minY = -WRAP_PAD, maxY = H + WRAP_PAD;
 
-  const elTouchHint = $('touch-hint');
-  const btnVR      = $('btn-vr');
-  const elCountdown = $('start-countdown');
-  const elBigCelebrate = $('big-celebrate');
+  while (x < minX) x += worldW;
+  while (x > maxX) x -= worldW;
+  while (y < minY) y += worldH;
+  while (y > maxY) y -= worldH;
 
-  const startOverlay = $('start-overlay');
-  const btnStart2D = $('btn-start-2d');
-  const btnStartVR = $('btn-start-vr');
-  const selDiff = $('sel-diff');
-  const selChallenge = $('sel-challenge');
+  return { x, y };
+}
 
-  const logDot  = $('logdot');
-  const logText = $('logtext');
+/* ----------------------- Safe Zone (avoid HUD) ----------------------- */
+function getHudRects(){
+  const rects = [];
+  const els = Array.from(document.querySelectorAll('.hud-card, #coach-bubble'));
+  for (const el of els){
+    if (!el || !el.getBoundingClientRect) continue;
+    const r = el.getBoundingClientRect();
+    rects.push({ x:r.left-10, y:r.top-10, w:r.width+20, h:r.height+20 });
+  }
+  return rects;
+}
+function pointInRect(x,y,r){
+  return x>=r.x && x<=r.x+r.w && y>=r.y && y<=r.y+r.h;
+}
+function pickScreenPointSafe(sizes, margin=18){
+  const { W, H } = sizes;
+  const rects = getHudRects();
+  for (let i=0;i<110;i++){
+    const x = margin + Math.random()*(W-2*margin);
+    const y = margin + Math.random()*(H-2*margin);
+    let bad = false;
+    for (const r of rects){
+      if (pointInRect(x,y,r)) { bad=true; break; }
+    }
+    if (!bad) return { x, y };
+  }
+  return { x: W*0.5, y: H*0.62 };
+}
 
-  // Fever UI
-  const elFeverFill = $('fever-fill');
-  const elFeverPct  = $('fever-pct');
-  const elShield    = $('shield-count');
+/* ----------------------- Difficulty presets ----------------------- */
+function diffCfg(diff='normal'){
+  diff = String(diff||'normal').toLowerCase();
+  const base = {
+    easy:   { spawnMs: 860, ttlMs: 2100, maxActive: 5, goodRatio: 0.72, scoreGood: 12, scoreGold: 28, feverGain: 10, feverLoss: 18 },
+    normal: { spawnMs: 720, ttlMs: 1850, maxActive: 6, goodRatio: 0.66, scoreGood: 14, scoreGold: 32, feverGain: 11, feverLoss: 20 },
+    hard:   { spawnMs: 590, ttlMs: 1600, maxActive: 7, goodRatio: 0.60, scoreGood: 16, scoreGold: 36, feverGain: 12, feverLoss: 22 }
+  };
+  return base[diff] || base.normal;
+}
 
-  // URL params from hub
-  const pageUrl = new window.URL(window.location.href);
-  const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();                 // play | research
-  const URL_DIFF = (pageUrl.searchParams.get('diff') || 'normal').toLowerCase();            // easy | normal | hard
-  const URL_CH = (pageUrl.searchParams.get('ch') || pageUrl.searchParams.get('challenge') || 'rush').toLowerCase(); // rush|boss|survival
-  const URL_TIME_RAW = parseInt(pageUrl.searchParams.get('time') || '', 10);
+/* ----------------------- VR-FEEL Look Controller ----------------------- */
+function createLookController(layerEl, opts = {}){
+  const S = {
+    yaw: 0,
+    pitch: 0,
+    vyaw: 0,
+    vpitch: 0,
 
-  const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
-  function normDiff(v){ v=String(v||'normal').toLowerCase(); return (v==='easy'||v==='hard'||v==='normal') ? v : 'normal'; }
-  function normCh(v){ v=String(v||'rush').toLowerCase(); return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush'; }
-  function normRun(v){ v=String(v||'play').toLowerCase(); return (v==='research') ? 'research' : 'play'; }
+    dragOn: false,
+    lastX: 0,
+    lastY: 0,
 
-  const RUN_MODE = normRun(URL_RUN);
-  const DIFF_INIT = normDiff(URL_DIFF);
-  const CH_INIT = normCh(URL_CH);
-  const DUR_INIT = clamp(
-    (Number.isFinite(URL_TIME_RAW) ? URL_TIME_RAW : (DEFAULT_TIME[DIFF_INIT] || 60)),
-    20, 180
-  );
+    dragYawOff: 0,
+    dragPitchOff: 0,
 
-  // Coach images (ROOT)
-  const COACH_IMG = {
-    neutral: './img/coach-neutral.png',
-    happy:   './img/coach-happy.png',
-    sad:     './img/coach-sad.png',
-    fever:   './img/coach-fever.png'
+    gyroOn: !!opts.gyro,
+    gyroYaw: 0,
+    gyroPitch: 0,
+
+    sensitivity: Number(opts.sensitivity ?? 0.0064),
+    friction: Number(opts.friction ?? 0.86), // inertia damping
+    maxPitch: 1.10
   };
 
-  let lastCoachTimeout = null;
-  function setCoachFace(mood){
-    const m = COACH_IMG[mood] ? mood : 'neutral';
-    if (elCoachEmoji) elCoachEmoji.style.backgroundImage = `url('${COACH_IMG[m]}')`;
+  // drag
+  function onDown(ev){
+    const pt = (ev.touches && ev.touches[0]) ? ev.touches[0] : ev;
+    S.dragOn = true;
+    S.lastX = pt.clientX || 0;
+    S.lastY = pt.clientY || 0;
+    S.vyaw = 0; S.vpitch = 0;
   }
-  function setCoach(text, mood='neutral'){
-    if (elCoachBubble) elCoachBubble.classList.add('show');
-    safeText(elCoachText, text || '');
-    setCoachFace(mood);
-    if (lastCoachTimeout) clearTimeout(lastCoachTimeout);
-    lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), 4200);
+  function onMove(ev){
+    if (!S.dragOn) return;
+    const pt = (ev.touches && ev.touches[0]) ? ev.touches[0] : ev;
+
+    const x = pt.clientX || 0;
+    const y = pt.clientY || 0;
+
+    const dx = x - S.lastX;
+    const dy = y - S.lastY;
+
+    S.lastX = x; S.lastY = y;
+
+    const yawDelta = -dx * S.sensitivity;
+    const pitchDelta = -dy * (S.sensitivity * 0.78);
+
+    S.dragYawOff = wrapRad(S.dragYawOff + yawDelta);
+    S.dragPitchOff = clamp(S.dragPitchOff + pitchDelta, -S.maxPitch, S.maxPitch);
+
+    // velocity for inertia
+    S.vyaw = yawDelta;
+    S.vpitch = pitchDelta;
+
+    ev.preventDefault?.();
+  }
+  function onUp(){
+    S.dragOn = false;
   }
 
-  // ---------- FX helper ----------
-  function getParticles(){
-    return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
-  }
-  function posFromDetail(detail){
-    const x = (detail && typeof detail.x === 'number') ? detail.x : (window.innerWidth * 0.5);
-    const y = (detail && typeof detail.y === 'number') ? detail.y : (window.innerHeight * 0.55);
-    return { x, y };
-  }
-  function fxBurst(detail, good=true, count=14){
-    const P = getParticles(); if (!P || !P.burstAt) return;
-    const { x, y } = posFromDetail(detail);
-    try{ P.burstAt(x, y, { count, good: !!good }); }catch(_){}
-  }
-  function fxPop(detail, label, plain=true){
-    const P = getParticles(); if (!P || !P.scorePop) return;
-    const { x, y } = posFromDetail(detail);
-    try{ P.scorePop(x, y, '', String(label||''), { plain: !!plain }); }catch(_){}
-  }
-  function fxCelebrate(kind){
-    const P = getParticles(); if (!P || !P.celebrate) return;
-    try{
-      P.celebrate(kind, {
-        title: kind === 'goal' ? '🎉 GOAL CLEARED!' : '✨ MINI CLEARED!',
-        sub: 'ไปต่อเลย! 🌟'
-      });
-    }catch(_){}
+  layerEl.addEventListener('pointerdown', onDown, { passive:false });
+  layerEl.addEventListener('pointermove', onMove, { passive:false });
+  layerEl.addEventListener('pointerup', onUp, { passive:true });
+  layerEl.addEventListener('pointercancel', onUp, { passive:true });
+
+  layerEl.addEventListener('touchstart', onDown, { passive:false });
+  layerEl.addEventListener('touchmove', onMove, { passive:false });
+  layerEl.addEventListener('touchend', onUp, { passive:true });
+
+  // gyro (simple mapping)
+  function onOri(e){
+    if (!S.gyroOn) return;
+    const a = Number(e.alpha); // 0..360 yaw-ish
+    const b = Number(e.beta);  // -180..180 pitch-ish
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return;
+
+    const yaw = wrapRad((a * Math.PI) / 180);
+    const pitch = clamp((b * Math.PI) / 180, -S.maxPitch, S.maxPitch);
+
+    // smooth
+    S.gyroYaw = wrapRad(S.gyroYaw * 0.92 + yaw * 0.08);
+    S.gyroPitch = S.gyroPitch * 0.92 + pitch * 0.08;
   }
 
-  function runCountdown(onDone){
-    if (!elCountdown){ onDone && onDone(); return; }
-    const steps = ['3','2','1','Go!'];
-    let idx = 0;
-    elCountdown.classList.remove('countdown-hidden');
-    safeText(elCountdown, steps[0]);
-    const t = setInterval(()=>{
-      idx++;
-      if (idx >= steps.length){
-        clearInterval(t);
-        elCountdown.classList.add('countdown-hidden');
-        onDone && onDone();
-      }else{
-        safeText(elCountdown, steps[idx]);
-      }
-    }, 650);
+  if (S.gyroOn){
+    window.addEventListener('deviceorientation', onOri, true);
   }
 
-  function waitSceneReady(cb){
-    const scene = document.querySelector('a-scene');
-    if (!scene) { cb(); return; }
-    const tryReady = ()=>{
-      if (scene.hasLoaded && scene.camera){ cb(); return true; }
-      return false;
-    };
-    if (tryReady()) return;
-    scene.addEventListener('loaded', ()=>{
-      let tries=0;
-      const it = setInterval(()=>{
-        tries++;
-        if (tryReady() || tries>80){ clearInterval(it); cb(); }
-      }, 50);
-    }, { once:true });
+  let lastT = now();
+  function step(){
+    const t = now();
+    const dt = Math.max(0.001, Math.min(0.06, (t-lastT)/1000));
+    lastT = t;
+
+    // inertia when not dragging
+    if (!S.dragOn){
+      S.vyaw *= Math.pow(S.friction, dt*60);
+      S.vpitch *= Math.pow(S.friction, dt*60);
+
+      if (Math.abs(S.vyaw) < 0.00002) S.vyaw = 0;
+      if (Math.abs(S.vpitch) < 0.00002) S.vpitch = 0;
+
+      S.dragYawOff = wrapRad(S.dragYawOff + S.vyaw);
+      S.dragPitchOff = clamp(S.dragPitchOff + S.vpitch, -S.maxPitch, S.maxPitch);
+    }
+
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+
+  return {
+    getLook(){
+      const baseYaw = S.gyroOn ? S.gyroYaw : 0;
+      const basePitch = S.gyroOn ? S.gyroPitch : 0;
+      return {
+        yaw: wrapRad(baseYaw + S.dragYawOff),
+        pitch: clamp(basePitch + S.dragPitchOff, -S.maxPitch, S.maxPitch)
+      };
+    },
+    destroy(){
+      try{ window.removeEventListener('deviceorientation', onOri, true); }catch(_){}
+    }
+  };
+}
+
+/* ----------------------- Engine ----------------------- */
+export function boot(opts = {}){
+  const layerEl = opts.layerEl || document.getElementById('gj-layer');
+  if (!layerEl){
+    console.error('[GoodJunk] layerEl missing');
+    return null;
   }
 
-  async function tryEnterVR(){
-    const scene = document.querySelector('a-scene');
-    if (!scene) return false;
-    try{ await scene.enterVR(); return true; }
-    catch(err){ console.warn('[GoodJunkVR] enterVR blocked:', err); return false; }
-  }
+  const diff = String(opts.diff || 'normal').toLowerCase();
+  const challenge = String(opts.challenge || 'rush').toLowerCase();
+  const durationSec = clamp(opts.time ?? 60, 20, 180);
 
-  function initVRButton(){
-    if (!btnVR) return;
-    btnVR.addEventListener('click', async ()=>{
-      const cam = document.querySelector('#gj-camera');
-      if (cam) cam.setAttribute('look-controls', 'enabled', true);
-      try{ await document.querySelector('a-scene')?.enterVR(); }
-      catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
+  let SIZES = computeWorldSize();
+  const onResize = ()=>{ SIZES = computeWorldSize(); };
+  window.addEventListener('resize', onResize);
+
+  const CFG = diffCfg(diff);
+
+  // ✅ look controller (drag + gyro + inertia)
+  const LOOK = createLookController(layerEl, {
+    gyro: !!opts.gyro
+  });
+
+  const state = {
+    startedAt: now(),
+    endAt: now() + durationSec*1000,
+    running: true,
+
+    score: 0,
+    goodHits: 0,
+    goldHits: 0,
+    misses: 0,
+    combo: 0,
+    comboMax: 0,
+
+    fever: 0,        // 0..100
+    shield: 0,       // charges
+
+    bossCleared: false,
+
+    // time + final8
+    timeLeftSec: durationSec,
+    final8Count: 0,
+    final8Armed: false,
+
+    lastTickSec: -1
+  };
+
+  const ACTIVE = new Set();
+  let rafId = 0;
+  let spawnTimer = 0;
+
+  function setJudge(label){
+    emit('hha:judge', { label: String(label||'') });
+  }
+  function syncHUD(){
+    emit('hha:score', {
+      score: state.score|0,
+      goodHits: state.goodHits|0,
+      misses: state.misses|0,
+      comboMax: state.comboMax|0,
+      challenge
+    });
+    emit('hha:fever', {
+      fever: state.fever|0,
+      shield: state.shield|0,
+      active: state.fever >= 100
     });
   }
 
-  // ---------- Logger badge ----------
-  function setLogBadge(state, text){
-    if (!logDot || !logText) return;
-    logDot.classList.remove('ok','bad');
-    if (state === 'ok') logDot.classList.add('ok');
-    else if (state === 'bad') logDot.classList.add('bad');
-    safeText(logText, text || (state==='ok' ? 'logger: ok' : state==='bad' ? 'logger: error' : 'logger: pending…'));
+  function addFever(v){
+    state.fever = clamp(state.fever + v, 0, 100);
   }
-  window.addEventListener('hha:logger', (e)=>{
-    const d = e.detail || {};
-    setLogBadge(d.ok ? 'ok' : 'bad', d.msg || '');
-  });
-
-  function getProfile(){
-    let studentProfile = null;
-    let studentKey = null;
-    try{
-      const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
-      if (raw){
-        studentProfile = JSON.parse(raw);
-        studentKey = studentProfile.studentKey || null;
-      }
-    }catch(_){}
-    return { studentProfile, studentKey };
-  }
-  function hasProfile(p){
-    if (!p || typeof p !== 'object') return false;
-    return !!(p.studentId || p.name || p.nickName || p.studentNo);
+  function spendShield(){
+    if (state.shield > 0){
+      state.shield = Math.max(0, (state.shield|0) - 1);
+      return true;
+    }
+    return false;
   }
 
-  // ---------- Quest state (shared) ----------
-  const qState = {
-    score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
-    streakGood:0,
-    goldHits:0,
-    goldHitsThisMini:false,
-    blocks:0,
-    usedMagnet:false,
-    timePlus:0,
-    safeNoJunkSeconds:0,
-    bossCleared:false,
-    challenge: CH_INIT,
-    runMode: RUN_MODE,
-    final8Good: 0
-  };
+  function mkEl(kind, emoji){
+    const el = document.createElement('div');
+    el.className = 'gj-target spawn';
+    el.textContent = emoji;
 
-  // mini reset
-  window.addEventListener('quest:miniStart', ()=>{
-    qState.goldHitsThisMini = false;
-    qState.usedMagnet = false;
-    qState.timePlus = 0;
-    qState.blocks = 0;
-    qState.safeNoJunkSeconds = 0;
-    qState.streakGood = 0;
-    qState.final8Good = 0;
-  });
+    if (kind === 'junk') el.classList.add('gj-junk');
+    if (kind === 'gold') el.classList.add('gj-gold');
+    if (kind === 'power') el.classList.add('gj-power');
+    if (kind === 'boss') el.classList.add('gj-boss');
 
-  // safeNoJunkSeconds tick (นับ “เวลาปลอด junk”)
-  let started = false;
-  setInterval(()=>{
-    if (!started) return;
-    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
-  }, 1000);
+    layerEl.appendChild(el);
 
-  let Q = null;
-  let ENGINE = null;
+    // fade-in (next tick)
+    requestAnimationFrame(()=>{ try{ el.classList.add('in'); }catch(_){} });
+    return el;
+  }
 
-  // --------- เอฟเฟกต์: ฟัง event แล้วยิง FX ---------
-  window.addEventListener('quest:goodHit', (e)=>{
-    const d = e.detail || {};
-    const isPerfect = String(d.judgment||'').toLowerCase().includes('perfect');
-    fxBurst(d, true, isPerfect ? 18 : 14);
-    fxPop(d, isPerfect ? 'PERFECT!' : 'GOOD!');
-    if (Q) Q.onEvent(isPerfect ? 'perfectHit' : 'goodHit', qState);
-  });
+  function chooseSpawnKind(){
+    let goodRatio = CFG.goodRatio;
 
-  window.addEventListener('quest:badHit', (e)=>{
-    const d = e.detail || {};
-    fxBurst(d, false, 14);
-    fxPop(d, 'JUNK!');
-    qState.safeNoJunkSeconds = 0;
-    qState.streakGood = 0;
-    if (Q) Q.onEvent('junkHit', qState);
-  });
-
-  window.addEventListener('quest:block', (e)=>{
-    const d = e.detail || {};
-    qState.blocks = (qState.blocks|0) + 1;
-    fxBurst(d, true, 10);
-    fxPop(d, 'BLOCK!');
-    if (Q) Q.onEvent('shieldBlock', qState);
-  });
-
-  window.addEventListener('quest:power', (e)=>{
-    const d = e.detail || {};
-    const p = (d.power||'');
-    if (p === 'magnet') qState.usedMagnet = true;
-    if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
-    if (p === 'gold')   qState.goldHitsThisMini = true;
-    fxBurst(d, true, 12);
-    fxPop(d, String(p||'POWER').toUpperCase() + '!');
-    if (Q) Q.onEvent('power', qState);
-  });
-
-  window.addEventListener('quest:bossClear', ()=>{
-    qState.bossCleared = true;
-    fxPop({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, 'BOSS CLEAR!');
-    fxBurst({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, true, 22);
-    if (Q) Q.onEvent('bossClear', qState);
-  });
-
-  window.addEventListener('quest:cleared', (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind||'').toLowerCase();
-    if (kind.includes('goal')) fxCelebrate('goal');
-    else fxCelebrate('mini');
-    setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
-  });
-
-  // HUD listeners
-  window.addEventListener('hha:judge', (e)=>{
-    const label = (e.detail||{}).label || '';
-    safeText(elJudge, label || '\u00A0');
-  });
-
-  window.addEventListener('hha:time', (e)=>{
-    const sec = (e.detail||{}).sec;
-    if (typeof sec === 'number' && sec >= 0){
-      safeText(elTime, sec + 's');
-      qState.timeLeft = sec|0;
-
-      // final 8 seconds trigger: ENGINE จะส่ง event เพิ่มเอง (ถ้ามี)
-      if (Q) Q.tick(qState);
+    if (challenge === 'survival'){
+      goodRatio = Math.max(0.52, goodRatio - 0.08);
     }
-  });
-
-  window.addEventListener('hha:score', (e)=>{
-    const d = e.detail || {};
-    if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
-    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
-    if (typeof d.misses === 'number'){ qState.miss = d.misses|0; safeText(elMiss, String(qState.miss)); }
-    if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
-    if (typeof d.challenge === 'string'){ qState.challenge = normCh(d.challenge); }
-    if (Q) Q.tick(qState);
-  });
-
-  // ✅ bind fever/shield ให้แน่น (ไม่พึ่งไฟล์อื่น)
-  window.addEventListener('hha:fever', (e)=>{
-    const d = e.detail || {};
-    const fever = clamp(d.fever ?? 0, 0, 100);
-    const shield = Math.max(0, (d.shield|0));
-    if (elFeverFill) elFeverFill.style.width = fever + '%';
-    if (elFeverPct) safeText(elFeverPct, Math.round(fever) + '%');
-    if (elShield) safeText(elShield, String(shield));
-  });
-
-  // quest:update (schema ใหม่)
-  window.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
-    const goal = d.goal || null;
-    const mini = d.mini || null;
-    const meta = d.meta || {};
-
-    // goal
-    if (goal){
-      const cur = (goal.cur|0);
-      const max = (goal.max|0);
-      const pct = Math.max(0, Math.min(1, Number(goal.pct ?? (max>0?cur/max:0))));
-      safeText(elQuestMain, goal.title || 'ภารกิจหลัก');
-      safeStyleWidth(elQuestMainBar, Math.round(pct*100) + '%');
-      safeText(elQuestMainCap, `${cur} / ${max}`);
-    } else {
-      safeText(elQuestMain, 'ภารกิจหลัก (ครบ) ✅');
-      safeStyleWidth(elQuestMainBar, '100%');
-      safeText(elQuestMainCap, '');
+    if (challenge === 'boss'){
+      if (!state.bossCleared && Math.random() < 0.10) return 'boss';
     }
 
-    // mini
-    if (mini){
-      const cur = (mini.cur|0);
-      const max = (mini.max|0);
-      const pct = Math.max(0, Math.min(1, Number(mini.pct ?? (max>0?cur/max:0))));
-      safeText(elQuestMini, 'Mini: ' + (mini.title || ''));
-      safeStyleWidth(elQuestMiniBar, Math.round(pct*100) + '%');
+    const r = Math.random();
+    if (r < 0.08) return 'power';
+    if (r < 0.14) return 'gold';
 
-      if (typeof mini.timeLeft === 'number' && typeof mini.timeTotal === 'number' && mini.timeTotal > 0){
-        const secLeft = Math.max(0, mini.timeLeft/1000);
-        safeText(elQuestMiniCap, `เหลือ ${secLeft >= 10 ? Math.round(secLeft) : (Math.round(secLeft*10)/10)}s`);
-      } else {
-        safeText(elQuestMiniCap, `${cur} / ${max}`);
-      }
-    } else {
-      safeText(elQuestMini, 'Mini quest (ครบ) ✅');
-      safeStyleWidth(elQuestMiniBar, '100%');
-      safeText(elQuestMiniCap, '');
-    }
+    return (Math.random() < goodRatio) ? 'good' : 'junk';
+  }
 
-    // hint
-    let hint = '';
-    if (goal && String(goal.state||'').toLowerCase().includes('clear')) hint = 'GOAL CLEAR! 🎉';
-    else if (mini && String(mini.state||'').toLowerCase().includes('clear')) hint = 'MINI CLEAR! ✨';
-    else if (goal && Number(goal.pct||0) >= 0.8) hint = 'ใกล้แล้ว! 🔥';
-    else if (mini && Number(mini.pct||0) >= 0.8) hint = 'อีกนิดเดียว! ⚡';
-    safeText(elQuestHint, hint);
+  function chooseEmoji(kind){
+    const GOOD = ['🥦','🥕','🍎','🍌','🥛','🍇','🍊','🥬'];
+    const JUNK = ['🍟','🍔','🍕','🍩','🍰','🍿','🥤','🍗'];
+    const GOLD = ['🌟','✨','🏅','💎'];
+    const POWER = ['🛡️','🧲','⏱️']; // shield / magnet / time
+    const BOSS = ['👾','😈','🦖','💀'];
 
-    const miniCount = (meta.miniCount|0);
-    const minisCleared = (Q && Q.getState) ? (Q.getState().minisCleared|0) : 0;
-    safeText(elMiniCount, `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`);
-  });
+    if (kind === 'good') return GOOD[(Math.random()*GOOD.length)|0];
+    if (kind === 'junk') return JUNK[(Math.random()*JUNK.length)|0];
+    if (kind === 'gold') return GOLD[(Math.random()*GOLD.length)|0];
+    if (kind === 'power') return POWER[(Math.random()*POWER.length)|0];
+    if (kind === 'boss') return BOSS[(Math.random()*BOSS.length)|0];
+    return '❓';
+  }
 
-  // ---------- VR-look: drag + deviceorientation + inertia ----------
-  function makeVRLookController(){
-    const rig = document.querySelector('#gj-rig');
-    const cam = document.querySelector('#gj-camera');
-    const layer = document.getElementById('gj-layer');
-    if (!rig || !layer) return null;
+  function screenToWorldPoint(screenPt, look){
+    const vx = (look.yaw / (Math.PI * 2)) * SIZES.worldW;
+    const vy = (look.pitch / (Math.PI)) * SIZES.worldH * Y_PITCH_GAIN;
 
-    const rot = rig.object3D.rotation;
+    const wx = (screenPt.x - SIZES.W*0.5) + vx;
+    const wy = (screenPt.y - SIZES.H*0.5) + vy;
+    return { wx, wy };
+  }
 
-    // drag offsets
-    let dragging = false;
-    let lastX = 0, lastY = 0;
+  function final8Enter(secLeft){
+    state.final8Armed = true;
+    state.final8Count = 0;
+    emit('hha:final8', { enter:true, secLeft: secLeft|0, total:0 });
+  }
 
-    // inertia (จาก drag)
-    let yawVel = 0;
-    let pitchVel = 0;
+  function final8Reset(reason, x, y){
+    if (!state.final8Armed) return;
+    if ((state.timeLeftSec|0) > 8) return;
+    state.final8Count = 0;
+    emit('hha:final8', { reset:true, reason: String(reason||''), x, y, total:0, secLeft: state.timeLeftSec|0 });
+  }
 
-    // device orientation
-    let useDO = false;
-    let doCalibrated = false;
-    let doBaseYaw = 0;
-    let doBasePitch = 0;
-    let doYaw = 0;
-    let doPitch = 0;
+  function final8Inc(x, y){
+    if (!state.final8Armed) return;
+    if ((state.timeLeftSec|0) > 8) return;
+    state.final8Count = (state.final8Count|0) + 1;
+    emit('hha:final8', { inc:1, total: state.final8Count|0, x, y, secLeft: state.timeLeftSec|0 });
+  }
 
-    // smoothing targets
-    let targetYaw = rot.y;
-    let targetPitch = rot.x;
+  function spawnOne(){
+    if (!state.running) return;
+    if (ACTIVE.size >= CFG.maxActive) return;
 
-    // tuning
-    const SENS_YAW = 0.0036;
-    const SENS_PITCH = 0.0031;
-    const INERTIA = 0.92;          // ลดความเร็วต่อเฟรม
-    const VEL_CLAMP = 0.08;
-    const SMOOTH = 0.18;           // ลื่นจาก target -> current
-    const PITCH_MIN = -1.15;
-    const PITCH_MAX = 1.15;
+    const kind = chooseSpawnKind();
+    const emoji = chooseEmoji(kind);
+    const el = mkEl(kind, emoji);
 
-    function normRad(a){
-      a = Number(a)||0;
-      const TWO = Math.PI*2;
-      a = a % TWO;
-      if (a < 0) a += TWO;
-      return a;
-    }
+    const look = LOOK.getLook();
+    const safePt = pickScreenPointSafe(SIZES, 18);
+    const w = screenToWorldPoint(safePt, look);
 
-    function onPointerDown(ev){
-      dragging = true;
-      lastX = ev.clientX ?? ev.touches?.[0]?.clientX ?? 0;
-      lastY = ev.clientY ?? ev.touches?.[0]?.clientY ?? 0;
-      try{ layer.setPointerCapture?.(ev.pointerId); }catch(_){}
-      ev.preventDefault?.();
-      if (elTouchHint){
-        elTouchHint.classList.add('show');
-        setTimeout(()=> elTouchHint && elTouchHint.classList.remove('show'), 1200);
-      }
-    }
+    // ✅ Final Sprint โหด: ช่วง 8 วิท้าย เป้าหายไวขึ้น
+    const inFinal8 = state.final8Armed && (state.timeLeftSec|0) <= 8;
+    const ttlMult = inFinal8 ? 0.82 : 1.0;
 
-    function onPointerMove(ev){
-      if (!dragging) return;
-      const x = ev.clientX ?? ev.touches?.[0]?.clientX ?? lastX;
-      const y = ev.clientY ?? ev.touches?.[0]?.clientY ?? lastY;
-
-      const dx = x - lastX;
-      const dy = y - lastY;
-
-      lastX = x; lastY = y;
-
-      // update target by drag
-      targetYaw   -= dx * SENS_YAW;
-      targetPitch -= dy * SENS_PITCH;
-      targetPitch = clamp(targetPitch, PITCH_MIN, PITCH_MAX);
-
-      // velocity for inertia
-      yawVel   = clamp(yawVel   + (-dx * SENS_YAW)*0.55, -VEL_CLAMP, VEL_CLAMP);
-      pitchVel = clamp(pitchVel + (-dy * SENS_PITCH)*0.55, -VEL_CLAMP, VEL_CLAMP);
-
-      ev.preventDefault?.();
-    }
-
-    function onPointerUp(){
-      dragging = false;
-    }
-
-    // ✅ capture:true = ลากบนเป้าก็หมุนได้
-    layer.style.touchAction = 'none';
-    layer.addEventListener('pointerdown', onPointerDown, { passive:false, capture:true });
-    layer.addEventListener('pointermove', onPointerMove, { passive:false, capture:true });
-    window.addEventListener('pointerup', onPointerUp, { passive:true });
-
-    layer.addEventListener('touchstart', onPointerDown, { passive:false, capture:true });
-    layer.addEventListener('touchmove', onPointerMove, { passive:false, capture:true });
-    window.addEventListener('touchend', onPointerUp, { passive:true });
-
-    function handleDeviceOrientation(ev){
-      // alpha: 0..360 (yaw), beta: -180..180 (pitch-ish), gamma: -90..90 (roll)
-      if (ev == null) return;
-
-      const alpha = Number(ev.alpha);
-      const beta  = Number(ev.beta);
-
-      if (!Number.isFinite(alpha) || !Number.isFinite(beta)) return;
-
-      // map
-      const yaw = normRad(alpha * Math.PI / 180);
-      // beta: front-back tilt (เอามาทำ pitch แบบเบา ๆ)
-      let pitch = (beta * Math.PI / 180);
-      pitch = clamp(pitch * 0.55, PITCH_MIN, PITCH_MAX);
-
-      if (!doCalibrated){
-        doCalibrated = true;
-        doBaseYaw = yaw;
-        doBasePitch = pitch;
-      }
-
-      // relative to base (calibration)
-      let relYaw = yaw - doBaseYaw;
-      // wrap to [-pi,pi]
-      if (relYaw > Math.PI) relYaw -= Math.PI*2;
-      if (relYaw < -Math.PI) relYaw += Math.PI*2;
-
-      const relPitch = clamp(pitch - doBasePitch, PITCH_MIN, PITCH_MAX);
-
-      doYaw = relYaw;
-      doPitch = relPitch;
-    }
-
-    async function enableDeviceOrientation(){
-      // iOS needs permission
-      try{
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
-          const res = await DeviceOrientationEvent.requestPermission();
-          if (String(res).toLowerCase() !== 'granted'){
-            useDO = false;
-            return false;
-          }
-        }
-      }catch(_){
-        // permission denied or not supported
-      }
-
-      // attach listener
-      try{
-        window.addEventListener('deviceorientation', handleDeviceOrientation, { passive:true });
-        useDO = true;
-        doCalibrated = false;
-        return true;
-      }catch(_){
-        useDO = false;
-        return false;
-      }
-    }
-
-    function recalibrate(){
-      doCalibrated = false;
-    }
-
-    function tick(){
-      // inertia decay
-      yawVel *= INERTIA;
-      pitchVel *= INERTIA;
-
-      // deviceorientation adds to target (ถ้าเปิด)
-      const doAddYaw = (useDO ? doYaw : 0);
-      const doAddPitch = (useDO ? doPitch : 0);
-
-      // final targets
-      const wantYaw = targetYaw + doAddYaw;
-      const wantPitch = clamp(targetPitch + doAddPitch, PITCH_MIN, PITCH_MAX);
-
-      // smooth follow + inertia
-      rot.y = rot.y + (wantYaw - rot.y) * SMOOTH + yawVel;
-      rot.x = clamp(rot.x + (wantPitch - rot.x) * SMOOTH + pitchVel, PITCH_MIN, PITCH_MAX);
-
-      requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-
-    return {
-      enableDeviceOrientation,
-      recalibrate,
-      setVRMode(isVR){
-        // VR mode: เปิด look-controls เพื่อใช้ head tracking (ถ้ามี)
-        if (cam) cam.setAttribute('look-controls', 'enabled', !!isVR);
-      }
+    const t = {
+      id: Math.random().toString(16).slice(2),
+      kind,
+      emoji,
+      el,
+      wx: w.wx,
+      wy: w.wy,
+      bornAt: now(),
+      ttlMs: Math.max(520, ((kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs) * ttlMult),
+      dead: false,
+      bossHp: (kind === 'boss') ? 3 : 1,
+      sx: safePt.x,
+      sy: safePt.y
     };
+
+    const scale =
+      (kind === 'boss') ? 1.25 :
+      (kind === 'gold') ? 1.05 :
+      (kind === 'power') ? 1.0 :
+      1.0;
+
+    el.style.setProperty('--tScale', String(scale));
+
+    const s = worldToScreen(t.wx, t.wy, look, SIZES);
+    t.sx = s.x; t.sy = s.y;
+    el.style.left = s.x + 'px';
+    el.style.top  = s.y + 'px';
+
+    const onDown = (ev)=>{
+      ev.preventDefault?.();
+      ev.stopPropagation?.();
+      const pt = (ev?.touches?.[0]) || ev;
+      const x = (pt?.clientX ?? s.x);
+      const y = (pt?.clientY ?? s.y);
+      hitTarget(t, x, y);
+    };
+    el.addEventListener('pointerdown', onDown, { passive:false });
+    el.addEventListener('touchstart', onDown, { passive:false });
+
+    ACTIVE.add(t);
   }
 
-  let LOOK = null;
-
-  // ---------- tap-anywhere assist ----------
-  function bindTapAnywhere(){
-    const layer = document.getElementById('gj-layer');
-    if (!layer) return;
-
-    let downX=0, downY=0, moved=false, downAt=0;
-    const TAP_MS=260, TAP_PX=10;
-
-    function getXY(ev){
-      const x = ev?.clientX ?? ev?.touches?.[0]?.clientX ?? ev?.changedTouches?.[0]?.clientX;
-      const y = ev?.clientY ?? ev?.touches?.[0]?.clientY ?? ev?.changedTouches?.[0]?.clientY;
-      return { x: Number.isFinite(x)?x:0, y: Number.isFinite(y)?y:0 };
-    }
-
-    layer.addEventListener('pointerdown', (ev)=>{
-      const p=getXY(ev);
-      downX=p.x; downY=p.y; moved=false; downAt=performance.now();
-    }, { passive:true });
-
-    layer.addEventListener('pointermove', (ev)=>{
-      const p=getXY(ev);
-      const dx=p.x-downX, dy=p.y-downY;
-      if ((dx*dx+dy*dy)>(TAP_PX*TAP_PX)) moved=true;
-    }, { passive:true });
-
-    layer.addEventListener('pointerup', (ev)=>{
-      if (!ENGINE || typeof ENGINE.tapAt !== 'function') return;
-      const dt = performance.now()-downAt;
-      if (moved || dt > TAP_MS) return;
-
-      const p=getXY(ev);
-      // ✅ tap-anywhere: ถ้าไม่ได้แตะโดน target โดยตรง engine จะเลือกเป้าใกล้สุด
-      try{ ENGINE.tapAt(p.x, p.y); }catch(_){}
-    }, { passive:true });
-  }
-
-  function applyRunPill(){
-    const runTxt = RUN_MODE.toUpperCase();
-    safeText(elRunLabel, runTxt);
-    if (elPill) elPill.classList.toggle('research', RUN_MODE === 'research');
-
-    if (startSub){
-      safeText(startSub, (RUN_MODE === 'research')
-        ? 'โหมดวิจัย: ต้องมี Student ID หรือชื่อเล่นจาก Hub แล้วค่อยกดเริ่ม ✅'
-        : 'เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง (เพื่อเปิดสิทธิ์เสียง/VR) ✅'
-      );
+  function killTarget(t, gone=true){
+    if (!t || t.dead) return;
+    t.dead = true;
+    ACTIVE.delete(t);
+    const el = t.el;
+    if (el && el.isConnected){
+      if (gone) el.classList.add('gone');
+      setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 120);
     }
   }
 
-  function prefillFromHub(){
-    try{ selDiff.value = DIFF_INIT; }catch(_){}
-    try{ selChallenge.value = CH_INIT; }catch(_){}
+  function handleExpire(t){
+    if (!t || t.dead) return;
 
-    applyRunPill();
+    // MISS rule: good/gold/power/boss expire counts as miss
+    if (t.kind === 'good' || t.kind === 'gold' || t.kind === 'power' || t.kind === 'boss'){
+      state.misses = (state.misses|0) + 1;
+      state.combo = 0;
+      addFever(-CFG.feverLoss);
 
-    safeText(elDiff, DIFF_INIT.toUpperCase());
-    safeText(elChal, CH_INIT.toUpperCase());
-    safeText(elTime, DUR_INIT + 's');
+      // ✅ Final Sprint โหด: พลาด (expire) ในช่วง 8 วิท้าย → รีเซ็ต
+      if (state.final8Armed && (state.timeLeftSec|0) <= 8){
+        final8Reset('expire', t.sx, t.sy);
+      }
 
-    setCoachFace('neutral');
-
-    const endpoint = sessionStorage.getItem('HHA_LOG_ENDPOINT');
-    if (endpoint) setLogBadge(null, 'logger: endpoint set ✓');
-    else setLogBadge(null, 'logger: endpoint missing (hub?)');
+      setJudge('MISS');
+      syncHUD();
+    }
+    killTarget(t, true);
   }
 
-  async function bootOnce({ wantVR }){
-    if (started) return;
+  function hitTarget(t, x, y){
+    if (!t || t.dead || !state.running) return;
 
-    // research gate
-    if (RUN_MODE === 'research'){
-      const { studentProfile } = getProfile();
-      if (!hasProfile(studentProfile)){
-        alert('โหมดวิจัย: กรุณากรอก "รหัสนักเรียน" หรือ "ชื่อเล่น" ที่ Hub ก่อน แล้วกลับมาเริ่มใหม่');
-        window.location.href = './hub.html';
+    // boss: ต้องตีหลายที
+    if (t.kind === 'boss'){
+      t.bossHp = (t.bossHp|0) - 1;
+      if (t.bossHp > 0){
+        setJudge('HIT!');
+        emit('quest:goodHit', { x, y, judgment:'good', kind:'boss' });
+
+        state.score += (CFG.scoreGood|0);
+        state.goodHits++;
+        state.combo++;
+        state.comboMax = Math.max(state.comboMax, state.combo);
+        addFever(+CFG.feverGain);
+        final8Inc(x, y);
+
+        syncHUD();
         return;
       }
+
+      state.bossCleared = true;
+      setJudge('BOSS!');
+      emit('quest:bossClear', {});
+      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'boss' });
+
+      state.score += 90;
+      state.goodHits++;
+      state.combo++;
+      state.comboMax = Math.max(state.comboMax, state.combo);
+      addFever(+18);
+      final8Inc(x, y);
+
+      syncHUD();
+      killTarget(t, true);
+      return;
     }
 
-    started = true;
-    if (startOverlay) startOverlay.style.display = 'none';
+    if (t.kind === 'junk'){
+      // shield block?
+      if (spendShield()){
+        setJudge('BLOCK');
+        emit('quest:block', { x, y });
 
-    const diff = normDiff(selDiff?.value || DIFF_INIT);
-    const chal = normCh(selChallenge?.value || CH_INIT);
-    const durationSec = clamp(DUR_INIT, 20, 180);
+        // ✅ block ไม่ใช่ miss และไม่รีเซ็ต final8
+        syncHUD();
+        killTarget(t, true);
+        return;
+      }
 
-    qState.challenge = chal;
-    qState.runMode = RUN_MODE;
+      // junk hit = miss
+      state.misses = (state.misses|0) + 1;
+      state.combo = 0;
+      addFever(-CFG.feverLoss);
 
-    safeText(elDiff, diff.toUpperCase());
-    safeText(elChal, chal.toUpperCase());
-    safeText(elTime, durationSec + 's');
+      // ✅ Final Sprint โหด: โดน junk ในช่วง 8 วิท้าย → รีเซ็ต
+      if (state.final8Armed && (state.timeLeftSec|0) <= 8){
+        final8Reset('junk', x, y);
+      }
 
-    safeText(elScore, '0');
-    safeText(elCombo, '0');
-    safeText(elMiss,  '0');
-    safeText(elJudge, '\u00A0');
+      setJudge('JUNK!');
+      emit('quest:badHit', { x, y, judgment:'junk', kind:'junk' });
+      syncHUD();
+      killTarget(t, true);
+      return;
+    }
 
-    setCoach('แตะของดี! หลบ junk! ไปเลย! ⚡', 'neutral');
+    if (t.kind === 'power'){
+      let p = 'shield';
+      if (t.emoji === '🧲') p = 'magnet';
+      if (t.emoji === '⏱️') p = 'time';
 
-    // profile from hub
-    const { studentProfile, studentKey } = getProfile();
+      if (p === 'shield'){
+        state.shield = clamp((state.shield|0) + 1, 0, 9);
+      }
+      if (p === 'time'){
+        state.endAt = state.endAt + 2500;
+      }
 
-    // logger endpoint + fallback
-    const endpoint =
-      sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
-      'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+      setJudge(String(p).toUpperCase());
+      emit('quest:power', { x, y, power: p, kind:'power' });
 
-    setLogBadge(null, 'logger: init…');
+      state.score += 18;
+      state.goodHits++;
+      state.combo++;
+      state.comboMax = Math.max(state.comboMax, state.combo);
+      addFever(+8);
+      final8Inc(x, y);
 
-    initCloudLogger({
-      endpoint,
-      projectTag: 'HeroHealth-GoodJunkVR',
-      mode: 'GoodJunkVR',
-      runMode: RUN_MODE,
-      diff,
-      challenge: chal,
-      durationPlannedSec: durationSec,
-      studentKey,
-      profile: studentProfile,
-      debug: true
-    });
+      syncHUD();
+      killTarget(t, true);
+      return;
+    }
 
-    // init look controller
-    LOOK = makeVRLookController();
-    initVRButton();
+    if (t.kind === 'gold'){
+      setJudge('GOLD!');
+      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'gold' });
 
-    // QuestDirector
-    Q = makeQuestDirector({
-      diff,
-      goalDefs: GOODJUNK_GOALS,
-      miniDefs: GOODJUNK_MINIS,
-      maxGoals: 2,
-      maxMini: 999,
-      challenge: chal
-    });
-    Q.start(qState);
+      state.score += (CFG.scoreGold|0);
+      state.goldHits++;
+      state.goodHits++;
+      state.combo += 2;
+      state.comboMax = Math.max(state.comboMax, state.combo);
+      addFever(+14);
+      final8Inc(x, y);
 
-    runCountdown(()=>{
-      waitSceneReady(async ()=>{
-        try{
-          // start engine first so tap-anywhere works even if VR fails
-          ENGINE = goodjunkBoot({
-            diff,
-            run: RUN_MODE,
-            challenge: chal,
-            time: durationSec,
-            layerEl: document.getElementById('gj-layer'),
-            rigEl: document.getElementById('gj-rig')
-          });
-          if (!ENGINE) throw new Error('ENGINE is null (goodjunkBoot failed)');
-          window.__GJ_ENGINE__ = ENGINE;
+      syncHUD();
+      killTarget(t, true);
+      return;
+    }
 
-          // bind tap-anywhere assist
-          bindTapAnywhere();
+    // normal good
+    {
+      const perfect = (Math.random() < 0.20);
+      setJudge(perfect ? 'PERFECT!' : 'GOOD!');
+      emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good', kind:'good' });
 
-          // enable device orientation on mobile (permission requires user gesture — we are inside Start click flow)
-          try{
-            await LOOK?.enableDeviceOrientation?.();
-          }catch(_){}
+      state.score += (CFG.scoreGood|0) + (perfect ? 6 : 0);
+      state.goodHits++;
+      state.combo++;
+      state.comboMax = Math.max(state.comboMax, state.combo);
 
-          // VR?
-          if (wantVR){
-            LOOK?.setVRMode?.(true);
-            await tryEnterVR();
-          }else{
-            LOOK?.setVRMode?.(false);
-          }
+      addFever(+CFG.feverGain + (perfect ? 3 : 0));
+      final8Inc(x, y);
 
-          // sanity: particles
-          if (!getParticles()) {
-            console.warn('[GoodJunkVR] Particles not found (did you load ./vr/particles.js before this module?)');
-          }
-
-          // initial tick to paint quest
-          try{ Q && Q.tick && Q.tick(qState); }catch(_){}
-        }catch(err){
-          console.error('[GoodJunkVR] boot failed:', err);
-          alert('กด Start แล้วเข้าเกมไม่สำเร็จ\nดู Console: error บรรทัดแรก');
-        }
-      });
-    });
+      syncHUD();
+      killTarget(t, true);
+    }
   }
 
-  btnStart2D && btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
-  btnStartVR && btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
+  // ✅ tap-anywhere (near target)
+  const TAP_RADIUS = 120;
+  function dist2(ax, ay, bx, by){
+    const dx = ax-bx, dy = ay-by;
+    return dx*dx + dy*dy;
+  }
+  function findNearestTarget(x, y){
+    let best = null;
+    let bestD = TAP_RADIUS*TAP_RADIUS;
+    for (const t of ACTIVE){
+      if (!t || t.dead) continue;
+      const d = dist2(x, y, t.sx||0, t.sy||0);
+      if (d <= bestD){
+        bestD = d;
+        best = t;
+      }
+    }
+    return best;
+  }
+  layerEl.addEventListener('pointerdown', (ev)=>{
+    // ถ้ากดโดน target อยู่แล้ว ให้ handler ของ target ทำงาน
+    const targetEl = ev.target;
+    if (targetEl && targetEl.classList && targetEl.classList.contains('gj-target')) return;
 
-  // “tap-anywhere to start” (แตะพื้นหลัง overlay เริ่ม 2D)
-  startOverlay?.addEventListener('click', (ev)=>{
-    const t = ev.target;
-    // อย่ากิน event ของ select/button
-    if (t && (t.closest?.('button') || t.closest?.('select'))) return;
-    if (!started) bootOnce({ wantVR:false });
-  });
+    const x = ev.clientX ?? (ev.touches?.[0]?.clientX);
+    const y = ev.clientY ?? (ev.touches?.[0]?.clientY);
+    if (typeof x !== 'number' || typeof y !== 'number') return;
 
-  prefillFromHub();
-})();
+    const t = findNearestTarget(x, y);
+    if (t) hitTarget(t, x, y);
+  }, { passive:false });
+
+  function updateTargetsFollowLook(){
+    if (!state.running) return;
+
+    const look = LOOK.getLook();
+    const tNow = now();
+
+    // time tick
+    const secLeft = Math.max(0, Math.ceil((state.endAt - tNow)/1000));
+    state.timeLeftSec = secLeft|0;
+
+    if (secLeft !== state.lastTickSec){
+      const prev = state.lastTickSec;
+      state.lastTickSec = secLeft;
+
+      emit('hha:time', { sec: secLeft });
+
+      // ✅ Final8 enter
+      if ((prev > 8) && (secLeft <= 8)){
+        final8Enter(secLeft);
+      }
+    }
+
+    // end
+    if (tNow >= state.endAt){
+      state.running = false;
+      emit('hha:time', { sec: 0 });
+      syncHUD();
+
+      for (const t of Array.from(ACTIVE)) killTarget(t, false);
+      ACTIVE.clear();
+      return;
+    }
+
+    // move all targets
+    for (const t of ACTIVE){
+      if (!t || t.dead || !t.el || !t.el.isConnected) continue;
+
+      // expire
+      if ((tNow - t.bornAt) >= t.ttlMs){
+        handleExpire(t);
+        continue;
+      }
+
+      const s = worldToScreen(t.wx, t.wy, look, SIZES);
+      t.sx = s.x; t.sy = s.y;
+      t.el.style.left = s.x + 'px';
+      t.el.style.top  = s.y + 'px';
+    }
+
+    rafId = requestAnimationFrame(updateTargetsFollowLook);
+  }
+
+  function startSpawning(){
+    if (spawnTimer) clearInterval(spawnTimer);
+    spawnTimer = setInterval(()=>{
+      if (!state.running) return;
+      spawnOne();
+    }, CFG.spawnMs);
+  }
+
+  // init
+  emit('hha:time', { sec: durationSec });
+  syncHUD();
+  setJudge(' ');
+
+  startSpawning();
+  rafId = requestAnimationFrame(updateTargetsFollowLook);
+
+  const api = {
+    stop(){
+      state.running = false;
+      try{ clearInterval(spawnTimer); }catch(_){}
+      try{ cancelAnimationFrame(rafId); }catch(_){}
+      try{ window.removeEventListener('resize', onResize); }catch(_){}
+      try{ LOOK && LOOK.destroy && LOOK.destroy(); }catch(_){}
+      for (const t of Array.from(ACTIVE)) killTarget(t, false);
+      ACTIVE.clear();
+    },
+    getState(){ return { ...state, active: ACTIVE.size }; }
+  };
+
+  return api;
+}
