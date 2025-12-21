@@ -1,16 +1,16 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ PATCH(A+): spawnHost/spawnLayer/container → เป้าลง playfield เลื่อนตาม drag/scroll (host transform)
-// ✅ NEW: crosshair shooting (tap anywhere ยิงจากกลางจอ) via shootCrosshair()
-// ✅ NEW: perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ NEW: rhythm spawn (bpm) + pulse class
-// ✅ NEW: trick/fake targets (itemType='fakeGood')
-// ✅ NEW: allowAdaptive flag
-// ✅ PATCH(Storm): spawnIntervalMul (number|fn) ทำให้ spawn ถี่ขึ้นจริง ๆ
-// ✅ PATCH(LIFE): อายุเป้าปรับตาม adaptive + storm จริง (ไม่ยึด baseDiff.life ตายตัว)
-// ✅ PATCH(SAFEZONE): กัน spawn ทับ HUD top/bottom/left/right ด้วย exclusion auto + cfg.excludeSelectors
-// ✅ VISUAL: Bubble glass + THIN-FILM IRIDESCENCE (rim mask) + STORM boost
-// ✅ VISUAL: PERFECT => iridescent starburst + ring flash (หนัก ๆ)
+// ✅ spawnHost/spawnLayer/container
+// ✅ crosshair shooting
+// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
+// ✅ rhythm spawn (bpm)
+// ✅ trick/fake targets
+// ✅ adaptive
+// ✅ storm spawnIntervalMul + adaptive life
+// ✅ safezone exclude selectors
+// ✅ VISUAL: bubble glass + thin-film iridescence (2 layers)
+// ✅ NEW: REACTIVE SHIMMER (film/spec respond to target sway in real-time)
+// ✅ PERFECT: iridescent starburst + ring flash (heavy)
 
 'use strict';
 
@@ -76,7 +76,7 @@ function pickDiffConfig (modeKey, diffKey) {
 }
 
 // ======================================================
-//  Overlay fallback
+//  Overlay fallback + VISUAL (Reactive Shimmer)
 // ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
@@ -99,10 +99,22 @@ function ensureOverlayStyle () {
       will-change: transform, filter;
       transform: translate(-50%,-50%) scale(0.92);
       border: 1px solid rgba(255,255,255,.14);
-      overflow:hidden; /* important for film layers */
+      overflow:hidden;
       backdrop-filter: blur(1.6px) saturate(1.35);
       -webkit-backdrop-filter: blur(1.6px) saturate(1.35);
       filter: saturate(1.03) contrast(1.01);
+
+      /* ✅ reactive shimmer vars (defaults) */
+      --shx: 0px;
+      --shy: 0px;
+      --shrot: 0deg;
+      --shh: 0deg;     /* hue-rotate */
+      --shalpha: 1;    /* film opacity scale */
+
+      --spx: 26%;
+      --spy: 22%;
+      --spx2: 62%;
+      --spy2: 76%;
     }
 
     .hvr-target.hvr-pulse{ animation:hvrPulse .55s ease-in-out infinite; }
@@ -112,26 +124,27 @@ function ensureOverlayStyle () {
       100%{ transform:translate(-50%,-50%) scale(1); }
     }
 
-    /* Storm hint */
     .hvr-storm-on .hvr-target{
       filter: saturate(1.08) contrast(1.05);
     }
 
     /* ====================================================
-       ✅ THIN-FILM IRIDESCENCE (rim-only + subtle shimmer)
+       ✅ THIN-FILM IRIDESCENCE (2 layers + reactive parallax)
        ==================================================== */
 
-    /* base film */
     .hvr-film{
       position:absolute;
       inset:-18%;
       border-radius:999px;
       pointer-events:none;
-      opacity:.22;
+      opacity: calc(.22 * var(--shalpha));
       mix-blend-mode: screen;
       will-change: transform, opacity, filter;
-      transform: translateZ(0) rotate(0deg) scale(1.04);
-      filter: saturate(1.18) contrast(1.08);
+      transform: translateZ(0)
+        translate(calc(var(--shx) * .55), calc(var(--shy) * .55))
+        rotate(calc(var(--shrot) * .65))
+        scale(1.05);
+      filter: hue-rotate(var(--shh)) saturate(1.18) contrast(1.08);
       background:
         conic-gradient(
           from 210deg,
@@ -143,13 +156,15 @@ function ensureOverlayStyle () {
           rgba(255, 60,180,.28) 290deg,
           rgba( 72, 99,255,.30) 360deg
         );
-      animation: hvrIriShift 2.6s ease-in-out infinite alternate;
     }
 
-    /* rim mask film (focus around edge) */
     .hvr-rimfilm{
-      opacity:.34;
-      filter: saturate(1.28) contrast(1.12);
+      opacity: calc(.34 * var(--shalpha));
+      filter: hue-rotate(calc(var(--shh) * 1.15)) saturate(1.28) contrast(1.12);
+      transform: translateZ(0)
+        translate(calc(var(--shx) * .95), calc(var(--shy) * .95))
+        rotate(calc(var(--shrot) * 1.05))
+        scale(1.10);
       background:
         conic-gradient(
           from 250deg,
@@ -161,39 +176,31 @@ function ensureOverlayStyle () {
           rgba( 84,103,255,.34) 360deg
         ),
         radial-gradient(circle at 30% 22%, rgba(255,255,255,.22), rgba(255,255,255,0) 52%);
-      /* rim mask */
       -webkit-mask-image: radial-gradient(circle, rgba(0,0,0,0) 56%, rgba(0,0,0,1) 64%, rgba(0,0,0,1) 100%);
       mask-image: radial-gradient(circle, rgba(0,0,0,0) 56%, rgba(0,0,0,1) 64%, rgba(0,0,0,1) 100%);
-      animation: hvrIriRim 1.9s ease-in-out infinite alternate;
     }
 
-    @keyframes hvrIriShift{
-      0%{ transform: translateZ(0) translate(-1.5%, -0.8%) rotate(-6deg) scale(1.05); filter: hue-rotate(0deg) saturate(1.16) contrast(1.06); }
-      100%{ transform: translateZ(0) translate(1.6%, 1.0%) rotate(22deg) scale(1.08); filter: hue-rotate(55deg) saturate(1.26) contrast(1.10); }
-    }
-
-    @keyframes hvrIriRim{
-      0%{ transform: translateZ(0) translate(0%, 0%) rotate(0deg) scale(1.06); filter: hue-rotate(10deg) saturate(1.28) contrast(1.10); }
-      100%{ transform: translateZ(0) translate(2.2%, -1.6%) rotate(34deg) scale(1.10); filter: hue-rotate(75deg) saturate(1.36) contrast(1.14); }
-    }
-
-    /* specular highlight */
+    /* specular highlight (reactive) */
     .hvr-spec{
       position:absolute;
       inset:0;
       border-radius:999px;
       pointer-events:none;
-      opacity:.46;
+      opacity:.50;
       mix-blend-mode: screen;
       background:
-        radial-gradient(circle at 26% 22%, rgba(255,255,255,.56), rgba(255,255,255,0) 46%),
-        radial-gradient(circle at 62% 76%, rgba(255,255,255,.14), rgba(255,255,255,0) 62%);
-      filter: blur(.12px);
+        radial-gradient(circle at var(--spx) var(--spy), rgba(255,255,255,.56), rgba(255,255,255,0) 46%),
+        radial-gradient(circle at var(--spx2) var(--spy2), rgba(255,255,255,.14), rgba(255,255,255,0) 62%);
+      filter: blur(.12px) hue-rotate(calc(var(--shh) * .35));
+      transform: translateZ(0)
+        translate(calc(var(--shx) * .22), calc(var(--shy) * .22))
+        rotate(calc(var(--shrot) * .25));
+      will-change: transform, filter;
     }
 
-    /* storm boost */
-    .hvr-storm-on .hvr-film{ opacity:.28; animation-duration: 1.55s; filter:saturate(1.28) contrast(1.12); }
-    .hvr-storm-on .hvr-rimfilm{ opacity:.44; animation-duration: 1.15s; filter:saturate(1.44) contrast(1.18); }
+    /* Storm boost */
+    .hvr-storm-on .hvr-film{ opacity: calc(.28 * var(--shalpha)); }
+    .hvr-storm-on .hvr-rimfilm{ opacity: calc(.44 * var(--shalpha)); }
 
     /* ====================================================
        ✅ PERFECT FX (heavy): iridescent starburst + ring flash
@@ -315,6 +322,10 @@ function collectExclusionElements(rawCfg){
   }
 
   const AUTO = [
+    '.hud',
+    '#hvr-start',
+    '#hvr-end',
+    '.hvr-end',
     '#hha-water-header',
     '.hha-water-bar',
     '.hha-main-row',
@@ -323,11 +334,7 @@ function collectExclusionElements(rawCfg){
     '.hha-bottom-row',
     '.hha-fever-card',
     '#hvr-crosshair',
-    '.hvr-crosshair',
-    '#hvr-end',
-    '.hvr-end',
-    '.hud',
-    '#hvr-start'
+    '.hvr-crosshair'
   ];
   AUTO.forEach(s=>{
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
@@ -422,7 +429,6 @@ function perfectBurstAt(x, y, intensity = 1){
   const layer = ensurePerfectLayer();
   if (!layer) return;
 
-  // ring flash
   const rf = DOC.createElement('div');
   rf.className = 'hvr-perfect-ringflash';
   rf.style.left = x + 'px';
@@ -432,28 +438,25 @@ function perfectBurstAt(x, y, intensity = 1){
   layer.appendChild(rf);
   ROOT.setTimeout(()=>{ try{ rf.remove(); }catch{} }, 520);
 
-  // stars
-  const N = Math.round(16 + intensity*8); // heavy
+  const N = Math.round(16 + intensity*10);
   for (let i=0;i<N;i++){
     const st = DOC.createElement('div');
     st.className = 'hvr-perfect-star';
 
     const ang = Math.random() * Math.PI * 2;
-    const dist = (18 + Math.random()*32) * (1 + intensity*0.35);
+    const dist = (18 + Math.random()*36) * (1 + intensity*0.40);
     const sx = x + Math.cos(ang) * dist;
     const sy = y + Math.sin(ang) * dist;
 
-    const sz = (8 + Math.random()*14) * (1 + intensity*0.15);
+    const sz = (8 + Math.random()*16) * (1 + intensity*0.18);
     st.style.left = sx + 'px';
     st.style.top  = sy + 'px';
     st.style.width = sz + 'px';
     st.style.height = sz + 'px';
-
-    // random delay for “sparkle”
-    st.style.animationDelay = (Math.random()*70) + 'ms';
+    st.style.animationDelay = (Math.random()*80) + 'ms';
 
     layer.appendChild(st);
-    ROOT.setTimeout(()=>{ try{ st.remove(); }catch{} }, 650);
+    ROOT.setTimeout(()=>{ try{ st.remove(); }catch{} }, 680);
   }
 }
 
@@ -572,6 +575,7 @@ export async function boot (rawCfg = {}) {
     try { host.classList.add('hvr-rhythm-on'); } catch {}
   }
 
+  // ✅ Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -581,6 +585,7 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
+  // ✅ life getter (adaptive + storm)
   function getLifeMs(){
     const mul = getSpawnMul();
     const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
@@ -624,6 +629,9 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
+  // ======================================================
+  //  Exclusion cache
+  // ======================================================
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
     margins: { top:0,bottom:0,left:0,right:0 },
@@ -674,7 +682,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Thin-film layers helper
+  //  Iridescence layers helper
   // ======================================================
   function addIridescenceLayers(el){
     try{
@@ -693,7 +701,89 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn
+  //  ✅ Reactive shimmer animator per target
+  // ======================================================
+  function startReactiveShimmer(data, sizePx){
+    const el = data.el;
+    if (!el) return;
+
+    const seed = Math.random() * 9999;
+    const born = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+
+    // base amplitude scales with size
+    const baseAmp = clamp(sizePx * 0.045, 2.2, 6.8); // px
+    const baseRot = clamp(sizePx * 0.06, 3.5, 9.5);  // deg-ish
+
+    // tweak by type
+    const typeAmpMul =
+      data.isPower ? 1.12 :
+      (data.itemType === 'fakeGood' ? 1.08 :
+        (data.isGood ? 1.00 : 1.18));
+
+    function tick(ts){
+      if (stopped) return;
+      if (!el.isConnected) return;
+      if (!activeTargets.has(data)) return;
+
+      const mul = getSpawnMul();
+      const storm = (mul < 0.99);
+      const stormK = storm ? clamp(1 / mul, 1.1, 2.4) : 1.0;
+
+      // time
+      const t = (ts - born);
+
+      // sway: 2-wave blend (smooth)
+      const spd = (0.00115 * stormK) + (data.isPower ? 0.00035 : 0);
+      const spd2 = (0.00195 * stormK);
+
+      const amp = baseAmp * typeAmpMul * (storm ? 1.35 : 1.0);
+      const ampY = amp * (storm ? 1.10 : 0.95);
+
+      const x = (Math.sin(t*spd + seed) + 0.55*Math.sin(t*spd2 + seed*1.7)) * amp;
+      const y = (Math.cos(t*(spd*0.92) + seed*0.7) + 0.60*Math.sin(t*(spd2*0.86) + seed*2.1)) * ampY;
+
+      // rotation for film parallax
+      const rot = (Math.sin(t*(0.00075*stormK) + seed*0.9) + 0.65*Math.cos(t*(0.00105*stormK) + seed*1.3)) * baseRot * (storm ? 1.20 : 1.0);
+
+      // hue shimmer
+      const hue = (Math.sin(t*(0.00062*stormK) + seed*0.33) * 45) + (storm ? 18 : 8); // deg
+      const alpha = storm ? 1.18 : 1.0;
+
+      // spec highlight positions (percent)
+      const spx  = clamp(26 + (x * 1.25), 14, 42);  // 14..42
+      const spy  = clamp(22 + (y * 1.10), 12, 40);
+      const spx2 = clamp(62 - (x * 0.95), 52, 82);
+      const spy2 = clamp(76 - (y * 0.85), 56, 88);
+
+      // apply vars
+      try{
+        el.style.setProperty('--shx', x.toFixed(2) + 'px');
+        el.style.setProperty('--shy', y.toFixed(2) + 'px');
+        el.style.setProperty('--shrot', rot.toFixed(2) + 'deg');
+        el.style.setProperty('--shh', hue.toFixed(2) + 'deg');
+        el.style.setProperty('--shalpha', String(alpha));
+
+        el.style.setProperty('--spx',  spx.toFixed(1) + '%');
+        el.style.setProperty('--spy',  spy.toFixed(1) + '%');
+        el.style.setProperty('--spx2', spx2.toFixed(1) + '%');
+        el.style.setProperty('--spy2', spy2.toFixed(1) + '%');
+      }catch{}
+
+      data._animId = ROOT.requestAnimationFrame(tick);
+    }
+
+    data._animId = ROOT.requestAnimationFrame(tick);
+  }
+
+  function stopReactiveShimmer(data){
+    try{
+      if (data && data._animId != null) ROOT.cancelAnimationFrame(data._animId);
+    }catch{}
+    if (data) data._animId = null;
+  }
+
+  // ======================================================
+  //  Spawn target
   // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
@@ -712,7 +802,7 @@ export async function boot (rawCfg = {}) {
     let ch = '💧';
     let isGood = true;
     let isPower = false;
-    let itemType = 'good'; // good | bad | power | fakeGood
+    let itemType = 'good';
 
     const canPower = Array.isArray(powerups) && powerups.length > 0;
     const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
@@ -792,7 +882,7 @@ export async function boot (rawCfg = {}) {
        0 0 0 2px rgba(255,255,255,.09),
        ${glow}`;
 
-    // ✅ iridescence
+    // ✅ iridescence layers + reactive vars
     addIridescenceLayers(el);
 
     // inner lens
@@ -844,7 +934,6 @@ export async function boot (rawCfg = {}) {
     icon.style.position = 'relative';
     icon.style.zIndex = '2';
 
-    // fake marker
     if (itemType === 'fakeGood') {
       const sp = DOC.createElement('div');
       sp.textContent = '✨';
@@ -879,11 +968,15 @@ export async function boot (rawCfg = {}) {
       itemType,
       bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       life: lifeMs,
-      _hit: null
+      _hit: null,
+      _animId: null
     };
 
     activeTargets.add(data);
     host.appendChild(el);
+
+    // ✅ start reactive shimmer (this is the key)
+    startReactiveShimmer(data, size);
 
     function consumeHit(evOrSynth, hitInfoOpt){
       if (stopped) return;
@@ -892,7 +985,6 @@ export async function boot (rawCfg = {}) {
       let keepRect = null;
       try{ keepRect = el.getBoundingClientRect(); }catch{}
 
-      // compute hit info before remove (for PERFECT fx)
       let infoForFx = hitInfoOpt || null;
       if (!infoForFx) {
         try{
@@ -903,17 +995,19 @@ export async function boot (rawCfg = {}) {
         }catch{}
       }
 
-      // ✅ PERFECT => iridescence burst (heavy)
+      // ✅ PERFECT => heavy burst
       if (infoForFx && infoForFx.perfect) {
         const cx = infoForFx.rect ? (infoForFx.rect.left + infoForFx.rect.width/2) : (keepRect ? keepRect.left + keepRect.width/2 : null);
         const cy = infoForFx.rect ? (infoForFx.rect.top  + infoForFx.rect.height/2) : (keepRect ? keepRect.top + keepRect.height/2 : null);
         if (cx != null && cy != null) {
-          // intensity boosted a bit in storm
           const mul = getSpawnMul();
           const stormBoost = (mul < 0.99) ? 1.25 : 1.0;
           perfectBurstAt(cx, cy, 1.0 * stormBoost);
         }
       }
+
+      // stop shimmer loop
+      stopReactiveShimmer(data);
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
@@ -978,6 +1072,9 @@ export async function boot (rawCfg = {}) {
     ROOT.setTimeout(() => {
       if (stopped) return;
       if (!activeTargets.has(data)) return;
+
+      // stop shimmer loop
+      stopReactiveShimmer(data);
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
@@ -1056,7 +1153,10 @@ export async function boot (rawCfg = {}) {
     try { if (rafId != null) ROOT.cancelAnimationFrame(rafId); } catch {}
     rafId = null;
 
-    activeTargets.forEach(t => { try { t.el.remove(); } catch {} });
+    activeTargets.forEach(t => {
+      try { stopReactiveShimmer(t); } catch {}
+      try { t.el.remove(); } catch {}
+    });
     activeTargets.clear();
 
     try { dispatchTime(0); } catch {}
