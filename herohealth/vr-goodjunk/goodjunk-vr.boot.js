@@ -1,18 +1,12 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// ✅ FINAL PATCH (Production Start Flow)
-// - export boot() ให้ loader เรียก
-// - dynamic import goodjunk.safe.js AFTER Start only
-// - guards: no FX/HUD before started
-// - pre-start lock: disable target layer until Start
-// - COACH paths fixed for document at /herohealth/ (use ./img/...)
-
-// imports (NO goodjunk.safe.js static import!)
+import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
 import { initCloudLogger } from '../vr/hha-cloud-logger.js';
+
 import { makeQuestDirector } from './quest-director.js';
 import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
-export function boot(){
+(function () {
   'use strict';
 
   // bfcache fix
@@ -23,6 +17,11 @@ export function boot(){
   const $ = (id)=>document.getElementById(id);
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){} };
   const safeStyleWidth = (el, w)=>{ try{ if (el) el.style.width = w; }catch(_){} };
+
+  function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
+  function normDiff(v){ v=String(v||'normal').toLowerCase(); return (v==='easy'||v==='hard'||v==='normal') ? v : 'normal'; }
+  function normCh(v){ v=String(v||'rush').toLowerCase(); return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush'; }
+  function normRun(v){ v=String(v||'play').toLowerCase(); return (v==='research') ? 'research' : 'play'; }
 
   // HUD elements
   const elScore = $('hud-score');
@@ -61,7 +60,21 @@ export function boot(){
   const selDiff = $('sel-diff');
   const selChallenge = $('sel-challenge');
 
-  const layerEl = $('gj-layer');
+  const logDot  = $('logdot');
+  const logText = $('logtext');
+
+  // ✅ Fever/Shield DOM (ไม่พึ่ง ui-fever.js)
+  const elFeverFill = $('fever-fill');
+  const elFeverPct  = $('fever-pct');
+  const elShieldCnt = $('shield-count');
+
+  function setFeverUI(fever, shield){
+    const f = clamp(fever, 0, 100);
+    const s = Math.max(0, (shield|0));
+    safeStyleWidth(elFeverFill, f.toFixed(0) + '%');
+    safeText(elFeverPct, f.toFixed(0) + '%');
+    safeText(elShieldCnt, String(s));
+  }
 
   // URL params from hub
   const pageUrl = new window.URL(window.location.href);
@@ -71,11 +84,6 @@ export function boot(){
   const URL_TIME_RAW = parseInt(pageUrl.searchParams.get('time') || '', 10);
 
   const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
-  function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
-  function normDiff(v){ v=String(v||'normal').toLowerCase(); return (v==='easy'||v==='hard'||v==='normal') ? v : 'normal'; }
-  function normCh(v){ v=String(v||'rush').toLowerCase(); return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush'; }
-  function normRun(v){ v=String(v||'play').toLowerCase(); return (v==='research') ? 'research' : 'play'; }
-
   const RUN_MODE = normRun(URL_RUN);
   const DIFF_INIT = normDiff(URL_DIFF);
   const CH_INIT = normCh(URL_CH);
@@ -84,12 +92,12 @@ export function boot(){
     20, 180
   );
 
-  // ✅ Coach images path for document at /herohealth/
+  // ✅ Coach images (ไฟล์นี้อยู่ /vr-goodjunk -> ใช้ ../img)
   const COACH_IMG = {
-    neutral: './img/coach-neutral.png',
-    happy:   './img/coach-happy.png',
-    sad:     './img/coach-sad.png',
-    fever:   './img/coach-fever.png'
+    neutral: '../img/coach-neutral.png',
+    happy:   '../img/coach-happy.png',
+    sad:     '../img/coach-sad.png',
+    fever:   '../img/coach-fever.png'
   };
 
   let lastCoachTimeout = null;
@@ -114,15 +122,17 @@ export function boot(){
     const y = (detail && typeof detail.y === 'number') ? detail.y : (window.innerHeight * 0.55);
     return { x, y };
   }
-  function fxBurst(detail, good=true, count=14){
+
+  // ✅ ส่ง kind ไปให้ particles เพื่อได้สี/สไตล์ตามที่ทำไว้ใน particles.js
+  function fxBurst(detail, kind='GOOD', good=true, count=14){
     const P = getParticles(); if (!P || !P.burstAt) return;
     const { x, y } = posFromDetail(detail);
-    try{ P.burstAt(x, y, { count, good: !!good }); }catch(_){}
+    try{ P.burstAt(x, y, { count, good: !!good, kind: String(kind||'') }); }catch(_){}
   }
-  function fxPop(detail, label, plain=true){
+  function fxPop(detail, label, kind='GOOD', plain=true){
     const P = getParticles(); if (!P || !P.scorePop) return;
     const { x, y } = posFromDetail(detail);
-    try{ P.scorePop(x, y, '', String(label||''), { plain: !!plain }); }catch(_){}
+    try{ P.scorePop(x, y, '', String(label||''), { plain: !!plain, kind: String(kind||'') }); }catch(_){}
   }
   function fxCelebrate(kind){
     const P = getParticles(); if (!P || !P.celebrate) return;
@@ -200,6 +210,23 @@ export function boot(){
     });
   }
 
+  // Logger badge
+  const loggerState = { pending:true, ok:false, message:'' };
+  function setLogBadge(state, text){
+    if (!logDot || !logText) return;
+    logDot.classList.remove('ok','bad');
+    if (state === 'ok') logDot.classList.add('ok');
+    else if (state === 'bad') logDot.classList.add('bad');
+    safeText(logText, text || (state==='ok' ? 'logger: ok' : state==='bad' ? 'logger: error' : 'logger: pending…'));
+  }
+  window.addEventListener('hha:logger', (e)=>{
+    const d = e.detail || {};
+    loggerState.pending = false;
+    loggerState.ok = !!d.ok;
+    loggerState.message = d.msg || '';
+    setLogBadge(d.ok ? 'ok' : 'bad', d.msg || '');
+  });
+
   function getProfile(){
     let studentProfile = null;
     let studentKey = null;
@@ -217,7 +244,7 @@ export function boot(){
     return !!(p.studentId || p.name || p.nickName || p.studentNo);
   }
 
-  // Quest state
+  // Quest state shared with QuestDirector
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
     streakGood:0,
@@ -230,32 +257,15 @@ export function boot(){
     bossCleared:false,
     challenge: CH_INIT,
     runMode: RUN_MODE,
-    final8Good: 0
+    final8Good: 0,
+
+    // ✅ เพิ่ม
+    fever: 0,
+    shield: 0
   };
-
-  let started = false;
-  let Q = null;
-
-  function setPreStartLock(){
-    started = false;
-    try{ document.body.classList.remove('game-started'); }catch(_){}
-    if (layerEl) layerEl.style.pointerEvents = 'none';
-    if (elBigCelebrate) elBigCelebrate.classList.remove('show');
-  }
-  function setStartedUnlock(){
-    try{ document.body.classList.add('game-started'); }catch(_){}
-    if (layerEl) layerEl.style.pointerEvents = 'auto';
-  }
-
-  // safeNoJunkSeconds tick
-  setInterval(()=>{
-    if (!started) return;
-    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
-  }, 1000);
 
   // mini reset
   window.addEventListener('quest:miniStart', ()=>{
-    if (!started) return;
     qState.goldHitsThisMini = false;
     qState.usedMagnet = false;
     qState.timePlus = 0;
@@ -264,56 +274,97 @@ export function boot(){
     qState.streakGood = 0;
   });
 
-  // --------- FX event guards ---------
-  window.addEventListener('quest:goodHit', (e)=>{
+  // safeNoJunkSeconds tick
+  let started = false;
+  setInterval(()=>{
     if (!started) return;
+    qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
+  }, 1000);
+
+  let Q = null;
+
+  // ✅ Fever listener (อัปเดต UI + qState)
+  window.addEventListener('hha:fever', (e)=>{
+    const d = e.detail || {};
+    if (typeof d.fever === 'number') qState.fever = d.fever|0;
+    if (typeof d.shield === 'number') qState.shield = d.shield|0;
+    setFeverUI(qState.fever, qState.shield);
+
+    // mood hint
+    if (qState.fever >= 90) setCoachFace('fever');
+  });
+
+  // --------- เอฟเฟกต์: ฟัง event แล้วยิง FX ---------
+  window.addEventListener('quest:goodHit', (e)=>{
     const d = e.detail || {};
     const isPerfect = String(d.judgment||'').toLowerCase().includes('perfect');
-    fxBurst(d, true, isPerfect ? 18 : 14);
-    fxPop(d, isPerfect ? 'PERFECT!' : 'GOOD!');
-    if (Q) Q.onEvent(isPerfect ? 'perfectHit' : 'goodHit', qState);
+
+    // kind mapping
+    const kind = isPerfect ? 'PERFECT' : 'GOOD';
+    fxBurst(d, kind, true, isPerfect ? 18 : 14);
+    fxPop(d, isPerfect ? 'PERFECT!' : 'GOOD!', kind, true);
+
+    if (Q){
+      Q.onEvent(isPerfect ? 'perfectHit' : 'goodHit', qState);
+    }
   });
 
   window.addEventListener('quest:badHit', (e)=>{
-    if (!started) return;
     const d = e.detail || {};
-    fxBurst(d, false, 14);
-    fxPop(d, 'JUNK!');
+    fxBurst(d, 'JUNK', false, 14);
+    fxPop(d, 'JUNK!', 'JUNK', true);
+
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
+
     if (Q) Q.onEvent('junkHit', qState);
   });
 
   window.addEventListener('quest:block', (e)=>{
-    if (!started) return;
     const d = e.detail || {};
     qState.blocks = (qState.blocks|0) + 1;
-    fxBurst(d, true, 10);
-    fxPop(d, 'BLOCK!');
+
+    // ถ้า engine ส่ง shield มาให้ จะ sync; ถ้าไม่ส่ง ให้เดา -1
+    if (typeof d.shield === 'number') qState.shield = d.shield|0;
+    else qState.shield = Math.max(0, (qState.shield|0) - 1);
+    setFeverUI(qState.fever, qState.shield);
+
+    fxBurst(d, 'BLOCK', true, 10);
+    fxPop(d, 'BLOCK!', 'BLOCK', true);
+
     if (Q) Q.onEvent('shieldBlock', qState);
   });
 
   window.addEventListener('quest:power', (e)=>{
-    if (!started) return;
     const d = e.detail || {};
-    const p = (d.power||'');
+    const p = String(d.power||'').toLowerCase();
+
     if (p === 'magnet') qState.usedMagnet = true;
     if (p === 'time')   qState.timePlus = (qState.timePlus|0) + 1;
-    fxBurst(d, true, 12);
-    fxPop(d, String(p||'POWER').toUpperCase() + '!');
+    if (p === 'shield') qState.shield = (qState.shield|0) + 1;
+
+    setFeverUI(qState.fever, qState.shield);
+
+    const kind =
+      (p === 'magnet') ? 'MAGNET' :
+      (p === 'time')   ? 'TIME'   :
+      (p === 'shield') ? 'SHIELD' : 'POWER';
+
+    fxBurst(d, kind, true, 12);
+    fxPop(d, kind + '!', kind, true);
+
     if (Q) Q.onEvent('power', qState);
   });
 
   window.addEventListener('quest:bossClear', ()=>{
-    if (!started) return;
     qState.bossCleared = true;
-    fxPop({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, 'BOSS CLEAR!');
-    fxBurst({ x: window.innerWidth*0.5, y: window.innerHeight*0.35 }, true, 22);
+    const d = { x: window.innerWidth*0.5, y: window.innerHeight*0.35 };
+    fxPop(d, 'BOSS CLEAR!', 'BOSS', true);
+    fxBurst(d, 'BOSS', true, 22);
     if (Q) Q.onEvent('bossClear', qState);
   });
 
   window.addEventListener('quest:cleared', (e)=>{
-    if (!started) return;
     const d = e.detail || {};
     const kind = String(d.kind||'').toLowerCase();
     if (kind.includes('goal')) fxCelebrate('goal');
@@ -321,36 +372,42 @@ export function boot(){
     setCoach('เยี่ยม! ผ่านภารกิจแล้ว ไปต่อเลย! 🌟', 'happy');
   });
 
-  // HUD listeners (ignore before started)
+  // HUD listeners
   window.addEventListener('hha:judge', (e)=>{
-    if (!started) return;
     const label = (e.detail||{}).label || '';
     safeText(elJudge, label || '\u00A0');
   });
 
   window.addEventListener('hha:time', (e)=>{
-    if (!started) return;
     const sec = (e.detail||{}).sec;
     if (typeof sec === 'number' && sec >= 0){
       safeText(elTime, sec + 's');
       qState.timeLeft = sec|0;
+
+      if (qState.timeLeft <= 8) qState.final8Good = (qState.final8Good|0);
+
       if (Q) Q.tick(qState);
     }
   });
 
   window.addEventListener('hha:score', (e)=>{
-    if (!started) return;
     const d = e.detail || {};
     if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
     if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
     if (typeof d.misses === 'number'){ qState.miss = d.misses|0; safeText(elMiss, String(qState.miss)); }
     if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
     if (typeof d.challenge === 'string'){ qState.challenge = normCh(d.challenge); }
+
+    // ✅ เผื่อ engine ใส่ fever/shield มาใน hha:score ก็ sync ด้วย
+    if (typeof d.fever === 'number') qState.fever = d.fever|0;
+    if (typeof d.shield === 'number') qState.shield = d.shield|0;
+    setFeverUI(qState.fever, qState.shield);
+
     if (Q) Q.tick(qState);
   });
 
+  // quest:update (schema ใหม่)
   window.addEventListener('quest:update', (e)=>{
-    if (!started) return;
     const d = e.detail || {};
     const goal = d.goal || null;
     const mini = d.mini || null;
@@ -390,6 +447,7 @@ export function boot(){
       safeText(elQuestMiniCap, '');
     }
 
+    // hint
     let hint = '';
     if (goal && String(goal.state||'').toLowerCase().includes('clear')) hint = 'GOAL CLEAR! 🎉';
     else if (mini && String(mini.state||'').toLowerCase().includes('clear')) hint = 'MINI CLEAR! ✨';
@@ -426,6 +484,11 @@ export function boot(){
     safeText(elTime, DUR_INIT + 's');
 
     setCoachFace('neutral');
+    setFeverUI(0,0);
+
+    const endpoint = sessionStorage.getItem('HHA_LOG_ENDPOINT');
+    if (endpoint) setLogBadge(null, 'logger: endpoint set ✓');
+    else setLogBadge(null, 'logger: endpoint missing (hub?)');
   }
 
   async function bootOnce({ wantVR }){
@@ -441,12 +504,8 @@ export function boot(){
       }
     }
 
-    // start now
     started = true;
-    setStartedUnlock();
-
     if (startOverlay) startOverlay.style.display = 'none';
-    if (elBigCelebrate) elBigCelebrate.classList.remove('show');
 
     const diff = normDiff(selDiff?.value || DIFF_INIT);
     const chal = normCh(selChallenge?.value || CH_INIT);
@@ -464,14 +523,24 @@ export function boot(){
     safeText(elMiss,  '0');
     safeText(elJudge, '\u00A0');
 
+    qState.fever = 0;
+    qState.shield = 0;
+    setFeverUI(0,0);
+
     setCoach('แตะของดี! หลบ junk! ไปเลย! ⚡', 'neutral');
 
     // profile from hub
     const { studentProfile, studentKey } = getProfile();
 
+    // logger endpoint + fallback
     const endpoint =
       sessionStorage.getItem('HHA_LOG_ENDPOINT') ||
       'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+
+    loggerState.pending = true;
+    loggerState.ok = false;
+    loggerState.message = '';
+    setLogBadge(null, 'logger: init…');
 
     initCloudLogger({
       endpoint,
@@ -507,109 +576,33 @@ export function boot(){
         try{
           if (wantVR) await tryEnterVR();
 
-          // ✅ dynamic import engine AFTER Start only
-          const mod = await import('./goodjunk.safe.js');
-          const goodjunkBoot = mod && mod.boot;
-          if (typeof goodjunkBoot !== 'function'){
-            throw new Error('goodjunk.safe.js has no export boot()');
-          }
-
           const ENGINE = goodjunkBoot({
             diff,
             run: RUN_MODE,
             challenge: chal,
             time: durationSec,
-            layerEl: layerEl
+            layerEl: document.getElementById('gj-layer')
           });
 
           if (!ENGINE) throw new Error('ENGINE is null (goodjunkBoot failed)');
           window.__GJ_ENGINE__ = ENGINE;
 
+          if (!getParticles()) {
+            console.warn('[GoodJunkVR] Particles not found (did you load ./vr/particles.js before this module?)');
+          }
+
+          // ปลุก HUD
           try{ Q && Q.tick && Q.tick(qState); }catch(_){}
         }catch(err){
-          console.error('[GoodJunkVR] start failed:', err);
+          console.error('[GoodJunkVR] boot failed:', err);
           alert('กด Start แล้วเข้าเกมไม่สำเร็จ\nดู Console: error บรรทัดแรก');
-
-          // rollback
-          setPreStartLock();
-          if (startOverlay) startOverlay.style.display = '';
         }
       });
     });
   }
 
-  // ---- helpers used above ----
-  async function tryEnterVR(){
-    const scene = document.querySelector('a-scene');
-    if (!scene) return false;
-    try{ await scene.enterVR(); return true; }
-    catch(err){ console.warn('[GoodJunkVR] enterVR blocked:', err); return false; }
-  }
-
-  function initVRButton(){
-    if (!btnVR) return;
-    const scene = document.querySelector('a-scene');
-    if (!scene) return;
-    btnVR.addEventListener('click', async ()=>{
-      try{ await scene.enterVR(); }
-      catch(err){ console.warn('[GoodJunkVR] enterVR error:', err); }
-    });
-  }
-
-  function attachTouch(cameraEl){
-    if (!cameraEl) return;
-    attachTouchLook(cameraEl, {
-      sensitivity: 0.26,
-      areaEl: document.body,
-      onActiveChange(active){
-        if (active){
-          elTouchHint && elTouchHint.classList.add('show');
-          setTimeout(()=> elTouchHint && elTouchHint.classList.remove('show'), 2400);
-        }
-      }
-    });
-  }
-
-  function runCountdown(onDone){
-    if (!elCountdown){ onDone && onDone(); return; }
-    const steps = ['3','2','1','Go!'];
-    let idx = 0;
-    elCountdown.classList.remove('countdown-hidden');
-    safeText(elCountdown, steps[0]);
-    const t = setInterval(()=>{
-      idx++;
-      if (idx >= steps.length){
-        clearInterval(t);
-        elCountdown.classList.add('countdown-hidden');
-        onDone && onDone();
-      }else{
-        safeText(elCountdown, steps[idx]);
-      }
-    }, 650);
-  }
-
-  function waitSceneReady(cb){
-    const scene = document.querySelector('a-scene');
-    if (!scene) { cb(); return; }
-    const tryReady = ()=>{
-      if (scene.hasLoaded && scene.camera){ cb(); return true; }
-      return false;
-    };
-    if (tryReady()) return;
-    scene.addEventListener('loaded', ()=>{
-      let tries=0;
-      const it = setInterval(()=>{
-        tries++;
-        if (tryReady() || tries>80){ clearInterval(it); cb(); }
-      }, 50);
-    }, { once:true });
-  }
-
-  // bind start buttons
   btnStart2D && btnStart2D.addEventListener('click', ()=> bootOnce({ wantVR:false }));
   btnStartVR && btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
 
-  // init state
-  setPreStartLock();
   prefillFromHub();
-}
+})();
