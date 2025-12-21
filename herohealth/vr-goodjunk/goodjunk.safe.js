@@ -1,19 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — DOM Emoji Engine (PRODUCTION, Step 3)
-// ✅ Targets follow camera yaw/pitch (VR-feel)
-// ✅ Sticker emoji targets + fade-in/out
-// ✅ Fever rises & DECAYS; at 100 => STUN (lock 1s + slow + junk auto-shatter near aim)
-// ✅ Fire overlay intensity by fever%
-// ✅ Slow whole game by fever% + hard slow during STUN
-// ✅ Final Sprint (<= 8s): more pressure + border warning
-//
-// Emits:
-// - hha:time {sec}
-// - hha:score {score, goodHits, misses, comboMax, challenge}
-// - hha:judge {label}
-// - hha:fever {fever, shield, stunActive}
-// - hha:end {score, goodHits, misses, comboMax, ...}
-// - quest:goodHit / quest:badHit / quest:block / quest:power / quest:bossClear
+// GoodJunkVR — DOM Emoji Engine (PRODUCTION)
+// ✅ Targets behave like VR: world-space + follow camera yaw/pitch
+// ✅ Clamp safe zone: avoid overlapping HUD/cards
+// ✅ FX: burst + score pop + judge
+// ✅ Fever decay + STUN (slow + junk auto-break near aim point)
+// ✅ Emit hha:end for summary
 
 'use strict';
 
@@ -24,20 +15,36 @@ function clamp(v, min, max){
   return v;
 }
 function now(){ return performance.now(); }
+
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
 }
-function setBodyClass(cls, on){
-  try{ document.body && document.body.classList && document.body.classList.toggle(cls, !!on); }catch(_){}
+
+// ---- FX bridge (Particles.js IIFE) ----
+const Particles =
+  (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
+  window.Particles ||
+  {
+    burstAt(){},
+    scorePop(){},
+    judge(){},
+    celebrate(){}
+  };
+
+function fxBurst(x, y, kind){
+  try{ Particles.burstAt && Particles.burstAt(x, y, { kind }); }catch(_){}
 }
-function setCssVar(k, v){
-  try{ document.documentElement.style.setProperty(k, v); }catch(_){}
+function fxScore(x, y, text, kind){
+  try{ Particles.scorePop && Particles.scorePop(x, y, text, kind); }catch(_){}
+}
+function fxJudge(text, kind){
+  try{ Particles.judge && Particles.judge(text, kind); }catch(_){}
 }
 
-/* ----------------------- DOM World Mapper ----------------------- */
-const WORLD_SCALE = 2.10;
-const Y_PITCH_GAIN = 0.78;
-const WRAP_PAD = 150;
+// ----------------------- DOM World Mapper -----------------------
+const WORLD_SCALE = 2.05;
+const Y_PITCH_GAIN = 0.75;
+const WRAP_PAD = 140;
 
 function wrapRad(a){
   a = Number(a) || 0;
@@ -59,7 +66,6 @@ function computeWorldSize(){
 }
 function worldToScreen(wx, wy, look, sizes){
   const { W, H, worldW, worldH } = sizes;
-
   const vx = (look.yaw / (Math.PI * 2)) * worldW;
   const vy = (look.pitch / (Math.PI)) * worldH * Y_PITCH_GAIN;
 
@@ -77,14 +83,14 @@ function worldToScreen(wx, wy, look, sizes){
   return { x, y };
 }
 
-/* ----------------------- Safe Zone (avoid HUD) ----------------------- */
+// ----------------------- Safe Zone (avoid HUD) -----------------------
 function getHudRects(){
   const rects = [];
   const els = Array.from(document.querySelectorAll('.hud-card, #coach-bubble'));
   for (const el of els){
     if (!el || !el.getBoundingClientRect) continue;
     const r = el.getBoundingClientRect();
-    rects.push({ x:r.left-10, y:r.top-10, w:r.width+20, h:r.height+20 });
+    rects.push({ x:r.left-8, y:r.top-8, w:r.width+16, h:r.height+16 });
   }
   return rects;
 }
@@ -94,7 +100,7 @@ function pointInRect(x,y,r){
 function pickScreenPointSafe(sizes, margin=18){
   const { W, H } = sizes;
   const rects = getHudRects();
-  for (let i=0;i<110;i++){
+  for (let i=0;i<90;i++){
     const x = margin + Math.random()*(W-2*margin);
     const y = margin + Math.random()*(H-2*margin);
     let bad = false;
@@ -106,31 +112,18 @@ function pickScreenPointSafe(sizes, margin=18){
   return { x: W*0.5, y: H*0.62 };
 }
 
-/* ----------------------- Difficulty presets ----------------------- */
+// ----------------------- Difficulty presets -----------------------
 function diffCfg(diff='normal'){
   diff = String(diff||'normal').toLowerCase();
   const base = {
-    easy:   { spawnMs: 860, ttlMs: 2200, maxActive: 5, goodRatio: 0.72, scoreGood: 12, scoreGold: 28, feverGain: 10, feverLoss: 18 },
-    normal: { spawnMs: 720, ttlMs: 1900, maxActive: 6, goodRatio: 0.66, scoreGood: 14, scoreGold: 32, feverGain: 11, feverLoss: 20 },
-    hard:   { spawnMs: 590, ttlMs: 1650, maxActive: 7, goodRatio: 0.60, scoreGood: 16, scoreGold: 36, feverGain: 12, feverLoss: 22 }
+    easy:   { spawnMs: 860, ttlMs: 2100, maxActive: 5, goodRatio: 0.72, scoreGood: 12, scoreGold: 28, feverGain: 10, feverLoss: 18 },
+    normal: { spawnMs: 720, ttlMs: 1850, maxActive: 6, goodRatio: 0.66, scoreGood: 14, scoreGold: 32, feverGain: 11, feverLoss: 20 },
+    hard:   { spawnMs: 590, ttlMs: 1600, maxActive: 7, goodRatio: 0.60, scoreGood: 16, scoreGold: 36, feverGain: 12, feverLoss: 22 }
   };
   return base[diff] || base.normal;
 }
 
-/* ----------------------- Particles (optional) ----------------------- */
-function getParticles(){
-  return (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles || null;
-}
-function fxBurst(x,y,good=true,count=14){
-  const P = getParticles(); if (!P || !P.burstAt) return;
-  try{ P.burstAt(x, y, { count, good: !!good }); }catch(_){}
-}
-function fxPop(x,y,label){
-  const P = getParticles(); if (!P || !P.scorePop) return;
-  try{ P.scorePop(x, y, '', String(label||''), { plain:true }); }catch(_){}
-}
-
-/* ----------------------- Engine ----------------------- */
+// ----------------------- Engine -----------------------
 export function boot(opts = {}){
   const layerEl = opts.layerEl || document.getElementById('gj-layer');
   if (!layerEl){
@@ -158,35 +151,35 @@ export function boot(opts = {}){
     score: 0,
     goodHits: 0,
     goldHits: 0,
-    misses: 0,
+    misses: 0,       // miss = good expired + junk hit (blocked doesn't count)
     combo: 0,
     comboMax: 0,
 
-    fever: 0,
-    shield: 0,
+    fever: 0,        // 0..100
+    shield: 0,       // charges
 
-    stunActive: false,
-    stunUntil: 0,
-    lockUntil: 0,      // ✅ 1s lock on stun trigger
-
-    magnetUntil: 0,
     bossCleared: false,
 
-    finalSprint: false,
+    // stun
+    stunActive: false,
+    stunUntil: 0,
 
+    // time step
+    lastFrameAt: now(),
     lastTickSec: -1,
-    lastFeverDecayAt: now(),
-    lastStunFxAt: 0
+
+    // spawning accumulator
+    spawnAcc: 0
   };
 
   const ACTIVE = new Set();
   let rafId = 0;
-  let spawnTimer = 0;
 
   function setJudge(label){
     emit('hha:judge', { label: String(label||'') });
   }
 
+  // emit hha:score + hha:fever
   function syncHUD(){
     emit('hha:score', {
       score: state.score|0,
@@ -197,92 +190,27 @@ export function boot(opts = {}){
     });
 
     emit('hha:fever', {
-      fever: Math.round(clamp(state.fever,0,100)),
+      fever: state.fever|0,
       shield: state.shield|0,
+      active: state.fever >= 100,
       stunActive: !!state.stunActive
     });
-  }
-
-  // ✅ slow factor by fever% (0..1) + STUN heavy slow
-  function slowFactor(){
-    const f = clamp(state.fever, 0, 100) / 100;
-    // base slow from fever: up to ~0.65
-    let sf = 1 - 0.35 * Math.pow(f, 1.35);
-    // final sprint adds tension (slightly faster spawn, not faster movement)
-    if (state.finalSprint) sf = Math.max(0.62, sf);
-    // stun is heavy slow
-    if (state.stunActive) sf = Math.min(sf, 0.55);
-    return clamp(sf, 0.50, 1.0);
-  }
-
-  // ✅ Shake intensity based on fever% (stronger)
-  function applyShake(){
-    const f = clamp(state.fever, 0, 100) / 100;
-    const base = state.stunActive ? 12 : (state.finalSprint ? 9 : 6);
-    const amp = base * (0.22 + f * 1.05);
-
-    const t = now() * 0.001;
-    const sx = (Math.sin(t*19.0) + Math.sin(t*31.0)*0.6) * amp * 0.58;
-    const sy = (Math.cos(t*23.0) + Math.cos(t*37.0)*0.6) * amp * 0.58;
-
-    setCssVar('--shake-x', sx.toFixed(2) + 'px');
-    setCssVar('--shake-y', sy.toFixed(2) + 'px');
-  }
-
-  // ✅ fire overlay intensity by fever%
-  function applyFire(){
-    const f = clamp(state.fever, 0, 100) / 100;
-    // start showing from 55%
-    const hot = clamp((f - 0.55) / 0.45, 0, 1);
-    const alpha = state.stunActive ? Math.max(0.75, hot) : hot * 0.85;
-    setCssVar('--fire-alpha', alpha.toFixed(3));
-
-    setBodyClass('fever-hot', f >= 0.70 && !state.stunActive);
-  }
-
-  function setFxClasses(){
-    setBodyClass('stun-on', !!state.stunActive);
-    setBodyClass('stun-lock', now() < state.lockUntil);
-    setBodyClass('final-sprint', !!state.finalSprint);
   }
 
   function addFever(v){
     state.fever = clamp(state.fever + v, 0, 100);
     if (state.fever >= 100 && !state.stunActive){
-      startStun();
+      startStun(4200, 'fever');
     }
   }
 
-  function decayFever(){
-    const t = now();
-    const dt = Math.max(0, t - state.lastFeverDecayAt);
-    if (dt < 180) return;
-
-    // decay per second: normal = 4.5/s, stun = 12/s (ลดไวขึ้นให้ “เต็มแล้วไม่ค้าง”)
-    const perSec = state.stunActive ? 12 : 4.5;
-    const dec = (dt/1000) * perSec;
-
-    state.fever = clamp(state.fever - dec, 0, 100);
-    state.lastFeverDecayAt = t;
-
-    // end stun if time reached or fever below threshold
-    if (state.stunActive && (t >= state.stunUntil || state.fever <= 35)){
-      state.stunActive = false;
-      state.stunUntil = 0;
-      state.lockUntil = 0;
-    }
-  }
-
-  function startStun(){
-    const t = now();
+  function startStun(ms=3500, source='magnet'){
     state.stunActive = true;
-    state.stunUntil = t + 6500;   // 6.5s stun window
-    state.lockUntil = t + 1000;   // ✅ lock 1s
-    state.lastStunFxAt = t;
-
+    state.stunUntil = now() + ms;
+    // ขึ้นข้อความแรง ๆ
     setJudge('STUN!');
+    fxJudge('STUN!', 'stun');
     syncHUD();
-    setFxClasses();
   }
 
   function spendShield(){
@@ -295,17 +223,21 @@ export function boot(opts = {}){
 
   function mkEl(kind, emoji){
     const el = document.createElement('div');
-    el.className = 'gj-target in';
+    el.className = 'gj-target';
     el.textContent = emoji;
+
+    // small random tilt (sticker vibe)
+    const rot = (Math.random()*10 - 5).toFixed(1) + 'deg';
+    el.style.setProperty('--tRot', rot);
 
     if (kind === 'junk') el.classList.add('gj-junk');
     if (kind === 'gold') el.classList.add('gj-gold');
-    if (kind === 'fake') el.classList.add('gj-fake');
     if (kind === 'power') el.classList.add('gj-power');
     if (kind === 'boss') el.classList.add('gj-boss');
 
     layerEl.appendChild(el);
-    requestAnimationFrame(()=>{ try{ el.classList.remove('in'); }catch(_){} });
+    // fade-in next frame
+    requestAnimationFrame(()=> el.classList.add('in'));
     return el;
   }
 
@@ -315,23 +247,13 @@ export function boot(opts = {}){
     if (challenge === 'survival'){
       goodRatio = Math.max(0.52, goodRatio - 0.08);
     }
-
-    // Final sprint: slightly harsher ratio
-    if (state.finalSprint){
-      goodRatio = Math.max(0.48, goodRatio - 0.10);
-    }
-
     if (challenge === 'boss'){
-      if (!state.bossCleared && Math.random() < (state.finalSprint ? 0.14 : 0.10)) return 'boss';
+      if (!state.bossCleared && Math.random() < 0.10) return 'boss';
     }
 
-    // power/gold occasionally (final sprint reduces power a bit)
     const r = Math.random();
-    const pCut = state.finalSprint ? 0.06 : 0.08;
-    const gCut = state.finalSprint ? 0.10 : 0.14;
-
-    if (r < pCut) return 'power';
-    if (r < gCut) return 'gold';
+    if (r < 0.08) return 'power';
+    if (r < 0.14) return 'gold';
 
     return (Math.random() < goodRatio) ? 'good' : 'junk';
   }
@@ -340,7 +262,8 @@ export function boot(opts = {}){
     const GOOD = ['🥦','🥕','🍎','🍌','🥛','🍇','🍊','🥬'];
     const JUNK = ['🍟','🍔','🍕','🍩','🍰','🍿','🥤','🍗'];
     const GOLD = ['🌟','✨','🏅','💎'];
-    const POWER = ['🛡️','🧲','⏱️']; // shield / magnet / time
+    // ✅ magnet = STUN power, time, shield
+    const POWER = ['🛡️','🧲','⏱️'];
     const BOSS = ['👾','😈','🦖','💀'];
 
     if (kind === 'good') return GOOD[(Math.random()*GOOD.length)|0];
@@ -361,10 +284,7 @@ export function boot(opts = {}){
 
   function spawnOne(){
     if (!state.running) return;
-
-    const sf = slowFactor();
-    const maxAllowed = Math.round(CFG.maxActive * (state.stunActive ? 0.80 : 1.0));
-    if (ACTIVE.size >= maxAllowed) return;
+    if (ACTIVE.size >= CFG.maxActive) return;
 
     const kind = chooseSpawnKind();
     const emoji = chooseEmoji(kind);
@@ -374,10 +294,6 @@ export function boot(opts = {}){
     const safePt = pickScreenPointSafe(SIZES, 18);
     const w = screenToWorldPoint(safePt, look);
 
-    // ttl adjusted by slow (slow => longer ttl slightly)
-    const baseTtl = (kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs;
-    const ttl = baseTtl * (1.0 + (1.0 - sf) * 0.40);
-
     const t = {
       id: Math.random().toString(16).slice(2),
       kind,
@@ -385,17 +301,15 @@ export function boot(opts = {}){
       el,
       wx: w.wx,
       wy: w.wy,
-      bornAt: now(),
-      ttlMs: ttl,
+      ageMs: 0,
+      ttlMs: (kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs,
       dead: false,
       bossHp: (kind === 'boss') ? 3 : 1
     };
 
-    // scale tuning
     const scale =
       (kind === 'boss') ? 1.25 :
       (kind === 'gold') ? 1.05 :
-      (kind === 'power') ? 1.0 :
       1.0;
 
     el.style.setProperty('--tScale', String(scale));
@@ -407,15 +321,12 @@ export function boot(opts = {}){
     const onDown = (ev)=>{
       ev.preventDefault?.();
       ev.stopPropagation?.();
-
-      // ✅ lock 1s: ignore hits during stun-lock
-      if (now() < state.lockUntil) return;
-
       const x = (ev?.clientX ?? (ev?.touches?.[0]?.clientX)) ?? s.x;
       const y = (ev?.clientY ?? (ev?.touches?.[0]?.clientY)) ?? s.y;
       hitTarget(t, x, y);
     };
     el.addEventListener('pointerdown', onDown, { passive:false });
+    el.addEventListener('touchstart', onDown, { passive:false });
 
     ACTIVE.add(t);
   }
@@ -431,85 +342,30 @@ export function boot(opts = {}){
     }
   }
 
-  function handleExpire(t){
+  function handleExpire(t, screenX, screenY){
     if (!t || t.dead) return;
 
+    // miss rule: good/gold/power/boss expired => miss
     if (t.kind === 'good' || t.kind === 'gold' || t.kind === 'power' || t.kind === 'boss'){
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
 
       setJudge('MISS');
+      fxJudge('MISS', 'miss');
+      fxBurst(screenX, screenY, 'miss');
       syncHUD();
     }
     killTarget(t, true);
   }
 
-  // ✅ STUN: junk breaks itself near aim center (no miss)
-  function stunAutoShatter(){
-    if (!state.stunActive) return;
-    const ap = window.__GJ_AIM_POINT__;
-    if (!ap) return;
-
-    const look = getLookRad(cameraEl);
-    const R = 135; // bigger radius feels stronger
-    const tNow = now();
-
-    // lock period: do *extra* shatter after lock ends (feels like release)
-    const boosted = (tNow - state.lastStunFxAt) > 700;
-
-    for (const t of ACTIVE){
-      if (!t || t.dead) continue;
-      if (t.kind !== 'junk') continue;
-
-      const s = worldToScreen(t.wx, t.wy, look, SIZES);
-      const dx = s.x - ap.x;
-      const dy = s.y - ap.y;
-      const d2 = dx*dx + dy*dy;
-
-      const RR = boosted ? (R*R*1.05) : (R*R);
-      if (d2 <= RR){
-        state.score += 7;
-        fxBurst(s.x, s.y, true, boosted ? 14 : 10);
-        fxPop(s.x, s.y, boosted ? 'SHATTER!' : 'SMASH!');
-        killTarget(t, true);
-      }
-
-      if (!state.stunActive) break;
-    }
-  }
-
-  // ✅ Magnet: pull ONLY good toward aim point
-  function magnetPullGoods(){
-    const tNow = now();
-    if (tNow > state.magnetUntil) return;
-
-    const ap = window.__GJ_AIM_POINT__;
-    if (!ap) return;
-
-    const look = getLookRad(cameraEl);
-
-    for (const t of ACTIVE){
-      if (!t || t.dead) continue;
-      if (t.kind !== 'good' && t.kind !== 'gold' && t.kind !== 'power') continue;
-
-      const s = worldToScreen(t.wx, t.wy, look, SIZES);
-      const dx = ap.x - s.x;
-      const dy = ap.y - s.y;
-
-      t.wx += dx * 0.06;
-      t.wy += dy * 0.06;
-    }
-  }
-
   function hitTarget(t, x, y){
     if (!t || t.dead || !state.running) return;
 
-    // extra guard
-    if (now() < state.lockUntil) return;
-
+    // Boss multi-hit
     if (t.kind === 'boss'){
       t.bossHp = (t.bossHp|0) - 1;
+      fxBurst(x, y, 'boss');
       if (t.bossHp > 0){
         setJudge('HIT!');
         emit('quest:goodHit', { x, y, judgment:'good' });
@@ -518,19 +374,20 @@ export function boot(opts = {}){
         state.combo++;
         state.comboMax = Math.max(state.comboMax, state.combo);
         addFever(+CFG.feverGain);
+        fxScore(x, y, `+${CFG.scoreGood|0}`, 'good');
         syncHUD();
         return;
       }
-
       state.bossCleared = true;
       setJudge('BOSS!');
       emit('quest:bossClear', {});
       emit('quest:goodHit', { x, y, judgment:'perfect' });
-      state.score += 95;
+      state.score += 90;
       state.goodHits++;
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+18);
+      fxScore(x, y, '+90', 'boss');
       syncHUD();
       killTarget(t, true);
       return;
@@ -540,6 +397,8 @@ export function boot(opts = {}){
       if (spendShield()){
         setJudge('BLOCK');
         emit('quest:block', { x, y });
+        fxBurst(x, y, 'block');
+        fxScore(x, y, 'BLOCK', 'block');
         syncHUD();
         killTarget(t, true);
         return;
@@ -551,12 +410,15 @@ export function boot(opts = {}){
 
       setJudge('JUNK!');
       emit('quest:badHit', { x, y, judgment:'junk' });
+      fxBurst(x, y, 'junk');
+      fxScore(x, y, 'JUNK', 'junk');
       syncHUD();
       killTarget(t, true);
       return;
     }
 
     if (t.kind === 'power'){
+      // ✅ magnet => STUN power (ไม่ดูดเฉพาะดีแล้ว)
       let p = 'shield';
       if (t.emoji === '🧲') p = 'magnet';
       if (t.emoji === '⏱️') p = 'time';
@@ -568,7 +430,7 @@ export function boot(opts = {}){
         state.endAt = state.endAt + 2500;
       }
       if (p === 'magnet'){
-        state.magnetUntil = now() + 4200;
+        startStun(3500, 'magnet');
       }
 
       setJudge(String(p).toUpperCase());
@@ -578,6 +440,9 @@ export function boot(opts = {}){
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+8);
+
+      fxBurst(x, y, p);
+      fxScore(x, y, '+18', 'power');
       syncHUD();
       killTarget(t, true);
       return;
@@ -585,8 +450,9 @@ export function boot(opts = {}){
 
     if (t.kind === 'gold'){
       setJudge('GOLD!');
-      emit('quest:goodHit', { x, y, judgment:'perfect', kind:'gold' });
+      // ✅ FIX: ให้ mini m2 ผ่านจริง
       emit('quest:power', { x, y, power:'gold' });
+      emit('quest:goodHit', { x, y, judgment:'perfect' });
 
       state.score += (CFG.scoreGold|0);
       state.goldHits++;
@@ -594,137 +460,175 @@ export function boot(opts = {}){
       state.combo += 2;
       state.comboMax = Math.max(state.comboMax, state.combo);
       addFever(+14);
+
+      fxBurst(x, y, 'gold');
+      fxScore(x, y, `+${CFG.scoreGold|0}`, 'gold');
       syncHUD();
       killTarget(t, true);
       return;
     }
 
     // normal good
-    const perfect = (Math.random() < (state.finalSprint ? 0.15 : 0.20));
+    const perfect = (Math.random() < 0.20);
     setJudge(perfect ? 'PERFECT!' : 'GOOD!');
     emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good' });
 
-    state.score += (CFG.scoreGood|0) + (perfect ? 6 : 0);
+    const add = (CFG.scoreGood|0) + (perfect ? 6 : 0);
+    state.score += add;
     state.goodHits++;
     state.combo++;
     state.comboMax = Math.max(state.comboMax, state.combo);
 
     addFever(+CFG.feverGain + (perfect ? 3 : 0));
+    fxBurst(x, y, perfect ? 'perfect' : 'good');
+    fxScore(x, y, `+${add}`, perfect ? 'perfect' : 'good');
     syncHUD();
     killTarget(t, true);
   }
 
-  function updateTargetsFollowLook(){
+  function getAimPoint(){
+    const ap = window.__GJ_AIM_POINT__;
+    if (ap && typeof ap.x === 'number' && typeof ap.y === 'number'){
+      return { x: ap.x, y: ap.y };
+    }
+    return { x: SIZES.W*0.5, y: SIZES.H*0.62 };
+  }
+
+  function applyShake(feverPct){
+    // shake only scene + target layer (HUD stays readable)
+    const scene = document.querySelector('a-scene');
+    const amp = Math.max(0, Math.min(1, feverPct/100));
+    if (!scene) return;
+
+    // stronger curve near high fever
+    const k = amp*amp;
+    const t = now()*0.02;
+    const dx = (Math.sin(t*1.7) * 6 + Math.sin(t*3.1) * 3) * k;
+    const dy = (Math.cos(t*1.5) * 6 + Math.cos(t*2.7) * 3) * k;
+    const rot = (Math.sin(t*1.2) * 0.8) * k;
+
+    scene.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+    layerEl.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+  }
+
+  function endGame(){
+    if (!state.running) return;
+    state.running = false;
+
+    // cleanup targets
+    for (const t of Array.from(ACTIVE)) killTarget(t, false);
+    ACTIVE.clear();
+
+    // reset transforms
+    const scene = document.querySelector('a-scene');
+    if (scene) scene.style.transform = '';
+    layerEl.style.transform = '';
+
+    syncHUD();
+
+    // ✅ Emit end for summary
+    emit('hha:end', {
+      mode: 'GoodJunkVR',
+      diff,
+      runMode,
+      challenge,
+      score: state.score|0,
+      goodHits: state.goodHits|0,
+      misses: state.misses|0,
+      comboMax: state.comboMax|0
+    });
+
+    try{ Particles.celebrate && Particles.celebrate('END'); }catch(_){}
+  }
+
+  function updateLoop(){
     if (!state.running) return;
 
-    const look = getLookRad(cameraEl);
     const tNow = now();
+    const dt = Math.max(0, tNow - state.lastFrameAt);
+    state.lastFrameAt = tNow;
 
-    decayFever();
-
-    // time tick
+    // time left tick
     const secLeft = Math.max(0, Math.ceil((state.endAt - tNow)/1000));
     if (secLeft !== state.lastTickSec){
       state.lastTickSec = secLeft;
-
-      // ✅ Final sprint trigger
-      if (!state.finalSprint && secLeft <= 8){
-        state.finalSprint = true;
-        setJudge('FINAL!');
-        syncHUD();
-      }
-
       emit('hha:time', { sec: secLeft });
     }
 
     // end
     if (tNow >= state.endAt){
-      state.running = false;
       emit('hha:time', { sec: 0 });
-
-      syncHUD();
-
-      for (const t of Array.from(ACTIVE)) killTarget(t, false);
-      ACTIVE.clear();
-
-      // clear FX
-      setCssVar('--shake-x','0px');
-      setCssVar('--shake-y','0px');
-      setCssVar('--fire-alpha','0');
-      setBodyClass('fever-hot', false);
-      setBodyClass('stun-on', false);
-      setBodyClass('stun-lock', false);
-      setBodyClass('final-sprint', false);
-
-      emit('hha:end', {
-        score: state.score|0,
-        goodHits: state.goodHits|0,
-        misses: state.misses|0,
-        comboMax: state.comboMax|0,
-        diff, challenge, runMode
-      });
+      endGame();
       return;
     }
 
-    // FX classes + shake + fire
-    setFxClasses();
-    applyShake();
-    applyFire();
+    // ---- STUN state + fever decay ----
+    const inStun = state.stunActive && (tNow < state.stunUntil);
+    if (state.stunActive && !inStun){
+      state.stunActive = false;
+    }
 
-    // STUN smash + magnet pull
-    stunAutoShatter();
-    magnetPullGoods();
+    // fever decay (มีลดจริง)
+    const decayBase = 3.2;             // per sec
+    const decayStun = 16.0;            // per sec during stun
+    const decay = (inStun ? decayStun : decayBase) * (dt/1000);
+    state.fever = clamp(state.fever - decay, 0, 100);
 
-    // move all targets
-    for (const t of ACTIVE){
+    // slow during stun
+    const timeScale = inStun ? 0.55 : 1.0;
+
+    // shake scaling with fever%
+    applyShake(state.fever);
+
+    // spawn using accumulator (respect timescale)
+    state.spawnAcc += dt;
+    const spawnMs = (CFG.spawnMs / timeScale);
+    while (state.spawnAcc >= spawnMs){
+      state.spawnAcc -= spawnMs;
+      spawnOne();
+    }
+
+    // STUN: junk breaks near aim point
+    const aim = getAimPoint();
+    const stunRadius = 120;
+
+    // update all targets
+    const look = getLookRad(cameraEl);
+
+    for (const t of Array.from(ACTIVE)){
       if (!t || t.dead || !t.el || !t.el.isConnected) continue;
 
-      if ((tNow - t.bornAt) >= t.ttlMs){
-        handleExpire(t);
-        continue;
-      }
+      // progress TTL using timescale (slow in stun)
+      t.ageMs += dt * timeScale;
 
       const s = worldToScreen(t.wx, t.wy, look, SIZES);
       t.el.style.left = s.x + 'px';
       t.el.style.top  = s.y + 'px';
+
+      // STUN auto-break junk near aim point
+      if (inStun && t.kind === 'junk'){
+        const dx = s.x - aim.x, dy = s.y - aim.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= stunRadius){
+          // junk แตกเอง ไม่เป็น miss
+          fxBurst(s.x, s.y, 'stun');
+          fxScore(s.x, s.y, '💥', 'stun');
+          killTarget(t, true);
+          continue;
+        }
+      }
+
+      // expire
+      if (t.ageMs >= t.ttlMs){
+        handleExpire(t, s.x, s.y);
+        continue;
+      }
     }
 
-    rafId = requestAnimationFrame(updateTargetsFollowLook);
-  }
+    // sync fever/stun to HUD occasionally
+    syncHUD();
 
-  function startSpawning(){
-    if (spawnTimer) clearInterval(spawnTimer);
-    spawnTimer = setInterval(()=>{
-      if (!state.running) return;
-
-      // lock: don’t spawn new targets during lock window (feels like “stun impact”)
-      if (now() < state.lockUntil) return;
-
-      const sf = slowFactor();
-
-      // probability gate based on slow (lower sf => fewer spawns)
-      // base chance = 1.0; at sf=0.55 => ~0.62
-      const chance = clamp(0.62 + (sf - 0.55) * 0.85, 0.60, 1.0);
-      if (Math.random() > chance) return;
-
-      // normal spawn
-      spawnOne();
-
-      // final sprint: extra pressure
-      if (state.finalSprint && Math.random() < 0.55){
-        spawnOne();
-      }
-
-      // stun: sometimes add extra junk to be shattered (feels “chaos”)
-      if (state.stunActive && Math.random() < 0.35){
-        spawnOne();
-      }
-
-      // magnet: slight extra good feed
-      if (now() < state.magnetUntil && Math.random() < 0.22){
-        spawnOne();
-      }
-    }, CFG.spawnMs);
+    rafId = requestAnimationFrame(updateLoop);
   }
 
   // init
@@ -732,37 +636,19 @@ export function boot(opts = {}){
   syncHUD();
   setJudge(' ');
 
-  // reset FX
-  setCssVar('--fire-alpha', '0');
-  setBodyClass('fever-hot', false);
-  setBodyClass('stun-on', false);
-  setBodyClass('stun-lock', false);
-  setBodyClass('final-sprint', false);
+  rafId = requestAnimationFrame(updateLoop);
 
-  startSpawning();
-  rafId = requestAnimationFrame(updateTargetsFollowLook);
-
-  const api = {
+  return {
     stop(){
       state.running = false;
-      try{ clearInterval(spawnTimer); }catch(_){}
       try{ cancelAnimationFrame(rafId); }catch(_){}
       try{ window.removeEventListener('resize', onResize); }catch(_){}
       for (const t of Array.from(ACTIVE)) killTarget(t, false);
       ACTIVE.clear();
-
-      setCssVar('--shake-x','0px');
-      setCssVar('--shake-y','0px');
-      setCssVar('--fire-alpha','0');
-      setBodyClass('fever-hot', false);
-      setBodyClass('stun-on', false);
-      setBodyClass('stun-lock', false);
-      setBodyClass('final-sprint', false);
+      const scene = document.querySelector('a-scene');
+      if (scene) scene.style.transform = '';
+      layerEl.style.transform = '';
     },
     getState(){ return { ...state, active: ACTIVE.size }; }
   };
-
-  return api;
 }
-
-export default boot;
