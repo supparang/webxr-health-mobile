@@ -1,14 +1,3 @@
-<!-- === /herohealth/groups-vr.html ===
-Food Groups VR (PRODUCTION) — Full HTML
-✅ DOM emoji sticker targets (#fg-layer) + fade-in/out
-✅ World-anchored/parallax ตาม camera (PATCH 1) via GroupsVR.GameEngine
-✅ Clamp safe zone กันทับ HUD 4 ด้าน (PATCH 2) via setAvoidEls()
-✅ PANIC (10s) + beep + shake + vignette
-✅ RUSH overlay + sound
-✅ Quest/Coach/Fever/Rank/Result overlay
-✅ Tap-anywhere (start + resume audio)
-✅ VR-look: drag-to-look + deviceorientation + inertia (เปิดใน Engine)  *ไม่ใช้ attachTouchLook เพื่อกันซ้อน*
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -17,8 +6,6 @@ Food Groups VR (PRODUCTION) — Full HTML
   <title>Hero Health — Food Groups VR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon">
-
-  <!-- A-Frame core (background only) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
@@ -45,7 +32,6 @@ Food Groups VR (PRODUCTION) — Full HTML
         radial-gradient(circle at bottom right, rgba(34,197,94,0.24), transparent 55%),
         #020617;
       color:var(--text-main);
-      touch-action:manipulation;
     }
 
     /* ✅ PANIC visuals */
@@ -61,7 +47,9 @@ Food Groups VR (PRODUCTION) — Full HTML
     }
     @keyframes panicPulse { 0%,100%{opacity:.45} 50%{opacity:.95} }
 
-    body.panic{ animation:panicShake .22s ease-in-out infinite; }
+    body.panic{
+      animation:panicShake .22s ease-in-out infinite;
+    }
     @keyframes panicShake{
       0%{ transform:translate(0,0) }
       25%{ transform:translate(1px,-1px) }
@@ -73,14 +61,6 @@ Food Groups VR (PRODUCTION) — Full HTML
     /* A-Frame = background only */
     a-scene{ position:fixed; inset:0; z-index:0; }
     a-scene, a-scene canvas{ pointer-events:none !important; }
-
-    /* DOM targets layer */
-    #fg-layer{
-      position:fixed; inset:0;
-      z-index:40;
-      pointer-events:auto !important;
-      touch-action:manipulation;
-    }
 
     /* HUD */
     .hud-root{ position:fixed; inset:0; pointer-events:none; z-index:60; }
@@ -99,7 +79,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       border:1px solid rgba(148,163,184,0.25);
       box-shadow:0 18px 40px rgba(15,23,42,0.9), 0 0 0 1px rgba(15,23,42,1);
       min-width:260px; max-width:360px;
-      backdrop-filter: blur(8px);
     }
     .hud-main-title{ font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--text-soft); margin-bottom:2px; }
     .hud-main-mode{ font-size:18px; font-weight:600; }
@@ -133,7 +112,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       box-shadow:0 14px 28px rgba(0,0,0,0.55);
       transform:translateY(0) scale(1);
       transition:transform .16s ease-out;
-      user-select:none;
     }
     .rank-badge.pop{ transform:translateY(-1px) scale(1.08); }
 
@@ -146,7 +124,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       border:1px solid rgba(148,163,184,0.25);
       box-shadow:0 18px 40px rgba(15,23,42,0.9), 0 0 0 1px rgba(15,23,42,1);
       max-height:40vh; overflow-y:auto;
-      backdrop-filter: blur(8px);
     }
     .fg-quest-title{ font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-soft); margin-bottom:4px; }
     .fg-quest-row{ display:flex; align-items:flex-start; gap:6px; font-size:13px; padding:2px 0; }
@@ -169,7 +146,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       display:none;
       align-items:center; gap:8px;
       pointer-events:auto;
-      backdrop-filter: blur(10px);
     }
     .coach-bubble.show{ display:flex; }
     .coach-label{ font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:#6ee7b7; font-weight:600; }
@@ -179,7 +155,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       display:inline-flex; align-items:center; justify-content:center;
       font-size:18px;
       box-shadow:0 0 0 2px rgba(15,23,42,0.9);
-      user-select:none;
     }
 
     @media (max-width:640px){
@@ -190,71 +165,51 @@ Food Groups VR (PRODUCTION) — Full HTML
       .rank-pill{ align-items:flex-start; margin-left:0; }
     }
 
-    /* ✅ Emoji sticker targets */
+    /* DOM targets */
+    #fg-layer{
+      position:fixed; inset:0;
+      z-index:40;
+      pointer-events:auto !important;
+      touch-action:manipulation;
+    }
     .fg-target{
       position:absolute;
       width:132px; height:132px;
-      border-radius:22px;                 /* sticker-ish */
+      border-radius:22px;
       display:flex; align-items:center; justify-content:center;
       pointer-events:auto;
       cursor:pointer;
       user-select:none; -webkit-user-select:none;
       touch-action:manipulation;
-      box-shadow:
-        0 14px 34px rgba(15,23,42,0.86),
-        0 0 0 3px rgba(15,23,42,0.92);
+      box-shadow:0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
       transform:translate(-50%,-50%) scale(0.86);
-      transition:
-        transform .14s ease-out,
-        opacity .14s ease-out,
-        filter .14s ease-out;
+      transition:transform .14s ease-out, opacity .14s ease-out;
       opacity:0;
-      backdrop-filter: blur(6px);
     }
     .fg-target.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-    .fg-good{
-      background:
-        radial-gradient(circle at 30% 30%, rgba(34,197,94,0.95), rgba(21,128,61,0.92));
-    }
-    .fg-junk{
-      background:
-        radial-gradient(circle at 30% 30%, rgba(249,115,22,0.95), rgba(194,65,12,0.92));
-    }
-
-    /* subtle sticker outline */
-    .fg-target::after{
-      content:"";
-      position:absolute; inset:0;
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,0.10);
-      pointer-events:none;
-    }
+    .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
+    .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
 
     /* boss junk look */
     .fg-boss{
-      background:radial-gradient(circle at 30% 30%, rgba(239,68,68,0.98), rgba(127,29,29,0.95)) !important;
+      background:radial-gradient(circle at 30% 30%, #ef4444, #7f1d1d) !important;
       box-shadow:
-        0 18px 40px rgba(0,0,0,0.75),
-        0 0 0 4px rgba(15,23,42,0.92),
-        0 0 26px rgba(239,68,68,0.55);
+        0 16px 36px rgba(0,0,0,0.75),
+        0 0 0 5px rgba(15,23,42,0.9),
+        0 0 28px rgba(239,68,68,0.65);
       animation:bossPulse .55s ease-in-out infinite;
-      filter:saturate(1.1);
     }
-    @keyframes bossPulse { 0%,100%{ transform:translate(-50%,-50%) scale(1) } 50%{ transform:translate(-50%,-50%) scale(1.06) } }
+    @keyframes bossPulse { 0%,100%{ filter:saturate(1) } 50%{ filter:saturate(1.5) } }
 
     .fg-target::before{
       content:attr(data-emoji);
       display:block;
-      font-size:clamp(42px,7vmin,66px);
+      font-size:clamp(40px,7vmin,64px);
       line-height:1;
       color:#fefce8;
       text-shadow:0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
     }
-    .fg-target.hit{
-      transform:translate(-50%,-50%) scale(0.62);
-      opacity:0;
-      filter: blur(0.3px);
-    }
+    .fg-target.hit{ transform:translate(-50%,-50%) scale(0.6); opacity:0; }
 
     /* Fever gauge */
     .hha-fever-wrap{
@@ -262,7 +217,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       left:10px; bottom:10px;
       transform:none;
       z-index:80 !important;
-      pointer-events:auto !important;
     }
 
     /* Countdown */
@@ -280,71 +234,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       transition:opacity .2s ease-out, transform .2s ease-out;
     }
     .countdown-overlay.show{ opacity:1; transform:scale(1); }
-
-    /* ✅ Tap-anywhere overlay */
-    .tap-overlay{
-      position:fixed; inset:0;
-      z-index:210;
-      display:flex; align-items:center; justify-content:center;
-      pointer-events:auto;
-      background:radial-gradient(circle at top, rgba(2,6,23,0.20), rgba(2,6,23,0.65));
-      backdrop-filter: blur(10px);
-    }
-    .tap-card{
-      width:min(520px, 92vw);
-      border-radius:22px;
-      padding:16px 16px 14px;
-      border:1px solid rgba(148,163,184,0.35);
-      background:radial-gradient(circle at top,#0f172a,#020617);
-      box-shadow:0 22px 60px rgba(0,0,0,0.85);
-      color:var(--text-main);
-    }
-    .tap-title{
-      font-size:12px; letter-spacing:.18em; text-transform:uppercase;
-      color:var(--text-soft);
-    }
-    .tap-big{
-      margin-top:6px;
-      font-size:18px;
-      font-weight:800;
-    }
-    .tap-sub{
-      margin-top:6px;
-      font-size:13px;
-      color:#cbd5e1;
-      opacity:.92;
-      line-height:1.35;
-    }
-    .tap-row{
-      margin-top:10px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-      color:#e2e8f0;
-      font-size:12px;
-    }
-    .tap-pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(56,189,248,0.35);
-      background:rgba(2,6,23,0.35);
-    }
-    .tap-cta{
-      margin-top:12px;
-      width:100%;
-      padding:10px 14px;
-      border-radius:999px;
-      border:none;
-      cursor:pointer;
-      font-weight:900;
-      letter-spacing:.08em;
-      background:linear-gradient(90deg,#22c55e,#4ade80);
-      color:#022c22;
-      box-shadow:0 16px 34px rgba(0,0,0,0.55);
-    }
 
     /* RUSH overlay */
     .rush-overlay{
@@ -370,7 +259,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       color:#04101f;
       background:linear-gradient(90deg,#facc15,#22c55e,#38bdf8);
       font-size:clamp(18px,4vw,26px);
-      user-select:none;
     }
     .rush-sub{
       margin-top:6px;
@@ -379,7 +267,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       letter-spacing:.14em;
       color:#e0f2fe;
       opacity:.9;
-      user-select:none;
     }
 
     /* VR button */
@@ -398,7 +285,6 @@ Food Groups VR (PRODUCTION) — Full HTML
       display:inline-flex; align-items:center; gap:6px;
       box-shadow:0 14px 30px rgba(15,23,42,0.9);
       pointer-events:auto;
-      user-select:none;
     }
     .vr-btn span{ font-size:16px; }
 
@@ -414,10 +300,9 @@ Food Groups VR (PRODUCTION) — Full HTML
       transform:scale(.86) translateY(10px);
       opacity:0;
       transition:opacity .18s ease-out, transform .18s ease-out, background .18s ease-out;
-      user-select:none;
     }
     .celebrate-overlay.show .celebrate-content{ opacity:1; transform:scale(1) translateY(0); }
-    .celebrate-sub{ display:block; margin-top:4px; font-size:clamp(11px,2.5vw,13px); letter-spacing:.18em; opacity:.9; user-select:none; }
+    .celebrate-sub{ display:block; margin-top:4px; font-size:clamp(11px,2.5vw,13px); letter-spacing:.18em; opacity:.9; }
     .celebrate--mini .celebrate-content{ background:radial-gradient(circle at top, rgba(250,204,21,0.95), rgba(217,119,6,0.98)); color:#022c22; }
     .celebrate--all .celebrate-content{ background:radial-gradient(circle at top, rgba(56,189,248,0.98), rgba(30,64,175,0.98)); }
 
@@ -554,22 +439,6 @@ Food Groups VR (PRODUCTION) — Full HTML
   <button id="btn-vr" class="vr-btn"><span>🕶️</span> เข้าสู่โหมด VR</button>
   <div id="start-countdown" class="countdown-overlay">3</div>
 
-  <!-- Tap-anywhere start -->
-  <div id="tap-overlay" class="tap-overlay">
-    <div class="tap-card">
-      <div class="tap-title">READY • FOOD GROUPS VR</div>
-      <div class="tap-big">แตะที่ไหนก็ได้เพื่อเริ่มเล่น 🎮</div>
-      <div class="tap-sub">
-        หมุนจอ/ลากเพื่อมองหาเป้า • แตะอาหารดีให้ได้ตาม Goal + Mini • ระวังขยะ (มีบอสด้วย!)
-      </div>
-      <div class="tap-row">
-        <div class="tap-pill">📱 มือถือ: ลาก/เอียงเครื่องเพื่อมอง</div>
-        <div class="tap-pill">🖱️ PC: ลากเมาส์เพื่อมอง</div>
-      </div>
-      <button id="tap-start" class="tap-cta">START</button>
-    </div>
-  </div>
-
   <!-- Celebrate overlay -->
   <div id="celebrate-overlay" class="celebrate-overlay">
     <div class="celebrate-content">
@@ -596,9 +465,10 @@ Food Groups VR (PRODUCTION) — Full HTML
     </div>
   </div>
 
-  <!-- Fever UI + particles -->
+  <!-- Fever UI + particles + ✅ logger (GLOBAL IIFE) -->
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
+  <script src="./vr/hha-cloud-logger.js"></script>
 
   <!-- Quest + Engine -->
   <script src="./vr-groups/quest-manager.js"></script>
@@ -606,9 +476,8 @@ Food Groups VR (PRODUCTION) — Full HTML
 
   <!-- Boot -->
   <script type="module">
-    import { initCloudLogger } from './vr/hha-cloud-logger.js';
+    import { attachTouchLook } from './vr-goodjunk/touch-look-goodjunk.js';
 
-    // Elements
     const fgLayer = document.getElementById('fg-layer');
 
     const elScore = document.getElementById('hud-score');
@@ -648,9 +517,6 @@ Food Groups VR (PRODUCTION) — Full HTML
     const elResGoal  = document.getElementById('res-goal');
     const elResMini  = document.getElementById('res-mini');
 
-    const tapOverlay = document.getElementById('tap-overlay');
-    const tapStartBtn = document.getElementById('tap-start');
-
     document.getElementById('res-replay').addEventListener('click', () => location.reload());
     document.getElementById('res-back').addEventListener('click', () => location.href = './hub.html');
 
@@ -667,18 +533,11 @@ Food Groups VR (PRODUCTION) — Full HTML
       setTimeout(() => elCoachBubble.classList.remove('show'), 3200);
     }
 
-    // ✅ WebAudio small beeps (unlock on tap)
+    // ✅ simple tick sound (WebAudio) for PANIC
     let audioCtx = null;
-    function ensureAudio(){
-      try{
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-      }catch{}
-    }
     function beep(freq=880, dur=0.06, gain=0.06){
       try{
-        ensureAudio();
-        if (!audioCtx) return;
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const ctx = audioCtx;
         const o = ctx.createOscillator();
         const g = ctx.createGain();
@@ -750,7 +609,7 @@ Food Groups VR (PRODUCTION) — Full HTML
       rankPopT = setTimeout(() => elRank.classList.remove('pop'), 180);
     });
 
-    // PANIC listener
+    // ✅ PANIC listener
     let panicTickTimer = null;
     window.addEventListener('hha:panic', (e) => {
       const d = e.detail || {};
@@ -759,6 +618,7 @@ Food Groups VR (PRODUCTION) — Full HTML
 
       clearInterval(panicTickTimer);
       if (on){
+        // tick เร็วขึ้นเมื่อเวลาใกล้หมด (10->1)
         panicTickTimer = setInterval(() => {
           const left = parseInt(elTime.textContent||'0',10) || 0;
           const freq = left <= 3 ? 1100 : (left <= 6 ? 980 : 880);
@@ -767,7 +627,7 @@ Food Groups VR (PRODUCTION) — Full HTML
       }
     });
 
-    // RUSH listener
+    // ✅ RUSH listener
     let rushTimer = null;
     window.addEventListener('hha:rush', (e) => {
       const d = e.detail || {};
@@ -775,6 +635,7 @@ Food Groups VR (PRODUCTION) — Full HTML
         elRush.classList.add('show');
         clearTimeout(rushTimer);
         rushTimer = setTimeout(() => elRush.classList.remove('show'), 1400);
+        // เสียงเปิด RUSH
         beep(660,0.06,0.06); setTimeout(()=>beep(880,0.06,0.06),80); setTimeout(()=>beep(990,0.06,0.06),160);
       } else {
         elRush.classList.remove('show');
@@ -816,24 +677,47 @@ Food Groups VR (PRODUCTION) — Full HTML
       elResult.classList.add('show');
     });
 
-    // VR button
+    // VR
     btnVR.addEventListener('click', () => {
-      ensureAudio();
       const scene = document.querySelector('a-scene');
       if (scene && scene.enterVR) { try { scene.enterVR(); } catch {} }
     });
 
-    // Logger
-    function initLogger(diff, dur, runMode){
-      initCloudLogger({
+    // Touch look
+    const cam = document.querySelector('#fg-camera');
+    if (cam) attachTouchLook(cam, { sensitivity: 0.25, areaEl: document.body });
+
+    // ✅ Logger (GLOBAL)
+    function sessionUUID(){
+      try { if (crypto && crypto.randomUUID) return crypto.randomUUID(); } catch {}
+      return 'sess_' + Math.random().toString(16).slice(2) + '_' + Date.now();
+    }
+
+    function initLogger(diff, dur, runMode, sessionId){
+      const L = window.HHACloudLogger;
+      if (!L || typeof L.init !== 'function'){
+        console.warn('[FoodGroupsVR] HHACloudLogger missing (logger disabled)');
+        return;
+      }
+
+      L.init({
         endpoint: 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec',
-        projectTag: 'HeroHealth-FoodGroupsVR',
-        mode: 'FoodGroupsVR',
-        runMode,
-        diff,
-        durationSec: dur,
         debug: false
       });
+
+      // log session meta (1 ครั้ง)
+      window.dispatchEvent(new CustomEvent('hha:log_session', {
+        detail: {
+          projectTag: 'HeroHealth-FoodGroupsVR',
+          mode: 'FoodGroupsVR',
+          sessionId,
+          runMode,
+          diff,
+          durationSec: dur,
+          startedAtIso: new Date().toISOString(),
+          ua: navigator.userAgent
+        }
+      }));
     }
 
     function runCountdown(onDone){
@@ -854,15 +738,12 @@ Food Groups VR (PRODUCTION) — Full HTML
       }, 800);
     }
 
-    // Tap-anywhere start (unlock audio + start game)
-    function hideTapOverlay(){
-      tapOverlay.style.display = 'none';
-    }
-
-    function bootGame(){
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
       const runMode = (runParam === 'research') ? 'research' : 'play';
+
       elDiff.textContent = diff.toUpperCase();
 
       let dur = (diff === 'easy') ? 88 : (diff === 'hard' ? 55 : 70);
@@ -873,7 +754,9 @@ Food Groups VR (PRODUCTION) — Full HTML
       }
       elTime.textContent = dur + 's';
 
-      initLogger(diff, dur, runMode);
+      const sessionId = sessionUUID();
+      initLogger(diff, dur, runMode, sessionId);
+
       setCoach('เริ่มเลย! เก็บอาหารดีตามหมู่ให้ครบ Goal + Mini ✨');
 
       const Engine = window.GroupsVR?.GameEngine;
@@ -881,29 +764,7 @@ Food Groups VR (PRODUCTION) — Full HTML
         console.error('[FoodGroupsVR] GameEngine ไม่พบ');
         return;
       }
-
       Engine.setLayerEl && Engine.setLayerEl(fgLayer);
-
-      const cam = document.querySelector('#fg-camera');
-      Engine.setCameraEl && Engine.setCameraEl(cam);
-
-      // PATCH 2: avoid HUD 4 sides
-      Engine.setAvoidEls && Engine.setAvoidEls([
-        '.hud-card',
-        '.fg-quest-panel',
-        '.hha-fever-wrap',
-        '#btn-vr'
-      ]);
-
-      // VR-look (drag + deviceorientation + inertia) — เปิดใน Engine (แทน attachTouchLook)
-      // หมายเหตุ: deviceorientation บางเครื่องต้อง permission; ถ้าไม่ได้ก็ยังลากได้
-      Engine.enableLook && Engine.enableLook({
-        areaEl: document.body,
-        useDeviceOrientation: true,
-        sensitivity: 0.25,
-        inertia: 0.92,
-        maxPitch: 55
-      });
 
       runCountdown(() => {
         let timeLeft = dur;
@@ -923,25 +784,9 @@ Food Groups VR (PRODUCTION) — Full HTML
           }
         }, 1000);
 
-        Engine.start(diff, { layerEl: fgLayer, runMode });
+        // ✅ ส่ง sessionId ให้ Engine (ให้ log_event ผูกกับ session เดียวกัน)
+        Engine.start(diff, { layerEl: fgLayer, runMode, sessionId });
       });
-    }
-
-    function startFromTap(){
-      ensureAudio();
-      hideTapOverlay();
-      bootGame();
-    }
-
-    tapStartBtn.addEventListener('click', startFromTap);
-    tapOverlay.addEventListener('click', (e) => {
-      // click card button handled; tap anywhere else also starts
-      if (e.target && e.target.id === 'tap-start') return;
-      startFromTap();
-    });
-
-    window.addEventListener('DOMContentLoaded', () => {
-      // show tap overlay (game starts when user taps)
     });
   </script>
 </body>
