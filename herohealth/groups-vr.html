@@ -34,7 +34,7 @@
       color:var(--text-main);
     }
 
-    /* PANIC visuals */
+    /* ✅ PANIC visuals */
     body.panic::before{
       content:"";
       position:fixed; inset:-20px;
@@ -46,10 +46,7 @@
       mix-blend-mode:screen;
     }
     @keyframes panicPulse { 0%,100%{opacity:.45} 50%{opacity:.95} }
-
-    body.panic{
-      animation:panicShake .22s ease-in-out infinite;
-    }
+    body.panic{ animation:panicShake .22s ease-in-out infinite; }
     @keyframes panicShake{
       0%{ transform:translate(0,0) }
       25%{ transform:translate(1px,-1px) }
@@ -57,6 +54,9 @@
       75%{ transform:translate(1px,1px) }
       100%{ transform:translate(0,0) }
     }
+
+    /* micro hitstop */
+    body.hitstop{ filter:saturate(1.2) contrast(1.06) brightness(1.04); }
 
     /* A-Frame = background only */
     a-scene{ position:fixed; inset:0; z-index:0; }
@@ -172,24 +172,31 @@
       pointer-events:auto !important;
       touch-action:manipulation;
     }
+
+    /* emoji sticker style + fade */
     .fg-target{
       position:absolute;
       width:132px; height:132px;
-      border-radius:50%;
+      border-radius:999px;
       display:flex; align-items:center; justify-content:center;
       pointer-events:auto;
       cursor:pointer;
       user-select:none; -webkit-user-select:none;
       touch-action:manipulation;
-      box-shadow:0 12px 32px rgba(15,23,42,0.85), 0 0 0 4px rgba(15,23,42,0.9);
-      transform:translate(-50%,-50%) scale(0.92);
-      transition:transform .14s ease-out, opacity .14s ease-out;
-      opacity:0; /* fade-in base */
-      will-change:transform,left,top,opacity;
+
+      /* sticker */
+      background:radial-gradient(circle at 30% 30%, #22c55e, #15803d);
+      box-shadow:
+        0 18px 42px rgba(0,0,0,0.62),
+        0 0 0 6px rgba(255,255,255,0.10),
+        0 0 0 1px rgba(15,23,42,1);
+
+      transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(1);
+      transition:opacity .12s ease-out, transform .12s ease-out, filter .12s ease-out;
+      opacity:1;
+      will-change:transform,opacity;
     }
-    .fg-target.spawn{ opacity:0; transform:translate(-50%,-50%) scale(0.86); }
-    .fg-target.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-    .fg-target.fade{ opacity:0; transform:translate(-50%,-50%) scale(0.78); }
+
     .fg-good{ background:radial-gradient(circle at 30% 30%, #22c55e, #15803d); }
     .fg-junk{ background:radial-gradient(circle at 30% 30%, #f97316, #c2410c); }
 
@@ -197,12 +204,13 @@
     .fg-boss{
       background:radial-gradient(circle at 30% 30%, #ef4444, #7f1d1d) !important;
       box-shadow:
-        0 16px 36px rgba(0,0,0,0.75),
-        0 0 0 5px rgba(15,23,42,0.9),
-        0 0 28px rgba(239,68,68,0.65);
+        0 22px 55px rgba(0,0,0,0.75),
+        0 0 0 6px rgba(255,255,255,0.12),
+        0 0 0 1px rgba(15,23,42,1),
+        0 0 34px rgba(239,68,68,0.68);
       animation:bossPulse .55s ease-in-out infinite;
     }
-    @keyframes bossPulse { 0%,100%{ filter:saturate(1) } 50%{ filter:saturate(1.5) } }
+    @keyframes bossPulse { 0%,100%{ filter:saturate(1) } 50%{ filter:saturate(1.55) } }
 
     .fg-target::before{
       content:attr(data-emoji);
@@ -210,9 +218,18 @@
       font-size:clamp(40px,7vmin,64px);
       line-height:1;
       color:#fefce8;
-      text-shadow:0 2px 4px rgba(15,23,42,0.9), 0 0 10px rgba(15,23,42,0.9);
+      text-shadow:
+        0 2px 6px rgba(15,23,42,0.9),
+        0 0 14px rgba(15,23,42,0.75);
+      filter:drop-shadow(0 10px 18px rgba(0,0,0,0.35));
     }
-    .fg-target.hit{ transform:translate(-50%,-50%) scale(0.6); opacity:0; }
+
+    .fg-target.spawn{ opacity:0; transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(.72); }
+    .fg-target.spawn{ animation:popIn .14s ease-out forwards; }
+    @keyframes popIn{ to{ opacity:1; transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(1); } }
+
+    .fg-target.out{ opacity:0; transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(.82); }
+    .fg-target.hit{ opacity:0; transform:translate(-50%,-50%) translate3d(50vw,52vh,0) scale(0.6); }
 
     /* Fever gauge */
     .hha-fever-wrap{
@@ -271,6 +288,65 @@
       color:#e0f2fe;
       opacity:.9;
     }
+
+    /* Aim reticle */
+    .aim-reticle{
+      position:fixed;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      z-index:170;
+      pointer-events:none;
+      opacity:.92;
+      filter:drop-shadow(0 10px 28px rgba(0,0,0,.55));
+    }
+    .aim-ring{
+      width:44px; height:44px;
+      border-radius:999px;
+      border:2px solid rgba(224,242,254,.9);
+      box-shadow:0 0 20px rgba(56,189,248,.38);
+      opacity:.85;
+    }
+    .aim-dot{
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:6px; height:6px;
+      border-radius:999px;
+      background:rgba(250,204,21,.95);
+      box-shadow:0 0 16px rgba(250,204,21,.55);
+    }
+    .aim-reticle.perfect .aim-ring{
+      animation:aimPulse .18s ease-out 1;
+      border-color:rgba(34,197,94,.95);
+      box-shadow:0 0 26px rgba(34,197,94,.55);
+    }
+    .aim-reticle.miss .aim-ring{
+      animation:aimPulseMiss .14s ease-out 1;
+      border-color:rgba(248,113,113,.95);
+      box-shadow:0 0 26px rgba(248,113,113,.55);
+    }
+    @keyframes aimPulse{ 0%{ transform:scale(.92); opacity:.8 } 100%{ transform:scale(1.12); opacity:1 } }
+    @keyframes aimPulseMiss{ 0%{ transform:scale(.92) } 50%{ transform:scale(1.18) } 100%{ transform:scale(1.02) } }
+
+    /* danger banner */
+    .danger-banner{
+      position:fixed;
+      left:50%;
+      top:14%;
+      transform:translateX(-50%) scale(.96);
+      z-index:186;
+      pointer-events:none;
+      opacity:0;
+      padding:10px 18px;
+      border-radius:999px;
+      font-weight:1000;
+      letter-spacing:.18em;
+      color:#fff;
+      background:linear-gradient(90deg, rgba(239,68,68,.95), rgba(217,119,6,.92));
+      box-shadow:0 20px 60px rgba(0,0,0,.75);
+      transition:opacity .14s ease-out, transform .14s ease-out;
+    }
+    .danger-banner.show{ opacity:1; transform:translateX(-50%) scale(1); }
 
     /* VR button */
     .vr-btn{
@@ -355,13 +431,7 @@
            renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
            background="color: #020617">
     <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="fg-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
-        <a-entity id="cursor"
-                  cursor="fuse: false; rayOrigin: mouse"
-                  geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
-                  material="shader: flat; color: #ffffff"
-                  position="0 0 -0.9"></a-entity>
-      </a-camera>
+      <a-camera id="fg-camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false"></a-camera>
     </a-entity>
     <a-entity light="type: hemisphere; color: #ffffff; groundColor: #4b5563; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 0.65" position="1 2 0.5"></a-entity>
@@ -371,12 +441,23 @@
   </a-scene>
 
   <!-- DOM targets -->
-  <div id="fg-layer" aria-label="targets layer"></div>
+  <div id="fg-layer"></div>
+
+  <!-- Aim Reticle -->
+  <div id="aim-reticle" class="aim-reticle" aria-hidden="true">
+    <div class="aim-ring"></div>
+    <div class="aim-dot"></div>
+  </div>
+
+  <!-- Danger banner -->
+  <div id="danger-banner" class="danger-banner" aria-hidden="true">
+    ⚠️ DANGER
+  </div>
 
   <!-- RUSH overlay -->
   <div id="rush-overlay" class="rush-overlay">
     <div class="rush-badge">🚀 RUSH MODE!</div>
-    <div class="rush-sub">คะแนนอาหารดี x2 • แตะให้ไว!</div>
+    <div class="rush-sub">คะแนนอาหารดี x2 • แตะ/จ้องให้ไว!</div>
   </div>
 
   <!-- HUD -->
@@ -433,7 +514,7 @@
         <div class="coach-avatar" id="coach-avatar">🥦</div>
         <div>
           <div class="coach-label">โค้ช</div>
-          <div id="coach-text">แตะอาหารดีตามหมู่ให้ครบตามภารกิจ ✨</div>
+          <div id="coach-text">แตะ/จ้องอาหารดีตามหมู่ให้ครบตามภารกิจ ✨</div>
         </div>
       </div>
     </div>
@@ -468,16 +549,14 @@
     </div>
   </div>
 
-  <!-- Fever UI + particles -->
+  <!-- Fever UI + particles + logger (IIFE) -->
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/particles.js"></script>
+  <script src="./vr/hha-cloud-logger.js"></script>
 
   <!-- Quest + Engine -->
   <script src="./vr-groups/quest-manager.js"></script>
   <script src="./vr-groups/GameEngine.js"></script>
-
-  <!-- Logger (IIFE) -->
-  <script src="./vr/hha-cloud-logger.js"></script>
 
   <!-- Boot -->
   <script type="module">
@@ -513,6 +592,8 @@
     const elCelebrateSub  = document.getElementById('celebrate-sub');
 
     const elRush = document.getElementById('rush-overlay');
+    const reticle = document.getElementById('aim-reticle');
+    const dangerBanner = document.getElementById('danger-banner');
 
     const elResult   = document.getElementById('result-overlay');
     const elResGrade = document.getElementById('res-grade');
@@ -538,7 +619,7 @@
       setTimeout(() => elCoachBubble.classList.remove('show'), 3200);
     }
 
-    // simple tick sound (WebAudio) for PANIC
+    // ✅ simple tick sound (WebAudio) for PANIC
     let audioCtx = null;
     function beep(freq=880, dur=0.06, gain=0.06){
       try{
@@ -645,6 +726,26 @@
       }
     });
 
+    // Reticle feedback
+    window.addEventListener('groups:reticle', (e) => {
+      const d = e.detail || {};
+      if (!reticle) return;
+      reticle.classList.remove('perfect','miss');
+      if (d.state === 'perfect') reticle.classList.add('perfect');
+      if (d.state === 'miss') reticle.classList.add('miss');
+      setTimeout(() => reticle.classList.remove('perfect','miss'), 180);
+    });
+
+    // Danger banner
+    window.addEventListener('groups:danger', (e) => {
+      const d = e.detail || {};
+      if (!dangerBanner) return;
+      if (d.on){
+        dangerBanner.classList.add('show');
+        setTimeout(() => dangerBanner.classList.remove('show'), 700);
+      }
+    });
+
     window.addEventListener('quest:update', (e) => {
       const d = e.detail || {};
       const goal = d.goal || null;
@@ -684,20 +785,23 @@
     btnVR.addEventListener('click', () => {
       const scene = document.querySelector('a-scene');
       if (scene && scene.enterVR) { try { scene.enterVR(); } catch {} }
+      // hint: gaze/fuse ทำงานตลอด (Engine ใช้ center aim)
+      setCoach('โหมด VR: “จ้อง” เป้าไว้ ~0.5 วิ จะยิงอัตโนมัติ 👀🎯');
     });
 
     // Touch look
     const cam = document.querySelector('#fg-camera');
     if (cam) attachTouchLook(cam, { sensitivity: 0.25, areaEl: document.body });
 
-    // Logger (IIFE) — FIX: no named export, use window.HHACloudLogger.init
-    function initLogger(){
-      const endpoint = 'https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec';
+    // ✅ Logger (IIFE): set endpoint + init (แก้ error import/export)
+    function initLogger(endpoint){
       try{
-        window.HHACloudLogger && window.HHACloudLogger.init && window.HHACloudLogger.init({
-          endpoint,
-          debug: false
-        });
+        if (endpoint) sessionStorage.setItem('HHA_LOGGER_ENDPOINT', endpoint);
+      }catch{}
+      try{
+        if (window.HHACloudLogger && window.HHACloudLogger.init) {
+          window.HHACloudLogger.init({ endpoint, debug:false });
+        }
       }catch{}
     }
 
@@ -719,6 +823,7 @@
       }, 800);
     }
 
+    // Boot
     window.addEventListener('DOMContentLoaded', () => {
       const diff = String(getParam('diff','normal')).toLowerCase();
       const runParam = String(getParam('run','play')).toLowerCase();
@@ -734,8 +839,9 @@
       }
       elTime.textContent = dur + 's';
 
-      initLogger();
-      setCoach('เริ่มเลย! เก็บอาหารดีตามหมู่ให้ครบ Goal + Mini ✨');
+      initLogger('https://script.google.com/macros/s/AKfycby7IBVmpmEydNDp5BR3CMaSAjvF7ljptaDwvow_L781iDLsbtpuiFmKviGUnugFerDtQg/exec');
+
+      setCoach('เริ่มเลย! เก็บอาหารดีตามหมู่ให้ครบ Goal + Mini ✨ (แตะหรือจ้องกลางจอได้)');
 
       const Engine = window.GroupsVR?.GameEngine;
       if (!Engine || typeof Engine.start !== 'function'){
@@ -743,6 +849,7 @@
         return;
       }
       Engine.setLayerEl && Engine.setLayerEl(fgLayer);
+      Engine.setCameraEl && Engine.setCameraEl(cam);
 
       runCountdown(() => {
         let timeLeft = dur;
