@@ -1,16 +1,4 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — DOM Emoji Engine (PRODUCTION)
-// ✅ VR feel: อ่าน yaw/pitch จาก A-Frame look-controls (drag / deviceorientation)
-// ✅ STUN (Hero power): เมื่อ FEVER เต็ม → เข้า STUN สโลว์เกม + junk แตกเองเมื่อเข้าใกล้ศูนย์กลาง
-// ✅ Magnet (🧲 power-up): ดูด “เฉพาะของดี (kind===good)” เท่านั้น (ไม่ดูด junk)
-// ✅ Events:
-//    - hha:time {sec}
-//    - hha:score {score, goodHits, misses, comboMax, challenge}
-//    - hha:judge {label}
-//    - hha:fever {fever, shield, stunActive}
-//    - quest:goodHit / quest:badHit / quest:block / quest:power / quest:bossClear
-//    - quest:stunPop (junk แตกเองช่วง STUN)
-
 'use strict';
 
 function clamp(v, min, max){
@@ -37,8 +25,7 @@ function wrapRad(a){
   return a;
 }
 
-// ✅ สำคัญ: A-Frame look-controls ไม่ได้เขียน rotation ลง entity ตรง ๆ เสมอ
-// ต้องอ่านจาก look-controls component (yawObject/pitchObject)
+// ✅ read from look-controls yaw/pitch
 function getLookRad(cameraEl){
   try{
     const lc = cameraEl?.components?.['look-controls'];
@@ -48,8 +35,6 @@ function getLookRad(cameraEl){
       return { yaw, pitch };
     }
   }catch(_){}
-
-  // fallback
   try{
     const r = cameraEl?.object3D?.rotation;
     if (r) return { yaw: wrapRad(r.y), pitch: clamp(r.x, -1.2, 1.2) };
@@ -81,7 +66,7 @@ function worldToScreen(wx, wy, look, sizes){
   return { x, y };
 }
 
-/* ----------------------- Safe Zone (avoid HUD) ----------------------- */
+/* ----------------------- Safe Zone ----------------------- */
 function getHudRects(){
   const rects = [];
   const els = Array.from(document.querySelectorAll('.hud-card, #coach-bubble'));
@@ -121,6 +106,18 @@ function diffCfg(diff='normal'){
   return base[diff] || base.normal;
 }
 
+/* ----------------------- Aim Point (ศูนย์กลาง STUN) ----------------------- */
+function getAimPoint(sizes){
+  const ap = (typeof window !== 'undefined') ? window.__GJ_AIM_POINT__ : null;
+  const x0 = sizes.W*0.5;
+  const y0 = sizes.H*0.62; // default “ไม่ใช่กลางจอ”
+  let x = (ap && typeof ap.x === 'number') ? ap.x : x0;
+  let y = (ap && typeof ap.y === 'number') ? ap.y : y0;
+  x = Math.max(20, Math.min(sizes.W-20, x));
+  y = Math.max(20, Math.min(sizes.H-20, y));
+  return { x, y };
+}
+
 /* ----------------------- Engine ----------------------- */
 export function boot(opts = {}){
   const layerEl = opts.layerEl || document.getElementById('gj-layer');
@@ -141,18 +138,18 @@ export function boot(opts = {}){
 
   const CFG = diffCfg(diff);
 
-  // --- STUN tuning (Hero power) ---
-  const STUN_MS = 6000;                 // ระยะเวลา STUN
-  const STUN_SLOW = 0.55;               // slow ทั้งเกมช่วง STUN
-  const STUN_KILL_RADIUS_RATIO = 0.18;  // ใกล้ศูนย์กลางเท่านี้ junk แตกเอง
-  const STUN_SCORE_PER_JUNK = 4;        // ให้คะแนนตอน junk แตกเอง
+  // STUN
+  const STUN_MS = 6000;
+  const STUN_SLOW = 0.55;
+  const STUN_KILL_RADIUS_RATIO = 0.18;
+  const STUN_SCORE_PER_JUNK = 4;
 
-  // --- FEVER decay ---
-  const FEVER_DECAY_PER_SEC = 3.5;      // ลดเรื่อย ๆ แม้ไม่เข้า STUN (ทำให้เกม “มีจังหวะ”)
+  // FEVER decay
+  const FEVER_DECAY_PER_SEC = 3.5;
 
-  // --- Magnet (🧲) tuning ---
+  // Magnet (ดูดเฉพาะของดี)
   const MAGNET_MS = 5200;
-  const MAGNET_PULL_PX_PER_SEC = 420;   // ดึงเฉพาะของดีเข้าใกล้ศูนย์กลาง
+  const MAGNET_PULL_PX_PER_SEC = 420;
 
   const state = {
     startedAt: now(),
@@ -162,24 +159,21 @@ export function boot(opts = {}){
     score: 0,
     goodHits: 0,
     goldHits: 0,
-    misses: 0,       // miss = good expired + junk hit (blocked doesn't count)
+    misses: 0,
     combo: 0,
     comboMax: 0,
 
-    fever: 0,        // 0..100
-    shield: 0,       // charges
+    fever: 0,
+    shield: 0,
 
-    // ✅ STUN state
     stunActive: false,
     stunUntil: 0,
 
-    // ✅ Magnet state (ดูดเฉพาะของดี)
     magnetActive: false,
     magnetUntil: 0,
 
     bossCleared: false,
 
-    lastSpawnAt: 0,
     lastTickSec: -1,
     lastFrameAt: now()
   };
@@ -191,7 +185,6 @@ export function boot(opts = {}){
   function setJudge(label){
     emit('hha:judge', { label: String(label||'') });
   }
-
   function syncHUD(){
     emit('hha:score', {
       score: state.score|0,
@@ -206,7 +199,6 @@ export function boot(opts = {}){
       stunActive: !!state.stunActive
     });
   }
-
   function addFever(v){
     state.fever = clamp(state.fever + v, 0, 100);
   }
@@ -222,31 +214,23 @@ export function boot(opts = {}){
     const el = document.createElement('div');
     el.className = 'gj-target';
     el.textContent = emoji;
-
     if (kind === 'junk') el.classList.add('gj-junk');
     if (kind === 'gold') el.classList.add('gj-gold');
-    if (kind === 'fake') el.classList.add('gj-fake');
     if (kind === 'power') el.classList.add('gj-power');
     if (kind === 'boss') el.classList.add('gj-boss');
-
     layerEl.appendChild(el);
     return el;
   }
 
   function chooseSpawnKind(){
     let goodRatio = CFG.goodRatio;
-
-    if (challenge === 'survival'){
-      goodRatio = Math.max(0.52, goodRatio - 0.08);
-    }
+    if (challenge === 'survival') goodRatio = Math.max(0.52, goodRatio - 0.08);
     if (challenge === 'boss'){
       if (!state.bossCleared && Math.random() < 0.10) return 'boss';
     }
-
     const r = Math.random();
     if (r < 0.08) return 'power';
     if (r < 0.14) return 'gold';
-
     return (Math.random() < goodRatio) ? 'good' : 'junk';
   }
 
@@ -254,9 +238,8 @@ export function boot(opts = {}){
     const GOOD = ['🥦','🥕','🍎','🍌','🥛','🍇','🍊','🥬'];
     const JUNK = ['🍟','🍔','🍕','🍩','🍰','🍿','🥤','🍗'];
     const GOLD = ['🌟','✨','🏅','💎'];
-    const POWER = ['🛡️','🧲','⏱️']; // shield / magnet / time
+    const POWER = ['🛡️','🧲','⏱️'];
     const BOSS = ['👾','😈','🦖','💀'];
-
     if (kind === 'good') return GOOD[(Math.random()*GOOD.length)|0];
     if (kind === 'junk') return JUNK[(Math.random()*JUNK.length)|0];
     if (kind === 'gold') return GOLD[(Math.random()*GOLD.length)|0];
@@ -268,7 +251,6 @@ export function boot(opts = {}){
   function screenToWorldPoint(screenPt, look){
     const vx = (look.yaw / (Math.PI * 2)) * SIZES.worldW;
     const vy = (look.pitch / (Math.PI)) * SIZES.worldH * Y_PITCH_GAIN;
-
     const wx = (screenPt.x - SIZES.W*0.5) + vx;
     const wy = (screenPt.y - SIZES.H*0.5) + vy;
     return { wx, wy };
@@ -287,25 +269,19 @@ export function boot(opts = {}){
     const w = screenToWorldPoint(safePt, look);
 
     const t = {
-      id: Math.random().toString(16).slice(2),
-      kind,
-      emoji,
-      el,
-      wx: w.wx,
-      wy: w.wy,
+      kind, emoji, el,
+      wx: w.wx, wy: w.wy,
       bornAt: now(),
       ttlMs: (kind === 'boss') ? (CFG.ttlMs + 900) : CFG.ttlMs,
       dead: false,
       bossHp: (kind === 'boss') ? 3 : 1
     };
 
-    const scale =
+    el.style.setProperty('--tScale', String(
       (kind === 'boss') ? 1.25 :
       (kind === 'gold') ? 1.05 :
-      (kind === 'power') ? 1.0 :
-      1.0;
-
-    el.style.setProperty('--tScale', String(scale));
+      1.0
+    ));
 
     const s = worldToScreen(t.wx, t.wy, look, SIZES);
     el.style.left = s.x + 'px';
@@ -337,13 +313,10 @@ export function boot(opts = {}){
 
   function handleExpire(t){
     if (!t || t.dead) return;
-
-    // MISS rule: good/gold/power/boss expired counts as miss
     if (t.kind === 'good' || t.kind === 'gold' || t.kind === 'power' || t.kind === 'boss'){
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
-
       setJudge('MISS');
       syncHUD();
     }
@@ -353,24 +326,20 @@ export function boot(opts = {}){
   function activateStun(){
     state.stunActive = true;
     state.stunUntil = now() + STUN_MS;
-    // ตอนเข้า STUN ให้ FEVER เต็ม
     state.fever = 100;
     setJudge('STUN!');
     syncHUD();
   }
-
   function activateMagnet(){
     state.magnetActive = true;
     state.magnetUntil = now() + MAGNET_MS;
-    // แจ้ง quest/mini ว่าใช้ magnet แล้ว
-    emit('quest:power', { x: SIZES.W*0.5, y: SIZES.H*0.58, power: 'magnet' });
+    emit('quest:power', { power: 'magnet' });
     syncHUD();
   }
 
   function hitTarget(t, x, y){
     if (!t || t.dead || !state.running) return;
 
-    // boss multi-hit
     if (t.kind === 'boss'){
       t.bossHp = (t.bossHp|0) - 1;
       if (t.bossHp > 0){
@@ -408,11 +377,9 @@ export function boot(opts = {}){
         killTarget(t, true);
         return;
       }
-
       state.misses = (state.misses|0) + 1;
       state.combo = 0;
       addFever(-CFG.feverLoss);
-
       setJudge('JUNK!');
       emit('quest:badHit', { x, y, judgment:'junk' });
       syncHUD();
@@ -434,7 +401,6 @@ export function boot(opts = {}){
         emit('quest:power', { x, y, power: 'time' });
       }
       if (p === 'magnet'){
-        // ✅ Magnet = ดูดเฉพาะของดี
         activateMagnet();
       }
 
@@ -466,16 +432,14 @@ export function boot(opts = {}){
       return;
     }
 
-    // normal good
+    // good
     const perfect = (Math.random() < 0.20);
     setJudge(perfect ? 'PERFECT!' : 'GOOD!');
     emit('quest:goodHit', { x, y, judgment: perfect ? 'perfect' : 'good' });
-
     state.score += (CFG.scoreGood|0) + (perfect ? 6 : 0);
     state.goodHits++;
     state.combo++;
     state.comboMax = Math.max(state.comboMax, state.combo);
-
     addFever(+CFG.feverGain + (perfect ? 3 : 0));
     if (!state.stunActive && state.fever >= 100) activateStun();
     syncHUD();
@@ -484,47 +448,42 @@ export function boot(opts = {}){
 
   function applyMagnetPull(look, dtSec){
     if (!state.magnetActive) return;
-
     const tNow = now();
     if (tNow >= state.magnetUntil){
       state.magnetActive = false;
       return;
     }
 
-    const cx = SIZES.W * 0.5;
-    const cy = SIZES.H * 0.5;
-    const pull = MAGNET_PULL_PX_PER_SEC * dtSec;
+    // ✅ Magnet pull to Aim Point (ไม่ใช่กลางจอ)
+    const ap = getAimPoint(SIZES);
+    const cx = ap.x, cy = ap.y;
 
+    const pull = MAGNET_PULL_PX_PER_SEC * dtSec;
     for (const t of ACTIVE){
       if (!t || t.dead) continue;
-      // ✅ ดูดเฉพาะ “ของดีจริง ๆ”
-      if (t.kind !== 'good') continue;
-
+      if (t.kind !== 'good') continue; // ✅ ดูดเฉพาะ “ของดี”
       const s = worldToScreen(t.wx, t.wy, look, SIZES);
       const dx = (cx - s.x);
       const dy = (cy - s.y);
       const dist = Math.max(1, Math.hypot(dx, dy));
       const nx = dx / dist;
       const ny = dy / dist;
-
-      // world units ~ screen units ใน mapping นี้ (พอสำหรับ feel)
       t.wx += nx * pull;
       t.wy += ny * pull;
     }
   }
 
-  function applyStunAutoPopJunk(look, dtSec){
+  function applyStunAutoPopJunk(look){
     if (!state.stunActive) return;
 
     const tNow = now();
-    const cx = SIZES.W * 0.5;
-    const cy = SIZES.H * 0.5;
+    const ap = getAimPoint(SIZES);
+    const cx = ap.x, cy = ap.y;           // ✅ ศูนย์กลาง STUN = Aim Point
     const killR = Math.min(SIZES.W, SIZES.H) * STUN_KILL_RADIUS_RATIO;
 
-    // ✅ FEVER ระหว่าง STUN: ลดลงตามเวลา (ให้รู้สึก “หมดพลัง”)
+    // FEVER ลดตามเวลาที่เหลือใน STUN
     const left = Math.max(0, state.stunUntil - tNow);
-    const pct = (left / STUN_MS) * 100;
-    state.fever = clamp(pct, 0, 100);
+    state.fever = clamp((left / STUN_MS) * 100, 0, 100);
 
     for (const t of Array.from(ACTIVE)){
       if (!t || t.dead) continue;
@@ -533,10 +492,8 @@ export function boot(opts = {}){
       const s = worldToScreen(t.wx, t.wy, look, SIZES);
       const dist = Math.hypot(s.x - cx, s.y - cy);
 
-      // ✅ เงื่อนไขผู้ใช้: “junk แตกเองเมื่อเข้าใกล้ศูนย์กลาง”
       if (dist <= killR){
         state.score += STUN_SCORE_PER_JUNK;
-        // pop FX (ไม่ถือเป็น miss)
         emit('quest:stunPop', { x: s.x, y: s.y });
         killTarget(t, true);
       }
@@ -545,20 +502,17 @@ export function boot(opts = {}){
     if (tNow >= state.stunUntil){
       state.stunActive = false;
       state.fever = 0;
-      syncHUD();
     }
   }
 
-  function updateTargetsFollowLook(){
+  function update(){
     if (!state.running) return;
 
     const tNow = now();
     const dtSec = Math.max(0.001, Math.min(0.05, (tNow - state.lastFrameAt) / 1000));
     state.lastFrameAt = tNow;
 
-    // ✅ เฟรมนี้ slow ทั้งเกมช่วง STUN
     const timeScale = state.stunActive ? STUN_SLOW : 1.0;
-
     const look = getLookRad(cameraEl);
 
     // time tick
@@ -578,22 +532,17 @@ export function boot(opts = {}){
       return;
     }
 
-    // ✅ FEVER decay (เมื่อไม่อยู่ STUN)
+    // fever decay when not stun
     if (!state.stunActive){
-      state.fever = clamp(state.fever - (FEVER_DECAY_PER_SEC * dtSec * 100) / 100, 0, 100);
+      state.fever = clamp(state.fever - (FEVER_DECAY_PER_SEC * dtSec), 0, 100);
     }
 
-    // ✅ Magnet (ดูดของดีเท่านั้น)
     applyMagnetPull(look, dtSec * timeScale);
+    applyStunAutoPopJunk(look);
 
-    // ✅ STUN (junk แตกเองใกล้ศูนย์กลาง)
-    applyStunAutoPopJunk(look, dtSec * timeScale);
-
-    // move + expire
     for (const t of Array.from(ACTIVE)){
       if (!t || t.dead || !t.el || !t.el.isConnected) continue;
 
-      // expire (ช่วง STUN ให้ “ช้าลง” → นานขึ้นเล็กน้อย)
       const ttl = state.stunActive ? (t.ttlMs / STUN_SLOW) : t.ttlMs;
       if ((tNow - t.bornAt) >= ttl){
         handleExpire(t);
@@ -605,35 +554,29 @@ export function boot(opts = {}){
       t.el.style.top  = s.y + 'px';
     }
 
-    // update HUD fever/shield/stun
     syncHUD();
-
-    rafId = requestAnimationFrame(updateTargetsFollowLook);
+    rafId = requestAnimationFrame(update);
   }
 
   function startSpawning(){
     if (spawnTimer) clearInterval(spawnTimer);
     spawnTimer = setInterval(()=>{
       if (!state.running) return;
-
-      // ✅ ช่วง STUN “สโลว์เกม” = ลดการ spawn
       if (state.stunActive){
-        if (Math.random() < 0.55) return; // เบรกบาง tick
+        if (Math.random() < 0.55) return;
       }
-
       spawnOne();
     }, CFG.spawnMs);
   }
 
-  // init
   emit('hha:time', { sec: durationSec });
   syncHUD();
   setJudge(' ');
 
   startSpawning();
-  rafId = requestAnimationFrame(updateTargetsFollowLook);
+  rafId = requestAnimationFrame(update);
 
-  const api = {
+  return {
     stop(){
       state.running = false;
       try{ clearInterval(spawnTimer); }catch(_){}
@@ -644,6 +587,4 @@ export function boot(opts = {}){
     },
     getState(){ return { ...state, active: ACTIVE.size }; }
   };
-
-  return api;
 }
