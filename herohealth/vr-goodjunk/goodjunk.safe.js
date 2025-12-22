@@ -1,12 +1,12 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR (PRODUCTION) — H+ (EXTREME PACK)
+// GoodJunkVR (PRODUCTION) — H+ (EXTREME PACK) + SAFE MARGINS
 // ✅ H+1 LASER: must dodge (aim point in beam at fire time => penalty)
 // ✅ H+2 RING: single safe gap (aim in danger ring => penalty)
 // ✅ H+3 STORM: fake good target (looks good but counts bad)
 // ✅ EXTREME: storm speeds up spawn cadence + ring/laser tick + panic events
 // ✅ MAGNET: actually pulls targets (real effect)
-// ✅ AIM/CAM: targets follow drag-look (VR-like) via virtual camera offset from __GJ_AIM_POINT__
-// ✅ SAFEZONE: avoid spawning under HUD/fever strip/VR button/logger/coach bubble
+// ✅ Aim point supports DOM camera drag-look via window.__GJ_AIM_POINT__
+// ✅ SAFE MARGINS: กันเป้าทับ HUD (รับจาก opts.safeMargins)
 
 'use strict';
 
@@ -18,7 +18,7 @@ const Particles =
   { burstAt(){}, scorePop(){}, celebrate(){}, toast(){} };
 
 function clamp(v, a, b){ v = Number(v)||0; return v < a ? a : (v > b ? b : v); }
-function randi(a,b){ return (a + Math.floor(Math.random()*(b-a+1))); }
+function randi(a,b){ a|=0; b|=0; if (b < a) { const t=a; a=b; b=t; } return (a + Math.floor(Math.random()*(b-a+1))); }
 function now(){ return performance.now ? performance.now() : Date.now(); }
 function safeDispatch(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
@@ -26,37 +26,10 @@ function safeDispatch(name, detail){
 function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 function lerp(a,b,t){ return a + (b-a)*t; }
 
-function baseAim(){
-  return { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
-}
 function getAimPoint(){
   const ap = ROOT.__GJ_AIM_POINT__;
   if (ap && Number.isFinite(ap.x) && Number.isFinite(ap.y)) return { x: ap.x|0, y: ap.y|0 };
-  return baseAim();
-}
-
-/** Virtual camera offset (px) — makes DOM targets feel like VR pan */
-function getCamOffset(){
-  // if touch-look provides explicit cam offset, use it
-  const co = ROOT.__GJ_CAM_OFFSET__;
-  if (co && Number.isFinite(co.x) && Number.isFinite(co.y)) return { x: co.x, y: co.y };
-  // fallback: infer from aim drift
-  const ap = getAimPoint();
-  const b = baseAim();
-  return { x: (ap.x - b.x), y: (ap.y - b.y) };
-}
-function worldFromScreen(sx, sy){
-  const off = getCamOffset();
-  return { x: (sx + off.x), y: (sy + off.y) };
-}
-function screenFromWorld(wx, wy){
-  const off = getCamOffset();
-  return { x: (wx - off.x), y: (wy - off.y) };
-}
-function aimWorld(){
-  const ap = getAimPoint();
-  const off = getCamOffset();
-  return { x: ap.x + off.x, y: ap.y + off.y };
+  return { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
 }
 
 const DIFF = {
@@ -79,12 +52,12 @@ const EMO_SHLD  = '🛡️';
 const EMO_BOSS1 = '👑';
 const EMO_BOSS2 = '👹';
 
-function createEl(layer, sx, sy, emoji, cls){
+function createEl(layer, x, y, emoji, cls){
   const el = document.createElement('div');
   el.className = `gj-target ${cls||''}`;
   el.textContent = emoji;
-  el.style.left = (sx|0) + 'px';
-  el.style.top  = (sy|0) + 'px';
+  el.style.left = (x|0) + 'px';
+  el.style.top  = (y|0) + 'px';
   el.style.setProperty('--tScale', String(1));
   el.style.setProperty('--tRot', (randi(-10,10))+'deg');
   layer.appendChild(el);
@@ -114,93 +87,6 @@ function scoreGain(base, combo){
   return Math.round(base * mul);
 }
 
-/** ---------- SAFEZONE (avoid HUD) ---------- */
-function collectAvoidRects(){
-  const rects = [];
-  const pushRect = (el)=>{
-    try{
-      if (!el) return;
-      const st = getComputedStyle(el);
-      if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity||1) <= 0.02) return;
-      const r = el.getBoundingClientRect();
-      if (!r || r.width <= 2 || r.height <= 2) return;
-      rects.push({ left:r.left, top:r.top, right:r.right, bottom:r.bottom });
-    }catch(_){}
-  };
-
-  // main HUD cards (top)
-  document.querySelectorAll('.hud-top .hud-card').forEach(pushRect);
-
-  // fever strip (Option A)
-  pushRect(document.querySelector('.hud-fever'));
-
-  // coach bubble (toast)
-  pushRect(document.getElementById('coach-bubble'));
-
-  // VR button + logger badge
-  pushRect(document.getElementById('btn-vr'));
-  pushRect(document.getElementById('logbadge'));
-
-  // safety: A-Frame enter-vr UI if any
-  document.querySelectorAll('.a-enter-vr, .a-enter-ar').forEach(pushRect);
-
-  return rects;
-}
-function pointInRect(x,y,r,rect){
-  return (x >= rect.left - r) && (x <= rect.right + r) && (y >= rect.top - r) && (y <= rect.bottom + r);
-}
-function nudgeOutOfRects(x,y,r,rects){
-  const pad = 10;
-  let nx = x, ny = y;
-
-  for (let k=0;k<rects.length;k++){
-    const rc = rects[k];
-    if (!pointInRect(nx, ny, r, rc)) continue;
-
-    const toLeft   = Math.abs((rc.left - pad) - nx);
-    const toRight  = Math.abs((rc.right + pad) - nx);
-    const toTop    = Math.abs((rc.top - pad) - ny);
-    const toBottom = Math.abs((rc.bottom + pad) - ny);
-
-    const min = Math.min(toLeft, toRight, toTop, toBottom);
-    if (min === toLeft)   nx = rc.left - r - pad;
-    else if (min === toRight) nx = rc.right + r + pad;
-    else if (min === toTop)   ny = rc.top - r - pad;
-    else ny = rc.bottom + r + pad;
-  }
-
-  nx = clamp(nx, 28, innerWidth - 28);
-  ny = clamp(ny, 120, innerHeight - 140);
-  return { x:nx, y:ny };
-}
-function pickSpawnScreenPoint(radiusPx){
-  const r = clamp(radiusPx||48, 30, 90);
-  const rects = collectAvoidRects();
-
-  const margin = 28;
-  const hardTop = 120;
-  const hardBot = 140;
-
-  const left = margin;
-  const right = Math.max(left+10, innerWidth - margin);
-  const top = hardTop;
-  const bottom = Math.max(top+10, innerHeight - hardBot);
-
-  for (let i=0;i<28;i++){
-    const x = randi(left, right);
-    const y = randi(top, bottom);
-    let ok = true;
-    for (let j=0;j<rects.length;j++){
-      if (pointInRect(x,y,r,rects[j])){ ok=false; break; }
-    }
-    if (ok) return { x, y };
-  }
-
-  // fallback: center-ish then nudge out
-  const fallback = { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
-  return nudgeOutOfRects(fallback.x, fallback.y, r, rects);
-}
-
 export function boot(opts = {}){
   const diffKey = String(opts.diff || 'normal').toLowerCase();
   const runMode = String(opts.run || 'play').toLowerCase();
@@ -214,6 +100,40 @@ export function boot(opts = {}){
   // Attack overlays
   const elRing  = document.getElementById('atk-ring');
   const elLaser = document.getElementById('atk-laser');
+
+  // ✅ SAFE MARGINS from HTML HUD (dynamic safe zone)
+  // expected: { top, bottom, left, right }
+  const SAFE_BASE = {
+    top: 110, bottom: 165, left: 28, right: 28,
+    ...(opts.safeMargins || {})
+  };
+  function getSafe(){
+    const sm = opts.safeMargins || {};
+    const left = (sm.left ?? SAFE_BASE.left) | 0;
+    const right = (sm.right ?? SAFE_BASE.right) | 0;
+    const top = (sm.top ?? SAFE_BASE.top) | 0;
+    const bottom = (sm.bottom ?? SAFE_BASE.bottom) | 0;
+
+    return {
+      left: Math.max(14, left),
+      right: Math.max(14, right),
+      top: Math.max(80, top),
+      bottom: Math.max(80, bottom)
+    };
+  }
+  function safeRandXY(){
+    const s = getSafe();
+    const x = randi(s.left, Math.max(s.left+10, innerWidth - s.right));
+    const y = randi(s.top, Math.max(s.top+10, innerHeight - s.bottom));
+    return { x, y };
+  }
+  function clampToSafe(x,y, pad=0){
+    const s = getSafe();
+    return {
+      x: clamp(x, s.left + pad, innerWidth - s.right - pad) | 0,
+      y: clamp(y, s.top + pad, innerHeight - s.bottom - pad) | 0
+    };
+  }
 
   const S = {
     running: true,
@@ -240,6 +160,7 @@ export function boot(opts = {}){
     magnetActive: false,
     magnetEndsAt: 0,
 
+    // HERO BURST (from pulse success)
     heroBurstActive: false,
     heroBurstEndsAt: 0,
 
@@ -254,6 +175,7 @@ export function boot(opts = {}){
     bossHpMax: 0,
     bossDecoyCooldownAt: 0,
 
+    // Boss Pulse Wave (move center)
     pulseActive: false,
     pulseX: 0,
     pulseY: 0,
@@ -261,6 +183,7 @@ export function boot(opts = {}){
     pulseNextAt: 0,
     pulseRadiusPx: 74,
 
+    // Boss attacks (H+)
     bossAtkNextAt: 0,
     bossAtkLast: '',
 
@@ -284,43 +207,19 @@ export function boot(opts = {}){
     targets: new Map(),
     nextId: 1,
 
+    // ===== EXTREME PACK =====
     stormActive: false,
     stormEndsAt: 0,
     stormMul: 1.0,
 
-    panicLevel: 0,
+    panicLevel: 0,          // 0-1
     panicEndsAt: 0,
 
     ringTickNextAt: 0,
     ringTickRateMs: 0,
     laserTickNextAt: 0,
     laserTickRateMs: 0,
-
-    // camera offset cache
-    offX: 0,
-    offY: 0,
-    offDirtyAt: 0
   };
-
-  /** render targets to current camera offset (VR-like) */
-  function renderTarget(t){
-    const p = screenFromWorld(t.x, t.y);
-    t.el.style.left = (p.x|0) + 'px';
-    t.el.style.top  = (p.y|0) + 'px';
-  }
-  function renderAllTargetsIfCamMoved(){
-    const o = getCamOffset();
-    const dx = o.x - S.offX;
-    const dy = o.y - S.offY;
-    if (Math.abs(dx) < 0.8 && Math.abs(dy) < 0.8) return;
-
-    S.offX = o.x;
-    S.offY = o.y;
-
-    for (const t of S.targets.values()){
-      try{ renderTarget(t); }catch(_){}
-    }
-  }
 
   function emitScore(){
     safeDispatch('hha:score', {
@@ -351,6 +250,7 @@ export function boot(opts = {}){
   function fxChroma(ms=180){ safeDispatch('hha:fx', { type:'chroma', ms: ms|0 }); }
   function fxHero(ms=220){ safeDispatch('hha:fx', { type:'hero', ms: ms|0 }); }
 
+  // ===== EXTREME helpers =====
   function setStorm(ms = 1600, mul = 0.62){
     S.stormActive = true;
     S.stormEndsAt = now() + Math.max(400, ms|0);
@@ -389,18 +289,21 @@ export function boot(opts = {}){
     fxKick(1.25);
     setPanic(0.75, 650);
 
+    const ap = getAimPoint();
+
     if ((S.shield|0) > 0){
+      // H+ โหด: hazard ทำให้แตกโล่หมดทันที
       S.shield = 0;
       safeDispatch('quest:badHit', { kind: kind + ':shieldbreak' });
       setJudge('SHIELD BREAK!');
-      burstFX(innerWidth*0.5, innerHeight*0.62, 'trap');
+      burstFX(ap.x, ap.y, 'trap');
       addFever(-14);
     } else {
       S.misses++;
       setCombo(0);
       safeDispatch('quest:badHit', { kind });
       setJudge('HIT!');
-      burstFX(innerWidth*0.5, innerHeight*0.62, 'trap');
+      burstFX(ap.x, ap.y, 'trap');
       addFever(-18);
     }
     emitScore();
@@ -429,13 +332,15 @@ export function boot(opts = {}){
     S.magnetEndsAt = now() + 5200;
     safeDispatch('quest:power', { power:'magnet' });
     setJudge('MAGNET!');
-    burstFX(innerWidth*0.5, innerHeight*0.62, 'power');
+    const ap = getAimPoint();
+    burstFX(ap.x, ap.y, 'power');
   }
   function addTime(){
     S.endAt += 3000;
     safeDispatch('quest:power', { power:'time' });
     setJudge('+TIME!');
-    burstFX(innerWidth*0.5, innerHeight*0.62, 'power');
+    const ap = getAimPoint();
+    burstFX(ap.x, ap.y, 'power');
   }
   function addShield(){
     S.shield = clamp((S.shield|0) + 1, 0, 5);
@@ -469,6 +374,7 @@ export function boot(opts = {}){
     }
     S.targets.clear();
 
+    // cleanup overlays
     try{ if (elRing) elRing.classList.remove('show'); }catch(_){}
     try{ if (elLaser) elLaser.classList.remove('warn','fire'); }catch(_){}
 
@@ -489,22 +395,9 @@ export function boot(opts = {}){
     if (!S.running) return null;
     if (S.targets.size >= D.maxActive && kind !== 'boss') return null;
 
-    // approximate radius for avoid HUD
-    const baseR = (kind === 'boss') ? 78 : (kind === 'gold' ? 58 : 52);
-    const radius = clamp(baseR * (D.scale||1), 34, 92);
-
-    // choose SCREEN point (safe), then convert to WORLD so it sticks when camera pans
-    let sx, sy;
-    if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)){
-      const nudged = nudgeOutOfRects(pos.x|0, pos.y|0, radius, collectAvoidRects());
-      sx = nudged.x|0; sy = nudged.y|0;
-    } else {
-      const p = pickSpawnScreenPoint(radius);
-      sx = p.x|0; sy = p.y|0;
-    }
-
-    const wp = worldFromScreen(sx, sy);
-    const wx = wp.x, wy = wp.y;
+    const s = getSafe();
+    const x = pos ? (pos.x|0) : randi(s.left, Math.max(s.left+10, innerWidth - s.right));
+    const y = pos ? (pos.y|0) : randi(s.top, Math.max(s.top+10, innerHeight - s.bottom));
 
     let emoji = '❓', cls = '', ttl = D.ttlMs;
 
@@ -535,12 +428,13 @@ export function boot(opts = {}){
       cls = 'gj-junk';
       ttl = Math.round(ttl * 0.72);
     } else if (kind === 'goodfake'){
+      // ✅ H+3 fake good: looks good but is bad
       emoji = POOL_GOOD[randi(0, POOL_GOOD.length-1)];
       cls = 'gj-fake';
       ttl = Math.round(ttl * 0.86);
     }
 
-    const el = createEl(layer, sx, sy, emoji, cls);
+    const el = createEl(layer, x, y, emoji, cls);
 
     const sc = (kind === 'boss')
       ? (1.28 * D.scale)
@@ -550,7 +444,7 @@ export function boot(opts = {}){
     const id = S.nextId++;
     const t = {
       id, kind, el,
-      x: wx, y: wy,       // WORLD coords
+      x, y,
       bornAt: now(),
       expiresAt: now() + ttl
     };
@@ -598,7 +492,10 @@ export function boot(opts = {}){
     S.bossHpMax = D.bossHp|0;
     S.bossHp = S.bossHpMax;
 
-    spawnTarget('boss');
+    // boss spawn near aim but safe
+    const ap = getAimPoint();
+    const p = clampToSafe(ap.x + randi(-120,120), ap.y + randi(-90,90), 40);
+    spawnTarget('boss', p);
 
     try{ Particles.celebrate && Particles.celebrate({ kind:'BOSS_SPAWN', intensity:1.4 }); }catch(_){}
     setJudge('BOSS!');
@@ -614,6 +511,7 @@ export function boot(opts = {}){
     try{ Particles.celebrate && Particles.celebrate({ kind:'BOSS_PHASE2', intensity:1.6 }); }catch(_){}
     S.pulseNextAt = now() + 900;
 
+    // Attack schedule
     S.bossAtkNextAt = now() + 900;
     S.bossAtkLast = '';
     emitScore();
@@ -636,17 +534,17 @@ export function boot(opts = {}){
 
   // ------- boss pulse (move center) -------
   function pickPulsePoint(){
+    const s = getSafe();
     const pad = 70;
-    const top = 150;
-    const bottom = innerHeight - 190;
     const cur = getAimPoint();
 
     for (let i=0;i<30;i++){
-      const x = randi(pad, Math.max(pad+10, innerWidth-pad));
-      const y = randi(top, Math.max(top+10, bottom));
+      const x = randi(s.left+pad, Math.max(s.left+pad+10, innerWidth - s.right - pad));
+      const y = randi(s.top+pad, Math.max(s.top+pad+10, innerHeight - s.bottom - pad));
       if (dist2(x,y, cur.x,cur.y) >= (260*260)) return { x, y };
     }
-    return { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
+    const fallback = clampToSafe(innerWidth*0.5, innerHeight*0.62, 60);
+    return { x: fallback.x, y: fallback.y };
   }
 
   function startBossPulse(){
@@ -675,7 +573,9 @@ export function boot(opts = {}){
       burstFX(S.pulseX, S.pulseY, 'gold');
       safeDispatch('quest:goodHit', { kind:'pulse' });
 
+      // hero burst
       startHeroBurst();
+
     } else {
       setJudge('PULSE HIT!');
       burstFX(S.pulseX, S.pulseY, 'trap');
@@ -712,6 +612,7 @@ export function boot(opts = {}){
     }, Math.max(120, warnMs|0));
   }
 
+  // ------- H+ Boss attack patterns (phase2) -------
   function bossAttackPattern(){
     const patterns = ['ring','laser','storm'];
     let pick = patterns[randi(0, patterns.length-1)];
@@ -719,8 +620,9 @@ export function boot(opts = {}){
     S.bossAtkLast = pick;
 
     const ap = getAimPoint();
-    const center = { x: ap.x|0, y: ap.y|0 };
+    const center = clampToSafe(ap.x, ap.y, 40);
 
+    // send timing details for SFX/FX in HTML
     const detail = { name: pick };
     if (pick === 'ring')  detail.ttlMs = (diffKey==='hard' ? 1200 : 1350);
     if (pick === 'laser'){ detail.warnMs = 420; detail.fireMs = 260; }
@@ -728,68 +630,85 @@ export function boot(opts = {}){
     safeDispatch('hha:bossAtk', detail);
 
     if (pick === 'ring'){
+      // ✅ H+2: single safe gap
       setJudge('BOSS: RING!');
       fxChroma(140);
       setPanic(diffKey==='hard' ? 0.75 : 0.55, 900);
 
+      // ring state
       S.ringActive = true;
       S.ringX = center.x|0;
       S.ringY = center.y|0;
       S.ringR = Math.round(210 + (diffKey==='hard'? 28 : diffKey==='easy'? -10 : 0));
       S.ringTh= Math.round(34 + (diffKey==='hard'? 8 : 0));
-      S.ringGapW = (Math.PI / (diffKey==='hard'? 4.2 : 3.2));
+      S.ringGapW = (Math.PI / (diffKey==='hard'? 4.2 : 3.2)); // ~43° hard, ~56° normal
       S.ringGapA = (Math.random()*Math.PI*2);
 
       S.ringEndsAt = now() + (diffKey==='hard' ? 1200 : 1350);
 
+      // EXTREME: ring ticking countdown
       S.ringTickRateMs = (diffKey==='hard' ? 90 : 115);
       S.ringTickNextAt = now() + 60;
 
+      // visual (deg)
       const gapSizeDeg = (S.ringGapW * 180/Math.PI);
       const gapStartDeg = (S.ringGapA * 180/Math.PI);
       showRingAt(S.ringX, S.ringY, gapStartDeg, gapSizeDeg, (S.ringEndsAt-now())|0);
 
+      // spawn junk ring w/ 1 gap (visual targets) in safe zone
       const n = 8;
       const gapIndex = randi(0, n-1);
+      const s = getSafe();
       for (let i=0;i<n;i++){
-        if (i === gapIndex) continue;
+        if (i === gapIndex) continue; // one safe gap
         const ang = (Math.PI*2) * (i/n);
-        const sx = clamp(center.x + Math.cos(ang)*S.ringR, 40, innerWidth-40);
-        const sy = clamp(center.y + Math.sin(ang)*S.ringR, 150, innerHeight-190);
-        spawnTarget('junk', { x:sx, y:sy });
+        const px = center.x + Math.cos(ang)*S.ringR;
+        const py = center.y + Math.sin(ang)*S.ringR;
+        const p = {
+          x: clamp(px, s.left+40, innerWidth - s.right - 40),
+          y: clamp(py, s.top+40, innerHeight - s.bottom - 40),
+        };
+        spawnTarget('junk', p);
       }
 
     } else if (pick === 'laser'){
+      // ✅ H+1: must dodge - hazard checks aim at fire time
       setJudge('BOSS: LASER!');
       fxChroma(160);
       setPanic(diffKey==='hard' ? 0.95 : 0.75, 950);
 
-      const y = clamp(center.y + randi(-90,90), 150, innerHeight-190);
+      const s = getSafe();
+      const y = clamp(center.y + randi(-90,90), s.top+40, innerHeight - s.bottom - 40);
       S.laserActive = true;
       S.laserY = y|0;
       S.laserWarnEndsAt = now() + 420;
       S.laserFireAt = now() + 420;
       S.laserEndsAt = S.laserFireAt + 260;
 
+      // EXTREME: laser ticking
       S.laserTickRateMs = (diffKey==='hard' ? 70 : 90);
       S.laserTickNextAt = now() + 40;
 
       laserWarnAt(S.laserY, 420, 260);
 
+      // tiny decoy pressure
       for (let i=0;i<3;i++) spawnTarget('decoy');
 
-    } else {
+    } else { // storm
+      // ✅ H+3: fake good among storm
       setJudge('BOSS: STORM!');
       fxChroma(150);
 
+      // EXTREME: storm speeds up spawns for a short burst
       setStorm(diffKey==='hard' ? 1900 : 1600, diffKey==='hard' ? 0.52 : 0.62);
       setPanic(diffKey==='hard' ? 0.85 : 0.65, 1000);
 
       for (let i=0;i<5;i++) spawnTarget('decoy');
 
-      spawnTarget('gold', { x: clamp(center.x + randi(-120,120), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
-      spawnTarget('good', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
-      spawnTarget('goodfake', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
+      // one gold reward, one real good, one fake good (safe)
+      spawnTarget('gold', clampToSafe(center.x + randi(-120,120), center.y + randi(-90,90), 40));
+      spawnTarget('good', clampToSafe(center.x + randi(-140,140), center.y + randi(-90,90), 40));
+      spawnTarget('goodfake', clampToSafe(center.x + randi(-140,140), center.y + randi(-90,90), 40));
     }
   }
 
@@ -877,7 +796,9 @@ export function boot(opts = {}){
       emitScore();
 
     } else if (isBad){
+      // penalty
       if ((S.shield|0) > 0){
+        // boss phase2: break shield fully if hit bad
         if (challenge === 'boss' && S.bossPhase === 2){
           S.shield = 0;
           S.misses++;
@@ -953,7 +874,7 @@ export function boot(opts = {}){
     }
   }
 
-  // HERO BURST pull: ONLY good/gold/power (world-space pull)
+  // HERO BURST pull: ONLY good/gold/power
   function heroBurstTick(){
     if (!S.heroBurstActive) return;
     const tnow = now();
@@ -961,29 +882,29 @@ export function boot(opts = {}){
       S.heroBurstActive = false;
       return;
     }
-
-    const aw = aimWorld();
+    const ap = getAimPoint();
     const strength = 0.18;
     const swirl = 0.08;
 
     for (const t of S.targets.values()){
       if (t.kind !== 'good' && t.kind !== 'gold' && t.kind !== 'power') continue;
 
-      const dx = aw.x - t.x;
-      const dy = aw.y - t.y;
+      const dx = ap.x - t.x;
+      const dy = ap.y - t.y;
 
-      t.x = lerp(t.x, aw.x, strength);
-      t.y = lerp(t.y, aw.y, strength);
+      t.x = lerp(t.x, ap.x, strength);
+      t.y = lerp(t.y, ap.y, strength);
 
       t.x += (-dy) * swirl * 0.002;
       t.y += ( dx) * swirl * 0.002;
 
-      renderTarget(t);
+      t.el.style.left = (t.x|0) + 'px';
+      t.el.style.top  = (t.y|0) + 'px';
       t.el.style.setProperty('--tRot', (randi(-6,6))+'deg');
     }
   }
 
-  // MAGNET pull: ONLY good/gold/power (world-space pull)
+  // MAGNET pull: ONLY good/gold/power (gentle but real)
   function magnetTick(){
     if (!S.magnetActive) return;
     const tnow = now();
@@ -992,23 +913,26 @@ export function boot(opts = {}){
       return;
     }
 
-    const aw = aimWorld();
+    const ap = getAimPoint();
     const strength = (diffKey==='hard' ? 0.11 : diffKey==='easy' ? 0.08 : 0.095);
     const swirl = 0.035;
 
     for (const t of S.targets.values()){
       if (t.kind !== 'good' && t.kind !== 'gold' && t.kind !== 'power') continue;
 
-      const dx = aw.x - t.x;
-      const dy = aw.y - t.y;
+      const dx = ap.x - t.x;
+      const dy = ap.y - t.y;
 
-      t.x = lerp(t.x, aw.x, strength);
-      t.y = lerp(t.y, aw.y, strength);
+      // pull
+      t.x = lerp(t.x, ap.x, strength);
+      t.y = lerp(t.y, ap.y, strength);
 
+      // tiny swirl (feel “ดูด”)
       t.x += (-dy) * swirl * 0.002;
       t.y += ( dx) * swirl * 0.002;
 
-      renderTarget(t);
+      t.el.style.left = (t.x|0) + 'px';
+      t.el.style.top  = (t.y|0) + 'px';
       t.el.style.setProperty('--tRot', (randi(-7,7))+'deg');
     }
   }
@@ -1018,6 +942,7 @@ export function boot(opts = {}){
     const tnow = now();
     const ap = getAimPoint();
 
+    // RING: aim must be in the safe gap (otherwise hit)
     if (S.ringActive){
       if (tnow >= S.ringEndsAt){
         S.ringActive = false;
@@ -1026,6 +951,7 @@ export function boot(opts = {}){
         const dy = ap.y - S.ringY;
         const d = Math.sqrt(dx*dx + dy*dy);
 
+        // punish only if aim is inside ring band
         const inBand = (d >= (S.ringR - S.ringTh)) && (d <= (S.ringR + S.ringTh));
         if (inBand){
           let a = Math.atan2(dy, dx);
@@ -1043,6 +969,7 @@ export function boot(opts = {}){
       }
     }
 
+    // LASER: at fire time, if aim y close to beam => hit
     if (S.laserActive){
       if (tnow >= S.laserEndsAt){
         S.laserActive = false;
@@ -1055,7 +982,7 @@ export function boot(opts = {}){
       }
     }
 
-    // EXTREME: countdown ticks
+    // ===== EXTREME: countdown ticks =====
     if (S.ringActive){
       if (tnow >= (S.ringTickNextAt||0)){
         const left = (S.ringEndsAt||0) - tnow;
@@ -1083,6 +1010,7 @@ export function boot(opts = {}){
     }
   }
 
+  // final sprint
   function finalSprintTick(){
     if ((S.timeLeft|0) > 8) return;
 
@@ -1119,24 +1047,26 @@ export function boot(opts = {}){
       return;
     }
 
-    // IMPORTANT: keep targets moving with camera pan (VR-like)
-    renderAllTargetsIfCamMoved();
-
+    // fever decay
     if (!S.stunActive){
       const decay = S.feverDecayPerSec / 60;
       S.fever = Math.max(0, (S.fever||0) - decay);
     }
 
+    // stun duration
     if (S.stunActive && tnow >= S.stunEndsAt){
       stopStun();
     }
 
+    // final lock duration
     if (S.finalLock && tnow >= S.finalLockEndsAt){
       S.finalLock = false;
     }
 
+    // boss spawn
     maybeSpawnBoss();
 
+    // Boss Pulse Wave (phase2)
     if (S.bossAlive && S.bossPhase === 2){
       if (!S.pulseActive && tnow >= (S.pulseNextAt||0)){
         startBossPulse();
@@ -1146,12 +1076,14 @@ export function boot(opts = {}){
         resolveBossPulse();
       }
 
+      // H+ attacks
       if (tnow >= (S.bossAtkNextAt||0)){
         bossAttackPattern();
         S.bossAtkNextAt = tnow + (diffKey==='hard' ? 3000 : 3300);
       }
     }
 
+    // spawn cadence (EXTREME)
     const stormMul = (S.stormActive ? (S.stormMul||0.62) : 1.0);
     const panicMul = (S.panicLevel > 0 ? (1.0 - 0.18*S.panicLevel) : 1.0);
     const slowMul  = (S.stunActive ? 1.15 : 1.0);
@@ -1169,6 +1101,7 @@ export function boot(opts = {}){
           else if (roll < 0.90) spawnTarget('gold');
           else spawnTarget('power');
 
+          // H+3: occasionally inject fake good
           if (Math.random() < (diffKey==='hard' ? 0.22 : 0.16)){
             spawnTarget('goodfake');
           }
@@ -1191,6 +1124,7 @@ export function boot(opts = {}){
     expireTick();
     stunFieldTick();
 
+    // storm/panic expiry
     if (S.stormActive && now() >= S.stormEndsAt) clearStorm();
     if ((S.panicEndsAt||0) > 0 && now() >= S.panicEndsAt){
       S.panicLevel = 0;
