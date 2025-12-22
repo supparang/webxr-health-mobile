@@ -13,6 +13,8 @@
 // ✅ PATCH A3.1: spawn ตาม "วิวปัจจุบัน" (ชดเชย translate ของ playfield) + กันทับกัน
 // ✅ PATCH A3.3: กระจายกว้างแบบ VR + Arrow Hint ชี้เป้าเมื่ออยู่นอกจอ
 // ✅ PATCH A3.3+: Hint “รวมกลุ่มตามทิศ” + แสดงจำนวนเป้านอกจอ + Storm shake/blink
+// ✅ PATCH A3.3++: BAD-first mode (ถ้ามี BAD นอกจอ → โชว์เฉพาะทิศที่มี BAD)
+//                + BAD glow/pulse แรงขึ้น + Beep/Tick ระหว่างมี BAD นอกจอ (throttle)
 
 'use strict';
 
@@ -135,7 +137,7 @@ function ensureOverlayStyle () {
       will-change: transform;
     }
 
-    /* ---------- PATCH A3.3+: Hint overlay ---------- */
+    /* ---------- PATCH A3.3++: Hint overlay ---------- */
     .hvr-hint-host{
       position:fixed;
       inset:0;
@@ -154,7 +156,7 @@ function ensureOverlayStyle () {
       align-items:center;
       justify-content:center;
       box-shadow:0 12px 30px rgba(0,0,0,.45);
-      will-change: transform, left, top, opacity;
+      will-change: transform, left, top, opacity, filter;
       opacity:.95;
       transform: translate(-50%,-50%);
     }
@@ -185,21 +187,51 @@ function ensureOverlayStyle () {
     }
     .hvr-hint.has-count .cnt{ display:flex; }
 
-    .hvr-hint.bad{ border-color: rgba(251,113,133,.28); }
+    .hvr-hint.bad{ border-color: rgba(251,113,133,.30); }
     .hvr-hint.good{ border-color: rgba(74,222,128,.22); }
     .hvr-hint.power{ border-color: rgba(250,204,21,.22); }
     .hvr-hint.fake{ border-color: rgba(167,139,250,.22); }
 
-    /* Storm: shake + blink */
+    /* BAD-first mode: ถ้ามี BAD นอกจอ → BAD เด่นขึ้นมาก */
+    .hvr-hint-host.hvr-danger .hvr-hint.bad{
+      width:44px;
+      height:44px;
+      box-shadow:
+        0 16px 44px rgba(0,0,0,.55),
+        0 0 0 2px rgba(251,113,133,.22),
+        0 0 26px rgba(251,113,133,.28);
+      filter: saturate(1.10) contrast(1.06);
+      animation: hvrDangerPulse .60s ease-in-out infinite;
+    }
+    .hvr-hint-host.hvr-danger .hvr-hint.bad .arr{ font-size:20px; }
+    @keyframes hvrDangerPulse{
+      0%{ transform:translate(-50%,-50%) scale(1); opacity:.95; }
+      50%{ transform:translate(-50%,-50%) scale(1.08); opacity:.80; }
+      100%{ transform:translate(-50%,-50%) scale(1); opacity:.95; }
+    }
+
+    /* Storm: shake + blink (รวมทั้ง BAD) */
     .hvr-hint-host.hvr-storm-on .hvr-hint{
       animation: hvrHintShake .34s linear infinite, hvrHintBlink .64s ease-in-out infinite;
     }
+    /* ถ้า Danger+Storm → โหดขึ้นอีก */
+    .hvr-hint-host.hvr-danger.hvr-storm-on .hvr-hint.bad{
+      animation: hvrDangerPulse .55s ease-in-out infinite, hvrHintShakeStrong .20s linear infinite, hvrHintBlink .46s ease-in-out infinite;
+    }
+
     @keyframes hvrHintShake{
       0%{ transform:translate(-50%,-50%) rotate(-1deg); }
       25%{ transform:translate(-50%,-50%) rotate(1deg); }
       50%{ transform:translate(-50%,-50%) rotate(-1deg); }
       75%{ transform:translate(-50%,-50%) rotate(1deg); }
       100%{ transform:translate(-50%,-50%) rotate(-1deg); }
+    }
+    @keyframes hvrHintShakeStrong{
+      0%{ transform:translate(-50%,-50%) rotate(-2deg); }
+      25%{ transform:translate(-50%,-50%) rotate(2deg); }
+      50%{ transform:translate(-50%,-50%) rotate(-2deg); }
+      75%{ transform:translate(-50%,-50%) rotate(2deg); }
+      100%{ transform:translate(-50%,-50%) rotate(-2deg); }
     }
     @keyframes hvrHintBlink{
       0%{ opacity:.95; }
@@ -416,7 +448,7 @@ function pickSpawnPoint(rect, size, activeTargets, hostForTransform, spread = 0.
 }
 
 // ======================================================
-//  PATCH A3.3+: Grouped hint arrows with counts
+//  PATCH A3.3++: Grouped hint arrows with counts + BAD-first
 // ======================================================
 function hintKindFromItemType(itemType){
   if (itemType === 'bad') return 'bad';
@@ -425,7 +457,6 @@ function hintKindFromItemType(itemType){
   return 'good';
 }
 function kindPriority(kind){
-  // bad > power > fake > good
   if (kind === 'bad') return 4;
   if (kind === 'power') return 3;
   if (kind === 'fake') return 2;
@@ -444,7 +475,7 @@ function makeGroupedHintEl(kind){
 
   const c = DOC.createElement('div');
   c.className = 'cnt';
-  c.textContent = '×2';
+  c.textContent = '';
 
   el.appendChild(a);
   el.appendChild(c);
@@ -454,11 +485,9 @@ function makeGroupedHintEl(kind){
 function setHint(el, x, y, angRad, kind, count){
   if (!el) return;
 
-  // update kind class
   el.classList.remove('good','bad','power','fake');
   el.classList.add(kind);
 
-  // position + rotation
   el.style.left = `${Math.round(x)}px`;
   el.style.top  = `${Math.round(y)}px`;
 
@@ -467,7 +496,6 @@ function setHint(el, x, y, angRad, kind, count){
     arr.style.transform = `rotate(${angRad}rad)`;
   }
 
-  // count badge
   const cnt = el.querySelector('.cnt');
   if (count && count > 1){
     el.classList.add('has-count');
@@ -478,16 +506,13 @@ function setHint(el, x, y, angRad, kind, count){
   }
 }
 
-// project a ray (bx,by) -> direction (dx,dy) to inner rect edge
 function projectToInnerRectEdge(bx, by, dx, dy, ix1, iy1, ix2, iy2){
   const EPS = 1e-6;
   dx = Math.abs(dx) < EPS ? (dx >= 0 ? EPS : -EPS) : dx;
   dy = Math.abs(dy) < EPS ? (dy >= 0 ? EPS : -EPS) : dy;
 
-  // solve t such that (bx + dx*t, by + dy*t) hits one boundary
   let tMin = Infinity;
 
-  // left/right
   if (dx > 0){
     const t = (ix2 - bx) / dx;
     if (t > 0) tMin = Math.min(tMin, t);
@@ -496,7 +521,6 @@ function projectToInnerRectEdge(bx, by, dx, dy, ix1, iy1, ix2, iy2){
     if (t > 0) tMin = Math.min(tMin, t);
   }
 
-  // top/bottom
   if (dy > 0){
     const t = (iy2 - by) / dy;
     if (t > 0) tMin = Math.min(tMin, t);
@@ -517,12 +541,59 @@ function projectToInnerRectEdge(bx, by, dx, dy, ix1, iy1, ix2, iy2){
 }
 
 function angleToSector8(ang){
-  // sector 0..7 around circle, centered on E(0)
   const twoPI = Math.PI * 2;
   let a = ang % twoPI;
   if (a < 0) a += twoPI;
   const step = twoPI / 8;
   return Math.round(a / step) % 8;
+}
+
+// ======================================================
+//  PATCH A3.3++: Beep/Tick (WebAudio) + throttle
+// ======================================================
+function makeBeep(){
+  const A = {};
+  A.ctx = null;
+  A.last = 0;
+
+  function getCtx(){
+    if (!ROOT.AudioContext && !ROOT.webkitAudioContext) return null;
+    if (A.ctx) return A.ctx;
+    try{
+      A.ctx = new (ROOT.AudioContext || ROOT.webkitAudioContext)();
+      return A.ctx;
+    }catch{
+      return null;
+    }
+  }
+
+  function beep(freq=860, dur=0.045, vol=0.040){
+    const ctx = getCtx();
+    if (!ctx) return;
+    const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (t - A.last < 260) return; // throttle
+    A.last = t;
+
+    try{
+      if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+
+      const now = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(vol, now + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(0.02, dur));
+
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start(now);
+      o.stop(now + Math.max(0.03, dur + 0.02));
+    }catch{}
+  }
+
+  return { beep };
 }
 
 // ======================================================
@@ -551,9 +622,11 @@ export async function boot (rawCfg = {}) {
     boundsHost = null,
     decorateTarget = null,
 
-    // ✅ A3.3 / A3.3+
+    // ✅ A3.3 / A3.3++
     spread = 0.50,
-    showHints = true
+    showHints = true,
+    badFirstHints = true,   // ✅ A3.3++
+    badBeep = true          // ✅ A3.3++
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -753,18 +826,27 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Grouped hint state (A3.3+)
+  //  Hint state + Beep state
   // ======================================================
   const hintState = {
     host: showHints ? ensureHintHost() : null,
-    map: new Map() // key: sector 0..7 -> { el, kind }
+    map: new Map()
   };
+  const audio = makeBeep();
+  let lastDangerBeepAt = 0;
 
   function setHintStorm(isOn){
     if (!hintState.host) return;
     try{
       if (isOn) hintState.host.classList.add('hvr-storm-on');
       else hintState.host.classList.remove('hvr-storm-on');
+    }catch{}
+  }
+  function setHintDanger(isOn){
+    if (!hintState.host) return;
+    try{
+      if (isOn) hintState.host.classList.add('hvr-danger');
+      else hintState.host.classList.remove('hvr-danger');
     }catch{}
   }
 
@@ -776,7 +858,7 @@ export async function boot (rawCfg = {}) {
     hintState.map.clear();
   }
 
-  function updateHints(){
+  function updateHints(stormOn){
     if (!showHints || !hintState.host) return;
 
     let br = null;
@@ -792,8 +874,10 @@ export async function boot (rawCfg = {}) {
     const bx = br.left + br.width/2;
     const by = br.top  + br.height/2;
 
-    // collect offscreen targets into 8 sectors
-    const buckets = new Map(); // sector -> { n, sumx, sumy, sumAngX, sumAngY, kind, kindP }
+    // bucket offscreen targets into 8 sectors
+    const buckets = new Map(); // sector -> { n, vx, vy, kind, kindP, hasBad }
+    let anyBadOffscreen = false;
+
     activeTargets.forEach(t=>{
       const el = t.el;
       if (!el || !el.isConnected) return;
@@ -815,25 +899,52 @@ export async function boot (rawCfg = {}) {
 
       const kind = hintKindFromItemType(t.itemType);
       const kp = kindPriority(kind);
+      if (kind === 'bad') anyBadOffscreen = true;
 
       let b = buckets.get(sector);
       if (!b){
-        b = { n:0, sumx:0, sumy:0, vx:0, vy:0, kind:'good', kindP:0, ang:ang };
+        b = { n:0, vx:0, vy:0, kind:'good', kindP:0, hasBad:false };
         buckets.set(sector, b);
       }
+
       b.n += 1;
-      b.sumx += cx;
-      b.sumy += cy;
       b.vx += Math.cos(ang);
       b.vy += Math.sin(ang);
 
+      if (kind === 'bad') b.hasBad = true;
+
+      // sector kind = highest priority
       if (kp > b.kindP){
         b.kindP = kp;
         b.kind = kind;
       }
     });
 
-    // remove sectors no longer used
+    // ✅ A3.3++: BAD-first filter
+    if (badFirstHints && anyBadOffscreen){
+      // keep only sectors containing bad
+      buckets.forEach((b, k)=>{
+        if (!b.hasBad) buckets.delete(k);
+      });
+    }
+
+    // danger class on host
+    setHintDanger(!!anyBadOffscreen);
+
+    // ✅ beep tick (throttle แบบเป็นจังหวะ)
+    if (badBeep && anyBadOffscreen){
+      const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      const beat = stormOn ? 320 : 520;
+      if (t - lastDangerBeepAt > beat){
+        // storm = เสียงสูงขึ้นนิด
+        audio.beep(stormOn ? 980 : 860, 0.045, stormOn ? 0.050 : 0.040);
+        lastDangerBeepAt = t;
+      }
+    } else {
+      lastDangerBeepAt = 0;
+    }
+
+    // remove old hints not in use
     const alive = new Set(buckets.keys());
     hintState.map.forEach((v, k)=>{
       if (!alive.has(k)){
@@ -844,15 +955,11 @@ export async function boot (rawCfg = {}) {
 
     // place/update each sector hint
     buckets.forEach((b, sector)=>{
-      // mean angle
       const ang = Math.atan2(b.vy, b.vx);
-
-      // project to inner edge along ray
       const dx = Math.cos(ang);
       const dy = Math.sin(ang);
       const p = projectToInnerRectEdge(bx, by, dx, dy, ix1, iy1, ix2, iy2);
 
-      // ensure hint element
       let rec = hintState.map.get(sector);
       if (!rec || !rec.el || !rec.el.isConnected){
         const el = makeGroupedHintEl(b.kind);
@@ -918,7 +1025,7 @@ export async function boot (rawCfg = {}) {
     const baseSize = 78;
     const size = baseSize * curScale;
 
-    // ✅ A3.3 spread (VR-ish) + avoid overlaps + respect current view translate
+    // ✅ A3.3 spread + avoid overlaps + respect current view translate
     const p = pickSpawnPoint(rect, size, activeTargets, hostSpawn, spread);
 
     el.style.position = 'absolute';
@@ -1141,8 +1248,12 @@ export async function boot (rawCfg = {}) {
 
     refreshExclusions(ts);
 
-    // ✅ A3.3+ update hints (group + count)
-    updateHints();
+    const mul = getSpawnMul();
+    const stormOn = (mul < 0.99);
+
+    // ✅ A3.3++ hints (group + count + BAD-first + beep)
+    setHintStorm(stormOn);
+    updateHints(stormOn);
 
     if (lastClockTs == null) lastClockTs = ts;
     const dt = ts - lastClockTs;
@@ -1160,16 +1271,12 @@ export async function boot (rawCfg = {}) {
     if (secLeft > 0) {
       if (!lastSpawnTs) lastSpawnTs = ts;
 
-      const mul = getSpawnMul();
       const effInterval = Math.max(35, curInterval * mul);
 
-      const stormOn = (mul < 0.99);
       try{
         if (stormOn) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
         else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
       }catch{}
-      // ✅ storm effect on hints
-      setHintStorm(stormOn);
 
       if (rhythmOn && beatMs > 0) {
         if (!lastBeatTs) lastBeatTs = ts;
@@ -1203,7 +1310,6 @@ export async function boot (rawCfg = {}) {
     activeTargets.forEach(t => { try { t.el.remove(); } catch {} });
     activeTargets.clear();
 
-    // ✅ remove hints
     clearHints();
 
     try { dispatchTime(0); } catch {}
