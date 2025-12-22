@@ -1,9 +1,11 @@
 // === /herohealth/plate/plate.safe.js ===
-// HeroHealth — Balanced Plate VR (PLAY) — Full (GoodJunk-like) + HYPE PATCH (1–3)
-// ✅ FIX-HIT: layer pointer-events MUST be auto (child can't override if parent is none)
-// ✅ layer handles tap-anywhere shooting; targets still clickable
-// ✅ add click/touchstart fallback for some Android devices
-// ✅ 1) BOSS + TRAP  2) Fever ring pattern  3) Vibration + SFX + Screen FX
+// HeroHealth — Balanced Plate VR (PLAY) — Full (GoodJunk-like) + HYPE PATCH (1–6)
+// ✅ FIX-HIT: layer pointer-events MUST be auto
+// ✅ Tap-anywhere + direct hit (pointerdown/click/touchstart) robust on Android
+// ✅ 1) BOSS + TRAP  2) Fever ring pattern  3) Vibration/SFX/Screen FX
+// ✅ 4) Boss attack overlays (Ring + Laser) + telegraph
+// ✅ 5) Shield (1 charge) gained on FEVER 100% — blocks BAD/BOSS attack without MISS
+// ✅ 6) Low-time FX (tick + pulse)
 //
 // Requires in HTML (defer): ./vr/particles.js, ./vr/hha-compat-input.js, ./vr/hha-cloud-logger.js, A-Frame
 // Module: <script type="module" src="./plate/plate.safe.js"></script>
@@ -88,9 +90,9 @@ const cam = doc.querySelector('#cam');
 
 // ---------- Difficulty tuning ----------
 const DIFF_TABLE = {
-  easy:   { size: 92, life: 3200, spawnMs: 900, junkRate: 0.20, goldRate: 0.10, aimAssist: 140, trapRate: 0.045, bossRate: 0.020, bossHP: 3 },
-  normal: { size: 78, life: 2700, spawnMs: 780, junkRate: 0.26, goldRate: 0.12, aimAssist: 120, trapRate: 0.060, bossRate: 0.028, bossHP: 4 },
-  hard:   { size: 66, life: 2300, spawnMs: 660, junkRate: 0.32, goldRate: 0.14, aimAssist: 110, trapRate: 0.080, bossRate: 0.036, bossHP: 5 },
+  easy:   { size: 92, life: 3200, spawnMs: 900, junkRate: 0.20, goldRate: 0.10, aimAssist: 140, trapRate: 0.050, bossRate: 0.020, bossHP: 3, bossAtkMs:[2400, 3200] },
+  normal: { size: 78, life: 2700, spawnMs: 780, junkRate: 0.26, goldRate: 0.12, aimAssist: 120, trapRate: 0.070, bossRate: 0.028, bossHP: 4, bossAtkMs:[2100, 2900] },
+  hard:   { size: 66, life: 2300, spawnMs: 660, junkRate: 0.32, goldRate: 0.14, aimAssist: 110, trapRate: 0.090, bossRate: 0.036, bossHP: 5, bossAtkMs:[1800, 2600] },
 };
 const D = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
 
@@ -110,6 +112,9 @@ const S = {
 
   fever: 0,
   feverOn: false,
+
+  shield: 0,         // ✅ PATCH 5
+  shieldMax: 1,
 
   goalsCleared: 0,
   goalsTotal: 2,
@@ -135,6 +140,9 @@ const S = {
 
   bossNextAt: 0,
   bossActive: false,
+
+  // low time FX
+  lowTimeLastSec: null,
 
   sessionId: `PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
 };
@@ -286,6 +294,57 @@ const S = {
     100%{ transform:translate3d(0,0,0); }
   }
   body.hha-screen-shake{ animation: screenShake 260ms ease-in-out 1; }
+
+  /* ✅ PATCH 4: Boss attack overlays */
+  .hha-atk-ring{
+    position:fixed; left:50%; top:50%;
+    width:18px; height:18px;
+    margin-left:-9px; margin-top:-9px;
+    border-radius:999px;
+    border:4px solid rgba(248,113,113,.75);
+    box-shadow:0 0 0 10px rgba(248,113,113,.10), 0 0 60px rgba(248,113,113,.18);
+    opacity:0;
+    pointer-events:none;
+    z-index:985;
+    transform:translate3d(0,0,0) scale(0.2);
+  }
+  @keyframes atkRing{
+    0%{ opacity:0; transform:translate3d(0,0,0) scale(0.2); }
+    12%{ opacity:1; }
+    100%{ opacity:0; transform:translate3d(0,0,0) scale(14); }
+  }
+  .hha-atk-ring.on{ animation: atkRing 720ms ease-out both; }
+
+  .hha-atk-laser{
+    position:fixed; inset:0;
+    pointer-events:none;
+    z-index:986;
+    opacity:0;
+  }
+  .hha-atk-laser::before, .hha-atk-laser::after{
+    content:'';
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    background:rgba(248,113,113,.30);
+    box-shadow:0 0 40px rgba(248,113,113,.22);
+  }
+  .hha-atk-laser::before{ width:88vw; height:10px; border-radius:999px; }
+  .hha-atk-laser::after{ width:10px; height:88vh; border-radius:999px; }
+  @keyframes atkLaser{
+    0%{ opacity:0; }
+    15%{ opacity:1; }
+    100%{ opacity:0; }
+  }
+  .hha-atk-laser.on{ animation: atkLaser 320ms ease-out both; }
+
+  /* ✅ PATCH 6: low time pulse */
+  @keyframes lowTimePulse{
+    0%{ filter:brightness(1); }
+    50%{ filter:brightness(1.10); }
+    100%{ filter:brightness(1); }
+  }
+  body.hha-lowtime #hudTop{ animation: lowTimePulse 420ms linear infinite; }
   `;
   doc.head.appendChild(st);
 })();
@@ -294,6 +353,15 @@ const S = {
 const dmgFlash = doc.createElement('div');
 dmgFlash.className = 'hha-dmg-flash';
 doc.body.appendChild(dmgFlash);
+
+// Attack overlays
+const atkRing = doc.createElement('div');
+atkRing.className = 'hha-atk-ring';
+doc.body.appendChild(atkRing);
+
+const atkLaser = doc.createElement('div');
+atkLaser.className = 'hha-atk-laser';
+doc.body.appendChild(atkLaser);
 
 // ---------- Create target layer ----------
 const layer = doc.createElement('div');
@@ -339,7 +407,7 @@ function pickSafeXY(sizePx){
   const m = 14;
   const half = sizePx * 0.5;
   const blocked = getBlockedRects();
-  const tries = 44;
+  const tries = 46;
   const off = viewOffset();
 
   for (let i=0;i<tries;i++){
@@ -362,6 +430,14 @@ function pickSafeXY(sizePx){
 function vibe(ms){ try { if (navigator.vibrate) navigator.vibrate(ms); } catch(_) {} }
 function flashDamage(){ try{ dmgFlash.classList.remove('on'); void dmgFlash.offsetWidth; dmgFlash.classList.add('on'); }catch(_){} }
 function screenShake(){ doc.body.classList.add('hha-screen-shake'); setTimeout(()=>doc.body.classList.remove('hha-screen-shake'), 280); }
+
+// ✅ PATCH 4: attack overlay trigger
+function atkFX(){
+  try{
+    atkRing.classList.remove('on'); void atkRing.offsetWidth; atkRing.classList.add('on');
+    atkLaser.classList.remove('on'); void atkLaser.offsetWidth; atkLaser.classList.add('on');
+  }catch(_){}
+}
 
 // ---------- Audio (WebAudio) ----------
 const AudioX = (function(){
@@ -396,7 +472,9 @@ const AudioX = (function(){
   function bad(){ beep(220, 0.08, 0.06, 'sawtooth'); }
   function bossHit(){ beep(420, 0.06, 0.05, 'square'); }
   function bossDown(){ beep(240, 0.11, 0.06, 'sawtooth'); setTimeout(()=>beep(760,0.08,0.05,'triangle'),60); }
-  return { ensure, unlock, tick, warn, good, perfect, bad, bossHit, bossDown };
+  function atk(){ beep(160, 0.10, 0.06, 'sawtooth'); setTimeout(()=>beep(90,0.12,0.05,'square'),70); }
+  function shield(){ beep(980,0.08,0.045,'triangle'); setTimeout(()=>beep(1320,0.06,0.04,'sine'),60); }
+  return { ensure, unlock, tick, warn, good, perfect, bad, bossHit, bossDown, atk, shield };
 })();
 
 // ---------- Target content ----------
@@ -411,6 +489,33 @@ const JUNK = ['🍩','🍟','🍔','🍕','🧋','🍭','🍫','🥤'];
 const TRAPS = ['🎁','⭐','🍬','🍰','🧁'];
 
 function randFrom(arr){ return arr[(Math.random()*arr.length)|0]; }
+
+// ---------- HUD inject: Shield pill (no HTML edit needed) ----------
+let hudShieldVal = null;
+function ensureShieldPill(){
+  if (hudShieldVal) return;
+  const top = doc.getElementById('hudTop');
+  if (!top) return;
+  const card = top.querySelector('.card');
+  if (!card) return;
+  const rows = card.querySelectorAll('.row');
+  if (!rows || !rows.length) return;
+
+  // add into 2nd row if exists, else 1st row
+  const row = rows[Math.min(1, rows.length-1)];
+  const pill = doc.createElement('span');
+  pill.className = 'pill';
+  pill.id = 'hudShieldPill';
+  pill.innerHTML = `🛡️ <span class="k">SHIELD</span> <span id="hudShield" class="v">0</span>`;
+  row.appendChild(pill);
+  hudShieldVal = pill.querySelector('#hudShield');
+  setTxt(hudShieldVal, S.shield);
+}
+function setShield(n){
+  S.shield = clamp(n, 0, S.shieldMax);
+  ensureShieldPill();
+  setTxt(hudShieldVal, S.shield);
+}
 
 // ---------- Target spawn/manage ----------
 let targetSeq = 0;
@@ -467,7 +572,7 @@ function makeTarget(kind, group, opts = {}){
   const bornAt = now();
   const lifeBase = D.life;
   const life =
-    (kind === 'boss') ? clamp(lifeBase * 1.65, 3200, 6200) :
+    (kind === 'boss') ? clamp(lifeBase * 1.75, 3400, 7200) :
     (kind === 'gold') ? (lifeBase * 0.92) :
     (kind === 'trap') ? (lifeBase * 0.95) :
     lifeBase;
@@ -475,7 +580,16 @@ function makeTarget(kind, group, opts = {}){
   const dieAt = bornAt + life;
   const cx = pos.x, cy = pos.y;
 
-  const rec = { el, kind, group, bornAt, dieAt, cx, cy, size: sizePx, hp, hpMax: hp, dead:false };
+  // ✅ PATCH 4: boss attack scheduler state on record
+  const rec = {
+    el, kind, group, bornAt, dieAt, cx, cy, size: sizePx,
+    hp, hpMax: hp, dead:false,
+    atkAt: (kind === 'boss') ? (bornAt + rnd(D.bossAtkMs[0], D.bossAtkMs[1])) : 0,
+    atkArmed: (kind === 'boss'),
+    atkFired: false,
+    atkDelays: 0
+  };
+
   S.targets.push(rec);
 
   // ✅ Strong hit listeners (some Android misses pointerdown)
@@ -516,15 +630,10 @@ function expireTargets(){
         Particles.judgeText && Particles.judgeText('MISS');
         logEvent('miss_expire', { kind: rec.kind, group: rec.group });
       } else if (rec.kind === 'boss'){
-        S.miss += 1;
-        S.combo = 0;
-        addFever(-22);
-        addScore(-420);
-        flashDamage(); screenShake(); vibe(70);
-        Particles.judgeText && Particles.judgeText('BOSS HIT!');
-        Particles.celebrate && Particles.celebrate('OUCH!');
-        logEvent('boss_expire_punish', {});
+        // boss left alive -> punish
+        bossAttackPunish('boss_expire');
         S.bossActive = false;
+        logEvent('boss_expire_punish', {});
       }
       removeTarget(rec);
     }
@@ -567,14 +676,39 @@ function updateAimHighlight(){
 // ---------- Score/Fever/Grade ----------
 function addScore(delta){ S.score += delta; setTxt(HUD.score, S.score); }
 function addCombo(){ S.combo += 1; S.maxCombo = Math.max(S.maxCombo, S.combo); setTxt(HUD.combo, S.combo); }
+
+// ✅ PATCH 5: fever full -> grant shield
+function grantShield(){
+  if (S.shield >= S.shieldMax) return;
+  setShield(S.shield + 1);
+  Particles.celebrate && Particles.celebrate('SHIELD +1!');
+  AudioX.shield();
+  vibe(45);
+  logEvent('shield_gain', { shield: S.shield });
+}
+
 function addFever(v){
+  const prev = S.fever;
   S.fever = clamp(S.fever + v, 0, 100);
   const pct = Math.round(S.fever);
   if (HUD.feverBar) HUD.feverBar.style.width = `${pct}%`;
   setTxt(HUD.feverPct, `${pct}%`);
-  if (!S.feverOn && S.fever >= 100){ S.feverOn = true; Particles.celebrate && Particles.celebrate('FEVER!'); logEvent('fever_on', {}); }
-  if (S.feverOn && S.fever <= 15){ S.feverOn = false; logEvent('fever_off', {}); }
+
+  if (!S.feverOn && S.fever >= 100){
+    S.feverOn = true;
+    Particles.celebrate && Particles.celebrate('FEVER!');
+    grantShield(); // ✅
+    logEvent('fever_on', {});
+  }
+  if (S.feverOn && S.fever <= 15){
+    S.feverOn = false;
+    logEvent('fever_off', {});
+  }
+
+  // small anti-stuck
+  if (prev < 100 && S.fever >= 100) S.fever = 100;
 }
+
 function gradeFromScore(){
   const metric = S.score + S.perfectCount*120 - S.miss*260;
   if (metric >= 7200) return 'SSS';
@@ -771,7 +905,26 @@ function bossHpSync(rec){
   hpEl.style.transform = `scaleX(${ratio})`;
 }
 
+// ✅ PATCH 5: shield block helper
+function shieldBlock(reason){
+  if (S.shield <= 0) return false;
+  setShield(S.shield - 1);
+  Particles.celebrate && Particles.celebrate('🛡️ BLOCK!');
+  Particles.judgeText && Particles.judgeText('SHIELD!');
+  AudioX.shield();
+  vibe(35);
+  logEvent('shield_block', { reason, shield: S.shield });
+  return true;
+}
+
 function punishBad(reason){
+  // if shield -> no MISS
+  if (shieldBlock(reason)){
+    addScore(-60);
+    addFever(-6);
+    return;
+  }
+
   S.combo = 0;
   setTxt(HUD.combo, S.combo);
 
@@ -787,6 +940,31 @@ function punishBad(reason){
 
   Particles.judgeText && Particles.judgeText('BAD');
   AudioX.bad();
+}
+
+// ✅ PATCH 4: boss attack punish (ring+laser)
+function bossAttackPunish(tag){
+  atkFX();
+  AudioX.atk();
+  screenShake();
+  flashDamage();
+  vibe(85);
+
+  if (shieldBlock(tag)){
+    addScore(-80);
+    addFever(-8);
+    return;
+  }
+
+  S.combo = 0;
+  setTxt(HUD.combo, S.combo);
+  S.miss += 1;
+  setTxt(HUD.miss, S.miss);
+  addScore(-320);
+  addFever(-20);
+
+  Particles.judgeText && Particles.judgeText('BOSS ATK!');
+  Particles.celebrate && Particles.celebrate('OUCH!');
 }
 
 function hitTarget(rec, direct){
@@ -827,6 +1005,12 @@ function hitTarget(rec, direct){
   }
 
   if (rec.kind === 'boss'){
+    // hitting boss delays attack a bit (reward aggression)
+    if (rec.atkArmed && rec.atkDelays < 2){
+      rec.atkAt += 700;
+      rec.atkDelays += 1;
+    }
+
     rec.hp = Math.max(0, (rec.hp|0) - 1);
     bossHpSync(rec);
 
@@ -915,7 +1099,7 @@ function hitTarget(rec, direct){
 function decideGroup(){ return 1 + ((Math.random()*5)|0); }
 function decideKind(){
   const r = Math.random();
-  const trapRate = clamp(D.trapRate * (S.feverOn ? 1.12 : 1.0), 0, 0.20);
+  const trapRate = clamp(D.trapRate * (S.feverOn ? 1.12 : 1.0), 0, 0.22);
   if (r < D.goldRate) return 'gold';
   if (r < D.goldRate + D.junkRate) return 'junk';
   if (r < D.goldRate + D.junkRate + trapRate) return 'trap';
@@ -980,7 +1164,7 @@ function spawnFeverRingBurst(){
 
     const bornAt = now();
     const dieAt = bornAt + clamp(D.life * 0.86, 1400, 2600);
-    const rec = { el, kind, group, bornAt, dieAt, cx:x, cy:y, size:sizePx, hp:0, hpMax:0, dead:false };
+    const rec = { el, kind, group, bornAt, dieAt, cx:x, cy:y, size:sizePx, hp:0, hpMax:0, dead:false, atkAt:0, atkArmed:false, atkFired:false, atkDelays:0 };
     S.targets.push(rec);
 
     const hitHandler = (e)=>{
@@ -1020,6 +1204,30 @@ function spawnTick(){
   S.nextSpawnAt = t + Math.max(260, (D.spawnMs * mul) + jitter);
 }
 
+// ✅ PATCH 4: boss attack tick (telegraph + damage)
+function tickBossAttack(){
+  const t = now();
+  for (const rec of S.targets){
+    if (rec.dead) continue;
+    if (rec.kind !== 'boss') continue;
+    if (!rec.atkArmed || rec.atkFired) continue;
+
+    // telegraph: slight warning ~450ms before
+    if (t >= rec.atkAt - 450 && !rec._warned){
+      rec._warned = true;
+      Particles.judgeText && Particles.judgeText('⚠️');
+      AudioX.warn();
+      vibe(18);
+    }
+
+    if (t >= rec.atkAt){
+      rec.atkFired = true;
+      bossAttackPunish('boss_attack');
+      logEvent('boss_attack', {});
+    }
+  }
+}
+
 // ---------- Tap-anywhere shooting ----------
 function isUIElement(target){
   if (!target) return false;
@@ -1054,6 +1262,9 @@ function restart(){
 
   S.score = 0; S.combo = 0; S.maxCombo = 0; S.miss = 0; S.perfectCount = 0;
   S.fever = 0; S.feverOn = false;
+
+  setShield(0);
+
   S.goalsCleared = 0; S.minisCleared = 0;
 
   S.plateHave.clear();
@@ -1061,6 +1272,9 @@ function restart(){
 
   S.bossActive = false;
   S.bossNextAt = now() + rnd(8000, 14000);
+
+  S.lowTimeLastSec = null;
+  doc.body.classList.remove('hha-lowtime');
 
   setTxt(HUD.score, 0); setTxt(HUD.combo, 0); setTxt(HUD.miss, 0);
   setTxt(HUD.perfect, 0); setTxt(HUD.have, `0/5`);
@@ -1089,6 +1303,7 @@ function endGame(){
   if (!S.running) return;
   S.running = false;
   doc.body.classList.remove('hha-mini-urgent');
+  doc.body.classList.remove('hha-lowtime');
 
   S.nextSpawnAt = Infinity;
   for (const rec of [...S.targets]) removeTarget(rec);
@@ -1144,6 +1359,7 @@ function logEvent(type, data){
     miss: S.miss,
     perfect: S.perfectCount,
     fever: Math.round(S.fever),
+    shield: S.shield,
     data: data || {},
   });
 }
@@ -1154,6 +1370,7 @@ function start(){
   S.tStart = now();
   S.nextSpawnAt = now() + 350;
 
+  ensureShieldPill();
   setTxt(HUD.mode, MODE === 'research' ? 'Research' : 'Play');
   setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
 
@@ -1168,7 +1385,21 @@ function start(){
       S.timeLeft = Math.max(0, TOTAL_TIME - elapsed);
       setTxt(HUD.time, fmt(S.timeLeft));
 
+      // ✅ PATCH 6: low time tick/pulse
+      if (S.timeLeft <= 10){
+        doc.body.classList.add('hha-lowtime');
+        const sec = Math.ceil(S.timeLeft);
+        if (sec !== S.lowTimeLastSec){
+          S.lowTimeLastSec = sec;
+          AudioX.tick();
+        }
+      } else {
+        doc.body.classList.remove('hha-lowtime');
+        S.lowTimeLastSec = null;
+      }
+
       spawnTick();
+      tickBossAttack();  // ✅ PATCH 4
       expireTargets();
       tickMini();
 
@@ -1187,7 +1418,6 @@ function start(){
 
 // ---------- Bind UI ----------
 function bindUI(){
-  // ✅ IMPORTANT: listen on layer too (since it covers screen)
   layer.addEventListener('pointerdown', onGlobalPointerDown, { passive:false });
   layer.addEventListener('touchstart', onGlobalPointerDown, { passive:false });
   layer.addEventListener('click', onGlobalPointerDown, { passive:false });
@@ -1224,6 +1454,9 @@ function bindUI(){
   } catch(_) {}
 
   bindUI();
+
+  ensureShieldPill();
+  setShield(0);
 
   setTxt(HUD.mode, MODE === 'research' ? 'Research' : 'Play');
   setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
