@@ -5,13 +5,18 @@
 // ✅ Tap-anywhere ยิงกลางจอ + Aim assist (เล็งใกล้ crosshair)
 // ✅ Perfect ring assist + PERFECT/HIT judge
 // ✅ Fever + Shield (shield block: ไม่เพิ่ม MISS/ไม่ลดหัวใจ)
-// ✅ Hearts/Lives (หมด = จบก่อนเวลา)
-// ✅ MPH: misses per heart ผ่าน &mph=2 (กัน Game Over เร็ว)
+// ✅ Hearts/Lives (หมด = จบก่อนเวลา) + MPH (1 หัวใจ = miss กี่ครั้ง)
 // ✅ Goals(2) + Minis(7) (Plate Rush + urgent tick/flash/shake)
 // ✅ Boss multi-phase + Attack overlays (ring/laser/double) + telegraph
-// ✅ Powerups: Slow / No-Junk Zone / Storm (spawn ถี่ขึ้นจริง)
+// ✅ Powerups: Slow / No-Junk Zone / Storm (spawn ถี่ขึ้นจริง) — Play เท่านั้น
 // ✅ Coach bubble (ไม่ทับ HUD) + เสียง/สั่น + FX hooks (Particles)
 // ✅ Logger: dispatch hha:log_session / hha:log_event (IIFE cloud logger)
+//
+// ✅ Research Strict:
+//   - lives=3 (ล็อก)
+//   - mph=1 (ล็อก)  → พลาด 1 ครั้งเสีย 1 หัวใจ
+//   - ปิด powerups ทั้งหมด (slow/nojunk/storm)
+//   - ลด aimAssist + เพิ่ม junk/trap/boss เล็กน้อย (คุมแปรปรวน)
 //
 // HTML expects defer: ./vr/particles.js, ./vr/hha-compat-input.js, ./vr/hha-cloud-logger.js, A-Frame
 // Module: <script type="module" src="./plate/plate.safe.js"></script>
@@ -28,14 +33,18 @@ const MODE = String(Q.get('run') || 'play').toLowerCase();      // play | resear
 const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal | hard
 const TOTAL_TIME = Math.max(20, parseInt(Q.get('time') || '80', 10) || 80);
 const DEBUG = (Q.get('debug') === '1');
+const IS_RESEARCH = (MODE === 'research');
 
+// lives + mph (miss per heart)
 const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
-const LIVES_START = Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0 ? LIVES_PARAM : 3;
+const LIVES_START = IS_RESEARCH
+  ? 3
+  : (Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0 ? LIVES_PARAM : 3);
 
-// OPTIONAL: misses per heart (mph) — กัน Game Over เร็วเกินในมือถือ
-// ใช้: &mph=2  => พลาด 2 ครั้งค่อยเสีย 1 หัวใจ
 const MPH_PARAM = parseInt(Q.get('mph') || '', 10);
-const MISSES_PER_HEART = Number.isFinite(MPH_PARAM) && MPH_PARAM > 0 ? MPH_PARAM : 1;
+const MISSES_PER_HEART = IS_RESEARCH
+  ? 1
+  : (Number.isFinite(MPH_PARAM) && MPH_PARAM > 0 ? MPH_PARAM : 1);
 
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
@@ -56,6 +65,7 @@ function $(id){ return doc.getElementById(id); }
 function setTxt(el, t){ if(el) el.textContent = String(t); }
 function setShow(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
 function intersect(a,b){ return !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y); }
+function isFiniteNum(n){ return Number.isFinite(n) && !Number.isNaN(n); }
 
 // ---------- HUD ----------
 const HUD = {
@@ -96,46 +106,6 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
-function refreshHudRefs(){
-  HUD.time = $('hudTime');
-  HUD.score = $('hudScore');
-  HUD.combo = $('hudCombo');
-  HUD.miss = $('hudMiss');
-  HUD.feverBar = $('hudFever');
-  HUD.feverPct = $('hudFeverPct');
-  HUD.grade = $('hudGrade');
-  HUD.mode = $('hudMode');
-  HUD.diff = $('hudDiff');
-  HUD.have = $('hudGroupsHave');
-  HUD.perfect = $('hudPerfectCount');
-  HUD.goalLine = $('hudGoalLine');
-  HUD.miniLine = $('hudMiniLine');
-  HUD.miniHint = $('hudMiniHint');
-  HUD.paused = $('hudPaused');
-
-  HUD.btnEnterVR = $('btnEnterVR');
-  HUD.btnPause = $('btnPause');
-  HUD.btnRestart = $('btnRestart');
-
-  HUD.resultBackdrop = $('resultBackdrop');
-  HUD.btnPlayAgain = $('btnPlayAgain');
-
-  HUD.rMode = $('rMode');
-  HUD.rGrade = $('rGrade');
-  HUD.rScore = $('rScore');
-  HUD.rMaxCombo = $('rMaxCombo');
-  HUD.rMiss = $('rMiss');
-  HUD.rPerfect = $('rPerfect');
-  HUD.rGoals = $('rGoals');
-  HUD.rMinis = $('rMinis');
-  HUD.rG1 = $('rG1');
-  HUD.rG2 = $('rG2');
-  HUD.rG3 = $('rG3');
-  HUD.rG4 = $('rG4');
-  HUD.rG5 = $('rG5');
-  HUD.rGTotal = $('rGTotal');
-}
-
 // ---------- A-Frame refs ----------
 const scene = doc.querySelector('a-scene');
 const cam = doc.querySelector('#cam');
@@ -167,7 +137,24 @@ const DIFF_TABLE = {
     stormDurMs:[4800, 8200], slowDurMs:[3200, 5800], noJunkDurMs:[4200, 7200],
   },
 };
-const D = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
+
+const D0 = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
+
+// ✅ Research strict override (คุมเข้ม + คุมแปรปรวน)
+const DR = IS_RESEARCH ? {
+  ...D0,
+  // ปิด powerups ช่วยเล่น
+  slowRate: 0,
+  noJunkRate: 0,
+  stormRate: 0,
+  // เข้มขึ้นเล็กน้อย
+  aimAssist: Math.min(D0.aimAssist, 115),
+  junkRate: clamp(D0.junkRate * 1.12, 0, 0.50),
+  trapRate: clamp(D0.trapRate * 1.10, 0, 0.35),
+  bossRate: clamp(D0.bossRate * 1.10, 0, 0.10),
+  goldRate: clamp(D0.goldRate * 0.85, 0, 0.25),
+  // duration ไม่ใช้ (เพราะไม่ spawn power) แต่คงไว้กัน error
+} : D0;
 
 // ---------- State ----------
 const S = {
@@ -181,7 +168,6 @@ const S = {
   combo: 0,
   maxCombo: 0,
   miss: 0,
-  missBucket: 0,          // ✅ mph bucket
   perfectCount: 0,
 
   fever: 0,
@@ -192,6 +178,8 @@ const S = {
 
   lives: LIVES_START,
   livesMax: Math.max(1, LIVES_START),
+
+  mph: Math.max(1, MISSES_PER_HEART),
 
   goalsCleared: 0,
   goalsTotal: 2,
@@ -234,7 +222,7 @@ function inVR(){
   try { return !!(scene && scene.is && scene.is('vr-mode')); } catch(_) { return false; }
 }
 
-// ---------- Inject CSS (FIX: var(--x) / var(--y) ใช้ px ตรง ๆ ไม่คูณ 1px) ----------
+// ---------- Inject CSS ----------
 (function injectCss(){
   const st = doc.createElement('style');
   st.textContent = `
@@ -602,11 +590,13 @@ const AudioX = (function(){
   return { ensure, unlock, tick, warn, good, perfect, bad, bossHit, bossDown, atk, shield, power };
 })();
 
-// ---------- Camera -> view offset (GoodJunk style on mobile; in VR = 0) ----------
+// ---------- Camera -> view offset (mobile rotate like VR; in VR = 0) ----------
 function getCamAngles(){
   const r = cam && cam.object3D ? cam.object3D.rotation : null;
   if (!r) return { yaw:0, pitch:0 };
-  return { yaw: r.y || 0, pitch: r.x || 0 };
+  const yaw = isFiniteNum(r.y) ? r.y : 0;
+  const pitch = isFiniteNum(r.x) ? r.x : 0;
+  return { yaw, pitch };
 }
 function viewOffset(){
   if (inVR()) return { x:0, y:0 };
@@ -615,13 +605,22 @@ function viewOffset(){
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const pxPerRadX = clamp(vw * 0.55, 180, 720);
   const pxPerRadY = clamp(vh * 0.48, 160, 640);
-  const x = clamp(-yaw * pxPerRadX, -vw*1.2, vw*1.2);
-  const y = clamp(+pitch * pxPerRadY, -vh*1.2, vh*1.2);
+
+  let x = -yaw * pxPerRadX;
+  let y = +pitch * pxPerRadY;
+
+  if (!isFiniteNum(x)) x = 0;
+  if (!isFiniteNum(y)) y = 0;
+
+  x = clamp(x, -vw*1.2, vw*1.2);
+  y = clamp(y, -vh*1.2, vh*1.2);
   return { x, y };
 }
 function applyLayerTransform(){
   const off = viewOffset();
-  layer.style.transform = `translate3d(${off.x}px, ${off.y}px, 0)`;
+  const x = isFiniteNum(off.x) ? off.x : 0;
+  const y = isFiniteNum(off.y) ? off.y : 0;
+  layer.style.transform = `translate3d(${x}px, ${y}px, 0)`;
 }
 
 // ---------- Safezone (avoid HUD) ----------
@@ -641,7 +640,7 @@ function pickSafeXY(sizePx){
   const m = 14;
   const half = sizePx * 0.5;
   const blocked = getBlockedRects();
-  const tries = 70;
+  const tries = 80;
 
   const off = viewOffset();
 
@@ -679,6 +678,7 @@ let hudLivesVal = null;
 let hudPowerVal = null;
 
 function powerLabel(){
+  if (IS_RESEARCH) return '—';
   const t = now();
   const labels = [];
   if (t < S.noJunkUntil) labels.push('NO-JUNK');
@@ -687,45 +687,42 @@ function powerLabel(){
   return labels.length ? labels.join(' + ') : '—';
 }
 
-// ✅ robust: ไม่พึ่งโครงสร้าง .card .row แบบเดิมแล้ว
 function ensurePills(){
   const top = doc.getElementById('hudTop');
   if (!top) return;
+  const card = top.querySelector('.card');
+  if (!card) return;
+  const rows = card.querySelectorAll('.row');
+  if (!rows || !rows.length) return;
 
-  let host =
-    top.querySelector('.row.pills') ||
-    top.querySelector('.pills') ||
-    top.querySelector('.card') ||
-    top;
+  const row = rows[Math.min(1, rows.length-1)];
 
-  if (!top.querySelector('.row.pills')){
-    const row = doc.createElement('div');
-    row.className = 'row pills';
-    row.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;';
-    if (top.querySelector('.card')) top.querySelector('.card').appendChild(row);
-    else top.appendChild(row);
-    host = row;
-  }
+  if (!doc.getElementById('hudShieldPill')){
+    const pill = doc.createElement('span');
+    pill.className = 'pill';
+    pill.id = 'hudShieldPill';
+    pill.innerHTML = `🛡️ <span class="k">SHIELD</span> <span id="hudShield" class="v">0</span>`;
+    row.appendChild(pill);
+    hudShieldVal = pill.querySelector('#hudShield');
+  } else hudShieldVal = doc.getElementById('hudShield');
 
-  function makePill(id, html){
-    let p = doc.getElementById(id);
-    if (!p){
-      p = doc.createElement('span');
-      p.className = 'pill';
-      p.id = id;
-      p.innerHTML = html;
-      host.appendChild(p);
-    }
-    return p;
-  }
+  if (!doc.getElementById('hudLivesPill')){
+    const pill = doc.createElement('span');
+    pill.className = 'pill';
+    pill.id = 'hudLivesPill';
+    pill.innerHTML = `❤️ <span class="k">LIVES</span> <span id="hudLives" class="v">${S.lives}</span>`;
+    row.appendChild(pill);
+    hudLivesVal = pill.querySelector('#hudLives');
+  } else hudLivesVal = doc.getElementById('hudLives');
 
-  const pShield = makePill('hudShieldPill', `🛡️ <span class="k">SHIELD</span> <span id="hudShield" class="v">0</span>`);
-  const pLives  = makePill('hudLivesPill',  `❤️ <span class="k">LIVES</span> <span id="hudLives" class="v">${S.lives}</span>`);
-  const pPower  = makePill('hudPowerPill',  `✨ <span class="k">POWER</span> <span id="hudPower" class="v">—</span>`);
-
-  hudShieldVal = pShield.querySelector('#hudShield');
-  hudLivesVal  = pLives.querySelector('#hudLives');
-  hudPowerVal  = pPower.querySelector('#hudPower');
+  if (!doc.getElementById('hudPowerPill')){
+    const pill = doc.createElement('span');
+    pill.className = 'pill';
+    pill.id = 'hudPowerPill';
+    pill.innerHTML = `✨ <span class="k">POWER</span> <span id="hudPower" class="v">—</span>`;
+    row.appendChild(pill);
+    hudPowerVal = pill.querySelector('#hudPower');
+  } else hudPowerVal = doc.getElementById('hudPower');
 
   setTxt(hudShieldVal, S.shield);
   setTxt(hudLivesVal, S.lives);
@@ -745,6 +742,13 @@ function setLives(n){
 function refreshPowerHUD(){
   ensurePills();
   setTxt(hudPowerVal, powerLabel());
+
+  if (IS_RESEARCH){
+    setShow(powGreen, false);
+    setShow(powBlue, false);
+    setShow(powOrange, false);
+    return;
+  }
 
   const t = now();
   setShow(powGreen, t < S.noJunkUntil);
@@ -771,7 +775,7 @@ function logSession(phase){
     diff: DIFF,
     timeTotal: TOTAL_TIME,
     lives: S.livesMax,
-    mph: MISSES_PER_HEART,
+    mph: S.mph,
     ts: Date.now(),
     ua: navigator.userAgent,
   });
@@ -789,6 +793,7 @@ function logEvent(type, data){
     fever: Math.round(S.fever),
     shield: S.shield,
     lives: S.lives,
+    mph: S.mph,
     power: powerLabel(),
     data: data || {},
   });
@@ -1034,7 +1039,7 @@ function pickNearCrosshair(radiusPx){
   return null;
 }
 function updateAimHighlight(){
-  const assist = inVR() ? Math.max(D.aimAssist, 170) : D.aimAssist;
+  const assist = inVR() ? Math.max(DR.aimAssist, 170) : DR.aimAssist;
   const picked = pickNearCrosshair(assist);
   const tid = picked ? picked.rec.el.dataset.tid : null;
 
@@ -1061,7 +1066,7 @@ let targetSeq = 0;
 
 function computeSizePx(kind){
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
-  const base = D.size;
+  const base = DR.size;
   const scale = clamp(Math.min(vw, vh) / 820, 0.86, 1.12);
   let sz = clamp(base * scale, 52, 118);
   if (kind === 'gold') sz = clamp(sz * 1.05, 56, 128);
@@ -1074,16 +1079,21 @@ function computeSizePx(kind){
 function bossPhaseFor(rec){
   if (!rec || rec.kind !== 'boss') return 1;
   const ratio = rec.hpMax ? (rec.hp / rec.hpMax) : 1;
-  if (ratio <= D.bossPhase3At) return 3;
-  if (ratio <= D.bossPhase2At) return 2;
+  if (ratio <= DR.bossPhase3At) return 3;
+  if (ratio <= DR.bossPhase2At) return 2;
   return 1;
 }
 
 function makeTarget(kind, group, opts = {}){
   const sizePx = computeSizePx(kind);
 
-  // ✅ รองรับ forceXY จริง (พิกัดใน layer space)
-  let pos = opts._forceXY ? { x: opts._forceXY.x, y: opts._forceXY.y } : pickSafeXY(sizePx);
+  // ✅ support forced XY (e.g., fever ring burst)
+  let pos = null;
+  if (opts && opts._forceXY && isFiniteNum(opts._forceXY.x) && isFiniteNum(opts._forceXY.y)){
+    pos = { x: opts._forceXY.x, y: opts._forceXY.y };
+  } else {
+    pos = pickSafeXY(sizePx);
+  }
 
   const el = doc.createElement('div');
   el.className = `plateTarget ${kind} spawn`;
@@ -1112,7 +1122,7 @@ function makeTarget(kind, group, opts = {}){
   else if (kind === 'boss'){
     emoji = (Math.random() < 0.5) ? '🦠' : '😈';
     tag = 'BOSS';
-    hp = Math.max(2, opts.hp || D.bossHP || 4);
+    hp = Math.max(2, opts.hp || DR.bossHP || 4);
     meta.phase = 1;
     meta.atkStyle = 'ring';
   } else {
@@ -1127,7 +1137,7 @@ function makeTarget(kind, group, opts = {}){
   `;
 
   const bornAt = now();
-  const lifeBase = D.life;
+  const lifeBase = DR.life;
   let life =
     (kind === 'boss') ? clamp(lifeBase * 1.75, 3400, 7200) :
     (kind === 'gold') ? (lifeBase * 0.92) :
@@ -1144,7 +1154,7 @@ function makeTarget(kind, group, opts = {}){
     el, kind, group, bornAt, dieAt, cx, cy, size: sizePx,
     hp, hpMax: hp, dead:false,
     meta,
-    atkAt: (kind === 'boss') ? (bornAt + rnd(D.bossAtkMs[0], D.bossAtkMs[1])) : 0,
+    atkAt: (kind === 'boss') ? (bornAt + rnd(DR.bossAtkMs[0], DR.bossAtkMs[1])) : 0,
     atkArmed: (kind === 'boss'),
     atkDelays: 0,
     _warned: false,
@@ -1219,6 +1229,14 @@ function shieldBlock(reason){
   return true;
 }
 
+function loseHeartByMPH(){
+  // MPH: ทุก ๆ mph miss จะเสียหัวใจ 1
+  const mph = Math.max(1, S.mph|0);
+  const before = Math.floor((S.miss - 1) / mph);
+  const after  = Math.floor(S.miss / mph);
+  return (after > before);
+}
+
 function onMiss(reason, extra = {}){
   S.combo = 0;
   setTxt(HUD.combo, S.combo);
@@ -1227,22 +1245,12 @@ function onMiss(reason, extra = {}){
   setTxt(HUD.miss, S.miss);
 
   const t = now();
-  const protectedNoJunk =
-    (t < S.noJunkUntil) &&
+  const protectedNoJunk = (!IS_RESEARCH) && (t < S.noJunkUntil) &&
     (reason === 'junk' || reason === 'trap' || reason === 'boss' || reason === 'boss_attack');
 
-  // ✅ mph bucket: พลาดครบ MISSES_PER_HEART ค่อยเสีย 1 หัวใจ
-  if (!protectedNoJunk){
-    S.missBucket = (S.missBucket|0) + 1;
-
-    if (MISSES_PER_HEART > 1 && S.missBucket < MISSES_PER_HEART){
-      Particles.judgeText && Particles.judgeText(`MISS ${S.missBucket}/${MISSES_PER_HEART}`);
-    }
-
-    if (S.missBucket >= MISSES_PER_HEART){
-      S.missBucket = 0;
-      setLives(S.lives - 1);
-    }
+  // ลดหัวใจตาม MPH (ยกเว้น no-junk protect)
+  if (!protectedNoJunk && loseHeartByMPH()){
+    setLives(S.lives - 1);
   }
 
   updateGrade();
@@ -1252,24 +1260,19 @@ function onMiss(reason, extra = {}){
     endGame(true);
   }
 
-  logEvent('miss', { reason, ...extra, mph: MISSES_PER_HEART, bucket: S.missBucket });
+  logEvent('miss', { reason, ...extra });
 }
 
 function punishBad(reason){
   if (shieldBlock(reason)){
     addScore(-60);
     addFever(-6);
+    updateGrade();
     return;
   }
 
   const t = now();
-  const softened = (t < S.noJunkUntil);
-
-  S.combo = 0;
-  setTxt(HUD.combo, S.combo);
-
-  S.miss += 1;
-  setTxt(HUD.miss, S.miss);
+  const softened = (!IS_RESEARCH) && (t < S.noJunkUntil);
 
   addFever(reason === 'boss' ? -22 : -16);
   addScore(softened ? -120 : (reason === 'trap' ? -240 : -180));
@@ -1294,6 +1297,7 @@ function bossAttackPunish(tag){
   if (shieldBlock(tag)){
     addScore(-80);
     addFever(-8);
+    updateGrade();
     return;
   }
 
@@ -1312,6 +1316,7 @@ function judgeFromDist(distPx, sizePx){
 
 // ---------- Powerups ----------
 function activateSlow(ms){
+  if (IS_RESEARCH) return;
   const t = now();
   S.slowUntil = Math.max(S.slowUntil, t + ms);
   AudioX.power(); vibe(35);
@@ -1322,6 +1327,7 @@ function activateSlow(ms){
   if (S.activeMini && typeof S.activeMini.onPower === 'function') S.activeMini.onPower();
 }
 function activateNoJunk(ms){
+  if (IS_RESEARCH) return;
   const t = now();
   S.noJunkUntil = Math.max(S.noJunkUntil, t + ms);
   AudioX.power(); vibe(35);
@@ -1332,6 +1338,7 @@ function activateNoJunk(ms){
   if (S.activeMini && typeof S.activeMini.onPower === 'function') S.activeMini.onPower();
 }
 function activateStorm(ms){
+  if (IS_RESEARCH) return;
   const t = now();
   S.stormUntil = Math.max(S.stormUntil, t + ms);
   AudioX.power(); vibe(45);
@@ -1354,9 +1361,9 @@ function hitTarget(rec, direct){
   const sy = rec.cy + off.y;
   const dist = Math.hypot(sx - cx, sy - cy);
 
-  // Power targets
+  // Power targets (Play only)
   if (rec.kind === 'slow'){
-    activateSlow(rnd(D.slowDurMs[0], D.slowDurMs[1]));
+    activateSlow(rnd(DR.slowDurMs[0], DR.slowDurMs[1]));
     Particles.burstAt && Particles.burstAt(sx, sy, 'SLOW');
     Particles.scorePop && Particles.scorePop('+120', sx, sy);
     addScore(120); addFever(10);
@@ -1364,7 +1371,7 @@ function hitTarget(rec, direct){
     removeTarget(rec); updateGrade(); return;
   }
   if (rec.kind === 'nojunk'){
-    activateNoJunk(rnd(D.noJunkDurMs[0], D.noJunkDurMs[1]));
+    activateNoJunk(rnd(DR.noJunkDurMs[0], DR.noJunkDurMs[1]));
     Particles.burstAt && Particles.burstAt(sx, sy, 'NOJUNK');
     Particles.scorePop && Particles.scorePop('+160', sx, sy);
     addScore(160); addFever(10);
@@ -1372,7 +1379,7 @@ function hitTarget(rec, direct){
     removeTarget(rec); updateGrade(); return;
   }
   if (rec.kind === 'storm'){
-    activateStorm(rnd(D.stormDurMs[0], D.stormDurMs[1]));
+    activateStorm(rnd(DR.stormDurMs[0], DR.stormDurMs[1]));
     Particles.burstAt && Particles.burstAt(sx, sy, 'STORM');
     Particles.scorePop && Particles.scorePop('+200', sx, sy);
     addScore(200); addFever(12);
@@ -1525,18 +1532,18 @@ function decideGroup(){ return 1 + ((Math.random()*5)|0); }
 
 function decideKind(){
   const t = now();
-  const noJunk = (t < S.noJunkUntil);
-  const storm = (t < S.stormUntil);
+  const noJunk = (!IS_RESEARCH) && (t < S.noJunkUntil);
+  const storm = (!IS_RESEARCH) && (t < S.stormUntil);
   const fever = S.feverOn;
 
-  let gold = D.goldRate + (fever ? 0.03 : 0);
-  let junk = D.junkRate + (storm ? 0.04 : 0);
-  let trap = D.trapRate + (storm ? 0.03 : 0);
-  let fake = D.fakeRate + (storm ? 0.02 : 0);
+  let gold = DR.goldRate + (fever ? 0.03 : 0);
+  let junk = DR.junkRate + (storm ? 0.04 : 0);
+  let trap = DR.trapRate + (storm ? 0.03 : 0);
+  let fake = DR.fakeRate + (storm ? 0.02 : 0);
 
-  let slow = D.slowRate * (fever ? 1.05 : 1.0);
-  let nojunk = D.noJunkRate * (fever ? 1.10 : 1.0);
-  let stormP = D.stormRate * (fever ? 1.20 : 1.0);
+  let slow = DR.slowRate * (fever ? 1.05 : 1.0);
+  let nojunk = DR.noJunkRate * (fever ? 1.10 : 1.0);
+  let stormP = DR.stormRate * (fever ? 1.20 : 1.0);
 
   gold = clamp(gold, 0.06, 0.22);
   junk = clamp(junk, 0.08, 0.40);
@@ -1548,7 +1555,7 @@ function decideKind(){
     gold *= 1.10; slow *= 1.10; stormP *= 0.60;
   }
 
-  const slowOn = (t < S.slowUntil);
+  const slowOn = (!IS_RESEARCH) && (t < S.slowUntil);
   if (slowOn){
     junk *= 0.86; trap *= 0.86; fake *= 0.86; gold *= 1.05;
   }
@@ -1556,9 +1563,12 @@ function decideKind(){
   const r = Math.random();
   let acc = 0;
 
-  acc += slow; if (r < acc) return 'slow';
-  acc += nojunk; if (r < acc) return 'nojunk';
-  acc += stormP; if (r < acc) return 'storm';
+  // ✅ Play-only powerups (research ปิดชัวร์)
+  if (!IS_RESEARCH){
+    acc += slow; if (r < acc) return 'slow';
+    acc += nojunk; if (r < acc) return 'nojunk';
+    acc += stormP; if (r < acc) return 'storm';
+  }
 
   acc += gold; if (r < acc) return 'gold';
   acc += junk; if (r < acc) return 'junk';
@@ -1577,7 +1587,7 @@ function spawnBossIfReady(){
 
   S.bossActive = true;
 
-  const hp = (S.feverOn ? Math.max(2, D.bossHP - 1) : D.bossHP);
+  const hp = (S.feverOn ? Math.max(2, DR.bossHP - 1) : DR.bossHP);
   const rec = makeTarget('boss', 0, { hp });
   bossHpSync(rec);
 
@@ -1609,7 +1619,7 @@ function tickBossAttack(){
 
     const phaseMul = (ph === 3) ? 0.78 : (ph === 2) ? 0.90 : 1.0;
 
-    if (t < S.noJunkUntil){
+    if (!IS_RESEARCH && t < S.noJunkUntil){
       rec.atkAt += 120;
     }
 
@@ -1637,8 +1647,8 @@ function tickBossAttack(){
 
       bossAttackPunish('boss_attack');
 
-      const baseMin = D.bossAtkMs[0] * phaseMul;
-      const baseMax = D.bossAtkMs[1] * phaseMul;
+      const baseMin = DR.bossAtkMs[0] * phaseMul;
+      const baseMax = DR.bossAtkMs[1] * phaseMul;
       rec.atkAt = t + rnd(baseMin, baseMax);
 
       if (ph === 3 && Math.random() < 0.22){
@@ -1686,14 +1696,14 @@ function spawnTick(){
   spawnBossIfReady();
   spawnFeverRingBurst();
 
-  const stormOn = (t < S.stormUntil);
-  const slowOn = (t < S.slowUntil);
+  const stormOn = (!IS_RESEARCH) && (t < S.stormUntil);
+  const slowOn = (!IS_RESEARCH) && (t < S.slowUntil);
 
-  let interval = D.spawnMs;
+  let interval = DR.spawnMs;
   if (S.feverOn) interval *= 0.78;
   if (stormOn) interval *= 0.56;
   if (slowOn) interval *= 1.22;
-  if (t < S.noJunkUntil) interval *= 0.92;
+  if (!IS_RESEARCH && t < S.noJunkUntil) interval *= 0.92;
 
   let burst = 1;
   if (stormOn) burst = (Math.random() < 0.65) ? 3 : 2;
@@ -1719,7 +1729,7 @@ function shootCrosshair(){
   if (!S.running || S.paused) return;
   AudioX.unlock();
 
-  const assist = inVR() ? Math.max(D.aimAssist, 170) : D.aimAssist;
+  const assist = inVR() ? Math.max(DR.aimAssist, 170) : DR.aimAssist;
   const picked = pickNearCrosshair(assist);
   if (picked && picked.rec) hitTarget(picked.rec, false);
 }
@@ -1731,7 +1741,7 @@ function onGlobalPointerDown(e){
   shootCrosshair();
 }
 
-// ---------- VR controller / keyboard support (GoodJunk-style) ----------
+// ---------- VR controller / keyboard support ----------
 function bindShootHotkeys(){
   ROOT.addEventListener('keydown', (e)=>{
     const k = String(e.key || '').toLowerCase();
@@ -1772,7 +1782,7 @@ function restart(){
   S.tStart = 0;
   S.timeLeft = TOTAL_TIME;
 
-  S.score = 0; S.combo = 0; S.maxCombo = 0; S.miss = 0; S.missBucket = 0; S.perfectCount = 0;
+  S.score = 0; S.combo = 0; S.maxCombo = 0; S.miss = 0; S.perfectCount = 0;
   S.fever = 0; S.feverOn = false;
 
   setShield(0);
@@ -1814,62 +1824,6 @@ function restart(){
   start();
 }
 
-// ---------- Result overlay fallback ----------
-function ensureResultOverlay(){
-  if (doc.getElementById('resultBackdrop')) return;
-
-  const backdrop = doc.createElement('div');
-  backdrop.id = 'resultBackdrop';
-  backdrop.style.cssText = `
-    position:fixed; inset:0; z-index:999;
-    display:none; background:rgba(2,6,23,.72);
-    backdrop-filter:blur(8px); pointer-events:auto;
-  `;
-
-  const card = doc.createElement('div');
-  card.style.cssText = `
-    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-    width:min(720px, 92vw);
-    background:rgba(2,6,23,.84);
-    border:1px solid rgba(148,163,184,.25);
-    border-radius:20px;
-    box-shadow:0 24px 60px rgba(0,0,0,.45);
-    padding:14px;
-    color:#e5e7eb;
-    font-weight:900;
-  `;
-
-  card.innerHTML = `
-    <div style="font-size:20px; font-weight:1000;">🏁 RESULT</div>
-    <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <div><span style="opacity:.8">MODE</span> <b id="rMode">—</b></div>
-      <div><span style="opacity:.8">GRADE</span> <b id="rGrade">—</b></div>
-      <div><span style="opacity:.8">SCORE</span> <b id="rScore">0</b></div>
-      <div><span style="opacity:.8">MAX COMBO</span> <b id="rMaxCombo">0</b></div>
-      <div><span style="opacity:.8">MISS</span> <b id="rMiss">0</b></div>
-      <div><span style="opacity:.8">PERFECT</span> <b id="rPerfect">0</b></div>
-      <div><span style="opacity:.8">GOALS</span> <b id="rGoals">0/2</b></div>
-      <div><span style="opacity:.8">MINIS</span> <b id="rMinis">0/7</b></div>
-      <div><span style="opacity:.8">G1</span> <b id="rG1">0</b></div>
-      <div><span style="opacity:.8">G2</span> <b id="rG2">0</b></div>
-      <div><span style="opacity:.8">G3</span> <b id="rG3">0</b></div>
-      <div><span style="opacity:.8">G4</span> <b id="rG4">0</b></div>
-      <div><span style="opacity:.8">G5</span> <b id="rG5">0</b></div>
-      <div><span style="opacity:.8">TOTAL</span> <b id="rGTotal">0</b></div>
-    </div>
-    <button id="btnPlayAgain" style="
-      margin-top:12px; width:100%;
-      padding:12px; border-radius:14px;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.62);
-      color:#e5e7eb; font-weight:1000;
-    ">▶️ PLAY AGAIN</button>
-  `;
-
-  backdrop.appendChild(card);
-  doc.body.appendChild(backdrop);
-}
-
 // ---------- End summary ----------
 function endGame(isGameOver){
   if (!S.running) return;
@@ -1879,10 +1833,6 @@ function endGame(isGameOver){
 
   S.nextSpawnAt = Infinity;
   for (const rec of [...S.targets]) removeTarget(rec);
-
-  refreshHudRefs();
-  ensureResultOverlay();
-  refreshHudRefs();
 
   setTxt(HUD.rMode, MODE === 'research' ? 'Research' : 'Play');
   setTxt(HUD.rGrade, gradeFromScore());
@@ -1968,6 +1918,9 @@ function bindUI(){
   layer.addEventListener('touchstart', onGlobalPointerDown, { passive:false });
   layer.addEventListener('click', onGlobalPointerDown, { passive:false });
 
+  // กัน “หน้าจอขาว/เป้าหาย” เวลาหมุนจอ/resize
+  ROOT.addEventListener('resize', ()=>{ try{ applyLayerTransform(); }catch(_){} });
+
   if (HUD.btnEnterVR) HUD.btnEnterVR.addEventListener('click', enterVR);
   if (HUD.btnPause) HUD.btnPause.addEventListener('click', ()=>{
     if (!S.running) return;
@@ -1979,27 +1932,16 @@ function bindUI(){
     restart();
   });
 
-  // result overlay อาจถูกสร้างทีหลัง
-  const bindPlayAgain = ()=>{
-    refreshHudRefs();
-    if (HUD.btnPlayAgain){
-      HUD.btnPlayAgain.addEventListener('click', ()=>{
-        setShow(HUD.resultBackdrop, false);
-        restart();
-      });
-    }
-  };
-  bindPlayAgain();
+  if (HUD.btnPlayAgain) HUD.btnPlayAgain.addEventListener('click', ()=>{
+    setShow(HUD.resultBackdrop, false);
+    restart();
+  });
 
   if (HUD.resultBackdrop){
     HUD.resultBackdrop.addEventListener('click', (e)=>{
       if (e.target === HUD.resultBackdrop) setShow(HUD.resultBackdrop, false);
     });
   }
-
-  // ถ้า fallback ถูกสร้างหลัง ๆ ให้ bind อีกครั้ง
-  setTimeout(bindPlayAgain, 80);
-  setTimeout(bindPlayAgain, 300);
 }
 
 // ---------- Boot ----------
@@ -2009,9 +1951,6 @@ function bindUI(){
       ROOT.HHACloudLogger.init({ debug: DEBUG });
     }
   } catch(_) {}
-
-  ensureResultOverlay();
-  refreshHudRefs();
 
   bindUI();
   bindShootHotkeys();
@@ -2030,9 +1969,9 @@ function bindUI(){
   setGoal(0);
   startMini();
 
-  showCoach('🥦 Coach', `ALL-IN MODE! mph=${MISSES_PER_HEART} เอาให้สุด!`);
+  showCoach('🥦 Coach', IS_RESEARCH ? 'RESEARCH STRICT! วัดกันแฟร์ ๆ!' : 'ALL-IN MODE! เอาให้สุด!');
   logSession('start');
   start();
 
-  if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, D, MISSES_PER_HEART });
+  if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, DR, IS_RESEARCH, mph: S.mph, lives: S.livesMax });
 })();
