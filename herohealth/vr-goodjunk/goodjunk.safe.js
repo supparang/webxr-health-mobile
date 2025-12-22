@@ -3,6 +3,12 @@
 // ✅ H+1 LASER: must dodge (aim point in beam at fire time => penalty)
 // ✅ H+2 RING: single safe gap (aim in danger ring => penalty)
 // ✅ H+3 STORM: fake good target (looks good but counts bad)
+//
+// PATCH (Production Gate):
+// ✅ Singleton boot: stop old instance to prevent double loops (instant end / 0 score)
+// ✅ Time sanity: guard NaN/0 remainMs, auto-recover endAt
+// ✅ Start/End gate: prevent endGame before first proper tick & prevent double end
+// ✅ Hard cleanup: clear layer targets before starting
 
 'use strict';
 
@@ -26,6 +32,13 @@ function getAimPoint(){
   const ap = ROOT.__GJ_AIM_POINT__;
   if (ap && Number.isFinite(ap.x) && Number.isFinite(ap.y)) return { x: ap.x|0, y: ap.y|0 };
   return { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
+}
+
+function readDurationSec(v, fallback=60){
+  const n = Number(v);
+  const sec = Number.isFinite(n) ? Math.round(n) : fallback;
+  // allow url time= but clamp
+  return clamp(sec, 20, 180) | 0;
 }
 
 const DIFF = {
@@ -84,14 +97,24 @@ function scoreGain(base, combo){
 }
 
 export function boot(opts = {}){
+  // ✅ PATCH: prevent double boot loops (key cause of instant end/0 score)
+  try{ ROOT.__GJ_INSTANCE__ && ROOT.__GJ_INSTANCE__.stop && ROOT.__GJ_INSTANCE__.stop('reboot'); }catch(_){}
+
   const diffKey = String(opts.diff || 'normal').toLowerCase();
   const runMode = String(opts.run || 'play').toLowerCase();
   const challenge = String(opts.challenge || 'rush').toLowerCase();
-  const durationSec = clamp(opts.time || 60, 20, 180) | 0;
+
+  const durationSec = readDurationSec(opts.time, 60);
 
   const D = pickDiff(diffKey);
   const layer = opts.layerEl || document.getElementById('gj-layer');
   if (!layer) throw new Error('[GoodJunk] layerEl missing');
+
+  // ✅ PATCH: hard cleanup stale DOM targets
+  try{
+    const olds = layer.querySelectorAll('.gj-target');
+    olds.forEach(el => { try{ el.remove(); }catch(_){ } });
+  }catch(_){}
 
   // Attack overlays
   const elRing  = document.getElementById('atk-ring');
@@ -99,10 +122,13 @@ export function boot(opts = {}){
 
   const S = {
     running: true,
-    startedAt: now(),
-    endAt: now() + durationSec*1000,
+    started: false,
+    ended: false,
 
-    timeLeft: durationSec,
+    durationSec: durationSec|0,
+    startedAt: now(),
+    endAt: 0,
+    timeLeft: durationSec|0,
 
     score: 0,
     goodHits: 0,
@@ -150,7 +176,8 @@ export function boot(opts = {}){
     bossAtkLast: '',
 
     ringActive: false,
-    ringX: 0, ringY: 0,
+    ringX: 0,
+    ringY: 0,
     ringR: 210,
     ringTh: 34,
     ringGapA: 0,
@@ -167,8 +194,22 @@ export function boot(opts = {}){
 
     lastSpawnAt: 0,
     targets: new Map(),
-    nextId: 1
+    nextId: 1,
+
+    // ✅ PATCH: sanity stamp
+    lastSanityAt: 0
   };
+
+  function rebuildEndAt(fromNow=true){
+    const t = now();
+    S.startedAt = t;
+    S.endAt = t + (S.durationSec|0) * 1000;
+    S.timeLeft = S.durationSec|0;
+    emitTime();
+  }
+
+  // init endAt
+  rebuildEndAt(true);
 
   function emitScore(){
     safeDispatch('hha:score', {
@@ -256,7 +297,8 @@ export function boot(opts = {}){
     burstFX(innerWidth*0.5, innerHeight*0.62, 'power');
   }
   function addTime(){
-    S.endAt += 3000;
+    // extend endAt but keep sane
+    S.endAt = Math.max(S.endAt, now()) + 3000;
     safeDispatch('quest:power', { power:'time' });
     setJudge('+TIME!');
     burstFX(innerWidth*0.5, innerHeight*0.62, 'power');
@@ -283,9 +325,13 @@ export function boot(opts = {}){
     safeDispatch('hha:finalPulse', { secLeft: secLeft|0 });
   }
 
-  function endGame(){
-    if (!S.running) return;
+  function endGame(reason='time'){
+    // ✅ PATCH: end gate
+    if (!S.running || S.ended) return;
+    if (!S.started) return;
+
     S.running = false;
+    S.ended = true;
 
     for (const t of S.targets.values()){
       try{ killEl(t.el); }catch(_){}
@@ -301,10 +347,11 @@ export function boot(opts = {}){
       goodHits: S.goodHits|0,
       misses: S.misses|0,
       comboMax: S.comboMax|0,
-      durationSec: durationSec|0,
+      durationSec: (S.durationSec|0),
       diff: diffKey,
       challenge,
-      runMode
+      runMode,
+      reason: String(reason||'time')
     });
   }
 
@@ -540,32 +587,27 @@ export function boot(opts = {}){
     safeDispatch('hha:bossAtk', { name: pick });
 
     if (pick === 'ring'){
-      // ✅ H+2: single safe gap
       setJudge('BOSS: RING!');
       fxChroma(140);
 
-      // ring state
       S.ringActive = true;
       S.ringX = center.x|0;
       S.ringY = center.y|0;
       S.ringR = Math.round(210 + (diffKey==='hard'? 28 : diffKey==='easy'? -10 : 0));
       S.ringTh= Math.round(34 + (diffKey==='hard'? 8 : 0));
-      S.ringGapW = (Math.PI / (diffKey==='hard'? 4.2 : 3.2)); // ~43° hard, ~56° normal
+      S.ringGapW = (Math.PI / (diffKey==='hard'? 4.2 : 3.2));
       S.ringGapA = (Math.random()*Math.PI*2);
 
       S.ringEndsAt = now() + (diffKey==='hard' ? 1200 : 1350);
 
-      // visual (deg)
       const gapSizeDeg = (S.ringGapW * 180/Math.PI);
-      // Our CSS uses "danger is 360-gap"; we represent "gap starts at angle"
       const gapStartDeg = (S.ringGapA * 180/Math.PI);
       showRingAt(S.ringX, S.ringY, gapStartDeg, gapSizeDeg, (S.ringEndsAt-now())|0);
 
-      // spawn junk ring w/ 1 gap (visual targets)
       const n = 8;
       const gapIndex = randi(0, n-1);
       for (let i=0;i<n;i++){
-        if (i === gapIndex) continue; // one safe gap
+        if (i === gapIndex) continue;
         const ang = (Math.PI*2) * (i/n);
         const x = clamp(center.x + Math.cos(ang)*S.ringR, 40, innerWidth-40);
         const y = clamp(center.y + Math.sin(ang)*S.ringR, 150, innerHeight-190);
@@ -573,7 +615,6 @@ export function boot(opts = {}){
       }
 
     } else if (pick === 'laser'){
-      // ✅ H+1: must dodge - hazard checks aim at fire time
       setJudge('BOSS: LASER!');
       fxChroma(160);
 
@@ -586,17 +627,14 @@ export function boot(opts = {}){
 
       laserWarnAt(S.laserY, 420, 260);
 
-      // tiny decoy pressure
       for (let i=0;i<3;i++) spawnTarget('decoy');
 
-    } else { // storm
-      // ✅ H+3: fake good among storm
+    } else {
       setJudge('BOSS: STORM!');
       fxChroma(150);
 
       for (let i=0;i<5;i++) spawnTarget('decoy');
 
-      // one gold reward, one real good, one fake good
       spawnTarget('gold', { x: clamp(center.x + randi(-120,120), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
       spawnTarget('good', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
       spawnTarget('goodfake', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
@@ -687,9 +725,7 @@ export function boot(opts = {}){
       emitScore();
 
     } else if (isBad){
-      // penalty
       if ((S.shield|0) > 0){
-        // boss phase2: break shield fully if hit bad
         if (challenge === 'boss' && S.bossPhase === 2){
           S.shield = 0;
           S.misses++;
@@ -733,6 +769,7 @@ export function boot(opts = {}){
       if (t.kind === 'boss') continue;
       if (tnow >= t.expiresAt){
         if (t.kind === 'good' || t.kind === 'gold'){
+          // keep your design: reduce combo on miss-timing
           setCombo(Math.max(0, (S.combo|0) - 2));
         }
         killEl(t.el);
@@ -797,7 +834,6 @@ export function boot(opts = {}){
     const tnow = now();
     const ap = getAimPoint();
 
-    // RING: aim must be in the safe gap (otherwise hit)
     if (S.ringActive){
       if (tnow >= S.ringEndsAt){
         S.ringActive = false;
@@ -806,17 +842,14 @@ export function boot(opts = {}){
         const dy = ap.y - S.ringY;
         const d = Math.sqrt(dx*dx + dy*dy);
 
-        // only punish if aim is inside the ring band (danger donut)
         const inBand = (d >= (S.ringR - S.ringTh)) && (d <= (S.ringR + S.ringTh));
         if (inBand){
-          // compute angle [0,2pi)
           let a = Math.atan2(dy, dx);
           if (a < 0) a += Math.PI*2;
 
-          // safe gap centered at ringGapA, width ringGapW
           const ga = S.ringGapA;
           const gw = S.ringGapW;
-          const diff = Math.atan2(Math.sin(a-ga), Math.cos(a-ga)); // shortest signed
+          const diff = Math.atan2(Math.sin(a-ga), Math.cos(a-ga));
           const inGap = Math.abs(diff) <= (gw*0.5);
 
           if (!inGap){
@@ -826,13 +859,12 @@ export function boot(opts = {}){
       }
     }
 
-    // LASER: at fire time, if aim y close to beam => hit
     if (S.laserActive){
       if (tnow >= S.laserEndsAt){
         S.laserActive = false;
         try{ if (elLaser) elLaser.classList.remove('warn','fire'); }catch(_){}
       } else if (tnow >= S.laserFireAt && tnow <= S.laserEndsAt){
-        const tol = (diffKey==='hard') ? 26 : 30; // harder: smaller safe area
+        const tol = (diffKey==='hard') ? 26 : 30;
         if (Math.abs((ap.y|0) - (S.laserY|0)) <= tol){
           applyPenalty('laser');
         }
@@ -852,49 +884,78 @@ export function boot(opts = {}){
     }
   }
 
-  // loop
+  // ✅ PATCH: sanity check to prevent "instant end 0s"
+  function sanityTick(){
+    const tnow = now();
+    if (tnow - (S.lastSanityAt||0) < 350) return;
+    S.lastSanityAt = tnow;
+
+    // if endAt invalid or too close immediately after start, rebuild
+    if (!Number.isFinite(S.endAt) || (S.endAt - tnow) < 500){
+      rebuildEndAt(true);
+    }
+    // if timeLeft invalid
+    if (!Number.isFinite(S.timeLeft) || (S.timeLeft|0) < 0){
+      S.timeLeft = S.durationSec|0;
+      emitTime();
+    }
+  }
+
   function loop(){
     if (!S.running) return;
 
     const tnow = now();
-    const remainMs = Math.max(0, S.endAt - tnow);
-    const remainSec = Math.ceil(remainMs / 1000);
+
+    // start gate
+    if (!S.started){
+      // first frame after init
+      S.started = true;
+    }
+
+    sanityTick();
+
+    let remainMs = (S.endAt - tnow);
+    if (!Number.isFinite(remainMs)) remainMs = 0;
+
+    // ceil to keep HUD friendly
+    let remainSec = Math.ceil(Math.max(0, remainMs) / 1000);
+    if (!Number.isFinite(remainSec)) remainSec = 0;
 
     if (remainSec !== (S.timeLeft|0)){
       S.timeLeft = remainSec|0;
       emitTime();
       finalSprintTick();
     }
+
+    // ✅ PATCH: prevent end immediately on first tick (device time glitch / double loop)
     if (remainMs <= 0){
-      endGame();
-      return;
+      if ((tnow - S.startedAt) < 250){
+        rebuildEndAt(true);
+      } else {
+        endGame('time');
+        return;
+      }
     }
 
-    // fever decay
     if (!S.stunActive){
       const decay = S.feverDecayPerSec / 60;
       S.fever = Math.max(0, (S.fever||0) - decay);
     }
 
-    // stun duration
     if (S.stunActive && tnow >= S.stunEndsAt){
       stopStun();
     }
 
-    // magnet duration
     if (S.magnetActive && tnow >= S.magnetEndsAt){
       S.magnetActive = false;
     }
 
-    // final lock duration
     if (S.finalLock && tnow >= S.finalLockEndsAt){
       S.finalLock = false;
     }
 
-    // boss spawn
     maybeSpawnBoss();
 
-    // Boss Pulse Wave (phase2)
     if (S.bossAlive && S.bossPhase === 2){
       if (!S.pulseActive && tnow >= (S.pulseNextAt||0)){
         startBossPulse();
@@ -904,14 +965,12 @@ export function boot(opts = {}){
         resolveBossPulse();
       }
 
-      // H+ attacks
       if (tnow >= (S.bossAtkNextAt||0)){
         bossAttackPattern();
         S.bossAtkNextAt = tnow + (diffKey==='hard' ? 3000 : 3300);
       }
     }
 
-    // spawn cadence
     const spawnGap = Math.round(D.spawnMs * (S.stunActive ? 1.15 : 1.0));
     if (tnow - S.lastSpawnAt >= spawnGap){
       S.lastSpawnAt = tnow;
@@ -925,7 +984,6 @@ export function boot(opts = {}){
           else if (roll < 0.90) spawnTarget('gold');
           else spawnTarget('power');
 
-          // H+3: occasionally inject fake good
           if (Math.random() < (diffKey==='hard' ? 0.22 : 0.16)){
             spawnTarget('goodfake');
           }
@@ -957,8 +1015,10 @@ export function boot(opts = {}){
   emitFever();
   requestAnimationFrame(loop);
 
-  return {
-    stop(){ endGame(); },
+  const api = {
+    stop(reason){
+      endGame(reason || 'stop');
+    },
     getState(){
       return {
         score:S.score|0, goodHits:S.goodHits|0, misses:S.misses|0,
@@ -969,4 +1029,9 @@ export function boot(opts = {}){
       };
     }
   };
+
+  // ✅ expose singleton for next boot to stop
+  ROOT.__GJ_INSTANCE__ = api;
+
+  return api;
 }
