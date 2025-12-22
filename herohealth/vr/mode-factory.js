@@ -10,7 +10,7 @@
 // ✅ trick/fake targets (itemType='fakeGood')
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
-// ✅ A2++: center-biased per-diff + per-adapt + anti-repeat + screen-anchored spawn via boundsHost
+// ✅ A2+++: center-biased + ring8 spawn order (ไม่วนมุมเดิม) + anti-repeat + screen-anchored via boundsHost
 
 'use strict';
 
@@ -43,9 +43,16 @@ function getEventXY (ev) {
   return { x: x || 0, y: y || 0 };
 }
 
-// A2++: strong center bias (average of 5 samples)
+// strong center bias
 function biasedRand () {
   return (Math.random() + Math.random() + Math.random() + Math.random() + Math.random()) / 5;
+}
+function shuffle (arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 // ---------- Base difficulty ----------
@@ -94,12 +101,8 @@ function ensureOverlayStyle () {
       z-index:9998;
       pointer-events:none;
     }
-    .hvr-overlay-host .hvr-target{
-      pointer-events:auto;
-    }
-    .hvr-target.hvr-pulse{
-      animation:hvrPulse .55s ease-in-out infinite;
-    }
+    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
+    .hvr-target.hvr-pulse{ animation:hvrPulse .55s ease-in-out infinite; }
     @keyframes hvrPulse{
       0%{ transform:translate(-50%,-50%) scale(1); }
       50%{ transform:translate(-50%,-50%) scale(1.08); }
@@ -170,26 +173,15 @@ function collectExclusionElements(rawCfg){
   }
 
   const AUTO = [
-    '#hha-water-header',
-    '.hha-water-bar',
-    '.hha-main-row',
-    '#hha-card-left',
-    '#hha-card-right',
-    '.hha-bottom-row',
-    '.hha-fever-card',
-    '#hvr-crosshair',
-    '.hvr-crosshair',
-    '#hvr-end',
-    '.hvr-end',
-    '.hud'
+    '.hud',
+    '#hvr-crosshair','.hvr-crosshair',
+    '#hvr-end','.hvr-end'
   ];
   AUTO.forEach(s=>{
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
   });
 
-  try{
-    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
-  }catch{}
+  try{ DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el)); }catch{}
 
   const uniq = [];
   const seen = new Set();
@@ -220,16 +212,16 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    if (r.top < hy1 + 80 && r.bottom > hy1) {
+    if (r.top < hy1 + 90 && r.bottom > hy1) {
       m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
-    if (r.bottom > hy2 - 80 && r.top < hy2) {
+    if (r.bottom > hy2 - 90 && r.top < hy2) {
       m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
     }
-    if (r.left < hx1 + 80 && r.right > hx1) {
+    if (r.left < hx1 + 90 && r.right > hx1) {
       m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
     }
-    if (r.right > hx2 - 80 && r.left < hx2) {
+    if (r.right > hx2 - 90 && r.left < hx2) {
       m.right = Math.max(m.right, clamp(hy2 - r.left, 0, hostRect.width));
     }
   });
@@ -284,8 +276,9 @@ export async function boot (rawCfg = {}) {
     boundsHost = null,
     decorateTarget = null,
 
-    // ✅ A2++ spawn controls
+    // spawn controls
     spawnBias = 'default',       // 'default' | 'A2++'
+    spawnPattern = null,         // null | 'ring8'
     antiRepeat = true,
     antiRepeatN = 4
   } = rawCfg || {};
@@ -487,14 +480,13 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  A2++ anti-repeat queue (screen-space)
+  //  A2+++ anti-repeat + pattern ring8
   // ======================================================
   const biasKey = String(spawnBias || 'default').toLowerCase();
-  const useA2pp = (biasKey === 'a2++' || biasKey === 'a2pp' || biasKey === 'center');
+  const useA2pp = (biasKey === 'a2++' || biasKey === 'a2pp' || biasKey === 'center' || biasKey === 'a2+++');
   const useAntiRepeat = !!antiRepeat;
 
   let lastSpawnQueue = []; // {xAbs,yAbs} in viewport coords
-
   function distToQueue(x, y){
     if (!lastSpawnQueue || !lastSpawnQueue.length) return 999999;
     let dMin = 999999;
@@ -504,6 +496,56 @@ export async function boot (rawCfg = {}) {
       if (d < dMin) dMin = d;
     }
     return dMin;
+  }
+
+  const pat = String(spawnPattern || '').toLowerCase();
+  let ringAngles = null;
+  let ringIdx = 0;
+
+  if (pat === 'ring8') {
+    ringAngles = shuffle([0,45,90,135,180,225,270,315]).map(d => d * Math.PI/180);
+    ringIdx = 0;
+  }
+
+  function ring8Candidate(rect, absLeft, absTop){
+    const cx = absLeft + rect.width * 0.50;
+    const cy = absTop  + rect.height * 0.52;
+
+    const a = ringAngles[ringIdx++ % ringAngles.length];
+    const jitter = (Math.random() - 0.5) * 0.22;
+    const ang = a + jitter;
+
+    const minSide = Math.min(rect.width, rect.height);
+
+    // radius by diff/adapt: easy ใกล้กลาง, hard กระจายขึ้น
+    let rMin = 0.14, rMax = 0.30;
+    if (diffKey === 'easy')   { rMin = 0.12; rMax = 0.24; }
+    if (diffKey === 'normal') { rMin = 0.14; rMax = 0.30; }
+    if (diffKey === 'hard')   { rMin = 0.18; rMax = 0.36; }
+
+    const aLv = clamp(adaptLevel, -1, 3);
+    const extra = (aLv >= 0) ? (aLv * 0.02) : (aLv * 0.01);
+    rMin = clamp(rMin + extra, 0.10, 0.28);
+    rMax = clamp(rMax + extra, 0.18, 0.46);
+
+    const rr = minSide * (rMin + (rMax - rMin) * (useA2pp ? biasedRand() : Math.random()));
+
+    // aspect compensate
+    const xAbs = cx + Math.cos(ang) * rr;
+    const yAbs = cy + Math.sin(ang) * rr * 0.85;
+
+    return { xAbs, yAbs };
+  }
+
+  function clampIntoRect(xAbs, yAbs, rect, absLeft, absTop){
+    const x1 = absLeft + rect.left;
+    const y1 = absTop  + rect.top;
+    const x2 = absLeft + rect.left + rect.width;
+    const y2 = absTop  + rect.top  + rect.height;
+    return {
+      xAbs: clamp(xAbs, x1 + 6, x2 - 6),
+      yAbs: clamp(yAbs, y1 + 6, y2 - 6)
+    };
   }
 
   // ======================================================
@@ -517,70 +559,66 @@ export async function boot (rawCfg = {}) {
     const rect = computePlayRectFromHost(hostBounds, exState);
     const boundsRect = rect.hostRect || { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
 
-    const absLeft = (boundsRect.left || 0) + rect.left;
-    const absTop  = (boundsRect.top  || 0) + rect.top;
+    const absLeft = (boundsRect.left || 0);
+    const absTop  = (boundsRect.top  || 0);
 
-    // --- A2++ per-diff + per-adapt ranges ---
-    let X_MIN, X_SPAN, Y_MIN, Y_SPAN;
+    const spawnRect = (function(){ try{ return hostSpawn.getBoundingClientRect(); }catch{ return null; } })()
+      || { left:0, top:0 };
 
-    if (useA2pp) {
-      if (diffKey === 'easy') {
-        X_MIN = 0.24; X_SPAN = 0.52;
-        Y_MIN = 0.18; Y_SPAN = 0.62;
-      } else if (diffKey === 'hard') {
-        X_MIN = 0.32; X_SPAN = 0.36;
-        Y_MIN = 0.26; Y_SPAN = 0.50;
-      } else {
-        X_MIN = 0.28; X_SPAN = 0.44;
-        Y_MIN = 0.22; Y_SPAN = 0.56;
+    const MIN_DIST = Math.max(96, Math.min(rect.width, rect.height) * (useA2pp ? 0.24 : 0.20));
+    const TRIES = (pat === 'ring8') ? 10 : (useA2pp ? 9 : 6);
+
+    // --- candidate generator ---
+    function candidate(){
+      if (pat === 'ring8' && ringAngles) {
+        const c = ring8Candidate(rect, absLeft + rect.left, absTop + rect.top);
+        return clampIntoRect(c.xAbs, c.yAbs, rect, absLeft, absTop);
       }
 
-      const a = clamp(adaptLevel, -1, 3);
-      const tighten = (a >= 0) ? (a * 0.020) : (a * 0.012);
-      const spanT   = (a >= 0) ? (a * 0.045) : (a * 0.020);
+      // fallback A2++ center bias (but not dead center)
+      let X_MIN=0.15, X_SPAN=0.70, Y_MIN=0.10, Y_SPAN=0.80;
 
-      X_MIN = clamp(X_MIN + tighten, 0.12, 0.42);
-      Y_MIN = clamp(Y_MIN + tighten, 0.10, 0.46);
+      if (useA2pp) {
+        if (diffKey === 'easy')   { X_MIN=0.22; X_SPAN=0.56; Y_MIN=0.16; Y_SPAN=0.64; }
+        else if (diffKey === 'hard'){ X_MIN=0.30; X_SPAN=0.40; Y_MIN=0.24; Y_SPAN=0.52; }
+        else { X_MIN=0.26; X_SPAN=0.48; Y_MIN=0.20; Y_SPAN=0.58; }
 
-      X_SPAN = clamp(X_SPAN - spanT, 0.28, 0.70);
-      Y_SPAN = clamp(Y_SPAN - spanT, 0.32, 0.78);
+        const aLv = clamp(adaptLevel, -1, 3);
+        const tighten = (aLv >= 0) ? (aLv * 0.018) : (aLv * 0.010);
+        const spanT   = (aLv >= 0) ? (aLv * 0.040) : (aLv * 0.018);
 
-      if (X_MIN + X_SPAN > 0.92) X_MIN = 0.92 - X_SPAN;
-      if (Y_MIN + Y_SPAN > 0.92) Y_MIN = 0.92 - Y_SPAN;
-      if (X_MIN < 0.06) X_MIN = 0.06;
-      if (Y_MIN < 0.06) Y_MIN = 0.06;
-    } else {
-      X_MIN = 0.15; X_SPAN = 0.70;
-      Y_MIN = 0.10; Y_SPAN = 0.80;
-    }
+        X_MIN = clamp(X_MIN + tighten, 0.10, 0.42);
+        Y_MIN = clamp(Y_MIN + tighten, 0.08, 0.46);
+        X_SPAN = clamp(X_SPAN - spanT, 0.30, 0.78);
+        Y_SPAN = clamp(Y_SPAN - spanT, 0.34, 0.82);
+      }
 
-    const MIN_DIST = Math.max(92, Math.min(rect.width, rect.height) * (useA2pp ? 0.24 : 0.20));
-    const TRIES = useA2pp ? 11 : 6;
-
-    let best = null;
-    let bestD = -1;
-
-    for (let k = 0; k < TRIES; k++) {
       const rx = useA2pp ? biasedRand() : Math.random();
       const ry = useA2pp ? biasedRand() : Math.random();
 
-      const xAbs = absLeft + rect.width  * (X_MIN + rx * X_SPAN);
-      const yAbs = absTop  + rect.height * (Y_MIN + ry * Y_SPAN);
+      const xAbs = absLeft + rect.left + rect.width  * (X_MIN + rx * X_SPAN);
+      const yAbs = absTop  + rect.top  + rect.height * (Y_MIN + ry * Y_SPAN);
 
-      const dMin = useAntiRepeat ? distToQueue(xAbs, yAbs) : 999999;
-
-      if (!useAntiRepeat || dMin >= MIN_DIST) { best = { xAbs, yAbs }; bestD = dMin; break; }
-      if (dMin > bestD) { bestD = dMin; best = { xAbs, yAbs }; }
+      return { xAbs, yAbs };
     }
 
-    if (!best) best = { xAbs: absLeft + rect.width*0.5, yAbs: absTop + rect.height*0.52 };
+    // --- pick best candidate (anti-repeat) ---
+    let best = null;
+    let bestD = -1;
 
-    let spawnRect = null;
-    try{ spawnRect = hostSpawn.getBoundingClientRect(); }catch{}
-    if (!spawnRect) spawnRect = { left:0, top:0 };
+    for (let k=0;k<TRIES;k++){
+      const c = candidate();
+      const dMin = useAntiRepeat ? distToQueue(c.xAbs, c.yAbs) : 999999;
 
-    const xLocal = best.xAbs - (spawnRect.left || 0);
-    const yLocal = best.yAbs - (spawnRect.top  || 0);
+      if (!useAntiRepeat || dMin >= MIN_DIST){
+        best = c; bestD = dMin; break;
+      }
+      if (dMin > bestD){ bestD = dMin; best = c; }
+    }
+
+    if (!best) {
+      best = { xAbs: absLeft + rect.left + rect.width*0.5, yAbs: absTop + rect.top + rect.height*0.52 };
+    }
 
     if (useAntiRepeat) {
       lastSpawnQueue.push({ xAbs: best.xAbs, yAbs: best.yAbs });
@@ -588,6 +626,10 @@ export async function boot (rawCfg = {}) {
       while (lastSpawnQueue.length > cap) lastSpawnQueue.shift();
     }
 
+    const xLocal = best.xAbs - (spawnRect.left || 0);
+    const yLocal = best.yAbs - (spawnRect.top  || 0);
+
+    // ---- choose item ----
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
     const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
@@ -624,6 +666,7 @@ export async function boot (rawCfg = {}) {
     }
     spawnCounter++;
 
+    // ---- build DOM ----
     const el = DOC.createElement('div');
     el.className = 'hvr-target';
     el.setAttribute('data-hha-tgt', '1');
@@ -721,12 +764,7 @@ export async function boot (rawCfg = {}) {
 
     const lifeMs = getLifeMs();
 
-    const data = {
-      el, ch, isGood, isPower, itemType,
-      bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
-      life: lifeMs,
-      _hit: null
-    };
+    const data = { el, ch, isGood, isPower, itemType, bornAt: (performance?.now?.() ?? Date.now()), life: lifeMs, _hit: null };
 
     try{
       if (typeof decorateTarget === 'function'){
@@ -854,11 +892,6 @@ export async function boot (rawCfg = {}) {
 
       const mul = getSpawnMul();
       const effInterval = Math.max(35, curInterval * mul);
-
-      try{
-        if (mul < 0.99) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
-        else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
-      }catch{}
 
       if (rhythmOn && beatMs > 0) {
         if (!lastBeatTs) lastBeatTs = ts;
