@@ -1,8 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR (PRODUCTION) — Step H
-// ✅ H1: Pulse success → HERO BURST 1.5s (attract ONLY good/gold/power)
-// ✅ H2: Penalty → Camera Kick + Chromatic Flash (hha:fx)
-// ✅ H3: Boss Phase2 → 3 Attack Patterns (Ring / Laser / Storm)
+// GoodJunkVR (PRODUCTION) — H+
+// ✅ H+1 LASER: must dodge (aim point in beam at fire time => penalty)
+// ✅ H+2 RING: single safe gap (aim in danger ring => penalty)
+// ✅ H+3 STORM: fake good target (looks good but counts bad)
 
 'use strict';
 
@@ -93,6 +93,10 @@ export function boot(opts = {}){
   const layer = opts.layerEl || document.getElementById('gj-layer');
   if (!layer) throw new Error('[GoodJunk] layerEl missing');
 
+  // Attack overlays
+  const elRing  = document.getElementById('atk-ring');
+  const elLaser = document.getElementById('atk-laser');
+
   const S = {
     running: true,
     startedAt: now(),
@@ -118,7 +122,7 @@ export function boot(opts = {}){
     magnetActive: false,
     magnetEndsAt: 0,
 
-    // H1 Hero Burst (good-only pull)
+    // HERO BURST (from pulse success)
     heroBurstActive: false,
     heroBurstEndsAt: 0,
 
@@ -133,7 +137,7 @@ export function boot(opts = {}){
     bossHpMax: 0,
     bossDecoyCooldownAt: 0,
 
-    // Boss Pulse Wave
+    // Boss Pulse Wave (move center)
     pulseActive: false,
     pulseX: 0,
     pulseY: 0,
@@ -141,9 +145,25 @@ export function boot(opts = {}){
     pulseNextAt: 0,
     pulseRadiusPx: 74,
 
-    // H3 Boss attacks
+    // Boss attacks (H+)
     bossAtkNextAt: 0,
     bossAtkLast: '',
+
+    ringActive: false,
+    ringX: 0, ringY: 0,
+    ringR: 210,
+    ringTh: 34,
+    ringGapA: 0,
+    ringGapW: 0,
+    ringEndsAt: 0,
+
+    laserActive: false,
+    laserY: 0,
+    laserWarnEndsAt: 0,
+    laserFireAt: 0,
+    laserEndsAt: 0,
+
+    hazardLockUntil: 0,
 
     lastSpawnAt: 0,
     targets: new Map(),
@@ -175,21 +195,42 @@ export function boot(opts = {}){
   }
   function setJudge(label){ safeDispatch('hha:judge', { label: String(label||'') }); }
 
-  function fxKick(intensity=1){
-    safeDispatch('hha:fx', { type:'kick', intensity: Number(intensity||1) });
-  }
-  function fxChroma(ms=180){
-    safeDispatch('hha:fx', { type:'chroma', ms: ms|0 });
-  }
-  function fxHero(ms=220){
-    safeDispatch('hha:fx', { type:'hero', ms: ms|0 });
-  }
+  function fxKick(intensity=1){ safeDispatch('hha:fx', { type:'kick', intensity: Number(intensity||1) }); }
+  function fxChroma(ms=180){ safeDispatch('hha:fx', { type:'chroma', ms: ms|0 }); }
+  function fxHero(ms=220){ safeDispatch('hha:fx', { type:'hero', ms: ms|0 }); }
 
   function setCombo(v){
     S.combo = Math.max(0, v|0);
     if (S.combo > S.comboMax) S.comboMax = S.combo;
   }
   function addFever(delta){ S.fever = clamp((S.fever||0) + (delta||0), 0, 100); }
+
+  function applyPenalty(kind='hazard'){
+    const tnow = now();
+    if (tnow < (S.hazardLockUntil||0)) return;
+    S.hazardLockUntil = tnow + 420;
+
+    fxChroma(170);
+    fxKick(1.25);
+
+    if ((S.shield|0) > 0){
+      // H+ โหด: hazard ทำให้แตกโล่หมดทันที
+      S.shield = 0;
+      safeDispatch('quest:badHit', { kind: kind + ':shieldbreak' });
+      setJudge('SHIELD BREAK!');
+      burstFX(innerWidth*0.5, innerHeight*0.62, 'trap');
+      addFever(-14);
+    } else {
+      S.misses++;
+      setCombo(0);
+      safeDispatch('quest:badHit', { kind });
+      setJudge('HIT!');
+      burstFX(innerWidth*0.5, innerHeight*0.62, 'trap');
+      addFever(-18);
+    }
+    emitScore();
+    emitFever();
+  }
 
   function startStun(){
     S.stunActive = true;
@@ -235,7 +276,6 @@ export function boot(opts = {}){
     try{ Particles.celebrate && Particles.celebrate({ kind:'HERO', intensity:1.2 }); }catch(_){}
   }
 
-  function isFinalSprint(){ return (S.timeLeft|0) <= 8; }
   function triggerFinalPulse(secLeft){
     if (S.finalLock) return;
     S.finalLock = true;
@@ -251,6 +291,10 @@ export function boot(opts = {}){
       try{ killEl(t.el); }catch(_){}
     }
     S.targets.clear();
+
+    // cleanup overlays
+    try{ if (elRing) elRing.classList.remove('show'); }catch(_){}
+    try{ if (elLaser) elLaser.classList.remove('warn','fire'); }catch(_){}
 
     safeDispatch('hha:end', {
       score: S.score|0,
@@ -304,10 +348,11 @@ export function boot(opts = {}){
       emoji = POOL_JUNK[randi(0, POOL_JUNK.length-1)];
       cls = 'gj-junk';
       ttl = Math.round(ttl * 0.72);
-    } else if (kind === 'laser'){
-      emoji = '⚡';
-      cls = 'gj-fake';
-      ttl = Math.round(ttl * 0.62);
+    } else if (kind === 'goodfake'){
+      // ✅ H+3 fake good: looks good but is bad
+      emoji = POOL_GOOD[randi(0, POOL_GOOD.length-1)];
+      cls = 'gj-fake'; // ให้แสงหลอก ๆ
+      ttl = Math.round(ttl * 0.86);
     }
 
     const el = createEl(layer, x, y, emoji, cls);
@@ -328,7 +373,7 @@ export function boot(opts = {}){
 
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault?.(); ev.stopPropagation?.();
-      onHit(t, ev);
+      onHit(t);
     }, { passive:false });
 
     return t;
@@ -383,7 +428,7 @@ export function boot(opts = {}){
     S.pulseNextAt = now() + 900;
 
     // Attack schedule
-    S.bossAtkNextAt = now() + 950;
+    S.bossAtkNextAt = now() + 900;
     S.bossAtkLast = '';
     emitScore();
   }
@@ -433,7 +478,6 @@ export function boot(opts = {}){
     const ok = dist2(ap.x, ap.y, S.pulseX, S.pulseY) <= (S.pulseRadiusPx * S.pulseRadiusPx);
 
     if (ok){
-      // ✅ H1: Success -> hero burst 1.5s (good-only pull)
       setJudge('PULSE OK!');
       const pts = 35;
       S.score += pts;
@@ -444,24 +488,13 @@ export function boot(opts = {}){
       burstFX(S.pulseX, S.pulseY, 'gold');
       safeDispatch('quest:goodHit', { kind:'pulse' });
 
+      // hero burst
       startHeroBurst();
 
     } else {
-      // ✅ H2: Fail -> kick + chroma + punish
       setJudge('PULSE HIT!');
       burstFX(S.pulseX, S.pulseY, 'trap');
-      fxChroma(180);
-      fxKick(1.25);
-
-      if ((S.shield|0) > 0){
-        S.shield = 0;
-        safeDispatch('quest:badHit', { kind:'pulseShieldBreak' });
-      } else {
-        S.misses++;
-        setCombo(0);
-        safeDispatch('quest:badHit', { kind:'pulse' });
-      }
-      addFever(-16);
+      applyPenalty('pulse');
     }
 
     S.pulseActive = false;
@@ -469,9 +502,33 @@ export function boot(opts = {}){
     emitFever();
   }
 
-  // ------- H3: Boss attack patterns (phase2) -------
+  // ===== H+ ATTACK OVERLAYS =====
+  function showRingAt(x,y,gapStartDeg,gapSizeDeg,ms=1200){
+    if (!elRing) return;
+    elRing.style.left = (x|0)+'px';
+    elRing.style.top  = (y|0)+'px';
+    elRing.style.transform = 'translate(-50%,-50%)';
+    document.documentElement.style.setProperty('--ringGapStart', gapStartDeg.toFixed(0)+'deg');
+    document.documentElement.style.setProperty('--ringGapSize',  gapSizeDeg.toFixed(0)+'deg');
+    elRing.classList.add('show');
+    setTimeout(()=>{ try{ elRing.classList.remove('show'); }catch(_){ } }, Math.max(300, ms|0));
+  }
+  function laserWarnAt(y, warnMs=420, fireMs=260){
+    if (!elLaser) return;
+    elLaser.style.top = (y|0)+'px';
+    elLaser.classList.remove('fire');
+    elLaser.classList.add('warn');
+    setTimeout(()=>{
+      try{
+        elLaser.classList.remove('warn');
+        elLaser.classList.add('fire');
+        setTimeout(()=>{ try{ elLaser.classList.remove('fire'); }catch(_){ } }, Math.max(120, fireMs|0));
+      }catch(_){}
+    }, Math.max(120, warnMs|0));
+  }
+
+  // ------- H+ Boss attack patterns (phase2) -------
   function bossAttackPattern(){
-    // pick 1 of 3 patterns, avoid immediate repeat
     const patterns = ['ring','laser','storm'];
     let pick = patterns[randi(0, patterns.length-1)];
     if (pick === S.bossAtkLast) pick = patterns[(patterns.indexOf(pick)+1) % patterns.length];
@@ -480,41 +537,69 @@ export function boot(opts = {}){
     const ap = getAimPoint();
     const center = { x: ap.x|0, y: ap.y|0 };
 
+    safeDispatch('hha:bossAtk', { name: pick });
+
     if (pick === 'ring'){
+      // ✅ H+2: single safe gap
       setJudge('BOSS: RING!');
       fxChroma(140);
-      // spawn junk ring around aimpoint
-      const n = 7;
-      const R = 180;
+
+      // ring state
+      S.ringActive = true;
+      S.ringX = center.x|0;
+      S.ringY = center.y|0;
+      S.ringR = Math.round(210 + (diffKey==='hard'? 28 : diffKey==='easy'? -10 : 0));
+      S.ringTh= Math.round(34 + (diffKey==='hard'? 8 : 0));
+      S.ringGapW = (Math.PI / (diffKey==='hard'? 4.2 : 3.2)); // ~43° hard, ~56° normal
+      S.ringGapA = (Math.random()*Math.PI*2);
+
+      S.ringEndsAt = now() + (diffKey==='hard' ? 1200 : 1350);
+
+      // visual (deg)
+      const gapSizeDeg = (S.ringGapW * 180/Math.PI);
+      // Our CSS uses "danger is 360-gap"; we represent "gap starts at angle"
+      const gapStartDeg = (S.ringGapA * 180/Math.PI);
+      showRingAt(S.ringX, S.ringY, gapStartDeg, gapSizeDeg, (S.ringEndsAt-now())|0);
+
+      // spawn junk ring w/ 1 gap (visual targets)
+      const n = 8;
+      const gapIndex = randi(0, n-1);
       for (let i=0;i<n;i++){
-        const ang = (Math.PI*2) * (i/n) + (Math.random()*0.22);
-        const x = clamp(center.x + Math.cos(ang)*R, 40, innerWidth-40);
-        const y = clamp(center.y + Math.sin(ang)*R, 150, innerHeight-190);
+        if (i === gapIndex) continue; // one safe gap
+        const ang = (Math.PI*2) * (i/n);
+        const x = clamp(center.x + Math.cos(ang)*S.ringR, 40, innerWidth-40);
+        const y = clamp(center.y + Math.sin(ang)*S.ringR, 150, innerHeight-190);
         spawnTarget('junk', { x, y });
       }
-      // one good bait
-      spawnTarget('good', { x: clamp(center.x, 40, innerWidth-40), y: clamp(center.y-60, 150, innerHeight-190) });
 
     } else if (pick === 'laser'){
+      // ✅ H+1: must dodge - hazard checks aim at fire time
       setJudge('BOSS: LASER!');
       fxChroma(160);
-      fxKick(0.7);
-      // laser sweep line: spawn several ⚡ in a line (as fake)
-      const y = clamp(center.y + randi(-80,80), 150, innerHeight-190);
-      const steps = 6;
-      for (let i=0;i<steps;i++){
-        const x = lerp(60, innerWidth-60, i/(steps-1));
-        spawnTarget('laser', { x, y });
-      }
+
+      const y = clamp(center.y + randi(-90,90), 150, innerHeight-190);
+      S.laserActive = true;
+      S.laserY = y|0;
+      S.laserWarnEndsAt = now() + 420;
+      S.laserFireAt = now() + 420;
+      S.laserEndsAt = S.laserFireAt + 260;
+
+      laserWarnAt(S.laserY, 420, 260);
+
+      // tiny decoy pressure
+      for (let i=0;i<3;i++) spawnTarget('decoy');
 
     } else { // storm
+      // ✅ H+3: fake good among storm
       setJudge('BOSS: STORM!');
       fxChroma(150);
-      // decoy storm + gold target
-      for (let i=0;i<6;i++){
-        spawnTarget('decoy');
-      }
+
+      for (let i=0;i<5;i++) spawnTarget('decoy');
+
+      // one gold reward, one real good, one fake good
       spawnTarget('gold', { x: clamp(center.x + randi(-120,120), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
+      spawnTarget('good', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
+      spawnTarget('goodfake', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
     }
   }
 
@@ -531,7 +616,8 @@ export function boot(opts = {}){
     const cx = rect.left + rect.width/2;
     const cy = rect.top + rect.height/2;
 
-    const isBad = (t.kind === 'junk' || t.kind === 'fake' || t.kind === 'decoy' || t.kind === 'laser');
+    const isBad =
+      (t.kind === 'junk' || t.kind === 'fake' || t.kind === 'decoy' || t.kind === 'goodfake');
 
     if (t.kind === 'good'){
       S.goodHits++;
@@ -601,8 +687,9 @@ export function boot(opts = {}){
       emitScore();
 
     } else if (isBad){
-      // ✅ penalty feel (H2)
+      // penalty
       if ((S.shield|0) > 0){
+        // boss phase2: break shield fully if hit bad
         if (challenge === 'boss' && S.bossPhase === 2){
           S.shield = 0;
           S.misses++;
@@ -610,8 +697,7 @@ export function boot(opts = {}){
           scorePop(cx, cy, '💥', 'SHIELD BREAK!');
           burstFX(cx, cy, 'trap');
           safeDispatch('quest:badHit', { kind:'shieldbreak' });
-          fxKick(1.0);
-          fxChroma(160);
+          fxKick(1.1); fxChroma(170);
         } else {
           S.shield = Math.max(0, (S.shield|0) - 1);
           scorePop(cx, cy, '🛡️', 'BLOCK!');
@@ -626,14 +712,12 @@ export function boot(opts = {}){
         scorePop(cx, cy, '', 'MISS!');
         burstFX(cx, cy, 'trap');
         safeDispatch('quest:badHit', { kind:t.kind });
-        fxKick(1.15);
-        fxChroma(170);
+        fxKick(1.15); fxChroma(170);
       }
 
       killEl(t.el); S.targets.delete(t.id);
     }
 
-    // fever -> stun
     if (!S.stunActive && (S.fever|0) >= 100){
       startStun();
     }
@@ -657,14 +741,14 @@ export function boot(opts = {}){
     }
   }
 
-  // STUN field
+  // STUN field: junk breaks itself near aim center
   function stunFieldTick(){
     if (!S.stunActive) return;
     const ap = getAimPoint();
     const R = 140, R2 = R*R;
 
     for (const t of Array.from(S.targets.values())){
-      if (t.kind !== 'junk' && t.kind !== 'fake' && t.kind !== 'decoy' && t.kind !== 'laser') continue;
+      if (t.kind !== 'junk' && t.kind !== 'fake' && t.kind !== 'decoy' && t.kind !== 'goodfake') continue;
       const r = t.el.getBoundingClientRect();
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
@@ -678,7 +762,7 @@ export function boot(opts = {}){
     }
   }
 
-  // H1 hero burst pull: ONLY good/gold/power
+  // HERO BURST pull: ONLY good/gold/power
   function heroBurstTick(){
     if (!S.heroBurstActive) return;
     const tnow = now();
@@ -686,9 +770,8 @@ export function boot(opts = {}){
       S.heroBurstActive = false;
       return;
     }
-
     const ap = getAimPoint();
-    const strength = 0.18; // pull speed
+    const strength = 0.18;
     const swirl = 0.08;
 
     for (const t of S.targets.values()){
@@ -697,17 +780,63 @@ export function boot(opts = {}){
       const dx = ap.x - t.x;
       const dy = ap.y - t.y;
 
-      // pull
       t.x = lerp(t.x, ap.x, strength);
       t.y = lerp(t.y, ap.y, strength);
 
-      // small swirl
       t.x += (-dy) * swirl * 0.002;
       t.y += ( dx) * swirl * 0.002;
 
       t.el.style.left = (t.x|0) + 'px';
       t.el.style.top  = (t.y|0) + 'px';
       t.el.style.setProperty('--tRot', (randi(-6,6))+'deg');
+    }
+  }
+
+  // H+ hazards tick (ring + laser)
+  function hazardsTick(){
+    const tnow = now();
+    const ap = getAimPoint();
+
+    // RING: aim must be in the safe gap (otherwise hit)
+    if (S.ringActive){
+      if (tnow >= S.ringEndsAt){
+        S.ringActive = false;
+      } else {
+        const dx = ap.x - S.ringX;
+        const dy = ap.y - S.ringY;
+        const d = Math.sqrt(dx*dx + dy*dy);
+
+        // only punish if aim is inside the ring band (danger donut)
+        const inBand = (d >= (S.ringR - S.ringTh)) && (d <= (S.ringR + S.ringTh));
+        if (inBand){
+          // compute angle [0,2pi)
+          let a = Math.atan2(dy, dx);
+          if (a < 0) a += Math.PI*2;
+
+          // safe gap centered at ringGapA, width ringGapW
+          const ga = S.ringGapA;
+          const gw = S.ringGapW;
+          const diff = Math.atan2(Math.sin(a-ga), Math.cos(a-ga)); // shortest signed
+          const inGap = Math.abs(diff) <= (gw*0.5);
+
+          if (!inGap){
+            applyPenalty('ring');
+          }
+        }
+      }
+    }
+
+    // LASER: at fire time, if aim y close to beam => hit
+    if (S.laserActive){
+      if (tnow >= S.laserEndsAt){
+        S.laserActive = false;
+        try{ if (elLaser) elLaser.classList.remove('warn','fire'); }catch(_){}
+      } else if (tnow >= S.laserFireAt && tnow <= S.laserEndsAt){
+        const tol = (diffKey==='hard') ? 26 : 30; // harder: smaller safe area
+        if (Math.abs((ap.y|0) - (S.laserY|0)) <= tol){
+          applyPenalty('laser');
+        }
+      }
     }
   }
 
@@ -775,10 +904,10 @@ export function boot(opts = {}){
         resolveBossPulse();
       }
 
-      // ✅ H3 attacks
+      // H+ attacks
       if (tnow >= (S.bossAtkNextAt||0)){
         bossAttackPattern();
-        S.bossAtkNextAt = tnow + 3200; // cadence
+        S.bossAtkNextAt = tnow + (diffKey==='hard' ? 3000 : 3300);
       }
     }
 
@@ -790,11 +919,16 @@ export function boot(opts = {}){
       if (S.bossAlive){
         if (S.bossPhase === 2){
           const roll = Math.random();
-          if (roll < 0.58) spawnTarget('junk');
-          else if (roll < 0.72) spawnTarget('fake');
-          else if (roll < 0.84) spawnTarget('good');
-          else if (roll < 0.92) spawnTarget('gold');
+          if (roll < 0.55) spawnTarget('junk');
+          else if (roll < 0.68) spawnTarget('fake');
+          else if (roll < 0.80) spawnTarget('good');
+          else if (roll < 0.90) spawnTarget('gold');
           else spawnTarget('power');
+
+          // H+3: occasionally inject fake good
+          if (Math.random() < (diffKey==='hard' ? 0.22 : 0.16)){
+            spawnTarget('goodfake');
+          }
         } else {
           const roll = Math.random();
           if (roll < 0.48) spawnTarget('junk');
@@ -808,6 +942,7 @@ export function boot(opts = {}){
       }
     }
 
+    hazardsTick();
     heroBurstTick();
     expireTick();
     stunFieldTick();
