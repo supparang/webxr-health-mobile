@@ -3,12 +3,7 @@
 // ✅ H+1 LASER: must dodge (aim point in beam at fire time => penalty)
 // ✅ H+2 RING: single safe gap (aim in danger ring => penalty)
 // ✅ H+3 STORM: fake good target (looks good but counts bad)
-//
-// PATCH (Production Gate):
-// ✅ Singleton boot: stop old instance to prevent double loops (instant end / 0 score)
-// ✅ Time sanity: guard NaN/0 remainMs, auto-recover endAt
-// ✅ Start/End gate: prevent endGame before first proper tick & prevent double end
-// ✅ Hard cleanup: clear layer targets before starting
+// ✅ PATCH: DOM targets move with camera look (world coords + viewOffset)
 
 'use strict';
 
@@ -28,17 +23,29 @@ function safeDispatch(name, detail){
 function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 function lerp(a,b,t){ return a + (b-a)*t; }
 
-function getAimPoint(){
-  const ap = ROOT.__GJ_AIM_POINT__;
-  if (ap && Number.isFinite(ap.x) && Number.isFinite(ap.y)) return { x: ap.x|0, y: ap.y|0 };
-  return { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
+function getViewOffset(){
+  const v = ROOT.__GJ_VIEW_OFFSET__;
+  if (v && Number.isFinite(v.x) && Number.isFinite(v.y)) return { x: v.x, y: v.y };
+  return { x: 0, y: 0 };
+}
+function worldBounds(){
+  const off = getViewOffset();
+  return { L: off.x, T: off.y, R: off.x + innerWidth, B: off.y + innerHeight };
+}
+function toScreen(wx, wy){
+  const off = getViewOffset();
+  return { x: (wx - off.x), y: (wy - off.y) };
 }
 
-function readDurationSec(v, fallback=60){
-  const n = Number(v);
-  const sec = Number.isFinite(n) ? Math.round(n) : fallback;
-  // allow url time= but clamp
-  return clamp(sec, 20, 180) | 0;
+function getAimPoint(){
+  // aim point is WORLD coords (screen center + viewOffset)
+  const ap = ROOT.__GJ_AIM_POINT__;
+  const off = getViewOffset();
+
+  if (ap && Number.isFinite(ap.x) && Number.isFinite(ap.y)){
+    return { x: (ap.x|0) + (off.x|0), y: (ap.y|0) + (off.y|0) };
+  }
+  return { x: ((innerWidth*0.5)|0) + (off.x|0), y: ((innerHeight*0.62)|0) + (off.y|0) };
 }
 
 const DIFF = {
@@ -61,12 +68,15 @@ const EMO_SHLD  = '🛡️';
 const EMO_BOSS1 = '👑';
 const EMO_BOSS2 = '👹';
 
-function createEl(layer, x, y, emoji, cls){
+function createElWorld(layer, wx, wy, emoji, cls){
   const el = document.createElement('div');
   el.className = `gj-target ${cls||''}`;
   el.textContent = emoji;
-  el.style.left = (x|0) + 'px';
-  el.style.top  = (y|0) + 'px';
+
+  const p = toScreen(wx, wy);
+  el.style.left = (p.x|0) + 'px';
+  el.style.top  = (p.y|0) + 'px';
+
   el.style.setProperty('--tScale', String(1));
   el.style.setProperty('--tRot', (randi(-10,10))+'deg');
   layer.appendChild(el);
@@ -79,11 +89,17 @@ function killEl(el){
     setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
   }catch(_){}
 }
-function burstFX(x,y,mode){
-  try{ Particles.burstAt && Particles.burstAt(x, y, mode||'good'); }catch(_){}
+function burstFX(wx,wy,mode){
+  try{
+    const p = toScreen(wx,wy);
+    Particles.burstAt && Particles.burstAt(p.x, p.y, mode||'good');
+  }catch(_){}
 }
-function scorePop(x,y,txt,label){
-  try{ Particles.scorePop && Particles.scorePop(x, y, txt, label||''); }catch(_){}
+function scorePop(wx,wy,txt,label){
+  try{
+    const p = toScreen(wx,wy);
+    Particles.scorePop && Particles.scorePop(p.x, p.y, txt, label||'');
+  }catch(_){}
 }
 
 function comboMultiplier(combo){
@@ -97,24 +113,14 @@ function scoreGain(base, combo){
 }
 
 export function boot(opts = {}){
-  // ✅ PATCH: prevent double boot loops (key cause of instant end/0 score)
-  try{ ROOT.__GJ_INSTANCE__ && ROOT.__GJ_INSTANCE__.stop && ROOT.__GJ_INSTANCE__.stop('reboot'); }catch(_){}
-
   const diffKey = String(opts.diff || 'normal').toLowerCase();
   const runMode = String(opts.run || 'play').toLowerCase();
   const challenge = String(opts.challenge || 'rush').toLowerCase();
-
-  const durationSec = readDurationSec(opts.time, 60);
+  const durationSec = clamp(opts.time || 60, 20, 180) | 0;
 
   const D = pickDiff(diffKey);
   const layer = opts.layerEl || document.getElementById('gj-layer');
   if (!layer) throw new Error('[GoodJunk] layerEl missing');
-
-  // ✅ PATCH: hard cleanup stale DOM targets
-  try{
-    const olds = layer.querySelectorAll('.gj-target');
-    olds.forEach(el => { try{ el.remove(); }catch(_){ } });
-  }catch(_){}
 
   // Attack overlays
   const elRing  = document.getElementById('atk-ring');
@@ -122,13 +128,10 @@ export function boot(opts = {}){
 
   const S = {
     running: true,
-    started: false,
-    ended: false,
-
-    durationSec: durationSec|0,
     startedAt: now(),
-    endAt: 0,
-    timeLeft: durationSec|0,
+    endAt: now() + durationSec*1000,
+
+    timeLeft: durationSec,
 
     score: 0,
     goodHits: 0,
@@ -148,7 +151,6 @@ export function boot(opts = {}){
     magnetActive: false,
     magnetEndsAt: 0,
 
-    // HERO BURST (from pulse success)
     heroBurstActive: false,
     heroBurstEndsAt: 0,
 
@@ -163,7 +165,6 @@ export function boot(opts = {}){
     bossHpMax: 0,
     bossDecoyCooldownAt: 0,
 
-    // Boss Pulse Wave (move center)
     pulseActive: false,
     pulseX: 0,
     pulseY: 0,
@@ -171,13 +172,11 @@ export function boot(opts = {}){
     pulseNextAt: 0,
     pulseRadiusPx: 74,
 
-    // Boss attacks (H+)
     bossAtkNextAt: 0,
     bossAtkLast: '',
 
     ringActive: false,
-    ringX: 0,
-    ringY: 0,
+    ringX: 0, ringY: 0,
     ringR: 210,
     ringTh: 34,
     ringGapA: 0,
@@ -185,7 +184,7 @@ export function boot(opts = {}){
     ringEndsAt: 0,
 
     laserActive: false,
-    laserY: 0,
+    laserY: 0,           // WORLD Y
     laserWarnEndsAt: 0,
     laserFireAt: 0,
     laserEndsAt: 0,
@@ -194,22 +193,8 @@ export function boot(opts = {}){
 
     lastSpawnAt: 0,
     targets: new Map(),
-    nextId: 1,
-
-    // ✅ PATCH: sanity stamp
-    lastSanityAt: 0
+    nextId: 1
   };
-
-  function rebuildEndAt(fromNow=true){
-    const t = now();
-    S.startedAt = t;
-    S.endAt = t + (S.durationSec|0) * 1000;
-    S.timeLeft = S.durationSec|0;
-    emitTime();
-  }
-
-  // init endAt
-  rebuildEndAt(true);
 
   function emitScore(){
     safeDispatch('hha:score', {
@@ -254,19 +239,20 @@ export function boot(opts = {}){
     fxChroma(170);
     fxKick(1.25);
 
+    const ap = getAimPoint();
+
     if ((S.shield|0) > 0){
-      // H+ โหด: hazard ทำให้แตกโล่หมดทันที
       S.shield = 0;
       safeDispatch('quest:badHit', { kind: kind + ':shieldbreak' });
       setJudge('SHIELD BREAK!');
-      burstFX(innerWidth*0.5, innerHeight*0.62, 'trap');
+      burstFX(ap.x, ap.y, 'trap');
       addFever(-14);
     } else {
       S.misses++;
       setCombo(0);
       safeDispatch('quest:badHit', { kind });
       setJudge('HIT!');
-      burstFX(innerWidth*0.5, innerHeight*0.62, 'trap');
+      burstFX(ap.x, ap.y, 'trap');
       addFever(-18);
     }
     emitScore();
@@ -294,14 +280,15 @@ export function boot(opts = {}){
     S.magnetEndsAt = now() + 5200;
     safeDispatch('quest:power', { power:'magnet' });
     setJudge('MAGNET!');
-    burstFX(innerWidth*0.5, innerHeight*0.62, 'power');
+    const ap = getAimPoint();
+    burstFX(ap.x, ap.y, 'power');
   }
   function addTime(){
-    // extend endAt but keep sane
-    S.endAt = Math.max(S.endAt, now()) + 3000;
+    S.endAt += 3000;
     safeDispatch('quest:power', { power:'time' });
     setJudge('+TIME!');
-    burstFX(innerWidth*0.5, innerHeight*0.62, 'power');
+    const ap = getAimPoint();
+    burstFX(ap.x, ap.y, 'power');
   }
   function addShield(){
     S.shield = clamp((S.shield|0) + 1, 0, 5);
@@ -325,20 +312,15 @@ export function boot(opts = {}){
     safeDispatch('hha:finalPulse', { secLeft: secLeft|0 });
   }
 
-  function endGame(reason='time'){
-    // ✅ PATCH: end gate
-    if (!S.running || S.ended) return;
-    if (!S.started) return;
-
+  function endGame(){
+    if (!S.running) return;
     S.running = false;
-    S.ended = true;
 
     for (const t of S.targets.values()){
       try{ killEl(t.el); }catch(_){}
     }
     S.targets.clear();
 
-    // cleanup overlays
     try{ if (elRing) elRing.classList.remove('show'); }catch(_){}
     try{ if (elLaser) elLaser.classList.remove('warn','fire'); }catch(_){}
 
@@ -347,16 +329,15 @@ export function boot(opts = {}){
       goodHits: S.goodHits|0,
       misses: S.misses|0,
       comboMax: S.comboMax|0,
-      durationSec: (S.durationSec|0),
+      durationSec: durationSec|0,
       diff: diffKey,
       challenge,
-      runMode,
-      reason: String(reason||'time')
+      runMode
     });
   }
 
   // ------- spawn helpers -------
-  function spawnTarget(kind, pos=null){
+  function spawnTarget(kind, posWorld=null){
     if (!S.running) return null;
     if (S.targets.size >= D.maxActive && kind !== 'boss') return null;
 
@@ -364,8 +345,13 @@ export function boot(opts = {}){
     const topSafe = 110;
     const botSafe = 165;
 
-    const x = pos ? (pos.x|0) : randi(margin, Math.max(margin+10, innerWidth - margin));
-    const y = pos ? (pos.y|0) : randi(topSafe, Math.max(topSafe+10, innerHeight - botSafe));
+    const off = getViewOffset();
+    const wx = posWorld
+      ? (posWorld.x|0)
+      : ((randi(margin, Math.max(margin+10, innerWidth - margin))|0) + (off.x|0));
+    const wy = posWorld
+      ? (posWorld.y|0)
+      : ((randi(topSafe, Math.max(topSafe+10, innerHeight - botSafe))|0) + (off.y|0));
 
     let emoji = '❓', cls = '', ttl = D.ttlMs;
 
@@ -396,13 +382,12 @@ export function boot(opts = {}){
       cls = 'gj-junk';
       ttl = Math.round(ttl * 0.72);
     } else if (kind === 'goodfake'){
-      // ✅ H+3 fake good: looks good but is bad
       emoji = POOL_GOOD[randi(0, POOL_GOOD.length-1)];
-      cls = 'gj-fake'; // ให้แสงหลอก ๆ
+      cls = 'gj-fake';
       ttl = Math.round(ttl * 0.86);
     }
 
-    const el = createEl(layer, x, y, emoji, cls);
+    const el = createElWorld(layer, wx, wy, emoji, cls);
 
     const sc = (kind === 'boss')
       ? (1.28 * D.scale)
@@ -412,7 +397,7 @@ export function boot(opts = {}){
     const id = S.nextId++;
     const t = {
       id, kind, el,
-      x, y,
+      x: wx, y: wy,     // ✅ WORLD coords
       bornAt: now(),
       expiresAt: now() + ttl
     };
@@ -460,7 +445,8 @@ export function boot(opts = {}){
     S.bossHpMax = D.bossHp|0;
     S.bossHp = S.bossHpMax;
 
-    spawnTarget('boss');
+    const ap = getAimPoint();
+    spawnTarget('boss', { x: ap.x, y: ap.y - 60 });
 
     try{ Particles.celebrate && Particles.celebrate({ kind:'BOSS_SPAWN', intensity:1.4 }); }catch(_){}
     setJudge('BOSS!');
@@ -474,7 +460,6 @@ export function boot(opts = {}){
     try{ Particles.celebrate && Particles.celebrate({ kind:'BOSS_PHASE2', intensity:1.6 }); }catch(_){}
     S.pulseNextAt = now() + 900;
 
-    // Attack schedule
     S.bossAtkNextAt = now() + 900;
     S.bossAtkLast = '';
     emitScore();
@@ -499,14 +484,19 @@ export function boot(opts = {}){
     const pad = 70;
     const top = 150;
     const bottom = innerHeight - 190;
-    const cur = getAimPoint();
+
+    const ap = getAimPoint();     // WORLD
+    const off = getViewOffset();
 
     for (let i=0;i<30;i++){
-      const x = randi(pad, Math.max(pad+10, innerWidth-pad));
-      const y = randi(top, Math.max(top+10, bottom));
-      if (dist2(x,y, cur.x,cur.y) >= (260*260)) return { x, y };
+      const sx = randi(pad, Math.max(pad+10, innerWidth-pad));
+      const sy = randi(top, Math.max(top+10, bottom));
+      const wx = sx + off.x;
+      const wy = sy + off.y;
+
+      if (dist2(wx,wy, ap.x,ap.y) >= (260*260)) return { x: wx|0, y: wy|0 };
     }
-    return { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
+    return { x: ap.x|0, y: ap.y|0 };
   }
 
   function startBossPulse(){
@@ -515,13 +505,15 @@ export function boot(opts = {}){
     S.pulseX = p.x|0;
     S.pulseY = p.y|0;
     S.pulseDeadlineAt = now() + 1200;
-    safeDispatch('hha:bossPulse', { x:S.pulseX, y:S.pulseY, ttlMs:1200 });
+
+    const scr = toScreen(S.pulseX, S.pulseY);
+    safeDispatch('hha:bossPulse', { x:(scr.x|0), y:(scr.y|0), wx:S.pulseX, wy:S.pulseY, ttlMs:1200 });
   }
 
   function resolveBossPulse(){
     if (!S.pulseActive) return;
 
-    const ap = getAimPoint();
+    const ap = getAimPoint(); // WORLD
     const ok = dist2(ap.x, ap.y, S.pulseX, S.pulseY) <= (S.pulseRadiusPx * S.pulseRadiusPx);
 
     if (ok){
@@ -534,10 +526,7 @@ export function boot(opts = {}){
       scorePop(S.pulseX, S.pulseY, `+${pts}`, 'PULSE!');
       burstFX(S.pulseX, S.pulseY, 'gold');
       safeDispatch('quest:goodHit', { kind:'pulse' });
-
-      // hero burst
       startHeroBurst();
-
     } else {
       setJudge('PULSE HIT!');
       burstFX(S.pulseX, S.pulseY, 'trap');
@@ -550,19 +539,15 @@ export function boot(opts = {}){
   }
 
   // ===== H+ ATTACK OVERLAYS =====
-  function showRingAt(x,y,gapStartDeg,gapSizeDeg,ms=1200){
+  function showRing(gapStartDeg,gapSizeDeg){
     if (!elRing) return;
-    elRing.style.left = (x|0)+'px';
-    elRing.style.top  = (y|0)+'px';
-    elRing.style.transform = 'translate(-50%,-50%)';
     document.documentElement.style.setProperty('--ringGapStart', gapStartDeg.toFixed(0)+'deg');
     document.documentElement.style.setProperty('--ringGapSize',  gapSizeDeg.toFixed(0)+'deg');
     elRing.classList.add('show');
-    setTimeout(()=>{ try{ elRing.classList.remove('show'); }catch(_){ } }, Math.max(300, ms|0));
   }
-  function laserWarnAt(y, warnMs=420, fireMs=260){
+  function laserWarnAtScreenY(yScreen, warnMs=420, fireMs=260){
     if (!elLaser) return;
-    elLaser.style.top = (y|0)+'px';
+    elLaser.style.top = (yScreen|0)+'px';
     elLaser.classList.remove('fire');
     elLaser.classList.add('warn');
     setTimeout(()=>{
@@ -581,8 +566,9 @@ export function boot(opts = {}){
     if (pick === S.bossAtkLast) pick = patterns[(patterns.indexOf(pick)+1) % patterns.length];
     S.bossAtkLast = pick;
 
-    const ap = getAimPoint();
+    const ap = getAimPoint(); // WORLD
     const center = { x: ap.x|0, y: ap.y|0 };
+    const b = worldBounds();
 
     safeDispatch('hha:bossAtk', { name: pick });
 
@@ -602,30 +588,31 @@ export function boot(opts = {}){
 
       const gapSizeDeg = (S.ringGapW * 180/Math.PI);
       const gapStartDeg = (S.ringGapA * 180/Math.PI);
-      showRingAt(S.ringX, S.ringY, gapStartDeg, gapSizeDeg, (S.ringEndsAt-now())|0);
+      showRing(gapStartDeg, gapSizeDeg);
 
       const n = 8;
       const gapIndex = randi(0, n-1);
       for (let i=0;i<n;i++){
         if (i === gapIndex) continue;
         const ang = (Math.PI*2) * (i/n);
-        const x = clamp(center.x + Math.cos(ang)*S.ringR, 40, innerWidth-40);
-        const y = clamp(center.y + Math.sin(ang)*S.ringR, 150, innerHeight-190);
-        spawnTarget('junk', { x, y });
+        const wx = clamp(center.x + Math.cos(ang)*S.ringR, b.L+40, b.R-40);
+        const wy = clamp(center.y + Math.sin(ang)*S.ringR, b.T+150, b.B-190);
+        spawnTarget('junk', { x: wx, y: wy });
       }
 
     } else if (pick === 'laser'){
       setJudge('BOSS: LASER!');
       fxChroma(160);
 
-      const y = clamp(center.y + randi(-90,90), 150, innerHeight-190);
+      const y = clamp(center.y + randi(-90,90), b.T+150, b.B-190);
       S.laserActive = true;
       S.laserY = y|0;
       S.laserWarnEndsAt = now() + 420;
       S.laserFireAt = now() + 420;
       S.laserEndsAt = S.laserFireAt + 260;
 
-      laserWarnAt(S.laserY, 420, 260);
+      const p = toScreen(0, S.laserY);
+      laserWarnAtScreenY(p.y, 420, 260);
 
       for (let i=0;i<3;i++) spawnTarget('decoy');
 
@@ -635,9 +622,18 @@ export function boot(opts = {}){
 
       for (let i=0;i<5;i++) spawnTarget('decoy');
 
-      spawnTarget('gold', { x: clamp(center.x + randi(-120,120), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
-      spawnTarget('good', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
-      spawnTarget('goodfake', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
+      spawnTarget('gold', {
+        x: clamp(center.x + randi(-120,120), b.L+50, b.R-50),
+        y: clamp(center.y + randi(-90,90),  b.T+150, b.B-190)
+      });
+      spawnTarget('good', {
+        x: clamp(center.x + randi(-140,140), b.L+50, b.R-50),
+        y: clamp(center.y + randi(-90,90),  b.T+150, b.B-190)
+      });
+      spawnTarget('goodfake', {
+        x: clamp(center.x + randi(-140,140), b.L+50, b.R-50),
+        y: clamp(center.y + randi(-90,90),  b.T+150, b.B-190)
+      });
     }
   }
 
@@ -651,8 +647,13 @@ export function boot(opts = {}){
     }
 
     const rect = t.el.getBoundingClientRect();
-    const cx = rect.left + rect.width/2;
-    const cy = rect.top + rect.height/2;
+    const cxS = rect.left + rect.width/2;
+    const cyS = rect.top + rect.height/2;
+
+    // convert screen center to WORLD for FX consistency
+    const off = getViewOffset();
+    const cx = (cxS + off.x);
+    const cy = (cyS + off.y);
 
     const isBad =
       (t.kind === 'junk' || t.kind === 'fake' || t.kind === 'decoy' || t.kind === 'goodfake');
@@ -769,7 +770,6 @@ export function boot(opts = {}){
       if (t.kind === 'boss') continue;
       if (tnow >= t.expiresAt){
         if (t.kind === 'good' || t.kind === 'gold'){
-          // keep your design: reduce combo on miss-timing
           setCombo(Math.max(0, (S.combo|0) - 2));
         }
         killEl(t.el);
@@ -778,17 +778,21 @@ export function boot(opts = {}){
     }
   }
 
-  // STUN field: junk breaks itself near aim center
+  // STUN field
   function stunFieldTick(){
     if (!S.stunActive) return;
-    const ap = getAimPoint();
+    const ap = getAimPoint(); // WORLD
     const R = 140, R2 = R*R;
 
     for (const t of Array.from(S.targets.values())){
       if (t.kind !== 'junk' && t.kind !== 'fake' && t.kind !== 'decoy' && t.kind !== 'goodfake') continue;
       const r = t.el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
+      const cxS = r.left + r.width/2;
+      const cyS = r.top + r.height/2;
+      const off = getViewOffset();
+      const cx = cxS + off.x;
+      const cy = cyS + off.y;
+
       if (dist2(cx,cy, ap.x,ap.y) <= R2){
         setJudge('STUN BREAK!');
         burstFX(cx,cy,'ice');
@@ -807,7 +811,7 @@ export function boot(opts = {}){
       S.heroBurstActive = false;
       return;
     }
-    const ap = getAimPoint();
+    const ap = getAimPoint(); // WORLD
     const strength = 0.18;
     const swirl = 0.08;
 
@@ -823,8 +827,6 @@ export function boot(opts = {}){
       t.x += (-dy) * swirl * 0.002;
       t.y += ( dx) * swirl * 0.002;
 
-      t.el.style.left = (t.x|0) + 'px';
-      t.el.style.top  = (t.y|0) + 'px';
       t.el.style.setProperty('--tRot', (randi(-6,6))+'deg');
     }
   }
@@ -832,7 +834,7 @@ export function boot(opts = {}){
   // H+ hazards tick (ring + laser)
   function hazardsTick(){
     const tnow = now();
-    const ap = getAimPoint();
+    const ap = getAimPoint(); // WORLD
 
     if (S.ringActive){
       if (tnow >= S.ringEndsAt){
@@ -872,6 +874,39 @@ export function boot(opts = {}){
     }
   }
 
+  // ✅ render all targets + overlays to screen based on viewOffset
+  function renderTick(){
+    const off = getViewOffset();
+
+    // targets
+    for (const t of S.targets.values()){
+      const sx = (t.x - off.x);
+      const sy = (t.y - off.y);
+      t.el.style.left = (sx|0) + 'px';
+      t.el.style.top  = (sy|0) + 'px';
+    }
+
+    // ring overlay
+    if (elRing){
+      if (S.ringActive){
+        const sx = (S.ringX - off.x);
+        const sy = (S.ringY - off.y);
+        elRing.style.left = (sx|0) + 'px';
+        elRing.style.top  = (sy|0) + 'px';
+        elRing.style.transform = 'translate(-50%,-50%)';
+        elRing.classList.add('show');
+      } else {
+        elRing.classList.remove('show');
+      }
+    }
+
+    // laser overlay (keep class timing from warn/fire)
+    if (elLaser && S.laserActive){
+      const sy = (S.laserY - off.y);
+      elLaser.style.top = (sy|0) + 'px';
+    }
+  }
+
   // final sprint
   function finalSprintTick(){
     if ((S.timeLeft|0) > 8) return;
@@ -884,57 +919,22 @@ export function boot(opts = {}){
     }
   }
 
-  // ✅ PATCH: sanity check to prevent "instant end 0s"
-  function sanityTick(){
-    const tnow = now();
-    if (tnow - (S.lastSanityAt||0) < 350) return;
-    S.lastSanityAt = tnow;
-
-    // if endAt invalid or too close immediately after start, rebuild
-    if (!Number.isFinite(S.endAt) || (S.endAt - tnow) < 500){
-      rebuildEndAt(true);
-    }
-    // if timeLeft invalid
-    if (!Number.isFinite(S.timeLeft) || (S.timeLeft|0) < 0){
-      S.timeLeft = S.durationSec|0;
-      emitTime();
-    }
-  }
-
+  // loop
   function loop(){
     if (!S.running) return;
 
     const tnow = now();
-
-    // start gate
-    if (!S.started){
-      // first frame after init
-      S.started = true;
-    }
-
-    sanityTick();
-
-    let remainMs = (S.endAt - tnow);
-    if (!Number.isFinite(remainMs)) remainMs = 0;
-
-    // ceil to keep HUD friendly
-    let remainSec = Math.ceil(Math.max(0, remainMs) / 1000);
-    if (!Number.isFinite(remainSec)) remainSec = 0;
+    const remainMs = Math.max(0, S.endAt - tnow);
+    const remainSec = Math.ceil(remainMs / 1000);
 
     if (remainSec !== (S.timeLeft|0)){
       S.timeLeft = remainSec|0;
       emitTime();
       finalSprintTick();
     }
-
-    // ✅ PATCH: prevent end immediately on first tick (device time glitch / double loop)
     if (remainMs <= 0){
-      if ((tnow - S.startedAt) < 250){
-        rebuildEndAt(true);
-      } else {
-        endGame('time');
-        return;
-      }
+      endGame();
+      return;
     }
 
     if (!S.stunActive){
@@ -1004,21 +1004,19 @@ export function boot(opts = {}){
     heroBurstTick();
     expireTick();
     stunFieldTick();
+    renderTick();
 
     if ((Math.random() < 0.06)) emitFever();
     requestAnimationFrame(loop);
   }
 
-  // init
   emitScore();
   emitTime();
   emitFever();
   requestAnimationFrame(loop);
 
-  const api = {
-    stop(reason){
-      endGame(reason || 'stop');
-    },
+  return {
+    stop(){ endGame(); },
     getState(){
       return {
         score:S.score|0, goodHits:S.goodHits|0, misses:S.misses|0,
@@ -1029,9 +1027,4 @@ export function boot(opts = {}){
       };
     }
   };
-
-  // ✅ expose singleton for next boot to stop
-  ROOT.__GJ_INSTANCE__ = api;
-
-  return api;
 }
