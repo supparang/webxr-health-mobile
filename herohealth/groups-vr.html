@@ -1,8 +1,8 @@
 <!-- === /herohealth/groups-vr.html ===
-Food Groups VR — FULL HTML (PATCH 1–3 READY)
-✅ Fix Quest not showing: attach createFoodGroupsQuest -> window.GroupsQuest
-✅ Emoji sticker targets (textContent) + spawn/out/hit animations via --x/--y/--s
-✅ Tap-anywhere (engine) + Lock/Fuse ring + Charge ring UI
+Food Groups VR — FULL HTML (FIX QUEST + READY)
+✅ FIX Quest not showing: load ./vr-groups/groups-quests.js (IIFE) BEFORE engine
+✅ Emoji sticker targets + spawn/out/hit animations via --x/--y/--s
+✅ Tap-anywhere + Lock/Fuse ring + Charge ring UI
 ✅ Works with your /herohealth/vr-groups/GameEngine.js (IIFE -> window.GroupsVR.GameEngine)
 -->
 
@@ -24,7 +24,10 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Engine (IIFE) -->
+  <!-- ✅ QUEST (IIFE) MUST LOAD BEFORE ENGINE -->
+  <script src="./vr-groups/groups-quests.js" defer></script>
+
+  <!-- ✅ ENGINE (IIFE) -->
   <script src="./vr-groups/GameEngine.js" defer></script>
 
   <style>
@@ -51,7 +54,6 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
     html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
-    /* ---- Scene wrapper ---- */
     .wrap{
       position:fixed; inset:0;
       overflow:hidden;
@@ -61,16 +63,12 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
     }
     a-scene{ position:absolute; inset:0; z-index:0; }
 
-    /* DOM layer for targets */
     #fg-layer{
       position:absolute; inset:0; z-index:5;
-      pointer-events:auto; /* tap-anywhere + click targets */
+      pointer-events:auto;
       touch-action:manipulation;
     }
 
-    /* ---- Emoji Target: Sticker Bubble ----
-       Engine sets: --x, --y, --s and width/height on element
-    */
     .fg-target{
       position:absolute;
       left:var(--x, 50%); top:var(--y, 52%);
@@ -79,11 +77,9 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       border-radius:999px;
       display:flex; align-items:center; justify-content:center;
 
-      /* IMPORTANT: show emoji */
       font-size:58px; line-height:1;
       font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
 
-      /* glass bubble */
       background:
         radial-gradient(90px 80px at 35% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
         radial-gradient(120px 120px at 50% 55%, rgba(255,255,255,.18), rgba(255,255,255,.06) 58%, rgba(255,255,255,.02) 100%),
@@ -93,7 +89,6 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
         0 18px 48px rgba(0,0,0,.35),
         inset 0 1px 0 rgba(255,255,255,.22);
 
-      /* sticker pop */
       filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
       text-shadow:
         0 6px 16px rgba(0,0,0,.30),
@@ -108,32 +103,23 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
     .fg-target.fg-decoy{ outline: 2px solid rgba(245,158,11,.22); }
     .fg-target.fg-boss{ outline: 2px solid rgba(168,85,247,.22); }
 
-    /* spawn/show/out/hit animations */
     .fg-target.spawn{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.72); }
-    .fg-target.show{
-      opacity:1;
-      animation: fgPop .22s ease-out both;
-    }
+    .fg-target.show{ opacity:1; animation: fgPop .22s ease-out both; }
     @keyframes fgPop{
       0%{ transform:translate3d(-50%,-50%,0) scale(.78); }
       70%{ transform:translate3d(-50%,-50%,0) scale(1.08); }
       100%{ transform:translate3d(-50%,-50%,0) scale(var(--s,1)); }
     }
-    .fg-target.out{
-      animation: fgOut .18s ease-in both;
-    }
+    .fg-target.out{ animation: fgOut .18s ease-in both; }
     @keyframes fgOut{
       to{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.84); filter:blur(1px) drop-shadow(0 0 0 rgba(0,0,0,0)); }
     }
-    .fg-target.hit{
-      animation: fgHit .16s ease-out both;
-    }
+    .fg-target.hit{ animation: fgHit .16s ease-out both; }
     @keyframes fgHit{
       40%{ transform:translate3d(-50%,-50%,0) scale(1.18); }
       100%{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.86); }
     }
 
-    /* lock highlight */
     .fg-target.lock{
       box-shadow:
         0 18px 60px rgba(34,197,94,.10),
@@ -141,20 +127,14 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
         inset 0 1px 0 rgba(255,255,255,.22);
       border-color: rgba(34,197,94,.28);
     }
-    .fg-target.fg-boss.lock{
-      border-color: rgba(168,85,247,.34);
-    }
+    .fg-target.fg-boss.lock{ border-color: rgba(168,85,247,.34); }
 
-    /* rage pulse (boss raged) */
-    .fg-target.rage{
-      animation: ragePulse .85s ease-in-out infinite;
-    }
+    .fg-target.rage{ animation: ragePulse .85s ease-in-out infinite; }
     @keyframes ragePulse{
       0%,100%{ box-shadow:0 18px 48px rgba(0,0,0,.35), 0 0 0 rgba(168,85,247,0); }
       50%{ box-shadow:0 18px 48px rgba(0,0,0,.35), 0 0 28px rgba(168,85,247,.26); }
     }
 
-    /* afterimage */
     .fg-afterimage{
       position:absolute; left:0; top:0; z-index:4;
       pointer-events:none;
@@ -177,7 +157,6 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       to{ opacity:0; transform: translate3d(0,0,0) translate(-50%,-50%) scale(1.18); }
     }
 
-    /* boss hp bar */
     .bossbar{
       position:absolute;
       left:12px; right:12px;
@@ -195,11 +174,7 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       background: linear-gradient(90deg, rgba(168,85,247,.95), rgba(59,130,246,.85));
     }
 
-    /* ---- HUD ---- */
-    .hud{
-      position:absolute; inset:0; z-index:20;
-      pointer-events:none;
-    }
+    .hud{ position:absolute; inset:0; z-index:20; pointer-events:none; }
 
     .topbar{
       position:absolute; left:12px; right:12px; top:10px;
@@ -216,13 +191,8 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       box-shadow:var(--shadow);
       backdrop-filter: blur(10px);
     }
-    .stats{
-      display:flex; gap:10px; flex-wrap:wrap;
-    }
-    .stat{
-      min-width:98px;
-      display:flex; flex-direction:column; gap:2px;
-    }
+    .stats{ display:flex; gap:10px; flex-wrap:wrap; }
+    .stat{ min-width:98px; display:flex; flex-direction:column; gap:2px; }
     .k{ font-size:11px; color:var(--muted); letter-spacing:.2px; }
     .v{ font-size:16px; font-weight:750; }
 
@@ -256,7 +226,6 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
     .coachText{ font-size:14px; color:var(--text); line-height:1.35; }
     .coachText .sub{ color:var(--muted); font-size:12.5px; margin-top:4px; }
 
-    /* ---- Bottom controls ---- */
     .controls{
       position:absolute; left:12px; right:12px; bottom:14px;
       display:flex; gap:12px;
@@ -264,11 +233,7 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       z-index:30;
       pointer-events:none;
     }
-    .hintCol{
-      flex:1;
-      display:flex; flex-direction:column; gap:10px;
-      pointer-events:none;
-    }
+    .hintCol{ flex:1; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
     .hint{
       pointer-events:none;
       background:var(--panel);
@@ -281,10 +246,7 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
     }
     .hint small{ display:block; font-weight:650; color:var(--muted); margin-top:4px; }
 
-    .btnCol{
-      display:flex; gap:10px;
-      pointer-events:auto; /* buttons clickable */
-    }
+    .btnCol{ display:flex; gap:10px; pointer-events:auto; }
     .btn{
       min-width:92px;
       border-radius:18px;
@@ -302,14 +264,8 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
     .btn.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.30); }
     .btn.danger{ background:rgba(239,68,68,.18); border-color:rgba(239,68,68,.30); }
     .btn.ghost{ background:rgba(255,255,255,.06); }
-    .btnMini{
-      min-width:64px;
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:900;
-    }
+    .btnMini{ min-width:64px; border-radius:14px; padding:10px 12px; font-weight:900; }
 
-    /* center reticle */
     #reticle{
       position:absolute; left:50%; top:50%;
       transform:translate(-50%,-50%);
@@ -325,7 +281,6 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
     #reticle.miss{ background:rgba(239,68,68,.65); box-shadow:0 0 22px rgba(239,68,68,.18); }
     #reticle.perfect{ background:rgba(245,158,11,.72); box-shadow:0 0 24px rgba(245,158,11,.22); }
 
-    /* lock + charge ring (SVG) */
     #lockUI{
       position:absolute; left:0; top:0;
       width:10px; height:10px;
@@ -341,7 +296,6 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
     .ringProg{ stroke:rgba(34,197,94,.90); stroke-width:6; fill:none; stroke-linecap:round; }
     .ringCharge{ stroke:rgba(59,130,246,.95); stroke-width:6; fill:none; stroke-linecap:round; opacity:.92; }
 
-    /* start overlay */
     #startOverlay{
       position:absolute; inset:0; z-index:60;
       background: radial-gradient(900px 500px at 50% 40%, rgba(59,130,246,.16), transparent 60%),
@@ -392,22 +346,18 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       cursor:pointer;
     }
     .startBtn:active{ transform: translateY(1px); }
-
-    /* small note */
     .note{ margin-top:10px; font-size:12px; color:var(--muted); line-height:1.35; }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <!-- A-Frame scene (used for camera rotation / VR enter) -->
     <a-scene
       embedded
       renderer="antialias: true; colorManagement: true;"
       vr-mode-ui="enabled:false"
       background="color: #020617"
     >
-      <!-- camera rig -->
       <a-entity id="rig" position="0 1.6 0">
         <a-camera id="camera"
           wasd-controls-enabled="false"
@@ -415,15 +365,11 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
           position="0 0 0"
         ></a-camera>
       </a-entity>
-
-      <!-- subtle sky -->
       <a-sky color="#020617"></a-sky>
     </a-scene>
 
-    <!-- DOM targets layer -->
     <div id="fg-layer" aria-label="targets layer"></div>
 
-    <!-- HUD overlay -->
     <div class="hud">
       <div class="topbar">
         <div class="pill stats">
@@ -443,14 +389,14 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       </div>
 
       <div class="coachBox">
-        <div class="coachText" id="coachText">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨
+        <div class="coachText">
+          <div id="coachMain">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨</div>
           <div class="sub" id="coachSub">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
         </div>
       </div>
 
       <div id="reticle"></div>
 
-      <!-- lock / charge ring -->
       <div id="lockUI">
         <svg id="lockSvg" width="88" height="88" viewBox="0 0 88 88">
           <circle class="ringBack" cx="44" cy="44" r="30"></circle>
@@ -461,7 +407,6 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
         </svg>
       </div>
 
-      <!-- bottom controls -->
       <div class="controls">
         <div class="hintCol">
           <div class="hint">LOCK <small>จ้องจนวงฟ้าเต็ม → ยิงเป็นชุด</small></div>
@@ -476,7 +421,6 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       </div>
     </div>
 
-    <!-- Start overlay -->
     <div id="startOverlay">
       <div class="card">
         <div class="h1">Food Groups VR — พร้อมลุย</div>
@@ -508,29 +452,11 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
 
         <button class="startBtn" id="btnStart">START</button>
         <div class="note">
-          ถ้าเคยเจอ “ภารกิจไม่มา” → ไฟล์นี้แก้แล้ว โดย import quest แล้ว attach เข้า window.GroupsQuest ให้ GameEngine เห็นแน่ ๆ
+          ✅ ไฟล์นี้โหลด quest (IIFE) ก่อน engine แล้ว — ภารกิจต้องขึ้นแน่ ๆ
         </div>
       </div>
     </div>
   </div>
-
-  <!-- ✅ IMPORTANT: attach quest factory to window for your IIFE engine -->
-  <script type="module">
-    // Make sure this path matches your real quest file:
-    // e.g. ./vr-groups/groups-quests.js exports createFoodGroupsQuest
-    try{
-      const mod = await import('./vr-groups/groups-quests.js');
-      const fn = mod.createFoodGroupsQuest || mod.default || null;
-      if (typeof fn === 'function') {
-        window.GroupsQuest = { createFoodGroupsQuest: fn };
-        console.log('[FoodGroupsVR] GroupsQuest attached ✅');
-      } else {
-        console.warn('[FoodGroupsVR] groups-quests.js loaded but no createFoodGroupsQuest export');
-      }
-    }catch(err){
-      console.warn('[FoodGroupsVR] quest import failed', err);
-    }
-  </script>
 
   <script>
     (function(){
@@ -558,7 +484,7 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       const questMini = $('questMini');
       const miniPct   = $('miniPct');
 
-      const coachText = $('coachText');
+      const coachMain = $('coachMain');
 
       const btnStart = $('btnStart');
       const btnGaze  = $('btnGaze');
@@ -581,7 +507,7 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
       if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(qTime);
 
-      // helpers: ring
+      // ring helpers
       const C1 = 188.5; // r=30
       const C2 = 138.2; // r=22
       function setRing(circle, prog, C){
@@ -593,13 +519,12 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
       function setReticle(state){
         reticle.classList.remove('ok','miss','perfect');
         if (state) reticle.classList.add(state);
-        // auto fade back
         if (state){
           setTimeout(()=>reticle.classList.remove('ok','miss','perfect'), 160);
         }
       }
 
-      // listen events (works even if hha-hud.js exists)
+      // events
       window.addEventListener('hha:score', (e)=>{
         const d = (e && e.detail) || {};
         if (typeof d.score === 'number') hudScore.textContent = d.score|0;
@@ -641,7 +566,7 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
 
       window.addEventListener('hha:coach', (e)=>{
         const d = (e && e.detail) || {};
-        if (d.text) coachText.textContent = String(d.text);
+        if (d.text) coachMain.textContent = String(d.text);
       });
 
       window.addEventListener('groups:reticle', (e)=>{
@@ -686,11 +611,8 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
         eng && eng.stop && eng.stop('stop_button');
       });
 
-      btnVR.addEventListener('click', async ()=>{
-        try{
-          // enter VR if supported
-          if (sceneEl && sceneEl.enterVR) sceneEl.enterVR();
-        }catch{}
+      btnVR.addEventListener('click', ()=>{
+        try{ if (sceneEl && sceneEl.enterVR) sceneEl.enterVR(); }catch{}
       });
 
       btnStart.addEventListener('click', ()=>{
@@ -700,10 +622,14 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
           return;
         }
 
-        // hide overlay
+        // ✅ hard check quest presence (helps catch path mistakes instantly)
+        if (!window.GroupsQuest || typeof window.GroupsQuest.createFoodGroupsQuest !== 'function'){
+          alert('GroupsQuest ยังไม่พร้อม! เช็ค path ./vr-groups/groups-quests.js และต้องโหลดก่อน GameEngine.js');
+          return;
+        }
+
         startOverlay.style.display = 'none';
 
-        // init engine
         eng.setLayerEl(layer);
         eng.setCameraEl(camEl);
 
@@ -716,16 +642,14 @@ Food Groups VR — FULL HTML (PATCH 1–3 READY)
         gazeOn = true;
         btnGaze.textContent = 'Gaze: ON';
 
-        // Start with options
         eng.start(diff, {
           layerEl: layer,
           runMode: mode
         });
       });
 
-      // auto-start when query has autostart=1
       if (sp.get('autostart') === '1'){
-        setTimeout(()=>btnStart.click(), 100);
+        setTimeout(()=>btnStart.click(), 120);
       }
     })();
   </script>
