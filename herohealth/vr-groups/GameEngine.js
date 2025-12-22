@@ -1,14 +1,17 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — PRODUCTION HYBRID ENGINE (PATCH 1-3 + SEED FIX)
-// ✅ emoji textContent fix
+// Food Groups VR — PRODUCTION HYBRID ENGINE
+// ✅ Play = สุ่ม/มันส์ (rush/boss/decoy/rage/adaptive)
+// ✅ Research = STRICT (Spawn Plan deterministic, 1 target at a time, FIX by seed 2-layer)
+// ✅ Emoji target uses textContent
 // ✅ Decoy = Invert (play only)
-// ✅ Rage = Double-Feint (boss only, play only)
-// ✅ afterimage x2 (scale up on fade) via .fg-afterimage CSS
-// ✅ render uses CSS vars --x/--y/--s
-// ✅ NEW: Research mode = FIX (seeded RNG) using 2-layer seed:
-//         layer#1 StudentID + School/Room (from sessionStorage.HHA_STUDENT_PROFILE)
-//         layer#2 ConditionID (profile.group OR ?cond= OR opts.conditionId)
-//     Play mode = random as usual
+// ✅ Rage = Double-Feint (play only)
+// ✅ Afterimage x2
+// ✅ Render uses CSS vars --x/--y/--s
+//
+// Research seed (2-layer):
+//  - Layer1: sessionStorage.HHA_STUDENT_PROFILE (id/nickname/grade/room/school/group)
+//  - Layer2: condition (opts.cond or URL ?cond= or profile.group)
+//  - You can also pass ?seed=YOURSEED to force exact plan
 
 (function () {
   'use strict';
@@ -31,32 +34,100 @@
       ? ROOT.GroupsQuest
       : null;
 
-  // ---------- time/utils ----------
   function now() { return (performance && performance.now) ? performance.now() : Date.now(); }
+  function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
   function dispatch(name, detail) { try { window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch {} }
   function coach(text) { if (text) dispatch('hha:coach', { text: String(text) }); }
 
-  function toRad(deg){ return (Number(deg)||0) * Math.PI / 180; }
-  function normAngleRad(a){
-    let x = a;
-    while (x > Math.PI) x -= Math.PI*2;
-    while (x < -Math.PI) x += Math.PI*2;
-    return x;
-  }
-  function centerXY(el) {
-    try {
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-    } catch {
-      return { x: window.innerWidth / 2, y: window.innerHeight * 0.52 };
+  // ---------- deterministic PRNG (for Research) ----------
+  // xmur3 + mulberry32 : stable and fast
+  function xmur3(str) {
+    let h = 1779033703 ^ (str ? str.length : 0);
+    for (let i = 0; i < (str ? str.length : 0); i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
     }
+    return function () {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      h ^= (h >>> 16);
+      return h >>> 0;
+    };
+  }
+  function mulberry32(a) {
+    return function () {
+      let t = (a += 0x6D2B79F5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function makeRngFromString(seedStr) {
+    const seedFn = xmur3(String(seedStr || 'seed'));
+    return mulberry32(seedFn());
   }
 
-  function normalizeGrade(g){
-    const x = String(g || '').toUpperCase().trim();
-    if (['SSS','SS','S','A','B','C'].includes(x)) return x;
-    return 'C';
+  function safeJsonParse(s) { try { return JSON.parse(s); } catch { return null; } }
+
+  function getStudentProfile() {
+    // HUB ของคุณบันทึกไว้ sessionStorage.HHA_STUDENT_PROFILE อยู่แล้ว
+    const raw = (function(){
+      try { return sessionStorage.getItem('HHA_STUDENT_PROFILE'); } catch { return ''; }
+    })();
+    const obj = safeJsonParse(raw) || {};
+    return {
+      studentId: obj.studentId || obj.id || obj.sid || '',
+      nickname: obj.nickname || obj.name || '',
+      grade: obj.grade || '',
+      room: obj.room || '',
+      school: obj.school || '',
+      group: obj.group || obj.condition || obj.cond || ''   // อาจใช้เป็น condition ได้
+    };
+  }
+
+  function getQueryParams() {
+    try { return new URLSearchParams(location.search || ''); } catch { return new URLSearchParams(''); }
+  }
+
+  function resolveCondition(optsCond) {
+    // priority: opts.cond -> ?cond= -> profile.group -> 1
+    const sp = getQueryParams();
+    const q = sp.get('cond') || sp.get('condition') || '';
+    const prof = getStudentProfile();
+    const cRaw = (optsCond != null ? String(optsCond) : (q || String(prof.group || '')));
+    const n = parseInt(cRaw, 10);
+    // ถ้าไม่ใช่ตัวเลข → ยอมรับเป็น string condition ได้ (เช่น "A", "B")
+    if (!Number.isNaN(n) && n > 0) return n;
+    if (cRaw && cRaw.trim()) return cRaw.trim();
+    return 1;
+  }
+
+  function resolveResearchSeed(diff, runMode, opts) {
+    const sp = getQueryParams();
+    const qSeed = sp.get('seed') || '';
+    if (qSeed) return String(qSeed);
+
+    const prof = getStudentProfile();
+    const cond = resolveCondition(opts && opts.cond);
+
+    // 2-layer seed: identity + condition + fixed tags
+    // (อย่าใส่ข้อมูลละเอียดเกินจำเป็น, เอาแบบคงที่แต่ไม่สั้นเกิน)
+    const idPart = [
+      prof.school, prof.room, prof.grade,
+      prof.studentId, prof.nickname
+    ].filter(Boolean).join('|');
+
+    const seed = [
+      'HHA', 'FoodGroupsVR',
+      'STRICT',
+      String(diff || 'normal'),
+      String(runMode || 'research'),
+      'COND=' + String(cond),
+      'ID=' + (idPart || 'anon')
+    ].join('::');
+
+    return seed;
   }
 
   // ---------- logging ----------
@@ -96,123 +167,27 @@
   }
   function haptic(p){ try{ if (navigator.vibrate) navigator.vibrate(p); }catch{} }
 
-  // =========================================================
-  // ✅ SEEDED RNG (for Research mode FIX)
-  // =========================================================
-  function safeJsonParse(s){
-    try{ return JSON.parse(String(s||'')); }catch{ return null; }
+  // ---------- math/camera ----------
+  function toRad(deg){ return (Number(deg)||0) * Math.PI / 180; }
+  function normAngleRad(a){
+    let x = a;
+    while (x > Math.PI) x -= Math.PI*2;
+    while (x < -Math.PI) x += Math.PI*2;
+    return x;
   }
-  function getQueryParam(name){
-    try{
-      const sp = new URLSearchParams(location.search);
-      const v = sp.get(name);
-      return (v == null) ? '' : String(v);
-    }catch{ return ''; }
-  }
-
-  // xmur3 + sfc32 (stable)
-  function xmur3(str) {
-    let h = 1779033703 ^ str.length;
-    for (let i = 0; i < str.length; i++) {
-      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-      h = (h << 13) | (h >>> 19);
-    }
-    return function() {
-      h = Math.imul(h ^ (h >>> 16), 2246822507);
-      h = Math.imul(h ^ (h >>> 13), 3266489909);
-      return (h ^= (h >>> 16)) >>> 0;
-    };
-  }
-  function sfc32(a, b, c, d) {
-    return function() {
-      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-      let t = (a + b) | 0;
-      a = b ^ (b >>> 9);
-      b = (c + (c << 3)) | 0;
-      c = (c << 21) | (c >>> 11);
-      d = (d + 1) | 0;
-      t = (t + d) | 0;
-      c = (c + t) | 0;
-      return ((t >>> 0) / 4294967296);
-    };
-  }
-  function makeSeededRng(seedStr){
-    const seed = String(seedStr || 'seed');
-    const h = xmur3(seed);
-    const a = h(), b = h(), c = h(), d = h();
-    return sfc32(a,b,c,d);
-  }
-
-  function getProfileFromSession(){
-    // HUB: sessionStorage.HHA_STUDENT_PROFILE
-    try{
-      const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
-      const obj = safeJsonParse(raw);
-      return obj && typeof obj === 'object' ? obj : null;
-    }catch{
-      return null;
+  function centerXY(el) {
+    try {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    } catch {
+      return { x: window.innerWidth / 2, y: window.innerHeight * 0.52 };
     }
   }
 
-  function buildResearchSeed2Layer(diff, runMode, opts){
-    const p = getProfileFromSession() || {};
-    const studentId = String(p.studentId || p.student_id || p.sid || p.id || '').trim();
-    const school    = String(p.school || p.schoolName || '').trim();
-    const room      = String(p.room || p.classroom || '').trim();
-
-    // layer#2 conditionId: profile.group (ตามภาพ) หรือ query หรือ opts
-    const condFromProfile = String(p.group || p.condition || p.team || '').trim();
-    const condFromQuery   = String(getQueryParam('cond') || getQueryParam('condition') || getQueryParam('group') || '').trim();
-    const condFromOpts    = String((opts && (opts.conditionId || opts.cond || opts.group)) || '').trim();
-    const conditionId = condFromOpts || condFromQuery || condFromProfile || 'C0';
-
-    // override full seed if given
-    const seedOverride = String((opts && opts.seed) || getQueryParam('seed') || '').trim();
-    if (seedOverride) {
-      return {
-        seedStr: seedOverride,
-        studentId, school, room, conditionId,
-        seedMode: 'override'
-      };
-    }
-
-    // 2-layer seed (recommended):
-    // layer#1: school|room|studentId
-    // layer#2: conditionId + (game/diff/mode) เพื่อกันชนข้ามเกม/ข้าม condition
-    const layer1 = [school, room, studentId].filter(Boolean).join('|') || 'anon';
-    const layer2 = ['FoodGroupsVR', 'diff='+String(diff||'normal'), 'mode='+String(runMode||'research'), 'cond='+conditionId].join('|');
-
-    const seedStr = layer1 + '::' + layer2;
-
-    return {
-      seedStr,
-      studentId, school, room, conditionId,
-      seedMode: studentId ? 'profile_2layer' : 'anon_2layer'
-    };
-  }
-
-  // RNG dispatcher (play=random, research=seeded)
-  let rng = Math.random;
-  let seedUsed = '';
-  let seedMeta = null;
-
-  function setRngMode(mode, diff, opts){
-    if (String(mode||'play').toLowerCase() !== 'research'){
-      rng = Math.random;
-      seedUsed = '';
-      seedMeta = null;
-      return;
-    }
-    seedMeta = buildResearchSeed2Layer(diff, mode, opts);
-    seedUsed = seedMeta.seedStr;
-    rng = makeSeededRng(seedUsed);
-  }
-
-  function rand(){ return rng(); }
-  function randInt(min, max) {
-    min = min|0; max = max|0;
-    if (max < min) { const t=min; min=max; max=t; }
-    return Math.floor(rand() * (max - min + 1)) + min;
+  function normalizeGrade(g){
+    const x = String(g || '').toUpperCase().trim();
+    if (['SSS','SS','S','A','B','C'].includes(x)) return x;
+    return 'C';
   }
 
   // ---------- state ----------
@@ -221,7 +196,7 @@
   let camEl = null;
   let running = false;
 
-  let spawnTimer = null;
+  let spawnTimer = null;   // used in play mode only
   let secondTimer = null;
   let rafId = null;
 
@@ -284,9 +259,17 @@
   let burstInFlight = false;
   let burstTimerIds = [];
 
+  // ===== Research Strict Plan =====
+  let researchSeed = '';
+  let researchCond = 1;
+  let researchRng = null;
+  let spawnPlan = [];
+  let planIdx = 0;
+  let planStartAt = 0;
+
   // ---------- config ----------
   const CFG = {
-    // spawn
+    // spawn (play)
     spawnInterval: 900,
     maxActive: 4,
 
@@ -315,7 +298,7 @@
     targetSizeMinMul: 0.78,
     targetSizeMaxMul: 1.18,
 
-    // emoji sets
+    // emoji sets (fallback)
     emojisGood: ['🍗','🥩','🐟','🍳','🥛','🧀','🥦','🥕','🍎','🍌','🍚','🍞','🥔','🍊'],
     emojisJunk: ['🧋','🍟','🍩','🍔','🍕'],
 
@@ -412,21 +395,28 @@
     chainShotsRapid: 1,
     chainShotsCharge: 2,
 
-    // ===== DECOY (Invert) =====
+    // DECOY (play)
     decoyEnabled: true,
     decoyChance: 0.10,
     decoyPenalty: -12,
     decoyFeverLoss: 14,
     decoyShieldCost: 1,
 
-    // ===== RAGE / DOUBLE-FEINT =====
+    // RAGE (play)
     rageEnabled: true,
     rageChanceBoss: 0.55,
     feint1AtProg: 0.46,
     feint2AtProg: 0.86,
     feint1Kick: 0.0022,
     feint2Kick: 0.0046,
-    feint2CenterBias: 0.10
+    feint2CenterBias: 0.10,
+
+    // ===== Research strict tuning (1 target at a time) =====
+    researchOneAtATime: true,
+    researchGoodRatio: 0.78,   // good share in plan
+    researchGapSec: 0.25,      // pause between targets
+    researchTTL: { easy: 4.8, normal: 4.2, hard: 3.8 },
+    researchJitterSec: 0.12    // small deterministic jitter
   };
 
   let gazeFuseMsBase = CFG.gazeFuseMsNormal;
@@ -707,7 +697,7 @@
     const elapsed = Math.floor((now() - startedAt) / 1000);
     if (elapsed < 12) return;
 
-    if (rand() > CFG.bossWaveChancePerSec) return;
+    if (Math.random() > CFG.bossWaveChancePerSec) return;
 
     bossWaveEndsAt = now() + (CFG.bossWaveSec * 1000);
     dispatch('groups:danger', { on:true });
@@ -725,7 +715,7 @@
 
     const elapsed = Math.floor((now() - startedAt) / 1000);
     if (elapsed < CFG.rushMinStartAfterSec) return;
-    if (rand() > CFG.rushChancePerSec) return;
+    if (Math.random() > CFG.rushChancePerSec) return;
 
     rushOn = true;
     const dur = randInt(CFG.rushMinSec, CFG.rushMaxSec);
@@ -1059,13 +1049,13 @@
   }
 
   function spawnWorldAngles(){
-    const y = camYaw + (rand() * 2 - 1) * (CFG.worldYawRangeRad || 0.6);
-    const p = camPitch + (rand() * 2 - 1) * (CFG.worldPitchRangeRad || 0.34);
-    const depth = (CFG.parallaxDepthMin + rand() * (CFG.parallaxDepthMax - CFG.parallaxDepthMin));
+    const y = camYaw + (Math.random() * 2 - 1) * (CFG.worldYawRangeRad || 0.6);
+    const p = camPitch + (Math.random() * 2 - 1) * (CFG.worldPitchRangeRad || 0.34);
+    const depth = (CFG.parallaxDepthMin + Math.random() * (CFG.parallaxDepthMax - CFG.parallaxDepthMin));
     return { yaw: y, pitch: p, depth };
   }
 
-  // ===== RAGE DOUBLE-FEINT helper =====
+  // ===== RAGE DOUBLE-FEINT helper (play) =====
   function doFeint(t, step){
     if (!t || !t.alive) return;
 
@@ -1074,8 +1064,8 @@
 
     if (step === 1){
       t.scaleMul = 1.10;
-      t.vYaw   = (rand()<0.5?-1:1) * (CFG.feint1Kick||0.0022);
-      t.vPitch = (rand()<0.5?-1:1) * (CFG.feint1Kick||0.0022) * 0.70;
+      t.vYaw   = (Math.random()<0.5?-1:1) * (CFG.feint1Kick||0.0022);
+      t.vPitch = (Math.random()<0.5?-1:1) * (CFG.feint1Kick||0.0022) * 0.70;
 
       tone(420,0.03,0.04,'sine');
       haptic([8,12]);
@@ -1085,11 +1075,11 @@
       t.scaleMul = 1.22;
 
       const bias = clamp(Number(CFG.feint2CenterBias||0.10), 0.06, 0.20);
-      t.yaw   = camYaw   + (rand()*2-1) * (CFG.worldYawRangeRad * bias);
-      t.pitch = camPitch + (rand()*2-1) * (CFG.worldPitchRangeRad * bias);
+      t.yaw   = camYaw   + (Math.random()*2-1) * (CFG.worldYawRangeRad * bias);
+      t.pitch = camPitch + (Math.random()*2-1) * (CFG.worldPitchRangeRad * bias);
 
-      t.vYaw   = (rand()<0.5?-1:1) * (CFG.feint2Kick||0.0046);
-      t.vPitch = (rand()<0.5?-1:1) * (CFG.feint2Kick||0.0046) * 0.75;
+      t.vYaw   = (Math.random()<0.5?-1:1) * (CFG.feint2Kick||0.0046);
+      t.vPitch = (Math.random()<0.5?-1:1) * (CFG.feint2Kick||0.0046) * 0.75;
 
       tone(520,0.04,0.05,'square');
       haptic([12,10,18]);
@@ -1097,13 +1087,115 @@
     }
   }
 
+  // ===== Research: choose good emojis by condition/group if possible =====
+  function getGoodEmojisForCondition(cond) {
+    // try quest groups
+    try{
+      if (quest) {
+        // common patterns:
+        // quest.groups = [{key,label,emojis:[]}, ...]
+        if (Array.isArray(quest.groups)) {
+          const g = quest.groups.find(x => x && String(x.key) === String(cond));
+          if (g && Array.isArray(g.emojis) && g.emojis.length) return g.emojis.slice();
+        }
+        if (typeof quest.getGroupByKey === 'function') {
+          const g2 = quest.getGroupByKey(cond);
+          if (g2 && Array.isArray(g2.emojis) && g2.emojis.length) return g2.emojis.slice();
+        }
+        // fallback: current active group
+        if (typeof quest.getActiveGroup === 'function') {
+          const g3 = quest.getActiveGroup();
+          if (g3 && Array.isArray(g3.emojis) && g3.emojis.length) return g3.emojis.slice();
+        }
+      }
+    }catch{}
+    return CFG.emojisGood.slice();
+  }
+
+  // ===== Research Strict Plan: build once, spawn deterministically =====
+  function buildSpawnPlanStrict(diff, durationSec, cond, seedStr) {
+    const rng = makeRngFromString(seedStr);
+    researchRng = rng;
+
+    const ttlBase =
+      (diff === 'easy') ? CFG.researchTTL.easy :
+      (diff === 'hard') ? CFG.researchTTL.hard :
+      CFG.researchTTL.normal;
+
+    const jitter = clamp(CFG.researchJitterSec || 0.12, 0, 0.4);
+    const gap = clamp(CFG.researchGapSec || 0.25, 0.05, 1.2);
+
+    const goodRatio = clamp(CFG.researchGoodRatio || 0.78, 0.55, 0.92);
+    const goods = getGoodEmojisForCondition(cond);
+    const junks = CFG.emojisJunk.slice();
+
+    const plan = [];
+    let t = 0.25; // start slightly after begin (sec)
+
+    // one target at a time: next spawn after previous TTL + gap
+    while (t < durationSec) {
+      const isGood = (rng() < goodRatio);
+
+      const emoji = isGood
+        ? goods[Math.floor(rng() * goods.length)]
+        : junks[Math.floor(rng() * junks.length)];
+
+      // deterministic yaw/pitch/depth within ranges
+      // (use full range; screen clamp will keep out of HUD)
+      const yaw = (rng() * 2 - 1) * (CFG.worldYawRangeRad || 0.62);
+      const pitch = (rng() * 2 - 1) * (CFG.worldPitchRangeRad || 0.34);
+      const depth = (CFG.parallaxDepthMin || 0.85) + rng() * ((CFG.parallaxDepthMax || 1.15) - (CFG.parallaxDepthMin || 0.85));
+
+      const ttl = ttlBase + ((rng() * 2 - 1) * jitter);
+
+      plan.push({
+        tSec: Number(t.toFixed(3)),
+        good: !!isGood,
+        emoji: String(emoji),
+        yaw,
+        pitch,
+        depth,
+        ttlMs: Math.round(clamp(ttl, 2.6, 7.5) * 1000),
+        minVisibleMs: Math.round(Math.min(CFG.minVisible || 2000, clamp(ttl, 2.6, 7.5) * 1000 * 0.55))
+      });
+
+      t = t + clamp(ttl, 2.6, 7.5) + gap;
+    }
+
+    return plan;
+  }
+
+  function tickSpawnPlanStrict() {
+    if (!running) return;
+    if (runMode !== 'research') return;
+    if (!spawnPlan || !spawnPlan.length) return;
+
+    const elapsedSec = (now() - planStartAt) / 1000;
+
+    // spawn events whose time has passed (normally 0 or 1 because one-at-a-time)
+    while (planIdx < spawnPlan.length) {
+      const ev = spawnPlan[planIdx];
+      if (!ev) { planIdx++; continue; }
+      if (elapsedSec + 0.001 < ev.tSec) break;
+
+      // optional strict "one at a time": do not spawn if previous still alive
+      if (CFG.researchOneAtATime && active.some(t => t && t.alive)) {
+        break;
+      }
+
+      createTargetFromSpec(ev);
+      planIdx++;
+    }
+  }
+
+  // ---------- create target (play) ----------
   function createTarget() {
     if (!running || !layerEl) return;
     if (active.length >= effectiveMaxActive()) return;
 
     const g = (quest && quest.getActiveGroup) ? quest.getActiveGroup() : null;
 
-    const good = rand() < 0.75;
+    const good = Math.random() < 0.75;
     let emoji = '';
     let isBoss = false;
 
@@ -1112,12 +1204,12 @@
       else emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
     } else {
       const bossChance = bossWaveOn() ? Math.min(0.22, CFG.bossJunkChance * 2.4) : CFG.bossJunkChance;
-      isBoss = (rand() < bossChance);
+      isBoss = (Math.random() < bossChance);
       if (isBoss) emoji = CFG.bossJunkEmoji[randInt(0, CFG.bossJunkEmoji.length - 1)];
       else emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
     }
 
-    const isDecoy = !!(CFG.decoyEnabled && good && (runMode === 'play') && (rand() < (CFG.decoyChance || 0)));
+    const isDecoy = !!(CFG.decoyEnabled && good && (runMode === 'play') && (Math.random() < (CFG.decoyChance || 0)));
 
     const el = document.createElement('div');
     el.className =
@@ -1128,7 +1220,6 @@
 
     el.setAttribute('data-emoji', emoji);
     el.textContent = emoji;
-
     el.classList.add('spawn');
 
     applyTargetSizeToEl(el, isBoss ? CFG.bossJunkScaleMul : 1.0);
@@ -1156,7 +1247,7 @@
       sx: window.innerWidth/2,
       sy: window.innerHeight*0.52,
 
-      swaySeed: rand()*9999,
+      swaySeed: Math.random()*9999,
       hitCdUntil: 0,
 
       rage: false,
@@ -1167,7 +1258,7 @@
     };
 
     if (t.boss && CFG.rageEnabled){
-      t.rage = (rand() < (CFG.rageChanceBoss || 0.55));
+      t.rage = (Math.random() < (CFG.rageChanceBoss || 0.55));
       if (t.rage){
         try { el.classList.add('rage'); } catch {}
       }
@@ -1212,6 +1303,97 @@
     logEvent({ kind:'spawn', emoji, good, boss: !!t.boss, decoy: !!t.decoy, hp: t.hp, timeLeft: remainingSec, rushOn, feverOn, wave: bossWaveOn() });
   }
 
+  // ---------- create target from spec (research strict) ----------
+  function createTargetFromSpec(spec) {
+    if (!running || !layerEl || !spec) return;
+
+    // strict: never spawn boss/decoy in research
+    const good = !!spec.good;
+    const emoji = String(spec.emoji || (good ? '🍎' : '🍔'));
+    const isBoss = false;
+    const isDecoy = false;
+
+    const el = document.createElement('div');
+    el.className = 'fg-target ' + (good ? 'fg-good' : 'fg-junk');
+    el.setAttribute('data-emoji', emoji);
+    el.textContent = emoji;
+    el.classList.add('spawn');
+
+    applyTargetSizeToEl(el, 1.0);
+
+    layerEl.appendChild(el);
+
+    const t = {
+      el, good, emoji,
+      boss: isBoss,
+      hp: 1,
+      hpMax: 1,
+
+      decoy: isDecoy,
+
+      alive: true,
+      canExpire: false,
+      bornAt: now(),
+      minTimer: null,
+      lifeTimer: null,
+
+      yaw: camYaw + (Number(spec.yaw)||0),
+      pitch: camPitch + (Number(spec.pitch)||0),
+      depth: clamp(Number(spec.depth)||1.0, 0.75, 1.35),
+      sx: window.innerWidth/2,
+      sy: window.innerHeight*0.52,
+
+      swaySeed: 1234 + (planIdx * 17),
+      hitCdUntil: 0,
+
+      rage: false,
+      feintStep: 0,
+      vYaw: 0,
+      vPitch: 0,
+      scaleMul: 1.0
+    };
+
+    active.push(t);
+
+    requestAnimationFrame(() => {
+      try { el.classList.add('show'); } catch {}
+    });
+
+    const minMs = Math.max(60, spec.minVisibleMs|0);
+    const ttlMs = Math.max(minMs + 80, spec.ttlMs|0);
+
+    t.minTimer = setTimeout(() => { t.canExpire = true; }, minMs);
+    t.lifeTimer = setTimeout(() => {
+      if (!t.canExpire) {
+        const wait = Math.max(0, minMs - (now() - t.bornAt));
+        setTimeout(() => expireTarget(t), wait);
+      } else expireTarget(t);
+    }, ttlMs);
+
+    const onHit = (ev) => {
+      try { ev && ev.preventDefault && ev.preventDefault(); } catch {}
+      try { ev && ev.stopPropagation && ev.stopPropagation(); } catch {}
+      hitTarget(t, { source:'direct', research:true, planIdx: (planIdx|0) });
+      return false;
+    };
+    el.addEventListener('pointerdown', onHit, { passive: false });
+    el.addEventListener('touchstart',  onHit, { passive: false });
+    el.addEventListener('mousedown',   onHit);
+    el.addEventListener('click',       onHit);
+
+    logEvent({
+      kind:'spawn_research',
+      idx: (planIdx|0),
+      tSec: spec.tSec,
+      emoji,
+      good,
+      ttlMs,
+      cond: researchCond,
+      seed: researchSeed,
+      timeLeft: remainingSec
+    });
+  }
+
   // ---------- CHARGE SHOT ----------
   function tryChargeShot(){
     if (!CFG.chargeEnabled) return;
@@ -1248,7 +1430,7 @@
 
     const pos = centerXY(t.el);
 
-    // ===== DECOY (Invert) =====
+    // DECOY (play only)
     if (t.good && t.decoy) {
       destroyTarget(t, true);
       consecutiveGood = 0;
@@ -1291,7 +1473,7 @@
       return;
     }
 
-    // -------- GOOD --------
+    // GOOD
     if (t.good) {
       const chainPts = meta && meta.chainPts ? (meta.chainPts|0) : 0;
 
@@ -1341,6 +1523,7 @@
         skill = clampSkill(skill + (isPerfect ? CFG.skillGainPerfect : CFG.skillGainGood));
       }
 
+      // CHAIN trigger
       if (CFG.chainEnabled){
         const shots =
           (meta && meta.charge) ? (CFG.chainShotsCharge|0) :
@@ -1370,7 +1553,7 @@
         timeLeft: remainingSec
       }, meta || {}));
 
-    // -------- JUNK --------
+    // JUNK
     } else {
       const isBoss = !!t.boss;
 
@@ -1552,7 +1735,7 @@
     logEvent({ kind:'adaptive_tick', t: Number(t.toFixed(2)), sizeMul: Number(sizeMul.toFixed(2)), spawnInterval: CFG.spawnInterval, maxActive: CFG.maxActive });
   }
 
-  // ---------- render loop (parallax + lock/fuse/charge) ----------
+  // ---------- render loop (parallax + lock/fuse/charge + research plan) ----------
   function renderTargets(){
     updateCamAngles();
     const tNow = now();
@@ -1627,7 +1810,8 @@
       prog = clamp(gazeHoldMs / fuseMs, 0, 1);
     }
 
-    if (t.rage && t.boss){
+    // Rage triggers only in play
+    if (runMode === 'play' && t.rage && t.boss){
       if (t.feintStep < 1 && prog >= (CFG.feint1AtProg||0.46)){
         t.feintStep = 1;
         doFeint(t, 1);
@@ -1664,15 +1848,22 @@
 
     updateLockEvent(t, prog, charge);
 
-    if (charge > 0.86 && rand() < 0.14) tone(720,0.02,0.02,'square');
+    if (charge > 0.86 && Math.random() < 0.14) tone(720,0.02,0.02,'square');
   }
 
   function renderLoop(){
     if (!running) return;
 
+    // research strict spawn tick (frame-based, but plan controls order/time)
+    if (runMode === 'research') {
+      tickSpawnPlanStrict();
+    }
+
     renderTargets();
-    tickGaze(Math.min(80, Math.max(0, (now() - (renderLoop._last || now())) )));
+
+    const dt = Math.min(80, Math.max(0, (now() - (renderLoop._last || now())) ));
     renderLoop._last = now();
+    tickGaze(dt);
 
     rafId = requestAnimationFrame(renderLoop);
   }
@@ -1680,6 +1871,7 @@
   // ---------- loops ----------
   function scheduleNextSpawn() {
     if (!running) return;
+    if (runMode === 'research') return; // STRICT plan handles spawns
     clearTimeout(spawnTimer);
 
     spawnTimer = setTimeout(() => {
@@ -1697,14 +1889,18 @@
       dispatch('hha:time', { left: remainingSec });
 
       tickFever();
-      tickRush();
-      tryBossWave();
+
+      if (runMode === 'play') {
+        tickRush();
+        tryBossWave();
+      }
 
       if (remainingSec > 0 && remainingSec <= (CFG.panicLastSec | 0)) setPanic(true, remainingSec);
       else setPanic(false, remainingSec);
 
       if (quest && typeof quest.second === 'function') quest.second();
-      updateAdaptiveSoon();
+
+      if (runMode === 'play') updateAdaptiveSoon();
 
       emitQuestUpdate();
       emitRank();
@@ -1744,6 +1940,11 @@
 
     bossWaveEndsAt = 0;
 
+    // research plan
+    spawnPlan = [];
+    planIdx = 0;
+    planStartAt = 0;
+
     clearLock(true);
     cancelBurst();
   }
@@ -1778,8 +1979,9 @@
       miniTotal: minisAll.length,
       miniCleared: minisCleared,
       grade: finalGrade,
-      seed: seedUsed || '',
-      seedMode: seedMeta ? seedMeta.seedMode : ''
+      runMode,
+      seed: (runMode === 'research') ? researchSeed : '',
+      cond: (runMode === 'research') ? researchCond : ''
     });
 
     dispatch('hha:end', {
@@ -1815,6 +2017,11 @@
       logEvent({ kind:'gaze_toggle', on: gazeEnabled });
     },
 
+    // debug helpers
+    getResearchSeed(){ return researchSeed || ''; },
+    getResearchPlan(){ return (spawnPlan || []).slice(); },
+    getResearchCond(){ return researchCond; },
+
     start(diff = 'normal', opts = {}) {
       layerEl = (opts && opts.layerEl) ? opts.layerEl : layerEl;
       if (!layerEl) { console.error('[FoodGroupsVR] layerEl missing'); return; }
@@ -1823,9 +2030,6 @@
       if (runMode !== 'research') runMode = 'play';
 
       if (opts && opts.config) Object.assign(CFG, opts.config);
-
-      // ✅ RNG MODE: play=random / research=seeded (2-layer)
-      setRngMode(runMode, diff, opts);
 
       applyDifficulty(diff);
 
@@ -1846,25 +2050,42 @@
         console.warn('[FoodGroupsVR] quest-manager not found');
       }
 
+      // ===== mode switches =====
       if (runMode === 'research') {
+        // strict research: FIX stimulus, disable randomness features
         sizeMul = 1.0;
         CFG.adaptiveEnabledPlay = false;
         CFG.rushEnabled = false;
         CFG.bossWaveEnabled = false;
         CFG.decoyEnabled = false;
         CFG.rageEnabled = false;
+
+        // strict plan seed + cond
+        researchCond = resolveCondition(opts && opts.cond);
+        researchSeed = resolveResearchSeed(diff, runMode, opts);
+        spawnPlan = buildSpawnPlanStrict(String(diff||'normal').toLowerCase(), Math.max(1, remainingSec|0), researchCond, researchSeed);
+        planIdx = 0;
+        planStartAt = now();
+
+        logEvent({ kind:'research_plan_built', n: spawnPlan.length, seed: researchSeed, cond: researchCond });
+
       } else {
+        // play mode: full fun
         CFG.adaptiveEnabledPlay = true;
         CFG.rushEnabled = true;
         CFG.bossWaveEnabled = true;
         CFG.decoyEnabled = true;
         CFG.rageEnabled = true;
+
+        researchSeed = '';
+        spawnPlan = [];
+        planIdx = 0;
+        planStartAt = 0;
       }
 
       const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
       coach(g ? `เริ่มเลย! หมู่ปัจจุบัน: ${g.label} ✨` : 'เริ่มเลย! แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨');
 
-      // ✅ log seed used (for research reproducibility)
       logSessionStart({
         diff,
         runMode,
@@ -1872,37 +2093,29 @@
         ua: navigator.userAgent || '',
         screenW: window.innerWidth || 0,
         screenH: window.innerHeight || 0,
-        seed: seedUsed || '',
-        seedMode: seedMeta ? seedMeta.seedMode : '',
-        conditionId: seedMeta ? seedMeta.conditionId : ''
+        cond: (runMode === 'research') ? researchCond : '',
+        seed: (runMode === 'research') ? researchSeed : ''
       });
-
-      if (runMode === 'research' && seedMeta){
-        logEvent({
-          kind:'seed_info',
-          seedMode: seedMeta.seedMode,
-          seed: seedUsed,
-          studentId: seedMeta.studentId || '',
-          school: seedMeta.school || '',
-          room: seedMeta.room || '',
-          conditionId: seedMeta.conditionId || ''
-        });
-      }
 
       emitQuestUpdate();
       emitRank();
 
       running = true;
       startSecondLoop();
-      scheduleNextSpawn();
+
+      if (runMode === 'play') {
+        scheduleNextSpawn();
+        createTarget();
+        setTimeout(() => createTarget(), 220);
+        setTimeout(() => createTarget(), 420);
+      } else {
+        // research: first spawn will occur by plan tick (render loop)
+        // but you can force immediate tick
+        tickSpawnPlanStrict();
+      }
 
       renderLoop._last = now();
       rafId = requestAnimationFrame(renderLoop);
-
-      // deterministic initial spawns in research (rng already seeded)
-      createTarget();
-      setTimeout(() => createTarget(), 220);
-      setTimeout(() => createTarget(), 420);
 
       dispatch('hha:score', { score, combo, misses, shield, fever });
       logEvent({ kind:'start', diff, runMode });
