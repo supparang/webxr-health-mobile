@@ -1,10 +1,11 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — PRODUCTION HYBRID ENGINE (PATCH A-Research FIX + Emoji-Only Safe)
-// ✅ Emoji-only (no <img>, no innerHTML for target)
-// ✅ Play = random / Research = deterministic FIX (same sequence per diff by default)
-// ✅ Research = show 1 target at a time (maxActive=1 + createTarget guard)
-// ✅ Fallback Quest if quest missing/empty => no more GOAL 0/0
-// ✅ Decoy = Invert, Rage = Double-Feint, afterimage x2, CSS vars --x/--y/--s
+// Food Groups VR — PRODUCTION HYBRID ENGINE (PATCH 1-3: Emoji + Decoy(Invert) + Rage(Double-Feint))
+// ✅ emoji textContent fix
+// ✅ Decoy = Invert (real logic)
+// ✅ Rage = Double-Feint (Feint#2 closer center + bigger + faster drift)
+// ✅ afterimage x2 (scale up on fade) via .fg-afterimage CSS
+// ✅ render uses CSS vars --x/--y/--s (so CSS spawn/out/hit/ragePulse still works)
+// ✅ FIX-ALL RNG: play=random, research=fixed seed (same across easy/normal/hard)
 
 (function () {
   'use strict';
@@ -27,8 +28,70 @@
       ? ROOT.GroupsQuest
       : null;
 
-  // ---------- time/helpers ----------
   function now() { return (performance && performance.now) ? performance.now() : Date.now(); }
+
+  // ---------- RNG (seeded for research) ----------
+  let rng = Math.random;
+
+  function rand() {
+    try { return rng(); } catch { return Math.random(); }
+  }
+
+  function queryParam(k) {
+    try { return new URLSearchParams(location.search).get(k); } catch { return null; }
+  }
+
+  // FNV-1a 32-bit hash (string -> uint32)
+  function hash32(str) {
+    const s = String(str || '');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return (h >>> 0);
+  }
+
+  // Mulberry32 PRNG (seed -> function() float 0..1)
+  function makeRng(seed) {
+    let a = (seed >>> 0) || 0x12345678;
+    return function () {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function setRngForMode(runMode, diff, opts) {
+    if (String(runMode || '').toLowerCase() !== 'research') {
+      rng = Math.random;
+      return { mode: 'play', seed: null };
+    }
+
+    // ✅ FIX-ALL: research ใช้ seed เดียวกันทุก diff
+    let seedOverride = NaN;
+
+    try {
+      if (opts && typeof opts.researchSeed !== 'undefined') seedOverride = Number(opts.researchSeed);
+    } catch {}
+
+    const qs = queryParam('seed');
+    if (!Number.isFinite(seedOverride) && qs != null && qs !== '') {
+      const n = Number(qs);
+      if (Number.isFinite(n)) seedOverride = n;
+    }
+
+    const seed = Number.isFinite(seedOverride)
+      ? (seedOverride >>> 0)
+      : hash32('FoodGroupsVR|RESEARCH|FIXALL'); // ✅ ไม่ผูก diff แล้ว
+
+    rng = makeRng(seed);
+    return { mode: 'research', seed };
+  }
+
+  function randInt(min, max) { return Math.floor(rand() * (max - min + 1)) + min; }
   function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
   function dispatch(name, detail) { try { window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch {} }
   function coach(text) { if (text) dispatch('hha:coach', { text: String(text) }); }
@@ -36,7 +99,7 @@
   // ---------- logging ----------
   let sessionId = '';
   function isoNow(){ try { return new Date().toISOString(); } catch { return ''; } }
-  function uid(){ return 'fg_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16); }
+  function uid(){ return 'fg_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16); } // ok: id only
   function logSessionStart(meta){
     if (!sessionId) sessionId = uid();
     dispatch('hha:log_session', Object.assign({
@@ -92,39 +155,6 @@
     if (['SSS','SS','S','A','B','C'].includes(x)) return x;
     return 'C';
   }
-
-  // ---------- RNG (Play random / Research deterministic FIX) ----------
-  // FNV-1a 32-bit hash
-  function hash32(str){
-    str = String(str || '');
-    let h = 2166136261 >>> 0;
-    for (let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    return h >>> 0;
-  }
-  // Mulberry32 PRNG
-  function makeRng(seed){
-    let a = (seed >>> 0) || 1;
-    return function(){
-      a |= 0; a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  function queryParam(name){
-    try{
-      const sp = new URLSearchParams(location.search);
-      return sp.get(name);
-    }catch{ return null; }
-  }
-
-  // global rng hook used by ALL random in engine
-  let rng = Math.random;
-  function rand(){ return rng(); }
-  function randInt(min, max) { return Math.floor(rand() * (max - min + 1)) + min; }
 
   // ---------- state ----------
   const active = [];
@@ -194,13 +224,6 @@
 
   let burstInFlight = false;
   let burstTimerIds = [];
-
-  // research fixed pattern (so no randomness in good/junk cadence)
-  let researchStep = 0;
-  const RESEARCH_PATTERN = [
-    1,1,1,0,  1,1,0,1,  1,0,1,1,
-    1,1,1,0,  1,0,1,1,  1,1,0,1
-  ]; // 1=good 0=junk (วนซ้ำ)
 
   // ---------- config ----------
   const CFG = {
@@ -499,69 +522,6 @@
     }catch{}
   }
 
-  // ---------- fallback quest (กัน GOAL/MINI 0/0) ----------
-  function createFallbackQuest(diff){
-    diff = String(diff||'normal').toLowerCase();
-    const groups = [
-      { key:1, label:'หมู่ 1 โปรตีน 💪', emojis:['🍗','🥩','🐟','🍳','🥛','🧀'] },
-      { key:2, label:'หมู่ 2 ข้าว-แป้ง ⚡', emojis:['🍚','🍞','🥔'] },
-      { key:3, label:'หมู่ 3 ผัก 🥦', emojis:['🥦','🥕'] },
-      { key:4, label:'หมู่ 4 ผลไม้ 🍎', emojis:['🍎','🍌','🍊'] },
-      { key:5, label:'หมู่ 5 ไขมัน 🥑', emojis:['🥑','🧈'] }
-    ];
-    let gi = 0;
-    const goals = [
-      { label:'เก็บอาหารดีของหมู่ปัจจุบัน 12 ชิ้น', prog:0, target:12, done:false },
-      { label:'ทำคอมโบให้ถึง 8', prog:0, target:8, done:false }
-    ];
-    const minis = [
-      { label:'ห้ามโดนขยะ 9 วิ', prog:0, target:9, done:false, _sec:0 },
-      { label:'เก็บหมู่ปัจจุบัน 4 ชิ้น', prog:0, target:4, done:false }
-    ];
-    const api = {
-      goals, minis,
-      getActiveGroup(){ return groups[gi]; },
-      second(){
-        // หมุนหมู่ทุก 14 วิแบบ FIX
-        api._tick = (api._tick||0) + 1;
-        if (api._tick % 14 === 0) { gi = (gi+1) % groups.length; }
-        // mini #1 นับถอยหลังแบบ FIX
-        const m0 = minis[0];
-        if (m0 && !m0.done){
-          m0._sec = (m0._sec||0) + 1;
-          m0.prog = clamp(m0._sec, 0, m0.target);
-          if (m0.prog >= m0.target) m0.done = true;
-        }
-      },
-      onGoodHit(gid, comboNow){
-        // goal 1
-        const g0 = goals[0];
-        if (g0 && !g0.done) {
-          g0.prog = clamp((g0.prog||0)+1, 0, g0.target);
-          if (g0.prog >= g0.target) g0.done = true;
-        }
-        // goal 2 (combo)
-        const g1 = goals[1];
-        if (g1 && !g1.done) {
-          g1.prog = clamp(Math.max(g1.prog||0, comboNow|0), 0, g1.target);
-          if (g1.prog >= g1.target) g1.done = true;
-        }
-        // mini 2
-        const m1 = minis[1];
-        if (m1 && !m1.done) {
-          m1.prog = clamp((m1.prog||0)+1, 0, m1.target);
-          if (m1.prog >= m1.target) m1.done = true;
-        }
-      },
-      onJunkHit(){
-        // reset mini #1 timer แบบ FIX
-        const m0 = minis[0];
-        if (m0 && !m0.done) { m0._sec = 0; m0.prog = 0; }
-      }
-    };
-    return api;
-  }
-
   // ---------- quest ----------
   function emitQuestUpdate() {
     if (!quest) return;
@@ -749,7 +709,7 @@
     if (rushOn) ma += (CFG.rushMaxActiveAdd | 0);
     if (panicOn) ma += (CFG.panicMaxActiveAdd | 0);
     if (bossWaveOn()) ma += 1;
-    return clamp(ma, 1, 9);
+    return clamp(ma, 2, 9);
   }
 
   // ---------- aim assist ----------
@@ -1080,24 +1040,11 @@
 
   function createTarget() {
     if (!running || !layerEl) return;
-
-    // ✅ Research FIX: โผล่ทีละอันเสมอ
-    if (runMode === 'research' && active.length >= 1) return;
-
     if (active.length >= effectiveMaxActive()) return;
 
     const g = (quest && quest.getActiveGroup) ? quest.getActiveGroup() : null;
 
-    // ✅ Play = random, Research = FIX pattern
-    let good = true;
-    if (runMode === 'research') {
-      const bit = RESEARCH_PATTERN[researchStep % RESEARCH_PATTERN.length];
-      researchStep++;
-      good = (bit === 1);
-    } else {
-      good = rand() < 0.75;
-    }
-
+    const good = rand() < 0.75;
     let emoji = '';
     let isBoss = false;
 
@@ -1106,7 +1053,7 @@
       else emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
     } else {
       const bossChance = bossWaveOn() ? Math.min(0.22, CFG.bossJunkChance * 2.4) : CFG.bossJunkChance;
-      isBoss = (runMode === 'play') && (rand() < bossChance); // ✅ research = no boss
+      isBoss = (rand() < bossChance);
       if (isBoss) emoji = CFG.bossJunkEmoji[randInt(0, CFG.bossJunkEmoji.length - 1)];
       else emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
     }
@@ -1121,9 +1068,10 @@
         ? ('fg-good' + (isDecoy ? ' fg-decoy' : ''))
         : (isBoss ? 'fg-junk fg-boss' : 'fg-junk'));
 
-    // ✅ EMOJI-ONLY HARD LOCK
     el.setAttribute('data-emoji', emoji);
-    el.textContent = String(emoji || '🍀');  // ← ไม่มีทางเป็นรูป
+
+    // ✅ CRITICAL FIX: emoji ต้องใส่ textContent
+    el.textContent = emoji;
 
     el.classList.add('spawn');
 
@@ -1163,7 +1111,7 @@
       scaleMul: 1.0
     };
 
-    // boss rage (play only)
+    // boss rage
     if (t.boss && CFG.rageEnabled){
       t.rage = (rand() < (CFG.rageChanceBoss || 0.55));
       if (t.rage){
@@ -1192,7 +1140,7 @@
     t.lifeTimer = setTimeout(() => {
       if (!t.canExpire) {
         const wait = Math.max(0, CFG.minVisible - (now() - t.bornAt));
-        setTimeout(() => { if (t && t.alive) expireTarget(t); }, wait);
+        setTimeout(() => expireTarget(t), wait);
       } else expireTarget(t);
     }, life);
 
@@ -1536,14 +1484,14 @@
     adaptiveTick++;
     if (adaptiveTick % (CFG.adaptiveEverySec | 0) !== 0) return;
 
-    const t = clampSkill(skill) / (CFG.skillClamp || 100);
+    const t = clampSkill(skill) / (CFG.skillClamp || 100); // -1..1
     sizeMul = clamp(1.0 - (t * 0.10), CFG.targetSizeMinMul, CFG.targetSizeMaxMul);
 
     const baseSI = CFG._baseSpawnInterval || CFG.spawnInterval;
     const baseMA = CFG._baseMaxActive || CFG.maxActive;
 
     const si = clamp(baseSI * (1.0 - (t * 0.12)), 520, 1600);
-    const ma = clamp(baseMA + (t > 0.55 ? 1 : 0) + (t > 0.85 ? 1 : 0), 1, 7);
+    const ma = clamp(baseMA + (t > 0.55 ? 1 : 0) + (t > 0.85 ? 1 : 0), 2, 7);
 
     CFG.spawnInterval = Math.round(si);
     CFG.maxActive = Math.round(ma);
@@ -1670,8 +1618,7 @@
     if (!running) return;
 
     renderTargets();
-    const dt = Math.min(80, Math.max(0, (now() - (renderLoop._last || now())) ));
-    tickGaze(dt);
+    tickGaze(Math.min(80, Math.max(0, (now() - (renderLoop._last || now())) )));
     renderLoop._last = now();
 
     rafId = requestAnimationFrame(renderLoop);
@@ -1743,8 +1690,6 @@
     rushCooldownSec = 0;
 
     bossWaveEndsAt = 0;
-
-    researchStep = 0;
 
     clearLock(true);
     cancelBurst();
@@ -1824,27 +1769,13 @@
 
       if (opts && opts.config) Object.assign(CFG, opts.config);
 
+      // ✅ RNG set: play=random, research=fixed seed (same across diff)
+      const rngInfo = setRngForMode(runMode, diff, opts);
+
       applyDifficulty(diff);
 
-      // save base (for adaptive)
       CFG._baseSpawnInterval = CFG.spawnInterval;
       CFG._baseMaxActive = CFG.maxActive;
-
-      // ✅ RNG MODE
-      if (runMode === 'research') {
-        // FIX เหมือนกันเป๊ะ: seed ตาม diff (ทุกคน diff เดียวกัน => sequence เดียวกัน)
-        const seedOverride =
-          (opts && typeof opts.researchSeed !== 'undefined') ? Number(opts.researchSeed) :
-          (queryParam('seed') ? Number(queryParam('seed')) : NaN);
-
-        const seed = Number.isFinite(seedOverride)
-          ? (seedOverride >>> 0)
-          : hash32('FoodGroupsVR|RESEARCH|'+String(diff||'normal').toLowerCase());
-
-        rng = makeRng(seed);
-      } else {
-        rng = Math.random;
-      }
 
       resetState();
 
@@ -1860,23 +1791,13 @@
         console.warn('[FoodGroupsVR] quest-manager not found');
       }
 
-      // ✅ If quest empty => fallback (กัน GOAL/MINI 0/0)
-      const qg = quest ? (quest.goals || []) : [];
-      const qm = quest ? (quest.minis || []) : [];
-      if (!quest || ((qg.length === 0) && (qm.length === 0))) {
-        quest = createFallbackQuest(diff);
-      }
-
       if (runMode === 'research') {
         sizeMul = 1.0;
         CFG.adaptiveEnabledPlay = false;
         CFG.rushEnabled = false;
         CFG.bossWaveEnabled = false;
-        CFG.decoyEnabled = false;
+        CFG.decoyEnabled = false;   // research = คุมตัวแปร
         CFG.rageEnabled = false;
-
-        // ✅ Research: โผล่ทีละอัน (คุมตัวแปร)
-        CFG.maxActive = 1;
       } else {
         CFG.adaptiveEnabledPlay = true;
         CFG.rushEnabled = true;
@@ -1894,7 +1815,9 @@
         durationSec: remainingSec || 0,
         ua: navigator.userAgent || '',
         screenW: window.innerWidth || 0,
-        screenH: window.innerHeight || 0
+        screenH: window.innerHeight || 0,
+        rngMode: rngInfo.mode,
+        rngSeed: rngInfo.seed
       });
 
       emitQuestUpdate();
@@ -1907,13 +1830,12 @@
       renderLoop._last = now();
       rafId = requestAnimationFrame(renderLoop);
 
-      // spawn initial
       createTarget();
       setTimeout(() => createTarget(), 220);
       setTimeout(() => createTarget(), 420);
 
       dispatch('hha:score', { score, combo, misses, shield, fever });
-      logEvent({ kind:'start', diff, runMode });
+      logEvent({ kind:'start', diff, runMode, rngMode: rngInfo.mode, rngSeed: rngInfo.seed });
     },
 
     stop(reason) {
