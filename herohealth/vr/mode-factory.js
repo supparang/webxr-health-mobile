@@ -6,6 +6,7 @@
 // ✅ PATCH A4 (4): Mini Radar Ring (8-direction arc) + distance intensity + BAD-first + storm/danger animate
 // ✅ PATCH A5 (5): Radar 2 ชั้น (NEAR/FAR) + low-time alert (≤10s/≤5s) + tick escalate
 // ✅ PATCH A6 (6): Radar pips นับจำนวน (แยก NEAR/FAR) + Priority Lock (BAD>POWER>FAKE>GOOD) ลดรกตา
+// ✅ PATCH A7 (7): Auto-Pan Assist (gentle) → ค่อย ๆ เลื่อนวิวไปหาเป้านอกจอ (ปลอดภัยเฉพาะ translate-only) + cooldown กันสู้มือ
 
 'use strict';
 
@@ -57,6 +58,36 @@ function getTranslateXY (el) {
     }
   }catch{}
   return { tx:0, ty:0 };
+}
+
+// ---------- Safe parse: translate-only matrix ----------
+function readTranslateOnlyMatrix(el){
+  try{
+    if (!el || !ROOT.getComputedStyle) return null;
+    const tr = ROOT.getComputedStyle(el).transform;
+    if (!tr || tr === 'none') return { tx:0, ty:0, ok:true };
+
+    const m = tr.match(/^matrix\((.+)\)$/);
+    if (!m) return null;
+    const p = m[1].split(',').map(s=>Number(s.trim()));
+    if (p.length < 6) return null;
+
+    const a=p[0], b=p[1], c=p[2], d=p[3], tx=p[4], ty=p[5];
+    // translate-only => a=1,d=1,b=0,c=0 (ยอมเพี้ยนเล็กน้อย)
+    const eps = 0.0005;
+    const ok = (Math.abs(a-1)<=eps && Math.abs(d-1)<=eps && Math.abs(b)<=eps && Math.abs(c)<=eps);
+    if (!ok) return null;
+    return { tx: tx||0, ty: ty||0, ok:true };
+  }catch{}
+  return null;
+}
+function writeTranslateMatrix(el, tx, ty){
+  try{
+    if (!el) return false;
+    el.style.transform = `matrix(1,0,0,1,${tx},${ty})`;
+    return true;
+  }catch{}
+  return false;
 }
 
 // ---------- Base difficulty ----------
@@ -309,8 +340,6 @@ function ensureOverlayStyle () {
       opacity: var(--po, .85);
       fill: var(--pc, rgba(226,232,240,.65));
     }
-    .hvr-radar .pip.near{ }
-    .hvr-radar .pip.far { opacity:.0; }
 
     .hvr-hint-host.hvr-danger ~ .hvr-radar{ --rad-op:.90; --rad-bri:1.06; }
 
@@ -394,7 +423,6 @@ function ensureRadar(){
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('preserveAspectRatio', 'none');
 
-  // base circle
   const base1 = DOC.createElementNS(svgNS, 'circle');
   base1.setAttribute('cx', '50'); base1.setAttribute('cy', '50');
   base1.setAttribute('r',  '16');
@@ -403,7 +431,6 @@ function ensureRadar(){
   base1.setAttribute('stroke-width', '2');
   svg.appendChild(base1);
 
-  // A6: 2 rings + pips group
   for (let i=0;i<8;i++){
     const pN = DOC.createElementNS(svgNS, 'path');
     pN.setAttribute('class', 'seg near');
@@ -427,7 +454,6 @@ function ensureRadar(){
     gF.setAttribute('data-seg', String(i));
     svg.appendChild(gF);
 
-    // create fixed pips (max 7 ต่อชั้น)
     for (let k=0;k<7;k++){
       const cN = DOC.createElementNS(svgNS, 'circle');
       cN.setAttribute('class', 'pip near');
@@ -445,7 +471,6 @@ function ensureRadar(){
 
   r.appendChild(svg);
 
-  // ต้องอยู่ “หลัง hint host” เพื่อให้ sibling selector ทำงาน
   const hh = DOC.getElementById('hvr-hint-host');
   if (hh && hh.parentNode) hh.parentNode.insertBefore(r, hh.nextSibling);
   else DOC.body.appendChild(r);
@@ -754,7 +779,6 @@ function outDistance(cx, cy, ix1, iy1, ix2, iy2){
   return Math.sqrt(ox*ox + oy*oy);
 }
 
-// ---------- Radar arc path (absolute pixels) ----------
 function arcPath(cx, cy, r, a0, a1){
   const x0 = cx + Math.cos(a0) * r;
   const y0 = cy + Math.sin(a0) * r;
@@ -844,10 +868,18 @@ export async function boot (rawCfg = {}) {
     showHints = true,
     showRadar = true,
 
-    // A6:
-    lockPriority = true,      // ✅ ล็อก order BAD>POWER>FAKE>GOOD (โชว์เฉพาะระดับที่ "สูงสุด" ที่มีอยู่)
-    radarPipMax = 7,          // ✅ pips ต่อชั้น (near/far) ต่อทิศ
-    badBeep = true
+    lockPriority = true,
+    radarPipMax = 7,
+    badBeep = true,
+
+    // ===== A7: Auto-Pan Assist =====
+    autoPan = true,              // เปิด/ปิดระบบดันวิว
+    autoPanMode = 'bad',         // 'bad' | 'priority' | 'any'
+    autoPanCooldownMs = 900,     // หลังผู้เล่นแตะ/ลาก/สไลด์ รอเท่านี้ก่อนดัน
+    autoPanDeadZone = 0.10,      // ถ้าเป้านอกจออยู่ "เกือบตรงกลาง" อย่าดัน (กันส่าย)
+    autoPanMaxSpeed = 18,        // px ต่อเฟรม (บน 60fps)
+    autoPanEase = 0.10,          // 0..1 ยิ่งมากยิ่งดันไว
+    autoPanClamp = 0.38          // จำกัดการเลื่อนสูงสุดเป็นสัดส่วนของหน้าจอ
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -1072,6 +1104,16 @@ export async function boot (rawCfg = {}) {
   const audio = makeBeep();
   let lastDangerBeepAt = 0;
 
+  // A7: assist vector (computed from offscreen buckets)
+  const assistState = {
+    want: false,
+    vx: 0,
+    vy: 0,
+    kind: 'good',
+    intensity: 0,
+    count: 0
+  };
+
   function setHintStorm(isOn){
     if (!hintState.host) return;
     try{
@@ -1194,6 +1236,14 @@ export async function boot (rawCfg = {}) {
   //  Update Hints + Radar from activeTargets
   // ======================================================
   function updateHintsAndRadar(stormOn){
+    // reset assist
+    assistState.want = false;
+    assistState.vx = 0;
+    assistState.vy = 0;
+    assistState.kind = 'good';
+    assistState.intensity = 0;
+    assistState.count = 0;
+
     if ((!showHints || !hintState.host) && !radarState.el) return;
 
     let br = null;
@@ -1211,9 +1261,8 @@ export async function boot (rawCfg = {}) {
 
     const buckets = new Map();
 
-    // thresholds
-    const EDGE_NEAR = 140;      // ⚠️ near-edge warning
-    const FAR_SWITCH = 300;     // outDistance > FAR_SWITCH -> FAR ring
+    const EDGE_NEAR = 140;
+    const FAR_SWITCH = 300;
 
     let anyOffscreen = false;
 
@@ -1243,7 +1292,6 @@ export async function boot (rawCfg = {}) {
 
       const od = outDistance(cx, cy, ix1, iy1, ix2, iy2);
 
-      // intensity: ใกล้ขอบเด่นกว่า
       const EDGE_FAR  = 520;
       const intensity = 1 - clamp(od / EDGE_FAR, 0, 1);
 
@@ -1255,15 +1303,12 @@ export async function boot (rawCfg = {}) {
           n:0,
           vx:0, vy:0,
 
-          // totals
           kind:'good',
           kindP:0,
           intensityMax:0,
 
-          // counts by kind (for lockPriority)
           cntBad:0, cntPower:0, cntFake:0, cntGood:0,
 
-          // A5/A6 split
           nearCount:0,
           farCount:0,
           nearI:0,
@@ -1288,13 +1333,11 @@ export async function boot (rawCfg = {}) {
       else if (kind === 'fake') b.cntFake++;
       else b.cntGood++;
 
-      // lock the "display kind" by max priority present in this sector
       if (kp > b.kindP){
         b.kindP = kp;
         b.kind = kind;
       }
 
-      // per-band
       if (isFar){
         b.farCount++;
         b.farI = Math.max(b.farI, intensity);
@@ -1305,30 +1348,66 @@ export async function boot (rawCfg = {}) {
         if (kp > b.nearKindP){ b.nearKindP = kp; b.nearKind = kind; }
       }
 
-      // ⚠️ near-edge for BAD
       if (kind === 'bad' && od <= EDGE_NEAR) b.warnNearEdge = true;
     });
 
-    // ---- Priority Lock (A6): show only highest-priority kind present overall ----
-    // BAD > POWER > FAKE > GOOD
+    // ---- Priority Lock (A6) ----
     if (lockPriority && anyOffscreen){
       let globalP = 0;
-      buckets.forEach(b=>{
-        // overall per sector already max, so scan
-        globalP = Math.max(globalP, b.kindP);
-      });
+      buckets.forEach(b=>{ globalP = Math.max(globalP, b.kindP); });
 
-      // filter to only sectors that contain that global priority
       const keep = new Map();
       buckets.forEach((b, k)=>{
         if (b.kindP === globalP) keep.set(k, b);
       });
-      // replace
       buckets.clear();
       keep.forEach((b,k)=> buckets.set(k,b));
     }
 
-    // danger state (if any BAD exists in visible buckets)
+    // ---- A7: compute assist vector (from buckets after lock) ----
+    if (anyOffscreen && buckets.size){
+      let sumX = 0, sumY = 0, sumW = 0;
+      let bestP = 0;
+      let bestKind = 'good';
+      let total = 0;
+
+      buckets.forEach(b=>{
+        const I = clamp(b.intensityMax + clamp((b.n-1)*0.06,0,0.22), 0, 1);
+        const w = 0.25 + I * 0.95 + clamp((b.n-1)*0.08,0,0.30);
+        const vx = (b.vx || 0);
+        const vy = (b.vy || 0);
+        const mag = Math.max(0.0001, Math.sqrt(vx*vx + vy*vy));
+        const nx = vx / mag;
+        const ny = vy / mag;
+
+        sumX += nx * w;
+        sumY += ny * w;
+        sumW += w;
+        total += b.n;
+
+        if (b.kindP > bestP){
+          bestP = b.kindP;
+          bestKind = b.kind;
+        }
+      });
+
+      if (sumW > 0.0001){
+        const ax = sumX / sumW;
+        const ay = sumY / sumW;
+        const amag = Math.sqrt(ax*ax + ay*ay);
+
+        if (amag > autoPanDeadZone){
+          assistState.want = true;
+          assistState.vx = ax / amag;
+          assistState.vy = ay / amag;
+          assistState.kind = bestKind;
+          assistState.intensity = clamp(sumW / (buckets.size * 1.4), 0, 1);
+          assistState.count = total;
+        }
+      }
+    }
+
+    // danger state
     let anyBad = false;
     buckets.forEach(b=>{ if (b.kind === 'bad' || b.cntBad > 0) anyBad = true; });
     setHintDanger(anyBad);
@@ -1391,7 +1470,7 @@ export async function boot (rawCfg = {}) {
       });
     }
 
-    // ---------- Update Radar Ring + Pips (A6) ----------
+    // ---------- Update Radar Ring + Pips ----------
     if (radarState.el && radarState.segNear && radarState.segFar &&
         radarState.pipsNearG && radarState.pipsFarG &&
         radarState.segNear.length >= 8 && radarState.segFar.length >= 8){
@@ -1404,7 +1483,6 @@ export async function boot (rawCfg = {}) {
       const gap  = 0.18;
       const geomKey = `${Math.round(bx)}|${Math.round(by)}|${Math.round(rNear)}|${Math.round(rFar)}`;
 
-      // update arcs once per geometry change
       if (geomKey !== radarState.lastGeomKey){
         radarState.lastGeomKey = geomKey;
         for (let i=0;i<8;i++){
@@ -1418,16 +1496,12 @@ export async function boot (rawCfg = {}) {
         }
       }
 
-      // clear current
       clearRadar();
 
-      // apply
       buckets.forEach((b, sector)=>{
         const countBoost = clamp((b.n - 1) * 0.06, 0, 0.22);
-
         const aMid = sector * step;
 
-        // NEAR ring segment
         const IN = clamp(b.nearI + countBoost*0.55, 0, 1);
         if (IN > 0.02){
           const segN = radarState.segNear[sector];
@@ -1440,14 +1514,11 @@ export async function boot (rawCfg = {}) {
             segN.style.setProperty('--o', o.toFixed(3));
           }catch{}
 
-          // pips near: stack inward toward center
           const gN = radarState.pipsNearG[sector];
-          const pipColor = c;
           const pipOp = clamp(0.45 + IN*0.55, 0.35, 1);
-          updatePipGroup(gN, b.nearCount, aMid, rNear - 10, -6, bx, by, pipColor, pipOp);
+          updatePipGroup(gN, b.nearCount, aMid, rNear - 10, -6, bx, by, c, pipOp);
         }
 
-        // FAR ring segment
         const IF = clamp(b.farI + countBoost*0.45, 0, 1);
         if (IF > 0.02){
           const segF = radarState.segFar[sector];
@@ -1460,14 +1531,120 @@ export async function boot (rawCfg = {}) {
             segF.style.setProperty('--o', o.toFixed(3));
           }catch{}
 
-          // pips far: stack outward
           const gF = radarState.pipsFarG[sector];
-          const pipColor = c;
           const pipOp = clamp(0.32 + IF*0.55, 0.28, 0.95);
-          updatePipGroup(gF, b.farCount, aMid, rFar + 10, +6, bx, by, pipColor, pipOp);
+          updatePipGroup(gF, b.farCount, aMid, rFar + 10, +6, bx, by, c, pipOp);
         }
       });
     }
+  }
+
+  // ======================================================
+  //  A7: Auto-Pan Assist
+  // ======================================================
+  let lastUserInputAt = 0;
+
+  function markUserInput(){
+    const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    lastUserInputAt = t;
+  }
+
+  // listen broadly (capture) to detect manual drag/touch/scroll
+  try{
+    hostBounds.addEventListener('pointerdown', markUserInput, { capture:true, passive:true });
+    hostBounds.addEventListener('pointermove', markUserInput, { capture:true, passive:true });
+    hostBounds.addEventListener('touchstart',  markUserInput, { capture:true, passive:true });
+    hostBounds.addEventListener('touchmove',   markUserInput, { capture:true, passive:true });
+    ROOT.addEventListener('wheel', markUserInput, { capture:true, passive:true });
+    ROOT.addEventListener('keydown', markUserInput, { capture:true, passive:true });
+  }catch{}
+
+  function shouldAutoPanNow(){
+    if (!autoPan) return false;
+    if (!assistState.want) return false;
+
+    const kind = assistState.kind;
+    if (autoPanMode === 'bad' && kind !== 'bad') return false;
+    if (autoPanMode === 'priority'){
+      // priority = ใช้ kind ที่ assist เลือก (หลัง lockPriority แล้ว)
+    } else if (autoPanMode === 'any'){
+      // ok
+    }
+
+    const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (t - lastUserInputAt < autoPanCooldownMs) return false;
+
+    // ต้องเขียนได้แบบ translate-only matrix เท่านั้น (ปลอดภัย)
+    const cur = readTranslateOnlyMatrix(hostSpawn);
+    if (!cur) return false;
+
+    return true;
+  }
+
+  function applyAutoPan(){
+    if (!shouldAutoPanNow()) {
+      // ส่ง suggestion เผื่อภายนอกใช้
+      if (assistState.want){
+        try{
+          ROOT.dispatchEvent(new CustomEvent('hha:pan_suggest', {
+            detail: {
+              vx: assistState.vx, vy: assistState.vy,
+              kind: assistState.kind, intensity: assistState.intensity, count: assistState.count
+            }
+          }));
+        }catch{}
+      }
+      return;
+    }
+
+    const cur = readTranslateOnlyMatrix(hostSpawn);
+    if (!cur) return;
+
+    let br = null;
+    try{ br = hostBounds.getBoundingClientRect(); }catch{}
+    if (!br) return;
+
+    // desired movement: move view toward offscreen direction
+    // ถ้าเป้านอกจออยู่ทางขวา -> ต้องเลื่อนวิวไปทางขวา => translateX ลด? (ขึ้นกับ implementation)
+    // ในระบบเดิม: target position ถูกชดเชยด้วย -tx ใน spawn (cx0 - tx)
+    // ดังนั้นถ้าอยาก "มองไปทางขวา" ให้ tx ลดลง (moving content left) หรือเพิ่ม?:
+    // เราใช้กติกาเดียวกับ UI drag ทั่วไป: tx/ty เพิ่ม = content เลื่อนตามนิ้ว (drag right => content right)
+    // Offscreen vector (vx,vy) ชี้จาก center ไปหาเป้า → ให้ content เลื่อนสวนทางเล็กน้อยเพื่อให้เป้าเข้ากลาง:
+    const dirX = assistState.vx;
+    const dirY = assistState.vy;
+
+    // move content opposite to direction to bring target toward center
+    const wantX = -dirX;
+    const wantY = -dirY;
+
+    // speed scales with intensity + storm + time pressure
+    const tMul = (secLeft <= 5) ? 1.35 : (secLeft <= 10 ? 1.15 : 1.0);
+    const stormMul = (getSpawnMul() < 0.99) ? 1.25 : 1.0;
+
+    let speed = autoPanMaxSpeed * (0.35 + assistState.intensity * 0.90) * tMul * stormMul;
+    speed = clamp(speed, 2.5, autoPanMaxSpeed * 1.6);
+
+    // ease smoothing: small step toward target
+    const dx = wantX * speed * autoPanEase;
+    const dy = wantY * speed * autoPanEase;
+
+    // clamp translate range
+    const limX = br.width  * clamp(autoPanClamp, 0.15, 0.55);
+    const limY = br.height * clamp(autoPanClamp, 0.15, 0.55);
+
+    const nextTx = clamp(cur.tx + dx, -limX, limX);
+    const nextTy = clamp(cur.ty + dy, -limY, limY);
+
+    if (Math.abs(nextTx - cur.tx) < 0.001 && Math.abs(nextTy - cur.ty) < 0.001) return;
+
+    // apply
+    writeTranslateMatrix(hostSpawn, nextTx, nextTy);
+
+    try{
+      ROOT.dispatchEvent(new CustomEvent('hha:pan', {
+        detail: { tx: nextTx, ty: nextTy, dx, dy, kind: assistState.kind }
+      }));
+    }catch{}
   }
 
   // ======================================================
@@ -1747,10 +1924,19 @@ export async function boot (rawCfg = {}) {
     const mul = getSpawnMul();
     const stormOn = (mul < 0.99);
 
-    setHintStorm(stormOn);
+    // storm classes (hint/radar)
+    if (hintState.host){
+      try{
+        if (stormOn) hintState.host.classList.add('hvr-storm-on');
+        else hintState.host.classList.remove('hvr-storm-on');
+      }catch{}
+    }
 
-    // update hints+radar
+    // update hints+radar (also computes assistState)
     updateHintsAndRadar(stormOn);
+
+    // A7: apply auto-pan after we know where to go
+    applyAutoPan();
 
     if (lastClockTs == null) lastClockTs = ts;
     const dt = ts - lastClockTs;
