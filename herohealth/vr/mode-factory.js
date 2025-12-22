@@ -230,7 +230,7 @@ function computeExclusionMargins(hostRect, exEls){
       m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
     }
     if (r.right > hx2 - 80 && r.left < hx2) {
-      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+      m.right = Math.max(m.right, clamp(hy2 - r.left, 0, hostRect.width));
     }
   });
 
@@ -524,21 +524,19 @@ export async function boot (rawCfg = {}) {
     let X_MIN, X_SPAN, Y_MIN, Y_SPAN;
 
     if (useA2pp) {
-      // base by difficulty
       if (diffKey === 'easy') {
         X_MIN = 0.24; X_SPAN = 0.52;
         Y_MIN = 0.18; Y_SPAN = 0.62;
       } else if (diffKey === 'hard') {
         X_MIN = 0.32; X_SPAN = 0.36;
         Y_MIN = 0.26; Y_SPAN = 0.50;
-      } else { // normal
+      } else {
         X_MIN = 0.28; X_SPAN = 0.44;
         Y_MIN = 0.22; Y_SPAN = 0.56;
       }
 
-      // adapt: level higher => tighter center; level lower => wider
       const a = clamp(adaptLevel, -1, 3);
-      const tighten = (a >= 0) ? (a * 0.020) : (a * 0.012); // negative = widen a bit
+      const tighten = (a >= 0) ? (a * 0.020) : (a * 0.012);
       const spanT   = (a >= 0) ? (a * 0.045) : (a * 0.020);
 
       X_MIN = clamp(X_MIN + tighten, 0.12, 0.42);
@@ -547,7 +545,6 @@ export async function boot (rawCfg = {}) {
       X_SPAN = clamp(X_SPAN - spanT, 0.28, 0.70);
       Y_SPAN = clamp(Y_SPAN - spanT, 0.32, 0.78);
 
-      // keep inside [0..1]
       if (X_MIN + X_SPAN > 0.92) X_MIN = 0.92 - X_SPAN;
       if (Y_MIN + Y_SPAN > 0.92) Y_MIN = 0.92 - Y_SPAN;
       if (X_MIN < 0.06) X_MIN = 0.06;
@@ -557,11 +554,9 @@ export async function boot (rawCfg = {}) {
       Y_MIN = 0.10; Y_SPAN = 0.80;
     }
 
-    // anti-repeat thresholds
     const MIN_DIST = Math.max(92, Math.min(rect.width, rect.height) * (useA2pp ? 0.24 : 0.20));
     const TRIES = useA2pp ? 11 : 6;
 
-    // choose best candidate in ABS coords
     let best = null;
     let bestD = -1;
 
@@ -580,7 +575,6 @@ export async function boot (rawCfg = {}) {
 
     if (!best) best = { xAbs: absLeft + rect.width*0.5, yAbs: absTop + rect.height*0.52 };
 
-    // convert ABS -> spawnHost local (important if spawnHost is translated/dragged)
     let spawnRect = null;
     try{ spawnRect = hostSpawn.getBoundingClientRect(); }catch{}
     if (!spawnRect) spawnRect = { left:0, top:0 };
@@ -588,14 +582,12 @@ export async function boot (rawCfg = {}) {
     const xLocal = best.xAbs - (spawnRect.left || 0);
     const yLocal = best.yAbs - (spawnRect.top  || 0);
 
-    // remember last spawn (cap queue)
     if (useAntiRepeat) {
       lastSpawnQueue.push({ xAbs: best.xAbs, yAbs: best.yAbs });
       const cap = clamp(antiRepeatN, 2, 10);
       while (lastSpawnQueue.length > cap) lastSpawnQueue.shift();
     }
 
-    // pools
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
     const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
@@ -650,7 +642,6 @@ export async function boot (rawCfg = {}) {
     el.style.zIndex = '35';
     el.style.borderRadius = '999px';
 
-    // default visuals
     const wiggle = DOC.createElement('div');
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
