@@ -12,6 +12,7 @@
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
 // ✅ PATCH A3.1: spawn ตาม "วิวปัจจุบัน" (ชดเชย translate ของ playfield) + กันทับกัน
 // ✅ PATCH A3.3: กระจายกว้างแบบ VR + Arrow Hint ชี้เป้าเมื่ออยู่นอกจอ
+// ✅ PATCH A3.3+: Hint “รวมกลุ่มตามทิศ” + แสดงจำนวนเป้านอกจอ + Storm shake/blink
 
 'use strict';
 
@@ -98,7 +99,7 @@ function pickDiffConfig (modeKey, diffKey) {
 }
 
 // ======================================================
-//  Overlay fallback
+//  Overlay fallback + Hint CSS
 // ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
@@ -134,7 +135,7 @@ function ensureOverlayStyle () {
       will-change: transform;
     }
 
-    /* ---------- PATCH A3.3: Hint overlay ---------- */
+    /* ---------- PATCH A3.3+: Hint overlay ---------- */
     .hvr-hint-host{
       position:fixed;
       inset:0;
@@ -143,8 +144,8 @@ function ensureOverlayStyle () {
     }
     .hvr-hint{
       position:absolute;
-      width:34px;
-      height:34px;
+      width:36px;
+      height:36px;
       border-radius:999px;
       background:rgba(2,6,23,.55);
       border:1px solid rgba(148,163,184,.20);
@@ -155,6 +156,7 @@ function ensureOverlayStyle () {
       box-shadow:0 12px 30px rgba(0,0,0,.45);
       will-change: transform, left, top, opacity;
       opacity:.95;
+      transform: translate(-50%,-50%);
     }
     .hvr-hint .arr{
       font-size:18px;
@@ -162,10 +164,48 @@ function ensureOverlayStyle () {
       filter: drop-shadow(0 3px 6px rgba(0,0,0,.55));
       transform-origin: 50% 50%;
     }
+    .hvr-hint .cnt{
+      position:absolute;
+      right:-3px;
+      top:-3px;
+      min-width:18px;
+      height:18px;
+      padding:0 5px;
+      border-radius:999px;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.02em;
+      color:rgba(226,232,240,.95);
+      background:rgba(2,6,23,.72);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow:0 10px 24px rgba(0,0,0,.45);
+    }
+    .hvr-hint.has-count .cnt{ display:flex; }
+
     .hvr-hint.bad{ border-color: rgba(251,113,133,.28); }
     .hvr-hint.good{ border-color: rgba(74,222,128,.22); }
     .hvr-hint.power{ border-color: rgba(250,204,21,.22); }
     .hvr-hint.fake{ border-color: rgba(167,139,250,.22); }
+
+    /* Storm: shake + blink */
+    .hvr-hint-host.hvr-storm-on .hvr-hint{
+      animation: hvrHintShake .34s linear infinite, hvrHintBlink .64s ease-in-out infinite;
+    }
+    @keyframes hvrHintShake{
+      0%{ transform:translate(-50%,-50%) rotate(-1deg); }
+      25%{ transform:translate(-50%,-50%) rotate(1deg); }
+      50%{ transform:translate(-50%,-50%) rotate(-1deg); }
+      75%{ transform:translate(-50%,-50%) rotate(1deg); }
+      100%{ transform:translate(-50%,-50%) rotate(-1deg); }
+    }
+    @keyframes hvrHintBlink{
+      0%{ opacity:.95; }
+      50%{ opacity:.55; }
+      100%{ opacity:.95; }
+    }
   `;
   DOC.head.appendChild(s);
 }
@@ -185,7 +225,6 @@ function ensureOverlayHost () {
   return host;
 }
 
-// ---- hint host ----
 function ensureHintHost(){
   if (!DOC) return null;
   ensureOverlayStyle();
@@ -324,7 +363,6 @@ function computePlayRectFromHost (hostEl, exState) {
 
 // ======================================================
 //  overlap-safe spawn near "current view"
-//  PATCH A3.3: spread wider (VR-like) but still sane
 // ======================================================
 function pickSpawnPoint(rect, size, activeTargets, hostForTransform, spread = 0.50){
   const W = Math.max(1, rect.width);
@@ -353,21 +391,17 @@ function pickSpawnPoint(rect, size, activeTargets, hostForTransform, spread = 0.
   };
 
   const hasAny = activeTargets.size > 0;
-
-  // spread: 0.30 = ใกล้กลางมาก, 0.50 = VR-ish, 0.65 = กว้างมาก
   const rMax = clamp(spread, 0.28, 0.68);
 
   for (let i=0; i<tries; i++){
     let x, y;
 
     if (!hasAny && i < 8){
-      // ลูกแรกใกล้กลางจอ (เพื่อให้เริ่มเล่นได้ทันที)
       const jx = (Math.random() + Math.random() - 1) * (W * 0.10);
       const jy = (Math.random() + Math.random() - 1) * (H * 0.10);
       x = clampX(cx0 + jx);
       y = clampY(cy0 + jy);
     } else {
-      // กระจายกว้างแบบ VR
       const ang  = Math.random() * Math.PI * 2;
       const rMin = 0.06;
       const rr   = rMin + (Math.random()) * (rMax - rMin);
@@ -382,40 +416,113 @@ function pickSpawnPoint(rect, size, activeTargets, hostForTransform, spread = 0.
 }
 
 // ======================================================
-//  PATCH A3.3: hint arrows (offscreen targets)
+//  PATCH A3.3+: Grouped hint arrows with counts
 // ======================================================
-function makeHintEl(kind){
-  const host = ensureHintHost();
-  if (!host) return null;
-
-  const el = DOC.createElement('div');
-  el.className = 'hvr-hint ' + kind;
-  const a = DOC.createElement('div');
-  a.className = 'arr';
-  a.textContent = '➤';
-  el.appendChild(a);
-  host.appendChild(el);
-  return el;
-}
 function hintKindFromItemType(itemType){
   if (itemType === 'bad') return 'bad';
   if (itemType === 'power') return 'power';
   if (itemType === 'fakeGood') return 'fake';
   return 'good';
 }
-function setHint(el, x, y, angRad){
+function kindPriority(kind){
+  // bad > power > fake > good
+  if (kind === 'bad') return 4;
+  if (kind === 'power') return 3;
+  if (kind === 'fake') return 2;
+  return 1;
+}
+function makeGroupedHintEl(kind){
+  const host = ensureHintHost();
+  if (!host) return null;
+
+  const el = DOC.createElement('div');
+  el.className = 'hvr-hint ' + kind;
+
+  const a = DOC.createElement('div');
+  a.className = 'arr';
+  a.textContent = '➤';
+
+  const c = DOC.createElement('div');
+  c.className = 'cnt';
+  c.textContent = '×2';
+
+  el.appendChild(a);
+  el.appendChild(c);
+  host.appendChild(el);
+  return el;
+}
+function setHint(el, x, y, angRad, kind, count){
   if (!el) return;
+
+  // update kind class
+  el.classList.remove('good','bad','power','fake');
+  el.classList.add(kind);
+
+  // position + rotation
   el.style.left = `${Math.round(x)}px`;
   el.style.top  = `${Math.round(y)}px`;
-  el.style.transform = `translate(-50%,-50%)`;
+
   const arr = el.querySelector('.arr');
   if (arr){
     arr.style.transform = `rotate(${angRad}rad)`;
   }
+
+  // count badge
+  const cnt = el.querySelector('.cnt');
+  if (count && count > 1){
+    el.classList.add('has-count');
+    if (cnt) cnt.textContent = `×${count}`;
+  } else {
+    el.classList.remove('has-count');
+    if (cnt) cnt.textContent = '';
+  }
 }
 
-function isInsideRect(x,y,r){
-  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+// project a ray (bx,by) -> direction (dx,dy) to inner rect edge
+function projectToInnerRectEdge(bx, by, dx, dy, ix1, iy1, ix2, iy2){
+  const EPS = 1e-6;
+  dx = Math.abs(dx) < EPS ? (dx >= 0 ? EPS : -EPS) : dx;
+  dy = Math.abs(dy) < EPS ? (dy >= 0 ? EPS : -EPS) : dy;
+
+  // solve t such that (bx + dx*t, by + dy*t) hits one boundary
+  let tMin = Infinity;
+
+  // left/right
+  if (dx > 0){
+    const t = (ix2 - bx) / dx;
+    if (t > 0) tMin = Math.min(tMin, t);
+  } else {
+    const t = (ix1 - bx) / dx;
+    if (t > 0) tMin = Math.min(tMin, t);
+  }
+
+  // top/bottom
+  if (dy > 0){
+    const t = (iy2 - by) / dy;
+    if (t > 0) tMin = Math.min(tMin, t);
+  } else {
+    const t = (iy1 - by) / dy;
+    if (t > 0) tMin = Math.min(tMin, t);
+  }
+
+  if (!Number.isFinite(tMin) || tMin === Infinity) tMin = 1;
+
+  const x = bx + dx * tMin;
+  const y = by + dy * tMin;
+
+  return {
+    x: clamp(x, ix1, ix2),
+    y: clamp(y, iy1, iy2)
+  };
+}
+
+function angleToSector8(ang){
+  // sector 0..7 around circle, centered on E(0)
+  const twoPI = Math.PI * 2;
+  let a = ang % twoPI;
+  if (a < 0) a += twoPI;
+  const step = twoPI / 8;
+  return Math.round(a / step) % 8;
 }
 
 // ======================================================
@@ -444,9 +551,9 @@ export async function boot (rawCfg = {}) {
     boundsHost = null,
     decorateTarget = null,
 
-    // ✅ PATCH A3.3
-    spread = 0.50,       // 0.50 = VR-ish (กว้างกำลังดี)
-    showHints = true     // เปิดลูกศรชี้เป้า
+    // ✅ A3.3 / A3.3+
+    spread = 0.50,
+    showHints = true
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -646,29 +753,50 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  PATCH A3.3: update hint arrows each frame
+  //  Grouped hint state (A3.3+)
   // ======================================================
+  const hintState = {
+    host: showHints ? ensureHintHost() : null,
+    map: new Map() // key: sector 0..7 -> { el, kind }
+  };
+
+  function setHintStorm(isOn){
+    if (!hintState.host) return;
+    try{
+      if (isOn) hintState.host.classList.add('hvr-storm-on');
+      else hintState.host.classList.remove('hvr-storm-on');
+    }catch{}
+  }
+
+  function clearHints(){
+    if (!hintState.map || !hintState.map.size) return;
+    hintState.map.forEach(v=>{
+      try{ v.el && v.el.remove(); }catch{}
+    });
+    hintState.map.clear();
+  }
+
   function updateHints(){
-    if (!showHints) return;
+    if (!showHints || !hintState.host) return;
 
     let br = null;
     try{ br = hostBounds.getBoundingClientRect(); }catch{}
     if (!br) return;
 
-    // ขอบในนิดนึง ไม่ให้ชน HUD
     const pad = 18;
     const ix1 = br.left + pad;
     const iy1 = br.top  + pad;
     const ix2 = br.right - pad;
     const iy2 = br.bottom - pad;
 
+    const bx = br.left + br.width/2;
+    const by = br.top  + br.height/2;
+
+    // collect offscreen targets into 8 sectors
+    const buckets = new Map(); // sector -> { n, sumx, sumy, sumAngX, sumAngY, kind, kindP }
     activeTargets.forEach(t=>{
       const el = t.el;
-      if (!el || !el.isConnected) {
-        if (t.hintEl) { try{ t.hintEl.remove(); }catch{} }
-        t.hintEl = null;
-        return;
-      }
+      if (!el || !el.isConnected) return;
 
       let r = null;
       try{ r = el.getBoundingClientRect(); }catch{}
@@ -678,32 +806,61 @@ export async function boot (rawCfg = {}) {
       const cy = r.top  + r.height/2;
 
       const inside = (cx >= ix1 && cx <= ix2 && cy >= iy1 && cy <= iy2);
-
-      if (inside){
-        if (t.hintEl) { t.hintEl.style.opacity = '0'; }
-        return;
-      }
-
-      // create hint if needed
-      if (!t.hintEl){
-        t.hintEl = makeHintEl(hintKindFromItemType(t.itemType));
-      }
-      if (!t.hintEl) return;
-      t.hintEl.style.opacity = '0.95';
-
-      // จากกลาง bounds ไปหาเป้า
-      const bx = br.left + br.width/2;
-      const by = br.top  + br.height/2;
+      if (inside) return;
 
       const dx = cx - bx;
       const dy = cy - by;
       const ang = Math.atan2(dy, dx);
+      const sector = angleToSector8(ang);
 
-      // วาง hint ที่ขอบใน (clamp) เพื่อไม่หลุดจอ
-      const hx = clamp(cx, ix1, ix2);
-      const hy = clamp(cy, iy1, iy2);
+      const kind = hintKindFromItemType(t.itemType);
+      const kp = kindPriority(kind);
 
-      setHint(t.hintEl, hx, hy, ang);
+      let b = buckets.get(sector);
+      if (!b){
+        b = { n:0, sumx:0, sumy:0, vx:0, vy:0, kind:'good', kindP:0, ang:ang };
+        buckets.set(sector, b);
+      }
+      b.n += 1;
+      b.sumx += cx;
+      b.sumy += cy;
+      b.vx += Math.cos(ang);
+      b.vy += Math.sin(ang);
+
+      if (kp > b.kindP){
+        b.kindP = kp;
+        b.kind = kind;
+      }
+    });
+
+    // remove sectors no longer used
+    const alive = new Set(buckets.keys());
+    hintState.map.forEach((v, k)=>{
+      if (!alive.has(k)){
+        try{ v.el.remove(); }catch{}
+        hintState.map.delete(k);
+      }
+    });
+
+    // place/update each sector hint
+    buckets.forEach((b, sector)=>{
+      // mean angle
+      const ang = Math.atan2(b.vy, b.vx);
+
+      // project to inner edge along ray
+      const dx = Math.cos(ang);
+      const dy = Math.sin(ang);
+      const p = projectToInnerRectEdge(bx, by, dx, dy, ix1, iy1, ix2, iy2);
+
+      // ensure hint element
+      let rec = hintState.map.get(sector);
+      if (!rec || !rec.el || !rec.el.isConnected){
+        const el = makeGroupedHintEl(b.kind);
+        rec = { el, kind: b.kind };
+        hintState.map.set(sector, rec);
+      }
+
+      setHint(rec.el, p.x, p.y, ang, b.kind, b.n);
     });
   }
 
@@ -716,14 +873,6 @@ export async function boot (rawCfg = {}) {
     refreshExclusions();
 
     const rect = computePlayRectFromHost(hostBounds, exState);
-
-    const baseSize = 78;
-    const size = baseSize * curScale;
-
-    // ✅ A3.3 spread wider (VR-like)
-    const p = pickSpawnPoint(rect, size, activeTargets, hostSpawn, spread);
-    const xLocal = p.x;
-    const yLocal = p.y;
 
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
@@ -766,9 +915,15 @@ export async function boot (rawCfg = {}) {
     el.setAttribute('data-hha-tgt', '1');
     el.setAttribute('data-item-type', itemType);
 
+    const baseSize = 78;
+    const size = baseSize * curScale;
+
+    // ✅ A3.3 spread (VR-ish) + avoid overlaps + respect current view translate
+    const p = pickSpawnPoint(rect, size, activeTargets, hostSpawn, spread);
+
     el.style.position = 'absolute';
-    el.style.left = xLocal + 'px';
-    el.style.top  = yLocal + 'px';
+    el.style.left = p.x + 'px';
+    el.style.top  = p.y + 'px';
     el.style.transform = 'translate(-50%, -50%) scale(0.9)';
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
@@ -776,10 +931,12 @@ export async function boot (rawCfg = {}) {
     el.style.zIndex = '35';
     el.style.borderRadius = '999px';
 
+    // wiggle layer
     const wiggle = DOC.createElement('div');
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
 
+    // default look (can be overridden by decorateTarget)
     let bgGrad = '';
     let ringGlow = '';
 
@@ -801,6 +958,7 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
+    // ring (perfect hint)
     const ring = DOC.createElement('div');
     ring.style.position = 'absolute';
     ring.style.left = '50%';
@@ -830,6 +988,7 @@ export async function boot (rawCfg = {}) {
     icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
     inner.appendChild(icon);
 
+    // trick badge
     let badge = null;
     if (itemType === 'fakeGood') {
       badge = DOC.createElement('div');
@@ -864,11 +1023,11 @@ export async function boot (rawCfg = {}) {
       bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       life: lifeMs,
       _hit: null,
-      _x: xLocal,
-      _y: yLocal,
-      hintEl: null
+      _x: p.x,
+      _y: p.y
     };
 
+    // allow per-game decorate
     try{
       if (typeof decorateTarget === 'function'){
         decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
@@ -887,13 +1046,6 @@ export async function boot (rawCfg = {}) {
     activeTargets.add(data);
     hostSpawn.appendChild(el);
 
-    function cleanupHint(){
-      if (data.hintEl){
-        try{ data.hintEl.remove(); }catch{}
-        data.hintEl = null;
-      }
-    }
-
     function consumeHit(evOrSynth, hitInfoOpt){
       if (stopped) return;
       if (!activeTargets.has(data)) return;
@@ -902,8 +1054,6 @@ export async function boot (rawCfg = {}) {
       try{ keepRect = el.getBoundingClientRect(); }catch{}
 
       activeTargets.delete(data);
-      cleanupHint();
-
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
       try { el.removeEventListener('click', handleHit); } catch {}
       try { el.removeEventListener('touchstart', handleHit); } catch {}
@@ -968,8 +1118,6 @@ export async function boot (rawCfg = {}) {
       if (!activeTargets.has(data)) return;
 
       activeTargets.delete(data);
-      cleanupHint();
-
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
       try { el.removeEventListener('click', handleHit); } catch {}
       try { el.removeEventListener('touchstart', handleHit); } catch {}
@@ -981,6 +1129,7 @@ export async function boot (rawCfg = {}) {
     }, lifeMs);
   }
 
+  // ---------- clock (hha:time) ----------
   function dispatchTime (sec) {
     try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
@@ -992,7 +1141,7 @@ export async function boot (rawCfg = {}) {
 
     refreshExclusions(ts);
 
-    // ✅ A3.3 hints update
+    // ✅ A3.3+ update hints (group + count)
     updateHints();
 
     if (lastClockTs == null) lastClockTs = ts;
@@ -1014,10 +1163,13 @@ export async function boot (rawCfg = {}) {
       const mul = getSpawnMul();
       const effInterval = Math.max(35, curInterval * mul);
 
+      const stormOn = (mul < 0.99);
       try{
-        if (mul < 0.99) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
+        if (stormOn) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
         else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
       }catch{}
+      // ✅ storm effect on hints
+      setHintStorm(stormOn);
 
       if (rhythmOn && beatMs > 0) {
         if (!lastBeatTs) lastBeatTs = ts;
@@ -1048,11 +1200,11 @@ export async function boot (rawCfg = {}) {
     try { if (rafId != null) ROOT.cancelAnimationFrame(rafId); } catch {}
     rafId = null;
 
-    activeTargets.forEach(t => {
-      try { if (t.hintEl) t.hintEl.remove(); } catch {}
-      try { t.el.remove(); } catch {}
-    });
+    activeTargets.forEach(t => { try { t.el.remove(); } catch {} });
     activeTargets.clear();
+
+    // ✅ remove hints
+    clearHints();
 
     try { dispatchTime(0); } catch {}
   }
