@@ -10,7 +10,8 @@
 // ✅ trick/fake targets (itemType='fakeGood')
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
-// ✅ PATCH A3.1: spawn ตาม "วิวปัจจุบัน" (ชดเชย translate ของ playfield) + กันทับกันแน่น
+// ✅ PATCH A3.1: spawn ตาม "วิวปัจจุบัน" (ชดเชย translate ของ playfield) + กันทับกัน
+// ✅ PATCH A3.3: กระจายกว้างแบบ VR + Arrow Hint ชี้เป้าเมื่ออยู่นอกจอ
 
 'use strict';
 
@@ -43,21 +44,18 @@ function getEventXY (ev) {
   return { x: x || 0, y: y || 0 };
 }
 
-// ✅ PATCH A3.1 — อ่าน translate ของ host (ตอน drag view)
+// ---------- PATCH A3.1 — อ่าน translate ของ host (ตอน drag view) ----------
 function getTranslateXY (el) {
   try{
     if (!el || !ROOT.getComputedStyle) return { tx:0, ty:0 };
     const tr = ROOT.getComputedStyle(el).transform;
     if (!tr || tr === 'none') return { tx:0, ty:0 };
 
-    // matrix(a,b,c,d,tx,ty)
     let m = tr.match(/^matrix\((.+)\)$/);
     if (m){
       const parts = m[1].split(',').map(s=>Number(s.trim()));
       return { tx: parts[4] || 0, ty: parts[5] || 0 };
     }
-
-    // matrix3d(..., tx, ty, tz)
     m = tr.match(/^matrix3d\((.+)\)$/);
     if (m){
       const parts = m[1].split(',').map(s=>Number(s.trim()));
@@ -135,9 +133,43 @@ function ensureOverlayStyle () {
       transform: translate3d(0,0,0);
       will-change: transform;
     }
+
+    /* ---------- PATCH A3.3: Hint overlay ---------- */
+    .hvr-hint-host{
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      pointer-events:none;
+    }
+    .hvr-hint{
+      position:absolute;
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.20);
+      backdrop-filter: blur(10px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 12px 30px rgba(0,0,0,.45);
+      will-change: transform, left, top, opacity;
+      opacity:.95;
+    }
+    .hvr-hint .arr{
+      font-size:18px;
+      line-height:1;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,.55));
+      transform-origin: 50% 50%;
+    }
+    .hvr-hint.bad{ border-color: rgba(251,113,133,.28); }
+    .hvr-hint.good{ border-color: rgba(74,222,128,.22); }
+    .hvr-hint.power{ border-color: rgba(250,204,21,.22); }
+    .hvr-hint.fake{ border-color: rgba(167,139,250,.22); }
   `;
   DOC.head.appendChild(s);
 }
+
 function ensureOverlayHost () {
   if (!DOC) return null;
   ensureOverlayStyle();
@@ -149,6 +181,19 @@ function ensureOverlayHost () {
   host.id = 'hvr-overlay-host';
   host.className = 'hvr-overlay-host';
   host.setAttribute('data-hvr-host', '1');
+  DOC.body.appendChild(host);
+  return host;
+}
+
+// ---- hint host ----
+function ensureHintHost(){
+  if (!DOC) return null;
+  ensureOverlayStyle();
+  let host = DOC.getElementById('hvr-hint-host');
+  if (host && host.isConnected) return host;
+  host = DOC.createElement('div');
+  host.id = 'hvr-hint-host';
+  host.className = 'hvr-hint-host';
   DOC.body.appendChild(host);
   return host;
 }
@@ -239,7 +284,6 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    // reserve margin if exclusion overlaps edge zone (robust)
     if (r.top < hy1 + 80 && r.bottom > hy1) {
       m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
@@ -264,7 +308,7 @@ function computePlayRectFromHost (hostEl, exState) {
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
-  const basePadX = w * 0.10;
+  const basePadX   = w * 0.10;
   const basePadTop = h * 0.12;
   const basePadBot = h * 0.12;
 
@@ -279,19 +323,18 @@ function computePlayRectFromHost (hostEl, exState) {
 }
 
 // ======================================================
-//  overlap-safe spawn near "current view" (PATCH A3.1)
+//  overlap-safe spawn near "current view"
+//  PATCH A3.3: spread wider (VR-like) but still sane
 // ======================================================
-function pickSpawnPoint(rect, size, activeTargets, hostForTransform){
+function pickSpawnPoint(rect, size, activeTargets, hostForTransform, spread = 0.50){
   const W = Math.max(1, rect.width);
   const H = Math.max(1, rect.height);
 
-  const minDist = size * 1.05; // กันกองเป็นพวง
-  const tries   = 22;
+  const minDist = size * 1.05;
+  const tries   = 26;
 
-  // ✅ ชดเชย translate ของ playfield (ตอนลากมุมมอง)
   const { tx, ty } = getTranslateXY(hostForTransform);
 
-  // center ใน "พิกัด local ของ host" ที่ตรงกับ "กลางจอที่ผู้เล่นกำลังมอง"
   const cx0 = rect.left + W * 0.50 - tx;
   const cy0 = rect.top  + H * 0.52 - ty;
 
@@ -311,21 +354,23 @@ function pickSpawnPoint(rect, size, activeTargets, hostForTransform){
 
   const hasAny = activeTargets.size > 0;
 
+  // spread: 0.30 = ใกล้กลางมาก, 0.50 = VR-ish, 0.65 = กว้างมาก
+  const rMax = clamp(spread, 0.28, 0.68);
+
   for (let i=0; i<tries; i++){
     let x, y;
 
-    if (!hasAny && i < 10){
-      // ✅ ลูกแรก ๆ ใกล้กลางจอมาก (หาเจอง่าย)
+    if (!hasAny && i < 8){
+      // ลูกแรกใกล้กลางจอ (เพื่อให้เริ่มเล่นได้ทันที)
       const jx = (Math.random() + Math.random() - 1) * (W * 0.10);
       const jy = (Math.random() + Math.random() - 1) * (H * 0.10);
       x = clampX(cx0 + jx);
       y = clampY(cy0 + jy);
     } else {
-      // ✅ ลูกต่อ ๆ ไป กระจายรอบกลางจอ แต่ไม่ไกล (ลดการเลื่อนหา)
+      // กระจายกว้างแบบ VR
       const ang  = Math.random() * Math.PI * 2;
       const rMin = 0.06;
-      const rMax = 0.28; // ยิ่งเล็ก = ยิ่งอยู่ใกล้วิว
-      const rr   = rMin + (Math.random()*Math.random()) * (rMax - rMin);
+      const rr   = rMin + (Math.random()) * (rMax - rMin);
       x = clampX(cx0 + Math.cos(ang) * (W * rr));
       y = clampY(cy0 + Math.sin(ang) * (H * rr));
     }
@@ -334,6 +379,43 @@ function pickSpawnPoint(rect, size, activeTargets, hostForTransform){
   }
 
   return { x: clampX(cx0), y: clampY(cy0) };
+}
+
+// ======================================================
+//  PATCH A3.3: hint arrows (offscreen targets)
+// ======================================================
+function makeHintEl(kind){
+  const host = ensureHintHost();
+  if (!host) return null;
+
+  const el = DOC.createElement('div');
+  el.className = 'hvr-hint ' + kind;
+  const a = DOC.createElement('div');
+  a.className = 'arr';
+  a.textContent = '➤';
+  el.appendChild(a);
+  host.appendChild(el);
+  return el;
+}
+function hintKindFromItemType(itemType){
+  if (itemType === 'bad') return 'bad';
+  if (itemType === 'power') return 'power';
+  if (itemType === 'fakeGood') return 'fake';
+  return 'good';
+}
+function setHint(el, x, y, angRad){
+  if (!el) return;
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top  = `${Math.round(y)}px`;
+  el.style.transform = `translate(-50%,-50%)`;
+  const arr = el.querySelector('.arr');
+  if (arr){
+    arr.style.transform = `rotate(${angRad}rad)`;
+  }
+}
+
+function isInsideRect(x,y,r){
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 }
 
 // ======================================================
@@ -360,7 +442,11 @@ export async function boot (rawCfg = {}) {
     excludeSelectors = null,
 
     boundsHost = null,
-    decorateTarget = null
+    decorateTarget = null,
+
+    // ✅ PATCH A3.3
+    spread = 0.50,       // 0.50 = VR-ish (กว้างกำลังดี)
+    showHints = true     // เปิดลูกศรชี้เป้า
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -560,6 +646,68 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
+  //  PATCH A3.3: update hint arrows each frame
+  // ======================================================
+  function updateHints(){
+    if (!showHints) return;
+
+    let br = null;
+    try{ br = hostBounds.getBoundingClientRect(); }catch{}
+    if (!br) return;
+
+    // ขอบในนิดนึง ไม่ให้ชน HUD
+    const pad = 18;
+    const ix1 = br.left + pad;
+    const iy1 = br.top  + pad;
+    const ix2 = br.right - pad;
+    const iy2 = br.bottom - pad;
+
+    activeTargets.forEach(t=>{
+      const el = t.el;
+      if (!el || !el.isConnected) {
+        if (t.hintEl) { try{ t.hintEl.remove(); }catch{} }
+        t.hintEl = null;
+        return;
+      }
+
+      let r = null;
+      try{ r = el.getBoundingClientRect(); }catch{}
+      if (!r) return;
+
+      const cx = r.left + r.width/2;
+      const cy = r.top  + r.height/2;
+
+      const inside = (cx >= ix1 && cx <= ix2 && cy >= iy1 && cy <= iy2);
+
+      if (inside){
+        if (t.hintEl) { t.hintEl.style.opacity = '0'; }
+        return;
+      }
+
+      // create hint if needed
+      if (!t.hintEl){
+        t.hintEl = makeHintEl(hintKindFromItemType(t.itemType));
+      }
+      if (!t.hintEl) return;
+      t.hintEl.style.opacity = '0.95';
+
+      // จากกลาง bounds ไปหาเป้า
+      const bx = br.left + br.width/2;
+      const by = br.top  + br.height/2;
+
+      const dx = cx - bx;
+      const dy = cy - by;
+      const ang = Math.atan2(dy, dx);
+
+      // วาง hint ที่ขอบใน (clamp) เพื่อไม่หลุดจอ
+      const hx = clamp(cx, ix1, ix2);
+      const hy = clamp(cy, iy1, iy2);
+
+      setHint(t.hintEl, hx, hy, ang);
+    });
+  }
+
+  // ======================================================
   //  Spawn target
   // ======================================================
   function spawnTarget () {
@@ -572,8 +720,8 @@ export async function boot (rawCfg = {}) {
     const baseSize = 78;
     const size = baseSize * curScale;
 
-    // ✅ PATCH A3.1 — จุดเกิดตามวิว + กันทับกัน
-    const p = pickSpawnPoint(rect, size, activeTargets, hostSpawn);
+    // ✅ A3.3 spread wider (VR-like)
+    const p = pickSpawnPoint(rect, size, activeTargets, hostSpawn, spread);
     const xLocal = p.x;
     const yLocal = p.y;
 
@@ -632,7 +780,6 @@ export async function boot (rawCfg = {}) {
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
 
-    // default look (can be overridden by decorateTarget)
     let bgGrad = '';
     let ringGlow = '';
 
@@ -717,9 +864,9 @@ export async function boot (rawCfg = {}) {
       bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       life: lifeMs,
       _hit: null,
-      // ✅ PATCH A3.1 — เก็บพิกัดไว้กันทับกัน
       _x: xLocal,
-      _y: yLocal
+      _y: yLocal,
+      hintEl: null
     };
 
     try{
@@ -740,6 +887,13 @@ export async function boot (rawCfg = {}) {
     activeTargets.add(data);
     hostSpawn.appendChild(el);
 
+    function cleanupHint(){
+      if (data.hintEl){
+        try{ data.hintEl.remove(); }catch{}
+        data.hintEl = null;
+      }
+    }
+
     function consumeHit(evOrSynth, hitInfoOpt){
       if (stopped) return;
       if (!activeTargets.has(data)) return;
@@ -748,6 +902,8 @@ export async function boot (rawCfg = {}) {
       try{ keepRect = el.getBoundingClientRect(); }catch{}
 
       activeTargets.delete(data);
+      cleanupHint();
+
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
       try { el.removeEventListener('click', handleHit); } catch {}
       try { el.removeEventListener('touchstart', handleHit); } catch {}
@@ -812,6 +968,8 @@ export async function boot (rawCfg = {}) {
       if (!activeTargets.has(data)) return;
 
       activeTargets.delete(data);
+      cleanupHint();
+
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
       try { el.removeEventListener('click', handleHit); } catch {}
       try { el.removeEventListener('touchstart', handleHit); } catch {}
@@ -833,6 +991,9 @@ export async function boot (rawCfg = {}) {
     if (stopped) return;
 
     refreshExclusions(ts);
+
+    // ✅ A3.3 hints update
+    updateHints();
 
     if (lastClockTs == null) lastClockTs = ts;
     const dt = ts - lastClockTs;
@@ -887,7 +1048,10 @@ export async function boot (rawCfg = {}) {
     try { if (rafId != null) ROOT.cancelAnimationFrame(rafId); } catch {}
     rafId = null;
 
-    activeTargets.forEach(t => { try { t.el.remove(); } catch {} });
+    activeTargets.forEach(t => {
+      try { if (t.hintEl) t.hintEl.remove(); } catch {}
+      try { t.el.remove(); } catch {}
+    });
     activeTargets.clear();
 
     try { dispatchTime(0); } catch {}
