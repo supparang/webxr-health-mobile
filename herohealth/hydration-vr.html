@@ -14,13 +14,11 @@
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.70);
       --stroke:rgba(148,163,184,.20);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --radius:22px;
     }
-
     html,body{
       height:100%;
       margin:0;
@@ -29,21 +27,15 @@
       font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
       overflow:hidden;
     }
-
-    /* ====== ROOT WRAP ====== */
     #hvr-wrap{
       position:fixed;
       inset:0;
       overflow:hidden;
-      background:
-        radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
-        radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
-        radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
-        #020617;
-      transform: translate3d(0,0,0);
+      background: radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
+                  radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
+                  radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
+                  #020617;
     }
-
-    /* ====== PLAYFIELD MUST FILL SCREEN ====== */
     #hvr-playfield{
       position:absolute;
       inset:0;
@@ -54,19 +46,14 @@
       touch-action:none;
       user-select:none;
       -webkit-user-select:none;
-      transform: translate3d(0,0,0); /* จะถูก JS ขยับ */
-      will-change: transform;
+      transform: translate3d(0,0,0);
     }
-
-    /* postFX canvas */
     #hvr-postfx{
       position:fixed;
       inset:0;
       z-index:60;
       pointer-events:none;
     }
-
-    /* HUD layer */
     .hud{
       position:fixed;
       left:18px;
@@ -78,7 +65,7 @@
       gap:14px;
       align-items:flex-start;
       justify-content:space-between;
-      flex-wrap:wrap; /* ✅ กันตกขอบจอ */
+      flex-wrap:wrap;
     }
     .hud .card{
       pointer-events:auto;
@@ -88,14 +75,13 @@
       box-shadow:0 20px 60px rgba(0,0,0,.55);
       backdrop-filter: blur(10px);
       padding:14px 14px 12px;
-      min-width: 260px;
+      min-width: 220px;
       max-width: 420px;
+      flex:1 1 240px;
     }
-    .hud .card.small{ min-width: 220px; max-width: 320px; }
-
+    .hud .card.small{ max-width: 340px; flex: 1 1 220px; }
     .title{ font-size:22px; font-weight:900; margin:2px 0 6px; }
     .muted{ color:var(--muted); font-size:12px; }
-
     .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
     .pill{
       border:1px solid rgba(148,163,184,.22);
@@ -105,35 +91,10 @@
       font-weight:900;
       letter-spacing:.06em;
       font-size:12px;
-      white-space:nowrap;
     }
-
-    /* Water header HUD (bind by ui-water.js) */
-    #hha-water-header{ display:flex; flex-direction:column; gap:8px; }
-    #hha-water-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    #hha-water-bar{
-      width:100%;
-      height:8px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#0b1220;
-      border:1px solid rgba(148,163,184,.18);
-    }
-    #hha-water-fill{
-      height:100%;
-      width:50%;
-      background:linear-gradient(90deg,#22c55e,#4ade80);
-      border-radius:999px;
-      transition:width .2s ease-out;
-    }
-
-    /* blink overlay */
     #hvr-screen-blink{
-      position:fixed;
-      inset:0;
-      z-index:70;
-      pointer-events:none;
-      opacity:0;
+      position:fixed; inset:0; z-index:70;
+      pointer-events:none; opacity:0;
       transition: opacity .14s ease-out;
     }
     #hvr-screen-blink.on{ opacity:.18; }
@@ -141,24 +102,28 @@
     #hvr-screen-blink.bad{  background: radial-gradient(800px 600px at 50% 50%, rgba(239,68,68,.55), transparent 60%); }
     #hvr-screen-blink.perfect{ background: radial-gradient(900px 700px at 50% 50%, rgba(255,255,255,.75), transparent 60%); }
 
-    /* end overlay */
-    #hvr-end{
+    /* crosshair placeholder (safe.js จะใส่ style ให้อีกชั้น) */
+    #hvr-crosshair{
       position:fixed;
-      inset:0;
-      z-index:90;
-      display:none;
-      align-items:center;
-      justify-content:center;
+      left:50%; top:52%;
+      transform:translate(-50%,-50%);
+      z-index:86;
+      pointer-events:none;
+      width:44px; height:44px;
+      opacity:.75;
+    }
+
+    #hvr-end{
+      position:fixed; inset:0; z-index:90;
+      display:none; align-items:center; justify-content:center;
       padding:18px;
       background:rgba(2,6,23,.55);
       backdrop-filter: blur(10px);
     }
     #hvr-end.on{ display:flex; }
 
-    /* error overlay */
     #hvr-error{
-      position:fixed;
-      left:14px; right:14px; bottom:14px;
+      position:fixed; left:14px; right:14px; bottom:14px;
       z-index:120;
       background:rgba(239,68,68,.12);
       border:1px solid rgba(239,68,68,.35);
@@ -170,76 +135,19 @@
       white-space:pre-wrap;
     }
     #hvr-error.on{ display:block; }
-
-    /* =========================================================
-       HUD layout: Mobile lock order (A2)
-       ========================================================= */
-    @media (max-width: 720px){
-      .hud{
-        left:12px;
-        right:12px;
-        top:10px;
-        gap:10px;
-        align-items:stretch;
-
-        display:grid;
-        grid-template-columns: 1fr 1fr;
-        grid-template-areas:
-          "quest quest"
-          "water progress"
-          "miss  miss2";
-      }
-
-      .hud .card:nth-child(1){ grid-area: quest; }
-      .hud .card:nth-child(2){ grid-area: water; }
-      .hud .card:nth-child(3){ grid-area: progress; }
-      .hud .card:nth-child(4){ grid-area: miss; }
-
-      .hud::after{
-        content:"";
-        grid-area: miss2;
-        border-radius:22px;
-        border:1px solid rgba(148,163,184,.10);
-        background:rgba(2,6,23,.20);
-        backdrop-filter: blur(6px);
-        box-shadow: inset 0 0 0 1px rgba(148,163,184,.06);
-        min-height: 92px;
-        pointer-events:none;
-        opacity:.25;
-      }
-
-      .hud .card{
-        min-width: 0;
-        max-width: none;
-        width:100%;
-      }
-
-      .hud .card:nth-child(4){
-        min-height: 92px;
-      }
-    }
-
-    @media (max-width: 420px){
-      .hud{
-        grid-template-columns: 1fr;
-        grid-template-areas:
-          "quest"
-          "water"
-          "progress"
-          "miss";
-      }
-      .hud::after{ display:none; }
-    }
   </style>
 </head>
 
 <body>
   <div id="hvr-wrap">
     <div id="hvr-playfield" aria-label="playfield"></div>
-
     <canvas id="hvr-postfx"></canvas>
     <div id="hvr-screen-blink"></div>
 
+    <!-- crosshair -->
+    <div id="hvr-crosshair"></div>
+
+    <!-- HUD -->
     <div class="hud">
       <div class="card">
         <div class="row">
@@ -266,7 +174,9 @@
             <div class="pill" id="hha-water-zone-text">ZONE GREEN</div>
           </div>
           <div id="hha-water-status" class="muted">GREEN 50%</div>
-          <div id="hha-water-bar"><div id="hha-water-fill"></div></div>
+          <div id="hha-water-bar" style="width:100%;height:8px;border-radius:999px;overflow:hidden;background:#0b1220;border:1px solid rgba(148,163,184,.18);">
+            <div id="hha-water-fill" style="height:100%;width:50%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:999px;transition:width .2s ease-out;"></div>
+          </div>
           <div class="muted">รักษาให้อยู่ GREEN ให้นานที่สุด 💧</div>
         </div>
       </div>
@@ -313,7 +223,7 @@
       console.error(e);
       errBox.classList.add('on');
       errBox.textContent =
-        '❌ Hydration boot failed\n\n' +
+        '❌ Hydration boot failed\\n\\n' +
         String(e && (e.stack || e.message || e));
     }
   </script>
