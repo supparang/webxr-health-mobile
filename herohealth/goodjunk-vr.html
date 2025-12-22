@@ -1,10 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — H+ (FULL)
+     GoodJunkVR (PRODUCTION) — H+ EXTREME
      ✅ Boss attack overlays: #atk-ring #atk-laser
-     ✅ NEW: Storm overlay #atk-storm
-     ✅ RESTORE: FX binder (hha:fx / hha:fever / hha:bossPulse / hha:bossAtk)
-     ✅ RESTORE: Drag view pan (targets move with view, aim point sync)
-     ✅ Mobile auto-fit HUD (A15/A54) — no cut off
+     ✅ Panic vignette + ticks + SFX (WebAudio)
+     ✅ Drag-look DOM camera (mobile) + aim point sync for hazards/magnet
+     ✅ Auto-fit HUD (A15/A54) no overflow
 -->
 <!doctype html>
 <html lang="th">
@@ -36,18 +35,18 @@
       --kickRot: 4deg;
 
       --ringSize: 420px;
-      --ringGapStart: 40deg;
-      --ringGapSize: 70deg;
+      --ringGapStart: 40deg; /* updated by JS */
+      --ringGapSize: 70deg;  /* updated by JS */
 
-      /* ✅ view pan vars */
+      /* DOM camera offset */
       --camX: 0px;
       --camY: 0px;
 
-      /* safe area */
-      --safeT: env(safe-area-inset-top, 0px);
-      --safeR: env(safe-area-inset-right, 0px);
-      --safeB: env(safe-area-inset-bottom, 0px);
-      --safeL: env(safe-area-inset-left, 0px);
+      /* safe areas */
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
@@ -68,8 +67,6 @@
       z-index:0;
       pointer-events:none;
     }
-
-    /* ✅ camera wrapper (pan + shake + kick) */
     #game-cam{
       position:absolute; inset:0;
       transform: translate3d(var(--camX), var(--camY), 0);
@@ -77,6 +74,7 @@
       pointer-events:none;
     }
 
+    /* Keep camera offsets inside animations */
     #game-cam.shake{ animation: gj-shake var(--shakeDur) linear infinite; }
     #game-cam.kick{ animation: gj-kick .22s ease-out 1; }
     #game-cam.shake.kick{
@@ -91,8 +89,14 @@
       100% { transform: translate3d(calc(var(--camX) + (var(--shakeAmp) * 0.12)), calc(var(--camY) + (var(--shakeAmp) * 0.30)), 0); }
     }
     @keyframes gj-kick{
-      0%{ transform: translate3d(calc(var(--camX) + (var(--kickAmp) * 0.55)), calc(var(--camY) + (var(--kickAmp) * -0.45)), 0) rotate(calc(var(--kickRot) * -0.7)); }
-      45%{ transform: translate3d(calc(var(--camX) + (var(--kickAmp) * -0.75)), calc(var(--camY) + (var(--kickAmp) * 0.55)), 0) rotate(var(--kickRot)); }
+      0%{
+        transform: translate3d(calc(var(--camX) + (var(--kickAmp) * 0.55)), calc(var(--camY) + (var(--kickAmp) * -0.45)), 0)
+          rotate(calc(var(--kickRot) * -0.7));
+      }
+      45%{
+        transform: translate3d(calc(var(--camX) + (var(--kickAmp) * -0.75)), calc(var(--camY) + (var(--kickAmp) * 0.55)), 0)
+          rotate(var(--kickRot));
+      }
       100%{ transform: translate3d(var(--camX), var(--camY), 0) rotate(0deg); }
     }
 
@@ -142,6 +146,7 @@
         radial-gradient(circle at 60% 60%, rgba(249,115,22,0.18), transparent 58%),
         linear-gradient(90deg, rgba(255,0,100,0.06), transparent 40%, rgba(0,255,220,0.06));
       filter: saturate(1.4) contrast(1.1);
+      z-index:8;
     }
     #fx-chroma.show{ animation: chromaFlash .18s ease-out 1; }
     @keyframes chromaFlash{
@@ -154,6 +159,20 @@
         radial-gradient(circle at 50% 60%, rgba(34,197,94,0.18), transparent 58%),
         radial-gradient(circle at 45% 45%, rgba(56,189,248,0.16), transparent 55%),
         linear-gradient(90deg, rgba(34,197,94,0.06), transparent 40%, rgba(56,189,248,0.06));
+    }
+
+    /* ✅ EXTREME: panic vignette */
+    #fx-vignette{
+      position:absolute; inset:0;
+      pointer-events:none;
+      z-index:8;
+      opacity:0;
+      transition: opacity .08s linear;
+      background:
+        radial-gradient(circle at 50% 55%, rgba(0,0,0,0) 48%, rgba(239,68,68,0.14) 70%, rgba(239,68,68,0.26) 100%),
+        radial-gradient(circle at 50% 55%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.30) 100%);
+      mix-blend-mode: screen;
+      filter: saturate(1.2);
     }
 
     /* ===== H+ Boss Attack Overlay: RING ===== */
@@ -239,50 +258,6 @@
       0%{ transform: translate(-50%,-50%) scaleY(0.9); opacity:0.65; }
       50%{ transform: translate(-50%,-50%) scaleY(1.05); opacity:0.95; }
       100%{ transform: translate(-50%,-50%) scaleY(0.9); opacity:0.65; }
-    }
-
-    /* ✅ NEW: STORM overlay */
-    #atk-storm{
-      position:absolute; inset:-8%;
-      z-index:7;
-      pointer-events:none;
-      opacity:0;
-      background:
-        radial-gradient(circle at 50% 60%, rgba(168,85,247,0.12), transparent 60%),
-        radial-gradient(circle at 20% 25%, rgba(56,189,248,0.12), transparent 55%),
-        radial-gradient(circle at 80% 30%, rgba(34,197,94,0.10), transparent 55%);
-      filter: blur(1px) saturate(1.15);
-      mix-blend-mode: screen;
-    }
-    #atk-storm.show{
-      opacity:1;
-      animation: stormWaves .42s linear infinite;
-    }
-    #atk-storm::before{
-      content:"";
-      position:absolute; inset:0;
-      background:
-        repeating-linear-gradient(
-          115deg,
-          rgba(255,255,255,0.00) 0px,
-          rgba(255,255,255,0.00) 22px,
-          rgba(255,255,255,0.06) 26px,
-          rgba(255,255,255,0.00) 34px
-        );
-      opacity:.55;
-      transform: translateX(0);
-    }
-    #atk-storm::after{
-      content:"";
-      position:absolute; inset:0;
-      box-shadow: 0 0 0 9999px rgba(2,6,23,0.10) inset;
-      border: 2px solid rgba(168,85,247,0.22);
-      opacity:.85;
-    }
-    @keyframes stormWaves{
-      0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      50%{ transform: translate3d(-10px,6px,0) rotate(-0.6deg); }
-      100%{ transform: translate3d(0,0,0) rotate(0deg); }
     }
 
     a-scene{
@@ -390,7 +365,7 @@
     @keyframes beaconSpin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
     @keyframes beaconPulse{ 0%{transform:scale(0.86)} 50%{transform:scale(1.18)} 100%{transform:scale(0.86)} }
 
-    /* ===== HUD ===== */
+    /* ===== HUD / Start / Summary ===== */
     .hud-root{
       position:fixed;
       inset:0;
@@ -399,15 +374,17 @@
       display:flex;
       flex-direction:column;
       justify-content:space-between;
-      padding: calc(10px + var(--safeT)) calc(10px + var(--safeR)) calc(14px + var(--safeB)) calc(10px + var(--safeL));
-      gap:8px;
+      padding:
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(14px + var(--sab))
+        calc(10px + var(--sal));
     }
     .hud-top{
       display:flex;
       justify-content:space-between;
       gap:8px;
       align-items:flex-start;
-      flex-wrap:wrap;
     }
     .hud-card{
       background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
@@ -416,12 +393,8 @@
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
       pointer-events:auto;
-      min-width:0; /* ✅ allow shrink */
-      max-width:100%;
-      flex: 1 1 320px; /* ✅ auto-fit */
     }
-
-    .hud-main{ display:flex; gap:10px; align-items:center; margin-bottom:4px; flex-wrap:wrap; }
+    .hud-main{ display:flex; gap:10px; align-items:center; margin-bottom:4px; }
     .hud-main-title{ font-size:14px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--text-soft); }
     .hud-pill{
       font-size:11px;
@@ -447,22 +420,22 @@
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
-    .hud-quest{ font-size:12px; }
+    .hud-quest{ max-width:360px; font-size:12px; }
     .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
     .quest-main-label{ font-size:13px; font-weight:700; }
     .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
     .quest-progress-wrap{ margin-top:5px; display:flex; flex-direction:column; gap:4px; }
     .quest-bar{ position:relative; width:100%; height:4px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; }
     .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
-    .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
 
     .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:6px; }
-    .fever-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .fever-row{ display:flex; align-items:center; gap:8px; }
     .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
     .fever-bar{ width:140px; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(148,163,184,0.18); }
     .fever-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.95)); transition:width .16s ease-out; }
     .fever-pct{ font-size:10px; color:#fde68a; font-weight:900; min-width:44px; text-align:right; }
-    .shield-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .shield-row{ display:flex; align-items:center; gap:6px; }
     .shield-count{ font-weight:950; color:#93c5fd; }
 
     #hud-stun{
@@ -492,13 +465,7 @@
     .boss-bar{ height:7px; border-radius:999px; background:rgba(15,23,42,0.9); border:1px solid rgba(148,163,184,0.18); overflow:hidden; }
     .boss-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(251,191,36,0.22), rgba(251,191,36,0.98)); transition: width .14s ease-out; }
 
-    .hud-bottom{
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:8px;
-      padding-bottom: calc(72px + var(--safeB));
-    }
+    .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
     .coach-bubble{
       min-width:60%;
       max-width:680px;
@@ -534,8 +501,7 @@
     }
 
     .vr-btn{
-      position:fixed; right: calc(12px + var(--safeR)); bottom: calc(16px + var(--safeB));
-      z-index:653;
+      position:fixed; right:12px; bottom:16px; z-index:653;
       border-radius:999px;
       border:1px solid rgba(56,189,248,0.7);
       padding:8px 14px;
@@ -564,20 +530,128 @@
     }
     .countdown-hidden{ opacity:0; visibility:hidden; transform:scale(0.8); }
 
-    /* ✅ Mobile auto-fit (A15/A54) */
+    .start-overlay{
+      position:fixed; inset:0;
+      z-index:700;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:radial-gradient(circle at 50% 35%, rgba(34,197,94,0.18), transparent 55%), rgba(2,6,23,0.92);
+    }
+    .start-card{
+      width:min(560px, 96vw);
+      border-radius:22px;
+      background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
+      border:1px solid rgba(148,163,184,0.2);
+      box-shadow:0 30px 80px rgba(0,0,0,0.55);
+      padding:16px 16px 14px;
+      text-align:left;
+    }
+    .start-title{ font-size:18px; font-weight:950; margin:0 0 6px; letter-spacing:.02em; }
+    .start-sub{ margin:0 0 12px; color:var(--text-soft); font-size:13px; line-height:1.35; }
+    .start-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .start-label{ font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:.14em; }
+    select{
+      width:100%;
+      border-radius:12px;
+      border:1px solid rgba(30,64,175,0.6);
+      background:rgba(15,23,42,0.9);
+      padding:7px 9px;
+      color:var(--text-main);
+      font-size:13px;
+      outline:none;
+    }
+    .start-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; margin-top:12px; }
+    .start-btn{
+      border-radius:999px;
+      border:1px solid rgba(187,247,208,0.9);
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      color:#052e16;
+      padding:10px 14px;
+      font-weight:950;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .start-btn.secondary{
+      border:1px solid rgba(148,163,184,0.6);
+      background:rgba(15,23,42,0.86);
+      color:var(--text-main);
+      font-weight:850;
+    }
+
+    .sum-overlay{
+      position:fixed; inset:0;
+      z-index:800;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:radial-gradient(circle at 50% 35%, rgba(56,189,248,0.12), transparent 55%), rgba(2,6,23,0.92);
+    }
+    .sum-overlay.show{ display:flex; }
+    .sum-card{
+      width:min(560px, 96vw);
+      border-radius:22px;
+      background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
+      border:1px solid rgba(148,163,184,0.2);
+      box-shadow:0 30px 80px rgba(0,0,0,0.55);
+      padding:16px 16px 14px;
+      text-align:left;
+    }
+    .sum-title{ margin:0 0 6px; font-size:18px; font-weight:950; }
+    .sum-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+    .sum-item{
+      border:1px solid rgba(148,163,184,0.18);
+      border-radius:14px;
+      padding:10px;
+      background:rgba(2,6,23,0.35);
+    }
+    .sum-k{ font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-soft); }
+    .sum-v{ font-size:16px; font-weight:950; margin-top:2px; }
+    .sum-row{ display:flex; justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap; }
+    .sum-btn{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.6);
+      background:rgba(15,23,42,0.86);
+      color:var(--text-main);
+      font-weight:900;
+      padding:10px 14px;
+      cursor:pointer;
+    }
+    .sum-btn.primary{
+      border-color:rgba(187,247,208,0.9);
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      color:#052e16;
+    }
+
+    /* ✅ Auto-fit HUD on phones (override inline min-widths) */
+    .hud-top{ flex-wrap:wrap; align-items:stretch; }
+    .hud-top .hud-card{
+      min-width: 0 !important;
+      width: min(560px, 100%) !important;
+      max-width: 100% !important;
+    }
+    .hud-quest{ max-width: none; }
+    .hud-metrics .metric{ min-width: 84px; }
+
     @media (max-width: 420px){
-      .hud-root{ padding: calc(8px + var(--safeT)) calc(8px + var(--safeR)) calc(10px + var(--safeB)) calc(8px + var(--safeL)); }
-      .hud-card{ padding: 7px 9px; border-radius:16px; flex-basis: 100%; }
+      .hud-card{ border-radius:16px; padding:7px 9px; }
       .hud-main-title{ font-size:12px; }
-      .metric{ min-width:80px; }
-      .metric-label{ font-size:9px; }
       .metric-value{ font-size:14px; }
-      .hud-quest{ font-size:11px; }
-      .quest-main-label{ font-size:12px; }
-      .quest-mini-label{ font-size:11px; }
-      .fever-bar{ width:116px; }
-      .coach-bubble{ min-width: 92%; font-size:12px; }
-      .vr-btn{ padding:7px 12px; font-size:11px; }
+      .quest-main-label{ font-size:12.5px; }
+      .quest-mini-label{ font-size:11.5px; }
+      .fever-bar{ width: 120px; }
+      .hud-bottom{ padding-bottom: calc(72px + var(--sab)); }
+      .vr-btn{ right: calc(12px + var(--sar)); bottom: calc(16px + var(--sab)); }
+      #logbadge{ left: calc(10px + var(--sal)); bottom: calc(10px + var(--sab)); }
+    }
+
+    @media (max-height: 720px){
+      .hud-quest{ max-height: 34vh; overflow:auto; -webkit-overflow-scrolling:touch; }
+      .hud-quest::-webkit-scrollbar{ width: 6px; }
     }
   </style>
 
@@ -644,16 +718,16 @@
       <!-- H+ overlays -->
       <div id="atk-ring" aria-hidden="true"></div>
       <div id="atk-laser" aria-hidden="true"></div>
-      <div id="atk-storm" aria-hidden="true"></div>
 
       <div id="fx-chroma" aria-hidden="true"></div>
+      <div id="fx-vignette" aria-hidden="true"></div>
     </div>
   </div>
 
-  <!-- HUD -->
+  <!-- HUD / Start / Summary -->
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
-      <div class="hud-card">
+      <div class="hud-card" style="min-width: 310px;">
         <div class="hud-main">
           <div class="hud-main-title">GOODJUNK</div>
           <div class="hud-pill" id="hud-pill"><span>●</span><span id="hud-run-label">PLAY</span></div>
@@ -674,7 +748,7 @@
         </div>
       </div>
 
-      <div class="hud-card hud-quest">
+      <div class="hud-card hud-quest" style="min-width: 340px;">
         <div class="quest-title">Quest</div>
 
         <div class="quest-main-label" id="hud-quest-main">ภารกิจหลัก</div>
@@ -706,7 +780,7 @@
     </div>
 
     <div class="hud-bottom">
-      <div class="coach-bubble show" id="coach-bubble">
+      <div class="coach-bubble" id="coach-bubble">
         <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
         <div style="display:flex; flex-direction:column; gap:2px;">
           <div style="font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:#6ee7b7; font-weight:800;">Coach</div>
@@ -719,7 +793,7 @@
   <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
   <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR"><span>🥽</span> Enter VR</button>
 
-  <div id="logbadge" style="position:fixed; left:calc(10px + var(--safeL)); bottom:calc(10px + var(--safeB)); z-index:690;
+  <div id="logbadge" style="position:fixed; left:10px; bottom:10px; z-index:690;
     background:rgba(15,23,42,0.88); border:1px solid rgba(148,163,184,0.22); border-radius:999px;
     padding:6px 10px; font-size:11px; color:#e5e7eb; display:flex; align-items:center; gap:8px;
     pointer-events:none; max-width:92vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
@@ -727,28 +801,23 @@
     <div id="logtext">boot: loading…</div>
   </div>
 
-  <!-- START overlay (คงเดิมตามของคุณ) -->
-  <div class="start-overlay" id="start-overlay" style="position:fixed; inset:0; z-index:700; display:flex; align-items:center; justify-content:center; padding:18px;
-    background:radial-gradient(circle at 50% 35%, rgba(34,197,94,0.18), transparent 55%), rgba(2,6,23,0.92);">
-    <div class="start-card" style="width:min(560px, 96vw); border-radius:22px; background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
-      border:1px solid rgba(148,163,184,0.2); box-shadow:0 30px 80px rgba(0,0,0,0.55); padding:16px 16px 14px; text-align:left;">
-      <h1 class="start-title" style="font-size:18px; font-weight:950; margin:0 0 6px; letter-spacing:.02em;">GoodJunk VR</h1>
-      <p class="start-sub" id="start-sub" style="margin:0 0 12px; color:var(--text-soft); font-size:13px; line-height:1.35;">
-        เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง ✅
-      </p>
+  <div class="start-overlay" id="start-overlay">
+    <div class="start-card">
+      <h1 class="start-title">GoodJunk VR</h1>
+      <p class="start-sub" id="start-sub">เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง ✅</p>
 
-      <div class="start-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="start-grid">
         <div>
-          <div class="start-label" style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:.14em;">Difficulty</div>
-          <select id="sel-diff" style="width:100%; border-radius:12px; border:1px solid rgba(30,64,175,0.6); background:rgba(15,23,42,0.9); padding:7px 9px; color:var(--text-main); font-size:13px; outline:none;">
+          <div class="start-label">Difficulty</div>
+          <select id="sel-diff">
             <option value="easy">Easy</option>
             <option value="normal" selected>Normal</option>
             <option value="hard">Hard</option>
           </select>
         </div>
         <div>
-          <div class="start-label" style="font-size:11px; color:var(--text-soft); text-transform:uppercase; letter-spacing:.14em;">Challenge</div>
-          <select id="sel-challenge" style="width:100%; border-radius:12px; border:1px solid rgba(30,64,175,0.6); background:rgba(15,23,42,0.9); padding:7px 9px; color:var(--text-main); font-size:13px; outline:none;">
+          <div class="start-label">Challenge</div>
+          <select id="sel-challenge">
             <option value="rush" selected>Rush</option>
             <option value="boss">Boss</option>
             <option value="survival">Survival</option>
@@ -756,11 +825,9 @@
         </div>
       </div>
 
-      <div class="start-row" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; margin-top:12px;">
-        <button class="start-btn secondary" id="btn-start-2d" type="button" style="border-radius:999px; border:1px solid rgba(148,163,184,0.6);
-          background:rgba(15,23,42,0.86); color:var(--text-main); font-weight:850; padding:10px 14px; cursor:pointer;">▶ Start 2D</button>
-        <button class="start-btn" id="btn-start-vr" type="button" style="border-radius:999px; border:1px solid rgba(187,247,208,0.9);
-          background:linear-gradient(135deg,#22c55e,#16a34a); color:#052e16; padding:10px 14px; font-weight:950; cursor:pointer;">🥽 Start VR</button>
+      <div class="start-row">
+        <button class="start-btn secondary" id="btn-start-2d" type="button">▶ Start 2D</button>
+        <button class="start-btn" id="btn-start-vr" type="button">🥽 Start VR</button>
       </div>
 
       <div style="font-size:11px; color:var(--text-soft); margin-top:8px;">
@@ -769,218 +836,267 @@
     </div>
   </div>
 
-  <!-- SUMMARY overlay (คงเดิมตามของคุณ) -->
-  <div class="sum-overlay" id="sum-overlay" style="position:fixed; inset:0; z-index:800; display:none; align-items:center; justify-content:center; padding:18px;
-    background:radial-gradient(circle at 50% 35%, rgba(56,189,248,0.12), transparent 55%), rgba(2,6,23,0.92);">
-    <div class="sum-card" style="width:min(560px, 96vw); border-radius:22px; background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,0.84));
-      border:1px solid rgba(148,163,184,0.2); box-shadow:0 30px 80px rgba(0,0,0,0.55); padding:16px 16px 14px; text-align:left;">
-      <h2 class="sum-title" style="margin:0 0 6px; font-size:18px; font-weight:950;">🎉 จบเกมแล้ว!</h2>
+  <div class="sum-overlay" id="sum-overlay">
+    <div class="sum-card">
+      <h2 class="sum-title">🎉 จบเกมแล้ว!</h2>
       <div style="color:var(--text-soft); font-size:13px;">สรุปผลการเล่นรอบนี้</div>
 
-      <div class="sum-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
-        <div class="sum-item" style="border:1px solid rgba(148,163,184,0.18); border-radius:14px; padding:10px; background:rgba(2,6,23,0.35);">
-          <div class="sum-k" style="font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-soft);">Score</div>
-          <div class="sum-v" id="sum-score" style="font-size:16px; font-weight:950; margin-top:2px;">0</div>
-        </div>
-        <div class="sum-item" style="border:1px solid rgba(148,163,184,0.18); border-radius:14px; padding:10px; background:rgba(2,6,23,0.35);">
-          <div class="sum-k" style="font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-soft);">Good Hits</div>
-          <div class="sum-v" id="sum-good" style="font-size:16px; font-weight:950; margin-top:2px;">0</div>
-        </div>
-        <div class="sum-item" style="border:1px solid rgba(148,163,184,0.18); border-radius:14px; padding:10px; background:rgba(2,6,23,0.35);">
-          <div class="sum-k" style="font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-soft);">Miss</div>
-          <div class="sum-v" id="sum-miss" style="font-size:16px; font-weight:950; margin-top:2px;">0</div>
-        </div>
-        <div class="sum-item" style="border:1px solid rgba(148,163,184,0.18); border-radius:14px; padding:10px; background:rgba(2,6,23,0.35);">
-          <div class="sum-k" style="font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-soft);">Combo Max</div>
-          <div class="sum-v" id="sum-combo" style="font-size:16px; font-weight:950; margin-top:2px;">0</div>
-        </div>
+      <div class="sum-grid">
+        <div class="sum-item"><div class="sum-k">Score</div><div class="sum-v" id="sum-score">0</div></div>
+        <div class="sum-item"><div class="sum-k">Good Hits</div><div class="sum-v" id="sum-good">0</div></div>
+        <div class="sum-item"><div class="sum-k">Miss</div><div class="sum-v" id="sum-miss">0</div></div>
+        <div class="sum-item"><div class="sum-k">Combo Max</div><div class="sum-v" id="sum-combo">0</div></div>
       </div>
 
-      <div class="sum-row" style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap;">
-        <button class="sum-btn" id="btn-replay" style="border-radius:999px; border:1px solid rgba(148,163,184,0.6); background:rgba(15,23,42,0.86);
-          color:var(--text-main); font-weight:900; padding:10px 14px; cursor:pointer;">🔁 เล่นอีกครั้ง</button>
-        <button class="sum-btn primary" id="btn-exit" style="border-radius:999px; border:1px solid rgba(187,247,208,0.9); background:linear-gradient(135deg,#22c55e,#16a34a);
-          color:#052e16; font-weight:900; padding:10px 14px; cursor:pointer;">🏠 กลับ Hub</button>
+      <div class="sum-row">
+        <button class="sum-btn" id="btn-replay">🔁 เล่นอีกครั้ง</button>
+        <button class="sum-btn primary" id="btn-exit">🏠 กลับ Hub</button>
       </div>
     </div>
   </div>
 
-  <!-- ✅ RESTORE: Drag view + Aim sync -->
+  <!-- ===== EXTREME SFX (No files needed) ===== -->
   <script>
   (function(){
-    const root = window;
-    const cam = document.getElementById('game-cam');
-    const layer = document.getElementById('gj-layer');
+    let AC = null, master = null;
+    let unlocked = false;
 
-    const state = {
-      x: 0, y: 0,
-      down: false,
-      pid: null,
-      sx: 0, sy: 0,
-      ox: 0, oy: 0,
-      moved: false,
-      maxX: 0,
-      maxY: 0
-    };
-
-    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-    function computeBounds(){
-      // clamp safe zone (feel like VR)
-      const w = Math.max(320, innerWidth);
-      const h = Math.max(480, innerHeight);
-      state.maxX = Math.round(Math.min(140, w * 0.18)); // A15/A54 ok
-      state.maxY = Math.round(Math.min(110, h * 0.12));
+    function ensure(){
+      if (AC) return AC;
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      AC = new Ctx();
+      master = AC.createGain();
+      master.gain.value = 0.18;
+      master.connect(AC.destination);
+      return AC;
     }
 
-    function apply(){
-      if (!cam) return;
-      document.documentElement.style.setProperty('--camX', (state.x|0) + 'px');
-      document.documentElement.style.setProperty('--camY', (state.y|0) + 'px');
+    function unlock(){
+      const ac = ensure();
+      if (!ac || unlocked) return;
+      try{
+        const o = ac.createOscillator();
+        const g = ac.createGain();
+        g.gain.value = 0.0001;
+        o.connect(g); g.connect(master);
+        o.frequency.value = 220;
+        o.start();
+        o.stop(ac.currentTime + 0.02);
+        unlocked = true;
+      }catch(_){}
+    }
+    window.addEventListener('pointerdown', unlock, { once:true, passive:true });
 
-      // expose to game logic
-      root.__GJ_VIEW_OFFSET__ = { x: state.x|0, y: state.y|0 };
+    function beep(freq=880, ms=60, type='sine', vol=1){
+      const ac = ensure();
+      if (!ac || ac.state === 'suspended') return;
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = type;
+      o.frequency.value = freq;
 
-      // aim point in WORLD coords under fixed crosshair (center-ish)
-      // world point = screen point - camOffset
-      root.__GJ_AIM_POINT__ = {
-        x: ((innerWidth*0.5) - state.x)|0,
-        y: ((innerHeight*0.62) - state.y)|0
-      };
+      const t0 = ac.currentTime;
+      const dur = Math.max(0.02, ms/1000);
+      const v = 0.16 * (vol||1);
+
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(v, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+      o.connect(g); g.connect(master);
+      o.start(t0);
+      o.stop(t0 + dur + 0.02);
     }
 
-    function shouldStartDrag(ev){
-      const t = ev.target;
-      if (!t) return true;
-      // if tapping a target, don't drag
-      if (t.classList && t.classList.contains('gj-target')) return false;
-      // if inside HUD/buttons (pointer-events auto) won't reach here
-      return true;
+    function zap(){
+      beep(1400, 70, 'square', 1.2);
+      setTimeout(()=>beep(620, 60, 'sawtooth', 0.9), 30);
     }
 
-    computeBounds();
-    apply();
-    window.addEventListener('resize', ()=>{ computeBounds(); apply(); }, { passive:true });
-
-    // drag on empty space of targets layer
-    layer.addEventListener('pointerdown', (ev)=>{
-      if (!shouldStartDrag(ev)) return;
-      state.down = true;
-      state.pid = ev.pointerId;
-      state.sx = ev.clientX; state.sy = ev.clientY;
-      state.ox = state.x; state.oy = state.y;
-      state.moved = false;
-      try{ layer.setPointerCapture(ev.pointerId); }catch(_){}
-    }, { passive:false });
-
-    layer.addEventListener('pointermove', (ev)=>{
-      if (!state.down || ev.pointerId !== state.pid) return;
-
-      const dx = (ev.clientX - state.sx);
-      const dy = (ev.clientY - state.sy);
-      if (!state.moved && (Math.abs(dx) + Math.abs(dy)) > 8) state.moved = true;
-
-      // drag => pan world
-      state.x = clamp(state.ox + dx, -state.maxX, state.maxX);
-      state.y = clamp(state.oy + dy, -state.maxY, state.maxY);
-      apply();
-      ev.preventDefault?.();
-    }, { passive:false });
-
-    function end(ev){
-      if (!state.down || ev.pointerId !== state.pid) return;
-      state.down = false;
-      state.pid = null;
-      apply();
-    }
-    layer.addEventListener('pointerup', end, { passive:true });
-    layer.addEventListener('pointercancel', end, { passive:true });
-  })();
-  </script>
-
-  <!-- ✅ RESTORE: FX Binder (คืนจอสั่น/ไฟ STUN/ชั้นบอส/พายุ) -->
-  <script>
-  (function(){
-    const $ = (s)=>document.querySelector(s);
-    const cam = ()=> $('#game-cam');
-    const chroma = ()=> $('#fx-chroma');
-    const beacon = ()=> $('#boss-beacon');
-    const storm = ()=> $('#atk-storm');
-
-    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-    function kickFX(intensity){
-      const el = cam(); if(!el) return;
-      const amp = clamp(10 * (Number(intensity)||1), 6, 24);
-      document.documentElement.style.setProperty('--kickAmp', amp.toFixed(1)+'px');
-      document.documentElement.style.setProperty('--kickRot', clamp(4*(Number(intensity)||1), 2.5, 9).toFixed(1)+'deg');
-      el.classList.remove('kick');
-      void el.offsetWidth;
-      el.classList.add('kick');
-      setTimeout(()=>{ try{ el.classList.remove('kick'); }catch(_){} }, 240);
+    function rumble(){
+      beep(180, 120, 'sawtooth', 1.2);
+      setTimeout(()=>beep(120, 160, 'triangle', 0.9), 40);
     }
 
-    function chromaFX(ms, hero){
-      const el = chroma(); if(!el) return;
-      el.classList.toggle('hero', !!hero);
-      el.classList.remove('show');
-      void el.offsetWidth;
-      el.classList.add('show');
-      setTimeout(()=>{ try{ el.classList.remove('show'); }catch(_){} }, Math.max(90, (ms|0)||180));
+    function tick(kind, intensity){
+      intensity = Math.max(0.2, Math.min(3, Number(intensity)||1));
+      if (kind === 'ring') beep(980 + 80*intensity, 35, 'triangle', 0.9);
+      else if (kind === 'laser-warn') beep(820 + 120*intensity, 30, 'square', 0.9);
+      else if (kind === 'final') beep(1040 + 90*intensity, 42, 'triangle', 1.1);
+      else beep(900, 28, 'triangle', 0.6);
     }
 
-    window.addEventListener('hha:fx', (e)=>{
+    window.addEventListener('hha:tick', (e)=>{
       const d = (e && e.detail) || {};
-      const type = String(d.type||'');
-      if (type === 'kick') kickFX(d.intensity || 1);
-      if (type === 'chroma') chromaFX(d.ms || 180, false);
-      if (type === 'hero') chromaFX(d.ms || 240, true);
-    });
-
-    window.addEventListener('hha:fever', (e)=>{
-      const d = (e && e.detail) || {};
-      const fever = clamp(d.fever, 0, 100);
-      const stun = !!d.stunActive;
-
-      // สั่นตาม FEVER% (โหดขึ้นตาม %)
-      const amp = (fever/100) * 6.7;
-      document.documentElement.style.setProperty('--shakeAmp', amp.toFixed(2)+'px');
-
-      const el = cam(); if(!el) return;
-      if (stun || fever >= 25) el.classList.add('shake');
-      else el.classList.remove('shake');
-
-      el.classList.toggle('stun-fire', stun);
-
-      // HUD stun pill
-      const pill = document.getElementById('hud-stun');
-      if (pill) pill.classList.toggle('show', stun);
-    });
-
-    window.addEventListener('hha:bossPulse', (e)=>{
-      const d = (e && e.detail) || {};
-      const el = beacon(); if(!el) return;
-      const x = Number(d.x), y = Number(d.y);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-
-      el.style.left = (x|0) + 'px';
-      el.style.top  = (y|0) + 'px';
-      el.classList.add('show');
-      setTimeout(()=>{ try{ el.classList.remove('show'); }catch(_){} }, Math.max(200, (d.ttlMs|0) || 1200));
+      tick(String(d.kind||'tick'), d.intensity||1);
     });
 
     window.addEventListener('hha:bossAtk', (e)=>{
       const d = (e && e.detail) || {};
       const name = String(d.name||'');
-      if (name === 'storm'){
-        const el = storm(); if(!el) return;
-        el.classList.add('show');
-        setTimeout(()=>{ try{ el.classList.remove('show'); }catch(_){} }, 1300);
-      }
       if (name === 'laser'){
-        // extra "panic" on warn
-        chromaFX(120, false);
-        kickFX(0.85);
+        tick('laser-warn', 1.4);
+        setTimeout(()=>tick('laser-warn', 1.8), 120);
+        setTimeout(()=>zap(), Math.max(120, (d.warnMs|0)||420));
+      }
+      if (name === 'ring'){
+        tick('ring', 1.2);
+      }
+      if (name === 'storm'){
+        rumble();
+      }
+    });
+
+    window.addEventListener('hha:storm', (e)=>{
+      const d = (e && e.detail) || {};
+      if (d.active) rumble();
+    });
+  })();
+  </script>
+
+  <!-- ===== Panic vignette listener ===== -->
+  <script>
+  (function(){
+    const vignette = document.getElementById('fx-vignette');
+    if (!vignette) return;
+
+    window.addEventListener('hha:panic', (e)=>{
+      const d = (e && e.detail) || {};
+      const lv = Math.max(0, Math.min(1, Number(d.level)||0));
+      vignette.style.opacity = (0.05 + (lv*lv)*0.45).toFixed(3);
+      if ((d.ms|0) > 0){
+        setTimeout(()=>{ vignette.style.opacity = '0'; }, Math.max(80, d.ms|0));
+      } else if (lv <= 0){
+        vignette.style.opacity = '0';
+      }
+    });
+  })();
+  </script>
+
+  <!-- ===== Drag-look DOM camera + FX binder (keeps aim sync) ===== -->
+  <script>
+  (function(){
+    const cam = document.getElementById('game-cam');
+    const layer = document.getElementById('gj-layer');
+    if (!cam || !layer) return;
+
+    let dragging = false;
+    let sx=0, sy=0;
+    let cx=0, cy=0;
+    let vx=0, vy=0;
+    let maxX=0, maxY=0;
+
+    function recalcClamp(){
+      const w = window.innerWidth, h = window.innerHeight;
+      maxX = Math.round(Math.min(240, w * 0.32));
+      maxY = Math.round(Math.min(200, h * 0.22));
+    }
+    recalcClamp();
+    window.addEventListener('resize', recalcClamp);
+
+    function clamp(v,a,b){ return v<a?a : (v>b?b : v); }
+
+    function applyCam(){
+      document.documentElement.style.setProperty('--camX', (vx|0)+'px');
+      document.documentElement.style.setProperty('--camY', (vy|0)+'px');
+
+      window.__GJ_AIM_POINT__ = {
+        x: (window.innerWidth*0.5 - vx)|0,
+        y: (window.innerHeight*0.62 - vy)|0
+      };
+    }
+    applyCam();
+
+    function shouldIgnoreDrag(e){
+      const t = e && e.target;
+      if (!t) return false;
+      if (t.closest && t.closest('.gj-target')) return true;  // ✅ don't drag when tapping target
+      if (t.closest && t.closest('.hud-root')) return true;   // ✅ don't drag HUD
+      return false;
+    }
+
+    function onDown(e){
+      if (shouldIgnoreDrag(e)) return;
+      dragging = true;
+      const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
+      sx = p.clientX; sy = p.clientY;
+      cx = vx; cy = vy;
+    }
+    function onMove(e){
+      if (!dragging) return;
+      const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
+      const dx = p.clientX - sx;
+      const dy = p.clientY - sy;
+
+      // drag-look
+      vx = clamp(cx - dx, -maxX, maxX);
+      vy = clamp(cy - dy, -maxY, maxY);
+
+      applyCam();
+      e.preventDefault?.();
+    }
+    function onUp(){ dragging = false; }
+
+    layer.addEventListener('pointerdown', onDown, { passive:true });
+    window.addEventListener('pointermove', onMove, { passive:false });
+    window.addEventListener('pointerup', onUp, { passive:true });
+
+    layer.addEventListener('touchstart', onDown, { passive:true });
+    window.addEventListener('touchmove', onMove, { passive:false });
+    window.addEventListener('touchend', onUp, { passive:true });
+
+    // ===== FX binder =====
+    const root = document.documentElement;
+
+    function setKick(intensity){
+      intensity = Math.max(0.6, Math.min(2.2, Number(intensity)||1));
+      root.style.setProperty('--kickAmp', (10*intensity).toFixed(1)+'px');
+      root.style.setProperty('--kickRot', (4*intensity).toFixed(1)+'deg');
+      cam.classList.remove('kick');
+      void cam.offsetWidth;
+      cam.classList.add('kick');
+      setTimeout(()=>cam.classList.remove('kick'), 240);
+    }
+
+    function setShakePx(px, dur){
+      root.style.setProperty('--shakeAmp', (px|0)+'px');
+      root.style.setProperty('--shakeDur', (dur||0.22)+'s');
+      if (px > 0) cam.classList.add('shake');
+      else cam.classList.remove('shake');
+    }
+
+    window.addEventListener('hha:fx', (e)=>{
+      const d = (e && e.detail) || {};
+      if (d.type === 'kick') setKick(d.intensity||1);
+
+      if (d.type === 'chroma' || d.type === 'hero'){
+        const el = document.getElementById('fx-chroma');
+        if (!el) return;
+        el.classList.toggle('hero', d.type === 'hero');
+        el.classList.add('show');
+        setTimeout(()=>el.classList.remove('show'), Math.max(80, d.ms|0 || (d.type==='hero' ? 220 : 180)));
+      }
+    });
+
+    window.addEventListener('hha:fever', (e)=>{
+      const d = (e && e.detail) || {};
+      const f = Math.max(0, Math.min(100, Number(d.fever)||0));
+      const stun = !!d.stunActive;
+
+      const base = (f < 35) ? 0 : (f < 70) ? 3 : (f < 90) ? 5 : 7;
+      const stunBoost = stun ? 3 : 0;
+      setShakePx(base + stunBoost, 0.22);
+
+      cam.classList.toggle('stun-fire', stun);
+    });
+
+    window.addEventListener('hha:storm', (e)=>{
+      const d = (e && e.detail) || {};
+      if (d.active){
+        setShakePx(8, 0.18);
+      } else {
+        applyCam();
       }
     });
   })();
