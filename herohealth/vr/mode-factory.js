@@ -10,13 +10,7 @@
 // ✅ trick/fake targets (itemType='fakeGood')
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
-// ✅ A2+++: center-biased + ring8 spawn order (ไม่วนมุมเดิม) + anti-repeat + screen-anchored via boundsHost
-//
-// PATCH (A3):
-// ✅ AUTO exclude ครอบ #hudTop/#hudLeft/#hudRight/#hudBottom และ .hud-top/.hud-left/.hud-right/.hud-bottom
-// ✅ FIX: computeExclusionMargins right ใช้ hx2 (แกน X) แทน hy2
-// ✅ SAFETY: ถ้า spawnHost z-index ต่ำกว่า HUD -> fallback ไป overlay host เพื่อให้ “เป้าอยู่บน HUD เสมอ” และ “ตีได้แน่นอน”
-// ✅ Target zIndex สูงขึ้นเพื่อกัน stacking context แปลก ๆ
+// ✅ FIX: HUD แนวนอนเต็มจอ “ไม่กิน margin ซ้าย/ขวา” อีกต่อไป (กันเป้าหาย/จอดำ)
 
 'use strict';
 
@@ -47,18 +41,6 @@ function getEventXY (ev) {
     y = ev.changedTouches[0].clientY;
   }
   return { x: x || 0, y: y || 0 };
-}
-
-// strong center bias
-function biasedRand () {
-  return (Math.random() + Math.random() + Math.random() + Math.random() + Math.random()) / 5;
-}
-function shuffle (arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
 }
 
 // ---------- Base difficulty ----------
@@ -107,13 +89,12 @@ function ensureOverlayStyle () {
       z-index:9998;
       pointer-events:none;
     }
-    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
-    .hvr-target{
+    .hvr-overlay-host .hvr-target{
       pointer-events:auto;
-      user-select:none;
-      -webkit-user-select:none;
     }
-    .hvr-target.hvr-pulse{ animation:hvrPulse .55s ease-in-out infinite; }
+    .hvr-target.hvr-pulse{
+      animation:hvrPulse .55s ease-in-out infinite;
+    }
     @keyframes hvrPulse{
       0%{ transform:translate(-50%,-50%) scale(1); }
       50%{ transform:translate(-50%,-50%) scale(1.08); }
@@ -151,48 +132,18 @@ function ensureOverlayHost () {
 // ======================================================
 //  Host resolver
 // ======================================================
-function _getZIndex(el){
-  try{
-    const z = (ROOT.getComputedStyle(el).zIndex || '').trim();
-    if (!z || z === 'auto') return 0;
-    const n = parseInt(z, 10);
-    return Number.isFinite(n) ? n : 0;
-  }catch{ return 0; }
-}
-
 function resolveHost (rawCfg, keyName = 'spawnHost') {
   if (!DOC) return null;
 
   const h = rawCfg && rawCfg[keyName];
-  let el = null;
-
   if (h && typeof h === 'string') {
-    try{ el = DOC.querySelector(h); }catch{ el = null; }
-  } else if (h && h.nodeType === 1) {
-    el = h;
-  } else {
-    const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
-    if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) el = spawnLayer;
+    const el = DOC.querySelector(h);
+    if (el) return el;
   }
+  if (h && h.nodeType === 1) return h;
 
-  // --- PATCH: ถ้า spawnHost ถูกกำหนดมา แต่ z-index ต่ำกว่า HUD (เช่น 0/auto หรือ < 850) ---
-  // กันเคส “เป้าอยู่ใต้ HUD” -> ตีไม่ได้
-  if (keyName === 'spawnHost' && el) {
-    const z = _getZIndex(el);
-
-    // หากมี HUD อยู่ (ตามแพทเทิร์นของคุณ) และ spawnHost ต่ำมาก -> ใช้ overlay host แทน
-    const hasHud =
-      !!DOC.getElementById('hudTop') ||
-      !!DOC.querySelector('.hud-top,.hud-left,.hud-right,.hud-bottom,.hud');
-
-    if (hasHud && z < 850) {
-      return ensureOverlayHost();
-    }
-    return el;
-  }
-
-  // boundsHost ปล่อยตามที่ตั้งไว้ (เพราะใช้คำนวณ safezone / crosshair)
-  if (el) return el;
+  const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
+  if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
 
   return ensureOverlayHost();
 }
@@ -213,21 +164,27 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
 
-  // --- PATCH: AUTO ครอบ HUD ที่คุณใช้จริง + ของเดิม ---
   const AUTO = [
-    '.hud',
-    '.hud-top','.hud-left','.hud-right','.hud-bottom',
-    '#hudTop','#hudLeft','#hudRight','#hudBottom',
-    '#hvr-crosshair','.hvr-crosshair',
-    '#hvr-end','.hvr-end',
-    '#resultBackdrop','#resultCard',
-    '.hha-fx-layer'
+    '#hha-water-header',
+    '.hha-water-bar',
+    '.hha-main-row',
+    '#hha-card-left',
+    '#hha-card-right',
+    '.hha-bottom-row',
+    '.hha-fever-card',
+    '#hvr-crosshair',
+    '.hvr-crosshair',
+    '#hvr-end',
+    '.hvr-end',
+    '.hud'
   ];
   AUTO.forEach(s=>{
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
   });
 
-  try{ DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el)); }catch{}
+  try{
+    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
+  }catch{}
 
   const uniq = [];
   const seen = new Set();
@@ -240,12 +197,21 @@ function collectExclusionElements(rawCfg){
   return uniq;
 }
 
+/**
+ * FIX สำคัญ:
+ * - element แนวนอนเต็มจอ (เช่น HUD) ควรกันเฉพาะ TOP/BOTTOM
+ * - กัน LEFT/RIGHT เฉพาะ element ที่เป็น “แถบข้าง” จริง ๆ (สูงพอ และไม่กว้างเกือบเต็มจอ)
+ */
 function computeExclusionMargins(hostRect, exEls){
   const m = { top:0, bottom:0, left:0, right:0 };
   if (!hostRect || !exEls || !exEls.length) return m;
 
   const hx1 = hostRect.left, hy1 = hostRect.top;
   const hx2 = hostRect.right, hy2 = hostRect.bottom;
+  const HW  = Math.max(1, hostRect.width);
+  const HH  = Math.max(1, hostRect.height);
+
+  const edgeBand = 84; // px
 
   exEls.forEach(el=>{
     let r = null;
@@ -258,23 +224,42 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    // ขยายขอบกันชนเล็กน้อย (HUD หนา ๆ)
-    const PAD = 10;
+    const ow = (ox2 - ox1);
+    const oh = (oy2 - oy1);
 
-    if (r.top < hy1 + 140 && r.bottom > hy1) {
-      m.top = Math.max(m.top, clamp((r.bottom - hy1) + PAD, 0, hostRect.height));
+    const wRatio = ow / HW; // 0..1
+    const hRatio = oh / HH; // 0..1
+
+    const isWideHudLike = (wRatio >= 0.72 && hRatio <= 0.42);     // กว้างมาก แต่สูงไม่มาก
+    const isSideBarLike = (hRatio >= 0.40 && wRatio <= 0.55);     // สูงมาก แต่ไม่กว้างมาก
+
+    // TOP band
+    if (r.top < hy1 + edgeBand && r.bottom > hy1) {
+      // กัน TOP ถ้าเป็น HUD หรืออะไรก็ได้ที่ชนขอบบน
+      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, HH));
     }
-    if (r.bottom > hy2 - 140 && r.top < hy2) {
-      m.bottom = Math.max(m.bottom, clamp((hy2 - r.top) + PAD, 0, hostRect.height));
+
+    // BOTTOM band
+    if (r.bottom > hy2 - edgeBand && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, HH));
     }
-    if (r.left < hx1 + 140 && r.right > hx1) {
-      m.left = Math.max(m.left, clamp((r.right - hx1) + PAD, 0, hostRect.width));
+
+    // LEFT band (กันเฉพาะ sidebar-like จริง ๆ)
+    if (!isWideHudLike && isSideBarLike && r.left < hx1 + edgeBand && r.right > hx1) {
+      m.left = Math.max(m.left, clamp(r.right - hx1, 0, HW));
     }
-    if (r.right > hx2 - 140 && r.left < hx2) {
-      // ✅ FIX: ต้องใช้ hx2 (แกน X) ไม่ใช่ hy2
-      m.right = Math.max(m.right, clamp((hx2 - r.left) + PAD, 0, hostRect.width));
+
+    // RIGHT band (กันเฉพาะ sidebar-like จริง ๆ)
+    if (!isWideHudLike && isSideBarLike && r.right > hx2 - edgeBand && r.left < hx2) {
+      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, HW));
     }
   });
+
+  // กัน margin พังจนไม่มีพื้นที่ spawn
+  m.left   = clamp(m.left,   0, HW * 0.40);
+  m.right  = clamp(m.right,  0, HW * 0.40);
+  m.top    = clamp(m.top,    0, HH * 0.55);
+  m.bottom = clamp(m.bottom, 0, HH * 0.55);
 
   return m;
 }
@@ -286,8 +271,9 @@ function computePlayRectFromHost (hostEl, exState) {
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
-  const basePadX   = w * 0.10;
-  const basePadTop = h * 0.12;
+  // ✅ ลด padding ซ้าย/ขวา + ทำพื้นที่ usable กลางจอมากขึ้น
+  const basePadX   = w * 0.08;
+  const basePadTop = h * 0.10;
   const basePadBot = h * 0.12;
 
   const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
@@ -324,13 +310,7 @@ export async function boot (rawCfg = {}) {
     excludeSelectors = null,
 
     boundsHost = null,
-    decorateTarget = null,
-
-    // spawn controls
-    spawnBias = 'default',       // 'default' | 'A2++'
-    spawnPattern = null,         // null | 'ring8'
-    antiRepeat = true,
-    antiRepeatN = 4
+    decorateTarget = null
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -425,6 +405,7 @@ export async function boot (rawCfg = {}) {
     try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
   }
 
+  // ✅ Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -434,6 +415,7 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
+  // ✅ life getter
   function getLifeMs(){
     const mul = getSpawnMul();
     const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
@@ -508,7 +490,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Exclusions cache
+  //  Exclusions cache (computed from boundsHost)
   // ======================================================
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
@@ -530,156 +512,27 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  A2+++ anti-repeat + pattern ring8
+  //  Spawn target inside hostSpawn using bounds from hostBounds
   // ======================================================
-  const biasKey = String(spawnBias || 'default').toLowerCase();
-  const useA2pp = (biasKey === 'a2++' || biasKey === 'a2pp' || biasKey === 'center' || biasKey === 'a2+++');
-  const useAntiRepeat = !!antiRepeat;
-
-  let lastSpawnQueue = []; // {xAbs,yAbs} in viewport coords
-  function distToQueue(x, y){
-    if (!lastSpawnQueue || !lastSpawnQueue.length) return 999999;
-    let dMin = 999999;
-    for (const p of lastSpawnQueue){
-      const dx = x - p.xAbs, dy = y - p.yAbs;
-      const d = Math.hypot(dx, dy);
-      if (d < dMin) dMin = d;
-    }
-    return dMin;
+  function centerBiasedRand(){
+    // ค่าเฉลี่ยอยู่กลางมากกว่า (triangular)
+    return (Math.random() + Math.random()) * 0.5;
   }
 
-  const pat = String(spawnPattern || '').toLowerCase();
-  let ringAngles = null;
-  let ringIdx = 0;
-
-  if (pat === 'ring8') {
-    ringAngles = shuffle([0,45,90,135,180,225,270,315]).map(d => d * Math.PI/180);
-    ringIdx = 0;
-  }
-
-  function ring8Candidate(rect, absLeft, absTop){
-    const cx = absLeft + rect.width * 0.50;
-    const cy = absTop  + rect.height * 0.52;
-
-    const a = ringAngles[ringIdx++ % ringAngles.length];
-    const jitter = (Math.random() - 0.5) * 0.22;
-    const ang = a + jitter;
-
-    const minSide = Math.min(rect.width, rect.height);
-
-    // radius by diff/adapt: easy ใกล้กลาง, hard กระจายขึ้น
-    let rMin = 0.14, rMax = 0.30;
-    if (diffKey === 'easy')   { rMin = 0.12; rMax = 0.24; }
-    if (diffKey === 'normal') { rMin = 0.14; rMax = 0.30; }
-    if (diffKey === 'hard')   { rMin = 0.18; rMax = 0.36; }
-
-    const aLv = clamp(adaptLevel, -1, 3);
-    const extra = (aLv >= 0) ? (aLv * 0.02) : (aLv * 0.01);
-    rMin = clamp(rMin + extra, 0.10, 0.28);
-    rMax = clamp(rMax + extra, 0.18, 0.46);
-
-    const rr = minSide * (rMin + (rMax - rMin) * (useA2pp ? biasedRand() : Math.random()));
-
-    // aspect compensate
-    const xAbs = cx + Math.cos(ang) * rr;
-    const yAbs = cy + Math.sin(ang) * rr * 0.85;
-
-    return { xAbs, yAbs };
-  }
-
-  function clampIntoRect(xAbs, yAbs, rect, absLeft, absTop){
-    const x1 = absLeft + rect.left;
-    const y1 = absTop  + rect.top;
-    const x2 = absLeft + rect.left + rect.width;
-    const y2 = absTop  + rect.top  + rect.height;
-    return {
-      xAbs: clamp(xAbs, x1 + 6, x2 - 6),
-      yAbs: clamp(yAbs, y1 + 6, y2 - 6)
-    };
-  }
-
-  // ======================================================
-  //  Spawn (screen-anchored to boundsHost)
-  // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
     refreshExclusions();
 
     const rect = computePlayRectFromHost(hostBounds, exState);
-    const boundsRect = rect.hostRect || { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
 
-    const absLeft = (boundsRect.left || 0);
-    const absTop  = (boundsRect.top  || 0);
+    // ✅ กระจาย แต่ bias ไปกลางจอ (แก้ “อยู่ที่เดิม/ติดมุม”)
+    const rx = centerBiasedRand();
+    const ry = centerBiasedRand();
 
-    const spawnRect = (function(){ try{ return hostSpawn.getBoundingClientRect(); }catch{ return null; } })()
-      || { left:0, top:0 };
+    const xLocal = rect.left + rect.width  * (0.14 + rx * 0.72);
+    const yLocal = rect.top  + rect.height * (0.16 + ry * 0.70);
 
-    const MIN_DIST = Math.max(96, Math.min(rect.width, rect.height) * (useA2pp ? 0.24 : 0.20));
-    const TRIES = (pat === 'ring8') ? 10 : (useA2pp ? 9 : 6);
-
-    // --- candidate generator ---
-    function candidate(){
-      if (pat === 'ring8' && ringAngles) {
-        const c = ring8Candidate(rect, absLeft + rect.left, absTop + rect.top);
-        return clampIntoRect(c.xAbs, c.yAbs, rect, absLeft, absTop);
-      }
-
-      // fallback A2++ center bias (but not dead center)
-      let X_MIN=0.15, X_SPAN=0.70, Y_MIN=0.10, Y_SPAN=0.80;
-
-      if (useA2pp) {
-        if (diffKey === 'easy')   { X_MIN=0.22; X_SPAN=0.56; Y_MIN=0.16; Y_SPAN=0.64; }
-        else if (diffKey === 'hard'){ X_MIN=0.30; X_SPAN=0.40; Y_MIN=0.24; Y_SPAN=0.52; }
-        else { X_MIN=0.26; X_SPAN=0.48; Y_MIN=0.20; Y_SPAN=0.58; }
-
-        const aLv = clamp(adaptLevel, -1, 3);
-        const tighten = (aLv >= 0) ? (aLv * 0.018) : (aLv * 0.010);
-        const spanT   = (aLv >= 0) ? (aLv * 0.040) : (aLv * 0.018);
-
-        X_MIN = clamp(X_MIN + tighten, 0.10, 0.42);
-        Y_MIN = clamp(Y_MIN + tighten, 0.08, 0.46);
-        X_SPAN = clamp(X_SPAN - spanT, 0.30, 0.78);
-        Y_SPAN = clamp(Y_SPAN - spanT, 0.34, 0.82);
-      }
-
-      const rx = useA2pp ? biasedRand() : Math.random();
-      const ry = useA2pp ? biasedRand() : Math.random();
-
-      const xAbs = absLeft + rect.left + rect.width  * (X_MIN + rx * X_SPAN);
-      const yAbs = absTop  + rect.top  + rect.height * (Y_MIN + ry * Y_SPAN);
-
-      return { xAbs, yAbs };
-    }
-
-    // --- pick best candidate (anti-repeat) ---
-    let best = null;
-    let bestD = -1;
-
-    for (let k=0;k<TRIES;k++){
-      const c = candidate();
-      const dMin = useAntiRepeat ? distToQueue(c.xAbs, c.yAbs) : 999999;
-
-      if (!useAntiRepeat || dMin >= MIN_DIST){
-        best = c; bestD = dMin; break;
-      }
-      if (dMin > bestD){ bestD = dMin; best = c; }
-    }
-
-    if (!best) {
-      best = { xAbs: absLeft + rect.left + rect.width*0.5, yAbs: absTop + rect.top + rect.height*0.52 };
-    }
-
-    if (useAntiRepeat) {
-      lastSpawnQueue.push({ xAbs: best.xAbs, yAbs: best.yAbs });
-      const cap = clamp(antiRepeatN, 2, 10);
-      while (lastSpawnQueue.length > cap) lastSpawnQueue.shift();
-    }
-
-    const xLocal = best.xAbs - (spawnRect.left || 0);
-    const yLocal = best.yAbs - (spawnRect.top  || 0);
-
-    // ---- choose item ----
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
     const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
@@ -716,7 +569,6 @@ export async function boot (rawCfg = {}) {
     }
     spawnCounter++;
 
-    // ---- build DOM ----
     const el = DOC.createElement('div');
     el.className = 'hvr-target';
     el.setAttribute('data-hha-tgt', '1');
@@ -732,7 +584,7 @@ export async function boot (rawCfg = {}) {
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     el.style.touchAction = 'manipulation';
-    el.style.zIndex = '9999'; // ✅ PATCH: ให้ชัวร์ว่าอยู่บน HUD
+    el.style.zIndex = '35';
     el.style.borderRadius = '999px';
 
     const wiggle = DOC.createElement('div');
@@ -814,13 +666,26 @@ export async function boot (rawCfg = {}) {
 
     const lifeMs = getLifeMs();
 
-    const data = { el, ch, isGood, isPower, itemType, bornAt: (performance?.now?.() ?? Date.now()), life: lifeMs, _hit: null };
+    const data = {
+      el,
+      ch,
+      isGood,
+      isPower,
+      itemType,
+      bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+      life: lifeMs,
+      _hit: null
+    };
 
     try{
       if (typeof decorateTarget === 'function'){
         decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
-          size, modeKey, difficulty: diffKey,
-          spawnMul: getSpawnMul(), curScale, adaptLevel
+          size,
+          modeKey,
+          difficulty: diffKey,
+          spawnMul: getSpawnMul(),
+          curScale,
+          adaptLevel
         });
       }
     }catch(err){
@@ -862,7 +727,8 @@ export async function boot (rawCfg = {}) {
 
         const ctx = {
           clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
-          isGood, isPower, itemType,
+          isGood, isPower,
+          itemType,
           hitPerfect: !!info.perfect,
           hitDistNorm: Number(info.norm || 1),
           targetRect: info.rect
@@ -912,7 +778,7 @@ export async function boot (rawCfg = {}) {
     }, lifeMs);
   }
 
-  // ---------- clock ----------
+  // ---------- clock (hha:time) ----------
   function dispatchTime (sec) {
     try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
@@ -942,6 +808,11 @@ export async function boot (rawCfg = {}) {
 
       const mul = getSpawnMul();
       const effInterval = Math.max(35, curInterval * mul);
+
+      try{
+        if (mul < 0.99) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
+        else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
+      }catch{}
 
       if (rhythmOn && beatMs > 0) {
         if (!lastBeatTs) lastBeatTs = ts;
