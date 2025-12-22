@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/quest-defs-goodjunk.js ===
-// Step D: Final Sprint harder (แบบ 2)
-// Expect qState: score, goodHits, miss, comboMax, timeLeft, streakGood, goldHitsThisMini,
-// blocks, usedMagnet, timePlus, safeNoJunkSeconds, bossCleared, challenge, runMode, final8Good
+// Expect qState: score, goodHits, miss/misses, comboMax, timeLeft,
+// streakGood, goldHitsThisMini, blocks, usedMagnet, timePlus,
+// safeNoJunkSeconds, stunBreaks, bossCleared, challenge, runMode, final8Good
 
 'use strict';
 
@@ -27,7 +27,7 @@ export const GOODJUNK_GOALS = [
     label:'พลาดไม่เกิน 4 ครั้ง 🛡️',
     hint:'หลบ junk/fake ให้ดี',
     targetByDiff:{ easy:5, normal:4, hard:3 },
-    eval:(s)=> (s.miss|0),
+    eval:(s)=> (s.miss|0),      // ✅ we will provide miss + misses
     pass:(v,tgt)=> v<=tgt
   },
   {
@@ -63,6 +63,7 @@ export const GOODJUNK_MINIS = [
     label:'No-Junk Zone: 10 วิห้ามโดนของเสีย 🚫',
     hint:'โดน junk/fake = รีเซ็ต (ปล่อยของดีหมดอายุไม่เป็นไร)',
     targetByDiff:{ easy:8, normal:10, hard:12 },
+    timer:true, // ✅ HUD จะโชว์เป็นเวลาที่เหลือชัด ๆ
     eval:(s)=> (s.safeNoJunkSeconds|0),
     pass:(v,tgt)=> v>=tgt
   },
@@ -84,7 +85,7 @@ export const GOODJUNK_MINIS = [
   },
   {
     id:'m6',
-    label:'Time Dealer: ใช้ ⏱️ เพิ่มเวลา 1 ครั้ง',
+    label:'Time Dealer: ใช้ ⏳ เพิ่มเวลา 1 ครั้ง',
     hint:'ช่วยชีวิตได้!',
     targetByDiff:{ easy:1, normal:1, hard:1 },
     eval:(s)=> (s.timePlus|0),
@@ -100,8 +101,6 @@ export const GOODJUNK_MINIS = [
     pass:(v)=> v>=1,
     onlyChallenge:['boss']
   },
-
-  // ✅ Step D: Final Sprint (แบบ 2) — โหดขึ้น
   {
     id:'m8',
     label:'Final Sprint (PRO): 8 วิสุดท้าย เก็บดีให้ได้ 12 🏁',
