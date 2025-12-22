@@ -1,20 +1,18 @@
 // === /herohealth/plate/plate.safe.js ===
-// HeroHealth — Balanced Plate VR (ULTIMATE) — "GoodJunk-style Everything"
-// ✅ FIX-HIT: layer pointer-events auto + robust pointerdown/click/touchstart
-// ✅ Tap-anywhere shoots crosshair (aim assist)
-// ✅ Goals(2) + Minis(7)
-// ✅ Fever + Shield (gain at 100% fever; blocks BAD/BOSS without MISS/heart loss)
-// ✅ Boss multi-phase + attacks (ring/laser/double) + telegraph
-// ✅ Storm mode (true spawn rate up) + FX
-// ✅ Slow-time powerup + FX
-// ✅ No-Junk Zone powerup + FX (green ring)
-// ✅ FakeGood / Trick targets (diff-scaled)
-// ✅ Lives/Hearts (gameover early when 0)
-// ✅ Perfect Ring Assist (center-aim feedback)
-// ✅ Coach bubble (injected; doesn't overlap HUD)
-// ✅ Cloud logger (IIFE): emits hha:log_session, hha:log_event
+// HeroHealth — Balanced Plate VR (ALL-IN / ULTIMATE / GoodJunk-style)
+// ✅ เล่นได้ก่อน 100%: FIX เป้าใหญ่เต็มจอ / FIX ตีไม่โดน / FIX pointer-events
+// ✅ DOM emoji targets + Safezone (กันทับ HUD รอบด้าน)
+// ✅ Tap-anywhere ยิงกลางจอ + Aim assist (เล็งใกล้ crosshair)
+// ✅ Perfect ring assist + PERFECT/HIT judge
+// ✅ Fever + Shield (shield block: ไม่เพิ่ม MISS/ไม่ลดหัวใจ)
+// ✅ Hearts/Lives (หมด = จบก่อนเวลา)
+// ✅ Goals(2) + Minis(7) (Plate Rush + urgent tick/flash/shake)
+// ✅ Boss multi-phase + Attack overlays (ring/laser/double) + telegraph
+// ✅ Powerups: Slow / No-Junk Zone / Storm (spawn ถี่ขึ้นจริง)
+// ✅ Coach bubble (ไม่ทับ HUD) + เสียง/สั่น + FX hooks (Particles)
+// ✅ Logger: dispatch hha:log_session / hha:log_event (IIFE cloud logger)
 //
-// HTML expects (defer): ./vr/particles.js, ./vr/hha-compat-input.js, ./vr/hha-cloud-logger.js, A-Frame
+// HTML expects defer: ./vr/particles.js, ./vr/hha-compat-input.js, ./vr/hha-cloud-logger.js, A-Frame
 // Module: <script type="module" src="./plate/plate.safe.js"></script>
 
 'use strict';
@@ -30,16 +28,20 @@ const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal
 const TOTAL_TIME = Math.max(20, parseInt(Q.get('time') || '80', 10) || 80);
 const DEBUG = (Q.get('debug') === '1');
 
-// Optional params
 const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
 const LIVES_START = Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0 ? LIVES_PARAM : 3;
 
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, celebrate(){}, judgeText(){} };
+  {
+    scorePop(){},
+    burstAt(){},
+    celebrate(){},
+    judgeText(){},
+  };
 
-// ---------- Small utils ----------
+// ---------- Utils ----------
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const rnd = (a,b)=>a+Math.random()*(b-a);
 const now = ()=>performance.now();
@@ -49,7 +51,7 @@ function setTxt(el, t){ if(el) el.textContent = String(t); }
 function setShow(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
 function intersect(a,b){ return !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y); }
 
-// ---------- HUD elements ----------
+// ---------- HUD ----------
 const HUD = {
   time: $('hudTime'),
   score: $('hudScore'),
@@ -71,6 +73,7 @@ const HUD = {
   btnRestart: $('btnRestart'),
   resultBackdrop: $('resultBackdrop'),
   btnPlayAgain: $('btnPlayAgain'),
+
   rMode: $('rMode'),
   rGrade: $('rGrade'),
   rScore: $('rScore'),
@@ -97,7 +100,7 @@ const DIFF_TABLE = {
     size: 92, life: 3200, spawnMs: 900,
     junkRate: 0.18, goldRate: 0.10, trapRate: 0.045, bossRate: 0.020,
     fakeRate: 0.020, slowRate: 0.045, noJunkRate: 0.020, stormRate: 0.020,
-    aimAssist: 150,
+    aimAssist: 160,
     bossHP: 3, bossAtkMs:[2600, 3400], bossPhase2At: 0.45, bossPhase3At: 0.22,
     stormDurMs:[4200, 6500], slowDurMs:[3200, 5200], noJunkDurMs:[4200, 6200],
   },
@@ -105,7 +108,7 @@ const DIFF_TABLE = {
     size: 78, life: 2700, spawnMs: 780,
     junkRate: 0.24, goldRate: 0.12, trapRate: 0.070, bossRate: 0.028,
     fakeRate: 0.040, slowRate: 0.055, noJunkRate: 0.028, stormRate: 0.030,
-    aimAssist: 125,
+    aimAssist: 135,
     bossHP: 4, bossAtkMs:[2200, 3000], bossPhase2At: 0.50, bossPhase3At: 0.25,
     stormDurMs:[4200, 7200], slowDurMs:[3200, 5600], noJunkDurMs:[4200, 6800],
   },
@@ -113,7 +116,7 @@ const DIFF_TABLE = {
     size: 66, life: 2300, spawnMs: 660,
     junkRate: 0.30, goldRate: 0.14, trapRate: 0.095, bossRate: 0.036,
     fakeRate: 0.070, slowRate: 0.060, noJunkRate: 0.026, stormRate: 0.040,
-    aimAssist: 112,
+    aimAssist: 125,
     bossHP: 5, bossAtkMs:[1850, 2650], bossPhase2At: 0.55, bossPhase3At: 0.28,
     stormDurMs:[4800, 8200], slowDurMs:[3200, 5800], noJunkDurMs:[4200, 7200],
   },
@@ -168,27 +171,30 @@ const S = {
   bossNextAt: 0,
   bossActive: false,
 
-  // powerups / modes
   stormUntil: 0,
   slowUntil: 0,
   noJunkUntil: 0,
 
   lowTimeLastSec: null,
 
-  // perfect ring assist
   perfectZoneOn: false,
 
   sessionId: `PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
 };
 
-// ---------- Inject CSS ----------
+// ---------- VR helpers ----------
+function inVR(){
+  try { return !!(scene && scene.is && scene.is('vr-mode')); } catch(_) { return false; }
+}
+
+// ---------- Inject CSS (FIX: var(--x) / var(--y) ใช้ px ตรง ๆ ไม่คูณ 1px) ----------
 (function injectCss(){
   const st = doc.createElement('style');
   st.textContent = `
   .plate-layer{
     position:fixed; inset:0;
     z-index:400;
-    pointer-events:auto; /* FIX-HIT */
+    pointer-events:auto;
     touch-action:none;
     transform:translate3d(0,0,0);
     will-change:transform;
@@ -198,7 +204,7 @@ const S = {
     width:var(--sz,80px);
     height:var(--sz,80px);
     left:0; top:0;
-    transform:translate3d(calc(var(--x)*1px), calc(var(--y)*1px), 0) scale(var(--sc,1));
+    transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1));
     transform-origin:center;
     border-radius:999px;
     pointer-events:auto;
@@ -291,9 +297,9 @@ const S = {
   }
 
   @keyframes popIn{
-    0%{ transform:translate3d(calc(var(--x)*1px), calc(var(--y)*1px), 0) scale(0.55); opacity:0; }
-    70%{ transform:translate3d(calc(var(--x)*1px), calc(var(--y)*1px), 0) scale(calc(var(--sc,1) * 1.08)); opacity:1; }
-    100%{ transform:translate3d(calc(var(--x)*1px), calc(var(--y)*1px), 0) scale(var(--sc,1)); opacity:1; }
+    0%{ transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(0.55); opacity:0; }
+    70%{ transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(calc(var(--sc,1) * 1.08)); opacity:1; }
+    100%{ transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1)); opacity:1; }
   }
   .plateTarget.spawn{ animation: popIn 220ms ease-out both; }
 
@@ -338,7 +344,6 @@ const S = {
   }
   body.hha-screen-shake{ animation: screenShake 260ms ease-in-out 1; }
 
-  /* Boss attack overlays */
   .hha-atk-ring{
     position:fixed; left:50%; top:50%;
     width:18px; height:18px;
@@ -381,7 +386,6 @@ const S = {
   }
   .hha-atk-laser.on{ animation: atkLaser 320ms ease-out both; }
 
-  /* Power overlays */
   .hha-power{
     position:fixed; left:50%; top:50%;
     width:22px; height:22px;
@@ -404,7 +408,6 @@ const S = {
   }
   .hha-power.pulse{ animation: powerPulse 520ms ease-in-out infinite; }
 
-  /* low time pulse */
   @keyframes lowTimePulse{
     0%{ filter:brightness(1); }
     50%{ filter:brightness(1.10); }
@@ -412,7 +415,6 @@ const S = {
   }
   body.hha-lowtime #hudTop{ animation: lowTimePulse 420ms linear infinite; }
 
-  /* perfect ring assist */
   .hha-perfect-zone{
     position:fixed; left:50%; top:50%;
     transform:translate(-50%,-50%);
@@ -429,7 +431,6 @@ const S = {
   }
   .hha-perfect-zone.on{ opacity:1; }
 
-  /* coach bubble */
   .hha-coach{
     position:fixed;
     left:12px;
@@ -454,12 +455,11 @@ const S = {
   doc.head.appendChild(st);
 })();
 
-// Damage flash overlay
+// ---------- Overlays ----------
 const dmgFlash = doc.createElement('div');
 dmgFlash.className = 'hha-dmg-flash';
 doc.body.appendChild(dmgFlash);
 
-// Attack overlays
 const atkRing = doc.createElement('div');
 atkRing.className = 'hha-atk-ring';
 doc.body.appendChild(atkRing);
@@ -468,7 +468,6 @@ const atkLaser = doc.createElement('div');
 atkLaser.className = 'hha-atk-laser';
 doc.body.appendChild(atkLaser);
 
-// Power overlays
 const powGreen = doc.createElement('div');
 powGreen.className = 'hha-power green pulse';
 doc.body.appendChild(powGreen);
@@ -481,19 +480,17 @@ const powOrange = doc.createElement('div');
 powOrange.className = 'hha-power orange pulse';
 doc.body.appendChild(powOrange);
 
-// Perfect ring text
 const perfectZone = doc.createElement('div');
 perfectZone.className = 'hha-perfect-zone';
 perfectZone.textContent = '🎯 PERFECT ZONE';
 doc.body.appendChild(perfectZone);
 
-// Coach bubble
 const coach = doc.createElement('div');
 coach.className = 'hha-coach';
 coach.innerHTML = `<div class="t">🥦 Coach</div><div class="s">พร้อมลุย!</div>`;
 doc.body.appendChild(coach);
 
-// ---------- Create target layer ----------
+// ---------- Layer ----------
 const layer = doc.createElement('div');
 layer.className = 'plate-layer';
 doc.body.appendChild(layer);
@@ -519,7 +516,7 @@ function showCoach(title, sub, ms=1200){
 }
 showCoach._t = 0;
 
-// ---------- Audio (WebAudio) ----------
+// ---------- Audio ----------
 const AudioX = (function(){
   let ctx = null;
   function ensure(){
@@ -558,13 +555,15 @@ const AudioX = (function(){
   return { ensure, unlock, tick, warn, good, perfect, bad, bossHit, bossDown, atk, shield, power };
 })();
 
-// ---------- View offset (GoodJunk-like) ----------
+// ---------- Camera -> view offset (GoodJunk style on mobile; in VR = 0) ----------
 function getCamAngles(){
   const r = cam && cam.object3D ? cam.object3D.rotation : null;
   if (!r) return { yaw:0, pitch:0 };
   return { yaw: r.y || 0, pitch: r.x || 0 };
 }
 function viewOffset(){
+  if (inVR()) return { x:0, y:0 };
+
   const { yaw, pitch } = getCamAngles();
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const pxPerRadX = clamp(vw * 0.55, 180, 720);
@@ -578,7 +577,7 @@ function applyLayerTransform(){
   layer.style.transform = `translate3d(${off.x}px, ${off.y}px, 0)`;
 }
 
-// ---------- Blocked HUD rects (safezone) ----------
+// ---------- Safezone (avoid HUD) ----------
 function getBlockedRects(){
   const rects = [];
   const ids = ['hudTop','hudLeft','hudRight','hudBottom'];
@@ -588,14 +587,16 @@ function getBlockedRects(){
     const r = el.getBoundingClientRect();
     if (r.width > 10 && r.height > 10) rects.push({ x:r.left, y:r.top, w:r.width, h:r.height });
   }
-  return rects.map(b => ({ x:b.x-8, y:b.y-8, w:b.w+16, h:b.h+16 }));
+  return rects.map(b => ({ x:b.x-10, y:b.y-10, w:b.w+20, h:b.h+20 }));
 }
 function pickSafeXY(sizePx){
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const m = 14;
   const half = sizePx * 0.5;
   const blocked = getBlockedRects();
-  const tries = 54;
+  const tries = 70;
+
+  // when in VR, simpler (HUD not relevant)
   const off = viewOffset();
 
   for (let i=0;i<tries;i++){
@@ -609,7 +610,7 @@ function pickSafeXY(sizePx){
     }
     if (!ok) continue;
 
-    return { x: sx - off.x, y: sy - off.y };
+    return { x: (sx - off.x), y: (sy - off.y) };
   }
   return { x: vw*0.55 - off.x, y: vh*0.55 - off.y };
 }
@@ -631,6 +632,15 @@ let hudShieldVal = null;
 let hudLivesVal = null;
 let hudPowerVal = null;
 
+function powerLabel(){
+  const t = now();
+  const labels = [];
+  if (t < S.noJunkUntil) labels.push('NO-JUNK');
+  if (t < S.slowUntil) labels.push('SLOW');
+  if (t < S.stormUntil) labels.push('STORM');
+  return labels.length ? labels.join(' + ') : '—';
+}
+
 function ensurePills(){
   const top = doc.getElementById('hudTop');
   if (!top) return;
@@ -648,9 +658,7 @@ function ensurePills(){
     pill.innerHTML = `🛡️ <span class="k">SHIELD</span> <span id="hudShield" class="v">0</span>`;
     row.appendChild(pill);
     hudShieldVal = pill.querySelector('#hudShield');
-  } else {
-    hudShieldVal = doc.getElementById('hudShield');
-  }
+  } else hudShieldVal = doc.getElementById('hudShield');
 
   if (!doc.getElementById('hudLivesPill')){
     const pill = doc.createElement('span');
@@ -659,9 +667,7 @@ function ensurePills(){
     pill.innerHTML = `❤️ <span class="k">LIVES</span> <span id="hudLives" class="v">${S.lives}</span>`;
     row.appendChild(pill);
     hudLivesVal = pill.querySelector('#hudLives');
-  } else {
-    hudLivesVal = doc.getElementById('hudLives');
-  }
+  } else hudLivesVal = doc.getElementById('hudLives');
 
   if (!doc.getElementById('hudPowerPill')){
     const pill = doc.createElement('span');
@@ -670,22 +676,11 @@ function ensurePills(){
     pill.innerHTML = `✨ <span class="k">POWER</span> <span id="hudPower" class="v">—</span>`;
     row.appendChild(pill);
     hudPowerVal = pill.querySelector('#hudPower');
-  } else {
-    hudPowerVal = doc.getElementById('hudPower');
-  }
+  } else hudPowerVal = doc.getElementById('hudPower');
 
   setTxt(hudShieldVal, S.shield);
   setTxt(hudLivesVal, S.lives);
   setTxt(hudPowerVal, powerLabel());
-}
-
-function powerLabel(){
-  const t = now();
-  const labels = [];
-  if (t < S.noJunkUntil) labels.push('NO-JUNK');
-  if (t < S.slowUntil) labels.push('SLOW');
-  if (t < S.stormUntil) labels.push('STORM');
-  return labels.length ? labels.join(' + ') : '—';
 }
 
 function setShield(n){
@@ -703,10 +698,15 @@ function refreshPowerHUD(){
   setTxt(hudPowerVal, powerLabel());
 
   const t = now();
-  // overlays
   setShow(powGreen, t < S.noJunkUntil);
   setShow(powBlue, t < S.slowUntil);
   setShow(powOrange, t < S.stormUntil);
+}
+
+// ---------- Perfect zone ----------
+function setPerfectZone(on){
+  S.perfectZoneOn = !!on;
+  perfectZone.classList.toggle('on', S.perfectZoneOn);
 }
 
 // ---------- Logger (IIFE cloud logger) ----------
@@ -777,6 +777,7 @@ function addFever(v){
   }
   if (prev < 100 && S.fever >= 100) S.fever = 100;
 }
+
 function gradeFromScore(){
   const metric = S.score + S.perfectCount*120 + S.maxCombo*35 - S.miss*260 - (S.livesMax - S.lives)*180;
   if (metric >= 8200) return 'SSS';
@@ -896,8 +897,7 @@ function tickMini(){
   if (urgent && !S.miniUrgentArmed){
     S.miniUrgentArmed = true;
     doc.body.classList.add('hha-mini-urgent');
-    AudioX.warn();
-    vibe(25);
+    AudioX.warn(); vibe(25);
   }
   if (!urgent && S.miniUrgentArmed){
     S.miniUrgentArmed = false;
@@ -950,7 +950,7 @@ function onGood(group){
     setTxt(HUD.have, `${S.plateHave.size}/${S.groupsTotal}`);
 
     Particles.celebrate && Particles.celebrate('PLATE +1!');
-    showCoach('🍽️ PLATE +1!', 'เก่งมาก! เก็บให้ครบอีก!');
+    showCoach('🍽️ PLATE +1!', 'เก็บให้ครบอีก!');
     vibe(45);
     logEvent('plate_complete', { plates: S.goalsCleared });
 
@@ -962,18 +962,8 @@ function onGood(group){
 }
 
 // ---------- Helpers ----------
-function isBadKind(kind){
-  return (kind === 'junk' || kind === 'trap' || kind === 'fakebad');
-}
-function isPowerKind(kind){
-  return (kind === 'slow' || kind === 'nojunk' || kind === 'storm');
-}
-
-// ---------- Perfect ring assist ----------
-function setPerfectZone(on){
-  S.perfectZoneOn = !!on;
-  perfectZone.classList.toggle('on', S.perfectZoneOn);
-}
+function isBadKind(kind){ return (kind === 'junk' || kind === 'trap' || kind === 'fakebad'); }
+function isPowerKind(kind){ return (kind === 'slow' || kind === 'nojunk' || kind === 'storm'); }
 
 // ---------- Aim pick ----------
 function pickNearCrosshair(radiusPx){
@@ -994,10 +984,10 @@ function pickNearCrosshair(radiusPx){
   return null;
 }
 function updateAimHighlight(){
-  const picked = pickNearCrosshair(D.aimAssist);
+  const assist = inVR() ? Math.max(D.aimAssist, 170) : D.aimAssist;
+  const picked = pickNearCrosshair(assist);
   const tid = picked ? picked.rec.el.dataset.tid : null;
 
-  // perfect ring assist: if aimed target is very centered
   if (picked && picked.rec){
     const sz = picked.rec.size || 80;
     const n = clamp(picked.dist / (sz * 0.55), 0, 1);
@@ -1050,9 +1040,10 @@ function makeTarget(kind, group, opts = {}){
   const sc = 0.92 + Math.random()*0.22;
   const sc2 = (kind === 'gold' || kind === 'boss' || isPowerKind(kind)) ? (sc * 1.08) : sc;
 
+  // FIX: var(--x/--y) เป็น px ตรง ๆ
   el.style.setProperty('--sz', `${sizePx}px`);
-  el.style.setProperty('--x', `${pos.x - sizePx/2}`);
-  el.style.setProperty('--y', `${pos.y - sizePx/2}`);
+  el.style.setProperty('--x', `${(pos.x - sizePx/2)}px`);
+  el.style.setProperty('--y', `${(pos.y - sizePx/2)}px`);
   el.style.setProperty('--sc', `${sc2}`);
 
   let emoji = '🍽️';
@@ -1093,7 +1084,6 @@ function makeTarget(kind, group, opts = {}){
     isPowerKind(kind) ? clamp(lifeBase * 0.95, 1700, 3200) :
     lifeBase;
 
-  // if slow power is active -> targets live slightly longer (fairness)
   if (now() < S.slowUntil) life *= 1.12;
 
   const dieAt = bornAt + life;
@@ -1103,11 +1093,8 @@ function makeTarget(kind, group, opts = {}){
     el, kind, group, bornAt, dieAt, cx, cy, size: sizePx,
     hp, hpMax: hp, dead:false,
     meta,
-
-    // boss attack scheduler
     atkAt: (kind === 'boss') ? (bornAt + rnd(D.bossAtkMs[0], D.bossAtkMs[1])) : 0,
     atkArmed: (kind === 'boss'),
-    atkFired: false,
     atkDelays: 0,
     _warned: false,
   };
@@ -1139,13 +1126,21 @@ function removeTarget(rec){
   if (i >= 0) S.targets.splice(i,1);
 }
 
+function bossHpSync(rec){
+  if (!rec || rec.kind !== 'boss') return;
+  const hpEl = rec.el.querySelector('.hp > div');
+  if (!hpEl) return;
+  const ratio = rec.hpMax ? clamp(rec.hp / rec.hpMax, 0, 1) : 0;
+  rec.el.style.setProperty('--hp', String(ratio));
+  hpEl.style.transform = `scaleX(${ratio})`;
+}
+
 function expireTargets(){
   const t = now();
   for (let i=S.targets.length-1; i>=0; i--){
     const rec = S.targets[i];
     if (rec.dead) continue;
     if (t >= rec.dieAt){
-      // letting GOOD/GOLD expire counts as MISS and costs life (unless shield blocks? -> shield should not block expire)
       if (rec.kind === 'good' || rec.kind === 'gold'){
         onMiss('expire_good', { kind: rec.kind, group: rec.group });
         Particles.judgeText && Particles.judgeText('MISS');
@@ -1160,17 +1155,19 @@ function expireTargets(){
   }
 }
 
-// ---------- Boss HP bar sync ----------
-function bossHpSync(rec){
-  if (!rec || rec.kind !== 'boss') return;
-  const hpEl = rec.el.querySelector('.hp > div');
-  if (!hpEl) return;
-  const ratio = rec.hpMax ? clamp(rec.hp / rec.hpMax, 0, 1) : 0;
-  rec.el.style.setProperty('--hp', String(ratio));
-  hpEl.style.transform = `scaleX(${ratio})`;
+// ---------- MISS/LIFE mechanics ----------
+function shieldBlock(reason){
+  if (S.shield <= 0) return false;
+  setShield(S.shield - 1);
+  Particles.celebrate && Particles.celebrate('🛡️ BLOCK!');
+  Particles.judgeText && Particles.judgeText('SHIELD!');
+  AudioX.shield();
+  vibe(35);
+  showCoach('🛡️ BLOCK!', 'กันความเสียหายได้!');
+  logEvent('shield_block', { reason, shield: S.shield });
+  return true;
 }
 
-// ---------- MISS/LIFE mechanics ----------
 function onMiss(reason, extra = {}){
   S.combo = 0;
   setTxt(HUD.combo, S.combo);
@@ -1178,7 +1175,6 @@ function onMiss(reason, extra = {}){
   S.miss += 1;
   setTxt(HUD.miss, S.miss);
 
-  // lose heart (unless No-Junk is active AND reason is junk/trap/boss? expire still hurts)
   const t = now();
   const protectedNoJunk = (t < S.noJunkUntil) && (reason === 'junk' || reason === 'trap' || reason === 'boss' || reason === 'boss_attack');
   if (!protectedNoJunk){
@@ -1195,20 +1191,6 @@ function onMiss(reason, extra = {}){
   logEvent('miss', { reason, ...extra });
 }
 
-// ---------- Shield block ----------
-function shieldBlock(reason){
-  if (S.shield <= 0) return false;
-  setShield(S.shield - 1);
-  Particles.celebrate && Particles.celebrate('🛡️ BLOCK!');
-  Particles.judgeText && Particles.judgeText('SHIELD!');
-  AudioX.shield();
-  vibe(35);
-  showCoach('🛡️ BLOCK!', 'กันความเสียหายได้!');
-  logEvent('shield_block', { reason, shield: S.shield });
-  return true;
-}
-
-// ---------- Punish bad ----------
 function punishBad(reason){
   if (shieldBlock(reason)){
     addScore(-60);
@@ -1216,7 +1198,6 @@ function punishBad(reason){
     return;
   }
 
-  // No-Junk Zone reduces penalty (but still counts as miss)
   const t = now();
   const softened = (t < S.noJunkUntil);
 
@@ -1236,11 +1217,9 @@ function punishBad(reason){
   Particles.judgeText && Particles.judgeText(softened ? 'BAD (SAFE)' : 'BAD');
   AudioX.bad();
 
-  // life loss handled here
   onMiss(reason, {});
 }
 
-// ---------- Boss attack punish ----------
 function bossAttackPunish(tag){
   atkFX();
   AudioX.atk();
@@ -1271,10 +1250,9 @@ function judgeFromDist(distPx, sizePx){
 function activateSlow(ms){
   const t = now();
   S.slowUntil = Math.max(S.slowUntil, t + ms);
-  AudioX.power();
-  vibe(35);
+  AudioX.power(); vibe(35);
   Particles.celebrate && Particles.celebrate('SLOW TIME!');
-  showCoach('🐢 SLOW TIME!', 'ช้าลง! เล็งได้ง่ายขึ้น!');
+  showCoach('🐢 SLOW TIME!', 'ช้าลง! เล็งง่ายขึ้น!');
   logEvent('power_slow', { until: S.slowUntil });
   refreshPowerHUD();
   if (S.activeMini && typeof S.activeMini.onPower === 'function') S.activeMini.onPower();
@@ -1282,10 +1260,9 @@ function activateSlow(ms){
 function activateNoJunk(ms){
   const t = now();
   S.noJunkUntil = Math.max(S.noJunkUntil, t + ms);
-  AudioX.power();
-  vibe(35);
+  AudioX.power(); vibe(35);
   Particles.celebrate && Particles.celebrate('NO-JUNK!');
-  showCoach('🟢 NO-JUNK!', 'ช่วงนี้ปลอดขยะ! ลุยเก็บของดี!');
+  showCoach('🟢 NO-JUNK!', 'ปลอดขยะชั่วคราว! ลุย!');
   logEvent('power_nojunk', { until: S.noJunkUntil });
   refreshPowerHUD();
   if (S.activeMini && typeof S.activeMini.onPower === 'function') S.activeMini.onPower();
@@ -1293,10 +1270,9 @@ function activateNoJunk(ms){
 function activateStorm(ms){
   const t = now();
   S.stormUntil = Math.max(S.stormUntil, t + ms);
-  AudioX.power();
-  vibe(45);
+  AudioX.power(); vibe(45);
   Particles.celebrate && Particles.celebrate('STORM!');
-  showCoach('🌪️ STORM!', 'เป้าถี่ขึ้น! รับมือให้ได้!');
+  showCoach('🌪️ STORM!', 'เป้าถี่ขึ้นจริง! รับมือ!');
   logEvent('power_storm', { until: S.stormUntil });
   refreshPowerHUD();
   if (S.activeMini && typeof S.activeMini.onPower === 'function') S.activeMini.onPower();
@@ -1319,39 +1295,29 @@ function hitTarget(rec, direct){
     activateSlow(rnd(D.slowDurMs[0], D.slowDurMs[1]));
     Particles.burstAt && Particles.burstAt(sx, sy, 'SLOW');
     Particles.scorePop && Particles.scorePop('+120', sx, sy);
-    addScore(120);
-    addFever(10);
+    addScore(120); addFever(10);
     logEvent('hit_power', { kind:'slow', dist, direct:!!direct });
-    removeTarget(rec);
-    updateGrade();
-    return;
+    removeTarget(rec); updateGrade(); return;
   }
   if (rec.kind === 'nojunk'){
     activateNoJunk(rnd(D.noJunkDurMs[0], D.noJunkDurMs[1]));
     Particles.burstAt && Particles.burstAt(sx, sy, 'NOJUNK');
     Particles.scorePop && Particles.scorePop('+160', sx, sy);
-    addScore(160);
-    addFever(10);
+    addScore(160); addFever(10);
     logEvent('hit_power', { kind:'nojunk', dist, direct:!!direct });
-    removeTarget(rec);
-    updateGrade();
-    return;
+    removeTarget(rec); updateGrade(); return;
   }
   if (rec.kind === 'storm'){
     activateStorm(rnd(D.stormDurMs[0], D.stormDurMs[1]));
     Particles.burstAt && Particles.burstAt(sx, sy, 'STORM');
     Particles.scorePop && Particles.scorePop('+200', sx, sy);
-    addScore(200);
-    addFever(12);
+    addScore(200); addFever(12);
     logEvent('hit_power', { kind:'storm', dist, direct:!!direct });
-    removeTarget(rec);
-    updateGrade();
-    return;
+    removeTarget(rec); updateGrade(); return;
   }
 
-  // FakeGood: looks good but punishes like trap on hit
+  // FakeGood
   if (rec.kind === 'fake'){
-    // reveal + punish
     Particles.judgeText && Particles.judgeText('TRICK!');
     Particles.burstAt && Particles.burstAt(sx, sy, 'TRICK');
     Particles.scorePop && Particles.scorePop('-220', sx, sy);
@@ -1395,7 +1361,6 @@ function hitTarget(rec, direct){
   }
 
   if (rec.kind === 'boss'){
-    // delay attack slightly when hit (reward)
     if (rec.atkArmed && rec.atkDelays < 2){
       rec.atkAt += 700;
       rec.atkDelays += 1;
@@ -1404,7 +1369,6 @@ function hitTarget(rec, direct){
     rec.hp = Math.max(0, (rec.hp|0) - 1);
     bossHpSync(rec);
 
-    // phase update
     const ph = bossPhaseFor(rec);
     rec.meta.phase = ph;
 
@@ -1443,11 +1407,8 @@ function hitTarget(rec, direct){
   // Good/Gold
   const judge = judgeFromDist(dist, rec.size);
   const mult = S.feverOn ? 1.35 : 1.0;
-
   const base = (rec.kind === 'gold') ? 520 : 240;
   const bonus = (judge === 'PERFECT') ? 220 : 0;
-
-  // storm adds slight bonus (risk reward)
   const stormBonus = (now() < S.stormUntil) ? 60 : 0;
   const delta = Math.round((base + bonus + stormBonus) * mult);
 
@@ -1495,20 +1456,15 @@ function hitTarget(rec, direct){
   logEvent('hit', { kind: rec.kind, group: rec.group, judge, dist, direct: !!direct, delta });
 }
 
-// ---------- Decide kind/group with ALL modes ----------
+// ---------- Decide kind/group ----------
 function decideGroup(){ return 1 + ((Math.random()*5)|0); }
 
 function decideKind(){
   const t = now();
-
-  // During No-Junk Zone: strongly suppress junk/trap/fake; more good/gold/power
   const noJunk = (t < S.noJunkUntil);
-
-  // Storm increases intensity: more spawns and slightly more bads (unless noJunk)
   const storm = (t < S.stormUntil);
   const fever = S.feverOn;
 
-  // base rates
   let gold = D.goldRate + (fever ? 0.03 : 0);
   let junk = D.junkRate + (storm ? 0.04 : 0);
   let trap = D.trapRate + (storm ? 0.03 : 0);
@@ -1518,36 +1474,24 @@ function decideKind(){
   let nojunk = D.noJunkRate * (fever ? 1.10 : 1.0);
   let stormP = D.stormRate * (fever ? 1.20 : 1.0);
 
-  // clamp
   gold = clamp(gold, 0.06, 0.22);
   junk = clamp(junk, 0.08, 0.40);
   trap = clamp(trap, 0.02, 0.22);
   fake = clamp(fake, 0.00, 0.20);
 
-  // if noJunk -> nearly remove junk/trap/fake
   if (noJunk){
-    junk *= 0.12;
-    trap *= 0.12;
-    fake *= 0.10;
-    gold *= 1.10;
-    slow *= 1.10;
-    stormP *= 0.60; // don't stack storm too often while protected
+    junk *= 0.12; trap *= 0.12; fake *= 0.10;
+    gold *= 1.10; slow *= 1.10; stormP *= 0.60;
   }
 
-  // if slow active -> reduce bad rates slightly (fair)
   const slowOn = (t < S.slowUntil);
   if (slowOn){
-    junk *= 0.86;
-    trap *= 0.86;
-    fake *= 0.86;
-    gold *= 1.05;
+    junk *= 0.86; trap *= 0.86; fake *= 0.86; gold *= 1.05;
   }
 
-  // build probability segments
   const r = Math.random();
   let acc = 0;
 
-  // Powerups (not too frequent)
   acc += slow; if (r < acc) return 'slow';
   acc += nojunk; if (r < acc) return 'nojunk';
   acc += stormP; if (r < acc) return 'storm';
@@ -1560,7 +1504,7 @@ function decideKind(){
   return 'good';
 }
 
-// ---------- Boss spawning + attacks ----------
+// ---------- Boss spawn + attacks ----------
 function spawnBossIfReady(){
   if (S.bossActive) return;
   const t = now();
@@ -1569,26 +1513,20 @@ function spawnBossIfReady(){
 
   S.bossActive = true;
 
-  // boss hp slightly lower if fever
   const hp = (S.feverOn ? Math.max(2, D.bossHP - 1) : D.bossHP);
   const rec = makeTarget('boss', 0, { hp });
   bossHpSync(rec);
 
-  // schedule next boss
   const base = S.feverOn ? rnd(8500, 12500) : rnd(10500, 16500);
   S.bossNextAt = t + base;
 
   Particles.judgeText && Particles.judgeText('BOSS!');
   Particles.celebrate && Particles.celebrate('⚠️');
-  showCoach('😈 BOSS!', 'บอสมาแล้ว! รีบยิงให้ล้ม!');
+  showCoach('😈 BOSS!', 'บอสมาแล้ว! ยิงให้ล้ม!');
   vibe(35);
   logEvent('boss_spawn', { hp });
 }
 
-// Boss attack patterns:
-// phase1: ring
-// phase2: laser
-// phase3: double (ring+laser) + faster
 function bossAttackStyleForPhase(phase){
   if (phase === 3) return 'double';
   if (phase === 2) return 'laser';
@@ -1605,26 +1543,21 @@ function tickBossAttack(){
     rec.meta.phase = ph;
     rec.meta.atkStyle = style;
 
-    // speed up in higher phases
     const phaseMul = (ph === 3) ? 0.78 : (ph === 2) ? 0.90 : 1.0;
 
-    // if No-Junk active -> delay boss attack a bit (fair)
     if (t < S.noJunkUntil){
-      rec.atkAt += 120; // small drift delay
+      rec.atkAt += 120;
     }
 
-    // warn window
     const warnLead = (style === 'double') ? 620 : 450;
 
     if (t >= rec.atkAt - warnLead && !rec._warned){
       rec._warned = true;
       Particles.judgeText && Particles.judgeText(style === 'double' ? '☠️' : '⚠️');
-      AudioX.warn();
-      vibe(18);
+      AudioX.warn(); vibe(18);
     }
 
     if (t >= rec.atkAt){
-      // fire!
       rec._warned = false;
 
       if (style === 'ring'){
@@ -1640,12 +1573,10 @@ function tickBossAttack(){
 
       bossAttackPunish('boss_attack');
 
-      // schedule next attack
       const baseMin = D.bossAtkMs[0] * phaseMul;
       const baseMax = D.bossAtkMs[1] * phaseMul;
       rec.atkAt = t + rnd(baseMin, baseMax);
 
-      // in phase3, sometimes chain attack quickly
       if (ph === 3 && Math.random() < 0.22){
         rec.atkAt = t + rnd(900, 1400);
         Particles.judgeText && Particles.judgeText('CHAIN!');
@@ -1654,7 +1585,7 @@ function tickBossAttack(){
   }
 }
 
-// ---------- Fever ring burst (bonus targets around center) ----------
+// ---------- Fever ring burst ----------
 function spawnFeverRingBurst(){
   if (!S.feverOn) return;
   if (Math.random() > 0.18) return;
@@ -1677,44 +1608,13 @@ function spawnFeverRingBurst(){
     const kind = (Math.random() < 0.22) ? 'gold' : 'good';
     const group = (kind === 'good') ? decideGroup() : 0;
 
-    const sizePx = computeSizePx(kind);
-    const el = doc.createElement('div');
-    el.className = `plateTarget ${kind} spawn`;
-    el.dataset.tid = String(++targetSeq);
-
-    const sc = 0.95 + Math.random()*0.18;
-    el.style.setProperty('--sz', `${sizePx}px`);
-    el.style.setProperty('--x', `${x - sizePx/2}`);
-    el.style.setProperty('--y', `${y - sizePx/2}`);
-    el.style.setProperty('--sc', `${sc}`);
-
-    const emoji = (kind === 'gold') ? '⭐' : randFrom(FOOD_BY_GROUP[group] || ['🥗']);
-    const tag = (kind === 'gold') ? 'GOLD' : `G${group}`;
-    el.innerHTML = `<div class="emoji">${emoji}</div><div class="tag">${tag}</div>`;
-
-    const bornAt = now();
-    const dieAt = bornAt + clamp(D.life * 0.86, 1400, 2600);
-    const rec = { el, kind, group, bornAt, dieAt, cx:x, cy:y, size:sizePx, hp:0, hpMax:0, dead:false, atkAt:0, atkArmed:false, atkDelays:0, _warned:false, meta:{} };
-    S.targets.push(rec);
-
-    const hitHandler = (e)=>{
-      e.preventDefault(); e.stopPropagation();
-      AudioX.unlock();
-      hitTarget(rec, true);
-    };
-    el.addEventListener('pointerdown', hitHandler, { passive:false });
-    el.addEventListener('click', hitHandler, { passive:false });
-    el.addEventListener('touchstart', hitHandler, { passive:false });
-
-    layer.appendChild(el);
-    setTimeout(()=> el.classList.remove('spawn'), 240);
-    logEvent('spawn_fever', { kind, group, x, y });
+    makeTarget(kind, group, { _forceXY: { x, y } }); // (unused, but safe)
   }
 
   Particles.judgeText && Particles.judgeText('FEVER RING!');
 }
 
-// ---------- Spawn tick (ALL modes) ----------
+// ---------- Spawn tick ----------
 function spawnTick(){
   const t = now();
   if (t < S.nextSpawnAt) return;
@@ -1722,31 +1622,18 @@ function spawnTick(){
   spawnBossIfReady();
   spawnFeverRingBurst();
 
-  // True mode multipliers
   const stormOn = (t < S.stormUntil);
   const slowOn = (t < S.slowUntil);
 
-  // base interval
   let interval = D.spawnMs;
-
-  // fever makes faster
   if (S.feverOn) interval *= 0.78;
-
-  // storm makes MUCH faster (true)
   if (stormOn) interval *= 0.56;
-
-  // slow makes slower
   if (slowOn) interval *= 1.22;
-
-  // No-Junk slightly faster (safe but exciting)
   if (t < S.noJunkUntil) interval *= 0.92;
 
-  // burst count
   let burst = 1;
   if (stormOn) burst = (Math.random() < 0.65) ? 3 : 2;
   else if (S.feverOn) burst = (Math.random() < 0.22) ? 2 : 1;
-
-  // hard mode occasionally extra burst
   if (DIFF === 'hard' && Math.random() < 0.10) burst += 1;
 
   for (let i=0;i<burst;i++){
@@ -1764,14 +1651,42 @@ function isUIElement(target){
   if (!target) return false;
   return !!(target.closest && (target.closest('.btn') || target.closest('#hudRight') || target.closest('#resultBackdrop')));
 }
+function shootCrosshair(){
+  if (!S.running || S.paused) return;
+  AudioX.unlock();
+
+  const assist = inVR() ? Math.max(D.aimAssist, 170) : D.aimAssist;
+  const picked = pickNearCrosshair(assist);
+  if (picked && picked.rec) hitTarget(picked.rec, false);
+}
+
 function onGlobalPointerDown(e){
   if (!S.running || S.paused) return;
   if (isUIElement(e.target)) return;
+  e.preventDefault();
+  shootCrosshair();
+}
 
-  AudioX.unlock();
+// ---------- VR controller / keyboard support (GoodJunk-style) ----------
+function bindShootHotkeys(){
+  // keyboard
+  ROOT.addEventListener('keydown', (e)=>{
+    const k = String(e.key || '').toLowerCase();
+    if (k === ' ' || k === 'enter' || k === 'z' || k === 'x'){
+      shootCrosshair();
+    }
+  });
 
-  const picked = pickNearCrosshair(D.aimAssist);
-  if (picked && picked.rec) hitTarget(picked.rec, false);
+  // A-Frame controller events (common)
+  if (scene){
+    const fire = ()=>shootCrosshair();
+    scene.addEventListener('triggerdown', fire);
+    scene.addEventListener('abuttondown', fire);
+    scene.addEventListener('xbuttondown', fire);
+    scene.addEventListener('gripdown', fire);
+    scene.addEventListener('mousedown', fire); // some headsets map trigger->mousedown
+    scene.addEventListener('click', fire);     // safe fallback
+  }
 }
 
 // ---------- Pause/Restart/VR ----------
@@ -1871,12 +1786,6 @@ function endGame(isGameOver){
   logSession(isGameOver ? 'gameover' : 'end');
 }
 
-// ---------- Expire tick + power HUD tick ----------
-function tickPowers(){
-  refreshPowerHUD();
-  // if time windows ended, clean overlays automatically (refreshPowerHUD already does)
-}
-
 // ---------- Main loop ----------
 function start(){
   S.running = true;
@@ -1898,7 +1807,6 @@ function start(){
       S.timeLeft = Math.max(0, TOTAL_TIME - elapsed);
       setTxt(HUD.time, fmt(S.timeLeft));
 
-      // low time FX
       if (S.timeLeft <= 10){
         doc.body.classList.add('hha-lowtime');
         const sec = Math.ceil(S.timeLeft);
@@ -1915,14 +1823,12 @@ function start(){
       tickBossAttack();
       expireTargets();
       tickMini();
-      tickPowers();
+      refreshPowerHUD();
 
-      // fever decay
       addFever(S.feverOn ? -0.22 : -0.10);
 
       setGoal(S.goalIndex);
 
-      // end by time
       if (S.timeLeft <= 0){
         showCoach('⏱️ Time!', 'หมดเวลาแล้ว!');
         endGame(false);
@@ -1972,6 +1878,7 @@ function bindUI(){
   } catch(_) {}
 
   bindUI();
+  bindShootHotkeys();
 
   setShield(0);
   setLives(S.livesMax);
@@ -1987,9 +1894,9 @@ function bindUI(){
   setGoal(0);
   startMini();
 
-  showCoach('🥦 Coach', 'ULTIMATE MODE! เอาให้สุด!');
+  showCoach('🥦 Coach', 'ALL-IN MODE! เอาให้สุด!');
   logSession('start');
   start();
 
-  if (DEBUG) console.log('[PlateVR] ULTIMATE boot ok', { MODE, DIFF, TOTAL_TIME, D });
+  if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, D });
 })();
