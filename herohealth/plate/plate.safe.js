@@ -1,13 +1,9 @@
 // === /herohealth/plate/plate.safe.js ===
 // HeroHealth — Balanced Plate VR (PLAY) — Full (GoodJunk-like) + HYPE PATCH (1–3)
-// ✅ FIX: no import initCloudLogger (hha-cloud-logger.js is IIFE)
-// ✅ FIX: offset-not-double + safe-zone blocks HUD
-// ✅ Tap-anywhere aim-assist + highlight nearest target
-// ✅ Mini urgent FX (flash + gentle shake + tick sound)
-// ✅ End summary modal wiring
-// ✅ (1) BOSS + TRAP (GoodJunk vibe)
-// ✅ (2) Fever spawn pattern (ring burst)
-// ✅ (3) Vibration + Screen FX + extra SFX
+// ✅ FIX-HIT: layer pointer-events MUST be auto (child can't override if parent is none)
+// ✅ layer handles tap-anywhere shooting; targets still clickable
+// ✅ add click/touchstart fallback for some Android devices
+// ✅ 1) BOSS + TRAP  2) Fever ring pattern  3) Vibration + SFX + Screen FX
 //
 // Requires in HTML (defer): ./vr/particles.js, ./vr/hha-compat-input.js, ./vr/hha-cloud-logger.js, A-Frame
 // Module: <script type="module" src="./plate/plate.safe.js"></script>
@@ -92,21 +88,9 @@ const cam = doc.querySelector('#cam');
 
 // ---------- Difficulty tuning ----------
 const DIFF_TABLE = {
-  easy:   {
-    size: 92, life: 3200, spawnMs: 900,
-    junkRate: 0.20, goldRate: 0.10, aimAssist: 140,
-    trapRate: 0.045, bossRate: 0.020, bossHP: 3
-  },
-  normal: {
-    size: 78, life: 2700, spawnMs: 780,
-    junkRate: 0.26, goldRate: 0.12, aimAssist: 120,
-    trapRate: 0.060, bossRate: 0.028, bossHP: 4
-  },
-  hard:   {
-    size: 66, life: 2300, spawnMs: 660,
-    junkRate: 0.32, goldRate: 0.14, aimAssist: 110,
-    trapRate: 0.080, bossRate: 0.036, bossHP: 5
-  },
+  easy:   { size: 92, life: 3200, spawnMs: 900, junkRate: 0.20, goldRate: 0.10, aimAssist: 140, trapRate: 0.045, bossRate: 0.020, bossHP: 3 },
+  normal: { size: 78, life: 2700, spawnMs: 780, junkRate: 0.26, goldRate: 0.12, aimAssist: 120, trapRate: 0.060, bossRate: 0.028, bossHP: 4 },
+  hard:   { size: 66, life: 2300, spawnMs: 660, junkRate: 0.32, goldRate: 0.14, aimAssist: 110, trapRate: 0.080, bossRate: 0.036, bossHP: 5 },
 };
 const D = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
 
@@ -124,7 +108,7 @@ const S = {
   miss: 0,
   perfectCount: 0,
 
-  fever: 0,          // 0..100
+  fever: 0,
   feverOn: false,
 
   goalsCleared: 0,
@@ -146,24 +130,27 @@ const S = {
   miniUrgentArmed: false,
   miniTickAt: 0,
 
-  targets: [],         // {el, kind, group, bornAt, dieAt, cx, cy, size, hp?, dead}
+  targets: [],
   aimedId: null,
 
-  // boss pacing
   bossNextAt: 0,
   bossActive: false,
 
   sessionId: `PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
 };
 
-// ---------- Inject CSS for targets + highlight + urgent FX + boss/trap + screen fx ----------
+// ---------- Inject CSS ----------
 (function injectCss(){
   const st = doc.createElement('style');
   st.textContent = `
   .plate-layer{
     position:fixed; inset:0;
     z-index:400;
-    pointer-events:none;
+
+    /* ✅ FIX-HIT: MUST be auto, otherwise children can't receive pointer */
+    pointer-events:auto;
+
+    touch-action:none;
     transform:translate3d(0,0,0);
     will-change:transform;
   }
@@ -194,60 +181,27 @@ const S = {
     pointer-events:none;
   }
 
-  .plateTarget.good{
-    background:rgba(34,197,94,.16);
-    border:1px solid rgba(34,197,94,.35);
-  }
-  .plateTarget.good::before{
-    border:3px solid rgba(34,197,94,.75);
-    box-shadow:0 0 0 8px rgba(34,197,94,.12), 0 0 40px rgba(34,197,94,.18);
-  }
+  .plateTarget.good{ background:rgba(34,197,94,.16); border:1px solid rgba(34,197,94,.35); }
+  .plateTarget.good::before{ border:3px solid rgba(34,197,94,.75); box-shadow:0 0 0 8px rgba(34,197,94,.12), 0 0 40px rgba(34,197,94,.18); }
 
-  .plateTarget.junk{
-    background:rgba(251,113,133,.14);
-    border:1px solid rgba(251,113,133,.35);
-  }
-  .plateTarget.junk::before{
-    border:3px solid rgba(251,113,133,.75);
-    box-shadow:0 0 0 8px rgba(251,113,133,.10), 0 0 40px rgba(251,113,133,.16);
-  }
+  .plateTarget.junk{ background:rgba(251,113,133,.14); border:1px solid rgba(251,113,133,.35); }
+  .plateTarget.junk::before{ border:3px solid rgba(251,113,133,.75); box-shadow:0 0 0 8px rgba(251,113,133,.10), 0 0 40px rgba(251,113,133,.16); }
 
-  .plateTarget.gold{
-    background:rgba(250,204,21,.14);
-    border:1px solid rgba(250,204,21,.42);
-  }
-  .plateTarget.gold::before{
-    border:3px solid rgba(250,204,21,.85);
-    box-shadow:0 0 0 10px rgba(250,204,21,.12), 0 0 54px rgba(250,204,21,.18);
-  }
+  .plateTarget.gold{ background:rgba(250,204,21,.14); border:1px solid rgba(250,204,21,.42); }
+  .plateTarget.gold::before{ border:3px solid rgba(250,204,21,.85); box-shadow:0 0 0 10px rgba(250,204,21,.12), 0 0 54px rgba(250,204,21,.18); }
 
-  /* TRAP: look "tempting" but dangerous */
-  .plateTarget.trap{
-    background:rgba(147,51,234,.12);
-    border:1px solid rgba(147,51,234,.38);
-  }
-  .plateTarget.trap::before{
-    border:3px solid rgba(147,51,234,.70);
-    box-shadow:0 0 0 10px rgba(147,51,234,.12), 0 0 60px rgba(147,51,234,.14);
-  }
+  .plateTarget.trap{ background:rgba(147,51,234,.12); border:1px solid rgba(147,51,234,.38); }
+  .plateTarget.trap::before{ border:3px solid rgba(147,51,234,.70); box-shadow:0 0 0 10px rgba(147,51,234,.12), 0 0 60px rgba(147,51,234,.14); }
 
-  /* BOSS */
-  .plateTarget.boss{
-    background:rgba(2,6,23,.62);
-    border:1px solid rgba(248,113,113,.35);
-  }
-  .plateTarget.boss::before{
-    border:3px solid rgba(248,113,113,.75);
-    box-shadow:0 0 0 12px rgba(248,113,113,.10), 0 0 70px rgba(248,113,113,.18);
-  }
+  .plateTarget.boss{ background:rgba(2,6,23,.62); border:1px solid rgba(248,113,113,.35); }
+  .plateTarget.boss::before{ border:3px solid rgba(248,113,113,.75); box-shadow:0 0 0 12px rgba(248,113,113,.10), 0 0 70px rgba(248,113,113,.18); }
+
   .plateTarget .emoji{
     font-size:calc(var(--sz,80px) * 0.52);
     line-height:1;
     filter: drop-shadow(0 10px 18px rgba(0,0,0,.28));
   }
-  .plateTarget.boss .emoji{
-    font-size:calc(var(--sz,80px) * 0.50);
-  }
+  .plateTarget.boss .emoji{ font-size:calc(var(--sz,80px) * 0.50); }
 
   .plateTarget .tag{
     position:absolute;
@@ -264,7 +218,6 @@ const S = {
     white-space:nowrap;
   }
 
-  /* boss hp bar */
   .plateTarget .hp{
     position:absolute;
     top:-10px;
@@ -286,7 +239,6 @@ const S = {
     transition:transform .08s linear;
   }
 
-  /* spawn pop */
   @keyframes popIn{
     0%{ transform:translate3d(calc(var(--x)*1px), calc(var(--y)*1px), 0) scale(0.55); opacity:0; }
     70%{ transform:translate3d(calc(var(--x)*1px), calc(var(--y)*1px), 0) scale(calc(var(--sc,1) * 1.08)); opacity:1; }
@@ -294,7 +246,6 @@ const S = {
   }
   .plateTarget.spawn{ animation: popIn 220ms ease-out both; }
 
-  /* highlight near crosshair */
   @keyframes aimPulse{
     0%{ box-shadow:0 18px 46px rgba(0,0,0,.35), 0 0 0 0 rgba(255,255,255,.0); }
     50%{ box-shadow:0 18px 46px rgba(0,0,0,.35), 0 0 0 10px rgba(255,255,255,.14); }
@@ -302,12 +253,7 @@ const S = {
   }
   .plateTarget.aimed{ animation: aimPulse 520ms ease-in-out infinite; }
 
-  /* urgent mini */
-  @keyframes urgentFlash{
-    0%{ filter:brightness(1); }
-    50%{ filter:brightness(1.18); }
-    100%{ filter:brightness(1); }
-  }
+  @keyframes urgentFlash{ 0%{ filter:brightness(1); } 50%{ filter:brightness(1.18); } 100%{ filter:brightness(1); } }
   @keyframes gentleShake{
     0%{ transform:translate3d(0,0,0); }
     25%{ transform:translate3d(0.8px,0,0); }
@@ -320,25 +266,16 @@ const S = {
     border-color: rgba(250,204,21,.55) !important;
     box-shadow: 0 18px 46px rgba(0,0,0,.35), 0 0 30px rgba(250,204,21,.12);
   }
-  body.hha-mini-urgent #hudTop{
-    animation: gentleShake 260ms ease-in-out infinite;
-  }
+  body.hha-mini-urgent #hudTop{ animation: gentleShake 260ms ease-in-out infinite; }
 
-  /* big punish flash */
-  @keyframes dmgFlash{
-    0%{ opacity:0; }
-    20%{ opacity:.65; }
-    100%{ opacity:0; }
-  }
+  @keyframes dmgFlash{ 0%{ opacity:0; } 20%{ opacity:.65; } 100%{ opacity:0; } }
   .hha-dmg-flash{
     position:fixed; inset:0; z-index:980;
     pointer-events:none;
     background: radial-gradient(circle at center, rgba(248,113,113,.0), rgba(248,113,113,.30));
     opacity:0;
   }
-  .hha-dmg-flash.on{
-    animation: dmgFlash 420ms ease-out both;
-  }
+  .hha-dmg-flash.on{ animation: dmgFlash 420ms ease-out both; }
 
   @keyframes screenShake{
     0%{ transform:translate3d(0,0,0); }
@@ -348,9 +285,7 @@ const S = {
     80%{ transform:translate3d(-2px,1px,0); }
     100%{ transform:translate3d(0,0,0); }
   }
-  body.hha-screen-shake{
-    animation: screenShake 260ms ease-in-out 1;
-  }
+  body.hha-screen-shake{ animation: screenShake 260ms ease-in-out 1; }
   `;
   doc.head.appendChild(st);
 })();
@@ -371,19 +306,15 @@ function getCamAngles(){
   if (!r) return { yaw:0, pitch:0 };
   return { yaw: r.y || 0, pitch: r.x || 0 };
 }
-
 function viewOffset(){
   const { yaw, pitch } = getCamAngles();
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
-
   const pxPerRadX = clamp(vw * 0.55, 180, 720);
   const pxPerRadY = clamp(vh * 0.48, 160, 640);
-
   const x = clamp(-yaw * pxPerRadX, -vw*1.2, vw*1.2);
   const y = clamp(+pitch * pxPerRadY, -vh*1.2, vh*1.2);
   return { x, y };
 }
-
 function applyLayerTransform(){
   const off = viewOffset();
   layer.style.transform = `translate3d(${off.x}px, ${off.y}px, 0)`;
@@ -394,22 +325,19 @@ function getBlockedRects(){
   const rects = [];
   const ids = ['hudTop','hudLeft','hudRight','hudBottom'];
   for (const id of ids){
-    const el = $(id);
+    const el = doc.getElementById(id);
     if (!el) continue;
     const r = el.getBoundingClientRect();
-    if (r.width > 10 && r.height > 10){
-      rects.push({ x:r.left, y:r.top, w:r.width, h:r.height });
-    }
+    if (r.width > 10 && r.height > 10) rects.push({ x:r.left, y:r.top, w:r.width, h:r.height });
   }
   return rects.map(b => ({ x:b.x-8, y:b.y-8, w:b.w+16, h:b.h+16 }));
 }
 
-// FIX: safe-zone check in SCREEN coords, return WORLD coords (subtract offset)
+// safe-zone: sample SCREEN coords, convert to WORLD coords
 function pickSafeXY(sizePx){
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const m = 14;
   const half = sizePx * 0.5;
-
   const blocked = getBlockedRects();
   const tries = 44;
   const off = viewOffset();
@@ -417,7 +345,6 @@ function pickSafeXY(sizePx){
   for (let i=0;i<tries;i++){
     const sx = rnd(m+half, vw-m-half);
     const sy = rnd(m+half+60, vh-m-half-60);
-
     const screenRect = { x: sx-half, y: sy-half, w: sizePx, h: sizePx };
 
     let ok = true;
@@ -426,33 +353,15 @@ function pickSafeXY(sizePx){
     }
     if (!ok) continue;
 
-    const x = sx - off.x;
-    const y = sy - off.y;
-    return { x, y };
+    return { x: sx - off.x, y: sy - off.y };
   }
-
-  const sx = vw*0.55, sy = vh*0.55;
-  return { x: sx - off.x, y: sy - off.y };
+  return { x: vw*0.55 - off.x, y: vh*0.55 - off.y };
 }
 
 // ---------- Vibration + Screen FX ----------
-function vibe(ms){
-  try {
-    if (navigator.vibrate) navigator.vibrate(ms);
-  } catch(_) {}
-}
-function flashDamage(){
-  try{
-    dmgFlash.classList.remove('on');
-    // force reflow
-    void dmgFlash.offsetWidth;
-    dmgFlash.classList.add('on');
-  }catch(_){}
-}
-function screenShake(){
-  doc.body.classList.add('hha-screen-shake');
-  setTimeout(()=>doc.body.classList.remove('hha-screen-shake'), 280);
-}
+function vibe(ms){ try { if (navigator.vibrate) navigator.vibrate(ms); } catch(_) {} }
+function flashDamage(){ try{ dmgFlash.classList.remove('on'); void dmgFlash.offsetWidth; dmgFlash.classList.add('on'); }catch(_){} }
+function screenShake(){ doc.body.classList.add('hha-screen-shake'); setTimeout(()=>doc.body.classList.remove('hha-screen-shake'), 280); }
 
 // ---------- Audio (WebAudio) ----------
 const AudioX = (function(){
@@ -461,6 +370,11 @@ const AudioX = (function(){
     if (ctx) return ctx;
     try { ctx = new (ROOT.AudioContext || ROOT.webkitAudioContext)(); } catch(_) {}
     return ctx;
+  }
+  function unlock(){
+    const c = ensure();
+    if (!c) return;
+    if (c.state === 'suspended') { try { c.resume(); } catch(_) {} }
   }
   function beep(freq=740, dur=0.06, gain=0.05, type='sine'){
     const c = ensure(); if(!c) return;
@@ -482,10 +396,10 @@ const AudioX = (function(){
   function bad(){ beep(220, 0.08, 0.06, 'sawtooth'); }
   function bossHit(){ beep(420, 0.06, 0.05, 'square'); }
   function bossDown(){ beep(240, 0.11, 0.06, 'sawtooth'); setTimeout(()=>beep(760,0.08,0.05,'triangle'),60); }
-  return { ensure, tick, warn, good, perfect, bad, bossHit, bossDown };
+  return { ensure, unlock, tick, warn, good, perfect, bad, bossHit, bossDown };
 })();
 
-// ---------- Target content (emojis) ----------
+// ---------- Target content ----------
 const FOOD_BY_GROUP = {
   1: ['🍗','🥩','🐟','🍳','🥛','🧀','🥜'],
   2: ['🍚','🍞','🥔','🌽','🥨','🍜','🍙'],
@@ -494,11 +408,11 @@ const FOOD_BY_GROUP = {
   5: ['🥑','🧈','🫒','🥥','🧀'],
 };
 const JUNK = ['🍩','🍟','🍔','🍕','🧋','🍭','🍫','🥤'];
-const TRAPS = ['🎁','⭐','🍬','🍰','🧁']; // look tempting
+const TRAPS = ['🎁','⭐','🍬','🍰','🧁'];
 
 function randFrom(arr){ return arr[(Math.random()*arr.length)|0]; }
 
-// ---------- Target spawn / manage ----------
+// ---------- Target spawn/manage ----------
 let targetSeq = 0;
 
 function computeSizePx(kind){
@@ -532,16 +446,10 @@ function makeTarget(kind, group, opts = {}){
   let tag = '';
   let hp = 0;
 
-  if (kind === 'junk'){
-    emoji = randFrom(JUNK);
-    tag = 'JUNK';
-  } else if (kind === 'gold'){
-    emoji = '⭐';
-    tag = 'GOLD';
-  } else if (kind === 'trap'){
-    emoji = randFrom(TRAPS);
-    tag = 'TRAP';
-  } else if (kind === 'boss'){
+  if (kind === 'junk'){ emoji = randFrom(JUNK); tag = 'JUNK'; }
+  else if (kind === 'gold'){ emoji = '⭐'; tag = 'GOLD'; }
+  else if (kind === 'trap'){ emoji = randFrom(TRAPS); tag = 'TRAP'; }
+  else if (kind === 'boss'){
     emoji = (Math.random() < 0.5) ? '🦠' : '😈';
     tag = 'BOSS';
     hp = Math.max(2, opts.hp || D.bossHP || 4);
@@ -565,27 +473,26 @@ function makeTarget(kind, group, opts = {}){
     lifeBase;
 
   const dieAt = bornAt + life;
-
   const cx = pos.x, cy = pos.y;
 
   const rec = { el, kind, group, bornAt, dieAt, cx, cy, size: sizePx, hp, hpMax: hp, dead:false };
   S.targets.push(rec);
 
-  // pointer hit
-  el.addEventListener('pointerdown', (e)=>{
+  // ✅ Strong hit listeners (some Android misses pointerdown)
+  const hitHandler = (e)=>{
     e.preventDefault();
     e.stopPropagation();
+    AudioX.unlock();
     hitTarget(rec, true);
-  }, { passive:false });
+  };
+  el.addEventListener('pointerdown', hitHandler, { passive:false });
+  el.addEventListener('click', hitHandler, { passive:false });
+  el.addEventListener('touchstart', hitHandler, { passive:false });
 
   layer.appendChild(el);
-
-  // remove spawn class soon
   setTimeout(()=> el.classList.remove('spawn'), 260);
 
-  // log
   logEvent('spawn', { kind, group, size: sizePx, x: cx, y: cy, hp });
-
   return rec;
 }
 
@@ -603,11 +510,6 @@ function expireTargets(){
     const rec = S.targets[i];
     if (rec.dead) continue;
     if (t >= rec.dieAt){
-
-      // Expire consequences:
-      // - good/gold expire => MISS
-      // - boss expire => BIG punish + MISS
-      // - trap expire => no penalty (it’s a decoy)
       if (rec.kind === 'good' || rec.kind === 'gold'){
         S.miss += 1;
         S.combo = 0;
@@ -624,17 +526,15 @@ function expireTargets(){
         logEvent('boss_expire_punish', {});
         S.bossActive = false;
       }
-
       removeTarget(rec);
     }
   }
 }
 
-// ---------- Aim pick (crosshair) ----------
+// ---------- Aim pick ----------
 function pickNearCrosshair(radiusPx){
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const cx = vw/2, cy = vh/2;
-
   const off = viewOffset();
 
   let best = null;
@@ -644,10 +544,7 @@ function pickNearCrosshair(radiusPx){
     const sx = rec.cx + off.x;
     const sy = rec.cy + off.y;
     const d = Math.hypot(sx - cx, sy - cy);
-    if (d < bestD){
-      bestD = d;
-      best = rec;
-    }
+    if (d < bestD){ bestD = d; best = rec; }
   }
   if (best && bestD <= radiusPx) return { rec: best, dist: bestD };
   return null;
@@ -664,51 +561,22 @@ function updateAimHighlight(){
     if (prev && prev.el) prev.el.classList.remove('aimed');
   }
   S.aimedId = tid;
-  if (picked && picked.rec && picked.rec.el){
-    picked.rec.el.classList.add('aimed');
-  }
+  if (picked && picked.rec && picked.rec.el) picked.rec.el.classList.add('aimed');
 }
 
-// ---------- Scoring / Fever / Grade ----------
-function addScore(delta){
-  S.score += delta;
-  setTxt(HUD.score, S.score);
-}
-
-function addCombo(){
-  S.combo += 1;
-  S.maxCombo = Math.max(S.maxCombo, S.combo);
-  setTxt(HUD.combo, S.combo);
-}
-
-function resetCombo(){
-  S.combo = 0;
-  setTxt(HUD.combo, S.combo);
-}
-
+// ---------- Score/Fever/Grade ----------
+function addScore(delta){ S.score += delta; setTxt(HUD.score, S.score); }
+function addCombo(){ S.combo += 1; S.maxCombo = Math.max(S.maxCombo, S.combo); setTxt(HUD.combo, S.combo); }
 function addFever(v){
   S.fever = clamp(S.fever + v, 0, 100);
   const pct = Math.round(S.fever);
   if (HUD.feverBar) HUD.feverBar.style.width = `${pct}%`;
   setTxt(HUD.feverPct, `${pct}%`);
-
-  if (!S.feverOn && S.fever >= 100){
-    S.feverOn = true;
-    Particles.celebrate && Particles.celebrate('FEVER!');
-    logEvent('fever_on', {});
-  }
-  if (S.feverOn && S.fever <= 15){
-    S.feverOn = false;
-    logEvent('fever_off', {});
-  }
+  if (!S.feverOn && S.fever >= 100){ S.feverOn = true; Particles.celebrate && Particles.celebrate('FEVER!'); logEvent('fever_on', {}); }
+  if (S.feverOn && S.fever <= 15){ S.feverOn = false; logEvent('fever_off', {}); }
 }
-
 function gradeFromScore(){
-  const s = S.score;
-  const m = S.miss;
-  const p = S.perfectCount;
-  const metric = s + p*120 - m*260;
-
+  const metric = S.score + S.perfectCount*120 - S.miss*260;
   if (metric >= 7200) return 'SSS';
   if (metric >= 5600) return 'SS';
   if (metric >= 4200) return 'S';
@@ -716,11 +584,7 @@ function gradeFromScore(){
   if (metric >= 1600) return 'B';
   return 'C';
 }
-
-function updateGrade(){
-  const g = gradeFromScore();
-  setTxt(HUD.grade, g);
-}
+function updateGrade(){ setTxt(HUD.grade, gradeFromScore()); }
 
 // ---------- Goals / Minis ----------
 const GOALS = [
@@ -729,76 +593,43 @@ const GOALS = [
 ];
 
 const MINIS = [
-  {
-    key:'plateRush', title:'Plate Rush (8s)',
-    hint:'ทำจานครบ 5 หมู่ภายใน 8 วิ • ห้ามโดนขยะระหว่างทำ',
-    dur:8000,
+  { key:'plateRush', title:'Plate Rush (8s)', hint:'ทำจานครบ 5 หมู่ภายใน 8 วิ • ห้ามโดนขยะระหว่างทำ', dur:8000,
     init(){ S._mini = { gotGroups:new Set(), fail:false, madePlate:false }; },
-    onHit(rec){
-      if (rec.kind === 'junk' || rec.kind === 'trap' || rec.kind === 'boss') S._mini.fail = true;
-      if (rec.kind === 'good') S._mini.gotGroups.add(rec.group);
-      if (rec.kind === 'gold') { /* gold helps */ }
-      if (S._mini.gotGroups.size >= 5) S._mini.madePlate = true;
-    },
+    onHit(rec){ if (rec.kind==='junk'||rec.kind==='trap'||rec.kind==='boss') S._mini.fail=true; if(rec.kind==='good') S._mini.gotGroups.add(rec.group); if(S._mini.gotGroups.size>=5) S._mini.madePlate=true; },
     isClear(){ return S._mini.madePlate && !S._mini.fail; }
   },
-  {
-    key:'perfectStreak', title:'Perfect Streak',
-    hint:'ทำ PERFECT ติดต่อกัน 5 ครั้ง (พลาดแล้วนับใหม่)!',
-    dur:11000,
+  { key:'perfectStreak', title:'Perfect Streak', hint:'ทำ PERFECT ติดต่อกัน 5 ครั้ง (พลาดแล้วนับใหม่)!', dur:11000,
     init(){ S._mini = { streak:0 }; },
-    onJudge(j){
-      if (j === 'PERFECT') S._mini.streak++;
-      else if (j !== 'HIT') S._mini.streak = 0;
-    },
+    onJudge(j){ if(j==='PERFECT') S._mini.streak++; else if(j!=='HIT') S._mini.streak=0; },
     progress(){ return `${S._mini.streak}/5`; },
-    isClear(){ return S._mini.streak >= 5; }
+    isClear(){ return S._mini.streak>=5; }
   },
-  {
-    key:'goldHunt', title:'Gold Hunt (12s)',
-    hint:'เก็บ ⭐ Gold ให้ได้ 2 อันภายในเวลา!',
-    dur:12000,
+  { key:'goldHunt', title:'Gold Hunt (12s)', hint:'เก็บ ⭐ Gold ให้ได้ 2 อันภายในเวลา!', dur:12000,
     init(){ S._mini = { got:0 }; },
-    onHit(rec){ if (rec.kind === 'gold') S._mini.got++; },
+    onHit(rec){ if(rec.kind==='gold') S._mini.got++; },
     progress(){ return `${S._mini.got}/2`; },
-    isClear(){ return S._mini.got >= 2; }
+    isClear(){ return S._mini.got>=2; }
   },
-  {
-    key:'comboSprint', title:'Combo Sprint (15s)',
-    hint:'ทำคอมโบให้ถึง 8 ภายใน 15 วิ!',
-    dur:15000,
+  { key:'comboSprint', title:'Combo Sprint (15s)', hint:'ทำคอมโบให้ถึง 8 ภายใน 15 วิ!', dur:15000,
     init(){ S._mini = { best:0 }; },
     tick(){ S._mini.best = Math.max(S._mini.best, S.combo); },
     progress(){ return `${Math.max(S._mini.best, S.combo)}/8`; },
     isClear(){ return Math.max(S._mini.best, S.combo) >= 8; }
   },
-  {
-    key:'cleanAndCount', title:'Clean & Count (10s)',
-    hint:'เก็บของดี 4 ชิ้นใน 10 วิ • ห้ามโดนขยะ!',
-    dur:10000,
+  { key:'cleanAndCount', title:'Clean & Count (10s)', hint:'เก็บของดี 4 ชิ้นใน 10 วิ • ห้ามโดนขยะ!', dur:10000,
     init(){ S._mini = { good:0, fail:false }; },
-    onHit(rec){
-      if (rec.kind === 'junk' || rec.kind === 'trap' || rec.kind === 'boss') S._mini.fail = true;
-      if (rec.kind === 'good') S._mini.good++;
-      if (rec.kind === 'gold') S._mini.good++;
-    },
+    onHit(rec){ if(rec.kind==='junk'||rec.kind==='trap'||rec.kind==='boss') S._mini.fail=true; if(rec.kind==='good') S._mini.good++; if(rec.kind==='gold') S._mini.good++; },
     progress(){ return `${S._mini.good}/4`; },
-    isClear(){ return (S._mini.good >= 4) && !S._mini.fail; }
+    isClear(){ return (S._mini.good>=4)&&!S._mini.fail; }
   },
-  {
-    key:'noMiss', title:'No-Miss (12s)',
-    hint:'12 วิ ห้ามพลาด! (ห้ามโดนขยะ/ห้ามปล่อยหมดอายุ)',
-    dur:12000,
+  { key:'noMiss', title:'No-Miss (12s)', hint:'12 วิ ห้ามพลาด! (ห้ามโดนขยะ/ห้ามปล่อยหมดอายุ)', dur:12000,
     init(){ S._mini = { missAtStart: S.miss }; },
     isClear(){ return S.miss === S._mini.missAtStart; }
   },
-  {
-    key:'goldOrPerfect', title:'Shine (10s)',
-    hint:'ภายใน 10 วิ ทำ PERFECT 2 หรือ Gold 1 ก็ผ่าน!',
-    dur:10000,
+  { key:'goldOrPerfect', title:'Shine (10s)', hint:'ภายใน 10 วิ ทำ PERFECT 2 หรือ Gold 1 ก็ผ่าน!', dur:10000,
     init(){ S._mini = { perfect:0, gold:0 }; },
-    onJudge(j){ if (j==='PERFECT') S._mini.perfect++; },
-    onHit(rec){ if (rec.kind==='gold') S._mini.gold++; },
+    onJudge(j){ if(j==='PERFECT') S._mini.perfect++; },
+    onHit(rec){ if(rec.kind==='gold') S._mini.gold++; },
     progress(){ return `P:${S._mini.perfect}/2 • G:${S._mini.gold}/1`; },
     isClear(){ return S._mini.gold>=1 || S._mini.perfect>=2; }
   },
@@ -811,13 +642,11 @@ function goalProgressText(){
   if (g.key === 'perfect6') return `${S.perfectCount}/${g.target}`;
   return '0';
 }
-
 function setGoal(i){
   S.goalIndex = clamp(i, 0, GOALS.length-1);
   S.activeGoal = GOALS[S.goalIndex];
   setTxt(HUD.goalLine, `Goal ${S.goalIndex+1}/${S.goalsTotal}: ${S.activeGoal.title} (${goalProgressText()})`);
 }
-
 function checkGoalClear(){
   const g = S.activeGoal;
   if (!g) return false;
@@ -825,7 +654,6 @@ function checkGoalClear(){
   if (g.key === 'perfect6') return (S.perfectCount >= g.target);
   return false;
 }
-
 function onGoalCleared(){
   Particles.celebrate && Particles.celebrate('GOAL CLEAR!');
   vibe(60);
@@ -840,30 +668,22 @@ function startMini(){
   S.miniEndsAt = now() + mini.dur;
   S.miniUrgentArmed = false;
   S.miniTickAt = 0;
-
   if (typeof mini.init === 'function') mini.init();
   updateMiniHud();
   logEvent('mini_start', { mini: mini.key, dur: mini.dur });
 }
-
 function updateMiniHud(){
   const m = S.activeMini;
-  if (!m){
-    setTxt(HUD.miniLine, '…');
-    setTxt(HUD.miniHint, '…');
-    return;
-  }
+  if (!m){ setTxt(HUD.miniLine, '…'); setTxt(HUD.miniHint, '…'); return; }
   const left = Math.max(0, (S.miniEndsAt - now())/1000);
   const prog = (typeof m.progress === 'function') ? m.progress() : '';
   const progText = prog ? ` • ${prog}` : '';
   setTxt(HUD.miniLine, `MINI: ${m.title}${progText} • ${left.toFixed(1)}s`);
   setTxt(HUD.miniHint, m.hint || '');
 }
-
 function tickMini(){
   const m = S.activeMini;
   if (!m) return;
-
   if (typeof m.tick === 'function') m.tick();
 
   const leftMs = S.miniEndsAt - now();
@@ -905,7 +725,6 @@ function tickMini(){
       addScore(-120);
       addFever(-12);
     }
-
     startMini();
   } else {
     updateMiniHud();
@@ -940,8 +759,7 @@ function onGood(group){
 // ---------- Hit handling ----------
 function judgeFromDist(distPx, sizePx){
   const n = clamp(distPx / (sizePx * 0.55), 0, 1);
-  if (n <= 0.38) return 'PERFECT';
-  return 'HIT';
+  return (n <= 0.38) ? 'PERFECT' : 'HIT';
 }
 
 function bossHpSync(rec){
@@ -954,7 +772,6 @@ function bossHpSync(rec){
 }
 
 function punishBad(reason){
-  // reason: 'junk' | 'trap' | 'boss'
   S.combo = 0;
   setTxt(HUD.combo, S.combo);
 
@@ -983,7 +800,6 @@ function hitTarget(rec, direct){
   const sy = rec.cy + off.y;
   const dist = Math.hypot(sx - cx, sy - cy);
 
-  // -------- TRAP --------
   if (rec.kind === 'trap'){
     punishBad('trap');
     Particles.burstAt && Particles.burstAt(sx, sy, 'TRAP');
@@ -997,7 +813,6 @@ function hitTarget(rec, direct){
     return;
   }
 
-  // -------- JUNK --------
   if (rec.kind === 'junk'){
     punishBad('junk');
     Particles.burstAt && Particles.burstAt(sx, sy, 'BAD');
@@ -1011,9 +826,7 @@ function hitTarget(rec, direct){
     return;
   }
 
-  // -------- BOSS --------
   if (rec.kind === 'boss'){
-    // boss takes multiple hits
     rec.hp = Math.max(0, (rec.hp|0) - 1);
     bossHpSync(rec);
 
@@ -1026,25 +839,21 @@ function hitTarget(rec, direct){
     addFever(6);
     logEvent('boss_hit', { hp: rec.hp, hpMax: rec.hpMax });
 
-    // mini hook
     if (S.activeMini && typeof S.activeMini.onHit === 'function') S.activeMini.onHit(rec, 'HIT');
     if (S.activeMini && typeof S.activeMini.onJudge === 'function') S.activeMini.onJudge('HIT');
 
     if (rec.hp <= 0){
-      // boss down reward
       AudioX.bossDown();
       Particles.celebrate && Particles.celebrate('BOSS DOWN!');
       vibe(85);
       addScore(900);
       addFever(28);
-      S.combo += 2; // hype boost
+      S.combo += 2;
       S.maxCombo = Math.max(S.maxCombo, S.combo);
       setTxt(HUD.combo, S.combo);
-
       Particles.scorePop && Particles.scorePop('+900', sx, sy);
       logEvent('boss_down', {});
       S.bossActive = false;
-
       removeTarget(rec);
     }
     updateGrade();
@@ -1052,9 +861,7 @@ function hitTarget(rec, direct){
     return;
   }
 
-  // -------- GOOD / GOLD --------
-  let judge = judgeFromDist(dist, rec.size);
-
+  const judge = judgeFromDist(dist, rec.size);
   const mult = S.feverOn ? 1.35 : 1.0;
   const base = (rec.kind === 'gold') ? 520 : 240;
   const bonus = (judge === 'PERFECT') ? 220 : 0;
@@ -1082,7 +889,6 @@ function hitTarget(rec, direct){
 
   if (rec.kind === 'good') onGood(rec.group);
   if (rec.kind === 'gold'){
-    // gold helps plate: pick a group not yet collected if possible
     let g = 1 + ((Math.random()*5)|0);
     for (let k=0;k<5;k++){
       const gg = 1 + ((g-1+k)%5);
@@ -1105,18 +911,11 @@ function hitTarget(rec, direct){
   logEvent('hit', { kind: rec.kind, group: rec.group, judge, dist, direct: !!direct, delta });
 }
 
-// ---------- Spawn decision + Fever Pattern + Boss pacing ----------
+// ---------- Spawn decision + Fever pattern + Boss pacing ----------
 function decideGroup(){ return 1 + ((Math.random()*5)|0); }
-
 function decideKind(){
-  // Boss pacing: independent schedule
-  // Normal spawns: choose among gold/junk/trap/good
   const r = Math.random();
-
-  // trap chance (slightly higher in fever)
   const trapRate = clamp(D.trapRate * (S.feverOn ? 1.12 : 1.0), 0, 0.20);
-
-  // base distribution
   if (r < D.goldRate) return 'gold';
   if (r < D.goldRate + D.junkRate) return 'junk';
   if (r < D.goldRate + D.junkRate + trapRate) return 'trap';
@@ -1125,18 +924,14 @@ function decideKind(){
 
 function spawnBossIfReady(){
   if (S.bossActive) return;
-
   const t = now();
   if (!S.bossNextAt) S.bossNextAt = t + rnd(9000, 15000);
   if (t < S.bossNextAt) return;
 
-  // spawn boss
   S.bossActive = true;
-
   const hp = (S.feverOn ? Math.max(2, D.bossHP - 1) : D.bossHP);
   makeTarget('boss', 0, { hp });
 
-  // next boss time
   const base = S.feverOn ? rnd(8500, 12500) : rnd(10500, 16500);
   S.bossNextAt = t + base;
 
@@ -1147,31 +942,27 @@ function spawnBossIfReady(){
 }
 
 function spawnFeverRingBurst(){
-  // sometimes, when feverOn, spawn a ring of targets around crosshair
   if (!S.feverOn) return;
-  if (Math.random() > 0.18) return; // not always
+  if (Math.random() > 0.18) return;
 
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const cxS = vw/2, cyS = vh/2;
-
   const off = viewOffset();
 
-  const n = 5 + ((Math.random()*3)|0); // 5..7
+  const n = 5 + ((Math.random()*3)|0);
   const radius = clamp(Math.min(vw, vh) * 0.18, 92, 160);
+
   for (let i=0;i<n;i++){
     const a = (i / n) * Math.PI * 2 + rnd(-0.18, 0.18);
     const sx = cxS + Math.cos(a) * radius;
     const sy = cyS + Math.sin(a) * radius;
 
-    // convert to world coords
     const x = sx - off.x;
     const y = sy - off.y;
 
-    // place as "good" mostly
     const kind = (Math.random() < 0.20) ? 'gold' : 'good';
     const group = (kind === 'good') ? decideGroup() : 0;
 
-    // manual spawn at position (override safe pick)
     const sizePx = computeSizePx(kind);
     const el = doc.createElement('div');
     el.className = `plateTarget ${kind} spawn`;
@@ -1183,9 +974,8 @@ function spawnFeverRingBurst(){
     el.style.setProperty('--y', `${y - sizePx/2}`);
     el.style.setProperty('--sc', `${sc}`);
 
-    let emoji = (kind === 'gold') ? '⭐' : randFrom(FOOD_BY_GROUP[group] || ['🥗']);
+    const emoji = (kind === 'gold') ? '⭐' : randFrom(FOOD_BY_GROUP[group] || ['🥗']);
     const tag = (kind === 'gold') ? 'GOLD' : `G${group}`;
-
     el.innerHTML = `<div class="emoji">${emoji}</div><div class="tag">${tag}</div>`;
 
     const bornAt = now();
@@ -1193,15 +983,17 @@ function spawnFeverRingBurst(){
     const rec = { el, kind, group, bornAt, dieAt, cx:x, cy:y, size:sizePx, hp:0, hpMax:0, dead:false };
     S.targets.push(rec);
 
-    el.addEventListener('pointerdown', (e)=>{
-      e.preventDefault();
-      e.stopPropagation();
+    const hitHandler = (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      AudioX.unlock();
       hitTarget(rec, true);
-    }, { passive:false });
+    };
+    el.addEventListener('pointerdown', hitHandler, { passive:false });
+    el.addEventListener('click', hitHandler, { passive:false });
+    el.addEventListener('touchstart', hitHandler, { passive:false });
 
     layer.appendChild(el);
     setTimeout(()=> el.classList.remove('spawn'), 240);
-
     logEvent('spawn_fever', { kind, group, x, y });
   }
 
@@ -1212,14 +1004,10 @@ function spawnTick(){
   const t = now();
   if (t < S.nextSpawnAt) return;
 
-  // boss schedule tick
   spawnBossIfReady();
-
-  // fever pattern occasionally
   spawnFeverRingBurst();
 
   const mul = S.feverOn ? 0.78 : 1.0;
-
   const burst = (Math.random() < (S.feverOn ? 0.22 : 0.12)) ? 2 : 1;
 
   for (let i=0;i<burst;i++){
@@ -1242,17 +1030,13 @@ function onGlobalPointerDown(e){
   if (!S.running || S.paused) return;
   if (isUIElement(e.target)) return;
 
-  AudioX.ensure();
+  AudioX.unlock();
 
-  // prioritize direct taps on target already handled by pointerdown+stopPropagation
-  // here: tap-anywhere -> pick near crosshair
   const picked = pickNearCrosshair(D.aimAssist);
-  if (picked && picked.rec){
-    hitTarget(picked.rec, false);
-  }
+  if (picked && picked.rec) hitTarget(picked.rec, false);
 }
 
-// ---------- Pause / Restart / VR ----------
+// ---------- Pause/Restart/VR ----------
 function setPaused(on){
   S.paused = !!on;
   setShow(HUD.paused, S.paused);
@@ -1268,17 +1052,9 @@ function restart(){
   S.tStart = 0;
   S.timeLeft = TOTAL_TIME;
 
-  S.score = 0;
-  S.combo = 0;
-  S.maxCombo = 0;
-  S.miss = 0;
-  S.perfectCount = 0;
-
-  S.fever = 0;
-  S.feverOn = false;
-
-  S.goalsCleared = 0;
-  S.minisCleared = 0;
+  S.score = 0; S.combo = 0; S.maxCombo = 0; S.miss = 0; S.perfectCount = 0;
+  S.fever = 0; S.feverOn = false;
+  S.goalsCleared = 0; S.minisCleared = 0;
 
   S.plateHave.clear();
   S.groupCounts = [0,0,0,0,0];
@@ -1286,11 +1062,8 @@ function restart(){
   S.bossActive = false;
   S.bossNextAt = now() + rnd(8000, 14000);
 
-  setTxt(HUD.score, 0);
-  setTxt(HUD.combo, 0);
-  setTxt(HUD.miss, 0);
-  setTxt(HUD.perfect, 0);
-  setTxt(HUD.have, `0/5`);
+  setTxt(HUD.score, 0); setTxt(HUD.combo, 0); setTxt(HUD.miss, 0);
+  setTxt(HUD.perfect, 0); setTxt(HUD.have, `0/5`);
   if (HUD.feverBar) HUD.feverBar.style.width = `0%`;
   setTxt(HUD.feverPct, `0%`);
 
@@ -1318,7 +1091,6 @@ function endGame(){
   doc.body.classList.remove('hha-mini-urgent');
 
   S.nextSpawnAt = Infinity;
-
   for (const rec of [...S.targets]) removeTarget(rec);
 
   setTxt(HUD.rMode, MODE === 'research' ? 'Research' : 'Play');
@@ -1400,9 +1172,7 @@ function start(){
       expireTargets();
       tickMini();
 
-      // fever decay
       addFever(S.feverOn ? -0.22 : -0.10);
-
       setGoal(S.goalIndex);
 
       if (S.timeLeft <= 0){
@@ -1410,7 +1180,6 @@ function start(){
         return;
       }
     }
-
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
@@ -1418,7 +1187,10 @@ function start(){
 
 // ---------- Bind UI ----------
 function bindUI(){
-  doc.addEventListener('pointerdown', onGlobalPointerDown, { passive:false });
+  // ✅ IMPORTANT: listen on layer too (since it covers screen)
+  layer.addEventListener('pointerdown', onGlobalPointerDown, { passive:false });
+  layer.addEventListener('touchstart', onGlobalPointerDown, { passive:false });
+  layer.addEventListener('click', onGlobalPointerDown, { passive:false });
 
   if (HUD.btnEnterVR) HUD.btnEnterVR.addEventListener('click', enterVR);
   if (HUD.btnPause) HUD.btnPause.addEventListener('click', ()=>{
@@ -1438,9 +1210,7 @@ function bindUI(){
 
   if (HUD.resultBackdrop){
     HUD.resultBackdrop.addEventListener('click', (e)=>{
-      if (e.target === HUD.resultBackdrop){
-        setShow(HUD.resultBackdrop, false);
-      }
+      if (e.target === HUD.resultBackdrop) setShow(HUD.resultBackdrop, false);
     });
   }
 }
@@ -1460,14 +1230,12 @@ function bindUI(){
   setTxt(HUD.have, `0/5`);
   updateGrade();
 
-  // boss schedule init
   S.bossNextAt = now() + rnd(8000, 14000);
 
   setGoal(0);
   startMini();
 
   logSession('start');
-
   start();
 
   if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, D });
