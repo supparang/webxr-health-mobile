@@ -1,9 +1,11 @@
 <!-- === /herohealth/groups-vr.html ===
-Food Groups VR — FULL HTML (PRODUCTION READY)
+Food Groups VR — FULL HTML (PRODUCTION READY) — FIX-ALL
 ✅ Quest IIFE โหลดก่อน Engine (ชัวร์)
 ✅ Emoji sticker targets + spawn/out/hit animations via --x/--y/--s
 ✅ Tap-anywhere + Lock/Fuse ring + Charge ring UI
 ✅ CLUTCH: 3..2..1 tick + edge pulse
+✅ HUD Quest: questOk guard (ไม่เงียบ)
+✅ Coach UI: ไม่พัง sub (ใช้ #coachMain/#coachSub)
 ✅ Works with /herohealth/vr-groups/GameEngine.js (IIFE -> window.GroupsVR.GameEngine)
 -->
 
@@ -311,7 +313,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
       padding:18px;
     }
     .card{
-      width:min(520px, 100%);
+      width:min(560px, 100%);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:24px;
@@ -324,7 +326,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
     .row{ display:flex; gap:10px; flex-wrap:wrap; }
     .seg{
       flex:1;
-      min-width:140px;
+      min-width:160px;
       background:rgba(255,255,255,.06);
       border:1px solid rgba(255,255,255,.12);
       border-radius:16px;
@@ -441,7 +443,8 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
       </div>
 
       <div class="coachBox">
-        <div class="coachText" id="coachText">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨
+        <div class="coachText">
+          <span id="coachMain">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨</span>
           <div class="sub" id="coachSub">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
         </div>
       </div>
@@ -460,8 +463,8 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
 
       <div class="controls">
         <div class="hintCol">
-          <div class="hint">LOCK <small>จ้องจนวงฟ้าเต็ม → ยิงเป็นชุด</small></div>
-          <div class="hint">CHARGE <small>ค้างต่อ → ยิงแรง + Piercing แบบ Cone</small></div>
+          <div class="hint">LOCK <small>จ้องจนวงเขียวเต็ม → ยิงเป็นชุด</small></div>
+          <div class="hint">CHARGE <small>ค้างต่อ → ยิงแรง + ลาม (Chain)</small></div>
         </div>
 
         <div class="btnCol">
@@ -478,7 +481,10 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
     <div id="startOverlay">
       <div class="card">
         <div class="h1">Food Groups VR — พร้อมลุย</div>
-        <div class="p">โหมดเล่น (play) จะมี Adaptive + Rush + BossWave + Decoy + Rage (สุด). โหมดวิจัย (research) จะปิดสิ่งสุ่มเพื่อคุมตัวแปร</div>
+        <div class="p">
+          โหมดเล่น (play) = มี Adaptive + Rush + BossWave + Decoy + Rage (สุด)
+          <br/>โหมดวิจัย (research) = <b>FIX</b> (คุมตัวแปร) → ใช้ <b>Seed</b> ให้เหมือนกันเป๊ะ
+        </div>
 
         <div class="row">
           <div class="seg">
@@ -504,9 +510,16 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
           </div>
         </div>
 
+        <div class="row">
+          <div class="seg">
+            <label>Seed (ใช้ใน research)</label>
+            <input id="inpSeed" type="text" placeholder="เช่น A / school1_g5 / 2025-12-22" />
+          </div>
+        </div>
+
         <button class="startBtn" id="btnStart">START</button>
         <div class="note">
-          Quest เป็น IIFE แล้ว โหลดก่อน Engine เรียบร้อย ✅
+          ✅ Quest เป็น IIFE โหลดก่อน Engine แล้ว — ถ้า quest ไม่พร้อม HUD จะขึ้น “QUEST OFF” ให้ทันที
         </div>
       </div>
     </div>
@@ -526,6 +539,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
       const selDiff = $('selDiff');
       const selMode = $('selMode');
       const inpTime = $('inpTime');
+      const inpSeed = $('inpSeed');
 
       const hudScore = $('hudScore');
       const hudCombo = $('hudCombo');
@@ -538,7 +552,8 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
       const questMini = $('questMini');
       const miniPct   = $('miniPct');
 
-      const coachText = $('coachText');
+      const coachMain = $('coachMain');
+      const coachSub  = $('coachSub');
 
       const btnStart = $('btnStart');
       const btnGaze  = $('btnGaze');
@@ -555,10 +570,12 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
       const qDiff = (sp.get('diff')||'').toLowerCase();
       const qMode = (sp.get('mode')||'').toLowerCase();
       const qTime = parseInt(sp.get('time')||'',10);
+      const qSeed = sp.get('seed') || '';
 
       if (qDiff) selDiff.value = (['easy','normal','hard'].includes(qDiff) ? qDiff : 'normal');
       if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
       if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(qTime);
+      if (qSeed) inpSeed.value = qSeed;
 
       const C1 = 188.5;
       const C2 = 138.2;
@@ -594,8 +611,17 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
         if (d.grade) hudGrade.textContent = String(d.grade);
       });
 
+      // ✅ QUEST FIX: guard questOk
       window.addEventListener('quest:update', (e)=>{
         const d = (e && e.detail) || {};
+
+        if (d.questOk === false){
+          questGoal.innerHTML = `<span class="muted">GOAL:</span> ⚠️ QUEST OFF (เช็ค ./vr-groups/groups-quests.js path / defer order)`;
+          questMini.innerHTML = `<span class="muted">MINI:</span> —`;
+          miniPct.textContent = '0%';
+          return;
+        }
+
         const g = d.goal;
         const m = d.mini;
 
@@ -606,7 +632,8 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
         }
 
         if (m && m.label){
-          questMini.innerHTML = `<span class="muted">MINI:</span> ${m.label} (${m.prog||0}/${m.target||0})`;
+          const extra = (typeof m.tLeft === 'number') ? ` <span class="muted">⏱️${m.tLeft}s</span>` : '';
+          questMini.innerHTML = `<span class="muted">MINI:</span> ${m.label} (${m.prog||0}/${m.target||0})${extra}`;
           const pct = (m.target>0) ? Math.round((m.prog/m.target)*100) : 0;
           miniPct.textContent = pct + '%';
         } else {
@@ -615,9 +642,11 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
         }
       });
 
+      // ✅ COACH FIX: ไม่ทำลาย sub
       window.addEventListener('hha:coach', (e)=>{
         const d = (e && e.detail) || {};
-        if (d.text) coachText.textContent = String(d.text);
+        if (!d.text) return;
+        coachMain.textContent = String(d.text);
       });
 
       window.addEventListener('groups:reticle', (e)=>{
@@ -683,20 +712,29 @@ Food Groups VR — FULL HTML (PRODUCTION READY)
         const diff = (selDiff.value||'normal').toLowerCase();
         const mode = (selMode.value||'play').toLowerCase();
         const tsec = Math.max(20, Math.min(600, parseInt(inpTime.value||'70',10) || 70));
+        const seed = String(inpSeed.value || '').trim();
 
         eng.setTimeLeft(tsec);
+
         eng.setGaze(true);
         gazeOn = true;
         btnGaze.textContent = 'Gaze: ON';
 
+        // ✅ research = FIX ด้วย seed (ถ้าไม่ใส่ก็ใช้ ?seed= หรือ fallback)
         eng.start(diff, {
           layerEl: layer,
-          runMode: mode
+          runMode: mode,
+          seed: seed || undefined
         });
+
+        coachSub.textContent =
+          (mode === 'research')
+            ? 'Research: คุมตัวแปร + FIX seed (เหมือนกันเป๊ะ)'
+            : 'Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้';
       });
 
       if (sp.get('autostart') === '1'){
-        setTimeout(()=>btnStart.click(), 100);
+        setTimeout(()=>btnStart.click(), 120);
       }
     })();
   </script>
