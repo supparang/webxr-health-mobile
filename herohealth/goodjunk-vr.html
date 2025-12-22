@@ -1,10 +1,7 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — H+ (LATEST LAYOUT)
-     ✅ Ultra-Extreme HUD layout for mobile A15/A54
-     ✅ Pin Quest top, Auto-fit quest, Score strip S/M/T, Hide ComboMax on tight
-     ✅ Move Fever/Shield to Score card on mobile (and move back on desktop)
-     ✅ Quest 2-line compact + mini badge, Critical hides coach
-     ✅ Boss overlays: #atk-ring #atk-laser
+     GoodJunkVR (PRODUCTION) — H+
+     ✅ Mobile Auto-fit + Quest shrink (no empty space) + clamp text
+     ✅ Add boss attack overlays: #atk-ring #atk-laser
 -->
 <!doctype html>
 <html lang="th">
@@ -38,14 +35,6 @@
       --ringSize: 420px;
       --ringGapStart: 40deg; /* updated by JS */
       --ringGapSize: 70deg;  /* updated by JS */
-
-      --sa-top: env(safe-area-inset-top, 0px);
-      --sa-right: env(safe-area-inset-right, 0px);
-      --sa-bottom: env(safe-area-inset-bottom, 0px);
-      --sa-left: env(safe-area-inset-left, 0px);
-
-      --hudGap: 8px;
-      --questScale: 1;
     }
 
     *{ box-sizing:border-box; }
@@ -59,6 +48,7 @@
         var(--bg-main);
       color:var(--text-main);
       overflow:hidden;
+      touch-action: none;
     }
 
     #game-root{
@@ -252,7 +242,6 @@
       touch-action:none;
     }
 
-    /* Emoji sticker feel */
     .gj-target{
       position:absolute;
       transform: translate(-50%,-50%) scale(var(--tScale, 1)) rotate(var(--tRot, 0deg));
@@ -311,6 +300,22 @@
     @keyframes vortexSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg);} }
     @keyframes vortexPulse{ 0%{transform:scale(0.9)} 50%{transform:scale(1.12)} 100%{transform:scale(0.9)} }
 
+    #stun-vortex.lock::before{ animation: vortexLockShrink 1s ease-out 1 !important; }
+    #stun-vortex.lock::after{
+      animation: vortexLockDot 0.12s linear infinite !important;
+      box-shadow:0 0 26px rgba(56,189,248,1);
+    }
+    @keyframes vortexLockShrink{
+      0%{ transform:scale(1.25); opacity:1; }
+      70%{ transform:scale(0.55); opacity:0.95; }
+      100%{ transform:scale(0.22); opacity:0.0; }
+    }
+    @keyframes vortexLockDot{
+      0%{ transform:scale(1); }
+      50%{ transform:scale(1.22); }
+      100%{ transform:scale(1); }
+    }
+
     /* Boss Beacon */
     #boss-beacon{
       position:absolute;
@@ -351,20 +356,19 @@
       display:flex;
       flex-direction:column;
       justify-content:space-between;
-
-      padding-top: calc(10px + var(--sa-top));
-      padding-left: calc(10px + var(--sa-left));
-      padding-right: calc(10px + var(--sa-right));
-      padding-bottom: calc(14px + var(--sa-bottom));
+      padding:
+        calc(10px + env(safe-area-inset-top))
+        calc(10px + env(safe-area-inset-right))
+        calc(14px + env(safe-area-inset-bottom))
+        calc(10px + env(safe-area-inset-left));
     }
-
     .hud-top{
-      display:grid;
-      grid-template-columns: 1.35fr 1fr;
-      gap: var(--hudGap);
-      align-items:start;
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+      flex-wrap:wrap;
     }
-
     .hud-card{
       background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
       border-radius:18px;
@@ -373,8 +377,11 @@
       border:1px solid rgba(148,163,184,0.18);
       pointer-events:auto;
       min-width:0;
-      max-width:100%;
     }
+
+    /* 🔧 OVERRIDE inline min-width on mobile (important!) */
+    .hud-top .hud-card[style]{ min-width:0 !important; }
+    html[data-fit="2"] .hud-top .hud-card{ width:100% !important; max-width:none !important; }
 
     .hud-main{ display:flex; gap:10px; align-items:center; margin-bottom:4px; }
     .hud-main-title{ font-size:14px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--text-soft); }
@@ -391,11 +398,10 @@
       gap:6px;
     }
     .hud-pill.research{
-      background:rgba(37,99,235,0.18);
-      border-color:rgba(59,130,246,0.55);
+      background:  rgba(37,99,235,0.18);
+      border-color: rgba(59,130,246,0.55);
       color:#bfdbfe;
     }
-
     .hud-metrics{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
     .metric{ min-width:92px; }
     .metric-label{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-soft); }
@@ -403,7 +409,7 @@
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
-    .hud-quest{ max-width:360px; font-size:12px; }
+    .hud-quest{ max-width:420px; font-size:12px; }
     .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
     .quest-main-label{ font-size:13px; font-weight:700; }
     .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
@@ -448,7 +454,13 @@
     .boss-bar{ height:7px; border-radius:999px; background:rgba(15,23,42,0.9); border:1px solid rgba(148,163,184,0.18); overflow:hidden; }
     .boss-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(251,191,36,0.22), rgba(251,191,36,0.98)); transition: width .14s ease-out; }
 
-    .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
+    .hud-bottom{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      padding-bottom:72px;
+    }
     .coach-bubble{
       min-width:60%;
       max-width:680px;
@@ -484,7 +496,7 @@
     }
 
     .vr-btn{
-      position:fixed; right: calc(12px + var(--sa-right)); bottom: calc(16px + var(--sa-bottom)); z-index:653;
+      position:fixed; right:12px; bottom:16px; z-index:653;
       border-radius:999px;
       border:1px solid rgba(56,189,248,0.7);
       padding:8px 14px;
@@ -610,188 +622,90 @@
       color:#052e16;
     }
 
-    /* =========================
-       LATEST LAYOUT PATCH (Ultra-Extreme)
-       ========================= */
+    /* ==========================
+       ✅ MOBILE AUTO-FIT PATCH
+       ========================== */
 
-    /* override inline min-width styles */
-    .hud-top > .hud-card[style]{
-      min-width:0 !important;
-      width:100% !important;
+    /* Portrait: stack HUD cards (prevents falling off screen) */
+    @media (max-width: 520px) and (orientation: portrait){
+      .hud-top{ flex-direction:column; align-items:stretch; }
+      .hud-card{ width:100%; }
+      .hud-quest{ max-width:none; }
+      .fever-bar{ width: 44vw; min-width: 120px; }
+      .metric{ min-width: 80px; }
     }
 
-    /* MOBILE flags */
-    .hud-root.compact .hud-top{ grid-template-columns: 1fr !important; }
-    .hud-root.tight .hud-card{ padding: 7px 9px !important; }
+    /* Compact mode (applied by script) */
+    .hud-root.compact{ padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+    .hud-root.compact .hud-card{ border-radius:16px; padding:7px 9px; }
+    .hud-root.compact .metric-value{ font-size:14px; }
+    .hud-root.compact .hud-main-title{ font-size:13px; }
+    .hud-root.compact .hud-fever{ margin-top:5px; gap:5px; }
+    .hud-root.compact .quest-mini-label{ margin-top:3px; }
 
-    /* Pin Quest on top always (mobile) */
-    .hud-root.compact .hud-top{
-      grid-template-areas:
-        "quest"
-        "score" !important;
-    }
-    .hud-root.compact .hud-top > .hud-card.hud-quest{ grid-area: quest !important; }
-    .hud-root.compact .hud-top > .hud-card:not(.hud-quest){ grid-area: score !important; }
-
-    /* Auto-scale quest only */
-    .hud-root.compact .hud-card.hud-quest{
-      font-size: calc(12px * var(--questScale)) !important;
-      overflow:hidden !important;
-    }
-    .hud-root.compact .hud-card.hud-quest .quest-title{ font-size: calc(11px * var(--questScale)) !important; }
-    .hud-root.compact .hud-card.hud-quest .quest-main-label{ font-size: calc(13px * var(--questScale)) !important; }
-    .hud-root.compact .hud-card.hud-quest .quest-mini-label{ font-size: calc(12px * var(--questScale)) !important; }
-    .hud-root.compact .hud-card.hud-quest .quest-caption{ font-size: calc(10px * var(--questScale)) !important; }
-
-    /* Rare fallback: allow quest scroll */
-    html[data-quest-overflow="1"] .hud-root.compact .hud-card.hud-quest{
-      overflow:auto !important;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
-    }
-
-    /* Move Fever/Shield into score card (mobile) */
-    .hud-side-fever{
-      margin-top: 8px;
-      display:none;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      padding-top: 6px;
-      border-top: 1px solid rgba(148,163,184,0.14);
-    }
-    .hud-root.compact .hud-side-fever{ display:flex; }
-    .hud-side-fever .fever-label{ display:none; }
-    .hud-side-fever .fever-bar{ width:118px; height:6px; }
-    .hud-side-fever .fever-pct{ font-size:10px; font-weight:900; min-width:40px; }
-    .hud-side-fever .shield-row{ font-size:10px; }
-    .hud-side-fever .shield-row > div:nth-child(2){ display:none; }
-
-    html[data-fever-moved="1"] .hud-card.hud-quest .hud-fever{ display:none !important; }
-
-    /* CRITICAL priority-fit */
-    html[data-fit="2"] #hud-quest-hint{ display:none !important; }
-    html[data-fit="2"] #boss-wrap{ display:none !important; }
-    html[data-fit="2"] #coach-bubble{ display:none !important; }
-    html[data-fit="2"] .hud-card.hud-quest .quest-bar{ height: 3px !important; }
-
-    /* ULTRA: Score becomes one-line strip on tight/critical */
-    .hud-root.tight .hud-top > .hud-card:not(.hud-quest) .hud-main,
-    html[data-fit="2"] .hud-top > .hud-card:not(.hud-quest) .hud-main{ display:none !important; }
-
-    .hud-root.tight .hud-top > .hud-card:not(.hud-quest) div[style*="margin-top:6px"],
-    html[data-fit="2"] .hud-top > .hud-card:not(.hud-quest) div[style*="margin-top:6px"]{ display:none !important; }
-
-    .hud-root.tight .hud-top > .hud-card:not(.hud-quest) .hud-metrics,
-    html[data-fit="2"] .hud-top > .hud-card:not(.hud-quest) .hud-metrics{
-      display:flex !important;
-      flex-wrap:nowrap !important;
-      align-items:baseline !important;
-      justify-content:space-between !important;
-      gap:10px !important;
-    }
-    .hud-root.tight .hud-top > .hud-card:not(.hud-quest) .metric-label,
-    html[data-fit="2"] .hud-top > .hud-card:not(.hud-quest) .metric-label{ display:none !important; }
-
-    .hud-root.tight .hud-top > .hud-card:not(.hud-quest) .metric,
-    html[data-fit="2"] .hud-top > .hud-card:not(.hud-quest) .metric{
-      flex:1 1 0 !important;
-      min-width:0 !important;
-    }
-
-    /* Hide ComboMax */
-    .hud-root.tight .metric.metric-combo,
-    html[data-fit="2"] .metric.metric-combo{ display:none !important; }
-
-    /* Prefix S/M/T */
-    .hud-root.tight .metric.metric-score .metric-value::before,
-    html[data-fit="2"] .metric.metric-score .metric-value::before{
-      content:"S "; font-size:11px; font-weight:900; opacity:.75; margin-right:4px;
-    }
-    .hud-root.tight .metric.metric-miss .metric-value::before,
-    html[data-fit="2"] .metric.metric-miss .metric-value::before{
-      content:"M "; font-size:11px; font-weight:900; opacity:.75; margin-right:4px;
-    }
-    .hud-root.tight .metric.metric-time .metric-value::before,
-    html[data-fit="2"] .metric.metric-time .metric-value::before{
-      content:"T "; font-size:11px; font-weight:900; opacity:.75; margin-right:4px;
-    }
-
-    .hud-root.tight #hud-score,
-    html[data-fit="2"] #hud-score{ font-size:18px !important; font-weight:950 !important; }
-    .hud-root.tight #hud-miss,
-    html[data-fit="2"] #hud-miss{ font-size:15px !important; font-weight:900 !important; }
-    .hud-root.tight #hud-time-label,
-    html[data-fit="2"] #hud-time-label{ font-size:14px !important; font-weight:900 !important; opacity:.95 !important; }
-
-    /* FINAL: Quest 2-line compact + mini badge */
+    /* ✅ FIX: Quest card should not be forced tall (removes empty space) */
     .hud-root.tight .hud-card.hud-quest,
     html[data-fit="2"] .hud-card.hud-quest{
       padding: 7px 9px !important;
-      min-height: 230px !important;
+      min-height: 0 !important;
+      height: auto !important;
     }
-    .hud-root.tight .hud-card.hud-quest .quest-title,
-    html[data-fit="2"] .hud-card.hud-quest .quest-title{ display:none !important; }
 
-    .hud-root.tight #hud-quest-hint,
-    html[data-fit="2"] #hud-quest-hint{ display:none !important; }
+    /* ✅ Clamp quest texts so they never balloon height */
+    #hud-quest-main,
+    #hud-quest-mini{
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    #hud-quest-main{
+      -webkit-line-clamp: 2;
+      line-height: 1.15;
+      max-height: 2.4em;
+    }
+    #hud-quest-mini{
+      -webkit-line-clamp: 1;
+      line-height: 1.15;
+      max-height: 1.2em;
+    }
 
-    .hud-root.tight .hud-card.hud-quest .quest-caption span:last-child,
-    html[data-fit="2"] .hud-card.hud-quest .quest-caption span:last-child{ display:none !important; }
-
-    .hud-root.tight .hud-card.hud-quest .quest-progress-wrap,
-    html[data-fit="2"] .hud-card.hud-quest .quest-progress-wrap{
-      display:grid !important;
-      grid-template-columns: 1fr auto !important;
-      grid-template-areas:
-        "bar badge"
-        "cap badge" !important;
-      gap: 2px 8px !important;
+    /* tighter progress spacing in compact */
+    .hud-root.compact .hud-card.hud-quest .quest-progress-wrap{
       margin-top: 3px !important;
-      align-items:center !important;
-    }
-    .hud-root.tight .hud-card.hud-quest .quest-bar,
-    html[data-fit="2"] .hud-card.hud-quest .quest-bar{
-      grid-area: bar !important;
-      height: 3px !important;
-    }
-    .hud-root.tight .hud-card.hud-quest .quest-caption,
-    html[data-fit="2"] .hud-card.hud-quest .quest-caption{
-      grid-area: cap !important;
-      font-size: 9px !important;
-      line-height: 1.05 !important;
-      opacity: .92 !important;
-    }
-
-    #hud-mini-count.hud-mini-badge{
-      grid-area: badge !important;
-      justify-self:end !important;
-      align-self:center !important;
-      font-size: 9px !important;
-      font-weight: 950 !important;
-      letter-spacing: .06em !important;
-      text-transform: uppercase !important;
-      color:#bfdbfe !important;
-      background: rgba(37,99,235,0.16) !important;
-      border: 1px solid rgba(59,130,246,0.45) !important;
-      border-radius: 999px !important;
-      padding: 3px 7px !important;
-      line-height: 1 !important;
-      white-space: nowrap !important;
+      gap: 3px !important;
     }
   </style>
 
-  <!-- game FX + UI -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
-  <script src="./vr/hha-hud.js"></script>
   <script src="./vr/hha-summary.js"></script>
   <script src="./vr/hha-cloud-logger.js"></script>
 
+  <!-- ✅ Auto-fit script (sets html[data-fit] + .hud-root.compact/.tight) -->
+  <script>
+    (function(){
+      function applyFit(){
+        const w = Math.max(1, window.innerWidth|0);
+        const h = Math.max(1, window.innerHeight|0);
+        const portrait = h >= w;
+        const fit2 = portrait && (w <= 520);
+        document.documentElement.dataset.fit = fit2 ? '2' : '0';
+
+        const hud = document.querySelector('.hud-root');
+        if (hud){
+          hud.classList.toggle('compact', !!fit2);
+          hud.classList.toggle('tight', !!fit2);
+        }
+      }
+      window.addEventListener('resize', applyFit, { passive:true });
+      window.addEventListener('orientationchange', ()=>setTimeout(applyFit, 120), { passive:true });
+      window.addEventListener('load', applyFit, { passive:true });
+      applyFit();
+    })();
+  </script>
+
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
-
     function setBadge(ok, msg){
       const dot = $('#logdot');
       const text = $('#logtext');
@@ -827,215 +741,6 @@
     }
 
     window.addEventListener('load', ()=>{ setBadge(false,'boot: loading…'); loadBoot(); });
-
-    // =========================
-    // LATEST HUD Layout Controller (Ultra-Extreme)
-    // =========================
-    (function(){
-      const root = document.documentElement;
-
-      function applyHudClasses(){
-        const hud = document.querySelector('.hud-root');
-        if (!hud) return;
-        const w = window.innerWidth || 0;
-        const isMobile = (w <= 430);
-        const isTight  = isMobile && (w <= 390); // A15/A54
-        hud.classList.toggle('compact', isMobile);
-        hud.classList.toggle('tight', isTight);
-      }
-
-      function ensureSideFeverBox(){
-        const leftCard = document.querySelector('.hud-top > .hud-card:not(.hud-quest)');
-        if (!leftCard) return null;
-        let box = leftCard.querySelector('.hud-side-fever');
-        if (!box){
-          box = document.createElement('div');
-          box.className = 'hud-side-fever';
-          leftCard.appendChild(box);
-        }
-        return box;
-      }
-
-      function moveFeverIfNeeded(){
-        const quest = document.querySelector('.hud-card.hud-quest');
-        if (!quest) return;
-
-        const w = window.innerWidth || 0;
-        const isMobile = (w <= 430);
-
-        const feverWrap = quest.querySelector('.hud-fever');
-        if (!feverWrap) return;
-
-        const sideBox = ensureSideFeverBox();
-        if (!sideBox) return;
-
-        const feverRow = feverWrap.querySelector('.fever-row') || sideBox.querySelector('.fever-row');
-        const shieldRow = feverWrap.querySelector('.shield-row') || sideBox.querySelector('.shield-row');
-
-        if (isMobile){
-          if (feverRow && shieldRow){
-            sideBox.replaceChildren();
-            sideBox.appendChild(feverRow);
-            sideBox.appendChild(shieldRow);
-            root.dataset.feverMoved = '1';
-          }
-        } else {
-          // MOVE BACK (desktop/tablet)
-          const moved = (root.dataset.feverMoved === '1');
-          if (moved){
-            // put rows back at top of feverWrap (before bossWrap)
-            const bossWrap = feverWrap.querySelector('#boss-wrap') || feverWrap.querySelector('.boss-wrap');
-            if (feverRow) feverWrap.insertBefore(feverRow, bossWrap || null);
-            if (shieldRow) feverWrap.insertBefore(shieldRow, bossWrap || null);
-            root.dataset.feverMoved = '0';
-          }
-        }
-      }
-
-      function getQuestMaxHeightPx(){
-        const h = window.innerHeight || 0;
-        const w = window.innerWidth || 0;
-        const isTight = (w <= 390);
-
-        const critical = (root.dataset.fit === '2');
-        const moved = (root.dataset.feverMoved === '1');
-
-        // reserve ลดลงเมื่อ critical / moved เพื่อคืนพื้นที่ quest
-        const bottomReserve =
-          critical ? (isTight ? 120 : 128)
-                   : (moved ? (isTight ? 148 : 150) : (isTight ? 170 : 160));
-
-        const vh = isTight ? 0.60 : 0.54;
-
-        const saBottom = parseInt(getComputedStyle(document.documentElement)
-          .getPropertyValue('--sa-bottom')) || 0;
-
-        return Math.max(230, Math.floor(h * vh) - bottomReserve - saBottom);
-      }
-
-      function fits(quest){
-        return quest.scrollHeight <= (quest.clientHeight + 1);
-      }
-
-      function tryScaleFit(hud, quest, minS, maxS){
-        root.dataset.questOverflow = '0';
-        hud.style.setProperty('--questScale', maxS.toFixed(3));
-        if (fits(quest)) return maxS;
-
-        hud.style.setProperty('--questScale', minS.toFixed(3));
-        if (!fits(quest)) return null;
-
-        let lo = minS, hi = maxS, best = minS;
-        for (let i=0;i<12;i++){
-          const mid = (lo + hi) / 2;
-          hud.style.setProperty('--questScale', mid.toFixed(3));
-          if (fits(quest)){ best = mid; lo = mid; }
-          else hi = mid;
-        }
-        hud.style.setProperty('--questScale', best.toFixed(3));
-        return best;
-      }
-
-      function autoFitQuest(){
-        const hud = document.querySelector('.hud-root');
-        const quest = document.querySelector('.hud-card.hud-quest');
-        if (!hud || !quest) return;
-
-        const w = window.innerWidth || 0;
-        const isMobile = (w <= 430);
-        if (!isMobile){
-          hud.style.removeProperty('--questScale');
-          quest.style.removeProperty('max-height');
-          root.dataset.questOverflow = '0';
-          root.dataset.fit = '0';
-          return;
-        }
-
-        // max height
-        quest.style.maxHeight = getQuestMaxHeightPx() + 'px';
-
-        // Layer 0
-        root.dataset.fit = '0';
-        const s0 = tryScaleFit(hud, quest, (w<=390)?0.82:0.86, 1.02);
-        if (s0 !== null) return;
-
-        // Layer 2 (critical)
-        root.dataset.fit = '2';
-        const s2 = tryScaleFit(hud, quest, (w<=390)?0.72:0.76, 0.98);
-        if (s2 !== null) return;
-
-        // fallback scroll
-        root.dataset.questOverflow = '1';
-        hud.style.setProperty('--questScale', ((w<=390)?0.72:0.76).toFixed(3));
-      }
-
-      function applyQuestCompact(){
-        const miniCount = document.getElementById('hud-mini-count');
-        if (miniCount) miniCount.classList.add('hud-mini-badge');
-
-        const miniLabel = document.getElementById('hud-quest-mini');
-        if (miniLabel){
-          const t = (miniLabel.textContent || '').trim();
-          miniLabel.textContent = t.replace(/^mini:\s*/i, '').replace(/^มินิ:\s*/i, '');
-          if (miniLabel.textContent.length > 40){
-            miniLabel.textContent = miniLabel.textContent.slice(0, 38) + '…';
-          }
-        }
-
-        const mainLabel = document.getElementById('hud-quest-main');
-        if (mainLabel){
-          const t = (mainLabel.textContent || '').trim();
-          if (t.length > 52) mainLabel.textContent = t.slice(0, 50) + '…';
-        }
-      }
-
-      const refitSoon = (() => {
-        let raf = 0;
-        return () => {
-          if (raf) cancelAnimationFrame(raf);
-          raf = requestAnimationFrame(() => {
-            raf = 0;
-            applyHudClasses();
-            moveFeverIfNeeded();
-            applyQuestCompact();
-            autoFitQuest();
-          });
-        };
-      })();
-
-      root.dataset.fit = root.dataset.fit || '0';
-      root.dataset.questOverflow = root.dataset.questOverflow || '0';
-      root.dataset.feverMoved = root.dataset.feverMoved || '0';
-      root.dataset.boss = root.dataset.boss || '0';
-
-      window.addEventListener('load', refitSoon, { passive:true });
-      window.addEventListener('resize', refitSoon, { passive:true });
-      window.addEventListener('orientationchange', refitSoon, { passive:true });
-
-      window.addEventListener('quest:update', () => { applyQuestCompact(); refitSoon(); }, { passive:true });
-      window.addEventListener('hha:fever', refitSoon, { passive:true });
-
-      window.addEventListener('hha:score', (e)=>{
-        const d = e?.detail || {};
-        root.dataset.boss = d.bossAlive ? '1' : '0';
-        refitSoon();
-      }, { passive:true });
-
-      // Observe quest card once DOM is ready
-      window.addEventListener('load', ()=>{
-        const questCard = document.querySelector('.hud-card.hud-quest');
-        if (!questCard) return;
-        const mo = new MutationObserver(refitSoon);
-        mo.observe(questCard, { childList:true, subtree:true, characterData:true });
-        if (window.ResizeObserver){
-          const ro = new ResizeObserver(refitSoon);
-          ro.observe(questCard);
-        }
-      }, { passive:true });
-
-      setTimeout(refitSoon, 120);
-      setTimeout(refitSoon, 520);
-    })();
   </script>
 </head>
 
@@ -1065,8 +770,7 @@
   <!-- HUD -->
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
-      <!-- SCORE / METRICS -->
-      <div class="hud-card">
+      <div class="hud-card" style="min-width: 310px;">
         <div class="hud-main">
           <div class="hud-main-title">GOODJUNK</div>
           <div class="hud-pill" id="hud-pill"><span>●</span><span id="hud-run-label">PLAY</span></div>
@@ -1074,25 +778,10 @@
         </div>
 
         <div class="hud-metrics">
-          <div class="metric metric-score">
-            <div class="metric-label">Score</div>
-            <div class="metric-value accent" id="hud-score">0</div>
-          </div>
-
-          <div class="metric metric-combo">
-            <div class="metric-label">Combo Max</div>
-            <div class="metric-value" id="hud-combo">0</div>
-          </div>
-
-          <div class="metric metric-miss">
-            <div class="metric-label">Miss</div>
-            <div class="metric-value danger" id="hud-miss">0</div>
-          </div>
-
-          <div class="metric metric-time">
-            <div class="metric-label">Time</div>
-            <div class="metric-value" id="hud-time-label">—</div>
-          </div>
+          <div class="metric"><div class="metric-label">Score</div><div class="metric-value accent" id="hud-score">0</div></div>
+          <div class="metric"><div class="metric-label">Combo Max</div><div class="metric-value" id="hud-combo">0</div></div>
+          <div class="metric"><div class="metric-label">Miss</div><div class="metric-value danger" id="hud-miss">0</div></div>
+          <div class="metric"><div class="metric-label">Time</div><div class="metric-value" id="hud-time-label">—</div></div>
         </div>
 
         <div style="margin-top:6px; font-size:11px; color:var(--text-soft);">
@@ -1102,47 +791,31 @@
         </div>
       </div>
 
-      <!-- QUEST -->
-      <div class="hud-card hud-quest">
+      <div class="hud-card hud-quest" style="min-width: 340px;">
         <div class="quest-title">Quest</div>
 
         <div class="quest-main-label" id="hud-quest-main">ภารกิจหลัก</div>
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-main-bar"></div></div>
-          <div class="quest-caption">
-            <span id="hud-quest-main-caption">0 / 0</span>
-            <span id="hud-quest-hint"></span>
-          </div>
+          <div class="quest-caption"><span id="hud-quest-main-caption">0 / 0</span><span id="hud-quest-hint"></span></div>
         </div>
 
         <div class="quest-mini-label" id="hud-quest-mini">Mini: —</div>
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-mini-bar"></div></div>
-          <div class="quest-caption">
-            <span id="hud-quest-mini-caption">0 / 0</span>
-            <span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span>
-          </div>
+          <div class="quest-caption"><span id="hud-quest-mini-caption">0 / 0</span><span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span></div>
         </div>
 
-        <!-- Fever/Shield lives here by default; moved to left card on mobile -->
         <div class="hud-fever">
           <div class="fever-row">
             <div class="fever-label">FEVER</div>
             <div class="fever-bar"><div class="fever-fill" id="fever-fill" style="width:0%"></div></div>
             <div class="fever-pct" id="fever-pct">0%</div>
           </div>
-
-          <div class="shield-row">
-            <div class="shield-label">🛡️</div>
-            <div>Shield</div>
-            <div class="shield-count" id="shield-count">0</div>
-          </div>
+          <div class="shield-row"><div class="shield-label">🛡️</div><div>Shield</div><div class="shield-count" id="shield-count">0</div></div>
 
           <div class="boss-wrap" id="boss-wrap">
-            <div class="boss-top">
-              <div class="boss-name">BOSS</div>
-              <div class="boss-phase" id="boss-phase">P1</div>
-            </div>
+            <div class="boss-top"><div class="boss-name">BOSS</div><div class="boss-phase" id="boss-phase">P1</div></div>
             <div class="boss-bar"><div class="boss-fill" id="boss-fill" style="width:0%"></div></div>
           </div>
         </div>
@@ -1163,7 +836,7 @@
   <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
   <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR"><span>🥽</span> Enter VR</button>
 
-  <div id="logbadge" style="position:fixed; left: calc(10px + var(--sa-left)); bottom: calc(10px + var(--sa-bottom)); z-index:690;
+  <div id="logbadge" style="position:fixed; left:10px; bottom:10px; z-index:690;
     background:rgba(15,23,42,0.88); border:1px solid rgba(148,163,184,0.22); border-radius:999px;
     padding:6px 10px; font-size:11px; color:#e5e7eb; display:flex; align-items:center; gap:8px;
     pointer-events:none; max-width:92vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
