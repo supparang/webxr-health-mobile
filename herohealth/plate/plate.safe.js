@@ -6,12 +6,12 @@
 // ✅ Perfect ring assist + PERFECT/HIT judge
 // ✅ Fever + Shield (shield block: ไม่เพิ่ม MISS/ไม่ลดหัวใจ)
 // ✅ Hearts/Lives (หมด = จบก่อนเวลา)
+// ✅ MPH: misses per heart ผ่าน &mph=2 (กัน Game Over เร็ว)
 // ✅ Goals(2) + Minis(7) (Plate Rush + urgent tick/flash/shake)
 // ✅ Boss multi-phase + Attack overlays (ring/laser/double) + telegraph
 // ✅ Powerups: Slow / No-Junk Zone / Storm (spawn ถี่ขึ้นจริง)
 // ✅ Coach bubble (ไม่ทับ HUD) + เสียง/สั่น + FX hooks (Particles)
 // ✅ Logger: dispatch hha:log_session / hha:log_event (IIFE cloud logger)
-// ✅ FEVER BURST 2-PHASE + JACKPOT + BOSS CANCEL (NEW)
 //
 // HTML expects defer: ./vr/particles.js, ./vr/hha-compat-input.js, ./vr/hha-cloud-logger.js, A-Frame
 // Module: <script type="module" src="./plate/plate.safe.js"></script>
@@ -31,6 +31,11 @@ const DEBUG = (Q.get('debug') === '1');
 
 const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
 const LIVES_START = Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0 ? LIVES_PARAM : 3;
+
+// OPTIONAL: misses per heart (mph) — กัน Game Over เร็วเกินในมือถือ
+// ใช้: &mph=2  => พลาด 2 ครั้งค่อยเสีย 1 หัวใจ
+const MPH_PARAM = parseInt(Q.get('mph') || '', 10);
+const MISSES_PER_HEART = Number.isFinite(MPH_PARAM) && MPH_PARAM > 0 ? MPH_PARAM : 1;
 
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
@@ -91,6 +96,46 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
+function refreshHudRefs(){
+  HUD.time = $('hudTime');
+  HUD.score = $('hudScore');
+  HUD.combo = $('hudCombo');
+  HUD.miss = $('hudMiss');
+  HUD.feverBar = $('hudFever');
+  HUD.feverPct = $('hudFeverPct');
+  HUD.grade = $('hudGrade');
+  HUD.mode = $('hudMode');
+  HUD.diff = $('hudDiff');
+  HUD.have = $('hudGroupsHave');
+  HUD.perfect = $('hudPerfectCount');
+  HUD.goalLine = $('hudGoalLine');
+  HUD.miniLine = $('hudMiniLine');
+  HUD.miniHint = $('hudMiniHint');
+  HUD.paused = $('hudPaused');
+
+  HUD.btnEnterVR = $('btnEnterVR');
+  HUD.btnPause = $('btnPause');
+  HUD.btnRestart = $('btnRestart');
+
+  HUD.resultBackdrop = $('resultBackdrop');
+  HUD.btnPlayAgain = $('btnPlayAgain');
+
+  HUD.rMode = $('rMode');
+  HUD.rGrade = $('rGrade');
+  HUD.rScore = $('rScore');
+  HUD.rMaxCombo = $('rMaxCombo');
+  HUD.rMiss = $('rMiss');
+  HUD.rPerfect = $('rPerfect');
+  HUD.rGoals = $('rGoals');
+  HUD.rMinis = $('rMinis');
+  HUD.rG1 = $('rG1');
+  HUD.rG2 = $('rG2');
+  HUD.rG3 = $('rG3');
+  HUD.rG4 = $('rG4');
+  HUD.rG5 = $('rG5');
+  HUD.rGTotal = $('rGTotal');
+}
+
 // ---------- A-Frame refs ----------
 const scene = doc.querySelector('a-scene');
 const cam = doc.querySelector('#cam');
@@ -136,6 +181,7 @@ const S = {
   combo: 0,
   maxCombo: 0,
   miss: 0,
+  missBucket: 0,          // ✅ mph bucket
   perfectCount: 0,
 
   fever: 0,
@@ -181,14 +227,6 @@ const S = {
   perfectZoneOn: false,
 
   sessionId: `PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-
-  // ===== FEVER BURST / JACKPOT =====
-  feverBurst: null,          // { steps:[{t,kind,group,xy}], i, startedAt, endsAt, perfectInBurst, hitsInBurst, meta }
-  feverPulseAt: 0,
-  feverBurstActive: false,
-
-  // boss cancel feedback
-  bossCancelCount: 0,
 };
 
 // ---------- VR helpers ----------
@@ -460,56 +498,6 @@ function inVR(){
   .hha-coach.on{ opacity:1; transform:translate3d(0,0,0); }
   .hha-coach .t{ font-weight:1000; }
   .hha-coach .s{ margin-top:4px; color:rgba(229,231,235,.82); font-weight:900; }
-
-  /* ===== FEVER RING (CENTER PULSE) ===== */
-  .hha-fever-ring{
-    position:fixed;
-    left:50%; top:50%;
-    width:18px; height:18px;
-    margin-left:-9px; margin-top:-9px;
-    border-radius:999px;
-    border:4px solid rgba(16,185,129,.80);
-    box-shadow:0 0 0 12px rgba(16,185,129,.10), 0 0 80px rgba(16,185,129,.20);
-    opacity:0;
-    pointer-events:none;
-    z-index:984;
-    transform:translate3d(0,0,0) scale(0.25);
-  }
-  @keyframes feverRingPulse{
-    0%{ opacity:0; transform:translate3d(0,0,0) scale(0.25); }
-    12%{ opacity:1; }
-    100%{ opacity:0; transform:translate3d(0,0,0) scale(12.8); }
-  }
-  .hha-fever-ring.on{ animation: feverRingPulse 760ms ease-out both; }
-
-  /* fever targets extra glow */
-  .plateTarget.fever{
-    filter: drop-shadow(0 0 18px rgba(16,185,129,.20));
-  }
-  .plateTarget.fever::before{
-    box-shadow: 0 0 0 12px rgba(16,185,129,.12), 0 0 90px rgba(16,185,129,.18) !important;
-  }
-
-  /* jackpot bubble */
-  .hha-jackpot{
-    position:fixed; left:50%; top:18%;
-    transform:translateX(-50%);
-    z-index:990;
-    pointer-events:none;
-    padding:10px 14px;
-    border-radius:999px;
-    background:rgba(2,6,23,.70);
-    border:1px solid rgba(250,204,21,.28);
-    color:#e5e7eb;
-    font-weight:1000;
-    opacity:0;
-  }
-  @keyframes jackpotPop{
-    0%{ opacity:0; transform:translateX(-50%) scale(.85); }
-    20%{ opacity:1; }
-    100%{ opacity:0; transform:translateX(-50%) scale(1.08); }
-  }
-  .hha-jackpot.on{ animation: jackpotPop 1100ms ease-out both; }
   `;
   doc.head.appendChild(st);
 })();
@@ -548,32 +536,6 @@ const coach = doc.createElement('div');
 coach.className = 'hha-coach';
 coach.innerHTML = `<div class="t">🥦 Coach</div><div class="s">พร้อมลุย!</div>`;
 doc.body.appendChild(coach);
-
-// ===== FEVER RING + JACKPOT =====
-const feverRing = doc.createElement('div');
-feverRing.className = 'hha-fever-ring';
-doc.body.appendChild(feverRing);
-
-const jackpotBubble = doc.createElement('div');
-jackpotBubble.className = 'hha-jackpot';
-jackpotBubble.textContent = '🎰 JACKPOT!';
-doc.body.appendChild(jackpotBubble);
-
-function feverRingPulse(){
-  try{
-    feverRing.classList.remove('on');
-    void feverRing.offsetWidth;
-    feverRing.classList.add('on');
-  }catch(_){}
-}
-function showJackpot(msg='🎰 JACKPOT!'){
-  try{
-    jackpotBubble.textContent = msg;
-    jackpotBubble.classList.remove('on');
-    void jackpotBubble.offsetWidth;
-    jackpotBubble.classList.add('on');
-  }catch(_){}
-}
 
 // ---------- Layer ----------
 const layer = doc.createElement('div');
@@ -681,7 +643,6 @@ function pickSafeXY(sizePx){
   const blocked = getBlockedRects();
   const tries = 70;
 
-  // when in VR, simpler (HUD not relevant)
   const off = viewOffset();
 
   for (let i=0;i<tries;i++){
@@ -726,42 +687,45 @@ function powerLabel(){
   return labels.length ? labels.join(' + ') : '—';
 }
 
+// ✅ robust: ไม่พึ่งโครงสร้าง .card .row แบบเดิมแล้ว
 function ensurePills(){
   const top = doc.getElementById('hudTop');
   if (!top) return;
-  const card = top.querySelector('.card');
-  if (!card) return;
-  const rows = card.querySelectorAll('.row');
-  if (!rows || !rows.length) return;
 
-  const row = rows[Math.min(1, rows.length-1)];
+  let host =
+    top.querySelector('.row.pills') ||
+    top.querySelector('.pills') ||
+    top.querySelector('.card') ||
+    top;
 
-  if (!doc.getElementById('hudShieldPill')){
-    const pill = doc.createElement('span');
-    pill.className = 'pill';
-    pill.id = 'hudShieldPill';
-    pill.innerHTML = `🛡️ <span class="k">SHIELD</span> <span id="hudShield" class="v">0</span>`;
-    row.appendChild(pill);
-    hudShieldVal = pill.querySelector('#hudShield');
-  } else hudShieldVal = doc.getElementById('hudShield');
+  if (!top.querySelector('.row.pills')){
+    const row = doc.createElement('div');
+    row.className = 'row pills';
+    row.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;';
+    if (top.querySelector('.card')) top.querySelector('.card').appendChild(row);
+    else top.appendChild(row);
+    host = row;
+  }
 
-  if (!doc.getElementById('hudLivesPill')){
-    const pill = doc.createElement('span');
-    pill.className = 'pill';
-    pill.id = 'hudLivesPill';
-    pill.innerHTML = `❤️ <span class="k">LIVES</span> <span id="hudLives" class="v">${S.lives}</span>`;
-    row.appendChild(pill);
-    hudLivesVal = pill.querySelector('#hudLives');
-  } else hudLivesVal = doc.getElementById('hudLives');
+  function makePill(id, html){
+    let p = doc.getElementById(id);
+    if (!p){
+      p = doc.createElement('span');
+      p.className = 'pill';
+      p.id = id;
+      p.innerHTML = html;
+      host.appendChild(p);
+    }
+    return p;
+  }
 
-  if (!doc.getElementById('hudPowerPill')){
-    const pill = doc.createElement('span');
-    pill.className = 'pill';
-    pill.id = 'hudPowerPill';
-    pill.innerHTML = `✨ <span class="k">POWER</span> <span id="hudPower" class="v">—</span>`;
-    row.appendChild(pill);
-    hudPowerVal = pill.querySelector('#hudPower');
-  } else hudPowerVal = doc.getElementById('hudPower');
+  const pShield = makePill('hudShieldPill', `🛡️ <span class="k">SHIELD</span> <span id="hudShield" class="v">0</span>`);
+  const pLives  = makePill('hudLivesPill',  `❤️ <span class="k">LIVES</span> <span id="hudLives" class="v">${S.lives}</span>`);
+  const pPower  = makePill('hudPowerPill',  `✨ <span class="k">POWER</span> <span id="hudPower" class="v">—</span>`);
+
+  hudShieldVal = pShield.querySelector('#hudShield');
+  hudLivesVal  = pLives.querySelector('#hudLives');
+  hudPowerVal  = pPower.querySelector('#hudPower');
 
   setTxt(hudShieldVal, S.shield);
   setTxt(hudLivesVal, S.lives);
@@ -807,6 +771,7 @@ function logSession(phase){
     diff: DIFF,
     timeTotal: TOTAL_TIME,
     lives: S.livesMax,
+    mph: MISSES_PER_HEART,
     ts: Date.now(),
     ua: navigator.userAgent,
   });
@@ -855,7 +820,6 @@ function addFever(v){
     showCoach('🔥 FEVER!', 'คอมโบแรงขึ้น + โอกาสเจอโหมดพิเศษ!');
     grantShield();
     logEvent('fever_on', {});
-    startFeverBurstAll(); // ✅ FEVER BURST 2-phase immediately
   }
   if (S.feverOn && S.fever <= 15){
     S.feverOn = false;
@@ -1118,11 +1082,8 @@ function bossPhaseFor(rec){
 function makeTarget(kind, group, opts = {}){
   const sizePx = computeSizePx(kind);
 
-  // ✅ allow forced XY (layer coords)
-  // opts._forceXY expects {x,y} in "layer coords" (already offset-corrected)
-  const pos = (opts && opts._forceXY && Number.isFinite(opts._forceXY.x) && Number.isFinite(opts._forceXY.y))
-    ? { x: opts._forceXY.x, y: opts._forceXY.y }
-    : pickSafeXY(sizePx);
+  // ✅ รองรับ forceXY จริง (พิกัดใน layer space)
+  let pos = opts._forceXY ? { x: opts._forceXY.x, y: opts._forceXY.y } : pickSafeXY(sizePx);
 
   const el = doc.createElement('div');
   el.className = `plateTarget ${kind} spawn`;
@@ -1259,7 +1220,6 @@ function shieldBlock(reason){
 }
 
 function onMiss(reason, extra = {}){
-  // ✅ single source of truth: combo reset + miss++ + life--
   S.combo = 0;
   setTxt(HUD.combo, S.combo);
 
@@ -1267,9 +1227,22 @@ function onMiss(reason, extra = {}){
   setTxt(HUD.miss, S.miss);
 
   const t = now();
-  const protectedNoJunk = (t < S.noJunkUntil) && (reason === 'junk' || reason === 'trap' || reason === 'boss' || reason === 'boss_attack');
+  const protectedNoJunk =
+    (t < S.noJunkUntil) &&
+    (reason === 'junk' || reason === 'trap' || reason === 'boss' || reason === 'boss_attack');
+
+  // ✅ mph bucket: พลาดครบ MISSES_PER_HEART ค่อยเสีย 1 หัวใจ
   if (!protectedNoJunk){
-    setLives(S.lives - 1);
+    S.missBucket = (S.missBucket|0) + 1;
+
+    if (MISSES_PER_HEART > 1 && S.missBucket < MISSES_PER_HEART){
+      Particles.judgeText && Particles.judgeText(`MISS ${S.missBucket}/${MISSES_PER_HEART}`);
+    }
+
+    if (S.missBucket >= MISSES_PER_HEART){
+      S.missBucket = 0;
+      setLives(S.lives - 1);
+    }
   }
 
   updateGrade();
@@ -1279,7 +1252,7 @@ function onMiss(reason, extra = {}){
     endGame(true);
   }
 
-  logEvent('miss', { reason, ...extra });
+  logEvent('miss', { reason, ...extra, mph: MISSES_PER_HEART, bucket: S.missBucket });
 }
 
 function punishBad(reason){
@@ -1292,6 +1265,12 @@ function punishBad(reason){
   const t = now();
   const softened = (t < S.noJunkUntil);
 
+  S.combo = 0;
+  setTxt(HUD.combo, S.combo);
+
+  S.miss += 1;
+  setTxt(HUD.miss, S.miss);
+
   addFever(reason === 'boss' ? -22 : -16);
   addScore(softened ? -120 : (reason === 'trap' ? -240 : -180));
 
@@ -1302,7 +1281,7 @@ function punishBad(reason){
   Particles.judgeText && Particles.judgeText(softened ? 'BAD (SAFE)' : 'BAD');
   AudioX.bad();
 
-  onMiss(reason, { softened: !!softened });
+  onMiss(reason, {});
 }
 
 function bossAttackPunish(tag){
@@ -1446,32 +1425,6 @@ function hitTarget(rec, direct){
   }
 
   if (rec.kind === 'boss'){
-    // ===== FEVER BOSS CANCEL =====
-    if (S.feverOn){
-      const tNow = now();
-      const nearAtk = (rec.atkAt && (rec.atkAt - tNow) <= 820);
-      const telegraphing = !!rec._warned || nearAtk;
-
-      if (telegraphing){
-        rec._warned = false;
-        rec.atkAt = tNow + rnd(1400, 2200);
-        S.bossCancelCount += 1;
-
-        Particles.judgeText && Particles.judgeText('CANCEL!');
-        Particles.celebrate && Particles.celebrate('BOSS CANCEL!');
-        Particles.scorePop && Particles.scorePop('+200', sx, sy);
-        addScore(200);
-        addFever(6);
-
-        showCoach('🟢 CANCEL!', 'ยิงตัดท่าบอส! โจมตีถูกเลื่อน!');
-        feverRingPulse();
-        vibe(45);
-        logEvent('boss_cancel', { count: S.bossCancelCount });
-
-        rec.atkDelays = Math.min(3, (rec.atkDelays|0) + 1);
-      }
-    }
-
     if (rec.atkArmed && rec.atkDelays < 2){
       rec.atkAt += 700;
       rec.atkDelays += 1;
@@ -1517,15 +1470,6 @@ function hitTarget(rec, direct){
 
   // Good/Gold
   const judge = judgeFromDist(dist, rec.size);
-
-  // ===== FEVER BURST TRACK (for JACKPOT) =====
-  if (S.feverBurst){
-    S.feverBurst.hitsInBurst = (S.feverBurst.hitsInBurst|0) + 1;
-    if (judge === 'PERFECT'){
-      S.feverBurst.perfectInBurst = (S.feverBurst.perfectInBurst|0) + 1;
-    }
-  }
-
   const mult = S.feverOn ? 1.35 : 1.0;
   const base = (rec.kind === 'gold') ? 520 : 240;
   const bonus = (judge === 'PERFECT') ? 220 : 0;
@@ -1705,165 +1649,33 @@ function tickBossAttack(){
   }
 }
 
-// ---------- FEVER BURST 2-PHASE + JACKPOT ----------
-function ringPointsLayer(count, radiusPx){
+// ---------- Fever ring burst ----------
+function spawnFeverRingBurst(){
+  if (!S.feverOn) return;
+  if (Math.random() > 0.18) return;
+
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const cxS = vw/2, cyS = vh/2;
   const off = viewOffset();
-  const start = Math.random() * Math.PI * 2;
 
-  const pts = [];
-  for (let i=0;i<count;i++){
-    const a = start + (i/count) * Math.PI * 2 + rnd(-0.10, 0.10);
-    const rr = radiusPx * (0.92 + Math.random()*0.18);
-    const sx = cxS + Math.cos(a) * rr;
-    const sy = cyS + Math.sin(a) * rr;
-    pts.push({ x: sx - off.x, y: sy - off.y }); // layer coords
-  }
-  return pts;
-}
+  const n = 5 + ((Math.random()*3)|0);
+  const radius = clamp(Math.min(vw, vh) * 0.18, 92, 160);
 
-function makeFeverBurstSchedule(){
-  const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
-  const base = clamp(Math.min(vw, vh), 520, 980);
+  for (let i=0;i<n;i++){
+    const a = (i / n) * Math.PI * 2 + rnd(-0.18, 0.18);
+    const sx = cxS + Math.cos(a) * radius;
+    const sy = cyS + Math.sin(a) * radius;
 
-  const outerCount = 9 + ((Math.random()*4)|0); // 9–12
-  const innerCount = 6 + ((Math.random()*3)|0); // 6–8
+    const x = sx - off.x;
+    const y = sy - off.y;
 
-  const outerR = clamp(base * 0.24, 120, 220);
-  const innerR = clamp(base * 0.16, 88, 170);
+    const kind = (Math.random() < 0.22) ? 'gold' : 'good';
+    const group = (kind === 'good') ? decideGroup() : 0;
 
-  const outer = ringPointsLayer(outerCount, outerR);
-  const inner = ringPointsLayer(innerCount, innerR);
-
-  const steps = [];
-  const t0 = now();
-
-  // Phase 1: outer ring
-  for (let i=0;i<outer.length;i++){
-    const xy = outer[i];
-    const goldish = (Math.random() < 0.18);
-    steps.push({
-      t: t0 + 40 + i*70,
-      kind: goldish ? 'gold' : 'good',
-      group: goldish ? 0 : decideGroup(),
-      xy
-    });
+    makeTarget(kind, group, { _forceXY: { x, y } });
   }
 
-  // Phase 2: inner ring
-  for (let i=0;i<inner.length;i++){
-    const xy = inner[i];
-    const goldish = (Math.random() < 0.22);
-    steps.push({
-      t: t0 + 520 + i*65,
-      kind: goldish ? 'gold' : 'good',
-      group: goldish ? 0 : decideGroup(),
-      xy
-    });
-  }
-
-  // sprinkle jackpot gold
-  for (let k=0;k<2;k++){
-    const rr = clamp(base * rnd(0.12, 0.26), 80, 210);
-    const pt = ringPointsLayer(1, rr)[0];
-    steps.push({
-      t: t0 + rnd(360, 980),
-      kind: 'gold',
-      group: 0,
-      xy: pt
-    });
-  }
-
-  steps.sort((a,b)=>a.t-b.t);
-  return { steps, outerCount, innerCount, outerR:Math.round(outerR), innerR:Math.round(innerR) };
-}
-
-function startFeverBurstAll(){
-  if (!S.feverOn) return;
-  if (S.feverBurst) return;
-
-  const sched = makeFeverBurstSchedule();
-  S.feverBurst = {
-    steps: sched.steps,
-    i: 0,
-    startedAt: now(),
-    endsAt: now() + 1500,
-    perfectInBurst: 0,
-    hitsInBurst: 0,
-    meta: sched
-  };
-  S.feverBurstActive = true;
-
-  feverRingPulse();
-  Particles.celebrate && Particles.celebrate('FEVER BURST!');
-  Particles.judgeText && Particles.judgeText('RING!');
-  showCoach('🔥 FEVER BURST!', 'วงแหวน 2 ชั้น! PERFECT ≥ 4 = JACKPOT');
-  AudioX.power(); vibe(55);
-
-  logEvent('fever_burst_start', { ...sched, total: sched.steps.length });
-}
-
-function tickFeverBurst(){
-  const fb = S.feverBurst;
-  if (!fb) return;
-
-  const t = now();
-
-  while (fb.i < fb.steps.length && t >= fb.steps[fb.i].t){
-    const s = fb.steps[fb.i++];
-
-    const rec = makeTarget(
-      s.kind,
-      (s.kind === 'good') ? s.group : 0,
-      { _forceXY: s.xy }
-    );
-    try { rec.el.classList.add('fever'); } catch(_) {}
-
-    if ((fb.i % 4) === 0) feverRingPulse();
-  }
-
-  if (t >= fb.endsAt || fb.i >= fb.steps.length){
-    const perfect = fb.perfectInBurst || 0;
-
-    if (perfect >= 4){
-      grantShield();
-
-      const roll = Math.random();
-      if (roll < 0.46) activateSlow(rnd(3200, 5200));
-      else if (roll < 0.82) activateNoJunk(rnd(4200, 6200));
-      else activateStorm(rnd(4200, 6800));
-
-      Particles.celebrate && Particles.celebrate('JACKPOT!');
-      Particles.judgeText && Particles.judgeText('🎰');
-      showJackpot(`🎰 JACKPOT! PERFECT ${perfect}`);
-      showCoach('🎰 JACKPOT!', `Perfect ใน Burst = ${perfect} → แจก Shield + Power!`);
-      vibe(85);
-      logEvent('fever_jackpot', { perfect, hits: fb.hitsInBurst });
-    } else {
-      logEvent('fever_burst_end', { perfect, hits: fb.hitsInBurst });
-    }
-
-    S.feverBurst = null;
-    S.feverBurstActive = false;
-  }
-}
-
-function tickFeverPulse(){
-  const t = now();
-  if (!S.feverOn) return;
-  if (t >= (S.feverPulseAt || 0)){
-    S.feverPulseAt = t + 1200;
-    feverRingPulse();
-  }
-}
-
-// ---------- Fever ring burst (trigger) ----------
-function spawnFeverRingBurst(){
-  if (!S.feverOn) return;
-  if (S.feverBurst) return;         // don't overlap
-  if (Math.random() > 0.13) return; // chance during FEVER
-  startFeverBurstAll();
+  Particles.judgeText && Particles.judgeText('FEVER RING!');
 }
 
 // ---------- Spawn tick ----------
@@ -1921,7 +1733,6 @@ function onGlobalPointerDown(e){
 
 // ---------- VR controller / keyboard support (GoodJunk-style) ----------
 function bindShootHotkeys(){
-  // keyboard
   ROOT.addEventListener('keydown', (e)=>{
     const k = String(e.key || '').toLowerCase();
     if (k === ' ' || k === 'enter' || k === 'z' || k === 'x'){
@@ -1929,7 +1740,6 @@ function bindShootHotkeys(){
     }
   });
 
-  // A-Frame controller events (common)
   if (scene){
     const fire = ()=>shootCrosshair();
     scene.addEventListener('triggerdown', fire);
@@ -1962,7 +1772,7 @@ function restart(){
   S.tStart = 0;
   S.timeLeft = TOTAL_TIME;
 
-  S.score = 0; S.combo = 0; S.maxCombo = 0; S.miss = 0; S.perfectCount = 0;
+  S.score = 0; S.combo = 0; S.maxCombo = 0; S.miss = 0; S.missBucket = 0; S.perfectCount = 0;
   S.fever = 0; S.feverOn = false;
 
   setShield(0);
@@ -1986,11 +1796,6 @@ function restart(){
   setPerfectZone(false);
   refreshPowerHUD();
 
-  S.feverBurst = null;
-  S.feverPulseAt = 0;
-  S.feverBurstActive = false;
-  S.bossCancelCount = 0;
-
   setTxt(HUD.score, 0); setTxt(HUD.combo, 0); setTxt(HUD.miss, 0);
   setTxt(HUD.perfect, 0); setTxt(HUD.have, `0/5`);
   if (HUD.feverBar) HUD.feverBar.style.width = `0%`;
@@ -2009,6 +1814,62 @@ function restart(){
   start();
 }
 
+// ---------- Result overlay fallback ----------
+function ensureResultOverlay(){
+  if (doc.getElementById('resultBackdrop')) return;
+
+  const backdrop = doc.createElement('div');
+  backdrop.id = 'resultBackdrop';
+  backdrop.style.cssText = `
+    position:fixed; inset:0; z-index:999;
+    display:none; background:rgba(2,6,23,.72);
+    backdrop-filter:blur(8px); pointer-events:auto;
+  `;
+
+  const card = doc.createElement('div');
+  card.style.cssText = `
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:min(720px, 92vw);
+    background:rgba(2,6,23,.84);
+    border:1px solid rgba(148,163,184,.25);
+    border-radius:20px;
+    box-shadow:0 24px 60px rgba(0,0,0,.45);
+    padding:14px;
+    color:#e5e7eb;
+    font-weight:900;
+  `;
+
+  card.innerHTML = `
+    <div style="font-size:20px; font-weight:1000;">🏁 RESULT</div>
+    <div style="margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div><span style="opacity:.8">MODE</span> <b id="rMode">—</b></div>
+      <div><span style="opacity:.8">GRADE</span> <b id="rGrade">—</b></div>
+      <div><span style="opacity:.8">SCORE</span> <b id="rScore">0</b></div>
+      <div><span style="opacity:.8">MAX COMBO</span> <b id="rMaxCombo">0</b></div>
+      <div><span style="opacity:.8">MISS</span> <b id="rMiss">0</b></div>
+      <div><span style="opacity:.8">PERFECT</span> <b id="rPerfect">0</b></div>
+      <div><span style="opacity:.8">GOALS</span> <b id="rGoals">0/2</b></div>
+      <div><span style="opacity:.8">MINIS</span> <b id="rMinis">0/7</b></div>
+      <div><span style="opacity:.8">G1</span> <b id="rG1">0</b></div>
+      <div><span style="opacity:.8">G2</span> <b id="rG2">0</b></div>
+      <div><span style="opacity:.8">G3</span> <b id="rG3">0</b></div>
+      <div><span style="opacity:.8">G4</span> <b id="rG4">0</b></div>
+      <div><span style="opacity:.8">G5</span> <b id="rG5">0</b></div>
+      <div><span style="opacity:.8">TOTAL</span> <b id="rGTotal">0</b></div>
+    </div>
+    <button id="btnPlayAgain" style="
+      margin-top:12px; width:100%;
+      padding:12px; border-radius:14px;
+      border:1px solid rgba(148,163,184,.20);
+      background:rgba(2,6,23,.62);
+      color:#e5e7eb; font-weight:1000;
+    ">▶️ PLAY AGAIN</button>
+  `;
+
+  backdrop.appendChild(card);
+  doc.body.appendChild(backdrop);
+}
+
 // ---------- End summary ----------
 function endGame(isGameOver){
   if (!S.running) return;
@@ -2018,6 +1879,10 @@ function endGame(isGameOver){
 
   S.nextSpawnAt = Infinity;
   for (const rec of [...S.targets]) removeTarget(rec);
+
+  refreshHudRefs();
+  ensureResultOverlay();
+  refreshHudRefs();
 
   setTxt(HUD.rMode, MODE === 'research' ? 'Research' : 'Play');
   setTxt(HUD.rGrade, gradeFromScore());
@@ -2079,10 +1944,6 @@ function start(){
       spawnTick();
       tickBossAttack();
       expireTargets();
-
-      tickFeverPulse();
-      tickFeverBurst();
-
       tickMini();
       refreshPowerHUD();
 
@@ -2118,16 +1979,27 @@ function bindUI(){
     restart();
   });
 
-  if (HUD.btnPlayAgain) HUD.btnPlayAgain.addEventListener('click', ()=>{
-    setShow(HUD.resultBackdrop, false);
-    restart();
-  });
+  // result overlay อาจถูกสร้างทีหลัง
+  const bindPlayAgain = ()=>{
+    refreshHudRefs();
+    if (HUD.btnPlayAgain){
+      HUD.btnPlayAgain.addEventListener('click', ()=>{
+        setShow(HUD.resultBackdrop, false);
+        restart();
+      });
+    }
+  };
+  bindPlayAgain();
 
   if (HUD.resultBackdrop){
     HUD.resultBackdrop.addEventListener('click', (e)=>{
       if (e.target === HUD.resultBackdrop) setShow(HUD.resultBackdrop, false);
     });
   }
+
+  // ถ้า fallback ถูกสร้างหลัง ๆ ให้ bind อีกครั้ง
+  setTimeout(bindPlayAgain, 80);
+  setTimeout(bindPlayAgain, 300);
 }
 
 // ---------- Boot ----------
@@ -2137,6 +2009,9 @@ function bindUI(){
       ROOT.HHACloudLogger.init({ debug: DEBUG });
     }
   } catch(_) {}
+
+  ensureResultOverlay();
+  refreshHudRefs();
 
   bindUI();
   bindShootHotkeys();
@@ -2155,9 +2030,9 @@ function bindUI(){
   setGoal(0);
   startMini();
 
-  showCoach('🥦 Coach', 'ALL-IN MODE! เอาให้สุด!');
+  showCoach('🥦 Coach', `ALL-IN MODE! mph=${MISSES_PER_HEART} เอาให้สุด!`);
   logSession('start');
   start();
 
-  if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, D });
+  if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, D, MISSES_PER_HEART });
 })();
