@@ -10,7 +10,7 @@
 // ✅ trick/fake targets (itemType='fakeGood')
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
-// ✅ A2++: spawnBias option (center-biased + anti-repeat queue) + screen-anchored spawn via boundsHost
+// ✅ A2++: center-biased per-diff + per-adapt + anti-repeat + screen-anchored spawn via boundsHost
 
 'use strict';
 
@@ -43,7 +43,7 @@ function getEventXY (ev) {
   return { x: x || 0, y: y || 0 };
 }
 
-// A2++: very strong center bias (5-sample average)
+// A2++: strong center bias (average of 5 samples)
 function biasedRand () {
   return (Math.random() + Math.random() + Math.random() + Math.random() + Math.random()) / 5;
 }
@@ -281,14 +281,13 @@ export async function boot (rawCfg = {}) {
     spawnIntervalMul = null,
     excludeSelectors = null,
 
-    // ✅ NEW
     boundsHost = null,
     decorateTarget = null,
 
     // ✅ A2++ spawn controls
-    spawnBias = 'default',         // 'default' | 'A2++'
-    antiRepeat = true,             // true = avoid repeating last spots
-    antiRepeatN = 4                // queue length
+    spawnBias = 'default',       // 'default' | 'A2++'
+    antiRepeat = true,
+    antiRepeatN = 4
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -383,7 +382,6 @@ export async function boot (rawCfg = {}) {
     try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
   }
 
-  // ✅ Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -393,7 +391,6 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
-  // ✅ life getter
   function getLifeMs(){
     const mul = getSpawnMul();
     const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
@@ -468,7 +465,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Exclusions cache (computed from boundsHost)
+  //  Exclusions cache
   // ======================================================
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
@@ -496,7 +493,7 @@ export async function boot (rawCfg = {}) {
   const useA2pp = (biasKey === 'a2++' || biasKey === 'a2pp' || biasKey === 'center');
   const useAntiRepeat = !!antiRepeat;
 
-  let lastSpawnQueue = []; // {xAbs,yAbs} in viewport coords (screen-space)
+  let lastSpawnQueue = []; // {xAbs,yAbs} in viewport coords
 
   function distToQueue(x, y){
     if (!lastSpawnQueue || !lastSpawnQueue.length) return 999999;
@@ -510,9 +507,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn target inside hostSpawn using bounds from hostBounds
-  //  (IMPORTANT) If spawnHost is translated (drag view),
-  //  we place target by converting screen->spawn local via spawnRect.
+  //  Spawn (screen-anchored to boundsHost)
   // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
@@ -522,26 +517,51 @@ export async function boot (rawCfg = {}) {
     const rect = computePlayRectFromHost(hostBounds, exState);
     const boundsRect = rect.hostRect || { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
 
-    // absolute playable region in screen coords
     const absLeft = (boundsRect.left || 0) + rect.left;
     const absTop  = (boundsRect.top  || 0) + rect.top;
 
-    // choose distribution
+    // --- A2++ per-diff + per-adapt ranges ---
     let X_MIN, X_SPAN, Y_MIN, Y_SPAN;
+
     if (useA2pp) {
-      // A2++ tighter center bias (but NOT locked)
-      X_MIN = 0.32; X_SPAN = 0.36;
-      Y_MIN = 0.28; Y_SPAN = 0.48;
+      // base by difficulty
+      if (diffKey === 'easy') {
+        X_MIN = 0.24; X_SPAN = 0.52;
+        Y_MIN = 0.18; Y_SPAN = 0.62;
+      } else if (diffKey === 'hard') {
+        X_MIN = 0.32; X_SPAN = 0.36;
+        Y_MIN = 0.26; Y_SPAN = 0.50;
+      } else { // normal
+        X_MIN = 0.28; X_SPAN = 0.44;
+        Y_MIN = 0.22; Y_SPAN = 0.56;
+      }
+
+      // adapt: level higher => tighter center; level lower => wider
+      const a = clamp(adaptLevel, -1, 3);
+      const tighten = (a >= 0) ? (a * 0.020) : (a * 0.012); // negative = widen a bit
+      const spanT   = (a >= 0) ? (a * 0.045) : (a * 0.020);
+
+      X_MIN = clamp(X_MIN + tighten, 0.12, 0.42);
+      Y_MIN = clamp(Y_MIN + tighten, 0.10, 0.46);
+
+      X_SPAN = clamp(X_SPAN - spanT, 0.28, 0.70);
+      Y_SPAN = clamp(Y_SPAN - spanT, 0.32, 0.78);
+
+      // keep inside [0..1]
+      if (X_MIN + X_SPAN > 0.92) X_MIN = 0.92 - X_SPAN;
+      if (Y_MIN + Y_SPAN > 0.92) Y_MIN = 0.92 - Y_SPAN;
+      if (X_MIN < 0.06) X_MIN = 0.06;
+      if (Y_MIN < 0.06) Y_MIN = 0.06;
     } else {
       X_MIN = 0.15; X_SPAN = 0.70;
       Y_MIN = 0.10; Y_SPAN = 0.80;
     }
 
     // anti-repeat thresholds
-    const MIN_DIST = Math.max(92, Math.min(rect.width, rect.height) * 0.22);
-    const TRIES = useA2pp ? 10 : 6;
+    const MIN_DIST = Math.max(92, Math.min(rect.width, rect.height) * (useA2pp ? 0.24 : 0.20));
+    const TRIES = useA2pp ? 11 : 6;
 
-    // compute best candidate in ABS coords
+    // choose best candidate in ABS coords
     let best = null;
     let bestD = -1;
 
@@ -560,7 +580,7 @@ export async function boot (rawCfg = {}) {
 
     if (!best) best = { xAbs: absLeft + rect.width*0.5, yAbs: absTop + rect.height*0.52 };
 
-    // convert ABS -> spawnHost local coords (so it stays on screen even if spawnHost moved)
+    // convert ABS -> spawnHost local (important if spawnHost is translated/dragged)
     let spawnRect = null;
     try{ spawnRect = hostSpawn.getBoundingClientRect(); }catch{}
     if (!spawnRect) spawnRect = { left:0, top:0 };
@@ -630,12 +650,11 @@ export async function boot (rawCfg = {}) {
     el.style.zIndex = '35';
     el.style.borderRadius = '999px';
 
-    // wiggle layer (animated visuals)
+    // default visuals
     const wiggle = DOC.createElement('div');
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
 
-    // default look (can be overridden by decorateTarget)
     let bgGrad = '';
     let ringGlow = '';
 
@@ -657,7 +676,6 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
-    // ring (perfect hint)
     const ring = DOC.createElement('div');
     ring.style.position = 'absolute';
     ring.style.left = '50%';
@@ -687,7 +705,6 @@ export async function boot (rawCfg = {}) {
     icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
     inner.appendChild(icon);
 
-    // trick badge
     let badge = null;
     if (itemType === 'fakeGood') {
       badge = DOC.createElement('div');
@@ -714,26 +731,17 @@ export async function boot (rawCfg = {}) {
     const lifeMs = getLifeMs();
 
     const data = {
-      el,
-      ch,
-      isGood,
-      isPower,
-      itemType,
+      el, ch, isGood, isPower, itemType,
       bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       life: lifeMs,
       _hit: null
     };
 
-    // allow per-game decorate
     try{
       if (typeof decorateTarget === 'function'){
         decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
-          size,
-          modeKey,
-          difficulty: diffKey,
-          spawnMul: getSpawnMul(),
-          curScale,
-          adaptLevel
+          size, modeKey, difficulty: diffKey,
+          spawnMul: getSpawnMul(), curScale, adaptLevel
         });
       }
     }catch(err){
@@ -775,8 +783,7 @@ export async function boot (rawCfg = {}) {
 
         const ctx = {
           clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
-          isGood, isPower,
-          itemType,
+          isGood, isPower, itemType,
           hitPerfect: !!info.perfect,
           hitDistNorm: Number(info.norm || 1),
           targetRect: info.rect
@@ -826,7 +833,7 @@ export async function boot (rawCfg = {}) {
     }, lifeMs);
   }
 
-  // ---------- clock (hha:time) ----------
+  // ---------- clock ----------
   function dispatchTime (sec) {
     try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
